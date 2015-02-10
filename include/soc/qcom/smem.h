@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,7 +67,7 @@ enum {
 	/* dynamic items */
 	SMEM_AARM_PARTITION_TABLE,
 	SMEM_AARM_BAD_BLOCK_TABLE,
-	SMEM_RESERVE_BAD_BLOCKS,
+	SMEM_ERR_CRASH_LOG_ADSP,
 	SMEM_WM_UUID,
 	SMEM_CHANNEL_ALLOC_TBL,
 	SMEM_SMD_BASE_ID,
