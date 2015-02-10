@@ -662,7 +662,7 @@
 					<1000 47 6 0>,
 					<1000 32 6 0>;
 
-		qcom,cpr-init-voltage-ref = <800000 900000 1000000 1230000>;
+		qcom,cpr-init-voltage-ref = <900000 900000 1000000 1230000>;
 		qcom,cpr-init-voltage-step = <10000>;
 
 		qcom,cpr-corner-map = <1 1 2 2 3 3 4 4 4 4>;
