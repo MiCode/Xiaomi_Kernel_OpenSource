@@ -357,19 +357,38 @@ done:
 }
 
 
-/*WA for DDR DVFS enable/disable*/
+ /*
+ * WA for DDR DVFS enable/disable
+ * By default, ISP will force DDR DVFS 1600MHz before disable DVFS
+ */
 void punit_ddr_dvfs_enable(bool enable)
 {
 	int reg = intel_mid_msgbus_read32(PUNIT_PORT, MRFLD_ISPSSDVFS);
+	int door_bell = 1 << 8;
+	int max_wait = 30;
 
 	if (enable) {
 		reg &= ~(MRFLD_BIT0 | MRFLD_BIT1);
 	} else {
-		reg |= (MRFLD_BIT1);
+		reg |= (MRFLD_BIT1 | door_bell);
 		reg &= ~(MRFLD_BIT0);
 	}
 
 	intel_mid_msgbus_write32(PUNIT_PORT, MRFLD_ISPSSDVFS, reg);
+
+	/*Check Req_ACK to see freq status, wait until door_bell is cleared*/
+	if (reg & door_bell) {
+		while (max_wait--) {
+			if (0 == (intel_mid_msgbus_read32(PUNIT_PORT,
+				MRFLD_ISPSSDVFS) & door_bell));
+				break;
+
+			usleep_range(100, 500);
+		}
+	}
+
+	if (max_wait == 0)
+		pr_info("DDR DVFS, door bell is not cleared within 3ms\n");
 }
 
 /* Workaround for pmu_nc_set_power_state not ready in MRFLD */
@@ -385,7 +404,8 @@ int atomisp_mrfld_power_down(struct atomisp_device *isp)
 	intel_mid_msgbus_write32(PUNIT_PORT, MRFLD_ISPSSPM0, reg_value);
 
 	/*WA:Enable DVFS*/
-	punit_ddr_dvfs_enable(true);
+	if (IS_CHT)
+		punit_ddr_dvfs_enable(true);
 
 	/*
 	 * There should be no iunit access while power-down is
@@ -420,8 +440,8 @@ int atomisp_mrfld_power_up(struct atomisp_device *isp)
 	u32 reg_value;
 
 	/*WA for PUNIT, if DVFS enabled, ISP timeout observed*/
-	punit_ddr_dvfs_enable(false);
-	msleep(20);
+	if (IS_CHT)
+		punit_ddr_dvfs_enable(false);
 
 	/* writing 0x0 to ISPSSPM0 bit[1:0] to power off the IUNIT */
 	reg_value = intel_mid_msgbus_read32(PUNIT_PORT, MRFLD_ISPSSPM0);
