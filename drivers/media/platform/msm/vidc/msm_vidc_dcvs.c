@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014 - 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -499,9 +499,14 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 			msm_comm_get_hal_output_buffer(inst));
 
 		is_codec_supported =
-			inst->fmts[OUTPUT_PORT]->fourcc == V4L2_PIX_FMT_H264 ||
-			inst->fmts[OUTPUT_PORT]->fourcc ==
-			V4L2_PIX_FMT_H264_NO_SC;
+			(inst->fmts[OUTPUT_PORT]->fourcc ==
+				V4L2_PIX_FMT_H264) ||
+			(inst->fmts[OUTPUT_PORT]->fourcc ==
+				V4L2_PIX_FMT_HEVC) ||
+			(inst->fmts[OUTPUT_PORT]->fourcc ==
+				V4L2_PIX_FMT_VP8) ||
+			(inst->fmts[OUTPUT_PORT]->fourcc ==
+				V4L2_PIX_FMT_H264_NO_SC);
 		if (!is_codec_supported ||
 			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
 					DCVS_MIN_SUPPORTED_MBPERFRAME))
