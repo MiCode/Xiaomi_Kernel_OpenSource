@@ -180,6 +180,7 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 {
 	struct mdss_smmu_client *mdss_smmu;
 	int i, rc = 0;
+	int disable_htw = 1;
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
 		if (!mdss_smmu_is_valid_domain_type(mdata, i))
@@ -201,6 +202,18 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 				if (rc) {
 					pr_err("iommu attach device failed for domain[%d] with err:%d\n",
 						i, rc);
+					msm_dss_enable_clk(
+						mdss_smmu->mp.clk_config,
+						mdss_smmu->mp.num_clk, 0);
+					goto err;
+				}
+				if (iommu_domain_set_attr(
+					mdss_smmu->mmu_mapping->domain,
+					DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+					&disable_htw)) {
+
+					pr_err("couldn't disable coherent HTW\n");
+					arm_iommu_detach_device(mdss_smmu->dev);
 					msm_dss_enable_clk(
 						mdss_smmu->mp.clk_config,
 						mdss_smmu->mp.num_clk, 0);
