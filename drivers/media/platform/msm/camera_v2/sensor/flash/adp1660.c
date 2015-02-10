@@ -39,7 +39,7 @@ static struct msm_camera_i2c_reg_array adp1660_release_array[] = {
 
 static struct msm_camera_i2c_reg_array adp1660_low_array[] = {
 	{0x08, 0x04},
-	{0x06, 0x1E},
+	{0x06, 0x28},
 	{0x01, 0xBD},
 	{0x0f, 0x01},
 };
@@ -48,7 +48,7 @@ static struct msm_camera_i2c_reg_array adp1660_high_array[] = {
 	{0x02, 0x4F},
 	{0x06, 0x3C},
 	{0x09, 0x3C},
-	{0x0f, 0x03},
+	{0x0f, 0x01},
 	{0x01, 0xBB},
 };
 
@@ -118,11 +118,20 @@ static struct platform_driver adp1660_platform_driver = {
 static int __init msm_flash_adp1660_init_module(void)
 {
 	int32_t rc = 0;
+
 	rc = platform_driver_register(&adp1660_platform_driver);
-	if (!rc)
+	if (fctrl.pdev != NULL && rc == 0) {
+		pr_err("adp1660 platform_driver_register success");
 		return rc;
-	pr_debug("%s:%d rc %d\n", __func__, __LINE__, rc);
-	return i2c_add_driver(&adp1660_i2c_driver);
+	} else if (rc != 0) {
+		pr_err("adp1660 platform_driver_register failed");
+		return rc;
+	} else {
+		rc = i2c_add_driver(&adp1660_i2c_driver);
+		if (!rc)
+			pr_err("adp1660 i2c_add_driver success");
+	}
+	return rc;
 }
 
 static void __exit msm_flash_adp1660_exit_module(void)

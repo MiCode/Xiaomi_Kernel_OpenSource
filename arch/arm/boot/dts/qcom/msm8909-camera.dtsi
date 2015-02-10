@@ -60,7 +60,7 @@
 			"csi_ahb_clk", "csi_src_clk",
 			"csi_clk",  "csi_pix_clk",
 			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <80000000 0 0 200000000 0 0 0 0>;
+		qcom,clock-rates = <40000000 0 0 200000000 0 0 0 0>;
      };
 
 	qcom,csid@1b08400 {
@@ -79,12 +79,13 @@
 			<&clock_gcc clk_gcc_camss_csi1_clk>,
 			<&clock_gcc clk_gcc_camss_csi1pix_clk>,
 			<&clock_gcc clk_gcc_camss_csi1rdi_clk>,
-			<&clock_gcc clk_gcc_camss_ahb_clk>;
+			<&clock_gcc clk_gcc_camss_ahb_clk>,
+			<&clock_gcc clk_gcc_camss_csi1phy_clk>;
 		clock-names = "ispif_ahb_clk", "camss_top_ahb_clk",
 			"csi_ahb_clk", "csi_src_clk",
 			"csi_clk", "csi_pix_clk",
-			"csi_rdi_clk", "camss_ahb_clk";
-		qcom,clock-rates = <80000000 0 0 200000000 0 0 0 0>;
+			"csi_rdi_clk", "camss_ahb_clk", "camss_csi1_phy";
+		qcom,clock-rates = <40000000 0 0 200000000 0 0 0 0 0>;
 	};
 
 	qcom,ispif@1b0a000 {
@@ -120,7 +121,7 @@
 	qcom,vfe@1b10000 {
 		cell-index = <0>;
 		compatible = "qcom,vfe32";
-		reg = <0x1b10000 0x800>,
+		reg = <0x1b10000 0x830>,
 			<0x1b40000 0x200>;
 		reg-names = "vfe", "vfe_vbif";
 		interrupts = <0 52 0>;
@@ -137,7 +138,7 @@
 		clock-names = "camss_top_ahb_clk", "vfe_clk_src",
 			"camss_vfe_vfe_clk", "camss_csi_vfe_clk", "iface_clk",
 			"bus_clk", "camss_ahb_clk", "ispif_ahb_clk";
-		qcom,clock-rates = <80000000 266670000 0 0 0 0 0 0>;
+		qcom,clock-rates = <40000000 266670000 0 0 0 0 0 0>;
 
 		qos-entries = <8>;
 		qos-regs = <0x7BC 0x7C0 0x7C4 0x7C8 0x7CC 0x7D0
@@ -152,11 +153,11 @@
 		ds-regs = <0x7D8 0x7DC 0x7E0 0x7E4 0x7E8
 			0x7EC 0x7F0 0x7F4 0x7F8 0x7FC 0x800
 			0x804 0x808 0x80C 0x810>;
-		ds-settings = <0x44441111 0x44441111 0x44441111
-				0x44441111 0x44441111 0x44441111
-				0x44441111 0x44441111 0x44441111
-				0x44441111 0x44441111 0x44441111
-				0x44441111 0x44441111 0x00000103>;
+		ds-settings = <0xCCCC1111 0xCCCC1111 0xCCCC1111
+				0xCCCC1111 0xCCCC1111 0xCCCC1111
+				0xCCCC1111 0xCCCC1111 0xCCCC1111
+				0xCCCC1111 0xCCCC1111 0xCCCC1111
+				0xCCCC1111 0xCCCC1111 0x00000103>;
 		};
 
 };

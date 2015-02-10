@@ -1183,12 +1183,12 @@ int q6lsm_lab_control(struct lsm_client *client, u32 enable)
 	/* lab session is being enabled set the config values */
 	q6lsm_add_hdr(client, &lab_config.hdr, sizeof(lab_config), true);
 	lab_config.hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
-	lab_config.data_payload_size = sizeof(struct lsm_lab_enable);
+	lab_config.data_payload_size = sizeof(struct lsm_lab_config);
 	lab_config.data_payload_addr_lsw = 0;
 	lab_config.data_payload_addr_msw = 0;
 	lab_config.mem_map_handle = 0;
 	lab_config.lab_config.common.module_id = LSM_MODULE_ID_LAB;
-	lab_config.lab_config.common.param_id = LSM_PARAM_ID_LAB_ENABLE;
+	lab_config.lab_config.common.param_id = LSM_PARAM_ID_LAB_CONFIG;
 	lab_config.lab_config.common.param_size = sizeof(struct lsm_lab_config)
 	- sizeof(struct lsm_param_payload_common);
 	lab_config.lab_config.minor_version = 1;

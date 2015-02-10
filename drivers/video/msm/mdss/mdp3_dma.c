@@ -453,46 +453,7 @@ static int mdp3_dmap_cursor_config(struct mdp3_dma *dma,
 	return 0;
 }
 
-static void mdp3_ccs_update(struct mdp3_dma *dma)
-{
-	u32 cc_config;
-	int updated = 0;
-
-	cc_config = MDP3_REG_READ(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG);
-
-	if (dma->ccs_config.ccs_dirty) {
-		cc_config &= DMA_CCS_CONFIG_MASK;
-		if (dma->ccs_config.ccs_enable)
-			cc_config |= BIT(3);
-		else
-			cc_config &= ~BIT(3);
-		cc_config |= dma->ccs_config.ccs_sel << 5;
-		cc_config |= dma->ccs_config.pre_bias_sel << 6;
-		cc_config |= dma->ccs_config.post_bias_sel << 7;
-		cc_config |= dma->ccs_config.pre_limit_sel << 8;
-		cc_config |= dma->ccs_config.post_limit_sel << 9;
-		dma->ccs_config.ccs_dirty = false;
-		updated = 1;
-	}
-
-	if (dma->lut_config.lut_dirty) {
-		cc_config &= DMA_LUT_CONFIG_MASK;
-		cc_config |= dma->lut_config.lut_enable;
-		cc_config |= dma->lut_config.lut_position << 4;
-		cc_config |= dma->lut_config.lut_sel << 10;
-		dma->lut_config.lut_dirty = false;
-		updated = 1;
-	}
-	if (updated) {
-		MDP3_REG_WRITE(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG, cc_config);
-
-		/* Make sure ccs configuration update is done before continuing
-		with the DMA transfer */
-		wmb();
-	}
-}
-
-static int mdp3_dmap_ccs_config(struct mdp3_dma *dma,
+static int mdp3_dmap_ccs_config_internal(struct mdp3_dma *dma,
 			struct mdp3_dma_color_correct_config *config,
 			struct mdp3_dma_ccs *ccs)
 {
@@ -543,30 +504,97 @@ static int mdp3_dmap_ccs_config(struct mdp3_dma *dma,
 			addr += 4;
 		}
 	}
+	return 0;
+}
+
+static void mdp3_ccs_update(struct mdp3_dma *dma, bool from_kickoff)
+{
+	u32 cc_config;
+	bool ccs_updated = false, lut_updated = false;
+	struct mdp3_dma_ccs ccs;
+
+	cc_config = MDP3_REG_READ(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG);
+
+	if (dma->ccs_config.ccs_dirty) {
+		cc_config &= DMA_CCS_CONFIG_MASK;
+		if (dma->ccs_config.ccs_enable)
+			cc_config |= BIT(3);
+		else
+			cc_config &= ~BIT(3);
+		cc_config |= dma->ccs_config.ccs_sel << 5;
+		cc_config |= dma->ccs_config.pre_bias_sel << 6;
+		cc_config |= dma->ccs_config.post_bias_sel << 7;
+		cc_config |= dma->ccs_config.pre_limit_sel << 8;
+		cc_config |= dma->ccs_config.post_limit_sel << 9;
+		/*
+		 * CCS dirty flag should be reset when call is made from frame
+		 * kickoff, or else upon resume the flag would be dirty and LUT
+		 * config could call this function thereby causing no register
+		 * programming for CCS, which will cause screen to go dark
+		 */
+		if (from_kickoff)
+			dma->ccs_config.ccs_dirty = false;
+		ccs_updated = true;
+	}
+
+	if (dma->lut_config.lut_dirty) {
+		cc_config &= DMA_LUT_CONFIG_MASK;
+		cc_config |= dma->lut_config.lut_enable;
+		cc_config |= dma->lut_config.lut_position << 4;
+		cc_config |= dma->lut_config.lut_sel << 10;
+		dma->lut_config.lut_dirty = false;
+		lut_updated = true;
+	}
+
+	if (ccs_updated && from_kickoff) {
+		ccs.mv = dma->ccs_cache.csc_data.csc_mv;
+		ccs.pre_bv = dma->ccs_cache.csc_data.csc_pre_bv;
+		ccs.post_bv = dma->ccs_cache.csc_data.csc_post_bv;
+		ccs.pre_lv = dma->ccs_cache.csc_data.csc_pre_lv;
+		ccs.post_lv = dma->ccs_cache.csc_data.csc_post_lv;
+		mdp3_dmap_ccs_config_internal(dma, &dma->ccs_config, &ccs);
+	}
+
+	if (lut_updated || ccs_updated) {
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_COLOR_CORRECT_CONFIG, cc_config);
+		/*
+		 * Make sure ccs configuration update is done before continuing
+		 * with the DMA transfer
+		 */
+		wmb();
+	}
+}
+
+static int mdp3_dmap_ccs_config(struct mdp3_dma *dma,
+			struct mdp3_dma_color_correct_config *config,
+			struct mdp3_dma_ccs *ccs)
+{
+        mdp3_dmap_ccs_config_internal(dma, config, ccs);
+
 	dma->ccs_config = *config;
 
 	if (dma->output_config.out_sel != MDP3_DMA_OUTPUT_SEL_DSI_CMD)
-		mdp3_ccs_update(dma);
+		mdp3_ccs_update(dma, false);
 
 	return 0;
 }
 
 static int mdp3_dmap_lut_config(struct mdp3_dma *dma,
 			struct mdp3_dma_lut_config *config,
-			struct mdp3_dma_lut *lut)
+			struct fb_cmap *cmap)
 {
 	u32 addr, color;
 	int i;
 
-	if (config->lut_enable && lut) {
+	if (config->lut_enable && cmap) {
 		addr = MDP3_REG_DMA_P_CSC_LUT1;
 		if (config->lut_sel)
 			addr = MDP3_REG_DMA_P_CSC_LUT2;
 
 		for (i = 0; i < MDP_LUT_SIZE; i++) {
-			color = lut->color0_lut[i] & 0xff;
-			color |= (lut->color1_lut[i] & 0xff) << 8;
-			color |= (lut->color2_lut[i] & 0xff) << 16;
+			color = cmap->green[i] & 0xff;
+			color |= (cmap->red[i] & 0xff) << 8;
+			color |= (cmap->blue[i] & 0xff) << 16;
 			MDP3_REG_WRITE(addr, color);
 			addr += 4;
 		}
@@ -575,7 +603,7 @@ static int mdp3_dmap_lut_config(struct mdp3_dma *dma,
 	dma->lut_config = *config;
 
 	if (dma->output_config.out_sel != MDP3_DMA_OUTPUT_SEL_DSI_CMD)
-		mdp3_ccs_update(dma);
+		mdp3_ccs_update(dma, false);
 
 	return 0;
 }
@@ -672,8 +700,8 @@ static int mdp3_dmap_update(struct mdp3_dma *dma, void *buf,
 			dma->roi.y * dma->source_config.stride +
 			dma->roi.x * dma_bpp(dma->source_config.format)));
 	dma->source_config.buf = (int)buf;
+	mdp3_ccs_update(dma, true);
 	if (dma->output_config.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
-		mdp3_ccs_update(dma);
 		MDP3_REG_WRITE(MDP3_REG_DMA_P_START, 1);
 	}
 

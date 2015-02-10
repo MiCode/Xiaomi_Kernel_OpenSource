@@ -33,13 +33,11 @@
 		qcom,mdss-dsi-v-top-border = <0>;
 		qcom,mdss-dsi-v-bottom-border = <0>;
 		qcom,mdss-dsi-bpp = <24>;
-		qcom,mdss-dsi-color-order = "rgb_swap_bgr";
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
 		qcom,mdss-dsi-on-command = [05 01 00 00 32 00 02 01 00
 					05 01 00 00 0a 00 02 11 00
-					15 01 00 00 0a 00 02 53 2c
-					15 01 00 00 0a 00 02 51 ff
+					15 01 00 00 0a 00 02 53 0c
 					05 01 00 00 0a 00 02 29 00
 					15 01 00 00 0a 00 02 ae 03
 					15 01 00 00 0a 00 02 3a 77];
