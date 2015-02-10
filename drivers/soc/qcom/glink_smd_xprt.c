@@ -1683,7 +1683,7 @@ static void init_xprt_cfg(struct edge_info *einfo)
 	einfo->xprt_cfg.versions = versions;
 	einfo->xprt_cfg.versions_entries = ARRAY_SIZE(versions);
 	einfo->xprt_cfg.max_cid = SZ_64;
-	einfo->xprt_cfg.max_iid = SZ_1;
+	einfo->xprt_cfg.max_iid = SZ_128;
 }
 
 static struct platform_driver migration_driver = {
