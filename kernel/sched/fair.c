@@ -8796,6 +8796,13 @@ redo:
 more_balance:
 		raw_spin_lock_irqsave(&busiest->lock, flags);
 
+		/* The world might have changed. Validate assumptions */
+		if (busiest->nr_running <= 1) {
+			raw_spin_unlock_irqrestore(&busiest->lock, flags);
+			env.flags &= ~LBF_ALL_PINNED;
+			goto no_move;
+		}
+
 		/*
 		 * cur_ld_moved - load moved in current iteration
 		 * ld_moved     - cumulative load moved across iterations
@@ -8883,6 +8890,7 @@ more_balance:
 		}
 	}
 
+no_move:
 	if (!ld_moved) {
 		if (!(env.flags & (LBF_PWR_ACTIVE_BALANCE | LBF_SCHED_BOOST)))
 			schedstat_inc(sd, lb_failed[idle]);
