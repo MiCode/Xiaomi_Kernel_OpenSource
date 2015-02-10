@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,6 +131,8 @@ int wcd9xxx_bulk_read(struct wcd9xxx_core_resource *,
 					unsigned short, int, u8 *);
 int wcd9xxx_bulk_write(struct wcd9xxx_core_resource*,
 					 unsigned short, int, u8*);
+int wcd9xxx_reg_update_bits(struct wcd9xxx_core_resource *core_res,
+			    unsigned short reg, u8 mask, u8 val);
 int wcd9xxx_irq_init(struct wcd9xxx_core_resource *);
 void wcd9xxx_irq_exit(struct wcd9xxx_core_resource *);
 int wcd9xxx_core_res_resume(

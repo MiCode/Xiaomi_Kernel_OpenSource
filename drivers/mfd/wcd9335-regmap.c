@@ -1314,6 +1314,14 @@ static bool wcd9335_is_readable_register(struct device *dev, unsigned int reg)
 
 static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 {
+	/*
+	 * registers from 0x000 to 0x0FF are volatile because
+	 * this space contains registers related to interrupt
+	 * status, mask etc
+	 */
+	if (reg < 0x100)
+		return true;
+
 	switch (reg) {
 	case WCD9335_CPE_SS_INBOX1_TRG:
 	case WCD9335_CPE_SS_INBOX2_TRG:
@@ -1333,6 +1341,10 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD9335_SWR_AHB_BRIDGE_RD_ADDR_1:
 	case WCD9335_SWR_AHB_BRIDGE_RD_ADDR_2:
 	case WCD9335_SWR_AHB_BRIDGE_RD_ADDR_3:
+	case WCD9335_ANA_BIAS:
+	case WCD9335_ANA_CLK_TOP:
+	case WCD9335_ANA_RCO:
+	case WCD9335_CDC_CLK_RST_CTRL_MCLK_CONTROL:
 		return true;
 	default:
 		return false;
