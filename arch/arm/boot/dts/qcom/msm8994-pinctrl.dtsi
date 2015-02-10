@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1314,15 +1314,23 @@
 			};
 		};
 
-		pmx_pri_mi2s {
+		pmx_pri_mi2s_sleep {
 			qcom,pins = <&gp 65>, <&gp 66>;
 			qcom,num-grp-pins = <2>;
-			qcom,pin-func = <1>;
-			label = "pri_mi2s";
+			qcom,pin-func = <0>;
+			label = "pri_mi2s_sleep";
 			pri_mi2s_sleep: pri_mi2s_sleep {
 				drive-strength = <2>;	/* 2 mA */
 				bias-pull-down;		/* PULL DOWN */
+				input-enable;
 			};
+		};
+
+		pmx_pri_mi2s_active {
+			qcom,pins = <&gp 65>, <&gp 66>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "pri_mi2s_active";
 			pri_mi2s_active: pri_mi2s_active {
 				drive-strength = <2>;	/* 2 mA */
 				bias-disable;		/* NO PULL */
@@ -1330,15 +1338,23 @@
 			};
 		};
 
-		pmx_pri_mi2s_sd0 {
+		pmx_pri_mi2s_sd0_sleep {
 			qcom,pins = <&gp 67>;
 			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <1>;
-			label = "pri_mi2s_sd0";
+			qcom,pin-func = <0>;
+			label = "pri_mi2s_sd0_sleep";
 			pri_mi2s_sd0_sleep: pri_mi2s_sd0_sleep {
 				drive-strength = <2>;	/* 2 mA */
 				bias-pull-down;		/* PULL DOWN */
+				input-enable;
 			};
+		};
+
+		pmx_pri_mi2s_sd0_active {
+			qcom,pins = <&gp 67>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "pri_mi2s_sd0_active";
 			pri_mi2s_sd0_active: pri_mi2s_sd0_active {
 				drive-strength = <2>;	/* 2 mA */
 				bias-disable;		/* NO PULL */
