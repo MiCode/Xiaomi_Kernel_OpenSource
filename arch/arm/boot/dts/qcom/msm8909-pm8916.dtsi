@@ -190,6 +190,12 @@
 
 	qcom,msm-thermal {
 		vdd-dig-supply = <&pm8916_s1_floor_corner>;
+
+		qcom,vdd-apps-rstr {
+			qcom,vdd-rstr-reg = "vdd-apps";
+			qcom,levels = <800000>;
+			qcom,freq-req;
+		};
 	};
 };
 
