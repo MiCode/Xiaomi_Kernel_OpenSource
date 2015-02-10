@@ -315,6 +315,7 @@ static void glink_xprt_read_data(struct work_struct *work)
 	struct read_work *rx_work =
 		container_of(work, struct read_work, work);
 	struct ipc_router_glink_xprt *glink_xprtp = rx_work->glink_xprtp;
+	bool reuse_intent = false;
 
 	mutex_lock(&glink_xprtp->ss_reset_lock);
 	if (glink_xprtp->ss_reset) {
@@ -327,8 +328,7 @@ static void glink_xprt_read_data(struct work_struct *work)
 
 	D("%s %zu bytes @ %p\n", __func__, rx_work->iovec_size, rx_work->iovec);
 	if (rx_work->iovec_size <= DEFAULT_RX_INTENT_SIZE)
-		glink_queue_rx_intent(glink_xprtp->ch_hndl, (void *)glink_xprtp,
-				      DEFAULT_RX_INTENT_SIZE);
+		reuse_intent = true;
 
 	pkt = glink_xprt_copy_data(rx_work);
 	if (!pkt) {
@@ -340,7 +340,7 @@ static void glink_xprt_read_data(struct work_struct *work)
 				   IPC_ROUTER_XPRT_EVENT_DATA, pkt);
 	release_pkt(pkt);
 out_read_data:
-	glink_rx_done(glink_xprtp->ch_hndl, rx_work->iovec, false);
+	glink_rx_done(glink_xprtp->ch_hndl, rx_work->iovec, reuse_intent);
 	kfree(rx_work);
 }
 
