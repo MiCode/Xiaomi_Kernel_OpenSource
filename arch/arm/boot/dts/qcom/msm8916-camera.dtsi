@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -178,6 +178,8 @@
 		qos-settings = <0xAAA5AAA5 0xAAA5AAA5 0xAAA5AAA5
 				0xAAA5AAA5 0xAAA5AAA5 0xAAA5AAA5
 				0xAAA5AAA5 0x0001AAA5>;
+		max-clk-nominal = <320000000>;
+		max-clk-turbo = <465000000>;
 		};
 
 	qcom,jpeg@1b1c000 {
