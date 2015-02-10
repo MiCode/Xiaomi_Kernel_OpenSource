@@ -217,8 +217,7 @@ static ssize_t ipa_mhi_debugfs_stats(struct file *file,
 			IPA_MHI_MAX_MSG_LEN - nbytes, "\n");
 	}
 
-	simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
-	return 0;
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
 static ssize_t ipa_mhi_debugfs_uc_stats(struct file *file,
@@ -228,8 +227,7 @@ static ssize_t ipa_mhi_debugfs_uc_stats(struct file *file,
 {
 	int nbytes = 0;
 	nbytes += ipa_uc_mhi_print_stats(dbg_buff, IPA_MHI_MAX_MSG_LEN);
-	simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
-	return 0;
+	return simple_read_from_buffer(ubuf, count, ppos, dbg_buff, nbytes);
 }
 
 const struct file_operations ipa_mhi_stats_ops = {
