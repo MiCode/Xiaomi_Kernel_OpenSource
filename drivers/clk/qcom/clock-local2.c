@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -108,28 +108,31 @@ static void rcg_update_config(struct rcg_clk *rcg)
 }
 
 /* RCG set rate function for clocks with Half Integer Dividers. */
-void set_rate_hid(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
+static void __set_rate_hid(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 {
 	u32 cfg_regval;
-	unsigned long flags;
 
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
 	cfg_regval &= ~(CFG_RCGR_DIV_MASK | CFG_RCGR_SRC_SEL_MASK);
 	cfg_regval |= nf->div_src_val;
 	writel_relaxed(cfg_regval, CFG_RCGR_REG(rcg));
 
 	rcg_update_config(rcg);
+}
+
+void set_rate_hid(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	__set_rate_hid(rcg, nf);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
 /* RCG set rate function for clocks with MND & Half Integer Dividers. */
-void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
+static void __set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 {
 	u32 cfg_regval;
-	unsigned long flags;
 
-	spin_lock_irqsave(&local_clock_reg_lock, flags);
 	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
 	writel_relaxed(nf->m_val, M_REG(rcg));
 	writel_relaxed(nf->n_val, N_REG(rcg));
@@ -146,6 +149,13 @@ void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 	writel_relaxed(cfg_regval, CFG_RCGR_REG(rcg));
 
 	rcg_update_config(rcg);
+}
+
+void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
+{
+	unsigned long flags;
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	__set_rate_mnd(rcg, nf);
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
@@ -851,6 +861,34 @@ static struct frac_entry frac_table_810m[] = { /* Link rate of 162M */
 	{0, 0},
 };
 
+static bool is_same_rcg_config(struct rcg_clk *rcg, struct clk_freq_tbl *freq,
+			       bool has_mnd)
+{
+	u32 cfg;
+
+	/* RCG update pending */
+	if (readl_relaxed(CMD_RCGR_REG(rcg)) & CMD_RCGR_CONFIG_DIRTY_MASK)
+		return false;
+	if (has_mnd)
+		if (readl_relaxed(M_REG(rcg)) != freq->m_val ||
+		    readl_relaxed(N_REG(rcg)) != freq->n_val ||
+		    readl_relaxed(D_REG(rcg)) != freq->d_val)
+			return false;
+	/*
+	 * Both 0 and 1 represent same divider value in HW.
+	 * Always use 0 to simplify comparison.
+	 */
+	if ((freq->div_src_val & CFG_RCGR_DIV_MASK) == 1)
+		freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
+	cfg = readl_relaxed(CFG_RCGR_REG(rcg));
+	if ((cfg & CFG_RCGR_DIV_MASK) == 1)
+		cfg &= ~CFG_RCGR_DIV_MASK;
+	if (cfg != freq->div_src_val)
+		return false;
+
+	return true;
+}
+
 static int set_rate_edp_pixel(struct clk *clk, unsigned long rate)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
@@ -859,6 +897,7 @@ static int set_rate_edp_pixel(struct clk *clk, unsigned long rate)
 	int delta = 100000;
 	s64 request;
 	s64 src_rate;
+	unsigned long flags;
 
 	src_rate = clk_get_rate(clk->parent);
 
@@ -886,7 +925,10 @@ static int set_rate_edp_pixel(struct clk *clk, unsigned long rate)
 			pixel_freq->n_val = ~(frac->den - frac->num);
 			pixel_freq->d_val = ~frac->den;
 		}
-		set_rate_mnd(rcg, pixel_freq);
+		spin_lock_irqsave(&local_clock_reg_lock, flags);
+		if (!is_same_rcg_config(rcg, pixel_freq, true))
+			__set_rate_mnd(rcg, pixel_freq);
+		spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 		return 0;
 	}
 	return -EINVAL;
@@ -917,7 +959,7 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 {
 	struct rcg_clk *rcg = to_rcg_clk(clk);
 	struct clk *pll = clk->parent;
-	unsigned long source_rate, div;
+	unsigned long source_rate, div, flags;
 	struct clk_freq_tbl *byte_freq = rcg->current_freq;
 	int rc;
 
@@ -936,9 +978,19 @@ static int set_rate_byte(struct clk *clk, unsigned long rate)
 	if (div > CFG_RCGR_DIV_MASK)
 		return -EINVAL;
 
+	/*
+	 * Both 0 and 1 represent same divider value in HW.
+	 * Always use 0 to simplify comparison.
+	 */
+	div = (div == 1) ? 0 : div;
+
 	byte_freq->div_src_val &= ~CFG_RCGR_DIV_MASK;
 	byte_freq->div_src_val |= BVAL(4, 0, div);
-	set_rate_hid(rcg, byte_freq);
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	if (!is_same_rcg_config(rcg, byte_freq, false))
+		__set_rate_hid(rcg, byte_freq);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 
 	return 0;
 }
