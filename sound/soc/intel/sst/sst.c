@@ -129,12 +129,13 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 	unsigned int size = 0;
 	struct intel_sst_drv *drv = (struct intel_sst_drv *) context;
 	irqreturn_t retval = IRQ_HANDLED;
+	unsigned long irq_flags;
 
 	/* Interrupt arrived, check src */
 	isr.full = sst_shim_read64(drv->shim, SST_ISRX);
 	if (isr.part.done_interrupt) {
 		/* Clear done bit */
-		spin_lock(&drv->ipc_spin_lock);
+		spin_lock_irqsave(&drv->ipc_spin_lock, irq_flags);
 		header.full = sst_shim_read64(drv->shim,
 					drv->ipc_reg.ipcx);
 		header.p.header_high.part.done = 0;
@@ -142,7 +143,7 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 		/* write 1 to clear status register */;
 		isr.part.done_interrupt = 1;
 		sst_shim_write64(drv->shim, SST_ISRX, isr.full);
-		spin_unlock(&drv->ipc_spin_lock);
+		spin_unlock_irqrestore(&drv->ipc_spin_lock, irq_flags);
 		trace_sst_ipc("ACK   <-", header.p.header_high.full,
 					  header.p.header_low_payload,
 					  header.p.header_high.part.drv_id);
@@ -150,11 +151,11 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 		retval = IRQ_HANDLED;
 	}
 	if (isr.part.busy_interrupt) {
-		spin_lock(&drv->ipc_spin_lock);
+		spin_lock_irqsave(&drv->ipc_spin_lock, irq_flags);
 		imr.full = sst_shim_read64(drv->shim, SST_IMRX);
 		imr.part.busy_interrupt = 1;
 		sst_shim_write64(drv->shim, SST_IMRX, imr.full);
-		spin_unlock(&drv->ipc_spin_lock);
+		spin_unlock_irqrestore(&drv->ipc_spin_lock, irq_flags);
 		header.full =  sst_shim_read64(drv->shim, drv->ipc_reg.ipcd);
 		if (sst_create_ipc_msg(&msg, header.p.header_high.part.large)) {
 			pr_err("No memory available\n");
@@ -178,9 +179,9 @@ static irqreturn_t intel_sst_interrupt_mrfld(int irq, void *context)
 		trace_sst_ipc("REPLY <-", msg->mrfld_header.p.header_high.full,
 					  msg->mrfld_header.p.header_low_payload,
 					  msg->mrfld_header.p.header_high.part.drv_id);
-		spin_lock(&drv->rx_msg_lock);
+		spin_lock_irqsave(&drv->rx_msg_lock, irq_flags);
 		list_add_tail(&msg->node, &drv->rx_list);
-		spin_unlock(&drv->rx_msg_lock);
+		spin_unlock_irqrestore(&drv->rx_msg_lock, irq_flags);
 		drv->ops->clear_interrupt();
 		retval = IRQ_WAKE_THREAD;
 	}
