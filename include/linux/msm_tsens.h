@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,9 @@ enum platform_type {
 };
 
 #define TSENS_MAX_SENSORS		11
+#define TSENS_MTC_ZONE_LOG_SIZE   6
+#define TSENS_NUM_MTC_ZONES_SUPPORT 3
+
 
 struct tsens_platform_data {
 	int				slope[TSENS_MAX_SENSORS];
@@ -47,6 +50,10 @@ int tsens_is_ready(void);
 int __init tsens_tm_init_driver(void);
 int tsens_get_sw_id_mapping(int sensor_num, int *sensor_sw_idx);
 int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_hw_num);
+int tsens_set_mtc_zone_sw_mask(unsigned int zone , unsigned int th1_enable,
+				unsigned int th2_enable);
+int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log);
+
 #else
 static inline int tsens_is_ready(void)
 { return -ENXIO; }
@@ -57,6 +64,12 @@ static inline int tsens_get_sw_id_mapping(
 { return -ENXIO; }
 static inline int tsens_get_hw_id_mapping(
 				int sensor_sw_id, int *sensor_hw_num)
+{ return -ENXIO; }
+static inline int tsens_set_mtc_zone_sw_mask(unsigned int zone ,
+				unsigned int th1_enable ,
+				unsigned int th2_enable)
+{ return -ENXIO; }
+static inline int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log)
 { return -ENXIO; }
 #endif
 
