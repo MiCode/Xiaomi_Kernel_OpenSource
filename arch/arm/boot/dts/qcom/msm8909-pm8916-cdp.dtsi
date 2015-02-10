@@ -54,6 +54,10 @@
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
 };
 
+&dsi_hx8394d_qhd_vid {
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8916_l8>;
 	vdd-io-supply = <&pm8916_l5>;
