@@ -49,7 +49,6 @@ do {									\
 #define TPDA_FLUSH_ERR		(0x098)
 
 #define TPDA_MAX_INPORTS	32
-#define TPDA_ATID		64
 
 struct tpda_drvdata {
 	void __iomem		*base;
@@ -58,6 +57,7 @@ struct tpda_drvdata {
 	struct clk		*clk;
 	struct mutex		lock;
 	bool			enable;
+	uint32_t		atid;
 	uint32_t		bc_esize[TPDA_MAX_INPORTS];
 	uint32_t		tc_esize[TPDA_MAX_INPORTS];
 	uint32_t		dsb_esize[TPDA_MAX_INPORTS];
@@ -78,7 +78,7 @@ static void __tpda_enable_pre_port(struct tpda_drvdata *drvdata)
 	/* Set the master id */
 	val = val & ~(0x7F << 13);
 	val = val & ~(0x7F << 6);
-	val |= (TPDA_ATID << 6);
+	val |= (drvdata->atid << 6);
 	if (drvdata->trig_async)
 		val = val | BIT(5);
 	else
@@ -546,9 +546,15 @@ static const struct attribute_group *tpda_attr_grps[] = {
 
 static int tpda_parse_of_data(struct tpda_drvdata *drvdata)
 {
-	int len, port, i;
+	int len, port, i, ret;
 	const __be32 *prop;
 	struct device_node *node = drvdata->dev->of_node;
+
+	ret = of_property_read_u32(node, "qcom,tpda-atid", &drvdata->atid);
+	if (ret) {
+		dev_err(drvdata->dev, "TPDA ATID is not specified\n");
+		return -EINVAL;
+	}
 
 	prop = of_get_property(node, "qcom,bc-elem-size", &len);
 	if (prop) {
