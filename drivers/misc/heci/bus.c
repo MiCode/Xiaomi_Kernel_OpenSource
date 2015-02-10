@@ -574,6 +574,7 @@ int	heci_bus_new_client(struct heci_device *dev)
 	device_create_file(&cl_device->dev, &dma_hdr_len);
 	device_create_file(&cl_device->dev, &num_active_connections);
 	device_create_file(&cl_device->dev, &client_id);
+	kfree(dev_name);
 
 	return	0;
 }
