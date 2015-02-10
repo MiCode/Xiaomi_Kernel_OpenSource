@@ -2564,7 +2564,7 @@ int cpufreq_register_driver(struct cpufreq_driver *driver_data)
 		}
 	}
 
-	pr_debug("driver %s up and running\n", driver_data->name);
+	pr_info("driver %s up and running\n", driver_data->name);
 
 	return 0;
 err_if_unreg:
@@ -2596,7 +2596,7 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 	if (!cpufreq_driver || (driver != cpufreq_driver))
 		return -EINVAL;
 
-	pr_debug("unregistering driver %s\n", driver->name);
+	pr_info("unregistering driver %s\n", driver->name);
 
 	subsys_interface_unregister(&cpufreq_interface);
 	if (cpufreq_boost_supported())
