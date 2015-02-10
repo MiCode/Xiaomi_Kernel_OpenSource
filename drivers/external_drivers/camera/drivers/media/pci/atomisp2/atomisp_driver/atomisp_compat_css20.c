@@ -1279,6 +1279,8 @@ int atomisp_css_start(struct atomisp_sub_device *asd,
 			ret = -EINVAL;
 			goto stream_err;
 		}
+		/* in_reset == true, extension firmwares are reloaded after the recovery */
+		atomisp_acc_load_extensions(asd);
 	}
 
 	/*

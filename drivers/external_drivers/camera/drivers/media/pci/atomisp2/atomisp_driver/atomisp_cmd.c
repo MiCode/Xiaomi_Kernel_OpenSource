@@ -1332,10 +1332,6 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 		if (!stream_restart[i])
 			continue;
 
-		if (atomisp_acc_load_extensions(asd) < 0)
-			dev_err(isp->dev,
-					"acc extension failed to reload\n");
-
 		if (isp->inputs[asd->input_curr].type != FILE_INPUT)
 			atomisp_css_input_set_mode(asd,
 					CSS_INPUT_MODE_SENSOR);
