@@ -709,7 +709,7 @@ static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 {
 	int rc = 0;
 
-	if (!ctl->panel_data->panel_info.partial_update_enabled)
+	if (!ctl->panel_data->panel_info.partial_update_supported)
 		return rc;
 
 	/* set panel col and page addr */
@@ -722,7 +722,7 @@ static int mdss_mdp_cmd_set_stream_size(struct mdss_mdp_ctl *ctl)
 {
 	int rc = 0;
 
-	if (!ctl->panel_data->panel_info.partial_update_enabled)
+	if (!ctl->panel_data->panel_info.partial_update_supported)
 		return rc;
 
 	/* set dsi controller stream size */
@@ -1383,6 +1383,21 @@ static int mdss_mdp_cmd_intfs_setup(struct mdss_mdp_ctl *ctl,
 		}
 	}
 	return 0;
+}
+
+void mdss_mdp_switch_roi_reset(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+
+	if (!ctl->panel_data ||
+	  !ctl->panel_data->panel_info.partial_update_supported)
+		return;
+
+	ctl->panel_data->panel_info.roi = ctl->roi;
+	if (sctl && sctl->panel_data)
+		sctl->panel_data->panel_info.roi = sctl->roi;
+
+	mdss_mdp_cmd_set_partial_roi(ctl);
 }
 
 void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep)
