@@ -581,6 +581,9 @@ int atomisp_acc_set_state(struct atomisp_sub_device *asd,
 	if (!acc_fw)
 		return -EINVAL;
 
+	if (enable)
+		wbinvd();
+
 	for (i = 0; i < ARRAY_SIZE(acc_flag_to_pipe); i++) {
 		if (acc_fw->flags & acc_flag_to_pipe[i].flag) {
 			pipe = asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].
