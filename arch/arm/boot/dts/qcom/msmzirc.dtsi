@@ -12,6 +12,7 @@
 
 #include "skeleton.dtsi"
 #include <dt-bindings/clock/msm-clocks-zirc.h>
+#include <dt-bindings/clock/msm-clocks-a7.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM ZIRC";
@@ -297,7 +298,7 @@
 		compatible = "qcom,rmnet-ipa";
 	};
 
-	qcom,clock-a7@0b010008 {
+	clock_cpu: qcom,clock-a7@0b010008 {
 		compatible = "qcom,clock-a7-zirc";
 		reg = <0x0B010008 0x8>;
 		reg-names = "rcg-base";
@@ -313,11 +314,39 @@
 			<1190400000 7>;
 
 		cpu-vdd-supply = <&pmd9635_s5_corner_ao>;
+		#clock-cells = <1>;
 	};
 
-        qcom,msm-cpufreq@0 {
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			< 1541 /* 202 MHz */ >,
+			< 3082 /* 404 MHz */ >,
+			< 3952 /* 518 MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map =
+				<  600000 1541 >,
+				<  787200 3082 >,
+				< 1190400 3952 >;
+		};
+	};
+
+        qcom,msm-cpufreq {
                 reg = <0 4>;
                 compatible = "qcom,msm-cpufreq";
+		clocks = <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>,
+			 <&clock_cpu  clk_a7ssmux>;
+		clock-names = "cpu0_clk", "cpu1_clk",
+				"cpu2_clk", "cpu3_clk";
                 qcom,cpufreq-table =
                         <  300000 >,
                         <  600000 >,
