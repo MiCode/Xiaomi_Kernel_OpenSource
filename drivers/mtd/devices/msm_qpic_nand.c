@@ -2532,12 +2532,12 @@ int msm_nand_scan(struct mtd_info *mtd)
 		chip->cfg0_raw, chip->cfg1_raw, chip->ecc_buf_cfg,
 		chip->ecc_bch_cfg, bad_block_byte);
 
-	if (mtd->oobsize == 64) {
+	if (mtd->writesize == 2048)
 		mtd->oobavail = 16;
-	} else if ((mtd->oobsize == 128) || (mtd->oobsize == 224)) {
+	else if (mtd->writesize == 4096)
 		mtd->oobavail = 32;
-	} else {
-		pr_err("Unsupported NAND oobsize: 0x%x\n", mtd->oobsize);
+	else {
+		pr_err("Unsupported NAND pagesize: 0x%x\n", mtd->writesize);
 		err = -ENODEV;
 		goto out;
 	}
