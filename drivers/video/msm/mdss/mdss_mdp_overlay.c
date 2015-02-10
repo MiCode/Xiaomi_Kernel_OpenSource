@@ -1576,6 +1576,7 @@ void mdss_pend_mode_switch(struct msm_fb_data_type *mfd, bool pend_switch)
 
 int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 {
+	struct mdp_display_commit temp_data;
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	int rc;
 
@@ -1583,6 +1584,20 @@ int mdss_mode_switch(struct msm_fb_data_type *mfd, u32 mode)
 
 	/* No need for mode validation. It has been done in ioctl call */
 	if (mode == MIPI_CMD_PANEL) {
+		/*
+		 * Need to reset roi if there was partial update in previous
+		 * Command frame
+		 */
+		temp_data.l_roi = (struct mdp_rect){0, 0,
+			ctl->mixer_left->width, ctl->mixer_left->height};
+		if (ctl->mixer_right) {
+			temp_data.r_roi = (struct mdp_rect) {0, 0,
+				ctl->mixer_right->width,
+				ctl->mixer_right->height};
+		}
+		mdss_mdp_set_roi(ctl, &temp_data);
+		mdss_mdp_switch_roi_reset(ctl);
+
 		mdss_mdp_switch_to_cmd_mode(ctl, 1);
 		mdss_mdp_update_panel_info(mfd, 1, 0);
 		mdss_mdp_switch_to_cmd_mode(ctl, 0);
@@ -1631,6 +1646,14 @@ int mdss_mode_switch_post(struct msm_fb_data_type *mfd, u32 mode)
 			MDSS_EVENT_DSI_DYNAMIC_SWITCH,
 			(void *) MIPI_VIDEO_PANEL);
 		pr_debug("%s, end\n", __func__);
+	} else if (mode == MIPI_CMD_PANEL) {
+		/*
+		 * Needed to balance out clk refcount when going
+		 * from video to command. This allows for idle
+		 * power collapse to work as intended.
+		 */
+		mdss_mdp_ctl_intf_event(ctl,
+			MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
 	}
 	return rc;
 }
