@@ -209,34 +209,39 @@ static int ufsdbg_tag_stats_show(struct seq_file *file, void *data)
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	/* Header */
-	seq_printf(file, " Tag Stat\t\t%s Queue Fullness\n", sep);
+	seq_printf(file, " Tag Stat\t\t%s Number of pending reqs upon issue (Q fullness)\n",
+		sep);
 	for (i = 0; i < TAB_CHARS * (TS_NUM_STATS + 4); i++) {
 		seq_puts(file, "-");
 		if (i == (TAB_CHARS * 3 - 1))
 			seq_puts(file, sep);
 	}
 	seq_printf(file,
-		"\n #\tnum uses\t%s\t #\tAll\t Read\t Write\t Urgent\t Flush\n",
+		"\n #\tnum uses\t%s\t #\tAll\tRead\tWrite\tUrg.R\tUrg.W\tFlush\n",
 		sep);
 
 	/* values */
 	for (i = 0; i < max_depth; i++) {
-		if (ufs_stats->tag_stats[i][0] <= 0 &&
-				ufs_stats->tag_stats[i][1] <= 0 &&
-				ufs_stats->tag_stats[i][2] <= 0 &&
-				ufs_stats->tag_stats[i][3] <= 0 &&
-				ufs_stats->tag_stats[i][4] <= 0)
+		if (ufs_stats->tag_stats[i][TS_TAG] <= 0 &&
+				ufs_stats->tag_stats[i][TS_READ] <= 0 &&
+				ufs_stats->tag_stats[i][TS_WRITE] <= 0 &&
+				ufs_stats->tag_stats[i][TS_URGENT_READ] <= 0 &&
+				ufs_stats->tag_stats[i][TS_URGENT_WRITE] <= 0 &&
+				ufs_stats->tag_stats[i][TS_FLUSH] <= 0)
 			continue;
 
 		is_tag_empty = false;
 		seq_printf(file, " %d\t ", i);
 		for (j = 0; j < TS_NUM_STATS; j++) {
-			seq_printf(file, "%llu\t ", ufs_stats->tag_stats[i][j]);
-			if (j == 0)
-				seq_printf(file, "\t%s\t %d\t%llu\t ", sep, i,
-						ufs_stats->tag_stats[i][j+1] +
-						ufs_stats->tag_stats[i][j+2] +
-						ufs_stats->tag_stats[i][j+3]);
+			seq_printf(file, "%llu\t", ufs_stats->tag_stats[i][j]);
+			if (j != 0)
+				continue;
+			seq_printf(file, "\t%s\t %d\t%llu\t", sep, i,
+				ufs_stats->tag_stats[i][TS_READ] +
+				ufs_stats->tag_stats[i][TS_WRITE] +
+				ufs_stats->tag_stats[i][TS_URGENT_READ] +
+				ufs_stats->tag_stats[i][TS_URGENT_WRITE] +
+				ufs_stats->tag_stats[i][TS_FLUSH]);
 		}
 		seq_puts(file, "\n");
 	}
@@ -977,7 +982,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.tag_stats =
-		debugfs_create_file("tag_stats", S_IRUSR,
+		debugfs_create_file("tag_stats", S_IRUSR | S_IWUSR,
 					   hba->debugfs_files.debugfs_root, hba,
 					   &ufsdbg_tag_stats_fops);
 	if (!hba->debugfs_files.tag_stats) {
@@ -987,7 +992,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 	}
 
 	hba->debugfs_files.err_stats =
-		debugfs_create_file("err_stats", S_IRUSR,
+		debugfs_create_file("err_stats", S_IRUSR | S_IWUSR,
 					   hba->debugfs_files.debugfs_root, hba,
 					   &ufsdbg_err_stats_fops);
 	if (!hba->debugfs_files.err_stats) {
