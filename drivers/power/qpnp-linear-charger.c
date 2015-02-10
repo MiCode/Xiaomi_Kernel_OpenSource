@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@
 #define CHG_OPTION_MASK				BIT(7)
 #define CHG_STATUS_REG				0x09
 #define CHG_VDD_LOOP_BIT			BIT(1)
+#define VINMIN_LOOP_BIT				BIT(3)
 #define CHG_VDD_MAX_REG				0x40
 #define CHG_VDD_SAFE_REG			0x41
 #define CHG_IBAT_MAX_REG			0x44
@@ -92,6 +93,7 @@
 #define BTC_COMP_EN_MASK			BIT(7)
 #define BTC_COLD_MASK				BIT(1)
 #define BTC_HOT_MASK				BIT(0)
+#define BTC_COMP_OVERRIDE_REG			0xE5
 
 /* MISC peripheral register offset */
 #define MISC_REV2_REG				0x01
@@ -144,6 +146,7 @@ enum {
 	THERMAL = BIT(1),
 	CURRENT = BIT(2),
 	SOC	= BIT(3),
+	PARALLEL = BIT(4),
 };
 
 enum bpd_type {
@@ -352,6 +355,12 @@ struct qpnp_lbc_chip {
 	int				usb_psy_ma;
 	int				delta_vddmax_uv;
 	int				init_trim_uv;
+
+	/* parallel-chg params */
+	int				parallel_charging_enabled;
+	int				lbc_max_chg_current;
+	int				ichg_now;
+
 	struct alarm			vddtrim_alarm;
 	struct work_struct		vddtrim_work;
 	struct qpnp_lbc_irq		irqs[MAX_IRQS];
@@ -368,6 +377,10 @@ struct qpnp_lbc_chip {
 	struct qpnp_adc_tm_chip		*adc_tm_dev;
 	struct led_classdev		led_cdev;
 	struct dentry			*debug_root;
+
+	/* parallel-chg params */
+	struct power_supply		parallel_psy;
+	struct delayed_work		parallel_work;
 };
 
 static void qpnp_lbc_enable_irq(struct qpnp_lbc_chip *chip,
@@ -1040,6 +1053,22 @@ static int qpnp_lbc_register_chgr_led(struct qpnp_lbc_chip *chip)
 	return rc;
 };
 
+static int is_vinmin_set(struct qpnp_lbc_chip *chip)
+{
+	u8 reg;
+	int rc;
+
+	rc = qpnp_lbc_read(chip, chip->chgr_base + CHG_STATUS_REG, &reg, 1);
+	if (rc) {
+		pr_err("Unable to read charger status rc=%d\n", rc);
+		return false;
+	}
+	pr_debug("chg_status=0x%x\n", reg);
+
+	return !!(reg & VINMIN_LOOP_BIT);
+
+}
+
 static int qpnp_lbc_vbatdet_override(struct qpnp_lbc_chip *chip, int ovr_val)
 {
 	int rc;
@@ -1634,6 +1663,147 @@ static int qpnp_batt_power_get_property(struct power_supply *psy,
 
 	return 0;
 }
+
+#define VINMIN_DELAY		msecs_to_jiffies(500)
+static void qpnp_lbc_parallel_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct qpnp_lbc_chip *chip = container_of(dwork,
+				struct qpnp_lbc_chip, parallel_work);
+
+	if (is_vinmin_set(chip)) {
+		/* vinmin-loop triggered - stop ibat increase */
+		pr_debug("vinmin_loop triggered ichg_now=%d\n", chip->ichg_now);
+		goto exit_work;
+	} else {
+		int temp = chip->ichg_now + QPNP_LBC_I_STEP_MA;
+		if (temp > chip->lbc_max_chg_current) {
+			pr_debug("ichg_now=%d beyond max_chg_limit=%d - stopping\n",
+				temp, chip->lbc_max_chg_current);
+			goto exit_work;
+		}
+		chip->ichg_now = temp;
+		qpnp_lbc_ibatmax_set(chip, chip->ichg_now);
+		pr_debug("ichg_now increased to %d\n", chip->ichg_now);
+	}
+
+	schedule_delayed_work(&chip->parallel_work, VINMIN_DELAY);
+
+	return;
+
+exit_work:
+	pm_relax(chip->dev);
+}
+
+static int qpnp_lbc_parallel_charging_config(struct qpnp_lbc_chip *chip,
+					int enable)
+{
+	chip->parallel_charging_enabled = !!enable;
+
+	if (enable) {
+		/* Prevent sleep until charger is configured */
+		chip->ichg_now = QPNP_LBC_IBATMAX_MIN;
+		qpnp_lbc_ibatmax_set(chip, chip->ichg_now);
+		qpnp_lbc_charger_enable(chip, PARALLEL, 1);
+		pm_stay_awake(chip->dev);
+		schedule_delayed_work(&chip->parallel_work, VINMIN_DELAY);
+	} else {
+		cancel_delayed_work_sync(&chip->parallel_work);
+		pm_relax(chip->dev);
+		/* set minimum charging current and disable charging */
+		chip->ichg_now = 0;
+		chip->lbc_max_chg_current = 0;
+		qpnp_lbc_ibatmax_set(chip, 0);
+		qpnp_lbc_charger_enable(chip, PARALLEL, 0);
+	}
+
+	pr_debug("charging=%d ichg_now=%d max_chg_current=%d\n",
+		enable, chip->ichg_now, chip->lbc_max_chg_current);
+
+	return 0;
+}
+
+static enum power_supply_property qpnp_lbc_parallel_properties[] = {
+	POWER_SUPPLY_PROP_CHARGING_ENABLED,
+	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION,
+};
+
+static int qpnp_lbc_parallel_set_property(struct power_supply *psy,
+				       enum power_supply_property prop,
+				       const union power_supply_propval *val)
+{
+	int rc = 0;
+	struct qpnp_lbc_chip *chip = container_of(psy,
+				struct qpnp_lbc_chip, parallel_psy);
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		qpnp_lbc_parallel_charging_config(chip, !!val->intval);
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		chip->lbc_max_chg_current = val->intval / 1000;
+		pr_debug("lbc_max_current=%d\n", chip->lbc_max_chg_current);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return rc;
+}
+
+static int qpnp_lbc_parallel_is_writeable(struct power_supply *psy,
+				       enum power_supply_property prop)
+{
+	int rc;
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		rc = 1;
+		break;
+	default:
+		rc = 0;
+		break;
+	}
+	return rc;
+}
+
+static int qpnp_lbc_parallel_get_property(struct power_supply *psy,
+				       enum power_supply_property prop,
+				       union power_supply_propval *val)
+{
+	struct qpnp_lbc_chip *chip = container_of(psy,
+				struct qpnp_lbc_chip, parallel_psy);
+
+	switch (prop) {
+	case POWER_SUPPLY_PROP_CHARGING_ENABLED:
+		val->intval = chip->parallel_charging_enabled;
+		break;
+	case POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX:
+		val->intval = chip->lbc_max_chg_current * 1000;
+		break;
+	case POWER_SUPPLY_PROP_CURRENT_NOW:
+		val->intval = chip->ichg_now * 1000;
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_TYPE:
+		val->intval = get_prop_charge_type(chip);
+		break;
+	case POWER_SUPPLY_PROP_STATUS:
+		val->intval = get_prop_batt_status(chip);
+		break;
+	case POWER_SUPPLY_PROP_INPUT_VOLTAGE_REGULATION:
+		val->intval = is_vinmin_set(chip);
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 
 static void qpnp_lbc_jeita_adc_notification(enum qpnp_tm_state state, void *ctx)
 {
@@ -2630,13 +2800,218 @@ static enum alarmtimer_restart vddtrim_callback(struct alarm *alarm,
 	return ALARMTIMER_NORESTART;
 }
 
-static int qpnp_lbc_probe(struct spmi_device *spmi)
+static int qpnp_lbc_parallel_charger_init(struct qpnp_lbc_chip *chip)
+{
+	u8 reg_val;
+	int rc;
+
+	rc = qpnp_lbc_vinmin_set(chip, chip->cfg_min_voltage_mv);
+	if (rc) {
+		pr_err("Failed  to set  vin_min rc=%d\n", rc);
+		return rc;
+	}
+	rc = qpnp_lbc_vddsafe_set(chip, chip->cfg_max_voltage_mv);
+	if (rc) {
+		pr_err("Failed to set vdd_safe rc=%d\n", rc);
+		return rc;
+	}
+	rc = qpnp_lbc_vddmax_set(chip, chip->cfg_max_voltage_mv);
+	if (rc) {
+		pr_err("Failed to set vdd_max rc=%d\n", rc);
+		return rc;
+	}
+
+	/* set the minimum charging current */
+	rc = qpnp_lbc_ibatmax_set(chip, 0);
+	if (rc) {
+		pr_err("Failed to set IBAT_MAX to 0 rc=%d\n", rc);
+		return rc;
+	}
+
+	/* disable charging */
+	rc = qpnp_lbc_charger_enable(chip, PARALLEL, 0);
+	if (rc) {
+		pr_err("Unable to disable charging rc=%d\n", rc);
+		return 0;
+	}
+
+	/* Enable BID and disable THM based BPD */
+	reg_val = BATT_ID_EN | BATT_BPD_OFFMODE_EN;
+	rc = qpnp_lbc_write(chip, chip->bat_if_base + BAT_IF_BPD_CTRL_REG,
+							&reg_val, 1);
+	if (rc)
+		pr_err("Failed to override BPD configuration rc=%d\n", rc);
+
+	/* Disable and override BTC */
+	reg_val = 0x2A;
+	rc = __qpnp_lbc_secure_write(chip->spmi, chip->bat_if_base,
+			BTC_COMP_OVERRIDE_REG, &reg_val, 1);
+	if (rc)
+		pr_err("Failed to disable BTC override rc=%d\n", rc);
+
+	reg_val = 0;
+	rc = qpnp_lbc_write(chip,
+		chip->bat_if_base + BAT_IF_BTC_CTRL, &reg_val, 1);
+	if (rc)
+		pr_err("Failed to disable BTC rc=%d\n", rc);
+
+	/* override VBAT_DET */
+	rc = qpnp_lbc_vbatdet_override(chip, OVERRIDE_0);
+	if (rc)
+		pr_err("Failed to override VBAT_DET rc=%d\n", rc);
+
+	/* Set BOOT_DONE and ENUM complete */
+	reg_val = 0;
+	rc = qpnp_lbc_write(chip,
+			chip->usb_chgpth_base + CHG_USB_ENUM_T_STOP_REG,
+							&reg_val, 1);
+	if (rc)
+		pr_err("Failed to stop enum-timer rc=%d\n", rc);
+
+	reg_val = MISC_BOOT_DONE;
+	rc = qpnp_lbc_write(chip, chip->misc_base + MISC_BOOT_DONE_REG,
+							&reg_val, 1);
+	if (rc)
+		pr_err("Failed to set boot-done rc=%d\n", rc);
+
+	return rc;
+}
+
+static int qpnp_lbc_parse_resources(struct qpnp_lbc_chip *chip)
 {
 	u8 subtype;
-	ktime_t kt;
-	struct qpnp_lbc_chip *chip;
+	int rc = 0;
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
+	struct spmi_device *spmi = chip->spmi;
+
+	spmi_for_each_container_dev(spmi_resource, spmi) {
+		if (!spmi_resource) {
+			pr_err("spmi resource absent\n");
+			return -ENXIO;
+		}
+
+		resource = spmi_get_resource(spmi, spmi_resource,
+						IORESOURCE_MEM, 0);
+		if (!(resource && resource->start)) {
+			pr_err("node %s IO resource absent!\n",
+					spmi->dev.of_node->full_name);
+			return -ENXIO;
+		}
+
+		rc = qpnp_lbc_read(chip, resource->start + PERP_SUBTYPE_REG,
+								&subtype, 1);
+		if (rc) {
+			pr_err("Peripheral subtype read failed rc=%d\n", rc);
+			return rc;
+		}
+
+		switch (subtype) {
+		case LBC_CHGR_SUBTYPE:
+			chip->chgr_base = resource->start;
+			rc = qpnp_lbc_get_irqs(chip, subtype, spmi_resource);
+			if (rc) {
+				pr_err("Failed to get CHGR irqs rc=%d\n", rc);
+				return rc;
+			}
+			break;
+		case LBC_USB_PTH_SUBTYPE:
+			chip->usb_chgpth_base = resource->start;
+			rc = qpnp_lbc_get_irqs(chip, subtype, spmi_resource);
+			if (rc) {
+				pr_err("Failed to get USB_PTH irqs rc=%d\n",
+						rc);
+				return rc;
+			}
+			break;
+		case LBC_BAT_IF_SUBTYPE:
+			chip->bat_if_base = resource->start;
+			rc = qpnp_lbc_get_irqs(chip, subtype, spmi_resource);
+			if (rc) {
+				pr_err("Failed to get BAT_IF irqs rc=%d\n", rc);
+				return rc;
+			}
+			break;
+		case LBC_MISC_SUBTYPE:
+			chip->misc_base = resource->start;
+			break;
+		default:
+			pr_err("Invalid peripheral subtype=0x%x\n", subtype);
+			rc = -EINVAL;
+		}
+	}
+
+	pr_debug("chgr_base=%x usb_chgpth_base=%x bat_if_base=%x misc_base=%x\n",
+				chip->chgr_base, chip->usb_chgpth_base,
+				chip->bat_if_base, chip->misc_base);
+
+	return rc;
+}
+
+static int qpnp_lbc_parallel_probe(struct spmi_device *spmi)
+{
+	int rc = 0;
+	struct qpnp_lbc_chip *chip;
+
+	chip = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_lbc_chip),
+							GFP_KERNEL);
+	if (!chip) {
+		pr_err("memory allocation failed.\n");
+		return -ENOMEM;
+	}
+
+	chip->dev = &spmi->dev;
+	chip->spmi = spmi;
+	dev_set_drvdata(&spmi->dev, chip);
+	device_init_wakeup(&spmi->dev, 1);
+	spin_lock_init(&chip->hw_access_lock);
+	spin_lock_init(&chip->ibat_change_lock);
+	INIT_DELAYED_WORK(&chip->parallel_work, qpnp_lbc_parallel_work);
+
+	OF_PROP_READ(chip, cfg_max_voltage_mv, "vddmax-mv", rc, 0);
+	if (rc)
+		return rc;
+	OF_PROP_READ(chip, cfg_min_voltage_mv, "vinmin-mv", rc, 0);
+	if (rc)
+		return rc;
+
+	rc = qpnp_lbc_parse_resources(chip);
+	if (rc) {
+		pr_err("Unable to parse LBC(parallel) resources rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_lbc_parallel_charger_init(chip);
+	if (rc) {
+		pr_err("Unable to initialize LBC(parallel) rc=%d\n", rc);
+		return rc;
+	}
+
+	chip->parallel_psy.name		= "usb-parallel";
+	chip->parallel_psy.type		= POWER_SUPPLY_TYPE_USB_PARALLEL;
+	chip->parallel_psy.get_property	= qpnp_lbc_parallel_get_property;
+	chip->parallel_psy.set_property	= qpnp_lbc_parallel_set_property;
+	chip->parallel_psy.properties	= qpnp_lbc_parallel_properties;
+	chip->parallel_psy.property_is_writeable
+				= qpnp_lbc_parallel_is_writeable;
+	chip->parallel_psy.num_properties
+				= ARRAY_SIZE(qpnp_lbc_parallel_properties);
+
+	rc = power_supply_register(chip->dev, &chip->parallel_psy);
+	if (rc < 0) {
+		pr_err("Unable to register LBC parallel_psy rc = %d\n", rc);
+		return rc;
+	}
+
+	pr_info("LBC (parallel) registered successfully!\n");
+
+	return 0;
+}
+
+static int qpnp_lbc_main_probe(struct spmi_device *spmi)
+{
+	ktime_t kt;
+	struct qpnp_lbc_chip *chip;
 	struct power_supply *usb_psy;
 	int rc = 0;
 
@@ -2674,73 +3049,10 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-	spmi_for_each_container_dev(spmi_resource, spmi) {
-		if (!spmi_resource) {
-			pr_err("spmi resource absent\n");
-			rc = -ENXIO;
-			goto fail_chg_enable;
-		}
-
-		resource = spmi_get_resource(spmi, spmi_resource,
-							IORESOURCE_MEM, 0);
-		if (!(resource && resource->start)) {
-			pr_err("node %s IO resource absent!\n",
-						spmi->dev.of_node->full_name);
-			rc = -ENXIO;
-			goto fail_chg_enable;
-		}
-
-		rc = qpnp_lbc_read(chip, resource->start + PERP_SUBTYPE_REG,
-					&subtype, 1);
-		if (rc) {
-			pr_err("Peripheral subtype read failed rc=%d\n", rc);
-			goto fail_chg_enable;
-		}
-
-		switch (subtype) {
-		case LBC_CHGR_SUBTYPE:
-			chip->chgr_base = resource->start;
-
-			/* Get Charger peripheral irq numbers */
-			rc = qpnp_lbc_get_irqs(chip, subtype, spmi_resource);
-			if (rc) {
-				pr_err("Failed to get CHGR irqs rc=%d\n", rc);
-				goto fail_chg_enable;
-			}
-			break;
-		case LBC_USB_PTH_SUBTYPE:
-			chip->usb_chgpth_base = resource->start;
-			rc = qpnp_lbc_get_irqs(chip, subtype, spmi_resource);
-			if (rc) {
-				pr_err("Failed to get USB_PTH irqs rc=%d\n",
-						rc);
-				goto fail_chg_enable;
-			}
-			break;
-		case LBC_BAT_IF_SUBTYPE:
-			chip->bat_if_base = resource->start;
-			chip->vadc_dev = qpnp_get_vadc(chip->dev, "chg");
-			if (IS_ERR(chip->vadc_dev)) {
-				rc = PTR_ERR(chip->vadc_dev);
-				if (rc != -EPROBE_DEFER)
-					pr_err("vadc prop missing rc=%d\n",
-							rc);
-				goto fail_chg_enable;
-			}
-			/* Get Charger Batt-IF peripheral irq numbers */
-			rc = qpnp_lbc_get_irqs(chip, subtype, spmi_resource);
-			if (rc) {
-				pr_err("Failed to get BAT_IF irqs rc=%d\n", rc);
-				goto fail_chg_enable;
-			}
-			break;
-		case LBC_MISC_SUBTYPE:
-			chip->misc_base = resource->start;
-			break;
-		default:
-			pr_err("Invalid peripheral subtype=0x%x\n", subtype);
-			rc = -EINVAL;
-		}
+	rc = qpnp_lbc_parse_resources(chip);
+	if (rc) {
+		pr_err("Unable to parse LBC resources rc=%d\n", rc);
+		goto fail_chg_enable;
 	}
 
 	if (chip->cfg_use_external_charger) {
@@ -2749,6 +3061,15 @@ static int qpnp_lbc_probe(struct spmi_device *spmi)
 		if (rc)
 			pr_err("Unable to disable charger rc=%d\n", rc);
 		return -ENODEV;
+	}
+
+	chip->vadc_dev = qpnp_get_vadc(chip->dev, "chg");
+	if (IS_ERR(chip->vadc_dev)) {
+		rc = PTR_ERR(chip->vadc_dev);
+		if (rc != -EPROBE_DEFER)
+			pr_err("vadc prop missing rc=%d\n",
+					rc);
+		goto fail_chg_enable;
 	}
 
 	/* Initialize h/w */
@@ -2881,6 +3202,21 @@ fail_chg_enable:
 	dev_set_drvdata(&spmi->dev, NULL);
 	return rc;
 }
+
+static int is_parallel_charger(struct spmi_device *spmi)
+{
+	return of_property_read_bool(spmi->dev.of_node,
+				"qcom,parallel-charger");
+}
+
+static int qpnp_lbc_probe(struct spmi_device *spmi)
+{
+	if (is_parallel_charger(spmi))
+		return qpnp_lbc_parallel_probe(spmi);
+	else
+		return qpnp_lbc_main_probe(spmi);
+}
+
 
 static int qpnp_lbc_remove(struct spmi_device *spmi)
 {
