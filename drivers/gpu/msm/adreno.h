@@ -100,6 +100,8 @@
 #define ADRENO_CONTENT_PROTECTION BIT(6)
 /* The GPU supports preemption */
 #define ADRENO_PREEMPTION BIT(7)
+/* The core uses GPMU for power and limit management */
+#define ADRENO_GPMU BIT(8)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -194,6 +196,10 @@ struct adreno_busy_data {
  * @shader_offset: Offset of shader from gpu reg base
  * @shader_size: Shader size
  * @num_protected_regs: number of protected registers
+ * @gpmufw_name: Filename for the GPMU firmware
+ * @gpmu_major: Match for the GPMU & firmware, major revision
+ * @gpmu_minor: Match for the GPMU & firmware, minor revision
+ * @gpmu_features: Supported features for any given GPMU version
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -213,6 +219,10 @@ struct adreno_gpu_core {
 	unsigned long shader_offset;
 	unsigned int shader_size;
 	unsigned int num_protected_regs;
+	const char *gpmufw_name;
+	unsigned int gpmu_major;
+	unsigned int gpmu_minor;
+	unsigned int gpmu_features;
 };
 
 struct adreno_device {
@@ -273,6 +283,7 @@ struct adreno_device {
  * profiling via the ALWAYSON counter
  * @ADRENO_DEVICE_PREEMPTION - Turn on/off preemption
  * @ADRENO_DEVICE_SOFT_FAULT_DETECT - Set if soft fault detect is enabled
+ * @ADRENO_DEVICE_GPMU_INITIALIZED - Set if GPMU firmware initialization succeed
  */
 enum adreno_device_flags {
 	ADRENO_DEVICE_PWRON = 0,
@@ -286,6 +297,7 @@ enum adreno_device_flags {
 	ADRENO_DEVICE_GPU_REGULATOR_ENABLED = 8,
 	ADRENO_DEVICE_PREEMPTION = 9,
 	ADRENO_DEVICE_SOFT_FAULT_DETECT = 10,
+	ADRENO_DEVICE_GPMU_INITIALIZED = 11,
 };
 
 /**
@@ -567,6 +579,7 @@ struct adreno_gpudev {
 	void (*enable_ppd)(struct adreno_device *);
 	int (*regulator_enable)(struct adreno_device *);
 	void (*regulator_disable)(struct adreno_device *);
+	void (*gpmu_start)(struct adreno_device *);
 	void (*pwrlevel_change_settings)(struct adreno_device *,
 					bool mask_throttle);
 	int (*preemption_pre_ibsubmit)(struct adreno_device *,

@@ -611,10 +611,15 @@
 #define A5XX_VBIF_PERF_PWR_CNT_HIGH2       0x311A
 
 /* GPMU registers */
+#define A5XX_GPMU_INST_RAM_BASE            0x8800
+#define A5XX_GPMU_DATA_RAM_BASE            0x9800
 #define A5XX_GPMU_SP_POWER_CNTL            0xA881
 #define A5XX_GPMU_RBCCU_POWER_CNTL         0xA887
 #define A5XX_GPMU_SP_PWR_CLK_STATUS        0xA88B
 #define A5XX_GPMU_RBCCU_PWR_CLK_STATUS     0xA88D
+#define A5XX_GPMU_CM3_SYSRESET             0xA8D8
+#define A5XX_GPMU_GENERAL_0                0xA8E0
+#define A5XX_GPMU_GENERAL_1                0xA8E1
 
 /* COUNTABLE FOR SP PERFCOUNTER */
 #define A5XX_SP_ALU_ACTIVE_CYCLES          0x1
