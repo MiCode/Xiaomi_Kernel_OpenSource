@@ -379,19 +379,41 @@ struct mmc_fixup {
 	/* SDIO-specfic fields. You can use SDIO_ANY_ID here of course */
 	u16 cis_vendor, cis_device;
 
+	/* MMC-specific field, You can use EXT_CSD_REV_ANY here of course */
+	unsigned int ext_csd_rev;
+
 	void (*vendor_fixup)(struct mmc_card *card, int data);
 	int data;
 };
 
+#define CID_MANFID_SANDISK	0x2
+#define CID_MANFID_TOSHIBA	0x11
+#define CID_MANFID_MICRON	0x13
+#define CID_MANFID_SAMSUNG	0x15
+
 #define CID_MANFID_ANY (-1u)
 #define CID_OEMID_ANY ((unsigned short) -1)
 #define CID_NAME_ANY (NULL)
+#define EXT_CSD_REV_ANY (-1u)
 
 #define END_FIXUP { NULL }
 
+/* extended CSD mapping to mmc version */
+enum mmc_version_ext_csd_rev {
+	MMC_V4_0,
+	MMC_V4_1,
+	MMC_V4_2,
+	MMC_V4_41 = 5,
+	MMC_V4_5,
+	MMC_V4_51 = MMC_V4_5,
+	MMC_V5_0,
+	MMC_V5_01 = MMC_V5_0,
+	MMC_V5_1
+};
+
 #define _FIXUP_EXT(_name, _manfid, _oemid, _rev_start, _rev_end,	\
 		   _cis_vendor, _cis_device,				\
-		   _fixup, _data)					\
+		   _fixup, _data, _ext_csd_rev)				\
 	{						   \
 		.name = (_name),			   \
 		.manfid = (_manfid),			   \
@@ -402,23 +424,30 @@ struct mmc_fixup {
 		.cis_device = (_cis_device),		   \
 		.vendor_fixup = (_fixup),		   \
 		.data = (_data),			   \
+		.ext_csd_rev = (_ext_csd_rev),		   \
 	 }
 
 #define MMC_FIXUP_REV(_name, _manfid, _oemid, _rev_start, _rev_end,	\
-		      _fixup, _data)					\
+		      _fixup, _data, _ext_csd_rev)			\
 	_FIXUP_EXT(_name, _manfid,					\
 		   _oemid, _rev_start, _rev_end,			\
 		   SDIO_ANY_ID, SDIO_ANY_ID,				\
-		   _fixup, _data)					\
+		   _fixup, _data, _ext_csd_rev)				\
 
 #define MMC_FIXUP(_name, _manfid, _oemid, _fixup, _data) \
-	MMC_FIXUP_REV(_name, _manfid, _oemid, 0, -1ull, _fixup, _data)
+	MMC_FIXUP_REV(_name, _manfid, _oemid, 0, -1ull, _fixup, _data,	\
+		      EXT_CSD_REV_ANY)
+
+#define MMC_FIXUP_EXT_CSD_REV(_name, _manfid, _oemid, _fixup, _data,	\
+			      _ext_csd_rev)				\
+	MMC_FIXUP_REV(_name, _manfid, _oemid, 0, -1ull, _fixup, _data,	\
+		      _ext_csd_rev)
 
 #define SDIO_FIXUP(_vendor, _device, _fixup, _data)			\
 	_FIXUP_EXT(CID_NAME_ANY, CID_MANFID_ANY,			\
 		    CID_OEMID_ANY, 0, -1ull,				\
 		   _vendor, _device,					\
-		   _fixup, _data)					\
+		   _fixup, _data, EXT_CSD_REV_ANY)			\
 
 #define cid_rev(hwrev, fwrev, year, month)	\
 	(((u64) hwrev) << 40 |                  \
