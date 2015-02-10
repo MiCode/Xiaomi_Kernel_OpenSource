@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1007,11 +1007,13 @@ static int odu_bridge_register_properties(void)
 	ipv4_property = &tx_properties.prop[0];
 	ipv4_property->ip = IPA_IP_v4;
 	ipv4_property->dst_pipe = IPA_CLIENT_ODU_EMB_CONS;
+	ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	strlcpy(ipv4_property->hdr_name, ODU_BRIDGE_IPV4_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	ipv6_property = &tx_properties.prop[1];
 	ipv6_property->ip = IPA_IP_v6;
 	ipv6_property->dst_pipe = IPA_CLIENT_ODU_EMB_CONS;
+	ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	strlcpy(ipv6_property->hdr_name, ODU_BRIDGE_IPV6_HDR_NAME,
 			IPA_RESOURCE_NAME_MAX);
 	tx_properties.num_props = 2;
@@ -1021,10 +1023,12 @@ static int odu_bridge_register_properties(void)
 	rx_ipv4_property->ip = IPA_IP_v4;
 	rx_ipv4_property->attrib.attrib_mask = 0;
 	rx_ipv4_property->src_pipe = IPA_CLIENT_ODU_PROD;
+	rx_ipv4_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	rx_ipv6_property = &rx_properties.prop[1];
 	rx_ipv6_property->ip = IPA_IP_v6;
 	rx_ipv6_property->attrib.attrib_mask = 0;
 	rx_ipv6_property->src_pipe = IPA_CLIENT_ODU_PROD;
+	rx_ipv6_property->hdr_l2_type = IPA_HDR_L2_ETHERNET_II;
 	rx_properties.num_props = 2;
 
 	res = ipa_register_intf(odu_bridge_ctx->netdev_name, &tx_properties,
