@@ -568,6 +568,7 @@ static struct rcg_clk pclk0_clk_src = {
 		.dbg_name = "pclk0_clk_src",
 		.parent = &ext_pclk0_clk_src.c,
 		.ops = &clk_ops_pixel,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 75000000, LOW, 150000000,
 				  NOMINAL, 250000000),
 		CLK_INIT(pclk0_clk_src.c),
@@ -592,6 +593,7 @@ static struct rcg_clk pclk1_clk_src = {
 		.dbg_name = "pclk1_clk_src",
 		.parent = &ext_pclk1_clk_src.c,
 		.ops = &clk_ops_pixel,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 75000000, LOW, 150000000,
 				  NOMINAL, 250000000),
 		CLK_INIT(pclk1_clk_src.c),
@@ -940,6 +942,7 @@ static struct rcg_clk byte0_clk_src = {
 		.dbg_name = "byte0_clk_src",
 		.parent = &ext_byte0_clk_src.c,
 		.ops = &clk_ops_byte,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 60000000, LOW, 112500000,
 				  NOMINAL, 187500000),
 		CLK_INIT(byte0_clk_src.c),
@@ -963,6 +966,7 @@ static struct rcg_clk byte1_clk_src = {
 		.dbg_name = "byte1_clk_src",
 		.parent = &ext_byte1_clk_src.c,
 		.ops = &clk_ops_byte,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 60000000, LOW, 112500000,
 				  NOMINAL, 187500000),
 		CLK_INIT(byte1_clk_src.c),
@@ -1683,6 +1687,7 @@ static struct branch_clk mdss_byte0_clk = {
 		.dbg_name = "mdss_byte0_clk",
 		.parent = &byte0_clk_src.c,
 		.ops = &clk_ops_branch,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(mdss_byte0_clk.c),
 	},
 };
@@ -1695,6 +1700,7 @@ static struct branch_clk mdss_byte1_clk = {
 		.dbg_name = "mdss_byte1_clk",
 		.parent = &byte1_clk_src.c,
 		.ops = &clk_ops_branch,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(mdss_byte1_clk.c),
 	},
 };
@@ -1778,6 +1784,7 @@ static struct branch_clk mdss_pclk0_clk = {
 		.dbg_name = "mdss_pclk0_clk",
 		.parent = &pclk0_clk_src.c,
 		.ops = &clk_ops_branch,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(mdss_pclk0_clk.c),
 	},
 };
@@ -1790,6 +1797,7 @@ static struct branch_clk mdss_pclk1_clk = {
 		.dbg_name = "mdss_pclk1_clk",
 		.parent = &pclk1_clk_src.c,
 		.ops = &clk_ops_branch,
+		.flags = CLKFLAG_NO_RATE_CACHE,
 		CLK_INIT(mdss_pclk1_clk.c),
 	},
 };
@@ -2296,12 +2304,16 @@ int msm_mmsscc_8992_probe(struct platform_device *pdev)
 
 	ext_pclk0_clk_src.dev = &pdev->dev;
 	ext_pclk0_clk_src.clk_id = "pclk0_src";
+	ext_pclk0_clk_src.c.flags = CLKFLAG_NO_RATE_CACHE;
 	ext_pclk1_clk_src.dev = &pdev->dev;
 	ext_pclk1_clk_src.clk_id = "pclk1_src";
+	ext_pclk1_clk_src.c.flags = CLKFLAG_NO_RATE_CACHE;
 	ext_byte0_clk_src.dev = &pdev->dev;
 	ext_byte0_clk_src.clk_id = "byte0_src";
+	ext_byte0_clk_src.c.flags = CLKFLAG_NO_RATE_CACHE;
 	ext_byte1_clk_src.dev = &pdev->dev;
 	ext_byte1_clk_src.clk_id = "byte1_src";
+	ext_byte1_clk_src.c.flags = CLKFLAG_NO_RATE_CACHE;
 	ext_extpclk_clk_src.dev = &pdev->dev;
 	ext_extpclk_clk_src.clk_id = "extpclk_src";
 
