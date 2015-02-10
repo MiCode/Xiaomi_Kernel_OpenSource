@@ -172,12 +172,12 @@ struct ltr553_data {
 };
 
 struct als_coeff {
-	u32 ch0_coeff_i;
-	u32 ch1_coeff_i;
-	u32 ch0_coeff_f;
-	u32 ch1_coeff_f;
-	u32 win_fac;
-	u32 sign;
+	int ch0_coeff_i;
+	int ch1_coeff_i;
+	int ch0_coeff_f;
+	int ch1_coeff_f;
+	int win_fac;
+	int sign;
 } __attribute__((__packed__));
 
 static struct regulator_map power_config[] = {
@@ -195,23 +195,23 @@ static struct als_coeff eqtn_map[] = {
 		.ch1_coeff_i = 1,
 		.ch0_coeff_f = 7743,
 		.ch1_coeff_f = 1059,
-		.win_fac = 100,
+		.win_fac = 44,
 		.sign = 1,
 	},
 	{
 		.ch0_coeff_i = 4,
 		.ch1_coeff_i = 1,
 		.ch0_coeff_f = 2785,
-		.ch1_coeff_f = 696,
-		.win_fac = 80,
+		.ch1_coeff_f = 9548,
+		.win_fac = 50,
 		.sign = -1,
 	},
 	{
 		.ch0_coeff_i = 0,
 		.ch1_coeff_i = 0,
 		.ch0_coeff_f = 5926,
-		.ch1_coeff_f = 1300,
-		.win_fac = 44,
+		.ch1_coeff_f = 1185,
+		.win_fac = 40,
 		.sign = 1,
 	},
 	{
@@ -682,8 +682,7 @@ static int ltr553_init_device(struct ltr553_data *ltr)
 }
 
 /* Calculate the lux value based on ADC data */
-static int ltr553_calc_lux(int ch0data, int ch1data, int gain,
-		unsigned int als_int_fac)
+static int ltr553_calc_lux(int ch0data, int ch1data, int gain, int als_int_fac)
 {
 	int ratio;
 	int lux_i;
@@ -698,9 +697,9 @@ static int ltr553_calc_lux(int ch0data, int ch1data, int gain,
 	ratio = ch1data * 100 / (ch0data + ch1data);
 	if (ratio < 45)
 		eqtn = &eqtn_map[0];
-	else if ((ratio >= 45) && (ratio < 74))
+	else if ((ratio >= 45) && (ratio < 68))
 		eqtn = &eqtn_map[1];
-	else if ((ratio >= 74) && (ratio < 99))
+	else if ((ratio >= 68) && (ratio < 99))
 		eqtn = &eqtn_map[2];
 	else
 		eqtn = &eqtn_map[3];
@@ -716,8 +715,7 @@ static int ltr553_calc_lux(int ch0data, int ch1data, int gain,
 }
 
 /* Calculate adc value based on lux. Return value is positive */
-static int ltr553_calc_adc(int ratio, int lux, int gain,
-		unsigned int als_int_fac)
+static int ltr553_calc_adc(int ratio, int lux, int gain, int als_int_fac)
 {
 	int divisor_i;
 	int divisor_f;
@@ -755,8 +753,7 @@ static int ltr553_calc_adc(int ratio, int lux, int gain,
 
 /* update als gain and threshold */
 static int ltr553_als_update_setting(struct ltr553_data *ltr,
-		unsigned int ch0data, unsigned int ch1data,
-		unsigned int als_int_fac)
+		int ch0data, int ch1data, int als_int_fac)
 {
 	int gain_index;
 	unsigned int config;
@@ -872,15 +869,15 @@ static int ltr553_als_update_setting(struct ltr553_data *ltr,
 
 static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 {
-	unsigned int als_int_fac;
+	int als_int_fac;
 	ktime_t	timestamp;
 	int rc = 0;
 
 	unsigned int tmp;
 	u8 als_data[4];
 	int lux;
-	unsigned int ch0data;
-	unsigned int ch1data;
+	int ch0data;
+	int ch1data;
 
 	u8 ps_data[4];
 	int i;
