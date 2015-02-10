@@ -415,6 +415,19 @@ struct mmc_fixup {
 
 #define END_FIXUP { NULL }
 
+/* extended CSD mapping to mmc version */
+enum mmc_version_ext_csd_rev {
+	MMC_V4_0,
+	MMC_V4_1,
+	MMC_V4_2,
+	MMC_V4_41 = 5,
+	MMC_V4_5,
+	MMC_V4_51 = MMC_V4_5,
+	MMC_V5_0,
+	MMC_V5_01 = MMC_V5_0,
+	MMC_V5_1
+};
+
 #define _FIXUP_EXT(_name, _manfid, _oemid, _rev_start, _rev_end,	\
 		   _cis_vendor, _cis_device,				\
 		   _fixup, _data, _ext_csd_rev)				\
