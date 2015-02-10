@@ -176,6 +176,15 @@ config MSM_DEVFREQ_DEVBW
 	  agnostic interface to so that some of the devfreq governors can be
 	  shared across SoCs.
 
+config SPDM_SCM
+	bool "MSM SPDM SCM based call support"
+	depends on DEVFREQ_SPDM
+	help
+	  SPDM driver support the dcvs algorithm logic being accessed via
+	  scm or hvc calls. This adds the support for SPDM interaction to
+          tz via SCM based call. If not selected then Hypervior interaction
+          will be activated.
+
 config DEVFREQ_SPDM
 	bool "MSM SPDM based bandwidth voting"
 	depends on ARCH_MSM
