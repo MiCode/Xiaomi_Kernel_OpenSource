@@ -181,7 +181,14 @@ static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 	}
 
 	val = spm_legacy_mode << 2 | qchannel_ignore << 1;
-	spm_raw_write(val, dev->q2s_reg);
+
+	if (dev->reg_data.reg_shadow[MSM_SPM_REG_SAW_SPM_CTL] & 0x01) {
+		msm_spm_drv_set_spm_enable(&dev->reg_data, false);
+		spm_raw_write(val, dev->q2s_reg);
+		msm_spm_drv_set_spm_enable(&dev->reg_data, true);
+	} else {
+		spm_raw_write(val, dev->q2s_reg);
+	}
 }
 
 static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
@@ -637,14 +644,6 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	key = "qcom,use-qchannel-for-wfi";
 	dev->use_qchannel_for_wfi = of_property_read_bool(node, key);
 
-	/*
-	 * At system boot, cpus and or clusters can remain in reset. CCI SPM
-	 * will not be triggered unless SPM_LEGACY_MODE bit is set for the
-	 * cluster in reset. Initialize q2s registers and set the
-	 * SPM_LEGACY_MODE bit.
-	 */
-	msm_spm_config_q2s(dev, MSM_SPM_MODE_POWER_COLLAPSE);
-
 	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {
 		ret = of_property_read_u32(node, spm_of_data[i].key, &val);
 		if (ret)
@@ -682,13 +681,21 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	cpu = get_cpu_id(pdev->dev.of_node);
 
 	/* For CPUs that are online, the SPM has to be programmed for
-	 * clockgating mode to ensure that it can use SPM for entering these
-	 * low power modes.
+	 * clockgating mode to ensure that it can use SPM for entering
+	 * these low power modes.
 	 */
 	get_online_cpus();
 	if ((cpu >= 0) && (cpu < num_possible_cpus()) && (cpu_online(cpu)))
-		msm_spm_config_low_power_mode(dev, MSM_SPM_MODE_CLOCK_GATING,
-				false);
+		msm_spm_config_low_power_mode(dev,
+			MSM_SPM_MODE_CLOCK_GATING, false);
+	else
+		/*
+		* At system boot, cpus and or clusters can remain in reset.
+		* CCI SPM will not be triggered unless SPM_LEGACY_MODE bit
+		* is set for the cluster in reset. Initialize q2s registers
+		* and set the SPM_LEGACY_MODE bit.
+		*/
+		msm_spm_config_q2s(dev, MSM_SPM_MODE_POWER_COLLAPSE);
 	put_online_cpus();
 
 	return ret;
@@ -700,7 +707,8 @@ fail:
 			per_cpu(cpu_vctl_device, cpu) = ERR_PTR(ret);
 	}
 
-	pr_err("%s: CPU%d SPM device probe failed: %d\n", __func__, cpu, ret);
+	pr_err("%s: CPU%d SPM device probe failed: %d\n", __func__,
+		cpu, ret);
 
 	return ret;
 }
