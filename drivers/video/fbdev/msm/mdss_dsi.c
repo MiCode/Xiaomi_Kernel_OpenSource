@@ -658,9 +658,6 @@ static int mdss_dsi_reconfig(struct mdss_panel_data *pdata, int mode)
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
 	}
 
-	if (mode == MIPI_CMD_PANEL)
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
-
 	pr_debug("%s, end\n", __func__);
 	return 0;
 }
@@ -675,11 +672,13 @@ static int mdss_dsi_update_panel_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		pinfo->type = MIPI_CMD_PANEL;
 		pinfo->mipi.vsync_enable = 1;
 		pinfo->mipi.hw_vsync_mode = 1;
+		pinfo->partial_update_enabled = pinfo->partial_update_supported;
 	} else {	/*video mode*/
 		pinfo->mipi.mode = DSI_VIDEO_MODE;
 		pinfo->type = MIPI_VIDEO_PANEL;
 		pinfo->mipi.vsync_enable = 0;
 		pinfo->mipi.hw_vsync_mode = 0;
+		pinfo->partial_update_enabled = 0;
 	}
 
 	ctrl_pdata->panel_mode = pinfo->mipi.mode;
@@ -1306,7 +1305,7 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 
 	pinfo = &pdata->panel_info;
 
-	if (!pinfo->partial_update_enabled)
+	if (!pinfo->partial_update_supported)
 		return -EINVAL;
 
 	roi = &pinfo->roi;

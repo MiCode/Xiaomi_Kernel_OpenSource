@@ -930,6 +930,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 		u32 *offsets,  u32 count);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
+void mdss_mdp_switch_roi_reset(struct mdss_mdp_ctl *ctl);
 void mdss_mdp_switch_to_cmd_mode(struct mdss_mdp_ctl *ctl, int prep);
 void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep);
 void *mdss_mdp_get_intf_base_addr(struct mdss_data_type *mdata,
