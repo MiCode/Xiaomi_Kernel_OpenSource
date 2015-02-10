@@ -31,6 +31,12 @@ Optional properties:
 				these two irq pins according device configuration.
  - bosch,gpio-int2	: 2nd irq gpio which is to provide interrupts
 				to host.
+ - bosch,use-interrupt	: Use device interrupt to trigger data acquisition
+				instead of polling data.
+ - bosch,use-int2	: Map interrupt signal to 2nd interrupt pin of device.
+				If this property is defined, data ready, fifo full and
+				other event will trigger level change on interrupt pin2
+				instead of interrupt pin1.
 
 Example:
 &i2c_0 { /* BLSP1 QUP2 */
