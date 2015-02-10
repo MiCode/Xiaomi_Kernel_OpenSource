@@ -1482,6 +1482,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (gpudev->enable_pc)
 		gpudev->enable_pc(adreno_dev);
 
+	/* GPMU initialization and start */
+	if (gpudev->gpmu_start)
+		gpudev->gpmu_start(adreno_dev);
+
 	/* Enable peak power detect feature */
 	if (gpudev->enable_ppd)
 		gpudev->enable_ppd(adreno_dev);

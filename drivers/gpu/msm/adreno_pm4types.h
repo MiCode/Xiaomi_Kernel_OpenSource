@@ -22,6 +22,7 @@
 #define CP_TYPE4_PKT    ((unsigned int)4 << 28)
 #define CP_TYPE7_PKT    ((unsigned int)7 << 28)
 
+#define PM4_TYPE4_PKT_SIZE_MAX  128
 
 /* type3 packets */
 
