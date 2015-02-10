@@ -1937,6 +1937,8 @@ int hdmi_edid_read(void *input)
 		sizeof(edid_ctrl->audio_data_block));
 	memset(edid_ctrl->spkr_alloc_data_block, 0,
 		sizeof(edid_ctrl->spkr_alloc_data_block));
+	memset(&edid_ctrl->sink_caps, 0, sizeof(edid_ctrl->sink_caps));
+
 	edid_ctrl->adb_size = 0;
 	edid_ctrl->sadb_size = 0;
 
@@ -2109,6 +2111,18 @@ u32 hdmi_edid_get_sink_mode(void *input)
 
 	return edid_ctrl->sink_mode;
 } /* hdmi_edid_get_sink_mode */
+
+bool hdmi_edid_get_scdc_support(void *input)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = input;
+
+	if (!edid_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return false;
+	}
+
+	return edid_ctrl->sink_caps.scdc_present;
+}
 
 bool hdmi_edid_get_sink_scrambler_support(void *input)
 {

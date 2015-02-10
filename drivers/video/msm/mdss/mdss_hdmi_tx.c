@@ -2857,7 +2857,52 @@ static void hdmi_tx_audio_off(struct hdmi_tx_ctrl *hdmi_ctrl)
 	DEV_INFO("HDMI Audio: Disabled\n");
 } /* hdmi_tx_audio_off */
 
-static int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
+static int hdmi_tx_setup_tmds_clk_ratio(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int rc = 0;
+	u32 rate = 0;
+	struct msm_hdmi_mode_timing_info *timing = NULL;
+	u32 tmds_clock_ratio = 0;
+	u32 rate_ratio;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: Bad input parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	timing = &hdmi_ctrl->vid_cfg.timing;
+	if (!timing) {
+		DEV_ERR("%s: Invalid timing info\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (hdmi_ctrl->vid_cfg.avi_iframe.pixel_format) {
+	case MDP_Y_CBCR_H2V2:
+		rate_ratio = HDMI_TX_YUV420_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	case MDP_Y_CBCR_H2V1:
+		rate_ratio = HDMI_TX_YUV422_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	default:
+		rate_ratio = HDMI_TX_RGB_24BPP_PCLK_TMDS_CH_RATE_RATIO;
+		break;
+	}
+
+	rate = timing->pixel_freq / rate_ratio;
+
+	if (rate > HDMI_TX_SCRAMBLER_THRESHOLD_RATE_KHZ) {
+		DEV_DBG("%s: TMDS CLOCK PERIOD RATIO: 1\n", __func__);
+		tmds_clock_ratio = 1;
+	}
+
+	rc = hdmi_scdc_write(&hdmi_ctrl->ddc_ctrl,
+			     HDMI_TX_SCDC_TMDS_BIT_CLOCK_RATIO_UPDATE,
+			     tmds_clock_ratio);
+
+	return rc;
+}
+
+int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
 	u32 rate = 0;
@@ -2889,6 +2934,11 @@ static int hdmi_tx_setup_scrambler(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return 0;
 	}
 
+	if (!hdmi_edid_get_scdc_support(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID])) {
+		DEV_DBG("%s: HDMI TX does not support scdc\n", __func__);
+		return 0;
+	}
 	switch (hdmi_ctrl->vid_cfg.avi_iframe.pixel_format) {
 	case MDP_Y_CBCR_H2V2:
 		rate = timing->pixel_freq /
@@ -3150,7 +3200,15 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			goto end;
 		}
 	}
+	if (hdmi_edid_get_scdc_support(
+			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID])) {
 
+		rc = hdmi_tx_setup_tmds_clk_ratio(hdmi_ctrl);
+		if (rc) {
+			DEV_ERR("%s: failed to set TMDS CLK RATIO\n", __func__);
+			return rc;
+		}
+	}
 	rc = hdmi_tx_core_on(hdmi_ctrl);
 	if (rc) {
 		DEV_ERR("%s: hdmi_msm_core_on failed\n", __func__);
