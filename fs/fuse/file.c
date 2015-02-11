@@ -703,7 +703,7 @@ static int fuse_readpage(struct file *file, struct page *page)
 		SetPageUptodate(page);
 	}
 
-	fuse_invalidate_attr(inode); /* atime changed */
+	fuse_invalidate_atime(inode);
  out:
 	unlock_page(page);
 	return err;
@@ -732,7 +732,7 @@ static void fuse_readpages_end(struct fuse_conn *fc, struct fuse_req *req)
 			fuse_read_update_size(inode, pos,
 					      req->misc.read.attr_ver);
 		}
-		fuse_invalidate_attr(inode); /* atime changed */
+		fuse_invalidate_atime(inode);
 	}
 
 	for (i = 0; i < req->num_pages; i++) {
