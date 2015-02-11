@@ -52,7 +52,7 @@
 #include "bstclass.h"
 
 #define ACC_NAME  "ACC"
-/*#define CONFIG_BMA_ENABLE_NEWDATA_INT 1*/
+#define BMA2X2_ENABLE_INT1
 
 #ifdef ENABLE_ISR_DEBUG_MSG
 #define ISR_INFO(dev, fmt, arg...) dev_info(dev, fmt, ##arg)
@@ -76,7 +76,7 @@
 #define SLOPE_Z_INDEX               7
 #define BMA2X2_RANGE_SET            3 /* +/- 2G */
 #define BMA2X2_RANGE_SHIFT          4 /* shift 4 bits for 2G */
-#define BMA2X2_BW_SET               13 /* 250HZ  */
+#define BMA2X2_BW_SET               12 /* 125HZ  */
 
 #define I2C_RETRY_DELAY()           usleep_range(1000, 2000)
 /* wait 2ms for calibration ready */
@@ -1237,6 +1237,24 @@
 #define BMA2X2_SET_BITSLICE(regvar, bitname, val)\
 	((regvar & ~bitname##__MSK) | ((val<<bitname##__POS)&bitname##__MSK))
 
+#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
+#define BMA2x2_IS_NEWDATA_INT_ENABLED()	(true)
+#else
+#define BMA2x2_IS_NEWDATA_INT_ENABLED()	(false)
+#endif
+
+#ifdef BMA2X2_ENABLE_INT1
+#define BMA2x2_IS_INT1_ENABLED()	(true)
+#else
+#define BMA2x2_IS_INT1_ENABLED()	(false)
+#endif
+
+#ifdef BMA2X2_ENABLE_INT2
+#define BMA2x2_IS_INT2_ENABLED()	(true)
+#else
+#define BMA2x2_IS_INT2_ENABLED()	(false)
+#endif
+
 #define CHECK_CHIP_ID_TIME_MAX 5
 #define BMA255_CHIP_ID 0XFA
 #define BMA250E_CHIP_ID 0XF9
@@ -1447,12 +1465,21 @@ struct bma2x2_platform_data {
 	int poll_interval;
 	int gpio_int1;
 	int gpio_int2;
+	unsigned int int1_flag;
+	unsigned int int2_flag;
 	s8 place;
-	bool use_int;
+	bool int_en;
+	bool use_int2; /* Use interrupt pin2 */
 };
 
 struct bma2x2_suspend_state {
 	bool powerEn;
+};
+
+struct bma2x2_pinctrl_data {
+	struct pinctrl          *pctrl;
+	struct pinctrl_state    *pins_default;
+	struct pinctrl_state    *pins_sleep;
 };
 
 struct bma2x2_data {
@@ -1483,6 +1510,7 @@ struct bma2x2_data {
 	bool power_enabled;
 	unsigned char bandwidth;
 	unsigned char range;
+	unsigned int int_flag;
 	int sensitivity;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend;
@@ -1490,6 +1518,7 @@ struct bma2x2_data {
 	int IRQ;
 	struct bma2x2_platform_data *pdata;
 	struct bma2x2_suspend_state suspend_state;
+	struct bma2x2_pinctrl_data *pctrl_data;
 
 	int ref_count;
 	struct input_dev *dev_interrupt;
@@ -1531,6 +1560,7 @@ static int bma2x2_store_state(struct i2c_client *client,
 static int bma2x2_power_ctl(struct bma2x2_data *data, bool on);
 static int bma2x2_eeprom_prog(struct i2c_client *client);
 static int bma2x2_get_sensitivity(struct bma2x2_data *bma2x2, int range);
+static void bma2x2_pinctrl_state(struct bma2x2_data *data, bool active);
 
 static struct sensors_classdev sensors_cdev = {
 		.name = "bma2x2-accel",
@@ -1744,7 +1774,7 @@ static int bma2x2_check_chip_id(struct i2c_client *client,
 	return err;
 }
 
-#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
+#if defined(BMA2X2_ENABLE_INT1) || defined(BMA2X2_ENABLE_INT2)
 static int bma2x2_set_newdata(struct i2c_client *client,
 			unsigned char channel, unsigned char int_newdata)
 {
@@ -1777,7 +1807,7 @@ static int bma2x2_set_newdata(struct i2c_client *client,
 	return comres;
 
 }
-#endif /* CONFIG_BMA_ENABLE_NEWDATA_INT */
+#endif
 
 #ifdef BMA2X2_ENABLE_INT1
 static int bma2x2_set_int1_pad_sel(struct i2c_client *client, unsigned char
@@ -2243,6 +2273,44 @@ static int bma2x2_set_Int_Mode(struct i2c_client *client, unsigned char Mode)
 	comres = bma2x2_smbus_write_byte(client,
 			BMA2X2_INT_MODE_SEL__REG, &data);
 
+
+	return comres;
+}
+
+static int bma2x2_set_int1_active_lvl(struct i2c_client *client,
+		bool activeHigh)
+{
+	int comres = 0;
+	unsigned char data;
+
+	comres = bma2x2_smbus_read_byte(client,
+			BMA2X2_INT1_PAD_ACTIVE_LEVEL__REG, &data);
+	if (comres)
+		return comres;
+
+	data = BMA2X2_SET_BITSLICE(data,
+		BMA2X2_INT1_PAD_ACTIVE_LEVEL, activeHigh ? 1 : 0);
+	comres = bma2x2_smbus_write_byte(client,
+			BMA2X2_INT1_PAD_ACTIVE_LEVEL__REG, &data);
+
+	return comres;
+}
+
+static int bma2x2_set_int2_active_lvl(struct i2c_client *client,
+		bool activeHigh)
+{
+	int comres = 0;
+	unsigned char data;
+
+	comres = bma2x2_smbus_read_byte(client,
+			BMA2X2_INT2_PAD_ACTIVE_LEVEL__REG, &data);
+	if (comres)
+		return comres;
+
+	data = BMA2X2_SET_BITSLICE(data,
+		BMA2X2_INT2_PAD_ACTIVE_LEVEL, activeHigh ? 1 : 0);
+	comres = bma2x2_smbus_write_byte(client,
+			BMA2X2_INT2_PAD_ACTIVE_LEVEL__REG, &data);
 
 	return comres;
 }
@@ -3865,6 +3933,67 @@ static ssize_t bma2x2_enable_int_store(struct device *dev,
 	return count;
 }
 
+#if defined(BMA2X2_ENABLE_INT1)
+static int bma2x2_sel_int1_pad(const struct bma2x2_data *data)
+{
+	struct i2c_client *client = data->bma2x2_client;
+	int err = 0;
+
+	/* maps interrupt to INT1 pin */
+	err |= bma2x2_set_int1_pad_sel(client, PAD_LOWG);
+	err |= bma2x2_set_int1_pad_sel(client, PAD_HIGHG);
+	err |= bma2x2_set_int1_pad_sel(client, PAD_SLOP);
+	err |= bma2x2_set_int1_pad_sel(client, PAD_DOUBLE_TAP);
+	err |= bma2x2_set_int1_pad_sel(client, PAD_SINGLE_TAP);
+	err |= bma2x2_set_int1_pad_sel(client, PAD_ORIENT);
+	err |= bma2x2_set_int1_pad_sel(client, PAD_FLAT);
+	err |= bma2x2_set_int1_pad_sel(client, PAD_SLOW_NO_MOTION);
+	err |= bma2x2_set_newdata(client, BMA2X2_INT1_NDATA, 1);
+	err |= bma2x2_set_newdata(client, BMA2X2_INT2_NDATA, 0);
+
+	if (err) {
+		dev_err(&client->dev, "select pad int1 error, ret=%d\n", err);
+		err = -EIO;
+	}
+	return err;
+}
+#else
+static int bma2x2_sel_int1_pad(const struct bma2x2_data *data)
+{
+	return -EPERM;
+}
+#endif /* BMA2X2_ENABLE_INT1 */
+
+#if defined(BMA2X2_ENABLE_INT2)
+static int bma2x2_sel_int2_pad(const struct bma2x2_data *data)
+{
+	struct i2c_client *client = data->bma2x2_client;
+	int err = 0;
+
+	/* maps interrupt to INT2 pin */
+	err |= bma2x2_set_int2_pad_sel(client, PAD_LOWG);
+	err |= bma2x2_set_int2_pad_sel(client, PAD_HIGHG);
+	err |= bma2x2_set_int2_pad_sel(client, PAD_SLOP);
+	err |= bma2x2_set_int2_pad_sel(client, PAD_DOUBLE_TAP);
+	err |= bma2x2_set_int2_pad_sel(client, PAD_SINGLE_TAP);
+	err |= bma2x2_set_int2_pad_sel(client, PAD_ORIENT);
+	err |= bma2x2_set_int2_pad_sel(client, PAD_FLAT);
+	err |= bma2x2_set_int2_pad_sel(client, PAD_SLOW_NO_MOTION);
+	err |= bma2x2_set_newdata(client, BMA2X2_INT1_NDATA, 0);
+	err |= bma2x2_set_newdata(client, BMA2X2_INT2_NDATA, 1);
+
+	if (err) {
+		dev_err(&client->dev, "select pad int1 error, ret=%d\n", err);
+		err = -EIO;
+	}
+	return err;
+}
+#else
+static int bma2x2_sel_int2_pad(const struct bma2x2_data *data)
+{
+	return -EPERM;
+}
+#endif /* BMA2X2_ENABLE_INT2 */
 
 static ssize_t bma2x2_int_mode_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -4875,26 +5004,26 @@ static int bma2x2_read_accel_xyz(struct i2c_client *client,
 	return comres;
 }
 
-static void bma2x2_report_axis_data(struct bma2x2_data *bma2x2)
+static void bma2x2_report_axis_data(struct bma2x2_data *bma2x2,
+			struct bma2x2acc *value)
 {
-	struct bma2x2acc acc;
 	ktime_t ts;
 	int err;
 
 	ts = ktime_get();
 	err = bma2x2_read_accel_xyz(bma2x2->bma2x2_client,
-			bma2x2->sensor_type, &acc);
+			bma2x2->sensor_type, value);
 	if (err < 0) {
 		dev_err(&bma2x2->bma2x2_client->dev,
 			"read accel data failed! err = %d\n", err);
 		return;
 	}
 	input_report_abs(bma2x2->input, ABS_X,
-			(int)acc.x << bma2x2->sensitivity);
+			(int)value->x << bma2x2->sensitivity);
 	input_report_abs(bma2x2->input, ABS_Y,
-			(int)acc.y << bma2x2->sensitivity);
+			(int)value->y << bma2x2->sensitivity);
 	input_report_abs(bma2x2->input, ABS_Z,
-			(int)acc.z << bma2x2->sensitivity);
+			(int)value->z << bma2x2->sensitivity);
 	input_event(bma2x2->input, EV_SYN, SYN_TIME_SEC,
 			ktime_to_timespec(ts).tv_sec);
 	input_event(bma2x2->input, EV_SYN, SYN_TIME_NSEC,
@@ -4902,21 +5031,19 @@ static void bma2x2_report_axis_data(struct bma2x2_data *bma2x2)
 	input_sync(bma2x2->input);
 }
 
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
 static void bma2x2_work_func(struct work_struct *work)
 {
 	struct bma2x2_data *bma2x2 = container_of((struct delayed_work *)work,
 			struct bma2x2_data, work);
-	static struct bma2x2acc acc;
+	struct bma2x2acc value;
 	unsigned long delay = msecs_to_jiffies(atomic_read(&bma2x2->delay));
 
-	bma2x2_report_axis_data(bma2x2);
+	bma2x2_report_axis_data(bma2x2, &value);
 	mutex_lock(&bma2x2->value_mutex);
-	bma2x2->value = acc;
+	bma2x2->value = value;
 	mutex_unlock(&bma2x2->value_mutex);
 	queue_delayed_work(bma2x2->data_wq, &bma2x2->work, delay);
 }
-#endif
 
 static ssize_t bma2x2_register_store(struct device *dev,
 		struct device_attribute *attr,
@@ -5150,6 +5277,67 @@ static ssize_t bma2x2_enable_show(struct device *dev,
 
 }
 
+static int bma2x2_config_interrupt(struct bma2x2_data *data, int enable)
+{
+	struct i2c_client *client = data->bma2x2_client;
+	int err = 0;
+	bool act_high;
+
+	if (!enable)
+		/* No need reset these interrupt configurations */
+		goto exit;
+
+	if ((data->int_flag | IRQF_TRIGGER_RISING) ||
+			(data->int_flag | IRQF_TRIGGER_HIGH))
+		act_high = true;
+	else
+		act_high = false;
+
+	if (data->pdata->use_int2) {
+		err = bma2x2_sel_int2_pad(data);
+		if (err) {
+			dev_err(&client->dev,
+				"Failed to select int2 pad, err=%d\n",
+				err);
+			goto exit;
+		}
+
+		err = bma2x2_set_int2_active_lvl(client, act_high);
+		if (err) {
+			dev_err(&client->dev,
+				"Failed to select int2 level, err=%d\n",
+				err);
+			goto exit;
+		}
+	} else {
+		err = bma2x2_sel_int1_pad(data);
+		if (err) {
+			dev_err(&client->dev,
+				"Failed to select int1 pad, err=%d\n",
+				err);
+			goto exit;
+		}
+		err = bma2x2_set_int1_active_lvl(client, act_high);
+		if (err) {
+			dev_err(&client->dev,
+				"Failed to select int2 level, err=%d\n",
+				err);
+			goto exit;
+		}
+	}
+
+	err = bma2x2_set_Int_Mode(client, BMA2X2_LATCH_DUR_LATCH1);
+	if (err) {
+		dev_err(&client->dev,
+			"Failed to set interrupt latch, err=%d\n",
+			err);
+		goto exit;
+	}
+
+exit:
+	return err;
+}
+
 static void bma2x2_set_enable(struct device *dev, int enable)
 {
 	struct i2c_client *client = to_i2c_client(dev);
@@ -5169,11 +5357,27 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 			}
 			bma2x2_set_mode(bma2x2->bma2x2_client,
 					BMA2X2_MODE_NORMAL);
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
-			queue_delayed_work(bma2x2->data_wq,
-				&bma2x2->work,
-				msecs_to_jiffies(atomic_read(&bma2x2->delay)));
-#endif
+			if ((bma2x2->pdata->int_en) &&
+				(BMA2x2_IS_NEWDATA_INT_ENABLED())) {
+				if (bma2x2_config_interrupt(bma2x2, true)) {
+					dev_err(&client->dev,
+						"config interrupt failed\n");
+					goto mutex_exit;
+				}
+				if (bma2x2_set_Int_Enable(client,
+					BMA2X2_DATA_EN, 1)) {
+					dev_err(&client->dev,
+						"enable interrupt failed\n");
+					goto mutex_exit;
+				}
+				bma2x2_pinctrl_state(bma2x2, true);
+				enable_irq(bma2x2->IRQ);
+			} else {
+				queue_delayed_work(bma2x2->data_wq,
+					&bma2x2->work,
+					msecs_to_jiffies
+					(atomic_read(&bma2x2->delay)));
+			}
 			atomic_set(&bma2x2->enable, 1);
 		}
 
@@ -5185,9 +5389,27 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 			}
 			bma2x2_set_mode(bma2x2->bma2x2_client,
 					BMA2X2_MODE_SUSPEND);
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
-			cancel_delayed_work_sync(&bma2x2->work);
-#endif
+			bma2x2_pinctrl_state(bma2x2, false);
+			if ((bma2x2->pdata->int_en) &&
+				(BMA2x2_IS_NEWDATA_INT_ENABLED())) {
+				disable_irq(bma2x2->IRQ);
+				bma2x2_pinctrl_state(bma2x2, false);
+				if (bma2x2_set_Int_Enable(client,
+					BMA2X2_DATA_EN, 0)) {
+					dev_err(&client->dev,
+						"disable interrupt failed\n");
+					goto mutex_exit;
+				}
+
+				if (bma2x2_config_interrupt(bma2x2, false)) {
+					dev_err(&client->dev,
+						"deconfig interrupt failed\n");
+					goto mutex_exit;
+				}
+			} else {
+				cancel_delayed_work_sync(&bma2x2->work);
+			}
+
 			atomic_set(&bma2x2->enable, 0);
 			if (bma2x2_power_ctl(bma2x2, false)) {
 				dev_err(dev, "power failed\n");
@@ -5197,7 +5419,10 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 	}
 mutex_exit:
 	mutex_unlock(&bma2x2->enable_mutex);
-
+	dev_dbg(&client->dev,
+		"set enable: en=%d, en_state=%d, use_int=%d\n",
+		enable, atomic_read(&bma2x2->enable),
+		bma2x2->pdata->int_en);
 }
 
 static ssize_t bma2x2_enable_store(struct device *dev,
@@ -6688,6 +6913,72 @@ static void bma2x2_slope_interrupt_handle(struct bma2x2_data *bma2x2)
 }
 #endif
 
+#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
+static void bma2x2_read_new_data(struct bma2x2_data *bma2x2)
+{
+	struct bma2x2acc value;
+
+	bma2x2_report_axis_data(bma2x2, &value);
+	mutex_lock(&bma2x2->value_mutex);
+	bma2x2->value = value;
+	mutex_unlock(&bma2x2->value_mutex);
+	return;
+}
+
+static int bma2x2_data_ready_handle(struct bma2x2_data *bma2x2)
+{
+	int ret;
+	unsigned char status = 0;
+
+	ret = bma2x2_get_interruptstatus2(bma2x2->bma2x2_client, &status);
+	if (ret) {
+		dev_err(&bma2x2->bma2x2_client->dev,
+			"read interrupt status2 err, err=%d\n", ret);
+		return -EIO;
+	}
+
+	if ((status & 0x80) == 0x80) {
+		bma2x2_read_new_data(bma2x2);
+		return 0;
+	}
+
+	if (status != 0) {
+		dev_dbg(&bma2x2->bma2x2_client->dev,
+			"Interrupt flag is detected, state2 =0x%x\n",
+			status);
+		return -EAGAIN;
+	}
+
+	/* Check if any other interrupt is triggered. */
+	ret = bma2x2_get_interruptstatus1(bma2x2->bma2x2_client,
+			&status);
+	if (ret) {
+		dev_err(&bma2x2->bma2x2_client->dev,
+			"read interrupt status1 err, err=%d\n", ret);
+		return -EIO;
+	}
+
+	/*
+	  * Read new data if no other interrupt is triggered.
+	  * BMA2x2 data ready flag will be cleared if new data acquisition
+	  * is started, sometimes we cannot get that flag.
+	  */
+	if (status == 0) {
+		bma2x2_read_new_data(bma2x2);
+		return 0;
+	}
+
+	dev_dbg(&bma2x2->bma2x2_client->dev,
+		"Data ready int is not detected, state1 =0x%x\n", status);
+	return -EAGAIN;
+}
+#else
+static int bma2x2_data_ready_handle(struct bma2x2_data *bma2x2)
+{
+	return -EAGAIN;
+}
+#endif
+
 static void bma2x2_irq_work_func(struct work_struct *work)
 {
 	struct bma2x2_data *bma2x2 = container_of((struct work_struct *)work,
@@ -6700,23 +6991,12 @@ static void bma2x2_irq_work_func(struct work_struct *work)
 	unsigned char first_value = 0;
 	unsigned char sign_value = 0;
 
-#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
-	static struct bma2x2acc acc;
-
-	bma2x2_get_interruptstatus2(bma2x2->bma2x2_client, &status);
-
-	if ((status&0x80) == 0x80) {
-		bma2x2_report_axis_data(bma2x2);
-		mutex_lock(&bma2x2->value_mutex);
-		bma2x2->value = acc;
-		mutex_unlock(&bma2x2->value_mutex);
+	if (bma2x2_data_ready_handle(bma2x2) != -EAGAIN)
 		return;
-	}
-#endif
 
 	bma2x2_get_interruptstatus1(bma2x2->bma2x2_client, &status);
 	ISR_INFO(&bma2x2->bma2x2_client->dev,
-		"bma2x2_irq_work_func, status = 0x%x\n", status);
+		"bma2x2_irq_work_func, status = 0x%x, ret=%d\n", status);
 
 #ifdef CONFIG_SIG_MOTION
 	if (status & 0x04)	{
@@ -6876,8 +7156,27 @@ static irqreturn_t bma2x2_irq_handler(int irq, void *handle)
 	if (data->bma2x2_client == NULL)
 		return IRQ_HANDLED;
 
-	schedule_work(&data->irq_work);
+	queue_work(data->data_wq, &data->irq_work);
 
+	return IRQ_HANDLED;
+}
+#else
+static void bma2x2_irq_work_func(struct work_struct *work)
+{
+	struct bma2x2_data *bma2x2 = container_of((struct work_struct *)work,
+			struct bma2x2_data, irq_work);
+
+	dev_dbg(&bma2x2->bma2x2_client->dev,
+		"Interrupt feature is not enabled!\n");
+	return;
+}
+
+static irqreturn_t bma2x2_irq_handler(int irq, void *handle)
+{
+	struct bma2x2_data *bma2x2 = handle;
+
+	dev_dbg(&bma2x2->bma2x2_client->dev,
+		"Interrupt feature is not enabled!\n");
 	return IRQ_HANDLED;
 }
 #endif /* defined(BMA2X2_ENABLE_INT1)||defined(BMA2X2_ENABLE_INT2) */
@@ -7028,13 +7327,16 @@ static int bma2x2_parse_dt(struct device *dev,
 		pdata->place = temp_val;
 	}
 
-	pdata->use_int = of_property_read_bool(np, "bosch,use-interrupt");
+	pdata->int_en = of_property_read_bool(np, "bosch,use-interrupt");
+
+	pdata->use_int2 = of_property_read_bool(np, "bosch,use-int2");
 
 	pdata->gpio_int1 = of_get_named_gpio_flags(dev->of_node,
-				"bosch,gpio-int1", 0, NULL);
+				"bosch,gpio-int1", 0, &pdata->int1_flag);
 
 	pdata->gpio_int2 = of_get_named_gpio_flags(dev->of_node,
-				"bosch,gpio-int2", 0, NULL);
+				"bosch,gpio-int2", 0, &pdata->int2_flag);
+
 	return 0;
 }
 #else
@@ -7098,6 +7400,114 @@ static int bma2x2_open_init(struct i2c_client *client,
 	return 0;
 }
 
+static int bma2x2_get_interrupt_gpio(const struct bma2x2_data *data,
+			const unsigned int gpio)
+{
+	struct i2c_client *client = data->bma2x2_client;
+	int err;
+
+	if (!gpio_is_valid(gpio)) {
+		dev_err(&client->dev,
+			"gpio(%d) is invalid,\n", gpio);
+		return -EINVAL;
+	}
+
+	err = gpio_request(gpio, "bma2x2_gpio_int");
+	if (err) {
+		dev_err(&client->dev,
+			"Unable to request gpio %d, err=%d\n",
+			gpio, err);
+		return err;
+	}
+
+	err = gpio_direction_input(gpio);
+	if (err) {
+		dev_err(&client->dev,
+			"Unable to set gpio direction %d, err=%d\n",
+			gpio, err);
+		gpio_free(gpio);
+		return err;
+	}
+
+	client->irq = gpio_to_irq(gpio);
+	dev_dbg(&client->dev, "Interrupt gpio=%d, irq=%d\n", gpio, client->irq);
+
+	return 0;
+}
+
+static int bma2x2_pinctrl_init(struct bma2x2_data *data)
+{
+	struct i2c_client *client = data->bma2x2_client;
+	struct bma2x2_pinctrl_data *pctrl_data;
+	struct pinctrl *pctrl;
+	int ret = 0;
+
+	pctrl = devm_pinctrl_get(&client->dev);
+	if (IS_ERR_OR_NULL(pctrl)) {
+		ret = PTR_ERR(pctrl);
+		dev_err(&client->dev,
+			"Failed to get pin pinctrl, err:%d\n", ret);
+		goto exit;
+	}
+	pctrl_data = devm_kzalloc(&client->dev,
+			sizeof(*pctrl_data), GFP_KERNEL);
+	if (!pctrl_data) {
+		dev_err(&client->dev, "No memory for pinctrl data\n");
+		ret = -ENOMEM;
+		goto exit;
+	}
+	pctrl_data->pctrl = pctrl;
+
+	pctrl_data->pins_default = pinctrl_lookup_state(pctrl, "default");
+	if (IS_ERR_OR_NULL(pctrl_data->pins_default)) {
+		ret = PTR_ERR(pctrl_data->pins_default);
+		dev_err(&client->dev,
+			"Could not get default pinstate, err:%d\n", ret);
+		goto exit;
+	}
+	/* "sleep" state is optional to compatible with old config  */
+	pctrl_data->pins_sleep = pinctrl_lookup_state(pctrl, "sleep");
+	if (IS_ERR_OR_NULL(pctrl_data->pins_sleep)) {
+		dev_info(&client->dev,
+			"Could not get sleep pinstate, err:%ld\n",
+			PTR_ERR(pctrl_data->pins_sleep));
+		pctrl_data->pins_sleep = NULL;
+	}
+	data->pctrl_data = pctrl_data;
+
+exit:
+	return ret;
+}
+
+static void bma2x2_pinctrl_state(struct bma2x2_data *data,
+			bool active)
+{
+	struct device dev = data->bma2x2_client->dev;
+	int ret;
+
+	if (!data->pctrl_data)
+		return;
+
+	if (active) {
+		ret = pinctrl_select_state(data->pctrl_data->pctrl,
+				data->pctrl_data->pins_default);
+		if (ret)
+			dev_info(&dev,
+				"Select default pinstate err:%d\n", ret);
+	} else {
+		if (!data->pctrl_data->pins_sleep) {
+			dev_dbg(&dev, "Pinstate 'sleep' is not defined\n");
+		} else {
+			ret = pinctrl_select_state(data->pctrl_data->pctrl,
+					data->pctrl_data->pins_sleep);
+			if (ret)
+				dev_info(&dev, "Select sleep pinstate err:%d\n",
+					ret);
+		}
+	}
+	dev_dbg(&dev, "Select pinctrl state=%d\n", active);
+}
+
 static int bma2x2_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -7135,7 +7545,7 @@ static int bma2x2_probe(struct i2c_client *client,
 		}
 	} else {
 		pdata = client->dev.platform_data;
-		dev_err(&client->dev, "use  platform data\n");
+		dev_err(&client->dev, "Use platform data\n");
 	}
 
 	if (!pdata) {
@@ -7184,77 +7594,63 @@ static int bma2x2_probe(struct i2c_client *client,
 		err = -EINVAL;
 		goto disable_power_exit;
 	}
-#if defined(BMA2X2_ENABLE_INT1) || defined(BMA2X2_ENABLE_INT2)
 
-	pdata = client->dev.platform_data;
-	if (pdata) {
-		if (pdata->irq_gpio_cfg && (pdata->irq_gpio_cfg() < 0)) {
+	err = bma2x2_pinctrl_init(data);
+	if (err) {
+		dev_err(&client->dev,
+			"Failed to init pinctrl err=%d\n", err);
+		err = -EINVAL;
+		goto disable_power_exit;
+	}
+	if (pdata->int_en) {
+		/* check interrupt feature enable state */
+		if ((pdata->use_int2 && (!BMA2x2_IS_INT2_ENABLED())) ||
+			(!pdata->use_int2 && (!BMA2x2_IS_INT1_ENABLED()))) {
 			dev_err(&client->dev,
-				"IRQ GPIO conf. error %d\n",
-				client->irq);
+				"Interrupt support is not enabled, int1=%d, int2=%d use_int2=%d\n",
+				BMA2x2_IS_INT1_ENABLED(),
+				BMA2x2_IS_INT2_ENABLED(),
+				pdata->use_int2);
+			err = -EINVAL;
+			goto disable_power_exit;
 		}
+
+		if (pdata->use_int2) {
+			data->int_flag = pdata->int2_flag;
+			err = bma2x2_get_interrupt_gpio(data,
+					pdata->gpio_int2);
+		} else {
+			data->int_flag = pdata->int1_flag;
+			err = bma2x2_get_interrupt_gpio(data,
+					pdata->gpio_int1);
+		}
+		if (err) {
+			dev_err(&client->dev,
+				"Failed to get interrupt gpio, err=%d\n",
+				err);
+			err = -EINVAL;
+			goto set_pinctrl_sleep;
+		}
+
+		data->IRQ = client->irq;
+		if (!data->int_flag)
+			data->int_flag = IRQF_TRIGGER_FALLING | IRQF_ONESHOT;
+
+		dev_dbg(&client->dev, "IRQ=%d, use_int2=%d, int_flag=0x%x\n",
+			data->IRQ, pdata->use_int2, data->int_flag);
+
+		err = request_irq(data->IRQ, bma2x2_irq_handler,
+			data->int_flag, "bma2x2", data);
+		if (err) {
+			dev_err(&client->dev,  "Could not request irq\n");
+			goto free_interrupt_gpio;
+		}
+		disable_irq(data->IRQ);
+		INIT_WORK(&data->irq_work, bma2x2_irq_work_func);
+	} else {
+		INIT_DELAYED_WORK(&data->work, bma2x2_work_func);
 	}
 
-#ifdef BMA2X2_ENABLE_INT1
-	/* maps interrupt to INT1 pin */
-	bma2x2_set_int1_pad_sel(client, PAD_LOWG);
-	bma2x2_set_int1_pad_sel(client, PAD_HIGHG);
-	bma2x2_set_int1_pad_sel(client, PAD_SLOP);
-	bma2x2_set_int1_pad_sel(client, PAD_DOUBLE_TAP);
-	bma2x2_set_int1_pad_sel(client, PAD_SINGLE_TAP);
-	bma2x2_set_int1_pad_sel(client, PAD_ORIENT);
-	bma2x2_set_int1_pad_sel(client, PAD_FLAT);
-	bma2x2_set_int1_pad_sel(client, PAD_SLOW_NO_MOTION);
-#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
-	bma2x2_set_newdata(client, BMA2X2_INT1_NDATA, 1);
-	bma2x2_set_newdata(client, BMA2X2_INT2_NDATA, 0);
-#endif
-#endif
-
-#ifdef BMA2X2_ENABLE_INT2
-	/* maps interrupt to INT2 pin */
-	bma2x2_set_int2_pad_sel(client, PAD_LOWG);
-	bma2x2_set_int2_pad_sel(client, PAD_HIGHG);
-	bma2x2_set_int2_pad_sel(client, PAD_SLOP);
-	bma2x2_set_int2_pad_sel(client, PAD_DOUBLE_TAP);
-	bma2x2_set_int2_pad_sel(client, PAD_SINGLE_TAP);
-	bma2x2_set_int2_pad_sel(client, PAD_ORIENT);
-	bma2x2_set_int2_pad_sel(client, PAD_FLAT);
-	bma2x2_set_int2_pad_sel(client, PAD_SLOW_NO_MOTION);
-#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
-	bma2x2_set_newdata(client, BMA2X2_INT1_NDATA, 0);
-	bma2x2_set_newdata(client, BMA2X2_INT2_NDATA, 1);
-#endif
-#endif
-
-	bma2x2_set_Int_Mode(client, 1);/*latch interrupt 250ms*/
-
-	/* do not open any interrupt here  */
-	/*10,orient
-	11,flat*/
-	/* bma2x2_set_Int_Enable(client, 10, 1);	*/
-	/* bma2x2_set_Int_Enable(client, 11, 1); */
-
-#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
-	/* enable new data interrupt */
-	bma2x2_set_Int_Enable(client, 4, 1);
-#endif
-
-	data->IRQ = client->irq;
-	err = request_irq(data->IRQ, bma2x2_irq_handler, IRQF_TRIGGER_RISING,
-			"bma2x2", data);
-#ifdef CONFIG_SIG_MOTION
-	enable_irq_wake(data->IRQ);
-#endif
-	if (err)
-		dev_err(&client->dev,  "could not request irq\n");
-
-	INIT_WORK(&data->irq_work, bma2x2_irq_work_func);
-#endif
-
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
-	INIT_DELAYED_WORK(&data->work, bma2x2_work_func);
-#endif
 	data->data_wq = create_freezable_workqueue("bma2x2_data_work");
 	if (!data->data_wq) {
 		dev_err(&client->dev, "Cannot get create workqueue!\n");
@@ -7454,7 +7850,7 @@ static int bma2x2_probe(struct i2c_client *client,
 	data->cdev.sensors_poll_delay = bma2x2_cdev_poll_delay;
 	data->cdev.sensors_self_test = bma2x2_self_calibration_xyz;
 	data->cdev.resolution = sensor_type_map[data->chip_type].resolution;
-	if (pdata->use_int)
+	if (pdata->int_en)
 		data->cdev.max_delay = BMA_INT_MAX_DELAY;
 	err = sensors_classdev_register(&client->dev, &data->cdev);
 	if (err) {
@@ -7465,6 +7861,7 @@ static int bma2x2_probe(struct i2c_client *client,
 
 	dev_notice(&client->dev, "BMA2x2 driver probe successfully");
 
+	bma2x2_pinctrl_state(data, false);
 	bma2x2_power_ctl(data, false);
 	return 0;
 
@@ -7503,6 +7900,16 @@ destroy_g_sensor_class_exit:
 destroy_workqueue_exit:
 	destroy_workqueue(data->data_wq);
 free_irq_exit:
+free_interrupt_gpio:
+	if (pdata->int_en) {
+		if (pdata->use_int2)
+			gpio_free(pdata->gpio_int2);
+		else
+			gpio_free(pdata->gpio_int1);
+	}
+set_pinctrl_sleep:
+	if (pdata->int_en)
+		bma2x2_pinctrl_state(data, false);
 disable_power_exit:
 	bma2x2_power_ctl(data, false);
 deinit_power_exit:
@@ -7528,9 +7935,8 @@ static void bma2x2_early_suspend(struct early_suspend *h)
 	mutex_lock(&data->enable_mutex);
 	if (atomic_read(&data->enable) == 1) {
 		bma2x2_set_mode(data->bma2x2_client, BMA2X2_MODE_SUSPEND);
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
-		cancel_delayed_work_sync(&data->work);
-#endif
+		if (!data->pdata->int_en)
+			cancel_delayed_work_sync(&data->work);
 	}
 	mutex_unlock(&data->enable_mutex);
 }
@@ -7543,11 +7949,10 @@ static void bma2x2_late_resume(struct early_suspend *h)
 	mutex_lock(&data->enable_mutex);
 	if (atomic_read(&data->enable) == 1) {
 		bma2x2_set_mode(data->bma2x2_client, BMA2X2_MODE_NORMAL);
-#ifndef CONFIG_BMA_ENABLE_NEWDATA_INT
-		queue_delayed_work(data->data_wq,
+		if (!data->pdata->int_en)
+			queue_delayed_work(data->data_wq,
 				&data->work,
 				msecs_to_jiffies(atomic_read(&data->delay)));
-#endif
 	}
 	mutex_unlock(&data->enable_mutex);
 }
