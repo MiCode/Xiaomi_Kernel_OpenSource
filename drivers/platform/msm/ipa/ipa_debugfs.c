@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1266,6 +1266,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 	u32 tbl_size, *tmp;
 	u32 value, i, j, rule_id;
 	u16 enable, tbl_entry, flag;
+	u32 no_entrys = 0;
 
 	value = ipa_ctx->nat_mem.public_ip_addr;
 	pr_err(
@@ -1279,7 +1280,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 				ipa_ctx->nat_mem.size_base_tables);
 
 	pr_err("Expansion Table Size:%d\n",
-				ipa_ctx->nat_mem.size_expansion_tables);
+				ipa_ctx->nat_mem.size_expansion_tables-1);
 
 	if (!ipa_ctx->nat_mem.is_sys_mem)
 		pr_err("Not supported for local(shared) memory\n");
@@ -1293,7 +1294,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 
 			pr_err("\nBase Table:\n");
 		} else {
-			tbl_size = ipa_ctx->nat_mem.size_expansion_tables;
+			tbl_size = ipa_ctx->nat_mem.size_expansion_tables-1;
 			base_tbl =
 			 (u32 *)ipa_ctx->nat_mem.ipv4_expansion_rules_addr;
 
@@ -1307,6 +1308,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 				enable = ((value & 0xFFFF0000) >> 16);
 
 				if (enable & NAT_ENTRY_ENABLE) {
+					no_entrys++;
 					pr_err("Rule:%d ", rule_id);
 
 					value = *tmp;
@@ -1391,7 +1393,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 
 			pr_err("\nIndex Table:\n");
 		} else {
-			tbl_size = ipa_ctx->nat_mem.size_expansion_tables;
+			tbl_size = ipa_ctx->nat_mem.size_expansion_tables-1;
 			indx_tbl =
 			 (u32 *)ipa_ctx->nat_mem.index_table_expansion_addr;
 
@@ -1418,6 +1420,7 @@ static ssize_t ipa_read_nat4(struct file *file,
 			}
 		}
 	}
+	pr_err("Current No. Nat Entries: %d\n", no_entrys);
 
 	return 0;
 }
