@@ -3646,6 +3646,32 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 	return ret;
 }
 
+static void mdss_mdp_force_border_color(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_mdp_ctl *sctl = mdss_mdp_get_split_ctl(ctl);
+
+	ctl->force_screen_state = MDSS_SCREEN_FORCE_BLANK;
+
+	if (sctl)
+		sctl->force_screen_state = MDSS_SCREEN_FORCE_BLANK;
+
+	mdss_mdp_mixer_setup(ctl, MDSS_MDP_MIXER_MUX_LEFT);
+	mdss_mdp_mixer_setup(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
+
+	ctl->force_screen_state = MDSS_SCREEN_DEFAULT;
+	if (sctl)
+		sctl->force_screen_state = MDSS_SCREEN_DEFAULT;
+
+	/*
+	 * Update the params changed for mixer for the next frame to
+	 * configure the mixer setup properly.
+	 */
+	if (ctl->mixer_left)
+		ctl->mixer_left->params_changed++;
+	if (ctl->mixer_right)
+		ctl->mixer_right->params_changed++;
+}
+
 int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	struct mdss_mdp_commit_cb *commit_cb)
 {
@@ -3748,7 +3774,19 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		commit_cb->commit_cb_fnc(
 			MDP_COMMIT_STAGE_SETUP_DONE,
 			commit_cb->data);
-	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
+	ret = mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_READY);
+
+	/*
+	 * When wait for fence timed out, driver ignores the fences
+	 * for signalling. Hardware needs to access only on the buffers
+	 * that are valid and driver needs to ensure it. This function
+	 * would set the mixer state to border when there is timeout.
+	 */
+	if (ret == NOTIFY_BAD) {
+		mdss_mdp_force_border_color(ctl);
+		ret = 0;
+	}
+
 	ATRACE_END("frame_ready");
 
 	if (ctl->ops.wait_pingpong && !mdata->serialize_wait4pp)
