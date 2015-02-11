@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,6 +46,10 @@ void msm_fd_hw_put_iommu(struct msm_fd_device *fd);
 int msm_fd_hw_get_clocks(struct msm_fd_device *fd);
 
 int msm_fd_hw_put_clocks(struct msm_fd_device *fd);
+
+int msm_fd_hw_get_bus(struct msm_fd_device *fd);
+
+void msm_fd_hw_put_bus(struct msm_fd_device *fd);
 
 int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx);
 

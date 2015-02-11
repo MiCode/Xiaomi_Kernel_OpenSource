@@ -349,7 +349,7 @@ static int msm_fd_open(struct file *file)
 	ctx->work_buf.fd = -1;
 
 	/* Set ctx defaults */
-	ctx->settings.speed = ctx->fd_device->clk_rates_num;
+	ctx->settings.speed = ctx->fd_device->clk_rates_num - 1;
 	ctx->settings.angle_index = MSM_FD_DEF_ANGLE_IDX;
 	ctx->settings.direction_index = MSM_FD_DEF_DIR_IDX;
 	ctx->settings.min_size_index = MSM_FD_DEF_MIN_SIZE_IDX;
@@ -925,8 +925,8 @@ static int msm_fd_s_ctrl(struct file *file, void *fh, struct v4l2_control *a)
 
 	switch (a->id) {
 	case V4L2_CID_FD_SPEED:
-		if (a->value > ctx->fd_device->clk_rates_num)
-			a->value = ctx->fd_device->clk_rates_num;
+		if (a->value > ctx->fd_device->clk_rates_num - 1)
+			a->value = ctx->fd_device->clk_rates_num - 1;
 		else if (a->value < 0)
 			a->value = 0;
 
@@ -1241,6 +1241,12 @@ static int fd_probe(struct platform_device *pdev)
 		goto error_iommu_get;
 	}
 
+	ret = msm_fd_hw_get_bus(fd);
+	if (ret < 0) {
+		dev_err(&pdev->dev, "Fail to get bus\n");
+		goto error_get_bus;
+	}
+
 	/* Get face detect hw before read engine revision */
 	ret = msm_fd_hw_get(fd, 0);
 	if (ret < 0) {
@@ -1293,6 +1299,8 @@ error_v4l2_register:
 error_hw_get_request_irq:
 	msm_fd_hw_put_iommu(fd);
 error_iommu_get:
+	msm_fd_hw_put_bus(fd);
+error_get_bus:
 	msm_fd_hw_put_clocks(fd);
 error_get_clocks:
 	regulator_put(fd->vdd);
@@ -1320,6 +1328,7 @@ static int fd_device_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&fd->v4l2_dev);
 	msm_fd_hw_release_irq(fd);
 	msm_fd_hw_put_iommu(fd);
+	msm_fd_hw_put_bus(fd);
 	msm_fd_hw_put_clocks(fd);
 	regulator_put(fd->vdd);
 	msm_fd_hw_release_mem_resources(fd);

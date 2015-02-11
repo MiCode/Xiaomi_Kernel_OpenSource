@@ -33,6 +33,8 @@
 #define MSM_FD_MISC_IRQ_FROM_REV 0x10010000
 /* Face detection workqueue name */
 #define MSM_FD_WORQUEUE_NAME "face-detection"
+/* Face detection bus client name */
+#define MSM_FD_BUS_CLIENT_NAME "msm_face_detect"
 /* Face detection processing timeout in ms */
 #define MSM_FD_PROCESSING_TIMEOUT_MS 500
 /* Face detection halt timeout in ms */
@@ -50,29 +52,6 @@ static struct msm_iova_layout msm_fd_fw_layout = {
 	.npartitions = 1,
 	.client_name = "fd_iommu",
 	.domain_flags = 0,
-};
-
-/* Face detection bus bandwidth definitions */
-static struct msm_bus_vectors msm_fd_bandwidth_vectors[] = {
-	{
-		.src = MSM_BUS_MASTER_VPU,
-		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 450000000,
-		.ib  = 900000000,
-	},
-};
-
-static struct msm_bus_paths msm_fd_bus_client_config[] = {
-	{
-		ARRAY_SIZE(msm_fd_bandwidth_vectors),
-		msm_fd_bandwidth_vectors,
-	},
-};
-
-static struct msm_bus_scale_pdata msm_fd_bus_scale_data = {
-	msm_fd_bus_client_config,
-	ARRAY_SIZE(msm_fd_bus_client_config),
-	.name = "msm_face_detect",
 };
 
 /*
@@ -903,8 +882,10 @@ static int msm_fd_hw_set_clock_rate_idx(struct msm_fd_device *fd,
 	long clk_rate;
 	int i;
 
-	if (idx >= fd->clk_rates_num)
-		idx = fd->clk_rates_num - 1;
+	if (idx >= fd->clk_rates_num) {
+		dev_err(fd->dev, "Invalid clock index %u\n", idx);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < fd->clk_num; i++) {
 
@@ -971,20 +952,97 @@ static void msm_fd_hw_disable_clocks(struct msm_fd_device *fd)
 }
 
 /*
- * msm_fd_hw_bus_request - Request bus for memory access.
+ * msm_fd_hw_get_bus - Get bus bandwidth.
+ * @fd: Pointer to fd device.
+ *
+ * Read bus bandwidth information from device tree.
+ */
+int msm_fd_hw_get_bus(struct msm_fd_device *fd)
+{
+	size_t cnt;
+	unsigned int ab;
+	unsigned int ib;
+	unsigned int idx;
+	int usecase;
+	int ret;
+
+	idx = MSM_FD_MAX_CLK_RATES;
+
+	fd->bus_vectors = kzalloc(sizeof(*fd->bus_vectors) * idx, GFP_KERNEL);
+	if (!fd->bus_vectors) {
+		dev_err(fd->dev, "No memory for bus vectors\n");
+		return -ENOMEM;
+	}
+
+	fd->bus_paths = kzalloc(sizeof(*fd->bus_paths) * idx, GFP_KERNEL);
+	if (!fd->bus_paths) {
+		dev_err(fd->dev, "No memory for bus paths\n");
+		kfree(fd->bus_vectors);
+		fd->bus_vectors = NULL;
+		return -ENOMEM;
+	}
+
+	cnt = 0;
+	for (usecase = 0; usecase < idx; usecase++) {
+		ret = of_property_read_u32_index(fd->dev->of_node,
+			"bus-bandwidth-vectors", cnt++, &ab);
+		if (ret < 0)
+			break;
+
+		ret = of_property_read_u32_index(fd->dev->of_node,
+			"bus-bandwidth-vectors", cnt++, &ib);
+		if (ret < 0)
+			break;
+
+		fd->bus_vectors[usecase].src = MSM_BUS_MASTER_VPU;
+		fd->bus_vectors[usecase].dst = MSM_BUS_SLAVE_EBI_CH0;
+		fd->bus_vectors[usecase].ab = ab;
+		fd->bus_vectors[usecase].ib = ib;
+
+		fd->bus_paths[usecase].num_paths = 1;
+		fd->bus_paths[usecase].vectors = &fd->bus_vectors[usecase];
+
+		dev_dbg(fd->dev, "Bus bandwidth idx %d ab %u ib %u\n",
+			usecase, ab, ib);
+	}
+
+	fd->bus_scale_data.usecase = fd->bus_paths;
+	fd->bus_scale_data.num_usecases = usecase;
+	fd->bus_scale_data.name = MSM_FD_BUS_CLIENT_NAME;
+
+	return 0;
+}
+
+/*
+ * msm_fd_hw_put_bus - Put bus bandwidth.
  * @fd: Pointer to fd device.
  */
-static int msm_fd_hw_bus_request(struct msm_fd_device *fd)
+void msm_fd_hw_put_bus(struct msm_fd_device *fd)
+{
+	kfree(fd->bus_vectors);
+	fd->bus_vectors = NULL;
+
+	kfree(fd->bus_paths);
+	fd->bus_paths = NULL;
+
+	fd->bus_scale_data.num_usecases = 0;
+}
+/*
+ * msm_fd_hw_bus_request - Request bus for memory access.
+ * @fd: Pointer to fd device.
+ * @idx: Bus bandwidth array index described in device tree.
+ */
+static int msm_fd_hw_bus_request(struct msm_fd_device *fd, unsigned int idx)
 {
 	int ret;
 
-	fd->bus_client = msm_bus_scale_register_client(&msm_fd_bus_scale_data);
+	fd->bus_client = msm_bus_scale_register_client(&fd->bus_scale_data);
 	if (!fd->bus_client) {
 		dev_err(fd->dev, "Fail to register bus client\n");
 		return -ENOENT;
 	}
 
-	ret = msm_bus_scale_client_update_request(fd->bus_client, 0);
+	ret = msm_bus_scale_client_update_request(fd->bus_client, idx);
 	if (ret < 0) {
 		dev_err(fd->dev, "Fail bus scale update %d\n", ret);
 		return -EINVAL;
@@ -1038,7 +1096,7 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 			goto error_clocks;
 		}
 
-		ret = msm_fd_hw_bus_request(fd);
+		ret = msm_fd_hw_bus_request(fd, clock_rate_idx);
 		if (ret < 0) {
 			dev_err(fd->dev, "Fail bus request\n");
 			goto error_bus_request;
