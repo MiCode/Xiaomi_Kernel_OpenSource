@@ -61,7 +61,5 @@ int diag_process_apps_pkt(unsigned char *buf, int len);
 void diag_reset_smd_data(int queue);
 void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type);
 int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf);
-extern int diag_debug_buf_idx;
-extern unsigned char diag_debug_buf[1024];
 extern struct platform_driver msm_diag_dci_driver;
 #endif

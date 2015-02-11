@@ -2766,7 +2766,6 @@ static int __init diagchar_init(void)
 
 	timer_in_progress = 0;
 	driver->delayed_rsp_id = 0;
-	driver->debug_flag = 1;
 	driver->hdlc_disabled = 0;
 	driver->dci_state = DIAG_DCI_NO_ERROR;
 	setup_timer(&drain_timer, drain_timer_func, 1234);

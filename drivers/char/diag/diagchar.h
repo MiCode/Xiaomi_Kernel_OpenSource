@@ -228,13 +228,6 @@
 #define DIAG_CNTL_TYPE		2
 #define DIAG_DCI_TYPE		3
 
-#define APPEND_DEBUG(ch) \
-do {							\
-	diag_debug_buf[diag_debug_buf_idx] = ch; \
-	(diag_debug_buf_idx < 1023) ? \
-	(diag_debug_buf_idx++) : (diag_debug_buf_idx = 0); \
-} while (0)
-
 /* List of remote processor supported */
 enum remote_procs {
 	MDM = 1,
@@ -476,7 +469,6 @@ struct diagchar_dev {
 	unsigned int poolsize_hdlc;
 	unsigned int poolsize_dci;
 	unsigned int poolsize_user;
-	unsigned int debug_flag;
 	/* Buffers for masks */
 	struct mutex diag_cntl_mutex;
 	/* Members for Sending response */

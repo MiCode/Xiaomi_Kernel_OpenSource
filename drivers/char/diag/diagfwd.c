@@ -51,8 +51,6 @@
 
 #define SMD_DRAIN_BUF_SIZE 4096
 
-int diag_debug_buf_idx;
-unsigned char diag_debug_buf[1024];
 int wrap_enabled;
 uint16_t wrap_count;
 static struct diag_hdlc_decode_type *hdlc_decode;
@@ -2474,7 +2472,6 @@ int diagfwd_init(void)
 
 	wrap_enabled = 0;
 	wrap_count = 0;
-	diag_debug_buf_idx = 0;
 	driver->use_device_tree = has_device_tree();
 	for (i = 0; i < DIAG_NUM_PROC; i++)
 		driver->real_time_mode[i] = 1;
