@@ -496,7 +496,8 @@ static int gen8_ppgtt_allocate_page_directories(struct i915_hw_ppgtt *ppgtt,
 	* pre-fetches entries; that pre-fetch can attempt access for entries
 	* even if no resources are located in that range.
 	*/
-	ppgtt->pd_pages = alloc_pages(GFP_KERNEL, GEN8_LEGACY_PDPS);
+	ppgtt->pd_pages = alloc_pages(GFP_KERNEL,
+				get_order(GEN8_LEGACY_PDPS << PAGE_SHIFT));
 	if (!ppgtt->pd_pages) {
 		__free_page(ppgtt->scratch_page);
 
