@@ -1022,7 +1022,8 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 
 		mdss_mdp_pipe_unmap(pipe);
 
-		pipe->layer.dst_rect.x = dst_x;
+		/* keep the original copy of dst_x */
+		pipe->layer.dst_rect.x = layer->dst_rect.x = dst_x;
 
 		if (mixer_mux == MDSS_MDP_MIXER_MUX_RIGHT)
 			right_plist[right_cnt++] = pipe;
