@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,7 +31,8 @@
 #define MHI_SOFTWARE_CLIENT_START 0
 #define MHI_SOFTWARE_CLIENT_LIMIT 23
 #define MHI_MAX_SOFTWARE_CHANNELS 46
-#define TRB_MAX_DATA_SIZE 0x1000
+#define TRE_TYPICAL_SIZE 0x1000
+#define TRE_MAX_SIZE 0xFFFF
 #define MHI_UCI_IPC_LOG_PAGES (100)
 
 #define MAX_NR_TRBS_PER_CHAN 10
@@ -252,12 +253,24 @@ static enum MHI_STATUS mhi_init_inbound(struct uci_client *client_handle,
 		uci_log(UCI_DBG_ERROR, "Bad Input data, quitting\n");
 		return MHI_STATUS_ERROR;
 	}
-	for (i = 0; i < (chan_attributes->nr_trbs); ++i) {
+	chan_attributes->nr_trbs =
+			mhi_get_free_desc(client_handle->in_handle);
+	client_handle->in_buf_list =
+			kmalloc(sizeof(dma_addr_t) * chan_attributes->nr_trbs,
+			GFP_KERNEL);
+	if (!client_handle->in_buf_list)
+		return MHI_STATUS_ERROR;
+
+	uci_log(UCI_DBG_INFO, "Channel %d supports %d desc\n",
+			i, chan_attributes->nr_trbs);
+	for (i = 0; i < chan_attributes->nr_trbs; ++i) {
 		data_loc = kmalloc(buf_size, GFP_KERNEL);
+		uci_log(UCI_DBG_INFO, "Allocated buffer %p size %d\n",
+		data_loc, buf_size);
 		if (data_loc == NULL)
 			return -ENOMEM;
 		dma_addr = dma_map_single(NULL, data_loc,
-					buf_size, DMA_BIDIRECTIONAL);
+					buf_size, DMA_FROM_DEVICE);
 		if (dma_mapping_error(NULL, dma_addr)) {
 			uci_log(UCI_DBG_ERROR, "Failed to Map DMA\n");
 			return -ENOMEM;
@@ -267,16 +280,15 @@ static enum MHI_STATUS mhi_init_inbound(struct uci_client *client_handle,
 					  dma_addr, buf_size, MHI_EOT);
 		if (MHI_STATUS_SUCCESS != ret_val) {
 			dma_unmap_single(NULL, dma_addr,
-					 buf_size, DMA_BIDIRECTIONAL);
+					 buf_size, DMA_FROM_DEVICE);
 			kfree(data_loc);
-			goto error_insert;
+			uci_log(UCI_DBG_ERROR,
+				"Failed insertion for chan %d, ret %d\n",
+				chan, ret_val);
+			break;
 		}
 	}
 	return ret_val;
-error_insert:
-	uci_log(UCI_DBG_ERROR,
-			"Failed insertion for chan %d\n", chan);
-	return MHI_STATUS_ERROR;
 }
 
 static int mhi_uci_send_packet(struct mhi_client_handle **client_handle,
@@ -309,8 +321,7 @@ static int mhi_uci_send_packet(struct mhi_client_handle **client_handle,
 
 	for (i = 0; i < nr_avail_trbs; ++i) {
 		data_to_insert_now = min(data_left_to_insert,
-				TRB_MAX_DATA_SIZE);
-
+				TRE_MAX_SIZE);
 		if (is_uspace_buf) {
 			data_loc = kmalloc(data_to_insert_now, GFP_KERNEL);
 			if (NULL == data_loc) {
@@ -655,10 +666,11 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 			dma_unmap_single(NULL,
 					uci_handle->in_buf_list[i],
 					buf_size,
-					DMA_BIDIRECTIONAL);
+					DMA_FROM_DEVICE);
 			kfree(dma_to_virt(NULL,
 					uci_handle->in_buf_list[i]));
 		}
+		kfree(uci_handle->in_buf_list);
 		atomic_set(&uci_handle->avail_pkts, 0);
 	} else {
 		uci_log(UCI_DBG_ERROR,
@@ -716,8 +728,8 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 				"Got pkt of size 0x%x at addr 0x%lx, chan %d\n",
 				uci_handle->pkt_size, (uintptr_t)phy_buf, chan);
 			dma_unmap_single(NULL, (dma_addr_t)phy_buf,
-					 uci_handle->pkt_size,
-					 DMA_BIDIRECTIONAL);
+					 buf_size,
+					 DMA_FROM_DEVICE);
 		}
 		if ((*bytes_pending == 0 || uci_handle->pkt_loc == 0) &&
 				(atomic_read(&uci_handle->avail_pkts) <= 0)) {
@@ -808,7 +820,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 					uci_handle->pkt_loc, chan);
 		memset(uci_handle->pkt_loc, 0, buf_size);
 		phy_buf = dma_map_single(NULL, uci_handle->pkt_loc,
-				buf_size, DMA_BIDIRECTIONAL);
+				buf_size, DMA_FROM_DEVICE);
 		atomic_dec(&uci_handle->avail_pkts);
 		uci_log(UCI_DBG_VERBOSE,
 				"Decremented avail pkts avail 0x%x\n",
@@ -882,18 +894,18 @@ static enum MHI_STATUS uci_init_client_attributes(struct mhi_uci_ctxt_t
 								*uci_ctxt)
 {
 	u32 i = 0;
-	u32 data_size = TRB_MAX_DATA_SIZE;
-	u32 index = 0;
-	struct uci_client *client;
 	struct chan_attr *chan_attrib = NULL;
+	size_t max_packet_size = TRE_TYPICAL_SIZE;
 
 	for (i = 0; i < MHI_MAX_SOFTWARE_CHANNELS; ++i) {
+		max_packet_size = TRE_TYPICAL_SIZE;
 		chan_attrib = &uci_ctxt->chan_attrib[i];
 		switch (i) {
+		case MHI_CLIENT_SAHARA_IN:
+			max_packet_size = TRE_MAX_SIZE;
+		case MHI_CLIENT_SAHARA_OUT:
 		case MHI_CLIENT_LOOPBACK_OUT:
 		case MHI_CLIENT_LOOPBACK_IN:
-		case MHI_CLIENT_SAHARA_OUT:
-		case MHI_CLIENT_SAHARA_IN:
 		case MHI_CLIENT_EFS_OUT:
 		case MHI_CLIENT_EFS_IN:
 		case MHI_CLIENT_QMI_OUT:
@@ -912,15 +924,7 @@ static enum MHI_STATUS uci_init_client_attributes(struct mhi_uci_ctxt_t
 		}
 		if (chan_attrib->uci_ownership) {
 			chan_attrib->chan_id = i;
-			chan_attrib->max_packet_size = data_size;
-			index = CHAN_TO_CLIENT(i);
-			client = &uci_ctxt->client_handles[index];
-			chan_attrib->nr_trbs = 9;
-			client->in_buf_list =
-			      kmalloc(sizeof(dma_addr_t) * chan_attrib->nr_trbs,
-					GFP_KERNEL);
-			if (NULL == client->in_buf_list)
-				return MHI_STATUS_ERROR;
+			chan_attrib->max_packet_size = max_packet_size;
 		}
 		if (i % 2 == 0)
 			chan_attrib->dir = MHI_DIR_OUT;
@@ -979,7 +983,7 @@ static void process_rs232_state(struct mhi_result *result)
 		goto error_size;
 	}
 	dma_unmap_single(NULL, result->payload_buf,
-			result->bytes_xferd, DMA_BIDIRECTIONAL);
+			result->bytes_xferd, DMA_FROM_DEVICE);
 	rs232_pkt = dma_to_virt(NULL, result->payload_buf);
 	MHI_GET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, chan);
 	client = &uci_ctxt.client_handles[chan / 2];
@@ -1003,7 +1007,7 @@ error_size:
 	memset(rs232_pkt, 0, sizeof(struct rs232_ctrl_msg));
 	dma_map_single(NULL, rs232_pkt,
 			sizeof(struct rs232_ctrl_msg),
-			DMA_BIDIRECTIONAL);
+			DMA_FROM_DEVICE);
 	ret_val = mhi_queue_xfer(client->in_handle,
 			result->payload_buf,
 			result->bytes_xferd,
