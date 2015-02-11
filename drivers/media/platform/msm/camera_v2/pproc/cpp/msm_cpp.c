@@ -1559,6 +1559,9 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		return;
 	}
 
+	for (j = 0; j < MAX_CPP_PROCESSING_FRAME; j++)
+		msm_cpp_dump_frame_cmd(cpp_timer.data.processed_frame[j]);
+
 	CPP_DBG("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 		CPP_CMD_TIMEOUT_MS, jiffies);
 	ret = mod_timer(&cpp_timer.cpp_timer,
@@ -1571,7 +1574,6 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 			pr_err("Rescheduling for identity=0x%x, frame_id=%03d\n",
 				this_frame->identity, this_frame->frame_id);
 			msm_cpp_write(0x6, cpp_timer.data.cpp_dev->base);
-			msm_cpp_dump_frame_cmd(this_frame);
 			for (i = 0; i < this_frame->msg_len; i++)
 				msm_cpp_write(this_frame->cpp_cmd_msg[i],
 					cpp_timer.data.cpp_dev->base);
@@ -1599,6 +1601,7 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 
 	if (cpp_dev->processing_q.len < MAX_CPP_PROCESSING_FRAME) {
 		process_frame = frame_qcmd->command;
+		msm_cpp_dump_frame_cmd(process_frame);
 		msm_enqueue(&cpp_dev->processing_q,
 			&frame_qcmd->list_frame);
 		cpp_timer.data.processed_frame[cpp_dev->processing_q.len - 1] =
@@ -1619,7 +1622,6 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 			CPP_DBG("Timer has not expired yet\n");
 
 		msm_cpp_write(0x6, cpp_dev->base);
-		msm_cpp_dump_frame_cmd(process_frame);
 		msm_cpp_poll_rx_empty(cpp_dev->base);
 		for (i = 0; i < process_frame->msg_len; i++) {
 			if (i % MSM_CPP_RX_FIFO_LEVEL == 0)
