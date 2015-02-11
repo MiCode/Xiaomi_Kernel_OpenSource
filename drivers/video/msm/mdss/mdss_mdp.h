@@ -47,7 +47,6 @@
 #define MAX_UPSCALE_RATIO	20
 #define MAX_DECIMATION		4
 #define MDP_MIN_VBP		4
-#define MDP_MIN_FETCH		9
 #define MAX_FREE_LIST_SIZE	12
 #define OVERLAY_MAX		10
 
@@ -267,6 +266,7 @@ struct mdss_mdp_ctl {
 	u32 perf_transaction_status;
 	bool perf_release_ctl_bw;
 	u64 bw_pending;
+	bool disable_prefill;
 
 	bool traffic_shaper_enabled;
 	u32  traffic_shaper_mdp_clk;
@@ -994,6 +994,7 @@ int mdss_mdp_ctl_destroy(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff);
 int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int panel_power_mode);
 int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg);
+int mdss_mdp_get_prefetch_lines(struct mdss_mdp_ctl *ctl);
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **left_plist, int left_cnt,
 		struct mdss_mdp_pipe **right_plist, int right_cnt,

@@ -29,7 +29,8 @@ struct panel_id {
 #define DEFAULT_ROTATOR_FRAME_RATE 120
 #define ROTATOR_LOW_FRAME_RATE 30
 #define MDSS_DSI_RST_SEQ_LEN	10
-#define MDSS_MDP_MAX_FETCH 12
+/* worst case prefill lines for all chipsets including all vertical blank */
+#define MDSS_MDP_MAX_PREFILL_FETCH 25
 
 /* panel type list */
 #define NO_PANEL		0xffff	/* No Panel */
