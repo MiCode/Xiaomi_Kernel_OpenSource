@@ -477,24 +477,6 @@ static bool is_factor_needed(struct mdss_mdp_perf_params *perf_temp,
 			perf_temp->bw_vote_mode);
 }
 
-static inline u32 get_panel_yres(struct mdss_panel_info *pinfo)
-{
-	u32 yres;
-
-	yres = pinfo->yres + pinfo->lcdc.border_top +
-				pinfo->lcdc.border_bottom;
-	return yres;
-}
-
-static inline u32 get_panel_xres(struct mdss_panel_info *pinfo)
-{
-	u32 xres;
-
-	xres = pinfo->xres + pinfo->lcdc.border_left +
-				pinfo->lcdc.border_right;
-	return xres;
-}
-
 static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -558,6 +540,9 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	} else if (mixer->type != MDSS_MDP_MIXER_TYPE_WRITEBACK) {
 		struct mdss_panel_info *pinfo;
 
+		if (!mixer->ctl)
+			return -EINVAL;
+
 		pinfo = &mixer->ctl->panel_data->panel_info;
 		if (pinfo->type == MIPI_VIDEO_PANEL) {
 			fps = pinfo->panel_max_fps;
@@ -566,9 +551,14 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 			fps = mdss_panel_get_framerate(pinfo);
 			v_total = mdss_panel_get_vtotal(pinfo);
 		}
-		xres = get_panel_xres(pinfo);
+		xres = get_panel_width(mixer->ctl);
 		is_fbc = pinfo->fbc.enabled;
 		h_total = mdss_panel_get_htotal(pinfo, false);
+
+		if (is_pingpong_split(mixer->ctl->mfd))
+			h_total += mdss_panel_get_htotal(
+				&mixer->ctl->panel_data->next->panel_info,
+				false);
 	} else {
 		v_total = mixer->height;
 		xres = mixer->width;
@@ -1894,17 +1884,6 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 		MDSS_MDP_REG_PP_FBC_LOSSY_MODE, lossy_mode);
 
 	return 0;
-}
-
-static inline u32 get_panel_width(struct mdss_mdp_ctl *ctl)
-{
-	u32 width;
-
-	width = get_panel_xres(&ctl->panel_data->panel_info);
-	if (ctl->panel_data->next && is_pingpong_split(ctl->mfd))
-		width += get_panel_xres(&ctl->panel_data->next->panel_info);
-
-	return width;
 }
 
 void mdss_mdp_get_interface_type(struct mdss_mdp_ctl *ctl, int *intf_type,
