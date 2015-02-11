@@ -1492,13 +1492,10 @@ out_free:
 out_free_dev:
 	return ret;
 }
-/*
- * FIXME: HACK making ov680 as ov2722 device it.because there is no official
- * id allocated yet for ov680 now.
- */
+
 #ifdef CONFIG_GMIN_INTEL_MID
 static struct acpi_device_id ov680_acpi_match[] = {
-	{ "INT33FB" }, /* same id with ov2722 */
+	{ "OVTI0680" },
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, ov680_acpi_match);
