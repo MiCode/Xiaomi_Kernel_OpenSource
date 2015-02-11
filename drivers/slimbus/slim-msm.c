@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -971,20 +971,22 @@ init_msgq:
 	if (ret && bam_handle)
 		dev->use_tx_msgqs = MSM_MSGQ_DISABLED;
 
-	if (dev->use_tx_msgqs == MSM_MSGQ_DISABLED &&
-		dev->use_rx_msgqs == MSM_MSGQ_DISABLED && bam_handle) {
-		sps_deregister_bam_device(bam_handle);
-		dev->bam.hdl = 0L;
-	}
+	/*
+	 * If command interface for BAM fails, register interface is used for
+	 * commands.
+	 * It is possible that other BAM usecases (e.g. apps channels) will
+	 * still need BAM. Since BAM is successfully initialized, we can
+	 * continue using it for non-command use cases.
+	 */
 
-	return ret;
+	return 0;
 }
 
 void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
 					struct msm_slim_endp *endpoint,
 					enum msm_slim_msgq *msgq_flag)
 {
-	if (*msgq_flag == MSM_MSGQ_ENABLED) {
+	if (*msgq_flag >= MSM_MSGQ_ENABLED) {
 		sps_disconnect(endpoint->sps);
 		*msgq_flag = MSM_MSGQ_RESET;
 	}
