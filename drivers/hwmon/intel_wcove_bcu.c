@@ -65,19 +65,6 @@ static void wcove_bcu_enable_trip_points(struct wcpmic_bcu_info *info)
 				__func__, (VWARNA_CFG_REG + i));
 	}
 
-	/**
-	 * Enable the Current trip points, so that the BCU logic will send
-	 * interrupt to the SoC of IccMAX events.
-	 */
-	for (i = 0; i < MAX_CURRENT_TRIP_POINTS; i++) {
-		ret = intel_soc_pmic_setb(ICCMAXVCC_CFG_REG + i,
-				(u8)ICCMAXVCC_EN);
-		if (ret)
-			dev_err(info->dev,
-				"Error in %s setting register 0x%x\n",
-				__func__, (ICCMAXVCC_CFG_REG + i));
-	}
-
 }
 
 static int wcove_bcu_program(struct wcpmic_bcu_config_data *config,
