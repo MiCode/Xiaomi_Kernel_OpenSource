@@ -2306,7 +2306,7 @@ MODULE_DEVICE_TABLE(i2c, ov8858_id);
 
 #ifdef CONFIG_GMIN_INTEL_MID
 static struct acpi_device_id ov8858_acpi_match[] = {
-	{"INT33BF"},
+	{"INT3477"},
 	{},
 };
 #endif
