@@ -1158,8 +1158,22 @@ static int mdss_mdp_debug_init(struct platform_device *pdev,
 	return 0;
 }
 
+static u32 mdss_get_props(void)
+{
+	u32 props = 0;
+	void __iomem *props_base = ioremap(0xFC4B8114, 4);
+	if (props_base) {
+		props = readl_relaxed(props_base);
+		iounmap(props_base);
+	}
+	return props;
+}
+
 static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 {
+	/* prevent disable of prefill calculations */
+	mdata->min_prefill_lines = 0xffff;
+
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
@@ -1171,6 +1185,13 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 128;
+		mdata->min_prefill_lines = 12;
+		mdata->props = mdss_get_props();
+		break;
+	case MDSS_MDP_HW_REV_107:
+		mdata->max_target_zorder = 4; /* excluding base layer */
+		mdata->max_cursor_size = 64;
+		mdata->min_prefill_lines = 21;
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -1470,6 +1491,8 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	SPRINT("smp_mb_per_pipe=%d\n", mdata->smp_mb_per_pipe);
 	SPRINT("max_downscale_ratio=%d\n", MAX_DOWNSCALE_RATIO);
 	SPRINT("max_upscale_ratio=%d\n", MAX_UPSCALE_RATIO);
+	if (mdata->props)
+		SPRINT("props=%d", mdata->props);
 	if (mdata->max_bw_low)
 		SPRINT("max_bandwidth_low=%u\n", mdata->max_bw_low);
 	if (mdata->max_bw_high)
