@@ -132,6 +132,7 @@ struct disp_info_notify {
 	int value;
 	int is_suspend;
 	int ref_count;
+	bool init_done;
 };
 
 struct msm_sync_pt_data {
