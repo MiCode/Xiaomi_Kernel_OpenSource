@@ -1090,6 +1090,8 @@ static noinline int alloc_debug_processing(struct kmem_cache *s,
 	return 1;
 
 bad:
+	panic("alloc_debug_processing corruption\n");
+#if 0
 	if (PageSlab(page)) {
 		/*
 		 * If this is a slab page then lets do the best we can
@@ -1100,6 +1102,7 @@ bad:
 		page->inuse = page->objects;
 		page->freelist = NULL;
 	}
+#endif
 	return 0;
 }
 
@@ -1158,7 +1161,10 @@ out:
 fail:
 	slab_unlock(page);
 	spin_unlock_irqrestore(&n->list_lock, *flags);
+	panic("free_debug_processing corruption\n");
+#if 0
 	slab_fix(s, "Object at 0x%p not freed", object);
+#endif
 	return NULL;
 }
 
