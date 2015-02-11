@@ -379,13 +379,6 @@ static int ion_secure_cma_shrinker(struct shrinker *shrinker,
 		return atomic_read(&sheap->total_pool_size);
 
 	/*
-	 * CMA pages can only be used for movable allocation so don't free if
-	 * the allocation isn't movable
-	 */
-	if (!(sc->gfp_mask & __GFP_MOVABLE))
-		return atomic_read(&sheap->total_pool_size);
-
-	/*
 	 * Allocation path may invoke the shrinker. Proceeding any further
 	 * would cause a deadlock in several places so don't shrink if that
 	 * happens.
