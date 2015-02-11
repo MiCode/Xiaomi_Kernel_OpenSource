@@ -887,6 +887,11 @@
 		clock-names = "iface_clk";
 	};
 
+	qcom_tzlog: tz-log@08600720 {
+		compatible = "qcom,tz-log";
+		reg = <0x08600720 0x1000>;
+	};
+
 	qcom,pronto@a21b000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x0a21b000 0x3000>;
