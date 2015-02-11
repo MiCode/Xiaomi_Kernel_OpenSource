@@ -364,6 +364,8 @@ struct mdss_data_type {
 	bool mixer_switched;
 	struct mdss_panel_cfg pan_cfg;
 	struct mdss_prefill_data prefill_data;
+	u32 min_prefill_lines; /* this changes within different chipsets */
+	u32 props;
 
 	int handoff_pending;
 	bool idle_pc;
