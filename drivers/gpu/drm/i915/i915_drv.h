@@ -2850,6 +2850,8 @@ i915_gem_object_ggtt_unbind(struct drm_i915_gem_object *obj)
 }
 
 void i915_gem_object_ggtt_unpin(struct drm_i915_gem_object *obj);
+void i915_gem_object_unpin(struct drm_i915_gem_object *obj,
+			   struct i915_address_space *vm);
 
 /* i915_gem_context.c */
 int __must_check i915_gem_context_init(struct drm_device *dev);

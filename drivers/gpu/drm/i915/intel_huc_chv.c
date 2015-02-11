@@ -73,7 +73,8 @@ static int i915_gem_object_write(struct drm_i915_gem_object *obj,
 }
 
 static struct drm_i915_gem_object *create_fw_obj(struct drm_device *dev,
-		const struct firmware *fw, u32 *fw_size)
+		const struct firmware *fw, u32 *fw_size,
+		struct i915_address_space *vm)
 {
 	struct drm_i915_private *dev_priv = NULL;
 	struct drm_i915_gem_object *obj = NULL;
@@ -92,13 +93,13 @@ static struct drm_i915_gem_object *create_fw_obj(struct drm_device *dev,
 	if (!obj)
 		HUC_ERROR_OUT("Failed allocation");
 
-	ret = i915_gem_obj_ggtt_pin(obj, 4096, 0);
+	ret = i915_gem_object_pin(obj, vm, PAGE_SIZE, 0);
 	if (ret)
 		HUC_ERROR_OUT("Failed to pin");
 
 	ret = i915_gem_object_write(obj, fw_data, *fw_size);
 	if (ret) {
-		i915_gem_object_ggtt_unpin(obj);
+		i915_gem_object_unpin(obj, vm);
 		HUC_ERROR_OUT("Failed to write");
 	}
 
@@ -113,7 +114,8 @@ out:
 }
 
 static int add_huc_commands(struct intel_ringbuffer *ringbuf,
-	struct drm_i915_gem_object *fw_obj, u32 fw_size)
+	struct drm_i915_gem_object *fw_obj, u32 fw_size,
+	struct i915_address_space *vm)
 {
 	#define CHV_DMA_GUC_OFFSET 0xc340
 	#define   CHV_GEN8_DMA_GUC_OFFSET (0x80000)
@@ -157,7 +159,7 @@ static int add_huc_commands(struct intel_ringbuffer *ringbuf,
 	I915_WRITE(CHV_DMA_GUC_SIZE, 0);
 	POSTING_READ(CHV_DMA_GUC_SIZE);
 
-	load_cmds[FIRMWARE_ADDR] |= i915_gem_obj_ggtt_offset(fw_obj);
+	load_cmds[FIRMWARE_ADDR] |= i915_gem_obj_offset(fw_obj, vm);
 	load_cmds[FIRMWARE_SIZE] |= fw_size;
 
 	ret = intel_logical_ring_begin(ringbuf, load_cmd_size);
@@ -181,6 +183,7 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 	struct intel_context *ctx;
 	struct intel_ringbuffer *ringbuf;
 	struct drm_i915_gem_request *req;
+	struct i915_address_space *vm;
 	u32 fw_size;
 	int ret;
 
@@ -200,13 +203,18 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 		return;
 	}
 
-	fw_obj = create_fw_obj(dev, fw, &fw_size);
-	if (!fw_obj)
-		HUC_ERROR_OUT("Null fw obj");
-
 	ring = &dev_priv->ring[VCS];
 
 	ctx = ring->default_context;
+	if (ctx->ppgtt)
+		vm = &ctx->ppgtt->base;
+	else
+		vm = &dev_priv->gtt.base;
+
+	fw_obj = create_fw_obj(dev, fw, &fw_size, vm);
+	if (!fw_obj)
+		HUC_ERROR_OUT("Null fw obj");
+
 	if (IS_ERR(ctx))
 		HUC_ERROR_OUT("No context");
 
@@ -214,7 +222,7 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 	if (!ringbuf)
 		HUC_ERROR_OUT("No ring obj");
 
-	ret = add_huc_commands(ringbuf, fw_obj, fw_size);
+	ret = add_huc_commands(ringbuf, fw_obj, fw_size, vm);
 	if (ret)
 		HUC_ERROR_OUT("add huc commands failed");
 
@@ -230,7 +238,7 @@ static void finish_chv_huc_load(const struct firmware *fw, void *context)
 
 out:
 	if (fw_obj) {
-		i915_gem_object_ggtt_unpin(fw_obj);
+		i915_gem_object_unpin(fw_obj, vm);
 		drm_gem_object_unreference(&fw_obj->base);
 	}
 

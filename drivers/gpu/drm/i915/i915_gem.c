@@ -4460,6 +4460,17 @@ i915_gem_object_pin(struct drm_i915_gem_object *obj,
 }
 
 void
+i915_gem_object_unpin(struct drm_i915_gem_object *obj,
+		      struct i915_address_space *vm)
+{
+	struct i915_vma *vma = i915_gem_obj_to_vma(obj, vm);
+	BUG_ON(!vma);
+	BUG_ON(vma->pin_count == 0);
+
+	--vma->pin_count;
+}
+
+void
 i915_gem_object_ggtt_unpin(struct drm_i915_gem_object *obj)
 {
 	struct i915_vma *vma = i915_gem_obj_to_ggtt(obj);
