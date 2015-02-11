@@ -53,7 +53,7 @@ void *mid_vibra_acpi_get_drvdata(const char *hid);
 int intel_mid_plat_vibra_probe(struct platform_device *pdev);
 int intel_mid_plat_vibra_remove(struct platform_device *pdev);
 
-extern struct mid_vibra_pdata pmic_vibra_data_cht;
+extern struct mid_vibra_pdata vibra_pdata;
 
 #define vibra_gpio_set_value(info, v) \
 {if ((info)->use_gpio_en) \

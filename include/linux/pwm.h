@@ -311,5 +311,5 @@ int lpio_bl_write(uint8_t pwm_num, uint32_t reg, uint32_t val);
 int lpio_bl_write_bits(uint8_t pwm_num, uint32_t reg, uint32_t val,
 		uint32_t mask);
 int lpio_bl_update(uint8_t pwm_num, uint32_t reg);
-
+struct pwm_chip *find_pwm_dev(unsigned int pwm_num);
 #endif /* __LINUX_PWM_H */

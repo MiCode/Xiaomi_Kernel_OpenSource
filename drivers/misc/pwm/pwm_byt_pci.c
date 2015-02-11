@@ -73,6 +73,7 @@ static void pwm_byt_pci_remove(struct pci_dev *pdev)
 }
 
 static const struct pci_device_id pwm_byt_pci_ids[] = {
+	{ PCI_VDEVICE(INTEL, 0x2288), PWM_CHT_CLK_KHZ},
 	{ PCI_VDEVICE(INTEL, 0x0F08), PWM_BYT_CLK_KHZ},
 	{ PCI_VDEVICE(INTEL, 0x0F09), PWM_BYT_CLK_KHZ},
 	{ 0,}

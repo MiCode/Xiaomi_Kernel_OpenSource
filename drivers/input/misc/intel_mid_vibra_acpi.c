@@ -30,6 +30,9 @@
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/input/intel_mid_vibra.h>
 #include "mid_vibra.h"
+#include <linux/pwm.h>
+#include <linux/io.h>
+#include <linux/dmi.h>
 
 #define CRYSTALCOVE_PMIC_PWM_EN_GPIO_REG        0x2F
 /* PWM enable gpio register settings: drive type = CMOS; pull disabled */
@@ -40,7 +43,15 @@
 
 #define CRYSTALCOVE_PMIC_VIBRA_MAX_BASEUNIT	0x7F
 
-struct mid_vibra_pdata pmic_vibra_data_cht = {
+/* for CHT CR SOC controlled vibra */
+#define SE_BASE_ADDRESS 0xFED98000
+#define CFG0_ADDR 0x4408
+#define CFG1_ADDR 0x440C
+#define PERIOD_NS 2000
+#define DUTY_NS_OFF 1000   /* 50 % */
+#define DUTY_NS_ON 500     /* 25 % */
+
+struct mid_vibra_pdata vibra_pdata = {
 	.time_divisor	= 0x7f, /* for 50% duty cycle */
 	.base_unit	= 0x0,
 	.gpio_pwm	= -1,
@@ -48,6 +59,35 @@ struct mid_vibra_pdata pmic_vibra_data_cht = {
 	.use_gpio_en    = false,
 		/* CHT vibra doesnt use gpio enable control */
 };
+
+static int vibra_pwm_configure(struct vibra_info *info, bool enable)
+{
+	struct pwm_chip *chip = find_pwm_dev(1);
+	struct pwm_device *pwm;
+	int pwm_id;
+
+	if (!chip) {
+		pr_err("%s: Could not get pwm chip", __func__);
+		return 0;
+	}
+	pwm_id = chip->pwms[0].pwm;
+	pwm = pwm_request(pwm_id, "byt-pwm");
+	if (!pwm) {
+		pr_err("%s: Could not get pwm device", __func__);
+		return -ENODEV;
+	}
+
+	if (enable) {
+		pr_info("%s: Config and enable vibra  devi\n", __func__);
+		chip->ops->config(chip,  pwm,  DUTY_NS_ON,  PERIOD_NS);
+		chip->ops->enable(chip,  pwm);
+	} else {
+		pr_info("%s: disable  vibra device\n", __func__);
+		chip->ops->config(chip,  pwm,  DUTY_NS_OFF,  PERIOD_NS);
+		chip->ops->enable(chip,  pwm);
+	}
+	return 0;
+}
 
 static int vibra_pmic_pwm_configure(struct vibra_info *info, bool enable)
 {
@@ -102,6 +142,7 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 	const char *hid;
 	struct mid_vibra_pdata *data;
 	int ret;
+	const char *board_name;
 
 	ret = acpi_bus_get_device(handle, &device);
 	if (ret) {
@@ -116,6 +157,14 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 		pr_err("Invalid driver data\n");
 		return -ENODEV;
 	}
+	board_name = dmi_get_system_info(DMI_BOARD_NAME);
+	if (strcmp(board_name, "Cherry Trail CR") == 0) {
+		pr_info("Cherry Trail CR: intel_mid_plat_vibra_probe\n");
+		/* make sure that the pad is set to native mode */
+		void __iomem *cfg = ioremap_nocache(SE_BASE_ADDRESS, 0x8000);
+		iowrite32(0x10000, cfg + CFG0_ADDR);
+		iounmap(cfg);
+	}
 
 	if (data->use_gpio_en) {
 		if (data->gpio_en < 0) {
@@ -128,10 +177,15 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 	if (!info)
 		return -ENODEV;
 
-	info->pwm_configure = vibra_pmic_pwm_configure;
-	info->max_base_unit = CRYSTALCOVE_PMIC_VIBRA_MAX_BASEUNIT;
-	info->max_duty_cycle = INTEL_VIBRA_MAX_TIMEDIVISOR;
-
+	if (strcmp(board_name, "Cherry Trail CR") == 0) {
+		info->pwm_configure = vibra_pwm_configure;
+		/* WA: Until BIOS set 50% duty cycle on boot */
+		vibra_pwm_configure(info, false);
+	} else {
+		info->pwm_configure = vibra_pmic_pwm_configure;
+		info->max_base_unit = CRYSTALCOVE_PMIC_VIBRA_MAX_BASEUNIT;
+		info->max_duty_cycle = INTEL_VIBRA_MAX_TIMEDIVISOR;
+	}
 	if (data->use_gpio_en) {
 		pr_debug("%s: using gpio_en: %d", __func__, info->gpio_en);
 		ret = gpio_request_one(info->gpio_en, GPIOF_DIR_OUT,

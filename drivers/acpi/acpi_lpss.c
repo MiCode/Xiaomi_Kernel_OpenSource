@@ -198,7 +198,8 @@ static const struct acpi_device_id acpi_lpss_device_ids[] = {
 	{ "80862286", (unsigned long)&lpss_dma_desc },
 	{ "808622C0", (unsigned long)&lpss_dma_desc },
 	{ "8086228E", (unsigned long)&byt_spi_dev_desc },
-	{ "80862288", }, /* CHT PWM */
+	{ "80862288", }, /* CHT PWM 0 */
+	{ "80862289", }, /* CHT PWM 1 */
 
 	{ "INT3430", (unsigned long)&lpt_dev_desc },
 	{ "INT3431", (unsigned long)&lpt_dev_desc },

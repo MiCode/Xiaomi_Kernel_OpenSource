@@ -1,5 +1,5 @@
 /*
- *  intel_mid_vibra_acpi.c - Intel Vibrator for for Intel CherryTrail platform
+ *  intel_mid_vibra.c - Intel Vibrator for Intel CherryTrail platform
  *
  *  Copyright (C) 2014 Intel Corp
  *  Author: B, Jayachandran <jayachandran.b@intel.com>
@@ -200,7 +200,7 @@ void *mid_vibra_acpi_get_drvdata(const char *hid)
 }
 
 static const struct acpi_device_id vibra_acpi_ids[] = {
-	{ "VIBR22A8", (kernel_ulong_t) &pmic_vibra_data_cht },
+	{ "VIBR22A8", (kernel_ulong_t) &vibra_pdata },
 	{},
 };
 MODULE_DEVICE_TABLE(acpi, vibra_acpi_ids);

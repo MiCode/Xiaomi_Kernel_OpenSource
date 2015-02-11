@@ -22,11 +22,13 @@
 #include <linux/fs.h>
 #include <linux/pwm.h>
 #include "pwm_byt_core.h"
+#include <linux/dmi.h>
 
 /* PWM registers and bits definitions */
 
 #define PWMCR(chip)	(chip->mmio_base + 0)
 #define PWMRESET(chip)	(chip->mmio_base + 0x804)
+#define PWMGENERAL(chip) (chip->mmio_base + 0x808)
 #define PWMCR_EN	(1 << 31)
 #define PWMCR_UP	(1 << 30)
 #define PWMRESET_EN	3
@@ -88,7 +90,9 @@ static int byt_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	uint32_t otd;
 	uint32_t update;
 	int r;
-
+	uint32_t clock;
+	uint32_t temp;
+	const char *board_name;
 	pm_runtime_get_sync(byt_pwm->dev);
 
 	/* frequency = clock * base_unit/256, so:
@@ -101,22 +105,37 @@ static int byt_pwm_config(struct pwm_chip *chip, struct pwm_device *pwm,
 	/* one time divison calculation:
 	   duty_ns / period_ns = (256 - otd) / 256 */
 	otd = 256 - duty_ns * 256 / period_ns;
-
 	mutex_lock(&byt_pwm->lock);
-
+	board_name = dmi_get_system_info(DMI_BOARD_NAME);
+	if (strcmp(board_name, "Cherry Trail CR") == 0) {
+		pr_debug("Cherry Trail CR: byt_pwm_config\n");
+		/* reset pwm before configuring */
+		iowrite32(PWMRESET_EN, PWMRESET(byt_pwm));
+		/* set clock */
+		clock = ioread32(PWMGENERAL(byt_pwm));
+		if (&byt_pwm->clk_khz == PWM_CHT_CLK_KHZ) {
+			temp = BIT(3);
+			clock &= ~temp;
+		} else {
+			clock |= BIT(3);
+		}
+		iowrite32(clock, PWMGENERAL(byt_pwm));
+	}
 	/* update counter */
 	update = ioread32(PWMCR(byt_pwm));
 	update &= (~PWMCR_OTD_MASK & ~PWMCR_BU_MASK & ~PWMCR_BUF_MASK);
 	update |= (otd & 0xff) << PWMCR_OTD_OFFSET;
 	update |= (bu & 0xff) << PWMCR_BU_OFFSET;
 	update |= (bu_f & 0xff) << PWMCR_BUF_OFFSET;
+	if (strcmp(board_name, "Cherry Trail CR") == 0)
+		update &= 0x00ffffff;
 	iowrite32(update, PWMCR(byt_pwm));
+
 
 	/* set update flag */
 	update |= PWMCR_UP;
 	iowrite32(update, PWMCR(byt_pwm));
 	r = byt_pwm_wait_update_complete(byt_pwm);
-
 	mutex_unlock(&byt_pwm->lock);
 
 	pm_runtime_mark_last_busy(byt_pwm->dev);
@@ -155,7 +174,6 @@ static void byt_pwm_disable(struct pwm_chip *chip, struct pwm_device *pwm)
 
 	val = ioread32(PWMCR(byt_pwm));
 	iowrite32(val & ~PWMCR_EN, PWMCR(byt_pwm));
-
 	mutex_unlock(&byt_pwm->lock);
 	pm_runtime_mark_last_busy(byt_pwm->dev);
 	pm_runtime_put_autosuspend(byt_pwm->dev);
@@ -178,6 +196,17 @@ static struct byt_pwm_chip *find_pwm_chip(unsigned int pwm_num)
 	}
 	return NULL;
 }
+
+struct pwm_chip *find_pwm_dev(unsigned int pwm_num)
+{
+	struct byt_pwm_chip *p;
+	list_for_each_entry(p, &pwm_chip_list, list) {
+		if (p->pwm_num == pwm_num)
+			return &p->chip;
+	}
+	return NULL;
+}
+EXPORT_SYMBOL(find_pwm_dev);
 
 /* directly read a value to a PWM register */
 int lpio_bl_read(uint8_t pwm_num, uint32_t reg)

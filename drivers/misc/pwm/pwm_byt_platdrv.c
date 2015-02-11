@@ -21,11 +21,13 @@
 #include <linux/platform_device.h>
 #include <linux/acpi.h>
 #include "pwm_byt_core.h"
+#include <linux/dmi.h>
 
 #ifdef CONFIG_ACPI
 static const struct acpi_device_id pwm_byt_acpi_ids[] = {
 	{ "80860F09", PWM_BYT_CLK_KHZ },
 	{ "80862288", PWM_CHT_CLK_KHZ },
+	{ "80862289", PWM_CHT_CLK_KHZ },
 	{ }
 };
 MODULE_DEVICE_TABLE(acpi, pwm_byt_acpi_ids);
@@ -39,6 +41,7 @@ static int pwm_byt_plat_probe(struct platform_device *pdev)
 	int r;
 	const struct acpi_device_id *id;
 	int clk = PWM_BYT_CLK_KHZ;
+	const char *board_name;
 
 	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!mem) {
@@ -63,6 +66,9 @@ static int pwm_byt_plat_probe(struct platform_device *pdev)
 		if (!strncmp(id->id, dev_name(&pdev->dev), strlen(id->id)))
 			clk = id->driver_data;
 #endif
+	board_name = dmi_get_system_info(DMI_BOARD_NAME);
+	if (strcmp(board_name, "Cherry Trail CR") == 0)
+		clk = PWM_CHT_CLK_KHZ;
 	r = pwm_byt_init(&pdev->dev, base, pwm_num, clk);
 	if (r)
 		goto err_iounmap;
