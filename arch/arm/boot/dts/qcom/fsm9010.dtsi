@@ -134,6 +134,17 @@
 		interrupts = <0 96 0>;
 	};
 
+	qcom,pp2s {
+		compatible = "qcom,pp2s";
+		interrupts = <0 219 0>;
+		interrupt-names = "pp2s_irq";
+	};
+
+	qcom,wallclock@fd4aa000 {
+		compatible = "qcom,wallclock";
+		reg-names = "wallclock_time_bank", "wallclock_cntrl_bank1", "wallclock_cntrl_bank2";
+		reg = <0xfd4aa000 0x20>, <0xfd4a9000 0x40>, <0xfd4a3200 0x04>;
+	};
 	qcom,ipc-spinlock@fd484000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0xfd484000 0x1000>;
