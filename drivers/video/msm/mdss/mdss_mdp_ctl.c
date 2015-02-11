@@ -832,10 +832,15 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 				perf->bw_writeback = apply_overhead_factors(
 					perf->bw_writeback,
 					true, false, fmt);
-		} else if ((pinfo->type == MIPI_CMD_PANEL) &&
-		    (pinfo->mipi.dsi_pclk_rate > perf->mdp_clk_rate)) {
-			/* for command mode, run as fast as the link allows */
-			perf->mdp_clk_rate = pinfo->mipi.dsi_pclk_rate;
+		/* for command mode, run as fast as the link allows us */
+		} else if (pinfo->type == MIPI_CMD_PANEL) {
+			u32 dsi_pclk_rate = pinfo->mipi.dsi_pclk_rate;
+
+			if (is_pingpong_split(mixer->ctl->mfd))
+				dsi_pclk_rate *= 2;
+
+			if (dsi_pclk_rate > perf->mdp_clk_rate)
+				perf->mdp_clk_rate = dsi_pclk_rate;
 		}
 	}
 
