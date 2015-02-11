@@ -957,7 +957,8 @@ static int pagemap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 {
 	struct vm_area_struct *vma;
 	struct pagemapread *pm = walk->private;
-	pte_t *pte;
+	spinlock_t *ptl;
+	pte_t *pte, *orig_pte;
 	int err = 0;
 	pagemap_entry_t pme = make_pme(PM_NOT_PRESENT);
 
@@ -980,7 +981,8 @@ static int pagemap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 
 	if (pmd_trans_unstable(pmd))
 		return 0;
-	for (; addr != end; addr += PAGE_SIZE) {
+	orig_pte = pte = pte_offset_map_lock(walk->mm, pmd, addr, &ptl);
+	for (; addr != end; pte++, addr += PAGE_SIZE) {
 
 		/* check to see if we've left 'vma' behind
 		 * and need a new, higher one */
@@ -993,15 +995,13 @@ static int pagemap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 		 * and that it isn't a huge page vma */
 		if (vma && (vma->vm_start <= addr) &&
 		    !is_vm_hugetlb_page(vma)) {
-			pte = pte_offset_map(pmd, addr);
 			pte_to_pagemap_entry(&pme, vma, addr, *pte);
-			/* unmap before userspace copy */
-			pte_unmap(pte);
 		}
 		err = add_to_pagemap(addr, &pme, pm);
 		if (err)
-			return err;
+			break;
 	}
+	pte_unmap_unlock(orig_pte, ptl);
 
 	cond_resched();
 
