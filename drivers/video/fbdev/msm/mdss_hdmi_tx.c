@@ -38,7 +38,7 @@
 #define COMPATIBLE_NAME "qcom,hdmi-tx"
 
 #define DEFAULT_VIDEO_RESOLUTION HDMI_VFRMT_640x480p60_4_3
-#define DEFAULT_HDMI_PRIMARY_RESOLUTION HDMI_VFRMT_1280x720p60_16_9
+#define DEFAULT_HDMI_PRIMARY_RESOLUTION HDMI_VFRMT_1920x1080p60_16_9
 
 /* HDMI PHY/PLL bit field macros */
 #define SW_RESET BIT(2)
@@ -4409,7 +4409,8 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 	} else if (pan_cfg) {
 		int vic;
 
-		if (kstrtoint(pan_cfg->arg_cfg, 10, &vic))
+		if (kstrtoint(pan_cfg->arg_cfg, 10, &vic) ||
+			vic <= HDMI_VFRMT_UNKNOWN || vic >= HDMI_VFRMT_MAX)
 			vic = DEFAULT_HDMI_PRIMARY_RESOLUTION;
 
 		hdmi_ctrl->pdata.primary = true;
