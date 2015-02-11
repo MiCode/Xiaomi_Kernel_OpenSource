@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -193,9 +193,9 @@ size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
 	 * maintain always changing hardcoded constants
 	 */
 
-	kgsl_regwrite(device, A3XX_CP_ME_RAM_RADDR, 0x0);
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_RAM_RADDR, 0x0);
 	for (i = 0; i < size; i++)
-		kgsl_regread(device, A3XX_CP_ME_RAM_DATA, &data[i]);
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_RAM_DATA, &data[i]);
 
 	return DEBUG_SECTION_SZ(size);
 }
