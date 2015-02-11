@@ -106,8 +106,15 @@ static int dwc3_init_usb_phys(struct dwc3 *dwc)
 				__func__, ret);
 		return ret;
 	}
+
 	ret = usb_phy_init(dwc->usb3_phy);
-	if (ret) {
+	if (ret == -EBUSY) {
+		/*
+		 * Setting Max speed as high when USB3 PHY initialiation
+		 * is failing and USB superspeed can't be supported.
+		 */
+		dwc->maximum_speed = USB_SPEED_HIGH;
+	} else if (ret) {
 		pr_err("%s: usb_phy_init(dwc->usb3_phy) returned %d\n",
 				__func__, ret);
 		return ret;
