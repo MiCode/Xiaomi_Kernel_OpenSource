@@ -318,6 +318,7 @@ int mdss_mdp_wfd_kickoff(struct mdss_mdp_wfd *wfd,
 	if (list_empty(&wfd->data_queue)) {
 		pr_debug("no output buffer\n");
 		mutex_unlock(&wfd->lock);
+		mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_DONE);
 		return 0;
 	}
 	wfd_data = list_first_entry(&wfd->data_queue,
