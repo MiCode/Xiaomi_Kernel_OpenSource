@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -297,6 +297,28 @@ int enable_rpm_scaling(void)
 
 	is_inited++;
 	return 0;
+}
+
+int vote_bimc(struct rpm_clk *r, uint32_t value)
+{
+	int rc;
+
+	struct msm_rpm_kvp kvp = {
+		.key = r->rpm_key,
+		.data = (void *)&value,
+		.length = sizeof(value),
+	};
+
+	rc = msm_rpm_send_message_noirq(MSM_RPM_CTX_ACTIVE_SET,
+			r->rpm_res_type, r->rpmrs_data->ctx_active_id,
+			&kvp, 1);
+	if (rc < 0) {
+		if (rc != -EPROBE_DEFER)
+			WARN(1, "BIMC vote not sent!\n");
+		return rc;
+	}
+
+	return rc;
 }
 
 struct clk_ops clk_ops_rpm = {
