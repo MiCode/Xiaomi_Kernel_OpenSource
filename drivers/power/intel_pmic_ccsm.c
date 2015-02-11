@@ -864,23 +864,15 @@ static int get_charger_type(void)
 static void handle_internal_usbphy_notifications(int mask)
 {
 	struct power_supply_cable_props cap = {0};
-	int evt = -1;
+	int evt = USB_EVENT_NONE;
 
 	if (mask) {
 		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cap.chrg_type = get_charger_type();
 		chc.charger_type = cap.chrg_type;
-		/* Close D+/D- lines in USB detection switch
-		 * due to WC PMIC bug
-		 */
-		pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x1);
 	} else {
 		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 		cap.chrg_type = chc.charger_type;
-		/* Open D+/D- lines in USB detection switch
-		 * due to WC PMIC bug
-		 */
-		pmic_write_reg(chc.reg_map->pmic_usbphyctrl, 0x0);
 	}
 
 	switch (cap.chrg_type) {
@@ -931,6 +923,14 @@ static void handle_internal_usbphy_notifications(int mask)
 			cap.ma);
 	if (cap.chrg_evt == POWER_SUPPLY_CHARGER_EVENT_DISCONNECT)
 		chc.charger_type = POWER_SUPPLY_CHARGER_TYPE_NONE;
+
+	/*
+	 * Open / Close D+/D- lines in USB detection switch
+	 * due to WC PMIC bug only for SDP/CDP.
+	 */
+	pmic_write_reg(chc.reg_map->pmic_usbphyctrl,
+			((evt == USB_EVENT_VBUS)
+				|| (evt == USB_EVENT_ID)) ? 1 : 0);
 
 	atomic_notifier_call_chain(&chc.otg->notifier,
 				USB_EVENT_CHARGER, &cap);
