@@ -432,6 +432,7 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 	u32 dst_w = (config->dst_w & VLV_SP_12BIT_MASK) - 1;
 	u32 dst_h = (config->dst_h & VLV_SP_12BIT_MASK) - 1;
 	u32 src_w = (config->src_w & VLV_SP_12BIT_MASK) - 1;
+	u32 src_h = (config->src_h & VLV_SP_12BIT_MASK) - 1;
 	u32 alpha = 0x0;
 	bool cons_alpha = 0;
 	u8 i = 0;
@@ -580,14 +581,26 @@ static int vlv_sp_calculate(struct intel_plane *planeptr,
 		break;
 	case INTEL_ADF_TRANSFORM_ROT180:
 		regs->dspcntr |= DISPPLANE_180_ROTATION_ENABLE;
-		regs->linearoff =  regs->linearoff + (dst_h - 1) *
-			regs->stride + dst_w * bpp;
-		regs->tileoff = (((src_y + dst_h - 1) << 16) |
-			(src_x + dst_w - 1));
+		regs->linearoff =  regs->linearoff + (src_h - 1) *
+			regs->stride + src_w * bpp;
+		regs->tileoff = (((src_y + src_h - 1) << 16) |
+			(src_x + src_w - 1));
 		break;
 	}
 
 	regs->surfaddr = (buf->gtt_offset_in_pages + sprsurf_offset);
+
+	/* On K0 sprite C has scaling capability */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(pipeline->dc_stepping, STEP_K0) && (pipe == PIPE_B) &&
+	    (splane->ctx.plane == VLV_SPRITE1) &&
+	    ((config->flags & INTEL_ADF_PLANE_HW_PRIVATE_4)
+			== INTEL_ADF_PLANE_HW_PRIVATE_4)) {
+
+		chv_chek_save_scale(splane->mpo_plane, config);
+		chv_program_plane_scaler(pipeline, splane->mpo_plane, src_w + 1,
+				 src_h + 1, dst_w + 1, dst_h + 1);
+	}
 
 	/* when in maxfifo display control register cannot be modified */
 	if (vlv_config->status.maxfifo_enabled &&
@@ -779,6 +792,13 @@ static void vlv_sp_flip(struct intel_plane *planeptr, struct intel_buffer *buf,
 		REG_WRITE(CHT_PIPEB_BLEND_CONFIG, regs->blend);
 		splane->blend_updated = false;
 	}
+	if (splane->mpo_plane != NULL) {
+		if (splane->mpo_plane->reprogram_scaler) {
+			REG_WRITE(splane->mpo_plane->scaler_reg,
+				  splane->mpo_plane->scaler_en);
+			splane->mpo_plane->reprogram_scaler = false;
+		}
+	}
 	REG_WRITE(SPCNTR(pipe, plane), regs->dspcntr);
 	I915_MODIFY_DISPBASE(SPSURF(pipe, plane), regs->surfaddr);
 	REG_POSTING_READ(SPSURF(pipe, plane));
@@ -897,6 +917,11 @@ static const u32 sprite_supported_blendings[] = {
 	INTEL_PLANE_BLENDING_PREMULT,
 };
 
+static const u32 spC_supported_scalings[] = {
+	INTEL_PLANE_SCALING_DOWNSCALING,
+	INTEL_PLANE_SCALING_UPSCALING,
+};
+
 static const u32 sprite_supported_tiling[] = {
 	INTEL_PLANE_TILE_NONE,
 	INTEL_PLANE_TILE_X,
@@ -955,10 +980,31 @@ static const struct intel_plane_capabilities vlv_sp_caps = {
 	.n_supported_reservedbit = ARRAY_SIZE(sprite_supported_reservedbit),
 };
 
+static const struct intel_plane_capabilities chv_sp_c_caps = {
+	.supported_formats = sprite_supported_formats,
+	.n_supported_formats = ARRAY_SIZE(sprite_supported_formats),
+	.supported_blendings = sprite_supported_blendings,
+	.n_supported_blendings = ARRAY_SIZE(sprite_supported_blendings),
+	.supported_transforms = sprite_supported_transforms,
+	.n_supported_transforms = ARRAY_SIZE(sprite_supported_transforms),
+	.supported_scalings = spC_supported_scalings,
+	.n_supported_scalings = ARRAY_SIZE(spC_supported_scalings),
+	.supported_decompressions = NULL,
+	.n_supported_decompressions = 0,
+	.supported_tiling = sprite_supported_tiling,
+	.n_supported_tiling = ARRAY_SIZE(sprite_supported_tiling),
+	.supported_zorder = sprite_supported_zorder,
+	.n_supported_zorder = ARRAY_SIZE(sprite_supported_zorder),
+	.supported_reservedbit = sprite_supported_reservedbit,
+	.n_supported_reservedbit = ARRAY_SIZE(sprite_supported_reservedbit),
+};
+
 int vlv_sp_plane_init(struct vlv_sp_plane *splane,
 		struct intel_pipeline *pipeline, struct device *dev, u8 idx)
 {
 	int err;
+	struct vlv_pipeline *disp = NULL;
+	int pipe = -EIO;
 	pr_debug("ADF: %s\n", __func__);
 
 	if (!splane) {
@@ -973,6 +1019,27 @@ int vlv_sp_plane_init(struct vlv_sp_plane *splane,
 		dev_err(dev, "failed to init sprite context\n");
 		return err;
 	}
+
+	disp = to_vlv_pipeline_sp1_plane(splane);
+	pipe = splane->ctx.pipe;
+
+	/* On K0 sprite C has scaling capability */
+	if ((intel_adf_get_platform_id() == gen_cherryview) &&
+	    STEP_FROM(disp->dc_stepping, STEP_K0) && (pipe == PIPE_B) &&
+	    (splane->ctx.plane == VLV_SPRITE1)) {
+
+		splane->mpo_plane = (struct vlv_mpo_plane *)
+			kzalloc(sizeof(struct vlv_mpo_plane), GFP_KERNEL);
+
+		splane->mpo_plane->can_scale = true;
+		splane->mpo_plane->max_downscale = CHV_MAX_DOWNSCALE;
+		splane->mpo_plane->is_primary_plane = false;
+
+		return intel_adf_plane_init(&splane->base, dev, idx,
+					    &chv_sp_c_caps, &vlv_sp_ops,
+					    "sp_plane");
+	}
+
 	return intel_adf_plane_init(&splane->base, dev, idx, &vlv_sp_caps,
 			&vlv_sp_ops, "sp_plane");
 }
