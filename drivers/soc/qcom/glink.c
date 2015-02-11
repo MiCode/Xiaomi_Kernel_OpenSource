@@ -2406,6 +2406,14 @@ int glink_xprt_name_to_id(const char *name, uint16_t *id)
 		*id = MOCK_XPRT_ID;
 		return 0;
 	}
+	if (!strcmp(name, "mock_low")) {
+		*id = MOCK_XPRT_LOW_ID;
+		return 0;
+	}
+	if (!strcmp(name, "mock_high")) {
+		*id = MOCK_XPRT_HIGH_ID;
+		return 0;
+	}
 	return -ENODEV;
 }
 EXPORT_SYMBOL(glink_xprt_name_to_id);
