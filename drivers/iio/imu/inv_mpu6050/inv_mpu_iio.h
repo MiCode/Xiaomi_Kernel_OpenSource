@@ -194,7 +194,7 @@ struct inv_mpu6050_state {
 
 /* init parameters */
 #define INV_MPU6050_INIT_FIFO_RATE           50
-#define INV_MPU6050_TIME_STAMP_TOR                        5
+#define INV_MPU6050_TIME_STAMP_TOR                        1
 #define INV_MPU6050_MAX_FIFO_RATE                         1000
 #define INV_MPU6050_MIN_FIFO_RATE                         4
 #define INV_MPU6050_ONE_K_HZ                              1000
