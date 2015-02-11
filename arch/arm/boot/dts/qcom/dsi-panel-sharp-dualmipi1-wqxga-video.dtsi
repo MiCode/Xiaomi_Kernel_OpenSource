@@ -59,5 +59,8 @@
 		qcom,mdss-pan-physical-height-dimension = <133>;
 		qcom,mdss-dsi-min-refresh-rate = <53>;
 		qcom,mdss-dsi-max-refresh-rate = <60>;
+		qcom,mdss-dsi-panel-status-check-mode = "bta_check";
+		qcom,mdss-dsi-tx-eot-append;
+		qcom,esd-check-enabled;
 	};
 };
