@@ -319,4 +319,14 @@
 #define WCD9330_A_LEAKAGE_CTL__POR				(0x04)
 #define WCD9330_A_CDC_CTL				(0x034)
 #define WCD9330_A_CDC_CTL__POR					(0x00)
+
+/* Class-H registers for codecs from and above WCD9335 */
+#define WCD9XXX_A_CDC_RX0_RX_PATH_CFG0			(0xB42)
+#define WCD9XXX_A_CDC_RX1_RX_PATH_CFG0			(0xB56)
+#define WCD9XXX_A_CDC_RX2_RX_PATH_CFG0			(0xB6A)
+#define WCD9XXX_A_CDC_CLSH_K1_MSB			(0xC08)
+#define WCD9XXX_A_CDC_CLSH_K1_LSB			(0xC09)
+#define WCD9XXX_A_ANA_RX_SUPPLIES			(0x608)
+#define WCD9XXX_A_ANA_HPH				(0x609)
+#define WCD9XXX_A_CDC_CLSH_CRC				(0xC01)
 #endif
