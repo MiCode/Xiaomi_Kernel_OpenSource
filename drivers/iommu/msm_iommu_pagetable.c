@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -319,15 +319,7 @@ size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
 
 static phys_addr_t get_phys_addr(struct scatterlist *sg)
 {
-	/*
-	 * Try sg_dma_address first so that we can
-	 * map carveout regions that do not have a
-	 * struct page associated with them.
-	 */
-	phys_addr_t pa = sg_dma_address(sg);
-	if (pa == 0)
-		pa = sg_phys(sg);
-	return pa;
+	return sg_phys(sg);
 }
 
 /*
