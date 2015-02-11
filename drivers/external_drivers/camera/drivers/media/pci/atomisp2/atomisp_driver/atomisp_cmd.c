@@ -3605,7 +3605,10 @@ int atomisp_set_parameters(struct video_device *vdev,
 
 apply_parameter_failed:
 	if (css_param)
-		atomisp_kernel_free(css_param);
+		atomisp_free_css_parameters(css_param);
+	if (param)
+		atomisp_kernel_free(param);
+
 	return ret;
 }
 
