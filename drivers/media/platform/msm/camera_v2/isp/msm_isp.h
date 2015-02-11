@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,6 +44,7 @@
 #define MAX_NUM_STATS_COMP_MASK 2
 #define MAX_INIT_FRAME_DROP 31
 #define ISP_Q2 (1 << 2)
+#define ISP_Q10 (1 << 10)
 
 #define VFE_PING_FLAG 0xFFFFFFFF
 #define VFE_PONG_FLAG 0x0
@@ -589,6 +590,7 @@ struct vfe_device {
 	uint32_t vfe_ub_policy;
 	uint32_t isp_sof_debug;
 	uint8_t reset_pending;
+	uint32_t bus_util_factor;
 };
 
 #endif

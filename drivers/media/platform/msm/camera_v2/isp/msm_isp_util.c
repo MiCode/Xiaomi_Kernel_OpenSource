@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,6 +182,8 @@ int msm_isp_update_bandwidth(enum msm_isp_hw_client client,
 				isp_bandwidth_mgr.client_info[i].ib;
 		}
 	}
+	ISP_DBG("%s: Total AB = %llu IB = %llu\n", __func__,
+			path->vectors[0].ab, path->vectors[0].ib);
 	msm_bus_scale_client_update_request(isp_bandwidth_mgr.bus_client,
 		isp_bandwidth_mgr.bus_vector_active_idx);
 	/* Insert into circular buffer */
@@ -1827,6 +1829,11 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;
+	vfe_dev->bus_util_factor = 0;
+	rc = of_property_read_u32(vfe_dev->pdev->dev.of_node,
+			"bus-util-factor", &vfe_dev->bus_util_factor);
+	if (rc < 0)
+		ISP_DBG("%s: Use default bus utilization factor\n", __func__);
 	iommu_set_fault_handler(vfe_dev->buf_mgr->iommu_domain,
 		msm_vfe_iommu_fault_handler, vfe_dev);
 	mutex_unlock(&vfe_dev->core_mutex);
