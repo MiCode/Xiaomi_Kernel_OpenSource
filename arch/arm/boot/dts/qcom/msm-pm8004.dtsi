@@ -26,7 +26,7 @@
 			compatible = "qcom,qpnp-power-on";
 			reg = <0x800 0x100>;
 			qcom,secondary-pon-reset;
-			qcom,s3-debounce = <16>;
+			qcom,s3-debounce = <32>;
 			qcom,s3-src = "kpdpwr-and-resin";
 		};
 
