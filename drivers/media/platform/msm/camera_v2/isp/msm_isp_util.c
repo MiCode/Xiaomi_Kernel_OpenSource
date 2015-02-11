@@ -1230,9 +1230,8 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 	struct msm_vfe_reg_cfg_cmd *reg_cfg_cmd;
 	uint32_t *cfg_data = NULL;
 
-	if (!proc_cmd->num_cfg ||
-		proc_cmd->num_cfg > USHRT_MAX) {
-		pr_err("%s: Invalid num_cfg %u\n", __func__, proc_cmd->num_cfg);
+	if (!proc_cmd->num_cfg) {
+		pr_err("%s: Passed num_cfg as 0\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1251,25 +1250,20 @@ int msm_isp_proc_cmd(struct vfe_device *vfe_dev, void *arg)
 		goto copy_cmd_failed;
 	}
 
-	if (!proc_cmd->cmd_len ||
-		proc_cmd->cmd_len > USHRT_MAX) {
-		pr_err("%s: Invalid cmd_len %u\n", __func__, proc_cmd->cmd_len);
-		rc = -EINVAL;
-		goto cfg_data_failed;
-	}
+	if (proc_cmd->cmd_len > 0) {
+		cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);
+		if (!cfg_data) {
+			pr_err("%s: cfg_data alloc failed\n", __func__);
+			rc = -ENOMEM;
+			goto cfg_data_failed;
+		}
 
-	cfg_data = kzalloc(proc_cmd->cmd_len, GFP_KERNEL);
-	if (!cfg_data) {
-		pr_err("%s: cfg_data alloc failed\n", __func__);
-		rc = -ENOMEM;
-		goto cfg_data_failed;
-	}
-
-	if (copy_from_user(cfg_data,
-		(void __user *)(proc_cmd->cfg_data),
-		proc_cmd->cmd_len)) {
-		rc = -EFAULT;
-		goto copy_cmd_failed;
+		if (copy_from_user(cfg_data,
+			(void __user *)(proc_cmd->cfg_data),
+			proc_cmd->cmd_len)) {
+			rc = -EFAULT;
+			goto copy_cmd_failed;
+		}
 	}
 
 	for (i = 0; i < proc_cmd->num_cfg; i++)
