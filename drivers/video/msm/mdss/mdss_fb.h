@@ -41,7 +41,7 @@
  * unreasonably large. Set to 1s more than first wait + final wait which
  * are already quite long and proceed without any further waits. */
 #define WAIT_DISP_OP_TIMEOUT (WAIT_FENCE_FIRST_TIMEOUT + \
-		WAIT_FENCE_FINAL_TIMEOUT + 1)
+		WAIT_FENCE_FINAL_TIMEOUT + MSEC_PER_SEC)
 
 #ifndef MAX
 #define  MAX(x, y) (((x) > (y)) ? (x) : (y))
