@@ -5001,11 +5001,12 @@ void i915_gem_vma_destroy(struct i915_vma *vma)
 		return;
 
 	vm = vma->vm;
-
-	if (!i915_is_ggtt(vm))
-		i915_ppgtt_put(i915_vm_to_ppgtt(vm));
-
 	list_del(&vma->vma_link);
+
+	if (!i915_is_ggtt(vm)) {
+		list_del(&vma->vm_link);
+		i915_ppgtt_put(i915_vm_to_ppgtt(vm));
+	}
 
 	kfree(vma);
 }

@@ -1207,6 +1207,7 @@ static int __hw_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt)
 	else
 		BUG();
 }
+
 int i915_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1218,6 +1219,8 @@ int i915_ppgtt_init(struct drm_device *dev, struct i915_hw_ppgtt *ppgtt)
 		drm_mm_init(&ppgtt->base.mm, ppgtt->base.start,
 			    ppgtt->base.total);
 		i915_init_vm(dev_priv, &ppgtt->base);
+
+		INIT_LIST_HEAD(&ppgtt->vma_list);
 	}
 
 	return ret;
@@ -1298,12 +1301,47 @@ void  i915_ppgtt_release(struct kref *kref)
 	/* vmas should already be unbound */
 	WARN_ON(!list_empty(&ppgtt->base.active_list));
 	WARN_ON(!list_empty(&ppgtt->base.inactive_list));
+	WARN_ON(!list_empty(&ppgtt->vma_list));
 
 	list_del(&ppgtt->base.global_link);
 	drm_mm_takedown(&ppgtt->base.mm);
 
 	ppgtt->base.cleanup(&ppgtt->base);
+
 	kfree(ppgtt);
+}
+
+void
+i915_ppgtt_destroy(struct i915_hw_ppgtt *ppgtt)
+{
+	struct i915_vma *vma, *tmp;
+	struct i915_address_space *vm;
+	int ret;
+
+	if (!ppgtt)
+		return;
+
+	vm = &ppgtt->base;
+
+	/*
+	 * If this fires it means that the context reference counting went
+	 * awry.
+	 */
+	WARN_ON(!list_empty(&ppgtt->base.active_list));
+
+	if (!list_empty(&ppgtt->vma_list))
+		list_for_each_entry_safe(vma, tmp, &ppgtt->vma_list, vm_link) {
+			WARN_ON(vma->pin_count != 0);
+			/*
+			 * The object should be inactive at this point, thus
+			 * its pin_count should be 0. We will zero it anyway
+			 * make sure that the unbind call succeeds.
+			 */
+			vma->pin_count = 0;
+			ret = i915_vma_unbind(vma);
+		}
+
+	i915_ppgtt_put(ppgtt);
 }
 
 static void
@@ -2230,6 +2268,7 @@ static struct i915_vma *__i915_gem_vma_create(struct drm_i915_gem_object *obj,
 		return ERR_PTR(-ENOMEM);
 
 	INIT_LIST_HEAD(&vma->vma_link);
+	INIT_LIST_HEAD(&vma->vm_link);
 	INIT_LIST_HEAD(&vma->mm_list);
 	INIT_LIST_HEAD(&vma->exec_list);
 	vma->vm = vm;
@@ -2263,8 +2302,10 @@ static struct i915_vma *__i915_gem_vma_create(struct drm_i915_gem_object *obj,
 	if (i915_is_ggtt(vm))
 		list_add(&vma->vma_link, &obj->vma_list);
 	else {
+		struct i915_hw_ppgtt *ppgtt = i915_vm_to_ppgtt(vm);
 		list_add_tail(&vma->vma_link, &obj->vma_list);
-		i915_ppgtt_get(i915_vm_to_ppgtt(vm));
+		i915_ppgtt_get(ppgtt);
+		list_add_tail(&vma->vm_link, &ppgtt->vma_list);
 	}
 
 	return vma;

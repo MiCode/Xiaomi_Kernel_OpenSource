@@ -166,7 +166,7 @@ void i915_gem_context_free(struct kref *ctx_ref)
 	if (i915.enable_execlists)
 		intel_lr_context_free(ctx);
 
-	i915_ppgtt_put(ctx->ppgtt);
+	i915_ppgtt_destroy(ctx->ppgtt);
 
 	if (ctx->legacy_hw_ctx.rcs_state)
 		drm_gem_object_unreference(&ctx->legacy_hw_ctx.rcs_state->base);

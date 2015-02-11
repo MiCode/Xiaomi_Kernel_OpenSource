@@ -128,6 +128,8 @@ struct i915_vma {
 
 	struct list_head vma_link; /* Link in the object's VMA list */
 
+	struct list_head vm_link; /* Link in the VM's VMA list */
+
 	/** This vma's place in the batchbuffer or on the eviction list */
 	struct list_head exec_list;
 
@@ -149,6 +151,7 @@ struct i915_vma {
 	 * In the worst case this is 1 + 1 + 1 + 2*2 = 7. That would fit into 3
 	 * bits with absolutely no headroom. So use 4 bits. */
 	unsigned int pin_count:4;
+
 #define DRM_I915_GEM_OBJECT_MAX_PIN_COUNT 0xf
 
 	/** Unmap an object from an address space. This usually consists of
@@ -263,6 +266,8 @@ struct i915_hw_ppgtt {
 	};
 	dma_addr_t scratch_dma_addr;
 
+	struct list_head vma_list;
+
 	struct drm_i915_file_private *file_priv;
 
 	int (*enable)(struct i915_hw_ppgtt *ppgtt);
@@ -284,6 +289,8 @@ int i915_ppgtt_init_hw(struct drm_device *dev);
 void i915_ppgtt_release(struct kref *kref);
 struct i915_hw_ppgtt *i915_ppgtt_create(struct drm_device *dev,
 					struct drm_i915_file_private *fpriv);
+void i915_ppgtt_destroy(struct i915_hw_ppgtt *ppgtt);
+
 static inline void i915_ppgtt_get(struct i915_hw_ppgtt *ppgtt)
 {
 	if (ppgtt)
