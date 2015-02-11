@@ -127,7 +127,7 @@ describe_obj(struct seq_file *m, struct drm_i915_gem_object *obj)
 	struct i915_vma *vma;
 	int pin_count = 0;
 
-	seq_printf(m, "%pK: %s%s%s %8zdKiB %02x %02x %u %u %u%s%s%s",
+	seq_printf(m, "%p: %s%s%s %8zdKiB %02x %02x %u %u %u%s%s%s",
 		   &obj->base,
 		   get_pin_flag(obj),
 		   get_tiling_flag(obj),
@@ -2428,22 +2428,37 @@ static void gen8_ppgtt_info(struct seq_file *m, struct drm_device *dev)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_engine_cs *ring;
 	struct i915_hw_ppgtt *ppgtt = dev_priv->mm.aliasing_ppgtt;
+	struct i915_address_space *vm;
 	int unused, i;
 
-	if (!ppgtt)
-		return;
 
-	seq_printf(m, "Page directories: %d\n", ppgtt->num_pd_pages);
-	seq_printf(m, "Page tables: %d\n", ppgtt->num_pd_entries);
-	for_each_ring(ring, dev_priv, unused) {
-		seq_printf(m, "%s\n", ring->name);
-		for (i = 0; i < 4; i++) {
-			u32 offset = 0x270 + i * 8;
-			u64 pdp = I915_READ(ring->mmio_base + offset + 4);
-			pdp <<= 32;
-			pdp |= I915_READ(ring->mmio_base + offset);
-			seq_printf(m, "\tPDP%d 0x%016llx\n", i, pdp);
+	if (ppgtt) {
+		seq_printf(m, "Page directories: %d\n", ppgtt->num_pd_pages);
+		seq_printf(m, "Page tables: %d\n", ppgtt->num_pd_entries);
+		for_each_ring(ring, dev_priv, unused) {
+			seq_printf(m, "%s\n", ring->name);
+			for (i = 0; i < 4; i++) {
+				u32 offset = 0x270 + i * 8;
+				u64 pdp = I915_READ(ring->mmio_base + offset + 4);
+				pdp <<= 32;
+				pdp |= I915_READ(ring->mmio_base + offset);
+				seq_printf(m, "\tPDP%d 0x%016llx\n", i, pdp);
+			}
 		}
+	} else {
+		i = 0;
+		list_for_each_entry(vm, &dev_priv->vm_list, global_link) {
+			if (i915_is_ggtt(vm))
+				continue;
+			i++;
+			ppgtt = i915_vm_to_ppgtt(vm);
+			seq_printf(m, "PPGTT %p - references\n", ppgtt);
+			seq_printf(m, "Page directories: %d\n",
+							ppgtt->num_pd_pages);
+			seq_printf(m, "Page tables: %d\n",
+							ppgtt->num_pd_entries);
+		}
+		seq_printf(m, "Number of PPGTTs active: %d\n", i);
 	}
 }
 
