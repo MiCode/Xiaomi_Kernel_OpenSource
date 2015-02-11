@@ -919,17 +919,15 @@ static int program_timers(struct bq24192_chip *chip, int wdt_duration,
 /* This function should be called with the mutex held */
 static int reset_wdt_timer(struct bq24192_chip *chip)
 {
-	int ret = 0, i;
+	int ret = 0;
 
 	/* reset WDT timer */
-	for (i = 0; i < MAX_RESET_WDT_RETRY; i++) {
-		ret = bq24192_reg_read_modify(chip->client,
-						BQ24192_POWER_ON_CFG_REG,
-						WDTIMER_RESET_MASK, true);
-		if (ret < 0)
-			dev_warn(&chip->client->dev, "I2C write failed:%s\n",
-							__func__);
-	}
+	ret = bq24192_reg_read_modify(chip->client,
+					BQ24192_POWER_ON_CFG_REG,
+					WDTIMER_RESET_MASK, true);
+	if (ret < 0)
+		dev_warn(&chip->client->dev, "I2C write failed:%s\n",
+						__func__);
 	return ret;
 }
 
@@ -1202,7 +1200,7 @@ static inline int bq24192_enable_charging(
 
 	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, val);
 
-	ret = program_timers(chip, CHRG_TIMER_EXP_CNTL_WDT160SEC, true);
+	ret = program_timers(chip, CHRG_TIMER_EXP_CNTL_WDT160SEC, false);
 	if (ret < 0) {
 		dev_err(&chip->client->dev,
 				"program_timers failed: %d\n", ret);
@@ -1750,9 +1748,10 @@ static void bq24192_irq_worker(struct work_struct *work)
 	dev_info(&chip->client->dev, "FAULT reg %x\n", reg_fault);
 	if (reg_fault & FAULT_STAT_WDT_TMR_EXP) {
 		dev_warn(&chip->client->dev, "WDT expiration fault\n");
+
 		if (chip->is_charging_enabled) {
 			program_timers(chip,
-					CHRG_TIMER_EXP_CNTL_WDT160SEC, true);
+					CHRG_TIMER_EXP_CNTL_WDT160SEC, false);
 			mutex_lock(&chip->event_lock);
 			bq24192_resume_charging(chip);
 			mutex_unlock(&chip->event_lock);
@@ -2164,11 +2163,6 @@ static int bq24192_probe(struct i2c_client *client,
 		kfree(chip);
 		return -EIO;
 	}
-
-	/* Enable the WDT and Disable Safety timer */
-	ret = program_timers(chip, CHRG_TIMER_EXP_CNTL_WDT160SEC, false);
-	if (ret < 0)
-		dev_warn(&chip->client->dev, "TIMER enable failed\n");
 
 	/*
 	 * Initialize the platform data
