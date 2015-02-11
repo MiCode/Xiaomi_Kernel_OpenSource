@@ -742,6 +742,35 @@ static inline int mdss_mdp_line_buffer_width(void)
 	return MAX_LINE_BUFFER_WIDTH;
 }
 
+static inline u32 get_panel_yres(struct mdss_panel_info *pinfo)
+{
+	u32 yres;
+
+	yres = pinfo->yres + pinfo->lcdc.border_top +
+				pinfo->lcdc.border_bottom;
+	return yres;
+}
+
+static inline u32 get_panel_xres(struct mdss_panel_info *pinfo)
+{
+	u32 xres;
+
+	xres = pinfo->xres + pinfo->lcdc.border_left +
+				pinfo->lcdc.border_right;
+	return xres;
+}
+
+static inline u32 get_panel_width(struct mdss_mdp_ctl *ctl)
+{
+	u32 width;
+
+	width = get_panel_xres(&ctl->panel_data->panel_info);
+	if (ctl->panel_data->next && is_pingpong_split(ctl->mfd))
+		width += get_panel_xres(&ctl->panel_data->next->panel_info);
+
+	return width;
+}
+
 static inline int mdss_mdp_panic_signal_support_mode(
 	struct mdss_data_type *mdata)
 {
