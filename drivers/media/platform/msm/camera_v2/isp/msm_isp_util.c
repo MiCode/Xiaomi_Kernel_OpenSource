@@ -535,6 +535,9 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	} else if (input_cfg->d.pix_cfg.input_mux == EXTERNAL_READ) {
 		vfe_dev->axi_data.src_info[VFE_PIX_0].width =
 			input_cfg->d.pix_cfg.fetch_engine_cfg.buf_stride;
+	} else if (input_cfg->d.pix_cfg.input_mux == TESTGEN) {
+		vfe_dev->axi_data.src_info[VFE_PIX_0].width =
+			input_cfg->d.pix_cfg.camif_cfg.pixels_per_line;
 	}
 	vfe_dev->hw_info->vfe_ops.core_ops.cfg_input_mux(
 			vfe_dev, &input_cfg->d.pix_cfg);
@@ -963,7 +966,7 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 				pr_err("%s:%d hi %d lo %d\n",
 					__func__, __LINE__,
 					reg_cfg_cmd->u.dmi_info.hi_tbl_offset,
-					reg_cfg_cmd->u.dmi_info.hi_tbl_offset);
+					reg_cfg_cmd->u.dmi_info.lo_tbl_offset);
 				return -EINVAL;
 			}
 			if (reg_cfg_cmd->u.dmi_info.len <= sizeof(uint32_t)) {
