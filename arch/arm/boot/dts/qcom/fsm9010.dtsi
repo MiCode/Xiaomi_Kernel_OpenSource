@@ -283,6 +283,13 @@
 		qcom,fragmented-data;
 	};
 
+	qcom,rmtfs_sharedmem@18c00000 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x18c00000 0x00180000>;
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
+
 	qcom,sps {
 		compatible = "qcom,msm_sps";
 		qcom,device-type = <3>;
