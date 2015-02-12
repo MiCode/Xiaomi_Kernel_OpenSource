@@ -60,8 +60,10 @@
 
 #define SST_MIX_PCM3		SST_MIX(21)
 #define SST_MIX_PCM4		SST_MIX(22)
+#define SST_MIX_HF_SNS_3	SST_MIX(23)
+#define SST_MIX_HF_SNS_4	SST_MIX(24)
 
-#define SST_NUM_MIX		(SST_MIX_PCM4 + 1)
+#define SST_NUM_MIX		(SST_MIX_HF_SNS_4 + 1)
 
 #define SST_MIX_SWITCH		(SST_NUM_MIX + 1)
 #define SST_OUT_SWITCH		(SST_NUM_MIX + 2)

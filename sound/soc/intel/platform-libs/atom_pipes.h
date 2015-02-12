@@ -75,6 +75,8 @@ enum sst_dfw_path_index {
 	SST_DFW_PATH_INDEX_PROBE8_PIPE_OUT    = (0x20 << SST_DFW_PATH_ID_SHIFT),
 
 	SST_DFW_PATH_INDEX_SIDETONE_OUT	      = (0x21 << SST_DFW_PATH_ID_SHIFT),
+	SST_DFW_PATH_INDEX_HF_SNS_3_OUT	      = (0x23 << SST_DFW_PATH_ID_SHIFT),
+	SST_DFW_PATH_INDEX_HF_SNS_4_OUT	      = (0x24 << SST_DFW_PATH_ID_SHIFT),
 
 	/* Start of input paths */
 	SST_DFW_PATH_INDEX_MODEM_IN	      = (0x80 << SST_DFW_PATH_ID_SHIFT),
@@ -191,6 +193,10 @@ enum sst_dfw_swm_outputs {
 						SST_DFW_DEFAULT_CELL_NBR),
 	SST_DFW_SWM_OUT_HF_SNS		= (SST_DFW_PATH_INDEX_HF_SNS_OUT      |
 						SST_DFW_DEFAULT_CELL_NBR),
+	SST_DFW_SWM_OUT_HF_SNS_3	= (SST_DFW_PATH_INDEX_HF_SNS_3_OUT    |
+						SST_DFW_DEFAULT_CELL_NBR),
+	SST_DFW_SWM_OUT_HF_SNS_4	= (SST_DFW_PATH_INDEX_HF_SNS_4_OUT    |
+						SST_DFW_DEFAULT_CELL_NBR),
 	SST_DFW_SWM_OUT_HF		= (SST_DFW_PATH_INDEX_HF_OUT	      |
 						SST_DFW_DEFAULT_CELL_NBR),
 	SST_DFW_SWM_OUT_SPEECH		= (SST_DFW_PATH_INDEX_SPEECH_OUT      |
@@ -295,5 +301,17 @@ enum sst_dfw_module_id {
 	SST_DFW_MODULE_ID_LOG		  = 0xFF00,
 
 	SST_DFW_MODULE_ID_TASK		  = 0xFFFF,
+};
+
+/* In the FBA Uplink module, up to 4 FIR/IIR can be used.
+ * They are not really module, but more 4 submodules of
+ * the FBA uplink module. Bit 11/12 of COMMAND ID are
+ * used for FIR/IIR Cell ID selection.
+*/
+enum fba_fir_iir_cell_id {
+	FBA_FIR_IIR_CELL_ID_0 = (0x0000 << 11),
+	FBA_FIR_IIR_CELL_ID_1 = (0x0001 << 11),
+	FBA_FIR_IIR_CELL_ID_2 = (0x0002 << 11),
+	FBA_FIR_IIR_CELL_ID_3 = (0x0003 << 11),
 };
 #endif /* __ATOM_PIPES_H__ */
