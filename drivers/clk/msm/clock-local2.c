@@ -214,6 +214,11 @@ static int rcg_clk_enable(struct clk *c)
 		"Attempting to prepare %s before setting its rate. "
 		"Set the rate first!\n", rcg->c.dbg_name);
 
+	if (rcg->force_enable_rcgr) {
+		rcg_set_force_enable(rcg);
+		return 0;
+	}
+
 	if (!rcg->non_local_children || rcg->current_freq == &rcg_dummy_freq)
 		return 0;
 	/*
@@ -232,6 +237,11 @@ static int rcg_clk_enable(struct clk *c)
 static void rcg_clk_disable(struct clk *c)
 {
 	struct rcg_clk *rcg = to_rcg_clk(c);
+
+	if (rcg->force_enable_rcgr) {
+		rcg_clear_force_enable(rcg);
+		return;
+	}
 
 	if (!rcg->non_local_children)
 		return;
