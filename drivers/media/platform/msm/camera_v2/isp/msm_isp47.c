@@ -915,7 +915,7 @@ static void msm_vfe47_cfg_fetch_engine(struct vfe_device *vfe_dev,
 		temp = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 		temp |= 2 << 5;
 		temp |= 128 << 8;
-		temp |= pix_cfg->pixel_pattern;
+		temp |= (pix_cfg->pixel_pattern & 0x3);
 		msm_camera_io_w(temp, vfe_dev->vfe_base + 0x50);
 
 	} else {
@@ -1020,7 +1020,7 @@ static void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		vfe_en =
 			((vfe_dev->axi_data.
 			src_info[VFE_PIX_0].pix_stream_count > 0) ? 1 : 0);
-		val = msm_camera_io_r(vfe_dev->vfe_base + 0x3AC);
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x47C);
 		val &= 0xFFFFFF3F;
 		val = val | bus_en << 7 | vfe_en << 6;
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x47C);
@@ -1986,7 +1986,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 				msm_vfe47_stats_update_cgc_override,
 		},
 	},
-	.dmi_reg_offset = 0xC24,
+	.dmi_reg_offset = 0xC2C,
 	.axi_hw_info = &msm_vfe47_axi_hw_info,
 	.stats_hw_info = &msm_vfe47_stats_hw_info,
 	.subdev_ops = &msm_vfe47_subdev_ops,
