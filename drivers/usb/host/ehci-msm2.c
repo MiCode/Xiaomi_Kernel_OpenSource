@@ -1,6 +1,6 @@
 /* ehci-msm2.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell
@@ -269,7 +269,7 @@ static int msm_ehci_config_vddcx(struct msm_hcd *mhcd, int high)
 
 	if (high)
 		min_vol = hsusb_vdd_val[VDD_MIN_OP];
-	else if (pdata && pdata->dock_connect_irq &&
+	else if (pdata->dock_connect_irq &&
 			!irq_read_line(pdata->dock_connect_irq))
 		min_vol = hsusb_vdd_val[VDD_MIN_P75];
 	else
@@ -352,7 +352,7 @@ static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
 	pdata = mhcd->dev->platform_data;
 
 	if (!init) {
-		if (pdata && pdata->dock_connect_irq)
+		if (pdata->dock_connect_irq)
 			free_irq(pdata->dock_connect_irq, mhcd);
 		return rc;
 	}
@@ -366,18 +366,16 @@ static int msm_ehci_init_vbus(struct msm_hcd *mhcd, int init)
 		mhcd->vbus = NULL;
 	}
 
-	if (pdata) {
-		hcd->power_budget = pdata->power_budget;
+	hcd->power_budget = pdata->power_budget;
 
-		if (pdata->dock_connect_irq) {
-			rc = request_threaded_irq(pdata->dock_connect_irq, NULL,
-					msm_ehci_dock_connect_irq,
-					IRQF_TRIGGER_FALLING |
-					IRQF_TRIGGER_RISING |
-					IRQF_ONESHOT, "msm_ehci_host", mhcd);
-			if (!rc)
-				enable_irq_wake(pdata->dock_connect_irq);
-		}
+	if (pdata->dock_connect_irq) {
+		rc = request_threaded_irq(pdata->dock_connect_irq, NULL,
+				msm_ehci_dock_connect_irq,
+				IRQF_TRIGGER_FALLING |
+				IRQF_TRIGGER_RISING |
+				IRQF_ONESHOT, "msm_ehci_host", mhcd);
+		if (!rc)
+			enable_irq_wake(pdata->dock_connect_irq);
 	}
 	return rc;
 }
@@ -576,7 +574,7 @@ static int msm_ehci_phy_reset(struct msm_hcd *mhcd)
 		return ret;
 
 	pdata = mhcd->dev->platform_data;
-	if (pdata && pdata->use_sec_phy)
+	if (pdata->use_sec_phy)
 		/* select secondary phy if offset is set for USB operation */
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
 								USB_PHY_CTRL2);
@@ -641,7 +639,7 @@ static int msm_hsusb_reset(struct msm_hcd *mhcd)
 	writel_relaxed(0x80000000, USB_PORTSC);
 
 	pdata = mhcd->dev->platform_data;
-	if (pdata && pdata->use_sec_phy)
+	if (pdata->use_sec_phy)
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
 								USB_PHY_CTRL2);
 
@@ -720,7 +718,7 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 	}
 
 	pdata = mhcd->dev->platform_data;
-	if (pdata && pdata->is_uicc) {
+	if (pdata->is_uicc) {
 		/* put the controller in non-driving mode */
 		func_ctrl = msm_ulpi_read(mhcd, ULPI_FUNC_CTRL);
 		func_ctrl &= ~ULPI_FUNC_CTRL_OPMODE_MASK;
@@ -859,9 +857,9 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	pm_stay_awake(mhcd->dev);
 
 	pdata = mhcd->dev->platform_data;
-	if (pdata)
+	if (pdata->pm_qos_latency)
 		pm_qos_update_request(&mhcd->pm_qos_req_dma,
-			pdata->pm_qos_latency + 1);
+					pdata->pm_qos_latency + 1);
 	/* Vote for TCXO when waking up the phy */
 	if (mhcd->xo_clk)
 		clk_prepare_enable(mhcd->xo_clk);
@@ -1001,7 +999,7 @@ static int msm_ehci_reset(struct usb_hcd *hcd)
 	writel_relaxed(0x13, USB_USBMODE);
 
 	pdata = mhcd->dev->platform_data;
-	if (pdata && pdata->use_sec_phy)
+	if (pdata->use_sec_phy)
 		writel_relaxed(readl_relaxed(USB_PHY_CTRL2) | (1<<16),
 								USB_PHY_CTRL2);
 
@@ -1360,13 +1358,13 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 	if (ret)
 		goto xo_put;
 
-	if (pdev->dev.of_node) {
-		dev_dbg(&pdev->dev, "device tree enabled\n");
-		pdev->dev.platform_data = ehci_msm2_dt_to_pdata(pdev);
-	}
+	pdev->dev.platform_data = ehci_msm2_dt_to_pdata(pdev);
 
-	if (!pdev->dev.platform_data)
-		dev_dbg(&pdev->dev, "No platform data given\n");
+	if (!pdev->dev.platform_data) {
+		dev_err(&pdev->dev, "Platform data allocation failed\n");
+		ret = -ENOMEM;
+		goto xo_put;
+	}
 
 	pdata = pdev->dev.platform_data;
 
@@ -1453,7 +1451,7 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (pdata && gpio_is_valid(pdata->resume_gpio)) {
+	if (gpio_is_valid(pdata->resume_gpio)) {
 		mhcd->resume_gpio = pdata->resume_gpio;
 		ret = devm_gpio_request(&pdev->dev, mhcd->resume_gpio,
 							"hsusb_resume");
@@ -1470,7 +1468,7 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (pdata && gpio_is_valid(pdata->ext_hub_reset_gpio)) {
+	if (gpio_is_valid(pdata->ext_hub_reset_gpio)) {
 		ret = devm_gpio_request(&pdev->dev, pdata->ext_hub_reset_gpio,
 							"hsusb_reset");
 		if (ret) {
@@ -1535,7 +1533,7 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		usb_phy_init(hcd->phy);
 		/* Set Host mode flag */
 		hcd->phy->flags |= PHY_HOST_MODE;
-	} else if (pdata && pdata->use_sec_phy) {
+	} else if (pdata->use_sec_phy) {
 		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL2;
 	} else {
 		mhcd->usb_phy_ctrl_reg = USB_PHY_CTRL;
@@ -1554,16 +1552,15 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 	}
 
 	pdata = mhcd->dev->platform_data;
-	if (pdata && (!pdata->dock_connect_irq ||
-				!irq_read_line(pdata->dock_connect_irq)))
+	if (!pdata->dock_connect_irq ||
+				!irq_read_line(pdata->dock_connect_irq))
 		msm_ehci_vbus_power(mhcd, 1);
 
 	/* For peripherals directly conneted to downstream port of root hub
 	 * and require to drive suspend and resume by controller driver instead
 	 * of root hub.
 	 */
-	if (pdata)
-		mhcd->ehci.no_selective_suspend = pdata->no_selective_suspend;
+	mhcd->ehci.no_selective_suspend = pdata->no_selective_suspend;
 
 	mhcd->wakeup_irq = platform_get_irq_byname(pdev, "wakeup_irq");
 	if (mhcd->wakeup_irq > 0) {
@@ -1592,7 +1589,7 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 	 * runtime APIs based on root-hub's state.
 	 */
 	/* configure pmic_gpio_irq for D+ change */
-	if (pdata && pdata->pmic_gpio_dp_irq)
+	if (pdata->pmic_gpio_dp_irq)
 		mhcd->pmic_gpio_dp_irq = pdata->pmic_gpio_dp_irq;
 	if (mhcd->pmic_gpio_dp_irq) {
 		ret = request_threaded_irq(mhcd->pmic_gpio_dp_irq, NULL,
@@ -1608,7 +1605,7 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		}
 	}
 
-	if (pdata && pdata->pm_qos_latency)
+	if (pdata->pm_qos_latency)
 		pm_qos_add_request(&mhcd->pm_qos_req_dma,
 			PM_QOS_CPU_DMA_LATENCY, pdata->pm_qos_latency + 1);
 
@@ -1694,7 +1691,7 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 	usb_remove_hcd(hcd);
 
 	pdata = pdev->dev.platform_data;
-	if (pdata && pdata->pm_qos_latency)
+	if (pdata->pm_qos_latency)
 		pm_qos_remove_request(&mhcd->pm_qos_req_dma);
 
 	if (hcd->phy) {
