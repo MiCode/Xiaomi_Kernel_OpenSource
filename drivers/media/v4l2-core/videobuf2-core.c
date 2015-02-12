@@ -1591,6 +1591,7 @@ static int __buf_prepare(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 {
 	struct vb2_queue *q = vb->vb2_queue;
 	int ret;
+	struct rw_semaphore *mmap_sem = &current->mm->mmap_sem;
 
 	ret = __verify_length(vb, b);
 	if (ret < 0) {
@@ -1626,9 +1627,13 @@ static int __buf_prepare(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 		ret = __qbuf_mmap(vb, b);
 		break;
 	case V4L2_MEMORY_USERPTR:
-		down_read(&current->mm->mmap_sem);
+		if (mmap_sem)
+			down_read(mmap_sem);
+
 		ret = __qbuf_userptr(vb, b);
-		up_read(&current->mm->mmap_sem);
+
+		if (mmap_sem)
+			up_read(mmap_sem);
 		break;
 	case V4L2_MEMORY_DMABUF:
 		ret = __qbuf_dmabuf(vb, b);
