@@ -646,6 +646,7 @@ static void glink_xprt_ch_open(struct ipc_router_glink_xprt *glink_xprtp)
 		return;
 
 	open_cfg.transport = glink_xprtp->transport;
+	open_cfg.options |= GLINK_OPT_INITIAL_XPORT;
 	open_cfg.edge = glink_xprtp->edge;
 	open_cfg.name = glink_xprtp->ch_name;
 	open_cfg.notify_rx = NULL;
