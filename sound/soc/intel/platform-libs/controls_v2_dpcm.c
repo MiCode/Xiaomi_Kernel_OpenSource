@@ -787,12 +787,9 @@ static const uint swm_dfw_mixer_input_ids[] = {
 	[SST_IP_VOIP]		= SST_DFW_SWM_IN_VOIP,
 	[SST_IP_PCM0]		= SST_DFW_SWM_IN_PCM0,
 	[SST_IP_PCM1]		= SST_DFW_SWM_IN_PCM1,
+	[SST_IP_PCM2]		= SST_DFW_SWM_IN_PCM2,
 	[SST_IP_LOW_PCM0]	= SST_DFW_SWM_IN_LOW_PCM0,
 	[SST_IP_FM]		= SST_DFW_SWM_IN_FM,
-	[SST_IP_MEDIA0]		= SST_DFW_SWM_IN_MEDIA0,
-	[SST_IP_MEDIA1]		= SST_DFW_SWM_IN_MEDIA1,
-	[SST_IP_MEDIA2]		= SST_DFW_SWM_IN_MEDIA2,
-	[SST_IP_MEDIA3]		= SST_DFW_SWM_IN_MEDIA3,
 };
 
 /* Look up table to convert MIXER SW bit regs to SWM inputs */

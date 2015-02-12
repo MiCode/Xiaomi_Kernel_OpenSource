@@ -19,10 +19,6 @@
 static const struct sst_probe_config sst_probes[] = {
 	/* TODO: get this struct from FW config data */
 	/* gain outputs  */
-	{ "media0_in gain", SST_PATH_INDEX_MEDIA0_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
-	{ "media1_in gain", SST_PATH_INDEX_MEDIA1_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
-	{ "media2_in gain", SST_PATH_INDEX_MEDIA2_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
-	{ "media3_in gain", SST_PATH_INDEX_MEDIA3_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_MMX, { 1, 2, 1 } },
 	{ "pcm0_in gain", SST_PATH_INDEX_PCM0_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "pcm1_in gain", SST_PATH_INDEX_PCM1_IN, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
 	{ "pcm1_out gain", SST_PATH_INDEX_PCM1_OUT, SST_MODULE_ID_GAIN_CELL, SST_TASK_SBA, { 1, 2, 1 } },
