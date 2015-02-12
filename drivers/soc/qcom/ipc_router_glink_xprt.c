@@ -814,6 +814,7 @@ static int ipc_router_glink_config_init(
 	list_add(&glink_xprtp->list, &glink_xprt_list);
 	mutex_unlock(&glink_xprt_list_lock_lha1);
 
+	glink_xprt_link_info.edge = glink_xprt_config->edge;
 	glink_xprt_link_state_notif_handle = glink_register_link_state_cb(
 						&glink_xprt_link_info, NULL);
 	return 0;
