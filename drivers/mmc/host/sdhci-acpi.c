@@ -125,6 +125,10 @@ static const struct sdhci_acpi_chip sdhci_acpi_chip_int = {
  * on Baytrail based platforms, and should only be enabled on platforms with
  * host controller IP blocks that exhibit this.  We're calling based on the
  * ACPI-ID of the IP block.
+ *
+ * Intel SDHCI host controller can support up to 4Mbytes request size in ADMA
+ * mode, which is much larger than the default 512KBytes. Change to 4Mbytes
+ * per the performance requirements
  */
 static int sdhci_acpi_probe_slot(struct platform_device *pdev)
 {
@@ -138,6 +142,9 @@ static int sdhci_acpi_probe_slot(struct platform_device *pdev)
 	host->mmc->qos = kzalloc(sizeof(struct pm_qos_request), GFP_KERNEL);
 	pm_qos_add_request(host->mmc->qos, PM_QOS_CPU_DMA_LATENCY,
 					PM_QOS_DEFAULT_VALUE);
+
+	/* change to 4Mbytes */
+	host->mmc->max_req_size = 4 * 1024 * 1024;
 
 	return 0;
 }

@@ -745,7 +745,7 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	WARN_ON(host->data);
 
 	/* Sanity checks */
-	BUG_ON(data->blksz * data->blocks > 524288);
+	BUG_ON(data->blksz * data->blocks > host->mmc->max_req_size);
 	BUG_ON(data->blksz > host->mmc->max_blk_size);
 	BUG_ON(data->blocks > 65535);
 
@@ -3416,8 +3416,20 @@ int sdhci_add_host(struct sdhci_host *host)
 	/*
 	 * Maximum number of sectors in one transfer. Limited by DMA boundary
 	 * size (512KiB).
+	 * if host can support ADMA, let host controller choose the max request
+	 * size first.
 	 */
-	mmc->max_req_size = 524288;
+	if (mmc->max_req_size) {
+		/*
+		 * If host is in DMA mode, choose the smaller value between
+		 * 512KBytes DMA boundary and the choosen one.
+		 * If host is in ADMA mode, then use the choosen one
+		 */
+		if (!(host->flags & SDHCI_USE_ADMA) &&
+				(mmc->max_req_size > 524288))
+			mmc->max_req_size = 524288;
+	} else
+		mmc->max_req_size = 524288;
 
 	/*
 	 * Maximum segment size. Could be one segment with the maximum number
