@@ -29,6 +29,7 @@
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
 #include "atom_controls.h"
+#include "atom_pipes.h"
 #include "controls_v2_dpcm.h"
 #include "sst_widgets.h"
 
@@ -771,7 +772,31 @@ static int sst_generic_modules_event(struct snd_soc_dapm_widget *w,
 static const DECLARE_TLV_DB_SCALE(sst_gain_tlv_common, SST_GAIN_MIN_VALUE * 10, 10, 0);
 
 /* Look up table to convert MIXER SW bit regs to SWM inputs */
-static const uint swm_mixer_input_ids[SST_SWM_INPUT_COUNT] = {
+static const uint swm_dfw_mixer_input_ids[] = {
+	[SST_IP_MODEM]		= SST_DFW_SWM_IN_MODEM,
+	[SST_IP_BT]		= SST_DFW_SWM_IN_BT,
+	[SST_IP_CODEC0]		= SST_DFW_SWM_IN_CODEC0,
+	[SST_IP_CODEC1]		= SST_DFW_SWM_IN_CODEC1,
+	[SST_IP_LOOP0]		= SST_DFW_SWM_IN_SPROT_LOOP,
+	[SST_IP_LOOP1]		= SST_DFW_SWM_IN_MEDIA_LOOP1,
+	[SST_IP_LOOP2]		= SST_DFW_SWM_IN_MEDIA_LOOP2,
+	[SST_IP_SIDETONE]	= SST_DFW_SWM_IN_SIDETONE,
+	[SST_IP_TXSPEECH]	= SST_DFW_SWM_IN_TXSPEECH,
+	[SST_IP_SPEECH]		= SST_DFW_SWM_IN_SPEECH,
+	[SST_IP_TONE]		= SST_DFW_SWM_IN_TONE,
+	[SST_IP_VOIP]		= SST_DFW_SWM_IN_VOIP,
+	[SST_IP_PCM0]		= SST_DFW_SWM_IN_PCM0,
+	[SST_IP_PCM1]		= SST_DFW_SWM_IN_PCM1,
+	[SST_IP_LOW_PCM0]	= SST_DFW_SWM_IN_LOW_PCM0,
+	[SST_IP_FM]		= SST_DFW_SWM_IN_FM,
+	[SST_IP_MEDIA0]		= SST_DFW_SWM_IN_MEDIA0,
+	[SST_IP_MEDIA1]		= SST_DFW_SWM_IN_MEDIA1,
+	[SST_IP_MEDIA2]		= SST_DFW_SWM_IN_MEDIA2,
+	[SST_IP_MEDIA3]		= SST_DFW_SWM_IN_MEDIA3,
+};
+
+/* Look up table to convert MIXER SW bit regs to SWM inputs */
+static const uint swm_mixer_input_ids[] = {
 	[SST_IP_MODEM]		= SST_SWM_IN_MODEM,
 	[SST_IP_BT]		= SST_SWM_IN_BT,
 	[SST_IP_CODEC0]		= SST_SWM_IN_CODEC0,
@@ -800,7 +825,8 @@ static const uint swm_mixer_input_ids[SST_SWM_INPUT_COUNT] = {
  * The register value is a bit-field inicated which mixer inputs are ON. Use the
  * lookup table to get the input-id and fill it in the structure.
  */
-static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg)
+static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg,
+			const uint *mixer_input_ids)
 {
 	uint i, is_set, nb_inputs = 0;
 	u16 input_loc_id;
@@ -811,7 +837,7 @@ static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg)
 		if (!is_set)
 			continue;
 
-		input_loc_id = swm_mixer_input_ids[i];
+		input_loc_id = mixer_input_ids[i];
 		SST_FILL_DESTINATION(2, swm_input->input_id,
 				     input_loc_id, SST_DEFAULT_MODULE_ID);
 		nb_inputs++;
@@ -846,8 +872,9 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 	}
 }
 
-static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
-			struct snd_kcontrol *k, int event)
+static int sst_swm_mixer_event_handler(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k, int event,
+			const uint *mixer_input_ids)
 {
 	struct sst_cmd_set_swm cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
@@ -892,7 +919,7 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 
 	SST_FILL_DESTINATION(2, cmd.output_id,
 			     ids->location_id, SST_DEFAULT_MODULE_ID);
-	cmd.nb_inputs =	fill_swm_input(&cmd.input[0], val);
+	cmd.nb_inputs =	fill_swm_input(&cmd.input[0], val, mixer_input_ids);
 	cmd.header.length = offsetof(struct sst_cmd_set_swm, input) - sizeof(struct sst_dsp_header)
 				+ (cmd.nb_inputs * sizeof(cmd.input[0]));
 
@@ -900,6 +927,20 @@ static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 			      ids->task_id, 0, &cmd,
 			      sizeof(cmd.header) + cmd.header.length);
 	return 0;
+}
+
+static int sst_swm_mixer_event_dfw(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k, int event)
+{
+	return sst_swm_mixer_event_handler(w, k, event,
+			swm_dfw_mixer_input_ids);
+}
+
+static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
+			struct snd_kcontrol *k, int event)
+{
+	return sst_swm_mixer_event_handler(w, k, event,
+			swm_mixer_input_ids);
 }
 
 /* SBA mixers - 16 inputs */
@@ -2184,7 +2225,7 @@ const struct snd_soc_fw_widget_events sst_widget_ops[] = {
 	{SST_SET_MEDIA_LOOP, sst_set_media_loop},
 	{SST_SET_TONE_GEN, sst_tone_generator_event},
 	{SST_SET_SPEECH_PATH, sst_set_speech_path},
-	{SST_SET_SWM, sst_swm_mixer_event},
+	{SST_SET_SWM, sst_swm_mixer_event_dfw},
 	{SST_SET_LINKED_PATH, sst_set_linked_pipe},
 	{SST_SET_GENERIC_MODULE_EVENT, sst_generic_modules_event},
 };
