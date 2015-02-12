@@ -32,6 +32,23 @@
 			};
 		};
 
+		i2c_0 {
+			qcom,pins = <&gp 4>, <&gp 5>; /* SDA, SCL */
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "i2c_0";
+
+			i2c_0_active: i2c_0_active {
+				drive-strength = <8>;
+				bias-disable;
+			};
+
+			i2c_0_sleep: i2c_0_sleep {
+				drive-strength = <8>;
+				bias-disable;
+			};
+		};
+
 		blsp1_uart3_active {
 		qcom,pins = <&gp 10>, <&gp 11>;
 			qcom,num-grp-pins = <2>;
