@@ -127,6 +127,7 @@ static int cht_check_jack_type(struct snd_soc_jack *jack,
 					struct snd_soc_codec *codec)
 {
 	int status, jack_type = 0;
+	const char *board_name;
 	struct cht_mc_private *ctx = container_of(jack,
 					struct cht_mc_private, jack);
 
@@ -138,6 +139,14 @@ static int cht_check_jack_type(struct snd_soc_jack *jack,
 		accessory is detected as headset*/
 		ctx->process_button_events = false;
 		cht_set_codec_power(codec, SND_JACK_HEADSET);
+		board_name = dmi_get_system_info(DMI_BOARD_NAME);
+		if (strcmp(board_name, "Cherry Trail Tablet") == 0) {
+			rt5670_supported_hs_type(codec,
+					RT5670_HS_RING4_MICBIAS2);
+		} else if (strcmp(board_name, "Cherry Trail FFD") == 0) {
+			rt5670_supported_hs_type(codec,
+					RT5670_HS_RING4_MICBIAS1);
+		}
 		jack_type = rt5670_headset_detect(codec, true);
 		if (jack_type == SND_JACK_HEADSET) {
 			ctx->process_button_events = true;

@@ -1967,6 +1967,11 @@ enum {
 };
 
 enum {
+	RT5670_HS_RING4_MICBIAS2,
+	RT5670_HS_RING4_MICBIAS1,
+};
+
+enum {
 	RT5670_BTN_EVENT = BIT(0), /* Jack evulse */
 	RT5670_BR_EVENT = BIT(1), /* Button Release */
 	RT5670_J_IN_EVENT = BIT(2), /* Jack insert */
@@ -2000,6 +2005,9 @@ struct rt5670_priv {
 	bool combo_jack_en;
 	int dsp_sw; /* expected parameter setting */
 	int jack_type;
+	int hs_type;
 };
+
+void rt5670_supported_hs_type(struct snd_soc_codec *codec, int type);
 
 #endif /* __RT5670_H__ */

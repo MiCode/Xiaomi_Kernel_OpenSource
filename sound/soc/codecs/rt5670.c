@@ -502,13 +502,14 @@ static int rt5670_readable_register(
 int rt5670_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 {
 	int val;
+	int i = 0, sleep_time[5] = {10, 5, 5, 5, 5};
 	struct rt5670_priv *rt5670 = snd_soc_codec_get_drvdata(codec);
 
 	if (jack_insert) {
-		snd_soc_update_bits(codec, RT5670_GEN_CTRL3, 0x4, 0x0);
-		snd_soc_update_bits(codec, RT5670_CJ_CTRL2,
-			RT5670_CBJ_DET_MODE | RT5670_CBJ_MN_JD,
-			RT5670_CBJ_MN_JD);
+		rt5670_index_update_bits(codec, RT5670_REC_R2_MIXER, 0x40, 0x0);
+		snd_soc_update_bits(codec, RT5670_MICBIAS, 0x10, 0x10);
+		snd_soc_update_bits(codec, RT5670_GEN_CTRL3, 0x4, 0x4);
+
 		snd_soc_update_bits(codec, RT5670_PWR_ANLG2,
 			RT5670_PWR_JD1, RT5670_PWR_JD1);
 		snd_soc_update_bits(codec, RT5670_DIG_MISC, 0x1, 0x1);
@@ -517,16 +518,28 @@ int rt5670_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 			RT5670_GP1_PIN_MASK, RT5670_GP1_PIN_IRQ);
 		snd_soc_update_bits(codec, RT5670_CJ_CTRL1,
 			RT5670_CBJ_BST1_EN, RT5670_CBJ_BST1_EN);
+		if (rt5670->hs_type == RT5670_HS_RING4_MICBIAS2)
+			snd_soc_write(codec, RT5670_CJ_CTRL2, 0x0b27);
+		else
+			snd_soc_write(codec, RT5670_CJ_CTRL2, 0x0d27);
+
 		snd_soc_write(codec, RT5670_JD_CTRL3, 0x00f0);
-		snd_soc_update_bits(codec, RT5670_CJ_CTRL2,
-			RT5670_CBJ_MN_JD, RT5670_CBJ_MN_JD);
-		snd_soc_update_bits(codec, RT5670_CJ_CTRL2,
-			RT5670_CBJ_MN_JD, 0);
-		msleep(300);
-		val = snd_soc_read(codec, RT5670_CJ_CTRL3) & 0x7;
-		pr_debug("val = %d\n", val);
-		if (val == 0x1 || val == 0x2) {
+		snd_soc_write(codec, RT5670_IL_CMD, 0x0059);
+		val = snd_soc_read(codec, RT5670_IL_CMD);
+		snd_soc_write(codec, RT5670_IL_CMD, val);
+		while (i < 5) {
+			msleep(sleep_time[i]);
+			val = snd_soc_read(codec, RT5670_IL_CMD);
+			snd_soc_write(codec, RT5670_IL_CMD, val);
+			pr_debug("%d sleep %d\n", i, sleep_time[i]);
+			i++;
+			if (val == 0x0059) /* Headset is detected */
+				break;
+		}
+
+		if (val == 0x0059) {
 			rt5670->jack_type = SND_JACK_HEADSET;
+			/* for push button */
 			snd_soc_update_bits(codec, RT5670_INT_IRQ_ST, 0x8, 0x8);
 			snd_soc_update_bits(codec, RT5670_IL_CMD, 0x40, 0x40);
 			snd_soc_read(codec, RT5670_IL_CMD);
@@ -534,6 +547,9 @@ int rt5670_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 			snd_soc_update_bits(codec, RT5670_GEN_CTRL3, 0x4, 0x4);
 			rt5670->jack_type = SND_JACK_HEADPHONE;
 		}
+		rt5670_index_update_bits(codec, 0x3e, 0x40, 0x40);
+		snd_soc_update_bits(codec, RT5670_MICBIAS, 0x10, 0x0);
+		snd_soc_update_bits(codec, RT5670_IL_CMD, 0x1f, 0x0);
 	} else {
 		snd_soc_update_bits(codec, RT5670_INT_IRQ_ST, 0x8, 0x0);
 		rt5670->jack_type = 0;
@@ -622,6 +638,15 @@ int rt5670_check_bp_status(struct snd_soc_codec *codec)
 	return val;
 }
 EXPORT_SYMBOL(rt5670_check_bp_status);
+
+void rt5670_supported_hs_type(struct snd_soc_codec *codec, int type)
+{
+	struct rt5670_priv *rt5670 = snd_soc_codec_get_drvdata(codec);
+
+	rt5670->hs_type = type;
+}
+EXPORT_SYMBOL(rt5670_supported_hs_type);
+
 
 static const DECLARE_TLV_DB_SCALE(out_vol_tlv, -4650, 150, 0);
 static const DECLARE_TLV_DB_SCALE(dac_vol_tlv, -65625, 375, 0);
