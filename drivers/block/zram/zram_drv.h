@@ -112,7 +112,6 @@ struct zram {
 	struct work_struct free_work;  /* handle pending free request */
 	struct zram_slot_free *slot_free_rq; /* list head of free request */
 	struct zcomp *comp;
-	struct request_queue *queue;
 	struct gendisk *disk;
 	/* Prevent concurrent execution of device init */
 	struct rw_semaphore init_lock;
