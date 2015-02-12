@@ -215,6 +215,15 @@ struct ipa_smmu_cb_ctx {
 
 static struct ipa_smmu_cb_ctx smmu_cb[IPA_SMMU_CB_MAX];
 
+struct iommu_domain *ipa_get_smmu_domain(void)
+{
+	if (smmu_cb[IPA_SMMU_CB_AP].valid)
+		return smmu_cb[IPA_SMMU_CB_AP].mapping->domain;
+	else
+		return NULL;
+}
+EXPORT_SYMBOL(ipa_get_smmu_domain);
+
 struct device *ipa_get_dma_dev(void)
 {
 	return ipa_ctx->pdev;
@@ -3193,6 +3202,8 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	bam_props.options |= SPS_BAM_RES_CONFIRM;
 	if (ipa_ctx->ipa_bam_remote_mode == true)
 		bam_props.manage |= SPS_BAM_MGR_DEVICE_REMOTE;
+	if (ipa_ctx->smmu_present)
+		bam_props.options |= SPS_BAM_SMMU_EN;
 	bam_props.ee = resource_p->ee;
 	bam_props.callback = sps_event_cb;
 
@@ -3709,6 +3720,77 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 
 #define IPA_SMMU_AP_VA_START 0x1000
 #define IPA_SMMU_AP_VA_SIZE 0x40000000
+#define IPA_SMMU_AP_VA_END (IPA_SMMU_AP_VA_START +  IPA_SMMU_AP_VA_SIZE)
+
+int ipa_smmu_map_peer_bam(unsigned long dev)
+{
+	phys_addr_t base;
+	u32 size;
+	struct iommu_domain *smmu_domain;
+
+	if (ipa_ctx->smmu_present) {
+		if (ipa_ctx->peer_bam_map_cnt == 0) {
+			if (sps_get_bam_addr(dev, &base, &size)) {
+				IPAERR("Fail to get addr\n");
+				return -EINVAL;
+			}
+			smmu_domain = ipa_get_smmu_domain();
+			if (smmu_domain != NULL) {
+				if (iommu_map(smmu_domain,
+					IPA_SMMU_AP_VA_END,
+					rounddown(base, PAGE_SIZE),
+					roundup(size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE),
+					IOMMU_READ | IOMMU_WRITE |
+					IOMMU_DEVICE)) {
+					IPAERR("Fail to iommu_map\n");
+					return -EINVAL;
+				}
+			}
+
+			ipa_ctx->peer_bam_iova = IPA_SMMU_AP_VA_END;
+			ipa_ctx->peer_bam_pa = base;
+			ipa_ctx->peer_bam_map_size = size;
+			ipa_ctx->peer_bam_dev = dev;
+
+			IPADBG("Peer bam %lu mapped\n", dev);
+		} else {
+			WARN_ON(dev != ipa_ctx->peer_bam_dev);
+		}
+
+		ipa_ctx->peer_bam_map_cnt++;
+	}
+
+	return 0;
+}
+
+int ipa_smmu_unmap_peer_bam(unsigned long dev)
+{
+	size_t len;
+	struct iommu_domain *smmu_domain;
+
+	if (ipa_ctx->smmu_present) {
+		WARN_ON(dev != ipa_ctx->peer_bam_dev);
+		ipa_ctx->peer_bam_map_cnt--;
+		if (ipa_ctx->peer_bam_map_cnt == 0) {
+			len = roundup(ipa_ctx->peer_bam_map_size +
+					ipa_ctx->peer_bam_pa -
+					rounddown(ipa_ctx->peer_bam_pa,
+						PAGE_SIZE), PAGE_SIZE);
+			smmu_domain = ipa_get_smmu_domain();
+			if (smmu_domain != NULL) {
+				if (iommu_unmap(smmu_domain,
+					IPA_SMMU_AP_VA_END, len) != len) {
+					IPAERR("Fail to iommu_unmap\n");
+					return -EINVAL;
+				}
+				IPADBG("Peer bam %lu unmapped\n", dev);
+			}
+		}
+	}
+
+	return 0;
+}
 
 static int ipa_smmu_wlan_cb_probe(struct device *dev)
 {

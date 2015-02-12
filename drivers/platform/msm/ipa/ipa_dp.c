@@ -884,6 +884,7 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	int result = -EINVAL;
 	dma_addr_t dma_addr;
 	char buff[IPA_RESOURCE_NAME_MAX];
+	struct iommu_domain *smmu_domain;
 
 	if (sys_in == NULL || clnt_hdl == NULL) {
 		IPAERR("NULL args\n");
@@ -1050,7 +1051,16 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	ep->connect.desc.size = sys_in->desc_fifo_sz;
 	ep->connect.desc.base = dma_alloc_coherent(ipa_ctx->pdev,
 			ep->connect.desc.size, &dma_addr, 0);
-	ep->connect.desc.phys_base = dma_addr;
+	if (!ipa_ctx->smmu_present) {
+		ep->connect.desc.phys_base = dma_addr;
+	} else {
+		ep->connect.desc.iova = dma_addr;
+		smmu_domain = ipa_get_smmu_domain();
+		if (smmu_domain != NULL) {
+			ep->connect.desc.phys_base =
+				iommu_iova_to_phys(smmu_domain, dma_addr);
+		}
+	}
 	if (ep->connect.desc.base == NULL) {
 		IPAERR("fail to get DMA desc memory.\n");
 		goto fail_sps_cfg;

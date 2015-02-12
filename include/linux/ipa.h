@@ -1350,6 +1350,7 @@ enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx);
 
 bool ipa_get_modem_cfg_emb_pipe_flt(void);
 struct device *ipa_get_dma_dev(void);
+struct iommu_domain *ipa_get_smmu_domain(void);
 
 #else /* CONFIG_IPA */
 
@@ -2052,6 +2053,11 @@ static inline bool ipa_get_modem_cfg_emb_pipe_flt(void)
 }
 
 static inline struct device *ipa_get_dma_dev(void)
+{
+	return NULL;
+}
+
+static inline struct iommu_domain *ipa_get_smmu_domain(void)
 {
 	return NULL;
 }
