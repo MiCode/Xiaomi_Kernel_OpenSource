@@ -1851,6 +1851,9 @@ static const struct snd_kcontrol_new sst_probe_controls[] = {
 		sst_gain_tlv_common, gain_var)
 
 
+/* Note: NUM_GAIN is common between DFW and kernel,
+ * keep note while modifying this
+ */
 #define SST_NUM_GAINS 36
 static struct sst_gain_value sst_gains[SST_NUM_GAINS];
 

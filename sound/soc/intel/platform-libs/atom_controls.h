@@ -58,7 +58,10 @@
 #define SST_MIX_MEDIA0		SST_MIX(19)
 #define SST_MIX_MEDIA1		SST_MIX(20)
 
-#define SST_NUM_MIX		(SST_MIX_MEDIA1 + 1)
+#define SST_MIX_PCM3		SST_MIX(21)
+#define SST_MIX_PCM4		SST_MIX(22)
+
+#define SST_NUM_MIX		(SST_MIX_PCM4 + 1)
 
 #define SST_MIX_SWITCH		(SST_NUM_MIX + 1)
 #define SST_OUT_SWITCH		(SST_NUM_MIX + 2)
