@@ -3598,8 +3598,9 @@ END:
 	if (retval > 0)
 		retval = -EINVAL;
 	if (retval < 0)
-		FMDERR("get control failed with %d, id: %d\n",
-			retval, ctrl->id);
+		FMDERR("get control failed with %d\n", retval);
+	if (ctrl != NULL)
+		FMDERR("get control failed id: %d\n", ctrl->id);
 
 	return retval;
 }
