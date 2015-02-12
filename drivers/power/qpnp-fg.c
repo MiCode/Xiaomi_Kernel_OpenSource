@@ -283,6 +283,7 @@ struct fg_chip {
 	struct mutex		rw_lock;
 	struct work_struct	batt_profile_init;
 	struct work_struct	dump_sram;
+	struct work_struct	status_change_work;
 	struct power_supply	*batt_psy;
 	struct fg_wakeup_source	memif_wakeup_source;
 	struct fg_wakeup_source	profile_wakeup_source;
@@ -305,6 +306,7 @@ struct fg_chip {
 	const char		*batt_type;
 	unsigned long		last_sram_update_time;
 	unsigned long		last_temp_update_time;
+	int			status;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -1449,6 +1451,18 @@ static int fg_power_get_property(struct power_supply *psy,
 	return 0;
 }
 
+static void status_change_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				status_change_work);
+
+	if ((chip->status == POWER_SUPPLY_STATUS_FULL ||
+			chip->status == POWER_SUPPLY_STATUS_CHARGING)
+			&& get_prop_capacity(chip) == 100)
+		fg_configure_soc(chip);
+}
+
 static int fg_power_set_property(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  const union power_supply_propval *val)
@@ -1468,8 +1482,8 @@ static int fg_power_set_property(struct power_supply *psy,
 			update_sram_data(chip, &unused);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
-		if (val->intval == POWER_SUPPLY_STATUS_FULL)
-			rc = fg_configure_soc(chip);
+		chip->status = val->intval;
+		schedule_work(&chip->status_change_work);
 		break;
 	default:
 		return -EINVAL;
@@ -2242,6 +2256,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
+	cancel_work_sync(&chip->status_change_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
@@ -2849,6 +2864,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_WORK(&chip->dump_sram, dump_sram);
+	INIT_WORK(&chip->status_change_work, status_change_work);
 	init_completion(&chip->sram_access_granted);
 	init_completion(&chip->sram_access_revoked);
 	init_completion(&chip->batt_id_avail);
@@ -2990,6 +3006,7 @@ cancel_work:
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
+	cancel_work_sync(&chip->status_change_work);
 of_init_fail:
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
