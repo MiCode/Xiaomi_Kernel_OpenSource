@@ -285,6 +285,14 @@
 		qcom,ipa-bam-remote-mode;
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
+		qcom,msm-bus,name = "ipa";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <2>;
+		qcom,msm-bus,vectors-KBps =
+		<90 512 0 0>, <90 585 0 0>,         /* No vote */
+		<90 512 206000 640000>, <90 585 206000 640000>,    /* SVS */
+		<90 512 206000 960000>, <90 585 206000 960000>;    /* PERF */
+		qcom,bus-vector-names = "MIN", "SVS", "PERF";
 	};
 
 	qcom,rmnet-ipa {
