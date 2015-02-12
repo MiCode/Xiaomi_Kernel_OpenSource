@@ -43,17 +43,19 @@
  * having timed out, since the timeout could be due to preemption or similar and
  * we've never had a chance to check the condition before the timeout.
  */
-#define _wait_for(COND, MS, W) ({ \
-	unsigned long timeout__ = jiffies + msecs_to_jiffies(MS) + 1;	\
+#define _wait_for(COND, MS, W) ({					\
+	u64 timeout_ = sched_clock() + MS * ((u64) NSEC_PER_MSEC);	\
+	u64 clock;							\
 	int ret__ = 0;							\
 	while (!(COND)) {						\
-		if (time_after(jiffies, timeout__)) {			\
+		clock = sched_clock();					\
+		if (clock >= timeout_) {				\
 			if (!(COND))					\
 				ret__ = -ETIMEDOUT;			\
 			break;						\
 		}							\
 		if (W && drm_can_sleep())  {				\
-			usleep_range(W*1000, W*2*1000);	\
+			usleep_range(W*1000, W*2*1000);			\
 		} else {						\
 			cpu_relax();					\
 		}							\
