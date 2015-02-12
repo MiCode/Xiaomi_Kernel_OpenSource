@@ -1631,6 +1631,9 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 		if (!ret && (val & USBPATH_USBSEL_MASK)) {
 				dev_info(chc.dev, "SOC-Internal-USBPHY used\n");
 				chc.is_internal_usb_phy = true;
+				/* Enable internal detection */
+				pmic_write_reg(
+					chc.reg_map->pmic_usbphyctrl, 0x0);
 		} else {
 				dev_info(chc.dev, "External-USBPHY used\n");
 		}
