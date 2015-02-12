@@ -237,12 +237,18 @@
 			qcom,smdpkt-port-name = "INFRA_TEST_0";
 			qcom,smdpkt-dev-name = "smd_infra_test_0";
 		};
-	};
 
-	qcom,smdpkt-infra_test_4 {
-		qcom,smdpkt-remote = "tenx";
-		qcom,smdpkt-port-name = "INFRA_TEST_4";
-		qcom,smdpkt-dev-name = "smd_infra_test_4";
+		qcom,smdpkt-infra_test_4 {
+			qcom,smdpkt-remote = "tenx";
+			qcom,smdpkt-port-name = "INFRA_TEST_4";
+			qcom,smdpkt-dev-name = "smd_infra_test_4";
+		};
+
+		qcom,smdpkt-logging_4 {
+			qcom,smdpkt-remote = "tenx";
+			qcom,smdpkt-port-name = "LOGGING_4";
+			qcom,smdpkt-dev-name = "smd_logging_4";
+		};
 	};
 
 	qcom,ipc_router{
