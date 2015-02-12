@@ -178,8 +178,9 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					NR_ZONE_INACTIVE_FILE) +
 					zone_page_state(zone,
 					NR_ZONE_ACTIVE_FILE);
-		} else if ((zone_idx < classzone_idx) && other_free) {
-			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0)) {
+		} else if (zone_idx < classzone_idx) {
+			if (zone_watermark_ok(zone, 0, 0, classzone_idx, 0) &&
+			    other_free) {
 				if (!use_cma_pages) {
 					*other_free -= min(
 					  zone->lowmem_reserve[classzone_idx] +
@@ -192,8 +193,9 @@ void tune_lmk_zone_param(struct zonelist *zonelist, int classzone_idx,
 					  zone->lowmem_reserve[classzone_idx];
 				}
 			} else {
-				*other_free -=
-					   zone_page_state(zone, NR_FREE_PAGES);
+				if (other_free)
+					*other_free -=
+					  zone_page_state(zone, NR_FREE_PAGES);
 			}
 		}
 	}
