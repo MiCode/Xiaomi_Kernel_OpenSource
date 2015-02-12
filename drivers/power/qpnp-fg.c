@@ -283,9 +283,11 @@ struct fg_chip {
 	struct completion	batt_id_avail;
 	struct power_supply	bms_psy;
 	struct mutex		rw_lock;
+	struct mutex		cyc_ctr_lock;
 	struct work_struct	batt_profile_init;
 	struct work_struct	dump_sram;
 	struct work_struct	status_change_work;
+	struct work_struct	cycle_count_work;
 	struct power_supply	*batt_psy;
 	struct fg_wakeup_source	memif_wakeup_source;
 	struct fg_wakeup_source	profile_wakeup_source;
@@ -297,17 +299,23 @@ struct fg_chip {
 	bool			battery_missing;
 	bool			power_supply_registered;
 	bool			sw_rbias_ctrl;
+	bool			use_thermal_coefficients;
+	bool			cyc_ctr_en;
+	bool			cyc_ctr_started;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
 	char			*batt_profile;
 	u8			thermal_coefficients[THERMAL_COEFF_N_BYTES];
-	bool			use_thermal_coefficients;
+	u16			cycle_counter;
+	u32			cyc_ctr_low_soc;
+	u32			cyc_ctr_hi_soc;
 	unsigned int		batt_profile_len;
 	unsigned int		batt_max_voltage_uv;
 	const char		*batt_type;
 	unsigned long		last_sram_update_time;
 	unsigned long		last_temp_update_time;
+	int			cyc_ctr_freq;
 	int			status;
 };
 
@@ -873,6 +881,19 @@ static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
 	return rc;
 }
 
+static int soc_to_setpoint(int soc)
+{
+	return DIV_ROUND_CLOSEST(soc * 255, 100);
+}
+
+static u8 batt_to_setpoint(int vbatt_mv)
+{
+	int val;
+	/* Battery voltage is an offset from 2.5 V and LSB is 5/2^9. */
+	val = (vbatt_mv - 2500) * 512 / 1000;
+	return DIV_ROUND_CLOSEST(val, 5);
+}
+
 static int get_current_time(unsigned long *now_tm_sec)
 {
 	struct rtc_time tm;
@@ -928,7 +949,7 @@ static int fg_configure_soc(struct fg_chip *chip)
 	/* Read Battery SOC */
 	rc = fg_mem_read(chip, reg, BATTERY_SOC_REG, 3, BATTERY_SOC_OFFSET, 1);
 	if (rc) {
-		pr_err("Failed to read battery soc\n");
+		pr_err("Failed to read battery soc rc: %d\n", rc);
 		goto out;
 	}
 
@@ -1397,6 +1418,109 @@ static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
 	return rc;
 }
 
+#define BATT_CYCLE_NUMBER_REG		0x58C
+#define BATT_CYCLE_OFFSET		3
+static int fg_inc_store_cycle_ctr(struct fg_chip *chip)
+{
+	int rc = 0;
+	u16 cyc_count;
+	u8 reg[2];
+
+	cyc_count = chip->cycle_counter;
+	cyc_count++;
+	reg[0] = cyc_count & 0xFF;
+	reg[1] = cyc_count >> 8;
+	rc = fg_mem_write(chip, reg, BATT_CYCLE_NUMBER_REG, 2,
+			BATT_CYCLE_OFFSET, 0);
+	if (rc)
+		pr_err("failed to write BATT_CYCLE_NUMBER rc=%d\n", rc);
+	else
+		chip->cycle_counter = cyc_count;
+	return rc;
+}
+
+#define CYCLE_CTR_UPDATE_FREQUENCY	2
+static void update_cycle_count(struct work_struct *work)
+{
+	int rc = 0;
+	u8 reg[3];
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				cycle_count_work);
+
+	chip->cyc_ctr_freq++;
+	if (chip->cyc_ctr_freq % CYCLE_CTR_UPDATE_FREQUENCY) {
+		if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+			rc = fg_mem_read(chip, reg, BATTERY_SOC_REG, 3,
+					BATTERY_SOC_OFFSET, 0);
+			if (rc) {
+				pr_err("Failed to read battery soc rc: %d\n",
+					rc);
+				return;
+			}
+
+			/* Check the MSB of battery SOC against the
+			 * Low and High SOC thresholds specified for
+			 * cycle counter algorithm. Since the low and
+			 * high SOC thresholds are already converted
+			 * to the scale of 0-255, they can be used
+			 * as is against the battery SOC.
+			 */
+			mutex_lock(&chip->cyc_ctr_lock);
+			if ((reg[2] < chip->cyc_ctr_low_soc) &&
+					!chip->cyc_ctr_started) {
+				chip->cyc_ctr_started = true;
+			} else if ((reg[2] > chip->cyc_ctr_hi_soc) &&
+					chip->cyc_ctr_started) {
+				rc = fg_inc_store_cycle_ctr(chip);
+				if (rc)
+					pr_err("Error in storing cycle_ctr rc: %d\n",
+						rc);
+				else
+					chip->cyc_ctr_started = false;
+			}
+			mutex_unlock(&chip->cyc_ctr_lock);
+		} else {
+			/* There is a slim chance where the cycle counter
+			 * algorithm might have started and the charger
+			 * got disconnected before the delta SOC interrupt
+			 * had scheduled this work again. Read the battery
+			 * SOC again in such cases to determine whether the
+			 * cycle counter needs to be stored.
+			 */
+			if (chip->cyc_ctr_started) {
+				rc = fg_mem_read(chip, reg, BATTERY_SOC_REG, 3,
+						BATTERY_SOC_OFFSET, 0);
+				if (rc) {
+					pr_err("Failed to read battery soc rc: %d\n",
+						rc);
+					return;
+				}
+				mutex_lock(&chip->cyc_ctr_lock);
+				if (reg[2] > chip->cyc_ctr_hi_soc) {
+					rc = fg_inc_store_cycle_ctr(chip);
+					if (rc)
+						pr_err("Error in storing cycle_ctr rc: %d\n",
+							rc);
+				}
+				chip->cyc_ctr_started = false;
+				mutex_unlock(&chip->cyc_ctr_lock);
+			}
+		}
+	} else {
+		chip->cyc_ctr_freq = 0;
+	}
+}
+
+static int fg_get_cycle_count(struct fg_chip *chip)
+{
+	int cyc_count;
+	mutex_lock(&chip->cyc_ctr_lock);
+	cyc_count = chip->cycle_counter;
+	mutex_unlock(&chip->cyc_ctr_lock);
+	return cyc_count;
+}
+
 static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -1412,6 +1536,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_UPDATE_NOW,
 	POWER_SUPPLY_PROP_ESR_COUNT,
 	POWER_SUPPLY_PROP_VOLTAGE_MIN,
+	POWER_SUPPLY_PROP_CYCLE_COUNT,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -1454,6 +1579,9 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ESR_COUNT:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ESR_COUNT);
+		break;
+	case POWER_SUPPLY_PROP_CYCLE_COUNT:
+		val->intval = fg_get_cycle_count(chip);
 		break;
 	case POWER_SUPPLY_PROP_RESISTANCE_ID:
 		val->intval = get_sram_prop_now(chip, FG_DATA_BATT_ID);
@@ -1598,6 +1726,10 @@ static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
 		chip->battery_missing = true;
 		chip->profile_loaded = false;
 		chip->batt_type = missing_batt_type;
+		mutex_lock(&chip->cyc_ctr_lock);
+		chip->cycle_counter = 0;
+		chip->cyc_ctr_started = false;
+		mutex_unlock(&chip->cyc_ctr_lock);
 	} else {
 		if (!chip->use_otp_profile) {
 			INIT_COMPLETION(chip->batt_id_avail);
@@ -1665,6 +1797,9 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
+
+	if (chip->cyc_ctr_en)
+		schedule_work(&chip->cycle_count_work);
 	return IRQ_HANDLED;
 }
 
@@ -2078,6 +2213,7 @@ static int fg_of_init(struct fg_chip *chip)
 {
 	int rc = 0, sense_type, len = 0;
 	const char *data;
+	struct device_node *node = chip->spmi->dev.of_node;
 
 	OF_READ_SETTING(FG_MEM_SOFT_HOT, "warm-bat-decidegc", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOFT_COLD, "cool-bat-decidegc", rc, 1);
@@ -2126,8 +2262,29 @@ static int fg_of_init(struct fg_chip *chip)
 		rc = 0;
 	}
 
-	chip->sw_rbias_ctrl = of_property_read_bool(chip->spmi->dev.of_node,
+	chip->sw_rbias_ctrl = of_property_read_bool(node,
 				"qcom,sw-rbias-control");
+
+	chip->cyc_ctr_en = of_property_read_bool(node,
+				"qcom,cycle-counter-en");
+	if (chip->cyc_ctr_en) {
+		rc = of_property_read_u32(node, "qcom,cycle-counter-low-soc",
+						&chip->cyc_ctr_low_soc);
+		rc |= of_property_read_u32(node, "qcom,cycle-counter-high-soc",
+						&chip->cyc_ctr_hi_soc);
+		if (rc) {
+			pr_err("Error in reading cycle-counter-low/high soc rc: %d\n",
+				rc);
+			chip->cyc_ctr_en = false;
+		} else if ((chip->cyc_ctr_hi_soc <= 0) ||
+				(chip->cyc_ctr_low_soc <= 0)) {
+			pr_err("Couldn't find valid low/high soc\n");
+			chip->cyc_ctr_en = false;
+		}
+		chip->cyc_ctr_low_soc = soc_to_setpoint(chip->cyc_ctr_low_soc);
+		chip->cyc_ctr_hi_soc = soc_to_setpoint(chip->cyc_ctr_hi_soc);
+		chip->cycle_counter = 0;
+	}
 	return rc;
 }
 
@@ -2314,6 +2471,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
 	cancel_work_sync(&chip->status_change_work);
+	cancel_work_sync(&chip->cycle_count_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
@@ -2733,19 +2891,6 @@ err_remove_fs:
 	return -ENOMEM;
 }
 
-static int soc_to_setpoint(int soc)
-{
-	return DIV_ROUND_CLOSEST(soc * 255, 100);
-}
-
-static u8 batt_to_setpoint(int vbatt_mv)
-{
-	int val;
-	/* Battery voltage is an offset from 2.5 V and LSB is 5/2^9. */
-	val = (vbatt_mv - 2500) * 512 / 1000;
-	return DIV_ROUND_CLOSEST(val, 5);
-}
-
 #define EXTERNAL_SENSE_OFFSET_REG	0x41C
 #define EXT_OFFSET_TRIM_REG		0xF8
 #define SEC_ACCESS_REG			0xD0
@@ -2941,12 +3086,14 @@ static int fg_probe(struct spmi_device *spmi)
 	wakeup_source_init(&chip->update_sram_wakeup_source.source,
 			"qpnp_fg_update_sram");
 	mutex_init(&chip->rw_lock);
+	mutex_init(&chip->cyc_ctr_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_WORK(&chip->dump_sram, dump_sram);
 	INIT_WORK(&chip->status_change_work, status_change_work);
+	INIT_WORK(&chip->cycle_count_work, update_cycle_count);
 	init_completion(&chip->sram_access_granted);
 	init_completion(&chip->sram_access_revoked);
 	init_completion(&chip->batt_id_avail);
@@ -3089,8 +3236,10 @@ cancel_work:
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
 	cancel_work_sync(&chip->status_change_work);
+	cancel_work_sync(&chip->cycle_count_work);
 of_init_fail:
 	mutex_destroy(&chip->rw_lock);
+	mutex_destroy(&chip->cyc_ctr_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
 	wakeup_source_trash(&chip->update_temp_wakeup_source.source);
