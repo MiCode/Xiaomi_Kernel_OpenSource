@@ -946,6 +946,15 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 		 * current context state information.
 		 */
 		if (status != CONTEXT_SUBMISSION_STATUS_OK) {
+			DRM_DEBUG_TDR("%s hung: Context submission status NOT OK! (status: %u)\n",
+			        ring->name, status);
+
+			/* Clear last_acthd for the next hang check on this ring */
+			dev_priv->ring[ringid].hangcheck.last_acthd = 0;
+
+			/* Clear reset flags to allow future hangchecks */
+			atomic_set(&dev_priv->ring[ringid].hangcheck.flags, 0);
+
 			ret = -EAGAIN;
 			goto handle_hung_ring_error;
 		}
