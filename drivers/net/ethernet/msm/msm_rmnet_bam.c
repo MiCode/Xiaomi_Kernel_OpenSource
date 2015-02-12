@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -217,7 +217,7 @@ static void bam_recv_notify(void *dev, struct sk_buff *skb)
 			p->stats.rx_packets, skb->len);
 
 		/* Deliver to network stack */
-		netif_rx(skb);
+		netif_rx_ni(skb);
 	} else
 		pr_err("[%s] %s: No skb received",
 			((struct net_device *)dev)->name, __func__);
