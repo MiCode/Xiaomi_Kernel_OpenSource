@@ -475,6 +475,15 @@ static void process_open_event(struct work_struct *work)
 	ch_work = container_of(work, struct channel_work, work);
 	ch = ch_work->ch;
 	einfo = ch->edge;
+	if (ch->remote_legacy || !ch->rcid) {
+		ch->remote_legacy = true;
+		ch->rcid = ch->lcid + LEGACY_RCID_CHANNEL_OFFSET;
+		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
+							&einfo->xprt_if,
+							ch->rcid,
+							ch->name,
+							SMD_TRANS_XPRT_ID);
+	}
 	kfree(ch_work);
 }
 
@@ -765,15 +774,6 @@ static void data_ch_probe_body(struct channel *ch)
 		return;
 	}
 	smd_disable_read_intr(ch->smd_ch);
-	if (ch->remote_legacy || !ch->rcid) {
-		ch->remote_legacy = true;
-		ch->rcid = ch->lcid + LEGACY_RCID_CHANNEL_OFFSET;
-		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
-							&einfo->xprt_if,
-							ch->rcid,
-							ch->name,
-							SMD_TRANS_XPRT_ID);
-	}
 }
 
 static int channel_probe(struct platform_device *pdev)
