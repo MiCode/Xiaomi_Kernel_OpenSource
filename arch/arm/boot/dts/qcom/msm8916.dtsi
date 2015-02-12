@@ -1669,7 +1669,6 @@
 		clock-names = "core_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0>;
 		qcom,sw-power-collapse;
-		qcom,enable-minimum-voting;
 		qcom,load-freq-tbl = <352800 228570000 0xffffffff>,
 			<352800 228570000 0x55555555>,
 			<244800 160000000 0xffffffff>,
