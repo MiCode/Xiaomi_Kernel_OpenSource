@@ -24,7 +24,8 @@
 #include "i915_drv.h"
 #include "intel_drv.h"
 
-#define FORCEWAKE_ACK_TIMEOUT_MS 2
+#define FORCEWAKE_ACK_TIMEOUT_MS(dev_priv) (IS_CHERRYVIEW(dev_priv->dev) ? \
+					    30 : 2)
 
 #define __raw_i915_read8(dev_priv__, reg__) readb((dev_priv__)->regs + (reg__))
 #define __raw_i915_write8(dev_priv__, reg__, val__) writeb(val__, (dev_priv__)->regs + (reg__))
@@ -81,7 +82,7 @@ static void __gen6_gt_force_wake_get(struct drm_i915_private *dev_priv,
 							int fw_engine)
 {
 	if (wait_for_atomic((__raw_i915_read32(dev_priv, FORCEWAKE_ACK) & 1) == 0,
-			    FORCEWAKE_ACK_TIMEOUT_MS))
+			    FORCEWAKE_ACK_TIMEOUT_MS(dev_priv)))
 		DRM_ERROR("Timed out waiting for forcewake old ack to clear.\n");
 
 	__raw_i915_write32(dev_priv, FORCEWAKE, 1);
@@ -89,7 +90,7 @@ static void __gen6_gt_force_wake_get(struct drm_i915_private *dev_priv,
 	__raw_posting_read(dev_priv, ECOBUS);
 
 	if (wait_for_atomic((__raw_i915_read32(dev_priv, FORCEWAKE_ACK) & 1),
-			    FORCEWAKE_ACK_TIMEOUT_MS))
+			    FORCEWAKE_ACK_TIMEOUT_MS(dev_priv)))
 		DRM_ERROR("Timed out waiting for forcewake to ack request.\n");
 
 	/* WaRsForcewakeWaitTC0:snb */
@@ -114,7 +115,7 @@ static void __gen7_gt_force_wake_mt_get(struct drm_i915_private *dev_priv,
 		forcewake_ack = FORCEWAKE_MT_ACK;
 
 	if (wait_for_atomic((__raw_i915_read32(dev_priv, forcewake_ack) & FORCEWAKE_KERNEL) == 0,
-			    FORCEWAKE_ACK_TIMEOUT_MS))
+			    FORCEWAKE_ACK_TIMEOUT_MS(dev_priv)))
 		DRM_ERROR("Timed out waiting for forcewake old ack to clear.\n");
 
 	__raw_i915_write32(dev_priv, FORCEWAKE_MT,
@@ -123,7 +124,7 @@ static void __gen7_gt_force_wake_mt_get(struct drm_i915_private *dev_priv,
 	__raw_posting_read(dev_priv, ECOBUS);
 
 	if (wait_for_atomic((__raw_i915_read32(dev_priv, forcewake_ack) & FORCEWAKE_KERNEL),
-			    FORCEWAKE_ACK_TIMEOUT_MS))
+			    FORCEWAKE_ACK_TIMEOUT_MS(dev_priv)))
 		DRM_ERROR("Timed out waiting for forcewake to ack request.\n");
 
 	/* WaRsForcewakeWaitTC0:ivb,hsw */
@@ -208,7 +209,7 @@ static void __vlv_force_wake_get(struct drm_i915_private *dev_priv,
 		if (wait_for_atomic((__raw_i915_read32(dev_priv,
 						FORCEWAKE_ACK_VLV) &
 						FORCEWAKE_KERNEL),
-					FORCEWAKE_ACK_TIMEOUT_MS))
+					FORCEWAKE_ACK_TIMEOUT_MS(dev_priv)))
 			DRM_ERROR("Timed out: waiting for Render to ack.\n");
 	}
 
@@ -220,7 +221,7 @@ static void __vlv_force_wake_get(struct drm_i915_private *dev_priv,
 		if (wait_for_atomic((__raw_i915_read32(dev_priv,
 						FORCEWAKE_ACK_MEDIA_VLV) &
 						FORCEWAKE_KERNEL),
-					FORCEWAKE_ACK_TIMEOUT_MS))
+					FORCEWAKE_ACK_TIMEOUT_MS(dev_priv)))
 			DRM_ERROR("Timed out: waiting for media to ack.\n");
 	}
 
