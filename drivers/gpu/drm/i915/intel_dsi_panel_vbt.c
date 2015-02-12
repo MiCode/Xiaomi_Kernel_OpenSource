@@ -334,17 +334,17 @@ static int chv_program_gpio(struct intel_dsi *intel_dsi,
 		if (gpio <= CHV_MAX_GPIO_NUM_N) {
 			block = CHV_IOSF_PORT_GPIO_N;
 			DRM_DEBUG_DRIVER("GPIO is in the north Block\n");
-		} else if (gpio <= CHV_MAX_GPIO_NUM_SE) {
-			block = CHV_IOSF_PORT_GPIO_SE;
-			gpio = gpio - CHV_MIN_GPIO_NUM_SE;
+		} else if (gpio <= CHV_MAX_GPIO_NUM_E) {
+			block = CHV_IOSF_PORT_GPIO_E;
+			gpio = gpio - CHV_MIN_GPIO_NUM_E;
 			DRM_DEBUG_DRIVER("GPIO is in the south east Block\n");
 		} else if (gpio <= CHV_MAX_GPIO_NUM_SW) {
 			block = CHV_IOSF_PORT_GPIO_SW;
 			gpio = gpio - CHV_MIN_GPIO_NUM_SW;
 			DRM_DEBUG_DRIVER("GPIO is in the south west Block\n");
 		} else {
-			block = CHV_IOSF_PORT_GPIO_E;
-			gpio = gpio - CHV_MIN_GPIO_NUM_E;
+			block = CHV_IOSF_PORT_GPIO_SE;
+			gpio = gpio - CHV_MIN_GPIO_NUM_SE;
 			DRM_DEBUG_DRIVER("GPIO is in the east Block\n");
 		}
 	} else

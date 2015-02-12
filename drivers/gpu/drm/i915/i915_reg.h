@@ -532,11 +532,11 @@
 #define   MAX_GPIO_NUM_SC			128
 #define   MAX_GPIO_NUM				172
 #define   CHV_MAX_GPIO_NUM_N			72
-#define   CHV_MAX_GPIO_NUM_SE			99
+#define   CHV_MAX_GPIO_NUM_E			99
 #define   CHV_MAX_GPIO_NUM_SW			197
-#define   CHV_MIN_GPIO_NUM_SE			73
+#define   CHV_MIN_GPIO_NUM_E			73
 #define   CHV_MIN_GPIO_NUM_SW			100
-#define   CHV_MIN_GPIO_NUM_E			198
+#define   CHV_MIN_GPIO_NUM_SE			198
 #define   IOSF_PORT_CCK				0x14
 #define   IOSF_PORT_CCU				0xA9
 #define   IOSF_PORT_GPS_CORE			0x48
