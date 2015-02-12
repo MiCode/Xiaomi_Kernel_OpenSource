@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -3598,8 +3598,9 @@ END:
 	if (retval > 0)
 		retval = -EINVAL;
 	if (retval < 0)
-		FMDERR("get control failed with %d, id: %d\n",
-			retval, ctrl->id);
+		FMDERR("get control failed with %d\n", retval);
+	if (ctrl != NULL)
+		FMDERR("get control failed id: %d\n", ctrl->id);
 
 	return retval;
 }
