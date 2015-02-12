@@ -634,6 +634,11 @@ int read_platform_resources_from_dt(
 	}
 	dprintk(VIDC_DBG, "Firmware filename: %s\n", res->fw_name);
 
+	rc = of_property_read_string(pdev->dev.of_node, "qcom,hfi-version",
+			&res->hfi_version);
+	if (rc)
+		dprintk(VIDC_DBG, "HFI packetization will default to legacy\n");
+
 	rc = msm_vidc_load_freq_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to load freq table: %d\n", rc);

@@ -95,6 +95,9 @@ Optional properties:
   idle message when it is in idle state.
 - qcom,enable-thermal-mitigation = A bool to enable thermal mitigation when
   thermal run away occurs.
+- qcom,hfi-version = The hfi packetization version supported by venus firmware.
+  If hfi version is not specified, then packetization type will default to
+  legacy.
 
 [Second level nodes]
 Required properties:
@@ -143,6 +146,7 @@ Example:
 		qcom,imem-size = <4096>;
 		qcom,hfi = "venus";
 		qcom,firmware-name = "venus";
+		qcom,hfi-version = "3xx";
 		qcom,reg-presets = <0x80004 0x1>,
 			<0x80178 0x00001FFF>;
 		qcom,qdss-presets = <0xFC307000 0x1000>,

@@ -4150,56 +4150,31 @@ int venus_hfi_get_core_capabilities(void)
 
 static int venus_hfi_initialize_packetization(struct venus_hfi_device *device)
 {
-	int major_version;
 	int rc = 0;
+	const char *hfi_version;
 
-	if (!device) {
+	if (!device || !device->res) {
 		dprintk(VIDC_ERR, "%s - invalid param\n", __func__);
 		return -EINVAL;
 	}
 
-	rc = venus_hfi_enable_regulators(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable GDSC in %s Err code = %d\n",
-			__func__, rc);
-		goto exit;
-	}
+	hfi_version = device->res->hfi_version;
 
-	rc = venus_hfi_prepare_enable_clks(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to enable clocks\n");
-		goto exit;
-	}
-
-	rc = venus_hfi_read_register(device, VIDC_WRAPPER_HW_VERSION);
-	major_version = (rc & VIDC_WRAPPER_HW_VERSION_MAJOR_VERSION_MASK) >>
-			VIDC_WRAPPER_HW_VERSION_MAJOR_VERSION_SHIFT;
-
-	venus_hfi_disable_unprepare_clks(device);
-
-	rc = venus_hfi_disable_regulators(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to disable gdsc\n");
-		goto exit;
-	}
-
-	dprintk(VIDC_DBG, "VENUS H/w Version is %d.%d.%d\n",
-		major_version,
-		(rc & VIDC_WRAPPER_HW_VERSION_MINOR_VERSION_MASK) >>
-		VIDC_WRAPPER_HW_VERSION_MINOR_VERSION_SHIFT,
-		rc & VIDC_WRAPPER_HW_VERSION_STEP_VERSION_MASK);
-
-	if (major_version <= 2)
+	if (!hfi_version) {
 		device->packetization_type = HFI_PACKETIZATION_LEGACY;
-	else
+	} else if (!strcmp(hfi_version, "3xx")) {
 		device->packetization_type = HFI_PACKETIZATION_3XX;
+	} else {
+		dprintk(VIDC_ERR, "Unsupported hfi version\n");
+		return -EINVAL;
+	}
 
 	device->pkt_ops = hfi_get_pkt_ops_handle(device->packetization_type);
 	if (!device->pkt_ops) {
 		rc = -EINVAL;
 		dprintk(VIDC_ERR, "Failed to get pkt_ops handle\n");
 	}
-exit:
+
 	return rc;
 }
 
