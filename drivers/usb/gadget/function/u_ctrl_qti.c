@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -266,7 +266,7 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 
 	if (gr && (port->gtype == USB_GADGET_RMNET)) {
 		g_rmnet = (struct grmnet *)gr;
-		g_rmnet->disconnect(port->port_usb);
+		g_rmnet->disconnect(g_rmnet);
 	} else if (gr && (port->gtype == USB_GADGET_DPL)) {
 		g_dpl = (struct gqdss *)gr;
 	} else {
