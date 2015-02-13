@@ -947,11 +947,14 @@ static int sst_platform_probe(struct platform_device *pdev)
 	struct file *file;
 
 	pr_debug("sst_platform_probe called\n");
-	file = filp_open("/etc/firmware/dfw_sst.bin", O_RDONLY, 0);
 
-	if (IS_ERR(file)) {
-		pr_info("sst_platform_probe is deferred\n");
-		return -EPROBE_DEFER;
+	if(pdata->dfw_enable) {
+		file = filp_open("/etc/firmware/dfw_sst.bin", O_RDONLY, 0);
+
+		if (IS_ERR(file)) {
+			pr_info("sst_platform_probe is deferred\n");
+			return -EPROBE_DEFER;
+		}
 	}
 
 	sst = devm_kzalloc(&pdev->dev, sizeof(*sst), GFP_KERNEL);
