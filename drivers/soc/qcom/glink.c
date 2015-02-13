@@ -3179,10 +3179,10 @@ static void glink_core_rx_cmd_ch_remote_open(struct glink_transport_if *if_ptr,
 	GLINK_INFO_CH(ctx, "%s: remote: CLOSED->OPENED ; xprt req:resp %u:%u\n",
 			__func__, req_xprt, xprt_resp);
 
+	if_ptr->tx_cmd_ch_remote_open_ack(if_ptr, rcid, xprt_resp);
 	if (!do_migrate && ch_is_fully_opened(ctx))
 		ctx->notify_state(ctx, ctx->user_priv, GLINK_CONNECTED);
 
-	if_ptr->tx_cmd_ch_remote_open_ack(if_ptr, rcid, xprt_resp);
 
 	if (do_migrate)
 		ch_migrate(NULL, ctx);
