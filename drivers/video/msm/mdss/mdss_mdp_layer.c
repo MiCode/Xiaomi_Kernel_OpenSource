@@ -118,7 +118,7 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 	}
 	min_src_size = fmt->is_yuv ? 2 : 1;
 
-	if (layer->z_order >= mdata->max_target_zorder) {
+	if (layer->z_order >= (mdata->max_target_zorder + MDSS_MDP_STAGE_0)) {
 		pr_err("zorder %d out of range\n", layer->z_order);
 		return -EINVAL;
 	}
