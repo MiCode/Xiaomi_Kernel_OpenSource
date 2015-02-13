@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -208,11 +208,8 @@ static struct dma_chan *qbam_dma_xlate(struct of_phandle_args *dma_spec,
 
 	/* allocate a channel */
 	qbam_chan = kzalloc(sizeof(*qbam_chan), GFP_KERNEL);
-	if (!qbam_chan) {
-		qbam_err(qbam_dev, "error kmalloc(size:%lu) faild\n",
-			 sizeof(*qbam_chan));
+	if (!qbam_chan)
 		return NULL;
-	}
 
 	/* allocate BAM resources for that channel */
 	qbam_chan->bam_pipe.handle = sps_alloc_endpoint();
@@ -449,8 +446,8 @@ static int qbam_slave_cfg(struct qbam_channel *qbam_chan,
 						  GFP_KERNEL);
 	if (!pipe_cfg->desc.base) {
 		qbam_err(qbam_dev,
-			"error dma_alloc_coherent(desc-sz:%lu * n-descs:%d)\n",
-			sizeof(struct sps_iovec),
+			"error dma_alloc_coherent(desc-sz:%d * n-descs:%d)\n",
+			pipe_cfg->desc.size,
 			qbam_chan->bam_pipe.num_descriptors);
 		return -ENOMEM;
 	}
@@ -558,19 +555,12 @@ static struct dma_async_tx_descriptor *qbam_prep_slave_sg(struct dma_chan *chan,
 	}
 
 	qbam_desc = kzalloc(sizeof(*qbam_desc), GFP_KERNEL);
-	if (!qbam_desc) {
-		qbam_err(qbam_dev, "error kmalloc(size:%lu) faild\n",
-			 sizeof(*qbam_desc));
+	if (!qbam_desc)
 		return ERR_PTR(-ENOMEM);
-	}
 
 	qbam_desc->xfer_bufs = kzalloc(sizeof(*xfer) * sg_len, GFP_KERNEL);
 	if (!qbam_desc->xfer_bufs) {
 		kfree(qbam_desc);
-		qbam_err(qbam_dev,
-			"error faild kmalloc(size:%lu * sg_len:%u) pipe:%d\n",
-			sizeof(*qbam_desc->xfer_bufs), sg_len,
-			qbam_chan->bam_pipe.index);
 		return ERR_PTR(-ENOMEM);
 	}
 	qbam_desc->num_xfer_bufs = sg_len;
@@ -677,11 +667,9 @@ static int qbam_probe(struct platform_device *pdev)
 	struct device_node *of_node = pdev->dev.of_node;
 
 	qbam_dev = devm_kzalloc(&pdev->dev, sizeof(*qbam_dev), GFP_KERNEL);
-	if (!qbam_dev) {
-		qbam_err(qbam_dev, "error kmalloc(size:%lu) faild",
-			 sizeof(*qbam_dev));
+	if (!qbam_dev)
 		return -ENOMEM;
-	}
+
 	qbam_dev->dma_dev.dev = &pdev->dev;
 	platform_set_drvdata(pdev, qbam_dev);
 
