@@ -4037,8 +4037,6 @@ static void venus_hfi_unload_fw(void *dev)
 		 */
 		if (venus_hfi_halt_axi(device))
 			dprintk(VIDC_WARN, "Failed to halt AXI\n");
-		/* Detach IOMMU only when AXI is halted */
-		venus_hfi_iommu_detach(device);
 		venus_hfi_disable_unprepare_clks(device);
 		venus_hfi_disable_regulators(device);
 		venus_hfi_unvote_buses(device);
