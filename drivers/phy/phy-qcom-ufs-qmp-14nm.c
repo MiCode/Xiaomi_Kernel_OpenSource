@@ -49,6 +49,10 @@ int ufs_qcom_phy_qmp_14nm_phy_calibrate(struct ufs_qcom_phy *ufs_qcom_phy,
 				     tbl_A, tbl_size_A,
 				     tbl_B, tbl_size_B,
 				     is_rate_B);
+
+	if (ufs_qcom_phy->quirks & UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING)
+		writel_relaxed(ufs_qcom_phy->vco_tune1_mode1,
+			ufs_qcom_phy->mmio + QSERDES_COM_VCO_TUNE1_MODE1);
 out:
 	if (err)
 		dev_err(ufs_qcom_phy->dev,
@@ -67,7 +71,8 @@ void ufs_qcom_phy_qmp_14nm_advertise_quirks(struct ufs_qcom_phy *phy_common)
 	if ((major == 0x2) && (minor == 0x000) && (step == 0x0000))
 		phy_common->quirks =
 			UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE |
-			UFS_QCOM_PHY_QUIRK_SVS_MODE;
+			UFS_QCOM_PHY_QUIRK_SVS_MODE |
+			UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING;
 }
 
 static int ufs_qcom_phy_qmp_14nm_init(struct phy *generic_phy)
@@ -93,6 +98,13 @@ static int ufs_qcom_phy_qmp_14nm_init(struct phy *generic_phy)
 	phy_common->vdda_phy.min_uV = UFS_PHY_VDDA_PHY_UV;
 
 	ufs_qcom_phy_qmp_14nm_advertise_quirks(phy_common);
+
+	if (phy_common->quirks & UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING) {
+		phy_common->vco_tune1_mode1 = readl_relaxed(phy_common->mmio +
+						QSERDES_COM_VCO_TUNE1_MODE1);
+		dev_info(phy_common->dev, "%s: vco_tune1_mode1 0x%x\n",
+			__func__, phy_common->vco_tune1_mode1);
+	}
 
 out:
 	return err;
