@@ -36,13 +36,16 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/wakelock.h>
+#include <linux/notifier.h>
 #include <linux/version.h>
 #include <linux/usb/otg.h>
 #include <linux/acpi.h>
 #include <linux/gpio/consumer.h>
+#include <linux/gpio.h>
 #include <linux/completion.h>
 
 #include <asm/intel_em_config.h>
+
 
 #define DRV_NAME "bq24192_charger"
 #define DEV_NAME "bq24192"
@@ -216,6 +219,12 @@
 #define MAX_RESET_WDT_RETRY 8
 #define VBUS_DET_TIMEOUT msecs_to_jiffies(50) /* 50 msec */
 
+#define BQ_CHARGE_CUR_SDP	500
+#define BQ_CHARGE_CUR_DCP	2000
+
+#define BQ_GPIO_MUX_SEL_PMIC	0
+#define BQ_GPIO_MUX_SEL_SOC		1
+
 static struct power_supply *fg_psy;
 
 enum bq24192_chrgr_stat {
@@ -243,6 +252,7 @@ struct bq24192_chip {
 	struct mutex event_lock;
 	struct power_supply_cable_props cap;
 	struct power_supply_cable_props cached_cap;
+	struct notifier_block otg_notify;
 	struct usb_phy *transceiver;
 	struct completion vbus_detect;
 	/* Wake lock to prevent platform from going to S3 when charging */
@@ -264,6 +274,7 @@ struct bq24192_chip {
 	int cntl_state;
 	int cntl_state_max;
 	int irq;
+	struct gpio_desc *switch_io;
 	bool is_charger_enabled;
 	bool is_charging_enabled;
 	bool a_bus_enable;
@@ -1068,6 +1079,16 @@ int bq24192_vbus_disable(void)
 }
 EXPORT_SYMBOL(bq24192_vbus_disable);
 
+int bq24192_set_usb_port(int port_mode)
+{
+	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
+	if ((chip->chip_type == BQ24297) &&
+			chip->switch_io)
+		gpiod_set_value(chip->switch_io, port_mode);
+	return 0;
+}
+EXPORT_SYMBOL(bq24192_set_usb_port);
+
 #ifdef CONFIG_DEBUG_FS
 #define DBGFS_REG_BUF_LEN	3
 
@@ -1573,13 +1594,99 @@ static void bq24192_full_worker(struct work_struct *work)
 	schedule_delayed_work(&chip->chrg_full_wrkr, FULL_THREAD_JIFFIES);
 }
 
+static int check_cable_status(struct bq24192_chip *chip, int reg_stat)
+{
+	int ret = 0, vbus_mask = 0;
+	static struct power_supply_cable_props cable_props;
+	static bool notify_otg, notify_charger;
+
+	if (reg_stat & SYSTEM_STAT_VBUS_HOST) {
+		/* SDP charger connected */
+		dev_dbg(&chip->client->dev,
+					"SDP charger connected\n");
+		notify_otg = true;
+		notify_charger = true;
+		vbus_mask = 1;
+		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
+		cable_props.ma = BQ_CHARGE_CUR_SDP;
+
+	} else if (reg_stat & SYSTEM_STAT_VBUS_ADP) {
+		/* AC Adapter or DCP connected */
+		dev_dbg(&chip->client->dev,
+					"DCP or CDP type Charger connected\n");
+		notify_charger = true;
+		/* CDP also gets detetcted as DCP, send notify */
+		notify_otg = true;
+		vbus_mask = 1;
+		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
+		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
+		cable_props.ma = BQ_CHARGE_CUR_DCP;
+
+	} else if (reg_stat & SYSTEM_STAT_VBUS_OTG) {
+		/* OTG Device connected */
+		dev_dbg(&chip->client->dev,
+					"USB device connected through OTG port\n");
+		notify_otg = true;
+		vbus_mask = 1;
+
+	} else {
+		/* No Cable connected */
+			notify_otg = true;
+			notify_charger = true;
+			vbus_mask = 0;
+			cable_props.chrg_evt =
+					POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
+			cable_props.ma = 0;
+			dev_warn(&chip->client->dev,
+						"disconnect or unknown ID event\n");
+	}
+
+	if (!vbus_mask) {
+		if (notify_otg) {
+			/* Cable removed, switch the USB MUX back to PMIC */
+			gpiod_set_value(chip->switch_io,
+					BQ_GPIO_MUX_SEL_PMIC);
+			atomic_notifier_call_chain(&chip->transceiver->notifier,
+				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
+				NULL);
+			notify_otg = false;
+		}
+		if (notify_charger) {
+			atomic_notifier_call_chain(&power_supply_notifier,
+					PSY_CABLE_EVENT, &cable_props);
+			notify_charger = false;
+		}
+	} else {
+		if (notify_otg) {
+			/* Close the MUX path to switch to OTG */
+			gpiod_set_value(chip->switch_io,
+					BQ_GPIO_MUX_SEL_SOC);
+			atomic_notifier_call_chain(&chip->transceiver->notifier,
+				vbus_mask ? USB_EVENT_VBUS : USB_EVENT_NONE,
+				NULL);
+			dev_info(&chip->client->dev,
+			"Sent notification for USB %d\n", vbus_mask);
+		}
+		if (notify_charger) {
+			dev_info(&chip->client->dev,
+			"Sent the notification for Power Supply\n");
+			atomic_notifier_call_chain(&power_supply_notifier,
+					PSY_CABLE_EVENT, &cable_props);
+		}
+
+	}
+
+	return ret;
+}
 
 static void bq24192_irq_worker(struct work_struct *work)
 {
-	int reg_status, reg_fault;
+	int reg_status, reg_fault, ret;
 	struct bq24192_chip *chip = container_of(work,
 						    struct bq24192_chip,
 						    irq_wrkr.work);
+
 	/*
 	 * check the bq24192 status/fault registers to see what is the
 	 * source of the interrupt
@@ -1588,8 +1695,7 @@ static void bq24192_irq_worker(struct work_struct *work)
 	if (reg_status < 0)
 		dev_err(&chip->client->dev, "STATUS register read failed:\n");
 
-	dev_info(&chip->client->dev, "STATUS reg %x\n", reg_status);
-
+	dev_dbg(&chip->client->dev, "STATUS reg %x\n", reg_status);
 	/*
 	 * On VBUS detect set completion to wake waiting thread. On VBUS
 	 * disconnect, re-init completion so that setting INLIMIT would be
@@ -1597,8 +1703,27 @@ static void bq24192_irq_worker(struct work_struct *work)
 	 */
 	if (reg_status & SYSTEM_STAT_VBUS_HOST)
 		complete(&chip->vbus_detect);
+	/*
+	 * If chip version is BQ24297, then it can detect DCP charger
+	 * cable type also. Hence complete the VBUS detect wait if
+	 * the cable type is ADP for BQ24297
+	 */
+	else if ((chip->chip_type == BQ24297) &&
+			(reg_status & SYSTEM_STAT_VBUS_ADP))
+		complete(&chip->vbus_detect);
 	else
 		reinit_completion(&chip->vbus_detect);
+
+	/*
+	 * In case of BQ24297, notify the power supply class about
+	 * the Input and the type of charger cable through cable properties
+	 */
+	if (chip->chip_type == BQ24297) {
+		ret = check_cable_status(chip, reg_status);
+		if (ret < 0)
+			dev_err(&chip->client->dev,
+					"Failed to check cable status\n");
+	}
 
 	reg_status &= SYSTEM_STAT_CHRG_DONE;
 
@@ -1836,6 +1961,17 @@ temp_wrkr_error:
 	return;
 }
 
+static int bq24192_usb_notify_handle(struct notifier_block *nb,
+					unsigned long event, void *param)
+{
+	/*
+	 * If required check the event ID returned from OTG
+	 * and updated the cable property and notify
+	 * power supply class
+	 */
+
+	return NOTIFY_OK;
+}
 
 static void bq24192_usb_otg_enable(struct usb_phy *phy, int on)
 {
@@ -1851,6 +1987,7 @@ static void bq24192_usb_otg_enable(struct usb_phy *phy, int on)
 
 static inline int register_otg_vbus(struct bq24192_chip *chip)
 {
+	int ret;
 
 	chip->transceiver = usb_get_phy(USB_PHY_TYPE_USB2);
 	if (!chip->transceiver) {
@@ -1859,6 +1996,16 @@ static inline int register_otg_vbus(struct bq24192_chip *chip)
 	}
 	chip->transceiver->set_vbus = bq24192_usb_otg_enable;
 
+	if (chip->chip_type == BQ24297) {
+		chip->otg_notify.notifier_call = bq24192_usb_notify_handle;
+		ret = usb_register_notifier(chip->transceiver,
+							&chip->otg_notify);
+		if (ret) {
+			dev_err(&chip->client->dev,
+						"Failed to register OTG notifier\n");
+			return ret;
+		}
+	}
 	return 0;
 }
 
@@ -1954,7 +2101,8 @@ static int bq24192_probe(struct i2c_client *client,
 	struct bq24192_chip *chip;
 	struct device *dev;
 	struct gpio_desc *gpio;
-	int ret;
+	int ret, reg_status;
+
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
 		dev_err(&client->dev,
@@ -2037,19 +2185,26 @@ static int bq24192_probe(struct i2c_client *client,
 	 * register for an interrupt handler for servicing charger
 	 * interrupts
 	 */
-	if (client->irq) {
+	if (client->irq > 0) {
 		chip->irq = client->irq;
+		dev_dbg(dev, "CHRG INT Client IRQ# = %d\n", client->irq);
 	} else {
 #ifdef CONFIG_ACPI
+
 		gpio = devm_gpiod_get_index(dev, "bq24192_int", 0);
 		if (IS_ERR(gpio)) {
 			dev_err(dev, "acpi gpio get index failed\n");
 			i2c_set_clientdata(client, NULL);
 			kfree(chip);
 			return PTR_ERR(gpio);
+		} else {
+			ret = gpiod_direction_input(gpio);
+			if (ret < 0)
+				dev_err(dev, "BQ CHRG set direction failed\n");
+
+			chip->irq = gpiod_to_irq(gpio);
 		}
 
-		chip->irq = gpiod_to_irq(gpio);
 #else
 		if (chip->pdata->get_irq_number)
 			chip->irq = chip->pdata->get_irq_number();
@@ -2072,6 +2227,20 @@ static int bq24192_probe(struct i2c_client *client,
 				chip->irq);
 		}
 	}
+#ifdef CONFIG_ACPI
+	chip->switch_io = devm_gpiod_get_index(dev, "bq24192_USB_MUX_IO", 1);
+	if (IS_ERR_OR_NULL(chip->switch_io)) {
+			dev_err(dev, "Failed to get the Switch IO Pin\n");
+			chip->switch_io = NULL;
+	} else {
+		ret = gpiod_direction_output(chip->switch_io, 0);
+		if (ret < 0)
+			dev_err(dev, "failed to set OUT direction for BQ switch IO\n");
+	}
+	if (chip->switch_io)
+		gpiod_set_value(chip->switch_io,
+					BQ_GPIO_MUX_SEL_PMIC);
+#endif
 
 	INIT_DELAYED_WORK(&chip->chrg_full_wrkr, bq24192_full_worker);
 	INIT_DELAYED_WORK(&chip->chrg_task_wrkr, bq24192_task_worker);
@@ -2133,6 +2302,18 @@ static int bq24192_probe(struct i2c_client *client,
 					"REGISTER OTG VBUS failed\n");
 	}
 
+	if (chip->chip_type == BQ24297) {
+		/* For BQ24297, check the initial cable status */
+		reg_status = bq24192_read_reg(chip->client,
+				BQ24192_SYSTEM_STAT_REG);
+		if (reg_status < 0)
+			dev_err(&chip->client->dev,
+					"STATUS register read failed\n");
+		ret = check_cable_status(chip, reg_status);
+		if (ret < 0)
+			dev_err(&chip->client->dev,
+				"Failed to check cable status during probe\n");
+	}
 	return 0;
 }
 
@@ -2255,6 +2436,7 @@ struct bq24192_platform_data tbg24296_drvdata = {
 static const struct i2c_device_id bq24192_id[] = {
 	{ "bq24192", },
 	{ "TBQ24296", (kernel_ulong_t)&tbg24296_drvdata},
+	{ "TBQ24297", (kernel_ulong_t)&tbg24296_drvdata},
 	{ "ext-charger", (kernel_ulong_t)&tbg24296_drvdata},
 	{ },
 };
@@ -2263,6 +2445,7 @@ MODULE_DEVICE_TABLE(i2c, bq24192_id);
 #ifdef CONFIG_ACPI
 static struct acpi_device_id bq24192_acpi_match[] = {
 	{"TBQ24296", (kernel_ulong_t)&tbg24296_drvdata},
+	{"TBQ24297", (kernel_ulong_t)&tbg24296_drvdata},
 	{}
 };
 MODULE_DEVICE_TABLE(acpi, bq24192_acpi_match);

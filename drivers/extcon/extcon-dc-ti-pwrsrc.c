@@ -29,6 +29,8 @@
 #include <linux/notifier.h>
 #include <linux/extcon.h>
 #include <linux/mfd/intel_soc_pmic.h>
+#include <linux/power/bq24192_charger.h>
+#include <linux/workqueue.h>
 
 #define DC_PS_SIRQ_REG			0x03
 #define SIRQ_VBUS_PRESENT		(1 << 5)
@@ -50,7 +52,11 @@ static const char *dc_extcon_cable[] = {
 struct dc_pwrsrc_info {
 	struct platform_device *pdev;
 	struct extcon_dev *edev;
+	struct notifier_block extcon_nb;
+	struct extcon_specific_cable_nb cable_obj;
 	int irq;
+	struct delayed_work dc_pwrsrc_wrk;
+	int usb_host;
 };
 
 static char *pwr_up_down_info[] = {
@@ -151,6 +157,56 @@ static int pwrsrc_extcon_registration(struct dc_pwrsrc_info *info)
 	return ret;
 }
 
+static void extcon_event_worker(struct work_struct *work)
+{
+	struct dc_pwrsrc_info *info =
+		container_of(to_delayed_work(work),
+			struct dc_pwrsrc_info, dc_pwrsrc_wrk);
+	int ret;
+
+	if (info->usb_host) {
+		ret = bq24192_vbus_enable();
+		if (ret)
+			dev_warn(&info->pdev->dev,
+				"Err in VBUS enable %d", ret);
+	} else {
+		ret = bq24192_vbus_disable();
+		if (ret)
+			dev_warn(&info->pdev->dev,
+				"Err in VBUS disable %d", ret);
+	}
+	/*
+	 * Switch the USB MUX as required
+	 * If info->usb_host is false, switch to PMIC mode
+	 * else switch USB port to SoC Mode
+	 */
+	ret = bq24192_set_usb_port(info->usb_host);
+	if (ret)
+		dev_warn(&info->pdev->dev,
+			"Err in switch USB enable %d", ret);
+
+	return;
+}
+
+static bool is_usb_host_mode(struct extcon_dev *evdev)
+{
+	return !!evdev->state;
+}
+
+static int dc_ti_pwrsrc_handle_extcon_event(struct notifier_block *nb,
+				   unsigned long event, void *param)
+{
+
+	struct dc_pwrsrc_info *info =
+	    container_of(nb, struct dc_pwrsrc_info, extcon_nb);
+	struct extcon_dev *edev = param;
+
+	info->usb_host = is_usb_host_mode(edev);
+	schedule_delayed_work(&info->dc_pwrsrc_wrk, 0);
+
+	return NOTIFY_OK;
+}
+
 static int dc_ti_pwrsrc_probe(struct platform_device *pdev)
 {
 	struct dc_pwrsrc_info *info;
@@ -180,6 +236,13 @@ static int dc_ti_pwrsrc_probe(struct platform_device *pdev)
 		goto intr_reg_failed;
 	}
 
+	info->extcon_nb.notifier_call = dc_ti_pwrsrc_handle_extcon_event;
+	ret = extcon_register_interest(&info->cable_obj, NULL,
+				"USB-Host", &info->extcon_nb);
+	if (ret)
+		dev_err(&pdev->dev, "failed to register extcon notifier\n");
+
+	INIT_DELAYED_WORK(&info->dc_pwrsrc_wrk, &extcon_event_worker);
 	/* Handle cold pwrsrc insertions */
 	handle_pwrsrc_event(info);
 	/* Unmask VBUS interrupt */

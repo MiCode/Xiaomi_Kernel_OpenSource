@@ -148,8 +148,21 @@ extern int bq24192_get_battery_health(void);
 extern bool bq24192_is_volt_shutdown_enabled(void);
 extern int bq24192_vbus_enable(void);
 extern int bq24192_vbus_disable(void);
+extern int bq24192_set_usb_port(int port_mode);
 #else
 static int bq24192_get_battery_health(void)
+{
+	return 0;
+}
+static int bq24192_vbus_enable(void)
+{
+	return 0;
+}
+static int bq24192_vbus_disable(void)
+{
+	return 0;
+}
+static int bq24192_set_usb_port(int port_mode)
 {
 	return 0;
 }
