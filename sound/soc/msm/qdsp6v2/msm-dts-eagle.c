@@ -71,6 +71,8 @@
 	pr_debug("DTS_EAGLE_ENABLE: " fmt "\n", ##__VA_ARGS__)
 #define eagle_enable_err(fmt, ...) \
 	pr_err("DTS_EAGLE_ENABLE: " fmt "\n", ##__VA_ARGS__)
+#define eagle_ioctl_info(fmt, ...) \
+	pr_err("DTS_EAGLE_IOCTL: " fmt "\n", ##__VA_ARGS__)
 
 enum {
 	AUDIO_DEVICE_OUT_EARPIECE = 0,
@@ -959,7 +961,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 	s32 ret = 0;
 	switch (cmd) {
 	case DTS_EAGLE_IOCTL_GET_CACHE_SIZE: {
-		eagle_ioctl_dbg("%s: called with control 0x%X (get param cache size)",
+		eagle_ioctl_info("%s: called with control 0x%X (get param cache size)",
 			__func__, cmd);
 		if (copy_to_user((void *)arg, &_depc_size,
 				 sizeof(_depc_size))) {
@@ -970,7 +972,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 	}
 	case DTS_EAGLE_IOCTL_SET_CACHE_SIZE: {
 		s32 size = 0;
-		eagle_ioctl_dbg("%s: called with control 0x%X (allocate param cache)",
+		eagle_ioctl_info("%s: called with control 0x%X (allocate param cache)",
 			__func__, cmd);
 		if (copy_from_user((void *)&size, (void *)arg, sizeof(size))) {
 			eagle_ioctl_err("%s: error copying size (src:%p, tgt:%p, size:%zu)",
@@ -1009,7 +1011,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		struct dts_eagle_param_desc depd;
 		s32 offset = 0, for_pre = 0, get_from_core = 0;
 		void *buf, *buf_m = NULL;
-		eagle_ioctl_dbg("%s: control 0x%X (get param)",
+		eagle_ioctl_info("%s: control 0x%X (get param)",
 			__func__, cmd);
 		if (copy_from_user((void *)&depd, (void *)arg, sizeof(depd))) {
 			eagle_ioctl_err("%s: error copying dts_eagle_param_desc (src:%p, tgt:%p, size:%zu)",
@@ -1069,7 +1071,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 		struct dts_eagle_param_desc depd;
 		s32 offset = 0, just_set_cache = 0, for_pre = 0;
 		s32 tgt;
-		eagle_ioctl_dbg("%s: control 0x%X (set param)",
+		eagle_ioctl_info("%s: control 0x%X (set param)",
 			__func__, cmd);
 		if (copy_from_user((void *)&depd, (void *)arg, sizeof(depd))) {
 			eagle_ioctl_err("%s: error copying dts_eagle_param_desc (src:%p, tgt:%p, size:%zu)",
@@ -1118,7 +1120,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 	}
 	case DTS_EAGLE_IOCTL_SET_CACHE_BLOCK: {
 		u32 b_[CBD_COUNT+1], *b = &b_[1], cb;
-		eagle_ioctl_dbg("%s: with control 0x%X (set param cache block)",
+		eagle_ioctl_info("%s: with control 0x%X (set param cache block)",
 			 __func__, cmd);
 		if (copy_from_user((void *)b_, (void *)arg, sizeof(b_))) {
 			eagle_ioctl_err("%s: error copying cache block data (src:%p, tgt:%p, size:%zu)",
@@ -1211,7 +1213,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 				__func__);
 			return -EFAULT;
 		} else
-			eagle_ioctl_dbg("%s: license file %i bytes long from license index %i returned to user",
+			eagle_ioctl_info("%s: license file %i bytes long from license index %i returned to user",
 				  __func__, size, target);
 		break;
 	}
@@ -1271,7 +1273,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 					target[1]);
 			return -EFAULT;
 		} else
-			eagle_ioctl_dbg("%s: license file %i bytes long copied to index license index %i",
+			eagle_ioctl_info("%s: license file %i bytes long copied to index license index %i",
 				  __func__, target[1], target[0]);
 		break;
 	}
@@ -1301,13 +1303,13 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
 			eagle_ioctl_err("%s: core_dts_eagle_set failed with id = %i",
 				__func__, target);
 		else
-			eagle_ioctl_dbg("%s: core_dts_eagle_set succeeded with id = %i",
+			eagle_ioctl_info("%s: core_dts_eagle_set succeeded with id = %i",
 				 __func__, target);
 		break;
 	}
 	case DTS_EAGLE_IOCTL_SET_VOLUME_COMMANDS: {
 		s32 spec = 0;
-		eagle_ioctl_dbg("%s: control 0x%X (set volume commands)",
+		eagle_ioctl_info("%s: control 0x%X (set volume commands)",
 				__func__, cmd);
 		if (copy_from_user((void *)&spec, (void *)arg,
 					sizeof(spec))) {
