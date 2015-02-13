@@ -107,6 +107,23 @@ struct ufs_qcom_phy {
 	*/
 	#define UFS_QCOM_PHY_QUIRK_HIBERN8_EXIT_AFTER_PHY_PWR_COLLAPSE	BIT(0)
 
+	/*
+	 * On some UFS PHY HW revisions, UFS PHY power up calibration sequence
+	 * cannot have SVS mode configuration otherwise calibration result
+	 * cannot be used in HS-G3. So there are additional register writes must
+	 * be done after the PHY is initialized but before the controller
+	 * requests hibernate exit.
+	 */
+	#define UFS_QCOM_PHY_QUIRK_SVS_MODE	BIT(1)
+
+	/*
+	 * On some UFS PHY HW revisions, UFS PHY power up calibration sequence
+	 * requires manual VCO tuning code and its better to rely on the VCO
+	 * tuning code programmed by boot loader. Enable this quirk to enable
+	 * programming the manually tuned VCO code.
+	 */
+	#define UFS_QCOM_PHY_QUIRK_VCO_MANUAL_TUNING	BIT(2)
+
 	u8 host_ctrl_rev_major;
 	u16 host_ctrl_rev_minor;
 	u16 host_ctrl_rev_step;
@@ -116,6 +133,7 @@ struct ufs_qcom_phy {
 	int cached_regs_table_size;
 	bool is_powered_on;
 	struct ufs_qcom_phy_specific_ops *phy_spec_ops;
+	u32 vco_tune1_mode1;
 };
 
 /**
