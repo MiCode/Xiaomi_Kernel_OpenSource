@@ -317,7 +317,7 @@ static int vlv_initialize_port(struct vlv_dc_config *vlv_config,
 		dsi_ctx = &dsi_pipe->config.ctx;
 		for_each_dsi_port(port_no, dsi_ctx->ports) {
 			dsi_port = &disp->port.dsi_port[port_no];
-			vlv_dsi_port_init(dsi_port, port, pipe);
+			vlv_dsi_port_init(dsi_port, port_no, pipe);
 		}
 		break;
 	case INTEL_PIPE_DP:
