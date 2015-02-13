@@ -1524,6 +1524,37 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	else
 		vdd_bit = sdhci_set_power(host, ios->vdd);
 
+	/*
+	 * some controller is not able to set the power control register
+	 * after resuming from low power mode, and need some cycles to
+	 * make sure the bus power can be turned on.
+	 */
+	if (host->pwr) {
+		u32 timeout = 2000; /* 2s */
+		u8 pwr = sdhci_readb(host, SDHCI_POWER_CONTROL);
+		if (!(pwr & SDHCI_POWER_ON)) {
+			do {
+				pwr |= SDHCI_POWER_ON;
+				sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
+				sdhci_readl(host, SDHCI_PRESENT_STATE),
+				spin_unlock_irqrestore(&host->lock, flags);
+				/*
+				 * breaking lock here so we can sleep is ok as
+				 * this happens only on startup and resume code
+				 * paths and the mmc cannot be reentered
+				 */
+				usleep_range(1000, 1100);
+				spin_lock_irqsave(&host->lock, flags);
+				timeout--;
+				pwr = sdhci_readb(host, SDHCI_POWER_CONTROL);
+			} while (!(pwr & SDHCI_POWER_ON) && timeout);
+			if (!timeout)
+				pr_warn("%s %s: bus power is not stable\n",
+						__func__,
+						mmc_hostname(host->mmc));
+		}
+	}
+
 	if (host->vmmc && vdd_bit != -1) {
 		spin_unlock_irqrestore(&host->lock, flags);
 		mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
