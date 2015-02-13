@@ -3750,6 +3750,9 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 #define KI_COEFF_PRED_FULL_4_0_MSB	0x88
 #define KI_COEFF_PRED_FULL_4_0_LSB	0x00
 #define TEMP_FRAC_SHIFT_REG		0x4A4
+#define FG_ADC_CONFIG_REG		0x4B8
+#define FG_BCL_CONFIG_OFFSET		0x3
+#define BCL_FORCED_HPM_IN_CHARGE	BIT(2)
 static int fg_hw_init(struct fg_chip *chip)
 {
 	u8 resume_soc;
@@ -3827,6 +3830,15 @@ static int fg_hw_init(struct fg_chip *chip)
 	rc = bcl_trim_workaround(chip);
 	if (rc) {
 		pr_err("failed to redo bcl trim rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = fg_mem_masked_write(chip, FG_ADC_CONFIG_REG,
+			BCL_FORCED_HPM_IN_CHARGE,
+			BCL_FORCED_HPM_IN_CHARGE,
+			FG_BCL_CONFIG_OFFSET);
+	if (rc) {
+		pr_err("failed to force hpm in charge rc=%d\n", rc);
 		return rc;
 	}
 
