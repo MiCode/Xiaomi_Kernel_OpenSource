@@ -242,6 +242,12 @@ struct ufs_qcom_host {
 	 * controller supports the QUniPro mode.
 	 */
 	#define UFS_QCOM_CAP_QUNIPRO	UFS_BIT(0)
+
+	/*
+	 * Set this capability if host controller can retain the secure
+	 * configuration even after UFS controller core power collapse.
+	 */
+	#define UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE	UFS_BIT(1)
 	u32 caps;
 
 	struct phy *generic_phy;

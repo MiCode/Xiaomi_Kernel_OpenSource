@@ -1025,7 +1025,8 @@ static void ufs_qcom_set_caps(struct ufs_hba *hba)
 
 	if (host->hw_ver.major >= 0x2) {
 		hba->caps |= UFSHCD_CAP_POWER_COLLAPSE_DURING_HIBERN8;
-		host->caps = UFS_QCOM_CAP_QUNIPRO;
+		host->caps = UFS_QCOM_CAP_QUNIPRO |
+			     UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE;
 	}
 }
 
@@ -1523,6 +1524,9 @@ static int ufs_qcom_update_sec_cfg(struct ufs_hba *hba, bool restore_sec_cfg)
 
 	if (!host || !hba->vreg_info.vdd_hba ||
 	    !(host->sec_cfg_updated ^ restore_sec_cfg)) {
+		return 0;
+	} else if (host->caps &
+		   UFS_QCOM_CAP_RETAIN_SEC_CFG_AFTER_PWR_COLLAPSE) {
 		return 0;
 	} else if (!restore_sec_cfg) {
 		/*
