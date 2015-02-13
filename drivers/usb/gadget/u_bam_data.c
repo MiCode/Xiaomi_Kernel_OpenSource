@@ -1765,6 +1765,11 @@ static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)
 		pr_err("%s:d_port,cdev or gadget is  NULL\n", __func__);
 		return;
 	}
+	if (port->last_event != U_BAM_DATA_RESUME_E) {
+		pr_err("%s: Port state changed since resume. Bail out.\n",
+			__func__);
+		return;
+	}
 
 	gadget = d_port->cdev->gadget;
 
