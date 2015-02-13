@@ -183,20 +183,25 @@ void bt_sock_unlink(struct bt_sock_list *l, struct sock *sk)
 }
 EXPORT_SYMBOL(bt_sock_unlink);
 
+/* bt_accept_enqueue is used to hold sockets between L2CAP new connection and
+ * connect confirmation calls only .
+ */
 void bt_accept_enqueue(struct sock *parent, struct sock *sk)
 {
 	BT_DBG("parent %p, sk %p", parent, sk);
 
 	sock_hold(sk);
-	list_add_tail(&bt_sk(sk)->accept_q, &bt_sk(parent)->accept_q);
 	bt_sk(sk)->parent = parent;
 	parent->sk_ack_backlog++;
+	list_add_tail(&bt_sk(sk)->accept_q, &bt_sk(parent)->accept_q);
 }
 EXPORT_SYMBOL(bt_accept_enqueue);
 
 void bt_accept_unlink(struct sock *sk)
 {
 	BT_DBG("sk %p state %d", sk, sk->sk_state);
+	if (!bt_sk(sk)->parent)
+		return;
 
 	list_del_init(&bt_sk(sk)->accept_q);
 	bt_sk(sk)->parent->sk_ack_backlog--;
@@ -205,6 +210,9 @@ void bt_accept_unlink(struct sock *sk)
 }
 EXPORT_SYMBOL(bt_accept_unlink);
 
+/* bt_accept_dequeue is called to only on accept ioctl and it returns
+ * sockets in BT_CONNECTED state
+ */
 struct sock *bt_accept_dequeue(struct sock *parent, struct socket *newsock)
 {
 	struct list_head *p, *n;
@@ -216,13 +224,6 @@ struct sock *bt_accept_dequeue(struct sock *parent, struct socket *newsock)
 		sk = (struct sock *) list_entry(p, struct bt_sock, accept_q);
 
 		lock_sock(sk);
-
-		/* FIXME: Is this check still needed */
-		if (sk->sk_state == BT_CLOSED) {
-			release_sock(sk);
-			bt_accept_unlink(sk);
-			continue;
-		}
 
 		if (sk->sk_state == BT_CONNECTED || !newsock ||
 		    test_bit(BT_SK_DEFER_SETUP, &bt_sk(parent)->flags)) {
