@@ -508,12 +508,15 @@ static u8 *mipi_exec_spi(struct dsi_pipe *dsi_pipe, u8 *data)
 
 static u8 *mipi_exec_pmic(struct dsi_pipe *dsi_pipe, u8 *data)
 {
-	u8 pmic_page;
 	u32 register_address, register_data;
 	u32 data_mask, tmp;
 
-	data++;
-	pmic_page = *data++;
+	/*
+	 * First 3 bytes are not relevant for Linux.
+	 * Skipping the data field by 3 bytes to get
+	 * the PMIC register Address.
+	 */
+	data += 3;
 	register_address = *((u32 *)data);
 	data += 4;
 	register_data = *((u32 *)data);
