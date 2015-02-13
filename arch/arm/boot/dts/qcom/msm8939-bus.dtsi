@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 			qcom,src-nodes = <&mas_apss>;
 			qcom,src-field = <FLD_IB>;
 			qcom,src-op = <OP_LE>;
-			qcom,thresh = <2668800>;
+			qcom,thresh = <2764800>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_apss>;
 			qcom,dest-bw = <1000000>;
@@ -31,7 +31,7 @@
 			qcom,src-nodes = <&mas_apss>;
 			qcom,src-field = <FLD_IB>;
 			qcom,src-op = <OP_LE>;
-			qcom,thresh = <5337600>;
+			qcom,thresh = <5606400>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_apss>;
 			qcom,dest-bw = <1400000>;
@@ -41,7 +41,7 @@
 			qcom,src-nodes = <&mas_apss>;
 			qcom,src-field = <FLD_IB>;
 			qcom,src-op = <OP_GT>;
-			qcom,thresh = <5337600>;
+			qcom,thresh = <5606400>;
 			qcom,mode = <THROTTLE_OFF>;
 			qcom,dest-node = <&mas_apss>;
 		};
@@ -50,7 +50,7 @@
 			qcom,src-nodes = <&mas_gfx>;
 			qcom,src-field = <FLD_IB>;
 			qcom,src-op = <OP_LE>;
-			qcom,thresh = <2668800>;
+			qcom,thresh = <2764800>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_gfx>;
 			qcom,dest-bw = <1000000>;
@@ -60,7 +60,7 @@
 			qcom,src-nodes = <&mas_gfx>;
 			qcom,src-field = <FLD_IB>;
 			qcom,src-op = <OP_LE>;
-			qcom,thresh = <5337600>;
+			qcom,thresh = <5606400>;
 			qcom,mode = <THROTTLE_ON>;
 			qcom,dest-node = <&mas_gfx>;
 			qcom,dest-bw = <2000000>;
@@ -70,7 +70,7 @@
 			qcom,src-nodes = <&mas_gfx>;
 			qcom,src-field = <FLD_IB>;
 			qcom,src-op = <OP_GT>;
-			qcom,thresh = <5337600>;
+			qcom,thresh = <5606400>;
 			qcom,mode = <THROTTLE_OFF>;
 			qcom,dest-node = <&mas_gfx>;
 		};
