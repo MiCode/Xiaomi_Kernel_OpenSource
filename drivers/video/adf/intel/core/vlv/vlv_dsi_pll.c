@@ -229,7 +229,7 @@ static void vlv_dsi_pll_reg_configure(struct vlv_pll *pll,
 			dsi_mnp->dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI0_DSIPLL;
 
 		/* Enable DSI1 pll for DSI Port C & DSI Dual link*/
-		else if (dsi_ctx->ports & (1 << PORT_C))
+		if (dsi_ctx->ports & (1 << PORT_C))
 			dsi_mnp->dsi_pll_ctrl |= DSI_PLL_CLK_GATE_DSI1_DSIPLL;
 	} else {
 
