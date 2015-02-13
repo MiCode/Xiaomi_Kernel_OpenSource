@@ -341,6 +341,14 @@ static void xhci_disable_port(struct usb_hcd *hcd, struct xhci_hcd *xhci,
 		return;
 	}
 
+	/*
+	 * Port fails to transition phy in to L2 state if port is in disabled
+	 * state and PORT_PE bit is set to 1
+	 */
+	port_status = xhci_readl(xhci, addr);
+	if (!(port_status & PORT_PE))
+		return;
+
 	/* Write 1 to disable the port */
 	xhci_writel(xhci, port_status | PORT_PE, addr);
 	if (xhci->quirks & XHCI_PORTSC_DELAY)
