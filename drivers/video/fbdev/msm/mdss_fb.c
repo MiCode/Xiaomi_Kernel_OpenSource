@@ -460,7 +460,8 @@ static void __mdss_fb_idle_notify_work(struct work_struct *work)
 
 	/* Notify idle-ness here */
 	pr_debug("Idle timeout %dms expired!\n", mfd->idle_time);
-	sysfs_notify(&mfd->fbi->dev->kobj, NULL, "idle_notify");
+	if (mfd->idle_time)
+		sysfs_notify(&mfd->fbi->dev->kobj, NULL, "idle_notify");
 }
 
 static ssize_t mdss_fb_get_idle_time(struct device *dev,
