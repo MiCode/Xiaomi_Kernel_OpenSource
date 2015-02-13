@@ -55,6 +55,7 @@ struct lpm_cluster_level {
 	struct cpumask num_cpu_votes;
 	struct power_params pwr;
 	bool notify_rpm;
+	bool disable_dynamic_routing;
 	bool sync_level;
 	bool last_core_only;
 	struct lpm_level_avail available;

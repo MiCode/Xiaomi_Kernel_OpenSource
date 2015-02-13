@@ -71,6 +71,8 @@ Required properties:
 	sleep.
 	- qcom,last-level - When set, the cluster level is applied only when
 	there is 1 online core.
+	- qcom,disable-dynamic-int-routing: When set disables the dynamic
+	routing of rpm-smd and mpm interrupts to next wake up core.
 
 [Node bindings for qcom,pm-cpu]
 qcom,pm-cpu contains the low power modes that a cpu could enter. Currently it
