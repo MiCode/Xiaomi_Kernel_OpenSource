@@ -199,7 +199,7 @@ static int dp_pipe_modeset(struct intel_pipe *pipe,
 	/* if NULL the current call is from dpms so use saved mode */
 	if (mode == NULL)
 		mode = &dp_pipe->current_mode;
-	else
+	else if (dp_pipe->dpms_state == DRM_MODE_DPMS_OFF)
 		intel_adf_display_rpm_get();
 
 	dotclock = mode->clock;

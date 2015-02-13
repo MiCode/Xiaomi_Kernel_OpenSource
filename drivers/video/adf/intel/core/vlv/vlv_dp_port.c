@@ -231,6 +231,10 @@ int vlv_dp_port_enable(struct vlv_dp_port *port, u32 flags,
 	 * bit varies between VLV/CHV hence using local var
 	 * that was set during init itself
 	 */
+	if (IS_CHERRYVIEW())
+		reg_val &= ~(DP_PIPE_MASK_CHV);
+	else
+		reg_val &= ~(DP_PIPE_MASK);
 	reg_val |= port->pipe_select_val;
 
 	REG_WRITE(port->offset, reg_val);
@@ -956,12 +960,14 @@ bool vlv_dp_port_init(struct vlv_dp_port *port, enum port port_id,
 
 	port->duty_cycle_delay = 0;
 
-	ret = vlv_dp_port_load_panel_delays(port);
 	vlv_dp_port_i2c_register(port, dev);
 
 	/* enable vdd in case it is not already on for edid read */
-	if (port->is_edp)
+	if (port->is_edp) {
+		vlv_dp_port_write_protect_off(port, true);
 		vlv_dp_port_vdd_seq(port, true);
+		ret = vlv_dp_port_load_panel_delays(port);
+	}
 
 	if (IS_CHERRYVIEW())
 		port->pipe_select_val = DP_PIPE_SELECT_CHV(pipe_id);

@@ -166,7 +166,7 @@ void chv_dpio_update_clock(struct intel_pipeline *pipeline,
 		struct intel_clock *clock)
 {
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
-	enum dpio_channel ch = vlv_disp_to_port(disp);
+	enum dpio_channel ch = vlv_pipe_to_channel(disp->pipe.pipe_id);
 	struct vlv_dc_config *config = get_vlv_dc_config(disp);
 	u32 val, temp;
 
