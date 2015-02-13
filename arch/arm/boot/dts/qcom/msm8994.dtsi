@@ -3166,8 +3166,8 @@
 				   "tsens_tz_sensor13", "tsens_tz_sensor14",
 				   "tsens_tz_sensor15", "tsens_tz_sensor6";
 		qcom,freq-mitigation-temp = <95>;
-		qcom,freq-mitigation-temp-hysteresis = <20>;
-		qcom,freq-mitigation-value = <768000>;
+		qcom,freq-mitigation-temp-hysteresis = <10>;
+		qcom,freq-mitigation-value = <960000>;
 		qcom,freq-mitigation-control-mask = <0xF0>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
