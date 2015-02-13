@@ -213,6 +213,12 @@
 	qcom,pm@8600664 {
 		compatible = "qcom,pm";
 		reg = <0x8600664 0x40>;
+		clocks = <&clock_cpu  clk_a7ssmux>,
+                         <&clock_cpu  clk_a7ssmux>,
+                         <&clock_cpu  clk_a7ssmux>,
+                         <&clock_cpu  clk_a7ssmux>;
+                clock-names = "cpu0_clk", "cpu1_clk",
+			"cpu2_clk", "cpu3_clk";
 		qcom,use-sync-timer;
 		qcom,synced-clocks;
 	};
