@@ -951,6 +951,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 {
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_105:
+	case MDSS_MDP_HW_REV_107:
 	case MDSS_MDP_HW_REV_109:
 		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
 		mdata->max_target_zorder = 7; /* excluding base layer */
