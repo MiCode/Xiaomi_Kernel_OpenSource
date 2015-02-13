@@ -55,6 +55,7 @@
  * ref_cnt:	number of references to this device.
  * poll_mode:	flag to check polling mode.
  * ch_read_wait_queue:	reader thread wait queue.
+ * ch_opened_wait_queue: open thread wait queue.
  * pkt_list:	The pending Rx packets list.
  * pkt_list_lock: Lock to protect @pkt_list.
  * pa_ws:	Packet arrival Wakeup source.
@@ -62,6 +63,7 @@
  * pa_spinlock:	Packet arrival spinlock.
  * ws_locked:	flag to check wakeup source state.
  * sigs_updated: flag to check signal update.
+ * open_time_wait: wait time for channel to fully open.
  */
 struct glink_pkt_dev {
 	struct list_head dev_list;
@@ -78,6 +80,7 @@ struct glink_pkt_dev {
 	int poll_mode;
 
 	wait_queue_head_t ch_read_wait_queue;
+	wait_queue_head_t ch_opened_wait_queue;
 	struct list_head pkt_list;
 	struct mutex pkt_list_lock;
 
@@ -86,6 +89,7 @@ struct glink_pkt_dev {
 	spinlock_t pa_spinlock;
 	int ws_locked;
 	int sigs_updated;
+	int open_time_wait;
 };
 
 /**
@@ -178,6 +182,56 @@ do { \
 #define GLINK_PKT_INFO(x...) do {} while (0)
 #define GLINK_PKT_ERR(x...) do {} while (0)
 #endif
+
+static ssize_t open_timeout_store(struct device *d,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t n)
+{
+	struct glink_pkt_dev *devp;
+	long tmp;
+
+	mutex_lock(&glink_pkt_dev_lock_lha1);
+	list_for_each_entry(devp, &glink_pkt_dev_list, dev_list) {
+		if (devp->devicep == d) {
+			if (!kstrtol(buf, 0, &tmp)) {
+				devp->open_time_wait = tmp;
+				mutex_unlock(&glink_pkt_dev_lock_lha1);
+				return n;
+			} else {
+				mutex_unlock(&glink_pkt_dev_lock_lha1);
+				pr_err("%s: unable to convert: %s to an int\n",
+						__func__, buf);
+				return -EINVAL;
+			}
+		}
+	}
+	mutex_unlock(&glink_pkt_dev_lock_lha1);
+	GLINK_PKT_ERR("%s: unable to match device to valid port\n", __func__);
+	return -EINVAL;
+}
+
+static ssize_t open_timeout_show(struct device *d,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct glink_pkt_dev *devp;
+
+	mutex_lock(&glink_pkt_dev_lock_lha1);
+	list_for_each_entry(devp, &glink_pkt_dev_list, dev_list) {
+		if (devp->devicep == d) {
+			mutex_unlock(&glink_pkt_dev_lock_lha1);
+			return snprintf(buf, PAGE_SIZE, "%d\n",
+					devp->open_time_wait);
+		}
+	}
+	mutex_unlock(&glink_pkt_dev_lock_lha1);
+	GLINK_PKT_ERR("%s: unable to match device to valid port\n", __func__);
+	return -EINVAL;
+
+}
+
+static DEVICE_ATTR(open_timeout, 0664, open_timeout_show, open_timeout_store);
 
 /**
  * packet_arrival_worker() - wakeup source timeout worker fn
@@ -284,9 +338,9 @@ void glink_pkt_notify_state(void *handle, const void *priv, unsigned event)
 {
 	struct glink_pkt_dev *devp = (struct glink_pkt_dev *)priv;
 	GLINK_PKT_INFO("%s(): event[%d]\n", __func__, event);
-	mutex_lock(&devp->ch_lock);
 	devp->ch_state = event;
-	mutex_unlock(&devp->ch_lock);
+	if (event == GLINK_CONNECTED)
+		wake_up_interruptible(&devp->ch_opened_wait_queue);
 }
 
 /**
@@ -729,8 +783,8 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 		GLINK_PKT_ERR("%s on NULL device\n", __func__);
 		return -EINVAL;
 	}
-	GLINK_PKT_INFO("Begin %s() on dev id:%d by [%s]\n",
-				__func__, devp->i, current->comm);
+	GLINK_PKT_INFO("Begin %s() on dev id:%d open_wait_time[%d] by [%s]\n",
+		__func__, devp->i, devp->open_time_wait, current->comm);
 	file->private_data = devp;
 
 	mutex_lock(&devp->ch_lock);
@@ -742,14 +796,43 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 				__func__, devp->open_cfg.transport,
 				devp->open_cfg.edge, devp->open_cfg.name);
 			ret = -ENODEV;
+			goto error;
 		}
-		wakeup_source_init(&devp->pa_ws, devp->open_cfg.name);
-		INIT_WORK(&devp->packet_arrival_work, packet_arrival_worker);
+
+		/*
+		 * Wait for the channel to be complete open state so we know
+		 * the remote is ready enough.
+		 * Defualt timeout 1sec.
+		 */
+		if (!devp->open_time_wait)
+			devp->open_time_wait = 1;
+		if (devp->open_time_wait < 0) {
+			ret = wait_event_interruptible(
+				devp->ch_opened_wait_queue,
+				devp->ch_state == GLINK_CONNECTED);
+		} else {
+			ret = wait_event_interruptible_timeout(
+				devp->ch_opened_wait_queue,
+				devp->ch_state == GLINK_CONNECTED,
+				msecs_to_jiffies(devp->open_time_wait * 1000));
+			if (ret == 0)
+				ret = -ETIMEDOUT;
+		}
+		if (ret < 0) {
+			GLINK_PKT_ERR("%s: open failed on dev id:%d rc:%d\n",
+					__func__, devp->i, ret);
+			glink_close(devp->handle);
+			devp->handle = NULL;
+			goto error;
+		}
 	}
+	ret = 0;
 	devp->ref_cnt++;
+
+error:
 	mutex_unlock(&devp->ch_lock);
-	GLINK_PKT_INFO("END %s() on dev id:%d ref_cnt[%d]\n",
-					__func__, devp->i, devp->ref_cnt);
+	GLINK_PKT_INFO("END %s() on dev id:%d ref_cnt[%d] ret[%d]\n",
+			__func__, devp->i, devp->ref_cnt, ret);
 	return ret;
 }
 
@@ -781,10 +864,12 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 		devp->handle = NULL;
 		devp->poll_mode = 0;
 		devp->ws_locked = 0;
-		wakeup_source_trash(&devp->pa_ws);
 	}
 	mutex_unlock(&devp->ch_lock);
 
+	if (flush_work(&devp->packet_arrival_work))
+		GLINK_PKT_INFO("%s: Flushed work for glink_pkt_dev id:%d\n",
+			__func__, devp->i);
 	return ret;
 }
 
@@ -821,11 +906,15 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	devp->i = i;
 	devp->poll_mode = 0;
 	devp->ws_locked = 0;
+	devp->ch_state = GLINK_LOCAL_DISCONNECTED;
 	mutex_init(&devp->ch_lock);
 	init_waitqueue_head(&devp->ch_read_wait_queue);
+	init_waitqueue_head(&devp->ch_opened_wait_queue);
 	spin_lock_init(&devp->pa_spinlock);
 	INIT_LIST_HEAD(&devp->pkt_list);
 	mutex_init(&devp->pkt_list_lock);
+	wakeup_source_init(&devp->pa_ws, devp->open_cfg.name);
+	INIT_WORK(&devp->packet_arrival_work, packet_arrival_worker);
 
 	cdev_init(&devp->cdev, &glink_pkt_fops);
 	devp->cdev.owner = THIS_MODULE;
@@ -834,6 +923,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	if (IS_ERR_VALUE(ret)) {
 		GLINK_PKT_ERR("%s: cdev_add() failed for dev id:%d ret:%i\n",
 			__func__, i, ret);
+		wakeup_source_trash(&devp->pa_ws);
 		return ret;
 	}
 
@@ -848,8 +938,13 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 			__func__, i);
 		ret = -ENOMEM;
 		cdev_del(&devp->cdev);
+		wakeup_source_trash(&devp->pa_ws);
 		return ret;
 	}
+
+	if (device_create_file(devp->devicep, &dev_attr_open_timeout))
+		GLINK_PKT_ERR("%s: device_create_file() failed for id:%d\n",
+			__func__, i);
 
 	mutex_lock(&glink_pkt_dev_lock_lha1);
 	list_add(&devp->dev_list, &glink_pkt_dev_list);
