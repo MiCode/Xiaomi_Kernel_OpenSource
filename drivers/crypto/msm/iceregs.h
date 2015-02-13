@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #define _QCOM_INLINE_CRYPTO_ENGINE_REGS_H_
 
 /* Register bits for ICE version */
-#define ICE_CORE_CURRENT_MAJOR_VERSION 0x01
+#define ICE_CORE_CURRENT_MAJOR_VERSION 0x02
 
 #define ICE_CORE_STEP_REV_MASK		0xFFFF
 #define ICE_CORE_STEP_REV		0 /* bit 15-0 */
