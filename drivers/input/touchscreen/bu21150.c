@@ -40,9 +40,12 @@
 /* define */
 #define DEVICE_NAME   "jdi-bu21150"
 #define SYSFS_PROPERTY_PATH   "afe_properties"
+#define REG_INT_RUN_ENB (0x00CE)
 #define REG_READ_DATA (0x0400)
 #define MAX_FRAME_SIZE (8*1024+16)  /* byte */
 #define SPI_HEADER_SIZE (3)
+#define SPI_BITS_PER_WORD_READ (8)
+#define SPI_BITS_PER_WORD_WRITE (8)
 #define FRAME_HEADER_SIZE (16)  /* byte */
 #define GPIO_LOW  (0)
 #define GPIO_HIGH (1)
@@ -105,7 +108,7 @@ struct bu21150_data {
 	/* reset */
 	u8 reset_flag;
 	/* timeout */
-	u8 timeout_enb_flag;
+	u8 timeout_enb;
 	u8 set_timer_flag;
 	u8 timeout_flag;
 	u32 timeout;
@@ -130,6 +133,8 @@ struct bu21150_data {
 	bool timeout_enable;
 	bool stay_awake;
 	bool suspended;
+	u8 unblock_flag;
+	u8 force_unblock_flag;
 };
 
 struct ser_req {
@@ -160,7 +165,7 @@ static void swap_2byte(unsigned char *buf, unsigned int size);
 static int bu21150_read_register(u32 addr, u16 size, u8 *data);
 static int bu21150_write_register(u32 addr, u16 size, u8 *data);
 static void wake_up_frame_waitq(struct bu21150_data *ts);
-static long wait_frame_waitq(struct bu21150_data *ts);
+static long wait_frame_waitq(struct bu21150_data *ts, u8 flag);
 static int is_same_bu21150_ioctl_get_frame_data(
 	struct bu21150_ioctl_get_frame_data *data1,
 	struct bu21150_ioctl_get_frame_data *data2);
@@ -309,8 +314,6 @@ static struct spi_driver g_bu21150_spi_driver = {
 		.of_match_table = g_bu21150_psoc_match_table,
 	},
 };
-
-static int g_bu21150_ioctl_unblock;
 
 module_spi_driver(g_bu21150_spi_driver);
 MODULE_AUTHOR("Japan Display Inc");
@@ -960,6 +963,10 @@ static int bu21150_fb_suspend(struct device *dev)
 	if (ts->suspended)
 		return 0;
 
+	ts->unblock_flag = 1;
+	/* wake up */
+	wake_up_frame_waitq(ts);
+
 	if (!ts->wake_up) {
 		disable_irq(client->irq);
 		rc = bu21150_pin_enable(ts, false);
@@ -992,6 +999,7 @@ static int bu21150_fb_resume(struct device *dev)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	struct spi_device *client = ts->client;
 	int rc;
+	u8 buf[2] = {0x01, 0x00};
 
 	if (!ts->suspended)
 		return 0;
@@ -1018,6 +1026,8 @@ static int bu21150_fb_resume(struct device *dev)
 		}
 		enable_irq(client->irq);
 	}
+
+	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
 
 	ts->suspended = false;
 
@@ -1129,11 +1139,14 @@ static int bu21150_open(struct inode *inode, struct file *filp)
 	}
 	++g_io_opened;
 
-	g_bu21150_ioctl_unblock = 0;
+	get_frame_timer_delete();
 	ts->reset_flag = 0;
 	ts->set_timer_flag = 0;
 	ts->timeout_flag = 0;
-	ts->timeout_enb_flag = 0;
+	ts->timeout_enb = 0;
+	ts->unblock_flag = 0;
+	ts->force_unblock_flag = 0;
+	ts->scan_mode = AFE_SCAN_MUTUAL_CAP;
 	memset(&(ts->req_get), 0, sizeof(struct bu21150_ioctl_get_frame_data));
 	/* set default value. */
 	ts->req_get.size = FRAME_HEADER_SIZE;
@@ -1245,18 +1258,19 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 		return -EINVAL;
 	}
 
-	if (ts->timeout_enb_flag == 1)
+	if (ts->timeout_enb == 1)
 		get_frame_timer_init();
 
 	do {
 		ts->req_get = data;
-		ret = wait_frame_waitq(ts);
+		ret = wait_frame_waitq(ts, data.keep_block_flag);
+		ts->unblock_flag = 0;
 		if (ret != 0)
 			return ret;
 	} while (!is_same_bu21150_ioctl_get_frame_data(&data,
 				&(ts->frame_get)));
 
-	if (ts->timeout_enb_flag == 1)
+	if (ts->timeout_enb == 1)
 		get_frame_timer_delete();
 
 	/* copy frame */
@@ -1384,7 +1398,7 @@ static long bu21150_ioctl_unblock(void)
 {
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 
-	g_bu21150_ioctl_unblock = 1;
+	ts->force_unblock_flag = 1;
 	/* wake up */
 	wake_up_frame_waitq(ts);
 
@@ -1393,7 +1407,10 @@ static long bu21150_ioctl_unblock(void)
 
 static long bu21150_ioctl_unblock_release(void)
 {
-	g_bu21150_ioctl_unblock = 0;
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	ts->force_unblock_flag = 0;
+
 	return 0;
 }
 
@@ -1406,7 +1423,9 @@ static long bu21150_ioctl_suspend(void)
 
 static long bu21150_ioctl_resume(void)
 {
-	g_bu21150_ioctl_unblock = 0;
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	ts->force_unblock_flag = 0;
 
 	return 0;
 }
@@ -1426,8 +1445,8 @@ static long bu21150_ioctl_set_timeout(unsigned long arg)
 		return -EFAULT;
 	}
 
-	ts->timeout_enb_flag = data.timeout_enb_flag;
-	if (data.timeout_enb_flag == 1) {
+	ts->timeout_enb = data.timeout_enb;
+	if (data.timeout_enb == 1) {
 		ts->timeout = (unsigned int)(data.report_interval_us
 			* TIMEOUT_SCALE * HZ / 1000000);
 	} else {
@@ -1517,7 +1536,7 @@ static int bu21150_read_register(u32 addr, u16 size, u8 *data)
 	req->xfer[0].rx_buf = output;
 	req->xfer[0].len = size+SPI_HEADER_SIZE;
 	req->xfer[0].cs_change = 0;
-	req->xfer[0].bits_per_word = 8;
+	req->xfer[0].bits_per_word = SPI_BITS_PER_WORD_READ;
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
 	if (ret)
@@ -1559,7 +1578,7 @@ static int bu21150_write_register(u32 addr, u16 size, u8 *data)
 	req->xfer[0].rx_buf = NULL;
 	req->xfer[0].len = size+SPI_HEADER_SIZE;
 	req->xfer[0].cs_change = 0;
-	req->xfer[0].bits_per_word = 8;
+	req->xfer[0].bits_per_word = SPI_BITS_PER_WORD_WRITE;
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
 	if (ret)
@@ -1577,9 +1596,12 @@ static void wake_up_frame_waitq(struct bu21150_data *ts)
 	wake_up_interruptible(&(ts->frame_waitq));
 }
 
-static long wait_frame_waitq(struct bu21150_data *ts)
+static long wait_frame_waitq(struct bu21150_data *ts, u8 flag)
 {
-	if (g_bu21150_ioctl_unblock == 1)
+	if (ts->force_unblock_flag == 1)
+		return BU21150_UNBLOCK;
+
+	if (ts->unblock_flag == 1 && flag == 0)
 		return BU21150_UNBLOCK;
 
 	/* wait event */
@@ -1590,7 +1612,7 @@ static long wait_frame_waitq(struct bu21150_data *ts)
 	}
 	ts->frame_waitq_flag = WAITQ_WAIT;
 
-	if (ts->timeout_enb_flag == 1) {
+	if (ts->timeout_enb == 1) {
 		if (ts->timeout_flag == 1) {
 			ts->set_timer_flag = 0;
 			ts->timeout_flag = 0;
@@ -1598,7 +1620,10 @@ static long wait_frame_waitq(struct bu21150_data *ts)
 		}
 	}
 
-	if (g_bu21150_ioctl_unblock == 1)
+	if (ts->force_unblock_flag == 1)
+		return BU21150_UNBLOCK;
+
+	if (ts->unblock_flag == 1 && flag == 0)
 		return BU21150_UNBLOCK;
 
 	return 0;
