@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/devfreq.h>
+#include <trace/events/power.h>
 #include "governor.h"
 #include "governor_bw_hwmon.h"
 
@@ -118,6 +119,10 @@ static unsigned long measure_bw_and_set_irq(struct hwmon_node *node)
 	preempt_enable();
 
 	dev_dbg(hw->df->dev.parent, "BW MBps = %6lu, period = %u\n", mbps, us);
+	trace_bw_hwmon_meas(dev_name(hw->df->dev.parent),
+				mbps,
+				us,
+				0);
 
 	return mbps;
 }
@@ -141,6 +146,11 @@ static void compute_bw(struct hwmon_node *node, int mbps,
 	if (ab)
 		*ab = roundup(new_bw, node->bw_step);
 	*freq = (new_bw * 100) / node->io_percent;
+	trace_bw_hwmon_update(dev_name(node->hw->df->dev.parent),
+				new_bw,
+				*freq,
+				0,
+				0);
 }
 
 static struct hwmon_node *find_hwmon_node(struct devfreq *df)
