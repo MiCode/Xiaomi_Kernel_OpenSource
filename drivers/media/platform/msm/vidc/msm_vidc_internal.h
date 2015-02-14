@@ -362,7 +362,7 @@ int unmap_and_deregister_buf(struct msm_vidc_inst *inst,
 
 void msm_comm_handle_thermal_event(void);
 void *msm_smem_new_client(enum smem_type mtype,
-				void *platform_resources);
+		void *platform_resources, enum session_type stype);
 struct msm_smem *msm_smem_alloc(void *clt, size_t size, u32 align, u32 flags,
 		enum hal_buffer buffer_type, int map_kernel);
 void msm_smem_free(void *clt, struct msm_smem *mem);

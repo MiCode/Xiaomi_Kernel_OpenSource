@@ -125,6 +125,7 @@ Optional properties:
           internal cmd queue = 0x800
 - virtual-addr-pool : offset and length of virtual address pool.
 - qcom,fw-context-bank : bool indicating firmware context bank.
+- qcom,secure-context-bank : bool indicating secure context bank.
 
 Example:
 
@@ -194,6 +195,7 @@ Example:
 				<&venus_smmu 0x0c>;
 			buffer-types = <0xfff>;
 			virtual-addr-pool = <0x5dc00000 0x80000000>;
+			qcom,secure-context-bank;
 		};
 		msm_vidc_cb2: msm_vidc_cb2 {
 			compatible = "qcom,msm-vidc,context-bank";

@@ -818,7 +818,7 @@ static int msm_vidc_populate_context_bank(struct device *dev,
 		goto err_setup_cb;
 	}
 
-	cb->is_secure = of_property_read_bool(np, "secure-addr-range");
+	cb->is_secure = of_property_read_bool(np, "qcom,secure-context-bank");
 	dprintk(VIDC_DBG, "context bank %s : secure = %d\n",
 			cb->name, cb->is_secure);
 

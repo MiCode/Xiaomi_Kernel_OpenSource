@@ -28,6 +28,7 @@ struct smem_client {
 	int mem_type;
 	void *clnt;
 	struct msm_vidc_platform_resources *res;
+	enum session_type session_type;
 };
 
 static int get_device_address(struct smem_client *smem_client,
@@ -105,8 +106,8 @@ static int get_device_address(struct smem_client *smem_client,
 		}
 		if (table->sgl) {
 			dprintk(VIDC_DBG,
-				"%s: DMA buf: %p, device: %p, attach: %p, table: %p, table sgl: %p, rc: %d, dma_address: %pa\n",
-				__func__, buf, cb->dev, attach,
+				"%s: CB : %s, DMA buf: %p, device: %p, attach: %p, table: %p, table sgl: %p, rc: %d, dma_address: %pa\n",
+				__func__, cb->name, buf, cb->dev, attach,
 				table, table->sgl, rc,
 				&table->sgl->dma_address);
 
@@ -211,6 +212,7 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 	unsigned long buffer_size = 0;
 	int rc = 0;
 	unsigned long align = SZ_4K;
+	unsigned long ion_flags = 0;
 
 	hndl = ion_import_dma_buf(client->clnt, fd);
 	dprintk(VIDC_DBG, "%s ion handle: %p\n", __func__, hndl);
@@ -221,15 +223,18 @@ static int ion_user_to_kernel(struct smem_client *client, int fd, u32 offset,
 		goto fail_import_fd;
 	}
 	mem->kvaddr = NULL;
-	rc = ion_handle_get_flags(client->clnt, hndl, &mem->flags);
+	rc = ion_handle_get_flags(client->clnt, hndl, &ion_flags);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get ion flags: %d\n", rc);
 		goto fail_device_address;
 	}
 
 	mem->buffer_type = buffer_type;
-	if (mem->flags & SMEM_SECURE)
-		align = ALIGN(align, SZ_1M);
+	if (ion_flags & ION_FLAG_CACHED)
+		mem->flags |= SMEM_CACHED;
+
+	if (ion_flags & ION_FLAG_SECURE)
+		mem->flags |= SMEM_SECURE;
 
 	rc = get_device_address(client, hndl, align, &iova, &buffer_size,
 				mem->flags, buffer_type, &mem->mapping_info);
@@ -258,6 +263,44 @@ fail_import_fd:
 	return rc;
 }
 
+static int get_secure_flag_for_buffer_type(
+		struct smem_client *client, enum hal_buffer buffer_type)
+{
+
+	if (!client) {
+		dprintk(VIDC_ERR, "%s - invalid params\n", __func__);
+		return -EINVAL;
+	}
+
+	switch (buffer_type) {
+	case HAL_BUFFER_INPUT:
+		if (client->session_type == MSM_VIDC_ENCODER)
+			return ION_FLAG_CP_PIXEL;
+		else
+			return ION_FLAG_CP_BITSTREAM;
+	case HAL_BUFFER_OUTPUT:
+	case HAL_BUFFER_OUTPUT2:
+		if (client->session_type == MSM_VIDC_ENCODER)
+			return ION_FLAG_CP_BITSTREAM;
+		else
+			return ION_FLAG_CP_PIXEL;
+	case HAL_BUFFER_INTERNAL_SCRATCH:
+		return ION_FLAG_CP_BITSTREAM;
+	case HAL_BUFFER_INTERNAL_SCRATCH_1:
+		return ION_FLAG_CP_NON_PIXEL;
+	case HAL_BUFFER_INTERNAL_SCRATCH_2:
+		return ION_FLAG_CP_PIXEL;
+	case HAL_BUFFER_INTERNAL_PERSIST:
+		return ION_FLAG_CP_BITSTREAM;
+	case HAL_BUFFER_INTERNAL_PERSIST_1:
+		return ION_FLAG_CP_NON_PIXEL;
+	default:
+		WARN(1, "No matching secure flag for buffer type : %x\n",
+				buffer_type);
+		return -EINVAL;
+	}
+}
+
 static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	u32 flags, enum hal_buffer buffer_type, struct msm_smem *mem,
 	int map_kernel)
@@ -267,15 +310,10 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 	unsigned long buffer_size = 0;
 	unsigned long heap_mask = 0;
 	int rc = 0;
+	int ion_flags = 0;
 
 	align = ALIGN(align, SZ_4K);
 	size = ALIGN(size, SZ_4K);
-
-	if (flags & SMEM_SECURE) {
-		size = ALIGN(size, SZ_1M);
-		align = ALIGN(align, SZ_1M);
-		flags |= ION_FLAG_ALLOW_NON_CONTIG;
-	}
 
 	if (is_iommu_present(client->res)) {
 		heap_mask = ION_HEAP(ION_IOMMU_HEAP_ID);
@@ -286,12 +324,24 @@ static int alloc_ion_mem(struct smem_client *client, size_t size, u32 align,
 		heap_mask = ION_HEAP(ION_ADSP_HEAP_ID);
 	}
 
-	if (flags & SMEM_SECURE)
-		heap_mask = ION_HEAP(ION_CP_MM_HEAP_ID);
+	if (flags & SMEM_CACHED)
+		ion_flags |= ION_FLAG_CACHED;
+
+	if (flags & SMEM_SECURE) {
+		int secure_flag =
+			get_secure_flag_for_buffer_type(client, buffer_type);
+		if (secure_flag < 0) {
+			rc = secure_flag;
+			goto fail_shared_mem_alloc;
+		}
+
+		ion_flags |= ION_FLAG_SECURE | secure_flag;
+		heap_mask = ION_HEAP(ION_SECURE_HEAP_ID);
+	}
 
 	trace_msm_smem_buffer_ion_op_start("ALLOC", (u32)buffer_type,
 		heap_mask, size, align, flags, map_kernel);
-	hndl = ion_alloc(client->clnt, size, align, heap_mask, flags);
+	hndl = ion_alloc(client->clnt, size, align, heap_mask, ion_flags);
 	if (IS_ERR_OR_NULL(hndl)) {
 		dprintk(VIDC_ERR,
 		"Failed to allocate shared memory = %p, %zx, %d, %#x\n",
@@ -490,7 +540,7 @@ int msm_smem_cache_operations(void *clt, struct msm_smem *mem,
 }
 
 void *msm_smem_new_client(enum smem_type mtype,
-		void *platform_resources)
+		void *platform_resources, enum session_type stype)
 {
 	struct smem_client *client = NULL;
 	void *clnt = NULL;
@@ -509,6 +559,7 @@ void *msm_smem_new_client(enum smem_type mtype,
 			client->mem_type = mtype;
 			client->clnt = clnt;
 			client->res = res;
+			client->session_type = stype;
 		}
 	} else {
 		dprintk(VIDC_ERR, "Failed to create new client: mtype = %d\n",
@@ -603,13 +654,26 @@ struct context_bank_info *msm_smem_get_context_bank(void *clt,
 		return NULL;
 	}
 
+	/*
+	 * HAL_BUFFER_INPUT is directly mapped to bitstream CB in DT
+	 * as the buffer type structure was initially designed
+	 * just for decoder. For Encoder, input should be mapped to
+	 * pixel CB. So swap the buffer types just in this local scope.
+	 */
+	if (is_secure && client->session_type == MSM_VIDC_ENCODER) {
+		if (buffer_type == HAL_BUFFER_INPUT)
+			buffer_type = HAL_BUFFER_OUTPUT;
+		else if (buffer_type == HAL_BUFFER_OUTPUT)
+			buffer_type = HAL_BUFFER_INPUT;
+	}
+
 	list_for_each_entry(cb, &client->res->context_banks, list) {
 		if (cb->is_secure == is_secure &&
 				cb->buffer_type & buffer_type) {
 			match = cb;
 			dprintk(VIDC_DBG,
-				"context bank found for device: %p mapping: %p\n",
-				match->dev, match->mapping);
+				"context bank found for CB : %s, device: %p mapping: %p\n",
+				match->name, match->dev, match->mapping);
 			break;
 		}
 	}

@@ -2351,7 +2351,8 @@ static int venus_hfi_core_init(void *device)
 	venus_hfi_set_registers(dev);
 
 	if (!dev->hal_client) {
-		dev->hal_client = msm_smem_new_client(SMEM_ION, dev->res);
+		dev->hal_client = msm_smem_new_client(
+				SMEM_ION, dev->res, MSM_VIDC_UNKNOWN);
 		if (dev->hal_client == NULL) {
 			dprintk(VIDC_ERR, "Failed to alloc ION_Client\n");
 			rc = -ENODEV;
@@ -3799,7 +3800,7 @@ static int protect_cp_mem(struct venus_hfi_device *device)
 			desc.args[3] = memprot.cp_nonpixel_size =
 				cb->addr_range.size;
 			dprintk(VIDC_DBG,
-				"%s memprot.cp_start: %#x size: %#x\n",
+				"%s memprot.cp_nonpixel_start: %#x size: %#x\n",
 				__func__, memprot.cp_nonpixel_start,
 				memprot.cp_nonpixel_size);
 		}

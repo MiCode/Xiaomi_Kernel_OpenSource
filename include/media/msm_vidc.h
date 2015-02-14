@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,8 @@ enum smem_type {
 };
 
 enum smem_prop {
-	SMEM_CACHED = ION_FLAG_CACHED,
-	SMEM_SECURE = ION_FLAG_SECURE,
+	SMEM_CACHED,
+	SMEM_SECURE,
 };
 
 /* NOTE: if you change this enum you MUST update the
@@ -84,7 +84,8 @@ enum core_id {
 enum session_type {
 	MSM_VIDC_ENCODER = 0,
 	MSM_VIDC_DECODER,
-	MSM_VIDC_MAX_DEVICES,
+	MSM_VIDC_UNKNOWN,
+	MSM_VIDC_MAX_DEVICES = MSM_VIDC_UNKNOWN,
 };
 void *msm_vidc_open(int core_id, int session_type);
 int msm_vidc_close(void *instance);
