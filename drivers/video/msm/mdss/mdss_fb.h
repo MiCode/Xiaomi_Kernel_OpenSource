@@ -193,6 +193,7 @@ struct msm_mdp_interface {
 					u32 mode);
 	int (*kickoff_fnc)(struct msm_fb_data_type *mfd,
 					struct mdp_display_commit *data);
+	int (*pre_commit_fnc)(struct msm_fb_data_type *mfd);
 	int (*ioctl_handler)(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
 	void (*dma_fnc)(struct msm_fb_data_type *mfd);
 	int (*cursor_update)(struct msm_fb_data_type *mfd,
