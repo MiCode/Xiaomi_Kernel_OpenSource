@@ -1120,6 +1120,41 @@ static int wcd9xxx_regmap_init_cache(struct wcd9xxx *wcd9xxx)
 	return rc;
 }
 
+static void wcd9xxx_core_res_update_irq_regs(
+		struct wcd9xxx_core_resource *core_res,
+		u16 id_major)
+{
+	switch (id_major) {
+	case TASHA_MAJOR:
+		core_res->intr_reg[WCD9XXX_INTR_STATUS_BASE] =
+					WCD9335_INTR_PIN1_STATUS0;
+		core_res->intr_reg[WCD9XXX_INTR_CLEAR_BASE] =
+					WCD9335_INTR_PIN1_CLEAR0;
+		core_res->intr_reg[WCD9XXX_INTR_MASK_BASE] =
+					WCD9335_INTR_PIN1_MASK0;
+		core_res->intr_reg[WCD9XXX_INTR_LEVEL_BASE] =
+					WCD9335_INTR_LEVEL0;
+		core_res->intr_reg[WCD9XXX_INTR_CLR_COMMIT] =
+					WCD9335_INTR_CLR_COMMIT;
+		break;
+	case TABLA_MAJOR:
+	case TOMTOM_MAJOR:
+	case TAIKO_MAJOR:
+	default:
+		core_res->intr_reg[WCD9XXX_INTR_STATUS_BASE] =
+					WCD9XXX_A_INTR_STATUS0;
+		core_res->intr_reg[WCD9XXX_INTR_CLEAR_BASE] =
+					WCD9XXX_A_INTR_CLEAR0;
+		core_res->intr_reg[WCD9XXX_INTR_MASK_BASE] =
+					WCD9XXX_A_INTR_MASK0;
+		core_res->intr_reg[WCD9XXX_INTR_LEVEL_BASE] =
+					WCD9XXX_A_INTR_LEVEL0;
+		core_res->intr_reg[WCD9XXX_INTR_CLR_COMMIT] =
+					WCD9XXX_A_INTR_MODE;
+		break;
+	};
+}
+
 static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 {
 	int ret = 0;
@@ -1159,6 +1194,8 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 		core_res->intr_table = intr_tbl_v2;
 		core_res->intr_table_size = ARRAY_SIZE(intr_tbl_v2);
 	}
+	wcd9xxx_core_res_update_irq_regs(&wcd9xxx->core_res,
+					 wcd9xxx->codec_type->id_major);
 
 	wcd9xxx_core_res_init(&wcd9xxx->core_res,
 				wcd9xxx->codec_type->num_irqs,
