@@ -144,6 +144,7 @@ static int emac_set_settings(struct net_device *netdev,
 	u32 advertised, old;
 	int retval = 0;
 	bool autoneg;
+	bool if_running = netif_running(adpt->netdev);
 
 	emac_info(adpt, link, "ethtool cmd autoneg %d, speed %d, duplex %d\n",
 		  ecmd->autoneg, ecmd->speed, ecmd->duplex);
@@ -183,6 +184,13 @@ static int emac_set_settings(struct net_device *netdev,
 	if ((hw->autoneg == autoneg) && (hw->autoneg_advertised == advertised))
 		goto done;
 
+	/* If there is no EPHY, the EMAC internal PHY may get reset in
+	 * emac_setup_phy_link_speed. Reset the MAC to avoid the memory
+	 * corruption.
+	 */
+	if (adpt->no_ephy && if_running)
+		emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
+
 	retval = emac_setup_phy_link_speed(hw, advertised, autoneg,
 					   !hw->disable_fc_autoneg);
 	if (retval) {
@@ -190,15 +198,10 @@ static int emac_set_settings(struct net_device *netdev,
 					  !hw->disable_fc_autoneg);
 	}
 
-	if (netif_running(adpt->netdev)) {
-		/* If there is no EPHY, the EMAC internal PHY may get reset in
-		 * emac_setup_phy_link_speed. Reset the MAC to avoid the memory
-		 * corruption.
-		 */
-		if (adpt->no_ephy) {
-			emac_down(adpt, EMAC_HW_CTRL_RESET_MAC);
+	if (if_running) {
+		/* If there is no EPHY, bring up the interface */
+		if (adpt->no_ephy)
 			emac_up(adpt);
-		}
 	}
 
 done:
