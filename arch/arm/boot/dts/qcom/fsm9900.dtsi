@@ -16,6 +16,13 @@
 / {
 	model = "Qualcomm Technologies, Inc. FSM9900";
 	compatible = "qcom,fsm9900";
+	qcom,msm-id = <188 0x10000>,
+		      <189 0x10000>,
+		      <190 0x10000>,
+		      <191 0x10000>,
+		      <192 0x10000>,
+		      <193 0x10000>,
+		      <276 0x10000>;
 	interrupt-parent = <&intc>;
 
 	aliases {
