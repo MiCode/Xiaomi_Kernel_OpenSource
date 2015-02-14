@@ -52,6 +52,9 @@ static struct drm_i915_private *i915_adf_dev;
 
 void i915_adf_wrapper_init(struct drm_i915_private *dev_priv)
 {
+	if (!i915.enable_intel_adf)
+		return;
+
 	i915_adf_dev = dev_priv;
 
 	/*
