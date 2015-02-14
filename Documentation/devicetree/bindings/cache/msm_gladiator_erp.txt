@@ -1,0 +1,16 @@
+* MSM Gladiator error reporting driver
+
+Required properties:
+- compatible: Should be "qcom,msm-gladiator"
+- reg: I/O address Gladiator H/W block
+- reg-names: Should be "gladiator_base"
+- interrupts: Should contain the gladiator error interrupt number.
+
+Example:
+
+qcom,msm-gladiator@b1c0000 {
+	compatible = "qcom,msm-gladiator";
+	reg = <0xB1C0000 0x4000>;
+	reg-names = "gladiator_base";
+	interrupts = <0 34 0>;
+}

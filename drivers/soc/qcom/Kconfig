@@ -314,6 +314,15 @@ config MSM_SECURE_BUFFER
 	 use this memory and no unauthorized access is made to the
 	 buffer
 
+config MSM_GLADIATOR_ERP
+	tristate "GLADIATOR coherency interconnect error reporting driver"
+	help
+	  Support dumping debug information for the GLADIATOR
+	  cache interconnect in the error interrupt handler.
+	  Meant to be used for debug scenarios only.
+
+	  If unsure, say N.
+
 endif # ARCH_QCOM
 
 config MSM_SUBSYSTEM_RESTART
