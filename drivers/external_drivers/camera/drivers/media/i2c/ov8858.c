@@ -738,10 +738,16 @@ static int __power_ctrl(struct v4l2_subdev *sd, bool flag)
 
 static int __gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 {
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	struct ov8858_device *dev = to_ov8858_sensor(sd);
+	struct i2c_client *client;
+	struct ov8858_device *dev;
 
-	if (!dev || !dev->platform_data)
+	if (!sd)
+		return -EINVAL;
+
+	client = v4l2_get_subdevdata(sd);
+	dev = to_ov8858_sensor(sd);
+
+	if (!client || !dev || !dev->platform_data)
 		return -ENODEV;
 
 	/* Non-gmin platforms use the legacy callback */
