@@ -1037,16 +1037,8 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 						  __func__);
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 					goto report;
-				} else if (mbhc->mbhc_cfg->swap_gnd_mic) {
-					pr_debug("%s: US_EU gpio present, flip switch\n",
-						 __func__);
-					/*
-					 * if switch is toggled, check again,
-					 * otherwise report unsupported plug
-					 */
+				} else {
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
-					if (mbhc->mbhc_cfg->swap_gnd_mic(codec))
-						continue;
 				}
 			} else {
 				pt_gnd_mic_swap_cnt++;
@@ -1059,6 +1051,21 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 				}
 			}
 		}
+
+		if ((pt_gnd_mic_swap_cnt == GND_MIC_SWAP_THRESHOLD) &&
+			(plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP)) {
+			/*
+			 * if switch is toggled, check again,
+			 * otherwise report unsupported plug
+			 */
+			if (mbhc->mbhc_cfg->swap_gnd_mic &&
+				mbhc->mbhc_cfg->swap_gnd_mic(codec)) {
+				pr_debug("%s: US_EU gpio present,flip switch\n"
+					, __func__);
+				continue;
+			}
+		}
+
 		if (result2 == 1) {
 			pr_debug("%s: cable is extension cable\n", __func__);
 			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
