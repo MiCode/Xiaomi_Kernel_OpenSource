@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,7 +17,8 @@
 #include <linux/err.h>
 #include <linux/string.h>
 #include <linux/clk/msm-clock-generic.h>
-
+#include <linux/of_address.h>
+#include <linux/dma-mapping.h>
 #include "mdss-pll.h"
 
 int mdss_pll_util_resource_init(struct platform_device *pdev,
@@ -327,6 +328,48 @@ clk_err:
 	return rc;
 }
 
+static int mdss_pll_util_parse_dfps(struct platform_device *pdev,
+	struct mdss_pll_resources *pll_res)
+{
+	int rc = 0;
+	struct device_node *pnode;
+	const u32 *addr;
+	u64 size;
+	phys_addr_t phys;
+
+	pnode = of_parse_phandle(pdev->dev.of_node, "linux,contiguous-region",
+		0);
+	if (IS_ERR_OR_NULL(pnode)) {
+		rc = -EINVAL;
+		goto parse_dfps_node_err;
+	}
+
+	addr = (const u32 *) of_get_address(pnode, 0, &size, NULL);
+	if (IS_ERR_OR_NULL(addr)) {
+		rc = -EINVAL;
+		pr_err("dfps addr error\n!");
+		goto parse_dfps_addr_err;
+	}
+
+	pll_res->dfps = (struct dfps_info *)dma_alloc_coherent(&pdev->dev,
+		size, &phys, GFP_KERNEL);
+	if (IS_ERR_OR_NULL(pll_res->dfps)) {
+		rc = -EINVAL;
+		pr_err("dfps alloc error\n!");
+		goto parse_dfps_addr_err;
+	}
+
+	pr_debug("dfps=%p phys=%pa enabled=%d cnt=%d\n", pll_res->dfps,
+		&phys, pll_res->dfps->panel_dfps.enabled,
+		pll_res->dfps->panel_dfps.frame_rate_cnt);
+
+parse_dfps_addr_err:
+	of_node_put(pnode);
+
+parse_dfps_node_err:
+	return rc;
+}
+
 int mdss_pll_util_resource_parse(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
@@ -344,6 +387,9 @@ int mdss_pll_util_resource_parse(struct platform_device *pdev,
 		pr_err("clock name parsing failed rc=%d", rc);
 		goto clk_err;
 	}
+
+	if (mdss_pll_util_parse_dfps(pdev, pll_res))
+		pr_info("dfps not enabled!\n");
 
 	return rc;
 
