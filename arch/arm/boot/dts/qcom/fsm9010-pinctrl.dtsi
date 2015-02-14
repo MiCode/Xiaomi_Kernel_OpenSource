@@ -95,20 +95,8 @@
 			};
 		};
 
-		pcie0_clkreq {
-			qcom,pins = <&gp 88>;
-			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
-			label = "pcie0-clkreq";
-			/* default state */
-			pcie0_clkreq_default: pcie0_clkreq_default {
-				drive-strength = <8>; /* 8 MA */
-				bias-pull-up;
-			};
-		};
-
 		pcie0_perst {
-			qcom,pins = <&gp 44>;
+			qcom,pins = <&gp 21>;
 			qcom,num-grp-pins = <1>;
 			label = "pcie0-perst";
 			/* default state */
@@ -119,7 +107,7 @@
 		};
 
 		pcie0_wake {
-			qcom,pins = <&gp 46>;
+			qcom,pins = <&gp 23>;
 			qcom,num-grp-pins = <1>;
 			label = "pcie0-wake";
 			/* default state */
@@ -129,20 +117,8 @@
 			};
 		};
 
-		pcie1_clkreq {
-			qcom,pins = <&gp 86>;
-			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <5>;
-			label = "pcie1-clkreq";
-			/* default state */
-			pcie1_clkreq_default: pcie1_clkreq_default {
-				drive-strength = <8>; /* 8 MA */
-				bias-pull-up;
-			};
-		};
-
 		pcie1_perst {
-			qcom,pins = <&gp 72>;
+			qcom,pins = <&gp 22>;
 			qcom,num-grp-pins = <1>;
 			label = "pcie1-perst";
 			/* default state */
@@ -153,7 +129,7 @@
 		};
 
 		pcie1_wake {
-			qcom,pins = <&gp 82>;
+			qcom,pins = <&gp 24>;
 			qcom,num-grp-pins = <1>;
 			label = "pcie1-wake";
 			/* default state */

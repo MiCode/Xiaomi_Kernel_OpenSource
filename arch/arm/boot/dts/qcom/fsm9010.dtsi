@@ -443,11 +443,10 @@
 				"int_pls_link_down", "int_bridge_flush_n";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+		pinctrl-0 = <&pcie0_perst_default &pcie0_wake_default>;
 
-		perst-gpio = <&msm_gpio 44 0>;
-		wake-gpio = <&msm_gpio 46 0>;
-		clkreq-gpio = <&msm_gpio 88 0>;
+		perst-gpio = <&msm_gpio 21 0>;
+		wake-gpio = <&msm_gpio 23 0>;
 
 		gdsc-vdd-supply = <&gdsc_pcie_0>;
 		vreg-1.8-supply = <&stub_regulator_1p8v>;
@@ -522,11 +521,10 @@
 				"int_pls_link_down", "int_bridge_flush_n";
 
 		pinctrl-names = "default";
-		pinctrl-0 = <&pcie1_clkreq_default &pcie1_perst_default &pcie1_wake_default>;
+		pinctrl-0 = <&pcie1_perst_default &pcie1_wake_default>;
 
-		perst-gpio = <&msm_gpio 72 0>;
-		wake-gpio = <&msm_gpio 82 0>;
-		clkreq-gpio = <&msm_gpio 86 0>;
+		perst-gpio = <&msm_gpio 22 0>;
+		wake-gpio = <&msm_gpio 24 0>;
 
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
 		vreg-1.8-supply = <&stub_regulator_1p8v>;
