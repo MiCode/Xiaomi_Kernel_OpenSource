@@ -1,115 +1,149 @@
-#
-# Block layer core configuration
-#
-menuconfig BLOCK
-       bool "Enable the block layer" if EXPERT
-       default y
-       help
-	 Provide block layer support for the kernel.
-
-	 Disable this option to remove the block layer support from the
-	 kernel. This may be useful for embedded devices.
-
-	 If this option is disabled:
-
-	   - block device files will become unusable
-	   - some filesystems (such as ext3) will become unavailable.
-
-	 Also, SCSI character devices and USB storage will be disabled since
-	 they make use of various block layer definitions and facilities.
-
-	 Say Y here unless you know you really don't want to mount disks and
-	 suchlike.
-
 if BLOCK
 
-config LBDAF
-	bool "Support for large (2TB+) block devices and files"
-	depends on !64BIT
+menu "IO Schedulers"
+
+config IOSCHED_NOOP
+	bool
 	default y
-	help
-	  Enable block devices or files of size 2TB and larger.
+	---help---
+	  The no-op I/O scheduler is a minimal scheduler that does basic merging
+	  and sorting. Its main uses include non-disk based block devices like
+	  memory devices, and specialised software or hardware environments
+	  that do their own scheduling and require only minimal assistance from
+	  the kernel.
 
-	  This option is required to support the full capacity of large
-	  (2TB+) block devices, including RAID, disk, Network Block Device,
-	  Logical Volume Manager (LVM) and loopback.
-	
-	  This option also enables support for single files larger than
-	  2TB.
+config IOSCHED_TEST
+	tristate "Test I/O scheduler"
+	depends on DEBUG_FS
+	default m
+	---help---
+	  The test I/O scheduler is a duplicate of the noop scheduler with
+	  addition of test utlity.
+	  It allows testing a block device by dispatching specific requests
+	  according to the test case and declare PASS/FAIL according to the
+	  requests completion error code.
 
-	  The ext4 filesystem requires that this feature be enabled in
-	  order to support filesystems that have the huge_file feature
-	  enabled.  Otherwise, it will refuse to mount in the read-write
-	  mode any filesystems that use the huge_file feature, which is
-	  enabled by default by mke2fs.ext4.
-
-	  The GFS2 filesystem also requires this feature.
-
-	  If unsure, say Y.
-
-config BLK_DEV_BSG
-	bool "Block layer SG support v4"
+config IOSCHED_DEADLINE
+	tristate "Deadline I/O scheduler"
 	default y
-	help
-	  Saying Y here will enable generic SG (SCSI generic) v4 support
-	  for any block device.
-
-	  Unlike SG v3 (aka block/scsi_ioctl.c drivers/scsi/sg.c), SG v4
-	  can handle complicated SCSI commands: tagged variable length cdbs
-	  with bidirectional data transfers and generic request/response
-	  protocols (e.g. Task Management Functions and SMP in Serial
-	  Attached SCSI).
-
-	  This option is required by recent UDEV versions to properly
-	  access device serial numbers, etc.
-
-	  If unsure, say Y.
-
-config BLK_DEV_BSGLIB
-	bool "Block layer SG support v4 helper lib"
-	default n
-	select BLK_DEV_BSG
-	help
-	  Subsystems will normally enable this if needed. Users will not
-	  normally need to manually enable this.
-
-	  If unsure, say N.
-
-config BLK_DEV_INTEGRITY
-	bool "Block layer data integrity support"
 	---help---
-	Some storage devices allow extra information to be
-	stored/retrieved to help protect the data.  The block layer
-	data integrity option provides hooks which can be used by
-	filesystems to ensure better data integrity.
+	  The deadline I/O scheduler is simple and compact. It will provide
+	  CSCAN service with FIFO expiration of requests, switching to
+	  a new point in the service tree and doing a batch of IO from there
+	  in case of expiry.
 
-	Say yes here if you have a storage device that provides the
-	T10/SCSI Data Integrity Field or the T13/ATA External Path
-	Protection.  If in doubt, say N.
+config IOSCHED_ROW
+	tristate "ROW I/O scheduler"
+	default y
+	---help---
+	  The ROW I/O scheduler gives priority to READ requests over the
+	  WRITE requests when dispatching, without starving WRITE requests.
+	  Requests are kept in priority queues. Dispatching is done in a RR
+	  manner when the dispatch quantum for each queue is calculated
+	  according to queue priority.
+	  Most suitable for mobile devices.
 
-config BLK_DEV_THROTTLING
-	bool "Block layer bio throttling support"
-	depends on BLK_CGROUP=y && EXPERIMENTAL
+config IOSCHED_SIO
+	tristate "Simple I/O scheduler"
+	default y
+	---help---
+	  The Simple I/O scheduler is an extremely simple scheduler,
+	  based on noop and deadline, that relies on deadlines to
+	  ensure fairness. The algorithm does not do any sorting but
+	  basic merging, trying to keep a minimum overhead. It is aimed
+	  mainly for aleatory access devices (eg: flash devices).
+
+config IOSCHED_FIOPS
+	tristate "FIOPS I/O sceduler"
+	default y
+	---help---
+	  Google it :D
+
+config IOSCHED_VR
+	tristate "VR I/O sceduler"
+	default y
+	---help---
+	  Google it :D
+
+config IOSCHED_ZEN
+	tristate "ZEN I/O sceduler"
+	default y
+	---help---
+	  Google it :D
+
+config IOSCHED_CFQ
+	tristate "CFQ I/O scheduler"
+	# If BLK_CGROUP is a module, CFQ has to be built as module.
+	depends on (BLK_CGROUP=m && m) || !BLK_CGROUP || BLK_CGROUP=y
+	default y
+	---help---
+	  The CFQ I/O scheduler tries to distribute bandwidth equally
+	  among all processes in the system. It should provide a fair
+	  and low latency working environment, suitable for both desktop
+	  and server systems.
+
+	  This is the default I/O scheduler.
+
+	  Note: If BLK_CGROUP=m, then CFQ can be built only as module.
+
+config CFQ_GROUP_IOSCHED
+	bool "CFQ Group Scheduling support"
+	depends on IOSCHED_CFQ && BLK_CGROUP
 	default n
 	---help---
-	Block layer bio throttling support. It can be used to limit
-	the IO rate to a device. IO rate policies are per cgroup and
-	one needs to mount and use blkio cgroup controller for creating
-	cgroups and specifying per device IO rate policies.
+	  Enable group IO scheduling in CFQ.
 
-	See Documentation/cgroups/blkio-controller.txt for more information.
+choice
+	prompt "Default I/O scheduler"
+	default DEFAULT_CFQ
+	help
+	  Select the I/O scheduler which will be used by default for all
+	  block devices.
 
-menu "Partition Types"
+	config DEFAULT_DEADLINE
+		bool "Deadline" if IOSCHED_DEADLINE=y
 
-source "block/partitions/Kconfig"
+	config DEFAULT_ROW
+		bool "ROW" if IOSCHED_ROW=y
+		help
+		  The ROW I/O scheduler gives priority to READ requests
+		  over the WRITE requests when dispatching, without starving
+		  WRITE requests. Requests are kept in priority queues.
+		  Dispatching is done in a RR manner when the dispatch quantum
+		  for each queue is defined according to queue priority.
+		  Most suitable for mobile devices.
+
+	config DEFAULT_CFQ
+		bool "CFQ" if IOSCHED_CFQ=y
+
+	config DEFAULT_NOOP
+		bool "No-op"
+
+	config DEFAULT_SIO
+		bool "SIO" if IOSCHED_SIO=y
+
+	config DEFAULT_FIOPS
+		bool "FIOPS" if IOSCHED_FIOPS=y
+
+	config DEFAULT_VR
+		bool "VR" if IOSCHED_VR=y
+
+	config DEFAULT_ZEN
+		bool "ZEN" if IOSCHED_ZEN=y
+
+endchoice
+
+config DEFAULT_IOSCHED
+	string
+	default "deadline" if DEFAULT_DEADLINE
+	default "row" if DEFAULT_ROW
+	default "cfq" if DEFAULT_CFQ
+	default "noop" if DEFAULT_NOOP
+	default "sio" if DEFAULT_SIO
+	default "fiops" if DEFAULT_FIOPS
+	default "vr" if DEFAULT_VR
+	default "zen" if DEFAULT_ZEN
 
 endmenu
 
-endif # BLOCK
-
-config BLOCK_COMPAT
-	bool
-	depends on BLOCK && COMPAT
-	default y
-
-source block/Kconfig.iosched
+endif
