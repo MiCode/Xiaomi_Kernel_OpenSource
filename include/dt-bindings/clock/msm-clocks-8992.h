@@ -379,6 +379,14 @@
 #define clk_dsi_vco_clk_8994 0x976ed967
 #define clk_mdss_pixel_clk_mux 0xf261a1a6
 #define clk_mdss_byte_clk_mux 0x64a23fa0
+#define clk_shadow_byte_clk_src 0x5e69f8ef
+#define clk_shadow_pixel_clk_src 0xa6b20c5a
+#define clk_shadow_fixed_hr_oclk2_div_clk_8994 0xd1ec3fb3
+#define clk_shadow_bypass_lp_div_mux_8994 0xa57bf87b
+#define clk_shadow_hr_oclk3_div_clk_8994 0x20274a2b
+#define clk_shadow_indirect_path_div2_clk_8994 0x5d6b34c8
+#define clk_shadow_ndiv_clk_8994 0x488de275
+#define clk_shadow_dsi_vco_clk_8994 0x7995eebd
 #define clk_mdss_dsi1_vco_clk_src 0xfcd15658
 
 /* clock_cpu controlled clocks */
