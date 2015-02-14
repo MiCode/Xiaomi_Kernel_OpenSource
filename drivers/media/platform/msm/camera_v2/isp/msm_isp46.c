@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -88,9 +88,9 @@ static uint8_t stats_pingpong_offset_map[] = {
 #define VFE46_CLK_IDX 2
 static struct msm_cam_clk_info msm_vfe46_clk_info[VFE_CLK_INFO_MAX];
 static int32_t msm_vfe46_init_dt_parms(struct vfe_device *vfe_dev,
-				struct msm_vfe_hw_init_parms *dt_parms)
+				struct msm_vfe_hw_init_parms *dt_parms,
+				void __iomem *base)
 {
-	void __iomem *vfebase = vfe_dev->vfe_base;
 	struct device_node *of_node;
 	int32_t i = 0 , rc = 0;
 	uint32_t *dt_settings = NULL, *dt_regs = NULL, dt_entries = 0;
@@ -136,7 +136,7 @@ static int32_t msm_vfe46_init_dt_parms(struct vfe_device *vfe_dev,
 				} else {
 					for (i = 0; i < dt_entries; i++) {
 						msm_camera_io_w(dt_settings[i],
-							vfebase + dt_regs[i]);
+							base + dt_regs[i]);
 					}
 					kfree(dt_settings);
 					kfree(dt_regs);
@@ -263,9 +263,9 @@ static void msm_vfe46_init_hardware_reg(struct vfe_device *vfe_dev)
 	ds_parms.regs = "ds-regs";
 	ds_parms.settings = "ds-settings";
 
-	msm_vfe46_init_dt_parms(vfe_dev, &qos_parms);
-	msm_vfe46_init_dt_parms(vfe_dev, &ds_parms);
-	msm_vfe46_init_dt_parms(vfe_dev, &vbif_parms);
+	msm_vfe46_init_dt_parms(vfe_dev, &qos_parms, vfe_dev->vfe_base);
+	msm_vfe46_init_dt_parms(vfe_dev, &ds_parms, vfe_dev->vfe_base);
+	msm_vfe46_init_dt_parms(vfe_dev, &vbif_parms, vfe_dev->vfe_vbif_base);
 
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x84);
