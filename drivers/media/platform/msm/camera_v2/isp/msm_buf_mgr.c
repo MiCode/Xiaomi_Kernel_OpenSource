@@ -1077,21 +1077,28 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	int iommu_hdl;
 	int rc = 0;
 
-	if (cmd->security_mode == NON_SECURE_MODE)
-		iommu_hdl = buf_mgr->ns_iommu_hdl;
-	else
-		iommu_hdl = buf_mgr->sec_iommu_hdl;
 
 	pr_debug("%s: cmd->security_mode : %d\n", __func__, cmd->security_mode);
 	mutex_lock(&buf_mgr->lock);
 	if (cmd->iommu_attach_mode == IOMMU_ATTACH) {
 		buf_mgr->secure_enable = cmd->security_mode;
+
+		if (buf_mgr->secure_enable == NON_SECURE_MODE)
+			iommu_hdl = buf_mgr->ns_iommu_hdl;
+		else
+			iommu_hdl = buf_mgr->sec_iommu_hdl;
+
 		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_ATTACH);
 		if (rc < 0) {
 			pr_err("%s: smmu attach error, rc :%d\n", __func__, rc);
 			goto iommu_error;
 		}
 	} else {
+		if (buf_mgr->secure_enable == NON_SECURE_MODE)
+			iommu_hdl = buf_mgr->ns_iommu_hdl;
+		else
+			iommu_hdl = buf_mgr->sec_iommu_hdl;
+
 		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_DETACH);
 		if (rc < 0) {
 			pr_err("%s: smmu detach error, rc :%d\n", __func__, rc);
