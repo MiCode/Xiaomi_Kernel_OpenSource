@@ -145,11 +145,6 @@ struct mdss_pll_resources {
 	int		cache_pll_trim_codes[2];
 
 	/*
-	 * for maintaining the status of saving trim codes
-	 */
-	bool		reg_upd;
-
-	/*
 	 * Notifier callback for MDSS gdsc regulator events
 	 */
 	struct notifier_block gdsc_cb;
