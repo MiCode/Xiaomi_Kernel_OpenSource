@@ -15,6 +15,8 @@
 
 #include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
 #include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-wqxga-cmd.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 
 &mdss_mdp {
@@ -64,6 +66,14 @@
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
+&dsi_nt35597_wqxga_video {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_nt35597_wqxga_cmd {
+	qcom,cont-splash-enabled;
 };
 
 &labibb {
