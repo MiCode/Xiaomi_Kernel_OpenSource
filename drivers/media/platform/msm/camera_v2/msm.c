@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,7 @@
 #include <linux/msm_ion.h>
 #include <linux/iommu.h>
 #include <linux/platform_device.h>
+#include <linux/debugfs.h>
 #include <media/v4l2-fh.h>
 #include "msm.h"
 #include "msm_vb2.h"
@@ -42,6 +43,12 @@ spinlock_t msm_eventq_lock;
 
 static struct pid *msm_pid;
 spinlock_t msm_pid_lock;
+
+/*
+ * It takes 20 bytes + NULL character to write the
+ * largest decimal value of an uint64_t
+ */
+#define LOGSYNC_PACKET_SIZE 21
 
 #define msm_dequeue(queue, type, member) ({				\
 	unsigned long flags;					\
@@ -994,9 +1001,34 @@ static void msm_sd_notify(struct v4l2_subdev *sd,
 	}
 }
 
+static ssize_t write_logsync(struct file *file, const char __user *buf,
+		size_t count, loff_t *ppos)
+{
+	char lbuf[LOGSYNC_PACKET_SIZE] = {0};
+	uint64_t seq_num = 0;
+	int ret;
+
+	if (copy_from_user(lbuf, buf, sizeof(lbuf)))
+		return -EFAULT;
+
+	ret = sscanf(lbuf, "%llu", &seq_num);
+	if (ret != 1)
+		pr_err("LOGSYNC (Kernel): Bad or malformed sequence number\n");
+	else
+		pr_debug("LOGSYNC (Kernel): seq_num = %llu\n", seq_num);
+
+	return count;
+}
+
+
+static const struct file_operations logsync_fops = {
+		.write = write_logsync,
+};
+
 static int msm_probe(struct platform_device *pdev)
 {
 	struct msm_video_device *pvdev;
+	static struct dentry *cam_debugfs_root;
 	int rc = 0;
 
 	msm_v4l2_dev = kzalloc(sizeof(*msm_v4l2_dev),
@@ -1077,6 +1109,20 @@ static int msm_probe(struct platform_device *pdev)
 	spin_lock_init(&msm_eventq_lock);
 	spin_lock_init(&msm_pid_lock);
 	INIT_LIST_HEAD(&ordered_sd_list);
+
+	cam_debugfs_root = debugfs_create_dir(MSM_CAM_LOGSYNC_FILE_BASEDIR,
+						NULL);
+	if (!cam_debugfs_root) {
+		pr_warn("NON-FATAL: failed to create logsync base directory\n");
+	} else {
+		if (!debugfs_create_file(MSM_CAM_LOGSYNC_FILE_NAME,
+					 0666,
+					 cam_debugfs_root,
+					 NULL,
+					 &logsync_fops))
+			pr_warn("NON-FATAL: failed to create logsync debugfs file\n");
+	}
+
 	goto probe_end;
 
 v4l2_fail:
