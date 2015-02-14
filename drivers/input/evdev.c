@@ -387,7 +387,6 @@ static int evdev_release(struct inode *inode, struct file *file)
 		vfree(client);
 	else
 		kfree(client);
-	kfree(client);
 
 	evdev_close_device(evdev);
 
