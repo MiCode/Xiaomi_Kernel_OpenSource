@@ -300,10 +300,17 @@
 			label = "memory_hole";
 		};
 
+		dfps_data_mem: dfps_data_mem@0 {
+			linux,reserve-contiguous-region;
+			linux,reserve-region;
+			reg = <0 0x03400000 0 0x1000>;
+			label = "dfps_data_mem";
+		};
+
 		cont_splash_mem: cont_splash_mem@0 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;
-			reg = <0 0x03400000 0 0x2200000>;
+			reg = <0 0x03401000 0 0x2200000>;
 			label = "cont_splash_mem";
 		};
 
