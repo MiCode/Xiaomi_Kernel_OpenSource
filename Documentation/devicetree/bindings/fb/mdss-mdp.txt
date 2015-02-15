@@ -511,6 +511,7 @@ Subnode properties:
 						secure mdp domain.
 			"qcom,smmu_rot_sec"	- smmu context bank device for
 						secure rotation domain.
+- gdsc-mmagic-mdss-supply: Phandle for mmagic mdss supply regulator device node.
 - clocks:		List of Phandles for clock device nodes
 			needed by the device.
 - clock-names:		List of clock names needed by the device.
@@ -674,6 +675,7 @@ Example:
 		smmu_mdp_sec: qcom,smmu_mdp_sec_cb {
 			compatible = "qcom,smmu_mdp_sec";
 			iommus = <&mdp_smmu 1>;
+			gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 			clocks = <&clock_mmss clk_smmu_mdp_ahb_clk>,
 				<&clock_mmss clk_smmu_mdp_axi_clk>;
 			clock-names = "dummy_clk", "dummy_clk";
