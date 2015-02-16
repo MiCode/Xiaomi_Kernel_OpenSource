@@ -203,6 +203,7 @@ static int populate_config_data(struct spdm_data *data,
 					 data->config_data.num_ports);
 	if (ret) {
 		devm_kfree(&pdev->dev, data->config_data.ports);
+		data->config_data.ports = NULL;
 		return ret;
 	}
 
@@ -239,6 +240,7 @@ static int populate_spdm_data(struct spdm_data *data,
 no_client:
 no_pdata:
 	devm_kfree(&pdev->dev, data->config_data.ports);
+	data->config_data.ports = NULL;
 	return ret;
 }
 
@@ -336,7 +338,7 @@ static int probe(struct platform_device *pdev)
 	    devfreq_add_device(&pdev->dev, data->profile, "spdm_bw_hyp", data);
 	if (IS_ERR(data->devfreq)) {
 		ret = PTR_ERR(data->devfreq);
-		goto no_profile;
+		goto no_spdm_device;
 	}
 
 	spdm_init_debugfs(&pdev->dev);
@@ -351,6 +353,8 @@ static int probe(struct platform_device *pdev)
 
 	return 0;
 
+no_spdm_device:
+	devm_kfree(&pdev->dev, data->profile);
 no_profile:
 no_clock:
 	msm_bus_scale_unregister_client(data->bus_scale_client_id);
@@ -358,6 +362,7 @@ no_bus_scaling:
 	devm_kfree(&pdev->dev, data->config_data.ports);
 bad_of:
 	devm_kfree(&pdev->dev, data);
+	platform_set_drvdata(pdev, NULL);
 	return ret;
 }
 
@@ -382,6 +387,7 @@ static int remove(struct platform_device *pdev)
 		devm_kfree(&pdev->dev, data->config_data.ports);
 
 	devm_kfree(&pdev->dev, data);
+	platform_set_drvdata(pdev, NULL);
 
 	if (spdm_ipc_log_ctxt)
 		ipc_log_context_destroy(spdm_ipc_log_ctxt);
