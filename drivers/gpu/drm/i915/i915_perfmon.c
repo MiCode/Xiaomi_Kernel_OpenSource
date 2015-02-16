@@ -511,7 +511,7 @@ static int i915_perfmon_load_config(
 				file_priv,
 				args->ctx_id);
 
-	if (IS_ERR_OR_NULL(ctx) || IS_ERR_OR_NULL(ctx->engine[RCS].state)) {
+	if (IS_ERR_OR_NULL(ctx)) {
 		DRM_DEBUG("invalid context\n");
 		ret = -EINVAL;
 		goto unlock_dev;
