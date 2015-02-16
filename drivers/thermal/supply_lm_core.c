@@ -824,16 +824,16 @@ static void supply_lm_modem_notify(struct work_struct *work)
 	struct input_device_info *modem =
 				&supply_lm_devices[SUPPLY_LM_MODEM_DEVICE];
 
-	trace_supply_lm_inp_start_trig(SUPPLY_LM_MODEM_DEVICE,
-						modem->curr.state);
 	if (!supply_lm_data->enabled ||
 		supply_lm_bypass_inp)
 		goto modem_exit;
 
+	trace_supply_lm_inp_start_trig(SUPPLY_LM_MODEM_DEVICE,
+						modem->curr.state);
 	modem_state = readl_relaxed(supply_lm_data->modem_hw.intr_base_reg +
 					SUPPLY_LM_MODEM_DATA_OFFSET);
 	if (modem->curr.state == modem_corner_map[modem_state])
-		goto modem_exit;
+		goto enable_exit;
 
 	modem->curr.state = modem_corner_map[modem_state];
 	if (SUPPLY_LM_INPUTS & supply_lm_debug_mask)
@@ -841,12 +841,15 @@ static void supply_lm_modem_notify(struct work_struct *work)
 			modem_state, modem->curr.state);
 	read_and_update_mitigation_state(false);
 	supply_lm_data->inp_trig_for_mit |= BIT(SUPPLY_LM_MODEM_DEVICE);
-	if (supply_lm_monitor_task && supply_lm_data->suspend_in_progress)
+	if (supply_lm_monitor_task && !supply_lm_data->suspend_in_progress)
 		complete(&supply_lm_notify_complete);
-modem_exit:
+
+enable_exit:
 	enable_irq(supply_lm_data->modem_hw.irq_num);
 	trace_supply_lm_inp_end_trig(SUPPLY_LM_MODEM_DEVICE,
 					modem->curr.state);
+
+modem_exit:
 	return;
 }
 
@@ -1623,6 +1626,13 @@ static int supply_lm_therm_device_init(struct platform_device *pdev,
 	}
 
 therm_exit:
+	if (ret) {
+		if (supply_lm_therm_thresh) {
+			devm_kfree(&pdev->dev,
+				supply_lm_therm_thresh);
+			supply_lm_therm_thresh = NULL;
+		}
+	}
 	return ret;
 }
 
@@ -1896,15 +1906,32 @@ static int supply_lm_core_remove(struct platform_device *pdev)
 					platform_get_drvdata(pdev);
 
 	supply_lm_remove_devices(pdev);
-	if (supply_lm_data->modem_hw.intr_base_reg)
+
+	if (gpufreq_corner_map) {
+		devm_kfree(&pdev->dev, gpufreq_corner_map);
+		gpufreq_corner_map = NULL;
+	}
+
+	if (!supply_lm_data)
+		return 0;
+
+	if (supply_lm_data->modem_hw.intr_base_reg) {
 		iounmap(supply_lm_data->modem_hw.intr_base_reg);
+		supply_lm_data->modem_hw.intr_base_reg = NULL;
+	}
+
 	/* De-register KTM handle */
-	if (supply_lm_data->hotplug_handle)
+	if (supply_lm_data->hotplug_handle) {
 		devmgr_unregister_mitigation_client(&pdev->dev,
 					supply_lm_data->hotplug_handle);
-	if (supply_lm_data->cpufreq_handle)
+		supply_lm_data->hotplug_handle = NULL;
+	}
+	if (supply_lm_data->cpufreq_handle) {
 		devmgr_unregister_mitigation_client(&pdev->dev,
 					supply_lm_data->cpufreq_handle);
+		supply_lm_data->cpufreq_handle = NULL;
+	}
+
 	devm_kfree(&pdev->dev, supply_lm_data);
 	supply_lm_data = NULL;
 
@@ -1916,7 +1943,8 @@ static void initialize_supply_lm_data(struct supply_lm_core_data *supply_lm)
 	if (!supply_lm)
 		return;
 
-	supply_lm_data->suspend_in_progress = false;
+	supply_lm->enabled = false;
+	supply_lm->suspend_in_progress = false;
 	supply_lm->step2_cpu_freq_initiated = false;
 	supply_lm->step2_hotplug_initiated = false;
 	supply_lm->supply_lm_limited_max_freq = UINT_MAX;
@@ -1975,12 +2003,6 @@ static int supply_lm_core_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, supply_lm_data);
 
-	ret = supply_lm_devices_init(pdev);
-	if (ret) {
-		pr_err("Sensor Init failed. err:%d\n", ret);
-		goto devices_exit;
-	}
-
 	init_completion(&supply_lm_notify_complete);
 	init_completion(&supply_lm_mitigation_complete);
 	supply_lm_monitor_task =
@@ -1989,7 +2011,7 @@ static int supply_lm_core_probe(struct platform_device *pdev)
 		pr_err("Failed to create SUPPLY LM monitor thread. err:%ld\n",
 				PTR_ERR(supply_lm_monitor_task));
 		ret = PTR_ERR(supply_lm_monitor_task);
-		goto devices_exit;
+		goto ktm_handle_exit;
 	}
 
 	spin_lock_init(&supply_lm_pm_lock);
@@ -2013,37 +2035,42 @@ static int supply_lm_core_probe(struct platform_device *pdev)
 	if (ret)
 		goto debugfs_exit;
 
-	/* Disable driver by deafult */
-	supply_lm_data->enabled = false;
-	supply_lm_remove_devices(pdev);
-
-	/* Read and update inital mitigation state */
-	if (supply_lm_monitor_task)
-		complete(&supply_lm_notify_complete);
 	return ret;
 
 debugfs_exit:
 	if (supply_lm_debugfs) {
 		debugfs_remove_recursive(supply_lm_debugfs->parent);
 		devm_kfree(&pdev->dev, supply_lm_debugfs);
+		supply_lm_debugfs = NULL;
 	}
 kthread_exit:
 	if (supply_lm_monitor_task)
 		kthread_stop(supply_lm_monitor_task);
 	cpu_pm_unregister_notifier(&supply_lm_cpu_pm_notifier);
 
-devices_exit:
-	supply_lm_remove_devices(pdev);
-
 ktm_handle_exit:
-	if (supply_lm_data->hotplug_handle)
+	if (supply_lm_data->hotplug_handle) {
 		devmgr_unregister_mitigation_client(&pdev->dev,
 					supply_lm_data->hotplug_handle);
-	if (supply_lm_data->cpufreq_handle)
+		supply_lm_data->hotplug_handle = NULL;
+	}
+	if (supply_lm_data->cpufreq_handle) {
 		devmgr_unregister_mitigation_client(&pdev->dev,
 					supply_lm_data->cpufreq_handle);
+		supply_lm_data->cpufreq_handle = NULL;
+	}
 
 devicetree_exit:
+	if (supply_lm_data->modem_hw.intr_base_reg) {
+		iounmap(supply_lm_data->modem_hw.intr_base_reg);
+		supply_lm_data->modem_hw.intr_base_reg = NULL;
+	}
+
+	if (gpufreq_corner_map) {
+		devm_kfree(&pdev->dev, gpufreq_corner_map);
+		gpufreq_corner_map = NULL;
+	}
+
 	devm_kfree(&pdev->dev, supply_lm_data);
 	supply_lm_data = NULL;
 
