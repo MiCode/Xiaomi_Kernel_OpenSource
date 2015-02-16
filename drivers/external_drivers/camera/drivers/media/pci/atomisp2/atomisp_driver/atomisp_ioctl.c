@@ -1647,6 +1647,24 @@ static void atomisp_pause_buffer_event(struct atomisp_device *isp)
 	}
 }
 
+/* Input system HW workaround */
+/* Input system address translation corrupts burst during */
+/* invalidate. SW workaround for this is to set burst length */
+/* manually to 128 in case of 13MPx snapshot and to 1 otherwise. */
+static void atomisp_dma_burst_len_cfg(struct atomisp_sub_device *asd)
+{
+
+	struct v4l2_mbus_framefmt *sink;
+	sink = atomisp_subdev_get_ffmt(&asd->subdev, NULL,
+				       V4L2_SUBDEV_FORMAT_ACTIVE,
+				       ATOMISP_SUBDEV_PAD_SINK);
+
+	if (sink->width * sink->height >= 4096*3072)
+		atomisp_store_uint32(DMA_BURST_SIZE_REG, 0x7F);
+	else
+		atomisp_store_uint32(DMA_BURST_SIZE_REG, 0x00);
+}
+
 /*
  * This ioctl start the capture during streaming I/O.
  */
@@ -1684,6 +1702,9 @@ static int atomisp_streamon(struct file *file, void *fh,
 
 	if (pipe->capq.streaming)
 		goto out;
+
+	/* Input system HW workaround */
+	atomisp_dma_burst_len_cfg(asd);
 
 	/*
 	 * The number of streaming video nodes is based on which
