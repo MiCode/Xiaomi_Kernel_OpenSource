@@ -98,10 +98,6 @@ static int ufshcd_tag_req_type(struct request *rq)
 			hba->ufs_stats.q_depth--;		\
 	} while (0)
 
-#define UFSDBG_ADD_DEBUGFS(hba)		ufsdbg_add_debugfs(hba);
-
-#define UFSDBG_REMOVE_DEBUGFS(hba)	ufsdbg_remove_debugfs(hba);
-
 static void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
 	int rq_type;
@@ -8876,6 +8872,7 @@ void ufshcd_remove(struct ufs_hba *hba)
 	if (ufshcd_is_clkscaling_supported(hba))
 		device_remove_file(hba->dev, &hba->clk_scaling.enable_attr);
 	ufshcd_hba_exit(hba);
+	ufsdbg_remove_debugfs(hba);
 }
 EXPORT_SYMBOL_GPL(ufshcd_remove);
 
@@ -9122,7 +9119,7 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	async_schedule(ufshcd_async_scan, hba);
 
-	UFSDBG_ADD_DEBUGFS(hba);
+	ufsdbg_add_debugfs(hba);
 
 	ufshcd_add_sysfs_nodes(hba);
 
@@ -9134,7 +9131,6 @@ exit_gating:
 	ufshcd_exit_clk_gating(hba);
 out_disable:
 	hba->is_irq_enabled = false;
-	UFSDBG_REMOVE_DEBUGFS(hba)
 	ufshcd_hba_exit(hba);
 out_error:
 	return err;

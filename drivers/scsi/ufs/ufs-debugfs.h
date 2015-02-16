@@ -25,23 +25,22 @@
 
 #ifdef CONFIG_DEBUG_FS
 void ufsdbg_add_debugfs(struct ufs_hba *hba);
-
 void ufsdbg_remove_debugfs(struct ufs_hba *hba);
 void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status);
 void ufsdbg_pr_buf_to_std(struct ufs_hba *hba, int offset, int num_regs,
 				char *str, void *priv);
 #else
-void ufsdbg_add_debugfs(struct ufs_hba *hba)
+static inline void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 }
-void ufsdbg_remove_debugfs(struct ufs_hba *hba)
+static inline void ufsdbg_remove_debugfs(struct ufs_hba *hba)
 {
 }
-void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
+static inline void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
 {
 }
-void ufsdbg_pr_buf_to_std(struct ufs_hba *hba, int offset, int num_regs,
-				char *str, void *priv)
+static inline void ufsdbg_pr_buf_to_std(struct ufs_hba *hba, int offset,
+	int num_regs, char *str, void *priv)
 {
 }
 #endif
