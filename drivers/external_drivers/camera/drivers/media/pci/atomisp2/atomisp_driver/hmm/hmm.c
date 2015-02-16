@@ -59,7 +59,7 @@ const char *hmm_bo_type_strings[HMM_BO_LAST] = {
 };
 
 static ssize_t bo_show(struct device *dev, struct device_attribute *attr,
-			char *buf, struct list_head *bo_list)
+			char *buf, struct list_head *bo_list, bool active)
 {
 	ssize_t ret = 0;
 	struct hmm_buffer_object *bo;
@@ -78,14 +78,17 @@ static ssize_t bo_show(struct device *dev, struct device_attribute *attr,
 
 	spin_lock_irqsave(&bo_device.list_lock, flags);
 	list_for_each_entry(bo, bo_list, list) {
-		ret = scnprintf(buf + index1, PAGE_SIZE - index1,
+		if ((active && !(bo->status & HMM_BO_FREE)) ||
+			(!active && (bo->status & HMM_BO_FREE))) {
+			ret = scnprintf(buf + index1, PAGE_SIZE - index1,
 				"%s %d\n",
 				hmm_bo_type_strings[bo->type], bo->pgnr);
 
-		total[bo->type] += bo->pgnr;
-		count[bo->type]++;
-		if (ret > 0)
-			index1 += ret;
+			total[bo->type] += bo->pgnr;
+			count[bo->type]++;
+			if (ret > 0)
+				index1 += ret;
+		}
 	}
 	spin_unlock_irqrestore(&bo_device.list_lock, flags);
 
@@ -108,14 +111,14 @@ static ssize_t active_bo_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	return bo_show(dev, attr, buf, &bo_device.active_bo_list);
+	return bo_show(dev, attr, buf, &bo_device.entire_bo_list, true);
 }
 
 static ssize_t free_bo_show(struct device *dev,
 		struct device_attribute *attr,
 		char *buf)
 {
-	return bo_show(dev, attr, buf, &bo_device.free_bo_list);
+	return bo_show(dev, attr, buf, &bo_device.entire_bo_list, false);
 }
 
 static ssize_t reserved_pool_show(struct device *dev,
