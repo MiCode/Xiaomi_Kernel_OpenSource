@@ -954,7 +954,7 @@ static int lookup_soc_ocv(struct qpnp_bms_chip *chip, int ocv_uv, int batt_temp)
 
 	if (chip->batt_data->ibat_acc_lut) {
 		/* Apply  ACC logic only if we discharging */
-		if (!is_battery_charging(chip) && chip->current_now > 0) {
+		if (chip->current_now > 0) {
 
 			/*
 			 * IBAT averaging is disabled at low temp.
