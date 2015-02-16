@@ -89,7 +89,45 @@ void vlv_hdmi_port_disable_audio(struct vlv_hdmi_port *port)
 	REG_READ(port->control_reg);
 }
 
-u32 vlv_hdmi_port_write_dip(struct vlv_hdmi_port *port, bool enable)
+void vlv_hdmi_port_write_avi_infoframe(struct vlv_hdmi_port *port,
+				const uint32_t *data, ssize_t len)
+{
+	int i;
+	u32 val = REG_READ(port->dip_ctrl);
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	val &= ~(VIDEO_DIP_SELECT_MASK | 0xf);
+	val |= VIDEO_DIP_SELECT_AVI;
+	val &= ~VIDEO_DIP_ENABLE_AVI;
+
+	REG_WRITE(port->dip_ctrl, val);
+
+	/*
+	 * Video DIP Data register returns the current value at the
+	 * location specified in the Video DIP buffer index select and
+	 * Video DIP RAM access address fields. The index used to address
+	 * the RAM is incremented after each read or write of this register.
+	 */
+	mmiowb();
+	for (i = 0; i < len; i += 4) {
+		REG_WRITE(port->dip_data, *data);
+		data++;
+	}
+
+	for (; i < VIDEO_DIP_DATA_SIZE; i += 4)
+		REG_WRITE(port->dip_data, 0);
+	mmiowb();
+
+	val |= VIDEO_DIP_ENABLE_AVI;
+	val &= ~VIDEO_DIP_FREQ_MASK;
+	val |= VIDEO_DIP_FREQ_VSYNC;
+
+	REG_WRITE(port->dip_ctrl, val);
+	REG_POSTING_READ(port->dip_ctrl);
+}
+
+u32 vlv_hdmi_port_set_infoframes(struct vlv_hdmi_port *port, bool enable)
 {
 	u32 val = REG_READ(port->dip_ctrl);
 	u32 dip_port = VIDEO_DIP_PORT(port->port_id);
@@ -118,8 +156,7 @@ u32 vlv_hdmi_port_write_dip(struct vlv_hdmi_port *port, bool enable)
 	}
 
 	val |= VIDEO_DIP_ENABLE;
-	val |= VIDEO_DIP_ENABLE_AVI | VIDEO_DIP_ENABLE_SPD;
-	val &= ~(VIDEO_DIP_ENABLE_VENDOR |
+	val &= ~(VIDEO_DIP_ENABLE_AVI | VIDEO_DIP_ENABLE_VENDOR |
 		VIDEO_DIP_ENABLE_GAMUT | VIDEO_DIP_ENABLE_GCP);
 
 	REG_WRITE(port->dip_ctrl, val);

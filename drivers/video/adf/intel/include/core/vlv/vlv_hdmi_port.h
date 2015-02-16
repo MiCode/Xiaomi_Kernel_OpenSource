@@ -43,6 +43,8 @@ u32 vlv_hdmi_port_prepare(struct vlv_hdmi_port *port, u32 val);
 /* Added for HDMI audio */
 void vlv_hdmi_port_enable_audio(struct vlv_hdmi_port *port);
 void vlv_hdmi_port_disable_audio(struct vlv_hdmi_port *port);
-u32 vlv_hdmi_port_write_dip(struct vlv_hdmi_port *port, bool enable);
+void vlv_hdmi_port_write_avi_infoframe(struct vlv_hdmi_port *port,
+				const uint32_t *data, ssize_t len);
+u32 vlv_hdmi_port_set_infoframes(struct vlv_hdmi_port *port, bool enable);
 
 #endif /* _VLV_HDMI_PORT_H_ */

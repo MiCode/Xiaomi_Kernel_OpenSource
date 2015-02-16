@@ -331,5 +331,6 @@ int hdmi_avi_infoframe_from_mode(struct hdmi_monitor *monitor,
 					const struct drm_mode_modeinfo *mode);
 /* Added for HDMI audio */
 bool detect_monitor_audio(struct edid *edid);
+u8 match_cea_mode(const struct drm_mode_modeinfo *to_match);
 
 #endif /* HDMI_EDID_H_ */

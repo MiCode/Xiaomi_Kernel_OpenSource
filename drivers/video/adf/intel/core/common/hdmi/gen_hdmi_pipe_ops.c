@@ -24,6 +24,7 @@
 #include <core/vlv/chv_dc_regs.h>
 #include <core/vlv/vlv_pm.h>
 #include <core/common/hdmi/gen_hdmi_pipe.h>
+#include "hdmi_edid.h"
 
 /* Encoder options */
 int hdmi_hw_init(struct intel_pipe *pipe)
@@ -258,13 +259,134 @@ static int hdmi_prepare(struct intel_pipe *pipe,
 	return err;
 }
 
-static int hdmi_write_dip(struct intel_pipe *pipe)
+static int hdmi_get_avi_infoframe_from_mode(struct hdmi_avi_infoframe *frame,
+				const struct drm_mode_modeinfo *mode)
+{
+	int err = 0;
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	if (!frame || !mode)
+		return -EINVAL;
+
+	err = hdmi_avi_infoframe_init(frame);
+	if (err < 0) {
+		pr_err("ADF: HDMI: %s AVI Infoframe init failed\n", __func__);
+		return err;
+	}
+
+	if (mode->flags & DRM_MODE_FLAG_DBLCLK)
+		frame->pixel_repeat = 1;
+
+	frame->video_code = match_cea_mode(mode);
+
+	frame->picture_aspect = HDMI_PICTURE_ASPECT_NONE;
+
+	/* Populate picture aspect ratio from CEA mode list */
+	if (frame->video_code > 0)
+		frame->picture_aspect = drm_get_cea_aspect_ratio(
+						frame->video_code);
+
+	frame->active_aspect = HDMI_ACTIVE_ASPECT_PICTURE;
+	frame->scan_mode = HDMI_SCAN_MODE_UNDERSCAN;
+
+	pr_info("ADF: HDMI: %s AVI Infoframe constructed from mode -\n",
+					__func__);
+	pr_info("pixel_repeat::%d video_code::%d picture_aspect::%d\n",
+		frame->pixel_repeat, frame->video_code, frame->picture_aspect);
+	pr_info("active_aspect::%d scan_mode::%d\n", frame->active_aspect,
+					frame->scan_mode);
+
+	return err;
+}
+
+/*
+ * The data we write to the DIP data buffer registers is 1 byte bigger than the
+ * HDMI infoframe size because of an ECC/reserved byte at position 3 (starting
+ * at 0). It's also a byte used by DisplayPort so the same DIP registers can be
+ * used for both technologies.
+ *
+ * DW0: Reserved/ECC/DP | HB2 | HB1 | HB0
+ * DW1:       DB3       | DB2 | DB1 | DB0
+ * DW2:       DB7       | DB6 | DB5 | DB4
+ * DW3: ...
+ *
+ * (HB is Header Byte, DB is Data Byte)
+ *
+ * The hdmi pack() functions don't know about that hardware specific hole so we
+ * trick them by giving an offset into the buffer and moving back the header
+ * bytes by one.
+ */
+static void hdmi_write_avi_infoframe(struct vlv_hdmi_port *port,
+				union hdmi_infoframe *frame)
+{
+	uint8_t buffer[VIDEO_DIP_DATA_SIZE];
+	const uint32_t *data;
+	ssize_t len;
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	len = hdmi_infoframe_pack(frame, buffer + 1, sizeof(buffer) - 1);
+	if (len < 0) {
+		pr_err("ADF: HDMI: %s AVI infoframe length is negative\n",
+						__func__);
+		return;
+	}
+
+	/* Insert 'hole' (see comment above) at position 3 */
+	buffer[0] = buffer[1];
+	buffer[1] = buffer[2];
+	buffer[2] = buffer[3];
+	buffer[3] = 0;
+	len++;
+
+	data = (const void *)buffer;
+	vlv_hdmi_port_write_avi_infoframe(port, data, len);
+}
+
+static void hdmi_set_avi_infoframe(struct vlv_hdmi_port *port,
+			struct drm_mode_modeinfo *mode,
+			bool rgb_quant_range_selectable)
+{
+	union hdmi_infoframe frame;
+	int ret = 0;
+	uint32_t color_range;
+
+	pr_info("ADF: HDMI: %s\n", __func__);
+
+	ret = hdmi_get_avi_infoframe_from_mode(&frame.avi, mode);
+	if (ret < 0) {
+		pr_err("ADF: HDMI: %s couldn't fill AVI infoframe\n", __func__);
+		return;
+	}
+
+	if (rgb_quant_range_selectable) {
+		if (match_cea_mode(mode) > 1)
+			color_range = HDMI_COLOR_RANGE_16_235;
+		else
+			color_range = 0;
+
+		if (color_range)
+			frame.avi.quantization_range =
+				HDMI_QUANTIZATION_RANGE_LIMITED;
+		else
+			frame.avi.quantization_range =
+				HDMI_QUANTIZATION_RANGE_FULL;
+	}
+
+	hdmi_write_avi_infoframe(port, &frame);
+}
+
+static int hdmi_set_infoframes(struct intel_pipe *pipe,
+			struct drm_mode_modeinfo *mode)
 {
 	int err = 0;
 	struct hdmi_pipe *hdmi_pipe = hdmi_pipe_from_intel_pipe(pipe);
 	struct intel_pipeline *pipeline = hdmi_pipe->base.pipeline;
 	struct vlv_pipeline *disp = to_vlv_pipeline(pipeline);
 	struct vlv_hdmi_port *hdmi_port;
+	struct hdmi_monitor *monitor;
+	bool enable;
 
 	pr_info("ADF:HDMI: %s\n", __func__);
 
@@ -279,9 +401,21 @@ static int hdmi_write_dip(struct intel_pipe *pipe)
 		return -EINVAL;
 	}
 
-	err = vlv_hdmi_port_write_dip(hdmi_port, true);
+	monitor = hdmi_pipe->config.ctx.monitor;
+	if (!monitor) {
+		pr_err("ADF:HDMI: %s: Monitor not set\n", __func__);
+		return -EINVAL;
+	}
+
+	enable = monitor->is_hdmi;
+	err = vlv_hdmi_port_set_infoframes(hdmi_port, enable);
 	if (err)
-		pr_err("ADF: HDMI: %s: Port DIP write\n", __func__);
+		pr_err("ADF: HDMI: %s: Port Set Infoframes failed\n", __func__);
+
+	if (enable) {
+		hdmi_set_avi_infoframe(hdmi_port, mode,
+					monitor->quant_range_selectable);
+	}
 
 	return err;
 }
@@ -329,14 +463,14 @@ static int hdmi_modeset(struct intel_pipe *pipe,
 		goto out;
 	}
 
-	hdmi_pipe->tmds_clock = mode->clock;
-	adf_hdmi_audio_signal_event(HAD_EVENT_MODE_CHANGING);
-
-	err = hdmi_write_dip(pipe);
+	err = hdmi_set_infoframes(pipe, mode);
 	if (err) {
-		pr_err("ADF:HDMI: %s: DIP write failed\n", __func__);
+		pr_err("ADF:HDMI: %s: Set Infoframes failed\n", __func__);
 		goto out;
 	}
+
+	hdmi_pipe->tmds_clock = mode->clock;
+	adf_hdmi_audio_signal_event(HAD_EVENT_MODE_CHANGING);
 
 	hdmi_pipe->dpms_state = DRM_MODE_DPMS_ON;
 
@@ -411,6 +545,13 @@ static int hdmi_dpms(struct intel_pipe *pipe, u8 state)
 		err = vlv_pipeline_on(pipeline, mode);
 		if (err) {
 			pr_err("ADF:HDMI: %s: Pipeline on failed\n", __func__);
+			goto exit;
+		}
+
+		err = hdmi_set_infoframes(pipe, mode);
+		if (err) {
+			pr_err("ADF:HDMI: %s: Set Infoframes failed\n",
+								__func__);
 			goto exit;
 		}
 		break;
