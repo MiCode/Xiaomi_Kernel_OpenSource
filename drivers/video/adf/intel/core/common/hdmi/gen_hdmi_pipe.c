@@ -213,12 +213,12 @@ int hdmi_pipe_init(struct hdmi_pipe *pipe,
 		goto fail_pipe;
 	}
 
-	adf_hdmi_audio_init(pipe);
-
 #ifdef CONFIG_EXTCON
 	pipe->hotplug_switch.name = "hdmi";
 	extcon_dev_register(&pipe->hotplug_switch);
 #endif
+
+	adf_hdmi_audio_init(pipe);
 
 	/*
 	 * Configure HDMI

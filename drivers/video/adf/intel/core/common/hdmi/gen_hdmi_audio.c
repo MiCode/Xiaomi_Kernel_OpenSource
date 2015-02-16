@@ -217,6 +217,11 @@ int adf_hdmi_audio_setup(
 
 	pr_debug("ADF: HDMI:%s\n", __func__);
 
+	if (!pipe) {
+		pr_err("ADF: HDMI:%s HDMI Pipe is NULL\n", __func__);
+		return -ENODEV;
+	}
+
 	reg_ops->hdmi_audio_get_register_base =
 			(hdmi_audio_reg_ops.hdmi_audio_get_register_base);
 	reg_ops->hdmi_audio_read_register =
@@ -242,6 +247,11 @@ int adf_hdmi_audio_register(
 	struct snd_intel_had_interface *driver = drv;
 
 	pr_debug("ADF: HDMI:%s\n", __func__);
+
+	if (!pipe) {
+		pr_err("ADF: HDMI:%s HDMI Pipe is NULL\n", __func__);
+		return -ENODEV;
+	}
 
 	hdmi_priv.had_pvt_data = had_data;
 	hdmi_priv.had_interface = driver;
