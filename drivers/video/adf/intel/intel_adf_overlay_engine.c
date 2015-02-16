@@ -21,7 +21,9 @@ long intel_overlay_engine_obj_ioctl(struct adf_obj *obj,
 	struct intel_adf_overlay_engine *overlay_engine;
 	struct intel_plane *plane;
 	struct adf_overlay_engine *adf_oe;
+	struct intel_pipe *pipe;
 	u8 plane_id;
+	u8 pipe_id;
 
 	long err = 0;
 
@@ -32,11 +34,23 @@ long intel_overlay_engine_obj_ioctl(struct adf_obj *obj,
 	plane = overlay_engine->plane;
 	plane_id = plane->base.idx;
 
+	pipe = plane->pipe;
+	pipe_id = pipe->base.idx;
+
 	switch (cmd) {
 	case INTEL_ADF_COLOR_MANAGER_SET:
 		pr_info("ADF: Calling apply to set Color Property on the Overlay Engine\n");
+
+		/*
+		 * Sprite registers are continuously placed at
+		 * an offset of 0x100. But the Plane Enum adds
+		 * primary planes also into account.
+		 * To compensate for that, alter the plane id,
+		 * so that a direct sprite offset can be used
+		 * in applying color correction.
+		 */
 		if (!intel_color_manager_apply(plane->color_ctx,
-				(struct color_cmd *) arg, plane_id)) {
+				(struct color_cmd *) arg, plane_id - pipe_id)) {
 			pr_err("%s Error: Set color correction failed\n",
 								__func__);
 			return -EFAULT;
@@ -49,8 +63,17 @@ long intel_overlay_engine_obj_ioctl(struct adf_obj *obj,
 
 	case INTEL_ADF_COLOR_MANAGER_GET:
 		pr_info("ADF: Calling get Color Property on the Overlay Engine\n");
+
+		/*
+		 * Sprite registers are continuously placed at
+		 * an offset of 0x100. But the Plane Enum adds
+		 * primary planes also into account.
+		 * To compensate for that, alter the plane id,
+		 * so that a direct sprite offset can be used
+		 * in applying color correction.
+		 */
 		if (!intel_color_manager_get(plane->color_ctx,
-				(struct color_cmd *) arg, plane_id)) {
+				(struct color_cmd *) arg, plane_id - pipe_id)) {
 			pr_err("%s Error: Get color correction failed\n",
 								__func__);
 			return -EFAULT;
