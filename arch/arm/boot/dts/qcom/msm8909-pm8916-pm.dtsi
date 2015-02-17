@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -204,11 +204,10 @@
 		interrupts = <0 171 1>;
 		clocks = <&clock_rpm clk_xo_lpm_clk>;
 		clock-names = "xo";
-
 		qcom,ipc-bit-offset = <1>;
-
 		qcom,gic-parent = <&intc>;
 		qcom,gic-map = <2 216>, /* tsens_upper_lower_int */
+			<48 168>, /* usb_phy_id_irq */
 			<50 172>, /* usb1_hs_async_wakeup_irq */
 			<53 104>, /* mdss_irq */
 			<62 222>, /* ee0_krait_hlos_spmi_periph_irq */
@@ -226,14 +225,44 @@
 			<0xff 60>,  /* mss_to_apps_irq(3) */
 			<0xff 61>,  /* mss_a2_bam_irq */
 			<0xff 65>,  /* o_gc_sys_irq[0] */
+			<0xff 70>,  /* smmu_bus_intr[0] */
+			<0xff 73>,  /* smmu_bus_intr[1] */
 			<0xff 74>,  /* smmu_bus_intr[2] */
 			<0xff 75>,  /* smmu_bus_intr[3] */
+			<0xff 77>,  /* smmu_bus_intr[4] */
 			<0xff 78>,  /* smmu_bus_intr[5] */
 			<0xff 79>,  /* smmu_bus_intr[6] */
+			<0xff 80>,  /* smmu_bus_intr[7] */
+			<0xff 94>,  /* smmu_bus_intr[8] */
+			<0xff 96>,  /* smmu_bus_intr[9] */
 			<0xff 97>,  /* smmu_bus_intr[10] */
+			<0xff 98>,  /* smmu_bus_intr[11] */
+			<0xff 101>, /* smmu_bus_intr[13] */
 			<0xff 102>, /* smmu_bus_intr[14] */
+			<0xff 105>, /* msm_iommu_global_cfg_irq */
+			<0xff 107>, /* msm_iommu_global_cfg_irq */
 			<0xff 131>, /* qup_irq */
+			<0xff 133>, /* smmu_bus_intr[29] */
+			<0xff 134>, /* smmu_bus_intr[30] */
+			<0xff 135>, /* smmu_bus_intr[31] */
+			<0xff 136>, /* smmu_bus_intr[32] */
+			<0xff 137>, /* smmu_bus_intr[33] */
+			<0xff 138>, /* smmu_bus_intr[34] */
 			<0xff 140>, /* uart_dm_intr */
+			<0xff 141>, /* smmu_bus_intr[35] */
+			<0xff 142>, /* smmu_bus_intr[36] */
+			<0xff 143>, /* smmu_bus_intr[37] */
+			<0xff 144>, /* smmu_bus_intr[38] */
+			<0xff 145>, /* smmu_bus_intr[39] */
+			<0xff 146>, /* smmu_bus_intr[40] */
+			<0xff 147>, /* smmu_bus_intr[41] */
+			<0xff 148>, /* smmu_bus_intr[42] */
+			<0xff 149>, /* smmu_bus_intr[43] */
+			<0xff 150>, /* smmu_bus_intr[44] */
+			<0xff 151>, /* smmu_bus_intr[45] */
+			<0xff 152>, /* smmu_bus_intr[46] */
+			<0xff 153>, /* smmu_bus_intr[47] */
+			<0xff 154>, /* smmu_bus_intr[48] */
 			<0xff 155>, /* sdc1_irq(0) */
 			<0xff 157>, /* sdc2_irq(0) */
 			<0xff 166>, /* usb_hs_irq */
@@ -246,6 +275,9 @@
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
 			<0xff 179>, /* o_wcss_apss_asic_intr */
 			<0xff 181>, /* o_wcss_apss_wdog_bite_and_reset_rdy */
+			<0xff 182>, /* smmu_bus_intr[58] */
+			<0xff 183>, /* smmu_bus_intr[59] */
+			<0xff 184>, /* smmu_bus_intr[60] */
 			<0xff 188>, /* lpass_irq_out_apcs(0) */
 			<0xff 189>, /* lpass_irq_out_apcs(1) */
 			<0xff 190>, /* lpass_irq_out_apcs(2) */
@@ -268,10 +300,31 @@
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdc2_pwr_cmd_irq */
+			<0xff 255>, /* smmu_bus_intr[49] */
+			<0xff 256>, /* smmu_bus_intr[50] */
+			<0xff 257>, /* smmu_bus_intr[51] */
+			<0xff 260>, /* smmu_bus_intr[52] */
+			<0xff 261>, /* smmu_bus_intr[53] */
+			<0xff 262>, /* smmu_bus_intr[54] */
+			<0xff 263>, /* smmu_bus_intr[55] */
+			<0xff 264>, /* smmu_bus_intr[56] */
+			<0xff 265>, /* smmu_bus_intr[57] */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 272>, /* smmu_bus_intr[17] */
+			<0xff 273>, /* smmu_bus_intr[18] */
+			<0xff 274>, /* smmu_bus_intr[19] */
 			<0xff 275>, /* rpm_ipc(30) */
-			<0xff 276>; /* rpm_ipc(31) */
+			<0xff 276>, /* rpm_ipc(31) */
+			<0xff 277>, /* smmu_bus_intr[20] */
+			<0xff 278>, /* smmu_bus_intr[21] */
+			<0xff 279>, /* smmu_bus_intr[22] */
+			<0xff 280>, /* smmu_bus_intr[23] */
+			<0xff 281>, /* smmu_bus_intr[24] */
+			<0xff 282>, /* smmu_bus_intr[25] */
+			<0xff 283>, /* smmu_bus_intr[26] */
+			<0xff 284>, /* smmu_bus_intr[27] */
+			<0xff 285>; /* smmu_bus_intr[28] */
 
 		qcom,gpio-parent = <&msm_gpio>;
 		qcom,gpio-map = <3  65 >,
