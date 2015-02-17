@@ -158,6 +158,48 @@ void intel_adf_pci_sideband_rw(u32 operation, u32 port, u32 reg, u32 *val)
 EXPORT_SYMBOL(intel_adf_pci_sideband_rw);
 
 /**
+ * intel_adf_pci_sideband_rw_no_lock - Interface to allow ADF driver read/write
+ * to intel sideband with no mutex protection. Mutex acquirement before calling
+ * this function is callers responsibility.
+ */
+void intel_adf_pci_sideband_rw_no_lock(u32 operation, u32 port,
+							u32 reg, u32 *val)
+{
+	struct drm_i915_private *dev_priv;
+	u32 opcode;
+
+	if (!i915_adf_dev)
+		return;
+
+	dev_priv = i915_adf_dev;
+
+	opcode = (operation == INTEL_SIDEBAND_REG_READ) ?
+				SB_CRRDDA_NP : SB_CRWRDA_NP;
+
+	vlv_adf_sideband_rw(dev_priv, PCI_DEVFN(2, 0), port, opcode, reg, val);
+}
+EXPORT_SYMBOL(intel_adf_pci_sideband_rw_no_lock);
+
+/**
+ * intel_adf_dpio_mutex - Interface to allow ADF driver lock/unlock dpio mutex.
+ */
+void intel_adf_dpio_mutex(bool acquire)
+{
+	struct drm_i915_private *dev_priv;
+
+	if (!i915_adf_dev)
+		return;
+
+	dev_priv = i915_adf_dev;
+
+	if (acquire)
+		mutex_lock(&dev_priv->dpio_lock);
+	else
+		mutex_unlock(&dev_priv->dpio_lock);
+}
+EXPORT_SYMBOL(intel_adf_dpio_mutex);
+
+/**
  * intel_adf_dpio_sideband_rw - Interface to allow ADF driver read/write to intel sideband.
  */
 void intel_adf_dpio_sideband_rw(u32 operation, u32 port, u32 reg, u32 *val)
