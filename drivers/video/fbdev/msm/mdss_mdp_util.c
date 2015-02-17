@@ -534,10 +534,10 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 		/* |      Y meta     |  ** |    Y bitstream   | */
 		/* |       data      |  ** |       plane      | */
 		/* -------------------  ** -------------------- */
-		/* |    CbCr meta    |  ** |  CbCr bitstream  | */
+		/* |    Y bitstream  |  ** |  CbCr bitstream  | */
 		/* |       data      |  ** |       plane      | */
 		/* -------------------  ** -------------------- */
-		/* |   Y bitstream   |  ** |       Y meta     | */
+		/* |   Cbcr metadata |  ** |       Y meta     | */
 		/* |       data      |  ** |       plane      | */
 		/* -------------------  ** -------------------- */
 		/* |  CbCr bitstream |  ** |     CbCr meta    | */
@@ -551,7 +551,7 @@ static int mdss_mdp_ubwc_data_check(struct mdss_mdp_data *data,
 
 		/* configure CbCr bitstream plane */
 		data->p[1].addr = base_addr + ps->plane_size[0]
-			+ ps->plane_size[1] + ps->plane_size[2];
+			+ ps->plane_size[2] + ps->plane_size[3];
 		data->p[1].len = ps->plane_size[1];
 
 		/* configure Y metadata plane */
