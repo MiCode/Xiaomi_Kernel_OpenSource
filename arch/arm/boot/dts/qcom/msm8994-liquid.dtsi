@@ -539,9 +539,17 @@
 	qcom,use-otp-profile;
 };
 
+&usb_otg_switch {
+	status = "disabled";
+};
+
 &pmi8994_charger {
+	/delete-property/ otg-parent-supply;
 	qcom,dc-psy-type = "Wipower";
 	qcom,charge-unknown-battery;
+	smbcharger_charger_otg {
+		parent-supply = <&pmi8994_boost_5v>;
+	};
 };
 
 &slim_msm {
