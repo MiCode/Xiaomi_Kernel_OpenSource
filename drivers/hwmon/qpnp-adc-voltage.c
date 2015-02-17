@@ -30,6 +30,7 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/platform_device.h>
+#include <linux/thermal.h>
 
 /* QPNP VADC register definition */
 #define QPNP_VADC_REVISION1				0x0
@@ -123,6 +124,14 @@ struct qpnp_vadc_mode_state {
 	struct qpnp_adc_amux		vadc_meas_amux;
 };
 
+struct qpnp_vadc_thermal_data {
+	bool thermal_node;
+	int thermal_chan;
+	enum qpnp_vadc_channels vadc_channel;
+	struct thermal_zone_device *tz_dev;
+	struct qpnp_vadc_chip *vadc_dev;
+};
+
 struct qpnp_vadc_chip {
 	struct device			*dev;
 	struct qpnp_adc_drv		*adc;
@@ -143,6 +152,7 @@ struct qpnp_vadc_chip {
 	struct work_struct		trigger_high_thr_work;
 	struct work_struct		trigger_low_thr_work;
 	struct qpnp_vadc_mode_state	*state_copy;
+	struct qpnp_vadc_thermal_data	*vadc_therm_chan;
 	struct sensor_device_attribute	sens_attr[0];
 };
 
@@ -2103,10 +2113,77 @@ hwmon_err_sens:
 	return rc;
 }
 
+static int qpnp_vadc_get_temp(struct thermal_zone_device *thermal,
+			     unsigned long *temp)
+{
+	struct qpnp_vadc_thermal_data *vadc_therm = thermal->devdata;
+	struct qpnp_vadc_chip *vadc = vadc_therm->vadc_dev;
+	struct qpnp_vadc_result result;
+	int rc = 0;
+
+	rc = qpnp_vadc_read(vadc,
+				vadc_therm->vadc_channel, &result);
+	if (rc) {
+		pr_err("VADC read error with %d\n", rc);
+		return rc;
+	}
+
+	*temp = result.physical;
+
+	return rc;
+}
+
+static struct thermal_zone_device_ops qpnp_vadc_thermal_ops = {
+	.get_temp = qpnp_vadc_get_temp,
+};
+
+static int32_t qpnp_vadc_init_thermal(struct qpnp_vadc_chip *vadc,
+					struct spmi_device *spmi)
+{
+	struct device_node *child;
+	struct device_node *node = spmi->dev.of_node;
+	int rc = 0, i = 0;
+	bool thermal_node = false;
+
+	if (node == NULL)
+		goto thermal_err_sens;
+	for_each_child_of_node(node, child) {
+		char name[QPNP_THERMALNODE_NAME_LENGTH];
+
+		vadc->vadc_therm_chan[i].vadc_channel =
+			vadc->adc->adc_channels[i].channel_num;
+		vadc->vadc_therm_chan[i].thermal_chan = i;
+		thermal_node = of_property_read_bool(child,
+					"qcom,vadc-thermal-node");
+		if (thermal_node) {
+			/* Register with the thermal zone */
+			vadc->vadc_therm_chan[i].thermal_node = true;
+			snprintf(name, sizeof(name), "%s",
+				vadc->adc->adc_channels[i].name);
+			vadc->vadc_therm_chan[i].tz_dev =
+				thermal_zone_device_register(name,
+				0, 0, &vadc->vadc_therm_chan[i],
+				&qpnp_vadc_thermal_ops, NULL, 0, 0);
+			if (IS_ERR(vadc->vadc_therm_chan[i].tz_dev)) {
+				pr_err("thermal device register failed.\n");
+				goto thermal_err_sens;
+			}
+			vadc->vadc_therm_chan[i].vadc_dev = vadc;
+		}
+		i++;
+		thermal_node = false;
+	}
+	return 0;
+thermal_err_sens:
+	pr_err("Init HWMON failed for qpnp_adc with %d\n", rc);
+	return rc;
+}
+
 static int qpnp_vadc_probe(struct spmi_device *spmi)
 {
 	struct qpnp_vadc_chip *vadc;
 	struct qpnp_adc_drv *adc_qpnp;
+	struct qpnp_vadc_thermal_data *adc_thermal;
 	struct device_node *node = spmi->dev.of_node;
 	struct device_node *child;
 	int rc, count_adc_channel_list = 0, i = 0;
@@ -2144,6 +2221,15 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 	}
 
 	vadc->adc = adc_qpnp;
+	adc_thermal = devm_kzalloc(&spmi->dev,
+			(sizeof(struct qpnp_vadc_thermal_data) *
+				count_adc_channel_list), GFP_KERNEL);
+	if (!adc_thermal) {
+		dev_err(&spmi->dev, "Unable to allocate memory\n");
+		return -ENOMEM;
+	}
+
+	vadc->vadc_therm_chan = adc_thermal;
 	rc = qpnp_adc_get_devicetree_data(spmi, vadc->adc);
 	if (rc) {
 		dev_err(&spmi->dev, "failed to read device tree\n");
@@ -2157,6 +2243,11 @@ static int qpnp_vadc_probe(struct spmi_device *spmi)
 		return rc;
 	}
 	vadc->vadc_hwmon = hwmon_device_register(&vadc->adc->spmi->dev);
+	rc = qpnp_vadc_init_thermal(vadc, spmi);
+	if (rc) {
+		dev_err(&spmi->dev, "failed to initialize qpnp thermal adc\n");
+		return rc;
+	}
 	vadc->vadc_init_calib = false;
 	vadc->max_channels_available = count_adc_channel_list;
 	rc = qpnp_vadc_read_reg(vadc, QPNP_INT_TEST_VAL, &fab_id);
@@ -2261,6 +2352,9 @@ err_setup:
 	for_each_child_of_node(node, child) {
 		device_remove_file(&spmi->dev,
 			&vadc->sens_attr[i].dev_attr);
+		if (vadc->vadc_therm_chan[i].thermal_node)
+			thermal_zone_device_unregister(
+					vadc->vadc_therm_chan[i].tz_dev);
 		i++;
 	}
 	hwmon_device_unregister(vadc->vadc_hwmon);
@@ -2278,6 +2372,9 @@ static int qpnp_vadc_remove(struct spmi_device *spmi)
 	for_each_child_of_node(node, child) {
 		device_remove_file(&spmi->dev,
 			&vadc->sens_attr[i].dev_attr);
+		if (vadc->vadc_therm_chan[i].thermal_node)
+			thermal_zone_device_unregister(
+					vadc->vadc_therm_chan[i].tz_dev);
 		i++;
 	}
 	hwmon_device_unregister(vadc->vadc_hwmon);
