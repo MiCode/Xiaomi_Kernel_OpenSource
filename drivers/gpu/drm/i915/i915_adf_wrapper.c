@@ -223,6 +223,52 @@ unsigned short *intel_get_vbt_pps_delays(void)
 	return (unsigned short *)&i915_adf_dev->vbt.edp_pps;
 }
 EXPORT_SYMBOL(intel_get_vbt_pps_delays);
+
+int i915_adf_simple_buffer_alloc(u16 w, u16 h, u8 bpp, struct dma_buf **dma_buf,
+				u32 *offset, u32 *pitch)
+{
+	struct drm_i915_gem_object *obj;
+	struct drm_i915_private *dev_priv;
+	struct drm_device *dev;
+	int size, ret = 0;
+
+	if (!i915_adf_dev) {
+		ret = -1;
+		goto out;
+	}
+
+	dev_priv = i915_adf_dev;
+	dev = dev_priv->dev;
+
+	/* we don't do packed 24bpp */
+	if (bpp == 24)
+		bpp = 32;
+
+	*pitch = ALIGN(w * DIV_ROUND_UP(bpp, 8), 64);
+
+	size = *pitch * h;
+	size = ALIGN(size, PAGE_SIZE);
+
+	obj = i915_gem_alloc_object(dev, size);
+	if (!obj) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = intel_pin_and_fence_fb_obj(dev, obj, NULL);
+	if (ret)
+		goto out_unref;
+
+	*dma_buf = i915_gem_prime_export(dev, &obj->base, O_RDWR);
+
+	return ret;
+
+out_unref:
+	drm_gem_object_unreference(&obj->base);
+out:
+	return ret;
+}
+EXPORT_SYMBOL(i915_adf_simple_buffer_alloc);
 #else
 int intel_adf_context_on_event(void) { return 0; }
 
