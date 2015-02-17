@@ -93,6 +93,7 @@ static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
 static DEFINE_MUTEX(bus_bw_lock);
 static DEFINE_MUTEX(mdp_iommu_lock);
+static DEFINE_MUTEX(mdp_iommu_ref_cnt_lock);
 static DEFINE_MUTEX(mdp_fs_idle_pc_lock);
 
 static struct mdss_panel_intf pan_types[] = {
@@ -662,12 +663,22 @@ static inline int is_mdss_iommu_attached(void)
 	return mdss_res->iommu_attached;
 }
 
+void mdss_iommu_lock(void)
+{
+	mutex_lock(&mdp_iommu_lock);
+}
+
+void mdss_iommu_unlock(void)
+{
+	mutex_unlock(&mdp_iommu_lock);
+}
+
 int mdss_iommu_ctrl(int enable)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc = 0;
 
-	mutex_lock(&mdp_iommu_lock);
+	mutex_lock(&mdp_iommu_ref_cnt_lock);
 	pr_debug("%pS: enable %d mdata->iommu_ref_cnt %d\n",
 		__builtin_return_address(0), enable, mdata->iommu_ref_cnt);
 
@@ -688,7 +699,7 @@ int mdss_iommu_ctrl(int enable)
 			pr_err("unbalanced iommu ref\n");
 		}
 	}
-	mutex_unlock(&mdp_iommu_lock);
+	mutex_unlock(&mdp_iommu_ref_cnt_lock);
 
 	if (IS_ERR_VALUE(rc))
 		return rc;
@@ -977,6 +988,7 @@ static int mdss_iommu_attach(struct mdss_data_type *mdata)
 
 	MDSS_XLOG(mdata->iommu_attached);
 
+	mutex_lock(&mdp_iommu_lock);
 	if (mdata->iommu_attached) {
 		pr_debug("mdp iommu already attached\n");
 		goto end;
@@ -1005,6 +1017,7 @@ static int mdss_iommu_attach(struct mdss_data_type *mdata)
 
 	mdata->iommu_attached = true;
 end:
+	mutex_unlock(&mdp_iommu_lock);
 	return rc;
 }
 
@@ -1016,9 +1029,10 @@ static int mdss_iommu_dettach(struct mdss_data_type *mdata)
 
 	MDSS_XLOG(mdata->iommu_attached);
 
+	mutex_lock(&mdp_iommu_lock);
 	if (!mdata->iommu_attached) {
 		pr_debug("mdp iommu already dettached\n");
-		return 0;
+		goto end;
 	}
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
@@ -1034,7 +1048,8 @@ static int mdss_iommu_dettach(struct mdss_data_type *mdata)
 	}
 
 	mdata->iommu_attached = false;
-
+end:
+	mutex_unlock(&mdp_iommu_lock);
 	return 0;
 }
 
@@ -1514,6 +1529,8 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 
 	mdss_res->mdss_util->get_iommu_domain = mdss_get_iommu_domain;
 	mdss_res->mdss_util->iommu_attached = is_mdss_iommu_attached;
+	mdss_res->mdss_util->iommu_lock = mdss_iommu_lock;
+	mdss_res->mdss_util->iommu_unlock = mdss_iommu_unlock;
 	mdss_res->mdss_util->iommu_ctrl = mdss_iommu_ctrl;
 	mdss_res->mdss_util->bus_scale_set_quota = mdss_bus_scale_set_quota;
 	mdss_res->mdss_util->bus_bandwidth_ctrl = mdss_bus_bandwidth_ctrl;
