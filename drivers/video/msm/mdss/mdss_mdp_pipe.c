@@ -1601,6 +1601,10 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 		src_format |= BIT(31);
 	}
 
+	/* This bit is only valid for thulium target; noop for other targets */
+	if (fmt->is_yuv)
+		src_format |= BIT(15);
+
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
 
 	if (mdss_mdp_is_tile_format(fmt) && mdata->highest_bank_bit) {
@@ -1614,6 +1618,9 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_UNPACK_PATTERN, unpack);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_OP_MODE, opmode);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_ADDR_SW_STATUS, secure);
+
+	/* clear UBWC error */
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_UBWC_ERROR_STATUS, BIT(31));
 
 	return 0;
 }
