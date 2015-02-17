@@ -389,7 +389,7 @@ static void pstore_dump(struct kmsg_dumper *dumper,
 					read = len;
 
 				ret = psinfo->write(PSTORE_TYPE_EXTRA, reason, &id, part,
-						oopscount, read, false, psinfo);
+						oopscount, false, read, psinfo);
 
 				if (ret < 0)
 					goto extra_done;
