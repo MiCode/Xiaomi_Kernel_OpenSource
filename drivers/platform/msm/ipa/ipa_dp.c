@@ -29,7 +29,6 @@
 #define IPA_GENERIC_AGGR_BYTE_LIMIT 6
 #define IPA_GENERIC_AGGR_TIME_LIMIT 1
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
-#define IPA_GENERIC_RX_POOL_SZ 32
 
 #define IPA_GENERIC_RX_BUFF_BASE_SZ 8192
 #define IPA_REAL_GENERIC_RX_BUFF_SZ (SKB_DATA_ALIGN(\
@@ -2494,7 +2493,6 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 				INIT_WORK(&sys->repl_work, ipa_wq_repl_rx);
 				atomic_set(&sys->curr_polling_state, 0);
 				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ;
-				sys->rx_pool_sz = IPA_GENERIC_RX_POOL_SZ;
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
@@ -2507,9 +2505,13 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 					IPA_GENERIC_AGGR_PKT_LIMIT;
 				if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 					sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
+					sys->rx_pool_sz =
+						IPA_GENERIC_RX_POOL_SZ;
 				} else if (in->client ==
 						IPA_CLIENT_APPS_WAN_CONS) {
 					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
+					sys->rx_pool_sz =
+						ipa_ctx->wan_rx_ring_size;
 				}
 				if (nr_cpu_ids > 1)
 					sys->repl_hdlr =

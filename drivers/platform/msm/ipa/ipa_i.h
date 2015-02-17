@@ -40,6 +40,7 @@
 #define IPA_QMAP_HEADER_LENGTH (4)
 #define IPA_DL_CHECKSUM_LENGTH (8)
 #define IPA_NUM_DESC_PER_SW_TX (2)
+#define IPA_GENERIC_RX_POOL_SZ 32
 
 #define IPADBG(fmt, args...) \
 	pr_debug(DRV_NAME " %s:%d " fmt, __func__, __LINE__, ## args)
@@ -1186,6 +1187,7 @@ struct ipa_context {
 	struct ipa_uc_ctx uc_ctx;
 
 	struct ipa_uc_wdi_ctx uc_wdi_ctx;
+	u32 wan_rx_ring_size;
 };
 
 /**
@@ -1232,6 +1234,7 @@ struct ipa_plat_drv_res {
 	enum ipa_hw_mode ipa_hw_mode;
 	u32 ee;
 	bool ipa_bam_remote_mode;
+	u32 wan_rx_ring_size;
 };
 
 struct ipa_mem_partition {
