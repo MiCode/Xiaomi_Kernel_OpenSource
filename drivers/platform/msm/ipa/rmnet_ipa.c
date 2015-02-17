@@ -1019,6 +1019,7 @@ static void apps_ipa_tx_complete_notify(void *priv,
 		return;
 	}
 	atomic_dec(&wwan_ptr->outstanding_pkts);
+	__netif_tx_lock_bh(netdev_get_tx_queue(dev, 0));
 	if (netif_queue_stopped(wwan_ptr->net) &&
 		atomic_read(&wwan_ptr->outstanding_pkts) <
 					(wwan_ptr->outstanding_low)) {
@@ -1026,6 +1027,7 @@ static void apps_ipa_tx_complete_notify(void *priv,
 				wwan_ptr->outstanding_low);
 		netif_wake_queue(wwan_ptr->net);
 	}
+	__netif_tx_unlock_bh(netdev_get_tx_queue(dev, 0));
 	dev_kfree_skb_any(skb);
 	ipa_rm_inactivity_timer_release_resource(
 		IPA_RM_RESOURCE_WWAN_0_PROD);
@@ -1590,8 +1592,11 @@ void q6_deinitialize_rm(void)
 
 static void wake_tx_queue(struct work_struct *work)
 {
-	if (ipa_netdevs[0])
+	if (ipa_netdevs[0]) {
+		__netif_tx_lock_bh(netdev_get_tx_queue(ipa_netdevs[0], 0));
 		netif_wake_queue(ipa_netdevs[0]);
+		__netif_tx_unlock_bh(netdev_get_tx_queue(ipa_netdevs[0], 0));
+	}
 }
 
 /**
