@@ -97,6 +97,10 @@ struct adreno_invalid_countables {
 #define ADRENO_PERFCOUNTER_GROUP(core, offset, name) \
 	ADRENO_PERFCOUNTER_GROUP_FLAGS(core, offset, name, 0)
 
+#define ADRENO_POWER_COUNTER_GROUP(core, offset, name) \
+	[KGSL_PERFCOUNTER_GROUP_##offset##_PWR] = { core##_pwrcounters_##name, \
+	ARRAY_SIZE(core##_pwrcounters_##name), __stringify(name##_pwr), 0}
+
 #define ADRENO_PERFCOUNTER_INVALID_COUNTABLE(name, off) \
 	[KGSL_PERFCOUNTER_GROUP_##off] = { name##_invalid_countables, \
 				ARRAY_SIZE(name##_invalid_countables) }
