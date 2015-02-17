@@ -299,6 +299,7 @@ struct msm_otg_platform_data {
 	bool disable_retention_with_vdd_min;
 	int usb_id_gpio;
 	bool phy_dvdd_always_on;
+	struct clk *system_clk;
 };
 
 /* phy related flags */
@@ -562,6 +563,7 @@ struct ci13xxx_platform_data {
 	void *prv_data;
 	bool l1_supported;
 	bool enable_ahb2ahb_bypass;
+	struct clk *system_clk;
 };
 
 /**
