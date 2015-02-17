@@ -55,6 +55,8 @@ extern u16 intel_get_dsi_port_frm_vbt(void);
 extern void intel_get_vbt_disp_conf(void **child_dev, int *child_dev_num);
 extern struct i2c_adapter *intel_adf_get_gmbus_adapter(u8 port);
 extern unsigned short *intel_get_vbt_pps_delays(void);
+extern u32 intel_get_vbt_drrs_support(void);
+extern u32 intel_get_vbt_drrs_min_vrefresh(void);
 
 /* ADF register calls for audio driver */
 int adf_hdmi_audio_register(void *drv, void *had_data);

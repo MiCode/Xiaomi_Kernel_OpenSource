@@ -269,6 +269,18 @@ out:
 	return ret;
 }
 EXPORT_SYMBOL(i915_adf_simple_buffer_alloc);
+
+u32 intel_get_vbt_drrs_support(void)
+{
+	return i915_adf_dev->vbt.drrs_type;
+}
+EXPORT_SYMBOL(intel_get_vbt_drrs_support);
+
+u32 intel_get_vbt_drrs_min_vrefresh(void)
+{
+	return i915_adf_dev->vbt.drrs_min_vrefresh;
+}
+EXPORT_SYMBOL(intel_get_vbt_drrs_min_vrefresh);
 #else
 int intel_adf_context_on_event(void) { return 0; }
 
