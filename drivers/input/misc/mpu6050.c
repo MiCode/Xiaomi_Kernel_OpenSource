@@ -2157,7 +2157,6 @@ static int mpu6050_accel_cdev_set_latency(struct sensors_classdev *sensors_cdev,
 
 	mutex_lock(&sensor->op_lock);
 	if (max_latency <= sensor->accel_poll_ms) {
-		sensor->accel_poll_ms = max_latency;
 		sensor->batch_accel = false;
 	} else {
 		sensor->batch_accel = true;
