@@ -91,7 +91,7 @@ struct msm_mdp_interface mdp5 = {
 
 static DEFINE_SPINLOCK(mdp_lock);
 static DEFINE_MUTEX(mdp_clk_lock);
-static DEFINE_MUTEX(mdp_iommu_lock);
+static DEFINE_MUTEX(mdp_iommu_ref_cnt_lock);
 static DEFINE_MUTEX(mdp_fs_idle_pc_lock);
 
 static struct mdss_panel_intf pan_types[] = {
@@ -794,7 +794,7 @@ int mdss_iommu_ctrl(int enable)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc = 0;
 
-	mutex_lock(&mdp_iommu_lock);
+	mutex_lock(&mdp_iommu_ref_cnt_lock);
 	pr_debug("%pS: enable:%d ref_cnt:%d attach:%d hoff:%d\n",
 		__builtin_return_address(0), enable, mdata->iommu_ref_cnt,
 		mdata->iommu_attached, mdata->handoff_pending);
@@ -816,7 +816,7 @@ int mdss_iommu_ctrl(int enable)
 			pr_err("unbalanced iommu ref\n");
 		}
 	}
-	mutex_unlock(&mdp_iommu_lock);
+	mutex_unlock(&mdp_iommu_ref_cnt_lock);
 
 	if (IS_ERR_VALUE(rc))
 		return rc;
