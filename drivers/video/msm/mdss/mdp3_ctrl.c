@@ -1158,6 +1158,9 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	u32 offset;
 	int bpp;
 	struct mdss_panel_info *panel_info;
+	static bool splash_done;
+	struct mdss_panel_data *panel;
+
 	int rc;
 
 	pr_debug("mdp3_ctrl_pan_display\n");
@@ -1232,6 +1235,12 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 	}
 
 	mdp3_session->vsync_before_commit = 0;
+	panel = mdp3_session->panel;
+	if (!splash_done && (panel && panel->set_backlight)) {
+		panel->set_backlight(panel, panel->panel_info.bl_max);
+		splash_done = true;
+	}
+
 
 pan_error:
 	mutex_unlock(&mdp3_session->lock);
