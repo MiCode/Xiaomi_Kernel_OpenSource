@@ -2046,6 +2046,8 @@ static void wan_rx_handle_splt_pyld(struct sk_buff *skb,
 				IPADBG(
 					"removing Status element from skb and sending to WAN client");
 				skb_pull(skb2, IPA_PKT_STATUS_SIZE);
+				skb2->truesize = skb2->len +
+					sizeof(struct sk_buff);
 				sys->ep->client_notify(sys->ep->priv,
 					IPA_RECEIVE,
 					(unsigned long)(skb2));
@@ -2076,6 +2078,9 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 	int checksum_trailer_exists;
 	int frame_len;
 	int ep_idx;
+	unsigned int used = *(unsigned int *)skb->cb;
+	unsigned int used_align = ALIGN(used, 32);
+	unsigned long unused = IPA_GENERIC_RX_BUFF_BASE_SZ - used;
 
 	IPA_DUMP_BUFF(skb->data, 0, skb->len);
 	if (skb->len == 0) {
@@ -2179,6 +2184,10 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 				IPADBG(
 					"removing Status element from skb and sending to WAN client");
 				skb_pull(skb2, IPA_PKT_STATUS_SIZE);
+				skb2->truesize = skb2->len +
+					sizeof(struct sk_buff) +
+					(ALIGN(frame_len, 32) *
+					 unused / used_align);
 				sys->ep->client_notify(sys->ep->priv,
 					IPA_RECEIVE, (unsigned long)(skb2));
 				skb_pull(skb, frame_len);
@@ -2314,6 +2323,7 @@ static void ipa_wq_rx_common(struct ipa_sys_context *sys, u32 size)
 			sys->rx_buff_sz, DMA_FROM_DEVICE);
 	skb_set_tail_pointer(rx_skb, rx_pkt_expected->len);
 	rx_skb->len = rx_pkt_expected->len;
+	*(unsigned int *)rx_skb->cb = rx_skb->len;
 	rx_skb->truesize = rx_pkt_expected->len + sizeof(struct sk_buff);
 	sys->pyld_hdlr(rx_skb, sys);
 	sys->repl_hdlr(sys);
