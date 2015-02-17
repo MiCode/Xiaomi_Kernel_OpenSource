@@ -828,7 +828,7 @@
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
-		qcom,streaming-func = "mtp";
+		qcom,streaming-func = "rndis","mtp";
 	};
 
 	qcom,usbbam@78c4000 {
