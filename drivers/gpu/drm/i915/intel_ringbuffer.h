@@ -55,10 +55,11 @@ struct  intel_hw_status_page {
  *     Head
  *     Tail
  *     Ring buffer control
+ *     Hardware Status page address
  *
  * The remaining registers are reinitialized, not restored.
  */
-#define GEN8_RING_CONTEXT_SIZE 3
+#define GEN8_RING_CONTEXT_SIZE 4
 
 #define I915_RING_CONTEXT_SIZE \
 		MAX_CTX(GEN7_RING_CONTEXT_SIZE, \
@@ -214,11 +215,6 @@ struct intel_ring_hangcheck {
 	/* Last sampled head and active head */
 	u32 last_acthd;
 	u32 last_hd;
-
-	/* Last recorded ring head index.
-	* This is only ever a ring index where as active
-	* head may be a graphics address in a ring buffer */
-	u32 last_head;
 
 	/* Last recorded instdone */
 	u32 prev_instdone[I915_NUM_INSTDONE_REG];
