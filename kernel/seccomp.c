@@ -600,7 +600,9 @@ int __secure_computing(int this_syscall)
 		ret &= SECCOMP_RET_ACTION;
 		switch (ret) {
 		case SECCOMP_RET_ERRNO:
-			/* Set the low-order 16-bits as a errno. */
+			/* Set low-order bits as an errno, capped at MAX_ERRNO. */
+			if (data > MAX_ERRNO)
+				data = MAX_ERRNO;
 			syscall_set_return_value(current, regs,
 						 -data, 0);
 			goto skip;
