@@ -59,14 +59,14 @@ struct pmc_counters {
 };
 
 #ifdef CONFIG_PM_SLEEP
-struct standby_stats {
+struct susp_stats {
 	u64 residency;
 	u64 tmr_before_susp;
 	u64 tmr_after_susp;
 	bool suspend;
 };
 
-static struct standby_stats s3 = {0, 0, 0, false};
+static struct susp_stats legacy_suspend = {0, 0, 0, false};
 #endif /* CONFIG_PM_SLEEP */
 
 static struct pmc_counters s0ix_counters = {0, 0, 0, 0, 0};
@@ -255,15 +255,15 @@ static int pm_suspend_prep_event(void)
 {
 	u64 tmr = 0;
 
-	if (!s3.suspend) {
-		/* Get the snapshot of s0i3_tmr before standby */
+	if (!legacy_suspend.suspend) {
+		/* Get the snapshot of s0i3_tmr before suspend */
 		tmr = read_pmc_s0i3_tmr_reg();
 		if (tmr < 0)
 			pr_err("Before Suspend: PMC_S0I3_TMR register read returned negative value\n");
 		else
-			s3.tmr_before_susp = tmr;
+			legacy_suspend.tmr_before_susp = tmr;
 	}
-	s3.suspend = true;
+	legacy_suspend.suspend = true;
 	return NOTIFY_OK;
 }
 
@@ -271,18 +271,20 @@ static int pm_suspend_exit_event(void)
 {
 	u64 tmr = 0;
 
-	if (s3.suspend) {
-		/* Get the snapshot of s0i3_tmr post standby */
+	if (legacy_suspend.suspend) {
+		/* Get the snapshot of s0i3_tmr post suspend */
 		tmr = read_pmc_s0i3_tmr_reg();
 		if (tmr < 0) {
 			pr_err("Post Suspend: PMC_S0I3_TMR register read returned negative value\n");
 		} else {
-			s3.tmr_after_susp = tmr;
-			/* Compute the time spent in standby */
-			s3.residency += s3.tmr_after_susp - s3.tmr_before_susp;
+			legacy_suspend.tmr_after_susp = tmr;
+			/* Compute the time spent in suspend */
+			legacy_suspend.residency +=
+			 (legacy_suspend.tmr_after_susp -
+				 legacy_suspend.tmr_before_susp);
 		}
 	}
-	s3.suspend = false;
+	legacy_suspend.suspend = false;
 	return NOTIFY_OK;
 }
 
@@ -384,7 +386,7 @@ static int pmc_sleep_tmr_show(struct seq_file *s, void *unused)
 	struct pmc_dev *pmc = s->private;
 	u64 s0ir_tmr, s0i1_tmr, s0i2_tmr, s0i3_tmr, s0_tmr;
 #ifdef CONFIG_PM_SLEEP
-	u64 standby_time;
+	u64 suspend_time;
 #endif
 
 	s0_tmr = (u64)pmc_reg_read(pmc, PMC_S0_TMR) << PMC_TMR_SHIFT;
@@ -406,11 +408,12 @@ static int pmc_sleep_tmr_show(struct seq_file *s, void *unused)
 	s0i3_tmr = (u64)pmc_reg_read(pmc, PMC_S0I3_TMR) << PMC_TMR_SHIFT;
 	s0i3_tmr =  s0i3_tmr -  s0ix_counters.prev_s0i3_tmr;
 #ifdef CONFIG_PM_SLEEP
-	/* Case of standby_tmr being higher than s0i3_tmr doesn't arise
-	 * as s0i3_tmr value read from PMC register is the sum of time spent
-	 * in s0i3 and standby. Hence s0i3_tmr will always be higher or equal
+	/* Case of legacy_suspend residency being higher than s0i3_tmr doesn't
+	 * arise as s0i3_tmr value read from PMC register is the sum of time
+	 * spent in s0i3 and suspend.
+	 * Hence s0i3_tmr will always be higher or equal.
 	 */
-	s0i3_tmr = (s0i3_tmr - s3.residency);
+	s0i3_tmr = (s0i3_tmr - legacy_suspend.residency);
 #endif
 	do_div(s0i3_tmr, MSEC_PER_SEC);
 
@@ -419,11 +422,11 @@ static int pmc_sleep_tmr_show(struct seq_file *s, void *unused)
 	seq_printf(s , "S0IR:%13.2llu ms\n", s0ir_tmr);
 	seq_printf(s , "S0I1:%13.2llu ms\n", s0i1_tmr);
 	seq_printf(s , "S0I2:%13.2llu ms\n", s0i2_tmr);
-	seq_printf(s , "S0I3:%13.2llu ms\n", s0i3_tmr);
+	seq_printf(s , "Idle-S0I3:%13.2llu ms\n", s0i3_tmr);
 #ifdef CONFIG_PM_SLEEP
-	standby_time = s3.residency;
-	do_div(standby_time, MSEC_PER_SEC);
-	seq_printf(s , "S3:%13.2llu ms\n", standby_time);
+	suspend_time = legacy_suspend.residency;
+	do_div(suspend_time, MSEC_PER_SEC);
+	seq_printf(s , "legacy-suspend:%13.2llu ms\n", suspend_time);
 #endif /* CONFIG_PM_SLEEP */
 	return 0;
 }
@@ -454,8 +457,8 @@ static ssize_t pmc_sleep_tmr_write(struct file *file,
 		s0ix_counters.prev_s0_tmr =
 			(u64)pmc_reg_read(pmc, PMC_S0_TMR) << PMC_TMR_SHIFT;
 #ifdef CONFIG_PM_SLEEP
-		/* Reset the standby_tmr value as well */
-		s3.residency = 0;
+		/* Reset the legacy suspend counter value as well */
+		legacy_suspend.residency = 0;
 #endif /* CONFIG_PM_SLEEP */
 	}
 	return buf_size;
