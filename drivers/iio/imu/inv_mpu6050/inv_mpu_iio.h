@@ -189,9 +189,6 @@ struct inv_mpu6050_state {
 /* 6 + 6 round up and plus 8 */
 #define INV_MPU6050_OUTPUT_DATA_SIZE         24
 
-#define INV_MPU6050_REG_INT_PIN_CFG	0x37
-#define INV_MPU6050_BIT_BYPASS_EN	0x2
-
 /* init parameters */
 #define INV_MPU6050_INIT_FIFO_RATE           50
 #define INV_MPU6050_TIME_STAMP_TOR                        1
