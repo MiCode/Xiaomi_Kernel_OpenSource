@@ -52,8 +52,17 @@ Optional properties:
 - qcom,power-detect-enabled	: Boolean type. This enables driver to get maximum flash LED
 				  current at current battery level to avoid intensity clamp
 				  when battery voltage is low
+- qcom,otst2-module-enabled	: Boolean type. This enables driver to enable MASK to support
+				OTST2 connection.
+- qcom,duration	:	duration for flash LED. When duration time expires, hardware
+			will turn off flash LED. Values should be from 10 ms to 1280 ms
+			with 10 ms incremental step. Not applicable to torch.
 
-Required properties inside child node. Chile node contains settings for each individual LED:
+Required properties inside child node. Child node contains settings for each individual LED.
+Each LED hardware needs a node for itself and a switch node to control brightness.
+For the purpose of turning on/off LED and better regulator control, "led:switch" node
+is introduced. "led:switch" acquires several existing properties from other nodes for
+operational simplification. For backward compatibility purpose, swicth node can be optional:
 - label			: type of led that will be used, either "flash" or "torch".
 - qcom,led-name		: name of the LED. Accepted values are "led:flash_0",
 			  "led:flash_1", "led:torch_0", "led:torch_1"
@@ -62,17 +71,13 @@ Required properties inside child node. Chile node contains settings for each ind
 - qcom,id		: enumerated ID for each physical LED. Accepted values are "0",
 			  "1", etc..
 - qcom,max-current	: maximum current allowed on this LED. Valid values should be
-			  integer from 0 to 1000 inclusive, indicating 0 to 1000 mA.
-
+			integer from 0 to 1000 inclusive, indicating 0 to 1000 mA.
 Optional properties inside child node:
 - qcom,current		: default current intensity for LED. Accepted values should be
 			  integer from 0 t 1000 inclusive, indicating 0 to 1000 mA.
 - boost-supply		: flash LED boost power source for flash LED
 - boost-voltage-max	: maximum voltage for flash LED boost regulator in uV. This attribute is
 			: required if boost-supply is defined.
-- qcom,duration		: duration for flash LED. When duration time expires, hardware
-			  will turn off flash LED. Values should be from 10 ms to 1280 ms
-			  with 10 ms incremental step. Not applicable to torch.
 
 Example:
 	qcom,leds@d300 {
@@ -96,17 +101,16 @@ Example:
 		qcom,vph-pwr-droop-debounce-time = <10>;
 		qcom,headroom-sense-ch0-enabled;
 		qcom,headroom-sense-ch1-enabled;
+		qcom,duration = <1280>;
 
 		pm8226_flash0: qcom,flash_0 {
 			label = "flash";
 			qcom,led-name = "led:flash_0";
 			qcom,default-led-trigger =
 					"flash0_trigger";
-			qcom,max-current = <1000>;
-			qcom,duration = <1280>;
 			qcom,id = <0>;
 			qcom,current = <625>;
-			boost-supply = <&pm8226_chg_boost>;
+			qcom,max-current = <1000>;
 		};
 
 		pm8226_torch: qcom,torch_0 {
@@ -114,10 +118,20 @@ Example:
 			qcom,led-name = "led:torch_0";
 			qcom,default-led-trigger =
 					"torch0_trigger";
-			boost-supply = <&pm8226_chg_boost>;
-			qcom,max-current = <200>;
 			qcom,id = <0>;
 			qcom,current = <120>;
+			qcom,max-current = <200>;
+		};
+
+		pm8226_switch: qcom,switch {
+			label = "switch";
+			qcom,led-name = "led:switch";
+			qcom,default-led-trigger =
+					"switch_trigger";
+			boost-supply = <&pm8226_chg_boost>;
+			qcom,id = <2>;
+			qcom,current = <625>;
+			qcom,max-current = <1000>;
 			boost-voltage-max = <3600000>;
 		};
 	};
