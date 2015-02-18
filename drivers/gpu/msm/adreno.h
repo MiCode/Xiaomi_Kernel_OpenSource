@@ -224,7 +224,6 @@ struct adreno_device {
 	int num_ringbuffers;
 	struct adreno_ringbuffer *cur_rb;
 	unsigned int wait_timeout;
-	unsigned int ib_check_level;
 	unsigned int fast_hang_detect;
 	unsigned int ft_policy;
 	unsigned int long_ib_detect;
