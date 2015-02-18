@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -123,12 +123,12 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 			dev_get_drvdata(dai->codec->dev);
 
 	if (IS_ERR_VALUE(msm_hdmi_audio_codec_return_value)) {
-		dev_err(dai->dev,
+		dev_err_ratelimited(dai->dev,
 			"%s() HDMI core is not ready (ret val = %d)\n",
 			__func__, msm_hdmi_audio_codec_return_value);
 		return msm_hdmi_audio_codec_return_value;
 	} else if (!msm_hdmi_audio_codec_return_value) {
-		dev_err(dai->dev,
+		dev_err_ratelimited(dai->dev,
 			"%s() HDMI cable is not connected (ret val = %d)\n",
 			__func__, msm_hdmi_audio_codec_return_value);
 		return -ENODEV;
@@ -172,8 +172,9 @@ static int msm_hdmi_audio_codec_rx_dai_hw_params(
 			params_rate(params), num_channels,
 			channel_allocation, level_shift, down_mix);
 	if (IS_ERR_VALUE(rc)) {
-		dev_err(dai->dev,
-			"%s() HDMI core is not ready\n", __func__);
+		dev_err_ratelimited(dai->dev,
+			"%s() HDMI core is not ready, rc: %d\n",
+			__func__, rc);
 	}
 
 	return rc;
