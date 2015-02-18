@@ -82,6 +82,10 @@ conditions.
 - qcom,tz-device-id : A string indicating the device ID for this SMMU known
                   to TZ.  See msm_tz_smmu.c for a full list of mappings.
 
+- qcom,errata-tz-atos : Enable workaround for an ATOS hardware errata on
+                  Thulium v1.  You *must* also set qcom,tz-device-id for
+                  this to work.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified

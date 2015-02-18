@@ -46,6 +46,7 @@
 #include <linux/spinlock.h>
 
 #include <linux/amba/bus.h>
+#include <soc/qcom/msm_tz_smmu.h>
 
 #include <asm/pgalloc.h>
 
@@ -429,6 +430,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_SKIP_INIT		(1 << 4)
 #define ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG (1 << 5)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 6)
+#define ARM_SMMU_OPT_ERRATA_TZ_ATOS	(1 << 7)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -500,6 +502,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_SKIP_INIT, "qcom,skip-init" },
 	{ ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG, "qcom,errata-ctx-fault-hang" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
+	{ ARM_SMMU_OPT_ERRATA_TZ_ATOS, "qcom,errata-tz-atos" },
 	{ 0, NULL},
 };
 
@@ -1950,6 +1953,8 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	u64 phys;
 	bool need_halt_and_tlb =
 		smmu->options & ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS;
+	bool need_tz_atos =
+		smmu->options & ARM_SMMU_OPT_ERRATA_TZ_ATOS;
 
 	arm_smmu_enable_clocks(smmu);
 
@@ -1964,6 +1969,13 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 		arm_smmu_tlb_sync_cb_atomic(smmu, cfg->cbndx);
 	}
 
+	if (need_tz_atos) {
+		if (msm_tz_smmu_atos_start(smmu->dev, cfg->cbndx)) {
+			dev_err(dev, "couldn't start ATOS through TZ\n");
+			goto err_resume;
+		}
+	}
+
 	if (smmu->version == 1) {
 		u32 reg = iova & ~0xfff;
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_ATS1PR_LO);
@@ -1975,11 +1987,18 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
 				!(tmp & ATSR_ACTIVE), 5, 50)) {
 		dev_err(dev, "iova to phys timed out\n");
-		goto err_resume;
+		goto err_atos_end;
 	}
 
 	phys = readl_relaxed(cb_base + ARM_SMMU_CB_PAR_LO);
 	phys |= ((u64) readl_relaxed(cb_base + ARM_SMMU_CB_PAR_HI)) << 32;
+
+	if (need_tz_atos) {
+		if (msm_tz_smmu_atos_end(smmu->dev, cfg->cbndx)) {
+			dev_err(dev, "Couldn't end ATOS through TZ\n");
+			goto err_resume;
+		}
+	}
 
 	if (need_halt_and_tlb)
 		arm_smmu_resume(smmu);
@@ -1997,6 +2016,10 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	arm_smmu_disable_clocks(smmu);
 	return phys;
 
+err_atos_end:
+	if (need_tz_atos && msm_tz_smmu_atos_end(smmu->dev, cfg->cbndx))
+		dev_err(dev,
+			"Couldn't end ATOS through TZ after previous errors\n");
 err_resume:
 	if (need_halt_and_tlb)
 		arm_smmu_resume(smmu);
