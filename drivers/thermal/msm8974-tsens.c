@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -497,6 +497,13 @@
 #define TSENS2_MSM8909_POINT2_SHIFT_2_5	2
 #define TSENS3_MSM8909_POINT2_SHIFT	10
 #define TSENS4_MSM8909_POINT2_SHIFT	22
+
+#define TSENS_MSM8909_D30_WA_S1   10
+#define TSENS_MSM8909_D30_WA_S3   9
+#define TSENS_MSM8909_D30_WA_S4   8
+#define TSENS_MSM8909_D120_WA_S1  6
+#define TSENS_MSM8909_D120_WA_S3  9
+#define TSENS_MSM8909_D120_WA_S4  10
 
 #define TSENS_ZIRC_CAL_SEL		0x700
 #define TSENS_ZIRC_CAL_SEL_SHIFT	8
@@ -1187,12 +1194,18 @@ static int tsens_calib_msm8909_sensors(void)
 			(((tsens_base0_data) + tsens0_point1) << 2);
 		calib_tsens_point1_data[1] =
 			(((tsens_base0_data) + tsens1_point1) << 2);
+		calib_tsens_point1_data[1] = calib_tsens_point1_data[1] -
+						TSENS_MSM8909_D30_WA_S1;
 		calib_tsens_point1_data[2] =
 			(((tsens_base0_data) + tsens2_point1) << 2);
 		calib_tsens_point1_data[3] =
 			(((tsens_base0_data) + tsens3_point1) << 2);
+		calib_tsens_point1_data[3] = calib_tsens_point1_data[3] -
+						TSENS_MSM8909_D30_WA_S3;
 		calib_tsens_point1_data[4] =
 			(((tsens_base0_data) + tsens4_point1) << 2);
+		calib_tsens_point1_data[4] = calib_tsens_point1_data[4] -
+						TSENS_MSM8909_D30_WA_S4;
 	}
 
 	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
@@ -1201,12 +1214,18 @@ static int tsens_calib_msm8909_sensors(void)
 			((tsens_base1_data + tsens0_point2) << 2);
 		calib_tsens_point2_data[1] =
 			((tsens_base1_data + tsens1_point2) << 2);
+		calib_tsens_point2_data[1] = calib_tsens_point2_data[1] -
+						TSENS_MSM8909_D120_WA_S1;
 		calib_tsens_point2_data[2] =
 			((tsens_base1_data + tsens2_point2) << 2);
 		calib_tsens_point2_data[3] =
 			((tsens_base1_data + tsens3_point2) << 2);
+		calib_tsens_point2_data[3] = calib_tsens_point2_data[3] -
+						TSENS_MSM8909_D120_WA_S3;
 		calib_tsens_point2_data[4] =
 			((tsens_base1_data + tsens4_point2) << 2);
+		calib_tsens_point2_data[4] = calib_tsens_point2_data[4] -
+						TSENS_MSM8909_D120_WA_S4;
 	}
 
 	for (i = 0; i < tmdev->tsens_num_sensor; i++) {
