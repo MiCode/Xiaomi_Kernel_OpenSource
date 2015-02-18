@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,19 +171,16 @@ static int _adreno_coresight_get_and_clear(struct adreno_device *adreno_dev)
 	if (coresight == NULL)
 		return -ENODEV;
 
-	if (!kgsl_active_count_get(device)) {
-
-		/*
-		 * Save the current value of each coresight register
-		 * and then clear each register
-		 */
-		for (i = 0; i < coresight->count; i++) {
-			kgsl_regread(device, coresight->registers[i].offset,
-				&coresight->registers[i].value);
-			kgsl_regwrite(device, coresight->registers[i].offset,
-				0);
-		}
-		kgsl_active_count_put(device);
+	kgsl_pre_hwaccess(device);
+	/*
+	 * Save the current value of each coresight register
+	 * and then clear each register
+	 */
+	for (i = 0; i < coresight->count; i++) {
+		kgsl_regread(device, coresight->registers[i].offset,
+			&coresight->registers[i].value);
+		kgsl_regwrite(device, coresight->registers[i].offset,
+			0);
 	}
 
 	return 0;
@@ -199,13 +196,10 @@ static int _adreno_coresight_set(struct adreno_device *adreno_dev)
 	if (coresight == NULL)
 		return -ENODEV;
 
-	if (!kgsl_active_count_get(device)) {
-		for (i = 0; i < coresight->count; i++)
-			kgsl_regwrite(device, coresight->registers[i].offset,
-				coresight->registers[i].value);
-
-		kgsl_active_count_put(device);
-	}
+	BUG_ON(!kgsl_state_is_awake(device));
+	for (i = 0; i < coresight->count; i++)
+		kgsl_regwrite(device, coresight->registers[i].offset,
+			coresight->registers[i].value);
 
 	return 0;
 }
@@ -249,7 +243,11 @@ static int adreno_coresight_enable(struct coresight_device *csdev)
 			coresight->registers[i].value =
 				coresight->registers[i].initial;
 
-		ret = _adreno_coresight_set(adreno_dev);
+		ret = kgsl_active_count_get(device);
+		if (!ret) {
+			ret = _adreno_coresight_set(adreno_dev);
+			kgsl_active_count_put(device);
+		}
 	}
 
 	mutex_unlock(&device->mutex);
