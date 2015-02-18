@@ -827,6 +827,7 @@ static void arm_smmu_tlb_sync_cb_atomic(struct arm_smmu_device *smmu,
 		dev_err(smmu->dev, "TLBSYNC timeout!\n");
 }
 
+/* smmu_domain->lock must be held across any calls to this function */
 static void arm_smmu_tlb_inv_context(struct arm_smmu_domain *smmu_domain)
 {
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
@@ -858,12 +859,20 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	struct iommu_domain *domain = dev;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_device *smmu;
 	void __iomem *cb_base;
-	bool ctx_hang_errata =
-		smmu->options & ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG;
-	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
+	bool ctx_hang_errata;
+	bool fatal_asf;
 	phys_addr_t phys_soft;
+
+	mutex_lock(&smmu_domain->lock);
+	smmu = smmu_domain->smmu;
+	if (!smmu) {
+		pr_err("took a fault on a detached domain (%p)\n", domain);
+		return IRQ_HANDLED;
+	}
+	ctx_hang_errata = smmu->options & ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG;
+	fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 
 	arm_smmu_enable_clocks(smmu);
 
@@ -872,6 +881,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	if (!(fsr & FSR_FAULT)) {
 		arm_smmu_disable_clocks(smmu);
+		mutex_unlock(&smmu_domain->lock);
 		return IRQ_NONE;
 	}
 
@@ -931,6 +941,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	}
 
 	arm_smmu_disable_clocks(smmu);
+	mutex_unlock(&smmu_domain->lock);
 
 	return ret;
 }
@@ -964,6 +975,7 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+/* smmu_domain->lock must be held across any calls to this function */
 static void arm_smmu_flush_pgtable(struct arm_smmu_domain *smmu_domain,
 				   void *addr, size_t size)
 {
@@ -1167,9 +1179,8 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 
-	mutex_lock(&smmu_domain->lock);
 	if (smmu_domain->smmu)
-		goto out_unlock;
+		goto out;
 
 	if (smmu->features & ARM_SMMU_FEAT_TRANS_NESTED) {
 		/*
@@ -1189,7 +1200,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	ret = __arm_smmu_alloc_bitmap(smmu->context_map, start,
 				      smmu->num_context_banks);
 	if (IS_ERR_VALUE(ret))
-		goto out_unlock;
+		goto out;
 
 	cfg->cbndx = ret;
 	if (smmu->version == ARM_SMMU_V1) {
@@ -1201,7 +1212,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	ACCESS_ONCE(smmu_domain->smmu) = smmu;
 	arm_smmu_init_context_bank(smmu_domain);
-	mutex_unlock(&smmu_domain->lock);
 
 	irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
 	ret = request_threaded_irq(irq, NULL, arm_smmu_context_fault,
@@ -1215,8 +1225,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 
 	return 0;
 
-out_unlock:
-	mutex_unlock(&smmu_domain->lock);
+out:
 	return ret;
 }
 
@@ -1227,9 +1236,6 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	void __iomem *cb_base;
 	int irq;
-
-	if (!smmu)
-		return;
 
 	arm_smmu_enable_clocks(smmu_domain->smmu);
 	/* Disable the context bank and nuke the TLB before freeing it. */
@@ -1495,9 +1501,11 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_device *smmu, *dom_smmu;
 	struct arm_smmu_master_cfg *cfg;
 
+	mutex_lock(&smmu_domain->lock);
 	smmu = find_smmu_for_device(dev);
 	if (!smmu) {
 		dev_err(dev, "cannot attach to SMMU, is it on the same bus?\n");
+		mutex_unlock(&smmu_domain->lock);
 		return -ENXIO;
 	}
 
@@ -1560,10 +1568,12 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (!ret)
 		dev->archdata.iommu = domain;
 	arm_smmu_disable_clocks(smmu);
+	mutex_unlock(&smmu_domain->lock);
 	return ret;
 
 err_disable_clocks:
 	arm_smmu_disable_clocks(smmu);
+	mutex_unlock(&smmu_domain->lock);
 	mutex_lock(&smmu->attach_lock);
 	if (!--smmu->attach_count &&
 		(!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE)))
@@ -1587,11 +1597,21 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_master_cfg *cfg;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
+	struct arm_smmu_device *smmu;
+
+	mutex_lock(&smmu_domain->lock);
+	smmu = smmu_domain->smmu;
+	if (!smmu) {
+		dev_err(dev, "Domain already detached!\n");
+		mutex_unlock(&smmu_domain->lock);
+		return;
+	}
 
 	cfg = find_smmu_master_cfg(dev);
-	if (!cfg)
+	if (!cfg) {
+		mutex_unlock(&smmu_domain->lock);
 		return;
+	}
 
 	dev->archdata.iommu = NULL;
 	arm_smmu_domain_remove_master(smmu_domain, cfg);
@@ -1600,6 +1620,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 	if (!--smmu->attach_count)
 		arm_smmu_power_off(smmu);
 	mutex_unlock(&smmu->attach_lock);
+	mutex_unlock(&smmu_domain->lock);
 }
 
 static bool arm_smmu_pte_is_contiguous_range(unsigned long addr,
@@ -1825,7 +1846,6 @@ static int arm_smmu_handle_mapping(struct arm_smmu_domain *smmu_domain,
 	if (size & ~PAGE_MASK)
 		return -EINVAL;
 
-	mutex_lock(&smmu_domain->lock);
 	pgd += pgd_index(iova);
 	end = iova + size;
 	do {
@@ -1834,14 +1854,11 @@ static int arm_smmu_handle_mapping(struct arm_smmu_domain *smmu_domain,
 		ret = arm_smmu_alloc_init_pud(smmu_domain, pgd, iova, next,
 					      paddr, prot, stage);
 		if (ret)
-			goto out_unlock;
+			return ret;
 
 		paddr += next - iova;
 		iova = next;
 	} while (pgd++, iova != end);
-
-out_unlock:
-	mutex_unlock(&smmu_domain->lock);
 
 	return ret;
 }
@@ -1855,6 +1872,7 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	if (!smmu_domain)
 		return -ENODEV;
 
+	mutex_lock(&smmu_domain->lock);
 	ret = arm_smmu_handle_mapping(smmu_domain, iova, paddr, size, prot);
 
 	if (!ret && smmu_domain->smmu &&
@@ -1863,6 +1881,7 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 		arm_smmu_tlb_inv_context(smmu_domain);
 		arm_smmu_disable_clocks(smmu_domain->smmu);
 	}
+	mutex_unlock(&smmu_domain->lock);
 
 	return ret;
 }
@@ -1873,12 +1892,14 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	int ret;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 
+	mutex_lock(&smmu_domain->lock);
 	ret = arm_smmu_handle_mapping(smmu_domain, iova, 0, size, 0);
 	if (smmu_domain->smmu) {
 		arm_smmu_enable_clocks(smmu_domain->smmu);
 		arm_smmu_tlb_inv_context(smmu_domain);
 		arm_smmu_disable_clocks(smmu_domain->smmu);
 	}
+	mutex_unlock(&smmu_domain->lock);
 	return ret ? 0 : size;
 }
 
@@ -2038,10 +2059,23 @@ err_unlock:
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 					dma_addr_t iova)
 {
+	phys_addr_t phys;
+	bool try_htw = true;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
-	if (smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS)
-		return arm_smmu_iova_to_phys_hard(domain, iova);
-	return arm_smmu_iova_to_phys_soft(domain, iova);
+
+	mutex_lock(&smmu_domain->lock);
+
+	if (!smmu_domain->smmu) {
+		pr_err("Called iova_to_phys on a detached domain. Falling back to software table walk.\n");
+		try_htw = false;
+	}
+
+	if (try_htw && smmu_domain->smmu->features & ARM_SMMU_FEAT_TRANS_OPS)
+		phys = arm_smmu_iova_to_phys_hard(domain, iova);
+	else
+		phys = arm_smmu_iova_to_phys_soft(domain, iova);
+	mutex_unlock(&smmu_domain->lock);
+	return phys;
 }
 
 static bool arm_smmu_capable(enum iommu_cap cap)
@@ -2157,15 +2191,20 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 	switch (attr) {
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
 	{
-		struct arm_smmu_device *smmu = smmu_domain->smmu;
+		struct arm_smmu_device *smmu;
 		int htw_disable = *((int *)data);
+
+		mutex_lock(&smmu_domain->lock);
+		smmu = smmu_domain->smmu;
 
 		if (smmu && !(smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 			&& !htw_disable) {
+			mutex_unlock(&smmu_domain->lock);
 			dev_err(smmu->dev,
 				"Can't enable coherent htw on this domain: this SMMU doesn't support it\n");
 			return -EINVAL;
 		}
+		mutex_unlock(&smmu_domain->lock);
 
 		if (htw_disable)
 			smmu_domain->attributes |=
