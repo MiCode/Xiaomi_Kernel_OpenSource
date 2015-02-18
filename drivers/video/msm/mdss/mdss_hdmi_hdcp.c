@@ -1242,6 +1242,7 @@ int hdmi_hdcp_reauthenticate(void *input)
 {
 	struct hdmi_hdcp_ctrl *hdcp_ctrl = (struct hdmi_hdcp_ctrl *)input;
 	struct dss_io_data *io;
+	u32 hdmi_hw_version;
 	u32 ret = 0;
 
 	if (!hdcp_ctrl || !hdcp_ctrl->init_data.core_io) {
@@ -1265,6 +1266,12 @@ int hdmi_hdcp_reauthenticate(void *input)
 	 */
 	DSS_REG_W(io, HDMI_HPD_CTRL, DSS_REG_R(hdcp_ctrl->init_data.core_io,
 		HDMI_HPD_CTRL) & ~BIT(28));
+
+	hdmi_hw_version = DSS_REG_R(io, HDMI_VERSION);
+	if (hdmi_hw_version >= 0x30030000) {
+		DSS_REG_W(io, HDMI_CTRL_SW_RESET, BIT(1));
+		DSS_REG_W(io, HDMI_CTRL_SW_RESET, 0);
+	}
 
 	/* Disable HDCP interrupts */
 	DSS_REG_W(io, HDMI_HDCP_INT_CTRL, 0);
