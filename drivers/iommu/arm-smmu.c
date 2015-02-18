@@ -474,8 +474,8 @@ struct arm_smmu_cfg {
 };
 #define INVALID_IRPTNDX			0xff
 
-#define ARM_SMMU_CB_ASID(cfg)		((cfg)->cbndx)
-#define ARM_SMMU_CB_VMID(cfg)		((cfg)->cbndx + 1)
+#define ARM_SMMU_CB_ASID(cfg)		((cfg)->cbndx + 1)
+#define ARM_SMMU_CB_VMID(cfg)		((cfg)->cbndx + 2)
 
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
