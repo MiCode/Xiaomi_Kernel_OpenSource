@@ -342,6 +342,16 @@ config MSM_SECURE_BUFFER
 	 use this memory and no unauthorized access is made to the
 	 buffer
 
+config MSM_TZ_SMMU
+	bool "Helper functions for SMMU configuration through TZ"
+	depends on ARCH_MSMTHULIUM
+	help
+	  Say 'Y' here for targets that need to call into TZ to configure
+	  SMMUs for any reason (for example, for errata workarounds or
+	  configuration of SMMU virtualization).
+
+	  If unsure, say N.
+
 config MSM_GLADIATOR_ERP
 	tristate "GLADIATOR coherency interconnect error reporting driver"
 	help
