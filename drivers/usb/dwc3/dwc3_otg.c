@@ -95,12 +95,6 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			return ret;
 		}
 
-		/*
-		 * WORKAROUND: currently host mode suspend isn't working well.
-		 * Disable xHCI's runtime PM for now.
-		 */
-		pm_runtime_disable(&dwc->xhci->dev);
-
 		hcd = platform_get_drvdata(dwc->xhci);
 		otg->host = &hcd->self;
 
