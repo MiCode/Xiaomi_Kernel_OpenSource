@@ -1933,6 +1933,8 @@ static void handle_thermal_event(struct msm_vidc_core *core)
 			inst->state < MSM_VIDC_CLOSE_DONE) {
 			dprintk(VIDC_WARN, "%s: abort inst %p\n",
 				__func__, inst);
+
+			change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 			rc = msm_comm_session_abort(inst);
 			if (rc) {
 				dprintk(VIDC_ERR,
@@ -1940,7 +1942,6 @@ static void handle_thermal_event(struct msm_vidc_core *core)
 					__func__, rc);
 				goto err_sess_abort;
 			}
-			change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 			dprintk(VIDC_WARN,
 				"%s Send sys error for inst %p\n",
 				__func__, inst);
@@ -2281,6 +2282,12 @@ static int msm_vidc_load_resources(int flipped_state,
 		inst->state = MSM_VIDC_CORE_INVALID;
 		msm_comm_kill_session(inst);
 		return -EBUSY;
+	}
+
+	if (!is_thermal_permissible(core)) {
+		dprintk(VIDC_WARN,
+			"Thermal level critical, stop the session!\n");
+		return -ENOTSUPP;
 	}
 
 	hdev = core->device;
@@ -4151,12 +4158,6 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 		dprintk(VIDC_WARN,
 			"%s: Hardware is overloaded\n", __func__);
 		return rc;
-	}
-
-	if (!is_thermal_permissible(core)) {
-		dprintk(VIDC_WARN,
-			"Thermal level critical, stop all active sessions!\n");
-		return -ENOTSUPP;
 	}
 
 	if (!rc && inst->capability.capability_set) {
