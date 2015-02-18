@@ -96,8 +96,14 @@
 #define MSM_MAX_GPIO    32
 
 #define RF_MAX_WF_SIZE  0xA00000
+#define RF_MAX_I2C_SIZE  8192
 
+#define I2C_B_FIELD     21
+#define I2C_V_FIELD     23
+
+uint16_t slave_address = 0x52;
 uint8_t rfbid;
+uint8_t rf_eeprom = 0;
 void __iomem *grfc_base;
 void __iomem *pdm_base;
 void __iomem *wf_base;
@@ -128,6 +134,34 @@ static int n_dev;
 /*
  * File interface
  */
+
+static int ftr_i2c_read(
+	uint16_t i_offset,
+	u8 *i_buf,
+	size_t i_len)
+{
+	uint8_t i2c_data[] =  {i_offset >> 8, i_offset & 0xFF};
+	int ret;
+
+	struct i2c_msg msgs[] = {
+		[0] = {
+			.addr = slave_address,
+			.flags = 0,
+			.len = ARRAY_SIZE(i2c_data),
+			.buf = (void *)i2c_data,
+		},
+		[1] = {
+			.addr = slave_address,
+			.flags = I2C_M_RD,
+			.len = i_len,
+			.buf = (void *)i_buf,
+		},
+	};
+
+	ret = i2c_transfer(i2c_get_adapter(1), msgs, ARRAY_SIZE(msgs));
+
+	return (ret == 2) ? 0 : ret;
+}
 
 static int ftr_find_id(int minor);
 
@@ -664,6 +698,12 @@ uint8_t rf_interface_id(void)
 {
 	uint8_t tempid = 0;
 
+	if (ftr_i2c_read(I2C_B_FIELD, &rfbid, 1) == 0) {
+		pr_info("%s: RF Board Id (i2c) 0x%x\n", __func__, rfbid);
+		rf_eeprom = 1;
+		return rfbid;
+	}
+
 	tempid = gpio_get_value(FTR1_LB_NL_SEL);
 	rfbid = tempid << 7;
 	tempid = gpio_get_value(FTR1_HB_NL_SEL);
@@ -914,7 +954,6 @@ void rfic_pvc_enable(void __iomem *pvc_addr, int rfic)
 	}
 }
 
-
 static int ftr_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -937,7 +976,7 @@ static int ftr_probe(struct platform_device *pdev)
 
 	if (!n_dev) {
 		rfbid = rf_interface_id();
-		if ((rfbid != 0xff) && (rfbid != 0))
+		if ((rfbid != 0xff) && (rfbid != 0) && rf_eeprom == 0)
 			rfbid = rfbid & RF_TYPE_48;
 
 		switch (rfbid) {
@@ -948,6 +987,7 @@ static int ftr_probe(struct platform_device *pdev)
 			glu_regulator_init(pdev);
 			break;
 		case RF_TYPE_48:
+		case RF_TYPE_4:
 			mtr_regulator_init(pdev);
 			break;
 		default:
@@ -979,9 +1019,6 @@ static int ftr_probe(struct platform_device *pdev)
 			return PTR_ERR(pdm_base);
 		}
 
-		ret = device_create_file(&pdev->dev, &dev_attr_rfboard_id);
-		WARN_ON(ret);
-
 		pdm_clk = clk_get(&pdev->dev, "ahb_clk");
 		if (IS_ERR(pdm_clk)) {
 			pdm_clk = NULL;
@@ -1004,7 +1041,8 @@ static int ftr_probe(struct platform_device *pdev)
 			clk_enable(pdm_clk);
 		}
 
-		if ((rfbid > RF_TYPE_48) && (rfbid != 0xff)) {
+		if ((rfbid == RF_TYPE_4) || ((rfbid > RF_TYPE_48) &&
+			(rfbid != 0xff))) {
 			fsm9900_mtr_init();
 			pdm_mtr_enable();
 			pr_info("%s: MTR PDM Enabled\n", __func__);
@@ -1019,6 +1057,16 @@ static int ftr_probe(struct platform_device *pdev)
 			pr_warn("%s:PDMs not configured %d\n",
 					__func__, rfbid);
 		}
+
+		/* To work with older RF software */
+		if ((rf_eeprom != 0) &&
+			(ftr_i2c_read(I2C_V_FIELD, &version, 1) == 0)) {
+			rfbid = rfbid << 4;
+			rfbid += version;
+		}
+
+		ret = device_create_file(&pdev->dev, &dev_attr_rfboard_id);
+		WARN_ON(ret);
 
 	}
 
