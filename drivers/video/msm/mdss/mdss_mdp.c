@@ -673,7 +673,9 @@ int mdss_iommu_ctrl(int enable)
 
 	if (enable) {
 		if (mdata->iommu_ref_cnt == 0) {
-			mdss_bus_scale_set_quota(MDSS_HW_IOMMU, SZ_1M, SZ_1M);
+			if (mdata->needs_iommu_bw_vote)
+				mdss_bus_scale_set_quota(MDSS_HW_IOMMU,
+					SZ_1M, SZ_1M);
 			rc = mdss_iommu_attach(mdata);
 		}
 		mdata->iommu_ref_cnt++;
@@ -682,7 +684,9 @@ int mdss_iommu_ctrl(int enable)
 			mdata->iommu_ref_cnt--;
 			if (mdata->iommu_ref_cnt == 0) {
 				rc = mdss_iommu_dettach(mdata);
-				mdss_bus_scale_set_quota(MDSS_HW_IOMMU, 0, 0);
+				if (mdata->needs_iommu_bw_vote)
+					mdss_bus_scale_set_quota(MDSS_HW_IOMMU,
+						0, 0);
 			}
 		} else {
 			pr_err("unbalanced iommu ref\n");
@@ -1244,6 +1248,10 @@ static u32 mdss_mdp_res_init(struct mdss_data_type *mdata)
 				mdata->iclient);
 		mdata->iclient = NULL;
 	}
+
+	mdata->needs_iommu_bw_vote =
+			of_property_read_bool(mdata->pdev->dev.of_node,
+			 "qcom,mdss-needs-iommu-bw-vote");
 
 	rc = mdss_iommu_init(mdata);
 

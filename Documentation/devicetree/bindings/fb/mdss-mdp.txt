@@ -511,6 +511,9 @@ Subnode properties:
 - qcom,boot-indication-enabled: Boolean property that enables turning on the blue
 				LED for notifying that the device is in boot
 				process.
+- qcom,mdss-needs-iommu-bw-vote: Boolean property to indicate if minimum bus
+				bandwidth vote is needed for MDSS to perform
+				IOMMU transactions.
 
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
@@ -643,6 +646,7 @@ Example:
 		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
 		qcom,mdss-prefill-fbc-lines = <2>;
 		qcom,mdss-idle-power-collapse-enabled;
+		qcom,mdss-needs-iommu-bw-vote;
 
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
