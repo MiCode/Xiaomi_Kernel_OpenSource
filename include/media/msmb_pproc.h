@@ -13,6 +13,8 @@
 
 /* Should be same as VIDEO_MAX_PLANES in videodev2.h */
 #define MAX_PLANES VIDEO_MAX_PLANES
+/* PARTIAL_FRAME_STRIPE_COUNT must be even */
+#define PARTIAL_FRAME_STRIPE_COUNT 4
 
 #define MAX_NUM_CPP_STRIPS 8
 #define MSM_CPP_MAX_NUM_PLANES 3
@@ -198,6 +200,26 @@ struct msm_cpp_frame_info_t {
 	struct msm_cpp_buffer_info_t output_buffer_info[2];
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
 	uint32_t reserved;
+	uint8_t partial_frame_indicator;
+	/* the followings are used only for partial_frame type
+	 * and is only used for offline frame processing and
+	 * only if payload big enough and need to be split into partial_frame
+	 * if first_payload, kernel acquires output buffer
+	 * first payload must have the last stripe
+	 * buffer addresses from 0 to last_stripe_index are updated.
+	 * kernel updates payload with msg_len and stripe_info
+	 * kernel sends top level, plane level, then only stripes
+	 * starting with first_stripe_index and
+	 * ends with last_stripe_index
+	 * kernel then sends trailing flag at frame done,
+	 * if last payload, kernel queues the output buffer to HAL
+	 */
+	uint8_t first_payload;
+	uint8_t last_payload;
+	uint32_t first_stripe_index;
+	uint32_t last_stripe_index;
+	uint32_t stripe_info_offset;
+	uint32_t stripe_info;
 };
 
 struct msm_cpp_pop_stream_info_t {
@@ -372,6 +394,26 @@ struct msm_cpp_frame_info32_t {
 	struct msm_cpp_buffer_info_t output_buffer_info[2];
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
 	uint32_t reserved;
+	uint8_t partial_frame_indicator;
+	/* the followings are used only for partial_frame type
+	 * and is only used for offline frame processing and
+	 * only if payload big enough and need to be split into partial_frame
+	 * if first_payload, kernel acquires output buffer
+	 * first payload must have the last stripe
+	 * buffer addresses from 0 to last_stripe_index are updated.
+	 * kernel updates payload with msg_len and stripe_info
+	 * kernel sends top level, plane level, then only stripes
+	 * starting with first_stripe_index and
+	 * ends with last_stripe_index
+	 * kernel then sends trailing flag at frame done,
+	 * if last payload, kernel queues the output buffer to HAL
+	 */
+	uint8_t first_payload;
+	uint8_t last_payload;
+	uint32_t first_stripe_index;
+	uint32_t last_stripe_index;
+	uint32_t stripe_info_offset;
+	uint32_t stripe_info;
 };
 
 struct msm_cpp_clock_settings32_t {
