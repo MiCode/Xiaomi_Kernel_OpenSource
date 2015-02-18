@@ -16,6 +16,7 @@
 #include <media/v4l2-device.h>
 #include <media/v4l2-fh.h>
 #include <media/v4l2-ctrls.h>
+#include <linux/msm-bus.h>
 #include <media/msm_fd.h>
 
 /* Maximum number of result buffers */
@@ -196,6 +197,9 @@ enum msm_fd_mem_resources {
  * @clk_num: Number of clocks attached to the device.
  * @clk: Array of clock resources used by fd device.
  * @clk_rates: Array of clock rates set.
+ * @bus_vectors: Pointer to bus vectors array.
+ * @bus_paths: Pointer to bus paths array.
+ * @bus_scale_data: Memory access bus scale data.
  * @bus_client: Memory access bus client.
  * @iommu_domain: Pointer to FD device iommu domain handler.
  * @iommu_domain_num: FD device iommu domain number.
@@ -228,6 +232,9 @@ struct msm_fd_device {
 	unsigned int clk_rates_num;
 	unsigned int clk_rates[MSM_FD_MAX_CLK_RATES][MSM_FD_MAX_CLK_NUM];
 
+	struct msm_bus_vectors *bus_vectors;
+	struct msm_bus_paths *bus_paths;
+	struct msm_bus_scale_pdata bus_scale_data;
 	uint32_t bus_client;
 
 	struct iommu_domain *iommu_domain;
