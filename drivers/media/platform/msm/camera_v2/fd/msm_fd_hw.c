@@ -1267,6 +1267,25 @@ static int msm_fd_hw_try_enable(struct msm_fd_device *fd,
 }
 
 /*
+ * msm_fd_hw_remove_active_buffer - Remove active buffer from processing queue.
+ * @fd: Fd device.
+ */
+static int msm_fd_hw_remove_active_buffer(struct msm_fd_device *fd)
+{
+	struct msm_fd_buffer *buffer;
+	int active_removed = 0;
+
+	if (!list_empty(&fd->buf_queue)) {
+		buffer = list_first_entry(&fd->buf_queue,
+			struct msm_fd_buffer, list);
+		list_del(&buffer->list);
+		active_removed = 1;
+	}
+
+	return active_removed;
+}
+
+/*
  * msm_fd_hw_next_buffer - Get next buffer from fd device processing queue.
  * @fd: Fd device.
  */
@@ -1331,8 +1350,6 @@ void msm_fd_hw_remove_buffers_from_queue(struct msm_fd_device *fd,
 		time = wait_for_completion_timeout(&active_buffer->completion,
 			msecs_to_jiffies(MSM_FD_PROCESSING_TIMEOUT_MS));
 		if (!time) {
-			/* Remove active buffer */
-			msm_fd_hw_get_active_buffer(fd);
 			/* Schedule if other buffers are present in device */
 			msm_fd_hw_schedule_next_buffer(fd);
 		}
@@ -1378,7 +1395,6 @@ struct msm_fd_buffer *msm_fd_hw_get_active_buffer(struct msm_fd_device *fd)
 	if (!list_empty(&fd->buf_queue)) {
 		buffer = list_first_entry(&fd->buf_queue,
 			struct msm_fd_buffer, list);
-		list_del(&buffer->list);
 	}
 	spin_unlock(&fd->slock);
 
@@ -1421,6 +1437,13 @@ int msm_fd_hw_schedule_next_buffer(struct msm_fd_device *fd)
 	/* We can schedule next buffer only in running state */
 	if (fd->state != MSM_FD_DEVICE_RUNNING) {
 		dev_err(fd->dev, "Can not schedule next buffer\n");
+		spin_unlock(&fd->slock);
+		return -EBUSY;
+	}
+
+	ret = msm_fd_hw_remove_active_buffer(fd);
+	if (ret == 0) {
+		dev_err(fd->dev, "Active buffer is missing\n");
 		spin_unlock(&fd->slock);
 		return -EBUSY;
 	}
