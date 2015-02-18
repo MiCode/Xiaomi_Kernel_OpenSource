@@ -946,9 +946,10 @@ struct max170xx_acpi_fg_config {
 	char fg_name[ACPI_FG_NAME_LEN];
 	char battid[BATTID_LEN];
 	u16 size;
+	u8 fco; /* Fuel gauge config options */
 	u16 checksum;
 	struct max17042_config_data cdata;
-};
+} __packed;
 
 static struct max17042_config_data *
 max17042_get_acpi_cdata(struct device *dev)
