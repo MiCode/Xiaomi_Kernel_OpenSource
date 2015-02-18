@@ -168,6 +168,7 @@ struct mdss_data_type {
 	u8 has_non_scalar_rgb;
 	bool has_src_split;
 	bool idle_pc_enabled;
+	bool needs_iommu_bw_vote;
 	bool has_pingpong_split;
 	bool has_pixel_ram;
 	bool needs_hist_vote;
