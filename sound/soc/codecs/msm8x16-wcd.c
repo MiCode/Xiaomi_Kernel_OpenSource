@@ -2598,7 +2598,7 @@ static void tx_hpf_corner_freq_callback(struct work_struct *work)
 	dev_dbg(codec->dev, "%s(): decimator %u hpf_cut_of_freq 0x%x\n",
 		 __func__, hpf_work->decimator, (unsigned int)hpf_cut_of_freq);
 	snd_soc_update_bits(codec,
-			MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV, 0x51, 0x51);
+			MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV, 0xFF, 0x51);
 
 	snd_soc_update_bits(codec, tx_mux_ctl_reg, 0x30, hpf_cut_of_freq << 4);
 }
@@ -2691,7 +2691,7 @@ static int msm8x16_wcd_codec_enable_dec(struct snd_soc_dapm_widget *w,
 		}
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_TX_1_2_TXFE_CLKDIV,
-				0x51, 0x40);
+				0xFF, 0x42);
 
 		break;
 	case SND_SOC_DAPM_POST_PMU:
