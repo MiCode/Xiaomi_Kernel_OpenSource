@@ -1269,8 +1269,12 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 		      rq->max_freq < rq->max_possible_freq)))
 		cur_freq = rq->max_possible_freq;
 
-	delta = div64_u64(delta  * cur_freq, max_possible_freq);
-	sf = (rq->efficiency * 1024) / max_possible_efficiency;
+	/* round up div64 */
+	delta = div64_u64(delta * cur_freq + max_possible_freq - 1,
+			  max_possible_freq);
+
+	sf = DIV_ROUND_UP(rq->efficiency * 1024, max_possible_efficiency);
+
 	delta *= sf;
 	delta >>= 10;
 
@@ -2313,7 +2317,8 @@ unsigned long capacity_scale_cpu_freq(int cpu)
  */
 static inline unsigned long load_scale_cpu_efficiency(int cpu)
 {
-	return (1024 * max_possible_efficiency) / cpu_rq(cpu)->efficiency;
+	return DIV_ROUND_UP(1024 * max_possible_efficiency,
+			    cpu_rq(cpu)->efficiency);
 }
 
 /*
@@ -2323,7 +2328,7 @@ static inline unsigned long load_scale_cpu_efficiency(int cpu)
  */
 static inline unsigned long load_scale_cpu_freq(int cpu)
 {
-	return (1024 * max_possible_freq) / cpu_rq(cpu)->max_freq;
+	return DIV_ROUND_UP(1024 * max_possible_freq, cpu_rq(cpu)->max_freq);
 }
 
 static int compute_capacity(int cpu)
