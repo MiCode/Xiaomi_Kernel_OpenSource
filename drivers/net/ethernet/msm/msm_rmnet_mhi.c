@@ -567,7 +567,6 @@ static int rmnet_mhi_open(struct net_device *dev)
 			rmnet_mhi_ptr->tx_channel,
 			rmnet_mhi_ptr->rx_channel);
 	netif_start_queue(dev);
-	napi_enable(&(rmnet_mhi_ptr->napi));
 
 	/* Poll to check if any buffers are accumulated in the
 	 * transport buffers
@@ -616,7 +615,6 @@ static int rmnet_mhi_stop(struct net_device *dev)
 	struct rmnet_mhi_private *rmnet_mhi_ptr =
 		*(struct rmnet_mhi_private **)netdev_priv(dev);
 	netif_stop_queue(dev);
-	napi_disable(&(rmnet_mhi_ptr->napi));
 	rmnet_log(MSG_VERBOSE, "Entered\n");
 	if (atomic_read(&rmnet_mhi_ptr->irq_masked_cntr)) {
 		mhi_unmask_irq(rmnet_mhi_ptr->rx_client_handle);
@@ -935,8 +933,8 @@ static int rmnet_mhi_enable_iface(struct rmnet_mhi_private *rmnet_mhi_ptr)
 			  "Network device registration failed\n");
 		goto net_dev_reg_fail;
 	}
+	napi_enable(&(rmnet_mhi_ptr->napi));
 
-	netif_start_queue(rmnet_mhi_ptr->dev);
 	rmnet_log(MSG_INFO, "Exited.\n");
 
 	return 0;
