@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,8 +238,14 @@ int adm_dts_eagle_set(int port_id, int copp_idx, int param_id,
 		__func__, port_id, p_idx);
 
 	if (p_idx < 0) {
-		pr_err("DTS_EAGLE_ADM: %s - invalid port index %i, port id %i, copp idx %i\n",
-			__func__, p_idx, port_id, copp_idx);
+		pr_err("DTS_EAGLE_ADM: %s: invalid port index 0x%x, port id 0x%x\n",
+			__func__, p_idx, port_id);
+		return -EINVAL;
+	}
+
+	if (copp_idx < 0 || copp_idx >= MAX_COPPS_PER_PORT) {
+		pr_err("DTS_EAGLE_ADM: %s: Invalid copp_idx: %d\n", __func__,
+			copp_idx);
 		return -EINVAL;
 	}
 
@@ -320,6 +326,12 @@ int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
 	if (p_idx < 0) {
 		pr_err("DTS_EAGLE_ADM: %s - invalid port index %i, port id %i, copp idx %i\n",
 				__func__, p_idx, port_id, copp_idx);
+		return -EINVAL;
+	}
+
+	if (copp_idx < 0 || copp_idx >= MAX_COPPS_PER_PORT) {
+		pr_err("DTS_EAGLE_ADM: %s: Invalid copp_idx: %d\n", __func__,
+			copp_idx);
 		return -EINVAL;
 	}
 
