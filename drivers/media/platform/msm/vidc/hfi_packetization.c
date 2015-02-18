@@ -165,6 +165,9 @@ static inline u32 get_hfi_codec(enum hal_video_codec hal_codec)
 	case HAL_VIDEO_CODEC_HEVC:
 		hfi_codec = HFI_VIDEO_CODEC_HEVC;
 		break;
+	case HAL_VIDEO_CODEC_VP9:
+		hfi_codec = HFI_VIDEO_CODEC_VP9;
+		break;
 	case HAL_VIDEO_CODEC_HEVC_HYBRID:
 		hfi_codec = HFI_VIDEO_CODEC_HEVC_HYBRID;
 		break;
