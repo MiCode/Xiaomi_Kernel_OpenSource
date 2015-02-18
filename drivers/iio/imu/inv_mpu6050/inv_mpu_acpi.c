@@ -60,6 +60,14 @@ static const struct dmi_system_id inv_mpu_dev_list[] = {
 		},
 	},
 	/* Add more matching tables here..*/
+	{
+	.callback = malata_matched,
+	.ident = "Oktabit VERO A82i",
+		.matches = {
+			DMI_MATCH(DMI_BOARD_NAME, "A82i"),
+			DMI_MATCH(DMI_BOARD_VERSION, "1"),
+		},
+	},
 	{}
 };
 
