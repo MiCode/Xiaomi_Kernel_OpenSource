@@ -271,21 +271,24 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 	session = lsm_d->lsm_session;
 	lab_sess = &session->lab;
 
-	if (lab_sess->thread_status == MSM_LSM_LAB_THREAD_RUNNING) {
-		dev_dbg(rtd->dev, "%s: stopping lab thread\n",
-			__func__);
-		rc = kthread_stop(session->lsm_lab_thread);
+	if (lab_sess->thread_status != MSM_LSM_LAB_THREAD_STOP) {
 
-		/* Wait for the lab thread to exit */
-		rc = wait_for_completion_timeout(
-				&lab_sess->thread_complete,
-				MSM_CPE_LAB_THREAD_TIMEOUT);
-		if (!rc) {
-			dev_err(rtd->dev,
-				"%s: Wait for lab thread timedout\n",
+		if (lab_sess->thread_status ==
+		    MSM_LSM_LAB_THREAD_RUNNING) {
+			dev_dbg(rtd->dev, "%s: stopping lab thread\n",
 				__func__);
-			lab_sess->thread_status = MSM_LSM_LAB_THREAD_ERROR;
-			return -ETIMEDOUT;
+			rc = kthread_stop(session->lsm_lab_thread);
+
+			/* Wait for the lab thread to exit */
+			rc = wait_for_completion_timeout(
+					&lab_sess->thread_complete,
+					MSM_CPE_LAB_THREAD_TIMEOUT);
+			if (!rc) {
+				dev_err(rtd->dev,
+					"%s: Wait for lab thread timedout\n",
+					__func__);
+				return -ETIMEDOUT;
+			}
 		}
 
 		lab_sess->thread_status = MSM_LSM_LAB_THREAD_STOP;
