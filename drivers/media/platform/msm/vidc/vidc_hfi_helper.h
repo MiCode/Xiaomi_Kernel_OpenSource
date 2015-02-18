@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,7 +86,8 @@
 #define HFI_VIDEO_CODEC_SPARK				0x00000200
 #define HFI_VIDEO_CODEC_VP8				0x00001000
 #define HFI_VIDEO_CODEC_HEVC				0x00002000
-#define HFI_VIDEO_CODEC_HEVC_HYBRID			0x00004000
+#define HFI_VIDEO_CODEC_VP9				0x00004000
+#define HFI_VIDEO_CODEC_HEVC_HYBRID			0x80000000
 
 #define HFI_H264_PROFILE_BASELINE			0x00000001
 #define HFI_H264_PROFILE_MAIN				0x00000002

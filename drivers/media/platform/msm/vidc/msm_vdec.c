@@ -709,6 +709,14 @@ struct msm_vidc_format vdec_formats[] = {
 		.type = OUTPUT_PORT,
 	},
 	{
+		.name = "VP9",
+		.description = "VP9 compressed format",
+		.fourcc = V4L2_PIX_FMT_VP9,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_compressed,
+		.type = OUTPUT_PORT,
+	},
+	{
 		.name = "DIVX 311",
 		.description = "DIVX 311 compressed format",
 		.fourcc = V4L2_PIX_FMT_DIVX_311,
