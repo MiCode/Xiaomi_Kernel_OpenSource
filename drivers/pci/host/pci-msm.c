@@ -2779,14 +2779,25 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 	}
 
 	if (dev->common_clk_en) {
+		msm_pcie_write_mask(dev->dm_core + PCIE20_CAP_LINKCTRLSTATUS,
+					0, BIT(6));
+
 		msm_pcie_write_mask(dev->conf + ep_link_ctrlstts_offset,
 					0, BIT(6));
 
-		if (dev->shadow_en)
+		if (dev->shadow_en) {
+			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
+				readl_relaxed(dev->dm_core +
+					PCIE20_CAP_LINKCTRLSTATUS);
+
 			dev->ep_shadow[0][ep_link_ctrlstts_offset / 4] =
 				readl_relaxed(dev->conf +
 					ep_link_ctrlstts_offset);
+		}
 
+		PCIE_DBG2(dev, "RC's CAP_LINKCTRLSTATUS:0x%x\n",
+			readl_relaxed(dev->dm_core +
+			PCIE20_CAP_LINKCTRLSTATUS));
 		PCIE_DBG2(dev, "EP's CAP_LINKCTRLSTATUS:0x%x\n",
 			readl_relaxed(dev->conf + ep_link_ctrlstts_offset));
 	}
