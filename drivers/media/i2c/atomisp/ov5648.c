@@ -876,6 +876,7 @@ static int ov5648_init(struct v4l2_subdev *sd)
 	ret = ov5648_write_reg_array(client, ov5648_global_settings);
 	if (ret) {
 		dev_err(&client->dev, "ov5648 write global settings err.\n");
+		mutex_unlock(&dev->input_lock);
 		return ret;
 	}
 
