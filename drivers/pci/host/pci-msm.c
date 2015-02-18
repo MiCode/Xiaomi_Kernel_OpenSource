@@ -1318,26 +1318,31 @@ static void msm_pcie_sel_debug_testcase(struct msm_pcie_dev_t *dev,
 	u32 ep_link_ctrlstts_offset = 0;
 	u32 ep_dev_ctrl2stts2_offset = 0;
 
-	current_offset = readl_relaxed(dev->conf + PCIE_CAP_PTR_OFFSET) & 0xff;
+	if (testcase >= 5 && testcase <= 10) {
+		current_offset =
+			readl_relaxed(dev->conf + PCIE_CAP_PTR_OFFSET) & 0xff;
 
-	while (current_offset) {
-		val = readl_relaxed(dev->conf + current_offset);
-		if ((val & 0xff) == PCIE20_CAP_ID) {
-			ep_link_ctrlstts_offset = current_offset + 0x10;
-			ep_dev_ctrl2stts2_offset = current_offset + 0x28;
-			break;
+		while (current_offset) {
+			val = readl_relaxed(dev->conf + current_offset);
+			if ((val & 0xff) == PCIE20_CAP_ID) {
+				ep_link_ctrlstts_offset = current_offset +
+								0x10;
+				ep_dev_ctrl2stts2_offset = current_offset +
+								0x28;
+				break;
+			}
+			current_offset = (val >> 8) & 0xff;
 		}
-		current_offset = (val >> 8) & 0xff;
-	}
 
-	if (!ep_link_ctrlstts_offset)
-		PCIE_DBG(dev,
-			"RC%d endpoint does not support PCIe capability registers\n",
-			dev->rc_idx);
-	else
-		PCIE_DBG(dev,
-			"RC%d: ep_link_ctrlstts_offset: 0x%x\n",
-			dev->rc_idx, ep_link_ctrlstts_offset);
+		if (!ep_link_ctrlstts_offset)
+			PCIE_DBG(dev,
+				"RC%d endpoint does not support PCIe capability registers\n",
+				dev->rc_idx);
+		else
+			PCIE_DBG(dev,
+				"RC%d: ep_link_ctrlstts_offset: 0x%x\n",
+				dev->rc_idx, ep_link_ctrlstts_offset);
+	}
 
 	switch (testcase) {
 	case 0: /* output status */
