@@ -80,6 +80,11 @@ int intel_edp_drrs_init(struct intel_pipeline *pipeline)
 		return ret;
 	}
 
+	if (IS_VALLEYVIEW() || IS_CHERRYVIEW())
+		dp_pipe->drrs.platform_ops = get_vlv_edp_drrs_ops();
+	else
+		dp_pipe->drrs.platform_ops = NULL;
+
 	if (!dp_pipe->drrs.platform_ops ||
 			!dp_pipe->drrs.platform_ops->init ||
 			!dp_pipe->drrs.platform_ops->set_drrs_state) {

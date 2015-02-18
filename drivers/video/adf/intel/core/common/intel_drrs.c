@@ -18,6 +18,7 @@
 #include <intel_adf_device.h>
 #include <linux/delay.h>
 #include <core/common/intel_drrs.h>
+#include <core/common/dp/gen_dp_pipe.h>
 #include <core/common/drm_modeinfo_ops.h>
 
 void intel_set_drrs_state(struct intel_pipeline *pipeline)
@@ -351,6 +352,8 @@ int intel_drrs_init(struct intel_pipeline *pipeline)
 
 	if (pipe_type == INTEL_PIPE_DSI) {
 		drrs->encoder_ops = intel_drrs_dsi_encoder_ops_init();
+	} else if (pipe_type == INTEL_PIPE_EDP) {
+		drrs->encoder_ops = intel_get_edp_drrs_ops();
 	} else {
 		pr_err("ADF: %s: Unsupported PIPE Type\n", __func__);
 		ret = -EINVAL;

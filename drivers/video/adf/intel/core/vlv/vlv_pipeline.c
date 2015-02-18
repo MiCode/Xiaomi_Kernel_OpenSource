@@ -24,6 +24,7 @@
 #include <core/common/dsi/dsi_pipe.h>
 #include <core/common/hdmi/gen_hdmi_pipe.h>
 #include <core/common/dp/gen_dp_pipe.h>
+#include <core/common/intel_drrs.h>
 #include <core/vlv/vlv_pm.h>
 #include <core/vlv/vlv_pll.h>
 #include <core/vlv/dpio.h>
@@ -622,9 +623,11 @@ u32 chv_pipeline_off(struct intel_pipeline *pipeline)
 	/* Disable DPST */
 	/* FIXME: vlv_dpst_pipeline_off(); */
 
-	/* Disable PSR */
-	if (disp->type == INTEL_PIPE_EDP)
+	/* Disable PSR/DRRS */
+	if (disp->type == INTEL_PIPE_EDP) {
 		vlv_edp_psr_disable(pipeline);
+		intel_disable_idleness_drrs(pipeline);
+	}
 
 	for (i = 0; i < 2; i++) {
 		splane = &disp->splane[0];

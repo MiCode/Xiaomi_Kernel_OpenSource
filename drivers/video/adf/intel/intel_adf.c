@@ -417,7 +417,8 @@ struct intel_adf_context *intel_adf_context_create(struct pci_dev *pdev)
 	}
 
 	for (cnt = 0; cnt < n_intfs; cnt++) {
-		if (intfs[cnt].pipe->type == INTEL_PIPE_DSI)
+		if (intfs[cnt].pipe->type == INTEL_PIPE_DSI ||
+			intfs[cnt].pipe->type == INTEL_PIPE_EDP)
 			intel_drrs_init(intfs[cnt].pipe->pipeline);
 	}
 

@@ -16,6 +16,7 @@
 
 #include <drm/i915_adf.h>
 #include <core/common/dp/gen_dp_pipe.h>
+#include <core/common/intel_drrs.h>
 #include <core/intel_platform_config.h>
 #include <intel_adf.h>
 #include <core/vlv/vlv_dc_config.h>
@@ -464,6 +465,9 @@ static void dp_pipe_on_post(struct intel_pipe *pipe)
 
 	/* Re-enable PSR, if possible */
 	vlv_edp_psr_update(pipeline);
+
+	/* Resume DRRS */
+	intel_restart_idleness_drrs(pipeline);
 }
 
 static void dp_pipe_pre_validate(struct intel_pipe *pipe,
@@ -486,6 +490,9 @@ static void dp_pipe_pre_post(struct intel_pipe *pipe)
 
 	/* Exit eDP PSR */
 	vlv_edp_psr_exit(pipeline, false);
+
+	/* Disable DRRS */
+	intel_disable_idleness_drrs(pipeline);
 
 	vlv_pm_pre_post(intel_config, pipeline, pipe);
 }
