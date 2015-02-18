@@ -123,6 +123,11 @@ static inline void vlv_gps_core_write(u32 reg, u32 val)
 					IOSF_PORT_GPS_CORE, reg, &val);
 }
 
+static inline void vlv_cck_mutex_acquire(bool acquire)
+{
+	intel_adf_dpio_mutex(acquire);
+}
+
 static inline u32 vlv_cck_read(u32 reg)
 {
 	u32 val;
@@ -131,10 +136,24 @@ static inline u32 vlv_cck_read(u32 reg)
 	return val;
 }
 
+static inline u32 vlv_cck_read_no_lock(u32 reg)
+{
+	u32 val;
+	intel_adf_pci_sideband_rw_no_lock(INTEL_SIDEBAND_REG_READ,
+						IOSF_PORT_CCK, reg, &val);
+	return val;
+}
+
 static inline void vlv_cck_write(u32 reg, u32 val)
 {
 	intel_adf_pci_sideband_rw(INTEL_SIDEBAND_REG_WRITE, IOSF_PORT_CCK,
 					reg, &val);
+}
+
+static inline void vlv_cck_write_no_lock(u32 reg, u32 val)
+{
+	intel_adf_pci_sideband_rw_no_lock(INTEL_SIDEBAND_REG_WRITE,
+						IOSF_PORT_CCK, reg, &val);
 }
 
 static inline u32 vlv_punit_read(u32 reg)
