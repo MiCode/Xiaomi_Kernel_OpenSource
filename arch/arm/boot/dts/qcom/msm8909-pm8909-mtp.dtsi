@@ -105,3 +105,7 @@
 &audio_codec_mtp {
 	qcom,msm-micbias2-ext-cap;
 };
+
+&wcnss {
+	qcom,wcnss-vadc = <&pm8909_vadc>;
+};
