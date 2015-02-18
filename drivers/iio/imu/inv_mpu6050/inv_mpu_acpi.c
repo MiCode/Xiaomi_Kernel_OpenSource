@@ -20,11 +20,12 @@
 
 enum inv_mpu_product_name {
 	INV_MPU_NOT_MATCHED,
+	INV_MPU_OTHERS,
 	INV_MPU_ASUS_T100TA,
 	INV_MPU_MALATA,
 };
 
-static enum inv_mpu_product_name matched_product_name;
+static enum inv_mpu_product_name matched_product_name = INV_MPU_NOT_MATCHED;
 
 static int __init asus_t100_matched(const struct dmi_system_id *d)
 {
@@ -174,7 +175,9 @@ int inv_mpu_acpi_create_mux_client(struct inv_mpu6050_state *st)
 		adev = ACPI_COMPANION(&st->client->dev);
 		memset(&info, 0, sizeof(info));
 
-		dmi_check_system(inv_mpu_dev_list);
+		if (matched_product_name == INV_MPU_NOT_MATCHED)
+			dmi_check_system(inv_mpu_dev_list);
+
 		switch (matched_product_name) {
 		/* Malata has the same BIOS implementation with T100TA */
 		case INV_MPU_MALATA:
@@ -184,6 +187,8 @@ int inv_mpu_acpi_create_mux_client(struct inv_mpu6050_state *st)
 			break;
 		/* Add more matched product processing here */
 		default:
+			/* no matched platform */
+			matched_product_name = INV_MPU_OTHERS;
 			break;
 		}
 
