@@ -906,7 +906,7 @@ out_del_mux:
 out_unreg_device:
 	iio_device_unregister(indio_dev);
 out_remove_trigger:
-	inv_mpu6050_remove_trigger(st);
+	inv_mpu6050_remove_trigger(indio_dev);
 out_unreg_ring:
 	iio_triggered_buffer_cleanup(indio_dev);
 	return result;
@@ -920,7 +920,7 @@ static int inv_mpu_remove(struct i2c_client *client)
 	inv_mpu_acpi_delete_mux_client(st);
 	i2c_del_mux_adapter(st->mux_adapter);
 	iio_device_unregister(indio_dev);
-	inv_mpu6050_remove_trigger(st);
+	inv_mpu6050_remove_trigger(indio_dev);
 	iio_triggered_buffer_cleanup(indio_dev);
 
 	return 0;
