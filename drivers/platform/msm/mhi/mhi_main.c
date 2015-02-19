@@ -277,8 +277,7 @@ enum MHI_STATUS mhi_register_channel(struct mhi_client_handle **client_handle,
 		struct mhi_client_info_t *client_info, void *UserData)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
-	struct mhi_device_ctxt *mhi_dev_ctxt =
-		&(mhi_devices.device_list[device_index].mhi_ctxt);
+	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
 
 	if (!VALID_CHAN_NR(chan)) {
 		ret_val = MHI_STATUS_INVALID_CHAN_ERR;
@@ -289,6 +288,8 @@ enum MHI_STATUS mhi_register_channel(struct mhi_client_handle **client_handle,
 		ret_val = MHI_STATUS_ERROR;
 		goto error_handle;
 	}
+	mhi_dev_ctxt = &(mhi_devices.device_list[device_index].mhi_ctxt);
+
 	if (NULL != mhi_dev_ctxt->client_handle_list[chan])
 		return MHI_STATUS_ALREADY_REGISTERED;
 
@@ -1409,13 +1410,15 @@ int mhi_set_bus_request(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 enum MHI_STATUS mhi_deregister_channel(struct mhi_client_handle
 							*client_handle) {
-	if (NULL == client_handle ||
-	    client_handle->magic != MHI_HANDLE_MAGIC)
+	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	if (NULL == client_handle)
 		return MHI_STATUS_ERROR;
 	client_handle->mhi_dev_ctxt->client_handle_list[client_handle->chan] =
 									NULL;
+	if (client_handle->magic != MHI_HANDLE_MAGIC)
+		ret_val = MHI_STATUS_ERROR;
 	kfree(client_handle);
-	return MHI_STATUS_SUCCESS;
+	return ret_val;
 }
 EXPORT_SYMBOL(mhi_deregister_channel);
 
