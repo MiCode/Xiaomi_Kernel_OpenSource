@@ -695,7 +695,7 @@ static void fuse_short_read(struct fuse_req *req, struct inode *inode,
 	}
 }
 
-static int fuse_readpage(struct file *file, struct page *page)
+static int fuse_do_readpage(struct file *file, struct page *page)
 {
 	struct fuse_io_priv io = { .async = 0, .file = file };
 	struct inode *inode = page->mapping->host;
@@ -707,10 +707,6 @@ static int fuse_readpage(struct file *file, struct page *page)
 	u64 attr_ver;
 	int err;
 
-	err = -EIO;
-	if (is_bad_inode(inode))
-		goto out;
-
 	/*
 	 * Page writeback can extend beyond the lifetime of the
 	 * page-cache page, so make sure we read a properly synced
@@ -719,9 +715,8 @@ static int fuse_readpage(struct file *file, struct page *page)
 	fuse_wait_on_page_writeback(inode, page->index);
 
 	req = fuse_get_req(fc, 1);
-	err = PTR_ERR(req);
 	if (IS_ERR(req))
-		goto out;
+		return PTR_ERR(req);
 
 	attr_ver = fuse_get_attr_version(fc);
 
@@ -744,6 +739,20 @@ static int fuse_readpage(struct file *file, struct page *page)
 	}
 
 	fuse_put_request(fc, req);
+
+	return err;
+}
+
+static int fuse_readpage(struct file *file, struct page *page)
+{
+	struct inode *inode = page->mapping->host;
+	int err;
+
+	err = -EIO;
+	if (is_bad_inode(inode))
+		goto out;
+
+	err = fuse_do_readpage(file, page);
 	fuse_invalidate_atime(inode);
  out:
 	unlock_page(page);
