@@ -1007,9 +1007,9 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 		struct mdss_mdp_pipe *pool_head = pipe_pool + off;
 		off += left_blend_pipe->priority - pool_head->priority + 1;
 		if (off >= npipes) {
-			pr_err("priority limitation. l_pipe:%d. no low priority %d pipe type available.\n",
+			pr_warn("priority limitation. l_pipe:%d. no low priority %d pipe type available.\n",
 				left_blend_pipe->num, type);
-			return ERR_PTR(-EINVAL);
+			return NULL;
 		}
 	}
 
