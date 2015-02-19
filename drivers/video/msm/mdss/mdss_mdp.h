@@ -237,6 +237,7 @@ struct mdss_mdp_ctl {
 	int power_state;
 
 	u32 intf_num;
+	u32 slave_intf_num; /* ping-pong split */
 	u32 intf_type;
 
 	u32 opmode;
