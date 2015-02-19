@@ -20,6 +20,7 @@
 
 #define NUM_QLUT 0x100
 #define DEF_PA 0xff
+#define PCC_ADJ 0x80
 
 struct kcal_lut_data {
 	int red;
@@ -34,8 +35,7 @@ struct kcal_lut_data {
 	int cont;
 };
 
-void mdss_mdp_pp_kcal_enable(bool enable);
-void mdss_mdp_pp_kcal_update(int kr, int kg, int kb);
+void mdss_mdp_pp_kcal_update(struct kcal_lut_data *lut_data);
 void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data);
-void mdss_mdp_pp_kcal_invert(int enable);
+void mdss_mdp_pp_kcal_invert(struct kcal_lut_data *lut_data);
 #endif

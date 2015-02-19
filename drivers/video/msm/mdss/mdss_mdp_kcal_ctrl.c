@@ -36,7 +36,7 @@ static void kcal_apply_values(struct kcal_lut_data *lut_data)
 	lut_data->blue = (lut_data->blue < lut_data->minimum) ?
 		lut_data->minimum : lut_data->blue;
 
-	mdss_mdp_pp_kcal_update(lut_data->red, lut_data->green, lut_data->blue);
+	mdss_mdp_pp_kcal_update(lut_data);
 }
 
 static ssize_t kcal_store(struct device *dev, struct device_attribute *attr,
@@ -125,7 +125,7 @@ static ssize_t kcal_enable_store(struct device *dev,
 
 	lut_data->enable = kcal_enable;
 
-	mdss_mdp_pp_kcal_enable(lut_data->enable ? true : false);
+	mdss_mdp_pp_kcal_update(lut_data);
 
 	return count;
 }
@@ -157,7 +157,7 @@ static ssize_t kcal_invert_store(struct device *dev,
 
 	lut_data->invert = kcal_invert;
 
-	mdss_mdp_pp_kcal_invert(lut_data->invert);
+	mdss_mdp_pp_kcal_invert(lut_data);
 
 	return count;
 }
@@ -306,10 +306,6 @@ static int __devinit kcal_ctrl_probe(struct platform_device *pdev)
 			__func__);
 		return -ENOMEM;
 	}
-
-	mdss_mdp_pp_kcal_enable(true);
-
-	mdss_mdp_pp_kcal_update(NUM_QLUT, NUM_QLUT, NUM_QLUT);
 
 	lut_data->red = lut_data->green = lut_data->blue = NUM_QLUT;
 	lut_data->minimum = 35;

@@ -2076,10 +2076,6 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 			mdss_pp_res->gamut_disp_cfg[disp_num].flags |=
 				MDP_PP_OPS_WRITE;
 	}
-
-	if (!disp_num)
-		pp_sts.pgc_sts |= PP_STS_ENABLE;
-
 	if (pp_sts.pgc_sts & PP_STS_ENABLE) {
 		flags |= PP_FLAGS_DIRTY_PGC;
 		if (!(mdss_pp_res->pgc_disp_cfg[disp_num].flags
@@ -2131,42 +2127,21 @@ int mdss_mdp_pp_resume(struct mdss_mdp_ctl *ctl, u32 dspp_num)
 	return 0;
 }
 
-void mdss_mdp_pp_kcal_enable(bool enable)
+void mdss_mdp_pp_kcal_update(struct kcal_lut_data *lut_data)
 {
-	u32 disp_num = 0;
-	struct mdp_pgc_lut_data *pgc_config;
+	u32 copyback = 0;
+	struct mdp_pcc_cfg_data pcc_config;
 
-	pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
-	pgc_config->block = MDP_LOGICAL_BLOCK_DISP_0;
+	memset(&pcc_config, 0, sizeof(struct mdp_pcc_cfg_data));
 
-	if (enable) {
-		pgc_config->flags = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
-		pgc_config->r_data = &mdss_pp_res->gc_lut_r[disp_num][0];
-		pgc_config->g_data = &mdss_pp_res->gc_lut_g[disp_num][0];
-		pgc_config->b_data = &mdss_pp_res->gc_lut_b[disp_num][0];
-	} else
-		pgc_config->flags = MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
+	pcc_config.block = MDP_LOGICAL_BLOCK_DISP_0;
+	pcc_config.ops = lut_data->enable ? MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE :
+		MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
+	pcc_config.r.r = lut_data->red * PCC_ADJ;
+	pcc_config.g.g = lut_data->green * PCC_ADJ;
+	pcc_config.b.b = lut_data->blue * PCC_ADJ;
 
-	mdss_pp_res->pgc_disp_cfg[disp_num] = *pgc_config;
-	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PGC;
-}
-
-void mdss_mdp_pp_kcal_update(int kr, int kg, int kb)
-{
-	int i;
-	u32 disp_num = 0;
-	struct mdp_pgc_lut_data *pgc_config;
-
-	pgc_config = &mdss_pp_res->pgc_disp_cfg[disp_num];
-
-	for (i = 0; i < GC_LUT_SEGMENTS; i++) {
-		pgc_config->r_data[i].slope = kr;
-		pgc_config->g_data[i].slope = kg;
-		pgc_config->b_data[i].slope = kb;
-	}
-
-	mdss_pp_res->pgc_disp_cfg[disp_num] = *pgc_config;
-	mdss_pp_res->pp_disp_flags[disp_num] |= PP_FLAGS_DIRTY_PGC;
+	mdss_mdp_pcc_config(&pcc_config, &copyback);
 }
 
 void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data)
@@ -2186,7 +2161,7 @@ void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data)
 	mdss_mdp_pa_config(&pa_config, &copyback);
 }
 
-void mdss_mdp_pp_kcal_invert(int enable)
+void mdss_mdp_pp_kcal_invert(struct kcal_lut_data *lut_data)
 {
 	int i;
 	u32 disp_num = 0, copyback = 0, copy_from_kernel = 1;
@@ -2201,7 +2176,7 @@ void mdss_mdp_pp_kcal_invert(int enable)
 	igc_config->block = MDP_LOGICAL_BLOCK_DISP_0;
 	igc_config->len = IGC_LUT_ENTRIES;
 
-	if (igc_mfd && enable) {
+	if (igc_mfd && lut_data->invert) {
 		igc_config->ops = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
 		for (i = 0; i < IGC_LUT_ENTRIES; i++) {
 			igc_c0_c1[i] = (igc_Table_RGB[i] & 0xfff) |
@@ -2210,7 +2185,7 @@ void mdss_mdp_pp_kcal_invert(int enable)
 		}
 		igc_config->c0_c1_data = &igc_c0_c1[0];
 		igc_config->c2_data = &igc_c2[0];
-	} else if (igc_mfd && !enable)
+	} else if (igc_mfd && !lut_data->invert)
 		igc_config->ops = MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
 	else
 		return;
