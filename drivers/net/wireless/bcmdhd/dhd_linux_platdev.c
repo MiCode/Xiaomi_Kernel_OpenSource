@@ -196,10 +196,14 @@ int wifi_platform_get_mac_addr(wifi_adapter_info_t *adapter, unsigned char *buf)
 	struct wifi_platform_data *plat_data;
 
 	DHD_ERROR(("%s\n", __FUNCTION__));
-	if (!buf || !adapter || !adapter->wifi_plat_data)
+	if (!buf)
 		return -EINVAL;
+	if (!adapter)
+		return wifi_get_external_mac_addr(buf);
 	plat_data = adapter->wifi_plat_data;
-	if (plat_data->get_mac_addr) {
+	if (!plat_data)
+		return wifi_get_external_mac_addr(buf);
+	else if (plat_data->get_mac_addr) {
 		return plat_data->get_mac_addr(buf);
 	}
 	return -EOPNOTSUPP;

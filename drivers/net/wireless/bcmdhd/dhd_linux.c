@@ -275,6 +275,14 @@ extern int dhd_write_macaddr(struct ether_addr *mac);
 static inline int dhd_write_macaddr(struct ether_addr *mac) { return 0; }
 #endif
 
+/*
+ * This default MAC address is defined into the NVM file.
+ * It is used to check if MAC address coming from FW
+ * is an OTP burnt one or the default one from NVM.
+ */
+#ifdef GET_CUSTOM_MAC_ENABLE
+struct ether_addr default_mac_addr = {.octet={0x00, 0x11, 0x22, 0x33, 0x44, 0x55}};
+#endif /* GET_CUSTOM_MAC_ENABLE */
 
 
 static int dhd_reboot_callback(struct notifier_block *this, unsigned long code, void *unused);
@@ -4489,9 +4497,6 @@ dhd_attach(osl_t *osh, struct dhd_bus *bus, uint bus_hdrlen)
 	dhd->pub.osh = osh;
 	dhd->adapter = adapter;
 
-#ifdef GET_CUSTOM_MAC_ENABLE
-	wifi_platform_get_mac_addr(dhd->adapter, dhd->pub.mac.octet);
-#endif /* GET_CUSTOM_MAC_ENABLE */
 #ifdef CUSTOM_FORCE_NODFS_FLAG
 	dhd->pub.dhd_cflags |= WLAN_PLAT_NODFS_FLAG;
 	dhd->pub.force_country_change = TRUE;
@@ -5277,33 +5282,48 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		dhd_os_set_ioctl_resp_timeout(IOCTL_RESP_TIMEOUT);
 		DHD_INFO(("%s : Set IOCTL response time.\n", __FUNCTION__));
 	}
-#ifdef GET_CUSTOM_MAC_ENABLE
-	ret = wifi_platform_get_mac_addr(dhd->info->adapter, ea_addr.octet);
-	if (!ret) {
-		memset(buf, 0, sizeof(buf));
-		bcm_mkiovar("cur_etheraddr", (void *)&ea_addr, ETHER_ADDR_LEN, buf, sizeof(buf));
-		ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, buf, sizeof(buf), TRUE, 0);
-		if (ret < 0) {
-			DHD_ERROR(("%s: can't set MAC address , error=%d\n", __FUNCTION__, ret));
-			return BCME_NOTUP;
-		}
-		memcpy(dhd->mac.octet, ea_addr.octet, ETHER_ADDR_LEN);
-	} else {
-#endif /* GET_CUSTOM_MAC_ENABLE */
-		/* Get the default device MAC address directly from firmware */
-		memset(buf, 0, sizeof(buf));
-		bcm_mkiovar("cur_etheraddr", 0, 0, buf, sizeof(buf));
-		if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_GET_VAR, buf, sizeof(buf),
-			FALSE, 0)) < 0) {
-			DHD_ERROR(("%s: can't get MAC address , error=%d\n", __FUNCTION__, ret));
-			return BCME_NOTUP;
-		}
-		/* Update public MAC address after reading from Firmware */
-		memcpy(dhd->mac.octet, buf, ETHER_ADDR_LEN);
+	/* Get the default device MAC address directly from firmware */
+	memset(buf, 0, sizeof(buf));
+	bcm_mkiovar("cur_etheraddr", 0, 0, buf, sizeof(buf));
+	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_GET_VAR, buf, sizeof(buf),
+				    FALSE, 0)) < 0) {
+		DHD_ERROR(("%s: can't get MAC address , error=%d\n", __FUNCTION__, ret));
+		ret = BCME_NOTUP;
+		goto done;
+	}
+	/* Update public MAC address after reading from Firmware */
+	memcpy(dhd->mac.octet, buf, ETHER_ADDR_LEN);
+
+	DHD_TRACE(("%s: Get MAC address from FW: "MACDBG"\n",
+		   __FUNCTION__, MAC2STRDBG(dhd->mac.octet)));
 
 #ifdef GET_CUSTOM_MAC_ENABLE
+	/*
+	 * Compare MAC@ get from FW and default NVM one.
+	 *  If they are identical, it means that chip has not been OTP burnt
+	 *  with a unique MAC@.
+	 *  In that case, it is required to use Custom MAC@ using
+	 *  Intel wlan provisioning mechanism.
+	 */
+	if (!memcmp(dhd->mac.octet, default_mac_addr.octet, ETHER_ADDR_LEN)) {
+		ret = wifi_platform_get_mac_addr(dhd->info->adapter, ea_addr.octet);
+		DHD_TRACE(("%s: Chip has not been OTP burnt.\n", __FUNCTION__));
+		if (!ret) {
+			memset(buf, 0, sizeof(buf));
+			bcm_mkiovar("cur_etheraddr", (void *)&ea_addr, ETHER_ADDR_LEN, buf, sizeof(buf));
+			ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, buf, sizeof(buf), TRUE, 0);
+			if (ret < 0) {
+				DHD_ERROR(("%s: can't set MAC address , error=%d\n", __FUNCTION__, ret));
+				ret = BCME_NOTUP;
+				goto done;
+			}
+			memcpy(dhd->mac.octet, ea_addr.octet, ETHER_ADDR_LEN);
+		}
 	}
 #endif /* GET_CUSTOM_MAC_ENABLE */
+
+	DHD_TRACE(("%s: Final MAC address: "MACDBG"\n",
+		   __FUNCTION__, MAC2STRDBG(dhd->mac.octet)));
 
 	/* get a capabilities from firmware */
 	memset(dhd->fw_capabilities, 0, sizeof(dhd->fw_capabilities));
