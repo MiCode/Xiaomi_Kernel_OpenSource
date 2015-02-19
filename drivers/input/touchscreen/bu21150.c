@@ -332,58 +332,56 @@ static int bu21150_pinctrl_init(struct bu21150_data *data)
 		goto error;
 	}
 
-	data->afe_pwr_state_active
-		= pinctrl_lookup_state(data->ts_pinctrl, "afe_pwr_active");
-	if (IS_ERR_OR_NULL(data->afe_pwr_state_active)) {
-		dev_err(&data->client->dev,
-			"Can not get pwr default pinstate\n");
-		rc = PTR_ERR(data->afe_pwr_state_active);
-		goto error;
+	if (of_find_property(data->client->dev.of_node,
+					"afe_pwr_active", NULL)) {
+		data->afe_pwr_state_active
+			= pinctrl_lookup_state(data->ts_pinctrl,
+							"afe_pwr_active");
+		if (IS_ERR(data->afe_pwr_state_active)) {
+			dev_err(&data->client->dev,
+				"Can not get pwr default pinstate\n");
+			rc = PTR_ERR(data->afe_pwr_state_active);
+			goto error;
+		}
 	}
 
-	data->afe_pwr_state_suspend
-		= pinctrl_lookup_state(data->ts_pinctrl, "afe_pwr_suspend");
-	if (IS_ERR_OR_NULL(data->afe_pwr_state_suspend)) {
-		dev_err(&data->client->dev,
-			"Can not get pwr sleep pinstate\n");
-		rc = PTR_ERR(data->afe_pwr_state_suspend);
-		goto error;
+	if (of_find_property(data->client->dev.of_node,
+					"afe_pwr_suspend", NULL)) {
+		data->afe_pwr_state_suspend
+			= pinctrl_lookup_state(data->ts_pinctrl,
+							"afe_pwr_suspend");
+		if (IS_ERR(data->afe_pwr_state_suspend)) {
+			dev_err(&data->client->dev,
+				"Can not get pwr sleep pinstate\n");
+			rc = PTR_ERR(data->afe_pwr_state_suspend);
+			goto error;
+		}
 	}
 
-	data->mod_en_state_active
-		= pinctrl_lookup_state(data->ts_pinctrl, "mod_en_active");
-	if (IS_ERR_OR_NULL(data->mod_en_state_active)) {
-		dev_err(&data->client->dev,
-			"Can not get mod enable default pinstate\n");
-		rc = PTR_ERR(data->mod_en_state_active);
-		goto error;
+	if (of_find_property(data->client->dev.of_node,
+					"disp_vsn_active", NULL)) {
+		data->disp_vsn_state_active
+			= pinctrl_lookup_state(data->ts_pinctrl,
+							"disp_vsn_active");
+		if (IS_ERR(data->disp_vsn_state_active)) {
+			dev_err(&data->client->dev,
+				"Can not get disp_vsn default pinstate\n");
+			rc = PTR_ERR(data->disp_vsn_state_active);
+			goto error;
+		}
 	}
 
-	data->mod_en_state_suspend
-		= pinctrl_lookup_state(data->ts_pinctrl, "mod_en_suspend");
-	if (IS_ERR_OR_NULL(data->mod_en_state_suspend)) {
-		dev_err(&data->client->dev,
-			"Can not get mod enable sleep pinstate\n");
-		rc = PTR_ERR(data->mod_en_state_suspend);
-		goto error;
-	}
-
-	data->disp_vsn_state_active
-		= pinctrl_lookup_state(data->ts_pinctrl, "disp_vsn_active");
-	if (IS_ERR_OR_NULL(data->disp_vsn_state_active)) {
-		dev_err(&data->client->dev,
-			"Can not get disp_vsn default pinstate\n");
-		rc = PTR_ERR(data->disp_vsn_state_active);
-		goto error;
-	}
-
-	data->disp_vsn_state_suspend
-		= pinctrl_lookup_state(data->ts_pinctrl, "disp_vsn_suspend");
-	if (IS_ERR_OR_NULL(data->disp_vsn_state_suspend)) {
-		dev_err(&data->client->dev,
-			"Can not get disp_vsn sleep pinstate\n");
-		rc = PTR_ERR(data->disp_vsn_state_suspend);
-		goto error;
+	if (of_find_property(data->client->dev.of_node,
+					"disp_vsn_suspend", NULL)) {
+		data->disp_vsn_state_suspend
+			= pinctrl_lookup_state(data->ts_pinctrl,
+							"disp_vsn_suspend");
+		if (IS_ERR(data->disp_vsn_state_suspend)) {
+			dev_err(&data->client->dev,
+				"Can not get disp_vsn sleep pinstate\n");
+			rc = PTR_ERR(data->disp_vsn_state_suspend);
+			goto error;
+		}
 	}
 
 	return 0;
@@ -424,31 +422,26 @@ static int bu21150_pinctrl_enable(struct bu21150_data *ts, bool on)
 	if (!on)
 		goto pinctrl_suspend;
 
-	rc = pinctrl_select_state(ts->ts_pinctrl,
+	if (ts->afe_pwr_state_active) {
+		rc = pinctrl_select_state(ts->ts_pinctrl,
 					ts->afe_pwr_state_active);
-	if (rc) {
-		dev_err(&ts->client->dev, "can not set afe pwr pins\n");
-		return -EINVAL;
+		if (rc) {
+			dev_err(&ts->client->dev, "can not set afe pwr pins\n");
+			return -EINVAL;
+		}
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
-	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
-	rc = pinctrl_select_state(ts->ts_pinctrl,
-				ts->mod_en_state_active);
-	if (rc) {
-		dev_err(&ts->client->dev,
-				"can not set module enablement pins\n");
-		goto err_mod_en_pinctrl_enable;
+	if (ts->disp_vsn_state_active) {
+		rc = pinctrl_select_state(ts->ts_pinctrl,
+					ts->disp_vsn_state_active);
+		if (rc) {
+			dev_err(&ts->client->dev,
+					"can not set disp vsn pins\n");
+			goto err_disp_vsn_pinctrl_enable;
+		}
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
-	usleep(BU21150_PIN_ENABLE_DELAY_US);
-
-	rc = pinctrl_select_state(ts->ts_pinctrl,
-				ts->disp_vsn_state_active);
-	if (rc) {
-		dev_err(&ts->client->dev,
-				"can not set disp vsn pins\n");
-		goto err_disp_vsn_pinctrl_enable;
-	}
-	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
 	rc = bu21150_pinctrl_select(ts, true);
 	if (rc < 0)
@@ -459,11 +452,12 @@ static int bu21150_pinctrl_enable(struct bu21150_data *ts, bool on)
 pinctrl_suspend:
 	bu21150_pinctrl_select(ts, false);
 err_ts_pinctrl_enable:
-	pinctrl_select_state(ts->ts_pinctrl, ts->disp_vsn_state_suspend);
+	if (ts->disp_vsn_state_suspend)
+		pinctrl_select_state(ts->ts_pinctrl,
+						ts->disp_vsn_state_suspend);
 err_disp_vsn_pinctrl_enable:
-	pinctrl_select_state(ts->ts_pinctrl, ts->mod_en_state_suspend);
-err_mod_en_pinctrl_enable:
-	pinctrl_select_state(ts->ts_pinctrl, ts->afe_pwr_state_suspend);
+	if (ts->afe_pwr_state_suspend)
+		pinctrl_select_state(ts->ts_pinctrl, ts->afe_pwr_state_suspend);
 
 	return rc;
 }
@@ -476,31 +470,27 @@ static int bu21150_gpio_enable(struct bu21150_data *ts, bool on)
 		goto gpio_disable;
 
 	/* Panel and AFE Power on sequence */
-	rc = gpio_request(ts->afe_pwr_gpio, "afe_pwr");
-	if (rc) {
-		pr_err("%s: afe power gpio request failed\n", __func__);
-		return -EINVAL;
+	if (of_find_property(ts->client->dev.of_node, "afe_pwr", NULL)) {
+		rc = gpio_request(ts->afe_pwr_gpio, "afe_pwr");
+		if (rc) {
+			pr_err("%s: afe power gpio request failed\n", __func__);
+			return -EINVAL;
+		}
+		gpio_direction_output(ts->afe_pwr_gpio, 1);
+		gpio_set_value(ts->afe_pwr_gpio, 1);
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
-	gpio_direction_output(ts->afe_pwr_gpio, 1);
-	gpio_set_value(ts->afe_pwr_gpio, 1);
-	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
-	rc = gpio_request(ts->mod_en_gpio, "mod_en");
-	if (rc) {
-		pr_err("%s: mod enablement gpio request failed\n", __func__);
-		goto err_mod_en_gpio_enable;
+	if (of_find_property(ts->client->dev.of_node, "disp_vsn", NULL)) {
+		rc = gpio_request(ts->disp_vsn_gpio, "disp_vsn");
+		if (rc) {
+			pr_err("%s: disp_vsn gpio request failed\n", __func__);
+			goto err_disp_vsn_gpio_enable;
+		}
+		gpio_direction_output(ts->disp_vsn_gpio, 1);
+		gpio_set_value(ts->disp_vsn_gpio, 1);
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
-	gpio_direction_output(ts->mod_en_gpio, 1);
-	usleep(BU21150_PIN_ENABLE_DELAY_US);
-
-	rc = gpio_request(ts->disp_vsn_gpio, "disp_vsn");
-	if (rc) {
-		pr_err("%s: disp_vsn gpio request failed\n", __func__);
-		goto err_disp_vsn_gpio_enable;
-	}
-	gpio_direction_output(ts->disp_vsn_gpio, 1);
-	gpio_set_value(ts->disp_vsn_gpio, 1);
-	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
 	rc = gpio_request(ts->irq_gpio, "bu21150_ts_int");
 	if (rc) {
@@ -525,11 +515,11 @@ gpio_disable:
 err_rst_gpio_enable:
 	gpio_free(ts->irq_gpio);
 err_irq_gpio_enable:
-	gpio_free(ts->disp_vsn_gpio);
+	if (of_find_property(ts->client->dev.of_node, "disp_vsn", NULL))
+		gpio_free(ts->disp_vsn_gpio);
 err_disp_vsn_gpio_enable:
-	gpio_free(ts->mod_en_gpio);
-err_mod_en_gpio_enable:
-	gpio_free(ts->afe_pwr_gpio);
+	if (of_find_property(ts->client->dev.of_node, "afe_pwr", NULL))
+		gpio_free(ts->afe_pwr_gpio);
 
 	return rc;
 }
@@ -1374,10 +1364,12 @@ static bool parse_dtsi(struct device *dev, struct bu21150_data *ts)
 	struct device_node *np = dev->of_node;
 	int rc;
 
-	ts->irq_gpio = of_get_named_gpio_flags(np,
-		"irq-gpio", 0, &dummy);
-	ts->rst_gpio = of_get_named_gpio_flags(np,
-		"rst-gpio", 0, &dummy);
+	if (of_find_property(np, "irq-gpio", NULL))
+		ts->irq_gpio = of_get_named_gpio_flags(np,
+						"irq-gpio", 0, &dummy);
+	if (of_find_property(np, "rst-gpio", NULL))
+		ts->rst_gpio = of_get_named_gpio_flags(np,
+						"rst-gpio", 0, &dummy);
 
 	rc = of_property_read_string(np, "jdi,panel-model", &ts->panel_model);
 	if (rc < 0 && rc != -EINVAL) {
