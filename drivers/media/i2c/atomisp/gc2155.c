@@ -1323,7 +1323,7 @@ static int gc2155_s_config(struct v4l2_subdev *sd,
 		ret = dev->platform_data->platform_init(client);
 		if (ret) {
 			dev_err(&client->dev, "platform init err\n");
-			return ret;
+			goto fail_init_platform;
 		}
 	}
 	ret = power_down(sd);
@@ -1366,6 +1366,7 @@ fail_power_on:
 	power_down(sd);
 	dev_err(&client->dev, "sensor power-gating failed\n");
 fail_power_off:
+fail_init_platform:
 	mutex_unlock(&dev->input_lock);
 	return ret;
 }
