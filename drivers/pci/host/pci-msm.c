@@ -4536,9 +4536,6 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	msm_pcie_dev[rc_idx].aux_clk_sync =
 		of_property_read_bool((&pdev->dev)->of_node,
 				"qcom,aux-clk-sync");
-	msm_pcie_dev[rc_idx].aux_clk_sync =
-		of_property_read_bool((&pdev->dev)->of_node,
-				"qcom,aux-clk-sync");
 	PCIE_DBG(&msm_pcie_dev[rc_idx],
 		"AUX clock is %s synchronous to Core clock.\n",
 		msm_pcie_dev[rc_idx].aux_clk_sync ? "" : "not");
