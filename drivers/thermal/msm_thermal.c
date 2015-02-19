@@ -192,7 +192,7 @@ struct cpu_info {
 	struct sensor_threshold threshold[THRESHOLD_MAX_NR];
 	bool max_freq;
 	uint32_t user_max_freq;
-	uint32_t reboot_max_freq;
+	uint32_t shutdown_max_freq;
 	uint32_t user_min_freq;
 	uint32_t limited_max_freq;
 	uint32_t limited_min_freq;
@@ -442,19 +442,19 @@ uint32_t get_core_min_freq(uint32_t cpu)
 static int msm_thermal_reboot_callback(
 		struct notifier_block *nfb, unsigned long val, void *data)
 {
-	if (val == SYS_RESTART) {
+	if (val == SYS_RESTART || val == SYS_POWER_OFF || val == SYS_HALT) {
 		uint32_t cpu;
 
 		for_each_possible_cpu(cpu) {
 			if (msm_thermal_info.freq_mitig_control_mask
 				& BIT(cpu)) {
-				cpus[cpu].reboot_max_freq =
+				cpus[cpu].shutdown_max_freq =
 					get_core_min_freq(cpu);
-				if (cpus[cpu].reboot_max_freq == UINT_MAX)
+				if (cpus[cpu].shutdown_max_freq == UINT_MAX)
 					continue;
-				cpus[cpu].max_freq = true;
 				if (freq_mitigation_task) {
-					cpus[cpu].freq_thresh_clear = true;
+					pr_debug("Mitigate CPU%u to %u\n", cpu,
+						cpus[cpu].shutdown_max_freq);
 					complete(&freq_mitigation_complete);
 				} else {
 					pr_err(
@@ -3102,7 +3102,7 @@ static __ref int do_freq_mitigation(void *data)
 					cpus[cpu].user_max_freq);
 
 			max_freq_req = min(max_freq_req,
-					cpus[cpu].reboot_max_freq);
+					cpus[cpu].shutdown_max_freq);
 
 			min_freq_req = max(min_freq_limit,
 					cpus[cpu].user_min_freq);
@@ -4494,7 +4494,7 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 		cpus[cpu].hotplug_thresh_clear = false;
 		cpus[cpu].max_freq = false;
 		cpus[cpu].user_max_freq = UINT_MAX;
-		cpus[cpu].reboot_max_freq = UINT_MAX;
+		cpus[cpu].shutdown_max_freq = UINT_MAX;
 		cpus[cpu].user_min_freq = 0;
 		cpus[cpu].limited_max_freq = UINT_MAX;
 		cpus[cpu].limited_min_freq = 0;
