@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,14 +34,12 @@
 			clocks = <&clock_rpm  clk_snoc_msmbus_clk>,
 			      <&clock_rpm  clk_snoc_msmbus_a_clk>;
 
-			/*
 			coresight-id = <50>;
 			coresight-name = "coresight-snoc";
 			coresight-nr-inports = <0>;
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in0>;
 			coresight-child-ports = <3>;
-			*/
 		};
 
 		fab_bimc: fab-bimc {
@@ -50,19 +48,17 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,util-fact = <153>;
+			qcom,util-fact = <143>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_rpm  clk_bimc_msmbus_clk>,
 			      <&clock_rpm  clk_bimc_msmbus_a_clk>;
 
-			/*
 			coresight-id = <55>;
 			coresight-name = "coresight-bimc";
 			coresight-nr-inports = <0>;
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in1>;
 			coresight-child-ports = <3>;
-			*/
 		};
 
 		fab_pnoc: fab-pnoc {
@@ -78,14 +74,12 @@
 			clocks = <&clock_rpm  clk_pnoc_msmbus_clk>,
 			      <&clock_rpm  clk_pnoc_msmbus_a_clk>;
 
-			/*
 			coresight-id = <54>;
 			coresight-name = "coresight-pnoc";
 			coresight-nr-inports = <0>;
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in0>;
 			coresight-child-ports = <6>;
-			*/
 		};
 
 		fab_mnoc: fab-mnoc {
@@ -101,14 +95,12 @@
 			clocks = <&clock_mmss  clk_mmss_s0_axi_clk>,
 			      <&clock_mmss  clk_mmss_s0_axi_clk>;
 
-			/*
 			coresight-id = <56>;
 			coresight-name = "coresight-mmnoc";
 			coresight-nr-inports = <0>;
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in0>;
 			coresight-child-ports = <5>;
-			*/
 		};
 
 		fab_cnoc: fab-cnoc {
@@ -280,6 +272,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,ap-owned;
+			qcom,vrail-comp = <50>;
 		};
 
 
@@ -292,6 +285,7 @@
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,ap-owned;
+			qcom,vrail-comp = <50>;
 		};
 
 
