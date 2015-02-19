@@ -305,7 +305,7 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 {
 	struct mdss_rot_hw_resource *hw;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	u32 offset = mdss_mdp_get_wb_ctl_support(mdata, true);
+	u32 pipe_ndx, offset = mdss_mdp_get_wb_ctl_support(mdata, true);
 	int ret;
 
 	hw = devm_kzalloc(&mgr->pdev->dev, sizeof(struct mdss_rot_hw_resource),
@@ -314,7 +314,7 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 		return ERR_PTR(-ENOMEM);
 
 	hw->ctl = mdss_mdp_ctl_alloc(mdata, offset);
-	if (!hw->ctl) {
+	if (IS_ERR_OR_NULL(hw->ctl)) {
 		pr_err("unable to allocate ctl\n");
 		ret = -ENODEV;
 		goto error;
@@ -325,7 +325,7 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 	else
 		hw->wb = mdss_mdp_wb_assign(wb_id, hw->ctl->num);
 
-	if (!hw->wb) {
+	if (IS_ERR_OR_NULL(hw->wb)) {
 		pr_err("unable to allocate wb\n");
 		ret = -ENODEV;
 		goto error;
@@ -333,7 +333,7 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 	hw->ctl->wb = hw->wb;
 	hw->mixer = mdss_mdp_mixer_assign(hw->wb->num, true);
 
-	if (!hw->mixer) {
+	if (IS_ERR_OR_NULL(hw->mixer)) {
 		pr_err("unable to allocate wb mixer\n");
 		ret = -ENODEV;
 		goto error;
@@ -367,22 +367,30 @@ static struct mdss_rot_hw_resource *mdss_rotator_hw_alloc(
 	if (ret)
 		goto error;
 
-	hw->pipe = mdss_mdp_pipe_alloc_dma(hw->mixer);
-	if (!hw->pipe) {
+	if (pipe_id >= mdata->ndma_pipes)
+		goto error;
+
+	pipe_ndx = mdata->dma_pipes[pipe_id].ndx;
+	hw->pipe = mdss_mdp_pipe_assign(mdata, hw->mixer, pipe_ndx);
+	if (IS_ERR_OR_NULL(hw->pipe)) {
 		pr_err("dma pipe allocation failed\n");
 		ret = -ENODEV;
 		goto error;
 	}
 
+	hw->pipe->mixer_left = hw->mixer;
 	hw->pipe_id = hw->wb->num;
 	hw->wb_id = hw->wb->num;
 
 	return hw;
 error:
-	if (hw->pipe)
+	if (!IS_ERR_OR_NULL(hw->pipe))
 		mdss_mdp_pipe_destroy(hw->pipe);
-	if (hw->ctl)
+	if (!IS_ERR_OR_NULL(hw->ctl)) {
+		if (hw->ctl->stop_fnc)
+			hw->ctl->stop_fnc(hw->ctl, MDSS_PANEL_POWER_OFF);
 		mdss_mdp_ctl_free(hw->ctl);
+	}
 	devm_kfree(&mgr->pdev->dev, hw);
 
 	return ERR_PTR(ret);
