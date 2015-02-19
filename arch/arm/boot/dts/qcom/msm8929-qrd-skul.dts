@@ -25,6 +25,10 @@
 	bosch@18 { /* Accelerometer sensor */
 		bosch,place = <5>;
 	};
+
+	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
+		invn,place = "Landscape Left";
+	};
 };
 
 &i2c_4 {
