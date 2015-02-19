@@ -33,6 +33,8 @@ Optional properties:
  - jdi,afe-version		: string type for AFE version
  - jdi,pitch-type		: string type to indicate sensor pitch type, e.g. "fp" for fine pitch, "np" for normal pitch, etc..
  - jdi,afe-vendor		: string type to indicate AFE IC vendor, e.g. "rohm", "sitronix", etc..
+ - jdi,wake-up		: Boolean type. This property specifies if device can wake up system from suspend.
+ - jdi,timeout-enable	: Boolean type. This property specifies if device uses a timer to check responsiveness
 
 Example:
 
@@ -58,6 +60,8 @@ Example:
 			jdi,panel-model = "fhd_5_A230ADEV";
 			jdi,afe-version = "v3";
 			jdi,pitch-type = "np";
+			jdi,wake-up;
+			jdi,timeout-enable;
 		};
 	};
 

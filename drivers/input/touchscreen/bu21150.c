@@ -1,6 +1,7 @@
 /*
  * Japan Display Inc. BU21150 touch screen driver.
  *
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2013-2015 Japan Display Inc.
  *
  * This program is free software; you can redistribute it and/or
@@ -26,6 +27,7 @@
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 #include <linux/input/bu21150.h>
+#include <linux/device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/delay.h>
 #include <linux/of_gpio.h>
@@ -49,18 +51,24 @@
 #define BU21150_MAX_VOLTAGE_UV	3300000
 #define BU21150_VDD_DIG_VOLTAGE_UV	1800000
 #define BU21150_MAX_OPS_LOAD_UA	150000
+#define BU21150_PIN_ENABLE_DELAY_US		1000
+
+#define AFE_SCAN_SELF_CAP			0x01
+#define AFE_SCAN_MUTUAL_CAP			0x02
+#define AFE_SCAN_GESTURE_SELF_CAP		0x04
+#define AFE_SCAN_GESTURE_MUTUAL_CAP		0x08
 
 /* struct */
 struct bu21150_data {
 	/* system */
 	struct spi_device *client;
-	struct workqueue_struct *workq;
-	struct work_struct work;
 	struct pinctrl *ts_pinctrl;
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
 	struct pinctrl_state *afe_pwr_state_active;
 	struct pinctrl_state *afe_pwr_state_suspend;
+	struct pinctrl_state *mod_en_state_active;
+	struct pinctrl_state *mod_en_state_suspend;
 	struct pinctrl_state *disp_vsn_state_active;
 	struct pinctrl_state *disp_vsn_state_suspend;
 	/* frame */
@@ -69,6 +77,7 @@ struct bu21150_data {
 	struct bu21150_ioctl_get_frame_data frame_get;
 	struct timeval tv;
 	struct mutex mutex_frame;
+	struct mutex mutex_wake;
 	/* frame work */
 	u8 frame_work[MAX_FRAME_SIZE];
 	struct bu21150_ioctl_get_frame_data frame_work_get;
@@ -92,12 +101,16 @@ struct bu21150_data {
 	int irq_gpio;
 	int rst_gpio;
 	int afe_pwr_gpio;
+	int mod_en_gpio;
 	int disp_vsn_gpio;
 	const char *panel_model;
 	const char *afe_version;
 	const char *pitch_type;
 	const char *afe_vendor;
 	u16 scan_mode;
+	bool wake_up;
+	bool timeout_enable;
+	bool stay_awake;
 };
 
 struct ser_req {
@@ -123,8 +136,7 @@ static long bu21150_ioctl_unblock(void);
 static long bu21150_ioctl_unblock_release(void);
 static long bu21150_ioctl_set_timeout(unsigned long arg);
 static long bu21150_ioctl_set_scan_mode(unsigned long arg);
-static irqreturn_t bu21150_irq_handler(int irq, void *dev_id);
-static void bu21150_irq_work_func(struct work_struct *work);
+static irqreturn_t bu21150_irq_thread(int irq, void *dev_id);
 static void swap_2byte(unsigned char *buf, unsigned int size);
 static int bu21150_read_register(u32 addr, u16 size, u8 *data);
 static int bu21150_write_register(u32 addr, u16 size, u8 *data);
@@ -146,6 +158,43 @@ static void get_frame_timer_delete(void);
 static struct spi_device *g_client_bu21150;
 static int g_io_opened;
 static struct timer_list get_frame_timer;
+
+static ssize_t bu21150_wake_up_enable_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+	unsigned long state;
+	ssize_t ret;
+
+	ret = kstrtoul(buf, 10, &state);
+	if (ret)
+		return ret;
+
+	if (!!state == ts->wake_up)
+		return count;
+
+	mutex_lock(&ts->mutex_wake);
+	if (state == 0) {
+		disable_irq_wake(ts->client->irq);
+		device_init_wakeup(&ts->client->dev, false);
+		ts->wake_up = false;
+	} else {
+		device_init_wakeup(&ts->client->dev, true);
+		enable_irq_wake(ts->client->irq);
+		ts->wake_up = true;
+	}
+	mutex_unlock(&ts->mutex_wake);
+
+	return count;
+}
+
+static ssize_t bu21150_wake_up_enable_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	return snprintf(buf, PAGE_SIZE, "%u", ts->wake_up);
+}
 
 static ssize_t bu21150_hallib_name_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
@@ -197,6 +246,9 @@ static ssize_t bu21150_cfg_name_show(struct kobject *kobj,
 static struct kobj_attribute bu21150_prop_attrs[] = {
 	__ATTR(hallib_name, S_IRUGO, bu21150_hallib_name_show, NULL),
 	__ATTR(cfg_name, S_IRUGO, bu21150_cfg_name_show, NULL),
+	__ATTR(wake_up_enable, (S_IRUGO | S_IWUSR | S_IWGRP),
+					bu21150_wake_up_enable_show,
+					bu21150_wake_up_enable_store),
 };
 
 static const struct of_device_id g_bu21150_psoc_match_table[] = {
@@ -298,6 +350,24 @@ static int bu21150_pinctrl_init(struct bu21150_data *data)
 		goto error;
 	}
 
+	data->mod_en_state_active
+		= pinctrl_lookup_state(data->ts_pinctrl, "mod_en_active");
+	if (IS_ERR_OR_NULL(data->mod_en_state_active)) {
+		dev_err(&data->client->dev,
+			"Can not get mod enable default pinstate\n");
+		rc = PTR_ERR(data->mod_en_state_active);
+		goto error;
+	}
+
+	data->mod_en_state_suspend
+		= pinctrl_lookup_state(data->ts_pinctrl, "mod_en_suspend");
+	if (IS_ERR_OR_NULL(data->mod_en_state_suspend)) {
+		dev_err(&data->client->dev,
+			"Can not get mod enable sleep pinstate\n");
+		rc = PTR_ERR(data->mod_en_state_suspend);
+		goto error;
+	}
+
 	data->disp_vsn_state_active
 		= pinctrl_lookup_state(data->ts_pinctrl, "disp_vsn_active");
 	if (IS_ERR_OR_NULL(data->disp_vsn_state_active)) {
@@ -360,7 +430,16 @@ static int bu21150_pinctrl_enable(struct bu21150_data *ts, bool on)
 		dev_err(&ts->client->dev, "can not set afe pwr pins\n");
 		return -EINVAL;
 	}
-	usleep(1000);
+	usleep(BU21150_PIN_ENABLE_DELAY_US);
+
+	rc = pinctrl_select_state(ts->ts_pinctrl,
+				ts->mod_en_state_active);
+	if (rc) {
+		dev_err(&ts->client->dev,
+				"can not set module enablement pins\n");
+		goto err_mod_en_pinctrl_enable;
+	}
+	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
 	rc = pinctrl_select_state(ts->ts_pinctrl,
 				ts->disp_vsn_state_active);
@@ -369,7 +448,7 @@ static int bu21150_pinctrl_enable(struct bu21150_data *ts, bool on)
 				"can not set disp vsn pins\n");
 		goto err_disp_vsn_pinctrl_enable;
 	}
-	usleep(1000);
+	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
 	rc = bu21150_pinctrl_select(ts, true);
 	if (rc < 0)
@@ -382,6 +461,8 @@ pinctrl_suspend:
 err_ts_pinctrl_enable:
 	pinctrl_select_state(ts->ts_pinctrl, ts->disp_vsn_state_suspend);
 err_disp_vsn_pinctrl_enable:
+	pinctrl_select_state(ts->ts_pinctrl, ts->mod_en_state_suspend);
+err_mod_en_pinctrl_enable:
 	pinctrl_select_state(ts->ts_pinctrl, ts->afe_pwr_state_suspend);
 
 	return rc;
@@ -402,7 +483,15 @@ static int bu21150_gpio_enable(struct bu21150_data *ts, bool on)
 	}
 	gpio_direction_output(ts->afe_pwr_gpio, 1);
 	gpio_set_value(ts->afe_pwr_gpio, 1);
-	usleep(1000);
+	usleep(BU21150_PIN_ENABLE_DELAY_US);
+
+	rc = gpio_request(ts->mod_en_gpio, "mod_en");
+	if (rc) {
+		pr_err("%s: mod enablement gpio request failed\n", __func__);
+		goto err_mod_en_gpio_enable;
+	}
+	gpio_direction_output(ts->mod_en_gpio, 1);
+	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
 	rc = gpio_request(ts->disp_vsn_gpio, "disp_vsn");
 	if (rc) {
@@ -411,7 +500,7 @@ static int bu21150_gpio_enable(struct bu21150_data *ts, bool on)
 	}
 	gpio_direction_output(ts->disp_vsn_gpio, 1);
 	gpio_set_value(ts->disp_vsn_gpio, 1);
-	usleep(1000);
+	usleep(BU21150_PIN_ENABLE_DELAY_US);
 
 	rc = gpio_request(ts->irq_gpio, "bu21150_ts_int");
 	if (rc) {
@@ -438,6 +527,8 @@ err_rst_gpio_enable:
 err_irq_gpio_enable:
 	gpio_free(ts->disp_vsn_gpio);
 err_disp_vsn_gpio_enable:
+	gpio_free(ts->mod_en_gpio);
+err_mod_en_gpio_enable:
 	gpio_free(ts->afe_pwr_gpio);
 
 	return rc;
@@ -626,20 +717,6 @@ static int bu21150_probe(struct spi_device *client)
 	mutex_init(&ts->mutex_frame);
 	init_waitqueue_head(&(ts->frame_waitq));
 
-	ts->workq = create_singlethread_workqueue("bu21150_workq");
-	if (!ts->workq) {
-		dev_err(&client->dev, "Unable to create workq\n");
-		rc =  -ENOMEM;
-		goto err_create_wq;
-	}
-	INIT_WORK(&ts->work, bu21150_irq_work_func);
-
-	if (!client->irq) {
-		dev_err(&client->dev, "Bad irq\n");
-		rc = -EINVAL;
-		goto err_create_wq;
-	}
-
 	rc = misc_register(&g_bu21150_misc_device);
 	if (rc) {
 		dev_err(&client->dev, "Failed to register misc device\n");
@@ -663,6 +740,11 @@ static int bu21150_probe(struct spi_device *client)
 		}
 	}
 
+	if (ts->wake_up)
+		device_init_wakeup(&client->dev, ts->wake_up);
+
+	mutex_init(&ts->mutex_wake);
+
 	return 0;
 
 err_create_sysfs:
@@ -672,8 +754,7 @@ err_create_sysfs:
 err_create_and_add_kobj:
 	misc_deregister(&g_bu21150_misc_device);
 err_register_misc:
-	destroy_workqueue(ts->workq);
-err_create_wq:
+	mutex_destroy(&ts->mutex_frame);
 	bu21150_pin_enable(ts, false);
 err_pin_enable:
 	bu21150_power_enable(ts, false);
@@ -734,6 +815,10 @@ static int bu21150_remove(struct spi_device *client)
 	struct bu21150_data *ts = spi_get_drvdata(client);
 	int i;
 
+	mutex_destroy(&ts->mutex_wake);
+	if (ts->wake_up)
+		device_init_wakeup(&client->dev, 0);
+
 	for (i = 0; i < ARRAY_SIZE(bu21150_prop_attrs); i++)
 		sysfs_remove_file(ts->bu21150_obj,
 					&bu21150_prop_attrs[i].attr);
@@ -741,8 +826,8 @@ static int bu21150_remove(struct spi_device *client)
 	misc_deregister(&g_bu21150_misc_device);
 	bu21150_power_enable(ts, false);
 	bu21150_regulator_config(ts, false);
-	destroy_workqueue(ts->workq);
 	free_irq(client->irq, ts);
+	mutex_destroy(&ts->mutex_frame);
 	bu21150_pin_enable(ts, false);
 	kfree(ts);
 
@@ -774,13 +859,16 @@ static int bu21150_open(struct inode *inode, struct file *filp)
 	memset(&(ts->frame_work_get), 0,
 		sizeof(struct bu21150_ioctl_get_frame_data));
 
-	error = request_irq(client->irq, bu21150_irq_handler,
+	error = request_threaded_irq(client->irq, NULL, bu21150_irq_thread,
 				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 				client->dev.driver->name, ts);
 	if (error) {
 		dev_err(&client->dev, "Failed to register interrupt\n");
 		return error;
 	}
+
+	if (ts->wake_up)
+		enable_irq_wake(ts->client->irq);
 
 	return 0;
 }
@@ -798,6 +886,9 @@ static int bu21150_release(struct inode *inode, struct file *filp)
 
 	if (g_io_opened < 0)
 		g_io_opened = 0;
+
+	if (ts->wake_up)
+		disable_irq_wake(ts->client->irq);
 
 	free_irq(client->irq, ts);
 
@@ -1004,7 +1095,13 @@ static long bu21150_ioctl_suspend(void)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	struct spi_device *client = ts->client;
 
+	if (ts->wake_up) {
+		dev_err(&client->dev, "invalid suspend operation\n");
+		return -EINVAL;
+	}
+
 	bu21150_ioctl_unblock();
+
 	disable_irq(client->irq);
 	bu21150_power_enable(ts, false);
 
@@ -1015,6 +1112,11 @@ static long bu21150_ioctl_resume(void)
 {
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	struct spi_device *client = ts->client;
+
+	if (ts->wake_up) {
+		dev_err(&client->dev, "invalid resume operation\n");
+		return -EINVAL;
+	}
 
 	g_bu21150_ioctl_unblock = 0;
 	bu21150_power_enable(ts, true);
@@ -1028,6 +1130,9 @@ static long bu21150_ioctl_set_timeout(unsigned long arg)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	void __user *argp = (void __user *)arg;
 	struct bu21150_ioctl_timeout_data data;
+
+	if (!ts->timeout_enable)
+		return 0;
 
 	if (copy_from_user(&data, argp,
 		sizeof(struct bu21150_ioctl_timeout_data))) {
@@ -1057,26 +1162,33 @@ static long bu21150_ioctl_set_scan_mode(unsigned long arg)
 		return -EFAULT;
 	}
 
+	mutex_lock(&ts->mutex_wake);
+
+	if (ts->stay_awake && ts->wake_up &&
+			ts->scan_mode != AFE_SCAN_GESTURE_SELF_CAP) {
+		pm_relax(&ts->client->dev);
+		ts->stay_awake = false;
+	}
+
+	mutex_unlock(&ts->mutex_wake);
+
 	return 0;
 }
 
-static irqreturn_t bu21150_irq_handler(int irq, void *dev_id)
+static irqreturn_t bu21150_irq_thread(int irq, void *dev_id)
 {
 	struct bu21150_data *ts = dev_id;
-
-	disable_irq_nosync(irq);
-
-	/* add work to queue */
-	queue_work(ts->workq, &ts->work);
-
-	return IRQ_HANDLED;
-}
-
-static void bu21150_irq_work_func(struct work_struct *work)
-{
-	struct bu21150_data *ts = container_of(work, struct bu21150_data, work);
 	u8 *psbuf = (u8 *)ts->frame_work;
-	struct spi_device *client = ts->client;
+
+	mutex_lock(&ts->mutex_wake);
+
+	if (!ts->stay_awake && ts->wake_up &&
+			ts->scan_mode == AFE_SCAN_GESTURE_SELF_CAP) {
+		pm_stay_awake(&ts->client->dev);
+		ts->stay_awake = true;
+	}
+
+	mutex_unlock(&ts->mutex_wake);
 
 	/* get frame */
 	ts->frame_work_get = ts->req_get;
@@ -1092,7 +1204,7 @@ static void bu21150_irq_work_func(struct work_struct *work)
 		ts->reset_flag = 0;
 	}
 
-	enable_irq(client->irq);
+	return IRQ_HANDLED;
 }
 
 static int bu21150_read_register(u32 addr, u16 size, u8 *data)
@@ -1290,6 +1402,10 @@ static bool parse_dtsi(struct device *dev, struct bu21150_data *ts)
 		dev_err(dev, "Unable to read AFE vendor\n");
 		return false;
 	}
+
+	ts->wake_up = of_property_read_bool(np, "jdi,wake-up");
+
+	ts->timeout_enable = of_property_read_bool(np, "jdi,timeout-enable");
 
 	return true;
 }
