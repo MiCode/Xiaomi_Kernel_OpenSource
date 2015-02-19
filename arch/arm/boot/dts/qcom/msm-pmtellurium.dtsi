@@ -18,6 +18,22 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 
+		pmtellurium_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		pmtellurium_temp_alarm: qcom,temp-alarm@2400 {
+			status = "disabled";
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0>;
+			label = "pmtellurium_tz";
+			qcom,channel-num = <8>;
+			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pmtellurium_vadc>;
+		};
+
 		pmtellurium_mpps: mpps {
 			compatible = "qcom,qpnp-pin";
 			spmi-dev-container;
@@ -281,6 +297,23 @@
 				reg = <0x6100 0x100>;
 				interrupts = <0x0 0x61 0x1>;
 			};
+		};
+	};
+
+	qcom,pmtellurium@1 {
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmtellurium_pwm: pwm@bc00 {
+			status = "disabled";
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
 		};
 	};
 };
