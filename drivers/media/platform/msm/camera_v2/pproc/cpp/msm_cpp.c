@@ -1736,6 +1736,11 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		return -EINVAL;
 	}
 
+	if (cpp_dev->iommu_state != CPP_IOMMU_STATE_ATTACHED) {
+		pr_info("IOMMU is not attached\n");
+		return -EAGAIN;
+	}
+
 	in_phyaddr = msm_cpp_fetch_buffer_info(cpp_dev,
 		&new_frame->input_buffer_info,
 		((new_frame->input_buffer_info.identity >> 16) & 0xFFFF),
