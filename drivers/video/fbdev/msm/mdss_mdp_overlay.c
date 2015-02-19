@@ -2455,18 +2455,6 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		goto clk_disable;
 	}
 
-	ret = mdss_mdp_overlay_start(mfd);
-	if (ret) {
-		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
-		goto clk_disable;
-	}
-
-	ret = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(ret)) {
-		pr_err("IOMMU attach failed\n");
-		goto clk_disable;
-	}
-
 	ret = mdss_mdp_overlay_get_fb_pipe(mfd, &l_pipe,
 		MDSS_MDP_MIXER_MUX_LEFT, &l_pipe_allocated);
 	if (ret) {
@@ -2477,6 +2465,18 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	if (mdss_mdp_pipe_map(l_pipe)) {
 		pr_err("unable to map base pipe\n");
 		goto pipe_release;
+	}
+
+	ret = mdss_mdp_overlay_start(mfd);
+	if (ret) {
+		pr_err("unable to start overlay %d (%d)\n", mfd->index, ret);
+		goto clk_disable;
+	}
+
+	ret = mdss_iommu_ctrl(1);
+	if (IS_ERR_VALUE(ret)) {
+		pr_err("IOMMU attach failed\n");
+		goto clk_disable;
 	}
 
 	buf_l = __mdp_overlay_buf_alloc(mfd, l_pipe);
