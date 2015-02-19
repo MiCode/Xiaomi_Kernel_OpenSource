@@ -141,10 +141,18 @@ int msm_isp_validate_axi_request(struct msm_vfe_axi_shared_data *axi_data,
 	case V4L2_PIX_FMT_NV21:
 	case V4L2_PIX_FMT_NV14:
 	case V4L2_PIX_FMT_NV41:
+		stream_info->num_planes = 2;
+		stream_info->format_factor = 1.5 * ISP_Q2;
+		break;
 	case V4L2_PIX_FMT_NV16:
 	case V4L2_PIX_FMT_NV61:
 		stream_info->num_planes = 2;
-		stream_info->format_factor = 1.5 * ISP_Q2;
+		stream_info->format_factor = 2 * ISP_Q2;
+		break;
+	case V4L2_PIX_FMT_NV24:
+	case V4L2_PIX_FMT_NV42:
+		stream_info->num_planes = 2;
+		stream_info->format_factor = 3 * ISP_Q2;
 		break;
 	/*TD: Add more image format*/
 	default:
@@ -272,6 +280,8 @@ static uint32_t msm_isp_axi_get_plane_size(
 		break;
 	case V4L2_PIX_FMT_NV16:
 	case V4L2_PIX_FMT_NV61:
+	case V4L2_PIX_FMT_NV24:
+	case V4L2_PIX_FMT_NV42:
 		size = plane_cfg[plane_idx].output_height *
 			plane_cfg[plane_idx].output_width;
 		break;
