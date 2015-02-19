@@ -10,3 +10,4 @@ header-y += hdsp.h
 header-y += hdspm.h
 header-y += sb16_csp.h
 header-y += sfnt_info.h
+header-y += sst_v2_vendor.h

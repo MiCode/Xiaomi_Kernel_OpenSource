@@ -22,7 +22,7 @@
 
 #include <sound/soc.h>
 #include <sound/tlv.h>
-#include "sst_vendor.h"
+#include <uapi/sound/sst_v2_vendor.h>
 
 #define SST_MODULE_GAIN 1
 #define SST_MODULE_ALGO 2

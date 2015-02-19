@@ -28,6 +28,7 @@
 #include "../platform_ipc_v2.h"
 #include "../sst_platform.h"
 #include "../sst_platform_pvt.h"
+#include "atom_controls.h"
 #include "controls_v2_dpcm.h"
 #include "sst_widgets.h"
 

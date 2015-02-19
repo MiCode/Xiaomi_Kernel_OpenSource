@@ -1,5 +1,5 @@
 /*
- *  sst_vendor.h - Intel sst fw private data
+ *  sst_v2_vendor.h - Intel sst fw private data
  *
  *  Copyright (C) 2014 Intel Corp
  *  Author: Subhransu S. Prusty<subhransu.s.prusty@intel.com>
@@ -18,8 +18,12 @@
  * ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
  */
 
-#ifndef __SST_VENDOR_H__
-#define __SST_VENDOR_H__
+#ifndef __SST_V2_VENDOR_H__
+#define __SST_V2_VENDOR_H__
+
+#include <linux/types.h>
+
+#define SST_V2_PLUGIN_VERSION 0x2
 
 /* Default types range from 0~12. type can range from 0 to 0xff
  * SST types start at higher to avoid any overlapping in future */
@@ -97,6 +101,7 @@ enum sst_event_types {
 	SST_EVENT_AWARE,
 	SST_SET_LINKED_PATH,
 	SST_SET_GENERIC_MODULE_EVENT,
+	SST_EVENT_VTSV,
 };
 
 enum sst_vendor_type {
@@ -111,21 +116,22 @@ enum sst_gain_kcontrol_type {
 };
 
 struct sst_dfw_gain_data {
-	u8 stereo;
-	enum sst_gain_kcontrol_type type;
-	u32 gain_val_index;
-	s32 max;
-	s32 min;
-	u16 instance_id;
-	u16 module_id;
-	u16 pipe_id;
-	u16 task_id;
-	u16 ramp_duration;
-	s16 l_gain;
-	s16 r_gain;
-	u8 mute;
-	char pname[44];
-} __packed;
+	__s32 max;
+	__s32 min;
+	__u32 type;
+	__u32 gain_val_index;
+	__u32 reserved;	/* reserved */
+	__u16 instance_id;
+	__u16 module_id;
+	__u16 pipe_id;
+	__u16 task_id;
+	__u16 ramp_duration;
+	__s16 l_gain;
+	__s16 r_gain;
+	__u8 mute;
+	__u8 stereo;
+	char pname[SND_SOC_GAIN_CONTROL_NAME];
+} __attribute__((packed));
 
 enum sst_algo_kcontrol_type {
 	SST_ALGO_PARAMS,
@@ -133,30 +139,32 @@ enum sst_algo_kcontrol_type {
 };
 
 struct sst_dfw_algo_data {
-	enum sst_algo_kcontrol_type type;
-	s32 max;
-	u16 module_id;
-	u16 pipe_id;
-	u16 task_id;
-	u16 cmd_id;
-	u8 bypass;
+	__s32 max;
+	__u32 type;
+	__u32 reserved; /* reserved */
+	__u16 module_id;
+	__u16 pipe_id;
+	__u16 task_id;
+	__u16 cmd_id;
+	__u8 bypass;
 	char params[0];
 	/* params will be in driver's pvt structure */
-} __packed;
+} __attribute__((packed));
 
 struct sst_dfw_ids {
-	u32 sample_bits;        /* sst_pcm_format->sample_bits */
-	u32 rate_min;           /* sst_pcm_format-> rate_min */
-	u32 rate_max;           /* sst_pcm_format->rate_max */
-	u32 channels_min;       /* sst_pcm_format->channels_min */
-	u32 channels_max;       /* sst_pcm_format->channels_max */
-	u16 location_id;
-	u16 module_id;
-	u8  task_id;
-	u8  format;             /* stereo/mono */
-	u8  reg;
-	const char parent_wname[44];
-} __packed;
+	__u32 sample_bits;        /* sst_pcm_format->sample_bits */
+	__u32 rate_min;           /* sst_pcm_format-> rate_min */
+	__u32 rate_max;           /* sst_pcm_format->rate_max */
+	__u32 channels_min;       /* sst_pcm_format->channels_min */
+	__u32 channels_max;       /* sst_pcm_format->channels_max */
+	__u32 reserved;		/* reserved */
+	__u16 location_id;
+	__u16 module_id;
+	__u8  task_id;
+	__u8  format;             /* stereo/mono */
+	__u8  reg;
+	char parent_wname[SND_SOC_GAIN_CONTROL_NAME];
+} __attribute__((packed));
 
 #if 0
 /* sst_fw_config: FW config data organization
@@ -194,4 +202,4 @@ struct sst_fw_config {
 } __packed;
 #endif
 
-#endif
+#endif /* __SST_V2_VENDOR_H__ */
