@@ -72,7 +72,23 @@
 
 #define DEV_NAME			"dollar_cove_ti_adc"
 
-#define SW_TRIM_VAL		1
+/*Calibration related data*/
+#define ADC_DIETEMP_ZSE_REG		0x51
+
+#define ADC_GP_BTHERM_GAIN_REG		0x52
+#define ADC_GPIN_GAIN	0xF0
+#define ADC_BTHERM_GAIN		0x0F
+
+#define ADC_VBAT_GAIN_OFFSET_REG	0x53
+#define ADC_VBAT_GAIN	0x0F
+#define ADC_VBAT_OFFSET		0xF0
+
+enum {
+	VBAT_CAL = 0,
+	DIETEMP_CAL,
+	BPTHERM_CAL,
+	GPADC_CAL
+};
 
 static struct gpadc_regmap_t {
 	char *name;
@@ -124,6 +140,31 @@ static struct iio_map iio_maps[] = {
 	{},
 };
 
+/* ADC correction lookup table */
+struct dc_ti_adc_calibration {
+	s8 offset;
+	s8 gain;
+};
+static int vbat_gain_lookup[14][2] = {
+	{0, 0},
+	{1, 15},
+	{2, 30},
+	{3, 45},
+	{4, 60},
+	{5, 75},
+	{6, 90},
+	{7, 105},
+	{8, -120},
+	{9, -105},
+	{10, -90},
+	{11, -75},
+	{12, -60},
+	{13, -45}
+};
+
+static struct dc_ti_adc_calibration
+	dc_ti_adc_cal[GPADC_CH_NUM];
+
 static irqreturn_t dc_ti_gpadc_isr(int irq, void *data)
 {
 	struct gpadc_info *info = data;
@@ -147,7 +188,7 @@ int iio_dc_ti_gpadc_sample(struct iio_dev *indio_dev,
 				int ch, struct gpadc_result *res)
 {
 	struct gpadc_info *info = iio_priv(indio_dev);
-	int i, ret, adc_en_mask;
+	int i, ret, adc_en_mask, corrected_code, raw_code, gain_err;
 	u8 th, tl;
 
 	/* prepare ADC channel enable mask */
@@ -200,7 +241,7 @@ int iio_dc_ti_gpadc_sample(struct iio_dev *indio_dev,
 	 */
 	usleep_range(25, 40);
 
-	/*Start the ADC conversion for the selected channel */
+	/* Start the ADC conversion for the selected channel */
 	ret = intel_soc_pmic_setb(DC_PMIC_ADC_CNTL_REG, (u8)CNTL_ADC_START);
 	if (ret < 0)
 		goto done;
@@ -232,12 +273,21 @@ int iio_dc_ti_gpadc_sample(struct iio_dev *indio_dev,
 			 * So the result's DATAH should be maksed(0x03)
 			 * and shifted(8 bits) before adding to the DATAL.
 			 */
-			/*As per TI, The PMIC Silicon need S/W Trim.
-			Hence applying TRIM value*/
-			res->data[i] = (((th & 0x3) << 8) + tl) - SW_TRIM_VAL;
+			/*
+			 * As per TI, The PMIC Silicon ADC raw values needs
+			 * to be Trimmed with offset and gain values read
+			 * from calibration registers in PMIC.
+			 * Hence applying TRIM value
+			 */
+			raw_code = (((th & 0x3) << 8) + tl);
+			corrected_code = raw_code - dc_ti_adc_cal[i].offset;
+			/* Gain Unit is 0.15% already in Table */
+			res->data[i] = DIV_ROUND_CLOSEST(((corrected_code)
+				* (10000 - dc_ti_adc_cal[i].gain)), 10000);
+
 		}
 	}
-	/*Clear IRQ Register */
+	/* Clear IRQ Register */
 	intel_soc_pmic_clearb(DC_ADC_IRQ_MASK_REG, IRQ_MASK_ADC);
 	/* disable ADC channels */
 	intel_soc_pmic_clearb(DC_PMIC_ADC_CNTL_REG, (u8)(adc_en_mask |
@@ -275,6 +325,53 @@ static const struct iio_info dc_ti_adc_info = {
 	.read_raw = &dc_ti_adc_read_raw,
 	.driver_module = THIS_MODULE,
 };
+
+/**
+ * dc_ti_adc_calibrate: Function to store the offset and gain calibration.
+ * @indio: Pointer to the iio device.
+ * Returns 0 for success, Negetive value for failure.
+ */
+static int dc_ti_adc_calibrate(struct iio_dev *indio)
+{
+	int ret_val = 0, i;
+	u8 val;
+
+	/* Store the calib data for all channels */
+	val = intel_soc_pmic_readb(ADC_DIETEMP_ZSE_REG);
+	if (val < 0)
+		return val;
+	/*
+	 * Correction for DIE TEMP will be done by Thermal Driver.
+	 * Hence set the gain and offset co-efficients for DIE_TEMP
+	 * as zero.
+	 */
+	dc_ti_adc_cal[DIETEMP_CAL].gain = 0;
+	dc_ti_adc_cal[DIETEMP_CAL].offset = (s8)0;
+
+	val = intel_soc_pmic_readb(ADC_VBAT_GAIN_OFFSET_REG);
+	if (val < 0)
+		return val;
+	dc_ti_adc_cal[VBAT_CAL].gain = (s8)(val & ADC_VBAT_GAIN);
+	dc_ti_adc_cal[VBAT_CAL].gain =
+			vbat_gain_lookup[dc_ti_adc_cal[VBAT_CAL].gain][1];
+	dc_ti_adc_cal[VBAT_CAL].offset = (s8)((val & ADC_VBAT_OFFSET) >> 4);
+
+	val = intel_soc_pmic_readb(ADC_GP_BTHERM_GAIN_REG);
+	if (val < 0)
+		return val;
+	dc_ti_adc_cal[BPTHERM_CAL].gain = (s8)(val & ADC_BTHERM_GAIN);
+	dc_ti_adc_cal[GPADC_CAL].gain = (s8)((val & ADC_GPIN_GAIN) >> 4);
+
+	dc_ti_adc_cal[BPTHERM_CAL].offset = dc_ti_adc_cal[VBAT_CAL].offset;
+	dc_ti_adc_cal[GPADC_CAL].offset = dc_ti_adc_cal[VBAT_CAL].offset;
+
+	for (i = 0; i < GPADC_CH_NUM; i++) {
+		dev_dbg(indio->dev.parent,
+		"dc_ti_adc_cal[%d].gain = %d, dc_ti_adc_cal[%d].offset = %d\n",
+		i, dc_ti_adc_cal[i].gain, i, dc_ti_adc_cal[i].offset);
+	}
+	return ret_val;
+}
 
 static int dc_ti_gpadc_probe(struct platform_device *pdev)
 {
@@ -319,8 +416,12 @@ static int dc_ti_gpadc_probe(struct platform_device *pdev)
 		/* Unmask VBUS interrupt */
 		intel_soc_pmic_clearb(DC_ADC_IRQ_MASK_REG, IRQ_MASK_ADC);
 	}
+	/* Calibrate all the channels */
+	err = dc_ti_adc_calibrate(indio_dev);
+	if (err)
+		dev_err(info->dev, "Error during reading calibration values\n");
 
-	dev_info(&pdev->dev, "dc_ti adc probed\n");
+	dev_dbg(&pdev->dev, "dc_ti adc probed\n");
 
 	return 0;
 

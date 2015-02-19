@@ -29,6 +29,7 @@
 #include <linux/workqueue.h>
 #include <linux/delay.h>
 #include <linux/notifier.h>
+#include <linux/acpi.h>
 #include <linux/iio/consumer.h>
 #include <linux/mfd/intel_soc_pmic.h>
 #include <linux/power/intel_fuel_gauge.h>
@@ -100,6 +101,9 @@
 #define DEFAULT_CC_OFFSET_SHIFT	0
 #define TRIM_REV_3_OFFSET_SHIFT	1
 
+#define DC_TI_CC_OFF_HI		0x61
+#define DC_TI_CC_OFF_LO		0x62
+
 #define EEPROM_ACCESS_CONTROL		0x88
 #define EEPROM_UNLOCK			0xDA
 #define EEPROM_LOCK			0x00
@@ -112,8 +116,13 @@
 #define EEPROM_GAIN_REG		0xF4  /* b7~b4 : CC gain */
 #define DC_PMIC_TRIM_REVISION_3	0x03
 #define DEF_PMIC_TRIM_REVISON		0x00
-/*CC Accumulator Bit unit 3.662uV/10mohm */
+#define DC_TI_PMIC_VERSION_REG		0x00
+#define PMIC_VERSION_A0		0xC0
+#define PMIC_VERSION_A1		0xC1
+/* CC Accumulator Bit unit 3.662uV/10mohm */
 #define MAX_CC_SCALE			3662
+
+#define OCV_AVG_SAMPLE_CNT		3
 
 struct dc_ti_trim {
 	s8 cc_offset_extra;
@@ -121,10 +130,13 @@ struct dc_ti_trim {
 	s8 cc_off_shift;
 	s8 cc_step;
 	s8 cc_trim_rev;
+	s16 cc_offset_intcal;
+	u8 pmic_version;
+	bool apply_trim;
 };
 struct dc_ti_cc_info {
 	struct platform_device *pdev;
-	struct work_struct	init_work;
+	struct delayed_work	init_work;
 	struct dc_ti_trim trim;
 
 	int		vbat_socv;
@@ -395,7 +407,8 @@ static int dc_ti_get_cc_delta(struct dc_ti_cc_info *info, int *acc_val)
 	dev_info(&info->pdev->dev, "delta_smpl:%d\n", delta_smpl);
 
 	/* Apply the Offset and Gain corrections to delta_q */
-	if (info->trim.cc_trim_rev == DC_PMIC_TRIM_REVISION_3) {
+	if (info->trim.apply_trim) {
+		dev_dbg(&info->pdev->dev, "Applying TRIM correction to CC\n");
 		delta_q -= ((info->trim.cc_offset_extra * info->trim.cc_step *
 				delta_smpl) >> info->trim.cc_off_shift);
 
@@ -405,13 +418,16 @@ static int dc_ti_get_cc_delta(struct dc_ti_cc_info *info, int *acc_val)
 				* MAX_CC_SCALE), 100000);
 	} else {
 		/* convert CC to to uAhr without offset and gain correction */
+		dev_dbg(&info->pdev->dev,
+					"TRIM correction not Applied to CC\n");
 		delta_q = CC_ACC_TO_UA(delta_q);
 	}
 
 	dev_info(&info->pdev->dev, "delta_q correction:%d\n", delta_q);
 	/* ibatt_avg in uA */
 	if (delta_smpl)
-		info->ibatt_avg = DIV_ROUND_CLOSEST((delta_q * 4), delta_smpl);
+		info->ibatt_avg = DIV_ROUND_CLOSEST((delta_q * 4),
+						delta_smpl);
 
 	*acc_val = DIV_ROUND_CLOSEST(delta_q, 3600);
 
@@ -486,7 +502,7 @@ static int dc_ti_get_ibatt_avg(struct dc_ti_cc_info *info, int *ibatt_avg)
 static int dc_ti_fg_get_ibatt(struct dc_ti_cc_info *info, int *ibatt)
 {
 	int ret, val;
-	short int cc_intg_val;
+	short int cc_intg_val, corrected_val;
 
 	ret = intel_soc_pmic_readb(DC_TI_CC_INTG0_REG);
 	if (ret < 0)
@@ -496,10 +512,19 @@ static int dc_ti_fg_get_ibatt(struct dc_ti_cc_info *info, int *ibatt)
 	ret = intel_soc_pmic_readb(DC_TI_CC_INTG1_REG);
 	if (ret < 0)
 		goto ibatt_read_failed;
+
 	val |= (ret & DC_TI_CC_INTG1_MASK) << 8;
 
 	/* scale the readings to seconds */
 	cc_intg_val = (short int)(val << 2);
+
+	corrected_val = ((cc_intg_val)
+			- ((2 * info->trim.cc_offset_intcal)
+			+ (info->trim.cc_offset_extra)));
+
+	corrected_val /= (1 + DIV_ROUND_CLOSEST((CC_GAIN_STEP
+			- (info->trim.cc_gain_extra * CC_GAIN_STEP)),
+			10000));
 
 	/* convert the cc integrator value to uA */
 	*ibatt = CC_INTG_TO_UA((int)cc_intg_val);
@@ -680,7 +705,7 @@ static struct intel_fg_input fg_input = {
 
 static void dc_ti_update_boot_ocv(struct dc_ti_cc_info *info)
 {
-	int ret;
+	int ret, vocv, idx;
 
 	ret = intel_soc_pmic_setb(DC_TI_CC_CNTL_REG, CC_CNTL_CC_CTR_EN);
 	if (ret < 0)
@@ -692,12 +717,22 @@ static void dc_ti_update_boot_ocv(struct dc_ti_cc_info *info)
 	 */
 	msleep(250);
 
-	ret = dc_ti_cc_get_vocv(&info->vbat_bocv);
-	if (ret)
-		dev_err(&info->pdev->dev,
-			"Failed to read IBAT bootup:%d\n", ret);
+	/*
+	 * take the average of 3 OCV samples
+	 * for better accuracy.
+	 */
+	info->vbat_bocv = 0;
+	for (idx = 0; idx < OCV_AVG_SAMPLE_CNT; idx++) {
+		ret = dc_ti_cc_get_vocv(&vocv);
+		if (ret)
+			dev_err(&info->pdev->dev,
+				"Failed to read bootup vocv:%d\n", ret);
+		info->vbat_bocv += vocv;
+	}
+	info->vbat_bocv /= OCV_AVG_SAMPLE_CNT;
 
-	ret = intel_soc_pmic_clearb(DC_TI_CC_CNTL_REG, CC_CNTL_CC_CTR_EN);
+	ret = intel_soc_pmic_clearb(DC_TI_CC_CNTL_REG,
+			CC_CNTL_CC_CTR_EN);
 	if (ret < 0)
 		dev_err(&info->pdev->dev,
 			"Failed to clr CC_CTR_EN bit:%d\n", ret);
@@ -711,8 +746,15 @@ static void dc_ti_update_boot_ocv(struct dc_ti_cc_info *info)
 static int dc_ti_cc_read_trim_values(struct dc_ti_cc_info *info)
 {
 	int ret;
-	u8	val_offset, val_gain;
+	u8	val_offset, val_gain, val_int_cal_hi, val_int_cal_lo;
 
+	/* Read the PMIC Version register*/
+	info->trim.pmic_version = intel_soc_pmic_readb(DC_TI_PMIC_VERSION_REG);
+	if (info->trim.pmic_version < 0) {
+		dev_err(&info->pdev->dev, "Error while reading PMIC Version Reg\n");
+		ret = info->trim.pmic_version;
+		goto exit_trim;
+	}
 	/*
 	 * As per the PMIC Vendor, the calibration offset and gain err
 	 * values are stored in EEPROM Bank 0 and Bank 1 of the PMIC.
@@ -720,48 +762,81 @@ static int dc_ti_cc_read_trim_values(struct dc_ti_cc_info *info)
 	 * to apply the corrections to the raw coulomb counter value.
 	 */
 	/* UNLOCK the EEPROM Access */
-	ret = intel_soc_pmic_writeb(EEPROM_ACCESS_CONTROL, EEPROM_UNLOCK);
+	ret = intel_soc_pmic_writeb(EEPROM_ACCESS_CONTROL,
+				EEPROM_UNLOCK);
 	if (ret < 0) {
-		dev_err(&info->pdev->dev, "Error while unlocking EEPROM\n");
+		dev_err(&info->pdev->dev,
+				"Err while unlocking EEPROM\n");
 		goto exit_trim;
 	}
 	/* Select Bank 1 to read CC GAIN Err correction */
 	ret = intel_soc_pmic_writeb(EEPROM_CTRL,
 			((u8)(EEPROM_CTRL_EEPSEL_MASK & EEPROM_BANK1_SEL)));
 	if (ret < 0) {
-		dev_err(&info->pdev->dev, "Error while selecting EEPROM Bank1\n");
+		dev_err(&info->pdev->dev,
+				"Err while selecting EEPROM Bank1\n");
 		goto exit_trim;
 	}
 	val_gain = intel_soc_pmic_readb(EEPROM_GAIN_REG);
 	if (val_gain < 0) {
-		dev_err(&info->pdev->dev, "Error while reading Gain Reg\n");
+		dev_err(&info->pdev->dev,
+				"Err while reading Gain Reg\n");
 		ret = val_gain;
 		goto exit_trim;
 	}
 	info->trim.cc_gain_extra = val_gain >> 4;
 	info->trim.cc_trim_rev = (val_gain & 0x0F);
 
-	if (info->trim.cc_trim_rev == DC_PMIC_TRIM_REVISION_3) {
+	val_int_cal_hi = intel_soc_pmic_readb(DC_TI_CC_OFF_HI);
+	if (val_int_cal_hi < 0) {
+		dev_err(&info->pdev->dev,
+				"Err while reading Offset Reg\n");
+		ret = val_int_cal_hi;
+		goto exit_trim;
+	}
+	val_int_cal_lo = intel_soc_pmic_readb(DC_TI_CC_OFF_LO);
+	if (val_int_cal_lo < 0) {
+		dev_err(&info->pdev->dev,
+				"Err while reading Offset Reg\n");
+		ret = val_int_cal_lo;
+		goto exit_trim;
+	}
+	info->trim.cc_offset_intcal =
+		(s16)(((val_int_cal_hi << 8) & 0x1F)
+			| (val_int_cal_lo));
+	if ((s8)val_int_cal_hi & 0x3F)
+		info->trim.cc_offset_intcal *= -1;
+
+	if ((info->trim.cc_trim_rev != DEF_PMIC_TRIM_REVISON &&
+		info->trim.pmic_version == PMIC_VERSION_A1) ||
+		(info->trim.cc_trim_rev == DC_PMIC_TRIM_REVISION_3 &&
+		info->trim.pmic_version == PMIC_VERSION_A0)) {
 		/* Select Bank 0 to read CC OFFSET Correction */
 		ret = intel_soc_pmic_writeb(EEPROM_CTRL,
 			((u8)(EEPROM_CTRL_EEPSEL_MASK & EEPROM_BANK0_SEL)));
 		if (ret < 0) {
-			dev_err(&info->pdev->dev, "Error while selecting EEPROM Bank1\n");
+			dev_err(&info->pdev->dev,
+				"Error while selecting EEPROM Bank1\n");
 			goto exit_trim;
 		}
 		val_offset = intel_soc_pmic_readb(OFFSET_REG_TRIM_REV_3);
 		if (val_offset < 0) {
-			dev_err(&info->pdev->dev, "Error while reading Offset Reg\n");
+			dev_err(&info->pdev->dev,
+				"Error while reading Offset Reg\n");
 			ret = val_offset;
 			goto exit_trim;
 		}
 		info->trim.cc_offset_extra = (s8)(val_offset);
 		info->trim.cc_step = TRIM_REV_3_OFFSET_STEP;
 		info->trim.cc_off_shift = TRIM_REV_3_OFFSET_SHIFT;
-		dev_info(&info->pdev->dev, "TRIM Revision 3, Apply TRIM\n");
+		info->trim.apply_trim = true;
+		dev_warn(&info->pdev->dev,
+		"TRIM Revision %d PMIC Version %d, Apply TRIM\n",
+		info->trim.cc_trim_rev, info->trim.pmic_version);
 	} else {
 		/* Read offset trim value from Bank 0 */
-		val_offset = intel_soc_pmic_readb(OFFSET_REG_TRIM_REV_DEFAULT);
+		val_offset = intel_soc_pmic_readb(
+					OFFSET_REG_TRIM_REV_DEFAULT);
 		if (val_offset < 0) {
 			dev_err(&info->pdev->dev,
 				"Error while reading Offset Reg\n");
@@ -771,9 +846,13 @@ static int dc_ti_cc_read_trim_values(struct dc_ti_cc_info *info)
 		info->trim.cc_offset_extra = ((s8)val_offset) >> 4;
 		info->trim.cc_step = DEFAULT_CC_OFFSET_STEP;
 		info->trim.cc_off_shift = DEFAULT_CC_OFFSET_SHIFT;
+
+		dev_warn(&info->pdev->dev,
+		"TRIM Revision %d PMIC Version %d, Do Not Apply TRIM\n",
+		info->trim.cc_trim_rev, info->trim.pmic_version);
+
 		info->trim.cc_trim_rev = DEF_PMIC_TRIM_REVISON;
-		dev_info(&info->pdev->dev,
-			 "TRIM Revision old, Do not Apply TRIM\n");
+		info->trim.apply_trim = false;
 	}
 
 exit_trim:
@@ -783,23 +862,24 @@ exit_trim:
 		/* Reset the PMIC TRIM Revision number when error
 		 * is encountered */
 		info->trim.cc_trim_rev = DEF_PMIC_TRIM_REVISON;
+		info->trim.apply_trim = false;
+		dev_err(&info->pdev->dev, "Err Reset the TRIM params\n");
 	}
-	dev_info(&info->pdev->dev, "CC OFFSET = %d GAIN = %d\n",
+	dev_warn(&info->pdev->dev, "CC OFFSET = %d GAIN = %d\n",
 			info->trim.cc_offset_extra, info->trim.cc_gain_extra);
 	return ret;
 }
 static void dc_ti_cc_init_worker(struct work_struct *work)
 {
 	struct dc_ti_cc_info *info =
-	    container_of(work, struct dc_ti_cc_info, init_work);
+	    container_of(to_delayed_work(work), struct dc_ti_cc_info,
+				init_work.work);
 	int ret;
-	u8 val_offset, val_gain;
 
 	dc_ti_cc_read_trim_values(info);
 	/* read bootup OCV */
 	dc_ti_update_boot_ocv(info);
 	dc_ti_cc_init_data(info);
-	info_ptr = info;
 
 	ret = intel_fg_register_input(&fg_input);
 	if (ret < 0)
@@ -818,13 +898,16 @@ static int dc_ti_cc_probe(struct platform_device *pdev)
 
 	info->pdev = pdev;
 	platform_set_drvdata(pdev, info);
-	INIT_WORK(&info->init_work, dc_ti_cc_init_worker);
+	INIT_DELAYED_WORK(&info->init_work, dc_ti_cc_init_worker);
 
+	info_ptr = info;
 	/*
-	 * scheduling the init worker
-	 * to reduce the boot time.
+	 * scheduling the init worker to reduce
+	 * delays during boot time. Also delayed
+	 * worker is being used to time the
+	 * OCV measurment later if neccessary.
 	 */
-	schedule_work(&info->init_work);
+	schedule_delayed_work(&info->init_work, 0);
 
 	return 0;
 }
