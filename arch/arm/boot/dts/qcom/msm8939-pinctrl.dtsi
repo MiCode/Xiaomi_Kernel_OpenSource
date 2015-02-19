@@ -537,6 +537,30 @@
 			};
 		};
 
+		mod_en_active {
+			qcom,pins = <&gp 97>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "mod_en_active";
+
+			mod_en_active: mod_en_active {
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		mod_en_suspend {
+			qcom,pins = <&gp 97>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "mod_en_suspend";
+
+			mod_en_suspend: mod_en_suspend {
+				drive-strength = <2>;
+				output-low;
+			};
+		};
+
 		disp_vsn_active {
 			qcom,pins = <&gp 77>;
 			qcom,pin-func = <0>;

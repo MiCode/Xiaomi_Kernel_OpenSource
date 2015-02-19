@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -42,13 +42,16 @@
 		spi-max-frequency = <18000000>;
 		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
 				"afe_pwr_active", "afe_pwr_suspend",
+				"mod_en_active", "mod_en_suspend",
 				"disp_vsn_active", "disp_vsn_suspend";
 		pinctrl-0 = <&ts_int_active &ts_reset_active>;
 		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
 		pinctrl-2 = <&afe_pwr_active>;
 		pinctrl-3 = <&afe_pwr_suspend>;
-		pinctrl-4 = <&disp_vsn_active>;
-		pinctrl-5 = <&disp_vsn_suspend>;
+		pinctrl-4 = <&mod_en_active>;
+		pinctrl-5 = <&mod_en_suspend>;
+		pinctrl-6 = <&disp_vsn_active>;
+		pinctrl-7 = <&disp_vsn_suspend>;
 		irq-gpio = <&msm_gpio 13 0>;
 		rst-gpio = <&msm_gpio 12 0>;
 		vdd_ana-supply = <&pm8916_l17>;
@@ -70,13 +73,18 @@
 	qcom,cont-splash-enabled;
 };
 
+&pmx_mdss {
+	qcom,num-grp-pins = <2>;
+	qcom,pins = <&gp 25>, <&gp 98>;
+};
+
 &mdss_dsi0 {
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_fhd_video>;
 
-	qcom,platform-enable-gpio = <&msm_gpio 97 0>;
+	qcom,platform-enable-gpio = <>;
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
 
