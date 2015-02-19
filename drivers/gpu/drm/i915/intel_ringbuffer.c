@@ -1228,7 +1228,7 @@ static int wa_add(struct drm_i915_private *dev_priv,
 
 #define WA_WRITE(addr, val) WA_REG(addr, val, 0xffffffff)
 
-int bdw_init_workarounds(struct intel_engine_cs *ring)
+static int bdw_init_workarounds(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -1273,7 +1273,7 @@ int bdw_init_workarounds(struct intel_engine_cs *ring)
 	return 0;
 }
 
-int chv_init_workarounds(struct intel_engine_cs *ring)
+static int chv_init_workarounds(struct intel_engine_cs *ring)
 {
 	struct drm_device *dev = ring->dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;

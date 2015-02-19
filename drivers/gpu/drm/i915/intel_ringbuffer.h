@@ -647,8 +647,6 @@ int intel_init_vebox_ring_buffer(struct drm_device *dev);
 u64 intel_ring_get_active_head(struct intel_engine_cs *ring);
 void intel_ring_setup_status_page(struct intel_engine_cs *ring);
 u32 get_pipe_control_scratch_addr(struct intel_engine_cs *ring);
-int bdw_init_workarounds(struct intel_engine_cs *ring);
-int chv_init_workarounds(struct intel_engine_cs *ring);
 int init_workarounds_ring(struct intel_engine_cs *ring);
 
 
