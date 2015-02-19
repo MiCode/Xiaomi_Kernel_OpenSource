@@ -378,6 +378,7 @@
 #define XY_SRC_COPY_BLT_CMD		((2<<29)|(0x53<<22)|6)
 #define XY_MONO_SRC_COPY_IMM_BLT	((2<<29)|(0x71<<22)|5)
 #define COLOR_BLT_CMD			((2 << 29) | (0x40 << 22) | 3)
+#define GEN8_COLOR_BLT_CMD		(2<<29 | 0x50<<22)
 #define XY_SRC_COPY_BLT_WRITE_ALPHA	(1<<21)
 #define XY_SRC_COPY_BLT_WRITE_RGB	(1<<20)
 #define   BLT_DEPTH_8			(0<<24)

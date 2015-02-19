@@ -379,22 +379,44 @@ static int i915_add_clear_obj_cmd(struct drm_i915_gem_object *obj)
 	u32 offset = i915_gem_obj_ggtt_offset(obj);
 	int ret;
 
-	ret = intel_ring_begin(ring, 6);
-	if (ret)
-		return ret;
+	if (IS_GEN8(dev_priv->dev)) {
+		ret = intel_ring_begin(ring, 8);
+		if (ret)
+			return ret;
 
-	intel_ring_emit(ring, COLOR_BLT_CMD |
-			      XY_SRC_COPY_BLT_WRITE_ALPHA |
-			      XY_SRC_COPY_BLT_WRITE_RGB);
-	intel_ring_emit(ring, BLT_DEPTH_32 | (PAT_ROP_GXCOPY << ROP_SHIFT) |
-			PITCH_SIZE);
-	intel_ring_emit(ring,
-			(DIV_ROUND_UP(obj->base.size, PITCH_SIZE) <<
-						 HEIGHT_SHIFT) | PITCH_SIZE);
-	intel_ring_emit(ring, offset);
-	intel_ring_emit(ring, 0);
-	intel_ring_emit(ring, MI_NOOP);
-	intel_ring_advance(ring);
+		intel_ring_emit(ring, GEN8_COLOR_BLT_CMD |
+				      XY_SRC_COPY_BLT_WRITE_ALPHA |
+				      XY_SRC_COPY_BLT_WRITE_RGB | (7-2));
+		intel_ring_emit(ring, BLT_DEPTH_32 |
+				      (PAT_ROP_GXCOPY << ROP_SHIFT) |
+				       PITCH_SIZE);
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, obj->base.size >> PAGE_SHIFT <<
+						HEIGHT_SHIFT | PAGE_SIZE / 4);
+		intel_ring_emit(ring, i915_gem_obj_ggtt_offset(obj));
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, MI_NOOP);
+
+		intel_ring_advance(ring);
+	} else {
+		ret = intel_ring_begin(ring, 6);
+		if (ret)
+			return ret;
+
+		intel_ring_emit(ring, COLOR_BLT_CMD |
+				      XY_SRC_COPY_BLT_WRITE_ALPHA |
+				      XY_SRC_COPY_BLT_WRITE_RGB);
+		intel_ring_emit(ring, BLT_DEPTH_32 | (PAT_ROP_GXCOPY <<
+					ROP_SHIFT) | PITCH_SIZE);
+		intel_ring_emit(ring,
+				(DIV_ROUND_UP(obj->base.size, PITCH_SIZE) <<
+						HEIGHT_SHIFT) | PITCH_SIZE);
+		intel_ring_emit(ring, offset);
+		intel_ring_emit(ring, 0);
+		intel_ring_emit(ring, MI_NOOP);
+		intel_ring_advance(ring);
+	}
 
 	return 0;
 }
