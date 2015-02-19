@@ -529,6 +529,7 @@ enum mdss_mdp_blend_op {
 	BLEND_OP_MAX,
 };
 
+#define DECIMATED_DIMENSION(dim, deci) (((dim) + ((1 << (deci)) - 1)) >> (deci))
 #define MAX_PLANES	4
 struct mdp_scale_data {
 	uint8_t enable_pxl_ext;
