@@ -307,7 +307,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	size_t		size = 0;
 	struct usb_ep	*out;
 	unsigned long	flags;
-	unsigned short reserve_headroom;
+	unsigned short reserve_headroom = 0;
 
 	spin_lock_irqsave(&dev->lock, flags);
 	if (dev->port_usb)
@@ -346,9 +346,7 @@ rx_submit(struct eth_dev *dev, struct usb_request *req, gfp_t gfp_flags)
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (dev->rx_needed_headroom)
-		reserve_headroom = dev->rx_needed_headroom;
-	else
-		reserve_headroom = NET_IP_ALIGN;
+		reserve_headroom = ALIGN(dev->rx_needed_headroom, 4);
 
 	pr_debug("%s: size: %zu + %d(hr)", __func__, size, reserve_headroom);
 
