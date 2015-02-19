@@ -223,6 +223,11 @@ static unsigned int ksm_thread_pages_to_scan = 100;
 /* Milliseconds ksmd should sleep between batches */
 static unsigned int ksm_thread_sleep_millisecs = 20;
 
+static int ksm_should_sleep = 1;
+static void ksm_wakeup_thread(unsigned long nothing);
+static struct timer_list ksm_timer =
+	TIMER_INITIALIZER(ksm_wakeup_thread, 0, 0);
+
 #ifdef CONFIG_NUMA
 /* Zeroed when merging across nodes is not allowed */
 static unsigned int ksm_merge_across_nodes = 1;
@@ -1711,6 +1716,12 @@ static int ksmd_should_run(void)
 	return (ksm_run & KSM_RUN_MERGE) && !list_empty(&ksm_mm_head.mm_list);
 }
 
+static void ksm_wakeup_thread(unsigned long nothing)
+{
+	ksm_should_sleep = 0;
+	wake_up_interruptible(&ksm_thread_wait);
+}
+
 static int ksm_scan_thread(void *nothing)
 {
 	set_freezable();
@@ -1726,8 +1737,11 @@ static int ksm_scan_thread(void *nothing)
 		try_to_freeze();
 
 		if (ksmd_should_run()) {
-			schedule_timeout_interruptible(
+			mod_timer(&ksm_timer, jiffies +
 				msecs_to_jiffies(ksm_thread_sleep_millisecs));
+			ksm_should_sleep = 1;
+			wait_event_freezable(ksm_thread_wait,
+				!ksm_should_sleep);
 		} else {
 			wait_event_freezable(ksm_thread_wait,
 				ksmd_should_run() || kthread_should_stop());
@@ -2315,6 +2329,7 @@ static int __init ksm_init(void)
 	if (err)
 		goto out;
 
+	init_timer_deferrable(&ksm_timer);
 	ksm_thread = kthread_run(ksm_scan_thread, NULL, "ksmd");
 	if (IS_ERR(ksm_thread)) {
 		printk(KERN_ERR "ksm: creating kthread failed\n");
