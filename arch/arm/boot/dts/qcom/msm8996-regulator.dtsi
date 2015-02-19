@@ -549,13 +549,25 @@
 		compatible = "qcom,cpr3-msm8996-hmss-regulator";
 		reg = <0x099e8000 0x4000>, <0x00074000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
+		clock-names = "core_clk";
+		interrupts = <0 48 0>;
 		qcom,cpr-ctrl-name = "apcc";
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-up-down-delay-time = <3000>;
+		qcom,cpr-step-quot-init-min = <13>;
+		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-count-mode = <2>;		/* Staggered */
 
 		qcom,apm-ctrl = <&apc_apm>;
 		qcom,apm-threshold-voltage = <850000>;
 		qcom,apm-hysteresis-voltage = <5000>;
 
 		vdd-supply = <&pm8994_s11>;
+		vdd-limit-supply = <&pm8994_s11_limit>;
 
 		apc0_vreg: regulator@0 {
 			qcom,cpr-thread-id = <0>;
@@ -565,11 +577,16 @@
 
 			qcom,voltage-step = <5000>;
 
-			qcom,cpr-fuse-corners = <4>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-down-threshold = <2>;
+
+			qcom,cpr-fuse-corners = <5>;
 			qcom,cpr-fuse-combos = <1>;
 			qcom,cpr-corners = <19>;
 
-			qcom,cpr-corner-fmax-map = <1 6 11 19>;
+			qcom,cpr-corner-fmax-map = <1 2 6 11 19>;
 
 			qcom,cpr-voltage-ceiling =
 				<605000  670000  745000  745000  745000  745000
@@ -590,6 +607,8 @@
 				1344000000 1420800000 1459200000>;
 
 			qcom,allow-voltage-interpolation;
+			qcom,allow-quotient-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 		};
 
 		apc1_vreg: regulator@1 {
@@ -600,11 +619,16 @@
 
 			qcom,voltage-step = <5000>;
 
-			qcom,cpr-fuse-corners = <4>;
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-down-threshold = <2>;
+
+			qcom,cpr-fuse-corners = <5>;
 			qcom,cpr-fuse-combos = <1>;
 			qcom,cpr-corners = <18>;
 
-			qcom,cpr-corner-fmax-map = <1 5 11 18>;
+			qcom,cpr-corner-fmax-map = <1 3 5 11 18>;
 
 			qcom,cpr-voltage-ceiling =
 				<605000  670000  670000  745000  745000  905000
@@ -623,6 +647,8 @@
 				1497600000 1593600000>;
 
 			qcom,allow-voltage-interpolation;
+			qcom,allow-quotient-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 		};
 	};
 
@@ -630,7 +656,19 @@
 		compatible = "qcom,cpr3-msm8996-mmss-regulator";
 		reg = <0x00838000 0x4000>, <0x00074000 0x1000>;
 		reg-names = "cpr_ctrl", "fuse_base";
+		clocks = <&clock_mmss clk_mmss_rbcpr_clk>,
+			 <&clock_mmss clk_mmss_rbcpr_ahb_clk>,
+			 <&clock_mmss clk_mmss_mmagic_ahb_clk>;
+		clock-names = "core_clk", "iface_clk", "bus_clk";
+		interrupts = <0 166 0>;
 		qcom,cpr-ctrl-name = "gfx";
+
+		qcom,cpr-sensor-time = <1000>;
+		qcom,cpr-loop-time = <5000000>;
+		qcom,cpr-idle-cycles = <15>;
+		qcom,cpr-step-quot-init-min = <13>;
+		qcom,cpr-step-quot-init-max = <13>;
+		qcom,cpr-count-mode = <2>;		/* Staggered */
 
 		vdd-supply = <&pmi8994_s2>;
 
@@ -641,6 +679,11 @@
 			regulator-max-microvolt = <4>;
 
 			qcom,voltage-step = <5000>;
+
+			qcom,cpr-consecutive-up = <0>;
+			qcom,cpr-consecutive-down = <2>;
+			qcom,cpr-up-threshold = <0>;
+			qcom,cpr-down-threshold = <2>;
 
 			qcom,cpr-fuse-corners = <4>;
 			qcom,cpr-fuse-combos = <1>;
@@ -656,7 +699,14 @@
 			qcom,corner-frequencies =
 				<120000000 205000000 360000000 480000000>;
 
+			qcom,cpr-target-quotients =
+				<0 0 0 0 249 232 0  394 0  422 0 0 0 0 0 0>,
+				<0 0 0 0 400 363 0  565 0  603 0 0 0 0 0 0>,
+				<0 0 0 0 669 601 0  851 0  905 0 0 0 0 0 0>,
+				<0 0 0 0 899 806 0 1084 0 1149 0 0 0 0 0 0>;
+
 			qcom,allow-voltage-interpolation;
+			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 		};
 	};
 };

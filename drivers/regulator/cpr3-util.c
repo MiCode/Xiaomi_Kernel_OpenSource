@@ -31,6 +31,15 @@
 #define BYTES_PER_FUSE_ROW		8
 #define MAX_FUSE_ROW_BIT		63
 
+#define CPR3_CONSECUTIVE_UP_DOWN_MIN	0
+#define CPR3_CONSECUTIVE_UP_DOWN_MAX	15
+#define CPR3_UP_DOWN_THRESHOLD_MIN	0
+#define CPR3_UP_DOWN_THRESHOLD_MAX	31
+#define CPR3_STEP_QUOT_MIN		0
+#define CPR3_STEP_QUOT_MAX		63
+#define CPR3_IDLE_CLOCKS_MIN		0
+#define CPR3_IDLE_CLOCKS_MAX		31
+
 /**
  * cpr3_get_thread_name() - loads the name of the thread specified in device
  *			    tree into thread->name
@@ -530,6 +539,189 @@ free_temp:
 }
 
 /**
+ * cpr3_parse_u32() - parse the specified property from the CPR3 thread's
+ *		device tree node and verify that it is within the allowed limits
+ * @thread:		Pointer to the CPR3 thread
+ * @propname:		The name of the device tree property to read
+ * @out_value:		The output pointer to fill with the value read
+ * @value_min:		The minimum allowed property value
+ * @value_max:		The maximum allowed property value
+ *
+ * This function prints a verbose error message if the property is missing or
+ * has a value which is not within the specified range.
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_parse_u32(struct cpr3_thread *thread, const char *propname,
+		       u32 *out_value, u32 value_min, u32 value_max)
+{
+	int rc;
+
+	rc = of_property_read_u32(thread->of_node, propname, out_value);
+	if (rc) {
+		cpr3_err(thread, "error reading property %s, rc=%d\n",
+			propname, rc);
+		return rc;
+	}
+
+	if (*out_value < value_min || *out_value > value_max) {
+		cpr3_err(thread, "%s=%u is invalid; allowed range: [%u, %u]\n",
+			propname, *out_value, value_min, value_max);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/**
+ * cpr3_parse_ctrl_u32() - parse the specified property from the CPR3
+ *		controller's device tree node and verify that it is within the
+ *		allowed limits
+ * @ctrl:		Pointer to the CPR3 controller
+ * @propname:		The name of the device tree property to read
+ * @out_value:		The output pointer to fill with the value read
+ * @value_min:		The minimum allowed property value
+ * @value_max:		The maximum allowed property value
+ *
+ * This function prints a verbose error message if the property is missing or
+ * has a value which is not within the specified range.
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_parse_ctrl_u32(struct cpr3_controller *ctrl, const char *propname,
+		       u32 *out_value, u32 value_min, u32 value_max)
+{
+	int rc;
+
+	rc = of_property_read_u32(ctrl->dev->of_node, propname, out_value);
+	if (rc) {
+		cpr3_err(ctrl, "error reading property %s, rc=%d\n",
+			propname, rc);
+		return rc;
+	}
+
+	if (*out_value < value_min || *out_value > value_max) {
+		cpr3_err(ctrl, "%s=%u is invalid; allowed range: [%u, %u]\n",
+			propname, *out_value, value_min, value_max);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+/**
+ * cpr3_parse_common_thread_data() - parse common CPR3 thread properties from
+ *		device tree
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_parse_common_thread_data(struct cpr3_thread *thread)
+{
+	int rc;
+
+	rc = cpr3_parse_u32(thread, "qcom,cpr-consecutive-up",
+			&thread->consecutive_up, CPR3_CONSECUTIVE_UP_DOWN_MIN,
+			CPR3_CONSECUTIVE_UP_DOWN_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_u32(thread, "qcom,cpr-consecutive-down",
+			&thread->consecutive_down, CPR3_CONSECUTIVE_UP_DOWN_MIN,
+			CPR3_CONSECUTIVE_UP_DOWN_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_u32(thread, "qcom,cpr-up-threshold",
+			&thread->up_threshold, CPR3_UP_DOWN_THRESHOLD_MIN,
+			CPR3_UP_DOWN_THRESHOLD_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_u32(thread, "qcom,cpr-down-threshold",
+			&thread->down_threshold, CPR3_UP_DOWN_THRESHOLD_MIN,
+			CPR3_UP_DOWN_THRESHOLD_MAX);
+	if (rc)
+		return rc;
+
+	return rc;
+}
+
+/**
+ * cpr3_parse_common_ctrl_data() - parse common CPR3 controller properties from
+ *		device tree
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
+{
+	int rc;
+
+	rc = cpr3_parse_ctrl_u32(ctrl, "qcom,cpr-sensor-time",
+			&ctrl->sensor_time, 0, UINT_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_ctrl_u32(ctrl, "qcom,cpr-loop-time",
+			&ctrl->loop_time, 0, UINT_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_ctrl_u32(ctrl, "qcom,cpr-idle-cycles",
+			&ctrl->idle_clocks, CPR3_IDLE_CLOCKS_MIN,
+			CPR3_IDLE_CLOCKS_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_ctrl_u32(ctrl, "qcom,cpr-step-quot-init-min",
+			&ctrl->step_quot_init_min, CPR3_STEP_QUOT_MIN,
+			CPR3_STEP_QUOT_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_ctrl_u32(ctrl, "qcom,cpr-step-quot-init-max",
+			&ctrl->step_quot_init_max, CPR3_STEP_QUOT_MIN,
+			CPR3_STEP_QUOT_MAX);
+	if (rc)
+		return rc;
+
+	rc = cpr3_parse_ctrl_u32(ctrl, "qcom,cpr-count-mode",
+			&ctrl->count_mode, CPR3_COUNT_MODE_ALL_AT_ONCE_MIN,
+			CPR3_COUNT_MODE_STAGGERED);
+	if (rc)
+		return rc;
+
+	/* Count repeat is optional */
+	ctrl->count_repeat = 0;
+	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-count-repeat",
+			&ctrl->count_repeat);
+
+	ctrl->cpr_allowed_sw = of_property_read_bool(ctrl->dev->of_node,
+			"qcom,cpr-enable");
+
+	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
+	if (IS_ERR(ctrl->vdd_regulator)) {
+		rc = PTR_ERR(ctrl->vdd_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	ctrl->core_clk = devm_clk_get(ctrl->dev, "core_clk");
+	if (IS_ERR(ctrl->core_clk)) {
+		rc = PTR_ERR(ctrl->core_clk);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable request core clock, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	return rc;
+}
+
+/**
  * cpr3_limit_open_loop_voltages() - modify the open-loop voltage of each corner
  *				so that it fits within the floor to ceiling
  *				voltage range of the corner
@@ -558,4 +750,59 @@ int cpr3_limit_open_loop_voltages(struct cpr3_thread *thread)
 	}
 
 	return 0;
+}
+
+/**
+ * cpr3_open_loop_voltage_as_ceiling() - configures the ceiling voltage for each
+ *		corner to equal the open-loop voltage if the relevant device
+ *		tree property is found for the thread
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * This function assumes that the the open-loop voltage for each corner has
+ * already been rounded to the nearest allowed set point and that it fails
+ * within the floor to ceiling range.
+ *
+ * Return: none
+ */
+void cpr3_open_loop_voltage_as_ceiling(struct cpr3_thread *thread)
+{
+	int i;
+
+	if (!of_property_read_bool(thread->of_node,
+				"qcom,cpr-scaled-open-loop-voltage-as-ceiling"))
+		return;
+
+	for (i = 0; i < thread->corner_count; i++)
+		thread->corner[i].ceiling_volt
+			= thread->corner[i].open_loop_volt;
+}
+
+/**
+ * cpr3_print_quots() - print CPR target quotients into the kernel log for
+ *		debugging purposes
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * Return: none
+ */
+void cpr3_print_quots(struct cpr3_thread *thread)
+{
+	int i, j, pos;
+	size_t buflen;
+	char *buf;
+
+	buflen = sizeof(*buf) * CPR3_RO_COUNT * (MAX_CHARS_PER_INT + 2);
+	buf = kzalloc(buflen, GFP_KERNEL);
+	if (!buf) {
+		cpr3_err(thread, "could not allocate memory for debug logging\n");
+		return;
+	}
+
+	for (i = 0; i < thread->corner_count; i++) {
+		for (j = 0, pos = 0; j < CPR3_RO_COUNT; j++)
+			pos += scnprintf(buf + pos, buflen - pos, " %u",
+				thread->corner[i].target_quot[j]);
+		cpr3_debug(thread, "target quots[%2d]:%s\n", i, buf);
+	}
+
+	kfree(buf);
 }

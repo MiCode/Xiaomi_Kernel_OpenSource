@@ -35,7 +35,7 @@
 
 #include "cpr3-regulator.h"
 
-#define MSM8996_HMSS_FUSE_CORNERS	4
+#define MSM8996_HMSS_FUSE_CORNERS	5
 
 /**
  * struct cpr3_msm8996_hmss_fuses - HMSS specific fuse data for MSM8996
@@ -71,10 +71,10 @@ struct cpr3_msm8996_hmss_fuses {
 };
 
 /**
- * enum cpr3_msm8996_hmss_fuse_combo - fuse combinations supported by the
- *			HMSS CPR3 controller on MSM8996
+ * enum cpr3_msm8996_hmss_fuse_combo - fuse combinations supported by the HMSS
+ *			CPR3 controller on MSM8996
  * %CPR3_MSM8996_HMSS_FUSE_COMBO_DEFAULT:	Initial default combination
- * %CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT:	Defines the number of
+ * %CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT:		Defines the number of
  *						combinations supported
  *
  * This list will be expanded as new requirements are added.
@@ -82,6 +82,27 @@ struct cpr3_msm8996_hmss_fuses {
 enum cpr3_msm8996_hmss_fuse_combo {
 	CPR3_MSM8996_HMSS_FUSE_COMBO_DEFAULT = 0,
 	CPR3_MSM8996_HMSS_FUSE_COMBO_COUNT
+};
+
+/*
+ * Constants which define the name of each fuse corner.  Note that no actual
+ * fuses are defined for LowSVS.  However, a mapping from corner to LowSVS
+ * is required in order to perform target quotient interpolation properly.
+ */
+enum cpr3_msm8996_hmss_fuse_corner {
+	CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS	= 0,
+	CPR3_MSM8996_HMSS_FUSE_CORNER_LOWSVS	= 1,
+	CPR3_MSM8996_HMSS_FUSE_CORNER_SVS	= 2,
+	CPR3_MSM8996_HMSS_FUSE_CORNER_NOM	= 3,
+	CPR3_MSM8996_HMSS_FUSE_CORNER_TURBO	= 4,
+};
+
+static const char * const cpr3_msm8996_hmss_fuse_corner_name[] = {
+	[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]	= "MinSVS",
+	[CPR3_MSM8996_HMSS_FUSE_CORNER_LOWSVS]	= "LowSVS",
+	[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]	= "SVS",
+	[CPR3_MSM8996_HMSS_FUSE_CORNER_NOM]	= "NOM",
+	[CPR3_MSM8996_HMSS_FUSE_CORNER_TURBO]	= "TURBO",
 };
 
 /* CPR3 hardware thread IDs */
@@ -100,17 +121,27 @@ enum cpr3_msm8996_hmss_fuse_combo {
  *		single fuse row.  These segments are concatentated together in
  *		order to form the full fuse parameter value.  The segments for
  *		a given parameter may correspond to different fuse rows.
+ *
+ * Note that there are only physically 4 sets of fuse parameters which
+ * correspond to the MinSVS, SVS, NOM, and TURBO fuse corners.  However, the SVS
+ * quotient offset fuse is used to define the target quotient for the LowSVS
+ * fuse corner.  In order to utilize LowSVS, it must be treated as if it were a
+ * real fully defined fuse corner.  Thus, LowSVS fuse parameter locations are
+ * specified.  These locations duplicate the SVS values in order to simplify
+ * interpolation logic.
  */
 static const struct cpr3_fuse_param
 msm8996_hmss_ro_sel_param[2][MSM8996_HMSS_FUSE_CORNERS][2] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{66, 42, 45}, {} },
 		{{66, 38, 41}, {} },
+		{{66, 38, 41}, {} },
 		{{66, 34, 37}, {} },
 		{{66, 30, 33}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
 		{{64, 58, 61}, {} },
+		{{64, 54, 57}, {} },
 		{{64, 54, 57}, {} },
 		{{64, 50, 53}, {} },
 		{{64, 46, 49}, {} },
@@ -122,11 +153,13 @@ msm8996_hmss_init_voltage_param[2][MSM8996_HMSS_FUSE_CORNERS][3] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{67,  0,  5}, {} },
 		{{66, 58, 63}, {} },
+		{{66, 58, 63}, {} },
 		{{66, 52, 57}, {} },
 		{{66, 46, 51}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
 		{{65, 16, 21}, {} },
+		{{65, 10, 15}, {} },
 		{{65, 10, 15}, {} },
 		{{65,  4,  9}, {} },
 		{{64, 62, 63}, {65,  0,  3}, {} },
@@ -138,11 +171,13 @@ msm8996_hmss_target_quot_param[2][MSM8996_HMSS_FUSE_CORNERS][3] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{67, 42, 53}, {} },
 		{{67, 30, 41}, {} },
+		{{67, 30, 41}, {} },
 		{{67, 18, 29}, {} },
 		{{67,  6, 17}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
 		{{65, 58, 63}, {66,  0,  5}, {} },
+		{{65, 46, 57}, {} },
 		{{65, 46, 57}, {} },
 		{{65, 34, 45}, {} },
 		{{65, 22, 33}, {} },
@@ -153,11 +188,13 @@ static const struct cpr3_fuse_param
 msm8996_hmss_quot_offset_param[2][MSM8996_HMSS_FUSE_CORNERS][3] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{} },
+		{{} },
 		{{68,  6, 13}, {} },
 		{{67, 62, 63}, {68, 0, 5}, {} },
 		{{67, 54, 61}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
+		{{} },
 		{{} },
 		{{66, 22, 29}, {} },
 		{{66, 14, 21}, {} },
@@ -181,11 +218,13 @@ msm8996_hmss_redun_ro_sel_param[2][MSM8996_HMSS_FUSE_CORNERS][2] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{76, 36, 39}, {} },
 		{{76, 32, 35}, {} },
+		{{76, 32, 35}, {} },
 		{{76, 28, 31}, {} },
 		{{76, 24, 27}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
 		{{74, 52, 55}, {} },
+		{{74, 48, 51}, {} },
 		{{74, 48, 51}, {} },
 		{{74, 44, 47}, {} },
 		{{74, 40, 43}, {} },
@@ -197,11 +236,13 @@ msm8996_hmss_redun_init_voltage_param[2][MSM8996_HMSS_FUSE_CORNERS][3] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{76, 58, 63}, {} },
 		{{76, 52, 57}, {} },
+		{{76, 52, 57}, {} },
 		{{76, 46, 51}, {} },
 		{{76, 40, 45}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
 		{{75, 10, 15}, {} },
+		{{75,  4,  9}, {} },
 		{{75,  4,  9}, {} },
 		{{74, 62, 63}, {75,  0,  3}, {} },
 		{{74, 56, 61}, {} },
@@ -213,11 +254,13 @@ msm8996_hmss_redun_target_quot_param[2][MSM8996_HMSS_FUSE_CORNERS][2] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{77, 36, 47}, {} },
 		{{77, 24, 35}, {} },
+		{{77, 24, 35}, {} },
 		{{77, 12, 23}, {} },
 		{{77,  0, 11}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
 		{{75, 52, 63}, {} },
+		{{75, 40, 51}, {} },
 		{{75, 40, 51}, {} },
 		{{75, 28, 39}, {} },
 		{{75, 16, 27}, {} },
@@ -228,11 +271,13 @@ static const struct cpr3_fuse_param
 msm8996_hmss_redun_quot_offset_param[2][MSM8996_HMSS_FUSE_CORNERS][2] = {
 	[MSM8996_HMSS_POWER_CLUSTER_THREAD_ID] = {
 		{{} },
+		{{} },
 		{{68, 11, 18}, {} },
 		{{77, 56, 63}, {} },
 		{{77, 48, 55}, {} },
 	},
 	[MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID] = {
+		{{} },
 		{{} },
 		{{76, 16, 23}, {} },
 		{{76,  8, 15}, {} },
@@ -272,17 +317,26 @@ enum msm8996_cpr_limitation {
 /* Open loop voltage fuse reference voltages in microvolts */
 static const int msm8996_hmss_fuse_ref_volt[MSM8996_HMSS_FUSE_CORNERS] = {
 	605000,
+	745000, /* Place holder entry for LowSVS */
 	745000,
 	905000,
 	1015000,
 };
 
 #define MSM8996_HMSS_FUSE_STEP_VOLT		10000
-#define MSM8996_HMSS_VOLTAGE_FUSE_SIZE	6
+#define MSM8996_HMSS_VOLTAGE_FUSE_SIZE		6
+#define MSM8996_HMSS_QUOT_OFFSET_SCALE		5
+
+#define MSM8996_HMSS_CPR_SENSOR_COUNT		25
+#define MSM8996_HMSS_THREAD0_SENSOR_MIN		0
+#define MSM8996_HMSS_THREAD0_SENSOR_MAX		14
+#define MSM8996_HMSS_THREAD1_SENSOR_MIN		15
+#define MSM8996_HMSS_THREAD1_SENSOR_MAX		24
+
+#define MSM8996_HMSS_CPR_CLOCK_RATE		19200000
 
 /**
- * cpr3_msm8996_hmss_read_fuse_data() - load HMSS specific fuse parameter
- *					values
+ * cpr3_msm8996_hmss_read_fuse_data() - load HMSS specific fuse parameter values
  * @thread:		Pointer to the CPR3 thread
  *
  * This function allocates a cpr3_msm8996_hmss_fuses struct, fills it with
@@ -398,7 +452,7 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_thread *thread)
 	thread->cpr_rev_fuse		= fuse->cpr_fusing_rev;
 	thread->fuse_corner_count	= MSM8996_HMSS_FUSE_CORNERS;
 	thread->platform_fuses		= fuse;
-	thread->fuse_combo	= CPR3_MSM8996_HMSS_FUSE_COMBO_DEFAULT;
+	thread->fuse_combo		= CPR3_MSM8996_HMSS_FUSE_COMBO_DEFAULT;
 
 	return 0;
 }
@@ -469,8 +523,12 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 			msm8996_hmss_fuse_ref_volt[i],
 			MSM8996_HMSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
 			MSM8996_HMSS_VOLTAGE_FUSE_SIZE);
-		cpr3_debug(thread, "fuse_corner[%d] open-loop=%d uV\n",
-			i, fuse_volt[i]);
+
+		/* Log fused open-loop voltage values for debugging purposes. */
+		if (i != CPR3_MSM8996_HMSS_FUSE_CORNER_LOWSVS)
+			cpr3_info(thread, "fused %6s: open-loop=%7d uV\n",
+				cpr3_msm8996_hmss_fuse_corner_name[i],
+				fuse_volt[i]);
 	}
 
 	allow_interpolation = of_property_read_bool(node,
@@ -484,8 +542,7 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 		}
 	}
 
-	if (fuse->limitation
-	    == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION)
+	if (fuse->limitation == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION)
 		allow_interpolation = false;
 
 	if (!allow_interpolation) {
@@ -517,8 +574,19 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 	for (i = 0; i <= fmax_corner[0]; i++)
 		thread->corner[i].open_loop_volt = fuse_volt[0];
 
+	/*
+	 * Corner LowSVS should be skipped for voltage interpolation
+	 * since no fuse exists for it.  Instead, the lowest interpolation
+	 * should be between MinSVS and SVS.
+	 */
+	for (i = CPR3_MSM8996_HMSS_FUSE_CORNER_LOWSVS;
+	     i < thread->fuse_corner_count - 1; i++) {
+		fmax_corner[i] = fmax_corner[i + 1];
+		fuse_volt[i] = fuse_volt[i + 1];
+	}
+
 	/* Interpolate voltages for the higher fuse corners. */
-	for (i = 1; i < thread->fuse_corner_count; i++) {
+	for (i = 1; i < thread->fuse_corner_count - 1; i++) {
 		freq_low = thread->corner[fmax_corner[i - 1]].proc_freq;
 		volt_low = fuse_volt[i - 1];
 		freq_high = thread->corner[fmax_corner[i]].proc_freq;
@@ -615,6 +683,177 @@ static int cpr3_hmss_adjust_voltages_for_apm(struct cpr3_thread *thread)
 }
 
 /**
+ * cpr3_msm8996_hmss_set_no_interpolation_quotients() - use the fused target
+ *		quotient values for lower frequencies.
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_msm8996_hmss_set_no_interpolation_quotients(
+			struct cpr3_thread *thread)
+{
+	struct cpr3_msm8996_hmss_fuses *fuse = thread->platform_fuses;
+	u32 quot, ro;
+	int i, fuse_corner;
+
+	for (i = 0; i < thread->corner_count; i++) {
+		fuse_corner = thread->corner[i].cpr_fuse_corner;
+		quot = fuse->target_quot[fuse_corner];
+		ro = fuse->ro_sel[fuse_corner];
+		thread->corner[i].target_quot[ro] = quot;
+	}
+
+	return 0;
+}
+
+/**
+ * cpr3_msm8996_hmss_calculate_target_quotients() - calculate the CPR target
+ *		quotient for each corner of a CPR3 thread
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * If target quotient interpolation is allowed in both device tree and in
+ * hardware fuses, then this function calculates the target quotient for a
+ * given corner using linear interpolation.  This interpolation is performed
+ * using the processor frequencies of the lower and higher Fmax corners along
+ * with the fused target quotient and quotient offset of the higher Fmax corner.
+ *
+ * If target quotient interpolation is not allowed, then this function uses
+ * the Fmax fused target quotient for all of the corners associated with a
+ * given fuse corner.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_msm8996_hmss_calculate_target_quotients(
+			struct cpr3_thread *thread)
+{
+	struct cpr3_msm8996_hmss_fuses *fuse = thread->platform_fuses;
+	int rc;
+	bool allow_interpolation;
+	u64 freq_low, freq_high;
+	u64 *quot_low;
+	u64 *quot_high;
+	u32 quot, ro;
+	int i, j;
+	int *fmax_corner;
+
+	/* Log fused quotient values for debugging purposes. */
+	cpr3_info(thread, "fused MinSVS: quot[%2llu]=%4llu\n",
+		fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS],
+		fuse->target_quot[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]);
+	for (i = CPR3_MSM8996_HMSS_FUSE_CORNER_SVS;
+	     i <= CPR3_MSM8996_HMSS_FUSE_CORNER_TURBO; i++)
+		cpr3_info(thread, "fused %6s: quot[%2llu]=%4llu, quot_offset[%2llu]=%4llu\n",
+			cpr3_msm8996_hmss_fuse_corner_name[i],
+			fuse->ro_sel[i], fuse->target_quot[i], fuse->ro_sel[i],
+			fuse->quot_offset[i] * MSM8996_HMSS_QUOT_OFFSET_SCALE);
+
+	allow_interpolation = of_property_read_bool(thread->of_node,
+					"qcom,allow-quotient-interpolation");
+
+	if (fuse->limitation == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION)
+		allow_interpolation = false;
+
+	if (!allow_interpolation) {
+		/* Use fused target quotients for lower frequencies. */
+		return cpr3_msm8996_hmss_set_no_interpolation_quotients(thread);
+	}
+
+	fmax_corner = kzalloc(sizeof(*fmax_corner) * thread->fuse_corner_count,
+					GFP_KERNEL);
+	quot_low = kzalloc(sizeof(*quot_low) * thread->fuse_corner_count,
+					GFP_KERNEL);
+	quot_high = kzalloc(sizeof(*quot_high) * thread->fuse_corner_count,
+					GFP_KERNEL);
+	if (!fmax_corner || !quot_low || !quot_high) {
+		cpr3_err(thread, "unable to allocate temp memory\n");
+		rc = -ENOMEM;
+		goto done;
+	}
+
+	/* Determine highest corner mapped to each fuse corner */
+	j = thread->fuse_corner_count - 1;
+	for (i = thread->corner_count - 1; i >= 0; i--) {
+		if (thread->corner[i].cpr_fuse_corner == j) {
+			fmax_corner[j] = i;
+			j--;
+		}
+	}
+	if (j >= 0) {
+		cpr3_err(thread, "invalid fuse corner mapping\n");
+		rc = -EINVAL;
+		goto done;
+	}
+
+	/*
+	 * Interpolation is not possible for corners mapped to the lowest fuse
+	 * corner so use the fuse corner value directly.
+	 */
+	quot = fuse->target_quot[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS];
+	ro = fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS];
+	for (i = 0; i <= fmax_corner[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]; i++)
+		thread->corner[i].target_quot[ro] = quot;
+
+	for (i = CPR3_MSM8996_HMSS_FUSE_CORNER_SVS;
+	     i < thread->fuse_corner_count; i++) {
+		quot_high[i] = fuse->target_quot[i];
+		quot_low[i] = quot_high[i]
+		     - fuse->quot_offset[i] * MSM8996_HMSS_QUOT_OFFSET_SCALE;
+		if (quot_low[i] > quot_high[i]) {
+			cpr3_err(thread, "invalid quot[%d]=%llu and quot_offset[%d]=-%llu; interpolation not possible\n",
+				i, quot_high[i], i,
+				fuse->quot_offset[i]
+					* MSM8996_HMSS_QUOT_OFFSET_SCALE);
+			rc = cpr3_msm8996_hmss_set_no_interpolation_quotients(
+				thread);
+			goto done;
+		}
+	}
+
+	if (fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS]
+	    != fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]) {
+		cpr3_err(thread, "MinSVS RO=%llu is not the same as SVS RO=%llu; interpolation not possible\n",
+			fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS],
+			fuse->ro_sel[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS]);
+		rc = cpr3_msm8996_hmss_set_no_interpolation_quotients(thread);
+		goto done;
+	}
+
+	/*
+	 * The LowSVS target quotient is defined as:
+	 *	(SVS target quotient) - (the unpacked SVS quotient offset)
+	 * MinSVS, LowSVS, and SVS fuse corners all share the same RO so it is
+	 * possible to interpolate between their target quotient values.
+	 */
+	i = CPR3_MSM8996_HMSS_FUSE_CORNER_LOWSVS;
+	quot_high[i] = quot_low[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS];
+	quot_low[i] = fuse->target_quot[CPR3_MSM8996_HMSS_FUSE_CORNER_MINSVS];
+	if (quot_low[i] > quot_high[i]) {
+		cpr3_err(thread, "invalid quot_lowsvs=%llu and quot_minsvs=%llu; interpolation not possible\n",
+			quot_high[i], quot_low[i]);
+		rc = cpr3_msm8996_hmss_set_no_interpolation_quotients(thread);
+		goto done;
+	}
+
+	/* Interpolate voltages for the higher fuse corners. */
+	for (i = 1; i < thread->fuse_corner_count; i++) {
+		freq_low = thread->corner[fmax_corner[i - 1]].proc_freq;
+		freq_high = thread->corner[fmax_corner[i]].proc_freq;
+
+		ro = fuse->ro_sel[i];
+		for (j = fmax_corner[i - 1] + 1; j <= fmax_corner[i]; j++)
+			thread->corner[j].target_quot[ro] = cpr3_interpolate(
+				freq_low, quot_low[i], freq_high, quot_high[i],
+				thread->corner[j].proc_freq);
+	}
+
+done:
+	kfree(fmax_corner);
+	kfree(quot_low);
+	kfree(quot_high);
+	return rc;
+}
+
+/**
  * cpr3_hmss_print_settings() - print out HMSS CPR configuration settings into
  *		the kernel log for debugging purposes
  * @thread:		Pointer to the CPR3 thread
@@ -663,7 +902,14 @@ static int cpr3_hmss_init_thread(struct cpr3_thread *thread)
 		return -EPERM;
 	} else if (fuse->limitation
 			== MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION) {
-		thread->ctrl->cpr_allowed = false;
+		thread->ctrl->cpr_allowed_hw = false;
+	}
+
+	rc = cpr3_parse_common_thread_data(thread);
+	if (rc) {
+		cpr3_err(thread, "unable to read CPR thread data from device tree, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	rc = cpr3_hmss_parse_corner_data(thread);
@@ -690,6 +936,15 @@ static int cpr3_hmss_init_thread(struct cpr3_thread *thread)
 	rc = cpr3_hmss_adjust_voltages_for_apm(thread);
 	if (rc) {
 		cpr3_err(thread, "unable to adjust voltages for APM\n, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	cpr3_open_loop_voltage_as_ceiling(thread);
+
+	rc = cpr3_msm8996_hmss_calculate_target_quotients(thread);
+	if (rc) {
+		cpr3_err(thread, "unable to calculate target quotients, rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -754,7 +1009,37 @@ static int cpr3_hmss_apm_init(struct cpr3_controller *ctrl)
  */
 static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 {
-	int rc;
+	int i, rc;
+
+	rc = cpr3_parse_common_ctrl_data(ctrl);
+	if (rc) {
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable to parse common controller data, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	ctrl->vdd_limit_regulator = devm_regulator_get(ctrl->dev, "vdd-limit");
+	if (IS_ERR(ctrl->vdd_limit_regulator)) {
+		rc = PTR_ERR(ctrl->vdd_limit_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable to request vdd-supply regulator, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(ctrl->dev->of_node,
+			"qcom,cpr-up-down-delay-time",
+			&ctrl->up_down_delay_time);
+	if (rc) {
+		cpr3_err(ctrl, "error reading property qcom,cpr-up-down-delay-time, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* No error check since this is an optional property. */
+	of_property_read_u32(ctrl->dev->of_node, "qcom,cpr-clock-throttling",
+			&ctrl->proc_clock_throttle);
 
 	rc = cpr3_hmss_apm_init(ctrl);
 	if (rc) {
@@ -764,14 +1049,27 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 		return rc;
 	}
 
-	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
-	if (IS_ERR(ctrl->vdd_regulator)) {
-		rc = PTR_ERR(ctrl->vdd_regulator);
-		if (rc != -EPROBE_DEFER)
-			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
-				rc);
-		return rc;
+	ctrl->sensor_count = MSM8996_HMSS_CPR_SENSOR_COUNT;
+
+	ctrl->sensor_owner = devm_kzalloc(ctrl->dev,
+		sizeof(*ctrl->sensor_owner) * ctrl->sensor_count, GFP_KERNEL);
+	if (!ctrl->sensor_owner) {
+		cpr3_err(ctrl, "memory allocation failed\n");
+		return -ENOMEM;
 	}
+
+	/* Specify sensor ownership */
+	for (i = MSM8996_HMSS_THREAD0_SENSOR_MIN;
+	     i <= MSM8996_HMSS_THREAD0_SENSOR_MAX; i++)
+		ctrl->sensor_owner[i] = 0;
+	for (i = MSM8996_HMSS_THREAD1_SENSOR_MIN;
+	     i <= MSM8996_HMSS_THREAD1_SENSOR_MAX; i++)
+		ctrl->sensor_owner[i] = 1;
+
+	ctrl->cpr_clock_rate = MSM8996_HMSS_CPR_CLOCK_RATE;
+	ctrl->supports_hw_closed_loop = true;
+	ctrl->use_hw_closed_loop = of_property_read_bool(ctrl->dev->of_node,
+						"qcom,cpr-hw-closed-loop");
 
 	return 0;
 }
@@ -815,7 +1113,7 @@ static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 
 	ctrl->dev = dev;
 	/* Set to false later if anything precludes CPR operation. */
-	ctrl->cpr_allowed = true;
+	ctrl->cpr_allowed_hw = true;
 
 	rc = of_property_read_string(dev->of_node, "qcom,cpr-ctrl-name",
 					&ctrl->name);
@@ -831,8 +1129,7 @@ static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = cpr3_allocate_threads(ctrl,
-		MSM8996_HMSS_POWER_CLUSTER_THREAD_ID,
+	rc = cpr3_allocate_threads(ctrl, MSM8996_HMSS_POWER_CLUSTER_THREAD_ID,
 		MSM8996_HMSS_PERFORMANCE_CLUSTER_THREAD_ID);
 	if (rc) {
 		cpr3_err(ctrl, "failed to allocate CPR thread array, rc=%d\n",

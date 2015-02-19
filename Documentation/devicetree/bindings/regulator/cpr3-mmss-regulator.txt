@@ -28,6 +28,21 @@ MMSS specific properties:
 	Value type: <string>
 	Definition: should be "qcom,cpr3-msm8996-mmss-regulator"
 
+- clocks
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: Array of clock tuples in which each tuple consists of a
+		    phandle to a clock device and a clock ID number.  The
+		    following clocks must be specified: MMSS RBCPR, MMSS RBCPR
+		    AHB, and MMSS MMAGIC AHB.
+
+- clock-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Clock names.  This list must match up 1-to-1 with the clocks
+		    specified in the 'clocks' property. "core_clk", "iface_clk",
+		    and "bus_clk" must be specified.
+
 =================================================
 Second Level Nodes - CPR Threads for a Controller
 =================================================
@@ -48,6 +63,29 @@ HMSS specific properties:
 		    possible for a given regulator type.  For MMSS the maximum
 		    supported value is 1.
 
+- qcom,cpr-target-quotients
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: A grouping of integer tuple lists.  Each tuple defines the
+		    CPR target quotient for each ring oscillator (RO) for a
+		    given corner.  Since CPR3 supports exactly 16 ROs, each
+		    tuple must contain 16 elements corresponding to RO0 through
+		    RO15 in order.  If a given RO is unused for a corner, then
+		    its target quotient should be specified as 0.
+
+		    Each tuple list must contain the number of tuples defined in
+		    the corresponding element of the qcom,cpr-corners property.
+		    A single tuple list may only be specified if all of the
+		    corner counts in qcom,cpr-corners are the same.  The tuples
+		    in a given list are ordered from the lowest corner to the
+		    highest corner.
+
+		    The tuple list grouping must contain either
+		    qcom,cpr-fuse-combos number of tuple lists in which case the
+		    lists are matched to fuse combinations 1-to-1 or the
+		    grouping must contain exactly 1 list which is used
+		    regardless of the fuse combination found on a given chip.
+
 =======
 Example
 =======
@@ -56,9 +94,23 @@ gfx_cpr: cpr3-ctrl@838000 {
 	compatible = "qcom,cpr3-msm8996-mmss-regulator";
 	reg = <0x00838000 0x4000>, <0x00074000 0x1000>;
 	reg-names = "cpr_ctrl", "fuse_base";
+	clocks = <&clock_mmss clk_mmss_rbcpr_clk>,
+		 <&clock_mmss clk_mmss_rbcpr_ahb_clk>,
+		 <&clock_mmss clk_mmss_mmagic_ahb_clk>;
+	clock-names = "core_clk", "iface_clk", "bus_clk";
+	interrupts = <0 166 0>;
 	qcom,cpr-ctrl-name = "gfx";
 
+	qcom,cpr-sensor-time = <1000>;
+	qcom,cpr-loop-time = <5000000>;
+	qcom,cpr-idle-cycles = <15>;
+	qcom,cpr-step-quot-init-min = <13>;
+	qcom,cpr-step-quot-init-max = <13>;
+	qcom,cpr-count-mode = <2>;
+
 	vdd-supply = <&pmi8994_s2>;
+
+	qcom,cpr-enable;
 
 	gfx_vreg: regulator@0 {
 		qcom,cpr-thread-id = <0>;
@@ -67,6 +119,11 @@ gfx_cpr: cpr3-ctrl@838000 {
 		regulator-max-microvolt = <4>;
 
 		qcom,voltage-step = <5000>;
+
+		qcom,cpr-consecutive-up = <0>;
+		qcom,cpr-consecutive-down = <2>;
+		qcom,cpr-up-threshold = <0>;
+		qcom,cpr-down-threshold = <2>;
 
 		qcom,cpr-fuse-corners = <4>;
 		qcom,cpr-fuse-combos = <1>;
@@ -80,6 +137,13 @@ gfx_cpr: cpr3-ctrl@838000 {
 		qcom,corner-frequencies =
 			<120000000 205000000 360000000 480000000>;
 
+		qcom,cpr-target-quotients =
+			<0 0 0 0 249 232 0  394 0  422 0 0 0 0 0 0>,
+			<0 0 0 0 400 363 0  565 0  603 0 0 0 0 0 0>,
+			<0 0 0 0 669 601 0  851 0  905 0 0 0 0 0 0>,
+			<0 0 0 0 899 806 0 1084 0 1149 0 0 0 0 0 0>;
+
 		qcom,allow-voltage-interpolation;
+		qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 	};
 };

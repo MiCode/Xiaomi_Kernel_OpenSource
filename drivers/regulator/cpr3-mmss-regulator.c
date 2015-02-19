@@ -53,10 +53,10 @@ struct cpr3_msm8996_mmss_fuses {
 };
 
 /**
- * enum cpr3_msm8996_mmss_fuse_combo - fuse combinations supported by the
- *			MMSS CPR3 controller on MSM8996
+ * enum cpr3_msm8996_mmss_fuse_combo - fuse combinations supported by the MMSS
+ *			CPR3 controller on MSM8996
  * %CPR3_MSM8996_MMSS_FUSE_COMBO_DEFAULT:	Initial default combination
- * %CPR3_MSM8996_MMSS_FUSE_COMBO_COUNT:	Defines the number of
+ * %CPR3_MSM8996_MMSS_FUSE_COMBO_COUNT:		Defines the number of
  *						combinations supported
  *
  * This list will be expanded as new requirements are added.
@@ -119,11 +119,14 @@ static const int msm8996_mmss_fuse_ref_volt[MSM8996_MMSS_FUSE_CORNERS] = {
 };
 
 #define MSM8996_MMSS_FUSE_STEP_VOLT		10000
-#define MSM8996_MMSS_VOLTAGE_FUSE_SIZE	5
+#define MSM8996_MMSS_VOLTAGE_FUSE_SIZE		5
+
+#define MSM8996_MMSS_CPR_SENSOR_COUNT		35
+
+#define MSM8996_MMSS_CPR_CLOCK_RATE		19200000
 
 /**
- * cpr3_msm8996_mmss_read_fuse_data() - load MMSS specific fuse parameter
- *					values
+ * cpr3_msm8996_mmss_read_fuse_data() - load MMSS specific fuse parameter values
  * @thread:		Pointer to the CPR3 thread
  *
  * This function allocates a cpr3_msm8996_mmss_fuses struct, fills it with
@@ -180,7 +183,7 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_thread *thread)
 	thread->cpr_rev_fuse		= fuse->cpr_fusing_rev;
 	thread->fuse_corner_count	= MSM8996_MMSS_FUSE_CORNERS;
 	thread->platform_fuses		= fuse;
-	thread->fuse_combo	= CPR3_MSM8996_MMSS_FUSE_COMBO_DEFAULT;
+	thread->fuse_combo		= CPR3_MSM8996_MMSS_FUSE_COMBO_DEFAULT;
 
 	return 0;
 }
@@ -196,7 +199,8 @@ static int cpr3_mmss_parse_corner_data(struct cpr3_thread *thread)
 {
 	int corner_sum = 0;
 	int combo_offset = 0;
-	int rc;
+	int i, rc;
+	u32 *temp;
 
 	rc = cpr3_parse_common_corner_data(thread, &corner_sum, &combo_offset);
 	if (rc) {
@@ -204,6 +208,30 @@ static int cpr3_mmss_parse_corner_data(struct cpr3_thread *thread)
 		return rc;
 	}
 
+	temp = kzalloc(sizeof(*temp) * thread->corner_count * CPR3_RO_COUNT,
+			GFP_KERNEL);
+	if (!temp) {
+		cpr3_err(thread, "memory allocation failed\n");
+		return -ENOMEM;
+	}
+
+	rc = cpr3_parse_array_property(thread, "qcom,cpr-target-quotients",
+			thread->corner_count * CPR3_RO_COUNT,
+			corner_sum * CPR3_RO_COUNT,
+			combo_offset * CPR3_RO_COUNT,
+			temp);
+	if (rc) {
+		cpr3_err(thread, "could not load target quotients, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	for (i = 0; i < thread->corner_count; i++)
+		memcpy(thread->corner[i].target_quot, &temp[i * CPR3_RO_COUNT],
+			sizeof(*temp) * CPR3_RO_COUNT);
+
+done:
+	kfree(temp);
 	return rc;
 }
 
@@ -251,7 +279,7 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 			msm8996_mmss_fuse_ref_volt[i],
 			MSM8996_MMSS_FUSE_STEP_VOLT, fuse->init_voltage[i],
 			MSM8996_MMSS_VOLTAGE_FUSE_SIZE);
-		cpr3_debug(thread, "fuse_corner[%d] open-loop=%d uV\n",
+		cpr3_info(thread, "fuse_corner[%d] open-loop=%7d uV\n",
 			i, fuse_volt[i]);
 	}
 
@@ -266,8 +294,7 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 		}
 	}
 
-	if (fuse->limitation
-	    == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION)
+	if (fuse->limitation == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION)
 		allow_interpolation = false;
 
 	if (!allow_interpolation) {
@@ -369,7 +396,14 @@ static int cpr3_mmss_init_thread(struct cpr3_thread *thread)
 		return -EPERM;
 	} else if (fuse->limitation
 			== MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION) {
-		thread->ctrl->cpr_allowed = false;
+		thread->ctrl->cpr_allowed_hw = false;
+	}
+
+	rc = cpr3_parse_common_thread_data(thread);
+	if (rc) {
+		cpr3_err(thread, "unable to read CPR thread data from device tree, rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	rc = cpr3_mmss_parse_corner_data(thread);
@@ -393,6 +427,8 @@ static int cpr3_mmss_init_thread(struct cpr3_thread *thread)
 		return rc;
 	}
 
+	cpr3_open_loop_voltage_as_ceiling(thread);
+
 	cpr3_mmss_print_settings(thread);
 
 	return 0;
@@ -409,11 +445,43 @@ static int cpr3_mmss_init_controller(struct cpr3_controller *ctrl)
 {
 	int rc;
 
-	ctrl->vdd_regulator = devm_regulator_get(ctrl->dev, "vdd");
-	if (IS_ERR(ctrl->vdd_regulator)) {
-		rc = PTR_ERR(ctrl->vdd_regulator);
+	rc = cpr3_parse_common_ctrl_data(ctrl);
+	if (rc) {
 		if (rc != -EPROBE_DEFER)
-			cpr3_err(ctrl, "unable request vdd regulator, rc=%d\n",
+			cpr3_err(ctrl, "unable to parse common controller data, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	ctrl->sensor_count = MSM8996_MMSS_CPR_SENSOR_COUNT;
+
+	/*
+	 * MMSS only has one thread (0) so the zeroed array does not need
+	 * further modification.
+	 */
+	ctrl->sensor_owner = devm_kzalloc(ctrl->dev,
+		sizeof(*ctrl->sensor_owner) * ctrl->sensor_count, GFP_KERNEL);
+	if (!ctrl->sensor_owner) {
+		cpr3_err(ctrl, "memory allocation failed\n");
+		return -ENOMEM;
+	}
+
+	ctrl->cpr_clock_rate = MSM8996_MMSS_CPR_CLOCK_RATE;
+
+	ctrl->iface_clk = devm_clk_get(ctrl->dev, "iface_clk");
+	if (IS_ERR(ctrl->iface_clk)) {
+		rc = PTR_ERR(ctrl->iface_clk);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable request interface clock, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	ctrl->bus_clk = devm_clk_get(ctrl->dev, "bus_clk");
+	if (IS_ERR(ctrl->bus_clk)) {
+		rc = PTR_ERR(ctrl->bus_clk);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable request bus clock, rc=%d\n",
 				rc);
 		return rc;
 	}
@@ -460,7 +528,7 @@ static int cpr3_mmss_regulator_probe(struct platform_device *pdev)
 
 	ctrl->dev = dev;
 	/* Set to false later if anything precludes CPR operation. */
-	ctrl->cpr_allowed = true;
+	ctrl->cpr_allowed_hw = true;
 
 	rc = of_property_read_string(dev->of_node, "qcom,cpr-ctrl-name",
 					&ctrl->name);
