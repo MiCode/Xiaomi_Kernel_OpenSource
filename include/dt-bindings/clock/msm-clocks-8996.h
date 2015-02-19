@@ -335,7 +335,6 @@
 #define clk_csi0phytimer_clk_src	0xc8a309be
 #define clk_csi1phytimer_clk_src	0x7c0fe23a
 #define clk_csi2phytimer_clk_src	0x62ffea9c
-#define clk_isense_clk_src		0x6157b336
 #define clk_rbbmtimer_clk_src		0x17649ecc
 #define clk_edpaux_clk_src		0x02a8ca8f
 #define clk_edpgtc_clk_src		0xa51421ce
@@ -476,6 +475,10 @@
 #define clk_gpu_gcc_dbg_clk		0x0ccc42cd
 #define clk_mdss_mdp_vote_clk		0x588460a4
 #define clk_mdss_rotator_vote_clk	0x5b1f675e
+#define clk_mmpll2_postdiv_clk		0x4fdeaaba
+#define clk_mmpll8_postdiv_clk		0xedf57882
+#define clk_mmpll9_postdiv_clk		0x3064b618
+#define clk_gfx3d_clk_src_v2		0x4210acb7
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux		0x8121ac15

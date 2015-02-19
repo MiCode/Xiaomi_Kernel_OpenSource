@@ -44,6 +44,21 @@
 	compatible = "qcom,cc-debug-8996-v2";
 };
 
+&clock_mmss {
+	compatible = "qcom,mmsscc-8996-v2";
+};
+
+&clock_gpu {
+	compatible = "qcom,gpucc-8996-v2";
+	qcom,gfxfreq-corner-v2 =
+		<	   0  0  0 >,
+		<  125000000  0  4 >,
+		<  214000000  1  4 >,
+		<  315000000  2  4 >,
+		<  500000000  3  5 >,
+		<  604800000  4  6 >;
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */
