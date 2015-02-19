@@ -1252,17 +1252,17 @@ static void dwc3_msm_block_reset(struct dwc3_ext_xceiv *xceiv, bool core_reset)
 		usleep_range(10000, 12000);
 	}
 
-	/* Reset the DBM */
-	dbm_soft_reset(mdwc->dbm, 1);
-	usleep_range(1000, 1200);
-	dbm_soft_reset(mdwc->dbm, 0);
+	if (mdwc->dbm) {
+		/* Reset the DBM */
+		dbm_soft_reset(mdwc->dbm, 1);
+		usleep_range(1000, 1200);
+		dbm_soft_reset(mdwc->dbm, 0);
 
-
-	/*enable DBM*/
-	dwc3_msm_write_reg_field(mdwc->base, QSCRATCH_GENERAL_CFG,
-		DBM_EN_MASK, 0x1);
-	dbm_enable(mdwc->dbm);
-
+		/*enable DBM*/
+		dwc3_msm_write_reg_field(mdwc->base, QSCRATCH_GENERAL_CFG,
+			DBM_EN_MASK, 0x1);
+		dbm_enable(mdwc->dbm);
+	}
 }
 
 static void dwc3_chg_enable_secondary_det(struct dwc3_msm *mdwc)
