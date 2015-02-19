@@ -169,11 +169,14 @@ int inv_mpu6050_set_power_itg(struct inv_mpu6050_state *st, bool power_on)
 						       0);
 		if (!result)
 			st->powerup_count++;
-	} else {
+	} else if (st->powerup_count > 0) {
 		st->powerup_count--;
 		if (!st->powerup_count)
 			result = inv_mpu6050_write_reg(st, st->reg->pwr_mgmt_1,
 						       INV_MPU6050_BIT_SLEEP);
+	} else {
+		dev_err(&st->client->dev,
+			"Attempt to power off an already powered off device\n");
 	}
 
 	if (result)
