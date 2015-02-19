@@ -543,9 +543,11 @@ static void dc_xpwr_fg_pdata(void)
 		|| (!pse_mod_prof))
 		snprintf(pdata.battid, (BATTID_STR_LEN + 1),
 			"%s", BATTID_UNKNOWN);
-	else
+	else {
 		memcpy(pdata.battid, pse_mod_prof->batt_id,
 				strlen(pse_mod_prof->batt_id));
+		pdata.battid[BATTID_STR_LEN] = '\0';
+	}
 
 	platform_set_battery_data(&pdata, &ps_batt_chrg_prof);
 	pse_mod_prof = (struct ps_pse_mod_prof *)
