@@ -454,8 +454,8 @@ static int inv_mpu6050_write_raw(struct iio_dev *indio_dev,
 	/* we should only update scale when the chip is disabled, i.e.,
 		not running */
 	if (st->chip_config.enable) {
-		result = -EBUSY;
-		goto error_write_raw;
+		mutex_unlock(&indio_dev->mlock);
+		return -EBUSY;
 	}
 	result = inv_mpu6050_set_power_itg(st, true);
 	if (result)
