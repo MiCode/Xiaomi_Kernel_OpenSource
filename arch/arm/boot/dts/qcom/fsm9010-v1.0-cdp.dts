@@ -67,4 +67,22 @@
 		status = "ok";
 	};
 
+	android_usb {
+		status= "ok";
+	};
+
+	usb3: ssusb@f9200000 {
+		qcom,vbus-present;
+		qcom,skip-charger-detection;
+		status = "ok";
+	};
+
+	hsphy:  hsphy@f92f8800 {
+		status = "ok";
+	};
+
+	ssphy: ssphy@f92f8800 {
+		status = "ok";
+	};
+
 };

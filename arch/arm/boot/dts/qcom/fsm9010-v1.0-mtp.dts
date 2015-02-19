@@ -55,6 +55,28 @@
 		pinctrl-0 = <&qfec0_mdio_default>;
 		pinctrl-1 = <&gp_mdio_default>;
 		status = "ok";
-    };
+	};
+
+	android_usb {
+		status= "ok";
+	};
+
+	usb3: ssusb@f9200000 {
+		qcom,vbus-present;
+		qcom,skip-charger-detection;
+		status = "ok";
+		usb_dwc3: dwc3@f9200000 {
+		usb-phy = <&hsphy>, <&usb_nop_phy>;
+			maximum-speed = "high-speed";
+		};
+	};
+
+	hsphy:  hsphy@f92f8800 {
+		status = "ok";
+	};
+
+	usb_nop_phy: usb_nop_phy {
+		compatible = "usb-nop-xceiv";
+	};
 
 };
