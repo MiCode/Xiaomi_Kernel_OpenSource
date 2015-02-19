@@ -11,12 +11,13 @@
  */
 
 qcom,itech-3000mah {
-	/* #Itech_B00826LF_3000mAh_Averaged_Jan142015*/
+	/* #Itech_B00826LF_3000mAh_Averaged_Feb022015*/
 	qcom,max-voltage-uv = <4350000>;
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <100>;
 	qcom,battery-type = "itech_3000mah";
+	qcom,checksum = <0xF99F>;
 	qcom,fg-profile-data = [
 		E9 83 24 7D
 		14 81 2A 77
@@ -39,16 +40,16 @@ qcom,itech-3000mah {
 		DD 37 00 00
 		00 00 00 00
 		00 00 00 00
-		A2 6A 30 69
-		A9 75 C9 82
-		F2 75 EA 63
-		41 74 31 82
-		C4 6F E1 2F
-		4B 85 A0 A8
+		54 6B C2 69
+		12 6D A9 82
+		F9 77 BA 6B
+		79 64 1F 82
+		35 76 51 68
+		DE 5A 00 A9
 		2B 1E 68 53
 		66 A0 71 0C
 		28 00 FF 36
 		F0 11 30 03
-		00 00 00 0A
+		00 00 00 0D
 	];
 };
