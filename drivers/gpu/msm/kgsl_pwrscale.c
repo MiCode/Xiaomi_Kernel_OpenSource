@@ -22,6 +22,17 @@
 #define FAST_BUS 1
 #define SLOW_BUS -1
 
+/*
+ * "SLEEP" is generic counting both NAP & SLUMBER
+ * PERIODS generally won't exceed 9 for the relavent 150msec
+ * window, but can be significantly smaller and still POPP
+ * pushable in cases where SLUMBER is involved.  Hence the
+ * additional reliance on PERCENT to make sure a reasonable
+ * amount of down-time actually exists.
+ */
+#define MIN_SLEEP_PERIODS	3
+#define MIN_SLEEP_PERCENT	5
+
 static struct kgsl_popp popp_param[POPP_MAX] = {
 	{0, 0},
 	{-5, 20},
@@ -48,10 +59,14 @@ static struct devfreq_dev_status last_status = { .private_data = &last_xstats };
  */
 void kgsl_pwrscale_sleep(struct kgsl_device *device)
 {
+	struct kgsl_pwrscale *psc = &device->pwrscale;
 	BUG_ON(!mutex_is_locked(&device->mutex));
 	if (!device->pwrscale.enabled)
 		return;
 	device->pwrscale.on_time = 0;
+
+	psc->popp_level = 0;
+	clear_bit(POPP_PUSH, &device->pwrscale.popp_state);
 
 	/* to call devfreq_suspend_device() from a kernel thread */
 	queue_work(device->pwrscale.devfreq_wq,
@@ -240,20 +255,62 @@ static int _thermal_adjust(struct kgsl_pwrctrl *pwr, int level)
 static bool popp_stable(struct kgsl_device *device)
 {
 	s64 t;
+	s64 nap_time = 0;
+	s64 go_time = 0;
+	int i, index;
+	int nap = 0;
+	s64 percent_nap = 0;
+	struct kgsl_pwr_event *e;
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	struct kgsl_pwrscale *psc = &device->pwrscale;
 
 	if (!test_bit(POPP_ON, &psc->popp_state))
 		return false;
 
-	/* If running at turbo, min, or already pushed don't change levels */
-	if (test_bit(POPP_PUSH, &psc->popp_state) ||
-			pwr->active_pwrlevel == 0 ||
-			(!psc->popp_level &&
-			pwr->active_pwrlevel == pwr->min_pwrlevel))
+	/* If already pushed or running naturally at min don't push further */
+	if (test_bit(POPP_PUSH, &psc->popp_state))
+		return false;
+	if (!psc->popp_level &&
+			pwr->active_pwrlevel != 0)
+		return false;
+	if (psc->history[KGSL_PWREVENT_STATE].events == NULL)
 		return false;
 
 	t = ktime_to_ms(ktime_get());
+	/* Check for recent NAP statistics: NAPping regularly and well? */
+	if (pwr->active_pwrlevel == 0) {
+		index = psc->history[KGSL_PWREVENT_STATE].index;
+		i = index > 0 ? (index - 1) :
+			(psc->history[KGSL_PWREVENT_STATE].size - 1);
+		while (i != index) {
+			e = &psc->history[KGSL_PWREVENT_STATE].events[i];
+			if (e->data == KGSL_STATE_NAP ||
+				e->data == KGSL_STATE_SLUMBER) {
+				if (ktime_to_ms(e->start) + STABLE_TIME > t) {
+					nap++;
+					nap_time += e->duration;
+				}
+			} else if (e->data == KGSL_STATE_ACTIVE) {
+				if (ktime_to_ms(e->start) + STABLE_TIME > t)
+					go_time += e->duration;
+			}
+			if (i == 0)
+				i = psc->history[KGSL_PWREVENT_STATE].size - 1;
+			else
+				i--;
+		}
+		if (nap_time && go_time) {
+			percent_nap = 100 * nap_time;
+			do_div(percent_nap, nap_time + go_time);
+		}
+		trace_kgsl_popp_nap(device, (int)nap_time / 1000, nap,
+				percent_nap);
+		/* If running high at turbo, don't push */
+		if (nap < MIN_SLEEP_PERIODS || percent_nap < MIN_SLEEP_PERCENT)
+			return false;
+	}
+
+	/* Finally check that there hasn't been a recent change */
 	if ((device->pwrscale.freq_change_time + STABLE_TIME) < t) {
 		device->pwrscale.freq_change_time = t;
 		return true;
@@ -300,12 +357,16 @@ bool kgsl_popp_check(struct kgsl_device *device)
 static void popp_trans1(struct kgsl_device *device)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	struct kgsl_pwrlevel *pl = &pwr->pwrlevels[pwr->active_pwrlevel];
 	struct kgsl_pwrscale *psc = &device->pwrscale;
 	int old_level = psc->popp_level;
 
 	switch (old_level) {
 	case 0:
 		psc->popp_level = 2;
+		/* If the current level has a high default bus don't push it */
+		if (pl->bus_freq == pl->bus_max)
+			pwr->bus_mod = 1;
 		kgsl_pwrctrl_pwrlevel_change(device, pwr->active_pwrlevel + 1);
 		break;
 	case 1:
