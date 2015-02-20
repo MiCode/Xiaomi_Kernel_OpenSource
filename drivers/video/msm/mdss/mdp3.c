@@ -1778,6 +1778,7 @@ int mdp3_iommu_enable()
 	int i, rc = 0;
 
 	if (mdp3_res->iommu_ref_cnt == 0) {
+		mdp3_bus_scale_set_quota(MDP3_CLIENT_IOMMU, SZ_1M, SZ_1M);
 		for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++) {
 			rc = mdp3_iommu_attach(i);
 			if (rc) {
@@ -1803,6 +1804,7 @@ int mdp3_iommu_disable()
 		if (mdp3_res->iommu_ref_cnt == 0) {
 			for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++)
 				rc = mdp3_iommu_dettach(i);
+			mdp3_bus_scale_set_quota(MDP3_CLIENT_IOMMU, 0, 0);
 		}
 	} else {
 		pr_err("iommu ref count unbalanced\n");
