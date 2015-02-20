@@ -1345,8 +1345,21 @@ static int __cpufreq_remove_dev_prepare(struct device *dev,
 	} else if (cpus > 1) {
 		new_cpu = cpufreq_nominate_new_policy_cpu(policy, cpu);
 		if (new_cpu >= 0) {
-			update_policy_cpu(policy, new_cpu);
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+			if (cpufreq_driver->exit)
+				cpufreq_driver->exit(policy);
+#endif
 
+			update_policy_cpu(policy, new_cpu);
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+			if (cpufreq_driver->init) {
+				ret = cpufreq_driver->init(policy);
+				if (ret)
+					pr_debug("initialization failed during promotion from CPU%d to CPU%d\n",
+						 policy->cpu, new_cpu);
+				cpumask_clear_cpu(cpu, policy->cpus);
+			}
+#endif
 			if (!frozen) {
 				pr_debug("%s: policy Kobject moved to cpu: %d from: %d\n",
 						__func__, new_cpu, cpu);
@@ -1386,7 +1399,11 @@ static int __cpufreq_remove_dev_finish(struct device *dev,
 	up_write(&policy->rwsem);
 
 	/* If cpu is last user of policy, free policy */
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+	if ((cpus == 1) && (cpu == policy->cpu)) {
+#else
 	if (cpus == 1) {
+#endif
 		if (has_target()) {
 			ret = __cpufreq_governor(policy,
 					CPUFREQ_GOV_POLICY_EXIT);
