@@ -1912,6 +1912,7 @@ struct mdss_mdp_mixer *mdss_mdp_block_mixer_alloc(void)
 	struct mdss_mdp_writeback *wb = NULL;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 offset = mdss_mdp_get_wb_ctl_support(mdata, true);
+	int ret = 0;
 
 	ctl = mdss_mdp_ctl_alloc(mdss_res, offset);
 	if (!ctl) {
@@ -1955,9 +1956,10 @@ struct mdss_mdp_mixer *mdss_mdp_block_mixer_alloc(void)
 	ctl->wb = wb;
 
 	if (ctl->ops.start_fnc)
-		ctl->ops.start_fnc(ctl);
+		ret = ctl->ops.start_fnc(ctl);
 
-	return mixer;
+	if (!ret)
+		return mixer;
 error:
 	if (wb)
 		mdss_mdp_wb_free(wb);
