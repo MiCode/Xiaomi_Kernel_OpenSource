@@ -22,6 +22,7 @@
 #include <linux/irqreturn.h>
 #include <linux/mdss_io_util.h>
 #include <linux/msm_iommu_domains.h>
+#include <linux/msm-bus.h>
 
 #include "mdss_panel.h"
 
@@ -48,6 +49,13 @@ enum mdss_iommu_domain_type {
 	MDSS_IOMMU_DOMAIN_SECURE,
 	MDSS_IOMMU_DOMAIN_ROT_SECURE,
 	MDSS_IOMMU_MAX_DOMAIN
+};
+
+enum mdss_bus_vote_type {
+	VOTE_INDEX_DISABLE,
+	VOTE_INDEX_19_MHZ,
+	VOTE_INDEX_40_MHZ,
+	VOTE_INDEX_80_MHZ,
 };
 
 struct mdss_iommu_map_type {
@@ -347,6 +355,9 @@ struct mdss_data_type {
 	struct mdss_mdp_cdm *cdm_off;
 	u32 ncdm;
 	struct mutex cdm_lock;
+
+	struct mutex mdp_bus_lock;
+	u32 bus_ref_cnt;
 };
 extern struct mdss_data_type *mdss_res;
 
@@ -368,6 +379,7 @@ struct irq_info *mdss_intr_line(void);
 void mdss_bus_bandwidth_ctrl(int enable);
 int mdss_iommu_ctrl(int enable);
 int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
+int mdss_enable_bus_vote(int usecase_ndx);
 
 struct mdss_util_intf {
 	bool mdp_probe_done;
