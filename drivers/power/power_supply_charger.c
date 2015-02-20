@@ -67,13 +67,13 @@ static struct charger_cable cable_list[] = {
 	 .extcon_cable_type = EXTCON_TA,
 	 },
 	{
-	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_AC,
-	 .extcon_cable_type = EXTCON_AC,
-	 },
-	{
 	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_USB_TYPEC,
 	 .extcon_cable_type = EXTCON_TYPEC,
 	},
+	{
+	 .psy_cable_type = POWER_SUPPLY_CHARGER_TYPE_AC,
+	 .extcon_cable_type = EXTCON_AC,
+	 },
 };
 
 static int get_supplied_by_list(struct power_supply *psy,
@@ -105,12 +105,12 @@ struct charger_cable *get_cable(unsigned long usb_chrgr_type)
 		return &cable_list[3];
 	case POWER_SUPPLY_CHARGER_TYPE_ACA_DOCK:
 		return &cable_list[4];
-	case POWER_SUPPLY_CHARGER_TYPE_AC:
-		return &cable_list[6];
-	case POWER_SUPPLY_CHARGER_TYPE_USB_TYPEC:
-		return &cable_list[7];
 	case POWER_SUPPLY_CHARGER_TYPE_SE1:
 		return &cable_list[5];
+	case POWER_SUPPLY_CHARGER_TYPE_USB_TYPEC:
+		return &cable_list[6];
+	case POWER_SUPPLY_CHARGER_TYPE_AC:
+		return &cable_list[7];
 	}
 
 	return NULL;
