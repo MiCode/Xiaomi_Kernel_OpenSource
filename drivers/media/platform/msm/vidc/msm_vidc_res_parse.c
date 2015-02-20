@@ -847,7 +847,7 @@ err_setup_cb:
 	return rc;
 }
 
-int msm_vidc_probe_sub_devices(struct platform_device *pdev)
+int read_context_bank_resources_from_dt(struct platform_device *pdev)
 {
 	struct msm_vidc_core *core;
 	int rc = 0;
@@ -868,7 +868,6 @@ int msm_vidc_probe_sub_devices(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	dprintk(VIDC_DBG, "Probing %s\n", dev_name(&pdev->dev));
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,fw-context-bank")) {
 		if (core->resources.use_non_secure_pil) {
 			struct context_bank_info *cb;

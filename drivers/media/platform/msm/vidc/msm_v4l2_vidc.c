@@ -660,25 +660,30 @@ err_no_mem:
 	return rc;
 }
 
+static int msm_vidc_probe_context_bank(struct platform_device *pdev)
+{
+	dprintk(VIDC_DBG, "Probing %s\n", dev_name(&pdev->dev));
+	return read_context_bank_resources_from_dt(pdev);
+}
+
 static int msm_vidc_probe(struct platform_device *pdev)
 {
-	int rc = 0;
-
 	/*
 	 * Sub devices probe will be triggered by of_platform_populate()
 	 * towards the end of the probe function after msm-vidc device
 	 * probe is completed. Return immediately after completing sub-device
 	 * probe.
 	 */
-	if (of_device_is_compatible(pdev->dev.of_node,
+	if (of_device_is_compatible(pdev->dev.of_node, "qcom,msm-vidc")) {
+		return msm_vidc_probe_vidc_device(pdev);
+	} else if (of_device_is_compatible(pdev->dev.of_node,
 		"qcom,msm-vidc,context-bank")) {
-		rc = msm_vidc_probe_sub_devices(pdev);
-		if (rc)
-			dprintk(VIDC_ERR, "sub-devices probe failed\n");
-		return rc;
+		return msm_vidc_probe_context_bank(pdev);
+	} else {
+		/* How did we end up here? */
+		BUG();
+		return -EINVAL;
 	}
-
-	return msm_vidc_probe_vidc_device(pdev);
 }
 
 static int msm_vidc_remove(struct platform_device *pdev)
