@@ -17,14 +17,39 @@
 
 static int get_brightness(struct backlight_device *bl_dev)
 {
+	int i = 0;
+	struct intel_adf_context *adf_ctx;
+	struct intel_adf_interface *intf;
+	struct intel_pipe *pipe;
+
 	if (!bl_dev) {
 		pr_err("%s: invalid argument\n", __func__);
 		return -EINVAL;
 	}
 
-	pr_debug("brightness = 0x%x\n", bl_dev->props.brightness);
+	adf_ctx = bl_get_data(bl_dev);
+	if (!adf_ctx)
+		return -EINVAL;
 
-	return bl_dev->props.brightness;
+	for (i = 0; i < adf_ctx->n_intfs; i++) {
+		intf = &adf_ctx->intfs[i];
+
+		if (intf && intf->pipe && intf->pipe->ops) {
+			pipe = intf->pipe;
+
+			/*
+			 * Primary display should support brightness setting,
+			 * but external display may not.
+			 */
+			if (!pipe->ops->get_brightness) {
+				pr_debug("%s: pipe %s doesn't support brightness",
+						__func__, pipe->base.name);
+			} else {
+				return pipe->ops->get_brightness(pipe);
+			}
+		}
+	}
+	return -EINVAL;
 }
 
 static int set_brightness(struct backlight_device *bl_dev)

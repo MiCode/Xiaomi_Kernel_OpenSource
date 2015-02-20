@@ -84,6 +84,31 @@ static int dsi_set_brightness(struct intel_pipe *pipe, int level)
 
 	return err;
 }
+
+static int dsi_get_brightness(struct intel_pipe *pipe)
+{
+	struct dsi_pipe *dsi_pipe = to_dsi_pipe(pipe);
+	struct dsi_config *config = NULL;
+	int ret = 0;
+
+	if (!dsi_pipe) {
+		pr_err("%s: invalid DSI interface", __func__);
+		return -EINVAL;
+	}
+
+	config = &dsi_pipe->config;
+
+	mutex_lock(&config->ctx_lock);
+
+	if (dsi_pipe->ops.get_brightness)
+		ret = dsi_pipe->ops.get_brightness();
+	else
+		ret = -EINVAL;
+
+	mutex_unlock(&config->ctx_lock);
+
+	return ret;
+}
 #endif
 
 static int dsi_pipe_hw_init(struct intel_pipe *pipe)
@@ -591,6 +616,7 @@ static struct intel_pipe_ops dsi_base_ops = {
 	.dpst_irq_handler = dsi_pipe_dpst_irq_handler,
 #ifdef CONFIG_BACKLIGHT_CLASS_DEVICE
 	.set_brightness = dsi_set_brightness,
+	.get_brightness = dsi_get_brightness,
 #endif
 };
 
