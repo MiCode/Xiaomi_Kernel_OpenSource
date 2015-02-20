@@ -236,6 +236,7 @@ struct mdss_data_type {
 
 	u32 rotator_ot_limit;
 	u32 default_ot_limit;
+	u32 default_pipe_qos_lut;
 	u32 mdp_irq_mask;
 	u32 mdp_hist_irq_mask;
 
