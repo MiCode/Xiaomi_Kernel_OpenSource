@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1217,6 +1217,7 @@ static struct rcg_clk sdcc2_apps_clk_src = {
 
 static struct clk_freq_tbl ftbl_gcc_usb_hs_system_clk[] = {
 	F(  80000000,	   gpll0,  10,	  0,	0),
+	F( 100000000,	   gpll0,   8,	  0,	0),
 	F_END
 };
 
@@ -1229,7 +1230,7 @@ static struct rcg_clk usb_hs_system_clk_src = {
 	.c = {
 		.dbg_name = "usb_hs_system_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 57140000, NOMINAL, 80000000),
+		VDD_DIG_FMAX_MAP2(LOW, 57140000, NOMINAL, 100000000),
 		CLK_INIT(usb_hs_system_clk_src.c),
 	},
 };
