@@ -73,7 +73,14 @@
 
 #define	DEBUG	1
 
-#define	G_MAX		16000
+/*Calibration*/
+#define LIS3DH_CAL_SKIP_COUNT 5
+#define LIS3DH_CAL_MAX		(10 + LIS3DH_CAL_SKIP_COUNT)
+#define LIS3DH_CAL_NUM		99
+#define RAW_TO_1G		16384
+#define FACTORY_CALIBRATION_DELAY 100	/* ms */
+
+#define	G_MAX		17000
 #define LIS3DH_FIFO_SIZE	32
 #define LIS3DH_TIME_MS_TO_NS	1000000L
 
@@ -277,6 +284,12 @@ struct lis3dh_acc_data {
 	/* flag sensor is enabled (batch/poll) */
 	atomic_t enabled;
 	int on_before_suspend;
+	int pre_enable;
+
+	char calibrate_buf[LIS3DH_CAL_NUM];
+	int cal_params[3];
+	bool use_cal;
+	atomic_t cal_status;
 
 	u8 sensitivity;
 
@@ -317,6 +330,9 @@ static struct sensors_classdev lis3dh_acc_cdev = {
 	.sensors_poll_delay = NULL,
 	.sensors_set_latency = NULL,
 	.sensors_flush = NULL,
+	.sensors_calibrate = NULL,
+	.sensors_write_cal_params = NULL,
+	.params = NULL,
 };
 
 struct sensor_regulator {
@@ -330,6 +346,9 @@ struct sensor_regulator lis3dh_acc_vreg[] = {
 	{NULL, "vdd", 1700000, 3600000},
 	{NULL, "vddio", 1700000, 3600000},
 };
+
+static int lis3dh_acc_get_calibrate(struct lis3dh_acc_data *acc,
+					int *xyz);
 
 static inline s64 lis3dh_acc_get_time_ns(void)
 {
@@ -1104,6 +1123,15 @@ static int lis3dh_acc_get_acceleration_data(struct lis3dh_acc_data *acc,
 
 	dev_dbg(&acc->client->dev, "%s read x=%d, y=%d, z=%d\n",
 				LIS3DH_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
+	if (acc->use_cal) {
+		err = lis3dh_acc_get_calibrate(acc, xyz);
+		if (err < 0) {
+			dev_err(&acc->client->dev,
+					"get calibrate data falied\n");
+			return err;
+		}
+	}
+
 	return err;
 }
 
@@ -1120,6 +1148,11 @@ static int lis3dh_acc_enable(struct lis3dh_acc_data *acc)
 {
 	int err;
 
+	if (atomic_read(&acc->cal_status)) {
+		dev_err(&acc->client->dev,
+			"can not enable when sensor do calibration\n");
+		return -EBUSY;
+	}
 	dev_dbg(&acc->client->dev, "enable acc: state =%d\n",
 			atomic_read(&acc->enabled));
 	if (!atomic_cmpxchg(&acc->enabled, 0, 1)) {
@@ -1169,6 +1202,11 @@ static int lis3dh_acc_disable(struct lis3dh_acc_data *acc)
 {
 	int err = 0;
 
+	if (atomic_read(&acc->cal_status)) {
+		dev_err(&acc->client->dev,
+			"can not disable when sensor do calibration now\n");
+		return -EBUSY;
+	}
 	dev_dbg(&acc->client->dev, "disable state=%d\n",
 		atomic_read(&acc->enabled));
 	if (atomic_cmpxchg(&acc->enabled, 1, 0)) {
@@ -1314,6 +1352,142 @@ static int write_reg(struct device *dev, const char *buf, u8 reg,
 	return err;
 }
 
+static int lis3dh_axis_calibrate(struct lis3dh_acc_data *acc,
+				int *cal_xyz)
+{
+	int xyz[3] = { 0 };
+	int arry[3] = { 0 };
+	int err;
+	int i;
+
+	for (i = 0; i < LIS3DH_CAL_MAX; i++) {
+		msleep(FACTORY_CALIBRATION_DELAY);
+		err = lis3dh_acc_get_acceleration_data(acc, xyz);
+		if (err < 0) {
+			dev_err(&acc->client->dev,
+					"get_acceleration_data failed\n");
+			return err;
+		}
+		if (i < LIS3DH_CAL_SKIP_COUNT)
+			continue;
+		arry[0] += xyz[0];
+		arry[1] += xyz[1];
+		arry[2] += xyz[2];
+	}
+	cal_xyz[0] = arry[0] / (LIS3DH_CAL_MAX -
+			LIS3DH_CAL_SKIP_COUNT);
+	cal_xyz[1] = arry[1] / (LIS3DH_CAL_MAX -
+			LIS3DH_CAL_SKIP_COUNT);
+	cal_xyz[2] = arry[2] / (LIS3DH_CAL_MAX -
+			LIS3DH_CAL_SKIP_COUNT);
+
+	return 0;
+}
+
+static int lis3dh_calibrate(struct sensors_classdev *sensors_cdev,
+		int axis, int apply_now)
+{
+	struct lis3dh_acc_data *acc = container_of(sensors_cdev,
+		struct lis3dh_acc_data, cdev);
+	int xyz[3] = { 0 };
+	int err;
+
+	acc->use_cal = false;
+	acc->pre_enable = atomic_read(&acc->enabled);
+	if (acc->pre_enable) {
+		err = lis3dh_acc_disable(acc);
+		if (err < 0) {
+			dev_err(&acc->client->dev, "cannot disable sensor\n");
+			return err;
+		}
+	}
+	if (atomic_cmpxchg(&acc->cal_status, 0, 1)) {
+		dev_err(&acc->client->dev, "do calibration error\n");
+		return -EBUSY;
+	}
+	err = lis3dh_acc_device_power_on(acc);
+	if (err < 0) {
+		dev_err(&acc->client->dev, "cannot power on sensor\n");
+		return err;
+	}
+	err = lis3dh_axis_calibrate(acc, xyz);
+	if (err < 0) {
+		dev_err(&acc->client->dev, "accel calibrate error\n");
+		return err;
+	}
+	switch (axis) {
+	case AXIS_X:
+		xyz[1] = 0;
+		xyz[2] = 0;
+		break;
+	case AXIS_Y:
+		xyz[0] = 0;
+		xyz[2] = 0;
+		break;
+	case AXIS_Z:
+		xyz[0] = 0;
+		xyz[1] = 0;
+		xyz[2] = xyz[2] - RAW_TO_1G;
+		break;
+	case AXIS_XYZ:
+		xyz[2] = xyz[2] - RAW_TO_1G;
+		break;
+	default:
+		dev_err(&acc->client->dev, "can not calibrate accel\n");
+		break;
+	}
+	memset(acc->calibrate_buf, 0, sizeof(acc->calibrate_buf));
+	snprintf(acc->calibrate_buf, sizeof(acc->calibrate_buf),
+			"%d,%d,%d", xyz[0], xyz[1], xyz[2]);
+	if (apply_now) {
+		acc->cal_params[0] = xyz[0];
+		acc->cal_params[1] = xyz[1];
+		acc->cal_params[2] = xyz[2];
+		acc->use_cal = true;
+	}
+	lis3dh_acc_device_power_off(acc);
+	atomic_set(&acc->cal_status, 0);
+	if (acc->pre_enable) {
+		err = lis3dh_acc_enable(acc);
+		if (err < 0) {
+			dev_err(&acc->client->dev, "cannot enable sensor\n");
+			return err;
+		}
+	}
+
+	return 0;
+}
+
+static int lis3dh_write_cal_params(struct sensors_classdev *sensors_cdev,
+		struct cal_result_t *cal_result)
+{
+	struct lis3dh_acc_data *acc = container_of(sensors_cdev,
+		struct lis3dh_acc_data, cdev);
+	acc->cal_params[0] = cal_result->offset_x;
+	acc->cal_params[1] = cal_result->offset_y;
+	acc->cal_params[2] = cal_result->offset_z;
+
+	snprintf(acc->calibrate_buf, sizeof(acc->calibrate_buf),
+			"%d,%d,%d", acc->cal_params[0], acc->cal_params[1],
+			acc->cal_params[2]);
+	acc->use_cal = true;
+	dev_dbg(&acc->client->dev, "read accel calibrate bias %d,%d,%d\n",
+		acc->cal_params[0], acc->cal_params[1], acc->cal_params[2]);
+
+	return 0;
+}
+
+static int lis3dh_acc_get_calibrate(struct lis3dh_acc_data *acc, int *xyz)
+{
+	xyz[0] -=  acc->cal_params[0];
+	xyz[1] -=  acc->cal_params[1];
+	xyz[2] -=  acc->cal_params[2];
+	dev_dbg(&acc->client->dev, "%s read calibrate x=%d, y=%d, z=%d\n",
+			LIS3DH_ACC_DEV_NAME, xyz[0], xyz[1], xyz[2]);
+
+	return 0;
+}
+
 static ssize_t attr_get_polling_rate(struct device *dev,
 				     struct device_attribute *attr,
 				     char *buf)
@@ -1333,6 +1507,11 @@ static ssize_t attr_set_polling_rate(struct device *dev,
 	struct lis3dh_acc_data *acc = dev_get_drvdata(dev);
 	unsigned long interval_ms;
 
+	if (atomic_read(&acc->cal_status)) {
+		dev_err(&acc->client->dev,
+			"can not set rate when sensor do calibration now\n");
+		return -EBUSY;
+	}
 	if (kstrtoul(buf, 10, &interval_ms))
 		return -EINVAL;
 	if (!interval_ms)
@@ -1681,6 +1860,11 @@ static int lis3dh_acc_poll_delay_set(struct sensors_classdev *sensors_cdev,
 	int err;
 	int watermark;
 
+	if (atomic_read(&acc->cal_status)) {
+		dev_err(&acc->client->dev,
+			"can not set delay when sensor do calibration now\n");
+		return -EBUSY;
+	}
 	dev_dbg(&acc->client->dev, "set poll delay =%d\n", delay_msec);
 	mutex_lock(&acc->lock);
 	acc->delay_ms = delay_msec;
@@ -2118,6 +2302,11 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	acc->resume_state[RES_TT_LIM] = 0x00;
 	acc->resume_state[RES_TT_TLAT] = 0x00;
 	acc->resume_state[RES_TT_TW] = 0x00;
+	acc->cal_params[0] = 0;
+	acc->cal_params[1] = 0;
+	acc->cal_params[2] = 0;
+	acc->use_cal = false;
+	atomic_set(&acc->cal_status, 0);
 
 	if (acc->pdata->enable_int) {
 		if (gpio_is_valid(acc->pdata->gpio_int1))
@@ -2190,6 +2379,10 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 		acc->cdev.fifo_max_event_count = LIS3DH_FIFO_SIZE;
 		acc->cdev.max_delay = LIS_INT_MAX_DELAY;
 	}
+	acc->cdev.sensors_calibrate = lis3dh_calibrate;
+	acc->cdev.sensors_write_cal_params = lis3dh_write_cal_params;
+	memset(&acc->cdev.cal_result, 0, sizeof(acc->cdev.cal_result));
+	acc->cdev.params = acc->calibrate_buf;
 	err = sensors_classdev_register(&client->dev, &acc->cdev);
 	if (err) {
 		dev_err(&client->dev,
