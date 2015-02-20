@@ -45,6 +45,7 @@
 #include <asm/msr.h>
 #include <asm/processor.h>
 #include <asm/cpufeature.h>
+#include <asm/intel_mid_pcihelpers.h>
 
 MODULE_AUTHOR("Paul Diefenbaugh, Dominik Brodowski");
 MODULE_DESCRIPTION("ACPI Processor P-States Driver");
@@ -63,6 +64,12 @@ enum {
 #define AMD_MSR_RANGE		(0x7)
 
 #define MSR_K7_HWCR_CPB_DIS	(1ULL << 25)
+
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+#define CLASSCODE_REG		0x8
+#define CLASSCODE_OFFSET	0x2
+#define REVISION_ID_BIT		0x2
+#endif
 
 struct acpi_cpufreq_data {
 	struct acpi_processor_performance *acpi_data;
@@ -642,6 +649,17 @@ static int acpi_cpufreq_blacklist(struct cpuinfo_x86 *c)
 }
 #endif
 
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+static void get_cpu_sibling_mask(int cpu, struct cpumask *sibling_mask)
+{
+	unsigned int base, i;
+	static int cores_per_mod = 2;
+	base = (cpu/cores_per_mod) * cores_per_mod;
+	cpumask_clear(sibling_mask);
+	for (i = base; i < (base + cores_per_mod); i++)
+		cpumask_set_cpu(i, sibling_mask);
+}
+#endif
 static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 {
 	unsigned int i;
@@ -655,6 +673,10 @@ static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 	struct acpi_processor_performance *perf;
 #ifdef CONFIG_SMP
 	static int blacklisted;
+#endif
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+	struct cpumask sibling_mask;
+	u32 revision_id;
 #endif
 
 	pr_debug("acpi_cpufreq_cpu_init\n");
@@ -698,6 +720,25 @@ static int acpi_cpufreq_cpu_init(struct cpufreq_policy *policy)
 		cpumask_copy(policy->cpus, perf->shared_cpu_map);
 	}
 	cpumask_copy(data->freqdomain_cpus, perf->shared_cpu_map);
+
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+       /*
+	   * Currently only Intel Cherrytrail platform supports
+	   * module level dvfs with acpi-cpufreq
+	   */
+	if (c->x86_vendor == X86_VENDOR_INTEL) {
+		revision_id =
+		intel_mid_msgbus_read32(CLASSCODE_REG, CLASSCODE_OFFSET);
+		revision_id = (revision_id & REVISION_ID_BIT);
+
+		if ((c->x86_model == 0x4c) && (!revision_id)) {
+			pr_info("Platform supports Module Level DVFS\n");
+			policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
+			get_cpu_sibling_mask(cpu, &sibling_mask);
+			cpumask_copy(policy->cpus, &sibling_mask);
+		}
+	}
+#endif
 
 #ifdef CONFIG_SMP
 	dmi_check_system(sw_any_bug_dmi_table);
