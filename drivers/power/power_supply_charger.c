@@ -167,10 +167,20 @@ static int handle_cable_notification(struct notifier_block *nb,
 				   unsigned long event, void *data)
 {
 	struct power_supply_cable_props cap;
+	struct charger_cable *cable = NULL;
 
 	if (event != USB_EVENT_CHARGER && event != PSY_CABLE_EVENT &&
 				event != USB_EVENT_ENUMERATED)
 		return NOTIFY_DONE;
+
+
+	/* Process USB_EVENT_ENUMERATED only if SDP cable is present */
+	if (event == USB_EVENT_ENUMERATED) {
+		cable = get_cable(POWER_SUPPLY_CHARGER_TYPE_USB_SDP);
+		if (cable->cable_props.cable_stat
+			== EXTCON_CHRGR_CABLE_DISCONNECTED)
+			return NOTIFY_DONE;
+	}
 
 	if (!data)
 		return NOTIFY_DONE;
