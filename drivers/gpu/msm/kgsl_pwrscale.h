@@ -151,7 +151,7 @@ bool kgsl_popp_check(struct kgsl_device *device);
 			.get_dev_status = kgsl_busmon_get_dev_status, \
 			.get_cur_freq = kgsl_busmon_get_cur_freq, \
 	} }, \
-	.history[KGSL_PWREVENT_STATE].size = 10, \
+	.history[KGSL_PWREVENT_STATE].size = 20, \
 	.history[KGSL_PWREVENT_GPU_FREQ].size = 3, \
 	.history[KGSL_PWREVENT_BUS_FREQ].size = 5, \
 	.history[KGSL_PWREVENT_POPP].size = 5, \
