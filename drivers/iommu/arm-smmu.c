@@ -848,8 +848,8 @@ static phys_addr_t arm_smmu_iova_to_phys_soft(struct iommu_domain *domain,
 static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 {
 	int flags, ret;
-	u32 fsr, far, fsynr, resume;
-	unsigned long iova;
+	u32 fsr, fsynr, resume;
+	unsigned long iova, far;
 	struct iommu_domain *domain = dev;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
@@ -880,11 +880,10 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	flags = fsynr & FSYNR0_WNR ? IOMMU_FAULT_WRITE : IOMMU_FAULT_READ;
 
 	far = readl_relaxed(cb_base + ARM_SMMU_CB_FAR_LO);
-	iova = far;
 #ifdef CONFIG_64BIT
-	far = readl_relaxed(cb_base + ARM_SMMU_CB_FAR_HI);
-	iova |= ((unsigned long)far << 32);
+	far |= ((u64)readl_relaxed(cb_base + ARM_SMMU_CB_FAR_HI)) << 32;
 #endif
+	iova = far;
 
 	phys_soft = arm_smmu_iova_to_phys_soft(domain, iova);
 	if (!report_iommu_fault(domain, smmu->dev, iova, flags)) {
