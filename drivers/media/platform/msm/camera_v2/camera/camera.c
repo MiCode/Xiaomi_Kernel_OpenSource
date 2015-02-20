@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -161,16 +161,22 @@ static int camera_v4l2_g_ctrl(struct file *filep, void *fh,
 {
 	int rc = 0;
 	struct v4l2_event event;
+	struct msm_video_device *pvdev = video_drvdata(filep);
+	unsigned int session_id = pvdev->vdev->num;
 
 	if (ctrl->id >= V4L2_CID_PRIVATE_BASE) {
-		camera_pack_event(filep, MSM_CAMERA_GET_PARM, ctrl->id, -1,
-			&event);
+		if (ctrl->id == MSM_CAMERA_PRIV_G_SESSION_ID) {
+			ctrl->value = session_id;
+		} else {
+			camera_pack_event(filep, MSM_CAMERA_GET_PARM,
+					ctrl->id, -1, &event);
 
-		rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
-		if (rc < 0)
-			return rc;
+			rc = msm_post_event(&event, MSM_POST_EVT_TIMEOUT);
+			if (rc < 0)
+				return rc;
 
-		rc = camera_check_event_status(&event);
+			rc = camera_check_event_status(&event);
+		}
 	}
 
 	return rc;
