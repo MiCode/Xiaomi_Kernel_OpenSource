@@ -79,6 +79,14 @@ enum branch_state {
 	BRANCH_OFF,
 };
 
+static struct clk_freq_tbl cxo_f = {
+	.freq_hz = 19200000,
+	.m_val = 0,
+	.n_val = 0,
+	.d_val = 0,
+	.div_src_val = 0,
+};
+
 /*
  * RCG functions
  */
@@ -105,6 +113,20 @@ static void rcg_update_config(struct rcg_clk *rcg)
 	}
 
 	CLK_WARN(&rcg->c, count == 0, "rcg didn't update its configuration.");
+}
+
+static void rcg_on_check(struct rcg_clk *rcg)
+{
+	int count;
+
+	/* Wait for RCG to turn on */
+	for (count = UPDATE_CHECK_MAX_LOOPS; count > 0; count--) {
+		if (!(readl_relaxed(CMD_RCGR_REG(rcg)) &
+				CMD_RCGR_ROOT_STATUS_BIT))
+			return;
+		udelay(1);
+	}
+	CLK_WARN(&rcg->c, count == 0, "rcg didn't turn on.");
 }
 
 /* RCG set rate function for clocks with Half Integer Dividers. */
@@ -159,7 +181,32 @@ void set_rate_mnd(struct rcg_clk *rcg, struct clk_freq_tbl *nf)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
-static int rcg_clk_prepare(struct clk *c)
+static void rcg_set_force_enable(struct rcg_clk *rcg)
+{
+	u32 cmd_rcgr_regval;
+	unsigned long flags;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
+	cmd_rcgr_regval |= CMD_RCGR_ROOT_ENABLE_BIT;
+	writel_relaxed(cmd_rcgr_regval, CMD_RCGR_REG(rcg));
+	rcg_on_check(rcg);
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static void rcg_clear_force_enable(struct rcg_clk *rcg)
+{
+	u32 cmd_rcgr_regval;
+	unsigned long flags;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
+	cmd_rcgr_regval &= ~CMD_RCGR_ROOT_ENABLE_BIT;
+	writel_relaxed(cmd_rcgr_regval, CMD_RCGR_REG(rcg));
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static int rcg_clk_enable(struct clk *c)
 {
 	struct rcg_clk *rcg = to_rcg_clk(c);
 
@@ -167,7 +214,37 @@ static int rcg_clk_prepare(struct clk *c)
 		"Attempting to prepare %s before setting its rate. "
 		"Set the rate first!\n", rcg->c.dbg_name);
 
+	if (!rcg->non_local_children || rcg->current_freq == &rcg_dummy_freq)
+		return 0;
+	/*
+	 * Switch from CXO to saved mux value. Force enable/disable while
+	 * switching. The current parent is already prepared and enabled
+	 * at this point, and the CXO source is always-on. Therefore the
+	 * RCG can safely execute a dynamic switch.
+	 */
+	rcg_set_force_enable(rcg);
+	rcg->set_rate(rcg, rcg->current_freq);
+	rcg_clear_force_enable(rcg);
+
 	return 0;
+}
+
+static void rcg_clk_disable(struct clk *c)
+{
+	struct rcg_clk *rcg = to_rcg_clk(c);
+
+	if (!rcg->non_local_children)
+		return;
+
+	/*
+	 * Save mux select and switch to CXO. Force enable/disable while
+	 * switching. The current parent is still prepared and enabled at this
+	 * point, and the CXO source is always-on. Therefore the RCG can safely
+	 * execute a dynamic switch.
+	 */
+	rcg_set_force_enable(rcg);
+	rcg->set_rate(rcg, &cxo_f);
+	rcg_clear_force_enable(rcg);
 }
 
 static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
@@ -192,8 +269,30 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 
 	BUG_ON(!rcg->set_rate);
 
-	/* Perform clock-specific frequency switch operations. */
-	rcg->set_rate(rcg, nf);
+	/*
+	 * Perform clock-specific frequency switch operations.
+	 *
+	 * For RCGs with non_local_children set to true:
+	 * If this RCG has at least one branch that is controlled by another
+	 * execution entity, ensure that the enable/disable and mux switch
+	 * are staggered.
+	 */
+	if (!rcg->non_local_children) {
+		rcg->set_rate(rcg, nf);
+	} else if (c->count) {
+		/*
+		 * Force enable the RCG here since there could be a disable
+		 * call happening between pre_reparent and set_rate.
+		 */
+		rcg_set_force_enable(rcg);
+		rcg->set_rate(rcg, nf);
+		rcg_clear_force_enable(rcg);
+	}
+	/*
+	 * If non_local_children is set and the RCG is not enabled,
+	 * the following operations switch parent in software and cache
+	 * the frequency. The mux switch will occur when the RCG is enabled.
+	 */
 	rcg->current_freq = nf;
 	c->parent = nf->src_clk;
 
@@ -300,8 +399,19 @@ static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, int has_mnd)
 	}
 
 	/* No known frequency found */
-	if (freq->freq_hz == FREQ_END)
+	if (freq->freq_hz == FREQ_END) {
+		/*
+		 * If we can't recognize the frequency and non_local_children is
+		 * set, switch to safe frequency. It is assumed the current
+		 * parent has been turned on by the bootchain if the RCG is on.
+		 */
+		if (rcg->non_local_children) {
+			rcg->set_rate(rcg, &cxo_f);
+			WARN(1, "don't recognize rcg frequency for %s\n",
+				rcg->c.dbg_name);
+		}
 		return NULL;
+	}
 
 	rcg->current_freq = freq;
 	return freq->src_clk;
@@ -1491,7 +1601,8 @@ struct clk_ops clk_ops_rst = {
 };
 
 struct clk_ops clk_ops_rcg = {
-	.enable = rcg_clk_prepare,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
 	.set_rate = rcg_clk_set_rate,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
@@ -1501,7 +1612,8 @@ struct clk_ops clk_ops_rcg = {
 };
 
 struct clk_ops clk_ops_rcg_mnd = {
-	.enable = rcg_clk_prepare,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
 	.set_rate = rcg_clk_set_rate,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
@@ -1511,7 +1623,8 @@ struct clk_ops clk_ops_rcg_mnd = {
 };
 
 struct clk_ops clk_ops_pixel = {
-	.enable = rcg_clk_prepare,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
 	.set_rate = set_rate_pixel,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = round_rate_pixel,
@@ -1520,7 +1633,8 @@ struct clk_ops clk_ops_pixel = {
 };
 
 struct clk_ops clk_ops_edppixel = {
-	.enable = rcg_clk_prepare,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
 	.set_rate = set_rate_edp_pixel,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
@@ -1529,7 +1643,8 @@ struct clk_ops clk_ops_edppixel = {
 };
 
 struct clk_ops clk_ops_byte = {
-	.enable = rcg_clk_prepare,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
 	.set_rate = set_rate_byte,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
@@ -1538,7 +1653,8 @@ struct clk_ops clk_ops_byte = {
 };
 
 struct clk_ops clk_ops_rcg_hdmi = {
-	.enable = rcg_clk_prepare,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
 	.set_rate = rcg_clk_set_rate_hdmi,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
@@ -1548,7 +1664,8 @@ struct clk_ops clk_ops_rcg_hdmi = {
 };
 
 struct clk_ops clk_ops_rcg_edp = {
-	.enable = rcg_clk_prepare,
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
 	.set_rate = rcg_clk_set_rate_edp,
 	.list_rate = rcg_clk_list_rate,
 	.round_rate = rcg_clk_round_rate,
