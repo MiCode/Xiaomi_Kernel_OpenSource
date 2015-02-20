@@ -2148,17 +2148,40 @@ void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data)
 {
 	u32 copyback = 0;
 	struct mdp_pa_cfg_data pa_config;
+	struct mdp_pa_v2_cfg_data pa_v2_config;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	memset(&pa_config, 0, sizeof(struct mdp_pa_cfg_data));
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103) {
+		memset(&pa_config, 0, sizeof(struct mdp_pa_cfg_data));
 
-	pa_config.block = MDP_LOGICAL_BLOCK_DISP_0;
-	pa_config.pa_data.flags = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
-	pa_config.pa_data.sat_adj = lut_data->sat;
-	pa_config.pa_data.hue_adj = lut_data->hue;
-	pa_config.pa_data.val_adj = lut_data->val;
-	pa_config.pa_data.cont_adj = lut_data->cont;
+		pa_config.block = MDP_LOGICAL_BLOCK_DISP_0;
+		pa_config.pa_data.flags = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
+		pa_config.pa_data.hue_adj = lut_data->hue;
+		pa_config.pa_data.sat_adj = lut_data->sat;
+		pa_config.pa_data.val_adj = lut_data->val;
+		pa_config.pa_data.cont_adj = lut_data->cont;
 
-	mdss_mdp_pa_config(&pa_config, &copyback);
+		mdss_mdp_pa_config(&pa_config, &copyback);
+	} else {
+		memset(&pa_v2_config, 0, sizeof(struct mdp_pa_v2_cfg_data));
+
+		pa_v2_config.block = MDP_LOGICAL_BLOCK_DISP_0;
+		pa_v2_config.pa_v2_data.flags = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_HUE_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_HUE_MASK;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_SAT_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_SAT_MASK;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_VAL_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_VAL_MASK;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_CONT_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_CONT_MASK;
+		pa_v2_config.pa_v2_data.global_hue_adj = lut_data->hue;
+		pa_v2_config.pa_v2_data.global_sat_adj = lut_data->sat;
+		pa_v2_config.pa_v2_data.global_val_adj = lut_data->val;
+		pa_v2_config.pa_v2_data.global_cont_adj = lut_data->cont;
+
+		mdss_mdp_pa_v2_config(&pa_v2_config, &copyback);
+	}
 }
 
 void mdss_mdp_pp_kcal_invert(struct kcal_lut_data *lut_data)
