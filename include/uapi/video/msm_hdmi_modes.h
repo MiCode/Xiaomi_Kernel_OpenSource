@@ -17,6 +17,14 @@ enum aspect_ratio {
 	HDMI_RES_AR_MAX,
 };
 
+enum msm_hdmi_s3d_mode {
+	HDMI_S3D_NONE,
+	HDMI_S3D_SIDE_BY_SIDE,
+	HDMI_S3D_TOP_AND_BOTTOM,
+	HDMI_S3D_FRAME_PACKING,
+	HDMI_S3D_MAX,
+};
+
 struct msm_hdmi_mode_timing_info {
 	uint32_t	video_format;
 	uint32_t	active_h;
