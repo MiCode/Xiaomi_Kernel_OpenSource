@@ -1239,9 +1239,10 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 		 * destination ROI of BG and FG layer are same,
 		 * No scaling on BG layer
 		 * No rotation on BG Layer.
-		 * BG Layer color format is RGB
+		 * BG Layer color format is RGB and marked as MDP_IS_FG.
 		 */
-		else if ((indx == 0) && (!(req->req_list[indx].flags &
+		else if ((req->req_list[indx].flags & MDP_IS_FG) &&
+			(indx == 0) && (!(req->req_list[indx].flags &
 			(MDP_ROT_90 | MDP_FLIP_UD | MDP_FLIP_LR))) &&
 			(check_if_rgb(req->req_list[indx].src.format)) &&
 			(req->req_list[indx].dst_rect.x == req->req_list[next].dst_rect.x) &&
