@@ -594,6 +594,7 @@ static int ufs_qcom_suspend(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 	 * rail and low noise analog power rail for PLL can be switched off.
 	 */
 	if (!ufs_qcom_is_link_active(hba)) {
+		ufs_qcom_disable_lane_clks(host);
 		phy_power_off(phy);
 		ufs_qcom_ice_suspend(host);
 	}
@@ -614,6 +615,10 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 			__func__, err);
 		goto out;
 	}
+
+	err = ufs_qcom_enable_lane_clks(host);
+	if (err)
+		goto out;
 
 	err = ufs_qcom_ice_resume(host);
 	if (err) {
