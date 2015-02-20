@@ -69,6 +69,16 @@
 	};
 };
 
+&i2c_0 {
+	bosch@18 { /* Accelerometer sensor */
+		bosch,place = <5>;
+	};
+
+	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
+		invn,place = "Landscape Left";
+	};
+};
+
 &i2c_5 {
 	focaltech@38 {
 		compatible = "focaltech,5x06";
