@@ -1192,7 +1192,7 @@ int intel_execlists_TDR_context_queue(struct intel_engine_cs *ring,
 }
 
 
-static int logical_ring_invalidate_all_caches(struct intel_ringbuffer *ringbuf)
+int logical_ring_invalidate_all_caches(struct intel_ringbuffer *ringbuf)
 {
 	struct intel_engine_cs *ring = ringbuf->ring;
 	uint32_t flush_domains;

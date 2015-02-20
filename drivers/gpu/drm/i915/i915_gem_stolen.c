@@ -29,6 +29,7 @@
 #include <drm/drmP.h>
 #include <drm/i915_drm.h>
 #include "i915_drv.h"
+#include "intel_lrc.h"
 #include <linux/shmem_fs.h>
 
 /*
@@ -372,6 +373,107 @@ i915_gem_object_create_stolen(struct drm_device *dev, u32 size)
 	return NULL;
 }
 
+static int intel_logical_add_clear_obj_cmd(struct intel_ringbuffer *ringbuf,
+					   struct drm_i915_gem_object *obj,
+					   struct i915_address_space *vm)
+{
+	int ret;
+
+	ret = intel_logical_ring_begin(ringbuf, 8);
+	if (ret)
+		return ret;
+
+	intel_logical_ring_emit(ringbuf, GEN8_COLOR_BLT_CMD |
+			      XY_SRC_COPY_BLT_WRITE_ALPHA |
+			      XY_SRC_COPY_BLT_WRITE_RGB | (7-2));
+	intel_logical_ring_emit(ringbuf, BLT_DEPTH_32 |
+			      (PAT_ROP_GXCOPY << ROP_SHIFT) |
+			       PITCH_SIZE);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, obj->base.size >> PAGE_SHIFT <<
+					HEIGHT_SHIFT | PAGE_SIZE / 4);
+	intel_logical_ring_emit(ringbuf, i915_gem_obj_offset(obj, vm));
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, 0);
+	intel_logical_ring_emit(ringbuf, MI_NOOP);
+
+	intel_logical_ring_advance(ringbuf);
+	return 0;
+}
+
+static int intel_logical_memset_stolen_obj_hw(struct drm_i915_gem_object *obj)
+{
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	struct intel_engine_cs *ring;
+	struct intel_context *ctx;
+	struct intel_ringbuffer *ringbuf;
+	struct i915_address_space *vm;
+	struct drm_i915_gem_request *req;
+	int ret;
+
+	/* Pre-Gen6, blitter engine is not on a separate ring */
+	if (!(INTEL_INFO(obj->base.dev)->gen >= 6))
+		return 1;
+
+	ring = &dev_priv->ring[BCS];
+
+	ctx = ring->default_context;
+	if (ctx->ppgtt)
+		vm = &ctx->ppgtt->base;
+	else
+		vm = &dev_priv->gtt.base;
+
+	ringbuf = ctx->engine[ring->id].ringbuf;
+	if (!ringbuf)
+		DRM_ERROR("No ring obj");
+
+	ret = i915_gem_object_pin(obj, vm, PAGE_SIZE, 0);
+	if (ret) {
+		DRM_ERROR("Mapping of User FB to PPGTT failed\n");
+		return ret;
+	}
+
+	ret = logical_ring_invalidate_all_caches(ringbuf);
+	if (ret) {
+		DRM_ERROR("Invalidate caches failed\n");
+		i915_gem_object_unpin(obj, vm);
+		return ret;
+	}
+
+	/* Adding commands to the blitter ring to
+	 * clear out the contents of the buffer object
+	 */
+	ret = intel_logical_add_clear_obj_cmd(ringbuf, obj, vm);
+	if (ret) {
+		DRM_ERROR("couldn't add commands in blitter ring\n");
+		i915_gem_object_unpin(obj, vm);
+		return ret;
+	}
+
+	req = intel_ring_get_request(ring);
+
+	/* Object now in render domain */
+	obj->base.read_domains = I915_GEM_DOMAIN_RENDER;
+	obj->base.write_domain = I915_GEM_DOMAIN_RENDER;
+
+	i915_vma_move_to_active(i915_gem_obj_to_vma(obj, vm), ring);
+
+	/* Unconditionally force add_request to emit a full flush. */
+	ring->gpu_caches_dirty = true;
+
+	obj->dirty = 1;
+	i915_gem_request_assign(&obj->last_write_req, req);
+
+	/* Add a breadcrumb for the completion of the clear request */
+	ret = __i915_add_request(ring, NULL, ringbuf->obj, true);
+	if (ret)
+		DRM_ERROR("failed to add request\n");
+
+	i915_gem_object_unpin(obj, vm);
+
+	return 0;
+}
+
 static int i915_add_clear_obj_cmd(struct drm_i915_gem_object *obj)
 {
 	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
@@ -518,7 +620,7 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	u32 size = obj->base.size;
 	int ret = 0;
 
-	if (!IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
+	if (!IS_VALLEYVIEW(dev))
 		return;
 
 	if (obj->stolen) {
@@ -597,7 +699,10 @@ i915_gem_object_move_to_stolen(struct drm_i915_gem_object *obj)
 	 * corruptions in the display. First try using the blitter engine
 	 * to clear the buffer contents
 	 */
-	ret = i915_memset_stolen_obj_hw(obj);
+	if (i915.enable_execlists)
+		ret = intel_logical_memset_stolen_obj_hw(obj);
+	else
+		ret = i915_memset_stolen_obj_hw(obj);
 	/* fallback to Sw based memset if Hw memset fails */
 	if (ret)
 		i915_memset_stolen_obj_sw(obj);
