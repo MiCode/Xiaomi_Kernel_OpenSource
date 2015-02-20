@@ -625,12 +625,10 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	fix = &fbi->fix;
 	var = &fbi->var;
 
-	sourceConfig.format = mdp3_ctrl_get_source_format(mfd->fb_imgType);
 	sourceConfig.width = panel_info->xres;
 	sourceConfig.height = panel_info->yres;
 	sourceConfig.x = 0;
 	sourceConfig.y = 0;
-	sourceConfig.stride = fix->line_length;
 	sourceConfig.buf = mfd->iova;
 	sourceConfig.vporch = vporch;
 	sourceConfig.vsync_count =
@@ -640,11 +638,23 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	outputConfig.out_sel = mdp3_ctrl_get_intf_type(mfd);
 	outputConfig.bit_mask_polarity = 0;
 	outputConfig.color_components_flip = 0;
-	outputConfig.pack_pattern = mdp3_ctrl_get_pack_pattern(mfd->fb_imgType);
 	outputConfig.pack_align = MDP3_DMA_OUTPUT_PACK_ALIGN_LSB;
 	outputConfig.color_comp_out_bits = (MDP3_DMA_OUTPUT_COMP_BITS_8 << 4) |
 					(MDP3_DMA_OUTPUT_COMP_BITS_8 << 2)|
 					MDP3_DMA_OUTPUT_COMP_BITS_8;
+
+	if (dma->update_src_cfg) {
+		/* configuration has been updated through PREPARE call */
+		sourceConfig.format = dma->source_config.format;
+		sourceConfig.stride = dma->source_config.stride;
+		outputConfig.pack_pattern = dma->output_config.pack_pattern;
+	} else {
+		sourceConfig.format =
+			mdp3_ctrl_get_source_format(mfd->fb_imgType);
+		outputConfig.pack_pattern =
+			mdp3_ctrl_get_pack_pattern(mfd->fb_imgType);
+		sourceConfig.stride = fix->line_length;
+	}
 
 	te.frame_rate = panel_info->mipi.frame_rate;
 	te.hw_vsync_mode = panel_info->mipi.hw_vsync_mode;
