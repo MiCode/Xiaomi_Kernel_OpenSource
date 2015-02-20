@@ -24,6 +24,16 @@ config CPU_FREQ_BOOST_SW
 	bool
 	depends on THERMAL
 
+config INTEL_MODULE_CPU_FREQ
+       bool "Intel module level cpu frequency scaling"
+       default y
+       help
+         This option enables CPU frequency scaling to happen at module level on Intel
+         processor based systems. This is useful on systems that have more than one
+         cpu per module.
+
+         if in doubt, say N
+
 config CPU_FREQ_STAT
 	tristate "CPU frequency translation statistics"
 	default y
