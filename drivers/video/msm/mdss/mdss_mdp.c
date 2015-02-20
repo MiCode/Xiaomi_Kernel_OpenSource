@@ -2666,6 +2666,10 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 		"qcom,mdss-default-ot-limit", &data);
 	mdata->default_ot_limit = (!rc ? data : 0);
 
+	rc = of_property_read_u32(pdev->dev.of_node,
+		"qcom,mdss-default-pipe-qos-lut", &data);
+	mdata->default_pipe_qos_lut = (!rc ? data : 0);
+
 	mdata->has_non_scalar_rgb = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-non-scalar-rgb");
 	mdata->has_bwc = of_property_read_bool(pdev->dev.of_node,
