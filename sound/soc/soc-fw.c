@@ -420,6 +420,14 @@ static int soc_fw_init_pvt_data(struct soc_fw *sfw, u32 io_type, unsigned long s
 	return 0;
 }
 
+static int soc_verify_plugin_version(struct soc_fw *sfw, u32 version)
+{
+	if (sfw->platform && sfw->platform_ops && sfw->platform_ops->version_check)
+		return sfw->platform_ops->version_check(version);
+
+	return 0;
+}
+
 static int soc_fw_create_tlv(struct soc_fw *sfw, struct snd_kcontrol_new *kc,
 	u32 tlv_size)
 {
@@ -1420,6 +1428,13 @@ static int soc_valid_header(struct soc_fw *sfw, struct snd_soc_fw_hdr *hdr)
 	if (hdr->size == 0) {
 		dev_err(sfw->dev, "ASoC: %s header has 0 size at offset 0x%x.\n",
 			sfw->file, soc_fw_get_hdr_offset(sfw));
+		return -EINVAL;
+	}
+
+	/* Verify the plugin version */
+	if (soc_verify_plugin_version(sfw, hdr->version)) {
+		dev_err(sfw->dev, "ASoC: %s plugin version mismatch hdr version 0x%x\n",
+			hdr->version);
 		return -EINVAL;
 	}
 

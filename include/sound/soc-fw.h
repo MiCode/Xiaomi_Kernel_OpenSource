@@ -94,6 +94,9 @@ struct snd_soc_fw_platform_ops {
 	/* completion - called at completion of firmware loading */
 	void (*complete)(struct snd_soc_platform *);
 
+	/* Version check */
+	int (*version_check)(u32 version);
+
 	/* kcontrols operations */
 	const struct snd_soc_fw_kcontrol_ops *io_ops;
 	int io_ops_count;
