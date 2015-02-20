@@ -475,6 +475,7 @@ struct msm_isp_event_data {
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
 	} u; /* union can have max 52 bytes */
+	uint32_t is_skip_pproc;
 };
 #ifdef CONFIG_COMPAT
 struct msm_isp_event_data32 {
