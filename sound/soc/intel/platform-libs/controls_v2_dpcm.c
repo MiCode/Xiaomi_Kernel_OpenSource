@@ -2341,11 +2341,25 @@ static int sst_pvt_load(struct snd_soc_platform *platform,
 			control_ops, ARRAY_SIZE(control_ops), sm, mc);
 }
 
+static int sst_verify_plgn_version(u32 version)
+{
+	if (version != SST_V2_PLUGIN_VERSION) {
+		pr_err("%s: version 0x%x doesnt match with 0x%x\n",
+			__func__, version, SST_V2_PLUGIN_VERSION);
+		return -EINVAL;
+	}
+
+	pr_debug("%s plugin version 0x%x\n", __func__, version);
+
+	return 0;
+}
+
 static struct snd_soc_fw_platform_ops soc_fw_ops = {
 	.widget_load = sst_widget_load,
 	.pvt_load = sst_pvt_load,
 	.io_ops = control_ops,
 	.io_ops_count = ARRAY_SIZE(control_ops),
+	.version_check = sst_verify_plgn_version,
 };
 
 int sst_dsp_init_v2_dpcm(struct snd_soc_platform *platform)
