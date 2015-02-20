@@ -1711,6 +1711,7 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	struct mdss_mdp_mixer *mixer = NULL;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 offset = mdss_mdp_get_wb_ctl_support(mdata, true);
+	int ret = 0;
 
 	ctl = mdss_mdp_ctl_alloc(mdss_res, offset);
 	if (!ctl) {
@@ -1750,9 +1751,10 @@ struct mdss_mdp_mixer *mdss_mdp_wb_mixer_alloc(int rotator)
 	mixer->ctl = ctl;
 
 	if (ctl->ops.start_fnc)
-		ctl->ops.start_fnc(ctl);
+		ret = ctl->ops.start_fnc(ctl);
 
-	return mixer;
+	if (!ret)
+		return mixer;
 error:
 	if (mixer)
 		mdss_mdp_mixer_free(mixer);
