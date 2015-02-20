@@ -23,6 +23,22 @@
 	qcom,board-id = <8 2>;
 };
 
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		synaptics@20 {
+			synaptics,display-coords = <0 0 719 1279>;
+			synaptics,panel-coords = <0 0 719 1405>;
+		};
+	};
+
+	gen-vkeys {
+		qcom,disp-maxx = <719>;
+		qcom,disp-maxy = <1279>;
+		qcom,panel-maxx = <719>;
+		qcom,panel-maxy = <1405>;
+	};
+};
+
 &i2c_4 {
 	smb1360_otg_supply: smb1360-chg-fg@14 {
 		compatible = "qcom,smb1360-chg-fg";

@@ -23,6 +23,22 @@
 	qcom,board-id = <8 3>;
 };
 
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		synaptics@20 {
+			synaptics,display-coords = <0 0 719 1279>;
+			synaptics,panel-coords = <0 0 719 1405>;
+		};
+	};
+
+	gen-vkeys {
+		qcom,disp-maxx = <719>;
+		qcom,disp-maxy = <1279>;
+		qcom,panel-maxx = <719>;
+		qcom,panel-maxy = <1405>;
+	};
+};
+
 &pm8916_l17 {
 	regulator-max-microvolt = <3000000>;
 	regulator-min-microvolt = <3000000>;

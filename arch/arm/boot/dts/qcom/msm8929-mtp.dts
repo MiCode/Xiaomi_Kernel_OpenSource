@@ -23,6 +23,22 @@
 	qcom,board-id = <8 1>;
 };
 
+&soc {
+	i2c@78b9000 { /* BLSP1 QUP5 */
+		synaptics@20 {
+			synaptics,display-coords = <0 0 719 1279>;
+			synaptics,panel-coords = <0 0 719 1405>;
+		};
+	};
+
+	gen-vkeys {
+		qcom,disp-maxx = <719>;
+		qcom,disp-maxy = <1279>;
+		qcom,panel-maxx = <719>;
+		qcom,panel-maxy = <1405>;
+	};
+};
+
 &cci {
 	qcom,camera@0 {
 		qcom,led-flash-src = <&led_flash0>;
