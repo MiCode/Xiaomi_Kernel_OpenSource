@@ -657,10 +657,18 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	te.rd_ptr_irq = panel_info->te.rd_ptr_irq;
 	te.refx100 = panel_info->te.refx100;
 
-	if (dma->dma_config)
+	if (dma->dma_config) {
+		if (!panel_info->partial_update_enabled) {
+			dma->roi.w = sourceConfig.width;
+			dma->roi.h = sourceConfig.height;
+			dma->roi.x = sourceConfig.x;
+			dma->roi.y = sourceConfig.y;
+		}
 		rc = dma->dma_config(dma, &sourceConfig, &outputConfig);
-	else
+	} else {
+		pr_err("%s: dma config failed\n", __func__);
 		rc = -EINVAL;
+	}
 
 	if (outputConfig.out_sel == MDP3_DMA_OUTPUT_SEL_DSI_CMD) {
 		if (dma->dma_sync_config)
@@ -1095,6 +1103,7 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		pr_debug("no buffer in queue yet\n");
 		return -EPERM;
 	}
+
 	if (panel_info->partial_update_enabled &&
 		is_roi_valid(mdp3_session->dma->source_config, cmt_data->l_roi)
 		&& update_roi(mdp3_session->dma->roi, cmt_data->l_roi)) {
@@ -1103,6 +1112,11 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 			mdp3_session->dma->roi.w = cmt_data->l_roi.w;
 			mdp3_session->dma->roi.h = cmt_data->l_roi.h;
 			mdp3_session->dma->update_src_cfg = true;
+			pr_debug("%s: ROI: x=%d y=%d w=%d h=%d\n", __func__,
+				mdp3_session->dma->roi.x,
+				mdp3_session->dma->roi.y,
+				mdp3_session->dma->roi.w,
+				mdp3_session->dma->roi.h);
 	}
 
 	panel = mdp3_session->panel;
