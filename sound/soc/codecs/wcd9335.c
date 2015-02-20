@@ -27,7 +27,6 @@
 #include <linux/mfd/wcd9xxx/pdata.h>
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
-#include <linux/bitops.h>
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
@@ -49,6 +48,9 @@
 
 #define WCD9335_MIX_RATES_MASK (SNDRV_PCM_RATE_48000 |\
 				SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
+
+#define WCD9335_MIX_RATES (SNDRV_PCM_RATE_48000 |\
+		       SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
 
 #define TASHA_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 				  SNDRV_PCM_FORMAT_S24_LE)
@@ -100,6 +102,42 @@ enum {
 
 };
 
+enum {
+	INTn_2_INP_SEL_ZERO = 0,
+	INTn_2_INP_SEL_RX0,
+	INTn_2_INP_SEL_RX1,
+	INTn_2_INP_SEL_RX2,
+	INTn_2_INP_SEL_RX3,
+	INTn_2_INP_SEL_RX4,
+	INTn_2_INP_SEL_RX5,
+	INTn_2_INP_SEL_RX6,
+	INTn_2_INP_SEL_RX7,
+	INTn_2_INP_SEL_PROXIMITY,
+};
+
+struct interp_sample_rate {
+	int sample_rate;
+	int rate_val;
+};
+
+static struct interp_sample_rate int_prim_sample_rate_val[] = {
+	{8000, 0x0},	/* 8K */
+	{16000, 0x1},	/* 16K */
+	{24000, -EINVAL},/* 24K */
+	{32000, 0x3},	/* 32K */
+	{48000, 0x4},	/* 48K */
+	{96000, 0x5},	/* 96K */
+	{192000, 0x6},	/* 192K */
+	{384000, 0x7},	/* 384K */
+	{44100, 0x8}, /* 44.1K */
+};
+
+static struct interp_sample_rate int_mix_sample_rate_val[] = {
+	{48000, 0x4},	/* 48K */
+	{96000, 0x5},	/* 96K */
+	{192000, 0x6},	/* 192K */
+};
+
 static const struct wcd9xxx_ch tasha_rx_chs[TASHA_RX_MAX] = {
 	WCD9XXX_CH(TASHA_RX_PORT_START_NUMBER, 0),
 	WCD9XXX_CH(TASHA_RX_PORT_START_NUMBER + 1, 1),
@@ -142,6 +180,7 @@ static const u32 vport_check_table[NUM_CODEC_DAIS] = {
 	(1 << AIF1_CAP) | (1 << AIF3_CAP),	/* AIF2_CAP */
 	0,					/* AIF3_PB */
 	(1 << AIF1_CAP) | (1 << AIF2_CAP),	/* AIF3_CAP */
+	0,					/* AIF_MIX1_PB */
 };
 
 
@@ -264,6 +303,8 @@ struct tasha_priv {
 
 	/* Tasha Interpolator Mode Select for EAR, HPH_L and HPH_R */
 	u32 hph_mode;
+
+	u16 prim_int_users[TASHA_NUM_INTERPOLATORS];
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
 
@@ -413,7 +454,7 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 }
 
 static const char *const slim_rx_mux_text[] = {
-	"ZERO", "AIF1_PB", "AIF2_PB", "AIF3_PB"
+	"ZERO", "AIF1_PB", "AIF2_PB", "AIF3_PB", "AIF_MIX1_PB"
 };
 
 static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
@@ -480,6 +521,17 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 		}
 		list_add_tail(&core->rx_chs[port_id].list,
 			      &tasha_p->dai[AIF3_PB].wcd9xxx_ch_list);
+		break;
+	case 4:
+		if (wcd9xxx_rx_vport_validation(port_id +
+			TASHA_RX_PORT_START_NUMBER,
+			&tasha_p->dai[AIF_MIX1_PB].wcd9xxx_ch_list)) {
+			dev_dbg(codec->dev, "%s: RX%u is used by current requesting AIF_PB itself\n",
+				__func__, port_id);
+			goto rtn;
+		}
+		list_add_tail(&core->rx_chs[port_id].list,
+			      &tasha_p->dai[AIF_MIX1_PB].wcd9xxx_ch_list);
 		break;
 	default:
 		pr_err("Unknown AIF %d\n", tasha_p->rx_port_value);
@@ -1065,6 +1117,12 @@ static int tasha_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 		usleep_range(5000, 5500);
 		snd_soc_update_bits(codec, WCD9335_CDC_RX2_RX_PATH_CTL,
 				    0x10, 0x00);
+		/* Remove mix path mute if it is enabled */
+		if ((snd_soc_read(codec, WCD9335_CDC_RX2_RX_PATH_MIX_CTL)) &
+				  0x10)
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX2_RX_PATH_MIX_CTL,
+					    0x10, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/*
@@ -1095,6 +1153,12 @@ static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 		usleep_range(5000, 5500);
 		snd_soc_update_bits(codec, WCD9335_CDC_RX1_RX_PATH_CTL,
 				    0x10, 0x00);
+		/* Remove mix path mute if it is enabled */
+		if ((snd_soc_read(codec, WCD9335_CDC_RX1_RX_PATH_MIX_CTL)) &
+				  0x10)
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX1_RX_PATH_MIX_CTL,
+					    0x10, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/*
@@ -1125,6 +1189,12 @@ static int tasha_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 		usleep_range(5000, 5500);
 		snd_soc_update_bits(codec, WCD9335_CDC_RX0_RX_PATH_CTL,
 				    0x10, 0x00);
+		/* Remove mix path mute if it is enabled */
+		if ((snd_soc_read(codec, WCD9335_CDC_RX0_RX_PATH_MIX_CTL)) &
+		     0x10)
+			snd_soc_update_bits(codec,
+					    WCD9335_CDC_RX0_RX_PATH_MIX_CTL,
+					    0x10, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/*
@@ -1259,7 +1329,99 @@ static int tasha_codec_ear_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
+static u16 tasha_interp_get_primary_reg(u16 reg, u16 *ind)
+{
+	u16 prim_int_reg;
+
+	switch (reg) {
+	case WCD9335_CDC_RX0_RX_PATH_CTL:
+	case WCD9335_CDC_RX0_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX0_RX_PATH_CTL;
+		*ind = 0;
+		break;
+	case WCD9335_CDC_RX1_RX_PATH_CTL:
+	case WCD9335_CDC_RX1_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX1_RX_PATH_CTL;
+		*ind = 1;
+		break;
+	case WCD9335_CDC_RX2_RX_PATH_CTL:
+	case WCD9335_CDC_RX2_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX2_RX_PATH_CTL;
+		*ind = 2;
+		break;
+	case WCD9335_CDC_RX3_RX_PATH_CTL:
+	case WCD9335_CDC_RX3_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX3_RX_PATH_CTL;
+		*ind = 3;
+		break;
+	case WCD9335_CDC_RX4_RX_PATH_CTL:
+	case WCD9335_CDC_RX4_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX4_RX_PATH_CTL;
+		*ind = 4;
+		break;
+	case WCD9335_CDC_RX5_RX_PATH_CTL:
+	case WCD9335_CDC_RX5_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX5_RX_PATH_CTL;
+		*ind = 5;
+		break;
+	case WCD9335_CDC_RX6_RX_PATH_CTL:
+	case WCD9335_CDC_RX6_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX6_RX_PATH_CTL;
+		*ind = 6;
+		break;
+	case WCD9335_CDC_RX7_RX_PATH_CTL:
+	case WCD9335_CDC_RX7_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX7_RX_PATH_CTL;
+		*ind = 7;
+		break;
+	case WCD9335_CDC_RX8_RX_PATH_CTL:
+	case WCD9335_CDC_RX8_RX_PATH_MIX_CTL:
+		prim_int_reg = WCD9335_CDC_RX8_RX_PATH_CTL;
+		*ind = 8;
+		break;
+	};
+
+	return prim_int_reg;
+}
+
+static int tasha_codec_enable_prim_interpolator(
+				struct snd_soc_codec *codec,
+				u16 reg, int event)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	u16 prim_int_reg;
+	u16 ind;
+
+	prim_int_reg = tasha_interp_get_primary_reg(reg, &ind);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		tasha->prim_int_users[ind]++;
+		if (tasha->prim_int_users[ind] == 1) {
+			snd_soc_update_bits(codec, prim_int_reg,
+					    0x10, 0x10);
+			snd_soc_update_bits(codec, prim_int_reg,
+					    1 << 0x5, 1 << 0x5);
+		}
+		if ((reg != prim_int_reg) &&
+		    ((snd_soc_read(codec, prim_int_reg)) & 0x10))
+			snd_soc_update_bits(codec, reg, 0x10, 0x10);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		tasha->prim_int_users[ind]--;
+		if (tasha->prim_int_users[ind] == 0) {
+			snd_soc_update_bits(codec, prim_int_reg,
+					1 << 0x5, 0 << 0x5);
+		}
+		break;
+	};
+
+	dev_dbg(codec->dev, "%s: primary interpolator: INT%d, users: %d\n",
+		__func__, ind, tasha->prim_int_users[ind]);
+	return 0;
+}
+
+static int tasha_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
@@ -1269,29 +1431,106 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		/* Reset if needed */
-		/* Enable Digital Mute */
-		snd_soc_update_bits(codec, w->reg, 0x10, 0x10);
+		/*
+		 * Mixing path enablement requires primary (main)
+		 * path to be enabled. Vote for main path clock
+		 */
+		tasha_codec_enable_prim_interpolator(codec, w->reg, event);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/* apply gain after int clk is enabled */
-		if (w->reg == WCD9335_CDC_RX0_RX_PATH_CTL)
+		switch (w->reg) {
+		case WCD9335_CDC_RX0_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX0_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX1_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX1_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX2_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX2_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX3_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX3_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX4_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX4_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX5_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX5_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX6_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX6_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX7_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX7_RX_VOL_MIX_CTL;
+			break;
+		case WCD9335_CDC_RX8_RX_PATH_MIX_CTL:
+			gain_reg = WCD9335_CDC_RX8_RX_VOL_MIX_CTL;
+			break;
+		default:
+			dev_err(codec->dev, "%s: No gain register avail for %s\n",
+				__func__, w->name);
+			return 0;
+		};
+		snd_soc_write(codec, gain_reg, snd_soc_read(codec, gain_reg));
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		tasha_codec_enable_prim_interpolator(codec, w->reg, event);
+		break;
+	};
+
+	return 0;
+}
+
+static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	u16 gain_reg;
+	u16 reg;
+
+	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
+
+	if (!(strcmp(w->name, "RX INT0 INTERP")))
+			reg = WCD9335_CDC_RX0_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT1 INTERP")))
+			reg = WCD9335_CDC_RX1_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT2 INTERP")))
+			reg = WCD9335_CDC_RX2_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT7 INTERP")))
+			reg = WCD9335_CDC_RX7_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT8 INTERP")))
+			reg = WCD9335_CDC_RX8_RX_PATH_CTL;
+	else {
+		dev_err(codec->dev, "%s: Interpolator reg not found\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/* Reset if needed */
+		tasha_codec_enable_prim_interpolator(codec, reg, event);
+		break;
+	case SND_SOC_DAPM_POST_PMU:
+		/* apply gain after int clk is enabled */
+		if (reg == WCD9335_CDC_RX0_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX0_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX1_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX1_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX1_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX2_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX2_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX2_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX3_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX3_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX3_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX4_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX4_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX4_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX5_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX5_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX5_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX6_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX6_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX6_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX7_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX7_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX7_RX_VOL_CTL;
-		else if (w->reg == WCD9335_CDC_RX8_RX_PATH_CTL)
+		else if (reg == WCD9335_CDC_RX8_RX_PATH_CTL)
 			gain_reg = WCD9335_CDC_RX8_RX_VOL_CTL;
 		else {
 			dev_err(codec->dev, "%s: No gain register avail for %s\n",
@@ -1299,6 +1538,9 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 			return 0;
 		}
 		snd_soc_write(codec, gain_reg, snd_soc_read(codec, gain_reg));
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		tasha_codec_enable_prim_interpolator(codec, reg, event);
 		break;
 	};
 
@@ -1701,95 +1943,95 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"SLIM TX13 MUX", "DEC5", "ADC MUX5"},
 
-	{"RX MIX TX0 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX0 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX0 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX0 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX0 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX0 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX0 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX0 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX0 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX0 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX0 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX0 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX0 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX0 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX1 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX1 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX1 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX1 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX1 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX1 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX1 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX1 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX1 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX1 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX1 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX1 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX1 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX1 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX2 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX2 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX2 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX2 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX2 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX2 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX2 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX2 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX2 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX2 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX2 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX2 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX2 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX2 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX3 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX3 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX3 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX3 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX3 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX3 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX3 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX3 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX3 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX3 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX3 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX3 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX3 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX3 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX4 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX4 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX4 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX4 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX4 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX4 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX4 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX4 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX4 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX4 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX4 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX4 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX4 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX4 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX5 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX5 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX5 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX5 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX5 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX5 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX5 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX5 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX5 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX5 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX5 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX5 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX5 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX5 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX6 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX6 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX6 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX6 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX6 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX6 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX6 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX6 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX6 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX6 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX6 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX6 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX6 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX6 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX7 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX7 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX7 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX7 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX7 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX7 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX7 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX7 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX7 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX7 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX7 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX7 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX7 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX7 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
-	{"RX MIX TX8 MUX", "RX_MIX0", "RX INT0_1 MIX1"},
-	{"RX MIX TX8 MUX", "RX_MIX1", "RX INT1_1 MIX1"},
-	{"RX MIX TX8 MUX", "RX_MIX2", "RX INT2_1 MIX1"},
+	{"RX MIX TX8 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
+	{"RX MIX TX8 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
+	{"RX MIX TX8 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
 	{"RX MIX TX8 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
 	{"RX MIX TX8 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
 	{"RX MIX TX8 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
 	{"RX MIX TX8 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
-	{"RX MIX TX8 MUX", "RX_MIX7", "RX INT7_1 MIX1"},
-	{"RX MIX TX8 MUX", "RX_MIX8", "RX INT8_1 MIX1"},
+	{"RX MIX TX8 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
+	{"RX MIX TX8 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"MIC BIAS1", NULL, "MCLK"},
 	{"MIC BIAS2", NULL, "MCLK"},
@@ -1967,55 +2209,63 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT8_1 MIX1", NULL, "RX INT8_1 MIX1 INP0"},
 	{"RX INT8_1 MIX1", NULL, "RX INT8_1 MIX1 INP1"},
 	{"RX INT8_1 MIX1", NULL, "RX INT8_1 MIX1 INP2"},
-	{"RX INT0 MIX2", NULL, "RX INT0_1 MIX1"},
+
+	{"RX INT0 INTERP", NULL, "RX INT0_1 MIX1"},
+	{"RX INT0 SEC MIX", NULL, "RX INT0 INTERP"},
+	{"RX INT0 MIX2", NULL, "RX INT0 SEC MIX"},
 	{"RX INT0 MIX2", NULL, "RX INT0 MIX2 INP"},
-	{"RX INT1 MIX2", NULL, "RX INT1_1 MIX1"},
-	{"RX INT1 MIX2", NULL, "RX INT1 MIX2 INP"},
-	{"RX INT2 MIX2", NULL, "RX INT2_1 MIX1"},
-	{"RX INT2 MIX2", NULL, "RX INT2 MIX2 INP"},
-	{"RX INT3 MIX2", NULL, "RX INT3_1 MIX1"},
-	{"RX INT3 MIX2", NULL, "RX INT3 MIX2 INP"},
-	{"RX INT4 MIX2", NULL, "RX INT4_1 MIX1"},
-	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
-	{"RX INT7 MIX2", NULL, "RX INT7_1 MIX1"},
-	{"RX INT7 MIX2", NULL, "RX INT7 MIX2 INP"},
-
-	{"RX INT1_1 MIX1", NULL, "COMP1_CLK"},
-	{"RX INT2_1 MIX1", NULL, "COMP2_CLK"},
-	{"RX INT3_1 MIX1", NULL, "COMP3_CLK"},
-	{"RX INT4_1 MIX1", NULL, "COMP4_CLK"},
-	{"RX INT5_1 MIX1", NULL, "COMP5_CLK"},
-	{"RX INT6_1 MIX1", NULL, "COMP6_CLK"},
-	{"RX INT7_1 MIX1", NULL, "COMP7_CLK"},
-	{"RX INT8_1 MIX1", NULL, "COMP8_CLK"},
-
-	{"RX INT0 INTERP", NULL, "RX INT0 MIX2"},
-	{"RX INT0 DEM MUX", "CLSH_DSM_OUT", "RX INT0 INTERP"},
+	{"RX INT0 DEM MUX", "CLSH_DSM_OUT", "RX INT0 MIX2"},
 	{"RX INT0 DAC", NULL, "RX INT0 DEM MUX"},
 	{"RX INT0 DAC", NULL, "RX_BIAS"},
 	{"EAR PA", NULL, "RX INT0 DAC"},
 	{"EAR", NULL, "EAR PA"},
 
-	{"RX INT1 INTERP", NULL, "RX INT1 MIX2"},
-	{"RX INT1 DEM MUX", "CLSH_DSM_OUT", "RX INT1 INTERP"},
+	{"RX INT1 INTERP", NULL, "RX INT1_1 MIX1"},
+	{"RX INT1 SEC MIX", NULL, "RX INT1 INTERP"},
+	{"RX INT1 MIX2", NULL, "RX INT1 SEC MIX"},
+	{"RX INT1 MIX2", NULL, "RX INT1 MIX2 INP"},
+	{"RX INT1 DEM MUX", "CLSH_DSM_OUT", "RX INT1 MIX2"},
 	{"RX INT1 DAC", NULL, "RX INT1 DEM MUX"},
 	{"RX INT1 DAC", NULL, "RX_BIAS"},
 	{"HPHL PA", NULL, "RX INT1 DAC"},
 	{"HPHL", NULL, "HPHL PA"},
 
-	{"RX INT2 INTERP", NULL, "RX INT2 MIX2"},
-	{"RX INT2 DEM MUX", "CLSH_DSM_OUT", "RX INT2 INTERP"},
+	{"RX INT2 INTERP", NULL, "RX INT2_1 MIX1"},
+	{"RX INT2 SEC MIX", NULL, "RX INT2 INTERP"},
+	{"RX INT2 MIX2", NULL, "RX INT2 SEC MIX"},
+	{"RX INT2 MIX2", NULL, "RX INT2 MIX2 INP"},
+	{"RX INT2 DEM MUX", "CLSH_DSM_OUT", "RX INT2 MIX2"},
 	{"RX INT2 DAC", NULL, "RX INT2 DEM MUX"},
 	{"RX INT2 DAC", NULL, "RX_BIAS"},
 	{"HPHR PA", NULL, "RX INT2 DAC"},
 	{"HPHR", NULL, "HPHR PA"},
 
+	{"RX INT3 MIX2", NULL, "RX INT3_1 MIX1"},
+	{"RX INT3 MIX2", NULL, "RX INT3 MIX2 INP"},
+	{"RX INT4 MIX2", NULL, "RX INT4_1 MIX1"},
+	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
+
+	{"RX INT7 INTERP", NULL, "RX INT7_1 MIX1"},
+	{"RX INT7 SEC MIX", NULL, "RX INT7 INTERP"},
+	{"RX INT7 MIX2", NULL, "RX INT7 SEC MIX"},
+	{"RX INT7 MIX2", NULL, "RX INT7 MIX2 INP"},
+
+	{"RX INT1 MIX2", NULL, "COMP1_CLK"},
+	{"RX INT2 MIX2", NULL, "COMP2_CLK"},
+	{"RX INT3 MIX2", NULL, "COMP3_CLK"},
+	{"RX INT4 MIX2", NULL, "COMP4_CLK"},
+	{"RX INT5_1 MIX1", NULL, "COMP5_CLK"},
+	{"RX INT6_1 MIX1", NULL, "COMP6_CLK"},
+	{"RX INT7 MIX2", NULL, "COMP7_CLK"},
+	{"RX INT8 SEC MIX", NULL, "COMP8_CLK"},
 
 	{"RX INT7 CHAIN", NULL, "RX INT7 MIX2"},
 	{"RX INT7 CHAIN", NULL, "RX_BIAS"},
 	{"SPK1 OUT", NULL, "RX INT7 CHAIN"},
 
-	{"RX INT8 CHAIN", NULL, "RX INT8_1 MIX1"},
+	{"RX INT8 INTERP", NULL, "RX INT8_1 MIX1"},
+	{"RX INT8 SEC MIX", NULL, "RX INT8 INTERP"},
+	{"RX INT8 CHAIN", NULL, "RX INT8 SEC MIX"},
 	{"RX INT8 CHAIN", NULL, "RX_BIAS"},
 	{"SPK2 OUT", NULL, "RX INT8 CHAIN"},
 
@@ -2046,6 +2296,16 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SLIM RX5 MUX", "AIF3_PB", "AIF3 PB"},
 	{"SLIM RX6 MUX", "AIF3_PB", "AIF3 PB"},
 	{"SLIM RX7 MUX", "AIF3_PB", "AIF3 PB"},
+
+	/* SLIM_MUX("AIF_MIX1_PB", "AIF MIX1 PB"),*/
+	{"SLIM RX0 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
+	{"SLIM RX1 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
+	{"SLIM RX2 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
+	{"SLIM RX3 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
+	{"SLIM RX4 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
+	{"SLIM RX5 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
+	{"SLIM RX6 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
+	{"SLIM RX7 MUX", "AIF_MIX1_PB", "AIF MIX1 PB"},
 
 	{"SLIM RX0", NULL, "SLIM RX0 MUX"},
 	{"SLIM RX1", NULL, "SLIM RX1 MUX"},
@@ -2080,6 +2340,61 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT0_1 MIX1 INP2", "RX5", "SLIM RX5"},
 	{"RX INT0_1 MIX1 INP2", "RX6", "SLIM RX6"},
 	{"RX INT0_1 MIX1 INP2", "RX7", "SLIM RX7"},
+
+	/* MIXing path INT0 */
+	{"RX INT0_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT0_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT0_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT0_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT0_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT0_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT0_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT0_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT0 SEC MIX", NULL, "RX INT0_2 MUX"},
+
+	/* MIXing path INT1 */
+	{"RX INT1_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT1_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT1_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT1_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT1_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT1_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT1_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT1_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT1 SEC MIX", NULL, "RX INT1_2 MUX"},
+
+	/* MIXing path INT2 */
+	{"RX INT2_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT2_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT2_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT2_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT2_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT2_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT2_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT2_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT2 SEC MIX", NULL, "RX INT2_2 MUX"},
+
+	/* MIXing path INT7 */
+	{"RX INT7_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT7_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT7_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT7_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT7_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT7_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT7_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT7_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT7 SEC MIX", NULL, "RX INT7_2 MUX"},
+
+	/* MIXing path INT8 */
+	{"RX INT8_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT8_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT8_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT8_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT8_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT8_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT8_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT8_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT8 SEC MIX", NULL, "RX INT8_2 MUX"},
 
 	{"RX INT1_1 MIX1 INP0", "RX0", "SLIM RX0"},
 	{"RX INT1_1 MIX1 INP0", "RX1", "SLIM RX1"},
@@ -2765,6 +3080,31 @@ static const struct snd_kcontrol_new tasha_analog_gain_controls[] = {
 			analog_gain),
 };
 
+static const char * const rx_int0_mix_mux_text[] = {
+	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
+	"RX6", "RX7", "PROXIMITY"
+};
+
+static const char * const rx_int1_mix_mux_text[] = {
+	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
+	"RX6", "RX7"
+};
+
+static const char * const rx_int2_mix_mux_text[] = {
+	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
+	"RX6", "RX7"
+};
+
+static const char * const rx_int7_mix_mux_text[] = {
+	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
+	"RX6", "RX7", "PROXIMITY"
+};
+
+static const char * const rx_int8_mix_mux_text[] = {
+	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
+	"RX6", "RX7",
+};
+
 static const char * const rx_prim_mix_text[] = {
 	"ZERO", "DEC0", "DEC1", "IIR0", "IIR1", "RX0", "RX1", "RX2",
 	"RX3", "RX4", "RX5", "RX6", "RX7"
@@ -2841,15 +3181,23 @@ static const char * const rx_int_dem_inp_mux_text[] = {
 };
 
 static const char * const rx_int0_interp_mux_text[] = {
-	"ZERO", "RX INT0 MIX2",
+	"ZERO", "RX INT0_1 MIX1",
 };
 
 static const char * const rx_int1_interp_mux_text[] = {
-	"ZERO", "RX INT1 MIX2",
+	"ZERO", "RX INT1_1 MIX1",
 };
 
 static const char * const rx_int2_interp_mux_text[] = {
-	"ZERO", "RX INT2 MIX2",
+	"ZERO", "RX INT2_1 MIX1",
+};
+
+static const char * const rx_int7_interp_mux_text[] = {
+	"ZERO", "RX INT7_1 MIX1",
+};
+
+static const char * const rx_int8_interp_mux_text[] = {
+	"ZERO", "RX INT8_1 MIX1",
 };
 
 static const char * const adc_mux_text[] = {
@@ -2874,6 +3222,26 @@ static const char * const rx_echo_mux_text[] = {
 	"RX_MIX5", "RX_MIX6", "RX_MIX7", "RX_MIX8", "RX_MIX_VBAT5",
 	"RX_MIX_VBAT6",	"RX_MIX_VBAT7", "RX_MIX_VBAT8"
 };
+
+static const struct soc_enum rx_int0_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG1, 0, 10,
+			rx_int0_mix_mux_text);
+
+static const struct soc_enum rx_int1_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT1_CFG1, 0, 9,
+			rx_int1_mix_mux_text);
+
+static const struct soc_enum rx_int2_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT2_CFG1, 0, 9,
+			rx_int2_mix_mux_text);
+
+static const struct soc_enum rx_int7_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT7_CFG1, 0, 10,
+			rx_int7_mix_mux_text);
+
+static const struct soc_enum rx_int8_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT8_CFG1, 0, 9,
+			rx_int8_mix_mux_text);
 
 static const struct soc_enum rx_int0_1_mix_inp0_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG0, 0, 13,
@@ -3266,6 +3634,14 @@ static const struct soc_enum rx_int2_interp_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX2_RX_PATH_CTL, 5, 2,
 			rx_int2_interp_mux_text);
 
+static const struct soc_enum rx_int7_interp_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX7_RX_PATH_CTL, 5, 2,
+			rx_int7_interp_mux_text);
+
+static const struct soc_enum rx_int8_interp_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX8_RX_PATH_CTL, 5, 2,
+			rx_int8_interp_mux_text);
+
 static const struct snd_kcontrol_new rx_int0_dem_inp_mux =
 	SOC_DAPM_ENUM_EXT("RX INT0 DEM MUX Mux", rx_int0_dem_inp_mux_enum,
 			  snd_soc_dapm_get_enum_double,
@@ -3280,6 +3656,21 @@ static const struct snd_kcontrol_new rx_int2_dem_inp_mux =
 	SOC_DAPM_ENUM_EXT("RX INT2 DEM MUX Mux", rx_int2_dem_inp_mux_enum,
 			  snd_soc_dapm_get_enum_double,
 			  tasha_int_dem_inp_mux_put);
+
+static const struct snd_kcontrol_new rx_int0_2_mux =
+	SOC_DAPM_ENUM("RX INT0_2 MUX Mux", rx_int0_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int1_2_mux =
+	SOC_DAPM_ENUM("RX INT1_2 MUX Mux", rx_int1_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int2_2_mux =
+	SOC_DAPM_ENUM("RX INT2_2 MUX Mux", rx_int2_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int7_2_mux =
+	SOC_DAPM_ENUM("RX INT7_2 MUX Mux", rx_int7_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int8_2_mux =
+	SOC_DAPM_ENUM("RX INT8_2 MUX Mux", rx_int8_2_mux_chain_enum);
 
 static const struct snd_kcontrol_new rx_int0_1_mix_inp0_mux =
 	SOC_DAPM_ENUM("RX INT0_1 MIX1 INP0 Mux", rx_int0_1_mix_inp0_chain_enum);
@@ -3563,6 +3954,12 @@ static const struct snd_kcontrol_new rx_int1_interp_mux =
 static const struct snd_kcontrol_new rx_int2_interp_mux =
 	SOC_DAPM_ENUM("RX INT2 INTERP Mux", rx_int2_interp_mux_enum);
 
+static const struct snd_kcontrol_new rx_int7_interp_mux =
+	SOC_DAPM_ENUM("RX INT7 INTERP Mux", rx_int7_interp_mux_enum);
+
+static const struct snd_kcontrol_new rx_int8_interp_mux =
+	SOC_DAPM_ENUM("RX INT8 INTERP Mux", rx_int8_interp_mux_enum);
+
 static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("EAR"),
 	SND_SOC_DAPM_AIF_IN_E("AIF1 PB", "AIF1 Playback", 0, SND_SOC_NOPM,
@@ -3574,6 +3971,10 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_AIF_IN_E("AIF3 PB", "AIF3 Playback", 0, SND_SOC_NOPM,
 				AIF3_PB, 0, tasha_codec_enable_slimrx,
 				SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_AIF_IN_E("AIF MIX1 PB", "AIF Mix Playback", 0,
+			       SND_SOC_NOPM, AIF_MIX1_PB, 0,
+			       tasha_codec_enable_slimrx,
+			       SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("SLIM RX0 MUX", SND_SOC_NOPM, TASHA_RX0, 0,
 				&slim_rx_mux[TASHA_RX0]),
@@ -3600,6 +4001,27 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("SLIM RX5", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("SLIM RX6", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("SLIM RX7", SND_SOC_NOPM, 0, 0, NULL, 0),
+
+	SND_SOC_DAPM_MUX_E("RX INT0_2 MUX", WCD9335_CDC_RX0_RX_PATH_MIX_CTL,
+			5, 0, &rx_int0_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT1_2 MUX", WCD9335_CDC_RX1_RX_PATH_MIX_CTL,
+			5, 0, &rx_int1_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT2_2 MUX", WCD9335_CDC_RX2_RX_PATH_MIX_CTL,
+			5, 0, &rx_int2_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT7_2 MUX", WCD9335_CDC_RX7_RX_PATH_MIX_CTL,
+			5, 0, &rx_int7_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT8_2 MUX", WCD9335_CDC_RX8_RX_PATH_MIX_CTL,
+			5, 0, &rx_int8_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("RX INT0_1 MIX1 INP0", SND_SOC_NOPM, 0, 0,
 		&rx_int0_1_mix_inp0_mux),
@@ -3657,23 +4079,26 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		&rx_int8_1_mix_inp2_mux),
 
 	SND_SOC_DAPM_MIXER("RX INT0_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT0 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT1 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT2_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT2 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT3_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT4_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT5_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT6_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT7 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT8_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT8 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MIXER("RX INT0 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT2 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT3 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT4 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER_E("RX INT7 MIX2", WCD9335_CDC_RX7_RX_PATH_CTL,
-		5, 0, NULL, 0, tasha_codec_enable_interpolator,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_MIXER("RX INT7 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT8 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
 
@@ -3974,15 +4399,27 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MUX("RX INT2 DEM MUX", SND_SOC_NOPM, 0, 0,
 		&rx_int2_dem_inp_mux),
 
-	SND_SOC_DAPM_MUX_E("RX INT0 INTERP", WCD9335_CDC_RX0_RX_PATH_CTL,
-		5, 0, &rx_int0_interp_mux, tasha_codec_enable_interpolator,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_MUX_E("RX INT1 INTERP", WCD9335_CDC_RX1_RX_PATH_CTL,
-		5, 0, &rx_int1_interp_mux, tasha_codec_enable_interpolator,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_MUX_E("RX INT2 INTERP", WCD9335_CDC_RX2_RX_PATH_CTL,
-		5, 0, &rx_int2_interp_mux, tasha_codec_enable_interpolator,
-		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_MUX_E("RX INT0 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int0_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT1 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int1_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT2 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int2_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT7 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int7_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT8 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int8_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_DAC_E("RX INT0 DAC", NULL, SND_SOC_NOPM,
 		0, 0, tasha_codec_ear_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -4028,6 +4465,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF1_PB:
 	case AIF2_PB:
 	case AIF3_PB:
+	case AIF_MIX1_PB:
 		if (!rx_slot || !rx_num) {
 			pr_err("%s: Invalid rx_slot %p or rx_num %p\n",
 				 __func__, rx_slot, rx_num);
@@ -4196,9 +4634,53 @@ static int tasha_set_decimator_rate(struct snd_soc_dai *dai,
 	return 0;
 }
 
-static int tasha_set_interpolator_rate(struct snd_soc_dai *dai,
-				       u8 int_prim_fs_rate_reg_val,
-				       u32 sample_rate)
+static int tasha_set_mix_interpolator_rate(struct snd_soc_dai *dai,
+					   u8 int_mix_fs_rate_reg_val,
+					   u32 sample_rate)
+{
+	u8 int_2_inp;
+	u32 j;
+	u16 int_mux_cfg1, int_fs_reg;
+	u8 int_mux_cfg1_val;
+	struct snd_soc_codec *codec = dai->codec;
+	struct wcd9xxx_ch *ch;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	list_for_each_entry(ch, &tasha->dai[dai->id].wcd9xxx_ch_list, list) {
+		int_2_inp = ch->port + INTn_2_INP_SEL_RX0 -
+				  TASHA_RX_PORT_START_NUMBER;
+		if ((int_2_inp < INTn_2_INP_SEL_RX0) ||
+		   (int_2_inp > INTn_2_INP_SEL_RX7)) {
+			pr_err("%s: Invalid RX%u port, Dai ID is %d\n",
+				__func__,
+				(ch->port - TASHA_RX_PORT_START_NUMBER),
+				dai->id);
+			return -EINVAL;
+		}
+
+		int_mux_cfg1 = WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG1;
+		for (j = 0; j < TASHA_NUM_INTERPOLATORS; j++) {
+			int_mux_cfg1_val = snd_soc_read(codec, int_mux_cfg1) &
+						0x0F;
+			if (int_mux_cfg1_val == int_2_inp) {
+				int_fs_reg = WCD9335_CDC_RX1_RX_PATH_MIX_CTL +
+						20 * j;
+				pr_debug("%s: AIF_MIX_PB DAI(%d) connected to INT%u_2\n",
+					  __func__, dai->id, j);
+				pr_debug("%s: set INT%u_2 sample rate to %u\n",
+					__func__, j, sample_rate);
+				snd_soc_update_bits(codec, int_fs_reg,
+						0x0F, int_mix_fs_rate_reg_val);
+			}
+			int_mux_cfg1 += 2;
+		}
+	}
+	return 0;
+}
+
+static int tasha_set_prim_interpolator_rate(struct snd_soc_dai *dai,
+					    u8 int_prim_fs_rate_reg_val,
+					    u32 sample_rate)
 {
 	u8 int_1_mix1_inp;
 	u32 j;
@@ -4261,63 +4743,63 @@ static int tasha_set_interpolator_rate(struct snd_soc_dai *dai,
 	return 0;
 }
 
+
+static int tasha_set_interpolator_rate(struct snd_soc_dai *dai,
+				       u32 sample_rate)
+{
+	int rate_val = 0;
+	int i, ret;
+
+	if (dai->id == AIF_MIX1_PB) {
+		/* set mixing path rate */
+		for (i = 0; i < ARRAY_SIZE(int_mix_sample_rate_val); i++) {
+			if (sample_rate ==
+			    int_mix_sample_rate_val[i].sample_rate) {
+				rate_val =
+					int_mix_sample_rate_val[i].rate_val;
+				break;
+			}
+		}
+		if ((i == ARRAY_SIZE(int_mix_sample_rate_val)) ||
+		    (rate_val < 0))
+			return -EINVAL;
+		ret = tasha_set_mix_interpolator_rate(dai,
+				(u8) rate_val, sample_rate);
+	} else {
+		/* set primary path sample rate */
+		for (i = 0; i < ARRAY_SIZE(int_prim_sample_rate_val); i++) {
+			if (sample_rate ==
+			    int_prim_sample_rate_val[i].sample_rate) {
+				rate_val =
+					int_prim_sample_rate_val[i].rate_val;
+				break;
+			}
+		}
+		if ((i == ARRAY_SIZE(int_prim_sample_rate_val)) ||
+		    (rate_val < 0))
+			return -EINVAL;
+		ret = tasha_set_prim_interpolator_rate(dai,
+				(u8) rate_val, sample_rate);
+	}
+	return ret;
+}
+
 static int tasha_hw_params(struct snd_pcm_substream *substream,
 			   struct snd_pcm_hw_params *params,
 			   struct snd_soc_dai *dai)
 {
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(dai->codec);
 	int ret;
-	int int_prim_fs_rate_val = -EINVAL;
 	int tx_fs_rate = -EINVAL;
 
 	pr_debug("%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n", __func__,
 		 dai->name, dai->id, params_rate(params),
 		 params_channels(params));
 
-	switch (params_rate(params)) {
-	case 8000:
-		int_prim_fs_rate_val = 0x00;
-		tx_fs_rate = 0;
-		break;
-	case 16000:
-		int_prim_fs_rate_val = 0x01;
-		tx_fs_rate = 1;
-		break;
-	case 32000:
-		int_prim_fs_rate_val = 0x03;
-		tx_fs_rate = 3;
-		break;
-	case 48000:
-		int_prim_fs_rate_val = 0x04;
-		tx_fs_rate = 4;
-		break;
-	case 96000:
-		int_prim_fs_rate_val = 0x05;
-		tx_fs_rate = 5;
-		break;
-	case 192000:
-		int_prim_fs_rate_val = 0x06;
-		tx_fs_rate = 6;
-		break;
-	case 384000:
-		int_prim_fs_rate_val = 0x07;
-		break;
-	case 44100:
-		int_prim_fs_rate_val = 0x08;
-		break;
-	};
-
-	if (int_prim_fs_rate_val < 0 ||
-	    int_prim_fs_rate_val > 0x08) {
-		pr_err("%s: Codec does not support sample rate: %u\n",
-			__func__, params_rate(params));
-		return -EINVAL;
-	}
 
 	switch (substream->stream) {
 	case SNDRV_PCM_STREAM_PLAYBACK:
-		ret = tasha_set_interpolator_rate(dai,
-				(u8) int_prim_fs_rate_val, params_rate(params));
+		ret = tasha_set_interpolator_rate(dai, params_rate(params));
 		if (ret) {
 			pr_err("%s: cannot set sample rate: %u\n",
 				__func__, params_rate(params));
@@ -4330,6 +4812,26 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 		tasha->dai[dai->id].rate = params_rate(params);
 		break;
 	case SNDRV_PCM_STREAM_CAPTURE:
+		switch (params_rate(params)) {
+		case 8000:
+			tx_fs_rate = 0;
+			break;
+		case 16000:
+			tx_fs_rate = 1;
+			break;
+		case 32000:
+			tx_fs_rate = 3;
+			break;
+		case 48000:
+			tx_fs_rate = 4;
+			break;
+		case 96000:
+			tx_fs_rate = 5;
+			break;
+		case 192000:
+			tx_fs_rate = 6;
+			break;
+		};
 		if (tx_fs_rate < 0) {
 			dev_err(tasha->dev, "%s: Invalid TX sample rate: %d\n",
 				__func__, tx_fs_rate);
@@ -4480,7 +4982,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF_MIX1_PB,
 		.playback = {
 			.stream_name = "AIF Mix Playback",
-			.rates = WCD9335_MIX_RATES_MASK,
+			.rates = WCD9335_MIX_RATES,
 			.formats = TASHA_FORMATS_S16_S24_LE,
 			.rate_min = 48000,
 			.rate_max = 192000,
