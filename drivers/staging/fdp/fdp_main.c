@@ -139,6 +139,10 @@ long fdp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		retval = fdp_custom_ioctl_reset(filp, cmd, arg);
 		break;
 
+	case FIELDSPEAK_IOC_CLK_REQ:
+		retval = fdp_custom_ioctl_clk_req(filp, cmd, arg);
+		break;
+
 	}
 
 	return retval;

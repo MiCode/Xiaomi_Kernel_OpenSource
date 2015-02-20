@@ -59,9 +59,14 @@
 
 #define FIELDSPEAK_IOC_RESET       _IO(FIELDSPEAK_IOC_MAGIC, 0)
 
+/**
+  * FIELDSPEAK_IOC_CLK_REQ is used to trigger NFC ref clock
+  * request to the platform.
+  */
 
-#define FIELDSPEAK_MAX_IOCTL_VALUE   0
+#define FIELDSPEAK_IOC_CLK_REQ     _IO(FIELDSPEAK_IOC_MAGIC, 1)
 
+#define FIELDSPEAK_MAX_IOCTL_VALUE   1
 
 /* NFC controller (FDP) GPIOs */
 #define NFC_RESET_GPIO               0

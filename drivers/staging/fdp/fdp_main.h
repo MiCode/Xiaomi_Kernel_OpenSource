@@ -48,5 +48,7 @@ ssize_t fdp_custom_write(struct file *filp, const char __user *buf,
 unsigned int fdp_custom_poll(struct file *filp, poll_table *wait);
 long fdp_custom_ioctl_reset(struct file *filp, unsigned int cmd,
 	unsigned long arg);
+long fdp_custom_ioctl_clk_req(struct file *filp, unsigned int cmd,
+	unsigned long arg);
 
 /* EOF */

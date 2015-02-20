@@ -279,6 +279,12 @@ int fdp_custom_open(struct inode *inode, struct file *filp)
 	/* Inform the chip that the stack is active */
 	fdp_update_stack_state(p_device, 1);
 
+	if (ACPI_HANDLE(&p_device->i2c_client->dev)) {
+		acpi_bus_set_power(
+				ACPI_HANDLE(&p_device->i2c_client->dev),
+				ACPI_STATE_D0);
+	}
+
  end:
 	mutex_unlock(&p_device->mutex);
 
@@ -439,6 +445,35 @@ long fdp_custom_ioctl_reset(struct file *filp, unsigned int cmd,
 }
 
 /**
+  * Processes the FIELDSPEAK_IOC_CLK_REQ ioctl
+  *
+  * @return 0 on success, a negative value on failure.
+  */
+
+long fdp_custom_ioctl_clk_req(struct file *filp, unsigned int cmd,
+				unsigned long enable)
+{
+	struct fdp_custom_device *p_device = filp->private_data;
+
+	ENTER();
+
+	if (!p_device) {
+		pr_err
+			("fdp_custom_ioctl_clk_req: p_device is missing\n");
+		return -ENODEV;
+	}
+
+	if (ACPI_HANDLE(&p_device->i2c_client->dev)) {
+		acpi_bus_set_power(
+				ACPI_HANDLE(&p_device->i2c_client->dev),
+				enable ? ACPI_STATE_D0 : ACPI_STATE_D3_COLD);
+		return 0;
+	}
+
+	return  -ENODEV;
+}
+
+/**
   * Process the poll()
   *
   * @return the poll status
@@ -490,6 +525,12 @@ int fdp_custom_release(struct inode *inode, struct file *filp)
 
 	/* Inform the chip the stack is no longer active */
 	fdp_update_stack_state(p_device, 0);
+
+	if (ACPI_HANDLE(&p_device->i2c_client->dev)) {
+		acpi_bus_set_power(
+				ACPI_HANDLE(&p_device->i2c_client->dev),
+				ACPI_STATE_D3_COLD);
+	}
 
 	/* Go back to PROBED state */
 	fdp_struct_cleanup(p_device);
@@ -681,6 +722,10 @@ static int fdp_acpi_probe(struct i2c_client *client,
 
 	pr_info("fdp_acpi_probe: max_i2c_xfer_size=%d\n",
 			fdp_dev->max_i2c_xfer_size);
+
+	acpi_bus_set_power(
+			ACPI_HANDLE(&client->dev),
+			ACPI_STATE_D3_COLD);
 
 	return 0;
 }
