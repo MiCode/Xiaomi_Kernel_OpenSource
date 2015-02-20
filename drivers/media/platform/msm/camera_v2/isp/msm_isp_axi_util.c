@@ -417,7 +417,9 @@ void msm_isp_cfg_framedrop_reg(struct vfe_device *vfe_dev,
 			 * ensure that no frame will came after last, even if
 			 * userspace reg update is delayed */
 			framedrop_pattern =
-			(1 << stream_info->runtime_burst_frame_count) - 1;
+			      (1 << stream_info->runtime_burst_frame_count) - 1;
+			framedrop_pattern <<=
+				stream_info->runtime_init_frame_drop;
 			/* Alternate maximum two values for period to ensure
 			 * that two identical consecutive patterns will still be
 			 * applied. Otherwise HW cannot detect that we make 2
