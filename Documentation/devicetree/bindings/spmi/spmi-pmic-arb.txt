@@ -20,6 +20,8 @@ Optional properties:
 - qcom,pmic-arb-max-peripherals : the max supported peripheral channels on device
 - qcom,pmic-arb-max-periph-interrupts : the max supported peripheral channels
 					interrupts on device
+- qcom,reserved-channel : channel number that this driver should not touch.
+			  Used only for v2 hw.
 
 Example:
 

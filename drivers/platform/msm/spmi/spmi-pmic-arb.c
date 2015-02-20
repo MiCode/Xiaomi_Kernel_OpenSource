@@ -195,6 +195,8 @@ struct spmi_pmic_arb_ver {
  *      Use for an HW workaround. On handling interrupts, the first accumulator
  *      register will be compared against this value, and bits which are set at
  *      boot will be ignored.
+ * @reserved_chnl entry of ppid_2_chnl_tbl that this driver should never touch.
+ *      value is positive channel number or negative to mark it unused.
  */
 struct spmi_pmic_arb_dev {
 	struct spmi_controller	controller;
@@ -219,6 +221,7 @@ struct spmi_pmic_arb_dev {
 	u32			mapping_table[SPMI_MAPPING_TABLE_LEN];
 	const struct spmi_pmic_arb_ver *ver;
 	u8			*ppid_2_chnl_tbl;
+	int			reserved_chnl;
 	unsigned long		*valid_ppid_bitmap;
 	u32			prev_prtcl_irq_stat;
 	u32			irq_acc0_init_val;
@@ -243,12 +246,22 @@ static phys_addr_t pmic_arb_chnl_ofst_v2(struct spmi_pmic_arb_dev *dev,
 	char chnl     = dev->ppid_2_chnl_tbl[ppid];
 
 	if (err)
-		*err = is_valid ? 0 : -ENXIO;
+		*err = 0;
 
-	if (!is_valid)
+	if (!is_valid) {
 		dev_err(dev->dev,
 		"error access to unmapped pmic peripheral sid:0x%x addr:0x%x\n",
 			sid, addr);
+		if (err)
+			*err = -ENXIO;
+	}
+	if (chnl == dev->reserved_chnl) {
+		dev_err(dev->dev,
+		"error access to reserved channel sid:0x%x addr:0x%x chan:%d\n",
+			sid, addr, chnl);
+		if (err)
+			*err = -EACCES;
+	}
 
 	return 0x1000 * (dev->ee) + 0x8000 * (chnl);
 }
@@ -1223,6 +1236,10 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	if (ret)
 		return -ENODEV;
 	pmic_arb->channel = (u8)prop;
+
+	ret = of_property_read_u32(pdev->dev.of_node, "qcom,reserved-channel",
+				   &prop);
+	pmic_arb->reserved_chnl = ret ? -1 : (u8)prop;
 
 	pmic_arb->allow_wakeup = !of_property_read_bool(pdev->dev.of_node,
 					"qcom,not-wakeup");
