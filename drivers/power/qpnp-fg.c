@@ -125,6 +125,7 @@ enum fg_mem_setting_index {
 	FG_MEM_DELTA_SOC,
 	FG_MEM_SOC_MAX,
 	FG_MEM_SOC_MIN,
+	FG_MEM_BATT_LOW,
 	FG_MEM_SETTING_MAX,
 };
 
@@ -166,6 +167,7 @@ static struct fg_mem_setting settings[FG_MEM_SETTING_MAX] = {
 	SETTING(DELTA_SOC,	 0x450,   3,      1),
 	SETTING(SOC_MAX,	 0x458,   1,      85),
 	SETTING(SOC_MIN,	 0x458,   2,      15),
+	SETTING(BATT_LOW,	 0x458,   0,      4200),
 };
 
 #define DATA(_idx, _address, _offset, _length,  _value)	\
@@ -1383,6 +1385,18 @@ static int fg_set_resume_soc(struct fg_chip *chip, u8 threshold)
 	return rc;
 }
 
+#define VBATT_LOW_STS_BIT BIT(2)
+static int fg_get_vbatt_status(struct fg_chip *chip, bool *vbatt_low_sts)
+{
+	int rc = 0;
+	u8 fg_batt_sts;
+
+	rc = fg_read(chip, &fg_batt_sts, INT_RT_STS(chip->batt_base), 1);
+	if (!rc)
+		*vbatt_low_sts = !!(fg_batt_sts & VBATT_LOW_STS_BIT);
+	return rc;
+}
+
 static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_CURRENT_NOW,
@@ -1397,6 +1411,7 @@ static enum power_supply_property fg_power_props[] = {
 	POWER_SUPPLY_PROP_BATTERY_TYPE,
 	POWER_SUPPLY_PROP_UPDATE_NOW,
 	POWER_SUPPLY_PROP_ESR_COUNT,
+	POWER_SUPPLY_PROP_VOLTAGE_MIN,
 };
 
 static int fg_power_get_property(struct power_supply *psy,
@@ -1404,6 +1419,7 @@ static int fg_power_get_property(struct power_supply *psy,
 				       union power_supply_propval *val)
 {
 	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
+	bool vbatt_low_sts;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_BATTERY_TYPE:
@@ -1444,6 +1460,12 @@ static int fg_power_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_UPDATE_NOW:
 		val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MIN:
+		if (!fg_get_vbatt_status(chip, &vbatt_low_sts))
+			val->intval = (int)vbatt_low_sts;
+		else
+			val->intval = 1;
 		break;
 	default:
 		return -EINVAL;
@@ -1553,6 +1575,18 @@ static bool is_battery_missing(struct fg_chip *chip)
 	}
 
 	return (fg_batt_sts & BATT_MISSING_STS) ? true : false;
+}
+
+static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
+{
+	struct fg_chip *chip = _chip;
+
+	if (fg_debug_mask & FG_IRQS)
+		pr_info("vbatt-low triggered\n");
+
+	if (chip->power_supply_registered)
+		power_supply_changed(&chip->bms_psy);
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t fg_batt_missing_irq_handler(int irq, void *_chip)
@@ -2067,6 +2101,7 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_SETTING(FG_MEM_DELTA_SOC, "fg-delta-soc", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOC_MAX, "fg-soc-max", rc, 1);
 	OF_READ_SETTING(FG_MEM_SOC_MIN, "fg-soc-min", rc, 1);
+	OF_READ_SETTING(FG_MEM_BATT_LOW, "fg-vbatt-low-threshold", rc, 1);
 
 	/* Get the use-otp-profile property */
 	chip->use_otp_profile = of_property_read_bool(
@@ -2237,6 +2272,27 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->batt_irq[BATT_MISSING].irq, rc);
 				return rc;
 			}
+			chip->batt_irq[VBATT_LOW].irq = spmi_get_irq_byname(
+					chip->spmi, spmi_resource,
+					"vbatt-low");
+			if (chip->batt_irq[VBATT_LOW].irq < 0) {
+				pr_err("Unable to get vbatt-low irq\n");
+				rc = -EINVAL;
+				return rc;
+			}
+			rc |= devm_request_irq(chip->dev,
+					chip->batt_irq[VBATT_LOW].irq,
+					fg_vbatt_low_handler,
+					IRQF_TRIGGER_RISING |
+					IRQF_TRIGGER_FALLING,
+					"vbatt-low", chip);
+			if (rc < 0) {
+				pr_err("Can't request %d vbatt-low: %d\n",
+					chip->batt_irq[VBATT_LOW].irq, rc);
+				return rc;
+			}
+			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			break;
 		case FG_ADC:
 			break;
 		default:
@@ -2682,6 +2738,14 @@ static int soc_to_setpoint(int soc)
 	return DIV_ROUND_CLOSEST(soc * 255, 100);
 }
 
+static u8 batt_to_setpoint(int vbatt_mv)
+{
+	int val;
+	/* Battery voltage is an offset from 2.5 V and LSB is 5/2^9. */
+	val = (vbatt_mv - 2500) * 512 / 1000;
+	return DIV_ROUND_CLOSEST(val, 5);
+}
+
 #define EXTERNAL_SENSE_OFFSET_REG	0x41C
 #define EXT_OFFSET_TRIM_REG		0xF8
 #define SEC_ACCESS_REG			0xD0
@@ -2800,12 +2864,19 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	rc = fg_mem_masked_write(chip, settings[FG_MEM_BATT_LOW].address, 0xFF,
+			batt_to_setpoint(settings[FG_MEM_BATT_LOW].value),
+			settings[FG_MEM_BATT_LOW].offset);
+	if (rc) {
+		pr_err("failed to write Vbatt_low rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = bcl_trim_workaround(chip);
 	if (rc) {
 		pr_err("failed to redo bcl trim rc=%d\n", rc);
 		return rc;
 	}
-
 
 	if (chip->use_thermal_coefficients) {
 		fg_mem_write(chip, chip->thermal_coefficients,
