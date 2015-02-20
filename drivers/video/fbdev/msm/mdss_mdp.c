@@ -107,21 +107,23 @@ struct mdss_hw mdss_mdp_hw = {
 	.irq_handler = mdss_mdp_isr,
 };
 
-#define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)		\
+#define MDP_REG_BUS_VECTOR_ENTRY(ab_val, ib_val)	\
 	{						\
-		.src = MSM_BUS_MASTER_SPDM,		\
-		.dst = MSM_BUS_SLAVE_IMEM_CFG,		\
+		.src = MSM_BUS_MASTER_AMPSS_M0,		\
+		.dst = MSM_BUS_SLAVE_DISPLAY_CFG,	\
 		.ab = (ab_val),				\
 		.ib = (ib_val),				\
 	}
 
-#define SZ_37_5M (37500000 * 8)
-#define SZ_75M (75000000 * 8)
+#define BUS_VOTE_19_MHZ 153600000
+#define BUS_VOTE_40_MHZ 320000000
+#define BUS_VOTE_80_MHZ 640000000
 
 static struct msm_bus_vectors mdp_reg_bus_vectors[] = {
 	MDP_REG_BUS_VECTOR_ENTRY(0, 0),
-	MDP_REG_BUS_VECTOR_ENTRY(0, SZ_37_5M),
-	MDP_REG_BUS_VECTOR_ENTRY(0, SZ_75M),
+	MDP_REG_BUS_VECTOR_ENTRY(0, BUS_VOTE_19_MHZ),
+	MDP_REG_BUS_VECTOR_ENTRY(0, BUS_VOTE_40_MHZ),
+	MDP_REG_BUS_VECTOR_ENTRY(0, BUS_VOTE_80_MHZ),
 };
 static struct msm_bus_paths mdp_reg_bus_usecases[ARRAY_SIZE(
 		mdp_reg_bus_vectors)];
@@ -372,6 +374,39 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 
 	return msm_bus_scale_client_update_request(mdss_res->bus_hdl,
 		new_uc_idx);
+}
+
+int mdss_enable_bus_vote(int usecase_ndx)
+{
+	int changed = 0, ret = 0;
+
+	if (!mdss_res || !mdss_res->reg_bus_hdl)
+		return 0;
+
+	mutex_lock(&mdss_res->mdp_bus_lock);
+	if (usecase_ndx) {
+		if (mdss_res->bus_ref_cnt == 0)
+			changed++;
+		mdss_res->bus_ref_cnt++;
+	} else {
+		if (mdss_res->bus_ref_cnt) {
+			mdss_res->bus_ref_cnt--;
+			if (mdss_res->bus_ref_cnt == 0)
+				changed++;
+		} else {
+			pr_err("Can not be turned off\n");
+		}
+	}
+
+	pr_debug("%s: clk_cnt=%d changed=%d usecase_index=%d\n",
+			__func__, mdss_res->bus_ref_cnt, changed, usecase_ndx);
+	if (changed)
+		ret = msm_bus_scale_client_update_request(mdss_res->reg_bus_hdl,
+			usecase_ndx);
+
+	mutex_unlock(&mdss_res->mdp_bus_lock);
+
+	return ret;
 }
 
 int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
@@ -775,8 +810,10 @@ void mdss_mdp_clk_ctrl(int enable)
 			__func__, mdp_clk_cnt, changed, enable);
 
 	if (changed) {
-		if (enable)
+		if (enable) {
 			pm_runtime_get_sync(&mdata->pdev->dev);
+			mdss_enable_bus_vote(VOTE_INDEX_19_MHZ);
+		}
 
 		mdata->clk_ena = enable;
 		mdss_mdp_clk_update(MDSS_CLK_AHB, enable);
@@ -788,6 +825,7 @@ void mdss_mdp_clk_ctrl(int enable)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
 		if (!enable) {
+			mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
 			pm_runtime_mark_last_busy(&mdata->pdev->dev);
 			pm_runtime_put_autosuspend(&mdata->pdev->dev);
 		}
@@ -826,6 +864,7 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 
 	pr_debug("restoring mdss secure config\n");
 
+	mdss_enable_bus_vote(VOTE_INDEX_19_MHZ);
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
@@ -836,6 +875,7 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 				ret, scm_ret);
 
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
+	mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 }
@@ -1347,6 +1387,7 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mdata);
 	mdss_res = mdata;
 	mutex_init(&mdata->reg_lock);
+	mutex_init(&mdata->mdp_bus_lock);
 	atomic_set(&mdata->sd_client_count, 0);
 	atomic_set(&mdata->active_intf_cnt, 0);
 

@@ -181,16 +181,18 @@ static int mdss_smmu_enable_power(struct dss_module_power *mp, bool enable)
 			pr_err("vreg enable failed - rc:%d\n", rc);
 			goto end;
 		}
-
+		mdss_enable_bus_vote(VOTE_INDEX_19_MHZ);
 		rc = msm_dss_enable_clk(mp->clk_config, mp->num_clk, true);
 		if (rc) {
 			pr_err("clock enable failed - rc:%d\n", rc);
+			mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
 			msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg,
 				false);
 			goto end;
 		}
 	} else {
 		msm_dss_enable_clk(mp->clk_config, mp->num_clk, false);
+		mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
 		msm_dss_enable_vreg(mp->vreg_config, mp->num_vreg, false);
 	}
 end:
