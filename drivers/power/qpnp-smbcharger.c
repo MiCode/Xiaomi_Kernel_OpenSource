@@ -1896,7 +1896,7 @@ static int smbchg_dcin_ilim_config(struct smbchg_chip *chip, int offset, int ma)
 	if (i < 0)
 		i = 0;
 
-	rc = smbchg_masked_write(chip, chip->bat_if_base + offset,
+	rc = smbchg_sec_masked_write(chip, chip->bat_if_base + offset,
 			ZIN_ICL_MASK, i);
 	if (rc)
 		dev_err(chip->dev, "Couldn't write bat if offset %d value = %d rc = %d\n",
