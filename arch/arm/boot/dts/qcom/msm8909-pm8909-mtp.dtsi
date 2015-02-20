@@ -19,6 +19,7 @@
 &pm8909_bms {
 	status = "ok";
 	qcom,battery-data = <&mtp_batterydata>;
+	qcom,batt-aging-comp;
 };
 
 &spmi_bus {
