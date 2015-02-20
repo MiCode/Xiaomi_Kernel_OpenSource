@@ -484,6 +484,9 @@ bail:
  */
 int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 {
+#define NUM_OF_DESC 2
+
+	struct ipa_register_write *reg_write_nop = NULL;
 	struct ipa_nat_dma *cmd = NULL;
 	struct ipa_desc *desc = NULL;
 	u16 size = 0, cnt = 0;
@@ -491,47 +494,75 @@ int ipa_nat_dma_cmd(struct ipa_ioc_nat_dma_cmd *dma)
 
 	IPADBG("\n");
 	if (dma->entries <= 0) {
-		IPADBG("Invalid number of commands\n");
+		IPAERR("Invalid number of commands %d\n",
+			dma->entries);
 		ret = -EPERM;
 		goto bail;
 	}
-	size = sizeof(struct ipa_desc) * dma->entries;
+
+	size = sizeof(struct ipa_desc) * NUM_OF_DESC;
 	desc = kzalloc(size, GFP_KERNEL);
 	if (desc == NULL) {
 		IPAERR("Failed to alloc memory\n");
 		ret = -ENOMEM;
 		goto bail;
 	}
-	size = sizeof(struct ipa_nat_dma) * dma->entries;
-	cmd = kmalloc(size, GFP_KERNEL);
+
+	size = sizeof(struct ipa_nat_dma);
+	cmd = kzalloc(size, GFP_KERNEL);
 	if (cmd == NULL) {
 		IPAERR("Failed to alloc memory\n");
 		ret = -ENOMEM;
 		goto bail;
 	}
+
+	/* NO-OP IC for ensuring that IPA pipeline is empty */
+	reg_write_nop = kzalloc(sizeof(*reg_write_nop), GFP_KERNEL);
+	if (!reg_write_nop) {
+		IPAERR("Failed to alloc memory\n");
+		ret = -ENOMEM;
+		goto bail;
+	}
+
+	reg_write_nop->skip_pipeline_clear = 0;
+	reg_write_nop->value_mask = 0x0;
+
+	desc[0].type = IPA_IMM_CMD_DESC;
+	desc[0].opcode = IPA_REGISTER_WRITE;
+	desc[0].callback = NULL;
+	desc[0].user1 = NULL;
+	desc[0].user2 = 0;
+	desc[0].len = sizeof(*reg_write_nop);
+	desc[0].pyld = (void *)reg_write_nop;
+
 	for (cnt = 0; cnt < dma->entries; cnt++) {
-		cmd[cnt].table_index = dma->dma[cnt].table_index;
-		cmd[cnt].base_addr = dma->dma[cnt].base_addr;
-		cmd[cnt].offset = dma->dma[cnt].offset;
-		cmd[cnt].data = dma->dma[cnt].data;
-		desc[cnt].type = IPA_IMM_CMD_DESC;
-		desc[cnt].opcode = IPA_NAT_DMA;
-		desc[cnt].callback = NULL;
-		desc[cnt].user1 = NULL;
+		cmd->table_index = dma->dma[cnt].table_index;
+		cmd->base_addr = dma->dma[cnt].base_addr;
+		cmd->offset = dma->dma[cnt].offset;
+		cmd->data = dma->dma[cnt].data;
 
-		desc[cnt].user2 = 0;
+		desc[1].type = IPA_IMM_CMD_DESC;
+		desc[1].opcode = IPA_NAT_DMA;
+		desc[1].callback = NULL;
+		desc[1].user1 = NULL;
+		desc[1].user2 = 0;
+		desc[1].len = sizeof(struct ipa_nat_dma);
+		desc[1].pyld = (void *)cmd;
 
-		desc[cnt].len = sizeof(struct ipa_nat_dma);
-		desc[cnt].pyld = (void *)&cmd[cnt];
-
-		ret = ipa_send_cmd(1, &desc[cnt]);
+		ret = ipa_send_cmd(NUM_OF_DESC, desc);
 		if (ret == -EPERM)
 			IPAERR("Fail to send immediate command %d\n", cnt);
 	}
 
 bail:
-	kfree(cmd);
-	kfree(desc);
+	if (cmd != NULL)
+		kfree(cmd);
+
+	if (desc != NULL)
+		kfree(desc);
+
+	if (reg_write_nop != NULL)
+		kfree(reg_write_nop);
 
 	return ret;
 }
