@@ -55,6 +55,7 @@ struct fg_iface_info {
 	int calib_cc;
 	wait_queue_head_t wait;
 	bool uevent_ack;
+	bool suspended;
 
 	struct miscdevice intel_fg_misc_device;
 };
@@ -388,13 +389,19 @@ static int intel_fg_iface_algo_process(struct fg_algo_ip_params *ip,
 	/*Wait for user space to write back*/
 	info_ptr->uevent_ack = false;
 	mutex_unlock(&info_ptr->lock);
+
+	if (info_ptr->suspended) {
+		dev_err(&info_ptr->pdev->dev, "Error SUSPENDED\n");
+		return -ESHUTDOWN;
+	}
+
 	/*
 	 * Since we need to wait for user space event and since the user space
 	 * scheduling depends on the system load and other high priority tasks,
-	 * hence, the safe margin to wait for timeout would be 12secs
+	 * hence, the safe margin to wait for timeout would be 9secs
 	 */
 	ret = wait_event_timeout(info_ptr->wait,
-			info_ptr->uevent_ack == true, 12 * HZ);
+			info_ptr->uevent_ack == true, 9 * HZ);
 	if (0 == ret) {
 		dev_err(&info_ptr->pdev->dev,
 				"\n Error TIMEOUT waiting for user space write back");
@@ -449,6 +456,7 @@ static int intel_fg_iface_probe(struct platform_device *pdev)
 	info->pdev = pdev;
 	mutex_init(&info->lock);
 	info_ptr = info;
+	info_ptr->suspended = false;
 
 	init_waitqueue_head(&info->wait);
 
@@ -471,11 +479,18 @@ static int intel_fg_iface_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int intel_fg_iface_suspend(struct device *dev)
 {
+	/* Force ACK uevent to avoid blocking as user space freezing */
+	info_ptr->suspended = true;
+	mutex_lock(&info_ptr->lock);
+	info_ptr->uevent_ack = true;
+	wake_up(&info_ptr->wait);
+	mutex_unlock(&info_ptr->lock);
 	return 0;
 }
 
 static int intel_fg_iface_resume(struct device *dev)
 {
+	info_ptr->suspended = false;
 	return 0;
 }
 #else

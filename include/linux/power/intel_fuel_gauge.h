@@ -25,6 +25,7 @@
 #include <linux/workqueue.h>
 #include <linux/power_supply.h>
 #include <linux/mutex.h>
+#include <linux/power/battery_id.h>
 
 struct fg_algo_ip_params {
 	int vbatt;
@@ -59,6 +60,7 @@ struct fg_batt_params {
 	int status;
 	bool boot_flag;
 	bool is_valid_battery;
+	char battid[BATTID_STR_LEN + 1];
 };
 
 struct fg_algo_params {

@@ -55,6 +55,15 @@ struct em_config_oem1_data {
 
 #ifdef CONFIG_ACPI
 /*
+ * em_config_get_oem0_data - This function fetches OEM0 table .
+ * @data : Pointer to OEM0 data structure in which data should be filled.
+ *
+ * Returns number bytes fetched (+ve) on success or 0 on error.
+ *
+ */
+int em_config_get_oem0_data(struct em_config_oem0_data *data);
+
+/*
  * em_config_get_oem1_data - This function fetches OEM1 table .
  * @data : Pointer to OEM1 data structure in which data should be filled.
  *

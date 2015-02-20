@@ -48,7 +48,7 @@ static int em_config_get_acpi_table(char *name, void *data, int data_size)
 	return ret;
 }
 
-static int em_config_get_oem0_data(struct em_config_oem0_data *data)
+int em_config_get_oem0_data(struct em_config_oem0_data *data)
 {
 	return em_config_get_acpi_table(EM_CONFIG_OEM0_NAME,
 				data, sizeof(struct em_config_oem0_data));
