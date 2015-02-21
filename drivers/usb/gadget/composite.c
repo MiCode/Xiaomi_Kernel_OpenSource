@@ -331,6 +331,7 @@ int usb_interface_id(struct usb_configuration *config,
 
 	if (id < MAX_CONFIG_INTERFACES) {
 		config->interface[id] = function;
+		function->intf_id = id;
 		config->next_interface_id = id + 1;
 		return id;
 	}
@@ -338,35 +339,9 @@ int usb_interface_id(struct usb_configuration *config,
 }
 EXPORT_SYMBOL_GPL(usb_interface_id);
 
-/**
- * usb_get_func_interface_id() - Find the interface ID of a function
- * @function: the function for which want to find the interface ID
- * Context: single threaded
- *
- * Returns the interface ID of the function or -ENODEV if this function
- * is not part of this configuration
- */
-int usb_get_func_interface_id(struct usb_function *func)
-{
-	int id;
-	struct usb_configuration *config;
-
-	if (!func)
-		return -EINVAL;
-
-	config = func->config;
-
-	for (id = 0; id < MAX_CONFIG_INTERFACES; id++) {
-		if (config->interface[id] == func)
-			return id;
-	}
-	return -ENODEV;
-}
-
 static int usb_func_wakeup_int(struct usb_function *func)
 {
 	int ret;
-	int interface_id;
 	unsigned long flags;
 	struct usb_gadget *gadget;
 	struct usb_composite_dev *cdev;
@@ -390,19 +365,9 @@ static int usb_func_wakeup_int(struct usb_function *func)
 	}
 
 	cdev = get_gadget_data(gadget);
+
 	spin_lock_irqsave(&cdev->lock, flags);
-	ret = usb_get_func_interface_id(func);
-	if (ret < 0) {
-		ERROR(func->config->cdev,
-			"Function %s - Unknown interface id. Canceling USB request. ret=%d\n",
-			func->name ? func->name : "", ret);
-
-		spin_unlock_irqrestore(&cdev->lock, flags);
-		return ret;
-	}
-
-	interface_id = ret;
-	ret = usb_gadget_func_wakeup(gadget, interface_id);
+	ret = usb_gadget_func_wakeup(gadget, func->intf_id);
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	return ret;

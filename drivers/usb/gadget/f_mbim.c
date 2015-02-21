@@ -130,6 +130,7 @@ struct f_mbim {
 	u16			ntb_max_datagrams;
 
 	atomic_t		error;
+	unsigned int		cpkt_drop_cnt;
 };
 
 struct mbim_ntb_input_size {
@@ -589,114 +590,6 @@ void fmbim_free_req(struct usb_ep *ep, struct usb_request *req)
 		kfree(req->buf);
 		usb_ep_free_request(ep, req);
 	}
-}
-
-static void fmbim_ctrl_response_available(struct f_mbim *dev)
-{
-	const unsigned int		max_ep_queue_trials = 10;
-
-	struct usb_request		*req = dev->not_port.notify_req;
-	struct usb_cdc_notification	*event = NULL;
-	unsigned long			flags;
-	int				ret;
-	int                             ep_queue_trials;
-
-	pr_debug("dev:%p portno#%d\n", dev, dev->port_num);
-
-	spin_lock_irqsave(&dev->lock, flags);
-
-	if (!atomic_read(&dev->online)) {
-		pr_err("dev:%p is not online\n", dev);
-		spin_unlock_irqrestore(&dev->lock, flags);
-		return;
-	}
-
-	if (!req) {
-		pr_err("dev:%p req is NULL\n", dev);
-		spin_unlock_irqrestore(&dev->lock, flags);
-		return;
-	}
-
-	if (!req->buf) {
-		pr_err("dev:%p req->buf is NULL\n", dev);
-		spin_unlock_irqrestore(&dev->lock, flags);
-		return;
-	}
-
-	if (atomic_inc_return(&dev->not_port.notify_count) != 1) {
-		pr_debug("delay ep_queue: notifications queue is busy[%d]\n",
-			atomic_read(&dev->not_port.notify_count));
-		spin_unlock_irqrestore(&dev->lock, flags);
-		return;
-	}
-
-	req->length = sizeof *event;
-	event = req->buf;
-	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
-			| USB_RECIP_INTERFACE;
-	event->bNotificationType = USB_CDC_NOTIFY_RESPONSE_AVAILABLE;
-	event->wValue = cpu_to_le16(0);
-	event->wIndex = cpu_to_le16(dev->ctrl_id);
-	event->wLength = cpu_to_le16(0);
-	spin_unlock_irqrestore(&dev->lock, flags);
-
-	ep_queue_trials = 0;
-	while (ep_queue_trials <= max_ep_queue_trials) {
-		ret = usb_func_ep_queue(&dev->function, dev->not_port.notify,
-			   req, GFP_ATOMIC);
-
-		ep_queue_trials++;
-
-		if (ret == -EAGAIN) {
-			pr_debug("ep queueing is delayed (-EAGAIN).\n");
-			usleep_range(1000, 3000);
-		} else {
-			break;
-		}
-	}
-
-	if (ret) {
-		atomic_dec(&dev->not_port.notify_count);
-		pr_err("ep enqueue error %d\n", ret);
-	}
-
-	pr_debug("Successful Exit\n");
-}
-
-static int
-fmbim_send_cpkt_response(struct f_mbim *gr, struct ctrl_pkt *cpkt)
-{
-	struct f_mbim	*dev = gr;
-	unsigned long	flags;
-
-	if (!gr || !cpkt) {
-		pr_err("Invalid cpkt, dev:%p cpkt:%p\n",
-				gr, cpkt);
-		return -ENODEV;
-	}
-
-	pr_debug("dev:%p port_num#%d\n", dev, dev->port_num);
-
-	if (!atomic_read(&dev->online)) {
-		pr_err("dev:%p is not connected\n", dev);
-		mbim_free_ctrl_pkt(cpkt);
-		return 0;
-	}
-
-	if (dev->not_port.notify_state != MBIM_NOTIFY_RESPONSE_AVAILABLE) {
-		pr_err("dev:%p state=%d, recover!!\n", dev,
-			dev->not_port.notify_state);
-		mbim_free_ctrl_pkt(cpkt);
-		return 0;
-	}
-
-	spin_lock_irqsave(&dev->lock, flags);
-	list_add_tail(&cpkt->list, &dev->cpkt_resp_q);
-	spin_unlock_irqrestore(&dev->lock, flags);
-
-	fmbim_ctrl_response_available(dev);
-
-	return 0;
 }
 
 /* ---------------------------- BAM INTERFACE ----------------------------- */
@@ -1496,6 +1389,7 @@ static int mbim_func_suspend(struct usb_function *f, unsigned char options)
 	} else {
 		if (f->func_is_suspended) {
 			f->func_is_suspended = false;
+			mbim_do_notify(mbim);
 			mbim_resume(f);
 		}
 		f->func_wakeup_allowed = func_wakeup_allowed;
@@ -1524,10 +1418,11 @@ static int mbim_get_status(struct usb_function *f)
 static int
 mbim_bind(struct usb_configuration *c, struct usb_function *f)
 {
-	struct usb_composite_dev *cdev = c->cdev;
-	struct f_mbim		*mbim = func_to_mbim(f);
-	int			status;
-	struct usb_ep		*ep;
+	struct usb_composite_dev	*cdev = c->cdev;
+	struct f_mbim			*mbim = func_to_mbim(f);
+	int				status;
+	struct usb_ep			*ep;
+	struct usb_cdc_notification	*event;
 
 	pr_info("Enter\n");
 
@@ -1598,6 +1493,14 @@ mbim_bind(struct usb_configuration *c, struct usb_function *f)
 
 	mbim->not_port.notify_req->context = mbim;
 	mbim->not_port.notify_req->complete = mbim_notify_complete;
+	mbim->not_port.notify_req->length = sizeof(*event);
+	event = mbim->not_port.notify_req->buf;
+	event->bmRequestType = USB_DIR_IN | USB_TYPE_CLASS
+			| USB_RECIP_INTERFACE;
+	event->bNotificationType = USB_CDC_NOTIFY_RESPONSE_AVAILABLE;
+	event->wValue = cpu_to_le16(0);
+	event->wIndex = cpu_to_le16(mbim->ctrl_id);
+	event->wLength = cpu_to_le16(0);
 
 	if (mbim->xport == USB_GADGET_XPORT_BAM2BAM_IPA)
 		mbim_desc.wMaxSegmentSize = cpu_to_le16(0x800);
@@ -1891,24 +1794,21 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 {
 	struct f_mbim *dev = fp->private_data;
 	struct ctrl_pkt *cpkt = NULL;
+	struct usb_request *req = dev->not_port.notify_req;
 	int ret = 0;
+	unsigned long flags;
 
 	pr_debug("Enter(%zu)\n", count);
 
-	if (!dev) {
-		pr_err("Received NULL mbim pointer\n");
+	if (!dev || !req || !req->buf) {
+		pr_err("%s: dev %p req %p req->buf %p\n",
+			__func__, dev, req, req ? req->buf : req);
 		return -ENODEV;
 	}
 
-	if (!count) {
-		pr_err("zero length ctrl pkt\n");
-		return -ENODEV;
-	}
-
-	if (count > MAX_CTRL_PKT_SIZE) {
-		pr_err("given pkt size too big:%zu > max_pkt_size:%d\n",
-				count, MAX_CTRL_PKT_SIZE);
-		return -ENOMEM;
+	if (!count || count > MAX_CTRL_PKT_SIZE) {
+		pr_err("error: ctrl pkt lenght %zu\n", count);
+		return -EINVAL;
 	}
 
 	if (mbim_lock(&dev->write_excl)) {
@@ -1920,6 +1820,20 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 		pr_err("USB cable not connected\n");
 		mbim_unlock(&dev->write_excl);
 		return -EPIPE;
+	}
+
+	if (dev->not_port.notify_state != MBIM_NOTIFY_RESPONSE_AVAILABLE) {
+		pr_err("dev:%p state=%d error\n", dev,
+			dev->not_port.notify_state);
+		mbim_unlock(&dev->write_excl);
+		return -EINVAL;
+	}
+
+	if (dev->function.func_is_suspended &&
+			!dev->function.func_wakeup_allowed) {
+		dev->cpkt_drop_cnt++;
+		pr_err("drop ctrl pkt of len %zu\n", count);
+		return -ENOTSUPP;
 	}
 
 	cpkt = mbim_alloc_ctrl_pkt(count, GFP_KERNEL);
@@ -1934,17 +1848,39 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 		pr_err("copy_from_user failed err:%d\n", ret);
 		mbim_free_ctrl_pkt(cpkt);
 		mbim_unlock(&dev->write_excl);
-		return 0;
+		return ret;
 	}
 
-	fmbim_send_cpkt_response(dev, cpkt);
+	spin_lock_irqsave(&dev->lock, flags);
+	list_add_tail(&cpkt->list, &dev->cpkt_resp_q);
 
+	if (atomic_inc_return(&dev->not_port.notify_count) != 1) {
+		pr_debug("delay ep_queue: notifications queue is busy[%d]\n",
+			atomic_read(&dev->not_port.notify_count));
+		spin_unlock_irqrestore(&dev->lock, flags);
+		mbim_unlock(&dev->write_excl);
+		return count;
+	}
+	spin_unlock_irqrestore(&dev->lock, flags);
+
+	ret = usb_func_ep_queue(&dev->function, dev->not_port.notify,
+			   req, GFP_ATOMIC);
+	if (ret == -ENOTSUPP || (ret < 0 && ret != -EAGAIN)) {
+		spin_lock_irqsave(&dev->lock, flags);
+		list_del(&cpkt->list);
+		spin_unlock_irqrestore(&dev->lock, flags);
+		dev->cpkt_drop_cnt++;
+		atomic_dec(&dev->not_port.notify_count);
+		pr_err("drop ctrl pkt of len %d error %d\n", cpkt->len, ret);
+		mbim_free_ctrl_pkt(cpkt);
+	} else {
+		ret = 0;
+	}
 	mbim_unlock(&dev->write_excl);
 
 	pr_debug("Exit(%zu)\n", count);
 
-	return count;
-
+	return ret ? ret : count;
 }
 
 static int mbim_open(struct inode *ip, struct file *fp)
