@@ -27,6 +27,11 @@ Optional properties:
   The format of the node should follow the layout specified by the bus provider
   for bus consumers at Documentation/devicetree/bindings/arm/msm/msm_bus.txt.
   In addition to the properties specified by the bus provider client also needs
+	- qcom,bus-passive: A bool indicating the bus is "not active".  Active
+	  buses are defined as buses that are scaled according to hardware load.
+	  Passive buses are not scaled by load and are typically just "turned on"
+	  to keep certain clocks (that aren't directly controllable by the driver)
+	  high.
         - qcom,bus-configs: A bitmap that describes the configuration of the
           bus. The bitmaps are as follows:
           supports mvc encoder = 0x00000001
@@ -157,6 +162,7 @@ Example:
 					<63 512 0 0>,
 					<63 512 104000 303000>;
 				qcom,bus-configs = <0xf>;
+				qcom,bus-passive;
 			};
 		};
 		qcom,vidc-iommu-domains {
