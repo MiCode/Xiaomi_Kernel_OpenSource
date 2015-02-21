@@ -191,9 +191,12 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 	if (delay > POLL_TIME_USEC_FOR_LN_CNT)
 		delay = POLL_TIME_USEC_FOR_LN_CNT;
 
+	mutex_lock(&ctl->offlock);
 	while (1) {
-		if (!ctl || !ctx || !ctx->timegen_en) {
-			pr_warn("Target is in suspend state\n");
+		if (!ctl || ctl->mfd->shutdown_pending || !ctx ||
+				!ctx->timegen_en) {
+			pr_warn("Target is in suspend or shutdown pending\n");
+			mutex_unlock(&ctl->offlock);
 			return;
 		}
 
@@ -203,6 +206,7 @@ static void mdss_mdp_video_intf_recovery(void *data, int event)
 			(active_lns_cnt + min_ln_cnt))) {
 			pr_debug("%s, Needed lines left line_cnt=%d\n",
 						__func__, line_cnt);
+			mutex_unlock(&ctl->offlock);
 			return;
 		} else {
 			pr_warn("line count is less. line_cnt = %d\n",
