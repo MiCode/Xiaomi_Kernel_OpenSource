@@ -63,6 +63,7 @@
 #define MSM_CPP_CMD_ERROR_REQUEST		0x9
 #define MSM_CPP_CMD_GET_STATUS			0xA
 #define MSM_CPP_CMD_GET_FW_VER			0xB
+#define MSM_CPP_CMD_GROUP_BUFFER		0x12
 
 #define MSM_CPP_MSG_ID_CMD          0x3E646D63
 #define MSM_CPP_MSG_ID_OK           0x0A0A4B4F
@@ -89,6 +90,7 @@
 #define MSM_CPP_TASKLETQ_SIZE		16
 #define MSM_CPP_TX_FIFO_LEVEL		16
 #define MSM_CPP_RX_FIFO_LEVEL		512
+#define MSM_CPP_GROUP_CMD_LEN		69
 
 struct cpp_subscribe_info {
 	struct v4l2_fh *vfh;
