@@ -216,9 +216,14 @@ struct mdss_data_type {
 	DECLARE_BITMAP(mmb_alloc_map, MAX_DRV_SUP_MMB_BLKS);
 
 	u32 has_bwc;
+	/* values used when HW has a common panic/robust LUT */
 	u32 default_panic_lut0;
 	u32 default_panic_lut1;
 	u32 default_robust_lut;
+
+	/* values used when HW has panic/robust LUTs per pipe */
+	u32 default_panic_lut_per_pipe;
+	u32 default_robust_lut_per_pipe;
 
 	u32 has_decimation;
 	bool has_fixed_qos_arbiter_enabled;

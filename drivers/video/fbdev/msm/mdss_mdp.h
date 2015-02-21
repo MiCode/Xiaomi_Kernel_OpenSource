@@ -711,23 +711,20 @@ static inline int mdss_mdp_line_buffer_width(void)
 }
 
 static inline int mdss_mdp_panic_signal_support_mode(
-	struct mdss_data_type *mdata, struct mdss_mdp_pipe *pipe)
+	struct mdss_data_type *mdata)
 {
 	uint32_t signal_mode = MDSS_MDP_PANIC_NONE;
 
-	if (pipe && pipe->mixer_left &&
-		pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_INTF) {
-		if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-					MDSS_MDP_HW_REV_105) ||
-		    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-					MDSS_MDP_HW_REV_108) ||
-		    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-					MDSS_MDP_HW_REV_109))
-			signal_mode = MDSS_MDP_PANIC_COMMON_REG_CFG;
-		else if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
-					MDSS_MDP_HW_REV_107))
-			signal_mode = MDSS_MDP_PANIC_PER_PIPE_CFG;
-	}
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_105) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_108) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_109))
+		signal_mode = MDSS_MDP_PANIC_COMMON_REG_CFG;
+	else if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_107))
+		signal_mode = MDSS_MDP_PANIC_PER_PIPE_CFG;
 
 	return signal_mode;
 }
@@ -1050,6 +1047,7 @@ int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
 
 int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable);
+void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata);
 void mdss_mdp_bwcpanic_ctrl(struct mdss_data_type *mdata, bool enable);
 int mdss_mdp_pipe_destroy(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,

@@ -1083,6 +1083,8 @@ void mdss_hw_init(struct mdss_data_type *mdata)
 	mdata->nmax_concurrent_ad_hw =
 		(mdata->mdp_rev < MDSS_MDP_HW_REV_103) ? 1 : 2;
 
+	mdss_mdp_config_pipe_panic_lut(mdata);
+
 	pr_debug("MDP hw init done\n");
 }
 
@@ -1834,6 +1836,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 	u32 nfids = 0, setup_cnt = 0, len, nxids = 0;
 	u32 *offsets = NULL, *ftch_id = NULL, *xin_id = NULL;
 	u32 sw_reset_offset = 0;
+	u32 data[2];
 
 	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
 
@@ -2082,6 +2085,18 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 		mdss_mdp_parse_dt_pipe_panic_ctrl(pdev,
 			"qcom,mdss-pipe-dma-panic-ctrl-offsets",
 				mdata->dma_pipes, mdata->ndma_pipes);
+	}
+
+	len = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-per-pipe-panic-luts");
+	if (len != 2) {
+		pr_debug("Unable to read per-pipe-panic-luts\n");
+	} else {
+		rc = mdss_mdp_parse_dt_handler(pdev,
+			"qcom,mdss-per-pipe-panic-luts", data, len);
+		mdata->default_panic_lut_per_pipe = data[0];
+		mdata->default_robust_lut_per_pipe = data[1];
+		pr_debug("per pipe panic lut [0]:0x%x [1]:0x%x\n",
+			data[0], data[1]);
 	}
 
 	if (mdata->ncursor_pipes) {
