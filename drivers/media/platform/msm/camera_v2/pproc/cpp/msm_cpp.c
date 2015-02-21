@@ -87,6 +87,8 @@ static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 	uint32_t buff_mgr_ops, struct msm_buf_mngr_info *buff_mgr_info);
 static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 	struct msm_queue_cmd *frame_qcmd);
+static int msm_cpp_send_command_to_hardware(struct cpp_device *cpp_dev,
+	uint32_t *cmd_msg, uint32_t payload_size);
 
 static  int msm_cpp_update_gdscr_status(struct cpp_device *cpp_dev,
 	bool status);
@@ -1563,8 +1565,14 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 			buff_mgr_info.frame_id = processed_frame->frame_id;
 			buff_mgr_info.timestamp = processed_frame->timestamp;
 			buff_mgr_info.reserved = processed_frame->reserved;
-			buff_mgr_info.index =
-				processed_frame->output_buffer_info[0].index;
+			if (processed_frame->batch_info.batch_mode ==
+				BATCH_MODE_VIDEO) {
+				buff_mgr_info.index =
+					processed_frame->batch_info.cont_idx;
+			} else {
+				buff_mgr_info.index = processed_frame->
+					output_buffer_info[0].index;
+			}
 			if (put_buf) {
 				rc = msm_cpp_buffer_ops(cpp_dev,
 					VIDIOC_MSM_BUF_MNGR_PUT_BUF,
@@ -1586,7 +1594,7 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 
 		if (processed_frame->duplicate_output  &&
 			!processed_frame->
-				output_buffer_info[1].processed_divert &&
+				duplicate_buffer_info.processed_divert &&
 			!processed_frame->we_disable) {
 			memset(&buff_mgr_info, 0 ,
 				sizeof(struct msm_buf_mngr_info));
@@ -1597,7 +1605,7 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 			buff_mgr_info.frame_id = processed_frame->frame_id;
 			buff_mgr_info.timestamp = processed_frame->timestamp;
 			buff_mgr_info.index =
-				processed_frame->output_buffer_info[1].index;
+				processed_frame->duplicate_buffer_info.index;
 			if (put_buf) {
 				rc = msm_cpp_buffer_ops(cpp_dev,
 					VIDIOC_MSM_BUF_MNGR_PUT_BUF,
@@ -1645,7 +1653,7 @@ static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info)
 		CPP_DBG("msg[%03d] = 0x%08x\n", i+i1,
 			frame_info->cpp_cmd_msg[i+i1]);
 	/* send trailer */
-	CPP_DBG("msg[%03d] = 0x%08x\n", i+i1, 0xabcdefaa);
+	CPP_DBG("msg[%03d] = 0x%08x\n", i+i1, MSM_CPP_MSG_ID_TRAILER);
 	CPP_DBG("--   end: cpp frame cmd for identity=0x%x, frame_id=%d --\n",
 		frame_info->identity, frame_info->frame_id);
 	return 0;
@@ -1771,7 +1779,7 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 				cpp_dev->base);
 		}
 		/* send trailer */
-		msm_cpp_write(0xabcdefaa, cpp_dev->base);
+		msm_cpp_write(MSM_CPP_MSG_ID_TRAILER, cpp_dev->base);
 
 		do_gettimeofday(&(process_frame->in_time));
 		rc = 0;
@@ -1779,6 +1787,18 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 	if (rc < 0)
 		pr_err("process queue full. drop frame\n");
 	return rc;
+}
+
+static int msm_cpp_send_command_to_hardware(struct cpp_device *cpp_dev,
+	uint32_t *cmd_msg, uint32_t payload_size)
+{
+	uint32_t i;
+
+	for (i = 0; i < payload_size; i++) {
+		msm_cpp_write(cmd_msg[i],
+			cpp_dev->base);
+	}
+	return 0;
 }
 
 static int msm_cpp_flush_frames(struct cpp_device *cpp_dev)
@@ -1840,6 +1860,35 @@ no_mem_err:
 	return NULL;
 }
 
+static int msm_cpp_check_buf_type(struct msm_buf_mngr_info *buff_mgr_info,
+	struct msm_cpp_frame_info_t *new_frame)
+{
+	int32_t num_output_bufs = 0;
+	uint32_t i = 0;
+	if (buff_mgr_info->type == MSM_CAMERA_BUF_MNGR_BUF_USER) {
+		new_frame->batch_info.cont_idx =
+			buff_mgr_info->index;
+		num_output_bufs = buff_mgr_info->user_buf.buf_cnt;
+		if (buff_mgr_info->user_buf.buf_cnt <
+			new_frame->batch_info.batch_size) {
+			/* Less bufs than Input buffer */
+			num_output_bufs = buff_mgr_info->user_buf.buf_cnt;
+		} else {
+			/* More or equal bufs as Input buffer */
+			num_output_bufs = new_frame->batch_info.batch_size;
+		}
+		for (i = 0; i < num_output_bufs; i++) {
+			new_frame->output_buffer_info[i].index =
+				buff_mgr_info->user_buf.buf_idx[i];
+		}
+	} else {
+		/* For non-group case use first buf slot */
+		new_frame->output_buffer_info[0].index = buff_mgr_info->index;
+		num_output_bufs = 1;
+	}
+
+	return num_output_bufs;
+}
 static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *new_frame)
 {
@@ -1852,13 +1901,15 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	uint16_t num_stripes = 0;
 	struct msm_buf_mngr_info buff_mgr_info, dup_buff_mgr_info;
 	int32_t in_fd;
-	int32_t i = 0;
+	int32_t i = 0, num_output_bufs = 1;
 	int32_t stripe_base = 0;
 	uint32_t rd_pntr, wr_0_pntr, wr_1_pntr, wr_2_pntr, wr_3_pntr;
 	uint32_t wr_0_meta_data_wr_pntr, wr_1_meta_data_wr_pntr,
 		wr_2_meta_data_wr_pntr, wr_3_meta_data_wr_pntr;
 	uint32_t rd_ref_pntr, wr_ref_pntr, stripe_info_offset, stripe_size;
 	uint8_t tnr_enabled, ubwc_enabled;
+	enum msm_camera_buf_mngr_buf_type buf_type =
+		MSM_CAMERA_BUF_MNGR_BUF_PLANAR;
 
 	if (!new_frame) {
 		pr_err("%s: Frame is Null\n", __func__);
@@ -1924,10 +1975,15 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 			(new_frame->first_payload)) {
 			memset(&buff_mgr_info, 0,
 				sizeof(struct msm_buf_mngr_info));
+			if (new_frame->batch_info.batch_mode ==
+				BATCH_MODE_VIDEO)
+				buf_type = MSM_CAMERA_BUF_MNGR_BUF_USER;
+
 			buff_mgr_info.session_id =
 				((new_frame->identity >> 16) & 0xFFFF);
 			buff_mgr_info.stream_id =
 				(new_frame->identity & 0xFFFF);
+			buff_mgr_info.type = buf_type;
 			rc = msm_cpp_buffer_ops(cpp_dev,
 				VIDIOC_MSM_BUF_MNGR_GET_BUF,
 				&buff_mgr_info);
@@ -1937,8 +1993,15 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 					__func__, rc);
 				goto frame_msg_err;
 			}
-			new_frame->output_buffer_info[0].index =
-				buff_mgr_info.index;
+			num_output_bufs =
+				msm_cpp_check_buf_type(&buff_mgr_info,
+					new_frame);
+			if (!num_output_bufs) {
+				pr_err("%s: error getting buffer %d\n",
+					__func__, num_output_bufs);
+				rc = -EINVAL;
+				goto phyaddr_err;
+			}
 		}
 
 		out_phyaddr0 = msm_cpp_fetch_buffer_info(cpp_dev,
@@ -1959,7 +2022,7 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 	if (new_frame->duplicate_output) {
 		CPP_DBG("duplication enabled, dup_id=0x%x",
 			new_frame->duplicate_identity);
-		memset(&new_frame->output_buffer_info[1], 0,
+		memset(&new_frame->duplicate_buffer_info, 0,
 			sizeof(struct msm_cpp_buffer_info_t));
 		memset(&dup_buff_mgr_info, 0, sizeof(struct msm_buf_mngr_info));
 		dup_buff_mgr_info.session_id =
@@ -1974,13 +2037,13 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 				__func__, rc);
 			goto phyaddr_err;
 		}
-		new_frame->output_buffer_info[1].index =
+		new_frame->duplicate_buffer_info.index =
 			dup_buff_mgr_info.index;
 		out_phyaddr1 = msm_cpp_fetch_buffer_info(cpp_dev,
-			&new_frame->output_buffer_info[1],
+			&new_frame->duplicate_buffer_info,
 			((new_frame->duplicate_identity >> 16) & 0xFFFF),
 			(new_frame->duplicate_identity & 0xFFFF),
-			&new_frame->output_buffer_info[1].fd);
+			&new_frame->duplicate_buffer_info.fd);
 		if (!out_phyaddr1) {
 			pr_err("error gettting output physical address\n");
 			rc = -EINVAL;
@@ -1991,6 +2054,54 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		/* set duplicate enable bit */
 		cpp_frame_msg[5] |= 0x1;
 		CPP_DBG("out_phyaddr1= %08x\n", (uint32_t)out_phyaddr1);
+	}
+
+	if ((BATCH_MODE_VIDEO == new_frame->batch_info.batch_mode) &&
+		(new_frame->batch_info.batch_size > 1)) {
+		/*create and send Set Group Buffer with Duplicate command*/
+		uint32_t set_group_buffer_w_duplication[73];
+		uint32_t *ptr = &set_group_buffer_w_duplication[0];
+		unsigned long out_phyaddr, out_phyaddr_new, distance;
+
+		memset(ptr, 0, sizeof(set_group_buffer_w_duplication));
+		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+		*ptr++ = MSM_CPP_MSG_ID_CMD;
+		*ptr++ = MSM_CPP_GROUP_CMD_LEN;
+		*ptr++ = MSM_CPP_CMD_GROUP_BUFFER;
+		*ptr++ = 0;
+		out_phyaddr = out_phyaddr0;
+		for (i = 1; i < num_output_bufs; i++) {
+			out_phyaddr_new = msm_cpp_fetch_buffer_info(cpp_dev,
+				&new_frame->output_buffer_info[i],
+				((new_frame->identity >> 16) & 0xFFFF),
+				(new_frame->identity & 0xFFFF),
+				&new_frame->output_buffer_info[i].fd);
+			if (!out_phyaddr_new) {
+				pr_err("%s: error getting o/p phy addr\n",
+					__func__);
+				rc = -EINVAL;
+				goto phyaddr_err;
+			}
+			distance = out_phyaddr_new - out_phyaddr;
+			out_phyaddr = out_phyaddr_new;
+			*ptr++ = distance;
+			*ptr++ = distance;
+			*ptr++ = distance;
+		}
+		if (new_frame->duplicate_output)
+			set_group_buffer_w_duplication[38] =
+				1 << new_frame->batch_info.pick_preview_idx;
+		else
+			set_group_buffer_w_duplication[38] = 0;
+
+		set_group_buffer_w_duplication[72] = MSM_CPP_MSG_ID_TRAILER;
+		rc = msm_cpp_send_command_to_hardware(cpp_dev,
+			&set_group_buffer_w_duplication[0], 73);
+		if (rc < 0) {
+			pr_err("%s: Send Command Error\n", __func__);
+			rc = -EINVAL;
+			goto phyaddr_err;
+		}
 	}
 
 	tnr_enabled = msm_cpp_is_tnr_enabled(cpp_dev, cpp_frame_msg);
@@ -2055,8 +2166,10 @@ static int msm_cpp_cfg_frame(struct cpp_device *cpp_dev,
 		}
 	}
 
-	if (tnr_enabled)
-		cpp_frame_msg[10] = out_phyaddr0 - in_phyaddr;
+	if (tnr_enabled) {
+		cpp_frame_msg[10] = tnr_scratch_buffer1 -
+			tnr_scratch_buffer0;
+	}
 
 	num_stripes = new_frame->last_stripe_index -
 		new_frame->first_stripe_index + 1;
@@ -2726,7 +2839,7 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	struct msm_cpp_frame_info_t *new_frame = NULL;
 	uint32_t *cpp_frame_msg;
 	void *cpp_cmd_msg_64bit;
-	int32_t rc;
+	int32_t rc, i;
 
 	new_frame32 = kzalloc(sizeof(struct msm_cpp_frame_info32_t),
 		GFP_KERNEL);
@@ -2779,6 +2892,20 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 		new_frame32->output_buffer_info[0];
 	new_frame->output_buffer_info[1] =
 		new_frame32->output_buffer_info[1];
+	new_frame->output_buffer_info[2] =
+		new_frame32->output_buffer_info[2];
+	new_frame->output_buffer_info[3] =
+		new_frame32->output_buffer_info[3];
+	new_frame->output_buffer_info[4] =
+		new_frame32->output_buffer_info[4];
+	new_frame->output_buffer_info[5] =
+		new_frame32->output_buffer_info[5];
+	new_frame->output_buffer_info[6] =
+		new_frame32->output_buffer_info[6];
+	new_frame->output_buffer_info[7] =
+		new_frame32->output_buffer_info[7];
+	new_frame->duplicate_buffer_info =
+		new_frame32->duplicate_buffer_info;
 	new_frame->tnr_scratch_buffer_info[0] =
 		new_frame32->tnr_scratch_buffer_info[0];
 	new_frame->tnr_scratch_buffer_info[1] =
@@ -2794,8 +2921,20 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	new_frame->last_payload = new_frame32->last_payload;
 	new_frame->first_stripe_index = new_frame32->first_stripe_index;
 	new_frame->last_stripe_index = new_frame32->last_stripe_index;
-	new_frame->stripe_info_offset = new_frame32->stripe_info_offset;
+	new_frame->stripe_info_offset =
+		new_frame32->stripe_info_offset;
 	new_frame->stripe_info = new_frame32->stripe_info;
+	new_frame->batch_info.batch_mode =
+		new_frame32->batch_info.batch_mode;
+	new_frame->batch_info.batch_size =
+		new_frame32->batch_info.batch_size;
+	new_frame->batch_info.cont_idx =
+		new_frame32->batch_info.cont_idx;
+	for (i = 0; i < MAX_PLANES; i++)
+		new_frame->batch_info.intra_plane_offset[i] =
+			new_frame32->batch_info.intra_plane_offset[i];
+	new_frame->batch_info.pick_preview_idx =
+		new_frame32->batch_info.pick_preview_idx;
 
 	/* Convert the 32 bit pointer to 64 bit pointer */
 	new_frame->cookie = compat_ptr(new_frame32->cookie);
@@ -2839,6 +2978,8 @@ no_mem32:
 static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	struct msm_cpp_frame_info32_t *k32_frame)
 {
+	int32_t i;
+
 	k32_frame->frame_id = frame->frame_id;
 	k32_frame->inst_id = frame->inst_id;
 	k32_frame->client_id = frame->client_id;
@@ -2863,6 +3004,13 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->input_buffer_info = frame->input_buffer_info;
 	k32_frame->output_buffer_info[0] = frame->output_buffer_info[0];
 	k32_frame->output_buffer_info[1] = frame->output_buffer_info[1];
+	k32_frame->output_buffer_info[2] = frame->output_buffer_info[2];
+	k32_frame->output_buffer_info[3] = frame->output_buffer_info[3];
+	k32_frame->output_buffer_info[4] = frame->output_buffer_info[4];
+	k32_frame->output_buffer_info[5] = frame->output_buffer_info[5];
+	k32_frame->output_buffer_info[6] = frame->output_buffer_info[6];
+	k32_frame->output_buffer_info[7] = frame->output_buffer_info[7];
+	k32_frame->duplicate_buffer_info = frame->duplicate_buffer_info;
 	k32_frame->duplicate_output = frame->duplicate_output;
 	k32_frame->we_disable = frame->we_disable;
 	k32_frame->duplicate_identity = frame->duplicate_identity;
@@ -2876,6 +3024,14 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->last_stripe_index = frame->last_stripe_index;
 	k32_frame->stripe_info_offset = frame->stripe_info_offset;
 	k32_frame->stripe_info = frame->stripe_info;
+	k32_frame->batch_info.batch_mode = frame->batch_info.batch_mode;
+	k32_frame->batch_info.batch_size = frame->batch_info.batch_size;
+	k32_frame->batch_info.cont_idx = frame->batch_info.cont_idx;
+	for (i = 0; i < MAX_PLANES; i++)
+		k32_frame->batch_info.intra_plane_offset[i] =
+			frame->batch_info.intra_plane_offset[i];
+	k32_frame->batch_info.pick_preview_idx =
+		frame->batch_info.pick_preview_idx;
 }
 
 static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
@@ -3124,8 +3280,8 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		cmd = MSM_SD_SHUTDOWN;
 		break;
 	default:
-		pr_err_ratelimited("%s: unsupported compat type :%d\n",
-				__func__, cmd);
+		pr_err_ratelimited("%s: unsupported compat type :%x LOAD %lu\n",
+				__func__, cmd, VIDIOC_MSM_CPP_LOAD_FIRMWARE);
 		break;
 	}
 
