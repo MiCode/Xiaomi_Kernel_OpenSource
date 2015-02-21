@@ -12212,8 +12212,7 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 	if (IS_VALLEYVIEW(dev))
 		if (dev_priv->is_first_modeset) {
 			/* This will drop reference taken in i915_driver_load */
-			if (!IS_CHERRYVIEW(dev))
-				intel_runtime_pm_put(dev_priv);
+			intel_runtime_pm_put(dev_priv);
 			dev_priv->is_first_modeset = false;
 		}
 
