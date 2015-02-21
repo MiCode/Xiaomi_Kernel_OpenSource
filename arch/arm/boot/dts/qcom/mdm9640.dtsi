@@ -283,6 +283,7 @@
 		qcom,ee = <0>;
 		qcom,use-ipa-tethering-bridge;
 		qcom,ipa-bam-remote-mode;
+		qcom,modem-cfg-emb-pipe-flt;
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
 		qcom,msm-bus,name = "ipa";
