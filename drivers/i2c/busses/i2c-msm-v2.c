@@ -219,9 +219,6 @@ i2c_msm_qup_state_wait_valid(struct i2c_msm_ctrl *ctrl,
 {
 	u32 status;
 	void __iomem  *base     = ctrl->rsrcs.base;
-	unsigned long  start   = jiffies;
-	unsigned long  timeout = start +
-				 msecs_to_jiffies(I2C_MSM_MAX_POLL_MSEC);
 	int ret      = 0;
 	int read_cnt = 0;
 
@@ -243,7 +240,14 @@ i2c_msm_qup_state_wait_valid(struct i2c_msm_ctrl *ctrl,
 				goto poll_valid_end;
 		}
 
-	} while (time_before_eq(jiffies, timeout));
+		/*
+		 * Sleeping for 1-1.5 ms for every 100 iterations and break if
+		 * iterations crosses the 1500 marks allows roughly 10-15 msec
+		 * of time to get the core to valid state.
+		 */
+		if (!(read_cnt % 100))
+			usleep_range(1000, 1500);
+	} while (read_cnt <= 1500);
 
 	ret = -ETIMEDOUT;
 	dev_err(ctrl->dev,
@@ -1879,9 +1883,7 @@ static void i2c_msm_qup_init(struct i2c_msm_ctrl *ctrl)
 	i2c_msm_qup_sw_reset(ctrl);
 	i2c_msm_qup_state_set(ctrl, QUP_STATE_RESET);
 
-	writel_relaxed(QUP_APP_CLK_ON_EN | QUP_CORE_CLK_ON_EN | QUP_N_VAL |
-				QUP_FIFO_CLK_GATE_EN | QUP_MINI_CORE_I2C_VAL,
-				base + QUP_CONFIG);
+	writel_relaxed(QUP_N_VAL | QUP_MINI_CORE_I2C_VAL, base + QUP_CONFIG);
 
 	writel_relaxed(QUP_OUTPUT_OVER_RUN_ERR_EN | QUP_INPUT_UNDER_RUN_ERR_EN
 		     | QUP_OUTPUT_UNDER_RUN_ERR_EN | QUP_INPUT_OVER_RUN_ERR_EN,
