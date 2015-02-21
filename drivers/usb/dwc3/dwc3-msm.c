@@ -2268,6 +2268,9 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = mdwc->health_status;
 		break;
+	case POWER_SUPPLY_PROP_USB_OTG:
+		val->intval = !mdwc->id_state;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -2396,6 +2399,7 @@ dwc3_msm_property_is_writeable(struct power_supply *psy,
 				enum power_supply_property psp)
 {
 	switch (psp) {
+	case POWER_SUPPLY_PROP_USB_OTG:
 	case POWER_SUPPLY_PROP_PRESENT:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 		return 1;
@@ -2420,6 +2424,7 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_USB_OTG,
 };
 
 static void dwc3_init_adc_work(struct work_struct *w);
