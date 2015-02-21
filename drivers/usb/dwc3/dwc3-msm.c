@@ -2042,94 +2042,6 @@ static irqreturn_t msm_dwc3_pwr_irq_thread(int irq, void *_mdwc)
 	return IRQ_HANDLED;
 }
 
-static u32 debug_id = true, debug_bsv, debug_connect;
-
-static int dwc3_connect_show(struct seq_file *s, void *unused)
-{
-	if (debug_connect)
-		seq_printf(s, "true\n");
-	else
-		seq_printf(s, "false\n");
-
-	return 0;
-}
-
-static int dwc3_connect_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, dwc3_connect_show, inode->i_private);
-}
-
-static ssize_t dwc3_connect_write(struct file *file, const char __user *ubuf,
-				size_t count, loff_t *ppos)
-{
-	struct seq_file *s = file->private_data;
-	struct dwc3_msm *mdwc = s->private;
-	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	char buf[8];
-
-	memset(buf, 0x00, sizeof(buf));
-
-	if (copy_from_user(&buf, ubuf, min_t(size_t, sizeof(buf) - 1, count)))
-		return -EFAULT;
-
-	if (!strncmp(buf, "enable", 6) || !strncmp(buf, "true", 4)) {
-		debug_connect = true;
-	} else {
-		debug_connect = debug_bsv = false;
-		debug_id = true;
-	}
-
-	mdwc->ext_xceiv.bsv = debug_bsv;
-	mdwc->ext_xceiv.id = debug_id ? DWC3_ID_FLOAT : DWC3_ID_GROUND;
-
-	if (atomic_read(&dwc->in_lpm)) {
-		dev_dbg(mdwc->dev, "%s: calling resume_work\n", __func__);
-		dwc3_resume_work(&mdwc->resume_work.work);
-	} else {
-		dev_dbg(mdwc->dev, "%s: notifying xceiv event\n", __func__);
-		if (mdwc->otg_xceiv)
-			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
-							DWC3_EVENT_XCEIV_STATE);
-	}
-
-	return count;
-}
-
-const struct file_operations dwc3_connect_fops = {
-	.open = dwc3_connect_open,
-	.read = seq_read,
-	.write = dwc3_connect_write,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
-static struct dentry *dwc3_debugfs_root;
-
-static void dwc3_msm_debugfs_init(struct dwc3_msm *mdwc)
-{
-	dwc3_debugfs_root = debugfs_create_dir("msm_dwc3", NULL);
-
-	if (!dwc3_debugfs_root || IS_ERR(dwc3_debugfs_root))
-		return;
-
-	if (!debugfs_create_bool("id", S_IRUGO | S_IWUSR, dwc3_debugfs_root,
-				 &debug_id))
-		goto error;
-
-	if (!debugfs_create_bool("bsv", S_IRUGO | S_IWUSR, dwc3_debugfs_root,
-				 &debug_bsv))
-		goto error;
-
-	if (!debugfs_create_file("connect", S_IRUGO | S_IWUSR,
-				dwc3_debugfs_root, mdwc, &dwc3_connect_fops))
-		goto error;
-
-	return;
-
-error:
-	debugfs_remove_recursive(dwc3_debugfs_root);
-}
-
 static irqreturn_t msm_dwc3_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
@@ -2146,7 +2058,6 @@ static irqreturn_t msm_dwc3_irq(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
-
 static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 {
 	struct dwc3_msm *mdwc = data;
@@ -3002,7 +2913,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	device_init_wakeup(mdwc->dev, 1);
 	pm_stay_awake(mdwc->dev);
-	dwc3_msm_debugfs_init(mdwc);
 
 	pm_runtime_set_active(mdwc->dev);
 	pm_runtime_enable(mdwc->dev);
@@ -3099,8 +3009,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		clk_prepare_enable(mdwc->xo_clk);
 	}
 
-	if (dwc3_debugfs_root)
-		debugfs_remove_recursive(dwc3_debugfs_root);
 	if (mdwc->otg_xceiv)
 		dwc3_start_chg_det(&mdwc->charger, false);
 	if (mdwc->usb_psy.dev)
