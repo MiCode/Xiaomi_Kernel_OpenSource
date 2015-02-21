@@ -274,7 +274,7 @@ static int msm_rpmcc_8992_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 
-	ret = enable_rpm_scaling();
+	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
 		return ret;
 
@@ -292,6 +292,10 @@ static int msm_rpmcc_8992_probe(struct platform_device *pdev)
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_rpm_8992,
 				    ARRAY_SIZE(msm_clocks_rpm_8992));
 	if (ret)
+		return ret;
+
+	ret = enable_rpm_scaling();
+	if (ret < 0)
 		return ret;
 
 	/*
