@@ -2922,7 +2922,7 @@ static int eligible_cpu(struct task_struct *p, int cpu, int sync)
 	if (mostly_idle_cpu_sync(cpu, sync))
 		return 1;
 
-	if (rq->capacity != max_capacity)
+	if (rq->max_possible_capacity != max_possible_capacity)
 		return !spill_threshold_crossed(p, rq, cpu, sync);
 
 	return 0;
@@ -3473,7 +3473,7 @@ unsigned int nr_eligible_big_tasks(int cpu)
 	int nr = rq->nr_running;
 	int nr_small = rq->hmp_stats.nr_small_tasks;
 
-	if (rq->capacity != max_capacity)
+	if (rq->max_possible_capacity != max_possible_capacity)
 		return nr_big;
 
 	/* Consider all (except small) tasks on max_capacity cpu as big tasks */
