@@ -880,6 +880,14 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		pr_err("unable to get gdsc regulator\n");
 		return -EINVAL;
 	}
+
+	mdata->mmagic_mdss = devm_regulator_get(&mdata->pdev->dev,
+		"gdsc-mmagic-mdss");
+	if (IS_ERR_OR_NULL(mdata->mmagic_mdss)) {
+		mdata->mmagic_mdss = NULL;
+		pr_debug("unable to get mmagic gdsc regulator\n");
+	}
+
 	mdata->fs_ena = false;
 
 	mdata->gdsc_cb.notifier_call = mdss_mdp_gdsc_notifier_call;
@@ -1086,6 +1094,12 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 	if (mdata != NULL) {
 		if (on) {
 			pr_debug("Enable MDP FS for splash.\n");
+			if (mdata->mmagic_mdss) {
+				ret = regulator_enable(mdata->mmagic_mdss);
+				if (ret)
+					pr_err("Mmagic MDSS failed to enable\n");
+			}
+
 			ret = regulator_enable(mdata->fs);
 			if (ret)
 				pr_err("Footswitch failed to enable\n");
@@ -1095,6 +1109,8 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 			pr_debug("Disable MDP FS for splash.\n");
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 			regulator_disable(mdata->fs);
+			if (mdata->mmagic_mdss)
+				regulator_disable(mdata->mmagic_mdss);
 			mdata->handoff_pending = false;
 		}
 	} else {
@@ -3211,9 +3227,16 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 	if (on) {
 		if (!mdata->fs_ena) {
 			pr_debug("Enable MDP FS\n");
+			if (mdata->mmagic_mdss) {
+				ret = regulator_enable(mdata->mmagic_mdss);
+				if (ret)
+					pr_warn("mmagic mdss failed to enable\n");
+			}
+
 			ret = regulator_enable(mdata->fs);
 			if (ret)
 				pr_warn("Footswitch failed to enable\n");
+
 			if (!mdata->idle_pc) {
 				mdss_mdp_cx_ctrl(mdata, true);
 				mdss_mdp_batfet_ctrl(mdata, true);
@@ -3237,6 +3260,8 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 				mdss_mdp_batfet_ctrl(mdata, false);
 			}
 			regulator_disable(mdata->fs);
+			if (mdata->mmagic_mdss)
+				regulator_disable(mdata->mmagic_mdss);
 		}
 		mdata->fs_ena = false;
 	}
