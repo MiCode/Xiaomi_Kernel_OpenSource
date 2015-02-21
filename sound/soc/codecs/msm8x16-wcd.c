@@ -1830,6 +1830,36 @@ static const struct snd_kcontrol_new impedance_detect_controls[] = {
 			tombak_hph_impedance_get, NULL),
 };
 
+static int tombak_get_hph_type(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct msm8x16_wcd_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct wcd_mbhc *mbhc;
+
+	if (!priv) {
+		pr_debug("%s: msm8x16-wcd private data is NULL\n",
+			 __func__);
+		return -EINVAL;
+	}
+
+	mbhc = &priv->mbhc;
+	if (!mbhc) {
+		pr_debug("%s: mbhc not initialized\n", __func__);
+		return -EINVAL;
+	}
+
+	ucontrol->value.integer.value[0] = (u32) mbhc->hph_type;
+	pr_debug("%s: hph_type = %u\n", __func__, mbhc->hph_type);
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new hph_type_detect_controls[] = {
+	SOC_SINGLE_EXT("HPH Type", 0, 0, UINT_MAX, 0,
+	tombak_get_hph_type, NULL),
+};
+
 static const char * const rx_mix1_text[] = {
 	"ZERO", "IIR1", "IIR2", "RX1", "RX2", "RX3"
 };
@@ -4255,6 +4285,8 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_add_codec_controls(codec, impedance_detect_controls,
 				   ARRAY_SIZE(impedance_detect_controls));
+	snd_soc_add_codec_controls(codec, hph_type_detect_controls,
+				  ARRAY_SIZE(hph_type_detect_controls));
 
 	msm8x16_wcd_bringup(codec);
 	msm8x16_wcd_codec_init_reg(codec);

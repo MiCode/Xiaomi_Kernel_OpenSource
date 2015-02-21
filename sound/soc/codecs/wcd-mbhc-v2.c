@@ -612,7 +612,16 @@ static void wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
 	 * impedance_l is equal to impedance_l_fixed then headset is stereo
 	 * otherwise headset is mono
 	 */
-
+	mbhc->hph_type = WCD_MBHC_HPH_NONE;
+	if (impedance_l == impedance_l_fixed) {
+		pr_debug("%s: STEREO plug type detected\n",
+			 __func__);
+		mbhc->hph_type = WCD_MBHC_HPH_STEREO;
+	} else {
+		pr_debug("%s: MONO plug type detected\n",
+			__func__);
+		mbhc->hph_type = WCD_MBHC_HPH_MONO;
+	}
 	/* Enable ZDET_CHG  */
 	snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
@@ -688,6 +697,7 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		if (mbhc->micbias_enable)
 			mbhc->micbias_enable = false;
 
+		mbhc->hph_type = WCD_MBHC_HPH_NONE;
 		mbhc->zl = mbhc->zr = 0;
 		pr_debug("%s: Reporting removal %d(%x)\n", __func__,
 			 jack_type, mbhc->hph_status);
@@ -707,10 +717,9 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		    (mbhc->current_plug == MBHC_PLUG_TYPE_HIGH_HPH ||
 		    jack_type == SND_JACK_LINEOUT) &&
 		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
-
-		if (mbhc->micbias_enable)
-			mbhc->micbias_enable = false;
-
+			if (mbhc->micbias_enable)
+				mbhc->micbias_enable = false;
+			mbhc->hph_type = WCD_MBHC_HPH_NONE;
 			mbhc->zl = mbhc->zr = 0;
 			pr_debug("%s: Reporting removal (%x)\n",
 				 __func__, mbhc->hph_status);
@@ -2036,6 +2045,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	mbhc->btn_press_intr = false;
 	mbhc->is_hs_recording = false;
 	mbhc->is_extn_cable = false;
+	mbhc->hph_type = WCD_MBHC_HPH_NONE;
 
 	if (mbhc->intr_ids == NULL) {
 		pr_err("%s: Interrupt mapping not provided\n", __func__);
