@@ -1443,6 +1443,15 @@
 		pinctrl-0 = <&cnss_default>;
 		qcom,wlan-rc-num = <0>;
 		qcom,wlan-ramdump-dynamic = <0x200000>;
+
+		qcom,msm-bus,name = "msm-cnss";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,            /* No vote */
+				<45 512 42252 1647411>,  /* Upto 200 Mbps */
+				<45 512 98572 1647411>,  /* Upto 400 Mbps */
+				<45 512 211212 3311206>; /* Upto 800 Mbps */
 	};
 
 };
