@@ -114,6 +114,7 @@ struct bam_data_ch_info {
 	/* used for RNDIS/ECM network inteface based design */
 	atomic_t		is_net_interface_up;
 	bool			tx_req_dequeued;
+	bool			rx_req_dequeued;
 };
 
 static bool is_ipa_rndis_net_on;
@@ -632,6 +633,8 @@ static void bam_data_stop_endless_rx(struct bam_data_port *port)
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		return;
 	}
+
+	d->rx_req_dequeued = true;
 
 	pr_debug("%s: dequeue\n", __func__);
 	status = usb_ep_dequeue(port->port_usb->out, d->rx_req);
@@ -2068,24 +2071,31 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		/*
 		 * If usb_req was dequeued as part of bus suspend then
-		 * corresponding DBM EP should also be reset.
+		 * corresponding DBM IN and OUT EPs should also be reset.
 		 * There is a possbility that usb_bam may not have dequeued the
 		 * request in case of quick back to back usb bus suspend resume.
 		 */
 		if (gadget_is_dwc3(gadget) &&
-			msm_dwc3_reset_ep_after_lpm(gadget) &&
-					d->tx_req_dequeued) {
-				configure_usb_data_fifo(d->src_bam_idx,
-					port->port_usb->out,
-					d->src_pipe_type);
+			msm_dwc3_reset_ep_after_lpm(gadget)) {
+			if (d->tx_req_dequeued) {
 				configure_usb_data_fifo(d->dst_bam_idx,
 					port->port_usb->in,
 					d->dst_pipe_type);
 				spin_unlock_irqrestore(&port->port_lock, flags);
 				msm_dwc3_reset_dbm_ep(port->port_usb->in);
 				spin_lock_irqsave(&port->port_lock, flags);
+			}
+			if (d->rx_req_dequeued) {
+				configure_usb_data_fifo(d->src_bam_idx,
+					port->port_usb->out,
+					d->src_pipe_type);
+				spin_unlock_irqrestore(&port->port_lock, flags);
+				msm_dwc3_reset_dbm_ep(port->port_usb->out);
+				spin_lock_irqsave(&port->port_lock, flags);
+			}
 		}
 		d->tx_req_dequeued = false;
+		d->rx_req_dequeued = false;
 		usb_bam_resume(&d->ipa_params);
 	}
 exit:
