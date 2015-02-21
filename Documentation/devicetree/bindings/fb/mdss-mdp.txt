@@ -415,6 +415,12 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				Number of signal offsets should match the
 				number of offsets defined in property:
 				qcom,mdss-pipe-dma-off
+- qcom,mdss-per-pipe-panic-luts: Array to configure the panic/robust luts for
+				each rt and nrt clients. This property is
+				for the MDPv1.7 and above, which configures
+				the panic independently on each client.
+				First element on the array is for the panic
+				configuration, second element for robust.
 - qcom,mdss-has-dst-split:	Boolean property to indicate if destination
 				split feature is available or not in the target.
 - qcom,mdss-cdm-off:            Array of offset addresses for the available

@@ -83,6 +83,52 @@ end:
 	return 0;
 }
 
+bool is_rt_pipe(struct mdss_mdp_pipe *pipe)
+{
+	return pipe && pipe->mixer_left &&
+		pipe->mixer_left->type == MDSS_MDP_MIXER_TYPE_INTF;
+}
+
+void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata)
+{
+	u32 panic_lut, robust_lut;
+	struct mdss_mdp_pipe *pipe;
+	int i;
+
+	if ((mdss_mdp_panic_signal_support_mode(mdata) ==
+			MDSS_MDP_PANIC_PER_PIPE_CFG) &&
+			(mdata->default_panic_lut_per_pipe > 0) &&
+			(mdata->default_robust_lut_per_pipe > 0)) {
+
+		panic_lut = mdata->default_panic_lut_per_pipe;
+		robust_lut = mdata->default_robust_lut_per_pipe;
+
+		for (i = 0; i < mdata->nvig_pipes; i++) {
+			pipe = &mdata->vig_pipes[i];
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
+				panic_lut);
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
+				robust_lut);
+		}
+
+		for (i = 0; i < mdata->nrgb_pipes; i++) {
+			pipe = &mdata->rgb_pipes[i];
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
+				panic_lut);
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
+				robust_lut);
+		}
+
+		for (i = 0; i < mdata->ndma_pipes; i++) {
+			pipe = &mdata->dma_pipes[i];
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
+				panic_lut);
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
+				robust_lut);
+		}
+	}
+}
+
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 {
 	uint32_t panic_robust_ctrl;
@@ -91,8 +137,11 @@ int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 	if (!mdata->has_panic_ctrl)
 		goto end;
 
+	if (!is_rt_pipe(pipe))
+		goto end;
+
 	mutex_lock(&mdata->reg_lock);
-	switch (mdss_mdp_panic_signal_support_mode(mdata, pipe)) {
+	switch (mdss_mdp_panic_signal_support_mode(mdata)) {
 	case MDSS_MDP_PANIC_COMMON_REG_CFG:
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 		panic_robust_ctrl = readl_relaxed(mdata->mdp_base +
