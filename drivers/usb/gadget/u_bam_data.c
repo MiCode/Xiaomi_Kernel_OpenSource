@@ -1338,6 +1338,7 @@ void u_bam_data_stop_rndis_ipa(void)
 
 		rndis_ipa_reset_trigger();
 		bam_data_stop_endless_tx(port);
+		bam_data_stop_endless_rx(port);
 		queue_work(bam_data_wq, &port->disconnect_w);
 	}
 }
