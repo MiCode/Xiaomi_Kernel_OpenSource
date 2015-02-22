@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,9 @@ static const char * const xprt_string[] = {
 	[GLINK_DBGFS_SMEM] = "smem",
 	[GLINK_DBGFS_SMD] = "smd",
 	[GLINK_DBGFS_XLLOOP] = "lloop",
-	[GLINK_DBGFS_XMOCK] = "mock"
+	[GLINK_DBGFS_XMOCK] = "mock",
+	[GLINK_DBGFS_XMOCK_LOW] = "mock_low",
+	[GLINK_DBGFS_XMOCK_HIGH] = "mock_high"
 };
 
 static const char * const ch_st_string[] = {
