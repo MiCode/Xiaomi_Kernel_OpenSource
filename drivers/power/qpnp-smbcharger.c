@@ -31,6 +31,7 @@
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
+#include <linux/rtc.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/batterydata-lib.h>
 
@@ -215,6 +216,9 @@ struct smbchg_chip {
 	struct mutex			dc_en_lock;
 	struct mutex			fcc_lock;
 	struct mutex			pm_lock;
+	/* aicl deglitch workaround */
+	unsigned long			first_aicl_seconds;
+	int				aicl_irq_count;
 };
 
 enum print_reason {
@@ -1406,6 +1410,7 @@ static int smbchg_get_min_parallel_current_ma(struct smbchg_chip *chip)
 #define ICL_STS_1_REG			0x7
 #define ICL_STS_2_REG			0x9
 #define ICL_STS_MASK			0x1F
+#define AICL_SUSP_BIT			BIT(6)
 #define AICL_STS_BIT			BIT(5)
 #define USBIN_SUSPEND_STS_BIT		BIT(3)
 #define USBIN_ACTIVE_PWR_SRC_BIT	BIT(1)
@@ -2702,7 +2707,7 @@ static void smbchg_soc_changed(struct smbchg_chip *chip)
 }
 
 #define DC_AICL_CFG			0xF3
-#define MISC_TRIM_OPTIONS_15_8		0xF5
+#define MISC_TRIM_OPT_15_8		0xF5
 #define USB_AICL_DEGLITCH_MASK		(BIT(5) | BIT(4) | BIT(3))
 #define USB_AICL_DEGLITCH_SHORT		(BIT(5) | BIT(4) | BIT(3))
 #define USB_AICL_DEGLITCH_LONG		0
@@ -2732,7 +2737,7 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 			return;
 		}
 		rc = smbchg_sec_masked_write(chip,
-			chip->misc_base + MISC_TRIM_OPTIONS_15_8,
+			chip->misc_base + MISC_TRIM_OPT_15_8,
 			AICL_RERUN_MASK, AICL_RERUN_ON);
 		if (rc) {
 			pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
@@ -2756,7 +2761,7 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 			return;
 		}
 		rc = smbchg_sec_masked_write(chip,
-			chip->misc_base + MISC_TRIM_OPTIONS_15_8,
+			chip->misc_base + MISC_TRIM_OPT_15_8,
 			AICL_RERUN_MASK, AICL_RERUN_OFF);
 		if (rc) {
 			pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
@@ -3813,6 +3818,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 				/* DCP or HVDCP removed */
 				chip->usb_present = usb_present;
 				handle_usb_removal(chip);
+				chip->aicl_irq_count = 0;
 			}
 		}
 	}
@@ -3862,6 +3868,7 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 				/* CDP or SDP removed */
 				chip->usb_present = !chip->usb_present;
 				handle_usb_removal(chip);
+				chip->aicl_irq_count = 0;
 		}
 	}
 
@@ -3916,6 +3923,41 @@ static irqreturn_t otg_fail_handler(int irq, void *_chip)
 	return IRQ_HANDLED;
 }
 
+static int get_current_time(unsigned long *now_tm_sec)
+{
+	struct rtc_time tm;
+	struct rtc_device *rtc;
+	int rc;
+
+	rtc = rtc_class_open(CONFIG_RTC_HCTOSYS_DEVICE);
+	if (rtc == NULL) {
+		pr_err("%s: unable to open rtc device (%s)\n",
+			__FILE__, CONFIG_RTC_HCTOSYS_DEVICE);
+		return -EINVAL;
+	}
+
+	rc = rtc_read_time(rtc, &tm);
+	if (rc) {
+		pr_err("Error reading rtc device (%s) : %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto close_time;
+	}
+
+	rc = rtc_valid_tm(&tm);
+	if (rc) {
+		pr_err("Invalid RTC time (%s): %d\n",
+			CONFIG_RTC_HCTOSYS_DEVICE, rc);
+		goto close_time;
+	}
+	rtc_tm_to_time(&tm, now_tm_sec);
+
+close_time:
+	rtc_class_close(rtc);
+	return rc;
+}
+
+#define AICL_IRQ_LIMIT_SECONDS	60
+#define AICL_IRQ_LIMIT_COUNT	25
 /**
  * aicl_done_handler() - called when the usb AICL algorithm is finished
  *			and a current is set.
@@ -3924,12 +3966,15 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
+	bool bad_charger = false;
 	int rc;
 	u8 reg;
+	long elapsed_seconds;
+	unsigned long now_seconds;
 
-	pr_smb(PR_INTERRUPT, "aicl_done triggered\n");
-	if (usb_present)
-		smbchg_parallel_usb_check_ok(chip);
+	pr_smb(PR_INTERRUPT, "Aicl triggered c:%d dgltch:%d first:%ld\n",
+			chip->aicl_irq_count, chip->aicl_deglitch_short,
+			chip->first_aicl_seconds);
 
 	rc = smbchg_read(chip, &reg,
 			chip->usb_chgpth_base + ICL_STS_1_REG, 1);
@@ -3937,6 +3982,51 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 		chip->aicl_complete = reg & AICL_STS_BIT;
 	else
 		chip->aicl_complete = false;
+
+	if (chip->aicl_deglitch_short) {
+		if (!chip->aicl_irq_count)
+			get_current_time(&chip->first_aicl_seconds);
+
+		chip->aicl_irq_count++;
+
+		if (chip->aicl_irq_count > AICL_IRQ_LIMIT_COUNT) {
+			get_current_time(&now_seconds);
+			elapsed_seconds = now_seconds
+					- chip->first_aicl_seconds;
+			pr_smb(PR_INTERRUPT, "elp:%ld first:%ld now:%ld c=%d\n",
+				elapsed_seconds, chip->first_aicl_seconds,
+				now_seconds, chip->aicl_irq_count);
+			if (elapsed_seconds <= AICL_IRQ_LIMIT_SECONDS) {
+				pr_smb(PR_INTERRUPT, "Disable AICL rerun\n");
+				/*
+				 * Disable AICL rerun since many interrupts were
+				 * triggered in a short time
+				 */
+				rc = smbchg_sec_masked_write(chip,
+					chip->misc_base + MISC_TRIM_OPT_15_8,
+					AICL_RERUN_MASK, AICL_RERUN_OFF);
+				if (rc)
+					pr_err("Couldn't turn off AICL rerun rc:%d\n",
+						rc);
+				bad_charger = true;
+			}
+			chip->aicl_irq_count = 0;
+		} else if ((get_prop_charge_type(chip) ==
+				POWER_SUPPLY_CHARGE_TYPE_FAST) &&
+					(reg & AICL_SUSP_BIT)) {
+			bad_charger = true;
+		}
+		if (bad_charger) {
+			rc = power_supply_set_health_state(chip->usb_psy,
+					POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
+			if (rc)
+				pr_err("Couldn't set health on usb psy rc:%d\n",
+					rc);
+		}
+	}
+
+	if (usb_present)
+		smbchg_parallel_usb_check_ok(chip);
 
 	if (chip->aicl_complete)
 		power_supply_changed(&chip->batt_psy);
