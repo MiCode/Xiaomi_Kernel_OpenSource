@@ -41,6 +41,7 @@
 #define DEVICE_NAME   "jdi-bu21150"
 #define SYSFS_PROPERTY_PATH   "afe_properties"
 #define REG_INT_RUN_ENB (0x00CE)
+#define REG_SENS_START (0x0086)
 #define REG_READ_DATA (0x0400)
 #define MAX_FRAME_SIZE (8*1024+16)  /* byte */
 #define SPI_HEADER_SIZE (3)
@@ -959,13 +960,19 @@ static int bu21150_fb_suspend(struct device *dev)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	struct spi_device *client = ts->client;
 	int rc;
+	u8 buf1[2] = {0x00, 0x00};
+	u8 buf2[2] = {0x04, 0x00};
 
 	if (ts->suspended)
 		return 0;
 
+	bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
+
 	ts->unblock_flag = 1;
 	/* wake up */
 	wake_up_frame_waitq(ts);
+
+	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf2), buf2);
 
 	if (!ts->wake_up) {
 		disable_irq(client->irq);
