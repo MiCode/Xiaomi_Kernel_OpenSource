@@ -2621,6 +2621,14 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	new_frame->we_disable = new_frame32->we_disable;
 	new_frame->duplicate_identity = new_frame32->duplicate_identity;
 	new_frame->reserved = new_frame32->reserved;
+	new_frame->partial_frame_indicator =
+		new_frame32->partial_frame_indicator;
+	new_frame->first_payload = new_frame32->first_payload;
+	new_frame->last_payload = new_frame32->last_payload;
+	new_frame->first_stripe_index = new_frame32->first_stripe_index;
+	new_frame->last_stripe_index = new_frame32->last_stripe_index;
+	new_frame->stripe_info_offset = new_frame32->stripe_info_offset;
+	new_frame->stripe_info = new_frame32->stripe_info;
 
 	/* Convert the 32 bit pointer to 64 bit pointer */
 	new_frame->cookie = compat_ptr(new_frame32->cookie);
@@ -2695,6 +2703,13 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->duplicate_identity = frame->duplicate_identity;
 	k32_frame->reserved = frame->reserved;
 	k32_frame->cookie = ptr_to_compat(frame->cookie);
+	k32_frame->partial_frame_indicator = frame->partial_frame_indicator;
+	k32_frame->first_payload = frame->first_payload;
+	k32_frame->last_payload = frame->last_payload;
+	k32_frame->first_stripe_index = frame->first_stripe_index;
+	k32_frame->last_stripe_index = frame->last_stripe_index;
+	k32_frame->stripe_info_offset = frame->stripe_info_offset;
+	k32_frame->stripe_info = frame->stripe_info;
 }
 
 static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
