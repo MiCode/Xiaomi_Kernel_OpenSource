@@ -8,37 +8,46 @@ Required properties:
  - interrupts			: interrupt of touch AFE
  - vdd_ana-supply		: analog power supply for AFE panel
  - vdd_dig-supply		: digital power supply for AFE panel
- - irq-gpio 			: touch AFE(TAFE) irq gpio. This attribute should not be
-				  defined if pinctrl is used.
- - rst-gpio			: touch AFE(TAFE) reset gpio. This attribute should not be
-				  defined if pinctrl is used.
  - pinctrl-names		: This should be defined if a target uses pinctrl framework.
 				If GPIO config is used, this property should not be defined.
 			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-
 			pinctrl.txt. It should specify the names of the configs that
 			pinctrl can install in driver. Following are the pinctrl
 			configs that can be installed:
-			"pmx_ts_active" : Active configuration of pins, this should specify
-					active config defined in pin groups of interrupt
-					and reset gpio.
-			"pmx_ts_suspend" : Disabled configuration of pins, this should
-					specify sleep config defined in pin groups of
-					interrupt and reset gpio.
+			"pmx_ts_active" : Required pinctrl name. Active configuration of pins,
+					 this should specify active config defined in pin
+					groups of interrupt and reset gpio.
+			"pmx_ts_suspend" : Required pinctrl name. Disabled configuration of
+					pins, this should specify sleep config defined in pin
+					groups of interrupt and reset gpio.
+			"afe_pwr_active" : Optional pinctrl name. Active configuration of AFE
+					power pin. Do not define if GPIO config is used.
+			"afe_pwr_suspend" : Optional pinctrl name. Disabled configuration of
+					AFE power pin. Do not define if GPIO config is used.
+			"mod_en_active" : Optional pinctrl name. Active configuration of AFE
+					module enable pin. Do not define if GPIO config is
+					used.
+			"mod_en_suspend" : Optional pinctrl name. Disabled configuration of
+					AFE module enable pin. Do not define if GPIO config
+					is used.
+			"disp_vsn_active" : Optional pinctrl name. Active configuration of
+					display VSN pin. Do not define if GPIO config is used.
+			"disp_vsn_suspend" : Optional pinctrl name. Disable configuration of
+					display VSN pin. Do not define if GPIO config is used.
+			"ddic_rst_active"  : Optional pinctrl name. Active configuration of
+					DDIC reset pin. Do not define if GPIO config is used.
+			"ddic_rst_suspend" : Optional pinctrl name. Disable configuration of
+					DDIC reset pin. Do not define if GPIO config is used.
 Optional properties:
- - pmx_ts_release 	: Release configuration of pins, this should specify
-			  release config defined in pin groups of interrupt
-			  and reset gpio. Do not define if GPIO config is used.
- - afe_pwr_active 	: Active configuration of AFE power pin. Do not define if GPIO config
-			  is used.
- - afe_pwr_suspend 	: Disabled configuration of AFE power pin. Do not define if GPIO config
-			  is used.
- - disp_vsn_active 	: Active configuration of display VSN pin. Do not define if GPIO config
-			  is used.
- - disp_vsn_suspend 	: Disable configuration of display VSN pin. Do not define if GPIO
-			  config is used.
+ - irq-gpio 			: touch AFE(TAFE) irq gpio. This attribute should not be
+				  defined if pinctrl is used.
+ - rst-gpio			: touch AFE(TAFE) reset gpio. This attribute should not be
+				  defined if pinctrl is used.
  - afe_pwr		: GPIO to control AFE power board. Do not define if pinctrl is used.
  - disp_vsn		: GPIO to control display -5.5V enablement. Do not define if pinctrl is
 			  used.
+ - mod_en		: GPIO to control module enablement. Do not define if pinctrl is used.
+ - ddic_rst		: GPIO to control DDIC reset. Do not define if pinctrl is used.
  - jdi,panel-model		: string type for panel model number
  - jdi,afe-version		: string type for AFE version
  - jdi,pitch-type		: string type to indicate sensor pitch type, e.g. "fp" for fine pitch, "np" for normal pitch, etc..
