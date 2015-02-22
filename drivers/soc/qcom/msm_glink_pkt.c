@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,6 +61,7 @@
  * packet_arrival_work:	Hold the wakeup source worker info.
  * pa_spinlock:	Packet arrival spinlock.
  * ws_locked:	flag to check wakeup source state.
+ * sigs_updated: flag to check signal update.
  */
 struct glink_pkt_dev {
 	struct list_head dev_list;
@@ -84,6 +85,7 @@ struct glink_pkt_dev {
 	struct work_struct packet_arrival_work;
 	spinlock_t pa_spinlock;
 	int ws_locked;
+	int sigs_updated;
 };
 
 /**
@@ -289,11 +291,11 @@ void glink_pkt_notify_state(void *handle, const void *priv, unsigned event)
 
 /**
  * glink_pkt_rmt_rx_intent_req_cb() - Remote Rx intent request callback
- * handle:	Opaque Channel handle returned by GlLink.
+ * handle:	Opaque Channel handle returned by GLink.
  * priv:	private pointer to the channel.
  * sz:	the size of the requested Rx intent
  *
- * This is callback function is notified when remote client
+ * This callback function is notified when remote client
  * request the intent from local client.
  */
 bool glink_pkt_rmt_rx_intent_req_cb(void *handle, const void *priv, size_t sz)
@@ -314,6 +316,28 @@ bool glink_pkt_rmt_rx_intent_req_cb(void *handle, const void *priv, size_t sz)
 	queue_work(glink_pkt_wq, &work_item->work);
 
 	return true;
+}
+
+/**
+ * glink_pkt_notify_rx_sigs() - signals callback
+ * handle:      Opaque Channel handle returned by GLink.
+ * priv:        private pointer to the channel.
+ * old_sigs:    signal before modification
+ * new_sigs:    signal after modification
+ *
+ * This callback function is notified when remote client
+ * updated the signal.
+ */
+void glink_pkt_notify_rx_sigs(void *handle, const void *priv,
+			uint32_t old_sigs, uint32_t new_sigs)
+{
+	struct glink_pkt_dev *devp = (struct glink_pkt_dev *)priv;
+	GLINK_PKT_INFO("%s(): sigs old[%x] new[%x]\n",
+				__func__, old_sigs, new_sigs);
+	mutex_lock(&devp->ch_lock);
+	devp->sigs_updated = true;
+	mutex_unlock(&devp->ch_lock);
+	wake_up(&devp->ch_read_wait_queue);
 }
 
 /**
@@ -521,6 +545,12 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 		GLINK_PKT_INFO("%s sets POLLIN for glink_pkt_dev id: %d\n",
 			__func__, devp->i);
 	}
+
+	if (devp->sigs_updated) {
+		mask |= POLLPRI;
+		GLINK_PKT_INFO("%s sets POLLPRI for glink_pkt_dev id: %d\n",
+			__func__, devp->i);
+	}
 	mutex_unlock(&devp->ch_lock);
 
 	return mask;
@@ -646,34 +676,36 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 		return -EINVAL;
 	}
 
-	GLINK_PKT_INFO("%s: ioctl command 0x%x\n", __func__, cmd);
+	GLINK_PKT_INFO("%s: ioctl command 0x%x on dev_id[%d]\n",
+					__func__, cmd, devp->i);
+	mutex_lock(&devp->ch_lock);
 	switch (cmd) {
 	case TIOCMGET:
+		devp->sigs_updated = false;
 		ret = glink_sigs_local_get(devp->handle);
-		GLINK_PKT_INFO("%s: TIOCMGET on dev_id[%d] ret[0x%x]\n",
-						__func__, devp->i, ret);
+		GLINK_PKT_INFO("%s: TIOCMGET ret[0x%x]\n", __func__, ret);
 		break;
 	case TIOCMSET:
-		GLINK_PKT_INFO("%s: TIOCMSET on dev_id[%d] arg[%lu]\n",
-						__func__, devp->i, arg);
 		ret = glink_sigs_set(devp->handle, arg);
+		GLINK_PKT_INFO("%s: TIOCMSET arg[%lu], ret[0x%x]\n",
+					__func__, arg, ret);
 		break;
 	case GLINK_PKT_IOCTL_QUEUE_RX_INTENT:
 		ret = get_user(size, (size_t *)arg);
-		GLINK_PKT_INFO("%s: QUEUE_RX_INTENT size[%zu]\n",
-						__func__, size);
+		GLINK_PKT_INFO("%s: intent size[%zu]\n", __func__, size);
 		ret  = glink_queue_rx_intent(devp->handle, devp, size);
 		if (ret) {
 			GLINK_PKT_ERR("%s: failed to QUEUE_RX_INTENT ret[%d]\n",
-						__func__, ret);
+					__func__, ret);
 		}
 		break;
 	default:
 		GLINK_PKT_ERR("%s: Unrecognized ioctl command 0x%x\n",
-							__func__, cmd);
+					__func__, cmd);
 		ret = -ENOIOCTLCMD;
 		break;
 	}
+	mutex_unlock(&devp->ch_lock);
 
 	return ret;
 }
@@ -783,6 +815,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	devp->open_cfg.notify_tx_done = glink_pkt_notify_tx_done;
 	devp->open_cfg.notify_state = glink_pkt_notify_state;
 	devp->open_cfg.notify_rx_intent_req = glink_pkt_rmt_rx_intent_req_cb;
+	devp->open_cfg.notify_rx_sigs = glink_pkt_notify_rx_sigs;
 	devp->open_cfg.priv = devp;
 
 	devp->i = i;
