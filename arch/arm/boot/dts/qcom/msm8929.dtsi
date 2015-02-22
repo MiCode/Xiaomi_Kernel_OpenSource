@@ -12,6 +12,7 @@
  */
 
 #include "msm8939.dtsi"
+#include "msm8929-bus.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8929";
