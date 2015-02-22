@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -594,7 +594,7 @@ static void tzdbg_register_qsee_log_buf(void)
 			&resp, sizeof(resp));
 	} else {
 		struct scm_desc desc = {0};
-		desc.args[0] = (uint32_t)pa;
+		desc.args[0] = pa;
 		desc.args[1] = len;
 		desc.arginfo = 0x22;
 		ret = scm_call2(SCM_QSEEOS_FNID(1, 6), &desc);
