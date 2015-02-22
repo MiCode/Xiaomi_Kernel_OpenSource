@@ -21,6 +21,7 @@ Required properties:
 	       should be "qcom,mdm9640-tsens" for 9640 TSENS driver.
 	       should be "qcom,msm8992-tsens" for 8992 TSENS driver.
 	       should be "qcom,msmtellurium-tsens" for tellurium TSENS driver.
+	       should be "qcom,msm-tsens-generic-type-a" to use generic calibration in TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
 - reg : offset and length of the TSENS registers.
@@ -52,6 +53,27 @@ Optional properties:
 - qcom,sensor-id : If the flag is present map the TSENS sensors based on the
 		remote sensors that are enabled in HW. Ensure the mapping is not
 		more than the number of supported sensors.
+
+- qcom,tsens_base_info : <(Number of base) (Bits for each base)>
+- qcom,tsens_base_mask : <(base number) (address offset) (mask) (mask_shift)
+				(number of bits read for the individual mask>
+- qcom,tsens_calib_mask_info : If this property is present then the calibration mask
+		is split across different regions. Specify the total number of masks
+		this property is present. e.g. <(total number of masks for this property)>
+- qcom,tsens_calib_mask : <(calibration number)(address offset) (mask) (mask_shift)
+					(number of bits for the individual mask)>
+
+- qcom,tsens_sensor_point_bit_size : Bits to represent one and two point offsets
+				     for individual sensors.
+- qcom,tsens_sensor_point1_total_masks : Total number of masks used to represent
+			                 the point1 offsets.
+- qcom,tsens_sensor_point1 : <(physical sensor number)	(address offset) (mask) (mask shift)
+							(number of bits for individual mask)>
+- qcom,tsens_sensor_point2_total_masks : Total number of masks used to represent
+					 the point1 offsets.
+- qcom,tsens_sensor_point2 : <(physical sensor number) (address offset) (mask) (mask shift)
+							(number of bits for individual mask)>
+
 Example:
 
 tsens@fc4a8000 {
@@ -66,4 +88,23 @@ tsens@fc4a8000 {
 	qcom,sensors = <11>;
 	qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200
 			3200>;
+
+	qcom,tsens_base_info = <2 8>;
+	qcom,tsens_base_mask_detail = <0 0xdc 0xff 0 8>,
+				      <1 0xdc 0xff00 8 8>;
+	qcom,tsens_calib_mask = <0 0xdc 0x70000 16 3>;
+	qcom,tsens_sensor_point_bit_size = <6>;
+	qcom,tsens_sensor_point1_total_masks = <5>;
+	qcom,tsens_sensor_point1 = <0 0xa0 0x3f 0x0 6>,
+				   <1 0xa0 0x3f000 0xc 6>,
+				   <2 0xa0 0x3f000000 0x18 6>,
+				   <3 0xa4 0x3f0 0x4 6>,
+				   <4 0xa4 0x3f0000 0x10 6>;
+	qcom,tsens_sensor_point2_total_masks = <6>;
+	qcom,tsens_sensor_point2 = <0 0xa0 0xfc0 0x6 6>,
+				   <1 0xa0 0xfc0000 0x12 6>,
+				   <2 0xa0 0xc0000000 0x1e 2>,
+				   <2 0xa4 0xf 0x4 4>,
+				   <3 0xa4 0xfc00 0xa 6>,
+				   <4 0xa4 0xfc00000 0x16 6>;
 };
