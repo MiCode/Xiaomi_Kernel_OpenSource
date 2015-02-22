@@ -26,6 +26,7 @@ Required properties:
 - qcom,has-48mhz-xo: boolean flag to determine the usage of 24MHz XO from RF
 - qcom,has-pronto-hw: boolean flag to determine the revId of the WLAN subsystem
 - qcom,wcnss-adc_tm: ADC handle for vbatt notification APIs.
+- qcom,wcnss-vadc: VADC handle for battery voltage notification APIs.
 - pinctrl-<n> : Pinctrl states as described in bindings/pinctrl/pinctrl-bindings.txt
 - pinctrl-names : Names corresponding to the numbered pinctrl states
 - clocks: from common clock binding: handle to xo and rf_clk clocks.
