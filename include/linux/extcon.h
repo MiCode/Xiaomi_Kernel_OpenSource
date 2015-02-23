@@ -305,11 +305,6 @@ static int extcon_find_cable_type(struct extcon_dev *edev, int index)
 	return 0;
 }
 
-static int extcon_find_cable_type(struct extcon_dev *edev, int index)
-{
-	return 0;
-}
-
 static inline int extcon_get_cable_state_(struct extcon_dev *edev,
 					  int cable_index)
 {
