@@ -2268,8 +2268,8 @@ const struct snd_soc_fw_kcontrol_ops control_ops[] = {
 						snd_soc_info_enum_double},
 	{SOC_CONTROL_IO_SST_MODE, sst_mode_get, sst_mode_put,
 						snd_soc_info_enum_double},
-	/*{SOC_CONTROL_IO_SST_VOICE_MODE, sst_mode_get, sst_voice_mode_put,
-						snd_soc_info_enum_double},*/
+	{SOC_CONTROL_IO_SST_VOICE_MODE, sst_mode_get, sst_voice_mode_put,
+						snd_soc_info_enum_double},
 };
 
 const struct snd_soc_fw_widget_events sst_widget_ops[] = {

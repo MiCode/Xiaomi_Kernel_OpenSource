@@ -163,9 +163,6 @@ enum {
 #define SST_NUM_SSPS		(SST_SSP_LAST + 1)	/* physical SSPs */
 #define SST_MAX_SSP_MUX		2			/* single SSP muxed between pipes */
 #define SST_MAX_SSP_DOMAINS	2			/* domains present in each pipe */
-#define SST_BT_FM_MUX_SHIFT	0
-#define SST_VOICE_MODE_SHIFT	1
-#define SST_BT_MODE_SHIFT	2
 
 #define SST_SSP_FM_MUX			0
 #define SST_SSP_FM_DOMAIN		0

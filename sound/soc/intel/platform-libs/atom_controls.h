@@ -74,6 +74,10 @@
 /* last entry defines array size */
 #define SST_NUM_WIDGETS		(SST_REG_LAST + 1)
 
+#define SST_BT_FM_MUX_SHIFT	0
+#define SST_VOICE_MODE_SHIFT	1
+#define SST_BT_MODE_SHIFT	2
+
 /* in each mixer register we will define one bit for each input */
 #define SST_MIX_IP(x)		(x)
 

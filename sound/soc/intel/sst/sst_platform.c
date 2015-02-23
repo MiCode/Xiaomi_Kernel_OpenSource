@@ -21,6 +21,7 @@
 #include <asm/platform_byt_audio.h>
 #include <asm/platform_cht_audio.h>
 #include <sound/asound.h>
+#include "../platform-libs/atom_controls.h"
 #include "../platform-libs/atom_pipes.h"
 #include "sst.h"
 
