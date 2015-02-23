@@ -1488,7 +1488,7 @@
 		qcom,spdm-interval = <100>;
 
 		qcom,ports = <16>;
-		qcom,alpha-up = <7>;
+		qcom,alpha-up = <8>;
 		qcom,alpha-down = <15>;
 		qcom,bucket-size = <8>;
 
@@ -1501,7 +1501,7 @@
 		qcom,response-time-us = <10000 10000 10000 10000 3000 3000>;
 		/* pl1 low, pl1 high, pl2 low, pl2 high, pl3 low, pl3 high */
 		qcom,cci-response-time-us = <10000 10000 10000 10000 1000 1000>;
-		qcom,max-cci-freq = <600000000>;
+		qcom,max-cci-freq = <787000000>;
 	};
 
 	devfreq_spdm_gov {
