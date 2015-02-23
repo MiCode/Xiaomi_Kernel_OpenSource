@@ -33,6 +33,7 @@
 #include <sound/soc.h>
 #include <sound/intel_sst_ioctl.h>
 #include <asm/platform_sst_audio.h>
+#include <asm/platform_cht_audio.h>
 #include <asm/intel-mid.h>
 #include "platform_ipc_v2.h"
 #include "sst_platform.h"
@@ -272,8 +273,10 @@ int sst_fill_stream_params(void *substream,
 			}
 		}
 
-		if (str_params->device_type == SST_PROBE_IN)
-			str_params->stream_type = SST_STREAM_TYPE_PROBE;
+		if (pstream->pcm->device == CHT_DPCM_PROBE) {
+			str_params->device_type = map[index].device_id;
+			str_params->task = map[index].task_id;
+		}
 
 		pr_debug("str_id = %d, device_type = 0x%x, task = %d",
 			 str_params->stream_id, str_params->device_type,
@@ -489,6 +492,17 @@ static inline unsigned int get_current_pipe_id(struct snd_soc_platform *platform
 	return pipe_id;
 }
 
+static int sst_dpcm_probe_cmd(struct snd_soc_platform *platform,
+		struct snd_pcm_substream *substream, u16 pipe_id, bool on)
+{
+	int ret = 0;
+
+	if ((dpcm_enable == 1) && (substream->pcm->device == CHT_DPCM_PROBE))
+		ret = sst_dpcm_probe_send(platform, pipe_id, substream->number,
+							substream->stream, on);
+	return ret;
+}
+
 static int sst_media_prepare(struct snd_pcm_substream *substream,
 		struct snd_soc_dai *dai)
 {
@@ -554,6 +568,27 @@ static void sst_disable_ssp(struct snd_pcm_substream *substream,
 	}
 }
 
+static int sst_probe_prepare(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	u16 probe_pipe_id;
+
+	sst_media_prepare(substream, dai);
+	probe_pipe_id = get_current_pipe_id(dai->platform, substream);
+
+	return sst_dpcm_probe_cmd(dai->platform, substream, probe_pipe_id,
+								 true);
+}
+
+static void sst_probe_close(struct snd_pcm_substream *substream,
+		struct snd_soc_dai *dai)
+{
+	u16 probe_pipe_id = get_current_pipe_id(dai->platform, substream);
+
+	sst_dpcm_probe_cmd(dai->platform, substream, probe_pipe_id, false);
+	sst_media_close(substream, dai);
+}
+
 static struct snd_soc_dai_ops sst_media_dai_ops = {
 	.startup = sst_media_open,
 	.shutdown = sst_media_close,
@@ -566,6 +601,14 @@ static struct snd_soc_dai_ops sst_media_dai_ops = {
 
 static struct snd_soc_dai_ops sst_compr_dai_ops = {
 	.mute_stream = sst_media_digital_mute,
+};
+
+static struct snd_soc_dai_ops sst_probe_dai_ops = {
+	.startup = sst_media_open,
+	.hw_params = sst_media_hw_params,
+	.hw_free = sst_media_hw_free,
+	.shutdown = sst_probe_close,
+	.prepare = sst_probe_prepare,
 };
 
 static struct snd_soc_dai_ops sst_be_dai_ops = {
@@ -642,6 +685,28 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.channels_max = SST_STEREO,
 		.rates = SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
+	.name = SST_PROBE_DAI,
+	.ops = &sst_probe_dai_ops,
+	.playback = {
+		.stream_name = "Probe Playback",
+		.channels_min = SST_MONO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_8000 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S32_LE,
+	},
+	.capture = {
+		.stream_name = "Probe Capture",
+		.channels_min = SST_MONO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_8000 |
+				SNDRV_PCM_RATE_16000 | SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE | SNDRV_PCM_FMTBIT_S24_LE |
+			   SNDRV_PCM_FMTBIT_S32_LE,
 	},
 },
 /*BE CPU  Dais */

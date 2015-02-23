@@ -17,6 +17,7 @@ enum {
 	CHT_DPCM_DB,
 	CHT_DPCM_COMPR,
 	CHT_DPCM_VOIP,
+	CHT_DPCM_PROBE,
 };
 
 /* LPE viewpoint addresses */

@@ -804,6 +804,16 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.ops = &cht_8k_16k_ops,
 		.dynamic = 1,
 	},
+	[CHT_DPCM_PROBE] = {
+		.name = "Cherrytrail Probe Port",
+		.stream_name = "Cherrytrail Probe",
+		.cpu_dai_name = "Probe-cpu-dai",
+		.platform_name = "sst-platform",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.playback_count = 8,
+		.capture_count = 8,
+	},
 	/* CODEC<->CODEC link */
 	{
 		.name = "Cherrytrail Codec-Loop Port",
