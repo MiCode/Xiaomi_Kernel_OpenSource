@@ -812,14 +812,6 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 	dev_priv->modeset_restore = MODESET_DONE;
 	mutex_unlock(&dev_priv->modeset_restore_lock);
 
-	/*
-	 * VLV has a special case and we need to avoid the display going to D0
-	 * until we get suspend.
-	 * */
-	if ((!IS_VALLEYVIEW(dev) || IS_CHERRYVIEW(dev))
-			&& display_is_on(dev))
-		intel_display_set_init_power(dev_priv, false);
-
 	sysfs_notify(&dev->primary->kdev->kobj, NULL, "thaw");
 
 	return 0;
