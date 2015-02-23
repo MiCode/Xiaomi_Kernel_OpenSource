@@ -122,14 +122,6 @@ enum vidc_hw_reg {
 	VIDC_HWREG_HVI_SOFTINTEN =  0xA,
 };
 
-enum bus_index {
-	BUS_IDX_ENC_IMEM,
-	BUS_IDX_DEC_IMEM,
-	BUS_IDX_ENC_DDR,
-	BUS_IDX_DEC_DDR,
-	BUS_IDX_MAX
-};
-
 enum clock_state {
 	DISABLED_UNPREPARED,
 	ENABLED_PREPARED,
@@ -202,6 +194,8 @@ struct vidc_iface_q_info {
 /* Bus set helpers */
 #define venus_hfi_for_each_bus(__device, __binfo) \
 	venus_hfi_for_each_thing(__device, __binfo, bus)
+#define venus_hfi_for_each_bus_reverse(__device, __binfo) \
+	venus_hfi_for_each_thing_reverse(__device, __binfo, bus)
 
 
 /* Internal data used in vidc_hal not exposed to msm_vidc*/
@@ -244,10 +238,7 @@ struct venus_hfi_device {
 	u32 clk_load;
 	u32 codecs_enabled;
 	u32 last_packet_type;
-	struct {
-		struct vidc_bus_vote_data *vote_data;
-		u32 vote_data_count;
-	} bus_load;
+	struct msm_vidc_gov_data bus_vote;
 	enum clock_state clk_state;
 	bool power_enabled;
 	struct mutex read_lock;

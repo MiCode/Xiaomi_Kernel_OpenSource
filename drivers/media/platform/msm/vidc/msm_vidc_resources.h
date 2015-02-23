@@ -14,6 +14,7 @@
 #ifndef __MSM_VIDC_RESOURCES_H__
 #define __MSM_VIDC_RESOURCES_H__
 
+#include <linux/devfreq.h>
 #include <linux/platform_device.h>
 #include <media/msm_vidc.h>
 #define MAX_BUFFER_TYPES 32
@@ -90,10 +91,15 @@ struct clock_set {
 };
 
 struct bus_info {
-	struct msm_bus_scale_pdata *pdata;
-	u32 priv;
-	u32 sessions_supported; /* bitmask */
-	bool passive;
+	char *name;
+	int master;
+	int slave;
+	unsigned int range[2];
+	const char *governor;
+	struct device *dev;
+	struct devfreq_dev_profile devfreq_prof;
+	struct devfreq *devfreq;
+	struct msm_bus_client_handle *client;
 };
 
 struct bus_set {

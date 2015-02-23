@@ -438,6 +438,7 @@ static struct attribute_group msm_vidc_core_attr_group = {
 static const struct of_device_id msm_vidc_dt_match[] = {
 	{.compatible = "qcom,msm-vidc"},
 	{.compatible = "qcom,msm-vidc,context-bank"},
+	{.compatible = "qcom,msm-vidc,bus"},
 	{}
 };
 
@@ -662,20 +663,26 @@ err_no_mem:
 
 static int msm_vidc_probe_context_bank(struct platform_device *pdev)
 {
-	dprintk(VIDC_DBG, "Probing %s\n", dev_name(&pdev->dev));
 	return read_context_bank_resources_from_dt(pdev);
+}
+
+static int msm_vidc_probe_bus(struct platform_device *pdev)
+{
+	return read_bus_resources_from_dt(pdev);
 }
 
 static int msm_vidc_probe(struct platform_device *pdev)
 {
 	/*
-	 * Sub devices probe will be triggered by of_platform_populate()
-	 * towards the end of the probe function after msm-vidc device
-	 * probe is completed. Return immediately after completing sub-device
-	 * probe.
+	 * Sub devices probe will be triggered by of_platform_populate() towards
+	 * the end of the probe function after msm-vidc device probe is
+	 * completed. Return immediately after completing sub-device probe.
 	 */
 	if (of_device_is_compatible(pdev->dev.of_node, "qcom,msm-vidc")) {
 		return msm_vidc_probe_vidc_device(pdev);
+	} else if (of_device_is_compatible(pdev->dev.of_node,
+		"qcom,msm-vidc,bus")) {
+		return msm_vidc_probe_bus(pdev);
 	} else if (of_device_is_compatible(pdev->dev.of_node,
 		"qcom,msm-vidc,context-bank")) {
 		return msm_vidc_probe_context_bank(pdev);

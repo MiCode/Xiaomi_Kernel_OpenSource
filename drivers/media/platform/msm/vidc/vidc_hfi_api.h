@@ -1319,10 +1319,21 @@ static inline enum vidc_bus_vote_data_session VIDC_VOTE_DATA_SESSION_VAL(
 	return (1 << ilog2(c) * 2) | ((d - 1) << (ilog2(c) * 2 + 1));
 }
 
-struct vidc_bus_vote_data {
-	enum vidc_bus_vote_data_session session;
-	int load;
+struct msm_vidc_gov_data {
+	struct vidc_bus_vote_data *data;
+	u32 data_count;
+	int imem_size;
 };
+
+struct vidc_bus_vote_data {
+	enum hal_domain domain;
+	enum hal_video_codec codec;
+	enum hal_uncompressed_format color_formats[2];
+	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
+	int height, width, fps;
+	bool low_power_mode;
+};
+
 
 #define call_hfi_op(q, op, args...)			\
 	(((q) && (q)->op) ? ((q)->op(args)) : 0)

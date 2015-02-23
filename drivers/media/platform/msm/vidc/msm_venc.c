@@ -2679,8 +2679,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		venc_mode.mode = ctrl->val;
 		pdata = &venc_mode;
 		msm_dcvs_enc_set_power_save_mode(inst,
-			venc_mode.mode ==
-			V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE);
+			venc_mode.mode == V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS:
 		if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_HEVC) {

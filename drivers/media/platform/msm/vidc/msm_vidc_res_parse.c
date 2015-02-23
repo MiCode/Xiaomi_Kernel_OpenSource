@@ -109,11 +109,9 @@ static inline void msm_vidc_free_qdss_addr_table(
 static inline void msm_vidc_free_bus_vectors(
 			struct msm_vidc_platform_resources *res)
 {
-	int i = 0;
-	for (i = 0; i < res->bus_set.count; i++) {
-		if (res->bus_set.bus_tbl[i].pdata)
-			msm_bus_cl_clear_pdata(res->bus_set.bus_tbl[i].pdata);
-	}
+	kfree(res->bus_set.bus_tbl);
+	res->bus_set.bus_tbl = NULL;
+	res->bus_set.count = 0;
 }
 
 static inline void msm_vidc_free_buffer_usage_table(
@@ -314,75 +312,78 @@ static int msm_vidc_load_freq_table(struct msm_vidc_platform_resources *res)
 	return rc;
 }
 
-static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
+static int msm_vidc_populate_bus(struct device *dev,
+		struct msm_vidc_platform_resources *res)
 {
-	struct platform_device *pdev = res->pdev;
-	struct device_node *child_node, *bus_node;
 	struct bus_set *buses = &res->bus_set;
-	int rc = 0, c = 0;
-	u32 num_buses = 0;
+	const char *temp_name = NULL;
+	struct bus_info *bus = NULL, *temp_table;
+	u32 range[2];
+	int rc = 0;
 
-	bus_node = of_find_node_by_name(pdev->dev.of_node,
-			"qcom,msm-bus-clients");
-	if (!bus_node) {
-		/* Not a required property */
-		dprintk(VIDC_DBG, "qcom,msm-bus-clients not found\n");
-		rc = 0;
-		goto err_bad_node;
-	}
-
-	for_each_child_of_node(bus_node, child_node)
-		++num_buses;
-
-	buses->bus_tbl = devm_kzalloc(&pdev->dev, sizeof(*buses->bus_tbl) *
-			num_buses, GFP_KERNEL);
-	if (!buses->bus_tbl) {
-		dprintk(VIDC_ERR, "%s: Failed to allocate memory\n", __func__);
+	temp_table = krealloc(buses->bus_tbl, sizeof(*temp_table) *
+			(buses->count + 1), GFP_KERNEL);
+	if (!temp_table) {
+		dprintk(VIDC_ERR, "%s: Failed to allocate memory", __func__);
 		rc = -ENOMEM;
-		goto err_bad_node;
+		goto err_bus;
 	}
 
-	buses->count = num_buses;
-	c = 0;
+	buses->bus_tbl = temp_table;
+	bus = &buses->bus_tbl[buses->count];
 
-	for_each_child_of_node(bus_node, child_node) {
-		bool passive = false;
-		u32 configs = 0;
-		struct bus_info *bus = &buses->bus_tbl[c];
-
-		passive = of_property_read_bool(child_node, "qcom,bus-passive");
-		rc = of_property_read_u32(child_node, "qcom,bus-configs",
-				&configs);
-		if (rc) {
-			dprintk(VIDC_ERR,
-					"Failed to read qcom,bus-configs in %s: %d\n",
-					child_node->name, rc);
-			break;
-		}
-
-		bus->passive = passive;
-		bus->sessions_supported = configs;
-		bus->pdata = msm_bus_pdata_from_node(pdev, child_node);
-		if (IS_ERR_OR_NULL(bus->pdata)) {
-			rc = PTR_ERR(bus->pdata) ?: -EBADHANDLE;
-			dprintk(VIDC_ERR, "Failed to get bus pdata: %d\n", rc);
-			break;
-		}
-
-		dprintk(VIDC_DBG, "Bus %s supports: %x, passive: %d\n",
-				bus->pdata->name, bus->sessions_supported,
-				passive);
-		++c;
+	rc = of_property_read_string(dev->of_node, "label", &temp_name);
+	if (rc) {
+		dprintk(VIDC_ERR, "'label' not found in node\n");
+		goto err_bus;
+	}
+	/* need a non-const version of name, hence copying it over */
+	bus->name = devm_kstrdup(dev, temp_name, GFP_KERNEL);
+	if (!bus->name) {
+		rc = -ENOMEM;
+		goto err_bus;
 	}
 
-	if (c < num_buses) {
-		for (c--; c >= 0; c--)
-			msm_bus_cl_clear_pdata(buses->bus_tbl[c].pdata);
-
-		goto err_bad_node;
+	rc = of_property_read_u32(dev->of_node, "qcom,bus-master",
+			&bus->master);
+	if (rc) {
+		dprintk(VIDC_ERR, "'qcom,bus-master' not found in node\n");
+		goto err_bus;
 	}
 
-err_bad_node:
+	rc = of_property_read_u32(dev->of_node, "qcom,bus-slave", &bus->slave);
+	if (rc) {
+		dprintk(VIDC_ERR, "'qcom,bus-slave' not found in node\n");
+		goto err_bus;
+	}
+
+	rc = of_property_read_string(dev->of_node, "qcom,bus-governor",
+			&bus->governor);
+	if (rc) {
+		rc = 0;
+		dprintk(VIDC_DBG,
+				"'qcom,bus-governor' not found, default to performance governor\n");
+		bus->governor = "performance";
+	}
+
+	rc = of_property_read_u32_array(dev->of_node, "qcom,bus-range-kbps",
+			range, ARRAY_SIZE(range));
+	if (rc) {
+		rc = 0;
+		dprintk(VIDC_DBG,
+				"'qcom,range' not found defaulting to <0 INT_MAX>\n");
+		range[0] = 0;
+		range[1] = INT_MAX;
+	}
+
+	bus->range[0] = range[0]; /* min */
+	bus->range[1] = range[1]; /* max */
+
+	buses->count++;
+	bus->dev = dev;
+	dprintk(VIDC_DBG, "Found bus %s [%d->%d] with governor %s\n",
+			bus->name, bus->master, bus->slave, bus->governor);
+err_bus:
 	return rc;
 }
 
@@ -655,11 +656,6 @@ int read_platform_resources_from_dt(
 		goto err_load_reg_table;
 	}
 
-	rc = msm_vidc_load_bus_vectors(res);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to load bus vectors: %d\n", rc);
-		goto err_load_bus_vectors;
-	}
 	rc = msm_vidc_load_buffer_usage_table(res);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -716,8 +712,6 @@ err_load_clock_table:
 err_load_regulator_table:
 	msm_vidc_free_buffer_usage_table(res);
 err_load_buffer_usage_table:
-	msm_vidc_free_bus_vectors(res);
-err_load_bus_vectors:
 	msm_vidc_free_reg_table(res);
 err_load_reg_table:
 	msm_vidc_free_freq_table(res);
@@ -894,4 +888,27 @@ int read_context_bank_resources_from_dt(struct platform_device *pdev)
 			dprintk(VIDC_DBG, "Successfully probed context bank\n");
 	}
 	return rc;
+}
+
+int read_bus_resources_from_dt(struct platform_device *pdev)
+{
+	struct msm_vidc_core *core;
+
+	if (!pdev) {
+		dprintk(VIDC_ERR, "Invalid platform device\n");
+		return -EINVAL;
+	} else if (!pdev->dev.parent) {
+		dprintk(VIDC_ERR, "Failed to find a parent for %s\n",
+				dev_name(&pdev->dev));
+		return -ENODEV;
+	}
+
+	core = dev_get_drvdata(pdev->dev.parent);
+	if (!core) {
+		dprintk(VIDC_ERR, "Failed to find cookie in parent device %s",
+				dev_name(pdev->dev.parent));
+		return -EINVAL;
+	}
+
+	return msm_vidc_populate_bus(&pdev->dev, &core->resources);
 }

@@ -15,6 +15,7 @@
 #include <asm/memory.h>
 #include <linux/coresight-stm.h>
 #include <linux/delay.h>
+#include <linux/devfreq.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
@@ -63,6 +64,12 @@ enum tzbsp_video_state {
 struct tzbsp_video_set_state_req {
 	u32 state; /*shoud be tzbsp_video_state enum value*/
 	u32 spare; /*reserved for future, should be zero*/
+};
+
+const struct msm_vidc_gov_data DEFAULT_BUS_VOTE = {
+	.data = NULL,
+	.data_count = 0,
+	.imem_size = 0,
 };
 
 static void venus_hfi_pm_hndlr(struct work_struct *work);
@@ -727,45 +734,6 @@ static void venus_hfi_iommu_detach(void *dev)
 	}
 }
 
-#define BUS_LOAD(__w, __h, __fps) (\
-	/* Something's fishy if the width & height aren't macroblock aligned */\
-	BUILD_BUG_ON_ZERO(!IS_ALIGNED(__h, 16) || !IS_ALIGNED(__w, 16)) ?: \
-	(__h >> 4) * (__w >> 4) * __fps)
-
-static const u32 venus_hfi_bus_table[] = {
-	BUS_LOAD(0, 0, 0),
-	BUS_LOAD(640, 480, 30),
-	BUS_LOAD(640, 480, 60),
-	BUS_LOAD(1280, 736, 30),
-	BUS_LOAD(1280, 736, 60),
-	BUS_LOAD(1920, 1088, 30),
-	BUS_LOAD(1920, 1088, 60),
-	BUS_LOAD(3840, 2176, 24),
-	BUS_LOAD(4096, 2176, 24),
-	BUS_LOAD(3840, 2176, 30),
-};
-
-static int venus_hfi_get_bus_vector(struct venus_hfi_device *device,
-		struct bus_info *bus, int load)
-{
-	int num_rows = ARRAY_SIZE(venus_hfi_bus_table);
-	int i, j;
-
-	for (i = 0; i < num_rows; i++) {
-		if (load <= venus_hfi_bus_table[i])
-			break;
-	}
-
-	j = clamp(i, 0, num_rows - 1);
-
-	/* Ensure bus index remains within the supported range,
-	* as specified in the device dtsi file */
-	j = clamp(j, 0, bus->pdata->num_usecases - 1);
-
-	dprintk(VIDC_DBG, "Required bus = %d\n", j);
-	return j;
-}
-
 static bool venus_hfi_is_session_supported(unsigned long sessions_supported,
 		enum vidc_bus_vote_data_session session_type)
 {
@@ -788,69 +756,114 @@ static bool venus_hfi_is_session_supported(unsigned long sessions_supported,
 	return same_codec && same_session_type;
 }
 
-static int venus_hfi_vote_bus(struct bus_info *bus, unsigned int bus_vector)
+static int venus_hfi_devfreq_target(struct device *devfreq_dev,
+		unsigned long *freq, u32 flags)
 {
-	int rc = msm_bus_scale_client_update_request(bus->priv, bus_vector);
-	if (!rc) {
-		dprintk(VIDC_PROF, "%s bus %s (%s) to vector %d\n",
-				bus_vector ? "Voting" : "Unvoting",
-				bus->pdata->name,
-				bus->passive ? "passive" : "active",
-				bus_vector);
-	}
-
-	return rc;
-}
-
-static int venus_hfi_vote_passive_buses(void *dev,
-		struct vidc_bus_vote_data *data, int num_data)
-{
-	struct venus_hfi_device *device = dev;
-	struct bus_info *bus = NULL;
 	int rc = 0;
+	uint64_t ab = 0;
+	struct bus_info *bus = NULL, *temp = NULL;
+	struct venus_hfi_device *device = dev_get_drvdata(devfreq_dev);
 
-	/*
-	 * Neither of these parameters are used (or will be useful in future).
-	 * Just keeping these so that the API is consistent with _vote_active\
-	 * _buses().
-	 */
-	(void)data;
-	(void)num_data;
-
-	venus_hfi_for_each_bus(device, bus) {
-		/* Reject active buses, as those are driven by instance load */
-		if (!bus->passive)
-			continue;
-
-		/*
-		 * XXX: Should probably check *_is_session_supported() prior
-		 * to voting but probably overkill at this point.  So skip the
-		 * check for now.
-		 */
-		rc = venus_hfi_vote_bus(bus, 1);
-		if (rc) {
-			dprintk(VIDC_ERR,
-					"Failed voting for passive bus %s: %d\n",
-					bus->pdata->name, rc);
-			goto vote_fail;
+	venus_hfi_for_each_bus(device, temp) {
+		if (temp->dev == devfreq_dev) {
+			bus = temp;
+			break;
 		}
 	}
 
-vote_fail:
+	if (!bus) {
+		rc = -EBADHANDLE;
+		goto err_unknown_device;
+	}
+
+	/* we expect governors to provide values in kbps form, convert to bps */
+	ab = *freq * 1000;
+	rc = msm_bus_scale_update_bw(bus->client, ab, 0);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed voting bus %s to ab %llu\n: %d",
+				bus->name, ab, rc);
+		goto err_unknown_device;
+	}
+
+	dprintk(VIDC_PROF, "Voting bus %s to ab %llu\n", bus->name, ab);
+
+	return 0;
+err_unknown_device:
 	return rc;
 }
 
-static int venus_hfi_vote_active_buses(void *dev,
-		struct vidc_bus_vote_data *data, int num_data)
+static int venus_hfi_devfreq_get_status(struct device *devfreq_dev,
+		struct devfreq_dev_status *stat)
 {
-	struct {
-		struct bus_info *bus;
-		int load;
-	} *aggregate_load_table;
-	int rc = 0, i = 0, num_bus = 0;
+	int rc = 0;
+	struct bus_info *bus = NULL, *temp = NULL;
+	struct venus_hfi_device *device = dev_get_drvdata(devfreq_dev);
+
+	venus_hfi_for_each_bus(device, temp) {
+		if (temp->dev == devfreq_dev) {
+			bus = temp;
+			break;
+		}
+	}
+
+	if (!bus) {
+		rc = -EBADHANDLE;
+		goto err_unknown_device;
+	}
+
+	*stat = (struct devfreq_dev_status) {
+		.private_data = &device->bus_vote,
+		/*
+		 * Put in dummy place holder values for upstream govs, our
+		 * custom gov only needs .private_data.  We should fill this in
+		 * properly if we can actually measure busy_time accurately
+		 * (which we can't at the moment)
+		 */
+		.total_time = 1,
+		.busy_time = 1,
+		.current_frequency = 0,
+	};
+
+err_unknown_device:
+	return rc;
+}
+
+static int venus_hfi_unvote_buses(void *dev)
+{
+	int rc = 0;
 	struct venus_hfi_device *device = dev;
 	struct bus_info *bus = NULL;
-	struct vidc_bus_vote_data *cached_vote_data = NULL;
+
+	if (!dev) {
+		dprintk(VIDC_ERR, "Invalid device in %s\n", __func__);
+		return -EINVAL;
+	}
+
+	kfree(device->bus_vote.data);
+	device->bus_vote = DEFAULT_BUS_VOTE;
+
+	venus_hfi_for_each_bus(device, bus) {
+		int local_rc = 0;
+		unsigned long zero = 0;
+
+		devfreq_suspend_device(bus->devfreq);
+		local_rc = venus_hfi_devfreq_target(bus->dev, &zero, 0);
+		rc = rc ?: local_rc;
+	}
+
+	if (rc)
+		dprintk(VIDC_WARN, "Failed to unvote some buses\n");
+
+	return rc;
+}
+
+static int venus_hfi_vote_buses(void *dev,
+		struct vidc_bus_vote_data *data, int num_data)
+{
+	int rc = 0;
+	struct venus_hfi_device *device = dev;
+	struct bus_info *bus = NULL;
+	struct vidc_bus_vote_data *new_data = NULL;
 
 	if (!dev) {
 		dprintk(VIDC_ERR, "Invalid device\n");
@@ -863,145 +876,25 @@ static int venus_hfi_vote_active_buses(void *dev,
 		return -EINVAL;
 	}
 
-	/* (Re-)alloc memory to store the new votes (in case we internally
-	 * re-vote after power collapse, which is transparent to client) */
-	cached_vote_data = krealloc(device->bus_load.vote_data, num_data *
-			sizeof(*cached_vote_data), GFP_KERNEL);
-	if (!cached_vote_data) {
+	new_data = kmemdup(data, num_data * sizeof(*new_data), GFP_KERNEL);
+	if (!new_data) {
 		dprintk(VIDC_ERR, "Can't alloc memory to cache bus votes\n");
 		rc = -ENOMEM;
 		goto err_no_mem;
 	}
 
-	/* Alloc & init the load table */
-	num_bus = device->res->bus_set.count;
-	aggregate_load_table = kzalloc(sizeof(*aggregate_load_table) * num_bus,
-			GFP_TEMPORARY);
-	if (!aggregate_load_table) {
-		dprintk(VIDC_ERR, "The world is ending (no more memory)\n");
-		rc = -ENOMEM;
-		goto err_no_mem;
-	}
-
-	i = 0;
-	venus_hfi_for_each_bus(device, bus)
-		aggregate_load_table[i++].bus = bus;
-
-	/* Aggregate the loads for each bus */
-	for (i = 0; i < num_data; ++i) {
-		int j = 0;
-
-		for (j = 0; j < num_bus; ++j) {
-			bool matches = venus_hfi_is_session_supported(
-					aggregate_load_table[j].bus->
-						sessions_supported,
-					data[i].session);
-
-			if (matches) {
-				aggregate_load_table[j].load +=
-					data[i].load;
-			}
-		}
-	}
-
-	/* Now vote for each bus */
-	for (i = 0; i < num_bus; ++i) {
-		int bus_vector = 0;
-		struct bus_info *bus = aggregate_load_table[i].bus;
-		int load = aggregate_load_table[i].load;
-
-		/* Passive buses aren't meant to be scaled by load */
-		if (bus->passive)
-			continue;
-
-		/* Let's avoid voting for imem if allocation failed.
-		 * There's no clean way presently to check which buses are
-		 * associated with imem. So do a crude check for the bus name,
-		 * which relies on the buses being named appropriately. */
-		if (!device->resources.imem.type && strnstr(bus->pdata->name,
-					"ocmem", strlen(bus->pdata->name))) {
-			dprintk(VIDC_DBG, "Skipping voting for %s (no imem)\n",
-					bus->pdata->name);
-			continue;
-		}
-
-		bus_vector = venus_hfi_get_bus_vector(device, bus, load);
-		rc = venus_hfi_vote_bus(bus, bus_vector);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed voting for bus %s @ %d: %d\n",
-					bus->pdata->name, bus_vector, rc);
-			/* Ignore error and try to vote for the rest */
-			rc = 0;
-		}
-	}
-
-	/* Cache the votes */
-	for (i = 0; i < num_data; ++i)
-		cached_vote_data[i] = data[i];
-
-	device->bus_load.vote_data = cached_vote_data;
-	device->bus_load.vote_data_count = num_data;
-
-	kfree(aggregate_load_table);
-err_no_mem:
-	return rc;
-
-}
-
-static int venus_hfi_unvote_buses_of_type(struct venus_hfi_device *device,
-		bool only_passive)
-{
-	struct bus_info *bus = NULL;
-	int rc = 0;
+	kfree(device->bus_vote.data);
+	device->bus_vote.data = new_data;
+	device->bus_vote.data_count = num_data;
+	device->bus_vote.imem_size = device->res->imem_size;
 
 	venus_hfi_for_each_bus(device, bus) {
-		int local_rc = 0;
-
-		if (bus->passive != only_passive)
-			continue;
-
-		local_rc = venus_hfi_vote_bus(bus, 0);
-		if (local_rc) {
-			rc = rc ?: local_rc;
-			dprintk(VIDC_ERR,
-					"Failed unvoting passive bus %s: %d\n",
-					bus->pdata->name, rc);
-		}
+		devfreq_resume_device(bus->devfreq); /* NOP if already resume */
+		/* Kick devfreq awake incase _resume() didn't do it */
+		bus->devfreq->nb.notifier_call(&bus->devfreq->nb, 0, NULL);
 	}
 
-	return rc;
-}
-
-static int venus_hfi_unvote_passive_buses(void *dev)
-{
-	return venus_hfi_unvote_buses_of_type(dev, true);
-}
-
-static int venus_hfi_unvote_active_buses(void *dev)
-{
-	return venus_hfi_unvote_buses_of_type(dev, false);
-}
-
-static int venus_hfi_unvote_buses(void *dev)
-{
-	venus_hfi_unvote_active_buses(dev);
-	venus_hfi_unvote_passive_buses(dev);
-
-	return 0;
-}
-
-static int venus_hfi_vote_buses(void *dev,
-		struct vidc_bus_vote_data *data, int num_data)
-{
-	int rc = venus_hfi_vote_passive_buses(dev, data, num_data);
-	rc = rc ?: venus_hfi_vote_active_buses(dev, data, num_data);
-
-	if (rc)
-		goto fail_vote;
-
-	return 0;
-fail_vote:
-	venus_hfi_unvote_buses(dev);
+err_no_mem:
 	return rc;
 }
 
@@ -1234,8 +1127,8 @@ static int venus_hfi_set_imem(struct venus_hfi_device *device,
 			"Managed to set IMEM buffer of type %d sized %d bytes at %pa\n",
 			rhdr.resource_id, rhdr.size, &addr);
 
-	rc = venus_hfi_vote_buses(device, device->bus_load.vote_data,
-			device->bus_load.vote_data_count);
+	rc = venus_hfi_vote_buses(device, device->bus_vote.data,
+			device->bus_vote.data_count);
 	if (rc) {
 		dprintk(VIDC_ERR,
 				"Failed to vote for buses after setting imem: %d\n",
@@ -1606,8 +1499,8 @@ static inline int venus_hfi_power_on(struct venus_hfi_device *device)
 		return 0;
 
 	dprintk(VIDC_DBG, "Resuming from power collapse\n");
-	rc = venus_hfi_vote_buses(device, device->bus_load.vote_data,
-			device->bus_load.vote_data_count);
+	rc = venus_hfi_vote_buses(device, device->bus_vote.data,
+			device->bus_vote.data_count);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to scale buses\n");
 		goto err_vote_buses;
@@ -3628,68 +3521,78 @@ static void venus_hfi_deinit_bus(struct venus_hfi_device *device)
 	if (!device)
 		return;
 
-	venus_hfi_for_each_bus(device, bus) {
-		if (bus->priv) {
-			msm_bus_scale_unregister_client(
-				bus->priv);
-			bus->priv = 0;
-			dprintk(VIDC_DBG, "Unregistered bus client %s\n",
-				bus->pdata->name);
-		}
-	}
+	kfree(device->bus_vote.data);
+	device->bus_vote = DEFAULT_BUS_VOTE;
 
-	kfree(device->bus_load.vote_data);
-	device->bus_load.vote_data = NULL;
-	device->bus_load.vote_data_count = 0;
+	venus_hfi_for_each_bus_reverse(device, bus) {
+		devfreq_remove_device(bus->devfreq);
+		bus->devfreq = NULL;
+
+		msm_bus_scale_unregister(bus->client);
+		bus->client = NULL;
+	}
 }
 
 static int venus_hfi_init_bus(struct venus_hfi_device *device)
 {
 	struct bus_info *bus = NULL;
 	int rc = 0;
+
 	if (!device)
 		return -EINVAL;
 
-
 	venus_hfi_for_each_bus(device, bus) {
-		const char *name = bus->pdata->name;
+		struct devfreq_dev_profile profile = {
+			.initial_freq = 0,
+			.polling_ms = INT_MAX,
+			.freq_table = bus->range,
+			.max_state = ARRAY_SIZE(bus->range),
+			.target = venus_hfi_devfreq_target,
+			.get_dev_status = venus_hfi_devfreq_get_status,
+			.exit = NULL,
+		};
 
-		if (!device->res->imem_type &&
-			strnstr(name, "ocmem", strlen(name))) {
-			dprintk(VIDC_ERR,
-				"%s found when target doesn't support ocmem\n",
-				name);
-			rc = -EINVAL;
-			goto err_init_bus;
-		} else if (bus->passive && bus->pdata->num_usecases != 2) {
-			/*
-			 * Passive buses can only be "turned on" and "turned
-			 * off".  We never scale them based on hardware load,
-			 * and are usually used for the purposes of holding
-			 * certain clocks high (in case we can't control these
-			 * clocks directly).
-			 */
-			rc = -EINVAL;
-			dprintk(VIDC_ERR,
-					"Passive buses expected to have only 2 vectors\n");
+		/*
+		 * This is stupid, but there's no other easy way to ahold
+		 * of struct bus_info in venus_hfi_devfreq_*()
+		 */
+		WARN(dev_get_drvdata(bus->dev), "%s's drvdata already set\n",
+				dev_name(bus->dev));
+		dev_set_drvdata(bus->dev, device);
+
+		bus->client = msm_bus_scale_register(bus->master, bus->slave,
+				bus->name, false);
+		if (IS_ERR_OR_NULL(bus->client)) {
+			rc = PTR_ERR(bus->client) ?: -EBADHANDLE;
+			dprintk(VIDC_ERR, "Failed to register bus %s: %d\n",
+					bus->name, rc);
+			bus->client = NULL;
+			goto err_add_dev;
 		}
 
-		bus->priv = msm_bus_scale_register_client(bus->pdata);
-		if (!bus->priv) {
+		bus->devfreq_prof = profile;
+		bus->devfreq = devfreq_add_device(bus->dev,
+				&bus->devfreq_prof, bus->governor, NULL);
+		if (IS_ERR_OR_NULL(bus->devfreq)) {
+			rc = PTR_ERR(bus->devfreq) ?: -EBADHANDLE;
 			dprintk(VIDC_ERR,
-				"Failed to register bus client %s\n", name);
-			rc = -EBADHANDLE;
-			goto err_init_bus;
+					"Failed to add devfreq device for bus %s and governor %s: %d\n",
+					bus->name, bus->governor, rc);
+			bus->devfreq = NULL;
+			goto err_add_dev;
 		}
 
-		dprintk(VIDC_DBG, "Registered bus client %s\n", name);
+		/*
+		 * Devfreq starts monitoring immediately, since we are just
+		 * initializing stuff at this point, force it to suspend
+		 */
+		devfreq_suspend_device(bus->devfreq);
 	}
 
-	device->bus_load.vote_data = NULL;
-	device->bus_load.vote_data_count = 0;
+	device->bus_vote = DEFAULT_BUS_VOTE;
+	return 0;
 
-	return rc;
-err_init_bus:
+err_add_dev:
 	venus_hfi_deinit_bus(device);
 	return rc;
 }
@@ -3951,8 +3854,8 @@ static int venus_hfi_load_fw(void *dev)
 	trace_msm_v4l2_vidc_fw_load_start("msm_v4l2_vidc venus_fw load start");
 
 	/* Vote for all hardware resources */
-	rc = venus_hfi_vote_buses(device, device->bus_load.vote_data,
-			device->bus_load.vote_data_count);
+	rc = venus_hfi_vote_buses(device, device->bus_vote.data,
+			device->bus_vote.data_count);
 	if (rc) {
 		dprintk(VIDC_ERR,
 				"Failed to vote buses when loading firmware: %d\n",
@@ -4049,6 +3952,7 @@ static void venus_hfi_unload_fw(void *dev)
 		venus_hfi_unvote_buses(device);
 		device->power_enabled = false;
 		device->resources.fw.cookie = NULL;
+		venus_hfi_deinit_resources(device);
 	}
 }
 
@@ -4073,8 +3977,8 @@ static int venus_hfi_resurrect_fw(void *dev)
 	dprintk(VIDC_ERR, "praying for firmware resurrection\n");
 	venus_hfi_unload_fw(device);
 
-	rc = venus_hfi_vote_buses(device, device->bus_load.vote_data,
-			device->bus_load.vote_data_count);
+	rc = venus_hfi_vote_buses(device, device->bus_vote.data,
+			device->bus_vote.data_count);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to scale buses\n");
 		goto exit;
@@ -4266,7 +4170,6 @@ void venus_hfi_delete_device(void *device)
 
 	if (device) {
 		venus_hfi_iommu_detach(device);
-		venus_hfi_deinit_resources(device);
 		dev = (struct venus_hfi_device *) device;
 		list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
 			if (close->hal_data->irq == dev->hal_data->irq) {
@@ -4311,8 +4214,8 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_set_property = venus_hfi_session_set_property;
 	hdev->session_get_property = venus_hfi_session_get_property;
 	hdev->scale_clocks = venus_hfi_scale_clocks;
-	hdev->vote_bus = venus_hfi_vote_active_buses;
-	hdev->unvote_bus = venus_hfi_unvote_active_buses;
+	hdev->vote_bus = venus_hfi_vote_buses;
+	hdev->unvote_bus = venus_hfi_unvote_buses;
 	hdev->load_fw = venus_hfi_load_fw;
 	hdev->unload_fw = venus_hfi_unload_fw;
 	hdev->resurrect_fw = venus_hfi_resurrect_fw;

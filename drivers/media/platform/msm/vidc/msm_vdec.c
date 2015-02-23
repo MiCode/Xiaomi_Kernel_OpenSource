@@ -1409,11 +1409,11 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 			goto err_invalid_fmt;
 		}
 
-		if (!(get_hal_codec_type(fmt->fourcc) &
+		if (!(get_hal_codec(fmt->fourcc) &
 			inst->core->dec_codec_supported)) {
 			dprintk(VIDC_ERR,
 				"Codec(%#x) is not present in the supported codecs list(%#x)\n",
-				get_hal_codec_type(fmt->fourcc),
+				get_hal_codec(fmt->fourcc),
 				inst->core->dec_codec_supported);
 			rc = -EINVAL;
 			goto err_invalid_fmt;

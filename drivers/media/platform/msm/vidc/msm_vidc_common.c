@@ -169,7 +169,7 @@ static enum hal_domain get_hal_domain(int session_type)
 	return domain;
 }
 
-enum hal_video_codec get_hal_codec_type(int fourcc)
+enum hal_video_codec get_hal_codec(int fourcc)
 {
 	enum hal_video_codec codec;
 	switch (fourcc) {
@@ -280,17 +280,40 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 	}
 
 	list_for_each_entry(inst, &core->instances, list) {
-		int codec = 0;
+		int codec = 0, yuv = 0;
+		bool low_power = false;
 
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT]->fourcc :
 			inst->fmts[CAPTURE_PORT]->fourcc;
 
-		vote_data[i].session = VIDC_VOTE_DATA_SESSION_VAL(
-				get_hal_codec_type(codec),
-				get_hal_domain(inst->session_type));
-		vote_data[i].load = msm_comm_get_inst_load(inst,
-				LOAD_CALC_NO_QUIRKS);
+		yuv = inst->session_type == MSM_VIDC_DECODER ?
+			inst->fmts[CAPTURE_PORT]->fourcc :
+			inst->fmts[OUTPUT_PORT]->fourcc;
+
+		low_power = msm_comm_g_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE) ==
+			V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE;
+
+		vote_data[i].domain = get_hal_domain(inst->session_type);
+		vote_data[i].codec = get_hal_codec(codec);
+		vote_data[i].width = inst->prop.width[CAPTURE_PORT];
+		vote_data[i].height = inst->prop.height[CAPTURE_PORT];
+		vote_data[i].fps = inst->prop.fps;
+		vote_data[i].low_power_mode = low_power;
+
+		/*
+		 * TODO: support for OBP-DBP split mode hasn't been yet
+		 * implemented, once it is, this part of code needs to be
+		 * revisited since passing in accurate information to the bus
+		 * governor will drastically reduce bandwidth
+		 */
+		vote_data[i].color_formats[0] = get_hal_uncompressed(yuv);
+		vote_data[i].num_formats = 1;
+		WARN(msm_comm_get_stream_output_mode(inst) ==
+				HAL_VIDEO_DECODER_SECONDARY,
+			"Bus voting for sessions with split mode not yet implemented\n");
+
 		i++;
 	}
 	mutex_unlock(&core->lock);
@@ -1707,7 +1730,7 @@ int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec)
 			inst->fmts[CAPTURE_PORT]->fourcc;
 
 		codecs_enabled |= VIDC_VOTE_DATA_SESSION_VAL(
-				get_hal_codec_type(codec),
+				get_hal_codec(codec),
 				get_hal_domain(inst->session_type));
 
 	}
@@ -2119,7 +2142,7 @@ static int msm_comm_session_init(int flipped_state,
 
 	inst->session = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
 			inst, get_hal_domain(inst->session_type),
-			get_hal_codec_type(fourcc));
+			get_hal_codec(fourcc));
 
 	if (!inst->session) {
 		dprintk(VIDC_ERR,

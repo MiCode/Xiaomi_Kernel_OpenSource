@@ -1,6 +1,8 @@
 * Qualcomm MSM VIDC
 
 [Root level node]
+Venus
+=====
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
@@ -17,58 +19,44 @@ Optional properties:
 - reg : offset and length of the register set for the device.
 - interrupts : should contain the vidc interrupt.
 - qcom,load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec
-  clock required along with codec's config (same as qcom,bus-configs mentioned below)
-  for optimal performance in descending order.
+  clock required along with codec's config, which is a bitmap that describes
+  what the clock is used for. The bitmaps are as follows:
+    supports mvc encoder = 0x00000001
+    supports mvc decoder = 0x00000003
+    supports h264 encoder = 0x00000004
+    supports h264 decoder = 0x0000000c
+    supports h263 encoder = 0x00000010
+    supports h263 decoder = 0x00000030
+    supports mpeg1 encoder = 0x00000040
+    supports mpeg1 decoder = 0x000000c0
+    supports mpeg2 encoder = 0x00000100
+    supports mpeg2 decoder = 0x00000300
+    supports mpeg4 encoder = 0x00000400
+    supports mpeg4 decoder = 0x00000c00
+    supports divx_311 encoder = 0x00001000
+    supports divx_311 decoder = 0x00003000
+    supports divx encoder = 0x00004000
+    supports divx decoder = 0x0000c000
+    supports vc1 encoder = 0x00010000
+    supports vc1 decoder = 0x00030000
+    supports spark encoder = 0x00040000
+    supports spark decoder = 0x000c0000
+    supports vp6 encoder = 0x00100000
+    supports vp6 decoder = 0x00300000
+    supports vp7 encoder = 0x00400000
+    supports vp7 decoder = 0x00c00000
+    supports vp8 encoder = 0x01000000
+    supports vp8 decoder = 0x03000000
+    supports hevc encoder = 0x04000000
+    supports hevc decoder = 0x0c000000
+    supports hevc_hybrid encoder = 0x10000000
+    supports hevc_hybrid decoder = 0x30000000
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
 - qcom,qdss-presets : list of physical address and memory allocation size pairs.
   when fw_debug_mode is set as HFI_DEBUG_MODE_QDSS, all firmware messages will be
   written to QDSS memory.
-- qcom,msm-bus-clients : list of bus clients/consumer each listed as a node.
-  The format of the node should follow the layout specified by the bus provider
-  for bus consumers at Documentation/devicetree/bindings/arm/msm/msm_bus.txt.
-  In addition to the properties specified by the bus provider client also needs
-	- qcom,bus-passive: A bool indicating the bus is "not active".  Active
-	  buses are defined as buses that are scaled according to hardware load.
-	  Passive buses are not scaled by load and are typically just "turned on"
-	  to keep certain clocks (that aren't directly controllable by the driver)
-	  high.
-        - qcom,bus-configs: A bitmap that describes the configuration of the
-          bus. The bitmaps are as follows:
-          supports mvc encoder = 0x00000001
-          supports mvc decoder = 0x00000003
-          supports h264 encoder = 0x00000004
-          supports h264 decoder = 0x0000000c
-          supports h263 encoder = 0x00000010
-          supports h263 decoder = 0x00000030
-          supports mpeg1 encoder = 0x00000040
-          supports mpeg1 decoder = 0x000000c0
-          supports mpeg2 encoder = 0x00000100
-          supports mpeg2 decoder = 0x00000300
-          supports mpeg4 encoder = 0x00000400
-          supports mpeg4 decoder = 0x00000c00
-          supports divx_311 encoder = 0x00001000
-          supports divx_311 decoder = 0x00003000
-          supports divx encoder = 0x00004000
-          supports divx decoder = 0x0000c000
-          supports vc1 encoder = 0x00010000
-          supports vc1 decoder = 0x00030000
-          supports spark encoder = 0x00040000
-          supports spark decoder = 0x000c0000
-          supports vp6 encoder = 0x00100000
-          supports vp6 decoder = 0x00300000
-          supports vp7 encoder = 0x00400000
-          supports vp7 decoder = 0x00c00000
-          supports vp8 encoder = 0x01000000
-          supports vp8 decoder = 0x03000000
-          supports hevc encoder = 0x04000000
-          supports hevc decoder = 0x0c000000
-          supports hevc_hybrid encoder = 0x10000000
-          supports hevc_hybrid decoder = 0x30000000
-- qcom,buffer-type-tz-usage-table : a key-value pair, mapping a buffer type
-  (enum hal_buffer) to its corresponding TZ usage. The TZ usages are defined
-  as "enum cp_mem_usage" in include/linux/msm_ion.h
 - qcom,imem-size: imem size required by hardware for optimum performance.
   If imem is not present then there is no need to specify this property.
 - *-supply: A phandle pointing to the appropriate regulator. Number of
@@ -100,6 +88,8 @@ Optional properties:
   legacy.
 
 [Second level nodes]
+Context Banks
+=============
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc,context-bank"
@@ -126,6 +116,27 @@ Optional properties:
 - virtual-addr-pool : offset and length of virtual address pool.
 - qcom,fw-context-bank : bool indicating firmware context bank.
 - qcom,secure-context-bank : bool indicating secure context bank.
+
+Buses
+=====
+Required properties:
+- compatible : one of:
+	- "qcom,msm-vidc,bus"
+- label : an arbitrary name
+- qcom,bus-master : an integer descriptor of the bus master. Refer to arch/arm/\
+  boot/dts/include/dt-bindings/msm/msm-bus-ids.h for list of acceptable masters
+- qcom,bus-slave : an integer descriptor of the bus slave. Refer to arch/arm/\
+  boot/dts/include/dt-bindings/msm/msm-bus-ids.h for list of acceptable slaves
+
+Optional properties:
+- qcom,bus-governor : governor to use when scaling bus, generally any commonly
+  found devfreq governor might be used.  In addition to those governors, the
+  custom Venus govenors, "msm-vidc-bw-ddr" or "msm-vidc-bw-vmem" are also
+  acceptable values.
+  In the absence of this property the "performance" governor is used.
+- qcom,bus-rage-kbps : an array of two items (<min max>) that indicate the
+  minimum and maximum acceptable votes for the bus.
+  In the absence of this property <0 INT_MAX> is used.
 
 Example:
 
@@ -161,29 +172,6 @@ Example:
 		qcom,buffer-type-tz-usage-table = <0x1 0x1>,
 						<0x1fe 0x2>;
 		qcom,enable-thermal-mitigation;
-		qcom,msm-bus-clients {
-			qcom,msm-bus-client@0 {
-				qcom,msm-bus,name = "venc-ddr";
-				qcom,msm-bus,num-cases = <2>;
-				qcom,msm-bus,active-only = <0>;
-				qcom,msm-bus,num-paths = <1>;
-				qcom,msm-bus,vectors-KBps =
-					<63 512 0 0>,
-					<63 512 60000 302000>;
-				qcom,bus-configs = <0x2>;
-			};
-			qcom,msm-bus-client@1 {
-				qcom,msm-bus,name = "vdec-ddr";
-				qcom,msm-bus,num-cases = <2>;
-				qcom,msm-bus,active-only = <0>;
-				qcom,msm-bus,num-paths = <1>;
-				qcom,msm-bus,vectors-KBps =
-					<63 512 0 0>,
-					<63 512 104000 303000>;
-				qcom,bus-configs = <0xf>;
-				qcom,bus-passive;
-			};
-		};
 		qcom,use-non-secure-pil;
 		qcom,use_dynamic_bw_update;
 		qcom,fw-bias = <0xe000000>;
@@ -197,10 +185,29 @@ Example:
 			virtual-addr-pool = <0x5dc00000 0x80000000>;
 			qcom,secure-context-bank;
 		};
+
 		msm_vidc_cb2: msm_vidc_cb2 {
 			compatible = "qcom,msm-vidc,context-bank";
 			qcom,fw-context-bank;
 			iommus = <&venus_smmu 0x100>,
 				<&venus_smmu 0x106>;
+		};
+
+		bus_cnoc {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-cnoc";
+			qcom,bus-master = <MSM_BUS_MASTER_AMPSS_M0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_VENUS_CFG>;
+			qcom,bus-governor = "performance";
+			qcom,bus-range-kbps = <1 1>;
+		};
+
+		venus_bus_ddr {
+			compatible = "qcom,msm-vidc,bus";
+			label = "venus-ddr";
+			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
+			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
+			qcom,bus-governor = "msm-vidc-bw-ddr";
+			qcom,bus-range-kbps = <1000 3388000>;
 		};
 	};

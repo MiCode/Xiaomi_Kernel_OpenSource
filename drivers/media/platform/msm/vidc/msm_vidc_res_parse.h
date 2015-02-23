@@ -25,4 +25,6 @@ int read_platform_resources_from_dt(
 		struct msm_vidc_platform_resources *res);
 
 int read_context_bank_resources_from_dt(struct platform_device *pdev);
+
+int read_bus_resources_from_dt(struct platform_device *pdev);
 #endif
