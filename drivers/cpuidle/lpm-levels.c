@@ -102,6 +102,7 @@ module_param_named(
 static int msm_pm_sleep_time_override;
 module_param_named(sleep_time_override,
 	msm_pm_sleep_time_override, int, S_IRUGO | S_IWUSR | S_IWGRP);
+static uint64_t suspend_wake_time;
 
 static bool print_parsed_dt;
 module_param_named(
@@ -116,6 +117,21 @@ s32 msm_cpuidle_get_deep_idle_latency(void)
 {
 	return 10;
 }
+
+void lpm_suspend_wake_time(uint64_t wakeup_time)
+{
+	if (wakeup_time <= 0) {
+		suspend_wake_time = msm_pm_sleep_time_override;
+		return;
+	}
+
+	if (msm_pm_sleep_time_override &&
+		(msm_pm_sleep_time_override < wakeup_time))
+		suspend_wake_time = msm_pm_sleep_time_override;
+	else
+		suspend_wake_time = wakeup_time;
+}
+EXPORT_SYMBOL(lpm_suspend_wake_time);
 
 static void update_debug_pc_event(enum debug_event event, uint32_t arg1,
 		uint32_t arg2, uint32_t arg3, uint32_t arg4)
@@ -334,14 +350,15 @@ static uint64_t get_cluster_sleep_time(struct lpm_cluster *cluster,
 	struct cpumask online_cpus_in_cluster;
 
 	next_event.tv64 = KTIME_MAX;
-
+	if (!suspend_wake_time)
+		suspend_wake_time =  msm_pm_sleep_time_override;
 	if (!from_idle) {
 		if (mask)
 			cpumask_copy(mask, cpumask_of(raw_smp_processor_id()));
-		if (!msm_pm_sleep_time_override)
+		if (!suspend_wake_time)
 			return ~0ULL;
 		else
-			return USEC_PER_SEC * msm_pm_sleep_time_override;
+			return USEC_PER_SEC * suspend_wake_time;
 	}
 
 	BUG_ON(!cpumask_and(&online_cpus_in_cluster,
