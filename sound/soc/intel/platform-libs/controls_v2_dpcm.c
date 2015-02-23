@@ -505,6 +505,68 @@ static int sst_mode_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sst_send_speech_path(struct sst_data *sst, u16 switch_state);
+static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst,
+								int mute);
+static void sst_find_and_send_pipe_algo(struct sst_data *sst,
+					const char *pipe, struct sst_ids *ids);
+
+static void sst_send_pipe_module_params(struct snd_soc_dapm_widget *w)
+{
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
+	struct sst_ids *ids = w->priv;
+
+	sst_find_and_send_pipe_algo(sst, w->name, ids);
+	sst_set_pipe_gain(ids, sst, 0);
+}
+
+static const char * const sst_voice_widgets[] = {
+	"speech_out", "hf_out", "hf_sns_out", "txspeech_in", "sidetone_in",
+	"speech_in", "rxspeech_out",
+};
+
+static int sst_voice_mode_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct soc_enum *e = (void *)kcontrol->private_value;
+	struct snd_soc_dapm_widget *w;
+	unsigned int max = e->max - 1;
+	unsigned int val, orig;
+	int i;
+
+	if (ucontrol->value.enumerated.item[0] > max)
+		return -EINVAL;
+
+	orig = sst_reg_read(sst, e->reg, e->shift_l, max);
+	if (orig == ucontrol->value.enumerated.item[0])
+		return 0;
+
+	val = sst_reg_write(sst, e->reg, e->shift_l, max,
+					ucontrol->value.enumerated.item[0]);
+	pr_debug("%s: reg[%d] - %#x\n", __func__, e->reg, val);
+
+	w = snd_soc_dapm_find_widget(&platform->dapm, sst_voice_widgets[0],
+									true);
+
+	/* disable and enable the voice path
+	   so that the mode change takes effect */
+	if (w->power) {
+		sst_send_speech_path(sst, SST_SWITCH_OFF);
+		sst_send_speech_path(sst, SST_SWITCH_ON);
+
+		sst_send_pipe_module_params(w);
+		for (i = 1; i < ARRAY_SIZE(sst_voice_widgets); i++) {
+			w = snd_soc_dapm_find_widget(&platform->dapm,
+						sst_voice_widgets[i], true);
+			sst_send_pipe_module_params(w);
+		}
+	}
+	return 0;
+}
+
+
 static void sst_send_algo_cmd(struct sst_data *sst,
 			      struct sst_algo_data *bc)
 {
@@ -738,17 +800,6 @@ static int sst_gain_put(struct snd_kcontrol *kcontrol,
 		sst_send_gain_cmd(sst, gv, mc->task_id,
 				mc->pipe_id | mc->instance_id, mc->module_id, 0);
 	return 0;
-}
-
-static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mute);
-
-static void sst_send_pipe_module_params(struct snd_soc_dapm_widget *w)
-{
-	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
-	struct sst_ids *ids = w->priv;
-
-	sst_find_and_send_pipe_algo(sst, w->name, ids);
-	sst_set_pipe_gain(ids, sst, 0);
 }
 
 static int sst_generic_modules_event(struct snd_soc_dapm_widget *w,
@@ -1150,6 +1201,29 @@ static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int sst_send_speech_path(struct sst_data *sst, u16 switch_state)
+{
+	struct sst_cmd_set_speech_path cmd;
+	bool is_wideband;
+
+	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
+
+	cmd.header.command_id = SBA_VB_SET_SPEECH_PATH;
+	cmd.header.length = sizeof(struct sst_cmd_set_speech_path)
+				- sizeof(struct sst_dsp_header);
+	cmd.switch_state = switch_state;
+	cmd.config.cfg.s_length = 0;
+	cmd.config.cfg.format = 0;
+	cmd.config.cfg.rate = 0;
+
+	is_wideband = get_mux_state(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT);
+	if (is_wideband)
+		cmd.config.cfg.rate = 1;
+	return sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
+				     SST_TASK_SBA, 0, &cmd,
+				     sizeof(cmd.header) + cmd.header.length);
+}
+
 /**
  * sst_set_speech_path - send SPEECH_UL/DL enable/disable IPC
  *
@@ -1160,12 +1234,10 @@ static int sst_set_be_modules(struct snd_soc_dapm_widget *w,
 static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 			       struct snd_kcontrol *k, int event)
 {
-	struct sst_cmd_set_speech_path cmd;
-	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
-	bool is_wideband;
 	static int speech_active;
+	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
 	struct snd_card *card = w->platform->card->snd_card;
-
+	u16 switch_state;
 
 	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
 		pr_info("The fw may be in a bad state\n");
@@ -1176,30 +1248,15 @@ static int sst_set_speech_path(struct snd_soc_dapm_widget *w,
 
 	if (SND_SOC_DAPM_EVENT_ON(event)) {
 		speech_active++;
-		cmd.switch_state = SST_SWITCH_ON;
+		switch_state = SST_SWITCH_ON;
 	} else {
 		speech_active--;
-		cmd.switch_state = SST_SWITCH_OFF;
+		switch_state = SST_SWITCH_OFF;
 	}
-
-	SST_FILL_DEFAULT_DESTINATION(cmd.header.dst);
-
-	cmd.header.command_id = SBA_VB_SET_SPEECH_PATH;
-	cmd.header.length = sizeof(struct sst_cmd_set_speech_path)
-				- sizeof(struct sst_dsp_header);
-	cmd.config.cfg.s_length = 0;
-	cmd.config.cfg.rate = 0;		/* 8 khz */
-	cmd.config.cfg.format = 0;
-
-	is_wideband = get_mux_state(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT);
-	if (is_wideband)
-		cmd.config.cfg.rate = 1;	/* 16 khz */
 
 	if ((SND_SOC_DAPM_EVENT_ON(event) && (speech_active == 1)) ||
 	    (SND_SOC_DAPM_EVENT_OFF(event) && (speech_active == 0)))
-		sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
-				SST_TASK_SBA, 0, &cmd,
-				sizeof(cmd.header) + cmd.header.length);
+		sst_send_speech_path(sst, switch_state);
 
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		sst_send_pipe_module_params(w);
@@ -1762,7 +1819,7 @@ static const char * const sst_nb_wb_texts[] = {
 
 static const struct snd_kcontrol_new sst_mux_controls[] = {
 	SST_SSP_MUX_CTL("domain voice mode", 0, SST_MUX_REG, SST_VOICE_MODE_SHIFT, sst_nb_wb_texts,
-			sst_mode_get, sst_mode_put),
+			sst_mode_get, sst_voice_mode_put),
 	SST_SSP_MUX_CTL("domain bt mode", 0, SST_MUX_REG, SST_BT_MODE_SHIFT, sst_nb_wb_texts,
 			sst_mode_get, sst_mode_put),
 };
