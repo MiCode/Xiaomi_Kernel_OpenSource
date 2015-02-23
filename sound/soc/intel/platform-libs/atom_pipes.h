@@ -299,7 +299,8 @@ enum sst_dfw_module_id {
 	SST_DFW_MODULE_ID_WNR		  = 0x009D,
 
 	SST_DFW_MODULE_ID_LOG		  = 0xFF00,
-
+	SST_DFW_MODULE_ID_VOICE_DL            = 0x00A0,
+	SST_DFW_MODULE_ID_VOICE_UL            = 0x00A1,
 	SST_DFW_MODULE_ID_TASK		  = 0xFFFF,
 };
 
