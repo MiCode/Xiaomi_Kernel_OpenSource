@@ -7595,15 +7595,16 @@ static int bma2x2_probe(struct i2c_client *client,
 		goto disable_power_exit;
 	}
 
-	err = bma2x2_pinctrl_init(data);
-	if (err) {
-		dev_err(&client->dev,
-			"Failed to init pinctrl err=%d\n", err);
-		err = -EINVAL;
-		goto disable_power_exit;
-	}
 	if (pdata->int_en) {
 		/* check interrupt feature enable state */
+		err = bma2x2_pinctrl_init(data);
+		if (err) {
+			dev_err(&client->dev,
+				"Failed to init pinctrl err=%d\n", err);
+			err = -EINVAL;
+			goto disable_power_exit;
+		}
+
 		if ((pdata->use_int2 && (!BMA2x2_IS_INT2_ENABLED())) ||
 			(!pdata->use_int2 && (!BMA2x2_IS_INT1_ENABLED()))) {
 			dev_err(&client->dev,
