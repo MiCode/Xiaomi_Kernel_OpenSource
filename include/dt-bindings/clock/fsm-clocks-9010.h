@@ -16,6 +16,9 @@
 /* clock_rpm controlled clocks */
 #define clk_ln_bb_clk				0x3ab0b36d
 #define clk_cxo_dwc3_clk			0xf79c19f6
+#define clk_xo_lpm_clk				0x2be48257
+#define clk_xo_clk_src				0x6ac2a778
+#define clk_xo_a_clk_src			0x2fdd2c7c
 
 /* clock_gcc controlled clocks */
 #define clk_gcc_blsp1_uart1_apps_clk            0xc7c62f90

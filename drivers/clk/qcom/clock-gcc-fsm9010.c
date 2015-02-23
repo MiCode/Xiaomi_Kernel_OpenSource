@@ -128,6 +128,7 @@ DEFINE_CLK_RPM_SMD_BRANCH(xo_clk_src, xo_a_clk_src,
 				RPM_MISC_CLK_TYPE, CXO_ID, 19200000);
 
 static DEFINE_CLK_BRANCH_VOTER(cxo_dwc3_clk, &xo_clk_src.c);
+static DEFINE_CLK_BRANCH_VOTER(xo_lpm_clk, &xo_clk_src.c);
 
 static unsigned int soft_vote_gpll0;
 
@@ -1259,6 +1260,9 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_ce1_axi_clk),
 	CLK_LIST(gcc_ce1_clk),
 	CLK_LIST(ce1_clk_src),
+	CLK_LIST(xo_clk_src),
+	CLK_LIST(xo_a_clk_src),
+	CLK_LIST(xo_lpm_clk),
 	CLK_LIST(cxo_dwc3_clk),
 	CLK_LIST(gcc_pdm2_clk),
 	CLK_LIST(gcc_pdm2_ahb_clk),
