@@ -248,6 +248,7 @@
 					00 00 10 0f
 					00 00 10 0f
 					00 00 10 8f];
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
@@ -357,6 +358,7 @@
 					00 00 10 0f
 					00 00 10 0f
 					00 00 10 8f];
+		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;

@@ -77,22 +77,28 @@
 			};
 		};
 
-		pmx_mdss_te: pmx_mdss_te {
-			mdss_te_active: mdss_te_active {
-				pmx_mdss_te {
-					pins = "gpio10";
-					drive-strength = <2>; /* 8 mA */
-					bias-pull-down = <0>; /* pull down*/
-					input-debounce = <0>;
-				};
+		mdss_te_active: mdss_te_active {
+			mux {
+				pins = "gpio10";
+				function = "mdp_vsync";
 			};
-			mdss_te_suspend: mdss_te_suspend {
-				pmx_mdss_te {
-					pins = "gpio10";
-					drive-strength = <2>; /* 2 mA */
-					bias-pull-down; /* pull down */
-					input-debounce = <0>;
-				};
+			config {
+				pins = "gpio10";
+				drive-strength = <2>; /* 8 mA */
+				bias-pull-down; /* pull down*/
+			};
+		};
+
+
+		mdss_te_suspend: mdss_te_suspend {
+			mux {
+				pins = "gpio10";
+				function = "mdp_vsync";
+			};
+			config {
+				pins = "gpio10";
+				drive-strength = <2>; /* 2 mA */
+				bias-pull-down; /* pull down */
 			};
 		};
 

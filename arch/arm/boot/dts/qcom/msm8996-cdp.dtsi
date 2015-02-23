@@ -292,8 +292,7 @@
 	};
 };
 
-#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
+#include "msm8996-mdss-panels.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
@@ -339,6 +338,18 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 };
+
+&dsi_dual_jdi_cmd_0 {
+	pwms = <&pmi8994_pwm_4 0 0>;
+	pwm-names = "backlight";
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pwm-pmi;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
+};
+
 
 &slim_msm {
 	tomtom_codec {
@@ -528,6 +539,24 @@
 		qcom,invert = <0>;
 		status = "okay";
 	};
+};
+
+&pmi8994_gpios {
+	gpio@c700 {	/* GPIO 8, lcd_reg_en, 5V boost  */
+		qcom,mode = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		qcom,invert = <1>;   /* need invert = 0 */
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+};
+
+&pmi8994_pwm_4 {
+	qcom,channel-owner = "lcd_bl";
+	qcom,lpg-dtest-line = <4>;
+	qcom,dtest-output = <1>;
+	status = "okay";
 };
 
 &pmi8994_mpps {
