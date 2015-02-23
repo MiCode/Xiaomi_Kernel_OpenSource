@@ -238,6 +238,12 @@
 			qcom,smdpkt-dev-name = "smd_infra_test_0";
 		};
 
+		qcom,smdpkt-phy_trace {
+			qcom,smdpkt-remote = "tenx";
+			qcom,smdpkt-port-name = "PHY_TRACE";
+			qcom,smdpkt-dev-name = "smd_phy_trace";
+		};
+
 		qcom,smdpkt-infra_test_4 {
 			qcom,smdpkt-remote = "tenx";
 			qcom,smdpkt-port-name = "INFRA_TEST_4";
