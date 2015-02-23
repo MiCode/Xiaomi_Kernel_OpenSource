@@ -1845,8 +1845,7 @@ static int msm_cpp_copy_from_ioctl_ptr(void *dst_ptr,
 	struct msm_camera_v4l2_ioctl_t *ioctl_ptr)
 {
 	int ret;
-	if ((ioctl_ptr->ioctl_ptr == NULL) || (ioctl_ptr->len == 0) ||
-		(ioctl_ptr->len >= MSM_CPP_MAX_FW_NAME_LEN)) {
+	if ((ioctl_ptr->ioctl_ptr == NULL) || (ioctl_ptr->len == 0)) {
 		pr_err("Wrong ioctl_ptr %p\n", ioctl_ptr);
 		return -EINVAL;
 	}

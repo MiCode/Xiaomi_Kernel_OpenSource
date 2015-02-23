@@ -99,6 +99,7 @@ struct bus_info {
 	struct msm_bus_scale_pdata *pdata;
 	u32 priv;
 	u32 sessions_supported; /* bitmask */
+	bool passive;
 };
 
 struct bus_set {
@@ -124,7 +125,6 @@ struct msm_vidc_platform_resources {
 	struct clock_set clock_set;
 	struct bus_set bus_set;
 	bool dynamic_bw_update;
-	bool minimum_vote;
 	bool use_non_secure_pil;
 	bool sw_power_collapsible;
 	bool sys_idle_indicator;
