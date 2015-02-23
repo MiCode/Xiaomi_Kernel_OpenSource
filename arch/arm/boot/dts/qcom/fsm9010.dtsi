@@ -117,6 +117,35 @@
 		#clock-cells = <1>;
 	};
 
+	qcom,mpm@fc4281d0 {
+		compatible = "qcom,mpm-v2";
+		reg = <0xfc4281d0 0x1000>, /* MSM_RPM_MPM_BASE 4K */
+		      <0xf9011008 0x4>;   /* MSM_APCS_GCC_BASE 4K */
+		reg-names = "vmpm", "ipc";
+		interrupts = <0 171 1>;
+		clocks = <&clock_rpm clk_xo_lpm_clk>;
+		clock-names = "xo";
+
+		qcom,ipc-bit-offset = <1>;
+
+		qcom,gic-parent = <&intc>;
+		qcom,gic-map = <2 216>; /* tsens_upper_lower_int */
+
+		qcom,gpio-parent = <&msm_gpio>;
+		qcom,gpio-map =
+			<4 5>,
+			<7 1>,
+			<8 6>,
+			<14 11>,
+			<15 13>,
+			<16 86>,
+			<17 88>,
+			<42 34>,
+			<43 36>,
+			<44 44>,
+			<45 46>;
+	};
+
 	blsp1_uart2: serial@f991f000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0xf991f000 0x1000>;
