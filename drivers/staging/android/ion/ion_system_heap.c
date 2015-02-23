@@ -2,7 +2,7 @@
  * drivers/gpu/ion/ion_system_heap.c
  *
  * Copyright (C) 2011 Google, Inc.
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -405,13 +405,12 @@ static int ion_system_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 				pool->low_count, pool->order,
 				(1 << pool->order) * PAGE_SIZE *
 					pool->low_count);
-		} else {
-			uncached_total += (1 << pool->order) * PAGE_SIZE *
-						pool->high_count;
-			uncached_total += (1 << pool->order) * PAGE_SIZE *
-						pool->low_count;
 		}
 
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->high_count;
+		uncached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->low_count;
 	}
 
 	for (i = 0; i < num_orders; i++) {
@@ -426,17 +425,29 @@ static int ion_system_heap_debug_show(struct ion_heap *heap, struct seq_file *s,
 				pool->low_count, pool->order,
 				(1 << pool->order) * PAGE_SIZE *
 					pool->low_count);
-		} else {
-			cached_total += (1 << pool->order) * PAGE_SIZE *
-						pool->high_count;
-			cached_total += (1 << pool->order) * PAGE_SIZE *
-						pool->low_count;
 		}
+
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->high_count;
+		cached_total += (1 << pool->order) * PAGE_SIZE *
+			pool->low_count;
 	}
 
-	if (!use_seq)
-		pr_info("uncached pool total = %lu cached pool total %lu\n",
+	if (use_seq) {
+		seq_puts(s, "--------------------------------------------\n");
+		seq_printf(s, "uncached pool = %lu cached pool = %lu\n",
 				uncached_total, cached_total);
+		seq_printf(s, "pool total (uncached + cached) = %lu\n",
+				uncached_total + cached_total);
+		seq_puts(s, "--------------------------------------------\n");
+	} else {
+		pr_info("-------------------------------------------------\n");
+		pr_info("uncached pool = %lu cached pool = %lu\n",
+				uncached_total, cached_total);
+		pr_info("pool total (uncached + cached) = %lu\n",
+				uncached_total + cached_total);
+		pr_info("-------------------------------------------------\n");
+	}
 
 	return 0;
 }
