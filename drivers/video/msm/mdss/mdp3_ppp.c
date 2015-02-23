@@ -1215,6 +1215,32 @@ static void mdp3_free_bw_wq_handler(struct work_struct *work)
 	mutex_unlock(&ppp_stat->config_ppp_mutex);
 }
 
+static bool is_hw_workaround_needed(struct mdp_blit_req req)
+{
+	bool result = false;
+	bool is_bpp_4 = false;
+	uint32_t remainder = 0;
+	uint32_t bpp = ppp_get_bpp(req.dst.format, ppp_stat->mfd->fb_imgType);
+
+	/* MDP width split workaround */
+	remainder = (req.dst_rect.w) % 16;
+	is_bpp_4 = (bpp == 4) ? 1 : 0;
+	if ((is_bpp_4 && (remainder == 6 || remainder == 14)) &&
+		!(req.flags & MDP_SOLID_FILL))
+		result = true;
+
+	/* bg tile fetching HW workaround */
+	if (((req.alpha < MDP_ALPHA_NOP) ||
+		(req.transp_mask != MDP_TRANSP_NOP) ||
+		(req.src.format == MDP_ARGB_8888) ||
+		(req.src.format == MDP_BGRA_8888) ||
+		(req.src.format == MDP_RGBA_8888)) &&
+		(req.flags & MDP_ROT_90) && (req.dst_rect.w <= 16))
+		result = true;
+
+	return result;
+}
+
 static bool is_roi_equal(struct mdp_blit_req req0,
 		 struct mdp_blit_req req1)
 {
@@ -1249,6 +1275,7 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 	bool status = false;
 	struct mdp3_img_data tmp_data;
 	bool dst_roi_equal = false;
+	bool hw_woraround_active = false;
 	struct mdp_blit_req bg_req;
 	struct mdp_blit_req fg_req;
 
@@ -1259,6 +1286,7 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 	if (next < req->count) {
 		bg_req = req->req_list[indx];
 		fg_req = req->req_list[next];
+		hw_woraround_active = is_hw_workaround_needed(bg_req);
 		dst_roi_equal = is_roi_equal(bg_req, fg_req);
 		/*
 		 * Check userspace Smart BLIT Flag for current and next
@@ -1268,7 +1296,8 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 		 * and request at index "n+1" will be used as FG layer
 		 */
 		if ((bg_req.flags & MDP_SMART_BLIT) &&
-		(!(fg_req.flags & MDP_SMART_BLIT)))
+		(!(fg_req.flags & MDP_SMART_BLIT)) &&
+		(!(hw_woraround_active)))
 			status = true;
 		/*
 		 * Enable SMART blit between request 0(BG) & request 1(FG) when
@@ -1282,7 +1311,8 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 			(bg_req.flags & MDP_IS_FG) &&
 			(!(is_scaling_needed(bg_req))) &&
 			(!(bg_req.flags & (MDP_ROT_90))) &&
-			(check_if_rgb(bg_req.src.format))) {
+			(check_if_rgb(bg_req.src.format)) &&
+			(!(hw_woraround_active))) {
 			status = true;
 			req->req_list[indx].flags |= MDP_SMART_BLIT;
 			pr_debug("Optimize RGB Blit for Req Indx %d\n", indx);
@@ -1296,7 +1326,8 @@ static bool is_blit_optimization_possible(struct blit_req_list *req, int indx)
 		else if ((indx == 0) &&
 			(mdp3_res->smart_blit_en & SMART_BLIT_YUV_EN) &&
 			(!(fg_req.flags & (MDP_ROT_90))) && (dst_roi_equal) &&
-			(!(check_if_rgb(bg_req.src.format)))) {
+			(!(check_if_rgb(bg_req.src.format))) &&
+			(!(hw_woraround_active))) {
 			/*
 			 * swap blit requests at index 0 and 1. YUV layer at
 			 * index 0 is replaced with UI layer request present
