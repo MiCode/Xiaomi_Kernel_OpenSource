@@ -3864,9 +3864,14 @@ void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
 	if (media_active)
 		I915_WRITE(GEN6_RC6_THRESHOLD,
 				GEN6_RC6_MEDIA_PROMOTION_TIMER_TO);
-	else
-		I915_WRITE(GEN6_RC6_THRESHOLD,
-				GEN6_RC6_RENDER_PROMOTION_TIMER_TO);
+	else {
+		if (IS_CHERRYVIEW(dev_priv->dev))
+			I915_WRITE(GEN6_RC6_THRESHOLD,
+					CHV_RC6_RENDER_PROMOTION_TIMER_TO);
+		else
+			I915_WRITE(GEN6_RC6_THRESHOLD,
+					GEN6_RC6_RENDER_PROMOTION_TIMER_TO);
+	}
 }
 
 static void vlv_media_timeout_work_func(struct work_struct *work)
@@ -4683,7 +4688,7 @@ static void cherryview_enable_rps(struct drm_device *dev)
 		I915_WRITE(RING_MAX_IDLE(ring->mmio_base), 10);
 	I915_WRITE(GEN6_RC_SLEEP, 0);
 
-	I915_WRITE(GEN6_RC6_THRESHOLD, 0x557);
+	I915_WRITE(GEN6_RC6_THRESHOLD, CHV_RC6_RENDER_PROMOTION_TIMER_TO);
 
 	/* allows RC6 residency counter to work */
 	I915_WRITE(VLV_COUNTER_CONTROL,
