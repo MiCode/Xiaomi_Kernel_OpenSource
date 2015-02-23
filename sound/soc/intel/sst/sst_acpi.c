@@ -31,6 +31,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/pm_qos.h>
 #include <asm/platform_byt_audio.h>
+#include <asm/platform_cht_audio.h>
 #include <asm/platform_sst.h>
 #include <linux/acpi.h>
 #include <acpi/acbuffer.h>
@@ -196,6 +197,7 @@ static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
 	.mod_end            = SST_BYT_IMR_VIRT_END,
 	.mod_table_offset   = BYT_FW_MOD_TABLE_OFFSET,
 	.mod_table_size     = BYT_FW_MOD_TABLE_SIZE,
+	.mod_offset         = BYT_FW_MOD_OFFSET,
 #ifndef CONFIG_SND_SST_SW_CODECS
 	.mod_ddr_dnld       = true,
 #else
@@ -204,6 +206,11 @@ static const struct sst_lib_dnld_info  byt_lib_dnld_info = {
 };
 
 static const struct sst_lib_dnld_info  cht_lib_dnld_info = {
+	.mod_base           = CHT_FW_LSP_DDR_BASE,
+	.mod_end            = CHT_FW_MOD_END,
+	.mod_table_offset   = CHT_FW_MOD_TABLE_OFFSET,
+	.mod_table_size     = CHT_FW_MOD_TABLE_SIZE,
+	.mod_offset         = CHT_FW_MOD_OFFSET,
 	.mod_ddr_dnld = false,
 };
 

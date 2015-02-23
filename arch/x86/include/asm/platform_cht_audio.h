@@ -17,4 +17,12 @@ enum {
 	CHT_DPCM_VOIP,
 };
 
+/* LPE viewpoint addresses */
+/* TODO: move to DSDT */
+#define CHT_FW_LSP_DDR_BASE 0xC0000000
+#define CHT_FW_MOD_END (CHT_FW_LSP_DDR_BASE + 0x1FFFFF)
+#define CHT_FW_MOD_TABLE_OFFSET 0x3000
+#define CHT_FW_MOD_OFFSET 0x100000
+#define CHT_FW_MOD_TABLE_SIZE 0x100
+
 #endif

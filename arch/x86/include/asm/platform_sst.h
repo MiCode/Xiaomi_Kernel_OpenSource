@@ -116,6 +116,7 @@ struct sst_lib_dnld_info {
 	unsigned int mod_end;
 	unsigned int mod_table_offset;
 	unsigned int mod_table_size;
+	unsigned int mod_offset;
 	bool mod_ddr_dnld;
 };
 

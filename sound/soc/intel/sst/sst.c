@@ -624,8 +624,9 @@ void sst_init_lib_mem_mgr(struct intel_sst_drv *ctx)
 	const struct sst_lib_dnld_info *lib_info = ctx->pdata->lib_info;
 
 	memset(mgr, 0, sizeof(*mgr));
-	mgr->current_base = lib_info->mod_base + lib_info->mod_table_offset
-						+ lib_info->mod_table_size;
+
+	mgr->current_base = lib_info->mod_base + lib_info->mod_offset;
+
 	mgr->avail = lib_info->mod_end - mgr->current_base + 1;
 
 	pr_debug("current base = 0x%lx , avail = 0x%x\n",
