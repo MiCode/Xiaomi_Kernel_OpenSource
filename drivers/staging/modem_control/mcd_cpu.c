@@ -74,26 +74,59 @@ int cpu_init_gpio(void *data)
 	pr_debug("cpu_init");
 
 	/* Configure the RESET_BB gpio */
-	ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_bbn, 1, 0);
-	if (ret)
-		goto out;
+	if (cpu_data->gpio_rst_bbn) {
+		ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_bbn, 1, 0);
+		if (ret) {
+			pr_err("Can't configure RST_BBN GPIO");
+			goto out;
+		}
+	} else
+		pr_info("No RST_BBN GPIO set");
 
 	/* Configure the ON gpio */
-	ret = mdm_ctrl_configure_gpio(cpu_data->gpio_pwr_on, 1, 0);
+	if (cpu_data->gpio_pwr_on) {
+		ret = mdm_ctrl_configure_gpio(cpu_data->gpio_pwr_on, 1, 0);
+		if (ret) {
+			pr_err("Can't configure Power ON GPIO");
+			goto out;
+		}
+	} else
+		pr_info("No PWR_ON GPIO set");
 
 	/* Configure the RESET_OUT gpio & irq */
-	ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_out, 0, 0);
-
-	cpu_data->irq_reset = gpiod_to_irq(cpu_data->gpio_rst_out);
+	if (cpu_data->gpio_rst_out) {
+		ret = mdm_ctrl_configure_gpio(cpu_data->gpio_rst_out, 0, 0);
+		if (ret) {
+			pr_err("Can't configure RST_OUT GPIO");
+			goto clear_irq;
+		}
+		cpu_data->irq_reset = gpiod_to_irq(cpu_data->gpio_rst_out);
+		if (cpu_data->irq_reset < 0) {
+			pr_err("Fail to set GPIO RESET_OUT as interrupt");
+			goto clear_irq;
+		}
+	} else {
+		cpu_data->irq_reset = INVALID_GPIO;
+		pr_info("No RST_OUT GPIO set");
+	}
 
 	/* Configure the CORE_DUMP gpio & irq */
-	ret = mdm_ctrl_configure_gpio(cpu_data->gpio_cdump, 0, 0);
-	if (ret)
-		goto free_ctx2;
+	if (cpu_data->gpio_cdump) {
+		ret = mdm_ctrl_configure_gpio(cpu_data->gpio_cdump, 0, 0);
+		if (ret) {
+			pr_err("Can't configure CORE DUMP GPIO");
+			goto free_ctx2;
+		}
 
-	cpu_data->irq_cdump = gpiod_to_irq(cpu_data->gpio_cdump);
-	if (cpu_data->irq_cdump < 0)
-		goto free_ctx2;
+		cpu_data->irq_cdump = gpiod_to_irq(cpu_data->gpio_cdump);
+		if (cpu_data->irq_cdump < 0) {
+			pr_err("Fail to set GPIO CORE DUMP as interrupt");
+			goto free_ctx2;
+		}
+	} else {
+		cpu_data->irq_cdump = INVALID_GPIO;
+		pr_info("No CORE_DUMP GPIO set");
+	}
 
 	pr_info(DRVNAME
 		": GPIO (rst_bbn: %d, pwr_on: %d, rst_out: %d, fcdp_rb: %d)\n",
@@ -107,7 +140,9 @@ int cpu_init_gpio(void *data)
  free_ctx2:
 	if (cpu_data->irq_reset > 0)
 		free_irq(cpu_data->irq_reset, cpu_data);
-	cpu_data->irq_reset = 0;
+clear_irq:
+	cpu_data->irq_cdump = INVALID_GPIO;
+	cpu_data->irq_reset = INVALID_GPIO;
  out:
 	return -ENODEV;
 }
@@ -116,8 +151,8 @@ int cpu_cleanup_gpio(void *data)
 {
 	struct mdm_ctrl_cpu_data *cpu_data = data;
 
-	cpu_data->irq_cdump = 0;
-	cpu_data->irq_reset = 0;
+	cpu_data->irq_cdump = INVALID_GPIO;
+	cpu_data->irq_reset = INVALID_GPIO;
 
 	return 0;
 }
@@ -137,19 +172,28 @@ int get_gpio_irq_rst(void *data)
 int get_gpio_mdm_state(void *data)
 {
 	struct mdm_ctrl_cpu_data *cpu_data = data;
-	return gpiod_get_value(cpu_data->gpio_rst_out);
+	if (cpu_data->gpio_rst_out)
+		return gpiod_get_value(cpu_data->gpio_rst_out);
+	else
+		return INVALID_GPIO;
 }
 
 int get_gpio_rst(void *data)
 {
 	struct mdm_ctrl_cpu_data *cpu_data = data;
-	return desc_to_gpio(cpu_data->gpio_rst_bbn);
+	if (cpu_data->gpio_rst_bbn)
+		return desc_to_gpio(cpu_data->gpio_rst_bbn);
+	else
+		return INVALID_GPIO;
 }
 
 int get_gpio_pwr(void *data)
 {
 	struct mdm_ctrl_cpu_data *cpu_data = data;
-	return desc_to_gpio(cpu_data->gpio_pwr_on);
+	if (cpu_data->gpio_pwr_on)
+		return desc_to_gpio(cpu_data->gpio_pwr_on);
+	else
+		return INVALID_GPIO;
 }
 
 int cpu_init_gpio_ngff(void *data)
@@ -175,24 +219,3 @@ int cpu_init_gpio_ngff(void *data)
  out:
 	return -ENODEV;
 }
-
-int cpu_cleanup_gpio_ngff(void *data)
-{
-	return 0;
-}
-
-int get_gpio_mdm_state_ngff(void *data)
-{
-	return 0;
-}
-
-int get_gpio_irq_cdump_ngff(void *data)
-{
-	return 0;
-}
-
-int get_gpio_irq_rst_ngff(void *data)
-{
-	return 0;
-}
-

@@ -57,7 +57,8 @@ enum mdm_ctrl_mdm_type {
 	MODEM_6268,
 	MODEM_6360,
 	MODEM_7160,
-	MODEM_7260
+	MODEM_7260,
+	MODEM_7360
 };
 
 /* Type of modem board */

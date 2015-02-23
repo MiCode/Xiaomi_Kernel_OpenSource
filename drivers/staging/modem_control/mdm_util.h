@@ -47,6 +47,8 @@
 #ifndef _MDM_UTIL_H
 #define _MDM_UTIL_H
 
+#define INVALID_GPIO -1
+
 /**
  *
  * @opened: This flag is used to allow only ONE instance of this driver
@@ -136,4 +138,6 @@ int mdm_ctrl_get_device_info(struct mdm_ctrl *drv,
 int mdm_ctrl_get_modem_data(struct mdm_ctrl *drv, int minor);
 
 void mdm_ctrl_set_mdm_cpu(struct mdm_info *mdm);
+int mdm_ctrl_set_pmic(struct mdm_info *mdm);
+
 #endif				/* _MDM_UTIL_H */

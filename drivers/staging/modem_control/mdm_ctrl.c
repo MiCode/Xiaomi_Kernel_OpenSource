@@ -111,7 +111,7 @@ static int mdm_ctrl_cold_boot(struct mdm_info *mdm)
 	mdm_ctrl_launch_timer(mdm, cflash_delay, MDM_TIMER_FLASH_ENABLE);
 
 	/* If no IPC ready signal between modem and AP */
-	if (!mdm->pdata->cpu.get_irq_rst(mdm->pdata->cpu_data)) {
+	if (cpu->get_irq_rst(cpu_data) == INVALID_GPIO) {
 		atomic_set(&mdm->rst_ongoing, 0);
 		mdm_ctrl_set_state(mdm, MDM_CTRL_STATE_IPC_READY);
 	}
@@ -390,6 +390,9 @@ static int mcd_init(struct mdm_info *mdm)
 		goto out;
 	}
 
+	if (mdm->pdata->pmic.init)
+		mdm->pdata->pmic.init(mdm->pdata->pmic_data);
+
 	if (mdm->pdata->cpu.init(mdm->pdata->cpu_data)) {
 		pr_err(DRVNAME ": CPU init failed...returning -ENODEV.");
 		ret = -ENODEV;
@@ -411,6 +414,9 @@ static int mcd_init(struct mdm_info *mdm)
 			ret = -ENODEV;
 			goto del_cpu;
 		}
+	} else {
+		pr_info(DRVNAME ": No IRQ RST\n");
+		ret = -EIO;
 	}
 
 	if (mdm->pdata->cpu.get_irq_cdump(mdm->pdata->cpu_data) > 0) {
@@ -426,7 +432,8 @@ static int mcd_init(struct mdm_info *mdm)
 			ret = -ENODEV;
 			goto free_irq;
 		}
-	}
+	} else
+		pr_info(DRVNAME ": No IRQ COREDUMP\n");
 
 	/* Modem power off sequence */
 	if (mdm->pdata->pmic.get_early_pwr_off(mdm->pdata->pmic_data)) {
@@ -445,7 +452,7 @@ static int mcd_init(struct mdm_info *mdm)
 	}
 
 	pr_info(DRVNAME ": %s initialization has succeed\n", __func__);
-	return 0;
+	goto out;
 
  free_all:
 	free_irq(mdm->pdata->cpu.get_irq_cdump(mdm->pdata->cpu_data), mdm);
@@ -495,10 +502,11 @@ long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			mdm->pdata->board_type = cfg.board;
 
 			mdm_ctrl_set_mdm_cpu(mdm);
+			mdm_ctrl_set_pmic(mdm);
 			mcd_finalize_cpu_data(mdm->pdata);
 
 			ret = mcd_init(mdm);
-			if (!ret)
+			if ((!ret) || (ret == -EIO))
 				pr_info(DRVNAME ": modem (board: %d, family: %d)",
 						cfg.board, cfg.type);
 			else
@@ -879,14 +887,6 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
 		snprintf(name, sizeof(name), "%s-wakelock%d", DRVNAME, i);
 		wake_lock_init(&mdm->stay_awake, WAKE_LOCK_SUSPEND, name);
 #endif
-
-		if (mdm->pdata->mdm_ver != MODEM_2230) {
-			if (mdm->pdata->pmic.init(mdm->pdata->pmic_data)) {
-				pr_err(DRVNAME ": PMIC init failed...returning -ENODEV\n");
-				ret = -ENODEV;
-				goto del_mdms;
-			}
-		}
 
 		mdm_ctrl_set_state(mdm, MDM_CTRL_STATE_OFF);
 		pr_info(DRVNAME " %s: Modem %d initialized\n", __func__, i);

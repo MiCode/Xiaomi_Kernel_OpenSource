@@ -105,41 +105,29 @@ void mdm_ctrl_set_mdm_cpu(struct mdm_info *mdm)
 
 	pr_info(DRVNAME ": board type: %d", board_type);
 
+	pdata->mdm.init = mcd_mdm_init;
+	pdata->mdm.power_on = mcd_mdm_cold_boot;
+	pdata->mdm.warm_reset = mcd_mdm_warm_reset;
+	pdata->mdm.power_off = mcd_mdm_power_off;
+	pdata->mdm.cleanup = mcd_mdm_cleanup;
+	pdata->mdm.get_wflash_delay = mcd_mdm_get_wflash_delay;
+	pdata->mdm.get_cflash_delay = mcd_mdm_get_cflash_delay;
+	pdata->cpu.init = cpu_init_gpio;
+	pdata->cpu.cleanup = cpu_cleanup_gpio;
+	pdata->cpu.get_mdm_state = get_gpio_mdm_state;
+	pdata->cpu.get_irq_cdump = get_gpio_irq_cdump;
+	pdata->cpu.get_irq_rst = get_gpio_irq_rst;
+	pdata->cpu.get_gpio_rst = get_gpio_rst;
+	pdata->cpu.get_gpio_pwr = get_gpio_pwr;
+
 	switch (board_type) {
 	case BOARD_AOB:
-		pdata->mdm.init = mcd_mdm_init;
 		if (mdm->pdata->mdm_ver == MODEM_2230)
 			pdata->mdm.power_on = mcd_mdm_cold_boot_2230;
-		else
-			pdata->mdm.power_on = mcd_mdm_cold_boot;
-		pdata->mdm.warm_reset = mcd_mdm_warm_reset;
-		pdata->mdm.power_off = mcd_mdm_power_off;
-		pdata->mdm.cleanup = mcd_mdm_cleanup;
-		pdata->mdm.get_wflash_delay = mcd_mdm_get_wflash_delay;
-		pdata->mdm.get_cflash_delay = mcd_mdm_get_cflash_delay;
-		pdata->cpu.init = cpu_init_gpio;
-		pdata->cpu.cleanup = cpu_cleanup_gpio;
-		pdata->cpu.get_mdm_state = get_gpio_mdm_state;
-		pdata->cpu.get_irq_cdump = get_gpio_irq_cdump;
-		pdata->cpu.get_irq_rst = get_gpio_irq_rst;
-		pdata->cpu.get_gpio_rst = get_gpio_rst;
-		pdata->cpu.get_gpio_pwr = get_gpio_pwr;
 		break;
 	case BOARD_NGFF:
-		pdata->mdm.init = mcd_mdm_init;
 		pdata->mdm.power_on = mcd_mdm_cold_boot_ngff;
-		pdata->mdm.warm_reset = mcd_mdm_warm_reset;
-		pdata->mdm.power_off = mcd_mdm_power_off;
-		pdata->mdm.cleanup = mcd_mdm_cleanup;
-		pdata->mdm.get_wflash_delay = mcd_mdm_get_wflash_delay;
-		pdata->mdm.get_cflash_delay = mcd_mdm_get_cflash_delay;
 		pdata->cpu.init = cpu_init_gpio_ngff;
-		pdata->cpu.cleanup = cpu_cleanup_gpio_ngff;
-		pdata->cpu.get_mdm_state = get_gpio_mdm_state_ngff;
-		pdata->cpu.get_irq_cdump = get_gpio_irq_cdump_ngff;
-		pdata->cpu.get_irq_rst = get_gpio_irq_rst_ngff;
-		pdata->cpu.get_gpio_rst = get_gpio_rst;
-		pdata->cpu.get_gpio_pwr = get_gpio_pwr;
 		break;
 	default:
 		pr_info(DRVNAME ": Can't retrieve conf specific functions");
@@ -152,37 +140,28 @@ void mdm_ctrl_set_mdm_cpu(struct mdm_info *mdm)
  * configures PMIC
  * @drv: Reference to the driver structure
  */
-static void mdm_ctrl_set_pmic(struct mdm_info *mdm)
+int mdm_ctrl_set_pmic(struct mdm_info *mdm)
 {
-	int pmic_type = mdm->pdata->pmic_ver;
 	struct mcd_base_info *pdata = mdm->pdata;
 
-	switch (pmic_type) {
-	case PMIC_MFLD:
-	case PMIC_MRFL:
-	case PMIC_BYT:
-	case PMIC_MOOR:
-	case PMIC_CHT:
+	if (pdata->pmic_data) {
 		pdata->pmic.init = pmic_io_init;
 		pdata->pmic.power_on_mdm = pmic_io_power_on_mdm;
 		pdata->pmic.power_off_mdm = pmic_io_power_off_mdm;
 		pdata->pmic.cleanup = pmic_io_cleanup;
 		pdata->pmic.get_early_pwr_on = pmic_io_get_early_pwr_on;
 		pdata->pmic.get_early_pwr_off = pmic_io_get_early_pwr_off;
-		break;
-	case PMIC_CLVT:
-		pdata->pmic.init = pmic_io_init;
-		pdata->pmic.power_on_mdm = pmic_io_power_on_ctp_mdm;
-		pdata->pmic.power_off_mdm = pmic_io_power_off_mdm;
-		pdata->pmic.cleanup = pmic_io_cleanup;
-		pdata->pmic.get_early_pwr_on = pmic_io_get_early_pwr_on;
-		pdata->pmic.get_early_pwr_off = pmic_io_get_early_pwr_off;
-		break;
-	default:
-		pr_info(DRVNAME ": Can't retrieve pmic specific functions");
-		mdm->is_mdm_ctrl_disabled = true;
-		break;
-	}
+		switch (pdata->mdm_ver) {
+		case MODEM_6360:
+			pdata->pmic.init = NULL;
+			pdata->pmic.power_on_mdm = pmic_io_power_on_ctp_mdm;
+			break;
+		default:
+			break;
+		}
+		return 0;
+	} else
+		return -1;
 }
 
 /**
@@ -244,8 +223,7 @@ struct mcd_base_info *modem_ctrl_get_dev_data(struct platform_device *pdev)
 
 	info = pdev->dev.platform_data;
 
-	pr_err(DRVNAME ": cpu: %d pmic: %d.", info->cpu_ver, info->pmic_ver);
-	if ((info->cpu_ver == CPU_UNSUP) || (info->pmic_ver == PMIC_UNSUP)) {
+	if ((!info->cpu_data) && (!info->pmic_data)) {
 		/* mdm_ctrl is disabled as some components */
 		/* of the platform are not supported */
 		kfree(info);
@@ -298,7 +276,6 @@ int mdm_ctrl_get_modem_data(struct mdm_ctrl *drv, int minor)
 				__func__, minor);
 	} else {
 		drv->mdm[minor].pdata->board_type = BOARD_UNSUP;
-		mdm_ctrl_set_pmic(&drv->mdm[minor]);
 		ret = 0;
 	}
 
