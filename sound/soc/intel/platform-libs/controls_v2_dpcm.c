@@ -430,6 +430,10 @@ int sst_vtsv_event_get(struct snd_kcontrol *kcontrol,
 	pr_debug("in %s\n", __func__);
 	/* First element contains size */
 	memcpy(ucontrol->value.bytes.data, sst->vtsv_result.data, sst->vtsv_result.data[0]);
+	/* Reset the control values to 0 once its read */
+	mutex_lock(&sst->lock);
+	memset(sst->vtsv_result.data, 0x0, VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE);
+	mutex_unlock(&sst->lock);
 	return 0;
 }
 
@@ -1534,27 +1538,99 @@ static int sst_alloc_hostless_stream(const struct sst_pcm_format *pcm_params,
 }
 
 static int sst_hostless_stream_event(struct snd_soc_dapm_widget *w,
-					struct snd_kcontrol *k, int event)
+				     struct snd_kcontrol *k, int event)
 {
 	struct sst_ids *ids = w->priv;
 	struct snd_card *card = w->platform->card->snd_card;
+	uint str_id = 0;
+
+#define MERR_DPCM_HOSTLESS_VADID 25
+#define MERR_DPCM_HOSTLESS_AWAREID 26
 
 	if (snd_power_get_state(card) == SNDRV_CTL_POWER_D3) {
 		pr_info("The fw may be in a bad state\n");
 		return -EAGAIN;
 	}
 
-#define MERR_DPCM_HOSTLESS_STRID 25
+
+	switch (ids->location_id) {
+
+	case SST_DFW_PATH_INDEX_VAD_OUT:
+		str_id = MERR_DPCM_HOSTLESS_VADID;
+		break;
+
+	case SST_DFW_PATH_INDEX_AWARE_OUT:
+		str_id = MERR_DPCM_HOSTLESS_AWAREID;
+		break;
+
+	default:
+		pr_err("Current hostless stream support is only for AWARE/VAD\n");
+		return -EINVAL;
+	}
+
 	if (SND_SOC_DAPM_EVENT_ON(event))
 		/* ALLOC */
 		/* FIXME: HACK - FW shouldn't require alloc for aware */
 		return sst_alloc_hostless_stream(ids->pcm_fmt,
-						 MERR_DPCM_HOSTLESS_STRID,
-						 ids->location_id >> SST_PATH_ID_SHIFT,
-						 ids->task_id);
+				 str_id,
+				 ids->location_id >> SST_DFW_PATH_ID_SHIFT,
+				 ids->task_id);
 	else
 		/* FREE */
-		return sst_dsp->ops->close(MERR_DPCM_HOSTLESS_STRID);
+		return sst_dsp->ops->close(str_id);
+}
+
+static int sst_vtsv_path_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+
+	pr_debug("in %s\n", __func__);
+	memcpy(ucontrol->value.bytes.data, sst->vtsv_path,
+				SST_MAX_VTSV_PATH_BYTE_CTL_LEN);
+
+	return 0;
+}
+
+static int sst_vtsv_path_set(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct sst_data *sst = snd_soc_platform_get_drvdata(platform);
+	struct snd_soc_dapm_widget *w;
+	u16 ret = 0, len;
+
+	pr_debug("in %s\n", __func__);
+	len = *(u16 *)ucontrol->value.bytes.data;
+	if (len > SST_MAX_VTSV_PATH_LEN) {
+		pr_err("Invalid vtsv path length %d\n", len);
+		return -EINVAL;
+	}
+
+	memcpy(sst->vtsv_path, ucontrol->value.bytes.data, (len + sizeof(u16)));
+	ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_LIBS,
+					sst->vtsv_path);
+
+	w = snd_soc_dapm_find_widget(&platform->dapm, "vtsv", false);
+	if (w && w->power)
+		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO, NULL);
+
+	return ret;
+}
+
+static int sst_vtsv_event(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *k, int event)
+{
+	int ret;
+
+	ret = sst_hostless_stream_event(w, k, event);
+	if (ret < 0)
+		return ret;
+
+	if (SND_SOC_DAPM_EVENT_ON(event))
+		ret = sst_dsp->ops->set_generic_params(SST_SET_VTSV_INFO, NULL);
+	return ret;
 }
 
 static const struct snd_kcontrol_new sst_mix_sw_aware =
@@ -1568,11 +1644,18 @@ static const struct snd_kcontrol_new sst_mix_sw_vad =
 static const struct snd_kcontrol_new sst_mix_sw_tone_gen =
 	SOC_SINGLE_EXT("switch", SST_MIX_SWITCH, 1, 1, 0,
 		sst_mix_get, sst_mix_put);
+
+
+static const struct snd_kcontrol_new sst_vad_enroll[] = {
+	SND_SOC_BYTES_EXT("SST VTSV Enroll", SST_MAX_VTSV_PATH_BYTE_CTL_LEN,
+		sst_vtsv_path_get, sst_vtsv_path_set),
+};
+
 static const struct snd_kcontrol_new sst_vtsv_read[] = {
 	SND_SOC_BYTES_EXT("vtsv event", VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE,
 		 sst_vtsv_event_get, NULL),
-
 };
+
 static const char * const sst_bt_fm_texts[] = {
 	"fm", "bt",
 };
@@ -2282,6 +2365,7 @@ const struct snd_soc_fw_widget_events sst_widget_ops[] = {
 	{SST_SET_SWM, sst_swm_mixer_event_dfw},
 	{SST_SET_LINKED_PATH, sst_set_linked_pipe},
 	{SST_SET_GENERIC_MODULE_EVENT, sst_generic_modules_event},
+	{SST_EVENT_VTSV, sst_vtsv_event},
 };
 
 static int sst_copy_algo_control(struct snd_soc_platform *platform,
@@ -2535,6 +2619,13 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 		return -ENOMEM;
 	}
 
+	sst->vtsv_path = devm_kzalloc(platform->dev,
+				SST_MAX_VTSV_PATH_BYTE_CTL_LEN, GFP_KERNEL);
+	if (!sst->vtsv_path) {
+		pr_err("%s: kzalloc failed vtsv\n", __func__);
+		return -ENOMEM;
+	}
+
 	ret = request_firmware(&fw, "dfw_sst.bin", platform->dev);
 	if (fw == NULL) {
 		pr_err("config firmware request failed with %d\n", ret);
@@ -2548,6 +2639,10 @@ int sst_dsp_init_v2_dpcm_dfw(struct snd_soc_platform *platform)
 	}
 	snd_soc_add_platform_controls(platform, sst_slot_controls,
 			ARRAY_SIZE(sst_slot_controls));
+	snd_soc_add_platform_controls(platform, sst_vad_enroll,
+			ARRAY_SIZE(sst_vad_enroll));
+	snd_soc_add_platform_controls(platform, sst_vtsv_read,
+			ARRAY_SIZE(sst_vtsv_read));
 
 	/* initialize the names of the probe points */
 	for (i = 0; i < ARRAY_SIZE(sst_probes); i++)

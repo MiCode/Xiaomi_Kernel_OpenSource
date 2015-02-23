@@ -957,8 +957,10 @@ static int sst_platform_async_cb(struct sst_platform_cb_params *params)
 			pr_err("SST VTSV POLL control not found\n");
 			return -EINVAL;
 		}
+		mutex_lock(&sst->lock);
 		/* 0th index of array contains size of array */
 		memcpy(sst->vtsv_result.data, vtsv_result, vtsv_result[0]);
+		mutex_unlock(&sst->lock);
 		snd_ctl_notify(card->snd_card, SNDRV_CTL_EVENT_MASK_VALUE,
 					&kcontrol->id);
 		break;

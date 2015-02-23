@@ -100,6 +100,7 @@ static struct sst_dev_stream_map dpcm_strm_map_cht[] = {
 	{CHT_DPCM_PROBE, 7, SNDRV_PCM_STREAM_CAPTURE,
 		SST_DFW_PATH_INDEX_PROBE8_PIPE_OUT >> SST_DFW_PATH_ID_SHIFT,
 		SST_TASK_ID_MEDIA, SST_DEV_MAP_IN_USE},
+	/* stream_id 25, 26 reserved for VAD and AWARE respectively */
 };
 
 static const int sst_ssp_mux_shift[SST_NUM_SSPS] = {

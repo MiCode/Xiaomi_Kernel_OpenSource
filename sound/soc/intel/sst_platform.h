@@ -26,6 +26,16 @@
 #include <sound/soc.h>
 
 #define SST_MAX_BIN_BYTES 1024
+#define SST_MAX_VTSV_PATH_LEN 255
+
+/* VTSV PATH selection byte control max length is 257 bytes :
+ * 255 bytes of max path len + 2 bytes (u16) to hold length of
+ * vtsv path given by user*/
+#define SST_MAX_VTSV_PATH_BYTE_CTL_LEN	(SST_MAX_VTSV_PATH_LEN + sizeof(u16))
+
+/* SST_MAX_VTSV_PATH_BUF_LEN = VTSV Path max lenght + length of vtsv bin
+ * file name. Max length of vtsv bin filename "/vtsv_grammar.bin"s 18 bytes */
+#define SST_MAX_VTSV_PATH_BUF_LEN	(SST_MAX_VTSV_PATH_LEN + 18)
 
 /* VTSV Result */
 #define VTSV_MAX_NUM_RESULTS 6
@@ -86,6 +96,7 @@ enum sst_controls {
 	SST_GET_PROBE_BYTE_STREAM =	0x100E,
 	SST_SET_VTSV_INFO =		0x100F,
 	SST_SET_MONITOR_LPE =           0x1010,
+	SST_SET_VTSV_LIBS =	        0x1011,
 };
 
 struct pcm_stream_info {

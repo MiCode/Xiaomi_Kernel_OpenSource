@@ -118,7 +118,6 @@ struct sst_pcm_format {
 	unsigned int channels_max;
 };
 
-
 struct sst_vtsv_result {
 	u8 data[VTSV_MAX_TOTAL_RESULT_ARRAY_SIZE];
 };
@@ -134,6 +133,7 @@ struct sst_data {
 	/* Pipe_id for probe_stream to be saved in stream map */
 	u8 pipe_id;
 	bool vtsv_enroll;
+	char *vtsv_path;
 	struct sst_vtsv_result vtsv_result;
 };
 #endif

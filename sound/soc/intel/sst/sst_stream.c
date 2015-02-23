@@ -29,7 +29,8 @@
 #include <linux/sched.h>
 #include <linux/delay.h>
 #include <linux/pm_runtime.h>
-#include <asm/platform_sst_audio.h>
+#include "../platform-libs/atom_controls.h"
+#include "../platform-libs/atom_pipes.h"
 #include "../sst_platform.h"
 #include "../platform_ipc_v2.h"
 #include "sst.h"
@@ -767,6 +768,10 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	vinfo.vfiles[1].addr = (u32)((unsigned long)ctx->vcache.file2_in_mem
 				& 0xffffffff);
 	vinfo.vfiles[1].size = ctx->vcache.size2;
+	if (vinfo.vfiles[0].addr == 0 || vinfo.vfiles[1].addr == 0) {
+		pr_err("%s: invalid address for vtsv libs\n", __func__);
+		return -EINVAL;
+	}
 
 	/* Create the vtsv message */
 	pvt_id = sst_assign_pvt_id(ctx);
@@ -776,7 +781,7 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 		return retval;
 	msg = *msgptr;
 	sst_fill_header_mrfld(&msg->mrfld_header, IPC_CMD,
-			SST_TASK_ID_AWARE, 1, pvt_id);
+			SST_TASK_AWARE, 1, pvt_id);
 	pr_debug("header:%x\n",
 			(unsigned int)msg->mrfld_header.p.header_high.full);
 	msg->mrfld_header.p.header_high.part.res_rqd = 1;
@@ -784,7 +789,8 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	len = sizeof(vinfo) + sizeof(dsp_hdr);
 	msg->mrfld_header.p.header_low_payload = len;
 	sst_fill_header_dsp(&dsp_hdr, IPC_IA_VTSV_UPDATE_MODULES,
-				PIPE_VAD_OUT, sizeof(u8));
+		(SST_DFW_PATH_INDEX_VAD_OUT >> SST_DFW_PATH_ID_SHIFT),
+		sizeof(u8));
 	dsp_hdr.mod_id = SST_ALGO_VTSV;
 	memcpy(msg->mailbox_data, &dsp_hdr, sizeof(dsp_hdr));
 	memcpy(msg->mailbox_data + sizeof(dsp_hdr),
@@ -792,26 +798,39 @@ int sst_format_vtsv_message(struct intel_sst_drv *ctx,
 	return 0;
 }
 
-int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx)
+int sst_cache_vtsv_libs(struct intel_sst_drv *ctx)
 {
-	int retval = 0;
-	struct ipc_post *msg = NULL;
-	struct sst_block *block = NULL;
+	int retval;
+	char buff[SST_MAX_VTSV_PATH_BUF_LEN];
+
+	snprintf(buff, sizeof(buff), "%s/%s", ctx->vtsv_path.bytes,
+						"vtsv_net.bin");
 
 	/* Download both the data files */
-	retval = sst_request_vtsv_file("vtsv_net.bin", ctx,
+	retval = sst_request_vtsv_file(buff, ctx,
 			&ctx->vcache.file1_in_mem, &ctx->vcache.size1);
 	if (retval) {
 		pr_err("vtsv data file1 request failed %d\n", retval);
 		return retval;
 	}
 
-	retval = sst_request_vtsv_file("vtsv_grammar.bin", ctx,
+	snprintf(buff, sizeof(buff), "%s/%s", ctx->vtsv_path.bytes,
+						"vtsv_grammar.bin");
+
+	retval = sst_request_vtsv_file(buff, ctx,
 			&ctx->vcache.file2_in_mem, &ctx->vcache.size2);
 	if (retval) {
 		pr_err("vtsv data file2 request failed %d\n", retval);
 		return retval;
 	}
+	return retval;
+}
+
+int sst_send_vtsv_data_to_fw(struct intel_sst_drv *ctx)
+{
+	int retval = 0;
+	struct ipc_post *msg = NULL;
+	struct sst_block *block = NULL;
 
 	retval = sst_format_vtsv_message(ctx, &msg, &block);
 	if (retval) {
