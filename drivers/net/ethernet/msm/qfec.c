@@ -787,6 +787,7 @@ static struct reg_entry  qfec_reg_tbl[] = {
 
 	{ 0, MMC_INTR_MASK_RX_REG,   "MMC_INTR_MASK_RX_REG",   0xFFFFFFFF },
 	{ 0, MMC_INTR_MASK_TX_REG,   "MMC_INTR_MASK_TX_REG",   0xFFFFFFFF },
+	{ 0, MMC_IPC_INTR_MASK_RX_REG, "MMC_IPC_INTR_MASK_RX_REG", 0xFFFFFFFF },
 
 	{ 1, TS_HIGH_REG,            "TS_HIGH_REG",            0 },
 	{ 1, TS_LOW_REG,             "TS_LOW_REG",             0 },

@@ -624,6 +624,7 @@ struct qfec_enh_buf_desc {
 # define MMC_INTR_MASK_RX_REG      0x010C
 # define MMC_INTR_MASK_TX_REG      0x0110
 # define NUM_MULTCST_FRM_RCVD_G    0x0190
+# define MMC_IPC_INTR_MASK_RX_REG  0x0200
 
 /*     0x0300-0x06fc reserved */
 
