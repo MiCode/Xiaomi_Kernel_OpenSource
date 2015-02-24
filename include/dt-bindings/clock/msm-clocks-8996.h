@@ -272,8 +272,17 @@
 #define clk_gcc_mmss_gpll0_div_clk	0xdd06848d
 #define clk_gcc_mmss_bimc_gfx_clk	0xe4f28754
 #define clk_gcc_bimc_gfx_clk		0x3edd69ad
-#define clk_mdss_mdp_vote_clk		0x588460a4
-#define clk_mdss_rotator_vote_clk	0x5b1f675e
+#define clk_gcc_qspi_ahb_clk		0x96969dc8
+#define clk_gcc_qspi_ser_clk		0xfaf1e266
+#define clk_qspi_ser_clk_src		0x426676ee
+#define clk_sdcc1_ice_core_clk_src	0xfd6a4301
+#define clk_gcc_sdcc1_ice_core_clk	0x0fd5680a
+#define clk_gcc_mss_cfg_ahb_clk		0x111cde81
+#define clk_gcc_mss_snoc_axi_clk	0x0e71de85
+#define clk_gcc_mss_q6_bimc_axi_clk	0x67544d62
+#define clk_gcc_mss_mnoc_bimc_axi_clk	0xf665d03f
+#define clk_gpll0_out_msscc		0x7d794829
+#define clk_gcc_debug_mux_v2		0xf7e749f0
 
 /* clock_mmss controlled clocks */
 #define clk_mmsscc_xo			0x05e63704
@@ -465,6 +474,8 @@
 #define clk_mdss_pclk0_clk		0x3487234a
 #define clk_mdss_pclk1_clk		0xd5804246
 #define clk_gpu_gcc_dbg_clk		0x0ccc42cd
+#define clk_mdss_mdp_vote_clk		0x588460a4
+#define clk_mdss_rotator_vote_clk	0x5b1f675e
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux		0x8121ac15

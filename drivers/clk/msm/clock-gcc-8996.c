@@ -1331,6 +1331,27 @@ static struct rcg_clk pdm2_clk_src = {
 	},
 };
 
+/* Frequency table might change later */
+static struct clk_freq_tbl ftbl_qspi_ser_clk_src[] = {
+	F( 192000000,  gpll4_out_main,    2,    0,     0),
+	F_END
+};
+
+static struct rcg_clk qspi_ser_clk_src = {
+	.cmd_rcgr_reg = GCC_QSPI_SER_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_qspi_ser_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "qspi_ser_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP3(LOWER, 80200000, LOW, 160400000,
+							NOMINAL, 320000000),
+		CLK_INIT(qspi_ser_clk_src.c),
+	},
+};
+
 static struct clk_freq_tbl ftbl_sdcc1_apps_clk_src[] = {
 	F(    144000,     cxo_clk_src,   16,    3,    25),
 	F(    400000,     cxo_clk_src,   12,    1,     4),
@@ -1355,6 +1376,28 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 		VDD_DIG_FMAX_MAP3(LOWER, 19200000, LOW, 200000000,
 						NOMINAL, 400000000),
 		CLK_INIT(sdcc1_apps_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_sdcc1_ice_core_clk_src[] = {
+	F(  19200000,     cxo_clk_src,    1,    0,     0),
+	F( 150000000,  gpll0_out_main,    4,    0,     0),
+	F( 300000000,  gpll0_out_main,    2,    0,     0),
+	F_END
+};
+
+static struct rcg_clk sdcc1_ice_core_clk_src = {
+	.cmd_rcgr_reg = GCC_SDCC1_ICE_CORE_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_sdcc1_ice_core_clk_src,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "sdcc1_ice_core_clk_src",
+		.ops = &clk_ops_rcg,
+		VDD_DIG_FMAX_MAP3(LOWER, 19200000, LOW, 150000000,
+						NOMINAL, 300000000),
+		CLK_INIT(sdcc1_ice_core_clk_src.c),
 	},
 };
 
@@ -2436,6 +2479,29 @@ static struct local_vote_clk gcc_prng_ahb_clk = {
 	},
 };
 
+static struct branch_clk gcc_qspi_ahb_clk = {
+	.cbcr_reg = GCC_QSPI_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_qspi_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_qspi_ahb_clk.c),
+	},
+};
+
+static struct branch_clk gcc_qspi_ser_clk = {
+	.cbcr_reg = GCC_QSPI_SER_CBCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_qspi_ser_clk",
+		.parent = &qspi_ser_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_qspi_ser_clk.c),
+	},
+};
+
 static struct branch_clk gcc_sdcc1_ahb_clk = {
 	.cbcr_reg = GCC_SDCC1_AHB_CBCR,
 	.has_sibling = 1,
@@ -2456,6 +2522,18 @@ static struct branch_clk gcc_sdcc1_apps_clk = {
 		.parent = &sdcc1_apps_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_sdcc1_apps_clk.c),
+	},
+};
+
+static struct branch_clk gcc_sdcc1_ice_core_clk = {
+	.cbcr_reg = GCC_SDCC1_ICE_CORE_CBCR,
+	.has_sibling = 0,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_sdcc1_ice_core_clk",
+		.parent = &sdcc1_ice_core_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_sdcc1_ice_core_clk.c),
 	},
 };
 
@@ -2998,7 +3076,64 @@ static struct branch_clk gcc_bimc_gfx_clk = {
 	},
 };
 
+static struct branch_clk gcc_mss_cfg_ahb_clk = {
+	.cbcr_reg = GCC_MSS_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_mss_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_cfg_ahb_clk.c),
+	},
+};
+
+static struct branch_clk gcc_mss_q6_bimc_axi_clk = {
+	.cbcr_reg = GCC_MSS_Q6_BIMC_AXI_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_mss_q6_bimc_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_q6_bimc_axi_clk.c),
+	},
+};
+
+static struct gate_clk gpll0_out_msscc = {
+	.en_reg = GCC_APCS_CLOCK_BRANCH_ENA_VOTE_1,
+	.en_mask = BIT(2),
+	.delay_us = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gpll0_out_msscc",
+		.ops = &clk_ops_gate,
+		CLK_INIT(gpll0_out_msscc.c),
+	},
+};
+
+static struct branch_clk gcc_mss_snoc_axi_clk = {
+	.cbcr_reg = GCC_MSS_SNOC_AXI_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_mss_snoc_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_snoc_axi_clk.c),
+	},
+};
+
+static struct branch_clk gcc_mss_mnoc_bimc_axi_clk = {
+	.cbcr_reg = GCC_MSS_MNOC_BIMC_AXI_CBCR,
+	.has_sibling = 1,
+	.base = &virt_base,
+	.c = {
+		.dbg_name = "gcc_mss_mnoc_bimc_axi_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_mss_mnoc_bimc_axi_clk.c),
+	},
+};
+
 static struct mux_clk gcc_debug_mux;
+static struct mux_clk gcc_debug_mux_v2;
 static struct clk_ops clk_ops_debug_mux;
 
 static struct measure_clk_data debug_mux_priv = {
@@ -3020,10 +3155,12 @@ static struct mux_clk gcc_debug_mux = {
 	MUX_REC_SRC_LIST(
 		&mmss_gcc_dbg_clk.c,
 		&gpu_gcc_dbg_clk.c,
+		&gcc_debug_mux_v2.c,
 	),
 	MUX_SRC_LIST(
 		{ &mmss_gcc_dbg_clk.c, 0x001b },
 		{ &gpu_gcc_dbg_clk.c, 0x001b },
+		{ &gcc_debug_mux_v2.c, 0xffff },
 		{ &cnoc_clk.c, 0x000e },
 		{ &pnoc_clk.c, 0x0011 },
 		{ &snoc_clk.c, 0x0000 },
@@ -3146,6 +3283,25 @@ static struct mux_clk gcc_debug_mux = {
 		.ops = &clk_ops_debug_mux,
 		.flags = CLKFLAG_NO_RATE_CACHE | CLKFLAG_MEASURE,
 		CLK_INIT(gcc_debug_mux.c),
+	},
+};
+
+static struct mux_clk gcc_debug_mux_v2 = {
+	.ops = &mux_reg_ops,
+	.en_mask = BIT(16),
+	.mask = 0x3FF,
+	.base = &virt_dbgbase,
+	MUX_SRC_LIST(
+		{ &gcc_mss_cfg_ahb_clk.c, 0x0133 },
+		{ &gcc_mss_mnoc_bimc_axi_clk.c, 0x0134 },
+		{ &gcc_mss_snoc_axi_clk.c, 0x0135 },
+		{ &gcc_mss_q6_bimc_axi_clk.c, 0x0136 },
+	),
+	.c = {
+		.dbg_name = "gcc_debug_mux_v2",
+		.ops = &clk_ops_gen_mux,
+		.flags = CLKFLAG_NO_RATE_CACHE,
+		CLK_INIT(gcc_debug_mux_v2.c),
 	},
 };
 
@@ -3410,10 +3566,45 @@ static struct clk_lookup msm_clocks_gcc_8996[] = {
 	CLK_LIST(gcc_bimc_gfx_clk),
 };
 
+static struct clk_lookup msm_clocks_gcc_8996_v2[] = {
+	CLK_LIST(qspi_ser_clk_src),
+	CLK_LIST(sdcc1_ice_core_clk_src),
+	CLK_LIST(gcc_qspi_ahb_clk),
+	CLK_LIST(gcc_qspi_ser_clk),
+	CLK_LIST(gcc_sdcc1_ice_core_clk),
+	CLK_LIST(gcc_mss_cfg_ahb_clk),
+	CLK_LIST(gcc_mss_snoc_axi_clk),
+	CLK_LIST(gcc_mss_q6_bimc_axi_clk),
+	CLK_LIST(gcc_mss_mnoc_bimc_axi_clk),
+	CLK_LIST(gpll0_out_msscc),
+};
+
+static void msm_clocks_gcc_8996_v2_fixup(void)
+{
+	hmss_rbcpr_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
+	hmss_rbcpr_clk_src.c.fmax[VDD_DIG_HIGH] = 50000000;
+
+	pcie_aux_clk_src.c.fmax[VDD_DIG_LOWER] = 9600000;
+	pcie_aux_clk_src.c.fmax[VDD_DIG_LOW] = 19200000;
+	pcie_aux_clk_src.c.fmax[VDD_DIG_NOMINAL] = 19200000;
+	pcie_aux_clk_src.c.fmax[VDD_DIG_HIGH] = 19200000;
+
+	usb30_master_clk_src.c.fmax[VDD_DIG_LOW] = 133333000;
+	usb30_master_clk_src.c.fmax[VDD_DIG_NOMINAL] = 200000000;
+	usb30_master_clk_src.c.fmax[VDD_DIG_HIGH] = 240000000;
+
+	sdcc1_apps_clk_src.c.fmax[VDD_DIG_LOW] = 50000000;
+	sdcc2_apps_clk_src.c.fmax[VDD_DIG_LOW] = 50000000;
+	sdcc3_apps_clk_src.c.fmax[VDD_DIG_LOW] = 50000000;
+}
+
 static int msm_gcc_8996_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	u32 regval;
+	const char *compat = NULL;
+	int compatlen = 0;
+	bool is_v2 = false;
 	int ret;
 
 	ret = vote_bimc(&bimc_clk, INT_MAX);
@@ -3463,10 +3654,28 @@ static int msm_gcc_8996_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
+	/* Perform revision specific fixes */
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+	is_v2 = !strcmp(compat, "qcom,gcc-8996-v2");
+	if (is_v2)
+		msm_clocks_gcc_8996_v2_fixup();
+
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_8996,
 				    ARRAY_SIZE(msm_clocks_gcc_8996));
 	if (ret)
 		return ret;
+
+	/* Register v2 specific clocks */
+	if (is_v2) {
+		ret = of_msm_clock_register(pdev->dev.of_node,
+				msm_clocks_gcc_8996_v2,
+				ARRAY_SIZE(msm_clocks_gcc_8996_v2));
+		if (ret)
+			return ret;
+	}
+
 	/*
 	 * Hold an active set vote for the PNOC AHB source. Sleep set vote is 0.
 	 */
@@ -3482,6 +3691,7 @@ static int msm_gcc_8996_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8996" },
+	{ .compatible = "qcom,gcc-8996-v2" },
 	{}
 };
 
@@ -3507,13 +3717,23 @@ static struct clk_lookup msm_clocks_measure_8996[] = {
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
 };
 
+static struct clk_lookup msm_clocks_measure_8996_v2[] = {
+	CLK_LIST(mmss_gcc_dbg_clk),
+	CLK_LIST(gpu_gcc_dbg_clk),
+	CLK_LIST(gcc_debug_mux_v2),
+	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
+};
+
 static struct of_device_id msm_clock_debug_match_table[] = {
 	{ .compatible = "qcom,cc-debug-8996" },
+	{ .compatible = "qcom,cc-debug-8996-v2" },
 	{}
 };
 
 static int msm_clock_debug_8996_probe(struct platform_device *pdev)
 {
+	const char *compat = NULL;
+	int compatlen = 0;
 	struct resource *res;
 	int ret;
 
@@ -3537,9 +3757,19 @@ static int msm_clock_debug_8996_probe(struct platform_device *pdev)
 	gpu_gcc_dbg_clk.dev = &pdev->dev;
 	gpu_gcc_dbg_clk.clk_id = "debug_gpu_clk";
 
-	ret = of_msm_clock_register(pdev->dev.of_node,
+	/* Perform revision specific fixes */
+	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
+	if (!compat || (compatlen <= 0))
+		return -EINVAL;
+
+	if (!strcmp(compat, "qcom,cc-debug-8996"))
+		ret = of_msm_clock_register(pdev->dev.of_node,
 				    msm_clocks_measure_8996,
 				    ARRAY_SIZE(msm_clocks_measure_8996));
+	else
+		ret = of_msm_clock_register(pdev->dev.of_node,
+				msm_clocks_measure_8996_v2,
+				ARRAY_SIZE(msm_clocks_measure_8996_v2));
 	if (ret)
 		return ret;
 

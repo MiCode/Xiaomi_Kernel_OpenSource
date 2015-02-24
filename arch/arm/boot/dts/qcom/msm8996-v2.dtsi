@@ -35,6 +35,14 @@
 	/delete-property/ qcom,cpr-hw-closed-loop;
 };
 
+&clock_gcc {
+	compatible = "qcom,gcc-8996-v2";
+};
+
+&clock_debug {
+	compatible = "qcom,cc-debug-8996-v2";
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */
