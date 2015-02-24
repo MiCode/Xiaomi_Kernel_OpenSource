@@ -2671,6 +2671,12 @@ static void glink_core_rx_cmd_version(struct glink_transport_if *if_ptr,
 	bool neg_complete = false;
 	uint32_t l_version, l_features;
 
+	if (xprt_ptr->local_state == GLINK_XPRT_OPENED) {
+		GLINK_ERR_XPRT(xprt_ptr,
+			"%s: Negotiation already complete\n", __func__);
+		return;
+	}
+
 	l_version = versions[xprt_ptr->remote_version_idx].version;
 	l_features = versions[xprt_ptr->remote_version_idx].features;
 
@@ -2757,6 +2763,12 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 	const struct glink_core_version *versions = xprt_ptr->versions;
 	uint32_t l_version, l_features;
 	bool neg_complete = false;
+
+	if (xprt_ptr->local_state == GLINK_XPRT_OPENED) {
+		GLINK_ERR_XPRT(xprt_ptr,
+			"%s: Negotiation already complete\n", __func__);
+		return;
+	}
 
 	l_version = versions[xprt_ptr->local_version_idx].version;
 	l_features = versions[xprt_ptr->local_version_idx].features;
