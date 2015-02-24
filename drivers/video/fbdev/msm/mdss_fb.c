@@ -16,6 +16,7 @@
 
 #define pr_fmt(fmt)	"%s: " fmt, __func__
 
+#include <linux/videodev2.h>
 #include <linux/bootmem.h>
 #include <linux/console.h>
 #include <linux/debugfs.h>
@@ -2955,9 +2956,23 @@ static int mdss_fb_pan_display_sub(struct fb_var_screeninfo *var,
 	return 0;
 }
 
+static int mdss_grayscale_to_mdp_format(u32 grayscale)
+{
+	switch (grayscale) {
+	case V4L2_PIX_FMT_RGB24:
+		return MDP_RGB_888;
+	case V4L2_PIX_FMT_NV12:
+		return MDP_Y_CBCR_H2V2;
+	default:
+		return -EINVAL;
+	}
+}
+
 static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	struct mdss_panel_info *pinfo)
 {
+	int format = -EINVAL;
+
 	pinfo->xres = var->xres;
 	pinfo->yres = var->yres;
 	pinfo->lcdc.v_front_porch = var->lower_margin;
@@ -2967,6 +2982,15 @@ static void mdss_fb_var_to_panelinfo(struct fb_var_screeninfo *var,
 	pinfo->lcdc.h_back_porch = var->left_margin;
 	pinfo->lcdc.h_pulse_width = var->hsync_len;
 	pinfo->clk_rate = var->pixclock;
+
+	if (var->grayscale > 1) {
+		format = mdss_grayscale_to_mdp_format(var->grayscale);
+		if (!IS_ERR_VALUE(format))
+			pinfo->out_format = format;
+		else
+			pr_warn("Failed to map grayscale value (%d) to an MDP format\n",
+					var->grayscale);
+	}
 }
 
 static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
@@ -3109,8 +3133,6 @@ static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 
 	if (var->rotate != FB_ROTATE_UR && var->rotate != FB_ROTATE_UD)
-		return -EINVAL;
-	if (var->grayscale != info->var.grayscale)
 		return -EINVAL;
 
 	switch (var->bits_per_pixel) {
