@@ -56,6 +56,17 @@
 	};
 
 	soc: soc { };
+
+	memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		qsecom_mem: qsecom_region {
+			linux,contiguous-region;
+			reg = <0 0 0 0x600000>;
+			label = "qseecom_mem";
+		};
+	};
 };
 
 #include "fsm9010-pinctrl.dtsi"
@@ -467,6 +478,48 @@
 		clock-names = "core_clk";
 		qcom,qsgmii-pcs-chan = <2>;
 		status = "disabled";
+	};
+
+	qcom,ion {
+		compatible = "qcom,msm-ion";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,ion-heap@25 {
+			reg = <25>;
+			qcom,ion-heap-type = "SYSTEM";
+		};
+
+		qcom,ion-heap@27 { /* QSECOM HEAP */
+			compatible = "qcom,msm-ion-reserve";
+			reg = <27>;
+			linux,contiguous-region = <&qsecom_mem>;
+			qcom,ion-heap-type = "DMA";
+		};
+	};
+
+	qseecom: qcom,qseecom@13e62000 {
+		compatible = "qcom,qseecom";
+		reg = <0x13e62000 0x9e000>;
+		reg-names = "secapp-region";
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,hlos-ce-hw-instance = <1>;
+		qcom,qsee-ce-hw-instance = <0>;
+		qcom,msm-bus,name = "qseecom-noc";
+		qcom,msm-bus,num-cases = <4>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<55 512 0 0>,
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>,
+				<55 512 3936000 393600>;
+		qcom,ce-opp-freq = <100000000>;
+		clock-names = "core_clk", "iface_clk", "bus_clk",
+				"core_clk_src";
+		clocks = <&clock_gcc clk_gcc_ce1_clk>,
+			<&clock_gcc clk_gcc_ce1_ahb_clk>,
+			<&clock_gcc clk_gcc_ce1_axi_clk>,
+			<&clock_gcc clk_ce1_clk_src>;
 	};
 
 	pcie0: qcom,pcie@fc520000 {
