@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -718,12 +718,18 @@ static int msm_vidc_remove(struct platform_device *pdev)
 
 static int msm_vidc_pm_suspend(struct device *dev)
 {
+	int rc = 0;
 	struct msm_vidc_core *core;
 
-	if (!dev || !dev->driver) {
-		/* driver possibly not probed yet */
+	/*
+	 * Bail out if
+	 * - driver possibly not probed yet
+	 * - not the main device. We don't support power management on
+	 *   subdevices (e.g. context banks)
+	 */
+	if (!dev || !dev->driver ||
+		!of_device_is_compatible(dev->of_node, "qcom,msm-vidc"))
 		return 0;
-	}
 
 	core = dev_get_drvdata(dev);
 	if (!core) {
@@ -731,8 +737,14 @@ static int msm_vidc_pm_suspend(struct device *dev)
 		return -EINVAL;
 	}
 
-	dprintk(VIDC_INFO, "%s\n", __func__);
-	return msm_vidc_suspend(core->id);
+	rc = msm_vidc_suspend(core->id);
+	if (rc == -ENOTSUPP)
+		rc = 0;
+	else if (rc)
+		dprintk(VIDC_WARN, "Failed to suspend: %d\n", rc);
+
+
+	return rc;
 }
 
 static int msm_vidc_pm_resume(struct device *dev)

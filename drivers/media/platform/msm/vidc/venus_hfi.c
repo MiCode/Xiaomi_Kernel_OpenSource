@@ -1468,8 +1468,9 @@ static int venus_hfi_suspend(void *dev)
 	if (!device) {
 		dprintk(VIDC_ERR, "%s invalid device\n", __func__);
 		return -EINVAL;
+	} else if (!device->res->sw_power_collapsible) {
+		return -ENOTSUPP;
 	}
-	dprintk(VIDC_INFO, "%s\n", __func__);
 
 	if (device->power_enabled) {
 		rc = flush_delayed_work(&venus_hfi_pm_work);
