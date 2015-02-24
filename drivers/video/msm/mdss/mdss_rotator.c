@@ -258,8 +258,9 @@ static int mdss_rotator_validate_data(struct mdss_rot_mgr *mgr,
 	}
 
 	fmt = mdss_mdp_get_format_params(input->format);
-	if (fmt) {
-		pr_err("invalid input format\n");
+	if (!fmt) {
+		pr_err("invalid input format:%d\n", input->format);
+		ret = -EINVAL;
 		goto validate_data_err;
 	}
 
@@ -277,8 +278,9 @@ static int mdss_rotator_validate_data(struct mdss_rot_mgr *mgr,
 	}
 
 	fmt = mdss_mdp_get_format_params(output->format);
-	if (fmt) {
-		pr_err("invalid output format\n");
+	if (!fmt) {
+		pr_err("invalid output format:%d\n", output->format);
+		ret = -EINVAL;
 		goto validate_data_err;
 	}
 
@@ -716,16 +718,6 @@ static u32 mdss_rotator_get_out_format(u32 in_format, bool rot90)
 	u32 format;
 
 	switch (in_format) {
-	case MDP_RGB_565:
-	case MDP_BGR_565:
-		if (rot90)
-			format = MDP_RGB_888;
-		else
-			format = in_format;
-		break;
-	case MDP_RGBA_8888:
-		format = in_format;
-		break;
 	case MDP_Y_CBCR_H2V2_VENUS:
 	case MDP_Y_CBCR_H2V2:
 		if (rot90)
