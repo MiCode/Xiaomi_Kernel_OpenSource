@@ -749,6 +749,7 @@ unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
 unsigned int cpu_temp(int cpu);
+extern unsigned int nr_eligible_big_tasks(int cpu);
 
 static inline int capacity(struct rq *rq)
 {
@@ -821,6 +822,11 @@ static inline int sched_cpu_high_irqload(int cpu)
 #else	/* CONFIG_SCHED_HMP */
 
 struct hmp_sched_stats;
+
+static inline unsigned int nr_eligible_big_tasks(int cpu)
+{
+	return 0;
+}
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 
