@@ -638,7 +638,7 @@ static void msm_cpp_delete_buff_queue(struct cpp_device *cpp_dev)
 
 	for (i = 0; i < cpp_dev->num_buffq; i++) {
 		if (cpp_dev->buff_queue[i].used == 1) {
-			pr_err("Queue not free sessionid: %d, streamid: %d\n",
+			pr_info("Queue not free sessionid: %d, streamid: %d\n",
 				cpp_dev->buff_queue[i].session_id,
 				cpp_dev->buff_queue[i].stream_id);
 			msm_cpp_dequeue_buff_info_list
@@ -751,35 +751,35 @@ static irqreturn_t msm_cpp_irq(int irq_num, void *data)
 
 		tasklet_schedule(&cpp_dev->cpp_tasklet);
 	} else if (irq_status & 0x7C0) {
-		pr_err("%s: fatal error: 0x%x\n", __func__, irq_status);
-		pr_err("%s: DEBUG_SP: 0x%x\n", __func__,
+		pr_debug("irq_status: 0x%x\n", irq_status);
+		pr_debug("DEBUG_SP: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x40));
-		pr_err("%s: DEBUG_T: 0x%x\n", __func__,
+		pr_debug("DEBUG_T: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x44));
-		pr_err("%s: DEBUG_N: 0x%x\n", __func__,
+		pr_debug("DEBUG_N: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x48));
-		pr_err("%s: DEBUG_R: 0x%x\n", __func__,
+		pr_debug("DEBUG_R: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x4C));
-		pr_err("%s: DEBUG_OPPC: 0x%x\n", __func__,
+		pr_debug("DEBUG_OPPC: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x50));
-		pr_err("%s: DEBUG_MO: 0x%x\n", __func__,
+		pr_debug("DEBUG_MO: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x54));
-		pr_err("%s: DEBUG_TIMER0: 0x%x\n", __func__,
+		pr_debug("DEBUG_TIMER0: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x60));
-		pr_err("%s: DEBUG_TIMER1: 0x%x\n", __func__,
+		pr_debug("DEBUG_TIMER1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x64));
-		pr_err("%s: DEBUG_GPI: 0x%x\n", __func__,
+		pr_debug("DEBUG_GPI: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x70));
-		pr_err("%s: DEBUG_GPO: 0x%x\n", __func__,
+		pr_debug("DEBUG_GPO: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x74));
-		pr_err("%s: DEBUG_T0: 0x%x\n", __func__,
+		pr_debug("DEBUG_T0: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x80));
-		pr_err("%s: DEBUG_R0: 0x%x\n", __func__,
+		pr_debug("DEBUG_R0: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x84));
-		pr_err("%s: DEBUG_T1: 0x%x\n", __func__,
+		pr_debug("DEBUG_T1: 0x%x\n",
 			msm_camera_io_r(cpp_dev->base + 0x88));
-		pr_err("%s: DEBUG_R1: 0x%x\n", __func__,
-			msm_camera_io_r(cpp_dev->cpp_hw_base + 0x8C));
+		pr_debug("DEBUG_R1: 0x%x\n",
+			msm_camera_io_r(cpp_dev->base + 0x8C));
 	}
 	msm_camera_io_w(irq_status, cpp_dev->base + MSM_CPP_MICRO_IRQGEN_CLR);
 	return IRQ_HANDLED;
@@ -853,14 +853,15 @@ static void cpp_get_clk_freq_tbl(struct clk *clk, struct cpp_hw_info *hw_info,
 
 	for (i = 0; i < MAX_FREQ_TBL; i++) {
 		freq_tbl_entry = clk->ops->list_rate(clk, i);
-		CPP_DBG("entry=%ld\n", freq_tbl_entry);
+		pr_debug("entry=%ld\n", freq_tbl_entry);
 		if (freq_tbl_entry >= 0) {
 			if (freq_tbl_entry >= min_clk_rate) {
 				hw_info->freq_tbl[idx++] = freq_tbl_entry;
-				CPP_DBG("tbl[%d]=%ld\n", idx-1, freq_tbl_entry);
+				pr_debug("tbl[%d]=%ld\n", idx-1,
+					freq_tbl_entry);
 			}
 		} else {
-			CPP_DBG("freq table returned invalid entry/end %ld\n",
+			pr_debug("freq table returned invalid entry/end %ld\n",
 				freq_tbl_entry);
 			break;
 		}
@@ -1249,7 +1250,7 @@ static void cpp_release_hardware(struct cpp_device *cpp_dev)
 	regulator_put(cpp_dev->fs_mmagic_camss);
 	cpp_dev->fs_mmagic_camss = NULL;
 	if (cpp_dev->stream_cnt > 0) {
-		pr_err("error: stream count active\n");
+		pr_info("stream count active\n");
 		rc = msm_cpp_update_bandwidth_setting(cpp_dev, 0, 0);
 	}
 	cpp_dev->stream_cnt = 0;
