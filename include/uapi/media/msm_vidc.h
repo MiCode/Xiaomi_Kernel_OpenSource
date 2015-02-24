@@ -93,7 +93,7 @@ struct msm_vidc_s3d_frame_packing_payload {
 	unsigned int cancel_flag;
 	unsigned int fpa_type;
 	unsigned int quin_cunx_flag;
-	unsigned int content_interprtation_type;
+	unsigned int content_interpretation_type;
 	unsigned int spatial_flipping_flag;
 	unsigned int frame0_flipped_flag;
 	unsigned int field_views_flag;
@@ -140,6 +140,14 @@ enum msm_vidc_interlace_type {
 	MSM_VIDC_INTERLACE_INTERLEAVE_FRAME_BOTTOMFIELDFIRST = 0x04,
 	MSM_VIDC_INTERLACE_FRAME_TOPFIELDFIRST = 0x08,
 	MSM_VIDC_INTERLACE_FRAME_BOTTOMFIELDFIRST = 0x10,
+};
+enum msm_vidc_framepack_type {
+	MSM_VIDC_FRAMEPACK_CHECKERBOARD = 0x00,
+	MSM_VIDC_FRAMEPACK_COLUMN_INTERLEAVE = 0x01,
+	MSM_VIDC_FRAMEPACK_ROW_INTERLEAVE = 0x02,
+	MSM_VIDC_FRAMEPACK_SIDE_BY_SIDE = 0x03,
+	MSM_VIDC_FRAMEPACK_TOP_BOTTOM = 0x04,
+	MSM_VIDC_FRAMEPACK_TEMPORAL_INTERLEAVE = 0x05,
 };
 enum msm_vidc_recovery_sei {
 	MSM_VIDC_FRAME_RECONSTRUCTION_INCORRECT = 0x0,
