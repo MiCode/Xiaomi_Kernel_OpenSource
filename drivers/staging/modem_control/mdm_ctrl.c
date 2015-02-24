@@ -102,10 +102,12 @@ static int mdm_ctrl_cold_boot(struct mdm_info *mdm)
 		}
 	}
 
-	if (mdm_ops->power_on(mdm_data, rst, pwr_on)) {
-		pr_err(DRVNAME ": Error MDM power-ON.");
-		ret = -1;
-		goto end;
+	if (mdm->pdata->mdm_ver != MODEM_7360) {
+		if (mdm_ops->power_on(mdm_data, rst, pwr_on)) {
+			pr_err(DRVNAME ": Error MDM power-ON.");
+			ret = -1;
+			goto end;
+		}
 	}
 
 	mdm_ctrl_launch_timer(mdm, cflash_delay, MDM_TIMER_FLASH_ENABLE);
@@ -196,10 +198,12 @@ static int mdm_ctrl_power_off(struct mdm_info *mdm)
 	mdm_ctrl_set_state(mdm, MDM_CTRL_STATE_OFF);
 
 	rst = cpu->get_gpio_rst(cpu_data);
-	if (mdm_ops->power_off(mdm_data, rst)) {
-		pr_err(DRVNAME ": Error MDM power-OFF.");
-		ret = -1;
-		goto end;
+	if (mdm->pdata->mdm_ver != MODEM_7360) {
+		if (mdm_ops->power_off(mdm_data, rst)) {
+			pr_err(DRVNAME ": Error MDM power-OFF.");
+			ret = -1;
+			goto end;
+		}
 	}
 	if (mdm->pdata->mdm_ver != MODEM_2230) {
 		if (pmic->power_off_mdm(pmic_data)) {

@@ -20,6 +20,7 @@
  * General Public License for more details.
  */
 
+#include <linux/mdm_ctrl.h>
 #include "mdm_util.h"
 #include "mcd_mdm.h"
 #include "mcd_cpu.h"
@@ -155,6 +156,10 @@ int mdm_ctrl_set_pmic(struct mdm_info *mdm)
 		case MODEM_6360:
 			pdata->pmic.init = NULL;
 			pdata->pmic.power_on_mdm = pmic_io_power_on_ctp_mdm;
+			break;
+		case MODEM_7360:
+			pdata->pmic.power_on_mdm = pmic_io_power_on_mdm2;
+			pdata->pmic.power_off_mdm = pmic_io_power_off_mdm2;
 			break;
 		default:
 			break;

@@ -54,6 +54,10 @@ int mcd_mdm_cold_boot(void *data, int rst, int pwr_on)
 {
 	struct mdm_ctrl_mdm_data *mdm_data = data;
 
+	if ((rst == INVALID_GPIO)
+		|| (pwr_on == INVALID_GPIO))
+		return -EINVAL;
+
 	/* Toggle the RESET_BB_N */
 	gpio_set_value(rst, 1);
 
@@ -81,6 +85,9 @@ int mcd_mdm_warm_reset(void *data, int rst)
 {
 	struct mdm_ctrl_mdm_data *mdm_data = data;
 
+	if (rst == INVALID_GPIO)
+		return -EINVAL;
+
 	gpio_set_value(rst, 0);
 	usleep_range(mdm_data->warm_rst_duration,
 			mdm_data->warm_rst_duration + 1);
@@ -100,12 +107,15 @@ int mcd_mdm_power_off(void *data, int rst)
 {
 	struct mdm_ctrl_mdm_data *mdm_data = data;
 
+	if (rst == INVALID_GPIO)
+		return -EINVAL;
+
 	/* Set the RESET_BB_N to 0 */
 	gpio_set_value(rst, 0);
 
 	/* Wait before doing the pulse on ON1 */
 	usleep_range(mdm_data->pre_pwr_down_delay,
-		     mdm_data->pre_pwr_down_delay + 1);
+		mdm_data->pre_pwr_down_delay + 1);
 
 	return 0;
 }
@@ -143,6 +153,10 @@ int mcd_mdm_cold_boot_ngff(void *data, int rst, int pwr_on)
 	cpu_data = container_of(&gpio_rst_desc, struct mdm_ctrl_cpu_data,
 				gpio_rst_bbn);
 
+	if ((rst == INVALID_GPIO) ||
+		(cpu_data->gpio_rst_usbhub == NULL))
+		return -EINVAL;
+
 	/* Toggle the RESET_BB_N */
 	gpio_set_value(rst, 1);
 
@@ -158,6 +172,10 @@ int mcd_mdm_cold_boot_ngff(void *data, int rst, int pwr_on)
 int mcd_mdm_cold_boot_2230(void *data, int rst, int pwr_on)
 {
 	struct mdm_ctrl_mdm_data *mdm_data = data;
+
+	if ((rst == INVALID_GPIO)
+		&& (pwr_on == INVALID_GPIO))
+		return -EINVAL;
 
 	/* Toggle the RESET_BB_N */
 	gpio_set_value(rst, 0);

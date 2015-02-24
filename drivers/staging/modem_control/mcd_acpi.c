@@ -117,11 +117,24 @@ int create_sysfs_telephony_entry(void *pdata)
 
 void mcd_set_mdm(struct mcd_base_info *info, int mdm_ver)
 {
+	int index = MODEM_DATA_INDEX_UNSUP;
+
 	if (!info) {
 		pr_err("%s: info is NULL\n", __func__);
 	} else {
 		info->mdm_ver = mdm_ver;
-		info->modem_data = modem_data[mdm_ver];
+		switch (mdm_ver) {
+		case MODEM_2230:
+			index = MODEM_DATA_INDEX_2230;
+			break;
+		case MODEM_6360:
+			index = MODEM_DATA_INDEX_6360;
+			break;
+		default:
+			index = MODEM_DATA_INDEX_GENERIC;
+			break;
+		}
+		info->modem_data = modem_data[index];
 	}
 }
 #ifdef CONFIG_ACPI
