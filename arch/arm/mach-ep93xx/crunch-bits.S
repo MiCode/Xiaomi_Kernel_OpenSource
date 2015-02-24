@@ -62,7 +62,7 @@
  * r9  = ret_from_exception
  * lr  = undefined instr exit
  *
- * called from prefetch exception handler with interrupts disabled
+ * called from prefetch exception handler with interrupts enabled
  */
 ENTRY(crunch_task_enable)
 	ldr	r8, =(EP93XX_APB_VIRT_BASE + 0x00130000)	@ syscon addr
