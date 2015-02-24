@@ -17,9 +17,10 @@
 	ad_hoc_bus: ad-hoc-bus {
 		compatible = "qcom,msm-bus-device";
 		reg = <0x580000 0x16080>,
+			<0x580000 0x16080>,
 			<0x400000 0x62000>,
 			<0x500000 0x12080>;
-		reg-names = "snoc-base", "bimc-base", "pcnoc-base";
+		reg-names = "snoc-base", "snoc-mm-base", "bimc-base", "pcnoc-base";
 
 		/*Buses*/
 		fab_bimc: fab-bimc {
@@ -40,6 +41,8 @@
 			qcom,fab-dev;
 			qcom,base-name = "pcnoc-base";
 			qcom,bypass-qos-prg;
+			qcom,base-offset = <0x7000>;
+			qcom,qos-delta = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_pnoc_msmbus_clk>,
@@ -52,10 +55,26 @@
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
 			qcom,bypass-qos-prg;
+			qcom,base-offset = <0x7000>;
+			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_snoc_msmbus_clk>,
 				<&clock_gcc  clk_snoc_msmbus_a_clk>;
+		};
+
+		fab_snoc_mm: fab-snoc-mm {
+			cell-id = <MSM_BUS_FAB_MMSS_NOC>;
+			label = "fab-snoc-mm";
+			qcom,fab-dev;
+			qcom,base-name = "snoc-mm-base";
+			qcom,bypass-qos-prg;
+			qcom,base-offset = <0x7000>;
+			qcom,qos-off = <0x1000>;
+			qcom,bus-type = <1>;
+			clock-names = "bus_clk", "bus_a_clk";
+			clocks = <&clock_gcc  clk_sysmmnoc_msmbus_clk>,
+				<&clock_gcc  clk_sysmmnoc_msmbus_a_clk>;
 		};
 
 		/*Masters*/
@@ -329,6 +348,7 @@
 			qcom,mas-rpm-id = <ICBID_MASTER_SNOC_PCNOC>;
 		};
 
+		/*SNOC Masters*/
 		mas_qdss_bam: mas-qdss-bam {
 			cell-id = <MSM_BUS_MASTER_QDSS_BAM>;
 			label = "mas-qdss-bam";
@@ -364,8 +384,8 @@
 			qcom,ap-owned;
 			qcom,qport = <7>;
 			qcom,qos-mode = "bypass";
-			qcom,connections = <&mm_int_0 &slv_snoc_bimc_2>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,connections = <&mm_int_0 &slv_snoc_bimc_0>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP>;
 			qcom,blacklist = <&slv_cats_0 &slv_cats_1 &slv_lpass
 				 &slv_kpss_ahb &slv_imem>;
@@ -380,7 +400,7 @@
 			qcom,qport = <6>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&mm_int_0 &slv_snoc_bimc_2>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_JPEG>;
 			qcom,blacklist = <&slv_kpss_ahb &slv_imem &slv_qdss_stm
 				 &slv_lpass &slv_cats_1 &slv_cats_0>;
@@ -408,7 +428,7 @@
 			qcom,qport = <8>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&mm_int_0 &slv_snoc_bimc_2>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO>;
 			qcom,blacklist = <&slv_cats_0 &slv_cats_1 &slv_lpass
 				 &slv_kpss_ahb &slv_imem>;
@@ -423,7 +443,7 @@
 			qcom,qport = <9>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&mm_int_0 &slv_snoc_bimc_0>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VFE0>;
 			qcom,blacklist = <&slv_cats_0 &slv_cats_1 &slv_lpass
 				 &slv_kpss_ahb &slv_imem>;
@@ -438,8 +458,23 @@
 			qcom,qport = <13>;
 			qcom,qos-mode = "bypass";
 			qcom,connections = <&mm_int_0 &slv_snoc_bimc_0>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VFE1>;
+			qcom,blacklist = <&slv_cats_0 &slv_cats_1 &slv_lpass
+				 &slv_kpss_ahb &slv_imem>;
+		};
+
+		mas_cpp: mas-cpp {
+			cell-id = <MSM_BUS_MASTER_CPP>;
+			label = "mas-cpp";
+			qcom,buswidth = <16>;
+			qcom,agg-ports = <1>;
+			qcom,ap-owned;
+			qcom,qport = <12>;
+			qcom,qos-mode = "bypass";
+			qcom,connections = <&mm_int_0 &slv_snoc_bimc_2>;
+			qcom,bus-dev = <&fab_snoc_mm>;
+			qcom,mas-rpm-id = <ICBID_MASTER_CPP>;
 			qcom,blacklist = <&slv_cats_0 &slv_cats_1 &slv_lpass
 				 &slv_kpss_ahb &slv_imem>;
 		};
@@ -629,7 +664,7 @@
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,connections = <&snoc_int_0>;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MM_INT_0>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_MM_INT_0>;
 		};
@@ -894,7 +929,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,connections = <&mas_snoc_bimc_0>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_BIMC_0>;
 		};
@@ -915,7 +950,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,connections = <&mas_snoc_bimc_2>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_SNOC_BIMC_2>;
 		};
@@ -954,7 +989,7 @@
 			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,bus-dev = <&fab_snoc>;
+			qcom,bus-dev = <&fab_snoc_mm>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_CATS_0>;
 		};
 
