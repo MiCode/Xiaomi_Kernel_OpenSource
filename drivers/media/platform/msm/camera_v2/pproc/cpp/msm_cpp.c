@@ -2859,10 +2859,13 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		/* Configure the cpp frame */
 		if (cpp_frame) {
 			rc = msm_cpp_cfg_frame(cpp_dev, cpp_frame);
-			k32_frame_info.output_buffer_info[0] =
-				cpp_frame->output_buffer_info[0];
-			k32_frame_info.output_buffer_info[1] =
-				cpp_frame->output_buffer_info[1];
+			/* Cpp_frame can be free'd by cfg_frame in error */
+			if (rc >= 0) {
+				k32_frame_info.output_buffer_info[0] =
+					cpp_frame->output_buffer_info[0];
+				k32_frame_info.output_buffer_info[1] =
+					cpp_frame->output_buffer_info[1];
+			}
 		} else {
 			pr_err("%s: Error getting frame\n", __func__);
 			rc = -EINVAL;
