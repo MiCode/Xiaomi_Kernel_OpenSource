@@ -1064,6 +1064,7 @@
 		interrupt-names = "ipa-irq", "bam-irq";
 		qcom,ipa-hw-ver = <3>; /* IPA core version = IPAv2.0 */
 		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+		qcom,wan-rx-ring-size = <192>;
 		qcom,ee = <2>;
 		clock-names = "core_clk";
 		clocks = <&clock_rpm clk_ipa_clk>;
