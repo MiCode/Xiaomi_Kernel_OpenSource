@@ -1674,7 +1674,7 @@
 
 		qcom,bus-width = <8>;
 		qcom,num-pm-qos-configs = <3>;
-		qcom,cpu-dma-latency-us = <301 301 301>, <70 70 70>, <701 701 701>;
+		qcom,cpu-dma-latency-us = <301 301 301>, <70 70 70>, <301 301 301>;
 		qcom,cpu-affinity = "affine_cores", "affine_cores", "irq";
 		qcom,cpu-affinity-mask = <0x0f 0x30 0x00>;
 		qcom,default-rd-pm-qos = "cpu";
@@ -1716,7 +1716,7 @@
 
 		qcom,bus-width = <4>;
 		qcom,num-pm-qos-configs = <3>;
-		qcom,cpu-dma-latency-us = <301 301 301>, <70 70 70>, <701 701 701>;
+		qcom,cpu-dma-latency-us = <301 301 301>, <70 70 70>, <301 301 301>;
 		qcom,cpu-affinity = "affine_cores", "affine_cores", "irq";
 		qcom,cpu-affinity-mask = <0x0f 0x30 0x00>;
 		qcom,default-rd-pm-qos = "cpu";
