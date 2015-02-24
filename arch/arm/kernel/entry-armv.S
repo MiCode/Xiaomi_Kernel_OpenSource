@@ -431,12 +431,6 @@ __und_usr:
 	@  r0 - instruction
 	@
 	adr	r9, BSYM(ret_from_exception)
-
-	@ IRQs must be enabled before attempting to read the instruction from
-	@ user space since that could cause a page/translation fault if the
-	@ page table was modified by another CPU.
-	enable_irq
-
 	adr	lr, BSYM(__und_usr_unknown)
 	tst	r3, #PSR_T_BIT			@ Thumb mode?
 	itet	eq				@ explicit IT needed for the 1f label
@@ -645,6 +639,7 @@ call_fpe:
 #endif
 
 do_fpe:
+	enable_irq
 	ldr	r4, .LCfp
 	add	r10, r10, #TI_FPSTATE		@ r10 = workspace
 	ldr	pc, [r4]			@ Call FP module USR entry point
@@ -668,6 +663,7 @@ ENTRY(no_fp)
 ENDPROC(no_fp)
 
 __und_usr_unknown:
+	enable_irq
 	mov	r0, sp
 	adr	lr, BSYM(ret_from_exception)
 	b	do_undefinstr
