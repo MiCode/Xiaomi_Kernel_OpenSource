@@ -55,7 +55,9 @@ extern int sysctl_sched_freq_dec_notify;
 
 #ifdef CONFIG_SCHED_HMP
 extern unsigned int sysctl_sched_spill_nr_run;
+extern unsigned int sysctl_sched_mostly_idle_nr_run;
 extern unsigned int sysctl_sched_spill_load_pct;
+extern unsigned int sysctl_sched_mostly_idle_load_pct;
 extern unsigned int sysctl_sched_small_task_pct;
 extern unsigned int sysctl_sched_upmigrate_pct;
 extern unsigned int sysctl_sched_downmigrate_pct;
