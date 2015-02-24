@@ -508,8 +508,8 @@ ssize_t glink_pkt_read(struct file *file,
 	spin_unlock_irqrestore(&devp->pa_spinlock, flags);
 	mutex_unlock(&devp->ch_lock);
 
-	GLINK_PKT_INFO("End %s on glink_pkt_dev id:%d pkt->size %zu ret[%d]\n",
-				__func__, devp->i, pkt->size, ret);
+	GLINK_PKT_INFO("End %s on glink_pkt_dev id:%d ret[%d]\n",
+				__func__, devp->i, ret);
 	return ret;
 }
 
@@ -708,6 +708,47 @@ static int glink_pkt_mmap(struct file *file, struct vm_area_struct *vma)
 }
 
 /**
+ * glink_pkt_tiocmset() - set the signals for glink_pkt device
+ * devp:	Pointer to the glink_pkt device structure.
+ * cmd:		IOCTL command.
+ * arg:		Arguments to the ioctl call.
+ *
+ * This function is used to set the signals on the glink pkt device
+ * when userspace client do a ioctl() system call with TIOCMBIS,
+ * TIOCMBIC and TICOMSET.
+ */
+static int glink_pkt_tiocmset(struct glink_pkt_dev *devp, unsigned int cmd,
+							unsigned long arg)
+{
+	int ret;
+	int sigs;
+	uint32_t val;
+
+	ret = get_user(val, (uint32_t *)arg);
+	if (ret)
+		return ret;
+	sigs = glink_sigs_local_get(devp->handle);
+	if (sigs < 0) {
+		GLINK_PKT_ERR("%s: Get signals failed[%d]\n", __func__, sigs);
+		return sigs;
+	}
+	switch (cmd) {
+	case TIOCMBIS:
+		sigs |= val;
+		break;
+	case TIOCMBIC:
+		sigs &= ~val;
+		break;
+	case TIOCMSET:
+		sigs = val;
+		break;
+	}
+	ret = glink_sigs_set(devp->handle, sigs);
+	GLINK_PKT_INFO("%s: sigs[0x%x] ret[%d]\n", __func__, sigs, ret);
+	return ret;
+}
+
+/**
  * glink_pkt_ioctl() - ioctl() syscall for the glink_pkt device
  * file:	Pointer to the file structure.
  * cmd:		IOCTL command.
@@ -730,22 +771,23 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 		return -EINVAL;
 	}
 
-	GLINK_PKT_INFO("%s: ioctl command 0x%x on dev_id[%d]\n",
-					__func__, cmd, devp->i);
 	mutex_lock(&devp->ch_lock);
 	switch (cmd) {
 	case TIOCMGET:
 		devp->sigs_updated = false;
 		ret = glink_sigs_local_get(devp->handle);
-		GLINK_PKT_INFO("%s: TIOCMGET ret[0x%x]\n", __func__, ret);
+		GLINK_PKT_INFO("%s: TIOCMGET sigs[0x%x]\n", __func__, ret);
+		if (ret >= 0)
+			ret = put_user(ret, (uint32_t *)arg);
 		break;
 	case TIOCMSET:
-		ret = glink_sigs_set(devp->handle, arg);
-		GLINK_PKT_INFO("%s: TIOCMSET arg[%lu], ret[0x%x]\n",
-					__func__, arg, ret);
+	case TIOCMBIS:
+	case TIOCMBIC:
+		ret = glink_pkt_tiocmset(devp, cmd, arg);
 		break;
+
 	case GLINK_PKT_IOCTL_QUEUE_RX_INTENT:
-		ret = get_user(size, (size_t *)arg);
+		ret = get_user(size, (uint32_t *)arg);
 		GLINK_PKT_INFO("%s: intent size[%zu]\n", __func__, size);
 		ret  = glink_queue_rx_intent(devp->handle, devp, size);
 		if (ret) {
