@@ -457,29 +457,29 @@ void spdm_init_debugfs(struct device *dev)
 	data = dev_get_drvdata(dev);
 	data->debugfs_dir = debugfs_create_dir(dev_name(dev), NULL);
 
-	debugfs_create_file("pl_freqs", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("pl_freqs", 0600, data->debugfs_dir, data,
 			    &pl_fops);
-	debugfs_create_file("rej_rate_low", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("rej_rate_low", 0600, data->debugfs_dir, data,
 			    &rrl_fops);
-	debugfs_create_file("rej_rate_med", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("rej_rate_med", 0600, data->debugfs_dir, data,
 			    &rrm_fops);
-	debugfs_create_file("rej_rate_high", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("rej_rate_high", 0600, data->debugfs_dir, data,
 			    &rrh_fops);
-	debugfs_create_file("resp_time_low", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("resp_time_low", 0600, data->debugfs_dir, data,
 			    &rtl_fops);
-	debugfs_create_file("resp_time_med", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("resp_time_med", 0600, data->debugfs_dir, data,
 			    &rtm_fops);
-	debugfs_create_file("resp_time_high", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("resp_time_high", 0600, data->debugfs_dir, data,
 			    &rth_fops);
-	debugfs_create_file("cci_resp_time_low", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("cci_resp_time_low", 0600, data->debugfs_dir, data,
 			    &ccil_fops);
-	debugfs_create_file("cci_resp_time_med", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("cci_resp_time_med", 0600, data->debugfs_dir, data,
 			    &ccim_fops);
-	debugfs_create_file("cci_resp_time_high", 0x700, data->debugfs_dir,
+	debugfs_create_file("cci_resp_time_high", 0600, data->debugfs_dir,
 			data, &ccih_fops);
-	debugfs_create_file("cci_max", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("cci_max", 0600, data->debugfs_dir, data,
 			&ccimax_fops);
-	debugfs_create_file("vote_cfg", 0x700, data->debugfs_dir, data,
+	debugfs_create_file("vote_cfg", 0600, data->debugfs_dir, data,
 			&vote_fops);
 }
 
