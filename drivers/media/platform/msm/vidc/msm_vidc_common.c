@@ -172,7 +172,6 @@ static enum hal_domain get_hal_domain(int session_type)
 enum hal_video_codec get_hal_codec_type(int fourcc)
 {
 	enum hal_video_codec codec;
-	dprintk(VIDC_DBG, "codec is %#x\n", fourcc);
 	switch (fourcc) {
 	case V4L2_PIX_FMT_H264:
 	case V4L2_PIX_FMT_H264_NO_SC:
@@ -222,6 +221,31 @@ enum hal_video_codec get_hal_codec_type(int fourcc)
 	}
 
 	return codec;
+}
+
+static enum hal_uncompressed_format get_hal_uncompressed(int fourcc)
+{
+	enum hal_uncompressed_format format = HAL_UNUSED_COLOR;
+
+	switch (fourcc) {
+	case V4L2_PIX_FMT_NV12:
+		format = HAL_COLOR_FORMAT_NV12;
+		break;
+	case V4L2_PIX_FMT_NV21:
+		format = HAL_COLOR_FORMAT_NV21;
+		break;
+	case V4L2_PIX_FMT_NV12_UBWC:
+		format = HAL_COLOR_FORMAT_NV12_UBWC;
+		break;
+	case V4L2_PIX_FMT_NV12_TP10_UBWC:
+		format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
+		break;
+	default:
+		format = HAL_UNUSED_COLOR;
+		break;
+	}
+
+	return format;
 }
 
 static int msm_comm_vote_bus(struct msm_vidc_core *core)
@@ -4194,6 +4218,7 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 		enum hal_buffer buffer_type, int fourcc)
 {
 	struct hal_uncompressed_format_select hal_fmt = {0};
+	enum hal_uncompressed_format format = HAL_UNUSED_COLOR;
 	int rc = 0;
 	struct hfi_device *hdev;
 
@@ -4203,36 +4228,26 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 	}
 
 	hdev = inst->core->device;
-	hal_fmt.buffer_type = buffer_type;
 
-	switch (fourcc) {
-	case V4L2_PIX_FMT_NV12:
-		dprintk(VIDC_DBG, "set color format: nv12\n");
-		hal_fmt.format = HAL_COLOR_FORMAT_NV12;
-		break;
-	case V4L2_PIX_FMT_NV21:
-		dprintk(VIDC_DBG, "set color format: nv21\n");
-		hal_fmt.format = HAL_COLOR_FORMAT_NV21;
-		break;
-	case V4L2_PIX_FMT_NV12_UBWC:
-		dprintk(VIDC_DBG, "set color format: nv12_ubwc\n");
-		hal_fmt.format = HAL_COLOR_FORMAT_NV12_UBWC;
-		break;
-	case V4L2_PIX_FMT_NV12_TP10_UBWC:
-		dprintk(VIDC_DBG, "set color format: 10bit nv12_ubwc\n");
-		hal_fmt.format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
-		break;
-	default:
-		dprintk(VIDC_ERR, "%s default\n", __func__);
+	format = get_hal_uncompressed(fourcc);
+	if (format == HAL_UNUSED_COLOR) {
+		dprintk(VIDC_ERR, "Using unsupported colorformat %#x\n",
+				fourcc);
 		rc = -ENOTSUPP;
 		goto exit;
 	}
+
+	hal_fmt.buffer_type = buffer_type;
+	hal_fmt.format = format;
 
 	rc = call_hfi_op(hdev, session_set_property, inst->session,
 		HAL_PARAM_UNCOMPRESSED_FORMAT_SELECT, &hal_fmt);
 	if (rc)
 		dprintk(VIDC_ERR,
 			"Failed to set input color format\n");
+	else
+		dprintk(VIDC_DBG, "Setting uncompressed colorformat to %#x\n",
+				format);
 
 exit:
 	return rc;
