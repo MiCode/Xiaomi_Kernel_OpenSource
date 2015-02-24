@@ -779,6 +779,12 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto free_slave_info;
 	}
 
+	if (slave_info->power_setting_array.size == 0 &&
+		slave_info->slave_addr == 0) {
+		s_ctrl->is_csid_tg_mode = 1;
+		goto CSID_TG;
+	}
+
 	rc = msm_sensor_get_power_settings(setting, slave_info,
 		&s_ctrl->sensordata->power_info);
 	if (rc < 0) {
@@ -851,6 +857,7 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto free_camera_info;
 	}
 
+CSID_TG:
 	/* Update sensor, actuator and eeprom name in
 	*  sensor control structure */
 	s_ctrl->sensordata->sensor_name = slave_info->sensor_name;

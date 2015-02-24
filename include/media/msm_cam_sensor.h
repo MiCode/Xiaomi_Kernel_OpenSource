@@ -147,6 +147,7 @@ enum {
 enum csid_cfg_type_t {
 	CSID_INIT,
 	CSID_CFG,
+	CSID_TESTMODE_CFG,
 	CSID_RELEASE,
 };
 
@@ -238,6 +239,7 @@ struct csid_cfg_data {
 	union {
 		uint32_t csid_version;
 		struct msm_camera_csid_params *csid_params;
+		struct msm_camera_csid_testmode_parms *csid_testmode_params;
 	} cfg;
 };
 
@@ -350,6 +352,7 @@ struct csid_cfg_data32 {
 	union {
 		uint32_t csid_version;
 		compat_uptr_t csid_params;
+		compat_uptr_t csid_testmode_params;
 	} cfg;
 };
 

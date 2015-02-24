@@ -179,21 +179,51 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		return rc;
 	}
 
-	val = csid_params->lane_cnt - 1;
-	val |= csid_params->lane_assign <<
-		csid_dev->ctrl_reg->csid_reg.csid_dl_input_sel_shift;
-	if (csid_dev->hw_version < 0x30000000) {
-		val |= (0xF << 10);
+	if (csid_dev->is_testmode == 1) {
+		struct msm_camera_csid_testmode_parms *tm;
+		tm = &csid_dev->testmode_params;
+
+		/* 31:24 V blank, 23:13 H blank, 3:2 num of active DT, 1:0 VC */
+		val = ((tm->v_blanking_count & 0xFF) << 24) |
+			((tm->h_blanking_count & 0x7FF) << 13);
 		msm_camera_io_w(val, csidbase +
-		csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
+			csid_dev->ctrl_reg->csid_reg.csid_tg_vc_cfg_addr);
+		CDBG("[TG] CSID_TG_VC_CFG_ADDR 0x%08x\n", val);
+
+		/* 28:16 bytes per lines, 12:0 num of lines */
+		val = ((tm->num_bytes_per_line & 0x1FFF) << 16) |
+			(tm->num_lines & 0x1FFF);
+		msm_camera_io_w(val, csidbase +
+			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_0_addr);
+		CDBG("[TG] CSID_TG_DT_n_CFG_0_ADDR 0x%08x\n", val);
+
+		/* 5:0 data type */
+		val = csid_params->lut_params.vc_cfg[0]->dt;
+		msm_camera_io_w(val, csidbase +
+			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_1_addr);
+		CDBG("[TG] CSID_TG_DT_n_CFG_1_ADDR 0x%08x\n", val);
+
+		/* 2:0 output random */
+		msm_camera_io_w(csid_dev->testmode_params.payload_mode,
+			csidbase +
+			csid_dev->ctrl_reg->csid_reg.csid_tg_dt_n_cfg_2_addr);
 	} else {
-		msm_camera_io_w(val, csidbase +
-		csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
-		val = csid_params->phy_sel <<
-			csid_dev->ctrl_reg->csid_reg.csid_phy_sel_shift;
-		val |= 0xF;
-		msm_camera_io_w(val, csidbase +
-		csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_1_addr);
+		val = csid_params->lane_cnt - 1;
+		val |= csid_params->lane_assign <<
+			csid_dev->ctrl_reg->csid_reg.csid_dl_input_sel_shift;
+		if (csid_dev->hw_version < 0x30000000) {
+			val |= (0xF << 10);
+			msm_camera_io_w(val, csidbase +
+			csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
+		} else {
+			msm_camera_io_w(val, csidbase +
+			csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_0_addr);
+			val = csid_params->phy_sel <<
+				csid_dev->ctrl_reg->csid_reg.csid_phy_sel_shift;
+			val |= 0xF;
+			msm_camera_io_w(val, csidbase +
+			csid_dev->ctrl_reg->csid_reg.csid_core_ctrl_1_addr);
+		}
 	}
 
 	rc = msm_csid_cid_lut(&csid_params->lut_params, csid_dev);
@@ -201,6 +231,11 @@ static int msm_csid_config(struct csid_device *csid_dev,
 		return rc;
 
 	msm_csid_set_debug_reg(csid_dev, csid_params);
+
+	if (csid_dev->is_testmode == 1)
+		msm_camera_io_w(0x00A06437, csidbase +
+			csid_dev->ctrl_reg->csid_reg.csid_tg_ctrl_addr);
+
 	return rc;
 }
 
@@ -337,6 +372,8 @@ static int msm_csid_init(struct csid_device *csid_dev, uint32_t *csid_version)
 	CDBG("%s:%d called csid_dev->hw_version %x\n", __func__, __LINE__,
 		csid_dev->hw_version);
 	*csid_version = csid_dev->hw_version;
+
+	csid_dev->is_testmode = 0;
 
 	init_completion(&csid_dev->reset_complete);
 
@@ -486,6 +523,17 @@ static int32_t msm_csid_cmd(struct csid_device *csid_dev, void __user *arg)
 		CDBG("%s csid version 0x%x\n", __func__,
 			cdata->cfg.csid_version);
 		break;
+	case CSID_TESTMODE_CFG: {
+		csid_dev->is_testmode = 1;
+		if (copy_from_user(&csid_dev->testmode_params,
+			(void *)cdata->cfg.csid_testmode_params,
+			sizeof(struct msm_camera_csid_testmode_parms))) {
+			pr_err("%s: %d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
 	case CSID_CFG: {
 		struct msm_camera_csid_params csid_params;
 		struct msm_camera_csid_vc_cfg *vc_cfg = NULL;
@@ -605,6 +653,17 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 		CDBG("%s csid version 0x%x\n", __func__,
 			cdata->cfg.csid_version);
 		break;
+	case CSID_TESTMODE_CFG: {
+		csid_dev->is_testmode = 1;
+		if (copy_from_user(&csid_dev->testmode_params,
+			(void *)compat_ptr(arg32->cfg.csid_testmode_params),
+			sizeof(struct msm_camera_csid_testmode_parms))) {
+			pr_err("%s: %d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
 	case CSID_CFG: {
 
 		struct msm_camera_csid_params csid_params;

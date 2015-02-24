@@ -252,6 +252,14 @@ struct msm_camera_csid_params {
 	struct msm_camera_csid_lut_params lut_params;
 };
 
+struct msm_camera_csid_testmode_parms {
+	unsigned int num_bytes_per_line;
+	unsigned int num_lines;
+	unsigned int h_blanking_count;
+	unsigned int v_blanking_count;
+	unsigned int payload_mode;
+};
+
 struct msm_camera_csiphy_params {
 	unsigned char lane_cnt;
 	unsigned char settle_cnt;
