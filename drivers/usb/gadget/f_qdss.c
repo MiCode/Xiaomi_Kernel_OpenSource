@@ -564,6 +564,11 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	}
 
 	msm_bam_set_qdss_usb_active(false);
+	/*
+	 * Decrement usage count which was incremented
+	 * before calling connect work
+	 */
+	usb_gadget_autopm_put_async(qdss->gadget);
 }
 
 static void qdss_disable(struct usb_function *f)
@@ -768,6 +773,8 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	pr_debug("qdss_set_alt qdss pointer = %p\n", qdss);
 
+	qdss->gadget = gadget;
+
 	if (alt != 0)
 		goto fail;
 
@@ -786,6 +793,8 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA ||
 				dxport == USB_GADGET_XPORT_BAM_DMUX) {
 			qdss->usb_connected = 1;
+			/* Increment usage count on connect */
+			usb_gadget_autopm_get_async(qdss->gadget);
 			usb_qdss_connect_work(&qdss->connect_w);
 			return 0;
 		}
@@ -838,6 +847,8 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (qdss->usb_connected && (ch->app_conn ||
 		(dxport == USB_GADGET_XPORT_HSIC))) {
 		msm_bam_set_qdss_usb_active(true);
+		/* Increment usage count on connect */
+		usb_gadget_autopm_get_async(qdss->gadget);
 		queue_work(qdss->wq, &qdss->connect_w);
 	}
 	return 0;
