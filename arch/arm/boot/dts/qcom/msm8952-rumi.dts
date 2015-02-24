@@ -13,11 +13,11 @@
 
 /dts-v1/;
 
-#include "msmtellurium.dtsi"
+#include "msm8952.dtsi"
 
 / {
-	model = "Qualcomm Technologies, Inc. MSMTellurium RUMI";
-	compatible = "qcom,msmtellurium-rumi", "qcom,msmtellurium", "qcom,rumi";
+	model = "Qualcomm Technologies, Inc. MSM8952 RUMI";
+	compatible = "qcom,msm8952-rumi", "qcom,msm8952", "qcom,rumi";
 	qcom,board-id= <15 0>;
 };
 

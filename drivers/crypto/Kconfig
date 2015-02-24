@@ -18,7 +18,7 @@ config CRYPTO_DEV_PADLOCK
 	  (so called VIA PadLock ACE, Advanced Cryptography Engine)
 	  that provides instructions for very fast cryptographic
 	  operations with supported algorithms.
-	  
+
 	  The instructions are used only when the CPU supports them.
 	  Otherwise software encryption is used.
 
@@ -326,17 +326,17 @@ config CRYPTO_DEV_QCRYPTO
 
 config CRYPTO_DEV_QCE
 	tristate "Qualcomm Crypto Engine (QCE) module"
-	select CRYPTO_DEV_QCE50 if ARCH_MSM8974 || ARCH_MSM8226 || ARCH_MSM8610 || ARCH_FSM9900 || ARCH_APQ8084 || ARCH_MSM8916 || ARCH_MSM8994 || ARCH_MSM8909 || ARCH_MSM8992 || ARCH_FSM9010 || ARCH_MDM9640 || ARCH_MSMTELLURIUM
+	select CRYPTO_DEV_QCE50 if ARCH_MSM8974 || ARCH_MSM8226 || ARCH_MSM8610 || ARCH_FSM9900 || ARCH_APQ8084 || ARCH_MSM8916 || ARCH_MSM8994 || ARCH_MSM8909 || ARCH_MSM8992 || ARCH_FSM9010 || ARCH_MDM9640 || ARCH_MSM8952
 	default n
 	help
           This driver supports Qualcomm Crypto Engine in MSM7x30, MSM8660
 	  MSM8x55, MSM8960, MSM9615, MSM8916, MSM8994, FSM9900, APQ8084 and
-	  MSMTELLURIUM.
+	  MSM8952.
 	  To compile this driver as a module, choose M here: the
 	  For MSM7x30 MSM8660 and MSM8x55 the module is called qce
 	  For MSM8960, APQ8064 and MSM9615 the module is called qce40
 	  For MSM8974, MSM8916, MSM8994, MSM8909, MSM8992, APQ8084 and
-	  MSMTELLURIUM the module is called qce50.
+	  MSM8952 the module is called qce50.
 
 config CRYPTO_DEV_QCEDEV
 	tristate "QCEDEV Interface to CE module"

@@ -12,18 +12,18 @@
 
 &spmi_bus {
 
-	qcom,pmitellurium@2 {
+	qcom,pmi8950@2 {
 		spmi-slave-container;
 		reg = <0x2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pmitellurium_revid: qcom,revid@100 {
+		pmi8950_revid: qcom,revid@100 {
 			compatible = "qcom,qpnp-revid";
 			reg = <0x100 0x100>;
 		};
 
-		pmitellurium_vadc: vadc@3100 {
+		pmi8950_vadc: vadc@3100 {
 			compatible = "qcom,qpnp-vadc";
 			reg = <0x3100 0x100>;
 			#address-cells = <1>;
@@ -134,14 +134,14 @@
 			};
 		};
 
-		pmitellurium_mpps: mpps {
+		pmi8950_mpps: mpps {
 			spmi-dev-container;
 			compatible = "qcom,qpnp-pin";
 			gpio-controller;
 			#gpio-cells = <2>;
 			#address-cells = <1>;
 			#size-cells = <1>;
-			label = "pmitellurium-mpp";
+			label = "pmi8950-mpp";
 
 			mpp@a000 {
 				reg = <0xa000 0x100>;
@@ -169,13 +169,13 @@
 		};
 	};
 
-	qcom,pmitellurium@3 {
+	qcom,pmi8950@3 {
 		spmi-slave-container;
 		reg = <0x3>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 
-		pmitellurium_pwm: pwm@b000 {
+		pmi8950_pwm: pwm@b000 {
 			status = "disabled";
 			compatible = "qcom,qpnp-pwm";
 			reg = <0xb000 0x100>;

@@ -36,8 +36,8 @@ obj-$(CONFIG_ARCH_MSM8992)	+= clock-cpu-8994.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-rpm-8936.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8936.o
 
-# MSMTELLURIUM
-obj-$(CONFIG_ARCH_MSM8916)	+=clock-gcc-tellurium.o
+# MSM8952
+obj-$(CONFIG_ARCH_MSM8916)	+=clock-gcc-8952.o
 
 # FSM9010
 obj-$(CONFIG_ARCH_FSM9010)	+= clock-gcc-fsm9010.o

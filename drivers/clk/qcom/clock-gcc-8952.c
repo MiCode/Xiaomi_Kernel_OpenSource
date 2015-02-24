@@ -30,8 +30,8 @@
 #include <linux/clk/msm-clock-generic.h>
 #include <linux/regulator/rpm-smd-regulator.h>
 
-#include <dt-bindings/clock/msm-clocks-tellurium.h>
-#include <dt-bindings/clock/msm-clocks-hwio-tellurium.h>
+#include <dt-bindings/clock/msm-clocks-8952.h>
+#include <dt-bindings/clock/msm-clocks-hwio-8952.h>
 
 #include "clock.h"
 
@@ -3371,14 +3371,14 @@ static int msm_gcc_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
-	{ .compatible = "qcom,gcc-tellurium" },
+	{ .compatible = "qcom,gcc-8952" },
 	{},
 };
 
 static struct platform_driver msm_clock_gcc_driver = {
 	.probe = msm_gcc_probe,
 	.driver = {
-		.name = "qcom,gcc-tellurium",
+		.name = "qcom,gcc-8952",
 		.of_match_table = msm_clock_gcc_match_table,
 		.owner = THIS_MODULE,
 	},
@@ -3412,14 +3412,14 @@ static int msm_clock_debug_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_debug_match_table[] = {
-	{ .compatible = "qcom,cc-debug-tellurium" },
+	{ .compatible = "qcom,cc-debug-8952" },
 	{}
 };
 
 static struct platform_driver msm_clock_debug_driver = {
 	.probe = msm_clock_debug_probe,
 	.driver = {
-		.name = "qcom,cc-debug-tellurium",
+		.name = "qcom,cc-debug-8952",
 		.of_match_table = msm_clock_debug_match_table,
 		.owner = THIS_MODULE,
 	},
@@ -3476,14 +3476,14 @@ static int msm_gcc_mdss_probe(struct platform_device *pdev)
 }
 
 static struct of_device_id msm_clock_mdss_match_table[] = {
-	{ .compatible = "qcom,gcc-mdss-tellurium" },
+	{ .compatible = "qcom,gcc-mdss-8952" },
 	{}
 };
 
 static struct platform_driver msm_clock_gcc_mdss_driver = {
 	.probe = msm_gcc_mdss_probe,
 	.driver = {
-		.name = "gcc-mdss-tellurium",
+		.name = "gcc-mdss-8952",
 		.of_match_table = msm_clock_mdss_match_table,
 		.owner = THIS_MODULE,
 	},
