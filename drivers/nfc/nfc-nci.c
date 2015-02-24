@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1135,6 +1135,13 @@ static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr,
 	unsigned char raw_slave1_rd		= {0x0};
 	unsigned char raw_1P8_PAD_CFG_CLK_REQ[]	= {0xA5, 0x1};
 	unsigned char raw_1P8_PAD_CFG_PWR_REQ[]	= {0xA7, 0x1};
+
+	unsigned char raw_1P8_PAD_CFG_DCLB_WI1_0X45[]	= {0x45, 0x83};
+	unsigned char raw_1P8_PAD_CFG_SPI_CLK_0X47[]	= {0x47, 0x83};
+	unsigned char raw_1P8_PAD_CFG_SPI_SI_0X48[]	= {0x48, 0x83};
+	unsigned char raw_1P8_PAD_CFG_SPI_SO_0X49[]	= {0x49, 0x83};
+	unsigned char raw_1P8_PAD_CFG_SPI_CNS_0X4A[]	= {0x4A, 0x83};
+
 	unsigned char buf = 0;
 	bool core_reset_completed = false;
 	unsigned char rsp[6];
@@ -1229,6 +1236,47 @@ static int nfcc_initialise(struct i2c_client *client, unsigned short curr_addr,
 		goto err_init;
 
 	usleep_range(1000, 1100); /* 1 ms wait */
+
+
+	RAW(1P8_PAD_CFG_DCLB_WI1_0X45, (0x83));
+	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_DCLB_WI1_0X45[0],
+				  sizeof(raw_1P8_PAD_CFG_DCLB_WI1_0X45));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	RAW(1P8_PAD_CFG_SPI_CLK_0X47, (0x83));
+	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_SPI_CLK_0X47[0],
+				  sizeof(raw_1P8_PAD_CFG_SPI_CLK_0X47));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	RAW(1P8_PAD_CFG_SPI_SI_0X48, (0x83));
+	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_SPI_SI_0X48[0],
+				  sizeof(raw_1P8_PAD_CFG_SPI_SI_0X48));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	RAW(1P8_PAD_CFG_SPI_SO_0X49, (0x83));
+	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_SPI_SO_0X49[0],
+				  sizeof(raw_1P8_PAD_CFG_SPI_SO_0X49));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
+
+	RAW(1P8_PAD_CFG_SPI_CNS_0X4A, (0x83));
+	r = nfc_i2c_write(client, &raw_1P8_PAD_CFG_SPI_CNS_0X4A[0],
+				  sizeof(raw_1P8_PAD_CFG_SPI_CNS_0X4A));
+	if (r < 0)
+		goto err_init;
+
+	usleep(1000);
 
 	RAW(slave2, 0x10);
 	r = nfc_i2c_write(client, &raw_slave2[0], sizeof(raw_slave2));
