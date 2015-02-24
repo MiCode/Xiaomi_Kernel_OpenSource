@@ -332,6 +332,14 @@ static int pil_mss_loadable_init(struct modem_data *drv,
 			"qcom,active-clock-names", "gpll0_mss_clk") >= 0)
 		q6->gpll0_mss_clk = devm_clk_get(&pdev->dev, "gpll0_mss_clk");
 
+	if (of_property_match_string(pdev->dev.of_node,
+			"qcom,active-clock-names", "snoc_axi_clk") >= 0)
+		q6->snoc_axi_clk = devm_clk_get(&pdev->dev, "snoc_axi_clk");
+
+	if (of_property_match_string(pdev->dev.of_node,
+			"qcom,active-clock-names", "mnoc_axi_clk") >= 0)
+		q6->mnoc_axi_clk = devm_clk_get(&pdev->dev, "mnoc_axi_clk");
+
 	ret = pil_desc_init(q6_desc);
 
 	return ret;

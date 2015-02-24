@@ -2144,6 +2144,58 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_3_out 0 0>;
 	};
 
+        qcom,mss@2080000 {
+                compatible = "qcom,pil-q6v55-mss";
+                reg = <0x2080000 0x100>,
+		      <0x0760000 0x400>,
+		      <0x2180000 0x020>,
+		      <0x038f008 0x004>;
+		reg-names = "qdsp6_base", "halt_base", "rmb_base",
+			    "restart_reg";
+
+		clocks = <&clock_gcc clk_cxo_clk_src>,
+			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
+			 <&clock_gcc clk_pnoc_clk>,
+			 <&clock_gcc clk_gcc_mss_q6_bimc_axi_clk>,
+			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>,
+			 <&clock_gcc clk_gpll0_out_msscc>,
+			 <&clock_gcc clk_gcc_mss_snoc_axi_clk>,
+			 <&clock_gcc clk_gcc_mss_mnoc_bimc_axi_clk>;
+		clock-names = "xo", "iface_clk", "pnoc_clk", "bus_clk",
+			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
+			      "mnoc_axi_clk";
+		qcom,proxy-clock-names = "xo", "pnoc_clk";
+		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
+					  "gpll0_mss_clk", "snoc_axi_clk",
+					  "mnoc_axi_clk";
+
+		interrupts = <0 24 1>;
+		vdd_cx-supply = <&pm8994_s1_corner>;
+		vdd_mx-supply = <&pm8994_s2_corner>;
+		vdd_mx-uV = <6>;
+		vdd_pll-supply = <&pm8994_l12>;
+		qcom,vdd_pll = <1800000>;
+		qcom,firmware-name = "modem";
+		qcom,pil-self-auth;
+		qcom,sysmon-id = <0>;
+		qcom,ssctl-instance-id = <0x12>;
+		qcom,override-acc;
+		qcom,ahb-clk-vote;
+		qcom,pnoc-clk-vote;
+		qcom,qdsp6v56-1-5;
+		memory-region = <&modem_mem>;
+
+		/* GPIO inputs from mss */
+		qcom,gpio-err-fatal = <&smp2pgpio_ssr_smp2p_1_in 0 0>;
+		qcom,gpio-err-ready = <&smp2pgpio_ssr_smp2p_1_in 1 0>;
+		qcom,gpio-proxy-unvote = <&smp2pgpio_ssr_smp2p_1_in 2 0>;
+		qcom,gpio-stop-ack = <&smp2pgpio_ssr_smp2p_1_in 3 0>;
+
+		/* GPIO output to mss */
+		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
+		status = "ok";
+	};
+
 	tsens: tsens@4a9000 {
 		compatible = "qcom,msm8996-tsens";
 		reg = <0x4a8000 0x2000>,
