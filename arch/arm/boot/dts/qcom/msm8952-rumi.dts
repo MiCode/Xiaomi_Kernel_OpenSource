@@ -37,3 +37,16 @@
 	qcom,hsusb-otg-otg-control = <1>;
 	qcom,emulation;
 };
+
+&i2c_2 {
+	status = "disabled";
+};
+
+&i2c_5 {
+	status = "disabled";
+};
+
+&spi_0 {
+	status = "disabled";
+};
+
