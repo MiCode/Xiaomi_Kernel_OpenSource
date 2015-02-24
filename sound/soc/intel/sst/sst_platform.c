@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/sfi.h>
 #include <linux/platform_device.h>
+#include <linux/dmi.h>
 #include <asm/platform_sst_audio.h>
 #include <asm/intel-mid.h>
 #include <asm/platform_byt_audio.h>
@@ -317,10 +318,17 @@ sst_ssp_configs_cht_cr[SST_NUM_SSPS][SST_MAX_SSP_MUX][SST_MAX_SSP_DOMAINS] = {
 
 static void set_cht_platform_config(void)
 {
+	const char *board_name;
 	sst_platform_pdata.pdev_strm_map = dpcm_strm_map_cht;
 	sst_platform_pdata.strm_map_size = ARRAY_SIZE(dpcm_strm_map_cht);
 	sst_platform_pdata.dfw_enable = 1;
 	memcpy(sst_platform_pdata.ssp_config, sst_ssp_configs_mrfld, sizeof(sst_ssp_configs_mrfld));
+	board_name = dmi_get_system_info(DMI_BOARD_NAME);
+	if (strcmp(board_name, "Cherry Trail CR") == 0) {
+		pr_debug("Load CHT CR SSP Config %s\n", board_name);
+		memcpy(sst_platform_pdata.ssp_config, sst_ssp_configs_cht_cr,
+					sizeof(sst_ssp_configs_cht_cr));
+	}
 	memcpy(sst_platform_pdata.mux_shift, sst_ssp_mux_shift, sizeof(sst_ssp_mux_shift));
 	memcpy(sst_platform_pdata.domain_shift, sst_ssp_domain_shift, sizeof(sst_ssp_domain_shift));
 	pr_info("audio:%s\n", __func__);

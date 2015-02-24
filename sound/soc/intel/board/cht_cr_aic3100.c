@@ -573,7 +573,7 @@ static int cht_set_dai_fmt_pll(struct snd_soc_dai *codec_dai,
 	unsigned int fmt;
 	/* Set codec DAI configuration */
 	/* I2S Slave Mode`*/
-	fmt = SND_SOC_DAIFMT_DSP_B | SND_SOC_DAIFMT_IB_NF |
+	fmt = SND_SOC_DAIFMT_I2S | SND_SOC_DAIFMT_NB_NF |
 			SND_SOC_DAIFMT_CBS_CFS;
 	ret = snd_soc_dai_set_fmt(codec_dai, fmt);
 	if (ret < 0) {
@@ -634,7 +634,7 @@ static int cht_codec_fixup(struct snd_soc_pcm_runtime *rtd,
 
 	/* The DSP will covert the FE rate to 48k, stereo, 24bits */
 	rate->min = rate->max = 48000;
-	channels->min = channels->max = 4;
+	channels->min = channels->max = 2;
 	/* set SSP2 to 24-bit */
 	snd_mask_set(&params->masks[SNDRV_PCM_HW_PARAM_FORMAT -
 				    SNDRV_PCM_HW_PARAM_FIRST_MASK],
