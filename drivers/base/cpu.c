@@ -205,42 +205,6 @@ static ssize_t __ref store_sched_mostly_idle_load(struct device *dev,
 	return err;
 }
 
-static ssize_t show_sched_mostly_idle_freq(struct device *dev,
-		 struct device_attribute *attr, char *buf)
-{
-	struct cpu *cpu = container_of(dev, struct cpu, dev);
-	ssize_t rc;
-	int cpunum;
-	unsigned int mostly_idle_freq;
-
-	cpunum = cpu->dev.id;
-
-	mostly_idle_freq = sched_get_cpu_mostly_idle_freq(cpunum);
-
-	rc = snprintf(buf, PAGE_SIZE-2, "%d\n", mostly_idle_freq);
-
-	return rc;
-}
-
-static ssize_t __ref store_sched_mostly_idle_freq(struct device *dev,
-				  struct device_attribute *attr,
-				  const char *buf, size_t count)
-{
-	struct cpu *cpu = container_of(dev, struct cpu, dev);
-	int cpuid = cpu->dev.id, err;
-	unsigned int mostly_idle_freq;
-
-	err = kstrtoint(strstrip((char *)buf), 0, &mostly_idle_freq);
-	if (err)
-		return err;
-
-	err = sched_set_cpu_mostly_idle_freq(cpuid, mostly_idle_freq);
-	if (err >= 0)
-		err = count;
-
-	return err;
-}
-
 static ssize_t show_sched_mostly_idle_nr_run(struct device *dev,
 		 struct device_attribute *attr, char *buf)
 {
@@ -277,8 +241,6 @@ static ssize_t __ref store_sched_mostly_idle_nr_run(struct device *dev,
 	return err;
 }
 
-static DEVICE_ATTR(sched_mostly_idle_freq, 0664, show_sched_mostly_idle_freq,
-						store_sched_mostly_idle_freq);
 static DEVICE_ATTR(sched_mostly_idle_load, 0664, show_sched_mostly_idle_load,
 						store_sched_mostly_idle_load);
 static DEVICE_ATTR(sched_mostly_idle_nr_run, 0664,
@@ -462,9 +424,6 @@ int __cpuinit register_cpu(struct cpu *cpu, int num)
 	if (!error)
 		error = device_create_file(&cpu->dev,
 					 &dev_attr_sched_mostly_idle_nr_run);
-	if (!error)
-		error = device_create_file(&cpu->dev,
-					 &dev_attr_sched_mostly_idle_freq);
 #endif
 
 	return error;

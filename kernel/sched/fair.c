@@ -1381,25 +1381,6 @@ int sched_set_cpu_mostly_idle_load(int cpu, int mostly_idle_pct)
 	return 0;
 }
 
-int sched_set_cpu_mostly_idle_freq(int cpu, unsigned int mostly_idle_freq)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	if (mostly_idle_freq > rq->max_possible_freq)
-		return -EINVAL;
-
-	rq->mostly_idle_freq = mostly_idle_freq;
-
-	return 0;
-}
-
-unsigned int sched_get_cpu_mostly_idle_freq(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return rq->mostly_idle_freq;
-}
-
 int sched_get_cpu_mostly_idle_load(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
@@ -1864,42 +1845,6 @@ static int skip_cpu(struct task_struct *p, int cpu, int reason)
 	return skip;
 }
 
-/*
- * Select a single cpu in cluster as target for packing, iff cluster frequency
- * is less than a threshold level
- */
-static int select_packing_target(struct task_struct *p, int best_cpu)
-{
-	struct rq *rq = cpu_rq(best_cpu);
-	struct cpumask search_cpus;
-	int i;
-	int min_cost = INT_MAX;
-	int target = best_cpu;
-
-	if (rq->cur_freq >= rq->mostly_idle_freq)
-		return best_cpu;
-
-	/* Don't pack if current freq is low because of throttling */
-	if (rq->max_freq <= rq->mostly_idle_freq)
-		return best_cpu;
-
-	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
-	cpumask_and(&search_cpus, &search_cpus, &rq->freq_domain_cpumask);
-
-	/* Pick the first lowest power cpu as target */
-	for_each_cpu(i, &search_cpus) {
-		int cost = power_cost(p, i);
-
-		if (cost < min_cost) {
-			target = i;
-			min_cost = cost;
-		}
-	}
-
-	return target;
-}
-
-
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
@@ -2048,9 +1993,6 @@ done:
 		else
 			best_cpu = fallback_idle_cpu;
 	}
-
-	if (cpu_rq(best_cpu)->mostly_idle_freq)
-		best_cpu = select_packing_target(p, best_cpu);
 
 	return best_cpu;
 }
@@ -7328,10 +7270,6 @@ static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 {
 	struct sched_domain *sd;
 	int i;
-
-	if (rq->mostly_idle_freq && rq->cur_freq < rq->mostly_idle_freq
-		 && rq->max_freq > rq->mostly_idle_freq)
-			return 0;
 
 	if (rq->nr_running >= 2 && (rq->nr_running - rq->nr_small_tasks >= 2 ||
 	     rq->nr_running > rq->mostly_idle_nr_run ||
