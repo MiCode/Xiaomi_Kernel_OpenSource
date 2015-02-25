@@ -38,6 +38,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/iopoll.h>
 #include <linux/msm-bus.h>
+#include <linux/pm_runtime.h>
 
 #include "sdhci-pltfm.h"
 
@@ -174,6 +175,7 @@
 
 #define NUM_TUNING_PHASES		16
 #define MAX_DRV_TYPES_SUPPORTED_HS200	3
+#define MSM_AUTOSUSPEND_DELAY_MS 100
 
 static const u32 tuning_block_64[] = {
 	0x00FF0FFF, 0xCCC3CCFF, 0xFFCC3CC3, 0xEFFEFFFE,
@@ -3129,6 +3131,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	/* Set host capabilities */
 	msm_host->mmc->caps |= msm_host->pdata->mmc_bus_width;
 	msm_host->mmc->caps |= msm_host->pdata->caps;
+	msm_host->mmc->caps |= MMC_CAP_AGGRESSIVE_PM;
 	msm_host->mmc->caps2 |= msm_host->pdata->caps2;
 	msm_host->mmc->caps2 |= MMC_CAP2_BOOTPART_NOACC;
 	msm_host->mmc->caps2 |= MMC_CAP2_FULL_PWR_CYCLE;
@@ -3181,6 +3184,11 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		goto vreg_deinit;
 	}
 
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, MSM_AUTOSUSPEND_DELAY_MS);
+	pm_runtime_use_autosuspend(&pdev->dev);
+
 	msm_host->msm_bus_vote.max_bus_bw.show = show_sdhci_max_bus_bw;
 	msm_host->msm_bus_vote.max_bus_bw.store = store_sdhci_max_bus_bw;
 	sysfs_attr_init(&msm_host->msm_bus_vote.max_bus_bw.attr);
@@ -3213,7 +3221,6 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		       mmc_hostname(host->mmc), __func__, ret);
 		device_remove_file(&pdev->dev, &msm_host->auto_cmd21_attr);
 	}
-
 	/* Successful initialization */
 	goto out;
 
@@ -3221,6 +3228,7 @@ remove_max_bus_bw_file:
 	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
 remove_host:
 	dead = (readl_relaxed(host->ioaddr + SDHCI_INT_STATUS) == 0xffffffff);
+	pm_runtime_disable(&pdev->dev);
 	sdhci_remove_host(host, dead);
 vreg_deinit:
 	sdhci_msm_vreg_init(&pdev->dev, msm_host->pdata, false);
@@ -3263,6 +3271,7 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 	if (!gpio_is_valid(msm_host->pdata->status_gpio))
 		device_remove_file(&pdev->dev, &msm_host->polling);
 	device_remove_file(&pdev->dev, &msm_host->msm_bus_vote.max_bus_bw);
+	pm_runtime_disable(&pdev->dev);
 	sdhci_remove_host(host, dead);
 	sdhci_pltfm_free(pdev);
 
@@ -3278,6 +3287,94 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_PM
+static int sdhci_msm_runtime_suspend(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	disable_irq(host->irq);
+	disable_irq(msm_host->pwr_irq);
+
+	/*
+	 * Remove the vote immediately only if clocks are off in which
+	 * case we might have queued work to remove vote but it may not
+	 * be completed before runtime suspend or system suspend.
+	 */
+	if (!atomic_read(&msm_host->clks_on)) {
+		if (msm_host->msm_bus_vote.client_handle)
+			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
+	}
+
+	return 0;
+}
+
+static int sdhci_msm_runtime_resume(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	enable_irq(msm_host->pwr_irq);
+	enable_irq(host->irq);
+
+	return 0;
+}
+
+static int sdhci_msm_suspend(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+
+	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
+		(msm_host->mmc->slot.cd_irq >= 0))
+			disable_irq(msm_host->mmc->slot.cd_irq);
+
+	if (pm_runtime_suspended(dev)) {
+		pr_debug("%s: %s: already runtime suspended\n",
+		mmc_hostname(host->mmc), __func__);
+		goto out;
+	}
+	return sdhci_msm_runtime_suspend(dev);
+out:
+	return 0;
+}
+
+static int sdhci_msm_resume(struct device *dev)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_msm_host *msm_host = pltfm_host->priv;
+	int ret = 0;
+
+	if (gpio_is_valid(msm_host->pdata->status_gpio) &&
+		(msm_host->mmc->slot.cd_irq >= 0))
+			enable_irq(msm_host->mmc->slot.cd_irq);
+
+	if (pm_runtime_suspended(dev)) {
+		pr_debug("%s: %s: runtime suspended, defer system resume\n",
+		mmc_hostname(host->mmc), __func__);
+		goto out;
+	}
+
+	return sdhci_msm_runtime_resume(dev);
+out:
+	return ret;
+}
+
+static const struct dev_pm_ops sdhci_msm_pmops = {
+	SET_SYSTEM_SLEEP_PM_OPS(sdhci_msm_suspend, sdhci_msm_resume)
+	SET_RUNTIME_PM_OPS(sdhci_msm_runtime_suspend, sdhci_msm_runtime_resume,
+			   NULL)
+};
+
+#define SDHCI_MSM_PMOPS (&sdhci_msm_pmops)
+
+#else
+#define SDHCI_MSM_PMOPS NULL
+#endif
 static const struct of_device_id sdhci_msm_dt_match[] = {
 	{.compatible = "qcom,sdhci-msm"},
 };
@@ -3290,6 +3387,7 @@ static struct platform_driver sdhci_msm_driver = {
 		.name	= "sdhci_msm",
 		.owner	= THIS_MODULE,
 		.of_match_table = sdhci_msm_dt_match,
+		.pm	= SDHCI_MSM_PMOPS,
 	},
 };
 
