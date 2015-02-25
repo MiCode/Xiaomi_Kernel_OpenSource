@@ -466,6 +466,8 @@ static int32_t gc0310_platform_probe(struct platform_device *pdev)
 	int32_t rc;
 	const struct of_device_id *match;
 	match = of_match_device(gc0310_dt_match, &pdev->dev);
+	if (!match)
+		return -EFAULT;
 	rc = msm_sensor_platform_probe(pdev, match->data);
 	return rc;
 }
