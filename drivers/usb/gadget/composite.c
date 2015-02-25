@@ -368,9 +368,7 @@ static int usb_func_wakeup_int(struct usb_function *func,
 {
 	int ret;
 	int interface_id;
-	unsigned long flags;
 	struct usb_gadget *gadget;
-	struct usb_composite_dev *cdev;
 
 	pr_debug("%s - %s function wakeup, use pending: %u\n",
 		__func__, func->name ? func->name : "", use_pending_flag);
@@ -389,12 +387,8 @@ static int usb_func_wakeup_int(struct usb_function *func,
 		return -ENOTSUPP;
 	}
 
-	cdev = get_gadget_data(gadget);
-	spin_lock_irqsave(&cdev->lock, flags);
-
 	if (use_pending_flag && !func->func_wakeup_pending) {
 		pr_debug("Pending flag is cleared - Function wakeup is cancelled.\n");
-		spin_unlock_irqrestore(&cdev->lock, flags);
 		return 0;
 	}
 
@@ -404,7 +398,6 @@ static int usb_func_wakeup_int(struct usb_function *func,
 			"Function %s - Unknown interface id. Canceling USB request. ret=%d\n",
 			func->name ? func->name : "", ret);
 
-		spin_unlock_irqrestore(&cdev->lock, flags);
 		return ret;
 	}
 
@@ -418,18 +411,18 @@ static int usb_func_wakeup_int(struct usb_function *func,
 			func->func_wakeup_pending = true;
 	}
 
-	spin_unlock_irqrestore(&cdev->lock, flags);
-
 	return ret;
 }
 
 int usb_func_wakeup(struct usb_function *func)
 {
 	int ret;
+	unsigned long flags;
 
 	pr_debug("%s function wakeup\n",
 		func->name ? func->name : "");
 
+	spin_lock_irqsave(&func->config->cdev->lock, flags);
 	ret = usb_func_wakeup_int(func, false);
 	if (ret == -EAGAIN) {
 		DBG(func->config->cdev,
@@ -442,6 +435,7 @@ int usb_func_wakeup(struct usb_function *func)
 			func->name ? func->name : "", ret);
 	}
 
+	spin_unlock_irqrestore(&func->config->cdev->lock, flags);
 	return ret;
 }
 
@@ -1904,6 +1898,7 @@ composite_resume(struct usb_gadget *gadget)
 	struct usb_function		*f;
 	u8				maxpower;
 	int ret;
+	unsigned long			flags;
 
 	/* REVISIT:  should we have config level
 	 * suspend/resume callbacks?
@@ -1912,6 +1907,7 @@ composite_resume(struct usb_gadget *gadget)
 	if (cdev->driver->resume)
 		cdev->driver->resume(cdev);
 
+	spin_lock_irqsave(&cdev->lock, flags);
 	if (cdev->config) {
 		list_for_each_entry(f, &cdev->config->functions, list) {
 			ret = usb_func_wakeup_int(f, true);
@@ -1939,6 +1935,7 @@ composite_resume(struct usb_gadget *gadget)
 			maxpower : CONFIG_USB_GADGET_VBUS_DRAW);
 	}
 
+	spin_unlock_irqrestore(&cdev->lock, flags);
 	cdev->suspended = 0;
 }
 
