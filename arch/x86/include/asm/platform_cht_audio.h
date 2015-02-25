@@ -14,6 +14,8 @@
 
 enum {
 	CHT_DPCM_AUDIO = 0,
+	CHT_DPCM_DB,
+	CHT_DPCM_COMPR,
 	CHT_DPCM_VOIP,
 };
 

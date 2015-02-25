@@ -564,6 +564,10 @@ static struct snd_soc_dai_ops sst_media_dai_ops = {
 	.mute_stream = sst_media_digital_mute,
 };
 
+static struct snd_soc_dai_ops sst_compr_dai_ops = {
+	.mute_stream = sst_media_digital_mute,
+};
+
 static struct snd_soc_dai_ops sst_be_dai_ops = {
 	.startup = sst_enable_ssp,
 	.shutdown = sst_disable_ssp,
@@ -589,6 +593,17 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 	},
 },
 {
+	.name = SST_DEEPBUFFER_DAI,
+	.ops = &sst_media_dai_ops,
+	.playback = {
+		.stream_name = "Deepbuffer Playback",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
 	.name = SST_SPEAKER_DAI,
 	.ops = &sst_media_dai_ops,
 	.playback = {
@@ -596,6 +611,18 @@ static struct snd_soc_dai_driver sst_platform_dai[] = {
 		.channels_min = SST_MONO,
 		.channels_max = SST_STEREO,
 		.rates = SNDRV_PCM_RATE_44100|SNDRV_PCM_RATE_48000,
+		.formats = SNDRV_PCM_FMTBIT_S16_LE,
+	},
+},
+{
+	.name = SST_COMPRESS_DAI,
+	.compress_dai = 1,
+	.ops = &sst_compr_dai_ops,
+	.playback = {
+		.stream_name = "Compress Playback",
+		.channels_min = SST_STEREO,
+		.channels_max = SST_STEREO,
+		.rates = SNDRV_PCM_RATE_48000,
 		.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	},
 },

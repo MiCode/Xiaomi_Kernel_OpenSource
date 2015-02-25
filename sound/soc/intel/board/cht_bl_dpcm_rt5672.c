@@ -554,6 +554,11 @@ static int cht_aif1_hw_params(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+static int cht_compr_set_params(struct snd_compr_stream *cstream)
+{
+	return 0;
+}
+
 static const struct snd_soc_pcm_stream cht_dai_params = {
 	.formats = SNDRV_PCM_FMTBIT_S24_LE,
 	.rate_min = 48000,
@@ -747,6 +752,9 @@ static struct snd_soc_ops cht_be_ssp2_ops = {
 	.hw_params = cht_aif1_hw_params,
 };
 
+static struct snd_soc_compr_ops cht_compr_ops = {
+	.set_params = cht_compr_set_params,
+};
 
 static struct snd_soc_dai_link cht_dailink[] = {
 	[CHT_DPCM_AUDIO] = {
@@ -760,6 +768,29 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.ignore_suspend = 1,
 		.dynamic = 1,
 		.ops = &cht_aif1_ops,
+	},
+	[CHT_DPCM_DB] = {
+		.name = "Cherrytrail DB Audio Port",
+		.stream_name = "Deep Buffer Audio",
+		.cpu_dai_name = "Deepbuffer-cpu-dai",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.platform_name = "sst-platform",
+		.ignore_suspend = 1,
+		.dynamic = 1,
+		.ops = &cht_aif1_ops,
+		.dpcm_playback = 1,
+	},
+	[CHT_DPCM_COMPR] = {
+		.name = "Cherrytrail Compressed Port",
+		.stream_name = "Cherrytrail Compress",
+		.cpu_dai_name = "Compress-cpu-dai",
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.platform_name = "sst-platform",
+		.ignore_suspend = 1,
+		.dynamic = 1,
+		.compr_ops = &cht_compr_ops,
 	},
 	[CHT_DPCM_VOIP] = {
 		.name = "Cherrytrail VOIP Port",
