@@ -1256,6 +1256,14 @@ unsigned int __read_mostly sched_enable_hmp = 0;
 unsigned int __read_mostly sysctl_sched_spill_nr_run = 10;
 
 /*
+ * A cpu is considered practically idle, if:
+ *
+ *	rq->nr_running <= sysctl_sched_mostly_idle_nr_run &&
+ *	rq->cumulative_runnable_avg <= sched_mostly_idle_load
+ */
+unsigned int __read_mostly sysctl_sched_mostly_idle_nr_run = 3;
+
+/*
  * Control whether or not individual CPU power consumption is used to
  * guide task placement.
  */
@@ -1267,6 +1275,16 @@ unsigned int __read_mostly sched_enable_power_aware = 0;
  * power characteristics (i.e. they are in the same power band).
  */
 unsigned int __read_mostly sysctl_sched_powerband_limit_pct = 20;
+
+/*
+ * Conversion of *_pct to absolute form is based on max_task_load().
+ *
+ * For example:
+ *	sched_mostly_idle_load =
+ *	(sysctl_sched_mostly_idle_load_pct * max_task_load()) / 100;
+ */
+unsigned int __read_mostly sched_mostly_idle_load;
+unsigned int __read_mostly sysctl_sched_mostly_idle_load_pct = 20;
 
 /*
  * CPUs with load greater than the sched_spill_load_threshold are not
@@ -1341,10 +1359,16 @@ static inline int available_cpu_capacity(int cpu)
 	return rq->capacity;
 }
 
+#define pct_to_real(tunable)	\
+		(div64_u64((u64)tunable * (u64)max_task_load(), 100))
+
 void set_hmp_defaults(void)
 {
 	sched_spill_load =
 		pct_to_real(sysctl_sched_spill_load_pct);
+
+	sched_mostly_idle_load =
+		pct_to_real(sysctl_sched_mostly_idle_load_pct);
 
 	sched_small_task =
 		pct_to_real(sysctl_sched_small_task_pct);
@@ -1367,44 +1391,6 @@ void set_hmp_defaults(void)
 	sched_init_task_load_windows =
 		div64_u64((u64)sysctl_sched_init_task_load_pct *
 			  (u64)sched_ravg_window, 100);
-}
-
-int sched_set_cpu_mostly_idle_load(int cpu, int mostly_idle_pct)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	if (mostly_idle_pct < 0 || mostly_idle_pct > 100)
-		return -EINVAL;
-
-	rq->mostly_idle_load = pct_to_real(mostly_idle_pct);
-
-	return 0;
-}
-
-int sched_get_cpu_mostly_idle_load(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-	int mostly_idle_pct;
-
-	mostly_idle_pct = real_to_pct(rq->mostly_idle_load);
-
-	return mostly_idle_pct;
-}
-
-int sched_set_cpu_mostly_idle_nr_run(int cpu, int nr_run)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	rq->mostly_idle_nr_run = nr_run;
-
-	return 0;
-}
-
-int sched_get_cpu_mostly_idle_nr_run(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return rq->mostly_idle_nr_run;
 }
 
 /*
@@ -1488,12 +1474,9 @@ spill_threshold_crossed(struct task_struct *p, struct rq *rq, int cpu,
 int mostly_idle_cpu(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
-	int mostly_idle;
 
-	mostly_idle = (cpu_load(cpu) <= rq->mostly_idle_load
-				&& rq->nr_running <= rq->mostly_idle_nr_run);
-
-	return mostly_idle;
+	return (cpu_load(cpu) <= sched_mostly_idle_load
+		&& rq->nr_running <= sysctl_sched_mostly_idle_nr_run);
 }
 
 static int mostly_idle_cpu_sync(int cpu, int sync)
@@ -1513,8 +1496,8 @@ static int mostly_idle_cpu_sync(int cpu, int sync)
 		load -= rq->curr->ravg.demand;
 	}
 
-	return (load <= rq->mostly_idle_load
-		&& nr_running <= rq->mostly_idle_nr_run);
+	return (load <= sched_mostly_idle_load
+		&& nr_running <= sysctl_sched_mostly_idle_nr_run);
 }
 
 static int boost_refcount;
@@ -2135,9 +2118,10 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 		return ret;
 
 	if ((sysctl_sched_downmigrate_pct > sysctl_sched_upmigrate_pct) ||
-				*data > 100) {
-		*data = old_val;
-		return -EINVAL;
+		(sysctl_sched_mostly_idle_load_pct >
+			sysctl_sched_spill_load_pct) || *data > 100) {
+			*data = old_val;
+			return -EINVAL;
 	}
 
 	/*
@@ -7272,8 +7256,8 @@ static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 	int i;
 
 	if (rq->nr_running >= 2 && (rq->nr_running - rq->nr_small_tasks >= 2 ||
-	     rq->nr_running > rq->mostly_idle_nr_run ||
-		cpu_load(cpu) > rq->mostly_idle_load)) {
+	     rq->nr_running > sysctl_sched_mostly_idle_nr_run ||
+		cpu_load(cpu) > sched_mostly_idle_load)) {
 
 		if (rq->capacity == max_capacity)
 			return 1;
