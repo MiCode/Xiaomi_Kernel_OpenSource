@@ -3367,7 +3367,7 @@ int msm_ipc_router_get_curr_pkt_size(struct msm_ipc_port *port_ptr)
 	if (!list_empty(&port_ptr->port_rx_q)) {
 		pkt = list_first_entry(&port_ptr->port_rx_q,
 					struct rr_packet, list);
-		rc = pkt->length;
+		rc = pkt->hdr.size;
 	}
 	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 

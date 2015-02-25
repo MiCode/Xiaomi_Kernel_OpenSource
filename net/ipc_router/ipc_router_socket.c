@@ -380,11 +380,15 @@ static int msm_ipc_router_recvmsg(struct kiocb *iocb, struct socket *sock,
 
 	if (m->msg_iovlen != 1)
 		return -EOPNOTSUPP;
-
-	if (!buf_len)
-		return -EINVAL;
-
 	lock_sock(sk);
+	if (!buf_len) {
+		if (flags & MSG_PEEK)
+			ret = msm_ipc_router_get_curr_pkt_size(port_ptr);
+		else
+			ret = -EINVAL;
+		release_sock(sk);
+		return ret;
+	}
 	timeout = sock_rcvtimeo(sk, flags & MSG_DONTWAIT);
 
 	ret = msm_ipc_router_rx_data_wait(port_ptr, timeout);
