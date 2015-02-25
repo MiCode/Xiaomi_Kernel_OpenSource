@@ -790,6 +790,11 @@
 				drive-strength = <2>;
 				bias-pull-down;
 			};
+
+			pcie0_wake_sleep: pcie0_wake_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
 		};
 
 		cnss_pins {
