@@ -2607,7 +2607,7 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 
 	if (ipa_ctx->enable_clock_scaling) {
 		IPADBG("Clock scaling is enabled\n");
-		if (bandwidth_mbps > ipa_ctx->ctrl->clock_scaling_bw_threshold)
+		if (bandwidth_mbps >= ipa_ctx->ctrl->clock_scaling_bw_threshold)
 			needed_voltage = IPA_VOLTAGE_NOMINAL;
 		else
 			needed_voltage = IPA_VOLTAGE_SVS;
