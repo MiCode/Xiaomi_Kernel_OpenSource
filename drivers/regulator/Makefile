@@ -83,6 +83,7 @@ obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
 obj-$(CONFIG_REGULATOR_CRYSTAL_COVE) += pmic_crystal_cove.o
 obj-$(CONFIG_REGULATOR_WHISKEY_COVE) += pmic_whiskey_cove.o
 obj-$(CONFIG_REGULATOR_DOLLAR_COVE) += pmic_dollar_cove.o
+obj-$(CONFIG_REGULATOR_DOLLAR_COVE) += pmic_dollar_cove_ti.o
 
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
