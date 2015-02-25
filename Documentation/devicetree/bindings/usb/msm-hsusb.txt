@@ -82,9 +82,9 @@ Optional properties :
 - qcom,hsusb-l1-supported: If present, the device supports l1 (Link power
 	management).
 - qcom,no-selective-suspend: If present selective suspend is disabled on hub ports.
-- qcom,hsusb-otg-dpsehv-int: If present, indicates mpm interrupt to be configured
+- qcom,hsusb-otg-mpm-dpsehv-int: If present, indicates mpm interrupt to be configured
 	for detection of dp line transition during VDD minimization.
-- qcom,hsusb-otg-dmsehv-int: If present, indicates mpm interrupt to be configured
+- qcom,hsusb-otg-mpm-dmsehv-int: If present, indicates mpm interrupt to be configured
 	for detection of dm line transition during VDD minimization.
 - qcom,ahb-async-bridge-bypass: If present, indicates that enable AHB2AHB By Pass
 	mode with device controller for better throughput. With this mode, USB Core
