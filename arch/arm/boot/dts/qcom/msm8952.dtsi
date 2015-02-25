@@ -12,11 +12,11 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-tellurium.h>
+#include <dt-bindings/clock/msm-clocks-8952.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM Tellurium";
-	compatible = "qcom,msmtellurium";
+	model = "Qualcomm Technologies, Inc. MSM 8952";
+	compatible = "qcom,msm8952";
 	qcom,msm-id = <264 0x0>;
 	interrupt-parent = <&intc>;
 
@@ -100,15 +100,15 @@
 	soc: soc { };
 };
 
-#include "msmtellurium-ion.dtsi"
-#include "msmtellurium-iommu.dtsi"
+#include "msm8952-ion.dtsi"
+#include "msm8952-iommu.dtsi"
 #include "msm8939-cpu.dtsi"
-#include "msmtellurium-pinctrl.dtsi"
-#include "msmtellurium-smp2p.dtsi"
-#include "msmtellurium-ipcrouter.dtsi"
+#include "msm8952-pinctrl.dtsi"
+#include "msm8952-smp2p.dtsi"
+#include "msm8952-ipcrouter.dtsi"
 #include "msm-gdsc-8916.dtsi"
-#include "msmtellurium-coresight.dtsi"
-#include "msmtellurium-bus.dtsi"
+#include "msm8952-coresight.dtsi"
+#include "msm8952-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -125,23 +125,23 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,gcc-tellurium";
+		compatible = "qcom,gcc-8952";
 		reg = <0x1800000 0x80000>,
 			<0xb116000 0x00040>,
 			<0xb016000 0x00040>,
 			<0xb1d0000 0x00040>;
 		reg-names = "cc_base", "apcs_c0_base",
 			"apcs_c1_base", "apcs_cci_base";
-		vdd_dig-supply = <&pmtellurium_s2_corner>;
-		vdd_sr2_dig-supply = <&pmtellurium_s2_corner_ao>;
-		vdd_sr2_pll-supply = <&pmtellurium_l7_ao>;
-		vdd_hf_dig-supply = <&pmtellurium_s2_corner_ao>;
-		vdd_hf_pll-supply = <&pmtellurium_l7_ao>;
+		vdd_dig-supply = <&pm8950_s2_corner>;
+		vdd_sr2_dig-supply = <&pm8950_s2_corner_ao>;
+		vdd_sr2_pll-supply = <&pm8950_l7_ao>;
+		vdd_hf_dig-supply = <&pm8950_s2_corner_ao>;
+		vdd_hf_pll-supply = <&pm8950_l7_ao>;
 		#clock-cells = <1>;
 	};
 
 	clock_debug: qcom,cc-debug@1874000 {
-		compatible = "qcom,cc-debug-tellurium";
+		compatible = "qcom,cc-debug-8952";
 		reg = <0x1874000 0x4>;
 		reg-names = "cc_base";
 		#clock-cells = <1>;
@@ -385,7 +385,7 @@
 	};
 
 	tsens: tsens@4a8000 {
-		compatible = "qcom,msmtellurium-tsens";
+		compatible = "qcom,msm8952-tsens";
 		reg = <0x4a8000 0x2000>,
 		      <0x5c000  0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
@@ -667,9 +667,9 @@
 		interrupts = <0 134 0>,<0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
-		hsusb_vdd_dig-supply = <&pmtellurium_l2>;
-		HSUSB_1p8-supply = <&pmtellurium_l7>;
-		HSUSB_3p3-supply = <&pmtellurium_l13>;
+		hsusb_vdd_dig-supply = <&pm8950_l2>;
+		HSUSB_1p8-supply = <&pm8950_l7>;
+		HSUSB_3p3-supply = <&pm8950_l13>;
 		qcom,vdd-voltage-level = <0 1200000 1200000>;
 
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
@@ -798,7 +798,7 @@
 		reg = <0xc200000 0x00100>;
 		interrupts = <0 293 1>;
 
-		vdd_cx-supply = <&pmtellurium_s2_corner>;
+		vdd_cx-supply = <&pm8950_s2_corner>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
 
@@ -1010,7 +1010,7 @@
 		reg = <0x0a21b000 0x3000>;
 		interrupts = <0 149 1>;
 
-		vdd_pronto_pll-supply = <&pmtellurium_l7>;
+		vdd_pronto_pll-supply = <&pm8950_l7>;
 		proxy-reg-names = "vdd_pronto_pll";
 		vdd_pronto_pll-uV-uA = <1800000 18000>;
 		clocks = <&clock_gcc clk_xo_pil_pronto_clk>,
@@ -1080,10 +1080,10 @@
 				 "rmb_base", "restart_reg";
 
 		interrupts = <0 24 1>;
-		vdd_cx-supply = <&pmtellurium_s2_corner>;
-		vdd_mx-supply = <&pmtellurium_l3>;
+		vdd_cx-supply = <&pm8950_s2_corner>;
+		vdd_mx-supply = <&pm8950_l3>;
 		vdd_mx-uV = <1050000>;
-		vdd_pll-supply = <&pmtellurium_l7>;
+		vdd_pll-supply = <&pm8950_l7>;
 		qcom,vdd_pll = <1800000>;
 
 		clocks = <&clock_gcc clk_xo_pil_mss_clk>,
@@ -1282,6 +1282,6 @@
 	status = "okay";
 };
 
-#include "msmtellurium-regulator.dtsi"
-#include "msm-pmtellurium.dtsi"
-#include "msm-pmitellurium.dtsi"
+#include "msm8952-regulator.dtsi"
+#include "msm-pm8950.dtsi"
+#include "msm-pmi8950.dtsi"

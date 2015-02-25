@@ -65,8 +65,8 @@ SoCs:
 - MSM8994
   compatible = "qcom,msm8994"
 
-- MSMTELLURIUM
-  compatible = "qcom,msmtellurium"
+- MSM8952
+  compatible = "qcom,msm8952"
 
 - MDM9640
   compatible = "qcom,mdm9640"
@@ -189,8 +189,8 @@ compatible = "qcom,msm8994-liquid"
 compatible = "qcom,msm8994-mtp"
 compatible = "qcom,msm8994-rumi"
 compatible = "qcom,msm8994-sim"
-compatible = "qcom,msmtellurium-rumi"
-compatible = "qcom,msmtellurium-sim"
+compatible = "qcom,msm8952-rumi"
+compatible = "qcom,msm8952-sim"
 compatible = "qcom,msmterbium-rumi"
 compatible = "qcom,msmterbium-sim"
 compatible = "qcom,msmterbium-cdp"

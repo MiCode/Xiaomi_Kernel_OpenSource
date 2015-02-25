@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSM_CLOCKS_TELLURIUM_HWIO_H
-#define __MSM_CLOCKS_TELLURIUM_HWIO_H
+#ifndef __MSM_CLOCKS_8952_HWIO_H
+#define __MSM_CLOCKS_8952_HWIO_H
 
 #define GPLL0_STATUS			0x2101C
 #define GPLL6_STATUS			0x3701C

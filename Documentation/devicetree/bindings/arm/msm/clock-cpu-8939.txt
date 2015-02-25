@@ -1,13 +1,13 @@
 Qualcomm MSM8939 CPU clock tree
 
-clock-cpu-8939 is a device that represents the MSM8939 or MSMTellurium CPU
+clock-cpu-8939 is a device that represents the MSM8939 or MSM8952 CPU
 subsystem clock tree. It lists the various power supplies that need to be
 scaled when the clocks are scaled and also other HW specific parameters like
 fmax tables, avs settings table, etc.
 
 Required properties:
 - compatible:		Must be one of "qcom,clock-cpu-8939" or
-			"qcom,cpu-clock-tellurium"
+			"qcom,cpu-clock-8952"
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
 - reg-names:		Names of the bases for the above registers. Expected

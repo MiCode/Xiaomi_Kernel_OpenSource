@@ -12,7 +12,7 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-tellurium.h>
+#include <dt-bindings/clock/msm-clocks-8952.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM Terbium";

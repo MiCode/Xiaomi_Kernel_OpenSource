@@ -21,7 +21,7 @@ Required properties:
 	       should be "qcom,msm8994-tsens" for 8994 TSENS driver.
 	       should be "qcom,mdm9640-tsens" for 9640 TSENS driver.
 	       should be "qcom,msm8992-tsens" for 8992 TSENS driver.
-	       should be "qcom,msmtellurium-tsens" for tellurium TSENS driver.
+	       should be "qcom,msm8952-tsens" for 8952 TSENS driver.
 	       should be "qcom,msm-tsens-generic-type-a" to use generic calibration in TSENS driver.
 	       The compatible property is used to identify the respective fusemap to use
 	       for the corresponding SoC.
