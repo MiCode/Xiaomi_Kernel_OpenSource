@@ -323,7 +323,8 @@ struct sdhci_msm_pltfm_data {
 	int mpm_sdiowakeup_int;
 	int sdiowakeup_irq;
 	enum pm_qos_req_type cpu_affinity_type;
-	cpumask_t cpu_affinity_mask;
+	u32 *cpu_affinity_mask;
+	unsigned int cpu_affinity_mask_tbl_sz;
 };
 
 struct sdhci_msm_bus_vote {
@@ -1502,29 +1503,48 @@ out:
 }
 
 #ifdef CONFIG_SMP
-static void sdhci_msm_populate_affinity(struct sdhci_msm_pltfm_data *pdata,
-					     struct device_node *np)
+static void sdhci_msm_populate_affinity(struct device *dev,
+					struct sdhci_msm_pltfm_data *pdata,
+					struct device_node *np)
 {
 	const char *cpu_affinity = NULL;
-	u32 cpu_mask;
+	u32 prop_val = 0;
 
 	pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_IRQ;
 	if (!of_property_read_string(np, "qcom,cpu-affinity", &cpu_affinity)) {
-		if (!strcmp(cpu_affinity, "all_cores"))
+		if (!strcmp(cpu_affinity, "all_cores")) {
 			pdata->cpu_affinity_type = PM_QOS_REQ_ALL_CORES;
-		else if (!strcmp(cpu_affinity, "affine_cores") &&
-			 !of_property_read_u32(np, "qcom,cpu-affinity-mask",
-						&cpu_mask)) {
-				cpumask_bits(&pdata->cpu_affinity_mask)[0] =
-					cpu_mask;
-				pdata->cpu_affinity_type =
-					PM_QOS_REQ_AFFINE_CORES;
+		} else if (!strcmp(cpu_affinity, "affine_cores") &&
+			   of_get_property(np, "qcom,cpu-affinity-mask",
+					   &prop_val)) {
+			pdata->cpu_affinity_mask_tbl_sz =
+				prop_val/sizeof(*pdata->cpu_affinity_mask);
+
+			pdata->cpu_affinity_mask = devm_kzalloc(dev,
+				sizeof(*pdata->cpu_affinity_mask) *
+				pdata->cpu_affinity_mask_tbl_sz,
+				GFP_KERNEL);
+
+			if (!pdata->cpu_affinity_mask) {
+				dev_err(dev, "cpu_affinity_mask alloc fail\n");
+				return;
+			}
+			if (of_property_read_u32_array(np,
+				"qcom,cpu-affinity-mask",
+				pdata->cpu_affinity_mask,
+				pdata->cpu_affinity_mask_tbl_sz)) {
+				dev_err(dev, "cpu-affinity-mask parse fail\n");
+				return;
+			}
+			pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_CORES;
 		}
 	}
+
 }
 #else
-static void sdhci_msm_populate_affinity(struct sdhci_msm_pltfm_data *pdata,
-							struct device_node *np)
+static void sdhci_msm_populate_affinity(struct device *dev,
+					struct sdhci_msm_pltfm_data *pdata,
+					struct device_node *np)
 {
 }
 #endif
@@ -1568,8 +1588,8 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 		pdata->cpu_dma_latency_tbl_sz =
 			prop_val/sizeof(*pdata->cpu_dma_latency_us);
 
-		if (!(pdata->cpu_dma_latency_tbl_sz == 1 ||
-			pdata->cpu_dma_latency_tbl_sz == 3)) {
+		if (!(pdata->cpu_dma_latency_tbl_sz >= 1 &&
+			pdata->cpu_dma_latency_tbl_sz <= 3)) {
 			dev_warn(dev, "incorrect Qos param passed from DT: %d\n",
 				pdata->cpu_dma_latency_tbl_sz);
 			skip_qos_from_dt = true;
@@ -1686,7 +1706,7 @@ static struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev)
 	else
 		pdata->mpm_sdiowakeup_int = -1;
 
-	sdhci_msm_populate_affinity(pdata, np);
+	sdhci_msm_populate_affinity(dev, pdata, np);
 
 	return pdata;
 out:
@@ -3399,9 +3419,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	host->cpu_dma_latency_tbl_sz = msm_host->pdata->cpu_dma_latency_tbl_sz;
 	host->pm_qos_req_dma.type = msm_host->pdata->cpu_affinity_type;
 	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_CORES)
-		bitmap_copy(cpumask_bits(&host->pm_qos_req_dma.cpus_affine),
-			    cpumask_bits(&msm_host->pdata->cpu_affinity_mask),
-			    nr_cpumask_bits);
+		host->cpu_affinity_mask = msm_host->pdata->cpu_affinity_mask;
 
 	init_completion(&msm_host->pwr_irq_completion);
 

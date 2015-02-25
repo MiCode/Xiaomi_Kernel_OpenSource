@@ -1502,6 +1502,39 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	return power;
 }
 
+#ifdef CONFIG_SMP
+static void sdhci_set_pmqos_req_type(struct sdhci_host *host, bool enable)
+{
+	/*
+	 * The default request type PM_QOS_REQ_ALL_CORES is
+	 * applicable to all CPU cores that are online and
+	 * this would have a power impact when there are more
+	 * number of CPUs. This new PM_QOS_REQ_AFFINE_IRQ request
+	 * type shall update/apply the vote only to that CPU to
+	 * which this IRQ's affinity is set to.
+	 * PM_QOS_REQ_AFFINE_CORES request type is used for targets that have
+	 * big/little architecture and will update/apply the vote to all the
+	 * cores in the respective cluster.
+	 */
+	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_IRQ) {
+		host->pm_qos_req_dma.irq = host->irq;
+	} else if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_CORES) {
+		if (enable) {
+			if (current_thread_info()->cpu < 4)
+				host->pm_qos_index = SDHCI_LITTLE_CLUSTER;
+			else
+				host->pm_qos_index = SDHCI_BIG_CLUSTER;
+		}
+		cpumask_bits(&host->pm_qos_req_dma.cpus_affine)[0] =
+			host->cpu_affinity_mask[host->pm_qos_index];
+	}
+}
+#else
+static void sdhci_set_pmqos_req_type(struct sdhci_host *host, bool enable)
+{
+}
+#endif
+
 /*****************************************************************************\
  *                                                                           *
  * MMC callbacks                                                             *
@@ -1511,16 +1544,16 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 static int sdhci_enable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
-	u32 pol_index = 0;
 
 	if (unlikely(!host->cpu_dma_latency_us))
 		goto platform_bus_vote;
 
-	if (host->cpu_dma_latency_tbl_sz > 1)
-		pol_index = host->power_policy;
+	if (host->cpu_dma_latency_tbl_sz > 2)
+		host->pm_qos_index = host->power_policy;
 
+	sdhci_set_pmqos_req_type(host, true);
 	pm_qos_update_request(&host->pm_qos_req_dma,
-		host->cpu_dma_latency_us[pol_index]);
+		host->cpu_dma_latency_us[host->pm_qos_index]);
 
 platform_bus_vote:
 	if (host->ops->platform_bus_voting)
@@ -1532,13 +1565,14 @@ platform_bus_vote:
 static int sdhci_disable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
-	u32 pol_index = 0;
 
 	if (unlikely(!host->cpu_dma_latency_us))
 		goto platform_bus_vote;
 
-	if (host->cpu_dma_latency_tbl_sz > 1)
-		pol_index = host->power_policy;
+	if (host->cpu_dma_latency_tbl_sz > 2)
+		host->pm_qos_index = host->power_policy;
+
+	sdhci_set_pmqos_req_type(host, false);
 	/*
 	 * In performance mode, release QoS vote after a timeout to
 	 * make sure back-to-back requests don't suffer from latencies
@@ -1551,7 +1585,7 @@ static int sdhci_disable(struct mmc_host *mmc)
 			PM_QOS_DEFAULT_VALUE);
 	else
 		pm_qos_update_request_timeout(&host->pm_qos_req_dma,
-			host->cpu_dma_latency_us[pol_index],
+			host->cpu_dma_latency_us[host->pm_qos_index],
 			host->pm_qos_timeout_us);
 
 platform_bus_vote:
@@ -3452,29 +3486,6 @@ static int sdhci_is_adma2_64bit(struct sdhci_host *host)
 }
 #endif
 
-#ifdef CONFIG_SMP
-static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
-{
-	/*
-	 * The default request type PM_QOS_REQ_ALL_CORES is
-	 * applicable to all CPU cores that are online and
-	 * this would have a power impact when there are more
-	 * number of CPUs. This new PM_QOS_REQ_AFFINE_IRQ request
-	 * type shall update/apply the vote only to that CPU to
-	 * which this IRQ's affinity is set to.
-	 * PM_QOS_REQ_AFFINE_CORES request type is used for targets that have
-	 * little cluster and will update/apply the vote to all the cores in
-	 * the little cluster.
-	 */
-	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_IRQ)
-		host->pm_qos_req_dma.irq = host->irq;
-}
-#else
-static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
-{
-}
-#endif
-
 int sdhci_add_host(struct sdhci_host *host)
 {
 	struct mmc_host *mmc;
@@ -4026,7 +4037,7 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	if (host->cpu_dma_latency_us) {
 		host->pm_qos_timeout_us = 10000; /* default value */
-		sdhci_set_pmqos_req_type(host);
+		sdhci_set_pmqos_req_type(host, true);
 		pm_qos_add_request(&host->pm_qos_req_dma,
 				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
 
