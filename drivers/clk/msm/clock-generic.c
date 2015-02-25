@@ -648,6 +648,29 @@ static long __mux_div_round_rate(struct clk *c, unsigned long rate,
 	unsigned long rrate, best = 0, _best_div = 0, _best_prate = 0;
 	struct clk *_best_parent = 0;
 
+	if (md->try_get_rate) {
+		for (i = 0; i < md->num_parents; i++) {
+			int divider;
+			unsigned long p_rate;
+
+			rrate = __div_round_rate(&md->data, rate,
+						md->parents[i].src,
+						&divider, &p_rate);
+			/*
+			 * Check if one of the possible parents is already at
+			 * the requested rate.
+			 */
+			if (p_rate == clk_get_rate(md->parents[i].src)
+					&& rrate == rate) {
+				best = rrate;
+				_best_div = divider;
+				_best_prate = p_rate;
+				_best_parent = md->parents[i].src;
+				goto end;
+			}
+		}
+	}
+
 	for (i = 0; i < md->num_parents; i++) {
 		int div;
 		unsigned long prate;
@@ -665,7 +688,7 @@ static long __mux_div_round_rate(struct clk *c, unsigned long rate,
 		if (rate <= rrate && rrate <= rate + md->data.rate_margin)
 			break;
 	}
-
+end:
 	if (best_div)
 		*best_div = _best_div;
 	if (best_prate)
