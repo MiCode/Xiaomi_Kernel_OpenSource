@@ -756,7 +756,7 @@
 		qcom,msm-bus,vectors-KBps =
 			<91 512 0 0>,
 			/* Voting for max b/w on PNOC bus for now */
-			<91 512 400000 800000>;
+			<91 512 240000 800000>;
 
 	};
 
