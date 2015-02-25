@@ -1,0 +1,21 @@
+* msm-test-pacman - The MSM Peripheral Access Control Manager test
+
+Required Properties:
+
+ - compatible:	"qcom,msm-test-pacman"
+
+Aliases:
+
+  An alias is required to properly map the test driver to a Qualcomm
+  Universal Peripheral (QUP) ID. The alias is of the form 'qup<n>', where
+  <n> is an integer specifying the QUP ID.
+
+Example:
+
+	aliases {
+		qup10 = &test_pacman;
+	};
+
+	test_pacman: test@f9966000 {
+		compatible = "qcom,msm-test-pacman";
+	};

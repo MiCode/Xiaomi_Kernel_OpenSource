@@ -614,6 +614,15 @@ config MSM_PACMAN
 	  This driver allows reconfiguration of the Bus Access Manager
 	  Low Speed Peripheral (BLSP) ownership.
 
+config MSM_TEST_PACMAN
+	bool "Enable the Peripheral Access Control Manager (PACMan) TEST DRIVER"
+	depends on MSM_PACMAN
+	help
+	  Add support for the Peripheral Access Control Manager (PACMan)
+	  test driver. This driver helps to understand the Bus Access Manager
+	  Low Speed Peripheral (BLSP) ownership transfer from one subsystem
+	  to another.
+
 config MSM_CORE_CTL_HELPER
 	tristate "Core control helper functions for dynamically hotplug CPUs"
 	help
