@@ -392,25 +392,25 @@
 	ldo0:ldo-vref@f9070000 {
 		compatible = "qcom,8994-cpu-ldo-vref";
 		reg = <0xf9070000 0x30>;
-		qcom,ldo-vref-ret = <0x3e>;
+		qcom,ldo-vref-ret = <0x2a>;
 	};
 
 	ldo1:ldo-vref@f9071000 {
 		compatible = "qcom,8994-cpu-ldo-vref";
 		reg = <0xf9071000 0x30>;
-		qcom,ldo-vref-ret = <0x3e>;
+		qcom,ldo-vref-ret = <0x2a>;
 	};
 
 	ldo2:ldo-vref@f9072000 {
 		compatible = "qcom,8994-cpu-ldo-vref";
 		reg = <0xf9072000 0x30>;
-		qcom,ldo-vref-ret = <0x3e>;
+		qcom,ldo-vref-ret = <0x2a>;
 	};
 
 	ldo3:ldo-vref@f9073000 {
 		compatible = "qcom,8994-cpu-ldo-vref";
 		reg = <0xf9073000 0x30>;
-		qcom,ldo-vref-ret = <0x3e>;
+		qcom,ldo-vref-ret = <0x2a>;
 	};
 
 	ldo4:ldo-vref@f9074000 {
