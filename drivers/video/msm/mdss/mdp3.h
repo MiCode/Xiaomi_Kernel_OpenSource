@@ -26,7 +26,8 @@
 #include "mdss.h"
 
 #define MDP_VSYNC_CLK_RATE	19200000
-#define MDP_CORE_CLK_RATE_SVS	150000000
+#define MDP_CORE_CLK_RATE_SVS	160000000
+#define MDP_CORE_CLK_RATE_SUPER_SVS	200000000
 #define MDP_CORE_CLK_RATE_MAX	307200000
 
 /* PPP cant work at SVS for panel res above qHD */

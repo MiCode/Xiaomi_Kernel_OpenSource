@@ -39,6 +39,11 @@
 #define MDP_PPP_MAX_READ_WRITE 3
 #define ENABLE_SOLID_FILL	0x2
 #define DISABLE_SOLID_FILL	0x0
+#define BLEND_LATENCY		3
+#define CSC_LATENCY		1
+
+#define CLK_FUDGE_NUM		12
+#define CLK_FUDGE_DEN		10
 
 struct ppp_resource ppp_res;
 
@@ -348,30 +353,6 @@ void mdp3_ppp_kickoff(void)
 	mdp3_irq_disable(MDP3_PPP_DONE);
 }
 
-u32 mdp3_clk_calc(struct msm_fb_data_type *mfd, struct blit_req_list *lreq)
-{
-	struct mdss_panel_info *panel_info = mfd->panel_info;
-	int i, lcount = 0;
-	struct mdp_blit_req *req;
-	u32 total_pixel;
-	u32 mdp_clk_rate = MDP_CORE_CLK_RATE_SVS;
-
-	total_pixel = panel_info->xres * panel_info->yres;
-	if (total_pixel > SVS_MAX_PIXEL)
-		return MDP_CORE_CLK_RATE_MAX;
-
-	for (i = 0; i < lcount; i++) {
-		req = &(lreq->req_list[i]);
-
-		if (req->src_rect.h != req->dst_rect.h ||
-				req->src_rect.w != req->dst_rect.w) {
-			mdp_clk_rate = MDP_CORE_CLK_RATE_MAX;
-			break;
-		}
-	}
-	return mdp_clk_rate;
-}
-
 struct bpp_info {
 	int bpp_num;
 	int bpp_den;
@@ -428,6 +409,91 @@ int mdp3_get_bpp_info(int format, struct bpp_info *bpp)
 		rc = -EINVAL;
 	}
 	return rc;
+}
+
+bool mdp3_is_blend(struct mdp_blit_req *req)
+{
+	if ((req->transp_mask != MDP_TRANSP_NOP) ||
+		(req->alpha < MDP_ALPHA_NOP) ||
+		(req->src.format == MDP_ARGB_8888) ||
+		(req->src.format == MDP_BGRA_8888) ||
+		(req->src.format == MDP_RGBA_8888))
+		return true;
+	return false;
+}
+
+bool mdp3_is_scale(struct mdp_blit_req *req)
+{
+	if (req->flags & MDP_ROT_90) {
+		if (req->src_rect.w != req->dst_rect.h ||
+			req->src_rect.h != req->dst_rect.w)
+			return true;
+	} else {
+		if (req->src_rect.h != req->dst_rect.h ||
+			req->src_rect.w != req->dst_rect.w)
+			return true;
+	}
+	return false;
+}
+
+u32 mdp3_clk_calc(struct msm_fb_data_type *mfd,
+				struct blit_req_list *lreq, u32 fps)
+{
+	struct mdss_panel_info *panel_info = mfd->panel_info;
+	int i, lcount = 0;
+	struct mdp_blit_req *req;
+	u32 total_pixel;
+	u32 mdp_clk_rate = 0;
+	u32 scale_x, scale_y, scale;
+	u32 blend_l, csc_l;
+
+	lcount = lreq->count;
+	total_pixel = panel_info->xres * panel_info->yres;
+
+	blend_l = 100 * BLEND_LATENCY;
+	csc_l = 100 * CSC_LATENCY;
+
+	for (i = 0; i < lcount; i++) {
+		req = &(lreq->req_list[i]);
+
+		if (req->flags & MDP_SMART_BLIT)
+			continue;
+
+		if (mdp3_is_scale(req)) {
+			if (req->flags & MDP_ROT_90) {
+				scale_x = 100 * req->src_rect.w /
+							req->dst_rect.w;
+				scale_y = 100 * req->src_rect.h /
+							req->dst_rect.h;
+			} else {
+				scale_x = 100 * req->src_rect.h /
+							req->dst_rect.w;
+				scale_y = 100 * req->src_rect.w /
+							req->dst_rect.h;
+			}
+			scale = max(scale_x, scale_y);
+			scale = scale >= 100 ? scale : 100;
+		}
+		if (mdp3_is_blend(req))
+			scale = max(scale, blend_l);
+
+		if (!check_if_rgb(req->src.format))
+			scale = max(scale, csc_l);
+
+		mdp_clk_rate += (req->src_rect.w * req->src_rect.h *
+							scale / 100) * fps;
+	}
+	mdp_clk_rate = (CLK_FUDGE_NUM * mdp_clk_rate) / CLK_FUDGE_DEN;
+	pr_debug("mdp_clk_rate for ppp = %d\n", mdp_clk_rate);
+
+	if (mdp_clk_rate < MDP_CORE_CLK_RATE_SVS)
+		mdp_clk_rate = MDP_CORE_CLK_RATE_SVS;
+	else if (mdp_clk_rate < MDP_CORE_CLK_RATE_SUPER_SVS)
+		mdp_clk_rate = MDP_CORE_CLK_RATE_SUPER_SVS;
+	else
+		mdp_clk_rate = MDP_CORE_CLK_RATE_MAX;
+
+	return mdp_clk_rate;
 }
 
 u64 mdp3_adjust_scale_factor(struct mdp_blit_req *req, u32 bw_req, int bpp)
@@ -536,10 +602,9 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
                 }
 	}
 
-	if (fps != 0)
-		honest_ppp_ab = honest_ppp_ab * fps;
-	else
-		honest_ppp_ab = honest_ppp_ab * panel_info->mipi.frame_rate;
+	if (fps == 0)
+		fps = panel_info->mipi.frame_rate;
+	honest_ppp_ab = honest_ppp_ab * fps;
 
 	if (honest_ppp_ab != ppp_res.next_ab) {
 		pr_debug("bandwidth vote update for ppp: ab = %llx\n",
@@ -549,7 +614,7 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 		ppp_stat->bw_update = true;
 		ATRACE_INT("mdp3_ppp_bus_quota", honest_ppp_ab);
 	}
-	ppp_res.clk_rate = mdp3_clk_calc(mfd, lreq);
+	ppp_res.clk_rate = mdp3_clk_calc(mfd, lreq, fps);
 	ATRACE_INT("mdp3_ppp_clk_rate", ppp_res.clk_rate);
 	ATRACE_END(__func__);
 	return 0;
