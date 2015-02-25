@@ -572,7 +572,7 @@ int config_ppp_out(struct ppp_img_desc *dst, uint32_t yuv2rgb)
 	return 0;
 }
 
-int config_ppp_background(struct ppp_img_desc *bg)
+int config_ppp_background(struct ppp_img_desc *bg, uint32_t yuv2rgb)
 {
 	uint32_t val;
 
@@ -590,7 +590,7 @@ int config_ppp_background(struct ppp_img_desc *bg)
 
 	PPP_WRITEL(ppp_src_config(bg->color_fmt),
 		MDP3_PPP_BG_FORMAT);
-	PPP_WRITEL(ppp_pack_pattern(bg->color_fmt, 0),
+	PPP_WRITEL(ppp_pack_pattern(bg->color_fmt, yuv2rgb),
 		MDP3_PPP_BG_UNPACK_PATTERN1);
 	return 0;
 }
@@ -1013,7 +1013,8 @@ int config_ppp_csc(int src_color, int dst_color, uint32_t *pppop_reg_ptr)
 }
 
 int config_ppp_blend(struct ppp_blit_op *blit_op,
-			uint32_t *pppop_reg_ptr)
+			uint32_t *pppop_reg_ptr,
+			bool is_yuv_smart_blit, int smart_blit_bg_alpha)
 {
 	struct ppp_csc_table *csc;
 	uint32_t alpha, trans_color;
@@ -1087,11 +1088,32 @@ int config_ppp_blend(struct ppp_blit_op *blit_op,
 		if (blit_op->mdp_op & MDPOP_TRANSP)
 			*pppop_reg_ptr |=
 				PPP_BLEND_CALPHA_TRNASP;
-		PPP_WRITEL(0, MDP3_PPP_BLEND_BG_ALPHA_SEL);
+		if (is_yuv_smart_blit) {
+			*pppop_reg_ptr |= PPP_OP_ROT_ON |
+				PPP_OP_BLEND_ON |
+				PPP_OP_BLEND_BG_ALPHA |
+				PPP_OP_BLEND_EQ_REVERSE;
+
+			if (smart_blit_bg_alpha < 0xFF)
+				bg_alpha = PPP_BLEND_BG_USE_ALPHA_SEL |
+					PPP_BLEND_BG_DSTPIXEL_ALPHA;
+			else
+				bg_alpha = PPP_BLEND_BG_USE_ALPHA_SEL |
+					PPP_BLEND_BG_DSTPIXEL_ALPHA |
+					PPP_BLEND_BG_CONSTANT_ALPHA;
+
+			bg_alpha |= smart_blit_bg_alpha << 24;
+			PPP_WRITEL(bg_alpha, MDP3_PPP_BLEND_BG_ALPHA_SEL);
+		} else {
+			PPP_WRITEL(0, MDP3_PPP_BLEND_BG_ALPHA_SEL);
+		}
 	}
 
 	if (*pppop_reg_ptr & PPP_OP_BLEND_ON) {
-		config_ppp_background(&blit_op->bg);
+		if (is_yuv_smart_blit)
+			config_ppp_background(&blit_op->bg, 1);
+		else
+			config_ppp_background(&blit_op->bg, 0);
 
 		if (blit_op->dst.color_fmt == MDP_YCRYCB_H2V1) {
 			*pppop_reg_ptr |= PPP_OP_BG_CHROMA_H2V1;
@@ -1103,9 +1125,13 @@ int config_ppp_blend(struct ppp_blit_op *blit_op,
 			}
 		}
 	}
-	val = (alpha << MDP_BLEND_CONST_ALPHA);
-	val |= (trans_color & MDP_BLEND_TRASP_COL_MASK);
-	PPP_WRITEL(val, MDP3_PPP_BLEND_PARAM);
+	if (is_yuv_smart_blit) {
+		PPP_WRITEL(0, MDP3_PPP_BLEND_PARAM);
+	} else {
+		val = (alpha << MDP_BLEND_CONST_ALPHA);
+		val |= (trans_color & MDP_BLEND_TRASP_COL_MASK);
+		PPP_WRITEL(val, MDP3_PPP_BLEND_PARAM);
+	}
 	return 0;
 }
 
@@ -1130,6 +1156,19 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 	int sv_slice, sh_slice;
 	int dv_slice, dh_slice;
 	static struct ppp_img_desc bg_img_param;
+	static int bg_alpha;
+	static int bg_mdp_ops;
+	bool is_yuv_smart_blit = false;
+
+	/*
+	 * Detect YUV smart blit,
+	 * Check cached BG image plane 0 address is not NILL and
+	 * source color format is YUV than it is YUV smart blit
+	 * mark is_yuv_smart_blit true.
+	 */
+	if ((bg_img_param.p0) &&
+		(!(check_if_rgb(blit_op->src.color_fmt))))
+		is_yuv_smart_blit = true;
 
 	sv_slice = sh_slice = dv_slice = dh_slice = 1;
 
@@ -1217,26 +1256,35 @@ int config_ppp_op_mode(struct ppp_blit_op *blit_op)
 	} else {
 		blit_op->bg = blit_op->dst;
 	}
-        /* Cache smart blit BG layer info */
+	/* Cache smart blit BG layer info */
 	if (blit_op->mdp_op & MDPOP_SMART_BLIT)
-                bg_img_param = blit_op->src;
+		bg_img_param = blit_op->src;
 
-        /* Jumping from Y-Plane to Chroma Plane */
+	/* Jumping from Y-Plane to Chroma Plane */
 	/* first pixel addr calculation */
 	mdp_adjust_start_addr(blit_op, &blit_op->src, sv_slice,
-			      sh_slice, LAYER_FG);
+				sh_slice, LAYER_FG);
 	mdp_adjust_start_addr(blit_op, &blit_op->bg, dv_slice,
-			      dh_slice, LAYER_BG);
+				dh_slice, LAYER_BG);
 	mdp_adjust_start_addr(blit_op, &blit_op->dst, dv_slice,
-			      dh_slice, LAYER_FB);
+				dh_slice, LAYER_FB);
 
 	config_ppp_scale(blit_op, &ppp_operation_reg);
 
-	config_ppp_blend(blit_op, &ppp_operation_reg);
+	config_ppp_blend(blit_op, &ppp_operation_reg, is_yuv_smart_blit,
+			 bg_alpha);
 
 	config_ppp_src(&blit_op->src, yuv2rgb);
 	config_ppp_out(&blit_op->dst, yuv2rgb);
 
+	/* Cache Smart blit BG alpha adn MDP OP values */
+	if (blit_op->mdp_op & MDPOP_SMART_BLIT) {
+		bg_alpha = blit_op->blend.const_alpha;
+		bg_mdp_ops = blit_op->mdp_op;
+	} else {
+		bg_alpha = 0;
+		bg_mdp_ops = 0;
+	}
 	pr_debug("BLIT FG Param Fmt %d (x %d,y %d,w %d,h %d), ROI(x %d,y %d, w\
 		 %d, h %d) Addr_P0 %p, Stride S0 %d Addr_P1 %p, Stride S1 %d\n",
 		blit_op->src.color_fmt, blit_op->src.prop.x, blit_op->src.prop.y,
