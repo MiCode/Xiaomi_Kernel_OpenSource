@@ -98,7 +98,7 @@ static struct vregs_info iris_vregs_pronto[] = {
 	{"qcom,iris-vddrfa", VREG_NULL_CONFIG, 1300000, 0,
 		1300000, 100000, NULL},
 	{"qcom,iris-vddpa",  VREG_NULL_CONFIG, 2900000, 0,
-		3000000, 515000, NULL},
+		3350000, 515000, NULL},
 	{"qcom,iris-vdddig", VREG_NULL_CONFIG, 1225000, 0,
 		1800000, 10000,  NULL},
 };
