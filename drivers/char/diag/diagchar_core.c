@@ -297,10 +297,12 @@ static int diagchar_close(struct inode *inode, struct file *file)
 #ifdef CONFIG_DIAG_OVER_USB
 	/* If the SD logging process exits, change logging to USB mode */
 	if (driver->logging_process_id == current->tgid) {
+		mutex_lock(&driver->diagchar_mutex);
 		driver->logging_mode = USB_MODE;
+		diag_ws_reset();
+		mutex_unlock(&driver->diagchar_mutex);
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN);
 		diagfwd_connect();
-		diag_ws_reset();
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 		diag_clear_hsic_tbl();
 		diagfwd_cancel_hsic(REOPEN_HSIC);
@@ -1265,9 +1267,15 @@ drop:
 					COPY_USER_SPACE_OR_EXIT(buf+ret,
 						*(data->buf_in_1),
 						data->write_ptr_1->length);
+					diag_ws_on_copy();
+					copy_data = 1;
 					data->in_busy_1 = 0;
 				}
 			}
+		}
+		if (!copy_data) {
+			diag_ws_on_copy();
+			copy_data = 1;
 		}
 #ifdef CONFIG_DIAG_SDIO_PIPE
 		/* copy 9K data over SDIO */
@@ -1432,6 +1440,7 @@ drop:
 exit:
 	mutex_unlock(&driver->diagchar_mutex);
 	if (copy_data) {
+		diag_ws_on_copy_complete();
 		/*
 		 * Flush any work that is currently pending on the data
 		 * channels. This will ensure that the next read is not
@@ -1440,7 +1449,6 @@ exit:
 		for (i = 0; i < NUM_SMD_DATA_CHANNELS; i++)
 			flush_workqueue(driver->smd_data[i].wq);
 		wake_up(&driver->smd_wait_q);
-		diag_ws_on_copy_complete();
 	}
 	return ret;
 }
