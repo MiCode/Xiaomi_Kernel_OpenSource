@@ -71,18 +71,27 @@ static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_THUMBNAIL);
 }
 
+static int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
+{
+	int rc = 0;
+	struct v4l2_control ctrl = {
+		.id = id,
+	};
+
+	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+	return rc ?: ctrl.value;
+}
+
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 {
-	if (inst->session_type == MSM_VIDC_DECODER) {
-		int rc = 0;
-		struct v4l2_control ctrl = {
-			.id = V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE
-		};
-		rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
-		if (!rc && ctrl.value)
+	switch (msm_comm_g_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_MODE)) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_SECONDARY:
 			return HAL_VIDEO_DECODER_SECONDARY;
+		case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_OUTPUT_PRIMARY:
+		default:
+			return HAL_VIDEO_DECODER_PRIMARY;
 	}
-	return HAL_VIDEO_DECODER_PRIMARY;
 }
 
 static int msm_comm_get_mbs_per_sec(struct msm_vidc_inst *inst)
@@ -631,7 +640,6 @@ static void handle_event_change(enum command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	struct v4l2_control control = {0};
 	struct msm_vidc_cb_event *event_notify;
 	int event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
 	int rc = 0;
@@ -641,14 +649,12 @@ static void handle_event_change(enum command_response cmd, void *data)
 		switch (event_notify->hal_event_type) {
 		case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
 			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
-			control.id =
-				V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER;
-			rc = v4l2_g_ctrl(&inst->ctrl_handler, &control);
-			if (rc)
-				dprintk(VIDC_WARN,
-					"Failed to get Smooth streamng flag\n");
-			if (!rc && control.value == true)
+
+			rc = msm_comm_g_ctrl(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER);
+			if (!IS_ERR_VALUE(rc) && rc == true)
 				event = V4L2_EVENT_SEQ_CHANGED_SUFFICIENT;
+
 			break;
 		case HAL_EVENT_SEQ_CHANGED_INSUFFICIENT_RESOURCES:
 			event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
