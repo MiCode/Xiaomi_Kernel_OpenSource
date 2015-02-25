@@ -98,6 +98,18 @@
 		status = "disabled";
 	};
 
+	tsens: tsens@fc4a8000 {
+		compatible = "qcom,fsm9010-tsens";
+		reg = <0xfc4a8000 0x2000>,
+			<0xfc4bc000 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>;
+		interrupt-names = "tsens-upper-lower";
+		qcom,sensors = <3>;
+		qcom,slope = <2960 2890 2830>;
+		qcom,sensor-id = <0 1 5>;
+	};
+
 	clock_gcc: qcom,gcc@fc400000 {
 		compatible = "qcom,gcc-fsm9010";
 		reg = <0xfc400000 0x4000>;
