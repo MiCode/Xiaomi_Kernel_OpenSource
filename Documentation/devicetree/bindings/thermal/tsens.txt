@@ -16,6 +16,7 @@ Required properties:
 	       should be "qcom,msm8x10-tsens" for 8x10 TSENS driver.
 	       should be "qcom,msm8x26-tsens" for 8x26 TSENS driver.
 	       should be "qcom,fsm9900-tsens" for 9900 TSENS driver.
+	       should be "qcom,fsm9010-tsens" for 9010 TSENS driver.
 	       should be "qcom,mdm9630-tsens" for 9630 TSENS driver.
 	       should be "qcom,msm8994-tsens" for 8994 TSENS driver.
 	       should be "qcom,mdm9640-tsens" for 9640 TSENS driver.
