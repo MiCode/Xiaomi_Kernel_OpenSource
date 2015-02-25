@@ -1191,9 +1191,9 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 	}
 
 	mdp3_session->vsync_before_commit = 0;
-	if ((!splash_done && (panel && panel->set_backlight)) ||
-					mdp3_session->esd_recovery == true ) {
-		panel->set_backlight(panel, panel->panel_info.bl_max);
+	if (!splash_done || mdp3_session->esd_recovery == true) {
+		if(panel && panel->set_backlight)
+			panel->set_backlight(panel, panel->panel_info.bl_max);
 		splash_done = true;
 		mdp3_session->esd_recovery = false;
 	}
@@ -1294,9 +1294,9 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 
 	mdp3_session->vsync_before_commit = 0;
 	panel = mdp3_session->panel;
-	if ((!splash_done && (panel && panel->set_backlight)) ||
-				mdp3_session->esd_recovery == true ) {
-		panel->set_backlight(panel, panel->panel_info.bl_max);
+	if (!splash_done || mdp3_session->esd_recovery == true) {
+		if(panel && panel->set_backlight)
+			panel->set_backlight(panel, panel->panel_info.bl_max);
 		splash_done = true;
 		mdp3_session->esd_recovery = false;
 	}
