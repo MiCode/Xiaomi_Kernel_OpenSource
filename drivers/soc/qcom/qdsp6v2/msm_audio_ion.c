@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,6 +47,7 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 			ion_phys_addr_t *paddr, size_t *pa_len, void **vaddr)
 {
 	int rc = -EINVAL;
+	unsigned long err_ion_ptr = 0;
 
 	if ((msm_audio_ion_data.smmu_enabled == true) &&
 	    (msm_audio_ion_data.group == NULL)) {
@@ -74,12 +75,11 @@ int msm_audio_ion_alloc(const char *name, struct ion_client **client,
 					ION_HEAP(ION_SYSTEM_HEAP_ID), 0);
 		}
 		if (IS_ERR_OR_NULL((void *) (*handle))) {
-			if ((void *)(*handle) != NULL)
-				rc = *(int *)(*handle);
-			else
-				rc = -ENOMEM;
-			pr_err("%s:ION mem alloc fail rc=%d, smmu_enabled=%d\n",
-				__func__, rc, msm_audio_ion_data.smmu_enabled);
+			if (IS_ERR((void *)(*handle)))
+				err_ion_ptr = PTR_ERR((int *)(*handle));
+			pr_err("%s:ION alloc fail err ptr=%ld, smmu_enabled=%d\n",
+			__func__, err_ion_ptr, msm_audio_ion_data.smmu_enabled);
+			rc = -ENOMEM;
 			goto err_ion_client;
 		}
 	} else {
