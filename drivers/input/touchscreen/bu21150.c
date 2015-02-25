@@ -34,13 +34,19 @@
 #include <linux/interrupt.h>
 #include <asm/byteorder.h>
 #include <linux/timer.h>
+#include <linux/notifier.h>
+#include <linux/fb.h>
 
 /* define */
 #define DEVICE_NAME   "jdi-bu21150"
 #define SYSFS_PROPERTY_PATH   "afe_properties"
+#define REG_INT_RUN_ENB (0x00CE)
+#define REG_SENS_START (0x0086)
 #define REG_READ_DATA (0x0400)
 #define MAX_FRAME_SIZE (8*1024+16)  /* byte */
 #define SPI_HEADER_SIZE (3)
+#define SPI_BITS_PER_WORD_READ (8)
+#define SPI_BITS_PER_WORD_WRITE (8)
 #define FRAME_HEADER_SIZE (16)  /* byte */
 #define GPIO_LOW  (0)
 #define GPIO_HIGH (1)
@@ -52,11 +58,23 @@
 #define BU21150_VDD_DIG_VOLTAGE_UV	1800000
 #define BU21150_MAX_OPS_LOAD_UA	150000
 #define BU21150_PIN_ENABLE_DELAY_US		1000
+#define BU21150_PINCTRL_VALID_STATE_CNT		2
 
 #define AFE_SCAN_SELF_CAP			0x01
 #define AFE_SCAN_MUTUAL_CAP			0x02
 #define AFE_SCAN_GESTURE_SELF_CAP		0x04
 #define AFE_SCAN_GESTURE_MUTUAL_CAP		0x08
+
+#define BU21150_PINCTRL_TS_ACT			"pmx_ts_active"
+#define BU21150_PINCTRL_TS_SUS			"pmx_ts_suspend"
+#define BU21150_PINCTRL_AFE_PWR_ACT		"afe_pwr_active"
+#define BU21150_PINCTRL_AFE_PWR_SUS		"afe_pwr_suspend"
+#define BU21150_PINCTRL_MOD_EN_ACT		"mod_en_active"
+#define BU21150_PINCTRL_MOD_EN_SUS		"mod_en_suspend"
+#define BU21150_PINCTRL_DISP_VSN_ACT		"disp_vsn_active"
+#define BU21150_PINCTRL_DISP_VSN_SUS		"disp_vsn_suspend"
+#define BU21150_PINCTRL_DDIC_RST_ACT		"ddic_rst_active"
+#define BU21150_PINCTRL_DDIC_RST_SUS		"ddic_rst_suspend"
 
 /* struct */
 struct bu21150_data {
@@ -71,6 +89,9 @@ struct bu21150_data {
 	struct pinctrl_state *mod_en_state_suspend;
 	struct pinctrl_state *disp_vsn_state_active;
 	struct pinctrl_state *disp_vsn_state_suspend;
+	struct pinctrl_state *ddic_rst_state_active;
+	struct pinctrl_state *ddic_rst_state_suspend;
+	struct notifier_block fb_notif;
 	/* frame */
 	struct bu21150_ioctl_get_frame_data req_get;
 	u8 frame[MAX_FRAME_SIZE];
@@ -88,7 +109,7 @@ struct bu21150_data {
 	/* reset */
 	u8 reset_flag;
 	/* timeout */
-	u8 timeout_enb_flag;
+	u8 timeout_enb;
 	u8 set_timer_flag;
 	u8 timeout_flag;
 	u32 timeout;
@@ -103,6 +124,7 @@ struct bu21150_data {
 	int afe_pwr_gpio;
 	int mod_en_gpio;
 	int disp_vsn_gpio;
+	int ddic_rst_gpio;
 	const char *panel_model;
 	const char *afe_version;
 	const char *pitch_type;
@@ -111,6 +133,9 @@ struct bu21150_data {
 	bool wake_up;
 	bool timeout_enable;
 	bool stay_awake;
+	bool suspended;
+	u8 unblock_flag;
+	u8 force_unblock_flag;
 };
 
 struct ser_req {
@@ -141,7 +166,7 @@ static void swap_2byte(unsigned char *buf, unsigned int size);
 static int bu21150_read_register(u32 addr, u16 size, u8 *data);
 static int bu21150_write_register(u32 addr, u16 size, u8 *data);
 static void wake_up_frame_waitq(struct bu21150_data *ts);
-static long wait_frame_waitq(struct bu21150_data *ts);
+static long wait_frame_waitq(struct bu21150_data *ts, u8 flag);
 static int is_same_bu21150_ioctl_get_frame_data(
 	struct bu21150_ioctl_get_frame_data *data1,
 	struct bu21150_ioctl_get_frame_data *data2);
@@ -153,6 +178,10 @@ static bool parse_dtsi(struct device *dev, struct bu21150_data *ts);
 static void get_frame_timer_init(void);
 static void get_frame_timer_handler(unsigned long data);
 static void get_frame_timer_delete(void);
+static int bu21150_fb_suspend(struct device *dev);
+static int bu21150_fb_resume(struct device *dev);
+static int fb_notifier_callback(struct notifier_block *self,
+					unsigned long event, void *data);
 
 /* static variables */
 static struct spi_device *g_client_bu21150;
@@ -287,8 +316,6 @@ static struct spi_driver g_bu21150_spi_driver = {
 	},
 };
 
-static int g_bu21150_ioctl_unblock;
-
 module_spi_driver(g_bu21150_spi_driver);
 MODULE_AUTHOR("Japan Display Inc");
 MODULE_DESCRIPTION("JDI BU21150 Device Driver");
@@ -304,7 +331,11 @@ static int reg_set_optimum_mode_check(struct regulator *reg, int load_ua)
 
 static int bu21150_pinctrl_init(struct bu21150_data *data)
 {
+	const char *statename;
 	int rc;
+	int state_cnt, i;
+	bool pinctrl_state_act_found = false;
+	bool pinctrl_state_sus_found = false;
 
 	data->ts_pinctrl = devm_pinctrl_get(&(data->client->dev));
 	if (IS_ERR_OR_NULL(data->ts_pinctrl)) {
@@ -314,74 +345,138 @@ static int bu21150_pinctrl_init(struct bu21150_data *data)
 		goto error;
 	}
 
-	data->gpio_state_active
-		= pinctrl_lookup_state(data->ts_pinctrl, "pmx_ts_active");
-	if (IS_ERR_OR_NULL(data->gpio_state_active)) {
-		dev_dbg(&data->client->dev,
-			"Can not get ts default pinstate\n");
-		rc = PTR_ERR(data->gpio_state_active);
+	state_cnt = of_property_count_strings(data->client->dev.of_node,
+							"pinctrl-names");
+	if (state_cnt < BU21150_PINCTRL_VALID_STATE_CNT) {
+		dev_err(&data->client->dev,
+				"failed to read required pinctrl names\n");
+		rc = -EINVAL;
 		goto error;
 	}
 
-	data->gpio_state_suspend
-		= pinctrl_lookup_state(data->ts_pinctrl, "pmx_ts_suspend");
-	if (IS_ERR_OR_NULL(data->gpio_state_suspend)) {
-		dev_dbg(&data->client->dev,
-			"Can not get ts sleep pinstate\n");
-		rc = PTR_ERR(data->gpio_state_suspend);
+	for (i = 0; i < state_cnt; i++) {
+		rc = of_property_read_string_index(data->client->dev.of_node,
+					"pinctrl-names", i, &statename);
+		if (rc) {
+			dev_err(&data->client->dev,
+				"failed to read pinctrl states by index\n");
+			goto error;
+		}
+
+		if (!strcmp(statename, BU21150_PINCTRL_TS_ACT)) {
+			data->gpio_state_active
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR_OR_NULL(data->gpio_state_active)) {
+				dev_dbg(&data->client->dev,
+					"Can not get ts default state\n");
+				rc = PTR_ERR(data->gpio_state_active);
+				goto error;
+			}
+			pinctrl_state_act_found = true;
+		} else if (!strcmp(statename, BU21150_PINCTRL_TS_SUS)) {
+			data->gpio_state_suspend
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR_OR_NULL(data->gpio_state_suspend)) {
+				dev_dbg(&data->client->dev,
+					"Can not get ts sleep state\n");
+				rc = PTR_ERR(data->gpio_state_suspend);
+				goto error;
+			}
+			pinctrl_state_sus_found = true;
+		} else if (!strcmp(statename, BU21150_PINCTRL_AFE_PWR_ACT)) {
+			data->afe_pwr_state_active
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->afe_pwr_state_active)) {
+				dev_err(&data->client->dev,
+					"Can not get pwr default state\n");
+				rc = PTR_ERR(data->afe_pwr_state_active);
+				goto error;
+			}
+		} else if (!strcmp(statename, BU21150_PINCTRL_AFE_PWR_SUS)) {
+			data->afe_pwr_state_suspend
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->afe_pwr_state_suspend)) {
+				dev_err(&data->client->dev,
+					"Can not get pwr sleep state\n");
+				rc = PTR_ERR(data->afe_pwr_state_suspend);
+				goto error;
+			}
+		} else if (!strcmp(statename, BU21150_PINCTRL_MOD_EN_ACT)) {
+			data->mod_en_state_active
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->mod_en_state_active)) {
+				dev_err(&data->client->dev,
+					"Can not get mod en default state\n");
+				rc = PTR_ERR(data->mod_en_state_active);
+				goto error;
+			}
+		} else if (!strcmp(statename, BU21150_PINCTRL_MOD_EN_SUS)) {
+			data->mod_en_state_suspend
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->mod_en_state_suspend)) {
+				dev_err(&data->client->dev,
+					"Can not get mod en sleep state\n");
+				rc = PTR_ERR(data->mod_en_state_suspend);
+				goto error;
+			}
+		} else if (!strcmp(statename, BU21150_PINCTRL_DISP_VSN_ACT)) {
+			data->disp_vsn_state_active
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->disp_vsn_state_active)) {
+				dev_err(&data->client->dev,
+					"Can not get disp vsn default state\n");
+				rc = PTR_ERR(data->disp_vsn_state_active);
+				goto error;
+			}
+		} else if (!strcmp(statename, BU21150_PINCTRL_DISP_VSN_SUS)) {
+			data->disp_vsn_state_suspend
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->disp_vsn_state_suspend)) {
+				dev_err(&data->client->dev,
+					"Can not get disp vsn sleep state\n");
+				rc = PTR_ERR(data->disp_vsn_state_suspend);
+				goto error;
+			}
+		} else if (!strcmp(statename, BU21150_PINCTRL_DDIC_RST_ACT)) {
+			data->ddic_rst_state_active
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->ddic_rst_state_active)) {
+				dev_err(&data->client->dev,
+					"Can not get DDIC rst default state\n");
+				rc = PTR_ERR(data->ddic_rst_state_active);
+				goto error;
+			}
+		} else if (!strcmp(statename, BU21150_PINCTRL_DDIC_RST_SUS)) {
+			data->ddic_rst_state_suspend
+				= pinctrl_lookup_state(data->ts_pinctrl,
+								statename);
+			if (IS_ERR(data->ddic_rst_state_suspend)) {
+				dev_err(&data->client->dev,
+					"Can not get DDIC rst sleep state\n");
+				rc = PTR_ERR(data->ddic_rst_state_suspend);
+				goto error;
+			}
+		} else {
+			dev_err(&data->client->dev, "invalid pinctrl state\n");
+			rc = -EINVAL;
+			goto error;
+		}
+	}
+
+	if (!pinctrl_state_act_found || !pinctrl_state_sus_found) {
+		dev_err(&data->client->dev,
+					"missing required pinctrl states\n");
+		rc = -EINVAL;
 		goto error;
-	}
-
-	if (of_find_property(data->client->dev.of_node,
-					"afe_pwr_active", NULL)) {
-		data->afe_pwr_state_active
-			= pinctrl_lookup_state(data->ts_pinctrl,
-							"afe_pwr_active");
-		if (IS_ERR(data->afe_pwr_state_active)) {
-			dev_err(&data->client->dev,
-				"Can not get pwr default pinstate\n");
-			rc = PTR_ERR(data->afe_pwr_state_active);
-			goto error;
-		}
-	}
-
-	if (of_find_property(data->client->dev.of_node,
-					"afe_pwr_suspend", NULL)) {
-		data->afe_pwr_state_suspend
-			= pinctrl_lookup_state(data->ts_pinctrl,
-							"afe_pwr_suspend");
-		if (IS_ERR(data->afe_pwr_state_suspend)) {
-			dev_err(&data->client->dev,
-				"Can not get pwr sleep pinstate\n");
-			rc = PTR_ERR(data->afe_pwr_state_suspend);
-			goto error;
-		}
-	}
-
-	if (of_find_property(data->client->dev.of_node,
-					"disp_vsn_active", NULL)) {
-		data->disp_vsn_state_active
-			= pinctrl_lookup_state(data->ts_pinctrl,
-							"disp_vsn_active");
-		if (IS_ERR(data->disp_vsn_state_active)) {
-			dev_err(&data->client->dev,
-				"Can not get disp_vsn default pinstate\n");
-			rc = PTR_ERR(data->disp_vsn_state_active);
-			goto error;
-		}
-	}
-
-	if (of_find_property(data->client->dev.of_node,
-					"disp_vsn_suspend", NULL)) {
-		data->disp_vsn_state_suspend
-			= pinctrl_lookup_state(data->ts_pinctrl,
-							"disp_vsn_suspend");
-		if (IS_ERR(data->disp_vsn_state_suspend)) {
-			dev_err(&data->client->dev,
-				"Can not get disp_vsn sleep pinstate\n");
-			rc = PTR_ERR(data->disp_vsn_state_suspend);
-			goto error;
-		}
 	}
 
 	return 0;
@@ -422,13 +517,38 @@ static int bu21150_pinctrl_enable(struct bu21150_data *ts, bool on)
 	if (!on)
 		goto pinctrl_suspend;
 
+	rc = bu21150_pinctrl_select(ts, true);
+	if (rc < 0)
+		return -EINVAL;
+
 	if (ts->afe_pwr_state_active) {
 		rc = pinctrl_select_state(ts->ts_pinctrl,
 					ts->afe_pwr_state_active);
 		if (rc) {
 			dev_err(&ts->client->dev, "can not set afe pwr pins\n");
-			return -EINVAL;
+			goto err_afe_pwr_pinctrl_enable;
 		}
+
+		/*
+		 * Wait among pin enablements to comply
+		 * with hardware requirement.
+		 */
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
+	}
+
+	if (ts->mod_en_state_active) {
+		rc = pinctrl_select_state(ts->ts_pinctrl,
+					ts->mod_en_state_active);
+		if (rc) {
+			dev_err(&ts->client->dev,
+					"can not set mod en pins\n");
+			goto err_mod_en_pinctrl_enable;
+		}
+
+		/*
+		 * Wait among pin enablements to comply
+		 * with hardware requirement.
+		 */
 		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
 
@@ -440,24 +560,42 @@ static int bu21150_pinctrl_enable(struct bu21150_data *ts, bool on)
 					"can not set disp vsn pins\n");
 			goto err_disp_vsn_pinctrl_enable;
 		}
+
+		/*
+		 * Wait among pin enablements to comply
+		 * with hardware requirement.
+		 */
 		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
 
-	rc = bu21150_pinctrl_select(ts, true);
-	if (rc < 0)
-		goto err_ts_pinctrl_enable;
+	if (ts->ddic_rst_state_active) {
+		rc = pinctrl_select_state(ts->ts_pinctrl,
+					ts->ddic_rst_state_active);
+		if (rc) {
+			dev_err(&ts->client->dev,
+					"can not set DDIC rst pins\n");
+			goto err_ddic_rst_pinctrl_enable;
+		}
+	}
 
 	return 0;
 
 pinctrl_suspend:
-	bu21150_pinctrl_select(ts, false);
-err_ts_pinctrl_enable:
+	if (ts->ddic_rst_state_suspend)
+		pinctrl_select_state(ts->ts_pinctrl,
+						ts->ddic_rst_state_suspend);
+err_ddic_rst_pinctrl_enable:
 	if (ts->disp_vsn_state_suspend)
 		pinctrl_select_state(ts->ts_pinctrl,
 						ts->disp_vsn_state_suspend);
 err_disp_vsn_pinctrl_enable:
+	if (ts->mod_en_state_suspend)
+		pinctrl_select_state(ts->ts_pinctrl, ts->mod_en_state_suspend);
+err_mod_en_pinctrl_enable:
 	if (ts->afe_pwr_state_suspend)
 		pinctrl_select_state(ts->ts_pinctrl, ts->afe_pwr_state_suspend);
+err_afe_pwr_pinctrl_enable:
+	bu21150_pinctrl_select(ts, false);
 
 	return rc;
 }
@@ -469,15 +607,46 @@ static int bu21150_gpio_enable(struct bu21150_data *ts, bool on)
 	if (!on)
 		goto gpio_disable;
 
+	/* set reset */
+	rc = gpio_request(ts->rst_gpio, "bu21150_ts_reset");
+	if (rc) {
+		pr_err("%s: reset gpio_request failed\n", __func__);
+		return -EINVAL;
+	}
+
+	gpio_direction_output(ts->rst_gpio, GPIO_LOW);
+
 	/* Panel and AFE Power on sequence */
 	if (of_find_property(ts->client->dev.of_node, "afe_pwr", NULL)) {
 		rc = gpio_request(ts->afe_pwr_gpio, "afe_pwr");
 		if (rc) {
 			pr_err("%s: afe power gpio request failed\n", __func__);
-			return -EINVAL;
+			goto err_afe_pwr_gpio_enable;
 		}
 		gpio_direction_output(ts->afe_pwr_gpio, 1);
 		gpio_set_value(ts->afe_pwr_gpio, 1);
+
+		/*
+		 * Wait among pin enablements to comply
+		 * with hardware requirement.
+		 */
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
+	}
+
+	if (of_find_property(ts->client->dev.of_node, "mod_en", NULL)) {
+		rc = gpio_request(ts->mod_en_gpio, "mod_en");
+		if (rc) {
+			pr_err("%s: mod enablement gpio request failed\n",
+								__func__);
+			goto err_mod_en_gpio_enable;
+		}
+		gpio_direction_output(ts->mod_en_gpio, 1);
+		gpio_set_value(ts->mod_en_gpio, 1);
+
+		/*
+		 * Wait among pin enablements to comply
+		 * with hardware requirement.
+		 */
 		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
 
@@ -489,6 +658,27 @@ static int bu21150_gpio_enable(struct bu21150_data *ts, bool on)
 		}
 		gpio_direction_output(ts->disp_vsn_gpio, 1);
 		gpio_set_value(ts->disp_vsn_gpio, 1);
+
+		/*
+		 * Wait among pin enablements to comply
+		 * with hardware requirement.
+		 */
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
+	}
+
+	if (of_find_property(ts->client->dev.of_node, "ddic_rst", NULL)) {
+		rc = gpio_request(ts->disp_vsn_gpio, "ddic_rst");
+		if (rc) {
+			pr_err("%s: DDIC rst gpio request failed\n", __func__);
+			goto err_ddic_rst_gpio_enable;
+		}
+		gpio_direction_output(ts->ddic_rst_gpio, 1);
+		gpio_set_value(ts->ddic_rst_gpio, 1);
+
+		/*
+		 * Wait among pin enablements to comply
+		 * with hardware requirement.
+		 */
 		usleep(BU21150_PIN_ENABLE_DELAY_US);
 	}
 
@@ -499,27 +689,24 @@ static int bu21150_gpio_enable(struct bu21150_data *ts, bool on)
 	}
 	gpio_direction_input(ts->irq_gpio);
 
-	/* set reset */
-	rc = gpio_request(ts->rst_gpio, "bu21150_ts_reset");
-	if (rc) {
-		pr_err("%s: reset gpio_request failed\n", __func__);
-		goto err_rst_gpio_enable;
-	}
-
-	gpio_direction_output(ts->rst_gpio, GPIO_LOW);
-
 	return 0;
 
 gpio_disable:
-	gpio_free(ts->rst_gpio);
-err_rst_gpio_enable:
 	gpio_free(ts->irq_gpio);
 err_irq_gpio_enable:
+	if (of_find_property(ts->client->dev.of_node, "ddic_rst", NULL))
+		gpio_free(ts->ddic_rst_gpio);
+err_ddic_rst_gpio_enable:
 	if (of_find_property(ts->client->dev.of_node, "disp_vsn", NULL))
 		gpio_free(ts->disp_vsn_gpio);
 err_disp_vsn_gpio_enable:
+	if (of_find_property(ts->client->dev.of_node, "mod_en", NULL))
+		gpio_free(ts->mod_en_gpio);
+err_mod_en_gpio_enable:
 	if (of_find_property(ts->client->dev.of_node, "afe_pwr", NULL))
 		gpio_free(ts->afe_pwr_gpio);
+err_afe_pwr_gpio_enable:
+	gpio_free(ts->rst_gpio);
 
 	return rc;
 }
@@ -707,6 +894,14 @@ static int bu21150_probe(struct spi_device *client)
 	mutex_init(&ts->mutex_frame);
 	init_waitqueue_head(&(ts->frame_waitq));
 
+	ts->fb_notif.notifier_call = fb_notifier_callback;
+	rc = fb_register_client(&ts->fb_notif);
+	if (rc) {
+		dev_err(&client->dev, "Unable to register fb_notifier: %d\n",
+									rc);
+		goto err_register_fb_notif;
+	}
+
 	rc = misc_register(&g_bu21150_misc_device);
 	if (rc) {
 		dev_err(&client->dev, "Failed to register misc device\n");
@@ -744,6 +939,8 @@ err_create_sysfs:
 err_create_and_add_kobj:
 	misc_deregister(&g_bu21150_misc_device);
 err_register_misc:
+	fb_unregister_client(&ts->fb_notif);
+err_register_fb_notif:
 	mutex_destroy(&ts->mutex_frame);
 	bu21150_pin_enable(ts, false);
 err_pin_enable:
@@ -756,6 +953,118 @@ err_regulator_config:
 err_parse_dt:
 	kfree(ts);
 	return rc;
+}
+
+static int bu21150_fb_suspend(struct device *dev)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+	struct spi_device *client = ts->client;
+	int rc;
+	u8 buf1[2] = {0x00, 0x00};
+	u8 buf2[2] = {0x04, 0x00};
+
+	if (ts->suspended)
+		return 0;
+
+	bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
+
+	ts->unblock_flag = 1;
+	/* wake up */
+	wake_up_frame_waitq(ts);
+
+	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf2), buf2);
+
+	if (!ts->wake_up) {
+		disable_irq(client->irq);
+		rc = bu21150_pin_enable(ts, false);
+		if (rc) {
+			dev_err(&ts->client->dev,
+				"failed to disable GPIO pins\n");
+			return rc;
+		}
+
+		rc = bu21150_power_enable(ts, false);
+		if (rc) {
+			dev_err(&ts->client->dev,
+				"failed to disable panel power\n");
+			goto err_power_disable;
+		}
+	}
+
+	ts->suspended = true;
+
+	return 0;
+
+err_power_disable:
+	bu21150_pin_enable(ts, true);
+
+	return rc;
+}
+
+static int bu21150_fb_resume(struct device *dev)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+	struct spi_device *client = ts->client;
+	int rc;
+	u8 buf[2] = {0x01, 0x00};
+
+	if (!ts->suspended)
+		return 0;
+
+	if (!ts->wake_up) {
+		rc = bu21150_power_enable(ts, true);
+		if (rc) {
+			dev_err(&ts->client->dev,
+				"failed to enable panel power\n");
+			return rc;
+		}
+
+		/*
+		 * Wait before pin enablement to comply
+		 * with hardware requirement.
+		 */
+		usleep(BU21150_PIN_ENABLE_DELAY_US);
+
+		rc = bu21150_pin_enable(ts, true);
+		if (rc) {
+			dev_err(&ts->client->dev,
+				"failed to enable panel power\n");
+			goto err_pin_enable;
+		}
+		enable_irq(client->irq);
+	}
+
+	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
+
+	ts->suspended = false;
+
+	return 0;
+
+err_pin_enable:
+	bu21150_power_enable(ts, false);
+
+	return rc;
+}
+
+static int fb_notifier_callback(struct notifier_block *self,
+					unsigned long event, void *data)
+{
+	struct fb_event *evdata = data;
+	int *blank;
+	struct bu21150_data *bu21150_dev_data =
+			container_of(self, struct bu21150_data, fb_notif);
+
+	if (evdata && evdata->data && bu21150_dev_data &&
+						bu21150_dev_data->client) {
+		blank = evdata->data;
+		if (event == FB_EARLY_EVENT_BLANK && *blank == FB_BLANK_UNBLANK)
+			bu21150_fb_resume(&bu21150_dev_data->client->dev);
+		else if (event == FB_EVENT_BLANK && *blank ==
+							FB_BLANK_POWERDOWN)
+			bu21150_fb_suspend(&bu21150_dev_data->client->dev);
+	}
+
+	return 0;
 }
 
 static void get_frame_timer_init(void)
@@ -813,6 +1122,7 @@ static int bu21150_remove(struct spi_device *client)
 		sysfs_remove_file(ts->bu21150_obj,
 					&bu21150_prop_attrs[i].attr);
 	kobject_put(ts->bu21150_obj);
+	fb_unregister_client(&ts->fb_notif);
 	misc_deregister(&g_bu21150_misc_device);
 	bu21150_power_enable(ts, false);
 	bu21150_regulator_config(ts, false);
@@ -836,11 +1146,14 @@ static int bu21150_open(struct inode *inode, struct file *filp)
 	}
 	++g_io_opened;
 
-	g_bu21150_ioctl_unblock = 0;
+	get_frame_timer_delete();
 	ts->reset_flag = 0;
 	ts->set_timer_flag = 0;
 	ts->timeout_flag = 0;
-	ts->timeout_enb_flag = 0;
+	ts->timeout_enb = 0;
+	ts->unblock_flag = 0;
+	ts->force_unblock_flag = 0;
+	ts->scan_mode = AFE_SCAN_MUTUAL_CAP;
 	memset(&(ts->req_get), 0, sizeof(struct bu21150_ioctl_get_frame_data));
 	/* set default value. */
 	ts->req_get.size = FRAME_HEADER_SIZE;
@@ -952,18 +1265,19 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 		return -EINVAL;
 	}
 
-	if (ts->timeout_enb_flag == 1)
+	if (ts->timeout_enb == 1)
 		get_frame_timer_init();
 
 	do {
 		ts->req_get = data;
-		ret = wait_frame_waitq(ts);
+		ret = wait_frame_waitq(ts, data.keep_block_flag);
+		ts->unblock_flag = 0;
 		if (ret != 0)
 			return ret;
 	} while (!is_same_bu21150_ioctl_get_frame_data(&data,
 				&(ts->frame_get)));
 
-	if (ts->timeout_enb_flag == 1)
+	if (ts->timeout_enb == 1)
 		get_frame_timer_delete();
 
 	/* copy frame */
@@ -987,14 +1301,38 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 static long bu21150_ioctl_reset(unsigned long reset)
 {
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+	int rc;
 
 	if (!(reset == BU21150_RESET_LOW || reset == BU21150_RESET_HIGH)) {
 		pr_err("%s: arg unknown.\n", __func__);
 		return -EINVAL;
 	}
 
-	gpio_set_value(ts->rst_gpio, reset);
+	if (!ts->ts_pinctrl) {
+		gpio_set_value(ts->rst_gpio, reset);
+		goto reset_exit;
+	}
 
+	if (reset == BU21150_RESET_LOW) {
+		disable_irq(ts->client->irq);
+		rc = bu21150_pinctrl_select(ts, false);
+		if (rc) {
+			pr_err("%s: failed to pull low reset line\n",
+								__func__);
+			enable_irq(ts->client->irq);
+			return rc;
+		}
+	} else if (reset == BU21150_RESET_HIGH) {
+		rc = bu21150_pinctrl_select(ts, true);
+		if (rc) {
+			pr_err("%s: failed to pull high reset line\n",
+								__func__);
+			return rc;
+		}
+		enable_irq(ts->client->irq);
+	}
+
+reset_exit:
 	ts->frame_waitq_flag = WAITQ_WAIT;
 	if (reset == BU21150_RESET_LOW)
 		ts->reset_flag = 1;
@@ -1067,7 +1405,7 @@ static long bu21150_ioctl_unblock(void)
 {
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 
-	g_bu21150_ioctl_unblock = 1;
+	ts->force_unblock_flag = 1;
 	/* wake up */
 	wake_up_frame_waitq(ts);
 
@@ -1076,24 +1414,16 @@ static long bu21150_ioctl_unblock(void)
 
 static long bu21150_ioctl_unblock_release(void)
 {
-	g_bu21150_ioctl_unblock = 0;
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	ts->force_unblock_flag = 0;
+
 	return 0;
 }
 
 static long bu21150_ioctl_suspend(void)
 {
-	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
-	struct spi_device *client = ts->client;
-
-	if (ts->wake_up) {
-		dev_err(&client->dev, "invalid suspend operation\n");
-		return -EINVAL;
-	}
-
 	bu21150_ioctl_unblock();
-
-	disable_irq(client->irq);
-	bu21150_power_enable(ts, false);
 
 	return 0;
 }
@@ -1101,16 +1431,8 @@ static long bu21150_ioctl_suspend(void)
 static long bu21150_ioctl_resume(void)
 {
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
-	struct spi_device *client = ts->client;
 
-	if (ts->wake_up) {
-		dev_err(&client->dev, "invalid resume operation\n");
-		return -EINVAL;
-	}
-
-	g_bu21150_ioctl_unblock = 0;
-	bu21150_power_enable(ts, true);
-	enable_irq(client->irq);
+	ts->force_unblock_flag = 0;
 
 	return 0;
 }
@@ -1130,8 +1452,8 @@ static long bu21150_ioctl_set_timeout(unsigned long arg)
 		return -EFAULT;
 	}
 
-	ts->timeout_enb_flag = data.timeout_enb_flag;
-	if (data.timeout_enb_flag == 1) {
+	ts->timeout_enb = data.timeout_enb;
+	if (data.timeout_enb == 1) {
 		ts->timeout = (unsigned int)(data.report_interval_us
 			* TIMEOUT_SCALE * HZ / 1000000);
 	} else {
@@ -1221,7 +1543,7 @@ static int bu21150_read_register(u32 addr, u16 size, u8 *data)
 	req->xfer[0].rx_buf = output;
 	req->xfer[0].len = size+SPI_HEADER_SIZE;
 	req->xfer[0].cs_change = 0;
-	req->xfer[0].bits_per_word = 8;
+	req->xfer[0].bits_per_word = SPI_BITS_PER_WORD_READ;
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
 	if (ret)
@@ -1263,7 +1585,7 @@ static int bu21150_write_register(u32 addr, u16 size, u8 *data)
 	req->xfer[0].rx_buf = NULL;
 	req->xfer[0].len = size+SPI_HEADER_SIZE;
 	req->xfer[0].cs_change = 0;
-	req->xfer[0].bits_per_word = 8;
+	req->xfer[0].bits_per_word = SPI_BITS_PER_WORD_WRITE;
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
 	if (ret)
@@ -1281,9 +1603,12 @@ static void wake_up_frame_waitq(struct bu21150_data *ts)
 	wake_up_interruptible(&(ts->frame_waitq));
 }
 
-static long wait_frame_waitq(struct bu21150_data *ts)
+static long wait_frame_waitq(struct bu21150_data *ts, u8 flag)
 {
-	if (g_bu21150_ioctl_unblock == 1)
+	if (ts->force_unblock_flag == 1)
+		return BU21150_UNBLOCK;
+
+	if (ts->unblock_flag == 1 && flag == 0)
 		return BU21150_UNBLOCK;
 
 	/* wait event */
@@ -1294,7 +1619,7 @@ static long wait_frame_waitq(struct bu21150_data *ts)
 	}
 	ts->frame_waitq_flag = WAITQ_WAIT;
 
-	if (ts->timeout_enb_flag == 1) {
+	if (ts->timeout_enb == 1) {
 		if (ts->timeout_flag == 1) {
 			ts->set_timer_flag = 0;
 			ts->timeout_flag = 0;
@@ -1302,7 +1627,10 @@ static long wait_frame_waitq(struct bu21150_data *ts)
 		}
 	}
 
-	if (g_bu21150_ioctl_unblock == 1)
+	if (ts->force_unblock_flag == 1)
+		return BU21150_UNBLOCK;
+
+	if (ts->unblock_flag == 1 && flag == 0)
 		return BU21150_UNBLOCK;
 
 	return 0;
