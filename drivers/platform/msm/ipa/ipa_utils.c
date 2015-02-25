@@ -4479,6 +4479,11 @@ enum ipa_hw_type ipa_get_hw_type(void)
 }
 EXPORT_SYMBOL(ipa_get_hw_type);
 
+/**
+ * ipa_get_smem_restr_bytes()- Return IPA smem restricted bytes
+ *
+ * Return value: u16 - number of IPA smem restricted bytes
+ */
 u16 ipa_get_smem_restr_bytes(void)
 {
 	if (ipa_ctx) {
@@ -4489,3 +4494,19 @@ u16 ipa_get_smem_restr_bytes(void)
 	}
 }
 EXPORT_SYMBOL(ipa_get_smem_restr_bytes);
+
+/**
+ * ipa_get_modem_cfg_emb_pipe_flt()- Return ipa_ctx->modem_cfg_emb_pipe_flt
+ *
+ * Return value: true if modem configures embedded pipe flt, false otherwise
+ */
+bool ipa_get_modem_cfg_emb_pipe_flt(void)
+{
+	if (ipa_ctx) {
+		return ipa_ctx->modem_cfg_emb_pipe_flt;
+	} else {
+		IPAERR("IPA driver has not been initialized\n");
+		return false;
+	}
+}
+EXPORT_SYMBOL(ipa_get_modem_cfg_emb_pipe_flt);

@@ -45,6 +45,7 @@ struct ipa_install_fltr_rule_req_msg_v01
 int num_ipa_fltr_installed_notif_req_msg;
 struct ipa_fltr_installed_notif_req_msg_v01
 		ipa_fltr_installed_notif_req_msg_cache[MAX_NUM_QMI_RULE_CACHE];
+bool modem_cfg_emb_pipe_flt;
 };
 
 struct rmnet_mux_val {

@@ -1093,6 +1093,8 @@ struct ipa_sps_pm {
  * @ipa_hw_type: type of IPA HW type (e.g. IPA 1.0, IPA 1.1 etc')
  * @ipa_hw_mode: mode of IPA HW mode (e.g. Normal, Virtual or over PCIe)
  * @use_ipa_teth_bridge: use tethering bridge driver
+ * @ipa_bam_remote_mode: ipa bam is in remote mode
+ * @modem_cfg_emb_pipe_flt: modem configure embedded pipe filtering rules
  * @ipa_bus_hdl: msm driver handle for the data path bus
  * @ctrl: holds the core specific operations based on
  *  core version (vtable like)
@@ -1171,6 +1173,7 @@ struct ipa_context {
 	enum ipa_hw_mode ipa_hw_mode;
 	bool use_ipa_teth_bridge;
 	bool ipa_bam_remote_mode;
+	bool modem_cfg_emb_pipe_flt;
 	/* featurize if memory footprint becomes a concern */
 	struct ipa_stats stats;
 	void *smem_pipe_mem;
@@ -1234,6 +1237,7 @@ struct ipa_plat_drv_res {
 	enum ipa_hw_mode ipa_hw_mode;
 	u32 ee;
 	bool ipa_bam_remote_mode;
+	bool modem_cfg_emb_pipe_flt;
 };
 
 struct ipa_mem_partition {

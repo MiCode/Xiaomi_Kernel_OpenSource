@@ -1343,6 +1343,8 @@ enum ipa_client_type ipa_get_client_mapping(int pipe_idx);
 
 enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(int pipe_idx);
 
+bool ipa_get_modem_cfg_emb_pipe_flt(void);
+
 #else /* CONFIG_IPA */
 
 /*
@@ -2036,6 +2038,11 @@ static inline enum ipa_rm_resource_name ipa_get_rm_resource_from_ep(
 	int pipe_idx)
 {
 	return -EFAULT;
+}
+
+static inline bool ipa_get_modem_cfg_emb_pipe_flt(void)
+{
+	return -EINVAL;
 }
 
 #endif /* CONFIG_IPA*/

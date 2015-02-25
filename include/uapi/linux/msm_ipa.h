@@ -304,6 +304,7 @@ enum ipa_wan_event {
 	WAN_UPSTREAM_ROUTE_ADD = IPA_WLAN_EVENT_MAX,
 	WAN_UPSTREAM_ROUTE_DEL,
 	WAN_EMBMS_CONNECT,
+	WAN_XLAT_CONNECT,
 	IPA_WAN_EVENT_MAX
 };
 
@@ -1057,6 +1058,7 @@ struct ipa_ioc_query_intf_tx_props {
  * @rt_tbl_idx: index of RT table referred to by filter rule
  * @mux_id: MUX_ID
  * @filter_hdl: handle of filter (as specified by provider of filter rule)
+ * @is_xlat_rule: it is xlat flt rule or not
  */
 struct ipa_ioc_ext_intf_prop {
 	enum ipa_ip_type ip;
@@ -1065,6 +1067,7 @@ struct ipa_ioc_ext_intf_prop {
 	uint32_t rt_tbl_idx;
 	uint8_t mux_id;
 	uint32_t filter_hdl;
+	uint8_t is_xlat_rule;
 };
 
 /**

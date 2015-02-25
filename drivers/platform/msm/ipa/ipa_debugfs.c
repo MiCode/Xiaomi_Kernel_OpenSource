@@ -63,6 +63,7 @@ const char *ipa_event_name[] = {
 	__stringify(WAN_UPSTREAM_ROUTE_ADD),
 	__stringify(WAN_UPSTREAM_ROUTE_DEL),
 	__stringify(WAN_EMBMS_CONNECT),
+	__stringify(WAN_XLAT_CONNECT),
 	__stringify(ECM_CONNECT),
 	__stringify(ECM_DISCONNECT),
 };

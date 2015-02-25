@@ -1105,8 +1105,13 @@ int ipa_setup_sys_pipe(struct ipa_sys_connect_params *sys_in, u32 *clnt_hdl)
 	}
 
 	ipa_ctx->skip_ep_cfg_shadow[ipa_ep_idx] = ep->skip_ep_cfg;
-	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(sys_in->client))
-		ipa_install_dflt_flt_rules(ipa_ep_idx);
+	if (!ep->skip_ep_cfg && IPA_CLIENT_IS_PROD(sys_in->client)) {
+		if (ipa_ctx->modem_cfg_emb_pipe_flt &&
+			sys_in->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
+			IPADBG("modem cfg emb pipe flt\n");
+		else
+			ipa_install_dflt_flt_rules(ipa_ep_idx);
+	}
 
 	if (!ep->keep_ipa_awake)
 		ipa_dec_client_disable_clks();
@@ -1185,7 +1190,11 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	if (IPA_CLIENT_IS_CONS(ep->client))
 		ipa_cleanup_rx(ep->sys);
 
-	ipa_delete_dflt_flt_rules(clnt_hdl);
+	if (ipa_ctx->modem_cfg_emb_pipe_flt &&
+		ep->client == IPA_CLIENT_APPS_LAN_WAN_PROD)
+		IPADBG("modem cfg emb pipe flt\n");
+	else
+		ipa_delete_dflt_flt_rules(clnt_hdl);
 
 	if (IPA_CLIENT_IS_WLAN_CONS(ep->client))
 		atomic_dec(&ipa_ctx->wc_memb.active_clnt_cnt);
@@ -1862,12 +1871,15 @@ begin:
 		IPADBG("STATUS opcode=%d src=%d dst=%d len=%d\n",
 				status->status_opcode, status->endp_src_idx,
 				status->endp_dest_idx, status->pkt_len);
+
 		if (status->status_opcode !=
 			IPA_HW_STATUS_OPCODE_DROPPED_PACKET &&
 			status->status_opcode !=
 			IPA_HW_STATUS_OPCODE_PACKET &&
 			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET) {
+			IPA_HW_STATUS_OPCODE_SUSPENDED_PACKET &&
+			status->status_opcode !=
+			IPA_HW_STATUS_OPCODE_XLAT_PACKET) {
 			IPAERR("unsupported opcode(%d)\n",
 				status->status_opcode);
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
@@ -2092,7 +2104,9 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		if (status->status_opcode !=
 			IPA_HW_STATUS_OPCODE_DROPPED_PACKET &&
 			status->status_opcode !=
-			IPA_HW_STATUS_OPCODE_PACKET) {
+			IPA_HW_STATUS_OPCODE_PACKET &&
+			status->status_opcode !=
+			IPA_HW_STATUS_OPCODE_XLAT_PACKET) {
 			IPAERR("unsupported opcode\n");
 			skb_pull(skb, IPA_PKT_STATUS_SIZE);
 			continue;

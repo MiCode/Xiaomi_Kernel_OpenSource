@@ -59,6 +59,7 @@ static atomic_t is_ssr;
 u32 apps_to_ipa_hdl, ipa_to_apps_hdl; /* get handler from ipa */
 static int wwan_add_ul_flt_rule_to_ipa(void);
 static int wwan_del_ul_flt_rule_to_ipa(void);
+static void ipa_wwan_msg_free_cb(void*, u32, u32);
 
 static void wake_tx_queue(struct work_struct *work);
 static DECLARE_WORK(ipa_tx_wakequeue_work, wake_tx_queue);
@@ -372,7 +373,7 @@ static void ipa_del_dflt_wan_rt_tables(void)
 int copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 		*rule_req, uint32_t *rule_hdl)
 {
-	int rc = 0, i, j;
+	int i, j;
 
 	if (rule_req->filter_spec_list_valid == true) {
 		num_q6_rule = rule_req->filter_spec_list_len;
@@ -382,6 +383,7 @@ int copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 		IPAWANERR("got no UL rules from modem\n");
 		return -EINVAL;
 	}
+
 	/* copy UL filter rules from Modem*/
 	for (i = 0; i < num_q6_rule; i++) {
 		/* check if rules overside the cache*/
@@ -390,7 +392,7 @@ int copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 				MAX_NUM_Q6_RULE);
 			IPAWANERR(" however total (%d)\n",
 				num_q6_rule);
-			break;
+			goto failure;
 		}
 		/* construct UL_filter_rule handler QMI use-cas */
 		ipa_qmi_ctx->q6_ul_filter_rule[i].filter_hdl =
@@ -538,7 +540,44 @@ int copy_ul_filter_rule_to_ipa(struct ipa_install_fltr_rule_req_msg_v01
 			ipv4_frag_eq_present = rule_req->filter_spec_list[i].
 			filter_rule.ipv4_frag_eq_present;
 	}
-	return rc;
+
+	if (rule_req->xlat_filter_indices_list_valid) {
+		if (rule_req->xlat_filter_indices_list_len > num_q6_rule) {
+			IPAWANERR("Number of xlat indices is not valid: %d\n",
+					rule_req->xlat_filter_indices_list_len);
+			goto failure;
+		}
+		IPAWANDBG("Receive %d XLAT indices: ",
+				rule_req->xlat_filter_indices_list_len);
+		for (i = 0; i < rule_req->xlat_filter_indices_list_len; i++)
+			IPAWANDBG("%d ", rule_req->xlat_filter_indices_list[i]);
+		IPAWANDBG("\n");
+
+		for (i = 0; i < rule_req->xlat_filter_indices_list_len; i++) {
+			if (rule_req->xlat_filter_indices_list[i]
+				>= num_q6_rule) {
+				IPAWANERR("Xlat rule idx is wrong: %d\n",
+					rule_req->xlat_filter_indices_list[i]);
+				goto failure;
+			} else {
+				ipa_qmi_ctx->q6_ul_filter_rule
+				[rule_req->xlat_filter_indices_list[i]]
+				.is_xlat_rule = 1;
+				IPAWANDBG("Rule %d is xlat rule\n",
+					rule_req->xlat_filter_indices_list[i]);
+			}
+		}
+	}
+	goto success;
+
+failure:
+	num_q6_rule = 0;
+	memset(ipa_qmi_ctx->q6_ul_filter_rule, 0,
+		sizeof(ipa_qmi_ctx->q6_ul_filter_rule));
+	return -EINVAL;
+
+success:
+	return 0;
 }
 
 static int wwan_add_ul_flt_rule_to_ipa(void)
@@ -617,7 +656,6 @@ static int wwan_add_ul_flt_rule_to_ipa(void)
 	kfree(param);
 	return retval;
 }
-
 
 static int wwan_del_ul_flt_rule_to_ipa(void)
 {
@@ -761,7 +799,7 @@ static int wwan_register_to_ipa(int index)
 	if (ret) {
 		IPAWANERR("[%s]:ipa_register_intf failed %d\n",
 			mux_channel[index].vchannel_name, ret);
-	goto fail;
+		goto fail;
 	}
 	mux_channel[index].ul_flt_reg = true;
 fail:
@@ -797,19 +835,21 @@ int wwan_update_mux_channel_prop(void)
 	int ret = 0, i;
 	/* install UL filter rules */
 	if (egress_set) {
-		IPAWANDBG("setup UL filter rules\n");
-		if (a7_ul_flt_set) {
-			IPAWANDBG("del previous UL filter rules\n");
-			/* delete rule hdlers */
-			ret = wwan_del_ul_flt_rule_to_ipa();
-			if (ret) {
-				IPAWANERR("failed to del old UL rules\n");
-				return -EINVAL;
-			} else {
-				IPAWANDBG("success to del old UL rules\n");
+		if (ipa_qmi_ctx->modem_cfg_emb_pipe_flt == false) {
+			IPAWANDBG("setup UL filter rules\n");
+			if (a7_ul_flt_set) {
+				IPAWANDBG("del previous UL filter rules\n");
+				/* delete rule hdlers */
+				ret = wwan_del_ul_flt_rule_to_ipa();
+				if (ret) {
+					IPAWANERR("failed to del old rules\n");
+					return -EINVAL;
+				} else {
+					IPAWANDBG("deleted old UL rules\n");
+				}
 			}
+			ret = wwan_add_ul_flt_rule_to_ipa();
 		}
-		ret = wwan_add_ul_flt_rule_to_ipa();
 		if (ret)
 			IPAWANERR("failed to install UL rules\n");
 		else
@@ -1089,7 +1129,9 @@ static void apps_ipa_packet_receive_notify(void *priv,
 static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 {
 	int rc = 0;
-	int mru = 1000, epid = 1, mux_index;
+	int mru = 1000, epid = 1, mux_index, len;
+	struct ipa_msg_meta msg_meta;
+	struct ipa_wan_msg *wan_msg = NULL;
 	struct rmnet_ioctl_extended_s extend_ioctl_data;
 	struct rmnet_ioctl_data_s ioctl_data;
 
@@ -1320,7 +1362,11 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 
 			if (num_q6_rule != 0) {
 				/* already got Q6 UL filter rules*/
-				rc = wwan_add_ul_flt_rule_to_ipa();
+				if (ipa_qmi_ctx->modem_cfg_emb_pipe_flt
+					== false)
+					rc = wwan_add_ul_flt_rule_to_ipa();
+				else
+					rc = 0;
 				egress_set = true;
 				if (rc)
 					IPAWANERR("install UL rules failed\n");
@@ -1373,6 +1419,29 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 				&ipa_to_apps_ep_cfg, &ipa_to_apps_hdl);
 			if (rc)
 				IPAWANERR("failed to configure ingress\n");
+			break;
+		case RMNET_IOCTL_SET_XLAT_DEV_INFO:
+			wan_msg = kzalloc(sizeof(struct ipa_wan_msg),
+						GFP_KERNEL);
+			if (!wan_msg) {
+				IPAWANERR("Failed to allocate memory.\n");
+				return -ENOMEM;
+			}
+			len = sizeof(wan_msg->upstream_ifname) >
+			sizeof(extend_ioctl_data.u.if_name) ?
+				sizeof(extend_ioctl_data.u.if_name) :
+				sizeof(wan_msg->upstream_ifname);
+			strlcpy(wan_msg->upstream_ifname,
+				extend_ioctl_data.u.if_name, len);
+			memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+			msg_meta.msg_type = WAN_XLAT_CONNECT;
+			msg_meta.msg_len = sizeof(struct ipa_wan_msg);
+			rc = ipa_send_msg(&msg_meta, wan_msg,
+						ipa_wwan_msg_free_cb);
+			if (rc) {
+				IPAWANERR("Failed to send XLAT_CONNECT msg\n");
+				kfree(wan_msg);
+			}
 			break;
 		/*  Get agg count  */
 		case RMNET_IOCTL_GET_AGGREGATION_COUNT:
@@ -1674,7 +1743,6 @@ static int get_ipa_rmnet_dts_configuration(struct platform_device *pdev,
 			"qcom,ipa-loaduC");
 	pr_info("IPA ipa-loaduC = %s\n",
 		ipa_rmnet_drv_res->ipa_loaduC ? "True" : "False");
-
 	return 0;
 }
 
@@ -1739,6 +1807,13 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 		ipa_qmi_service_init(atomic_read(&is_ssr) ? false : true,
 			QMI_IPA_PLATFORM_TYPE_LE_V01);
 	}
+
+	if (ipa_qmi_ctx)
+		ipa_qmi_ctx->modem_cfg_emb_pipe_flt
+		= ipa_get_modem_cfg_emb_pipe_flt();
+	else
+		IPAWANERR("ipa_qmi_ctx has not been initialized\n");
+
 	/* construct default WAN RT tbl for IPACM */
 	ret = ipa_setup_a7_qmap_hdr();
 	if (ret)
@@ -1920,6 +1995,8 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 	wwan_del_ul_flt_rule_to_ipa();
 	/* clean up cached QMI msg/handlers */
 	ipa_qmi_service_exit();
+	if (ipa_qmi_ctx->modem_cfg_emb_pipe_flt == false)
+		wwan_del_ul_flt_rule_to_ipa();
 	ipa_cleanup_deregister_intf();
 	atomic_set(&is_initialized, 0);
 	pr_info("rmnet_ipa completed deinitialization\n");
@@ -2056,6 +2133,13 @@ static int __init ipa_wwan_init(void)
 static void __exit ipa_wwan_cleanup(void)
 {
 	platform_driver_unregister(&rmnet_ipa_driver);
+}
+
+static void ipa_wwan_msg_free_cb(void *buff, u32 len, u32 type)
+{
+	if (!buff)
+		IPAWANERR("Null buffer.\n");
+	kfree(buff);
 }
 
 late_initcall(ipa_wwan_init);

@@ -39,6 +39,8 @@ memory allocation over a PCIe bridge
                                 in KBps, instantaneous bandwidth in KBps
 - qcom,ipa-bam-remote-mode:     Boolean context flag to determine if ipa bam
                                 is in remote mode.
+- qcom,modem-cfg-emb-pipe-flt:  Boolean context flag to determine if modem
+                                configures embedded pipe filtering rules
 
 IPA pipe sub nodes (A2 static pipes configurations):
 
