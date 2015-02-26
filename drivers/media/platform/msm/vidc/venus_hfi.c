@@ -78,6 +78,7 @@ static inline void venus_hfi_disable_unprepare_clks(
 	struct venus_hfi_device *device);
 static void venus_hfi_flush_debug_queue(
 	struct venus_hfi_device *device, u8 *packet);
+static int venus_hfi_initialize_packetization(struct venus_hfi_device *device);
 
 static inline void venus_hfi_set_state(struct venus_hfi_device *device,
 		enum venus_hfi_state state)
@@ -3946,8 +3947,21 @@ static int venus_hfi_load_fw(void *dev)
 		return -EINVAL;
 	}
 
+	/* Initialize hardware resources */
+	rc = venus_hfi_init_resources(device, device->res);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
+		goto fail_init_res;
+	}
+
+	rc = venus_hfi_initialize_packetization(device);
+	if (rc) {
+		dprintk(VIDC_ERR, "Failed to initialize packetization\n");
+		goto fail_init_pkt;
+	}
 	trace_msm_v4l2_vidc_fw_load_start("msm_v4l2_vidc venus_fw load start");
 
+	/* Vote for all hardware resources */
 	rc = venus_hfi_vote_buses(device, device->bus_load.vote_data,
 			device->bus_load.vote_data_count);
 	if (rc) {
@@ -4014,6 +4028,9 @@ fail_enable_clks:
 fail_enable_gdsc:
 	venus_hfi_unvote_buses(device);
 fail_vote_buses:
+fail_init_pkt:
+	venus_hfi_deinit_resources(device);
+fail_init_res:
 	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc venus_fw load end");
 	return rc;
 }
@@ -4245,37 +4262,12 @@ static void *venus_hfi_get_device(u32 device_id,
 				struct msm_vidc_platform_resources *res,
 				hfi_cmd_response_callback callback)
 {
-	struct venus_hfi_device *device;
-	int rc = 0;
-
 	if (!res || !callback) {
 		dprintk(VIDC_ERR, "Invalid params: %p %p\n", res, callback);
 		return NULL;
 	}
 
-	device = venus_hfi_add_device(device_id, res, &handle_cmd_response);
-	if (!device) {
-		dprintk(VIDC_ERR, "Failed to create HFI device\n");
-		return NULL;
-	}
-
-	rc = venus_hfi_init_resources(device, res);
-	if (rc) {
-		if (rc != -EPROBE_DEFER)
-			dprintk(VIDC_ERR, "Failed to init resources: %d\n", rc);
-		goto err_fail_init_res;
-	}
-
-	rc = venus_hfi_initialize_packetization(device);
-	if (rc) {
-		dprintk(VIDC_ERR, "Failed to initialize packetization\n");
-		goto err_fail_init_res;
-	}
-	return device;
-
-err_fail_init_res:
-	venus_hfi_delete_device(device);
-	return ERR_PTR(rc);
+	return venus_hfi_add_device(device_id, res, callback);
 }
 
 void venus_hfi_delete_device(void *device)
