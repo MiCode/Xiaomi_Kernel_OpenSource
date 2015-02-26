@@ -1727,7 +1727,7 @@ void show_ion_usage(struct ion_device *dev)
 			heap->debug_show(heap, NULL, 0);
 
 	}
-	up_write(&dev->lock);
+	up_read(&dev->lock);
 }
 
 #ifdef DEBUG_HEAP_SHRINKER
