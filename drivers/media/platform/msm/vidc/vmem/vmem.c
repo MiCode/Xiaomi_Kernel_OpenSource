@@ -510,6 +510,11 @@ static inline int __init_resources(struct vmem *v,
 
 	v->clocks = devm_kzalloc(&pdev->dev, sizeof(*v->clocks) * v->num_clocks,
 			GFP_KERNEL);
+	if (!v->clocks) {
+		rc = -ENOMEM;
+		goto exit;
+	}
+
 	for (c = 0; c < v->num_clocks; ++c) {
 		const char *name = NULL;
 		struct clk *temp = NULL;
