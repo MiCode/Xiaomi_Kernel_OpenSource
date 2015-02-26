@@ -56,6 +56,7 @@ static int get_device_address(struct smem_client *smem_client,
 	}
 
 	if (is_iommu_present(smem_client->res)) {
+		phys_addr_t phys, orig_phys;
 		cb = msm_smem_get_context_bank(smem_client, flags & SMEM_SECURE,
 				buffer_type);
 		if (!cb) {
@@ -65,10 +66,6 @@ static int get_device_address(struct smem_client *smem_client,
 			rc = -EIO;
 			goto mem_map_failed;
 		}
-	}
-
-	if (is_iommu_present(smem_client->res)) {
-		phys_addr_t phys, orig_phys;
 
 		/* Convert an Ion handle to a dma buf */
 		buf = ion_share_dma_buf(clnt, hndl);
