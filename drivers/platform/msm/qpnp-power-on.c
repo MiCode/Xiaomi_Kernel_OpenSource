@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +24,11 @@
 #include <linux/input.h>
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
+
+#define CREATE_MASK(NUM_BITS, POS) \
+	((unsigned char) (((1 << (NUM_BITS)) - 1) << (POS)))
+#define PON_MASK(MSB_BIT, LSB_BIT) \
+	CREATE_MASK(MSB_BIT - LSB_BIT + 1, LSB_BIT)
 
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
@@ -66,6 +71,7 @@
 #define QPNP_PON_S3_DBC_CTL(base)		(base + 0x75)
 #define QPNP_PON_TRIGGER_EN(base)		(base + 0x80)
 #define QPNP_PON_XVDD_RB_SPARE(base)		(base + 0x8E)
+#define QPNP_PON_SOFT_RB_SPARE(base)		(base + 0x8F)
 #define QPNP_PON_SEC_ACCESS(base)		(base + 0xD0)
 
 #define QPNP_PON_SEC_UNLOCK			0xA5
@@ -99,6 +105,7 @@
 #define QPNP_PON_S3_SRC_KPDPWR_AND_RESIN	2
 #define QPNP_PON_S3_SRC_KPDPWR_OR_RESIN		3
 #define QPNP_PON_S3_SRC_MASK			0x3
+#define QPNP_PON_HARD_RESET_MASK		PON_MASK(7, 5)
 
 #define QPNP_PON_UVLO_DLOAD_EN		BIT(7)
 
@@ -155,6 +162,7 @@ struct qpnp_pon {
 	struct dentry *debugfs;
 	u8 warm_reset_reason1;
 	u8 warm_reset_reason2;
+	bool store_hard_reset_reason;
 };
 
 static struct qpnp_pon *sys_reset_dev;
@@ -227,6 +235,56 @@ qpnp_pon_masked_write(struct qpnp_pon *pon, u16 addr, u8 mask, u8 val)
 			"Unable to write to addr=%hx, rc(%d)\n", addr, rc);
 	return rc;
 }
+
+/**
+ * qpnp_pon_set_restart_reason - Store device restart reason in PMIC register.
+ *
+ * Returns = 0 if PMIC feature is not avaliable or store restart reason
+ * successfully.
+ * Returns > 0 for errors
+ *
+ * This function is used to store device restart reason in PMIC register.
+ * It checks here to see if the restart reason register has been specified.
+ * If it hasn't, this function should immediately return 0
+ */
+int qpnp_pon_set_restart_reason(enum pon_restart_reason reason)
+{
+	int rc = 0;
+	struct qpnp_pon *pon = sys_reset_dev;
+
+	if (!pon)
+		return 0;
+
+	if (!pon->store_hard_reset_reason)
+		return 0;
+
+	rc = qpnp_pon_masked_write(pon, QPNP_PON_SOFT_RB_SPARE(pon->base),
+					PON_MASK(7, 5), (reason << 5));
+	if (rc)
+		dev_err(&pon->spmi->dev,
+				"Unable to write to addr=%x, rc(%d)\n",
+				QPNP_PON_SOFT_RB_SPARE(pon->base), rc);
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_pon_set_restart_reason);
+
+/*
+ * qpnp_pon_check_hard_reset_stored - Checks if the PMIC need to
+ * store hard reset reason.
+ *
+ * Returns true if reset reason can be stored, false if it cannot be stored
+ *
+ */
+bool qpnp_pon_check_hard_reset_stored(void)
+{
+	struct qpnp_pon *pon = sys_reset_dev;
+
+	if (!pon)
+		return false;
+
+	return pon->store_hard_reset_reason;
+}
+EXPORT_SYMBOL(qpnp_pon_check_hard_reset_stored);
 
 static int qpnp_pon_set_dbc(struct qpnp_pon *pon, u32 delay)
 {
@@ -1620,6 +1678,11 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		dev_err(&spmi->dev, "sys file creation failed\n");
 		return rc;
 	}
+
+	/* config whether store the hard reset reason */
+	pon->store_hard_reset_reason = of_property_read_bool(
+					spmi->dev.of_node,
+					"qcom,store-hard-reset-reason");
 
 	qpnp_pon_debugfs_init(spmi);
 	return rc;
