@@ -26,6 +26,7 @@
 #include "adreno_cp_parser.h"
 #include "adreno_trace.h"
 #include "adreno_pm4types.h"
+#include "adreno_perfcounter.h"
 
 /*
  * Define registers for a3xx that contain addresses used by the

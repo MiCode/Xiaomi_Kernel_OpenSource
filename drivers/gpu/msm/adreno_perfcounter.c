@@ -15,6 +15,7 @@
 
 #include "kgsl.h"
 #include "adreno.h"
+#include "adreno_perfcounter.h"
 #include "adreno_pm4types.h"
 #include "a5xx_reg.h"
 
@@ -214,6 +215,8 @@ inline void adreno_perfcounter_save(struct adreno_device *adreno_dev)
 	}
 }
 
+static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
+	unsigned int group, unsigned int counter, unsigned int countable);
 
 /**
  * adreno_perfcounter_start: Enable performance counters
@@ -719,7 +722,7 @@ static int _perfcounter_enable_vbif2_pwr(struct adreno_device *adreno_dev,
  * Return 0 on success else error code
  */
 
-int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
+static int adreno_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter, unsigned int countable)
 {
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);

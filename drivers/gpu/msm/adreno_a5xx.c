@@ -19,6 +19,7 @@
 #include "adreno_cp_parser.h"
 #include "adreno_trace.h"
 #include "adreno_pm4types.h"
+#include "adreno_perfcounter.h"
 #include "kgsl_sharedmem.h"
 #include "kgsl_log.h"
 #include "kgsl.h"
