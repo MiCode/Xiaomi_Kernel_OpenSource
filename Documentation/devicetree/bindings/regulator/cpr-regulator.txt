@@ -437,6 +437,41 @@ Optional properties:
 				qcom,cpr-fuse-version-map property is not specified, then
 				qcom,cpr-virtual-corner-quotient-adjustment must contain a single tuple which is then
 				applied unconditionally.
+- qcom,cpr-cpus:		Array of CPU phandles which correspond to the cores that this cpr-regulator
+				device must monitor when adjusting the voltage and/or target quotient based
+				upon the number of online cores. This property must be specified in order to
+				utilize the qcom,cpr-online-cpu-virtual-corner-init-voltage-adjustment or
+				qcom,cpr-online-cpu-virtual-corner-quotient-adjustment properties.
+- qcom,cpr-online-cpu-virtual-corner-init-voltage-adjustment:	Array of tuples where each tuple specifies
+				the voltage adjustment for each corner. These adjustments apply to the
+				initial voltage of each corner. The size of each tuple must be equal
+				to qcom,cpr-fuse-corners if consumers request fuse corners or the length of
+				qcom,cpr-corner-map if consumers request virtual corners. In each tuple, the
+				value corresponds to the voltage adjustment when running at that corner at
+				init, from lowest to highest. The tuples must be organized into 1 group if
+				qcom,cpr-fuse-version-map is not specified or the same number of groups as
+				the number of tuples in qcom,cpr-fuse-version-map. The i-th group of tuples
+				corresponds to the voltage adjustments for i-th fuse version map tuple. In
+				each group, there are 1 plus length of qcom,cpr-cpus tuples, each tuple
+				corresponds to the number of cores online, from 0 to the number of elements
+				in qcom,cpr-cpus.
+- qcom,cpr-online-cpu-init-voltage-as-ceiling:	Boolean which indicates that the ceiling voltage used for a
+				given virtual corner may be reduced to the per number of cores online,
+				per-virtual corner ceiling voltage value. This property takes precedence
+				over qcom,cpr-scaled-init-voltage-as-ceiling if both are specified.
+- qcom,cpr-online-cpu-virtual-corner-quotient-adjustment:	Array of tuples where each tuple specifies
+				the quotient adjustment for each corner. These adjustments will be applied
+				to each corner at run time. The size of each tuple must be equal to
+				qcom,cpr-fuse-corners if consumers request fuse corners or the length of
+				qcom,cpr-corner-map if consumers request virtual corners. In each tuple,
+				the value corresponds to the quotient adjustment when running at that corner,
+				from lowest to highest. The tuples must be organized into 1 group if
+				qcom,cpr-fuse-version-map is not specified or the same number of groups
+				as the number of tuples in qcom,cpr-fuse-version-map. The i-th group of
+				tuples corresponds to the quotient adjustments for i-th fuse version map
+				tuple. In each group, there are 1 plus length of qcom,cpr-cpus tuples,
+				each tuple corresponds to the number of cores online, from 0 to the
+				number of elements in qcom,cpr-cpus.
 - qcom,cpr-init-voltage-as-ceiling: Boolean which indicates that the ceiling voltage used for a given virtual
 				corner may be reduced to the per-fuse-corner initial voltage fuse value.
 - qcom,cpr-scaled-init-voltage-as-ceiling: Boolean which indicates that the ceiling voltage used for a given
@@ -578,6 +613,9 @@ Optional properties:
 				qcom,cpr-min-quot-diff-adjustment must contain a single tuple which is then
 				applied unconditionally. The qcom,cpr-min-quot-diff-adjustment property must be specified
 				if the qcom,cpr-fuse-min-quot-diff property is specified.
+- qcom,cpr-skip-voltage-change-during-suspend: Boolean property which indicates that the CPR voltage
+				should not be adjusted based upon the number of online cores while
+				entering or exiting system suspend.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -752,6 +790,45 @@ Example:
 			<0 0 0 100 0 0 0 0 0 0 0 0>,
 			<0 0 0 0 0 0 0 0 0 0 0 (-300)>,
 			<0 0 0 (-60) 0 0 0 0 0 0 0 0>;
+		qcom,cpr-cpus = <&CPU0 &CPU1 &CPU2 &CPU3>;
+		qcom,cpr-online-cpu-virtual-corner-init-voltage-adjustment =
+			/* 1st fuse version tuple matched */
+			<0 0 0 (-10000) (-10000) (-10000) (-15000) (-15000) (-20000) 0 (-20000) (-30000) >, /* 0 CPUs online */
+			<0 0 0 (-10000) (-10000) (-10000) (-15000) (-15000) (-20000) 0 (-20000) (-30000) >, /* 1 CPUs online */
+			<0 0 0 (-5000) (-5000) (-5000) (-5000) (-5000) (-10000) 0 (-10000) (-10000) >, /* 2 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 3 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 4 CPUs online */
+			/* 2nd fuse version tuple matched */
+			<0 0 0 (-10000) (-10000) (-10000) (-15000) (-15000) (-20000) 0 (-20000) (-30000) >, /* 0 CPUs online */
+			<0 0 0 (-10000) (-10000) (-10000) (-15000) (-15000) (-20000) 0 (-20000) (-30000) >, /* 1 CPUs online */
+			<0 0 0 (-5000) (-5000) (-5000) (-5000) (-5000) (-10000) 0 (-10000) (-10000) >, /* 2 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 3 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 4 CPUs online */
+			/* 3rd fuse version tuple matched */
+			<0 0 0 (-10000) (-10000) (-10000) (-15000) (-15000) (-20000) 0 (-20000) (-30000) >, /* 0 CPUs online */
+			<0 0 0 (-10000) (-10000) (-10000) (-15000) (-15000) (-20000) 0 (-20000) (-30000) >, /* 1 CPUs online */
+			<0 0 0 (-5000) (-5000) (-5000) (-5000) (-5000) (-10000) 0 (-10000) (-10000) >, /* 2 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 3 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>; /* 4 CPUs online */
+		qcom,cpr-online-cpu-virtual-corner-quotient-adjustment =
+			/* 1st fuse version tuple matched */
+			<0 0 0 (-6) (-6) (-6) (-9) (-9) (-12) 0 (-12) (-18)>, /* 0 CPUs online */
+			<0 0 0 (-6) (-6) (-6) (-9) (-9) (-12) 0 (-12) (-18)>, /* 1 CPUs online */
+			<0 0 0 (-3) (-3) (-3) (-3) (-3) (-6) 0 (-6) (-6)>, /* 2 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 3 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 4 CPUs online */
+			/* 2nd fuse version tuple matched */
+			<0 0 0 (-6) (-6) (-6) (-9) (-9) (-12) 0 (-12) (-18)>, /* 0 CPUs online */
+			<0 0 0 (-6) (-6) (-6) (-9) (-9) (-12) 0 (-12) (-18)>, /* 1 CPUs online */
+			<0 0 0 (-3) (-3) (-3) (-3) (-3) (-6) 0 (-6) (-6)>, /* 2 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 3 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 4 CPUs online */
+			/* 3rd fuse version tuple matched */
+			<0 0 0 (-21) (-21) (-21) (-32) (-32) (-42) 0 (-42) (-63)>, /* 0 CPUs online */
+			<0 0 0 (-21) (-21) (-21) (-32) (-32) (-42) 0 (-42) (-63)>, /* 1 CPUs online */
+			<0 0 0 (-11) (-11) (-11) (-11) (-11) (-21) 0 (-21) (-21)>, /* 2 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>, /* 3 CPUs online */
+			<0 0 0 0 0 0 0 0 0 0 0 0>; /* 4 CPUs online */
 		qcom,cpr-allowed =
 			<0>,
 			<1>,
