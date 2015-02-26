@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2011 Google, Inc
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -238,6 +238,13 @@ int msm_ion_hyp_assign_call(struct sg_table *table,
 	desc.args[6] = 0;
 	desc.arginfo = SCM_ARGS(7, SCM_RO, SCM_VAL, SCM_RO, SCM_VAL, SCM_RO,
 				SCM_VAL, SCM_VAL);
+
+	dmac_flush_range(info_list->list_head, info_list->list_head +
+			(info_list->list_size / sizeof(*info_list->list_head)));
+	dmac_flush_range(source_vm_list, source_vm_list +
+				(source_list_size / sizeof(*source_vm_list)));
+	dmac_flush_range(dest_vm_list, dest_vm_list +
+				(dest_list_size / sizeof(*dest_vm_list)));
 
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 			MEM_PROT_ASSIGN_ID), &desc);
