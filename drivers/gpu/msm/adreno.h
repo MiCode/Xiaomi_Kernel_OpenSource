@@ -732,7 +732,6 @@ void adreno_fault_detect_stop(struct adreno_device *adreno_dev);
 
 void adreno_hang_int_callback(struct adreno_device *adreno_dev, int bit);
 void adreno_cp_callback(struct adreno_device *adreno_dev, int bit);
-uint64_t perfcounter_read_alwayson(struct adreno_device *adreno_dev);
 
 unsigned int adreno_iommu_set_pt_ib(struct adreno_ringbuffer *rb,
 					unsigned int *cmds,

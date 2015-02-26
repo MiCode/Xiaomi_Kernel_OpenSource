@@ -93,7 +93,14 @@ void adreno_ringbuffer_submit(struct adreno_ringbuffer *rb,
 		unsigned long flags;
 		local_irq_save(flags);
 
-		time->ticks = perfcounter_read_alwayson(adreno_dev);
+		/* Read always on registers */
+		if (!adreno_is_a3xx(adreno_dev))
+			adreno_readreg64(adreno_dev,
+				ADRENO_REG_RBBM_ALWAYSON_COUNTER_LO,
+				ADRENO_REG_RBBM_ALWAYSON_COUNTER_HI,
+				&time->ticks);
+		else
+			time->ticks = 0;
 
 		/* Get the kernel clock for time since boot */
 		time->ktime = local_clock();
