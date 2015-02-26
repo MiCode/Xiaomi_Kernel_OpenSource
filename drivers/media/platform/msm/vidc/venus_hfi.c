@@ -3448,8 +3448,8 @@ static int venus_hfi_init_regs_and_interrupts(
 	}
 	hal->irq = res->irq;
 	hal->firmware_base = res->firmware_base;
-	hal->register_base = devm_ioremap_nocache(&res->pdev->dev,
-			res->register_base, (unsigned long)res->register_size);
+	hal->register_base = ioremap_nocache(res->register_base,
+			(unsigned long)res->register_size);
 	hal->register_size = res->register_size;
 	if (!hal->register_base) {
 		dprintk(VIDC_ERR,
@@ -3479,13 +3479,24 @@ err_core_init:
 
 }
 
-static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
-		struct venus_hfi_device *device)
+static inline void venus_hfi_deinit_clocks(struct venus_hfi_device *device)
+{
+	struct clock_info *cl;
+
+	venus_hfi_for_each_clock_reverse(device, cl) {
+		if (cl->clk) {
+			clk_put(cl->clk);
+			cl->clk = NULL;
+		}
+	}
+}
+
+static inline int venus_hfi_init_clocks(struct venus_hfi_device *device)
 {
 	int rc = 0;
 	struct clock_info *cl = NULL;
 
-	if (!res || !device) {
+	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
 	}
@@ -3505,16 +3516,8 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 	}
 
 	venus_hfi_for_each_clock(device, cl) {
-		if (!strcmp(cl->name, "mem_clk") && !res->imem_type) {
-			dprintk(VIDC_ERR,
-				"Found %s on a target that doesn't support ocmem\n",
-				cl->name);
-			rc = -ENOENT;
-			goto err_found_bad_ocmem;
-		}
-
 		if (!cl->clk) {
-			cl->clk = devm_clk_get(&res->pdev->dev, cl->name);
+			cl->clk = clk_get(&device->res->pdev->dev, cl->name);
 			if (IS_ERR_OR_NULL(cl->clk)) {
 				dprintk(VIDC_ERR,
 					"Failed to get clock: %s\n", cl->name);
@@ -3528,26 +3531,10 @@ static inline int venus_hfi_init_clocks(struct msm_vidc_platform_resources *res,
 	return 0;
 
 err_clk_get:
-err_found_bad_ocmem:
-	venus_hfi_for_each_clock(device, cl) {
-		if (cl->clk)
-			clk_put(cl->clk);
-	}
-
+	venus_hfi_deinit_clocks(device);
 	return rc;
 }
 
-static inline void venus_hfi_deinit_clocks(struct venus_hfi_device *device)
-{
-	struct clock_info *cl;
-	if (!device) {
-		dprintk(VIDC_ERR, "Invalid args\n");
-		return;
-	}
-
-	venus_hfi_for_each_clock(device, cl)
-		clk_put(cl->clk);
-}
 
 static inline void venus_hfi_disable_unprepare_clks(
 	struct venus_hfi_device *device)
@@ -3706,33 +3693,40 @@ err_init_bus:
 	return rc;
 }
 
-static int venus_hfi_init_regulators(struct venus_hfi_device *device,
-		struct msm_vidc_platform_resources *res)
-{
-	struct regulator_info *rinfo = NULL;
-
-	venus_hfi_for_each_regulator(device, rinfo) {
-		rinfo->regulator = devm_regulator_get(&res->pdev->dev,
-				rinfo->name);
-		if (IS_ERR(rinfo->regulator)) {
-			dprintk(VIDC_ERR, "Failed to get regulator: %s\n",
-					rinfo->name);
-			rinfo->regulator = NULL;
-			return -ENODEV;
-		}
-	}
-
-	return 0;
-}
-
 static void venus_hfi_deinit_regulators(struct venus_hfi_device *device)
 {
 	struct regulator_info *rinfo = NULL;
 
-	/* No need to regulator_put. Regulators automatically freed
-	 * thanks to devm_regulator_get */
-	venus_hfi_for_each_regulator_reverse(device, rinfo)
-		rinfo->regulator = NULL;
+	venus_hfi_for_each_regulator_reverse(device, rinfo) {
+		if (rinfo->regulator) {
+			regulator_put(rinfo->regulator);
+			rinfo->regulator = NULL;
+		}
+	}
+}
+
+static int venus_hfi_init_regulators(struct venus_hfi_device *device)
+{
+	int rc = 0;
+	struct regulator_info *rinfo = NULL;
+
+	venus_hfi_for_each_regulator(device, rinfo) {
+		rinfo->regulator = regulator_get(&device->res->pdev->dev,
+				rinfo->name);
+		if (IS_ERR_OR_NULL(rinfo->regulator)) {
+			rc = PTR_ERR(rinfo->regulator) ?: -EBADHANDLE;
+			dprintk(VIDC_ERR, "Failed to get regulator: %s\n",
+					rinfo->name);
+			rinfo->regulator = NULL;
+			goto err_reg_get;
+		}
+	}
+
+	return 0;
+
+err_reg_get:
+	venus_hfi_deinit_regulators(device);
+	return rc;
 }
 
 static int venus_hfi_init_resources(struct venus_hfi_device *device,
@@ -3740,19 +3734,13 @@ static int venus_hfi_init_resources(struct venus_hfi_device *device,
 {
 	int rc = 0;
 
-	device->res = res;
-	if (!res) {
-		dprintk(VIDC_ERR, "Invalid params: %p\n", res);
-		return -ENODEV;
-	}
-
-	rc = venus_hfi_init_regulators(device, res);
+	rc = venus_hfi_init_regulators(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to get all regulators\n");
 		return -ENODEV;
 	}
 
-	rc = venus_hfi_init_clocks(res, device);
+	rc = venus_hfi_init_clocks(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to init clocks\n");
 		rc = -ENODEV;
@@ -4219,6 +4207,7 @@ static void *venus_hfi_add_device(u32 device_id,
 	if (rc)
 		goto err_init_regs;
 
+	hdevice->res = res;
 	hdevice->device_id = device_id;
 	hdevice->callback = callback;
 
@@ -4281,10 +4270,11 @@ void venus_hfi_delete_device(void *device)
 		list_for_each_entry_safe(close, tmp, &hal_ctxt.dev_head, list) {
 			if (close->hal_data->irq == dev->hal_data->irq) {
 				hal_ctxt.dev_count--;
-				free_irq(dev->hal_data->irq, close);
 				list_del(&close->list);
 				destroy_workqueue(close->vidc_workq);
 				destroy_workqueue(close->venus_pm_workq);
+				free_irq(dev->hal_data->irq, close);
+				iounmap(dev->hal_data->register_base);
 				kfree(close->hal_data);
 				kfree(close);
 				break;
