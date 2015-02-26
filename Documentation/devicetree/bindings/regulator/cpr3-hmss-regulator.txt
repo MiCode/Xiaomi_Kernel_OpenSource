@@ -95,6 +95,21 @@ HMSS specific properties:
 			BIT(6) - Performance cluster core 1
 			BIT(7) - Performance cluster core 0
 
+- qcom,vdd-threadN-ldo-supply
+	Usage:      optional
+	Value type: <phandle>
+	Definition: phandle of the regulator device which manages LDO and BHS
+		    modes for the clusters per CPR thread. 'N' must match with the
+		    hardware thread ID of the thread it controls.
+
+- qcom,vdd-threadN-ldo-ret-supply
+	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for this
+		    CPR thread.
+	Value type: <phandle>
+	Definition: phandle of the regulator device which manages LDO retention
+		    modes for the clusters per CPR thread. 'N' must match with the
+		    hardware thread ID of the thread it controls.
+
 =================================================
 Second Level Nodes - CPR Threads for a Controller
 =================================================
@@ -119,6 +134,35 @@ HMSS specific properties:
 		    properties.  Supported values are 1 up to the maximum
 		    possible for a given regulator type.  For HMSS the maximum
 		    supported value is 1.
+
+- qcom,ldo-headroom-voltage
+	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for this
+		    CPR thread.
+	Value type: <u32>
+	Definition: Voltage in microvolts required between the VDD_APCC voltage
+		    and the LDO output in order for the LDO to be operational.
+
+- qcom,ldo-adjust-voltage
+	Usage:      optional if qcom,vdd-threadN-ldo-supply is specified for this
+		    CPR thread.
+	Value type: <u32>
+	Definition: Voltage in microvolts used to offset margins between PMIC output
+		    and CPU.
+
+- qcom,ldo-max-voltage
+	Usage:      required if qcom,vdd-threadN-ldo-supply is specified for this
+		    CPR thread.
+	Value type: <u32>
+	Definition: Voltage in microvolts which represents the maximum physically
+		    supported voltage output of the LDO hardware.
+
+- qcom,ldo-disable
+	Usage:      optional if qcom,vdd-threadN-ldo-supply is specified for this
+		    CPR thread.
+	Value type: <empty>
+	Definition: Boolean flag which indicates that LDO mode usage is disallowed.
+		    If such flag is present, the vdd-threadN-ldo-supply mode will
+		    not be modified.
 
 - qcom,allow-quotient-interpolation
 	Usage:      optional
@@ -154,6 +198,10 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 
 	vdd-supply = <&pm8994_s11>;
 	vdd-limit-supply = <&pm8994_s11_limit>;
+	vdd-thread0-ldo-supply = <&kryo0_vreg>;
+	vdd-thread1-ldo-supply = <&kryo1_vreg>;
+	vdd-thread0-ldo-ret-supply = <&kryo0_retention_vreg>;
+	vdd-thread1-ldo-ret-supply = <&kryo1_retention_vreg>;
 
 	qcom,cpr-enable;
 	qcom,cpr-hw-closed-loop;
@@ -174,6 +222,9 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 		qcom,cpr-fuse-corners = <5>;
 		qcom,cpr-fuse-combos = <1>;
 		qcom,cpr-corners = <19>;
+
+		qcom,ldo-headroom-voltage = <150000>;
+		qcom,ldo-max-voltage = <819000>;
 
 		qcom,cpr-corner-fmax-map = <1 2 6 11 19>;
 
@@ -233,6 +284,9 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 		qcom,cpr-fuse-corners = <5>;
 		qcom,cpr-fuse-combos = <1>;
 		qcom,cpr-corners = <18>;
+
+		qcom,ldo-headroom-voltage = <150000>;
+		qcom,ldo-max-voltage = <812000>;
 
 		qcom,cpr-corner-fmax-map = <1 3 5 11 18>;
 

@@ -98,6 +98,11 @@ struct cpr3_corner {
  * @rdesc:		Regulator description for this thread
  * @rdev:		Regulator device pointer for the regulator registered
  *			for this thread
+ * @ldo_regulator:	Pointer to the LDO supply regulator used to manage
+ *			per-cluster LDO voltage and bypass state
+ * @ldo_regulator_bypass: Cached copy of the LDO regulator bypass state
+ * @ldo_ret_regulator:	Pointer to the LDO retention supply regulator used to
+ *			manage LDO retention bypass state
  * @name:		Unique name for this thread which is filled using the
  *			device tree regulator-name property
  * @corner:		Array of all corners supported by this thread
@@ -129,6 +134,15 @@ struct cpr3_corner {
  *			closed-loop mode or less than 0 if no corner has been
  *			requested.  CPR registers are only written to when using
  *			closed-loop mode.
+ * @ldo_headroom_volt:	Voltage difference in microvolts required between the
+ *			VDD supply voltage and the LDO output in order for the
+ *			LDO operate
+ * @ldo_adjust_volt:	Voltage in microvolts used to offset margin assigned
+ *			to IR drop between PMIC and CPU
+ * @ldo_max_volt:	The maximum physically supported LDO voltage in
+ *			microvolts
+ * @ldo_mode_allowed:	Boolean which indicates if LDO mode is allowed for this
+ *			CPR3 thread
  * @vreg_enabled:	Boolean defining the state of the thread's regulator
  *			within the regulator framework.
  *
@@ -142,6 +156,9 @@ struct cpr3_thread {
 	struct cpr3_controller	*ctrl;
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
+	struct regulator	*ldo_regulator;
+	bool			ldo_regulator_bypass;
+	struct regulator	*ldo_ret_regulator;
 	const char		*name;
 	struct cpr3_corner	*corner;
 	int			corner_count;
@@ -158,6 +175,10 @@ struct cpr3_thread {
 	u32			down_threshold;
 	int			current_corner;
 	int			last_closed_loop_corner;
+	int			ldo_headroom_volt;
+	int			ldo_adjust_volt;
+	int			ldo_max_volt;
+	bool			ldo_mode_allowed;
 	bool			vreg_enabled;
 };
 

@@ -32,6 +32,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/regulator/kryo-regulator.h>
 
 #include "cpr3-regulator.h"
 
@@ -551,12 +552,201 @@ static int cpr3_regulator_set_target_quot(struct cpr3_thread *thread,
 }
 
 /**
+ * cpr3_regulator_config_ldo_retention() - configure per-thread LDO retention mode
+ * @thread:		Pointer to the CPR3 thread to configure
+ * @floor_volt:		vdd floor voltage
+ *
+ * This function determines if a CPR thread's configuration satisfies safe
+ * operating voltages for LDO retention and uses the regulator_allow_bypass()
+ * interface on the LDO retention regulator to enable or disable such feature
+ * accordingly.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_regulator_config_ldo_retention(struct cpr3_thread *thread,
+					int floor_volt)
+{
+	struct regulator *ldo_ret_reg = thread->ldo_ret_regulator;
+	int retention_volt, rc;
+	enum kryo_supply_mode mode;
+
+	retention_volt = regulator_get_voltage(ldo_ret_reg);
+	if (retention_volt < 0) {
+		cpr3_err(thread, "regulator_get_voltage(ldo_ret) failed, rc=%d\n",
+			 retention_volt);
+		return retention_volt;
+
+	}
+
+	mode = floor_volt >= retention_volt + thread->ldo_headroom_volt
+		? LDO_MODE : BHS_MODE;
+
+	rc = regulator_allow_bypass(ldo_ret_reg, mode);
+	if (rc)
+		cpr3_err(thread, "regulator_allow_bypass(ldo_ret) == %s failed, rc=%d\n",
+			 mode ? "true" : "false", rc);
+
+	return rc;
+}
+
+/**
+ * cpr3_regulator_set_bhs_mode() - configure the LDO regulator associated with
+ *		a CPR thread to BHS mode
+ * @thread:		Pointer to the CPR thread
+ * @vdd_volt:		Last known settled voltage in microvolts for the VDD
+ *			supply
+ * @vdd_ceiling_volt:	Last known aggregated ceiling voltage in microvolts for
+ *			the VDD supply
+ *
+ * This function performs the necessary steps to switch an LDO regulator
+ * to BHS mode (LDO bypassed mode).
+ */
+static int cpr3_regulator_set_bhs_mode(struct cpr3_thread *thread,
+			       int vdd_volt, int vdd_ceiling_volt)
+{
+	struct regulator *ldo_reg = thread->ldo_regulator;
+	int bhs_volt, rc;
+
+	bhs_volt = vdd_volt - thread->ldo_headroom_volt;
+	if (bhs_volt > thread->ldo_max_volt) {
+		cpr3_debug(thread, "limited to LDO output of %d uV when switching to BHS mode\n",
+			   thread->ldo_max_volt);
+		bhs_volt = thread->ldo_max_volt;
+	}
+
+	rc = regulator_set_voltage(ldo_reg, bhs_volt, vdd_ceiling_volt);
+	if (rc) {
+		cpr3_err(thread, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
+			 bhs_volt, rc);
+		return rc;
+	}
+
+	rc = regulator_allow_bypass(ldo_reg, BHS_MODE);
+	if (rc) {
+		cpr3_err(thread, "regulator_allow_bypass(ldo) == %s failed, rc=%d\n",
+			 BHS_MODE ? "true" : "false", rc);
+		return rc;
+	}
+	thread->ldo_regulator_bypass = BHS_MODE;
+
+	return rc;
+}
+
+/**
+ * cpr3_regulator_config_ldo() - configure the voltage and bypass state for the
+ *		LDO regulator associated with each CPR thread
+ * @ctrl:		Pointer to the CPR3 controller
+ * @vdd_floor_volt:	Last known aggregated floor voltage in microvolts for
+ *			the VDD supply
+ * @vdd_ceiling_volt:	Last known aggregated ceiling voltage in microvolts for
+ *			the VDD supply
+ *
+ * This function performs all relevant LDO or BHS configurations if per-thread
+ * LDO regulators are supported.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
+			     int vdd_floor_volt, int vdd_ceiling_volt)
+{
+	struct regulator *ldo_reg;
+	struct cpr3_thread *thread;
+	int i, rc, ldo_volt, bhs_volt, vdd_volt = 0;
+
+	for (i = 0; i < ctrl->thread_count; i++) {
+		thread = &ctrl->thread[i];
+		ldo_reg = thread->ldo_regulator;
+
+		if (!ldo_reg)
+			continue;
+
+		rc = cpr3_regulator_config_ldo_retention(thread,
+							 vdd_floor_volt);
+		if (rc)
+			return rc;
+
+		if (!thread->vreg_enabled || !thread->ldo_mode_allowed
+		    || thread->current_corner == CPR3_REGULATOR_CORNER_INVALID)
+			continue;
+
+		/* Avoid unnecessary requests */
+		if (!vdd_volt) {
+			vdd_volt  = regulator_get_voltage(ctrl->vdd_regulator);
+			if (vdd_volt < 0) {
+				cpr3_err(ctrl, "regulator_get_voltage(vdd) failed, rc=%d\n",
+					 vdd_volt);
+				return vdd_volt;
+			}
+		}
+
+		ldo_volt = thread->corner[thread->current_corner].open_loop_volt
+			- thread->ldo_adjust_volt;
+		bhs_volt = vdd_volt - thread->ldo_headroom_volt;
+
+		if (vdd_floor_volt >= ldo_volt
+		    + thread->ldo_headroom_volt) {
+			if (thread->ldo_regulator_bypass == BHS_MODE) {
+				if (bhs_volt > thread->ldo_max_volt ||
+				    ldo_volt > thread->ldo_max_volt) {
+					cpr3_debug(ctrl, "cannot support LDO mode with bhs_volt=%d uV, ldo_volt=%d uV\n",
+						   bhs_volt, ldo_volt);
+					/* Skip thread, can't switch to LDO */
+					continue;
+				}
+
+				/*
+				 * BHS to LDO transition. Configure LDO output
+				 * to VDD minus LDO headroom voltage then
+				 * switch the regulator mode.
+				 */
+				rc = regulator_set_voltage(ldo_reg, bhs_volt,
+							   vdd_ceiling_volt);
+				if (rc) {
+					cpr3_err(ctrl, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
+						 bhs_volt, rc);
+					return rc;
+				}
+
+				rc = regulator_allow_bypass(ldo_reg, LDO_MODE);
+				if (rc) {
+					cpr3_err(ctrl, "regulator_allow_bypass(ldo) == %s failed, rc=%d\n",
+						 LDO_MODE ?
+						 "true" : "false", rc);
+					return rc;
+				}
+				thread->ldo_regulator_bypass = LDO_MODE;
+			}
+
+			/* Configure final LDO output voltage */
+			rc = regulator_set_voltage(ldo_reg, ldo_volt,
+						   vdd_ceiling_volt);
+			if (rc) {
+				cpr3_err(ctrl, "regulator_set_voltage(ldo) == %d failed, rc=%d\n",
+					 ldo_volt, rc);
+				return rc;
+			}
+		} else {
+			if (thread->ldo_regulator_bypass == LDO_MODE) {
+				rc = cpr3_regulator_set_bhs_mode(thread,
+						 vdd_volt, vdd_ceiling_volt);
+				if (rc)
+					return rc;
+			}
+		}
+	}
+
+	return 0;
+}
+
+/**
  * cpr3_regulator_scale_vdd_voltage() - scale the CPR controlled VDD supply
  *		voltage to the new level while satisfying any other hardware
  *		requirements
  * @ctrl:		Pointer to the CPR3 controller
  * @new_volt:		New voltage in microvolts that VDD needs to end up at
- * @max_volt:		Maximum voltage in microvolts that VDD may be set to
+ * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
+ *			corner aggregate of all CPR3 threads managed by the CPR3
+ *			controller
  *
  * This function scales the CPR controlled VDD supply voltage from its
  * current level to the new voltage that is specified.  If the supply is
@@ -567,11 +757,13 @@ static int cpr3_regulator_set_target_quot(struct cpr3_thread *thread,
  * Return: 0 on success, errno on failure
  */
 static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
-						int new_volt, int max_volt)
+				int new_volt, struct cpr3_corner *aggr_corner)
 {
 	struct regulator *vdd = ctrl->vdd_regulator;
 	bool apm_crossing = false;
 	int apm_volt = ctrl->apm_threshold_volt;
+	int last_max_volt = ctrl->aggr_corner.ceiling_volt;
+	int max_volt = aggr_corner->ceiling_volt;
 	int last_volt, rc;
 
 	last_volt = (ctrl->cpr_enabled && !ctrl->use_hw_closed_loop)
@@ -601,6 +793,16 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		}
 	}
 
+	if (new_volt < last_volt) {
+		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
+					       last_max_volt);
+		if (rc) {
+			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
+				 rc);
+			return rc;
+		}
+	}
+
 	/*
 	 * Subtract a small amount from the min_uV parameter so that the
 	 * set voltage request is not dropped by the framework due to being
@@ -613,6 +815,16 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		cpr3_err(ctrl, "regulator_set_voltage(vdd) == %d failed, rc=%d\n",
 			new_volt, rc);
 		return rc;
+	}
+
+	if (new_volt >= last_volt) {
+		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
+					       max_volt);
+		if (rc) {
+			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
+				 rc);
+			return rc;
+		}
 	}
 
 	return 0;
@@ -699,7 +911,7 @@ static int cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 
 	cpr3_debug(ctrl, "setting new voltage=%d uV\n", new_volt);
 	rc = cpr3_regulator_scale_vdd_voltage(ctrl, new_volt,
-						aggr_corner.ceiling_volt);
+						&aggr_corner);
 	if (rc) {
 		cpr3_err(ctrl, "vdd voltage scaling failed, rc=%d\n", rc);
 		return rc;
@@ -938,6 +1150,15 @@ static int cpr3_regulator_enable(struct regulator_dev *rdev)
 		goto done;
 	}
 
+	if (thread->ldo_regulator) {
+		rc = regulator_enable(thread->ldo_regulator);
+		if (rc) {
+			cpr3_err(thread, "regulator_enable(ldo) failed, rc=%d\n",
+				 rc);
+			goto done;
+		}
+	}
+
 	thread->vreg_enabled = true;
 	rc = cpr3_regulator_update_ctrl_state(thread->ctrl);
 	if (rc) {
@@ -966,14 +1187,39 @@ done:
 static int cpr3_regulator_disable(struct regulator_dev *rdev)
 {
 	struct cpr3_thread *thread = rdev_get_drvdata(rdev);
-	int rc = 0;
-	int rc2;
+	int rc, rc2;
 
 	if (thread->vreg_enabled == false)
 		return 0;
 
 	mutex_lock(&thread->ctrl->lock);
 
+	if (thread->ldo_regulator && thread->ldo_regulator_bypass == LDO_MODE) {
+		rc = regulator_get_voltage(thread->ctrl->vdd_regulator);
+		if (rc < 0) {
+			cpr3_err(thread, "regulator_get_voltage(vdd) failed, rc=%d\n",
+				 rc);
+			goto done;
+		}
+
+		/* Switch back to BHS for safe operation */
+		rc = cpr3_regulator_set_bhs_mode(thread, rc,
+				       thread->ctrl->aggr_corner.ceiling_volt);
+		if (rc) {
+			cpr3_err(thread, "unable to switch to BHS mode, rc=%d\n",
+				 rc);
+			return rc;
+		}
+	}
+
+	if (thread->ldo_regulator) {
+		rc = regulator_disable(thread->ldo_regulator);
+		if (rc) {
+			cpr3_err(thread, "regulator_disable(ldo) failed, rc=%d\n",
+				 rc);
+			goto done;
+		}
+	}
 	rc = regulator_disable(thread->ctrl->vdd_regulator);
 	if (rc) {
 		cpr3_err(thread, "regulator_disable(vdd) failed, rc=%d\n", rc);

@@ -32,6 +32,7 @@
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
 #include <linux/regulator/of_regulator.h>
+#include <linux/regulator/kryo-regulator.h>
 
 #include "cpr3-regulator.h"
 
@@ -1203,6 +1204,89 @@ static int cpr3_hmss_apm_init(struct cpr3_controller *ctrl)
 	return 0;
 }
 
+#define MAX_KVREG_NAME_SIZE 25
+/**
+ * cpr3_hmss_kvreg_init() - initialize HMSS Kryo Regulator data for a CPR3
+ *			thread
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * This function loads Kryo Regulator data from device tree if it is present
+ * and requests a handle to the appropriate Kryo regulator device.
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_hmss_kvreg_init(struct cpr3_thread *thread)
+{
+	struct device_node *node = thread->of_node;
+	struct cpr3_controller *ctrl = thread->ctrl;
+	int rc;
+	char kvreg_name_buf[MAX_KVREG_NAME_SIZE];
+
+	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE,
+		       "vdd-thread%d-ldo-supply", thread->thread_id);
+
+	if (!of_find_property(ctrl->dev->of_node, kvreg_name_buf , NULL))
+		return 0;
+
+	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE,
+		       "vdd-thread%d-ldo", thread->thread_id);
+
+	thread->ldo_regulator = devm_regulator_get(ctrl->dev,
+						      kvreg_name_buf);
+	if (IS_ERR(thread->ldo_regulator)) {
+		rc = PTR_ERR(thread->ldo_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable to request %s regulator, rc=%d\n",
+				 kvreg_name_buf, rc);
+		return rc;
+	}
+
+	thread->ldo_regulator_bypass = BHS_MODE;
+
+	scnprintf(kvreg_name_buf, MAX_KVREG_NAME_SIZE,
+		       "vdd-thread%d-ldo-ret", thread->thread_id);
+
+	thread->ldo_ret_regulator = devm_regulator_get(ctrl->dev,
+						      kvreg_name_buf);
+	if (IS_ERR(thread->ldo_ret_regulator)) {
+		rc = PTR_ERR(thread->ldo_ret_regulator);
+		if (rc != -EPROBE_DEFER)
+			cpr3_err(ctrl, "unable to request %s regulator, rc=%d\n",
+				 kvreg_name_buf, rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,ldo-headroom-voltage",
+				&thread->ldo_headroom_volt);
+	if (rc) {
+		cpr3_err(thread, "error reading qcom,ldo-headroom-voltage, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(node, "qcom,ldo-max-voltage",
+				&thread->ldo_max_volt);
+	if (rc) {
+		cpr3_err(thread, "error reading qcom,ldo-max-voltage, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	/* optional properties, do not error out if missing present */
+	of_property_read_u32(node, "qcom,ldo-adjust-voltage",
+			     &thread->ldo_adjust_volt);
+
+	thread->ldo_mode_allowed = !of_property_read_bool(node,
+							  "qcom,ldo-disable");
+
+	cpr3_info(thread, "LDO headroom=%d uV, LDO adj=%d uV, LDO mode=%s\n",
+		  thread->ldo_headroom_volt,
+		  thread->ldo_adjust_volt,
+		  thread->ldo_mode_allowed ? "allowed" : "disallowed");
+
+	return 0;
+}
+
 /**
  * cpr3_hmss_init_controller() - perform HMSS CPR3 controller specific
  *		initializations
@@ -1354,6 +1438,14 @@ static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 	}
 
 	for (i = 0; i < ctrl->thread_count; i++) {
+		rc = cpr3_hmss_kvreg_init(&ctrl->thread[i]);
+		if (rc) {
+			if (rc != -EPROBE_DEFER)
+				cpr3_err(&ctrl->thread[i], "unable to initialize Kryo Regulator settings, rc=%d\n",
+					 rc);
+			return rc;
+		}
+
 		rc = cpr3_hmss_init_thread(&ctrl->thread[i]);
 		if (rc) {
 			cpr3_err(&ctrl->thread[i], "thread initialization failed, rc=%d\n",
