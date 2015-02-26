@@ -1527,9 +1527,14 @@ SYSCALL_DEFINE3(bind, int, fd, struct sockaddr __user *, umyaddr, int, addrlen)
 						      (struct sockaddr *)
 						      &address, addrlen);
 		}
-		fput_light(sock->file, fput_needed);
-		if (!err)
+		if (!err) {
+			if (sock->sk)
+				sock_hold(sock->sk);
 			sockev_notify(SOCKEV_BIND, sock);
+			if (sock->sk)
+				sock_put(sock->sk);
+		}
+		fput_light(sock->file, fput_needed);
 	}
 	return err;
 }
@@ -1556,9 +1561,14 @@ SYSCALL_DEFINE2(listen, int, fd, int, backlog)
 		if (!err)
 			err = sock->ops->listen(sock, backlog);
 
-		fput_light(sock->file, fput_needed);
-		if (!err)
+		if (!err) {
+			if (sock->sk)
+				sock_hold(sock->sk);
 			sockev_notify(SOCKEV_LISTEN, sock);
+			if (sock->sk)
+				sock_put(sock->sk);
+		}
+		fput_light(sock->file, fput_needed);
 	}
 	return err;
 }
