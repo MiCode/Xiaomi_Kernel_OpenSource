@@ -73,6 +73,11 @@
 #define  DRM_MODE_FLAG_3D_TOP_AND_BOTTOM	(7<<14)
 #define  DRM_MODE_FLAG_3D_SIDE_BY_SIDE_HALF	(8<<14)
 
+/* Picture aspect ratio flags */
+#define DRM_MODE_FLAG_PARMASK			(3<<19)
+#define DRM_MODE_FLAG_PARNONE			(0<<19)
+#define DRM_MODE_FLAG_PAR16_9			(1<<19)
+#define DRM_MODE_FLAG_PAR4_3			(2<<19)
 
 /* DPMS flags */
 /* bit compatible with the xorg definitions. */

@@ -1564,6 +1564,12 @@ static void drm_crtc_convert_to_umode(struct drm_mode_modeinfo *out,
 	out->type = in->type;
 	strncpy(out->name, in->name, DRM_DISPLAY_MODE_LEN);
 	out->name[DRM_DISPLAY_MODE_LEN-1] = 0;
+
+	/* Send picture aspect ratio to user space in flags parameter */
+	if (in->picture_aspect_ratio == HDMI_PICTURE_ASPECT_4_3)
+		out->flags |= DRM_MODE_FLAG_PAR4_3;
+	else if (in->picture_aspect_ratio == HDMI_PICTURE_ASPECT_16_9)
+		out->flags |= DRM_MODE_FLAG_PAR16_9;
 }
 
 /**
@@ -1602,6 +1608,22 @@ static int drm_crtc_convert_umode(struct drm_display_mode *out,
 	out->type = in->type;
 	strncpy(out->name, in->name, DRM_DISPLAY_MODE_LEN);
 	out->name[DRM_DISPLAY_MODE_LEN-1] = 0;
+
+	/* Extract picture aspect ratio info from flags parameter */
+	switch (in->flags & DRM_MODE_FLAG_PARMASK) {
+	case DRM_MODE_FLAG_PAR4_3:
+		out->picture_aspect_ratio = HDMI_PICTURE_ASPECT_4_3;
+		break;
+	case DRM_MODE_FLAG_PAR16_9:
+		out->picture_aspect_ratio = HDMI_PICTURE_ASPECT_16_9;
+		break;
+	default:
+		out->picture_aspect_ratio = HDMI_PICTURE_ASPECT_NONE;
+		break;
+	}
+
+	/* Clear aspect ratio info from flags */
+	out->flags &= ~DRM_MODE_FLAG_PARMASK;
 
 	return 0;
 }

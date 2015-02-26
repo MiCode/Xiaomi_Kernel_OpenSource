@@ -865,6 +865,9 @@ bool drm_mode_equal(const struct drm_display_mode *mode1, const struct drm_displ
 	} else if (mode1->clock != mode2->clock)
 		return false;
 
+	if (mode1->picture_aspect_ratio != mode2->picture_aspect_ratio)
+		return false;
+
 	if ((mode1->flags & DRM_MODE_FLAG_3D_MASK) !=
 	    (mode2->flags & DRM_MODE_FLAG_3D_MASK))
 		return false;
