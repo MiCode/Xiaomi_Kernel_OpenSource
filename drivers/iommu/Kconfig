@@ -137,6 +137,25 @@ config IOMMU_FORCE_4K_MAPPINGS
 
          If unsure, say N here.
 
+config MMU500_ACTIVE_PREFETCH_BUG_WITH_SECTION_MAPPING
+	bool "Don't align Virtual address at 1MB boundary"
+	depends on MSM_IOMMU
+	help
+	 Say Y here if the MMU500 revision has a bug in active prefetch
+         which can cause TLB corruptions due to 1MB alignment of a buffer.
+         Here is the sequence which will surface this BUG.
+	 1) Create a 2-level mapping in v7S format for 1MB buffer. Start of
+	    the buffer should be at even MB boundary.
+	 2) Create a section mapping for 1MB buffer adjacent to previous
+	    mapping in step 1.
+	 3) Access last page from 2 level mapping followed by an access into
+	    section mapped area.
+	 4) Step 3 will result into TLB corruption and this corruption can
+	    lead to any misbehavior (like Permission fault) for sub-sequent
+	    transactions.
+
+	 If unsure, say Y here if IOMMU mapping will not exhaust the VA space.
+
 # AMD IOMMU support
 config AMD_IOMMU
 	bool "AMD IOMMU support"

@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -387,6 +387,21 @@ static struct msm_iova_data *msm_domain_to_iova_data(struct iommu_domain
 	return iova_data;
 }
 
+#ifdef CONFIG_MMU500_ACTIVE_PREFETCH_BUG_WITH_SECTION_MAPPING
+static unsigned long get_alignment_order(unsigned long align)
+{
+	if (align >= SZ_1M && align < SZ_2M)
+		return ilog2(SZ_2M);
+	else
+		return ilog2(align);
+}
+#else
+static unsigned long get_alignment_order(unsigned long align)
+{
+	return ilog2(align);
+}
+#endif
+
 int msm_allocate_iova_address(unsigned int iommu_domain,
 					unsigned int partition_no,
 					unsigned long size,
@@ -396,6 +411,7 @@ int msm_allocate_iova_address(unsigned int iommu_domain,
 	struct msm_iova_data *data;
 	struct mem_pool *pool;
 	unsigned long va;
+	unsigned long aligned_order;
 
 	data = find_domain(iommu_domain);
 
@@ -410,8 +426,10 @@ int msm_allocate_iova_address(unsigned int iommu_domain,
 	if (!pool->gpool)
 		return -EINVAL;
 
+	aligned_order = get_alignment_order(align);
+
 	mutex_lock(&pool->pool_mutex);
-	va = gen_pool_alloc_aligned(pool->gpool, size, ilog2(align));
+	va = gen_pool_alloc_aligned(pool->gpool, size, aligned_order);
 	mutex_unlock(&pool->pool_mutex);
 	if (va) {
 		pool->free -= size;
