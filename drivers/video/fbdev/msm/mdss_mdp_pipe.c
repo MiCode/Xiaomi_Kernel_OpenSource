@@ -1703,13 +1703,12 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 		src_format |= BIT(31);
 	}
 
-	/* This bit is only valid for thulium target; noop for other targets */
-	if (fmt->is_yuv)
+	if (fmt->is_yuv && test_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map))
 		src_format |= BIT(15);
 
 	mdss_mdp_pipe_sspp_setup(pipe, &opmode);
-
-	if (mdss_mdp_is_tile_format(fmt) && mdata->highest_bank_bit) {
+	if (fmt->fetch_mode != MDSS_MDP_FETCH_LINEAR
+		&& mdata->highest_bank_bit) {
 		mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_FETCH_CONFIG,
 			MDSS_MDP_FETCH_CONFIG_RESET_VALUE |
 				 mdata->highest_bank_bit << 18);

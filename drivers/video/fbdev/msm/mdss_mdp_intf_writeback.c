@@ -218,10 +218,10 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 {
 	struct mdss_mdp_format_params *fmt;
 	u32 dst_format, pattern, ystride0, ystride1, outsize, chroma_samp;
-	u32 dnsc_factor;
+	u32 dnsc_factor, write_config = 0;
 	u32 opmode = ctx->opmode;
 	bool rotation = false;
-	struct mdss_data_type *mdata;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int rc;
 
 	pr_debug("wb_num=%d format=%d\n", ctx->wb_num, format);
@@ -294,8 +294,10 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 			dst_format |= BIT(14); /* DST_ALPHA_X */
 	}
 
-	mdata = mdss_mdp_get_mdata();
-	if (mdata && mdata->mdp_rev >= MDSS_MDP_HW_REV_102 &&
+	if (fmt->is_yuv && test_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map))
+		dst_format |= BIT(15);
+
+	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_102 &&
 			mdata->mdp_rev < MDSS_MDP_HW_REV_200) {
 		pattern = (fmt->element[3] << 24) |
 			  (fmt->element[2] << 16) |
@@ -323,10 +325,14 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 		if (!ctl->cdm)
 			opmode |= BIT(0);
 		dst_format |= BIT(31);
+		if (mdata->highest_bank_bit)
+			write_config |= (mdata->highest_bank_bit << 8);
+		if (fmt->format == MDP_RGB_565_UBWC)
+			write_config |= 0x8;
 	}
 
-	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR &&
-			mdata && mdata->has_rot_dwnscale) {
+	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR
+			&& mdata->has_rot_dwnscale) {
 		dnsc_factor = (ctx->dnsc_factor_h) | (ctx->dnsc_factor_w << 16);
 		mdp_wb_write(ctx, MDSS_MDP_REG_WB_ROTATOR_PIPE_DOWNSCALER,
 								dnsc_factor);
@@ -339,6 +345,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE0, ystride0);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE1, ystride1);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_OUT_SIZE, outsize);
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_WRITE_CONFIG, write_config);
 
 	/* configure CDP */
 	if (test_bit(MDSS_QOS_CDP, mdata->mdss_qos_map))
