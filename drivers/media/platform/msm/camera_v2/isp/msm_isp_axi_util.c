@@ -1314,8 +1314,9 @@ static int msm_isp_update_stream_bandwidth(struct vfe_device *vfe_dev)
 		(total_bandwidth * ISP_BUS_UTILIZATION_FACTOR / ISP_Q2));
 	else
 		rc = msm_isp_update_bandwidth(ISP_VFE0 + vfe_dev->pdev->id,
-		(total_bandwidth + MSM_ISP_MIN_AB),  (total_bandwidth *
-		ISP_BUS_UTILIZATION_FACTOR / ISP_Q2 + MSM_ISP_MIN_IB));
+			(total_bandwidth + MSM_ISP_MIN_AB),
+			(total_bandwidth + MSM_ISP_MIN_IB));
+
 	if (rc < 0)
 		pr_err("%s: update failed\n", __func__);
 
