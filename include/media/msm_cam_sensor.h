@@ -635,6 +635,7 @@ struct msm_camera_i2c_reg_setting32 {
 	enum msm_camera_i2c_reg_addr_type addr_type;
 	enum msm_camera_i2c_data_type data_type;
 	uint16_t delay;
+	enum msm_camera_qup_i2c_write_batch_t qup_i2c_batch;
 };
 
 struct msm_actuator_tuning_params_t32 {
