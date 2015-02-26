@@ -28,6 +28,7 @@
 #include "mdss_mdp_formats.h"
 #include "mdss_debug.h"
 #include "mdss_smmu.h"
+#include "mdss_panel.h"
 
 enum {
 	MDP_INTR_VSYNC_INTF_0,
@@ -332,6 +333,110 @@ void mdss_mdp_crop_rect(struct mdss_rect *src_rect,
 			{(res.x - sci_rect->x), (res.y - sci_rect->y),
 			res.w, res.h};
 	}
+}
+
+/*
+ * rect_copy_mdp_to_mdss() - copy mdp_rect struct to mdss_rect
+ * @mdp  - pointer to mdp_rect, destination of the copy
+ * @mdss - pointer to mdss_rect, source of the copy
+ */
+void rect_copy_mdss_to_mdp(struct mdp_rect *mdp, struct mdss_rect *mdss)
+{
+	mdp->x = mdss->x;
+	mdp->y = mdss->y;
+	mdp->w = mdss->w;
+	mdp->h = mdss->h;
+}
+
+/*
+ * rect_copy_mdp_to_mdss() - copy mdp_rect struct to mdss_rect
+ * @mdp  - pointer to mdp_rect, source of the copy
+ * @mdss - pointer to mdss_rect, destination of the copy
+ */
+void rect_copy_mdp_to_mdss(struct mdp_rect *mdp, struct mdss_rect *mdss)
+{
+	mdss->x = mdp->x;
+	mdss->y = mdp->y;
+	mdss->w = mdp->w;
+	mdss->h = mdp->h;
+}
+
+/*
+ * mdss_rect_cmp() - compares two rects
+ * @rect1 - rect value to compare
+ * @rect2 - rect value to compare
+ *
+ * Returns 1 if the rects are same, 0 otherwise.
+ */
+int mdss_rect_cmp(struct mdss_rect *rect1, struct mdss_rect *rect2)
+{
+	return rect1->x == rect2->x && rect1->y == rect2->y &&
+	       rect1->w == rect2->w && rect1->h == rect2->h;
+}
+
+/*
+ * mdss_rect_overlap_check() - compare two rects and check if they overlap
+ * @rect1 - rect value to compare
+ * @rect2 - rect value to compare
+ *
+ * Returns true if rects overlap, false otherwise.
+ */
+bool mdss_rect_overlap_check(struct mdss_rect *rect1, struct mdss_rect *rect2)
+{
+	u32 rect1_left = rect1->x, rect1_right = rect1->x + rect1->w;
+	u32 rect1_top = rect1->y, rect1_bottom = rect1->y + rect1->h;
+	u32 rect2_left = rect2->x, rect2_right = rect2->x + rect2->w;
+	u32 rect2_top = rect2->y, rect2_bottom = rect2->y + rect2->h;
+
+	if ((rect1_right <= rect2_left) ||
+	    (rect1_left >= rect2_right) ||
+	    (rect1_bottom <= rect2_top) ||
+	    (rect1_top >= rect2_bottom))
+		return false;
+
+	return true;
+}
+
+/*
+ * mdss_rect_split() - split roi into two with regards to split-point.
+ * @in_roi - input roi, non-split
+ * @l_roi  - left roi after split
+ * @r_roi  - right roi after split
+ *
+ * Split input ROI into left and right ROIs with respect to split-point. This
+ * is useful during partial update with ping-pong split enabled, where user-land
+ * program is aware of only one frame-buffer but physically there are two
+ * distinct panels which requires their own ROIs.
+ */
+void mdss_rect_split(struct mdss_rect *in_roi, struct mdss_rect *l_roi,
+	struct mdss_rect *r_roi, u32 splitpoint)
+{
+	memset(l_roi, 0x0, sizeof(*l_roi));
+	memset(r_roi, 0x0, sizeof(*r_roi));
+
+	/* left update needed */
+	if (in_roi->x < splitpoint) {
+		*l_roi = *in_roi;
+
+		if ((l_roi->x + l_roi->w) >= splitpoint)
+			l_roi->w = splitpoint - in_roi->x;
+	}
+
+	/* right update needed */
+	if ((in_roi->x + in_roi->w) > splitpoint) {
+		*r_roi = *in_roi;
+
+		if (in_roi->x < splitpoint) {
+			r_roi->x = 0;
+			r_roi->w = in_roi->x + in_roi->w - splitpoint;
+		} else {
+			r_roi->x = in_roi->x - splitpoint;
+		}
+	}
+
+	pr_debug("left: %d,%d,%d,%d right: %d,%d,%d,%d\n",
+		l_roi->x, l_roi->y, l_roi->w, l_roi->h,
+		r_roi->x, r_roi->y, r_roi->w, r_roi->h);
 }
 
 int mdss_mdp_get_rau_strides(u32 w, u32 h,

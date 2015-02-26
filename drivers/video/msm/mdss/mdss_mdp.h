@@ -324,6 +324,15 @@ struct mdss_mdp_mixer {
 	u16 cursor_hoty;
 	u8 rotator_mode;
 
+	/*
+	 * src_split_req is valid only for right layer mixer.
+	 *
+	 * VIDEO mode panels: Always true if source split is enabled.
+	 * CMD mode panels: Only true if source split is enabled and
+	 *                  for a given commit left and right both ROIs
+	 *                  are valid.
+	 */
+	bool src_split_req;
 	bool is_right_mixer;
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_pipe *stage_pipe[MAX_PIPES_PER_LM];
@@ -498,6 +507,8 @@ struct mdss_mdp_pipe {
 
 	u32 flags;
 	u32 bwc_mode;
+
+	/* valid only when pipe's output is crossing both layer mixers */
 	bool src_split_req;
 	bool is_right_blend;
 
@@ -1108,13 +1119,18 @@ int mdss_mdp_data_map(struct mdss_mdp_data *data, bool rotator, int dir);
 void mdss_mdp_data_free(struct mdss_mdp_data *data, bool rotator, int dir);
 u32 mdss_get_panel_framerate(struct msm_fb_data_type *mfd);
 int mdss_mdp_calc_phase_step(u32 src, u32 dst, u32 *out_phase);
+
 void mdss_mdp_intersect_rect(struct mdss_rect *res_rect,
 	const struct mdss_rect *dst_rect,
 	const struct mdss_rect *sci_rect);
 void mdss_mdp_crop_rect(struct mdss_rect *src_rect,
 	struct mdss_rect *dst_rect,
 	const struct mdss_rect *sci_rect);
-
+void rect_copy_mdss_to_mdp(struct mdp_rect *user, struct mdss_rect *kernel);
+void rect_copy_mdp_to_mdss(struct mdp_rect *user, struct mdss_rect *kernel);
+bool mdss_rect_overlap_check(struct mdss_rect *rect1, struct mdss_rect *rect2);
+void mdss_rect_split(struct mdss_rect *in_roi, struct mdss_rect *l_roi,
+	struct mdss_rect *r_roi, u32 splitpoint);
 
 int mdss_mdp_wb_kickoff(struct msm_fb_data_type *mfd,
 		struct mdss_mdp_commit_cb *commit_cb);
@@ -1135,7 +1151,7 @@ int mdss_mdp_writeback_display_commit(struct mdss_mdp_ctl *ctl, void *arg);
 struct mdss_mdp_ctl *mdss_mdp_ctl_mixer_switch(struct mdss_mdp_ctl *ctl,
 					       u32 return_type);
 void mdss_mdp_set_roi(struct mdss_mdp_ctl *ctl,
-					struct mdp_display_commit *data);
+	struct mdss_rect *l_roi, struct mdss_rect *r_roi);
 
 int mdss_mdp_wb_set_format(struct msm_fb_data_type *mfd, u32 dst_format);
 int mdss_mdp_wb_get_format(struct msm_fb_data_type *mfd,
