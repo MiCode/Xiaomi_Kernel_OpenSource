@@ -1887,7 +1887,7 @@ static int apds993x_ps_calibrate(struct sensors_classdev *sensors_cdev,
 	if (!data->enable_ps_sensor)
 		apds993x_enable_ps_sensor(data->client, 1);
 
-	if (!atomic_cmpxchg(&data->ps_cal_status, 0, 1)) {
+	if (atomic_cmpxchg(&data->ps_cal_status, 0, 1)) {
 		dev_err(&data->client->dev, "do calibration error\n");
 		return -EBUSY;
 	}
