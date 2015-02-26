@@ -589,12 +589,14 @@ static struct ov5648_reg const ov5648_1280x960_30fps_2lanes[] = {
 	{OV5648_8BIT, 0x3106, 0x05},
 	{OV5648_8BIT, 0x3105, 0x11},
 	{OV5648_8BIT, 0x303a, 0x00},
-	{OV5648_8BIT, 0x303b, 0x16},
+	{OV5648_8BIT, 0x303b, 0x15},
 	{OV5648_8BIT, 0x303c, 0x11},
 	{OV5648_8BIT, 0x303d, 0x20},
 
-	{OV5648_8BIT, 0x350a, 0x00}, /* Def. analog gain = 0x080/16.0 = 8x */
-	{OV5648_8BIT, 0x350b, 0x80},
+	{OV5648_8BIT, 0x350a, 0x00}, /* Def. analog gain = 0x040/16.0 = 4x */
+	{OV5648_8BIT, 0x350b, 0x40},
+	{OV5648_8BIT, 0x3501, 0x45}, /* Def. exposure = 0x45e0 (1118 lines) */
+	{OV5648_8BIT, 0x3502, 0xe0},
 
 	{OV5648_8BIT, 0x3708, 0x66},
 	{OV5648_8BIT, 0x3709, 0x52},
@@ -608,18 +610,18 @@ static struct ov5648_reg const ov5648_1280x960_30fps_2lanes[] = {
 	{OV5648_8BIT, 0x3805, 0x3f},
 	{OV5648_8BIT, 0x3806, 0x07}, /* Yend = 0x07a3 = 1955 */
 	{OV5648_8BIT, 0x3807, 0xa3},
-	{OV5648_8BIT, 0x3808, 0x05}, /* H output size = 0x0510 = 1296 */
-	{OV5648_8BIT, 0x3809, 0x10},
-	{OV5648_8BIT, 0x380a, 0x03}, /* V output size = 0x03cc = 972 */
-	{OV5648_8BIT, 0x380b, 0xcc},
+	{OV5648_8BIT, 0x3808, 0x05}, /* H output size = 0x0510 = 1280 */
+	{OV5648_8BIT, 0x3809, 0x00},
+	{OV5648_8BIT, 0x380a, 0x03}, /* V output size = 0x03cc = 960 */
+	{OV5648_8BIT, 0x380b, 0xc0},
 	{OV5648_8BIT, 0x380c, 0x09}, /* H total size = 0x09c4 = 2500 */
 	{OV5648_8BIT, 0x380d, 0xc4},
 	{OV5648_8BIT, 0x380e, 0x04}, /* V total size = 0x0466 = 1126 */
 	{OV5648_8BIT, 0x380f, 0x66},
-	{OV5648_8BIT, 0x3810, 0x00}, /* X window offset = 0x0008 */
-	{OV5648_8BIT, 0x3811, 0x08},
-	{OV5648_8BIT, 0x3812, 0x00}, /* Y window offset = 0x0004 */
-	{OV5648_8BIT, 0x3813, 0x04},
+	{OV5648_8BIT, 0x3810, 0x00}, /* X window offset = 16 */
+	{OV5648_8BIT, 0x3811, 0x10},
+	{OV5648_8BIT, 0x3812, 0x00}, /* Y window offset = 10 */
+	{OV5648_8BIT, 0x3813, 0x0a},
 	{OV5648_8BIT, 0x3814, 0x31}, /* X subsample step: odd = 3, even = 1 */
 	{OV5648_8BIT, 0x3815, 0x31}, /* Y subsample step: odd = 3, even = 1 */
 	{OV5648_8BIT, 0x3817, 0x00}, /* HSync start = 0 */
@@ -627,7 +629,9 @@ static struct ov5648_reg const ov5648_1280x960_30fps_2lanes[] = {
 	{OV5648_8BIT, 0x3821, 0x07}, /* H mirror on, H binning on */
 
 	{OV5648_8BIT, 0x4004, 0x02},
+	{OV5648_8BIT, 0x4005, 0x18},
 	{OV5648_8BIT, 0x4837, 0x18},
+	{OV5648_TOK_TERM, 0, 0}
 };
 
 static struct ov5648_reg const ov5648_5M_15fps_2lanes[] = {
@@ -702,8 +706,8 @@ struct ov5648_resolution ov5648_res_preview[] = {
 	 },
 	{
 	 .desc = "ov5648_1280x960_30fps",
-	 .width = 1296,
-	 .height = 972,
+	 .width = 1280,
+	 .height = 960,
 	 .pix_clk_freq = 84,
 	 .fps = 30,
 	 .used = 0,
@@ -752,8 +756,8 @@ struct ov5648_resolution ov5648_res_still[] = {
 	 },
 	{
 	 .desc = "ov5648_1280x960_30fps",
-	 .width = 1296,
-	 .height = 972,
+	 .width = 1280,
+	 .height = 960,
 	 .pix_clk_freq = 84,
 	 .fps = 30,
 	 .used = 0,
@@ -802,8 +806,8 @@ struct ov5648_resolution ov5648_res_video[] = {
 	 },
 	{
 	 .desc = "ov5648_1280x960_30fps",
-	 .width = 1296,
-	 .height = 972,
+	 .width = 1280,
+	 .height = 960,
 	 .pix_clk_freq = 84,
 	 .fps = 30,
 	 .used = 0,
