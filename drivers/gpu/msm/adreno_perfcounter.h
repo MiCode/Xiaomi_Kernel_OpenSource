@@ -114,7 +114,7 @@ void adreno_perfcounter_restore(struct adreno_device *adreno_dev);
 
 void adreno_perfcounter_save(struct adreno_device *adreno_dev);
 
-int adreno_perfcounter_start(struct adreno_device *adreno_dev);
+void adreno_perfcounter_start(struct adreno_device *adreno_dev);
 
 void adreno_perfcounter_init(struct adreno_device *adreno_dev);
 
