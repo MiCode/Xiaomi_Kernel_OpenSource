@@ -790,21 +790,6 @@ struct ov5648_resolution ov5648_res_still[] = {
 
 struct ov5648_resolution ov5648_res_video[] = {
 	{
-	 .desc = "ov5648_720P_30fps",
-	 .width = 1296,
-	 .height = 736,
-	 .fps = 30,
-	 .pix_clk_freq = 84,
-	 .used = 0,
-	 .pixels_per_line = 2397,
-	 .lines_per_frame = 1186,
-	 .bin_factor_x = 2,
-	 .bin_factor_y = 2,
-	 .bin_mode = 1,
-	 .skip_frames = 3,
-	 .regs = ov5648_720p_30fps_2lanes,
-	 },
-	{
 	 .desc = "ov5648_1280x960_30fps",
 	 .width = 1280,
 	 .height = 960,
@@ -818,6 +803,21 @@ struct ov5648_resolution ov5648_res_video[] = {
 	 .bin_mode = 1,
 	 .skip_frames = 3,
 	 .regs = ov5648_1280x960_30fps_2lanes,
+	 },
+	{
+	 .desc = "ov5648_720P_30fps",
+	 .width = 1296,
+	 .height = 736,
+	 .fps = 30,
+	 .pix_clk_freq = 84,
+	 .used = 0,
+	 .pixels_per_line = 2397,
+	 .lines_per_frame = 1186,
+	 .bin_factor_x = 2,
+	 .bin_factor_y = 2,
+	 .bin_mode = 1,
+	 .skip_frames = 3,
+	 .regs = ov5648_720p_30fps_2lanes,
 	 },
 };
 
