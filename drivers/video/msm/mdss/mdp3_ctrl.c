@@ -691,6 +691,13 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		return -ENODEV;
 	}
 	mutex_lock(&mdp3_session->lock);
+
+	panel = mdp3_session->panel;
+	/* make sure DSI host is initialized properly */
+	if (panel && mdp3_session->in_splash_screen)
+		panel->event_handler(panel,
+				MDSS_EVENT_LINK_READY, NULL);
+
 	if (mdp3_session->status) {
 		pr_debug("fb%d is on already", mfd->index);
 		goto on_error;
@@ -711,7 +718,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	mdp3_ctrl_notifier_register(mdp3_session,
 		&mdp3_session->mfd->mdp_sync_pt_data.notifier);
 
-	panel = mdp3_session->panel;
 	mdp3_qos_remapper_setup(panel);
 	/* request bus bandwidth before DSI DMA traffic */
 	rc = mdp3_ctrl_res_req_bus(mfd, 1);
@@ -803,30 +809,20 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 
 	mdp3_histogram_stop(mdp3_session, MDP_BLOCK_DMA_P);
 
-	if (mdp3_session->in_splash_screen) {
-		rc = mdp3_session->dma->stop(mdp3_session->dma,
-						mdp3_session->intf);
-		if (rc)
-			pr_debug("fail to stop the MDP3 dma\n");
-		/* Wait for TG to turn off */
-		msleep(20);
-		mfd->panel_info->cont_splash_enabled = 0;
-		mdp3_splash_done(mfd->panel_info);
-	}
-
 	if (panel->event_handler)
 		rc = panel->event_handler(panel, MDSS_EVENT_BLANK, NULL);
 	if (rc)
 		pr_err("fail to turn off the panel\n");
 
-	if (!(mdp3_session->in_splash_screen)) {
-		rc = mdp3_session->dma->stop(mdp3_session->dma,
-						mdp3_session->intf);
-		if (rc)
-			pr_debug("fail to stop the MDP3 dma\n");
-		/* Wait for TG to turn off */
-		msleep(20);
-	}
+	rc = mdp3_session->dma->stop(mdp3_session->dma,
+					mdp3_session->intf);
+	if (rc)
+		pr_debug("fail to stop the MDP3 dma\n");
+	/* Wait to ensure TG to turn off */
+	msleep(20);
+	mfd->panel_info->cont_splash_enabled = 0;
+	mdp3_splash_done(mfd->panel_info);
+
 	mdp3_irq_deregister();
 
 	pr_debug("mdp3_ctrl_off stop clock\n");
@@ -897,6 +893,8 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 		pr_err("fail to stop the MDP3 dma %d\n", rc);
 		goto reset_error;
 	}
+	/*wait to ensure DMA is stopped*/
+	msleep(20);
 
 	rc = mdp3_iommu_enable();
 	if (rc) {
