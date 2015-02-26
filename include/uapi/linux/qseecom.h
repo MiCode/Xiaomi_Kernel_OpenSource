@@ -5,7 +5,7 @@
 #include <linux/ioctl.h>
 
 #define MAX_ION_FD  4
-#define MAX_APP_NAME_SIZE  32
+#define MAX_APP_NAME_SIZE  64
 #define QSEECOM_HASH_SIZE  32
 /*
  * struct qseecom_register_listener_req -
