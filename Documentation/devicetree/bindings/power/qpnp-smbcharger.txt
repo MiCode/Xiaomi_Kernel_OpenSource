@@ -219,6 +219,10 @@ Optional Properties:
 				limit needs to be disabled. If it is not present,
 				jeita temperature hard limit will be based on what
 				the bootloader had set earlier.
+- qcom,low-volt-dcin:		A boolean property which upon set will enable the
+				AICL deglitch configuration dynamically. This needs
+				to be set if the DCIN supply is going to be less
+				than or equal to 5V.
 - qcom,soft-vfloat-comp-disabled	Set this property when the battery is
 					powered via external source and could
 					go above the float voltage.
