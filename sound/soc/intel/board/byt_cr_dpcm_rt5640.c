@@ -289,8 +289,9 @@ static int byt_micbias_interrupt(void *data)
 	if (cancel_delayed_work_sync(&drvdata->bp_recheck))
 		pr_debug("%s: bp-recheck interrupted!\n", __func__);
 
-	if (byt_bp_check(drvdata, false))
-		snd_soc_jack_report(jack, jack->status, SND_JACK_BTN_0);
+	if (jack->status & SND_JACK_MICROPHONE)
+		if (byt_bp_check(drvdata, false))
+			snd_soc_jack_report(jack, jack->status, SND_JACK_BTN_0);
 
 	mutex_unlock(&drvdata->jack_mlock);
 	return jack->status;
