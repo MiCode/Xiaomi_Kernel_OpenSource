@@ -1026,6 +1026,8 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 	int ret = 0;
 
 	if (assert) {
+		if (mdwc->pwr_event_irq)
+			disable_irq(mdwc->pwr_event_irq);
 		/* Using asynchronous block reset to the hardware */
 		dev_dbg(mdwc->dev, "block_reset ASSERT\n");
 		clk_disable_unprepare(mdwc->ref_clk);
@@ -1047,6 +1049,8 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		clk_prepare_enable(mdwc->iface_clk);
 		if (ret)
 			dev_err(mdwc->dev, "dwc3 core_clk deassert failed\n");
+		if (mdwc->pwr_event_irq)
+			enable_irq(mdwc->pwr_event_irq);
 	}
 
 	return ret;
