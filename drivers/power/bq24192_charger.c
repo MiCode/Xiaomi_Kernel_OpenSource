@@ -65,12 +65,14 @@
 #define INPUT_SRC_VOLT_LMT_404                 (1 << 4)
 #define INPUT_SRC_VOLT_LMT_412                 (3 << 3)
 #define INPUT_SRC_VOLT_LMT_444                 (7 << 3)
+#define INPUT_SRC_VOLT_LMT_460                 (9 << 3)
 #define INPUT_SRC_VOLT_LMT_468                 (5 << 4)
 #define INPUT_SRC_VOLT_LMT_476                 (0xB << 3)
 
 #define INPUT_SRC_VINDPM_MASK                  (0xF << 3)
 #define INPUT_SRC_LOW_VBAT_LIMIT               3600
-#define INPUT_SRC_MIDL_VBAT_LIMIT              4100
+#define INPUT_SRC_MIDL_VBAT_LIMIT1             3800
+#define INPUT_SRC_MIDL_VBAT_LIMIT2             4100
 #define INPUT_SRC_HIGH_VBAT_LIMIT              4350
 
 /* D0, D1, D2 represent the input current limit */
@@ -1835,7 +1837,7 @@ static void bq24192_task_worker(struct work_struct *work)
 	/* Modify the VINDPM */
 
 	/* read the battery voltage */
-	vbatt = fg_chip_get_property(POWER_SUPPLY_PROP_VOLTAGE_OCV);
+	vbatt = fg_chip_get_property(POWER_SUPPLY_PROP_VOLTAGE_NOW);
 	if (vbatt == -ENODEV || vbatt == -EINVAL) {
 		dev_err(&chip->client->dev, "Can't read voltage from FG\n");
 		goto sched_task_work;
@@ -1851,11 +1853,14 @@ static void bq24192_task_worker(struct work_struct *work)
 	 * Hence disabling dynamic vindpm update  for bq24296 chip.
 	*/
 	if (chip->chip_type != BQ24296) {
-		if (vbatt >= INPUT_SRC_MIDL_VBAT_LIMIT &&
-			vbatt <= INPUT_SRC_HIGH_VBAT_LIMIT)
-			vindpm = INPUT_SRC_VOLT_LMT_444;
-		else
+		if (vbatt > INPUT_SRC_LOW_VBAT_LIMIT &&
+			vbatt <= INPUT_SRC_MIDL_VBAT_LIMIT1)
 			vindpm = INPUT_SRC_VOLT_LMT_412;
+		else if (vbatt > INPUT_SRC_MIDL_VBAT_LIMIT1 &&
+			vbatt <= INPUT_SRC_MIDL_VBAT_LIMIT2)
+			vindpm = INPUT_SRC_VOLT_LMT_444;
+		else if (vbatt > INPUT_SRC_MIDL_VBAT_LIMIT2)
+			vindpm = INPUT_SRC_VOLT_LMT_460;
 
 		mutex_lock(&chip->event_lock);
 		ret = bq24192_modify_vindpm(vindpm);
