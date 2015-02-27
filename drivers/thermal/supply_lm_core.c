@@ -567,8 +567,9 @@ static int get_curr_hotplug_request(uint8_t core_num, cpumask_t *cpu_mask,
 				char *buf)
 {
 	int cpu = 0;
-	cpumask_t offline_mask = CPU_MASK_NONE;
+	cpumask_t offline_mask;
 
+	HOTPLUG_NO_MITIGATION(&offline_mask);
 	for_each_possible_cpu(cpu) {
 		if (!cpu_online(cpu))
 			cpumask_set_cpu(cpu, &offline_mask);
@@ -608,12 +609,13 @@ static int handle_step2_mitigation(
 			struct supply_lm_mitigation_data *mit_state)
 {
 	int ret = 0;
-	cpumask_t req_cpu_mask = CPU_MASK_NONE;
+	cpumask_t req_cpu_mask;
 	bool hotplug_req = false;
 	bool freq_req = false;
 	union device_request curr_req;
 	char buf[CPU_BUF_SIZE];
 
+	HOTPLUG_NO_MITIGATION(&req_cpu_mask);
 	ret = get_curr_hotplug_request(mit_state->core_offline_req,
 					&req_cpu_mask, buf);
 	if (ret)
@@ -1390,10 +1392,10 @@ static void supply_lm_thermal_notify(struct therm_threshold *trig_sens)
 					therm_sens->curr.therm_state);
 	if (!supply_lm_data->enabled ||
 			supply_lm_bypass_inp)
-		goto set_and_exit;
+		goto notify_exit;
 
 	if (!trig_sens || trig_sens->trip_triggered < 0)
-		goto set_and_exit;
+		goto notify_exit;
 
 	trig_thresh = trig_sens->parent;
 
@@ -1474,8 +1476,11 @@ static void supply_lm_thermal_notify(struct therm_threshold *trig_sens)
 	if (supply_lm_monitor_task &&
 			!supply_lm_data->suspend_in_progress)
 		complete(&supply_lm_notify_complete);
+
 set_and_exit:
 	sensor_mgr_set_threshold(trig_sens->sensor_id, trig_sens->threshold);
+
+notify_exit:
 	trace_supply_lm_inp_end_trig(SUPPLY_LM_THERM_DEVICE,
 					therm_sens->curr.therm_state);
 	return;
@@ -1826,7 +1831,7 @@ static int opp_clk_get_from_handle(struct platform_device *pdev,
 	struct device_node *opp_dev_node = NULL;
 
 	if (!pdev || !phandle
-	    || (!opp_pdev && !opp_clk)) {
+	    || !opp_pdev || !opp_clk) {
 		pr_err("Invalid Input\n");
 		ret = -EINVAL;
 		goto clk_exit;
@@ -1846,9 +1851,6 @@ static int opp_clk_get_from_handle(struct platform_device *pdev,
 		goto clk_exit;
 	}
 
-	if (!opp_clk)
-		goto clk_exit;
-
 	*opp_clk = devm_clk_get(&(*opp_pdev)->dev, "core_clk");
 	if (IS_ERR(*opp_clk)) {
 		pr_err("Error getting core clk: %lu\n", PTR_ERR(*opp_clk));
@@ -1857,7 +1859,8 @@ static int opp_clk_get_from_handle(struct platform_device *pdev,
 	}
 clk_exit:
 	if (ret)
-		*opp_clk = NULL;
+		if (opp_clk)
+			*opp_clk = NULL;
 	return ret;
 }
 
@@ -1949,6 +1952,7 @@ static void initialize_supply_lm_data(struct supply_lm_core_data *supply_lm)
 	supply_lm->step2_hotplug_initiated = false;
 	supply_lm->supply_lm_limited_max_freq = UINT_MAX;
 	supply_lm->supply_lm_offlined_cpu_mask = CPU_MASK_NONE;
+	HOTPLUG_NO_MITIGATION(&supply_lm->supply_lm_offlined_cpu_mask);
 }
 
 static int supply_lm_core_probe(struct platform_device *pdev)
