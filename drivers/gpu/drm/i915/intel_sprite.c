@@ -153,7 +153,7 @@ static void intel_update_primary_plane(struct drm_plane *dplane,
 	if (intel_crtc->primary_enabled) {
 		intel_crtc->reg.cntr = I915_READ(dspreg) | DISPLAY_PLANE_ENABLE;
 		intel_plane->reg.dspcntr =
-			I915_READ(dspreg) | DISPLAY_PLANE_ENABLE;
+			(I915_READ(dspreg) | DISPLAY_PLANE_ENABLE);
 		intel_crtc->pri_update = true;
 		intel_plane->pri_update = true;
 		if (!dev_priv->atomic_update)

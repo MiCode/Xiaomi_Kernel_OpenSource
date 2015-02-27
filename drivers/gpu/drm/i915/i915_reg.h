@@ -480,6 +480,7 @@
 
 #define GCI_CONTROL	(dev_priv->info.display_mmio_offset + 0x650C)
 #define VGA_FAST_MODE_DISABLE	(1<<14)
+#define PFI_CREDITS_12		(4<<28)
 #define PFI_CREDITS_15		(7<<28)
 #define PFI_CREDITS_31		(8<<28)
 #define PFI_CREDITS_63		(9<<28)
@@ -4144,7 +4145,25 @@ enum punit_power_well {
 #define   DPINVGTT_STATUS_MASK			0xff
 #define   DPINVGTT_STATUS_MASK_CHV		0xfff
 
+/*
+ * the below macros are used to define the bits of
+ * plane_stat variable in dev_priv
+ * bits 0-3 represent planes of pipe a
+ * bits 4-7 represent planes of pipe b
+ * bits 8-11 represent places of pipe c
+ * bits 12,13,14 represent PIPEA, PIPEB,PIPEC
+ * respectively
+ */
+#define PIPE_A_PLANES_MASK	0xf
+#define PIPE_B_PLANES_MASK	0xf0
+#define PIPE_C_PLANES_MASK	0xf00
+#define PIPE_ENABLE_MASK	0xf000
+#define PIPE_C_ENABLE_MASK	0x4000
+
 #define	DSPARB	(dev_priv->info.display_mmio_offset + 0x70030)
+#define	DSPARB2	(dev_priv->info.display_mmio_offset + 0x70060)
+#define	DSPARB3	(dev_priv->info.display_mmio_offset + 0x7006c)
+
 #define	DSPARB_VLV_DEFAULT	0x80008000
 #define	DSPARB_CSTART_MASK	(0x7f << 7)
 #define	DSPARB_CSTART_SHIFT	7
@@ -4152,6 +4171,8 @@ enum punit_power_well {
 #define	DSPARB_BSTART_SHIFT	0
 #define	DSPARB_BEND_SHIFT	9 /* on 855 */
 #define	DSPARB_AEND_SHIFT	0
+#define	DSPARB2_VLV_DEFAULT	0x00111111
+#define	DSPARB3_VLV_DEFAULT	0x80008000
 
 #define DSPFW1			(dev_priv->info.display_mmio_offset + 0x70034)
 #define   DSPFW_SR_SHIFT	23
@@ -4202,7 +4223,7 @@ enum punit_power_well {
 #define DSPFW6			(dev_priv->info.display_mmio_offset + 0x70078)
 #define   DSPFW6_DISPLAYSR_VAL	0xF
 #define   DSPFW6_VLV		0x0000000F
-#define DSPFW7			(dev_priv->info.display_mmio_offset + 0x7007c)
+#define DSPFW7			(dev_priv->info.display_mmio_offset + 0x700B4)
 #define   DSPFW7_SPRITEC_VAL	0x0F
 #define   DSPFW7_SPRITEC1_VAL	0x04
 #define   DSPFW7_SPRITEC1_SHIFT	8
@@ -4211,6 +4232,16 @@ enum punit_power_well {
 #define   DSPFW7_SPRITED1_VAL	0x04
 #define   DSPFW7_SPRITED1_SHIFT	24
 #define   DSPFW7_VLV		0x040F040F
+#define DSPFW8			(dev_priv->info.display_mmio_offset + 0x700B8)
+#define   DSPFW8_SPRITEE_VAL	0x0F
+#define   DSPFW8_SPRITEE1_VAL	0x04
+#define   DSPFW8_SPRITEE1_SHIFT	8
+#define   DSPFW8_SPRITEF_VAL	0x0F
+#define   DSPFW8_SPRITEF_SHIFT	16
+#define   DSPFW8_SPRITEF1_VAL	0x04
+#define   DSPFW8_SPRITEF1_SHIFT	24
+#define DSPFW9			(dev_priv->info.display_mmio_offset + 0x7007C)
+#define VLV_DSPFW9_DEF_WM	0x40f0004
 
 /* drain latency register values*/
 #define VLV_DDL(pipe)	_PIPE(pipe, VLV_DDL1, VLV_DDL2)
@@ -4239,12 +4270,16 @@ enum punit_power_well {
 #define DDL_PLANEB_PRECISION_H		(1<<7)
 #define DDL_PLANEB_PRECISION_L		(0<<7)
 
+#define VLV_DDL3	(VLV_DISPLAY_BASE + 0x70058)
+#define DSPHOWM			(dev_priv->info.display_mmio_offset + 0x70064)
+#define DSPHOWM1		(dev_priv->info.display_mmio_offset + 0x70068)
+
 /* FIFO watermark sizes etc */
 #define G4X_FIFO_LINE_SIZE	64
 #define I915_FIFO_LINE_SIZE	64
 #define I830_FIFO_LINE_SIZE	32
 
-#define VALLEYVIEW_FIFO_SIZE	255
+#define VALLEYVIEW_FIFO_SIZE	511
 #define G4X_FIFO_SIZE		127
 #define I965_FIFO_SIZE		512
 #define I945_FIFO_SIZE		127
@@ -6559,9 +6594,13 @@ enum punit_power_well {
 #define  WM_DBG_DISALLOW_SPRITE		(1<<2)
 
 #define CHV_DPASSC		0x36
-
 /* Bit 6 of DPASSC indicates maxfifo enabling bit */
 #define CHV_PW_MAXFIFO_MASK		0x40
+
+#define CHV_DDR_DVFS		0x139
+#define CHV_FORCE_DDR_LOW_FREQ	0x2
+#define CHV_FORCE_DDR_HIGH_FREQ	0x1
+#define CHV_DDR_DVFS_DOORBELL	0x100
 
 /* pipe CSC */
 #define _PIPE_A_CSC_COEFF_RY_GY	0x49010

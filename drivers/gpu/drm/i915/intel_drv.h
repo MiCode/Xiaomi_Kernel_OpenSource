@@ -1178,7 +1178,8 @@ bool is_sprite_enabled(struct drm_i915_private *dev_priv,
 			enum pipe pipe, enum plane plane);
 bool is_cursor_enabled(struct drm_i915_private *dev_priv,
 			enum pipe pipe);
-void intel_update_maxfifo(struct drm_i915_private *dev_priv);
+void intel_update_maxfifo(struct drm_i915_private *dev_priv,
+			  enum pipe pipe, int count);
 
 extern void intel_unpin_work_fn(struct work_struct *__work);
 extern void intel_unpin_sprite_work_fn(struct work_struct *__work);

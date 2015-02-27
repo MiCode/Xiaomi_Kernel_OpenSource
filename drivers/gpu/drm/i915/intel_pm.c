@@ -1509,8 +1509,8 @@ bool vlv_calculate_ddl(struct drm_crtc *crtc,
 		clock = crtc->mode.clock;
 
 	if (IS_CHERRYVIEW(dev)) {
-		h_precision = 32;
-		l_precision = 16;
+		h_precision = 32/2;
+		l_precision = 16/2;
 	} else {
 		h_precision = 64;
 		l_precision = 32;
@@ -1540,41 +1540,108 @@ bool vlv_calculate_ddl(struct drm_crtc *crtc,
 
 #define single_plane_enabled(mask) is_power_of_2(mask)
 
-void intel_update_maxfifo(struct drm_i915_private *dev_priv)
+void intel_update_maxfifo(struct drm_i915_private *dev_priv, enum pipe pipe,
+			  int plane_cnt)
 {
 	unsigned int val = 0;
+	struct drm_device *dev = dev_priv->dev;
+
+
+	if (!IS_VALLEYVIEW(dev_priv->dev))
+		return;
+
 	/*
 	 * Maxfifo is not supported for PIPEC single plane
 	 * Hence having a check while enabling maxfifo
 	 * No need of a check on pipec in disable path
-	 * as it is doens't get enabled
+	 * as it is doens't get enabled. In this function
+	 * we also enable ddrdvfs in case of single plane
+	 * enabled.
 	 */
-	if (IS_VALLEYVIEW(dev_priv->dev)) {
-		if (single_plane_enabled(dev_priv->plane_stat)
-			&& !(dev_priv->plane_stat & PIPE_C_MASK)
-			&& !dev_priv->maxfifo_enabled) {
+	if (single_plane_enabled(dev_priv->plane_stat
+			& (PIPE_A_PLANES_MASK || PIPE_B_PLANES_MASK))
+		&& !(dev_priv->plane_stat & PIPE_C_MASK)
+		&& (single_plane_enabled(dev_priv->plane_stat
+			& PIPE_ENABLE_MASK))
+		&& !dev_priv->maxfifo_enabled) {
+		if (IS_CHERRYVIEW(dev_priv->dev)) {
+			mutex_lock(&dev_priv->rps.hw_lock);
+			val = CHV_FORCE_DDR_LOW_FREQ | CHV_DDR_DVFS_DOORBELL;
+			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+			intel_wait_for_vblank(dev, pipe);
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
-			if (IS_CHERRYVIEW(dev_priv->dev)) {
-				mutex_lock(&dev_priv->rps.hw_lock);
-				val = vlv_punit_read(dev_priv, CHV_DPASSC);
-				vlv_punit_write(dev_priv, CHV_DPASSC,
-						(val | CHV_PW_MAXFIFO_MASK));
-				mutex_unlock(&dev_priv->rps.hw_lock);
-			}
-			dev_priv->maxfifo_enabled = true;
-		} else if (dev_priv->maxfifo_enabled &&
-				!single_plane_enabled(dev_priv->plane_stat)) {
+			val = vlv_punit_read(dev_priv, CHV_DPASSC);
+			vlv_punit_write(dev_priv, CHV_DPASSC,
+					(val | CHV_PW_MAXFIFO_MASK));
+			mutex_unlock(&dev_priv->rps.hw_lock);
+		} else
+			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = true;
+	} else if (dev_priv->maxfifo_enabled
+			&& (!single_plane_enabled(dev_priv->plane_stat
+				& (PIPE_A_PLANES_MASK | PIPE_B_PLANES_MASK
+					| PIPE_C_PLANES_MASK)))
+			&& (!single_plane_enabled(dev_priv->plane_stat
+				& PIPE_ENABLE_MASK))) {
+		if (IS_CHERRYVIEW(dev_priv->dev)) {
+			mutex_lock(&dev_priv->rps.hw_lock);
+			val = CHV_FORCE_DDR_HIGH_FREQ |	CHV_DDR_DVFS_DOORBELL;
+			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+			intel_wait_for_vblank(dev, pipe);
+			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-			if (IS_CHERRYVIEW(dev_priv->dev)) {
-				mutex_lock(&dev_priv->rps.hw_lock);
-				val = vlv_punit_read(dev_priv, CHV_DPASSC);
-				vlv_punit_write(dev_priv, CHV_DPASSC,
+			vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val & ~(CHV_PW_MAXFIFO_MASK)));
-				mutex_unlock(&dev_priv->rps.hw_lock);
-			}
-			dev_priv->maxfifo_enabled = false;
-		}
+			mutex_unlock(&dev_priv->rps.hw_lock);
+			intel_wait_for_vblank(dev, pipe);
+		} else
+			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
+		dev_priv->maxfifo_enabled = false;
 	}
+}
+
+void valleyview_update_wm_pm5(struct drm_crtc *crtc)
+{
+	struct drm_device *dev = crtc->dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
+	I915_WRITE(DSPARB2, DSPARB2_VLV_DEFAULT);
+	I915_WRITE(DSPARB3, DSPARB3_VLV_DEFAULT);
+
+	I915_WRITE(DSPFW1,
+		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
+		   (DSPFW_CURSORB_VAL << DSPFW_CURSORB_SHIFT) |
+		   (DSPFW_PLANEB_VAL << DSPFW_PLANEB_SHIFT) |
+		   DSPFW_PLANEA_VAL);
+	I915_WRITE(DSPFW2,
+		   (DSPFW2_RESERVED) |
+		   (DSPFW_CURSORA_VAL << DSPFW_CURSORA_SHIFT) |
+		   DSPFW_PLANEC_VAL);
+	I915_WRITE(DSPFW3,
+		   (I915_READ(DSPFW3) & ~DSPFW_CURSOR_SR_MASK) |
+		   (DSPFW3_VLV));
+	I915_WRITE(DSPFW5, (DSPFW5_DISPLAYB_VAL << DSPFW5_DISPLAYB_SHIFT) |
+			(DSPFW5_DISPLAYA_VAL << DSPFW5_DISPLAYA_SHIFT) |
+			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
+			DSPFW5_CURSORSR_VAL);
+	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
+
+	/* updating the sprite watermark*/
+	I915_WRITE(DSPFW4, (DSPFW4_SPRITEB_VAL << DSPFW4_SPRITEB_SHIFT) |
+			(DSPFW4_CURSORA_VAL << DSPFW4_CURSORA_SHIFT) |
+			DSPFW4_SPRITEA_VAL);
+	I915_WRITE(DSPFW7, (DSPFW7_SPRITED1_VAL << DSPFW7_SPRITED1_SHIFT) |
+			(DSPFW7_SPRITED_VAL << DSPFW7_SPRITED_SHIFT) |
+			(DSPFW7_SPRITEC1_VAL << DSPFW7_SPRITEC1_SHIFT) |
+			DSPFW7_SPRITEC_VAL);
+	I915_WRITE(DSPFW8, (DSPFW8_SPRITEF1_VAL << DSPFW8_SPRITEF1_SHIFT) |
+			(DSPFW8_SPRITEF_VAL << DSPFW8_SPRITEF_SHIFT) |
+			(DSPFW8_SPRITEE1_VAL << DSPFW8_SPRITEE1_SHIFT) |
+			DSPFW8_SPRITEE_VAL);
+	I915_WRITE(DSPFW9, (I915_READ(DSPFW9) | VLV_DSPFW9_DEF_WM));
+	I915_WRITE(DSPHOWM, 0);
+	I915_WRITE(DSPHOWM1, 0);
 }
 
 static void valleyview_update_wm(struct drm_crtc *crtc)
@@ -1615,7 +1682,6 @@ static void valleyview_update_wm(struct drm_crtc *crtc)
 			DSPFW5_CURSORSR_VAL);
 	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
 }
-
 static void g4x_update_wm(struct drm_crtc *crtc)
 {
 	struct drm_device *dev = crtc->dev;
@@ -8059,8 +8125,14 @@ void program_pfi_credits(struct drm_i915_private *dev_priv, bool flag)
 		/* Disable before enabling */
 		I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE);
 		I915_WRITE(GCI_CONTROL, val);
-	} else
-		DRM_ERROR("cd clk < cz clk");
+	} else {
+		if (IS_CHERRYVIEW(dev_priv->dev)) {
+			val |= PFI_CREDITS_12;
+			I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE);
+			I915_WRITE(GCI_CONTROL, val);
+			DRM_ERROR("cd clk < cz clk");
+		}
+	}
 }
 
 /*
