@@ -261,7 +261,7 @@ struct mdss_mdp_wfd_data *mdss_mdp_wfd_add_data(
 	ret = mdss_mdp_wfd_import_data(wfd->device, wfd_data);
 	if (ret) {
 		pr_err("fail to import data\n");
-		mdss_mdp_data_free(&wfd_data->data, false, DMA_FROM_DEVICE);
+		mdss_mdp_data_free(&wfd_data->data, true, DMA_FROM_DEVICE);
 		kfree(wfd_data);
 		return ERR_PTR(ret);
 	}
@@ -281,7 +281,7 @@ void mdss_mdp_wfd_remove_data(struct mdss_mdp_wfd *wfd,
 	if (list_empty(&wfd->data_queue))
 		complete(&wfd->comp);
 	mutex_unlock(&wfd->lock);
-	mdss_mdp_data_free(&wfd_data->data, false, DMA_FROM_DEVICE);
+	mdss_mdp_data_free(&wfd_data->data, true, DMA_FROM_DEVICE);
 	kfree(wfd_data);
 }
 
@@ -325,7 +325,7 @@ int mdss_mdp_wfd_kickoff(struct mdss_mdp_wfd *wfd,
 				struct mdss_mdp_wfd_data, next);
 	mutex_unlock(&wfd->lock);
 
-	ret = mdss_mdp_data_map(&wfd_data->data, false, DMA_FROM_DEVICE);
+	ret = mdss_mdp_data_map(&wfd_data->data, true, DMA_FROM_DEVICE);
 	if (ret) {
 		pr_err("fail to acquire output buffer\n");
 		goto kickoff_error;
