@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -124,7 +124,9 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 	dmac_clean_range(msm_cache_dump_vaddr,
 				msm_cache_dump_vaddr + total_size);
 
-	desc.args[0] = l1_cache_data.buf = msm_cache_dump_addr;
+	/* Phys address of the cache dump buffer may be > 4GB */
+	desc.args[0] = msm_cache_dump_addr;
+	l1_cache_data.buf = msm_cache_dump_addr;
 	desc.args[1] = l1_cache_data.size = l1_size;
 	desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 
@@ -144,7 +146,9 @@ static int msm_cache_dump_probe(struct platform_device *pdev)
 								+ l1_size);
 
 #if defined(CONFIG_MSM_CACHE_DUMP_ON_PANIC)
-	desc.args[0] = l1_cache_data.buf = msm_cache_dump_addr + l1_size;
+	/* Phys address of the cache dump buffer may be > 4GB */
+	desc.args[0] = msm_cache_dump_addr + l1_size;
+	l1_cache_data.buf = msm_cache_dump_addr + l1_size;
 	desc.args[1] = l1_cache_data.size = l2_size;
 	desc.arginfo = SCM_ARGS(2, SCM_RW, SCM_VAL);
 
