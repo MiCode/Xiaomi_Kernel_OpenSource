@@ -598,9 +598,10 @@ static u8 qpnp_lbc_get_trim_val(struct qpnp_lbc_chip *chip)
 					return vddtrim_map[i + 1].trim_val;
 			}
 		}
+		i = 0;
 		break;
 	case 1:
-		for (i = TRIM_CENTER; i <= 7; i++) {
+		for (i = TRIM_CENTER; i <= ARRAY_SIZE(vddtrim_map); i++) {
 			if (vddtrim_map[i].trim_uv < chip->delta_vddmax_uv) {
 				delta_uv = AVG(vddtrim_map[i].trim_uv,
 						vddtrim_map[i - 1].trim_uv);
@@ -610,6 +611,7 @@ static u8 qpnp_lbc_get_trim_val(struct qpnp_lbc_chip *chip)
 					return vddtrim_map[i].trim_val;
 			}
 		}
+		i = ARRAY_SIZE(vddtrim_map);
 		break;
 	}
 
