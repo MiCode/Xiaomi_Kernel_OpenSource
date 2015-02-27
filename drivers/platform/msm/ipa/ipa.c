@@ -2961,6 +2961,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_hw_mode = resource_p->ipa_hw_mode;
 	ipa_ctx->use_ipa_teth_bridge = resource_p->use_ipa_teth_bridge;
 	ipa_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
+	ipa_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
 
 	/* default aggregation parameters */
 	ipa_ctx->aggregation_type = IPA_MBIM_16;
@@ -3458,6 +3459,7 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	ipa_drv_res->ipa_hw_type = 0;
 	ipa_drv_res->ipa_hw_mode = 0;
 	ipa_drv_res->ipa_bam_remote_mode = false;
+	ipa_drv_res->wan_rx_ring_size = IPA_GENERIC_RX_POOL_SZ;
 
 	/* Get IPA HW Version */
 	result = of_property_read_u32(pdev->dev.of_node, "qcom,ipa-hw-ver",
@@ -3476,6 +3478,16 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	else
 		IPADBG(": found ipa_drv_res->ipa_hw_mode = %d",
 				ipa_drv_res->ipa_hw_mode);
+
+	/* Get IPA WAN RX pool sizee */
+	result = of_property_read_u32(pdev->dev.of_node,
+			"qcom,wan-rx-ring-size",
+			&ipa_drv_res->wan_rx_ring_size);
+	if (result)
+		IPADBG("using default for wan-rx-ring-size\n");
+	else
+		IPADBG(": found ipa_drv_res->wan-rx-ring-size = %u",
+				ipa_drv_res->wan_rx_ring_size);
 
 	ipa_drv_res->use_ipa_teth_bridge =
 			of_property_read_bool(pdev->dev.of_node,

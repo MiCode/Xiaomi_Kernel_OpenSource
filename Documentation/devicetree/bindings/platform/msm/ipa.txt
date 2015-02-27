@@ -22,6 +22,7 @@ IPA node:
 
 Optional:
 
+- qcom,wan-rx-ring-size: size of WAN rx ring, default is 32
 - qcom,use-a2-service: determine if A2 service will be used
 - qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
 - qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
