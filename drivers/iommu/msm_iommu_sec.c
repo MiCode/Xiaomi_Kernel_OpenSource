@@ -136,7 +136,9 @@ static int msm_iommu_dump_fault_regs(int smmu_id, int cb_num,
 
 	desc.args[0] = req_info.id = smmu_id;
 	desc.args[1] = req_info.cb_num = cb_num;
-	desc.args[2] = req_info.buff = virt_to_phys(regs);
+	/* virt_to_phys(regs) may be greater than 4GB */
+	req_info.buff = virt_to_phys(regs);
+	desc.args[2] =  virt_to_phys(regs);
 	desc.args[3] = req_info.len = sizeof(*regs);
 	desc.arginfo = SCM_ARGS(4, SCM_VAL, SCM_VAL, SCM_RW, SCM_VAL);
 
@@ -427,7 +429,9 @@ static int msm_iommu_sec_ptbl_init(void)
 		goto fail;
 	}
 
-	desc.args[0] = pinit.paddr = (unsigned int)paddr;
+	pinit.paddr = (unsigned int)paddr;
+	/* paddr may be a physical address > 4GB */
+	desc.args[0] = paddr;
 	desc.args[1] = pinit.size = psize[0];
 	desc.args[2] = pinit.spare;
 	desc.arginfo = SCM_ARGS(3, SCM_RW, SCM_VAL, SCM_VAL);
