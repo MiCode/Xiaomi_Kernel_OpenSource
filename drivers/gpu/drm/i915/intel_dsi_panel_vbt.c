@@ -241,13 +241,30 @@ static struct gpio_table gtable[] = {
 
 static u8 *mipi_exec_send_packet(struct intel_dsi *intel_dsi, u8 *data)
 {
-	u8 type, byte, mode, vc, port;
+	struct drm_device *dev = intel_dsi->base.base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	u8 type, byte, mode, vc, port = 0;
 	u16 len;
 
 	byte = *data++;
 	mode = (byte >> MIPI_TRANSFER_MODE_SHIFT) & 0x1;
 	vc = (byte >> MIPI_VIRTUAL_CHANNEL_SHIFT) & 0x3;
-	port = (byte >> MIPI_PORT_SHIFT) & 0x3;
+
+	if (intel_dsi->dual_link)
+		port = (byte >> MIPI_PORT_SHIFT) & 0x3;
+	else {
+		/*
+		 * For single link, use port id from vbt block 2
+		 * instead of block 53
+		 */
+		if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIA)
+			port = 0;
+		else if (dev_priv->vbt.dsi.port == DVO_PORT_MIPIC)
+			port = 1;
+		else
+			DRM_ERROR("Invalid port %d from VBT\n",
+					dev_priv->vbt.dsi.port);
+	}
 
 	/* LP or HS mode */
 	intel_dsi->hs = mode;
