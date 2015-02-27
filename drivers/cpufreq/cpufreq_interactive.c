@@ -369,7 +369,11 @@ static void cpufreq_interactive_timer(unsigned long data)
 	spin_lock_irqsave(&pcpu->target_freq_lock, flags);
 	do_div(cputime_speedadj, delta_time);
 	loadadjfreq = (unsigned int)cputime_speedadj * 100;
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+	cpu_load = loadadjfreq / pcpu->policy->cur;
+#else
 	cpu_load = loadadjfreq / pcpu->target_freq;
+#endif
 	tunables->boosted = tunables->boost_val || now < tunables->boostpulse_endtime;
 
 	if (cpu_load >= tunables->go_hispeed_load || tunables->boosted) {
@@ -580,6 +584,16 @@ static int cpufreq_interactive_speedchange_task(void *data)
 					max_freq = pjcpu->target_freq;
 			}
 
+#ifdef CONFIG_INTEL_MODULE_CPU_FREQ
+			if (max_freq != pcpu->policy->cur) {
+				__cpufreq_driver_target(pcpu->policy,
+							max_freq,
+							CPUFREQ_RELATION_H);
+				trace_cpufreq_interactive_setspeed(cpu,
+							     max_freq,
+							     pcpu->policy->cur);
+			}
+#else
 			if (max_freq != pcpu->policy->cur)
 				__cpufreq_driver_target(pcpu->policy,
 							max_freq,
@@ -587,7 +601,7 @@ static int cpufreq_interactive_speedchange_task(void *data)
 			trace_cpufreq_interactive_setspeed(cpu,
 						     pcpu->target_freq,
 						     pcpu->policy->cur);
-
+#endif
 			up_read(&pcpu->enable_sem);
 		}
 	}
