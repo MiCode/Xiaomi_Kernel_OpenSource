@@ -33,6 +33,8 @@ Optional properties:
 		1 : Select Timer 2 for a measurement polling interval of 1 second.
 		2 : Select Timer 3 for a measurement polling interval of 4 seconds.
 - qcom,adc-tm-recalib-check: Add this property to check if recalibration required due to inaccuracy.
+- hkadc_ldo-supply : Add this property if VADC needs to perform a Software Vote for the HKADC.
+- hkadc_ok-supply : Add this property if the VADC needs to perform a Software vote for the HKADC VREG_OK.
 
 Client required property:
 - qcom,<consumer name>-adc_tm : The phandle to the corresponding adc_tm device.
