@@ -441,8 +441,13 @@ int alarm_start(struct alarm *alarm, ktime_t start)
  */
 int alarm_start_relative(struct alarm *alarm, ktime_t start)
 {
-	struct alarm_base *base = &alarm_bases[alarm->type];
+	struct alarm_base *base;
 
+	if (alarm->type >= ALARM_NUMTYPE) {
+		pr_err("Array out of index\n");
+		return -EINVAL;
+	}
+	base = &alarm_bases[alarm->type];
 	start = ktime_add(start, base->gettime());
 	return alarm_start(alarm, start);
 }
@@ -468,10 +473,15 @@ void alarm_restart(struct alarm *alarm)
  */
 int alarm_try_to_cancel(struct alarm *alarm)
 {
-	struct alarm_base *base = &alarm_bases[alarm->type];
+	struct alarm_base *base;
 	unsigned long flags;
 	int ret;
 
+	if (alarm->type >= ALARM_NUMTYPE) {
+		pr_err("Array out of index\n");
+		return -EINVAL;
+	}
+	base = &alarm_bases[alarm->type];
 	spin_lock_irqsave(&base->lock, flags);
 	ret = hrtimer_try_to_cancel(&alarm->timer);
 	if (ret >= 0)
