@@ -439,16 +439,13 @@ bool mdp3_is_scale(struct mdp_blit_req *req)
 u32 mdp3_clk_calc(struct msm_fb_data_type *mfd,
 				struct blit_req_list *lreq, u32 fps)
 {
-	struct mdss_panel_info *panel_info = mfd->panel_info;
 	int i, lcount = 0;
 	struct mdp_blit_req *req;
-	u32 total_pixel;
 	u32 mdp_clk_rate = 0;
-	u32 scale_x, scale_y, scale;
+	u32 scale_x = 0, scale_y = 0, scale = 0;
 	u32 blend_l, csc_l;
 
 	lcount = lreq->count;
-	total_pixel = panel_info->xres * panel_info->yres;
 
 	blend_l = 100 * BLEND_LATENCY;
 	csc_l = 100 * CSC_LATENCY;
@@ -461,14 +458,14 @@ u32 mdp3_clk_calc(struct msm_fb_data_type *mfd,
 
 		if (mdp3_is_scale(req)) {
 			if (req->flags & MDP_ROT_90) {
-				scale_x = 100 * req->src_rect.w /
-							req->dst_rect.w;
-				scale_y = 100 * req->src_rect.h /
-							req->dst_rect.h;
-			} else {
 				scale_x = 100 * req->src_rect.h /
 							req->dst_rect.w;
 				scale_y = 100 * req->src_rect.w /
+							req->dst_rect.h;
+			} else {
+				scale_x = 100 * req->src_rect.w /
+							req->dst_rect.w;
+				scale_y = 100 * req->src_rect.h /
 							req->dst_rect.h;
 			}
 			scale = max(scale_x, scale_y);
