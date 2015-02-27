@@ -2039,10 +2039,9 @@ static int mmc_blk_issue_normal_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			ret = blk_end_request(req, -EIO,
 					blk_rq_cur_bytes(req));
 	}
+ start_new_req:
 	clear_bit_unlock(mq_rq->task_id, &mq->cmdqslot);
 	atomic_dec(&mq->active_slots);
-
- start_new_req:
 	if (rqc) {
 		if (mmc_card_removed(card)) {
 			rqc->cmd_flags |= REQ_QUIET;

@@ -2354,6 +2354,8 @@ static void sdhci_tasklet_finish(unsigned long param)
 		   controllers do not like that. */
 		sdhci_reset(host, SDHCI_RESET_CMD);
 		sdhci_reset(host, SDHCI_RESET_DATA);
+		/* clear data as DATA is reset */
+		host->data = NULL;
 	}
 
 	host->mrq = NULL;
