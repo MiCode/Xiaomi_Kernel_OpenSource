@@ -1057,6 +1057,19 @@ static int msm_pcie_restore_sec_config(struct msm_pcie_dev_t *dev)
 	return 0;
 }
 
+static inline int msm_pcie_check_align(struct msm_pcie_dev_t *dev,
+						u32 offset)
+{
+	if (offset % 4) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: offset 0x%x is not correctly aligned\n",
+			dev->rc_idx, offset);
+		return MSM_PCIE_ERROR;
+	}
+
+	return 0;
+}
+
 static bool msm_pcie_confirm_linkup(struct msm_pcie_dev_t *dev,
 						bool check_sw_stts,
 						bool check_ep)
@@ -2762,6 +2775,9 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 	current_offset = readl_relaxed(dev->conf + PCIE_CAP_PTR_OFFSET) & 0xff;
 
 	while (current_offset) {
+		if (msm_pcie_check_align(dev, current_offset))
+			return;
+
 		val = readl_relaxed(dev->conf + current_offset);
 		if ((val & 0xff) == PCIE20_CAP_ID) {
 			ep_link_cap_offset = current_offset + 0x0c;
@@ -2867,6 +2883,9 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 	if (dev->l1ss_supported) {
 		current_offset = PCIE_EXT_CAP_OFFSET;
 		while (current_offset) {
+			if (msm_pcie_check_align(dev, current_offset))
+				return;
+
 			val = readl_relaxed(dev->conf + current_offset);
 			if ((val & 0xffff) == L1SUB_CAP_ID) {
 				ep_l1sub_cap_reg1_offset = current_offset + 0x4;
@@ -3506,6 +3525,9 @@ static void msm_pcie_config_ep_aer(struct msm_pcie_dev_t *dev,
 						0xff;
 
 	while (current_offset) {
+		if (msm_pcie_check_align(dev, current_offset))
+			return;
+
 		val = readl_relaxed(ep_base + current_offset);
 		if ((val & 0xff) == PCIE20_CAP_ID) {
 			ep_dev_info->dev_ctrlstts_offset =
