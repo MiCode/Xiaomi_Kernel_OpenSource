@@ -482,6 +482,7 @@ static enum pwr_path_type smbchg_get_pwr_path(struct smbchg_chip *chip)
 #define USBID_MSB			0xE
 #define USBIN_UV_BIT			BIT(0)
 #define USBIN_OV_BIT			BIT(1)
+#define USBIN_SRC_DET_BIT		BIT(2)
 #define FMB_STS_MASK			SMB_MASK(3, 0)
 #define USBID_GND_THRESHOLD		0x495
 static bool is_otg_present(struct smbchg_chip *chip)
@@ -3701,40 +3702,84 @@ out:
  */
 static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 {
+	int rc;
+	u8 reg;
+	union power_supply_propval prop = {0, };
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
 	pr_smb(PR_STATUS, "chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
-	if (chip->usb_present && !usb_present) {
-		/* USB removed */
-		chip->usb_present = usb_present;
-		handle_usb_removal(chip);
+
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
+		goto out;
+	}
+	reg &= USBIN_UV_BIT;
+
+	if (reg && chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
+							POWER_SUPPLY_PROP_TYPE,
+							&prop)) {
+		if ((prop.intval == POWER_SUPPLY_TYPE_USB_HVDCP) ||
+			(prop.intval == POWER_SUPPLY_TYPE_USB_DCP)) {
+			if (chip->usb_present && !usb_present) {
+				/* DCP or HVDCP removed */
+				chip->usb_present = usb_present;
+				handle_usb_removal(chip);
+			}
+		}
 	}
 	smbchg_wipower_check(chip);
+out:
 	return IRQ_HANDLED;
 }
 
 /**
- * src_detect_handler() - this is called when USB charger type is detected, use
- *			it for handling USB charger insertion
+ * src_detect_handler() - this is called on rising edge when USB charger type
+ *			is detected and on falling edge when USB voltage falls
+ *			below the coarse detect voltage(1V), use it for
+ *			handling USB charger insertion and CDP or SDP removal
  * @chip: pointer to smbchg_chip
  * @rt_stat: the status bit indicating chg insertion/removal
  */
 static irqreturn_t src_detect_handler(int irq, void *_chip)
 {
+	int rc;
+	u8 reg;
+	union power_supply_propval prop = {0, };
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
 	pr_smb(PR_STATUS, "chip->usb_present = %d usb_present = %d\n",
 			chip->usb_present, usb_present);
 
-	if (!chip->usb_present && usb_present) {
-		/* USB inserted */
-		chip->usb_present = usb_present;
-		handle_usb_insertion(chip);
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
+		goto out;
+	}
+	reg &= USBIN_SRC_DET_BIT;
+
+	if (reg) {
+		if (!chip->usb_present && usb_present) {
+			/* USB inserted */
+			chip->usb_present = usb_present;
+			handle_usb_insertion(chip);
+		}
+	} else if (chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
+							POWER_SUPPLY_PROP_TYPE,
+							&prop)) {
+		if (((prop.intval == POWER_SUPPLY_TYPE_USB_CDP) ||
+			(prop.intval == POWER_SUPPLY_TYPE_USB)) &&
+			chip->usb_present) {
+				/* CDP or SDP removed */
+				chip->usb_present = !chip->usb_present;
+				handle_usb_removal(chip);
+		}
 	}
 
+out:
 	return IRQ_HANDLED;
 }
 
