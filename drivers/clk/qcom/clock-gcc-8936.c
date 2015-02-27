@@ -1536,6 +1536,7 @@ static struct rcg_clk sdcc2_apps_clk_src = {
 static struct clk_freq_tbl ftbl_gcc_usb_hs_system_clk[] = {
 	F(  57140000,      gpll0_out_main,  14,    0,    0),
 	F(  80000000,	   gpll0_out_main,  10,	  0,	0),
+	F( 100000000,	   gpll0_out_main,   8,	  0,	0),
 	F_END
 };
 
@@ -1548,7 +1549,7 @@ static struct rcg_clk usb_hs_system_clk_src = {
 	.c = {
 		.dbg_name = "usb_hs_system_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP2(LOW, 57140000, NOMINAL, 80000000),
+		VDD_DIG_FMAX_MAP2(LOW, 57140000, NOMINAL, 100000000),
 		CLK_INIT(usb_hs_system_clk_src.c),
 	},
 };
