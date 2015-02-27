@@ -24,7 +24,8 @@
 #define HWCAP_IDIVA	(1 << 17)
 #define HWCAP_IDIVT	(1 << 18)
 #define HWCAP_IDIV	(HWCAP_IDIVA | HWCAP_IDIVT)
-
+#define HWCAP_LPAE     (1 << 20)
+#define HWCAP_EVTSTRM  (1 << 21)
 #if defined(__KERNEL__)
 #if !defined(__ASSEMBLY__)
 /*
