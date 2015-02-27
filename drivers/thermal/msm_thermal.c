@@ -46,6 +46,7 @@
 #include <linux/reboot.h>
 #include <soc/qcom/msm-core.h>
 #include <linux/cpumask.h>
+#include <linux/suspend.h>
 
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_THERMAL
@@ -193,6 +194,7 @@ struct cpu_info {
 	bool max_freq;
 	uint32_t user_max_freq;
 	uint32_t shutdown_max_freq;
+	uint32_t suspend_max_freq;
 	uint32_t user_min_freq;
 	uint32_t limited_max_freq;
 	uint32_t limited_min_freq;
@@ -439,36 +441,82 @@ uint32_t get_core_min_freq(uint32_t cpu)
 	return min_freq;
 }
 
-static int msm_thermal_reboot_callback(
-		struct notifier_block *nfb, unsigned long val, void *data)
+static void msm_thermal_update_freq(bool is_shutdown, bool mitigate)
 {
-	if (val == SYS_RESTART || val == SYS_POWER_OFF || val == SYS_HALT) {
-		uint32_t cpu;
+	uint32_t cpu;
+	bool update = false;
 
-		for_each_possible_cpu(cpu) {
-			if (msm_thermal_info.freq_mitig_control_mask
-				& BIT(cpu)) {
-				cpus[cpu].shutdown_max_freq =
-					get_core_min_freq(cpu);
-				if (cpus[cpu].shutdown_max_freq == UINT_MAX)
-					continue;
-				if (freq_mitigation_task) {
-					pr_debug("Mitigate CPU%u to %u\n", cpu,
-						cpus[cpu].shutdown_max_freq);
-					complete(&freq_mitigation_complete);
-				} else {
-					pr_err(
-					"Freq mit task is not initialized\n");
-				}
-			}
+	for_each_possible_cpu(cpu) {
+		if (msm_thermal_info.freq_mitig_control_mask
+			& BIT(cpu)) {
+			uint32_t *freq = (is_shutdown)
+				? &cpus[cpu].shutdown_max_freq
+				: &cpus[cpu].suspend_max_freq;
+			uint32_t mitigation_freq = (mitigate) ?
+				get_core_min_freq(cpu) : UINT_MAX;
+
+			if (*freq == mitigation_freq)
+				continue;
+			*freq = mitigation_freq;
+			update = true;
+			pr_debug("%s mitigate CPU%u to %u\n",
+				(is_shutdown) ? "Shutdown" : "Suspend", cpu,
+				mitigation_freq);
 		}
 	}
 
-	return NOTIFY_DONE;
+	if (!update)
+		goto notify_exit;
+
+	if (freq_mitigation_task)
+		complete(&freq_mitigation_complete);
+	else
+		pr_err("Freq mitigation task is not initialized\n");
+notify_exit:
+	return;
+}
+
+static int msm_thermal_power_down_callback(
+		struct notifier_block *nfb, unsigned long action, void *data)
+{
+
+	switch (action) {
+	case SYS_RESTART:
+	case SYS_POWER_OFF:
+	case SYS_HALT:
+		msm_thermal_update_freq(true, true);
+		break;
+
+	default:
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+
+static int msm_thermal_suspend_callback(
+		struct notifier_block *nfb, unsigned long action, void *data)
+{
+	switch (action) {
+	case PM_HIBERNATION_PREPARE:
+	case PM_SUSPEND_PREPARE:
+		msm_thermal_update_freq(false, true);
+		break;
+
+	case PM_POST_HIBERNATION:
+	case PM_POST_SUSPEND:
+		msm_thermal_update_freq(false, false);
+		break;
+
+	default:
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
 }
 
 static struct notifier_block msm_thermal_reboot_notifier = {
-	.notifier_call = msm_thermal_reboot_callback,
+	.notifier_call = msm_thermal_power_down_callback,
 };
 
 static struct device_manager_data *find_device_by_name(const char *device_name)
@@ -3126,6 +3174,9 @@ static __ref int do_freq_mitigation(void *data)
 			max_freq_req = min(max_freq_req,
 					cpus[cpu].shutdown_max_freq);
 
+			max_freq_req = min(max_freq_req,
+					cpus[cpu].suspend_max_freq);
+
 			min_freq_req = max(min_freq_limit,
 					cpus[cpu].user_min_freq);
 
@@ -4518,6 +4569,7 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 		cpus[cpu].max_freq = false;
 		cpus[cpu].user_max_freq = UINT_MAX;
 		cpus[cpu].shutdown_max_freq = UINT_MAX;
+		cpus[cpu].suspend_max_freq = UINT_MAX;
 		cpus[cpu].user_min_freq = 0;
 		cpus[cpu].limited_max_freq = UINT_MAX;
 		cpus[cpu].limited_min_freq = 0;
@@ -4540,6 +4592,7 @@ int msm_thermal_init(struct msm_thermal_data *pdata)
 		pr_err("cannot register cpufreq notifier. err:%d\n", ret);
 
 	register_reboot_notifier(&msm_thermal_reboot_notifier);
+	pm_notifier(msm_thermal_suspend_callback, 0);
 	INIT_DELAYED_WORK(&check_temp_work, check_temp);
 	schedule_delayed_work(&check_temp_work, 0);
 
