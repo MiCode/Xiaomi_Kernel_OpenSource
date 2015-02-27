@@ -47,6 +47,10 @@
 #define HPD_DISCONNECT_POLARITY 0
 #define HPD_CONNECT_POLARITY    1
 
+#define AUDIO_ACK_SET_ENABLE BIT(5)
+#define AUDIO_ACK_ENABLE BIT(4)
+#define AUDIO_ACK_CONNECT BIT(0)
+
 /*
  * Audio engine may take 1 to 3 sec to shutdown
  * in normal cases. To handle worst cases, making
@@ -522,15 +526,29 @@ static inline void hdmi_tx_set_audio_switch_node(
 		DEV_ERR("%s: invalid input\n", __func__);
 		return;
 	}
+
 	state = hdmi_ctrl->audio_sdev.state;
+
+	if (hdmi_ctrl->audio_ack_enabled &&
+		atomic_read(&hdmi_ctrl->audio_ack_pending)) {
+		DEV_ERR("%s: %s ack pending, not notifying %s\n", __func__,
+			state ? "connect" : "disconnect",
+			val ? "connect" : "disconnect");
+		return;
+	}
 
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
 	    hdmi_tx_is_cea_format(hdmi_ctrl->vid_cfg.vic)) {
+		bool switched;
+
 		switch_set_state(&hdmi_ctrl->audio_sdev, val);
+		switched = hdmi_ctrl->audio_sdev.state != state;
+
+		if (hdmi_ctrl->audio_ack_enabled && switched)
+			atomic_set(&hdmi_ctrl->audio_ack_pending, 1);
 
 		DEV_INFO("%s: audio state %s %d\n", __func__,
-			hdmi_ctrl->audio_sdev.state == state ?
-				"is same" : "switched to",
+			switched ? "switched to" : "is same",
 			hdmi_ctrl->audio_sdev.state);
 	}
 } /* hdmi_tx_set_audio_switch_node */
@@ -648,6 +666,54 @@ static ssize_t hdmi_tx_sysfs_rda_connected(struct device *dev,
 
 	return ret;
 } /* hdmi_tx_sysfs_rda_connected */
+
+static ssize_t hdmi_tx_sysfs_wta_audio_cb(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	int ack, rc = 0;
+	int ack_hpd;
+	ssize_t ret = strnlen(buf, PAGE_SIZE);
+	struct hdmi_tx_ctrl *hdmi_ctrl = NULL;
+
+	hdmi_ctrl = hdmi_tx_get_drvdata_from_sysfs_dev(dev);
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	rc = kstrtoint(buf, 10, &ack);
+	if (rc) {
+		DEV_ERR("%s: kstrtoint failed. rc=%d\n", __func__, rc);
+		return rc;
+	}
+
+	if (ack & AUDIO_ACK_SET_ENABLE) {
+		hdmi_ctrl->audio_ack_enabled = ack & AUDIO_ACK_ENABLE ?
+			true : false;
+
+		DEV_INFO("%s: audio ack feature %s\n", __func__,
+			hdmi_ctrl->audio_ack_enabled ? "enabled" : "disabled");
+
+		return ret;
+	}
+
+	if (!hdmi_ctrl->audio_ack_enabled)
+		return ret;
+
+	atomic_set(&hdmi_ctrl->audio_ack_pending, 0);
+
+	ack_hpd = ack & AUDIO_ACK_CONNECT;
+
+	if (ack_hpd != hdmi_ctrl->hpd_state) {
+		DEV_INFO("%s: unbalanced audio state, ack %d, hpd %d\n",
+			__func__, ack_hpd, hdmi_ctrl->hpd_state);
+
+		hdmi_tx_set_audio_switch_node(hdmi_ctrl, hdmi_ctrl->hpd_state);
+	}
+
+	return ret;
+}
 
 static ssize_t hdmi_tx_sysfs_rda_video_mode(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -989,6 +1055,7 @@ static ssize_t hdmi_tx_sysfs_wta_avi_cn_bits(struct device *dev,
 } /* hdmi_tx_sysfs_wta_cn_bits */
 
 static DEVICE_ATTR(connected, S_IRUGO, hdmi_tx_sysfs_rda_connected, NULL);
+static DEVICE_ATTR(hdmi_audio_cb, S_IWUSR, NULL, hdmi_tx_sysfs_wta_audio_cb);
 static DEVICE_ATTR(video_mode, S_IRUGO, hdmi_tx_sysfs_rda_video_mode, NULL);
 static DEVICE_ATTR(hpd, S_IRUGO | S_IWUSR, hdmi_tx_sysfs_rda_hpd,
 	hdmi_tx_sysfs_wta_hpd);
@@ -1002,6 +1069,7 @@ static DEVICE_ATTR(avi_cn0_1, S_IWUSR, NULL, hdmi_tx_sysfs_wta_avi_cn_bits);
 
 static struct attribute *hdmi_tx_fs_attrs[] = {
 	&dev_attr_connected.attr,
+	&dev_attr_hdmi_audio_cb.attr,
 	&dev_attr_video_mode.attr,
 	&dev_attr_hpd.attr,
 	&dev_attr_vendor_name.attr,
@@ -2656,14 +2724,17 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 {
 	int rc = 0;
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
+	u32 is_mode_dvi;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -ENODEV;
 	}
 
+	is_mode_dvi = hdmi_tx_is_dvi_mode(hdmi_ctrl);
+
 	mutex_lock(&hdmi_ctrl->power_mutex);
-	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) && hdmi_ctrl->panel_power_on) {
+	if (!is_mode_dvi && hdmi_ctrl->panel_power_on) {
 		mutex_unlock(&hdmi_ctrl->power_mutex);
 		/* Map given sample rate to Enum */
 		if (sample_rate == 32000)
@@ -2695,6 +2766,15 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 		mutex_unlock(&hdmi_ctrl->power_mutex);
 		rc = -EPERM;
 	}
+
+	if (rc)
+		dev_err_ratelimited(&hdmi_ctrl->pdev->dev,
+			"%s: hpd %d, ack %d, switch %d, mode %s, power %d\n",
+			__func__, hdmi_ctrl->hpd_state,
+			atomic_read(&hdmi_ctrl->audio_ack_pending),
+			hdmi_ctrl->audio_sdev.state,
+			is_mode_dvi ? "dvi" : "hdmi",
+			hdmi_ctrl->panel_power_on);
 
 	return rc;
 } /* hdmi_tx_audio_info_setup */
@@ -2793,6 +2873,19 @@ static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 
 	if (vote && hpd)
 		hdmi_ctrl->vote_hdmi_core_on = true;
+
+	/*
+	 * if cable is not connected and audio calls this function,
+	 * consider this as an error as it will result in whole
+	 * audio path to fail.
+	 */
+	if (!hpd)
+		dev_err_ratelimited(&hdmi_ctrl->pdev->dev,
+			"%s: hpd %d, ack %d, switch %d, power %d\n",
+			__func__, hdmi_ctrl->hpd_state,
+			atomic_read(&hdmi_ctrl->audio_ack_pending),
+			hdmi_ctrl->audio_sdev.state,
+			hdmi_ctrl->panel_power_on);
 
 	return hpd;
 }
@@ -3373,6 +3466,8 @@ static int hdmi_tx_hpd_on(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 		/* Turn on HPD HW circuit */
 		DSS_REG_W(io, HDMI_HPD_CTRL, reg_val | BIT(28));
+
+		atomic_set(&hdmi_ctrl->audio_ack_pending, 0);
 
 		hdmi_tx_hpd_polarity_setup(hdmi_ctrl, HPD_CONNECT_POLARITY);
 		DEV_DBG("%s: HPD is now ON\n", __func__);
