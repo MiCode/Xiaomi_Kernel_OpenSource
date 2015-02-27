@@ -76,6 +76,7 @@
 #define INPUT_SRC_HIGH_VBAT_LIMIT              4350
 
 /* D0, D1, D2 represent the input current limit */
+#define INPUT_SRC_CUR_MASK		0x7
 #define INPUT_SRC_CUR_LMT0		0x0	/* 100mA */
 #define INPUT_SRC_CUR_LMT1		0x1	/* 150mA */
 #define INPUT_SRC_CUR_LMT2		0x2	/* 500mA */
@@ -740,54 +741,6 @@ int bq24192_get_battery_health(void)
 }
 EXPORT_SYMBOL(bq24192_get_battery_health);
 
-/***********************************************************************/
-
-/* convert the input current limit value
- * into equivalent register setting.
- * Note: ilim must be in mA.
- */
-static int chrg_ilim_to_reg(int ilim)
-{
-	int reg;
-	struct bq24192_chip *chip;
-
-	if (!bq24192_client)
-		return -ENODEV;
-
-	chip = i2c_get_clientdata(bq24192_client);
-
-	reg = bq24192_read_reg(chip->client, BQ24192_INPUT_SRC_CNTL_REG);
-
-	if (reg < 0) {
-		dev_info(&chip->client->dev, "read failed %d", reg);
-		return reg;
-	}
-
-	reg &= ~INPUT_SRC_CUR_LMT7;
-
-	/* Set the input source current limit
-	 * between 100 to 1500mA */
-	if (ilim <= 100)
-		reg |= INPUT_SRC_CUR_LMT0;
-	else if (ilim <= 150)
-		reg |= INPUT_SRC_CUR_LMT1;
-	else if (ilim <= 500)
-		reg |= INPUT_SRC_CUR_LMT2;
-	else if (ilim <= 900)
-		reg |= INPUT_SRC_CUR_LMT3;
-	else if (ilim <= 1200)
-		reg |= INPUT_SRC_CUR_LMT4;
-	else if (ilim <= 1500)
-		reg |= INPUT_SRC_CUR_LMT5;
-	else if (ilim <= 2000)
-		reg |= INPUT_SRC_CUR_LMT6;
-	else if (ilim <= 3000)
-		reg |= INPUT_SRC_CUR_LMT7;
-	else /* defaulting to 500MA*/
-		reg |= INPUT_SRC_CUR_LMT2;
-	return reg;
-}
-
 static u8 chrg_iterm_to_reg(int iterm)
 {
 	u8 reg;
@@ -1195,6 +1148,66 @@ static inline void bq24192_remove_debugfs(struct bq24192_chip *chip)
 }
 #endif
 
+static inline int bq24192_set_inlmt(struct bq24192_chip *chip, int inlmt)
+{
+	int regval, regval_prev, timeout, ret = 0;
+
+	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, inlmt);
+	chip->inlmt = inlmt;
+
+	regval_prev = bq24192_read_reg(chip->client,
+					BQ24192_INPUT_SRC_CNTL_REG);
+
+	if (regval_prev < 0) {
+		dev_info(&chip->client->dev, "read failed %d\n", regval_prev);
+		return regval_prev;
+	}
+
+	/* Set the input source current limit
+	 * between 100 to 1500mA */
+	if (inlmt <= 100)
+		regval = INPUT_SRC_CUR_LMT0;
+	else if (inlmt <= 150)
+		regval = INPUT_SRC_CUR_LMT1;
+	else if (inlmt <= 500)
+		regval = INPUT_SRC_CUR_LMT2;
+	else if (inlmt <= 900)
+		regval = INPUT_SRC_CUR_LMT3;
+	else if (inlmt <= 1200)
+		regval = INPUT_SRC_CUR_LMT4;
+	else if (inlmt <= 1500)
+		regval = INPUT_SRC_CUR_LMT5;
+	else if (inlmt <= 2000)
+		regval = INPUT_SRC_CUR_LMT6;
+	else if (inlmt <= 3000)
+		regval = INPUT_SRC_CUR_LMT7;
+	else /* defaulting to 500MA*/
+		regval = INPUT_SRC_CUR_LMT2;
+
+	/* if both the previous and current values are same, do not
+	 * program the register.
+	 */
+	if (regval == (regval_prev & INPUT_SRC_CUR_MASK))
+		return ret;
+	/* Wait for VBUS if inlimit > 0 */
+	if (inlmt > 0) {
+		timeout = wait_for_completion_timeout(&chip->vbus_detect,
+					VBUS_DET_TIMEOUT);
+		if (timeout == 0)
+			dev_warn(&chip->client->dev,
+				"VBUS Detect timedout. Setting INLIMIT");
+	}
+
+	regval = (regval_prev & ~INPUT_SRC_CUR_MASK) | regval;
+
+	ret =  bq24192_write_reg(chip->client,
+				BQ24192_INPUT_SRC_CNTL_REG, regval);
+	if (ret < 0)
+		dev_info(&chip->client->dev, "Inlimit set failed %d\n", ret);
+
+	return ret;
+}
+
 static inline int bq24192_enable_charging(
 			struct bq24192_chip *chip, bool val)
 {
@@ -1229,6 +1242,11 @@ static inline int bq24192_enable_charging(
 		else
 			regval = ret | POWER_ON_CFG_CHRG_CFG_DIS;
 	}
+
+	/* when coming out of fault condition we need to set inlimit
+	 * because HW will set the inlimit to default in fault condition
+	 */
+	bq24192_set_inlmt(chip, chip->inlmt);
 
 	ret = bq24192_write_reg(chip->client, BQ24192_POWER_ON_CFG_REG, regval);
 	if (ret < 0)
@@ -1322,31 +1340,6 @@ static inline int bq24192_set_cv(struct bq24192_chip *chip, int cv)
 
 	return bq24192_write_reg(chip->client, BQ24192_CHRG_VOLT_CNTL_REG,
 					regval & ~CHRG_VOLT_CNTL_VRECHRG);
-}
-
-static inline int bq24192_set_inlmt(struct bq24192_chip *chip, int inlmt)
-{
-	int regval, timeout;
-
-	dev_warn(&chip->client->dev, "%s:%d %d\n", __func__, __LINE__, inlmt);
-	chip->inlmt = inlmt;
-	regval = chrg_ilim_to_reg(inlmt);
-
-	if (regval < 0)
-		return regval;
-
-	/* Wait for VBUS if inlimit > 0 */
-	if (inlmt > 0) {
-		timeout = wait_for_completion_timeout(&chip->vbus_detect,
-					VBUS_DET_TIMEOUT);
-		if (timeout == 0)
-			dev_warn(&chip->client->dev,
-				"VBUS Detect timedout. Setting INLIMIT");
-	}
-
-
-	return bq24192_write_reg(chip->client, BQ24192_INPUT_SRC_CNTL_REG,
-				regval);
 }
 
 static inline int bq24192_set_iterm(struct bq24192_chip *chip, int iterm)
