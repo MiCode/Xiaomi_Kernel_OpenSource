@@ -2851,7 +2851,7 @@ static void msm_pcie_config_link_state(struct msm_pcie_dev_t *dev)
 					0, BIT(1));
 		if (dev->shadow_en) {
 			dev->rc_shadow[PCIE20_CAP_LINKCTRLSTATUS / 4] =
-						readl_relaxed(dev->conf +
+						readl_relaxed(dev->dm_core +
 						PCIE20_CAP_LINKCTRLSTATUS);
 			dev->ep_shadow[0][ep_link_ctrlstts_offset / 4] =
 						readl_relaxed(dev->conf +
