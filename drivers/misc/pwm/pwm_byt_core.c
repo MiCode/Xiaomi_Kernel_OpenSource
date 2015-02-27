@@ -23,6 +23,7 @@
 #include <linux/pwm.h>
 #include "pwm_byt_core.h"
 #include <linux/dmi.h>
+#include <linux/acpi.h>
 
 /* PWM registers and bits definitions */
 
@@ -499,12 +500,63 @@ void pwm_byt_remove(struct device *dev)
 }
 EXPORT_SYMBOL(pwm_byt_remove);
 
+static int pwm_byt_runtime_suspend(struct device *dev)
+{
+	struct byt_pwm_chip *byt_pwm = dev_get_drvdata(dev);
+	uint32_t val;
+	int r = 0;
 
+	if (!mutex_trylock(&byt_pwm->lock)) {
+		dev_err(dev, "PWM suspend called! can't get lock\n");
+		return -EAGAIN;
+	}
+
+	val = ioread32(PWMCR(byt_pwm));
+	r = (val & PWMCR_EN) ? -EAGAIN : 0;
+
+	mutex_unlock(&byt_pwm->lock);
+	return r;
+}
+
+static int pwm_byt_runtime_resume(struct device *dev)
+{
+	struct byt_pwm_chip *byt_pwm = dev_get_drvdata(dev);
+
+	if (!mutex_trylock(&byt_pwm->lock)) {
+		dev_err(dev, "Can't get lock\n");
+		return -EAGAIN;
+	}
+
+	iowrite32(PWMRESET_EN, PWMRESET(byt_pwm));
+
+	mutex_unlock(&byt_pwm->lock);
+	return 0;
+}
 static int pwm_byt_suspend(struct device *dev)
 {
 	struct byt_pwm_chip *byt_pwm = dev_get_drvdata(dev);
 	uint32_t val;
 	int r = 0;
+	struct acpi_device *adev;
+	acpi_handle handle;
+
+	handle = ACPI_HANDLE(dev);
+	if (!handle) {
+		pr_warn("Failed to acpi get handle in %s\n", __func__);
+		return r;
+	}
+
+	r = acpi_bus_get_device(handle, &adev);
+	if (r) {
+		pr_warn("Failed to acpi device in %s\n", __func__);
+		return r;
+	}
+
+	if (!adev->power.state) {
+		pr_info("Device %s is already in non D0 state\n",
+				dev_name(dev));
+		return r;
+	}
 
 	if (!mutex_trylock(&byt_pwm->lock)) {
 		dev_err(dev, "PWM suspend called! can't get lock\n");
@@ -536,6 +588,7 @@ static int pwm_byt_resume(struct device *dev)
 const struct dev_pm_ops pwm_byt_pm = {
 	.suspend_late = pwm_byt_suspend,
 	.resume_early = pwm_byt_resume,
-	SET_RUNTIME_PM_OPS(pwm_byt_suspend, pwm_byt_resume, NULL)
+	SET_RUNTIME_PM_OPS(pwm_byt_runtime_suspend,
+					pwm_byt_runtime_resume, NULL)
 };
 EXPORT_SYMBOL(pwm_byt_pm);
