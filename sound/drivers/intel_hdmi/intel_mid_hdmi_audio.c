@@ -618,6 +618,9 @@ void had_build_channel_allocation_map(struct snd_intelhad *intelhaddata)
 	int i = 0, c = 0;
 	int spk_mask = 0;
 	struct snd_pcm_chmap_elem *chmap;
+	uint8_t eld_high, eld_high_mask = 0xF0;
+	uint8_t high_msb;
+
 	chmap = kzalloc(sizeof(*chmap), GFP_KERNEL);
 	if (chmap == NULL) {
 		pr_err("kzalloc returned null in %s\n", __func__);
@@ -629,6 +632,27 @@ void had_build_channel_allocation_map(struct snd_intelhad *intelhaddata)
 
 	pr_debug("eeld.speaker_allocation_block = %x\n",
 			intelhaddata->eeld.speaker_allocation_block);
+
+	/* WA: Fix the max channel supported to 8 */
+
+	/* Sink may support more than 8 channels, if eld_high has more than
+	 * one bit set. SOC supports max 8 channels.
+	 * Refer eld_speaker_allocation_bits, for sink speaker allocation */
+
+	/* if 0x2F < eld < 0x4F fall back to 0x2f, else fall back to 0x4F */
+	eld_high = intelhaddata->eeld.speaker_allocation_block & eld_high_mask;
+	if ((eld_high & (eld_high -1)) && (eld_high > 0x1F)) {
+		/* eld_high & (eld_high-1): if more than 1 bit set */
+		/* 0x1F: 7 channels */
+		for (i = 1; i < 4; i++) {
+			high_msb = eld_high & (0x80 >> i);
+			if (high_msb) {
+				intelhaddata->eeld.speaker_allocation_block &=
+					high_msb | 0xF;
+				break;
+			}
+		}
+	}
 
 	for (i = 0; i < ARRAY_SIZE(eld_speaker_allocation_bits); i++) {
 		if (intelhaddata->eeld.speaker_allocation_block & (1 << i))
