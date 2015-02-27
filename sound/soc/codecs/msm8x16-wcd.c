@@ -51,7 +51,6 @@
 #define MSM8X16_WCD_FORMATS (SNDRV_PCM_FMTBIT_S16_LE |\
 		SNDRV_PCM_FMTBIT_S24_LE)
 
-#define NUM_DECIMATORS		2
 #define NUM_INTERPOLATORS	3
 #define BITS_PER_REG		8
 #define MSM8X16_WCD_TX_PORT_NUMBER	4
@@ -212,7 +211,7 @@ static void msm8x16_wcd_configure_cap(struct snd_soc_codec *codec,
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
-static void *modem_state_notifier;
+static void *adsp_state_notifier;
 
 static struct snd_soc_codec *registered_codec;
 
@@ -331,7 +330,7 @@ static int msm8x16_wcd_ahb_write_device(struct msm8x16_wcd *msm8x16_wcd,
 					u16 reg, u8 *value, u32 bytes)
 {
 	u32 temp = ((u32)(*value)) & 0x000000FF;
-	u16 offset = (reg ^ 0x0200) & 0x0FFF;
+	u16 offset = (reg - 0x0200) & 0x03FF;
 	bool q6_state = false;
 
 	q6_state = q6core_is_adsp_ready();
@@ -349,7 +348,7 @@ static int msm8x16_wcd_ahb_read_device(struct msm8x16_wcd *msm8x16_wcd,
 					u16 reg, u32 bytes, u8 *value)
 {
 	u32 temp;
-	u16 offset = (reg ^ 0x0200) & 0x0FFF;
+	u16 offset = (reg - 0x0200) & 0x03FF;
 	bool q6_state = false;
 
 	q6_state = q6core_is_adsp_ready();
@@ -459,7 +458,7 @@ static int __msm8x16_wcd_reg_read(struct snd_soc_codec *codec,
 				pr_err("failed to enable the MCLK\n");
 				goto err;
 			}
-			pr_debug("%s: MCLK not enabled\n", __func__);
+			pr_debug("%s: MCLK enabled for AHB read\n", __func__);
 			ret = msm8x16_wcd_ahb_read_device(
 					msm8x16_wcd, reg, 1, &temp);
 			atomic_set(&pdata->mclk_enabled, true);
@@ -501,7 +500,7 @@ static int __msm8x16_wcd_reg_write(struct snd_soc_codec *codec,
 	else if (MSM8X16_WCD_IS_DIGITAL_REG(reg)) {
 		mutex_lock(&pdata->cdc_mclk_mutex);
 		if (atomic_read(&pdata->mclk_enabled) == false) {
-			pr_debug("MCLK not enabled %s:\n", __func__);
+			pr_debug("enable MCLK for AHB write %s:\n", __func__);
 			pdata->digital_cdc_clk.clk_val = pdata->mclk_freq;
 			ret = afe_set_digital_codec_core_clock(
 					AFE_PORT_ID_PRIMARY_MI2S_RX,
@@ -841,7 +840,9 @@ static void msm8x16_wcd_boost_mode_sequence(struct snd_soc_codec *codec,
 
 static int get_codec_version(struct msm8x16_wcd_priv *msm8x16_wcd)
 {
-	if (msm8x16_wcd->codec_version == CONGA) {
+	if (msm8x16_wcd->codec_version == CAJON) {
+		return CAJON;
+	} else if (msm8x16_wcd->codec_version == CONGA) {
 		return CONGA;
 	} else if (msm8x16_wcd->pmic_rev == TOMBAK_2_0) {
 		return TOMBAK_2_0;
@@ -961,6 +962,7 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 	const char *name = NULL;
 	const char *static_prop_name = "qcom,cdc-static-supplies";
 	const char *ond_prop_name = "qcom,cdc-on-demand-supplies";
+	const char *addr_prop_name = "qcom,dig-cdc-base-addr";
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -1033,6 +1035,13 @@ static struct msm8x16_wcd_pdata *msm8x16_wcd_populate_dt_pdata(
 		}
 	}
 	msm8x16_wcd_dt_parse_micbias_info(dev, &pdata->micbias);
+	ret = of_property_read_u32(dev->of_node, addr_prop_name,
+			&pdata->dig_cdc_addr);
+	if (ret) {
+		dev_dbg(dev, "%s: could not find %s entry in dt\n",
+				__func__, addr_prop_name);
+		pdata->dig_cdc_addr = MSM8X16_DIGITAL_CODEC_BASE_ADDR;
+	}
 
 	return pdata;
 err:
@@ -2544,6 +2553,8 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd =
+				snd_soc_codec_get_drvdata(codec);
 	u16 micb_int_reg;
 	char *internal1_text = "Internal1";
 	char *internal2_text = "Internal2";
@@ -2569,6 +2580,10 @@ static int msm8x16_wcd_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		if (strnstr(w->name, internal1_text, 30)) {
+			if (get_codec_version(msm8x16_wcd) == CAJON)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_TX_1_2_ATEST_CTL_2,
+					0x02, 0x02);
 			snd_soc_update_bits(codec, micb_int_reg, 0x80, 0x80);
 		} else if (strnstr(w->name, internal2_text, 30)) {
 			snd_soc_update_bits(codec, micb_int_reg, 0x10, 0x10);
@@ -3966,7 +3981,6 @@ static const struct msm8x16_wcd_reg_mask_val msm8x16_wcd_reg_defaults_2_0[] = {
 };
 
 static const struct msm8x16_wcd_reg_mask_val msm8909_wcd_reg_defaults[] = {
-	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_PERPH_SUBTYPE, 0x02),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_SEC_ACCESS, 0xA5),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL3, 0x0F),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SEC_ACCESS, 0xA5),
@@ -3977,6 +3991,21 @@ static const struct msm8x16_wcd_reg_mask_val msm8909_wcd_reg_defaults[] = {
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DRV_DBG, 0x01),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_PERPH_SUBTYPE, 0x0A),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DAC_CTL, 0x03),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
+};
+
+static const struct msm8x16_wcd_reg_mask_val cajon_wcd_reg_defaults[] = {
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_SEC_ACCESS, 0xA5),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_DIGITAL_PERPH_RESET_CTL3, 0x0F),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SEC_ACCESS, 0xA5),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_PERPH_RESET_CTL3, 0x0F),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_TX_1_2_OPAMP_BIAS, 0x4C),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_CURRENT_LIMIT, 0x82),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_NCP_FBCTRL, 0xA8),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_NCP_VCTRL, 0xA4),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_ANA_BIAS_SET, 0x41),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DRV_CTL, 0x69),
+	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_DRV_DBG, 0x01),
 	MSM8X16_WCD_REG_VAL(MSM8X16_WCD_A_ANALOG_SPKR_OCP_CTL, 0xE1),
 };
 
@@ -4000,6 +4029,11 @@ static void msm8x16_wcd_update_reg_defaults(struct snd_soc_codec *codec)
 			snd_soc_write(codec,
 				msm8909_wcd_reg_defaults[i].reg,
 				msm8909_wcd_reg_defaults[i].val);
+	} else if (version == CAJON) {
+		for (i = 0; i < ARRAY_SIZE(cajon_wcd_reg_defaults); i++)
+			snd_soc_write(codec,
+				cajon_wcd_reg_defaults[i].reg,
+				cajon_wcd_reg_defaults[i].val);
 	}
 }
 
@@ -4146,10 +4180,16 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 
 	clear_bit(BUS_DOWN, &msm8x16_wcd_priv->status_mask);
 
-	for (reg = 0; reg < ARRAY_SIZE(msm8x16_wcd_reset_reg_defaults); reg++)
-		if (msm8x16_wcd_reg_readable[reg])
+	for (reg = 0; reg < ARRAY_SIZE(msm8x16_wcd_reset_reg_defaults);
+			reg++) {
+		if (msm8x16_wcd_reg_readable[reg]) {
+			if (get_codec_version(msm8x16_wcd_priv) != CAJON &&
+					cajon_digital_reg[reg])
+				continue;
 			msm8x16_wcd_write(codec,
 				reg, msm8x16_wcd_reset_reg_defaults[reg]);
+		}
+	}
 
 	if (codec->reg_def_copy) {
 		pr_debug("%s: Update ASOC cache", __func__);
@@ -4188,7 +4228,7 @@ static int msm8x16_wcd_device_up(struct snd_soc_codec *codec)
 	return 0;
 }
 
-static int modem_state_callback(struct notifier_block *nb, unsigned long value,
+static int adsp_state_callback(struct notifier_block *nb, unsigned long value,
 			       void *priv)
 {
 	bool timedout;
@@ -4226,8 +4266,8 @@ static int modem_state_callback(struct notifier_block *nb, unsigned long value,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block modem_state_notifier_block = {
-	.notifier_call = modem_state_callback,
+static struct notifier_block adsp_state_notifier_block = {
+	.notifier_call = adsp_state_callback,
 	.priority = -INT_MAX,
 };
 
@@ -4312,6 +4352,9 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 {
 	struct msm8x16_wcd_priv *msm8x16_wcd_priv;
 	struct msm8x16_wcd *msm8x16_wcd;
+	struct msm8x16_wcd_pdata *pdata;
+	const char *adsp_type;
+	const char *adsp_err = "invalid";
 	int i, ret;
 
 	dev_dbg(codec->dev, "%s()\n", __func__);
@@ -4335,8 +4378,9 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 
 	/* codec resmgr module init */
 	msm8x16_wcd = codec->control_data;
-	msm8x16_wcd->dig_base = ioremap(MSM8X16_DIGITAL_CODEC_BASE_ADDR,
-				  MSM8X16_DIGITAL_CODEC_REG_SIZE);
+	pdata = msm8x16_wcd->dev->platform_data;
+	msm8x16_wcd->dig_base = ioremap(pdata->dig_cdc_addr,
+			MSM8X16_DIGITAL_CODEC_REG_SIZE);
 	if (msm8x16_wcd->dig_base == NULL) {
 		dev_err(codec->dev, "%s ioremap failed\n", __func__);
 		kfree(msm8x16_wcd_priv);
@@ -4356,6 +4400,12 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	} else {
 		dev_dbg(codec->dev, "%s :PMIC REV: %d\n", __func__,
 					msm8x16_wcd_priv->pmic_rev);
+		if (msm8x16_wcd_priv->pmic_rev == TOMBAK_1_0 &&
+			(snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_NCP_FBCTRL)
+			 & 0x80)) {
+			msm8x16_wcd_priv->codec_version = CAJON;
+			dev_dbg(codec->dev, "%s : Cajon detected\n", __func__);
+		}
 	}
 	/*
 	 * set to default boost option BOOST_SWITCH, user mixer path can change
@@ -4417,12 +4467,17 @@ static int msm8x16_wcd_codec_probe(struct snd_soc_codec *codec)
 	/* Set initial cap mode */
 	msm8x16_wcd_configure_cap(codec, false, false);
 	registered_codec = codec;
-	modem_state_notifier =
-	    subsys_notif_register_notifier("modem",
-					   &modem_state_notifier_block);
-	if (!modem_state_notifier) {
-		dev_err(codec->dev, "Failed to register modem state notifier\n"
-			);
+	adsp_type = apr_get_adsp_subsys_name();
+	if (strcmp(adsp_type, adsp_err) == 0) {
+		pr_err("%s: adsp subsys location not known\n", __func__);
+		return -EPROBE_DEFER;
+	}
+	adsp_state_notifier =
+	    subsys_notif_register_notifier(adsp_type,
+					   &adsp_state_notifier_block);
+	if (!adsp_state_notifier) {
+		dev_err(codec->dev, "Failed to register %s state notifier\n",
+			adsp_type);
 		iounmap(msm8x16_wcd->dig_base);
 		kfree(msm8x16_wcd_priv->fw_data);
 		kfree(msm8x16_wcd_priv);
@@ -4700,15 +4755,15 @@ static int msm8x16_wcd_spmi_probe(struct spmi_device *spmi)
 	struct msm8x16_wcd *msm8x16 = NULL;
 	struct msm8x16_wcd_pdata *pdata;
 	struct resource *wcd_resource;
-	int modem_state;
+	int adsp_state;
 
 	dev_dbg(&spmi->dev, "%s(%d):slave ID = 0x%x\n",
 		__func__, __LINE__,  spmi->sid);
 
-	modem_state = apr_get_modem_state();
-	if (modem_state != APR_SUBSYS_LOADED) {
-		dev_dbg(&spmi->dev, "Modem is not loaded yet %d\n",
-				modem_state);
+	adsp_state = apr_get_adsp_state();
+	if (adsp_state != APR_SUBSYS_LOADED) {
+		dev_dbg(&spmi->dev, "Adsp is not loaded yet %d\n",
+				adsp_state);
 		return -EPROBE_DEFER;
 	}
 
