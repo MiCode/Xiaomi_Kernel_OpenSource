@@ -367,8 +367,6 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 	/* put device in ready state */
 	intel_dsi_device_ready(encoder);
 
-	msleep(intel_dsi->panel_on_delay);
-
 	if (intel_dsi->dev.dev_ops->panel_reset)
 		intel_dsi->dev.dev_ops->panel_reset(&intel_dsi->dev);
 
