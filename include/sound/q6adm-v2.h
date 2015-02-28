@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,9 +87,9 @@ void adm_ec_ref_rx_id(int  port_id);
 
 int adm_get_lowlatency_copp_id(int port_id);
 
-void adm_set_multi_ch_map(char *channel_map);
+int adm_set_multi_ch_map(char *channel_map, int path);
 
-void adm_get_multi_ch_map(char *channel_map);
+int adm_get_multi_ch_map(char *channel_map, int path);
 
 int adm_validate_and_get_port_index(int port_id);
 
