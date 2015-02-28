@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __qmp_sphinx_LOGK_H__
-#define __qmp_sphinx_LOGK_H__
+#ifndef __seemp_LOGK_H__
+#define __seemp_LOGK_H__
 
 #define OBSERVER_VERSION 0x01
 
@@ -33,8 +33,8 @@
 #include <linux/vmalloc.h>
 #include <asm/ioctls.h>
 
-#define qmp_sphinx_LOGK_NUM_DEVS 1
-#define qmp_sphinx_LOGK_DEV_NAME "qlog"
+#define seemp_LOGK_NUM_DEVS 1
+#define seemp_LOGK_DEV_NAME "seemplog"
 
 /*
  * The logcat driver on Android uses four 256k ring buffers
@@ -58,27 +58,27 @@
 
 #define MAGIC 'z'
 
-#define QMP_SPHINX_CMD_RESERVE_RDBLKS     _IOR(MAGIC, 1, int)
-#define QMP_SPHINX_CMD_RELEASE_RDBLKS     _IO(MAGIC, 2)
-#define QMP_SPHINX_CMD_GET_RINGSZ     _IOR(MAGIC, 3, int)
-#define QMP_SPHINX_CMD_GET_BLKSZ     _IOR(MAGIC, 4, int)
-#define QMP_SPHINX_CMD_SET_MASK          _IO(MAGIC, 5)
-#define QMP_SPHINX_CMD_SET_MAPPING       _IO(MAGIC, 6)
-#define QMP_SPHINX_CMD_CHECK_FILTER      _IOR(MAGIC, 7, int)
+#define SEEMP_CMD_RESERVE_RDBLKS     _IOR(MAGIC, 1, int)
+#define SEEMP_CMD_RELEASE_RDBLKS     _IO(MAGIC, 2)
+#define SEEMP_CMD_GET_RINGSZ     _IOR(MAGIC, 3, int)
+#define SEEMP_CMD_GET_BLKSZ     _IOR(MAGIC, 4, int)
+#define SEEMP_CMD_SET_MASK          _IO(MAGIC, 5)
+#define SEEMP_CMD_SET_MAPPING       _IO(MAGIC, 6)
+#define SEEMP_CMD_CHECK_FILTER      _IOR(MAGIC, 7, int)
 
 struct read_range {
 	int start_idx;
 	int num;
 };
 
-struct qmp_sphinx_logk_dev {
+struct seemp_logk_dev {
 	unsigned int major;
 	unsigned int minor;
 
 	struct cdev cdev;
 	struct class *cls;
 	/*the full buffer*/
-	struct qmp_sphinx_logk_blk *ring;
+	struct seemp_logk_blk *ring;
 	/*an array of blks*/
 	unsigned int ring_sz;
 	unsigned int blk_sz;
@@ -134,7 +134,7 @@ struct qmp_sphinx_logk_dev {
 	struct mutex lock;
 };
 
-struct qmp_sphinx_logk_blk {
+struct seemp_logk_blk {
 	/*bits: 0->valid/invalid; 1-7: unused as of now!*/
 	__u8        status;
 	__u16       len;
@@ -155,7 +155,7 @@ struct qmp_sphinx_logk_blk {
 
 extern unsigned int kmalloc_flag;
 
-struct qmp_sphinx_source_mask {
+struct seemp_source_mask {
 	__u32       hash;
 	bool        isOn;
 };

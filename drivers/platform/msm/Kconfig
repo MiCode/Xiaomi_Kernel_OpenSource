@@ -259,9 +259,9 @@ config QPNP_HAPTIC
 	  on the Qualcomm Technologies' QPNP PMICs. It uses the android
 	  timed-output framework.
 
-config QMP_CORE
-	tristate "QMP Core"
+config SEEMP_CORE
+	tristate "SEEMP Core"
 	help
-		This option enables Qualcomm Malware Protection Sphinx component
+		This option enables malware protection component
 		to log on-device software API activity.
 endmenu
