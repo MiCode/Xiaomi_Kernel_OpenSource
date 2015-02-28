@@ -2080,6 +2080,7 @@ stopsensor:
 	 */
 	if (isp->sw_contex.power_state == ATOM_ISP_POWER_UP) {
 		unsigned int i;
+		bool recreate_streams[MAX_STREAM_NUM] = {0};
 		if (isp->isp_timeout)
 			dev_err(isp->dev, "%s: Resetting with WA activated",
 				__func__);
@@ -2092,9 +2093,11 @@ stopsensor:
 		 * So force stream destroy here.
 		 */
 		for (i = 0; i < isp->num_of_streams; i++) {
-			if (isp->asd[i].stream_prepared)
+			if (isp->asd[i].stream_prepared) {
 				atomisp_destroy_pipes_stream_force(&isp->
 						asd[i]);
+				recreate_streams[i] = true;
+			}
 		}
 
 		/* disable  PUNIT/ISP acknowlede/handshake - SRSE=3 */
@@ -2102,6 +2105,10 @@ stopsensor:
 				MRFLD_PCI_I_CONTROL_SRSE_RESET_MASK);
 		dev_err(isp->dev, "atomisp_reset");
 		atomisp_reset(isp);
+		for (i = 0; i < isp->num_of_streams; i++) {
+			if (recreate_streams[i])
+				atomisp_create_pipes_stream(&isp->asd[i]);
+		}
 		isp->isp_timeout = false;
 	}
 	return ret;

@@ -895,6 +895,12 @@ pipe_err:
 	return -EINVAL;
 }
 
+void atomisp_create_pipes_stream(struct atomisp_sub_device *asd)
+{
+	__create_pipes(asd);
+	__create_streams(asd);
+}
+
 int atomisp_css_update_stream(struct atomisp_sub_device *asd)
 {
 	int ret;
