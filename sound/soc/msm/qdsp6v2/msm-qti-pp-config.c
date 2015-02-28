@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -472,7 +472,7 @@ static int msm_qti_pp_get_channel_map_mixer(struct snd_kcontrol *kcontrol,
 	char channel_map[PCM_FORMAT_MAX_NUM_CHANNEL];
 	int i;
 
-	adm_get_multi_ch_map(channel_map);
+	adm_get_multi_ch_map(channel_map, ADM_PATH_PLAYBACK);
 	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
 		ucontrol->value.integer.value[i] = (unsigned) channel_map[i];
 	return 0;
@@ -486,7 +486,7 @@ static int msm_qti_pp_put_channel_map_mixer(struct snd_kcontrol *kcontrol,
 
 	for (i = 0; i < PCM_FORMAT_MAX_NUM_CHANNEL; i++)
 		channel_map[i] = (char)(ucontrol->value.integer.value[i]);
-	adm_set_multi_ch_map(channel_map);
+	adm_set_multi_ch_map(channel_map, ADM_PATH_PLAYBACK);
 
 	return 0;
 }
