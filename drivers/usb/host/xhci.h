@@ -1532,6 +1532,10 @@ struct xhci_hcd {
 #define XHCI_STATE_HALTED	(1 << 1)
 	/* Statistics */
 	int			error_bitmask;
+	/* xHCI may want to disable a port's u1 u2 due to the connected device
+	 * doesn't support them. One bit for one port to disable.
+	 */
+	unsigned long		usb3_no_lpm;
 	unsigned int		quirks;
 #define	XHCI_LINK_TRB_QUIRK	(1 << 0)
 #define XHCI_RESET_EP_QUIRK	(1 << 1)
@@ -1891,5 +1895,6 @@ struct xhci_ep_ctx *xhci_get_ep_ctx(struct xhci_hcd *xhci, struct xhci_container
 
 /* xHCI quirks */
 bool xhci_compliance_mode_recovery_timer_quirk_check(void);
+void xhci_disable_usb3_lpm_quirk(struct xhci_hcd *xhci, int port1);
 
 #endif /* __LINUX_XHCI_HCD_H */
