@@ -8,7 +8,8 @@ up to 3.4 MHz.
 The fan53555 interface is via I2C bus.
 
 Required Properties:
-- compatible:			Must be "fairchild,fan53555-regulator".
+- compatible:			Could be "fairchild,fan53555-regulator" or
+				"silergy,sy8827-regulator".
 - reg:				The device 8-bit I2C address.
 - fairchild,backup-vsel:	Register ID of backup register.
 				Supported values are 0 or 1.
