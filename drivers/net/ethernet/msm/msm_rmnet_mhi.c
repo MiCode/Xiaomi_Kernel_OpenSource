@@ -47,13 +47,22 @@ enum DBG_LVL {
 	MSG_reserved = 0x80000000
 };
 
-enum DBG_LVL rmnet_ipc_log_lvl = MSG_INFO;
+struct __packed mhi_skb_priv {
+	dma_addr_t dma_addr;
+	size_t	   dma_size;
+};
+
+enum DBG_LVL rmnet_ipc_log_lvl = MSG_VERBOSE;
 enum DBG_LVL rmnet_msg_lvl = MSG_CRITICAL;
 
 module_param(rmnet_msg_lvl , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(rmnet_msg_lvl, "dbg lvl");
 module_param(rmnet_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(rmnet_ipc_log_lvl, "dbg lvl");
+
+unsigned int mru = MHI_DEFAULT_MRU;
+module_param(mru, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(mru, "MRU interface setting");
 
 void *rmnet_ipc_log;
 
@@ -108,6 +117,11 @@ module_param_array(rx_napi_budget_overflow, ulong, 0, S_IRUGO);
 MODULE_PARM_DESC(rx_napi_budget_overflow,
 		 "Budget hit with more items to read counter");
 
+unsigned long rx_fragmentation[MHI_RMNET_DEVICE_COUNT];
+module_param_array(rx_fragmentation, ulong, 0, S_IRUGO);
+MODULE_PARM_DESC(rx_fragmentation,
+		 "Number of fragmented packets received");
+
 struct rmnet_mhi_private {
 	int                           dev_index;
 	struct mhi_client_handle      *tx_client_handle;
@@ -128,50 +142,63 @@ struct rmnet_mhi_private {
 	atomic_t		      irq_masked_cntr;
 	rwlock_t		      out_chan_full_lock;
 	atomic_t		      pending_data;
-};
-
-struct tx_buffer_priv {
-	dma_addr_t dma_addr;
+	struct sk_buff		      *frag_skb;
 };
 
 static struct rmnet_mhi_private rmnet_mhi_ctxt_list[MHI_RMNET_DEVICE_COUNT];
 
-static dma_addr_t rmnet_mhi_internal_get_dma_addr(struct sk_buff *skb,
-						  enum dma_data_direction dir)
+static int rmnet_mhi_process_fragment(struct rmnet_mhi_private *rmnet_mhi_ptr,
+				       struct sk_buff *skb, int frag)
 {
-	if (dir == DMA_TO_DEVICE) {
-		struct tx_buffer_priv *tx_priv =
-			(struct tx_buffer_priv *)(skb->cb);
-		return tx_priv->dma_addr;
-	} else /* DMA_FROM_DEVICE */{
-		uintptr_t *cb_ptr = 0;
-		cb_ptr = (uintptr_t *)skb->cb;
-		return (dma_addr_t)(uintptr_t)(*cb_ptr);
+	struct sk_buff *temp_skb;
+	if (rmnet_mhi_ptr->frag_skb) {
+		/* Merge the new skb into the old fragment */
+		temp_skb = skb_copy_expand(rmnet_mhi_ptr->frag_skb,
+					MHI_RX_HEADROOM,
+						skb->len,
+					GFP_ATOMIC);
+		if (!temp_skb) {
+			kfree(rmnet_mhi_ptr->frag_skb);
+			rmnet_mhi_ptr->frag_skb = NULL;
+			return -ENOMEM;
+		}
+		kfree_skb(rmnet_mhi_ptr->frag_skb);
+		rmnet_mhi_ptr->frag_skb = temp_skb;
+		memcpy(skb_put(rmnet_mhi_ptr->frag_skb, skb->len),
+			skb->data,
+			skb->len);
+		kfree_skb(skb);
+		if (!frag) {
+			/* Last fragmented piece was received, ship it */
+			netif_receive_skb(rmnet_mhi_ptr->frag_skb);
+			rmnet_mhi_ptr->frag_skb = NULL;
+		}
+	} else {
+		if (frag) {
+			/* This is the first fragment */
+			rmnet_mhi_ptr->frag_skb = skb;
+			rx_fragmentation[rmnet_mhi_ptr->dev_index]++;
+		} else {
+			netif_receive_skb(skb);
+		}
 	}
+	return 0;
 }
-
 static void rmnet_mhi_internal_clean_unmap_buffers(struct net_device *dev,
 						   struct sk_buff_head *queue,
 						   enum dma_data_direction dir)
 {
-	struct rmnet_mhi_private *rmnet_mhi_ptr =
-		*(struct rmnet_mhi_private **)netdev_priv(dev);
+	struct mhi_skb_priv *skb_priv;
+
 	rmnet_log(MSG_INFO, "Entered\n");
 	while (!skb_queue_empty(queue)) {
 		struct sk_buff *skb = skb_dequeue(queue);
+		skb_priv = (struct mhi_skb_priv *)(skb->cb);
 		if (skb != 0) {
-			dma_addr_t dma_addr =
-				rmnet_mhi_internal_get_dma_addr(skb, dir);
-			if (dir == DMA_FROM_DEVICE)
-				dma_unmap_single(&(dev->dev),
-					dma_addr,
-					(rmnet_mhi_ptr->mru - MHI_RX_HEADROOM),
+			dma_unmap_single(&dev->dev,
+					skb_priv->dma_addr,
+					skb_priv->dma_size,
 					dir);
-			else
-				dma_unmap_single(&(dev->dev),
-						dma_addr,
-						skb->len,
-						dir);
 			kfree_skb(skb);
 		}
 	}
@@ -207,18 +234,20 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 	enum MHI_STATUS res = MHI_STATUS_reserved;
 	bool should_reschedule = true;
 	struct sk_buff *skb;
-	dma_addr_t dma_addr;
-	uintptr_t *cb_ptr;
+	struct mhi_skb_priv *skb_priv;
+	int r, cur_mru;
 
 	rmnet_log(MSG_VERBOSE, "Entered\n");
+	rmnet_mhi_ptr->mru = mru;
 	while (received_packets < budget) {
 		struct mhi_result *result =
 		      mhi_poll(rmnet_mhi_ptr->rx_client_handle);
 		if (result->transaction_status == MHI_STATUS_DEVICE_NOT_READY) {
 			continue;
-		} else if (result->transaction_status != MHI_STATUS_SUCCESS) {
+		} else if (result->transaction_status != MHI_STATUS_SUCCESS &&
+			   result->transaction_status != MHI_STATUS_OVERFLOW) {
 			rmnet_log(MSG_CRITICAL,
-				  "mhi_poll failed, error is %d\n",
+				  "mhi_poll failed, error %d\n",
 				  result->transaction_status);
 			break;
 		}
@@ -237,27 +266,41 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 			break;
 		}
 
-		cb_ptr = (uintptr_t *)skb->cb;
-		dma_addr = (dma_addr_t)(uintptr_t)(*cb_ptr);
+		skb_priv = (struct mhi_skb_priv *)(skb->cb);
 
 		/* Sanity check, ensuring that this is actually the buffer */
-		if (unlikely(dma_addr != result->payload_buf)) {
+		if (unlikely(skb_priv->dma_addr != result->payload_buf ||
+			     skb_priv->dma_size < result->bytes_xferd)) {
 			rmnet_log(MSG_CRITICAL,
-				  "Buf mismatch, expected 0x%lx, got 0x%lx",
-					(uintptr_t)dma_addr,
-					(uintptr_t)result->payload_buf);
-			break;
+			 "BUG: expected 0x%lx size 0x%x, got 0x%lx, size 0x%x",
+					(uintptr_t)skb_priv->dma_addr,
+					skb_priv->dma_size,
+					(uintptr_t)result->payload_buf,
+					result->bytes_xferd);
+			BUG();
 		}
 
-		dma_unmap_single(&(dev->dev), dma_addr,
-				(rmnet_mhi_ptr->mru - MHI_RX_HEADROOM),
+		dma_unmap_single(&dev->dev,
+				 skb_priv->dma_addr,
+				 skb_priv->dma_size,
 				 DMA_FROM_DEVICE);
+
+		/* Setup the tail to the end of data */
 		skb_put(skb, result->bytes_xferd);
 
 		skb->dev = dev;
 		skb->protocol = rmnet_mhi_ip_type_trans(skb);
 
-		netif_receive_skb(skb);
+		if (result->transaction_status == MHI_STATUS_OVERFLOW)
+			r = rmnet_mhi_process_fragment(rmnet_mhi_ptr, skb, 1);
+		else
+			r = rmnet_mhi_process_fragment(rmnet_mhi_ptr, skb, 0);
+		if (r) {
+			rmnet_log(MSG_CRITICAL,
+				  "Failed to process fragmented packet ret %d",
+				   r);
+			BUG();
+		}
 
 		/* Statistics */
 		received_packets++;
@@ -265,23 +308,35 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 		dev->stats.rx_bytes += result->bytes_xferd;
 
 		/* Need to allocate a new buffer instead of this one */
-		skb = alloc_skb(rmnet_mhi_ptr->mru, GFP_ATOMIC);
-
+		cur_mru = rmnet_mhi_ptr->mru;
+		skb = alloc_skb(cur_mru, GFP_ATOMIC);
 		if (unlikely(!skb)) {
 			rmnet_log(MSG_CRITICAL,
 				  "Can't allocate a new RX buffer for MHI");
 			break;
 		}
+		skb_priv = (struct mhi_skb_priv *)(skb->cb);
+		skb_priv->dma_size = cur_mru;
 
+		rmnet_log(MSG_VERBOSE,
+		  "Allocated SKB of MRU 0x%x, SKB_DATA 0%p SKB_LEN 0x%x\n",
+				rmnet_mhi_ptr->mru, skb->data, skb->len);
+		/* Reserve headroom, tail == data */
 		skb_reserve(skb, MHI_RX_HEADROOM);
-
-		cb_ptr = (uintptr_t *)skb->cb;
-		dma_addr = dma_map_single(&(dev->dev), skb->data,
-					(rmnet_mhi_ptr->mru - MHI_RX_HEADROOM),
+		skb_priv->dma_size -= MHI_RX_HEADROOM;
+		skb_priv->dma_addr = dma_map_single(&dev->dev,
+					skb->data,
+					skb_priv->dma_size,
 					DMA_FROM_DEVICE);
-		*cb_ptr = (uintptr_t)dma_addr;
 
-		if (unlikely(dma_mapping_error(&(dev->dev), dma_addr))) {
+		rmnet_log(MSG_VERBOSE,
+			 "Mapped SKB %p to DMA Addr 0x%lx, DMA_SIZE: 0x%lx\n",
+			  skb->data,
+			  (uintptr_t)skb_priv->dma_addr,
+			  (uintptr_t)skb_priv->dma_size);
+
+		if (unlikely(dma_mapping_error(&dev->dev,
+					skb_priv->dma_addr))) {
 			rmnet_log(MSG_CRITICAL,
 				  "DMA mapping error in polling function");
 			dev_kfree_skb_irq(skb);
@@ -290,21 +345,19 @@ static int rmnet_mhi_poll(struct napi_struct *napi, int budget)
 
 		res = mhi_queue_xfer(
 			rmnet_mhi_ptr->rx_client_handle,
-			(uintptr_t)dma_addr, rmnet_mhi_ptr->mru, MHI_EOT);
+			skb_priv->dma_addr, skb_priv->dma_size, MHI_EOT);
 
 		if (unlikely(MHI_STATUS_SUCCESS != res)) {
 			rmnet_log(MSG_CRITICAL,
 				"mhi_queue_xfer failed, error %d", res);
-			dma_unmap_single(&(dev->dev), dma_addr,
-					(rmnet_mhi_ptr->mru - MHI_RX_HEADROOM),
+			dma_unmap_single(&dev->dev, skb_priv->dma_addr,
+					skb_priv->dma_size,
 					DMA_FROM_DEVICE);
 
 			dev_kfree_skb_irq(skb);
 			break;
 		}
-
-		skb_queue_tail(&(rmnet_mhi_ptr->rx_buffers), skb);
-
+		skb_queue_tail(&rmnet_mhi_ptr->rx_buffers, skb);
 	} /* while (received_packets < budget) or any other error */
 
 	napi_complete(napi);
@@ -340,12 +393,12 @@ void rmnet_mhi_clean_buffers(struct net_device *dev)
 	rmnet_log(MSG_INFO, "Entered\n");
 	/* Clean TX buffers */
 	rmnet_mhi_internal_clean_unmap_buffers(dev,
-					       &(rmnet_mhi_ptr->tx_buffers),
+					       &rmnet_mhi_ptr->tx_buffers,
 					       DMA_TO_DEVICE);
 
 	/* Clean RX buffers */
 	rmnet_mhi_internal_clean_unmap_buffers(dev,
-					       &(rmnet_mhi_ptr->rx_buffers),
+					       &rmnet_mhi_ptr->rx_buffers,
 					       DMA_FROM_DEVICE);
 	rmnet_log(MSG_INFO, "Exited\n");
 }
@@ -368,56 +421,57 @@ static int rmnet_mhi_init_inbound(struct rmnet_mhi_private *rmnet_mhi_ptr)
 {
 	u32 i;
 	enum MHI_STATUS res;
+	struct mhi_skb_priv *rx_priv;
+	u32 cur_mru = rmnet_mhi_ptr->mru;
+	struct sk_buff *skb;
+
 	rmnet_log(MSG_INFO, "Entered\n");
-	rmnet_mhi_ptr->tx_buffers_max =
-		mhi_get_max_desc(
-			rmnet_mhi_ptr->tx_client_handle);
-	rmnet_mhi_ptr->rx_buffers_max =
-		mhi_get_max_desc(
-			rmnet_mhi_ptr->rx_client_handle);
+	rmnet_mhi_ptr->tx_buffers_max = mhi_get_max_desc(
+					rmnet_mhi_ptr->tx_client_handle);
+	rmnet_mhi_ptr->rx_buffers_max = mhi_get_max_desc(
+					rmnet_mhi_ptr->rx_client_handle);
 
 	for (i = 0; i < rmnet_mhi_ptr->rx_buffers_max; i++) {
-		struct sk_buff *skb = 0;
-		dma_addr_t dma_addr;
-		dma_addr_t *cb_ptr = 0;
 
-		skb = alloc_skb(rmnet_mhi_ptr->mru,
-				rmnet_mhi_ptr->allocation_flags);
+		skb = alloc_skb(cur_mru, rmnet_mhi_ptr->allocation_flags);
 
 		if (!skb) {
 			rmnet_log(MSG_CRITICAL,
 					"SKB allocation failure during open");
 			return -ENOMEM;
 		}
+		rx_priv = (struct mhi_skb_priv *)(skb->cb);
 
 		skb_reserve(skb, MHI_RX_HEADROOM);
-		cb_ptr = (dma_addr_t *)skb->cb;
-		dma_addr = dma_map_single(&(rmnet_mhi_ptr->dev->dev), skb->data,
-					 (rmnet_mhi_ptr->mru - MHI_RX_HEADROOM),
-					 DMA_FROM_DEVICE);
-		*cb_ptr = dma_addr;
-		if (dma_mapping_error(&(rmnet_mhi_ptr->dev->dev), dma_addr)) {
+		rx_priv->dma_size = cur_mru - MHI_RX_HEADROOM;
+		rx_priv->dma_addr = dma_map_single(&rmnet_mhi_ptr->dev->dev,
+						   skb->data,
+						   rx_priv->dma_size,
+						   DMA_FROM_DEVICE);
+		if (dma_mapping_error(&rmnet_mhi_ptr->dev->dev,
+					rx_priv->dma_addr)) {
 			rmnet_log(MSG_CRITICAL,
 				  "DMA mapping for RX buffers has failed");
 			kfree_skb(skb);
 			return -EIO;
 		}
-		skb_queue_tail(&(rmnet_mhi_ptr->rx_buffers), skb);
+		skb_queue_tail(&rmnet_mhi_ptr->rx_buffers, skb);
 	}
 
 	/* Submit the RX buffers */
 	for (i = 0; i < rmnet_mhi_ptr->rx_buffers_max; i++) {
-		struct sk_buff *skb = skb_dequeue(&(rmnet_mhi_ptr->rx_buffers));
+		skb = skb_dequeue(&rmnet_mhi_ptr->rx_buffers);
+		rx_priv = (struct mhi_skb_priv *)(skb->cb);
 		res = mhi_queue_xfer(rmnet_mhi_ptr->rx_client_handle,
-					*((dma_addr_t *)(skb->cb)),
-					rmnet_mhi_ptr->mru - MHI_RX_HEADROOM,
-					MHI_EOT);
+						    rx_priv->dma_addr,
+						    rx_priv->dma_size,
+						    MHI_EOT);
 		if (MHI_STATUS_SUCCESS != res) {
 			rmnet_log(MSG_CRITICAL,
 					"mhi_queue_xfer failed, error %d", res);
 			return -EIO;
 		}
-		skb_queue_tail(&(rmnet_mhi_ptr->rx_buffers), skb);
+		skb_queue_tail(&rmnet_mhi_ptr->rx_buffers, skb);
 	}
 	rmnet_log(MSG_INFO, "Exited\n");
 	return 0;
@@ -446,28 +500,25 @@ static void rmnet_mhi_tx_cb(struct mhi_result *result)
 				  "NULL buffer returned, error");
 			break;
 		} else {
-			struct tx_buffer_priv *tx_priv =
-				(struct tx_buffer_priv *)(skb->cb);
-			dma_addr_t dma_addr = tx_priv->dma_addr;
-			int data_len = skb->len;
+			struct mhi_skb_priv *tx_priv =
+				(struct mhi_skb_priv *)(skb->cb);
 
 			dma_unmap_single(&(dev->dev),
-					dma_addr,
-					 skb->len,
+					 tx_priv->dma_addr,
+					 tx_priv->dma_size,
 					 DMA_TO_DEVICE);
 			kfree_skb(skb);
 			burst_counter++;
 
 			/* Update statistics */
 			dev->stats.tx_packets++;
-			dev->stats.tx_bytes += data_len;
+			dev->stats.tx_bytes += skb->len;
 
 			/* The payload is expected to be the phy addr.
 			   Comparing to see if it's the last skb to
 			   replenish
 			*/
-			if (dma_addr ==
-				result->payload_buf)
+			if (tx_priv->dma_addr == result->payload_buf)
 				break;
 		}
 	} /* While TX queue is not empty */
@@ -592,25 +643,29 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 	enum MHI_STATUS res = MHI_STATUS_reserved;
 	unsigned long flags;
 	int retry = 0;
-	struct tx_buffer_priv *tx_priv;
-	dma_addr_t dma_addr;
+	struct mhi_skb_priv *tx_priv;
 
-	rmnet_log(MSG_VERBOSE, "Entered\n");
-	dma_addr = dma_map_single(&(dev->dev), skb->data, skb->len,
+	rmnet_log(MSG_VERBOSE, "Entered chan %d\n", rmnet_mhi_ptr->tx_channel);
+
+	tx_priv = (struct mhi_skb_priv *)(skb->cb);
+	tx_priv->dma_size = skb->len;
+	tx_priv->dma_addr = dma_map_single(&dev->dev, skb->data,
+				  tx_priv->dma_size,
 				  DMA_TO_DEVICE);
-	if (dma_mapping_error(&(dev->dev), dma_addr)) {
+
+	if (dma_mapping_error(&dev->dev, tx_priv->dma_addr)) {
 			rmnet_log(MSG_CRITICAL,
 				"DMA mapping error in transmit function\n");
 			return NETDEV_TX_BUSY;
 	}
 
 	/* DMA mapping is OK, need to update the cb field properly */
-	tx_priv = (struct tx_buffer_priv *)(skb->cb);
-	tx_priv->dma_addr = dma_addr;
 	do {
 		retry = 0;
 		res = mhi_queue_xfer(rmnet_mhi_ptr->tx_client_handle,
-				     dma_addr, skb->len, MHI_EOT);
+						    tx_priv->dma_addr,
+						    tx_priv->dma_size,
+						    MHI_EOT);
 
 		if (MHI_STATUS_RING_FULL == res) {
 			write_lock_irqsave(&rmnet_mhi_ptr->out_chan_full_lock,
@@ -646,8 +701,8 @@ static int rmnet_mhi_xmit(struct sk_buff *skb, struct net_device *dev)
 	return 0;
 
 rmnet_mhi_xmit_error_cleanup:
-	dma_unmap_single(&(dev->dev), dma_addr, skb->len,
-			 DMA_TO_DEVICE);
+	dma_unmap_single(&(dev->dev), tx_priv->dma_addr, tx_priv->dma_size,
+				 DMA_TO_DEVICE);
 	rmnet_log(MSG_VERBOSE, "Ring full\n");
 	write_unlock_irqrestore(&rmnet_mhi_ptr->out_chan_full_lock, flags);
 	return NETDEV_TX_BUSY;
@@ -678,7 +733,11 @@ static int rmnet_mhi_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 				 ext_cmd.u.data);
 			return -EINVAL;
 		}
-		rmnet_mhi_ptr->mru = ext_cmd.u.data;
+		rmnet_log(MSG_INFO,
+			 "MRU change request to 0x%x\n",
+			 ext_cmd.u.data);
+		mru = ext_cmd.u.data;
+		rmnet_mhi_ptr->mru = mru;
 		break;
 	case RMNET_IOCTL_GET_EPID:
 		ext_cmd.u.data =
