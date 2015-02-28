@@ -51,7 +51,11 @@ struct ion_buffer *ion_handle_buffer(struct ion_handle *handle);
  * @lock:		protects the buffers cnt fields
  * @kmap_cnt:		number of times the buffer is mapped to the kernel
  * @vaddr:		the kenrel mapping if kmap_cnt is not zero
- * @sg_table:		the sg table for the buffer
+ * @sg_table:		the sg table for the buffer.  Note that if you need
+ *			an sg_table for this buffer, you should likely be
+ *			using Ion as a DMA Buf exporter and using
+ *			dma_buf_map_attachment rather than trying to use this
+ *			field directly.
  * @pages:		flat array of pages in the buffer -- used by fault
  *			handler and only valid for buffers that are faulted in
  * @vmas:		list of vma's mapping this buffer
