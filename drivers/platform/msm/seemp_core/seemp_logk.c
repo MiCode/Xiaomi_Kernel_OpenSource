@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,10 +10,11 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#define pr_fmt(fmt) "qmp_sphinx: %s: " fmt, __func__
 
-#include "qmp_sphinx_logk.h"
-#include "qmp_sphinx_ringbuf.h"
+#define pr_fmt(fmt) "seemp: %s: " fmt, __func__
+
+#include "seemp_logk.h"
+#include "seemp_ringbuf.h"
 
 #ifndef VM_RESERVED
 #define VM_RESERVED (VM_DONTEXPAND | VM_DONTDUMP)
@@ -24,7 +25,7 @@
 #define USER_APP_START_UID 10000
 #define YEAR_BASE 1900
 
-static struct qmp_sphinx_logk_dev *slogk_dev;
+static struct seemp_logk_dev *slogk_dev;
 
 static unsigned int ring_sz = FOUR_MB;
 
@@ -46,18 +47,19 @@ unsigned int kmalloc_flag;
 static struct class *cl;
 
 static rwlock_t filter_lock;
-static struct qmp_sphinx_source_mask *pmask;
+static struct seemp_source_mask *pmask;
 static unsigned int num_sources;
 
-static long qmp_sphinx_logk_reserve_rdblks(
-		struct qmp_sphinx_logk_dev *sdev, unsigned long arg);
-static long qmp_sphinx_logk_set_mask(unsigned long arg);
-static long qmp_sphinx_logk_set_mapping(unsigned long arg);
-static long qmp_sphinx_logk_check_filter(unsigned long arg);
+static long seemp_logk_reserve_rdblks(
+		struct seemp_logk_dev *sdev, unsigned long arg);
+static long seemp_logk_set_mask(unsigned long arg);
+static long seemp_logk_set_mapping(unsigned long arg);
+static long seemp_logk_check_filter(unsigned long arg);
+static int get_uid_from_message_for_system_event(const char *buffer);
 
-void* (*qmp_sphinx_logk_kernel_begin)(char **buf);
+void* (*seemp_logk_kernel_begin)(char **buf);
 
-void (*qmp_sphinx_logk_kernel_end)(void *blck);
+void (*seemp_logk_kernel_end)(void *blck);
 
 /*
  * the last param is the permission bits *
@@ -67,9 +69,9 @@ void (*qmp_sphinx_logk_kernel_end)(void *blck);
  * (3)  caller fills its data directly into the payload area.
  * (4)  caller invoked finish_record(), to finish writing.
  */
-void *qmp_sphinx_logk_kernel_start_record(char **buf)
+void *seemp_logk_kernel_start_record(char **buf)
 {
-	struct qmp_sphinx_logk_blk *blk;
+	struct seemp_logk_blk *blk;
 	struct timespec now;
 	struct tm ts;
 	int idx;
@@ -108,10 +110,8 @@ void *qmp_sphinx_logk_kernel_start_record(char **buf)
 		}
 
 		finish_wait(&slogk_dev->writers_wq, &write_wait);
-		if (ret) {
-			mutex_unlock(&slogk_dev->lock);
+		if (ret)
 			return NULL;
-		}
 
 		idx = slogk_dev->write_idx;
 		slogk_dev->write_idx =
@@ -146,13 +146,26 @@ void *qmp_sphinx_logk_kernel_start_record(char **buf)
 	return blk;
 }
 
-void qmp_sphinx_logk_kernel_end_record(void *blck)
+void seemp_logk_kernel_end_record(void *blck)
 {
-	struct qmp_sphinx_logk_blk *blk = (struct qmp_sphinx_logk_blk *)blck;
+	int current_uid = 0;
+	int parsed_current_uid = 0;
+	struct seemp_logk_blk *blk = (struct seemp_logk_blk *)blck;
 	if (blk) {
 		blk->len = strlen(blk->msg);
 		/*update status at the very end*/
 		blk->status |= 0x1;
+		current_uid = current_uid();
+		if (current_uid < USER_APP_START_UID) {
+			parsed_current_uid =
+				get_uid_from_message_for_system_event(blk->msg);
+			if (parsed_current_uid != -1)
+				blk->uid = parsed_current_uid;
+			else
+				blk->uid = current_uid;
+		} else
+			blk->uid = current_uid;
+
 		ringbuf_finish_writer(slogk_dev);
 	}
 }
@@ -164,7 +177,7 @@ void qmp_sphinx_logk_kernel_end_record(void *blck)
  * NOTE: Not a very efficient implementation. This does a N*8 character
  * comparisons everytime a message with UID less than 10000 is seen
  */
-int get_uid_from_message_for_system_event(const char *buffer)
+static int get_uid_from_message_for_system_event(const char *buffer)
 {
 	char asciiuid[6];
 	long appuid = 0;
@@ -215,21 +228,39 @@ int get_uid_from_message_for_system_event(const char *buffer)
 	return -EPERM;
 }
 
-static int qmp_sphinx_logk_usr_record(const char __user *buf, size_t count)
+static int seemp_logk_usr_record(const char __user *buf, size_t count)
 {
-	struct qmp_sphinx_logk_blk *blk;
+	struct seemp_logk_blk *blk;
+	struct seemp_logk_blk usr_blk;
+	struct seemp_logk_blk *local_blk;
 	struct timespec now;
 	struct tm ts;
 	int idx, ret;
 	int currentuid;
 	int parsedcurrentuid;
-
 	DEFINE_WAIT(write_wait);
+	if (buf) {
+		local_blk = (struct seemp_logk_blk *)buf;
+		if (copy_from_user(&usr_blk.pid, &local_blk->pid,
+					sizeof(usr_blk.pid)) != 0)
+			return -EFAULT;
+		if (copy_from_user(&usr_blk.tid, &local_blk->tid,
+					sizeof(usr_blk.tid)) != 0)
+			return -EFAULT;
+		if (copy_from_user(&usr_blk.uid, &local_blk->uid,
+					sizeof(usr_blk.uid)) != 0)
+			return -EFAULT;
+		if (copy_from_user(&usr_blk.len, &local_blk->len,
+					sizeof(usr_blk.len)) != 0)
+			return -EFAULT;
+		if (copy_from_user(usr_blk.msg, local_blk->msg,
+					sizeof(usr_blk.msg)) != 0)
+			return -EFAULT;
+	}
 	idx = ret = 0;
 	now = current_kernel_time();
 	blk = ringbuf_fetch_wr_block(slogk_dev);
 	if (!blk) {
-		/*just drop this log*/
 		if (!block_apps)
 			return 0;
 		while (1) {
@@ -238,49 +269,37 @@ static int qmp_sphinx_logk_usr_record(const char __user *buf, size_t count)
 					&write_wait,
 					TASK_INTERRUPTIBLE);
 			ret = (slogk_dev->num_write_avail_blks <= 0);
-			if (!ret) {
-				/*don't have to wait*/
+			if (!ret)
 				break;
-			}
-
 			mutex_unlock(&slogk_dev->lock);
-
 			if (signal_pending(current)) {
 				ret = -EINTR;
 				break;
 			}
 			schedule();
 		}
-
 		finish_wait(&slogk_dev->writers_wq, &write_wait);
-		if (ret) {
-			mutex_unlock(&slogk_dev->lock);
+		if (ret)
 			return -EINTR;
-		}
+
 		idx = slogk_dev->write_idx;
 		slogk_dev->write_idx =
 			(slogk_dev->write_idx + 1) % slogk_dev->num_tot_blks;
 		slogk_dev->num_write_avail_blks--;
 		slogk_dev->num_write_in_prog_blks++;
 		slogk_dev->num_writers++;
-
 		blk = &slogk_dev->ring[idx];
 		/*mark block invalid*/
 		blk->status = 0x0;
 		mutex_unlock(&slogk_dev->lock);
 	}
-
-	if (count > BLK_MAX_MSG_SZ-1)
-		count = BLK_MAX_MSG_SZ-1;
-
-	if (copy_from_user(blk->msg, buf, count) != 0)
-		ret = -EFAULT;
-
-	blk->msg[count] = '\0';
-	blk->len = count;
-	blk->pid = current->tgid;
-
-	currentuid = current_uid();
+	if (usr_blk.len > BLK_MAX_MSG_SZ-1)
+		usr_blk.len = BLK_MAX_MSG_SZ-1;
+	memcpy(blk->msg, usr_blk.msg, usr_blk.len);
+	blk->msg[usr_blk.len] = '\0';
+	blk->len = usr_blk.len;
+	blk->pid = usr_blk.pid;
+	currentuid = usr_blk.uid;
 	if (currentuid <= USER_APP_START_UID) {
 		parsedcurrentuid = get_uid_from_message_for_system_event
 								(blk->msg);
@@ -290,47 +309,42 @@ static int qmp_sphinx_logk_usr_record(const char __user *buf, size_t count)
 			blk->uid = currentuid;
 	} else
 		blk->uid = currentuid;
-
-	blk->tid = current->pid;
+	blk->tid = usr_blk.tid;
 	blk->sec = now.tv_sec;
 	blk->nsec = now.tv_nsec;
-
 	time_to_tm(now.tv_sec, 0, &ts);
 	ts.tm_year += YEAR_BASE;
 	ts.tm_mon += 1;
 	snprintf(blk->ts, TS_SIZE, "%02ld-%02d-%02d %02d:%02d:%02d",
 			ts.tm_year, ts.tm_mon, ts.tm_mday,
 			ts.tm_hour, ts.tm_min, ts.tm_sec);
-
 	strlcpy(blk->appname, current->comm, TASK_COMM_LEN);
-	/*update status at the very end*/
 	blk->status |= 0x1;
-
 	ringbuf_finish_writer(slogk_dev);
 	return ret;
 }
 
-static void qmp_sphinx_logk_attach(void)
+static void seemp_logk_attach(void)
 {
-	qmp_sphinx_logk_kernel_end = qmp_sphinx_logk_kernel_end_record;
-	qmp_sphinx_logk_kernel_begin = qmp_sphinx_logk_kernel_start_record;
+	seemp_logk_kernel_end = seemp_logk_kernel_end_record;
+	seemp_logk_kernel_begin = seemp_logk_kernel_start_record;
 }
 
-static void qmp_sphinx_logk_detach(void)
+static void seemp_logk_detach(void)
 {
-	qmp_sphinx_logk_kernel_begin = NULL;
-	qmp_sphinx_logk_kernel_end = NULL;
+	seemp_logk_kernel_begin = NULL;
+	seemp_logk_kernel_end = NULL;
 }
 
 static ssize_t
-qmp_sphinx_logk_write(struct file *file, const char __user *buf, size_t count,
+seemp_logk_write(struct file *file, const char __user *buf, size_t count,
 		loff_t *ppos)
 {
-	return qmp_sphinx_logk_usr_record(buf, count);
+	return seemp_logk_usr_record(buf, count);
 }
 
 static int
-qmp_sphinx_logk_open(struct inode *inode, struct file *filp)
+seemp_logk_open(struct inode *inode, struct file *filp)
 {
 	int ret;
 
@@ -347,7 +361,7 @@ qmp_sphinx_logk_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static bool qmp_sphinx_logk_get_bit_from_vector(__u8 *pVec, __u32 index)
+static bool seemp_logk_get_bit_from_vector(__u8 *pVec, __u32 index)
 {
 	unsigned int byte_num = index/8;
 	unsigned int bit_num = index%8;
@@ -356,17 +370,17 @@ static bool qmp_sphinx_logk_get_bit_from_vector(__u8 *pVec, __u32 index)
 	return !(byte & (1 << bit_num));
 }
 
-static long qmp_sphinx_logk_ioctl(struct file *filp, unsigned int cmd,
+static long seemp_logk_ioctl(struct file *filp, unsigned int cmd,
 		unsigned long arg)
 {
-	struct qmp_sphinx_logk_dev *sdev;
+	struct seemp_logk_dev *sdev;
 	int ret;
 
-	sdev = (struct qmp_sphinx_logk_dev *) filp->private_data;
+	sdev = (struct seemp_logk_dev *) filp->private_data;
 
-	if (cmd == QMP_SPHINX_CMD_RESERVE_RDBLKS) {
-		return qmp_sphinx_logk_reserve_rdblks(sdev, arg);
-	} else if (cmd == QMP_SPHINX_CMD_RELEASE_RDBLKS) {
+	if (cmd == SEEMP_CMD_RESERVE_RDBLKS) {
+		return seemp_logk_reserve_rdblks(sdev, arg);
+	} else if (cmd == SEEMP_CMD_RELEASE_RDBLKS) {
 		mutex_lock(&sdev->lock);
 		sdev->read_idx = (sdev->read_idx + sdev->num_read_in_prog_blks)
 			% sdev->num_tot_blks;
@@ -377,20 +391,20 @@ static long qmp_sphinx_logk_ioctl(struct file *filp, unsigned int cmd,
 		mutex_unlock(&sdev->lock);
 		if (ret && block_apps)
 			wake_up_interruptible(&sdev->writers_wq);
-	} else if (cmd == QMP_SPHINX_CMD_GET_RINGSZ) {
+	} else if (cmd == SEEMP_CMD_GET_RINGSZ) {
 		if (copy_to_user((unsigned int *)arg, &sdev->ring_sz,
 				sizeof(unsigned int)))
 			return -EFAULT;
-	} else if (cmd == QMP_SPHINX_CMD_GET_BLKSZ) {
+	} else if (cmd == SEEMP_CMD_GET_BLKSZ) {
 		if (copy_to_user((unsigned int *)arg, &sdev->blk_sz,
 				sizeof(unsigned int)))
 			return -EFAULT;
-	} else if (QMP_SPHINX_CMD_SET_MASK == cmd) {
-		return qmp_sphinx_logk_set_mask(arg);
-	} else if (QMP_SPHINX_CMD_SET_MAPPING == cmd) {
-		return qmp_sphinx_logk_set_mapping(arg);
-	} else if (QMP_SPHINX_CMD_CHECK_FILTER == cmd) {
-		return qmp_sphinx_logk_check_filter(arg);
+	} else if (SEEMP_CMD_SET_MASK == cmd) {
+		return seemp_logk_set_mask(arg);
+	} else if (SEEMP_CMD_SET_MAPPING == cmd) {
+		return seemp_logk_set_mapping(arg);
+	} else if (SEEMP_CMD_CHECK_FILTER == cmd) {
+		return seemp_logk_check_filter(arg);
 	} else {
 		pr_err("Invalid Request %X\n", cmd);
 		return -ENOIOCTLCMD;
@@ -398,8 +412,8 @@ static long qmp_sphinx_logk_ioctl(struct file *filp, unsigned int cmd,
 	return 0;
 }
 
-static long qmp_sphinx_logk_reserve_rdblks(
-		struct qmp_sphinx_logk_dev *sdev, unsigned long arg)
+static long seemp_logk_reserve_rdblks(
+		struct seemp_logk_dev *sdev, unsigned long arg)
 {
 	int ret;
 	struct read_range rrange;
@@ -437,10 +451,8 @@ static long qmp_sphinx_logk_reserve_rdblks(
 		}
 
 		finish_wait(&sdev->readers_wq, &read_wait);
-		if (ret) {
-			mutex_unlock(&sdev->lock);
+		if (ret)
 			return -EINTR;
-		}
 	}
 
 	/*sdev->lock is held at this point*/
@@ -457,7 +469,7 @@ static long qmp_sphinx_logk_reserve_rdblks(
 	return 0;
 }
 
-static long qmp_sphinx_logk_set_mask(unsigned long arg)
+static long seemp_logk_set_mask(unsigned long arg)
 {
 	__u8 buffer[256];
 	int i;
@@ -494,41 +506,41 @@ static long qmp_sphinx_logk_set_mask(unsigned long arg)
 
 	for (i = 0; i < num_sources; i++) {
 		pmask[i].isOn =
-				qmp_sphinx_logk_get_bit_from_vector(
+				seemp_logk_get_bit_from_vector(
 					(__u8 *)buffer, i);
 	}
 	write_unlock(&filter_lock);
 	return 0;
 }
 
-static long qmp_sphinx_logk_set_mapping(unsigned long arg)
+static long seemp_logk_set_mapping(unsigned long arg)
 {
 	__u32 num_elements;
 	__u32 *pbuffer;
 	int i;
-	struct qmp_sphinx_source_mask *pnewmask;
+	struct seemp_source_mask *pnewmask;
 	if (copy_from_user(&num_elements,
 					(__u32 __user *)arg, sizeof(__u32)))
 		return -EFAULT;
 
 	if ((0 == num_elements) || (num_elements >
-		(UINT_MAX / sizeof(struct qmp_sphinx_source_mask))))
+		(UINT_MAX / sizeof(struct seemp_source_mask))))
 		return -EFAULT;
 
 	write_lock(&filter_lock);
 	if (NULL != pmask) {
 		/*
 		 * Mask is getting set again.
-		 * qmp_sphinx_core was probably restarted.
+		 * seemp_core was probably restarted.
 		 */
-		struct qmp_sphinx_source_mask *ptempmask;
+		struct seemp_source_mask *ptempmask;
 		num_sources = 0;
 		ptempmask = pmask;
 		pmask = NULL;
 		kfree(ptempmask);
 	}
 	write_unlock(&filter_lock);
-	pbuffer = kmalloc(sizeof(struct qmp_sphinx_source_mask)
+	pbuffer = kmalloc(sizeof(struct seemp_source_mask)
 				* num_elements, GFP_KERNEL);
 	if (NULL == pbuffer)
 		return -ENOMEM;
@@ -546,7 +558,7 @@ static long qmp_sphinx_logk_set_mapping(unsigned long arg)
 	 * We arrange the user data into a more usable form.
 	 * This is done in-place.
 	 */
-	pnewmask = (struct qmp_sphinx_source_mask *) pbuffer;
+	pnewmask = (struct seemp_source_mask *) pbuffer;
 	for (i = num_elements - 1; i >= 0; i--) {
 		pnewmask[i].hash = pbuffer[i];
 		/* Observer is off by default*/
@@ -559,7 +571,7 @@ static long qmp_sphinx_logk_set_mapping(unsigned long arg)
 	return 0;
 }
 
-static long qmp_sphinx_logk_check_filter(unsigned long arg)
+static long seemp_logk_check_filter(unsigned long arg)
 {
 	int i;
 	unsigned int hash = (unsigned int) arg;
@@ -580,7 +592,7 @@ static long qmp_sphinx_logk_check_filter(unsigned long arg)
 	return 0;
 }
 
-static int qmp_sphinx_logk_mmap(struct file *filp,
+static int seemp_logk_mmap(struct file *filp,
 		struct vm_area_struct *vma)
 {
 	int ret;
@@ -631,15 +643,15 @@ static int qmp_sphinx_logk_mmap(struct file *filp,
 	return 0;
 }
 
-static const struct file_operations qmp_sphinx_logk_fops = {
-	.write = qmp_sphinx_logk_write,
-	.open = qmp_sphinx_logk_open,
-	.unlocked_ioctl = qmp_sphinx_logk_ioctl,
-	.compat_ioctl = qmp_sphinx_logk_ioctl,
-	.mmap = qmp_sphinx_logk_mmap,
+static const struct file_operations seemp_logk_fops = {
+	.write = seemp_logk_write,
+	.open = seemp_logk_open,
+	.unlocked_ioctl = seemp_logk_ioctl,
+	.compat_ioctl = seemp_logk_ioctl,
+	.mmap = seemp_logk_mmap,
 };
 
-__init int qmp_sphinx_logk_init(void)
+__init int seemp_logk_init(void)
 {
 	int ret;
 	int devno = 0;
@@ -667,7 +679,7 @@ __init int qmp_sphinx_logk_init(void)
 	}
 
 	slogk_dev->ring_sz = ring_sz;
-	slogk_dev->blk_sz = sizeof(struct qmp_sphinx_logk_blk);
+	slogk_dev->blk_sz = sizeof(struct seemp_logk_blk);
 	/*intialize ping-pong buffers*/
 	ret = ringbuf_init(slogk_dev);
 	if (ret < 0) {
@@ -675,8 +687,8 @@ __init int qmp_sphinx_logk_init(void)
 		goto pingpong_fail;
 	}
 
-	ret = alloc_chrdev_region(&devno, 0, qmp_sphinx_LOGK_NUM_DEVS,
-			qmp_sphinx_LOGK_DEV_NAME);
+	ret = alloc_chrdev_region(&devno, 0, seemp_LOGK_NUM_DEVS,
+			seemp_LOGK_DEV_NAME);
 	if (ret < 0) {
 		pr_err("alloc_chrdev_region failed with ret = %d\n",
 				ret);
@@ -687,17 +699,17 @@ __init int qmp_sphinx_logk_init(void)
 
 	pr_debug("logk: major# = %d\n", slogk_dev->major);
 
-	cl = class_create(THIS_MODULE, qmp_sphinx_LOGK_DEV_NAME);
+	cl = class_create(THIS_MODULE, seemp_LOGK_DEV_NAME);
 	if (cl == NULL) {
 		pr_err("class create failed");
 		goto cdev_fail;
 	}
 	if (device_create(cl, NULL, devno, NULL,
-			qmp_sphinx_LOGK_DEV_NAME) == NULL) {
+			seemp_LOGK_DEV_NAME) == NULL) {
 		pr_err("device create failed");
 		goto class_destroy_fail;
 	}
-	cdev_init(&(slogk_dev->cdev), &qmp_sphinx_logk_fops);
+	cdev_init(&(slogk_dev->cdev), &seemp_logk_fops);
 
 	slogk_dev->cdev.owner = THIS_MODULE;
 	ret = cdev_add(&(slogk_dev->cdev), MKDEV(slogk_dev->major, 0), 1);
@@ -706,7 +718,7 @@ __init int qmp_sphinx_logk_init(void)
 		goto class_destroy_fail;
 	}
 
-	qmp_sphinx_logk_attach();
+	seemp_logk_attach();
 	mutex_init(&slogk_dev->lock);
 	init_waitqueue_head(&slogk_dev->readers_wq);
 	init_waitqueue_head(&slogk_dev->writers_wq);
@@ -715,7 +727,7 @@ __init int qmp_sphinx_logk_init(void)
 class_destroy_fail:
 	class_destroy(cl);
 cdev_fail:
-	unregister_chrdev_region(devno, qmp_sphinx_LOGK_NUM_DEVS);
+	unregister_chrdev_region(devno, seemp_LOGK_NUM_DEVS);
 register_fail:
 	ringbuf_cleanup(slogk_dev);
 pingpong_fail:
@@ -723,14 +735,14 @@ pingpong_fail:
 	return -EPERM;
 }
 
-__exit void qmp_sphinx_logk_cleanup(void)
+__exit void seemp_logk_cleanup(void)
 {
 	dev_t devno = MKDEV(slogk_dev->major, slogk_dev->minor);
-	qmp_sphinx_logk_detach();
+	seemp_logk_detach();
 
 	cdev_del(&slogk_dev->cdev);
 
-	unregister_chrdev_region(devno, qmp_sphinx_LOGK_NUM_DEVS);
+	unregister_chrdev_region(devno, seemp_LOGK_NUM_DEVS);
 	ringbuf_cleanup(slogk_dev);
 	kfree(slogk_dev);
 
@@ -740,9 +752,9 @@ __exit void qmp_sphinx_logk_cleanup(void)
 	}
 }
 
-module_init(qmp_sphinx_logk_init);
-module_exit(qmp_sphinx_logk_cleanup);
+module_init(seemp_logk_init);
+module_exit(seemp_logk_cleanup);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("qmp_sphinx Observer");
+MODULE_DESCRIPTION("seemp Observer");
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,13 +10,14 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
 */
-#define pr_fmt(fmt) "qmp_sphinx: %s: " fmt, __func__
 
-#include "qmp_sphinx_logk.h"
-#include "qmp_sphinx_ringbuf.h"
+#define pr_fmt(fmt) "seemp: %s: " fmt, __func__
+
+#include "seemp_logk.h"
+#include "seemp_ringbuf.h"
 
 /*initial function no need to hold ring_lock*/
-int ringbuf_init(struct qmp_sphinx_logk_dev *sdev)
+int ringbuf_init(struct seemp_logk_dev *sdev)
 {
 	char *buf;
 	unsigned long virt_addr;
@@ -72,7 +73,7 @@ int ringbuf_init(struct qmp_sphinx_logk_dev *sdev)
 	return 0;
 }
 
-void ringbuf_cleanup(struct qmp_sphinx_logk_dev *sdev)
+void ringbuf_cleanup(struct seemp_logk_dev *sdev)
 {
 	unsigned long virt_addr;
 
@@ -97,10 +98,10 @@ void ringbuf_cleanup(struct qmp_sphinx_logk_dev *sdev)
 	}
 }
 
-struct qmp_sphinx_logk_blk *ringbuf_fetch_wr_block
-					(struct qmp_sphinx_logk_dev *sdev)
+struct seemp_logk_blk *ringbuf_fetch_wr_block
+					(struct seemp_logk_dev *sdev)
 {
-	struct qmp_sphinx_logk_blk *blk = NULL;
+	struct seemp_logk_blk *blk = NULL;
 	int idx;
 
 	mutex_lock(&sdev->lock);
@@ -123,7 +124,7 @@ struct qmp_sphinx_logk_blk *ringbuf_fetch_wr_block
 	return blk;
 }
 
-void ringbuf_finish_writer(struct qmp_sphinx_logk_dev *sdev)
+void ringbuf_finish_writer(struct seemp_logk_dev *sdev)
 {
 	/*
 	 * finish writing...
@@ -142,7 +143,7 @@ void ringbuf_finish_writer(struct qmp_sphinx_logk_dev *sdev)
 	mutex_unlock(&sdev->lock);
 }
 
-int ringbuf_count_marked(struct qmp_sphinx_logk_dev *sdev)
+int ringbuf_count_marked(struct seemp_logk_dev *sdev)
 {
 	int i;
 	unsigned int marked;
