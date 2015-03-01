@@ -37,7 +37,8 @@ Optional properties:
 			   to set temperature thresholds and receive notification when the temperature
 			   crosses a set threshold, read temperature and enable/set trip types supported
 			   by the thermal framework.
-
+- hkadc_ldo-supply : Add this property if VADC needs to perform a Software Vote for the HKADC.
+- hkadc_ok-supply : Add this property if the VADC needs to perform a Software vote for the HKADC VREG_OK.
 
 Client required property:
 - qcom,<consumer name>-vadc : The phandle to the corresponding vadc device.

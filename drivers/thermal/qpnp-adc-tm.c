@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -170,7 +170,7 @@
 
 #define QPNP_MIN_TIME			2000
 #define QPNP_MAX_TIME			2100
-#define QPNP_RETRY			25
+#define QPNP_RETRY			1000
 
 struct qpnp_adc_thr_client_info {
 	struct list_head		list;
@@ -216,6 +216,7 @@ struct qpnp_adc_tm_chip {
 	struct workqueue_struct		*low_thr_wq;
 	struct work_struct		trigger_high_thr_work;
 	struct work_struct		trigger_low_thr_work;
+	bool				adc_vote_enable;
 	struct qpnp_adc_tm_sensor	sensor[0];
 };
 
@@ -351,10 +352,34 @@ static int32_t qpnp_adc_tm_fast_avg_en(struct qpnp_adc_tm_chip *chip,
 	return rc;
 }
 
+static int qpnp_adc_tm_check_vreg_vote(struct qpnp_adc_tm_chip *chip)
+{
+	int rc = 0;
+
+	if (!chip->adc_vote_enable) {
+		if (chip->adc->hkadc_ldo && chip->adc->hkadc_ldo_ok) {
+			rc = qpnp_adc_enable_voltage(chip->adc);
+			if (rc) {
+				pr_err("failed enabling VADC LDO\n");
+				return rc;
+			}
+			chip->adc_vote_enable = true;
+		}
+	}
+
+	return rc;
+}
+
 static int32_t qpnp_adc_tm_enable(struct qpnp_adc_tm_chip *chip)
 {
 	int rc = 0;
 	u8 data = 0;
+
+	rc = qpnp_adc_tm_check_vreg_vote(chip);
+	if (rc) {
+		pr_err("ADC TM VREG enable failed:%d\n", rc);
+		return rc;
+	}
 
 	data = QPNP_ADC_TM_EN;
 	rc = qpnp_adc_tm_write_reg(chip, QPNP_EN_CTL1, data);
@@ -370,8 +395,10 @@ static int32_t qpnp_adc_tm_disable(struct qpnp_adc_tm_chip *chip)
 	int rc = 0;
 
 	rc = qpnp_adc_tm_write_reg(chip, QPNP_EN_CTL1, data);
-	if (rc < 0)
+	if (rc < 0) {
 		pr_err("adc-tm disable failed\n");
+		return rc;
+	}
 
 	return rc;
 }
@@ -390,7 +417,7 @@ static int qpnp_adc_tm_is_valid(struct qpnp_adc_tm_chip *chip)
 static int32_t qpnp_adc_tm_enable_if_channel_meas(
 					struct qpnp_adc_tm_chip *chip)
 {
-	u8 adc_tm_meas_en = 0;
+	u8 adc_tm_meas_en = 0, status_low = 0, status_high = 0;
 	int rc = 0;
 
 	/* Check if a measurement request is still required */
@@ -401,8 +428,22 @@ static int32_t qpnp_adc_tm_enable_if_channel_meas(
 		return rc;
 	}
 
+	rc = qpnp_adc_tm_read_reg(chip, QPNP_ADC_TM_LOW_THR_INT_EN,
+							&status_low);
+	if (rc) {
+		pr_err("adc-tm-tm read status low failed with %d\n", rc);
+		return rc;
+	}
+
+	rc = qpnp_adc_tm_read_reg(chip, QPNP_ADC_TM_HIGH_THR_INT_EN,
+							&status_high);
+	if (rc) {
+		pr_err("adc-tm-tm read status high failed with %d\n", rc);
+		return rc;
+	}
+
 	/* Enable only if there are pending measurement requests */
-	if (adc_tm_meas_en) {
+	if ((adc_tm_meas_en && status_high) || (adc_tm_meas_en && status_low)) {
 		qpnp_adc_tm_enable(chip);
 
 		/* Request conversion */
@@ -411,6 +452,13 @@ static int32_t qpnp_adc_tm_enable_if_channel_meas(
 		if (rc < 0) {
 			pr_err("adc-tm request conversion failed\n");
 			return rc;
+		}
+	} else {
+		/* disable the vote if applicable */
+		if (chip->adc_vote_enable && chip->adc->hkadc_ldo &&
+					chip->adc->hkadc_ldo_ok) {
+			qpnp_adc_disable_voltage(chip->adc);
+			chip->adc_vote_enable = false;
 		}
 	}
 
@@ -1872,6 +1920,13 @@ static void qpnp_adc_tm_high_thr_work(struct work_struct *work)
 			struct qpnp_adc_tm_chip, trigger_high_thr_work);
 	int rc;
 
+	/* disable the vote if applicable */
+	if (chip->adc_vote_enable && chip->adc->hkadc_ldo &&
+					chip->adc->hkadc_ldo_ok) {
+		qpnp_adc_disable_voltage(chip->adc);
+		chip->adc_vote_enable = false;
+	}
+
 	rc = qpnp_adc_tm_read_status(chip);
 	if (rc < 0)
 		pr_err("adc-tm high thr work failed\n");
@@ -1901,6 +1956,13 @@ static void qpnp_adc_tm_low_thr_work(struct work_struct *work)
 	struct qpnp_adc_tm_chip *chip = container_of(work,
 			struct qpnp_adc_tm_chip, trigger_low_thr_work);
 	int rc;
+
+	/* disable the vote if applicable */
+	if (chip->adc_vote_enable && chip->adc->hkadc_ldo &&
+					chip->adc->hkadc_ldo_ok) {
+		qpnp_adc_disable_voltage(chip->adc);
+		chip->adc_vote_enable = false;
+	}
 
 	rc = qpnp_adc_tm_read_status(chip);
 	if (rc < 0)
@@ -2356,6 +2418,7 @@ static int qpnp_adc_tm_probe(struct spmi_device *spmi)
 		enable_irq_wake(chip->adc->adc_low_thr_irq);
 	}
 
+	chip->adc_vote_enable = false;
 	dev_set_drvdata(&spmi->dev, chip);
 	list_add(&chip->list, &qpnp_adc_tm_device_list);
 
@@ -2402,6 +2465,8 @@ static int qpnp_adc_tm_remove(struct spmi_device *spmi)
 		destroy_workqueue(chip->high_thr_wq);
 	if (chip->low_thr_wq)
 		destroy_workqueue(chip->low_thr_wq);
+	if (chip->adc->hkadc_ldo && chip->adc->hkadc_ldo_ok)
+		qpnp_adc_free_voltage_resource(chip->adc);
 	dev_set_drvdata(&spmi->dev, NULL);
 
 	return 0;

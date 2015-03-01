@@ -21,6 +21,7 @@
 #include <linux/kernel.h>
 #include <linux/list.h>
 #include <linux/qpnp-revid.h>
+#include <linux/regulator/consumer.h>
 /**
  * enum qpnp_vadc_channels - QPNP AMUX arbiter channels
  */
@@ -1062,6 +1063,8 @@ struct qpnp_adc_drv {
 	struct mutex			adc_lock;
 	struct completion		adc_rslt_completion;
 	struct qpnp_iadc_calib		calib;
+	struct regulator		*hkadc_ldo;
+	struct regulator		*hkadc_ldo_ok;
 };
 
 /**
@@ -1691,6 +1694,25 @@ int32_t qpnp_vadc_calib_gnd(struct qpnp_vadc_chip *vadc,
 				enum qpnp_adc_calib_type calib_type,
 				int *calib_data);
 
+/**
+ * qpnp_adc_enable_voltage() - Enable LDO for HKADC
+ * @dev:	Structure device for qpnp vadc
+ * returns result of enabling the regulator interface.
+ */
+int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc);
+
+/**
+ * qpnp_adc_disable_voltage() - Disable vote for HKADC LDO
+ * @dev:	Structure device for qpnp vadc
+ */
+void qpnp_adc_disable_voltage(struct qpnp_adc_drv *adc);
+
+/**
+ * qpnp_adc_free_voltage_resource() - Puts HKADC LDO
+ * @dev:	Structure device for qpnp vadc
+ */
+void qpnp_adc_free_voltage_resource(struct qpnp_adc_drv *adc);
+
 #else
 static inline int32_t qpnp_vadc_read(struct qpnp_vadc_chip *dev,
 				uint32_t channel,
@@ -1875,6 +1897,15 @@ static int32_t qpnp_vadc_calib_vref(struct qpnp_vadc_chip *vadc,
 static int32_t qpnp_vadc_calib_gnd(struct qpnp_vadc_chip *vadc,
 					enum qpnp_adc_calib_type calib_type,
 					int *calib_data)
+{ return -ENXIO; }
+
+static inline int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc)
+{ return -ENXIO; }
+
+static inline void qpnp_adc_disable_voltage(struct qpnp_adc_drv *adc)
+{ return -ENXIO; }
+
+static inline void qpnp_adc_free_voltage_resource(struct qpnp_adc_drv *adc)
 { return -ENXIO; }
 
 #endif

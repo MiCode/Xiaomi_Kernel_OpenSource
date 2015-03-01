@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,10 @@
 /* Max ADC code represents full-scale range of 1.8V */
 #define QPNP_VADC_MAX_ADC_CODE			0xA800
 #define KELVINMIL_DEGMIL	273160
+#define QPNP_VADC_LDO_VOLTAGE_MIN	1800000
+#define QPNP_VADC_LDO_VOLTAGE_MAX	1800000
+#define QPNP_VADC_OK_VOLTAGE_MIN	1000000
+#define QPNP_VADC_OK_VOLTAGE_MAX	1000000
 
 /* Units for temperature below (on x axis) is in 0.1DegC as
    required by the battery driver. Note the resolution used
@@ -1689,6 +1693,51 @@ int32_t qpnp_vadc_check_result(int32_t *data, bool recalib_check)
 }
 EXPORT_SYMBOL(qpnp_vadc_check_result);
 
+int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc)
+{
+	int rc = 0;
+
+	if (adc->hkadc_ldo) {
+		rc = regulator_enable(adc->hkadc_ldo);
+		if (rc < 0) {
+			pr_err("Failed to enable hkadc ldo\n");
+			return rc;
+		}
+	}
+
+	if (adc->hkadc_ldo_ok) {
+		rc = regulator_enable(adc->hkadc_ldo_ok);
+		if (rc < 0) {
+			pr_err("Failed to enable hkadc ok signal\n");
+			return rc;
+		}
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(qpnp_adc_enable_voltage);
+
+void qpnp_adc_disable_voltage(struct qpnp_adc_drv *adc)
+{
+	if (adc->hkadc_ldo)
+		regulator_disable(adc->hkadc_ldo);
+
+	if (adc->hkadc_ldo_ok)
+		regulator_disable(adc->hkadc_ldo_ok);
+
+}
+EXPORT_SYMBOL(qpnp_adc_disable_voltage);
+
+void qpnp_adc_free_voltage_resource(struct qpnp_adc_drv *adc)
+{
+	if (adc->hkadc_ldo)
+		regulator_put(adc->hkadc_ldo);
+
+	if (adc->hkadc_ldo_ok)
+		regulator_put(adc->hkadc_ldo_ok);
+}
+EXPORT_SYMBOL(qpnp_adc_free_voltage_resource);
+
 int qpnp_adc_get_revid_version(struct device *dev)
 {
 	struct pmic_revid_data *revid_data;
@@ -1971,6 +2020,47 @@ int32_t qpnp_adc_get_devicetree_data(struct spmi_device *spmi,
 	}
 
 	init_completion(&adc_qpnp->adc_rslt_completion);
+
+	if (of_get_property(node, "hkadc_ldo-supply", NULL)) {
+		adc_qpnp->hkadc_ldo = regulator_get(&spmi->dev,
+				"hkadc_ldo");
+		if (IS_ERR(adc_qpnp->hkadc_ldo)) {
+			pr_err("hkadc_ldo-supply node not found\n");
+			return -EINVAL;
+		}
+
+		rc = regulator_set_voltage(adc_qpnp->hkadc_ldo,
+				QPNP_VADC_LDO_VOLTAGE_MIN,
+				QPNP_VADC_LDO_VOLTAGE_MAX);
+		if (rc < 0) {
+			pr_err("setting voltage for hkadc_ldo failed\n");
+			return rc;
+		}
+
+		rc = regulator_set_optimum_mode(adc_qpnp->hkadc_ldo,
+				100000);
+		if (rc < 0) {
+			pr_err("hkadc_ldo optimum mode failed%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (of_get_property(node, "hkadc_ok-supply", NULL)) {
+		adc_qpnp->hkadc_ldo_ok = regulator_get(&spmi->dev,
+				"hkadc_ok");
+		if (IS_ERR(adc_qpnp->hkadc_ldo_ok)) {
+			pr_err("hkadc_ok node not found\n");
+			return -EINVAL;
+		}
+
+		rc = regulator_set_voltage(adc_qpnp->hkadc_ldo_ok,
+				QPNP_VADC_OK_VOLTAGE_MIN,
+				QPNP_VADC_OK_VOLTAGE_MAX);
+		if (rc < 0) {
+			pr_err("setting voltage for hkadc-ldo-ok failed\n");
+			return rc;
+		}
+	}
 
 	return 0;
 }
