@@ -2575,7 +2575,7 @@
 		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor7",
 				   "tsens_tz_sensor9", "tsens_tz_sensor10",
 				   "tsens_tz_sensor13", "tsens_tz_sensor14";
-		qcom,freq-mitigation-temp = <95>;
+		qcom,freq-mitigation-temp = <100>;
 		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <768000>;
 		qcom,freq-mitigation-control-mask = <0x30>;
