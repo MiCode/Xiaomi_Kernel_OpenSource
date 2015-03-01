@@ -111,19 +111,19 @@ static void __tpda_enable_port(struct tpda_drvdata *drvdata, int port)
 
 	val = tpda_readl(drvdata, TPDA_Pn_CR(port));
 	if (drvdata->bc_esize[port] == 32)
-		val = val | BIT(4);
-	else if (drvdata->bc_esize[port] == 64)
 		val = val & ~BIT(4);
+	else if (drvdata->bc_esize[port] == 64)
+		val = val | BIT(4);
 
 	if (drvdata->tc_esize[port] == 32)
-		val = val | BIT(5);
-	else if (drvdata->tc_esize[port] == 64)
 		val = val & ~BIT(5);
+	else if (drvdata->tc_esize[port] == 64)
+		val = val | BIT(5);
 
 	if (drvdata->dsb_esize[port] == 32)
-		val = val | BIT(8);
-	else if (drvdata->dsb_esize[port] == 64)
 		val = val & ~BIT(8);
+	else if (drvdata->dsb_esize[port] == 64)
+		val = val | BIT(8);
 
 	val = val & ~(0x3 << 6);
 	if (drvdata->cmb_esize[port] == 8)
