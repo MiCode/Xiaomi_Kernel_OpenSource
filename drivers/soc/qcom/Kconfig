@@ -635,6 +635,14 @@ config QCOM_NPA_DUMP
 	help
 	  Read the NPA dump from RPM memory through debugfs.
 
+config KERNEL_TEXT_MPU_PROT
+	bool "Enable xpu protection of kernel r/o sections"
+	help
+	  Enables xpu protection of kernel code and read-only data
+	  sections early in boot. Read access is permitted to
+	  all masters; Write access is only permited to the
+	  secure world.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
