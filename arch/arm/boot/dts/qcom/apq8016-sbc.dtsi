@@ -280,6 +280,10 @@
 			debounce-interval = <15>;
 		};
 	};
+
+	qcom,wcnss-wlan@0a000000 {
+		qcom,wlan-indication-enabled;
+	};
 };
 
 &usb_otg {
@@ -846,7 +850,7 @@
 				qcom,mode-ctrl = <0x60>;
 				qcom,mode = "manual";
 				linux,default-trigger =
-					"none";
+					"wlan-indication-led";
 			};
 		};
 	};
