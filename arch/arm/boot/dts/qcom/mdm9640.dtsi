@@ -1488,3 +1488,13 @@
 		linux,code = <116>;
 	};
 };
+
+&pmd9635_vadc {
+	hkadc_ldo-supply = <&pmd9635_l7>;
+	hkadc_ok-supply = <&pmd9635_l3>;
+};
+
+&pmd9635_adc_tm {
+	hkadc_ldo-supply = <&pmd9635_l7>;
+	hkadc_ok-supply = <&pmd9635_l3>;
+};
