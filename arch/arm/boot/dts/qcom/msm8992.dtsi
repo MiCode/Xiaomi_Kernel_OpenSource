@@ -1035,7 +1035,9 @@
 
 	qcom,cnss {
 		compatible = "qcom,cnss";
-		wlan-bootstrap-gpio = <&msm_gpio 112 0>;
+		wlan-bootstrap-gpio = <&msm_gpio 112 0>,
+				      <&msm_gpio 54 0>,
+				      <&msm_gpio 53 0>;
 		wlan-en-gpio = <&msm_gpio 113 0>;
 		vdd-wlan-supply = <&wlan_vreg>;
 		vdd-wlan-io-supply = <&pm8994_s4>;
