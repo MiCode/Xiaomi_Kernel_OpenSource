@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +29,8 @@
 #include <linux/if_arp.h>
 #include <linux/msm_rmnet.h>
 #include <linux/platform_device.h>
+#include <linux/workqueue.h>
+
 #include <net/pkt_sched.h>
 
 #include <soc/qcom/bam_dmux.h>
@@ -86,6 +88,11 @@ struct rmnet_private {
 	u32 operation_mode; /* IOCTL specified mode (protocol, QoS header) */
 	uint8_t device_up;
 	uint8_t in_reset;
+};
+
+struct rmnet_free_bam_work {
+	struct work_struct work;
+	uint32_t ch_id;
 };
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
@@ -152,6 +159,8 @@ DEVICE_ATTR(timeout, 0664, timeout_show, timeout_store);
 /* Forward declaration */
 static int rmnet_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
 static struct platform_driver bam_rmnet_drivers[BAM_DMUX_NUM_CHANNELS];
+
+static struct net_device *netdevs[BAM_DMUX_NUM_CHANNELS];
 
 static __be16 rmnet_ip_type_trans(struct sk_buff *skb, struct net_device *dev)
 {
@@ -522,12 +531,29 @@ static const struct net_device_ops rmnet_ops_ip = {
 	.ndo_validate_addr = 0,
 };
 
+static void _rmnet_free_bam_later(struct work_struct *work)
+{
+	struct rmnet_free_bam_work *fwork;
+	fwork = container_of(work, struct rmnet_free_bam_work, work);
+
+	DBG0("%s: unregister_netdev, done", __func__);
+
+	if (bam_rmnet_drivers[fwork->ch_id].remove) {
+		platform_driver_unregister(&bam_rmnet_drivers[fwork->ch_id]);
+		bam_rmnet_drivers[fwork->ch_id].remove = NULL;
+	}
+
+	DBG0("%s: free_netdev, done", __func__);
+
+	kfree(work);
+}
+
 static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 {
 	struct rmnet_ioctl_extended_s ext_cmd;
 	int rc = 0;
 	struct rmnet_private *p = netdev_priv(dev);
-
+	struct rmnet_free_bam_work *work;
 
 	rc = copy_from_user(&ext_cmd, ifr->ifr_ifru.ifru_data,
 			    sizeof(ext_cmd));
@@ -550,6 +576,15 @@ static int rmnet_ioctl_extended(struct net_device *dev, struct ifreq *ifr)
 	case RMNET_IOCTL_GET_DRIVER_NAME:
 		strlcpy(ext_cmd.u.if_name, RMNET_BAM_DRIVER_NAME,
 			sizeof(ext_cmd.u.if_name));
+		break;
+	case RMNET_IOCTL_DEREGISTER_DEV:
+		work = kmalloc(sizeof(*work), GFP_KERNEL);
+		if (!work)
+			break;
+		INIT_WORK(&work->work, _rmnet_free_bam_later);
+
+		work->ch_id = p->ch_id;
+		schedule_work(&work->work);
 		break;
 	default:
 		rc = -EINVAL;
@@ -721,7 +756,6 @@ static void rmnet_setup(struct net_device *dev)
 	dev->watchdog_timeo = 1000; /* 10 seconds? */
 }
 
-static struct net_device *netdevs[BAM_DMUX_NUM_CHANNELS];
 
 #ifdef CONFIG_MSM_RMNET_DEBUG
 static int rmnet_debug_init(struct net_device *dev)
