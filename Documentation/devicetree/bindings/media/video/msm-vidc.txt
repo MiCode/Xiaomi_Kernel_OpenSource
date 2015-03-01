@@ -32,6 +32,9 @@ Optional properties:
 	  Passive buses are not scaled by load and are typically just "turned on"
 	  to keep certain clocks (that aren't directly controllable by the driver)
 	  high.
+	- qcom,bus-low-power: A bool indicating the bus is "in low-power".  In
+	  this mode the bus load is lower than the regular sesion. This is enabled when
+	  power save is enabled in driver.
         - qcom,bus-configs: A bitmap that describes the configuration of the
           bus. The bitmaps are as follows:
           supports mvc encoder = 0x00000001
@@ -166,6 +169,7 @@ Example:
 					<63 512 104000 303000>;
 				qcom,bus-configs = <0xf>;
 				qcom,bus-passive;
+				qcom,bus-low-power;
 			};
 		};
 		qcom,vidc-iommu-domains {

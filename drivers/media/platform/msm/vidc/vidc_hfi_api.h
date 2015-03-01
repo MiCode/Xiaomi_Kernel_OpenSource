@@ -1300,6 +1300,7 @@ static inline enum vidc_bus_vote_data_session VIDC_VOTE_DATA_SESSION_VAL(
 struct vidc_bus_vote_data {
 	enum vidc_bus_vote_data_session session;
 	int load;
+	bool low_power;
 };
 
 #define call_hfi_op(q, op, args...)			\
