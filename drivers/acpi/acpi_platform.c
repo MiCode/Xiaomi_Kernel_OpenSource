@@ -43,6 +43,8 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "BCM4752E" },
 	{ "BCM43241" },
 	{ "BCM4356" },
+	{ "INT5502"  },
+	{ "INT8260"  },
 	{ "BCM47521" },
 	/* Modem Controller Device */
 	{ "MCD0001", 0 },
