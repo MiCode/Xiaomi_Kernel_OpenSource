@@ -1376,7 +1376,8 @@ done:
 	}
 	rt_mutex_unlock(&isp->mutex);
 
-	dev_dbg(isp->dev, "qbuf buffer %d (%s)\n", buf->index, vdev->name);
+	dev_dbg(isp->dev, "qbuf buffer %d (%s) for asd%d\n", buf->index,
+		vdev->name, asd->index);
 
 	return ret;
 
@@ -1490,8 +1491,8 @@ static int atomisp_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	buf->reserved2 = pipe->frame_config_id[buf->index];
 	rt_mutex_unlock(&isp->mutex);
 
-	dev_dbg(isp->dev, "dqbuf buffer %d (%s) with exp_id %d, isp_config_id %d\n",
-		buf->index, vdev->name, __get_frame_exp_id(pipe, buf),
+	dev_dbg(isp->dev, "dqbuf buffer %d (%s) for asd%d with exp_id %d, isp_config_id %d\n",
+		buf->index, vdev->name, asd->index, __get_frame_exp_id(pipe, buf),
 		buf->reserved2);
 	return 0;
 }
@@ -1661,6 +1662,9 @@ static int atomisp_streamon(struct file *file, void *fh,
 	unsigned int wdt_duration = ATOMISP_ISP_TIMEOUT_DURATION;
 	int ret = 0;
 	unsigned long irqflags;
+
+	dev_dbg(isp->dev, "Start stream on pad %d for asd%d\n",
+		atomisp_subdev_source_pad(vdev), asd->index);
 
 	if (type != V4L2_BUF_TYPE_VIDEO_CAPTURE) {
 		dev_dbg(isp->dev, "unsupported v4l2 buf type\n");
@@ -1896,6 +1900,9 @@ int __atomisp_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 	int ret;
 	unsigned long flags;
 	bool first_streamoff = false;
+
+	dev_dbg(isp->dev, "Stop stream on pad %d for asd%d\n",
+		atomisp_subdev_source_pad(vdev), asd->index);
 
 	BUG_ON(!rt_mutex_is_locked(&isp->mutex));
 	BUG_ON(!mutex_is_locked(&isp->streamoff_mutex));

@@ -3543,9 +3543,9 @@ int atomisp_set_parameters(struct video_device *vdev,
 		return -EINVAL;
 	}
 
-	dev_dbg(asd->isp->dev, "%s: set parameter(per_frame_setting %d) with isp_config_id %d of %s\n",
-		__func__, arg->per_frame_setting, arg->isp_config_id,
-		vdev->name);
+	dev_dbg(asd->isp->dev, "%s: set parameter(per_frame_setting %d) for asd%d with isp_config_id %d of %s\n",
+		__func__, arg->per_frame_setting, asd->index,
+		arg->isp_config_id, vdev->name);
 	if (arg->per_frame_setting && !atomisp_is_vf_pipe(pipe)) {
 		/*
 		 * Per-frame setting enabled, we allocate a new paramter
@@ -4957,9 +4957,9 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 	int ret;
 
 	dev_dbg(isp->dev,
-		"setting resolution %ux%u on pad %u, bytesperline %u\n",
+		"setting resolution %ux%u on pad %u for asd%d, bytesperline %u\n",
 		f->fmt.pix.width, f->fmt.pix.height, source_pad,
-		f->fmt.pix.bytesperline);
+		asd->index, f->fmt.pix.bytesperline);
 
 	if (asd->streaming == ATOMISP_DEVICE_STREAMING_ENABLED) {
 		dev_warn(isp->dev, "ISP does not support set format while at streaming!\n");
