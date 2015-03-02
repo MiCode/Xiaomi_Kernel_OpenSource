@@ -24,15 +24,16 @@ Required properties
 
 Optional properties
 
-- qcom,freq-control-mask: The cpu mask that will be used to determine if a
-			core can be used for freq control.
+- qcom,freq-control-list: List of phandles to the cores that will be used to
+			determine if a core can be frequency controlled for
+			thermal condition.
 - qcom,core-limit-temp: Threshold temperature to start shutting down cores
 			in degC
 - qcom,core-temp-hysteresis: Degrees C below which the cores will be brought
 			online in sequence.
-- qcom,core-control-mask: The cpu mask that will be used to determine if a
-			core can be controlled or not. A mask of 0 indicates
-			the feature is disabled.
+- qcom,core-control-list: List of phandles to the cores that will be used to
+			determine if a core can be hotplugged for thermal condition.
+			No handle indicates the feature is disabled.
 - qcom,hotplug-temp: Threshold temperature to start shutting down cores
 			in degC. This will be used when polling based
 			core control is disabled. The difference between hotplug-temp
@@ -57,15 +58,14 @@ Optional properties
 - qcom,freq-mitigation-value: The frequency value (in kHz) to which the thermal
 			should mitigate the CPU, when the freq-mitigation-temp
 			threshold is reached.
-- qcom,freq-mitigation-control-mask: The frequency mitigation bitmask that will be
+- qcom,freq-mitigation-control-list: List of phandles to the cores that will be
 			used to determine if KTM should do emergency frequency
-			mitigation for a core or not. A mask of 0x00 indicates the
-			mitigation is disabled for all the cores and a mask of 0x05
-			indicates this mitigation is enabled for cpu-0 and cpu-2.
+			mitigation for a core or not. No handle indicates the
+			mitigation is disabled for all the cores.
 			Note: For KTM's frequency mitigation to work, the data for all the
 			above four properties (qcom,freq-mitigation-temp; qcom,
 			freq-mitigation-temp-hysteresis; qcom,freq-mitigation-value and
-			qcom,freq-mitigation-control-mask) should be populated.
+			qcom,freq-mitigation-control-list) should be populated.
 - qcom,vdd-restriction-temp: When temperature is below this threshold, will
 			enable vdd restriction which will set higher voltage on
 			key voltage rails, in degC.
@@ -247,11 +247,11 @@ Example:
 		qcom,limit-temp = <60>;
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
-		qcom,freq-control-mask = <0xf>
+		qcom,freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,therm-reset-temp = <115>;
 		qcom,core-limit-temp = <90>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-mask = <7>;
+		qcom,core-control-list = <&CPU1 &CPU2 &CPU3>;
 		qcom,hotplug-temp = <110>;
 		qcom,hotplug-temp-hysteresis = <20>;
 		qcom,cpu-sensors = "tsens_tz_sensor5", "tsens_tz_sensor6",
@@ -259,7 +259,7 @@ Example:
 		qcom,freq-mitigation-temp = <110>;
 		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <960000>;
-		qcom,freq-mitigation-control-mask = <0x01>;
+		qcom,freq-mitigation-control-list = <&CPU0>;
 		qcom,rpm-phase-resource-type = "misc";
 		qcom,rpm-phase-resource-id = <0>;
 		qcom,cx-phase-resource-key = "tmpc";

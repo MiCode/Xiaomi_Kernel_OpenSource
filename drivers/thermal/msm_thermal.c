@@ -362,6 +362,36 @@ enum ocr_request {
 	sysfs_attr_init(&ko_attr.attr); \
 	_attr_gp.attrs[0] = &ko_attr.attr;
 
+static uint32_t get_mask_from_core_handle(struct platform_device *pdev,
+						const char *key)
+{
+	struct device_node *core_phandle = NULL;
+	int i = 0, cpu = 0, cpu_cnt = 0;
+	uint32_t mask = 0;
+
+	if (!of_get_property(pdev->dev.of_node, key, &cpu_cnt)
+		|| cpu_cnt <= 0) {
+		pr_debug("Property %s not defined.\n", key);
+		return -ENODEV;
+	}
+	cpu_cnt /= sizeof(__be32);
+
+	core_phandle = of_parse_phandle(pdev->dev.of_node,
+			key, i++);
+	while (core_phandle && i <= cpu_cnt) {
+		for_each_possible_cpu(cpu) {
+			if (of_get_cpu_node(cpu, NULL) == core_phandle) {
+				mask |= BIT(cpu);
+				break;
+			}
+		}
+		core_phandle = of_parse_phandle(pdev->dev.of_node,
+			key, i++);
+	}
+
+	return mask;
+}
+
 void get_cluster_mask(uint32_t cpu, cpumask_t *mask)
 {
 	int i;
@@ -5500,10 +5530,13 @@ static int probe_cc(struct device_node *node, struct msm_thermal_data *data,
 	if (ret)
 		goto read_node_fail;
 
-	key = "qcom,core-control-mask";
-	ret = of_property_read_u32(node, key, &data->core_control_mask);
-	if (ret)
+	key = "qcom,core-control-list";
+	ret = get_mask_from_core_handle(pdev, key);
+	if (ret <= 0)
 		goto read_node_fail;
+
+	data->core_control_mask = ret;
+	ret = 0;
 
 	key = "qcom,hotplug-temp";
 	ret = of_property_read_u32(node, key, &data->hotplug_temp_degC);
@@ -5772,10 +5805,13 @@ static int probe_freq_mitigation(struct device_node *node,
 	if (ret)
 		goto PROBE_FREQ_EXIT;
 
-	key = "qcom,freq-mitigation-control-mask";
-	ret = of_property_read_u32(node, key, &data->freq_mitig_control_mask);
-	if (ret)
+	key = "qcom,freq-mitigation-control-list";
+	ret = get_mask_from_core_handle(pdev, key);
+	if (ret <= 0)
 		goto PROBE_FREQ_EXIT;
+
+	data->freq_mitig_control_mask = ret;
+	ret = 0;
 
 	freq_mitigation_enabled = 1;
 
@@ -5836,8 +5872,13 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	else
 		online_core = false;
 
-	key = "qcom,freq-control-mask";
-	ret = of_property_read_u32(node, key, &data.bootup_freq_control_mask);
+	key = "qcom,freq-control-list";
+	ret = get_mask_from_core_handle(pdev, key);
+	if (ret <= 0)
+		data.bootup_freq_control_mask = 0x0;
+	else
+		data.bootup_freq_control_mask = ret;
+	ret = 0;
 
 	probe_sensor_info(node, &data, pdev);
 	ret = probe_cc(node, &data, pdev);

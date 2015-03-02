@@ -2393,10 +2393,10 @@
 		qcom,temp-hysteresis = <10>;
 		qcom,therm-reset-temp = <115>;
 		qcom,freq-step = <4>;
-		qcom,freq-control-mask = <0x0f>;
+		qcom,freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,core-limit-temp = <70>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-mask = <0x0f>;
+		qcom,core-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,hotplug-temp = <100>;
 		qcom,hotplug-temp-hysteresis = <40>;
 		qcom,cpu-sensors = "tsens_tz_sensor4", "tsens_tz_sensor6",
@@ -2404,7 +2404,7 @@
 		qcom,freq-mitigation-temp = <90>;
 		qcom,freq-mitigation-temp-hysteresis = <40>;
 		qcom,freq-mitigation-value = <576000>;
-		qcom,freq-mitigation-control-mask = <0x0f>;
+		qcom,freq-mitigation-control-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,mx-restriction-temp = <5>;
