@@ -458,6 +458,7 @@ static inline unsigned get_ncm(__le16 **p, unsigned size)
 static inline void ncm_reset_values(struct f_ncm *ncm)
 {
 	ncm->parser_opts = &ndp16_opts;
+	ncm->ndp_sign = ncm->parser_opts->ndp_sign;
 	ncm->is_crc = false;
 	ncm->port.cdc_filter = DEFAULT_FILTER;
 
