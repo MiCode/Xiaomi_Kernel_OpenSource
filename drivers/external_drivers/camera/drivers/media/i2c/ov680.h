@@ -188,8 +188,6 @@
 #define OV680_CONFIG_ISP_LENC_ON 0x02
 #define OV680_CONFIG_ISP_LENS_OFF 0x03
 
-/* Todo:  to define more ov680 register names */
-
 #define OV680_FIRMWARE_SIZE (33020) /* size =0xb610 - 0x8000 */
 #define OV680_MAX_RATIO_MISMATCH 10 /* Unit in percentage */
 
@@ -371,6 +369,7 @@ static struct ov680_reg const ov680_dw_fw_change_back_pll[] = {
 };
 
 static struct ov680_reg const ov680_720p_2s_embedded_stream_on[] = {
+	{OV680_8BIT, 0x6003, 0x10},
 
 	{OV680_8BIT, 0x6B18, 0x85},
 	{OV680_8BIT, 0x6B19, 0x90},
@@ -379,8 +378,120 @@ static struct ov680_reg const ov680_720p_2s_embedded_stream_on[] = {
 	{OV680_8BIT, 0x6B1C, 0x01},
 	{OV680_8BIT, 0x6B17, 0xF0},
 
-	{OV680_TOK_DELAY, 0x0, 0x64}, /* sleep 100ms */
-	{OV680_8BIT, 0x6011, 0xFF}, /* AEC on */
+	{OV680_8BIT, 0x6011, 0xFF},  /* AEC on */
+
+	{OV680_TOK_TERM, 0, 0}
+};
+
+static struct ov680_reg const ov680_720p_2s_embedded_factory_stream_on[] = {
+/* BEGIN ov680 factory mode */
+	{OV680_8BIT, 0x6003, 0x11},
+	{OV680_8BIT, 0x6011, 0xCF}, /* AEC off */
+
+	/* 0x0202=0x03 default exposure 33ms */
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x02},
+	{OV680_8BIT, 0x6B1B, 0x02},
+	{OV680_8BIT, 0x6B1C, 0x03},
+	{OV680_8BIT, 0x6B17, 0xF0},
+
+	/* 0x0203=0x20 default exposure 33ms */
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x02},
+	{OV680_8BIT, 0x6B1B, 0x03},
+	{OV680_8BIT, 0x6B1C, 0x20},
+	{OV680_8BIT, 0x6B17, 0xF0},
+
+	/* 0x0204=00 Sensor 0 Gain=0 */
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x02},
+	{OV680_8BIT, 0x6B1B, 0x04},
+	{OV680_8BIT, 0x6B1C, 0x00},
+	{OV680_8BIT, 0x6B17, 0xF0},
+
+	/* 0x0205=00 Sensor 1 Gain=0 */
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x02},
+	{OV680_8BIT, 0x6B1B, 0x05},
+	{OV680_8BIT, 0x6B1C, 0x00},
+	{OV680_8BIT, 0x6B17, 0xF0},
+
+	/* Sensor 0 Disable sharpening */
+	{OV680_8BIT, 0x7408, 0x00},
+	{OV680_8BIT, 0x7409, 0x00},
+	{OV680_8BIT, 0x740A, 0x00},
+	{OV680_8BIT, 0x740B, 0x00},
+	{OV680_8BIT, 0x740C, 0x08},
+
+	/* Sensor 0 Disable AGC and set gain to 0 */
+	{OV680_8BIT, 0x6E01, 0x03},
+	{OV680_8BIT, 0x6E02, 0x20},
+	{OV680_8BIT, 0x6E03, 0x03},
+	{OV680_8BIT, 0x6E04, 0x00},
+	{OV680_8BIT, 0x6E05, 0x00},
+
+	/* Sensor 1 Disable sharpening */
+	{OV680_8BIT, 0x7B08, 0x00},
+	{OV680_8BIT, 0x7B09, 0x00},
+	{OV680_8BIT, 0x7B0A, 0x00},
+	{OV680_8BIT, 0x7B0B, 0x00},
+	{OV680_8BIT, 0x7B0C, 0x08},
+
+	/* Sensor 1 Disable AGC and set gain to 0 */
+	{OV680_8BIT, 0x6E81, 0x03},
+	{OV680_8BIT, 0x6E82, 0x20},
+	{OV680_8BIT, 0x6E83, 0x03},
+	{OV680_8BIT, 0x6E84, 0x00},
+	{OV680_8BIT, 0x6E85, 0x00},
+/* END ov680 factory mode */
+
+	/*
+	 * Embedded stream on commands,
+	 * do not enable AEC
+	 */
+	{OV680_8BIT, 0x6003, 0x10},
+
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x01},
+	{OV680_8BIT, 0x6B1B, 0x00},
+	{OV680_8BIT, 0x6B1C, 0x01},
+	{OV680_8BIT, 0x6B17, 0xF0},
+
+	{OV680_TOK_TERM, 0, 0}
+};
+
+static struct ov680_reg const ov680_720p_2s_embedded_stream_off[] = {
+	{OV680_8BIT, 0x6003, 0x11},
+	{OV680_8BIT, 0x6011, 0xcf}, /* AEC off */
+
+	/* set min exposure start */
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x02},
+	{OV680_8BIT, 0x6B1B, 0x02},
+	{OV680_8BIT, 0x6B1C, 0x00},
+	{OV680_8BIT, 0x6B17, 0xF0},
+
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x02},
+	{OV680_8BIT, 0x6B1B, 0x03},
+	{OV680_8BIT, 0x6B1C, 0x10},
+	{OV680_8BIT, 0x6B17, 0xF0},
+	/* set min exposure end */
+
+	/* sleep sensor */
+	{OV680_8BIT, 0x6B18, 0x85},
+	{OV680_8BIT, 0x6B19, 0x90},
+	{OV680_8BIT, 0x6B1A, 0x01},
+	{OV680_8BIT, 0x6B1B, 0x00},
+	{OV680_8BIT, 0x6B1C, 0x00},
+	{OV680_8BIT, 0x6B17, 0xF0},
 
 	{OV680_TOK_TERM, 0, 0}
 };
@@ -397,15 +508,12 @@ static struct ov680_reg const ov680_720p_2s_embedded_line[] = {
 	{OV680_8BIT, 0x6914, 0x52},
 	{OV680_8BIT, 0x6096, 0x11},
 
-
 	{OV680_8BIT, 0x6b01, 0x24},
 	{OV680_8BIT, 0x6b02, 0xc0},
 	{OV680_8BIT, 0x6003, 0x10},
 
-
 	{OV680_TOK_DELAY, 0x0, 0x64}, /* sleep 100ms */
 	{OV680_TOK_DELAY, 0x0, 0x64}, /* sleep 100ms */
-
 
 	{OV680_8BIT, 0x600a, 0x00},
 	{OV680_TOK_TERM, 0, 0}
