@@ -346,7 +346,7 @@
 			label = "venus-ddr";
 			qcom,bus-master = <MSM_BUS_MASTER_VIDEO_P0>;
 			qcom,bus-slave = <MSM_BUS_SLAVE_EBI_CH0>;
-			qcom,bus-governor = "performance";
+			qcom,bus-governor = "msm-vidc-bw-ddr";
 			qcom,bus-range-kbps = <1000 3388000>;
 		};
 
