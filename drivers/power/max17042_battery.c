@@ -179,7 +179,7 @@ static int max17042_get_temperature(struct max17042_chip *chip, int *temp)
 
 static int max17042_get_battery_health(struct max17042_chip *chip)
 {
-	int temp, ret;
+	int temp, vavg, vbatt, ret;
 	u32 val;
 
 	/* Cannot judge health of an unknown battery */
@@ -187,19 +187,30 @@ static int max17042_get_battery_health(struct max17042_chip *chip)
 		return POWER_SUPPLY_HEALTH_UNKNOWN;
 
 	ret = regmap_read(chip->regmap, MAX17042_AvgVCELL, &val);
-	if (ret < 0)
+	if (ret < 0) {
 		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
-	else {
+	} else {
 		/* bits [0-3] unused */
-		val *= MAX17042_VOLTAGE_CONV_FCTR / 8;
+		vavg = val * MAX17042_VOLTAGE_CONV_FCTR / 8;
 		/* Convert to milli volts */
-		val /= 1000;
-		if (val < chip->pdata->vmin)
-			return POWER_SUPPLY_HEALTH_DEAD;
-
-		if (val > chip->pdata->vmax + MAX17042_VMAX_OFFSET)
-			return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
+		vavg /= 1000;
 	}
+
+	ret = regmap_read(chip->regmap, MAX17042_VCELL, &val);
+	if (ret < 0) {
+		return POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+	} else {
+		/* bits [0-3] unused */
+		vbatt = val * MAX17042_VOLTAGE_CONV_FCTR / 8;
+		/* Convert to milli volts */
+		vbatt /= 1000;
+	}
+
+	if (vavg < chip->pdata->vmin)
+		return POWER_SUPPLY_HEALTH_DEAD;
+
+	if (vbatt > chip->pdata->vmax + MAX17042_VMAX_OFFSET)
+		return POWER_SUPPLY_HEALTH_OVERVOLTAGE;
 
 	ret = max17042_get_temperature(chip, &temp);
 
