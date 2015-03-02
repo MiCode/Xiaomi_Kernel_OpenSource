@@ -1,4 +1,5 @@
-/* Copyright (c) 2010-2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2012, 2014-2015, The Linux Foundation. All rights
+ * reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -395,8 +396,7 @@ int msm_bus_dbg_rec_transaction(const struct msm_bus_client_handle *pdata,
 	cldata->size = i;
 
 	trace_bus_update_request((int)ts.tv_sec, (int)ts.tv_nsec,
-		pdata->name, pdata->mas, pdata->slv, ab, ib,
-		pdata->active_only);
+		pdata->name, pdata->mas, pdata->slv, ab, ib);
 
 	return i;
 }
@@ -512,8 +512,7 @@ static int msm_bus_dbg_fill_cl_buffer(const struct msm_bus_scale_pdata *pdata,
 		pdata->usecase[index].vectors[j].src,
 		pdata->usecase[index].vectors[j].dst,
 		pdata->usecase[index].vectors[j].ab,
-		pdata->usecase[index].vectors[j].ib,
-		pdata->active_only);
+		pdata->usecase[index].vectors[j].ib);
 
 	cldata->index = index;
 	cldata->size = i;
