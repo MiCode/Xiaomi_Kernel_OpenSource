@@ -263,7 +263,7 @@ int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd)
 	struct ice_data_setting ice_set;
 	unsigned int slot = 0;
 	sector_t lba = 0;
-	unsigned int ctrl_info_2_val = 0;
+	unsigned int ctrl_info_val = 0;
 	unsigned int bypass = 0;
 	struct request *req;
 	char cmd_op;
@@ -320,27 +320,38 @@ int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd)
 						UFS_QCOM_ICE_DISABLE_BYPASS;
 
 	/* Configure ICE index */
-	ctrl_info_2_val =
+	ctrl_info_val =
 		(ice_set.crypto_data.key_index &
-		 MASK_UFS_QCOM_ICE_CTRL_INFO_2_KEY_INDEX)
-		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_2_KEY_INDEX;
+		 MASK_UFS_QCOM_ICE_CTRL_INFO_KEY_INDEX)
+		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_KEY_INDEX;
 
 	/* Configure data unit size of transfer request */
-	ctrl_info_2_val |=
+	ctrl_info_val |=
 		(UFS_QCOM_ICE_TR_DATA_UNIT_4_KB &
-		 MASK_UFS_QCOM_ICE_CTRL_INFO_2_CDU)
-		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_2_CDU;
+		 MASK_UFS_QCOM_ICE_CTRL_INFO_CDU)
+		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_CDU;
 
 	/* Configure ICE bypass mode */
-	ctrl_info_2_val |=
-		(bypass & MASK_UFS_QCOM_ICE_CTRL_INFO_2_BYPASS)
-		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_2_BYPASS;
+	ctrl_info_val |=
+		(bypass & MASK_UFS_QCOM_ICE_CTRL_INFO_BYPASS)
+		 << OFFSET_UFS_QCOM_ICE_CTRL_INFO_BYPASS;
 
-	ufshcd_writel(qcom_host->hba, lba,
-		     (REG_UFS_QCOM_ICE_CTRL_INFO_1_n + 8 * slot));
+	if (qcom_host->hw_ver.major < 0x2) {
+		ufshcd_writel(qcom_host->hba, lba,
+			     (REG_UFS_QCOM_ICE_CTRL_INFO_1_n + 8 * slot));
 
-	ufshcd_writel(qcom_host->hba, ctrl_info_2_val,
-		     (REG_UFS_QCOM_ICE_CTRL_INFO_2_n + 8 * slot));
+		ufshcd_writel(qcom_host->hba, ctrl_info_val,
+			     (REG_UFS_QCOM_ICE_CTRL_INFO_2_n + 8 * slot));
+	} else {
+		ufshcd_writel(qcom_host->hba, (lba & 0xFFFFFFFF),
+			     (REG_UFS_QCOM_ICE_CTRL_INFO_1_n + 16 * slot));
+
+		ufshcd_writel(qcom_host->hba, ((lba >> 32) & 0xFFFFFFFF),
+			     (REG_UFS_QCOM_ICE_CTRL_INFO_2_n + 16 * slot));
+
+		ufshcd_writel(qcom_host->hba, ctrl_info_val,
+			     (REG_UFS_QCOM_ICE_CTRL_INFO_3_n + 16 * slot));
+	}
 
 	/*
 	 * Ensure UFS-ICE registers are being configured
