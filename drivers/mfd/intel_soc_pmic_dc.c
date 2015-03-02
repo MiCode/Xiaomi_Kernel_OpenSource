@@ -589,6 +589,8 @@ static void dc_xpwr_pwrsrc_pdata(void)
 				"pmic_res", GPIO_USB_MUX_INDEX);
 	if (IS_ERR(pdata.gpio_mux_cntl))
 		pdata.gpio_mux_cntl = NULL;
+	else
+		gpiod_put(pdata.gpio_mux_cntl);
 
 	intel_soc_pmic_set_pdata("dollar_cove_pwrsrc",
 				 (void *)&pdata, sizeof(pdata), 0);
