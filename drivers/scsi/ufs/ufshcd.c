@@ -69,34 +69,39 @@ static int ufshcd_tag_req_type(struct request *rq)
 	return rq_type;
 }
 
-#define UFSHCD_UPDATE_ERROR_STATS(hba, type)	\
-	do {					\
-		if (type < UFS_ERR_MAX)	\
-			hba->ufs_stats.err_stats[type]++;	\
-	} while (0)
+static void ufshcd_update_error_stats(struct ufs_hba *hba, int type)
+{
+	if (type < UFS_ERR_MAX)
+		hba->ufs_stats.err_stats[type]++;
+}
 
-#define UFSHCD_UPDATE_TAG_STATS(hba, tag)			\
-	do {							\
-		struct request *rq = hba->lrb[task_tag].cmd ?	\
-			hba->lrb[task_tag].cmd->request : NULL;	\
-		u64 **tag_stats = hba->ufs_stats.tag_stats;	\
-		int rq_type;					\
-		if (!hba->ufs_stats.enabled)			\
-			break;					\
-		tag_stats[tag][TS_TAG]++;			\
-		if (!rq || !(rq->cmd_type & REQ_TYPE_FS))	\
-			break;					\
-		WARN_ON(hba->ufs_stats.q_depth > hba->nutrs);	\
-		rq_type = ufshcd_tag_req_type(rq);		\
-		tag_stats[hba->ufs_stats.q_depth++][rq_type]++;	\
-	} while (0)
+static void ufshcd_update_tag_stats(struct ufs_hba *hba, int tag)
+{
+	struct request *rq =
+		hba->lrb[tag].cmd ? hba->lrb[tag].cmd->request : NULL;
+	u64 **tag_stats = hba->ufs_stats.tag_stats;
+	int rq_type;
 
-#define UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd)		\
-	do {							\
-		struct request *rq = cmd ? cmd->request : NULL;	\
-		if (rq && rq->cmd_type & REQ_TYPE_FS)		\
-			hba->ufs_stats.q_depth--;		\
-	} while (0)
+	if (!hba->ufs_stats.enabled)
+		return;
+
+	tag_stats[tag][TS_TAG]++;
+	if (!rq || !(rq->cmd_type & REQ_TYPE_FS))
+		return;
+
+	WARN_ON(hba->ufs_stats.q_depth > hba->nutrs);
+	rq_type = ufshcd_tag_req_type(rq);
+	tag_stats[hba->ufs_stats.q_depth++][rq_type]++;
+}
+
+static void ufshcd_update_tag_stats_completion(struct ufs_hba *hba,
+		struct scsi_cmnd *cmd)
+{
+	struct request *rq = cmd ? cmd->request : NULL;
+
+	if (rq && rq->cmd_type & REQ_TYPE_FS)
+		hba->ufs_stats.q_depth--;
+}
 
 static void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 {
@@ -131,15 +136,23 @@ static void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 }
 
 #else
-#define UFSHCD_UPDATE_TAG_STATS(hba, tag)
-#define UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd)
-#define UFSDBG_ADD_DEBUGFS(hba)
-#define UFSDBG_REMOVE_DEBUGFS(hba)
-#define UFSHCD_UPDATE_ERROR_STATS(hba, type)
+static inline void ufshcd_update_tag_stats(struct ufs_hba *hba, int tag)
+{
+}
+
+static inline void ufshcd_update_tag_stats_completion(struct ufs_hba *hba,
+		struct scsi_cmnd *cmd)
+{
+}
+
+static inline void ufshcd_update_error_stats(struct ufs_hba *hba, int type)
+{
+}
+
 static inline
 void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
-{}
-
+{
+}
 #endif
 
 #define UFSHCD_REQ_SENSE_SIZE	18
@@ -2023,7 +2036,7 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 	/* Make sure that doorbell is committed immediately */
 	wmb();
 	ufshcd_cond_add_cmd_trace(hba, task_tag, "send");
-	UFSHCD_UPDATE_TAG_STATS(hba, task_tag);
+	ufshcd_update_tag_stats(hba, task_tag);
 	return ret;
 }
 
@@ -3910,7 +3923,7 @@ static int __ufshcd_uic_hibern8_enter(struct ufs_hba *hba)
 			     ktime_to_us(ktime_sub(ktime_get(), start)), ret);
 
 	if (ret) {
-		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_HIBERN8_ENTER);
+		ufshcd_update_error_stats(hba, UFS_ERR_HIBERN8_ENTER);
 		dev_err(hba->dev, "%s: hibern8 enter failed. ret = %d",
 			__func__, ret);
 		/*
@@ -3952,7 +3965,7 @@ static int ufshcd_uic_hibern8_exit(struct ufs_hba *hba)
 			     ktime_to_us(ktime_sub(ktime_get(), start)), ret);
 
 	if (ret) {
-		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_HIBERN8_EXIT);
+		ufshcd_update_error_stats(hba, UFS_ERR_HIBERN8_EXIT);
 		dev_err(hba->dev, "%s: hibern8 exit failed. ret = %d",
 			__func__, ret);
 		ret = ufshcd_link_recovery(hba);
@@ -4097,7 +4110,7 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 			| pwr_mode->pwr_tx);
 
 	if (ret) {
-		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_POWER_MODE_CHANGE);
+		ufshcd_update_error_stats(hba, UFS_ERR_POWER_MODE_CHANGE);
 		dev_err(hba->dev,
 			"%s: power mode change failed %d\n", __func__, ret);
 	} else {
@@ -4389,11 +4402,11 @@ static int ufshcd_link_startup(struct ufs_hba *hba)
 
 		ret = ufshcd_dme_link_startup(hba);
 		if (ret)
-			UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_LINKSTARTUP);
+			ufshcd_update_error_stats(hba, UFS_ERR_LINKSTARTUP);
 
 		/* check if device is detected by inter-connect layer */
 		if (!ret && !ufshcd_is_device_present(hba)) {
-			UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_LINKSTARTUP);
+			ufshcd_update_error_stats(hba, UFS_ERR_LINKSTARTUP);
 			dev_err(hba->dev, "%s: Device not present\n", __func__);
 			ret = -ENXIO;
 			goto out;
@@ -4891,7 +4904,7 @@ void ufshcd_abort_outstanding_transfer_requests(struct ufs_hba *hba, int result)
 		cmd = lrbp->cmd;
 		if (cmd) {
 			ufshcd_cond_add_cmd_trace(hba, index, "failed");
-			UFSHCD_UPDATE_ERROR_STATS(hba,
+			ufshcd_update_error_stats(hba,
 					UFS_ERR_INT_FATAL_ERRORS);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
@@ -4935,7 +4948,7 @@ static void __ufshcd_transfer_req_compl(struct ufs_hba *hba,
 		cmd = lrbp->cmd;
 		if (cmd) {
 			ufshcd_cond_add_cmd_trace(hba, index, "complete");
-			UFSHCD_UPDATE_TAG_STATS_COMPLETION(hba, cmd);
+			ufshcd_update_tag_stats_completion(hba, cmd);
 			result = ufshcd_transfer_rsp_status(hba, lrbp);
 			scsi_dma_unmap(cmd);
 			cmd->result = result;
@@ -5465,15 +5478,15 @@ skip_pending_xfer_clear:
 		unsigned long max_doorbells = (1UL << hba->nutrs) - 1;
 
 		if (hba->saved_err & INT_FATAL_ERRORS || crypto_engine_err)
-			UFSHCD_UPDATE_ERROR_STATS(hba,
+			ufshcd_update_error_stats(hba,
 						  UFS_ERR_INT_FATAL_ERRORS);
 
 		if (hba->saved_err & UIC_ERROR)
-			UFSHCD_UPDATE_ERROR_STATS(hba,
+			ufshcd_update_error_stats(hba,
 						  UFS_ERR_INT_UIC_ERROR);
 
 		if (err_xfer || err_tm)
-			UFSHCD_UPDATE_ERROR_STATS(hba,
+			ufshcd_update_error_stats(hba,
 						  UFS_ERR_CLEAR_PEND_XFER_TM);
 
 		/*
@@ -5927,7 +5940,7 @@ static int ufshcd_abort(struct scsi_cmnd *cmd)
 
 	lrbp = &hba->lrb[tag];
 
-	UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_TASK_ABORT);
+	ufshcd_update_error_stats(hba, UFS_ERR_TASK_ABORT);
 
 	/*
 	 * Task abort to the device W-LUN is illegal. When this command
@@ -6186,7 +6199,7 @@ static int ufshcd_eh_host_reset_handler(struct scsi_cmnd *cmd)
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
-	UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_EH);
+	ufshcd_update_error_stats(hba, UFS_ERR_EH);
 	err = ufshcd_reset_and_restore(hba);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -7742,7 +7755,7 @@ set_link_active:
 	if (ufshcd_is_link_hibern8(hba) && !ufshcd_uic_hibern8_exit(hba)) {
 		ufshcd_set_link_active(hba);
 	} else if (ufshcd_is_link_off(hba)) {
-		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_VOPS_SUSPEND);
+		ufshcd_update_error_stats(hba, UFS_ERR_VOPS_SUSPEND);
 		if (!ufshcd_host_reset_and_restore(hba))
 			/* Clear UNIT ATTENTION condition on all LUs */
 			ufshcd_send_request_sense_all_lus(hba);
@@ -7762,7 +7775,7 @@ out:
 	hba->pm_op_in_progress = 0;
 
 	if (ret)
-		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_SUSPEND);
+		ufshcd_update_error_stats(hba, UFS_ERR_SUSPEND);
 
 	return ret;
 }
@@ -7883,7 +7896,7 @@ out:
 	hba->pm_op_in_progress = 0;
 
 	if (ret)
-		UFSHCD_UPDATE_ERROR_STATS(hba, UFS_ERR_RESUME);
+		ufshcd_update_error_stats(hba, UFS_ERR_RESUME);
 
 	return ret;
 }
