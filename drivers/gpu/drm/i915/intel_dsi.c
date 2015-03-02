@@ -255,13 +255,12 @@ static void intel_dsi_port_enable(struct intel_encoder *encoder)
 	} while (--count > 0);
 }
 
-static void intel_dsi_enable(struct intel_encoder *encoder)
+static void intel_dsi_send_enable_cmds(struct intel_encoder *encoder)
 {
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_crtc *intel_crtc = to_intel_crtc(encoder->base.crtc);
 	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
-	struct intel_connector *intel_connector = intel_dsi->attached_connector;
 	int pipe = intel_crtc->pipe;
 
 	DRM_DEBUG_KMS("\n");
@@ -277,17 +276,6 @@ static void intel_dsi_enable(struct intel_encoder *encoder)
 		intel_dsi->dev.dev_ops->enable(&intel_dsi->dev);
 
 	wait_for_dsi_fifo_empty(intel_dsi);
-	intel_dsi_port_enable(encoder);
-
-	if (intel_dsi->backlight_on_delay >= 20)
-		msleep(intel_dsi->backlight_on_delay);
-	else
-		usleep_range(intel_dsi->backlight_on_delay * 1000,
-				(intel_dsi->backlight_on_delay * 1000) + 500);
-
-	if (dev_priv->display.enable_backlight)
-		dev_priv->display.enable_backlight(intel_connector);
-
 }
 
 static void intel_dsi_soc_power_on(struct intel_dsi_device *dsi)
@@ -380,17 +368,28 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 
 	/* Enable port in pre-enable phase itself because as per hw team
 	 * recommendation, port should be enabled befor plane & pipe */
-	intel_dsi_enable(encoder);
+	intel_dsi_send_enable_cmds(encoder);
 }
 
-static void intel_dsi_enable_nop(struct intel_encoder *encoder)
+static void intel_dsi_enable(struct intel_encoder *encoder)
 {
+	struct drm_device *dev = encoder->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_dsi *intel_dsi = enc_to_intel_dsi(&encoder->base);
+	struct intel_connector *intel_connector = intel_dsi->attached_connector;
+
 	DRM_DEBUG_KMS("\n");
 
-	/* for DSI port enable has to be done before pipe
-	 * and plane enable, so port enable is done in
-	 * pre_enable phase itself unlike other encoders
-	 */
+	intel_dsi_port_enable(encoder);
+
+	if (intel_dsi->backlight_on_delay >= 20)
+		msleep(intel_dsi->backlight_on_delay);
+	else
+		usleep_range(intel_dsi->backlight_on_delay * 1000,
+				(intel_dsi->backlight_on_delay * 1000) + 500);
+
+	if (dev_priv->display.enable_backlight)
+		dev_priv->display.enable_backlight(intel_connector);
 }
 
 static void intel_dsi_pre_disable(struct intel_encoder *encoder)
@@ -1214,7 +1213,7 @@ bool intel_dsi_init(struct drm_device *dev)
 	intel_encoder->pre_pll_enable = intel_dsi_pre_pll_enable;
 	intel_encoder->pre_enable = intel_dsi_pre_enable;
 	intel_encoder->mode_set = intel_dsi_mode_set;
-	intel_encoder->enable = intel_dsi_enable_nop;
+	intel_encoder->enable = intel_dsi_enable;
 	intel_encoder->disable = intel_dsi_pre_disable;
 	intel_encoder->post_disable = intel_dsi_post_disable;
 	intel_encoder->get_hw_state = intel_dsi_get_hw_state;
