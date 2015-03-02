@@ -78,3 +78,7 @@
 			<&anoc0_smmu 0x100>;
 	};
 };
+
+&mdss_mdp {
+	qcom,max-clk-rate = <360000000>;
+};
