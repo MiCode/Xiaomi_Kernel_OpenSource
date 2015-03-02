@@ -63,6 +63,7 @@ struct mmc_queue {
 			     struct request *);
 	void (*cmdq_complete_fn)(struct request *);
 	void (*cmdq_error_fn)(struct mmc_queue *);
+	enum blk_eh_timer_return (*cmdq_req_timed_out)(struct request *);
 	void			*data;
 	struct request_queue	*queue;
 	struct mmc_queue_req	mqrq[2];

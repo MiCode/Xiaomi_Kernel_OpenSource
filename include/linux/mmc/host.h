@@ -100,6 +100,7 @@ struct mmc_cmdq_host_ops {
 			 int err);
 	int (*halt)(struct mmc_host *host, bool halt);
 	void (*reset)(struct mmc_host *host, bool soft);
+	void (*dumpstate)(struct mmc_host *host);
 };
 
 struct mmc_host_ops {
