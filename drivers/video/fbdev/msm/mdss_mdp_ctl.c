@@ -1077,9 +1077,9 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 	}
 
 	perf->bw_ctl = max(perf->bw_prefill, perf->bw_overlap);
-	pr_debug("ctl=%d prefill bw=%llu overlap bw=%llu mode=0x%lx\n",
+	pr_debug("ctl=%d prefill bw=%llu overlap bw=%llu mode=0x%lx writeback:%llu\n",
 			ctl->num, perf->bw_prefill, perf->bw_overlap,
-			*(perf->bw_vote_mode));
+			*(perf->bw_vote_mode), perf->bw_writeback);
 }
 
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
@@ -1361,13 +1361,14 @@ static u64 mdss_mdp_ctl_calc_client_vote(struct mdss_data_type *mdata,
 					ctl->cur_perf.bw_vote_mode,
 					MDSS_MDP_BW_MODE_MAX);
 
-			perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
-				ctl->cur_perf.max_per_pipe_ib);
-
-			if (nrt_client && ctl->intf_num == MDSS_MDP_NO_INTF) {
+			if (nrt_client && ctl->mixer_left &&
+				!ctl->mixer_left->rotator_mode) {
 				bw_sum_of_intfs += ctl->cur_perf.bw_writeback;
 				continue;
 			}
+
+			perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
+				ctl->cur_perf.max_per_pipe_ib);
 
 			bw_sum_of_intfs += ctl->cur_perf.bw_ctl;
 
@@ -1573,7 +1574,7 @@ static bool is_traffic_shaper_enabled(struct mdss_data_type *mdata)
 }
 
 static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
-		int params_changed)
+		int params_changed, bool stop_req)
 {
 	struct mdss_mdp_perf_params *new, *old;
 	int update_bus = 0, update_clk = 0;
@@ -1602,18 +1603,34 @@ static void mdss_mdp_ctl_perf_update(struct mdss_mdp_ctl *ctl,
 			mdss_mdp_perf_release_ctl_bw(ctl, new);
 		else if (is_bw_released || params_changed)
 			mdss_mdp_perf_calc_ctl(ctl, new);
+
 		/*
-		 * If params have just changed delay the update until
-		 * later once the hw configuration has been flushed to
-		 * MDP.
+		 * three cases for bus bandwidth update.
+		 * 1. new bandwidth vote or writeback output vote
+		 *    are higher than current vote for update request.
+		 * 2. new bandwidth vote or writeback output vote are
+		 *    lower than current vote at end of commit or stop.
+		 * 3. end of writeback/rotator session - last chance to
+		 *    non-realtime remove vote.
 		 */
-		if ((params_changed && (new->bw_ctl > old->bw_ctl)) ||
-		    (!params_changed && (new->bw_ctl < old->bw_ctl))) {
+		if ((params_changed && ((new->bw_ctl > old->bw_ctl) ||
+			(new->bw_writeback > old->bw_writeback))) ||
+		    (!params_changed && ((new->bw_ctl < old->bw_ctl) ||
+			(new->bw_writeback < old->bw_writeback))) ||
+			(stop_req && mdss_mdp_is_nrt_ctl_path(ctl))) {
+
 			pr_debug("c=%d p=%d new_bw=%llu,old_bw=%llu\n",
 				ctl->num, params_changed, new->bw_ctl,
 				old->bw_ctl);
-			old->bw_ctl = new->bw_ctl;
-			old->max_per_pipe_ib = new->max_per_pipe_ib;
+			if (stop_req) {
+				old->bw_writeback = 0;
+				old->bw_ctl = 0;
+				old->max_per_pipe_ib = 0;
+			} else {
+				old->bw_ctl = new->bw_ctl;
+				old->max_per_pipe_ib = new->max_per_pipe_ib;
+				old->bw_writeback = new->bw_writeback;
+			}
 			bitmap_copy(old->bw_vote_mode, new->bw_vote_mode,
 				MDSS_MDP_BW_MODE_MAX);
 			update_bus = 1;
@@ -1963,7 +1980,7 @@ int mdss_mdp_block_mixer_destroy(struct mdss_mdp_mixer *mixer)
 
 	mdss_mdp_ctl_free(ctl);
 
-	mdss_mdp_ctl_perf_update(ctl, 0);
+	mdss_mdp_ctl_perf_update(ctl, 0, true);
 
 	return 0;
 }
@@ -2742,7 +2759,7 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 	}
 
 	ctl->play_cnt = 0;
-	mdss_mdp_ctl_perf_update(ctl, 0);
+	mdss_mdp_ctl_perf_update(ctl, 0, true);
 
 end:
 	if (!ret)
@@ -3502,7 +3519,7 @@ int mdss_mdp_display_wait4comp(struct mdss_mdp_ctl *ctl)
 
 	trace_mdp_commit(ctl);
 
-	mdss_mdp_ctl_perf_update(ctl, 0);
+	mdss_mdp_ctl_perf_update(ctl, 0, false);
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103)) {
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -3602,7 +3619,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		}
 
 		ATRACE_BEGIN("mixer_programming");
-		mdss_mdp_ctl_perf_update(ctl, 1);
+		mdss_mdp_ctl_perf_update(ctl, 1, false);
 
 		mdss_mdp_mixer_setup(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 		mdss_mdp_mixer_setup(ctl, MDSS_MDP_MIXER_MUX_RIGHT);

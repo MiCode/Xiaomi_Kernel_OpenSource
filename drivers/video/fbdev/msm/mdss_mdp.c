@@ -332,8 +332,9 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 						mdss_res->bus_channels);
 		}
 
-		if (mdss_res->has_fixed_qos_arbiter_enabled &&
-		    rt_axi_port_cnt && nrt_axi_port_cnt) {
+		if (mdss_res->has_fixed_qos_arbiter_enabled ||
+			nrt_axi_port_cnt) {
+
 			ab_quota_rt = div_u64(ab_quota_rt, rt_axi_port_cnt);
 			ab_quota_nrt = div_u64(ab_quota_nrt, nrt_axi_port_cnt);
 
@@ -2920,6 +2921,7 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 			rc);
 		return rc;
 	}
+	mdss_res->axi_port_cnt = paths;
 
 	rc = of_property_read_u32(pdev->dev.of_node,
 			"qcom,mdss-num-nrt-paths", &mdata->nrt_axi_port_cnt);
@@ -2929,14 +2931,6 @@ static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev)
 		return rc;
 	} else {
 		rc = 0;
-	}
-
-	if (paths > mdata->nrt_axi_port_cnt) {
-		mdata->axi_port_cnt = paths - mdata->nrt_axi_port_cnt;
-	} else {
-		pr_err("invalid real time path config, total ports:%d, nrt ports:%d\n",
-			paths, mdata->nrt_axi_port_cnt);
-		return -EINVAL;
 	}
 
 	mdata->bus_scale_table = msm_bus_cl_get_pdata(pdev);
