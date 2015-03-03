@@ -39,6 +39,7 @@
 #include <linux/of_gpio.h>
 #include <linux/irq.h>
 #include <linux/clk/msm-clk.h>
+#include <linux/msm-bus.h>
 
 #include <linux/usb/ulpi.h>
 #include <linux/usb/msm_hsusb_hw.h>
@@ -95,6 +96,8 @@ struct msm_hcd {
 	void __iomem				*usb_phy_ctrl_reg;
 	struct pinctrl				*hsusb_pinctrl;
 	struct pm_qos_request			pm_qos_req_dma;
+	struct msm_bus_scale_pdata		*bus_scale_table;
+	u32					bus_perf_client;
 };
 
 static inline struct msm_hcd *hcd_to_mhcd(struct usb_hcd *hcd)
@@ -804,6 +807,13 @@ static int msm_ehci_suspend(struct msm_hcd *mhcd)
 		enable_irq(mhcd->async_irq);
 	}
 
+	if (mhcd->bus_perf_client) {
+		int ret = msm_bus_scale_client_update_request(
+						mhcd->bus_perf_client, 0);
+		if (ret)
+			dev_err(mhcd->dev, "Failed to vote for bus scaling\n");
+	}
+
 	pm_qos_update_request(&mhcd->pm_qos_req_dma, PM_QOS_DEFAULT_VALUE);
 
 	pm_relax(mhcd->dev);
@@ -862,6 +872,14 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 	if (pdata)
 		pm_qos_update_request(&mhcd->pm_qos_req_dma,
 			pdata->pm_qos_latency + 1);
+
+	if (mhcd->bus_perf_client) {
+		int ret = msm_bus_scale_client_update_request(
+						mhcd->bus_perf_client, 1);
+		if (ret)
+			dev_err(mhcd->dev, "Failed to vote for bus scaling\n");
+	}
+
 	/* Vote for TCXO when waking up the phy */
 	if (mhcd->xo_clk)
 		clk_prepare_enable(mhcd->xo_clk);
@@ -1553,6 +1571,18 @@ static int ehci_msm2_probe(struct platform_device *pdev)
 		goto vbus_deinit;
 	}
 
+	mhcd->bus_scale_table = msm_bus_cl_get_pdata(pdev);
+	if (!mhcd->bus_scale_table) {
+		dev_dbg(&pdev->dev, "bus scaling is disabled\n");
+	} else {
+		mhcd->bus_perf_client =
+			msm_bus_scale_register_client(mhcd->bus_scale_table);
+		ret = msm_bus_scale_client_update_request(
+						mhcd->bus_perf_client, 1);
+		if (ret)
+			dev_err(&pdev->dev, "Failed to vote for bus scaling\n");
+	}
+
 	pdata = mhcd->dev->platform_data;
 	if (pdata && (!pdata->dock_connect_irq ||
 				!irq_read_line(pdata->dock_connect_irq)))
@@ -1692,6 +1722,9 @@ static int ehci_msm2_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	usb_remove_hcd(hcd);
+
+	if (mhcd->bus_perf_client)
+		msm_bus_scale_unregister_client(mhcd->bus_perf_client);
 
 	pdata = pdev->dev.platform_data;
 	if (pdata && pdata->pm_qos_latency)
