@@ -15,6 +15,7 @@
 #define CSI_DECODE_6BIT         0
 #define CSI_DECODE_8BIT         1
 #define CSI_DECODE_10BIT        2
+#define CSI_DECODE_12BIT        3
 #define CSI_DECODE_DPCM_10_8_10 5
 #define MAX_CID                 16
 #define I2C_SEQ_REG_DATA_MAX    256
