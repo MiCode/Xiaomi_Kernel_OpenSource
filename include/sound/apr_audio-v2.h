@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -2505,7 +2505,7 @@ struct afe_lpass_core_shared_clk_config_command {
 #define VPM_TX_DM_FLUENCE_COPP_TOPOLOGY			0x00010F72
 #define VPM_TX_QMIC_FLUENCE_COPP_TOPOLOGY		0x00010F75
 #define VPM_TX_DM_RFECNS_COPP_TOPOLOGY			0x00010F86
-#define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX		0x11000002
+#define ADM_CMD_COPP_OPEN_TOPOLOGY_ID_DTS_HPX		0x10015002
 
 /* Memory map regions command payload used by the
  * #ASM_CMD_SHARED_MEM_MAP_REGIONS ,#ADM_CMD_SHARED_MEM_MAP_REGIONS
@@ -7111,8 +7111,8 @@ struct srs_trumedia_params {
 #define AUDPROC_MODULE_ID_DTS_HPX_PREMIX 0x0001077C
 #define AUDPROC_MODULE_ID_DTS_HPX_POSTMIX 0x0001077B
 #define ASM_STREAM_POSTPROC_TOPO_ID_DTS_HPX 0x00010DED
-#define ASM_STREAM_POSTPROC_TOPO_ID_HPX_PLUS 0x11000000
-#define ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER 0x11000001
+#define ASM_STREAM_POSTPROC_TOPO_ID_HPX_PLUS  0x10015000
+#define ASM_STREAM_POSTPROC_TOPO_ID_HPX_MASTER  0x10015001
 struct asm_dts_eagle_param {
 	struct apr_hdr	hdr;
 	struct asm_stream_cmd_set_pp_params_v2 param;
