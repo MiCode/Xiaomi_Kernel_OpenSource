@@ -23,7 +23,6 @@
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
 #include <linux/input.h>
-#include <linux/mfd/wcd9xxx/pdata.h>
 #include <linux/firmware.h>
 #include <sound/pcm.h>
 #include <sound/pcm_params.h>
