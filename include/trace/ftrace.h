@@ -646,7 +646,8 @@ ftrace_raw_event_##call(void *__data, proto)				\
 									\
 	{ assign; }							\
 									\
-	ftrace_event_buffer_commit(&fbuffer);				\
+	ftrace_event_buffer_commit(&fbuffer,				\
+				   sizeof(*entry) + __data_size);	\
 }
 /*
  * The ftrace_test_probe is compiled out, it is only here as a build time check

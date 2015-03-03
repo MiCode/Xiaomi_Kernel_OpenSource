@@ -212,11 +212,12 @@ void *ftrace_event_buffer_reserve(struct ftrace_event_buffer *fbuffer,
 }
 EXPORT_SYMBOL_GPL(ftrace_event_buffer_reserve);
 
-void ftrace_event_buffer_commit(struct ftrace_event_buffer *fbuffer)
+void ftrace_event_buffer_commit(struct ftrace_event_buffer *fbuffer,
+				unsigned long len)
 {
 	event_trigger_unlock_commit(fbuffer->ftrace_file, fbuffer->buffer,
 				    fbuffer->event, fbuffer->entry,
-				    fbuffer->flags, fbuffer->pc);
+				    fbuffer->flags, fbuffer->pc, len);
 }
 EXPORT_SYMBOL_GPL(ftrace_event_buffer_commit);
 
