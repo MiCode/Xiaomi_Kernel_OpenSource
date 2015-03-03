@@ -655,8 +655,12 @@ static int32_t msm_csid_cmd32(struct csid_device *csid_dev, void __user *arg)
 				(void *)compat_ptr(lut_par32.vc_cfg[i]),
 				sizeof(vc_cfg32))) {
 				pr_err("%s: %d failed\n", __func__, __LINE__);
-				for (; i >= 0; i--)
+				for (i--; i >= 0; i--) {
 					kfree(csid_params.lut_params.vc_cfg[i]);
+					csid_params.lut_params.vc_cfg[i] = NULL;
+				}
+				kfree(vc_cfg);
+				vc_cfg = NULL;
 				rc = -EFAULT;
 				break;
 			}
