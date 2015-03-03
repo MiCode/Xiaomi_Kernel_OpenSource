@@ -235,6 +235,15 @@ static void intel_fg_worker(struct work_struct *work)
 	if (ret)
 		dev_err(fg_info->dev, "Error while getting OCV\n");
 
+	/*
+	 * If the device was in suspend mode, then send V-OCV to
+	 * FG Algo library instead of VBAT, so that the FG Algo
+	 * lib can apply some error corrections based on V-OCV
+	 * lookup table.
+	 */
+	if (info_ptr->wake_ui.wake_enable)
+		ip.vbatt = ip.vocv;
+
 	ret = fg_info->input->get_i_avg(&ip.iavg);
 	if (ret)
 		dev_err(fg_info->dev, "Error while getting Current Average\n");
