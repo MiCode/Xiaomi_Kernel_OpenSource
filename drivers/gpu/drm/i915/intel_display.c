@@ -2398,9 +2398,10 @@ intel_pin_and_fence_fb_obj(struct drm_device *dev,
 		ret = i915_gem_object_get_fence(obj);
 		if (ret)
 			goto err_unpin;
+
+		i915_gem_object_pin_fence(obj);
 	}
 
-	i915_gem_object_pin_fence(obj);
 	drm_gem_object_reference(&obj->base);
 
 	dev_priv->mm.interruptible = true;
@@ -2415,7 +2416,9 @@ err_interruptible:
 
 void intel_unpin_fb_obj(struct drm_i915_gem_object *obj)
 {
-	i915_gem_object_unpin_fence(obj);
+	struct drm_i915_private *dev_priv = obj->base.dev->dev_private;
+	if ((INTEL_INFO(dev_priv->dev)->gen <= 7))
+		i915_gem_object_unpin_fence(obj);
 	i915_gem_object_unpin_from_display_plane(obj);
 	drm_gem_object_unreference(&obj->base);
 }
