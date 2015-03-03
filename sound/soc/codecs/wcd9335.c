@@ -76,6 +76,8 @@ enum {
 	AIF2_CAP,
 	AIF3_PB,
 	AIF3_CAP,
+	AIF_MIX1_PB,
+	AIF4_MAD_TX,
 	NUM_CODEC_DAIS,
 };
 
@@ -179,7 +181,7 @@ static struct snd_soc_dai_driver tasha_dai[];
 /* Hold instance to soundwire platform device */
 struct tasha_swr_ctrl_data {
 	struct platform_device *swr_pdev;
-	struct ida swr_ida;
+	/* struct ida swr_ida; */
 };
 
 struct wcd_swr_ctrl_platform_data {
@@ -290,7 +292,7 @@ static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
+					snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct snd_soc_codec *codec = widget->codec;
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
@@ -303,12 +305,11 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
+					snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct snd_soc_codec *codec = widget->codec;
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
-	struct snd_soc_dapm_update *update = NULL;
 	struct soc_multi_mixer_control *mixer =
 		((struct soc_multi_mixer_control *)kcontrol->private_value);
 	u32 dai_id = widget->shift;
@@ -385,7 +386,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 		widget->shift);
 
 	mutex_unlock(&codec->mutex);
-	snd_soc_dapm_mixer_update_power(widget->dapm, kcontrol, enable, update);
+	snd_soc_dapm_mixer_update_power(widget, kcontrol, enable);
 
 	return 0;
 }
@@ -394,7 +395,7 @@ static int slim_rx_mux_get(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
+					snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct snd_soc_codec *codec = widget->codec;
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
@@ -411,13 +412,12 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			   struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
+					snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct snd_soc_codec *codec = widget->codec;
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx *core = dev_get_drvdata(codec->dev->parent);
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	struct snd_soc_dapm_update *update = NULL;
 	u32 port_id = widget->shift;
 
 	pr_debug("%s: wname %s cname %s value %u shift %d item %ld\n", __func__,
@@ -479,8 +479,8 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 	}
 rtn:
 	mutex_unlock(&codec->mutex);
-	snd_soc_dapm_mux_update_power(widget->dapm, kcontrol,
-					tasha_p->rx_port_value, e, update);
+	snd_soc_dapm_mux_update_power(widget, kcontrol,
+					tasha_p->rx_port_value, e);
 
 	return 0;
 err:
@@ -2400,7 +2400,7 @@ static int tasha_rx_int_mode_put(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist =
-					dapm_kcontrol_get_wlist(kcontrol);
+					snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
 	struct snd_soc_codec *codec = widget->codec;
 	struct tasha_priv *tasha_p = snd_soc_codec_get_drvdata(codec);
