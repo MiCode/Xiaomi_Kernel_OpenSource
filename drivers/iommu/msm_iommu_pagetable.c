@@ -319,7 +319,15 @@ size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
 
 static phys_addr_t get_phys_addr(struct scatterlist *sg)
 {
-	return sg_phys(sg);
+	/*
+	 * Try sg_dma_address first so that we can
+	 * map carveout regions that do not have a
+	 * struct page associated with them.
+	 */
+	phys_addr_t pa = sg_dma_address(sg);
+	if (pa == 0)
+		pa = sg_phys(sg);
+	return pa;
 }
 
 /*
