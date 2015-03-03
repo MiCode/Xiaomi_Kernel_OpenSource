@@ -966,6 +966,26 @@ static int chv_gpio_direction_output(struct gpio_chip *chip,
 	return 0;
 }
 
+static int chv_get_gpio_direction(struct gpio_chip *chip, unsigned offset)
+{
+	struct chv_gpio *cg = to_chv_priv(chip);
+	void __iomem *ctrl0;
+	u32 reg_val;
+
+	if (cg->pad_info[offset].family < 0)
+		return -EINVAL;
+
+	ctrl0 = chv_gpio_reg(chip, offset, CV_PADCTRL0_REG);
+	reg_val = chv_readl(ctrl0) & CV_GPIO_CFG_MASK;
+
+	/* if output enabled, set the direction to out.
+	* Otherwise, assume it as input*/
+	if (reg_val < CV_GPIO_RX_EN)
+		return 0;
+	else
+		return 1;
+}
+
 static void chv_irq_unmask(struct irq_data *d)
 {
 	struct chv_gpio *cg = irq_data_get_irq_chip_data(d);
@@ -1305,6 +1325,7 @@ chv_gpio_pnp_probe(struct pnp_dev *pdev, const struct pnp_device_id *id)
 	gc->set = chv_gpio_set;
 	gc->to_irq = chv_gpio_to_irq;
 	gc->dbg_show = chv_gpio_dbg_show;
+	gc->get_direction = chv_get_gpio_direction;
 	gc->base = -1;
 	gc->can_sleep = 0;
 	gc->dev = dev;
