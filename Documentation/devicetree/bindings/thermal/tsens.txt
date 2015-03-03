@@ -55,6 +55,7 @@ Optional properties:
 		remote sensors that are enabled in HW. Ensure the mapping is not
 		more than the number of supported sensors.
 
+Required properties if compatible is "qcom,msm-tsens-generic-type-a":
 - qcom,tsens_base_info : <(Number of base) (Bits for each base)>
 - qcom,tsens_base_mask : <(base number) (address offset) (mask) (mask_shift)
 				(number of bits read for the individual mask>
@@ -91,8 +92,8 @@ tsens@fc4a8000 {
 			3200>;
 
 	qcom,tsens_base_info = <2 8>;
-	qcom,tsens_base_mask_detail = <0 0xdc 0xff 0 8>,
-				      <1 0xdc 0xff00 8 8>;
+	qcom,tsens_base_mask = <0 0xdc 0xff 0 8>,
+			       <1 0xdc 0xff00 8 8>;
 	qcom,tsens_calib_mask = <0 0xdc 0x70000 16 3>;
 	qcom,tsens_sensor_point_bit_size = <6>;
 	qcom,tsens_sensor_point1_total_masks = <5>;
