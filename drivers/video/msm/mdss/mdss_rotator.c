@@ -197,6 +197,28 @@ static int mdss_rotator_acquire_data(struct mdss_rot_entry *entry)
 	return ret;
 }
 
+static struct mdss_rot_perf *mdss_rotator_find_session(
+	struct mdss_rot_file_private *private,
+	u32 session_id)
+{
+	struct mdss_rot_perf *perf, *perf_next;
+	bool found = false;
+
+	mutex_lock(&private->perf_lock);
+
+	list_for_each_entry_safe(perf, perf_next, &private->perf_list, list) {
+		if (perf->config.session_id == session_id) {
+			found = true;
+			break;
+		}
+	}
+
+	mutex_unlock(&private->perf_lock);
+	if (!found)
+		perf = NULL;
+	return perf;
+}
+
 static void mdss_rotator_release_data(struct mdss_rot_entry *entry)
 {
 	mdss_mdp_data_free(&entry->src_buf, true, DMA_TO_DEVICE);
@@ -516,9 +538,22 @@ static void mdss_rotator_deinit_queue(struct mdss_rot_mgr *mgr)
 	mgr->queue_count = 0;
 }
 
+/*
+ * mdss_rotator_assign_queue() - Function assign rotation work onto hw
+ * @mgr:	Rotator manager.
+ * @entry:	Contains details on rotator work item being requested
+ * @private:	Private struct used for access rot session performance struct
+ *
+ * This Function allocates hw required to complete rotation work item
+ * requested.
+ *
+ * Caller is responsible for calling cleanup function if error is returned
+ */
 static int mdss_rotator_assign_queue(struct mdss_rot_mgr *mgr,
-	struct mdss_rot_entry *entry)
+	struct mdss_rot_entry *entry,
+	struct mdss_rot_file_private *private)
 {
+	struct mdss_rot_perf *perf;
 	struct mdss_rot_queue *queue;
 	struct mdss_rot_hw_resource *hw;
 	struct mdp_rotation_item *item = &entry->item;
@@ -558,6 +593,14 @@ static int mdss_rotator_assign_queue(struct mdss_rot_mgr *mgr,
 	}
 
 	mutex_unlock(&queue->hw_lock);
+
+	perf = mdss_rotator_find_session(private, item->session_id);
+	if (!perf) {
+		pr_err("Could not find session based on rotation work item\n");
+		return -EINVAL;
+	}
+
+	perf->wb_idx = wb_idx;
 
 	return ret;
 }
@@ -839,6 +882,7 @@ static int mdss_rotator_verify_config(struct mdss_rot_mgr *mgr,
 }
 
 static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
+	struct mdss_rot_file_private *private,
 	struct mdss_rot_entry *entry)
 {
 	int ret;
@@ -857,6 +901,11 @@ static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 	if (item->wb_idx != MDSS_ROTATION_HW_ANY &&
 		item->wb_idx > mgr->queue_count) {
 		pr_err("invalid writeback idx\n");
+		return -EINVAL;
+	}
+
+	if (!mdss_rotator_find_session(private, item->session_id)) {
+		pr_err("Could not find session based on rotation work item\n");
 		return -EINVAL;
 	}
 
@@ -889,7 +938,7 @@ static int mdss_rotator_add_request(struct mdss_rot_mgr *mgr,
 		if (item->flags & MDP_ROTATION_SECURE)
 			flag = MDP_SECURE_OVERLAY_SESSION;
 
-		ret = mdss_rotator_validate_entry(mgr, entry);
+		ret = mdss_rotator_validate_entry(mgr, private, entry);
 		if (ret) {
 			pr_err("fail to validate the entry\n");
 			return ret;
@@ -910,7 +959,7 @@ static int mdss_rotator_add_request(struct mdss_rot_mgr *mgr,
 			}
 		}
 
-		ret = mdss_rotator_assign_queue(mgr, entry);
+		ret = mdss_rotator_assign_queue(mgr, entry, private);
 		if (ret) {
 			pr_err("fail to assign queue to entry\n");
 			return ret;
@@ -1233,6 +1282,7 @@ get_hw_res_err:
 }
 
 static int mdss_rotator_validate_request(struct mdss_rot_mgr *mgr,
+	struct mdss_rot_file_private *private,
 	struct mdss_rot_entry_container *req)
 {
 	int i, ret = 0;
@@ -1240,7 +1290,8 @@ static int mdss_rotator_validate_request(struct mdss_rot_mgr *mgr,
 
 	for (i = 0; i < req->count; i++) {
 		entry = req->entries + i;
-		ret = mdss_rotator_validate_entry(mgr, entry);
+		ret = mdss_rotator_validate_entry(mgr, private,
+			entry);
 		if (ret) {
 			pr_err("fail to validate the entry\n");
 			return ret;
@@ -1257,28 +1308,6 @@ static u32 mdss_rotator_generator_session_id(struct mdss_rot_mgr *mgr)
 	id = mgr->session_id_generator++;
 	mutex_unlock(&mgr->lock);
 	return id;
-}
-
-static struct mdss_rot_perf *mdss_rotator_find_session(
-	struct mdss_rot_file_private *private,
-	u32 session_id)
-{
-	struct mdss_rot_perf *perf, *perf_next;
-	bool found = false;
-
-	mutex_lock(&private->perf_lock);
-
-	list_for_each_entry_safe(perf, perf_next, &private->perf_list, list) {
-		if (perf->config.session_id == session_id) {
-			found = true;
-			break;
-		}
-	}
-
-	mutex_unlock(&private->perf_lock);
-	if (!found)
-		perf = NULL;
-	return perf;
 }
 
 static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
@@ -1308,6 +1337,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 
 	config.session_id = mdss_rotator_generator_session_id(mgr);
 	perf->config = config;
+	perf->wb_idx = -1;
 	INIT_LIST_HEAD(&perf->list);
 
 	ret = mdss_rotator_calc_perf(perf);
@@ -1493,7 +1523,7 @@ static int mdss_rotator_handle_request(struct mdss_rot_mgr *mgr,
 	mutex_lock(&mgr->lock);
 
 	if (req->flags & MDSS_ROTATION_REQUEST_VALIDATE) {
-		ret = mdss_rotator_validate_request(mgr, req);
+		ret = mdss_rotator_validate_request(mgr, private, req);
 		goto handle_request_err1;
 	}
 
@@ -1619,7 +1649,7 @@ static int mdss_rotator_handle_request32(struct mdss_rot_mgr *mgr,
 	mutex_lock(&mgr->lock);
 
 	if (req->flags & MDSS_ROTATION_REQUEST_VALIDATE) {
-		ret = mdss_rotator_validate_request(mgr, req);
+		ret = mdss_rotator_validate_request(mgr, private, req);
 		goto handle_request32_err1;
 	}
 
