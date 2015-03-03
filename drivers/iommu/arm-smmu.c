@@ -213,6 +213,7 @@
 #define ARM_SMMU_CB_ATS1PR_LO		0x800
 #define ARM_SMMU_CB_ATS1PR_HI		0x804
 #define ARM_SMMU_CB_ATSR		0x8f0
+#define ARM_SMMU_GR1_CBFRSYNRA(n)	(0x400 + ((n) << 2))
 
 #define SCTLR_S1_ASIDPNE		(1 << 12)
 #define SCTLR_CFCFG			(1 << 7)
@@ -919,7 +920,9 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	void __iomem *cb_base;
 	bool ctx_hang_errata;
 	bool fatal_asf;
+	void __iomem *gr1_base;
 	phys_addr_t phys_soft;
+	u32 frsynra;
 
 	mutex_lock(&smmu_domain->init_mutex);
 	smmu = smmu_domain->smmu;
@@ -932,6 +935,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	arm_smmu_enable_clocks(smmu);
 
+	gr1_base = ARM_SMMU_GR1(smmu);
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
 
@@ -957,6 +961,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	iova = far;
 
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
+	frsynra = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
 	if (!report_iommu_fault(domain, smmu->dev, iova, flags)) {
 		dev_dbg(smmu->dev,
 			"Context fault handled by client: iova=0x%08lx, fsr=0x%x, fsynr=0x%x, cb=%d\n",
@@ -982,6 +987,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			(fsr & 0x80000000) ? "MULTI " : "");
 		dev_err(smmu->dev,
 			"soft iova-to-phys=%pa\n", &phys_soft);
+		dev_err(smmu->dev, "SID=0x%x\n", frsynra & 0x1FF);
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
 	}
