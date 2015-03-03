@@ -32,6 +32,9 @@
 		clock-names = "iface_clk";
 		clock-rate = <0>;
 
+		/* Dynamic FPS data region */
+		linux,contiguous-region = <&dfps_data_mem>;
+
 		qcom,platform-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
