@@ -2575,6 +2575,12 @@ static void mxt_force_bootloader(struct mxt_data *data)
 	int i;
 
 	dev_info(&data->client->dev, "Force to enter bootloader\n");
+
+	if (!gpio_is_valid(data->pdata->gpio_reset)) {
+		dev_warn(&data->client->dev, "invalid reset gpio\n");
+		return;
+	}
+
 	for (i = 0; i < 10; i++) {
 		MSLEEP(1);
 		gpio_set_value(data->pdata->gpio_reset, 1);
