@@ -1389,7 +1389,9 @@ static int mbim_func_suspend(struct usb_function *f, unsigned char options)
 	} else {
 		if (f->func_is_suspended) {
 			f->func_is_suspended = false;
+			spin_lock(&mbim->lock);
 			mbim_do_notify(mbim);
+			spin_unlock(&mbim->lock);
 			mbim_resume(f);
 		}
 		f->func_wakeup_allowed = func_wakeup_allowed;
