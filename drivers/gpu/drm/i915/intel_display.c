@@ -10734,22 +10734,10 @@ static void i915_commit(struct drm_i915_private *dev_priv,
 		plane = intel_crtc->plane;
 	}
 
-	if (reg->pfit_control && reg->pipesrc) {
-		if (dev_priv->pfit_pipe ==
-			((reg->pfit_control & PFIT_PIPE_MASK) >> 29) &&
-			I915_READ(PFIT_CONTROL) != reg->pfit_control)
-				I915_WRITE(PFIT_CONTROL, reg->pfit_control);
-		if (I915_READ(PIPESRC(pipe)) != reg->pipesrc)
-			I915_WRITE(PIPESRC(pipe), reg->pipesrc);
-		intel_crtc->pfit_en_status = true;
-	} else if (intel_crtc->pfit_en_status) {
-		if (I915_READ(PIPESRC(pipe)) != reg->pipesrc)
-			I915_WRITE(PIPESRC(pipe), reg->pipesrc);
-		if (dev_priv->pfit_pipe ==
-			((reg->pfit_control & PFIT_PIPE_MASK) >> 29)
-			&& I915_READ(PFIT_CONTROL) != reg->pfit_control)
-				I915_WRITE(PFIT_CONTROL, reg->pfit_control);
-		intel_crtc->pfit_en_status = false;
+	if (dev_priv->pfit_changed) {
+		I915_WRITE(PFIT_CONTROL, intel_crtc->pfit_control);
+		I915_WRITE(PIPESRC(pipe), intel_crtc->scaling_src_size);
+		dev_priv->pfit_changed = false;
 	}
 
 	if (type == SPRITE_PLANE) {
@@ -10892,6 +10880,7 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 	struct drm_device *dev, struct drm_file *file_priv,
 	struct intel_crtc *intel_crtc)
 {
+	struct drm_display_mode *mode = &intel_crtc->config.requested_mode;
 	struct drm_i915_plane_180_rotation *rotate;
 	struct drm_i915_set_plane_zorder *zorder;
 	int i, tmp_ret, ret = 0;
@@ -10899,9 +10888,24 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 
 	/* Update the panel fitter */
 	if (disp->update_flag & DRM_MODE_SET_DISPLAY_UPDATE_PANEL_FITTER) {
-		if (intel_crtc->config.gmch_pfit.control ||
-				disp->panel_fitter.mode) {
-			u32 pfit_control = intel_crtc->config.gmch_pfit.control;
+		u32 pfitcontrol = I915_READ(PFIT_CONTROL);
+		u32 pfit_control = pfitcontrol;
+
+		/* Check if panel fitter is already enabled on another pipe */
+		if (((pfit_control & PFIT_PIPE_MASK) >> PFIT_PIPE_SHIFT)
+			!= intel_crtc->pipe && (pfit_control & PFIT_ENABLE)) {
+			DRM_ERROR("panel fitter req received on pipe %d but already enabled on pipe %d",
+				intel_crtc->pipe,
+				((pfit_control & PFIT_PIPE_MASK) >>
+							PFIT_PIPE_SHIFT));
+			DRM_ERROR("Not enabling Panel Fitter\n");
+		} else {
+			pfit_control &= ~PFIT_PIPE_MASK;
+			pfit_control |= (intel_crtc->pipe << PFIT_PIPE_SHIFT);
+
+			intel_crtc->scaling_src_size =
+				(((disp->panel_fitter.src_w - 1) << 16) |
+						(disp->panel_fitter.src_h - 1));
 
 			/* Enable Panel fitter if any valid mode is set */
 			pfit_control = (1 << 31) | pfit_control;
@@ -10915,16 +10919,18 @@ int intel_set_disp_calc_flip(struct drm_mode_set_display *disp,
 				pfit_control &=  MASK_PFIT_SCALING_MODE;
 				pfit_control |= PFIT_SCALING_LETTER;
 			} else {
-				if (!dev_priv->scaling_reqd)
-					pfit_control &= ~PFIT_ENABLE;
-				else
-					pfit_control &=  MASK_PFIT_SCALING_MODE;
+
+				/* None of the above mode, then pfit is disabled */
+				pfit_control &= ~PFIT_ENABLE;
+				intel_crtc->scaling_src_size =
+						(((mode->hdisplay - 1) << 16) |
+							(mode->vdisplay - 1));
 			}
-			intel_crtc->config.gmch_pfit.control = pfit_control;
+			intel_crtc->pfit_control = pfit_control;
+			if (pfit_control != pfitcontrol)
+				dev_priv->pfit_changed = true;
 		}
-		intel_crtc->scaling_src_size =
-			(((disp->panel_fitter.src_w - 1) << 16) |
-			(disp->panel_fitter.src_h - 1));
+
 	}
 
 	/* Update the z-order */

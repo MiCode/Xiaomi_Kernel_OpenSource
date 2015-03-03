@@ -473,6 +473,7 @@ struct intel_crtc {
 	bool pch_fifo_underrun_disabled;
 
 	/* panel fitter input src size */
+	uint32_t pfit_control;
 	uint32_t scaling_src_size;
 
 	/* panel fitter status flag */

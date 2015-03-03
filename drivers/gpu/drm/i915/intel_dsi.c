@@ -95,7 +95,6 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	struct drm_display_mode *fixed_mode = intel_connector->panel.fixed_mode;
 	struct drm_display_mode *adjusted_mode = &config->adjusted_mode;
 	struct drm_display_mode *mode = &config->requested_mode;
-	struct intel_crtc *intel_crtc = encoder->new_crtc;
 	struct drm_device *dev = encoder->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
@@ -113,11 +112,6 @@ static bool intel_dsi_compute_config(struct intel_encoder *encoder,
 	if (dev_priv->scaling_reqd || i915.limitbw)  {
 		intel_connector->panel.fitting_mode = AUTOSCALE;
 		DRM_DEBUG("Enabling PF scaling required flag set\n");
-	}
-
-	if (IS_VALLEYVIEW(dev)) {
-		intel_gmch_panel_fitting(intel_crtc, config,
-			intel_connector->panel.fitting_mode);
 	}
 
 	if (intel_dsi->dev.dev_ops->mode_fixup)
