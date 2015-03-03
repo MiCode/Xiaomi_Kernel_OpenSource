@@ -27,6 +27,24 @@
 	};
 };
 
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_cpu {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_debug {
+	status = "disabled";
+};
+
+&msm_cpufreq {
+	status = "disabled";
+};
+
 &blsp1_uart2 {
 	status = "ok";
 	pinctrl-names = "default";
