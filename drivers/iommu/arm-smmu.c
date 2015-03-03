@@ -200,6 +200,9 @@
 #define CBAR_IRPTNDX_SHIFT		24
 #define CBAR_IRPTNDX_MASK		0xff
 
+#define ARM_SMMU_GR1_CBFRSYNRA(n)	(0x400 + ((n) << 2))
+#define CBFRSYNRA_SID_MASK		(0xffff)
+
 #define ARM_SMMU_GR1_CBA2R(n)		(0x800 + ((n) << 2))
 #define CBA2R_RW64_32BIT		(0 << 0)
 #define CBA2R_RW64_64BIT		(1 << 0)
@@ -730,9 +733,12 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	void __iomem *cb_base;
+	void __iomem *gr1_base;
 	bool fatal_asf = smmu->options & ARM_SMMU_OPT_FATAL_ASF;
 	phys_addr_t phys_soft;
+	u32 frsynra;
 
+	gr1_base = ARM_SMMU_GR1(smmu);
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	fsr = readl_relaxed(cb_base + ARM_SMMU_CB_FSR);
 
@@ -756,6 +762,8 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	iova = readq_relaxed(cb_base + ARM_SMMU_CB_FAR);
 	phys_soft = arm_smmu_iova_to_phys(domain, iova);
+	frsynra = readl_relaxed(gr1_base + ARM_SMMU_GR1_CBFRSYNRA(cfg->cbndx));
+	frsynra &= CBFRSYNRA_SID_MASK;
 	tmp = report_iommu_fault(domain, smmu->dev, iova, flags);
 	if (!tmp || (tmp == -EBUSY)) {
 		dev_dbg(smmu->dev,
@@ -782,6 +790,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 			(fsr & 0x80000000) ? "MULTI " : "");
 		dev_err(smmu->dev,
 			"soft iova-to-phys=%pa\n", &phys_soft);
+		dev_err(smmu->dev, "SID=0x%x\n", frsynra);
 		ret = IRQ_NONE;
 		resume = RESUME_TERMINATE;
 	}
