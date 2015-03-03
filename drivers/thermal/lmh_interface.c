@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -303,7 +303,7 @@ static void lmh_interrupt_monitor(struct work_struct *work)
 	struct lmh_mon_sensor_data *lmh_sensor = container_of(work,
 				struct lmh_mon_sensor_data, isr_poll.work);
 
-	down_read(&lmh_sensor->lock);
+	down_write(&lmh_sensor->lock);
 	ret = lmh_sensor->sensor_ops->read(lmh_sensor->sensor_ops, &val);
 	if (ret) {
 		pr_err("Error reading the sensor:[%s]. err:%d\n",
@@ -312,24 +312,25 @@ static void lmh_interrupt_monitor(struct work_struct *work)
 	}
 	lmh_evaluate_and_notify(lmh_sensor, val);
 	if (val <= 0) {
-		up_read(&lmh_sensor->lock);
-		down_write(&lmh_sensor->lock);
+		ret = lmh_sensor->sensor_ops->reset_interrupt(
+				lmh_sensor->sensor_ops);
+		if (ret == -EAGAIN)
+			goto schedule_and_exit;
+		else if (ret)
+			pr_err("Sensor:[%s] interrupt reset failed. err:%d\n",
+					lmh_sensor->sensor_name, ret);
 		pr_debug("Rearm sensor:[%s] interrupt\n",
 			lmh_sensor->sensor_name);
 		lmh_sensor->state = LMH_ISR_MONITOR;
-		ret = lmh_sensor->sensor_ops->reset_interrupt(
-				lmh_sensor->sensor_ops);
-		if (ret)
-			pr_err("Sensor:[%s] interrupt reset failed. err:%d\n",
-				lmh_sensor->sensor_name, ret);
-		up_write(&lmh_sensor->lock);
-		return;
+		goto exit_monitor;
 	}
+
+schedule_and_exit:
 	schedule_delayed_work(&lmh_sensor->isr_poll,
 		msecs_to_jiffies(lmh_poll_interval));
 
 exit_monitor:
-	up_read(&lmh_sensor->lock);
+	up_write(&lmh_sensor->lock);
 }
 
 void lmh_interrupt_notify(struct lmh_sensor_ops *ops, long trip_val)
