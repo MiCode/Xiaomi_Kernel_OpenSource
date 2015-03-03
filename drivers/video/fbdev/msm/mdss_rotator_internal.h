@@ -99,6 +99,7 @@ struct mdss_rot_perf {
 	struct mdp_rotation_config config;
 	u32 clk_rate;
 	u64 bw;
+	int wb_idx;
 };
 
 struct mdss_rot_file_private {
