@@ -77,19 +77,14 @@
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0xB0>;
 		qcom,cci-master = <0>;
-		qcom,num-blocks = <3>;
-
+		qcom,num-blocks = <2>;
 		qcom,page0 = <0 0x0 2 0x0 1 0>;
 		qcom,poll0 = <0 0x0 2 0x0 1 0>;
-		qcom,mem0 = <22 0x0400 2 0 1 0>;
+		qcom,mem0 = <2332 0x0400 2 0 1 0>;
 
 		qcom,page1 = <0 0x0 2 0x0 1 0>;
 		qcom,poll1 = <0 0x0 2 0x0 1 0>;
-		qcom,mem1 = <1770 0x0416 2 0 1 0>;
-
-		qcom,page2 = <0 0x0 2 0x0 1 0>;
-		qcom,poll2 = <0 0x0 2 0x0 1 0>;
-		qcom,mem2 = <6 0x0b00 2 0 1 0>;
+		qcom,mem1 = <3 0x0F10 2 0 1 0>;
 
 		cam_vdig-supply = <&pm8916_s4>;
 		cam_vio-supply = <&pm8916_l17>;
