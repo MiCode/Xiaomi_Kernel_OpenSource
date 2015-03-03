@@ -287,48 +287,64 @@ fail:
 	return ret;
 }
 
-int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
-			phys_addr_t pa, size_t len, int prot)
+static phys_addr_t __get_phys_sg(void *cookie)
 {
-	int ret;
-	struct scatterlist sg;
+	struct scatterlist *sg = cookie;
+	struct page *page = sg_page(sg);
 
-	if (len != SZ_16M && len != SZ_1M &&
-	    len != SZ_64K && len != SZ_4K) {
-		pr_debug("Bad size: %zd\n", len);
-		ret = -EINVAL;
-		goto fail;
-	}
+	BUG_ON(page == NULL);
 
-	sg_init_table(&sg, 1);
-	sg_dma_address(&sg) = pa;
-	sg.length = len;
-
-	ret = msm_iommu_pagetable_map_range(pt, va, &sg, len, prot);
-
-fail:
-	return ret;
+	return sg_phys(sg);
 }
 
-size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
-				size_t len)
+static unsigned long __get_length_sg(void *cookie, unsigned int total)
 {
-	msm_iommu_pagetable_unmap_range(pt, va, len);
-	return len;
+	struct scatterlist *sg = cookie;
+
+	return sg->length;
 }
 
-static phys_addr_t get_phys_addr(struct scatterlist *sg)
+static int __get_next_sg(void *old, void **new)
 {
-	/*
-	 * Try sg_dma_address first so that we can
-	 * map carveout regions that do not have a
-	 * struct page associated with them.
-	 */
-	phys_addr_t pa = sg_dma_address(sg);
-	if (pa == 0)
-		pa = sg_phys(sg);
-	return pa;
+	struct scatterlist *sg = old;
+	*new = sg_next(sg);
+	return 0;
 }
+
+static phys_addr_t __get_phys_bare(void *cookie)
+{
+	return (phys_addr_t)cookie;
+}
+
+static unsigned long __get_length_bare(void *cookie, unsigned int total)
+{
+	return total;
+}
+
+static int __get_next_bare(void *old, void **new)
+{
+	/* Put something here in hopes of catching errors... */
+	*new = (void *)-1;
+	return -EINVAL;
+}
+
+struct msm_iommu_map_ops {
+	phys_addr_t (*get_phys)(void *cookie);
+	unsigned long (*get_length)(void *cookie, unsigned int total);
+	int (*get_next)(void *old, void **new);
+};
+
+static struct msm_iommu_map_ops regular_ops = {
+	.get_phys =	__get_phys_bare,
+	.get_length =	__get_length_bare,
+	.get_next =	__get_next_bare,
+};
+
+static struct msm_iommu_map_ops sg_ops = {
+	.get_phys =	__get_phys_sg,
+	.get_length =	__get_length_sg,
+	.get_next =	__get_next_sg,
+};
 
 /*
  * For debugging we may want to force mappings to be 4K only
@@ -353,8 +369,10 @@ static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 }
 #endif
 
-int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
-		       struct scatterlist *sg, unsigned int len, int prot)
+static int __msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt,
+		       unsigned int va, void *cookie,
+		       struct msm_iommu_map_ops *ops,
+		       unsigned int len, int prot)
 {
 	phys_addr_t pa;
 	unsigned int start_va = va;
@@ -382,20 +400,23 @@ int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 	fl_offset = FL_OFFSET(va);		/* Upper 12 bits */
 	fl_pte = pt->fl_table + fl_offset;	/* int pointers, 4 bytes */
 	fl_pte_shadow = pt->fl_table_shadow + fl_offset;
-	pa = get_phys_addr(sg);
+	pa = ops->get_phys(cookie);
 
 	while (offset < len) {
 		chunk_size = SZ_4K;
 
-		if (is_fully_aligned(va, pa, sg->length - chunk_offset,
+		if (is_fully_aligned(va, pa,
+				    ops->get_length(cookie, len) - chunk_offset,
 				     SZ_16M))
 			chunk_size = SZ_16M;
-		else if (is_fully_aligned(va, pa, sg->length - chunk_offset,
+		else if (is_fully_aligned(va, pa,
+				    ops->get_length(cookie, len) - chunk_offset,
 					  SZ_1M))
 			chunk_size = SZ_1M;
 		/* 64k or 4k determined later */
 
-		trace_iommu_map_range(va, pa, sg->length, chunk_size);
+		trace_iommu_map_range(va, pa, ops->get_length(cookie, len),
+					chunk_size);
 
 		/* for 1M and 16M, only first level entries are required */
 		if (chunk_size >= SZ_1M) {
@@ -420,10 +441,12 @@ int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 			va += chunk_size;
 			pa += chunk_size;
 
-			if (chunk_offset >= sg->length && offset < len) {
+			if (chunk_offset >= ops->get_length(cookie, len) &&
+			    offset < len) {
 				chunk_offset = 0;
-				sg = sg_next(sg);
-				pa = get_phys_addr(sg);
+				if (ops->get_next(cookie, &cookie))
+					break;
+				pa = ops->get_phys(cookie);
 			}
 			continue;
 		}
@@ -451,14 +474,15 @@ int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 			 * the pa and va are aligned
 			 */
 
-			if (is_fully_aligned(va, pa, sg->length - chunk_offset,
+			if (is_fully_aligned(va, pa,
+				    ops->get_length(cookie, len) - chunk_offset,
 					     SZ_64K))
 				chunk_size = SZ_64K;
 			else
 				chunk_size = SZ_4K;
 
-			trace_iommu_map_range(va, pa, sg->length,
-							chunk_size);
+			trace_iommu_map_range(va, pa,
+				ops->get_length(cookie, len), chunk_size);
 
 			if (chunk_size == SZ_4K) {
 				sl_4k(&sl_table[sl_offset], pa, pgprot4k);
@@ -478,10 +502,12 @@ int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
 			va += chunk_size;
 			pa += chunk_size;
 
-			if (chunk_offset >= sg->length && offset < len) {
+			if (chunk_offset >= ops->get_length(cookie, len) &&
+			    offset < len) {
 				chunk_offset = 0;
-				sg = sg_next(sg);
-				pa = get_phys_addr(sg);
+				if (ops->get_next(cookie, &cookie))
+					break;
+				pa = ops->get_phys(cookie);
 			}
 		}
 
@@ -559,6 +585,29 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 		fl_pte++;
 		fl_pte_shadow++;
 	}
+}
+
+int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
+		struct scatterlist *sg, unsigned int len, int prot)
+{
+	return __msm_iommu_pagetable_map_range(pt, va, sg, &sg_ops, len, prot);
+}
+
+size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
+				size_t len)
+{
+	msm_iommu_pagetable_unmap_range(pt, va, len);
+	return len;
+}
+
+int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
+			phys_addr_t pa, size_t len, int prot)
+{
+	int ret;
+
+	ret = __msm_iommu_pagetable_map_range(pt, va, (void *)pa, &regular_ops,
+						len, prot);
+	return ret;
 }
 
 phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
