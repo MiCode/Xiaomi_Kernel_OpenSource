@@ -1711,6 +1711,13 @@
 		usb-phy = <&qusb_phy>;
 		qcom,pm-qos-latency = <30001>;
 
+		qcom,msm-bus,name = "usb-hs";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<87 512 0 0>,
+				<87 512 40000 60000>;
+
 		clocks = <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
 			 <&clock_rpm clk_cxo_otg_clk>;
