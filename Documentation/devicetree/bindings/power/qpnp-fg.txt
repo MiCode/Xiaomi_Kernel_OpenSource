@@ -97,6 +97,17 @@ Parent node optional properties:
 					this. If this property is not specified,
 					low battery voltage threshold will be
 					configured to 4200 mV.
+- qcom,cycle-counter-en:		Boolean property which enables the cycle
+					counter feature. If this property is
+					present, then the following properties
+					to specify low and high soc thresholds
+					should be defined.
+- qcom,cycle-counter-low-soc:		Low SOC threshold which will be compared
+					against the battery SOC before starting
+					the cycle counter algorithm.
+- qcom,cycle-counter-high-soc:		High SOC threshold which will be compared
+					against the battery SOC before incrementing
+					the cycle counter.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
