@@ -113,6 +113,9 @@ struct mdp_rotation_item {
 	  */
 	uint32_t	wb_idx;
 
+	/* Which session ID is this request scheduled on */
+	uint32_t	session_id;
+
 	/* 32bits reserved value for future usage */
 	uint32_t	reserved[6];
 };
