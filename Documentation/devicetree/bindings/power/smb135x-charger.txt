@@ -46,6 +46,8 @@ Optional Properties:
 					go in to unintentional reverse boost in such a situation and
 					the float voltage compensation needs to be disabled to avoid
 					that reverse boost.
+- qcom,soft-current-comp-disabled	Set this property to disable charging current compensation
+					if battery temperature exceeds soft JEITA thresholds.
 - qcom,thermal-mitigation:		Array of input current limit values for different
 					system thermal mitigation level.
 - regulator-name			A string used as a descriptive name for OTG regulator.
