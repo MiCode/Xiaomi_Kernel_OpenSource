@@ -1571,6 +1571,7 @@ static int smbchg_sw_esr_pulse_en(struct smbchg_chip *chip, bool en)
 #define AICL_EN_BIT				BIT(2)
 static void smbchg_rerun_aicl(struct smbchg_chip *chip)
 {
+	pr_smb(PR_STATUS, "Rerunning AICL...\n");
 	smbchg_sec_masked_write(chip, chip->usb_chgpth_base + USB_AICL_CFG,
 			AICL_EN_BIT, 0);
 	/* Add a delay so that AICL successfully clears */
@@ -1671,6 +1672,20 @@ try_again:
 	taper_irq_en(chip, true);
 done:
 	mutex_unlock(&chip->parallel.lock);
+}
+
+static bool smbchg_is_aicl_complete(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg,
+			chip->usb_chgpth_base + ICL_STS_1_REG, 1);
+	if (rc) {
+		dev_err(chip->dev, "Could not read usb icl sts 1: %d\n", rc);
+		return true;
+	}
+	return (reg & AICL_STS_BIT) != 0;
 }
 
 static int smbchg_get_aicl_level_ma(struct smbchg_chip *chip)
@@ -2119,13 +2134,21 @@ static int smbchg_set_thermal_limited_dc_current_max(struct smbchg_chip *chip,
 static int smbchg_set_thermal_limited_usb_current_max(struct smbchg_chip *chip,
 							int current_ma)
 {
-	int rc;
+	int rc, aicl_ma;
 
+	aicl_ma = smbchg_get_aicl_level_ma(chip);
 	chip->usb_tl_current_ma =
 		calc_thermal_limited_current(chip, current_ma);
 	rc = smbchg_set_usb_current_max(chip, chip->usb_tl_current_ma);
+	if (rc) {
+		pr_err("Failed to set usb current max: %d\n", rc);
+		return rc;
+	}
 
-	smbchg_rerun_aicl(chip);
+	pr_smb(PR_STATUS, "AICL = %d, ICL = %d\n",
+			aicl_ma, chip->usb_max_current_ma);
+	if (chip->usb_max_current_ma > aicl_ma && smbchg_is_aicl_complete(chip))
+		smbchg_rerun_aicl(chip);
 	smbchg_parallel_usb_check_ok(chip);
 	return rc;
 }
@@ -3972,7 +3995,8 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 	long elapsed_seconds;
 	unsigned long now_seconds;
 
-	pr_smb(PR_INTERRUPT, "Aicl triggered c:%d dgltch:%d first:%ld\n",
+	pr_smb(PR_INTERRUPT, "Aicl triggered icl:%d c:%d dgltch:%d first:%ld\n",
+			smbchg_get_aicl_level_ma(chip),
 			chip->aicl_irq_count, chip->aicl_deglitch_short,
 			chip->first_aicl_seconds);
 
