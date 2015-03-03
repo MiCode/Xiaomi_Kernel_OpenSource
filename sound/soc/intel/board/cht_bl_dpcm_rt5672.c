@@ -798,6 +798,7 @@ static struct snd_soc_dai_link cht_dailink[] = {
 		.ignore_suspend = 1,
 		.dynamic = 1,
 		.compr_ops = &cht_compr_ops,
+		.dpcm_playback = 1,
 	},
 	[CHT_DPCM_VOIP] = {
 		.name = "Cherrytrail VOIP Port",
