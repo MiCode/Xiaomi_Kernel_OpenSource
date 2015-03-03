@@ -5786,9 +5786,13 @@ static unsigned long __read_mostly max_load_balance_interval = HZ/10;
 #define LBF_NEED_BREAK	0x02
 #define LBF_SOME_PINNED 0x04
 #define LBF_IGNORE_SMALL_TASKS 0x08
-#define LBF_PWR_ACTIVE_BALANCE 0x10
-#define LBF_SCHED_BOOST 0x20
-#define LBF_IGNORE_BIG_TASKS 0x40
+#define LBF_EA_ACTIVE_BALANCE 0x10
+#define LBF_SCHED_BOOST_ACTIVE_BALANCE 0x20
+#define LBF_BIG_TASK_ACTIVE_BALANCE 0x40
+#define LBF_HMP_ACTIVE_BALANCE (LBF_EA_ACTIVE_BALANCE | \
+				LBF_SCHED_BOOST_ACTIVE_BALANCE | \
+				LBF_BIG_TASK_ACTIVE_BALANCE)
+#define LBF_IGNORE_BIG_TASKS 0x80
 
 struct lb_env {
 	struct sched_domain	*sd;
@@ -6605,6 +6609,37 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 		sgs->group_has_capacity = 1;
 }
 
+#ifdef CONFIG_SCHED_HMP
+static bool update_sd_pick_busiest_active_balance(struct lb_env *env,
+						  struct sd_lb_stats *sds,
+						  struct sched_group *sg,
+						  struct sg_lb_stats *sgs)
+{
+	if (env->idle != CPU_NOT_IDLE &&
+	    capacity(env->dst_rq) > group_rq_capacity(sg)) {
+		if (sched_boost() && !sds->busiest && sgs->sum_nr_running) {
+			env->flags |= LBF_SCHED_BOOST_ACTIVE_BALANCE;
+			return true;
+		}
+
+		if (sgs->sum_nr_big_tasks > sds->busiest_nr_big_tasks) {
+			env->flags |= LBF_BIG_TASK_ACTIVE_BALANCE;
+			return true;
+		}
+	}
+
+	return false;
+}
+#else
+static bool update_sd_pick_busiest_active_balance(struct lb_env *env,
+						  struct sd_lb_stats *sds,
+						  struct sched_group *sg,
+						  struct sg_lb_stats *sgs)
+{
+	return false;
+}
+#endif
+
 /**
  * update_sd_pick_busiest - return 1 on busiest group
  * @env: The load balancing environment.
@@ -6623,23 +6658,19 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	int cpu, cpu_busiest;
 	unsigned int pc, pc_busiest;
 
-	if (sched_boost() && !sds->busiest && sgs->sum_nr_running &&
-		(env->idle != CPU_NOT_IDLE) && (capacity(env->dst_rq) >
-		group_rq_capacity(sg))) {
-		env->flags |= LBF_SCHED_BOOST;
+	if (update_sd_pick_busiest_active_balance(env, sds, sg, sgs))
 		return true;
-	}
 
 	if (sgs->avg_load < sds->max_load)
 		return false;
 
 	if (sgs->sum_nr_running > sgs->group_capacity) {
-		env->flags &= ~LBF_PWR_ACTIVE_BALANCE;
+		env->flags &= ~LBF_EA_ACTIVE_BALANCE;
 		return true;
 	}
 
 	if (sgs->group_imb) {
-		env->flags &= ~LBF_PWR_ACTIVE_BALANCE;
+		env->flags &= ~LBF_EA_ACTIVE_BALANCE;
 		return true;
 	}
 
@@ -6650,7 +6681,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 	 */
 	cpu = group_first_cpu(sg);
 	if (sysctl_sched_enable_power_aware &&
-	    (!sds->busiest || (env->flags & LBF_PWR_ACTIVE_BALANCE)) &&
+	    (!sds->busiest || (env->flags & LBF_EA_ACTIVE_BALANCE)) &&
 	    (capacity(env->dst_rq) == group_rq_capacity(sg)) &&
 	    sgs->sum_nr_running && (env->idle != CPU_NOT_IDLE) &&
 	    !is_task_migration_throttled(cpu_rq(cpu)->curr) &&
@@ -6663,7 +6694,7 @@ static bool update_sd_pick_busiest(struct lb_env *env,
 				return true;
 		} else {
 			if (power_cost_at_freq(env->dst_cpu, 0) < pc) {
-				env->flags |= LBF_PWR_ACTIVE_BALANCE;
+				env->flags |= LBF_EA_ACTIVE_BALANCE;
 				return true;
 			}
 		}
@@ -7063,8 +7094,10 @@ ret:
 static struct rq *find_busiest_queue_hmp(struct lb_env *env,
 				     struct sched_group *group)
 {
-	struct rq *busiest = NULL;
-	u64 max_runnable_avg = 0;
+	struct rq *busiest = NULL, *busiest_big = NULL;
+	u64 max_runnable_avg = 0, max_runnable_avg_big = 0;
+	int max_nr_big = 0, nr_big;
+	bool find_big = !!(env->flags & LBF_BIG_TASK_ACTIVE_BALANCE);
 	int i;
 
 	for_each_cpu(i, sched_group_cpus(group)) {
@@ -7075,12 +7108,29 @@ static struct rq *find_busiest_queue_hmp(struct lb_env *env,
 		if (!cpumask_test_cpu(i, env->cpus))
 			continue;
 
+
+		if (find_big) {
+			nr_big = nr_big_tasks(rq);
+			if (nr_big > max_nr_big ||
+			    (nr_big > 0 && nr_big == max_nr_big &&
+			     cumulative_runnable_avg > max_runnable_avg_big)) {
+				max_runnable_avg_big = cumulative_runnable_avg;
+				busiest_big = rq;
+				max_nr_big = nr_big;
+				continue;
+			}
+		}
+
 		if (cumulative_runnable_avg > max_runnable_avg) {
 			max_runnable_avg = cumulative_runnable_avg;
 			busiest = rq;
 		}
 	}
 
+	if (busiest_big)
+		return busiest_big;
+
+	env->flags &= ~LBF_BIG_TASK_ACTIVE_BALANCE;
 	return busiest;
 }
 #else
@@ -7156,7 +7206,7 @@ static int need_active_balance(struct lb_env *env)
 {
 	struct sched_domain *sd = env->sd;
 
-	if (env->flags & (LBF_PWR_ACTIVE_BALANCE | LBF_SCHED_BOOST))
+	if (env->flags & LBF_HMP_ACTIVE_BALANCE)
 		return 1;
 
 	if (env->idle == CPU_NEWLY_IDLE) {
@@ -7331,7 +7381,7 @@ more_balance:
 
 no_move:
 	if (!ld_moved) {
-		if (!(env.flags & (LBF_PWR_ACTIVE_BALANCE | LBF_SCHED_BOOST)))
+		if (!(env.flags & LBF_HMP_ACTIVE_BALANCE))
 			schedstat_inc(sd, lb_failed[idle]);
 
 		/*
@@ -7341,7 +7391,7 @@ no_move:
 		 * excessive cache_hot migrations and active balances.
 		 */
 		if (idle != CPU_NEWLY_IDLE &&
-		    !(env.flags & (LBF_PWR_ACTIVE_BALANCE | LBF_SCHED_BOOST)))
+		    !(env.flags & LBF_HMP_ACTIVE_BALANCE))
 			sd->nr_balance_failed++;
 
 		if (need_active_balance(&env)) {
