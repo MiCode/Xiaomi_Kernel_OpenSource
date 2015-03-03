@@ -6494,6 +6494,10 @@ static void cherryview_init_clock_gating(struct drm_device *dev)
 	/* WaDisableSDEUnitClockGating:chv */
 	I915_WRITE(GEN8_UCGCTL6, I915_READ(GEN8_UCGCTL6) |
 		   GEN8_SDEUNIT_CLOCK_GATE_DISABLE);
+
+	/* WaDisableShadowRegForCpd */
+	I915_WRITE(GTFIFOCTL, I915_READ(GTFIFOCTL) |
+			      GT_FIFO_CTL_BLOCK_POLICY);
 }
 
 static void g4x_init_clock_gating(struct drm_device *dev)
