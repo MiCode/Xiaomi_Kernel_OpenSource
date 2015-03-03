@@ -646,6 +646,8 @@ struct rndis_function_config {
 	u8      ethaddr[ETH_ALEN];
 	u32     vendorID;
 	char	manufacturer[256];
+	char	user_ethaddr[18];
+	bool	user_ethaddr_valid;
 	/* "Wireless" RNDIS; auto-detected by Windows */
 	bool	wceis;
 	struct eth_dev *dev;
@@ -674,6 +676,7 @@ rndis_function_bind_config(struct android_usb_function *f,
 		struct usb_configuration *c)
 {
 	int ret;
+	char *ethaddr;
 	struct f_rndis_opts *rndis_opts;
 	struct rndis_function_config *rndis = f->config;
 
@@ -699,8 +702,11 @@ rndis_function_bind_config(struct android_usb_function *f,
 	rndis_opts->manufacturer = rndis->manufacturer;
 
 	gether_set_qmult(rndis_opts->net, qmult);
-	if (!gether_set_host_addr(rndis_opts->net, host_addr))
-		pr_info("using host ethernet address: %s\n", host_addr);
+	ethaddr = rndis->user_ethaddr_valid ? rndis->user_ethaddr : host_addr;
+	if (!gether_set_host_addr(rndis_opts->net, ethaddr))
+		pr_info("using host ethernet address: %s\n", ethaddr);
+	else
+		rndis->user_ethaddr_valid = false;
 	if (!gether_set_dev_addr(rndis_opts->net, dev_addr))
 		pr_info("using self ethernet address: %s\n", dev_addr);
 
@@ -805,9 +811,13 @@ static ssize_t rndis_ethaddr_show(struct device *dev,
 {
 	struct android_usb_function *f = dev_get_drvdata(dev);
 	struct rndis_function_config *rndis = f->config;
-	return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
-		rndis->ethaddr[0], rndis->ethaddr[1], rndis->ethaddr[2],
-		rndis->ethaddr[3], rndis->ethaddr[4], rndis->ethaddr[5]);
+	if (rndis->user_ethaddr_valid)
+		return sprintf(buf, "%s\n", rndis->user_ethaddr);
+	else
+		return sprintf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
+			rndis->ethaddr[0], rndis->ethaddr[1],
+			rndis->ethaddr[2], rndis->ethaddr[3],
+			rndis->ethaddr[4], rndis->ethaddr[5]);
 }
 
 static ssize_t rndis_ethaddr_store(struct device *dev,
@@ -816,11 +826,13 @@ static ssize_t rndis_ethaddr_store(struct device *dev,
 	struct android_usb_function *f = dev_get_drvdata(dev);
 	struct rndis_function_config *rndis = f->config;
 
-	if (sscanf(buf, "%02x:%02x:%02x:%02x:%02x:%02x\n",
-		    (int *)&rndis->ethaddr[0], (int *)&rndis->ethaddr[1],
-		    (int *)&rndis->ethaddr[2], (int *)&rndis->ethaddr[3],
-		    (int *)&rndis->ethaddr[4], (int *)&rndis->ethaddr[5]) == 6)
-		return size;
+	if (size <= sizeof(rndis->user_ethaddr)) {
+		if (sscanf(buf, "%s", rndis->user_ethaddr) == 1) {
+			rndis->user_ethaddr_valid = true;
+			return size;
+		}
+	}
+
 	return -EINVAL;
 }
 
