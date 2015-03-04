@@ -38,6 +38,15 @@
 #define V4L2_IDENT_OV2685 1111
 #define	LAST_REG_SETING	{0xffff, 0xff}
 
+#define OV2685_XVCLK	1920
+#define OV2685_EXPOSURE_DEFAULT_VAL 33 /* 33ms*/
+
+#define OV2685_FOCAL_LENGTH_NUM	270	/*2.70mm*/
+#define OV2685_FOCAL_LENGTH_DEM	100
+#define OV2685_F_NUMBER_DEFAULT_NUM	26
+#define OV2685_F_NUMBER_DEM	10
+#define OV2685_F_NUMBER_DEFAULT 0x16000a
+
 /* #defines for register writes and register array processing */
 #define MISENSOR_8BIT		1
 #define MISENSOR_16BIT		2
@@ -52,6 +61,14 @@
 #define MSG_LEN_OFFSET		2
 
 /*register */
+#define OV2685_REG_HTS_H	0x380c
+#define OV2685_REG_HTS_L	0x380d
+#define OV2685_REG_PLL_CTRL	0x3088
+#define OV2685_REG_PLL_PRE_DIV	0x3080
+#define OV2685_REG_PLL_MULT_H	0x3081
+#define OV2685_REG_PLL_MULT_L	0x3082
+#define OV2685_REG_PLL_SP_DIV	0x3086
+#define OV2685_REG_PLL_SYS_DIV	0x3084
 #define OV2685_REG_GAIN_0	0x350a
 #define OV2685_REG_GAIN_1	0x350b
 #define OV2685_REG_EXPOSURE_0	0x3500

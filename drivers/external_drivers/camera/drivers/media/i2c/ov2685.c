@@ -292,9 +292,103 @@ static int ov2685_s_wb(struct v4l2_subdev *sd, int value)
 	return 0;
 }
 
+static int ov2685_get_sysclk(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int sysclk;
+	u16 reg_val;
+	int pre_div0, pre_div2x, div_loop, sp_div, sys_div, vco;
+	int pre_div2x_map[] = {2, 3, 4, 5, 6, 8, 12, 16};
+
+	ov2685_read_reg(client, MISENSOR_8BIT,
+			OV2685_REG_PLL_CTRL, &reg_val);
+	pre_div0 = ((reg_val >> 4) & 0x01) + 1;
+
+	ov2685_read_reg(client, MISENSOR_8BIT,
+			OV2685_REG_PLL_PRE_DIV, &reg_val);
+	reg_val &= 0x07;
+	pre_div2x = pre_div2x_map[reg_val];
+
+	ov2685_read_reg(client, MISENSOR_8BIT,
+				OV2685_REG_PLL_MULT_H, &reg_val);
+	div_loop = (reg_val & 0x01) << 8;
+
+	ov2685_read_reg(client, MISENSOR_8BIT,
+				OV2685_REG_PLL_MULT_L, &reg_val);
+	div_loop += reg_val;
+
+	ov2685_read_reg(client, MISENSOR_8BIT,
+				OV2685_REG_PLL_SP_DIV, &reg_val);
+	sp_div = (reg_val & 0x07) + 1;
+
+	ov2685_read_reg(client, MISENSOR_8BIT,
+				OV2685_REG_PLL_SYS_DIV, &reg_val);
+
+	sys_div = (reg_val & 0x0f) + 1;
+
+	vco = OV2685_XVCLK * div_loop * 2 / pre_div0 / pre_div2x;
+	sysclk = vco / sp_div / sys_div;
+	return sysclk;
+}
+
 static int ov2685_g_exposure(struct v4l2_subdev *sd, s32 *value)
 {
+
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 reg_v, reg_v2, hts, hts_v2;
+	u32 exp_val, sys_clk;
+	int ret;
+
+	*value = OV2685_EXPOSURE_DEFAULT_VAL;
+
+	/* get exposure */
+	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+					OV2685_REG_EXPOSURE_2,
+					&reg_v);
+	if (ret)
+		goto err;
+
+	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+					OV2685_REG_EXPOSURE_1,
+					&reg_v2);
+	if (ret)
+		goto err;
+
+	reg_v = (reg_v >> 4) | (reg_v2 << 4);
+	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+					OV2685_REG_EXPOSURE_0,
+					&reg_v2);
+	if (ret)
+		goto err;
+
+	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+					OV2685_REG_HTS_H,
+					&hts);
+	if (ret)
+		goto err;
+
+	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+					OV2685_REG_HTS_L,
+					&hts_v2);
+	if (ret)
+		goto err;
+
+	hts = (hts << 8) | hts_v2;
+
+	sys_clk = ov2685_get_sysclk(sd);
+	if (!sys_clk)
+		return 0;
+
+	/* transfer exposure time to us */
+	exp_val = ((reg_v | (((u32)reg_v2 << 12))) * hts)  * 1000 / (sys_clk*10);
+
+	/* FIX ME! The exposure value could be 0 in some cases*/
+	if (exp_val)
+		*value = exp_val;
+
 	return 0;
+err:
+	return ret;
 }
 
 static int ov2685_s_exposure(struct v4l2_subdev *sd, int value)
@@ -338,6 +432,14 @@ static int ov2685_s_exposure(struct v4l2_subdev *sd, int value)
 
 	return 0;
 }
+
+static int ov2685_g_fnumber(struct v4l2_subdev *sd, s32 *value)
+{
+	/*const f number for imx*/
+	*value = (OV2685_F_NUMBER_DEFAULT_NUM << 16) | OV2685_F_NUMBER_DEM;
+	return 0;
+}
+
 static long ov2685_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	return 0;
@@ -713,6 +815,9 @@ static int ov2685_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_HFLIP:
 		ret = ov2685_g_hflip(&dev->sd, &ctrl->val);
 		break;
+	case V4L2_CID_FNUMBER_ABSOLUTE:
+		ret = ov2685_g_fnumber(&dev->sd, &ctrl->val);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -821,6 +926,17 @@ static const struct v4l2_ctrl_config ov2685_controls[] = {
 		.step = 1,
 		.def = 0,
 		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_FNUMBER_ABSOLUTE,
+		.name = "focal number",
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = OV2685_F_NUMBER_DEFAULT,
+		.max = OV2685_F_NUMBER_DEFAULT,
+		.step = 1,
+		.def = OV2685_F_NUMBER_DEFAULT,
+		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 };
 
