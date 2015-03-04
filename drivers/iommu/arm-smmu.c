@@ -431,6 +431,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG (1 << 5)
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 6)
 #define ARM_SMMU_OPT_ERRATA_TZ_ATOS	(1 << 7)
+#define ARM_SMMU_OPT_NO_M		(1 << 8)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -503,6 +504,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_ERRATA_CTX_FAULT_HANG, "qcom,errata-ctx-fault-hang" },
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_ERRATA_TZ_ATOS, "qcom,errata-tz-atos" },
+	{ ARM_SMMU_OPT_NO_M, "qcom,no-mmu-enable" },
 	{ 0, NULL},
 };
 
@@ -1147,7 +1149,9 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain)
 	}
 
 	/* SCTLR */
-	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_M | SCTLR_EAE_SBOP;
+	reg = SCTLR_CFCFG | SCTLR_CFIE | SCTLR_CFRE | SCTLR_EAE_SBOP;
+	if (!(smmu->options & ARM_SMMU_OPT_NO_M))
+		reg |= SCTLR_M;
 	if (stage1)
 		reg |= SCTLR_S1_ASIDPNE;
 #ifdef __BIG_ENDIAN
