@@ -242,8 +242,10 @@
 /* QFPROM Registers for HDMI/HDCP */
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_LSB  (0x000000F8)
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_MSB  (0x000000FC)
+#define QFPROM_RAW_VERSION_4             (0x000000A8)
 #define HDCP_KSV_LSB                     (0x000060D8)
 #define HDCP_KSV_MSB                     (0x000060DC)
+#define HDCP_KSV_VERSION_4               (0x00000014)
 
 #define TOP_AND_BOTTOM		0x10
 #define FRAME_PACKING		0x20
@@ -254,6 +256,10 @@
 
 /* TX major version that supports scrambling */
 #define HDMI_TX_SCRAMBLER_MIN_TX_VERSION 0x04
+
+/* TX major versions */
+#define HDMI_TX_VERSION_4         4
+#define HDMI_TX_VERSION_3         3
 
 /* HDMI SCDC register offsets */
 #define HDMI_SCDC_UPDATE_0              0x10

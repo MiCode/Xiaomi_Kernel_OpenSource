@@ -80,9 +80,6 @@
 #define HDMI_TX_3_MAX_PCLK_RATE            297000
 #define HDMI_TX_4_MAX_PCLK_RATE            600000
 
-#define HDMI_TX_VERSION_4         4
-#define HDMI_TX_VERSION_3         3
-
 /* Enable HDCP by default */
 static bool hdcp_feature_on = true;
 
@@ -1400,7 +1397,7 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	u32 hdmi_disabled, hdcp_disabled;
+	u32 hdmi_disabled, hdcp_disabled, reg_val;
 	struct dss_io_data *io = NULL;
 
 	if (!hdmi_ctrl) {
@@ -1414,11 +1411,18 @@ static int hdmi_tx_check_capability(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return -EINVAL;
 	}
 
-	hdcp_disabled = DSS_REG_R_ND(io,
-		QFPROM_RAW_FEAT_CONFIG_ROW0_LSB) & BIT(31);
+	if (hdmi_ctrl->hdmi_tx_ver < HDMI_TX_VERSION_4) {
+		hdcp_disabled = DSS_REG_R_ND(io,
+			QFPROM_RAW_FEAT_CONFIG_ROW0_LSB) & BIT(31);
 
-	hdmi_disabled = DSS_REG_R_ND(io,
-		QFPROM_RAW_FEAT_CONFIG_ROW0_MSB) & BIT(0);
+		hdmi_disabled = DSS_REG_R_ND(io,
+			QFPROM_RAW_FEAT_CONFIG_ROW0_MSB) & BIT(0);
+	} else {
+		reg_val = DSS_REG_R_ND(io,
+			QFPROM_RAW_FEAT_CONFIG_ROW0_LSB + QFPROM_RAW_VERSION_4);
+		hdcp_disabled = reg_val & BIT(12);
+		hdmi_disabled = reg_val & BIT(13);
+	}
 
 	DEV_DBG("%s: Features <HDMI:%s, HDCP:%s>\n", __func__,
 		hdmi_disabled ? "OFF" : "ON", hdcp_disabled ? "OFF" : "ON");
@@ -4468,17 +4472,17 @@ static int hdmi_tx_probe(struct platform_device *pdev)
 		goto failed_res_init;
 	}
 
-	rc = hdmi_tx_dev_init(hdmi_ctrl);
-	if (rc) {
-		DEV_ERR("%s: FAILED: hdmi_tx_dev_init. rc=%d\n", __func__, rc);
-		goto failed_dev_init;
-	}
-
 	rc = hdmi_tx_get_version(hdmi_ctrl);
 	if (rc) {
 		DEV_ERR("%s: FAILED: hdmi_tx_get_version. rc=%d\n",
 			__func__, rc);
 		goto failed_reg_panel;
+	}
+
+	rc = hdmi_tx_dev_init(hdmi_ctrl);
+	if (rc) {
+		DEV_ERR("%s: FAILED: hdmi_tx_dev_init. rc=%d\n", __func__, rc);
+		goto failed_dev_init;
 	}
 
 	rc = hdmi_tx_register_panel(hdmi_ctrl);

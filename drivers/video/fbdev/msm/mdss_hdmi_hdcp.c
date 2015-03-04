@@ -281,10 +281,17 @@ static int hdmi_hdcp_authentication_part1(struct hdmi_hdcp_ctrl *hdcp_ctrl)
 	io = hdcp_ctrl->init_data.core_io;
 
 	/* Fetch aksv from QFPROM, this info should be public. */
-	qfprom_aksv_lsb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
-		HDCP_KSV_LSB);
-	qfprom_aksv_msb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
-		HDCP_KSV_MSB);
+	if (hdcp_ctrl->init_data.hdmi_tx_ver < HDMI_TX_VERSION_4) {
+		qfprom_aksv_lsb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+			HDCP_KSV_LSB);
+		qfprom_aksv_msb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+			HDCP_KSV_MSB);
+	} else {
+		qfprom_aksv_lsb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+			HDCP_KSV_LSB + HDCP_KSV_VERSION_4);
+		qfprom_aksv_msb = DSS_REG_R(hdcp_ctrl->init_data.qfprom_io,
+			HDCP_KSV_MSB + HDCP_KSV_VERSION_4);
+	}
 
 	aksv[0] =  qfprom_aksv_lsb        & 0xFF;
 	aksv[1] = (qfprom_aksv_lsb >> 8)  & 0xFF;
