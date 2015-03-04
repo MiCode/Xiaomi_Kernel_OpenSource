@@ -42,6 +42,10 @@
 #define DPSE_INTR_HIGH_SEL              BIT(1)
 #define DPSE_INTR_EN                    BIT(0)
 
+#define QUSB2PHY_PORT_UTMI_STATUS	0xF4
+#define LINESTATE_DP			BIT(0)
+#define LINESTATE_DM			BIT(1)
+
 #define UTMI_OTG_VBUS_VALID             BIT(20)
 #define SW_SESSVLD_SEL                  BIT(28)
 
@@ -366,7 +370,7 @@ static void qusb_write_readback(void *base, u32 offset,
 static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	u32 intr_mask = 0;
+	u32 linestate = 0, intr_mask = 0;
 
 	if (!qphy->clocks_enabled) {
 		dev_dbg(phy->dev, "clocks not enabled yet\n");
@@ -387,11 +391,23 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			writel_relaxed(0x00,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
 
-			/* Enable D+ interrupt */
-			intr_mask |= DPSE_INTR_EN;
+			linestate = readl_relaxed(qphy->base +
+					QUSB2PHY_PORT_UTMI_STATUS);
 
-			/* Select D+ falling edge as the trigger */
-			intr_mask &= ~DPSE_INTR_HIGH_SEL;
+			/*
+			 * D+/D- interrupts are level-triggered, but we are
+			 * only interested if the line state changes, so enable
+			 * the high/low trigger based on current state. In
+			 * other words, enable the triggers _opposite_ of what
+			 * the current D+/D- levels are.
+			 * e.g. if currently D+ high, D- low (HS 'J'/Suspend),
+			 * configure the mask to trigger on D+ low OR D- high
+			 */
+			intr_mask = DPSE_INTR_EN | DMSE_INTR_EN;
+			if (!(linestate & LINESTATE_DP)) /* D+ low */
+				intr_mask |= DPSE_INTR_HIGH_SEL;
+			if (!(linestate & LINESTATE_DM)) /* D- low */
+				intr_mask |= DMSE_INTR_HIGH_SEL;
 
 			writel_relaxed(intr_mask,
 				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
