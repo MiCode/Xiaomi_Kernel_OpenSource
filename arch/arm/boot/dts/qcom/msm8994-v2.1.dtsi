@@ -32,4 +32,23 @@
 &msm_gpu {
 	/* Updated chip ID */
 	qcom,chipid = <0x04030002>;
+	qcom,gpu-pwrlevels {
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <630000000>;
+			qcom,bus-freq = <8>;
+			qcom,bus-min = <7>;
+			qcom,bus-max = <8>;
+		};
+	};
+	qcom,ocmem-bus-client {
+		qcom,msm-bus,vectors-KBps =
+			<89 662 0 10080000>, /* gpu= 630 */
+			<89 662 0  8160000>, /* gpu= 510 */
+			<89 662 0  7200000>, /* gpu= 450 */
+			<89 662 0  6240000>, /* gpu= 390 */
+			<89 662 0  4880000>, /* gpu= 305 */
+			<89 662 0  2880000>, /* gpu= 180 */
+			<89 662 0 0>;
+	};
 };
