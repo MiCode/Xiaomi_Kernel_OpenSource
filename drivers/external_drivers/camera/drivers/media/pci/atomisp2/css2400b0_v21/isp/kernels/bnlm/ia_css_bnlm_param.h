@@ -36,13 +36,10 @@ struct bnlm_vmem_params {
 	struct bnlm_lut nl_2_lut;
 	struct bnlm_lut nl_3_lut;
 
-	/* ToDo: Remove this after implementing coefficients based aprroximtaion */
-	struct bnlm_lut exp_lut;
-	/* ToDo: Remove div tables after using new ATE implementation */
-	VMEM_ARRAY(div_lut_thr, ISP_VEC_NELEMS);
-	VMEM_ARRAY(div_lut_nearests, ISP_VEC_NELEMS);
-	VMEM_ARRAY(div_lut_slopes, ISP_VEC_NELEMS);
+	/* LUTs used for division approximiation */
+	struct bnlm_lut div_lut;
 	VMEM_ARRAY(div_lut_intercepts, ISP_VEC_NELEMS);
+
 	/* 240x does not have an ISP instruction to left shift each element of a
 	 * vector by different shift value. Hence it will be simulated by multiplying
 	 * the elements by required 2^shift. */

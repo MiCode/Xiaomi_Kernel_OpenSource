@@ -63,18 +63,16 @@ enum ia_css_event_type {
              32-bit timer value from the SP */
 	IA_CSS_EVENT_TYPE_PORT_EOF			= 1 << 13,
 	/**< End Of Frame event, sent when in buffered sensor mode. */
-	IA_CSS_EVENT_TYPE_FW_ERROR			= 1 << 14,
-	/**< @deprecated{Unrecoverable error encounter by FW } */
-	IA_CSS_EVENT_TYPE_FW_WARNING			= 1 << 15,
+	IA_CSS_EVENT_TYPE_FW_WARNING			= 1 << 14,
 	/**< Performance warning encounter by FW */
-	IA_CSS_EVENT_TYPE_FW_ASSERT			= 1 << 16,
+	IA_CSS_EVENT_TYPE_FW_ASSERT			= 1 << 15,
 	/**< Assertion hit by FW */
 };
 
 #define IA_CSS_EVENT_TYPE_NONE 0
 
 /** IA_CSS_EVENT_TYPE_ALL is a mask for all pipe related events.
- * The other events (such as PORT_EOF and FW_ERROR) cannot be enabled/disabled
+ * The other events (such as PORT_EOF) cannot be enabled/disabled
  * and are hence excluded from this macro.
  */
 #define IA_CSS_EVENT_TYPE_ALL \
@@ -124,8 +122,6 @@ struct ia_css_event {
 	uint32_t               fw_handle;
 	/**< Firmware Handle for ACC_STAGE_COMPLETE event (not valid for other
 	     events). */
-	enum ia_css_fw_err     fw_error;
-	/**< @deprecated{This field is deprecated since ERROR events are no longer sent and will be removed. } */
 	enum ia_css_fw_warning fw_warning;
 	/**< Firmware warning code, only for WARNING events. */
 	uint8_t                fw_assert_module_id;

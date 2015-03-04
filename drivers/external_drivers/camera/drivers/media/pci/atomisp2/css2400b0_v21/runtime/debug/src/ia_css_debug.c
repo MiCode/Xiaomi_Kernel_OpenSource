@@ -3282,8 +3282,6 @@ ia_css_debug_dump_stream_config(
 			config->input_config.bayer_order);
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "sensor_binning_factor: %d\n",
 			config->sensor_binning_factor);
-	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "two_pixels_per_clock: %d\n",
-			config->two_pixels_per_clock);
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "pixels_per_clock: %d\n",
 			config->pixels_per_clock);
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "online: %d\n",
@@ -3347,7 +3345,7 @@ static void debug_dump_one_trace(TRACE_CORE_ID proc_id)
 	uint32_t tmp;
 	int i, j, max_trace_points, point_num, limit = -1;
 	/* using a static buffer here as the driver has issues allocating memory */
-	static uint32_t trace_read_buf[TRACE_BUFF_SIZE];
+	static uint32_t trace_read_buf[TRACE_BUFF_SIZE] = {0};
 
 	/* read the header and parse it */
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "~~~ Tracer ");

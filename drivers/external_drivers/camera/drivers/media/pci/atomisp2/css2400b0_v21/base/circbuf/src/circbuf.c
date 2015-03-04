@@ -19,7 +19,9 @@
 #ifdef __SP
 #include <hive_isp_css_sp_api_modified.h>
 #include <ia_css_sp_file_id.sp.h>
+#ifndef SP_FILE_ID
 #define SP_FILE_ID SP_FILE_ID_CIRCBUF /* overrule default in ia_css_sp_assert_level.sp.h */
+#endif
 #include <ia_css_sp_assert_level.sp.h>
 #endif
 
@@ -316,6 +318,9 @@ ia_css_circbuf_shift_chunk(ia_css_circbuf_t *cb,
 		/* copy the element from the source to the destination */
 		ia_css_circbuf_elem_cpy(&cb->elems[chunk_src],
 					     &cb->elems[chunk_dest]);
+
+		/* clear the source position */
+		ia_css_circbuf_elem_init(&cb->elems[chunk_src]);
 
 		/* adjust the source/terminal positions */
 		chunk_src = ia_css_circbuf_get_pos_at_offset(cb, chunk_src, -1);

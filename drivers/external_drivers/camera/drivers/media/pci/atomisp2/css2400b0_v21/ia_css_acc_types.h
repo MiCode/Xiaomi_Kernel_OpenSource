@@ -57,6 +57,7 @@ enum ia_css_fw_type {
 	ia_css_sp1_firmware,	/**< Firmware for the SP1 */
 #endif
 	ia_css_isp_firmware,	/**< Firmware for the ISP */
+	ia_css_bootloader_firmware, /**< Firmware for the BootLoader */
 	ia_css_acc_firmware		/**< Firmware for accelrations */
 };
 
@@ -314,6 +315,18 @@ struct ia_css_binary_xinfo {
 	CSS_ALIGN(struct ia_css_binary_xinfo *next, 8);
 };
 
+/** Structure describing the Bootloader (an ISP binary).
+ * It contains several address, either in ddr, isp_dmem or
+ * the entry function in icache.
+ */
+struct ia_css_bl_info {
+	uint32_t num_dma_cmds;	/**< Number of cmds sent by CSS */
+	uint32_t dma_cmd_list;	/**< Dma command list sent by CSS */
+	uint32_t sw_state;	/**< Polled from css */
+	/* Entry functions */
+	uint32_t bl_entry;	/**< The SP entry function */
+};
+
 /** Structure describing the SP binary.
  * It contains several address, either in ddr, sp_dmem or
  * the entry function in pmem.
@@ -371,6 +384,7 @@ union ia_css_fw_union {
 #if defined(IS_ISP_2500_SYSTEM)
 	struct ia_css_sp_info		sp1;  /**< SP1 info */
 #endif
+	struct ia_css_bl_info           bl;  /**< Bootloader info */
 	struct ia_css_acc_info		acc; /**< Accelerator info */
 };
 

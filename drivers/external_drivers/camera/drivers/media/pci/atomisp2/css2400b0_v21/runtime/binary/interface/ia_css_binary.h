@@ -102,6 +102,7 @@ struct ia_css_binary_descr {
 	bool enable_xnr;
 	bool enable_fractional_ds;
 	bool enable_dpc;
+	bool enable_capture_pp_bli;
 	struct ia_css_resolution dvs_env;
 	enum ia_css_stream_format stream_format;
 	struct ia_css_frame_info *in_info;		/* the info of the input-frame with the
@@ -231,6 +232,12 @@ void
 ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
 			    struct ia_css_grid_info *info,
 			    struct ia_css_pipe *pipe);
+
+void
+ia_css_binary_dvs_stat_grid_info(
+	const struct ia_css_binary *binary,
+	struct ia_css_grid_info *info,
+	struct ia_css_pipe *pipe);
 
 unsigned
 ia_css_binary_max_vf_width(void);

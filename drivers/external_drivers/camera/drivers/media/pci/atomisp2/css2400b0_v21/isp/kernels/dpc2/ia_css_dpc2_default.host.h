@@ -12,3 +12,12 @@
  * more details.
  */
 
+#ifndef __IA_CSS_DPC2_DEFAULT_HOST_H
+#define __IA_CSS_DPC2_DEFAULT_HOST_H
+
+#include "ia_css_dpc2_types.h"
+
+extern const struct ia_css_dpc2_config default_dpc2_config;
+
+#endif /* __IA_CSS_DPC2_DEFAULT_HOST_H */
+

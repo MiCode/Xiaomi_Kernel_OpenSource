@@ -20,6 +20,19 @@
 #endif
 #include <assert_support.h>
 
+#define BNLM_DIV_LUT_SIZE	(12)
+static const int32_t div_lut_nearests[BNLM_DIV_LUT_SIZE] = {
+	0, 454, 948, 1484, 2070, 2710, 3412, 4184, 5035, 5978, 7025, 8191
+};
+
+static const int32_t div_lut_slopes[BNLM_DIV_LUT_SIZE] = {
+	-7760, -6960, -6216, -5536, -4912, -4344, -3832, -3360, -2936, -2552, -2208, -2208
+};
+
+static const int32_t div_lut_intercepts[BNLM_DIV_LUT_SIZE] = {
+	8184, 7752, 7336, 6928, 6536, 6152, 5776, 5416, 5064, 4728, 4408, 4408
+};
+
 /* Encodes a look-up table from BNLM public parameters to vmem parameters.
  * Input:
  *	lut	:	bnlm_lut struct containing encoded vmem parameters look-up table
@@ -30,11 +43,13 @@
 static inline void
 bnlm_lut_encode(struct bnlm_lut *lut, const int32_t *lut_thr, const int32_t *lut_val, const uint32_t lut_size)
 {
-	int blk, i;
-	const int block_size = 16;
-	const int total_blocks = (ISP_VEC_NELEMS / block_size);
+	uint32_t blk, i;
+	const uint32_t block_size = 16;
+	const uint32_t total_blocks = (ISP_VEC_NELEMS / block_size);
 
 	/* Create VMEM LUTs from the threshold and value arrays.
+	 *
+	 * Min size of the LUT is 2 entries.
 	 *
 	 * Max size of the LUT is 16 entries, so that the LUT can fit into a
 	 * single group of 16 elements inside a vector.
@@ -42,7 +57,7 @@ bnlm_lut_encode(struct bnlm_lut *lut, const int32_t *lut_thr, const int32_t *lut
 	 * vector. If the LUT size is less than 16, then remaining elements are
 	 * set to 0.
 	 * */
-	assert(lut_size <= block_size);
+	assert((lut_size >= 2) && (lut_size <= block_size));
 	/* array lut_thr has (lut_size-1) entries */
 	for (i = 0; i < lut_size-2; i++) {
 		/* Check if the lut_thr is monotonically increasing */
@@ -82,8 +97,8 @@ ia_css_bnlm_vmem_encode(
 			const struct ia_css_bnlm_config *from,
 			size_t size)
 {
-	(void)size;
 	int i;
+	(void)size;
 
 	/* Initialize LUTs in VMEM parameters */
 	bnlm_lut_encode(&to->mu_root_lut, from->mu_root_lut_thr, from->mu_root_lut_val, 16);
@@ -98,17 +113,22 @@ ia_css_bnlm_vmem_encode(
 
 	/* Initialize arrays in VMEM parameters */
 	memset(to->nl_th, 0, sizeof(to->nl_th));
-	memcpy(to->nl_th, from->nl_th, sizeof(from->nl_th));
+	to->nl_th[0][0] = from->nl_th[0];
+	to->nl_th[0][1] = from->nl_th[1];
+	to->nl_th[0][2] = from->nl_th[2];
 
 	memset(to->match_quality_max_idx, 0, sizeof(to->match_quality_max_idx));
-	memcpy(to->match_quality_max_idx, from->match_quality_max_idx, sizeof(from->match_quality_max_idx));
+	to->match_quality_max_idx[0][0] = from->match_quality_max_idx[0];
+	to->match_quality_max_idx[0][1] = from->match_quality_max_idx[1];
+	to->match_quality_max_idx[0][2] = from->match_quality_max_idx[2];
+	to->match_quality_max_idx[0][3] = from->match_quality_max_idx[3];
 
-	/* ToDo: Clean up below parameters using new implementation from ATE */
-	memset(&to->exp_lut, 0, sizeof(to->exp_lut));
-	memset(to->div_lut_thr, 0, sizeof(to->div_lut_thr));
-	memset(to->div_lut_nearests, 0, sizeof(to->div_lut_nearests));
-	memset(to->div_lut_slopes, 0, sizeof(to->div_lut_slopes));
+	bnlm_lut_encode(&to->div_lut, div_lut_nearests, div_lut_slopes, BNLM_DIV_LUT_SIZE);
 	memset(to->div_lut_intercepts, 0, sizeof(to->div_lut_intercepts));
+	for(i = 0; i < BNLM_DIV_LUT_SIZE; i++) {
+		to->div_lut_intercepts[0][i] = div_lut_intercepts[i];
+	}
+
 	memset(to->power_of_2, 0, sizeof(to->power_of_2));
 	for (i = 0; i < (ISP_VEC_ELEMBITS-1); i++) {
 		to->power_of_2[0][i] = 1 << i;

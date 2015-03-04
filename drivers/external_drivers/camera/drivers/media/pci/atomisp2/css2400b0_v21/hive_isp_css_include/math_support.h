@@ -62,6 +62,16 @@
 #define CEIL_SHIFT(a, b)     (((a) + (1 << (b)) - 1)>>(b))
 #define CEIL_SHIFT_MUL(a, b) (CEIL_SHIFT(a, b) << (b))
 
+
+/*To Find next power of 2 number from x */
+#define bit2(x)            ((x)      | ((x) >> 1))
+#define bit4(x)            (bit2(x)  | (bit2(x) >> 2))
+#define bit8(x)            (bit4(x)  | (bit4(x) >> 4))
+#define bit16(x)           (bit8(x)  | (bit8(x) >> 8))
+#define bit32(x)           (bit16(x) | (bit16(x) >> 16))
+#define NEXT_POWER_OF_2(x) (bit32(x-1) + 1)
+
+
 /* min and max should not be macros as they will evaluate their arguments twice.
    if you really need a macro (e.g. for CPP or for initializing an array)
    use MIN() and MAX(), otherwise use min() and max().

@@ -30,8 +30,8 @@ struct sh_css_isp_raw_isp_config {
 	uint32_t two_ppc;
 	uint32_t stream_format; /* enum sh_stream_format */
 	uint32_t deinterleaved;
-	uint8_t start_column; /*left crop offset*/
-	uint8_t start_line; /*top crop offset*/
+	uint32_t start_column; /*left crop offset*/
+	uint32_t start_line; /*top crop offset*/
 	uint8_t enable_left_padding; /*need this for multiple binary case*/
 };
 

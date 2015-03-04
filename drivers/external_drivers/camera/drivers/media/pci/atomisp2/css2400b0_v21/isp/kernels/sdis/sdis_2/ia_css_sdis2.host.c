@@ -36,11 +36,11 @@ void ia_css_sdis2_horicoef_vmem_encode (
 	unsigned size)
 {
 	unsigned aligned_width = from->grid.aligned_width * from->grid.bqs_per_grid_cell;
-	unsigned	 width = from->grid.num_hor_coefs;
+	unsigned width         = from->grid.num_hor_coefs;
 	int      padding       = aligned_width-width;
-	unsigned stride	       = size/IA_CSS_DVS2_NUM_COEF_TYPES/sizeof(short);
+	unsigned stride        = size/IA_CSS_DVS2_NUM_COEF_TYPES/sizeof(short);
 	unsigned total_bytes   = aligned_width*IA_CSS_DVS2_NUM_COEF_TYPES*sizeof(short);
-	short *private = (short*)to;
+	short   *private       = (short*)to;
 
 
 	/* Copy the table, add padding */
@@ -59,11 +59,11 @@ void ia_css_sdis2_vertcoef_vmem_encode (
 	unsigned size)
 {
 	unsigned aligned_height = from->grid.aligned_height * from->grid.bqs_per_grid_cell;
-	unsigned	 height = from->grid.num_ver_coefs;
-	int      padding	= aligned_height-height;
-	unsigned stride		= size/IA_CSS_DVS2_NUM_COEF_TYPES/sizeof(short);
-	unsigned total_bytes	= aligned_height*IA_CSS_DVS2_NUM_COEF_TYPES*sizeof(short);
-	short *private = (short*)to;
+	unsigned height         = from->grid.num_ver_coefs;
+	int      padding        = aligned_height-height;
+	unsigned stride         = size/IA_CSS_DVS2_NUM_COEF_TYPES/sizeof(short);
+	unsigned total_bytes    = aligned_height*IA_CSS_DVS2_NUM_COEF_TYPES*sizeof(short);
+	short   *private        = (short*)to;
 
 	/* Copy the table, add padding */
 	assert(padding >= 0);
@@ -114,12 +114,12 @@ void ia_css_get_isp_dvs2_coefficients(
 	IA_CSS_ENTER("void");
 
 	assert(stream != NULL);
-	assert(hor_coefs_odd_real != NULL);
-	assert(hor_coefs_odd_imag != NULL);
+	assert(hor_coefs_odd_real  != NULL);
+	assert(hor_coefs_odd_imag  != NULL);
 	assert(hor_coefs_even_real != NULL);
 	assert(hor_coefs_even_imag != NULL);
-	assert(ver_coefs_odd_real != NULL);
-	assert(ver_coefs_odd_imag != NULL);
+	assert(ver_coefs_odd_real  != NULL);
+	assert(ver_coefs_odd_imag  != NULL);
 	assert(ver_coefs_even_real != NULL);
 	assert(ver_coefs_even_imag != NULL);
 
@@ -150,12 +150,12 @@ void ia_css_get_isp_dvs2_coefficients(
 void ia_css_sdis2_clear_coefficients(
 	struct ia_css_dvs2_coefficients *dvs2_coefs)
 {
-	dvs2_coefs->hor_coefs.odd_real = NULL;
-	dvs2_coefs->hor_coefs.odd_imag = NULL;
+	dvs2_coefs->hor_coefs.odd_real  = NULL;
+	dvs2_coefs->hor_coefs.odd_imag  = NULL;
 	dvs2_coefs->hor_coefs.even_real = NULL;
 	dvs2_coefs->hor_coefs.even_imag = NULL;
-	dvs2_coefs->ver_coefs.odd_real = NULL;
-	dvs2_coefs->ver_coefs.odd_imag = NULL;
+	dvs2_coefs->ver_coefs.odd_real  = NULL;
+	dvs2_coefs->ver_coefs.odd_imag  = NULL;
 	dvs2_coefs->ver_coefs.even_real = NULL;
 	dvs2_coefs->ver_coefs.even_imag = NULL;
 }

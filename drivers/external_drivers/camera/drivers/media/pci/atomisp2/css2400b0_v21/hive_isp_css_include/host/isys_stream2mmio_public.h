@@ -41,7 +41,7 @@ STORAGE_CLASS_STREAM2MMIO_H void stream2mmio_get_state(
  */
 STORAGE_CLASS_STREAM2MMIO_H void stream2mmio_get_sid_state(
 		const stream2mmio_ID_t ID,
-		const uint32_t sid_id,
+		const stream2mmio_sid_ID_t sid_id,
 		stream2mmio_sid_state_t *state);
 /** end of NCI */
 
@@ -61,9 +61,9 @@ STORAGE_CLASS_STREAM2MMIO_H void stream2mmio_get_sid_state(
  * @return the value of the register.
  */
 STORAGE_CLASS_STREAM2MMIO_H hrt_data stream2mmio_reg_load(
-	const stream2mmio_ID_t ID,
-	const uint32_t sid_id,
-	const uint32_t reg_idx);
+		const stream2mmio_ID_t ID,
+		const stream2mmio_sid_ID_t sid_id,
+		const uint32_t reg_idx);
 
 /**
  * @brief Dump the SID processor state.
@@ -93,9 +93,9 @@ STORAGE_CLASS_STREAM2MMIO_H void stream2mmio_dump_state(
  *
  */
 STORAGE_CLASS_STREAM2MMIO_H void stream2mmio_reg_store(
-	const stream2mmio_ID_t ID,
-	const hrt_address reg,
-	const hrt_data value);
+		const stream2mmio_ID_t ID,
+		const hrt_address reg,
+		const hrt_data value);
 /** end of DLI */
 
 #endif /* __ISYS_STREAM2MMIO_PUBLIC_H_INCLUDED__ */

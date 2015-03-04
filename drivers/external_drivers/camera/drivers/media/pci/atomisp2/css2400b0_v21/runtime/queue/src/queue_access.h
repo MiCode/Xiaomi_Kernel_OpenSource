@@ -41,13 +41,13 @@
 	QUEUE_IGNORE_END_FLAG	  | \
 	QUEUE_IGNORE_STEP_FLAG)
 
-#define QUEUE_CB_DESC_INIT(cb_desc) \
-	do { \
-		(cb_desc)->size = 0;		\
-		(cb_desc)->step = 0;		\
-		(cb_desc)->start = 0;		\
-		(cb_desc)->end = 0;		\
-	} while (0)
+#define QUEUE_CB_DESC_INIT(cb_desc)	\
+	do {				\
+		(cb_desc)->size  = 0;	\
+		(cb_desc)->step  = 0;	\
+		(cb_desc)->start = 0;	\
+		(cb_desc)->end   = 0;	\
+	} while(0)
 
 struct ia_css_queue {
 	uint8_t type;        /* Specify remote/local type of access */

@@ -84,9 +84,8 @@ struct ia_css_isp_parameters {
 	struct ia_css_anr_config    anr_config;
 	struct ia_css_ce_config     ce_config;
 	struct ia_css_formats_config     formats_config;
-
+/* ---- deprecated: replaced with pipe_dvs_6axis_config---- */
 	struct ia_css_dvs_6axis_config  *dvs_6axis_config;
-
 	struct ia_css_ecd_config    ecd_config;
 	struct ia_css_ynr_config    ynr_config;
 	struct ia_css_yee_config    yee_config;
@@ -110,6 +109,7 @@ struct ia_css_isp_parameters {
 	struct ia_css_2500_lin_kernel_config  lin_2500_config;
 	struct ia_css_2500_tnr_kernel_config  tnr_2500_config;
 #endif
+	struct ia_css_dvs_6axis_config  *pipe_dvs_6axis_config[IA_CSS_PIPE_ID_NUM];
 /* ------ deprecated(bz675) : from ------ */
 	struct ia_css_shading_settings shading_settings;
 /* ------ deprecated(bz675) : to ------ */
@@ -126,10 +126,12 @@ struct ia_css_isp_parameters {
 	bool morph_table_changed;
 	bool sc_table_changed;
 	bool anr_thres_changed;
+/* ---- deprecated: replaced with pipe_dvs_6axis_config_changed ---- */
 	bool dvs_6axis_config_changed;
 /* ------ deprecated(bz675) : from ------ */
 	bool shading_settings_changed;
 /* ------ deprecated(bz675) : to ------ */
+	bool pipe_dvs_6axis_config_changed[IA_CSS_PIPE_ID_NUM];
 
 	bool config_changed[IA_CSS_NUM_PARAMETER_IDS];
 
@@ -161,5 +163,17 @@ ia_css_params_alloc_convert_sctbl(
 
 struct ia_css_isp_config *
 sh_css_pipe_isp_config_get(struct ia_css_pipe *pipe);
+
+enum ia_css_err
+sh_css_params_map_and_store_default_gdc_lut(void);
+
+void
+sh_css_params_free_default_gdc_lut(void);
+
+hrt_vaddress
+sh_css_params_get_default_gdc_lut(void);
+
+hrt_vaddress
+sh_css_pipe_get_pp_gdc_lut(const struct ia_css_pipe *pipe);
 
 #endif /* _SH_CSS_PARAMS_H_ */

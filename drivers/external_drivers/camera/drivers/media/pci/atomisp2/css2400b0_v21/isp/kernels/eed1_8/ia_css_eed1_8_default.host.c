@@ -70,5 +70,25 @@ const struct ia_css_eed1_8_config default_eed1_8_config = {
 		6094,
 		8191
 		},
+	.dew_enhance_seg_slope = {
+		4608,
+		3308,
+		2757,
+		2417,
+		2186,
+		8033,
+		7473,
+		7020
+		},
+	.dew_enhance_seg_exp = {
+		2,
+		2,
+		2,
+		2,
+		2,
+		0,
+		0,
+		0
+		},
 	.dedgew_max = 6144
 };

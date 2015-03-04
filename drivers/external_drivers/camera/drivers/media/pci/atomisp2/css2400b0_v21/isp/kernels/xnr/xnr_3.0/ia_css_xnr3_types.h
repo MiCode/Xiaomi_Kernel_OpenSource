@@ -31,6 +31,12 @@
  */
 #define IA_CSS_XNR3_CORING_SCALE (1 << 15)
 
+/**
+ * \brief Scale of the XNR blending parameter.
+ * \details The define specifies which fixed-point value represents 1.0.
+ */
+#define IA_CSS_XNR3_BLENDING_SCALE (1 << 11)
+
 
 /**
  * \brief XNR3 Sigma Parameters.
@@ -65,13 +71,28 @@ struct ia_css_xnr3_coring_params {
 };
 
 /**
+ * \brief XNR3 Blending Parameters
+ * \details Blending parameters define the blending strength of filtered
+ * output pixels with the original chroma pixels from before xnr3. The
+ * blending strength is a fixed-point value between 0.0 and 1.0 (inclusive),
+ * scaled with IA_CSS_XNR3_BLENDING_SCALE.
+ * A higher number applies xnr filtering more strongly. A value of 1.0
+ * disables the blending and returns the xnr3 filtered output, while a
+ * value of 0.0 bypasses the entire xnr3 filter.
+ */
+struct ia_css_xnr3_blending_params {
+	int strength;   /**< Blending strength */
+};
+
+/**
  * \brief XNR3 public parameters.
  * \details Struct with all parameters for the XNR3 kernel that can be set
  * from the CSS API.
  */
 struct ia_css_xnr3_config {
-	struct ia_css_xnr3_sigma_params  sigma;   /**< XNR3 sigma parameters */
-	struct ia_css_xnr3_coring_params coring;  /**< XNR3 coring parameters */
+	struct ia_css_xnr3_sigma_params    sigma;    /**< XNR3 sigma parameters */
+	struct ia_css_xnr3_coring_params   coring;   /**< XNR3 coring parameters */
+	struct ia_css_xnr3_blending_params blending; /**< XNR3 blending parameters */
 };
 
 #endif /* __IA_CSS_XNR3_TYPES_H */

@@ -18,7 +18,11 @@
 #include "type_support.h"
 
 #include "vmem.h"
+#if NEED_BDS_OTHER_THAN_1_00
+#define MAX_VECTORS_PER_DP_LINE MAX_VECTORS_PER_BUF_INPUT_LINE
+#else
 #define MAX_VECTORS_PER_DP_LINE MAX_VECTORS_PER_BUF_LINE
+#endif
 
 /* DP (Defect Pixel Correction) */
 struct sh_css_isp_dp_vmem_state {

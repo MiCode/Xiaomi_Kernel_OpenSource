@@ -66,6 +66,39 @@ void gdc_lut_store(
 return;
 }
 
+/*
+ * Input LUT format:
+ * c0[0-1023], c1[0-1023], c2[0-1023] c3[0-1023]
+ *
+ * Output LUT format (interleaved):
+ * c0[0], c1[0], c2[0], c3[0], c0[1], c1[1], c2[1], c3[1], ....
+ * c0[1023], c1[1023], c2[1023], c3[1023]
+ *
+ * The first format needs c0[0], c1[0] (which are 1024 words apart)
+ * to program gdc LUT registers. This makes it difficult to do piecemeal
+ * reads in SP side gdc_lut_store
+ *
+ * Interleaved format allows use of contiguous bytes to store into
+ * gdc LUT registers.
+ *
+ * See gdc_lut_store() definition in host/gdc.c vs sp/gdc_private.h
+ *
+ */
+void gdc_lut_convert_to_isp_format(const int in_lut[4][HRT_GDC_N],
+	int out_lut[4][HRT_GDC_N])
+{
+	unsigned int i;
+	int *out = (int *)out_lut;
+
+	for (i = 0; i < HRT_GDC_N; i++) {
+		out[0] = in_lut[0][i];
+		out[1] = in_lut[1][i];
+		out[2] = in_lut[2][i];
+		out[3] = in_lut[3][i];
+		out += 4;
+	}
+}
+
 int gdc_get_unity(
 	const gdc_ID_t		ID)
 {

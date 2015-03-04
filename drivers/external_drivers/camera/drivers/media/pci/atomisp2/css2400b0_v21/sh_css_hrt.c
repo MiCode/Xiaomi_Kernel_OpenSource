@@ -30,16 +30,8 @@
 #define __INLINE_FIFO_MONITOR__
 #include "fifo_monitor.h"
 
-#if !defined(HAS_NO_INPUT_SYSTEM)
-#include "input_system.h"	/* MIPI_PREDICTOR_NONE,... */
-#endif
-
 /* System independent */
 #include "sh_css_internal.h"
-#if !defined(HAS_NO_INPUT_SYSTEM)
-#include "ia_css_isys.h"
-#endif
-
 
 bool sh_css_hrt_system_is_idle(void)
 {

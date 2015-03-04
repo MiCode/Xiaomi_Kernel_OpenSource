@@ -21,6 +21,10 @@
 #include "isp.h"
 #include "ia_css_crop.host.h"
 
+static const struct ia_css_crop_configuration default_config = {
+	.info = (struct ia_css_frame_info *)NULL,
+};
+
 void
 ia_css_crop_encode(
 	struct sh_css_isp_crop_isp_params *to,
@@ -52,7 +56,9 @@ ia_css_crop_configure(
 	const struct ia_css_binary     *binary,
 	const struct ia_css_frame_info *info)
 {
-	const struct ia_css_crop_configuration config =
-		{ info };
+	struct ia_css_crop_configuration config = default_config;
+
+	config.info = info;
+
 	ia_css_configure_crop(binary, &config);
 }

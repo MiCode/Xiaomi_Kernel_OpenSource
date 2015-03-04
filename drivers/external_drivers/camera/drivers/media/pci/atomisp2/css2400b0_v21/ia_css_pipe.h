@@ -56,6 +56,7 @@ struct ia_css_capture_settings {
 	struct ia_css_binary post_isp_binary;
 	struct ia_css_binary capture_pp_binary;
 	struct ia_css_binary vf_pp_binary;
+	struct ia_css_binary capture_ldc_binary;
 	struct ia_css_binary *yuv_scaler_binary;
 	struct ia_css_frame *delay_frames[MAX_NUM_VIDEO_DELAY_FRAMES];
 	bool *is_output_stage;
@@ -72,6 +73,7 @@ struct ia_css_capture_settings {
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* post_isp_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* capture_pp_binary */\
 	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* vf_pp_binary */\
+	IA_CSS_BINARY_DEFAULT_SETTINGS,	/* capture_ldc_binary */\
 	NULL,				/* yuv_scaler_binary */ \
 	{ NULL },			/* delay_frames[ref_frames] */ \
 	NULL,				/* is_output_stage */ \
@@ -128,6 +130,8 @@ struct ia_css_yuvpp_settings {
 	0,					/* num_output */ \
 }
 
+struct osys_object;
+
 struct ia_css_pipe {
 	/* TODO: Remove stop_requested and use stop_requested in the pipeline */
 	bool                            stop_requested;
@@ -160,6 +164,8 @@ struct ia_css_pipe {
 		struct ia_css_capture_settings capture;
 		struct ia_css_yuvpp_settings yuvpp;
 	} pipe_settings;
+	hrt_vaddress scaler_pp_lut;
+	struct osys_object *osys_obj;
 
 	/* This number is unique per pipe each instance of css. This number is
 	 * reused as pipeline number also. There is a 1-1 mapping between pipe_num
@@ -195,6 +201,8 @@ struct ia_css_pipe {
 	{ NULL },				/* continuous_frames */ \
 	{ NULL },				/* cont_md_buffers */ \
 	{ IA_CSS_DEFAULT_PREVIEW_SETTINGS },	/* pipe_settings */ \
+	0,					/* scaler_pp_lut */ \
+	NULL,					/* osys object */ \
 	PIPE_ENTRY_EMPTY_TOKEN,			/* pipe_num */\
 }
 
