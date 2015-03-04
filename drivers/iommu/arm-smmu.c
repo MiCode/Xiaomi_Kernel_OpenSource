@@ -1694,8 +1694,9 @@ static int arm_smmu_alloc_init_pte(struct arm_smmu_domain *smmu_domain,
 
 		do {
 			if (!(pteval & ARM_SMMU_PTE_PAGE))
-				pteval = 0;
-			*pte = pfn_pte(pfn, __pgprot(pteval));
+				*pte = 0;
+			else
+				*pte = pfn_pte(pfn, __pgprot(pteval));
 		} while (pte++, pfn++, addr += PAGE_SIZE, --i);
 	} while (addr != end);
 
