@@ -1,6 +1,6 @@
 /* ehci-msm-hsic.c - HSUSB Host Controller Driver Implementation
  *
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * Partly derived from ehci-fsl.c and ehci-hcd.c
  * Copyright (c) 2000-2004 by David Brownell
@@ -809,7 +809,8 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 
 	/* make sure we don't race against a remote wakeup */
 	if (test_bit(HCD_FLAG_WAKEUP_PENDING, &hcd->flags) ||
-	    readl_relaxed(USB_PORTSC) & PORT_RESUME) {
+	    readl_relaxed(USB_PORTSC) & PORT_RESUME ||
+	    readl_relaxed(USB_USBSTS) & STS_PCD) {
 		dev_dbg(mehci->dev, "wakeup pending, aborting suspend\n");
 		enable_irq(hcd->irq);
 		return -EBUSY;
@@ -828,6 +829,22 @@ static int msm_hsic_suspend(struct msm_hsic_hcd *mehci)
 			__func__);
 	}
 
+	/* make sure we don't race against a remote wakeup */
+	if (readl_relaxed(USB_PORTSC) & PORT_RESUME ||
+	    readl_relaxed(USB_USBSTS) & STS_PCD) {
+		dev_err(mehci->dev, "RWakeup pending, ABORT suspend: PSC:%x STS:%x\n!!!\n",
+			 readl_relaxed(USB_PORTSC), readl_relaxed(USB_USBSTS));
+		enable_irq(hcd->irq);
+		if (pdata->consider_ipa_handshake) {
+			dev_dbg(mehci->dev, "%s:Wait for producer resource\n",
+					__func__);
+			msm_bam_wait_for_hsic_host_prod_granted();
+			dev_dbg(mehci->dev, "%s:Producer resource obtained\n",
+					__func__);
+			msm_bam_hsic_host_notify_on_resume();
+		}
+		return -EBUSY;
+	}
 	/*
 	 * PHY may take some time or even fail to enter into low power
 	 * mode (LPM). Hence poll for 500 msec and reset the PHY and link
