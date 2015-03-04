@@ -146,7 +146,8 @@ static int dsi_vc_send_short(struct intel_dsi *intel_dsi, int channel,
 		mask = LP_CTRL_FIFO_FULL;
 	}
 
-	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask) == 0, 50)) {
+	if (wait_for_atomic((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) &
+					mask) == 0, 5)) {
 		DRM_ERROR("Timeout waiting for HS/LP CTRL FIFO !full\n");
 		print_stat(intel_dsi);
 	}
@@ -191,10 +192,6 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 		data_mask = LP_DATA_FIFO_FULL;
 	}
 
-	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) &
-				data_mask) == 0, 50))
-		DRM_ERROR("Timeout for HS/LP DATA FIFO to be !FULL\n");
-
 	for (i = 0; i < len; i += n) {
 		u32 val = 0;
 		n = min_t(int, len - i, 4);
@@ -202,16 +199,35 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 		for (j = 0; j < n; j++)
 			val |= *data++ << 8 * j;
 
+		/*
+		 * check for data fifo !full, once that is set, write 4
+		 * dwords, then continue.
+		 * calculated time for the data FIFO to have at least 4 bytes of
+		 * free space is 297.600 usec for 5Mhz escape clock with ctrl
+		 * FIFO size of 8 dwords.
+		 * Number of bytes for DSI header packet = 64
+		 * Number of bytes for DSI footer = 14 bytes
+		 * Number of bytes for entry code = 8 bytes
+		 * Number of bytes read from data FIFO = 4 bytes
+		 * Total = 90 bytes
+		 * Number of bits = 720 bits
+		 * Number of Tlpx(considering spaced one hot encoding)
+		 * = 1440 Tlpx
+		 * Number of Tlps including Escape seqence = 1488 Tlps
+		 * Time taken in usec @ 5Mhz Esc clock = 297.6 usec
+		 */
+		if (wait_for_atomic((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) &
+						data_mask) == 0, 5))
+			DRM_ERROR("Timeout for HS/LP DATA FIFO to be !FULL\n");
+
 		I915_WRITE(data_reg, val);
-		/* XXX: check for data fifo full, once that is set, write 4
-		 * dwords, then wait for not set, then continue. */
 	}
 	ctrl = len << LONG_PACKET_WORD_COUNT_SHIFT;
 	ctrl |= channel << VIRTUAL_CHANNEL_SHIFT;
 	ctrl |= data_type << DATA_TYPE_SHIFT;
 
-	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) &
-					ctrl_mask) == 0, 50))
+	if (wait_for_atomic((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) &
+					ctrl_mask) == 0, 5))
 		DRM_ERROR("Timeout for HS/LP CTRL FIFO to be !FULL\n");
 
 	I915_WRITE(ctrl_reg, ctrl);
