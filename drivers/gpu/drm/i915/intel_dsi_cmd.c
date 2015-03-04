@@ -174,7 +174,7 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 	enum pipe pipe = intel_dsi->port;
 	u32 data_reg, ctrl_reg, ctrl;
 	int i, j, n;
-	u32 mask;
+	u32 ctrl_mask, data_mask;
 
 	DRM_DEBUG_KMS("channel %d, data_type %d, len %04x\n",
 		      channel, data_type, len);
@@ -182,15 +182,18 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 	if (intel_dsi->hs) {
 		data_reg = MIPI_HS_GEN_DATA(pipe);
 		ctrl_reg = MIPI_HS_GEN_CTRL(pipe);
-		mask = HS_CTRL_FIFO_EMPTY | HS_DATA_FIFO_EMPTY;
+		ctrl_mask = HS_CTRL_FIFO_FULL;
+		data_mask = HS_DATA_FIFO_FULL;
 	} else {
 		data_reg = MIPI_LP_GEN_DATA(pipe);
 		ctrl_reg = MIPI_LP_GEN_CTRL(pipe);
-		mask = LP_CTRL_FIFO_EMPTY | LP_DATA_FIFO_EMPTY;
+		ctrl_mask = LP_CTRL_FIFO_FULL;
+		data_mask = LP_DATA_FIFO_FULL;
 	}
 
-	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) & mask) == mask, 50))
-		DRM_ERROR("Timeout waiting for HS/LP DATA FIFO to be empty\n");
+	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) &
+				data_mask) == 0, 50))
+		DRM_ERROR("Timeout for HS/LP DATA FIFO to be !FULL\n");
 
 	for (i = 0; i < len; i += n) {
 		u32 val = 0;
@@ -206,6 +209,10 @@ static int dsi_vc_send_long(struct intel_dsi *intel_dsi, int channel,
 	ctrl = len << LONG_PACKET_WORD_COUNT_SHIFT;
 	ctrl |= channel << VIRTUAL_CHANNEL_SHIFT;
 	ctrl |= data_type << DATA_TYPE_SHIFT;
+
+	if (wait_for((I915_READ(MIPI_GEN_FIFO_STAT(pipe)) &
+					ctrl_mask) == 0, 50))
+		DRM_ERROR("Timeout for HS/LP CTRL FIFO to be !FULL\n");
 
 	I915_WRITE(ctrl_reg, ctrl);
 	return 0;
