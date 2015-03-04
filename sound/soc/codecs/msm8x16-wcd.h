@@ -116,21 +116,6 @@ enum {
 	MSM8X16_WCD_NUM_IRQS,
 };
 
-enum wcd_notify_event {
-	WCD_EVENT_INVALID,
-	/* events for micbias ON and OFF */
-	WCD_EVENT_PRE_MICBIAS_2_OFF,
-	WCD_EVENT_POST_MICBIAS_2_OFF,
-	WCD_EVENT_PRE_MICBIAS_2_ON,
-	WCD_EVENT_POST_MICBIAS_2_ON,
-	/* events for PA ON and OFF */
-	WCD_EVENT_PRE_HPHL_PA_ON,
-	WCD_EVENT_POST_HPHL_PA_OFF,
-	WCD_EVENT_PRE_HPHR_PA_ON,
-	WCD_EVENT_POST_HPHR_PA_OFF,
-	WCD_EVENT_LAST,
-};
-
 enum {
 	ON_DEMAND_MICBIAS = 0,
 	ON_DEMAND_SPKDRV,
@@ -252,12 +237,6 @@ extern int msm8x16_wcd_hs_detect(struct snd_soc_codec *codec,
 		    struct wcd_mbhc_config *mbhc_cfg);
 
 extern void msm8x16_wcd_hs_detect_exit(struct snd_soc_codec *codec);
-
-extern int msm8x16_register_notifier(struct snd_soc_codec *codec,
-				     struct notifier_block *nblock);
-
-extern int msm8x16_unregister_notifier(struct snd_soc_codec *codec,
-				     struct notifier_block *nblock);
 
 extern void msm8x16_wcd_spk_ext_pa_cb(
 		int (*codec_spk_ext_pa)(struct snd_soc_codec *codec,
