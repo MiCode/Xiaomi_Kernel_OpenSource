@@ -54,6 +54,24 @@
 		qcom,inhibit-disabled;
 		qcom,bms-controlled-charging;
 	};
+
+	sy8827: sy8827-regulator@70 {
+		compatible = "silergy,sy8827-regulator";
+		reg = <0x70>;
+		fairchild,backup-vsel = <1>;
+		regulator-min-microvolt = <1050000>;
+		regulator-max-microvolt = <1350000>;
+		regulator-ramp-delay = <1250>;
+		pintrl-names = "default";
+		pinctrl-0 = <&ext_buck_vsel_default>;
+		fairchild,vsel-gpio = <&msm_gpio 111 1>;
+		fairchild,restore-reg;
+		fairchild,disable-suspend;
+	};
+};
+
+&apc_vreg_corner {
+	vdd-apc-optional-prim-supply = <&sy8827>;
 };
 
 &pm8916_chg {
