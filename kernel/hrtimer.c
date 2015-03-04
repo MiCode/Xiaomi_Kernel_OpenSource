@@ -49,6 +49,7 @@
 #include <linux/sched/deadline.h>
 #include <linux/timer.h>
 #include <linux/freezer.h>
+#include <linux/irq_work.h>
 
 #include <asm/uaccess.h>
 
@@ -729,6 +730,20 @@ static void retrigger_next_event(void *arg)
 	raw_spin_unlock(&base->lock);
 }
 
+#ifdef CONFIG_SMP
+static void raise_hrtimer_softirq(struct irq_work *arg)
+{
+	if (!hrtimer_hres_active())
+		return;
+
+	raise_softirq(HRTIMER_SOFTIRQ);
+}
+
+static DEFINE_PER_CPU(struct irq_work, hrtimer_kick_work) = {
+	.func = raise_hrtimer_softirq,
+};
+#endif
+
 /*
  * Switch to high resolution mode
  */
@@ -792,6 +807,22 @@ static inline void hrtimer_init_hres(struct hrtimer_cpu_base *base) { }
 static inline void retrigger_next_event(void *arg) { }
 
 #endif /* CONFIG_HIGH_RES_TIMERS */
+
+#ifdef CONFIG_SMP
+
+static void kick_remote_cpu(int cpu)
+{
+	get_cpu();
+	if (cpu_online(cpu))
+		irq_work_queue_on(&per_cpu(hrtimer_kick_work, cpu), cpu);
+	put_cpu();
+}
+
+#else
+
+static inline void kick_remote_cpu(int cpu) { }
+
+#endif
 
 /*
  * Clock realtime was set
@@ -1009,7 +1040,7 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 {
 	struct hrtimer_clock_base *base, *new_base;
 	unsigned long flags;
-	int ret, leftmost;
+	int ret, leftmost, kick = 0, cpu;
 
 	base = lock_hrtimer_base(timer, &flags);
 
@@ -1039,11 +1070,13 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 
 	leftmost = enqueue_hrtimer(timer, new_base);
 
+	cpu = new_base->cpu_base->cpu;
+	kick = (leftmost && (cpu != smp_processor_id()));
+
 	/*
 	 * Only allow reprogramming if the new base is on this CPU.
 	 * (it might still be on another CPU if the timer was pending)
 	 *
-	 * XXX send_remote_softirq() ?
 	 */
 	if (leftmost && new_base->cpu_base == &__get_cpu_var(hrtimer_bases)
 		&& hrtimer_enqueue_reprogram(timer, new_base)) {
@@ -1062,6 +1095,9 @@ int __hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 	}
 
 	unlock_hrtimer_base(timer, &flags);
+
+	if (kick)
+		kick_remote_cpu(cpu);
 
 	return ret;
 }
@@ -1677,6 +1713,7 @@ static void __cpuinit init_hrtimers_cpu(int cpu)
 	struct hrtimer_cpu_base *cpu_base = &per_cpu(hrtimer_bases, cpu);
 	int i;
 
+	cpu_base->cpu = cpu;
 	for (i = 0; i < HRTIMER_MAX_CLOCK_BASES; i++) {
 		cpu_base->clock_base[i].cpu_base = cpu_base;
 		timerqueue_init_head(&cpu_base->clock_base[i].active);
