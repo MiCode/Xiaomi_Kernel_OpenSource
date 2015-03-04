@@ -511,9 +511,9 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, int on)
 #ifdef CONFIG_GMIN_INTEL_MID
 	if (on) {
 		/* fsa642 gpio */
-		ret = dev->platform_data->gpio2_ctrl(sd, 1);
+		ret = dev->platform_data->gpio1_ctrl(sd, 1);
 		if (ret)
-			goto gpio2_fail;
+			goto gpio1_fail;
 
 		/*
 		 * FIXME: setting gpio0 to 0 is not necessary for MOOR DR,
@@ -532,14 +532,14 @@ static int __gpio_ctrl(struct v4l2_subdev *sd, int on)
 		msleep(40);
 	} else {
 		dev->platform_data->gpio0_ctrl(sd, 0);
-		dev->platform_data->gpio2_ctrl(sd, 0);
+		dev->platform_data->gpio1_ctrl(sd, 0);
 	}
 
 	return 0;
 
 gpio0_fail:
-	dev->platform_data->gpio2_ctrl(sd, 0); /* fsa642 gpio */
-gpio2_fail:
+	dev->platform_data->gpio1_ctrl(sd, 0); /* fsa642 gpio */
+gpio1_fail:
 	dev_err(&client->dev, "failed to set gpio %s.\n", on ? "on" : "off");
 #endif
 	return ret;
@@ -560,18 +560,6 @@ static int __flisclk_ctrl(struct v4l2_subdev *sd, int on)
 		}
 	}
 
-#ifdef CONFIG_GMIN_INTEL_MID
-	if (dev->platform_data->flisclk1_ctrl) {
-		dev->platform_data->flisclk1_ctrl(sd, on);
-		if (ret) {
-			dev_err(&client->dev,
-				"%s - platform flisclk1 %s error.\n", __func__,
-				on ? "on" : "off");
-			if (on)
-				dev->platform_data->flisclk_ctrl(sd, 0);
-		}
-	}
-#endif
 	return ret;
 }
 
