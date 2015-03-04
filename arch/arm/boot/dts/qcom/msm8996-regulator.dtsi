@@ -568,6 +568,10 @@
 
 		vdd-supply = <&pm8994_s11>;
 		vdd-limit-supply = <&pm8994_s11_limit>;
+		vdd-thread0-ldo-supply = <&kryo0_vreg>;
+		vdd-thread1-ldo-supply = <&kryo1_vreg>;
+		vdd-thread0-ldo-ret-supply = <&kryo0_retention_vreg>;
+		vdd-thread1-ldo-ret-supply = <&kryo1_retention_vreg>;
 
 		qcom,cpr-enable;
 		qcom,cpr-hw-closed-loop;
@@ -588,6 +592,9 @@
 			qcom,cpr-fuse-corners = <5>;
 			qcom,cpr-fuse-combos = <1>;
 			qcom,cpr-corners = <19>;
+
+			qcom,ldo-headroom-voltage = <150000>;
+			qcom,ldo-max-voltage = <819000>;
 
 			qcom,cpr-corner-fmax-map = <1 2 6 11 19>;
 
@@ -647,6 +654,9 @@
 			qcom,cpr-fuse-corners = <5>;
 			qcom,cpr-fuse-combos = <1>;
 			qcom,cpr-corners = <18>;
+
+			qcom,ldo-headroom-voltage = <150000>;
+			qcom,ldo-max-voltage = <812000>;
 
 			qcom,cpr-corner-fmax-map = <1 3 5 11 18>;
 
