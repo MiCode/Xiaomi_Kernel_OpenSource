@@ -11,45 +11,49 @@
  */
 
 qcom,itech-3000mah {
-	/* #Itech_B00826LF_3000mAh_Averaged_Feb022015*/
+	/* #Itech_B00826LF_3000mAh_Feb24th_Averaged*/
 	qcom,max-voltage-uv = <4350000>;
 	qcom,v-cutoff-uv = <3400000>;
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <100>;
 	qcom,battery-type = "itech_3000mah";
-	qcom,checksum = <0xF99F>;
+	qcom,chg-rslow-comp-c1 = <4365000>;
+	qcom,chg-rslow-comp-c2 = <8609000>;
+	qcom,chg-rslow-comp-thr = <0xBE>;
+	qcom,chg-rs-to-rslow = <761000>;
+	qcom,checksum = <0x0B7C>;
 	qcom,fg-profile-data = [
-		E9 83 24 7D
-		14 81 2A 77
-		22 83 D9 73
-		8E 76 CC 75
-		E2 81 DC 98
-		E8 B5 67 C1
-		5B 10 0A 83
-		00 72 08 6E
-		25 6B 11 83
-		FB 7B 56 8D
-		3B 89 22 82
-		40 99 0D BC
-		5F C8 77 14
-		CB 0B 61 5B
+		F0 83 6B 7D
+		66 81 EC 77
+		43 83 E3 5A
+		7C 81 33 8D
+		E1 81 EC 98
+		7B B5 F8 BB
+		5B 12 E2 83
+		4A 7C 63 80
+		CF 75 50 83
+		FD 5A 83 82
+		E6 8E 12 82
+		B6 9A 1A BE
+		BE CB 55 0E
+		96 0B E0 5A
 		CE 6E 71 FD
-		8C 19 7B 46
-		02 42 00 00
-		B0 44 27 31
-		DD 37 00 00
+		2A 31 7E 47
+		CF 40 00 00
+		DB 45 0F 32
+		AF 31 00 00
 		00 00 00 00
 		00 00 00 00
-		54 6B C2 69
-		12 6D A9 82
-		F9 77 BA 6B
-		79 64 1F 82
-		35 76 51 68
-		DE 5A 00 A9
-		2B 1E 68 53
-		66 A0 71 0C
+		E3 6A 60 69
+		9E 6D 47 83
+		13 7C 23 70
+		0B 74 8F 80
+		DB 75 17 68
+		BA 75 BF B3
+		21 5B 69 B5
+		6C A0 71 0C
 		28 00 FF 36
 		F0 11 30 03
-		00 00 00 0D
+		00 00 00 0E
 	];
 };
