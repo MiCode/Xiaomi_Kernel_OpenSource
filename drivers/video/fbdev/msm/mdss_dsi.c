@@ -833,6 +833,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	int ret = 0;
 	struct mipi_panel_info *mipi;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -846,7 +847,12 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	pr_debug("%s+: ctrl=%p ndx=%d cur_blank_state=%d\n", __func__,
 		ctrl_pdata, ctrl_pdata->ndx, pdata->panel_info.blank_state);
 
+	if (mdss_dsi_is_ctrl_clk_master(ctrl_pdata))
+		sctrl = mdss_dsi_get_ctrl_clk_slave();
+
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	if (sctrl)
+		mdss_dsi_clk_ctrl(sctrl, DSI_ALL_CLKS, 1);
 
 	if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_LOW_POWER) {
 		pr_debug("%s: dsi_unblank with panel always on\n", __func__);
@@ -876,6 +882,8 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 
 error:
 	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	if (sctrl)
+		mdss_dsi_clk_ctrl(sctrl, DSI_ALL_CLKS, 0);
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
