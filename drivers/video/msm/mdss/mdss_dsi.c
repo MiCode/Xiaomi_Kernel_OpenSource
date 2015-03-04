@@ -1881,16 +1881,17 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	rc = of_property_read_u32(ctrl_pdev->dev.of_node,
 			"qcom,mmss-ulp-clamp-ctrl-offset",
 			&ctrl_pdata->ulps_clamp_ctrl_off);
-	if (!rc) {
-		rc = of_property_read_u32(ctrl_pdev->dev.of_node,
-				"qcom,mmss-phyreset-ctrl-offset",
-				&ctrl_pdata->ulps_phyrst_ctrl_off);
-	}
-	if (rc && pinfo->ulps_feature_enabled) {
-		pr_err("%s: dsi ulps clamp register settings missing\n",
+	if (rc && pinfo->mipi.mode == DSI_CMD_MODE) {
+		pr_err("%s: dsi clamp register settings missing\n",
 				__func__);
 		return -EINVAL;
 	}
+	rc = of_property_read_u32(ctrl_pdev->dev.of_node,
+			"qcom,mmss-phyreset-ctrl-offset",
+			&ctrl_pdata->ulps_phyrst_ctrl_off);
+	if (rc && pinfo->mipi.mode == DSI_CMD_MODE)
+		pr_debug("%s: dsi phyreset register settings missing\n",
+				__func__);
 
 	ctrl_pdata->cmd_sync_wait_broadcast = of_property_read_bool(
 		pan_node, "qcom,cmd-sync-wait-broadcast");

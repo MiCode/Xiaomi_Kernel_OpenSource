@@ -1319,7 +1319,7 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	}
 
 	if (!ctrl->mmss_misc_io.base) {
-		pr_err("%s: mmss_misc_io not mapped\nn", __func__);
+		pr_err("%s: mmss_misc_io not mapped\n", __func__);
 		return -EINVAL;
 	}
 
@@ -1355,44 +1355,62 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 	pr_debug("%s: called for ctrl%d, enable=%d, clamp_reg=0x%08x\n",
 		__func__, ctrl->ndx, enable, clamp_reg);
 	if (enable && !ctrl->mmss_clamp) {
+		regval = MIPI_INP(ctrl->mmss_misc_io.base + clamp_reg_off);
 		/* Enable MMSS DSI Clamps */
 		if (ctrl->ndx == DSI_CTRL_0) {
-			regval = MIPI_INP(ctrl->mmss_misc_io.base +
-				clamp_reg_off);
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval | clamp_reg);
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval | (clamp_reg | BIT(15)));
 		} else if (ctrl->ndx == DSI_CTRL_1) {
-			regval = MIPI_INP(ctrl->mmss_misc_io.base +
-				clamp_reg_off);
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval | (clamp_reg << 16));
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval | ((clamp_reg << 16) | BIT(31)));
 		}
+		/* update clamp ctrl before setting phy reset disable */
+		wmb();
 
 		/*
 		 * This register write ensures that DSI PHY will not be
 		 * reset when mdss ahb clock reset is asserted while coming
 		 * out of power collapse
 		 */
-		MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off, 0x1);
+		if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
+			regval = MIPI_INP(ctrl->mmss_misc_io.base +
+				clamp_reg_off);
+			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
+				regval | BIT(30));
+		} else {
+			MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off,
+				0x1);
+		}
+		/* make sure that clamp ctrl is updated before disable call */
+		wmb();
 		ctrl->mmss_clamp = true;
 	} else if (!enable && ctrl->mmss_clamp) {
-		MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off, 0x0);
-		/* Disable MMSS DSI Clamps */
-		if (ctrl->ndx == DSI_CTRL_0) {
+		if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
 			regval = MIPI_INP(ctrl->mmss_misc_io.base +
 				clamp_reg_off);
+			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
+				regval & ~BIT(30));
+		} else {
+			MIPI_OUTP(ctrl->mmss_misc_io.base + phyrst_reg_off,
+				0x0);
+		}
+		/* update clamp ctrl before unsetting phy reset disable */
+		wmb();
+
+		regval = MIPI_INP(ctrl->mmss_misc_io.base + clamp_reg_off);
+		/* Disable MMSS DSI Clamps */
+		if (ctrl->ndx == DSI_CTRL_0)
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval & ~(clamp_reg | BIT(15)));
-		} else if (ctrl->ndx == DSI_CTRL_1) {
-			regval = MIPI_INP(ctrl->mmss_misc_io.base +
-				clamp_reg_off);
+		else if (ctrl->ndx == DSI_CTRL_1)
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
 				regval & ~((clamp_reg << 16) | BIT(31)));
-		}
+		/* make sure that clamp ctrl is updated before enable call */
+		wmb();
 		ctrl->mmss_clamp = false;
 	} else {
 		pr_debug("%s: No change requested: %s -> %s\n", __func__,
