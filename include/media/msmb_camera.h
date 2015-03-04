@@ -65,9 +65,10 @@
 /* The below macro is defined to put an upper limit on maximum
  * number of buffer requested per stream. In case of extremely
  * large value for number of buffer due to data structure corruption
- * we return error to avoid integer overflow. This value may be
+ * we return error to avoid integer overflow. Group processing
+ * can have max of 9 groups of 8 bufs each. This value may be
  * configured in future*/
-#define MSM_CAMERA_MAX_STREAM_BUF 40
+#define MSM_CAMERA_MAX_STREAM_BUF 72
 
 /* Max batch size of processing */
 #define MSM_CAMERA_MAX_USER_BUFF_CNT 16
