@@ -388,7 +388,7 @@ static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode)
 
 static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 {
-	static int power_supply_type;
+	enum power_supply_property power_supply_type;
 	struct dwc3_otg *dotg = container_of(phy->otg, struct dwc3_otg, otg);
 
 
@@ -399,6 +399,13 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 
 	if (dotg->charger->charging_disabled)
 		return 0;
+
+	if (dotg->charger->chg_type != DWC3_INVALID_CHARGER) {
+		dev_dbg(phy->dev,
+			"SKIP setting power supply type again,chg_type = %d\n",
+			dotg->charger->chg_type);
+		goto skip_psy_type;
+	}
 
 	if (dotg->charger->chg_type == DWC3_SDP_CHARGER)
 		power_supply_type = POWER_SUPPLY_TYPE_USB;
@@ -412,6 +419,8 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 
 	power_supply_set_supply_type(dotg->psy, power_supply_type);
 
+skip_psy_type:
+
 	if (dotg->charger->chg_type == DWC3_CDP_CHARGER)
 		mA = DWC3_IDEV_CHG_MAX;
 
@@ -420,20 +429,19 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 
 	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
 
-	if (dotg->charger->max_power <= 2 && mA > 2) {
-		/* Enable charging */
-		if (power_supply_set_online(dotg->psy, true))
-			goto psy_error;
-		if (power_supply_set_current_limit(dotg->psy, 1000*mA))
-			goto psy_error;
-	} else if (dotg->charger->max_power > 0 && (mA == 0 || mA == 2)) {
+	if (dotg->charger->max_power > 0 && (mA == 0 || mA == 2)) {
 		/* Disable charging */
 		if (power_supply_set_online(dotg->psy, false))
 			goto psy_error;
-		/* Set max current limit in uA */
-		if (power_supply_set_current_limit(dotg->psy, 1000*mA))
+	} else {
+		/* Enable charging */
+		if (power_supply_set_online(dotg->psy, true))
 			goto psy_error;
 	}
+
+	/* Set max current limit in uA */
+	if (power_supply_set_current_limit(dotg->psy, 1000*mA))
+		goto psy_error;
 
 	power_supply_changed(dotg->psy);
 	dotg->charger->max_power = mA;
