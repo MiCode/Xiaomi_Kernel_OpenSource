@@ -662,7 +662,7 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
 	struct dwc3_msm_req_complete *req_complete;
 	unsigned long flags;
-	int ret = 0;
+	int ret = 0, size;
 	u8 bam_pipe;
 	bool producer;
 	bool disable_wb;
@@ -745,11 +745,11 @@ static int dwc3_msm_ep_queue(struct usb_ep *ep,
 
 	dev_vdbg(dwc->dev, "%s: queing request %p to ep %s length %d\n",
 			__func__, request, ep->name, request->length);
-
+	size = dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0));
 	dbm_event_buffer_config(mdwc->dbm,
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRLO(0)),
 		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTADRHI(0)),
-		dwc3_msm_read_reg(mdwc->base, DWC3_GEVNTSIZ(0)));
+		DWC3_GEVNTSIZ_SIZE(size));
 
 	/*
 	 * We must obtain the lock of the dwc3 core driver,
