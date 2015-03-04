@@ -312,6 +312,7 @@ struct fg_chip {
 	struct work_struct	status_change_work;
 	struct work_struct	cycle_count_work;
 	struct work_struct	battery_age_work;
+	struct work_struct	update_esr_work;
 	struct power_supply	*batt_psy;
 	struct fg_wakeup_source	memif_wakeup_source;
 	struct fg_wakeup_source	profile_wakeup_source;
@@ -326,6 +327,7 @@ struct fg_chip {
 	bool			use_thermal_coefficients;
 	bool			cyc_ctr_en;
 	bool			cyc_ctr_started;
+	bool			esr_strict_filter;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -337,6 +339,7 @@ struct fg_chip {
 	unsigned int		batt_profile_len;
 	unsigned int		batt_max_voltage_uv;
 	const char		*batt_type;
+	const char		*batt_psy_name;
 	unsigned long		last_sram_update_time;
 	unsigned long		last_temp_update_time;
 	int			cyc_ctr_freq;
@@ -2245,6 +2248,7 @@ static void status_change_work(struct work_struct *work)
 			chip->status == POWER_SUPPLY_STATUS_CHARGING)
 			&& get_prop_capacity(chip) == 100)
 		fg_configure_soc(chip);
+	schedule_work(&chip->update_esr_work);
 }
 
 static int fg_power_set_property(struct power_supply *psy,
@@ -2319,6 +2323,55 @@ static void dump_sram(struct work_struct *work)
 		pr_info("%03X %s\n", SRAM_DUMP_START + i, str);
 	}
 	devm_kfree(chip->dev, buffer);
+}
+
+#define MAXRSCHANGE_REG		0x434
+#define ESR_VALUE_OFFSET	1
+#define ESR_STRICT_VALUE	0x4120391F391F3019
+#define ESR_DEFAULT_VALUE	0x68005A6661C34A67
+static void update_esr_value(struct work_struct *work)
+{
+	union power_supply_propval prop = {0, };
+	u64 esr_value;
+	int rc = 0;
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				update_esr_work);
+
+	if (!chip->batt_psy && chip->batt_psy_name)
+		chip->batt_psy = power_supply_get_by_name(chip->batt_psy_name);
+
+	if (chip->batt_psy)
+		chip->batt_psy->get_property(chip->batt_psy,
+				POWER_SUPPLY_PROP_CHARGE_TYPE, &prop);
+	else
+		return;
+
+	if (!chip->esr_strict_filter) {
+		if ((prop.intval == POWER_SUPPLY_CHARGE_TYPE_TAPER &&
+				chip->status == POWER_SUPPLY_STATUS_CHARGING) ||
+			(chip->status == POWER_SUPPLY_STATUS_FULL)) {
+			esr_value = ESR_STRICT_VALUE;
+			rc = fg_mem_write(chip, (u8 *)&esr_value,
+					MAXRSCHANGE_REG, 8,
+					ESR_VALUE_OFFSET, 0);
+			if (rc)
+				pr_err("failed to write strict ESR value rc=%d\n",
+					rc);
+			else
+				chip->esr_strict_filter = true;
+		}
+	} else if ((prop.intval != POWER_SUPPLY_CHARGE_TYPE_TAPER &&
+				chip->status == POWER_SUPPLY_STATUS_CHARGING) ||
+			(chip->status == POWER_SUPPLY_STATUS_DISCHARGING)) {
+		esr_value = ESR_DEFAULT_VALUE;
+		rc = fg_mem_write(chip, (u8 *)&esr_value, MAXRSCHANGE_REG, 8,
+				ESR_VALUE_OFFSET, 0);
+		if (rc)
+			pr_err("failed to write default ESR value rc=%d\n", rc);
+		else
+			chip->esr_strict_filter = false;
+	}
 }
 
 #define BATT_MISSING_STS BIT(6)
@@ -2435,6 +2488,7 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 
 	if (chip->cyc_ctr_en)
 		schedule_work(&chip->cycle_count_work);
+	schedule_work(&chip->update_esr_work);
 	return IRQ_HANDLED;
 }
 
@@ -3223,6 +3277,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->dump_sram);
 	cancel_work_sync(&chip->status_change_work);
 	cancel_work_sync(&chip->cycle_count_work);
+	cancel_work_sync(&chip->update_esr_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
@@ -3699,6 +3754,7 @@ static int fg_hw_init(struct fg_chip *chip)
 {
 	u8 resume_soc;
 	u8 data[4];
+	u64 esr_value;
 	int rc = 0;
 
 	update_iterm(chip);
@@ -3796,6 +3852,14 @@ static int fg_hw_init(struct fg_chip *chip)
 	data[1] = KI_COEFF_PRED_FULL_4_0_MSB;
 	fg_mem_write(chip, data, KI_COEFF_PRED_FULL_ADDR, 2, 2, 0);
 
+	esr_value = ESR_DEFAULT_VALUE;
+	rc = fg_mem_write(chip, (u8 *)&esr_value, MAXRSCHANGE_REG, 8,
+			ESR_VALUE_OFFSET, 0);
+	if (rc)
+		pr_err("failed to write default ESR value rc=%d\n", rc);
+	else
+		pr_info("set default value to esr filter\n");
+
 	return 0;
 }
 
@@ -3848,6 +3912,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->status_change_work, status_change_work);
 	INIT_WORK(&chip->cycle_count_work, update_cycle_count);
 	INIT_WORK(&chip->battery_age_work, battery_age_work);
+	INIT_WORK(&chip->update_esr_work, update_esr_value);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -3948,6 +4013,11 @@ static int fg_probe(struct spmi_device *spmi)
 		goto of_init_fail;
 	}
 	chip->power_supply_registered = true;
+	/*
+	 * Just initialize the batt_psy_name here. Power supply
+	 * will be obtained later.
+	 */
+	chip->batt_psy_name = "battery";
 
 	if (chip->mem_base) {
 		rc = fg_dfs_create(chip);
@@ -3994,6 +4064,7 @@ cancel_work:
 	cancel_work_sync(&chip->dump_sram);
 	cancel_work_sync(&chip->status_change_work);
 	cancel_work_sync(&chip->cycle_count_work);
+	cancel_work_sync(&chip->update_esr_work);
 of_init_fail:
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr_lock);
