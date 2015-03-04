@@ -210,6 +210,12 @@ static struct mdss_mdp_rot_pipe *mdss_mdp_rot_mgr_acquire_pipe(
 			rot_pipe->wait_count--;
 			mutex_unlock(&rot_mgr->pipe_lock);
 			rot_pipe = NULL;
+		} else {
+			mutex_lock(&rot_mgr->pipe_lock);
+			rot_pipe->active_session = rot;
+			rot_pipe->context_switched =
+				(rot_pipe->previous_session != rot);
+			mutex_unlock(&rot_mgr->pipe_lock);
 		}
 	}
 
