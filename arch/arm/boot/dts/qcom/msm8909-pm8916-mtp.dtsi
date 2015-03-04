@@ -191,3 +191,6 @@
 	};
 };
 
+&smb1357_otg_vreg {
+	usb-pullup-supply = <&pm8916_l13>;
+};
