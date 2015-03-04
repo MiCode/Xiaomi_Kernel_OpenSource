@@ -58,6 +58,7 @@
 #define QSEE_VERSION_04			0x404000
 #define QSEE_VERSION_05			0x405000
 #define QSEE_VERSION_20			0x800000
+#define QSEE_VERSION_40			0x1000000  /* TZ.BF.4.0 */
 
 
 #define QSEOS_CHECK_VERSION_CMD		0x00001803
@@ -325,12 +326,22 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		switch (qseos_cmd_id) {
 		case QSEOS_APP_START_COMMAND: {
 			struct qseecom_load_app_ireq *req;
-			req = (struct qseecom_load_app_ireq *)req_buf;
+			struct qseecom_load_app_64bit_ireq *req_64bit;
 			smc_id = TZ_OS_APP_START_ID;
 			desc.arginfo = TZ_OS_APP_START_ID_PARAM_ID;
-			desc.args[0] = req->mdt_len;
-			desc.args[1] = req->img_len;
-			desc.args[2] = req->phy_addr;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_load_app_ireq *)req_buf;
+				desc.args[0] = req->mdt_len;
+				desc.args[1] = req->img_len;
+				desc.args[2] = req->phy_addr;
+			} else {
+				req_64bit =
+					(struct qseecom_load_app_64bit_ireq *)
+					req_buf;
+				desc.args[0] = req_64bit->mdt_len;
+				desc.args[1] = req_64bit->img_len;
+				desc.args[2] = req_64bit->phy_addr;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
@@ -366,23 +377,44 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		}
 		case QSEOS_APP_REGION_NOTIFICATION: {
 			struct qsee_apps_region_info_ireq *req;
-			req = (struct qsee_apps_region_info_ireq *)req_buf;
+			struct qsee_apps_region_info_64bit_ireq *req_64bit;
 			smc_id = TZ_OS_APP_REGION_NOTIFICATION_ID;
 			desc.arginfo =
 				TZ_OS_APP_REGION_NOTIFICATION_ID_PARAM_ID;
-			desc.args[0] = req->addr;
-			desc.args[1] = req->size;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qsee_apps_region_info_ireq *)
+					req_buf;
+				desc.args[0] = req->addr;
+				desc.args[1] = req->size;
+			} else {
+				req_64bit =
+				(struct qsee_apps_region_info_64bit_ireq *)
+					req_buf;
+				desc.args[0] = req_64bit->addr;
+				desc.args[1] = req_64bit->size;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
 		case QSEOS_LOAD_SERV_IMAGE_COMMAND: {
-			struct qseecom_load_app_ireq *req;
-			req = (struct qseecom_load_app_ireq *)req_buf;
+			struct qseecom_load_lib_image_ireq *req;
+			struct qseecom_load_lib_image_64bit_ireq *req_64bit;
 			smc_id = TZ_OS_LOAD_SERVICES_IMAGE_ID;
 			desc.arginfo = TZ_OS_LOAD_SERVICES_IMAGE_ID_PARAM_ID;
-			desc.args[0] = req->mdt_len;
-			desc.args[1] = req->img_len;
-			desc.args[2] = req->phy_addr;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_load_lib_image_ireq *)
+					req_buf;
+				desc.args[0] = req->mdt_len;
+				desc.args[1] = req->img_len;
+				desc.args[2] = req->phy_addr;
+			} else {
+				req_64bit =
+				(struct qseecom_load_lib_image_64bit_ireq *)
+					req_buf;
+				desc.args[0] = req_64bit->mdt_len;
+				desc.args[1] = req_64bit->img_len;
+				desc.args[2] = req_64bit->phy_addr;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
@@ -394,13 +426,24 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		}
 		case QSEOS_REGISTER_LISTENER: {
 			struct qseecom_register_listener_ireq *req;
-			req = (struct qseecom_register_listener_ireq *)req_buf;
+			struct qseecom_register_listener_64bit_ireq *req_64bit;
 			smc_id = TZ_OS_REGISTER_LISTENER_ID;
 			desc.arginfo =
 				TZ_OS_REGISTER_LISTENER_ID_PARAM_ID;
-			desc.args[0] = req->listener_id;
-			desc.args[1] = req->sb_ptr;
-			desc.args[2] = req->sb_len;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_register_listener_ireq *)
+					req_buf;
+				desc.args[0] = req->listener_id;
+				desc.args[1] = req->sb_ptr;
+				desc.args[2] = req->sb_len;
+			} else {
+				req_64bit =
+				(struct qseecom_register_listener_64bit_ireq *)
+					req_buf;
+				desc.args[0] = req_64bit->listener_id;
+				desc.args[1] = req_64bit->sb_ptr;
+				desc.args[2] = req_64bit->sb_len;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
@@ -428,12 +471,21 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		}
 		case QSEOS_LOAD_EXTERNAL_ELF_COMMAND: {
 			struct qseecom_load_app_ireq *req;
-			req = (struct qseecom_load_app_ireq *)req_buf;
+			struct qseecom_load_app_64bit_ireq *req_64bit;
 			smc_id = TZ_OS_LOAD_EXTERNAL_IMAGE_ID;
 			desc.arginfo = TZ_OS_LOAD_SERVICES_IMAGE_ID_PARAM_ID;
-			desc.args[0] = req->mdt_len;
-			desc.args[1] = req->img_len;
-			desc.args[2] = req->phy_addr;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_load_app_ireq *)req_buf;
+				desc.args[0] = req->mdt_len;
+				desc.args[1] = req->img_len;
+				desc.args[2] = req->phy_addr;
+			} else {
+				req_64bit =
+				(struct qseecom_load_app_64bit_ireq *)req_buf;
+				desc.args[0] = req_64bit->mdt_len;
+				desc.args[1] = req_64bit->img_len;
+				desc.args[2] = req_64bit->phy_addr;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
@@ -446,14 +498,27 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 
 		case QSEOS_CLIENT_SEND_DATA_COMMAND: {
 			struct qseecom_client_send_data_ireq *req;
-			req = (struct qseecom_client_send_data_ireq *)req_buf;
+			struct qseecom_client_send_data_64bit_ireq *req_64bit;
 			smc_id = TZ_APP_QSAPP_SEND_DATA_ID;
 			desc.arginfo = TZ_APP_QSAPP_SEND_DATA_ID_PARAM_ID;
-			desc.args[0] = req->app_id;
-			desc.args[1] = req->req_ptr;
-			desc.args[2] = req->req_len;
-			desc.args[3] = req->rsp_ptr;
-			desc.args[4] = req->rsp_len;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_client_send_data_ireq *)
+					req_buf;
+				desc.args[0] = req->app_id;
+				desc.args[1] = req->req_ptr;
+				desc.args[2] = req->req_len;
+				desc.args[3] = req->rsp_ptr;
+				desc.args[4] = req->rsp_len;
+			} else {
+				req_64bit =
+				(struct qseecom_client_send_data_64bit_ireq *)
+					req_buf;
+				desc.args[0] = req_64bit->app_id;
+				desc.args[1] = req_64bit->req_ptr;
+				desc.args[2] = req_64bit->req_len;
+				desc.args[3] = req_64bit->rsp_ptr;
+				desc.args[4] = req_64bit->rsp_len;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
@@ -556,54 +621,98 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 		}
 		case QSEOS_TEE_OPEN_SESSION: {
 			struct qseecom_qteec_ireq *req;
-			req = (struct qseecom_qteec_ireq *)req_buf;
+			struct qseecom_qteec_64bit_ireq *req_64bit;
 			smc_id = TZ_APP_GPAPP_OPEN_SESSION_ID;
 			desc.arginfo = TZ_APP_GPAPP_OPEN_SESSION_ID_PARAM_ID;
-			desc.args[0] = req->app_id;
-			desc.args[1] = req->req_ptr;
-			desc.args[2] = req->req_len;
-			desc.args[3] = req->resp_ptr;
-			desc.args[4] = req->resp_len;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_qteec_ireq *)req_buf;
+				desc.args[0] = req->app_id;
+				desc.args[1] = req->req_ptr;
+				desc.args[2] = req->req_len;
+				desc.args[3] = req->resp_ptr;
+				desc.args[4] = req->resp_len;
+			} else {
+				req_64bit = (struct qseecom_qteec_64bit_ireq *)
+						req_buf;
+				desc.args[0] = req_64bit->app_id;
+				desc.args[1] = req_64bit->req_ptr;
+				desc.args[2] = req_64bit->req_len;
+				desc.args[3] = req_64bit->resp_ptr;
+				desc.args[4] = req_64bit->resp_len;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
 		case QSEOS_TEE_INVOKE_COMMAND: {
 			struct qseecom_qteec_ireq *req;
-			req = (struct qseecom_qteec_ireq *)req_buf;
+			struct qseecom_qteec_64bit_ireq *req_64bit;
 			smc_id = TZ_APP_GPAPP_INVOKE_COMMAND_ID;
 			desc.arginfo = TZ_APP_GPAPP_INVOKE_COMMAND_ID_PARAM_ID;
-			desc.args[0] = req->app_id;
-			desc.args[1] = req->req_ptr;
-			desc.args[2] = req->req_len;
-			desc.args[3] = req->resp_ptr;
-			desc.args[4] = req->resp_len;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_qteec_ireq *)req_buf;
+				desc.args[0] = req->app_id;
+				desc.args[1] = req->req_ptr;
+				desc.args[2] = req->req_len;
+				desc.args[3] = req->resp_ptr;
+				desc.args[4] = req->resp_len;
+			} else {
+				req_64bit = (struct qseecom_qteec_64bit_ireq *)
+						req_buf;
+				desc.args[0] = req_64bit->app_id;
+				desc.args[1] = req_64bit->req_ptr;
+				desc.args[2] = req_64bit->req_len;
+				desc.args[3] = req_64bit->resp_ptr;
+				desc.args[4] = req_64bit->resp_len;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
 		case QSEOS_TEE_CLOSE_SESSION: {
 			struct qseecom_qteec_ireq *req;
-			req = (struct qseecom_qteec_ireq *)req_buf;
+			struct qseecom_qteec_64bit_ireq *req_64bit;
 			smc_id = TZ_APP_GPAPP_CLOSE_SESSION_ID;
 			desc.arginfo = TZ_APP_GPAPP_CLOSE_SESSION_ID_PARAM_ID;
-			desc.args[0] = req->app_id;
-			desc.args[1] = req->req_ptr;
-			desc.args[2] = req->req_len;
-			desc.args[3] = req->resp_ptr;
-			desc.args[4] = req->resp_len;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_qteec_ireq *)req_buf;
+				desc.args[0] = req->app_id;
+				desc.args[1] = req->req_ptr;
+				desc.args[2] = req->req_len;
+				desc.args[3] = req->resp_ptr;
+				desc.args[4] = req->resp_len;
+			} else {
+				req_64bit = (struct qseecom_qteec_64bit_ireq *)
+						req_buf;
+				desc.args[0] = req_64bit->app_id;
+				desc.args[1] = req_64bit->req_ptr;
+				desc.args[2] = req_64bit->req_len;
+				desc.args[3] = req_64bit->resp_ptr;
+				desc.args[4] = req_64bit->resp_len;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
 		case QSEOS_TEE_REQUEST_CANCELLATION: {
 			struct qseecom_qteec_ireq *req;
-			req = (struct qseecom_qteec_ireq *)req_buf;
+			struct qseecom_qteec_64bit_ireq *req_64bit;
 			smc_id = TZ_APP_GPAPP_REQUEST_CANCELLATION_ID;
 			desc.arginfo =
 				TZ_APP_GPAPP_REQUEST_CANCELLATION_ID_PARAM_ID;
-			desc.args[0] = req->app_id;
-			desc.args[1] = req->req_ptr;
-			desc.args[2] = req->req_len;
-			desc.args[3] = req->resp_ptr;
-			desc.args[4] = req->resp_len;
+			if (qseecom.qsee_version < QSEE_VERSION_40) {
+				req = (struct qseecom_qteec_ireq *)req_buf;
+				desc.args[0] = req->app_id;
+				desc.args[1] = req->req_ptr;
+				desc.args[2] = req->req_len;
+				desc.args[3] = req->resp_ptr;
+				desc.args[4] = req->resp_len;
+			} else {
+				req_64bit = (struct qseecom_qteec_64bit_ireq *)
+						req_buf;
+				desc.args[0] = req_64bit->app_id;
+				desc.args[1] = req_64bit->req_ptr;
+				desc.args[2] = req_64bit->req_len;
+				desc.args[3] = req_64bit->resp_ptr;
+				desc.args[4] = req_64bit->resp_len;
+			}
 			ret = scm_call2(smc_id, &desc);
 			break;
 		}
@@ -692,8 +801,11 @@ static int __qseecom_set_sb_memory(struct qseecom_registered_listener_list *svc,
 {
 	int ret = 0;
 	struct qseecom_register_listener_ireq req;
+	struct qseecom_register_listener_64bit_ireq req_64bit;
 	struct qseecom_command_scm_resp resp;
 	ion_phys_addr_t pa;
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 
 	/* Get the handle of the shared fd */
 	svc->ihandle = ion_import_dma_buf(qseecom.ion_clnt,
@@ -714,15 +826,26 @@ static int __qseecom_set_sb_memory(struct qseecom_registered_listener_list *svc,
 	svc->sb_virt = (char *) ion_map_kernel(qseecom.ion_clnt, svc->ihandle);
 	svc->sb_phys = (phys_addr_t)pa;
 
-	req.qsee_cmd_id = QSEOS_REGISTER_LISTENER;
-	req.listener_id = svc->svc.listener_id;
-	req.sb_len = svc->sb_length;
-	req.sb_ptr = (uint32_t)svc->sb_phys;/* convert to 32bit addr for tz */
+	if (qseecom.qsee_version < QSEE_VERSION_40) {
+		req.qsee_cmd_id = QSEOS_REGISTER_LISTENER;
+		req.listener_id = svc->svc.listener_id;
+		req.sb_len = svc->sb_length;
+		req.sb_ptr = (uint32_t)svc->sb_phys;
+		cmd_buf = (void *)&req;
+		cmd_len = sizeof(struct qseecom_register_listener_ireq);
+	} else {
+		req_64bit.qsee_cmd_id = QSEOS_REGISTER_LISTENER;
+		req_64bit.listener_id = svc->svc.listener_id;
+		req_64bit.sb_len = svc->sb_length;
+		req_64bit.sb_ptr = (uint64_t)svc->sb_phys;
+		cmd_buf = (void *)&req_64bit;
+		cmd_len = sizeof(struct qseecom_register_listener_64bit_ireq);
+	}
 
 	resp.result = QSEOS_RESULT_INCOMPLETE;
 
-	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &req,
-					sizeof(req), &resp, sizeof(resp));
+	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf, cmd_len,
+					 &resp, sizeof(resp));
 	if (ret) {
 		pr_err("qseecom_scm_call failed with err: %d\n", ret);
 		return -EINVAL;
@@ -1320,6 +1443,9 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_check_app_ireq req;
 	struct qseecom_load_app_ireq load_req;
+	struct qseecom_load_app_64bit_ireq load_req_64bit;
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(&load_img_req,
@@ -1386,19 +1512,32 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 
 		/* Populate the structure for sending scm call to load image */
-		strlcpy(load_req.app_name, load_img_req.img_name,
+		if (qseecom.qsee_version < QSEE_VERSION_40) {
+			load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
+			load_req.mdt_len = load_img_req.mdt_len;
+			load_req.img_len = load_img_req.img_len;
+			strlcpy(load_req.app_name, load_img_req.img_name,
 						MAX_APP_NAME_SIZE);
-		load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
-		load_req.mdt_len = load_img_req.mdt_len;
-		load_req.img_len = load_img_req.img_len;
-		load_req.phy_addr = (uint32_t)pa;
+			load_req.phy_addr = (uint32_t)pa;
+			cmd_buf = (void *)&load_req;
+			cmd_len = sizeof(struct qseecom_load_app_ireq);
+		} else {
+			load_req_64bit.qsee_cmd_id = QSEOS_APP_START_COMMAND;
+			load_req_64bit.mdt_len = load_img_req.mdt_len;
+			load_req_64bit.img_len = load_img_req.img_len;
+			strlcpy(load_req_64bit.app_name, load_img_req.img_name,
+						MAX_APP_NAME_SIZE);
+			load_req_64bit.phy_addr = (uint64_t)pa;
+			cmd_buf = (void *)&load_req_64bit;
+			cmd_len = sizeof(struct qseecom_load_app_64bit_ireq);
+		}
+
 		msm_ion_do_cache_op(qseecom.ion_clnt, ihandle, NULL, len,
 					ION_IOC_CLEAN_INV_CACHES);
 
 		/*  SCM_CALL  to load the app and get the app_id back */
-		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &load_req,
-			sizeof(struct qseecom_load_app_ireq),
-			&resp, sizeof(resp));
+		ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf,
+			cmd_len, &resp, sizeof(resp));
 		if (ret) {
 			pr_err("scm_call to load app failed\n");
 			if (!IS_ERR_OR_NULL(ihandle))
@@ -1970,11 +2109,14 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	int ret = 0;
 	u32 reqd_len_sb_in = 0;
 	struct qseecom_client_send_data_ireq send_data_req;
+	struct qseecom_client_send_data_64bit_ireq send_data_req_64bit;
 	struct qseecom_command_scm_resp resp;
 	unsigned long flags;
 	struct qseecom_registered_app_list *ptr_app;
 	bool found_app = false;
 	int name_len = 0;
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 
 	reqd_len_sb_in = req->cmd_req_len + req->resp_len;
 	/* find app_id & img_name from list */
@@ -1998,14 +2140,30 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 		return -EINVAL;
 	}
 
-	send_data_req.qsee_cmd_id = QSEOS_CLIENT_SEND_DATA_COMMAND;
-	send_data_req.app_id = data->client.app_id;
-	send_data_req.req_ptr = (uint32_t)(__qseecom_uvirt_to_kphys(data,
-					(uintptr_t)req->cmd_req_buf));
-	send_data_req.req_len = req->cmd_req_len;
-	send_data_req.rsp_ptr = (uint32_t)(__qseecom_uvirt_to_kphys(data,
-					(uintptr_t)req->resp_buf));
-	send_data_req.rsp_len = req->resp_len;
+	if (qseecom.qsee_version < QSEE_VERSION_40) {
+		send_data_req.qsee_cmd_id = QSEOS_CLIENT_SEND_DATA_COMMAND;
+		send_data_req.app_id = data->client.app_id;
+		send_data_req.req_ptr = (uint32_t)(__qseecom_uvirt_to_kphys(
+					data, (uintptr_t)req->cmd_req_buf));
+		send_data_req.req_len = req->cmd_req_len;
+		send_data_req.rsp_ptr = (uint32_t)(__qseecom_uvirt_to_kphys(
+					data, (uintptr_t)req->resp_buf));
+		send_data_req.rsp_len = req->resp_len;
+		cmd_buf = (void *)&send_data_req;
+		cmd_len = sizeof(struct qseecom_client_send_data_ireq);
+	} else {
+		send_data_req_64bit.qsee_cmd_id =
+					QSEOS_CLIENT_SEND_DATA_COMMAND;
+		send_data_req_64bit.app_id = data->client.app_id;
+		send_data_req_64bit.req_ptr = __qseecom_uvirt_to_kphys(data,
+					(uintptr_t)req->cmd_req_buf);
+		send_data_req_64bit.req_len = req->cmd_req_len;
+		send_data_req_64bit.rsp_ptr = __qseecom_uvirt_to_kphys(data,
+					(uintptr_t)req->resp_buf);
+		send_data_req_64bit.rsp_len = req->resp_len;
+		cmd_buf = (void *)&send_data_req_64bit;
+		cmd_len = sizeof(struct qseecom_client_send_data_64bit_ireq);
+	}
 
 	msm_ion_do_cache_op(qseecom.ion_clnt, data->client.ihandle,
 					data->client.sb_virt,
@@ -2013,8 +2171,8 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 					ION_IOC_CLEAN_INV_CACHES);
 
 	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
-				(const void *)&send_data_req,
-				sizeof(send_data_req), &resp, sizeof(resp));
+				cmd_buf, cmd_len,
+				&resp, sizeof(resp));
 	if (ret) {
 		pr_err("scm_call() failed with err: %d (app_id = %d)\n",
 					ret, data->client.app_id);
@@ -2497,10 +2655,13 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	int ret = -1;
 	uint32_t fw_size = 0;
 	struct qseecom_load_app_ireq load_req = {0, 0, 0, 0};
+	struct qseecom_load_app_64bit_ireq load_req_64bit = {0, 0, 0, 0};
 	struct qseecom_command_scm_resp resp;
 	u8 *img_data = NULL;
 	ion_phys_addr_t pa = 0;
 	struct ion_handle *ihandle = NULL;
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 
 	if (__qseecom_get_fw_size(appname, &fw_size))
 		return -EIO;
@@ -2517,9 +2678,23 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	}
 
 	/* Populate the load_req parameters */
-	load_req.phy_addr = (uint32_t)pa;
-	load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
-	strlcpy(load_req.app_name, appname, MAX_APP_NAME_SIZE);
+	if (qseecom.qsee_version < QSEE_VERSION_40) {
+		load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
+		load_req.mdt_len = load_req.mdt_len;
+		load_req.img_len = load_req.img_len;
+		strlcpy(load_req.app_name, appname, MAX_APP_NAME_SIZE);
+		load_req.phy_addr = (uint32_t)pa;
+		cmd_buf = (void *)&load_req;
+		cmd_len = sizeof(struct qseecom_load_app_ireq);
+	} else {
+		load_req_64bit.qsee_cmd_id = QSEOS_APP_START_COMMAND;
+		load_req_64bit.mdt_len = load_req.mdt_len;
+		load_req_64bit.img_len = load_req.img_len;
+		strlcpy(load_req_64bit.app_name, appname, MAX_APP_NAME_SIZE);
+		load_req_64bit.phy_addr = (uint64_t)pa;
+		cmd_buf = (void *)&load_req_64bit;
+		cmd_len = sizeof(struct qseecom_load_app_64bit_ireq);
+	}
 
 	if (qseecom.support_bus_scaling) {
 		mutex_lock(&qsee_bw_mutex);
@@ -2542,8 +2717,7 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 				ION_IOC_CLEAN_INV_CACHES);
 
 	/* SCM_CALL to load the image */
-	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &load_req,
-			sizeof(struct qseecom_load_app_ireq),
+	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf, cmd_len,
 			&resp, sizeof(resp));
 	if (ret) {
 		pr_err("scm_call to load failed : ret %d\n", ret);
@@ -2591,9 +2765,12 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	int ret = 0;
 	uint32_t fw_size = 0;
 	struct qseecom_load_app_ireq load_req = {0, 0, 0, 0};
+	struct qseecom_load_app_64bit_ireq load_req_64bit = {0, 0, 0, 0};
 	struct qseecom_command_scm_resp resp;
 	u8 *img_data = NULL;
 	ion_phys_addr_t pa = 0;
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 
 	if (__qseecom_get_fw_size("cmnlib", &fw_size))
 		return -EIO;
@@ -2608,9 +2785,19 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 		ret = -EIO;
 		goto exit_free_img_data;
 	}
-
-	load_req.phy_addr = (uint32_t)pa;
-	load_req.qsee_cmd_id = QSEOS_LOAD_SERV_IMAGE_COMMAND;
+	if (qseecom.qsee_version < QSEE_VERSION_40) {
+		load_req.phy_addr = (uint32_t)pa;
+		load_req.qsee_cmd_id = QSEOS_LOAD_SERV_IMAGE_COMMAND;
+		cmd_buf = (void *)&load_req;
+		cmd_len = sizeof(struct qseecom_load_lib_image_ireq);
+	} else {
+		load_req_64bit.phy_addr = (uint64_t)pa;
+		load_req_64bit.qsee_cmd_id = QSEOS_LOAD_SERV_IMAGE_COMMAND;
+		load_req_64bit.img_len = load_req.img_len;
+		load_req_64bit.mdt_len = load_req.mdt_len;
+		cmd_buf = (void *)&load_req_64bit;
+		cmd_len = sizeof(struct qseecom_load_lib_image_64bit_ireq);
+	}
 
 	if (qseecom.support_bus_scaling) {
 		mutex_lock(&qsee_bw_mutex);
@@ -2634,8 +2821,7 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 				ION_IOC_CLEAN_INV_CACHES);
 
 	/* SCM_CALL to load the image */
-	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &load_req,
-				sizeof(struct qseecom_load_lib_image_ireq),
+	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf, cmd_len,
 							&resp, sizeof(resp));
 	if (ret) {
 		pr_err("scm_call to load failed : ret %d\n", ret);
@@ -3406,8 +3592,10 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 	size_t len;
 	struct cpumask mask;
 	struct qseecom_load_app_ireq load_req;
+	struct qseecom_load_app_64bit_ireq load_req_64bit;
 	struct qseecom_command_scm_resp resp;
-
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(&load_img_req,
 				(void __user *)argp,
@@ -3432,11 +3620,21 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 		return ret;
 	}
 	/* Populate the structure for sending scm call to load image */
-	load_req.qsee_cmd_id = QSEOS_LOAD_EXTERNAL_ELF_COMMAND;
-	load_req.mdt_len = load_img_req.mdt_len;
-	load_req.img_len = load_img_req.img_len;
-	load_req.phy_addr = (uint32_t)pa;
-
+	if (qseecom.qsee_version < QSEE_VERSION_40) {
+		load_req.qsee_cmd_id = QSEOS_LOAD_EXTERNAL_ELF_COMMAND;
+		load_req.mdt_len = load_img_req.mdt_len;
+		load_req.img_len = load_img_req.img_len;
+		load_req.phy_addr = (uint32_t)pa;
+		cmd_buf = (void *)&load_req;
+		cmd_len = sizeof(struct qseecom_load_app_ireq);
+	} else {
+		load_req_64bit.qsee_cmd_id = QSEOS_LOAD_EXTERNAL_ELF_COMMAND;
+		load_req_64bit.mdt_len = load_img_req.mdt_len;
+		load_req_64bit.img_len = load_img_req.img_len;
+		load_req_64bit.phy_addr = (uint64_t)pa;
+		cmd_buf = (void *)&load_req_64bit;
+		cmd_len = sizeof(struct qseecom_load_app_64bit_ireq);
+	}
 	/* SCM_CALL tied to Core0 */
 	mask = CPU_MASK_CPU0;
 	set_cpu_ret = set_cpus_allowed_ptr(current, &mask);
@@ -3466,8 +3664,7 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 	msm_ion_do_cache_op(qseecom.ion_clnt, ihandle, NULL, len,
 				ION_IOC_CLEAN_INV_CACHES);
 	/*  SCM_CALL to load the external elf */
-	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, &load_req,
-			sizeof(struct qseecom_load_app_ireq),
+	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1, cmd_buf, cmd_len,
 			&resp, sizeof(resp));
 	if (ret) {
 		pr_err("scm_call to load failed : ret %d\n",
@@ -4483,20 +4680,39 @@ static int __qseecom_qteec_issue_cmd(struct qseecom_dev_handle *data,
 {
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_qteec_ireq ireq;
+	struct qseecom_qteec_64bit_ireq ireq_64bit;
 	int ret = 0;
 	uint32_t reqd_len_sb_in = 0;
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 
 	ret  = __qseecom_qteec_validate_msg(data, req);
 	if (ret)
 		return ret;
-	ireq.qsee_cmd_id = cmd_id;
-	ireq.app_id = data->client.app_id;
-	ireq.req_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
+
+	if (qseecom.qsee_version < QSEE_VERSION_40) {
+		ireq.qsee_cmd_id = cmd_id;
+		ireq.app_id = data->client.app_id;
+		ireq.req_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
 						(uintptr_t)req->req_ptr);
-	ireq.req_len = req->req_len;
-	ireq.resp_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
+		ireq.req_len = req->req_len;
+		ireq.resp_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
 						(uintptr_t)req->resp_ptr);
-	ireq.resp_len = req->resp_len;
+		ireq.resp_len = req->resp_len;
+		cmd_buf = (void *)&ireq;
+		cmd_len = sizeof(struct qseecom_qteec_ireq);
+	} else {
+		ireq_64bit.qsee_cmd_id = cmd_id;
+		ireq_64bit.app_id = data->client.app_id;
+		ireq_64bit.req_ptr = (uint64_t)__qseecom_uvirt_to_kphys(data,
+						(uintptr_t)req->req_ptr);
+		ireq_64bit.req_len = req->req_len;
+		ireq_64bit.resp_ptr = (uint64_t)__qseecom_uvirt_to_kphys(data,
+						(uintptr_t)req->resp_ptr);
+		ireq_64bit.resp_len = req->resp_len;
+		cmd_buf = (void *)&ireq_64bit;
+		cmd_len = sizeof(struct qseecom_qteec_64bit_ireq);
+	}
 
 	if ((cmd_id == QSEOS_TEE_OPEN_SESSION) ||
 			(cmd_id == QSEOS_TEE_REQUEST_CANCELLATION)) {
@@ -4512,7 +4728,7 @@ static int __qseecom_qteec_issue_cmd(struct qseecom_dev_handle *data,
 					ION_IOC_CLEAN_INV_CACHES);
 
 	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
-				(const void *) &ireq, sizeof(ireq),
+				cmd_buf, cmd_len,
 				&resp, sizeof(resp));
 	if (ret) {
 		pr_err("scm_call() failed with err: %d (app_id = %d)\n",
@@ -4586,9 +4802,12 @@ static int qseecom_qteec_invoke_modfd_cmd(struct qseecom_dev_handle *data,
 	struct qseecom_qteec_modfd_req req;
 	struct qseecom_command_scm_resp resp;
 	struct qseecom_qteec_ireq ireq;
+	struct qseecom_qteec_64bit_ireq ireq_64bit;
 	int ret = 0;
 	int i = 0;
 	uint32_t reqd_len_sb_in = 0;
+	void *cmd_buf = NULL;
+	size_t cmd_len;
 
 	ret = copy_from_user(&req, argp,
 			sizeof(struct qseecom_qteec_modfd_req));
@@ -4601,14 +4820,29 @@ static int qseecom_qteec_invoke_modfd_cmd(struct qseecom_dev_handle *data,
 	if (ret)
 		return ret;
 
-	ireq.qsee_cmd_id = QSEOS_TEE_INVOKE_COMMAND;
-	ireq.app_id = data->client.app_id;
-	ireq.req_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
+	if (qseecom.qsee_version < QSEE_VERSION_40) {
+		ireq.qsee_cmd_id = QSEOS_TEE_INVOKE_COMMAND;
+		ireq.app_id = data->client.app_id;
+		ireq.req_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
 						(uintptr_t)req.req_ptr);
-	ireq.req_len = req.req_len;
-	ireq.resp_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
+		ireq.req_len = req.req_len;
+		ireq.resp_ptr = (uint32_t)__qseecom_uvirt_to_kphys(data,
 						(uintptr_t)req.resp_ptr);
-	ireq.resp_len = req.resp_len;
+		ireq.resp_len = req.resp_len;
+		cmd_buf = (void *)&ireq;
+		cmd_len = sizeof(struct qseecom_qteec_ireq);
+	} else {
+		ireq_64bit.qsee_cmd_id = QSEOS_TEE_INVOKE_COMMAND;
+		ireq_64bit.app_id = data->client.app_id;
+		ireq_64bit.req_ptr = (uint64_t)__qseecom_uvirt_to_kphys(data,
+						(uintptr_t)req.req_ptr);
+		ireq_64bit.req_len = req.req_len;
+		ireq_64bit.resp_ptr = (uint64_t)__qseecom_uvirt_to_kphys(data,
+						(uintptr_t)req.resp_ptr);
+		ireq_64bit.resp_len = req.resp_len;
+		cmd_buf = (void *)&ireq_64bit;
+		cmd_len = sizeof(struct qseecom_qteec_64bit_ireq);
+	}
 	reqd_len_sb_in = req.req_len + req.resp_len;
 
 	/* validate offsets */
@@ -4631,7 +4865,7 @@ static int qseecom_qteec_invoke_modfd_cmd(struct qseecom_dev_handle *data,
 					ION_IOC_CLEAN_INV_CACHES);
 
 	ret = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
-				(const void *) &ireq, sizeof(ireq),
+				cmd_buf, cmd_len,
 				&resp, sizeof(resp));
 	if (ret) {
 		pr_err("scm_call() failed with err: %d (app_id = %d)\n",
@@ -5808,14 +6042,32 @@ static int qseecom_probe(struct platform_device *pdev)
 		if (qseecom.qsee_version >= (QSEE_VERSION_02)) {
 			struct resource *resource = NULL;
 			struct qsee_apps_region_info_ireq req;
+			struct qsee_apps_region_info_64bit_ireq req_64bit;
 			struct qseecom_command_scm_resp resp;
+			void *cmd_buf = NULL;
+			size_t cmd_len;
 
 			resource = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "secapp-region");
 			if (resource) {
-				req.qsee_cmd_id = QSEOS_APP_REGION_NOTIFICATION;
-				req.addr = resource->start;
-				req.size = resource_size(resource);
+				if (qseecom.qsee_version < QSEE_VERSION_40) {
+					req.qsee_cmd_id =
+						QSEOS_APP_REGION_NOTIFICATION;
+					req.addr = (uint32_t)resource->start;
+					req.size = resource_size(resource);
+					cmd_buf = (void *)&req;
+					cmd_len = sizeof(struct
+						qsee_apps_region_info_ireq);
+				} else {
+					req_64bit.qsee_cmd_id =
+						QSEOS_APP_REGION_NOTIFICATION;
+					req_64bit.addr = resource->start;
+					req_64bit.size = resource_size(
+							resource);
+					cmd_buf = (void *)&req_64bit;
+					cmd_len = sizeof(struct
+					qsee_apps_region_info_64bit_ireq);
+				}
 				pr_warn("secure app region addr=0x%x size=0x%x",
 							req.addr, req.size);
 			} else {
@@ -5824,7 +6076,7 @@ static int qseecom_probe(struct platform_device *pdev)
 				goto exit_destroy_hw_instance_list;
 			}
 			rc = qseecom_scm_call(SCM_SVC_TZSCHEDULER, 1,
-					&req, sizeof(req),
+					cmd_buf, cmd_len,
 					&resp, sizeof(resp));
 			if (rc || (resp.result != QSEOS_RESULT_SUCCESS)) {
 				pr_err("send secapp reg fail %d resp.res %d\n",
