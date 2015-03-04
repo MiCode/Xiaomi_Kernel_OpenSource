@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -659,10 +659,6 @@
 
 	qcom,msm-adsp-sensors {
 		compatible = "qcom,msm-adsp-sensors";
-		qcom,src-id = <11>;
-		qcom,dst-id = <604>;
-		qcom,ab = <32505856>;
-		qcom,ib = <32505856>;
 	};
 
 	qcom,wdt@f9017000 {
