@@ -214,7 +214,7 @@
 
 #define PNOC_CLK_ID			0x0
 #define SNOC_CLK_ID			0x1
-#define CNOC_CLK_ID			0x2
+#define SYSMMNOC_CLK_ID			0x2
 #define BIMC_CLK_ID			0x0
 #define IPA_CLK_ID			0x0
 

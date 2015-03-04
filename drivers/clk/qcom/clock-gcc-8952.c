@@ -133,6 +133,8 @@ DEFINE_CLK_RPM_SMD_BRANCH(xo_clk_src, xo_a_clk_src, RPM_MISC_CLK_TYPE,
 DEFINE_CLK_RPM_SMD(pnoc_clk, pnoc_a_clk, RPM_BUS_CLK_TYPE, PNOC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_CLK_ID, NULL);
+DEFINE_CLK_RPM_SMD(sysmmnoc_clk, sysmmnoc_a_clk, RPM_BUS_CLK_TYPE,
+						SYSMMNOC_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD(ipa_clk, ipa_a_clk, RPM_IPA_CLK_TYPE, IPA_CLK_ID, NULL);
 DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_CLK_ID);
 
@@ -150,10 +152,12 @@ DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk2_pin, rf_clk2_a_pin, RF_CLK2_ID);
 /* Voter clocks */
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_clk, &snoc_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(sysmmnoc_msmbus_clk,  &sysmmnoc_clk.c,  LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_clk, &bimc_clk.c, LONG_MAX);
 
 static DEFINE_CLK_VOTER(pnoc_msmbus_a_clk, &pnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_msmbus_a_clk, &snoc_a_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(sysmmnoc_msmbus_a_clk,  &sysmmnoc_a_clk.c,  LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_msmbus_a_clk, &bimc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(pnoc_keepalive_a_clk, &pnoc_a_clk.c, LONG_MAX);
 
@@ -1431,34 +1435,6 @@ static struct rcg_clk usb_hs_system_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_gcc_sys_mm_noc_axi_clk[] = {
-	F( 19200000,	xo,	1,	0,	0),
-	F( 50000000,	gpll0,	16,	0,	0),
-	F( 100000000,	gpll0,	8,	0,	0),
-	F( 133330000,	gpll0,	6,	0,	0),
-	F( 160000000,	gpll0,	5,	0,	0),
-	F( 200000000,	gpll0,	4,	0,	0),
-	F( 266670000,	gpll0,	3,	0,	0),
-	F( 320000000,	gpll0,	2.5,	0,	0),
-	F( 400000000,	gpll0,	2,	0,	0),
-	F_END
-};
-
-static struct rcg_clk sys_mm_noc_axi_clk_src = {
-	.cmd_rcgr_reg = SYSTEM_MM_NOC_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_gcc_sys_mm_noc_axi_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "sys_mm_noc_axi_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP3(LOW, 160000000, NOMINAL, 320000000,
-					HIGH, 400000000),
-		CLK_INIT(sys_mm_noc_axi_clk_src.c),
-	},
-};
-
 static struct branch_clk gcc_bimc_gpu_clk = {
 	.cbcr_reg = BIMC_GPU_CBCR,
 	.has_sibling = 1,
@@ -1788,7 +1764,6 @@ static struct branch_clk gcc_camss_cpp_axi_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_cpp_axi_clk",
-		.parent = &sys_mm_noc_axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_cpp_axi_clk.c),
 	},
@@ -2076,7 +2051,6 @@ static struct branch_clk gcc_camss_jpeg_axi_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_jpeg_axi_clk",
-		.parent = &sys_mm_noc_axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_jpeg_axi_clk.c),
 	},
@@ -2230,7 +2204,6 @@ static struct branch_clk gcc_camss_vfe1_axi_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_camss_vfe1_axi_clk",
-		.parent = &sys_mm_noc_axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_camss_vfe1_axi_clk.c),
 	},
@@ -2683,18 +2656,6 @@ static struct local_vote_clk gcc_vfe_tbu_clk = {
 	},
 };
 
-static struct branch_clk gcc_sys_mm_noc_axi_clk = {
-	.cbcr_reg = SYS_MM_NOC_AXI_CBCR,
-	.has_sibling = 1,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_sys_mm_noc_axi_clk",
-		.parent = &sys_mm_noc_axi_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_sys_mm_noc_axi_clk.c),
-	},
-};
-
 static struct branch_clk gcc_usb2a_phy_sleep_clk = {
 	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
 	.has_sibling = 1,
@@ -2877,7 +2838,6 @@ static struct mux_clk gcc_debug_mux = {
 	.base = &virt_bases[GCC_BASE],
 	MUX_SRC_LIST(
 		{ &snoc_clk.c,  0x0000 },
-		{ &gcc_sys_mm_noc_axi_clk.c, 0x0001 },
 		{ &pnoc_clk.c, 0x0008 },
 		{ &bimc_clk.c,  0x0154 },
 		{ &gcc_gp1_clk.c, 0x0010 },
@@ -3014,8 +2974,10 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(xo_wlan_clk),
 	CLK_LIST(xo_pil_lpass_clk),
 
+	CLK_LIST(sysmmnoc_msmbus_clk),
 	CLK_LIST(snoc_msmbus_clk),
 	CLK_LIST(snoc_msmbus_a_clk),
+	CLK_LIST(sysmmnoc_msmbus_a_clk),
 	CLK_LIST(pnoc_msmbus_clk),
 	CLK_LIST(pnoc_msmbus_a_clk),
 	CLK_LIST(bimc_msmbus_clk),
@@ -3033,9 +2995,11 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(qdss_a_clk),
 
 	CLK_LIST(snoc_clk),
+	CLK_LIST(sysmmnoc_clk),
 	CLK_LIST(pnoc_clk),
 	CLK_LIST(bimc_clk),
 	CLK_LIST(snoc_a_clk),
+	CLK_LIST(sysmmnoc_a_clk),
 	CLK_LIST(pnoc_a_clk),
 	CLK_LIST(bimc_a_clk),
 
@@ -3218,7 +3182,6 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_sdcc1_apps_clk),
 	CLK_LIST(gcc_sdcc2_ahb_clk),
 	CLK_LIST(gcc_sdcc2_apps_clk),
-	CLK_LIST(gcc_sys_mm_noc_axi_clk),
 	CLK_LIST(gcc_usb2a_phy_sleep_clk),
 	CLK_LIST(gcc_usb_hs_phy_cfg_ahb_clk),
 	CLK_LIST(gcc_usb_fs_ahb_clk),
