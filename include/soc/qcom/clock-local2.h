@@ -233,6 +233,7 @@ extern struct clk_ops clk_ops_gate;
 extern struct clk_ops clk_ops_rst;
 extern struct clk_mux_ops mux_reg_ops;
 extern struct mux_div_ops rcg_mux_div_ops;
+extern struct clk_div_ops postdiv_reg_ops;
 
 enum handoff pixel_rcg_handoff(struct clk *clk);
 enum handoff byte_rcg_handoff(struct clk *clk);

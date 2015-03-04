@@ -55,6 +55,7 @@ struct clk_freq_tbl rcg_dummy_freq = F_END;
 #define RST_REG(x)	(*(x)->base + (x)->reset_reg)
 #define VOTE_REG(x)	(*(x)->base + (x)->vote_reg)
 #define GATE_EN_REG(x)	(*(x)->base + (x)->en_reg)
+#define DIV_REG(x)	(*(x)->base + (x)->offset)
 
 /*
  * Important clock bit positions and masks
@@ -85,6 +86,11 @@ static struct clk_freq_tbl cxo_f = {
 	.n_val = 0,
 	.d_val = 0,
 	.div_src_val = 0,
+};
+
+struct div_map {
+	u32 mask;
+	int div;
 };
 
 /*
@@ -1454,6 +1460,82 @@ static bool mux_reg_is_enabled(struct mux_clk *clk)
 	return !!(regval & clk->en_mask);
 }
 
+/* PLL post-divider setting for each divider value */
+static struct div_map postdiv_map[] = {
+	{  0x0, 1  },
+	{  0x1, 2  },
+	{  0x3, 4  },
+	{  0x7, 8  },
+	{  0xF, 16 },
+};
+
+static int postdiv_reg_set_div(struct div_clk *clk, int div)
+{
+	struct clk *parent = NULL;
+	u32 regval;
+	unsigned long flags;
+	unsigned int mask = -1;
+	int i, ret = 0;
+
+	/* Divider is not configurable */
+	if (!clk->mask)
+		return 0;
+
+	for (i = 0; i < ARRAY_SIZE(postdiv_map); i++) {
+		if (postdiv_map[i].div == div) {
+			mask = postdiv_map[i].mask;
+			break;
+		}
+	}
+
+	if (mask < 0)
+		return -EINVAL;
+
+	spin_lock_irqsave(&clk->c.lock, flags);
+	parent = clk->c.parent;
+	if (parent->count && parent->ops->disable)
+		parent->ops->disable(parent);
+
+	regval = readl_relaxed(DIV_REG(clk));
+	regval &= ~(clk->mask << clk->shift);
+	regval |= (mask & clk->mask) << clk->shift;
+	writel_relaxed(regval, DIV_REG(clk));
+	/* Ensure switch request goes through before returning */
+	mb();
+
+	if (parent->count && parent->ops->enable) {
+		ret = parent->ops->enable(parent);
+		if (ret)
+			pr_err("Failed to force enable div parent!\n");
+	}
+
+	spin_unlock_irqrestore(&clk->c.lock, flags);
+	return ret;
+}
+
+static int postdiv_reg_get_div(struct div_clk *clk)
+{
+	u32 regval;
+	int i, div = 0;
+
+	/* Divider is not configurable */
+	if (!clk->mask)
+		return clk->data.div;
+
+	regval = readl_relaxed(DIV_REG(clk));
+	regval = (regval >> clk->shift) & clk->mask;
+	for (i = 0; i < ARRAY_SIZE(postdiv_map); i++) {
+		if (postdiv_map[i].mask == regval) {
+			div = postdiv_map[i].div;
+			break;
+		}
+	}
+	if (!div)
+		return -EINVAL;
+
+	return div;
+}
+
 static int div_reg_set_div(struct div_clk *clk, int div)
 {
 	u32 regval;
@@ -1734,6 +1816,11 @@ struct clk_mux_ops mux_reg_ops = {
 struct clk_div_ops div_reg_ops = {
 	.set_div = div_reg_set_div,
 	.get_div = div_reg_get_div,
+};
+
+struct clk_div_ops postdiv_reg_ops = {
+	.set_div = postdiv_reg_set_div,
+	.get_div = postdiv_reg_get_div,
 };
 
 struct mux_div_ops rcg_mux_div_ops = {
