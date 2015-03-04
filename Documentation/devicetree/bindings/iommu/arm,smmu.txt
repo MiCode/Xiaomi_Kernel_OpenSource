@@ -86,6 +86,18 @@ conditions.
                   Thulium v1.  You *must* also set qcom,tz-device-id for
                   this to work.
 
+- qcom,no-mmu-enable : When attaching to this SMMU, program everything as
+                  usual (stream matching table, etc) but leave the SCTLR.M
+                  bit disabled, so that the SMMU doesn't actually perform
+                  translations.  This is needed in cases where the stream
+                  matching table needs to be set up without turning on SMMU
+                  translations (for example, when nested translations are
+                  used with a hypervisor controlling stage-2).  This mode of
+                  operation is described in the ARM SMMU spec as "stage 1
+                  and stage 2 contexts are valid, but the SMMU is not
+                  enabled for stage 1 translation" (Section 2.1: "Overview
+                  of SMMU operation").
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
