@@ -3241,7 +3241,9 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	 * descriptor format is in use, but since a) we don't know that yet,
 	 * and b) it can vary per context bank, this will have to do...
 	 */
-	dma_set_mask_and_coherent(smmu->dev, DMA_BIT_MASK(size));
+	if (dma_set_mask_and_coherent(smmu->dev, DMA_BIT_MASK(size)))
+		dev_warn(smmu->dev,
+			 "failed to set DMA mask for table walker\n");
 
 	if (smmu->version == ARM_SMMU_V1) {
 		smmu->va_size = smmu->ipa_size;
