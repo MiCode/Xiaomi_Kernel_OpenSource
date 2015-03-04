@@ -2754,6 +2754,7 @@
 		qcom,vdd-voltage-level = <0 1000000 1000000>;
 		qcom,vbus-valid-override;
 		qcom,no-pipe-clk-switch;
+		qcom,qmp-misc-config;
 
 		clocks = <&clock_gcc clk_gcc_usb3_phy_aux_clk>,
 			 <&clock_gcc clk_gcc_usb3_phy_pipe_clk>,
