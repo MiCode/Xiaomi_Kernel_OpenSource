@@ -953,40 +953,64 @@ static int create_cpu_topology_sysfs(void)
 static int get_device_tree_cluster_info(struct device *dev, int *cluster_id,
 			cpumask_t *cluster_cpus)
 {
-	int i, cluster_cnt = 0, ret = 0;
+	int idx = 0, ret = 0, max_entry = 0, core_cnt = 0, c_idx = 0, cpu = 0;
 	uint32_t val = 0;
 	char *key = "qcom,synchronous-cluster-map";
+	struct device_node *core_phandle = NULL;
 
-	if (!of_get_property(dev->of_node, key, &cluster_cnt)
-		|| cluster_cnt <= 0) {
+	if (!of_get_property(dev->of_node, key, &max_entry)
+		|| max_entry <= 0) {
 		pr_debug("Property %s not defined.\n", key);
 		return -ENODEV;
 	}
-	if (cluster_cnt % (sizeof(__be32) * 2)) {
-		pr_err("Invalid number(%d) of entry for %s\n",
-				cluster_cnt, key);
-		return -EINVAL;
-	}
-	cluster_cnt /= (sizeof(__be32) * 2);
+	max_entry /= sizeof(__be32);
 
-	for (i = 0; i < cluster_cnt; i++) {
-		ret = of_property_read_u32_index(dev->of_node, key,
-							i * 2, &val);
+	for (idx = 0; idx < max_entry; idx++, c_idx++) {
+		/* Read Cluster ID */
+		ret = of_property_read_u32_index(dev->of_node, key, idx++,
+			&val);
 		if (ret) {
-			pr_err("Error reading index%d\n", i * 2);
+			pr_err("Error reading index%d. err:%d\n", idx - 1,
+				ret);
 			return -EINVAL;
 		}
-		cluster_id[i] = val;
-
-		of_property_read_u32_index(dev->of_node, key, i * 2 + 1, &val);
-		if (ret) {
-			pr_err("Error reading index%d\n", i * 2 + 1);
+		/* Read number of cores inside a cluster */
+		cluster_id[c_idx] = val;
+		cpumask_clear(&cluster_cpus[c_idx]);
+		ret = of_property_read_u32_index(dev->of_node, key, idx,
+			&val);
+		if (ret || val < 1) {
+			pr_err("Invalid core count[%d] for Cluster%d. err:%d\n"
+					, val, cluster_id[c_idx - 1], ret);
 			return -EINVAL;
 		}
-		*cluster_cpus[i].bits = val;
+		core_cnt = val + idx;
+		/* map the cores to logical CPUs and get sibiling mask */
+		for (; core_cnt != idx; core_cnt--) {
+			core_phandle = of_parse_phandle(dev->of_node, key,
+						core_cnt);
+			if (!core_phandle) {
+				pr_debug("Invalid phandle. core%d cluster%d\n",
+					core_cnt, cluster_id[c_idx - 1]);
+				continue;
+			}
+
+			for_each_possible_cpu(cpu) {
+				if (of_get_cpu_node(cpu, NULL)
+					== core_phandle)
+					break;
+			}
+			if (cpu >= num_possible_cpus()) {
+				pr_debug("Skipping core%d in cluster%d\n",
+					core_cnt, cluster_id[c_idx - 1]);
+				continue;
+			}
+			cpumask_set_cpu(cpu, &cluster_cpus[c_idx]);
+		}
+		idx += val;
 	}
 
-	return cluster_cnt;
+	return c_idx;
 }
 
 static int get_kernel_cluster_info(int *cluster_id, cpumask_t *cluster_cpus)
@@ -1009,7 +1033,7 @@ static int get_kernel_cluster_info(int *cluster_id, cpumask_t *cluster_cpus)
 			if (cluster_id[cluster_index] == -1) {
 				cluster_id[cluster_index] =
 					topology_physical_package_id(_cpu);
-				*cluster_cpus[cluster_index].bits = 0;
+				cpumask_clear(&cluster_cpus[cluster_index]);
 				cpumask_set_cpu(_cpu,
 					&cluster_cpus[cluster_index]);
 				cluster_cnt++;
@@ -1031,8 +1055,8 @@ static void update_cpu_topology(struct device *dev)
 {
 	int cluster_id[NR_CPUS] = {[0 ... NR_CPUS-1] = -1};
 	cpumask_t cluster_cpus[NR_CPUS];
-	uint32_t i, j;
-	int cluster_cnt, cpu, sync_cluster_cnt = 0;
+	uint32_t i;
+	int cluster_cnt, sync_cluster_cnt = 0;
 	struct cluster_info *temp_ptr = NULL;
 	int *sync_cluster_id = NULL;
 
@@ -1075,20 +1099,17 @@ static void update_cpu_topology(struct device *dev)
 
 	for (i = 0; i < cluster_cnt; i++) {
 		pr_debug("Cluster_ID:%d CPU's:%lu\n", cluster_id[i],
-				*cluster_cpus[i].bits);
+				*cpumask_bits(&cluster_cpus[i]));
 		temp_ptr[i].cluster_id = cluster_id[i];
 		temp_ptr[i].parent_ptr = core_ptr;
-		temp_ptr[i].cluster_cores = cluster_cpus[i];
+		cpumask_copy(&temp_ptr[i].cluster_cores, &cluster_cpus[i]);
 		temp_ptr[i].limited_max_freq = UINT_MAX;
 		temp_ptr[i].limited_min_freq = 0;
 		temp_ptr[i].freq_idx = 0;
 		temp_ptr[i].freq_idx_low = 0;
 		temp_ptr[i].freq_idx_high = 0;
 		temp_ptr[i].freq_table = NULL;
-		j = 0;
-		for_each_cpu_mask(cpu, cluster_cpus[i])
-			j++;
-		temp_ptr[i].entity_count = j;
+		temp_ptr[i].entity_count = cpumask_weight(&cluster_cpus[i]);
 		temp_ptr[i].child_entity_ptr = NULL;
 		update_cpu_datastructure(&temp_ptr[i], sync_cluster_id,
 				sync_cluster_cnt);

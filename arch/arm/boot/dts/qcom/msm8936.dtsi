@@ -1,0 +1,241 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton64.dtsi"
+#include <dt-bindings/clock/msm-clocks-8936.h>
+#include <dt-bindings/clock/msm-cpu-clocks-8939.h>
+#include "msm8939-common.dtsi"
+#include "msm8936-coresight.dtsi"
+#include "msm8936-cpu.dtsi"
+#include "msm8936-pm.dtsi"
+#include "msm8936-smem.dtsi"
+#include "msm8936-smp2p.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8936";
+	compatible = "qcom,msm8936";
+	qcom,msm-id = <233 0>, <240 0>, <242 0>;
+
+	chosen {
+		bootargs = "boot_cpus=0,1 sched_enable_hmp=1";
+	};
+};
+
+&soc {
+	timer {
+		compatible = "arm,armv7-timer";
+		interrupts = <1 2 0xf008>,
+			     <1 3 0xf008>,
+			     <1 4 0xf008>,
+			     <1 1 0xf008>;
+		clock-frequency = <19200000>;
+	};
+
+	clock_cpu: qcom,cpu-clock-8936@b011050 {
+		compatible = "qcom,cpu-clock-8936";
+		reg = <0xb011050 0x8>,
+			<0xb1d1050 0x8>,
+			<0x5800c 0X8>;
+		reg-names = "apcs-c1-rcg-base",
+				"apcs-cci-rcg-base",
+				"efuse";
+		vdd-c1-supply = <&apc_vreg_corner>;
+		vdd-cci-supply = <&apc_vreg_corner>;
+		clocks = <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a53ss_c1_pll>,
+			 <&clock_gcc clk_gpll0_ao>,
+			 <&clock_gcc clk_a53ss_cci_pll>;
+		clock-names = "clk-c1-4", "clk-c1-5",
+				"clk-cci-4", "clk-cci-5";
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 3>,
+			<  800000000 9>,
+			<  960000000 12>,
+			< 1113600000 14>,
+			< 1344000000 17>;
+
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  200000000 3>,
+			<  300000000 9>,
+			<  400000000 13>,
+			<  600000000 17>;
+
+		qcom,speed2-bin-v0-c1 =
+			<          0 0>,
+			<  400000000 3>,
+			<  800000000 9>,
+			<  960000000 12>,
+			< 1113600000 14>,
+			< 1344000000 17>,
+			< 1497600000 19>,
+			< 1536000000 20>;
+
+		qcom,speed2-bin-v0-cci =
+			<          0 0>,
+			<  200000000 3>,
+			<  300000000 9>,
+			<  400000000 14>,
+			<  600000000 20>;
+		#clock-cells = <1>;
+	};
+
+	cci_cache: qcom,cci {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpu clk_a53ssmux_cci>;
+		governor = "cpufreq";
+		freq-tbl-khz =
+			<  200000 >,
+			<  297600 >,
+			<  400000 >,
+			<  595200 >;
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  1525 /*  100   MHz */ >,
+			<  2526 /*  165.6 MHz */ >,
+			<  3955 /*  259.2 MHz */ >,
+			<  5053 /*  331.2 MHz */ >,
+			<  6079 /*  398.4 MHz */ >;
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+		target-dev = <&cpubw>;
+		cpu-to-dev-map-0 =
+			<  200000  1525 >,
+			<  345600  2526 >,
+			<  400000  2526 >,
+			<  533330  2526 >,
+			<  800000  2526 >,
+			<  960000  5053 >,
+			<  1113600 5053 >,
+			<  1344000 6079 >,
+			<  1497600 6079 >,
+			<  1536000 6079 >;
+		};
+
+		cci-cpufreq {
+		target-dev = <&cci_cache>;
+		cpu-to-dev-map-0 =
+			<  200000  200000 >,
+			<  345600  200000 >,
+			<  400000  200000 >,
+			<  533330  297600 >,
+			<  800000  297600 >,
+			<  960000  400000 >,
+			< 1113600  400000 >,
+			< 1344000  595200 >,
+			< 1497600  595200 >,
+			< 1536000  595200 >;
+		};
+	};
+
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk";
+		clocks = <&clock_cpu clk_a53ssmux_cci>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>;
+
+		qcom,cpufreq-table-0 =
+			 <  200000 >,
+			 <  345600 >,
+			 <  400000 >,
+			 <  533330 >,
+			 <  800000 >,
+                         <  960000 >,
+			 < 1113600 >,
+			 < 1344000 >,
+			 < 1497600 >,
+			 < 1536000 >;
+	};
+
+	cpu-pmu {
+		compatible = "arm,armv8-pmuv3";
+		qcom,irq-is-percpu;
+		interrupts = <1 7 0xf000>;
+	};
+
+	qcom,msm-thermal {
+		qcom,synchronous-cluster-id = <0>;
+		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>;
+	};
+
+	jtag_fuse: jtagfuse@5e01c {
+		compatible = "qcom,jtag-fuse-v2";
+		reg = <0x5e01c 0x8>;
+		reg-names = "fuse-base";
+	};
+
+	jtag_mm0: jtagmm@8fc000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x8fc000 0x1000>,
+		      <0x8f0000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+		         <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU0>;
+	};
+
+	jtag_mm1: jtagmm@8fd000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x8fd000 0x1000>,
+		      <0x8f2000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+		         <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU1>;
+	};
+
+	jtag_mm2: jtagmm@8fe000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x8fe000 0x1000>,
+		      <0x8f4000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+		         <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU2>;
+	};
+
+	jtag_mm3: jtagmm@8ff000 {
+		compatible = "qcom,jtagv8-mm";
+		reg = <0x8ff000 0x1000>,
+		      <0x8f6000 0x1000>;
+		reg-names = "etm-base", "debug-base";
+
+		clocks = <&clock_rpm clk_qdss_clk>,
+		         <&clock_rpm clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+
+		qcom,coresight-jtagmm-cpu = <&CPU3>;
+	};
+};
