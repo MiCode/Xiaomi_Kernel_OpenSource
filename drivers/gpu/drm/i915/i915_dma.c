@@ -1041,6 +1041,9 @@ static int i915_getparam(struct drm_device *dev, void *data,
 	case I915_PARAM_HAS_DPST:
 		value = I915_HAS_DPST(dev);
 		break;
+	case I915_PARAM_HAS_RS:
+		value = I915_HAS_RS(dev);
+		break;
 	case I915_PARAM_MMAP_VERSION:
 		value = 1;
 		break;

@@ -579,6 +579,7 @@ struct i915_rpm {
 	func(has_fbc) sep \
 	func(has_pipe_cxsr) sep \
 	func(has_dpst) sep \
+	func(has_rs) sep \
 	func(has_hotplug) sep \
 	func(cursor_needs_physical) sep \
 	func(has_overlay) sep \
@@ -2418,6 +2419,7 @@ enum context_submission_status {
 #define HAS_FBC(dev) (INTEL_INFO(dev)->has_fbc)
 #define I915_HAS_DPST(dev) (INTEL_INFO(dev)->has_dpst && \
 			    !(i915.enable_intel_adf))
+#define I915_HAS_RS(dev) (INTEL_INFO(dev)->has_rs)
 
 #define HAS_IPS(dev)		(IS_ULT(dev) || IS_BROADWELL(dev))
 
