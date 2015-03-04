@@ -152,6 +152,8 @@ struct msm_vfe_axi_ops {
 
 	void (*cfg_ub)(struct vfe_device *vfe_dev);
 
+	void (*read_wm_ping_pong_addr)(struct vfe_device *vfe_dev);
+
 	void (*update_ping_pong_addr)(struct vfe_device *vfe_dev,
 		uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr);
 

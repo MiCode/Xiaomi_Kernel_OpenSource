@@ -1520,6 +1520,13 @@ static void msm_vfe47_cfg_axi_ub(struct vfe_device *vfe_dev)
 		msm_vfe47_cfg_axi_ub_equal_default(vfe_dev);
 }
 
+static void msm_vfe47_read_wm_ping_pong_addr(
+	struct vfe_device *vfe_dev)
+{
+	msm_camera_io_dump_2(vfe_dev->vfe_base +
+		(VFE47_WM_BASE(0) & 0xFFFFFFF0), 0x100);
+}
+
 static void msm_vfe47_update_ping_pong_addr(
 	struct vfe_device *vfe_dev,
 	uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr)
@@ -2178,6 +2185,8 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.cfg_wm_xbar_reg = msm_vfe47_axi_cfg_wm_xbar_reg,
 			.clear_wm_xbar_reg = msm_vfe47_axi_clear_wm_xbar_reg,
 			.cfg_ub = msm_vfe47_cfg_axi_ub,
+			.read_wm_ping_pong_addr =
+				msm_vfe47_read_wm_ping_pong_addr,
 			.update_ping_pong_addr =
 				msm_vfe47_update_ping_pong_addr,
 			.get_comp_mask = msm_vfe47_get_comp_mask,

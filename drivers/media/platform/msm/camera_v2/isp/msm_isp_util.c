@@ -1578,10 +1578,11 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
 		__LINE__, vfe_dev, vfe_dev->pdev->id);
 
-	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
-
 	error_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
+	msm_isp_print_ping_pong_address(vfe_dev);
+	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
 	msm_isp_send_event(vfe_dev,
 					ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }

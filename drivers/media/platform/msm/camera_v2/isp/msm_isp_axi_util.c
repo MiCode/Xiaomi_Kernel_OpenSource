@@ -1036,6 +1036,42 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 	}
 }
 
+int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev)
+{
+	int i, j;
+	struct msm_isp_buffer *buf = NULL;
+	uint32_t pingpong_bit;
+	struct msm_vfe_axi_stream *stream_info = NULL;
+
+	for (j = 0; j < MAX_NUM_STREAM; j++) {
+		stream_info = &vfe_dev->axi_data.stream_info[j];
+		if (stream_info->state != ACTIVE)
+			continue;
+
+		for (pingpong_bit = 0; pingpong_bit < 2; pingpong_bit++) {
+			for (i = 0; i < stream_info->num_planes; i++) {
+				buf = stream_info->buf[pingpong_bit];
+				if (buf == NULL) {
+					pr_err("%s: buf NULL\n", __func__);
+					continue;
+				}
+				pr_err("%s: stream_id %x ping-pong %d plane %d start_addr %x addr_offset %x len %lx stride %d scanline %d\n",
+					__func__, stream_info->stream_id,
+					pingpong_bit, i,
+					(uint32_t)buf->mapped_info[i].paddr,
+					stream_info->
+						plane_cfg[i].plane_addr_offset,
+					buf->mapped_info[i].len,
+					stream_info->plane_cfg[i].output_stride,
+					stream_info->
+						plane_cfg[i].output_scan_lines);
+			}
+		}
+	}
+
+	return 0;
+}
+
 static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, uint32_t pingpong_status)
 {
