@@ -894,6 +894,27 @@ fail:
 	return ret;
 }
 
+static size_t msm_iommu_map_sg(struct iommu_domain *domain, unsigned long va,
+				struct scatterlist *sg, unsigned int nr_entries,
+				int prot)
+{
+	int ret, i;
+	struct scatterlist *tmp;
+	unsigned long len = 0;
+
+	/*
+	 * Longer term work: convert over to generic page table management
+	 * which means we can work on scattergather lists and the whole range
+	 */
+	for_each_sg(sg, tmp, nr_entries, i)
+		len += tmp->length;
+
+	ret = msm_iommu_map_range(domain, va, sg, len, prot);
+	if (ret)
+		return 0;
+	else
+		return len;
+}
 
 static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
 				 unsigned int len)
@@ -971,6 +992,7 @@ static struct iommu_ops msm_iommu_ops = {
 	.map = msm_iommu_map,
 	.unmap = msm_iommu_unmap,
 	.map_range = msm_iommu_map_range,
+	.map_sg = msm_iommu_map_sg,
 	.unmap_range = msm_iommu_unmap_range,
 	.iova_to_phys = msm_iommu_iova_to_phys,
 	.domain_has_cap = msm_iommu_domain_has_cap,
