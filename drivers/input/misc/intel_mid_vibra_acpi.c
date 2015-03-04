@@ -83,8 +83,7 @@ static int vibra_pwm_configure(struct vibra_info *info, bool enable)
 		chip->ops->enable(chip,  pwm);
 	} else {
 		pr_info("%s: disable  vibra device\n", __func__);
-		chip->ops->config(chip,  pwm,  DUTY_NS_OFF,  PERIOD_NS);
-		chip->ops->enable(chip,  pwm);
+		chip->ops->disable(chip,  pwm);
 	}
 	return 0;
 }
