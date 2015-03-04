@@ -167,6 +167,7 @@ static struct msm_bus_scale_pdata msm_cpp_bus_scale_data = {
 struct msm_cpp_timer_data_t {
 	struct cpp_device *cpp_dev;
 	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
+	spinlock_t processed_frame_lock;
 };
 
 struct msm_cpp_timer_t {
@@ -306,7 +307,7 @@ static int get_clock_index(const char *clk_name)
 
 
 static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
-	uint8_t put_buf, uint8_t modify_timer);
+	uint8_t put_buf);
 static void cpp_load_fw(struct cpp_device *cpp_dev, char *fw_name_bin);
 static void cpp_timer_callback(unsigned long data);
 
@@ -334,15 +335,22 @@ static void msm_cpp_clear_timer(struct cpp_device *cpp_dev)
 static void msm_cpp_timer_queue_update(struct cpp_device *cpp_dev)
 {
 	uint32_t i;
+	unsigned long flags;
 	CPP_DBG("Frame done qlen %d\n", cpp_dev->processing_q.len);
 	if (cpp_dev->processing_q.len <= 1) {
 		msm_cpp_clear_timer(cpp_dev);
 	} else {
+		spin_lock_irqsave(&cpp_timer.data.processed_frame_lock, flags);
 		for (i = 0; i < cpp_dev->processing_q.len - 1; i++)
 			cpp_timer.data.processed_frame[i] =
 				cpp_timer.data.processed_frame[i + 1];
 		cpp_timer.data.processed_frame[i] = NULL;
 		cpp_dev->timeout_trial_cnt = 0;
+		spin_unlock_irqrestore(&cpp_timer.data.processed_frame_lock,
+			flags);
+
+		mod_timer(&cpp_timer.cpp_timer,
+			jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
 	}
 }
 
@@ -819,15 +827,13 @@ void msm_cpp_do_tasklet(unsigned long data)
 					/* delete CPP timer */
 					CPP_DBG("delete timer.\n");
 					msm_cpp_timer_queue_update(cpp_dev);
-					msm_cpp_notify_frame_done(cpp_dev,
-						0, 1);
+					msm_cpp_notify_frame_done(cpp_dev, 0);
 				} else if (msg_id ==
 					MSM_CPP_MSG_ID_FRAME_NACK) {
 					pr_err("NACK error from hw!!\n");
 					CPP_DBG("delete timer.\n");
 					msm_cpp_timer_queue_update(cpp_dev);
-					msm_cpp_notify_frame_done(cpp_dev,
-						0, 1);
+					msm_cpp_notify_frame_done(cpp_dev, 0);
 				}
 				i += cmd_len + 2;
 			}
@@ -1437,7 +1443,7 @@ static int msm_cpp_buffer_ops(struct cpp_device *cpp_dev,
 }
 
 static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
-	uint8_t put_buf, uint8_t modify_timer)
+	uint8_t put_buf)
 {
 	struct v4l2_event v4l2_evt;
 	struct msm_queue_cmd *frame_qcmd = NULL;
@@ -1535,13 +1541,6 @@ NOTIFY_FRAME_DONE:
 		v4l2_evt.id = processed_frame->inst_id;
 		v4l2_evt.type = V4L2_EVENT_CPP_FRAME_DONE;
 		v4l2_event_queue(cpp_dev->msm_sd.sd.devnode, &v4l2_evt);
-
-		if (modify_timer && (queue->len > 0)) {
-			rc = mod_timer(&cpp_timer.cpp_timer,
-				jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
-			if (rc < 0)
-				CPP_DBG("Timer has not expired yet\n");
-		}
 	}
 	return rc;
 }
@@ -1621,7 +1620,7 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		msm_cpp_dump_frame_cmd(cpp_timer.data.processed_frame[i]);
 
 	while (queue_len) {
-		msm_cpp_notify_frame_done(cpp_timer.data.cpp_dev, 1, 0);
+		msm_cpp_notify_frame_done(cpp_timer.data.cpp_dev, 1);
 		queue_len--;
 	}
 	atomic_set(&cpp_timer.used, 0);
@@ -1645,22 +1644,27 @@ void cpp_timer_callback(unsigned long data)
 static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 	struct msm_queue_cmd *frame_qcmd)
 {
+	unsigned long flags;
 	uint32_t i, i1, i2;
 	int32_t rc = -EAGAIN;
 	int ret;
 	struct msm_cpp_frame_info_t *process_frame;
+	uint32_t queue_len = 0;
 
 	if (cpp_dev->processing_q.len < MAX_CPP_PROCESSING_FRAME) {
 		process_frame = frame_qcmd->command;
 		msm_cpp_dump_frame_cmd(process_frame);
+		spin_lock_irqsave(&cpp_timer.data.processed_frame_lock, flags);
 		msm_enqueue(&cpp_dev->processing_q,
 			&frame_qcmd->list_frame);
 		cpp_timer.data.processed_frame[cpp_dev->processing_q.len - 1] =
 			process_frame;
-		if (cpp_dev->processing_q.len == 1) {
+		queue_len = cpp_dev->processing_q.len;
+		spin_unlock_irqrestore(&cpp_timer.data.processed_frame_lock,
+			flags);
+		if (queue_len == 1) {
 			atomic_set(&cpp_timer.used, 1);
 			/* install timer for cpp timeout */
-			init_timer(&cpp_timer.cpp_timer);
 			CPP_DBG("Installing cpp_timer\n");
 			setup_timer(&cpp_timer.cpp_timer,
 				cpp_timer_callback, (unsigned long)&cpp_timer);
@@ -3223,6 +3227,7 @@ static int cpp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, &cpp_dev->msm_sd.sd);
 	mutex_init(&cpp_dev->mutex);
 	spin_lock_init(&cpp_dev->tasklet_lock);
+	spin_lock_init(&cpp_timer.data.processed_frame_lock);
 
 	if (pdev->dev.of_node)
 		of_property_read_u32((&pdev->dev)->of_node,
