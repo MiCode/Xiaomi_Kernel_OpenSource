@@ -978,11 +978,20 @@ static void arm_smmu_flush_pgtable(struct arm_smmu_domain *smmu_domain,
 		 * recursion here as the SMMU table walker will not be wired
 		 * through another SMMU.
 		 */
-		if (smmu)
-			dma_map_page(smmu->dev, virt_to_page(addr),
-				offset, size, DMA_TO_DEVICE);
-		else
+		if (smmu) {
+			dma_addr_t handle =
+				dma_map_page(smmu->dev, virt_to_page(addr),
+					offset, size, DMA_TO_DEVICE);
+			if (handle == DMA_ERROR_CODE)
+				dev_err(smmu->dev,
+					"Couldn't flush page tables at %p!\n",
+					addr);
+			else
+				dma_unmap_page(smmu->dev, handle, size,
+					DMA_TO_DEVICE);
+		} else {
 			dmac_clean_range(addr, addr + size);
+		}
 	}
 }
 
