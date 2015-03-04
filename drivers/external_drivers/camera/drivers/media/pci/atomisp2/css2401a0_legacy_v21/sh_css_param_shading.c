@@ -19,6 +19,7 @@
 #include "sh_css_defs.h"
 #include "sh_css_internal.h"
 #include "ia_css_debug.h"
+#include "ia_css_pipe_binarydesc.h"
 
 #include "sh_css_hrt.h"
 
@@ -70,7 +71,8 @@ static void
 crop_and_interpolate(unsigned int cropped_width,
 		     unsigned int cropped_height,
 		     unsigned int left_padding,
-		     unsigned int right_padding,
+		     int right_padding,
+		     int top_padding,
 		     const struct ia_css_shading_table *in_table,
 		     struct ia_css_shading_table *out_table,
 		     enum ia_css_sc_color color)
@@ -104,29 +106,31 @@ crop_and_interpolate(unsigned int cropped_width,
 	out_cell_size = CEIL_DIV(padded_width, out_table->width - 1);
 	in_cell_size  = CEIL_DIV(sensor_width, table_width - 1);
 
-	out_start_col = (sensor_width - cropped_width)/2 - left_padding;
-	out_start_row = (sensor_height - cropped_height)/2;
+	out_start_col = ((int)sensor_width - (int)cropped_width)/2 - left_padding;
+	out_start_row = ((int)sensor_height - (int)cropped_height)/2 - top_padding;
 	table_cell_w = (int)((table_width-1) * in_cell_size);
 	table_cell_h = (table_height-1) * in_cell_size;
 
 	for (i = 0; i < out_table->height; i++) {
-		unsigned int ty, src_y0, src_y1, sy0, sy1, dy0, dy1, divy;
+		int ty, src_y0, src_y1;
+		unsigned int sy0, sy1, dy0, dy1, divy;
 
 		/* calculate target point and make sure it falls within
 		   the table */
 		ty = out_start_row + i * out_cell_size;
-		ty = min(ty, sensor_height-1);
-		ty = min(ty, table_cell_h);
 
 		/* calculate closest source points in shading table and
 		   make sure they fall within the table */
-		src_y0 = ty / in_cell_size;
+		src_y0 = ty / (int)in_cell_size;
 		if (in_cell_size < out_cell_size)
 			src_y1 = (ty + out_cell_size) / in_cell_size;
 		else
 			src_y1 = src_y0 + 1;
-		src_y0 = min(src_y0, table_height-1);
-		src_y1 = min(src_y1, table_height-1);
+		src_y0 = clamp(src_y0, 0, (int)table_height-1);
+		src_y1 = clamp(src_y1, 0, (int)table_height-1);
+		ty = min(clamp(ty, 0, (int)sensor_height-1),
+				 (int)table_cell_h);
+
 		/* calculate closest source points for distance computation */
 		sy0 = min(src_y0 * in_cell_size, sensor_height-1);
 		sy1 = min(src_y1 * in_cell_size, sensor_height-1);
@@ -221,15 +225,21 @@ void
 prepare_shading_table(const struct ia_css_shading_table *in_table,
 		      unsigned int sensor_binning,
 		      struct ia_css_shading_table **target_table,
-		      const struct ia_css_binary *binary)
+		      const struct ia_css_binary *binary,
+		      unsigned int bds_factor)
 {
 	unsigned int input_width,
 		     input_height,
 		     table_width,
 		     table_height,
 		     left_padding,
-		     right_padding,
+		     top_padding,
+		     padded_width,
+		     left_cropping,
 		     i;
+	unsigned int bds_numerator, bds_denominator;
+	int right_padding;
+
 	struct ia_css_shading_table *result;
 
 	assert(target_table != NULL);
@@ -240,14 +250,26 @@ prepare_shading_table(const struct ia_css_shading_table *in_table,
 		return;
 	}
 
+	padded_width = binary->in_frame_info.padded_width;
 	/* We use the ISP input resolution for the shading table because
 	   shading correction is performed in the bayer domain (before bayer
 	   down scaling). */
+#if defined(USE_INPUT_SYSTEM_VERSION_2401)
+	padded_width = CEIL_MUL(binary->effective_in_frame_res.width + 2*ISP_VEC_NELEMS,
+					2*ISP_VEC_NELEMS);
+#endif
 	input_height  = binary->in_frame_info.res.height;
 	input_width   = binary->in_frame_info.res.width;
 	left_padding  = binary->left_padding;
-	right_padding = binary->in_frame_info.padded_width -
-			(input_width + left_padding);
+	left_cropping = (binary->info->sp.pipeline.left_cropping == 0) ?
+			binary->dvs_envelope.width : 2*ISP_VEC_NELEMS;
+
+	sh_css_bds_factor_get_numerator_denominator
+		(bds_factor, &bds_numerator, &bds_denominator);
+
+	left_padding  = (left_padding + binary->info->sp.pipeline.left_cropping) * bds_numerator / bds_denominator - binary->info->sp.pipeline.left_cropping;
+	right_padding = (binary->internal_frame_info.res.width - binary->effective_in_frame_res.width * bds_denominator / bds_numerator - left_cropping) * bds_numerator / bds_denominator;
+	top_padding = binary->info->sp.pipeline.top_cropping * bds_numerator / bds_denominator - binary->info->sp.pipeline.top_cropping;
 
 	/* We take into account the binning done by the sensor. We do this
 	   by cropping the non-binned part of the shading table and then
@@ -259,6 +281,7 @@ prepare_shading_table(const struct ia_css_shading_table *in_table,
 	   shading table. */
 	left_padding  <<= sensor_binning;
 	right_padding <<= sensor_binning;
+	top_padding   <<= sensor_binning;
 
 	/* during simulation, the used resolution can exceed the sensor
 	   resolution, so we clip it. */
@@ -281,7 +304,7 @@ prepare_shading_table(const struct ia_css_shading_table *in_table,
 	   requested resolution and decimation factor. */
 	for (i = 0; i < IA_CSS_SC_NUM_COLORS; i++) {
 		crop_and_interpolate(input_width, input_height,
-				     left_padding, right_padding,
+				     left_padding, right_padding, top_padding,
 				     in_table,
 				     result, i);
 	}

@@ -34,7 +34,9 @@ const struct ia_css_xnr3_config default_xnr3_config = {
 	/* sigma */
 	{ 0, 0, 0, 0, 0, 0 },
 	/* coring */
-	{ 0, 0, 0, 0 }
+	{ 0, 0, 0, 0 },
+	/* blending */
+	{ 0 }
 };
 
 /*

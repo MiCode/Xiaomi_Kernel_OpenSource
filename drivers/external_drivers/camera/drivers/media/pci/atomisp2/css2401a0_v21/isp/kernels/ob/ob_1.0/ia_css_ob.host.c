@@ -105,7 +105,7 @@ ia_css_ob_vmem_encode(
 		unsigned sp_obarea_length_bq = ob->area_length_bq;
 		unsigned low = sp_obarea_start_bq;
 		unsigned high = low + sp_obarea_length_bq;
-		unsigned all_ones = ~0U;
+		uint16_t all_ones = ~0;
 
 		for (i = 0; i < OBAREA_MASK_SIZE; i++) {
 			if (i >= low && i < high)

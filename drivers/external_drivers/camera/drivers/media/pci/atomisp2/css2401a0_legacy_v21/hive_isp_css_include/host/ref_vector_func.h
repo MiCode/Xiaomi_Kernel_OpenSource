@@ -1,27 +1,16 @@
 /*
- * INTEL CONFIDENTIAL
+ * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
- * All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * The source code contained or described herein and all documents
- * related to the source code ("Material") are owned by Intel Corporation
- * or licensors. Title to the Material remains with Intel
- * Corporation or its licensors. The Material contains trade
- * secrets and proprietary and confidential information of Intel or its
- * licensors. The Material is protected by worldwide copyright
- * and trade secret laws and treaty provisions. No part of the Material may
- * be used, copied, reproduced, modified, published, uploaded, posted,
- * transmitted, distributed, or disclosed in any way without Intel's prior
- * express written permission.
- *
- * No License under any patent, copyright, trade secret or other intellectual
- * property right is granted to or conferred upon you by disclosure or
- * delivery of the Materials, either expressly, by implication, inducement,
- * estoppel or otherwise. Any license under such intellectual property rights
- * must be express and approved by Intel in writing.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
-
 
 #ifndef _REF_VECTOR_FUNC_H_INCLUDED_
 #define _REF_VECTOR_FUNC_H_INCLUDED_
@@ -173,6 +162,25 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H  tvector1w OP_1w_XCU(
 	xcu_ref_init_vectors init_vectors);
 
 
+/** @brief LXCU
+ *
+ * @param[in] x 		input
+ * @param[in] init_vectors 	LUT data structure
+ *
+ * @return   logarithmic piecewise linear estimated output.
+ * This block gets an input x and a set of input configuration points stored in a look-up
+ * table of 32 elements. It computes the interval in which the input lies.
+ * Then output is computed by performing linear interpolation based on the interval
+ * properties (i.e. x_prev, slope, * and offset).
+ * This BBB assumes spacing x-coordinates of "init vectors" increase exponentially as
+ * shown below.
+ * interval size :   2^0    2^1      2^2    2^3
+ * x-coordinates: x0<--->x1<---->x2<---->x3<---->
+ **/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_LXCU(
+	tvector1w x,
+	xcu_ref_init_vectors init_vectors);
+
 /** @brief Coring
  *
  * @param[in] coring_vec   Amount of coring based on brightness level
@@ -288,7 +296,7 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x3m_6dB_nrm_ph3 (
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x3m_6dB_nrm_calc_coeff (
 	const s_1w_1x3_matrix		m, tscalar1w_3bit coeff);
 
-/** @brief 3 tab FIR with coefficients [1,1,1]
+/** @brief 3 tap FIR with coefficients [1,1,1]
  *
  * @param[in] m	1x3 matrix with pixels
  *
@@ -472,15 +480,15 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x9m_box (
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w fir1x11m_box (
 	s_1w_1x11_matrix m);
 
-/** @brief Symmetric 7 tab filter with normalization
+/** @brief Symmetric 7 tap filter with normalization
  *
  *  @param[in] in 1x7 matrix with pixels
  *  @param[in] coeff 1x4 matrix with coefficients
  *  @param[in] out_shift output pixel shift value for normalization
  *
- *  @return symmetric 7 tab filter output
+ *  @return symmetric 7 tap filter output
  *
- * This function performs symmetric 7 tab filter over input pixels.
+ * This function performs symmetric 7 tap filter over input pixels.
  * Filter sum is normalized by shifting out_shift bits.
  * Filter sum: p0*c3 + p1*c2 + p2*c1 + p3*c0 + p4*c1 + p5*c2 + p6*c3
  * is implemented as: (p0 + p6)*c3 + (p1 + p5)*c2 + (p2 + p4)*c1 + p3*c0 to
@@ -493,23 +501,48 @@ fir1x7m_sym_nrm(s_1w_1x7_matrix in,
 		s_1w_1x4_matrix coeff,
 		tvector1w out_shift);
 
-/** @brief approximation for Symmetric 4 tap filter(-1,9,9,-1) with normalization
+/** @brief Symmetric 7 tap filter with normalization at input side
  *
- *  @param[in] in 1x4 matrix with pixels
+ *  @param[in] in 1x7 matrix with pixels
+ *  @param[in] coeff 1x4 matrix with coefficients
  *
- *  @return 4 tap filter output
+ *  @return symmetric 7 tap filter output
  *
- * this function is used by xnr4 upscale2
- *
- * This function performs 4 tap filter over input pixels.
- * Filter sum is normalized by shifting out_shift bits.
- * Filter sum: p0*c0 + p1*c1 + p2*c2 + p3*c3
- * The coeeficients are -1, 9, 9, -1 with shift of 4
- * The below implementation is the approximation that consumes less cycles.
- *
+ * This function performs symmetric 7 tap filter over input pixels.
+ * Filter sum: p0*c3 + p1*c2 + p2*c1 + p3*c0 + p4*c1 + p5*c2 + p6*c3
+ *          = (p0 + p6)*c3 + (p1 + p5)*c2 + (p2 + p4)*c1 + p3*c0
+ * Input pixels and coefficients are in Qn format, where n =
+ * ISP_VEC_ELEMBITS - 1 (ie Q15 for Broxton)
+ * To avoid double precision arithmetic input pixel sum and final sum is
+ * implemented using avgrnd and coefficient multiplication using qrmul.
+ * Final result is in Qm format where m = ISP_VEC_ELEMBITS - 2 (ie Q14 for
+ * Broxton)
 */
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
-fir1x4m_sym_nrm_minus1_9_9_minus1_appr(s_1w_1x4_matrix in);
+fir1x7m_sym_innrm_approx(s_1w_1x7_matrix in,
+			 s_1w_1x4_matrix coeff);
+
+/** @brief Symmetric 7 tap filter with normalization at output side
+ *
+ *  @param[in] in 1x7 matrix with pixels
+ *  @param[in] coeff 1x4 matrix with coefficients
+ *
+ *  @return symmetric 7 tap filter output
+ *
+ * This function performs symmetric 7 tap filter over input pixels.
+ * Filter sum: p0*c3 + p1*c2 + p2*c1 + p3*c0 + p4*c1 + p5*c2 + p6*c3
+ *          = (p0 + p6)*c3 + (p1 + p5)*c2 + (p2 + p4)*c1 + p3*c0
+ * Input pixels are in Qn and coefficients are in Qm format, where n =
+ * ISP_VEC_ELEMBITS - 2 and m = ISP_VEC_ELEMBITS - 1 (ie Q14 and Q15
+ * respectively for Broxton)
+ * To avoid double precision arithmetic input pixel sum and final sum is
+ * implemented using addsat and coefficient multiplication using qrmul.
+ * Final sum is left shifted by 2 and saturated to produce result is Qm format
+ * (ie Q15 for Broxton)
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+fir1x7m_sym_outnrm_approx(s_1w_1x7_matrix in,
+			 s_1w_1x4_matrix coeff);
 
 /** @brief 4 tap filter with normalization
  *
@@ -528,15 +561,53 @@ fir1x4m_nrm(s_1w_1x4_matrix in,
 		s_1w_1x4_matrix coeff,
 		tvector1w out_shift);
 
-/** @brief Symmetric 3 tab filter with normalization
+/** @brief 4 tap filter with normalization for half pixel interpolation
+ *
+ *  @param[in] in 1x4 matrix with pixels
+ *
+ *  @return 4 tap filter output with filter tap [-1 9 9 -1]/16
+ *
+ * This function performs 4 tap filter over input pixels.
+ * Filter sum: -p0 + 9*p1 + 9*p2 - p3
+ * This filter implementation is completely free from multiplication and double
+ * precision arithmetic.
+ * Typical usage of this filter is to half pixel interpolation of Bezier
+ * surface
+ * */
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+fir1x4m_bicubic_bezier_half(s_1w_1x4_matrix in);
+
+/** @brief 4 tap filter with normalization for quarter pixel interpolation
+ *
+ *  @param[in] in 1x4 matrix with pixels
+ *  @param[in] coeff 1x4 matrix with coefficients
+ *
+ *  @return 4 tap filter output
+ *
+ * This function performs 4 tap filter over input pixels.
+ * Filter sum: p0*c0 + p1*c1 + p2*c2 + p3*c3
+ * To avoid double precision arithmetic we implemented multiplication using
+ * qrmul and addition using avgrnd. Coefficients( c0 to c3) formats are assumed
+ * to be: Qm, Qn, Qo, Qm, where m = n + 2 and o = n + 1.
+ * Typical usage of this filter is to quarter pixel interpolation of Bezier
+ * surface with filter coefficients:[-9 111 29 -3]/128. For which coefficient
+ * values should be: [-9216/2^17  28416/2^15  1484/2^16 -3072/2^17] for
+ * ISP_VEC_ELEMBITS = 16.
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+fir1x4m_bicubic_bezier_quarter(s_1w_1x4_matrix in,
+			s_1w_1x4_matrix coeff);
+
+
+/** @brief Symmetric 3 tap filter with normalization
  *
  *  @param[in] in 1x3 matrix with pixels
  *  @param[in] coeff 1x2 matrix with coefficients
  *  @param[in] out_shift output pixel shift value for normalization
  *
- *  @return symmetric 3 tab filter output
+ *  @return symmetric 3 tap filter output
  *
- * This function performs symmetric 3 tab filter input pixels.
+ * This function performs symmetric 3 tap filter input pixels.
  * Filter sum is normalized by shifting out_shift bits.
  * Filter sum: p0*c1 + p1*c0 + p2*c1
  * is implemented as: (p0 + p2)*c1 + p1*c0 to reduce multiplication.
@@ -548,30 +619,25 @@ fir1x3m_sym_nrm(s_1w_1x3_matrix in,
 		s_1w_1x2_matrix coeff,
 		tvector1w out_shift);
 
-/** @brief Absolute gradient between two sets of 1x5 yuv matrices
+/** @brief Symmetric 3 tap filter with normalization
  *
- *  @param[in] in0_y	1x5 matrix with y components of the first set of pixels
- *  @param[in] in0_u	1x5 matrix with u components of the first set of pixels
- *  @param[in] in0_v	1x5 matrix with v components of the first set of pixels
- *  @param[in] in1_y	1x5 matrix with y components of the second set of pixels
- *  @param[in] in1_u	1x5 matrix with u components of the second set of pixels
- *  @param[in] in1_v	1x5 matrix with v components of the second set of pixels
+ *  @param[in] in 1x3 matrix with pixels
+ *  @param[in] coeff 1x2 matrix with coefficients
  *
- *  @return absolute gradient
+ *  @return symmetric 3 tap filter output
  *
- * This function finds the absolute gradient between two sets of 1x5 YUV
- * vectors, that is basically |(Y1+U1+V1) - (Y2+U2+V2)|. Since addition
- * and subtraction operations could overflow, "avgrnd" is used instead of
- * "add" and "subhalfrnd" is used instead of "sub". Thus, all intermediate
- * results are rounded.
- */
+ * This function performs symmetric 3 tap filter over input pixels.
+ * Filter sum: p0*c1 + p1*c0 + p2*c1 = (p0 + p2)*c1 + p1*c0
+ * Input pixels are in Qn and coefficient c0 is in Qm and c1 is in Qn format,
+ * where n = ISP_VEC_ELEMBITS - 1 and m = ISP_VEC_ELEMBITS - 2 ( ie Q15 and Q14
+ * respectively for Broxton)
+ * To avoid double precision arithmetic input pixel sum is implemented using
+ * avgrnd, coefficient multiplication using qrmul and final sum using addsat
+ * Final sum is Qm format (ie Q14 for Broxton)
+*/
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
-gradabs1x5_yuv(s_1w_1x5_matrix in0_y,
-	    s_1w_1x5_matrix in0_u,
-	    s_1w_1x5_matrix in0_v,
-	    s_1w_1x5_matrix in1_y,
-	    s_1w_1x5_matrix in1_u,
-	    s_1w_1x5_matrix in1_v);
+fir1x3m_sym_nrm_approx(s_1w_1x3_matrix in,
+		       s_1w_1x2_matrix coeff);
 
 /** @brief Mean of 1x3 matrix
  *
@@ -630,6 +696,17 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w mean4x4m(
 */
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w mean2x3m(
 	s_1w_2x3_matrix m);
+
+/** @brief Mean of 1x5 matrix
+ *
+ *  @param[in] m 1x5 matrix with pixels
+ *
+ *  @return mean of 1x5 matrix
+ *
+ * This function calculates the mean of 1x5 matrix with pixels
+ * with a factor of 8/5.
+*/
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w mean1x5m(s_1w_1x5_matrix m);
 
 /** @brief Mean of 1x6 matrix
  *
@@ -742,6 +819,19 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w sad3x3m(
 STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w sad5x5m(
 	s_1w_5x5_matrix a,
 	s_1w_5x5_matrix b);
+
+/** @brief Absolute gradient between two sets of 1x5 matrices
+ *
+ *  @param[in] m0 first set of 1x5 matrix with pixels
+ *  @param[in] m1 second set of 1x5 matrix with pixels
+ *
+ *  @return absolute gradient between two 1x5 matrices
+ *
+ * This function computes mean of two input 1x5 matrices and returns
+ * absolute difference between two mean values.
+ */
+STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w
+absgrad1x5m(s_1w_1x5_matrix m0, s_1w_1x5_matrix m1);
 
 /** @brief Bi-linear Interpolation optimized(approximate)
  *
@@ -927,10 +1017,10 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H bma_output_14_2 OP_1w_asp_bma_14_2_32way(
  * @param[in] central_pix - central pixel plane
  * @param[in] src_plane - src pixel plane
  *
- * @return   Bilateral filter output pixel
+ * @return   Bilateral filter output
  *
  * This function implements, 7x7 single bilateral filter.
- * Output = sum(pixel * weight) / sum(weight)
+ * Output = {sum(pixel * weight), sum(weight)}
  * Where sum is summation over 7x7 block set.
  * weight = spatial weight * range weight
  * spatial weights are loaded from spatial_weight_lut depending on src pixel
@@ -942,7 +1032,7 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H bma_output_14_2 OP_1w_asp_bma_14_2_32way(
  * Piecewise linear approximation technique is used to compute range weight
  * It computes absolute difference between central pixel and 61 src pixels.
  */
-STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_single_bfa_7x7(
+STORAGE_CLASS_REF_VECTOR_FUNC_H bfa_7x7_output OP_1w_single_bfa_7x7(
 	bfa_weights weights,
 	tvector1w threshold,
 	tvector1w central_pix,
@@ -958,10 +1048,10 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_single_bfa_7x7(
  * @param[in] central_pix1 - 2nd central pixel plane
  * @param[in] src1_plane - 2nd pixel plane
  *
- * @return   Joint bilateral filter output pixel
+ * @return   Joint bilateral filter output
  *
  * This function implements, 7x7 joint bilateral filter.
- * Output = sum(pixel * weight) / sum(weight)
+ * Output = {sum(pixel * weight), sum(weight)}
  * Where sum is summation over 7x7 block set.
  * weight = spatial weight * range weight
  * spatial weights are loaded from spatial_weight_lut depending on src pixel
@@ -973,7 +1063,7 @@ STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_single_bfa_7x7(
  * Piecewise linear approximation technique is used to compute range weight
  * It computes absolute difference between central pixel and 61 src pixels.
  */
-STORAGE_CLASS_REF_VECTOR_FUNC_H tvector1w OP_1w_joint_bfa_7x7(
+STORAGE_CLASS_REF_VECTOR_FUNC_H bfa_7x7_output OP_1w_joint_bfa_7x7(
 	bfa_weights weights,
 	tvector1w threshold0,
 	tvector1w central_pix0,

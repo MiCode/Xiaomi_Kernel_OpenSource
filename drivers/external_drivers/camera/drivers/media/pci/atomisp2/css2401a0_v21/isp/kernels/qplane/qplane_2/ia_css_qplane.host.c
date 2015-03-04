@@ -23,6 +23,10 @@
 
 #include "ia_css_qplane.host.h"
 
+static const struct ia_css_qplane_configuration default_config = {
+	.pipe = (struct sh_css_sp_pipeline *)NULL,
+};
+
 void
 ia_css_qplane_config(
 	struct sh_css_isp_qplane_isp_config *to,
@@ -38,7 +42,7 @@ ia_css_qplane_config(
 	/* Assume divisiblity here, may need to generalize to fixed point. */
 	assert (elems_a % to->port_b.elems == 0);
 
-	to->inout_port_config       = from->pipe->inout_port_config;
+	to->inout_port_config = from->pipe->inout_port_config;
 	to->format = from->info->format;
 }
 
@@ -48,7 +52,10 @@ ia_css_qplane_configure(
 	const struct ia_css_binary      *binary,
 	const struct ia_css_frame_info  *info)
 {
-	const struct ia_css_qplane_configuration config =
-		{ pipe, info };
+	struct ia_css_qplane_configuration config = default_config;
+
+	config.pipe = pipe;
+	config.info = info;
+
 	ia_css_configure_qplane(binary, &config);
 }

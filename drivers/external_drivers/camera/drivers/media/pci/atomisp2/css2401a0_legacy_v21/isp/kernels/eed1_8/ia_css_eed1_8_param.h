@@ -39,21 +39,19 @@
 /* Define size of the state..... TODO: check if this is the correct place */
 /* 4 planes : GR, R, B, GB */
 #define NUM_PLANES	4
-/* 6 lines state per color plane input_line_state */
-#define EED1_8_STATE_INPUT_BUFFER_HEIGHT	(5 * NUM_PLANES)
 
-/* ToDo: Move this to testsetup */
-#define MAX_FRAME_SIMDWIDTH	30
+/* 5 lines state per color plane input_line_state */
+#define EED1_8_STATE_INPUT_BUFFER_HEIGHT	(5 * NUM_PLANES)
 
 /* Each plane has width equal to half frame line */
 #define EED1_8_STATE_INPUT_BUFFER_WIDTH	CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 2 lines state per color plane LD_H state */
-#define EED1_8_STATE_LD_H_HEIGHT	(2 * NUM_PLANES)
+/* 1 line state per color plane LD_H state */
+#define EED1_8_STATE_LD_H_HEIGHT	(1 * NUM_PLANES)
 #define EED1_8_STATE_LD_H_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 2 lines state per color plane LD_V state */
-#define EED1_8_STATE_LD_V_HEIGHT	(2 * NUM_PLANES)
+/* 1 line state per color plane LD_V state */
+#define EED1_8_STATE_LD_V_HEIGHT	(1 * NUM_PLANES)
 #define EED1_8_STATE_LD_V_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
 /* 1 line (single plane) state for D_Hr state */
@@ -72,7 +70,7 @@
 #define EED1_8_STATE_D_VB_HEIGHT	2
 #define EED1_8_STATE_D_VB_WIDTH		CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
-/* 3 lines state for R and B (= 2 planes) rb_zipped_state */
+/* 2 lines state for R and B (= 2 planes) rb_zipped_state */
 #define EED1_8_STATE_RB_ZIPPED_HEIGHT	(2 * 2)
 #define EED1_8_STATE_RB_ZIPPED_WIDTH	CEIL_DIV(MAX_FRAME_SIMDWIDTH, 2)
 
@@ -95,9 +93,10 @@
 #endif
 
 struct eed1_8_vmem_params {
-	VMEM_ARRAY(e_cuedge_x, ISP_VEC_NELEMS);
-	VMEM_ARRAY(e_cuedge_a, ISP_VEC_NELEMS);
-	VMEM_ARRAY(e_cuedge_b, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_dew_enh_x, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_dew_enh_y, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_dew_enh_a, ISP_VEC_NELEMS);
+	VMEM_ARRAY(e_dew_enh_f, ISP_VEC_NELEMS);
 	VMEM_ARRAY(chgrinv_x, ISP_VEC_NELEMS);
 	VMEM_ARRAY(chgrinv_a, ISP_VEC_NELEMS);
 	VMEM_ARRAY(chgrinv_b, ISP_VEC_NELEMS);
@@ -148,8 +147,7 @@ struct eed1_8_dmem_params {
 	int32_t margin_neg0;
 	int32_t margin_neg_diff;
 
-	int32_t dew_enhance_seg_x[IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS];
-	int32_t dew_enhance_seg_y[IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS];
+	int32_t e_dew_enh_asr;
 	int32_t dedgew_max;
 };
 

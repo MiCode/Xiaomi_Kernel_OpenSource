@@ -97,7 +97,7 @@ struct ia_css_iefd2_6_config {
 	int32_t rad_inv_r2;		   /**< Radial R^-2 normelized to (0.5..1).
 						u(8-m_rad_NF).m_rad_NF, [0,255], default 157,
 						ineffective 0 */
-	bool vssnlm_enable;		   /**< Enable bit to use VSSNLM output filter. 
+	bool vssnlm_enable;		   /**< Enable bit to use VSSNLM output filter.
 						bool, [false, true], default true, ineffective false */
 	int32_t vssnlm_x0;		   /**< Vssnlm LUT x0.
 						u8.0, [0,255], default 24, ineffective 0 */

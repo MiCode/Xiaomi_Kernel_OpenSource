@@ -71,20 +71,19 @@ ia_css_fpn_configure(
 	const struct ia_css_binary     *binary,
 	const struct ia_css_frame_info *info)
 {
-	const struct ia_css_frame_info my_info =
-		{ { CEIL_DIV(info->res.width, 2), /* Packed by 2x */
-		    info->res.height
-		  },
-		  CEIL_DIV(info->padded_width, 2), /* Packed by 2x */
-		  info->format,
-		  FPN_BITS_PER_PIXEL,
-		  info->raw_bayer_order,
-		  { info->crop_info.start_column,
-		    info->crop_info.start_line
-		  }
-		};
-	const struct ia_css_fpn_configuration config =
-		{ &my_info };
+	struct ia_css_frame_info my_info = IA_CSS_BINARY_DEFAULT_FRAME_INFO;
+	const struct ia_css_fpn_configuration config = {
+		&my_info
+	};
+
+	my_info.res.width       = CEIL_DIV(info->res.width, 2);		/* Packed by 2x */
+	my_info.res.height      = info->res.height;
+	my_info.padded_width    = CEIL_DIV(info->padded_width, 2);	/* Packed by 2x */
+	my_info.format          = info->format;
+	my_info.raw_bit_depth   = FPN_BITS_PER_PIXEL;
+	my_info.raw_bayer_order = info->raw_bayer_order;
+	my_info.crop_info       = info->crop_info;
+
 	ia_css_configure_fpn(binary, &config);
 }
 

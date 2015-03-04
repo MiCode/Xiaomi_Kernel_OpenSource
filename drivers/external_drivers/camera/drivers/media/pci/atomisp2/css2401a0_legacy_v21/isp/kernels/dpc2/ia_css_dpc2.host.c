@@ -42,3 +42,24 @@ ia_css_dpc2_encode(
 	to->wb_gain_gb = from->wb_gain_gb;
 }
 
+/* TODO: AM: This needs a proper implementation. */
+void
+ia_css_init_dpc2_state(
+	void *state,
+	size_t size)
+{
+	(void)state;
+	(void)size;
+}
+
+#ifndef IA_CSS_NO_DEBUG
+/* TODO: AM: This needs a proper implementation. */
+void
+ia_css_dpc2_debug_dtrace(
+	const struct ia_css_dpc2_config *config,
+	unsigned level)
+{
+	(void)config;
+	(void)level;
+}
+#endif

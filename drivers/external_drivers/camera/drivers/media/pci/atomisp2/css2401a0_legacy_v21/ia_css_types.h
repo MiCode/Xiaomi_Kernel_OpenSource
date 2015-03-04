@@ -1,5 +1,5 @@
-/* Release Version: irci_master_20150131_0457 */
-/* Release Version: irci_master_20150131_0457 */
+/* Release Version: irci_master_20150303_1500 */
+/* Release Version: irci_master_20150303_1500 */
 /*
  * Support for Intel Camera Imaging ISP subsystem.
  * Copyright (c) 2015, Intel Corporation.
@@ -60,6 +60,9 @@
 #include "isp/kernels/ynr/ynr_1.0/ia_css_ynr_types.h"
 #include "isp/kernels/ynr/ynr_2/ia_css_ynr2_types.h"
 #include "isp/kernels/output/output_1.0/ia_css_output_types.h"
+
+#define IA_CSS_DVS_STAT_GRID_INFO_SUPPORTED
+/**< Should be removed after Driver adaptation will be done */
 
 #define IA_CSS_VERSION_MAJOR    2
 #define IA_CSS_VERSION_MINOR    0
@@ -234,7 +237,8 @@ struct ia_css_grid_info {
 	/** @}*/
 
 	struct ia_css_3a_grid_info  s3a_grid; /**< 3A grid info */
-	struct ia_css_dvs_grid_info dvs_grid; /**< DVS grid info */
+	union ia_css_dvs_grid_u dvs_grid;
+		/**< All types of DVS statistics grid info union */
 
 	enum ia_css_vamem_type vamem_type;
 };
@@ -332,6 +336,7 @@ struct ia_css_capture_config {
 	enum ia_css_capture_mode mode; /**< Still capture mode */
 	uint32_t enable_xnr;	       /**< Enable/disable XNR */
 	uint32_t enable_raw_output;
+	bool enable_capture_pp_bli;    /**< Enable capture_pp_bli mode */
 };
 
 /** default settings for ia_css_capture_config structs */
@@ -339,7 +344,8 @@ struct ia_css_capture_config {
 { \
 	IA_CSS_CAPTURE_MODE_PRIMARY,	/* mode (capture) */ \
 	false,				/* enable_xnr */ \
-	false				/* enable_raw_output */ \
+	false,				/* enable_raw_output */ \
+	false				/* enable_capture_pp_bli */ \
 }
 
 

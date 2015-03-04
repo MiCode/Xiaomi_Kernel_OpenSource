@@ -15,12 +15,12 @@
 #ifndef _IA_CSS_CIRCBUF_H
 #define _IA_CSS_CIRCBUF_H
 
-#include <assert_support.h>
+#include <sp.h>
 #include <type_support.h>
 #include <math_support.h>
 #include <storage_class.h>
+#include <assert_support.h>
 #include <platform_support.h>
-#include <sp.h>
 #include "ia_css_circbuf_comm.h"
 #include "ia_css_circbuf_desc.h"
 #ifdef __SP

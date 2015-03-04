@@ -37,6 +37,16 @@ STORAGE_CLASS_EXTERN void gdc_lut_store(
 	const gdc_ID_t		ID,
 	const int			data[4][HRT_GDC_N]);
 
+/*! Convert the bicubic interpolation table of GDC[ID] to the ISP-specific format
+
+ \param	ID[in]				GDC identifier
+ \param in_lut[in]			The data matrix to be converted
+ \param out_lut[out]			The data matrix as the output of conversion
+ */
+STORAGE_CLASS_EXTERN void gdc_lut_convert_to_isp_format(
+	const int in_lut[4][HRT_GDC_N],
+	int out_lut[4][HRT_GDC_N]);
+
 /*! Return the integer representation of 1.0 of GDC[ID]
  
  \param	ID[in]				GDC identifier

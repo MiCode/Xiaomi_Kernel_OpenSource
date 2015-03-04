@@ -230,7 +230,6 @@ enum sh_css_sp_event_type {
 	SH_CSS_SP_EVENT_ACC_STAGE_COMPLETE,
 	SH_CSS_SP_EVENT_TIMER,
 	SH_CSS_SP_EVENT_PORT_EOF,
-	SH_CSS_SP_EVENT_FW_ERROR,
 	SH_CSS_SP_EVENT_FW_WARNING,
 	SH_CSS_SP_EVENT_FW_ASSERT,
 	SH_CSS_SP_EVENT_NR_OF_TYPES		/* must be last */
@@ -537,11 +536,15 @@ ia_css_metadata_free_multiple(unsigned int num_bufs, struct ia_css_metadata **bu
 
 /* Macro for handling pipe_qos_config */
 #define QOS_INVALID                  (~0U)
+#define QOS_ALL_STAGES_DISABLED      (0U)
 #define QOS_STAGE_MASK(num)          (0x00000001 << num)
 #define SH_CSS_IS_QOS_PIPE(pipe)               ((pipe)->pipe_qos_config != QOS_INVALID)
 #define SH_CSS_QOS_STAGE_ENABLE(pipe, num)     ((pipe)->pipe_qos_config |= QOS_STAGE_MASK(num))
 #define SH_CSS_QOS_STAGE_DISABLE(pipe, num)    ((pipe)->pipe_qos_config &= ~QOS_STAGE_MASK(num))
 #define SH_CSS_QOS_STAGE_IS_ENABLED(pipe, num) ((pipe)->pipe_qos_config & QOS_STAGE_MASK(num))
+#define SH_CSS_QOS_MODE_PIPE_ADD(mode, pipe)    ((mode) |= (0x1 << (pipe)->pipe_id))
+#define SH_CSS_QOS_MODE_PIPE_REMOVE(mode, pipe) ((mode) &= ~(0x1 << (pipe)->pipe_id))
+#define SH_CSS_IS_QOS_ONLY_MODE(mode)           ((mode) == (0x1 << IA_CSS_PIPE_ID_ACC))
 
 /* Information for a pipeline */
 struct sh_css_sp_pipeline {
@@ -561,6 +564,7 @@ struct sh_css_sp_pipeline {
 	uint32_t	num_stages;		/* the pipe config */
 	uint32_t	running;	/* needed for pipe termination */
 	hrt_vaddress	sp_stage_addr[SH_CSS_MAX_STAGES];
+	hrt_vaddress	scaler_pp_lut; /* Early bound LUT */
 #ifndef __SP
 	uint32_t	dummy; /* stage ptr is only used on sp but lives in
 				  this struct; needs cleanup */
@@ -1021,9 +1025,6 @@ sh_css_params_init(void);
 
 void
 sh_css_params_uninit(void);
-
-void
-sh_css_params_reconfigure_gdc_lut(void);
 
 void *
 sh_css_malloc(size_t size);

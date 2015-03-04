@@ -19,6 +19,7 @@
 
 #include "type_support.h"
 #include "assert_support.h"
+#include "math_support.h" /* for min and max */
 
 #include "ia_css_eed1_8.host.h"
 
@@ -87,9 +88,10 @@ ia_css_eed1_8_vmem_encode(
 
 	/* Init */
 	for (i = 0; i < ISP_VEC_NELEMS; i++) {
-		to->e_cuedge_x[0][i] = 0;
-		to->e_cuedge_a[0][i] = 0;
-		to->e_cuedge_b[0][i] = 0;
+		to->e_dew_enh_x[0][i] = 0;
+		to->e_dew_enh_y[0][i] = 0;
+		to->e_dew_enh_a[0][i] = 0;
+		to->e_dew_enh_f[0][i] = 0;
 		to->chgrinv_x[0][i] = 0;
 		to->chgrinv_a[0][i] = 0;
 		to->chgrinv_b[0][i] = 0;
@@ -159,21 +161,25 @@ ia_css_eed1_8_vmem_encode(
 		base = shuffle_block * i;
 
 		for (j = 0; j < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; j++) {
-			to->e_cuedge_x[0][base + j] = from->dew_enhance_seg_x[j];
-			to->e_cuedge_b[0][base + j] = from->dew_enhance_seg_y[j];
+			to->e_dew_enh_x[0][base + j] = min(max(from->dew_enhance_seg_x[j], 0), 8191);
+			to->e_dew_enh_y[0][base + j] = min(max(from->dew_enhance_seg_y[j], -8192), 8191);
 		}
 
-		/* TODO: the calculation of the slope is not included in the KFS.
-		 * Till implementation is available the result of the slope calculation is
-		 * mulitplied with 1024 (just to increase the precision of the slope, since
-		 * the slopes for the default set of x and y is between 0 and 3.
+		for (j = 0; j < (IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS - 1); j++) {
+			to->e_dew_enh_a[0][base + j] = min(max(from->dew_enhance_seg_slope[j], -8192), 8191);
+			/* Convert dew_enhance_seg_exp to flag:
+			 * 0 -> 0
+			 * 1...13 -> 1
+			 */
+			to->e_dew_enh_f[0][base + j] = (min(max(from->dew_enhance_seg_exp[j], 0), 13) > 0);
+		}
+
+		/* Hard-coded to 0, in order to be able to handle out of
+		 * range input in the same way as the other segments.
+		 * See KFS for more details.
 		 */
-		for (j = 1; j < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; j++) {
-			to->e_cuedge_a[0][base + j - 1] = 1024 * (from->dew_enhance_seg_y[j] - from->dew_enhance_seg_y[j - 1]) / (from->dew_enhance_seg_x[j] - from->dew_enhance_seg_x[j - 1]);
-		}
-
-		/* Hard-coded to 0, see KFS for more details */
-		to->e_cuedge_a[0][base + IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS - 1] = 0;
+		to->e_dew_enh_a[0][base + (IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS - 1)] = 0;
+		to->e_dew_enh_f[0][base + (IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS - 1)] = 0;
 
 		for (j = 0; j < NUMBER_OF_CHGRINV_POINTS; j++) {
 			to->chgrinv_x[0][base + j] = chgrinv_x[j];
@@ -206,6 +212,7 @@ ia_css_eed1_8_encode(
 	size_t size)
 {
 	int i;
+	int min_exp = 0;
 
 	(void)size;
 
@@ -247,17 +254,28 @@ ia_css_eed1_8_encode(
 	to->margin_neg0 = from->neg_margin0;
 	to->margin_neg_diff = (from->neg_margin1 - from->neg_margin0);
 
-	for (i = 0; i < IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS; i++) {
-		to->dew_enhance_seg_x[i] = from->dew_enhance_seg_x[i];
-		to->dew_enhance_seg_y[i] = from->dew_enhance_seg_y[i];
+	/* Encode DEWEnhance exp (e_dew_enh_asr) */
+	for (i = 0; i < (IA_CSS_NUMBER_OF_DEW_ENHANCE_SEGMENTS - 1); i++) {
+		min_exp = max(min_exp, from->dew_enhance_seg_exp[i]);
 	}
+	to->e_dew_enh_asr = 13 - min(max(min_exp, 0), 13);
 
 	to->dedgew_max = from->dedgew_max;
 }
 
+
+void
+ia_css_init_eed1_8_state(
+	void *state,
+	size_t size)
+{
+	memset(state, 0, size);
+}
+
+
 #ifndef IA_CSS_NO_DEBUG
 void
-ia_css_eed1_8_debug_trace(
+ia_css_eed1_8_debug_dtrace(
 	const struct ia_css_eed1_8_config *eed,
 	unsigned level)
 {
@@ -297,6 +315,8 @@ ia_css_eed1_8_debug_trace(
 	ia_css_debug_dtrace(level, "\t%-32s = %d\n", "pos_margin1", eed->pos_margin1);
 	ia_css_debug_dtrace(level, "\t%-32s = %d\n", "neg_margin0", eed->neg_margin0);
 	ia_css_debug_dtrace(level, "\t%-32s = %d\n", "neg_margin1", eed->neg_margin1);
+
+	ia_css_debug_dtrace(level, "\t%-32s = %d\n", "dedgew_max", eed->dedgew_max);
 }
 #endif
 

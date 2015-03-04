@@ -15,20 +15,22 @@
 #include "ia_css_tdf_types.h"
 
 const struct ia_css_tdf_config default_tdf_config = {
-	.TdfThres_flat_table = {0},
-	.TdfThres_detail_table = {0},
-	.TdfEpsilon_0 = 4095,
-	.TdfEpsilon_1 = 5733,
-	.TdfEpsScaleText = 409,
-	.TdfEpsScaleEdge = 3686,
-	.TdfSepa_flat = 1294,
-	.TdfSepa_Edge = 4095,
-	.TdfBlend_Flat = 819,
-	.TdfBlend_Text = 819,
-	.TdfBlend_Edge = 8191,
-	.TdfShading_Gain = 1024,
-	.TdfShading_baseGain = 8191,
-	.TdfLocalY_Gain = 0,
-	.TdfLocalY_baseGain = 2047
+	.thres_flat_table = {0},
+	.thres_detail_table = {0},
+	.epsilon_0 = 4095,
+	.epsilon_1 = 5733,
+	.eps_scale_text = 409,
+	.eps_scale_edge = 3686,
+	.sepa_flat = 1294,
+	.sepa_edge = 4095,
+	.blend_flat = 819,
+	.blend_text = 819,
+	.blend_edge = 8191,
+	.shading_gain = 1024,
+	.shading_base_gain = 8191,
+	.local_y_gain = 0,
+	.local_y_base_gain = 2047,
+	.rad_x_origin = 0,
+	.rad_y_origin = 0
 };
 

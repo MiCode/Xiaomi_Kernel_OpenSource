@@ -100,6 +100,10 @@ static int thread_alive;
 #include "components/acc_cluster/gen/host/acc_cluster.host.h"
 #endif
 
+#if defined(IS_ISP_2500_SYSTEM)
+#include "components/dvs/sc_dvs_1.0/host/dvs.host.h"
+#endif
+
 /* Name of the sp program: should not be built-in */
 #define SP_PROG_NAME "sp"
 #if defined(HAS_SEC_SP)
@@ -184,10 +188,7 @@ static bool fw_explicitly_loaded = false;
  * Local prototypes
  */
 static enum ia_css_err
-allocate_delay_frames(enum ia_css_pipe_id mode,
-		struct ia_css_video_settings *mycs_video,
-		struct ia_css_capture_settings *mycs_capture,
-		unsigned int dvs_frame_delay);
+allocate_delay_frames(struct ia_css_pipe *pipe);
 
 static enum ia_css_err
 sh_css_pipe_start(struct ia_css_stream *stream);
@@ -208,7 +209,7 @@ sh_css_init_host_sp_control_vars(void);
 static void
 sh_css_mmu_set_page_table_base_index(hrt_data base_index);
 
-static enum ia_css_err set_num_primary_stages(unsigned int *num, unsigned int version);
+static enum ia_css_err set_num_primary_stages(unsigned int *num, enum ia_css_pipe_version version);
 
 static bool
 need_capture_pp(const struct ia_css_pipe *pipe);
@@ -227,6 +228,8 @@ static void ia_css_pipe_destroy_cas_scaler_desc(struct ia_css_cas_binary_descr *
 static bool
 need_downscaling(const struct ia_css_resolution in_res,
 		const struct ia_css_resolution out_res);
+
+static bool need_capt_ldc(const struct ia_css_pipe *pipe);
 
 static enum ia_css_err
 sh_css_pipe_load_binaries(struct ia_css_pipe *pipe);
@@ -1791,6 +1794,10 @@ ia_css_init(const struct ia_css_env *env,
 		err = IA_CSS_ERR_INVALID_ARGUMENTS;
 #endif
 
+#if !defined(IS_ISP_2500_SYSTEM)
+	sh_css_params_map_and_store_default_gdc_lut();
+#endif
+
 	IA_CSS_LEAVE_ERR(err);
 	return err;
 }
@@ -2475,6 +2482,11 @@ ia_css_pipe_destroy(struct ia_css_pipe *pipe)
 		break;
 	}
 
+	if (pipe->scaler_pp_lut != mmgr_NULL) {
+		mmgr_free(pipe->scaler_pp_lut);
+		pipe->scaler_pp_lut = mmgr_NULL;
+	}
+
 	my_css.active_pipes[ia_css_pipe_get_pipe_num(pipe)] = NULL;
 	sh_css_pipe_free_shading_table(pipe);
 
@@ -2498,6 +2510,11 @@ ia_css_uninit(void)
 	sh_css_print("PC_MONITORING: %s() -- started\n", __func__);
 	print_pc_histogram();
 #endif
+
+#if !defined(IS_ISP_2500_SYSTEM)
+	sh_css_params_free_default_gdc_lut();
+#endif
+
 
 	/* TODO: JB: implement decent check and handling of freeing mipi frames */
 	//assert(ref_count_mipi_allocation == 0); //mipi frames are not freed
@@ -4555,7 +4572,6 @@ static enum ia_css_event_type convert_event_sp_to_host_domain[] = {
 	IA_CSS_EVENT_TYPE_ACC_STAGE_COMPLETE,	/**< Extension stage executed. */
 	IA_CSS_EVENT_TYPE_TIMER,		/**< Timing measurement data. */
 	IA_CSS_EVENT_TYPE_PORT_EOF,		/**< End Of Frame event, sent when in buffered sensor mode. */
-	IA_CSS_EVENT_TYPE_FW_ERROR,		/**< Unrecoverable error encountered by FW. */
 	IA_CSS_EVENT_TYPE_FW_WARNING,		/**< Performance warning encountered by FW */
 	IA_CSS_EVENT_TYPE_FW_ASSERT,		/**< Assertion hit by FW */
 	0,					/** error if sp passes  SH_CSS_SP_EVENT_NR_OF_TYPES as a valid event. */
@@ -4608,7 +4624,6 @@ ia_css_dequeue_psys_event(struct ia_css_event *event)
 	event->pipe = NULL;
 	event->port = IA_CSS_CSI2_PORT0;
 	event->exp_id = 0;
-	event->fw_error = IA_CSS_FW_SUCCESS;
 	event->fw_warning = IA_CSS_FW_WARNING_NONE;
 	event->fw_handle = 0;
 	event->timer_data = 0;
@@ -4616,7 +4631,7 @@ ia_css_dequeue_psys_event(struct ia_css_event *event)
 	event->timer_subcode = 0;
 
 	if (event->type == IA_CSS_EVENT_TYPE_TIMER) {
-		/* timer event – get the 2nd event and decode the data into the event struct */
+		/* timer event ??? get the 2nd event and decode the data into the event struct */
 		uint32_t tmp_data;
 		/* 1st event: LSB 16-bit timer data and code */
 		event->timer_data = ((payload[1] & 0xFF) | ((payload[3] & 0xFF) << 8));
@@ -4624,7 +4639,7 @@ ia_css_dequeue_psys_event(struct ia_css_event *event)
 		payload[0] = payload[1] = payload[2] = payload[3] = 0;
 		ret_err = ia_css_bufq_dequeue_psys_event(payload);
 		if (ret_err != IA_CSS_SUCCESS) {
-			/* no 2nd event – an error */
+			/* no 2nd event ??? an error */
 			/* Putting IA_CSS_ERROR is resulting in failures in
 			 * Merrifield smoke testing  */
 			IA_CSS_WARNING("Timer: Error de-queuing the 2nd TIMER event!!!\n");
@@ -4655,8 +4670,6 @@ ia_css_dequeue_psys_event(struct ia_css_event *event)
 	if (event->type == IA_CSS_EVENT_TYPE_PORT_EOF) {
 		event->port = (enum ia_css_csi2_port)payload[1];
 		event->exp_id = payload[3];
-	} else if (event->type == IA_CSS_EVENT_TYPE_FW_ERROR) {
-		event->fw_error = (enum ia_css_fw_err)payload[1];
 	} else if (event->type == IA_CSS_EVENT_TYPE_FW_WARNING) {
 		event->fw_warning = (enum ia_css_fw_warning)payload[1];
 		/* exp_id is only available in these warning types */
@@ -5100,7 +5113,6 @@ sh_css_pipe_get_grid_info(struct ia_css_pipe *pipe,
 
 	binary = ia_css_pipe_get_s3a_binary(pipe);
 
-
 	if (binary) {
 		err = ia_css_binary_3a_grid_info(binary, info, pipe);
 		if (err != IA_CSS_SUCCESS)
@@ -5110,10 +5122,15 @@ sh_css_pipe_get_grid_info(struct ia_css_pipe *pipe,
 
 	binary = ia_css_pipe_get_sdis_binary(pipe);
 
-	if (binary)
+	if (binary) {
 		ia_css_binary_dvs_grid_info(binary, info, pipe);
-	else
-		memset(&info->dvs_grid, 0, sizeof(info->dvs_grid));
+		ia_css_binary_dvs_stat_grid_info(binary, info, pipe);
+	} else {
+		memset(&info->dvs_grid.dvs_grid_info, 0,
+			   sizeof(info->dvs_grid.dvs_grid_info));
+		memset(&info->dvs_grid.dvs_stat_grid_info, 0,
+			   sizeof(info->dvs_grid.dvs_stat_grid_info));
+	}
 
 	if (binary != NULL) {
 		/* copy pipe does not have ISP binary*/
@@ -5278,10 +5295,12 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 					 &mycs->video_binary);
 
 		if (err != IA_CSS_SUCCESS) {
+#if !defined(IS_ISP_2500_SYSTEM)
 			if (video_vf_info) {
 				/* This will do another video binary lookup later for YUV_LINE format*/
 				need_vf_pp = true;
 			} else
+#endif
 				return err;
 		} else if (video_vf_info) {
 			/* The first video binary lookup is successful, but we may
@@ -5310,7 +5329,8 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 
 			vf_info_format = video_vf_info->format;
 
-			ia_css_frame_info_set_format(video_vf_info,
+			if (!pipe->config.enable_vfpp_bci)
+				ia_css_frame_info_set_format(video_vf_info,
 					IA_CSS_FRAME_FORMAT_YUV_LINE);
 
 			ia_css_binary_destroy_isp_parameters(&mycs->video_binary);
@@ -5369,9 +5389,20 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 	if (pipe->enable_viewfinder[IA_CSS_PIPE_OUTPUT_STAGE_0] && need_vf_pp) {
 		struct ia_css_binary_descr vf_pp_descr;
 
-		ia_css_pipe_get_vfpp_binarydesc(pipe, &vf_pp_descr,
-			&mycs->video_binary.vf_frame_info,
-			pipe_vf_out_info);
+		if (mycs->video_binary.vf_frame_info.format
+				== IA_CSS_FRAME_FORMAT_YUV_LINE) {
+			ia_css_pipe_get_vfpp_binarydesc(pipe, &vf_pp_descr,
+				&mycs->video_binary.vf_frame_info,
+				pipe_vf_out_info);
+		} else {
+			/* output from main binary is not yuv line. currently this is
+			 * possible only when bci is enabled on vfpp output */
+			assert(pipe->config.enable_vfpp_bci == true);
+			ia_css_pipe_get_yuvscaler_binarydesc(pipe, &vf_pp_descr,
+				&mycs->video_binary.vf_frame_info,
+				pipe_vf_out_info, NULL, NULL);
+		}
+
 		err = ia_css_binary_find(&vf_pp_descr,
 				&mycs->vf_pp_binary);
 		if (err != IA_CSS_SUCCESS)
@@ -5379,7 +5410,7 @@ static enum ia_css_err load_video_binaries(struct ia_css_pipe *pipe)
 	}
 #endif
 
-	err = allocate_delay_frames(pipe->mode, mycs, NULL, pipe->dvs_frame_delay);
+	err = allocate_delay_frames(pipe);
 
 	if (err != IA_CSS_SUCCESS)
 		return err;
@@ -5653,7 +5684,16 @@ static bool need_capture_pp(
 	return false;
 }
 
-static enum ia_css_err set_num_primary_stages(unsigned int *num, unsigned int version)
+static bool need_capt_ldc(
+	const struct ia_css_pipe *pipe)
+{
+	IA_CSS_ENTER_LEAVE_PRIVATE("");
+	assert(pipe != NULL);
+	assert(pipe->mode == IA_CSS_PIPE_ID_CAPTURE);
+	return (pipe->extra_config.enable_dvs_6axis) ? true:false;
+}
+
+static enum ia_css_err set_num_primary_stages(unsigned int *num, enum ia_css_pipe_version version)
 {
 	enum ia_css_err err = IA_CSS_SUCCESS;
 
@@ -5684,6 +5724,7 @@ static enum ia_css_err load_primary_binaries(
 	bool continuous = false;
 	bool need_pp = false;
 	bool need_isp_copy_binary = false;
+	bool need_ldc = false;
 #ifdef USE_INPUT_SYSTEM_VERSION_2401
 	bool sensor = false;
 #endif
@@ -5691,7 +5732,8 @@ static enum ia_css_err load_primary_binaries(
 				 prim_out_info,
 				 capt_pp_out_info, vf_info,
 				 *vf_pp_in_info, *pipe_out_info,
-				 *pipe_vf_out_info;
+				 *pipe_vf_out_info, *capt_pp_in_info,
+				 capt_ldc_out_info;
 #if defined(HAS_RES_MGR)
 	struct ia_css_frame_info bds_out_info;
 #endif
@@ -5837,12 +5879,17 @@ static enum ia_css_err load_primary_binaries(
 		capt_pp_out_info = pipe->output_info[0];
 	}
 
+	/* TODO Do we disable ldc for skycam */
+	need_ldc = need_capt_ldc(pipe);
+
 	/* we build up the pipeline starting at the end */
 	/* Capture post-processing */
 	if (need_pp) {
 		struct ia_css_binary_descr capture_pp_descr;
+		capt_pp_in_info = need_ldc ? &capt_ldc_out_info : &prim_out_info;
+
 		ia_css_pipe_get_capturepp_binarydesc(pipe,
-			&capture_pp_descr, &prim_out_info,
+			&capture_pp_descr, capt_pp_in_info,
 			&capt_pp_out_info, &vf_info);
 #if defined(HAS_RES_MGR)
 			bds_out_info.res = pipe->config.bayer_ds_out_res;
@@ -5853,6 +5900,20 @@ static enum ia_css_err load_primary_binaries(
 		if (err != IA_CSS_SUCCESS) {
 			IA_CSS_LEAVE_ERR_PRIVATE(err);
 			return err;
+		}
+
+		if(need_ldc) {
+			struct ia_css_binary_descr capt_ldc_descr;
+			ia_css_pipe_get_ldc_binarydesc(pipe,
+				&capt_ldc_descr, &prim_out_info,
+				&capt_ldc_out_info);
+
+			err = ia_css_binary_find(&capt_ldc_descr,
+						&mycs->capture_ldc_binary);
+			if (err != IA_CSS_SUCCESS) {
+				IA_CSS_LEAVE_ERR_PRIVATE(err);
+				return err;
+			}
 		}
 	} else {
 		prim_out_info = *pipe_out_info;
@@ -5916,7 +5977,7 @@ static enum ia_css_err load_primary_binaries(
 		}
 	}
 #endif
-	err = allocate_delay_frames(pipe->mode, NULL, mycs, pipe->dvs_frame_delay);
+	err = allocate_delay_frames(pipe);
 
 	if (err != IA_CSS_SUCCESS)
 		return err;
@@ -5945,67 +6006,87 @@ static enum ia_css_err load_primary_binaries(
 }
 
 static enum ia_css_err
-allocate_delay_frames(enum ia_css_pipe_id mode,
-		struct ia_css_video_settings *mycs_video,
-		struct ia_css_capture_settings *mycs_capture,
-		unsigned int dvs_frame_delay)
+allocate_delay_frames(struct ia_css_pipe *pipe)
 {
 	unsigned int num_delay_frames = 0, i = 0;
+	unsigned int dvs_frame_delay = 0;
 	struct ia_css_frame_info ref_info;
 	enum ia_css_err err = IA_CSS_SUCCESS;
+	enum ia_css_pipe_id mode = IA_CSS_PIPE_ID_VIDEO;
+	struct ia_css_frame **delay_frames = NULL;
 
-	if (((mode == IA_CSS_PIPE_ID_CAPTURE) && (mycs_capture == NULL)) ||
-	    ((mode == IA_CSS_PIPE_ID_VIDEO) && (mycs_video == NULL))) {
-		return IA_CSS_ERR_INVALID_ARGUMENTS;
-	 }
-
-	if (mode == IA_CSS_PIPE_ID_CAPTURE) {
-#if defined (IS_ISP_2500_SYSTEM)
-		ref_info               = mycs_capture->primary_binary[0].internal_frame_info;
-		ref_info.format        = IA_CSS_FRAME_FORMAT_YUV420_16;
-		ref_info.raw_bit_depth = SH_CSS_REF_BIT_DEPTH;
-#else
-		return err;
-#endif
-	} else if (mode == IA_CSS_PIPE_ID_VIDEO) {
-		ref_info               = mycs_video->video_binary.internal_frame_info;
-#if defined (IS_ISP_2500_SYSTEM)
-		ref_info.format        = IA_CSS_FRAME_FORMAT_YUV420_16;
-#else
-		ref_info.format        = IA_CSS_FRAME_FORMAT_YUV420;
-#endif
-		ref_info.raw_bit_depth = SH_CSS_REF_BIT_DEPTH;
-	} else {
+	if (pipe == NULL) {
+		IA_CSS_ERROR("Invalid args - pipe %x", pipe);
 		return IA_CSS_ERR_INVALID_ARGUMENTS;
 	}
+
+	mode = pipe->mode;
+	dvs_frame_delay = pipe->dvs_frame_delay;
 
 	if (dvs_frame_delay > 0)
 		num_delay_frames = dvs_frame_delay + 1;
-	else {
-		if (mode == IA_CSS_PIPE_ID_CAPTURE)
-			num_delay_frames = 1; /* There should be atleast 1 delay/ref frame for capture mode */
-		else if (mode == IA_CSS_PIPE_ID_VIDEO)
-			num_delay_frames = 0;
-		else
+
+	switch (mode) {
+		case IA_CSS_PIPE_ID_CAPTURE:
+		{
+			struct ia_css_capture_settings *mycs_capture = &pipe->pipe_settings.capture;
+#ifndef IS_ISP_2500_SYSTEM
+			(void)mycs_capture;
+			return err;
+#else
+			ref_info = mycs_capture->primary_binary[0].internal_frame_info;
+			ref_info.format = IA_CSS_FRAME_FORMAT_YUV420_16;
+			/* There should be atleast 1 delay/ref frame for capture mode */
+			if (num_delay_frames == 0)
+				num_delay_frames = 1;
+			delay_frames = mycs_capture->delay_frames;
+#endif
+		}
+		break;
+		case IA_CSS_PIPE_ID_VIDEO:
+		{
+			struct ia_css_video_settings *mycs_video = &pipe->pipe_settings.video;
+			ref_info = mycs_video->video_binary.internal_frame_info;
+#ifdef IS_ISP_2500_SYSTEM
+			ref_info.format = IA_CSS_FRAME_FORMAT_YUV420_16;
+#else
+			/*The ref frame expects
+			 * 	1. Y plane
+			 * 	2. UV plane with line interleaving, like below
+			 * 		UUUUUU(width/2 times) VVVVVVVV..(width/2 times)
+			 *
+			 *	This format is not YUV420(which has Y, U and V planes).
+			 *	Its closer to NV12, except that the UV plane has UV 
+			 *	interleaving, like UVUVUVUVUVUVUVUVU...
+			 *
+			 *	TODO: make this ref_frame format as a separate frame format
+			 */
+			ref_info.format        = IA_CSS_FRAME_FORMAT_NV12;
+#endif
+			delay_frames = mycs_video->delay_frames;
+		}
+		break;
+		default:
 			return IA_CSS_ERR_INVALID_ARGUMENTS;
+
 	}
 
-	for (i = 0; i < num_delay_frames; i++) {
-		if (mode == IA_CSS_PIPE_ID_CAPTURE)
-			err = ia_css_frame_allocate_from_info(&mycs_capture->delay_frames[i],
-					&ref_info);
-		else if (mode == IA_CSS_PIPE_ID_VIDEO)
-			err = ia_css_frame_allocate_from_info(&mycs_video->delay_frames[i],
-					&ref_info);
+	ref_info.raw_bit_depth = SH_CSS_REF_BIT_DEPTH;
 
+#ifdef IS_ISP_2500_SYSTEM
+	err = dvs_calc_gdc_in_buff_padding(&pipe->config, &ref_info);
+	if (err != IA_CSS_SUCCESS) {
+		return err;
+	}
+#endif
+
+	assert(num_delay_frames <= MAX_NUM_VIDEO_DELAY_FRAMES);
+	for (i = 0; i < num_delay_frames; i++) {
+		err = ia_css_frame_allocate_from_info(&delay_frames[i],	&ref_info);
 		if (err != IA_CSS_SUCCESS)
 			return err;
-
 #ifdef HRT_CSIM
-		if (mode == IA_CSS_PIPE_ID_CAPTURE)
-			ia_css_frame_zero(mycs_capture->delay_frames[i]);
-		else if (mode == IA_CSS_PIPE_ID_VIDEO)
-			ia_css_frame_zero(mycs_video->delay_frames[i]);
+		ia_css_frame_zero(delay_frames[i]);
 #endif
 	}
 
@@ -6380,6 +6461,7 @@ unload_capture_binaries(struct ia_css_pipe *pipe)
 	ia_css_binary_unload(&pipe->pipe_settings.capture.anr_gdc_binary);
 	ia_css_binary_unload(&pipe->pipe_settings.capture.post_isp_binary);
 	ia_css_binary_unload(&pipe->pipe_settings.capture.capture_pp_binary);
+	ia_css_binary_unload(&pipe->pipe_settings.capture.capture_ldc_binary);
 	ia_css_binary_unload(&pipe->pipe_settings.capture.vf_pp_binary);
 
 	for (i = 0; i < pipe->pipe_settings.capture.num_yuv_scaler; i++)
@@ -6583,6 +6665,7 @@ static enum ia_css_err ia_css_pipe_create_cas_scaler_desc(struct ia_css_pipe *pi
 	in_info.res = pipe->config.input_effective_res;
 	in_info.padded_width = in_info.res.width;
 	descr->num_output_stage = 0;
+	/* Find out how much scaling we need for each output */
 	for (i = 0; i < IA_CSS_PIPE_MAX_OUTPUT_STAGE; i++) {
 		if (pipe->output_info[i].res.width != 0) {
 			out_info[i] = &pipe->output_info[i];
@@ -6596,29 +6679,21 @@ static enum ia_css_err ia_css_pipe_create_cas_scaler_desc(struct ia_css_pipe *pi
 			ver_scale_factor[i] = CEIL_DIV(in_info.res.height, out_info[i]->res.height);
 			/* use the same horizontal and vertical scaling factor for simplicity */
 			assert(hor_scale_factor[i] == ver_scale_factor[i]);
+			scale_factor = 1;
+			do {
+				num_stages++;
+				scale_factor *= max_scale_factor_per_stage;
+			} while (scale_factor < hor_scale_factor[i]);
+
+			in_info.res = out_info[i]->res;
 		}
-		if (hor_scale_factor[i] > scale_factor)
-			scale_factor = hor_scale_factor[i];
 	}
 
-	i = 1;
-	while (i < scale_factor) {
-		num_stages++;
-		i *= max_scale_factor_per_stage;
-	}
 	if (need_yuv_scaler_stage(pipe) && (num_stages == 0))
 		num_stages = 1;
 
 	descr->num_stage = num_stages;
 
-	/* if two outputs requires the same number of scaling stages, we
-	 * extent it by one because we only have fixed number of output pins. */
-	if ((out_info[0] != NULL) && (out_info[1] != NULL) &&
-		((out_info[0]->res.width == out_info[1]->res.width) ||
-		(out_info[0]->res.width == in_info.res.width))&&
-		(descr->num_output_stage > 1)) {
-		descr->num_stage += 1;
-	}
 	descr->in_info = sh_css_malloc(descr->num_stage * sizeof(struct ia_css_frame_info));
 	if (descr->in_info == NULL) {
 		err = IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
@@ -7412,7 +7487,8 @@ create_host_regular_capture_pipeline(struct ia_css_pipe *pipe)
 			     *anr_gdc_binary,
 			     *post_isp_binary,
 			     *yuv_scaler_binary,
-			     *capture_pp_binary;
+			     *capture_pp_binary,
+			     *capture_ldc_binary;
 	bool need_pp = false;
 	bool raw;
 
@@ -7431,6 +7507,7 @@ create_host_regular_capture_pipeline(struct ia_css_pipe *pipe)
 	unsigned int i, num_yuv_scaler, num_primary_stage;
 	bool need_yuv_pp = false;
 	bool *is_output_stage = NULL;
+	bool need_ldc = false;
 
 	IA_CSS_ENTER_PRIVATE("");
 	assert(pipe != NULL);
@@ -7510,11 +7587,13 @@ create_host_regular_capture_pipeline(struct ia_css_pipe *pipe)
 	yuv_scaler_binary = pipe->pipe_settings.capture.yuv_scaler_binary;
 	num_yuv_scaler	  = pipe->pipe_settings.capture.num_yuv_scaler;
 	is_output_stage   = pipe->pipe_settings.capture.is_output_stage;
+	capture_ldc_binary = &pipe->pipe_settings.capture.capture_ldc_binary;
 
 	need_pp = (need_capture_pp(pipe) || pipe->output_stage) &&
 		  mode != IA_CSS_CAPTURE_MODE_RAW &&
 		  mode != IA_CSS_CAPTURE_MODE_BAYER;
 	need_yuv_pp = (yuv_scaler_binary != NULL && yuv_scaler_binary->info != NULL);
+	need_ldc = (capture_ldc_binary != NULL && capture_ldc_binary->info != NULL);
 
 	if (pipe->pipe_settings.capture.copy_binary.info) {
 		if (raw) {
@@ -7660,9 +7739,20 @@ create_host_regular_capture_pipeline(struct ia_css_pipe *pipe)
 		}
 	}
 
-	if (need_pp) {
-		in_frame = current_stage->args.out_frame[0];
-		err = add_capture_pp_stage(pipe, me, in_frame, need_yuv_pp ? NULL : out_frame,
+	if (need_pp && current_stage) {
+		struct ia_css_frame *local_in_frame = NULL;
+		local_in_frame = current_stage->args.out_frame[0];
+
+		if(need_ldc) {
+			ia_css_pipe_util_set_output_frames(out_frames, 0, NULL);
+			ia_css_pipe_get_generic_stage_desc(&stage_desc, capture_ldc_binary,
+				out_frames, local_in_frame, NULL);
+			err = ia_css_pipeline_create_and_add_stage(me,
+				&stage_desc,
+				&current_stage);
+			local_in_frame = current_stage->args.out_frame[0];
+		}
+		err = add_capture_pp_stage(pipe, me, local_in_frame, need_yuv_pp ? NULL : out_frame,
 					   capture_pp_binary,
 					   &current_stage);
 		if (err != IA_CSS_SUCCESS) {
@@ -8337,6 +8427,7 @@ void ia_css_stream_config_defaults(struct ia_css_stream_config *stream_config)
 	memset(stream_config, 0, sizeof(*stream_config));
 	stream_config->online = true;
 	stream_config->left_padding = -1;
+	stream_config->pixels_per_clock = 1;
 	/* temporary default value for backwards compatibility.
 	 * This field used to be hardcoded within CSS but this has now
 	 * been moved to the stream_config struct. */
@@ -8433,8 +8524,14 @@ ia_css_pipe_create_extra(const struct ia_css_pipe_config *config,
 	else
 		internal_pipe->dvs_frame_delay = 1;
 
+	/* skycam has delayed frames in capture and video */
+#if defined(IS_ISP_2500_SYSTEM)
+	if (internal_pipe->config.mode != IA_CSS_PIPE_MODE_CAPTURE && internal_pipe->config.mode != IA_CSS_PIPE_MODE_VIDEO)
+		internal_pipe->dvs_frame_delay = 0;
+#else
 	if (internal_pipe->config.mode != IA_CSS_PIPE_MODE_VIDEO)
 		internal_pipe->dvs_frame_delay = 0;
+#endif
 
 	/* we still keep enable_raw_binning for backward compatibility, for any new
 	   fractional bayer downscaling, we should use bayer_ds_out_res. if both are
@@ -8561,6 +8658,20 @@ ia_css_pipe_get_info(const struct ia_css_pipe *pipe,
 	*pipe_info = pipe->info;
 	ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "ia_css_pipe_get_info() leave\n");
 	return IA_CSS_SUCCESS;
+}
+
+bool ia_css_pipe_has_dvs_stats(struct ia_css_pipe_info *pipe_info)
+{
+	unsigned int i;
+
+	if (pipe_info != NULL) {
+		for (i = 0; i < IA_CSS_DVS_STAT_NUM_OF_LEVELS; i++) {
+			if (pipe_info->grid_info.dvs_grid.dvs_stat_grid_info.grd_cfg[i].grd_start.enable)
+				return true;
+		}
+	}
+
+	return false;
 }
 
 #if defined(USE_INPUT_SYSTEM_VERSION_2)
@@ -8832,11 +8943,6 @@ ia_css_stream_create(const struct ia_css_stream_config *stream_config,
 		curr_stream->config.mode =  IA_CSS_INPUT_MODE_BUFFERED_SENSOR;
 	}
 #endif
-	/* TO BE REMOVED when all drivers move to CSS API 2.1 */
-	if (curr_stream->config.pixels_per_clock == 0)
-		curr_stream->config.pixels_per_clock =
-			curr_stream->config.two_pixels_per_clock ? 2 : 1;
-
 	/* in case driver doesn't configure init number of raw buffers, configure it here */
 	if (curr_stream->config.target_num_cont_raw_buf == 0)
 		curr_stream->config.target_num_cont_raw_buf = NUM_CONTINUOUS_FRAMES;
@@ -9612,7 +9718,7 @@ ia_css_pipe_get_sdis_binary(const struct ia_css_pipe *pipe)
 #endif
 		binary = NULL;
 
-        return binary;
+	return binary;
 }
 
 #if defined(IS_ISP_2500_SYSTEM)
@@ -9668,7 +9774,8 @@ ia_css_pipe_get_dvs_filter(const struct ia_css_pipe *pipe, struct ia_css_resolut
 		IA_CSS_ERROR("Invalid args: pipe %x res %x", pipe, res);
 		err = IA_CSS_ERR_INVALID_ARGUMENTS;
 	} else {
-		res->width = res->height = SH_CSS_MIN_DVS_ENVELOPE; /* MIN DVS ENV is the filter size used by GDC */
+		/* MIN DVS ENV is the filter size used by GDC */
+		res->width = res->height = SH_CSS_MIN_DVS_ENVELOPE;
 	}
 	return err;
 }
@@ -9684,9 +9791,8 @@ ia_css_pipe_get_gdc_in_buffer_info(const struct ia_css_pipe *pipe,
 		IA_CSS_ERROR("Invalid args: pipe %x res %x offset %x", pipe, res, offset);
 		err = IA_CSS_ERR_INVALID_ARGUMENTS;
 	} else {
-		ia_css_pipe_get_bds_resolution(pipe, res);
-		offset->x = 0;
-		offset->y = 0;
+		*res = pipe->config.gdc_in_buffer_res;
+		*offset = pipe->config.gdc_in_buffer_offset;
 	}
 	return err;
 }

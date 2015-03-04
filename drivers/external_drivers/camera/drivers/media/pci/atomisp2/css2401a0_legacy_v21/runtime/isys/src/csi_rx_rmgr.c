@@ -44,8 +44,8 @@ bool ia_css_isys_csi_rx_lut_rmgr_acquire(
 	csi_rx_backend_lut_entry_t	*entry)
 {
 	bool retval = false;
-	uint16_t max_num_packets_of_type;
-	uint16_t num_active_of_type;
+	uint32_t max_num_packets_of_type;
+	uint32_t num_active_of_type;
 	isys_csi_rx_rsrc_t *cur_rsrc = NULL;
 	uint16_t i;
 

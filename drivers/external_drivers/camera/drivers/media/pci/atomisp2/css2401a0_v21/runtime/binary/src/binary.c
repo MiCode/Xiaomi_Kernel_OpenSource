@@ -36,6 +36,7 @@
 #include "camera/pipe/interface/ia_css_pipe_binarydesc.h"
 #if defined(HAS_RES_MGR)
 #include <components/resolutions_mgr/src/host/resolutions_mgr.host.h>
+#include <components/acc_cluster/acc_dvs_stat/host/dvs_stat.host.h>
 #endif
 
 #include "memory_access.h"
@@ -320,6 +321,18 @@ ia_css_binary_get_shading_info(const struct ia_css_binary *binary,			/* [in] */
 	return err;
 }
 
+static void sh_css_binary_common_grid_info(const struct ia_css_binary *binary,
+				struct ia_css_grid_info *info)
+{
+	assert(binary != NULL);
+	assert(info != NULL);
+
+	info->isp_in_width = binary->internal_frame_info.res.width;
+	info->isp_in_height = binary->internal_frame_info.res.height;
+
+	info->vamem_type = IA_CSS_VAMEM_TYPE_2;
+}
+
 void
 ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
 			    struct ia_css_grid_info *info,
@@ -331,7 +344,7 @@ ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
 	assert(binary != NULL);
 	assert(info != NULL);
 
-	dvs_info = &info->dvs_grid;
+	dvs_info = &info->dvs_grid.dvs_grid_info;
 
 	/* for DIS, we use a division instead of a ceil_div. If this is smaller
 	 * than the 3a grid size, it indicates that the outer values are not
@@ -346,10 +359,37 @@ ia_css_binary_dvs_grid_info(const struct ia_css_binary *binary,
 	dvs_info->num_hor_coefs     = binary->dis.coef.dim.width;
 	dvs_info->num_ver_coefs     = binary->dis.coef.dim.height;
 
-#if defined(IS_ISP_2500_SYSTEM)
-	assert(pipe != NULL);
-	dvs_info->enable            = binary->info->sp.enable.dvs_stats;
+	sh_css_binary_common_grid_info(binary, info);
+}
+
+void
+ia_css_binary_dvs_stat_grid_info(
+	const struct ia_css_binary *binary,
+	struct ia_css_grid_info *info,
+	struct ia_css_pipe *pipe)
+{
+#if defined(HAS_RES_MGR)
+	struct ia_css_dvs_stat_grid_info *dvs_stat_info;
+	unsigned int i;
+
+	assert(binary != NULL);
+	assert(info != NULL);
+	dvs_stat_info = &info->dvs_grid.dvs_stat_grid_info;
+
+	if (binary->info->sp.enable.dvs_stats) {
+		for (i = 0; i < IA_CSS_SKC_DVS_STAT_NUM_OF_LEVELS; i++) {
+			dvs_stat_info->grd_cfg[i].grd_start.enable = 1;
+		}
+		ia_css_dvs_stat_grid_calculate(pipe, dvs_stat_info);
+	}
+	else {
+		memset(dvs_stat_info, 0, sizeof(struct ia_css_dvs_stat_grid_info));
+	}
+
 #endif
+	(void)pipe;
+	sh_css_binary_common_grid_info(binary, info);
+	return;
 }
 
 enum ia_css_err
@@ -954,6 +994,7 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 	bool enable_high_speed;
 	bool enable_dvs_6axis;
 	bool enable_reduced_pipe;
+	bool enable_capture_pp_bli;
 	enum ia_css_err err = IA_CSS_ERR_INTERNAL_ERROR;
 	bool continuous;
 	unsigned int isp_pipe_version;
@@ -993,6 +1034,7 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 	enable_high_speed = descr->enable_high_speed;
 	enable_dvs_6axis  = descr->enable_dvs_6axis;
 	enable_reduced_pipe = descr->enable_reduced_pipe;
+	enable_capture_pp_bli = descr->enable_capture_pp_bli;
 	continuous = descr->continuous;
 	striped = descr->striped;
 	isp_pipe_version = descr->isp_pipe_version;
@@ -1276,6 +1318,13 @@ ia_css_binary_find(struct ia_css_binary_descr *descr,
 			continue;
 		}
 
+		if (candidate->uds.use_bci && enable_capture_pp_bli) {
+			ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE,
+				"ia_css_binary_find() [%d] continue: 0x%x & 0x%x)\n",
+				__LINE__, candidate->uds.use_bci,
+				descr->enable_capture_pp_bli);
+			continue;
+		}
 
 		/* reconfigure any variable properties of the binary */
 		err = ia_css_binary_fill_info(xcandidate, online, two_ppc,

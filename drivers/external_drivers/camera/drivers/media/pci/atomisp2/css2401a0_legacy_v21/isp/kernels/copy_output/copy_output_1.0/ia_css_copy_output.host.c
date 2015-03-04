@@ -19,6 +19,10 @@
 #include "ia_css_isp_configs.h"
 #include "isp.h"
 
+static const struct ia_css_copy_output_configuration default_config = {
+	.enable = false,
+};
+
 void
 ia_css_copy_output_config(
 	struct sh_css_isp_copy_output_isp_config      *to,
@@ -34,8 +38,10 @@ ia_css_copy_output_configure(
 	const struct ia_css_binary     *binary,
 	bool enable)
 {
-	const struct ia_css_copy_output_configuration config =
-		{ enable };
+	struct ia_css_copy_output_configuration config = default_config;
+
+	config.enable = enable;
+
 	ia_css_configure_copy_output(binary, &config);
 }
 

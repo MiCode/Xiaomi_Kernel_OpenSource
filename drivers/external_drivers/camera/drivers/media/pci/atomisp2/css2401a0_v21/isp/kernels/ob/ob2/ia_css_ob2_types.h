@@ -15,6 +15,15 @@
 #ifndef __IA_CSS_OB2_TYPES_H
 #define __IA_CSS_OB2_TYPES_H
 
+/** @file
+* CSS-API header file for Optical Black algorithm parameters.
+*/
+
+/** Optical Black configuration
+ *
+ * ISP2.6.1: OB2 is used.
+ */
+
 #include "ia_css_frac.h"
 
 struct ia_css_ob2_config {

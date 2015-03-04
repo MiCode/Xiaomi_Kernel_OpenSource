@@ -1,27 +1,16 @@
 /*
- * INTEL CONFIDENTIAL
+ * Support for Intel Camera Imaging ISP subsystem.
+ * Copyright (c) 2015, Intel Corporation.
  *
- * Copyright (C) 2010 - 2014 Intel Corporation.
- * All Rights Reserved.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
  *
- * The source code contained or described herein and all documents
- * related to the source code ("Material") are owned by Intel Corporation
- * or licensors. Title to the Material remains with Intel
- * Corporation or its licensors. The Material contains trade
- * secrets and proprietary and confidential information of Intel or its
- * licensors. The Material is protected by worldwide copyright
- * and trade secret laws and treaty provisions. No part of the Material may
- * be used, copied, reproduced, modified, published, uploaded, posted,
- * transmitted, distributed, or disclosed in any way without Intel's prior
- * express written permission.
- *
- * No License under any patent, copyright, trade secret or other intellectual
- * property right is granted to or conferred upon you by disclosure or
- * delivery of the Materials, either expressly, by implication, inducement,
- * estoppel or otherwise. Any license under such intellectual property rights
- * must be express and approved by Intel in writing.
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  */
-
 
 #ifndef __REF_VECTOR_FUNC_TYPES_H_INCLUDED__
 #define __REF_VECTOR_FUNC_TYPES_H_INCLUDED__
@@ -43,6 +32,7 @@
 #define OUTPUT_SCALE_FACTOR 10
 #define SLOPE_A_RESOLUTION 10
 #define CONFIG_UNIT_LUT_SIZE_32 32 /*XCU works for ISP_NWAY = 32 */
+#define LXCU_LUT_SIZE      16
 
 #define ONE_IN_Q14 (1<<(NUM_BITS-2))
 #define Q29_TO_Q15_SHIFT_VAL (NUM_BITS-2)
@@ -92,10 +82,16 @@ typedef struct {
   tvector1w     v1 ;
 } s_1w_2x1_matrix;
 
+#define S_1W_2X1_MATRIX_DEFAULT ((s_1w_2x1_matrix)\
+	{ 0, 0 })
+
 typedef struct {
 	tvector1w v00;
 	tvector1w v01;
 } s_1w_1x2_matrix;
+
+#define S_1W_1X2_MATRIX_DEFAULT ((s_1w_1x2_matrix)\
+	{ 0, 0 })
 
 typedef struct {
   tvector1w     v00  ;
@@ -103,10 +99,17 @@ typedef struct {
   tvector1w     v02 ;
 } s_1w_1x3_matrix;
 
+#define S_1W_1X3_MATRIX_DEFAULT ((s_1w_1x3_matrix)\
+	{ 0, 0, 0, })
+
 typedef struct {
   tvector1w v00; tvector1w v01; tvector1w v02;
   tvector1w v10; tvector1w v11; tvector1w v12;
 } s_1w_2x3_matrix;
+
+#define S_1W_2X3_MATRIX_DEFAULT ((s_1w_2x3_matrix)\
+	{ 0, 0, 0, \
+	  0, 0, 0 })
 
 typedef struct {
   tvector1w     v00  ; tvector1w     v01 ; tvector1w     v02  ;
@@ -114,12 +117,23 @@ typedef struct {
   tvector1w     v20  ; tvector1w     v21 ; tvector1w     v22  ;
 } s_1w_3x3_matrix;
 
+#define S_1W_3X3_MATRIX_DEFAULT ((s_1w_3x3_matrix)\
+	{ 0, 0, 0, \
+	  0, 0, 0, \
+	  0, 0, 0 })
+
 typedef struct {
   tvector1w     v00  ; tvector1w     v01 ; tvector1w     v02  ;
   tvector1w     v10  ; tvector1w     v11 ; tvector1w     v12  ;
   tvector1w     v20  ; tvector1w     v21 ; tvector1w     v22  ;
   tvector1w     v30  ; tvector1w     v31 ; tvector1w     v32  ;
 } s_1w_4x3_matrix;
+
+#define S_1W_4X3_MATRIX_DEFAULT ((s_1w_4x3_matrix)\
+	{ 0, 0, 0, \
+	  0, 0, 0, \
+	  0, 0, 0, \
+	  0, 0, 0 })
 
 typedef struct {
   tvector1w     v00 ;
@@ -129,6 +143,9 @@ typedef struct {
   tvector1w     v04 ;
 } s_1w_1x5_matrix;
 
+#define S_1W_1X5_MATRIX_DEFAULT ((s_1w_1x5_matrix)\
+	{ 0, 0, 0, 0, 0 })
+
 typedef struct {
   tvector1w     v00  ; tvector1w     v01 ; tvector1w     v02  ; tvector1w     v03 ; tvector1w     v04  ;
   tvector1w     v10  ; tvector1w     v11 ; tvector1w     v12  ; tvector1w     v13 ; tvector1w     v14  ;
@@ -137,6 +154,13 @@ typedef struct {
   tvector1w     v40  ; tvector1w     v41 ; tvector1w     v42  ; tvector1w     v43 ; tvector1w     v44  ;
 } s_1w_5x5_matrix;
 
+#define S_1W_5X5_MATRIX_DEFAULT ((s_1w_5x5_matrix)\
+	{ 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0 })
+	
 typedef struct {
 	tvector1w v00;
 	tvector1w v01;
@@ -146,6 +170,9 @@ typedef struct {
 	tvector1w v05;
 	tvector1w v06;
 } s_1w_1x7_matrix;
+
+#define S_1W_1X7_MATRIX_DEFAULT ((s_1w_1x7_matrix)\
+	{ 0, 0, 0, 0, 0, 0, 0 })
 
 typedef struct {
 	tvector1w v00;
@@ -159,6 +186,9 @@ typedef struct {
 	tvector1w v08;
 } s_1w_1x9_matrix;
 
+#define S_1W_1X9_MATRIX_DEFAULT ((s_1w_1x9_matrix)\
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0 })
+
 typedef struct {
 	tvector1w v00;
 	tvector1w v01;
@@ -166,12 +196,21 @@ typedef struct {
 	tvector1w v03;
 } s_1w_1x4_matrix;
 
+#define S_1W_1X4_MATRIX ((s_1w_1x4_matrix)\
+	{ 0, 0, 0, 0 })
+
 typedef struct {
 	tvector1w v00; tvector1w v01; tvector1w v02; tvector1w v03;
 	tvector1w v10; tvector1w v11; tvector1w v12; tvector1w v13;
 	tvector1w v20; tvector1w v21; tvector1w v22; tvector1w v23;
 	tvector1w v30; tvector1w v31; tvector1w v32; tvector1w v33;
 } s_1w_4x4_matrix;
+
+#define S_1W_4X4_MATRIX_DEFAULT ((s_1w_4x4_matrix)\
+	{ 0, 0, 0, 0, \
+	  0, 0, 0, 0, \
+	  0, 0, 0, 0, \
+	  0, 0, 0, 0 })
 
 typedef struct {
 	tvector1w v00;
@@ -182,6 +221,9 @@ typedef struct {
 	tvector1w v05;
 } s_1w_1x6_matrix;
 
+#define S_1W_1X6_MATRIX_DEFAULT ((s_1w_1x6_matrix)\
+	{ 0, 0, 0, 0, 0, 0 })
+
 typedef struct {
 	tvector1w v00; tvector1w v01; tvector1w v02; tvector1w v03; tvector1w v04; tvector1w v05;
 	tvector1w v10; tvector1w v11; tvector1w v12; tvector1w v13; tvector1w v14; tvector1w v15;
@@ -190,6 +232,14 @@ typedef struct {
 	tvector1w v40; tvector1w v41; tvector1w v42; tvector1w v43; tvector1w v44; tvector1w v45;
 	tvector1w v50; tvector1w v51; tvector1w v52; tvector1w v53; tvector1w v54; tvector1w v55;
 } s_1w_6x6_matrix;
+
+#define S_1W_6X6_MATRIX_DEFAULT ((s_1w_6x6_matrix)\
+	{ 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0 })
 
 typedef struct {
 	tvector1w v00; tvector1w v01; tvector1w v02; tvector1w v03; tvector1w v04;
@@ -212,6 +262,17 @@ typedef struct {
 	tvector1w v85; tvector1w v86; tvector1w v87; tvector1w v88;
 } s_1w_9x9_matrix;
 
+#define S_1W_9X9_MATRIX_DEFAULT ((s_1w_9x9_matrix)\
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, 0, 0 })
+
 typedef struct {
 	tvector1w v00; tvector1w v01; tvector1w v02; tvector1w v03; tvector1w v04;
 	tvector1w v05; tvector1w v06;
@@ -229,6 +290,15 @@ typedef struct {
 	tvector1w v65; tvector1w v66;
 } s_1w_7x7_matrix;
 
+#define S_1W_7X7_MATRIX_DEFAULT ((s_1w_7x7_matrix)\
+	{ 0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0, \
+	  0, 0, 0, 0, 0, 0, 0 })
+
 typedef struct {
 	tvector1w v0_0;
 	tvector1w v0_1;
@@ -242,6 +312,9 @@ typedef struct {
 	tvector1w v0_9;
 	tvector1w v0_10;
 } s_1w_1x11_matrix;
+
+#define S_1W_1X11_MATRIX_DEFAULT ((s_1w_1x11_matrix)\
+	{ 0, 0, 0, 0, 0, 0, 0, 0, 0 })
 
 typedef struct {
 	tvector1w x_cord[MAX_CONFIG_POINTS];
@@ -291,4 +364,9 @@ typedef struct {
 	tvector1w range_weight_lut[BFA_RW_LUT_SIZE];
 } bfa_weights;
 
+/* Return type for BFA BBBs */
+typedef struct {
+	tvector2w sop; /* weighted sum of pixels */
+	tvector1w sow; /* sum of weights */
+} bfa_7x7_output;
 #endif /* __REF_VECTOR_FUNC_TYPES_H_INCLUDED__ */

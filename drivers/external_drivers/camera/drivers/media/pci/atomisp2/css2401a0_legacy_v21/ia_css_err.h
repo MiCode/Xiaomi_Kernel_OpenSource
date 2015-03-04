@@ -41,23 +41,6 @@ enum ia_css_err {
 	IA_CSS_ERR_NOT_SUPPORTED
 };
 
-/** Unrecoverable FW errors. This enum contains a value for each
- * error that the SP FW could encounter.
- */
-enum ia_css_fw_err {
-	IA_CSS_FW_SUCCESS,
-	IA_CSS_FW_ERR_TAGGER_FULL,
-	IA_CSS_FW_ERR_NO_VBUF_HANDLE,
-	IA_CSS_FW_ERR_BUFFER_QUEUE_FULL,
-	IA_CSS_FW_ERR_INVALID_QUEUE,
-	IA_CSS_FW_ERR_INVALID_DMA_CHANNEL,
-	IA_CSS_FW_ERR_CIRCBUF_EMPTY,
-	IA_CSS_FW_ERR_CIRCBUF_FULL,
-	IA_CSS_FW_ERR_TOKEN_MAP_RECEIVE,
-	IA_CSS_FW_ERR_INVALID_PORT,
-	IA_CSS_FW_ERR_OUT_OF_SP_DMEM,
-};
-
 /** FW warnings. This enum contains a value for each warning that
  * the SP FW could indicate potential performance issue
  */

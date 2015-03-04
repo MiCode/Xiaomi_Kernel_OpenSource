@@ -104,16 +104,8 @@ struct ia_css_stream_config {
 	unsigned int sensor_binning_factor; /**< Binning factor used by sensor
 						 to produce image data. This is
 						 used for shading correction. */
-	/** The next field is only for backward compatibility for CSS API 2.0
-	 *  TO BE REMOVED when all drivers move to CSS API 2.1
-	 *  Effectively below two lines are implemented internally:
-	 *  if ( pixels_per_clock == 0 )
-	 *	pixels_per_clock = two_pixels_per_clock ? 2 : 1;
-	 * @deprecated{Replaced by pixels_per_clock for CSS API 2.1}
-	 */
-	bool two_pixels_per_clock; /**< Enable/disable 2 pixels per clock */
 	unsigned int pixels_per_clock; /**< Number of pixels per clock, which can be
-					    1, 2 or 4. 0 is used as legacy support. */
+					    1, 2 or 4. */
 	bool online; /**< offline will activate RAW copy on SP, use this for
 			  continuous capture. */
 		/* ISYS2401 usage: ISP receives data directly from sensor, no copy. */

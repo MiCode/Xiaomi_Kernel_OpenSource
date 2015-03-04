@@ -32,8 +32,15 @@ ia_css_iefd2_6_encode(
 	size_t size);
 
 void
+ia_css_init_iefd2_6_state(
+	void *state,
+	size_t size);
+
+#ifndef IA_CSS_NO_DEBUG
+void
 ia_css_iefd2_6_debug_dtrace(
 	const struct ia_css_iefd2_6_config *config, unsigned level)
 ;
+#endif
 
 #endif /* __IA_CSS_IEFD2_6_HOST_H */

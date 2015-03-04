@@ -56,6 +56,7 @@ static void pipe_binarydesc_get_offline(
 	descr->enable_dz = true;
 	descr->enable_xnr = false;
 	descr->enable_dpc = false;
+	descr->enable_capture_pp_bli = false;
 	descr->enable_fractional_ds = false;
 	descr->dvs_env.width = 0;
 	descr->dvs_env.height = 0;
@@ -460,7 +461,7 @@ enum ia_css_err ia_css_pipe_get_video_binarydesc(
 }
 
 void ia_css_pipe_get_yuvscaler_binarydesc(
-	struct ia_css_pipe * const pipe,
+	struct ia_css_pipe const * const pipe,
 	struct ia_css_binary_descr *yuv_scaler_descr,
 	struct ia_css_frame_info *in_info,
 	struct ia_css_frame_info *out_info,
@@ -468,6 +469,7 @@ void ia_css_pipe_get_yuvscaler_binarydesc(
 	struct ia_css_frame_info *vf_info)
 {
 	struct ia_css_frame_info *out_infos[IA_CSS_BINARY_MAX_OUTPUT_PORTS];
+	struct ia_css_frame_info *this_vf_info = NULL;
 
 	assert(pipe != NULL);
 	assert(in_info != NULL);
@@ -488,11 +490,15 @@ void ia_css_pipe_get_yuvscaler_binarydesc(
 	 * fails
 	 */
 
+	if (vf_info) {
+		this_vf_info = (vf_info->res.width == 0 &&
+			vf_info->res.height == 0) ? NULL : vf_info;
+	}
+
 	pipe_binarydesc_get_offline(pipe,
 			       IA_CSS_BINARY_MODE_CAPTURE_PP,
 			       yuv_scaler_descr,
-			       in_info, out_infos,
-			       (vf_info->res.width == 0 && vf_info->res.height == 0) ? NULL : vf_info);
+			       in_info, out_infos, this_vf_info);
 
 	yuv_scaler_descr->enable_fractional_ds = true;
 	IA_CSS_LEAVE_PRIVATE("");
@@ -533,6 +539,8 @@ void ia_css_pipe_get_capturepp_binarydesc(
 			       capture_pp_descr,
 			       in_info, out_infos, vf_info);
 
+	capture_pp_descr->enable_capture_pp_bli =
+		pipe->config.default_capture_config.enable_capture_pp_bli;
 	capture_pp_descr->enable_fractional_ds = true;
 	capture_pp_descr->enable_xnr =
 		pipe->config.default_capture_config.enable_xnr != 0;
@@ -558,7 +566,7 @@ void ia_css_pipe_get_primary_binarydesc(
 	struct ia_css_frame_info *vf_info,
 	unsigned int stage_idx)
 {
-	unsigned int pipe_version = pipe->config.isp_pipe_version;
+	enum ia_css_pipe_version pipe_version = pipe->config.isp_pipe_version;
 	int mode;
 	unsigned int i;
 	struct ia_css_frame_info *out_infos[IA_CSS_BINARY_MAX_OUTPUT_PORTS];
@@ -831,5 +839,35 @@ void ia_css_pipe_get_post_anr_binarydesc(
 			       post_anr_descr, in_info, out_infos, vf_info);
 
 	post_anr_descr->isp_pipe_version = pipe->config.isp_pipe_version;
+	IA_CSS_LEAVE_PRIVATE("");
+}
+
+void ia_css_pipe_get_ldc_binarydesc(
+	struct ia_css_pipe const * const pipe,
+	struct ia_css_binary_descr *ldc_descr,
+	struct ia_css_frame_info *in_info,
+	struct ia_css_frame_info *out_info)
+{
+	unsigned int i;
+	struct ia_css_frame_info *out_infos[IA_CSS_BINARY_MAX_OUTPUT_PORTS];
+
+	assert(pipe != NULL);
+	assert(in_info != NULL);
+	assert(out_info != NULL);
+	IA_CSS_ENTER_PRIVATE("");
+
+	*in_info = *out_info;
+	in_info->format = IA_CSS_FRAME_FORMAT_YUV420;
+	in_info->raw_bit_depth = 0;
+	ia_css_frame_info_set_width(in_info, in_info->res.width, 0);
+
+	out_infos[0] = out_info;
+	for (i = 1; i < IA_CSS_BINARY_MAX_OUTPUT_PORTS; i++)
+		out_infos[i] = NULL;
+
+	pipe_binarydesc_get_offline(pipe, IA_CSS_BINARY_MODE_CAPTURE_PP,
+			       ldc_descr, in_info, out_infos, NULL);
+	ldc_descr->enable_dvs_6axis =
+		    pipe->extra_config.enable_dvs_6axis;
 	IA_CSS_LEAVE_PRIVATE("");
 }

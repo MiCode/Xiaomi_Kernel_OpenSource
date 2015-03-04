@@ -27,7 +27,8 @@ void
 prepare_shading_table(const struct ia_css_shading_table *in_table,
 		      unsigned int sensor_binning,
 		      struct ia_css_shading_table **target_table,
-		      const struct ia_css_binary *binary);
+		      const struct ia_css_binary *binary,
+		      unsigned int bds_factor);
 
 #endif /* __SH_CSS_PARAMS_SHADING_H */
 

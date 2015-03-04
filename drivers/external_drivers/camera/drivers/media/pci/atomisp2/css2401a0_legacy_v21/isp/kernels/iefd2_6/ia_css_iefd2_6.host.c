@@ -105,7 +105,19 @@ ia_css_iefd2_6_vmem_encode(
 			to->e_curad_b[0][base+j] = from->cu_radial_slopes_b[j-1];
 		}
 		to->e_curad_x[0][base+6] = from->cu_radial_points_x[5];
+
+		/* Init asrrnd_lut */
+		to->asrrnd_lut[0][base] = 8192;
+		to->asrrnd_lut[0][base+1] = 4096;
+		to->asrrnd_lut[0][base+2] = 2048;
+		to->asrrnd_lut[0][base+3] = 1024;
+		to->asrrnd_lut[0][base+4] = 512;
+		to->asrrnd_lut[0][base+5] = 256;
+		to->asrrnd_lut[0][base+6] = 128;
+		to->asrrnd_lut[0][base+7] = 64;
+		to->asrrnd_lut[0][base+8] = 32;
 	}
+
 }
 
 void
@@ -159,10 +171,24 @@ ia_css_iefd2_6_encode(
 	/* Setup for configurable units */
 	to->e_cued2_a		= from->cu_ed2_slopes_a;
 	to->e_cu_vssnlm_a	= from->cu_vssnlm_slopes_a;
-	to->e_cued2_b		= from->cu_ed2_points_x[0];
-	to->e_cu_vssnlm_b	= ((0-from->cu_vssnlm_points_x[1]) * from->cu_vssnlm_slopes_a)>>4;
+	to->e_cued2_x1		= from->cu_ed2_points_x[0];
+	to->e_cued2_x_diff	= from->cu_ed2_points_x[1] - from->cu_ed2_points_x[0];
+	to->e_cu_vssnlm_x1	= from->cu_vssnlm_points_x[0];
+	to->e_cu_vssnlm_x_diff  = from->cu_vssnlm_points_x[1] - from->cu_vssnlm_points_x[0];
 }
 
+/* TODO: AM: This needs a proper implementation. */
+void
+ia_css_init_iefd2_6_state(
+	void *state,
+	size_t size)
+{
+	(void)state;
+	(void)size;
+}
+
+#ifndef IA_CSS_NO_DEBUG
+/* TODO: AM: This needs a proper implementation. */
 void
 ia_css_iefd2_6_debug_dtrace(
 	const struct ia_css_iefd2_6_config *config,
@@ -171,3 +197,4 @@ ia_css_iefd2_6_debug_dtrace(
 	(void)config;
 	(void)level;
 }
+#endif

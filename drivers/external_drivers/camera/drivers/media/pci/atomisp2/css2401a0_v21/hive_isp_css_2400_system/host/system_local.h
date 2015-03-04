@@ -28,6 +28,8 @@
 #ifdef __FIST__
 #define HRT_ADDRESS_WIDTH	32		/* Surprise, this is a local property and even differs per platform */
 #else
+/* HRT assumes 32 by default (see Linux/include/hrt/hive_types.h), overrule it in case it is different */
+#undef HRT_ADDRESS_WIDTH
 #define HRT_ADDRESS_WIDTH	64		/* Surprise, this is a local property */
 #endif
 
@@ -84,6 +86,9 @@ static const hrt_address SP_CTRL_BASE[N_SP_ID] = {
 
 static const hrt_address SP_DMEM_BASE[N_SP_ID] = {
 	(hrt_address)0x0000000000300000ULL};
+
+static const hrt_address SP_PMEM_BASE[N_SP_ID] = {
+	(hrt_address)0x00000000000B0000ULL};
 
 /* MMU */
 #if defined (IS_ISP_2400_MAMOIADA_SYSTEM) || defined (IS_ISP_2401_MAMOIADA_SYSTEM)
@@ -203,6 +208,9 @@ static const hrt_address SP_CTRL_BASE[N_SP_ID] = {
 
 static const hrt_address SP_DMEM_BASE[N_SP_ID] = {
 	(hrt_address)0x00300000UL};
+
+static const hrt_address SP_PMEM_BASE[N_SP_ID] = {
+	(hrt_address)0x000B0000UL};
 
 /* MMU */
 #if defined (IS_ISP_2400_MAMOIADA_SYSTEM) || defined (IS_ISP_2401_MAMOIADA_SYSTEM)

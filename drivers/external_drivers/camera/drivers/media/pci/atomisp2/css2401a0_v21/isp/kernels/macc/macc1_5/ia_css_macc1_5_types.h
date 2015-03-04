@@ -15,6 +15,16 @@
 #ifndef __IA_CSS_MACC1_5_TYPES_H
 #define __IA_CSS_MACC1_5_TYPES_H
 
+/** @file
+* CSS-API header file for Multi-Axis Color Conversion algorithm parameters.
+*/
+
+/** Multi-Axis Color Conversion configuration
+ *
+ * ISP2.6.1: MACC1_5 is used.
+ */
+
+
 /** Number of axes in the MACC table. */
 #define IA_CSS_MACC_NUM_AXES           16
 /** Number of coefficients per MACC axes. */

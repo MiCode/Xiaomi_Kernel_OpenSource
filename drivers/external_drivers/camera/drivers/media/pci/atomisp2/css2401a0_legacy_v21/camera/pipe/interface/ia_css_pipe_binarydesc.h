@@ -117,7 +117,7 @@ extern enum ia_css_err ia_css_pipe_get_video_binarydesc(
  *
  */
 void ia_css_pipe_get_yuvscaler_binarydesc(
-	struct ia_css_pipe * const pipe,
+	struct ia_css_pipe const * const pipe,
 	struct ia_css_binary_descr *yuv_scaler_descr,
 	struct ia_css_frame_info *in_info,
 	struct ia_css_frame_info *out_info,
@@ -266,5 +266,21 @@ extern void ia_css_pipe_get_post_anr_binarydesc(
 	struct ia_css_frame_info *in_info,
 	struct ia_css_frame_info *out_info,
 	struct ia_css_frame_info *vf_info);
+
+/** @brief Get a binary descriptor for ldc stage.
+ *
+ * @param[in/out] pipe
+ * @param[out] capture_pp_descr
+ * @param[in/out] in_info
+ * @param[in/out] vf_info
+ * @return    None
+ *
+ */
+extern void ia_css_pipe_get_ldc_binarydesc(
+	struct ia_css_pipe const * const pipe,
+	struct ia_css_binary_descr *ldc_descr,
+	struct ia_css_frame_info *in_info,
+	struct ia_css_frame_info *out_info);
+
 
 #endif /* __IA_CSS_PIPE_BINARYDESC_H__ */

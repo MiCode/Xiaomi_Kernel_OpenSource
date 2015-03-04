@@ -971,7 +971,7 @@ sh_css_sp_init_stage(struct ia_css_binary *binary,
 
 	/* Make sure binary name is smaller than allowed string size */
 	assert(strlen(binary_name) < SH_CSS_MAX_BINARY_NAME-1);
-	strncpy(sh_css_isp_stage.binary_name, binary_name, SH_CSS_MAX_BINARY_NAME);
+	strncpy(sh_css_isp_stage.binary_name, binary_name, SH_CSS_MAX_BINARY_NAME-1);
 	sh_css_isp_stage.binary_name[SH_CSS_MAX_BINARY_NAME - 1] = 0;
 	sh_css_isp_stage.mem_initializers = *isp_mem_if;
 
@@ -1191,6 +1191,7 @@ sh_css_sp_init_pipeline(struct ia_css_pipeline *me,
 	/* Get first stage */
 	struct ia_css_pipeline_stage *stage        = NULL;
 	struct ia_css_binary	     *first_binary = NULL;
+	struct ia_css_pipe *pipe = NULL;
 	unsigned num;
 
 	enum ia_css_pipe_id pipe_id = id;
@@ -1273,6 +1274,13 @@ sh_css_sp_init_pipeline(struct ia_css_pipeline *me,
 		sh_css_sp_group.pipe[thread_id].pipe_config = 0;
 
 	sh_css_sp_group.pipe[thread_id].inout_port_config = me->inout_port_config;
+
+	pipe = find_pipe_by_num(pipe_num);
+	assert(pipe != NULL);
+	if (pipe == NULL) {
+		return;
+	}
+	sh_css_sp_group.pipe[thread_id].scaler_pp_lut = sh_css_pipe_get_pp_gdc_lut(pipe);
 
 #if defined(SH_CSS_ENABLE_METADATA)
 	if (md_info != NULL && md_info->size > 0) {

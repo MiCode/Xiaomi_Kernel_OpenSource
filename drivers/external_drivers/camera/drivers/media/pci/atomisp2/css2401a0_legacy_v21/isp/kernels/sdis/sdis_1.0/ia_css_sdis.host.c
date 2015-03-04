@@ -40,18 +40,19 @@ void ia_css_sdis_horicoef_vmem_encode (
 	unsigned size)
 {
 	unsigned aligned_width = from->grid.aligned_width * from->grid.bqs_per_grid_cell;
-	unsigned	 width = from->grid.num_hor_coefs;
+	unsigned width         = from->grid.num_hor_coefs;
 	int      padding       = aligned_width-width;
-	unsigned stride	       = size/IA_CSS_DVS_NUM_COEF_TYPES/sizeof(short);
+	unsigned stride        = size/IA_CSS_DVS_NUM_COEF_TYPES/sizeof(short);
 	unsigned total_bytes   = aligned_width*IA_CSS_DVS_NUM_COEF_TYPES*sizeof(short);
+	short   *public        = from->hor_coefs;
+	short   *private       = (short*)to;
 	unsigned type;
-	short *public  = from->hor_coefs;
-	short *private = (short*)to;
 
 	/* Copy the table, add padding */
 	assert(padding >= 0);
 	assert(total_bytes <= size);
 	assert(size % (IA_CSS_DVS_NUM_COEF_TYPES*ISP_VEC_NELEMS*sizeof(short)) == 0);
+
 	for (type = 0; type < IA_CSS_DVS_NUM_COEF_TYPES; type++) {
 		fill_row(&private[type*stride], &public[type*width], width, padding);
 	}
@@ -63,18 +64,19 @@ void ia_css_sdis_vertcoef_vmem_encode (
 	unsigned size)
 {
 	unsigned aligned_height = from->grid.aligned_height * from->grid.bqs_per_grid_cell;
-	unsigned	 height = from->grid.num_ver_coefs;
-	int      padding	= aligned_height-height;
-	unsigned stride		= size/IA_CSS_DVS_NUM_COEF_TYPES/sizeof(short);
-	unsigned total_bytes	= aligned_height*IA_CSS_DVS_NUM_COEF_TYPES*sizeof(short);
+	unsigned height         = from->grid.num_ver_coefs;
+	int      padding        = aligned_height-height;
+	unsigned stride         = size/IA_CSS_DVS_NUM_COEF_TYPES/sizeof(short);
+	unsigned total_bytes    = aligned_height*IA_CSS_DVS_NUM_COEF_TYPES*sizeof(short);
+	short   *public         = from->ver_coefs;
+	short   *private        = (short*)to;
 	unsigned type;
-	short *public  = from->ver_coefs;
-	short *private = (short*)to;
 
 	/* Copy the table, add padding */
 	assert(padding >= 0);
 	assert(total_bytes <= size);
 	assert(size % (IA_CSS_DVS_NUM_COEF_TYPES*ISP_VEC_NELEMS*sizeof(short)) == 0);
+
 	for (type = 0; type < IA_CSS_DVS_NUM_COEF_TYPES; type++) {
 		fill_row(&private[type*stride], &public[type*height], height, padding);
 	}

@@ -16,11 +16,9 @@
 #define __ISYS_STREAM2MMIO_PRIVATE_H_INCLUDED__
 
 #include "isys_stream2mmio_public.h"
-
 #include "device_access.h"	/* ia_css_device_load_uint32 */
-
-#include "assert_support.h" /* assert */
-#include "print_support.h" /* print */
+#include "assert_support.h"	/* assert */
+#include "print_support.h"	/* print */
 
 #define STREAM2MMIO_COMMAND_REG_ID             0
 #define STREAM2MMIO_ACKNOWLEDGE_REG_ID         1
@@ -45,17 +43,14 @@ STORAGE_CLASS_STREAM2MMIO_C void stream2mmio_get_state(
 		const stream2mmio_ID_t ID,
 		stream2mmio_state_t *state)
 {
-	uint32_t i;
+	stream2mmio_sid_ID_t i;
 
 	/*
 	 * Get the values of the register-set per
 	 * stream2mmio-controller sids.
 	 */
-	for (i = 0; i < N_STREAM2MMIO_SID_PROCS[ID]; i++) {
-		stream2mmio_get_sid_state(
-				ID,
-				i,
-				&(state->sid_state[i]));
+	for (i = STREAM2MMIO_SID0_ID; i < N_STREAM2MMIO_SID_PROCS[ID]; i++) {
+		stream2mmio_get_sid_state(ID, i, &(state->sid_state[i]));
 	}
 }
 
@@ -65,7 +60,7 @@ STORAGE_CLASS_STREAM2MMIO_C void stream2mmio_get_state(
  */
 STORAGE_CLASS_STREAM2MMIO_C void stream2mmio_get_sid_state(
 		const stream2mmio_ID_t ID,
-		const uint32_t sid_id,
+		const stream2mmio_sid_ID_t sid_id,
 		stream2mmio_sid_state_t	*state)
 {
 
@@ -116,16 +111,15 @@ STORAGE_CLASS_STREAM2MMIO_C void stream2mmio_dump_state(
 		const stream2mmio_ID_t ID,
 		stream2mmio_state_t *state)
 {
-	uint32_t i;
+	stream2mmio_sid_ID_t i;
 
 	/*
 	 * Get the values of the register-set per
 	 * stream2mmio-controller sids.
 	 */
-	for (i = 0; i < N_STREAM2MMIO_SID_PROCS[ID]; i++) {
+	for (i = STREAM2MMIO_SID0_ID; i < N_STREAM2MMIO_SID_PROCS[ID]; i++) {
 		ia_css_print("StREAM2MMIO ID %d SID %d\n", ID, i);
-		stream2mmio_print_sid_state(
-				&(state->sid_state[i]));
+		stream2mmio_print_sid_state(&(state->sid_state[i]));
 	}
 }
 /** end of NCI */
@@ -140,17 +134,17 @@ STORAGE_CLASS_STREAM2MMIO_C void stream2mmio_dump_state(
  * Refer to "stream2mmio_public.h" for details.
  */
 STORAGE_CLASS_STREAM2MMIO_C hrt_data stream2mmio_reg_load(
-	const stream2mmio_ID_t ID,
-	const uint32_t sid_id,
-	const uint32_t reg_idx)
+		const stream2mmio_ID_t ID,
+		const stream2mmio_sid_ID_t sid_id,
+		const uint32_t reg_idx)
 {
 	uint32_t reg_bank_offset;
+
 	assert(ID < N_STREAM2MMIO_ID);
 
-	reg_bank_offset =
-		STREAM2MMIO_REGS_PER_SID * sid_id;
+	reg_bank_offset = STREAM2MMIO_REGS_PER_SID * sid_id;
 	return ia_css_device_load_uint32(STREAM2MMIO_CTRL_BASE[ID] +
-						(reg_bank_offset + reg_idx)*sizeof(hrt_data));
+			(reg_bank_offset + reg_idx) * sizeof(hrt_data));
 }
 
 
@@ -159,14 +153,15 @@ STORAGE_CLASS_STREAM2MMIO_C hrt_data stream2mmio_reg_load(
  * Refer to "stream2mmio_public.h" for details.
  */
 STORAGE_CLASS_STREAM2MMIO_C void stream2mmio_reg_store(
-	const stream2mmio_ID_t ID,
-	const hrt_address reg,
-	const hrt_data value)
+		const stream2mmio_ID_t ID,
+		const hrt_address reg,
+		const hrt_data value)
 {
 	assert(ID < N_STREAM2MMIO_ID);
 	assert(STREAM2MMIO_CTRL_BASE[ID] != (hrt_address)-1);
 
-	ia_css_device_store_uint32(STREAM2MMIO_CTRL_BASE[ID] + reg*sizeof(hrt_data), value);
+	ia_css_device_store_uint32(STREAM2MMIO_CTRL_BASE[ID] +
+		reg * sizeof(hrt_data), value);
 }
 /** end of DLI */
 
