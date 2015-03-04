@@ -1324,6 +1324,11 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		return -EINVAL;
 	}
 
+	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
+		pr_debug("%s: clamp ctrl configuration is skipped\n", __func__);
+		return 0;
+	}
+
 	clamp_reg_off = ctrl->ulps_clamp_ctrl_off;
 	phyrst_reg_off = ctrl->ulps_phyrst_ctrl_off;
 	mipi = &ctrl->panel_data.panel_info.mipi;
