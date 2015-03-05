@@ -1967,10 +1967,13 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	if (params_changed) {
 		pipe->params_changed = 0;
 
-		ret = mdss_mdp_pipe_pp_setup(pipe, &opmode);
-		if (ret) {
-			pr_err("pipe pp setup error for pnum=%d\n", pipe->num);
-			goto done;
+		if (pipe->type != MDSS_MDP_PIPE_TYPE_CURSOR) {
+			ret = mdss_mdp_pipe_pp_setup(pipe, &opmode);
+			if (ret) {
+				pr_err("pipe pp setup error for pnum=%d\n",
+						pipe->num);
+				goto done;
+			}
 		}
 
 		ret = mdss_mdp_image_setup(pipe, src_data);
@@ -1993,10 +1996,10 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 		if (test_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map))
 			mdss_mdp_pipe_qos_lut(pipe);
 
-		mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
-
-		mdss_mdp_set_ot_limit_pipe(pipe);
-
+		if (pipe->type != MDSS_MDP_PIPE_TYPE_CURSOR) {
+			mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
+			mdss_mdp_set_ot_limit_pipe(pipe);
+		}
 	}
 
 	if (src_data == NULL) {
