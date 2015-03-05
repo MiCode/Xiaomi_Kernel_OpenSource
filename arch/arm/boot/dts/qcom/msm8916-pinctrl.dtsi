@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -343,6 +343,58 @@
 				bias-disable = <0>;
 			};
 		};
+
+		spi2_active {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 16>, <&gp 17>, <&gp 19>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "spi2-active";
+			/* active state */
+			spi2_default: default {
+				drive-strength = <12>; /* 12 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+
+		spi2_suspend {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 16>, <&gp 17>, <&gp 19>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <0>;
+			label = "spi2-suspend";
+			/* suspended state */
+			spi2_sleep: sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* pull down */
+			};
+		};
+		spi2_cs2_active {
+			/* CS */
+			qcom,pins = <&gp 18>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "spi2-cs0-active";
+			spi2_cs2_active: cs2_active {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+
+		spi2_cs2_suspend {
+			/* CS */
+			qcom,pins = <&gp 18>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "spi2-cs0-suspend";
+			spi2_cs2_sleep: cs2_sleep {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+
 
 		ice40-spi-usb-pins {
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>, <&gp 114>;

@@ -1,0 +1,33 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. However, device definitions should be placed inside the
+ * 8916.dtsi file.
+ */
+
+#include "msm8916.dtsi"
+#include "msm8916-memory.dtsi"
+#include "msm8916-pinctrl.dtsi"
+
+/{
+	memory {
+		modem_adsp_mem: modem_adsp_region@0 {
+			reg = <0x0 0x86800000 0x0 0x02b00000>;
+		};
+
+		peripheral_mem: pheripheral_region@0 {
+			reg = <0x0 0x89300000 0x0 0x0600000>;
+		};
+	};
+};
