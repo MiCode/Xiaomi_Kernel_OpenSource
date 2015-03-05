@@ -370,8 +370,6 @@ static void msm_vfe47_init_hardware_reg(struct vfe_device *vfe_dev)
 	msm_vfe47_init_dt_parms(vfe_dev, &ds_parms, vfe_dev->vfe_base);
 	msm_vfe47_init_dt_parms(vfe_dev, &vbif_parms, vfe_dev->vfe_vbif_base);
 
-	/* MODULE_STATS_CGC_OVERRIDE: only enforce stats with DMI */
-	msm_camera_io_w(0x00000096, vfe_dev->vfe_base + 0x30);
 
 	/* BUS_CFG */
 	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x84);
@@ -1859,6 +1857,12 @@ static void msm_vfe47_stats_update_cgc_override(struct vfe_device *vfe_dev,
 				break;
 			case STATS_COMP_IDX_AEC_BG:
 				cgc_mask |= (1 << 8);
+				break;
+			case STATS_COMP_IDX_BF:
+				cgc_mask |= (1 << 2);
+				break;
+			case STATS_COMP_IDX_HDR_BHIST:
+				cgc_mask |= (1 << 1);
 				break;
 			default:
 				pr_err("%s: Invalid stats mask\n", __func__);
