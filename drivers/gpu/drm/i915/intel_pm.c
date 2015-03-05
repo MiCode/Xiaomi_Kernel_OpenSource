@@ -6714,16 +6714,21 @@ void __vlv_set_power_well(struct drm_i915_private *dev_priv,
 	u32 mask;
 	u32 state;
 	u32 ctrl;
-	enum pipe pipe;
+	enum pipe pipe = INVALID_PIPE;
 
-	if (power_well_id == PUNIT_POWER_WELL_DPIO_CMN_BC) {
+	if (power_well_id == PUNIT_POWER_WELL_DPIO_CMN_BC
+		|| power_well_id == PUNIT_POWER_WELL_DPIO_CMN_D) {
 		if (enable) {
+			if (power_well_id == PUNIT_POWER_WELL_DPIO_CMN_BC)
+				pipe = PIPE_B;
+			else if (power_well_id == PUNIT_POWER_WELL_DPIO_CMN_D)
+				pipe = PIPE_C;
 			/*
 			 * Enable the CRI clock source so we can get at the
 			 * display and the reference clock for VGA
 			 * hotplug / manual detection.
 			 */
-			I915_WRITE(DPLL(PIPE_B), I915_READ(DPLL(PIPE_B)) |
+			I915_WRITE(DPLL(pipe), I915_READ(DPLL(pipe)) |
 				   DPLL_REFA_CLK_ENABLE_VLV |
 				   DPLL_INTEGRATED_CRI_CLK_VLV);
 			udelay(1); /* >10ns for cmnreset, >0ns for sidereset */
@@ -6774,7 +6779,8 @@ out:
 	 * both PLLs disabled, or we risk losing DPIO and PLL
 	 * synchronization.
 	 */
-	if (power_well_id == PUNIT_POWER_WELL_DPIO_CMN_BC && enable)
+	if ((power_well_id == PUNIT_POWER_WELL_DPIO_CMN_BC
+		|| power_well_id == PUNIT_POWER_WELL_DPIO_CMN_D) && enable)
 		I915_WRITE(DPIO_CTL, I915_READ(DPIO_CTL) | DPIO_CMNRST);
 }
 
