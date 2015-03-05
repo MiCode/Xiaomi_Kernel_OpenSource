@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -195,7 +195,7 @@ static int msm_iommu_map_iommu(struct msm_iommu_meta *meta,
 	unsigned long extra, size;
 	struct sg_table *table;
 	int prot = IOMMU_WRITE | IOMMU_READ;
-
+	size_t map_ret;
 
 	size = meta->size;
 	data->mapped_size = iova_length;
@@ -224,13 +224,16 @@ static int msm_iommu_map_iommu(struct msm_iommu_meta *meta,
 		goto out1;
 	}
 
-	ret = iommu_map_range(domain, data->iova_addr,
+	map_ret = iommu_map_sg(domain, data->iova_addr,
 			      table->sgl,
-			      size, prot);
-	if (ret) {
+			      table->nents, prot);
+	if (map_ret != size) {
 		pr_err("%s: could not map %lx in domain %p\n",
 			__func__, data->iova_addr, domain);
+		ret = -EINVAL;
 		goto out1;
+	} else {
+		ret = 0;
 	}
 
 	if (extra) {
