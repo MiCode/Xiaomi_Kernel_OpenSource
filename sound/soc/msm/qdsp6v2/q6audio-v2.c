@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,7 @@ int q6audio_get_port_index(u16 port_id)
 	case SLIMBUS_3_TX: return IDX_SLIMBUS_3_TX;
 	case SLIMBUS_4_RX: return IDX_SLIMBUS_4_RX;
 	case SLIMBUS_4_TX: return IDX_SLIMBUS_4_TX;
+	case SLIMBUS_5_RX: return IDX_SLIMBUS_5_RX;
 	case SLIMBUS_5_TX: return IDX_SLIMBUS_5_TX;
 	case SLIMBUS_6_RX: return IDX_SLIMBUS_6_RX;
 	case SLIMBUS_6_TX: return IDX_SLIMBUS_6_TX;
@@ -125,6 +126,7 @@ int q6audio_get_port_id(u16 port_id)
 	case SLIMBUS_3_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_3_TX;
 	case SLIMBUS_4_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_RX;
 	case SLIMBUS_4_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_4_TX;
+	case SLIMBUS_5_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_RX;
 	case SLIMBUS_5_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_5_TX;
 	case SLIMBUS_6_RX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_6_RX;
 	case SLIMBUS_6_TX: return AFE_PORT_ID_SLIMBUS_MULTI_CHAN_6_TX;
@@ -247,6 +249,7 @@ int q6audio_validate_port(u16 port_id)
 	case SLIMBUS_3_TX:
 	case SLIMBUS_4_RX:
 	case SLIMBUS_4_TX:
+	case SLIMBUS_5_RX:
 	case SLIMBUS_5_TX:
 	case SLIMBUS_6_RX:
 	case SLIMBUS_6_TX:
