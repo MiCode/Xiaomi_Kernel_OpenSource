@@ -354,6 +354,10 @@
 	qcom,ext-sense-type;
 };
 
+&usb_otg_switch {
+	status = "okay";
+};
+
 &pm8994_mpps {
 	mpp@a300 { /* MPP 4 */
 		/* HDMI_5v_vreg regulator enable */
@@ -363,6 +367,16 @@
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		qcom,invert = <0>;
+	};
+};
+
+&pmi8994_gpios {
+	gpio@c400 { /* GPIO 5 - USB3 OTG SWITCH EN */
+		qcom,mode = <1>;	/* Digital output */
+		qcom,vin-sel = <2>;	/* 1.8 */
+		qcom,src-sel = <0>;	/* GPIO */
+		qcom,master-en = <1>;	/* Enable GPIO */
+		qcom,invert = <0>;	/* Output low initially */
 		status = "okay";
 	};
 };

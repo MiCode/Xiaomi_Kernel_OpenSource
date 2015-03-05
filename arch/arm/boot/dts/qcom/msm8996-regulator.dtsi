@@ -664,6 +664,7 @@
 		vin-supply = <&smbcharger_external_otg>;
 		enable-active-high;
 		gpio = <&pmi8994_gpios 5 0>;
+		status = "disabled";
 	};
 
 	/* Rome 3.3V supply */
