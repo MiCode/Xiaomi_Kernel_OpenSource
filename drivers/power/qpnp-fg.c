@@ -315,10 +315,14 @@ struct fg_chip {
 	struct work_struct	cycle_count_work;
 	struct work_struct	battery_age_work;
 	struct work_struct	update_esr_work;
+	struct work_struct	set_resume_soc_work;
 	struct power_supply	*batt_psy;
+	struct power_supply	*usb_psy;
+	struct power_supply	*dc_psy;
 	struct fg_wakeup_source	memif_wakeup_source;
 	struct fg_wakeup_source	profile_wakeup_source;
 	struct fg_wakeup_source	empty_check_wakeup_source;
+	struct fg_wakeup_source	resume_soc_wakeup_source;
 	bool			first_profile_loaded;
 	struct fg_wakeup_source	update_temp_wakeup_source;
 	struct fg_wakeup_source	update_sram_wakeup_source;
@@ -332,6 +336,8 @@ struct fg_chip {
 	bool			cyc_ctr_started;
 	bool			esr_strict_filter;
 	bool			soc_empty;
+	bool			charge_done;
+	bool			resume_soc_lowered;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -356,6 +362,7 @@ struct fg_chip {
 	int			nom_cap_uah;
 	int			actual_cap_uah;
 	int			status;
+	int			health;
 	enum fg_batt_aging_mode	batt_aging_mode;
 	/* capacity learning */
 	struct fg_learning_data	learning_data;
@@ -2239,6 +2246,35 @@ fail:
 	return rc;
 }
 
+static bool is_usb_present(struct fg_chip *chip)
+{
+	union power_supply_propval prop = {0,};
+	if (!chip->usb_psy)
+		chip->usb_psy = power_supply_get_by_name("usb");
+
+	if (chip->usb_psy)
+		chip->usb_psy->get_property(chip->usb_psy,
+				POWER_SUPPLY_PROP_PRESENT, &prop);
+	return prop.intval != 0;
+}
+
+static bool is_dc_present(struct fg_chip *chip)
+{
+	union power_supply_propval prop = {0,};
+	if (!chip->dc_psy)
+		chip->dc_psy = power_supply_get_by_name("dc");
+
+	if (chip->dc_psy)
+		chip->dc_psy->get_property(chip->dc_psy,
+				POWER_SUPPLY_PROP_PRESENT, &prop);
+	return prop.intval != 0;
+}
+
+static bool is_input_present(struct fg_chip *chip)
+{
+	return is_usb_present(chip) || is_dc_present(chip);
+}
+
 static void status_change_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -2274,6 +2310,20 @@ static int fg_power_set_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_STATUS:
 		chip->status = val->intval;
 		schedule_work(&chip->status_change_work);
+		break;
+	case POWER_SUPPLY_PROP_HEALTH:
+		chip->health = val->intval;
+		if (chip->health == POWER_SUPPLY_HEALTH_GOOD) {
+			fg_stay_awake(&chip->resume_soc_wakeup_source);
+			schedule_work(&chip->set_resume_soc_work);
+		}
+		break;
+	case POWER_SUPPLY_PROP_CHARGE_DONE:
+		chip->charge_done = val->intval;
+		if (!chip->resume_soc_lowered) {
+			fg_stay_awake(&chip->resume_soc_wakeup_source);
+			schedule_work(&chip->set_resume_soc_work);
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -2560,6 +2610,69 @@ static irqreturn_t fg_first_soc_irq_handler(int irq, void *_chip)
 		power_supply_changed(&chip->bms_psy);
 	return IRQ_HANDLED;
 }
+
+static void fg_external_power_changed(struct power_supply *psy)
+{
+	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
+
+	if (!is_input_present(chip) && chip->resume_soc_lowered) {
+		fg_stay_awake(&chip->resume_soc_wakeup_source);
+		schedule_work(&chip->set_resume_soc_work);
+	}
+}
+
+static void set_resume_soc_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				set_resume_soc_work);
+	int resume_soc, rc;
+	u8 resume_soc_raw;
+
+	if (is_input_present(chip) && !chip->resume_soc_lowered) {
+		if (!chip->charge_done)
+			goto done;
+		resume_soc = get_prop_capacity(chip)
+			- (100 - settings[FG_MEM_RESUME_SOC].value);
+		if (resume_soc > 0) {
+			resume_soc_raw = soc_to_setpoint(resume_soc);
+			rc = fg_set_resume_soc(chip, resume_soc_raw);
+			if (rc) {
+				pr_err("Couldn't set resume SOC for FG\n");
+				goto done;
+			}
+			if (fg_debug_mask & FG_STATUS) {
+				pr_info("resume soc lowered to %d/%x\n",
+						resume_soc, resume_soc_raw);
+			}
+		} else {
+			pr_info("FG auto recharge threshold not specified in DT\n");
+		}
+		chip->charge_done = false;
+		chip->resume_soc_lowered = true;
+	} else if (chip->resume_soc_lowered && (!is_input_present(chip)
+				|| chip->health == POWER_SUPPLY_HEALTH_GOOD)) {
+		resume_soc = settings[FG_MEM_RESUME_SOC].value;
+		if (resume_soc > 0) {
+			resume_soc_raw = soc_to_setpoint(resume_soc);
+			rc = fg_set_resume_soc(chip, resume_soc_raw);
+			if (rc) {
+				pr_err("Couldn't set resume SOC for FG\n");
+				goto done;
+			}
+			if (fg_debug_mask & FG_STATUS) {
+				pr_info("resume soc set to %d/%x\n",
+						resume_soc, resume_soc_raw);
+			}
+		} else {
+			pr_info("FG auto recharge threshold not specified in DT\n");
+		}
+		chip->resume_soc_lowered = false;
+	}
+done:
+	fg_relax(&chip->resume_soc_wakeup_source);
+}
+
 
 #define OCV_COEFFS_START_REG		0x4C0
 #define OCV_JUNCTION_REG		0x4D8
@@ -3366,6 +3479,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_delayed_work_sync(&chip->check_empty_work);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
+	cancel_work_sync(&chip->set_resume_soc_work);
 	cancel_work_sync(&chip->fg_cap_learning_work);
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
@@ -3374,6 +3488,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->update_esr_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rw_lock);
+	wakeup_source_trash(&chip->resume_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
@@ -4018,6 +4133,8 @@ static int fg_probe(struct spmi_device *spmi)
 			"qpnp_fg_update_temp");
 	wakeup_source_init(&chip->update_sram_wakeup_source.source,
 			"qpnp_fg_update_sram");
+	wakeup_source_init(&chip->resume_soc_wakeup_source.source,
+			"qpnp_fg_set_resume_soc");
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr_lock);
 	mutex_init(&chip->learning_data.learning_lock);
@@ -4032,6 +4149,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->cycle_count_work, update_cycle_count);
 	INIT_WORK(&chip->battery_age_work, battery_age_work);
 	INIT_WORK(&chip->update_esr_work, update_esr_value);
+	INIT_WORK(&chip->set_resume_soc_work, set_resume_soc_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -4122,6 +4240,7 @@ static int fg_probe(struct spmi_device *spmi)
 	chip->bms_psy.num_properties = ARRAY_SIZE(fg_power_props);
 	chip->bms_psy.get_property = fg_power_get_property;
 	chip->bms_psy.set_property = fg_power_set_property;
+	chip->bms_psy.external_power_changed = fg_external_power_changed;
 	chip->bms_psy.supplied_to = fg_supplicants;
 	chip->bms_psy.num_supplicants = ARRAY_SIZE(fg_supplicants);
 	chip->bms_psy.property_is_writeable = fg_property_is_writeable;
@@ -4179,6 +4298,7 @@ cancel_work:
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->check_empty_work);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
+	cancel_work_sync(&chip->set_resume_soc_work);
 	cancel_work_sync(&chip->fg_cap_learning_work);
 	cancel_work_sync(&chip->batt_profile_init);
 	cancel_work_sync(&chip->dump_sram);
@@ -4189,6 +4309,7 @@ of_init_fail:
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr_lock);
 	mutex_destroy(&chip->learning_data.learning_lock);
+	wakeup_source_trash(&chip->resume_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
