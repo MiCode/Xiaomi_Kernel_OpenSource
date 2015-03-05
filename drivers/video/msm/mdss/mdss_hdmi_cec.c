@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -78,18 +78,18 @@ static void hdmi_cec_dump_msg(struct hdmi_cec_ctrl *cec_ctrl,
 	DEV_DBG("=================%pS dump start =====================\n",
 		__builtin_return_address(0));
 
-	DEV_DBG("sender_id     : %d", msg->sender_id);
-	DEV_DBG("recvr_id      : %d", msg->recvr_id);
+	DEV_DBG("sender_id     : %d\n", msg->sender_id);
+	DEV_DBG("recvr_id      : %d\n", msg->recvr_id);
 
 	if (msg->frame_size < 2) {
-		DEV_DBG("polling message");
+		DEV_DBG("polling message\n");
 		spin_unlock_irqrestore(&cec_ctrl->lock, flags);
 		return;
 	}
 
-	DEV_DBG("opcode        : %02x", msg->opcode);
+	DEV_DBG("opcode        : %02x\n", msg->opcode);
 	for (i = 0; i < msg->frame_size - 2; i++)
-		DEV_DBG("operand(%2d) : %02x", i + 1, msg->operand[i]);
+		DEV_DBG("operand(%2d) : %02x\n", i + 1, msg->operand[i]);
 
 	DEV_DBG("=================%pS dump end =====================\n",
 		__builtin_return_address(0));
@@ -454,13 +454,9 @@ static void hdmi_cec_msg_recv(struct work_struct *work)
 	if (cec_ctrl->compliance_response_enabled) {
 		spin_unlock_irqrestore(&cec_ctrl->lock, flags);
 
-		if (hdmi_cec_msg_parser(cec_ctrl, &msg_node->msg) != 0) {
+		if (hdmi_cec_msg_parser(cec_ctrl, &msg_node->msg) != 0)
 			DEV_ERR("%s: cec_msg_parser fail. Sending abort msg\n",
 				__func__);
-			/* reason = "Unrecognized opcode" */
-			hdmi_cec_send_abort_opcode(cec_ctrl,
-				&msg_node->msg, 0x0);
-		}
 		kfree(msg_node);
 	} else {
 		list_add_tail(&msg_node->list, &cec_ctrl->msg_head);
