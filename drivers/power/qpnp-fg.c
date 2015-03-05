@@ -4058,8 +4058,7 @@ static int fg_hw_init(struct fg_chip *chip)
 			THERMAL_COEFF_OFFSET, 0);
 	}
 
-	fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, I_TERM_QUAL_BIT,
-			I_TERM_QUAL_BIT, 0);
+	fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, I_TERM_QUAL_BIT, 0, 0);
 
 	data[0] = 0xA2;
 	data[1] = 0x12;
