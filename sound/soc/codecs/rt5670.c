@@ -87,6 +87,7 @@ static struct rt5670_init_reg init_list[] = {
 	{ RT5670_STO1_ADC_MIXER	, 0x5940 }, /* DMIC2 setting */
 	{ RT5670_STO1_ADC_DIG_VOL, 0xafaf }, /* Mute STO1 ADC for depop */
 	{ RT5670_PDM_OUT_CTRL	, 0xff01 },
+	{ RT5670_PDM_OUT_CTRL   , 0xff00 },
 #ifdef JD1_FUNC
 	{ RT5670_GPIO_CTRL2	, 0x0004 },
 	{ RT5670_GPIO_CTRL1	, 0x8000 },
@@ -2829,9 +2830,6 @@ static int get_clk_info(int sclk, int rate)
 {
 	int i, pd[] = {1, 2, 3, 4, 6, 8, 12, 16};
 
-#ifdef USE_ASRC
-	return 0;
-#endif
 	if (sclk <= 0 || rate <= 0)
 		return -EINVAL;
 
