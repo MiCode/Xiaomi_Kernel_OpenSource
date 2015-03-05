@@ -1262,7 +1262,9 @@ static int adreno_init(struct kgsl_device *device)
 	if (ret)
 		return ret;
 
-	adreno_iommu_init(adreno_dev);
+	ret = adreno_iommu_init(adreno_dev);
+	if (ret)
+		return ret;
 
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);

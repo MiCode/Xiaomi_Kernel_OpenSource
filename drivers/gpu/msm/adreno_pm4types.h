@@ -65,8 +65,8 @@
 /* wait until a register location is equal to a specific value */
 #define CP_WAIT_REG_EQ		0x52
 
-/* wait until a register location is >= a specific value */
-#define CP_WAT_REG_GTE		0x53
+/* switches SMMU pagetable, used on a5xx only */
+#define CP_SMMU_TABLE_UPDATE 0x53
 
 /* wait until a read completes */
 #define CP_WAIT_UNTIL_READ	0x5c
@@ -456,7 +456,7 @@ static inline uint cp_invalidate_state(struct adreno_device *adreno_dev,
 		*cmds++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
 		*cmds++ = 0x7fff;
 	} else {
-		*cmds++ = cp_type7_packet(CP_SET_DRAW_STATE, 4);
+		*cmds++ = cp_type7_packet(CP_SET_DRAW_STATE, 3);
 		*cmds++ = 0x40000;
 		*cmds++ = 0;
 		*cmds++ = 0;

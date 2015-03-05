@@ -787,7 +787,7 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 			struct kgsl_pagetable *new_pt,
 			struct adreno_context *drawctxt);
 
-void adreno_iommu_init(struct adreno_device *adreno_dev);
+int adreno_iommu_init(struct adreno_device *adreno_dev);
 
 void adreno_iommu_set_pt_generate_rb_cmds(struct adreno_ringbuffer *rb,
 					struct kgsl_pagetable *pt);

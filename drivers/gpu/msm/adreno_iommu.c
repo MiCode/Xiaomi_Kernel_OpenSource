@@ -15,6 +15,9 @@
 #include "a3xx_reg.h"
 #include "adreno_pm4types.h"
 
+#define A5XX_PFP_PER_PROCESS_UCODE_VER 0x5FF064
+#define A5XX_PM4_PER_PROCESS_UCODE_VER 0x5FF052
+
 /**
  * _adreno_iommu_add_idle_cmds - Add pm4 packets for GPU idle
  * @adreno_dev - Pointer to device structure
@@ -728,87 +731,22 @@ static unsigned int _adreno_iommu_set_pt_v2_a5xx(struct kgsl_device *device,
 					phys_addr_t pt_val)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	uint64_t ttbr0_val;
-	unsigned int reg_pt_val;
+	uint64_t ttbr0_val = 0;
 	unsigned int *cmds = cmds_orig;
-	unsigned int ttbr0, tlbiall, tlbstatus, tlbsync, mmu_ctrl;
-
-	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
 
 	ttbr0_val = kgsl_mmu_get_default_ttbr0(&device->mmu,
 			KGSL_IOMMU_CONTEXT_USER);
 	ttbr0_val &= ~KGSL_IOMMU_CTX_TTBR0_ADDR_MASK;
 	ttbr0_val |= (pt_val & KGSL_IOMMU_CTX_TTBR0_ADDR_MASK);
-	ttbr0 = kgsl_mmu_get_reg_ahbaddr(&device->mmu, KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TTBR0) >> 2;
 
-	mmu_ctrl = kgsl_mmu_get_reg_ahbaddr(
-	   &device->mmu, KGSL_IOMMU_CONTEXT_USER,
-	   KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL) >> 2;
+	cmds += _adreno_iommu_add_idle_cmds(adreno_dev, cmds);
+	cmds += cp_wait_for_me(adreno_dev, cmds);
 
-	/*
-	 * glue commands together until next
-	 * WAIT_FOR_ME
-	 */
-	cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds,
-			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-			1, 0xFFFFFFFF, 0xF);
-
-	/* set the iommu lock bit */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = mmu_ctrl;
-	/* AND to unmask the lock bit */
-	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-	/* OR to set the IOMMU lock bit */
-	*cmds++ = KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
-	/* wait for smmu to lock */
-	cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds, mmu_ctrl,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
-
-	/* set ttbr0 */
-	if (sizeof(phys_addr_t) > sizeof(unsigned int)) {
-
-		reg_pt_val = ttbr0_val & 0xFFFFFFFF;
-		*cmds++ = cp_register(adreno_dev, ttbr0, 1);
-		*cmds++ = reg_pt_val;
-
-		reg_pt_val = (unsigned int)((ttbr0_val &
-			0xFFFFFFFF00000000ULL) >> 32);
-		*cmds++ = cp_register(adreno_dev, ttbr0+1, 1);
-		*cmds++ = reg_pt_val;
-	} else {
-		reg_pt_val = ttbr0_val;
-		*cmds++ = cp_register(adreno_dev, ttbr0, 1);
-		*cmds++ = reg_pt_val;
-	}
-
-	/* unlock the IOMMU lock */
-	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-	*cmds++ = mmu_ctrl;
-	/* AND to unmask the lock bit */
-	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-	/* OR with 0 so lock bit is unset */
+	/* CP switches the pagetable and flushes the Caches */
+	*cmds++ = cp_packet(adreno_dev, CP_SMMU_TABLE_UPDATE, 3);
+	*cmds++ = _lo_32(ttbr0_val);
+	*cmds++ = _hi_32(ttbr0_val);
 	*cmds++ = 0;
-
-	tlbiall = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBIALL) >> 2;
-	*cmds++ = cp_register(adreno_dev, tlbiall, 1);
-	*cmds++ = 1;
-
-	tlbsync = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER,
-				KGSL_IOMMU_CTX_TLBSYNC) >> 2;
-	*cmds++ = cp_register(adreno_dev, tlbsync, 1);
-	*cmds++ = 0;
-
-	tlbstatus = kgsl_mmu_get_reg_ahbaddr(&device->mmu,
-			KGSL_IOMMU_CONTEXT_USER,
-			KGSL_IOMMU_CTX_TLBSTATUS) >> 2;
-	cmds += _adreno_iommu_wait_reg_mem(adreno_dev,
-			cmds, tlbstatus, 0,
-			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
 
 	/* release all commands with wait_for_me */
 	cmds += cp_wait_for_me(adreno_dev, cmds);
@@ -1126,14 +1064,14 @@ done:
  * adreno_iommu_init() - Adreno iommu init
  * @adreno_dev: Adreno device
  */
-void adreno_iommu_init(struct adreno_device *adreno_dev)
+int adreno_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_iommu *iommu = device->mmu.priv;
 	struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_unit;
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
-		return;
+		return 0;
 
 	/* Overwrite the ahb_base_offset for iommu v2 targets here */
 	if (kgsl_msm_supports_iommu_v2()) {
@@ -1160,6 +1098,23 @@ void adreno_iommu_init(struct adreno_device *adreno_dev)
 	if (adreno_is_a420(adreno_dev))
 		device->mmu.features |= KGSL_MMU_FLUSH_TLB_ON_MAP;
 
+	/*
+	 * A5XX: per process PT is supported starting PFP 0x5FF064 me 0x5FF052
+	 * versions
+	 */
+	if (adreno_is_a5xx(adreno_dev) &&
+		!MMU_FEATURE(&device->mmu, KGSL_MMU_GLOBAL_PAGETABLE)) {
+		if ((adreno_compare_pfp_version(adreno_dev,
+				A5XX_PFP_PER_PROCESS_UCODE_VER) < 0) &&
+		    (adreno_compare_pm4_version(adreno_dev,
+				A5XX_PFP_PER_PROCESS_UCODE_VER) < 0)) {
+			KGSL_DRV_ERR(device,
+				"Invalid ucode for per process pagetables\n");
+			return -ENODEV;
+		}
+	}
+
+	return 0;
 }
 
 /**
