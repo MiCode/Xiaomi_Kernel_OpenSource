@@ -50,8 +50,8 @@ ov2685_read_reg(struct i2c_client *client, u16 data_length, u16 reg, u16 *val)
 		return -ENODEV;
 	}
 
-	if (data_length != MISENSOR_8BIT && data_length != MISENSOR_16BIT
-					 && data_length != MISENSOR_32BIT) {
+	if (data_length != OV2685_8BIT && data_length != OV2685_16BIT
+					 && data_length != OV2685_32BIT) {
 		dev_err(&client->dev, "%s error, invalid data length\n",
 			__func__);
 		return -EINVAL;
@@ -82,9 +82,9 @@ ov2685_read_reg(struct i2c_client *client, u16 data_length, u16 reg, u16 *val)
 
 	*val = 0;
 	/* high byte comes first */
-	if (data_length == MISENSOR_8BIT)
+	if (data_length == OV2685_8BIT)
 		*val = (u8)data[0];
-	else if (data_length == MISENSOR_16BIT)
+	else if (data_length == OV2685_16BIT)
 		*val = be16_to_cpu(*(u16 *)&data[0]);
 	else
 		*val = be32_to_cpu(*(u32 *)&data[0]);
@@ -110,8 +110,8 @@ ov2685_write_reg(struct i2c_client *client, u16 data_length, u16 reg, u32 val)
 		return -ENODEV;
 	}
 
-	if (data_length != MISENSOR_8BIT && data_length != MISENSOR_16BIT
-					 && data_length != MISENSOR_32BIT) {
+	if (data_length != OV2685_8BIT && data_length != OV2685_16BIT
+					 && data_length != OV2685_32BIT) {
 		dev_err(&client->dev, "%s error, invalid data_length\n",
 			__func__);
 		return -EINVAL;
@@ -129,9 +129,9 @@ again:
 	wreg = (u16 *)data;
 	*wreg = cpu_to_be16(reg);
 
-	if (data_length == MISENSOR_8BIT) {
+	if (data_length == OV2685_8BIT) {
 		data[2] = (u8)(val);
-	} else if (data_length == MISENSOR_16BIT) {
+	} else if (data_length == OV2685_16BIT) {
 		u16 *wdata = (u16 *)&data[2];
 		*wdata = cpu_to_be16((u16)val);
 	} else {
@@ -170,7 +170,7 @@ again:
  * @reglist: list of registers to be written
  *
  * Initializes a list of MT9T111 registers. The list of registers is
- * terminated by MISENSOR_TOK_TERM.
+ * terminated by OV2685_TOK_TERM.
  */
 static int ov2685_write_reg_array(struct i2c_client *client,
 			    const struct misensor_reg *reglist)
@@ -178,8 +178,8 @@ static int ov2685_write_reg_array(struct i2c_client *client,
 	const struct misensor_reg *next = reglist;
 	int err;
 
-	for (; next->length != MISENSOR_TOK_TERM; next++) {
-		if (next->length == MISENSOR_TOK_DELAY) {
+	for (; next->length != OV2685_TOK_TERM; next++) {
+		if (next->length == OV2685_TOK_DELAY) {
 			msleep(next->val);
 		} else {
 			err = ov2685_write_reg(client, next->length, next->reg,
@@ -300,28 +300,28 @@ static int ov2685_get_sysclk(struct v4l2_subdev *sd)
 	int pre_div0, pre_div2x, div_loop, sp_div, sys_div, vco;
 	int pre_div2x_map[] = {2, 3, 4, 5, 6, 8, 12, 16};
 
-	ov2685_read_reg(client, MISENSOR_8BIT,
+	ov2685_read_reg(client, OV2685_8BIT,
 			OV2685_REG_PLL_CTRL, &reg_val);
 	pre_div0 = ((reg_val >> 4) & 0x01) + 1;
 
-	ov2685_read_reg(client, MISENSOR_8BIT,
+	ov2685_read_reg(client, OV2685_8BIT,
 			OV2685_REG_PLL_PRE_DIV, &reg_val);
 	reg_val &= 0x07;
 	pre_div2x = pre_div2x_map[reg_val];
 
-	ov2685_read_reg(client, MISENSOR_8BIT,
+	ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_MULT_H, &reg_val);
 	div_loop = (reg_val & 0x01) << 8;
 
-	ov2685_read_reg(client, MISENSOR_8BIT,
+	ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_MULT_L, &reg_val);
 	div_loop += reg_val;
 
-	ov2685_read_reg(client, MISENSOR_8BIT,
+	ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_SP_DIV, &reg_val);
 	sp_div = (reg_val & 0x07) + 1;
 
-	ov2685_read_reg(client, MISENSOR_8BIT,
+	ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_SYS_DIV, &reg_val);
 
 	sys_div = (reg_val & 0x0f) + 1;
@@ -342,32 +342,32 @@ static int ov2685_g_exposure(struct v4l2_subdev *sd, s32 *value)
 	*value = OV2685_EXPOSURE_DEFAULT_VAL;
 
 	/* get exposure */
-	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_EXPOSURE_2,
 					&reg_v);
 	if (ret)
 		goto err;
 
-	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_EXPOSURE_1,
 					&reg_v2);
 	if (ret)
 		goto err;
 
 	reg_v = (reg_v >> 4) | (reg_v2 << 4);
-	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_EXPOSURE_0,
 					&reg_v2);
 	if (ret)
 		goto err;
 
-	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_HTS_H,
 					&hts);
 	if (ret)
 		goto err;
 
-	ret = ov2685_read_reg(client, MISENSOR_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_HTS_L,
 					&hts_v2);
 	if (ret)
@@ -397,35 +397,35 @@ static int ov2685_s_exposure(struct v4l2_subdev *sd, int value)
 
 	switch (value) {
 	case -2:
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_AUTO, 0x3);
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_1, 0x6);
 		break;
 	case -1:
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_AUTO, 0x3);
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_1, 0x16);
 		break;
 	case 0:
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_AUTO, 0x0);
 		break;
 	case 1:
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_AUTO, 0x3);
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_1, 0x36);
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_GAIN_1, 0x46);
 		break;
 	case 2:
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_AUTO, 0x3);
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_1, 0x46);
-		ov2685_write_reg(client, MISENSOR_8BIT,
+		ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_GAIN_1, 0x56);
 		break;
 	}
@@ -437,6 +437,67 @@ static int ov2685_g_fnumber(struct v4l2_subdev *sd, s32 *value)
 {
 	/*const f number for imx*/
 	*value = (OV2685_F_NUMBER_DEFAULT_NUM << 16) | OV2685_F_NUMBER_DEM;
+	return 0;
+}
+static int ov2685_get_intg_factor(struct i2c_client *client,
+				struct camera_mipi_info *info,
+				const struct ov2685_res_struct *res)
+{
+	struct atomisp_sensor_mode_data *buf = &info->data;
+	u16 reg_val;
+	int ret;
+
+	if (info == NULL)
+		return -EINVAL;
+
+	buf->vt_pix_clk_freq_mhz = res->pix_clk * 1000000;
+
+	/* get integration time */
+	buf->coarse_integration_time_min = OV2685_COARSE_INTG_TIME_MIN;
+	buf->coarse_integration_time_max_margin =
+					OV2685_COARSE_INTG_TIME_MAX_MARGIN;
+
+	buf->fine_integration_time_min = OV2685_FINE_INTG_TIME_MIN;
+	buf->fine_integration_time_max_margin =
+					OV2685_FINE_INTG_TIME_MAX_MARGIN;
+
+	buf->fine_integration_time_def = OV2685_FINE_INTG_TIME_MIN;
+	buf->frame_length_lines = res->lines_per_frame;
+	buf->line_length_pck = res->pixels_per_line;
+	buf->read_mode = res->bin_mode;
+
+	/* get the cropping and output resolution to ISP for this mode. */
+	ret =  ov2685_read_reg(client, OV2685_16BIT,
+					OV2685_REG_H_START_H, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_horizontal_start = reg_val;
+
+	ret =  ov2685_read_reg(client, OV2685_16BIT,
+					OV2685_REG_V_START_H, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_vertical_start = reg_val;
+
+	ret = ov2685_read_reg(client, OV2685_16BIT,
+					OV2685_REG_H_END_H, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_horizontal_end = reg_val;
+
+	ret = ov2685_read_reg(client, OV2685_16BIT,
+					OV2685_REG_V_END_H, &reg_val);
+	if (ret)
+		return ret;
+	buf->crop_vertical_end = reg_val;
+
+	buf->output_width = res->width;
+	buf->output_height = res->height;
+
+	buf->binning_factor_x = res->bin_factor_x ?
+					res->bin_factor_x : 1;
+	buf->binning_factor_y = res->bin_factor_y ?
+					res->bin_factor_y : 1;
 	return 0;
 }
 
@@ -594,7 +655,7 @@ static int ov2685_g_mbus_fmt(struct v4l2_subdev *sd,
 static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 			      struct v4l2_mbus_framefmt *fmt)
 {
-	struct i2c_client *c = v4l2_get_subdevdata(sd);
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
 	int res_index;
 	struct camera_mipi_info *mipi_info = NULL;
@@ -603,7 +664,8 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 	int ret;
 	mipi_info = v4l2_get_subdev_hostdata(sd);
 	if (mipi_info == NULL) {
-		dev_err(&c->dev, "%s: can not find mipi info!!!\n", __func__);
+		dev_err(&client->dev, "%s: can not find mipi info!!!\n",
+							__func__);
 		return -EINVAL;
 	}
 
@@ -618,13 +680,13 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 		break;
 	*/
 	case OV2685_RES_720P:
-		ret = ov2685_write_reg_array(c, ov2685_720p_init);
+		ret = ov2685_write_reg_array(client, ov2685_720p_init);
 		break;
 	case OV2685_RES_2M:
-		ret = ov2685_write_reg_array(c, ov2685_2M_init);
+		ret = ov2685_write_reg_array(client, ov2685_2M_init);
 		break;
 	default:
-		dev_err(&c->dev, "%s: can not support the resolution!!!\n",
+		dev_err(&client->dev, "%s: can not support the resolution!!!\n",
 			__func__);
 
 		mutex_unlock(&dev->input_lock);
@@ -632,6 +694,12 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 	}
 
 	mipi_info->num_lanes = ov2685_res[res_index].lanes;
+
+	ret = ov2685_get_intg_factor(client, mipi_info,
+					&ov2685_res[res_index]);
+	if (ret)
+		dev_err(&client->dev, "failed to get integration_factor\n");
+
 	/*
 	 * ov2685 - we don't poll for context switch
 	 * because it does not happen with streaming disabled.
@@ -657,7 +725,7 @@ static int ov2685_detect(struct i2c_client *client,  u16 *id, u8 *revision)
 	 * try more times to check the sensor id.
 	 */
 	while (timeout > 0) {
-		if (ov2685_read_reg(client, MISENSOR_16BIT,
+		if (ov2685_read_reg(client, OV2685_16BIT,
 					OV2685_REG_PID, id)) {
 			dev_err(&client->dev, "sensor id error\n");
 			return -ENODEV;
@@ -948,7 +1016,7 @@ static int ov2685_s_stream(struct v4l2_subdev *sd, int enable)
 
 	mutex_lock(&dev->input_lock);
 	dev->streaming = enable;
-	ret = ov2685_write_reg(client, MISENSOR_8BIT,
+	ret = ov2685_write_reg(client, OV2685_8BIT,
 			0x301c,
 			enable ? 0xf0 : 0xf4);
 	mutex_unlock(&dev->input_lock);
