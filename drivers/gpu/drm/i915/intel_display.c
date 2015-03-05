@@ -2765,7 +2765,9 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 			dspcntr |= DISPPLANE_RGBA101010;
 		break;
 	default:
-		BUG();
+		DRM_ERROR("Invalid pixel format: %s\n",
+				drm_get_format_name(fb->pixel_format));
+		return;
 	}
 
 	if (intel_crtc->rotate180)
