@@ -69,6 +69,7 @@
 #define clk_ocmemgx_msmbus_a_clk 0x66dd774f
 #define clk_oxili_gfx3d_clk_src 0xe0405056
 #define clk_pnoc_keepalive_a_clk 0xf8f91f0b
+#define clk_pnoc_modem_clk 0x822f0471
 #define clk_pnoc_msmbus_clk 0x38b95c77
 #define clk_pnoc_msmbus_a_clk 0x8c9b4e93
 #define clk_pnoc_pm_clk 0xd6f7dfb9
