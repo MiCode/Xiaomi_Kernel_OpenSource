@@ -56,6 +56,7 @@
 #define WCNSS_ENABLE_PC_LATENCY	PM_QOS_DEFAULT_VALUE
 #define WCNSS_PM_QOS_TIMEOUT	15000
 #define IS_CAL_DATA_PRESENT     0
+#define WAIT_FOR_CBC_IND	2
 
 /* module params */
 #define WCNSS_CONFIG_UNSPECIFIED (-1)
@@ -1516,7 +1517,7 @@ int wcnss_device_ready(void)
 }
 EXPORT_SYMBOL(wcnss_device_ready);
 
-int wcnss_cbc_complete(void)
+bool wcnss_cbc_complete(void)
 {
 	if (penv && penv->pdev && penv->is_cbc_done &&
 		!wcnss_device_is_shutdown())
@@ -2160,6 +2161,8 @@ static void wcnssctrl_rx_handler(struct work_struct *worker)
 		fw_status = wcnss_fw_status();
 		pr_debug("wcnss: received WCNSS_NVBIN_DNLD_RSP from ccpu %u\n",
 			fw_status);
+		if (fw_status != WAIT_FOR_CBC_IND)
+			penv->is_cbc_done = 1;
 		wcnss_setup_vbat_monitoring();
 		break;
 
