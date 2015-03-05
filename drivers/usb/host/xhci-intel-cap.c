@@ -153,7 +153,7 @@ EXPORT_SYMBOL_GPL(xhci_intel_clr_internal_pme_flag);
    pme and HCRST hangs issue */
 void xhci_intel_ssic_port_unused(struct xhci_hcd *xhci, bool unused)
 {
-	int ext_offset;
+	int ext_offset, i;
 	void __iomem *ssic_port_cfg;
 	u32 data;
 
@@ -166,21 +166,24 @@ void xhci_intel_ssic_port_unused(struct xhci_hcd *xhci, bool unused)
 		return;
 
 	ssic_port_cfg = &xhci->cap_regs->hc_capbase +
-			((ext_offset + SSIC_PORT1_CFG2) >> 2);
+			((ext_offset + SSIC_PORT_CFG2) >> 2);
+	for (i = 0; i < SSIC_PORT_NUM; i++) {
+		data = readl(ssic_port_cfg);
+		data &= ~PROG_DONE;
+		writel(data, ssic_port_cfg);
 
-	data = readl(ssic_port_cfg);
-	data &= ~PROG_DONE;
-	writel(data, ssic_port_cfg);
+		data = readl(ssic_port_cfg);
+		if (unused)
+			data |= SSIC_PORT_UNUSED;
+		else
+			data &= ~SSIC_PORT_UNUSED;
+		writel(data, ssic_port_cfg);
 
-	data = readl(ssic_port_cfg);
-	if (unused)
-		data |= SSIC_PORT_UNUSED;
-	else
-		data &= ~SSIC_PORT_UNUSED;
-	writel(data, ssic_port_cfg);
+		data = readl(ssic_port_cfg);
+		data |= PROG_DONE;
+		writel(data, ssic_port_cfg);
 
-	data = readl(ssic_port_cfg);
-	data |= PROG_DONE;
-	writel(data, ssic_port_cfg);
+		ssic_port_cfg += SSIC_PORT_CFG2_OFFSET;
+	}
 }
 EXPORT_SYMBOL_GPL(xhci_intel_ssic_port_unused);

@@ -30,7 +30,14 @@
 #define DUAL_ROLE_CFG1		0x6c
 #define SW_MODE			(1 << 29)
 
-#define SSIC_PORT1_CFG2		0x3c
+#define SSIC_PORT_NUM		2
+
+/* SSIC Configuration Register 2
+ * Address Offset: 0Ch-0Fh
+ * Port 1 ... N : 0Ch, 3Ch, ... ,(0Ch + (NumSSICPorts-1)*30h)
+ */
+#define SSIC_PORT_CFG2		0xc
+#define SSIC_PORT_CFG2_OFFSET	0x30
 #define PROG_DONE		(1 << 30)
 #define SSIC_PORT_UNUSED	(1 << 31)
 
