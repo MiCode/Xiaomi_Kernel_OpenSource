@@ -963,6 +963,10 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	struct smq_msg msg;
 	struct fastrpc_file *fl = ctx->fl;
 	int err = 0, len;
+
+	VERIFY(err, 0 != fl->apps->channel[fl->cid].chan);
+	if (err)
+		goto bail;
 	msg.pid = current->tgid;
 	msg.tid = current->pid;
 	if (kernel)
@@ -976,6 +980,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	len = smd_write(fl->apps->channel[fl->cid].chan, &msg, sizeof(msg));
 	spin_unlock(&fl->apps->hlock);
 	VERIFY(err, len == sizeof(msg));
+ bail:
 	return err;
 }
 
