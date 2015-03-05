@@ -2152,7 +2152,7 @@ int msm_rpc_get_curr_pkt_size(struct msm_rpc_endpoint *ept)
 static int msm_rpcrouter_close(void)
 {
 	struct rpcrouter_xprt_info *xprt_info;
-	union rr_control_msg ctl;
+	union rr_control_msg ctl = { 0 };
 
 	ctl.cmd = RPCROUTER_CTRL_CMD_BYE;
 	mutex_lock(&xprt_info_list_lock);
