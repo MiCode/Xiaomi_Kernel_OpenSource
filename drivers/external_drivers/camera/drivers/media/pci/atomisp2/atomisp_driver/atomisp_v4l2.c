@@ -1147,11 +1147,7 @@ static bool is_valid_device(struct pci_dev *dev,
 		return true;
 	}
 
-#ifdef ISP2400
-	return dev->revision <= a0_max_id;
-#else /* ISP2400 */
 	return dev->revision > a0_max_id;
-#endif /* ISP2400 */
 }
 
 static int init_atomisp_wdts(struct atomisp_device *isp)
