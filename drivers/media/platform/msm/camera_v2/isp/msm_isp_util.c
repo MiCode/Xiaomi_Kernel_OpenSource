@@ -1689,9 +1689,8 @@ static void msm_isp_process_overflow_irq(
 
 		error_event.frame_id =
 			vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
-		error_event.u.error_info.error_mask = 1 << ISP_WM_BUS_OVERFLOW;
-		msm_isp_send_event(vfe_dev,
-			ISP_EVENT_WM_BUS_OVERFLOW, &error_event);
+		error_event.u.error_info.err_type = ISP_ERROR_BUS_OVERFLOW;
+		msm_isp_send_event(vfe_dev, ISP_EVENT_ERROR, &error_event);
 	}
 }
 
