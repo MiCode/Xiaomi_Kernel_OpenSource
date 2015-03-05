@@ -2475,6 +2475,13 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 	size = arm_smmu_id_size_to_bits((id >> ID2_OAS_SHIFT) & ID2_OAS_MASK);
 	smmu->s2_output_size = min_t(unsigned long, PHYS_MASK_SHIFT, size);
 
+	/*
+	 * What the page table walker can address actually depends on which
+	 * descriptor format is in use, but since a) we don't know that yet,
+	 * and b) it can vary per context bank, this will have to do...
+	 */
+	dma_set_mask_and_coherent(smmu->dev, DMA_BIT_MASK(size));
+
 	if (smmu->version == ARM_SMMU_V1) {
 		smmu->s1_input_size = 32;
 	} else {
