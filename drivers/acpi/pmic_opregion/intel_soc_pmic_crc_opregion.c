@@ -151,6 +151,13 @@ static struct pmic_pwr_table pwr_table[] = {
 			.bit = 0x00,
 		},
 	},/* V105 -> V1P05S, L2 SRAM */
+	{
+		.address = 0x68,
+		.pwr_reg = {
+			.reg = 0x5F,
+			.bit = 0x00,
+		},
+	},/* V3P3SX */
 };
 
 static struct pmic_dptf_table dptf_table[] = {
