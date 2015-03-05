@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,6 +252,7 @@ __packed struct qseecom_client_send_fsm_key_req {
 #define TZ_SVC_RPMB                      4     /* RPMB */
 #define TZ_SVC_KEYSTORE                  5     /* Keystore management */
 #define TZ_SVC_ES                        16    /* Enterprise Security */
+#define TZ_SVC_MDTP                      18    /* Mobile Device Theft */
 
 /*----------------------------------------------------------------------------
  * Owning Entity IDs (defined by ARM SMC doc)
@@ -554,6 +555,15 @@ __packed struct qseecom_client_send_fsm_key_req {
 	TZ_SYSCALL_CREATE_PARAM_ID_5(					\
 	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_BUF_RW,	\
 	TZ_SYSCALL_PARAM_TYPE_VAL, TZ_SYSCALL_PARAM_TYPE_BUF_RW,	\
+	TZ_SYSCALL_PARAM_TYPE_VAL)
+
+#define TZ_MDTP_CIPHER_DIP_ID \
+	TZ_SYSCALL_CREATE_SMC_ID(TZ_OWNER_SIP, TZ_SVC_MDTP, 0x1)
+
+#define TZ_MDTP_CIPHER_DIP_ID_PARAM_ID \
+	TZ_SYSCALL_CREATE_PARAM_ID_5( \
+	TZ_SYSCALL_PARAM_TYPE_BUF_RO, TZ_SYSCALL_PARAM_TYPE_VAL, \
+	TZ_SYSCALL_PARAM_TYPE_BUF_RW, TZ_SYSCALL_PARAM_TYPE_VAL, \
 	TZ_SYSCALL_PARAM_TYPE_VAL)
 
 #endif /* __QSEECOMI_H_ */

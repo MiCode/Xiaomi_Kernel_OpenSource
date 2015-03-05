@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -272,6 +272,33 @@ static int compat_get_qseecom_is_es_activated_req(
 	return err;
 }
 
+static int compat_get_qseecom_mdtp_cipher_dip_req(
+		struct compat_qseecom_mdtp_cipher_dip_req __user *data32,
+		struct qseecom_mdtp_cipher_dip_req __user *data)
+{
+	int err;
+	compat_int_t in_buf_size;
+	compat_uptr_t in_buf;
+	compat_int_t out_buf_size;
+	compat_uptr_t out_buf;
+	compat_int_t direction;
+
+	err = get_user(in_buf_size, &data32->in_buf_size);
+	err |= put_user(in_buf_size, &data->in_buf_size);
+	err |= get_user(out_buf_size, &data32->out_buf_size);
+	err |= put_user(out_buf_size, &data->out_buf_size);
+	err |= get_user(direction, &data32->direction);
+	err |= put_user(direction, &data->direction);
+	err |= get_user(in_buf, &data32->in_buf);
+	data->in_buf = NULL;
+	err |= put_user(in_buf, (compat_uptr_t *)&data->in_buf);
+	err |= get_user(out_buf, &data32->out_buf);
+	data->out_buf = NULL;
+	err |= put_user(out_buf, (compat_uptr_t *)&data->out_buf);
+
+	return err;
+}
+
 static int compat_get_qseecom_send_modfd_listener_resp(
 		struct compat_qseecom_send_modfd_listener_resp __user *data32,
 		struct qseecom_send_modfd_listener_resp __user *data)
@@ -494,6 +521,8 @@ static unsigned int convert_cmd(unsigned int cmd)
 		return QSEECOM_QTEEC_IOCTL_INVOKE_MODFD_CMD_REQ;
 	case COMPAT_QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ:
 		return QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ;
+	case COMPAT_QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ:
+		return QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ;
 	default:
 		return cmd;
 	}
@@ -790,6 +819,24 @@ long compat_qseecom_ioctl(struct file *file,
 						(unsigned long)data);
 		err = compat_put_qseecom_is_es_activated_req(data32, data);
 		return ret ? ret : err;
+	}
+	break;
+	case COMPAT_QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ: {
+		struct compat_qseecom_mdtp_cipher_dip_req __user *data32;
+		struct qseecom_mdtp_cipher_dip_req __user *data;
+		int err;
+
+		data32 = compat_ptr(arg);
+		data = compat_alloc_user_space(sizeof(*data));
+		if (data == NULL)
+			return -EFAULT;
+
+		err = compat_get_qseecom_mdtp_cipher_dip_req(data32, data);
+		if (err)
+			return err;
+
+		return qseecom_ioctl(file, convert_cmd(cmd),
+						(unsigned long)data);
 	}
 	break;
 	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP: {

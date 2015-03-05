@@ -169,6 +169,22 @@ struct qseecom_is_es_activated_req {
 	int is_activated; /* out */
 };
 
+/*
+ * struct qseecom_mdtp_cipher_dip_req
+ * @in_buf - input buffer
+ * @in_buf_size - input buffer size
+ * @out_buf - output buffer
+ * @out_buf_size - output buffer size
+ * @direction - 0=encrypt, 1=decrypt
+ */
+struct qseecom_mdtp_cipher_dip_req {
+	uint8_t *in_buf;
+	uint32_t in_buf_size;
+	uint8_t *out_buf;
+	uint32_t out_buf_size;
+	uint32_t direction;
+};
+
 enum qseecom_bandwidth_request_mode {
 	INACTIVE = 0,
 	LOW,
@@ -292,5 +308,8 @@ extern long qseecom_ioctl(struct file *file,
 
 #define QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 33, struct qseecom_qteec_modfd_req)
+
+#define QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 34, struct qseecom_mdtp_cipher_dip_req)
 
 #endif /* _UAPI_QSEECOM_H_ */
