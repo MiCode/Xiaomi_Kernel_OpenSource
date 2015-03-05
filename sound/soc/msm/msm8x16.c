@@ -280,15 +280,24 @@ static int enable_spk_ext_pa(struct snd_soc_codec *codec, int enable)
 {
 	struct snd_soc_card *card = codec->card;
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret = 0;
 
 	if (!gpio_is_valid(pdata->spk_ext_pa_gpio)) {
 		pr_err("%s: Invalid gpio: %d\n", __func__,
 			pdata->spk_ext_pa_gpio);
-		return false;
+		return -EINVAL;
 	}
 
 	pr_debug("%s: %s external speaker PA\n", __func__,
 		enable ? "Enable" : "Disable");
+	ret = pinctrl_select_state(pinctrl_info.pinctrl,
+				pinctrl_info.cdc_lines_act);
+	if (ret < 0) {
+		pr_err("%s: failed to active cdc gpio's\n",
+				__func__);
+		return -EINVAL;
+	}
+
 	gpio_set_value_cansleep(pdata->spk_ext_pa_gpio, enable);
 
 	return 0;
