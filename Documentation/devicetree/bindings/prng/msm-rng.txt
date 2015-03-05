@@ -6,6 +6,7 @@ Required properties:
 
 Optional property:
 - qcom,msm-rng-iface-clk : If the device uses iface-clk.
+- qcom,no-qrng-config    : Flag to decide whether the driver do the hardware configuration or not.
 
 Example:
 
@@ -13,4 +14,5 @@ Example:
 		compatible = "qcom,msm-rng";
 		reg = <0xf9bff000 0x200>;
 		qcom,msm-rng-iface-clk;
+		qcom,no-qrng-config;
 	};

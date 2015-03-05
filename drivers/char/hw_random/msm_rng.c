@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2013, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -387,6 +387,7 @@ static int msm_rng_enable_hw(struct msm_rng_device *msm_rng_dev)
 				"failed to enable clock in probe\n");
 		return -EPERM;
 	}
+
 	/* Enable PRNG h/w only if it is NOT ON */
 	val = readl_relaxed(msm_rng_dev->base + PRNG_CONFIG_OFFSET) &
 					PRNG_HW_ENABLE;
@@ -447,6 +448,7 @@ static int msm_rng_probe(struct platform_device *pdev)
 	struct resource *res;
 	struct msm_rng_device *msm_rng_dev = NULL;
 	void __iomem *base = NULL;
+	bool configure_qrng = true;
 	int error = 0;
 	int ret = 0;
 	struct device *dev;
@@ -511,11 +513,17 @@ static int msm_rng_probe(struct platform_device *pdev)
 			pr_err("Unable to register bus client\n");
 	}
 
-	/* Enable rng h/w */
-	error = msm_rng_enable_hw(msm_rng_dev);
-
-	if (error)
-		goto rollback_clk;
+	/* Enable rng h/w for the targets which can access the entire
+	 * address space of PRNG.
+	 */
+	if ((pdev->dev.of_node) && (of_property_read_bool(pdev->dev.of_node,
+					"qcom,no-qrng-config")))
+		configure_qrng = false;
+	if (configure_qrng) {
+		error = msm_rng_enable_hw(msm_rng_dev);
+		if (error)
+			goto rollback_clk;
+	}
 
 	mutex_init(&msm_rng_dev->rng_lock);
 
