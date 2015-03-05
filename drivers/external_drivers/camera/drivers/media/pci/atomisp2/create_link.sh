@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SourceList=atomisp_driver
+SourceList="atomisp_driver css"
 TargetList="css2400b0_v21_build css2401a0_v21_build css2401a0_legacy_v21_build"
 
 function create_link ()

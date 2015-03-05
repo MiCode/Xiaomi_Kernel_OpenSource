@@ -1,69 +1,17 @@
-css_common_folder = hive_isp_css_2400_system
 ifneq ($(ISP2400B0), )
-	css_platform_folder = hive_isp_css_2400_system
+	css_platform_folder := css_2400_system
 else ifneq ($(ISP2401_NEW_INPUT_SYSTEM), )
-	css_platform_folder = hive_isp_css_2401_system_csi2p
+	css_platform_folder := css_2401_csi2p_system
 else ifneq ($(ISP2401), )
-	css_platform_folder = hive_isp_css_2401_system
-else
-	css_platform_folder = hive_isp_css_system
-	css_common_folder = hive_isp_css_system
+	css_platform_folder := css_2401_system
 endif
 
-ifneq ($(CSS15), )
-atomisp-$(postfix)-objs := \
-		atomisp_driver/atomisp_ioctl.o \
-		atomisp_driver/atomisp_compat_ioctl32.o \
-		atomisp_driver/atomisp_cmd.o \
-		atomisp_driver/atomisp_fops.o \
-		atomisp_driver/atomisp_subdev.o \
-		atomisp_driver/atomisp_csi2.o \
-		atomisp_driver/atomisp_tpg.o \
-		atomisp_driver/atomisp_file.o \
-		atomisp_driver/atomisp_v4l2.o \
-		atomisp_driver/atomisp_acc.o \
-		atomisp_driver/mmu/isp_mmu.o \
-		atomisp_driver/mmu/sh_mmu_mrfld.o \
-		atomisp_driver/mmu/sh_mmu_mfld.o \
-		atomisp_driver/hmm/hmm.o \
-		atomisp_driver/hmm/hmm_bo.o \
-		atomisp_driver/hmm/hmm_bo_dev.o \
-		atomisp_driver/hmm/hmm_vm.o \
-		atomisp_driver/hmm/hmm_reserved_pool.o \
-		atomisp_driver/hmm/hmm_dynamic_pool.o \
-		atomisp_driver/hrt/hive_isp_css_mm_hrt.o \
-		css/sh_css.o \
-		css/sh_css_binary.o \
-		css/sh_css_debug.o \
-		css/sh_css_hrt.o \
-		css/sh_css_params.o \
-		css/sh_css_sp.o \
-		css/sh_css_sp_start.o \
-		css/sh_css_rx.o \
-		css/sh_css_metrics.o \
-		css/sh_css_firmware.o \
-		css/sh_css_accelerate.o \
-		css/sh_css_refcount.o \
-		css/sh_css_param_shading.o \
-		css/$(css_common_folder)/host/gdc.o \
-		css/$(css_common_folder)/host/irq.o \
-		css/$(css_common_folder)/host/mmu.o \
-		css/$(css_common_folder)/host/dma.o \
-		css/$(css_common_folder)/host/sp.o \
-		css/$(css_common_folder)/host/isp.o \
-		css/hive_isp_css_shared/host/queue.o \
-		css/hive_isp_css_shared/host/ia_css_i_rmgr_shared.o \
-		css/hive_isp_css_shared/host/ia_css_i_rmgr_vbuf_shared.o \
-		css/hive_isp_css_shared/host/tag.o \
-		css/hive_isp_css_shared/host/sw_event.o \
-		css/$(css_common_folder)/host/fifo_monitor.o \
-		css/$(css_common_folder)/host/gp_device.o \
-		css/$(css_common_folder)/host/input_formatter.o \
-		atomisp_driver/atomisp_compat_css15.o \
-		atomisp_driver/hrt/device_access.o \
-		atomisp_driver/hrt/memory_access.o \
-		css/sh_css_pipeline.o
+ifneq ($(ISP2401_NEW_INPUT_SYSTEM), )
+	src_filter_out := %ifmtr.c %input_system.c %input_formatter.c %vmem.c %timer.c %ia_css_ctc2.host.c %ia_css_pdaf.host.c
 else
+	src_filter_out := %csi_rx_rmgr.c %isys_dma_rmgr.c %virtual_isys.c %isys_stream2mmio_rmgr.c %vmem.c %timer.c %ia_css_ctc2.host.c %ia_css_pdaf.host.c
+endif
+
 atomisp-$(postfix)-objs := \
 		atomisp_driver/atomisp_ioctl.o \
 		atomisp_driver/atomisp_compat_ioctl32.o \
@@ -83,205 +31,32 @@ atomisp-$(postfix)-objs := \
 		atomisp_driver/hmm/hmm_reserved_pool.o \
 		atomisp_driver/hmm/hmm_dynamic_pool.o \
 		atomisp_driver/hrt/hive_isp_css_mm_hrt.o \
-		css/sh_css.o \
-		css/sh_css_hrt.o \
-		css/sh_css_mmu.o \
-		css/sh_css_stream_format.o \
-		css/sh_css_params.o \
-		css/sh_css_sp.o \
-		css/sh_css_metrics.o \
-		css/sh_css_firmware.o \
-		css/sh_css_host_data.o \
-		css/sh_css_param_shading.o \
-		css/$(css_common_folder)/host/gdc.o \
-		css/$(css_common_folder)/host/irq.o \
-		css/$(css_common_folder)/host/mmu.o \
-		css/$(css_common_folder)/host/dma.o \
-		css/$(css_common_folder)/host/sp.o \
-		css/$(css_common_folder)/host/isp.o \
-		css/hive_isp_css_shared/host/tag.o \
-		css/$(css_common_folder)/host/fifo_monitor.o \
-		css/$(css_common_folder)/host/gp_device.o \
 		atomisp_driver/atomisp_compat_css20.o \
-		css/ia_css_memory_access.o \
-		css/ia_css_device_access.o \
-		css/sh_css_param_dvs.o \
-		css/sh_css_mipi.o \
-		css/sh_css_stream_format.o \
-		css/isp/kernels/ref/ref_1.0/ia_css_ref.host.o \
-		css/isp/kernels/vf/vf_1.0/ia_css_vf.host.o \
-		css/isp/kernels/crop/crop_1.0/ia_css_crop.host.o \
-		css/isp/kernels/qplane/qplane_2/ia_css_qplane.host.o \
-		css/isp/kernels/sdis/sdis_1.0/ia_css_sdis.host.o \
-		css/isp/kernels/sdis/sdis_2/ia_css_sdis2.host.o \
-		css/isp/kernels/copy_output/copy_output_1.0/ia_css_copy_output.host.o \
-		css/isp/kernels/iterator/iterator_1.0/ia_css_iterator.host.o \
-		css/runtime/binary/src/binary.o \
-		css/runtime/debug/src/ia_css_debug.o \
-		css/runtime/isys/src/isys_init.o \
-		css/runtime/isys/src/rx.o \
-		css/runtime/frame/src/frame.o \
-		css/runtime/rmgr/src/rmgr.o \
-		css/runtime/rmgr/src/rmgr_vbuf.o \
-		css/runtime/pipeline/src/pipeline.o \
-		css/runtime/event/src/event.o \
-		css/runtime/eventq/src/eventq.o \
-		css/runtime/inputfifo/src/inputfifo.o \
-		css/base/refcount/src/refcount.o \
-		css/base/circbuf/src/circbuf.o \
-		css/runtime/queue/src/queue.o \
-		css/runtime/queue/src/queue_access.o \
-		css/runtime/spctrl/src/spctrl.o \
-		css/isp/kernels/raw/raw_1.0/ia_css_raw.host.o \
-		css/isp/kernels/ob/ob_1.0/ia_css_ob.host.o \
-		css/isp/kernels/aa/aa_2/ia_css_aa2.host.o \
-		css/isp/kernels/ynr/ynr_1.0/ia_css_ynr.host.o \
-		css/isp/kernels/ynr/ynr_2/ia_css_ynr2.host.o \
-		css/isp/kernels/fpn/fpn_1.0/ia_css_fpn.host.o \
-		css/isp/kernels/s3a/s3a_1.0/ia_css_s3a.host.o \
-		css/isp/kernels/de/de_2/ia_css_de2.host.o \
-		css/isp/kernels/de/de_1.0/ia_css_de.host.o \
-		css/isp/kernels/cnr/cnr_2/ia_css_cnr2.host.o \
-		css/isp/kernels/cnr/cnr_1.0/ia_css_cnr.host.o \
-		css/isp/kernels/wb/wb_1.0/ia_css_wb.host.o \
-		css/isp/kernels/dp/dp_1.0/ia_css_dp.host.o \
-		css/isp/kernels/tnr/tnr_1.0/ia_css_tnr.host.o \
-		css/isp/kernels/gc/gc_1.0/ia_css_gc.host.o \
-		css/isp/kernels/gc/gc_1.0/ia_css_gc_table.host.o \
-		css/isp/kernels/gc/gc_2/ia_css_gc2.host.o \
-		css/isp/kernels/gc/gc_2/ia_css_gc2_table.host.o \
-		css/isp/kernels/bnr/bnr_1.0/ia_css_bnr.host.o \
-		css/isp/kernels/sc/sc_1.0/ia_css_sc.host.o \
-		css/isp/kernels/anr/anr_2/ia_css_anr2.host.o \
-		css/isp/kernels/anr/anr_2/ia_css_anr2_table.host.o \
-		css/isp/kernels/anr/anr_1.0/ia_css_anr.host.o \
-		css/isp/kernels/uds/uds_1.0/ia_css_uds.host.o \
-		css/isp/kernels/csc/csc_1.0/ia_css_csc.host.o \
-		css/isp/kernels/macc/macc_1.0/ia_css_macc.host.o \
-		css/isp/kernels/macc/macc_1.0/ia_css_macc_table.host.o \
-		css/isp/kernels/ctc/ctc_1.0/ia_css_ctc.host.o \
-		css/isp/kernels/ctc/ctc_1.0/ia_css_ctc_table.host.o \
-                css/isp/kernels/ctc/ctc1_5/ia_css_ctc1_5.host.o \
-		css/isp/kernels/xnr/xnr_1.0/ia_css_xnr.host.o \
-		css/isp/kernels/xnr/xnr_1.0/ia_css_xnr_table.host.o \
-		css/isp/kernels/xnr/xnr_3.0/ia_css_xnr3.host.o \
-		css/isp/kernels/dvs/dvs_1.0/ia_css_dvs.host.o \
-		css/isp/kernels/output/output_1.0/ia_css_output.host.o \
-		css/isp/kernels/raw_aa_binning/raw_aa_binning_1.0/ia_css_raa.host.o \
-		css/isp/kernels/bh/bh_2/ia_css_bh.host.o \
-		css/isp/kernels/fc/fc_1.0/ia_css_formats.host.o \
-		css/isp/kernels/fixedbds/fixedbds_1.0/ia_css_fixedbds.host.o \
-		css/camera/pipe/src/pipe_binarydesc.o \
-		css/camera/util/src/util.o \
-		css/camera/pipe/src/pipe_util.o \
-		css/camera/pipe/src/pipe_stagedesc.o \
-		css/runtime/isp_param/src/isp_param.o \
-		css/runtime/bufq/src/bufq.o \
 
-ifneq ($(ISP2401_NEW_INPUT_SYSTEM), )
-atomisp-$(postfix)-objs += \
-	css/runtime/isys/src/virtual_isys.o \
-	css/runtime/isys/src/csi_rx_rmgr.o \
-	css/runtime/isys/src/ibuf_ctrl_rmgr.o \
-	css/runtime/isys/src/isys_dma_rmgr.o \
-        css/css_2401_system/host/isys_dma.o \
-        css/css_2401_system/host/ibuf_ctrl.o \
-        css/css_2401_system/host/csi_rx.o \
-        css/css_2401_system/host/isys_stream2mmio.o \
-	css/runtime/isys/src/isys_stream2mmio_rmgr.o \
-	css/css_2401_system/host/isys_irq.o
-else
-atomisp-$(postfix)-objs += \
-	css/$(css_common_folder)/host/input_formatter.o \
-	css/$(css_common_folder)/host/input_system.o \
-	css/runtime/ifmtr/src/ifmtr.o
-endif
+css_folder := $(srctree)/$(src)/css/.
+top_folders := $(shell find $(css_folder) -maxdepth 1 -type d)
+sub_folders := $(shell find $(css_folder) -maxdepth 10 -type d)
+css_platform_folders := $(filter $(css_folder)/css_%_system, $(top_folders))
+exclude_platforms := $(filter-out $(css_folder)/$(css_platform_folder)%, $(css_platform_folders))
+# Append % at each folder to include sub folders and files.
+plat_filter_out := $(foreach dir, $(exclude_platforms), $(dir)%)
 
-ifneq ($(ISP2401), )
-atomisp-$(postfix)-objs += \
-	css/$(css_platform_folder)_generated/ia_css_isp_params.o \
-	css/$(css_platform_folder)_generated/ia_css_isp_states.o \
-	css/$(css_platform_folder)_generated/ia_css_isp_configs.o
-else ifneq ($(ISP2400B0), )
-atomisp-$(postfix)-objs += \
-	css/$(css_platform_folder)_generated/ia_css_isp_params.o \
-	css/$(css_platform_folder)_generated/ia_css_isp_states.o \
-	css/$(css_platform_folder)_generated/ia_css_isp_configs.o
-endif
+FILES := $(foreach dir, $(sub_folders), $(wildcard $(dir)/*.c))
+FILES := $(filter-out $(plat_filter_out), $(FILES))
+FILES := $(filter-out $(src_filter_out), $(FILES))
 
-endif
-
+atomisp-$(postfix)-objs += $(patsubst $(srctree)/$(src)/%.c, %.o, $(FILES))
 obj-$(CONFIG_VIDEO_ATOMISP) = atomisp-$(postfix).o
 
-# Includes for atomisp2 driver, all CSS versions
-INCLUDES := -I$(srctree)/$(src)/atomisp_driver/include \
-	    -I$(srctree)/$(src)/atomisp_driver/ \
-	    -I$(src) \
-	    -I$(src)/atomisp_driver/hrt \
-	    -I$(srctree)/drivers/staging/intel_media/bc_video
-
-# Includes for CSS host code, CSS 2.1 2401 new input system
-ifneq ($(ISP2401_NEW_INPUT_SYSTEM), )
-INCLUDES += -I$(srctree)/$(src)/css/css_2401_system \
-	    -I$(srctree)/$(src)/css/css_2401_system/host \
-	    -I$(srctree)/$(src)/css/hive_isp_css_shared \
-	    -I$(srctree)/$(src)/css/hive_isp_css_shared/host
-endif
-ifneq ($(ISP2400B0), )
-INCLUDES += -I$(srctree)/$(src)/css/isp/kernels/crop/crop_1.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/qplane/qplane_2
-endif
-
-
-# Includes for CSS host code, all CSS versions
-INCLUDES += -I$(src)/css \
-	    -I$(srctree)/$(src)/css/hrt \
-	    -I$(srctree)/$(src)/css/hive_isp_css_include \
-	    -I$(srctree)/$(src)/css/hive_isp_css_include/stdint \
-	    -I$(srctree)/$(src)/css/hive_isp_css_include/stdbool \
-	    -I$(srctree)/$(src)/css/hive_isp_css_include/host \
-	    -I$(srctree)/$(src)/css/hive_isp_css_include/device_access \
-	    -I$(srctree)/$(src)/css/hive_isp_css_include/memory_access \
-	    -I$(srctree)/$(src)/css/$(css_common_folder) \
-	    -I$(srctree)/$(src)/css/$(css_common_folder)/host \
-	    -I$(srctree)/$(src)/css/$(css_platform_folder)_generated \
-	    -I$(srctree)/$(src)/css/hive_isp_css_shared \
-	    -I$(srctree)/$(src)/css/hive_isp_css_shared/host
-
-INCLUDES += -I$(srctree)/$(src)/css/isp/kernels \
-	    -I$(srctree)/$(src)/css/hive_isp_css_kernel/csc/host \
-	    -I$(srctree)/$(src)/css/runtime/debug/interface \
-	    -I$(srctree)/$(src)/css/runtime/frame/interface \
-	    -I$(srctree)/$(src)/css/runtime/ifmtr/interface \
-	    -I$(srctree)/$(src)/css/runtime/isys/interface \
-	    -I$(srctree)/$(src)/css/runtime/rmgr/interface \
-	    -I$(srctree)/$(src)/css/runtime/binary/interface \
-	    -I$(srctree)/$(src)/css/runtime/pipeline/interface \
-	    -I$(srctree)/$(src)/css/runtime/event/interface \
-	    -I$(srctree)/$(src)/css/runtime/eventq/interface \
-	    -I$(srctree)/$(src)/css/base/refcount/interface \
-	    -I$(srctree)/$(src)/css/runtime/tagger/interface \
-	    -I$(srctree)/$(src)/css/host \
-	    -I$(srctree)/$(src)/css/runtime/queue/interface \
-	    -I$(srctree)/$(src)/css/runtime/inputfifo/interface \
-	    -I$(srctree)/$(src)/css/isp/kernels/bh/bh_2 \
-	    -I$(srctree)/$(src)/css/isp/kernels/raw_aa_binning/raw_aa_binning_1.0 \
-	    -I$(srctree)/$(src)/css/camera/util/interface \
-	    -I$(srctree)/$(src)/css/camera/pipe/interface \
-	    -I$(srctree)/$(src)/css/camera/util/interface \
-	    -I$(srctree)/$(src)/css/base/circbuf/interface \
-	    -I$(srctree)/$(src)/css/runtime/isp_param/interface \
-	    -I$(srctree)/$(src)/css/isp/kernels/ref/ref_1.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/xnr/xnr_3.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/vf/vf_1.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/crop/crop_1.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/qplane/qplane_2 \
-	    -I$(srctree)/$(src)/css/runtime/spctrl/interface \
-	    -I$(srctree)/$(src)/css/runtime/bufq/interface \
-	    -I$(srctree)/$(src)/css/isp/kernels/dvs/dvs_1.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/output/output_1.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/fc/fc_1.0 \
-	    -I$(srctree)/$(src)/css/isp/kernels/fixedbds/fixedbds_1.0
+plat_filter_out := $(foreach dir, $(css_platform_folders), $(dir)%)
+INCLUDES := $(foreach dir, $(filter $(css_folder)/$(css_platform_folder)%, $(sub_folders)), -I$(dir))
+INCLUDES += $(foreach dir, $(filter-out $(plat_filter_out), $(sub_folders)), -I$(dir))
+INCLUDES +=	-I$(srctree)/$(src)/atomisp_driver/include \
+		-I$(srctree)/$(src)/atomisp_driver/ \
+		-I$(srctree)/$(src)/atomisp_driver/hrt \
+		-I$(srctree)/$(src)/css \
+		-I$(srctree)/include/linux/ \
+		-I$(srctree)/drivers/staging/intel_media/bc_video
 
 DEFINES := -DHRT_HW -DHRT_ISP_CSS_CUSTOM_HOST -DHRT_USE_VIR_ADDRS -DHRT_KERNEL -D__HOST__
 DEFINES += -DUSE_DYNAMIC_BIN
@@ -292,13 +67,12 @@ DEFINES += -DPUNIT_CAMERA_BUSY
 DEFINES += -DUSE_KMEM_CACHE
 
 ifneq ($(ISP2401), )
-DEFINES += -DSYSTEM_hive_isp_css_2401_system
+DEFINES += -DSYSTEM_hive_isp_css_2401_system -DISP2401
 else ifneq ($(ISP2400B0), )
-DEFINES += -DSYSTEM_hive_isp_css_2400_system
-else ifneq ($(ISP2300), )
-DEFINES += -DSYSTEM_hive_isp_css_system
+DEFINES += -DSYSTEM_hive_isp_css_2400_system -DISP2400
 else
 $(error Undefined HIVE ISP CSS system version)
 endif
 
 ccflags-y += $(INCLUDES) $(DEFINES) -fno-common -Werror
+

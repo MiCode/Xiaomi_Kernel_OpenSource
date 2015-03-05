@@ -1,0 +1,1 @@
+../../../../../../css/isp/kernels/yuv_ls/yuv_ls_1.0/ia_css_yuv_load_param.h

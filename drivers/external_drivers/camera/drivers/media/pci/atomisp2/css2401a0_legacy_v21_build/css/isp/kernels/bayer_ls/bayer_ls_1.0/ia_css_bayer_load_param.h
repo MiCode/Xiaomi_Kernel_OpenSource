@@ -1,0 +1,1 @@
+../../../../../../css/isp/kernels/bayer_ls/bayer_ls_1.0/ia_css_bayer_load_param.h

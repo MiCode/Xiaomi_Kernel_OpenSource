@@ -1,0 +1,1 @@
+../../../../../css/camera/pipe/src/pipe_binarydesc.c
