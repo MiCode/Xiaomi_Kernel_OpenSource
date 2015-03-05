@@ -1515,6 +1515,7 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 int a5xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
+	uint *ucode;
 
 	ret = _load_firmware(adreno_dev,
 			 adreno_dev->gpucore->pm4fw_name, &adreno_dev->pm4,
@@ -1529,6 +1530,11 @@ int a5xx_microcode_read(struct adreno_device *adreno_dev)
 		return ret;
 
 	_load_regfile(adreno_dev);
+
+	ucode = (int *) adreno_dev->pm4.hostptr;
+	adreno_dev->pm4_fw_version = ucode[0];
+	ucode = (int *) adreno_dev->pfp.hostptr;
+	adreno_dev->pfp_fw_version = ucode[0];
 
 	return ret;
 }
