@@ -153,37 +153,62 @@ EXPORT_SYMBOL_GPL(xhci_intel_clr_internal_pme_flag);
    pme and HCRST hangs issue */
 void xhci_intel_ssic_port_unused(struct xhci_hcd *xhci, bool unused)
 {
-	int ext_offset, i;
-	void __iomem *ssic_port_cfg;
+	int ext_start, ext_offset, i;
+	void __iomem *reg;
 	u32 data;
 
 	xhci_dbg(xhci, "ssic port - %s\n", unused ? "unused" : "used");
 
-	ext_offset = XHCI_HCC_EXT_CAPS(readl(&xhci->cap_regs->hcc_params));
+	ext_start = XHCI_HCC_EXT_CAPS(readl(&xhci->cap_regs->hcc_params));
 	ext_offset = xhci_find_ext_cap_by_id(&xhci->cap_regs->hc_capbase,
-			ext_offset << 2, XHCI_EXT_CAPS_INTEL_SSIC);
-	if (!ext_offset)
-		return;
+			ext_start << 2, XHCI_EXT_CAPS_INTEL_SSIC);
 
-	ssic_port_cfg = &xhci->cap_regs->hc_capbase +
-			((ext_offset + SSIC_PORT_CFG2) >> 2);
-	for (i = 0; i < SSIC_PORT_NUM; i++) {
-		data = readl(ssic_port_cfg);
-		data &= ~PROG_DONE;
-		writel(data, ssic_port_cfg);
+	if (ext_offset) {
+		reg = &xhci->cap_regs->hc_capbase +
+				((ext_offset + SSIC_PORT_CFG2) >> 2);
+		for (i = 0; i < SSIC_PORT_NUM; i++) {
+			data = readl(reg);
+			data &= ~PROG_DONE;
+			writel(data, reg);
 
-		data = readl(ssic_port_cfg);
-		if (unused)
-			data |= SSIC_PORT_UNUSED;
-		else
-			data &= ~SSIC_PORT_UNUSED;
-		writel(data, ssic_port_cfg);
+			data = readl(reg);
+			if (unused)
+				data |= SSIC_PORT_UNUSED;
+			else
+				data &= ~SSIC_PORT_UNUSED;
+			writel(data, reg);
 
-		data = readl(ssic_port_cfg);
-		data |= PROG_DONE;
-		writel(data, ssic_port_cfg);
+			data = readl(reg);
+			data |= PROG_DONE;
+			writel(data, reg);
 
-		ssic_port_cfg += SSIC_PORT_CFG2_OFFSET;
+			reg += SSIC_PORT_CFG2_OFFSET;
+		}
+	} else
+		xhci_err(xhci, "intel ssic ext caps not found\n");
+
+	/* WORKAROUND: Register Bank Valid bit is lost after controller enters
+	 * D3, need to set it back, otherwise SSIC RRAP commands can't be sent
+	 * and link training will fail.
+	 */
+	if (!unused) {
+		ext_offset = xhci_find_ext_cap_by_id(
+				&xhci->cap_regs->hc_capbase, ext_start << 2,
+				XHCI_EXT_CAPS_INTEL_SSIC_PROFILE);
+		if (!ext_offset) {
+			xhci_err(xhci, "intel ssic profile ext caps not found\n");
+			return;
+		}
+
+		reg = &xhci->cap_regs->hc_capbase +
+				((ext_offset + SSIC_ACCESS_CTRL) >> 2);
+		for (i = 0; i < SSIC_PORT_NUM; i++) {
+			data = readl(reg);
+			data |= SSIC_ACCESS_CTRL_REGISTER_BANK_VALID;
+			writel(data, reg);
+
+			reg += SSIC_ACCESS_CTRL_OFFSET;
+		}
 	}
 }
 EXPORT_SYMBOL_GPL(xhci_intel_ssic_port_unused);

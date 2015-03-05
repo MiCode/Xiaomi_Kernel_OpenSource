@@ -17,6 +17,7 @@
 /* Extended capability IDs for Intel Vendor Defined */
 #define XHCI_EXT_CAPS_INTEL_HOST_CAP	192
 #define XHCI_EXT_CAPS_INTEL_SSIC	196
+#define XHCI_EXT_CAPS_INTEL_SSIC_PROFILE	197
 
 /* register definition */
 #define PMCTRL			0x34
@@ -40,6 +41,15 @@
 #define SSIC_PORT_CFG2_OFFSET	0x30
 #define PROG_DONE		(1 << 30)
 #define SSIC_PORT_UNUSED	(1 << 31)
+
+/* SSIC Port N Register Access Control
+ * Address Offset: 04h – 07h,
+ * Port 1 ... N : 04h, 114h, 224h
+ */
+#define SSIC_ACCESS_CTRL	0x4
+#define SSIC_ACCESS_CTRL_OFFSET	0x110
+#define SSIC_ACCESS_CTRL_REGISTER_BANK_VALID	(1 << 25)
+
 
 #define DUAL_ROLE_CFG1_POLL_TIMEOUT	1000
 
