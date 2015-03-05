@@ -109,3 +109,7 @@
 &wcnss {
 	qcom,wcnss-vadc = <&pm8909_vadc>;
 };
+
+&smb1357_otg_vreg {
+	usb-pullup-supply = <&pm8909_l13>;
+};
