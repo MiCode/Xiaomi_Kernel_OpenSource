@@ -858,6 +858,8 @@
 
 #include "msmterbium-regulator.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm-pm8950.dtsi"
+#include "msm-pmi8950.dtsi"
 
 &gdsc_venus {
 	status = "okay";
