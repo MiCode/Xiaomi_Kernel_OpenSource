@@ -78,8 +78,8 @@ static ssize_t bo_show(struct device *dev, struct device_attribute *attr,
 
 	spin_lock_irqsave(&bo_device.list_lock, flags);
 	list_for_each_entry(bo, bo_list, list) {
-		if ((active && !(bo->status & HMM_BO_FREE)) ||
-			(!active && (bo->status & HMM_BO_FREE))) {
+		if ((active && (bo->status & HMM_BO_ALLOCED)) ||
+			(!active && !(bo->status & HMM_BO_ALLOCED))) {
 			ret = scnprintf(buf + index1, PAGE_SIZE - index1,
 				"%s %d\n",
 				hmm_bo_type_strings[bo->type], bo->pgnr);
