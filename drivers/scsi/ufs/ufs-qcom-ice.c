@@ -281,7 +281,7 @@ int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd)
 
 	req = cmd->request;
 	if (req->bio)
-		lba = req->bio->bi_sector;
+		lba = req->bio->bi_iter.bi_sector;
 
 	slot = req->tag;
 	if (slot < 0 || slot > qcom_host->hba->nutrs) {
