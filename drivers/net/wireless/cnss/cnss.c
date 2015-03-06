@@ -2946,10 +2946,10 @@ int cnss_is_auto_suspend_allowed(const char *caller_func)
 	int count;
 	unsigned long timeout;
 
-	timeout = penv->last_activity + msecs_to_jiffies(BUS_ACTIVITY_TIMEOUT);
-
 	if (!penv || !penv->driver)
 		return -ENODEV;
+
+	timeout = penv->last_activity + msecs_to_jiffies(BUS_ACTIVITY_TIMEOUT);
 
 	count = atomic_read(&penv->auto_suspend_prevent_count);
 	if (!count && time_after(jiffies, timeout)) {
