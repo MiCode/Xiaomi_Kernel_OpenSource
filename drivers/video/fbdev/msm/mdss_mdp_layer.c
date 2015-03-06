@@ -45,6 +45,15 @@ enum {
 	MDSS_MDP_RETIRE_FENCE,
 };
 
+static inline bool is_layer_right_blend(struct mdp_rect *left_blend,
+	struct mdp_rect *right_blend, u32 left_lm_w)
+{
+	return ((left_blend->x + left_blend->w) == right_blend->x)	&&
+	       ((left_blend->x + left_blend->w) != left_lm_w)		&&
+	       (left_blend->y == right_blend->y)			&&
+	       (left_blend->h == right_blend->h);
+}
+
 static bool is_pipe_type_vig(struct mdss_data_type *mdata, u32 ndx)
 {
 	u32 i;
@@ -335,7 +344,8 @@ exit_fail:
 
 static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	struct mdp_input_layer *layer, struct mdss_mdp_pipe *pipe,
-	bool is_single_layer, bool right_layer_mixer, u32 mixer_mux)
+	struct mdss_mdp_pipe *left_blend_pipe, bool is_single_layer,
+	u32 mixer_mux)
 {
 	int ret = 0;
 	u32 left_lm_w = left_lm_w_from_mfd(mfd);
@@ -375,8 +385,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pipe->flags |= MDP_DEINTERLACE;
 	if (layer->flags & MDP_LAYER_BWC)
 		pipe->flags |= MDP_BWC_EN;
-	if (right_layer_mixer)
-		pipe->flags |= MDSS_MDP_RIGHT_MIXER;
 
 	pipe->scale.enable_pxl_ext = layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT;
 	pipe->is_fg = layer->flags & MDP_LAYER_FORGROUND;
@@ -409,6 +417,27 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	 * staging, same pipe will be stagged on both layer mixers.
 	 */
 	if (mdata->has_src_split) {
+		if (left_blend_pipe) {
+			if (pipe->priority <= left_blend_pipe->priority) {
+				pr_err("priority limitation. left:%d right%d\n",
+					left_blend_pipe->priority,
+					pipe->priority);
+				ret = -EPERM;
+				goto end;
+			} else {
+				pr_debug("pipe%d is a right_pipe\n", pipe->num);
+				pipe->is_right_blend = true;
+			}
+		} else if (pipe->is_right_blend) {
+			/*
+			 * pipe used to be right blend. So need to update mixer
+			 * configuration to remove it as a right blend.
+			 */
+			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_left);
+			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
+			pipe->is_right_blend = false;
+		}
+
 		if ((mixer_mux == MDSS_MDP_MIXER_MUX_LEFT) &&
 		    ((layer->dst_rect.x + layer->dst_rect.w) > mixer->width)) {
 			if (layer->dst_rect.x >= mixer->width) {
@@ -905,15 +934,14 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	u32 mixer_mux, dst_x;
 	int layer_count = commit->input_layer_cnt;
 
-	struct mdss_mdp_pipe *pipe, *tmp;
+	struct mdss_mdp_pipe *pipe, *tmp, *left_blend_pipe;
 	struct mdss_mdp_pipe *right_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_mdp_pipe *left_plist[MAX_PIPES_PER_LM] = {0};
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
-	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 
 	struct mdss_mdp_mixer *mixer = NULL;
-	struct mdp_input_layer *layer, *layer_list;
-	bool is_single_layer = false, right_layer_mixer = false;
+	struct mdp_input_layer *layer, *prev_layer, *layer_list;
+	bool is_single_layer = false;
 	bool new_pipe = false;
 
 	ret = mutex_lock_interruptible(&mdp5_data->ov_lock);
@@ -940,13 +968,27 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	for (i = 0; i < layer_count; i++) {
 		layer = &layer_list[i];
 		dst_x = layer->dst_rect.x;
-		right_layer_mixer = false;
+		left_blend_pipe = NULL;
+
+		prev_layer = (i > 0) ? &layer_list[i - 1] : NULL;
+		/*
+		 * check if current layer is at same z_order as
+		 * previous one and qualifies as a right blend. If yes,
+		 * pass a pointer to the pipe representing previous
+		 * overlay or in other terms left blend layer.
+		 *
+		 * Following logic of selecting left_blend has an inherent
+		 * assumption that layer list is sorted on dst_x within a
+		 * same z_order.
+		 */
+		if (prev_layer && (prev_layer->z_order == layer->z_order) &&
+		    is_layer_right_blend(&prev_layer->dst_rect,
+					 &layer->dst_rect, left_lm_w))
+			left_blend_pipe = pipe;
 
 		if (layer->dst_rect.x >= left_lm_w) {
 			is_single_layer = (right_lm_layers == 1);
 			mixer_mux = MDSS_MDP_MIXER_MUX_RIGHT;
-			if (!mdata->has_src_split)
-				right_layer_mixer = true;
 		} else {
 			is_single_layer = (left_lm_layers == 1);
 			mixer_mux = MDSS_MDP_MIXER_MUX_LEFT;
@@ -1010,8 +1052,8 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 		if (new_pipe)
 			release_ndx |= pipe->ndx;
 
-		ret = __configure_pipe_params(mfd, layer, pipe, is_single_layer,
-			right_layer_mixer, mixer_mux);
+		ret = __configure_pipe_params(mfd, layer, pipe,
+			left_blend_pipe, is_single_layer, mixer_mux);
 		if (ret) {
 			pr_err("configure pipe param failed: pipe index= %d\n",
 				pipe->ndx);
