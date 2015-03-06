@@ -1388,7 +1388,7 @@ static int i2c_msm_dma_init(struct i2c_msm_ctrl *ctrl)
 	dma_addr_t      tags_space_phy_addr;
 
 	/* check if DMA core is initialized */
-	if (dma->state > I2C_MSM_DMA_INIT_CORE)
+	if (dma->state > I2C_MSM_DMA_INIT_NONE)
 		goto dma_core_is_init;
 
 	/*
@@ -2231,7 +2231,13 @@ static void i2c_msm_pm_xfer_end(struct i2c_msm_ctrl *ctrl)
 {
 	atomic_set(&ctrl->xfer.is_active, 0);
 
-	i2c_msm_dma_free_channels(ctrl);
+	/*
+	 * DMA resources are freed due to multi-EE use case.
+	 * Other EEs can potentially use the DMA
+	 * resources with in the same runtime PM vote.
+	 */
+	if (ctrl->xfer.mode_id == I2C_MSM_XFER_MODE_DMA)
+		i2c_msm_dma_free_channels(ctrl);
 
 	i2c_msm_pm_clk_disable_unprepare(ctrl);
 	if (pm_runtime_enabled(ctrl->dev)) {
