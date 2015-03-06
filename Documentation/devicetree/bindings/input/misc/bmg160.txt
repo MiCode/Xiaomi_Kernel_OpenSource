@@ -1,0 +1,16 @@
+Bosch bmg160 3 Axis gyroscope sensor driver
+
+Required properties:
+
+ - compatible		: Should be "bosch,bmg160".
+ - reg			: i2c slave address of the device.
+ - vdd-supply		: Analog power supply needed to power device.
+ - vi2c-supply		: Digital IO Power supply needed for I2C.
+
+Example:
+	bmg160@69 { /* Gyroscope sensor */
+			compatible = "bosch,bmg160";
+			reg = <0x69>;
+			vdd-supply = <&pm8916_l17>;
+			vi2c-supply = <&pm8916_l16>;
+	};
