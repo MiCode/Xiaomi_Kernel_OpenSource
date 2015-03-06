@@ -1168,6 +1168,7 @@
 		interrupts = <0 265 0>;
 		phys = <&ufsphy1>;
 		phy-names = "ufsphy";
+		ufs-qcom-crypto = <&ufs_ice>;
 		vdd-hba-supply = <&gdsc_ufs>;
 		vdd-hba-fixed-regulator;
 		vcc-supply = <&pm8994_l20>;
