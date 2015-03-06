@@ -1,7 +1,7 @@
 /* arch/arm/mach-msm/clock.c
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -213,7 +213,7 @@ static void unvote_rate_vdd(struct clk *clk, unsigned long rate)
 }
 
 /* Check if the rate is within the voltage limits of the clock. */
-static bool is_rate_valid(struct clk *clk, unsigned long rate)
+bool is_rate_valid(struct clk *clk, unsigned long rate)
 {
 	int level;
 

@@ -1102,6 +1102,90 @@ static int set_rate_pixel(struct clk *clk, unsigned long rate)
 	return -EINVAL;
 }
 
+static int rcg_clk_set_parent(struct clk *clk, struct clk *parent_clk)
+{
+	struct rcg_clk *rcg = to_rcg_clk(clk);
+	struct clk *old_parent = clk->parent;
+	struct clk_freq_tbl *nf;
+	unsigned long flags;
+	int rc = 0;
+	unsigned int parent_rate, rate;
+	u32 m_val, n_val, d_val, div_val;
+	u32 cfg_regval;
+
+	/* Find the source clock freq tbl for the requested parent */
+	if (!rcg->freq_tbl)
+		return -ENXIO;
+
+	for (nf = rcg->freq_tbl; parent_clk != nf->src_clk; nf++) {
+		if (nf->freq_hz == FREQ_END)
+			return -ENXIO;
+	}
+
+	/* This implementation recommends that the RCG be unprepared
+	 * when switching RCG source since the divider configuration
+	 * remains unchanged.
+	 */
+	WARN(clk->prepare_count,
+		"Trying to switch RCG source while it is prepared!\n");
+
+	parent_rate = clk_get_rate(parent_clk);
+
+	div_val = (rcg->current_freq->div_src_val & CFG_RCGR_DIV_MASK);
+	if (div_val)
+		parent_rate /= ((div_val + 1) >> 1);
+
+	/* Update divisor. Source select bits should already be as expected */
+	nf->div_src_val &= ~CFG_RCGR_DIV_MASK;
+	nf->div_src_val |= div_val;
+
+	cfg_regval = readl_relaxed(CFG_RCGR_REG(rcg));
+
+	if ((cfg_regval & MND_MODE_MASK) == MND_DUAL_EDGE_MODE_BVAL) {
+		nf->m_val = m_val = readl_relaxed(M_REG(rcg));
+		n_val = readl_relaxed(N_REG(rcg));
+		d_val = readl_relaxed(D_REG(rcg));
+
+		/* Sign extend the n and d values as those in registers are not
+		 * sign extended.
+		 */
+		n_val |= (n_val >> 8) ? BM(31, 16) : BM(31, 8);
+		d_val |= (d_val >> 8) ? BM(31, 16) : BM(31, 8);
+
+		nf->n_val = n_val;
+		nf->d_val = d_val;
+
+		n_val = ~(n_val) + m_val;
+		rate = parent_rate * m_val;
+		if (n_val)
+			rate /= n_val;
+		else
+			WARN(1, "n_val was 0!!");
+	} else
+		rate = parent_rate;
+
+	/* Warn if switching to the new parent with the current m, n ,d values
+	 * violates the voltage constraints for the RCG.
+	 */
+	WARN(!is_rate_valid(clk, rate) && clk->prepare_count,
+		"Switch to new RCG parent violates voltage requirement!\n");
+
+	rc = __clk_pre_reparent(clk, nf->src_clk, &flags);
+	if (rc)
+		return rc;
+
+	/* Switch RCG source */
+	rcg->set_rate(rcg, nf);
+
+	rcg->current_freq = nf;
+	clk->parent = parent_clk;
+	clk->rate = rate;
+
+	__clk_post_reparent(clk, old_parent, &flags);
+
+	return 0;
+}
+
 /*
  * Unlike other clocks, the HDMI rate is adjusted through PLL
  * re-programming. It is also routed through an HID divider.
@@ -1497,6 +1581,7 @@ struct clk_ops clk_ops_rcg = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_clk_handoff,
 	.get_parent = rcg_clk_get_parent,
+	.set_parent = rcg_clk_set_parent,
 	.list_registers = rcg_hid_clk_list_registers,
 };
 
@@ -1507,6 +1592,7 @@ struct clk_ops clk_ops_rcg_mnd = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = rcg_mnd_clk_handoff,
 	.get_parent = rcg_mnd_clk_get_parent,
+	.set_parent = rcg_clk_set_parent,
 	.list_registers = rcg_mnd_clk_list_registers,
 };
 
@@ -1517,6 +1603,7 @@ struct clk_ops clk_ops_pixel = {
 	.round_rate = round_rate_pixel,
 	.handoff = pixel_rcg_handoff,
 	.list_registers = rcg_mnd_clk_list_registers,
+	.set_parent = rcg_clk_set_parent,
 };
 
 struct clk_ops clk_ops_edppixel = {
@@ -1535,6 +1622,7 @@ struct clk_ops clk_ops_byte = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = byte_rcg_handoff,
 	.list_registers = rcg_hid_clk_list_registers,
+	.set_parent = rcg_clk_set_parent,
 };
 
 struct clk_ops clk_ops_rcg_hdmi = {
