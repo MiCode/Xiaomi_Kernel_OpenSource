@@ -34,6 +34,7 @@
 #include <linux/firmware.h>
 #include <linux/freezer.h>
 #include <linux/scatterlist.h>
+#include <linux/regulator/consumer.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/socinfo.h>
@@ -183,6 +184,8 @@ struct qseecom_control {
 	struct qseecom_clk qsee;
 	struct qseecom_clk ce_drv;
 	struct qseecom_clk ce_ice;
+	struct regulator *reg;
+	bool   is_regulator_available;
 
 	bool support_bus_scaling;
 	bool support_fde;
@@ -4107,6 +4110,20 @@ static int __qseecom_update_current_key_user_info(
 	return ret;
 }
 
+static int qseecom_get_vreg(void)
+{
+	int ret = 0;
+	if (!qseecom.is_regulator_available)
+		return 0;
+	qseecom.reg = devm_regulator_get(qseecom.pdev, "vdd-hba");
+	if (IS_ERR(qseecom.reg)) {
+		ret = PTR_ERR(qseecom.reg);
+		dev_err(qseecom.pdev, "%s: %s get failed, err=%d\n",
+			__func__, "vdd-hba-supply", ret);
+	}
+	return ret;
+}
+
 static int qseecom_create_key(struct qseecom_dev_handle *data,
 			void __user *argp)
 {
@@ -4199,8 +4216,19 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 					pr_err("Failed to get storage clocks\n");
 					goto free_buf;
 				}
-				__qseecom_enable_clk(CLK_ICE);
+				if (qseecom_get_vreg()) {
+					pr_err("%s: Could not get regulator\n",
+								__func__);
+					goto free_buf;
+				}
 			}
+			if (qseecom.is_regulator_available &&
+					regulator_enable(qseecom.reg)) {
+				pr_err("%s: Could not enable regulator\n",
+								__func__);
+				goto free_buf;
+			}
+			__qseecom_enable_clk(CLK_ICE);
 		}
 
 		ret = __qseecom_set_clear_ce_key(data,
@@ -4209,13 +4237,24 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 
 		if (create_key_req.usage ==
 			QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
+			if (!ret)
+				pr_err("Set the key successfully\n");
+			else
+				pr_err("Set the key failed\n");
 			__qseecom_disable_clk(CLK_ICE);
+			if (qseecom.is_regulator_available &&
+					regulator_disable(qseecom.reg)) {
+				pr_err("%s:Could not disable regulator\n",
+								__func__);
+			}
 			break;
 		}
 		if (ret) {
 			pr_err("Failed to create key: pipe %d, ce %d: %d\n",
 				pipe, ce_hw[i], ret);
 			goto free_buf;
+		} else {
+			pr_err("Set the key successfully\n");
 		}
 	}
 
@@ -4307,6 +4346,17 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 					pr_err("Failed to get storage clocks\n");
 					goto free_buf;
 				}
+				if (qseecom_get_vreg()) {
+					pr_err("%s: Could not get regulator\n",
+								__func__);
+					goto free_buf;
+				}
+				if (qseecom.is_regulator_available &&
+					regulator_enable(qseecom.reg)) {
+					pr_err("%s:Couldnot enable regulator\n",
+								__func__);
+					goto free_buf;
+				}
 				__qseecom_enable_clk(CLK_ICE);
 			}
 		}
@@ -4317,6 +4367,11 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 		if (wipe_key_req.usage ==
 			QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
 			__qseecom_disable_clk(CLK_ICE);
+			if (qseecom.is_regulator_available &&
+				regulator_disable(qseecom.reg)) {
+				pr_err("%s:Could not disable regulator\n",
+							__func__);
+			}
 			break;
 		}
 
@@ -5687,7 +5742,7 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 		return -EIO;
 	}
 
-	if (qseecom.no_clock_support) {
+	if (qseecom.no_clock_support && ce != CLK_ICE) {
 		qclk->ce_core_clk = NULL;
 		qclk->ce_clk = NULL;
 		qclk->ce_bus_clk = NULL;
@@ -6108,6 +6163,13 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.qsee_perf_client = msm_bus_scale_register_client(
 					qseecom_platform_support);
 
+	if (!of_parse_phandle(pdev->dev.of_node, "vdd-hba-supply", 0)) {
+		pr_err("%s: No vdd-hba-supply regulator, assuming not needed\n",
+								 __func__);
+		qseecom.is_regulator_available = false;
+	} else {
+		qseecom.is_regulator_available = true;
+	}
 	if (!qseecom.qsee_perf_client)
 		pr_err("Unable to register bus client\n");
 	return 0;
