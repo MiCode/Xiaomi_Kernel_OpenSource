@@ -537,7 +537,8 @@ static int dc_xpwr_pwrsrc_probe(struct platform_device *pdev)
 		info->irq[i] = platform_get_irq(pdev, i);
 		ret = request_threaded_irq(info->irq[i],
 				NULL, dc_xpwr_pwrsrc_isr,
-				IRQF_ONESHOT, PWRSRC_DRV_NAME, info);
+				IRQF_ONESHOT | IRQF_NO_SUSPEND,
+				PWRSRC_DRV_NAME, info);
 		if (ret) {
 			dev_err(&pdev->dev, "request_irq fail :%d err:%d\n",
 							info->irq[i], ret);
