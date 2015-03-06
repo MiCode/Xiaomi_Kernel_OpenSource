@@ -24,6 +24,12 @@
 #define DWC3_IDEV_CHG_MAX 1500
 #define DWC3_HVDCP_CHG_MAX 1800
 
+/*
+ * Module param to override current drawn for DCP charger
+ * Declared in dwc3-msm module
+ */
+extern int dcp_max_current;
+
 struct dwc3_charger;
 
 /**

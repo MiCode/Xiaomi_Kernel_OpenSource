@@ -69,6 +69,16 @@ static bool usb_lpm_override;
 module_param(usb_lpm_override, bool, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(usb_lpm_override, "Override no_suspend_resume with USB");
 
+/* Max current to be drawn for HVDCP charger */
+static int hvdcp_max_current = DWC3_HVDCP_CHG_MAX;
+module_param(hvdcp_max_current, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(hvdcp_max_current, "max current drawn for HVDCP charger");
+
+/* Max current to be drawn for DCP charger */
+int dcp_max_current = DWC3_IDEV_CHG_MAX;
+module_param(dcp_max_current, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
+
 /* XHCI registers */
 #define USB3_HCSPARAMS1		(0x4)
 #define USB3_PORTSC		(0x420)
@@ -2244,7 +2254,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			break;
 		case POWER_SUPPLY_TYPE_USB_HVDCP:
 			mdwc->charger.chg_type = DWC3_DCP_CHARGER;
-			usb_phy_set_power(phy, DWC3_HVDCP_CHG_MAX);
+			usb_phy_set_power(phy, hvdcp_max_current);
 			break;
 		case POWER_SUPPLY_TYPE_USB_CDP:
 			mdwc->charger.chg_type = DWC3_CDP_CHARGER;
