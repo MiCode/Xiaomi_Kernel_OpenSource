@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -36,6 +36,29 @@ enum rpm_regulator_voltage_corner {
 	RPM_REGULATOR_CORNER_NORMAL,
 	RPM_REGULATOR_CORNER_TURBO,
 	RPM_REGULATOR_CORNER_SUPER_TURBO,
+};
+
+/**
+ * enum rpm_regulator_voltage_level - possible voltage level values
+ *
+ * These should be used in regulator_set_voltage() and
+ * rpm_regulator_set_voltage() calls for level type regulators as if they had
+ * units of uV.
+ *
+ * Note: the meaning of level values is set by the RPM.
+ */
+enum rpm_regulator_voltage_level {
+	RPM_REGULATOR_LEVEL_NONE	= 0,
+	RPM_REGULATOR_LEVEL_RETENTION	= 16,
+	RPM_REGULATOR_LEVEL_MIN_SVS	= 48,
+	RPM_REGULATOR_LEVEL_LOW_SVS	= 64,
+	RPM_REGULATOR_LEVEL_SVS		= 128,
+	RPM_REGULATOR_LEVEL_SVS_PLUS	= 192,
+	RPM_REGULATOR_LEVEL_NOM		= 256,
+	RPM_REGULATOR_LEVEL_NOM_PLUS	= 320,
+	RPM_REGULATOR_LEVEL_TURBO	= 384,
+	RPM_REGULATOR_LEVEL_BINNING	= 512,
+	RPM_REGULATOR_LEVEL_MAX		= 65535,
 };
 
 /**

@@ -76,12 +76,23 @@ Optional properties:
 				qcom,use-voltage-floor-corner are mutually
 				exclusive.  Only one may be specified for a
 				given regulator.
-- qcom,always-send-voltage:    Flag which indicates that updates to the voltage
-				or voltage corner set point should always be
-				sent immediately to the RPM.  If this flag is
-				not specified, then voltage set point updates
-				are only sent if the given regulator has also
-				been enabled by a Linux consumer.
+- qcom,use-voltage-level:      Flag that signifies if regulator_set_voltage
+				calls should modify the level parameter instead
+				of the voltage parameter.
+- qcom,use-voltage-floor-level:   Flag that signifies if regulator_set_voltage
+				calls should modify the floor level parameter
+				instead of the voltage parameter.
+				The properties qcom,use-voltage-level and
+				qcom,use-voltage-floor-level are mutually
+				exclusive.  Only one may be specified for a
+				given regulator.
+- qcom,always-send-voltage:    Flag which indicates that updates to the
+				voltage, voltage corner or voltage level set
+				point should always be sent immediately to the
+				RPM. If this flag is not specified, then
+				voltage set point updates are only sent if the
+				given regulator has also been enabled by a
+				Linux consumer.
 - qcom,always-send-current:    Flag which indicates that updates to the load
 				current should always be sent immediately to the
 				RPM.  If this flag is not specified, then load
@@ -195,6 +206,25 @@ RPM in regulator requests.
 				processor in the system is awake.  This property
 				supports the same values as
 				qcom,init-voltage-corner.
+- qcom,init-voltage-level:     Performance level to use in order to determine
+				voltage set point. The meaning of level
+				values is set by the RPM. It is possible that
+				different regulators on a given platform or
+				similar regulators on different platforms will
+				utilize different level values. These are
+				level values supported on MSM8952 for PMIC
+				PM8952 SMPS 2 (VDD_Dig); nominal voltages for
+				these level are also shown:
+					16  = Retention    (0.5000 V)
+					128 = SVS          (1.0500 V)
+					192 = SVS+         (1.1550 V)
+					256 = Normal       (1.2250 V)
+					320 = Normal+      (1.2875 V)
+					384 = Turbo        (1.3500 V)
+- qcom,init-voltage-floor-level:   Minimum performance level to use if any
+				processor in the system is awake. This property
+				supports the same values as
+				qcom,init-voltage-level.
 
 All properties specified within the core regulator framework can also be used in
 second level nodes.  These bindings can be found in:
