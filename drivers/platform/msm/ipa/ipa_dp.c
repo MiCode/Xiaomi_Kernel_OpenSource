@@ -44,7 +44,7 @@
 #define IPA_WLAN_COMM_RX_POOL_HIGH 900
 
 #define IPA_ODU_RX_BUFF_SZ 2048
-#define IPA_ODU_RX_POOL_SZ 32
+#define IPA_ODU_RX_POOL_SZ 64
 #define IPA_SIZE_DL_CSUM_META_TRAILER 8
 
 static struct sk_buff *ipa_get_skb_ipa_rx(unsigned int len, gfp_t flags);
