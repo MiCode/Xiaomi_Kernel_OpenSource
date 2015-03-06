@@ -2367,6 +2367,9 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 	case FORMAT_ALAC:
 		open.dec_fmt_id = ASM_MEDIA_FMT_ALAC;
 		break;
+	case FORMAT_VORBIS:
+		open.dec_fmt_id = ASM_MEDIA_FMT_VORBIS;
+		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n", __func__, format);
 		goto fail_cmd;
@@ -3811,6 +3814,42 @@ int q6asm_media_format_block_alac(struct audio_client *ac,
 	fmt.avg_bit_rate = cfg->avg_bit_rate;
 	fmt.sample_rate = cfg->sample_rate;
 	fmt.channel_layout_tag = cfg->channel_layout_tag;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s :Comamnd media format update failed %d\n",
+				__func__, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s :timeout. waited for FORMAT_UPDATE\n", __func__);
+		rc = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return rc;
+}
+
+int q6asm_stream_media_format_block_vorbis(struct audio_client *ac,
+				struct asm_vorbis_cfg *cfg, int stream_id)
+{
+	struct asm_vorbis_fmt_blk_v2 fmt;
+	int rc = 0;
+
+	pr_debug("%s :session[%d] bit_stream_fmt[%d] stream_id[%d]\n",
+		__func__, ac->session, cfg->bit_stream_fmt, stream_id);
+
+	q6asm_stream_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE, stream_id);
+	atomic_set(&ac->cmd_state, 1);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
+	fmt.fmtblk.fmt_blk_size = sizeof(fmt) - sizeof(fmt.hdr) -
+						sizeof(fmt.fmtblk);
+
+	fmt.bit_stream_fmt = cfg->bit_stream_fmt;
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
 	if (rc < 0) {

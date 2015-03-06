@@ -2715,6 +2715,10 @@ struct asm_alac_cfg {
 	u32 channel_layout_tag;
 };
 
+struct asm_vorbis_cfg {
+	u32 bit_stream_fmt;
+};
+
 struct asm_softpause_params {
 	u32 enable;
 	u32 period;
@@ -3054,6 +3058,21 @@ struct asm_aac_enc_cfg_v2 {
  * Native mode indicates that encoding must be performed with the
  * sampling rate at the input.
  * The sampling rate must not change during encoding.
+ */
+
+} __packed;
+
+struct asm_vorbis_fmt_blk_v2 {
+	struct apr_hdr hdr;
+	struct asm_data_cmd_media_fmt_update_v2 fmtblk;
+	u32          bit_stream_fmt;
+/* Bit stream format.
+ * Supported values:
+ * - 0 -- Raw bitstream
+ * - 1 -- Transcoded bitstream
+ *
+ * Transcoded bitstream containing the size of the frame as the first
+ * word in each frame.
  */
 
 } __packed;
@@ -3551,6 +3570,7 @@ struct asm_amrwbplus_fmt_blk_v2 {
 #define ASM_MEDIA_FMT_MP2                    0x00010DE9
 #define ASM_MEDIA_FMT_FLAC                   0x00010C16
 #define ASM_MEDIA_FMT_ALAC                   0x00012F31
+#define ASM_MEDIA_FMT_VORBIS                   0x00010C15
 
 
 /* Media format ID for adaptive transform acoustic coding. This

@@ -591,7 +591,7 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 			COMPR_PLAYBACK_MIN_NUM_FRAGMENTS;
 	prtd->compr_cap.max_fragments =
 			COMPR_PLAYBACK_MAX_NUM_FRAGMENTS;
-	prtd->compr_cap.num_codecs = 8;
+	prtd->compr_cap.num_codecs = 10;
 	prtd->compr_cap.codecs[0] = SND_AUDIOCODEC_MP3;
 	prtd->compr_cap.codecs[1] = SND_AUDIOCODEC_AAC;
 	prtd->compr_cap.codecs[2] = SND_AUDIOCODEC_AC3;
@@ -601,6 +601,7 @@ static void populate_codec_list(struct msm_compr_audio *prtd)
 	prtd->compr_cap.codecs[6] = SND_AUDIOCODEC_WMA;
 	prtd->compr_cap.codecs[7] = SND_AUDIOCODEC_WMA_PRO;
 	prtd->compr_cap.codecs[8] = SND_AUDIOCODEC_FLAC;
+	prtd->compr_cap.codecs[9] = SND_AUDIOCODEC_VORBIS;
 }
 
 static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
@@ -615,6 +616,8 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 	struct asm_wma_cfg wma_cfg;
 	struct asm_wmapro_cfg wma_pro_cfg;
 	struct asm_flac_cfg flac_cfg;
+	struct asm_vorbis_cfg vorbis_cfg;
+	u32 cfg;
 	int ret = 0;
 	uint16_t bit_width = 16;
 	bool use_default_chmap = true;
@@ -737,6 +740,20 @@ static int msm_compr_send_media_format_block(struct snd_compr_stream *cstream,
 
 		ret = q6asm_stream_media_format_block_flac(prtd->audio_client,
 							&flac_cfg, stream_id);
+		if (ret < 0)
+			pr_err("%s: CMD Format block failed ret %d\n",
+				__func__, ret);
+
+		break;
+	case FORMAT_VORBIS:
+		pr_debug("%s: SND_AUDIOCODEC_VORBIS\n", __func__);
+		memset(&vorbis_cfg, 0x0, sizeof(struct asm_vorbis_cfg));
+		cfg = prtd->codec_param.codec.options.vorbis_dec.bit_stream_fmt;
+		vorbis_cfg.bit_stream_fmt = cfg;
+
+		ret = q6asm_stream_media_format_block_vorbis(
+					prtd->audio_client, &vorbis_cfg,
+					stream_id);
 		if (ret < 0)
 			pr_err("%s: CMD Format block failed ret %d\n",
 				__func__, ret);
@@ -1263,6 +1280,12 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_FLAC: {
 		pr_debug("%s: SND_AUDIOCODEC_FLAC\n", __func__);
 		prtd->codec = FORMAT_FLAC;
+		break;
+	}
+
+	case SND_AUDIOCODEC_VORBIS: {
+		pr_debug("%s: SND_AUDIOCODEC_VORBIS\n", __func__);
+		prtd->codec = FORMAT_VORBIS;
 		break;
 	}
 
@@ -2005,6 +2028,8 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 		break;
 	case SND_AUDIOCODEC_FLAC:
 		break;
+	case SND_AUDIOCODEC_VORBIS:
+		break;
 	default:
 		pr_err("%s: Unsupported audio codec %d\n",
 			__func__, codec->codec);
@@ -2469,6 +2494,7 @@ static int msm_compr_dec_params_put(struct snd_kcontrol *kcontrol,
 	case FORMAT_MP3:
 	case FORMAT_MPEG4_AAC:
 	case FORMAT_FLAC:
+	case FORMAT_VORBIS:
 		pr_debug("%s: no runtime parameters for codec: %d\n", __func__,
 			 prtd->codec);
 		break;
