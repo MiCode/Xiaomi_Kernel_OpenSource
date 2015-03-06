@@ -260,7 +260,6 @@ static int wifi_plat_dev_drv_probe_acpi(struct platform_device *pdev)
 	wifi_adapter_info_t *adapter;
 	acpi_handle handle;
 	struct acpi_device *adev;
-	int gpio_num = -1;
 	int irq_num = -1;
 
 	/* Android style wifi platform data device ("bcmdhd_wlan" or "bcm4329_wlan")
@@ -287,12 +286,14 @@ static int wifi_plat_dev_drv_probe_acpi(struct platform_device *pdev)
 			/* Ignore SDH SDIO controller ACPI PM state */
 			adev->power.flags.ignore_parent = 1;
 		}
-		gpio_num = desc_to_gpio(gpiod_get_index(&pdev->dev, NULL, 0));
-		pr_err("%s: Using ACPI table to get GPIO number: %d\n", __FUNCTION__, gpio_num);
-		if (gpio_num > 0) {
-			irq_num = gpio_to_irq(gpio_num);
+#if defined(OOB_INTR_ONLY)
+		irq_num = desc_to_gpio(gpiod_get_index(&pdev->dev, NULL, 0));
+		pr_err("%s: Using ACPI table to get GPIO number: %d\n", __FUNCTION__, irq_num);
+		if (irq_num > 0) {
+			irq_num = gpio_to_irq(irq_num);
 			pr_err("%s: IRQ number: %d\n", __FUNCTION__, irq_num);
 		}
+#endif
 	} else {
 		DHD_ERROR(("%s: Null ACPI_HANDLE, try legacy probe\n", __FUNCTION__));
 		return wifi_plat_dev_drv_probe(pdev);
