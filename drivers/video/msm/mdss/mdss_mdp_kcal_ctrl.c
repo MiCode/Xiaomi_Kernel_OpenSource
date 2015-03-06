@@ -295,7 +295,7 @@ static DEVICE_ATTR(kcal_hue, 0644, kcal_hue_show, kcal_hue_store);
 static DEVICE_ATTR(kcal_val, 0644, kcal_val_show, kcal_val_store);
 static DEVICE_ATTR(kcal_cont, 0644, kcal_cont_show, kcal_cont_store);
 
-static int __devinit kcal_ctrl_probe(struct platform_device *pdev)
+static int kcal_ctrl_probe(struct platform_device *pdev)
 {
 	int ret;
 	struct kcal_lut_data *lut_data;
@@ -332,7 +332,7 @@ static int __devinit kcal_ctrl_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int __devexit kcal_ctrl_remove(struct platform_device *pdev)
+static int kcal_ctrl_remove(struct platform_device *pdev)
 {
 	struct kcal_lut_data *lut_data = platform_get_drvdata(pdev);
 
