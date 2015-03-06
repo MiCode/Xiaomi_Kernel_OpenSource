@@ -1505,6 +1505,11 @@
 		qcom,proc-img-to-load = "modem";
 	};
 
+	qcom,msmapr-audio {
+		compatible = "qcom,msmapr-audio";
+		qcom,apr-dest-type = "MDSP";
+	};
+
 	qcom,avtimer@770600c {
 		compatible = "qcom,avtimer";
 		reg = <0x0770600C 0x4>,
