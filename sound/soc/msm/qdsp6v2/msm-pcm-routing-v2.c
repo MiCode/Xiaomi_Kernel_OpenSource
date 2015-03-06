@@ -4063,6 +4063,368 @@ static struct snd_kcontrol_new msm_voc_session_controls[] = {
 			     msm_voc_session_id_put),
 };
 
+static int msm_sound_focus_info(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct sound_focus_param);
+
+	return 0;
+}
+
+static int msm_voice_sound_focus_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct sound_focus_param soundFocusData;
+
+	memcpy((void *)&soundFocusData, ucontrol->value.bytes.data,
+		sizeof(struct sound_focus_param));
+	ret = voc_set_sound_focus(soundFocusData);
+	if (ret) {
+		pr_err("%s: Error setting Sound Focus Params, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int msm_voice_sound_focus_get(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct sound_focus_param soundFocusData;
+
+	memset(&soundFocusData, 0, sizeof(struct sound_focus_param));
+
+	ret = voc_get_sound_focus(&soundFocusData);
+	if (ret) {
+		pr_err("%s: Error getting Sound Focus Params, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	memcpy(ucontrol->value.bytes.data, (void *)&soundFocusData,
+		sizeof(struct sound_focus_param));
+
+done:
+	return ret;
+}
+
+static int msm_source_tracking_info(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_info *uinfo)
+{
+	uinfo->type = SNDRV_CTL_ELEM_TYPE_BYTES;
+	uinfo->count = sizeof(struct source_tracking_param);
+
+	return 0;
+}
+
+static int msm_voice_source_tracking_get(struct snd_kcontrol *kcontrol,
+					 struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct source_tracking_param sourceTrackingData;
+
+	memset(&sourceTrackingData, 0, sizeof(struct source_tracking_param));
+
+	ret = voc_get_source_tracking(&sourceTrackingData);
+	if (ret) {
+		pr_err("%s: Error getting Source Tracking Params, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	memcpy(ucontrol->value.bytes.data, (void *)&sourceTrackingData,
+		sizeof(struct source_tracking_param));
+
+done:
+	return ret;
+}
+
+static int msm_audio_get_copp_idx_from_port_id(int port_id, int session_type,
+					 int *copp_idx)
+{
+	int i, idx, be_idx;
+	int ret = 0;
+	unsigned long copp;
+
+	pr_debug("%s: Enter, port_id=%d\n", __func__, port_id);
+
+	ret = q6audio_validate_port(port_id);
+	if (ret < 0) {
+		pr_err("%s: port validation failed id 0x%x ret %d\n",
+			__func__, port_id, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	for (be_idx = 0; be_idx < MSM_BACKEND_DAI_MAX; be_idx++) {
+		if (msm_bedais[be_idx].port_id == port_id)
+			break;
+	}
+	if (be_idx >= MSM_BACKEND_DAI_MAX) {
+		pr_err("%s: Invalid be id %d\n", __func__, be_idx);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	for_each_set_bit(i, &msm_bedais[be_idx].fe_sessions,
+			 MSM_FRONTEND_DAI_MM_SIZE) {
+		for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
+			copp = session_copp_map[i]
+				[session_type][be_idx];
+			if (test_bit(idx, &copp))
+				break;
+		}
+		if (idx >= MAX_COPPS_PER_PORT)
+			continue;
+		else
+			break;
+	}
+	if (i >= MSM_FRONTEND_DAI_MM_SIZE) {
+		pr_err("%s: Invalid FE, exiting\n", __func__);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	*copp_idx = idx;
+	pr_debug("%s: copp_idx=%d\n", __func__, *copp_idx);
+
+done:
+	return ret;
+}
+
+static int msm_audio_sound_focus_derive_port_id(struct snd_kcontrol *kcontrol,
+					    const char *prefix, int *port_id)
+{
+	int ret = 0;
+
+	pr_debug("%s: Enter, prefix:%s\n", __func__, prefix);
+
+	/*
+	 * Mixer control name will be like "Sound Focus Audio Tx SLIMBUS_0"
+	 * where the prefix is "Sound Focus Audio Tx ". Skip the prefix
+	 * and compare the string with the backend name to derive the port id.
+	 */
+	if (!strcmp(kcontrol->id.name + strlen(prefix),
+					"SLIMBUS_0")) {
+		*port_id = SLIMBUS_0_TX;
+	} else if (!strcmp(kcontrol->id.name + strlen(prefix),
+					"TERT_MI2S")) {
+		*port_id = AFE_PORT_ID_TERTIARY_MI2S_TX;
+	} else {
+		pr_err("%s: mixer ctl name=%s, could not derive valid port id\n",
+			__func__, kcontrol->id.name);
+
+		ret = -EINVAL;
+		goto done;
+	}
+	pr_debug("%s: mixer ctl name=%s, derived port_id=%d\n",
+		  __func__, kcontrol->id.name, *port_id);
+
+done:
+	return ret;
+}
+
+static int msm_audio_sound_focus_put(struct snd_kcontrol *kcontrol,
+				     struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct sound_focus_param soundFocusData;
+	int port_id, copp_idx;
+
+	ret = msm_audio_sound_focus_derive_port_id(kcontrol,
+				"Sound Focus Audio Tx ", &port_id);
+	if (ret != 0) {
+		pr_err("%s: Error in deriving port id, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_audio_get_copp_idx_from_port_id(port_id, SESSION_TYPE_TX,
+					    &copp_idx);
+	if (ret) {
+		pr_err("%s: Could not get copp idx for port_id=%d\n",
+			__func__, port_id);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy((void *)&soundFocusData, ucontrol->value.bytes.data,
+		sizeof(struct sound_focus_param));
+
+	ret = adm_set_sound_focus(port_id, copp_idx, soundFocusData);
+	if (ret) {
+		pr_err("%s: Error setting Sound Focus Params, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+done:
+	return ret;
+}
+
+static int msm_audio_sound_focus_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct sound_focus_param soundFocusData;
+	int port_id, copp_idx;
+
+	ret = msm_audio_sound_focus_derive_port_id(kcontrol,
+				"Sound Focus Audio Tx ", &port_id);
+	if (ret) {
+		pr_err("%s: Error in deriving port id, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_audio_get_copp_idx_from_port_id(port_id, SESSION_TYPE_TX,
+					    &copp_idx);
+	if (ret) {
+		pr_err("%s: Could not get copp idx for port_id=%d\n",
+			__func__, port_id);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = adm_get_sound_focus(port_id, copp_idx, &soundFocusData);
+	if (ret) {
+		pr_err("%s: Error getting Sound Focus Params, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(ucontrol->value.bytes.data, (void *)&soundFocusData,
+		sizeof(struct sound_focus_param));
+
+done:
+	return ret;
+}
+
+static int msm_audio_source_tracking_get(struct snd_kcontrol *kcontrol,
+					struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct source_tracking_param sourceTrackingData;
+	int port_id, copp_idx;
+
+	ret = msm_audio_sound_focus_derive_port_id(kcontrol,
+				"Source Tracking Audio Tx ", &port_id);
+	if (ret) {
+		pr_err("%s: Error in deriving port id, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = msm_audio_get_copp_idx_from_port_id(port_id, SESSION_TYPE_TX,
+					    &copp_idx);
+	if (ret) {
+		pr_err("%s: Could not get copp idx for port_id=%d\n",
+			__func__, port_id);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	ret = adm_get_source_tracking(port_id, copp_idx, &sourceTrackingData);
+	if (ret) {
+		pr_err("%s: Error getting Source Tracking Params, err=%d\n",
+			  __func__, ret);
+
+		ret = -EINVAL;
+		goto done;
+	}
+
+	memcpy(ucontrol->value.bytes.data, (void *)&sourceTrackingData,
+		sizeof(struct source_tracking_param));
+
+done:
+	return ret;
+}
+
+static const struct snd_kcontrol_new msm_source_tracking_controls[] = {
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Sound Focus Voice Tx SLIMBUS_0",
+		.info	= msm_sound_focus_info,
+		.get	= msm_voice_sound_focus_get,
+		.put	= msm_voice_sound_focus_put,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Source Tracking Voice Tx SLIMBUS_0",
+		.info	= msm_source_tracking_info,
+		.get	= msm_voice_source_tracking_get,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Sound Focus Audio Tx SLIMBUS_0",
+		.info	= msm_sound_focus_info,
+		.get	= msm_audio_sound_focus_get,
+		.put	= msm_audio_sound_focus_put,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Source Tracking Audio Tx SLIMBUS_0",
+		.info	= msm_source_tracking_info,
+		.get	= msm_audio_source_tracking_get,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Sound Focus Voice Tx TERT_MI2S",
+		.info	= msm_sound_focus_info,
+		.get	= msm_voice_sound_focus_get,
+		.put	= msm_voice_sound_focus_put,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Source Tracking Voice Tx TERT_MI2S",
+		.info	= msm_source_tracking_info,
+		.get	= msm_voice_source_tracking_get,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READWRITE,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Sound Focus Audio Tx TERT_MI2S",
+		.info	= msm_sound_focus_info,
+		.get	= msm_audio_sound_focus_get,
+		.put	= msm_audio_sound_focus_put,
+	},
+	{
+		.access = SNDRV_CTL_ELEM_ACCESS_READ,
+		.iface	= SNDRV_CTL_ELEM_IFACE_MIXER,
+		.name	= "Source Tracking Audio Tx TERT_MI2S",
+		.info	= msm_source_tracking_info,
+		.get	= msm_audio_source_tracking_get,
+	},
+};
+
 static int spkr_prot_put_vi_lch_port(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -5991,6 +6353,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 				ARRAY_SIZE(device_pp_params_mixer_controls));
 
 	msm_dts_eagle_add_controls(platform);
+
+	snd_soc_add_platform_controls(platform, msm_source_tracking_controls,
+				      ARRAY_SIZE(msm_source_tracking_controls));
 	return 0;
 }
 

@@ -8075,4 +8075,44 @@ struct adm_set_compressed_device_latency {
 	struct adm_param_data_v5 params;
 	u32    latency;
 } __packed;
+
+#define VOICEPROC_MODULE_ID_GENERIC_TX                      0x00010EF6
+#define VOICEPROC_PARAM_ID_FLUENCE_SOUNDFOCUS               0x00010E37
+#define VOICEPROC_PARAM_ID_FLUENCE_SOURCETRACKING           0x00010E38
+#define MAX_SECTORS                                         8
+#define MAX_NOISE_SOURCE_INDICATORS                         3
+#define MAX_POLAR_ACTIVITY_INDICATORS                       360
+
+struct sound_focus_param {
+	uint16_t start_angle[MAX_SECTORS];
+	uint8_t enable[MAX_SECTORS];
+	uint16_t gain_step;
+} __packed;
+
+struct source_tracking_param {
+	uint8_t vad[MAX_SECTORS];
+	uint16_t doa_speech;
+	uint16_t doa_noise[MAX_NOISE_SOURCE_INDICATORS];
+	uint8_t polar_activity[MAX_POLAR_ACTIVITY_INDICATORS];
+} __packed;
+
+struct adm_param_fluence_soundfocus_t {
+	uint16_t start_angles[MAX_SECTORS];
+	uint8_t enables[MAX_SECTORS];
+	uint16_t gain_step;
+	uint16_t reserved;
+} __packed;
+
+struct adm_set_fluence_soundfocus_param {
+	struct adm_cmd_set_pp_params_v5 params;
+	struct adm_param_data_v5 data;
+	struct adm_param_fluence_soundfocus_t soundfocus_data;
+} __packed;
+
+struct adm_param_fluence_sourcetracking_t {
+	uint8_t vad[MAX_SECTORS];
+	uint16_t doa_speech;
+	uint16_t doa_noise[MAX_NOISE_SOURCE_INDICATORS];
+	uint8_t polar_activity[MAX_POLAR_ACTIVITY_INDICATORS];
+} __packed;
 #endif /*_APR_AUDIO_V2_H_ */
