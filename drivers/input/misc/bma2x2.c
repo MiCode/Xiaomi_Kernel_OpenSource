@@ -1398,6 +1398,8 @@ static const struct interrupt_map_t int_map[] = {
 
 #define MAX_RANGE_MAP	4
 
+#define BMA_CAL_BUF_SIZE	99
+
 struct bma2x2_type_map_t {
 
 	/*! bma2x2 sensor chip id */
@@ -1488,6 +1490,8 @@ struct bma2x2_data {
 	atomic_t delay;
 	atomic_t enable;
 	atomic_t selftest_result;
+	atomic_t cal_status;
+	char calibrate_buf[BMA_CAL_BUF_SIZE];
 	unsigned int chip_id;
 	unsigned int chip_type;
 	unsigned int fifo_count;
@@ -5344,6 +5348,10 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 	struct bma2x2_data *bma2x2 = i2c_get_clientdata(client);
 	int pre_enable = atomic_read(&bma2x2->enable);
 
+	if (atomic_read(&bma2x2->cal_status)) {
+		dev_err(dev, "can not enable or disable when calibration\n");
+		goto mutex_exit;
+	}
 	mutex_lock(&bma2x2->enable_mutex);
 	if (enable) {
 		if (pre_enable == 0) {
@@ -5612,23 +5620,54 @@ static int bma2x2_select_chanel(struct i2c_client *client)
 }
 #endif
 
-static int bma2x2_self_calibration_xyz(struct sensors_classdev *sensors_cdev)
+static int bma2x2_self_calibration_xyz(struct sensors_classdev *sensors_cdev,
+		int axis, int apply_now)
 {
 	int error;
+	bool pre_enable;
 	struct bma2x2_data *data = container_of(sensors_cdev,
 					struct bma2x2_data, cdev);
 	struct i2c_client *client = data->bma2x2_client;
+
+	pre_enable = atomic_read(&data->enable);
+	if (pre_enable)
+		bma2x2_set_enable(&client->dev, 0);
+	if (atomic_cmpxchg(&data->cal_status, 0, 1)) {
+		dev_err(&client->dev, "do calibration error\n");
+		return -EBUSY;
+	}
+
+	error = bma2x2_power_ctl(data, true);
+	if (error) {
+		dev_err(&client->dev, "Failed to enable sensor power\n");
+		error = -EINVAL;
+		goto exit;
+	}
 	error = bma2x2_select_chanel(client);
 	if (error < 0) {
 		dev_err(&client->dev, "xyz calibration error\n");
-		return error;
+		goto exit;
 	}
 	dev_dbg(&client->dev, "xyz axis fast calibration finished\n");
 	error = bma2x2_eeprom_prog(client);
 	if (error < 0) {
 		dev_err(&client->dev, "wirte calibration to eeprom failed\n");
-		return error;
+		goto exit;
 	}
+	snprintf(data->calibrate_buf, sizeof(data->calibrate_buf),
+			"%d,%d,%d", 0, 0, 0);
+	sensors_cdev->params = data->calibrate_buf;
+
+	error = bma2x2_power_ctl(data, false);
+	if (error) {
+		dev_err(&client->dev, "Failed to disable sensor power\n");
+		goto exit;
+	}
+
+exit:
+	atomic_set(&data->cal_status, 0);
+	if (pre_enable)
+		bma2x2_set_enable(&client->dev, 1);
 
 	return error;
 }
@@ -5693,6 +5732,18 @@ static int bma2x2_eeprom_prog(struct i2c_client *client)
 		return res;
 	}
 	return res;
+}
+
+static int bma2x2_write_cal_params(struct sensors_classdev *sensors_cdev,
+		struct cal_result_t *cal_result)
+{
+	struct bma2x2_data *data = container_of(sensors_cdev,
+					struct bma2x2_data, cdev);
+
+	snprintf(data->calibrate_buf, sizeof(data->calibrate_buf),
+			"%d,%d,%d", 0, 0, 0);
+	sensors_cdev->params = data->calibrate_buf;
+	return 0;
 }
 
 static ssize_t bma2x2_fast_calibration_x_show(struct device *dev,
@@ -7589,6 +7640,7 @@ static int bma2x2_probe(struct i2c_client *client,
 	data->bandwidth = BMA2X2_BW_SET;
 	data->range = BMA2X2_RANGE_SET;
 	data->sensitivity = bosch_sensor_range_map[0];
+	atomic_set(&data->cal_status, 0);
 	err = bma2x2_open_init(client, data);
 	if (err < 0) {
 		err = -EINVAL;
@@ -7849,7 +7901,8 @@ static int bma2x2_probe(struct i2c_client *client,
 	data->cdev.delay_msec = pdata->poll_interval;
 	data->cdev.sensors_enable = bma2x2_cdev_enable;
 	data->cdev.sensors_poll_delay = bma2x2_cdev_poll_delay;
-	data->cdev.sensors_self_test = bma2x2_self_calibration_xyz;
+	data->cdev.sensors_calibrate = bma2x2_self_calibration_xyz;
+	data->cdev.sensors_write_cal_params = bma2x2_write_cal_params;
 	data->cdev.resolution = sensor_type_map[data->chip_type].resolution;
 	if (pdata->int_en)
 		data->cdev.max_delay = BMA_INT_MAX_DELAY;
