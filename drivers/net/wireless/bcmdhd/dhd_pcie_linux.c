@@ -432,13 +432,19 @@ dhdpcie_request_irq(dhdpcie_info_t *dhdpcie_info)
 {
 	dhd_bus_t *bus = dhdpcie_info->bus;
 	struct pci_dev *pdev = dhdpcie_info->bus->dev;
+	int ret;
 
+	ret = pci_enable_msi(pdev);
+	if (ret < 0) {
+		DHD_ERROR(("%s: pci_enable_msi() failed, %d, fall back to INTx\n", __FUNCTION__, ret));
+	}
 	snprintf(dhdpcie_info->pciname, sizeof(dhdpcie_info->pciname),
 	    "dhdpcie:%s", pci_name(pdev));
-	if (request_irq(pdev->irq, dhdpcie_isr, IRQF_SHARED,
-	                dhdpcie_info->pciname, bus) < 0) {
-			DHD_ERROR(("%s: request_irq() failed\n", __FUNCTION__));
-			return -1;
+	ret = request_irq(pdev->irq, dhdpcie_isr, IRQF_SHARED,
+	                dhdpcie_info->pciname, bus);
+	if (ret < 0) {
+		DHD_ERROR(("%s: request_irq() failed, %d\n", __FUNCTION__, ret));
+		return ret;
 	}
 
 	DHD_TRACE(("%s %s\n", __FUNCTION__, dhdpcie_info->pciname));
@@ -700,6 +706,7 @@ dhdpcie_free_irq(dhd_bus_t *bus)
 	if (bus) {
 		pdev = bus->dev;
 		free_irq(pdev->irq, bus);
+		pci_disable_msi(pdev);
 	}
 	DHD_TRACE(("%s: Exit\n", __FUNCTION__));
 	return;
