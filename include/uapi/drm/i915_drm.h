@@ -464,9 +464,13 @@ typedef struct drm_i915_irq_wait {
 #define I915_PARAM_HAS_EXEC_HANDLE_LUT   26
 #define I915_PARAM_HAS_WT     	 	 27
 #define I915_PARAM_CMD_PARSER_VERSION	 28
-#define I915_PARAM_HAS_DPST		 29
-#define I915_PARAM_EU_COUNT		 30
-#define I915_PARAM_MMAP_VERSION		 31
+#define I915_PARAM_MMAP_VERSION		 30
+
+/* Private (not upstreamed) parameters start from 0x800
+ * This helps to avoid conflicts with new upstream values
+ */
+#define I915_PARAM_HAS_DPST              0x800
+#define I915_PARAM_EU_COUNT              0x801
 
 typedef struct drm_i915_getparam {
 	int param;
@@ -871,25 +875,38 @@ struct drm_i915_gem_execbuffer2 {
  */
 #define I915_EXEC_HANDLE_LUT		(1<<12)
 
+#define __I915_EXEC_UNKNOWN_FLAGS -(I915_EXEC_HANDLE_LUT<<1)
+
+/** Private (not upstreamed) exec flags start from 24
+ * this helps to avoid conflict with new upstream values
+ */
+#define I915_EXEC_PRIVATE_FLAGS_START	(1<<24)
+
 /** Caller supplies a sync fence fd in the rsvd2 field.
  * Wait for it to be signalled before starting the work
  */
-#define I915_EXEC_WAIT_FENCE		(1<<13)
+#define I915_EXEC_WAIT_FENCE		(1<<24)
 
 /** Caller wants a sync fence fd for this execbuffer.
  *  It will be returned in rsvd2
  */
-#define I915_EXEC_REQUEST_FENCE         (1<<14)
+#define I915_EXEC_REQUEST_FENCE		(1<<25)
 
 /* Enable watchdog timer for this batch buffer */
-#define I915_EXEC_ENABLE_WATCHDOG       (1<<15)
+#define I915_EXEC_ENABLE_WATCHDOG	(1<<26)
 
 /** Tell the kernel that the batchbuffer is processed by
  *  the resource streamer.
  */
-#define I915_EXEC_RESOURCE_STREAMER     (1<<16)
+#define I915_EXEC_RESOURCE_STREAMER	(1<<27)
 
-#define __I915_EXEC_UNKNOWN_FLAGS -(I915_EXEC_RESOURCE_STREAMER << 1)
+#define I915_EXEC_PRIVATE_FLAGS_END	(1<<28)
+
+#define __I915_EXEC_PRIVATE_FLAGS_MASK \
+	((-I915_EXEC_PRIVATE_FLAGS_START) & ~(-I915_EXEC_PRIVATE_FLAGS_END))
+
+#define I915_EXEC_UNKNOWN_FLAGS \
+	(__I915_EXEC_UNKNOWN_FLAGS & ~__I915_EXEC_PRIVATE_FLAGS_MASK)
 
 #define I915_EXEC_CONTEXT_ID_MASK	(0xffffffff)
 #define i915_execbuffer2_set_context_id(eb2, context) \
