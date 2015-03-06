@@ -207,28 +207,31 @@ int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 {
 	int lpm = mode;
 	int rc = 0;
+	struct low_power_ops *cpu_ops = per_cpu(cpu_cluster,
+			smp_processor_id())->lpm_dev;
 
-	if (ops->tz_flag == MSM_SCM_L2_OFF ||
-			ops->tz_flag == MSM_SCM_L2_GDHS)
+
+	if (cpu_ops->tz_flag & MSM_SCM_L2_OFF ||
+			cpu_ops->tz_flag & MSM_SCM_L2_GDHS)
 		coresight_cti_ctx_restore();
 
 
 	switch (mode) {
 	case MSM_SPM_MODE_POWER_COLLAPSE:
-		ops->tz_flag = MSM_SCM_L2_OFF;
+		cpu_ops->tz_flag = MSM_SCM_L2_OFF;
 		coresight_cti_ctx_save();
 		break;
 	case MSM_SPM_MODE_GDHS:
-		ops->tz_flag = MSM_SCM_L2_GDHS;
+		cpu_ops->tz_flag = MSM_SCM_L2_GDHS;
 		coresight_cti_ctx_save();
 		break;
 	case MSM_SPM_MODE_CLOCK_GATING:
 	case MSM_SPM_MODE_RETENTION:
 	case MSM_SPM_MODE_DISABLED:
-		ops->tz_flag = MSM_SCM_L2_ON;
+		cpu_ops->tz_flag = MSM_SCM_L2_ON;
 		break;
 	default:
-		ops->tz_flag = MSM_SCM_L2_ON;
+		cpu_ops->tz_flag = MSM_SCM_L2_ON;
 		lpm = MSM_SPM_MODE_DISABLED;
 		break;
 	}
@@ -244,6 +247,22 @@ int set_l2_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 
 	return rc;
 }
+
+int set_l3_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
+{
+	struct low_power_ops *cpu_ops = per_cpu(cpu_cluster,
+			smp_processor_id())->lpm_dev;
+
+	switch (mode) {
+	case MSM_SPM_MODE_POWER_COLLAPSE:
+		cpu_ops->tz_flag |= MSM_SCM_L3_PC_OFF;
+		break;
+	default:
+		break;
+	}
+	return msm_spm_config_low_power_mode(ops->spm, mode, notify_rpm);
+}
+
 
 int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 {

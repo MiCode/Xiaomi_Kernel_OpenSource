@@ -278,7 +278,7 @@ static int parse_cluster_params(struct device_node *node, struct lpm_cluster *c)
 	struct lpm_match match_tbl[] = {
 		{"l2", set_l2_mode},
 		{"cci", set_system_mode},
-		{"l3", set_system_mode},
+		{"l3", set_l3_mode},
 		{"cbf", set_system_mode},
 	};
 
