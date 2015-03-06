@@ -525,13 +525,15 @@ void hmm_bo_release(struct hmm_buffer_object *bo)
 	prev_bo = list_entry(bo->list.prev, struct hmm_buffer_object, list);
 	next_bo = list_entry(bo->list.next, struct hmm_buffer_object, list);
 
-	if (prev_bo->end == bo->start &&
+	if (bo->list.prev != &bdev->entire_bo_list &&
+		prev_bo->end == bo->start &&
 		(prev_bo->status & HMM_BO_MASK) == HMM_BO_FREE) {
 		__bo_take_off_handling(prev_bo);
 		bo = __bo_merge(prev_bo, bo);
 	}
 
-	if (next_bo->start == bo->end &&
+	if (bo->list.next != &bdev->entire_bo_list &&
+		next_bo->start == bo->end &&
 		(next_bo->status & HMM_BO_MASK) == HMM_BO_FREE) {
 		__bo_take_off_handling(next_bo);
 		bo = __bo_merge(bo, next_bo);
