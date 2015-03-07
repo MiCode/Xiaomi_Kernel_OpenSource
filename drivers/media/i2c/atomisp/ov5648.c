@@ -1387,7 +1387,7 @@ static int ov5648_s_power(struct v4l2_subdev *sd, int on)
  * res->width/height smaller than w/h wouldn't be considered.
  * Returns the value of gap or -1 if fail.
  */
-#define LARGEST_ALLOWED_RATIO_MISMATCH 800
+#define LARGEST_ALLOWED_RATIO_MISMATCH 900
 static int distance(struct ov5648_resolution *res, u32 w, u32 h)
 {
 	unsigned int w_ratio = ((res->width << 13) / w);
