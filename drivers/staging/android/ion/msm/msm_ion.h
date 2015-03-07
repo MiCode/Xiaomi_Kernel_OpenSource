@@ -132,7 +132,7 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
  */
 
 int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
-			unsigned long *size);
+			size_t *size);
 /**
  * msm_ion_do_cache_op - do cache operations.
  *
@@ -163,7 +163,7 @@ static inline struct ion_client *msm_ion_client_create(const char *name)
 }
 
 static inline int ion_handle_get_size(struct ion_client *client,
-				struct ion_handle *handle, unsigned long *size)
+				struct ion_handle *handle, size_t *size)
 {
 	return -ENODEV;
 }

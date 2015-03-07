@@ -931,7 +931,7 @@ int ion_handle_get_flags(struct ion_client *client, struct ion_handle *handle,
 EXPORT_SYMBOL(ion_handle_get_flags);
 
 int ion_handle_get_size(struct ion_client *client, struct ion_handle *handle,
-			unsigned long *size)
+			size_t *size)
 {
 	struct ion_buffer *buffer;
 
