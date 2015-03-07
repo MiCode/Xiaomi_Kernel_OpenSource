@@ -162,6 +162,22 @@ struct compat_qseecom_is_es_activated_req {
 };
 
 /*
+ * struct compat_qseecom_mdtp_cipher_dip_req
+ * @in_buf - input buffer
+ * @in_buf_size - input buffer size
+ * @out_buf - output buffer
+ * @out_buf_size - output buffer size
+ * @direction - 0=encrypt, 1=decrypt
+ */
+struct compat_qseecom_mdtp_cipher_dip_req {
+	compat_uptr_t in_buf;
+	compat_uint_t in_buf_size;
+	compat_uptr_t out_buf;
+	compat_uint_t out_buf_size;
+	compat_uint_t direction;
+};
+
+/*
  * struct qseecom_send_modfd_resp - for send command ioctl request
  * @req_len - command buffer length
  * @req_buf - command buffer
@@ -276,6 +292,9 @@ extern long compat_qseecom_ioctl(struct file *file,
 
 #define COMPAT_QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 33, struct compat_qseecom_qteec_modfd_req)
+
+#define COMPAT_QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 34, struct qseecom_mdtp_cipher_dip_req)
 
 #endif
 #endif /* _UAPI_COMPAT_QSEECOM_H_ */

@@ -74,6 +74,9 @@
 /* Check if enterprise security is activate */
 #define	SCM_IS_ACTIVATED_ID		0x02
 
+/* Encrypt/Decrypt Data Integrity Partition (DIP) for MDTP */
+#define SCM_MDTP_CIPHER_DIP		0x01
+
 #define RPMB_SERVICE			0x2000
 
 #define QSEECOM_SEND_CMD_CRYPTO_TIMEOUT	2000
@@ -4241,6 +4244,94 @@ static int qseecom_save_partition_hash(void __user *argp)
 	return 0;
 }
 
+static int qseecom_mdtp_cipher_dip(void __user *argp)
+{
+	struct qseecom_mdtp_cipher_dip_req req;
+	u32 tzbuflenin, tzbuflenout;
+	char *tzbufin = NULL, *tzbufout = NULL;
+	struct scm_desc desc = {0};
+	int ret;
+
+	do {
+		/* Copy the parameters from userspace */
+		if (argp == NULL) {
+			pr_err("arg is null\n");
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = copy_from_user(&req, argp, sizeof(req));
+		if (ret) {
+			pr_err("copy_from_user failed, ret= %d\n", ret);
+			break;
+		}
+
+		if (req.in_buf == NULL || req.out_buf == NULL ||
+			req.in_buf_size == 0 || req.out_buf_size == 0 ||
+				req.direction > 1) {
+				pr_err("invalid parameters\n");
+				ret = -EINVAL;
+				break;
+		}
+
+		/* Copy the input buffer from userspace to kernel space */
+		tzbuflenin = PAGE_ALIGN(req.in_buf_size);
+		tzbufin = kzalloc(tzbuflenin, GFP_KERNEL);
+		if (!tzbufin) {
+			pr_err("error allocating in buffer\n");
+			ret = -ENOMEM;
+			break;
+		}
+
+		ret = copy_from_user(tzbufin, req.in_buf, req.in_buf_size);
+		if (ret) {
+			pr_err("copy_from_user failed, ret=%d\n", ret);
+			break;
+		}
+
+		dmac_flush_range(tzbufin, tzbufin + tzbuflenin);
+
+		/* Prepare the output buffer in kernel space */
+		tzbuflenout = PAGE_ALIGN(req.out_buf_size);
+		tzbufout = kzalloc(tzbuflenout, GFP_KERNEL);
+		if (!tzbufout) {
+			pr_err("error allocating out buffer\n");
+			ret = -ENOMEM;
+			break;
+		}
+
+		dmac_flush_range(tzbufout, tzbufout + tzbuflenout);
+
+		/* Send the command to TZ */
+		desc.arginfo = TZ_MDTP_CIPHER_DIP_ID_PARAM_ID;
+		desc.args[0] = virt_to_phys(tzbufin);
+		desc.args[1] = req.in_buf_size;
+		desc.args[2] = virt_to_phys(tzbufout);
+		desc.args[3] = req.out_buf_size;
+		desc.args[4] = req.direction;
+
+		ret = scm_call2(TZ_MDTP_CIPHER_DIP_ID, &desc);
+		if (ret) {
+			pr_err("scm_call2 failed for SCM_SVC_MDTP, ret=%d\n",
+				ret);
+			break;
+		}
+
+		/* Copy the output buffer from kernel space to userspace */
+		dmac_flush_range(tzbufout, tzbufout + tzbuflenout);
+		ret = copy_to_user(req.out_buf, tzbufout, req.out_buf_size);
+		if (ret) {
+			pr_err("copy_to_user failed, ret=%d\n", ret);
+			break;
+		}
+	} while (0);
+
+	kzfree(tzbufin);
+	kzfree(tzbufout);
+
+	return ret;
+}
+
 static int __qseecom_qteec_validate_msg(struct qseecom_dev_handle *data,
 				struct qseecom_qteec_req *req)
 {
@@ -5095,6 +5186,21 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
 		ret = qseecom_is_es_activated(argp);
+		atomic_dec(&data->ioctl_count);
+		mutex_unlock(&app_access_lock);
+		break;
+	}
+	case QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ: {
+		if (data->type != QSEECOM_GENERIC) {
+			pr_err("MDTP cipher DIP req: invalid handle (%d)\n",
+								data->type);
+			ret = -EINVAL;
+			break;
+		}
+		data->released = true;
+		mutex_lock(&app_access_lock);
+		atomic_inc(&data->ioctl_count);
+		ret = qseecom_mdtp_cipher_dip(argp);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
 		break;
