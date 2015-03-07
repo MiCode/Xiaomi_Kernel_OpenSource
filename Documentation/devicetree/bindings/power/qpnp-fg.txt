@@ -108,6 +108,33 @@ Parent node optional properties:
 - qcom,cycle-counter-high-soc:		High SOC threshold which will be compared
 					against the battery SOC before incrementing
 					the cycle counter.
+- qcom,capacity-learning-on:		A boolean property to have the fuel
+					gauge driver attempt to learn the
+					battery capacity when charging. Takes
+					precedence over capacity-estimation-on.
+- qcom,cl-max-increment-deciperc:	The maximum percent that the capacity
+					can rise as the result of a single
+					charge cycle. This property corresponds
+					to .1% increments.
+- qcom,cl-max-decrement-deciperc:	The maximum percent that the capacity
+					can fall as the result of a single
+					charge cycle. This property corresponds
+					to .1% decrements.
+- qcom,cl-max-temp-decidegc:		Above this temperature, capacity
+					learning will be canceled.
+- qcom,cl-mix-temp-decidegc:		Below this temperature, capacity
+					learning will be canceled.
+- qcom,cl-max-start-soc:		The battery soc has to be below this
+					value at the start of a charge cycle
+					for capacity learning to be run.
+- qcom,capacity-estimation-on:		A boolean property to have the fuel
+					gauge driver attempt to estimate the
+					battery capacity using battery
+					resistance.
+- qcom,aging-eval-current-ma:		Current used to evaluate battery aging.
+					This value should be around the steady
+					state current drawn from the battery
+					when the phone is low on battery.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
