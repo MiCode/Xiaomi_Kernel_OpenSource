@@ -248,7 +248,12 @@ Optional properties :
 - qcom,pm-qos-latency: This property represents the maximum tolerable CPU latency in
   microsecs, which is used as a vote to keep the CPUs in a high enough power state when
   USB bus is in use (not suspended).
-
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm-bus.txt" for
+  below optional properties:
+    - qcom,msm-bus,name
+    - qcom,msm-bus,num_cases - Two cases (NONE and MAX) for voting are supported.
+    - qcom,msm-bus,num_paths
+    - qcom,msm-bus,vectors
 
 Example MSM HSUSB EHCI controller device node :
 	ehci: qcom,ehci-host@f9a55000 {
