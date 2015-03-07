@@ -1606,7 +1606,7 @@ static void cnss_wlan_memory_expansion(void)
 	}
 
 	if (request_firmware(&fw_entry, filename, dev) != 0) {
-		pr_err("cnss:failed to get fw: %s\n", filename);
+		pr_debug("cnss: failed to get fw: %s\n", filename);
 		goto end;
 	}
 
