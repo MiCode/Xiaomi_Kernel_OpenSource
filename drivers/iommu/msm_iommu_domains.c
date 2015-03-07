@@ -151,29 +151,15 @@ static int msm_iommu_map_iova_phys(struct iommu_domain *domain,
 				int cached)
 {
 	int ret;
-	struct scatterlist *sglist;
 	int prot = IOMMU_WRITE | IOMMU_READ;
 	prot |= cached ? IOMMU_CACHE : 0;
 
-	sglist = vmalloc(sizeof(*sglist));
-	if (!sglist) {
-		ret = -ENOMEM;
-		goto err1;
-	}
-
-	sg_init_table(sglist, 1);
-	sglist->length = size;
-	sglist->offset = 0;
-	sglist->dma_address = phys;
-
-	ret = iommu_map_range(domain, iova, sglist, size, prot);
+	ret = iommu_map(domain, iova, phys, size, prot);
 	if (ret) {
 		pr_err("%s: could not map extra %lx in domain %p\n",
 			__func__, iova, domain);
 	}
 
-	vfree(sglist);
-err1:
 	return ret;
 
 }
