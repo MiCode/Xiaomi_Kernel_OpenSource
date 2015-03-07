@@ -294,3 +294,8 @@
 	};
 };
 
+&pmi8950_charger {
+	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
+		regulator-name = "smbcharger_charger_otg";
+	};
+};
