@@ -66,6 +66,7 @@ struct lsm_client {
 	struct mutex    cmd_lock;
 	struct lsm_sound_model sound_model;
 	wait_queue_head_t cmd_wait;
+	uint32_t	cmd_err_code;
 	uint16_t	mode;
 	uint16_t	connect_to_port;
 	uint8_t		num_confidence_levels;
@@ -109,41 +110,40 @@ struct lsm_param_connect_to_port {
 	uint16_t	reserved;
 } __packed;
 
+
+/*
+ * This param cannot be sent in this format.
+ * The actual number of confidence level values
+ * need to appended to this param payload.
+ */
 struct lsm_param_min_confidence_levels {
 	struct lsm_param_payload_common common;
 	uint8_t		num_confidence_levels;
-	uint8_t		confidence_level[MAX_NUM_CONFIDENCE];
+} __packed;
+
+struct lsm_set_params_hdr {
+	uint32_t	data_payload_size;
+	uint32_t	data_payload_addr_lsw;
+	uint32_t	data_payload_addr_msw;
+	uint32_t	mem_map_handle;
 } __packed;
 
 struct lsm_cmd_set_params {
-	struct apr_hdr  hdr;
-	uint32_t	data_payload_size;
-	uint32_t	data_payload_addr_lsw;
-	uint32_t	data_payload_addr_msw;
-	uint32_t	mem_map_handle;
+	struct apr_hdr  msg_hdr;
+	struct lsm_set_params_hdr param_hdr;
 } __packed;
 
-struct lsm_params_payload_v2 {
-	struct lsm_param_connect_to_port	connect_to_port;
-	struct lsm_param_op_mode		op_mode;
-} __packed;
-
-struct lsm_cmd_set_params_conf_v2 {
-	struct apr_hdr  hdr;
-	uint32_t	data_payload_size;
-	uint32_t	data_payload_addr_lsw;
-	uint32_t	data_payload_addr_msw;
-	uint32_t	mem_map_handle;
+struct lsm_cmd_set_params_conf {
+	struct apr_hdr  msg_hdr;
+	struct lsm_set_params_hdr params_hdr;
 	struct lsm_param_min_confidence_levels	conf_payload;
 } __packed;
 
-struct lsm_cmd_set_params_v2 {
-	struct apr_hdr  hdr;
-	uint32_t	data_payload_size;
-	uint32_t	data_payload_addr_lsw;
-	uint32_t	data_payload_addr_msw;
-	uint32_t	mem_map_handle;
-	struct lsm_params_payload_v2	payload;
+struct lsm_cmd_set_opmode_connectport {
+	struct apr_hdr  msg_hdr;
+	struct lsm_set_params_hdr params_hdr;
+	struct lsm_param_connect_to_port	connect_to_port;
+	struct lsm_param_op_mode		op_mode;
 } __packed;
 
 
@@ -162,11 +162,8 @@ struct lsm_lab_enable {
 } __packed;
 
 struct lsm_params_lab_enable {
-	struct apr_hdr  hdr;
-	uint32_t	data_payload_size;
-	uint32_t	data_payload_addr_lsw;
-	uint32_t	data_payload_addr_msw;
-	uint32_t	mem_map_handle;
+	struct apr_hdr msg_hdr;
+	struct lsm_set_params_hdr params_hdr;
 	struct lsm_lab_enable lab_enable;
 } __packed;
 
@@ -178,11 +175,8 @@ struct lsm_lab_config {
 
 
 struct lsm_params_lab_config {
-	struct apr_hdr  hdr;
-	uint32_t	data_payload_size;
-	uint32_t	data_payload_addr_lsw;
-	uint32_t	data_payload_addr_msw;
-	uint32_t	mem_map_handle;
+	struct apr_hdr  msg_hdr;
+	struct lsm_set_params_hdr params_hdr;
 	struct lsm_lab_config lab_config;
 } __packed;
 
