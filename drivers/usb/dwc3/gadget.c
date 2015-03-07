@@ -1722,10 +1722,15 @@ static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	enable_irq(dwc->irq);
+
+	/*
+	 * Have bigger value (16 sec) for timeout since some host PCs driving
+	 * resume for very long time (e.g. 8 sec)
+	 */
 	ret = wait_event_interruptible_timeout(dwc->wait_linkstate,
 			(dwc->link_state < DWC3_LINK_STATE_U3) ||
 			(dwc->link_state == DWC3_LINK_STATE_SS_DIS),
-			msecs_to_jiffies(3000)); /* 3 seconds */
+			msecs_to_jiffies(16000));
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	/* Disable link status change event */
