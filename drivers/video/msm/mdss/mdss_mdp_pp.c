@@ -343,7 +343,7 @@ struct mdss_pp_res_type {
 	struct mdp_gamut_cfg_data gamut_disp_cfg[MDSS_BLOCK_DISP_NUM];
 	uint16_t gamut_tbl[MDSS_BLOCK_DISP_NUM][GAMUT_TOTAL_TABLE_SIZE];
 	u32 hist_data[MDSS_BLOCK_DISP_NUM][HIST_V_SIZE];
-	struct pp_sts_type pp_disp_sts[MDSS_BLOCK_DISP_NUM];
+	struct pp_sts_type pp_disp_sts[MDSS_MAX_MIXER_DISP_NUM];
 	/* physical info */
 	struct pp_hist_col_info *dspp_hist;
 };
@@ -1709,6 +1709,11 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
 
+	if (!flags) {
+		pr_debug("skip configuring dspp features\n");
+		goto opmode_config;
+	}
+
 	if (mdata->mdp_rev >= MDSS_MDP_HW_REV_103) {
 		pp_pa_v2_config(flags, base + MDSS_MDP_REG_DSPP_PA_BASE, pp_sts,
 				&mdss_pp_res->pa_v2_disp_cfg[disp_num],
@@ -1757,7 +1762,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 			pp_sts->pgc_sts |= PP_STS_ENABLE;
 		pp_sts_set_split_bits(&pp_sts->pgc_sts, pgc_config->flags);
 	}
-
+opmode_config:
 	pp_dspp_opmode_config(ctl, dspp_num, pp_sts, mdata->mdp_rev, &opmode);
 
 flush_exit:
