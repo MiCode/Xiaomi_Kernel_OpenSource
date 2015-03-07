@@ -217,7 +217,7 @@
 				0xCCCC1111 0xCCCC1111 0xCCCC1111
 				0xCCCC1111 0x00000103>;
 		max-clk-nominal = <320000000>;
-		max-clk-turbo = <600000000>;
+		max-clk-turbo = <432000000>;
 		};
 
 	qcom,jpeg@1b1c000 {
