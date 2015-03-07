@@ -1779,14 +1779,15 @@ static void msm_hs_sps_tx_callback(struct sps_event_notify *notify)
 	struct msm_hs_port *msm_uport =
 		(struct msm_hs_port *)
 		((struct sps_event_notify *)notify)->user;
+	phys_addr_t addr = DESC_FULL_ADDR(notify->data.transfer.iovec.flags,
+		notify->data.transfer.iovec.addr);
 
 	msm_uport->notify = *notify;
-	MSM_HS_DBG("%s: ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x, line=%d\n",
-		 __func__, notify->event_id,
-	notify->data.transfer.iovec.addr,
-	notify->data.transfer.iovec.size,
-	notify->data.transfer.iovec.flags,
-	msm_uport->uport.line);
+	MSM_HS_DBG("%s: ev_id=%d, addr=0x%pa, size=0x%x, flags=0x%x, line=%d\n",
+		 __func__, notify->event_id, &addr,
+		notify->data.transfer.iovec.size,
+		notify->data.transfer.iovec.flags,
+		msm_uport->uport.line);
 
 	del_timer(&msm_uport->tx.tx_timeout_timer);
 	MSM_HS_DBG("%s(): Queue kthread work", __func__);
@@ -1851,8 +1852,10 @@ msm_hs_mark_proc_rx_desc(struct msm_hs_port *msm_uport,
 			struct sps_event_notify *notify)
 {
 	struct msm_hs_rx *rx = &msm_uport->rx;
+	phys_addr_t addr = DESC_FULL_ADDR(notify->data.transfer.iovec.flags,
+		notify->data.transfer.iovec.addr);
 	/* divide by UARTDM_RX_BUF_SIZE */
-	int inx = (notify->data.transfer.iovec.addr - rx->rbuffer) >> 9;
+	int inx = (addr - rx->rbuffer) >> 9;
 
 	set_bit(inx, &rx->pending_flag);
 	clear_bit(inx, &rx->queued_flag);
@@ -1879,14 +1882,15 @@ static void msm_hs_sps_rx_callback(struct sps_event_notify *notify)
 	struct uart_port *uport;
 	unsigned long flags;
 	struct msm_hs_rx *rx = &msm_uport->rx;
+	phys_addr_t addr = DESC_FULL_ADDR(notify->data.transfer.iovec.flags,
+		notify->data.transfer.iovec.addr);
 	/* divide by UARTDM_RX_BUF_SIZE */
-	int inx = (notify->data.transfer.iovec.addr - rx->rbuffer) >> 9;
+	int inx = (addr - rx->rbuffer) >> 9;
 
 	uport = &(msm_uport->uport);
 	msm_uport->notify = *notify;
-	MSM_HS_DBG("\n%s: sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-		__func__, notify->event_id,
-		notify->data.transfer.iovec.addr,
+	MSM_HS_DBG("\n%s: sps ev_id=%d, addr=0x%pa, size=0x%x, flags=0x%x\n",
+		__func__, notify->event_id, &addr,
 		notify->data.transfer.iovec.size,
 		notify->data.transfer.iovec.flags);
 
