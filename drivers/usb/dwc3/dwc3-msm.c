@@ -185,6 +185,8 @@ struct dwc3_msm {
 	bool			id_adc_detect;
 	struct qpnp_vadc_chip	*vadc_dev;
 	u8			dcd_retries;
+	struct work_struct	bus_vote_w;
+	unsigned int		bus_vote;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
 	struct power_supply	usb_psy;
@@ -1586,6 +1588,17 @@ static void dwc3_msm_wake_interrupt_enable(struct dwc3_msm *mdwc, bool on)
 	}
 }
 
+static void dwc3_msm_bus_vote_w(struct work_struct *w)
+{
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, bus_vote_w);
+	int ret;
+
+	ret = msm_bus_scale_client_update_request(mdwc->bus_perf_client,
+			mdwc->bus_vote);
+	if (ret)
+		dev_err(mdwc->dev, "Failed to reset bus bw vote %d\n", ret);
+}
+
 static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 {
 	int ret, i;
@@ -1751,10 +1764,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	}
 
 	if (mdwc->bus_perf_client) {
-		ret = msm_bus_scale_client_update_request(
-						mdwc->bus_perf_client, 0);
-		if (ret)
-			dev_err(mdwc->dev, "Failed to reset bus bw vote\n");
+		mdwc->bus_vote = 0;
+		queue_work(system_nrt_wq, &mdwc->bus_vote_w);
 	}
 
 	/*
@@ -1804,10 +1815,8 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	pm_stay_awake(mdwc->dev);
 
 	if (mdwc->bus_perf_client) {
-		ret = msm_bus_scale_client_update_request(
-						mdwc->bus_perf_client, 1);
-		if (ret)
-			dev_err(mdwc->dev, "Failed to vote for bus scaling\n");
+		mdwc->bus_vote = 1;
+		queue_work(system_nrt_wq, &mdwc->bus_vote_w);
 	}
 
 	dcp = ((mdwc->charger.chg_type == DWC3_DCP_CHARGER) ||
@@ -2841,6 +2850,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&mdwc->resume_work, dwc3_resume_work);
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&mdwc->id_work, dwc3_id_work);
+	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
 	INIT_DELAYED_WORK(&mdwc->init_adc_work, dwc3_init_adc_work);
 	init_completion(&mdwc->ext_chg_wait);
 
