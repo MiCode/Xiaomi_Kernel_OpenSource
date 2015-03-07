@@ -176,6 +176,20 @@ struct msm_cpp_stream_buff_info_t {
 	struct msm_cpp_buffer_info_t *buffer_info;
 };
 
+enum msm_cpp_batch_mode_t {
+	BATCH_MODE_NONE,
+	BATCH_MODE_VIDEO,
+	BATCH_MODE_PREVIEW
+};
+
+struct msm_cpp_batch_info_t {
+	enum msm_cpp_batch_mode_t  batch_mode;
+	uint32_t batch_size;
+	uint32_t intra_plane_offset[MAX_PLANES];
+	uint32_t pick_preview_idx;
+	uint32_t cont_idx;
+};
+
 struct msm_cpp_frame_info_t {
 	int32_t frame_id;
 	struct timeval timestamp;
@@ -197,7 +211,8 @@ struct msm_cpp_frame_info_t {
 	uint32_t feature_mask;
 	uint8_t we_disable;
 	struct msm_cpp_buffer_info_t input_buffer_info;
-	struct msm_cpp_buffer_info_t output_buffer_info[2];
+	struct msm_cpp_buffer_info_t output_buffer_info[8];
+	struct msm_cpp_buffer_info_t duplicate_buffer_info;
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
 	uint32_t reserved;
 	uint8_t partial_frame_indicator;
@@ -220,6 +235,7 @@ struct msm_cpp_frame_info_t {
 	uint32_t last_stripe_index;
 	uint32_t stripe_info_offset;
 	uint32_t stripe_info;
+	struct msm_cpp_batch_info_t  batch_info;
 };
 
 struct msm_cpp_pop_stream_info_t {
@@ -391,7 +407,8 @@ struct msm_cpp_frame_info32_t {
 	uint32_t feature_mask;
 	uint8_t we_disable;
 	struct msm_cpp_buffer_info_t input_buffer_info;
-	struct msm_cpp_buffer_info_t output_buffer_info[2];
+	struct msm_cpp_buffer_info_t output_buffer_info[8];
+	struct msm_cpp_buffer_info_t duplicate_buffer_info;
 	struct msm_cpp_buffer_info_t tnr_scratch_buffer_info[2];
 	uint32_t reserved;
 	uint8_t partial_frame_indicator;
@@ -414,6 +431,7 @@ struct msm_cpp_frame_info32_t {
 	uint32_t last_stripe_index;
 	uint32_t stripe_info_offset;
 	uint32_t stripe_info;
+	struct msm_cpp_batch_info_t  batch_info;
 };
 
 struct msm_cpp_clock_settings32_t {
