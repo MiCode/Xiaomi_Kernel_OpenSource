@@ -508,6 +508,9 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 
 	if (!init_timeout_usec) {
 		dev_err(uphy->dev, "QMP PHY initialization timeout\n");
+		dev_err(uphy->dev, "USB3_PHY_PCS_STATUS:%x\n",
+				readl_relaxed(phy->base +
+						PCIE_USB3_PHY_PCS_STATUS));
 		return -EBUSY;
 	};
 
