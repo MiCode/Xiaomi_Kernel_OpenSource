@@ -23,15 +23,6 @@ enum lsm_vw_status {
 	LSM_VOICE_WAKEUP_STATUS_REJECTED
 };
 
-struct snd_lsm_sound_model {
-	__u8 __user *data;
-	__u32 data_size;
-	enum lsm_detection_mode detection_mode;
-	__u16 min_keyw_confidence;
-	__u16 min_user_confidence;
-	bool detect_failure;
-};
-
 struct snd_lsm_sound_model_v2 {
 	__u8 __user *data;
 	__u8 *confidence_level;
@@ -58,7 +49,6 @@ struct snd_lsm_detection_params {
 	bool detect_failure;
 };
 
-#define SNDRV_LSM_REG_SND_MODEL	 _IOW('U', 0x00, struct snd_lsm_sound_model)
 #define SNDRV_LSM_DEREG_SND_MODEL _IOW('U', 0x01, int)
 #define SNDRV_LSM_EVENT_STATUS	_IOW('U', 0x02, struct snd_lsm_event_status)
 #define SNDRV_LSM_ABORT_EVENT	_IOW('U', 0x03, int)
