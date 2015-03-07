@@ -1093,6 +1093,42 @@ const struct adreno_reg_offsets a5xx_reg_offsets = {
 	.offset_0 = ADRENO_REG_REGISTER_MAX,
 };
 
+void a5xx_cp_hw_err_callback(struct adreno_device *adreno_dev, int bit)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int status1, status2;
+
+	kgsl_regread(device, A5XX_CP_INTERRUPT_STATUS, &status1);
+
+	if (status1 & BIT(A5XX_CP_OPCODE_ERROR))
+		KGSL_DRV_CRIT_RATELIMIT(device,
+					"ringbuffer opcode error interrupt\n");
+	if (status1 & BIT(A5XX_CP_RESERVED_BIT_ERROR))
+		KGSL_DRV_CRIT_RATELIMIT(device,
+					"ringbuffer reserved bit error interrupt\n");
+	if (status1 & BIT(A5XX_CP_HW_FAULT_ERROR)) {
+		kgsl_regread(device, A5XX_CP_HW_FAULT, &status2);
+		KGSL_DRV_CRIT_RATELIMIT(device,
+					"CP | Ringbuffer HW fault | status=%x\n",
+					status2);
+	}
+	if (status1 & BIT(A5XX_CP_DMA_ERROR))
+		KGSL_DRV_CRIT_RATELIMIT(device, "CP | DMA error\n");
+	if (status1 & BIT(A5XX_CP_REGISTER_PROTECTION_ERROR)) {
+		kgsl_regread(device, A5XX_CP_PROTECT_STATUS, &status2);
+		KGSL_DRV_CRIT_RATELIMIT(device,
+					"CP | Protected mode error| %s | addr=%x | status=%x\n",
+					status2 & (1 << 24) ? "WRITE" : "READ",
+					(status2 & 0xFFFFF) >> 2, status2);
+	}
+	if (status1 & BIT(A5XX_CP_AHB_ERROR)) {
+		kgsl_regread(device, A5XX_CP_AHB_FAULT, &status2);
+		KGSL_DRV_CRIT_RATELIMIT(device,
+					"ringbuffer AHB error interrupt | status=%x\n",
+					status2);
+	}
+}
+
 void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
@@ -1139,11 +1175,6 @@ void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	case A5XX_INT_RBBM_GPC_ERROR:
 		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: GPC error\n");
 		break;
-	case A5XX_INT_CP_HW_ERROR:
-		kgsl_regread(device, A5XX_CP_HW_FAULT, &reg);
-		KGSL_DRV_CRIT_RATELIMIT(device,
-			"CP | Ringbuffer HW fault | status=%x\n", reg);
-		break;
 	case A5XX_INT_RBBM_ATB_BUS_OVERFLOW:
 		KGSL_DRV_CRIT_RATELIMIT(device, "RBBM: ATB bus overflow\n");
 		break;
@@ -1189,7 +1220,7 @@ static struct adreno_irq_funcs a5xx_irq_funcs[] = {
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback),
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 7 - GPC_ERR */
 	ADRENO_IRQ_CALLBACK(NULL),				/* 8 - CP_SW */
-	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 9 - CP_HW_ERROR */
+	ADRENO_IRQ_CALLBACK(a5xx_cp_hw_err_callback), /* 9 - CP_HW_ERROR */
 	/* 10 - CP_CCU_FLUSH_DEPTH_TS */
 	ADRENO_IRQ_CALLBACK(NULL),
 	 /* 11 - CP_CCU_FLUSH_COLOR_TS */

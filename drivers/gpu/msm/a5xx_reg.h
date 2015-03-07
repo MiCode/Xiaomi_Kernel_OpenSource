@@ -48,6 +48,14 @@
 #define A5XX_INT_ISDB_CPU_IRQ            30
 #define A5XX_INT_ISDB_UNDER_DEBUG        31
 
+/* CP Interrupt bits */
+#define A5XX_CP_OPCODE_ERROR               1
+#define A5XX_CP_RESERVED_BIT_ERROR         2
+#define A5XX_CP_HW_FAULT_ERROR             3
+#define A5XX_CP_DMA_ERROR                  4
+#define A5XX_CP_REGISTER_PROTECTION_ERROR  5
+#define A5XX_CP_AHB_ERROR                  6
+
 /* CP registers */
 #define A5XX_CP_RB_BASE                  0x800
 #define A5XX_CP_RB_BASE_HI               0x801
@@ -90,6 +98,7 @@
 #define A5XX_CP_PROTECT_STATUS           0x8A0
 #define A5XX_CP_ME_STAT_DATA             0xB14
 #define A5XX_CP_WFI_PEND_CTR             0xB15
+#define A5XX_CP_INTERRUPT_STATUS         0xB18
 #define A5XX_CP_HW_FAULT                 0xB1A
 #define A5XX_CP_IB1_BASE                 0xB1F
 #define A5XX_CP_IB1_BASE_HI              0xB20
@@ -99,6 +108,7 @@
 #define A5XX_CP_IB2_BUFSZ                0xB24
 #define A5XX_CP_PROTECT_REG_0            0x880
 #define A5XX_CP_PROTECT_CNTL             0x8A0
+#define A5XX_CP_AHB_FAULT                0xB1B
 #define A5XX_CP_PERFCTR_CP_SEL_0         0xBB0
 #define A5XX_CP_PERFCTR_CP_SEL_1         0xBB1
 #define A5XX_CP_PERFCTR_CP_SEL_2         0xBB2
