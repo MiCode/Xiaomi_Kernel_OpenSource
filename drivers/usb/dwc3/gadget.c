@@ -2272,7 +2272,7 @@ static void dwc3_gadget_free_endpoints(struct dwc3 *dwc)
 /* -------------------------------------------------------------------------- */
 
 static int __dwc3_cleanup_done_trbs(struct dwc3 *dwc, struct dwc3_ep *dep,
-		struct dwc3_request *req, struct dwc3_trb *trb,
+		struct dwc3_request *req, struct dwc3_trb *trb, unsigned length,
 		const struct dwc3_event_depevt *event, int status)
 {
 	unsigned int		count;
@@ -2337,7 +2337,7 @@ static int __dwc3_cleanup_done_trbs(struct dwc3 *dwc, struct dwc3_ep *dep,
 	 * should receive and we simply bounce the request back to the
 	 * gadget driver for further processing.
 	 */
-	req->request.actual += req->request.length - count;
+	req->request.actual += length - count;
 	if (s_pkt)
 		return 1;
 	if ((event->status & DEPEVT_STATUS_LST) &&
@@ -2357,6 +2357,7 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 	struct dwc3_trb		*trb;
 	unsigned int		slot;
 	unsigned int		i;
+	unsigned int		trb_len;
 	int			ret;
 
 	do {
@@ -2375,8 +2376,13 @@ static int dwc3_cleanup_done_reqs(struct dwc3 *dwc, struct dwc3_ep *dep,
 			slot %= DWC3_TRB_NUM;
 			trb = &dep->trb_pool[slot];
 
+			if (req->request.num_mapped_sgs)
+				trb_len = sg_dma_len(&req->request.sg[i]);
+			else
+				trb_len = req->request.length;
+
 			ret = __dwc3_cleanup_done_trbs(dwc, dep, req, trb,
-					event, status);
+					trb_len, event, status);
 			if (ret)
 				break;
 		}while (++i < req->request.num_mapped_sgs);
