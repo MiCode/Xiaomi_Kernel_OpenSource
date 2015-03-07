@@ -2584,10 +2584,12 @@
 		qcom,disable-gfx-phase-ctrl;
 		qcom,disable-cx-phase-ctrl;
 		qcom,freq-step = <2>;
-		qcom,freq-control-mask = <0x3f>;
+		qcom,freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
+					&CPU4 &CPU5>;
 		qcom,core-limit-temp = <80>;
 		qcom,core-temp-hysteresis = <10>;
-		qcom,core-control-mask = <0x3e>;
+		qcom,core-control-list = <&CPU1 &CPU2 &CPU3
+					&CPU4 &CPU5>;
 		qcom,hotplug-temp = <105>;
 		qcom,hotplug-temp-hysteresis = <40>;
 		qcom,cpu-sensors = "tsens_tz_sensor7", "tsens_tz_sensor7",
@@ -2596,7 +2598,7 @@
 		qcom,freq-mitigation-temp = <100>;
 		qcom,freq-mitigation-temp-hysteresis = <20>;
 		qcom,freq-mitigation-value = <768000>;
-		qcom,freq-mitigation-control-mask = <0x30>;
+		qcom,freq-mitigation-control-list = <&CPU4 &CPU5>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,vdd-restriction-temp = <5>;
