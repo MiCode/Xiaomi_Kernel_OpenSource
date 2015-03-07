@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1682,6 +1682,10 @@ static int diag_dci_process_apps_pkt(struct diag_pkt_header_t *pkt_header,
 			write_len = sizeof(struct diag_pkt_header_t);
 			*(uint16_t *)(payload_ptr + write_len) = wrap_count;
 			write_len += sizeof(uint16_t);
+		} else if (ss_cmd_code == DIAG_EXT_MOBILE_ID) {
+			write_len = diag_cmd_get_mobile_id(req_buf, req_len,
+						   payload_ptr,
+						   APPS_BUF_SIZE - header_len);
 		}
 	}
 
