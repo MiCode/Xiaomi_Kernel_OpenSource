@@ -3839,7 +3839,7 @@ static struct of_device_id tsens_match[] = {
 	{       .compatible = "qcom,msm8952-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8952,
 	},
-	{	.compatible = "qcom,msm-tsens-generic-type-a",
+	{	.compatible = "qcom,msmterbium-tsens",
 		.data = (void *)TSENS_CALIB_FUSE_MAP_GENERIC_A,
 	},
 	{}
@@ -4084,7 +4084,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 		(!strcmp(id->compatible, "qcom,msm8994-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8992-tsens")))
 		tmdev->tsens_type = TSENS_TYPE2;
-	else if (!strcmp(id->compatible, "qcom,msm8952-tsens"))
+	else if (!strcmp(id->compatible, "qcom,msm8952-tsens") ||
+		(!strcmp(id->compatible, "qcom,msmterbium-tsens")))
 		tmdev->tsens_type = TSENS_TYPE3;
 	else
 		tmdev->tsens_type = TSENS_TYPE0;
