@@ -1618,6 +1618,32 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	return 0;
 }
 
+static void mdss_mdp_set_pipe_cdp(struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 cdp_settings = 0x0;
+	bool is_rotator = (pipe->mixer_left && pipe->mixer_left->rotator_mode);
+
+	/* Disable CDP for rotator pipe in v1 */
+	if (is_rotator && mdss_has_quirk(mdata, MDSS_QUIRK_ROTCDP))
+		goto exit;
+
+	cdp_settings = MDSS_MDP_CDP_ENABLE;
+
+	if (!mdss_mdp_is_linear_format(pipe->src_fmt)) {
+		/* Enable Amortized for non-linear formats */
+		cdp_settings |= MDSS_MDP_CDP_ENABLE_UBWCMETA;
+		cdp_settings |= MDSS_MDP_CDP_AMORTIZED;
+	} else {
+		/* 64-transactions for line mode otherwise we keep 32 */
+		if (!is_rotator)
+			cdp_settings |= MDSS_MDP_CDP_AHEAD_64;
+	}
+
+exit:
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_CDP_CTRL, cdp_settings);
+}
+
 static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 {
 	struct mdss_mdp_format_params *fmt;
@@ -1697,6 +1723,10 @@ static int mdss_mdp_format_setup(struct mdss_mdp_pipe *pipe)
 
 	/* clear UBWC error */
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_UBWC_ERROR_STATUS, BIT(31));
+
+	/* configure CDP */
+	if (test_bit(MDSS_QOS_CDP, mdata->mdss_qos_map))
+		mdss_mdp_set_pipe_cdp(pipe);
 
 	return 0;
 }

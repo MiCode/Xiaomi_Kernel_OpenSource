@@ -189,6 +189,30 @@ static int mdss_mdp_writeback_cdm_setup(struct mdss_mdp_writeback_ctx *ctx,
 	return mdss_mdp_cdm_setup(cdm, &setup);
 }
 
+void mdss_mdp_set_wb_cdp(struct mdss_mdp_writeback_ctx *ctx,
+	struct mdss_mdp_format_params *fmt)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 cdp_settings = 0x0;
+
+	/* Disable CDP for rotator in v1 */
+	if (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR &&
+			mdss_has_quirk(mdata, MDSS_QUIRK_ROTCDP))
+		goto exit;
+
+	cdp_settings = MDSS_MDP_CDP_ENABLE;
+
+	if (!mdss_mdp_is_linear_format(fmt))
+		cdp_settings |= MDSS_MDP_CDP_ENABLE_UBWCMETA;
+
+	/* 64-transactions for line mode otherwise we keep 32 */
+	if (ctx->type != MDSS_MDP_WRITEBACK_TYPE_ROTATOR)
+		cdp_settings |= MDSS_MDP_CDP_AHEAD_64;
+
+exit:
+	mdp_wb_write(ctx, MDSS_MDP_REG_WB_CDP_CTRL, cdp_settings);
+}
+
 static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 		u32 format, struct mdss_mdp_ctl *ctl)
 {
@@ -315,6 +339,10 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE0, ystride0);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_DST_YSTRIDE1, ystride1);
 	mdp_wb_write(ctx, MDSS_MDP_REG_WB_OUT_SIZE, outsize);
+
+	/* configure CDP */
+	if (test_bit(MDSS_QOS_CDP, mdata->mdss_qos_map))
+		mdss_mdp_set_wb_cdp(ctx, fmt);
 
 	return 0;
 }
