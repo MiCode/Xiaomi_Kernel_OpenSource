@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -163,6 +163,20 @@ static rx_handler_result_t rmnet_bridge_handler(struct sk_buff *skb,
 	return RX_HANDLER_CONSUMED;
 }
 
+#ifdef NET_SKBUFF_DATA_USES_OFFSET
+static void rmnet_reset_mac_header(struct sk_buff *skb)
+{
+	skb->mac_header = 0;
+	skb->mac_len = 0;
+}
+#else
+static void rmnet_reset_mac_header(struct sk_buff *skb)
+{
+	skb->mac_header = skb->data;
+	skb->mac_len = 0;
+}
+#endif /*NET_SKBUFF_DATA_USES_OFFSET*/
+
 /**
  * __rmnet_deliver_skb() - Deliver skb
  *
@@ -176,6 +190,9 @@ static rx_handler_result_t rmnet_bridge_handler(struct sk_buff *skb,
 static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 					 struct rmnet_logical_ep_conf_s *ep)
 {
+	struct napi_struct *napi = NULL;
+	gro_result_t gro_res;
+
 	trace___rmnet_deliver_skb(skb);
 	switch (ep->rmnet_mode) {
 	case RMNET_EPMODE_NONE:
@@ -193,7 +210,20 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 
 		case RX_HANDLER_PASS:
 			skb->pkt_type = PACKET_HOST;
-			netif_receive_skb(skb);
+			rmnet_reset_mac_header(skb);
+			if (skb->dev->features & NETIF_F_GRO) {
+				napi = get_current_napi_context();
+				if (napi != NULL) {
+					gro_res = napi_gro_receive(napi, skb);
+					trace_rmnet_gro_downlink(skb->dev,
+						gro_res);
+				} else {
+					WARN_ONCE(1, "current napi is NULL\n");
+					netif_receive_skb(skb);
+				}
+			} else {
+				netif_receive_skb(skb);
+			}
 			return RX_HANDLER_CONSUMED;
 		}
 		return RX_HANDLER_PASS;
@@ -304,7 +334,6 @@ static rx_handler_result_t _rmnet_map_ingress_handler(struct sk_buff *skb,
 	skb_pull(skb, sizeof(struct rmnet_map_header_s));
 	skb_trim(skb, len);
 	__rmnet_data_set_skb_proto(skb);
-
 	return __rmnet_deliver_skb(skb, ep);
 }
 
