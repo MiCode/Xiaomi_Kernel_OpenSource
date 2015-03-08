@@ -1677,9 +1677,12 @@
 		interrupt-names = "hc_irq", "pwr_irq";
 
 		qcom,bus-width = <8>;
-		qcom,cpu-dma-latency-us = <301>;
-		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-affinity-mask = <0x0f>;
+		qcom,num-pm-qos-configs = <3>;
+		qcom,cpu-dma-latency-us = <301 301 301>, <70 70 70>, <301 301 301>;
+		qcom,cpu-affinity = "affine_cores", "affine_cores", "irq";
+		qcom,cpu-affinity-mask = <0x0f 0x30 0x00>;
+		qcom,default-rd-pm-qos = "cpu";
+		qcom,default-wr-pm-qos = "cpu";
 		qcom,wakeup-on-idle;
 
 		qcom,msm-bus,name = "sdhc1";
@@ -1717,9 +1720,12 @@
 			 <&clock_gcc clk_gcc_sdcc2_apps_clk>;
 
 		qcom,bus-width = <4>;
-		qcom,cpu-dma-latency-us = <301>;
-		qcom,cpu-affinity = "affine_cores";
-		qcom,cpu-affinity-mask = <0x0f>;
+		qcom,num-pm-qos-configs = <3>;
+		qcom,cpu-dma-latency-us = <301 301 301>, <70 70 70>, <301 301 301>;
+		qcom,cpu-affinity = "affine_cores", "affine_cores", "irq";
+		qcom,cpu-affinity-mask = <0x0f 0x30 0x00>;
+		qcom,default-rd-pm-qos = "cpu";
+		qcom,default-wr-pm-qos = "cpu";
 		qcom,wakeup-on-idle;
 
 		qcom,msm-bus,name = "sdhc2";
