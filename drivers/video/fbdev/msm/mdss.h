@@ -144,12 +144,14 @@ struct mdss_pp_block_off {
 
 enum mdss_hw_quirk {
 	MDSS_QUIRK_BWCPANIC,
+	MDSS_QUIRK_ROTCDP,
 	MDSS_QUIRK_MAX,
 };
 
 enum mdss_qos_settings {
 	MDSS_QOS_PER_PIPE_IB,
 	MDSS_QOS_OVERHEAD_FACTOR,
+	MDSS_QOS_CDP,
 	MDSS_QOS_MAX,
 };
 

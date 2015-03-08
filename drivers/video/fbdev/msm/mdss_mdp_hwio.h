@@ -204,6 +204,7 @@ enum mdss_mdp_sspp_chroma_samp_type {
 #define MDSS_MDP_REG_SSPP_SAFE_LUT			0x064
 #define MDSS_MDP_REG_SSPP_CREQ_LUT			0x068
 #define MDSS_MDP_REG_SSPP_QOS_CTRL			0x06C
+#define MDSS_MDP_REG_SSPP_CDP_CTRL			0x134
 #define MDSS_MDP_REG_SSPP_UBWC_ERROR_STATUS		0x138
 
 #define MDSS_MDP_REG_SSPP_SRC_OP_MODE			0x038
@@ -404,6 +405,7 @@ enum mdss_mdp_writeback_index {
 #define MDSS_MDP_REG_WB_ALPHA_X_VALUE			0x078
 #define MDSS_MDP_REG_WB_CSC_BASE			0x260
 #define MDSS_MDP_REG_WB_DST_ADDR_SW_STATUS		0x2B0
+#define MDSS_MDP_REG_WB_CDP_CTRL			0x2B4
 
 #define MDSS_MDP_MAX_AD_AL	65535
 #define MDSS_MDP_MAX_AD_STR	255

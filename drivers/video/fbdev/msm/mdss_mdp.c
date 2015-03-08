@@ -1009,6 +1009,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_107:
 		mdata->ubwc_comp_ratio_factors_row = 0;
+		mdss_set_quirk(mdata, MDSS_QUIRK_ROTCDP);
 	case MDSS_MDP_HW_REV_107_1:
 	case MDSS_MDP_HW_REV_107_2:
 		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
@@ -1018,6 +1019,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->per_pipe_ib_factor.denom = 2;
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
 		break;
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
