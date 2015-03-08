@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -305,6 +305,27 @@ DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unassociate,
 
 	TP_ARGS(dev)
 );
+
+TRACE_EVENT(rmnet_gro_downlink,
+
+	TP_PROTO(struct net_device *dev, gro_result_t gro_res),
+
+	TP_ARGS(dev, gro_res),
+
+	TP_STRUCT__entry(
+		__string(name, dev->name)
+		__field(gro_result_t, res)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, dev->name);
+		__entry->res = gro_res;
+	),
+
+	TP_printk("GRO on dev=%s, res: %d",
+		__get_str(name), __entry->res)
+)
+
 #endif /* _RMNET_DATA_TRACE_H_ */
 
 /* This part must be outside protection */
