@@ -1470,7 +1470,6 @@ int intel_execlists_submission_final(struct i915_execbuffer_params *params)
 	struct intel_ringbuffer *ringbuf = params->ctx->engine[ring->id].ringbuf;
 	u64 exec_start;
 	int ret;
-	bool watchdog_running = 0;
 	uint32_t min_space;
 
 	/* The mutex must be acquired before calling this function */
@@ -1520,18 +1519,9 @@ int intel_execlists_submission_final(struct i915_execbuffer_params *params)
 
 	/* Start watchdog timer */
 	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
-		if (!intel_ring_supports_watchdog(ring)) {
-			DRM_ERROR("%s does NOT support watchdog timeout!\n",
-					ring->name);
-			ret = -EINVAL;
-			goto error;
-		}
-
 		ret = gen8_ring_start_watchdog(ringbuf);
 		if (ret)
 			goto error;
-
-		watchdog_running = 1;
 	}
 
 	/* Request matches? */
@@ -1594,7 +1584,7 @@ int intel_execlists_submission_final(struct i915_execbuffer_params *params)
 		goto error;
 
 	/* Cancel watchdog timer */
-	if (watchdog_running) {
+	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
 		ret = gen8_ring_stop_watchdog(ringbuf);
 		if (ret)
 			return ret;

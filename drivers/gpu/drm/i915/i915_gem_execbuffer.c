@@ -1183,7 +1183,6 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 	struct intel_engine_cs  *ring = params->ring;
 	u64 exec_start, exec_len;
 	int ret, i;
-	bool watchdog_running = 0;
 	uint32_t min_space;
 
 	/* The mutex must be acquired before calling this function */
@@ -1240,18 +1239,9 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 
 	/* Start watchdog timer */
 	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
-		if (!intel_ring_supports_watchdog(ring)) {
-			DRM_ERROR("%s does NOT support watchdog timeout!\n",
-					ring->name);
-			ret = -EINVAL;
-			goto error;
-		}
-
 		ret = intel_ring_start_watchdog(ring);
 		if (ret)
 			goto error;
-
-		watchdog_running = 1;
 	}
 
 	/* Request matches? */
@@ -1335,7 +1325,7 @@ int i915_gem_ringbuffer_submission_final(struct i915_execbuffer_params *params)
 		goto error;
 
 	/* Cancel watchdog timer */
-	if (watchdog_running) {
+	if (params->args_flags & I915_EXEC_ENABLE_WATCHDOG) {
 		ret = intel_ring_stop_watchdog(ring);
 		if (ret)
 			goto error;
@@ -1530,6 +1520,16 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		mutex_unlock(&dev->struct_mutex);
 		ret = PTR_ERR(ctx);
 		goto pre_mutex_err;
+	}
+
+	if (args->flags & I915_EXEC_ENABLE_WATCHDOG) {
+		if (!intel_ring_supports_watchdog(ring)) {
+			DRM_ERROR("%s does NOT support watchdog timeout!\n",
+					ring->name);
+			mutex_unlock(&dev->struct_mutex);
+			ret = -EINVAL;
+			goto pre_mutex_err;
+		}
 	}
 
 	i915_gem_context_reference(ctx);
