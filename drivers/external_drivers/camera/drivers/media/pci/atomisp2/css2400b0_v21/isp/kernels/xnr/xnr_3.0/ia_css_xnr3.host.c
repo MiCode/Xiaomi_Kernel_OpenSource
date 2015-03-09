@@ -28,7 +28,8 @@
 /*
  * Default kernel parameters. In general, default is bypass mode or as close
  * to the ineffective values as possible. Due to the chroma down+upsampling,
- * perfect bypass mode is not possible for xnr3.
+ * perfect bypass mode is not possible for xnr3 filter itself. Instead, the
+ * 'blending' parameter is used to create a bypass.
  */
 const struct ia_css_xnr3_config default_xnr3_config = {
 	/* sigma */
@@ -93,6 +94,26 @@ compute_coring(int coring)
 	return ((coring * isp_scale) + offset) / host_scale;
 }
 
+/*
+ * Compute the scaled blending strength for the ISP kernel from the value on
+ * the host parameter interface.
+ */
+static int32_t
+compute_blending(int strength)
+{
+	int32_t isp_strength;
+	int32_t isp_scale = XNR_BLENDING_SCALE_FACTOR;
+	int32_t host_scale = IA_CSS_XNR3_BLENDING_SCALE;
+	int32_t offset = host_scale / 2; /* fixed-point 0.5 */
+
+	/* Convert from public host-side scale factor to isp-side scale
+	 * factor. The blending factor is positive on the host side, but
+	 * negative on the ISP side because +1.0 cannot be represented
+	 * exactly as s0.11 fixed point, but -1.0 can. */
+	isp_strength = -(((strength * isp_scale) + offset) / host_scale);
+	return max(min(isp_strength, 0), -XNR_BLENDING_SCALE_FACTOR);
+}
+
 void
 ia_css_xnr3_encode(
 	struct sh_css_isp_xnr3_params *to,
@@ -116,6 +137,8 @@ ia_css_xnr3_encode(
 	int32_t coring_v0 = compute_coring(from->coring.v0);
 	int32_t coring_v1 = compute_coring(from->coring.v1);
 
+	int32_t blending = compute_blending(from->blending.strength);
+
 	(void)size;
 
 	/* alpha's are represented in qN.5 format */
@@ -131,6 +154,9 @@ ia_css_xnr3_encode(
 	to->coring.v0 = coring_v0;
 	to->coring.udiff = (coring_u1 - coring_u0) * adjust_factor / kernel_size;
 	to->coring.vdiff = (coring_v1 - coring_v0) * adjust_factor / kernel_size;
+
+	/* blending strength is expressed in q1.NN format */
+	to->blending.strength = blending;
 }
 
 /* Dummy Function added as the tool expects it*/

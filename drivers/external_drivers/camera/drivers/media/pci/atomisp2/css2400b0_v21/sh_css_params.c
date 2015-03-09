@@ -2399,6 +2399,7 @@ sh_css_set_pipe_dvs_6axis_config(const struct ia_css_pipe *pipe,
 	assert(pipe != NULL);
 	assert(dvs_config->height_y == dvs_config->height_uv);
 	assert((dvs_config->width_y - 1) == 2 * (dvs_config->width_uv - 1));
+	assert(pipe->mode < IA_CSS_PIPE_ID_NUM);
 
 	IA_CSS_ENTER_PRIVATE("dvs_config=%p", dvs_config);
 
@@ -2427,7 +2428,8 @@ sh_css_get_pipe_dvs_6axis_config(const struct ia_css_pipe *pipe,
 
 	IA_CSS_ENTER_PRIVATE("dvs_config=%p", dvs_config);
 
-	if ((dvs_config->width_y == params->pipe_dvs_6axis_config[pipe->mode]->width_y) &&
+	if ((pipe->mode < IA_CSS_PIPE_ID_NUM) &&
+	    (dvs_config->width_y == params->pipe_dvs_6axis_config[pipe->mode]->width_y) &&
 	    (dvs_config->height_y == params->pipe_dvs_6axis_config[pipe->mode]->height_y) &&
 	    (dvs_config->width_uv == params->pipe_dvs_6axis_config[pipe->mode]->width_uv) &&
 	    (dvs_config->height_uv == params->pipe_dvs_6axis_config[pipe->mode]->height_uv) &&
@@ -2708,6 +2710,7 @@ sh_css_init_isp_params_from_config(struct ia_css_pipe *pipe,
 		const struct ia_css_isp_config *config)
 {
 	enum ia_css_err err = IA_CSS_ERR_INTERNAL_ERROR;
+	assert(pipe != NULL);
 	IA_CSS_ENTER_PRIVATE("pipe=%p, config=%p, params=%p", pipe, config, params);
 
 	ia_css_set_configs(params, config);
@@ -2718,8 +2721,9 @@ sh_css_init_isp_params_from_config(struct ia_css_pipe *pipe,
 	sh_css_set_nr_config(params, config->nr_config);
 	sh_css_set_ee_config(params, config->ee_config);
 	sh_css_set_baa_config(params, config->baa_config);
-	if (params->pipe_dvs_6axis_config[pipe->mode])
-		sh_css_set_pipe_dvs_6axis_config(pipe, params, config->dvs_6axis_config);
+	if ((pipe->mode < IA_CSS_PIPE_ID_NUM) &&
+			(params->pipe_dvs_6axis_config[pipe->mode]))
+			sh_css_set_pipe_dvs_6axis_config(pipe, params, config->dvs_6axis_config);
 	sh_css_set_dz_config(params, config->dz_config);
 	sh_css_set_motion_vector(params, config->motion_vector);
 	sh_css_set_shading_table(pipe->stream, params, config->shading_table);
