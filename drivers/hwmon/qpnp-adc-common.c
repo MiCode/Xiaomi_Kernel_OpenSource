@@ -458,6 +458,60 @@ static const struct qpnp_vadc_map_pt adcmap_qrd_skue_btm_threshold[] = {
 	{800,	398},
 };
 
+static const struct qpnp_vadc_map_pt adcmap_qrd_skul_btm_threshold[] = {
+	{-200,	1515},
+	{-180,	1492},
+	{-160,	1467},
+	{-140,	1441},
+	{-120,	1413},
+	{-100,	1386},
+	{-80,	1357},
+	{-60,	1327},
+	{-40,	1296},
+	{-20,	1264},
+	{0,	1232},
+	{20,	1200},
+	{40,	1167},
+	{60,	1134},
+	{80,	1100},
+	{100,	1050},
+	{120,	1034},
+	{140,	1000},
+	{160,	967},
+	{180,	935},
+	{200,	903},
+	{220,	871},
+	{240,	840},
+	{260,	810},
+	{280,	780},
+	{300,	751},
+	{320,	723},
+	{340,	696},
+	{360,	670},
+	{380,	645},
+	{400,	620},
+	{420,	597},
+	{440,	574},
+	{460,	552},
+	{480,	531},
+	{500,	512},
+	{520,	492},
+	{540,	474},
+	{560,	457},
+	{580,	440},
+	{600,	425},
+	{620,	410},
+	{640,	396},
+	{660,	383},
+	{680,	370},
+	{700,	358},
+	{720,	347},
+	{740,	336},
+	{760,	326},
+	{780,	311},
+	{800,	307},
+};
+
 /* Voltage to temperature */
 static const struct qpnp_vadc_map_pt adcmap_100k_104ef_104fb[] = {
 	{1758,	-40},
@@ -1040,6 +1094,25 @@ int32_t qpnp_adc_scale_qrd_skue_batt_therm(struct qpnp_vadc_chip *chip,
 			&adc_chan_result->physical);
 }
 EXPORT_SYMBOL(qpnp_adc_scale_qrd_skue_batt_therm);
+
+int32_t qpnp_adc_scale_qrd_skul_batt_therm(struct qpnp_vadc_chip *chip,
+			int32_t adc_code,
+			const struct qpnp_adc_properties *adc_properties,
+			const struct qpnp_vadc_chan_properties *chan_properties,
+			struct qpnp_vadc_result *adc_chan_result)
+{
+	int64_t bat_voltage = 0;
+
+	bat_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
+			adc_properties, chan_properties);
+
+	return qpnp_adc_map_temp_voltage(
+			adcmap_qrd_skul_btm_threshold,
+			ARRAY_SIZE(adcmap_qrd_skul_btm_threshold),
+			bat_voltage,
+			&adc_chan_result->physical);
+}
+EXPORT_SYMBOL(qpnp_adc_scale_qrd_skul_batt_therm);
 
 int32_t qpnp_adc_scale_smb_batt_therm(struct qpnp_vadc_chip *chip,
 		int32_t adc_code,
