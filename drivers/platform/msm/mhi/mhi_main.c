@@ -1458,10 +1458,6 @@ void mhi_reg_write(struct mhi_device_ctxt *mhi_dev_ctxt,
 					io_addr, io_offset, val);
 	iowrite32(val, io_addr + io_offset);
 	wmb();
-	msm_pcie_pm_control(MSM_PCIE_REQ_EXIT_L1,
-			mhi_dev_ctxt->dev_info->pcie_device->bus->number,
-			mhi_dev_ctxt->dev_info->pcie_device,
-			NULL, 0);
 }
 
 u32 mhi_reg_read_field(void __iomem *io_addr, uintptr_t io_offset,
