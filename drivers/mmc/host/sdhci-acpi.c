@@ -158,6 +158,18 @@ static int sdhci_acpi_sdio_probe_slot(struct platform_device *pdev)
 	return sdhci_acpi_probe_slot(pdev);
 }
 
+static int sdhci_acpi_sd_probe_slot(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	acpi_handle handle = ACPI_HANDLE(dev);
+	struct acpi_device *device;
+
+	if (!acpi_bus_get_device(handle, &device))
+		device->power.flags.power_resources = 0;
+
+	return sdhci_acpi_probe_slot(pdev);
+}
+
 static int sdhci_acpi_remove_slot(struct platform_device *pdev)
 {
 	struct sdhci_acpi_host *c = platform_get_drvdata(pdev);
@@ -202,7 +214,7 @@ static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sdio = {
 static const struct sdhci_acpi_slot sdhci_acpi_slot_int_sd = {
 	.flags   = SDHCI_ACPI_SD_CD | SDHCI_ACPI_RUNTIME_PM,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
-	.probe_slot = sdhci_acpi_probe_slot,
+	.probe_slot = sdhci_acpi_sd_probe_slot,
 	.remove_slot = sdhci_acpi_remove_slot,
 };
 
