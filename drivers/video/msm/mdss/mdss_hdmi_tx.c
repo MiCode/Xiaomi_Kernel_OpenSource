@@ -1993,6 +1993,13 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 		if (hdmi_edid_get_sink_mode(
 			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) == 0)
 			reg_val &= ~BIT(1); /* DVI mode */
+
+		/*
+		 * Use DATAPATH_MODE as 1 always, the new mode that also
+		 * supports scrambler and HDCP 2.2. The legacy mode should no
+		 * longer be used
+		 */
+		reg_val |= BIT(31);
 	}
 
 	DSS_REG_W(io, HDMI_CTRL, reg_val);
