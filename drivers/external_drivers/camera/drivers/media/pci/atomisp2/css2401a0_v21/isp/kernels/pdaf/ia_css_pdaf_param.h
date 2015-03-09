@@ -15,39 +15,46 @@
 #ifndef __IA_CSS_PDAF_PARAM_H
 #define __IA_CSS_PDAF_PARAM_H
 
-#include "type_support.h"
+#define PDAF_INVALID_VAL 0x7FFF
+#include "vmem.h"
 
+struct isp_stats_calc_dmem_params {
+
+	uint16_t num_valid_elm;
+};
 /*
  * Extraction configuration parameters
  */
 
-struct sh_css_isp_extraction_dmem_params
-{
-	uint8_t num_x_patterns;
-	uint8_t num_y_patterns;
+struct isp_extraction_dmem_params {
+
+	uint8_t num_valid_patterns;
 };
 
-struct sh_css_isp_extraction_vmem_params
-{
-	int16_t y_step_size[ISP_NWAY];
-	int16_t y_offset[ISP_NWAY];
-	int16_t x_step_size[ISP_NWAY];
-	int16_t x_offset[ISP_NWAY];
+struct isp_extraction_vmem_params {
+
+	VMEM_ARRAY(y_step_size, ISP_VEC_NELEMS);
+	VMEM_ARRAY(y_offset, ISP_VEC_NELEMS);
+	VMEM_ARRAY(x_step_size, ISP_VEC_NELEMS);
+	VMEM_ARRAY(x_offset, ISP_VEC_NELEMS);
 };
 
 /*
  * PDAF configuration parameters
  */
-struct sh_css_isp_pdaf_vmem_params
-{
-	struct sh_css_isp_extraction_vmem_params ext_cfg_data_vmem;
+struct isp_pdaf_vmem_params {
+
+	struct isp_extraction_vmem_params ext_cfg_l_data;
+	struct isp_extraction_vmem_params ext_cfg_r_data;
 };
 
-struct sh_css_isp_pdaf_dmem_params
-{
+struct isp_pdaf_dmem_params {
+
 	uint16_t frm_length;
 	uint16_t frm_width;
-	struct sh_css_isp_extraction_dmem_params ext_cfg_data_dmem;
+	struct isp_stats_calc_dmem_params stats_calc_data;
+	struct isp_extraction_dmem_params ext_cfg_l_data;
+	struct isp_extraction_dmem_params ext_cfg_r_data;
 };
 
 #endif /* __IA_CSS_PDAF_PARAM_H */

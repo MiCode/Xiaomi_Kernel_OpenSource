@@ -35,7 +35,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.14.18"
+#define CSS_API_VERSION_STRING	"2.1.14.19"
 
 /*
 Change log
@@ -307,7 +307,7 @@ v2.1.14.14 (6 changes parallel), cont_remove_x_y_end_from_ae_and_awb
 - this patch doesn't introduce any new api change, it only fixes a recent
 - api merged change (#31938) , in order to have success CI i had to upload an api change request
 
-v2.1.14.15 (4 changes parallel), Add XNR3 blending strength to kernel interface
+v2.1.14.16 (5 changes parallel), Add XNR3 blending strength to kernel interface
 - Added a blending strength field to the XNR3 kernel interface to add
 - support for blending.
 
@@ -316,6 +316,9 @@ v2.1.14.17 (21 changes parallel), eliminate two_pixels_per_clock field
 
 v2.1.14.18 (2 changes parallel), Fix copyright headers (no functional change)
 - No functional change; only fixes copyright headers
+
+v2.1.14.19 (1 changes parallel), ia_css_skc_dvs_statistics field size change
+- ia_css_skc_dvs_statistics field size change
 
 */
 

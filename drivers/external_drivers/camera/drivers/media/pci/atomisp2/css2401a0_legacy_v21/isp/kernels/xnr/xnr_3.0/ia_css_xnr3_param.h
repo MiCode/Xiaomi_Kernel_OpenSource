@@ -27,6 +27,10 @@
 #define XNR_CORING_SCALE_LOG2       (ISP_VEC_ELEMBITS-1)
 #define XNR_CORING_SCALE_FACTOR     (1 << XNR_CORING_SCALE_LOG2)
 
+/* Scaling factor of the blending strength on the ISP. */
+#define XNR_BLENDING_SCALE_LOG2     (ISP_VEC_ELEMBITS-1)
+#define XNR_BLENDING_SCALE_FACTOR   (1 << XNR_BLENDING_SCALE_LOG2)
+
 /* XNR3 filter size. Must be 11x11, 9x9 or 5x5. */
 #ifdef FLT_KERNEL_9x9
 #define XNR_FILTER_SIZE             9
@@ -58,10 +62,16 @@ struct sh_css_xnr3_coring_params {
 	int32_t vdiff;
 };
 
+/* XNR3 blending strength on the ISP. */
+struct sh_css_xnr3_blending_params {
+	int32_t strength;
+};
+
 /* XNR3 ISP parameters */
 struct sh_css_isp_xnr3_params {
-	struct sh_css_xnr3_alpha_params  alpha;
-	struct sh_css_xnr3_coring_params coring;
+	struct sh_css_xnr3_alpha_params    alpha;
+	struct sh_css_xnr3_coring_params   coring;
+	struct sh_css_xnr3_blending_params blending;
 };
 
 #endif  /*__IA_CSS_XNR3_PARAM_H */

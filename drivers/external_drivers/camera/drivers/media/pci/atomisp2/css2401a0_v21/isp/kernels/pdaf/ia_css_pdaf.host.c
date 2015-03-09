@@ -17,47 +17,66 @@
 #include "sh_css_frac.h"
 #include "ia_css_pdaf.host.h"
 
-const struct ia_css_pdaf_config default_pdaf_config =
-{
-	0, 0,
-	{ 0, 0,
-	  {0}, {0},
-	  {0}, {0}
-	}
-};
+const struct ia_css_pdaf_config default_pdaf_config;
 
 void
 ia_css_pdaf_dmem_encode(
-	struct sh_css_isp_pdaf_dmem_params *to,
-	const struct ia_css_pdaf_config *from,
-	unsigned size)
+		struct isp_pdaf_dmem_params *to,
+		const struct ia_css_pdaf_config *from,
+		unsigned size)
 {
 	(void)size;
 	to->frm_length = from->frm_length;
 	to->frm_width  = from->frm_width;
-	to->ext_cfg_data_dmem.num_x_patterns = from->ext_cfg_data.num_x_patterns;
-	to->ext_cfg_data_dmem.num_y_patterns = from->ext_cfg_data.num_y_patterns;
+
+	to->ext_cfg_l_data.num_valid_patterns = from->ext_cfg_data.l_pixel_grid.num_valid_patterns;
+
+	to->ext_cfg_r_data.num_valid_patterns = from->ext_cfg_data.r_pixel_grid.num_valid_patterns;
+
+	to->stats_calc_data.num_valid_elm = from->stats_calc_cfg_data.num_valid_elm;
 }
 
 void
 ia_css_pdaf_vmem_encode(
-	struct sh_css_isp_pdaf_vmem_params *to,
-	const struct ia_css_pdaf_config *from,
-	unsigned size)
+		struct isp_pdaf_vmem_params *to,
+		const struct ia_css_pdaf_config *from,
+		unsigned size)
 {
 
 	unsigned int i;
 	(void)size;
+	/* Initialize left pixel grid */
+	for ( i=0 ; i < from->ext_cfg_data.l_pixel_grid.num_valid_patterns ; i++) {
 
-	for ( i=0 ; i < ISP_NWAY; i++)
-	{
-		to->ext_cfg_data_vmem.y_step_size[i] = from->ext_cfg_data.y_step_size[i];
-		to->ext_cfg_data_vmem.y_offset[i] = from->ext_cfg_data.y_offset[i];
+		to->ext_cfg_l_data.y_offset[0][i] = from->ext_cfg_data.l_pixel_grid.y_offset[i];
+		to->ext_cfg_l_data.x_offset[0][i] = from->ext_cfg_data.l_pixel_grid.x_offset[i];
+		to->ext_cfg_l_data.y_step_size[0][i] = from->ext_cfg_data.l_pixel_grid.y_step_size[i];
+		to->ext_cfg_l_data.x_step_size[0][i] = from->ext_cfg_data.l_pixel_grid.x_step_size[i];
 	}
 
-  for ( i=0 ; i < ISP_NWAY; i++)
-	{
-		to->ext_cfg_data_vmem.x_step_size[i] = from->ext_cfg_data.x_step_size[i];
-		to->ext_cfg_data_vmem.x_offset[i] = from->ext_cfg_data.x_offset[i];
+	for ( ; i < ISP_NWAY ; i++) {
+
+		to->ext_cfg_l_data.y_offset[0][i] = PDAF_INVALID_VAL;
+		to->ext_cfg_l_data.x_offset[0][i] = PDAF_INVALID_VAL;
+		to->ext_cfg_l_data.y_step_size[0][i] = PDAF_INVALID_VAL;
+		to->ext_cfg_l_data.x_step_size[0][i] = PDAF_INVALID_VAL;
+	}
+
+	/* Initialize left pixel grid */
+
+	for ( i=0 ; i < from->ext_cfg_data.r_pixel_grid.num_valid_patterns ; i++) {
+
+		to->ext_cfg_r_data.y_offset[0][i] = from->ext_cfg_data.r_pixel_grid.y_offset[i];
+		to->ext_cfg_r_data.x_offset[0][i] = from->ext_cfg_data.r_pixel_grid.x_offset[i];
+		to->ext_cfg_r_data.y_step_size[0][i] = from->ext_cfg_data.r_pixel_grid.y_step_size[i];
+		to->ext_cfg_r_data.x_step_size[0][i] = from->ext_cfg_data.r_pixel_grid.x_step_size[i];
+	}
+
+	for ( ; i < ISP_NWAY ; i++) {
+
+		to->ext_cfg_r_data.y_offset[0][i] = PDAF_INVALID_VAL;
+		to->ext_cfg_r_data.x_offset[0][i] = PDAF_INVALID_VAL;
+		to->ext_cfg_r_data.y_step_size[0][i] = PDAF_INVALID_VAL;
+		to->ext_cfg_r_data.x_step_size[0][i] = PDAF_INVALID_VAL;
 	}
 }

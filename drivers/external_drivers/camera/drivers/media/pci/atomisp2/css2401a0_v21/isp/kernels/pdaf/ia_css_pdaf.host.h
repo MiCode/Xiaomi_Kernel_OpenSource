@@ -22,14 +22,14 @@ extern const struct ia_css_pdaf_config default_pdaf_config;
 
 void
 ia_css_pdaf_dmem_encode(
-	struct sh_css_isp_pdaf_dmem_params *to,
-	const struct ia_css_pdaf_config *from,
-	unsigned size);
+		struct isp_pdaf_dmem_params *to,
+		const struct ia_css_pdaf_config *from,
+		unsigned size);
 
 void
 ia_css_pdaf_vmem_encode(
-	struct sh_css_isp_pdaf_vmem_params *to,
-	const struct ia_css_pdaf_config *from,
-	unsigned size);
+		struct isp_pdaf_vmem_params *to,
+		const struct ia_css_pdaf_config *from,
+		unsigned size);
 
 #endif /* __IA_CSS_PDAF_HOST_H */
