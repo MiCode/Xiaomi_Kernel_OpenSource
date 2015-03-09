@@ -94,6 +94,8 @@ struct tasha_reg_mask_val {
 	u8 val;
 };
 
+extern void *tasha_get_afe_config(struct snd_soc_codec *codec,
+				  enum afe_config_type config_type);
 extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable,
 				 bool dapm);
 #endif

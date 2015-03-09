@@ -73,6 +73,16 @@
 #define TASHA_NUM_INTERPOLATORS 9
 #define BYTE_BIT_MASK(nr) (1 << ((nr) % BITS_PER_BYTE))
 
+static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
+	.minor_version = 1,
+	.slimbus_dev_id = AFE_SLIMBUS_DEVICE_1,
+	.slave_dev_pgd_la = 0,
+	.slave_dev_intfdev_la = 0,
+	.bit_width = 16,
+	.data_format = 0,
+	.num_channels = 1
+};
+
 enum {
 	AIF1_PB = 0,
 	AIF1_CAP,
@@ -334,6 +344,32 @@ struct tasha_priv {
 	struct mutex swr_clk_lock;
 	int swr_clk_users;
 };
+
+void *tasha_get_afe_config(struct snd_soc_codec *codec,
+			   enum afe_config_type config_type)
+{
+	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	switch (config_type) {
+	case AFE_SLIMBUS_SLAVE_CONFIG:
+		return &priv->slimbus_slave_cfg;
+	case AFE_CDC_REGISTERS_CONFIG:
+		return NULL;
+	case AFE_SLIMBUS_SLAVE_PORT_CONFIG:
+		return &tasha_slimbus_slave_port_cfg;
+	case AFE_AANC_VERSION:
+		return NULL;
+	case AFE_CLIP_BANK_SEL:
+		return NULL;
+	case AFE_CDC_CLIP_REGISTERS_CONFIG:
+		return NULL;
+	default:
+		dev_err(codec->dev, "%s: Unknown config_type 0x%x\n",
+			__func__, config_type);
+		return NULL;
+	}
+}
+EXPORT_SYMBOL(tasha_get_afe_config);
 
 static int tasha_get_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
@@ -5447,6 +5483,27 @@ static int tasha_setup_irqs(struct tasha_priv *tasha)
 	return ret;
 }
 
+static void tasha_init_slim_slave_cfg(struct snd_soc_codec *codec)
+{
+	struct tasha_priv *priv = snd_soc_codec_get_drvdata(codec);
+	struct afe_param_cdc_slimbus_slave_cfg *cfg;
+	struct wcd9xxx *wcd9xxx = priv->wcd9xxx;
+	uint64_t eaddr = 0;
+
+	cfg = &priv->slimbus_slave_cfg;
+	cfg->minor_version = 1;
+	cfg->tx_slave_port_offset = 0;
+	cfg->rx_slave_port_offset = 16;
+
+	memcpy(&eaddr, &wcd9xxx->slim->e_addr, sizeof(wcd9xxx->slim->e_addr));
+	WARN_ON(sizeof(wcd9xxx->slim->e_addr) != 6);
+	cfg->device_enum_addr_lsw = eaddr & 0xFFFFFFFF;
+	cfg->device_enum_addr_msw = eaddr >> 32;
+
+	dev_dbg(codec->dev, "%s: slimbus logical address 0x%llx\n",
+		__func__, eaddr);
+}
+
 static void tasha_cleanup_irqs(struct tasha_priv *tasha)
 {
 	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
@@ -5623,6 +5680,11 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 			INIT_LIST_HEAD(&tasha->dai[i].wcd9xxx_ch_list);
 			init_waitqueue_head(&tasha->dai[i].dai_wait);
 		}
+		tasha_slimbus_slave_port_cfg.slave_dev_intfdev_la =
+					control->slim_slave->laddr;
+		tasha_slimbus_slave_port_cfg.slave_dev_pgd_la =
+					control->slim->laddr;
+		tasha_init_slim_slave_cfg(codec);
 	}
 
 	snd_soc_add_codec_controls(codec,
