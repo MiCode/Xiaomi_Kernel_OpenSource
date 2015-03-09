@@ -357,11 +357,14 @@ static int dw_i2c_probe(struct platform_device *pdev)
 	if (dev->shared_host && dev->release_ownership)
 		dev->release_ownership();
 
-	r = devm_request_irq(&pdev->dev, dev->irq, i2c_dw_isr, IRQF_SHARED,
-			pdev->name, dev);
-	if (r) {
-		dev_err(&pdev->dev, "failure requesting irq %i\n", dev->irq);
-		return r;
+	if (!dev->polling) {
+		r = devm_request_irq(&pdev->dev, dev->irq, i2c_dw_isr,
+				IRQF_SHARED, pdev->name, dev);
+		if (r) {
+			dev_err(&pdev->dev, "failure requesting irq %i\n",
+				dev->irq);
+			return r;
+		}
 	}
 
 	adap = &dev->adapter;
