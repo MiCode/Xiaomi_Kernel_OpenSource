@@ -1,0 +1,163 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8939-v3.0.dtsi"
+#include "msm8939-qrd-skuk.dtsi"
+#include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM8939v3.0 QRD SKUK";
+	compatible = "qcom,msm8939-qrd-skuk", "qcom,msm8939-qrd", "qcom,msm8939", "qcom,qrd";
+	qcom,board-id = <0x1000b 5>, <0x2000b 5>;
+};
+
+&tlmm_pinmux {
+	tps65132-en-pin {
+		qcom,pins = <&gp 97>, <&gp 98>;
+		qcom,num-grp-pins = <2>;
+		label = "tps65132_en_pins";
+		qcom,pin-func = <0>;
+
+		tps65132_en_default: en-default {
+			drive-strength = <2>;
+			bias-pull-down;
+		};
+	};
+};
+
+&i2c_0 { /* BLSP1 QUP2 */
+	tps65132@3e {
+		compatible = "ti,tps65132";
+		reg = <0x3e>;
+		i2c-pwr-supply = <&pm8916_l6>;
+		ti,en-gpio-lpm;
+		pinctrl-names = "default";
+		pinctrl-0 = <&tps65132_en_default>;
+
+		regulators {
+			tps65132_pos: pos-boost {
+				regulator-name = "tps65132-pos";
+				regulator-min-microvolt = <5800000>;
+				regulator-max-microvolt = <5800000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <200000>;
+				ti,en-gpio = <&msm_gpio 97 0>;
+			};
+
+			tps65132_neg: neg-boost {
+				regulator-name = "tps65132-neg";
+				regulator-min-microvolt = <5800000>;
+				regulator-max-microvolt = <5800000>;
+				ti,discharge-enable;
+				ti,enable-time = <800>;
+				ti,current-limit = <40000>;
+				ti,en-gpio = <&msm_gpio 98 0>;
+			};
+		};
+	};
+};
+
+&i2c_4 {
+	smb1360_otg_supply: smb1360-chg-fg@14 {
+		compatible = "qcom,smb1360-chg-fg";
+		reg = <0x14>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <62 2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&smb_int_default>;
+		qcom,stat-pulsed-irq;
+		qcom,chg-inhibit-disabled;
+		qcom,float-voltage-mv = <4350>;
+		qcom,iterm-ma = <200>;
+		qcom,charging-timeout = <384>;
+		qcom,otg-batt-curr-limit = <950>;
+		qcom,recharge-thresh-mv = <100>;
+		qcom,thermal-mitigation = <1500 700 600 0>;
+		qcom,fg-auto-recharge-soc = <99>;
+		qcom,fg-delta-soc = <1>;
+		qcom,empty-soc-disabled;
+		regulator-name = "smb1360_otg_vreg";
+		qcom,awake-min-soc;
+		qcom,batt-profile-select;
+		qcom,smb1360-vadc = <&pm8916_vadc>;
+		qcom,batt-id-vref-uv = <1800000>;
+		qcom,batt-id-rpullup-kohm = <100>;
+		qcom,profile-a-rid-kohm = <33>;
+		qcom,profile-b-rid-kohm = <91>;
+		qcom,config-hard-thresholds;
+		qcom,hot-bat-decidegc = <550>;
+		qcom,cold-bat-decidegc = <(-150)>;
+	};
+};
+
+&pm8916_chg {
+	status = "ok";
+	qcom,use-external-charger;
+};
+
+&pm8916_bms {
+	status = "ok";
+	qcom,disable-bms;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_nt35596_1080p_skuk_video>;
+
+	vsp-supply = <&tps65132_pos>;
+	vsn-supply = <&tps65132_neg>;
+
+	qcom,ctrl-supply-entries {
+		/delete-node/ qcom,ctrl-supply-entry@0;
+	};
+
+	qcom,panel-supply-entries {
+		/delete-node/qcom,panel-supply-entry@0;
+
+		qcom,panel-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "vsp";
+			qcom,supply-min-voltage = <5800000>;
+			qcom,supply-max-voltage = <5800000>;
+			qcom,supply-enable-load = <200>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,panel-supply-entry@3 {
+			reg = <3>;
+			qcom,supply-name = "vsn";
+			qcom,supply-min-voltage = <5800000>;
+			qcom,supply-max-voltage = <5800000>;
+			qcom,supply-enable-load = <40>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&dsi_nt35596_1080p_skuk_video {
+	qcom,cont-splash-enabled;
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+};
+
+&usb_otg {
+       qcom,hsusb-otg-mode = <3>;
+       qcom,usbid-gpio = <&msm_gpio 110 0>;
+       pinctrl-names = "default";
+       pinctrl-0 = <&usbid_default>;
+       vbus_otg-supply = <&smb1360_otg_supply>;
+};
+

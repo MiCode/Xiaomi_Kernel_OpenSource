@@ -1,0 +1,117 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8939-v3.0.dtsi"
+#include "msm8939-cdp.dtsi"
+#include "msm8939-regulator.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8939v3.0 CDP JDI";
+	compatible = "qcom,msm8939-cdp", "qcom,msm8939", "qcom,cdp";
+	qcom,board-id = <1 1>;
+};
+
+&pm8916_l17 {
+	regulator-max-microvolt = <3000000>;
+	regulator-min-microvolt = <3000000>;
+	qcom,init-voltage = <3000000>;
+};
+
+&i2c_5 {  /* BLSP1 QUP5 */
+	status = "disabled";
+};
+
+&spi_5 {
+	status = "okay";
+	bu21150-ts-spi@0 {
+		compatible = "jdi,bu21150";
+		reg = <0>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <13 0>;
+		spi-max-frequency = <18000000>;
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend",
+				"afe_pwr_active", "afe_pwr_suspend",
+				"mod_en_active", "mod_en_suspend",
+				"disp_vsn_active", "disp_vsn_suspend";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&afe_pwr_active>;
+		pinctrl-3 = <&afe_pwr_suspend>;
+		pinctrl-4 = <&mod_en_active>;
+		pinctrl-5 = <&mod_en_suspend>;
+		pinctrl-6 = <&disp_vsn_active>;
+		pinctrl-7 = <&disp_vsn_suspend>;
+		vdd_ana-supply = <&pm8916_l17>;
+		vdd_dig-supply = <&pm8916_l6>;
+		jdi,panel-model = "fhd_6_a155adev";
+		jdi,pitch-type = "np";
+		jdi,afe-vendor = "rohm";
+	};
+};
+
+#include "dsi-panel-jdi-fhd-video.dtsi"
+#include "msm8939-mdss.dtsi"
+
+&dsi_jdi_fhd_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+	qcom,cont-splash-enabled;
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <2>;
+	qcom,pins = <&gp 25>, <&gp 98>;
+};
+
+&mdss_dsi0 {
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,dsi-pref-prim-pan = <&dsi_jdi_fhd_video>;
+
+	qcom,platform-enable-gpio = <>;
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
+
+	qcom,platform-strength-ctrl = [77 06];
+
+	qcom,panel-supply-entries {
+		qcom,panel-supply-entry@0 {
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+		};
+	};
+};
+
+#include "msm8939-camera-sensor-cdp.dtsi"
+
+&cci {
+	qcom,camera@78 {
+		qcom,cam-vreg-min-voltage = <2100000 0 3000000>;
+		qcom,cam-vreg-max-voltage = <2100000 0 3000000>;
+	};
+
+	qcom,camera@0 {
+		qcom,cam-vreg-min-voltage = <2100000 0 3000000 2800000>;
+		qcom,cam-vreg-max-voltage = <2100000 0 3000000 2800000>;
+	};
+
+	qcom,camera@1 {
+		qcom,cam-vreg-min-voltage = <2100000 0 3000000>;
+		qcom,cam-vreg-max-voltage = <2100000 0 3000000>;
+	};
+};
