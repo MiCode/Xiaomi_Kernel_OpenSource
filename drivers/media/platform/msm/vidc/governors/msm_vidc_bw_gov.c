@@ -36,6 +36,17 @@ enum scenario {
 	SCENARIO_MAX,
 };
 
+/*
+ * Minimum dimensions that the governor is willing to calculate
+ * bandwidth for.  This means that anything bandwidth(0, 0) ==
+ * bandwidth(BASELINE_DIMENSIONS.width, BASELINE_DIMENSIONS.height)
+ */
+const struct {
+	int height, width;
+} BASELINE_DIMENSIONS = {
+	.width = 1280,
+	.height = 720,
+};
 
 /* converts Mbps to bps (the "b" part can be bits or bytes based on context) */
 #define kbps(__mbps) ((__mbps) * U64_C(1000))
@@ -291,8 +302,8 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 	/* Decoder parameters setup */
 	scenario = SCENARIO_WORST;
 
-	width = d->width;
-	height = d->height;
+	width = max(d->width, BASELINE_DIMENSIONS.width);
+	height = max(d->height, BASELINE_DIMENSIONS.height);
 
 	lcu_size = 32;
 
@@ -601,8 +612,8 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	usecase = USECASE_CAMCORDER;
 
 	standard = d->codec;
-	width = d->width;
-	height = d->height;
+	width = max(d->width, BASELINE_DIMENSIONS.width);
+	height = max(d->height, BASELINE_DIMENSIONS.height);
 
 	dpb_color_format = HAL_COLOR_FORMAT_NV12_UBWC;
 	original_color_format = d->num_formats >= 1 ?
