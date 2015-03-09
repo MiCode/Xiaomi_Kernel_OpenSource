@@ -2387,6 +2387,7 @@ dwc3_msm_property_is_writeable(struct power_supply *psy,
 
 static char *dwc3_msm_pm_power_supplied_to[] = {
 	"battery",
+	"bms",
 };
 
 static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
