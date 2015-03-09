@@ -154,6 +154,16 @@ Description:
 		The file will read "hotplug", "wired" and "not used" if the
 		information is available, and "unknown" otherwise.
 
+What:		/sys/bus/usb/devices/.../(hub interface)/portX/usb3_lpm
+Date:		March 2015
+Contact:	Zhuang Jin Can <jin.can.zhuang@intel.com>
+Description:
+		Some USB3.0 devices may not support usb3 lpm well.
+		usb3_lpm attribute allows enabling/disabling usb3 lpm of the port.
+		It takes effect both before and after a usb device is enumerated.
+		Supported values are "0" if u1 and u2 are disabled, "u1" if only u1 is
+		enabled, "u2" if only u2 is enabled, "u1_u2" if u1 and u2 are enabled.
+
 What:		/sys/bus/usb/devices/.../power/usb2_lpm_l1_timeout
 Date:		May 2013
 Contact:	Mathias Nyman <mathias.nyman@linux.intel.com>

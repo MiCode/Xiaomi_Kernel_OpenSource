@@ -48,6 +48,72 @@ static ssize_t connect_type_show(struct device *dev,
 }
 static DEVICE_ATTR_RO(connect_type);
 
+static ssize_t usb3_lpm_show(struct device *dev,
+			      struct device_attribute *attr, char *buf)
+{
+	struct usb_port *port_dev = to_usb_port(dev);
+	const char *p;
+
+	if (port_dev->u1_is_enabled) {
+		if (port_dev->u2_is_enabled)
+			p = "u1_u2";
+		else
+			p = "u1";
+	} else {
+		if (port_dev->u2_is_enabled)
+			p = "u2";
+		else
+			p = "0";
+	}
+
+	return sprintf(buf, "%s\n", p);
+}
+
+static ssize_t usb3_lpm_store(struct device *dev,
+			       struct device_attribute *attr,
+			       const char *buf, size_t count)
+{
+	struct usb_port *port_dev = to_usb_port(dev);
+	struct usb_device *udev = port_dev->child;
+	struct usb_hcd *hcd;
+
+	if (!strncmp(buf, "u1_u2", 5)) {
+		port_dev->u1_is_enabled = true;
+		port_dev->u2_is_enabled = true;
+
+	} else if (!strncmp(buf, "u1", 2)) {
+		port_dev->u1_is_enabled = true;
+		port_dev->u2_is_enabled = false;
+
+	} else if (!strncmp(buf, "u2", 2)) {
+		port_dev->u1_is_enabled = false;
+		port_dev->u2_is_enabled = true;
+
+	} else if (!strncmp(buf, "0", 1)) {
+		port_dev->u1_is_enabled = false;
+		port_dev->u2_is_enabled = false;
+	} else
+		return -EINVAL;
+
+	/* If device is connected to the port, disable & enable lpm
+	 * to make new u1 u2 setting take effect immediately
+	 */
+	if (udev) {
+		hcd = bus_to_hcd(udev->bus);
+		if (!hcd)
+			return -EINVAL;
+		usb_lock_device(udev);
+		mutex_lock(hcd->bandwidth_mutex);
+		if (!usb_disable_lpm(udev))
+			usb_enable_lpm(udev);
+		mutex_unlock(hcd->bandwidth_mutex);
+		usb_unlock_device(udev);
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(usb3_lpm);
+
 static struct attribute *port_dev_attrs[] = {
 	&dev_attr_connect_type.attr,
 	NULL,
@@ -59,6 +125,21 @@ static struct attribute_group port_dev_attr_grp = {
 
 static const struct attribute_group *port_dev_group[] = {
 	&port_dev_attr_grp,
+	NULL,
+};
+
+static struct attribute *port_dev_usb3_attrs[] = {
+	&dev_attr_usb3_lpm.attr,
+	NULL,
+};
+
+static struct attribute_group port_dev_usb3_attr_grp = {
+	.attrs = port_dev_usb3_attrs,
+};
+
+static const struct attribute_group *port_dev_usb3_group[] = {
+	&port_dev_attr_grp,
+	&port_dev_usb3_attr_grp,
 	NULL,
 };
 
@@ -144,6 +225,7 @@ struct device_type usb_port_device_type = {
 int usb_hub_create_port_device(struct usb_hub *hub, int port1)
 {
 	struct usb_port *port_dev = NULL;
+	struct usb_device *hdev = hub->hdev;
 	int retval;
 
 	port_dev = kzalloc(sizeof(*port_dev), GFP_KERNEL);
@@ -156,7 +238,12 @@ int usb_hub_create_port_device(struct usb_hub *hub, int port1)
 	port_dev->portnum = port1;
 	port_dev->power_is_on = true;
 	port_dev->dev.parent = hub->intfdev;
-	port_dev->dev.groups = port_dev_group;
+	if (hub_is_superspeed(hdev)) {
+		port_dev->u1_is_enabled = true;
+		port_dev->u2_is_enabled = true;
+		port_dev->dev.groups = port_dev_usb3_group;
+	} else
+		port_dev->dev.groups = port_dev_group;
 	port_dev->dev.type = &usb_port_device_type;
 	dev_set_name(&port_dev->dev, "port%d", port1);
 	mutex_init(&port_dev->status_lock);

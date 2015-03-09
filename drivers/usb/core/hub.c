@@ -36,11 +36,6 @@
 #define USB_VENDOR_GENESYS_LOGIC		0x05e3
 #define HUB_QUIRK_CHECK_PORT_AUTOSUSPEND	0x01
 
-static inline int hub_is_superspeed(struct usb_device *hdev)
-{
-	return (hdev->descriptor.bDeviceProtocol == USB_HUB_PR_SS);
-}
-
 /* Protect struct usb_device->state and ->children members
  * Note: Both are also protected by ->dev.sem, except that ->state can
  * change to USB_STATE_NOTATTACHED even when the semaphore isn't held. */
@@ -3959,6 +3954,8 @@ EXPORT_SYMBOL_GPL(usb_unlocked_disable_lpm);
 void usb_enable_lpm(struct usb_device *udev)
 {
 	struct usb_hcd *hcd;
+	struct usb_hub *hub;
+	struct usb_port *port_dev;
 
 	if (!udev || !udev->parent ||
 			udev->speed != USB_SPEED_SUPER ||
@@ -3977,8 +3974,18 @@ void usb_enable_lpm(struct usb_device *udev)
 	if (udev->lpm_disable_count > 0)
 		return;
 
-	usb_enable_link_state(hcd, udev, USB3_LPM_U1);
-	usb_enable_link_state(hcd, udev, USB3_LPM_U2);
+	hub = usb_hub_to_struct_hub(udev->parent);
+	if (!hub) {
+		dev_err(&udev->dev, "can't enable lpm, usb_hub is null.\n");
+		return;
+	}
+	port_dev = hub->ports[udev->portnum - 1];
+
+	if (port_dev->u1_is_enabled)
+		usb_enable_link_state(hcd, udev, USB3_LPM_U1);
+
+	if (port_dev->u2_is_enabled)
+		usb_enable_link_state(hcd, udev, USB3_LPM_U2);
 }
 EXPORT_SYMBOL_GPL(usb_enable_lpm);
 

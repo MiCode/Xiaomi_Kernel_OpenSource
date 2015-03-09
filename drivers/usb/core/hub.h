@@ -84,6 +84,8 @@ struct usb_hub {
  * @portnum: port index num based one
  * @power_is_on: port's power state
  * @did_runtime_put: port has done pm_runtime_put().
+ * @u1_is_enabled: whether u1 should be enabled.
+ * @u2_is_enabled: whether u2 should be enabled.
  */
 struct usb_port {
 	struct usb_device *child;
@@ -94,6 +96,8 @@ struct usb_port {
 	u8 portnum;
 	unsigned power_is_on:1;
 	unsigned did_runtime_put:1;
+	unsigned u1_is_enabled:1;
+	unsigned u2_is_enabled:1;
 };
 
 #define to_usb_port(_dev) \
@@ -121,5 +125,10 @@ static inline int hub_port_debounce_be_stable(struct usb_hub *hub,
 		int port1)
 {
 	return hub_port_debounce(hub, port1, false);
+}
+
+static inline int hub_is_superspeed(struct usb_device *hdev)
+{
+	return hdev->descriptor.bDeviceProtocol == USB_HUB_PR_SS;
 }
 
