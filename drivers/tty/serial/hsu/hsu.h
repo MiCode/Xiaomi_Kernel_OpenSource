@@ -43,7 +43,29 @@ enum {
 	hsu_dw,
 };
 
+enum hsu_acpi_pin_idx {
+	hsu_rxd_idx,
+	hsu_txd_idx,
+	hsu_rts_idx,
+	hsu_cts_idx
+};
+
+enum hsu_wake_src {
+	no_wake,
+	rxd_wake,
+	cts_wake
+};
+
 struct uart_hsu_port;
+
+struct hsu_port_pin_cfg {
+	int wake_gpio;
+	int wake_src;
+	int rx_gpio;
+	int tx_gpio;
+	int rts_gpio;
+	int cts_gpio;
+};
 
 struct hsu_port_cfg {
 	int hw_ip;
@@ -51,6 +73,8 @@ struct hsu_port_cfg {
 	int hw_context_save;
 	int hw_ctrl_cts;
 	struct device *dev;
+	struct hsu_port_pin_cfg pin_cfg;
+	int (*hw_set_rts)(struct uart_hsu_port *up, int value);
 	int (*hw_suspend)(struct uart_hsu_port *up);
 	int (*hw_resume)(struct uart_hsu_port *up);
 	unsigned int (*get_uartclk)(struct uart_hsu_port *up);
@@ -205,6 +229,7 @@ struct uart_hsu_port {
 	unsigned int		workq_done;
 	unsigned int		in_workq;
 	unsigned int		in_tasklet;
+	unsigned int		byte_delay;
 
 	int			use_dma;	/* flag for DMA/PIO */
 	unsigned int		dma_irq;

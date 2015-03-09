@@ -1033,32 +1033,40 @@ serial_hsu_do_set_termios(struct uart_port *port, struct ktermios *termios,
 	struct hsu_port_cfg *cfg = up->port_cfg;
 	unsigned char cval, fcr = 0;
 	unsigned long flags;
-	unsigned int baud, quot;
+	unsigned int baud, quot, bits;
 	u32 ps = 0, mul = 0, m = 0, n = 0;
 
 	switch (termios->c_cflag & CSIZE) {
 	case CS5:
 		cval = UART_LCR_WLEN5;
+		bits = 7;
 		break;
 	case CS6:
 		cval = UART_LCR_WLEN6;
+		bits = 8;
 		break;
 	case CS7:
 		cval = UART_LCR_WLEN7;
+		bits = 9;
 		break;
 	default:
 	case CS8:
 		cval = UART_LCR_WLEN8;
+		bits = 10;
 		break;
 	}
 
 	/* CMSPAR isn't supported by this driver */
 	termios->c_cflag &= ~CMSPAR;
 
-	if (termios->c_cflag & CSTOPB)
+	if (termios->c_cflag & CSTOPB) {
 		cval |= UART_LCR_STOP;
-	if (termios->c_cflag & PARENB)
+		bits++;
+	}
+	if (termios->c_cflag & PARENB) {
 		cval |= UART_LCR_PARITY;
+		bits++;
+	}
 	if (!(termios->c_cflag & PARODD))
 		cval |= UART_LCR_EPAR;
 
@@ -1163,6 +1171,9 @@ serial_hsu_do_set_termios(struct uart_port *port, struct ktermios *termios,
 			fcr |= UART_FCR_TRIGGER_1;
 		}
 	}
+
+	/* one byte transfer duration unit microsecond */
+	up->byte_delay = (bits * 1000000 + baud - 1) / baud;
 
 	pm_runtime_get_sync(up->dev);
 	serial_sched_stop(up);
@@ -1506,7 +1517,8 @@ static void hsu_regs_context(struct uart_hsu_port *up, int op)
 		serial_out(up, UART_MCR, up->mcr);
 		serial_out(up, UART_FCR, up->fcr);
 		serial_out(up, UART_IER, up->ier);
-	}
+	} else	/* Disable interrupt mask bits  */
+		serial_out(up, UART_IER, 0);
 
 	if (up->use_dma && up->dma_ops->context_op)
 		up->dma_ops->context_op(up, op);
@@ -1526,6 +1538,9 @@ int serial_hsu_do_suspend(struct uart_hsu_port *up)
 	if (test_bit(flag_startup, &up->flags) && (up->hw_type == hsu_dw)
 			&& serial_in(up, UART_DW_USR) & UART_DW_USR_RFNE)
 			goto busy;
+
+	if (cfg->hw_set_rts)
+		cfg->hw_set_rts(up, 1);
 
 	disable_irq(up->port.irq);
 	disable_irq(up->dma_irq);
@@ -1574,6 +1589,8 @@ int serial_hsu_do_suspend(struct uart_hsu_port *up)
 
 	return 0;
 err:
+	if (cfg->hw_set_rts)
+		cfg->hw_set_rts(up, 0);
 	clear_bit(flag_suspend, &up->flags);
 	enable_irq(up->port.irq);
 	enable_irq(up->dma_irq);
@@ -1605,6 +1622,8 @@ int serial_hsu_do_resume(struct uart_hsu_port *up)
 		cfg->hw_resume(up);
 	if (up->use_dma)
 		up->dma_ops->resume(up);
+	if (cfg->hw_set_rts)
+		cfg->hw_set_rts(up, 0);
 
 	enable_irq(up->port.irq);
 
