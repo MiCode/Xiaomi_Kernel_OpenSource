@@ -1978,12 +1978,33 @@ static int tasha_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 static int tasha_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
+	struct snd_soc_codec *codec = w->codec;
+	u16 micb_reg;
+
+	dev_dbg(codec->dev, "%s: wname: %s, event: %d\n",
+		__func__, w->name, event);
+
+	if (!(strcmp(w->name, "MIC BIAS1")))
+		micb_reg = WCD9335_ANA_MICB1;
+	else if (!(strcmp(w->name, "MIC BIAS2")))
+		micb_reg = WCD9335_ANA_MICB2;
+	else if (!(strcmp(w->name, "MIC BIAS3")))
+		micb_reg = WCD9335_ANA_MICB3;
+	else if (!(strcmp(w->name, "MIC BIAS4")))
+		micb_reg = WCD9335_ANA_MICB4;
+	else
+		return -EINVAL;
+
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
+		/* wait for cnp time */
+		usleep_range(1000, 1100);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
 		break;
 	};
 
@@ -4542,19 +4563,19 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			    SND_SOC_DAPM_PRE_PMD),
 
 	SND_SOC_DAPM_INPUT("AMIC1"),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1", WCD9335_ANA_MICB1, 7, 0,
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS1", SND_SOC_NOPM, 0, 0,
 			       tasha_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			       SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2", WCD9335_ANA_MICB2, 7, 0,
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS2", SND_SOC_NOPM, 0, 0,
 			       tasha_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			       SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3", WCD9335_ANA_MICB3, 7, 0,
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS3", SND_SOC_NOPM, 0, 0,
 			       tasha_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			       SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4", WCD9335_ANA_MICB4, 7, 0,
+	SND_SOC_DAPM_MICBIAS_E("MIC BIAS4", SND_SOC_NOPM, 0, 0,
 			       tasha_codec_enable_micbias,
 			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			       SND_SOC_DAPM_POST_PMD),
