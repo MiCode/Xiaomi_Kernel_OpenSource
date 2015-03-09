@@ -2235,6 +2235,32 @@ static int synaptics_rmi4_alloc_fh(struct synaptics_rmi4_fn **fhandler,
 	return 0;
 }
 
+static int synaptics_rmi4_read_configid(struct synaptics_rmi4_data *rmi4_data,
+		unsigned char ctrl_base_addr)
+{
+	unsigned int device_config_id;
+
+	/*
+	 * We may get an error while trying to read config id if it is
+	 *  not provisioned by vendor
+	 */
+	if (synaptics_rmi4_reg_read(rmi4_data, ctrl_base_addr,
+			(unsigned char *)(&device_config_id),
+			 sizeof(device_config_id)) < 0)
+		dev_err(rmi4_data->pdev->dev.parent, "Failed to read device config ID from CTP\n");
+
+	if (rmi4_data->hw_if->board_data->config_id)
+		dev_info(rmi4_data->pdev->dev.parent,
+			"CTP Config ID=%pI4\tDT Config ID=%pI4\n",
+			&device_config_id,
+			&rmi4_data->hw_if->board_data->config_id);
+	else
+		dev_info(rmi4_data->pdev->dev.parent,
+			"CTP Config ID=%pI4\n", &device_config_id);
+
+	return 0;
+}
+
  /**
  * synaptics_rmi4_query_device()
  *
@@ -2263,7 +2289,6 @@ static int synaptics_rmi4_query_device(struct synaptics_rmi4_data *rmi4_data)
 	struct synaptics_rmi4_fn *fhandler;
 	struct synaptics_rmi4_device_info *rmi;
 	unsigned char pkg_id[PACKAGE_ID_SIZE];
-
 	rmi = &(rmi4_data->rmi4_mod_info);
 
 rescan_pdt:
@@ -2302,6 +2327,15 @@ rescan_pdt:
 					page_number);
 
 			switch (rmi_fd.fn_number) {
+			case SYNAPTICS_RMI4_F34:
+				/*
+				 * Though function F34 is an interrupt source,
+				 * but it is not a data source, hence do not
+				 * add its handler to support_fn_list
+				 */
+				synaptics_rmi4_read_configid(rmi4_data,
+						 rmi_fd.ctrl_base_addr);
+				break;
 			case SYNAPTICS_RMI4_F01:
 				if (rmi_fd.intr_src_count == 0)
 					break;
