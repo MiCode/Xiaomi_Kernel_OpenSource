@@ -1,7 +1,7 @@
 /*
  * Synaptics DSX touchscreen driver
  *
- * Copyright (c) 2014, The Linux Foundation.  All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation.  All rights reserved.
  *
  * Linux foundation chooses to take subject only to the GPLv2 license terms,
  * and distributes only under these terms.
@@ -325,6 +325,11 @@ static int synaptics_dsx_parse_dt(struct device *dev,
 		dev_err(dev, "Unable to read reset delay\n");
 		return rc;
 	}
+
+	rc = of_property_read_u32(np, "synaptics,config-id",
+					&rmi4_pdata->config_id);
+	if (rc && (rc != -EINVAL))
+		dev_err(dev, "Unable to read config id from DT\n");
 
 	rmi4_pdata->fw_name = "PRXXX_fw.img";
 	rc = of_property_read_string(np, "synaptics,fw-name",
