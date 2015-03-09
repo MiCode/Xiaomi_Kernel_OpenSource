@@ -391,7 +391,8 @@ static bool hdmi_tx_is_cea_format(int mode)
 
 static inline bool hdmi_tx_is_hdcp_enabled(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	if (hdmi_ctrl->hdcp_feature_on && hdmi_ctrl->hdcp14_present)
+	if (hdmi_ctrl->hdcp_feature_on &&
+		(hdmi_ctrl->hdcp14_present || hdmi_ctrl->hdcp22_present))
 		return true;
 
 	return false;
@@ -1376,7 +1377,10 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 				hdmi_hdcp2p2_start(
 					hdmi_ctrl->hdcp_feature_data);
 
-		if (!hdmi_ctrl->hdcp_ops && hdmi_ctrl->hdcp14_present) {
+		if (hdmi_ctrl->hdcp_ops)
+			hdmi_ctrl->hdcp22_present = true;
+
+		if (!hdmi_ctrl->hdcp22_present && hdmi_ctrl->hdcp14_present) {
 			hdmi_ctrl->hdcp_feature_data =
 				hdmi_ctrl->feature_data[HDMI_TX_FEAT_HDCP];
 			hdmi_ctrl->hdcp_ops =
@@ -1385,6 +1389,9 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 		hdmi_tx_send_cable_notification(hdmi_ctrl, true);
 	} else {
+		hdmi_ctrl->hdcp_ops = NULL;
+		hdmi_ctrl->hdcp_feature_data = NULL;
+		hdmi_ctrl->hdcp22_present = false;
 		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
 		hdmi_tx_wait_for_audio_engine(hdmi_ctrl);
 
@@ -1960,8 +1967,14 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 		/* Enable the block */
 		reg_val |= BIT(0);
 
-		/* HDMI Encryption, if HDCP is enabled */
-		if (hdmi_tx_is_hdcp_enabled(hdmi_ctrl) &&
+		/**
+		 * HDMI Encryption, if HDCP is enabled
+		 * The ENC_REQUIRED bit is only available on HDMI Tx major
+		 * version less than 4. From 4 onwards, this bit is controlled
+		 * by TZ
+		 */
+		if (hdmi_ctrl->hdmi_tx_ver < 4 &&
+			hdmi_tx_is_hdcp_enabled(hdmi_ctrl) &&
 			!hdmi_ctrl->pdata.primary)
 			reg_val |= BIT(2);
 
