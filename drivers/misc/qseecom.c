@@ -351,8 +351,7 @@ static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			}
 			req = (struct qseecom_check_app_ireq *)req_buf;
 			pr_debug("Lookup app_name = %s\n", req->app_name);
-			memset(tzbuf, 0, tzbuflen);
-			memcpy(tzbuf, req->app_name, sizeof(req->app_name));
+			strlcpy(tzbuf, req->app_name, sizeof(req->app_name));
 			dmac_flush_range(tzbuf, tzbuf + tzbuflen);
 			smc_id = TZ_OS_APP_LOOKUP_ID;
 			desc.arginfo = TZ_OS_APP_LOOKUP_ID_PARAM_ID;
@@ -1341,7 +1340,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 
 	req.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	load_img_req.img_name[MAX_APP_NAME_SIZE-1] = '\0';
-	memcpy(req.app_name, load_img_req.img_name, MAX_APP_NAME_SIZE);
+	strlcpy(req.app_name, load_img_req.img_name, MAX_APP_NAME_SIZE);
 
 	ret = __qseecom_check_app_exists(req);
 	if (ret < 0)
@@ -1383,7 +1382,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 
 		/* Populate the structure for sending scm call to load image */
-		memcpy(load_req.app_name, load_img_req.img_name,
+		strlcpy(load_req.app_name, load_img_req.img_name,
 						MAX_APP_NAME_SIZE);
 		load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
 		load_req.mdt_len = load_img_req.mdt_len;
@@ -1443,7 +1442,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 		entry->app_id = app_id;
 		entry->ref_cnt = 1;
-		memcpy(entry->app_name, load_img_req.img_name,
+		strlcpy(entry->app_name, load_img_req.img_name,
 					MAX_APP_NAME_SIZE);
 		/* Deallocate the handle */
 		if (!IS_ERR_OR_NULL(ihandle))
@@ -1458,7 +1457,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		(char *)(load_img_req.img_name));
 	}
 	data->client.app_id = app_id;
-	memcpy(data->client.app_name, load_img_req.img_name,
+	strlcpy(data->client.app_name, load_img_req.img_name,
 					MAX_APP_NAME_SIZE);
 	load_img_req.app_id = app_id;
 	if (copy_to_user(argp, &load_img_req, sizeof(load_img_req))) {
@@ -2516,7 +2515,7 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	/* Populate the load_req parameters */
 	load_req.phy_addr = (uint32_t)pa;
 	load_req.qsee_cmd_id = QSEOS_APP_START_COMMAND;
-	memcpy(load_req.app_name, appname, MAX_APP_NAME_SIZE);
+	strlcpy(load_req.app_name, appname, MAX_APP_NAME_SIZE);
 
 	if (qseecom.support_bus_scaling) {
 		mutex_lock(&qsee_bw_mutex);
@@ -2784,7 +2783,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 	}
 
 	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
-	memcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
+	strlcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
 	ret = __qseecom_check_app_exists(app_ireq);
 	if (ret < 0)
 		goto err;
@@ -2815,7 +2814,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		if (ret < 0)
 			goto err;
 		data->client.app_id = ret;
-		memcpy(data->client.app_name, app_name, MAX_APP_NAME_SIZE);
+		strlcpy(data->client.app_name, app_name, MAX_APP_NAME_SIZE);
 	}
 	if (!found_app) {
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
@@ -2826,7 +2825,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		}
 		entry->app_id = ret;
 		entry->ref_cnt = 1;
-		memcpy(entry->app_name, app_name, MAX_APP_NAME_SIZE);
+		strlcpy(entry->app_name, app_name, MAX_APP_NAME_SIZE);
 
 		spin_lock_irqsave(&qseecom.registered_app_list_lock, flags);
 		list_add_tail(&entry->list, &qseecom.registered_app_list_head);
@@ -3593,7 +3592,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 
 	req.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	query_req.app_name[MAX_APP_NAME_SIZE-1] = '\0';
-	memcpy(req.app_name, query_req.app_name, MAX_APP_NAME_SIZE);
+	strlcpy(req.app_name, query_req.app_name, MAX_APP_NAME_SIZE);
 
 	ret = __qseecom_check_app_exists(req);
 
@@ -3615,7 +3614,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 				&qseecom.registered_app_list_lock, flags);
 		data->client.app_id = ret;
 		query_req.app_id = ret;
-		memcpy(data->client.app_name, query_req.app_name,
+		strlcpy(data->client.app_name, query_req.app_name,
 				MAX_APP_NAME_SIZE);
 		if (copy_to_user(argp, &query_req, sizeof(query_req))) {
 			pr_err("copy_to_user failed\n");
