@@ -3864,6 +3864,15 @@ static int fg_hw_init(struct fg_chip *chip)
 	data[0] = KI_COEFF_PRED_FULL_4_0_LSB;
 	data[1] = KI_COEFF_PRED_FULL_4_0_MSB;
 	fg_mem_write(chip, data, KI_COEFF_PRED_FULL_ADDR, 2, 2, 0);
+	/* Read the cycle counter back from FG SRAM */
+	if (chip->cyc_ctr_en) {
+		rc = fg_mem_read(chip, data, BATT_CYCLE_NUMBER_REG, 2,
+				BATT_CYCLE_OFFSET, 0);
+		if (rc)
+			pr_err("Failed to read BATT_CYCLE_NUMBER rc: %d\n", rc);
+		else
+			chip->cycle_counter = data[0] | data[1] << 8;
+	}
 
 	esr_value = ESR_DEFAULT_VALUE;
 	rc = fg_mem_write(chip, (u8 *)&esr_value, MAXRSCHANGE_REG, 8,
