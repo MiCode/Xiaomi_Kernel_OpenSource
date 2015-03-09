@@ -227,6 +227,8 @@
 #define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS  (0x00000474)
 #define HDMI_SCRAMBLER_STATUS_DDC_TIMER_STATUS2 (0x00000478)
 #define HDMI_HW_DDC_CTRL                 (0x000004CC)
+#define HDMI_HDCP_STATUS                 (0x00000500)
+#define HDMI_HDCP_INT_CTRL2              (0x00000504)
 
 /* HDMI PHY Registers */
 #define HDMI_PHY_ANA_CFG0                (0x00000000)
@@ -387,6 +389,8 @@ int hdmi_ddc_isr(struct hdmi_tx_ddc_ctrl *, u32 version);
 int hdmi_ddc_write(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
 int hdmi_ddc_read_seg(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
 int hdmi_ddc_read(struct hdmi_tx_ddc_ctrl *, struct hdmi_tx_ddc_data *);
+int hdmi_ddc_abort_transaction(struct hdmi_tx_ddc_ctrl *,
+		struct hdmi_tx_ddc_data *);
 
 int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val);
 int hdmi_scdc_write(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 val);

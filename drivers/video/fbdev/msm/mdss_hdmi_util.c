@@ -1116,6 +1116,27 @@ error:
 } /* hdmi_ddc_write */
 
 
+int hdmi_ddc_abort_transaction(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
+		struct hdmi_tx_ddc_data *ddc_data)
+{
+	int status;
+
+	if (!ddc_ctrl || !ddc_ctrl->io || !ddc_data) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	status = hdmi_ddc_clear_irq(ddc_ctrl, ddc_data->what);
+	if (status)
+		goto error;
+
+	DSS_REG_W_ND(ddc_ctrl->io, HDMI_DDC_ARBITRATION, BIT(12)|BIT(8));
+
+error:
+	return status;
+
+}
+
 int hdmi_scdc_read(struct hdmi_tx_ddc_ctrl *ctrl, u32 data_type, u32 *val)
 {
 	struct hdmi_tx_ddc_data data = {0};
