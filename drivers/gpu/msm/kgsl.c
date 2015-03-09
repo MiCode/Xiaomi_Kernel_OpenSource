@@ -3139,9 +3139,9 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	switch (memtype) {
 	case KGSL_MEM_ENTRY_USER:
 		if (!kgsl_mmu_enabled()) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Cannot map paged memory with the "
-				"MMU disabled\n");
+			KGSL_DEV_ERR_ONCE(dev_priv->device,
+				"Cannot map paged memory with the MMU disabled\n");
+			result = -EOPNOTSUPP;
 			break;
 		}
 
