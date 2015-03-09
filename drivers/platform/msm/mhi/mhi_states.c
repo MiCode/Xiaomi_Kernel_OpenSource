@@ -202,6 +202,7 @@ static enum MHI_STATUS process_m1_transition(
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			MHI_STATE_M2);
+		mhi_reg_read(mhi_dev_ctxt->mmio_addr, MHICTRL);
 		mhi_dev_ctxt->counters.m1_m2++;
 	}
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
