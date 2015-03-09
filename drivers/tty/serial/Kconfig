@@ -8,6 +8,7 @@ menu "Serial drivers"
 	depends on HAS_IOMEM
 
 source "drivers/tty/serial/8250/Kconfig"
+source "drivers/tty/serial/hsu/Kconfig"
 
 comment "Non-8250 serial port support"
 
@@ -452,16 +453,6 @@ config SERIAL_MRST_MAX3110
 	  This is the UART protocol driver for the MAX3110 device on
 	  the Intel Moorestown platform. On other systems use the max3100
 	  driver.
-
-config SERIAL_MFD_HSU
-	tristate "Medfield High Speed UART support"
-	depends on PCI
-	select SERIAL_CORE
-
-config SERIAL_MFD_HSU_CONSOLE
-	boolean "Medfile HSU serial console support"
-	depends on SERIAL_MFD_HSU=y
-	select SERIAL_CORE_CONSOLE
 
 config SERIAL_BFIN
 	tristate "Blackfin serial port support"

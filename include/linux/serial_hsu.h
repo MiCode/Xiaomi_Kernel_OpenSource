@@ -1,5 +1,5 @@
-#ifndef _SERIAL_MFD_H_
-#define _SERIAL_MFD_H_
+#ifndef _SERIAL_HSU_H_
+#define _SERIAL_HSU_H_
 
 /* HW register offset definition */
 #define UART_FOR	0x08
@@ -43,5 +43,8 @@
 #define HSU_CH_D2TSR		0x34
 #define HSU_CH_D3SAR		0x38
 #define HSU_CH_D3TSR		0x3C
+
+struct device *intel_mid_hsu_set_wake_peer(int port,
+			void (*wake_peer)(struct device *));
 
 #endif

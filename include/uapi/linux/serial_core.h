@@ -202,8 +202,8 @@
 /* MAX310X */
 #define PORT_MAX310X	94
 
-/* High Speed UART for Medfield */
-#define PORT_MFD	95
+/* Intel High Speed UART */
+#define PORT_HSU	95
 
 /* TI OMAP-UART */
 #define PORT_OMAP	96

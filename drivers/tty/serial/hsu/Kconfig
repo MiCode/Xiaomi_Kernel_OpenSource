@@ -1,0 +1,28 @@
+#
+# The Intel High Speed UART serial drivers.
+#
+
+config SERIAL_HSU
+	tristate "Intel High Speed UART support"
+	depends on PCI
+	select SERIAL_CORE
+	---help---
+	  This is the High Speed UART protocol driver for Intel Mid UART Controller
+	  and Synopsys Designware APB UART.
+
+	  Support Intel Cherrytrail platform and old Mid platform.
+
+	  To compile this driver as a module, choose M here.
+
+
+config SERIAL_HSU_CONSOLE
+	bool "Console on Intel HSU serial port"
+	depends on SERIAL_HSU=y
+	select SERIAL_CORE_CONSOLE
+	---help---
+	  If you say Y here, it will be possible to use a serial port as the
+	  system console (the system console is the device which receives all
+	  kernel messages and warnings and which allows logins in single user
+	  mode). This could be useful if some terminal or printer is connected
+	  to that serial port.
+

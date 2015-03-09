@@ -17,7 +17,7 @@
  */
 
 #include <linux/serial_reg.h>
-#include <linux/serial_mfd.h>
+#include <linux/serial_hsu.h>
 #include <linux/kmsg_dump.h>
 #include <linux/console.h>
 #include <linux/kernel.h>
