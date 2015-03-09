@@ -4648,13 +4648,13 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 			atomisp_buf_done(asd, 0,
 					 CSS_BUFFER_TYPE_3A_STATISTICS,
 					 current_event.pipe,
-					 css_pipe_done[asd->index], stream_id);
+					 false, stream_id);
 			break;
 		case CSS_EVENT_METADATA_DONE:
 			atomisp_buf_done(asd, 0,
 					 CSS_BUFFER_TYPE_METADATA,
 					 current_event.pipe,
-					 css_pipe_done[asd->index], stream_id);
+					 false, stream_id);
 			break;
 		case CSS_EVENT_VF_OUTPUT_FRAME_DONE:
 			atomisp_buf_done(asd, 0,
@@ -4672,7 +4672,7 @@ int atomisp_css_isr_thread(struct atomisp_device *isp,
 			atomisp_buf_done(asd, 0,
 					 CSS_BUFFER_TYPE_DIS_STATISTICS,
 					 current_event.pipe,
-					 css_pipe_done[asd->index], stream_id);
+					 false, stream_id);
 			break;
 		case CSS_EVENT_PIPELINE_DONE:
 			css_pipe_done[asd->index] = true;

@@ -90,6 +90,130 @@ static int atomisp_buf_prepare(struct videobuf_queue *vq,
 	return 0;
 }
 
+static int atomisp_q_one_metadata_buffer(struct atomisp_sub_device *asd,
+		enum atomisp_input_stream_id stream_id,
+		enum atomisp_css_pipe_id css_pipe_id)
+{
+	struct atomisp_metadata_buf *metadata_buf;
+	enum atomisp_metadata_type md_type =
+			atomisp_get_metadata_type(asd, css_pipe_id);
+	struct list_head *metadata_list;
+
+	if (asd->metadata_bufs_in_css[stream_id][css_pipe_id] >=
+		ATOMISP_CSS_Q_DEPTH)
+		return 0; /* we have reached CSS queue depth */
+
+	if (!list_empty(&asd->metadata[md_type])) {
+		metadata_list = &asd->metadata[md_type];
+	} else if (!list_empty(&asd->metadata_ready[md_type])) {
+		metadata_list = &asd->metadata_ready[md_type];
+	} else {
+		dev_warn(asd->isp->dev, "%s: No metadata buffers available for type %d!\n",
+			__func__, md_type);
+		return -EINVAL;
+	}
+
+	metadata_buf = list_entry(metadata_list->next,
+				  struct atomisp_metadata_buf, list);
+	list_del_init(&metadata_buf->list);
+
+	if (atomisp_q_metadata_buffer_to_css(asd, metadata_buf,
+				stream_id, css_pipe_id)) {
+		list_add(&metadata_buf->list, metadata_list);
+		return -EINVAL;
+	} else {
+		list_add_tail(&metadata_buf->list,
+				&asd->metadata_in_css[md_type]);
+	}
+	asd->metadata_bufs_in_css[stream_id][css_pipe_id]++;
+
+	return 0;
+}
+
+int atomisp_q_one_s3a_buffer(struct atomisp_sub_device *asd,
+				enum atomisp_input_stream_id stream_id,
+				enum atomisp_css_pipe_id css_pipe_id)
+{
+	struct atomisp_s3a_buf *s3a_buf;
+	struct list_head *s3a_list;
+	unsigned int exp_id;
+
+	if (asd->s3a_bufs_in_css[css_pipe_id] >= ATOMISP_CSS_Q_DEPTH)
+		return 0; /* we have reached CSS queue depth */
+
+	if (!list_empty(&asd->s3a_stats)) {
+		s3a_list = &asd->s3a_stats;
+	} else if (!list_empty(&asd->s3a_stats_ready)) {
+		s3a_list = &asd->s3a_stats_ready;
+	} else {
+		dev_warn(asd->isp->dev, "%s: No s3a buffers available!\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	s3a_buf = list_entry(s3a_list->next, struct atomisp_s3a_buf, list);
+	list_del_init(&s3a_buf->list);
+	exp_id = s3a_buf->s3a_data->exp_id;
+
+	hmm_flush_vmap(s3a_buf->s3a_data->data_ptr);
+	if (atomisp_q_s3a_buffer_to_css(asd, s3a_buf,
+					stream_id, css_pipe_id)) {
+		/* got from head, so return back to the head */
+		list_add(&s3a_buf->list, s3a_list);
+		return -EINVAL;
+	} else {
+		list_add_tail(&s3a_buf->list, &asd->s3a_stats_in_css);
+		if (s3a_list == &asd->s3a_stats_ready)
+			dev_warn(asd->isp->dev, "%s: drop one s3a stat which has exp_id %d!\n",
+				__func__, exp_id);
+	}
+
+	asd->s3a_bufs_in_css[css_pipe_id]++;
+	return 0;
+}
+
+int atomisp_q_one_dis_buffer(struct atomisp_sub_device *asd,
+				enum atomisp_input_stream_id stream_id,
+				enum atomisp_css_pipe_id css_pipe_id)
+{
+	struct atomisp_dis_buf *dis_buf;
+	unsigned long irqflags;
+
+	if (asd->dis_bufs_in_css >=  ATOMISP_CSS_Q_DEPTH)
+		return 0; /* we have reached CSS queue depth */
+
+	spin_lock_irqsave(&asd->dis_stats_lock, irqflags);
+	if (list_empty(&asd->dis_stats)) {
+		spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
+		dev_warn(asd->isp->dev, "%s: No dis buffers available!\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	dis_buf = list_entry(asd->dis_stats.prev,
+			struct atomisp_dis_buf, list);
+	list_del_init(&dis_buf->list);
+	spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
+
+	hmm_flush_vmap(dis_buf->dis_data->data_ptr);
+	if (atomisp_q_dis_buffer_to_css(asd, dis_buf,
+					stream_id, css_pipe_id)) {
+		spin_lock_irqsave(&asd->dis_stats_lock, irqflags);
+		/* got from tail, so return back to the tail */
+		list_add_tail(&dis_buf->list, &asd->dis_stats);
+		spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
+		return -EINVAL;
+	} else {
+		spin_lock_irqsave(&asd->dis_stats_lock, irqflags);
+		list_add_tail(&dis_buf->list, &asd->dis_stats_in_css);
+		spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
+	}
+
+	asd->dis_bufs_in_css++;
+
+	return 0;
+}
+
 int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 			     struct atomisp_video_pipe *pipe,
 			     enum atomisp_input_stream_id stream_id,
@@ -98,6 +222,8 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 {
 	struct videobuf_vmalloc_memory *vm_mem;
 	struct atomisp_css_params_with_list *param;
+	struct atomisp_css_dvs_grid_info *dvs_grid =
+		 atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 	unsigned long irqflags;
 	int err;
 
@@ -173,128 +299,25 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 			return -EINVAL;
 		}
 		pipe->buffers_in_css++;
-	}
-	return 0;
-}
 
-static int atomisp_q_metadata_buffers_to_css(struct atomisp_sub_device *asd,
-		enum atomisp_input_stream_id stream_id,
-		enum atomisp_css_pipe_id css_pipe_id)
-{
-	struct atomisp_metadata_buf *metadata_buf;
-	enum atomisp_metadata_type md_type =
-			atomisp_get_metadata_type(asd, css_pipe_id);
-	struct list_head *metadata_list;
+		/* enqueue 3A/DIS/metadata buffers */
+		if (asd->params.curr_grid_info.s3a_grid.enable &&
+			css_pipe_id == asd->params.s3a_enabled_pipe &&
+			css_buf_type == CSS_BUFFER_TYPE_OUTPUT_FRAME)
+			atomisp_q_one_s3a_buffer(asd, stream_id,
+						css_pipe_id);
 
-	while (asd->metadata_bufs_in_css[stream_id][css_pipe_id]
-	       < ATOMISP_CSS_Q_DEPTH) {
-		if (!list_empty(&asd->metadata[md_type])) {
-			metadata_list = &asd->metadata[md_type];
-		} else if (!list_empty(&asd->metadata_ready[md_type])) {
-			metadata_list = &asd->metadata_ready[md_type];
-		} else {
-			dev_warn(asd->isp->dev, "%s: No metadata buffers available for type %d!\n",
-				__func__, md_type);
-			return -EINVAL;
-		}
+		if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream_info.
+				metadata_info.size &&
+			css_buf_type == CSS_BUFFER_TYPE_OUTPUT_FRAME)
+			atomisp_q_one_metadata_buffer(asd, stream_id,
+						css_pipe_id);
 
-		metadata_buf = list_entry(metadata_list->next,
-					  struct atomisp_metadata_buf, list);
-		list_del_init(&metadata_buf->list);
-
-		if (atomisp_q_metadata_buffer_to_css(asd, metadata_buf,
-					stream_id, css_pipe_id)) {
-			list_add(&metadata_buf->list, metadata_list);
-			return -EINVAL;
-		} else {
-			list_add_tail(&metadata_buf->list,
-					&asd->metadata_in_css[md_type]);
-		}
-		asd->metadata_bufs_in_css[stream_id][css_pipe_id]++;
-	}
-
-	return 0;
-}
-
-int atomisp_q_s3a_buffers_to_css(struct atomisp_sub_device *asd,
-				enum atomisp_input_stream_id stream_id,
-				enum atomisp_css_pipe_id css_pipe_id)
-{
-	struct atomisp_s3a_buf *s3a_buf;
-	struct list_head *s3a_list;
-	unsigned int exp_id;
-
-	while (asd->s3a_bufs_in_css[css_pipe_id] < ATOMISP_CSS_Q_DEPTH) {
-		if (!list_empty(&asd->s3a_stats)) {
-			s3a_list = &asd->s3a_stats;
-		} else if (!list_empty(&asd->s3a_stats_ready)) {
-			s3a_list = &asd->s3a_stats_ready;
-		} else {
-			dev_warn(asd->isp->dev, "%s: No s3a buffers available!\n",
-				__func__);
-			return -EINVAL;
-		}
-
-		s3a_buf = list_entry(s3a_list->next, struct atomisp_s3a_buf,
-					list);
-		list_del_init(&s3a_buf->list);
-		exp_id = s3a_buf->s3a_data->exp_id;
-
-		hmm_flush_vmap(s3a_buf->s3a_data->data_ptr);
-		if (atomisp_q_s3a_buffer_to_css(asd, s3a_buf,
-						stream_id, css_pipe_id)) {
-			/* got from head, so return back to the head */
-			list_add(&s3a_buf->list, s3a_list);
-			return -EINVAL;
-		} else {
-			list_add_tail(&s3a_buf->list, &asd->s3a_stats_in_css);
-			if (s3a_list == &asd->s3a_stats_ready)
-				dev_warn(asd->isp->dev, "%s: drop one s3a stat which has exp_id %d!\n",
-					__func__, exp_id);
-		}
-
-		asd->s3a_bufs_in_css[css_pipe_id]++;
-	}
-
-	return 0;
-}
-
-int atomisp_q_dis_buffers_to_css(struct atomisp_sub_device *asd,
-				enum atomisp_input_stream_id stream_id,
-				enum atomisp_css_pipe_id css_pipe_id)
-{
-	struct atomisp_dis_buf *dis_buf;
-	unsigned long irqflags;
-
-	while (asd->dis_bufs_in_css < ATOMISP_CSS_Q_DEPTH) {
-		spin_lock_irqsave(&asd->dis_stats_lock, irqflags);
-		if (list_empty(&asd->dis_stats)) {
-			spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
-			dev_warn(asd->isp->dev, "%s: No dis buffers available!\n",
-				__func__);
-			return -EINVAL;
-		}
-
-		dis_buf = list_entry(asd->dis_stats.prev,
-				struct atomisp_dis_buf, list);
-		list_del_init(&dis_buf->list);
-		spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
-
-		hmm_flush_vmap(dis_buf->dis_data->data_ptr);
-		if (atomisp_q_dis_buffer_to_css(asd, dis_buf,
-						stream_id, css_pipe_id)) {
-			spin_lock_irqsave(&asd->dis_stats_lock, irqflags);
-			/* got from tail, so return back to the tail */
-			list_add_tail(&dis_buf->list, &asd->dis_stats);
-			spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
-			return -EINVAL;
-		} else {
-			spin_lock_irqsave(&asd->dis_stats_lock, irqflags);
-			list_add_tail(&dis_buf->list, &asd->dis_stats_in_css);
-			spin_unlock_irqrestore(&asd->dis_stats_lock, irqflags);
-		}
-
-		asd->dis_bufs_in_css++;
+		if (dvs_grid && dvs_grid->enable &&
+			css_pipe_id == CSS_PIPE_ID_VIDEO &&
+			css_buf_type == CSS_BUFFER_TYPE_OUTPUT_FRAME)
+			atomisp_q_one_dis_buffer(asd, stream_id,
+						css_pipe_id);
 	}
 
 	return 0;
@@ -371,11 +394,6 @@ static int atomisp_qbuffers_to_css_for_all_pipes(struct atomisp_sub_device *asd)
 	atomisp_q_video_buffers_to_css(asd, preview_pipe,
 				       input_stream_id,
 				       buf_type, css_preview_pipe_id);
-	if (asd->stream_env[input_stream_id].stream_info.
-			metadata_info.size) {
-		atomisp_q_metadata_buffers_to_css(asd, input_stream_id,
-			css_preview_pipe_id);
-	}
 
 	buf_type = atomisp_get_css_buf_type(asd, css_capture_pipe_id,
 			atomisp_subdev_source_pad(&capture_pipe->vdev));
@@ -383,11 +401,6 @@ static int atomisp_qbuffers_to_css_for_all_pipes(struct atomisp_sub_device *asd)
 	atomisp_q_video_buffers_to_css(asd, capture_pipe,
 					       input_stream_id,
 					       buf_type, css_capture_pipe_id);
-	if (asd->stream_env[input_stream_id].stream_info.
-			metadata_info.size) {
-		atomisp_q_metadata_buffers_to_css(asd, input_stream_id,
-			css_capture_pipe_id);
-	}
 
 	buf_type = atomisp_get_css_buf_type(asd, css_video_pipe_id,
 			atomisp_subdev_source_pad(&video_pipe->vdev));
@@ -395,11 +408,6 @@ static int atomisp_qbuffers_to_css_for_all_pipes(struct atomisp_sub_device *asd)
 	atomisp_q_video_buffers_to_css(asd, video_pipe,
 					       input_stream_id,
 					       buf_type, css_video_pipe_id);
-	if (asd->stream_env[input_stream_id].stream_info.
-			metadata_info.size)
-		atomisp_q_metadata_buffers_to_css(asd, input_stream_id,
-			css_video_pipe_id);
-
 	return 0;
 }
 
@@ -418,8 +426,6 @@ int atomisp_qbuffers_to_css(struct atomisp_sub_device *asd)
 	struct atomisp_video_pipe *video_pipe = NULL;
 	bool raw_mode = atomisp_is_mbuscode_raw(
 			    asd->fmt[asd->capture_pad].fmt.code);
-	struct atomisp_css_dvs_grid_info *dvs_grid =
-		atomisp_css_get_dvs_grid_info(&asd->params.curr_grid_info);
 
 	if (asd->isp->inputs[asd->input_curr].camera_caps->
 	    sensor[asd->sensor_curr].stream_num == 2 &&
@@ -557,42 +563,6 @@ int atomisp_qbuffers_to_css(struct atomisp_sub_device *asd)
 					       input_stream_id,
 					       buf_type, css_video_pipe_id);
 	}
-
-
-	if (asd->params.curr_grid_info.s3a_grid.enable) {
-		if (css_capture_pipe_id < CSS_PIPE_ID_NUM &&
-		    css_capture_pipe_id == asd->params.s3a_enabled_pipe)
-			atomisp_q_s3a_buffers_to_css(asd,
-					ATOMISP_INPUT_STREAM_GENERAL,
-					css_capture_pipe_id);
-		if (css_preview_pipe_id < CSS_PIPE_ID_NUM &&
-		    css_preview_pipe_id == asd->params.s3a_enabled_pipe)
-			atomisp_q_s3a_buffers_to_css(asd,
-					ATOMISP_INPUT_STREAM_GENERAL,
-					css_preview_pipe_id);
-		if (css_video_pipe_id < CSS_PIPE_ID_NUM &&
-		    css_video_pipe_id == asd->params.s3a_enabled_pipe)
-			atomisp_q_s3a_buffers_to_css(asd,
-					ATOMISP_INPUT_STREAM_GENERAL,
-					css_video_pipe_id);
-	}
-
-	if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream_info.
-			metadata_info.size) {
-		if (css_capture_pipe_id < CSS_PIPE_ID_NUM)
-			atomisp_q_metadata_buffers_to_css(asd,
-					ATOMISP_INPUT_STREAM_GENERAL,
-					css_capture_pipe_id);
-		if (css_preview_pipe_id < CSS_PIPE_ID_NUM)
-			atomisp_q_metadata_buffers_to_css(asd,
-					ATOMISP_INPUT_STREAM_GENERAL,
-					css_preview_pipe_id);
-	}
-
-	if (dvs_grid && dvs_grid->enable)
-		atomisp_q_dis_buffers_to_css(asd,
-					ATOMISP_INPUT_STREAM_GENERAL,
-					css_video_pipe_id);
 
 	return 0;
 }

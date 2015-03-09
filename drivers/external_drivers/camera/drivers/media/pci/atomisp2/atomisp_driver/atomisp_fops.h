@@ -31,14 +31,6 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 			     enum atomisp_css_buffer_type css_buf_type,
 			     enum atomisp_css_pipe_id css_pipe_id);
 
-int atomisp_q_s3a_buffers_to_css(struct atomisp_sub_device *asd,
-			   enum atomisp_input_stream_id stream_id,
-			   enum atomisp_css_pipe_id css_pipe_id);
-
-int atomisp_q_dis_buffers_to_css(struct atomisp_sub_device *asd,
-			   enum atomisp_input_stream_id stream_id,
-			   enum atomisp_css_pipe_id css_pipe_id);
-
 unsigned int atomisp_dev_users(struct atomisp_device *isp);
 unsigned int atomisp_sub_dev_users(struct atomisp_sub_device *asd);
 
