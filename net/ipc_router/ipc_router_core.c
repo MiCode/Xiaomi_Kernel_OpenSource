@@ -2777,7 +2777,7 @@ static int ipc_router_tx_wait(struct msm_ipc_port *src,
 			return -ENETRESET;
 		}
 
-		if (rport_ptr->tx_quota_cnt < IPC_ROUTER_DEFAULT_RX_QUOTA)
+		if (rport_ptr->tx_quota_cnt < IPC_ROUTER_HIGH_RX_QUOTA)
 			break;
 
 		if (msm_ipc_router_lookup_resume_tx_port(
@@ -2805,7 +2805,7 @@ check_timeo:
 		} else if (timeout < 0) {
 			ret = wait_event_interruptible(src->port_tx_wait_q,
 					(rport_ptr->tx_quota_cnt !=
-					 IPC_ROUTER_DEFAULT_RX_QUOTA ||
+					 IPC_ROUTER_HIGH_RX_QUOTA ||
 					 rport_ptr->status == RESET));
 			if (ret)
 				return ret;
@@ -2813,7 +2813,7 @@ check_timeo:
 			ret = wait_event_interruptible_timeout(
 					src->port_tx_wait_q,
 					(rport_ptr->tx_quota_cnt !=
-					 IPC_ROUTER_DEFAULT_RX_QUOTA ||
+					 IPC_ROUTER_HIGH_RX_QUOTA ||
 					 rport_ptr->status == RESET),
 					msecs_to_jiffies(timeout));
 			if (ret < 0) {
@@ -2827,7 +2827,7 @@ check_timeo:
 		}
 	}
 	rport_ptr->tx_quota_cnt++;
-	if (rport_ptr->tx_quota_cnt == IPC_ROUTER_DEFAULT_RX_QUOTA)
+	if (rport_ptr->tx_quota_cnt == IPC_ROUTER_LOW_RX_QUOTA)
 		*set_confirm_rx = 1;
 	mutex_unlock(&rport_ptr->rport_lock_lhb2);
 	return 0;
