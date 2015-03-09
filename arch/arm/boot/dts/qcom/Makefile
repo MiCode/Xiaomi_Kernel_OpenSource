@@ -86,6 +86,15 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-cdp.dtb \
 	msm8939-mtp-jdi.dtb \
 	msm8939-mtp-smb1360.dtb \
 	msm8939-mtp-wcd9306.dtb \
+	msm8939-v3.0-qrd-skuk.dtb \
+	msm8939-v3.0-qrd-skul.dtb \
+	msm8939-v3.0-cdp.dtb \
+	msm8939-v3.0-cdp-jdi.dtb \
+	msm8939-v3.0-cdp-jdi-a216-fhd.dtb \
+	msm8939-v3.0-mtp.dtb \
+	msm8939-v3.0-mtp-jdi.dtb \
+	msm8939-v3.0-mtp-smb1360.dtb \
+	msm8939-v3.0-mtp-wcd9306.dtb \
 	msm8936-qrd-skuk.dtb \
 	msm8936-cdp.dtb \
 	msm8936-cdp-smb1360.dtb \
