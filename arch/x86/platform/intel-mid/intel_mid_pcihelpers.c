@@ -186,7 +186,8 @@ static bool is_south_complex_device(struct pci_dev *dev)
  */
 static void pci_d3_delay_fixup(struct pci_dev *dev)
 {
-	if (platform_is(INTEL_ATOM_BYT)) {
+	if (platform_is(INTEL_ATOM_BYT) ||
+		platform_is(INTEL_ATOM_CHT)) {
 		/* All internal devices are in bus 0. */
 		if (dev->bus->number == 0 && is_south_complex_device(dev)) {
 			dev->d3_delay = INTERNAL_PCI_PM_D3_WAIT;
