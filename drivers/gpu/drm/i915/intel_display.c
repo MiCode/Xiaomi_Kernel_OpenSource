@@ -5348,7 +5348,6 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 	int pipe = intel_crtc->pipe;
 	int plane = intel_crtc->plane;
 	bool is_dsi;
-	u32 dspcntr;
 
 	WARN_ON(!crtc->enabled);
 
@@ -5359,9 +5358,6 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 
 	if (!is_dsi && !IS_CHERRYVIEW(dev))
 		vlv_prepare_pll(intel_crtc);
-
-	/* Set up the display plane register */
-	dspcntr = DISPPLANE_GAMMA_ENABLE;
 
 	if (intel_crtc->config.has_dp_encoder ||
 		intel_pipe_has_type(&intel_crtc->base, INTEL_OUTPUT_EDP))
@@ -5377,9 +5373,6 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 		   (intel_crtc->config.pipe_src_w - 1));
 
 	i9xx_set_pipeconf(intel_crtc);
-
-	I915_WRITE(DSPCNTR(plane), dspcntr);
-	POSTING_READ(DSPCNTR(plane));
 
 	dev_priv->display.update_primary_plane(crtc, crtc->primary->fb,
 					       crtc->x, crtc->y);
