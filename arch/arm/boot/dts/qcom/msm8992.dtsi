@@ -2055,6 +2055,7 @@
 					<68 604 1717000 3632000>;
 				qcom,bus-configs = <0x30fcfff>;
 			};
+
 			qcom,msm-bus-client@6 {
 				qcom,msm-bus,name = "venus-arm9-ddr";
 				qcom,msm-bus,num-cases = <2>;
@@ -2064,6 +2065,25 @@
 					<63 512 1000 1000>;
 				qcom,bus-configs = <0x00000000>;
 				qcom,bus-passive;
+			};
+
+			qcom,msm-bus-client@7 {
+				qcom,msm-bus,name = "venc-ddr-lp";
+				qcom,msm-bus,num-cases = <10>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 61000 0>,
+					<63 512 183000 0>,
+					<63 512 183000 0>,
+					<63 512 417000 0>,
+					<63 512 417000 0>,
+					<63 512 834000 0>,
+					<63 512 975000 0>,
+					<63 512 1044000 0>,
+					<63 512 1218000 0>;
+				qcom,bus-low-power;
+				qcom,bus-configs = <0x1000414>;
 			};
 		};
 	};
