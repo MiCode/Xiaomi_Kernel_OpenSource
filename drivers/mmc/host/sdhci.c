@@ -1968,7 +1968,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		sdhci_set_power(host, ios->power_mode, ios->vdd);
 	}
 	if (!ios->clock)
-		sdhci_set_clock(host, ios->clock);
+		host->ops->set_clock(host, ios->clock);
 
 	mmiowb();
 }
