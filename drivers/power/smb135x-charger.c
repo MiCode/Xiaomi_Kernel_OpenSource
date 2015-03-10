@@ -114,6 +114,16 @@
 #define HOT_SOFT_CURRENT_COMP_EN_BIT	BIT(1)
 #define COLD_SOFT_CURRENT_COMP_EN_BIT	BIT(0)
 
+#define CFG_1B_REG			0x1B
+#define COLD_HARD_MASK			SMB135X_MASK(7, 6)
+#define COLD_HARD_SHIFT			6
+#define HOT_HARD_MASK			SMB135X_MASK(5, 4)
+#define HOT_HARD_SHIFT			4
+#define COLD_SOFT_MASK			SMB135X_MASK(3, 2)
+#define COLD_SOFT_SHIFT			2
+#define HOT_SOFT_MASK			SMB135X_MASK(1, 0)
+#define HOT_SOFT_SHIFT			0
+
 #define VFLOAT_REG			0x1E
 
 #define VERSION1_REG			0x2A
@@ -393,6 +403,8 @@ struct smb135x_chg {
 	unsigned int			thermal_levels;
 	unsigned int			therm_lvl_sel;
 	unsigned int			*thermal_mitigation;
+	unsigned int			gamma_setting_num;
+	unsigned int			*gamma_setting;
 	struct mutex			current_change_lock;
 
 	const char			*pinctrl_state_name;
@@ -3572,6 +3584,22 @@ static int smb135x_hw_init(struct smb135x_chg *chip)
 		}
 	}
 
+	if (chip->gamma_setting) {
+		rc = smb135x_masked_write(chip, CFG_1B_REG, COLD_HARD_MASK,
+				chip->gamma_setting[0] << COLD_HARD_SHIFT);
+
+		rc |= smb135x_masked_write(chip, CFG_1B_REG, HOT_HARD_MASK,
+				chip->gamma_setting[1] << HOT_HARD_SHIFT);
+
+		rc |= smb135x_masked_write(chip, CFG_1B_REG, COLD_SOFT_MASK,
+				chip->gamma_setting[2] << COLD_SOFT_SHIFT);
+
+		rc |= smb135x_masked_write(chip, CFG_1B_REG, HOT_SOFT_MASK,
+				chip->gamma_setting[3] << HOT_SOFT_SHIFT);
+		if (rc < 0)
+			goto free_regulator;
+	}
+
 	__smb135x_charging(chip, chip->chg_enabled);
 
 	/* interrupt enabling - active low */
@@ -3699,6 +3727,7 @@ static struct of_device_id smb135x_match_table[] = {
 
 #define DC_MA_MIN 300
 #define DC_MA_MAX 2000
+#define NUM_GAMMA_VALUES 4
 static int smb_parse_dt(struct smb135x_chg *chip)
 {
 	int rc;
@@ -3798,6 +3827,37 @@ static int smb_parse_dt(struct smb135x_chg *chip)
 							"therm-bias");
 		if (IS_ERR(chip->therm_bias_vreg))
 			return PTR_ERR(chip->therm_bias_vreg);
+	}
+
+	/*
+	 * Gamma value indicates the ratio of the pull up resistors and NTC
+	 * resistor in battery pack. There are 4 options, refer to the graphic
+	 * user interface and choose the right one.
+	 */
+	if (of_find_property(node, "qcom,gamma-setting",
+					&chip->gamma_setting_num)) {
+		chip->gamma_setting_num = chip->gamma_setting_num /
+					sizeof(chip->gamma_setting_num);
+		if (NUM_GAMMA_VALUES != chip->gamma_setting_num) {
+			pr_err("Gamma setting not correct!\n");
+			return -EINVAL;
+		}
+
+		chip->gamma_setting = devm_kzalloc(chip->dev,
+			chip->gamma_setting_num *
+				sizeof(chip->gamma_setting_num), GFP_KERNEL);
+		if (!chip->gamma_setting) {
+			pr_err("gamma setting kzalloc failed!\n");
+			return -ENOMEM;
+		}
+
+		rc = of_property_read_u32_array(node,
+					"qcom,gamma-setting",
+				chip->gamma_setting, chip->gamma_setting_num);
+		if (rc) {
+			pr_err("Couldn't read gamma setting, rc = %d\n", rc);
+			return rc;
+		}
 	}
 
 	if (of_find_property(node, "qcom,thermal-mitigation",
