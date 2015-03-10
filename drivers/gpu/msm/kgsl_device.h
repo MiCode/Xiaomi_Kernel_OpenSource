@@ -716,8 +716,6 @@ long kgsl_ioctl_copy_in(unsigned int kernel_cmd, unsigned int user_cmd,
 long kgsl_ioctl_copy_out(unsigned int kernel_cmd, unsigned int user_cmd,
 		unsigned long, unsigned char *ptr);
 
-uint64_t kgsl_filter_cachemode(uint64_t flags);
-
 int kgsl_mem_entry_attach_process(struct kgsl_mem_entry *entry,
 				   struct kgsl_device_private *dev_priv);
 
