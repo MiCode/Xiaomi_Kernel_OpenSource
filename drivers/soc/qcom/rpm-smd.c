@@ -1597,22 +1597,26 @@ static void msm_rpm_glink_notifier_cb(struct glink_link_state_cb_info *cb_info,
 					void *priv)
 {
 	struct glink_open_config *open_config;
+	static bool first = true;
 
 	if (!cb_info) {
 		pr_err("Missing callback data\n");
 		return;
 	}
 
-	open_config = kzalloc(sizeof(*open_config), GFP_KERNEL);
-	if (!open_config) {
-		pr_err("Could not allocate memory\n");
-		return;
-	}
-
-	glink_data->open_cfg = open_config;
-
 	switch (cb_info->link_state) {
 	case GLINK_LINK_STATE_UP:
+		if (first)
+			first = false;
+		else
+			break;
+		open_config = kzalloc(sizeof(*open_config), GFP_KERNEL);
+		if (!open_config) {
+			pr_err("Could not allocate memory\n");
+			break;
+		}
+
+		glink_data->open_cfg = open_config;
 		pr_debug("glink link state up cb receieved\n");
 		INIT_WORK(&glink_data->work, msm_rpm_glink_open_work);
 
