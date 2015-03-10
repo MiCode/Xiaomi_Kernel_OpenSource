@@ -102,6 +102,7 @@ struct hdmi_tx_ctrl {
 	bool hdcp_feature_on;
 	bool hpd_disabled;
 	bool ds_registered;
+	bool audio_ack_enabled;
 	u32 present_hdcp;
 
 	u8 spd_vendor_name[9];
@@ -114,6 +115,7 @@ struct hdmi_tx_ctrl {
 
 	void *feature_data[HDMI_TX_FEAT_MAX];
 	u32 s3d_mode;
+	atomic_t audio_ack_pending;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
