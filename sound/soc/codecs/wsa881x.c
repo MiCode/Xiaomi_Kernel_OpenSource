@@ -445,11 +445,21 @@ EXPORT_SYMBOL(wsa881x_set_channel_map);
 static int wsa881x_probe(struct snd_soc_codec *codec)
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+	struct swr_device *dev;
+	u8 devnum = 0;
 	int ret;
 
 	if (!wsa881x)
 		return -EINVAL;
 
+	dev = wsa881x->swr_slave;
+	ret = swr_get_logical_dev_num(dev, dev->addr, &devnum);
+	if (!ret) {
+		dev_err(codec->dev, "%s failed to get devnum, err:%d\n",
+			__func__, ret);
+		return ret;
+	}
+	dev->dev_num = devnum;
 	codec->control_data = wsa881x->regmap;
 	ret = snd_soc_codec_set_cache_io(codec, WSA881X_ADDR_BITS,
 					WSA881X_DATA_BITS, SND_SOC_REGMAP);
