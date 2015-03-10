@@ -154,6 +154,7 @@
 #define clk_gcc_camss_vfe_ahb_clk		0x4050f47a
 #define clk_gcc_camss_vfe_axi_clk		0x77fe2384
 #define clk_gcc_oxili_gmem_clk			0x5620913a
+#define clk_gcc_oxili_gmem_gate_clk		0xd179f583
 #define clk_gcc_gp1_clk				0x057f7b69
 #define clk_gcc_gp2_clk				0x9bf83ffd
 #define clk_gcc_gp3_clk				0xec6539ee
