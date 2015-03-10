@@ -208,11 +208,6 @@ static int gmac_dt_update(int cell, phys_addr_t addr, unsigned long size)
 	struct device_node *np = NULL;
 	struct property *pmac = NULL;
 	struct property *pp = NULL;
-
-	struct device_node *np1 = NULL;
-	struct property *pmac1 = NULL;
-	struct property *pp1 = NULL;
-
 	u8 buf[ETH_ALEN];
 	int n;
 	int retval = 0;
@@ -265,45 +260,36 @@ static int gmac_dt_update(int cell, phys_addr_t addr, unsigned long size)
 
 	of_node_put(np);
 
-	pmac1 = kzalloc(sizeof(*pmac1) + ETH_ALEN, GFP_KERNEL);
-	if (!pmac1) {
+	pmac = kzalloc(sizeof(*pmac) + ETH_ALEN, GFP_KERNEL);
+	if (!pmac) {
 		pr_err("failed to alloc memory for mac address\n");
 		return -ENOMEM;
 	}
 
-	pmac1->value = pmac1 + 1;
-	pmac1->length = ETH_ALEN;
-	pmac1->name = (char *)mac_addr_prop_name1;
-	memcpy(pmac1->value, buf, ETH_ALEN);
-	if (cell == 0) {
-		for_each_compatible_node(np1, NULL, "qcom,nss-gmac0") {
-			if (of_property_read_u32(np1, "qcom,id", &n))
-				continue;
-			if (n == cell)
-				break;
-		}
-	} else if (cell == 1) {
-		for_each_compatible_node(np1, NULL, "qcom,nss-gmac1") {
-			if (of_property_read_u32(np1, "qcom,id", &n))
-				continue;
-			if (n == cell)
-				break;
+	pmac->value = pmac + 1;
+	pmac->length = ETH_ALEN;
+	pmac->name = (char *)mac_addr_prop_name1;
+	memcpy(pmac->value, buf, ETH_ALEN);
 
-		}
+	for_each_compatible_node(np, NULL, "qcom,nss-gmac") {
+		if (of_property_read_u32(np, "qcom,id", &n))
+			continue;
+		if (n == cell)
+			break;
 	}
-	if (!np1) {
+	if (!np) {
 		pr_err("failed to find dt node for gmac%d", cell);
 		retval = -ENODEV;
 		goto out;
 	}
 
-	pp1 = of_find_property(np1, pmac1->name, NULL);
-	if (pp1)
-		of_update_property(np1, pmac1);
+	pp = of_find_property(np, pmac->name, NULL);
+	if (pp)
+		of_update_property(np, pmac);
 	else
-		of_add_property(np1, pmac1);
+		of_add_property(np, pmac);
 
-	of_node_put(np1);
+	of_node_put(np);
 
 out:
 	if (retval && pmac)
