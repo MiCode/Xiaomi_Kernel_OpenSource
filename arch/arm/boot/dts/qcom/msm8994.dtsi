@@ -3150,6 +3150,11 @@
 			qcom,sensor-type =  "adc";
 			qcom,sensor-name = "quiet_therm";
 		};
+
+		sensor_information22: qcom,sensor-information@22 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_IA57";
+		};
 	};
 
 	qcom,msm-thermal {
