@@ -719,13 +719,6 @@ static inline int mdss_mdp_pipe_is_sw_reset_available(
 	}
 }
 
-static inline bool is_dynamic_ot_limit_required(u32 mdp_rev)
-{
-	return mdp_rev == MDSS_MDP_HW_REV_105 ||
-		mdp_rev == MDSS_MDP_HW_REV_109 ||
-		mdp_rev == MDSS_MDP_HW_REV_110;
-}
-
 static inline int mdss_mdp_iommu_dyn_attach_supported(
 	struct mdss_data_type *mdata)
 {

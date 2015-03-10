@@ -1041,6 +1041,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
 		break;
 	case MDSS_MDP_HW_REV_105:
@@ -1048,11 +1049,13 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
 		mdata->max_target_zorder = 7; /* excluding base layer */
 		mdata->max_cursor_size = 128;
+		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		break;
 	case MDSS_MDP_HW_REV_110:
 		mdss_set_quirk(mdata, MDSS_QUIRK_BWCPANIC);
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 128;
+		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
@@ -3178,7 +3181,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 res;
 
-	if (!is_dynamic_ot_limit_required(mdata->mdp_rev))
+	if (false == test_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map))
 		return;
 
 	res = params->width * params->height;
