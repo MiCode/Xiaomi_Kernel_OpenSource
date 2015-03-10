@@ -53,6 +53,9 @@ SoCs:
 - MSM8916
   compatible = "qcom,msm8916"
 
+- APQ8016
+  compatible = "qcom,apq8016"
+
 - MSM8936
   compatible = "qcom,msm8936"
 
@@ -105,6 +108,9 @@ Generic board variants:
 
 - QRD device:
   compatible = "qcom,qrd"
+
+- SBC device:
+  compatible = "qcom,sbc"
 
 - Simulator device:
   compatible = "qcom,sim"
@@ -161,6 +167,7 @@ compatible = "qcom,msm8916-qrd-skuid"
 compatible = "qcom,msm8916-qrd-skut1"
 compatible = "qcom,msm8916-rumi"
 compatible = "qcom,msm8916-sim"
+compatible = "qcom,apq8016-sbc"
 compatible = "qcom,msm8926-cdp"
 compatible = "qcom,msm8926-mtp"
 compatible = "qcom,msm8926-qrd"
