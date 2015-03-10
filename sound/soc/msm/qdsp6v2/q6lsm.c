@@ -40,6 +40,13 @@
 static int lsm_afe_port;
 
 enum {
+	LSM_CUSTOM_TOP_IDX,
+	LSM_TOP_IDX,
+	LSM_CAL_IDX,
+	LSM_MAX_CAL_IDX
+};
+
+enum {
 	CMD_STATE_CLEARED = 0,
 	CMD_STATE_WAIT_RESP = 1,
 };
@@ -56,7 +63,10 @@ struct lsm_common {
 	void *apr;
 	atomic_t apr_users;
 	struct lsm_client	common_client[LSM_MAX_SESSION_ID + 1];
-	struct cal_type_data *cal_data;
+
+	int set_custom_topology;
+	struct cal_type_data	*cal_data[LSM_MAX_CAL_IDX];
+
 	struct mutex apr_lock;
 };
 
@@ -92,6 +102,12 @@ static int q6lsm_callback(struct apr_client_data *data, void *priv)
 		pr_debug("%s: SSR event received 0x%x, event 0x%x, proc 0x%x\n",
 			 __func__, data->opcode, data->reset_event,
 			 data->reset_proc);
+
+		cal_utils_clear_cal_block_q6maps(LSM_MAX_CAL_IDX,
+			lsm_common.cal_data);
+		mutex_lock(&lsm_common.cal_data[LSM_CUSTOM_TOP_IDX]->lock);
+		lsm_common.set_custom_topology = 1;
+		mutex_unlock(&lsm_common.cal_data[LSM_CUSTOM_TOP_IDX]->lock);
 		return 0;
 	}
 
@@ -789,11 +805,12 @@ static int q6lsm_send_cal(struct lsm_client *client)
 		return -EINVAL;
 	}
 
-	if (lsm_common.cal_data == NULL)
+	if (lsm_common.cal_data[LSM_CAL_IDX] == NULL)
 		goto done;
 
-	mutex_lock(&lsm_common.cal_data->lock);
-	cal_block = cal_utils_get_only_cal_block(lsm_common.cal_data);
+	mutex_lock(&lsm_common.cal_data[LSM_CAL_IDX]->lock);
+	cal_block = cal_utils_get_only_cal_block(
+		lsm_common.cal_data[LSM_CAL_IDX]);
 	if (cal_block == NULL)
 		goto unlock;
 
@@ -826,7 +843,7 @@ static int q6lsm_send_cal(struct lsm_client *client)
 		pr_err("%s: Failed set_params opcode 0x%x, rc %d\n",
 		       __func__, msg_hdr->opcode, rc);
 unlock:
-	mutex_unlock(&lsm_common.cal_data->lock);
+	mutex_unlock(&lsm_common.cal_data[LSM_CAL_IDX]->lock);
 done:
 	return rc;
 }
@@ -897,7 +914,8 @@ static int q6lsm_mmapcallback(struct apr_client_data *data, void *priv)
 			 "proc 0x%x SID 0x%x\n", __func__, data->opcode,
 			 data->reset_event, data->reset_proc, sid);
 		lsm_common.common_client[sid].lsm_cal_phy_addr = 0;
-		cal_utils_clear_cal_block_q6maps(1, &lsm_common.cal_data);
+		cal_utils_clear_cal_block_q6maps(LSM_MAX_CAL_IDX,
+			lsm_common.cal_data);
 		return 0;
 	}
 
@@ -971,13 +989,15 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 
 	mutex_lock(&client->cmd_lock);
 
-	mutex_lock(&lsm_common.cal_data->lock);
-	cal_block = cal_utils_get_only_cal_block(lsm_common.cal_data);
+	mutex_lock(&lsm_common.cal_data[LSM_CAL_IDX]->lock);
+	cal_block = cal_utils_get_only_cal_block(
+		lsm_common.cal_data[LSM_CAL_IDX]);
 	if (cal_block == NULL)
 		goto fail;
 
 	pr_debug("%s:Snd Model len = %zd cal size %zd phys addr %pa", __func__,
-	 len, cal_block->cal_data.size, &cal_block->cal_data.paddr);
+		len, cal_block->cal_data.size,
+		&cal_block->cal_data.paddr);
 	if (!cal_block->cal_data.paddr) {
 		pr_err("%s: No LSM calibration set for session", __func__);
 		rc = -EINVAL;
@@ -1031,7 +1051,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 		rc = -EBUSY;
 		goto fail;
 	}
-	mutex_unlock(&lsm_common.cal_data->lock);
+	mutex_unlock(&lsm_common.cal_data[LSM_CAL_IDX]->lock);
 	mutex_unlock(&client->cmd_lock);
 
 	rc = q6lsm_memory_map_regions(client, client->sound_model.phys,
@@ -1044,7 +1064,7 @@ int q6lsm_snd_model_buf_alloc(struct lsm_client *client, size_t len)
 
 	return 0;
 fail:
-	mutex_unlock(&lsm_common.cal_data->lock);
+	mutex_unlock(&lsm_common.cal_data[LSM_CAL_IDX]->lock);
 	mutex_unlock(&client->cmd_lock);
 exit:
 	q6lsm_snd_model_buf_free(client);
@@ -1273,14 +1293,43 @@ int q6lsm_lab_buffer_alloc(struct lsm_client *client, bool alloc)
 	return ret;
 }
 
+static int get_cal_type_index(int32_t cal_type)
+{
+	int ret = -EINVAL;
+
+	switch (cal_type) {
+	case LSM_CUST_TOPOLOGY_CAL_TYPE:
+		ret = LSM_CUSTOM_TOP_IDX;
+		break;
+	case LSM_TOPOLOGY_CAL_TYPE:
+		ret = LSM_TOP_IDX;
+		break;
+	case LSM_CAL_TYPE:
+		ret = LSM_CAL_IDX;
+		break;
+	default:
+		pr_err("%s: invalid cal type %d!\n", __func__, cal_type);
+	}
+	return ret;
+}
+
 static int q6lsm_alloc_cal(int32_t cal_type,
 				size_t data_size, void *data)
 {
 	int				ret = 0;
+	int				cal_index;
 	pr_debug("%s:\n", __func__);
 
+	cal_index = get_cal_type_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: could not get cal index %d!\n",
+			__func__, cal_index);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	ret = cal_utils_alloc_cal(data_size, data,
-		lsm_common.cal_data, 0, NULL);
+		lsm_common.cal_data[cal_index], 0, NULL);
 	if (ret < 0) {
 		pr_err("%s: cal_utils_alloc_block failed, ret = %d, cal type = %d!\n",
 			__func__, ret, cal_type);
@@ -1295,10 +1344,19 @@ static int q6lsm_dealloc_cal(int32_t cal_type,
 				size_t data_size, void *data)
 {
 	int				ret = 0;
+	int				cal_index;
 	pr_debug("%s:\n", __func__);
 
+	cal_index = get_cal_type_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: could not get cal index %d!\n",
+			__func__, cal_index);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	ret = cal_utils_dealloc_cal(data_size, data,
-		lsm_common.cal_data);
+		lsm_common.cal_data[cal_index]);
 	if (ret < 0) {
 		pr_err("%s: cal_utils_dealloc_block failed, ret = %d, cal type = %d!\n",
 			__func__, ret, cal_type);
@@ -1313,16 +1371,32 @@ static int q6lsm_set_cal(int32_t cal_type,
 			size_t data_size, void *data)
 {
 	int				ret = 0;
+	int				cal_index;
 	pr_debug("%s:\n", __func__);
 
+	cal_index = get_cal_type_index(cal_type);
+	if (cal_index < 0) {
+		pr_err("%s: could not get cal index %d!\n",
+			__func__, cal_index);
+		ret = -EINVAL;
+		goto done;
+	}
+
 	ret = cal_utils_set_cal(data_size, data,
-		lsm_common.cal_data, 0, NULL);
+		lsm_common.cal_data[cal_index], 0, NULL);
 	if (ret < 0) {
 		pr_err("%s: cal_utils_set_cal failed, ret = %d, cal type = %d!\n",
 			__func__, ret, cal_type);
 		ret = -EINVAL;
 		goto done;
 	}
+
+	if (cal_index == LSM_CUSTOM_TOP_IDX) {
+		mutex_lock(&lsm_common.cal_data[LSM_CUSTOM_TOP_IDX]->lock);
+		lsm_common.set_custom_topology = 1;
+		mutex_unlock(&lsm_common.cal_data[LSM_CUSTOM_TOP_IDX]->lock);
+	}
+
 done:
 	return ret;
 }
@@ -1331,23 +1405,33 @@ static void lsm_delete_cal_data(void)
 {
 	pr_debug("%s:\n", __func__);
 
-	cal_utils_destroy_cal_types(1, &lsm_common.cal_data);
+	cal_utils_destroy_cal_types(LSM_MAX_CAL_IDX, lsm_common.cal_data);
 	return;
 }
 
 static int q6lsm_init_cal_data(void)
 {
 	int ret = 0;
-	struct cal_type_info	cal_type_info = {
-		{LSM_CAL_TYPE,
+	struct cal_type_info	cal_type_info[] = {
+		{{LSM_CUST_TOPOLOGY_CAL_TYPE,
 		{q6lsm_alloc_cal, q6lsm_dealloc_cal, NULL,
 		q6lsm_set_cal, NULL, NULL} },
-		{NULL, NULL, cal_utils_match_buf_num}
+		{NULL, NULL, cal_utils_match_buf_num} },
+
+		{{LSM_TOPOLOGY_CAL_TYPE,
+		{NULL, NULL, NULL,
+		q6lsm_set_cal, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_buf_num} },
+
+		{{LSM_CAL_TYPE,
+		{q6lsm_alloc_cal, q6lsm_dealloc_cal, NULL,
+		q6lsm_set_cal, NULL, NULL} },
+		{NULL, NULL, cal_utils_match_buf_num} }
 	};
 	pr_debug("%s:\n", __func__);
 
-	ret = cal_utils_create_cal_types(1, &lsm_common.cal_data,
-		&cal_type_info);
+	ret = cal_utils_create_cal_types(LSM_MAX_CAL_IDX,
+		lsm_common.cal_data, cal_type_info);
 	if (ret < 0) {
 		pr_err("%s: could not create cal type!\n",
 			__func__);
