@@ -82,11 +82,6 @@ struct kgsl_dma_buf_meta {
 
 static void kgsl_mem_entry_detach_process(struct kgsl_mem_entry *entry);
 
-static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
-				struct kgsl_pagetable *pagetable,
-				struct kgsl_device *device,
-				struct dma_buf *dmabuf);
-
 static const struct file_operations kgsl_fops;
 
 static int __kgsl_check_collision(struct kgsl_process_private *private,
@@ -2874,6 +2869,27 @@ out:
 	return ret;
 }
 
+static int kgsl_setup_anon_useraddr(struct kgsl_pagetable *pagetable,
+	struct kgsl_mem_entry *entry, unsigned long hostptr,
+	size_t offset, size_t size)
+{
+	/* Map an anonymous memory chunk */
+
+	if (size == 0 || offset != 0 ||
+		!IS_ALIGNED(size, PAGE_SIZE))
+		return -EINVAL;
+
+	entry->memdesc.pagetable = pagetable;
+	entry->memdesc.size = (uint64_t) size;
+	entry->memdesc.mmapsize = (uint64_t) size;
+	entry->memdesc.useraddr = hostptr;
+	if (kgsl_memdesc_use_cpu_map(&entry->memdesc))
+		entry->memdesc.gpuaddr = (uint64_t)  entry->memdesc.useraddr;
+	entry->memdesc.flags |= KGSL_MEMFLAGS_USERMEM_ADDR;
+
+	return memdesc_sg_virt(&entry->memdesc, NULL);
+}
+
 static int match_file(const void *p, struct file *file, unsigned int fd)
 {
 	/*
@@ -2899,26 +2915,26 @@ static void _setup_cache_mode(struct kgsl_mem_entry *entry,
 	entry->memdesc.flags |= (mode << KGSL_CACHEMODE_SHIFT);
 }
 
-static int kgsl_setup_useraddr(struct kgsl_mem_entry *entry,
-			      struct kgsl_pagetable *pagetable,
-			      void *data,
-			      struct kgsl_device *device)
-{
-	struct kgsl_map_user_mem *param = data;
-	struct dma_buf *dmabuf = NULL;
-	struct vm_area_struct *vma = NULL;
+#ifdef CONFIG_DMA_SHARED_BUFFER
+static int kgsl_setup_dma_buf(struct kgsl_device *device,
+				struct kgsl_pagetable *pagetable,
+				struct kgsl_mem_entry *entry,
+				struct dma_buf *dmabuf);
 
-	if (param->offset != 0 || param->hostptr == 0
-		|| !KGSL_IS_PAGE_ALIGNED(param->hostptr)
-		|| !KGSL_IS_PAGE_ALIGNED(param->len))
-		return -EINVAL;
+static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry, unsigned long hostptr)
+{
+	struct vm_area_struct *vma;
+	struct dma_buf *dmabuf = NULL;
+	int ret;
 
 	/*
 	 * Find the VMA containing this pointer and figure out if it
 	 * is a dma-buf.
 	 */
 	down_read(&current->mm->mmap_sem);
-	vma = find_vma(current->mm, param->hostptr);
+	vma = find_vma(current->mm, hostptr);
 
 	if (vma && vma->vm_file) {
 		int fd;
@@ -2933,41 +2949,272 @@ static int kgsl_setup_useraddr(struct kgsl_mem_entry *entry,
 		}
 
 		/* Look for the fd that matches this the vma file */
-		fd = iterate_fd(current->files, 0,
-				match_file, vma->vm_file);
+		fd = iterate_fd(current->files, 0, match_file, vma->vm_file);
 		if (fd != 0)
 			dmabuf = dma_buf_get(fd - 1);
 	}
 	up_read(&current->mm->mmap_sem);
 
-	if (!IS_ERR_OR_NULL(dmabuf)) {
-		int ret = kgsl_setup_dma_buf(entry, pagetable, device, dmabuf);
-		if (ret)
-			dma_buf_put(dmabuf);
-		else {
-			/* Match the cache settings of the vma region */
-			_setup_cache_mode(entry, vma);
-			/* Set the useraddr to the incoming hostptr */
-			entry->memdesc.useraddr = param->hostptr;
-		}
+	if (dmabuf == NULL)
+		return -ENODEV;
 
+	ret = kgsl_setup_dma_buf(device, pagetable, entry, dmabuf);
+	if (ret) {
+		dma_buf_put(dmabuf);
 		return ret;
 	}
 
-	entry->memdesc.pagetable = pagetable;
-	entry->memdesc.size = (uint64_t) param->len;
-	entry->memdesc.useraddr = param->hostptr;
-	if (kgsl_memdesc_use_cpu_map(&entry->memdesc))
-		entry->memdesc.gpuaddr = (uint64_t)  entry->memdesc.useraddr;
-	entry->memdesc.flags |= KGSL_MEMFLAGS_USERMEM_ADDR;
+	/* Setup the user addr/cache mode for cache operations */
+	entry->memdesc.useraddr = hostptr;
+	_setup_cache_mode(entry, vma);
 
-	return memdesc_sg_virt(&entry->memdesc, NULL);
+	return 0;
+}
+#else
+static int kgsl_setup_dmabuf_useraddr(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry, unsigned long hostptr)
+{
+	return -ENODEV;
+}
+#endif
+
+static int kgsl_setup_useraddr(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry,
+		unsigned long hostptr, size_t offset, size_t size)
+{
+	int ret;
+
+	if (hostptr == 0 || !IS_ALIGNED(hostptr, PAGE_SIZE))
+		return -EINVAL;
+
+	/* Try to set up a dmabuf - if it returns -ENODEV assume anonymous */
+	ret = kgsl_setup_dmabuf_useraddr(device, pagetable, entry, hostptr);
+	if (ret != -ENODEV)
+		return ret;
+
+	/* Okay - lets go legacy */
+	return kgsl_setup_anon_useraddr(pagetable, entry,
+		hostptr, offset, size);
+}
+
+static long _gpuobj_map_useraddr(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry,
+		struct kgsl_gpuobj_import *param)
+{
+	struct kgsl_gpuobj_import_useraddr useraddr;
+	int ret;
+
+	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
+		| KGSL_CACHEMODE_MASK
+		| KGSL_MEMTYPE_MASK;
+
+	/* Specifying SECURE is an explicit error */
+	if (param->flags & KGSL_MEMFLAGS_SECURE)
+		return -ENOTSUPP;
+
+	ret = _copy_from_user(&useraddr,
+		(void __user *) (uintptr_t) param->priv, sizeof(useraddr),
+		param->priv_len);
+	if (ret)
+		return ret;
+
+	/* Verify that the virtaddr and len are within bounds */
+	if (useraddr.virtaddr > ULONG_MAX)
+		return -EINVAL;
+
+	return kgsl_setup_useraddr(device, pagetable, entry,
+		(unsigned long) useraddr.virtaddr, 0, 0);
 }
 
 #ifdef CONFIG_DMA_SHARED_BUFFER
-static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
+static long _gpuobj_map_dma_buf(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry,
+		struct kgsl_gpuobj_import *param)
+{
+	struct kgsl_gpuobj_import_dma_buf buf;
+	struct dma_buf *dmabuf;
+	int ret;
+
+	/*
+	 * If content protection is not enabled and secure buffer
+	 * is requested to be mapped return error.
+	 */
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_SECURE) {
+		if (!kgsl_mmu_is_secured(&device->mmu)) {
+			dev_WARN_ONCE(device->dev, 1,
+				"Secure buffer not supported");
+			return -ENOTSUPP;
+		}
+
+		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
+	}
+
+	ret = _copy_from_user(&buf, (void __user *) (uintptr_t) param->priv,
+			sizeof(buf), param->priv_len);
+	if (ret)
+		return ret;
+
+	if (buf.fd == 0)
+		return -EINVAL;
+
+	dmabuf = dma_buf_get(buf.fd);
+
+	if (IS_ERR_OR_NULL(dmabuf))
+		return (dmabuf == NULL) ? -EINVAL : PTR_ERR(dmabuf);
+
+	ret = kgsl_setup_dma_buf(device, pagetable, entry, dmabuf);
+	if (ret)
+		dma_buf_put(dmabuf);
+
+	trace_kgsl_mem_map(entry, buf.fd);
+	return ret;
+}
+#else
+static long _gpuobj_map_dma_buf(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry,
+		struct kgsl_gpuobj_import *param)
+{
+	return -EINVAL;
+}
+#endif
+
+long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_gpuobj_import *param = data;
+	struct kgsl_mem_entry *entry;
+	int ret;
+
+	entry = kgsl_mem_entry_create();
+	if (entry == NULL)
+		return -ENOMEM;
+
+	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
+			| KGSL_MEMTYPE_MASK
+			| KGSL_MEMALIGN_MASK
+			| KGSL_MEMFLAGS_USE_CPU_MAP
+			| KGSL_MEMFLAGS_SECURE
+			| KGSL_MEMFLAGS_GPUWRITEONLY;
+
+	entry->memdesc.flags = param->flags;
+
+	if (param->type == KGSL_USER_MEM_TYPE_ADDR)
+		ret = _gpuobj_map_useraddr(dev_priv->device, private->pagetable,
+			entry, param);
+	else if (param->type == KGSL_USER_MEM_TYPE_DMABUF)
+		ret = _gpuobj_map_dma_buf(dev_priv->device, private->pagetable,
+			entry, param);
+	else
+		ret = -ENOTSUPP;
+
+	if (ret)
+		goto out;
+
+	if (entry->memdesc.size >= SZ_1M)
+		kgsl_memdesc_set_align(&entry->memdesc, ilog2(SZ_1M));
+	else if (entry->memdesc.size >= SZ_64K)
+		kgsl_memdesc_set_align(&entry->memdesc, ilog2(SZ_64K));
+
+	param->flags = entry->memdesc.flags;
+
+	ret = kgsl_mem_entry_attach_process(entry, dev_priv);
+	if (ret)
+		goto unmap;
+
+	param->id = entry->id;
+
+	KGSL_STATS_ADD(entry->memdesc.size, kgsl_driver.stats.mapped,
+		kgsl_driver.stats.mapped_max);
+
+	kgsl_process_add_stats(private,
+		kgsl_memdesc_usermem_type(&entry->memdesc),
+		entry->memdesc.size);
+
+	return 0;
+
+unmap:
+	if (param->type == KGSL_USER_MEM_TYPE_DMABUF)
+		kgsl_destroy_ion(entry->priv_data);
+
+	kgsl_sharedmem_free(&entry->memdesc);
+
+out:
+	kfree(entry);
+	return ret;
+}
+
+static long _map_usermem_addr(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable, struct kgsl_mem_entry *entry,
+		unsigned long hostptr, size_t offset, size_t size)
+{
+	if (!kgsl_mmu_enabled()) {
+		KGSL_DRV_ERR(device,
+			"Cannot map paged memory with the MMU disabled\n");
+		return -EINVAL;
+	}
+
+	/* No CPU mapped buffer could ever be secure */
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_SECURE)
+		return -EINVAL;
+
+	return kgsl_setup_useraddr(device, pagetable, entry, hostptr,
+		offset, size);
+}
+
+#ifdef CONFIG_DMA_SHARED_BUFFER
+static int _map_usermem_dma_buf(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry,
+		unsigned int fd)
+{
+	int ret;
+	struct dma_buf *dmabuf;
+
+	/*
+	 * If content protection is not enabled and secure buffer
+	 * is requested to be mapped return error.
+	 */
+
+	if (entry->memdesc.flags & KGSL_MEMFLAGS_SECURE) {
+		if (!kgsl_mmu_is_secured(&device->mmu)) {
+			dev_WARN_ONCE(device->dev, 1,
+				"Secure buffer not supported");
+			return -EINVAL;
+		}
+
+		entry->memdesc.priv |= KGSL_MEMDESC_SECURE;
+	}
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR_OR_NULL(dmabuf)) {
+		ret = PTR_ERR(dmabuf);
+		return ret ? ret : -EINVAL;
+	}
+	ret = kgsl_setup_dma_buf(device, pagetable, entry, dmabuf);
+	if (ret)
+		dma_buf_put(dmabuf);
+	return ret;
+}
+#else
+static int _map_usermem_dma_buf(struct kgsl_device *device,
+		struct kgsl_pagetable *pagetable,
+		struct kgsl_mem_entry *entry,
+		unsigned int fd)
+{
+	return -EINVAL;
+}
+#endif
+
+#ifdef CONFIG_DMA_SHARED_BUFFER
+static int kgsl_setup_dma_buf(struct kgsl_device *device,
 				struct kgsl_pagetable *pagetable,
-				struct kgsl_device *device,
+				struct kgsl_mem_entry *entry,
 				struct dma_buf *dmabuf)
 {
 	int ret = 0;
@@ -2992,6 +3239,7 @@ static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
 	entry->priv_data = meta;
 	entry->memdesc.pagetable = pagetable;
 	entry->memdesc.size = 0;
+	entry->memdesc.mmapsize = 0;
 	/* USE_CPU_MAP is not impemented for ION. */
 	entry->memdesc.flags &= ~KGSL_MEMFLAGS_USE_CPU_MAP;
 	entry->memdesc.flags |= KGSL_MEMFLAGS_USERMEM_ION;
@@ -3024,6 +3272,9 @@ static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
 		entry->memdesc.size += (uint64_t) s->length;
 	}
 
+	entry->memdesc.size = PAGE_ALIGN(entry->memdesc.size);
+	entry->memdesc.mmapsize = PAGE_ALIGN(entry->memdesc.size);
+
 out:
 	if (ret) {
 		if (!IS_ERR_OR_NULL(attach))
@@ -3034,43 +3285,6 @@ out:
 	}
 
 	return ret;
-}
-
-static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
-		struct kgsl_pagetable *pagetable, void *data,
-		struct kgsl_device *device)
-{
-	int ret;
-	struct kgsl_map_user_mem *param = data;
-	int fd = param->fd;
-	struct dma_buf *dmabuf;
-
-	dmabuf = dma_buf_get(fd);
-
-	if (IS_ERR_OR_NULL(dmabuf))
-		return (dmabuf == NULL) ? -EINVAL : PTR_ERR(dmabuf);
-
-	ret = kgsl_setup_dma_buf(entry, pagetable, device, dmabuf);
-	if (ret)
-		dma_buf_put(dmabuf);
-	return ret;
-}
-
-#else
-
-static int kgsl_setup_dma_buf(struct kgsl_mem_entry *entry,
-				struct kgsl_pagetable *pagetable,
-				struct kgsl_device *device,
-				struct dma_buf *dmabuf)
-{
-	return -EINVAL;
-}
-
-static int kgsl_setup_ion(struct kgsl_mem_entry *entry,
-		struct kgsl_pagetable *pagetable, void *data,
-		struct kgsl_device *device)
-{
-	return -EINVAL;
 }
 #endif
 
@@ -3138,23 +3352,15 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	switch (memtype) {
 	case KGSL_MEM_ENTRY_USER:
-		if (!kgsl_mmu_enabled()) {
-			KGSL_DEV_ERR_ONCE(dev_priv->device,
-				"Cannot map paged memory with the MMU disabled\n");
-			result = -EOPNOTSUPP;
-			break;
-		}
-
-		if (param->hostptr == 0)
-			break;
-
-		result = kgsl_setup_useraddr(entry, private->pagetable, data,
-				dev_priv->device);
+		result = _map_usermem_addr(dev_priv->device, private->pagetable,
+			entry, param->hostptr, param->offset, param->len);
 		break;
-
 	case KGSL_MEM_ENTRY_ION:
-		result = kgsl_setup_ion(entry, private->pagetable, data,
-					dev_priv->device);
+		if (param->offset != 0)
+			result = -EINVAL;
+		else
+			result = _map_usermem_dma_buf(dev_priv->device,
+				private->pagetable, entry, param->fd);
 		break;
 	default:
 		KGSL_CORE_ERR("Invalid memory type: %x\n", memtype);
