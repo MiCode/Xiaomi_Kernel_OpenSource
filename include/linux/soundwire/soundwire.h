@@ -116,6 +116,8 @@ struct swr_reg {
  * @disconnect_port: callback for disable of soundwire port(s)
  * @read: callback for soundwire slave register read
  * @write: callback for soundwire slave register write
+ * @get_logical_dev_num: callback to get soundwire slave logical
+ * device number
  */
 struct swr_master {
 	struct device dev;
@@ -134,6 +136,8 @@ struct swr_master {
 			u32 *buf, u32 len);
 	int (*write)(struct swr_master *mstr, u8 dev_num, u32 reg_addr,
 			u32 *buf);
+	int (*get_logical_dev_num)(struct swr_master *mstr, u64 dev_id,
+				u8 *dev_num);
 };
 
 static inline struct swr_master *to_swr_master(struct device *dev)
@@ -237,6 +241,9 @@ extern struct swr_device *swr_new_device(struct swr_master *master,
 extern int of_register_swr_devices(struct swr_master *master);
 
 extern void swr_port_response(struct swr_master *mstr, u8 tid);
+
+extern int swr_get_logical_dev_num(struct swr_device *dev, u64 dev_id,
+			u8 *dev_num);
 
 extern int swr_read(struct swr_device *dev, u8 dev_num, u32 reg_addr,
 			u32 *buf, u32 len);
