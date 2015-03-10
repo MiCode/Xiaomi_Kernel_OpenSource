@@ -534,16 +534,19 @@ static int pp_dither_set_config(char __iomem *base_addr,
 
 	dither_cfg_data = (struct mdp_dither_cfg_data *) cfg_data;
 
-	if (dither_cfg_data->version != mdp_dither_v1_7 ||
-	    !dither_cfg_data->cfg_payload) {
-		pr_err("invalid dither version %d payload %p\n",
-		       dither_cfg_data->version, dither_cfg_data->cfg_payload);
+	if (dither_cfg_data->version != mdp_dither_v1_7) {
+		pr_err("invalid dither version %d\n", dither_cfg_data->version);
 		return -EINVAL;
 	}
-	if (!(dither_cfg_data->flags & ~(MDP_PP_OPS_READ))) {
-		pr_err("only read ops set for lut\n");
+	if (dither_cfg_data->flags & MDP_PP_OPS_READ) {
+		pr_err("Invalid context for read operation\n");
 		return -EINVAL;
 	}
+	if (dither_cfg_data->flags & MDP_PP_OPS_DISABLE) {
+		pr_debug("set disable dither\n");
+		goto bail_out;
+	}
+
 	if (!(dither_cfg_data->flags & MDP_PP_OPS_WRITE)) {
 		pr_debug("non write ops set %d\n", dither_cfg_data->flags);
 		goto bail_out;

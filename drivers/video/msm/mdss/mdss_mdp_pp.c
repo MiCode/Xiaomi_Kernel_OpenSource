@@ -343,6 +343,7 @@ static int pp_update_pcc_pipe_setup(struct mdss_mdp_pipe *pipe, u32 location);
 static void mdss_mdp_hist_irq_set_mask(u32 irq);
 static void mdss_mdp_hist_irq_clear_mask(u32 irq);
 static void mdss_mdp_hist_intr_notify(u32 disp);
+static int mdss_mdp_panel_default_dither_config(u32 panel_bpp, u32 disp_num);
 
 static u32 last_sts, last_state;
 
@@ -2381,6 +2382,25 @@ int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
+int mdss_mdp_pp_default_overlay_config(struct msm_fb_data_type *mfd,
+					struct mdss_panel_data *pdata)
+{
+	int ret = 0;
+
+	if (!mfd || !pdata) {
+		pr_err("Invalid parameters mfd %p pdata %p\n", mfd, pdata);
+		return -EINVAL;
+	}
+
+	ret = mdss_mdp_panel_default_dither_config(pdata->panel_info.bpp,
+						mfd->index);
+	if (ret)
+		pr_err("Unable to configure default dither on fb%d\n",
+			mfd->index);
+
+	return ret;
+}
+
 static int pp_ad_calc_bl(struct msm_fb_data_type *mfd, int bl_in, int *bl_out,
 	bool *bl_out_notify)
 {
@@ -3568,8 +3588,62 @@ enhist_config_exit:
 	return ret;
 }
 
+static int mdss_mdp_panel_default_dither_config(u32 panel_bpp, u32 disp_num)
+{
+	int ret = 0;
+	struct mdp_dither_cfg_data dither = {
+		.block = disp_num + MDP_LOGICAL_BLOCK_DISP_0,
+		.flags = MDP_PP_OPS_DISABLE,
+	};
+	struct mdp_pp_feature_version dither_version = {
+		.pp_feature = DITHER,
+	};
+	struct mdp_dither_data_v1_7 dither_data;
+
+	dither.block = disp_num + MDP_LOGICAL_BLOCK_DISP_0;
+	dither.flags = MDP_PP_OPS_DISABLE;
+
+	ret = mdss_mdp_pp_get_version(&dither_version);
+	if (ret) {
+		pr_err("failed to get default dither version, ret %d\n",
+				ret);
+		return ret;
+	}
+	dither.version = dither_version.version_info;
+
+	switch (panel_bpp) {
+	case 18:
+		dither.flags = MDP_PP_OPS_ENABLE | MDP_PP_OPS_WRITE;
+		switch (dither.version) {
+		case mdp_dither_v1_7:
+			dither_data.g_y_depth = 2;
+			dither_data.r_cr_depth = 2;
+			dither_data.b_cb_depth = 2;
+			dither.cfg_payload = &dither_data;
+			break;
+		case mdp_pp_legacy:
+		default:
+			dither.g_y_depth = 2;
+			dither.r_cr_depth = 2;
+			dither.b_cb_depth = 2;
+			dither.cfg_payload = NULL;
+			break;
+		}
+		break;
+	default:
+		dither.cfg_payload = NULL;
+		break;
+	}
+	ret = mdss_mdp_dither_config(&dither, NULL, true);
+	if (ret)
+		pr_err("dither config failed, ret %d\n", ret);
+
+	return ret;
+}
+
 int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config,
-					u32 *copyback)
+					u32 *copyback,
+					int copy_from_kernel)
 {
 	u32 disp_num;
 	int ret = 0;
@@ -3591,7 +3665,8 @@ int mdss_mdp_dither_config(struct mdp_dither_cfg_data *config,
 	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
 	if (pp_ops[DITHER].pp_set_config) {
 		pr_debug("version of dither is %d\n", config->version);
-		ret = pp_dither_cache_params(config, mdss_pp_res);
+		ret = pp_dither_cache_params(config, mdss_pp_res,
+				copy_from_kernel);
 		if (ret) {
 			pr_err("dither config failed version %d ret %d\n",
 				config->version, ret);

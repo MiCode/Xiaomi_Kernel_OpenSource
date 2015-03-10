@@ -3564,7 +3564,8 @@ static int mdss_mdp_pp_ioctl(struct msm_fb_data_type *mfd,
 	case mdp_op_dither_cfg:
 		ret = mdss_mdp_dither_config(
 				&mdp_pp.data.dither_cfg_data,
-				&copyback);
+				&copyback,
+				false);
 		break;
 	case mdp_op_gamut_cfg:
 		ret = mdss_mdp_gamut_config(
@@ -4269,6 +4270,13 @@ static struct mdss_mdp_ctl *__mdss_mdp_overlay_ctl_init(
 			mdss_mdp_ctl_destroy(ctl);
 			goto error;
 		}
+	}
+
+	rc = mdss_mdp_pp_default_overlay_config(mfd, pdata);
+	if (rc) {
+		pr_err("Unable to set default postprocessing configs for fb%d\n",
+			mfd->index);
+		rc = 0;
 	}
 
 error:
