@@ -16,6 +16,7 @@ Optional properties:
   - qcom,support-bus-scaling : indicates if driver support scaling the bus for crypto operation.
   - qcom,support-fde : indicates if driver support key managing for full disk encryption feature.
   - qcom,support-pfe : indicates if driver support key managing for per file encryption feature.
+  - qcom,appsbl-qseecom-support : indicates if there is qseecom support in appsbootloader
 
 Example:
 	qcom,qseecom@fe806000 {
@@ -32,6 +33,7 @@ Example:
 		qcom,msm_bus,num_cases = <4>;
 		qcom,msm_bus,active_only = <0>;
 		qcom,msm_bus,num_paths = <1>;
+		qcom,appsbl-qseecom-support;
 		qcom,msm_bus,vectors =
 			<55 512 0 0>,
 			<55 512 3936000000 393600000>,
