@@ -302,6 +302,15 @@ boostpulse_duration: Length of time to hold CPU speed at hispeed_freq
 on a write to boostpulse, before allowing speed to drop according to
 load as usual.  Default is 80000 uS.
 
+irq_load_threshold: when time spent to deal irq handling,including
+both hard and soft irq, reach this ratio, io_is_busy logic will be switched on
+whether or not that parameter is set to 1. this option was added to
+better perform workload which is both CPU and io intensive. set 100 to
+parameter this will disable this feature.
+
+iowait_load_threshold: works with parameter:irq_load_threshold,
+when CPU spent time on iowait reaching this threshold and irq_load_threshold
+was meet, CPU will scale to max available freqnecy.
 
 3. The Governor Interface in the CPUfreq Core
 =============================================
