@@ -102,6 +102,13 @@ struct port_params pp[MAX_USECASE][SWR_MSTR_PORT_LEN] = {
 	},
 };
 
+enum {
+	SWR_NOT_PRESENT,
+	SWR_ATTACHED_OK,
+	SWR_ALERT,
+	SWR_RESERVED,
+};
+
 static int swrm_get_port_config(struct swr_master *master)
 {
 	u32 ch_rate = 0;
@@ -428,10 +435,35 @@ static int swrm_disconnect_port(struct swr_master *master,
 	return 0;
 }
 
+static int swrm_check_slave_change_status(struct swr_mstr_ctrl *swrm,
+					int status, u8 *devnum)
+{
+	int i;
+	int new_sts = status;
+	int ret = SWR_NOT_PRESENT;
+
+	if (status != swrm->slave_status) {
+		for (i = 0; i < SWR_NUM_SLV_DEVICES; i++) {
+			if ((status & SWRM_MCP_SLV_STATUS_MASK) !=
+			    (swrm->slave_status & SWRM_MCP_SLV_STATUS_MASK)) {
+				ret = (status & SWRM_MCP_SLV_STATUS_MASK);
+				*devnum = i;
+				break;
+			}
+			status >>= 2;
+			swrm->slave_status >>= 2;
+		}
+		swrm->slave_status = new_sts;
+	}
+	return ret;
+}
+
 static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 {
 	struct swr_mstr_ctrl *swrm = dev;
 	u32 value;
+	int status;
+	u8 devnum;
 
 	value = swrm->read(swrm->handle, SWRM_INTERRUPT_STATUS);
 	value &= SWRM_INTERRUPT_STATUS_RMSK;
@@ -443,20 +475,42 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 	case SWRM_INTERRUPT_STATUS_NEW_SLAVE_ATTACHED:
 		break;
 	case SWRM_INTERRUPT_STATUS_CHANGE_ENUM_SLAVE_STATUS:
+		status = swrm->read(swrm->handle, SWRM_MCP_SLV_STATUS);
+		switch (swrm_check_slave_change_status(swrm, status, &devnum)) {
+		case SWR_NOT_PRESENT:
+			dev_dbg(swrm->dev, "device %d got detached\n",
+				devnum);
+			break;
+		case SWR_ATTACHED_OK:
+			dev_dbg(swrm->dev, "device %d got attached\n",
+				devnum);
+			break;
+		case SWR_ALERT:
+			dev_dbg(swrm->dev, "device %d has pending interrupt\n",
+				devnum);
+			break;
+		}
 		break;
 	case SWRM_INTERRUPT_STATUS_MASTER_CLASH_DET:
+		dev_err(swrm->dev, "SWR bus clash detected\n");
 		break;
 	case SWRM_INTERRUPT_STATUS_RD_FIFO_OVERFLOW:
+		dev_dbg(swrm->dev, "SWR read FIFO overflow\n");
 		break;
 	case SWRM_INTERRUPT_STATUS_RD_FIFO_UNDERFLOW:
+		dev_dbg(swrm->dev, "SWR read FIFO underflow\n");
 		break;
 	case SWRM_INTERRUPT_STATUS_WR_CMD_FIFO_OVERFLOW:
+		dev_dbg(swrm->dev, "SWR write FIFO overflow\n");
 		break;
 	case SWRM_INTERRUPT_STATUS_CMD_ERROR:
+		dev_err(swrm->dev, "SWR CMD error detected\n");
 		break;
 	case SWRM_INTERRUPT_STATUS_DOUT_PORT_COLLISION:
+		dev_dbg(swrm->dev, "SWR Port collision detected\n");
 		break;
 	case SWRM_INTERRUPT_STATUS_READ_EN_RD_VALID_MISMATCH:
+		dev_dbg(swrm->dev, "SWR read enable valid mismatch\n");
 		break;
 	case SWRM_INTERRUPT_STATUS_SPECIAL_CMD_ID_FINISHED:
 		complete(&swrm->broadcast);
@@ -476,6 +530,13 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 		break;
 	}
 	return IRQ_HANDLED;
+}
+
+static int swrm_get_device_status(struct swr_mstr_ctrl *swrm, u8 devnum)
+{
+	u32 val = (swrm->slave_status >> (devnum * 2));
+	val &= SWRM_MCP_SLV_STATUS_MASK;
+	return val;
 }
 
 static int swrm_get_auto_enum_slaves(struct swr_mstr_ctrl *swrm)
@@ -510,6 +571,35 @@ static int swrm_get_auto_enum_slaves(struct swr_mstr_ctrl *swrm)
 		}
 	}
 	return 0;
+}
+
+static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
+				u8 *dev_num)
+{
+	int i;
+	u64 id;
+	int ret = -EINVAL;
+	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
+
+	for (i = 1; i < SWR_NUM_SLV_DEVICES; i++) {
+		id = ((u64)(swrm->read(swrm->handle,
+			    SWRM_ENUMERATOR_SLAVE_DEV_ID_2(i))) << 32);
+		id |= swrm->read(swrm->handle,
+			    SWRM_ENUMERATOR_SLAVE_DEV_ID_1(i));
+		if (id == dev_id) {
+			if (swrm_get_device_status(swrm, i) == 0x01) {
+				*dev_num = i;
+				ret = 0;
+			} else {
+				dev_err(swrm->dev, "%s: device is not ready\n",
+					 __func__);
+			}
+			goto found;
+		}
+	}
+	dev_err(swrm->dev, "%s: device id does not match\n", __func__);
+found:
+	return ret;
 }
 
 static int swrm_master_init(struct swr_mstr_ctrl *swrm)
@@ -594,6 +684,7 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->reg_irq = pdata->reg_irq;
 	swrm->master.read = swrm_read;
 	swrm->master.write = swrm_write;
+	swrm->master.get_logical_dev_num = swrm_get_logical_dev_num;
 	swrm->master.connect_port = swrm_connect_port;
 	swrm->master.disconnect_port = swrm_disconnect_port;
 	swrm->master.dev.parent = &pdev->dev;
@@ -602,6 +693,7 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->num_enum_slaves = 0;
 	swrm->rcmd_id = 0;
 	swrm->wcmd_id = 0;
+	swrm->slave_status = 0;
 	init_completion(&swrm->reset);
 	init_completion(&swrm->broadcast);
 	mutex_init(&swrm->mlock);

@@ -64,6 +64,7 @@ struct swr_mstr_ctrl {
 			void *data), void *swr_handle, int type);
 	int irq;
 	int num_enum_slaves;
+	int slave_status;
 };
 
 #endif /* _SWR_WCD_CTRL_H */
