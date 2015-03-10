@@ -250,7 +250,6 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0;
-
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT]->fourcc :
 			inst->fmts[CAPTURE_PORT]->fourcc;
@@ -260,6 +259,7 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 				get_hal_domain(inst->session_type));
 		vote_data[i].load = msm_comm_get_inst_load(inst,
 				LOAD_CALC_NO_QUIRKS);
+		vote_data[i].low_power = !!(inst->flags & VIDC_POWER_SAVE);
 		i++;
 	}
 	mutex_unlock(&core->lock);

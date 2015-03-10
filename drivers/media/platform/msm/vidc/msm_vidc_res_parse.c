@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -316,10 +316,13 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 
 	for_each_child_of_node(bus_node, child_node) {
 		bool passive = false;
+		bool low_power = false;
 		u32 configs = 0;
 		struct bus_info *bus = &buses->bus_tbl[c];
 
 		passive = of_property_read_bool(child_node, "qcom,bus-passive");
+		low_power = of_property_read_bool(child_node,
+			"qcom,bus-low-power");
 		rc = of_property_read_u32(child_node, "qcom,bus-configs",
 				&configs);
 		if (rc) {
@@ -330,6 +333,7 @@ static int msm_vidc_load_bus_vectors(struct msm_vidc_platform_resources *res)
 		}
 
 		bus->passive = passive;
+		bus->low_power = low_power;
 		bus->sessions_supported = configs;
 		bus->pdata = msm_bus_pdata_from_node(pdev, child_node);
 		if (IS_ERR_OR_NULL(bus->pdata)) {
