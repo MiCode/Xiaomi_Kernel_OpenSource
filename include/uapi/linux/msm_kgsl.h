@@ -1261,4 +1261,35 @@ struct kgsl_gpuobj_import_useraddr {
 #define IOCTL_KGSL_GPUOBJ_IMPORT \
 	_IOWR(KGSL_IOC_TYPE, 0x48, struct kgsl_gpuobj_import)
 
+/**
+ * struct kgsl_gpuobj_sync_obj - Individual GPU object to sync
+ * @offset: Offset within the GPU object to sync
+ * @length: Number of bytes to sync
+ * @id: ID of the GPU object to sync
+ * @op: Cache operation to execute
+ */
+
+struct kgsl_gpuobj_sync_obj {
+	uint64_t offset;
+	uint64_t length;
+	unsigned int id;
+	unsigned int op;
+};
+
+/**
+ * struct kgsl_gpuobj_sync - Argument for IOCTL_KGSL_GPUOBJ_SYNC
+ * @objs: Pointer to an array of kgsl_gpuobj_sync_obj structs
+ * @obj_len: Size of each item in the array
+ * @count: Number of items in the array
+ */
+
+struct kgsl_gpuobj_sync {
+	uint64_t __user objs;
+	unsigned int obj_len;
+	unsigned int count;
+};
+
+#define IOCTL_KGSL_GPUOBJ_SYNC \
+	_IOW(KGSL_IOC_TYPE, 0x49, struct kgsl_gpuobj_sync)
+
 #endif /* _UAPI_MSM_KGSL_H */

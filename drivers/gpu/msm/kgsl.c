@@ -29,7 +29,6 @@
 #include <linux/sort.h>
 #include <linux/security.h>
 #include <linux/compat.h>
-#include <asm/cacheflush.h>
 
 #include "kgsl.h"
 #include "kgsl_debugfs.h"
@@ -3592,8 +3591,7 @@ long kgsl_ioctl_gpumem_sync_cache_bulk(struct kgsl_device_private *dev_priv,
 		last_id = id;
 	}
 	if (full_flush) {
-		trace_kgsl_mem_sync_full_cache(actual_count, op_size,
-					       param->op);
+		trace_kgsl_mem_sync_full_cache(actual_count, op_size);
 		flush_cache_all();
 	}
 
@@ -3633,6 +3631,82 @@ long kgsl_ioctl_sharedmem_flush_cache(struct kgsl_device_private *dev_priv,
 	ret = _kgsl_gpumem_sync_cache(entry, 0, entry->memdesc.size,
 					KGSL_GPUMEM_CACHE_FLUSH);
 	kgsl_mem_entry_put(entry);
+	return ret;
+}
+
+long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_gpuobj_sync *param = data;
+	struct kgsl_gpuobj_sync_obj *objs;
+	struct kgsl_mem_entry **entries;
+	long ret = 0;
+	bool full_flush = false;
+	uint64_t size = 0;
+	int i, count = 0;
+	void __user *ptr;
+
+	if (param->count == 0 || param->count > 128)
+		return -EINVAL;
+
+	objs = kzalloc(param->count * sizeof(*objs), GFP_KERNEL);
+	if (objs == NULL)
+		return -ENOMEM;
+
+	entries = kzalloc(param->count * sizeof(*entries), GFP_KERNEL);
+	if (entries == NULL) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ptr = (void __user *) (uintptr_t) param->objs;
+
+	for (i = 0; i < param->count; i++) {
+		ret = _copy_from_user(&objs[i], ptr, sizeof(*objs),
+			param->obj_len);
+		if (ret)
+			goto out;
+
+		entries[i] = kgsl_sharedmem_find_id(private, objs[i].id);
+
+		/* Not finding the ID is not a fatal failure - just skip it */
+		if (entries[i] == NULL)
+			continue;
+
+		count++;
+
+		if (!(objs[i].op & KGSL_GPUMEM_CACHE_RANGE))
+			size += entries[i]->memdesc.size;
+		else if (objs[i].offset < entries[i]->memdesc.size)
+			size += (entries[i]->memdesc.size - objs[i].offset);
+
+		full_flush = check_full_flush(size, objs[i].op);
+		if (full_flush)
+			break;
+
+		ptr += sizeof(*objs);
+	}
+
+	if (full_flush) {
+		trace_kgsl_mem_sync_full_cache(count, size);
+		flush_cache_all();
+	} else {
+		for (i = 0; !ret && i < param->count; i++)
+			if (entries[i])
+				ret = _kgsl_gpumem_sync_cache(entries[i],
+						objs[i].offset, objs[i].length,
+						objs[i].op);
+	}
+
+	for (i = 0; i < param->count; i++)
+		if (entries[i])
+			kgsl_mem_entry_put(entries[i]);
+
+out:
+	kfree(entries);
+	kfree(objs);
+
 	return ret;
 }
 
