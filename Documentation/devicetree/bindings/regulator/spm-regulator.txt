@@ -24,6 +24,13 @@ Optional properties:
 		    be managed by an SPM.  Instead, the voltage should be
 		    controlled via SPMI.
 
+Optional structure:
+- A child node may be specified within a qcom,spm-regulator node which defines
+	an additional regulator which controls the AVS minimum and maximum
+	voltage limits.
+- The AVS child node must contain these properties defined in regulator.txt:
+	regulator-name, regulator-min-microvolt, regulator-max-microvolt.
+
 All properties specified within the core regulator framework can also be used.
 These bindings can be found in regulator.txt.
 
@@ -39,6 +46,12 @@ Example:
 				reg = <0x1700 0x100>;
 				regulator-min-microvolt = <900000>;
 				regulator-max-microvolt = <1275000>;
+
+				avs-limit-regulator {
+					regulator-name = "8226_s2_avs_limit";
+					regulator-min-microvolt = <900000>;
+					regulator-max-microvolt = <1275000>;
+				}
 			};
 		};
 	};

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -120,7 +120,46 @@ struct spm_vreg {
 	enum qpnp_regulator_uniq_type	regulator_type;
 	u32				cpu_num;
 	bool				bypass_spm;
+	struct regulator_desc		avs_rdesc;
+	struct regulator_dev		*avs_rdev;
+	int				avs_min_uV;
+	int				avs_max_uV;
+	bool				avs_enabled;
 };
+
+static inline bool spm_regulator_using_avs(struct spm_vreg *vreg)
+{
+	return vreg->avs_rdev && !vreg->bypass_spm;
+}
+
+static int qpnp_smps_read_voltage(struct spm_vreg *vreg)
+{
+	int rc;
+	u8 reg = 0;
+
+	rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl, vreg->spmi_dev->sid,
+		vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT, &reg, 1);
+	if (rc) {
+		dev_err(&vreg->spmi_dev->dev, "%s: could not read voltage setpoint register, rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	vreg->last_set_vlevel = reg;
+
+	/*
+	 * Calculate ULT HF buck VSET based on range:
+	 * In case of range 0: VSET is a 7 bit value.
+	 * In case of range 1: VSET is a 5 bit value.
+	 */
+	if (vreg->regulator_type == QPNP_TYPE_ULT_HF
+	    && vreg->range == &ult_hf_range1)
+		reg &= ~ULT_SMPS_RANGE_SPLIT;
+
+	vreg->last_set_uV = reg * vreg->range->step_uV + vreg->range->min_uV;
+
+	return rc;
+}
 
 static int qpnp_fts2_set_mode(struct spm_vreg *vreg, u8 mode)
 {
@@ -141,6 +180,15 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 	bool spm_failed = false;
 	int rc = 0;
 	u8 reg;
+
+	if (spm_regulator_using_avs(vreg)) {
+		rc = qpnp_smps_read_voltage(vreg);
+		if (rc) {
+			pr_err("%s: voltage read failed, rc=%d\n",
+				vreg->rdesc.name, rc);
+			return rc;
+		}
+	}
 
 	if (vreg->vlevel == vreg->last_set_vlevel)
 		return 0;
@@ -252,8 +300,20 @@ static int spm_regulator_set_voltage(struct regulator_dev *rdev, int min_uV,
 static int spm_regulator_get_voltage(struct regulator_dev *rdev)
 {
 	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+	int rc;
 
-	return vreg->uV;
+	if (spm_regulator_using_avs(vreg)) {
+		rc = qpnp_smps_read_voltage(vreg);
+		if (rc) {
+			pr_err("%s: voltage read failed, rc=%d\n",
+				vreg->rdesc.name, rc);
+			return rc;
+		}
+
+		return vreg->last_set_uV;
+	} else {
+		return vreg->uV;
+	}
 }
 
 static int spm_regulator_list_voltage(struct regulator_dev *rdev,
@@ -303,6 +363,146 @@ static struct regulator_ops spm_regulator_ops = {
 	.enable		= spm_regulator_enable,
 	.disable	= spm_regulator_disable,
 	.is_enabled	= spm_regulator_is_enabled,
+};
+
+static int spm_regulator_avs_set_voltage(struct regulator_dev *rdev, int min_uV,
+					int max_uV, unsigned *selector)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+	const struct voltage_range *range = vreg->range;
+	unsigned vlevel_min, vlevel_max;
+	int uV, avs_min_uV, avs_max_uV, rc;
+
+	uV = min_uV;
+
+	if (uV < range->set_point_min_uV && max_uV >= range->set_point_min_uV)
+		uV = range->set_point_min_uV;
+
+	if (uV < range->set_point_min_uV || uV > range->max_uV) {
+		pr_err("%s: request v=[%d, %d] is outside possible v=[%d, %d]\n",
+			vreg->avs_rdesc.name, min_uV, max_uV,
+			range->set_point_min_uV, range->max_uV);
+		return -EINVAL;
+	}
+
+	vlevel_min = DIV_ROUND_UP(uV - range->min_uV, range->step_uV);
+	avs_min_uV = vlevel_min * range->step_uV + range->min_uV;
+
+	if (avs_min_uV > max_uV) {
+		pr_err("%s: request v=[%d, %d] cannot be met by any set point\n",
+			vreg->avs_rdesc.name, min_uV, max_uV);
+		return -EINVAL;
+	}
+
+	uV = max_uV;
+
+	if (uV > range->max_uV && min_uV <= range->max_uV)
+		uV = range->max_uV;
+
+	if (uV < range->set_point_min_uV || uV > range->max_uV) {
+		pr_err("%s: request v=[%d, %d] is outside possible v=[%d, %d]\n",
+			vreg->avs_rdesc.name, min_uV, max_uV,
+			range->set_point_min_uV, range->max_uV);
+		return -EINVAL;
+	}
+
+	vlevel_max = (uV - range->min_uV) / range->step_uV;
+	avs_max_uV = vlevel_max * range->step_uV + range->min_uV;
+
+	if (avs_max_uV < min_uV) {
+		pr_err("%s: request v=[%d, %d] cannot be met by any set point\n",
+			vreg->avs_rdesc.name, min_uV, max_uV);
+		return -EINVAL;
+	}
+
+	*selector = vlevel_min -
+		(vreg->range->set_point_min_uV - vreg->range->min_uV)
+			/ vreg->range->step_uV;
+
+	/* Update vlevel for ULT HF Buck */
+	if (vreg->regulator_type == QPNP_TYPE_ULT_HF
+	    && range == &ult_hf_range1) {
+		vlevel_min &= 0x1F;
+		vlevel_min |= ULT_SMPS_RANGE_SPLIT;
+		vlevel_max &= 0x1F;
+		vlevel_max |= ULT_SMPS_RANGE_SPLIT;
+	}
+
+	if (likely(!vreg->bypass_spm)) {
+		rc = msm_spm_avs_set_limit(vreg->cpu_num, vlevel_min,
+						vlevel_max);
+		if (rc) {
+			pr_err("%s: AVS limit setting failed, rc=%d\n",
+				vreg->avs_rdesc.name, rc);
+			return rc;
+		}
+	}
+
+	vreg->avs_min_uV = avs_min_uV;
+	vreg->avs_max_uV = avs_max_uV;
+
+	return 0;
+}
+
+static int spm_regulator_avs_get_voltage(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+
+	return vreg->avs_min_uV;
+}
+
+static int spm_regulator_avs_enable(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+	int rc;
+
+	if (likely(!vreg->bypass_spm)) {
+		rc = msm_spm_avs_enable(vreg->cpu_num);
+		if (rc) {
+			pr_err("%s: AVS enable failed, rc=%d\n",
+				vreg->avs_rdesc.name, rc);
+			return rc;
+		}
+	}
+
+	vreg->avs_enabled = true;
+
+	return 0;
+}
+
+static int spm_regulator_avs_disable(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+	int rc;
+
+	if (likely(!vreg->bypass_spm)) {
+		rc = msm_spm_avs_disable(vreg->cpu_num);
+		if (rc) {
+			pr_err("%s: AVS disable failed, rc=%d\n",
+				vreg->avs_rdesc.name, rc);
+			return rc;
+		}
+	}
+
+	vreg->avs_enabled = false;
+
+	return 0;
+}
+
+static int spm_regulator_avs_is_enabled(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+
+	return vreg->avs_enabled;
+}
+
+static struct regulator_ops spm_regulator_avs_ops = {
+	.get_voltage	= spm_regulator_avs_get_voltage,
+	.set_voltage	= spm_regulator_avs_set_voltage,
+	.list_voltage	= spm_regulator_list_voltage,
+	.enable		= spm_regulator_avs_enable,
+	.disable	= spm_regulator_avs_disable,
+	.is_enabled	= spm_regulator_avs_is_enabled,
 };
 
 static int qpnp_smps_check_type(struct spm_vreg *vreg)
@@ -383,29 +583,16 @@ static int qpnp_ult_hf_init_range(struct spm_vreg *vreg)
 static int qpnp_smps_init_voltage(struct spm_vreg *vreg)
 {
 	int rc;
-	u8 reg = 0;
 
-	rc = spmi_ext_register_readl(vreg->spmi_dev->ctrl, vreg->spmi_dev->sid,
-		vreg->spmi_base_addr + QPNP_SMPS_REG_VOLTAGE_SETPOINT, &reg, 1);
+	rc = qpnp_smps_read_voltage(vreg);
 	if (rc) {
-		dev_err(&vreg->spmi_dev->dev, "%s: could not read voltage setpoint register, rc=%d\n",
-			__func__, rc);
+		pr_err("%s: voltage read failed, rc=%d\n", vreg->rdesc.name,
+			rc);
 		return rc;
 	}
 
-	vreg->vlevel = reg;
-	/*
-	 * Calculate ULT HF buck VSET based on range:
-	 * In case of range 0: VSET is a 7 bit value.
-	 * In case of range 1: VSET is a 5 bit value
-	 *
-	 */
-	if ((vreg->regulator_type == QPNP_TYPE_ULT_HF) &&
-				(vreg->range == &ult_hf_range1))
-		vreg->vlevel &= ~ULT_SMPS_RANGE_SPLIT;
-
-	vreg->uV = vreg->vlevel * vreg->range->step_uV + vreg->range->min_uV;
-	vreg->last_set_uV = vreg->uV;
+	vreg->vlevel = vreg->last_set_vlevel;
+	vreg->uV = vreg->last_set_uV;
 
 	return rc;
 }
@@ -494,6 +681,71 @@ static bool spm_regulator_using_range0(struct spm_vreg *vreg)
 {
 	return vreg->range == &fts2_range0 || vreg->range == &fts2p5_range0
 		|| vreg->range == &ult_hf_range0;
+}
+
+/* Register a regulator to enable/disable AVS and set AVS min/max limits. */
+static int spm_regulator_avs_register(struct spm_vreg *vreg,
+				struct device *dev, struct device_node *node)
+{
+	struct regulator_config reg_config = {};
+	struct device_node *avs_node = NULL;
+	struct device_node *child_node;
+	struct regulator_init_data *init_data;
+	int rc;
+
+	/*
+	 * Find the first available child node (if any).  It corresponds to an
+	 * AVS limits regulator.
+	 */
+	for_each_available_child_of_node(node, child_node) {
+		avs_node = child_node;
+		break;
+	}
+
+	if (!avs_node)
+		return 0;
+
+	init_data = of_get_regulator_init_data(dev, avs_node);
+	if (!init_data) {
+		dev_err(dev, "%s: unable to allocate memory\n", __func__);
+		return -ENOMEM;
+	}
+	init_data->constraints.input_uV = init_data->constraints.max_uV;
+	init_data->constraints.valid_ops_mask |= REGULATOR_CHANGE_STATUS
+						| REGULATOR_CHANGE_VOLTAGE;
+
+	if (!init_data->constraints.name) {
+		dev_err(dev, "%s: AVS node is missing regulator name\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	vreg->avs_rdesc.name	= init_data->constraints.name;
+	vreg->avs_rdesc.type	= REGULATOR_VOLTAGE;
+	vreg->avs_rdesc.owner	= THIS_MODULE;
+	vreg->avs_rdesc.ops	= &spm_regulator_avs_ops;
+	vreg->avs_rdesc.n_voltages
+		= (vreg->range->max_uV - vreg->range->set_point_min_uV)
+			/ vreg->range->step_uV + 1;
+
+	reg_config.dev = dev;
+	reg_config.init_data = init_data;
+	reg_config.driver_data = vreg;
+	reg_config.of_node = avs_node;
+
+	vreg->avs_rdev = regulator_register(&vreg->avs_rdesc, &reg_config);
+	if (IS_ERR(vreg->avs_rdev)) {
+		rc = PTR_ERR(vreg->avs_rdev);
+		dev_err(dev, "%s: AVS regulator_register failed, rc=%d\n",
+			__func__, rc);
+		return rc;
+	}
+
+	if (vreg->bypass_spm)
+		pr_debug("%s: SPM bypassed so AVS regulator calls are no-ops\n",
+			vreg->avs_rdesc.name);
+
+	return 0;
 }
 
 static int spm_regulator_probe(struct spmi_device *spmi)
@@ -602,10 +854,17 @@ static int spm_regulator_probe(struct spmi_device *spmi)
 	reg_config.driver_data = vreg;
 	reg_config.of_node = node;
 	vreg->rdev = regulator_register(&vreg->rdesc, &reg_config);
+
 	if (IS_ERR(vreg->rdev)) {
 		rc = PTR_ERR(vreg->rdev);
 		dev_err(&spmi->dev, "%s: regulator_register failed, rc=%d\n",
 			__func__, rc);
+		return rc;
+	}
+
+	rc = spm_regulator_avs_register(vreg, &spmi->dev, node);
+	if (rc) {
+		regulator_unregister(vreg->rdev);
 		return rc;
 	}
 
@@ -626,6 +885,8 @@ static int spm_regulator_remove(struct spmi_device *spmi)
 {
 	struct spm_vreg *vreg = dev_get_drvdata(&spmi->dev);
 
+	if (vreg->avs_rdev)
+		regulator_unregister(vreg->avs_rdev);
 	regulator_unregister(vreg->rdev);
 
 	return 0;
