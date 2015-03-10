@@ -4111,6 +4111,7 @@ static int venus_hfi_load_fw(void *dev)
 
 		if (IS_ERR_OR_NULL(device->resources.fw.cookie)) {
 			dprintk(VIDC_ERR, "Failed to download firmware\n");
+			device->resources.fw.cookie = NULL;
 			rc = -ENOMEM;
 			goto fail_load_fw;
 		}
