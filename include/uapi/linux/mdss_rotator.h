@@ -76,6 +76,7 @@ struct mdp_rotation_config {
 	struct mdp_rotation_buf_info	input;
 	struct mdp_rotation_buf_info	output;
 	uint32_t	frame_rate;
+	uint32_t	flags;
 	uint32_t	reserved[6];
 };
 
