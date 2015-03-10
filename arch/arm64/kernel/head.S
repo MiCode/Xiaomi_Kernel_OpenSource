@@ -581,10 +581,7 @@ ENTRY(secondary_holding_pen)
 	mrs	x0, mpidr_el1
 	ldr     x1, =MPIDR_HWID_BITMASK
 	and	x0, x0, x1
-	adr	x1, 1b
-	ldp	x2, x3, [x1]
-	sub	x1, x1, x2
-	add	x3, x3, x1
+	adr_l	x3, secondary_holding_pen_release
 pen:	ldr	x4, [x3]
 	cmp	x4, x0
 	b.eq	secondary_startup
