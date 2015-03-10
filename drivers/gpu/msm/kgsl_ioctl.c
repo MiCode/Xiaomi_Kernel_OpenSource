@@ -80,6 +80,8 @@ static const struct kgsl_ioctl kgsl_ioctl_funcs[] = {
 			kgsl_ioctl_gpuobj_alloc),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_FREE,
 			kgsl_ioctl_gpuobj_free),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_INFO,
+			kgsl_ioctl_gpuobj_info),
 };
 
 long kgsl_ioctl_copy_in(unsigned int kernel_cmd, unsigned int user_cmd,

@@ -307,6 +307,8 @@ long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 long kgsl_ioctl_gpuobj_free(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
+long kgsl_ioctl_gpuobj_info(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
 
 int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
 			struct kgsl_ibdesc *ibdesc);
