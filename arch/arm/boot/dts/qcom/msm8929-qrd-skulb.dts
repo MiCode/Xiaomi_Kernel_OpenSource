@@ -202,6 +202,12 @@
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
+&pm8916_vadc {
+	chan@30 {
+		qcom,scale-function = <14>;
+	};
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_r63417_1080p_video>;
 

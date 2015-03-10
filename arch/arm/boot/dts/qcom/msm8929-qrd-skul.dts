@@ -98,6 +98,12 @@
 	qcom,battery-data = <&qrd_batterydata>;
 };
 
+&pm8916_vadc {
+	chan@30 {
+		qcom,scale-function = <14>;
+	};
+};
+
 &usb_otg {
 	qcom,hsusb-otg-mode = <3>;
 	qcom,usbid-gpio = <&msm_gpio 110 0>;
