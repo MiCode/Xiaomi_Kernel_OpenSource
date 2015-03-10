@@ -2019,7 +2019,7 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 			break;
 		}
 		++tocp;
-		einfo->tx_fifo_size = *tocp - sizeof(*einfo->tx_ch_desc);
+		einfo->tx_fifo_size = *tocp;
 		if (einfo->tx_fifo_size > resource_size(msgram_r) ||
 			(uintptr_t)(einfo->tx_fifo + einfo->tx_fifo_size) >
 				(uintptr_t)(msgram + resource_size(msgram_r))) {
@@ -2052,7 +2052,7 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 			break;
 		}
 		++tocp;
-		einfo->rx_fifo_size = *tocp - sizeof(*einfo->rx_ch_desc);
+		einfo->rx_fifo_size = *tocp;
 		if (einfo->rx_fifo_size > resource_size(msgram_r) ||
 			(uintptr_t)(einfo->rx_fifo + einfo->rx_fifo_size) >
 				(uintptr_t)(msgram + resource_size(msgram_r))) {
