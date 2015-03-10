@@ -70,6 +70,9 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	- qcom,large-address-bus - specifies whether the soc is capable of
 				 supporting larger than 32 bit address bus width.
 
+	- qcom,wakeup-on-idle: if configured, the mmcqd thread will call
+	  set_wake_up_idle(), thereby voting for it to be called on idle CPUs.
+
 Example:
 
 	aliases {
