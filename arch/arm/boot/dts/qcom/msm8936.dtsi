@@ -178,7 +178,7 @@
 
 	qcom,msm-thermal {
 		qcom,synchronous-cluster-id = <0>;
-		qcom,synchronous-cluster-map = <0 0x0F>;
+		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>;
 	};
 
 	jtag_fuse: jtagfuse@5e01c {

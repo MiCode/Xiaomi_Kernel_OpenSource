@@ -94,9 +94,10 @@ Optional properties
 - qcom,synchronous-cluster-id: This property specifies an array of synchronous cluster-ID's.
 			This property will be used by KTM to optimize the synchronous
 			cluster frequency update.
-- qcom,synchronous-cluster-map: This property specifies an array of cluster-ID and its
-			associated cpumask value pair. This property should be defined
-			in targets where the kernel topology module is not present.
+- qcom,synchronous-cluster-map: This property specifies an array of cluster-ID,
+			number of cpus in that cluster and their corresponding cpu
+			phandles. This property should be defined in targets where
+			the kernel topology module is not present.
 			In the older kernel version, where the kernel topology module is
 			not available, KTM gets the mapping information from this property.
 - qcom,disable-vdd-mx:  If this property is defined, the feature VDD MX
@@ -282,12 +283,11 @@ Example:
 		vdd-mx-supply = <&pma8084_s1>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>; /* Indicates cluster 0 and 1 are synchronous */
-		qcom,synchronous-cluster-map =  <0 0x0F>,
-						<1 0xF0>; /* <cluster-ID, cpumask>. */
-		/* The 0x0F is a bitmap indicating that
-		** core 0, 1, 2, 3 belongs to cluster ID 0.
-		** The 0xF0 is a bitmap indicating that core 4, 5, 6, 7
-		** belongs to cluster ID 1.
+		qcom,synchronous-cluster-map =  <0 2 &CPU0 &CPU1>,
+						<1 2 &CPU2 &CPU3>;
+		/* <cluster-ID, number of cores in cluster, cpu phandles>.
+		** In the above case, the cluster with ID 0 & 1 has 2 cores
+		** and their phandles are mentioned.
 		*/
 
 		qcom,vdd-dig-rstr{
