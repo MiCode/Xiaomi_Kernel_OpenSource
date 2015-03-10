@@ -71,8 +71,8 @@
 
 #define MAX_FBI_LIST 32
 
-#define BLANK_FLAG_LP	FB_BLANK_VSYNC_SUSPEND
-#define BLANK_FLAG_ULP	FB_BLANK_NORMAL
+#define BLANK_FLAG_LP	FB_BLANK_NORMAL
+#define BLANK_FLAG_ULP	FB_BLANK_VSYNC_SUSPEND
 
 static struct fb_info *fbi_list[MAX_FBI_LIST];
 static int fbi_list_index;
