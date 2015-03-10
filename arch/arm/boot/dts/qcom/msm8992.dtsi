@@ -2883,7 +2883,6 @@
 		compatible = "qcom,android-usb";
 		reg = <0xfe80f0c8 0xc8>;
 		qcom,pm-qos-latency = <61 637 1261>;
-		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
 
 	audio_heap {
