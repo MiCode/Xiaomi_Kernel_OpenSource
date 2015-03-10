@@ -569,6 +569,8 @@
 		vdd-supply = <&pm8994_s11>;
 		vdd-limit-supply = <&pm8994_s11_limit>;
 
+		qcom,cpr-enable;
+
 		apc0_vreg: regulator@0 {
 			qcom,cpr-thread-id = <0>;
 			regulator-name = "apc0_corner";
