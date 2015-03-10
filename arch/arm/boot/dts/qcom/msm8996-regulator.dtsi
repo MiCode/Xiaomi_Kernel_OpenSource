@@ -672,6 +672,8 @@
 
 		vdd-supply = <&pmi8994_s2>;
 
+		qcom,cpr-enable;
+
 		gfx_vreg: regulator@0 {
 			qcom,cpr-thread-id = <0>;
 			regulator-name = "gfx_corner";
