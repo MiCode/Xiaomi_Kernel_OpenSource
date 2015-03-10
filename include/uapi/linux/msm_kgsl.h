@@ -90,7 +90,7 @@
 /* --- Memory allocation flags --- */
 
 /* General allocation hints */
-#define KGSL_MEMFLAGS_SECURE      0x00000008U
+#define KGSL_MEMFLAGS_SECURE      0x00000008ULL
 #define KGSL_MEMFLAGS_GPUREADONLY 0x01000000U
 #define KGSL_MEMFLAGS_GPUWRITEONLY 0x02000000U
 
@@ -103,7 +103,7 @@
 #define KGSL_CACHEMODE_WRITETHROUGH 2
 #define KGSL_CACHEMODE_WRITEBACK 3
 
-#define KGSL_MEMFLAGS_USE_CPU_MAP 0x10000000U
+#define KGSL_MEMFLAGS_USE_CPU_MAP 0x10000000ULL
 
 /* Memory types for which allocations are made */
 #define KGSL_MEMTYPE_MASK		0x0000FF00
@@ -144,6 +144,11 @@ enum kgsl_user_mem_type {
 	KGSL_USER_MEM_TYPE_ASHMEM	= 0x00000001,
 	KGSL_USER_MEM_TYPE_ADDR		= 0x00000002,
 	KGSL_USER_MEM_TYPE_ION		= 0x00000003,
+	/*
+	 * ION type is retained for backwards compatibilty but Ion buffers are
+	 * dma-bufs so try to use that naming if we can
+	 */
+	KGSL_USER_MEM_TYPE_DMABUF       = 0x00000003,
 	KGSL_USER_MEM_TYPE_MAX		= 0x00000007,
 };
 #define KGSL_MEMFLAGS_USERMEM_MASK 0x000000e0
@@ -1220,5 +1225,40 @@ struct kgsl_gpuobj_info {
 
 #define IOCTL_KGSL_GPUOBJ_INFO \
 	_IOWR(KGSL_IOC_TYPE, 0x47, struct kgsl_gpuobj_info)
+
+/**
+ * struct kgsl_gpuobj_import - argument to IOCTL_KGSL_GPUOBJ_IMPORT
+ * @priv: Pointer to the private data for the import type
+ * @priv_len: Length of the private data
+ * @flags: Mask of KGSL_MEMFLAG_ flags
+ * @type: Type of the import (KGSL_USER_MEM_TYPE_*)
+ * @id: Returns the ID of the new GPU object
+ */
+struct kgsl_gpuobj_import {
+	uint64_t __user priv;
+	uint64_t priv_len;
+	uint64_t flags;
+	unsigned int type;
+	unsigned int id;
+};
+
+/**
+ * struct kgsl_gpuobj_import_dma_buf - import a dmabuf object
+ * @fd: File descriptor for the dma-buf object
+ */
+struct kgsl_gpuobj_import_dma_buf {
+	int fd;
+};
+
+/**
+ * struct kgsl_gpuobj_import_useraddr - import an object based on a useraddr
+ * @virtaddr: Virtual address of the object to import
+ */
+struct kgsl_gpuobj_import_useraddr {
+	uint64_t virtaddr;
+};
+
+#define IOCTL_KGSL_GPUOBJ_IMPORT \
+	_IOWR(KGSL_IOC_TYPE, 0x48, struct kgsl_gpuobj_import)
 
 #endif /* _UAPI_MSM_KGSL_H */
