@@ -3624,22 +3624,23 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 
 	if (param->id != 0) {
 		entry = kgsl_sharedmem_find_id(private, param->id);
-		if (entry == NULL) {
-			KGSL_MEM_INFO(dev_priv->device, "can't find id %d\n",
-					param->id);
+		if (entry == NULL)
 			return -EINVAL;
-		}
 	} else if (param->gpuaddr != 0) {
 		entry = kgsl_sharedmem_find(private, (uint64_t) param->gpuaddr);
-		if (entry == NULL) {
-			KGSL_MEM_INFO(dev_priv->device,
-					"can't find gpuaddr 0x%08lX\n",
-					param->gpuaddr);
+		if (entry == NULL)
 			return -EINVAL;
-		}
-	} else {
+	} else
 		return -EINVAL;
-	}
+
+	/*
+	 * If any of the 64 bit address / sizes would end up being
+	 * truncated, return -ERANGE.  That will signal the user that they
+	 * should use a more modern API
+	 */
+	if (entry->memdesc.gpuaddr > UINT_MAX)
+		result = -ERANGE;
+
 	param->gpuaddr = (unsigned int) entry->memdesc.gpuaddr;
 	param->id = entry->id;
 	param->flags = (unsigned int) entry->memdesc.flags;
@@ -3649,6 +3650,31 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 
 	kgsl_mem_entry_put(entry);
 	return result;
+}
+
+long kgsl_ioctl_gpuobj_info(struct kgsl_device_private *dev_priv,
+		unsigned int cmd, void *data)
+{
+	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_gpuobj_info *param = data;
+	struct kgsl_mem_entry *entry;
+
+	if (param->id == 0)
+		return -EINVAL;
+
+	entry = kgsl_sharedmem_find_id(private, param->id);
+	if (entry == NULL)
+		return -EINVAL;
+
+	param->id = entry->id;
+	param->gpuaddr = entry->memdesc.gpuaddr;
+	param->flags = entry->memdesc.flags;
+	param->size = entry->memdesc.size;
+	param->va_len = kgsl_memdesc_mmapsize(&entry->memdesc);
+	param->va_addr = (uint64_t) entry->memdesc.useraddr;
+
+	kgsl_mem_entry_put(entry);
+	return 0;
 }
 
 long kgsl_ioctl_cff_syncmem(struct kgsl_device_private *dev_priv,

@@ -1200,4 +1200,25 @@ struct kgsl_gpu_event_fence {
 #define IOCTL_KGSL_GPUOBJ_FREE \
 	_IOW(KGSL_IOC_TYPE, 0x46, struct kgsl_gpuobj_free)
 
+/**
+ * struct kgsl_gpuobj_info - argument to IOCTL_KGSL_GPUOBJ_INFO
+ * @gpuaddr: GPU address of the object
+ * @flags: Current flags for the object
+ * @size: Size of the object
+ * @va_len: VA size of the object
+ * @va_addr: Virtual address of the object (if it is mapped)
+ * id - GPU object ID of the object to query
+ */
+struct kgsl_gpuobj_info {
+	uint64_t gpuaddr;
+	uint64_t flags;
+	uint64_t size;
+	uint64_t va_len;
+	uint64_t va_addr;
+	unsigned int id;
+};
+
+#define IOCTL_KGSL_GPUOBJ_INFO \
+	_IOWR(KGSL_IOC_TYPE, 0x47, struct kgsl_gpuobj_info)
+
 #endif /* _UAPI_MSM_KGSL_H */
