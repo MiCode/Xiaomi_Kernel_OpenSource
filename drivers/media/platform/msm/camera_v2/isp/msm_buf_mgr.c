@@ -1215,17 +1215,17 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 					break;
 				}
 				for (k = 0; k < bufs->num_planes; k++) {
-					if (!start_addr)
-						start_addr = bufs->
+					start_addr = bufs->
 							mapped_info[k].paddr;
 					end_addr = bufs->mapped_info[k].paddr +
 						bufs->mapped_info[k].len;
+					snprintf(temp_buf, sizeof(temp_buf),
+						" buf %d plane %d start_addr %x end_addr %x\n",
+						j, k, start_addr, end_addr);
+					strlcat(print_buf, temp_buf,
+						print_buf_size);
 				}
 			}
-			snprintf(temp_buf, sizeof(temp_buf),
-				" start_addr %x end_addr %x\n",
-				start_addr, end_addr);
-			strlcat(print_buf, temp_buf, print_buf_size);
 			start_addr = 0;
 			end_addr = 0;
 		}
