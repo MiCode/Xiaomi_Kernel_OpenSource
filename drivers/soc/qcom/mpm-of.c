@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -112,7 +112,6 @@ static struct work_struct msm_mpm_work;
 static struct completion wake_wq;
 
 enum mpm_reg_offsets {
-	MSM_MPM_REG_WAKEUP,
 	MSM_MPM_REG_ENABLE,
 	MSM_MPM_REG_FALLING_EDGE,
 	MSM_MPM_REG_RISING_EDGE,
@@ -157,7 +156,7 @@ static inline bool msm_mpm_is_initialized(void)
 static inline uint32_t msm_mpm_read(
 	unsigned int reg, unsigned int subreg_index)
 {
-	unsigned int offset = reg * MSM_MPM_REG_WIDTH + subreg_index;
+	unsigned int offset = reg * MSM_MPM_REG_WIDTH + subreg_index + 2;
 	return __raw_readl(msm_mpm_dev_data.mpm_request_reg_base + offset * 4);
 }
 
