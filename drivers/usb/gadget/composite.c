@@ -1310,6 +1310,12 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 				value = min(w_length, (u16) value);
 			}
 			break;
+		case USB_DT_OTG:
+			if (cdev->otg_desc) {
+				memcpy(req->buf, cdev->otg_desc, w_length);
+				value = w_length;
+			}
+			break;
 		}
 		break;
 

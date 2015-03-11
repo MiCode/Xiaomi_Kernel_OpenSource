@@ -1550,6 +1550,9 @@ static int android_bind(struct usb_composite_dev *cdev)
 	device_desc.iSerialNumber = id;
 	dev->reset_string_id = id;
 
+	if (gadget_is_otg(gadget))
+		cdev->otg_desc = &otg_descriptor;
+
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;
 

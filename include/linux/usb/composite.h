@@ -394,6 +394,9 @@ struct usb_composite_dev {
 
 	/* protects deactivations and delayed_status counts*/
 	spinlock_t			lock;
+
+	/* OTG support */
+	struct usb_otg_descriptor	*otg_desc;
 };
 
 extern int usb_string_id(struct usb_composite_dev *c);
