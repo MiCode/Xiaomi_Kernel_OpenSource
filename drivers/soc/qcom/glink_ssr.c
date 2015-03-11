@@ -79,7 +79,6 @@ static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
 				  unsigned long code,
 				  void *data);
 static void delete_ss_info_notify_list(struct subsys_info *ss_info);
-static int notify_for_subsystem(struct subsys_info *ss_info);
 static int configure_and_open_channel(struct subsys_info *ss_info);
 static struct workqueue_struct *glink_ssr_wq;
 
@@ -365,7 +364,7 @@ static int glink_ssr_restart_notifier_cb(struct notifier_block *this,
  *
  * Return: 0 on success, standard error codes otherwise
  */
-static int notify_for_subsystem(struct subsys_info *ss_info)
+int notify_for_subsystem(struct subsys_info *ss_info)
 {
 	struct subsys_info *ss_info_channel;
 	struct subsys_info_leaf *ss_leaf_entry;
@@ -500,6 +499,7 @@ static int notify_for_subsystem(struct subsys_info *ss_info)
 	complete(&notifications_successful_complete);
 	return 0;
 }
+EXPORT_SYMBOL(notify_for_subsystem);
 
 /**
  * configure_and_open_channel() - configure and open a G-Link channel for
