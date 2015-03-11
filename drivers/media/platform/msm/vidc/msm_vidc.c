@@ -1222,11 +1222,15 @@ void *msm_vidc_open(int core_id, int session_type)
 	}
 	if (session_type == MSM_VIDC_DECODER) {
 		msm_vdec_inst_init(inst);
-		msm_vdec_ctrl_init(inst);
+		rc = msm_vdec_ctrl_init(inst);
 	} else if (session_type == MSM_VIDC_ENCODER) {
 		msm_venc_inst_init(inst);
-		msm_venc_ctrl_init(inst);
+		rc = msm_venc_ctrl_init(inst);
 	}
+
+	if (rc)
+		goto fail_bufq_capture;
+
 	msm_dcvs_init(inst);
 	rc = vb2_bufq_init(inst, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 			session_type);
