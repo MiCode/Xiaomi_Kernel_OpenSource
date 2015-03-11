@@ -682,12 +682,57 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	rpm_etm0 {
+		compatible = "qcom,coresight-rpm-etm";
+
+		coresight-id = <40>;
+		coresight-name = "coresight-rpm-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <0>;
+	};
+
+	wcn_etm0 {
+		compatible = "qcom,coresight-wcn-etm";
+
+		coresight-id = <41>;
+		coresight-name = "coresight-wcn-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <5>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-modem-etm";
+
+		coresight-id = <42>;
+		coresight-name = "coresight-modem-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <2>;
+	};
+
+	modem_etm1 {
+		compatible = "qcom,coresight-modem-etm";
+
+		coresight-id = <43>;
+		coresight-name = "coresight-modem-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <1>;
+		qcom,inst-id = <11>;
+	};
+
 	fuse: fuse@5e01c {
 		compatible = "arm,coresight-fuse-v2";
 		reg = <0x5e01c 0x8>;
 		reg-names = "fuse-base";
 
-		coresight-id = <40>;
+		coresight-id = <44>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
