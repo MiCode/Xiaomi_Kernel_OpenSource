@@ -76,6 +76,7 @@ enum command_types {
  *			SSR.
  * @smd_ch:		Private SMD channel for channel migration.
  * @smd_lock:		Serializes write access to @smd_ch.
+ * @in_ssr_lock:	Lock to protect the @in_ssr.
  * @smd_ctl_ch_open:	Indicates that @smd_ch is fully open.
  * @work:		Work item for processing migration data.
  *
@@ -93,6 +94,7 @@ struct edge_info {
 	struct delayed_work ssr_work;
 	smd_channel_t *smd_ch;
 	struct mutex smd_lock;
+	struct mutex in_ssr_lock;
 	bool smd_ctl_ch_open;
 	struct work_struct work;
 };
@@ -237,6 +239,13 @@ static void process_ctl_event(struct work_struct *work)
 	bool found;
 
 	einfo = container_of(work, struct edge_info, work);
+
+	mutex_lock(&einfo->in_ssr_lock);
+	if (einfo->in_ssr) {
+		einfo->in_ssr = false;
+		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
+	}
+	mutex_unlock(&einfo->in_ssr_lock);
 
 	while (smd_read_avail(einfo->smd_ch)) {
 		found = false;
@@ -436,8 +445,13 @@ static void ssr_work_func(struct work_struct *work)
 
 	w = container_of(work, struct delayed_work, work);
 	einfo = container_of(w, struct edge_info, ssr_work);
-	einfo->in_ssr = false;
-	einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
+
+	mutex_lock(&einfo->in_ssr_lock);
+	if (einfo->in_ssr) {
+		einfo->in_ssr = false;
+		einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
+	}
+	mutex_unlock(&einfo->in_ssr_lock);
 }
 
 /**
@@ -982,11 +996,14 @@ static int tx_cmd_ch_open(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
+	mutex_lock(&einfo->in_ssr_lock);
 	rcu_id = srcu_read_lock(&einfo->ssr_sync);
 	if (einfo->in_ssr) {
 		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+		mutex_unlock(&einfo->in_ssr_lock);
 		return -EFAULT;
 	}
+	mutex_unlock(&einfo->in_ssr_lock);
 
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (!strcmp(name, ch->name)) {
@@ -1078,11 +1095,14 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
+	mutex_lock(&einfo->in_ssr_lock);
 	rcu_id = srcu_read_lock(&einfo->ssr_sync);
 	if (einfo->in_ssr) {
 		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+		mutex_unlock(&einfo->in_ssr_lock);
 		return -EFAULT;
 	}
+	mutex_unlock(&einfo->in_ssr_lock);
 
 	list_for_each_entry(ch, &einfo->channels, node)
 		if (lcid == ch->lcid) {
@@ -1231,7 +1251,9 @@ static int ssr(struct glink_transport_if *if_ptr)
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
+	mutex_lock(&einfo->in_ssr_lock);
 	einfo->in_ssr = true;
+	mutex_unlock(&einfo->in_ssr_lock);
 	synchronize_srcu(&einfo->ssr_sync);
 
 	einfo->smd_ctl_ch_open = false;
@@ -1342,11 +1364,14 @@ static int tx_cmd_local_rx_intent(struct glink_transport_if *if_ptr,
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
+	mutex_lock(&einfo->in_ssr_lock);
 	rcu_id = srcu_read_lock(&einfo->ssr_sync);
 	if (einfo->in_ssr) {
+		mutex_unlock(&einfo->in_ssr_lock);
 		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 		return -EFAULT;
 	}
+	mutex_unlock(&einfo->in_ssr_lock);
 
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (lcid == ch->lcid)
@@ -1430,11 +1455,14 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
+	mutex_lock(&einfo->in_ssr_lock);
 	rcu_id = srcu_read_lock(&einfo->ssr_sync);
 	if (einfo->in_ssr) {
 		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+		mutex_unlock(&einfo->in_ssr_lock);
 		return -EFAULT;
 	}
+	mutex_unlock(&einfo->in_ssr_lock);
 
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (lcid == ch->lcid)
@@ -1707,6 +1735,7 @@ static int __init glink_smd_xprt_init(void)
 		INIT_LIST_HEAD(&einfo->channels);
 		init_srcu_struct(&einfo->ssr_sync);
 		mutex_init(&einfo->smd_lock);
+		mutex_init(&einfo->in_ssr_lock);
 		INIT_DELAYED_WORK(&einfo->ssr_work, ssr_work_func);
 		INIT_WORK(&einfo->work, process_ctl_event);
 		rc = glink_core_register_transport(&einfo->xprt_if,
