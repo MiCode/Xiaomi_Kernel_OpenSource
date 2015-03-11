@@ -247,6 +247,14 @@ config QCOM_MEMORY_DUMP_V2
 	  of deadlocks or cpu hangs these dump regions are captured to
 	  give a snapshot of the system at the time of the crash.
 
+config MSM_SECURE_BUFFER
+	bool "Helper functions for securing buffers through TZ"
+	help
+	 Say 'Y' here for targets that need to call into TZ to secure
+	 memory buffers. This ensures that only the correct clients can
+	 use this memory and no unauthorized access is made to the
+	 buffer
+
 endif # ARCH_QCOM
 
 config TRACER_PKT

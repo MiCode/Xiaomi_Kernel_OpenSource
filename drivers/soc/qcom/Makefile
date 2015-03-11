@@ -29,3 +29,4 @@ obj-$(CONFIG_QCOM_WATCHDOG_V2) += watchdog_v2.o
 obj-$(CONFIG_TRACER_PKT)	+=	tracer_pkt.o
 obj-$(CONFIG_SOC_BUS)  +=      socinfo.o
 obj-$(CONFIG_QCOM_BUS_SCALING) += msm_bus/
+obj-$(CONFIG_MSM_SECURE_BUFFER) += secure_buffer.o
