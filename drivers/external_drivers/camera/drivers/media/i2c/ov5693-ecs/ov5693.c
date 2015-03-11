@@ -1576,8 +1576,8 @@ static int ov5693_try_mbus_fmt(struct v4l2_subdev *sd,
 					fmt->height);
 	if (idx == -1) {
 		/* return the largest resolution */
-		fmt->width = ov5693_res[0].width;
-		fmt->height = ov5693_res[0].height;
+		fmt->width = ov5693_res[N_RES - 1].width;
+		fmt->height = ov5693_res[N_RES - 1].height;
 	} else {
 		fmt->width = ov5693_res[idx].width;
 		fmt->height = ov5693_res[idx].height;
