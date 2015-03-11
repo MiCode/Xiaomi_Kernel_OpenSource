@@ -921,7 +921,8 @@ void msm_isp_axi_cfg_update(struct vfe_device *vfe_dev,
 		}
 		num_stream++;
 		stream_info = &axi_data->stream_info[i];
-		if (stream_info->stream_type == BURST_STREAM ||
+		if ((stream_info->stream_type == BURST_STREAM &&
+			!stream_info->controllable_output) ||
 			stream_info->state == AVALIABLE)
 			continue;
 		spin_lock_irqsave(&stream_info->lock, flags);
