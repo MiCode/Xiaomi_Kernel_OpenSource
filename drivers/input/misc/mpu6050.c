@@ -72,6 +72,13 @@
 #define MPU6050_PINCTRL_DEFAULT	"mpu_default"
 #define MPU6050_PINCTRL_SUSPEND	"mpu_sleep"
 
+#define CAL_SKIP_COUNT	5
+#define MPU_ACC_CAL_COUNT	15
+#define MPU_ACC_CAL_NUM	(MPU_ACC_CAL_COUNT - CAL_SKIP_COUNT)
+#define MPU_ACC_CAL_BUF_SIZE	22
+#define RAW_TO_1G	16384
+#define MPU_ACC_CAL_DELAY 100	/* ms */
+
 enum mpu6050_place {
 	MPU6050_PLACE_PU = 0,
 	MPU6050_PLACE_PR = 1,
@@ -126,6 +133,10 @@ struct axis_data {
  *  @motion_det_en:	motion detection wakeup is enabled
  *  @batch_accel:	accelerometer is working on batch mode
  *  @batch_gyro:	gyroscope is working on batch mode
+ *  @acc_cal_buf:	accelerometer calibration string format bias
+ *  @acc_cal_params:	accelerometer calibration bias
+ *  @acc_use_cal:	accelerometer use calibration bias to
+			compensate raw data
  *  @vlogic:	regulator data for Vlogic
  *  @vdd:	regulator data for Vdd
  *  @vi2c:	I2C bus pullup
@@ -164,6 +175,11 @@ struct mpu6050_sensor {
 	bool motion_det_en;
 	bool batch_accel;
 	bool batch_gyro;
+
+	/* calibration */
+	char acc_cal_buf[MPU_ACC_CAL_BUF_SIZE];
+	int acc_cal_params[3];
+	bool acc_use_cal;
 
 	/* power control */
 	struct regulator *vlogic;
@@ -313,6 +329,7 @@ static int mpu6050_set_fifo(struct mpu6050_sensor *sensor,
 					bool en_accel, bool en_gyro);
 static void mpu6050_flush_fifo(struct mpu6050_sensor *sensor);
 static int mpu6050_config_sample_rate(struct mpu6050_sensor *sensor);
+static void mpu6050_acc_data_process(struct mpu6050_sensor *sensor);
 
 static inline void mpu6050_set_fifo_start_time(struct mpu6050_sensor *sensor)
 {
@@ -629,9 +646,7 @@ static void mpu6050_read_single_event(struct mpu6050_sensor *sensor)
 	u32 shift;
 
 	if (sensor->cfg.accel_enable) {
-		mpu6050_read_accel_data(sensor, &sensor->axis);
-		mpu6050_remap_accel_data(&sensor->axis,
-			sensor->pdata->place);
+		mpu6050_acc_data_process(sensor);
 		shift = mpu_accel_fs_shift[sensor->cfg.accel_fs];
 		input_report_abs(sensor->accel_dev, ABS_X,
 			(sensor->axis.x << shift));
@@ -761,8 +776,7 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 				struct mpu6050_sensor, accel_poll_work);
 
 	timestamp = ktime_get();
-	mpu6050_read_accel_data(sensor, &sensor->axis);
-	mpu6050_remap_accel_data(&sensor->axis, sensor->pdata->place);
+	mpu6050_acc_data_process(sensor);
 
 	shift = mpu_accel_fs_shift[sensor->cfg.accel_fs];
 	input_report_abs(sensor->accel_dev, ABS_X,
@@ -2002,21 +2016,20 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 
 	dev_dbg(&sensor->client->dev,
 		"mpu6050_accel_set_enable enable=%d\n", enable);
-	mutex_lock(&sensor->op_lock);
 	if (enable) {
 		if (!sensor->power_enabled) {
 			ret = mpu6050_power_ctl(sensor, true);
 			if (ret < 0) {
 				dev_err(&sensor->client->dev,
 					"Failed to set power up mpu6050");
-				goto exit;
+				return ret;
 			}
 
 			ret = mpu6050_restore_context(sensor);
 			if (ret < 0) {
 				dev_err(&sensor->client->dev,
 					"Failed to restore context");
-				goto exit;
+				return ret;
 			}
 		}
 
@@ -2025,7 +2038,7 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 			dev_err(&sensor->client->dev,
 				"Fail to enable accel engine ret=%d\n", ret);
 			ret = -EBUSY;
-			goto exit;
+			return ret;
 		}
 
 		ret = mpu6050_config_sample_rate(sensor);
@@ -2041,7 +2054,7 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 					"Fail to enable accel batching =%d\n",
 					ret);
 				ret = -EBUSY;
-				goto exit;
+				return ret;
 			}
 		} else {
 			queue_delayed_work(sensor->data_wq,
@@ -2058,7 +2071,7 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 					"Fail to disable accel batching =%d\n",
 					ret);
 				ret = -EBUSY;
-				goto exit;
+				return ret;
 			}
 		} else {
 			cancel_delayed_work_sync(&sensor->accel_poll_work);
@@ -2069,13 +2082,11 @@ static int mpu6050_accel_set_enable(struct mpu6050_sensor *sensor, bool enable)
 			dev_err(&sensor->client->dev,
 				"Fail to disable accel engine ret=%d\n", ret);
 			ret = -EBUSY;
-			goto exit;
+			return ret;
 		}
 
 	}
 
-exit:
-	mutex_unlock(&sensor->op_lock);
 	return ret;
 }
 
@@ -2122,8 +2133,15 @@ static int mpu6050_accel_cdev_enable(struct sensors_classdev *sensors_cdev,
 {
 	struct mpu6050_sensor *sensor = container_of(sensors_cdev,
 			struct mpu6050_sensor, accel_cdev);
+	int err;
 
-	return mpu6050_accel_set_enable(sensor, enable);
+	mutex_lock(&sensor->op_lock);
+
+	err = mpu6050_accel_set_enable(sensor, enable);
+
+	mutex_unlock(&sensor->op_lock);
+
+	return err;
 }
 
 static int mpu6050_accel_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
@@ -2178,6 +2196,164 @@ static int mpu6050_accel_cdev_enable_wakeup(
 
 	sensor->motion_det_en = enable;
 	return 0;
+}
+
+static int mpu6050_accel_calibration(struct sensors_classdev *sensors_cdev,
+		int axis, int apply_now)
+{
+	struct mpu6050_sensor *sensor = container_of(sensors_cdev,
+			struct mpu6050_sensor, accel_cdev);
+	int ret;
+	bool pre_enable;
+	int arry[3] = { 0 };
+	int i, delay_ms;
+
+	mutex_lock(&sensor->op_lock);
+
+	if (axis < AXIS_X && axis > AXIS_XYZ) {
+		dev_err(&sensor->client->dev,
+				"accel calibration cmd error\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	pre_enable = sensor->cfg.accel_enable;
+	if (pre_enable)
+		mpu6050_accel_set_enable(sensor, false);
+
+	if (!sensor->power_enabled) {
+		ret = mpu6050_power_ctl(sensor, true);
+		if (ret < 0) {
+			dev_err(&sensor->client->dev,
+					"Failed to set power up mpu6050");
+			goto exit;
+		}
+
+		ret = mpu6050_restore_context(sensor);
+		if (ret < 0) {
+			dev_err(&sensor->client->dev,
+					"Failed to restore context");
+			goto exit;
+		}
+	}
+
+	delay_ms = sensor->accel_poll_ms;
+	sensor->accel_poll_ms = MPU6050_ACCEL_MIN_POLL_INTERVAL_MS;
+	ret = mpu6050_config_sample_rate(sensor);
+	if (ret < 0)
+		dev_info(&sensor->client->dev,
+				"Unable to update sampling rate! ret=%d\n",
+				ret);
+
+	ret = mpu6050_accel_enable(sensor, true);
+	if (ret) {
+		dev_err(&sensor->client->dev,
+				"Fail to enable accel engine ret=%d\n", ret);
+		ret = -EBUSY;
+		goto exit;
+	}
+
+	for (i = 0; i < MPU_ACC_CAL_COUNT; i++) {
+		msleep(MPU_ACC_CAL_DELAY);
+		mpu6050_read_accel_data(sensor, &sensor->axis);
+		if (i < CAL_SKIP_COUNT)
+			continue;
+		mpu6050_remap_accel_data(&sensor->axis, sensor->pdata->place);
+		arry[0] += sensor->axis.x;
+		arry[1] += sensor->axis.y;
+		arry[2] += sensor->axis.z;
+	}
+
+	arry[0] = arry[0] / (MPU_ACC_CAL_NUM);
+	arry[1] = arry[1] / (MPU_ACC_CAL_NUM);
+	arry[2] = arry[2] / (MPU_ACC_CAL_NUM);
+
+	switch (axis) {
+	case AXIS_X:
+		arry[1] = 0;
+		arry[2] = 0;
+		break;
+	case AXIS_Y:
+		arry[0] = 0;
+		arry[2] = 0;
+		break;
+	case AXIS_Z:
+		arry[0] = 0;
+		arry[1] = 0;
+		arry[2] -= RAW_TO_1G;
+		break;
+	case AXIS_XYZ:
+		arry[2] -= RAW_TO_1G;
+		break;
+	default:
+		dev_err(&sensor->client->dev,
+				"calibrate mpu6050 accel CMD error\n");
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	if (apply_now) {
+		sensor->acc_cal_params[0] = arry[0];
+		sensor->acc_cal_params[1] = arry[1];
+		sensor->acc_cal_params[2] = arry[2];
+		sensor->acc_use_cal = true;
+	}
+	snprintf(sensor->acc_cal_buf, sizeof(sensor->acc_cal_buf),
+			"%d,%d,%d", arry[0], arry[1], arry[2]);
+	sensors_cdev->params = sensor->acc_cal_buf;
+
+	sensor->accel_poll_ms = delay_ms;
+	ret = mpu6050_config_sample_rate(sensor);
+	if (ret < 0)
+		dev_info(&sensor->client->dev,
+				"Unable to update sampling rate! ret=%d\n",
+				ret);
+
+	ret = mpu6050_accel_enable(sensor, false);
+	if (ret) {
+		dev_err(&sensor->client->dev,
+				"Fail to disable accel engine ret=%d\n", ret);
+		ret = -EBUSY;
+		goto exit;
+	}
+	if (pre_enable)
+		mpu6050_accel_set_enable(sensor, true);
+
+exit:
+	mutex_unlock(&sensor->op_lock);
+	return ret;
+}
+
+static int mpu6050_write_accel_cal_params(struct sensors_classdev *sensors_cdev,
+		struct cal_result_t *cal_result)
+{
+	struct mpu6050_sensor *sensor = container_of(sensors_cdev,
+			struct mpu6050_sensor, accel_cdev);
+
+	mutex_lock(&sensor->op_lock);
+
+	sensor->acc_cal_params[0] = cal_result->offset_x;
+	sensor->acc_cal_params[1] = cal_result->offset_y;
+	sensor->acc_cal_params[2] = cal_result->offset_z;
+	snprintf(sensor->acc_cal_buf, sizeof(sensor->acc_cal_buf),
+			"%d,%d,%d", sensor->acc_cal_params[0],
+			sensor->acc_cal_params[1], sensor->acc_cal_params[2]);
+	sensors_cdev->params = sensor->acc_cal_buf;
+	sensor->acc_use_cal = true;
+
+	mutex_unlock(&sensor->op_lock);
+	return 0;
+}
+
+static void mpu6050_acc_data_process(struct mpu6050_sensor *sensor)
+{
+	mpu6050_read_accel_data(sensor, &sensor->axis);
+	mpu6050_remap_accel_data(&sensor->axis, sensor->pdata->place);
+	if (sensor->acc_use_cal) {
+		sensor->axis.x -= sensor->acc_cal_params[0];
+		sensor->axis.y -= sensor->acc_cal_params[1];
+		sensor->axis.z -= sensor->acc_cal_params[2];
+	}
 }
 
 /**
@@ -2771,6 +2947,7 @@ static int mpu6050_probe(struct i2c_client *client,
 	sensor->gyro_dev->id.bustype = BUS_I2C;
 	sensor->accel_poll_ms = MPU6050_ACCEL_DEFAULT_POLL_INTERVAL_MS;
 	sensor->gyro_poll_ms = MPU6050_GYRO_DEFAULT_POLL_INTERVAL_MS;
+	sensor->acc_use_cal = false;
 
 	input_set_capability(sensor->accel_dev, EV_ABS, ABS_MISC);
 	input_set_capability(sensor->gyro_dev, EV_ABS, ABS_MISC);
@@ -2882,6 +3059,9 @@ static int mpu6050_probe(struct i2c_client *client,
 	sensor->accel_cdev.fifo_max_event_count = MPU6050_MAX_EVENT_CNT;
 	sensor->accel_cdev.sensors_set_latency = mpu6050_accel_cdev_set_latency;
 	sensor->accel_cdev.sensors_flush = mpu6050_accel_cdev_flush;
+	sensor->accel_cdev.sensors_calibrate = mpu6050_accel_calibration;
+	sensor->accel_cdev.sensors_write_cal_params =
+		mpu6050_write_accel_cal_params;
 	if ((sensor->pdata->use_int) &&
 			gpio_is_valid(sensor->pdata->gpio_int))
 		sensor->accel_cdev.max_delay = MPU6050_ACCEL_INT_MAX_DELAY;
