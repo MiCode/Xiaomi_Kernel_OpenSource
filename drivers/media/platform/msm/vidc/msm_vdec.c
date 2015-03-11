@@ -113,6 +113,22 @@ static const char *const vp8_profile_level[] = {
 	"3.0",
 };
 
+static const char *const mpeg2_profile[] = {
+	"Simple",
+	"Main",
+	"422",
+	"Snr Scalable",
+	"Spatial Scalable",
+	"High",
+};
+
+static const char *const mpeg2_level[] = {
+	"0",
+	"1",
+	"2",
+	"3",
+};
+
 static const char *const mpeg_vidc_video_h264_mvc_layout[] = {
 	"Frame packing arrangement sequential",
 	"Frame packing arrangement top-bottom",
@@ -443,7 +459,15 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.minimum = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_HIGH,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE,
-		.menu_skip_mask = 0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SIMPLE) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_MAIN) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_422) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SNR_SCALABLE) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_SPATIAL_SCALABLE) |
+		(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_PROFILE_HIGH)
+		),
+		.qmenu = mpeg2_profile,
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
@@ -453,7 +477,13 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.minimum = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0,
 		.maximum = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_3,
 		.default_value = V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0,
-		.menu_skip_mask = 0,
+		.menu_skip_mask = ~(
+			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_0) |
+			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_1) |
+			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_2) |
+			(1 << V4L2_MPEG_VIDC_VIDEO_MPEG2_LEVEL_3)
+		),
+		.qmenu = mpeg2_level,
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
 	},
 	{
