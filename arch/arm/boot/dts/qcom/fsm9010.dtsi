@@ -469,6 +469,7 @@
 		interrupts = <0 109 0>;
 		qcom,bam-pipe-pair = <0>;
 		qcom,ce-hw-instance = <0>;
+		qcom,ce-hw-shared;
 		qcom,ce-device = <0>;
 		clock-names = "core_clk", "iface_clk", "bus_clk",
 				 "core_clk_src";
