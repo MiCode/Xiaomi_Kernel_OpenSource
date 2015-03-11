@@ -225,6 +225,7 @@ static int cht_otg_set_peripheral(struct usb_otg *otg,
 		return -EINVAL;
 
 	otg->gadget = gadget;
+	otg->gadget->is_otg = 1;
 
 	otg_dev->fsm.b_bus_req = 1;
 

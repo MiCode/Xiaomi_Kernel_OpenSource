@@ -672,6 +672,7 @@ struct usb_otg_descriptor {
 	__u8  bDescriptorType;
 
 	__u8  bmAttributes;	/* support for HNP, SRP, etc */
+	__le16 bcdOTG;		/* release number, i.e, 2.0 is 0x0200 */
 } __attribute__ ((packed));
 
 /* from usb_otg_descriptor.bmAttributes */
