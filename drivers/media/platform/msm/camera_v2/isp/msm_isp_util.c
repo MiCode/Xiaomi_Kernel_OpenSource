@@ -40,8 +40,8 @@ static struct msm_bus_vectors msm_isp_ping_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = MSM_ISP_MIN_AB,
-		.ib  = MSM_ISP_MIN_IB,
+		.ab  = 0,
+		.ib  = 0,
 	},
 };
 
@@ -49,8 +49,8 @@ static struct msm_bus_vectors msm_isp_pong_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = MSM_ISP_MIN_AB,
-		.ib  = MSM_ISP_MIN_IB,
+		.ab  = 0,
+		.ib  = 0,
 	},
 };
 
