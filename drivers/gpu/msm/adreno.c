@@ -1412,29 +1412,54 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
+	if (adreno_dev->perfctr_pwr_lo == 0) {
+		int ret = adreno_perfcounter_get(adreno_dev,
+			KGSL_PERFCOUNTER_GROUP_PWR, 1,
+			&adreno_dev->perfctr_pwr_lo, NULL,
+			PERFCOUNTER_FLAG_KERNEL);
+
+		if (ret) {
+			KGSL_DRV_ERR(device,
+				"Unable to get the perf counters for DCVS\n");
+			adreno_dev->perfctr_pwr_lo = 0;
+		}
+	}
+
 	if (device->pwrctrl.bus_control) {
+		int ret;
+
 		/* VBIF waiting for RAM */
-		if (!adreno_dev->starved_ram_lo) {
-			status |= adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
-					&adreno_dev->starved_ram_lo, NULL,
-					PERFCOUNTER_FLAG_KERNEL);
+		if (adreno_dev->starved_ram_lo == 0) {
+			ret = adreno_perfcounter_get(adreno_dev,
+				KGSL_PERFCOUNTER_GROUP_VBIF_PWR, 0,
+				&adreno_dev->starved_ram_lo, NULL,
+				PERFCOUNTER_FLAG_KERNEL);
+
+			if (ret) {
+				KGSL_DRV_ERR(device,
+					"Unable to get perf counters for bus DCVS\n");
+				adreno_dev->starved_ram_lo = 0;
+			}
 		}
 
 		/* VBIF DDR cycles */
-		if (!adreno_dev->ram_cycles_lo) {
-			status |= adreno_perfcounter_get(adreno_dev,
-					KGSL_PERFCOUNTER_GROUP_VBIF,
-					VBIF_AXI_TOTAL_BEATS,
-					&adreno_dev->ram_cycles_lo, NULL,
-					PERFCOUNTER_FLAG_KERNEL);
+		if (adreno_dev->ram_cycles_lo == 0) {
+			ret = adreno_perfcounter_get(adreno_dev,
+				KGSL_PERFCOUNTER_GROUP_VBIF,
+				VBIF_AXI_TOTAL_BEATS,
+				&adreno_dev->ram_cycles_lo, NULL,
+				PERFCOUNTER_FLAG_KERNEL);
+
+			if (ret) {
+				KGSL_DRV_ERR(device,
+					"Unable to get perf counters for bus DCVS\n");
+				adreno_dev->ram_cycles_lo = 0;
+			}
 		}
 	}
-	if (status) {
-		KGSL_DRV_ERR(device,
-			"Unable to get perf counters for Bus DCVS\n");
-		goto error_mmu_off;
-	}
+
+	/* Clear the busy_data stats - we're starting over from scratch */
+	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
@@ -2362,6 +2387,28 @@ static inline s64 adreno_ticks_to_us(u32 ticks, u32 freq)
 	return ticks / freq;
 }
 
+static unsigned int counter_delta(struct adreno_device *adreno_dev,
+			unsigned int reg, unsigned int *counter)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int val;
+	unsigned int ret = 0;
+
+	/* Read the value */
+	kgsl_regread(device, reg, &val);
+
+	/* Return 0 for the first read */
+	if (*counter != 0) {
+		if (val < *counter)
+			ret = (0xFFFFFFFF - *counter) + val;
+		else
+			ret = val - *counter;
+	}
+
+	*counter = val;
+	return ret;
+}
+
 /**
  * adreno_power_stats() - Reads the counters needed for freq decisions
  * @device: Pointer to device whose counters are read
@@ -2373,22 +2420,38 @@ static void adreno_power_stats(struct kgsl_device *device,
 				struct kgsl_power_stats *stats)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
-	struct adreno_busy_data busy_data;
+	struct adreno_busy_data *busy = &adreno_dev->busy_data;
 
 	memset(stats, 0, sizeof(*stats));
 
-	if (gpudev->busy_cycles == NULL)
-		return;
-
 	/* Get the busy cycles counted since the counter was last reset */
-	gpudev->busy_cycles(adreno_dev, &busy_data);
+	if (adreno_dev->perfctr_pwr_lo != 0) {
+		uint64_t gpu_busy;
 
-	stats->busy_time = adreno_ticks_to_us(busy_data.gpu_busy,
-					      kgsl_pwrctrl_active_freq(pwr));
-	stats->ram_time = busy_data.vbif_ram_cycles;
-	stats->ram_wait = busy_data.vbif_starved_ram;
+		gpu_busy = counter_delta(adreno_dev, adreno_dev->perfctr_pwr_lo,
+			&busy->gpu_busy);
+
+		stats->busy_time = adreno_ticks_to_us(gpu_busy,
+			kgsl_pwrctrl_active_freq(pwr));
+	}
+
+	if (device->pwrctrl.bus_control) {
+		uint64_t ram_cycles = 0, starved_ram = 0;
+
+		if (adreno_dev->ram_cycles_lo != 0)
+			ram_cycles = counter_delta(adreno_dev,
+				adreno_dev->ram_cycles_lo,
+				&busy->vbif_ram_cycles);
+
+		if (adreno_dev->starved_ram_lo != 0)
+			starved_ram = counter_delta(adreno_dev,
+				adreno_dev->starved_ram_lo,
+				&busy->vbif_starved_ram);
+
+		stats->ram_time = ram_cycles;
+		stats->ram_wait = starved_ram;
+	}
 }
 
 static unsigned int adreno_gpuid(struct kgsl_device *device,

@@ -794,59 +794,6 @@ static struct adreno_irq a3xx_irq = {
 	.mask = A3XX_INT_MASK,
 };
 
-static unsigned int counter_delta(struct adreno_device *adreno_dev,
-			unsigned int reg, unsigned int *counter)
-{
-	struct kgsl_device *device = &adreno_dev->dev;
-	unsigned int val;
-	unsigned int ret = 0;
-
-	/* Read the value */
-	if (reg == ADRENO_REG_RBBM_PERFCTR_PWR_1_LO)
-		adreno_readreg(adreno_dev, reg, &val);
-	else
-		kgsl_regread(device, reg, &val);
-
-	/* Return 0 for the first read */
-	if (*counter != 0) {
-		if (val < *counter)
-			ret = (0xFFFFFFFF - *counter) + val;
-		else
-			ret = val - *counter;
-	}
-
-	*counter = val;
-	return ret;
-}
-
-/*
- * a3xx_busy_cycles() - Returns number of gpu cycles
- * @adreno_dev: Pointer to device ehose cycles are checked
- *
- * Returns number of busy cycles since the last time this function is called
- * Function is common between a3xx and a4xx devices
- */
-void a3xx_busy_cycles(struct adreno_device *adreno_dev,
-				struct adreno_busy_data *data)
-{
-	struct kgsl_device *device = &adreno_dev->dev;
-	struct adreno_busy_data *busy = &adreno_dev->busy_data;
-
-	memset(data, 0, sizeof(*data));
-
-	data->gpu_busy = counter_delta(adreno_dev,
-					ADRENO_REG_RBBM_PERFCTR_PWR_1_LO,
-					&busy->gpu_busy);
-	if (device->pwrctrl.bus_control) {
-		data->vbif_ram_cycles = counter_delta(adreno_dev,
-					adreno_dev->ram_cycles_lo,
-					&busy->vbif_ram_cycles);
-		data->vbif_starved_ram = counter_delta(adreno_dev,
-					adreno_dev->starved_ram_lo,
-					&busy->vbif_starved_ram);
-	}
-}
-
 /* VBIF registers start after 0x3000 so use 0x0 as end of list marker */
 static const struct adreno_vbif_data a304_vbif[] = {
 	{ A3XX_VBIF_ROUND_ROBIN_QOS_ARB, 0x0003 },
@@ -1378,7 +1325,6 @@ static void a3xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A3XX_RBBM_PERFCTR_CTL, 0x01);
 
 	kgsl_regwrite(device, A3XX_CP_DEBUG, A3XX_CP_DEBUG_DEFAULT);
-	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 }
 
 static struct adreno_coresight_register a3xx_coresight_registers[] = {
@@ -1893,7 +1839,6 @@ struct adreno_gpudev adreno_a3xx_gpudev = {
 	.microcode_load = a3xx_microcode_load,
 	.perfcounter_init = a3xx_perfcounter_init,
 	.perfcounter_close = a3xx_perfcounter_close,
-	.busy_cycles = a3xx_busy_cycles,
 	.start = a3xx_start,
 	.snapshot = a3xx_snapshot,
 	.coresight = &a3xx_coresight,

@@ -249,6 +249,7 @@ struct adreno_device {
 	struct adreno_busy_data busy_data;
 	unsigned int ram_cycles_lo;
 	unsigned int starved_ram_lo;
+	unsigned int perfctr_pwr_lo;
 	atomic_t halt;
 	struct dentry *ctx_d_debugfs;
 	unsigned long pwrctrl_flag;
@@ -642,7 +643,6 @@ struct adreno_gpudev {
 	void (*perfcounter_init)(struct adreno_device *);
 	void (*perfcounter_close)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
-	void (*busy_cycles)(struct adreno_device *, struct adreno_busy_data *);
 	bool (*is_sptp_idle)(struct adreno_device *);
 	void (*enable_pc)(struct adreno_device *);
 	void (*enable_ppd)(struct adreno_device *);

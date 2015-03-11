@@ -454,8 +454,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_CNTL, 0x01);
 
-	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
-
 	/*
 	 * Set UCHE_WRITE_THRU_BASE to the UCHE_TRAP_BASE effectively
 	 * disabling L2 bypass

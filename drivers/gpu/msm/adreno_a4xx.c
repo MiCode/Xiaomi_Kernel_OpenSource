@@ -655,8 +655,6 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 
 	/* Turn on performance counters */
 	kgsl_regwrite(device, A4XX_RBBM_PERFCTR_CTL, 0x01);
-	/* Turn on the GPU busy counter and let it run free */
-	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
 
 	/* Enable VFD to access most of the UCHE (7 ways out of 8) */
 	kgsl_regwrite(device, A4XX_UCHE_CACHE_WAYS_VFD, 0x07);
@@ -1770,7 +1768,6 @@ struct adreno_gpudev adreno_a4xx_gpudev = {
 	.rb_init = a4xx_rb_init,
 	.microcode_read = a3xx_microcode_read,
 	.microcode_load = a3xx_microcode_load,
-	.busy_cycles = a3xx_busy_cycles,
 	.coresight = &a4xx_coresight,
 	.start = a4xx_start,
 	.snapshot = a4xx_snapshot,
