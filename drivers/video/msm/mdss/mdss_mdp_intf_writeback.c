@@ -444,6 +444,7 @@ static void mdss_mdp_writeback_intr_done(void *arg)
 	vsync_time = ktime_get();
 
 	pr_debug("intr wb_num=%d\n", ctx->wb_num);
+	trace_mdp_wb_done(ctx->wb_num, ctx->xin_id, ctx->intf_num);
 
 	mdss_mdp_irq_disable_nosync(ctx->intr_type, ctx->intf_num);
 
@@ -684,6 +685,10 @@ static int mdss_mdp_writeback_display(struct mdss_mdp_ctl *ctl, void *arg)
 
 	pr_debug("ctx%d type:%d xin_id:%d intf_num:%d start\n",
 		ctx->wb_num, ctx->type, ctx->xin_id, ctx->intf_num);
+
+	trace_mdp_wb_display(ctx->wb_num, ctx->xin_id, ctx->intf_num,
+		ctx->width, ctx->height, ctx->dst_rect.w, ctx->dst_rect.h,
+		ctx->dst_fmt ? ctx->dst_fmt->format : -1);
 
 	ctx->comp_cnt++;
 
