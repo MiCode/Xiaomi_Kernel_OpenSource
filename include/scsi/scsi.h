@@ -11,6 +11,7 @@
 #include <linux/types.h>
 #include <linux/scatterlist.h>
 #include <linux/kernel.h>
+#include <linux/device.h>
 
 struct scsi_cmnd;
 
