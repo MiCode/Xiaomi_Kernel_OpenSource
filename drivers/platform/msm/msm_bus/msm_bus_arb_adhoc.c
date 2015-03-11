@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -495,7 +495,6 @@ static int msm_bus_apply_rules(struct list_head *list, bool after_clk_commit)
 							rule->lim_bw);
 		if (ret)
 			MSM_BUS_ERR("Failed to set limiter for %d", rule->id);
-		trace_bus_rules_apply(rule->id, rule->lim_bw, rule->throttle);
 	}
 
 	return ret;
