@@ -111,7 +111,6 @@ static int gc2235_i2c_write(struct i2c_client *client, u16 len, u8 *data)
 	return ret == num_msg ? 0 : -EIO;
 }
 
-#ifndef CONFIG_GMIN_INTEL_MID
 static int gc2235_write_reg(struct i2c_client *client, u16 data_length,
 							u8 reg, u8 val)
 {
@@ -137,7 +136,7 @@ static int gc2235_write_reg(struct i2c_client *client, u16 data_length,
 
 	return ret;
 }
-#endif
+
 static int __gc2235_flush_reg_array(struct i2c_client *client,
 				    struct gc2235_write_ctrl *ctrl)
 {
@@ -352,7 +351,6 @@ static int gc2235_get_intg_factor(struct i2c_client *client,
 	return 0;
 }
 
-#ifndef CONFIG_GMIN_INTEL_MID
 static long __gc2235_set_exposure(struct v4l2_subdev *sd, int coarse_itg,
 				 int gain, int digitgain)
 
@@ -418,20 +416,16 @@ static long gc2235_s_exposure(struct v4l2_subdev *sd,
 
 	return gc2235_set_exposure(sd, exp, gain, digitgain);
 }
-#endif
 static long gc2235_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
-#ifndef CONFIG_GMIN_INTEL_MID /*FIXME: kenrel panic in bringup*/
 	switch (cmd) {
 	case ATOMISP_IOC_S_EXPOSURE:
 		return gc2235_s_exposure(sd, arg);
 	default:
 		return -EINVAL;
 	}
-#endif
 	return 0;
 }
-#ifndef CONFIG_GMIN_INTEL_MID
 /* This returns the exposure time being used. This should only be used
    for filling in EXIF data, not for actual image processing. */
 static int gc2235_q_exposure(struct v4l2_subdev *sd, s32 *value)
@@ -459,9 +453,7 @@ static int gc2235_q_exposure(struct v4l2_subdev *sd, s32 *value)
 err:
 	return ret;
 }
-#endif
 struct gc2235_control gc2235_controls[] = {
-#ifndef CONFIG_GMIN_INTEL_MID
 	{
 		.qc = {
 			.id = V4L2_CID_EXPOSURE_ABSOLUTE,
@@ -475,7 +467,6 @@ struct gc2235_control gc2235_controls[] = {
 		},
 		.query = gc2235_q_exposure,
 	},
-#endif
 	{
 		.qc = {
 			.id = V4L2_CID_FOCAL_ABSOLUTE,
