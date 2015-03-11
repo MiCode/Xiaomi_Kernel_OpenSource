@@ -105,6 +105,7 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8936-mtp-wcd9306.dtb \
 	msm8952-sim.dtb \
 	msm8952-rumi.dtb \
+	msm8952-qrd-skum.dtb \
 	msmterbium-sim.dtb \
 	msmterbium-rumi.dtb \
 	msm8929-cdp.dtb \
