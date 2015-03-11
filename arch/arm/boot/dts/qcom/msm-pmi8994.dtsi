@@ -299,6 +299,7 @@
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
 			qcom,fg-iterm-ma = <100>;
+			qcom,fg-chg-iterm-ma = <100>;
 			qcom,cycle-counter-en;
 			qcom,cycle-counter-low-soc = <15>;
 			qcom,cycle-counter-high-soc = <85>;
