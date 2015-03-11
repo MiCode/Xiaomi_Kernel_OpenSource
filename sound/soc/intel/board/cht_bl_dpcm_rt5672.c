@@ -699,11 +699,11 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 	 * suspend. Mark the end points ignore_suspend
 	 */
 	/*TODO: CHECK this */
-	snd_soc_dapm_ignore_suspend(&card->dapm, "HPOL");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "HPOR");
+	snd_soc_dapm_ignore_suspend(&codec->dapm, "HPOL");
+	snd_soc_dapm_ignore_suspend(&codec->dapm, "HPOR");
 
-	snd_soc_dapm_ignore_suspend(&card->dapm, "SPOL");
-	snd_soc_dapm_ignore_suspend(&card->dapm, "SPOR");
+	snd_soc_dapm_ignore_suspend(&codec->dapm, "SPOL");
+	snd_soc_dapm_ignore_suspend(&codec->dapm, "SPOR");
 
 	snd_soc_dapm_enable_pin(&card->dapm, "Headset Mic");
 	snd_soc_dapm_enable_pin(&card->dapm, "Headphone");
