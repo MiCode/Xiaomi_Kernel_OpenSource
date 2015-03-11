@@ -16,16 +16,20 @@
 #include <linux/msm_hdmi.h>
 #include "mdss_hdmi_util.h"
 
-struct hdmi_edid_init_data {
-	struct dss_io_data *io;
-	struct mutex *mutex;
-	struct kobject *sysfs_kobj;
+#define EDID_BLOCK_SIZE 0x80
+#define EDID_BLOCK_ADDR 0xA0
+#define MAX_EDID_BLOCKS 5
 
-	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
+struct hdmi_edid_init_data {
+	struct kobject *kobj;
 	struct hdmi_util_ds_data *ds_data;
+	u32 max_pclk_khz;
+	u8 *buf;
+	u32 buf_size;
 };
 
-int hdmi_edid_read(void *edid_ctrl);
+int hdmi_edid_parser(void *edid_ctrl);
+u32 hdmi_edid_get_raw_data(void *edid_ctrl, u8 *buf, u32 size);
 u8 hdmi_edid_get_sink_scaninfo(void *edid_ctrl, u32 resolution);
 u32 hdmi_edid_get_sink_mode(void *edid_ctrl);
 bool hdmi_edid_get_sink_scrambler_support(void *input);
@@ -34,6 +38,6 @@ int hdmi_edid_get_audio_blk(void *edid_ctrl,
 	struct msm_hdmi_audio_edid_blk *blk);
 void hdmi_edid_set_video_resolution(void *edid_ctrl, u32 resolution);
 void hdmi_edid_deinit(void *edid_ctrl);
-void *hdmi_edid_init(struct hdmi_edid_init_data *init_data, u32 max_pclk_khz);
+void *hdmi_edid_init(struct hdmi_edid_init_data *init_data);
 
 #endif /* __HDMI_EDID_H__ */

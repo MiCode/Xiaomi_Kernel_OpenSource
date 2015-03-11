@@ -542,6 +542,8 @@ struct mdss_panel_info {
 	/* refer sim_panel_modes enum for different modes */
 	u8 sim_panel_mode;
 
+	void *edid_data;
+
 	char panel_name[MDSS_MAX_PANEL_LEN];
 	struct mdss_mdp_pp_tear_check te;
 

@@ -187,6 +187,9 @@ struct hdmi_tx_ctrl {
 	struct hdmi_hdcp_ops *hdcp_ops;
 	void *hdcp_feature_data;
 	bool hdcp22_present;
+
+	u8 *edid_buf;
+	u32 edid_buf_size;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
