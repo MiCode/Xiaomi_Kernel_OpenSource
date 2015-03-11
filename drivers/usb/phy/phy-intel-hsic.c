@@ -96,6 +96,11 @@ static void intel_hsic_disc_work(struct work_struct *work)
 
 	hub = usb_hub_to_struct_hub(hdev);
 
+	if (!hub) {
+		hsic_dbg(hsic, "hsic disc work, hub is NULL\n");
+		return;
+	}
+
 	usb_lock_device(hdev);
 	pm_runtime_get_sync(&hdev->dev);
 	if (usb_hub_set_port_power(hdev, hub, hsic->port_num, false))
@@ -249,6 +254,9 @@ static void intel_hsic_dev_add(struct intel_hsic *hsic,
 	if (is_hsic_roothub(hsic, udev)) {
 		struct usb_hub *hub = usb_hub_to_struct_hub(udev);
 
+		if (!hub)
+			return;
+
 		spin_lock_irqsave(&hsic->lock, flags);
 		hsic->rhdev = usb_get_dev(udev);
 		spin_unlock_irqrestore(&hsic->lock, flags);
@@ -385,6 +393,12 @@ static ssize_t intel_hsic_port_enable_store(struct device *dev,
 	}
 
 	hub = usb_hub_to_struct_hub(hdev);
+
+	if (!hub) {
+		hsic_dbg(hsic, "hub not exist\n");
+		usb_put_dev(hdev);
+		return -ENODEV;
+	}
 	if (enable) {
 		/* When hsic is enabled, if no device is connected,
 		 * need to disable roothub autosuspend, thus xhci
