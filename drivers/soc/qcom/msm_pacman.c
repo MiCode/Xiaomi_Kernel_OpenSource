@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,12 +29,15 @@
 #include <soc/qcom/scm.h>
 #include "msm_pacman_qmi_interface.h"
 
+#define TEST_DRIVER_NAME_LEN 5
+
 struct pacman_control_s {
 	dev_t dev_num;
 	struct class *dev_class;
 	struct device *dev;
 };
 static struct pacman_control_s pacman_ctl;
+static char test_string[TEST_DRIVER_NAME_LEN];
 
 /******************************************************************************
 * PACMan Configuration
@@ -60,14 +63,16 @@ static int tz_configure_blsp_ownership(u32 qup_id, u32 subsystem_id)
 #else
 static int tz_configure_blsp_ownership(u32 qup_id, u32 subsystem_id)
 {
-	int rc;
-	struct scm_desc desc = {0};
+	int rc = 0;
 
-	desc.arginfo = 2;
-	desc.args[0] = qup_id;
-	desc.args[1] = subsystem_id;
+	if (strcmp("test", test_string)) {
+		struct scm_desc desc = {0};
+		desc.arginfo = 2;
+		desc.args[0] = qup_id;
+		desc.args[1] = subsystem_id;
 
-	rc = scm_call2(SCM_SIP_FNID(4, 3), &desc);
+		rc = scm_call2(SCM_SIP_FNID(4, 3), &desc);
+	}
 	return rc;
 }
 #endif
@@ -262,6 +267,7 @@ static void pacman_run(char *command_string)
 		goto error;
 	}
 	strlcpy(bus_string, str, sizeof(bus_string));
+	strlcpy(test_string, str, sizeof(test_string));
 
 	/* Parse Subsystem Name */
 	str = strsep(&str_running, delimiters);
