@@ -585,6 +585,26 @@
 		coresight-id = <38>;
 		coresight-name = "coresight-cti-audio-cpu0";
 		coresight-nr-inports = <0>;
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	dbgui: dbgui@606d000 {
+		compatible = "qcom,coresight-dbgui";
+		reg = <0x606d000 0x1000>;
+		reg-names = "dbgui-base";
+
+		coresight-id = <39>;
+		coresight-name = "coresight-dbgui";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <3>;
+
+		qcom,dbgui-addr-offset = <0x30>;
+		qcom,dbgui-data-offset = <0x130>;
+		qcom,dbgui-size = <64>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -596,7 +616,7 @@
 		reg = <0xa601c 0x8>;
 		reg-names = "fuse-base";
 
-		coresight-id = <39>;
+		coresight-id = <40>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
