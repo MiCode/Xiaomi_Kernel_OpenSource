@@ -1501,29 +1501,6 @@ int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 	return rc;
 }
 
-static int set_display_hold_count(struct msm_vidc_inst *inst,
-			unsigned int display_count)
-{
-	int rc = 0;
-	struct hal_buffer_display_hold_count_actual display;
-	struct hfi_device *hdev;
-
-	hdev = inst->core->device;
-
-	display.buffer_type =
-		msm_comm_get_hal_output_buffer(inst);
-	display.hold_count = display_count;
-
-	rc = call_hfi_op(hdev, session_set_property,
-			inst->session,
-			HAL_PARAM_BUFFER_DISPLAY_HOLD_COUNT_ACTUAL,
-			&display);
-	if (rc)
-		dprintk(VIDC_ERR, "failed to set display hold count %d\n", rc);
-
-	return rc;
-}
-
 static int msm_vdec_queue_setup(struct vb2_queue *q,
 				const struct v4l2_format *fmt,
 				unsigned int *num_buffers,
@@ -1607,9 +1584,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			new_buf_count.buffer_count_actual = *num_buffers;
 			rc = call_hfi_op(hdev, session_set_property,
 				inst->session, property_id, &new_buf_count);
-
-			set_display_hold_count(inst,
-				*num_buffers - bufreq->buffer_count_actual);
 		}
 
 		if (*num_buffers != bufreq->buffer_count_actual) {
