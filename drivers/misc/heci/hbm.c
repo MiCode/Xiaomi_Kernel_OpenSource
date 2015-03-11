@@ -331,6 +331,8 @@ dev->print_log(dev, "%s(): send flow_control: %02X %02X %02X %02X: %02X %02X %02
 	if (!rv) {
 dev->print_log(dev, "%s(): ++cl->out_flow_ctrl_creds\n", __func__);
 		++cl->out_flow_ctrl_creds;
+	} else {
+		++cl->err_send_fc;
 	}
 	return	rv;
 }
@@ -791,4 +793,97 @@ eoi:
 	return;
 }
 EXPORT_SYMBOL(recv_hbm);
+
+/* Suspend and resume notification*/
+
+/*
+ *      Receive and process HECI fixed client messages
+ *
+ *      (!) ISR context
+ */
+void recv_fixed_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
+{
+	uint8_t rd_msg_buf[HECI_RD_MSG_BUF_SIZE];
+
+	dev->print_log(dev,
+		"%s() got fixed client msg. sending client: %d\n",
+		__func__, heci_hdr->me_addr);
+	dev->ops->read(dev, rd_msg_buf, heci_hdr->length);
+	if (heci_hdr->me_addr == HECI_SYSTEM_STATE_CLIENT_ADDR) {
+		struct ish_system_states_header *msg_hdr =
+			(struct ish_system_states_header *)rd_msg_buf;
+		if (msg_hdr->cmd == SYSTEM_STATE_SUBSCRIBE)
+			send_resume(dev);       /* if FW request arrived here,
+						the system is not suspended */
+		else
+			dev_err(&dev->pdev->dev, "unknown fixed client msg\n");
+	}
+}
+EXPORT_SYMBOL(recv_fixed_cl_msg);
+
+static inline void fix_cl_hdr(struct heci_msg_hdr *hdr, size_t length,
+	u8 cl_addr)
+{
+	hdr->host_addr = 0;
+	hdr->me_addr = cl_addr;
+	hdr->length = length;
+	hdr->msg_complete = 1;
+	hdr->reserved = 0;
+}
+
+/*Global var for suspend & resume*/
+u32 current_state = 0;
+u32 supported_states = 0 | SUSPEND_STATE_BIT;
+
+void send_suspend(struct heci_device *dev)
+{
+	struct heci_msg_hdr     heci_hdr;
+	struct ish_system_states_status state_status_msg;
+	const size_t len = sizeof(struct ish_system_states_status);
+
+	fix_cl_hdr(&heci_hdr, len, HECI_SYSTEM_STATE_CLIENT_ADDR);
+
+	memset(&state_status_msg, 0, len);
+	state_status_msg.hdr.cmd = SYSTEM_STATE_STATUS;
+	state_status_msg.supported_states = supported_states;
+	current_state |= SUSPEND_STATE_BIT;
+	dev->print_log(dev, "%s() sends SUSPEND notification\n", __func__);
+	state_status_msg.states_status = current_state;
+
+	heci_write_message(dev, &heci_hdr, &state_status_msg);
+}
+EXPORT_SYMBOL(send_suspend);
+
+void send_resume(struct heci_device *dev)
+{
+	struct heci_msg_hdr     heci_hdr;
+	struct ish_system_states_status state_status_msg;
+	const size_t len = sizeof(struct ish_system_states_status);
+
+	fix_cl_hdr(&heci_hdr, len, HECI_SYSTEM_STATE_CLIENT_ADDR);
+
+	memset(&state_status_msg, 0, len);
+	state_status_msg.hdr.cmd = SYSTEM_STATE_STATUS;
+	state_status_msg.supported_states = supported_states;
+	current_state &= ~SUSPEND_STATE_BIT;
+	dev->print_log(dev, "%s() sends RESUME notification\n", __func__);
+	state_status_msg.states_status = current_state;
+
+	heci_write_message(dev, &heci_hdr, &state_status_msg);
+}
+EXPORT_SYMBOL(send_resume);
+
+void query_subscribers(struct heci_device *dev)
+{
+	struct heci_msg_hdr     heci_hdr;
+	struct ish_system_states_query_subscribers query_subscribers_msg;
+	const size_t len = sizeof(struct ish_system_states_query_subscribers);
+
+	fix_cl_hdr(&heci_hdr, len, HECI_SYSTEM_STATE_CLIENT_ADDR);
+
+	memset(&query_subscribers_msg, 0, len);
+	query_subscribers_msg.hdr.cmd = SYSTEM_STATE_QUERY_SUBSCRIBERS;
+
+	heci_write_message(dev, &heci_hdr, &query_subscribers_msg);
+}
 

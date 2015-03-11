@@ -25,7 +25,7 @@
 #include <linux/poll.h>
 #include <linux/sched.h>
 #include <linux/wait.h>
-
+#include "heci-hid.h"
 
 /***** DEBUG *****/
 void g_ish_print_log(char *format, ...);
@@ -38,6 +38,8 @@ spinlock_t	senscol_lock;
 spinlock_t	senscol_data_lock;
 uint8_t	*senscol_data_buf;
 unsigned	senscol_data_head, senscol_data_tail;
+int	flush_asked = 0;
+
 
 static ssize_t	sc_data_show(struct kobject *kobj, struct attribute *attr, char *buf);
 static ssize_t	sc_data_store(struct kobject *kobj, struct attribute *attr, const char *buf, size_t size);
@@ -169,12 +171,18 @@ static struct attribute sc_sensdef_defattr_sample_size = {
 	.mode = (S_IRUGO)
 };
 
+static struct attribute sc_sensdef_defattr_flush = {
+	.name = "flush",
+	.mode = (S_IRUGO)
+};
+
 struct attribute	*sc_sensdef_defattrs[] = {
 	&sc_sensdef_defattr_name,
 	&sc_sensdef_defattr_type,
 	&sc_sensdef_defattr_id,
 	&sc_sensdef_defattr_usage_id,
 	&sc_sensdef_defattr_sample_size,
+	&sc_sensdef_defattr_flush,
 	NULL
 };
 
@@ -187,6 +195,8 @@ static ssize_t	sc_sensdef_show(struct kobject *kobj, struct attribute *attr, cha
 {
 	ssize_t	rv;
 	struct sensor_def	*sensdef;
+	char    tmp_buf[0x1000];
+	unsigned long flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "[senscol]: %s(): +++ attr='%s'\n", __func__, attr->name);
 	sensdef = container_of(kobj, struct sensor_def, kobj);
@@ -199,6 +209,27 @@ static ssize_t	sc_sensdef_show(struct kobject *kobj, struct attribute *attr, cha
 		sprintf(buf, "%08X\n", sensdef->usage_id);
 	else if (!strcmp(attr->name, "name"))
 		sprintf(buf, "%s\n", sensdef->name);
+	else if (!strcmp(attr->name, "flush"))
+		/*if "sensdef" is activated in batch mode,
+		mark it as asking flush*/
+		if (sensdef->impl->batch_check(sensdef)) {
+			spin_lock_irqsave(&senscol_lock, flags);
+			flush_asked = 1;
+			sensdef->flush_req = 1;
+			spin_unlock_irqrestore(&senscol_lock, flags);
+			g_ish_print_log("%s() sensor 0x%x asked for flush\n",
+				 __func__, sensdef->id);
+			sensdef->impl->get_sens_property(sensdef,
+				sensdef->properties, tmp_buf, 0x1000);
+			sprintf(buf, "1\n");
+		} else {
+			uint32_t pseudo_event_id =
+				sensdef->id | PSEUSO_EVENT_BIT;
+			uint32_t pseudo_event_content = 0;
+			pseudo_event_content |= FLUSH_CMPL_BIT;
+			push_sample(pseudo_event_id, &pseudo_event_content);
+			sprintf(buf, "0\n");
+		}
 
 	rv = strlen(buf) + 1;
 	return	rv;
@@ -376,13 +407,16 @@ static ssize_t	sc_sensprop_show(struct kobject *kobj, struct attribute *attr, ch
 {
 	struct sens_property	*pfield;
 	struct sensor_def	*sensor;
+	int	rv;
 
 	/* We need "property_power_state" (=2), "property_reporting_state" (=2) and "property_report_interval" (in ms?) */
 	ISH_DBG_PRINT(KERN_ALERT "[senscol]: %s(): +++ attr='%s'\n", __func__, attr->name);
 	pfield = container_of(kobj, struct sens_property, kobj);
 	sensor = pfield->sensor;
-	sensor->impl->get_sens_property(sensor, pfield, buf, 0x1000);
 
+	rv = sensor->impl->get_sens_property(sensor, pfield, buf, 0x1000);
+	if (rv)
+		return	rv;
 	return	strlen(buf);
 }
 
@@ -390,13 +424,16 @@ static ssize_t	sc_sensprop_store(struct kobject *kobj, struct attribute *attr, c
 {
 	struct sens_property	*pfield;
 	struct sensor_def	*sensor;
+	int	rv;
 
 	/* TODO: stream down set property request and return size upon successful completion or error code */
 	ISH_DBG_PRINT(KERN_ALERT "[senscol]: %s(): +++ attr='%s' buf='%s' size=%u\n", __func__, attr->name, buf, (unsigned)size);
 	pfield = container_of(kobj, struct sens_property, kobj);
 	sensor = pfield->sensor;
-	sensor->impl->set_sens_property(sensor, pfield, buf);
+	rv = sensor->impl->set_sens_property(sensor, pfield, buf);
 
+	if (rv)
+		return	rv;
 	return	size;
 }
 
@@ -519,6 +556,7 @@ int	add_senscol_sensor(struct sensor_def *sensor)
 	char	sensor_name[256];	/* Enough for name "sensor_<NN>_def", if convention changes array size should be reviewed */
 	int	i;
 	int	rv;
+	int	j;
 
 	if (!sensor->name || !sensor->impl || !sensor->usage_id || !sensor->id)
 		return	-EINVAL;
@@ -566,6 +604,7 @@ err_ret2:
 	rv = kobject_init_and_add(&sensor->props_kobj, &sc_subdir_kobj_type, &sensor->kobj, "properties");
 	if (rv) {
 		rv = -EFAULT;
+err_ret3:
 		kobject_put(&sensor->props_kobj);
 		kobject_del(&sensor->props_kobj);
 		goto	err_ret2;
@@ -574,11 +613,27 @@ err_ret2:
 	/*
 	 * Create kobjects for data_fields
 	 */
-
 	for (i = 0; i < sensor->num_data_fields; ++i) {
 		if (sensor->data_fields[i].name) {
 			/* Mark index */
 			sensor->data_fields[i].index = i;
+
+			/* If the name already appeared, append '#<index>' */
+			for (j = 0; j < i; ++j)
+				if (!strcmp(sensor->data_fields[i].name,
+						sensor->data_fields[j].name)) {
+					char *p = sensor->data_fields[i].name;
+					p = kasprintf(GFP_KERNEL,
+						"%s#%d", p, i);
+					if (!p) {
+						rv = -ENOMEM;
+						goto	err_ret3;
+					}
+					kfree(sensor->data_fields[i].name);
+					sensor->data_fields[i].name = p;
+					break;
+				}
+
 			rv = kobject_init_and_add(&sensor->data_fields[i].kobj, &sc_datafield_kobj_type, &sensor->data_fields_kobj, sensor->data_fields[i].name);
 			ISH_DBG_PRINT(KERN_ALERT "%s(): kobject_init_and_add() for data_field '%s' returned %d\n", __func__, sensor->data_fields[i].name, rv);
 		}
@@ -684,15 +739,23 @@ int	push_sample(uint32_t id, void *sample)
 	unsigned long flags;
 	unsigned char	sample_buf[1024];
 	struct senscol_sample	*p_sample = (struct senscol_sample *)sample_buf;
+	struct sensor_def pseudo_event_sensor;
 
 	ISH_DBG_PRINT(KERN_ALERT "[senscol]: %s():+++\n", __func__);
+	g_ish_print_log("%s() DATA from sensor #%x\n", __func__, id);
 
 	if (!senscol_data_buf)
 		return	-ENOMEM;
 
 	ISH_DBG_PRINT(KERN_ALERT "[senscol]: %s(): senscol_data_buf=%p\n", __func__, senscol_data_buf);
 
-	sensor = get_senscol_sensor_by_id(id);
+	if (id & PSEUSO_EVENT_BIT) {
+		pseudo_event_sensor.sample_size = sizeof(uint32_t) +
+			offsetof(struct senscol_sample, data);
+		sensor = &pseudo_event_sensor;
+	} else
+		sensor = get_senscol_sensor_by_id(id);
+
 	if (!sensor)
 		return	-ENODEV;
 
@@ -736,10 +799,7 @@ int	push_sample(uint32_t id, void *sample)
 
 	/* Fire event through "data/event" */
 	ISH_DBG_PRINT(KERN_ALERT "[senscol] %s(): firing data-ready event senscol_data_head=%u senscol_data_tail=%u id=%08X sample_size=%u\n", __func__, senscol_data_head, senscol_data_tail, p_sample->id, sensor->sample_size);
-	/***** DEBUG *****/
-	g_ish_print_log(KERN_ALERT "[senscol] %s(): firing data-ready event senscol_data_head=%u senscol_data_tail=%u id=%08X sample_size=%u\n", __func__, senscol_data_head, senscol_data_tail, p_sample->id, sensor->sample_size);
-	/*****************/
-	/*sysfs_notify(&sc_data_kobj, NULL, "event");*/
+
 	if (waitqueue_active(&senscol_read_wait))
 		wake_up_interruptible(&senscol_read_wait);
 
@@ -793,6 +853,39 @@ static unsigned int senscol_poll(struct file *file, poll_table *wait)
 	/*mask |= DEFAULT_POLLMASK|POLLERR|POLLPRI;*/
 	return	mask;
 }
+
+/* flush callback */
+void senscol_flush_cb(void)
+{
+	struct sensor_def	*sens, *next;
+	unsigned long   flags;
+	uint32_t pseudo_event_id;
+	uint32_t pseudo_event_content = 0;
+
+	spin_lock_irqsave(&senscol_lock, flags);
+	if (!flush_asked) {
+		spin_unlock_irqrestore(&senscol_lock, flags);
+		return;
+	}
+
+	list_for_each_entry_safe(sens, next, &senscol_sensors_list, link) {
+		if (sens->flush_req) {
+			g_ish_print_log("%s() sensor 0x%x gets flush event\n",
+				__func__, sens->id);
+			sens->flush_req = 0;
+			pseudo_event_id = sens->id | PSEUSO_EVENT_BIT;
+			pseudo_event_content |= FLUSH_CMPL_BIT;
+
+			spin_unlock_irqrestore(&senscol_lock, flags);
+			push_sample(pseudo_event_id, &pseudo_event_content);
+			spin_lock_irqsave(&senscol_lock, flags);
+		}
+	}
+	flush_asked = 0;
+	spin_unlock_irqrestore(&senscol_lock, flags);
+	return;
+}
+
 
 /*
  * file operations structure will be used for heci char device.
@@ -857,7 +950,10 @@ static int __init senscol_init(void)
 
 	rv = sysfs_create_bin_file(&sc_data_kobj, &sensors_data_binattr);
 	if (rv)
-		ISH_DBG_PRINT(KERN_ERR "%s(): sysfs_create_bin_file() for 'sensors_data' returned %d\n", __func__, rv);
+		ISH_DBG_PRINT(KERN_ERR
+"%s(): sysfs_create_bin_file() for 'sensors_data' returned %d\n", __func__, rv);
+
+	register_flush_cb(senscol_flush_cb);
 
 	return	0;
 }

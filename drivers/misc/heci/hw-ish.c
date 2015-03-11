@@ -254,6 +254,7 @@ int write_ipc_from_queue(struct heci_device *dev)
 	g_ish_print_log("%s(): +++\n", __func__);
 	if (!ish_is_input_ready(dev)) {
 		ISH_DBG_PRINT(KERN_ALERT "%s(): --- EBUSY\n", __func__);
+		g_ish_print_log(KERN_ALERT "%s(): --- EBUSY\n", __func__);
 		return -EBUSY;
 	}
 
@@ -387,6 +388,11 @@ static void	recv_ipc(struct heci_device *dev, uint32_t doorbell_val)
 
 	case MNG_RX_CMPL_INDICATION:
 		ISH_DBG_PRINT(KERN_ALERT "%s(): RX_COMPLETE -- IPC_REG_ISH2HOST_MSG[0] = %08X\n", __func__, ish_reg_read(dev, IPC_REG_ISH2HOST_MSG));
+		if (suspend_flag) {
+			suspend_flag = 0;
+			if (waitqueue_active(&suspend_wait))
+				wake_up(&suspend_wait);
+		}
 		write_ipc_from_queue(dev);
 		break;
 
@@ -476,9 +482,16 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 		recv_hbm(dev, heci_hdr);
 		goto	eoi;
 
+	/* HECI fixed-client message */
+	} else if (!heci_hdr->host_addr) {
+		g_ish_print_log("%s(): received HECI fixed client message\n",
+			__func__);
+		recv_fixed_cl_msg(dev, heci_hdr);
+		goto	eoi;
 	} else {
 		/* HECI client message */
-		g_ish_print_log(KERN_ALERT "%s(): received HECI client message\n", __func__);
+		g_ish_print_log(KERN_ALERT
+			"%s(): received HECI client message\n", __func__);
 		recv_heci_cl_msg(dev, heci_hdr);
 		goto	eoi;
 	}
@@ -680,7 +693,8 @@ static const struct heci_hw_ops ish_hw_ops = {
 	.hw_start = ish_hw_start,
 	.read = ish_read,
 	.write = ish_write,
-	.write_ex = ipc_send_heci_msg
+	.write_ex = ipc_send_heci_msg,
+	.get_fw_status = ish_read_fw_sts_reg
 };
 
 

@@ -83,6 +83,10 @@ struct heci_cl {
 
 	/* wait queue for connect and disconnect response from FW */
 	wait_queue_head_t wait_ctrl_res;
+
+	/* Error stats */
+	unsigned	err_send_msg;
+	unsigned	err_send_fc;
 };
 
 int heci_me_cl_by_uuid(const struct heci_device *dev, const uuid_le *cuuid);

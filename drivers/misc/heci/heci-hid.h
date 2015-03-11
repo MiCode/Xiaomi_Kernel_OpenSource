@@ -21,6 +21,11 @@
 
 const static	uuid_le ish_heci_guid = UUID_LE(0x33AECD58, 0xB679, 0x4E54, 0x9B, 0xD9, 0xA0, 0x4D, 0x34, 0xF0, 0xC2, 0x26);
 
+extern wait_queue_head_t	heci_hid_wait;
+
+/*flush notification*/
+extern void (*flush_cb)(void);
+
 struct hostif_msg_hdr {
 	uint8_t	command;	/* Bit 7: is_response */
 #define	CMD_MASK	0x7F
@@ -96,6 +101,9 @@ struct report_list {
 #define	MAX_HID_DEVICES	32
 
 #include "utils.h"
+
+/*flush notification*/
+void register_flush_cb(void (*flush_cb_func)(void));
 
 #endif	/* HECI_HID__H */
 

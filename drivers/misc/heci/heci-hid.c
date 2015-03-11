@@ -128,14 +128,20 @@ static int heci_hid_hidinput_input_event(struct input_dev *dev,
 
 static int heci_wait_for_response(struct hid_device *hid)
 {
-	get_report_done = 0;
+	ISH_DBG_PRINT(KERN_ALERT "%s() +++\n", __func__);
+#ifdef HOST_VIRTUALBOX
 	timed_wait_for_timeout(WAIT_FOR_SEND_SLICE, get_report_done, (10 * HZ));
+#else
+	if (!get_report_done)
+		wait_event_timeout(heci_hid_wait, get_report_done, 3 * HZ);
 
+#endif
 	if (!get_report_done) {
-		dbg_hid("timeout waiting for heci device\n");
+		hid_err(hid, "timeout waiting for response from HECI device\n");
 		return -1;
 	}
 
+	get_report_done = 0;
 	return 0;
 }
 
@@ -225,4 +231,11 @@ void	heci_hid_remove(void)
 		}
 	ISH_DBG_PRINT(KERN_ALERT "[hid-heci]: %s():---\n", __func__);
 }
+
+void register_flush_cb(void (*flush_cb_func)(void))
+{
+dev_err(NULL, "%s() +++\n", __func__);
+	flush_cb = flush_cb_func;
+}
+EXPORT_SYMBOL_GPL(register_flush_cb);
 

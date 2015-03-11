@@ -701,10 +701,62 @@ static int     hid_get_sample(struct sensor_def *sensor, void *sample_buf, size_
 	return	0;
 }
 
+/* Check sensor is activated and in batch mode                  *
+ * property_power_state =       2       hid_usage 0x200319      *
+ * property_reporting_state =   2/5     hid_usage 0x200316      *
+ * property_report_interval !=  0       hid_usage 0x20030e      *
+ * property_report_interval_resolution != 0 hid_usage 0x20530e  *
+ * return value:        0 - sensor is not activated in batch    *
+ *                      1 - sensor is activated in batch        */
+static int      hid_batch_check(struct sensor_def *sensor)
+{
+	unsigned idx;
+	struct sensor_hub_data  *sd;
+	unsigned report_id;
+	struct hid_report *report;
+	int field_idx;
+	__s32 val;
+
+	idx = sensor->id >> 16 & 0xFFFF;
+	sd = get_sensor_hub_by_index(idx);
+	report_id = sensor->id & 0xFFFF;
+	report = sensor_hub_report(report_id, sd->hsdev->hdev,
+		HID_FEATURE_REPORT);
+
+	/* property_power_state */
+	field_idx = get_field_index(sd->hsdev->hdev, report_id, 0x200319,
+		HID_FEATURE_REPORT);
+	if (report->field[field_idx]->value[0] != 2)
+		return 0;
+
+	/* property_reporting_state */
+	field_idx = get_field_index(sd->hsdev->hdev, report_id, 0x200316,
+		HID_FEATURE_REPORT);
+	if (report->field[field_idx]->value[0] != 2 &&
+		report->field[field_idx]->value[0] != 5)
+		return 0;
+
+	/* property_report_interval */
+	field_idx = get_field_index(sd->hsdev->hdev, report_id, 0x20030e,
+		HID_FEATURE_REPORT);
+	if (report->field[field_idx]->value[0] == 0)
+		return 0;
+
+	/* property_report_interval_resolution */
+	field_idx = get_field_index(sd->hsdev->hdev, report_id, 0x20530e,
+		HID_FEATURE_REPORT);
+	if (report->field[field_idx]->value[0] == 0)
+		return 0;
+
+dev_err(NULL, "%s() sensor 0x%x is in batch mode\n", __func__, sensor->id);
+	return 1;
+}
+
 struct senscol_impl	hid_senscol_impl = {
 	.get_sens_property = hid_get_sens_property,
 	.set_sens_property = hid_set_sens_property,
-	.get_sample = hid_get_sample
+	.get_sample = hid_get_sample,
+	.batch_check = hid_batch_check
 };
 
 static int	is_sens_data_field(unsigned usage)
@@ -890,6 +942,51 @@ static __u8 *sensor_hub_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 	return rdesc;
 }
 
+
+static int	fill_data_field(struct hid_field *field, unsigned usage,
+	int need_internal_index, int k, struct sensor_def *senscol_sensor)
+{
+	struct data_field	data_field;
+	char	*usage_name;
+	int	rv;
+
+	memset(&data_field, 0, sizeof(struct data_field));
+	usage_name = senscol_usage_to_name(usage & 0xFFFF);
+	if (usage_name)
+		data_field.name = need_internal_index ?
+			kasprintf(GFP_KERNEL, "%s_%d", usage_name, k) :
+			kasprintf(GFP_KERNEL, "%s", usage_name);
+	else {
+		data_field.name =
+			need_internal_index ?
+			kasprintf(GFP_KERNEL, "data-%X_%d", usage, k) :
+			kasprintf(GFP_KERNEL, "data-%X", usage);
+	}
+	if (!data_field.name)
+		return	-ENOMEM;
+
+	data_field.usage_id = usage;
+	data_field.is_numeric = (field->flags & HID_MAIN_ITEM_VARIABLE);
+	if (data_field.is_numeric) {
+		if (field->unit_exponent > 7 ||
+				field->unit_exponent < -8)
+			data_field.exp = 0xFF;
+		else if (field->unit_exponent >= 0)
+			data_field.exp = field->unit_exponent;
+		else
+			data_field.exp = 0x10 - field->unit_exponent;
+		data_field.unit = field->unit;
+	}
+
+	data_field.len = (field->report_size >> 3) * field->report_count;
+	rv = add_data_field(senscol_sensor, &data_field);
+	senscol_sensor->sample_size += (field->report_size >> 3) *
+		field->report_count;
+
+	return	rv;
+}
+
+
 static int sensor_hub_probe(struct hid_device *hdev,
 				const struct hid_device_id *id)
 {
@@ -902,6 +999,9 @@ static int sensor_hub_probe(struct hid_device *hdev,
 	struct hid_field *field, *feat_field;
 	int dev_cnt;
 	int	rv;
+	struct sensor_def	*senscol_sensor;
+	int	j;
+	const char	*usage_name;
 
 	sd = devm_kzalloc(&hdev->dev, sizeof(*sd), GFP_KERNEL);
 	if (!sd) {
@@ -1015,292 +1115,214 @@ static int sensor_hub_probe(struct hid_device *hdev,
 		field = report->field[0];
 
 		if (report->maxfield && field &&
-					field->physical) {
-			if (is_supported(field->physical)) {
-				name = kasprintf(GFP_KERNEL, "HID-SENSOR-%x",
-						field->physical);
-				if (name == NULL) {
-					hid_err(hdev, "Failed MFD device name\n");
-						ret = -ENOMEM;
-						goto err_free_names;
-				}
-				sd->hid_sensor_hub_client_devs[
-					sd->hid_sensor_client_cnt].id = PLATFORM_DEVID_AUTO;
-				sd->hid_sensor_hub_client_devs[
-					sd->hid_sensor_client_cnt].name = name;
-				sd->hid_sensor_hub_client_devs[
-					sd->hid_sensor_client_cnt].platform_data =
-						sd->hsdev;
-				sd->hid_sensor_hub_client_devs[
-					sd->hid_sensor_client_cnt].pdata_size =
-						sizeof(*sd->hsdev);
-				hid_dbg(hdev, "Adding %s:%p\n", name, sd);
-				sd->hid_sensor_client_cnt++;
+				field->physical &&
+				is_supported(field->physical)) {
+			name = kasprintf(GFP_KERNEL, "HID-SENSOR-%x",
+					field->physical);
+			if (name == NULL) {
+				hid_err(hdev, "Failed MFD device name\n");
+					ret = -ENOMEM;
+					goto err_free_names;
 			}
+			sd->hid_sensor_hub_client_devs[
+				sd->hid_sensor_client_cnt].id =
+					PLATFORM_DEVID_AUTO;
+			sd->hid_sensor_hub_client_devs[
+				sd->hid_sensor_client_cnt].name = name;
+			sd->hid_sensor_hub_client_devs[
+				sd->hid_sensor_client_cnt].platform_data =
+					sd->hsdev;
+			sd->hid_sensor_hub_client_devs[
+				sd->hid_sensor_client_cnt].pdata_size =
+					sizeof(*sd->hsdev);
+			hid_dbg(hdev, "Adding %s:%p\n", name, sd);
+			sd->hid_sensor_client_cnt++;
 		}
 #if SENSCOL
 		/* Create senscol sensor from each report,
 		 * regardles of is_supported() */
-		do {
-			struct sensor_def	*senscol_sensor;
-			int	j;
-			const char	*usage_name;
+		senscol_sensor = alloc_senscol_sensor();
+		if (!senscol_sensor) {
+			dev_err(&hdev->dev,
+				"%s(): failed to allocate sensor\n", __func__);
+			break;
+		}
+		init_senscol_sensor(senscol_sensor);
+		usage_name = senscol_usage_to_name(field->physical & 0xFFFF);
+		if (usage_name)
+			senscol_sensor->name = kasprintf(GFP_KERNEL,
+				"%s", usage_name);
+		else
+			senscol_sensor->name = kasprintf(GFP_KERNEL,
+				"custom-%X", field->physical);
+		if (!senscol_sensor->name) {
+			dev_err(&hdev->dev,
+				"%s(): failed to allocate name\n",
+				__func__);
+			kfree(senscol_sensor);
+			break;
+		}
+		senscol_sensor->usage_id = field->physical;
+		senscol_sensor->id = sd->sensor_hub_index << 16 |
+			report->id & 0xFFFF;
+		senscol_sensor->impl = &hid_senscol_impl;
+		senscol_sensor->sample_size = 0;
 
-			senscol_sensor = alloc_senscol_sensor();
-			if (!senscol_sensor) {
-				dev_err(&hdev->dev,
-					"%s(): failed to allocate sensor\n",
-					__func__);
+		/* Add properties */
+		/* 1. find matching feature report */
+		list_for_each_entry(freport,
+				&feat_report_enum->report_list,
+				list) {
+			feat_field = freport->field[0];
+			if (freport->maxfield && feat_field &&
+					feat_field->physical &&
+					(feat_field->physical ==
+					senscol_sensor->usage_id))
 				break;
-			}
-			init_senscol_sensor(senscol_sensor);
-			usage_name = senscol_usage_to_name(field->physical &
-				0xFFFF);
-			if (usage_name)
-				senscol_sensor->name = kasprintf(GFP_KERNEL,
-					"%s", usage_name);
-			else
-				senscol_sensor->name = kasprintf(GFP_KERNEL,
-					"custom-%X", field->physical);
-			if (!senscol_sensor->name) {
-				dev_err(&hdev->dev,
-					"%s(): failed to allocate name\n",
-					__func__);
-				kfree(senscol_sensor);
-				break;
-			}
-			senscol_sensor->usage_id = field->physical;
-			senscol_sensor->id = sd->sensor_hub_index << 16 |
-				report->id & 0xFFFF;
-			senscol_sensor->impl = &hid_senscol_impl;
-			senscol_sensor->sample_size = 0;
+		}
 
-			/* Add properties */
-			/* 1. find matching feature report */
-			list_for_each_entry(freport,
-					&feat_report_enum->report_list,
-					list) {
-				feat_field = freport->field[0];
-				if (freport->maxfield && feat_field &&
-						feat_field->physical &&
-						(feat_field->physical ==
-						senscol_sensor->usage_id))
-					break;
-			}
+		/*2. dump each prop field */
+		for (i = 0; i < freport->maxfield; ++i) {
+			struct sens_property	prop_field;
 
-			/*2. dump each prop field */
-			for (i = 0; i < freport->maxfield; ++i) {
-				struct sens_property	prop_field;
-
-				dev_dbg(&hdev->dev,
-					"%d collection_index:%x hid:%x sz:%x ",
-					i,
-					freport->field[i]->usage->
-						collection_index,
-					freport->field[i]->usage->hid,
-					freport->field[i]->report_size / 8);
-
-				dev_dbg(&hdev->dev, "report count: %u\n",
-					freport->field[i]->report_count);
-
-				memset(&prop_field, 0,
-					sizeof(struct sens_property));
-				prop_field.usage_id =
-					freport->field[i]->usage->hid;
-				usage_name = senscol_usage_to_name(
-					prop_field.usage_id & 0xFFFF);
-				if (usage_name)
-					prop_field.name = kasprintf(GFP_KERNEL,
-						"%s", usage_name);
-				/* there is  a special case when the property
-				 * is related to specific data field/
-				 * set of fields */
-				else {
-					uint32_t modifier =
-						prop_field.usage_id & 0xF000;
-					uint32_t data_hid =
-						prop_field.usage_id & 0x0FFF;
-					usage_name = senscol_usage_to_name(
-						data_hid);
-					dev_dbg(&hdev->dev,
-						"%s(): DATANAME %s\n",
-						__func__, usage_name);
-					if (!usage_name)
-						prop_field.name =
-							kasprintf(GFP_KERNEL,
-							"unknown-%X",
-							prop_field.usage_id);
-					else {
-						const char *modif_name =
-							senscol_get_modifier(
-								modifier);
-						dev_dbg(&hdev->dev,
-							"%s(): MODIFNAME %s\n",
-							__func__, modif_name);
-						prop_field.name =
-							kasprintf(GFP_KERNEL,
-							"%s_%s", usage_name,
-							modif_name);
-					}
-				}
-				prop_field.is_numeric =
-					(freport->field[i]->flags &
-					HID_MAIN_ITEM_VARIABLE) &&
-					(!hid_is_string_property(
-					prop_field.usage_id));
-
-				rv = add_sens_property(senscol_sensor,
-					&prop_field);
-				dev_dbg(&hdev->dev, "%s(): ", __func__);
-				dev_dbg(&hdev->dev, "adding prop %s %s %d\n",
-					prop_field.name, "returned",  rv);
-
-
-			}
-
-			/* Add data fields; Dump fields in this report.
-			`maxfield' is upper-bound NON-INCLUSIVE */
-			for (j = 0; j < report->maxfield; ++j) {
-				int	k;
-				bool need_internal_index = false;
-
-				dev_dbg(&hdev->dev, "%s(): ", __func__);
-				dev_dbg(&hdev->dev,
-					"%s=%d %s=%08X %s=%08X %s=%u %s=%u ",
-					"field", j,
-					"physical",  report->field[j]->physical,
-					"logical", report->field[j]->logical,
-					"maxusage", report->field[j]->maxusage,
-					"report_type",
-					report->field[j]->report_type);
-				dev_dbg(&hdev->dev, "%s=%u %s=%d %s=%d %s=%d ",
-					"report_size",
-					report->field[j]->report_size >> 3,
-					"logic_min",
-					report->field[j]->logical_minimum,
-					"logic_max",
-					report->field[j]->logical_maximum,
-					"phys_min",
-					report->field[j]->physical_minimum);
-				dev_dbg(&hdev->dev, "%s=%d %s=%d %s=%u %s=%d\n",
-					"phys_max",
-					report->field[j]->physical_maximum,
-					"exp",
-					report->field[j]->unit_exponent,
-					"unit",
-					report->field[j]->unit,
-					"report_count",
-					report->field[j]->report_count);
-				dev_dbg(&hdev->dev, "%s(): usages --\n",
-					__func__);
-
-				if (report->field[j]->report_count > 1) {
-					int instancesCnt = 0;
-for (k = 0; k < report->field[j]->maxusage; ++k)
-	if (is_sens_data_field(report->field[j]->usage[k].hid & 0xFFFF))
-							instancesCnt++;
-
-					if (instancesCnt > 1)
-						need_internal_index = true;
-				}
-
-				for (k = 0; k < report->field[j]->maxusage;
-						++k) {
-					dev_dbg(&hdev->dev,
-					"	%s(): usage:%d hid=%08X\n",
-						__func__, k,
-						report->field[j]->usage[k].hid);
-
-					/* Add data fields */
-					if (is_sens_data_field(report->
-							field[j]->usage[k].hid &
-							0xFFFF)) {
-						struct data_field data_field;
-
-						memset(&data_field, 0, sizeof(
-							struct data_field));
-
-						usage_name =
-							senscol_usage_to_name(
-							report->field[j]->
-							usage[k].hid & 0xFFFF);
-if (usage_name)
-							data_field.name =
-							need_internal_index ?
-							kasprintf(GFP_KERNEL,
-							"%s_%d", usage_name,
-							k) : kasprintf(
-							GFP_KERNEL, "%s",
-							usage_name);
-else {
-							data_field.name =
-							need_internal_index ?
-							kasprintf(GFP_KERNEL,
-							"data-%X_%d",
-							report->field[j]->
-							usage[k].hid, k) :
-							kasprintf(GFP_KERNEL,
-							"data-%X", report->
-							field[j]->usage[k].hid);
-}
-if (!data_field.name) {
-							dev_err(&hdev->dev,
-	"%s(): Failed to allocated data field for usage %08X\n", __func__,
-							report->field[j]->
-							usage[k].hid);
-							continue;
-}
-
-						data_field.usage_id = report->
-							field[j]->usage[k].hid;
-						data_field.is_numeric =
-							(report->field[j]->
-							flags &
-							HID_MAIN_ITEM_VARIABLE);
-if (data_field.is_numeric) {
-	if (report->field[j]->unit_exponent > 7 || report->
-								field[j]->
-								unit_exponent <
-									-8)
-								data_field.exp =
-									0xFF;
-	else if (report->field[j]->unit_exponent >= 0)
-								data_field.exp =
-								report->
-								field[j]->
-								unit_exponent;
-	else
-								data_field.exp =
-								0x10 - report->
-								field[j]->
-								unit_exponent;
-							data_field.unit =
-								report->
-								field[j]->
-								unit;
-}
-
-						data_field.len =
-							(report->field[j]->
-							report_size >> 3) *
-							report->field[j]->
-							report_count;
-						rv = add_data_field(
-							senscol_sensor,
-							&data_field);
-						senscol_sensor->sample_size +=
-							report->field[j]->
-							report_size >> 3;
-					}
-				}
-			}
-
-			/* Add senscol_sensor */
-			rv = add_senscol_sensor(senscol_sensor);
 			dev_dbg(&hdev->dev,
-				"%s(): add_senscol_sensor() returned %d\n",
-				__func__, rv);
-		} while (0);
+				"%d collection_index:%x hid:%x sz:%x ",
+				i,
+				freport->field[i]->usage->
+					collection_index,
+				freport->field[i]->usage->hid,
+				freport->field[i]->report_size / 8);
+
+			dev_dbg(&hdev->dev, "report count: %u\n",
+				freport->field[i]->report_count);
+
+			memset(&prop_field, 0,
+				sizeof(struct sens_property));
+			prop_field.usage_id =
+				freport->field[i]->usage->hid;
+			usage_name = senscol_usage_to_name(
+				prop_field.usage_id & 0xFFFF);
+			if (usage_name)
+				prop_field.name = kasprintf(GFP_KERNEL,
+						"%s", usage_name);
+			/* there is  a special case when the property
+			 * is related to specific data field/
+			 * set of fields */
+			else {
+				uint32_t modifier =
+					prop_field.usage_id & 0xF000;
+				uint32_t data_hid =
+					prop_field.usage_id & 0x0FFF;
+				usage_name = senscol_usage_to_name(
+					data_hid);
+				dev_dbg(&hdev->dev,
+					"%s(): DATANAME %s\n",
+					__func__, usage_name);
+				if (!usage_name)
+					prop_field.name =
+						kasprintf(GFP_KERNEL,
+						"unknown-%X",
+						prop_field.usage_id);
+				else {
+					const char *modif_name =
+						senscol_get_modifier(modifier);
+					dev_dbg(&hdev->dev,
+						"%s(): MODIFNAME %s\n",
+						__func__, modif_name);
+					prop_field.name =
+						kasprintf(GFP_KERNEL,
+						"%s_%s", usage_name,
+						modif_name);
+				}
+			}
+			prop_field.is_numeric =
+				(freport->field[i]->flags &
+				HID_MAIN_ITEM_VARIABLE) &&
+				(!hid_is_string_property(
+				prop_field.usage_id));
+
+			rv = add_sens_property(senscol_sensor,
+				&prop_field);
+			dev_dbg(&hdev->dev, "%s(): ", __func__);
+			dev_dbg(&hdev->dev, "adding prop %s %s %d\n",
+				prop_field.name, "returned",  rv);
+
+
+		}
+
+		/* Add data fields; Dump fields in this report.
+		`maxfield' is upper-bound NON-INCLUSIVE */
+		for (j = 0; j < report->maxfield; ++j) {
+			int	k;
+			bool need_internal_index = false;
+
+			dev_dbg(&hdev->dev, "%s(): ", __func__);
+			dev_dbg(&hdev->dev,
+				"%s=%d %s=%08X %s=%08X %s=%u %s=%u ",
+				"field", j,
+				"physical",  report->field[j]->physical,
+				"logical", report->field[j]->logical,
+				"maxusage", report->field[j]->maxusage,
+				"report_type",
+				report->field[j]->report_type);
+			dev_dbg(&hdev->dev, "%s=%u %s=%d %s=%d %s=%d ",
+				"report_size",
+				report->field[j]->report_size >> 3,
+				"logic_min",
+				report->field[j]->logical_minimum,
+				"logic_max",
+				report->field[j]->logical_maximum,
+				"phys_min",
+				report->field[j]->physical_minimum);
+			dev_dbg(&hdev->dev, "%s=%d %s=%d %s=%u %s=%d\n",
+				"phys_max",
+				report->field[j]->physical_maximum,
+				"exp",
+				report->field[j]->unit_exponent,
+				"unit",
+				report->field[j]->unit,
+				"report_count",
+				report->field[j]->report_count);
+			dev_dbg(&hdev->dev, "%s(): usages --\n",
+				__func__);
+
+			if (report->field[j]->report_count > 1) {
+				int instances_cnt = 0;
+				for (k = 0; k < report->field[j]->maxusage; ++k)
+					if (is_sens_data_field(
+						report->field[j]->usage[k].hid &
+							0xFFFF))
+						instances_cnt++;
+
+				if (instances_cnt > 1)
+					need_internal_index = true;
+			}
+
+			field = report->field[j];
+			dev_dbg(&hdev->dev,
+				"	%s(): usage:%d hid=%08X\n",
+				__func__, k,
+				field->usage[0].hid);
+
+			/* Add data field */
+			if (is_sens_data_field(field->usage[0].hid & 0xFFFF)) {
+				rv = fill_data_field(field,
+					field->usage[0].hid,
+					need_internal_index, 0,
+					senscol_sensor);
+				if (rv == -ENOMEM)
+					dev_err(&hdev->dev,
+			"%s(): Failed to allocated data field for usage %08X\n",
+						__func__,
+						field->usage[0].hid);
+			}
+		}
+
+		/* Add senscol_sensor */
+		rv = add_senscol_sensor(senscol_sensor);
+		dev_dbg(&hdev->dev,
+			"%s(): add_senscol_sensor() returned %d\n",
+			__func__, rv);
 #endif
 	}
 #if IIO
@@ -1330,6 +1352,12 @@ static void sensor_hub_remove(struct hid_device *hdev)
 	struct sensor_hub_data *data = hid_get_drvdata(hdev);
 	unsigned long flags;
 	int i;
+
+	for (i = 0; i < sensor_hub_count; ++i)
+		if (hid_sensor_hubs[i] == hdev) {
+			hid_sensor_hubs[i] = NULL;
+			break;
+		}
 
 	hid_dbg(hdev, " hardware removed\n");
 	hid_hw_close(hdev);

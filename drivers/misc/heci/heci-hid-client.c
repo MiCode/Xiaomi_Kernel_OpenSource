@@ -58,17 +58,19 @@ int	report_descr_size[MAX_HID_DEVICES];
 struct hid_device	*hid_sensor_hubs[MAX_HID_DEVICES];
 
 static wait_queue_head_t	init_wait;
+wait_queue_head_t	heci_hid_wait;
 
+/*flush notification*/
+void (*flush_cb)(void);
 
 /*********** Locally redirect ISH_DBG_PRINT **************/
 void g_ish_print_log(char *format, ...);
 /*********************************************************/
 
-
 /* HECI client driver structures and API for bus interface */
 void	process_recv(void *recv_buf, size_t data_len)
 {
-	struct hostif_msg	*recv_msg = (struct hostif_msg *)recv_buf;
+	struct hostif_msg	*recv_msg;
 	unsigned char	*payload;
 	/*size_t	size;*/
 	struct device_info	*dev_info;
@@ -94,6 +96,7 @@ void	process_recv(void *recv_buf, size_t data_len)
 	may_send = 0;
 
 	do {
+		recv_msg = (struct hostif_msg *)(recv_buf + cur_pos);
 		payload_len = recv_msg->hdr.size;
 
 		switch (recv_msg->hdr.command & CMD_MASK) {
@@ -163,7 +166,11 @@ void	process_recv(void *recv_buf, size_t data_len)
 		case HOSTIF_GET_FEATURE_REPORT:
 			report_type = HID_FEATURE_REPORT;
 			ISH_DBG_PRINT(KERN_ALERT "[hid-ish]: %s(): received HOSTIF_GET_FEATURE_REPORT\n", __func__);
+			g_ish_print_log(
+				"%s() received HOSTIF_GET_FEATURE_REPORT\n",
+				__func__);
 			ISH_DBG_PRINT(KERN_ALERT "[hid-ish]: %s(): dump Get Feature Result\n", __func__);
+			flush_cb(); /*each "GET_FEATURE_REPORT" ends a batch*/
 			goto	do_get_report;
 
 		case HOSTIF_GET_INPUT_REPORT:
@@ -183,12 +190,22 @@ do_get_report:
 						hid_input_report(hid_sensor_hubs[i], report_type, payload, payload_len, 0);
 						break;
 					}
+			ISH_DBG_PRINT(KERN_ALERT
+				"%s(): received input report, upstreaming\n",
+				__func__);
 			get_report_done = 1;
+			if (waitqueue_active(&heci_hid_wait))
+				wake_up(&heci_hid_wait);
 			break;
 
 		case HOSTIF_SET_FEATURE_REPORT:
 			ISH_DBG_PRINT(KERN_ALERT "[hid-ish]: %s(): HOSTIF_SET_FEATURE_REPORT returned status=%02X\n", __func__, recv_msg->hdr.status);
+			ISH_DBG_PRINT(KERN_ALERT
+				"%s(): received feature report, upstreaming\n",
+				__func__);
 			get_report_done = 1;
+			if (waitqueue_active(&heci_hid_wait))
+				wake_up(&heci_hid_wait);
 			break;
 
 		case HOSTIF_PUBLISH_INPUT_REPORT:
@@ -224,9 +241,16 @@ do_get_report:
 				ISH_DBG_PRINT(KERN_ALERT "\n");
 
 				for (i = 0; i < num_hid_devices; ++i)
-					if (recv_msg->hdr.device_id == hid_devices[i].dev_id)
-						if (hid_sensor_hubs[i] != NULL)
-							hid_input_report(hid_sensor_hubs[i], report_type, payload, payload_len, 0);
+					if (recv_msg->hdr.device_id ==
+							hid_devices[i].dev_id &&
+							hid_sensor_hubs[i] !=
+							NULL) {
+						hid_input_report(
+							hid_sensor_hubs[i],
+							report_type,
+							payload, payload_len,
+							0);
+					}
 
 				reports += sizeof(uint16_t) + report_len;
 			}
@@ -286,7 +310,7 @@ void hid_heci_set_feature(struct hid_device *hid, char *buf, unsigned len, int r
 	msg->hdr.command = HOSTIF_SET_FEATURE_REPORT;
 	for (i = 0; i < num_hid_devices; ++i)
 		if (hid == hid_sensor_hubs[i]) {
-			msg->hdr.device_id = hid_devices[i].dev_id; /* FIXME- temporary when single collection exists, then has to be part of hid_device custom fields */
+			msg->hdr.device_id = hid_devices[i].dev_id;
 			break;
 		}
 	if (i == num_hid_devices)
@@ -483,6 +507,7 @@ g_ish_print_log(KERN_ALERT "[hid-ish]: heci_cl_send() returns %d\n", rv);
 	num_hid_devices = hid_dev_count;
 	printk(KERN_ALERT "[hid-ish]: enum_devices_done OK, num_hid_devices=%d\n", num_hid_devices);
 
+
 	for (i = 0; i < num_hid_devices /*hid_dev_count*/; ++i) {
 		cur_hid_dev = i;
 
@@ -565,6 +590,7 @@ static int __init ish_init(void)
 /*return 0;*/
 /*----------------------*/
 	init_waitqueue_head(&init_wait);
+	init_waitqueue_head(&heci_hid_wait);
 
 	/* Register HECI client device driver - ISS */
 	rv = heci_cl_driver_register(&hid_heci_cl_driver);

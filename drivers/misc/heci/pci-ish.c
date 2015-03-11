@@ -34,8 +34,10 @@
 #include <linux/jiffies.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
+#include "client.h"
 #include "heci_dev.h"
 #include "hw-ish.h"
+#include "hbm.h"
 #include "utils.h"
 #include <linux/miscdevice.h>
 
@@ -68,6 +70,10 @@ MODULE_DEVICE_TABLE(pci, ish_pci_tbl);
 
 static DEFINE_MUTEX(heci_mutex);
 struct workqueue_struct *workqueue_for_init;
+
+/*global variables for suspend*/
+int	suspend_flag = 0;
+wait_queue_head_t	suspend_wait;
 
 #ifdef TIMER_POLLING
 /*
@@ -277,8 +283,13 @@ void	g_ish_print_log(char *fmt, ...)
 {
 	char tmp_buf[1024];
 	va_list args;
-	struct heci_device	*dev = pci_get_drvdata(heci_pci_device);
+	struct heci_device	*dev;
 
+	/* Fix for power-off path */
+	if (!heci_pci_device)
+		return;
+
+	dev = pci_get_drvdata(heci_pci_device);
 	va_start(args, fmt);
 	vsprintf(tmp_buf, fmt, args);
 	va_end(args);
@@ -376,6 +387,18 @@ ssize_t show_flush(struct device *dev, struct device_attribute *dev_attr, char *
 
 ssize_t store_flush(struct device *dev, struct device_attribute *dev_attr, const char *buf, size_t count)
 {
+	struct pci_dev *pdev;
+	struct heci_device *heci_dev;
+	unsigned long   flags;
+
+	pdev = container_of(dev, struct pci_dev, dev);
+	heci_dev = pci_get_drvdata(pdev);
+
+	if (!strncmp(buf, "empty", 5)) {
+		spin_lock_irqsave(&heci_dev->log_spinlock, flags);
+		heci_dev->log_tail = heci_dev->log_head;
+		spin_unlock_irqrestore(&heci_dev->log_spinlock, flags);
+	}
 	return count;
 }
 
@@ -395,6 +418,8 @@ ssize_t show_heci_dev_props(struct device *dev, struct device_attribute *dev_att
 	struct pci_dev *pdev;
 	struct heci_device *heci_dev;
 	ssize_t	ret = -ENOENT;
+	unsigned	count;
+	unsigned long   flags, flags2;
 
 	pdev = container_of(dev, struct pci_dev, dev);
 	heci_dev = pci_get_drvdata(pdev);
@@ -404,6 +429,94 @@ ssize_t show_heci_dev_props(struct device *dev, struct device_attribute *dev_att
 		ret = strlen(buf);
 	} else if (!strcmp(dev_attr->attr.name, "hbm_state")) {
 		sprintf(buf, "%u\n", (unsigned)heci_dev->hbm_state);
+		ret = strlen(buf);
+	} else if (!strcmp(dev_attr->attr.name, "fw_status")) {
+		sprintf(buf, "%08X\n", heci_dev->ops->get_fw_status(heci_dev));
+		ret = strlen(buf);
+	} else if (!strcmp(dev_attr->attr.name, "ipc_buf")) {
+		struct wr_msg_ctl_info *ipc_link, *ipc_link_next;
+
+		count = 0;
+		spin_lock_irqsave(&heci_dev->wr_processing_spinlock, flags);
+		list_for_each_entry_safe(ipc_link, ipc_link_next,
+			&heci_dev->wr_processing_list_head.link, link)
+			++count;
+		spin_unlock_irqrestore(&heci_dev->wr_processing_spinlock,
+			flags);
+		sprintf(buf, "outstanding %u messages\n", count);
+		ret = strlen(buf);
+	} else if (!strcmp(dev_attr->attr.name, "host_clients")) {
+		struct heci_cl *cl, *next;
+		static const char * const cl_states[] = {"initializing",
+			"connecting", "connected", "disconnecting",
+			"disconnected"};
+		struct heci_cl_rb	*rb, *next_rb;
+		struct heci_cl_tx_ring	*tx_rb, *next_tx_rb;
+
+		sprintf(buf, "Host clients:\n"
+				"------------\n");
+		spin_lock_irqsave(&heci_dev->device_lock, flags);
+		list_for_each_entry_safe(cl, next, &heci_dev->cl_list, link) {
+			sprintf(buf + strlen(buf), "id: %d\n",
+				cl->host_client_id);
+			sprintf(buf + strlen(buf), "state: %s\n",
+				cl->state < 0 || cl->state >
+					HECI_CL_DISCONNECTED ?
+					"unknown" : cl_states[cl->state]);
+			if (cl->state == HECI_CL_CONNECTED) {
+				sprintf(buf + strlen(buf),
+					"FW client id: %d\n",
+					cl->me_client_id);
+				sprintf(buf + strlen(buf), "RX ring size: %u\n",
+					cl->rx_ring_size);
+				sprintf(buf + strlen(buf), "TX ring size: %u\n",
+					cl->tx_ring_size);
+
+				count = 0;
+				spin_lock_irqsave(&cl->in_process_spinlock,
+					flags2);
+				list_for_each_entry_safe(rb, next_rb,
+						&cl->in_process_list.list, list)
+					++count;
+				spin_unlock_irqrestore(&cl->in_process_spinlock,
+					flags2);
+				sprintf(buf + strlen(buf), "RX in work: %u\n",
+					count);
+
+				count = 0;
+				spin_lock_irqsave(&cl->in_process_spinlock,
+					flags2);
+				list_for_each_entry_safe(rb, next_rb,
+						&cl->free_rb_list.list, list)
+					++count;
+				spin_unlock_irqrestore(&cl->in_process_spinlock,
+					flags2);
+				sprintf(buf + strlen(buf), "RX free: %u\n",
+					count);
+
+				count = 0;
+				list_for_each_entry_safe(tx_rb, next_tx_rb,
+						&cl->tx_list.list, list)
+					++count;
+				sprintf(buf + strlen(buf), "TX pending: %u\n",
+					count);
+				count = 0;
+				list_for_each_entry_safe(tx_rb, next_tx_rb,
+						&cl->tx_free_list.list, list)
+					++count;
+				sprintf(buf + strlen(buf), "TX free: %u\n",
+					count);
+				sprintf(buf + strlen(buf), "FC: %u\n",
+					(unsigned)cl->heci_flow_ctrl_creds);
+				sprintf(buf + strlen(buf), "out FC: %u\n",
+					(unsigned)cl->out_flow_ctrl_creds);
+				sprintf(buf + strlen(buf), "Err snd msg: %u\n",
+					(unsigned)cl->err_send_msg);
+				sprintf(buf + strlen(buf), "Err snd FC: %u\n",
+					(unsigned)cl->err_send_fc);
+			}
+		}
+		spin_unlock_irqrestore(&heci_dev->device_lock, flags);
 		ret = strlen(buf);
 	}
 
@@ -433,6 +546,33 @@ static struct device_attribute hbm_state_attr = {
 	.store = store_heci_dev_props
 };
 
+static struct device_attribute fw_status_attr = {
+	.attr = {
+		.name = "fw_status",
+		.mode = (S_IWUSR | S_IRUGO)
+	},
+	.show = show_heci_dev_props,
+	.store = store_heci_dev_props
+};
+
+static struct device_attribute host_clients_attr = {
+	.attr = {
+		.name = "host_clients",
+		.mode = (S_IWUSR | S_IRUGO)
+	},
+	.show = show_heci_dev_props,
+	.store = store_heci_dev_props
+};
+
+static struct device_attribute ipc_buf_attr = {
+	.attr = {
+		.name = "ipc_buf",
+		.mode = (S_IWUSR | S_IRUGO)
+	},
+	.show = show_heci_dev_props,
+	.store = store_heci_dev_props
+};
+
 /**********************************/
 
 typedef struct {
@@ -452,6 +592,9 @@ void workqueue_init_function(struct work_struct *work)
 
 	device_create_file(&dev->pdev->dev, &heci_dev_state_attr);
 	device_create_file(&dev->pdev->dev, &hbm_state_attr);
+	device_create_file(&dev->pdev->dev, &fw_status_attr);
+	device_create_file(&dev->pdev->dev, &host_clients_attr);
+	device_create_file(&dev->pdev->dev, &ipc_buf_attr);
 
 #if ISH_LOG
 
@@ -476,6 +619,7 @@ void workqueue_init_function(struct work_struct *work)
 		dev->pdev->revision);
 
 #endif /*ISH_LOG*/
+	init_waitqueue_head(&suspend_wait);
 
 	mutex_lock(&heci_mutex);
 	if (heci_start(dev)) {
@@ -691,23 +835,44 @@ static void ish_remove(struct pci_dev *pdev)
 	pci_disable_device(pdev);
 }
 
-#define HECI_ISH_PM_OPS	(&intel_ish_pm)
-
-
-static int intel_ish_suspend(struct device *dev)
+int ish_suspend(struct device *device)
 {
+	struct pci_dev *pdev = to_pci_dev(device);
+	struct heci_device *dev = pci_get_drvdata(pdev);
+
+	/* If previous suspend hasn't been asnwered then ISH is likely dead,
+	don't attempt nested notification */
+	if (suspend_flag)
+		return	0;
+
+	suspend_flag = 1;
+	send_suspend(dev);
+
+	/* 250 ms should be likely enough for live ISH to flush all IPC buf */
+	if (suspend_flag)
+		wait_event_timeout(suspend_wait, !suspend_flag, HZ / 4);
 	return 0;
 }
 
-static int intel_ish_resume(struct device *dev)
+int ish_resume(struct device *device)
 {
+	struct pci_dev *pdev = to_pci_dev(device);
+	struct heci_device *dev = pci_get_drvdata(pdev);
+	send_resume(dev);
 	return 0;
 }
 
-static const struct dev_pm_ops intel_ish_pm = {
-	.suspend = intel_ish_suspend,
-	.resume = intel_ish_resume,
+#ifdef CONFIG_PM
+static const struct dev_pm_ops ish_pm_ops = {
+	.suspend = ish_suspend,
+	.resume = ish_resume,
 };
+
+#define HECI_ISH_PM_OPS	(&ish_pm_ops)
+#else
+#define HECI_ISH_PM_OPS	NULL
+#endif /* CONFIG_PM */
+
 
 /*
  *  PCI driver structure

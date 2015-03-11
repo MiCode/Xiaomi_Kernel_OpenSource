@@ -19,6 +19,9 @@
 #include <linux/types.h>
 #include <linux/kobject.h>
 
+#define	PSEUSO_EVENT_BIT	(1<<31)
+#define	FLUSH_CMPL_BIT		(1<<0)
+
 struct data_field;
 struct sens_property;
 struct senscol_impl;
@@ -38,6 +41,7 @@ struct sensor_def {
 	struct kobject	kobj;
 	struct kobject	data_fields_kobj;
 	struct kobject	props_kobj;
+	int     flush_req;
 };
 
 struct data_field {
@@ -126,6 +130,10 @@ struct senscol_impl {
 
 	/* Get sample */
 	int	(*get_sample)(struct sensor_def *sensor, void *sample_buf, size_t sample_buf_size);
+
+	/* Check if sensor is activated in batch mode */
+	int	(*batch_check)(struct sensor_def *sensor);
+
 	struct list_head link;
 };
 

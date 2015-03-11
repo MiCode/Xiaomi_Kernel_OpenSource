@@ -20,6 +20,9 @@
 #include "hw-ish-regs.h"
 #include "heci_dev.h"
 
+extern int	suspend_flag;
+extern wait_queue_head_t	suspend_wait;
+
 struct ipc_rst_payload_type {
     u16            reset_id;
     u16            reserved;

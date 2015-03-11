@@ -329,20 +329,25 @@ dev->print_log(dev, "%s(): +++\n", __func__);
 		goto out;
 	}
 
-	/* FIXME: check for DMA size for clients that accept DMA transfers */
-	if (length > cl->device->fw_client->props.max_msg_length || length <= 0) {
-		/* If the client supports DMA, try to use it */
-		if (!(host_dma_enabled && cl->device->fw_client->props.dma_hdr_len & HECI_CLIENT_DMA_ENABLED)) {
-			rets = -EMSGSIZE;
-			goto out;
-		}
-	}
-
 	if (cl->state != HECI_CL_CONNECTED) {
 		dev_err(&dev->pdev->dev, "host client = %d,  is not connected to ME client = %d",
 			cl->host_client_id, cl->me_client_id);
 		rets = -ENODEV;
 		goto out;
+	}
+
+	if (length <= 0) {
+		rets = -EMSGSIZE;
+		goto out;
+	}
+
+	/* FIXME: check for DMA size for clients that accept DMA transfers */
+	if (length > cl->device->fw_client->props.max_msg_length) {
+		/* If the client supports DMA, try to use it */
+		if (!(host_dma_enabled && cl->device->fw_client->props.dma_hdr_len & HECI_CLIENT_DMA_ENABLED)) {
+			rets = -EMSGSIZE;
+			goto out;
+		}
 	}
 
 	write_buf = kmalloc(length, GFP_KERNEL);
@@ -462,6 +467,7 @@ static long heci_ioctl(struct file *file, unsigned int cmd, unsigned long data)
 	struct heci_connect_client_data *connect_data = NULL;
 	int rets;
 	unsigned	ring_size;
+	char fw_stat_buf[20];
 
 	dev = cl->dev;
 	dev_dbg(&dev->pdev->dev, "IOCTL cmd = 0x%x", cmd);
@@ -524,6 +530,13 @@ err:
 			return	-EBUSY;
 		cl->tx_ring_size = ring_size;
 		return	0;
+	}
+
+	if (cmd == IOCTL_GET_FW_STATUS) {
+		sprintf(fw_stat_buf, "%08X\n", dev->ops->get_fw_status(dev));
+		copy_to_user((char __user *)data, fw_stat_buf,
+			strlen(fw_stat_buf));
+		return strlen(fw_stat_buf);
 	}
 
 	if (cmd != IOCTL_HECI_CONNECT_CLIENT)

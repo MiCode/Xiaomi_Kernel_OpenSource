@@ -131,6 +131,7 @@ struct heci_hw_ops {
 	int (*write)(struct heci_device *dev, struct heci_msg_hdr *hdr, unsigned char *buf);
 	int (*write_ex)(struct heci_device *dev, struct heci_msg_hdr *hdr, void *msg, void(*ipc_send_compl)(void *), void *ipc_send_compl_prm);
 	int (*read)(struct heci_device *dev, unsigned char *buffer, unsigned long buffer_length);
+	u32 (*get_fw_status)(struct heci_device *dev);
 };
 
 #define PRINT_BUFFER_SIZE 204800

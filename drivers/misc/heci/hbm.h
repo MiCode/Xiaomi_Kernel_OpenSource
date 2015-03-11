@@ -321,5 +321,40 @@ int heci_hbm_cl_connect_req(struct heci_device *dev, struct heci_cl *cl);
 void heci_hbm_enum_clients_req(struct heci_device *dev);
 void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr);
 
+/* Suspend and resume notification*/
+#define HECI_SYSTEM_STATE_CLIENT_ADDR 13
+
+#define SYSTEM_STATE_SUBSCRIBE                  0x1
+#define SYSTEM_STATE_STATUS                     0x2
+#define SYSTEM_STATE_QUERY_SUBSCRIBERS          0x3
+
+#define SUSPEND_STATE_BIT       (1<<1) /*indicates suspend and resume states*/
+
+struct ish_system_states_header {
+	u32 cmd;
+	u32 cmd_status;  /*responses will have this set*/
+} __packed;
+
+struct ish_system_states_subscribe {
+	struct ish_system_states_header hdr;
+	u32 states;
+} __packed;
+
+struct ish_system_states_status {
+	struct ish_system_states_header hdr;
+	u32 supported_states;
+	u32 states_status;
+} __packed;
+
+struct ish_system_states_query_subscribers {
+	struct ish_system_states_header hdr;
+} __packed;
+
+void send_suspend(struct heci_device *dev);
+void send_resume(struct heci_device *dev);
+void query_subscribers(struct heci_device *dev);
+
+void recv_fixed_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr);
+
 #endif /* _HECI_HBM_H_ */
 

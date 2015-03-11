@@ -90,6 +90,9 @@
 #define IOCTL_HECI_SET_RX_FIFO_SIZE	_IOWR('H', 0x02, long)
 #define IOCTL_HECI_SET_TX_FIFO_SIZE	_IOWR('H', 0x03, long)
 
+/* Get FW status */
+#define IOCTL_GET_FW_STATUS             _IO('H', 0x04)
+
 /*
  * Intel HECI client information struct
  */

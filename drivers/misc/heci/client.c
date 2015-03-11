@@ -629,7 +629,11 @@ int heci_cl_connect(struct heci_cl *cl)
 	if (rets)
 		goto	out;
 
-	heci_cl_device_bind(cl);
+	rets = heci_cl_device_bind(cl);
+	if (rets) {
+		heci_cl_disconnect(cl);
+		goto    out;
+	}
 
 	rets = heci_cl_alloc_rx_ring(cl);
 	if (rets) {
@@ -835,18 +839,24 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 
 	dev->print_log(dev, KERN_ALERT "%s(): cl && cl->dev OK\n", __func__);
 
-	if (cl->state != HECI_CL_CONNECTED)
+	if (cl->state != HECI_CL_CONNECTED) {
+		++cl->err_send_msg;
 		return -EPIPE;
+	}
 	dev->print_log(dev, KERN_ALERT "%s(): cl->state is HECI_CL_CONNECTED\n", __func__);
 
-	if (dev->dev_state != HECI_DEV_ENABLED)
+	if (dev->dev_state != HECI_DEV_ENABLED) {
+		++cl->err_send_msg;
 		return -ENODEV;
+	}
 	dev->print_log(dev, KERN_ALERT "%s(): dev->dev_state is HECI_DEV_ENABLED\n", __func__);
 
 	/* Check if we have an ME client device */
 	id = heci_me_cl_by_id(dev, cl->me_client_id);
-	if (id < 0)
+	if (id < 0) {
+		++cl->err_send_msg;
 		return -ENOENT;
+	}
 	dev->print_log(dev, KERN_ALERT "%s(): have ME client device, id=%d\n", __func__, id);
 
 	if (length > dev->me_clients[id].props.max_msg_length) {
@@ -858,12 +868,16 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 			int	preview_len = dev->me_clients[id].props.dma_hdr_len & 0x7F;
 
 			/* DMA max msg size is 1M */
-			if (length > host_dma_buf_size)
+			if (length > host_dma_buf_size) {
+				++cl->err_send_msg;
 				return	-EMSGSIZE;
+			}
 
 			/* Client for some reason specified props.dma_hdr_len > 12, mistake? */
-			if (preview_len > 12)
+			if (preview_len > 12) {
+				++cl->err_send_msg;
 				return	-EINVAL;
+			}
 
 			/* If previous DMA transfer is in progress, go to sleep */
 			wait_event(dev->wait_dma_ready, dma_ready);
@@ -879,11 +893,15 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 			heci_dma_request_msg.reserved2 = 0;
 			memcpy(heci_dma_request_msg.msg_preview, buf, preview_len);
 			heci_write_message(dev, &hdr, (uint8_t *)&heci_dma_request_msg);
-		} else
+		} else {
+			++cl->err_send_msg;
 			return -EINVAL;		/* -EMSGSIZE? */
+		}
 	}
 
+	/* No free bufs */
 	if (list_empty(&cl->tx_free_list.list)) {
+		++cl->err_send_msg;
 		return	-ENOMEM;
 	}
 	dev->print_log(dev, KERN_ALERT "%s(): have client TX free bufs\n", __func__);
