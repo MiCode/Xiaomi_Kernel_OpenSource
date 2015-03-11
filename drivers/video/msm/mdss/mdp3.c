@@ -924,7 +924,7 @@ static int mdp3_hw_init(void)
 	}
 	mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_AHB].available = 0;
 	mdp3_res->intf[MDP3_DMA_OUTPUT_SEL_LCDC].available = 0;
-	mdp3_res->smart_blit_en = true;
+	mdp3_res->smart_blit_en = SMART_BLIT_RGB_EN | SMART_BLIT_YUV_EN;
 	return 0;
 }
 
@@ -2273,9 +2273,12 @@ static ssize_t mdp3_store_smart_blit(struct device *dev,
 		pr_err("kstrtoint failed. rc=%d\n", rc);
 		return rc;
 	} else {
-		mdp3_res->smart_blit_en = data ? true : false;
-		pr_debug("mdp3 smart blit %s\n",
-			 mdp3_res->smart_blit_en ? "ENABLED" : "DISABLED");
+		mdp3_res->smart_blit_en = data;
+		pr_debug("mdp3 smart blit RGB %s YUV %s\n",
+			(mdp3_res->smart_blit_en & SMART_BLIT_RGB_EN) ?
+			"ENABLED" : "DISABLED",
+			(mdp3_res->smart_blit_en & SMART_BLIT_YUV_EN) ?
+			"ENABLED" : "DISABLED");
 	}
 	return len;
 }
@@ -2284,8 +2287,12 @@ static ssize_t mdp3_show_smart_blit(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
-	pr_debug("mdp3 smart blit %s\n",
-		mdp3_res->smart_blit_en ? "ENABLED" : "DISABLED");
+
+	pr_debug("mdp3 smart blit RGB %s YUV %s\n",
+		(mdp3_res->smart_blit_en & SMART_BLIT_RGB_EN) ?
+		"ENABLED" : "DISABLED",
+		(mdp3_res->smart_blit_en & SMART_BLIT_YUV_EN) ?
+		"ENABLED" : "DISABLED");
 	ret = snprintf(buf, PAGE_SIZE, "%d\n", mdp3_res->smart_blit_en);
 	return ret;
 }
