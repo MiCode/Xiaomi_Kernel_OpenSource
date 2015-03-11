@@ -1942,17 +1942,34 @@ static int intel_runtime_suspend(struct device *device)
 	return 0;
 }
 
+#define __raw_i915_read32(dev_priv__, reg__) \
+		readl((dev_priv__)->regs + (reg__))
+#define __raw_i915_write32(dev_priv__, reg__, val__) \
+		writel(val__, (dev_priv__)->regs + (reg__))
+
 static int intel_runtime_resume(struct device *device)
 {
 	struct pci_dev *pdev = to_pci_dev(device);
 	struct drm_device *dev = pci_get_drvdata(pdev);
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	int ret;
+	u32 gtfifodbg;
 
 	if (WARN_ON_ONCE(!HAS_RUNTIME_PM(dev)))
 		return -ENODEV;
 
 	DRM_DEBUG_KMS("Resuming device\n");
+
+	/*
+	 * GTFIFODBG registers gets set to 0x10 post resume from S0iX.
+	 * This leads to warning to be hit in gen6_gt_check_fifodbg from
+	 * __vlv_force_wake_put called from register read first time post
+	 * resume. Clearing it here.
+	*/
+	if (IS_VALLEYVIEW(dev) && !IS_CHERRYVIEW(dev)) {
+		gtfifodbg = __raw_i915_read32(dev_priv, GTFIFODBG);
+		__raw_i915_write32(dev_priv, GTFIFODBG, gtfifodbg);
+	}
 
 	intel_opregion_notify_adapter(dev, PCI_D0);
 	dev_priv->pm.suspended = false;
