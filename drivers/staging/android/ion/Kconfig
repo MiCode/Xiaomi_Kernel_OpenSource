@@ -36,6 +36,7 @@ config ION_TEGRA
 config ION_MSM
 	tristate "Ion for MSM"
 	depends on ARCH_MSM && ION
+	select MSM_SECURE_BUFFER
 	help
 	  Choose this option if you wish to use ion on an MSM target.
 
