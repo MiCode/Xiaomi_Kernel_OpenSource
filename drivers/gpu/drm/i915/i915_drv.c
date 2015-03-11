@@ -1815,6 +1815,8 @@ static int vlv_suspend_complete(struct drm_i915_private *dev_priv)
 	if (err)
 		goto err2;
 
+	intel_display_power_rpm_put(dev_priv, PIPE_A, false);
+
 	return 0;
 
 err2:
@@ -1862,6 +1864,7 @@ static int vlv_resume_prepare(struct drm_i915_private *dev_priv,
 	if (rpm_resume) {
 		intel_init_clock_gating(dev);
 		i915_gem_restore_fences(dev);
+		intel_display_power_rpm_get(dev_priv, PIPE_A, false);
 	}
 
 	return ret;
