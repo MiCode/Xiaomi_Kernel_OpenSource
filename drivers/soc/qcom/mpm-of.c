@@ -71,14 +71,15 @@ struct mpm_irqs {
 
 static struct mpm_irqs unlisted_irqs[MSM_MPM_NR_IRQ_DOMAINS];
 
-static struct hlist_head irq_hash[MSM_MPM_NR_MPM_IRQS];
-static unsigned int msm_mpm_irqs_m2a[MSM_MPM_NR_MPM_IRQS];
-#define MSM_MPM_REG_WIDTH  DIV_ROUND_UP(MSM_MPM_NR_MPM_IRQS, 32)
+static int num_mpm_irqs = MSM_MPM_NR_MPM_IRQS;
+static struct hlist_head *irq_hash;
+static unsigned int *msm_mpm_irqs_m2a;
+#define MSM_MPM_REG_WIDTH  DIV_ROUND_UP(num_mpm_irqs, 32)
 
 #define MSM_MPM_IRQ_INDEX(irq)  (irq / 32)
 #define MSM_MPM_IRQ_MASK(irq)  BIT(irq % 32)
 
-#define hashfn(val) (val % MSM_MPM_NR_MPM_IRQS)
+#define hashfn(val) (val % num_mpm_irqs)
 #define SCLK_HZ (32768)
 #define ARCH_TIMER_HZ (19200000)
 
@@ -121,11 +122,11 @@ enum mpm_reg_offsets {
 
 static DEFINE_SPINLOCK(msm_mpm_lock);
 
-static uint32_t msm_mpm_enabled_irq[MSM_MPM_REG_WIDTH];
-static uint32_t msm_mpm_wake_irq[MSM_MPM_REG_WIDTH];
-static uint32_t msm_mpm_falling_edge[MSM_MPM_REG_WIDTH];
-static uint32_t msm_mpm_rising_edge[MSM_MPM_REG_WIDTH];
-static uint32_t msm_mpm_polarity[MSM_MPM_REG_WIDTH];
+static uint32_t *msm_mpm_enabled_irq;
+static uint32_t *msm_mpm_wake_irq;
+static uint32_t *msm_mpm_falling_edge;
+static uint32_t *msm_mpm_rising_edge;
+static uint32_t *msm_mpm_polarity;
 
 enum {
 	MSM_MPM_DEBUG_NON_DETECTABLE_IRQ = BIT(0),
@@ -163,7 +164,11 @@ static inline uint32_t msm_mpm_read(
 static inline void msm_mpm_write(
 	unsigned int reg, unsigned int subreg_index, uint32_t value)
 {
-	unsigned int offset = reg * MSM_MPM_REG_WIDTH + subreg_index;
+	/*
+	 * Add 2 to offset to account for the 64 bit timer in the vMPM
+	 * mapping
+	 */
+	unsigned int offset = reg * MSM_MPM_REG_WIDTH + subreg_index + 2;
 
 	__raw_writel(value, msm_mpm_dev_data.mpm_request_reg_base + offset * 4);
 	if (MSM_MPM_DEBUG_WRITE & msm_mpm_debug_mask)
@@ -190,20 +195,22 @@ static irqreturn_t msm_mpm_irq(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void msm_mpm_timer_write(uint32_t *expiry)
+{
+	__raw_writel(expiry[0], msm_mpm_dev_data.mpm_request_reg_base);
+	__raw_writel(expiry[1], msm_mpm_dev_data.mpm_request_reg_base + 0x4);
+}
+
 static void msm_mpm_set(cycle_t wakeup, bool wakeset)
 {
 	uint32_t *irqs;
 	unsigned int reg;
 	int i;
-	uint32_t *expiry_timer;
 
-	expiry_timer = (uint32_t *)&wakeup;
+	msm_mpm_timer_write((uint32_t *)&wakeup);
 
 	irqs = wakeset ? msm_mpm_wake_irq : msm_mpm_enabled_irq;
 	for (i = 0; i < MSM_MPM_REG_WIDTH; i++) {
-		reg = MSM_MPM_REG_WAKEUP;
-		msm_mpm_write(reg, i, expiry_timer[i]);
-
 		reg = MSM_MPM_REG_ENABLE;
 		msm_mpm_write(reg, i, irqs[i]);
 
@@ -230,6 +237,7 @@ static void msm_mpm_set(cycle_t wakeup, bool wakeset)
 
 static inline unsigned int msm_mpm_get_irq_m2a(unsigned int pin)
 {
+	BUG_ON(!msm_mpm_irqs_m2a);
 	return msm_mpm_irqs_m2a[pin];
 }
 
@@ -687,10 +695,11 @@ static int msm_mpm_dev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	xo_clk = devm_clk_get(&pdev->dev, clk_name);
+	xo_clk = clk_get(&pdev->dev, clk_name);
 
 	if (IS_ERR(xo_clk)) {
-		pr_err("%s(): Cannot get clk resource for XO\n", __func__);
+		pr_err("%s(): Cannot get clk resource for XO: %ld\n", __func__,
+				PTR_ERR(xo_clk));
 		return PTR_ERR(xo_clk);
 	}
 
@@ -809,7 +818,6 @@ static const struct mpm_of mpm_of_map[MSM_MPM_NR_IRQ_DOMAINS] = {
 static void __init __of_mpm_init(struct device_node *node)
 {
 	const __be32 *list;
-
 	int i;
 
 	if (msm_mpm_initialized & MSM_MPM_IRQ_MAPPING_DONE) {
@@ -817,7 +825,49 @@ static void __init __of_mpm_init(struct device_node *node)
 		return;
 	}
 
-	for (i = 0; i < MSM_MPM_NR_MPM_IRQS; i++)
+
+	/*
+	 * Assumes a default value of 64 MPM interrupts if the DT property
+	 * num_mpm_irqs is not defined. The MPM driver assumes writing to 32
+	 * bit words for configuring MPM registers. Ensure the num_mpm_irqs is
+	 * a multiple of 32
+	 */
+	of_property_read_u32(node, "qcom,num-mpm-irqs", &num_mpm_irqs);
+
+	irq_hash = kzalloc(num_mpm_irqs * sizeof(*irq_hash), GFP_KERNEL);
+	if (!irq_hash)
+		goto failed_malloc;
+
+	msm_mpm_irqs_m2a = kzalloc(num_mpm_irqs * sizeof(*msm_mpm_irqs_m2a),
+				GFP_KERNEL);
+	if (!msm_mpm_irqs_m2a)
+		goto failed_malloc;
+
+	msm_mpm_enabled_irq = kzalloc(MSM_MPM_REG_WIDTH * sizeof(uint32_t),
+				GFP_KERNEL);
+	if (!msm_mpm_enabled_irq)
+		goto failed_malloc;
+	msm_mpm_wake_irq = kzalloc(MSM_MPM_REG_WIDTH * sizeof(uint32_t),
+				GFP_KERNEL);
+	if (!msm_mpm_wake_irq)
+		goto failed_malloc;
+
+	msm_mpm_falling_edge = kzalloc(MSM_MPM_REG_WIDTH * sizeof(uint32_t),
+				GFP_KERNEL);
+	if (!msm_mpm_falling_edge)
+		goto failed_malloc;
+
+	msm_mpm_rising_edge = kzalloc(MSM_MPM_REG_WIDTH * sizeof(uint32_t),
+				GFP_KERNEL);
+	if (!msm_mpm_rising_edge)
+		goto failed_malloc;
+
+	msm_mpm_polarity = kzalloc(MSM_MPM_REG_WIDTH * sizeof(uint32_t),
+				GFP_KERNEL);
+	if (!msm_mpm_polarity)
+		goto failed_malloc;
+
+	for (i = 0; i < num_mpm_irqs; i++)
 		INIT_HLIST_HEAD(&irq_hash[i]);
 
 	for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
@@ -915,6 +965,13 @@ static void __init __of_mpm_init(struct device_node *node)
 	return;
 
 failed_malloc:
+	kfree(irq_hash);
+	kfree(msm_mpm_irqs_m2a);
+	kfree(msm_mpm_enabled_irq);
+	kfree(msm_mpm_wake_irq);
+	kfree(msm_mpm_falling_edge);
+	kfree(msm_mpm_rising_edge);
+	kfree(msm_mpm_polarity);
 	for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
 		if (mpm_of_map[i].chip) {
 			mpm_of_map[i].chip->irq_mask = NULL;

@@ -540,21 +540,21 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 	};
 
 	struct spm_of spm_of_data[] = {
-		{"qcom,saw2-cfg", MSM_SPM_REG_SAW2_CFG},
-		{"qcom,saw2-avs-ctl", MSM_SPM_REG_SAW2_AVS_CTL},
-		{"qcom,saw2-avs-hysteresis", MSM_SPM_REG_SAW2_AVS_HYSTERESIS},
-		{"qcom,saw2-avs-limit", MSM_SPM_REG_SAW2_AVS_LIMIT},
-		{"qcom,saw2-avs-dly", MSM_SPM_REG_SAW2_AVS_DLY},
-		{"qcom,saw2-spm-dly", MSM_SPM_REG_SAW2_SPM_DLY},
-		{"qcom,saw2-spm-ctl", MSM_SPM_REG_SAW2_SPM_CTL},
-		{"qcom,saw2-pmic-data0", MSM_SPM_REG_SAW2_PMIC_DATA_0},
-		{"qcom,saw2-pmic-data1", MSM_SPM_REG_SAW2_PMIC_DATA_1},
-		{"qcom,saw2-pmic-data2", MSM_SPM_REG_SAW2_PMIC_DATA_2},
-		{"qcom,saw2-pmic-data3", MSM_SPM_REG_SAW2_PMIC_DATA_3},
-		{"qcom,saw2-pmic-data4", MSM_SPM_REG_SAW2_PMIC_DATA_4},
-		{"qcom,saw2-pmic-data5", MSM_SPM_REG_SAW2_PMIC_DATA_5},
-		{"qcom,saw2-pmic-data6", MSM_SPM_REG_SAW2_PMIC_DATA_6},
-		{"qcom,saw2-pmic-data7", MSM_SPM_REG_SAW2_PMIC_DATA_7},
+		{"qcom,saw2-cfg", MSM_SPM_REG_SAW_CFG},
+		{"qcom,saw2-avs-ctl", MSM_SPM_REG_SAW_AVS_CTL},
+		{"qcom,saw2-avs-hysteresis", MSM_SPM_REG_SAW_AVS_HYSTERESIS},
+		{"qcom,saw2-avs-limit", MSM_SPM_REG_SAW_AVS_LIMIT},
+		{"qcom,saw2-avs-dly", MSM_SPM_REG_SAW_AVS_DLY},
+		{"qcom,saw2-spm-dly", MSM_SPM_REG_SAW_SPM_DLY},
+		{"qcom,saw2-spm-ctl", MSM_SPM_REG_SAW_SPM_CTL},
+		{"qcom,saw2-pmic-data0", MSM_SPM_REG_SAW_PMIC_DATA_0},
+		{"qcom,saw2-pmic-data1", MSM_SPM_REG_SAW_PMIC_DATA_1},
+		{"qcom,saw2-pmic-data2", MSM_SPM_REG_SAW_PMIC_DATA_2},
+		{"qcom,saw2-pmic-data3", MSM_SPM_REG_SAW_PMIC_DATA_3},
+		{"qcom,saw2-pmic-data4", MSM_SPM_REG_SAW_PMIC_DATA_4},
+		{"qcom,saw2-pmic-data5", MSM_SPM_REG_SAW_PMIC_DATA_5},
+		{"qcom,saw2-pmic-data6", MSM_SPM_REG_SAW_PMIC_DATA_6},
+		{"qcom,saw2-pmic-data7", MSM_SPM_REG_SAW_PMIC_DATA_7},
 	};
 
 	struct mode_of {

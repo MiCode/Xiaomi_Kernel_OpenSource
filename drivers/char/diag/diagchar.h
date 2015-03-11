@@ -361,7 +361,6 @@ struct diagchar_dev {
 	int num;
 	struct cdev *cdev;
 	char *name;
-	int dropped_count;
 	struct class *diagchar_class;
 	struct device *diag_dev;
 	int ref_count;

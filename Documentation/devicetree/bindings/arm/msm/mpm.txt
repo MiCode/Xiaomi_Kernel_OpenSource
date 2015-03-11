@@ -35,6 +35,12 @@ The required nodes for the MPM driver are:
 	from other processors can be ignored and assigned an MPM pin mapping
 	of 0xff.
 
+Optional Properties:
+
+- qcom,num-mpm-irqs : Specifies the number of mpm interrupts supported on a
+	target. If the property isn't present, 64 interrupts are
+	considered for the target by default.
+
 Example:
 	qcom,mpm@fc4281d0 {
 		compatible = "qcom,mpm-v2";

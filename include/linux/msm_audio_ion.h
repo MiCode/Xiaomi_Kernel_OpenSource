@@ -13,11 +13,7 @@
 
 #ifndef _LINUX_MSM_AUDIO_ION_H
 #define _LINUX_MSM_AUDIO_ION_H
-#ifdef CONFIG_SND_SOC_QDSP6V2
 #include <sound/q6asm-v2.h>
-#else
-#include <sound/q6asm.h>
-#endif
 #include <sound/pcm.h>
 #include <linux/msm_ion.h>
 
@@ -37,7 +33,6 @@ int msm_audio_ion_mmap(struct audio_buffer *substream,
 bool msm_audio_ion_is_smmu_available(void);
 int msm_audio_ion_cache_operations(struct audio_buffer *abuff, int cache_op);
 
-#ifdef CONFIG_SND_SOC_QDSP6V2
 struct ion_client *msm_audio_ion_client_create(const char *name);
 void msm_audio_ion_client_destroy(struct ion_client *client);
 int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
@@ -46,21 +41,5 @@ int msm_audio_ion_import_legacy(const char *name, struct ion_client *client,
 			ion_phys_addr_t *paddr, size_t *pa_len, void **vaddr);
 int msm_audio_ion_free_legacy(struct ion_client *client,
 			struct ion_handle *handle);
-#else
-static struct ion_client *msm_audio_ion_client_create(const char *name)
-{ return NULL; }
-static void msm_audio_ion_client_destroy(struct ion_client *client)
-{}
-static int msm_audio_ion_import_legacy(const char *name,
-			struct ion_client *client,
-			struct ion_handle **handle, int fd,
-			unsigned long *ionflag, size_t bufsz,
-			ion_phys_addr_t *paddr, size_t *pa_len, void **vaddr)
-{ return 0; }
-static int msm_audio_ion_free_legacy(struct ion_client *client,
-			struct ion_handle *handle)
-{ return 0; }
-
-#endif /* CONFIG_MSM_QDSP6V2_CODECS */
 #endif /* _LINUX_MSM_AUDIO_ION_H */
 

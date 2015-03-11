@@ -154,6 +154,7 @@ static long *tsens_temp_at_panic;
 static u32 tsens_temp_print;
 static uint32_t bucket;
 static cpumask_t throttling_mask;
+static int tsens_scaling_factor = SENSOR_SCALING_FACTOR;
 
 static LIST_HEAD(devices_list);
 static LIST_HEAD(thresholds_list);
@@ -216,7 +217,7 @@ struct msm_sensor_info {
 	const char *name;
 	const char *alias;
 	const char *type;
-	uint32_t   scaling_factor;
+	uint32_t scaling_factor;
 };
 
 struct psm_rail {
@@ -2104,6 +2105,9 @@ static int therm_get_temp(uint32_t id, enum sensor_id_type type, long *temp)
 		goto get_temp_exit;
 	}
 
+	if (tsens_scaling_factor)
+		*temp = *temp / tsens_scaling_factor;
+
 get_temp_exit:
 	return ret;
 }
@@ -2151,7 +2155,7 @@ int sensor_mgr_set_threshold(uint32_t zone_id,
 	while (i < MAX_THRESHOLD) {
 		switch (threshold[i].trip) {
 		case THERMAL_TRIP_CONFIGURABLE_HI:
-			if (threshold[i].temp >= temp) {
+			if (threshold[i].temp / tsens_scaling_factor >= temp) {
 				ret = set_and_activate_threshold(zone_id,
 					&threshold[i]);
 				if (ret)
@@ -2161,7 +2165,7 @@ int sensor_mgr_set_threshold(uint32_t zone_id,
 			}
 			break;
 		case THERMAL_TRIP_CONFIGURABLE_LOW:
-			if (threshold[i].temp <= temp) {
+			if (threshold[i].temp / tsens_scaling_factor <= temp) {
 				ret = set_and_activate_threshold(zone_id,
 					&threshold[i]);
 				if (ret)
@@ -3099,10 +3103,12 @@ static void hotplug_init(void)
 
 		hi_thresh = &cpus[cpu].threshold[HOTPLUG_THRESHOLD_HIGH];
 		low_thresh = &cpus[cpu].threshold[HOTPLUG_THRESHOLD_LOW];
-		hi_thresh->temp = msm_thermal_info.hotplug_temp_degC;
+		hi_thresh->temp = (msm_thermal_info.hotplug_temp_degC)
+				* tsens_scaling_factor;
 		hi_thresh->trip = THERMAL_TRIP_CONFIGURABLE_HI;
-		low_thresh->temp = msm_thermal_info.hotplug_temp_degC -
-				msm_thermal_info.hotplug_temp_hysteresis_degC;
+		low_thresh->temp = (msm_thermal_info.hotplug_temp_degC -
+				msm_thermal_info.hotplug_temp_hysteresis_degC)
+				* tsens_scaling_factor;
 		low_thresh->trip = THERMAL_TRIP_CONFIGURABLE_LOW;
 		hi_thresh->notify = low_thresh->notify = hotplug_notify;
 		hi_thresh->data = low_thresh->data = (void *)&cpus[cpu];
@@ -3270,10 +3276,12 @@ static void freq_mitigation_init(void)
 		hi_thresh = &cpus[cpu].threshold[FREQ_THRESHOLD_HIGH];
 		low_thresh = &cpus[cpu].threshold[FREQ_THRESHOLD_LOW];
 
-		hi_thresh->temp = msm_thermal_info.freq_mitig_temp_degc;
+		hi_thresh->temp = msm_thermal_info.freq_mitig_temp_degc
+				* tsens_scaling_factor;
 		hi_thresh->trip = THERMAL_TRIP_CONFIGURABLE_HI;
-		low_thresh->temp = msm_thermal_info.freq_mitig_temp_degc -
-			msm_thermal_info.freq_mitig_temp_hysteresis_degc;
+		low_thresh->temp = (msm_thermal_info.freq_mitig_temp_degc -
+			msm_thermal_info.freq_mitig_temp_hysteresis_degc)
+				* tsens_scaling_factor;
 		low_thresh->trip = THERMAL_TRIP_CONFIGURABLE_LOW;
 		hi_thresh->notify = low_thresh->notify =
 			freq_mitigation_notify;
@@ -3944,10 +3952,12 @@ int sensor_mgr_init_threshold(struct device *dev,
 			thresh_ptr[i].notify = callback;
 			thresh_ptr[i].trip_triggered = -1;
 			thresh_ptr[i].parent = thresh_inp;
-			thresh_ptr[i].threshold[0].temp = high_temp;
+			thresh_ptr[i].threshold[0].temp =
+				high_temp * tsens_scaling_factor;
 			thresh_ptr[i].threshold[0].trip =
 				THERMAL_TRIP_CONFIGURABLE_HI;
-			thresh_ptr[i].threshold[1].temp = low_temp;
+			thresh_ptr[i].threshold[1].temp =
+				low_temp * tsens_scaling_factor;
 			thresh_ptr[i].threshold[1].trip =
 				THERMAL_TRIP_CONFIGURABLE_LOW;
 			thresh_ptr[i].threshold[0].notify =
@@ -3962,10 +3972,10 @@ int sensor_mgr_init_threshold(struct device *dev,
 		thresh_ptr->notify = callback;
 		thresh_ptr->trip_triggered = -1;
 		thresh_ptr->parent = thresh_inp;
-		thresh_ptr->threshold[0].temp = high_temp;
+		thresh_ptr->threshold[0].temp = high_temp * tsens_scaling_factor;
 		thresh_ptr->threshold[0].trip =
 			THERMAL_TRIP_CONFIGURABLE_HI;
-		thresh_ptr->threshold[1].temp = low_temp;
+		thresh_ptr->threshold[1].temp = low_temp * tsens_scaling_factor;
 		thresh_ptr->threshold[1].trip =
 			THERMAL_TRIP_CONFIGURABLE_LOW;
 		thresh_ptr->threshold[0].notify =
@@ -5194,6 +5204,7 @@ static void probe_sensor_info(struct device_node *node,
 	char *key = NULL;
 	struct device_node *child_node = NULL;
 	struct device_node *np = NULL;
+	int scale_tsens_found = 0;
 
 	key = "qcom,disable-sensor-info";
 	if (of_property_read_bool(node, key)) {
@@ -5244,9 +5255,16 @@ static void probe_sensor_info(struct device_node *node,
 		key = "qcom,scaling-factor";
 		err = of_property_read_u32(child_node,
 				key, &sensors[i].scaling_factor);
-		if (err) {
+		if (err || sensors[i].scaling_factor == 0) {
 			sensors[i].scaling_factor = SENSOR_SCALING_FACTOR;
 			err = 0;
+		}
+		if (scale_tsens_found == 0) {
+			if (!strcmp(sensors[i].type, "tsens")) {
+				scale_tsens_found = 1;
+				tsens_scaling_factor =
+					sensors[i].scaling_factor;
+			}
 		}
 		i++;
 	}
@@ -5824,6 +5842,7 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 		data.bootup_freq_control_mask = ret;
 	ret = 0;
 
+	probe_sensor_info(node, &data, pdev);
 	ret = probe_cc(node, &data, pdev);
 
 	ret = probe_freq_mitigation(node, &data, pdev);
@@ -5848,7 +5867,6 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_vdd_rstr(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
-	probe_sensor_info(node, &data, pdev);
 	ret = probe_ocr(node, &data, pdev);
 
 	update_cpu_topology(&pdev->dev);
@@ -5984,4 +6002,3 @@ int __init msm_thermal_late_init(void)
 	return 0;
 }
 late_initcall(msm_thermal_late_init);
-

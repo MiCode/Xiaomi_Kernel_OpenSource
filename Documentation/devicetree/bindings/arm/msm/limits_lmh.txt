@@ -1,19 +1,21 @@
-Limits Mangement Hardware driver
+Limits Management Hardware Driver
 ================================
 LMH driver provides API to interact with the LMH hardware. All the calls to
 the LMH hardware are routed via secure space.
 
 The device tree parameters for LMH driver are:
 
-Required parameters:
-- compatible:	Must be "qcom,lmh"
-
-- interrupts : LMH Lite hardware interrupt details.
-- reg : Base address of the LMH Lite hardwares interrupt status register
-		and its size in bytes.
+Device/Asic specific properties:
+- reg : Base address of the LMH Lite hardware's interrupt status register
+		and its size in bytes.  'reg' parameter is required if
+		'qcom,lmh-trim-err-offset' is set.
 - qcom,lmh-trim-err-offset : This property defines the bit in the LMH
 		interrupt status register, which shows whether there is a
 		trim error in LMH hardware.
+
+Required parameters:
+- compatible:	Must be "qcom,lmh"
+- interrupts : LMH Lite hardware interrupt details.
 
 Example:
 
@@ -22,4 +24,11 @@ qcom,lmh {
 	interrupts = <0 332 4>;
 	reg = <0xF9117000 0x4>;
 	qcom,lmh-trim-err-offset = <18>;
+};
+
+Or for asics that don't have trim err:
+
+qcom,lmh {
+	compatible = "qcom,lmh";
+	interrupts = <0 332 4>;
 };
