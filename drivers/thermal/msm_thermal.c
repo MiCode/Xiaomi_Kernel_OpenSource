@@ -3566,8 +3566,7 @@ int sensor_mgr_init_threshold(struct device *dev,
 	thresh_inp->thresh_ct = (sensor_id == MONITOR_ALL_TSENS) ?
 						max_tsens_num : 1;
 	thresh_inp->thresh_triggered = false;
-	thresh_inp->thresh_list = devm_kzalloc(dev,
-					sizeof(struct therm_threshold) *
+	thresh_inp->thresh_list = kzalloc(sizeof(struct therm_threshold) *
 					thresh_inp->thresh_ct, GFP_KERNEL);
 	if (!thresh_inp->thresh_list) {
 		pr_err("kzalloc failed for thresh\n");
@@ -3636,7 +3635,7 @@ void sensor_mgr_remove_threshold(struct device *dev,
 		sensor_cancel_trip(thresh_ptr->sensor_id,
 				&thresh_ptr->threshold[1]);
 	}
-	devm_kfree(dev, thresh_inp->thresh_list);
+	kfree(thresh_inp->thresh_list);
 	thresh_inp->thresh_list = NULL;
 	thresh_inp->thresh_ct = 0;
 	thresh_inp->thresh_triggered = false;
