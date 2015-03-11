@@ -875,13 +875,14 @@ static const uint swm_mixer_input_ids[] = {
  * lookup table to get the input-id and fill it in the structure.
  */
 static int fill_swm_input(struct swm_input_ids *swm_input, unsigned int reg,
-			const uint *mixer_input_ids)
+			const uint *mixer_input_ids, uint mixer_input_size)
 {
 	uint i, is_set, nb_inputs = 0;
 	u16 input_loc_id;
 
 	pr_debug("%s: reg: %#x\n", __func__, reg);
-	for (i = 0; i < SST_SWM_INPUT_COUNT; i++) {
+	pr_debug("mixer input size is= %d\n", mixer_input_size);
+	for (i = 0; i < mixer_input_size; i++) {
 		is_set = reg & BIT(i);
 		if (!is_set)
 			continue;
@@ -923,7 +924,7 @@ static void sst_set_pipe_gain(struct sst_ids *ids, struct sst_data *sst, int mut
 
 static int sst_swm_mixer_event_handler(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *k, int event,
-			const uint *mixer_input_ids)
+			const uint *mixer_input_ids, uint mixer_input_size)
 {
 	struct sst_cmd_set_swm cmd;
 	struct sst_data *sst = snd_soc_platform_get_drvdata(w->platform);
@@ -968,7 +969,8 @@ static int sst_swm_mixer_event_handler(struct snd_soc_dapm_widget *w,
 
 	SST_FILL_DESTINATION(2, cmd.output_id,
 			     ids->location_id, SST_DEFAULT_MODULE_ID);
-	cmd.nb_inputs =	fill_swm_input(&cmd.input[0], val, mixer_input_ids);
+	cmd.nb_inputs =	fill_swm_input(&cmd.input[0], val,
+				mixer_input_ids, mixer_input_size);
 	cmd.header.length = offsetof(struct sst_cmd_set_swm, input) - sizeof(struct sst_dsp_header)
 				+ (cmd.nb_inputs * sizeof(cmd.input[0]));
 
@@ -982,14 +984,14 @@ static int sst_swm_mixer_event_dfw(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *k, int event)
 {
 	return sst_swm_mixer_event_handler(w, k, event,
-			swm_dfw_mixer_input_ids);
+		swm_dfw_mixer_input_ids, ARRAY_SIZE(swm_dfw_mixer_input_ids));
 }
 
 static int sst_swm_mixer_event(struct snd_soc_dapm_widget *w,
 			struct snd_kcontrol *k, int event)
 {
 	return sst_swm_mixer_event_handler(w, k, event,
-			swm_mixer_input_ids);
+			swm_mixer_input_ids, ARRAY_SIZE(swm_mixer_input_ids));
 }
 
 /* SBA mixers - 16 inputs */
