@@ -29,6 +29,8 @@
 #include "swrm_registers.h"
 #include "swr-wcd-ctrl.h"
 
+#define SWR_AUTO_SUSPEND_DELAY	3000
+
 static u8 mstr_ports[] = {100, 101, 102, 103, 104, 105, 106, 107};
 static u8 mstr_port_type[] = {SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
 			      SWR_DAC_PORT, SWR_COMP_PORT, SWR_BOOST_PORT,
@@ -143,6 +145,7 @@ enum {
 	SWR_ATTACHED_OK,
 	SWR_ALERT,
 	SWR_RESERVED,
+	SWR_NO_CHANGE,
 };
 
 #define SWR_MSTR_MAX_REG_ADDR	0x1740
@@ -310,48 +313,29 @@ static int swrm_set_ch_map(struct swr_mstr_ctrl *swrm, void *data)
 		kfree(swrm->mstr_port);
 		return -ENOMEM;
 	}
-
 	memcpy(swrm->mstr_port->port, pinfo->port, pinfo->num_port);
 	return 0;
 }
 
-int swrm_notify(struct platform_device *pdev, u32 id, void *data)
+static bool swrm_is_port_en(struct swr_master *mstr)
 {
-	struct swr_mstr_ctrl *swrm;
-	int ret = 0;
-
-	if (!pdev) {
-		pr_err("%s: pdev is NULL\n", __func__);
-		return -EINVAL;
-	}
-	swrm = platform_get_drvdata(pdev);
-	if (!swrm) {
-		dev_err(&pdev->dev, "%s: swrm is NULL\n", __func__);
-		return -EINVAL;
-	}
-	switch (id) {
-	case SWR_CH_MAP:
-		if (!data) {
-			dev_err(swrm->dev, "%s: data is NULL\n", __func__);
-			ret = -EINVAL;
-		} else {
-			ret = swrm_set_ch_map(swrm, data);
-		}
-		break;
-	case SWR_DEVICE_DOWN:
-		dev_dbg(swrm->dev, "%s: swr master down called\n", __func__);
-		break;
-	case SWR_DEVICE_UP:
-		dev_dbg(swrm->dev, "%s: swr master up called\n", __func__);
-		break;
-	default:
-		dev_err(swrm->dev, "%s: swr master unknow id %d\n",
-			__func__, id);
-		break;
-	}
-	return ret;
+	return !!(mstr->num_port);
 }
-EXPORT_SYMBOL(swrm_notify);
+
+static int swrm_clk_request(struct swr_mstr_ctrl *swrm, bool enable)
+{
+	if (!swrm->clk || !swrm->handle)
+		return -EINVAL;
+
+	if (enable) {
+		swrm->clk(swrm->handle, true);
+		swrm->state = SWR_MSTR_UP;
+	} else {
+		swrm->clk(swrm->handle, false);
+		swrm->state = SWR_MSTR_DOWN;
+	}
+	return 0;
+}
 
 static int swrm_get_port_config(struct swr_master *master)
 {
@@ -473,6 +457,14 @@ static int swrm_read(struct swr_master *master, u8 dev_num, u32 reg_addr,
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 
+	if (pm_runtime_suspended(&swrm->pdev->dev)) {
+		dev_dbg(&master->dev, "%s: suspended state,enable pm_runtime\n",
+				__func__);
+		pm_runtime_get_sync(&swrm->pdev->dev);
+		pm_runtime_mark_last_busy(&swrm->pdev->dev);
+		pm_runtime_put_autosuspend(&swrm->pdev->dev);
+	}
+
 	if (dev_num) {
 		swrm_cmd_fifo_rd_cmd(swrm, buf, dev_num, 0, reg_addr,
 					len);
@@ -493,6 +485,14 @@ static int swrm_write(struct swr_master *master, u8 dev_num, u32 reg_addr,
 {
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(master);
 	int ret = 0;
+
+	if (pm_runtime_suspended(&swrm->pdev->dev)) {
+		dev_dbg(&master->dev, "%s: suspended state,enable pm_runtime\n",
+				__func__);
+		pm_runtime_get_sync(&swrm->pdev->dev);
+		pm_runtime_mark_last_busy(&swrm->pdev->dev);
+		pm_runtime_put_autosuspend(&swrm->pdev->dev);
+	}
 
 	if (dev_num) {
 		ret = swrm_cmd_fifo_wr_cmd(swrm, buf[0], dev_num, 0, reg_addr);
@@ -562,8 +562,10 @@ static void swrm_apply_port_config(struct swr_master *master)
 	dev_dbg(swrm->dev, "%s: regaddr: 0x%x, value: 0x%x\n", __func__,
 		SWRM_MCP_FRAME_CTRL_BANK_ADDR(bank), value);
 
-	swrm_cmd_fifo_wr_cmd(swrm, 0x01, 0xF, 0x00,
-			SWRS_SCP_HOST_CLK_DIV2_CTL_BANK(bank));
+	/*
+	 * swrm_cmd_fifo_wr_cmd(swrm, 0x01, 0xF, 0x00,
+	 * SWRS_SCP_HOST_CLK_DIV2_CTL_BANK(bank));
+	 */
 
 	mport = list_first_entry_or_null(&swrm->mport_list,
 					struct swrm_mports,
@@ -631,7 +633,16 @@ static int swrm_connect_port(struct swr_master *master,
 	if (!portinfo)
 		return -EINVAL;
 
+	if (swrm == NULL) {
+		dev_err(&master->dev, "%s: invalid soundwire master pointer",
+				__func__);
+		return -EINVAL;
+	}
+
 	mutex_lock(&swrm->mlock);
+	if (!swrm_is_port_en(master))
+		pm_runtime_get_sync(&swrm->pdev->dev);
+
 	for (i = 0; i < portinfo->num_port; i++) {
 		mport = kzalloc(sizeof(struct swrm_mports), GFP_KERNEL);
 		if (!mport) {
@@ -736,6 +747,15 @@ static int swrm_disconnect_port(struct swr_master *master,
 	master->num_port -= portinfo->num_port;
 	swr_port_response(master, portinfo->tid);
 	mutex_unlock(&swrm->mlock);
+
+	dev_dbg(&master->dev, "%s: master active ports: %d\n", __func__,
+			master->num_port);
+	if (!swrm_is_port_en(master)) {
+		dev_dbg(&master->dev, "%s: pm_runtime auto suspend triggered\n",
+				__func__);
+		pm_runtime_mark_last_busy(&swrm->pdev->dev);
+		pm_runtime_put_autosuspend(&swrm->pdev->dev);
+	}
 	return 0;
 }
 
@@ -744,7 +764,7 @@ static int swrm_check_slave_change_status(struct swr_mstr_ctrl *swrm,
 {
 	int i;
 	int new_sts = status;
-	int ret = SWR_NOT_PRESENT;
+	int ret = SWR_NO_CHANGE;
 
 	if (status != swrm->slave_status) {
 		for (i = 0; i < (swrm->master.num_dev + 1); i++) {
@@ -758,6 +778,9 @@ static int swrm_check_slave_change_status(struct swr_mstr_ctrl *swrm,
 			swrm->slave_status >>= 2;
 		}
 		swrm->slave_status = new_sts;
+	} else {
+		dev_dbg(&swrm->pdev->dev, "%s: No change in slave status\n",
+				__func__);
 	}
 	return ret;
 }
@@ -767,9 +790,10 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 	struct swr_mstr_ctrl *swrm = dev;
 	u32 value, intr_sts;
 	int status, chg_sts, i;
-	u8 devnum;
+	u8 devnum = 0;
 	int ret = IRQ_HANDLED;
 
+	pm_runtime_get_sync(&swrm->pdev->dev);
 	intr_sts = swrm->read(swrm->handle, SWRM_INTERRUPT_STATUS);
 	intr_sts &= SWRM_INTERRUPT_STATUS_RMSK;
 	for (i = 0; i < SWRM_INTERRUPT_MAX; i++) {
@@ -801,6 +825,9 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			case SWR_ALERT:
 				dev_dbg(swrm->dev, "device %d has pending interrupt\n",
 					devnum);
+				break;
+			case SWR_NO_CHANGE:
+				dev_dbg(swrm->dev, "No slave status change\n");
 				break;
 			}
 			break;
@@ -850,6 +877,8 @@ static irqreturn_t swr_mstr_interrupt(int irq, void *dev)
 			break;
 		}
 	}
+	pm_runtime_mark_last_busy(&swrm->pdev->dev);
+	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 	return ret;
 }
 
@@ -871,6 +900,7 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 	int ret = -EINVAL;
 	struct swr_mstr_ctrl *swrm = swr_get_ctrl_data(mstr);
 
+	pm_runtime_get_sync(&swrm->pdev->dev);
 	for (i = 1; i < (mstr->num_dev + 1); i++) {
 		id = ((u64)(swrm->read(swrm->handle,
 			    SWRM_ENUMERATOR_SLAVE_DEV_ID_2(i))) << 32);
@@ -890,9 +920,10 @@ static int swrm_get_logical_dev_num(struct swr_master *mstr, u64 dev_id,
 	dev_err(swrm->dev, "%s: device id 0x%llx does not match with 0x%llx\n",
 		__func__, id, dev_id);
 found:
+	pm_runtime_mark_last_busy(&swrm->pdev->dev);
+	pm_runtime_put_autosuspend(&swrm->pdev->dev);
 	return ret;
 }
-
 static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 {
 	int ret = 0;
@@ -900,9 +931,6 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	u8 row_ctrl = SWR_MAX_ROW;
 	u8 col_ctrl = SWR_MIN_COL;
 	u8 retry_cmd_num = 3;
-
-	/* enable swr clock */
-	swrm->clk(swrm->handle, true);
 
 	/* Clear Rows and Cols */
 	mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
@@ -947,6 +975,7 @@ static int swrm_probe(struct platform_device *pdev)
 		goto err_memory_fail;
 	}
 	swrm->dev = &pdev->dev;
+	swrm->pdev = pdev;
 	platform_set_drvdata(pdev, swrm);
 	swr_set_ctrl_data(&swrm->master, swrm);
 	pdata = dev_get_platdata(&pdev->dev);
@@ -1003,10 +1032,12 @@ static int swrm_probe(struct platform_device *pdev)
 	swrm->rcmd_id = 0;
 	swrm->wcmd_id = 0;
 	swrm->slave_status = 0;
+	swrm->state = SWR_MSTR_RESUME;
 	init_completion(&swrm->reset);
 	init_completion(&swrm->broadcast);
 	mutex_init(&swrm->mlock);
 	INIT_LIST_HEAD(&swrm->mport_list);
+	mutex_init(&swrm->reslock);
 
 	ret = swrm->reg_irq(swrm->handle, swr_mstr_interrupt, swrm,
 			    SWR_IRQ_REGISTER);
@@ -1030,6 +1061,7 @@ static int swrm_probe(struct platform_device *pdev)
 	 */
 	swr_master_add_boarddevices(&swrm->master);
 	mutex_lock(&swrm->mlock);
+	swrm_clk_request(swrm, true);
 	ret = swrm_master_init(swrm);
 	if (ret < 0) {
 		dev_err(&pdev->dev,
@@ -1056,6 +1088,13 @@ static int swrm_probe(struct platform_device *pdev)
 				   (void *) "swrm_reg_dump",
 				   &swrm_debug_ops);
 	}
+	dev_dbg(&pdev->dev, "%s: pm runtime is getting called...\n", __func__);
+	pm_runtime_set_autosuspend_delay(&pdev->dev, SWR_AUTO_SUSPEND_DELAY);
+	pm_runtime_use_autosuspend(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	if (!pm_runtime_enabled(&pdev->dev))
+		dev_err(&pdev->dev, "%s: pm runtime not enabled\n", __func__);
 
 	return 0;
 err_mstr_fail:
@@ -1078,11 +1117,212 @@ static int swrm_remove(struct platform_device *pdev)
 		kfree(swrm->mstr_port->port);
 		kfree(swrm->mstr_port);
 	}
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
 	swr_unregister_master(&swrm->master);
 	mutex_destroy(&swrm->mlock);
 	kfree(swrm);
 	return 0;
 }
+
+#ifdef CONFIG_PM_RUNTIME
+static int swrm_runtime_resume(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct swr_mstr_ctrl *swrm = platform_get_drvdata(pdev);
+	int ret = 0;
+	struct swr_master *mstr = &swrm->master;
+	struct swr_device *swr_dev;
+
+	dev_dbg(dev, "pm_runtime: resume, state:%d\n", swrm->state);
+	mutex_lock(&swrm->reslock);
+	if ((swrm->state == SWR_MSTR_PAUSE) ||
+	    (swrm->state == SWR_MSTR_DOWN)) {
+		if (swrm->state == SWR_MSTR_DOWN) {
+			if (swrm_clk_request(swrm, true))
+				goto exit;
+		}
+		list_for_each_entry(swr_dev, &mstr->devices, dev_list) {
+			ret = swr_device_up(swr_dev);
+			if (ret) {
+				dev_err(dev,
+					"%s: failed to wakeup swr device\n",
+					__func__);
+				swrm_clk_request(swrm, false);
+				goto exit;
+			}
+		}
+
+		swrm_master_init(swrm);
+	}
+exit:
+	mutex_unlock(&swrm->reslock);
+	return ret;
+}
+
+static int swrm_runtime_suspend(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct swr_mstr_ctrl *swrm = platform_get_drvdata(pdev);
+	int ret = 0;
+	struct swr_master *mstr = &swrm->master;
+	struct swr_device *swr_dev;
+
+	dev_dbg(dev, "pm_runtime: suspend state: %d\n", swrm->state);
+	mutex_lock(&swrm->reslock);
+	if ((swrm->state == SWR_MSTR_RESUME) ||
+	    (swrm->state == SWR_MSTR_UP)) {
+		if (swrm_is_port_en(&swrm->master)) {
+			dev_dbg(dev, "%s ports are enabled\n", __func__);
+			ret = -EBUSY;
+			goto exit;
+		}
+		swrm->write(swrm->handle, SWRM_COMP_SW_RESET, 0x01);
+		swrm->write(swrm->handle, SWRM_COMP_SW_RESET, 0x01);
+		swrm->write(swrm->handle, SWRM_COMP_CFG_ADDR, 0x00);
+		list_for_each_entry(swr_dev, &mstr->devices, dev_list) {
+			ret = swr_device_down(swr_dev);
+			if (ret) {
+				dev_err(dev,
+					"%s: failed to shutdown swr device\n",
+					__func__);
+				goto exit;
+			}
+		}
+		swrm_clk_request(swrm, false);
+	}
+exit:
+	mutex_unlock(&swrm->reslock);
+	return ret;
+}
+#endif /* CONFIG_PM_RUNTIME */
+
+int swrm_notify(struct platform_device *pdev, u32 id, void *data)
+{
+	struct swr_mstr_ctrl *swrm;
+	int ret = 0;
+
+	if (!pdev) {
+		pr_err("%s: pdev is NULL\n", __func__);
+		return -EINVAL;
+	}
+	swrm = platform_get_drvdata(pdev);
+	if (!swrm) {
+		dev_err(&pdev->dev, "%s: swrm is NULL\n", __func__);
+		return -EINVAL;
+	}
+	switch (id) {
+	case SWR_CH_MAP:
+		if (!data) {
+			dev_err(swrm->dev, "%s: data is NULL\n", __func__);
+			ret = -EINVAL;
+		} else {
+			ret = swrm_set_ch_map(swrm, data);
+		}
+		break;
+	case SWR_DEVICE_DOWN:
+		dev_dbg(swrm->dev, "%s: swr master down called\n", __func__);
+		break;
+	case SWR_DEVICE_UP:
+		dev_dbg(swrm->dev, "%s: swr master up called\n", __func__);
+		mutex_lock(&swrm->mlock);
+		if ((swrm->state == SWR_MSTR_RESUME) ||
+		    (swrm->state == SWR_MSTR_UP))
+			dev_dbg(swrm->dev, "%s: SWR master is already UP\n",
+				__func__);
+		else
+			swrm_runtime_resume(&pdev->dev);
+
+		mutex_unlock(&swrm->mlock);
+		break;
+	default:
+		dev_err(swrm->dev, "%s: swr master unknown id %d\n",
+			__func__, id);
+		break;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(swrm_notify);
+
+#ifdef CONFIG_PM_SLEEP
+static int swrm_suspend(struct device *dev)
+{
+	int ret = -EBUSY;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct swr_mstr_ctrl *swrm = platform_get_drvdata(pdev);
+
+	dev_dbg(dev, "%s: system suspend, state: %d\n", __func__, swrm->state);
+	if (!pm_runtime_enabled(dev) && !pm_runtime_suspended(dev)) {
+		ret = swrm_runtime_suspend(dev);
+		if (!ret) {
+			/*
+			 * Synchronize runtime-pm and system-pm states:
+			 * At this point, we are already suspended. If
+			 * runtime-pm still thinks its active, then
+			 * make sure its status is in sync with HW
+			 * status. The three below calls let the
+			 * runtime-pm know that we are suspended
+			 * already without re-invoking the suspend
+			 * callback
+			 */
+			pm_runtime_disable(dev);
+			pm_runtime_set_suspended(dev);
+			pm_runtime_enable(dev);
+		} else {
+			if (swrm->clk && swrm->handle) {
+				swrm->clk(swrm->handle, false);
+				swrm->state = SWR_MSTR_DOWN;
+			}
+		}
+	}
+	if (ret == -EBUSY) {
+		/*
+		 * There is a possibility that some audio stream is active
+		 * during suspend. We dont want to return suspend failure in
+		 * that case so that display and relevant components can still
+		 * go to suspend.
+		 * If there is some other error, then it should be passed-on
+		 * to system level suspend
+		 */
+		ret = 0;
+	}
+	return ret;
+}
+
+static int swrm_resume(struct device *dev)
+{
+	int ret = 0;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct swr_mstr_ctrl *swrm = platform_get_drvdata(pdev);
+
+	dev_dbg(dev, "%s: system resume, state: %d\n", __func__, swrm->state);
+	if (!pm_runtime_enabled(dev) || !pm_runtime_suspend(dev)) {
+		if (swrm->clk && swrm->handle &&
+		    swrm->state == SWR_MSTR_DOWN) {
+			swrm->clk(swrm->handle, true);
+			swrm->state = SWR_MSTR_UP;
+		}
+		ret = swrm_runtime_resume(dev);
+		if (!ret) {
+			pm_runtime_mark_last_busy(dev);
+			pm_request_autosuspend(dev);
+		}
+	}
+	return ret;
+}
+#endif /* CONFIG_PM_SLEEP */
+
+static const struct dev_pm_ops swrm_dev_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(
+		swrm_suspend,
+		swrm_resume
+	)
+	SET_RUNTIME_PM_OPS(
+		swrm_runtime_suspend,
+		swrm_runtime_resume,
+		NULL
+	)
+};
 
 static struct of_device_id swrm_dt_match[] = {
 	{
@@ -1097,6 +1337,7 @@ static struct platform_driver swr_mstr_driver = {
 	.driver = {
 		.name = SWR_WCD_NAME,
 		.owner = THIS_MODULE,
+		.pm = &swrm_dev_pm_ops,
 		.of_match_table = swrm_dt_match,
 	},
 };
