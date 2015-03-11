@@ -398,38 +398,102 @@ static int ov2685_s_exposure(struct v4l2_subdev *sd, int value)
 	switch (value) {
 	case -2:
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_AUTO, 0x3);
+			OV2685_REG_WPT, 0x32);
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_1, 0x6);
+			OV2685_REG_BPT, 0x28);
 		break;
 	case -1:
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_AUTO, 0x3);
+			OV2685_REG_WPT, 0x3a);
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_1, 0x16);
+			OV2685_REG_BPT, 0x30);
 		break;
 	case 0:
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_AUTO, 0x0);
+			OV2685_REG_WPT, 0x4e);
+		ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_REG_BPT, 0x40);
 		break;
 	case 1:
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_AUTO, 0x3);
+			OV2685_REG_WPT, 0x5a);
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_1, 0x36);
-		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_GAIN_1, 0x46);
+			OV2685_REG_BPT, 0x50);
 		break;
 	case 2:
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_AUTO, 0x3);
+			OV2685_REG_WPT, 0x62);
 		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_EXPOSURE_1, 0x46);
-		ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_GAIN_1, 0x56);
+			OV2685_REG_BPT, 0x58);
 		break;
 	}
 
+	return 0;
+}
+
+static int ov2685_g_exposure_mode(struct v4l2_subdev *sd, s32 *value)
+{
+
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 reg_v;
+	int ret;
+
+	/* get exposure mode */
+	ret = ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_REG_EXPOSURE_AUTO,
+					&reg_v);
+	if (ret)
+		return ret;
+
+	*value = reg_v & OV2685_EXPOSURE_MANUAL_MASK;
+	return 0;
+}
+
+static int ov2685_s_exposure_mode(struct v4l2_subdev *sd, int value)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+	u16 reg_v;
+
+	ret = ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_REG_EXPOSURE_AUTO,
+					&reg_v);
+	if (ret)
+		return ret;
+
+	switch (value) {
+	case V4L2_EXPOSURE_AUTO:
+		reg_v &= 0xfffc;
+		ov2685_write_reg(client, OV2685_8BIT,
+					OV2685_REG_EXPOSURE_AUTO, reg_v);
+		break;
+	case V4L2_EXPOSURE_MANUAL:
+		reg_v |= 0x03;
+		ov2685_write_reg(client, OV2685_8BIT,
+					OV2685_REG_EXPOSURE_AUTO, reg_v);
+		break;
+	default:
+		dev_err(&client->dev,
+				"Failed to set unsupported exposure mode!\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ov2685_g_ae_lock(struct v4l2_subdev *sd, s32 *value)
+{
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	*value = dev->ae_lock;
+	return 0;
+}
+
+static int ov2685_s_ae_lock(struct v4l2_subdev *sd, int value)
+{
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	dev->ae_lock = value;
 	return 0;
 }
 
@@ -831,6 +895,17 @@ static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
 			__func__, ctrl->val);
 		ret = ov2685_s_exposure(&dev->sd, ctrl->val);
 		break;
+	case V4L2_CID_EXPOSURE_AUTO:
+		dev_dbg(&client->dev, "%s: CID_EXPOSURE_AUTO:%d.\n",
+			__func__, ctrl->val);
+		ret = ov2685_s_exposure_mode(&dev->sd, ctrl->val);
+		break;
+	case V4L2_CID_3A_LOCK:
+		dev_dbg(&client->dev, "%s: CID_3A_LOCK:%d.\n",
+			__func__, ctrl->val);
+		ret = ov2685_s_ae_lock(&dev->sd, ctrl->val);
+		break;
+
 	case V4L2_CID_VFLIP:
 		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
 			__func__, ctrl->val);
@@ -870,6 +945,13 @@ static int ov2685_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
 		ret = ov2685_g_exposure(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_EXPOSURE_AUTO:
+		ret = ov2685_g_exposure_mode(&dev->sd, &ctrl->val);
+		break;
+
+	case V4L2_CID_3A_LOCK:
+		ret = ov2685_g_ae_lock(&dev->sd, &ctrl->val);
 		break;
 	case V4L2_CID_SCENE_MODE:
 		ret = ov2685_g_scene(&dev->sd, &ctrl->val);
@@ -919,6 +1001,28 @@ static const struct v4l2_ctrl_config ov2685_controls[] = {
 		.step = 0x01,
 		.def = 0x00,
 		.flags = V4L2_CTRL_FLAG_VOLATILE,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_EXPOSURE_AUTO,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "exposure mode",
+		.min = 0,
+		.max = 3,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_3A_LOCK,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "exposure mode",
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
 	},
 	{
 		.ops = &ctrl_ops,
@@ -1294,6 +1398,7 @@ static int ov2685_probe(struct i2c_client *client,
 	dev->format.code = V4L2_MBUS_FMT_UYVY8_1X16;
 	dev->sd.entity.ops = &ov2685_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
+	dev->ae_lock = 0;
 
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
 	if (ret)

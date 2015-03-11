@@ -80,8 +80,10 @@
 #define OV2685_REG_EXPOSURE_1	0x3501
 #define OV2685_REG_EXPOSURE_2	0x3502
 #define OV2685_REG_EXPOSURE_AUTO	0x3503
-#define OV2685_REG_SMIA	0x0100
-#define OV2685_REG_PID	0x300a
+#define OV2685_REG_WPT		0x3a03
+#define OV2685_REG_BPT		0x3a04
+#define OV2685_REG_SMIA		0x0100
+#define OV2685_REG_PID		0x300a
 #define OV2685_REG_SYS_RESET	0x3000
 #define OV2685_REG_FW_START	0x8000
 #define OV2685_REG_H_START_H	0x3800
@@ -102,6 +104,7 @@
 #define OV2685_FRAME_STOP	0x00
 #define OV2685_AWB_GAIN_AUTO	0
 #define OV2685_AWB_GAIN_MANUAL	1
+#define OV2685_EXPOSURE_MANUAL_MASK 0x01
 
 #define MIN_SYSCLK		10
 #define MIN_VTS			8
@@ -185,7 +188,7 @@ struct ov2685_device {
 	unsigned int preview_hts;
 	unsigned int preview_vts;
 	unsigned int fmt_idx;
-
+	unsigned int ae_lock;
 	struct v4l2_ctrl_handler ctrl_handler;
 };
 
