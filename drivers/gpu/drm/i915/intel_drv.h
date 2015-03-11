@@ -1115,10 +1115,6 @@ bool intel_display_power_enabled(struct drm_i915_private *dev_priv,
 				 enum intel_display_power_domain domain);
 bool intel_display_power_enabled_unlocked(struct drm_i915_private *dev_priv,
 					  enum intel_display_power_domain domain);
-void intel_display_power_rpm_get(struct drm_i915_private *dev_priv,
-			     enum intel_display_power_domain domain, bool rpm);
-void intel_display_power_rpm_put(struct drm_i915_private *dev_priv,
-			     enum intel_display_power_domain domain, bool rpm);
 void intel_display_power_get(struct drm_i915_private *dev_priv,
 			     enum intel_display_power_domain domain);
 void intel_display_power_put(struct drm_i915_private *dev_priv,
