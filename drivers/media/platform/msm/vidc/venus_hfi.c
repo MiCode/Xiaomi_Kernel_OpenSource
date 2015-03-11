@@ -1214,6 +1214,9 @@ static int venus_hfi_alloc_set_imem(struct venus_hfi_device *device,
 {
 	int rc = 0;
 
+	if (!device->res->imem_size)
+		return 0;
+
 	rc = venus_hfi_alloc_imem(device, device->res->imem_size);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to allocate imem: %d\n", rc);
@@ -1236,6 +1239,9 @@ alloc_failed:
 static int venus_hfi_unset_free_imem(struct venus_hfi_device *device)
 {
 	int rc = 0;
+
+	if (!device->res->imem_size)
+		return 0;
 
 	rc = venus_hfi_unset_imem(device);
 	if (rc) {
