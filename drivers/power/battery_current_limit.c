@@ -188,7 +188,8 @@ enum bcl_threshold_state {
 
 static struct bcl_context *gbcl;
 static enum bcl_threshold_state bcl_vph_state = BCL_THRESHOLD_DISABLED,
-		bcl_ibat_state = BCL_THRESHOLD_DISABLED;
+		bcl_ibat_state = BCL_THRESHOLD_DISABLED,
+		bcl_soc_state = BCL_THRESHOLD_DISABLED;
 static DEFINE_MUTEX(bcl_notify_mutex);
 static uint32_t bcl_hotplug_request, bcl_hotplug_mask, bcl_soc_hotplug_mask;
 static uint32_t bcl_frequency_mask;
@@ -219,7 +220,7 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 	if (cpumask_empty(bcl_cpu_online_mask))
 		bcl_update_online_mask();
 
-	if  (battery_soc_val <= soc_low_threshold
+	if  (bcl_soc_state == BCL_LOW_THRESHOLD
 		|| bcl_vph_state == BCL_LOW_THRESHOLD)
 		bcl_hotplug_request = bcl_soc_hotplug_mask;
 	else if (bcl_ibat_state == BCL_HIGH_THRESHOLD)
@@ -301,7 +302,7 @@ static int bcl_cpufreq_callback(struct notifier_block *nfb,
 	case CPUFREQ_INCOMPATIBLE:
 		if (bcl_vph_state == BCL_LOW_THRESHOLD
 			|| bcl_ibat_state == BCL_HIGH_THRESHOLD
-			|| battery_soc_val <= soc_low_threshold) {
+			|| bcl_soc_state == BCL_LOW_THRESHOLD) {
 			max_freq = (gbcl->bcl_monitor_type
 				== BCL_IBAT_MONITOR_TYPE) ? gbcl->btm_freq_max
 				: gbcl->bcl_p_freq_max;
@@ -342,6 +343,12 @@ static void power_supply_callback(struct power_supply *psy)
 	static struct power_supply *bms_psy;
 	union power_supply_propval ret = {0,};
 	int battery_percentage;
+	enum bcl_threshold_state prev_soc_state;
+
+	if (gbcl->bcl_mode != BCL_DEVICE_ENABLED) {
+		pr_debug("BCL is not enabled\n");
+		return;
+	}
 
 	if (!bms_psy)
 		bms_psy = power_supply_get_by_name("bms");
@@ -351,6 +358,11 @@ static void power_supply_callback(struct power_supply *psy)
 		battery_percentage = ret.intval;
 		battery_soc_val = battery_percentage;
 		pr_debug("Battery SOC reported:%d", battery_soc_val);
+		prev_soc_state = bcl_soc_state;
+		bcl_soc_state = (battery_soc_val <= soc_low_threshold) ?
+					BCL_LOW_THRESHOLD : BCL_HIGH_THRESHOLD;
+		if (bcl_soc_state == prev_soc_state)
+			return;
 		if (bcl_hotplug_enabled)
 			queue_work(gbcl->bcl_hotplug_wq, &bcl_hotplug_work);
 		update_cpu_freq();
@@ -668,6 +680,11 @@ static void bcl_periph_mode_set(enum bcl_device_mode mode)
 	int ret = 0;
 
 	if (mode == BCL_DEVICE_ENABLED) {
+		ret = power_supply_register(gbcl->dev, &bcl_psy);
+		if (ret < 0) {
+			pr_err("Unable to register bcl_psy rc = %d\n", ret);
+			return;
+		}
 		ret = msm_bcl_set_threshold(BCL_PARAM_CURRENT, BCL_HIGH_TRIP,
 			&gbcl->ibat_high_thresh);
 		if (ret) {
@@ -703,12 +720,14 @@ static void bcl_periph_mode_set(enum bcl_device_mode mode)
 		}
 		gbcl->btm_mode = BCL_VPH_MONITOR_MODE;
 	} else {
+		power_supply_unregister(&bcl_psy);
 		ret = msm_bcl_disable();
 		if (ret) {
 			pr_err("Error disabling BCL\n");
 			return;
 		}
 		gbcl->btm_mode = BCL_MONITOR_DISABLED;
+		bcl_soc_state = BCL_THRESHOLD_DISABLED;
 		bcl_vph_notify(BCL_HIGH_THRESHOLD);
 		bcl_ibat_notify(BCL_LOW_THRESHOLD);
 		bcl_hotplug_request = 0;
@@ -1740,11 +1759,6 @@ static int bcl_probe(struct platform_device *pdev)
 	bcl_psy.set_property     = bcl_battery_set_property;
 	bcl_psy.num_properties = 0;
 	bcl_psy.external_power_changed = power_supply_callback;
-	ret = power_supply_register(&pdev->dev, &bcl_psy);
-	if (ret < 0) {
-		pr_err("Unable to register bcl_psy rc = %d\n", ret);
-		return ret;
-	}
 	bcl->bcl_hotplug_wq = alloc_workqueue("bcl_hotplug_wq",  WQ_HIGHPRI, 0);
 	if (!bcl->bcl_hotplug_wq) {
 		pr_err("Workqueue alloc failed\n");
