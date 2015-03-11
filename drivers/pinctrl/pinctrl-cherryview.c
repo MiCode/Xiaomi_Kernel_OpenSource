@@ -51,7 +51,11 @@
 #define CV_GPIO_RX_EN		(2 << 8)
 #define CV_GPIO_HZ			(3 << 8)
 
+#define CV_GPIO_INV_MASK	(0xF << 4)
+#define CV_INV_RX_EN		BIT(4)
+#define CV_INV_TX_EN		BIT(5)
 #define CV_INV_RX_DATA		BIT(6)
+#define CV_INV_TX_DATA		BIT(7)
 
 #define CV_INT_SEL_MASK		(0xF << 28)
 #define CV_PAD_MODE_MASK	(0xF << 16)
@@ -1191,6 +1195,44 @@ static struct irq_chip chv_irqchip = {
 	.irq_ack	= chv_irq_ack,
 	.irq_shutdown	= chv_irq_shutdown,
 };
+
+/*there is requirement to access the inv settings on ctrl1 register*
+**	gpio : gpio number					**
+**	inv : inv settings bits					**
+**	en: 1 for enable inv, 0 for disable inv			**/
+void chv_gpio_cfg_inv(int gpio, int inv, int en)
+{
+	int offset;
+	struct chv_gpio *cg;
+	void __iomem *reg;
+	unsigned long flags;
+	struct gpio_chip *chip;
+	u32 value;
+	u32 set;
+
+	set = __ffs(inv & CV_GPIO_INV_MASK);
+	if (!set)
+		return;
+
+	chip = gpiod_to_chip(gpio_to_desc(gpio));
+	if (!chip)
+		return;
+
+	cg = to_chv_priv(chip);
+	offset = gpio - chip->base;
+	reg = chv_gpio_reg(&cg->chip, offset, CV_PADCTRL1_REG);
+
+	spin_lock_irqsave(&cg->lock, flags);
+	value = chv_readl(reg);
+
+	if (en)
+		chv_writel((value | BIT(set)), reg);
+	else
+		chv_writel((value & ~BIT(set)), reg);
+
+	spin_unlock_irqrestore(&cg->lock, flags);
+}
+EXPORT_SYMBOL_GPL(chv_gpio_cfg_inv);
 
 static void chv_gpio_irq_dispatch(struct chv_gpio *cg)
 {
