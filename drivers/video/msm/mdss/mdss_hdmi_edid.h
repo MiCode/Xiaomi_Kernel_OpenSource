@@ -16,18 +16,23 @@
 #include <linux/msm_hdmi.h>
 #include "mdss_hdmi_util.h"
 
-struct hdmi_edid_init_data {
-	struct dss_io_data *io;
-	struct mutex *mutex;
-	struct kobject *sysfs_kobj;
+#define EDID_BLOCK_SIZE 0x80
+#define EDID_BLOCK_ADDR 0xA0
 
-	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
+struct hdmi_edid_init_data {
+	struct kobject *sysfs_kobj;
 	struct hdmi_util_ds_data *ds_data;
+	void *caller_data;
+	u32 id;
+	u32 (*read_edid_block)(void *caller_data,
+		u8 block, u8 *edid_buf);
 };
 
-int hdmi_edid_read(void *edid_ctrl);
+u32 hdmi_edid_parser(void *edid_ctrl);
+u32 hdmi_edid_get_raw_data(void *edid_ctrl, u8 *buf, u32 size);
 u8 hdmi_edid_get_sink_scaninfo(void *edid_ctrl, u32 resolution);
 u32 hdmi_edid_get_sink_mode(void *edid_ctrl);
+u32 hdmi_edid_get_video_modes(void *edid_ctrl, u32 *mode_cnt, u32 *modes);
 int hdmi_edid_get_audio_blk(void *edid_ctrl,
 	struct msm_hdmi_audio_edid_blk *blk);
 void hdmi_edid_set_video_resolution(void *edid_ctrl, u32 resolution);
