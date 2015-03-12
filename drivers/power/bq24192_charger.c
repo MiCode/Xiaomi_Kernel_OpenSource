@@ -2306,6 +2306,7 @@ static int bq24192_probe(struct i2c_client *client,
 			dev_err(&chip->client->dev,
 				"Failed to check cable status during probe\n");
 	}
+
 	return 0;
 }
 
@@ -2332,22 +2333,6 @@ static int bq24192_suspend(struct device *dev)
 {
 	struct bq24192_chip *chip = dev_get_drvdata(dev);
 
-	if (chip->irq > 0) {
-		/*
-		 * Once the WDT is expired all bq24192 registers gets
-		 * set to default which means WDT is programmed to 40s
-		 * and if there is no charger connected, no point
-		 * feeding the WDT. Since reg07[1] is set to default,
-		 * charger will interrupt SOC every 40s which is not
-		 * good for S3. In this case we need to free chgr_int_n
-		 * interrupt so that no interrupt from charger wakes
-		 * up the platform in case of S3. Interrupt will be
-		 * re-enabled on charger connect.
-		 */
-		if (chip->irq > 0)
-			free_irq(chip->irq, chip);
-	}
-
 	dev_dbg(&chip->client->dev, "bq24192 suspend\n");
 	return 0;
 }
@@ -2355,22 +2340,7 @@ static int bq24192_suspend(struct device *dev)
 static int bq24192_resume(struct device *dev)
 {
 	struct bq24192_chip *chip = dev_get_drvdata(dev);
-	int ret;
 
-	if (chip->irq > 0) {
-		ret = request_threaded_irq(chip->irq,
-				bq24192_irq_isr, bq24192_irq_thread,
-				IRQF_TRIGGER_FALLING, "BQ24192", chip);
-		if (ret) {
-			dev_warn(&bq24192_client->dev,
-				"failed to register irq for pin %d\n",
-				chip->irq);
-		} else {
-			dev_warn(&bq24192_client->dev,
-				"registered charger irq for pin %d\n",
-				chip->irq);
-		}
-	}
 	dev_dbg(&chip->client->dev, "bq24192 resume\n");
 	return 0;
 }
