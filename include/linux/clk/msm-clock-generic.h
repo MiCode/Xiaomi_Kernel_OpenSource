@@ -123,6 +123,7 @@ struct div_data {
 	 * Skip odd dividers since the hardware may not support them.
 	 */
 	bool skip_odd_div;
+	bool allow_div_one;
 	unsigned int cached_div;
 };
 
