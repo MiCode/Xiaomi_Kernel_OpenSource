@@ -27,7 +27,6 @@
 #include <linux/delay.h>
 #include <linux/input.h>
 #include <linux/jiffies.h>
-#include <linux/lcd_notify.h>
 
 #define MAKO_HOTPLUG "mako_hotplug"
 
@@ -44,13 +43,10 @@
 
 struct cpu_stats {
 	unsigned int counter;
-	struct notifier_block notif;
 	u64 timestamp;
-	bool booted;
 } stats = {
 	.counter = 0,
 	.timestamp = 0,
-	.booted = false,
 };
 
 struct hotplug_tunables {
@@ -96,7 +92,6 @@ struct hotplug_tunables {
 
 static struct workqueue_struct *wq;
 static struct delayed_work decide_hotplug;
-static struct work_struct suspend, resume;
 
 static inline void cpus_online_work(void)
 {
@@ -243,41 +238,6 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 reschedule:
 	queue_delayed_work_on(0, wq, &decide_hotplug,
 		msecs_to_jiffies(t->timer * HZ));
-}
-
-static void mako_hotplug_suspend(struct work_struct *work)
-{
-	cpus_offline_work();
-
-	stats.counter = 0;
-
-	pr_info("%s: suspend\n", MAKO_HOTPLUG);
-}
-
-static void __ref mako_hotplug_resume(struct work_struct *work)
-{
-	cpus_online_work();
-
-	pr_info("%s: resume\n", MAKO_HOTPLUG);
-}
-
-static int lcd_notifier_callback(struct notifier_block *this,
-	unsigned long event, void *data)
-{
-	if (event == LCD_EVENT_ON_START) {
-		if (!stats.booted) {
-			/*
-			 * let's start messing with the cores only after
-			 * the device has booted up
-			 */
-			queue_delayed_work_on(0, wq, &decide_hotplug, 0);
-			stats.booted = true;
-		} else
-			queue_work_on(0, wq, &resume);
-	} else if (event == LCD_EVENT_OFF_START)
-		queue_work_on(0, wq, &suspend);
-
-	return NOTIFY_OK;
 }
 
 /*
@@ -482,13 +442,6 @@ static int mako_hotplug_probe(struct platform_device *pdev)
 	t->min_time_cpu_online = DEFAULT_MIN_TIME_CPU_ONLINE;
 	t->timer = DEFAULT_TIMER;
 
-	stats.notif.notifier_call = lcd_notifier_callback;
-
-	if (lcd_register_client(&stats.notif)) {
-		ret = -EINVAL;
-		goto err;
-	}
-
 	ret = misc_register(&mako_hotplug_control_device);
 	if (ret) {
 		ret = -EINVAL;
@@ -502,10 +455,9 @@ static int mako_hotplug_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	INIT_WORK(&resume, mako_hotplug_resume);
-	INIT_WORK(&suspend, mako_hotplug_suspend);
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
 
+	queue_delayed_work_on(0, wq, &decide_hotplug, HZ * 30);
 err:
 	return ret;
 }
