@@ -80,10 +80,15 @@
 #define OV2685_REG_EXPOSURE_1	0x3501
 #define OV2685_REG_EXPOSURE_2	0x3502
 #define OV2685_REG_EXPOSURE_AUTO	0x3503
+#define OV2685_AEC_CTRL0	0x3a00
+#define OV2685_AEC_CTRL2	0x3a02
 #define OV2685_REG_WPT		0x3a03
 #define OV2685_REG_BPT		0x3a04
+#define OV2685_REG_TEST_PATTERN	0x5080
 #define OV2685_REG_SMIA		0x0100
 #define OV2685_REG_PID		0x300a
+#define OV2685_BAND_50HZ_MASK	0x80
+#define OV2685_BAND_ENABLE_MASK	0x01
 #define OV2685_REG_SYS_RESET	0x3000
 #define OV2685_REG_FW_START	0x8000
 #define OV2685_REG_H_START_H	0x3800
@@ -145,13 +150,13 @@
 #define OV2685_RES_QVGA_SIZE_V		240
 
 /*
- * struct misensor_reg - MI sensor  register format
+ * struct ov2685_reg - MI sensor  register format
  * @length: length of the register
  * @reg: 16-bit offset to register
  * @val: 8/16/32-bit register value
  * Define a structure for sensor register initialization values
  */
-struct misensor_reg {
+struct ov2685_reg {
 	u16 length;
 	u16 reg;
 	u32 val;	/* value or for read/mod/write */
@@ -173,12 +178,12 @@ struct ov2685_device {
 	int run_mode;
 	int focus_mode;
 	int night_mode;
-	bool focus_mode_change;
 	int color_effect;
 	bool streaming;
 	bool preview_ag_ae;
 	u16 sensor_id;
 	u8 sensor_revision;
+	u8 hot_pixel;
 	unsigned int ae_high;
 	unsigned int ae_low;
 	unsigned int preview_shutter;
@@ -189,7 +194,10 @@ struct ov2685_device {
 	unsigned int preview_vts;
 	unsigned int fmt_idx;
 	unsigned int ae_lock;
+	unsigned int wb_mode;
 	struct v4l2_ctrl_handler ctrl_handler;
+	/* Test pattern control */
+	struct v4l2_ctrl *tp_mode;
 };
 
 struct ov2685_priv_data {
@@ -287,7 +295,131 @@ static const struct i2c_device_id ov2685_id[] = {
 	{}
 };
 
-static struct misensor_reg const ov2685_2M_init[] = {
+static struct ov2685_reg const ov2685_AWB_manual[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5180 , 0xf6},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_AWB_auto[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5180 , 0xf4},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_AWB_sunny[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5180 , 0xf6},
+	{OV2685_8BIT, 0x5195 , 0x07},
+	{OV2685_8BIT, 0x5196 , 0x9c},
+	{OV2685_8BIT, 0x5197 , 0x04},
+	{OV2685_8BIT, 0x5198 , 0x00},
+	{OV2685_8BIT, 0x5199 , 0x05},
+	{OV2685_8BIT, 0x519a , 0xf3},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+
+static struct ov2685_reg const ov2685_AWB_incandescent[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5180 , 0xf6},
+	{OV2685_8BIT, 0x5195 , 0x06},
+	{OV2685_8BIT, 0x5196 , 0xb8},
+	{OV2685_8BIT, 0x5197 , 0x04},
+	{OV2685_8BIT, 0x5198 , 0x00},
+	{OV2685_8BIT, 0x5199 , 0x06},
+	{OV2685_8BIT, 0x519a , 0x5f},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_AWB_cloudy[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5180 , 0xf6},
+	{OV2685_8BIT, 0x5195 , 0x07},
+	{OV2685_8BIT, 0x5196 , 0xdc},
+	{OV2685_8BIT, 0x5197 , 0x04},
+	{OV2685_8BIT, 0x5198 , 0x00},
+	{OV2685_8BIT, 0x5199 , 0x05},
+	{OV2685_8BIT, 0x519a , 0xd3},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_normal_effect[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5600 , 0x06},
+	{OV2685_8BIT, 0x5603 , 0x40},
+	{OV2685_8BIT, 0x5604 , 0x28},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_sepia_effect[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5600 , 0x1c},
+	{OV2685_8BIT, 0x5603 , 0x40},
+	{OV2685_8BIT, 0x5604 , 0xa0},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_negative_effect[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5600 , 0x46},
+	{OV2685_8BIT, 0x5603 , 0x40},
+	{OV2685_8BIT, 0x5604 , 0x28},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_bw_effect[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5600 , 0x1c},
+	{OV2685_8BIT, 0x5603 , 0x80},
+	{OV2685_8BIT, 0x5604 , 0x80},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_blue_effect[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5600 , 0x1c},
+	{OV2685_8BIT, 0x5603 , 0xa0},
+	{OV2685_8BIT, 0x5604 , 0x40},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_green_effect[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5180 , 0xf6},
+	{OV2685_8BIT, 0x5195 , 0x04},
+	{OV2685_8BIT, 0x5196 , 0x90},
+	{OV2685_8BIT, 0x5197 , 0x04},
+	{OV2685_8BIT, 0x5198 , 0x00},
+	{OV2685_8BIT, 0x5199 , 0x09},
+	{OV2685_8BIT, 0x519a , 0x20},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
+static struct ov2685_reg const ov2685_2M_init[] = {
 	/*2lanes, 30fps*/
 	{OV2685_8BIT, 0x0103 , 0x01},
 	{OV2685_8BIT, 0x3002 , 0x00},
@@ -536,7 +668,7 @@ static struct misensor_reg const ov2685_2M_init[] = {
 	{OV2685_TOK_TERM, 0, 0}
 };
 
-static struct misensor_reg const ov2685_720p_init[] = {
+static struct ov2685_reg const ov2685_720p_init[] = {
 	/*1lane 30fps*/
 	{OV2685_8BIT, 0x0103 , 0x01},
 	{OV2685_8BIT, 0x3002 , 0x00},
@@ -785,7 +917,7 @@ static struct misensor_reg const ov2685_720p_init[] = {
 };
 
 /* camera vga 30fps, yuv, 1lanes */
-static struct misensor_reg const ov2685_vga_init[] = {
+static struct ov2685_reg const ov2685_vga_init[] = {
 	{OV2685_8BIT, 0x0103 , 0x01},
 	{OV2685_8BIT, 0x3002 , 0x00},
 	{OV2685_8BIT, 0x3016 , 0x1c},
@@ -1035,11 +1167,11 @@ static struct misensor_reg const ov2685_vga_init[] = {
 	{OV2685_TOK_TERM, 0, 0}
 };
 
-static struct misensor_reg const ov2685_common[] = {
+static struct ov2685_reg const ov2685_common[] = {
 	 {OV2685_TOK_TERM, 0, 0}
 };
 
-static struct misensor_reg const ov2685_iq[] = {
+static struct ov2685_reg const ov2685_iq[] = {
 	{OV2685_TOK_TERM, 0, 0}
 };
 

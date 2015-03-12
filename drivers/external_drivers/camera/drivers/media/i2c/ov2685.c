@@ -165,17 +165,17 @@ again:
 }
 
 /*
- * ov2685_write_reg_array - Initializes a list of MT9T111 registers
+ * ov2685_write_reg_array - Initializes a list of ov2685 registers
  * @client: i2c driver client structure
  * @reglist: list of registers to be written
  *
- * Initializes a list of MT9T111 registers. The list of registers is
+ * Initializes a list of ov2685 registers. The list of registers is
  * terminated by OV2685_TOK_TERM.
  */
 static int ov2685_write_reg_array(struct i2c_client *client,
-			    const struct misensor_reg *reglist)
+			    const struct ov2685_reg *reglist)
 {
-	const struct misensor_reg *next = reglist;
+	const struct ov2685_reg *next = reglist;
 	int err;
 
 	for (; next->length != OV2685_TOK_TERM; next++) {
@@ -223,14 +223,57 @@ static int ov2685_t_vflip(struct v4l2_subdev *sd, int value)
 static int ov2685_s_freq(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 reg_val;
 
 	switch (value) {
 	case V4L2_CID_POWER_LINE_FREQUENCY_DISABLED:
+		ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_AEC_CTRL0, &reg_val);
+		/* turn off band filter, bit[0] = 0 */
+		reg_val &= ~OV2685_BAND_ENABLE_MASK;
+		ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_AEC_CTRL0, (u32)reg_val);
+		break;
 	case V4L2_CID_POWER_LINE_FREQUENCY_50HZ:
+		ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_AEC_CTRL2, &reg_val);
+		/* set 50Hz, bit[7] = 1 */
+		reg_val |= OV2685_BAND_50HZ_MASK;
+		ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_AEC_CTRL2, (u32)reg_val);
+
+		ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_AEC_CTRL0, &reg_val);
+		/* turn on band filter, bit[0] = 1 */
+		reg_val |= OV2685_BAND_ENABLE_MASK;
+		ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_AEC_CTRL0, (u32)reg_val);
+		break;
 	case V4L2_CID_POWER_LINE_FREQUENCY_60HZ:
+		ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_AEC_CTRL2, &reg_val);
+		/* set 50Hz, bit[7] = 0 */
+		reg_val &= ~OV2685_BAND_50HZ_MASK;
+		ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_AEC_CTRL2, (u32)reg_val);
+		ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_AEC_CTRL0, &reg_val);
+		/* turn on band filter, bit[0] = 1 */
+		reg_val |= OV2685_BAND_ENABLE_MASK;
+		ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_AEC_CTRL0, (u32)reg_val);
+		break;
 	case V4L2_CID_POWER_LINE_FREQUENCY_AUTO:
+		ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_AEC_CTRL0, &reg_val);
+		/* turn on band filter, bit[0] = 1 */
+		reg_val |= OV2685_BAND_50HZ_MASK;
+		ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_AEC_CTRL0, (u32)reg_val);
+		break;
 	default:
-		dev_err(&client->dev, "ov2685_s_freq: %d\n", value);
+		dev_err(&client->dev, "Invalid freq value %d\n", value);
+		return -EINVAL;
 	}
 	return 0;
 }
@@ -268,27 +311,37 @@ static int ov2685_s_scene(struct v4l2_subdev *sd, int value)
 
 static int ov2685_g_wb(struct v4l2_subdev *sd, s32 *value)
 {
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	*value = dev->wb_mode;
 	return 0;
 }
 
 static int ov2685_s_wb(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
 
 	switch (value) {
 	case V4L2_WHITE_BALANCE_MANUAL:
+		ov2685_write_reg_array(client, ov2685_AWB_manual);
+		break;
 	case V4L2_WHITE_BALANCE_AUTO:
+		ov2685_write_reg_array(client, ov2685_AWB_auto);
+		break;
 	case V4L2_WHITE_BALANCE_INCANDESCENT:
-	case V4L2_WHITE_BALANCE_FLUORESCENT:
-	case V4L2_WHITE_BALANCE_FLUORESCENT_H:
-	case V4L2_WHITE_BALANCE_HORIZON:
-	case V4L2_WHITE_BALANCE_DAYLIGHT:
-	case V4L2_WHITE_BALANCE_FLASH:
+		ov2685_write_reg_array(client, ov2685_AWB_incandescent);
+		break;
 	case V4L2_WHITE_BALANCE_CLOUDY:
-	case V4L2_WHITE_BALANCE_SHADE:
+		ov2685_write_reg_array(client, ov2685_AWB_cloudy);
+		break;
+	case V4L2_WHITE_BALANCE_DAYLIGHT:
+		ov2685_write_reg_array(client, ov2685_AWB_sunny);
+		break;
 	default:
 		dev_err(&client->dev, "ov2685_s_wb: %d\n", value);
 	}
+
+	dev->wb_mode = value;
 	return 0;
 }
 
@@ -391,7 +444,60 @@ err:
 	return ret;
 }
 
-static int ov2685_s_exposure(struct v4l2_subdev *sd, int value)
+static long ov2685_s_exposure(struct v4l2_subdev *sd,
+			       struct atomisp_exposure *exposure)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	u16 hts, hts_v2, gain;
+	u32 exp, exp_v2, sys_clk;
+	int ret;
+	/* set exposure */
+	ret = ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_REG_HTS_H,
+					&hts);
+	if (ret)
+		return ret;
+
+	ret = ov2685_read_reg(client, OV2685_8BIT,
+					OV2685_REG_HTS_L,
+					&hts_v2);
+	if (ret)
+		return ret;
+
+	hts = (hts << 8) | hts_v2;
+
+
+	sys_clk = ov2685_get_sysclk(sd);
+	if (!sys_clk)
+		return 0;
+
+	exp = exposure->integration_time[0] * sys_clk / 1000;
+
+	exp_v2 = exp >> 8;
+	ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_REG_EXPOSURE_0, exp_v2);
+
+	exp_v2 = (exp & 0xff0) >> 4;
+	ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_REG_EXPOSURE_1, exp_v2);
+
+	exp_v2 = (exp & 0x0f) << 4;
+	ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_REG_EXPOSURE_2, exp_v2);
+
+	/* set gain */
+	gain = exposure->gain[0] >> 8;
+	ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_REG_GAIN_0, gain);
+
+	gain =  exposure->gain[0] & 0xff;
+	ov2685_write_reg(client, OV2685_8BIT,
+			OV2685_REG_GAIN_0, gain);
+
+	return 0;
+}
+
+static int ov2685_s_ev(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 
@@ -496,6 +602,64 @@ static int ov2685_s_ae_lock(struct v4l2_subdev *sd, int value)
 	dev->ae_lock = value;
 	return 0;
 }
+static int ov2685_s_color_effect(struct v4l2_subdev *sd, int effect)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	int err = 0;
+
+	if (dev->color_effect == effect)
+		return 0;
+
+	switch (effect) {
+	case V4L2_COLORFX_NONE:
+		err = ov2685_write_reg_array(client, ov2685_normal_effect);
+		break;
+	case V4L2_COLORFX_SEPIA:
+		err = ov2685_write_reg_array(client, ov2685_sepia_effect);
+		break;
+	case V4L2_COLORFX_NEGATIVE:
+		err = ov2685_write_reg_array(client, ov2685_negative_effect);
+		break;
+	case V4L2_COLORFX_BW:
+		err = ov2685_write_reg_array(client, ov2685_bw_effect);
+		break;
+	case V4L2_COLORFX_SKY_BLUE:
+		err = ov2685_write_reg_array(client, ov2685_blue_effect);
+		break;
+	case V4L2_COLORFX_GRASS_GREEN:
+		err = ov2685_write_reg_array(client, ov2685_green_effect);
+		break;
+	default:
+		dev_err(&client->dev, "invalid color effect.\n");
+		return -ERANGE;
+	}
+	if (err) {
+		dev_err(&client->dev, "setting color effect fails.\n");
+		return err;
+	}
+
+	dev->color_effect = effect;
+	return 0;
+}
+
+static int ov2685_g_color_effect(struct v4l2_subdev *sd, int *effect)
+{
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	*effect = dev->color_effect;
+
+	return 0;
+}
+
+static int ov2685_s_test_pattern(struct v4l2_subdev *sd)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+
+	return ov2685_write_reg(client, OV2685_8BIT, OV2685_REG_TEST_PATTERN,
+		(u16)(dev->tp_mode->val));
+}
 
 static int ov2685_g_fnumber(struct v4l2_subdev *sd, s32 *value)
 {
@@ -567,6 +731,12 @@ static int ov2685_get_intg_factor(struct i2c_client *client,
 
 static long ov2685_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
+	switch (cmd) {
+	case ATOMISP_IOC_S_EXPOSURE:
+		return ov2685_s_exposure(sd, arg);
+	default:
+		return -EINVAL;
+	}
 	return 0;
 }
 
@@ -893,7 +1063,7 @@ static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_EXPOSURE:
 		dev_dbg(&client->dev, "%s: CID_EXPOSURE:%d.\n",
 			__func__, ctrl->val);
-		ret = ov2685_s_exposure(&dev->sd, ctrl->val);
+		ret = ov2685_s_ev(&dev->sd, ctrl->val);
 		break;
 	case V4L2_CID_EXPOSURE_AUTO:
 		dev_dbg(&client->dev, "%s: CID_EXPOSURE_AUTO:%d.\n",
@@ -905,7 +1075,11 @@ static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
 			__func__, ctrl->val);
 		ret = ov2685_s_ae_lock(&dev->sd, ctrl->val);
 		break;
-
+	case V4L2_CID_COLORFX:
+		dev_dbg(&client->dev, "%s: CID_3A_LOCK:%d.\n",
+			__func__, ctrl->val);
+		ret = ov2685_s_color_effect(&dev->sd, ctrl->val);
+		break;
 	case V4L2_CID_VFLIP:
 		dev_dbg(&client->dev, "%s: CID_VFLIP:%d.\n",
 			__func__, ctrl->val);
@@ -931,6 +1105,11 @@ static int ov2685_s_ctrl(struct v4l2_ctrl *ctrl)
 			__func__, ctrl->val);
 		ret = ov2685_s_scene(&dev->sd, ctrl->val);
 		break;
+	case V4L2_CID_TEST_PATTERN:
+		dev_dbg(&client->dev, "%s: CID_CID_TEST_PATTERN:%d.\n",
+			__func__, ctrl->val);
+		ret = ov2685_s_test_pattern(&dev->sd);
+		break;
 	}
 
 	return ret;
@@ -952,6 +1131,9 @@ static int ov2685_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_3A_LOCK:
 		ret = ov2685_g_ae_lock(&dev->sd, &ctrl->val);
+		break;
+	case V4L2_CID_COLORFX:
+		ret = ov2685_g_color_effect(&dev->sd, &ctrl->val);
 		break;
 	case V4L2_CID_SCENE_MODE:
 		ret = ov2685_g_scene(&dev->sd, &ctrl->val);
@@ -1024,6 +1206,28 @@ static const struct v4l2_ctrl_config ov2685_controls[] = {
 		.def = 0,
 		.flags = 0,
 	},
+	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_COLORFX,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "color effect",
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},
+/*	{
+		.ops = &ctrl_ops,
+		.id = V4L2_CID_HOT_PIXEL,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.name = "hot pixel",
+		.min = 0,
+		.max = SHRT_MAX,
+		.step = 1,
+		.def = 0,
+		.flags = 0,
+	},*/
 	{
 		.ops = &ctrl_ops,
 		.id = V4L2_CID_VFLIP,
@@ -1355,6 +1559,10 @@ static int __ov2685_init_ctrl_handler(struct ov2685_device *dev)
 	for (i = 0; i < ARRAY_SIZE(ov2685_controls); i++)
 		v4l2_ctrl_new_custom(&dev->ctrl_handler,
 				&ov2685_controls[i], NULL);
+
+	dev->tp_mode = v4l2_ctrl_find(&dev->ctrl_handler,
+				V4L2_CID_TEST_PATTERN);
+
 	if (dev->ctrl_handler.error)
 		return dev->ctrl_handler.error;
 
@@ -1399,7 +1607,8 @@ static int ov2685_probe(struct i2c_client *client,
 	dev->sd.entity.ops = &ov2685_entity_ops;
 	dev->sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV_SENSOR;
 	dev->ae_lock = 0;
-
+	dev->color_effect = 0;
+	dev->hot_pixel = 0;
 	ret = media_entity_init(&dev->sd.entity, 1, &dev->pad, 0);
 	if (ret)
 		ov2685_remove(client);
