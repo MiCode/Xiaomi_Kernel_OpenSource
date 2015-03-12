@@ -87,6 +87,8 @@
 #define QSEECOM_ICE_CE_NUM 10
 #define QSEECOM_ICE_FDE_KEY_INDEX 0
 
+#define PHY_ADDR_4G	(1ULL<<32)
+
 enum qseecom_clk_definitions {
 	CLK_DFAB = 0,
 	CLK_SFPB,
@@ -132,6 +134,7 @@ struct qseecom_registered_app_list {
 	u32  app_id;
 	u32  ref_cnt;
 	char app_name[MAX_APP_NAME_SIZE];
+	u32  app_arch;
 };
 
 struct qseecom_registered_kclient_list {
@@ -174,6 +177,7 @@ struct qseecom_control {
 	uint32_t          qsee_version;
 	struct device *pdev;
 	bool  commonlib_loaded;
+	bool  commonlib64_loaded;
 	struct ion_handle *cmnlib_ion_handle;
 	struct ce_hw_usage_info ce_info;
 
@@ -209,6 +213,7 @@ struct qseecom_client_handle {
 	size_t sb_length;
 	struct ion_handle *ihandle;		/* Retrieve phy addr */
 	char app_name[MAX_APP_NAME_SIZE];
+	u32  app_arch;
 };
 
 struct qseecom_listener_handle {
@@ -230,11 +235,6 @@ struct qseecom_dev_handle {
 	bool  perf_enabled;
 	bool  fast_load_enabled;
 	enum qseecom_bandwidth_request_mode mode;
-};
-
-struct qseecom_sg_entry {
-	uint32_t phys_addr;
-	uint32_t len;
 };
 
 struct qseecom_key_id_usage_desc {
@@ -261,6 +261,8 @@ static void qsee_disable_clock_vote(struct qseecom_dev_handle *, int32_t);
 static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce);
 static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce);
 static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce);
+static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data,
+					char *cmnlib_name);
 
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
@@ -1459,6 +1461,31 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		return -EFAULT;
 	}
 
+	/* Check and load cmnlib */
+	if (qseecom.qsee_version > QSEEE_VERSION_00) {
+		if (!qseecom.commonlib_loaded &&
+				load_img_req.app_arch == ELFCLASS32) {
+			ret = qseecom_load_commonlib_image(data, "cmnlib");
+			if (ret) {
+				pr_err("failed to load cmnlib\n");
+				return -EIO;
+			}
+			qseecom.commonlib_loaded = true;
+			pr_debug("cmnlib is loaded\n");
+		}
+
+		if (!qseecom.commonlib64_loaded &&
+				load_img_req.app_arch == ELFCLASS64) {
+			ret = qseecom_load_commonlib_image(data, "cmnlib64");
+			if (ret) {
+				pr_err("failed to load cmnlib64\n");
+				return -EIO;
+			}
+			qseecom.commonlib64_loaded = true;
+			pr_debug("cmnlib64 is loaded\n");
+		}
+	}
+
 	if (qseecom.support_bus_scaling) {
 		mutex_lock(&qsee_bw_mutex);
 		ret = __qseecom_register_bus_bandwidth_needs(data, MEDIUM);
@@ -1589,6 +1616,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		}
 		entry->app_id = app_id;
 		entry->ref_cnt = 1;
+		entry->app_arch = load_img_req.app_arch;
 		strlcpy(entry->app_name, load_img_req.img_name,
 					MAX_APP_NAME_SIZE);
 		/* Deallocate the handle */
@@ -1604,6 +1632,7 @@ static int qseecom_load_app(struct qseecom_dev_handle *data, void __user *argp)
 		(char *)(load_img_req.img_name));
 	}
 	data->client.app_id = app_id;
+	data->client.app_arch = load_img_req.app_arch;
 	strlcpy(data->client.app_name, load_img_req.img_name,
 					MAX_APP_NAME_SIZE);
 	load_img_req.app_id = app_id;
@@ -2165,6 +2194,20 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 		send_data_req_64bit.rsp_ptr = __qseecom_uvirt_to_kphys(data,
 					(uintptr_t)req->resp_buf);
 		send_data_req_64bit.rsp_len = req->resp_len;
+		/* check if 32bit app's phys_addr region is under 4GB.*/
+		if ((data->client.app_arch == ELFCLASS32) &&
+			((send_data_req_64bit.req_ptr >=
+				PHY_ADDR_4G - send_data_req_64bit.req_len) ||
+			(send_data_req_64bit.rsp_ptr >=
+				PHY_ADDR_4G - send_data_req_64bit.rsp_len))){
+			pr_err("32bit app %s PA exceeds 4G: req_ptr=%llx, req_len=%x, rsp_ptr=%llx, rsp_len=%x\n",
+				data->client.app_name,
+				send_data_req_64bit.req_ptr,
+				send_data_req_64bit.req_len,
+				send_data_req_64bit.rsp_ptr,
+				send_data_req_64bit.rsp_len);
+			return -EFAULT;
+		}
 		cmd_buf = (void *)&send_data_req_64bit;
 		cmd_len = sizeof(struct qseecom_client_send_data_64bit_ireq);
 	}
@@ -2250,7 +2293,6 @@ int __boundary_checks_offset(struct qseecom_send_modfd_cmd_req *req,
 	return 0;
 }
 
-#define SG_ENTRY_SZ   sizeof(struct qseecom_sg_entry)
 static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			struct qseecom_dev_handle *data)
 {
@@ -2324,21 +2366,39 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 				sg_ptr->nents, QSEECOM_MAX_SG_ENTRY);
 			goto err;
 		}
-			sg = sg_ptr->sgl;
+		sg = sg_ptr->sgl;
 		if (sg_ptr->nents == 1) {
 			uint32_t *update;
-			update = (uint32_t *) field;
-
+			uint64_t *update_64bit;
 			if (__boundary_checks_offset(req, lstnr_resp, data, i))
 				goto err;
-			if (cleanup)
-				*update = 0;
-			else
-				*update = (uint32_t)sg_dma_address(
-							sg_ptr->sgl);
-				len += (uint32_t)sg->length;
+			if (data->client.app_arch == ELFCLASS32) {
+				/*
+				 * check if 32bit app's sg phy addr
+				 * region is under 4GB
+				 */
+				if ((qseecom.qsee_version >= QSEE_VERSION_40) &&
+					(!cleanup) &&
+					((uint64_t)sg_dma_address(sg_ptr->sgl)
+					>= PHY_ADDR_4G - sg->length)) {
+					pr_err("32bit app %s sgl PA exceeds 4G: phy_addr=%pad, len=%x\n",
+						data->client.app_name,
+						&(sg_dma_address(sg_ptr->sgl)),
+						sg->length);
+					goto err;
+				}
+				update = (uint32_t *) field;
+				*update = cleanup ? 0 :
+					(uint32_t)sg_dma_address(sg_ptr->sgl);
+			} else {
+				update_64bit = (uint64_t *) field;
+				*update_64bit = cleanup ? 0 :
+					(uint64_t)sg_dma_address(sg_ptr->sgl);
+			}
+			len += (uint32_t)sg->length;
 		} else {
 			struct qseecom_sg_entry *update;
+			struct qseecom_sg_entry_64bit *update_64bit;
 			int j = 0;
 
 			if ((data->type != QSEECOM_LISTENER_SERVICE) &&
@@ -2365,18 +2425,40 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 					goto err;
 				}
 			}
-			update = (struct qseecom_sg_entry *) field;
+
 			for (j = 0; j < sg_ptr->nents; j++) {
-				if (cleanup) {
-					update->phys_addr = 0;
-					update->len = 0;
+				if (data->client.app_arch == ELFCLASS32) {
+					/*
+					 * check if 32bit app's sg phy addr
+					 * region is under 4GB
+					 */
+					if ((qseecom.qsee_version >=
+						QSEE_VERSION_40) &&
+						(!cleanup) &&
+						((uint64_t)(sg_dma_address(sg))
+						>= PHY_ADDR_4G - sg->length)) {
+						pr_err("32bit app %s sgl PA exceeds 4G: phy_addr=%pad, len=%x\n",
+							data->client.app_name,
+							&(sg_dma_address(sg)),
+							sg->length);
+						goto err;
+					}
+					update = (struct qseecom_sg_entry *)
+							field;
+					update->phys_addr = cleanup ? 0 :
+						(uint32_t)sg_dma_address(sg);
+					update->len = cleanup ? 0 : sg->length;
+					update++;
 				} else {
-					update->phys_addr = (uint32_t)
-						sg_dma_address(sg);
-					update->len = sg->length;
+					update_64bit =
+					(struct qseecom_sg_entry_64bit *)field;
+					update_64bit->phys_addr = cleanup ? 0 :
+						(uint64_t)sg_dma_address(sg);
+					update_64bit->len = cleanup ? 0 :
+								sg->length;
+					update_64bit++;
 				}
-					len += sg->length;
-				update++;
+				len += sg->length;
 				sg = sg_next(sg);
 			}
 		}
@@ -2489,42 +2571,80 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 
 static bool __qseecom_is_fw_image_valid(const struct firmware *fw_entry)
 {
+	unsigned char app_arch;
 	struct elf32_hdr *ehdr;
+	struct elf64_hdr *ehdr64;
 
-	if (fw_entry->size < sizeof(*ehdr)) {
-		pr_err("%s: Not big enough to be an elf header\n",
-				 qseecom.pdev->init_name);
-		return false;
-	}
-	ehdr = (struct elf32_hdr *)fw_entry->data;
-	if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG)) {
-		pr_err("%s: Not an elf header\n",
-				 qseecom.pdev->init_name);
-		return false;
-	}
+	app_arch = *(unsigned char *)(fw_entry->data + EI_CLASS);
 
-	if (ehdr->e_phnum == 0) {
-		pr_err("%s: No loadable segments\n",
-				 qseecom.pdev->init_name);
+	switch (app_arch) {
+	case ELFCLASS32: {
+		ehdr = (struct elf32_hdr *)fw_entry->data;
+		if (fw_entry->size < sizeof(*ehdr)) {
+			pr_err("%s: Not big enough to be an elf32 header\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		if (memcmp(ehdr->e_ident, ELFMAG, SELFMAG)) {
+			pr_err("%s: Not an elf32 header\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		if (ehdr->e_phnum == 0) {
+			pr_err("%s: No loadable segments\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		if (sizeof(struct elf32_phdr) * ehdr->e_phnum +
+		    sizeof(struct elf32_hdr) > fw_entry->size) {
+			pr_err("%s: Program headers not within mdt\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		break;
+	}
+	case ELFCLASS64: {
+		ehdr64 = (struct elf64_hdr *)fw_entry->data;
+		if (fw_entry->size < sizeof(*ehdr64)) {
+			pr_err("%s: Not big enough to be an elf64 header\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		if (memcmp(ehdr64->e_ident, ELFMAG, SELFMAG)) {
+			pr_err("%s: Not an elf64 header\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		if (ehdr64->e_phnum == 0) {
+			pr_err("%s: No loadable segments\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		if (sizeof(struct elf64_phdr) * ehdr64->e_phnum +
+		    sizeof(struct elf64_hdr) > fw_entry->size) {
+			pr_err("%s: Program headers not within mdt\n",
+					 qseecom.pdev->init_name);
+			return false;
+		}
+		break;
+	}
+	default: {
+		pr_err("Invalid app arch %d\n", app_arch);
 		return false;
 	}
-	if (sizeof(struct elf32_phdr) * ehdr->e_phnum +
-	    sizeof(struct elf32_hdr) > fw_entry->size) {
-		pr_err("%s: Program headers not within mdt\n",
-				 qseecom.pdev->init_name);
-		return false;
 	}
 	return true;
 }
 
-static int __qseecom_get_fw_size(char *appname, uint32_t *fw_size)
+static int __qseecom_get_fw_size(char *appname, uint32_t *fw_size,
+					uint32_t *app_arch)
 {
 	int ret = -1;
 	int i = 0, rc = 0;
 	const struct firmware *fw_entry = NULL;
-	struct elf32_phdr *phdr;
 	char fw_name[MAX_APP_NAME_SIZE];
 	struct elf32_hdr *ehdr;
+	struct elf64_hdr *ehdr64;
 	int num_images = 0;
 
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", appname);
@@ -2538,12 +2658,22 @@ static int __qseecom_get_fw_size(char *appname, uint32_t *fw_size)
 		ret = -EIO;
 		goto err;
 	}
+	*app_arch = *(unsigned char *)(fw_entry->data + EI_CLASS);
 	*fw_size = fw_entry->size;
-	phdr = (struct elf32_phdr *)(fw_entry->data + sizeof(struct elf32_hdr));
-	ehdr = (struct elf32_hdr *)fw_entry->data;
-	num_images = ehdr->e_phnum;
+	if (*app_arch == ELFCLASS32) {
+		ehdr = (struct elf32_hdr *)fw_entry->data;
+		num_images = ehdr->e_phnum;
+	} else  if (*app_arch == ELFCLASS64) {
+		ehdr64 = (struct elf64_hdr *)fw_entry->data;
+		num_images = ehdr64->e_phnum;
+	} else {
+		pr_err("Invalid arch: %d for %s\n", *app_arch, appname);
+		ret = -EIO;
+		goto err;
+	}
+	pr_debug("app: %s, arch: %d\n", appname, *app_arch);
 	release_firmware(fw_entry);
-	for (i = 0; i < num_images; i++, phdr++) {
+	for (i = 0; i < num_images; i++) {
 		memset(fw_name, 0, sizeof(fw_name));
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", appname, i);
 		ret = request_firmware(&fw_entry, fw_name, qseecom.pdev);
@@ -2552,6 +2682,7 @@ static int __qseecom_get_fw_size(char *appname, uint32_t *fw_size)
 		*fw_size += fw_entry->size;
 		release_firmware(fw_entry);
 	}
+
 	return ret;
 err:
 	if (fw_entry)
@@ -2569,7 +2700,9 @@ static int __qseecom_get_fw_data(char *appname, u8 *img_data,
 	char fw_name[MAX_APP_NAME_SIZE];
 	u8 *img_data_ptr = img_data;
 	struct elf32_hdr *ehdr;
+	struct elf64_hdr *ehdr64;
 	int num_images = 0;
+	unsigned char app_arch;
 
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", appname);
 	rc = request_firmware(&fw_entry, fw_name,  qseecom.pdev);
@@ -2577,12 +2710,24 @@ static int __qseecom_get_fw_data(char *appname, u8 *img_data,
 		ret = -EIO;
 		goto err;
 	}
+
 	load_req->img_len = fw_entry->size;
 	memcpy(img_data_ptr, fw_entry->data, fw_entry->size);
 	img_data_ptr = img_data_ptr + fw_entry->size;
 	load_req->mdt_len = fw_entry->size; /*Get MDT LEN*/
-	ehdr = (struct elf32_hdr *)fw_entry->data;
-	num_images = ehdr->e_phnum;
+
+	app_arch = *(unsigned char *)(fw_entry->data + EI_CLASS);
+	if (app_arch == ELFCLASS32) {
+		ehdr = (struct elf32_hdr *)fw_entry->data;
+		num_images = ehdr->e_phnum;
+	} else if (app_arch == ELFCLASS64) {
+		ehdr64 = (struct elf64_hdr *)fw_entry->data;
+		num_images = ehdr64->e_phnum;
+	} else {
+		pr_err("Invalid arch: %d for %s\n", app_arch, appname);
+		ret = -EIO;
+		goto err;
+	}
 	release_firmware(fw_entry);
 	for (i = 0; i < num_images; i++) {
 		snprintf(fw_name, ARRAY_SIZE(fw_name), "%s.b%02d", appname, i);
@@ -2666,14 +2811,37 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	struct ion_handle *ihandle = NULL;
 	void *cmd_buf = NULL;
 	size_t cmd_len;
+	uint32_t app_arch;
 
-	if (__qseecom_get_fw_size(appname, &fw_size))
+	if (__qseecom_get_fw_size(appname, &fw_size, &app_arch))
 		return -EIO;
+
+	/* Check and load cmnlib */
+	if (qseecom.qsee_version > QSEEE_VERSION_00) {
+		if (!qseecom.commonlib_loaded && app_arch == ELFCLASS32) {
+			ret = qseecom_load_commonlib_image(data, "cmnlib");
+			if (ret) {
+				pr_err("failed to load cmnlib\n");
+				return -EIO;
+			}
+			qseecom.commonlib_loaded = true;
+			pr_debug("cmnlib is loaded\n");
+		}
+
+		if (!qseecom.commonlib64_loaded && app_arch == ELFCLASS64) {
+			ret = qseecom_load_commonlib_image(data, "cmnlib64");
+			if (ret) {
+				pr_err("failed to load cmnlib64\n");
+				return -EIO;
+			}
+			qseecom.commonlib64_loaded = true;
+			pr_debug("cmnlib64 is loaded\n");
+		}
+	}
 
 	ret = __qseecom_allocate_img_data(&ihandle, &img_data, fw_size, &pa);
 	if (ret)
 		return ret;
-
 
 	ret = __qseecom_get_fw_data(appname, img_data, &load_req);
 	if (ret) {
@@ -2764,7 +2932,8 @@ exit_free_img_data:
 	return ret;
 }
 
-static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
+static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data,
+					char *cmnlib_name)
 {
 	int ret = 0;
 	uint32_t fw_size = 0;
@@ -2775,8 +2944,19 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	ion_phys_addr_t pa = 0;
 	void *cmd_buf = NULL;
 	size_t cmd_len;
+	uint32_t app_arch;
 
-	if (__qseecom_get_fw_size("cmnlib", &fw_size))
+	if (!cmnlib_name) {
+		pr_err("cmnlib_name is NULL\n");
+		return -EINVAL;
+	}
+	if (strlen(cmnlib_name) >= MAX_APP_NAME_SIZE) {
+		pr_err("The cmnlib_name (%s) with length %zu is not valid\n",
+			cmnlib_name, strlen(cmnlib_name));
+		return -EINVAL;
+	}
+
+	if (__qseecom_get_fw_size(cmnlib_name, &fw_size, &app_arch))
 		return -EIO;
 
 	ret = __qseecom_allocate_img_data(&qseecom.cmnlib_ion_handle,
@@ -2784,7 +2964,7 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 	if (ret)
 		return -EIO;
 
-	ret = __qseecom_get_fw_data("cmnlib", img_data, &load_req);
+	ret = __qseecom_get_fw_data(cmnlib_name, img_data, &load_req);
 	if (ret) {
 		ret = -EIO;
 		goto exit_free_img_data;
@@ -2852,13 +3032,6 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data)
 		ret = -EINVAL;
 		goto exit_disable_clk_vote;
 	}
-	__qseecom_disable_clk_scale_down(data);
-	if (qseecom.support_bus_scaling) {
-		mutex_lock(&qsee_bw_mutex);
-		qseecom_unregister_bus_bandwidth_needs(data);
-		mutex_unlock(&qsee_bw_mutex);
-	}
-	return ret;
 
 exit_disable_clk_vote:
 	__qseecom_disable_clk_scale_down(data);
@@ -2905,7 +3078,6 @@ static int qseecom_unload_commonlib_image(void)
 		}
 	}
 
-	__qseecom_free_img_data(&qseecom.cmnlib_ion_handle);
 	return ret;
 }
 
@@ -2968,18 +3140,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		return -EINVAL;
 	}
 	mutex_lock(&app_access_lock);
-	if (qseecom.qsee_version > QSEEE_VERSION_00) {
-		if (qseecom.commonlib_loaded == false) {
-			ret = qseecom_load_commonlib_image(data);
-			if (ret == 0)
-				qseecom.commonlib_loaded = true;
-		}
-	}
-	if (ret) {
-		pr_err("Failed to load commonlib image\n");
-		ret = -EIO;
-		goto err;
-	}
 
 	app_ireq.qsee_cmd_id = QSEOS_APP_LOOKUP_COMMAND;
 	strlcpy(app_ireq.app_name, app_name, MAX_APP_NAME_SIZE);
@@ -4766,6 +4926,18 @@ static int __qseecom_qteec_issue_cmd(struct qseecom_dev_handle *data,
 		ireq_64bit.resp_ptr = (uint64_t)__qseecom_uvirt_to_kphys(data,
 						(uintptr_t)req->resp_ptr);
 		ireq_64bit.resp_len = req->resp_len;
+		if ((data->client.app_arch == ELFCLASS32) &&
+			((ireq_64bit.req_ptr >=
+				PHY_ADDR_4G - ireq_64bit.req_len) ||
+			(ireq_64bit.resp_ptr >=
+				PHY_ADDR_4G - ireq_64bit.resp_len))){
+			pr_err("32bit app %s (id: %d): phy_addr exceeds 4G\n",
+				data->client.app_name, data->client.app_id);
+			pr_err("req_ptr:%llx,req_len:%x,rsp_ptr:%llx,rsp_len:%x\n",
+				ireq_64bit.req_ptr, ireq_64bit.req_len,
+				ireq_64bit.resp_ptr, ireq_64bit.resp_len);
+			return -EFAULT;
+		}
 		cmd_buf = (void *)&ireq_64bit;
 		cmd_len = sizeof(struct qseecom_qteec_64bit_ireq);
 	}
@@ -5203,15 +5375,7 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		pr_debug("LOAD_APP_REQ: qseecom_addr = 0x%p\n", data);
 		mutex_lock(&app_access_lock);
 		atomic_inc(&data->ioctl_count);
-		if (qseecom.qsee_version > QSEEE_VERSION_00) {
-			if (qseecom.commonlib_loaded == false) {
-				ret = qseecom_load_commonlib_image(data);
-				if (ret == 0)
-					qseecom.commonlib_loaded = true;
-			}
-		}
-		if (ret == 0)
-			ret = qseecom_load_app(data, argp);
+		ret = qseecom_load_app(data, argp);
 		atomic_dec(&data->ioctl_count);
 		mutex_unlock(&app_access_lock);
 		if (ret)
@@ -5937,6 +6101,7 @@ static int qseecom_probe(struct platform_device *pdev)
 		goto exit_del_cdev;
 	}
 	qseecom.commonlib_loaded = false;
+	qseecom.commonlib64_loaded = false;
 	qseecom.pdev = class_dev;
 	/* Create ION msm client */
 	qseecom.ion_clnt = msm_ion_client_create("qseecom-kernel");

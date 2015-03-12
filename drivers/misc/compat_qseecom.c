@@ -51,6 +51,7 @@ static int compat_get_qseecom_load_img_req(
 	compat_ulong_t mdt_len;
 	compat_ulong_t img_len;
 	compat_long_t ifd_data_fd;
+	compat_ulong_t app_arch;
 	compat_int_t app_id;
 
 	err = get_user(mdt_len, &data32->mdt_len);
@@ -61,6 +62,8 @@ static int compat_get_qseecom_load_img_req(
 	err |= put_user(ifd_data_fd, &data->ifd_data_fd);
 	err |= copy_in_user(data->img_name, data32->img_name,
 				MAX_APP_NAME_SIZE);
+	err |= get_user(app_arch, &data32->app_arch);
+	err |= put_user(app_arch, &data->app_arch);
 	err |= get_user(app_id, &data32->app_id);
 	err |= put_user(app_id, &data->app_id);
 	return err;
