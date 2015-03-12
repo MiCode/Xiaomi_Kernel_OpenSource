@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -371,6 +371,7 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 {
 	unsigned int *cmds, bootstrap_size;
 	int i = 0;
+	int ret;
 	struct kgsl_device *device = rb->device;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int pm4_size, pm4_idx, pm4_addr, pfp_size, pfp_idx, pfp_addr;
@@ -465,7 +466,14 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 	}
 
 	/* idle device to validate bootstrap */
-	return adreno_spin_idle(device);
+	ret = adreno_spin_idle(device);
+
+	if (ret) {
+		KGSL_DRV_ERR(rb->device,
+		"microcode bootstrap failed to idle\n");
+		kgsl_device_snapshot(device, NULL);
+	}
+	return ret;
 }
 
 /**
@@ -538,7 +546,11 @@ static int _ringbuffer_start_common(struct adreno_ringbuffer *rb)
 
 	/* idle device to validate ME INIT */
 	status = adreno_spin_idle(device);
-
+	if (status) {
+		KGSL_DRV_ERR(rb->device,
+		"ringbuffer initialization failed to idle\n");
+		kgsl_device_snapshot(device, NULL);
+	}
 	return status;
 }
 
