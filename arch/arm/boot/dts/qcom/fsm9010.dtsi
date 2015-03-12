@@ -510,15 +510,18 @@
 		reg = <0xe7000000 0x10000>,
 			<0xfc800000 0x4000>,
 			<0xfc900000 0x100000>,
-			<0xfcb00000 0x100000>;
+			<0xfcb00000 0x100000>,
+			<0xfd510000 0x4000>;
 		reg-names = "qfec_mac",
 			"qfec_csr",
 			"qfec_qsgmii",
-			"qfec_rgmii_csr";
+			"qfec_rgmii_csr",
+			"tlmm_csr";
 		interrupts = <0 242 0>;
 		clocks = <&clock_rpm clk_gcc_gmac0_axi_clk>;
 		clock-names = "core_clk";
 		qcom,qsgmii-pcs-chan = <1>;
+		qcom,rgmii-capable;
 		status = "disabled";
 	};
 
