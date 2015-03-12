@@ -762,6 +762,10 @@ static int hdmi_thulium_phy_pll_set_clk_rate(struct clk *c, u32 tmds_clk)
 				     QSERDES_TX_L0_CLKBUF_ENABLE, 0x03);
 	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L3_BASE_OFFSET,
 				     QSERDES_TX_L0_CLKBUF_ENABLE, 0x03);
+	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L0_BASE_OFFSET,
+				     QSERDES_TX_L0_LANE_MODE, 0x03);
+	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L2_BASE_OFFSET,
+				     QSERDES_TX_L0_LANE_MODE, 0x03);
 
 	MDSS_PLL_REG_W(io->pll_base + HDMI_TX_L0_BASE_OFFSET,
 		     QSERDES_TX_L0_TX_BAND, cfg.tx_l0_tx_band);
