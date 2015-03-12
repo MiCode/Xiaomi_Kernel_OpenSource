@@ -203,6 +203,13 @@ struct bdb_general_features {
 #define DEVICE_PORT_DVOB	0x01
 #define DEVICE_PORT_DVOC	0x02
 
+struct usb_typec_config {
+	u8  usb_typec_dongle_enabled:1;
+	u8  rsvd:7;
+	u8  dp2x_gpio_index;
+	u16 dp2x_gpio_number;
+} __packed;
+
 /* We used to keep this struct but without any version control. We should avoid
  * using it in the future, but it should be safe to keep using it in the old
  * code. */
@@ -226,6 +233,7 @@ struct old_child_dev_config {
 	u8  dvo2_wiring;
 	u16 extended_type;
 	u8  dvo_function;
+	struct usb_typec_config usb_typec;
 } __packed;
 
 /* This one contains field offsets that are known to be common for all BDB

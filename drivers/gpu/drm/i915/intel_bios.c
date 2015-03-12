@@ -474,30 +474,25 @@ parse_sdvo_device_mapping(struct drm_i915_private *dev_priv,
 	union child_device_config *p_child;
 	int i, child_device_num, count;
 	u16	block_size;
+	size_t child_size;
 
 	p_defs = find_section(bdb, BDB_GENERAL_DEFINITIONS);
 	if (!p_defs) {
 		DRM_DEBUG_KMS("No general definition block is found, unable to construct sdvo mapping.\n");
 		return;
 	}
-	/* judge whether the size of child device meets the requirements.
-	 * If the child device size obtained from general definition block
-	 * is different with sizeof(struct child_device_config), skip the
-	 * parsing of sdvo device info
-	 */
-	if (p_defs->child_dev_size != sizeof(*p_child)) {
-		/* different child dev size . Ignore it */
-		DRM_DEBUG_KMS("different child size is found. Invalid.\n");
-		return;
-	}
+
 	/* get the block size of general definitions */
 	block_size = get_blocksize(p_defs);
 	/* get the number of child device */
 	child_device_num = (block_size - sizeof(*p_defs)) /
-				sizeof(*p_child);
+				p_defs->child_dev_size;
 	count = 0;
+
+	child_size = p_defs->child_dev_size;
 	for (i = 0; i < child_device_num; i++) {
-		p_child = &(p_defs->devices[i]);
+		p_child = (union child_device_config *)(
+				(char *)(p_defs->devices) + (child_size * i));
 		if (!p_child->old.device_type) {
 			/* skip the device block if device type is invalid */
 			continue;
@@ -1115,31 +1110,27 @@ parse_device_mapping(struct drm_i915_private *dev_priv,
 	union child_device_config *p_child, *child_dev_ptr;
 	int i, child_device_num, count;
 	u16	block_size;
+	size_t child_size, copy_bytes;
 
 	p_defs = find_section(bdb, BDB_GENERAL_DEFINITIONS);
 	if (!p_defs) {
 		DRM_DEBUG_KMS("No general definition block is found, no devices defined.\n");
 		return;
 	}
-	/* judge whether the size of child device meets the requirements.
-	 * If the child device size obtained from general definition block
-	 * is different with sizeof(struct child_device_config), skip the
-	 * parsing of sdvo device info
-	 */
-	if (p_defs->child_dev_size != sizeof(*p_child)) {
-		/* different child dev size . Ignore it */
-		DRM_DEBUG_KMS("different child size is found. Invalid.\n");
-		return;
-	}
+
 	/* get the block size of general definitions */
 	block_size = get_blocksize(p_defs);
 	/* get the number of child device */
 	child_device_num = (block_size - sizeof(*p_defs)) /
-				sizeof(*p_child);
+				p_defs->child_dev_size;
 	count = 0;
+
+	child_size = p_defs->child_dev_size;
 	/* get the number of child device that is present */
 	for (i = 0; i < child_device_num; i++) {
-		p_child = &(p_defs->devices[i]);
+		p_child = (union child_device_config *)(
+				(char *)(p_defs->devices) + (child_size * i));
+
 		if (!p_child->common.device_type) {
 			/* skip the device block if device type is invalid */
 			continue;
@@ -1150,16 +1141,25 @@ parse_device_mapping(struct drm_i915_private *dev_priv,
 		DRM_DEBUG_KMS("no child dev is parsed from VBT\n");
 		return;
 	}
+
 	dev_priv->vbt.child_dev = kcalloc(count, sizeof(*p_child), GFP_KERNEL);
+
 	if (!dev_priv->vbt.child_dev) {
 		DRM_DEBUG_KMS("No memory space for child device\n");
 		return;
 	}
 
 	dev_priv->vbt.child_dev_num = count;
+
+	copy_bytes = p_defs->child_dev_size;
+	if (copy_bytes > sizeof(union child_device_config))
+		copy_bytes = sizeof(union child_device_config);
+
 	count = 0;
 	for (i = 0; i < child_device_num; i++) {
-		p_child = &(p_defs->devices[i]);
+		p_child = (union child_device_config *)(
+				(char *)(p_defs->devices) + (child_size * i));
+
 		if (!p_child->common.device_type) {
 			/* skip the device block if device type is invalid */
 			continue;
@@ -1175,8 +1175,8 @@ parse_device_mapping(struct drm_i915_private *dev_priv,
 
 		child_dev_ptr = dev_priv->vbt.child_dev + count;
 		count++;
-		memcpy((void *)child_dev_ptr, (void *)p_child,
-					sizeof(*p_child));
+
+		memcpy((void *)child_dev_ptr, (void *)p_child, copy_bytes);
 	}
 	return;
 }
