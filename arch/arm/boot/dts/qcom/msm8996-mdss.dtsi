@@ -101,17 +101,6 @@
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk", "mmagic_mdss_axi_clk";
 
-		qcom,vbif-settings = <0x0B0 0x00101010>,
-				     <0x0B4 0x10001010>,
-				     <0x0B8 0x00101010>,
-				     <0x0BC 0x00001010>,
-				     <0x0C0 0x10000000>,
-				     <0x0C4 0x00100000>,
-				     <0x0C8 0x10000000>,
-				     <0x0CC 0x00000000>,
-				     <0x0A8 0x00003FFF>,
-				     <0x124 0x00000003>;
-
 		qcom,mdp-settings = <0x01190 0x00000000>,
 				    <0x012ac 0xc0000ccc>,
 				    <0x012b4 0xc0000ccc>,
