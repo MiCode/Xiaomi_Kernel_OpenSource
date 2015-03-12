@@ -29,6 +29,7 @@ Optional Properties:
 				power source detection (APSD). If this is set
 				charger detection is done by DCIN UV irq.
 - qcom,charging-disabled	This is a bool property which disables charging.
+- qcom,using-pmic-therm		This property indicates thermal pin connected to pmic or smb.
 - qcom,bms-psy-name		This is a string and it points to the bms
 				power supply name.
 - qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
@@ -47,13 +48,29 @@ Optional Properties:
 				property should be used with 'qcom,iterm-disabled'
 				to ensure EOC detection in charger is disabled.
 - qcom,parallel-charger		Boolean value which enables the parallel charger.
+- qcom,chg-vadc			Corresponding VADC device's phandle.
+- qcom,chg-adc_tm		phandle to the corresponding VADC device to read the ADC channels.
+- qcom,batt-cold-decidegc	Cold battery temperature in decidegC.
+- qcom,batt-hot-decidegc	Hot battery temperature in decidegC.
+- qcom,batt-missing-decidegc	This is a property indicating battery missing temperature, if
+				higher than it, battery should exist.
+- qcom,batt-warm-decidegc:	Warm battery temperature in decidegC. After hitting this threshold,
+				"qcom,warm-bat-ma" defines maximum charging current and
+				"qcom,warm-bat-mv" defines maximum target voltage.
+- qcom,batt-cool-decidegc:       Cool battery temperature in decidegC. After hitting this threshold,
+				"qcom,cool-bat-ma" defines maximum charging current and
+				"qcom,cool-bat-mv" defines maximum target voltage.
+- qcom,batt-warm-ma:		Maximum warm battery charge current in milli-amps.
+- qcom,batt-cool-ma:		Maximum cool battery charge current in milli-amps.
+- qcom,batt-warm-mv:		Maximum warm battery target voltage in milli-volts.
+- qcom,batt-cool-mv:		Maximum cool battery target voltage in milli-volts.
 
 Example for standalone charger:
 
 &i2c_4 {
-	smb1351_otg_supply: smb1351-charger@1d {
+	smb1351_otg_supply: smb1351-charger@57 {
 		compatible = "qcom,smb1351-charger";
-		reg = <0x1d>;
+		reg = <0x57>;
 		interrupt-parent = <&msm_gpio>;
 		interrupts = <62 2>;
 		pinctrl-names = "default";
@@ -63,6 +80,18 @@ Example for standalone charger:
 		qcom,recharge-mv = <100>;
 		qcom,bms-psy-name = "bms";
 		regulator-name = "smb1351_otg_vreg";
+		qcom,using-pmic-therm;
+		qcom,chg-adc_tm = <&pm8916_adc_tm>;
+		qcom,chg-vadc = <&pm8916_vadc>;
+		qcom,batt-hot-decidegc = <550>;
+		qcom,batt-cold-decidegc = <0>;
+		qcom,batt-missing-decidegc = <(-200)>;
+		qcom,batt-warm-decidegc = <500>;
+		qcom,batt-cool-decidegc = <50>;
+		qcom,batt-warm-ma = <350>;
+		qcom,batt-cool-ma = <350>;
+		qcom,batt-warm-mv = <4200>;
+		qcom,batt-cool-mv = <4200>;
 	};
 };
 
