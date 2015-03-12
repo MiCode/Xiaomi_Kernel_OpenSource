@@ -637,7 +637,7 @@ static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 	rc = of_property_read_u32((&pdev->dev)->of_node, "qcom,cci-master",
 		&msm_ois_t->cci_master);
 	CDBG("qcom,cci-master %d, rc %d\n", msm_ois_t->cci_master, rc);
-	if (rc < 0) {
+	if (rc < 0 || msm_ois_t->cci_master >= MASTER_MAX) {
 		kfree(msm_ois_t);
 		pr_err("failed rc %d\n", rc);
 		return rc;
@@ -674,7 +674,7 @@ static int32_t msm_ois_platform_probe(struct platform_device *pdev)
 
 	cci_client = msm_ois_t->i2c_client.cci_client;
 	cci_client->cci_subdev = msm_cci_get_subdev();
-	cci_client->cci_i2c_master = MASTER_MAX;
+	cci_client->cci_i2c_master = msm_ois_t->cci_master;
 	v4l2_subdev_init(&msm_ois_t->msm_sd.sd,
 		msm_ois_t->ois_v4l2_subdev_ops);
 	v4l2_set_subdevdata(&msm_ois_t->msm_sd.sd, msm_ois_t);
