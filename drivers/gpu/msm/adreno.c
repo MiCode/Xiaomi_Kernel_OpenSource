@@ -2624,7 +2624,7 @@ static unsigned int adreno_gpuid(struct kgsl_device *device,
 
 static int adreno_regulator_enable(struct kgsl_device *device)
 {
-	int ret;
+	int ret = 0;
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 	if (gpudev->regulator_enable &&
