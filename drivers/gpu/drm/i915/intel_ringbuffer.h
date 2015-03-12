@@ -216,6 +216,11 @@ struct intel_ring_hangcheck {
 	u32 last_acthd;
 	u32 last_hd;
 
+	/* Last recorded ring head index.
+	 * This is only ever a ring index where as active
+	 * head may be a graphics address in a ring buffer */
+	u32 last_head;
+
 	/* Last recorded instdone */
 	u32 prev_instdone[I915_NUM_INSTDONE_REG];
 

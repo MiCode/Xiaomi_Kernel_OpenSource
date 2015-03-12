@@ -1000,8 +1000,8 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 	}
 
 	DRM_DEBUG_TDR("head 0x%08X, last_head 0x%08X\n",
-		head, dev_priv->ring[ringid].hangcheck.last_hd);
-	if (head == dev_priv->ring[ringid].hangcheck.last_hd) {
+		head, dev_priv->ring[ringid].hangcheck.last_head);
+	if (head == dev_priv->ring[ringid].hangcheck.last_head) {
 		/*
 		 * The ring has not advanced since the last
 		 * time it hung so force it to advance to the
@@ -1019,7 +1019,7 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 		ring_flags = FORCE_ADVANCE;
 		DRM_DEBUG_TDR("Force ring head to advance\n");
 	}
-	dev_priv->ring[ringid].hangcheck.last_hd = head;
+	dev_priv->ring[ringid].hangcheck.last_head = head;
 
 	ret = intel_ring_save(ring, current_context, ring_flags);
 	if (ret == -EAGAIN) {
