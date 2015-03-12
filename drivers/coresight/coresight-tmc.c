@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -101,7 +101,8 @@ do {									\
 #define TMC_REG_DUMP_VER_OFF		(4)
 #define TMC_REG_DUMP_VER		(1)
 
-#define TMC_ETR_SG_ENT_TO_BLK(phys_pte)	((phys_pte >> 4) << PAGE_SHIFT);
+#define TMC_ETR_SG_ENT_TO_BLK(phys_pte)	(((phys_addr_t)phys_pte >> 4)	\
+					 << PAGE_SHIFT);
 #define TMC_ETR_SG_ENT(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x2);
 #define TMC_ETR_SG_NXT_TBL(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x3);
 #define TMC_ETR_SG_LST_ENT(phys_pte)	(((phys_pte >> PAGE_SHIFT) << 4) | 0x1);
