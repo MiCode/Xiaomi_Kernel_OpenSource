@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,28 +19,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(ufshcd_clk_gating,
-
-	TP_PROTO(const char *dev_name, const char *state),
-
-	TP_ARGS(dev_name, state),
-
-	TP_STRUCT__entry(
-		__string(dev_name, dev_name)
-		__string(state, state)
-	),
-
-	TP_fast_assign(
-		__assign_str(dev_name, dev_name);
-		__assign_str(state, state);
-	),
-
-	TP_printk("%s: gating state changed to %s",
-		__get_str(dev_name), __get_str(state))
-);
-
-TRACE_EVENT(ufshcd_hibern8_on_idle,
-
+DECLARE_EVENT_CLASS(ufshcd_state_change_template,
 	TP_PROTO(const char *dev_name, const char *state),
 
 	TP_ARGS(dev_name, state),
@@ -58,6 +37,16 @@ TRACE_EVENT(ufshcd_hibern8_on_idle,
 	TP_printk("%s: state changed to %s",
 		__get_str(dev_name), __get_str(state))
 );
+
+DEFINE_EVENT(ufshcd_state_change_template, ufshcd_clk_gating,
+	TP_PROTO(const char *dev_name, const char *state),
+	TP_ARGS(dev_name, state));
+DEFINE_EVENT(ufshcd_state_change_template, ufshcd_hibern8_on_idle,
+	TP_PROTO(const char *dev_name, const char *state),
+	TP_ARGS(dev_name, state));
+DEFINE_EVENT(ufshcd_state_change_template, ufshcd_auto_bkops_state,
+	TP_PROTO(const char *dev_name, const char *state),
+	TP_ARGS(dev_name, state));
 
 TRACE_EVENT(ufshcd_clk_scaling,
 
@@ -85,26 +74,6 @@ TRACE_EVENT(ufshcd_clk_scaling,
 	TP_printk("%s: %s %s from %u to %u Hz",
 		__get_str(dev_name), __get_str(state), __get_str(clk),
 		__entry->prev_state, __entry->curr_state)
-);
-
-TRACE_EVENT(ufshcd_auto_bkops_state,
-
-	TP_PROTO(const char *dev_name, const char *state),
-
-	TP_ARGS(dev_name, state),
-
-	TP_STRUCT__entry(
-		__string(dev_name, dev_name)
-		__string(state, state)
-	),
-
-	TP_fast_assign(
-		__assign_str(dev_name, dev_name);
-		__assign_str(state, state);
-	),
-
-	TP_printk("%s: auto bkops - %s",
-		__get_str(dev_name), __get_str(state))
 );
 
 DECLARE_EVENT_CLASS(ufshcd_profiling_template,
