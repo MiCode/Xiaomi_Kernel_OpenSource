@@ -170,24 +170,20 @@ static void fault_detect_read(struct kgsl_device *device)
 static inline bool _isidle(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int ts, i;
+	unsigned int i;
+	unsigned int reg_rbbm_status;
 
 	if (!kgsl_state_is_awake(device))
 		goto ret;
 
-	/* If GPU HW status is not idle then return false */
-	if (!adreno_hw_isidle(adreno_dev))
-		return false;
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
+			&reg_rbbm_status);
 
 	/*
-	 * only compare the current RB timestamp because the device has gone
-	 * idle and therefore only the current RB ts can be equal, the other
-	 * RB's may not be scheduled by dispatcher yet
+	 * Check if gpu is busy by checking bits in RBBM_STATUS register
+	 * which indicate gpu activity
 	 */
-	if (adreno_rb_readtimestamp(device,
-		adreno_dev->cur_rb, KGSL_TIMESTAMP_RETIRED, &ts))
-		return false;
-	if (ts != adreno_dev->cur_rb->timestamp)
+	if (reg_rbbm_status & ADRENO_RBBM_STATUS_BUSY_MASK)
 		return false;
 ret:
 	for (i = 0; i < adreno_ft_regs_num; i++)
