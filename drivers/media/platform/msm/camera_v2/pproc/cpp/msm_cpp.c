@@ -1743,10 +1743,6 @@ static int msm_cpp_send_frame_to_hardware(struct cpp_device *cpp_dev,
 			flags);
 		if (queue_len == 1) {
 			atomic_set(&cpp_timer.used, 1);
-			/* install timer for cpp timeout */
-			CPP_DBG("Installing cpp_timer\n");
-			setup_timer(&cpp_timer.cpp_timer,
-				cpp_timer_callback, (unsigned long)&cpp_timer);
 		}
 		CPP_DBG("Starting timer to fire in %d ms. (jiffies=%lu)\n",
 			CPP_CMD_TIMEOUT_MS, jiffies);
@@ -3399,6 +3395,10 @@ static int cpp_probe(struct platform_device *pdev)
 	cpp_dev->iommu_state = CPP_IOMMU_STATE_DETACHED;
 	cpp_timer.data.cpp_dev = cpp_dev;
 	atomic_set(&cpp_timer.used, 0);
+	/* install timer for cpp timeout */
+	CPP_DBG("Installing cpp_timer\n");
+	setup_timer(&cpp_timer.cpp_timer,
+		cpp_timer_callback, (unsigned long)&cpp_timer);
 	cpp_dev->fw_name_bin = NULL;
 	if (rc == 0)
 		CPP_DBG("SUCCESS.");
