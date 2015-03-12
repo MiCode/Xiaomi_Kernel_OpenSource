@@ -28,6 +28,11 @@
 	qcom,pins = <&gp 78>;
 };
 
+&pmx_mdss_te {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 10>;
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video_0>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
@@ -35,6 +40,7 @@
 	pinctrl-1 = <&mdss_dsi_suspend>;
 	qcom,dsi-panel-bias-vreg;
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
+	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
 	qcom,platform-enable-gpio = <&pm8994_gpios 14 0>;
 };
 
@@ -68,13 +74,10 @@
 };
 
 &dsi_sharp_1080_cmd {
-	pwms = <&pmi8994_pwm_4 0 0>;
-	pwm-names = "backlight";
-	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
-	qcom,mdss-dsi-bl-pwm-pmi;
-	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,cont-splash-enabled;
 };
 
 &labibb {
