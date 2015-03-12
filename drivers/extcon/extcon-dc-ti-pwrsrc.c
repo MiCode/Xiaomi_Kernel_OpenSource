@@ -57,6 +57,7 @@ struct dc_pwrsrc_info {
 	int irq;
 	struct delayed_work dc_pwrsrc_wrk;
 	int usb_host;
+	struct mutex lock;
 };
 
 static char *pwr_up_down_info[] = {
@@ -157,12 +158,22 @@ static int pwrsrc_extcon_registration(struct dc_pwrsrc_info *info)
 	return ret;
 }
 
+static bool is_usb_host_mode(struct extcon_dev *evdev)
+{
+	return !!evdev->state;
+}
+
 static void extcon_event_worker(struct work_struct *work)
 {
 	struct dc_pwrsrc_info *info =
 		container_of(to_delayed_work(work),
 			struct dc_pwrsrc_info, dc_pwrsrc_wrk);
 	int ret;
+
+	mutex_lock(&info->lock);
+
+	if (info->cable_obj.edev)
+		info->usb_host = is_usb_host_mode(info->cable_obj.edev);
 
 	if (info->usb_host) {
 		ret = bq24192_vbus_enable();
@@ -185,12 +196,9 @@ static void extcon_event_worker(struct work_struct *work)
 		dev_warn(&info->pdev->dev,
 			"Err in switch USB enable %d", ret);
 
-	return;
-}
+	mutex_unlock(&info->lock);
 
-static bool is_usb_host_mode(struct extcon_dev *evdev)
-{
-	return !!evdev->state;
+	return;
 }
 
 static int dc_ti_pwrsrc_handle_extcon_event(struct notifier_block *nb,
@@ -199,9 +207,7 @@ static int dc_ti_pwrsrc_handle_extcon_event(struct notifier_block *nb,
 
 	struct dc_pwrsrc_info *info =
 	    container_of(nb, struct dc_pwrsrc_info, extcon_nb);
-	struct extcon_dev *edev = param;
 
-	info->usb_host = is_usb_host_mode(edev);
 	schedule_delayed_work(&info->dc_pwrsrc_wrk, 0);
 
 	return NOTIFY_OK;
@@ -236,6 +242,8 @@ static int dc_ti_pwrsrc_probe(struct platform_device *pdev)
 		goto intr_reg_failed;
 	}
 
+	mutex_init(&info->lock);
+
 	info->extcon_nb.notifier_call = dc_ti_pwrsrc_handle_extcon_event;
 	ret = extcon_register_interest(&info->cable_obj, NULL,
 				"USB-Host", &info->extcon_nb);
@@ -247,7 +255,8 @@ static int dc_ti_pwrsrc_probe(struct platform_device *pdev)
 	handle_pwrsrc_event(info);
 	/* Unmask VBUS interrupt */
 	intel_soc_pmic_clearb(DC_PS_IRQ_MASK_REG, IRQ_MASK_VBUS);
-
+	/* Handle Host OTG device connections */
+	extcon_event_worker(&info->dc_pwrsrc_wrk.work);
 	return 0;
 
 intr_reg_failed:
@@ -262,6 +271,7 @@ static int dc_ti_pwrsrc_remove(struct platform_device *pdev)
 
 	free_irq(info->irq, info);
 	extcon_dev_unregister(info->edev);
+	mutex_destroy(&info->lock);
 	kfree(info->edev);
 	return 0;
 }

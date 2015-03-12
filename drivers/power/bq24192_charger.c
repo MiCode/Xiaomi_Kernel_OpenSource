@@ -2098,7 +2098,7 @@ static int bq24192_probe(struct i2c_client *client,
 	struct bq24192_chip *chip;
 	struct device *dev;
 	struct gpio_desc *gpio;
-	int ret, reg_status;
+	int ret;
 
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE_DATA)) {
@@ -2295,16 +2295,20 @@ static int bq24192_probe(struct i2c_client *client,
 	}
 
 	if (chip->chip_type == BQ24297) {
-		/* For BQ24297, check the initial cable status */
-		reg_status = bq24192_read_reg(chip->client,
-				BQ24192_SYSTEM_STAT_REG);
-		if (reg_status < 0)
-			dev_err(&chip->client->dev,
-					"STATUS register read failed\n");
-		ret = check_cable_status(chip, reg_status);
+		/*
+		 * For BQ24297, check the initial cable status.
+		 * During Probe, a charger cable might have been
+		 * connected prior to the power on of the device.
+		 * Hence deliberately trigger a DPDM detection
+		 * during probe so that the BQ charger will detect the
+		 * charger cable connected before hand and will trigger
+		 * an interrupt accordingly.
+		 */
+		ret = bq24192_reg_read_modify(chip->client,
+			BQ24192_MISC_OP_CNTL_REG, MISC_OP_CNTL_DPDM_EN, true);
 		if (ret < 0)
-			dev_err(&chip->client->dev,
-				"Failed to check cable status during probe\n");
+			dev_warn(&chip->client->dev,
+				"Failed to trigger DPDM detection during probe\n");
 	}
 
 	return 0;
