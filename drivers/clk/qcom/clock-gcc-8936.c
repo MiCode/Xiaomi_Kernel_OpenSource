@@ -1330,7 +1330,7 @@ static struct rcg_clk byte0_clk_src = {
 	.c = {
 		.dbg_name = "byte0_clk_src",
 		.ops = &clk_ops_byte,
-		VDD_DIG_FMAX_MAP2(LOW, 112500000, NOMINAL, 187500000),
+		VDD_DIG_FMAX_MAP2(LOW, 112000000, NOMINAL, 188000000),
 		CLK_INIT(byte0_clk_src.c),
 	},
 };
@@ -1349,7 +1349,7 @@ static struct rcg_clk byte1_clk_src = {
 	.c = {
 		.dbg_name = "byte1_clk_src",
 		.ops = &clk_ops_byte,
-		VDD_DIG_FMAX_MAP2(LOW, 112500000, NOMINAL, 187500000),
+		VDD_DIG_FMAX_MAP2(LOW, 112000000, NOMINAL, 188000000),
 		CLK_INIT(byte1_clk_src.c),
 	},
 };
@@ -1432,7 +1432,7 @@ static struct rcg_clk pclk0_clk_src = {
 	.c = {
 		.dbg_name = "pclk0_clk_src",
 		.ops = &clk_ops_pixel,
-		VDD_DIG_FMAX_MAP2(LOW, 150000000, NOMINAL, 250000000),
+		VDD_DIG_FMAX_MAP2(LOW, 149000000, NOMINAL, 250000000),
 		CLK_INIT(pclk0_clk_src.c),
 	},
 };
@@ -1451,7 +1451,7 @@ static struct rcg_clk pclk1_clk_src = {
 	.c = {
 		.dbg_name = "pclk1_clk_src",
 		.ops = &clk_ops_pixel,
-		VDD_DIG_FMAX_MAP2(LOW, 150000000, NOMINAL, 250000000),
+		VDD_DIG_FMAX_MAP2(LOW, 149000000, NOMINAL, 250000000),
 		CLK_INIT(pclk1_clk_src.c),
 	},
 };
