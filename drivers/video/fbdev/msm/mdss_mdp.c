@@ -59,7 +59,9 @@
 
 #define AXI_HALT_TIMEOUT_US	0x4000
 #define AUTOSUSPEND_TIMEOUT_MS	200
-#define DEFAULT_MDP_PIPE_WIDTH 2048
+#define DEFAULT_MDP_PIPE_WIDTH	2048
+#define RES_1080p		(1080*1920)
+#define RES_UHD			(3840*2160)
 
 struct mdss_data_type *mdss_res;
 
@@ -3187,9 +3189,9 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 
 	if ((params->is_rot && params->is_yuv) ||
 		params->is_wb) {
-		if (res <= 1080 * 1920) {
+		if (res <= RES_1080p) {
 			*ot_lim = 2;
-		} else if (res <= 3840 * 2160) {
+		} else if (res <= RES_UHD) {
 			if (params->is_rot && params->is_yuv)
 				*ot_lim = 8;
 			else
@@ -3222,7 +3224,7 @@ static u32 get_ot_limit(u32 reg_off, u32 bit_off,
 	/* Modify the limits if the target and the use case requires it */
 	apply_dynamic_ot_limit(&ot_lim, params);
 
-	is_vbif_nrt = mdss_mdp_is_vbif_nrt(mdata->mdp_rev);
+	is_vbif_nrt = params->is_vbif_nrt;
 	val = MDSS_VBIF_READ(mdata, reg_off, is_vbif_nrt);
 	val &= (0xFF << bit_off);
 	val = val >> bit_off;
@@ -3242,7 +3244,7 @@ void mdss_mdp_set_ot_limit(struct mdss_mdp_set_ot_params *params)
 	u32 reg_off_vbif_lim_conf = (params->xin_id / 4) * 4 +
 		params->reg_off_vbif_lim_conf;
 	u32 bit_off_vbif_lim_conf = (params->xin_id % 4) * 8;
-	bool is_vbif_nrt = mdss_mdp_is_vbif_nrt(mdata->mdp_rev);
+	bool is_vbif_nrt = params->is_vbif_nrt;
 	u32 reg_val;
 	bool forced_on;
 

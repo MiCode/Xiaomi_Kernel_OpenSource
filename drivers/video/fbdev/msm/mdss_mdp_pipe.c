@@ -1878,6 +1878,13 @@ static void mdss_mdp_set_ot_limit_pipe(struct mdss_mdp_pipe *pipe)
 	ot_params.is_wb = ctl->intf_num == MDSS_MDP_NO_INTF;
 	ot_params.is_yuv = pipe->src_fmt->is_yuv;
 
+	/* rotator read uses nrt vbif */
+	if (mdss_mdp_is_nrt_vbif_base_defined(ctl->mdata) &&
+			pipe->mixer_left->rotator_mode)
+		ot_params.is_vbif_nrt = true;
+	else
+		ot_params.is_vbif_nrt = false;
+
 	mdss_mdp_set_ot_limit(&ot_params);
 }
 

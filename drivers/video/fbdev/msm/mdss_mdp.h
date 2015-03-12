@@ -609,6 +609,7 @@ struct mdss_mdp_set_ot_params {
 	bool is_rot;
 	bool is_wb;
 	bool is_yuv;
+	bool is_vbif_nrt;
 	u32 reg_off_vbif_lim_conf;
 	u32 reg_off_mdp_clk_ctrl;
 	u32 bit_off_mdp_clk_ctrl;
@@ -716,12 +717,6 @@ static inline int mdss_mdp_pipe_is_sw_reset_available(
 	default:
 		return false;
 	}
-}
-
-static inline bool mdss_mdp_is_vbif_nrt(u32 mdp_rev)
-{
-	return IS_MDSS_MAJOR_MINOR_SAME(mdp_rev,
-		MDSS_MDP_HW_REV_107);
 }
 
 static inline bool is_dynamic_ot_limit_required(u32 mdp_rev)

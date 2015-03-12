@@ -37,7 +37,6 @@ struct mdss_mdp_writeback_ctx {
 	char __iomem *base;
 	u8 ref_cnt;
 	u8 type;
-	bool is_vbif_nrt;
 	struct completion wb_comp;
 	int comp_cnt;
 
@@ -697,6 +696,7 @@ static int mdss_mdp_wb_wait4comp(struct mdss_mdp_ctl *ctl, void *arg)
 static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx)
 {
 	struct mdss_mdp_set_ot_params ot_params;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
 	ot_params.xin_id = ctx->xin_id;
 	ot_params.num = ctx->wb_num;
@@ -706,9 +706,9 @@ static void mdss_mdp_set_ot_limit_wb(struct mdss_mdp_writeback_ctx *ctx)
 	ot_params.reg_off_mdp_clk_ctrl = ctx->clk_ctrl.reg_off;
 	ot_params.bit_off_mdp_clk_ctrl = ctx->clk_ctrl.bit_off;
 	ot_params.is_rot = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_ROTATOR);
-	ot_params.is_wb = (ctx->type == MDSS_MDP_WRITEBACK_TYPE_WFD) ||
-		(ctx->type == MDSS_MDP_WRITEBACK_TYPE_LINE);
+	ot_params.is_wb = true;
 	ot_params.is_yuv = ctx->dst_fmt->is_yuv;
+	ot_params.is_vbif_nrt = mdss_mdp_is_nrt_vbif_base_defined(mdata);
 
 	mdss_mdp_set_ot_limit(&ot_params);
 
@@ -848,8 +848,6 @@ int mdss_mdp_writeback_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.wait_fnc = mdss_mdp_wb_wait4comp;
 	ctl->ops.add_vsync_handler = mdss_mdp_wb_add_vsync_handler;
 	ctl->ops.remove_vsync_handler = mdss_mdp_wb_remove_vsync_handler;
-
-	ctx->is_vbif_nrt = mdss_mdp_is_vbif_nrt(ctl->mdata->mdp_rev);
 
 	return 0;
 }
