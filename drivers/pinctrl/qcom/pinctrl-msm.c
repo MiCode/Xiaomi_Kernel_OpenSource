@@ -28,7 +28,7 @@
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
 #include <linux/reboot.h>
-
+#include <linux/irqchip/msm-mpm-irq.h>
 #include "../core.h"
 #include "../pinconf.h"
 #include "pinctrl-msm.h"
@@ -875,6 +875,7 @@ static int msm_gpio_init(struct msm_pinctrl *pctrl)
 
 	gpiochip_set_chained_irqchip(chip, &msm_gpio_irq_chip, pctrl->irq,
 				     msm_gpio_irq_handler);
+	of_mpm_init();
 
 	return 0;
 }

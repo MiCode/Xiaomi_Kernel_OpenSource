@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -121,7 +121,7 @@ void msm_mpm_exit_sleep(bool from_idle);
  * system is in a low power mode. The initialization function constructs the MPM
  * mapping between the IRQs and the MPM pin based on data in the device tree.
  */
-void __init of_mpm_init(void);
+void of_mpm_init(void);
 #else
 static inline int msm_mpm_enable_irq(unsigned int irq, unsigned int enable)
 { return -ENODEV; }
@@ -143,7 +143,7 @@ static inline bool msm_mpm_gpio_irqs_detectable(bool from_idle)
 static inline void msm_mpm_enter_sleep(uint32_t sclk_count, bool from_idle,
 		const struct cpumask *cpumask) {}
 static inline void msm_mpm_exit_sleep(bool from_idle) {}
-static inline void __init of_mpm_init(void) {}
+static inline void of_mpm_init(void) {}
 #endif
 #ifdef CONFIG_MSM_MPM_OF
 /** msm_mpm_suspend_prepare() - Called at prepare_late() op during suspend

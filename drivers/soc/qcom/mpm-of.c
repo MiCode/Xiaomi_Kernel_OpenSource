@@ -78,6 +78,7 @@ static unsigned int *msm_mpm_irqs_m2a;
 
 #define MSM_MPM_IRQ_INDEX(irq)  (irq / 32)
 #define MSM_MPM_IRQ_MASK(irq)  BIT(irq % 32)
+#define MSM_MPM_IRQ_DOMAIN_MASK(domain) BIT(domain)
 
 #define hashfn(val) (val % num_mpm_irqs)
 #define SCLK_HZ (32768)
@@ -141,16 +142,18 @@ module_param_named(
 );
 
 enum mpm_state {
-	MSM_MPM_IRQ_MAPPING_DONE = BIT(0),
-	MSM_MPM_DEVICE_PROBED = BIT(1),
+	MSM_MPM_GIC_IRQ_MAPPING_DONE = BIT(0),
+	MSM_MPM_GPIO_IRQ_MAPPING_DONE = BIT(1),
+	MSM_MPM_DEVICE_PROBED = BIT(2),
 };
 
 static enum mpm_state msm_mpm_initialized;
+static int mpm_init_irq_domain(struct device_node *node, int irq_domain);
 
 static inline bool msm_mpm_is_initialized(void)
 {
 	return msm_mpm_initialized &
-		(MSM_MPM_IRQ_MAPPING_DONE | MSM_MPM_DEVICE_PROBED);
+		(MSM_MPM_GIC_IRQ_MAPPING_DONE | MSM_MPM_DEVICE_PROBED);
 
 }
 
@@ -810,16 +813,145 @@ static const struct mpm_of mpm_of_map[MSM_MPM_NR_IRQ_DOMAINS] = {
 	},
 };
 
-static void __init __of_mpm_init(struct device_node *node)
+static void freeup_memory(void)
 {
-	const __be32 *list;
 	int i;
 
-	if (msm_mpm_initialized & MSM_MPM_IRQ_MAPPING_DONE) {
+	for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
+		if (mpm_of_map[i].chip) {
+			mpm_of_map[i].chip->irq_mask = NULL;
+			mpm_of_map[i].chip->irq_unmask = NULL;
+			mpm_of_map[i].chip->irq_disable = NULL;
+			mpm_of_map[i].chip->irq_set_type = NULL;
+			mpm_of_map[i].chip->irq_set_wake = NULL;
+		}
+		kfree(unlisted_irqs[i].enabled_irqs);
+		kfree(unlisted_irqs[i].wakeup_irqs);
+	}
+
+	kfree(irq_hash);
+	kfree(msm_mpm_irqs_m2a);
+	kfree(msm_mpm_enabled_irq);
+	kfree(msm_mpm_wake_irq);
+	kfree(msm_mpm_falling_edge);
+	kfree(msm_mpm_rising_edge);
+	kfree(msm_mpm_polarity);
+}
+
+static int mpm_init_irq_domain(struct device_node *node, int irq_domain)
+{
+	int i = irq_domain;
+	struct device_node *parent = NULL;
+	struct mpm_irqs_a2m *mpm_node = NULL;
+	struct irq_domain *domain = NULL;
+	int size;
+	const __be32 *list;
+
+	/* Check if mapping is already done for this irq domain */
+	if (msm_mpm_initialized & MSM_MPM_IRQ_DOMAIN_MASK(irq_domain))
+		return 0;
+
+	parent = of_parse_phandle(node, mpm_of_map[i].pkey, 0);
+
+	if (!parent) {
+		pr_warn("%s(): %s Not found\n", __func__,
+				mpm_of_map[i].pkey);
+		return -ENODEV;
+	}
+
+	domain = irq_find_host(parent);
+
+	if (!domain) {
+		pr_warn("%s(): Cannot find irq controller for %s\n",
+				__func__, mpm_of_map[i].pkey);
+		return -EPROBE_DEFER;
+	}
+
+	size = mpm_of_map[i].get_max_irqs(domain);
+	unlisted_irqs[i].size = size;
+	memcpy(unlisted_irqs[i].domain_name, mpm_of_map[i].name,
+			MAX_DOMAIN_NAME);
+
+	unlisted_irqs[i].enabled_irqs =
+		kzalloc(BITS_TO_LONGS(size) * sizeof(unsigned long),
+				GFP_KERNEL);
+
+	if (!unlisted_irqs[i].enabled_irqs)
+		goto failed_malloc;
+
+	unlisted_irqs[i].wakeup_irqs =
+		kzalloc(BITS_TO_LONGS(size) * sizeof(unsigned long),
+				GFP_KERNEL);
+
+	if (!unlisted_irqs[i].wakeup_irqs)
+		goto failed_malloc;
+
+	unlisted_irqs[i].domain = domain;
+
+	list = of_get_property(node, mpm_of_map[i].map, &size);
+
+	if (!list || !size) {
+		__WARN();
+		return -ENODEV;
+	}
+
+	/*
+	 * Size is in bytes. Convert to size of uint32_t
+	 */
+	size /= sizeof(*list);
+
+	/*
+	 * The data is represented by a tuple mapping hwirq to a MPM
+	 * pin. The number of mappings in the device tree would be
+	 * size/2
+	 */
+	mpm_node = kzalloc(sizeof(struct mpm_irqs_a2m) * size / 2,
+			GFP_KERNEL);
+	if (!mpm_node)
+		goto failed_malloc;
+
+	while (size) {
+		unsigned long pin = be32_to_cpup(list++);
+		irq_hw_number_t hwirq = be32_to_cpup(list++);
+
+		mpm_node->pin = pin;
+		mpm_node->hwirq = hwirq;
+		mpm_node->parent = parent;
+		mpm_node->domain = domain;
+		INIT_HLIST_NODE(&mpm_node->node);
+
+		hlist_add_head(&mpm_node->node,
+				&irq_hash[hashfn(mpm_node->hwirq)]);
+		size -= 2;
+		mpm_node++;
+	}
+
+	if (mpm_of_map[i].chip) {
+		mpm_of_map[i].chip->irq_mask = msm_mpm_disable_irq;
+		mpm_of_map[i].chip->irq_unmask = msm_mpm_enable_irq;
+		mpm_of_map[i].chip->irq_disable = msm_mpm_disable_irq;
+		mpm_of_map[i].chip->irq_set_type = msm_mpm_set_irq_type;
+		mpm_of_map[i].chip->irq_set_wake = msm_mpm_set_irq_wake;
+	}
+
+	msm_mpm_initialized |= MSM_MPM_IRQ_DOMAIN_MASK(irq_domain);
+
+	return 0;
+failed_malloc:
+
+	freeup_memory();
+	return -ENODEV;
+}
+
+static void __of_mpm_init(struct device_node *node)
+{
+	int i;
+
+	if (msm_mpm_initialized & (MSM_MPM_GIC_IRQ_MAPPING_DONE |
+				MSM_MPM_GPIO_IRQ_MAPPING_DONE)) {
 		pr_warn("%s(): MPM driver mapping exists\n", __func__);
 		return;
 	}
-
 
 	/*
 	 * Assumes a default value of 64 MPM interrupts if the DT property
@@ -865,122 +997,12 @@ static void __init __of_mpm_init(struct device_node *node)
 	for (i = 0; i < num_mpm_irqs; i++)
 		INIT_HLIST_HEAD(&irq_hash[i]);
 
-	for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
-		struct device_node *parent = NULL;
-		struct mpm_irqs_a2m *mpm_node = NULL;
-		struct irq_domain *domain = NULL;
-		int size;
-
-		parent = of_parse_phandle(node, mpm_of_map[i].pkey, 0);
-
-		if (!parent) {
-			pr_warn("%s(): %s Not found\n", __func__,
-					mpm_of_map[i].pkey);
-			continue;
-		}
-
-		domain = irq_find_host(parent);
-
-		if (!domain) {
-			pr_warn("%s(): Cannot find irq controller for %s\n",
-					__func__, mpm_of_map[i].pkey);
-			continue;
-		}
-
-		size = mpm_of_map[i].get_max_irqs(domain);
-		unlisted_irqs[i].size = size;
-		memcpy(unlisted_irqs[i].domain_name, mpm_of_map[i].name,
-				MAX_DOMAIN_NAME);
-
-		unlisted_irqs[i].enabled_irqs =
-			kzalloc(BITS_TO_LONGS(size) * sizeof(unsigned long),
-					GFP_KERNEL);
-
-		if (!unlisted_irqs[i].enabled_irqs)
-			goto failed_malloc;
-
-		unlisted_irqs[i].wakeup_irqs =
-			kzalloc(BITS_TO_LONGS(size) * sizeof(unsigned long),
-					GFP_KERNEL);
-
-		if (!unlisted_irqs[i].wakeup_irqs)
-			goto failed_malloc;
-
-		unlisted_irqs[i].domain = domain;
-
-		list = of_get_property(node, mpm_of_map[i].map, &size);
-
-		if (!list || !size) {
-			__WARN();
-			continue;
-		}
-
-		/*
-		 * Size is in bytes. Convert to size of uint32_t
-		 */
-		size /= sizeof(*list);
-
-		/*
-		 * The data is represented by a tuple mapping hwirq to a MPM
-		 * pin. The number of mappings in the device tree would be
-		 * size/2
-		 */
-		mpm_node = kzalloc(sizeof(struct mpm_irqs_a2m) * size / 2,
-				GFP_KERNEL);
-		if (!mpm_node)
-			goto failed_malloc;
-
-		while (size) {
-			unsigned long pin = be32_to_cpup(list++);
-			irq_hw_number_t hwirq = be32_to_cpup(list++);
-
-			mpm_node->pin = pin;
-			mpm_node->hwirq = hwirq;
-			mpm_node->parent = parent;
-			mpm_node->domain = domain;
-			INIT_HLIST_NODE(&mpm_node->node);
-
-			hlist_add_head(&mpm_node->node,
-					&irq_hash[hashfn(mpm_node->hwirq)]);
-			size -= 2;
-			mpm_node++;
-		}
-
-		if (mpm_of_map[i].chip) {
-			mpm_of_map[i].chip->irq_mask = msm_mpm_disable_irq;
-			mpm_of_map[i].chip->irq_unmask = msm_mpm_enable_irq;
-			mpm_of_map[i].chip->irq_disable = msm_mpm_disable_irq;
-			mpm_of_map[i].chip->irq_set_type = msm_mpm_set_irq_type;
-			mpm_of_map[i].chip->irq_set_wake = msm_mpm_set_irq_wake;
-		}
-
-	}
-	msm_mpm_initialized |= MSM_MPM_IRQ_MAPPING_DONE;
-
 	return;
-
 failed_malloc:
-	kfree(irq_hash);
-	kfree(msm_mpm_irqs_m2a);
-	kfree(msm_mpm_enabled_irq);
-	kfree(msm_mpm_wake_irq);
-	kfree(msm_mpm_falling_edge);
-	kfree(msm_mpm_rising_edge);
-	kfree(msm_mpm_polarity);
-	for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
-		if (mpm_of_map[i].chip) {
-			mpm_of_map[i].chip->irq_mask = NULL;
-			mpm_of_map[i].chip->irq_unmask = NULL;
-			mpm_of_map[i].chip->irq_disable = NULL;
-			mpm_of_map[i].chip->irq_set_type = NULL;
-			mpm_of_map[i].chip->irq_set_wake = NULL;
-		}
-
-		kfree(unlisted_irqs[i].enabled_irqs);
-		kfree(unlisted_irqs[i].wakeup_irqs);
-
-	}
+	freeup_memory();
 }
+
+
 
 static struct of_device_id msm_mpm_match_table[] = {
 	{.compatible = "qcom,mpm-v2"},
@@ -1002,12 +1024,21 @@ int __init msm_mpm_device_init(void)
 }
 arch_initcall(msm_mpm_device_init);
 
-void __init of_mpm_init(void)
+void of_mpm_init(void)
 {
 	struct device_node *node;
+	int i;
+	int ret;
 
 	node = of_find_matching_node(NULL, msm_mpm_match_table);
 	WARN_ON(!node);
-	if (node)
+	if (node) {
 		__of_mpm_init(node);
+		for (i = 0; i < MSM_MPM_NR_IRQ_DOMAINS; i++) {
+			ret = mpm_init_irq_domain(node, i);
+			if (ret)
+				pr_err("MPM %d irq mapping errored %d\n", i,
+						ret);
+		}
+	}
 }
