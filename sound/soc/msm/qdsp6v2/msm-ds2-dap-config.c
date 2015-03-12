@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
 * only version 2 as published by the Free Software Foundation.
@@ -1948,7 +1948,7 @@ int msm_ds2_dap_init(int port_id, int copp_idx, int channels,
 			goto end;
 		}
 		pr_debug("%s:index %d, dev[0x%x,0x%x]\n", __func__, idx,
-			 dev_map[i].device_id, ds2_dap_params_states.device);
+			 dev_map[idx].device_id, ds2_dap_params_states.device);
 		dev_map[idx].active = true;
 		dev_map[idx].copp_idx = copp_idx;
 		dolby_data.param_id = DOLBY_COMMIT_ALL_TO_DSP;
