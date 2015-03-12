@@ -92,6 +92,7 @@ struct compat_qseecom_load_img_req {
 	compat_ulong_t img_len; /* in */
 	compat_long_t  ifd_data_fd; /* in */
 	char	 img_name[MAX_APP_NAME_SIZE]; /* in */
+	compat_ulong_t app_arch; /* in */
 	compat_int_t app_id; /* out*/
 };
 
