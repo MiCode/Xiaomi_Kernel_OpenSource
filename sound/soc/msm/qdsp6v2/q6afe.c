@@ -15,6 +15,7 @@
 #include <linux/kthread.h>
 #include <linux/uaccess.h>
 #include <linux/wait.h>
+#include <linux/wakelock.h>
 #include <linux/jiffies.h>
 #include <linux/sched.h>
 #include <linux/msm_audio_ion.h>
@@ -25,6 +26,7 @@
 #include "msm-pcm-routing-v2.h"
 #include <sound/audio_cal_utils.h>
 
+#define WAKELOCK_TIMEOUT	5000
 enum {
 	AFE_COMMON_RX_CAL = 0,
 	AFE_COMMON_TX_CAL,
@@ -65,6 +67,12 @@ enum {
 	QUICK_CALIB_DISABLE,
 	QUICK_CALIB_ENABLE
 };
+
+struct wlock {
+	struct wakeup_source ws;
+};
+
+static struct wlock wl;
 
 struct afe_ctl {
 	void *apr;
@@ -4597,6 +4605,8 @@ static int afe_set_cal_fb_spkr_prot(int32_t cal_type, size_t data_size,
 	if (data_size != sizeof(*cal_data))
 		goto done;
 
+	if (this_afe.prot_cfg.mode == MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS)
+		__pm_wakeup_event(&wl.ws, jiffies_to_msecs(WAKELOCK_TIMEOUT));
 	mutex_lock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
 	memcpy(&this_afe.prot_cfg, &cal_data->cal_info,
 		sizeof(this_afe.prot_cfg));
@@ -4661,6 +4671,7 @@ static int afe_get_cal_fb_spkr_prot(int32_t cal_type, size_t data_size,
 		cal_data->cal_info.r0[SP_V2_SPKR_2] = -1;
 	}
 	mutex_unlock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
+	__pm_relax(&wl.ws);
 done:
 	return ret;
 }
@@ -4894,6 +4905,7 @@ static int __init afe_init(void)
 	for (i = 0; i < AFE_MAX_PORTS; i++)
 		init_waitqueue_head(&this_afe.wait[i]);
 
+	wakeup_source_init(&wl.ws, "spkr-prot");
 	ret = afe_init_cal_data();
 	if (ret)
 		pr_err("%s: could not init cal data! %d\n", __func__, ret);
@@ -4908,6 +4920,7 @@ static void __exit afe_exit(void)
 
 	config_debug_fs_exit();
 	mutex_destroy(&this_afe.afe_cmd_lock);
+	wakeup_source_trash(&wl.ws);
 }
 
 device_initcall(afe_init);
