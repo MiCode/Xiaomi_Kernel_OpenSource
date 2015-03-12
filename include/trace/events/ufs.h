@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -54,8 +54,7 @@ UFSCHD_CLK_GATING_STATES;
 #define EM(a)	{ a, #a },
 #define EMe(a)	{ a, #a }
 
-TRACE_EVENT(ufshcd_clk_gating,
-
+DECLARE_EVENT_CLASS(ufshcd_state_change_template,
 	TP_PROTO(const char *dev_name, int state),
 
 	TP_ARGS(dev_name, state),
@@ -70,10 +69,14 @@ TRACE_EVENT(ufshcd_clk_gating,
 		__entry->state = state;
 	),
 
-	TP_printk("%s: gating state changed to %s",
+	TP_printk("%s: state changed to %s",
 		__get_str(dev_name),
 		__print_symbolic(__entry->state, UFSCHD_CLK_GATING_STATES))
 );
+
+DEFINE_EVENT(ufshcd_state_change_template, ufshcd_clk_gating,
+	TP_PROTO(const char *dev_name, int state),
+	TP_ARGS(dev_name, state));
 
 TRACE_EVENT(ufshcd_hibern8_on_idle,
 
@@ -84,12 +87,12 @@ TRACE_EVENT(ufshcd_hibern8_on_idle,
 	TP_STRUCT__entry(
 		__string(dev_name, dev_name)
 		__string(state, state)
-	),
+		),
 
 	TP_fast_assign(
 		__assign_str(dev_name, dev_name);
 		__assign_str(state, state);
-	),
+		),
 
 	TP_printk("%s: state changed to %s",
 		__get_str(dev_name), __get_str(state))
@@ -132,12 +135,12 @@ TRACE_EVENT(ufshcd_auto_bkops_state,
 	TP_STRUCT__entry(
 		__string(dev_name, dev_name)
 		__string(state, state)
-	),
+		),
 
 	TP_fast_assign(
 		__assign_str(dev_name, dev_name);
 		__assign_str(state, state);
-	),
+		),
 
 	TP_printk("%s: auto bkops - %s",
 		__get_str(dev_name), __get_str(state))
