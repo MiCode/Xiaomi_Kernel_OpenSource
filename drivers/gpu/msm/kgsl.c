@@ -997,6 +997,8 @@ static void kgsl_process_private_close(struct kgsl_device_private *dev_priv,
 
 	process_release_sync_sources(private);
 
+	kgsl_mmu_detach_pagetable(private->pagetable);
+
 	/* Remove the process struct from the master list */
 	list_del(&private->list);
 
