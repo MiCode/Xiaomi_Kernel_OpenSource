@@ -333,7 +333,7 @@ Optional properties:
 				   defined should match the number of offsets
 				   defined in property: qcom,mdss-pipe-dma-off
 - qcom,mdss-default-ot-wr-limit: This integer value indicates maximum number of pending
-				writes that can be allowed from non real time client.
+				writes that can be allowed on each WR xin.
 				This value can be used to reduce the pending writes
 				limit and can be tuned to match performance
 				requirements depending upon system state.
@@ -343,7 +343,7 @@ Optional properties:
 				operations in the platforms that require these
 				limits.
 - qcom,mdss-default-ot-rd-limit: This integer value indicates the default number of pending
-				reads that can be allowed for the real time clients.
+				reads that can be allowed on each RD xin.
 				Some platforms require a dynamic ot limiting in
 				some cases. Setting this default ot read limit
 				will enable this dynamic limiting for the read
