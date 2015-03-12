@@ -3413,6 +3413,7 @@ static struct clk_lookup msm_clocks_gcc_8996[] = {
 static int msm_gcc_8996_probe(struct platform_device *pdev)
 {
 	struct resource *res;
+	u32 regval;
 	int ret;
 
 	ret = vote_bimc(&bimc_clk, INT_MAX);
@@ -3430,6 +3431,19 @@ static int msm_gcc_8996_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to map in CC registers.\n");
 		return -ENOMEM;
 	}
+
+	/* Set the HMSS_AHB_CLK_ENA bit to enable the hmss_ahb_clk */
+	regval = readl_relaxed(virt_base + GCC_APCS_CLOCK_BRANCH_ENA_VOTE);
+	regval |= BIT(21);
+	writel_relaxed(regval, virt_base + GCC_APCS_CLOCK_BRANCH_ENA_VOTE);
+
+	/*
+	 * Set the HMSS_AHB_CLK_SLEEP_ENA bit to allow the hmss_ahb_clk to be
+	 * turned off by hardware during certain apps low power modes.
+	 */
+	regval = readl_relaxed(virt_base + GCC_APCS_CLOCK_SLEEP_ENA_VOTE);
+	regval |= BIT(21);
+	writel_relaxed(regval, virt_base + GCC_APCS_CLOCK_SLEEP_ENA_VOTE);
 
 	vdd_dig.vdd_uv[1] = RPM_REGULATOR_CORNER_SVS_KRAIT;
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
