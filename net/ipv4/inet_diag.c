@@ -242,11 +242,12 @@ static int inet_csk_diag_fill(struct sock *sk,
 			net_admin);
 }
 
-static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
+static int inet_twsk_diag_fill(struct sock *sk,
 			       struct sk_buff *skb, struct inet_diag_req_v2 *req,
 			       u32 portid, u32 seq, u16 nlmsg_flags,
 			       const struct nlmsghdr *unlh)
 {
+	struct inet_timewait_sock *tw = inet_twsk(sk);
 	s32 tmo;
 	struct inet_diag_msg *r;
 	struct nlmsghdr *nlh;
@@ -267,7 +268,7 @@ static int inet_twsk_diag_fill(struct inet_timewait_sock *tw,
 	r->idiag_retrans      = 0;
 
 	r->id.idiag_if	      = tw->tw_bound_dev_if;
-	sock_diag_save_cookie(tw, r->id.idiag_cookie);
+	sock_diag_save_cookie(sk, r->id.idiag_cookie);
 
 	r->id.idiag_sport     = tw->tw_sport;
 	r->id.idiag_dport     = tw->tw_dport;
@@ -302,7 +303,7 @@ static int sk_diag_fill(struct sock *sk, struct sk_buff *skb,
 			const struct nlmsghdr *unlh, bool net_admin)
 {
 	if (sk->sk_state == TCP_TIME_WAIT)
-		return inet_twsk_diag_fill(inet_twsk(sk), skb, r, portid, seq,
+		return inet_twsk_diag_fill(sk, skb, r, portid, seq,
 					   nlmsg_flags, unlh);
 
 	return inet_csk_diag_fill(sk, skb, r, user_ns, portid, seq,
@@ -771,10 +772,11 @@ static int inet_twsk_diag_dump(struct sock *sk,
 			return 0;
 	}
 
-	return inet_twsk_diag_fill(tw, skb, r,
+	return inet_twsk_diag_fill(sk, skb, r,
 				   NETLINK_CB(cb->skb).portid,
 				   cb->nlh->nlmsg_seq, NLM_F_MULTI, cb->nlh);
 }
+
 
 /* Get the IPv4, IPv6, or IPv4-mapped-IPv6 local and remote addresses
  * from a request_sock. For IPv4-mapped-IPv6 we must map IPv4 to IPv6.
@@ -830,7 +832,10 @@ static int inet_diag_fill_req(struct sk_buff *skb, struct sock *sk,
 	r->idiag_retrans = req->num_retrans;
 
 	r->id.idiag_if = sk->sk_bound_dev_if;
-	sock_diag_save_cookie(req, r->id.idiag_cookie);
+
+	BUILD_BUG_ON(offsetof(struct inet_request_sock, ir_cookie) !=
+		     offsetof(struct sock, sk_cookie));
+	sock_diag_save_cookie((struct sock *)ireq, r->id.idiag_cookie);
 
 	tmo = req->expires - jiffies;
 	if (tmo < 0)
