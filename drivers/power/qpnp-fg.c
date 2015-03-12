@@ -42,18 +42,6 @@
 
 /* SPMI Register offsets */
 #define SOC_MONOTONIC_SOC	0x09
-#define MEM_INTF_CFG		0x40
-#define MEM_INTF_CTL		0x41
-#define MEM_INTF_ADDR_LSB	0x42
-#define MEM_INTF_ADDR_MSB	0x43
-#define MEM_INTF_WR_DATA0	0x48
-#define MEM_INTF_WR_DATA1	0x49
-#define MEM_INTF_WR_DATA2	0x4A
-#define MEM_INTF_WR_DATA3	0x4B
-#define MEM_INTF_RD_DATA0	0x4C
-#define MEM_INTF_RD_DATA1	0x4D
-#define MEM_INTF_RD_DATA2	0x4E
-#define MEM_INTF_RD_DATA3	0x4F
 #define OTP_CFG1		0xE2
 #define SOC_BOOT_MOD		0x50
 #define SOC_RESTART		0x51
@@ -96,6 +84,11 @@ enum {
 	FG_POWER_SUPPLY			= BIT(5), /* Show POWER_SUPPLY */
 	FG_STATUS			= BIT(6), /* Show FG status changes */
 	FG_AGING			= BIT(7), /* Show FG aging algorithm */
+};
+
+enum dig_major {
+	DIG_REV_8994_1 = 0x1,
+	DIG_REV_8994_2 = 0x2,
 };
 
 struct fg_mem_setting {
@@ -274,6 +267,37 @@ enum fg_batt_aging_mode {
 	FG_AGING_CC,
 };
 
+enum register_type {
+	MEM_INTF_CFG,
+	MEM_INTF_CTL,
+	MEM_INTF_ADDR_LSB,
+	MEM_INTF_RD_DATA0,
+	MEM_INTF_WR_DATA0,
+	MAX_ADDRESS,
+};
+
+struct register_offset {
+	u16 address[MAX_ADDRESS];
+};
+
+static struct register_offset offset[] = {
+	[0] = {
+			 /* CFG   CTL   LSB   RD0   WD0 */
+		.address = {0x40, 0x41, 0x42, 0x4C, 0x48},
+	},
+};
+
+#define MEM_INTF_CFG(chip)	\
+		((chip)->mem_base + (chip)->offset[MEM_INTF_CFG])
+#define MEM_INTF_CTL(chip)	\
+		((chip)->mem_base + (chip)->offset[MEM_INTF_CTL])
+#define MEM_INTF_ADDR_LSB(chip) \
+		((chip)->mem_base + (chip)->offset[MEM_INTF_ADDR_LSB])
+#define MEM_INTF_RD_DATA0(chip) \
+		((chip)->mem_base + (chip)->offset[MEM_INTF_RD_DATA0])
+#define MEM_INTF_WR_DATA0(chip) \
+		((chip)->mem_base + (chip)->offset[MEM_INTF_WR_DATA0])
+
 struct fg_wakeup_source {
 	struct wakeup_source	source;
 	unsigned long		enabled;
@@ -299,6 +323,7 @@ static void fg_relax(struct fg_wakeup_source *source)
 struct fg_chip {
 	struct device		*dev;
 	struct spmi_device	*spmi;
+	u8			revision[4];
 	u16			soc_base;
 	u16			batt_base;
 	u16			mem_base;
@@ -377,6 +402,7 @@ struct fg_chip {
 	struct fg_learning_data	learning_data;
 	struct alarm		fg_cap_learning_alarm;
 	struct work_struct	fg_cap_learning_work;
+	u16			*offset;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -559,7 +585,7 @@ static inline bool fg_check_sram_access(struct fg_chip *chip)
 	if ((mem_if_sts & BIT(FG_MEM_AVAIL)) == 0)
 		return false;
 
-	rc = fg_read(chip, &mem_if_sts, chip->mem_base + MEM_INTF_CFG, 1);
+	rc = fg_read(chip, &mem_if_sts, MEM_INTF_CFG(chip), 1);
 	if (rc) {
 		pr_err("failed to read mem status rc=%d\n", rc);
 		return 0;
@@ -588,7 +614,7 @@ static inline int fg_assert_sram_access(struct fg_chip *chip)
 		return -EINVAL;
 	}
 
-	rc = fg_read(chip, &mem_if_sts, chip->mem_base + MEM_INTF_CFG, 1);
+	rc = fg_read(chip, &mem_if_sts, MEM_INTF_CFG(chip), 1);
 	if (rc) {
 		pr_err("failed to read mem status rc=%d\n", rc);
 		return rc;
@@ -622,7 +648,7 @@ static int fg_config_access(struct fg_chip *chip, bool write,
 
 	intf_ctl = (write ? INTF_CTL_WR_EN : 0) | (burst ? INTF_CTL_BURST : 0);
 
-	rc = fg_write(chip, &intf_ctl, chip->mem_base + MEM_INTF_CTL, 1);
+	rc = fg_write(chip, &intf_ctl, MEM_INTF_CTL(chip), 1);
 	if (rc) {
 		pr_err("failed to set mem access bit\n");
 		return -EIO;
@@ -637,8 +663,8 @@ static int fg_req_and_wait_access(struct fg_chip *chip, int timeout)
 	bool tried_again = false;
 
 	if (!fg_check_sram_access(chip)) {
-		rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				RIF_MEM_ACCESS_REQ, RIF_MEM_ACCESS_REQ, 1);
+		rc = fg_masked_write(chip, MEM_INTF_CFG(chip),
+			RIF_MEM_ACCESS_REQ, RIF_MEM_ACCESS_REQ, 1);
 		if (rc) {
 			pr_err("failed to set mem access bit\n");
 			return -EIO;
@@ -668,7 +694,7 @@ static int fg_release_access(struct fg_chip *chip)
 {
 	int rc;
 
-	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip),
 			RIF_MEM_ACCESS_REQ, 0, 1);
 	fg_relax(&chip->memif_wakeup_source);
 	INIT_COMPLETION(chip->sram_access_granted);
@@ -709,10 +735,10 @@ static int fg_set_ram_addr(struct fg_chip *chip, u16 *address)
 	int rc;
 
 	rc = fg_write(chip, (u8 *) address,
-			chip->mem_base + MEM_INTF_ADDR_LSB, 2);
+		chip->mem_base + chip->offset[MEM_INTF_ADDR_LSB], 2);
 	if (rc) {
 		pr_err("spmi write failed: addr=%03X, rc=%d\n",
-				chip->mem_base + MEM_INTF_ADDR_LSB, rc);
+			chip->mem_base + chip->offset[MEM_INTF_ADDR_LSB], rc);
 		return rc;
 	}
 
@@ -745,12 +771,11 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 	total_len = len;
 	while (len > 0) {
 		if (!offset) {
-			rc = fg_read(chip, rd_data,
-					chip->mem_base + MEM_INTF_RD_DATA0,
-					min(len, BUF_LEN));
+			rc = fg_read(chip, rd_data, MEM_INTF_RD_DATA0(chip),
+							min(len, BUF_LEN));
 		} else {
 			rc = fg_read(chip, rd_data,
-				chip->mem_base + MEM_INTF_RD_DATA0 + offset,
+				MEM_INTF_RD_DATA0(chip) + offset,
 				min(len, BUF_LEN - offset));
 
 			/* manually set address to allow continous reads */
@@ -762,7 +787,7 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 		}
 		if (rc) {
 			pr_err("spmi read failed: addr=%03x, rc=%d\n",
-				chip->mem_base + MEM_INTF_RD_DATA0, rc);
+				MEM_INTF_RD_DATA0(chip) + offset, rc);
 			return rc;
 		}
 		rd_data += (BUF_LEN - offset);
@@ -777,8 +802,8 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 	return rc;
 }
 
-static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
-		int offset, bool keep_access)
+static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address,
+		int len, int offset, bool keep_access)
 {
 	int rc = 0, user_cnt = 0, orig_address = address;
 
@@ -900,11 +925,10 @@ static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 			pr_err("Invalid length: %d\n", len);
 			break;
 		}
-		rc = fg_write(chip, word,
-			chip->mem_base + MEM_INTF_WR_DATA0, 4);
+		rc = fg_write(chip, word, MEM_INTF_WR_DATA0(chip), 4);
 		if (rc) {
 			pr_err("spmi write failed: addr=%03x, rc=%d\n",
-				chip->mem_base + MEM_INTF_RD_DATA0, rc);
+					MEM_INTF_WR_DATA0(chip), rc);
 			goto out;
 		}
 		len -= sublen;
@@ -3044,8 +3068,8 @@ wait:
 		goto unlock_and_fail;
 	}
 
-	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				LOW_LATENCY, LOW_LATENCY, 1);
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip),
+			LOW_LATENCY, LOW_LATENCY, 1);
 	if (rc) {
 		pr_err("failed to set low latency access bit\n");
 		goto unlock_and_fail;
@@ -3068,8 +3092,7 @@ wait:
 
 	mutex_lock(&chip->rw_lock);
 	fg_release_access(chip);
-	rc = fg_masked_write(chip, chip->mem_base + MEM_INTF_CFG,
-				LOW_LATENCY, 0, 1);
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), LOW_LATENCY, 0, 1);
 	if (rc) {
 		pr_err("failed to set low latency access bit\n");
 		goto unlock_and_fail;
@@ -4232,6 +4255,34 @@ static int fg_hw_init(struct fg_chip *chip)
 	return 0;
 }
 
+#define DIG_MINOR		0x0
+#define DIG_MAJOR		0x1
+#define ANA_MINOR		0x2
+#define ANA_MAJOR		0x3
+static int fg_setup_memif_offset(struct fg_chip *chip)
+{
+	int rc;
+	u8 dig_major;
+
+	rc = fg_read(chip, chip->revision, chip->mem_base + DIG_MINOR, 4);
+	if (rc) {
+		pr_err("Unable to read FG revision rc=%d\n", rc);
+		return rc;
+	}
+
+	switch (chip->revision[DIG_MAJOR]) {
+	case DIG_REV_8994_1:
+	case DIG_REV_8994_2:
+		chip->offset = offset[0].address;
+		break;
+	default:
+		pr_err("Digital Major rev=%d not supported\n", dig_major);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 #define INIT_JEITA_DELAY_MS 1000
 
 static void delayed_init_work(struct work_struct *work)
@@ -4387,6 +4438,12 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
+	rc = fg_setup_memif_offset(chip);
+	if (rc) {
+		pr_err("Unable to setup mem_if offsets rc=%d\n", rc);
+		goto of_init_fail;
+	}
+
 	rc = fg_of_init(chip);
 	if (rc) {
 		pr_err("failed to parse devicetree rc%d\n", rc);
@@ -4441,7 +4498,10 @@ static int fg_probe(struct spmi_device *spmi)
 
 	schedule_work(&chip->init_work);
 
-	pr_info("probe success\n");
+	pr_info("FG Probe success - FG Revision DIG:%d.%d ANA:%d.%d\n",
+		chip->revision[DIG_MAJOR], chip->revision[DIG_MINOR],
+		chip->revision[ANA_MAJOR], chip->revision[ANA_MINOR]);
+
 	return rc;
 
 power_supply_unregister:
