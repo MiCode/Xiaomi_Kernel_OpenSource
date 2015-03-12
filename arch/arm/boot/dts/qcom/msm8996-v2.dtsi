@@ -31,6 +31,10 @@
 	qcom,clamped-reset-seq;
 };
 
+&apcc_cpr {
+	/delete-property/ qcom,cpr-hw-closed-loop;
+};
+
 /* GPU overrides */
 &msm_gpu {
 	/* Updated chip ID */

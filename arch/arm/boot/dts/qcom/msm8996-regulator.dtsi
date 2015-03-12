@@ -570,6 +570,7 @@
 		vdd-limit-supply = <&pm8994_s11_limit>;
 
 		qcom,cpr-enable;
+		qcom,cpr-hw-closed-loop;
 
 		apc0_vreg: regulator@0 {
 			qcom,cpr-thread-id = <0>;
