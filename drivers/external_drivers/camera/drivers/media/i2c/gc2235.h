@@ -237,7 +237,7 @@ static struct gc2235_reg const gc2235_init_settings[] = {
 	{ GC2235_8BIT, 0xf6, 0x00 },
 	{ GC2235_8BIT, 0xfc, 0x06 },
 	{ GC2235_8BIT, 0xf7, 0x15 },
-	{ GC2235_8BIT, 0xf8, 0x85 },
+	{ GC2235_8BIT, 0xf8, 0x84 },
 	{ GC2235_8BIT, 0xf9, 0xfe },
 	{ GC2235_8BIT, 0xfa, 0x00 },
 	{ GC2235_8BIT, 0xfe, 0x00 },

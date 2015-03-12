@@ -337,7 +337,7 @@ static void atomisp_csi2_configure_isp2401(struct atomisp_sub_device *asd)
 	static const short int coeff_dat_termen[] = { 0, 0 };
 	static const short int coeff_dat_settle[] = { 85, -2 };
 	static const int TERMEN_DEFAULT		  = 0 * 0;
-	static const int SETTLE_DEFAULT		  = 0x480;
+	static const int SETTLE_DEFAULT		  = 0x640;
 	static const hrt_address csi2_port_base[] = {
 		[ATOMISP_CAMERA_PORT_PRIMARY]     = CSI2_PORT_A_BASE,
 		[ATOMISP_CAMERA_PORT_SECONDARY]   = CSI2_PORT_B_BASE,
