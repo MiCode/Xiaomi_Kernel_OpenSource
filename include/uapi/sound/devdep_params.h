@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -61,7 +61,7 @@ struct dolby_param_license {
 
 struct dts_eagle_param_desc {
 	uint32_t id;
-	int32_t size;
+	uint32_t size;
 	int32_t offset;
 	uint32_t device;
 } __packed;

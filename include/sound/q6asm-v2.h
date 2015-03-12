@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -401,9 +401,9 @@ int q6asm_set_volume(struct audio_client *ac, int volume);
 int q6asm_set_volume_v2(struct audio_client *ac, int volume, int instance);
 
 /* DTS Eagle Params */
-int q6asm_dts_eagle_set(struct audio_client *ac, int param_id, int size,
+int q6asm_dts_eagle_set(struct audio_client *ac, int param_id, uint32_t size,
 			void *data, struct param_outband *po, int m_id);
-int q6asm_dts_eagle_get(struct audio_client *ac, int param_id, int size,
+int q6asm_dts_eagle_get(struct audio_client *ac, int param_id, uint32_t size,
 			void *data, struct param_outband *po, int m_id);
 
 /* Set SoftPause Params */
