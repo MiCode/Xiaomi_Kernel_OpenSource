@@ -82,4 +82,11 @@ int module_finalize(const Elf_Ehdr *hdr,
 /* Any cleanup needed when module leaves. */
 void module_arch_cleanup(struct module *mod);
 
+#ifdef CONFIG_KASAN
+#include <linux/kasan.h>
+#define MODULE_ALIGN (PAGE_SIZE << KASAN_SHADOW_SCALE_SHIFT)
+#else
+#define MODULE_ALIGN PAGE_SIZE
+#endif
+
 #endif
