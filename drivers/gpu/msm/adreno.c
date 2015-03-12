@@ -1535,7 +1535,7 @@ static ssize_t _ft_fast_hang_detect_store(struct device *dev,
 
 	if (tmp != adreno_dev->fast_hang_detect) {
 		if (adreno_dev->fast_hang_detect) {
-			if (kgsl_active_count_get(&adreno_dev->dev)) {
+			if (!kgsl_active_count_get(&adreno_dev->dev)) {
 				adreno_fault_detect_start(adreno_dev);
 				kgsl_active_count_put(&adreno_dev->dev);
 			}
