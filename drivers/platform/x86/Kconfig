@@ -835,10 +835,10 @@ config INTEL_WARN_INT
 	  Upon first expiration of the TCO watchdog, a warning interrupt is
 	  fired and the driver calls panic() function to dump debug information
 	  (registers and call stacks).
-	  At the same time, the TCO watchdog reloads with 2.4 seconds timeout
+	  At the same time, the TCO watchdog reloads with 4 seconds timeout
 	  value and runs till the second expiration. At the second expiration of
 	  the TCO watchdog, the platform resets (the dump is supposed to last less
-	  than 2.4 seconds).
+	  than 4 seconds).
 
 config INTEL_GPIO_HSIC
 	tristate "Intel HSIC GPIO support"

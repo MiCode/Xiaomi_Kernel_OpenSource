@@ -59,6 +59,7 @@ void arch_trigger_all_cpu_backtrace(void)
 	clear_bit(0, &backtrace_flag);
 	smp_mb__after_clear_bit();
 }
+EXPORT_SYMBOL(arch_trigger_all_cpu_backtrace);
 
 static int __kprobes
 arch_trigger_all_cpu_backtrace_handler(unsigned int cmd, struct pt_regs *regs)
