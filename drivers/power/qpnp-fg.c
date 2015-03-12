@@ -377,6 +377,7 @@ struct fg_chip {
 	u16			cycle_counter;
 	u32			cyc_ctr_low_soc;
 	u32			cyc_ctr_hi_soc;
+	u32			cc_cv_threshold_mv;
 	unsigned int		batt_profile_len;
 	unsigned int		batt_max_voltage_uv;
 	const char		*batt_type;
@@ -1399,7 +1400,17 @@ static int soc_to_setpoint(int soc)
 	return DIV_ROUND_CLOSEST(soc * 255, 100);
 }
 
-static u8 batt_to_setpoint(int vbatt_mv)
+static void batt_to_setpoint_adc(int vbatt_mv, u8 *data)
+{
+	int val;
+	/* Battery voltage is an offset from 0 V and LSB is 1/2^15. */
+	val = DIV_ROUND_CLOSEST(vbatt_mv * 32768, 5000);
+	data[0] = val & 0xFF;
+	data[1] = val >> 8;
+	return;
+}
+
+static u8 batt_to_setpoint_8b(int vbatt_mv)
 {
 	int val;
 	/* Battery voltage is an offset from 2.5 V and LSB is 5/2^9. */
@@ -3200,6 +3211,27 @@ static int update_chg_iterm(struct fg_chip *chip)
 			2, settings[FG_MEM_CHG_TERM_CURRENT].offset, 0);
 }
 
+#define CC_CV_SETPOINT_REG	0x4F8
+#define CC_CV_SETPOINT_OFFSET	0
+static void update_cc_cv_setpoint(struct fg_chip *chip)
+{
+	int rc;
+	u8 tmp[2];
+
+	if (!chip->cc_cv_threshold_mv)
+		return;
+	batt_to_setpoint_adc(chip->cc_cv_threshold_mv, tmp);
+	rc = fg_mem_write(chip, tmp, CC_CV_SETPOINT_REG, 2,
+				CC_CV_SETPOINT_OFFSET, 0);
+	if (rc) {
+		pr_err("failed to write CC_CV_VOLT rc=%d\n", rc);
+		return;
+	}
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Wrote %x %x to address %x for CC_CV setpoint\n",
+			tmp[0], tmp[1], CC_CV_SETPOINT_REG);
+}
+
 #define V_PREDICTED_ADDR		0x540
 #define V_CURRENT_PREDICTED_OFFSET	0
 #define LOW_LATENCY	BIT(6)
@@ -3470,6 +3502,7 @@ done:
 	chip->profile_loaded = true;
 	chip->battery_missing = is_battery_missing(chip);
 	update_chg_iterm(chip);
+	update_cc_cv_setpoint(chip);
 	rc = populate_learning_data(chip);
 	if (rc) {
 		pr_err("failed to read ocv properties=%d\n", rc);
@@ -3678,6 +3711,8 @@ static int fg_of_init(struct fg_chip *chip)
 	OF_READ_PROPERTY(chip->evaluation_current,
 			"aging-eval-current-ma", rc,
 			DEFAULT_EVALUATION_CURRENT_MA);
+	OF_READ_PROPERTY(chip->cc_cv_threshold_mv,
+			"fg-cc-cv-threshold-mv", rc, 0);
 	if (of_property_read_bool(chip->spmi->dev.of_node,
 				"qcom,capacity-learning-on"))
 		chip->batt_aging_mode = FG_AGING_CC;
@@ -3735,6 +3770,7 @@ static int fg_of_init(struct fg_chip *chip)
 		chip->cyc_ctr_hi_soc = soc_to_setpoint(chip->cyc_ctr_hi_soc);
 		chip->cycle_counter = 0;
 	}
+
 	return rc;
 }
 
@@ -4472,7 +4508,7 @@ static int fg_hw_init(struct fg_chip *chip)
 	}
 
 	rc = fg_mem_masked_write(chip, settings[FG_MEM_BATT_LOW].address, 0xFF,
-			batt_to_setpoint(settings[FG_MEM_BATT_LOW].value),
+			batt_to_setpoint_8b(settings[FG_MEM_BATT_LOW].value),
 			settings[FG_MEM_BATT_LOW].offset);
 	if (rc) {
 		pr_err("failed to write Vbatt_low rc=%d\n", rc);
