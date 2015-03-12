@@ -43,15 +43,7 @@
 
 int pmic_io_init(void *data)
 {
-	int ret = 0;
-	struct mdm_ctrl_pmic_data *pmic_data = data;
-	u16 addr = pmic_data->chipctrl;
-
-	ret = intel_soc_pmic_writeb(addr, PMIC_MODEMCTRL_REG_RESET);
-	if (ret)
-		pr_err(DRVNAME ": intel_soc_pmic_writeb(ON) failed (err: %d)\n",
-			   ret);
-	return ret;
+	return 0;
 }
 
 int pmic_io_power_on_ctp_mdm(void *data)
