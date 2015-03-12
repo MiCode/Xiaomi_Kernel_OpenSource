@@ -12229,8 +12229,10 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 	 * update the the output configuration. */
 	intel_modeset_update_state(dev, prepare_pipes);
 
-	if (dev_priv->display.modeset_global_resources)
-		dev_priv->display.modeset_global_resources(dev);
+	if (fb != NULL) {
+		if (dev_priv->display.modeset_global_resources)
+			dev_priv->display.modeset_global_resources(dev);
+	}
 
 	/* DO it only once */
 	if (IS_VALLEYVIEW(dev))
