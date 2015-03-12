@@ -158,7 +158,7 @@ static int mdss_pll_resource_parse(struct platform_device *pdev,
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8992")) {
 		pll_res->pll_interface_type = MDSS_HDMI_PLL_20NM;
 	} else if (!strcmp(compatible_stream, "qcom,mdss_hdmi_pll_8996")) {
-		pll_res->pll_interface_type = MDSS_HDMI_PLL_14NM;
+		pll_res->pll_interface_type = MDSS_HDMI_PLL_8996;
 	} else {
 		goto err;
 	}
