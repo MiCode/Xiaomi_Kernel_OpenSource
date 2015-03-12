@@ -499,6 +499,12 @@
 			regulator-max-microvolt = <1015000>;
 			qcom,cpu-num = <0>;
 			qcom,bypass-spm;
+
+			pm8994_s11_limit: avs-limit-regulator {
+				regulator-name = "pm8994_s11_avs_limit";
+				regulator-min-microvolt = <520000>;
+				regulator-max-microvolt = <1015000>;
+			};
 		};
 	};
 };
