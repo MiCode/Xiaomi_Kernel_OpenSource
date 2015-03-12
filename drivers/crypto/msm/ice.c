@@ -978,7 +978,7 @@ static int qcom_ice_config(struct platform_device *pdev, struct request *req,
 	 * non-dm entities. To ensure that we are running operation on dm
 	 * based request, check BIO_DONT_FREE flag
 	 */
-	if (bio_flagged(req->bio, BIO_DONTFREE)) {
+	if (bio_flagged(req->bio, BIO_INLINECRYPT)) {
 		info = dm_get_rq_mapinfo(req);
 		if (!info) {
 			pr_err("%s info not available in request\n", __func__);
