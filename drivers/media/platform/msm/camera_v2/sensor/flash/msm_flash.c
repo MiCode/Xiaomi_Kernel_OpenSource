@@ -217,6 +217,21 @@ static int32_t msm_flash_i2c_init(
 		flash_ctrl->power_setting_array.power_setting =
 			compat_ptr(power_setting_array32->power_setting);
 
+		/* Validate power_up array size and power_down array size */
+		if ((!flash_ctrl->power_setting_array.size) ||
+			(flash_ctrl->power_setting_array.size >
+			MAX_POWER_CONFIG) ||
+			(!flash_ctrl->power_setting_array.size_down) ||
+			(flash_ctrl->power_setting_array.size_down >
+			MAX_POWER_CONFIG)) {
+
+			pr_err("failed: invalid size %d, size_down %d",
+				flash_ctrl->power_setting_array.size,
+				flash_ctrl->power_setting_array.size_down);
+			kfree(power_setting_array32);
+			power_setting_array32 = NULL;
+			return -EINVAL;
+		}
 		/* Copy the settings from compat struct to regular struct */
 		msm_flash_copy_power_settings_compat(
 			flash_ctrl->power_setting_array.power_setting_a,
