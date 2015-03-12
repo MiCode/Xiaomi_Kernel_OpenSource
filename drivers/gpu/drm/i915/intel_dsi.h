@@ -508,9 +508,6 @@ struct intel_dsi {
 	u8 dual_link;
 	u8 pixel_overlap;
 
-	/* cht hw issue that MIPI port C reg cannot be read */
-	u32 port_ctrl_reg_val;
-
 	struct drm_i915_gem_object *gem_obj;
 	void *cmd_buff;
 	dma_addr_t cmd_buff_phy_addr;
