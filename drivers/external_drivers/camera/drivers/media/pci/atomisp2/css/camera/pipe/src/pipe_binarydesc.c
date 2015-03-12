@@ -160,7 +160,7 @@ enum ia_css_err sh_css_bds_factor_get_numerator_denominator(
 	return IA_CSS_ERR_INVALID_ARGUMENTS;
 }
 
-static enum ia_css_err binarydesc_calculate_bds_factor(
+enum ia_css_err binarydesc_calculate_bds_factor(
 	struct ia_css_resolution input_res,
 	struct ia_css_resolution output_res,
 	unsigned int *bds_factor)

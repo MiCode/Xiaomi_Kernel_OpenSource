@@ -130,6 +130,8 @@ struct ia_css_yuvpp_settings {
 	0,					/* num_output */ \
 }
 
+struct osys_object;
+
 struct ia_css_pipe {
 	/* TODO: Remove stop_requested and use stop_requested in the pipeline */
 	bool                            stop_requested;
@@ -163,6 +165,7 @@ struct ia_css_pipe {
 		struct ia_css_yuvpp_settings yuvpp;
 	} pipe_settings;
 	hrt_vaddress scaler_pp_lut;
+	struct osys_object *osys_obj;
 
 	/* This number is unique per pipe each instance of css. This number is
 	 * reused as pipeline number also. There is a 1-1 mapping between pipe_num
@@ -199,6 +202,7 @@ struct ia_css_pipe {
 	{ NULL },				/* cont_md_buffers */ \
 	{ IA_CSS_DEFAULT_PREVIEW_SETTINGS },	/* pipe_settings */ \
 	0,					/* scaler_pp_lut */ \
+	NULL,					/* osys object */ \
 	PIPE_ENTRY_EMPTY_TOKEN,			/* pipe_num */\
 }
 

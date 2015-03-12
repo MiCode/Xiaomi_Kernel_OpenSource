@@ -52,6 +52,7 @@
 #include "ia_css_morph.h"
 #include "ia_css_host_data.h"
 #include "ia_css_pipe.h"
+#include "ia_css_pipe_binarydesc.h"
 
 #if !defined(IS_ISP_2500_SYSTEM)
 /* Include all kernel host interfaces for ISP1 */
@@ -1447,6 +1448,45 @@ ia_css_process_kernel(struct ia_css_stream *stream,
 	}
 }
 
+static enum ia_css_err
+sh_css_select_dp_10bpp_config(const struct ia_css_pipe *pipe, bool *is_dp_10bpp) {
+
+	enum ia_css_err err = IA_CSS_SUCCESS;
+	/* Currently we check if 10bpp DPC configuration is required based
+	 * on the use case,i.e. if BDS and DPC is both enabled. The more cleaner
+	 * design choice would be to expose the type of DPC (either 10bpp or 13bpp)
+	 * using the binary info, but the current control flow does not allow this
+	 * implementation. (This is because the configuration is set before a
+	 * binary is selected, and the binary info is not available)
+	 */
+	if((pipe == NULL) || (is_dp_10bpp == NULL)) {
+		IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_ERR_INTERNAL_ERROR);
+		err = IA_CSS_ERR_INTERNAL_ERROR;
+	} else {
+		*is_dp_10bpp = false;
+
+		/* check if DPC is enabled from the host */
+		if (pipe->config.enable_dpc) {
+			/*check if BDS is enabled*/
+			unsigned int required_bds_factor = SH_CSS_BDS_FACTOR_1_00;
+			if ((pipe->config.bayer_ds_out_res.width != 0) &&
+			  (pipe->config.bayer_ds_out_res.height != 0)) {
+				if (IA_CSS_SUCCESS == binarydesc_calculate_bds_factor(
+					pipe->config.input_effective_res,
+					pipe->config.bayer_ds_out_res,
+					&required_bds_factor)) {
+					if (SH_CSS_BDS_FACTOR_1_00 != required_bds_factor) {
+						/*we use 10bpp BDS configuration*/
+						*is_dp_10bpp = true;
+					}
+				}
+			}
+		}
+	}
+
+	return err;
+}
+
 #endif
 
 enum ia_css_err
@@ -2328,6 +2368,7 @@ ia_css_set_param_exceptions(struct ia_css_isp_parameters *params)
 #endif
 
 #if !defined(IS_ISP_2500_SYSTEM)
+
 static void
 sh_css_set_nr_config(struct ia_css_isp_parameters *params,
 			const struct ia_css_nr_config *config)
@@ -2399,6 +2440,7 @@ sh_css_set_pipe_dvs_6axis_config(const struct ia_css_pipe *pipe,
 	assert(pipe != NULL);
 	assert(dvs_config->height_y == dvs_config->height_uv);
 	assert((dvs_config->width_y - 1) == 2 * (dvs_config->width_uv - 1));
+	assert(pipe->mode < IA_CSS_PIPE_ID_NUM);
 
 	IA_CSS_ENTER_PRIVATE("dvs_config=%p", dvs_config);
 
@@ -2427,7 +2469,8 @@ sh_css_get_pipe_dvs_6axis_config(const struct ia_css_pipe *pipe,
 
 	IA_CSS_ENTER_PRIVATE("dvs_config=%p", dvs_config);
 
-	if ((dvs_config->width_y == params->pipe_dvs_6axis_config[pipe->mode]->width_y) &&
+	if ((pipe->mode < IA_CSS_PIPE_ID_NUM) &&
+	    (dvs_config->width_y == params->pipe_dvs_6axis_config[pipe->mode]->width_y) &&
 	    (dvs_config->height_y == params->pipe_dvs_6axis_config[pipe->mode]->height_y) &&
 	    (dvs_config->width_uv == params->pipe_dvs_6axis_config[pipe->mode]->width_uv) &&
 	    (dvs_config->height_uv == params->pipe_dvs_6axis_config[pipe->mode]->height_uv) &&
@@ -2631,13 +2674,23 @@ sh_css_set_global_isp_config_on_pipe(
 	struct ia_css_pipe *pipe)
 {
 	enum ia_css_err err = IA_CSS_SUCCESS;
+	enum ia_css_err err1 = IA_CSS_SUCCESS;
+	enum ia_css_err err2 = IA_CSS_SUCCESS;
 
 	IA_CSS_ENTER_PRIVATE("stream=%p, config=%p, pipe=%p", curr_pipe, config, pipe);
 
-	sh_css_init_isp_params_from_config(curr_pipe, curr_pipe->stream->isp_params_configs, config);
+	err1 = sh_css_init_isp_params_from_config(curr_pipe, curr_pipe->stream->isp_params_configs, config);
 
 	/* Now commit all changes to the SP */
-	err = sh_css_param_update_isp_params(curr_pipe, curr_pipe->stream->isp_params_configs, sh_css_sp_is_running(), pipe);
+	err2 = sh_css_param_update_isp_params(curr_pipe, curr_pipe->stream->isp_params_configs, sh_css_sp_is_running(), pipe);
+
+	/* The following code is intentional. The sh_css_init_isp_params_from_config interface
+	 * throws an error when both DPC and BDS is enabled. The CSS API must pass this error
+	 * information to the caller, ie. the host. We do not return this error immediately,
+	 * but instead continue with updating the ISP params to enable testing of features
+	 * which are currently in TR phase. */
+
+	err = (err1 != IA_CSS_SUCCESS ) ? err1 : ((err2 != IA_CSS_SUCCESS) ? err2 : err);
 
 	IA_CSS_LEAVE_ERR_PRIVATE(err);
 	return err;
@@ -2653,6 +2706,10 @@ sh_css_set_per_frame_isp_config_on_pipe(
 	unsigned i;
 	bool per_frame_config_created = false;
 	enum ia_css_err err = IA_CSS_SUCCESS;
+	enum ia_css_err err1 = IA_CSS_SUCCESS;
+	enum ia_css_err err2 = IA_CSS_SUCCESS;
+	enum ia_css_err err3 = IA_CSS_SUCCESS;
+
 	struct sh_css_ddr_address_map *ddr_ptrs;
 	struct sh_css_ddr_address_map_size *ddr_ptrs_size;
 	struct ia_css_isp_parameters *params;
@@ -2679,8 +2736,12 @@ sh_css_set_per_frame_isp_config_on_pipe(
 	params = stream->per_frame_isp_params_configs;
 
 	/* update new ISP params object with the new config */
-	sh_css_init_isp_params_from_global(stream, params, false);
-	sh_css_init_isp_params_from_config(stream->pipes[0], params, config);
+	if (!sh_css_init_isp_params_from_global(stream, params, false)) {
+		err1 = IA_CSS_ERR_INVALID_ARGUMENTS;
+	}
+
+	err2 = sh_css_init_isp_params_from_config(stream->pipes[0], params, config);
+
 
 	if (per_frame_config_created)
 	{
@@ -2694,8 +2755,16 @@ sh_css_set_per_frame_isp_config_on_pipe(
 	}
 
 	/* now commit to ddr */
-	err = sh_css_param_update_isp_params(stream->pipes[0], params, sh_css_sp_is_running(), pipe);
+	err3 = sh_css_param_update_isp_params(stream->pipes[0], params, sh_css_sp_is_running(), pipe);
 
+	/* The following code is intentional. The sh_css_init_sp_params_from_config and
+	 * sh_css_init_isp_params_from_config throws an error when both DPC and BDS is enabled.
+	 * The CSS API must pass this error information to the caller, ie. the host.
+	 * We do not return this error immediately, but instead continue with updating the ISP params
+	 *  to enable testing of features which are currently in TR phase. */
+	err = (err1 != IA_CSS_SUCCESS) ? err1 :
+		(err2 != IA_CSS_SUCCESS) ? err2 :
+		(err3 != IA_CSS_SUCCESS) ? err3 : err;
 exit:
 	IA_CSS_LEAVE_ERR_PRIVATE(err);
 	return err;
@@ -2707,7 +2776,12 @@ sh_css_init_isp_params_from_config(struct ia_css_pipe *pipe,
 		struct ia_css_isp_parameters *params,
 		const struct ia_css_isp_config *config)
 {
-	enum ia_css_err err = IA_CSS_ERR_INTERNAL_ERROR;
+	enum ia_css_err err = IA_CSS_SUCCESS;
+#if !defined(IS_ISP_2500_SYSTEM)
+	bool is_dp_10bpp = true;
+#endif
+	assert(pipe != NULL);
+
 	IA_CSS_ENTER_PRIVATE("pipe=%p, config=%p, params=%p", pipe, config, params);
 
 	ia_css_set_configs(params, config);
@@ -2715,11 +2789,13 @@ sh_css_init_isp_params_from_config(struct ia_css_pipe *pipe,
 #if defined(IS_ISP_2500_SYSTEM)
 	err = sh_css_set_config_product_specific(pipe, config);
 #else
+
 	sh_css_set_nr_config(params, config->nr_config);
 	sh_css_set_ee_config(params, config->ee_config);
 	sh_css_set_baa_config(params, config->baa_config);
-	if (params->pipe_dvs_6axis_config[pipe->mode])
-		sh_css_set_pipe_dvs_6axis_config(pipe, params, config->dvs_6axis_config);
+	if ((pipe->mode < IA_CSS_PIPE_ID_NUM) &&
+			(params->pipe_dvs_6axis_config[pipe->mode]))
+			sh_css_set_pipe_dvs_6axis_config(pipe, params, config->dvs_6axis_config);
 	sh_css_set_dz_config(params, config->dz_config);
 	sh_css_set_motion_vector(params, config->motion_vector);
 	sh_css_set_shading_table(pipe->stream, params, config->shading_table);
@@ -2737,10 +2813,23 @@ sh_css_init_isp_params_from_config(struct ia_css_pipe *pipe,
 	params->output_frame = config->output_frame;
 	params->isp_parameters_id = config->isp_config_id;
 
-	ia_css_set_param_exceptions(params);
-	err = IA_CSS_SUCCESS;
-#endif
+	if (IA_CSS_SUCCESS ==
+		sh_css_select_dp_10bpp_config(pipe, &is_dp_10bpp)) {
+		/* return an error when both DPC and BDS is enabled by the
+		 * user. */
+		/* we do not exit from this point immediately to allow internal
+		 * firmware feature testing. */
+		if(is_dp_10bpp) {
+			err = IA_CSS_ERR_INVALID_ARGUMENTS;
+		}
+	} else {
+		err = IA_CSS_ERR_INTERNAL_ERROR;
+		goto exit;
+	}
 
+	ia_css_set_param_exceptions(params);
+exit:
+#endif
 	IA_CSS_LEAVE_ERR_PRIVATE(err);
 	return err;
 }
@@ -3094,7 +3183,11 @@ ia_css_stream_isp_parameters_init(struct ia_css_stream *stream)
 		 goto ERR;
 
 	params = stream->isp_params_configs;
-	sh_css_init_isp_params_from_global(stream, params, true);
+	if (!sh_css_init_isp_params_from_global(stream, params, true)) {
+		/* we do not return the error immediately to enable internal
+		 * firmware feature testing */
+		err = IA_CSS_ERR_INVALID_ARGUMENTS;
+	}
 
 	ddr_ptrs = &params->ddr_ptrs;
 	ddr_ptrs_size = &params->ddr_ptrs_size;
@@ -3224,14 +3317,18 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 		struct ia_css_isp_parameters *params,
 		bool use_default_config)
 {
+	bool retval = true;
 #if !defined(IS_ISP_2500_SYSTEM)
 	int i = 0;
+	bool is_dp_10bpp = true;
 	unsigned isp_pipe_version = ia_css_pipe_get_isp_pipe_version(stream->pipes[0]);
 #endif
 	struct ia_css_isp_parameters *stream_params = stream->isp_params_configs;
 
-	if (!use_default_config && !stream_params)
-		return false;
+	if (!use_default_config && !stream_params) {
+		retval = false;
+		goto exit;
+	}
 
 	params->output_frame = NULL;
 	params->isp_parameters_id = 0;
@@ -3261,6 +3358,7 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 		ia_css_set_tnr_config(params, &default_tnr_config);
 		ia_css_set_ob_config(params, &default_ob_config);
 		ia_css_set_dp_config(params, &default_dp_config);
+		ia_css_set_param_exceptions(params);
 		ia_css_set_de_config(params, &default_de_config);
 		ia_css_set_gc_config(params, &default_gc_config);
 		ia_css_set_anr_config(params, &default_anr_config);
@@ -3283,7 +3381,6 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 		ia_css_set_sdis_config(params, &default_sdis_config);
 		ia_css_set_sdis2_config(params, &default_sdis2_config);
 		ia_css_set_formats_config(params, &default_formats_config);
-		ia_css_set_param_exceptions(params);
 
 		params->fpn_config.data = NULL;
 		params->config_changed[IA_CSS_FPN_ID] = true;
@@ -3354,6 +3451,20 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 		ia_css_set_xnr_config(params, &stream_params->xnr_config);
 		ia_css_set_formats_config(params, &stream_params->formats_config);
 
+		for (i = 0; i < stream->num_pipes; i++) {
+			if (IA_CSS_SUCCESS ==
+				sh_css_select_dp_10bpp_config(stream->pipes[i], &is_dp_10bpp)) {
+				/* set the return value as false if both DPC and
+				 * BDS is enabled by the user. But we do not return
+				 * the value immediately to enable internal firmware
+				 * feature testing. */
+				retval = !is_dp_10bpp;
+			} else {
+				retval = false;
+				goto exit;
+			}
+		}
+
 		ia_css_set_param_exceptions(params);
 
 		params->fpn_config.data = stream_params->fpn_config.data;
@@ -3387,7 +3498,8 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 #endif /* !defined(IS_ISP_2500_SYSTEM) */
 	}
 
-	return true;
+exit:
+	return retval;
 }
 
 enum ia_css_err
@@ -3452,42 +3564,6 @@ static void host_lut_store(const void *lut)
 	for (i = 0; i < N_GDC_ID; i++)
 		gdc_lut_store((gdc_ID_t)i, (const int (*)[HRT_GDC_N]) lut);
 }
-
-/* Input LUT format:
- * c0[0-1023], c1[0-1023], c2[0-1023] c3[0-1023]
- *
- * Interleaved LUT format:
- * c0[0], c1[0], c2[0], c3[0], c0[1], c1[1], c2[1], c3[1], ....
- * c0[1023], c1[1023], c2[1023], c3[1023]
- *
- * The first format needs c0[0], c1[0] (which are 1024 words apart)
- * to program gdc LUT registers. This makes it difficult to do piecemeal
- * reads in SP side gdc_lut_store
- *
- * Interleaved format allows use of contiguous bytes to store into
- * gdc LUT registers.
- *
- * See gdc_lut_store() definition in host/gdc.c vs sp/gdc_private.h
- *
- */
-static void interleave_lut_coeffs(const int in_lut[4][HRT_GDC_N],
-	int interleaved[4][HRT_GDC_N])
-{
-	unsigned int i;
-	int *out = (int *)interleaved;
-
-	IA_CSS_ENTER_PRIVATE("int lut=%p, out lut=%p", in_lut, interleaved);
-
-	for (i = 0; i < HRT_GDC_N; i++) {
-		out[0] = in_lut[0][i];
-		out[1] = in_lut[1][i];
-		out[2] = in_lut[2][i];
-		out[3] = in_lut[3][i];
-		out += 4;
-	}
-
-	IA_CSS_LEAVE_PRIVATE("void");
-}
 #endif
 
 enum ia_css_err ia_css_pipe_set_bci_scaler_lut(struct ia_css_pipe *pipe,
@@ -3527,7 +3603,7 @@ enum ia_css_err ia_css_pipe_set_bci_scaler_lut(struct ia_css_pipe *pipe,
 			return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 		}
 
-		interleave_lut_coeffs((const int(*)[HRT_GDC_N])lut, interleaved_lut_temp);
+		gdc_lut_convert_to_isp_format((const int(*)[HRT_GDC_N])lut, interleaved_lut_temp);
 		mmgr_store(pipe->scaler_pp_lut, (int *)interleaved_lut_temp,
 			sizeof(zoom_table));
 	}
@@ -3570,7 +3646,7 @@ enum ia_css_err sh_css_params_map_and_store_default_gdc_lut(void)
 	if (default_gdc_lut == mmgr_NULL)
 		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 
-	interleave_lut_coeffs((const int(*)[HRT_GDC_N])zoom_table,
+	gdc_lut_convert_to_isp_format((const int(*)[HRT_GDC_N])zoom_table,
 		interleaved_lut_temp);
 	mmgr_store(default_gdc_lut, (int *)interleaved_lut_temp,
 		sizeof(zoom_table));
@@ -4438,31 +4514,44 @@ sh_css_params_write_to_ddr_internal(
 			IA_CSS_LEAVE_ERR_PRIVATE(err);
 			return err;
 		}
+
 		if (params->pipe_dvs_6axis_config_changed[pipe_id] || buff_realloced) {
-				/* Generate default DVS unity table on start up*/
-				if (params->pipe_dvs_6axis_config[pipe_id] == NULL) {
+			const struct ia_css_frame_info *dvs_in_frame_info;
 
-					struct ia_css_resolution dvs_offset;
-					dvs_offset.width  =
-								(PIX_SHIFT_FILTER_RUN_IN_X + binary->dvs_envelope.width) / 2;
-					dvs_offset.height =
-								(PIX_SHIFT_FILTER_RUN_IN_Y + binary->dvs_envelope.height) / 2;
-
-					params->pipe_dvs_6axis_config[pipe_id] =
-							generate_dvs_6axis_table(&binary->out_frame_info[0].res, &dvs_offset);
-					if (params->pipe_dvs_6axis_config[pipe_id] == NULL) {
-						IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY);
-						return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
-					}
-					params->pipe_dvs_6axis_config_changed[pipe_id] = true;
-				}
-
-				store_dvs_6axis_config(params->pipe_dvs_6axis_config[pipe_id],
-							binary,
-							ddr_map->dvs_6axis_params_y);
-				params->isp_params_changed = true;
+			if ( stage->args.delay_frames[0] ) {
+				/*When delay frames are present(as in case of video),
+				they are used for dvs. Configure DVS using those params*/
+				dvs_in_frame_info = &stage->args.delay_frames[0]->info;
+			} else {
+				/*Otherwise, use input frame to configure DVS*/
+				dvs_in_frame_info = &stage->args.in_frame->info;
 			}
+
+			/* Generate default DVS unity table on start up*/
+			if (params->pipe_dvs_6axis_config[pipe_id] == NULL) {
+
+				struct ia_css_resolution dvs_offset;
+				dvs_offset.width  =
+						(PIX_SHIFT_FILTER_RUN_IN_X + binary->dvs_envelope.width) / 2;
+				dvs_offset.height =
+						(PIX_SHIFT_FILTER_RUN_IN_Y + binary->dvs_envelope.height) / 2;
+
+				params->pipe_dvs_6axis_config[pipe_id] =
+						generate_dvs_6axis_table(&binary->out_frame_info[0].res, &dvs_offset);
+				if (params->pipe_dvs_6axis_config[pipe_id] == NULL) {
+					IA_CSS_LEAVE_ERR_PRIVATE(IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY);
+					return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
+				}
+				params->pipe_dvs_6axis_config_changed[pipe_id] = true;
+			}
+
+			store_dvs_6axis_config(params->pipe_dvs_6axis_config[pipe_id],
+				binary,
+				dvs_in_frame_info,
+				ddr_map->dvs_6axis_params_y);
+			params->isp_params_changed = true;
 		}
+	}
 
 	if (binary->info->sp.enable.ca_gdc) {
 		unsigned int i;

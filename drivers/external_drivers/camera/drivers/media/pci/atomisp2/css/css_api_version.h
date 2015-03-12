@@ -35,7 +35,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.14.17"
+#define CSS_API_VERSION_STRING	"2.1.14.20"
 
 /*
 Change log
@@ -236,7 +236,7 @@ v2.1.10.6 (6 changes parallel), change the pipe version type from integer to enu
 v2.1.13.0 (8 changes parallel), Stop Support for Skycam B0
 - Remove a few pre-processor defines for Skycam B0/C0 as support
 
-v2.1.14.0 (22 changes parallel), change the pipe version type from integer to enum
+v2.1.14.0 (23 changes parallel), change the pipe version type from integer to enum
 - remove the temporary workaround for backward compatability
 
 v2.1.14.0 (12 changes parallel), expose_gamma_enable_option
@@ -299,19 +299,29 @@ v2.1.14.13 (5 changes parallel), Remove continuous mode special case handling in
 - even though API ia_css_pipe_set_isp_config is for single pipe
 - Removed incorrect case
 
-v2.1.14.13 (5 changes parallel), cont_remove_x_y_end_from_ae_and_awb
-- this patch doesn't introduce any new api change, it only fixes a recent
-- api merged change (#31938) , in order to have success CI i had to upload an api change request
-
 v2.1.14.13 (5 changes parallel), DVS statistics grid produced by accelerator
 - Add DVS statistics produced by accelerator grid to pipe info
 - Add ia_css_pipe_has_dvs_stats function
 
-v2.1.14.16 (20 changes parallel), eliminate two_pixels_per_clock field
+v2.1.14.14 (6 changes parallel), cont_remove_x_y_end_from_ae_and_awb
+- this patch doesn't introduce any new api change, it only fixes a recent
+- api merged change (#31938) , in order to have success CI i had to upload an api change request
+
+v2.1.14.16 (5 changes parallel), Add XNR3 blending strength to kernel interface
+- Added a blending strength field to the XNR3 kernel interface to add
+- support for blending.
+
+v2.1.14.17 (21 changes parallel), eliminate two_pixels_per_clock field
 - remove obsolete field two_pixels_per_clock
 
-v2.1.14.17 (1 changes parallel), Fix copyright headers (no functional change)
+v2.1.14.18 (2 changes parallel), Fix copyright headers (no functional change)
 - No functional change; only fixes copyright headers
+
+v2.1.14.20 (1 changes parallel), Return an error when both DPC and BDS are enabled in a pipe config
+- Return an error when both DPC and BDS are enabled in a pipe config
+
+v2.1.14.20 (2 changes parallel), ia_css_skc_dvs_statistics field size change
+- ia_css_skc_dvs_statistics field size change
 
 */
 

@@ -28,13 +28,16 @@
 /*
  * Default kernel parameters. In general, default is bypass mode or as close
  * to the ineffective values as possible. Due to the chroma down+upsampling,
- * perfect bypass mode is not possible for xnr3.
+ * perfect bypass mode is not possible for xnr3 filter itself. Instead, the
+ * 'blending' parameter is used to create a bypass.
  */
 const struct ia_css_xnr3_config default_xnr3_config = {
 	/* sigma */
 	{ 0, 0, 0, 0, 0, 0 },
 	/* coring */
-	{ 0, 0, 0, 0 }
+	{ 0, 0, 0, 0 },
+	/* blending */
+	{ 0 }
 };
 
 /*
@@ -82,13 +85,35 @@ compute_alpha(int sigma)
 static int32_t
 compute_coring(int coring)
 {
+	int32_t isp_coring;
 	int32_t isp_scale = XNR_CORING_SCALE_FACTOR;
 	int32_t host_scale = IA_CSS_XNR3_CORING_SCALE;
 	int32_t offset = host_scale / 2; /* fixed-point 0.5 */
 
 	/* Convert from public host-side scale factor to isp-side scale
-	 * factor. */
-	return ((coring * isp_scale) + offset) / host_scale;
+	 * factor. Clip to [0, isp_scale-1). */
+	isp_coring = ((coring * isp_scale) + offset) / host_scale;
+	return min(max(isp_coring, 0), isp_scale - 1);
+}
+
+/*
+ * Compute the scaled blending strength for the ISP kernel from the value on
+ * the host parameter interface.
+ */
+static int32_t
+compute_blending(int strength)
+{
+	int32_t isp_strength;
+	int32_t isp_scale = XNR_BLENDING_SCALE_FACTOR;
+	int32_t host_scale = IA_CSS_XNR3_BLENDING_SCALE;
+	int32_t offset = host_scale / 2; /* fixed-point 0.5 */
+
+	/* Convert from public host-side scale factor to isp-side scale
+	 * factor. The blending factor is positive on the host side, but
+	 * negative on the ISP side because +1.0 cannot be represented
+	 * exactly as s0.11 fixed point, but -1.0 can. */
+	isp_strength = -(((strength * isp_scale) + offset) / host_scale);
+	return max(min(isp_strength, 0), -XNR_BLENDING_SCALE_FACTOR);
 }
 
 void
@@ -101,6 +126,8 @@ ia_css_xnr3_encode(
 	/* The adjust factor is the next power of 2
 	   w.r.t. the kernel size*/
 	int adjust_factor = ceil_pow2(kernel_size);
+	int32_t max_diff = (1 << (ISP_VEC_ELEMBITS - 1)) - 1;
+	int32_t min_diff = -(1 << (ISP_VEC_ELEMBITS - 1));
 
 	int32_t alpha_y0 = compute_alpha(from->sigma.y0);
 	int32_t alpha_y1 = compute_alpha(from->sigma.y1);
@@ -108,11 +135,18 @@ ia_css_xnr3_encode(
 	int32_t alpha_u1 = compute_alpha(from->sigma.u1);
 	int32_t alpha_v0 = compute_alpha(from->sigma.v0);
 	int32_t alpha_v1 = compute_alpha(from->sigma.v1);
+	int32_t alpha_ydiff = (alpha_y1 - alpha_y0) * adjust_factor / kernel_size;
+	int32_t alpha_udiff = (alpha_u1 - alpha_u0) * adjust_factor / kernel_size;
+	int32_t alpha_vdiff = (alpha_v1 - alpha_v0) * adjust_factor / kernel_size;
 
 	int32_t coring_u0 = compute_coring(from->coring.u0);
 	int32_t coring_u1 = compute_coring(from->coring.u1);
 	int32_t coring_v0 = compute_coring(from->coring.v0);
 	int32_t coring_v1 = compute_coring(from->coring.v1);
+	int32_t coring_udiff = (coring_u1 - coring_u0) * adjust_factor / kernel_size;
+	int32_t coring_vdiff = (coring_v1 - coring_v0) * adjust_factor / kernel_size;
+
+	int32_t blending = compute_blending(from->blending.strength);
 
 	(void)size;
 
@@ -120,15 +154,18 @@ ia_css_xnr3_encode(
 	to->alpha.y0 = alpha_y0;
 	to->alpha.u0 = alpha_u0;
 	to->alpha.v0 = alpha_v0;
-	to->alpha.ydiff = (alpha_y1 - alpha_y0) * adjust_factor / kernel_size;
-	to->alpha.udiff = (alpha_u1 - alpha_u0) * adjust_factor / kernel_size;
-	to->alpha.vdiff = (alpha_v1 - alpha_v0) * adjust_factor / kernel_size;
+	to->alpha.ydiff = min(max(alpha_ydiff, min_diff), max_diff);
+	to->alpha.udiff = min(max(alpha_udiff, min_diff), max_diff);
+	to->alpha.vdiff = min(max(alpha_vdiff, min_diff), max_diff);
 
 	/* coring parameters are expressed in q1.NN format */
 	to->coring.u0 = coring_u0;
 	to->coring.v0 = coring_v0;
-	to->coring.udiff = (coring_u1 - coring_u0) * adjust_factor / kernel_size;
-	to->coring.vdiff = (coring_v1 - coring_v0) * adjust_factor / kernel_size;
+	to->coring.udiff = min(max(coring_udiff, min_diff), max_diff);
+	to->coring.vdiff = min(max(coring_vdiff, min_diff), max_diff);
+
+	/* blending strength is expressed in q1.NN format */
+	to->blending.strength = blending;
 }
 
 /* Dummy Function added as the tool expects it*/
