@@ -279,8 +279,8 @@ void adreno_drawctxt_invalidate(struct kgsl_device *device,
 
 	spin_unlock(&drawctxt->lock);
 
-	/* Make sure all "retired" events are processed */
-	kgsl_process_event_group(device, &context->events);
+	/* Make sure all pending events are processed or cancelled */
+	kgsl_flush_event_group(device, &context->events);
 
 	/* Give the bad news to everybody waiting around */
 	wake_up_all(&drawctxt->waiting);

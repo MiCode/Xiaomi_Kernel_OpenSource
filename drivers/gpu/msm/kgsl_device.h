@@ -702,7 +702,8 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 		unsigned int timestamp, kgsl_event_func func, void *priv);
 void kgsl_process_event_group(struct kgsl_device *device,
 	struct kgsl_event_group *group);
-
+void kgsl_flush_event_group(struct kgsl_device *device,
+		struct kgsl_event_group *group);
 void kgsl_process_events(struct work_struct *work);
 
 void kgsl_context_destroy(struct kref *kref);
