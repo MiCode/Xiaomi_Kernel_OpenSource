@@ -31,6 +31,9 @@ extern struct ia_css_fw_info     sh_css_sp_fw;
 #if defined(HAS_SEC_SP)
 extern struct ia_css_fw_info     sh_css_sp1_fw;
 #endif /* HAS_SEC_SP */
+#if defined(HAS_BL)
+extern struct ia_css_fw_info     sh_css_bl_fw;
+#endif /* HAS_BL */
 extern struct ia_css_blob_descr *sh_css_blob_info;
 extern unsigned			 sh_css_num_binaries;
 
