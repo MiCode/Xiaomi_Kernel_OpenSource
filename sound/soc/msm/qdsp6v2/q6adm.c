@@ -705,7 +705,7 @@ int adm_set_stereo_to_custom_stereo(int port_id, int copp_idx,
 	adm_params->mem_map_handle = 0;
 	adm_params->payload_size = params_length;
 	/* direction RX as 0 */
-	adm_params->direction = ADM_PATH_PLAYBACK;
+	adm_params->direction = ADM_MATRIX_ID_AUDIO_RX;
 	/* session id for this cmd to be applied on */
 	adm_params->sessionid = session_id;
 	adm_params->deviceid =
