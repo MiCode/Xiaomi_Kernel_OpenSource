@@ -908,7 +908,7 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	/* wait for atleast one vsync to ensure DMA is stopped */
 	msleep(20);
 
-	rc = mdp3_iommu_enable();
+	rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
 	if (rc) {
 		pr_err("fail to attach dma iommu\n");
 		goto reset_error;
