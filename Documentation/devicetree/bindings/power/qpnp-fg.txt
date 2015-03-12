@@ -139,6 +139,17 @@ Parent node optional properties:
 					This value should be around the steady
 					state current drawn from the battery
 					when the phone is low on battery.
+- qcom,fg-cc-cv-threshold-mv:		Voltage threshold in mV for configuring
+					constant charge (CC) to constant
+					voltage (CV) setpoint in FG upon
+					which the battery EOC status will
+					be determined. This value should be
+					10 mV less than the float voltage
+					configured in the charger.
+					This property should only be specified
+					if "qcom,autoadjust-vfloat" property is
+					specified in the charger driver to
+					ensure a proper operation.
 
 qcom,fg-soc node required properties:
 - reg : offset and length of the PMIC peripheral register map.
