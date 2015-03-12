@@ -1387,7 +1387,8 @@ static int __power_up(struct v4l2_subdev *sd)
 		goto fail_power;
 
 	/* according to DS, at least 5ms is needed between DOVDD and PWDN */
-	usleep_range(5000, 6000);
+	/* add this delay time to 10~11ms*/
+	usleep_range(10000, 11000);
 
 	/* gpio ctrl */
 	ret = gpio_ctrl(sd, 1);
@@ -1631,8 +1632,32 @@ static int ov5693_s_mbus_fmt(struct v4l2_subdev *sd,
 	}
 
 	ret = startup(sd);
-	if (ret)
-		dev_err(&client->dev, "ov5693 startup err\n");
+	if (ret) {
+		int i = 0;
+		dev_err(&client->dev, "ov5693 startup err, retry to power up\n");
+		for (i = 0; i < OV5693_POWER_UP_RETRY_NUM; i++) {
+			dev_err(&client->dev,
+				"ov5693 retry to power up %d/%d times, result: ",
+				i+1, OV5693_POWER_UP_RETRY_NUM);
+			power_down(sd);
+			ret = power_up(sd);
+			if (!ret) {
+				mutex_unlock(&dev->input_lock);
+				ov5693_init(sd);
+				mutex_lock(&dev->input_lock);
+			} else {
+				dev_err(&client->dev, "power up failed, continue\n");
+				continue;
+			}
+			ret = startup(sd);
+			if (ret) {
+				dev_err(&client->dev, " startup FAILED!\n");
+			} else {
+				dev_err(&client->dev, " startup SUCCESS!\n");
+				break;
+			}
+		}
+	}
 
 	/*
 	 * After sensor settings are set to HW, sometimes stream is started.
