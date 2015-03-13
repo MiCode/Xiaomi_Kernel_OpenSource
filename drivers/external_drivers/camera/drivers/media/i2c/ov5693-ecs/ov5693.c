@@ -1488,38 +1488,47 @@ static int ov5693_s_power(struct v4l2_subdev *sd, int on)
  * @w: width
  * @h: height
  *
- * Get the gap between resolution and w/h.
+ * Get the gap between res_w/res_h and w/h.
+ * distance = (res_w/res_h - w/h) / (w/h) * 8192
  * res->width/height smaller than w/h wouldn't be considered.
+ * The gap of ratio larger than 1/8 wouldn't be considered.
  * Returns the value of gap or -1 if fail.
  */
-#define LARGEST_ALLOWED_RATIO_MISMATCH 600
+#define LARGEST_ALLOWED_RATIO_MISMATCH 1024
 static int distance(struct ov5693_resolution *res, u32 w, u32 h)
 {
-	unsigned int w_ratio = ((res->width << 13)/w);
-	unsigned int h_ratio;
-	int match;
+	int ratio;
+	int distance;
 
-	if (h == 0)
-		return -1;
-	h_ratio = ((res->height << 13) / h);
-	if (h_ratio == 0)
-		return -1;
-	match   = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
-
-	if ((w_ratio < (int)8192) || (h_ratio < (int)8192)  ||
-		(match > LARGEST_ALLOWED_RATIO_MISMATCH))
+	if (w == 0 || h == 0 ||
+	    res->width < w || res->height < h)
 		return -1;
 
-	return w_ratio + h_ratio;
+	ratio = (res->width << 13);
+	ratio /= w;
+	ratio *= h;
+	ratio /= res->height;
+
+	distance = abs(ratio - 8192);
+
+	if (distance > LARGEST_ALLOWED_RATIO_MISMATCH)
+		return -1;
+
+	return distance;
 }
 
-/* Return the nearest higher resolution index */
+/* Return the nearest higher resolution index
+ * Firstly try to find the approximate aspect ratio resolution
+ * If we find multiple same AR resolutions, choose the
+ * minimal size.
+ */
 static int nearest_resolution_index(int w, int h)
 {
 	int i;
 	int idx = -1;
 	int dist;
 	int min_dist = INT_MAX;
+	int min_res_w = INT_MAX;
 	struct ov5693_resolution *tmp_res = NULL;
 
 	for (i = 0; i < N_RES; i++) {
@@ -1530,7 +1539,11 @@ static int nearest_resolution_index(int w, int h)
 		if (dist < min_dist) {
 			min_dist = dist;
 			idx = i;
+			min_res_w = ov5693_res[i].width;
+			continue;
 		}
+		if (dist == min_dist && ov5693_res[i].width < min_res_w)
+			idx = i;
 	}
 
 	return idx;
