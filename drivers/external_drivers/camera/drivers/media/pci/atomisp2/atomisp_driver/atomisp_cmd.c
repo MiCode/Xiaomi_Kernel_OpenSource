@@ -1701,6 +1701,11 @@ irqreturn_t atomisp_isr_thread(int irq, void *isp_ptr)
 			continue;
 		if (frame_done_found[asd->index] &&
 		    asd->params.css_update_params_needed) {
+			atomisp_apply_css_parameters(asd,
+				&asd->params.css_param);
+			if (asd->params.css_param.update_flag.dz_config)
+				atomisp_css_set_dz_config(asd,
+					&asd->params.css_param.dz_config);
 			atomisp_css_update_isp_params(asd);
 			asd->params.css_update_params_needed = false;
 			frame_done_found[asd->index] = false;
@@ -3699,15 +3704,8 @@ int atomisp_set_parameters(struct video_device *vdev,
 		goto apply_parameter_failed;
 
 	if (!(arg->per_frame_setting && !atomisp_is_vf_pipe(pipe))) {
-		atomisp_apply_css_parameters(asd, css_param);
 		/* indicate to CSS that we have parameters to be updated */
 		asd->params.css_update_params_needed = true;
-
-		if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream &&
-		    asd->streaming == ATOMISP_DEVICE_STREAMING_ENABLED) {
-			atomisp_css_update_isp_params(asd);
-			asd->params.css_update_params_needed = false;
-		}
 	} else {
 		list_add_tail(&param->list, &pipe->per_frame_params);
 		atomisp_handle_parameter_and_buffer(pipe);
@@ -4225,13 +4223,8 @@ int atomisp_digital_zoom(struct atomisp_sub_device *asd, int flag,
 		zoom = max_zoom - min_t(u32, max_zoom - 1, *value);
 		atomisp_css_set_zoom_factor(asd, zoom);
 
-		if (asd->stream_env[ATOMISP_INPUT_STREAM_GENERAL].stream &&
-		    asd->streaming == ATOMISP_DEVICE_STREAMING_ENABLED) {
-			dev_dbg(isp->dev, "%s, zoom: %d\n", __func__, zoom);
-			atomisp_css_update_isp_params(asd);
-		} else {
-			asd->params.css_update_params_needed = true;
-		}
+		dev_dbg(isp->dev, "%s, zoom: %d\n", __func__, zoom);
+		asd->params.css_update_params_needed = true;
 	}
 
 	return 0;
