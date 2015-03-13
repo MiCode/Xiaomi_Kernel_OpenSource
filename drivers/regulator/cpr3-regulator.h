@@ -257,6 +257,7 @@ enum cpr3_count_mode {
  *			true.
  * @cpr_suspended:	Boolean which indicates that CPR has been temporarily
  *			disabled while enterring system suspend.
+ * @debugfs:		Pointer to the debugfs directory of this CPR3 controller
  *
  * This structure contains both configuration and runtime state data.  The
  * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled, and
@@ -304,6 +305,7 @@ struct cpr3_controller {
 	struct cpr3_corner	aggr_corner;
 	bool			cpr_enabled;
 	bool			cpr_suspended;
+	struct dentry		*debugfs;
 };
 
 /* Used for rounding voltages to the closest physically available set point. */

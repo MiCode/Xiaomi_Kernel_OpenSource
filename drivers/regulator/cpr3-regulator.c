@@ -130,6 +130,7 @@
 
 static DEFINE_MUTEX(cpr3_controller_list_mutex);
 static LIST_HEAD(cpr3_controller_list);
+static struct dentry *cpr3_debugfs_base;
 
 /**
  * cpr3_read() - read four bytes from the memory address specified
@@ -600,7 +601,14 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 		}
 	}
 
-	rc = regulator_set_voltage(vdd, new_volt, max_volt);
+	/*
+	 * Subtract a small amount from the min_uV parameter so that the
+	 * set voltage request is not dropped by the framework due to being
+	 * duplicate.  This is needed in order to switch from hardware
+	 * closed-loop to open-loop successfully.
+	 */
+	rc = regulator_set_voltage(vdd, new_volt - (ctrl->cpr_enabled ? 0 : 1),
+				max_volt);
 	if (rc) {
 		cpr3_err(ctrl, "regulator_set_voltage(vdd) == %d failed, rc=%d\n",
 			new_volt, rc);
@@ -1241,6 +1249,247 @@ static int cpr3_regulator_thread_register(struct cpr3_thread *thread)
 }
 
 /**
+ * cpr3_debug_closed_loop_enable_set() - debugfs callback used to change the
+ *		value of the CPR controller cpr_allowed_sw flag which enables or
+ *		disables closed-loop operation
+ * @data:		Pointer to private data which is equal to the CPR
+ *			controller pointer
+ * @val:		New value for cpr_allowed_sw
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_closed_loop_enable_set(void *data, u64 val)
+{
+	struct cpr3_controller *ctrl = data;
+	bool enable = !!val;
+	int rc;
+
+	mutex_lock(&ctrl->lock);
+
+	if (ctrl->cpr_allowed_sw == enable)
+		goto done;
+
+	if (enable && !ctrl->cpr_allowed_hw) {
+		cpr3_err(ctrl, "CPR closed-loop operation is not allowed\n");
+		goto done;
+	}
+
+	ctrl->cpr_allowed_sw = enable;
+
+	rc = cpr3_regulator_update_ctrl_state(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "could not change CPR enable state=%u, rc=%d\n",
+			enable, rc);
+		goto done;
+	}
+
+	cpr3_debug(ctrl, "closed-loop=%s\n", enable ? "enabled" : "disabled");
+
+done:
+	mutex_unlock(&ctrl->lock);
+	return 0;
+}
+
+/**
+ * cpr3_debug_closed_loop_enable_get() - debugfs callback used to retrieve
+ *		the value of the CPR controller cpr_allowed_sw flag which
+ *		indicates if closed-loop operation is enabled
+ * @data:		Pointer to private data which is equal to the CPR
+ *			controller pointer
+ * @val:		Output parameter written with the value of
+ *			cpr_allowed_sw
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_closed_loop_enable_get(void *data, u64 *val)
+{
+	struct cpr3_controller *ctrl = data;
+
+	*val = ctrl->cpr_allowed_sw;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_closed_loop_enable_fops,
+			cpr3_debug_closed_loop_enable_get,
+			cpr3_debug_closed_loop_enable_set,
+			"%llu\n");
+
+/**
+ * cpr3_debug_hw_closed_loop_enable_set() - debugfs callback used to change the
+ *		value of the CPR controller use_hw_closed_loop flag which
+ *		switches between software closed-loop and hardware closed-loop
+ *		operation
+ * @data:		Pointer to private data which is equal to the CPR
+ *			controller pointer
+ * @val:		New value for use_hw_closed_loop
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
+{
+	struct cpr3_controller *ctrl = data;
+	bool use_hw_closed_loop = !!val;
+	bool cpr_enabled;
+	int rc;
+
+	mutex_lock(&ctrl->lock);
+
+	if (ctrl->use_hw_closed_loop == use_hw_closed_loop)
+		goto done;
+
+	cpr3_ctrl_loop_disable(ctrl);
+
+	ctrl->use_hw_closed_loop = use_hw_closed_loop;
+
+	cpr_enabled = ctrl->cpr_enabled;
+
+	/* Ensure that CPR clocks are enabled before writing to registers. */
+	if (!cpr_enabled) {
+		rc = cpr3_clock_enable(ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "clock enable failed, rc=%d\n", rc);
+			goto done;
+		}
+		ctrl->cpr_enabled = true;
+	}
+
+	if (ctrl->use_hw_closed_loop)
+		cpr3_write(ctrl, CPR3_REG_IRQ_EN, 0);
+
+	cpr3_write(ctrl, CPR3_REG_HW_CLOSED_LOOP,
+		ctrl->use_hw_closed_loop
+			? CPR3_HW_CLOSED_LOOP_ENABLE
+			: CPR3_HW_CLOSED_LOOP_DISABLE);
+
+	/* Turn off CPR clocks if they were off before this function call. */
+	if (!cpr_enabled) {
+		cpr3_clock_disable(ctrl);
+		ctrl->cpr_enabled = false;
+	}
+
+	if (ctrl->use_hw_closed_loop) {
+		rc = regulator_enable(ctrl->vdd_limit_regulator);
+		if (rc) {
+			cpr3_err(ctrl, "CPR limit regulator enable failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	} else {
+		rc = regulator_disable(ctrl->vdd_limit_regulator);
+		if (rc) {
+			cpr3_err(ctrl, "CPR limit regulator disable failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+	}
+
+	rc = cpr3_regulator_update_ctrl_state(ctrl);
+	if (rc) {
+		cpr3_err(ctrl, "could not change CPR HW closed-loop enable state=%u, rc=%d\n",
+			use_hw_closed_loop, rc);
+		goto done;
+	}
+
+	cpr3_debug(ctrl, "closed-loop mode=%s\n",
+		use_hw_closed_loop ? "HW" : "SW");
+
+done:
+	mutex_unlock(&ctrl->lock);
+	return 0;
+}
+
+/**
+ * cpr3_debug_hw_closed_loop_enable_get() - debugfs callback used to retrieve
+ *		the value of the CPR controller use_hw_closed_loop flag which
+ *		indicates if hardware closed-loop operation is being used in
+ *		place of software closed-loop operation
+ * @data:		Pointer to private data which is equal to the CPR
+ *			controller pointer
+ * @val:		Output parameter written with the value of
+ *			use_hw_closed_loop
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_hw_closed_loop_enable_get(void *data, u64 *val)
+{
+	struct cpr3_controller *ctrl = data;
+
+	*val = ctrl->use_hw_closed_loop;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_hw_closed_loop_enable_fops,
+			cpr3_debug_hw_closed_loop_enable_get,
+			cpr3_debug_hw_closed_loop_enable_set,
+			"%llu\n");
+
+/**
+ * cpr3_regulator_debugfs_ctrl_add() - add debugfs files to expose configuration
+ *		data for the CPR controller
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Return: none
+ */
+static void cpr3_regulator_debugfs_ctrl_add(struct cpr3_controller *ctrl)
+{
+	struct dentry *temp;
+
+	/* Add cpr3-regulator base directory if it isn't present already. */
+	if (cpr3_debugfs_base == NULL) {
+		cpr3_debugfs_base = debugfs_create_dir("cpr3-regulator", NULL);
+		if (IS_ERR_OR_NULL(cpr3_debugfs_base)) {
+			cpr3_err(ctrl, "cpr3-regulator debugfs base directory creation failed\n");
+			cpr3_debugfs_base = NULL;
+			return;
+		}
+	}
+
+	ctrl->debugfs = debugfs_create_dir(ctrl->name, cpr3_debugfs_base);
+	if (IS_ERR_OR_NULL(ctrl->debugfs)) {
+		cpr3_err(ctrl, "cpr3-regulator controller debugfs directory creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("cpr_closed_loop_enable", S_IRUSR | S_IWUSR,
+					ctrl->debugfs, ctrl,
+					&cpr3_debug_closed_loop_enable_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(ctrl, "cpr_closed_loop_enable debugfs directory creation failed\n");
+		return;
+	}
+
+	if (ctrl->supports_hw_closed_loop) {
+		temp = debugfs_create_file("use_hw_closed_loop",
+					S_IRUSR | S_IWUSR, ctrl->debugfs, ctrl,
+					&cpr3_debug_hw_closed_loop_enable_fops);
+		if (IS_ERR_OR_NULL(temp)) {
+			cpr3_err(ctrl, "use_hw_closed_loop debugfs directory creation failed\n");
+			return;
+		}
+	}
+}
+
+/**
+ * cpr3_regulator_debugfs_ctrl_remove() - remove debugfs files for the CPR
+ *		controller
+ * @ctrl:		Pointer to the CPR3 controller
+ *
+ * Note, this function must be called after the controller has been removed from
+ * cpr3_controller_list and while the cpr3_controller_list_mutex lock is held.
+ *
+ * Return: none
+ */
+static void cpr3_regulator_debugfs_ctrl_remove(struct cpr3_controller *ctrl)
+{
+	if (list_empty(&cpr3_controller_list)) {
+		debugfs_remove_recursive(cpr3_debugfs_base);
+		cpr3_debugfs_base = NULL;
+	} else {
+		debugfs_remove_recursive(ctrl->debugfs);
+	}
+}
+
+/**
  * cpr3_regulator_init_ctrl_data() - performs initialization of CPR controller
  *					elements
  * @ctrl:		Pointer to the CPR3 controller
@@ -1454,6 +1703,7 @@ int cpr3_regulator_register(struct platform_device *pdev,
 	}
 
 	mutex_lock(&cpr3_controller_list_mutex);
+	cpr3_regulator_debugfs_ctrl_add(ctrl);
 	list_add(&ctrl->list, &cpr3_controller_list);
 	mutex_unlock(&cpr3_controller_list_mutex);
 
@@ -1479,6 +1729,7 @@ int cpr3_regulator_unregister(struct cpr3_controller *ctrl)
 
 	mutex_lock(&cpr3_controller_list_mutex);
 	list_del(&ctrl->list);
+	cpr3_regulator_debugfs_ctrl_remove(ctrl);
 	mutex_unlock(&cpr3_controller_list_mutex);
 
 	cpr3_ctrl_loop_disable(ctrl);
