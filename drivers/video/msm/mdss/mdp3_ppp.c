@@ -705,9 +705,10 @@ static int solid_fill_workaround(struct mdp_blit_req *req,
 	blit_op->dst.roi.width = (blit_op->dst.roi.width / 2) * 2;
 	blit_op->src.roi.width = (blit_op->src.roi.width / 2) * 2;
 
+	/* Set src format to RGBX, to avoid ppp hang issues */
+	blit_op->src.color_fmt = MDP_RGBX_8888;
+
 	/* Avoid RGBA format, as it could hang ppp during solid fill */
-	if (blit_op->src.color_fmt == MDP_RGBA_8888)
-		blit_op->src.color_fmt = MDP_RGBX_8888;
 	if (blit_op->dst.color_fmt == MDP_RGBA_8888)
 		blit_op->dst.color_fmt = MDP_RGBX_8888;
 	return 0;
