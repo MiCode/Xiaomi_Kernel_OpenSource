@@ -4353,12 +4353,12 @@ static int tomtom_hph_pa_event(struct snd_soc_dapm_widget *w,
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
+		/* Let MBHC module know PA turned off */
+		wcd9xxx_resmgr_notifier_call(&tomtom->resmgr, e_post_off);
 		usleep_range(pa_settle_time, pa_settle_time + 1000);
 		pr_debug("%s: sleep %d us after %s PA disable\n", __func__,
 				pa_settle_time, w->name);
 
-		/* Let MBHC module know PA turned off */
-		wcd9xxx_resmgr_notifier_call(&tomtom->resmgr, e_post_off);
 		break;
 	}
 	return 0;
