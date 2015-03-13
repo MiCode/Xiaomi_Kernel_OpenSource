@@ -1967,21 +1967,39 @@ int msm_ds2_dap_init(int port_id, int copp_idx, int channels,
 				DAP_HARD_BYPASS) {
 				ret = msm_ds2_dap_alloc_and_store_cal_data(idx,
 						       ADM_PATH_PLAYBACK, 0);
-				if (ret < 0)
+				if (ret < 0) {
+					pr_err("%s: Failed to alloc and store cal data for idx %d, device %d, copp_idx %d",
+					       __func__,
+					       idx, dev_map[idx].device_id,
+					       dev_map[idx].copp_idx);
+					dev_map[idx].active = false;
+					dev_map[idx].copp_idx = -1;
 					goto end;
+				}
+
 				ret = adm_set_softvolume(port_id, copp_idx,
 							 &softvol);
 				if (ret < 0) {
 					pr_err("%s: Soft volume ret error %d\n",
 						__func__, ret);
+					dev_map[idx].active = false;
+					dev_map[idx].copp_idx = -1;
 					goto end;
 				}
-				ret =
-					msm_ds2_dap_init_modules_in_topology(
+
+				ret = msm_ds2_dap_init_modules_in_topology(
 							idx);
-				if (ret < 0)
+				if (ret < 0) {
+					pr_err("%s: Failed to init modules in topolofy for idx %d, device %d, copp_idx %d\n",
+					       __func__, idx,
+					       dev_map[idx].device_id,
+					       dev_map[idx].copp_idx);
+					dev_map[idx].active = false;
+					dev_map[idx].copp_idx = -1;
 					goto end;
+				}
 			}
+
 			ret =  msm_ds2_dap_commit_params(&dolby_data, 0);
 			if (ret < 0) {
 				pr_debug("%s: commit params ret %d\n",
