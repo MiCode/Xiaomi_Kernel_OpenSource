@@ -813,7 +813,7 @@ static int byt_init(struct snd_soc_pcm_runtime *runtime)
 	/* Other jack/bp stuff */
 
 	/* JACK_DET_N signal as JD-source */
-	snd_soc_update_bits(byt_get_codec(card), RT5640_JD_CTRL,
+	snd_soc_update_bits(codec, RT5640_JD_CTRL,
 			RT5640_JD_MASK, RT5640_JD_JD1_IN4P);
 
 	/* Prevent sta_jd_internal to trigger IRQ in CODEC-mode */
