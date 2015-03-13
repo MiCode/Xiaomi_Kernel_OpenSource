@@ -212,9 +212,8 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 	 * reschedule early when users desire to run with all cores online
 	 */
 	if (unlikely(!t->load_threshold &&
-			online_cpus == NUM_POSSIBLE_CPUS)) {
+			online_cpus == NUM_POSSIBLE_CPUS))
 		goto reschedule;
-	}
 
 	for (cpu = 0; cpu < 2; cpu++)
 		cur_load += cpufreq_quick_get_util(cpu);
@@ -236,7 +235,7 @@ static void __ref decide_hotplug_func(struct work_struct *work)
 	}
 
 reschedule:
-	queue_delayed_work_on(0, wq, &decide_hotplug,
+	queue_delayed_work(wq, &decide_hotplug,
 		msecs_to_jiffies(t->timer * HZ));
 }
 
@@ -428,7 +427,9 @@ static int mako_hotplug_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct hotplug_tunables *t = &tunables;
 
-	wq = alloc_workqueue("mako_hotplug_workqueue", WQ_FREEZABLE, 1);
+	wq = alloc_workqueue("mako_hotplug_workqueue",
+		WQ_FREEZABLE |
+		WQ_UNBOUND, 1);
 
 	if (!wq) {
 		ret = -ENOMEM;
@@ -457,7 +458,7 @@ static int mako_hotplug_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&decide_hotplug, decide_hotplug_func);
 
-	queue_delayed_work_on(0, wq, &decide_hotplug, HZ * 30);
+	queue_delayed_work(wq, &decide_hotplug, HZ * 30);
 err:
 	return ret;
 }
