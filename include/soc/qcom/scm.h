@@ -27,6 +27,7 @@
 #define SCM_SVC_HDCP			0x11
 #define SCM_SVC_MDTP			0x12
 #define SCM_SVC_LMH			0x13
+#define SCM_SVC_SMMU_PROGRAM		0x15
 #define SCM_SVC_TZSCHEDULER		0xFC
 
 #define SCM_FUSE_READ			0x7

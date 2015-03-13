@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -167,9 +167,11 @@ do { \
 /* Global register space 1 setters / getters */
 #define SET_CBAR_N(b, N, v)      SET_GLOBAL_REG_N(CBAR, N, (b), (v))
 #define SET_CBFRSYNRA_N(b, N, v) SET_GLOBAL_REG_N(CBFRSYNRA, N, (b), (v))
+#define SET_CBA2R_N(b, N, v)     SET_GLOBAL_REG_N(CBA2R, N, (b), (v))
 
 #define GET_CBAR_N(b, N)         GET_GLOBAL_REG_N(CBAR, N, (b))
 #define GET_CBFRSYNRA_N(b, N)    GET_GLOBAL_REG_N(CBFRSYNRA, N, (b))
+#define GET_CBA2R_N(b, N)        GET_GLOBAL_REG_N(CBA2R, N, (b))
 
 /* Implementation defined register setters/getters */
 #define SET_MICRO_MMU_CTRL_HALT_REQ(b, v) \
@@ -194,6 +196,7 @@ do { \
 #define SET_SCTLR(b, c, v)       SET_CTX_REG(CB_SCTLR, (b), (c), (v))
 #define SET_ACTLR(b, c, v)       SET_CTX_REG(CB_ACTLR, (b), (c), (v))
 #define SET_RESUME(b, c, v)      SET_CTX_REG(CB_RESUME, (b), (c), (v))
+#define SET_TCR2(b, c, v)        SET_CTX_REG(CB_TCR2, (b), (c), (v))
 #define SET_TTBCR(b, c, v)       SET_CTX_REG(CB_TTBCR, (b), (c), (v))
 #define SET_CONTEXTIDR(b, c, v)  SET_CTX_REG(CB_CONTEXTIDR, (b), (c), (v))
 #define SET_PRRR(b, c, v)        SET_CTX_REG(CB_PRRR, (b), (c), (v))
@@ -223,6 +226,7 @@ do { \
 #define GET_RESUME(b, c)         GET_CTX_REG(CB_RESUME, (b), (c))
 #define GET_TTBR0(b, c)          GET_CTX_REG(CB_TTBR0, (b), (c))
 #define GET_TTBR1(b, c)          GET_CTX_REG(CB_TTBR1, (b), (c))
+#define GET_TCR2(b, c)           GET_CTX_REG(CB_TCR2, (b), (c))
 #define GET_TTBCR(b, c)          GET_CTX_REG(CB_TTBCR, (b), (c))
 #define GET_CONTEXTIDR(b, c)     GET_CTX_REG(CB_CONTEXTIDR, (b), (c))
 #define GET_PRRR(b, c)           GET_CTX_REG(CB_PRRR, (b), (c))
@@ -602,6 +606,12 @@ do { \
 
 #define GET_CBFRSYNRA_SID(b, n)    GET_GLOBAL_FIELD_N(b, n, CBFRSYNRA, SID)
 
+/* Context Bank Attribute 2 Register: CBA2R_N */
+#define SET_CBA2R_VA64(b, n, v)     SET_GLOBAL_FIELD_N(b, n, CBA2R, VA64, v)
+#define SET_CBA2R_MONC(b, n, v)     SET_GLOBAL_FIELD_N(b, n, CBA2R, MONC, v)
+#define GET_CBA2R_VA64(b, n)        GET_GLOBAL_FIELD_N(b, n, CBA2R, VA64)
+#define GET_CBA2R_MOC(b, n)         GET_GLOBAL_FIELD_N(b, n, CBA2R, MONC)
+
 /* Stage 1 Context Bank Format Fields */
 #define SET_CB_ACTLR_REQPRIORITY (b, c, v) \
 		SET_CONTEXT_FIELD(b, c, CB_ACTLR, REQPRIORITY, v)
@@ -936,7 +946,7 @@ do { \
 #define GET_CB_TTBCR_NSCFG1(b, c)    \
 			GET_CONTEXT_FIELD(b, c, CB_TTBCR, NSCFG1)
 
-#ifdef CONFIG_IOMMU_LPAE
+#if defined(CONFIG_IOMMU_LPAE) || defined(CONFIG_IOMMU_AARCH64)
 
 /* LPAE format */
 
@@ -950,6 +960,15 @@ do { \
 #define GET_CB_TTBR0_ASID(b, c)     GET_CONTEXT_FIELD_Q(b, c, CB_TTBR0, ASID)
 #define GET_CB_TTBR0_ADDR(b, c)     GET_CONTEXT_FIELD_Q(b, c, CB_TTBR0, ADDR)
 #define GET_CB_TTBR0(b, c)          GET_CTX_REG_Q(CB_TTBR0, (b), (c))
+
+/* Translation Control Register 2: CB_TCR2 */
+#define SET_CB_TCR2_PA(b, c, v)    SET_CONTEXT_FIELD(b, c, CB_TCR2, PA, v)
+#define SET_CB_TCR2_AS(b, c, v)    SET_CONTEXT_FIELD(b, c, CB_TCR2, AS, v)
+#define SET_CB_TCR2_SEP(b, c, v)   SET_CONTEXT_FIELD(b, c, CB_TCR2, SEP, v)
+
+#define GET_CB_TCR2_PA(b, c)       GET_CONTEXT_FIELD(b, c, CB_TCR2, PA)
+#define GET_CB_TCR2_AS(b, c)       GET_CONTEXT_FIELD(b, c, CB_TCR2, AS)
+#define GET_CB_TCR2_SEP(b, c)      GET_CONTEXT_FIELD(b, c, CB_TCR2, SEP)
 
 /* Translation Table Base Control Register: CB_TTBCR */
 #define SET_CB_TTBCR_T0SZ(b, c, v)   SET_CONTEXT_FIELD(b, c, CB_TTBCR, T0SZ, v)
@@ -1065,6 +1084,7 @@ do { \
 /* Global Register Space 1 */
 #define CBAR		(0x1000)
 #define CBFRSYNRA	(0x1400)
+#define CBA2R		(0x1800)
 
 /* Implementation defined Register Space */
 #define MICRO_MMU_CTRL	(0x2000)
@@ -1097,6 +1117,7 @@ do { \
 #define CB_SCTLR	(0x000)
 #define CB_ACTLR	(0x004)
 #define CB_RESUME	(0x008)
+#define CB_TCR2		(0x010)
 #define CB_TTBR0	(0x020)
 #define CB_TTBR1	(0x028)
 #define CB_TTBCR	(0x030)
@@ -1317,6 +1338,10 @@ do { \
 /* Context Bank Fault Restricted Syndrome Register A: CBFRSYNRA */
 #define CBFRSYNRA_SID   (CBFRSYNRA_SID_MASK << CBFRSYNRA_SID_SHIFT)
 
+/* Context Bank Attribute 2 Register: CBA2R */
+#define CBA2R_VA64       (CBA2R_VA64_MASK    << CBA2R_VA64_SHIFT)
+#define CBA2R_MONC       (CBA2R_MONC_MASK    << CBA2R_MONC_SHIFT)
+
 /* Performance Monitoring Register Fields */
 
 /* Stage 1 Context Bank Format Fields */
@@ -1482,12 +1507,16 @@ do { \
 #define CB_TLBSTATUS_SACTIVE (CB_TLBSTATUS_SACTIVE_MASK << \
 						CB_TLBSTATUS_SACTIVE_SHIFT)
 
+/* Translation Control Register 2: CB_TCR2 */
+#define CB_TCR2_PA         (CB_TCR2_PA_MASK     << CB_TTBCR_PA_SHIFT)
+#define CB_TCR2_AS         (CB_TCR2_AS_MASK     << CB_TTBCR_AS_SHIFT)
+#define CB_TCR2_SEP        (CB_TCR2_SEP_MASK    << CB_TTBCR_SEP_SHIFT)
+
 /* Translation Table Base Control Register: CB_TTBCR */
 #define CB_TTBCR_EAE         (CB_TTBCR_EAE_MASK     << CB_TTBCR_EAE_SHIFT)
-
 #define CB_TTBR0_ADDR        (CB_TTBR0_ADDR_MASK    << CB_TTBR0_ADDR_SHIFT)
 
-#ifdef CONFIG_IOMMU_LPAE
+#if defined(CONFIG_IOMMU_LPAE) || defined(CONFIG_IOMMU_AARCH64)
 /* Translation Table Base Register: CB_TTBR */
 #define CB_TTBR0_ASID        (CB_TTBR0_ASID_MASK    << CB_TTBR0_ASID_SHIFT)
 #define CB_TTBR1_ASID        (CB_TTBR1_ASID_MASK    << CB_TTBR1_ASID_SHIFT)
@@ -1723,6 +1752,10 @@ do { \
 /* Context Bank Fault Restricted Syndrome Register A: CBFRSYNRA */
 #define CBFRSYNRA_SID_MASK      0x7FFF
 
+/* Context Bank Attribute 2 Register: CBA2R */
+#define CBA2R_VA64_MASK		0x1
+#define CBA2R_MONC_MASK		0x1
+
 /* Implementation defined register space masks */
 #define MICRO_MMU_CTRL_RESERVED_MASK          0x03
 #define MICRO_MMU_CTRL_HALT_REQ_MASK          0x01
@@ -1885,9 +1918,19 @@ do { \
 /* TLB Status: CB_TLBSTATUS */
 #define CB_TLBSTATUS_SACTIVE_MASK  0x01
 
+/* Translation Control Register 2: CB_TCR2 */
+#define CB_TCR2_PA_MASK            0x07
+#define CB_TCR2_AS_MASK            0x01
+#define CB_TCR2_SEP_MASK           0x07
+
 /* Translation Table Base Control Register: CB_TTBCR */
+#if defined(CONFIG_IOMMU_AARCH64)
+#define CB_TTBCR_T0SZ_MASK         0x03F
+#define CB_TTBCR_T1SZ_MASK         0x03F
+#else
 #define CB_TTBCR_T0SZ_MASK         0x07
 #define CB_TTBCR_T1SZ_MASK         0x07
+#endif
 #define CB_TTBCR_EPD0_MASK         0x01
 #define CB_TTBCR_EPD1_MASK         0x01
 #define CB_TTBCR_IRGN0_MASK        0x03
@@ -1902,7 +1945,7 @@ do { \
 #define CB_TTBCR_EAE_MASK          0x01
 
 /* Translation Table Base Register 0/1: CB_TTBR */
-#ifdef CONFIG_IOMMU_LPAE
+#if defined(CONFIG_IOMMU_LPAE) || defined(CONFIG_IOMMU_AARCH64)
 #define CB_TTBR0_ADDR_MASK         0x7FFFFFFFFULL
 #define CB_TTBR0_ASID_MASK         0xFF
 #define CB_TTBR1_ASID_MASK         0xFF
@@ -2118,6 +2161,10 @@ do { \
 /* Context Bank Fault Restricted Syndrome Register A: CBFRSYNRA */
 #define CBFRSYNRA_SID_SHIFT        0
 
+/* Context Bank Attribute 2 Register: CBA2R */
+#define CBA2R_VA64_SHIFT		0
+#define CBA2R_MONC_SHIFT		1
+
 /* Implementation defined register space shift */
 #define MICRO_MMU_CTRL_RESERVED_SHIFT         0x00
 #define MICRO_MMU_CTRL_HALT_REQ_SHIFT         0x02
@@ -2280,6 +2327,11 @@ do { \
 /* TLB Status: CB_TLBSTATUS */
 #define CB_TLBSTATUS_SACTIVE_SHIFT  0
 
+/* Translation Control Register 2: CB_TCR2 */
+#define CB_TCR2_PA_SHIFT            0
+#define CB_TCR2_AS_SHIFT            4
+#define CB_TCR2_SEP_SHIFT           15
+
 /* Translation Table Base Control Register: CB_TTBCR */
 #define CB_TTBCR_T0SZ_SHIFT          0
 #define CB_TTBCR_T1SZ_SHIFT         16
@@ -2297,7 +2349,7 @@ do { \
 #define CB_TTBCR_SH1_SHIFT          28
 
 /* Translation Table Base Register 0/1: CB_TTBR */
-#ifdef CONFIG_IOMMU_LPAE
+#if defined(CONFIG_IOMMU_LPAE) || defined(CONFIG_IOMMU_AARCH64)
 #define CB_TTBR0_ADDR_SHIFT         5
 #define CB_TTBR0_ASID_SHIFT         48
 #define CB_TTBR1_ASID_SHIFT         48

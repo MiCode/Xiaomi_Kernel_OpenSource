@@ -33,13 +33,14 @@
 #include <linux/notifier.h>
 #include <linux/qcom_iommu.h>
 #include <linux/sizes.h>
+#include <soc/qcom/scm.h>
 
 #include "msm_iommu_hw-v1.h"
 #include "msm_iommu_priv.h"
 #include "msm_iommu_perfmon.h"
 #include "msm_iommu_pagetable.h"
 
-#ifdef CONFIG_IOMMU_LPAE
+#if defined(CONFIG_IOMMU_LPAE) || defined(CONFIG_IOMMU_AARCH64)
 /* bitmap of the page sizes currently supported */
 #define MSM_IOMMU_PGSIZES	(SZ_4K | SZ_64K | SZ_2M | SZ_32M | SZ_1G)
 #else
@@ -50,6 +51,8 @@
 #define IOMMU_USEC_STEP		10
 #define IOMMU_USEC_TIMEOUT	500
 
+/* commands for SCM_SVC_SMMU_PROGRAM */
+#define SMMU_CHANGE_PAGETABLE_FORMAT    0X01
 
 /*
  * msm_iommu_spin_lock protects anything that can race with map
@@ -536,31 +539,15 @@ static void __release_smg(void __iomem *base)
 			SET_SMR_VALID(base, i, 0);
 }
 
-#ifdef CONFIG_IOMMU_LPAE
-static void msm_iommu_set_ASID(void __iomem *base, unsigned int ctx_num,
-			       unsigned int asid)
+#if defined(CONFIG_IOMMU_LPAE)
+static inline phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
 {
-	SET_CB_TTBR0_ASID(base, ctx_num, asid);
-}
-#else
-static void msm_iommu_set_ASID(void __iomem *base, unsigned int ctx_num,
-			       unsigned int asid)
-{
-	SET_CB_CONTEXTIDR_ASID(base, ctx_num, asid);
-}
-#endif
-
-static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
-				  struct msm_iommu_ctx_drvdata *curr_ctx,
-				  struct msm_iommu_priv *priv)
-{
-	void __iomem *cb_base = iommu_drvdata->cb_base;
-
-	curr_ctx->asid = curr_ctx->num;
-	msm_iommu_set_ASID(cb_base, curr_ctx->num, curr_ctx->asid);
+	phys_addr_t phy;
+	/* Upper 28 bits from PAR, lower 12 from VA */
+	phy = (par & 0x0000FFFFF000ULL) | (va & 0x000000000FFFULL);
+	return phy;
 }
 
-#ifdef CONFIG_IOMMU_LPAE
 static void msm_iommu_setup_ctx(void __iomem *base, unsigned int ctx)
 {
 	SET_CB_TTBCR_EAE(base, ctx, 1); /* Extended Address Enable (EAE) */
@@ -583,14 +570,112 @@ static void msm_iommu_setup_pg_l2_redirect(void __iomem *base, unsigned int ctx)
 	SET_CB_TTBCR_IRGN0(base, ctx, 1); /* inner cachable*/
 	SET_CB_TTBCR_T0SZ(base, ctx, 0); /* 0GB-4GB */
 
-
 	SET_CB_TTBCR_SH1(base, ctx, 3); /* Inner shareable */
 	SET_CB_TTBCR_ORGN1(base, ctx, 1); /* outer cachable*/
 	SET_CB_TTBCR_IRGN1(base, ctx, 1); /* inner cachable*/
 	SET_CB_TTBCR_T1SZ(base, ctx, 0); /* TTBR1 not used */
 }
 
-#else
+static void __set_cb_format(struct msm_iommu_drvdata *iommu_drvdata,
+				struct msm_iommu_ctx_drvdata *ctx_drvdata)
+{
+}
+
+static void msm_iommu_set_ASID(void __iomem *base, unsigned int ctx_num,
+			       unsigned int asid)
+{
+	SET_CB_TTBR0_ASID(base, ctx_num, asid);
+}
+#elif defined(CONFIG_IOMMU_AARCH64)
+static inline phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
+{
+	phys_addr_t phy;
+	/* Upper 48 bits from PAR, lower 12 from VA */
+	phy = (par & 0xFFFFFFFFF000ULL) | (va & 0x000000000FFFULL);
+	return phy;
+}
+
+static void msm_iommu_setup_ctx(void __iomem *base, unsigned int ctx)
+{
+	/*
+	 * TCR2 presently sets PA size as 32-bits. When entire platform
+	 * gets more physical size, we need to change for SMMU too.
+	 * Change CB_TCR2_PA in that case.
+	 */
+	SET_CB_TCR2_SEP(base, ctx, 7); /* bit[48] as sign bit */
+}
+
+static void msm_iommu_setup_memory_remap(void __iomem *base, unsigned int ctx)
+{
+	SET_CB_MAIR0(base, ctx, msm_iommu_get_mair0());
+	SET_CB_MAIR1(base, ctx, msm_iommu_get_mair1());
+}
+
+static void msm_iommu_setup_pg_l2_redirect(void __iomem *base, unsigned int ctx)
+{
+	/*
+	 * Configure page tables as inner-cacheable and shareable to reduce
+	 * the TLB miss penalty.
+	 */
+	SET_CB_TTBCR_SH0(base, ctx, 3); /* Inner shareable */
+	SET_CB_TTBCR_ORGN0(base, ctx, 1); /* outer cachable*/
+	SET_CB_TTBCR_IRGN0(base, ctx, 1); /* inner cachable*/
+	SET_CB_TTBCR_T0SZ(base, ctx, 16); /* 48-bit VA */
+
+	SET_CB_TTBCR_SH1(base, ctx, 3); /* Inner shareable */
+	SET_CB_TTBCR_ORGN1(base, ctx, 1); /* outer cachable*/
+	SET_CB_TTBCR_IRGN1(base, ctx, 1); /* inner cachable*/
+	SET_CB_TTBCR_T1SZ(base, ctx, 63); /*TTBR1 not used */
+}
+
+static void __set_cb_format(struct msm_iommu_drvdata *iommu_drvdata,
+				struct msm_iommu_ctx_drvdata *ctx_drvdata)
+{
+	struct scm_desc desc = {0};
+	unsigned int ret = 0;
+
+	if (iommu_drvdata->sec_id != -1) {
+		desc.args[0] = iommu_drvdata->sec_id;
+		desc.args[1] = ctx_drvdata->num;
+		desc.args[2] = 1;	/* Enable */
+		desc.arginfo = SCM_ARGS(3, SCM_VAL, SCM_VAL, SCM_VAL);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_SMMU_PROGRAM,
+				SMMU_CHANGE_PAGETABLE_FORMAT), &desc);
+
+		/* At this stage, we cannot afford to fail because we have
+		 * chosen AARCH64 format at compile time and we have nothing
+		 * to fallback on.
+		 */
+		if (ret) {
+			pr_err("Format change failed for CB %d with ret %d\n",
+				ctx_drvdata->num, ret);
+			BUG();
+		}
+	} else {
+		/* Set page table format as AARCH64 */
+		SET_CBA2R_VA64(iommu_drvdata->base, ctx_drvdata->num, 1);
+	}
+}
+
+static void msm_iommu_set_ASID(void __iomem *base, unsigned int ctx_num,
+			       unsigned int asid)
+{
+	SET_CB_TTBR0_ASID(base, ctx_num, asid);
+}
+#else /* v7S format */
+static phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
+{
+	phys_addr_t phy;
+
+	/* We are dealing with a supersection */
+	if (par & CB_PAR_SS)
+		phy = (par & 0x0000FF000000ULL) | (va & 0x000000FFFFFFULL);
+	else /* Upper 20 bits from PAR, lower 12 from VA */
+		phy = (par & 0x0000FFFFF000ULL) | (va & 0x000000000FFFULL);
+
+	return phy;
+}
 
 static void msm_iommu_setup_ctx(void __iomem *base, unsigned int ctx)
 {
@@ -616,7 +701,27 @@ static void msm_iommu_setup_pg_l2_redirect(void __iomem *base, unsigned int ctx)
 	SET_CB_TTBR0_RGN(base, ctx, 1);   /* WB, WA */
 }
 
+static void __set_cb_format(struct msm_iommu_drvdata *iommu_drvdata,
+				struct msm_iommu_ctx_drvdata *ctx_drvdata)
+{
+}
+
+static void msm_iommu_set_ASID(void __iomem *base, unsigned int ctx_num,
+			       unsigned int asid)
+{
+	SET_CB_CONTEXTIDR_ASID(base, ctx_num, asid);
+}
 #endif
+
+static void msm_iommu_assign_ASID(const struct msm_iommu_drvdata *iommu_drvdata,
+				  struct msm_iommu_ctx_drvdata *curr_ctx,
+				  struct msm_iommu_priv *priv)
+{
+	void __iomem *cb_base = iommu_drvdata->cb_base;
+
+	curr_ctx->asid = curr_ctx->num;
+	msm_iommu_set_ASID(cb_base, curr_ctx->num, curr_ctx->asid);
+}
 
 static int program_m2v_table(struct device *dev, void __iomem *base)
 {
@@ -716,9 +821,9 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 
 		/* Do not downgrade memory attributes */
 		SET_CBAR_MEMATTR(base, ctx, 0x0A);
-
 	}
 
+	__set_cb_format(iommu_drvdata, ctx_drvdata);
 	msm_iommu_assign_ASID(iommu_drvdata, ctx_drvdata, priv);
 
 	/* Ensure that ASID assignment has completed before we use
@@ -1077,29 +1182,6 @@ static size_t msm_iommu_map_sg(struct iommu_domain *domain, unsigned long va,
 		return len;
 }
 
-#ifdef CONFIG_IOMMU_LPAE
-static phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
-{
-	phys_addr_t phy;
-	/* Upper 28 bits from PAR, lower 12 from VA */
-	phy = (par & 0xFFFFFFF000ULL) | (va & 0x00000FFF);
-	return phy;
-}
-#else
-static phys_addr_t msm_iommu_get_phy_from_PAR(unsigned long va, u64 par)
-{
-	phys_addr_t phy;
-
-	/* We are dealing with a supersection */
-	if (par & CB_PAR_SS)
-		phy = (par & 0xFF000000) | (va & 0x00FFFFFF);
-	else /* Upper 20 bits from PAR, lower 12 from VA */
-		phy = (par & 0xFFFFF000) | (va & 0x00000FFF);
-
-	return phy;
-}
-#endif
-
 static phys_addr_t msm_iommu_iova_to_phys(struct iommu_domain *domain,
 					  phys_addr_t va)
 {
@@ -1199,7 +1281,7 @@ static bool msm_iommu_capable(enum iommu_cap cap)
 	return false;
 }
 
-#ifdef CONFIG_IOMMU_LPAE
+#if defined(CONFIG_IOMMU_LPAE) || defined(CONFIG_IOMMU_AARCH64)
 static inline void print_ctx_mem_attr_regs(struct msm_iommu_context_reg regs[])
 {
 	pr_err("MAIR0   = %08x    MAIR1   = %08x\n",
