@@ -97,6 +97,16 @@ struct hal_session *hfi_process_get_session(
 	return found_session ? session : NULL;
 }
 
+static enum msm_vidc_pixel_depth get_hal_pixel_depth(u32 hfi_bit_depth)
+{
+	switch (hfi_bit_depth) {
+	case HFI_BITDEPTH_8: return MSM_VIDC_BIT_DEPTH_8;
+	case HFI_BITDEPTH_10: return MSM_VIDC_BIT_DEPTH_10;
+	}
+	dprintk(VIDC_ERR, "Unsupported bit depth\n");
+	return MSM_VIDC_BIT_DEPTH_UNSUPPORTED;
+}
+
 static void hfi_process_sess_evt_seq_changed(
 		msm_vidc_callback callback, u32 device_id,
 		struct hal_session *session,
@@ -107,6 +117,7 @@ static void hfi_process_sess_evt_seq_changed(
 	int num_properties_changed;
 	struct hfi_frame_size *frame_sz;
 	struct hfi_profile_level *profile_level;
+	struct hfi_bit_depth *pixel_depth;
 	u8 *data_ptr;
 	int prop_id;
 
@@ -159,6 +170,16 @@ static void hfi_process_sess_evt_seq_changed(
 					profile_level->level);
 				data_ptr +=
 					sizeof(struct hfi_profile_level);
+				break;
+			case HFI_PROPERTY_PARAM_VDEC_PIXEL_BITDEPTH:
+				data_ptr = data_ptr + sizeof(u32);
+				pixel_depth = (struct hfi_bit_depth *) data_ptr;
+				event_notify.bit_depth =
+					get_hal_pixel_depth(
+						pixel_depth->bit_depth);
+				dprintk(VIDC_DBG, "bitdepth: %d\n",
+					pixel_depth->bit_depth);
+				data_ptr += sizeof(struct hfi_bit_depth);
 				break;
 			default:
 				dprintk(VIDC_ERR,

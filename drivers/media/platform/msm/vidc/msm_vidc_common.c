@@ -46,6 +46,8 @@
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_CHANGED_INSUFFICIENT
 #define V4L2_EVENT_RELEASE_BUFFER_REFERENCE \
 		V4L2_EVENT_MSM_VIDC_RELEASE_BUFFER_REFERENCE
+#define V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT \
+		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_BITDEPTH_CHANGED_INSUFFICIENT
 
 #define IS_SESSION_CMD_VALID(cmd) (((cmd) >= SESSION_MSG_START) && \
 		((cmd) <= SESSION_MSG_END))
@@ -673,7 +675,9 @@ static void handle_event_change(enum command_response cmd, void *data)
 	struct msm_vidc_inst *inst;
 	struct msm_vidc_cb_event *event_notify;
 	int event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
+	struct v4l2_event seq_changed_event = {0};
 	int rc = 0;
+	bool bit_depth_changed = false;
 	if (response) {
 		inst = (struct msm_vidc_inst *)response->session_id;
 		event_notify = (struct msm_vidc_cb_event *) response->data;
@@ -761,10 +765,20 @@ static void handle_event_change(enum command_response cmd, void *data)
 			break;
 		}
 		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
-			dprintk(VIDC_DBG,
-				"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
 			inst->reconfig_height = event_notify->height;
 			inst->reconfig_width = event_notify->width;
+			if (inst->bit_depth != event_notify->bit_depth) {
+				inst->bit_depth = event_notify->bit_depth;
+				bit_depth_changed = true;
+				seq_changed_event.u.data[0] = inst->bit_depth;
+				event =
+				V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT;
+				dprintk(VIDC_DBG,
+					"V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT\n");
+			} else {
+				dprintk(VIDC_DBG,
+					"V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT\n");
+			}
 			inst->in_reconfig = true;
 		} else {
 			dprintk(VIDC_DBG,
@@ -790,7 +804,9 @@ static void handle_event_change(enum command_response cmd, void *data)
 			msm_dcvs_init_load(inst);
 		rc = msm_vidc_check_session_supported(inst);
 		if (!rc) {
-			msm_vidc_queue_v4l2_event(inst, event);
+			seq_changed_event.type = event;
+			v4l2_event_queue_fh(&inst->event_handler,
+				&seq_changed_event);
 		} else if (rc == -ENOTSUPP) {
 			msm_vidc_queue_v4l2_event(inst,
 				V4L2_EVENT_MSM_VIDC_HW_UNSUPPORTED);

@@ -1178,6 +1178,7 @@ struct msm_vidc_cb_event {
 	enum vidc_status status;
 	u32 height;
 	u32 width;
+	enum msm_vidc_pixel_depth bit_depth;
 	u32 hal_event_type;
 	ion_phys_addr_t packet_buffer;
 	ion_phys_addr_t extra_data_buffer;

@@ -212,6 +212,9 @@
 #define HFI_BUFFER_INTERNAL_PERSIST		(HFI_COMMON_BASE + 0x4)
 #define HFI_BUFFER_INTERNAL_PERSIST_1		(HFI_COMMON_BASE + 0x5)
 
+#define  HFI_BITDEPTH_8				(HFI_COMMON_BASE + 0x0)
+#define  HFI_BITDEPTH_10			(HFI_COMMON_BASE + 0x1)
+
 #define HFI_VENC_PERFMODE_MAX_QUALITY	0x1
 #define HFI_VENC_PERFMODE_POWER_SAVE	0x2
 
@@ -283,6 +286,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x002)
 #define HFI_PROPERTY_PARAM_VDEC_NONCP_OUTPUT2				\
 	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x003)
+#define  HFI_PROPERTY_PARAM_VDEC_PIXEL_BITDEPTH				\
+	(HFI_PROPERTY_PARAM_VDEC_COMMON_START + 0x007)
 
 #define HFI_PROPERTY_CONFIG_VDEC_COMMON_START				\
 	(HFI_DOMAIN_BASE_VDEC + HFI_ARCH_COMMON_OFFSET + 0x4000)
@@ -641,6 +646,11 @@ struct hfi_h264_vui_timing_info {
 	u32 enable;
 	u32 fixed_frame_rate;
 	u32 time_scale;
+};
+
+struct hfi_bit_depth {
+	u32 buffer_type;
+	u32 bit_depth;
 };
 
 /* Base Offset for UBWC color formats  */

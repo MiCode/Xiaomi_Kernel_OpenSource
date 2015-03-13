@@ -1209,6 +1209,7 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
 	inst->map_output_buffer = false;
+	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
 		i <= SESSION_MSG_INDEX(SESSION_MSG_END); i++) {

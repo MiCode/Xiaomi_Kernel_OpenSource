@@ -155,4 +155,10 @@ enum msm_vidc_userdata_type {
 	MSM_VIDC_USERDATA_TYPE_TOP_FIELD = 0x2,
 	MSM_VIDC_USERDATA_TYPE_BOTTOM_FIELD = 0x3,
 };
+
+enum msm_vidc_pixel_depth {
+	MSM_VIDC_BIT_DEPTH_8,
+	MSM_VIDC_BIT_DEPTH_10,
+	MSM_VIDC_BIT_DEPTH_UNSUPPORTED = 0XFFFFFFFF,
+};
 #endif
