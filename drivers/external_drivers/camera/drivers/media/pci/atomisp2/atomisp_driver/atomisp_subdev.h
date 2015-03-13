@@ -179,6 +179,9 @@ struct atomisp_css_params {
 	 */
 	void		*output_frame;
 	uint32_t	isp_config_id;
+
+	/* Indicates which parameters need to be updated. */
+	struct atomisp_parameters update_flag;
 };
 
 struct atomisp_subdev_params {
@@ -244,8 +247,6 @@ struct atomisp_subdev_params {
 struct atomisp_css_params_with_list {
 	/* parameters for CSS */
 	struct atomisp_css_params params;
-	/* userspace parameters, in order to know which parameters need to update */
-	struct atomisp_parameters us_params;
 	struct list_head list;
 };
 

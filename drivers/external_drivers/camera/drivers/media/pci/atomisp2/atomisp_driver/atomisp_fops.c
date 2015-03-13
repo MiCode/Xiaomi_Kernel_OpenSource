@@ -249,11 +249,9 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 
 		param = pipe->frame_params[vb->i];
 		if (param) {
-			atomisp_apply_css_parameters(asd,
-						&param->us_params,
-						&param->params);
+			atomisp_apply_css_parameters(asd, &param->params);
 
-			if (param->us_params.dz_config &&
+			if (param->params.update_flag.dz_config &&
 				asd->run_mode->val != ATOMISP_RUN_MODE_VIDEO) {
 				err = atomisp_calculate_real_zoom_region(asd,
 					&param->params.dz_config, css_pipe_id);
@@ -274,7 +272,7 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 			 * setting now.so when the pre_frame setting inculde
 			 * zoom region,I will set it to global setting.
 			 */
-			if (param->us_params.dz_config &&
+			if (param->params.update_flag.dz_config &&
 				asd->run_mode->val != ATOMISP_RUN_MODE_VIDEO
 				&& !err) {
 				atomisp_css_set_dz_config(asd,
