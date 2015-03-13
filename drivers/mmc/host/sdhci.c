@@ -1701,7 +1701,8 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	WARN_ON(host->mrq != NULL);
 
 #ifndef SDHCI_USE_LEDS_CLASS
-	sdhci_activate_led(host);
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL))
+		sdhci_activate_led(host);
 #endif
 
 	/*
@@ -2707,7 +2708,8 @@ static void sdhci_tasklet_finish(unsigned long param)
 	host->auto_cmd_err_sts = 0;
 
 #ifndef SDHCI_USE_LEDS_CLASS
-	sdhci_deactivate_led(host);
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL))
+		sdhci_deactivate_led(host);
 #endif
 
 	mmiowb();
@@ -3966,18 +3968,20 @@ int sdhci_add_host(struct sdhci_host *host)
 #endif
 
 #ifdef SDHCI_USE_LEDS_CLASS
-	snprintf(host->led_name, sizeof(host->led_name),
-		"%s::", mmc_hostname(mmc));
-	host->led.name = host->led_name;
-	host->led.brightness = LED_OFF;
-	host->led.default_trigger = mmc_hostname(mmc);
-	host->led.brightness_set = sdhci_led_control;
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL)) {
+		snprintf(host->led_name, sizeof(host->led_name),
+			"%s::", mmc_hostname(mmc));
+		host->led.name = host->led_name;
+		host->led.brightness = LED_OFF;
+		host->led.default_trigger = mmc_hostname(mmc);
+		host->led.brightness_set = sdhci_led_control;
 
-	ret = led_classdev_register(mmc_dev(mmc), &host->led);
-	if (ret) {
-		pr_err("%s: Failed to register LED device: %d\n",
-		       mmc_hostname(mmc), ret);
-		goto reset;
+		ret = led_classdev_register(mmc_dev(mmc), &host->led);
+		if (ret) {
+			pr_err("%s: Failed to register LED device: %d\n",
+			       mmc_hostname(mmc), ret);
+			goto reset;
+		}
 	}
 #endif
 
@@ -4060,7 +4064,8 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 	mmc_remove_host(host->mmc);
 
 #ifdef SDHCI_USE_LEDS_CLASS
-	led_classdev_unregister(&host->led);
+	if (!(host->quirks2 & SDHCI_QUIRK2_BROKEN_LED_CONTROL))
+		led_classdev_unregister(&host->led);
 #endif
 
 	if (!dead)
