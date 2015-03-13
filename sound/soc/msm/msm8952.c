@@ -807,8 +807,7 @@ static void msm_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	if (atomic_read(&pdata->mclk_rsc_ref) > 0) {
 		atomic_dec(&pdata->mclk_rsc_ref);
 		pr_debug("%s: decrementing mclk_res_ref %d\n",
-				__func__,
-				atomic_read(&pdata->mclk_rsc_ref));
+				__func__, atomic_read(&pdata->mclk_rsc_ref));
 	}
 }
 
@@ -869,7 +868,7 @@ static void msm_prim_auxpcm_shutdown(struct snd_pcm_substream *substream)
 	ret = msm_gpioset_suspend(CLIENT_WCD_INT, "pri_i2s");
 	if (ret < 0)
 		pr_err("%s(): configure gpios failed = %s\n",
-				__func__, "pri_i2s");
+				__func__, "quat_i2s");
 }
 
 static int msm_sec_mi2s_snd_startup(struct snd_pcm_substream *substream)
@@ -877,7 +876,6 @@ static int msm_sec_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_codec *codec = rtd->codec;
 	struct msm8916_asoc_mach_data *pdata =
 			snd_soc_card_get_drvdata(card);
 	int ret = 0, val = 0;
@@ -895,15 +893,10 @@ static int msm_sec_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			val = val | 0x0004835c;
 			iowrite32(val, pdata->vaddr_gpio_mux_spkr_ctl);
 		}
-		ret = msm8952_enable_dig_cdc_clk(codec, 1, true);
-		if (ret < 0) {
-			pr_err("failed to enable mclk\n");
-			goto err1;
-		}
 		ret = sec_mi2s_sclk_ctl(substream, true);
 		if (ret < 0) {
 			pr_err("failed to enable sclk\n");
-			goto err;
+			return ret;
 		}
 		pr_debug("%s(): SEC I2S gpios turned on  = %s\n", __func__,
 				"sec_i2s");
@@ -923,19 +916,14 @@ static int msm_sec_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be de-activated %sd",
 						__func__, "sec_i2s");
-			return ret;
+			goto err;
 		}
 	}
 	return ret;
-err1:
+err:
 	ret = sec_mi2s_sclk_ctl(substream, false);
 	if (ret < 0)
 		pr_err("failed to disable sclk\n");
-err:
-	ret = msm8952_enable_dig_cdc_clk(codec, 0, true);
-	if (ret < 0)
-		pr_err("failed to disable mclk\n");
-
 	return ret;
 }
 
@@ -944,7 +932,6 @@ static void msm_sec_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	int ret;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
-	struct snd_soc_codec *codec = rtd->codec;
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -959,13 +946,6 @@ static void msm_sec_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		ret = sec_mi2s_sclk_ctl(substream, false);
 		if (ret < 0)
 			pr_err("%s:clock disable failed\n", __func__);
-		if (atomic_read(&pdata->mclk_rsc_ref) > 0) {
-			atomic_dec(&pdata->mclk_rsc_ref);
-			pr_debug("%s: decrementing mclk_res_ref %d\n",
-				__func__, atomic_read(&pdata->mclk_rsc_ref));
-		}
-		if (atomic_read(&pdata->mclk_rsc_ref) == 0)
-			msm8952_enable_dig_cdc_clk(codec, 0, true);
 	}
 }
 
@@ -974,7 +954,6 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
-	struct snd_soc_codec *codec = rtd->codec;
 	struct msm8916_asoc_mach_data *pdata =
 			snd_soc_card_get_drvdata(card);
 	int ret = 0, val = 0;
@@ -986,20 +965,15 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			val = val | 0x02020002;
 			iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
 		}
-		ret = msm8952_enable_dig_cdc_clk(codec, 1, true);
-		if (ret < 0) {
-			pr_err("failed to enable mclk\n");
-			return ret;
-		}
 		ret = quat_mi2s_sclk_ctl(substream, true);
 		if (ret < 0) {
 			pr_err("failed to enable sclk\n");
-			goto err;
+			return ret;
 		}
 		ret = msm_gpioset_activate(CLIENT_WCD_INT, "quat_i2s");
 		if (ret < 0) {
 			pr_err("failed to enable codec gpios\n");
-			goto err1;
+			goto err;
 		}
 	} else {
 			pr_err("%s: error codec type\n", __func__);
@@ -1010,15 +984,10 @@ static int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream)
 			pr_debug("%s: set fmt cpu dai failed\n", __func__);
 	}
 	return ret;
-err1:
+err:
 	ret = quat_mi2s_sclk_ctl(substream, false);
 	if (ret < 0)
 		pr_err("failed to disable sclk\n");
-err:
-	ret = msm8952_enable_dig_cdc_clk(codec, 0, true);
-	if (ret < 0)
-		pr_err("failed to disable mclk\n");
-
 	return ret;
 }
 
@@ -1027,7 +996,6 @@ static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 	int ret;
 	struct snd_soc_pcm_runtime *rtd = substream->private_data;
 	struct snd_soc_card *card = rtd->card;
-	struct snd_soc_codec *codec = rtd->codec;
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 
 	pr_debug("%s(): substream = %s  stream = %d\n", __func__,
@@ -1036,18 +1004,8 @@ static void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream)
 		ret = quat_mi2s_sclk_ctl(substream, false);
 		if (ret < 0)
 			pr_err("%s:clock disable failed\n", __func__);
-		if (atomic_read(&pdata->mclk_rsc_ref) > 0) {
-			atomic_dec(&pdata->mclk_rsc_ref);
-			pr_debug("%s: decrementing mclk_res_ref %d\n",
-						__func__,
-					atomic_read(&pdata->mclk_rsc_ref));
-		}
 		if (atomic_read(&quat_mi2s_clk_ref) > 0)
 			atomic_dec(&quat_mi2s_clk_ref);
-		if ((atomic_read(&quat_mi2s_clk_ref) == 0) &&
-			(atomic_read(&pdata->mclk_rsc_ref) == 0)) {
-			msm8952_enable_dig_cdc_clk(codec, 0, true);
-		}
 		ret = msm_gpioset_suspend(CLIENT_WCD_INT, "quat_i2s");
 		if (ret < 0) {
 			pr_err("%s: gpio set cannot be de-activated %sd",
