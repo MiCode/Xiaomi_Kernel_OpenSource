@@ -319,6 +319,39 @@
 		#clock-cells = <1>;
 	};
 
+	clock_cpu: qcom,cpu-clock-8939@b111050 {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+
+	qcom,msm-cpufreq {
+		compatible = "qcom,msm-cpufreq";
+		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
+				"cpu3_clk", "cpu4_clk", "cpu5_clk",
+				"cpu6_clk", "cpu7_clk";
+		clocks = <&clock_cpu clk_a53ssmux_cci>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_bc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>,
+			 <&clock_cpu clk_a53ssmux_lc>;
+
+		qcom,cpufreq-table-0 =
+			 <  200000 >,
+			 <  345600 >,
+			 <  400000 >,
+			 <  533330 >,
+			 <  800000 >;
+		qcom,cpufreq-table-4 =
+			 <  200000 >,
+			 <  249600 >,
+			 <  499200 >,
+			 <  800000 >;
+	};
+
 	timer {
 		compatible = "arm,armv8-timer";
 		interrupts = <1 2 0xff08>,
