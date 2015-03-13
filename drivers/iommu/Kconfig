@@ -103,6 +103,19 @@ config IOMMU_LPAE
 
 	  If unsure, say N here.
 
+config IOMMU_AARCH64
+	bool "Enable support for AARCH64 in IOMMU"
+	depends on (MSM_IOMMU && (!IOMMU_LPAE))
+	help
+	  Enables AARCH64 format page tables for IOMMU. This allows clients of
+	  IOMMUs to use Virtual and physical addresses up-to 48 bits. This will
+	  also support the clients who can't generate addresses of more than 32
+	  bits. Presently, this config assumes that if SMMU global space is
+	  programmed by some secure environment, they configure all the CBs of
+	  all the SMMUs as AARCH64 formatted.
+
+	  If unsure, say N here.
+
 config MSM_IOMMU_VBIF_CHECK
 	bool "Enable support for VBIF check when IOMMU gets stuck"
 	depends on MSM_IOMMU

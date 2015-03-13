@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,7 +34,7 @@
  * sl_table_shadow uses the same concept as fl_table_shadow but for LPAE 2nd
  * level page tables.
  */
-#ifdef CONFIG_IOMMU_LPAE
+#if defined(CONFIG_IOMMU_LPAE) || defined(CONFIG_IOMMU_AARCH64)
 struct msm_iommu_pt {
 	u64 *fl_table;
 	u64 **sl_table_shadow;
