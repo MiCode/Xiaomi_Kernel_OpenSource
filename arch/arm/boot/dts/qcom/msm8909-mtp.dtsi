@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,9 +171,11 @@
 		pinctrl-names = "cdc_lines_act",
 				"cdc_lines_sus",
 				"cross_conn_det_act",
-				"cross_conn_det_sus";
-		pinctrl-0 = <&cdc_pdm_lines_act>;
-		pinctrl-1 = <&cdc_pdm_lines_sus>;
+				"cross_conn_det_sus",
+				"vdd_spkdrv_act",
+				"vdd_spkdrv_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act &vdd_spkdrv_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus &vdd_spkdrv_sus>;
 		pinctrl-2 = <&cross_conn_det_act>;
 		pinctrl-3 = <&cross_conn_det_sus>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 97 0>;

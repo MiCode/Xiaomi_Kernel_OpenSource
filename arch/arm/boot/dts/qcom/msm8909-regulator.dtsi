@@ -270,12 +270,11 @@
 
 &soc {
 	spk_vreg: regulator_spk {
+		status = "disabled";
 		compatible = "regulator-fixed";
 		regulator-name = "spk_vreg";
 		startup-delay-us = <0>;
 		enable-active-high;
-		pinctrl-names = "default";
-		pinctrl-0 = <&vdd_spkdrv_default>;
 		gpio = <&msm_gpio 4 0>;
 	};
 };

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,21 +242,25 @@
 				"cdc_lines_sec_ext_act",
 				"cdc_lines_sec_ext_sus",
 				"cdc_lines_quat_ext_act",
-				"cdc_lines_quat_ext_sus";
-		pinctrl-0 = <&cdc_pdm_lines_act>;
-		pinctrl-1 = <&cdc_pdm_lines_sus>;
+				"cdc_lines_quat_ext_sus",
+				"vdd_spkdrv_act",
+				"vdd_spkdrv_sus";
+		pinctrl-0 = <&cdc_pdm_lines_act &vdd_spkdrv_act>;
+		pinctrl-1 = <&cdc_pdm_lines_sus &vdd_spkdrv_sus>;
 		pinctrl-2 = <&cross_conn_det_act>;
 		pinctrl-3 = <&cross_conn_det_sus>;
 		pinctrl-4 = <&cdc_pdm_lines_act &cdc_ext_pa_act
 				&cdc_ext_pa_d0_act &cdc_ext_mclk_act
-				&cross_conn_det_act>;
+				&cross_conn_det_act &vdd_spkdrv_act>;
 		pinctrl-5 = <&cdc_pdm_lines_sus &cdc_ext_pa_sus
 				&cdc_ext_pa_d0_sus &cdc_ext_mclk_sus
-				&cross_conn_det_sus>;
+				&cross_conn_det_sus &vdd_spkdrv_sus>;
 		pinctrl-6 = <&cdc_pdm_lines_act &cdc_ext_tlmm_act
-				&cdc_ext_mclk_act &cross_conn_det_act>;
+				&cdc_ext_mclk_act &cross_conn_det_act
+				&vdd_spkdrv_act>;
 		pinctrl-7 = <&cdc_pdm_lines_sus &cdc_ext_tlmm_sus
-				&cdc_ext_mclk_sus &cross_conn_det_sus>;
+				&cdc_ext_mclk_sus &cross_conn_det_sus
+				&vdd_spkdrv_sus>;
 		qcom,cdc-us-euro-gpios = <&msm_gpio 97 0>;
 		asoc-platform = <&pcm0>, <&pcm1>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,

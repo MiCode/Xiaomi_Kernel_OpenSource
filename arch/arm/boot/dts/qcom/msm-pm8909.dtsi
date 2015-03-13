@@ -530,10 +530,6 @@
 			qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
 			qcom,cdc-vdd-mic-bias-current = <5000>;
 
-			cdc-vdd-spkdrv-supply = <&spk_vreg>;
-			qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
-			qcom,cdc-vdd-spkdrv-current = <20000>;
-
 			qcom,cdc-mclk-clk-rate = <9600000>;
 
 			qcom,cdc-static-supplies = "cdc-vdda-h",
@@ -541,8 +537,7 @@
 						   "cdc-vdd-pa",
 						   "cdc-vdda-cp";
 
-			qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias",
-						      "cdc-vdd-spkdrv";
+			qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
 		};
 
 		pm8909_conga_analog: 8909_wcd_codec@f100 {

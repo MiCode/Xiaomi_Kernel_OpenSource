@@ -197,9 +197,13 @@
 			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
 			label = "vdd_spkdrv";
-			vdd_spkdrv_default: vdd_spkdrv_default {
+			vdd_spkdrv_act: vdd_spkdrv_on {
 				drive-strength = <8>;
 				bias-pull-up;
+			};
+			vdd_spkdrv_sus: vdd_spkdrv_off {
+				drive-strength = <2>;
+				bias-disable;
 			};
 		};
 
