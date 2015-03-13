@@ -24,8 +24,10 @@
 #include <linux/of_irq.h>
 #include <linux/percpu.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 
 #include <linux/irqchip/arm-gic-v3.h>
+#include <linux/syscore_ops.h>
 
 #include <asm/cputype.h>
 #include <asm/exception.h>
@@ -42,6 +44,10 @@ struct gic_chip_data {
 	u64			redist_stride;
 	u32			redist_regions;
 	unsigned int		irq_nr;
+#ifdef CONFIG_PM
+	unsigned int wakeup_irqs[32];
+	unsigned int enabled_irqs[32];
+#endif
 };
 
 static struct gic_chip_data gic_data __read_mostly;
@@ -268,6 +274,77 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 
 	return 0;
 }
+
+static int gic_retrigger(struct irq_data *d)
+{
+	if (gic_arch_extn.irq_retrigger)
+		return gic_arch_extn.irq_retrigger(d);
+
+	/* the genirq layer expects 0 if we can't retrigger in hardware */
+	return 0;
+}
+
+static inline void __iomem *gic_data_dist_base(struct gic_chip_data *data)
+{
+	return data->dist_base;
+}
+
+#ifdef CONFIG_PM
+static int gic_suspend_one(struct gic_chip_data *gic)
+{
+	unsigned int i;
+	void __iomem *base = gic_data_dist_base(gic);
+
+	for (i = 0; i * 32 < gic->irq_nr; i++) {
+		gic->enabled_irqs[i]
+			= readl_relaxed(base + GICD_ISENABLER + i * 4);
+		/* disable all of them */
+		writel_relaxed(0xffffffff, base + GICD_ICENABLER + i * 4);
+		/* enable the wakeup set */
+		writel_relaxed(gic->wakeup_irqs[i],
+			base + GICD_ISENABLER + i * 4);
+	}
+	return 0;
+}
+
+static int gic_suspend(void)
+{
+	gic_suspend_one(&gic_data);
+	return 0;
+}
+
+static void gic_resume_one(struct gic_chip_data *gic)
+{
+	unsigned int i;
+	void __iomem *base = gic_data_dist_base(gic);
+
+	for (i = 0; i * 32 < gic->irq_nr; i++) {
+		/* disable all of them */
+		writel_relaxed(0xffffffff, base + GICD_ICENABLER + i * 4);
+		/* enable the enabled set */
+		writel_relaxed(gic->enabled_irqs[i],
+			base + GICD_ISENABLER + i * 4);
+	}
+}
+
+static void gic_resume(void)
+{
+	gic_resume_one(&gic_data);
+}
+
+static struct syscore_ops gic_syscore_ops = {
+	.suspend = gic_suspend,
+	.resume = gic_resume,
+};
+
+static int __init gic_init_sys(void)
+{
+	register_syscore_ops(&gic_syscore_ops);
+	return 0;
+}
+arch_initcall(gic_init_sys);
+
+#endif
 
 static u64 gic_mpidr_to_affinity(u64 mpidr)
 {
@@ -575,6 +652,37 @@ static int gic_set_affinity(struct irq_data *d, const struct cpumask *mask_val,
 #define gic_smp_init()		do { } while(0)
 #endif
 
+#ifdef CONFIG_PM
+int gic_set_wake(struct irq_data *d, unsigned int on)
+{
+	int ret = -ENXIO;
+	unsigned int reg_offset, bit_offset;
+	unsigned int gicirq = gic_irq(d);
+	struct gic_chip_data *gic_data = irq_data_get_irq_chip_data(d);
+
+	/* per-cpu interrupts cannot be wakeup interrupts */
+	WARN_ON(gicirq < 32);
+
+	reg_offset = gicirq / 32;
+	bit_offset = gicirq % 32;
+
+	if (on)
+		gic_data->wakeup_irqs[reg_offset] |=  1 << bit_offset;
+	else
+		gic_data->wakeup_irqs[reg_offset] &=  ~(1 << bit_offset);
+
+	if (gic_arch_extn.irq_set_wake)
+		ret = gic_arch_extn.irq_set_wake(d, on);
+	else
+		pr_err("mpm: set wake is null\n");
+
+	return ret;
+}
+
+#else
+#define gic_set_wake	NULL
+#endif
+
 #ifdef CONFIG_CPU_PM
 static int gic_cpu_pm_notifier(struct notifier_block *self,
 			       unsigned long cmd, void *v)
@@ -602,14 +710,16 @@ static void gic_cpu_pm_init(void)
 static inline void gic_cpu_pm_init(void) { }
 #endif /* CONFIG_CPU_PM */
 
-static struct irq_chip gic_chip = {
+struct irq_chip gic_chip = {
 	.name			= "GICv3",
 	.irq_mask		= gic_mask_irq,
 	.irq_unmask		= gic_unmask_irq,
 	.irq_eoi		= gic_eoi_irq,
 	.irq_set_type		= gic_set_type,
+	.irq_retrigger		= gic_retrigger,
 	.irq_set_affinity	= gic_set_affinity,
 	.irq_disable		= gic_disable_irq,
+	.irq_set_wake		= gic_set_wake,
 };
 
 static int gic_irq_domain_map(struct irq_domain *d, unsigned int irq,
