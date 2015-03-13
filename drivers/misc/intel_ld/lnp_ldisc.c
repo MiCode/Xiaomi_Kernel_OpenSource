@@ -42,15 +42,22 @@ struct intel_bt_gpio_desc {
 	int			reg_on_idx;
 	int			host_wake_idx;
 };
+
 static struct intel_bt_gpio_desc acpi_default_bluetooth = {
 	.reg_on_idx = 1,
 	.host_wake_idx = 0,
 };
 
+/* snowfieldpeak: not host wake*/
+static struct intel_bt_gpio_desc acpi_sfp_bluetooth = {
+	.reg_on_idx = 0,
+	.host_wake_idx = -1,
+};
 
 static struct acpi_device_id intel_id_table[] = {
 	/* ACPI IDs here */
 	{ "INT33E1", (kernel_ulong_t)&acpi_default_bluetooth },
+	{ "INTL1216", (kernel_ulong_t)&acpi_sfp_bluetooth },
 	{ },
 };
 
@@ -2038,8 +2045,12 @@ static void lbf_ldisc_receive(struct tty_struct *tty, const u8 *cp, char *fp,
 				if (proto != INVALID) {
 					lbf_uart->rx_skb = alloc_skb(1700,
 						GFP_ATOMIC);
-					if (!lbf_uart->rx_skb)
+					if (!lbf_uart->rx_skb) {
+						spin_unlock_irqrestore(
+							&lbf_uart->rx_lock,
+							flags);
 						return;
+					}
 					lbf_uart->rx_chnl = proto;
 					lbf_uart->rx_state = LBF_W4_PKT_HDR;
 					lbf_uart->rx_count =
