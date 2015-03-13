@@ -192,6 +192,21 @@
 			};
 		};
 
+		vdd_spkdrv {
+			qcom,pins = <&gp 4>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "vdd_spkdrv";
+			vdd_spkdrv_act: vdd_spkdrv_on {
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+			vdd_spkdrv_sus: vdd_spkdrv_off {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
 		cdc-ext-pa-lines {
 			qcom,pins = <&gp 94>, <&gp 96>,
 					 <&gp 110>;
@@ -247,17 +262,6 @@
 			cdc_ext_mclk_sus: ext_mclk_off {
 				drive-strength = <2>;
 				bias-disable;
-			};
-		};
-
-		vdd_spkdrv {
-			qcom,pins = <&gp 4>;
-			qcom,num-grp-pins = <1>;
-			qcom,pin-func = <0>;
-			label = "vdd_spkdrv";
-			vdd_spkdrv_default: vdd_spkdrv_default {
-				drive-strength = <8>;
-				bias-pull-up;
 			};
 		};
 
