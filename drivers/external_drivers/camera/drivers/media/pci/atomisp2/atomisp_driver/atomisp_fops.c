@@ -275,9 +275,13 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 			if (param->params.update_flag.dz_config &&
 				asd->run_mode->val != ATOMISP_RUN_MODE_VIDEO
 				&& !err) {
-				atomisp_css_set_dz_config(asd,
-						&param->params.dz_config);
-				atomisp_css_update_isp_params(asd);
+				memcpy(&asd->params.css_param.dz_config,
+					&param->params.dz_config,
+					sizeof(struct ia_css_dz_config));
+				asd->params.css_param.update_flag.dz_config =
+					(struct atomisp_dz_config *)
+					&asd->params.css_param.dz_config;
+				asd->params.css_update_params_needed = true;
 			}
 			/* free the parameters */
 			atomisp_free_css_parameters(&param->params);
