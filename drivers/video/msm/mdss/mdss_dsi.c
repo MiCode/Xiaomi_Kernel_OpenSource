@@ -2061,13 +2061,9 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	if (rc)
 		pr_err("PLL 1 Clock's did not register\n");
 
-	if (pinfo->dynamic_fps &&
-			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-		if (mdss_dsi_shadow_clk_init(ctrl_pdev, ctrl_pdata)) {
+	if (pinfo->dynamic_fps)
+		if (mdss_dsi_shadow_clk_init(ctrl_pdev, ctrl_pdata))
 			pr_err("unable to initialize shadow ctrl clks\n");
-			return -EPERM;
-		}
-	}
 
 	if (mdss_dsi_retrieve_ctrl_resources(ctrl_pdev,
 					     pinfo->pdest,
