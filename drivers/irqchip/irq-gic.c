@@ -102,14 +102,7 @@ static struct static_key supports_deactivate = STATIC_KEY_INIT_TRUE;
  * Supported arch specific GIC irq extension.
  * Default make them NULL.
  */
-struct irq_chip gic_arch_extn = {
-	.irq_eoi	= NULL,
-	.irq_mask	= NULL,
-	.irq_unmask	= NULL,
-	.irq_retrigger	= NULL,
-	.irq_set_type	= NULL,
-	.irq_set_wake	= NULL,
-};
+extern struct irq_chip gic_arch_extn;
 
 #ifndef MAX_GIC_NR
 #define MAX_GIC_NR	1

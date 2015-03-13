@@ -32,6 +32,19 @@ void gic_enable_quirks(u32 iidr, const struct gic_quirk *quirks,
 	}
 }
 
+/*
+ * Supported arch specific GIC irq extension.
+ * Default make them NULL.
+ */
+struct irq_chip gic_arch_extn = {
+	.irq_eoi	= NULL,
+	.irq_mask	= NULL,
+	.irq_unmask	= NULL,
+	.irq_retrigger	= NULL,
+	.irq_set_type	= NULL,
+	.irq_set_wake	= NULL,
+};
+
 int gic_configure_irq(unsigned int irq, unsigned int type,
 		       void __iomem *base, void (*sync_access)(void))
 {
