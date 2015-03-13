@@ -1866,4 +1866,3 @@
 	};
 };
 
-#include "msm8939-gpu.dtsi"
