@@ -420,8 +420,9 @@ static inline unsigned int VENUS_Y_STRIDE(int color_fmt, int width)
 		stride = MSM_MEDIA_ALIGN(width, alignment);
 		break;
 	case COLOR_FMT_NV12_BPP10_UBWC:
-		alignment = 128;
-		stride = MSM_MEDIA_ALIGN(width * 4/3, alignment);
+		alignment = 256;
+		stride = MSM_MEDIA_ALIGN(width, 192);
+		stride = MSM_MEDIA_ALIGN(stride * 4/3, alignment);
 		break;
 	default:
 		break;
@@ -445,8 +446,9 @@ static inline unsigned int VENUS_UV_STRIDE(int color_fmt, int width)
 		stride = MSM_MEDIA_ALIGN(width, alignment);
 		break;
 	case COLOR_FMT_NV12_BPP10_UBWC:
-		alignment = 128;
-		stride = MSM_MEDIA_ALIGN(width * 4/3, alignment);
+		alignment = 256;
+		stride = MSM_MEDIA_ALIGN(width, 192);
+		stride = MSM_MEDIA_ALIGN(stride * 4/3, alignment);
 		break;
 	default:
 		break;
@@ -466,13 +468,15 @@ static inline unsigned int VENUS_Y_SCANLINES(int color_fmt, int height)
 	case COLOR_FMT_NV12:
 	case COLOR_FMT_NV12_MVTB:
 	case COLOR_FMT_NV12_UBWC:
-	case COLOR_FMT_NV12_BPP10_UBWC:
 		alignment = 32;
-		sclines = MSM_MEDIA_ALIGN(height, alignment);
+		break;
+	case COLOR_FMT_NV12_BPP10_UBWC:
+		alignment = 16;
 		break;
 	default:
-		break;
+		return 0;
 	}
+	sclines = MSM_MEDIA_ALIGN(height, alignment);
 invalid_input:
 	return sclines;
 }
@@ -487,14 +491,18 @@ static inline unsigned int VENUS_UV_SCANLINES(int color_fmt, int height)
 	case COLOR_FMT_NV21:
 	case COLOR_FMT_NV12:
 	case COLOR_FMT_NV12_MVTB:
-	case COLOR_FMT_NV12_UBWC:
 	case COLOR_FMT_NV12_BPP10_UBWC:
 		alignment = 16;
-		sclines = MSM_MEDIA_ALIGN(((height + 1) >> 1), alignment);
+		break;
+	case COLOR_FMT_NV12_UBWC:
+		alignment = 32;
 		break;
 	default:
-		break;
+		goto invalid_input;
 	}
+
+	sclines = MSM_MEDIA_ALIGN(height / 2, alignment);
+
 invalid_input:
 	return sclines;
 }
@@ -567,7 +575,7 @@ static inline unsigned int VENUS_UV_META_STRIDE(int color_fmt, int width)
 		goto invalid_input;
 	}
 
-	uv_meta_stride = MSM_MEDIA_ROUNDUP(width, uv_tile_width);
+	uv_meta_stride = MSM_MEDIA_ROUNDUP(width / 2, uv_tile_width);
 	uv_meta_stride = MSM_MEDIA_ALIGN(uv_meta_stride, 64);
 
 invalid_input:
@@ -592,7 +600,7 @@ static inline unsigned int VENUS_UV_META_SCANLINES(int color_fmt, int height)
 		goto invalid_input;
 	}
 
-	uv_meta_scanlines = MSM_MEDIA_ROUNDUP(height, uv_tile_height);
+	uv_meta_scanlines = MSM_MEDIA_ROUNDUP(height / 2, uv_tile_height);
 	uv_meta_scanlines = MSM_MEDIA_ALIGN(uv_meta_scanlines, 16);
 
 invalid_input:
