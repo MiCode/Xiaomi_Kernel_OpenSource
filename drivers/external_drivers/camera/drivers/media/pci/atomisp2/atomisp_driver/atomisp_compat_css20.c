@@ -3772,7 +3772,6 @@ void  atomisp_css_set_dvs2_coefs(struct atomisp_sub_device *asd,
 			       struct ia_css_dvs2_coefficients *coefs)
 {
 	asd->params.config.dvs2_coefs = coefs;
-	asd->params.css_update_params_needed = true;
 }
 
 int atomisp_css_set_dis_coefs(struct atomisp_sub_device *asd,
@@ -3828,7 +3827,9 @@ int atomisp_css_set_dis_coefs(struct atomisp_sub_device *asd,
 	    coefs->ver_coefs.even_imag, asd->params.dvs_ver_coef_bytes))
 		return -EFAULT;
 
-	asd->params.config.dvs2_coefs = asd->params.css_param.dvs2_coeff;
+	asd->params.css_param.update_flag.dvs2_coefs =
+		(struct atomisp_dvs2_coefficients *)
+		asd->params.css_param.dvs2_coeff;
 	/* FIXME! */
 /*	asd->params.dis_proj_data_valid = false; */
 	asd->params.css_update_params_needed = true;
