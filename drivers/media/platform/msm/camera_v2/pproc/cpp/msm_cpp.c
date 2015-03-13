@@ -2299,7 +2299,8 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	}
 	case VIDIOC_MSM_CPP_IOMMU_DETACH: {
-		if (cpp_dev->iommu_state == CPP_IOMMU_STATE_ATTACHED) {
+		if ((cpp_dev->iommu_state == CPP_IOMMU_STATE_ATTACHED) &&
+			(cpp_dev->stream_cnt == 0)) {
 			iommu_detach_device(cpp_dev->domain,
 				cpp_dev->iommu_ctx);
 			cpp_dev->iommu_state = CPP_IOMMU_STATE_DETACHED;
