@@ -90,20 +90,6 @@ static DEFINE_RAW_SPINLOCK(gic_sgi_lock);
 #define NR_GIC_CPU_IF 8
 static u8 gic_cpu_map[NR_GIC_CPU_IF] __read_mostly;
 
-/*
- * Supported arch specific GIC irq extension.
- * Default make them NULL.
- */
-struct irq_chip gic_arch_extn = {
-	.irq_eoi	= NULL,
-	.irq_mask	= NULL,
-	.irq_unmask	= NULL,
-	.irq_retrigger	= NULL,
-	.irq_set_type	= NULL,
-	.irq_set_wake	= NULL,
-	.irq_disable	= NULL,
-};
-
 #ifndef MAX_GIC_NR
 #define MAX_GIC_NR	1
 #endif

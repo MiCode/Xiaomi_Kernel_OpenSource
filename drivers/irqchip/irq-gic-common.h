@@ -20,6 +20,8 @@
 #include <linux/of.h>
 #include <linux/irqdomain.h>
 
+extern struct irq_chip gic_arch_extn;
+
 void gic_configure_irq(unsigned int irq, unsigned int type,
                        void __iomem *base, void (*sync_access)(void));
 void gic_dist_config(void __iomem *base, int gic_irqs,

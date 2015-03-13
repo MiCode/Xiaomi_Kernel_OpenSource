@@ -213,16 +213,30 @@ static void gic_poke_irq(struct irq_data *d, u32 offset)
 
 static void gic_mask_irq(struct irq_data *d)
 {
+	if (gic_arch_extn.irq_mask)
+		gic_arch_extn.irq_mask(d);
+
 	gic_poke_irq(d, GICD_ICENABLER);
 }
 
 static void gic_unmask_irq(struct irq_data *d)
 {
+	if (gic_arch_extn.irq_unmask)
+		gic_arch_extn.irq_unmask(d);
 	gic_poke_irq(d, GICD_ISENABLER);
+}
+
+static void gic_disable_irq(struct irq_data *d)
+{
+	if (gic_arch_extn.irq_disable)
+		gic_arch_extn.irq_disable(d);
 }
 
 static void gic_eoi_irq(struct irq_data *d)
 {
+	if (gic_arch_extn.irq_eoi)
+		gic_arch_extn.irq_eoi(d);
+
 	gic_write_eoir(gic_irq(d));
 }
 
@@ -246,6 +260,9 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 		base = gic_data.dist_base;
 		rwp_wait = gic_dist_wait_for_rwp;
 	}
+
+	if (gic_arch_extn.irq_set_type)
+		gic_arch_extn.irq_set_type(d, type);
 
 	gic_configure_irq(irq, type, base, rwp_wait);
 
@@ -592,6 +609,7 @@ static struct irq_chip gic_chip = {
 	.irq_eoi		= gic_eoi_irq,
 	.irq_set_type		= gic_set_type,
 	.irq_set_affinity	= gic_set_affinity,
+	.irq_disable		= gic_disable_irq,
 };
 
 static int gic_irq_domain_map(struct irq_domain *d, unsigned int irq,
@@ -721,10 +739,12 @@ static int __init gic_of_init(struct device_node *node, struct device_node *pare
 
 	set_handle_irq(gic_handle_irq);
 
+	gic_chip.flags |= gic_arch_extn.flags;
 	gic_smp_init();
 	gic_dist_init();
 	gic_cpu_init();
 	gic_cpu_pm_init();
+
 	return 0;
 
 out_free:
