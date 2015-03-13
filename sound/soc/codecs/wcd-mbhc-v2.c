@@ -1985,6 +1985,7 @@ void wcd_mbhc_stop(struct wcd_mbhc *mbhc)
 {
 	pr_debug("%s: enter\n", __func__);
 	mbhc->current_plug = MBHC_PLUG_TYPE_NONE;
+	mbhc->hph_status = 0;
 	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_left_ocp);
 	wcd9xxx_spmi_disable_irq(mbhc->intr_ids->hph_right_ocp);
 
