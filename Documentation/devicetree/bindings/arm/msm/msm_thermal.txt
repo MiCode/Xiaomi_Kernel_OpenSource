@@ -310,7 +310,7 @@ about thermal sensors on a target. The information includes sensor type,
 sensor name, sensor alias and sensor scaling factor. The parent node
 name is qcom,sensor-information. It has a list of optional child
 nodes, each representing a sensor. The child node is named as
-qcom,sensor-information@<id>. The id takes values sequentially
+qcom,sensor-information-<id>. The id takes values sequentially
 from 0 to N-1 where N is the number of sensors. This id doesn't
 relate to zone id or sensor id.
 
@@ -322,9 +322,9 @@ The devicetree representation of sensor information node should be:
 
 1.1 Optional nodes:
 
-qcom,sensor-information@<id>
+qcom,sensor-information-<id>
 
-The below properties belong to the child node qcom,sensor-information@<id>.
+The below properties belong to the child node qcom,sensor-information-<id>.
 Following are the required and optional properties of a child node.
 
 1.1.a Required properties:
@@ -353,43 +353,43 @@ Example:
 
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
-		sensor_information0: qcom,sensor-information@0 {
+		sensor_information0: qcom,sensor-information-0 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor0";
 		};
 
-		sensor_information1: qcom,sensor-information@1 {
+		sensor_information1: qcom,sensor-information-1 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor1";
 		};
 
-		sensor_information2: qcom,sensor-information@2 {
+		sensor_information2: qcom,sensor-information-2 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor2";
 		};
 
-		sensor_information3: qcom,sensor-information@3 {
+		sensor_information3: qcom,sensor-information-3 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor3";
 		};
 
-		sensor_information4: qcom,sensor-information@4 {
+		sensor_information4: qcom,sensor-information-4 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor4";
 		};
 
-		sensor_information5: qcom,sensor-information@5 {
+		sensor_information5: qcom,sensor-information-5 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor5";
 		};
 
-		sensor_information6: qcom,sensor-information@6 {
+		sensor_information6: qcom,sensor-information-6 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor6";
 			qcom,alias-name = "cpu7";
 		}
 
-		sensor_information7: qcom,sensor-information@7 {
+		sensor_information7: qcom,sensor-information-7 {
 			qcom,sensor-type =  "alarm";
 			qcom,sensor-name = "pm8994_tz";
 			qcom,scaling-factor = <1000>;
