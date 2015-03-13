@@ -32,9 +32,10 @@
 #include <linux/pm_runtime.h>
 #include <linux/acpi.h>
 #include <linux/bitops.h>
+#include <linux/serial_hsu.h>
 
 struct intel_bt_gpio_data {
-	struct gpio_desc	*reg_on_gpio;
+	struct gpio_desc	*reg_on_gpiod;
 	int	host_wake_irq;
 };
 
@@ -61,6 +62,8 @@ static struct acpi_device_id intel_id_table[] = {
 	{ },
 };
 
+static struct gpio_desc *gpiod;
+
 MODULE_DEVICE_TABLE(acpi, intel_id_table);
 
 
@@ -86,7 +89,7 @@ struct intel_bt_lpm {
 	unsigned char hostwake;
 	int dx_packet_pending;
 	int d0_packet_pending;
-	struct gpio_desc *gpio_enable_bt;
+	struct gpio_desc *gpiod_enable_bt;
 	int host_wake;
 	int lpm_enable;
 	struct mutex lpmtxlock;
@@ -201,6 +204,7 @@ static void activate_irq_handler(void);
 static int lbf_ldisc_fw_download_init(void);
 static int lpm_tx_update(int module);
 static int enqueue_dx_packet(uint8_t *hci_cmd, int size);
+static int intel_bt_lpm_init(struct platform_device *pdev);
 static void lbf_tx_wakeup(struct lbf_uart *lbf_uart);
 static int wait_dx_exit(void);
 static void lbf_ldisc_lpm_enable_cleanup(void);
@@ -415,10 +419,9 @@ static inline int lbf_get_bt_fmr_state(void)
  */
 static inline void lbf_serial_get(void)
 {
-	pr_debug("%s\n", __func__);
-	/*WARN_ON(!intel_lbf_lpm.tty_dev);
-	 For cht refersh: pm_runtime is not supported*/
-	/*pm_runtime_get_sync(intel_lbf_lpm.tty_dev);*/
+	pr_debug("%s: resume UART driver\n", __func__);
+	WARN_ON(!intel_lbf_lpm.tty_dev);
+	pm_runtime_get_sync(intel_lbf_lpm.tty_dev);
 }
 
 static void lbf_host_enable_work(struct work_struct *work)
@@ -440,10 +443,9 @@ static void lbf_host_enable_work(struct work_struct *work)
 
 static inline void lbf_serial_put(void)
 {
-	pr_debug("%s\n", __func__);
-	/*WARN_ON(!intel_lbf_lpm.tty_dev);
-	 For cht refersh: pm_runtime is not supported*/
-	/*pm_runtime_put(intel_lbf_lpm.tty_dev);*/
+	pr_debug("%s: suspend UART Driver\n", __func__);
+	WARN_ON(!intel_lbf_lpm.tty_dev);
+	pm_runtime_put(intel_lbf_lpm.tty_dev);
 }
 
 /* lbf_set_host_wake_state
@@ -690,9 +692,9 @@ static void lbf_update_host_wake(int host_wake)
 static irqreturn_t host_wake_isr(int irq, void *dev)
 {
 	int host_wake;
-
 	host_wake = gpio_get_value(intel_lbf_lpm.gpio_host_wake);
 
+	pr_info("%s: host_wake = %d\n", __func__, host_wake);
 	host_wake = host_wake ? 0 : 1;
 
 	if (!intel_lbf_lpm.tty_dev) {
@@ -707,14 +709,13 @@ static irqreturn_t host_wake_isr(int irq, void *dev)
 		}
 		lbf_update_host_wake(host_wake);
 	}
-
 	return IRQ_HANDLED;
 }
 
 
 /* activate_irq_handler
  *
- * Activaes the irq and registers the irq handler
+ * Activates the irq and registers the irq handler
  *
  * Arguments:
  * void
@@ -725,19 +726,48 @@ static irqreturn_t host_wake_isr(int irq, void *dev)
 static void activate_irq_handler(void)
 {
 	int ret;
-	int irqf = IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND;
+	int irqf = IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND | IRQF_ONESHOT;
 	pr_info("%s\n", __func__);
-	ret = devm_request_threaded_irq(&intel_lbf_lpm.pdev->dev,
-					intel_lbf_lpm.int_host_wake,
-					NULL,
-					host_wake_isr,
-					irqf, "host_wake",
-					NULL);
+	if (intel_lbf_lpm.gpio_host_wake > 0) {
+		ret = devm_request_threaded_irq(&intel_lbf_lpm.pdev->dev,
+						intel_lbf_lpm.int_host_wake,
+						NULL,
+						host_wake_isr,
+						irqf, "host_wake",
+						NULL);
 
-	if (ret < 0) {
-		pr_err("Error lpm request IRQ");
+		if (ret < 0) {
+			pr_err("Error lpm request IRQ");
+			gpio_free(intel_lbf_lpm.gpio_host_wake);
+		}
+	} else
+		pr_info("%s: no host wake is configured\n", __func__);
+}
+
+/* intel_bt_lpm_init
+ *
+ * lpm intialization
+ *
+ * Arguments:
+ * platform device
+ * Return Value:
+ * status of lpm initialization
+ */
+
+static int intel_bt_lpm_init(struct platform_device *pdev)
+{
+	struct device *tty_dev;
+
+	pr_debug("%s\n", __func__);
+	tty_dev = intel_mid_hsu_set_wake_peer(intel_lbf_lpm.port, NULL);
+	if (!tty_dev) {
+		pr_err("Error no tty dev");
 		gpio_free(intel_lbf_lpm.gpio_host_wake);
+		return -ENODEV;
 	}
+
+	intel_lbf_lpm.tty_dev = tty_dev;
+	return 0;
 }
 
 /* check_unthrottle
@@ -1563,7 +1593,7 @@ static int send_d0_packet(void)
 }
 
 /* lpm_tx_update()
- * update the device and module states on tx  being received
+ * update the device and module states on tx being received
  * Return Type: status
  * D0 packet sending status
  */
@@ -1573,7 +1603,7 @@ static int lpm_tx_update(int module)
 	struct lbf_uart *lbf_ldisc;
 	int ret = 0;
 	pr_debug("-> %s\n", __func__);
-	return ret;
+
 	/* Disabling LPM from driver side*/
 	lbf_ldisc = (struct lbf_uart *) lbf_tx->tty->disc_data;
 
@@ -1583,6 +1613,7 @@ check_refcount:
 	switch (lbf_get_device_state()) {
 	case D2:
 	case D3:
+		pr_debug("%s: check_refcount in D2/D3\n", __func__);
 		if (!lbf_get_tx_ref_count()) {
 			lbf_maintain_tx_refcnt(1);
 			lbf_serial_get();
@@ -1596,6 +1627,7 @@ check_refcount:
 			ret = 0;
 		break;
 	case D0_TO_D2:
+		pr_debug("%s: check_refcount in D0_TO_D2\n", __func__);
 		ret = wait_d0_exit();
 		if (ret == 0)
 			goto check_refcount;
@@ -1661,7 +1693,7 @@ static void lbf_ldisc_lpm_enable_cleanup(void)
 }
 
 /* lbf_ldisc_lpm_enable_init()
- * Initializzes all the device and module states
+ * Initializes the device and module states
  * Return Type: void
  */
 
@@ -1720,8 +1752,8 @@ static int lbf_ldisc_lpm_enable(unsigned long arg)
 		spin_lock_init(&intel_lbf_lpm.interrupt_lock);
 		spin_lock_init(&intel_lbf_lpm.txref_lock);
 
-		pr_debug("%s: gpio_enable=%d\n", __func__,
-				desc_to_gpio(intel_lbf_lpm.gpio_enable_bt));
+		pr_info("%s: gpio_enable=%d\n", __func__,
+				desc_to_gpio(intel_lbf_lpm.gpiod_enable_bt));
 		intel_lbf_lpm.lpm_enable = ENABLE;
 		activate_irq_handler();
 		pr_info("LPM enabled success\n");
@@ -1750,8 +1782,7 @@ static int lbf_ldisc_lpm_enable(unsigned long arg)
 static int lbf_ldisc_lpm_idle(unsigned long arg)
 {
 	int ret = INVALID;
-	return 0;
-	/*Disabling LPM from Driver side for cht PO*/
+
 	pr_debug("-> %s\n", __func__);
 	mutex_lock(&intel_lbf_lpm.idleupdatelock);
 	spin_lock(&intel_lbf_lpm.lpm_modulestate);
@@ -1805,6 +1836,7 @@ static void lbf_ldisc_fw_download_complete(unsigned long arg)
 		bt_rfkill_set_power(ENABLE);
 	}
 
+	pr_info("%s: %s\n", __func__, (arg == FW_SUCCESS)?"success":"failed");
 	intel_lbf_lpm.bt_module_state = IDLE;
 	intel_lbf_lpm.fm_module_state = IDLE;
 	intel_lbf_lpm.bt_fmr_state = IDLE;
@@ -2468,51 +2500,57 @@ static int bt_gpio_init(struct device *dev, struct intel_bt_gpio_desc *desc)
 {
 
 	int ret = 0;
-	struct gpio_desc *gpio;
 
 	if (!desc)
-		gpio = devm_gpiod_get_index(dev, "bt_reg_on", 1);
-	else if (desc->reg_on_idx >= 0)
-		gpio = devm_gpiod_get_index(dev, "bt_reg_on", desc->reg_on_idx);
-	else
-		gpio = NULL;
+		gpiod = devm_gpiod_get_index(dev, "bt_reg_on", 1);
+	else if (desc->reg_on_idx >= 0) {
+		pr_info("%s: reg_on_idx=%d, host_wake_idx=%d",
+				__func__, desc->reg_on_idx,
+				desc->host_wake_idx);
+		gpiod = devm_gpiod_get_index(dev, "bt_reg_on",
+		desc->reg_on_idx);
+	} else
+		gpiod = NULL;
 
-
-	if (gpio && !IS_ERR(gpio)) {
-		pr_info("bt_enable:%d", desc_to_gpio(gpio));
-		ret = gpiod_direction_output(gpio, 0);
+	if (gpiod && !IS_ERR(gpiod)) {
+		intel_lbf_lpm.gpiod_enable_bt = gpiod;
+		pr_info("%s: gpio enable_bt:%d\n", __func__,
+				desc_to_gpio(intel_lbf_lpm.gpiod_enable_bt));
+		ret = gpiod_direction_output(intel_lbf_lpm.gpiod_enable_bt, 0);
 		if (ret) {
-			pr_err("didn't get reg_on");
+			pr_err("could not set gpiod_enable_bt as output");
 			return ret;
 		}
-		intel_lbf_lpm.gpio_enable_bt = gpio;
 	} else
 		pr_err("Failed to get bt_reg_on gpio\n");
 
-#if 0
-	Not used for CHT PO
-
 	if (desc && (desc->host_wake_idx >= 0)) {
-		gpio = devm_gpiod_get_index(dev, "bt_host_wake",
+		gpiod = devm_gpiod_get_index(dev, "bt_host_wake",
 					    desc->host_wake_idx);
-		pr_info("bt_host_wake:%d\n", desc_to_gpio(gpio));
-		if (!IS_ERR(gpio)) {
-			ret = gpiod_direction_input(gpio);
+		if (!IS_ERR(gpiod)) {
+			intel_lbf_lpm.gpio_host_wake = desc_to_gpio(gpiod);
+			pr_info("%s: gpio_host_wake:%d\n",
+					__func__, intel_lbf_lpm.gpio_host_wake);
+			ret = gpiod_direction_input(gpiod);
 			if (ret)
 				return ret;
 
-			intel_lbf_lpm.int_host_wake = gpiod_to_irq(gpio);
+			intel_lbf_lpm.int_host_wake = gpiod_to_irq(gpiod);
+			pr_info("%s: int_host_wake:%d\n",
+					__func__, intel_lbf_lpm.int_host_wake);
 
 			if (ret)
 				return ret;
 
 		}
+	} else {
+		intel_lbf_lpm.gpio_host_wake = -1;
+		pr_err("Failed to get bt_host_wake gpio\n");
 	}
-#endif
+
 	return 0;
 }
-static int intel_bt_acpi_probe(struct device *dev,
-				  struct intel_bt_gpio_data *bt_gpio)
+static int intel_bt_acpi_probe(struct device *dev)
 {
 
 	const struct acpi_device_id *id;
@@ -2539,14 +2577,14 @@ static void bt_rfkill_set_power(unsigned long blocked)
 {
 	pr_debug("%s blocked: %lu\n", __func__, blocked);
 	if (ENABLE == blocked) {
-		gpiod_set_value(intel_lbf_lpm.gpio_enable_bt, 1);
+		gpiod_set_value(intel_lbf_lpm.gpiod_enable_bt, 1);
 		pr_info("%s: turn BT on\n", __func__);
 		pr_info("BT CORE IN D0 STATE\n");
 		bt_enable_state = ENABLE;
 		if (intel_lbf_lpm.lpm_enable == ENABLE)
 			lbf_ldisc_lpm_enable_init();
 	} else if (DISABLE == blocked) {
-		gpiod_set_value(intel_lbf_lpm.gpio_enable_bt, 0);
+		gpiod_set_value(intel_lbf_lpm.gpiod_enable_bt, 0);
 		pr_info("%s: turn BT off\n", __func__);
 		pr_info("BT CORE IN D3 STATE\n");
 		bt_enable_state = DISABLE;
@@ -2571,7 +2609,7 @@ static int intel_bluetooth_probe(struct platform_device *pdev)
 	intel_lbf_lpm.pdev = pdev;
 
 	if (ACPI_HANDLE(&pdev->dev)) {
-		ret = intel_bt_acpi_probe(&pdev->dev, bt_gpio);
+		ret = intel_bt_acpi_probe(&pdev->dev);
 		if (ret)
 			goto probe_fail;
 
@@ -2579,6 +2617,10 @@ static int intel_bluetooth_probe(struct platform_device *pdev)
 
 	} else
 		ret = -ENODEV;
+
+	ret = intel_bt_lpm_init(intel_lbf_lpm.pdev);
+	if (ret)
+		return -EINVAL;
 
 probe_fail:
 	pr_err("%s ret: %d\n", __func__, ret);
