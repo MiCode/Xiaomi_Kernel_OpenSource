@@ -85,8 +85,8 @@
 
 #define FOLLOW_TO_NEXT_TABLE(pte) ((u64 *) __va(((*pte) & FLSL_BASE_MASK)))
 
-static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, u32 va,
-					      u32 len, u32 silent);
+static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt,
+				unsigned long va, size_t len, u32 silent);
 
 static inline void clean_pte(u64 *start, u64 *end,
 				s32 redirect)
@@ -527,7 +527,7 @@ static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 #endif
 
 s32 msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned long va,
-		       struct scatterlist *sg, u32 len, s32 prot)
+		       struct scatterlist *sg, size_t len, s32 prot)
 {
 	phys_addr_t pa;
 	u32 offset = 0;
@@ -612,13 +612,15 @@ fail:
 	return ret;
 }
 
-void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, u32 va, u32 len)
+void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned long va,
+				size_t len)
 {
 	__msm_iommu_pagetable_unmap_range(pt, va, len, 0);
 }
 
-static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, u32 va,
-					      u32 len, u32 silent)
+static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt,
+						unsigned long va,
+						size_t len, u32 silent)
 {
 	u32 offset = 0;
 	u64 *fl_pte;
@@ -712,7 +714,7 @@ static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, u32 va,
 }
 
 phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
-							phys_addr_t va)
+							dma_addr_t va)
 {
 	pr_err("iova_to_phys is not implemented for LPAE\n");
 	return 0;
