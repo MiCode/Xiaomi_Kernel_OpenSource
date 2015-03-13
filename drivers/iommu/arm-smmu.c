@@ -463,7 +463,7 @@ struct arm_smmu_device {
 	struct arm_smmu_impl_def_reg	*impl_def_attach_registers;
 	unsigned int			num_impl_def_attach_registers;
 
-	spinlock_t			atos_lock;
+	struct mutex			atos_lock;
 };
 
 struct arm_smmu_cfg {
@@ -1948,7 +1948,6 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	void __iomem *cb_base;
 	u32 tmp;
 	u64 phys;
-	unsigned long flags;
 	bool need_halt_and_tlb =
 		smmu->options & ARM_SMMU_OPT_HALT_AND_TLB_ON_ATOS;
 
@@ -1956,7 +1955,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 
-	spin_lock_irqsave(&smmu->atos_lock, flags);
+	mutex_lock(&smmu->atos_lock);
 
 	if (need_halt_and_tlb) {
 		if (arm_smmu_halt(smmu))
@@ -1985,7 +1984,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (need_halt_and_tlb)
 		arm_smmu_resume(smmu);
 
-	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+	mutex_unlock(&smmu->atos_lock);
 
 	if (phys & CB_PAR_F) {
 		dev_err(dev, "translation fault on %s!\n", dev_name(dev));
@@ -2002,7 +2001,7 @@ err_resume:
 	if (need_halt_and_tlb)
 		arm_smmu_resume(smmu);
 err_unlock:
-	spin_unlock_irqrestore(&smmu->atos_lock, flags);
+	mutex_unlock(&smmu->atos_lock);
 	arm_smmu_disable_clocks(smmu);
 	phys = arm_smmu_iova_to_phys_soft(domain, iova);
 	dev_err(dev,
@@ -2549,7 +2548,7 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	}
 	smmu->dev = dev;
 	mutex_init(&smmu->attach_lock);
-	spin_lock_init(&smmu->atos_lock);
+	mutex_init(&smmu->atos_lock);
 
 	of_id = of_match_node(arm_smmu_of_match, dev->of_node);
 	smmu->version = (enum arm_smmu_arch_version)of_id->data;
