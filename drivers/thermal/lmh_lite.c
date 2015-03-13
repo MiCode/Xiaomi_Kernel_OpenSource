@@ -112,7 +112,10 @@ static int lmh_read(struct lmh_sensor_ops *ops, long *val)
 	struct lmh_sensor_data *lmh_sensor = container_of(ops,
 		       struct lmh_sensor_data, ops);
 
+	mutex_lock(&lmh_sensor_read);
 	*val = lmh_sensor->last_read_value;
+	mutex_unlock(&lmh_sensor_read);
+
 	return 0;
 }
 
@@ -184,6 +187,7 @@ enable_exit:
 static int lmh_reset(struct lmh_sensor_ops *ops)
 {
 	int ret = 0;
+	struct lmh_sensor_data *lmh_iter_sensor = NULL;
 	struct lmh_sensor_data *lmh_sensor = container_of(ops,
 		       struct lmh_sensor_data, ops);
 
@@ -203,8 +207,27 @@ static int lmh_reset(struct lmh_sensor_ops *ops)
 		goto reset_exit;
 	}
 
-	if (!lmh_data->intr_status_val)
-		lmh_data->intr_state = LMH_ISR_MONITOR;
+	if (!lmh_data->intr_status_val) {
+		/*
+		 * Scan through the sensor list and abort the interrupt
+		 * enable if any of the sensor is still throttling
+		 */
+		list_for_each_entry(lmh_iter_sensor, &lmh_sensor_list,
+			list_ptr) {
+			if (lmh_iter_sensor->last_read_value) {
+				pr_debug("Sensor:[%s] retrigger interrupt\n",
+					lmh_iter_sensor->sensor_name);
+				lmh_data->intr_status_val
+					|= BIT(lmh_iter_sensor->sensor_sw_id);
+				lmh_iter_sensor->state = LMH_ISR_POLLING;
+				lmh_iter_sensor->ops.interrupt_notify(
+					&lmh_iter_sensor->ops,
+					lmh_iter_sensor->last_read_value);
+			}
+		}
+		if (!lmh_data->intr_status_val)
+			lmh_data->intr_state = LMH_ISR_MONITOR;
+	}
 
 reset_exit:
 	up_write(&lmh_sensor_access);
@@ -233,6 +256,8 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 
 
 	mutex_lock(&lmh_sensor_read);
+	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr)
+		lmh_sensor->last_read_value = 0;
 	payload.count = 0;
 	cmd_buf.addr = SCM_BUFFER_PHYS(&payload);
 	/* &payload may be a physical address > 4 GB */
@@ -257,8 +282,6 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 		goto read_exit;
 	}
 
-	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr)
-		lmh_sensor->last_read_value = 0;
 	for (idx = 0; idx < payload.count; idx++) {
 		list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr) {
 
