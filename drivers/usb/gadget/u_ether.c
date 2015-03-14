@@ -704,6 +704,15 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	case -ESHUTDOWN:		/* disconnect etc */
 		break;
 	case 0:
+		/*
+		 * Remove the header length, before updating tx_bytes in
+		 * net->stats, since when packet is received from network layer
+		 * this header is not added. So this will now give the exact
+		 * number of bytes sent to the host.
+		 */
+		if (req->num_sgs)
+			req->actual -= (req->num_sgs/2) * dev->header_len;
+
 		if (!req->zero)
 			dev->net->stats.tx_bytes += req->actual-1;
 		else
