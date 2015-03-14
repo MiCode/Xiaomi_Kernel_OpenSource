@@ -1475,14 +1475,14 @@ static int diag_user_process_dci_apps_data(const char __user *buf, int len,
 	if (err) {
 		pr_alert("diag: In %s, unable to copy data from userspace, err: %d\n",
 			 __func__, err);
-		diagmem_free(driver, user_space_data, mempool);
-		user_space_data = NULL;
-		return err;
+		goto fail;
 	}
 
 	diag_process_apps_dci_read_data(pkt_type, user_space_data, len);
-
-	return 0;
+fail:
+	diagmem_free(driver, user_space_data, mempool);
+	user_space_data = NULL;
+	return err;
 }
 
 static int diag_user_process_callback_data(const char __user *buf, int len)
