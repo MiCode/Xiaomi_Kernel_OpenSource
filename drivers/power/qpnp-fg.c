@@ -318,6 +318,7 @@ struct fg_chip {
 	struct power_supply	*batt_psy;
 	struct fg_wakeup_source	memif_wakeup_source;
 	struct fg_wakeup_source	profile_wakeup_source;
+	struct fg_wakeup_source	empty_check_wakeup_source;
 	bool			first_profile_loaded;
 	struct fg_wakeup_source	update_temp_wakeup_source;
 	struct fg_wakeup_source	update_sram_wakeup_source;
@@ -330,9 +331,11 @@ struct fg_chip {
 	bool			cyc_ctr_en;
 	bool			cyc_ctr_started;
 	bool			esr_strict_filter;
+	bool			soc_empty;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
+	struct delayed_work	check_empty_work;
 	char			*batt_profile;
 	u8			thermal_coefficients[THERMAL_COEFF_N_BYTES];
 	u16			cycle_counter;
@@ -1083,7 +1086,7 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return MISSING_CAPACITY;
 	if (!chip->profile_loaded && !chip->use_otp_profile)
 		return DEFAULT_CAPACITY;
-	if (fg_is_batt_empty(chip)) {
+	if (chip->soc_empty) {
 		if (fg_debug_mask & FG_POWER_SUPPLY)
 			pr_info_ratelimited("capacity: %d, EMPTY\n",
 					EMPTY_CAPACITY);
@@ -2301,7 +2304,7 @@ static int fg_property_is_writeable(struct power_supply *psy,
 static void dump_sram(struct work_struct *work)
 {
 	int i, rc;
-	u8 *buffer;
+	u8 *buffer, rt_sts;
 	char str[16];
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
@@ -2312,6 +2315,27 @@ static void dump_sram(struct work_struct *work)
 		pr_err("Can't allocate buffer\n");
 		return;
 	}
+
+	rc = fg_read(chip, &rt_sts, INT_RT_STS(chip->soc_base), 1);
+	if (rc)
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->soc_base), rc);
+	else
+		pr_info("soc rt_sts: 0x%x\n", rt_sts);
+
+	rc = fg_read(chip, &rt_sts, INT_RT_STS(chip->batt_base), 1);
+	if (rc)
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->batt_base), rc);
+	else
+		pr_info("batt rt_sts: 0x%x\n", rt_sts);
+
+	rc = fg_read(chip, &rt_sts, INT_RT_STS(chip->mem_base), 1);
+	if (rc)
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->mem_base), rc);
+	else
+		pr_info("memif rt_sts: 0x%x\n", rt_sts);
 
 	rc = fg_mem_read(chip, buffer, SRAM_DUMP_START, SRAM_DUMP_LEN, 0, 0);
 	if (rc) {
@@ -2453,16 +2477,19 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 	}
 
 	if (fg_check_sram_access(chip)) {
-		if (fg_debug_mask & FG_IRQS)
+		if ((fg_debug_mask & FG_IRQS)
+				& (FG_MEM_DEBUG_READS | FG_MEM_DEBUG_WRITES))
 			pr_info("sram access granted\n");
 		complete_all(&chip->sram_access_granted);
 	} else {
-		if (fg_debug_mask & FG_IRQS)
+		if ((fg_debug_mask & FG_IRQS)
+				& (FG_MEM_DEBUG_READS | FG_MEM_DEBUG_WRITES))
 			pr_info("sram access revoked\n");
 		complete_all(&chip->sram_access_revoked);
 	}
 
-	if (!rc && (fg_debug_mask & FG_IRQS))
+	if (!rc && (fg_debug_mask & FG_IRQS)
+			& (FG_MEM_DEBUG_READS | FG_MEM_DEBUG_WRITES))
 		pr_info("mem_if sts 0x%02x\n", mem_if_sts);
 
 	return IRQ_HANDLED;
@@ -2491,6 +2518,34 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (chip->cyc_ctr_en)
 		schedule_work(&chip->cycle_count_work);
 	schedule_work(&chip->update_esr_work);
+	return IRQ_HANDLED;
+}
+
+#define FG_EMPTY_DEBOUNCE_MS	1500
+static irqreturn_t fg_empty_soc_irq_handler(int irq, void *_chip)
+{
+	struct fg_chip *chip = _chip;
+	u8 soc_rt_sts;
+	int rc;
+
+	rc = fg_read(chip, &soc_rt_sts, INT_RT_STS(chip->soc_base), 1);
+	if (rc) {
+		pr_err("spmi read failed: addr=%03X, rc=%d\n",
+				INT_RT_STS(chip->soc_base), rc);
+		goto done;
+	}
+
+	if (fg_debug_mask & FG_IRQS)
+		pr_info("triggered 0x%x\n", soc_rt_sts);
+	if (fg_is_batt_empty(chip)) {
+		fg_stay_awake(&chip->empty_check_wakeup_source);
+		schedule_delayed_work(&chip->check_empty_work,
+			msecs_to_jiffies(FG_EMPTY_DEBOUNCE_MS));
+	} else {
+		chip->soc_empty = false;
+	}
+
+done:
 	return IRQ_HANDLED;
 }
 
@@ -2885,6 +2940,22 @@ no_profile:
 	return rc;
 }
 
+static void check_empty_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				check_empty_work.work);
+
+	if (fg_is_batt_empty(chip)) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("EMPTY SOC high\n");
+		chip->soc_empty = true;
+		if (chip->power_supply_registered)
+			power_supply_changed(&chip->bms_psy);
+	}
+	fg_relax(&chip->empty_check_wakeup_source);
+}
+
 static void batt_profile_init(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
@@ -3183,7 +3254,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 			}
 			rc |= devm_request_irq(chip->dev,
 				chip->soc_irq[EMPTY_SOC].irq,
-				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
+				fg_empty_soc_irq_handler,
+				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 				"empty-soc", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d empty-soc: %d\n",
@@ -3291,6 +3363,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
+	cancel_delayed_work_sync(&chip->check_empty_work);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
 	cancel_work_sync(&chip->fg_cap_learning_work);
 	cancel_work_sync(&chip->batt_profile_init);
@@ -3300,6 +3373,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->update_esr_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rw_lock);
+	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
 	wakeup_source_trash(&chip->update_temp_wakeup_source.source);
@@ -3933,6 +4007,8 @@ static int fg_probe(struct spmi_device *spmi)
 	chip->spmi = spmi;
 	chip->dev = &(spmi->dev);
 
+	wakeup_source_init(&chip->empty_check_wakeup_source.source,
+			"qpnp_fg_empty_check");
 	wakeup_source_init(&chip->memif_wakeup_source.source,
 			"qpnp_fg_memaccess");
 	wakeup_source_init(&chip->profile_wakeup_source.source,
@@ -3947,6 +4023,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
+	INIT_DELAYED_WORK(&chip->check_empty_work, check_empty_work);
 	INIT_WORK(&chip->fg_cap_learning_work, fg_cap_learning_work);
 	INIT_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_WORK(&chip->dump_sram, dump_sram);
@@ -4099,6 +4176,7 @@ cancel_work:
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
+	cancel_delayed_work_sync(&chip->check_empty_work);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
 	cancel_work_sync(&chip->fg_cap_learning_work);
 	cancel_work_sync(&chip->batt_profile_init);
@@ -4110,6 +4188,7 @@ of_init_fail:
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr_lock);
 	mutex_destroy(&chip->learning_data.learning_lock);
+	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
 	wakeup_source_trash(&chip->update_temp_wakeup_source.source);
