@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,16 +28,18 @@
 &soc {
 	mem_acc_vreg_corner: regulator@1946000 {
 		compatible = "qcom,mem-acc-regulator";
-		reg = <0x1946000 0x4>, <0x1946000 0x4>, <0x58000 0x1000>;
-		reg-names = "acc-sel-l1", "acc-sel-l2", "efuse_addr";
+		reg = <0x1946000 0x4>, <0x58000 0x1000>;
+		reg-names = "acc-sel-l1", "efuse_addr";
 		regulator-name = "mem_acc_corner";
 		regulator-min-microvolt = <1>;
 		regulator-max-microvolt = <3>;
 
 		qcom,acc-sel-l1-bit-pos = <0>;
-		qcom,acc-sel-l2-bit-pos = <8>;
-		qcom,corner-acc-map = <0 1 1>;
-		qcom,l1-config-skip-fuse-sel = <0 52 1 1 0>;
+		qcom,acc-sel-l1-bit-size = <9>;
+		qcom,corner-acc-map = <0x0 0x100 0x101>;
+
+		qcom,override-acc-fuse-sel = <0 52 1 1 0>;
+		qcom,override-corner-acc-map = <0x0 0x100 0x100>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
