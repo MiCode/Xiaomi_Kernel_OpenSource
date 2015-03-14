@@ -160,6 +160,8 @@ Optional properties :
 	pull-down resistors during peripheral and host bus suspend without
 	any re-work.
 - qcom,emulation: Indicates that we are running on emulation platform.
+- qcom,boost-sysclk-with-epprime-fix: If present, enable HW fix for USB endpoint
+        prime failure. Also this flag can bump up usb system clock to max.
 
 Example HSUSB OTG controller device node :
 	usb@f9690000 {

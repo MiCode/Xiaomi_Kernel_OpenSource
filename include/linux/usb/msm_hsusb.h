@@ -277,6 +277,7 @@ enum usb_id_state {
  * @usb_id_gpio: Gpio used for USB ID detection.
  * @bool phy_dvdd_always_on: PHY DVDD is supplied by always on PMIC LDO.
  * @bool emulation: Indicates whether we are running on emulation platform.
+ * @bool enable_epprime_fix: Indicates whether HW fix for epprime failure is enabled.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -310,6 +311,7 @@ struct msm_otg_platform_data {
 	int usb_id_gpio;
 	bool phy_dvdd_always_on;
 	bool emulation;
+	bool enable_epprime_fix;
 	struct clk *system_clk;
 };
 
@@ -592,6 +594,7 @@ struct ci13xxx_platform_data {
 	void *prv_data;
 	bool l1_supported;
 	bool enable_ahb2ahb_bypass;
+	bool enable_epprime_fix;
 	struct clk *system_clk;
 };
 
