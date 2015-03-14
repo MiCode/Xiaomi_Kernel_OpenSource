@@ -209,7 +209,7 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	ch->write_cnt++;
 	ctxt = (int)(uintptr_t)req->context;
 	if (ch->ops && ch->ops->write_done)
-		ch->ops->write_done(req->buf, req->actual, ctxt, ch->ctxt);
+		ch->ops->write_done(req->buf, req->actual, ctxt, DIAG_USB_MODE);
 	diagmem_free(driver, req, ch->mempool);
 	queue_work(ch->usb_wq, &(ch->read_work));
 }
