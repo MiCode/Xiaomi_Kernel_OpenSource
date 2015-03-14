@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2207,6 +2207,18 @@ static struct clk_lookup msm_clocks_9630[] = {
 		   "f92f8800.hsphy"),
 	CLK_LOOKUP("core_clk", qpic_clk.c, "f9ac0000.qcom,nand"),
 	CLK_LOOKUP("", qpic_a_clk.c, ""),
+	CLK_LOOKUP("pcie_0_slv_axi_clk", gcc_pcie_axi_clk.c,
+			"bfffd000.qcom,pcie"),
+	CLK_LOOKUP("pcie_0_mstr_axi_clk", gcc_pcie_axi_mstr_clk.c,
+			"bfffd000.qcom,pcie"),
+	CLK_LOOKUP("pcie_0_cfg_ahb_clk", gcc_pcie_cfg_ahb_clk.c,
+			"bfffd000.qcom,pcie"),
+	CLK_LOOKUP("pcie_0_pipe_clk", gcc_pcie_pipe_clk.c,
+			"bfffd000.qcom,pcie"),
+	CLK_LOOKUP("pcie_0_aux_clk", gcc_pcie_sleep_clk.c,
+			"bfffd000.qcom,pcie"),
+	CLK_LOOKUP("pcie_0_ldo",  gcc_pcie_gpio_ldo.c,
+			"bfffd000.qcom,pcie"),
 };
 
 static void reg_init(void)
