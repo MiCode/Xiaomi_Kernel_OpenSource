@@ -55,9 +55,11 @@ static void mdss_report_panel_dead(struct dsi_status_data *pstatus_data)
  * after 'interval' milliseconds. If the TE IRQ is not ready, the workqueue
  * gets re-scheduled. Otherwise, report the panel to be dead due to ESD attack.
  */
-static void mdss_check_te_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
+static bool mdss_check_te_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		struct dsi_status_data *pstatus_data, uint32_t interval)
 {
+	bool ret;
+
 	/*
 	 * During resume, the panel status will be ON but due to race condition
 	 * between ESD thread and display UNBLANK (or rather can be put as
@@ -66,14 +68,14 @@ static void mdss_check_te_status(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 	 * first TE interrupt arrives after the TE IRQ line is enabled. For such
 	 * cases, re-schedule the ESD thread.
 	 */
-	if (!atomic_read(&ctrl_pdata->te_irq_ready)) {
+	ret = !atomic_read(&ctrl_pdata->te_irq_ready);
+	if (ret) {
 		schedule_delayed_work(&pstatus_data->check_status,
 			msecs_to_jiffies(interval));
 		pr_debug("%s: TE IRQ line not enabled yet\n", __func__);
-		return;
 	}
 
-	mdss_report_panel_dead(pstatus_data);
+	return ret;
 }
 
 /*
@@ -135,8 +137,10 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 	}
 
 	if (ctrl_pdata->status_mode == ESD_TE) {
-		mdss_check_te_status(ctrl_pdata, pstatus_data, interval);
-		return;
+		if (mdss_check_te_status(ctrl_pdata, pstatus_data, interval))
+			return;
+		else
+			goto status_dead;
 	}
 
 
@@ -193,6 +197,18 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 			schedule_delayed_work(&pstatus_data->check_status,
 				msecs_to_jiffies(interval));
 		else
-			mdss_report_panel_dead(pstatus_data);
+			goto status_dead;
 	}
+
+	if (pdata->panel_info.panel_force_dead) {
+		pr_debug("force_dead=%d\n", pdata->panel_info.panel_force_dead);
+		pdata->panel_info.panel_force_dead--;
+		if (!pdata->panel_info.panel_force_dead)
+			goto status_dead;
+	}
+
+	return;
+
+status_dead:
+	mdss_report_panel_dead(pstatus_data);
 }
