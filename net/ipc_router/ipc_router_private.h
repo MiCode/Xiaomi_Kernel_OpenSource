@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -38,7 +38,8 @@
 #define IPC_ROUTER_NID_LOCAL			1
 #define MAX_IPC_PKT_SIZE 66000
 
-#define IPC_ROUTER_DEFAULT_RX_QUOTA	5
+#define IPC_ROUTER_LOW_RX_QUOTA		5
+#define IPC_ROUTER_HIGH_RX_QUOTA	10
 
 #define IPC_ROUTER_INFINITY -1
 #define DEFAULT_RCV_TIMEO IPC_ROUTER_INFINITY
