@@ -1294,7 +1294,7 @@ BMG160_RETURN_FUNCTION_TYPE bmg160_set_shadow_dis(unsigned char shadow_dis)
  * Remarks:
  *
  *****************************************************************************/
-BMG160_RETURN_FUNCTION_TYPE bmg160_set_soft_reset()
+BMG160_RETURN_FUNCTION_TYPE bmg160_set_soft_reset(void)
 {
 	BMG160_RETURN_FUNCTION_TYPE comres  = C_BMG160_Zero_U8X;
 	unsigned char v_SoftReset_u8r  = C_BMG160_Zero_U8X;
@@ -5157,7 +5157,7 @@ unsigned char channel, unsigned char offset_wl)
  * Remarks:
  *
  *****************************************************************************/
-BMG160_RETURN_FUNCTION_TYPE bmg160_enable_fast_offset()
+BMG160_RETURN_FUNCTION_TYPE bmg160_enable_fast_offset(void)
 {
 	BMG160_RETURN_FUNCTION_TYPE comres  = C_BMG160_Zero_U8X;
 	unsigned char v_data_u8r  = C_BMG160_Zero_U8X;

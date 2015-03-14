@@ -34,11 +34,12 @@
 #include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
+#include <linux/regulator/consumer.h>
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
-
+#include <linux/sensors.h>
 #include "bmg160.h"
 
 /* sensor specific */
@@ -58,7 +59,7 @@
 #define BMG_MAX_RETRY_WAKEUP (5)
 #define BMG_MAX_RETRY_WAIT_DRDY (100)
 
-#define BMG_DELAY_MIN (1)
+#define BMG_DELAY_MIN (10)
 #define BMG_DELAY_DEFAULT (200)
 
 #define BMG_VALUE_MAX (32767)
@@ -98,6 +99,18 @@
 /*! Bosch sensor remapping table size P0~P7*/
 #define MAX_AXIS_REMAP_TAB_SZ 8
 
+
+/* Limit mininum delay to 10ms as we do not need higher rate so far */
+#define BMG160_GYRO_MIN_POLL_INTERVAL_MS	10
+#define BMG160_GYRO_MAX_POLL_INTERVAL_MS	5000
+#define BMG160_GYRO_DEFAULT_POLL_INTERVAL_MS	200
+
+/*VDD 2.375V-3.46V VLOGIC 1.8V +-5%*/
+/*BMA power supply VDD 1.62V-3.6V VIO 1.2-3.6V */
+#define BMG160_VDD_MIN_UV       2400000
+#define BMG160_VDD_MAX_UV       3400000
+#define BMG160_VI2C_MIN_UV       1200000
+#define BMG160_VI2C_MAX_UV       3400000
 
 struct bosch_sensor_specific {
 	char *name;
@@ -146,6 +159,7 @@ struct bmg_client_data {
 	struct i2c_client *client;
 	struct input_dev *input;
 	struct delayed_work work;
+	struct sensors_classdev gyro_cdev;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend early_suspend_handler;
@@ -162,9 +176,40 @@ struct bmg_client_data {
 	struct mutex mutex_op_mode;
 	struct mutex mutex_enable;
 	struct bosch_sensor_specific *bst_pd;
+	/* power related */
+	struct regulator *vdd;
+	struct regulator *vi2c;
+	bool power_enabled;
 };
 
 static struct i2c_client *bmg_client;
+
+/*  information read by HAL */
+static struct sensors_classdev bmg160_gyro_cdev = {
+	.name = "bmg160",
+	.vendor = "Bosch",
+	.version = 1,
+	.handle = SENSORS_GYROSCOPE_HANDLE,
+	.type = SENSOR_TYPE_GYROSCOPE,
+	.max_range = "34.906586",	/*rad/s equivalent to 2000 Deg/s */
+	.resolution = "0.0010681152",	/* rad/s - Need to check this??*/
+	.sensor_power = "5",	/* 5 mA */
+	.min_delay = BMG160_GYRO_MIN_POLL_INTERVAL_MS * 1000,
+	.max_delay = BMG160_GYRO_MAX_POLL_INTERVAL_MS,
+	.delay_msec = BMG160_GYRO_DEFAULT_POLL_INTERVAL_MS,
+	.fifo_reserved_event_count = 0,
+	.fifo_max_event_count = 0,
+	.enabled = 0,
+	.max_latency = 0,
+	.flags = 0, /* SENSOR_FLAG_CONTINUOUS_MODE */
+	.sensors_enable = NULL,
+	.sensors_poll_delay = NULL,
+	.sensors_enable_wakeup = NULL,
+	.sensors_set_latency = NULL,
+	.sensors_flush = NULL,
+};
+
+
 /* i2c operation for API */
 static void bmg_i2c_delay(BMG160_U16 msec);
 static int bmg_i2c_read(struct i2c_client *client, u8 reg_addr,
@@ -182,6 +227,9 @@ static int bmg_post_resume(struct i2c_client *client);
 static void bmg_early_suspend(struct early_suspend *handler);
 static void bmg_late_resume(struct early_suspend *handler);
 #endif
+
+static int bmg_power_ctrl(struct bmg_client_data *data, bool on);
+
 /*!
 * BMG160 sensor remapping function
 * need to give some parameter in BSP files first.
@@ -262,7 +310,7 @@ static int bmg_check_chip_id(struct i2c_client *client)
 		dev_info(&client->dev, "read chip id result: %#x", chip_id);
 
 		if ((chip_id & 0xff) != SENSOR_CHIP_ID_BMG) {
-			mdelay(1);
+			usleep_range(1000, 1500);
 		} else {
 			err = 0;
 			break;
@@ -273,7 +321,7 @@ static int bmg_check_chip_id(struct i2c_client *client)
 
 static void bmg_i2c_delay(BMG160_U16 msec)
 {
-	mdelay(msec);
+	msleep(msec);
 }
 
 static void bmg_dump_reg(struct i2c_client *client)
@@ -284,7 +332,7 @@ static void bmg_dump_reg(struct i2c_client *client)
 
 	for (i = 0; i < BYTES_PER_LINE; i++) {
 		dbg_buf[i] = i;
-		sprintf(dbg_buf_str + i * 3, "%02x%c",
+		snprintf(dbg_buf_str + i * 3, PAGE_SIZE, "%02x%c",
 				dbg_buf[i],
 				(((i + 1) % BYTES_PER_LINE == 0) ? '\n' : ' '));
 	}
@@ -292,7 +340,7 @@ static void bmg_dump_reg(struct i2c_client *client)
 
 	bmg_i2c_read(client, BMG_REG_NAME(CHIP_ID_ADDR), dbg_buf, 64);
 	for (i = 0; i < 64; i++) {
-		sprintf(dbg_buf_str + i * 3, "%02x%c",
+		snprintf(dbg_buf_str + i * 3, PAGE_SIZE, "%02x%c",
 				dbg_buf[i],
 				(((i + 1) % BYTES_PER_LINE == 0) ? '\n' : ' '));
 	}
@@ -306,24 +354,24 @@ static int bmg_i2c_read(struct i2c_client *client, u8 reg_addr,
 #if !defined BMG_USE_BASIC_I2C_FUNC
 	s32 dummy;
 	if (NULL == client)
-		return -1;
+		return -EIO;
 
 	while (0 != len--) {
 #ifdef BMG_SMBUS
 		dummy = i2c_smbus_read_byte_data(client, reg_addr);
 		if (dummy < 0) {
 			dev_err(&client->dev, "i2c bus read error");
-			return -1;
+			return -EIO;
 		}
 		*data = (u8)(dummy & 0xff);
 #else
 		dummy = i2c_master_send(client, (char *)&reg_addr, 1);
 		if (dummy < 0)
-			return -1;
+			return -EIO;
 
 		dummy = i2c_master_recv(client, (char *)data, 1);
 		if (dummy < 0)
-			return -1;
+			return -EIO;
 #endif
 		reg_addr++;
 		data++;
@@ -352,7 +400,8 @@ static int bmg_i2c_read(struct i2c_client *client, u8 reg_addr,
 		if (i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg)) > 0)
 			break;
 		else
-			mdelay(BMG_I2C_WRITE_DELAY_TIME);
+			usleep_range(BMG_I2C_WRITE_DELAY_TIME*1000,
+				BMG_I2C_WRITE_DELAY_TIME*1200);
 	}
 
 	if (BMG_MAX_RETRY_I2C_XFER <= retry) {
@@ -390,7 +439,8 @@ static int bmg_i2c_burst_read(struct i2c_client *client, u8 reg_addr,
 		if (i2c_transfer(client->adapter, msg, ARRAY_SIZE(msg)) > 0)
 			break;
 		else
-			mdelay(BMG_I2C_WRITE_DELAY_TIME);
+			usleep_range(BMG_I2C_WRITE_DELAY_TIME*1000,
+				BMG_I2C_WRITE_DELAY_TIME*1200);
 	}
 
 	if (BMG_MAX_RETRY_I2C_XFER <= retry) {
@@ -453,7 +503,8 @@ static int bmg_i2c_write(struct i2c_client *client, u8 reg_addr,
 						ARRAY_SIZE(msg)) > 0) {
 				break;
 			} else {
-				mdelay(BMG_I2C_WRITE_DELAY_TIME);
+				usleep_range(BMG_I2C_WRITE_DELAY_TIME*1000,
+					BMG_I2C_WRITE_DELAY_TIME*1200);
 			}
 		}
 		if (BMG_MAX_RETRY_I2C_XFER <= retry) {
@@ -488,6 +539,7 @@ static void bmg_work_func(struct work_struct *work)
 	struct bmg_client_data *client_data =
 		container_of((struct delayed_work *)work,
 			struct bmg_client_data, work);
+	ktime_t timestamp;
 
 	unsigned long delay =
 		msecs_to_jiffies(atomic_read(&client_data->delay));
@@ -497,9 +549,17 @@ static void bmg_work_func(struct work_struct *work)
 	/*remapping for BMG160 sensor*/
 	bmg160_remap_sensor_data(&gyro_data, client_data);
 
-	input_report_abs(client_data->input, ABS_X, gyro_data.datax);
-	input_report_abs(client_data->input, ABS_Y, gyro_data.datay);
-	input_report_abs(client_data->input, ABS_Z, gyro_data.dataz);
+	timestamp = ktime_get();
+
+	input_report_abs(client_data->input, ABS_RX, gyro_data.datax);
+	input_report_abs(client_data->input, ABS_RY, gyro_data.datay);
+	input_report_abs(client_data->input, ABS_RZ, gyro_data.dataz);
+	input_event(client_data->input,
+					EV_SYN, SYN_TIME_SEC,
+					ktime_to_timespec(timestamp).tv_sec);
+	input_event(client_data->input, EV_SYN,
+					SYN_TIME_NSEC,
+					ktime_to_timespec(timestamp).tv_nsec);
 	input_sync(client_data->input);
 
 	schedule_delayed_work(&client_data->work, delay);
@@ -516,7 +576,7 @@ static int bmg_set_soft_reset(struct i2c_client *client)
 static ssize_t bmg_show_chip_id(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	return sprintf(buf, "%d\n", SENSOR_CHIP_ID_BMG);
+	return snprintf(buf, PAGE_SIZE, "%d\n", SENSOR_CHIP_ID_BMG);
 }
 
 static ssize_t bmg_show_op_mode(struct device *dev,
@@ -531,7 +591,7 @@ static ssize_t bmg_show_op_mode(struct device *dev,
 	BMG_CALL_API(get_mode)(&op_mode);
 	mutex_unlock(&client_data->mutex_op_mode);
 
-	ret = sprintf(buf, "%d\n", op_mode);
+	ret = snprintf(buf, PAGE_SIZE, "%d\n", op_mode);
 
 	return ret;
 }
@@ -576,7 +636,7 @@ static ssize_t bmg_show_value(struct device *dev,
 	/*BMG160 sensor raw data remapping*/
 	bmg160_remap_sensor_data(&value_data, client_data);
 
-	count = sprintf(buf, "%hd %hd %hd\n",
+	count = snprintf(buf, PAGE_SIZE, "%hd %hd %hd\n",
 				value_data.datax,
 				value_data.datay,
 				value_data.dataz);
@@ -590,7 +650,7 @@ static ssize_t bmg_show_range(struct device *dev,
 	int err;
 	unsigned char range = 0;
 	BMG_CALL_API(get_range_reg)(&range);
-	err = sprintf(buf, "%d\n", range);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", range);
 	return err;
 }
 
@@ -613,7 +673,7 @@ static ssize_t bmg_show_bandwidth(struct device *dev,
 	int err;
 	unsigned char bandwidth = 0;
 	BMG_CALL_API(get_bw)(&bandwidth);
-	err = sprintf(buf, "%d\n", bandwidth);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", bandwidth);
 	return err;
 }
 
@@ -639,7 +699,7 @@ static ssize_t bmg_show_enable(struct device *dev,
 	int err;
 
 	mutex_lock(&client_data->mutex_enable);
-	err = sprintf(buf, "%d\n", client_data->enable);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", client_data->enable);
 	mutex_unlock(&client_data->mutex_enable);
 	return err;
 }
@@ -682,7 +742,8 @@ static ssize_t bmg_show_delay(struct device *dev,
 	struct input_dev *input = to_input_dev(dev);
 	struct bmg_client_data *client_data = input_get_drvdata(input);
 
-	return sprintf(buf, "%d\n", atomic_read(&client_data->delay));
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+					atomic_read(&client_data->delay));
 
 }
 
@@ -778,7 +839,7 @@ static ssize_t bmg_show_selftest(struct device *dev,
 	int err;
 	unsigned char selftest;
 	BMG_CALL_API(selftest)(&selftest);
-	err = sprintf(buf, "%d\n", selftest);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", selftest);
 	return err;
 }
 
@@ -788,7 +849,7 @@ static ssize_t bmg_show_sleepdur(struct device *dev,
 	int err;
 	unsigned char sleepdur;
 	BMG_CALL_API(get_sleepdur)(&sleepdur);
-	err = sprintf(buf, "%d\n", sleepdur);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", sleepdur);
 	return err;
 }
 
@@ -811,7 +872,7 @@ static ssize_t bmg_show_autosleepdur(struct device *dev,
 	int err;
 	unsigned char autosleepdur;
 	BMG_CALL_API(get_autosleepdur)(&autosleepdur);
-	err = sprintf(buf, "%d\n", autosleepdur);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", autosleepdur);
 	return err;
 }
 
@@ -856,7 +917,9 @@ static ssize_t bmg_show_dumpreg(struct device *dev,
 	for (i = 0; i < 0x40; i++) {
 		bmg_i2c_read(client_data->client, i, reg+i, 1);
 
-		count += sprintf(&buf[count], "0x%x: 0x%x\n", i, reg[i]);
+		count += snprintf(&buf[count],
+				PAGE_SIZE,
+				"0x%x: 0x%x\n", i, reg[i]);
 	}
 	return count;
 }
@@ -869,7 +932,7 @@ static ssize_t bmg_show_fifo_mode(struct device *dev,
 	int err;
 	unsigned char fifo_mode;
 	BMG_CALL_API(get_fifo_mode)(&fifo_mode);
-	err = sprintf(buf, "%d\n", fifo_mode);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", fifo_mode);
 	return err;
 }
 
@@ -892,7 +955,7 @@ static ssize_t bmg_show_fifo_framecount(struct device *dev,
 	int err;
 	unsigned char fifo_framecount;
 	BMG_CALL_API(get_fifo_framecount)(&fifo_framecount);
-	err = sprintf(buf, "%d\n", fifo_framecount);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", fifo_framecount);
 	return err;
 }
 
@@ -918,7 +981,7 @@ static ssize_t bmg_show_fifo_overrun(struct device *dev,
 	int err;
 	unsigned char fifo_overrun;
 	BMG_CALL_API(get_fifo_overrun)(&fifo_overrun);
-	err = sprintf(buf, "%d\n", fifo_overrun);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", fifo_overrun);
 	return err;
 }
 
@@ -1020,7 +1083,7 @@ static ssize_t bmg_show_fifo_data_frame(struct device *dev,
 				| (unsigned char)fifo_data_out[i * f_len + 4]);
 
 			bmg160_remap_sensor_data(&gyro_lsb, client_data);
-			len = sprintf(buf, "%d %d %d ",
+			len = snprintf(buf, PAGE_SIZE, "%d %d %d ",
 				gyro_lsb.datax, gyro_lsb.datay, gyro_lsb.dataz);
 			buf += len;
 			err += len;
@@ -1034,7 +1097,7 @@ static ssize_t bmg_show_fifo_data_frame(struct device *dev,
 					(unsigned char)fifo_data_out[2 * i]);
 			if (axis_dir_remap)
 				value = 0 - value;
-			len = sprintf(buf, "%d ", value);
+			len = snprintf(buf, PAGE_SIZE, "%d ", value);
 			buf += len;
 			err += len;
 		}
@@ -1081,7 +1144,7 @@ static ssize_t bmg_show_fifo_data_sel(struct device *dev,
 
 	}
 
-	err = sprintf(buf, "%d\n", fifo_data_sel);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", fifo_data_sel);
 	return err;
 }
 
@@ -1143,7 +1206,7 @@ static ssize_t bmg_show_fifo_tag(struct device *dev,
 	int err;
 	unsigned char fifo_tag;
 	BMG_CALL_API(get_fifo_tag)(&fifo_tag);
-	err = sprintf(buf, "%d\n", fifo_tag);
+	err = snprintf(buf, PAGE_SIZE, "%d\n", fifo_tag);
 	return err;
 }
 
@@ -1253,9 +1316,9 @@ static int bmg_input_init(struct bmg_client_data *client_data)
 	dev->id.bustype = BUS_I2C;
 
 	input_set_capability(dev, EV_ABS, ABS_MISC);
-	input_set_abs_params(dev, ABS_X, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
-	input_set_abs_params(dev, ABS_Y, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
-	input_set_abs_params(dev, ABS_Z, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, ABS_RX, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, ABS_RY, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
+	input_set_abs_params(dev, ABS_RZ, BMG_VALUE_MIN, BMG_VALUE_MAX, 0, 0);
 	input_set_drvdata(dev, client_data);
 
 	err = input_register_device(dev);
@@ -1276,16 +1339,259 @@ static void bmg_input_destroy(struct bmg_client_data *client_data)
 	input_free_device(dev);
 }
 
+static int bmg_cdev_enable(struct sensors_classdev *sensors_cdev,
+			unsigned int enable)
+{
+	int err = -1;
+	struct bmg_client_data *client_data = container_of(sensors_cdev,
+			struct bmg_client_data, gyro_cdev);
+
+	dev_dbg(&client_data->client->dev,
+				"enable %u client_data->enable %u\n",
+				enable, client_data->enable);
+
+	mutex_lock(&client_data->mutex_enable);
+	if (enable != client_data->enable) {
+		if (enable) {
+			err = bmg_power_ctrl(client_data, true);
+			if (err < 0) {
+				mutex_unlock(&client_data->mutex_enable);
+				dev_err(&client_data->client->dev,
+					"bmg_power_ctrl(enable) fail\n");
+				return err;
+			}
+			err = BMG_CALL_API(set_mode)
+					(BMG_VAL_NAME(MODE_NORMAL));
+			if (err < 0) {
+				mutex_unlock(&client_data->mutex_enable);
+				dev_err(&client_data->client->dev,
+					"set_mode(MODE_NORMAL) fail\n");
+				return err;
+			}
+			schedule_delayed_work(
+					&client_data->work,
+					msecs_to_jiffies(atomic_read(
+							&client_data->delay)));
+		} else {
+			err = BMG_CALL_API(set_mode)
+					(BMG_VAL_NAME(MODE_SUSPEND));
+			if (err < 0) {
+				mutex_unlock(&client_data->mutex_enable);
+				dev_err(&client_data->client->dev,
+					"set_mode(MODE_SUSPEND) fail\n");
+				return err;
+			}
+			err = bmg_power_ctrl(client_data, false);
+			if (err < 0) {
+				mutex_unlock(&client_data->mutex_enable);
+				dev_err(&client_data->client->dev,
+					"bmg_power_ctrl(disable) fail\n");
+				return err;
+			}
+			cancel_delayed_work_sync(&client_data->work);
+		}
+		client_data->enable = enable;
+	}
+	mutex_unlock(&client_data->mutex_enable);
+
+	return 0;
+
+}
+
+static int bmg_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
+			unsigned int delay_ms)
+{
+	struct bmg_client_data *client_data = container_of(sensors_cdev,
+			struct bmg_client_data, gyro_cdev);
+
+	if (delay_ms < BMG_DELAY_MIN)
+		delay_ms = BMG_DELAY_MIN;
+
+	atomic_set(&client_data->delay, delay_ms);
+	mutex_lock(&client_data->mutex_enable);
+	if (client_data->enable) {
+		cancel_delayed_work_sync(&client_data->work);
+		schedule_delayed_work(
+				&client_data->work,
+				msecs_to_jiffies(atomic_read(
+				&client_data->delay)));
+	}
+	mutex_unlock(&client_data->mutex_enable);
+	return 0;
+}
+
+static int bmg_cdev_flush(struct sensors_classdev *sensors_cdev)
+{
+	return 0;
+}
+
+static int bmg_cdev_set_latency(struct sensors_classdev *sensors_cdev,
+					unsigned int max_latency)
+{
+	return 0;
+}
+
+static int bmg_power_init(struct bmg_client_data *client_data)
+{
+	int ret = 0;
+	dev_dbg(&client_data->client->dev,
+		"function entrance - bmg_power_init");
+
+	client_data->vdd = regulator_get(&client_data->client->dev, "vdd");
+	if (IS_ERR(client_data->vdd)) {
+		ret = PTR_ERR(client_data->vdd);
+		dev_err(&client_data->client->dev,
+			"Regulator get failed(vdd) ret=%d\n", ret);
+		return ret;
+	}
+
+	if (regulator_count_voltages(client_data->vdd) > 0) {
+		ret = regulator_set_voltage(client_data->vdd, BMG160_VDD_MIN_UV,
+					BMG160_VDD_MAX_UV);
+		if (ret) {
+			dev_err(&client_data->client->dev,
+				"regulator_count_voltages(vdd) failed  ret=%d\n",
+				ret);
+			goto reg_vdd_put;
+		}
+	}
+
+	client_data->vi2c = regulator_get(&client_data->client->dev, "vi2c");
+	if (IS_ERR(client_data->vi2c)) {
+		ret = PTR_ERR(client_data->vi2c);
+		dev_err(&client_data->client->dev,
+			"Regulator get failed(vi2c) ret=%d\n", ret);
+		goto reg_vdd_set_vtg;
+	}
+
+	if (regulator_count_voltages(client_data->vi2c) > 0) {
+		ret = regulator_set_voltage(client_data->vi2c,
+				BMG160_VI2C_MIN_UV,
+				BMG160_VI2C_MAX_UV);
+		if (ret) {
+			dev_err(&client_data->client->dev,
+				"regulator_count_voltages(vi2c) failed ret=%d\n",
+				ret);
+			goto reg_vio_put;
+		}
+	}
+
+	return 0;
+
+reg_vio_put:
+	regulator_put(client_data->vi2c);
+
+reg_vdd_set_vtg:
+	if (regulator_count_voltages(client_data->vdd) > 0)
+			regulator_set_voltage(client_data->vdd, 0,
+						BMG160_VDD_MAX_UV);
+
+reg_vdd_put:
+	regulator_put(client_data->vdd);
+
+	return ret;
+}
+
+static int bmg_power_deinit(struct bmg_client_data *client_data)
+{
+	dev_dbg(&client_data->client->dev,
+			"function entrance - bmg_power_deinit");
+
+	if (regulator_count_voltages(client_data->vi2c) > 0)
+		regulator_set_voltage(client_data->vi2c, 0,
+						BMG160_VI2C_MAX_UV);
+
+	regulator_put(client_data->vi2c);
+
+	if (regulator_count_voltages(client_data->vdd) > 0)
+		regulator_set_voltage(client_data->vdd, 0,
+						BMG160_VDD_MAX_UV);
+
+	regulator_put(client_data->vdd);
+
+	return 0;
+}
+
+static int bmg_power_ctrl(struct bmg_client_data *data, bool on)
+{
+	int ret = 0;
+	int err = 0;
+
+	dev_dbg(&data->client->dev,
+			"function entrance - bmg_power_ctrl");
+
+	if (!on && data->power_enabled) {
+		ret = regulator_disable(data->vdd);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vdd disable failed ret=%d\n", ret);
+			return ret;
+		}
+
+		ret = regulator_disable(data->vi2c);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vio disable failed ret=%d\n", ret);
+			err = regulator_enable(data->vdd);
+			return ret;
+		}
+		data->power_enabled = on;
+	} else if (on && !data->power_enabled) {
+		ret = regulator_enable(data->vdd);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vdd enable failed ret=%d\n", ret);
+			return ret;
+		}
+
+		ret = regulator_enable(data->vi2c);
+		if (ret) {
+			dev_err(&data->client->dev,
+				"Regulator vio enable failed ret=%d\n", ret);
+			err = regulator_disable(data->vdd);
+			return ret;
+		}
+		data->power_enabled = on;
+	} else {
+		dev_info(&data->client->dev,
+				"Power on=%d. enabled=%d\n",
+				on, data->power_enabled);
+	}
+	return ret;
+}
+
 static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int err = 0;
 	struct bmg_client_data *client_data = NULL;
 
-	dev_info(&client->dev, "function entrance");
+	dev_info(&client->dev,
+		"function entrance - bmg_probe");
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "i2c_check_functionality error!");
-		err = -EIO;
+		return -EIO;
+	}
+
+	client_data = kzalloc(sizeof(struct bmg_client_data), GFP_KERNEL);
+	if (NULL == client_data) {
+		dev_err(&client->dev, "no memory available");
+		return -ENOMEM;
+	}
+	i2c_set_clientdata(client, client_data);
+	client_data->client = client;
+
+	err = bmg_power_init(client_data);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"bmg_power_init fail\n");
+		goto exit_err_powerint;
+	}
+
+	err = bmg_power_ctrl(client_data, true);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"bmg_power_ctrl(enable) fail\n");
 		goto exit_err_clean;
 	}
 
@@ -1299,7 +1605,7 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	}
 
 	/* do soft reset */
-	mdelay(5);
+	usleep_range(5000, 5200);
 
 	err = bmg_set_soft_reset(client);
 
@@ -1309,7 +1615,7 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -EINVAL;
 		goto exit_err_clean;
 	}
-	mdelay(30);
+	msleep(30);
 
 	/* check chip id */
 	err = bmg_check_chip_id(client);
@@ -1322,16 +1628,6 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 		err = -1;
 		goto exit_err_clean;
 	}
-
-	client_data = kzalloc(sizeof(struct bmg_client_data), GFP_KERNEL);
-	if (NULL == client_data) {
-		dev_err(&client->dev, "no memory available");
-		err = -ENOMEM;
-		goto exit_err_clean;
-	}
-
-	i2c_set_clientdata(client, client_data);
-	client_data->client = client;
 
 	mutex_init(&client_data->mutex_op_mode);
 	mutex_init(&client_data->mutex_enable);
@@ -1380,16 +1676,33 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/* now it's power on which is considered as resuming from suspend */
 	err = BMG_CALL_API(set_mode)(
 			BMG_VAL_NAME(MODE_SUSPEND));
-
 	if (err < 0)
 		goto exit_err_sysfs;
 
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	client_data->early_suspend_handler.suspend = bmg_early_suspend;
-	client_data->early_suspend_handler.resume = bmg_late_resume;
-	register_early_suspend(&client_data->early_suspend_handler);
-#endif
+	client_data->gyro_cdev = bmg160_gyro_cdev;
+	client_data->gyro_cdev.delay_msec =
+					BMG160_GYRO_DEFAULT_POLL_INTERVAL_MS;
+	client_data->gyro_cdev.sensors_enable = bmg_cdev_enable;
+	client_data->gyro_cdev.sensors_poll_delay = bmg_cdev_poll_delay;
+	client_data->gyro_cdev.fifo_reserved_event_count = 0;
+	client_data->gyro_cdev.fifo_max_event_count = 0;
+	client_data->gyro_cdev.sensors_set_latency = bmg_cdev_set_latency;
+	client_data->gyro_cdev.sensors_flush = bmg_cdev_flush;
+
+	err = sensors_classdev_register(&client->dev, &client_data->gyro_cdev);
+	if (err) {
+		dev_err(&client->dev, "create class device file failed!\n");
+		err = -EINVAL;
+		goto exit_err_sysfs;
+	}
+
+	err = bmg_power_ctrl(client_data, false);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"bmg_power_ctrl(disable) fail\n");
+		goto exit_err_sensorclass;
+	}
 
 	dev_notice(&client->dev, "sensor %s probed successfully", SENSOR_NAME);
 
@@ -1399,17 +1712,24 @@ static int bmg_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	return 0;
 
+exit_err_sensorclass:
+	sensors_classdev_unregister(&client_data->gyro_cdev);
 exit_err_sysfs:
 	if (err)
 		bmg_input_destroy(client_data);
 
 exit_err_clean:
+	if (client_data->power_enabled)
+		bmg_power_ctrl(client_data, false);
+
+	bmg_power_deinit(client_data);
+
+exit_err_powerint:
 	if (err) {
 		if (client_data != NULL) {
 			kfree(client_data);
 			client_data = NULL;
 		}
-
 		bmg_client = NULL;
 	}
 
@@ -1421,10 +1741,16 @@ static int bmg_pre_suspend(struct i2c_client *client)
 	int err = 0;
 	struct bmg_client_data *client_data =
 		(struct bmg_client_data *)i2c_get_clientdata(client);
-	dev_info(&client->dev, "function entrance");
 
 	mutex_lock(&client_data->mutex_enable);
 	if (client_data->enable) {
+		err = bmg_power_ctrl(client_data, false);
+		if (err < 0) {
+			mutex_unlock(&client_data->mutex_enable);
+			dev_err(&client_data->client->dev,
+				"bmg_power_ctrl(disable) fail\n");
+			return err;
+		}
 		cancel_delayed_work_sync(&client_data->work);
 		dev_info(&client->dev, "cancel work");
 	}
@@ -1439,9 +1765,15 @@ static int bmg_post_resume(struct i2c_client *client)
 	struct bmg_client_data *client_data =
 		(struct bmg_client_data *)i2c_get_clientdata(client);
 
-	dev_info(&client->dev, "function entrance");
 	mutex_lock(&client_data->mutex_enable);
 	if (client_data->enable) {
+		err = bmg_power_ctrl(client_data, true);
+		if (err < 0) {
+			mutex_unlock(&client_data->mutex_enable);
+			dev_err(&client_data->client->dev,
+				"bmg_power_ctrl(enable) fail\n");
+			return err;
+		}
 		schedule_delayed_work(&client_data->work,
 				msecs_to_jiffies(
 					atomic_read(&client_data->delay)));
@@ -1451,55 +1783,15 @@ static int bmg_post_resume(struct i2c_client *client)
 	return err;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void bmg_early_suspend(struct early_suspend *handler)
+static int bmg_suspend(struct device *dev)
 {
 	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)container_of(handler,
-			struct bmg_client_data, early_suspend_handler);
-	struct i2c_client *client = client_data->client;
-
-	dev_info(&client->dev, "function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-	if (client_data->enable) {
-		err = bmg_pre_suspend(client);
-		err = BMG_CALL_API(set_mode)(
-				BMG_VAL_NAME(MODE_SUSPEND));
-	}
-	mutex_unlock(&client_data->mutex_op_mode);
-}
-
-static void bmg_late_resume(struct early_suspend *handler)
-{
-
-	int err = 0;
-	struct bmg_client_data *client_data =
-		(struct bmg_client_data *)container_of(handler,
-			struct bmg_client_data, early_suspend_handler);
-	struct i2c_client *client = client_data->client;
-
-	dev_info(&client->dev, "function entrance");
-
-	mutex_lock(&client_data->mutex_op_mode);
-
-	if (client_data->enable)
-		err = BMG_CALL_API(set_mode)(BMG_VAL_NAME(MODE_NORMAL));
-
-	/* post resume operation */
-	bmg_post_resume(client);
-
-	mutex_unlock(&client_data->mutex_op_mode);
-}
-#else
-static int bmg_suspend(struct i2c_client *client, pm_message_t mesg)
-{
-	int err = 0;
+	struct i2c_client *client = to_i2c_client(dev);
 	struct bmg_client_data *client_data =
 		(struct bmg_client_data *)i2c_get_clientdata(client);
 
-	dev_info(&client->dev, "function entrance");
+	dev_dbg(&client->dev,
+		"function entrance - bmg_suspend");
 
 	mutex_lock(&client_data->mutex_op_mode);
 	if (client_data->enable) {
@@ -1511,14 +1803,15 @@ static int bmg_suspend(struct i2c_client *client, pm_message_t mesg)
 	return err;
 }
 
-static int bmg_resume(struct i2c_client *client)
+static int bmg_resume(struct device *dev)
 {
-
 	int err = 0;
+	struct i2c_client *client = to_i2c_client(dev);
 	struct bmg_client_data *client_data =
 		(struct bmg_client_data *)i2c_get_clientdata(client);
 
-	dev_info(&client->dev, "function entrance");
+	dev_dbg(&client->dev,
+		"function entrance - bmg_resume");
 
 	mutex_lock(&client_data->mutex_op_mode);
 
@@ -1531,7 +1824,6 @@ static int bmg_resume(struct i2c_client *client)
 	mutex_unlock(&client_data->mutex_op_mode);
 	return err;
 }
-#endif
 
 void bmg_shutdown(struct i2c_client *client)
 {
@@ -1566,11 +1858,16 @@ static int bmg_remove(struct i2c_client *client)
 
 		err = BMG_CALL_API(set_mode)(
 				BMG_VAL_NAME(MODE_SUSPEND));
-		mdelay(BMG_I2C_WRITE_DELAY_TIME);
+		usleep_range(BMG_I2C_WRITE_DELAY_TIME*1000,
+			BMG_I2C_WRITE_DELAY_TIME*1200);
 
 		sysfs_remove_group(&client_data->input->dev.kobj,
 				&bmg_attribute_group);
+		sensors_classdev_unregister(&client_data->gyro_cdev);
 		bmg_input_destroy(client_data);
+		bmg_power_ctrl(client_data, false);
+		bmg_power_deinit(client_data);
+
 		kfree(client_data);
 
 		bmg_client = NULL;
@@ -1584,22 +1881,34 @@ static const struct i2c_device_id bmg_id[] = {
 	{ }
 };
 
+static UNIVERSAL_DEV_PM_OPS(bmg160_pm, bmg_suspend, bmg_resume, NULL);
+
+
 MODULE_DEVICE_TABLE(i2c, bmg_id);
+
+static const struct i2c_device_id bmg160_ids[] = {
+	{ "bmg160", 0 },
+	{ }
+};
+MODULE_DEVICE_TABLE(i2c, bmg160_ids);
+
+static const struct of_device_id bmg160_of_match[] = {
+	{ .compatible = "bosch,bmg160", },
+	{ },
+};
 
 static struct i2c_driver bmg_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = SENSOR_NAME,
+		.pm = &bmg160_pm,
+		.of_match_table = bmg160_of_match,
 	},
 	.class = I2C_CLASS_HWMON,
 	.id_table = bmg_id,
 	.probe = bmg_probe,
 	.remove = bmg_remove,
 	.shutdown = bmg_shutdown,
-#ifndef CONFIG_HAS_EARLYSUSPEND
-	.suspend = bmg_suspend,
-	.resume = bmg_resume,
-#endif
 };
 
 static int __init BMG_init(void)
