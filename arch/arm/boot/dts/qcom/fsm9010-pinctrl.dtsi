@@ -138,5 +138,105 @@
 				bias-pull-down;
 			};
 		};
+
+		rf_ssbi {
+			qcom,pins = <&gp 47>, <&gp 48>, <&gp 49>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <2>;
+			label = "rf_ssbi1";
+			/* default state */
+			rf_ssbi_default: rf_ssbi_default {
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+		};
+
+		grfc_f7 {
+			qcom,pins = <&gp 85>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "grfc_f7";
+			/* default state */
+			grfc_f7_default: grfc_f7_default {
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+		};
+
+		grfc_f6 {
+			qcom,pins = <&gp 82>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <6>;
+			label = "grfc_f6";
+			/* default state */
+			grfc_f6_default: grfc_f6_default {
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+		};
+
+		grfc_f5 {
+			qcom,pins = <&gp 81>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "grfc_f5";
+			/* default state */
+			grfc_f5_default: grfc_f5_default {
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+		};
+
+		grfc_f4 {
+			qcom,pins = <&gp 77>, <&gp 71>, <&gp 70>, <&gp 57>,
+			<&gp 56>;
+			qcom,num-grp-pins = <5>;
+			qcom,pin-func = <4>;
+			label = "grfc_f4";
+			/* default state */
+			grfc_f4_default: grfc_f4_default {
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+		};
+
+		grfc_f3 {
+			qcom,pins = <&gp 67>, <&gp 66>, <&gp 55>, <&gp 54>,
+				<&gp 53>, <&gp 51>;
+			qcom,num-grp-pins = <6>;
+			qcom,pin-func = <3>;
+			label = "grfc_f3";
+			/* default state */
+			grfc_f3_default: grfc_f3_default {
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+		};
+
+		grfc_f2 {
+			qcom,pins = <&gp 79>, <&gp 65>, <&gp 64>, <&gp 63>,
+			<&gp 62>, <&gp 61>, <&gp 60>, <&gp 59>, <&gp 58>,
+			<&gp 52>, <&gp 50>;
+			qcom,num-grp-pins = <11>;
+			qcom,pin-func = <2>;
+			label = "grfc_f2";
+			/* default state */
+			grfc_f2_default: grfc_f2_default {
+				drive-strength = <6>;
+				bias-pull-down;
+			};
+		};
+
+		pdm_f2 {
+			qcom,pins = <&gp 69>, <&gp 68>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "pdm_f2";
+			/* default state */
+			pdm_f2_default: pdm_f2_default {
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
 	};
 };
