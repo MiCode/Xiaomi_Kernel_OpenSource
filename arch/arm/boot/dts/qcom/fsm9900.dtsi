@@ -1363,7 +1363,7 @@
 	};
 
 	qcom,bbif@fd300000 {
-		compatible = "qcom,bbif";
+		compatible = "qcom,bbif-fsm9900";
 		reg = <0xfd300000 0x10000>;
 		vdd-lbbrx-supply = <&pma8084_l4>;
 		vdd-hbbrx-supply = <&pma8084_l14>;
