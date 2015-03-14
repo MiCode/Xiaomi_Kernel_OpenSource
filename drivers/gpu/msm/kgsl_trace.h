@@ -900,6 +900,32 @@ TRACE_EVENT(kgsl_popp_mod,
 		__get_str(device_name), __entry->x, __entry->y)
 );
 
+TRACE_EVENT(kgsl_popp_nap,
+
+	TP_PROTO(struct kgsl_device *device, int t, int nap, int percent),
+
+	TP_ARGS(device, t, nap, percent),
+
+	TP_STRUCT__entry(
+		__string(device_name, device->name)
+		__field(int, t)
+		__field(int, nap)
+		__field(int, percent)
+	),
+
+	TP_fast_assign(
+		__assign_str(device_name, device->name);
+		__entry->t = t;
+		__entry->nap = nap;
+		__entry->percent = percent;
+	),
+
+	TP_printk(
+		"d_name=%s nap time=%d number of naps=%d percentage=%d",
+		__get_str(device_name), __entry->t, __entry->nap,
+			__entry->percent)
+);
+
 TRACE_EVENT(kgsl_register_event,
 		TP_PROTO(unsigned int id, unsigned int timestamp, void *func),
 		TP_ARGS(id, timestamp, func),
