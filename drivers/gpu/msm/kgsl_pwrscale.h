@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,10 +20,30 @@
 /* devfreq governor call window in usec */
 #define KGSL_GOVERNOR_CALL_INTERVAL 10000
 
+/* Power events to be tracked with history */
+#define KGSL_PWREVENT_STATE	0
+#define KGSL_PWREVENT_GPU_FREQ	1
+#define KGSL_PWREVENT_BUS_FREQ	2
+#define KGSL_PWREVENT_POPP	3
+#define KGSL_PWREVENT_MAX	4
+
 struct kgsl_power_stats {
 	u64 busy_time;
 	u64 ram_time;
 	u64 ram_wait;
+};
+
+struct kgsl_pwr_event {
+	unsigned int data;
+	ktime_t start;
+	s64 duration;
+};
+
+struct kgsl_pwr_history {
+	struct kgsl_pwr_event *events;
+	unsigned int type;
+	unsigned int index;
+	unsigned int size;
 };
 
 struct kgsl_pwrscale {
@@ -42,6 +62,7 @@ struct kgsl_pwrscale {
 	struct work_struct devfreq_resume_ws;
 	struct work_struct devfreq_notify_ws;
 	ktime_t next_governor_call;
+	struct kgsl_pwr_history history[KGSL_PWREVENT_MAX];
 };
 
 int kgsl_pwrscale_init(struct device *dev, const char *governor);
@@ -80,5 +101,10 @@ int kgsl_busmon_get_cur_freq(struct device *dev, unsigned long *freq);
 			.target = kgsl_busmon_target, \
 			.get_dev_status = kgsl_busmon_get_dev_status, \
 			.get_cur_freq = kgsl_busmon_get_cur_freq, \
-	} } }
+	} }, \
+	.history[KGSL_PWREVENT_STATE].size = 10, \
+	.history[KGSL_PWREVENT_GPU_FREQ].size = 3, \
+	.history[KGSL_PWREVENT_BUS_FREQ].size = 5, \
+	.history[KGSL_PWREVENT_POPP].size = 5, \
+	}
 #endif
