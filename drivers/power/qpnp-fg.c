@@ -1068,9 +1068,6 @@ static bool fg_is_batt_empty(struct fg_chip *chip)
 		return false;
 	}
 
-	if (fg_debug_mask & FG_IRQS)
-		pr_info("fg soc sts 0x%x\n", fg_soc_sts);
-
 	return (fg_soc_sts & SOC_EMPTY) != 0;
 }
 
@@ -2748,6 +2745,7 @@ wait:
 	if (reg & PROFILE_INTEGRITY_BIT)
 		fg_cap_learning_load_data(chip);
 	if ((reg & PROFILE_INTEGRITY_BIT) && vbat_in_range
+			&& !fg_is_batt_empty(chip)
 			&& memcmp(chip->batt_profile, data, len - 4) == 0) {
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("Battery profiles same, using default\n");
@@ -2755,10 +2753,13 @@ wait:
 			schedule_work(&chip->dump_sram);
 		goto done;
 	}
+	dump_sram(&chip->dump_sram);
 	if ((fg_debug_mask & FG_STATUS) && !vbat_in_range)
 		pr_info("Vbat out of range: v_current_pred: %d, v:%d\n",
 				fg_data[FG_DATA_CPRED_VOLTAGE].value,
 				fg_data[FG_DATA_VOLTAGE].value);
+	if ((fg_debug_mask & FG_STATUS) && fg_is_batt_empty(chip))
+		pr_info("battery empty\n");
 	if (fg_debug_mask & FG_STATUS) {
 		pr_info("Using new profile\n");
 		print_hex_dump(KERN_INFO, "FG: loaded profile: ",
