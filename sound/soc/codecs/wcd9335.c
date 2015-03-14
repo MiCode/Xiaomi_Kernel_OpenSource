@@ -5325,6 +5325,8 @@ static int wcd9335_get_micb_vout_ctl_val(u32 micb_mv)
 
 static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CODEC_RPM_CLK_GATE, 0x03, 0x00},
+	{WCD9335_CODEC_RPM_CLK_MCLK_CFG, 0x03, 0x01},
+	{WCD9335_CODEC_RPM_CLK_MCLK_CFG, 0x04, 0x04},
 	/* Rbuckfly/R_EAR(32) */
 	{WCD9335_CDC_CLSH_K2_MSB, 0x0F, 0x00},
 	{WCD9335_CDC_CLSH_K2_LSB, 0xFF, 0x60},

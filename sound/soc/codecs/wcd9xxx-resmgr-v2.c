@@ -115,6 +115,9 @@ static int wcd_resmgr_enable_clk_mclk(struct wcd9xxx_resmgr_v2 *resmgr)
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_CLK_TOP,
 						 0x04, 0x04);
 		wcd_resmgr_codec_reg_update_bits(resmgr,
+				WCD9335_CDC_CLK_RST_CTRL_FS_CNT_CONTROL,
+				0x01, 0x01);
+		wcd_resmgr_codec_reg_update_bits(resmgr,
 					WCD9335_CDC_CLK_RST_CTRL_MCLK_CONTROL,
 					0x01, 0x01);
 		/*
