@@ -18,7 +18,12 @@ CONTENTS
 4. CPU Power
 5. HMP Scheduler
    5.1 Classification of Tasks and CPUs
-   5.2 Task Wakeup and select_best_cpu()
+   5.2 select_best_cpu()
+   5.2.1 sched_boost
+   5.2.2 task_will_fit()
+   5.2.3 Tunables affecting select_best_cpu()
+   5.2.4 Wakeup Logic of a Non-Small Task
+   5.2.5 Wakeup Logic of a Small Task
    5.3 Scheduler Tick
    5.4 Load Balancer
    5.5 Real Time Tasks
@@ -123,7 +128,7 @@ since v3.7, has some perceived shortcomings when used to place tasks on HMP
 systems or provide recommendations on CPU frequency.
 
 Per-entity load tracking does not make a distinction between the ramp up
-vs. ramp down time of task load. It also decays task load without exception when
+vs ramp down time of task load. It also decays task load without exception when
 a task sleeps. As an example, a cpu bound task at its peak load (LOAD_AVG_MAX or
 47742) can see its load decay to 0 after a sleep of just 213ms! A cpu-bound task
 running on a performance-efficient cpu could thus get re-classified as not
@@ -531,7 +536,7 @@ both tasks and CPUs to aid in the placement of tasks.
   which is not idle, but lightly loaded.
 
   The small task threshold is set by the value
-  /proc/sys/kenrel/sched_small_task. This value is a percentage. If the
+  /proc/sys/kernel/sched_small_task. This value is a percentage. If the
   task consumes this much or less of the minimum CPU in the system, the
   task is considered "small."
 
@@ -592,24 +597,24 @@ both tasks and CPUs to aid in the placement of tasks.
 
 - spill threshold
 
-  The spill threshold determines how much task load the scheduler
-  should put on a CPU before considering that CPU busy and putting the
-  load elsewhere. This allows a configurable level of task packing within
-  one or more CPUs in the system. How aggressively should the scheduler
-  attempt to fill CPUs with task demand before utilizing other CPUs?
+  Tasks will normally be placed on lowest power-cost cluster where they can fit.
+  This could result in power-efficient cluster becoming overcrowded when there
+  are "too" many low-demand tasks. Spill threshold provides a spill over
+  criteria, wherein low-demand task are allowed to be placed on idle or
+  mostly-idle cpus in high-performance cluster. Note that spill over criteria
+  applies only to cpu cluster with lower capacity and does not apply to the cpu
+  cluster with highest capacity.
 
-  These two tunable parameters together define the spill threshold.
+  Scheduler will avoid placing a task on a cpu in power-efficient cluster if it
+  can result in cpu exceeding its spill threshold, which is defined by two
+  tunables:
 
-  /proc/sys/kernel/sched_spill_nr_run
-  /proc/sys/kernel/sched_spill_load
+  /proc/sys/kernel/sched_spill_nr_run (default: 10)
+  /proc/sys/kernel/sched_spill_load   (default : 100%)
 
-  If placing a task on a CPU would cause it to have more than
-  sched_spill_nr_run runnable tasks, or would cause the CPU to be more
-  than sched_spill_load percent busy, the scheduler will interpret that as
-  causing the CPU to cross its spill threshold. Spill threshold is only
-  considered when having to consider whether a task, which can fit in
-  a power-efficient cpu, should spill over to a high-performance CPU because
-  the aggregate load of power-efficient cpus exceed their spill threshold.
+  A cpu is considered to be above its spill level if it already has 10 tasks or
+  if the sum of task load (scaled in reference to given cpu) and
+  rq->cumulative_runnable_avg exceeds 'sched_spill_load'.
 
 - power band
 
@@ -628,82 +633,239 @@ both tasks and CPUs to aid in the placement of tasks.
   be in a different "band" and it is selected, despite perhaps having
   a higher current task load.
 
-*** 5.2 Task Wakeup and select_best_cpu()
+*** 5.2 select_best_cpu()
 
-CPU placement of a waking task is the single most important decision
-made by the HMP scheduler. This section will describe the call flow
-and algorithm used in detail.
+CPU placement decisions for a task at its wakeup or creation time are the
+most important decisions made by the HMP scheduler. This section will describe
+the call flow and algorithm used in detail.
 
-The primary entry point for a task wakeup operation is
-try_to_wake_up(), located in kernel/sched/core.c. This function relies
-on select_task_rq() to determine the target CPU for the waking
-task. For fair-class (SCHED_OTHER) tasks, that request will be routed
-to select_task_rq_fair() in kernel/sched/fair.c. As part of these
-scheduler extensions a hook has been inserted into the top of that
-function. If HMP scheduling is enabled the normal scheduling behavior
-will be replaced by a call to select_best_cpu(). This function,
-select_best_cpu(), represents the heart of the HMP scheduling
-algorithm described in this document.
+The primary entry point for a task wakeup operation is try_to_wake_up(),
+located in kernel/sched/core.c. This function relies on select_task_rq() to
+determine the target CPU for the waking task. For fair-class (SCHED_OTHER)
+tasks, that request will be routed to select_task_rq_fair() in
+kernel/sched/fair.c. As part of these scheduler extensions a hook has been
+inserted into the top of that function. If HMP scheduling is enabled the normal
+scheduling behavior will be replaced by a call to select_best_cpu(). This
+function, select_best_cpu(), represents the heart of the HMP scheduling
+algorithm described in this document. Note that select_best_cpu() is also
+invoked for a task being created.
 
-The behavior of select_best_cpu() differs depending on whether the
-task being placed is a small task or not and the value of the sched_prefer_idle
-tunable.
+The behavior of select_best_cpu() depends on several factors such as boost
+setting, choice of several tunables and on task demand.
 
---- Wakeup Logic a Non-Small Task "p"
+**** 5.2.1 Boost
 
-The order of CPU preference for a non-small task when sched_prefer_idle = 1 is
-the following:
+Normally the high performance cpu cluster is reserved for use by high demand
+tasks i.e tasks whose demand on the power efficient cpu cluster exceeds
+'sched_upmigrate'. This implies some amount of latency for low-demand tasks to
+be migrated to high-performance cpu cluster when they experience a surge in
+their demand. Such tasks will continue running on power-efficient cpu cluster
+until they have exhibited sufficient demand before being up migrated. This
+latency could hurt application performance in some cases. To avoid such latency,
+scheduler supports a boost API which eliminates the bar to make use of
+high-performance cpu cluster. When boost is turned on, all tasks are considered
+eligible to make use of high-performance cpus, irrespective of their demand.
 
-  1. The shallowest-cstate idle CPU in the lowest-power cluster which can fit
-     the task. Where there is a tie of two CPUs with the same load, the CPU with
-     the lowest power cost is chosen.
+Boost can be set via either /proc/sys/kernel/sched_boost or by invoking
+kernel API sched_set_boost().
 
-  2. The least-loaded CPU the task is allowed to run on in the lowest power band
-     where the task will fit and where the placement will not result in cpu
-     exceeding spill level. When there is a tie of two CPUs at same load, the
-     CPU with the lowest power cost is chosen.
+	int sched_set_boost(int enable);
 
-  3. The least-loaded mostly idle CPU that the task is allowed to run on where
-     the task won't fit (since there was no CPU where the task would fit).
+Once turned on, boost will remain in effect until it is explicitly turned off.
+To allow for boost to be controlled by multiple external entities (application
+or kernel module) at same time, boost setting is reference counted.  This means
+that two applications can turn on boost and the effect of boost is eliminated
+only after both applications have turned off boost. boost_refcount variable
+represents this reference count.
 
-  4. The CPU which the task last ran on.
+**** 5.2.2 task_will_fit()
 
-The order of CPU preference for a non-small task when sched_prefer_idle = 0
-is the following:
+The overall goal of select_best_cpu() is to place a task on the least power
+cluster where it can "fit" i.e where its cpu usage shall be below the capacity
+offered by cluster. Criteria for a task to be considered as fitting in a cluster
+is:
 
-  1. The least-loaded non-idle mostly idle CPU the task is allowed to run on in
-     the lowest power band where the task will fit. When there is a tie of two
-     CPUs at same load, the CPU with the lowest power cost is chosen.
+  i) When boost is active, all tasks, irrespective of their demand or priority,
+     are considered to fit only on highest-capacity cluster.
 
-  2. The shallowest-cstate idle CPU in the lowest-power cluster which can fit
-     the task. Where there is a tie of two CPUs with the same load, the CPU with
-     the lowest power cost is chosen.
+ ii) A low-priority task, whose nice value is greater than
+     sysctl_sched_upmigrate_min_nice or whose cgroup has its
+     upmigrate_discourage flag set, is considered to be fitting in all clusters,
+     irrespective of their capacity and task's cpu demand.
 
-  3. The least-loaded CPU the task is allowed to run on in the lowest power band
-     where the task will fit and where the placement will not result in the CPU
-     exceeding spill level. When there is a tie of two CPUs at the same load,
-     the CPU with the lowest power cost is chosen.
+iii) All tasks are considered to fit in highest capacity cluster.
 
-  4. The least-loaded mostly idle CPU that the task is allowed to run on where
-     the task won't fit (since there was no CPU where the task would fit).
+ iv) Task demand scaled in reference to the given cluster should be less than a
+     threshold. See section on load_scale_factor to know more about how task
+     demand is scaled in reference to a given cpu (cluster). The threshold used
+     is normally sched_upmigrate. Its possible for a task's demand to exceed
+     sched_upmigrate threshold in reference to a cluster when its upmigrated to
+     higher capacity cluster. To prevent it from coming back immediately to
+     lower capacity cluster, the  task is not considered to "fit" on its earlier
+     cluster until its demand has dropped below sched_downmigrate in reference
+     to that earlier cluster. sched_downmigrate thus provides for some
+     hysteresis control.
 
-  5. The CPU which the task last ran on.
 
---- Wakeup Logic a Small Task "p"
+**** 5.2.3 Factors affecting select_best_cpu()
 
-The order of CPU preference for a small task is the following:
+Behavior of select_best_cpu() is further controlled by several tunables and
+synchronous nature of wakeup.
 
-  1. The lowest-power CPU, if it is not idle but is mostly idle.
+a. /proc/sys/kernel/sched_small_task
+	This controls classification of tasks as small or not. Any task whose
+	demand is less than this threshold will be classified as small.
+	Scheduler avoids placing small tasks on idle cpus and instead prefers to
+	place them on least busy cpu in lowest power-cost cluster.
 
-  2. A non-idle CPU in the lowest power band which is mostly idle. The first
-     such CPU found is selected.
+b. /sys/devices/system/cpu/cpuX/sched_mostly_idle_[nr_run, load]
+	This controls classification of cpus as mostly idle or not. Any cpu
+	whose rq->nr_running and rq->cumulative_runnable_avg is below those
+	thresholds is classified as mostly_idle. Additionally to account for
+	idle cpus with high amount of irq processing load, a cpu is considered
+	mostly idle only when its irq_load is also less than
+	'sched_cpu_high_irqload'. See section on 'sched_cpu_high_irqload' for
+	more details.
 
-  3. An idle CPU in the lowest power band that is in the least shallow C-state.
+c. /sys/devices/system/cpu/cpuX/sched_mostly_idle_freq
+	This controls packing behavior in a cluster. Tasks will be packed on a
+	single cpu in a cluster, provided sched_mostly_idle_freq is non-zero for
+	the cluster and its current frequency is less than
+	sched_mostly_idle_freq. See section on "Task packing" for more details
+	about sched_mostly_idle_freq.
 
-  4. The least busy CPU in the lowest power band where adding the task will not
-     result in exceeding the spill threshold.
+c. /sys/devices/system/cpu/cpuX/sched_prefer_idle
+	sched_prefer_idle = 1 is a directive to scheduler to place a non-small
+	task on idle cpu in the cluster, while prefer_idle = 0 will cause
+	scheduler to place non-small tasks on least busy mostly-idle cpu in the
+	cluster where they can fit.  prefer_idle = 0 thus enables packing
+	behavior (where more than one task can be packed on the same cpu).
 
-  5. The most power-efficient CPU outside of the lowest power band.
+	sched_prefer_idle can be set differently for each cpu, although its
+	expected that all cpus in a cluster will have the same value. The
+	per-cpu interface allows one to differentiate packing behavior in
+	different clusters. sched_prefer_idle can be set to 1 in most
+	power-efficient cluster (to disable packing behavior for non-small
+	tasks) while it can be set to 0 in highest performance cluster (to
+	enable packing behavior for non-small tasks).
+
+d. /proc/sys/kernel/sched_cpu_high_irqload
+	A cpu whose irq load is greater than this threshold will not be
+	considered idle or mostly idle. This threshold value in expressed in
+	nanoseconds scale, with default threshold being 10000000 (10ms). See
+	notes on sched_cpu_high_irqload tunable to understand how irq load on a
+	cpu is measured.
+
+e. Synchronous nature of wakeup
+	Synchronous wakeup is a hint to scheduler that the task issuing wakeup
+	(i.e task currently running on cpu where wakeup is being processed by
+	scheduler) will "soon" relinquish CPU. A simple example is two tasks
+	communicating with each other using a pipe structure. When reader task
+	blocks waiting for data, its woken by writer task after it has written
+	data to pipe. Writer task usually blocks waiting for reader task to
+	consume data in pipe (which may not have any more room for writes).
+
+	Synchronous wakeup is accounted for by adjusting load of a cpu to not
+	include load of currently running task. As a result, a cpu that has only
+	one runnable task and which is currently processing synchronous wakeup
+	will be considered idle.
+
+f. PF_WAKE_UP_IDLE
+	Any task with this flag set will be woken up to an idle cpu (if one is
+	available) independent of sched_prefer_idle flag setting, its demand and
+	synchronous nature of wakeup. Similarly idle cpu is preferred during
+	wakeup for any task that does not have this flag set but is being woken
+	by a task with PF_WAKE_UP_IDLE flag set. For simplicity, we will use the
+	term "PF_WAKE_UP_IDLE wakeup" to signify wakeups involving a task with
+	PF_WAKE_UP_IDLE flag set.
+
+**** 5.2.4 Wakeup Logic of a Non-Small Task "p"
+
+Following is the order of CPU preference for a non-small task when
+sched_prefer_idle (for the lowest power-cost cluster where it can fit) is 1.
+Note that this same order of preference is used for even small tasks when
+PF_WAKE_UP_IDLE wakeup is involved (i.e small task being woken has
+PF_WAKE_UP_IDLE set or is being woken by a task with PF_WAKE_UP_IDLE set).
+
+  1. Least power cost CPU in the least power-cost cluster where task will fit,
+     provided its not a "PF_WAKE_UP_IDLE wakeup", the sched_mostly_idle_freq
+     setting for that cluster is non-zero and cluster's current frequency is
+     less than sched_mostly_idle_freq setting for that cluster.
+
+  2. Idle cpu in least power-cost cluster where task will fit. Ties broken by
+     cstate (cpu in least-shallow cstate preferred) first, then by power (cpu
+     with lowest power preferred) and lastly by task's previous cpu association
+     (i.e from amongst two cpus that are both idle, in same c-state and of same
+     power cost, and task had run on one of them previously, the one chosen is
+     cpu where task previously ran).
+
+  3. Mostly idle cpu in least power-cost cluster where task will fit.  Ties
+     broken by load first (least loaded cpu preferred), then by power and lastly
+     by task's previous cpu association.
+
+  4. Least loaded busy cpu where task will fit and where adding task will not
+     result in spill-over. Note that spill-over criteria does not apply to
+     cluster with maximum capacity. Ties (for cpus with same minimum load) are
+     broken by power cost first and then by task's previous cpu association.
+
+  5. Idle cpu in a higher power-cost cluster where task will fit. Ties broken
+     by cstate first, then by power and lastly by task's previous cpu
+     association.
+
+     Higher power-cost cluster is considered in this case as the least
+     power-cost cluster where task will fit is close to its spill threshold.
+
+  6. Mostly idle cpu in a higher power-cost cluster where task will fit.
+     Ties broken by load first, then by power and lastly by task's previous cpu
+     association.
+
+     Higher power-cost cluster is considered in this case as the least
+     power-cost cluster where task will fit is close to its spill threshold.
+
+  7. The first least loaded idle or mostly_idle cpu in cluster where task won't
+     fit (if such cluster is available). Ties broken by task's previous cpu
+     association.
+
+  8. The CPU which the task last ran on.
+
+When sched_prefer_idle is 0, the order of prefererence for a non-small task is
+as-above with following changes:
+
+	#2 and #3 are swapped in order of preference. Similarly #5 and #6 are
+	swapped in order of preference. This results in mostly idle cpu being
+	preferred over idle cpu and thus enables packing behavior.
+
+
+**** 5.2.3 Wakeup Logic a Small Task "p"
+
+Small tasks will be treated as non-small tasks when boost is in effect and the
+logic for selecting candidate cpu for their placement is similar to the logic
+described earlier for non-small tasks.
+
+When boost is not in effect, the order of CPU preference for a small task is the
+following:
+
+  1. Least power cost CPU in the least power-cost cluster where task will fit,
+     provided its not a "PF_WAKE_UP_IDLE wakeup", the sched_mostly_idle_freq
+     setting for that cluster is non-zero and cluster's current frequency is
+     less than sched_mostly_idle_freq setting for that cluster.
+
+  2. The lowest-power CPU, if it is not idle but is mostly idle and which
+     happens to be cpu where task previously ran.
+
+  3. A non-idle CPU in the lowest power band which is mostly idle. The first
+     such CPU found (or task's previous cpu) is selected.
+
+  4. An idle CPU in the lowest power band that is in the least shallow C-state.
+     Ties (for cpus in same shallowest C-state) broken by task's previous cpu
+     association.
+
+  5. The least busy CPU in the lowest power band where adding the task will not
+     result in exceeding the spill threshold. Ties (for cpus with same minimum
+     load) broken by task's previous cpu association.
+
+  6. The most power-efficient CPU outside of the lowest power band. Ties broken
+     by task's previous cpu association.
 
 *** 5.3 Scheduler Tick
 
@@ -804,14 +966,14 @@ low latency to run immediately, when compared to being woken to a idle cpu in
 deep sleep state. In later case, task has to wait for cpu to exit sleep state,
 considerable enough in some cases to hurt performance.
 
-Packing thus is a delicate matter to play with! The following parameters control
-packing behavior.
+Packing thus is a delicate matter to play with!
+
+The following parameters control packing behavior.
 
 - sched_small_task
 	This parameter specifies demand threshold below which a task will be
-classified as "small". As described in Sec 5.2 ("Task Wakeup and
-select_best_cpu()"), for small tasks wakeups, a busy cpu is prefered as target
-rather than idle cpu.
+classified as "small". As described in Sec 5.2 ("select_best_cpu()"), for small
+tasks wakeups, a busy cpu is preferred as target rather than idle cpu.
 
 - mostly_idle_load and mostly_idle_nr_run
 
@@ -828,10 +990,11 @@ pack all tasks on a single cpu in cluster. The cpu chosen is the first most
 power-efficient cpu found while scanning cluster's online cpus.
 
 - PF_WAKE_UP_IDLE
-	Any task that has this flag set in its 'task_struct.flags' field will be
-always woken to idle cpu. Further any task woken by such tasks will be also
-placed on idle cpu. PF_WAKE_UP_IDLE flag is inherited by children of a task.
-It can be modified for a task in two ways:
+
+Idle cpu is preferred for any waking task that has this flag set in its
+'task_struct.flags' field. Further idle cpu is preferred for any task woken by
+such tasks. PF_WAKE_UP_IDLE flag of a task is inherited by it's children. It can
+be modified for a task in two ways:
 
 	> kernel-space interface
 		set_wake_up_idle() needs to be called in the context of a task
@@ -841,17 +1004,13 @@ It can be modified for a task in two ways:
 		/proc/[pid]/sched_wake_up_idle file needs to be written to for
 		setting or clearing PF_WAKE_UP_IDLE flag for a given task
 
-For some low band of frequency, spread of task on all available cpus can be
-groslly power-inefficient. As an example, consider two tasks that each need
-500MHz. Packing them on one cpu could lead to 1GHz. In spread case, we incur
-cost of two cpus running at 500MHz, while in packed case, we incur the cost of
-one cpu running at 1GHz. Based on the silicon characteristics, where leakage
-power can be dominant factor, former can be worse on power rather than latter.
-Running at slow frequency (in spread case) can actually makes it worse on
-leakage power (especially if 500MHz and 1GHz share the same voltage point).
-sched_mostly_idle_freq is set based on silicon characteristics and can provide
-a winning argument for both power and performance.
+- sched_prefer_idle
 
+This parameter enables packing behavior for non-small tasks. When set to 0,
+non-small tasks are placed on mostly_idle cpus rather than idle cpus.
+sched_prefer_idle can be changed independently for each cpu cluster and thus its
+possible to enable packing of non-small tasks in one cluster and disable it in
+another cluster.
 
 =====================
 6. FREQUENCY GUIDANCE
@@ -877,7 +1036,7 @@ get_cpu_iowait_time_us() APIs.
     This API is invoked by governor at initialization time or whenever
     window size is changed. 'window_size' argument (in jiffy units)
     indicates the size of window to be used. The first window of size
-    'window_size' is set to beging at jiffy 'window_start'
+    'window_size' is set to begin at jiffy 'window_start'
 
     -EINVAL is returned if per-entity load tracking is in use rather
     than window-based load tracking, otherwise a success value of 0
@@ -1066,7 +1225,7 @@ This tunable is a percentage. It exists to control hysteresis. Lets say a task
 migrated to a high-performance cpu when it crossed 80% demand on a
 power-efficient cpu. We don't let it come back to a power-efficient cpu until
 its demand *in reference to the power-efficient cpu* drops less than 60%
-(sched_down_migrate).
+(sched_downmigrate).
 
 *** 7.7 sched_small_task
 
@@ -1142,7 +1301,7 @@ Possible values for this tunable are:
 1: Use the maximum value of first M samples found in task's cpu demand
    history (sum_history[] array), where M = sysctl_sched_ravg_hist_size
 2: Use the maximum of (the most recent window sample, average of first M
-   samples), where M = syctl_sched_ravg_hist_size
+   samples), where M = sysctl_sched_ravg_hist_size
 3. Use average of first M samples, where M = sysctl_sched_ravg_hist_size
 
 *** 7.13 sched_ravg_window
@@ -1270,6 +1429,7 @@ Default value: 1
 Non-small tasks will prefer to wake up on idle CPUs if this tunable is set to 1.
 If the tunable is set to 0, non-small tasks will prefer to wake up on mostly
 idle CPUs which are not completely idle, increasing task packing behavior.
+See section on "Task packing" for more details.
 
 ** 7.24 sched_min_runtime
 
@@ -1277,7 +1437,7 @@ Appears at: /proc/sys/kernel/sched_min_runtime
 
 Default value: 0 (0 ms)
 
-This tunable helps avouid frequent migration of task on account of
+This tunable helps avoid frequent migration of task on account of
 energy-awareness. During scheduler tick, a check is made (in migration_needed())
 whether the running task needs to be migrated to a "better" cpu, which could
 either offer better performance or power. When deciding to migrate task on
@@ -1351,7 +1511,7 @@ Logged when selecting the best CPU to run the task (select_best_cpu()).
 - reason: reason we are picking a new CPU:
   0: no migration - selecting a CPU for a wakeup or new task wakeup
   1: move to big CPU (migration)
-  2: move to littlte CPU (migration)
+  2: move to little CPU (migration)
   3: move to power efficient CPU (migration)
 
 *** 8.3 sched_cpu_load
