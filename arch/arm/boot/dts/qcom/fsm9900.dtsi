@@ -1370,7 +1370,7 @@
 	};
 
 	qcom,rfic@fd4a4090 {
-		compatible = "qcom,rfic";
+		compatible = "qcom,rfic-fsm9900";
 		reg = <0xfd4a4090 0x40>,
 			<0x3a000000 0xa00000>,
 			<0xf9b10000 0x8000>;
@@ -1390,7 +1390,7 @@
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@1 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900";
 		};
 	};
 
@@ -1401,7 +1401,7 @@
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@2 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900";
 		};
 	};
 
@@ -1412,7 +1412,7 @@
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@3 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900";
 		};
 	};
 
@@ -1423,7 +1423,7 @@
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@4 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900";
 		};
 	};
 
@@ -1434,7 +1434,7 @@
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@5 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900";
 		};
 	};
 
@@ -1445,7 +1445,7 @@
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@6 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900";
 		};
 	};
 
@@ -1456,7 +1456,7 @@
 		qcom,controller-type = "geni-ssbi-arbiter";
 
 		rfic@7 {
-			compatible = "qcom,rfic";
+			compatible = "qcom,rfic-fsm9900";
 		};
 	};
 

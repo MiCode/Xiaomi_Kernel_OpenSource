@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1124,7 +1124,7 @@ static int ftr_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id rfic_match_table[] = {
-	{ .compatible = "qcom,rfic" },
+	{ .compatible = "qcom,rfic-fsm9900" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, rfic_match_table);
@@ -1133,7 +1133,7 @@ static struct platform_driver ftr_driver = {
 	.probe          = ftr_probe,
 	.remove         = ftr_remove,
 	.driver         = {
-			.name   = "rfic",
+			.name   = "rfic-fsm9900",
 			.owner   = THIS_MODULE,
 			.of_match_table = rfic_match_table,
 	},
