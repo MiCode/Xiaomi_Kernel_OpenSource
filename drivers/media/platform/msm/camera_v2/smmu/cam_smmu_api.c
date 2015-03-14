@@ -22,8 +22,13 @@
 #include "cam_smmu_api.h"
 
 #define BYTE_SIZE 8
-#define COOKIE_BYTE 2
+#define COOKIE_NUM_BYTE 2
+#define COOKIE_SIZE (BYTE_SIZE*COOKIE_NUM_BYTE)
+#define COOKIE_MASK ((1<<COOKIE_SIZE)-1)
 #define HANDLE_INIT (-1)
+
+#define GET_SMMU_HDL(x, y) (((x) << COOKIE_SIZE) | ((y) & COOKIE_MASK))
+#define GET_SMMU_TABLE_IDX(x) (((x) >> COOKIE_SIZE) & COOKIE_MASK)
 
 #ifdef CONFIG_CAM_SMMU_DBG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -95,11 +100,10 @@ static struct mutex iommu_table_lock;
 static enum dma_data_direction cam_smmu_translate_dir(
 	enum cam_smmu_map_dir dir);
 static int cam_smmu_check_handle_unique(int hdl);
-static int cam_smmu_create_iommu_handle(void);
+static int cam_smmu_create_iommu_handle(int idx);
 static int cam_smmu_check_hardware_in_iommu_table(char *name);
 static int cam_smmu_create_add_handle_in_table(char *name,
 	int *hdl);
-static int cam_smmu_find_index_by_handle(int hdl);
 static struct cam_dma_buff_info *cam_smmu_find_mapping_by_ion_index(int idx,
 	int ion_fd);
 static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
@@ -213,12 +217,12 @@ static int cam_smmu_check_handle_unique(int hdl)
 /**
  *  use low 2 bytes for handle cookie
  */
-static int cam_smmu_create_iommu_handle(void)
+static int cam_smmu_create_iommu_handle(int idx)
 {
-	int hdl = 0;
-	get_random_bytes(&hdl, (COOKIE_BYTE > sizeof(hdl) ?
-					  sizeof(hdl):COOKIE_BYTE));
-	CDBG("create handle value = %d\n", (int)hdl);
+	int rand, hdl = 0;
+	get_random_bytes(&rand, COOKIE_NUM_BYTE);
+	hdl = GET_SMMU_HDL(idx, rand);
+	CDBG("create handle value = %x\n", (int)hdl);
 	return hdl;
 }
 
@@ -277,7 +281,7 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 		   (!strcmp(iommu_cb_set.cb_info[i].name, name))) {
 			/* make sure handle is unique */
 			do {
-				handle = cam_smmu_create_iommu_handle();
+				handle = cam_smmu_create_iommu_handle(i);
 			} while (cam_smmu_check_handle_unique(handle));
 
 			/* put handle in the table */
@@ -295,18 +299,23 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 	return -EINVAL;
 }
 
-static int cam_smmu_find_index_by_handle(int hdl)
+int cam_smmu_find_index_by_handle(int hdl)
 {
-	int i;
-	CDBG("find handle %d\n", (int)hdl);
-	for (i = 0; i < iommu_cb_set.cb_num; i++) {
-		if (iommu_cb_set.cb_info[i].handle == hdl) {
-			CDBG("handle found, index=%d\n", i);
-			return i;
-		}
+	int idx;
+	CDBG("find handle %x\n", (int)hdl);
+	idx = GET_SMMU_TABLE_IDX(hdl);
+	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
+		pr_err("Error: index is not valid, index = %d\n", idx);
+		return -EINVAL;
 	}
-	pr_err("Error: handle cannot be found\n");
-	return -EINVAL;
+
+	if (iommu_cb_set.cb_info[idx].handle != hdl) {
+		pr_err("Error: hdl is not valid, table_hdl = %x, hdl = %x\n",
+			iommu_cb_set.cb_info[idx].handle, hdl);
+		return -EINVAL;
+	}
+
+	return idx;
 }
 
 static struct cam_dma_buff_info *cam_smmu_find_mapping_by_ion_index(int idx,
@@ -745,6 +754,12 @@ int cam_smmu_destroy_handle(int handle)
 	return 0;
 }
 EXPORT_SYMBOL(cam_smmu_destroy_handle);
+
+/*This function can only be called after smmu driver probe*/
+int cam_smmu_get_num_of_clients(void)
+{
+	return iommu_cb_set.cb_num;
+}
 
 static void cam_smmu_release_cb(struct platform_device *pdev)
 {

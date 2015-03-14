@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,7 +23,6 @@
 #include <linux/random.h>
 #include <linux/spinlock_types.h>
 #include <linux/mutex.h>
-#include "../msm.h"
 
 /*
  * Enum for possible CAM SMMU operations
@@ -94,4 +93,14 @@ int cam_smmu_put_phy_addr(int handle, int ion_fd);
  */
 int cam_smmu_destroy_handle(int handle);
 
+/**
+ * @return numger of client. Zero in case of error.
+ */
+int cam_smmu_get_num_of_clients(void);
+
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @return Index of SMMU client. Nagative in case of error.
+ */
+int cam_smmu_find_index_by_handle(int hdl);
 #endif /* _CAM_SMMU_API_H_ */
