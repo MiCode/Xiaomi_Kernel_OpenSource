@@ -64,6 +64,7 @@
  * ws_locked:	flag to check wakeup source state.
  * sigs_updated: flag to check signal update.
  * open_time_wait: wait time for channel to fully open.
+ * in_reset:	flag to check SSR state.
  */
 struct glink_pkt_dev {
 	struct list_head dev_list;
@@ -90,6 +91,7 @@ struct glink_pkt_dev {
 	int ws_locked;
 	int sigs_updated;
 	int open_time_wait;
+	int in_reset;
 };
 
 /**
@@ -337,10 +339,17 @@ void glink_pkt_notify_tx_done(void *handle, const void *priv,
 void glink_pkt_notify_state(void *handle, const void *priv, unsigned event)
 {
 	struct glink_pkt_dev *devp = (struct glink_pkt_dev *)priv;
-	GLINK_PKT_INFO("%s(): event[%d]\n", __func__, event);
+	GLINK_PKT_INFO("%s(): event[%d] on [%s]\n", __func__, event,
+						devp->open_cfg.name);
 	devp->ch_state = event;
-	if (event == GLINK_CONNECTED)
+	if (event == GLINK_CONNECTED) {
+		devp->in_reset = 0;
 		wake_up_interruptible(&devp->ch_opened_wait_queue);
+	} else if (event == GLINK_REMOTE_DISCONNECTED) {
+		devp->in_reset = 1;
+		wake_up(&devp->ch_read_wait_queue);
+		wake_up_interruptible(&devp->ch_opened_wait_queue);
+	}
 }
 
 /**
@@ -457,13 +466,24 @@ ssize_t glink_pkt_read(struct file *file,
 			__func__, devp->i);
 		return -EINVAL;
 	}
+	if (devp->in_reset) {
+		GLINK_PKT_ERR("%s: notifying reset for glink_pkt_dev id:%d\n",
+			__func__, devp->i);
+		return -ENETRESET;
+	}
 
 	GLINK_PKT_INFO("Begin %s on glink_pkt_dev id:%d buffer_size %zu\n",
 		__func__, devp->i, count);
 
 	ret = wait_event_interruptible(devp->ch_read_wait_queue,
 				     !devp->handle ||
-				     !list_empty(&devp->pkt_list));
+				     !list_empty(&devp->pkt_list) ||
+				     devp->in_reset);
+	if (devp->in_reset) {
+		GLINK_PKT_ERR("%s: notifying reset for glink_pkt_dev id:%d\n",
+			__func__, devp->i);
+		return -ENETRESET;
+	}
 	if (!devp->handle) {
 		GLINK_PKT_ERR("%s on a closed glink_pkt_dev id:%d\n",
 			__func__, devp->i);
@@ -544,10 +564,14 @@ ssize_t glink_pkt_write(struct file *file,
 			__func__, devp->i);
 		return -EINVAL;
 	}
+	if (devp->in_reset) {
+		GLINK_PKT_ERR("%s: notifying reset for glink_pkt_dev id:%d\n",
+			__func__, devp->i);
+		return -ENETRESET;
+	};
 
 	GLINK_PKT_INFO("Begin %s on glink_pkt_dev id:%d buffer_size %zu\n",
 		__func__, devp->i, count);
-
 	data = kzalloc(count, GFP_KERNEL);
 	if (!data) {
 		GLINK_PKT_ERR("%s buffer allocation failed\n", __func__);
@@ -561,7 +585,11 @@ ssize_t glink_pkt_write(struct file *file,
 	if (ret) {
 		GLINK_PKT_ERR("%s glink_tx failed ret[%d]\n", __func__, ret);
 		kfree(data);
+		return ret;
 	}
+
+	GLINK_PKT_INFO("Finished %s on glink_pkt_dev id:%d buffer_size %zu\n",
+		__func__, devp->i, count);
 
 	return count;
 }
@@ -585,6 +613,10 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 		GLINK_PKT_ERR("%s: Invalid device handle\n", __func__);
 		return POLLERR;
 	}
+	if (devp->in_reset) {
+		mutex_unlock(&devp->ch_lock);
+		return POLLHUP;
+	}
 
 	devp->poll_mode = 1;
 	poll_wait(file, &devp->ch_read_wait_queue, wait);
@@ -592,6 +624,10 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 	if (!devp->handle) {
 		mutex_unlock(&devp->ch_lock);
 		return POLLERR;
+	}
+	if (devp->in_reset) {
+		mutex_unlock(&devp->ch_lock);
+		return POLLHUP;
 	}
 
 	if (!list_empty(&devp->pkt_list)) {
@@ -899,6 +935,9 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 		devp->ref_cnt--;
 
 	if (devp->handle && devp->ref_cnt == 0) {
+		devp->ch_state = GLINK_LOCAL_DISCONNECTED;
+		wake_up(&devp->ch_read_wait_queue);
+		wake_up_interruptible(&devp->ch_opened_wait_queue);
 		ret = glink_close(devp->handle);
 		if (ret)
 			GLINK_PKT_ERR("%s: close failed ret[%d]\n",
@@ -906,6 +945,8 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 		devp->handle = NULL;
 		devp->poll_mode = 0;
 		devp->ws_locked = 0;
+		devp->sigs_updated = false;
+		devp->in_reset = 0;
 	}
 	mutex_unlock(&devp->ch_lock);
 
