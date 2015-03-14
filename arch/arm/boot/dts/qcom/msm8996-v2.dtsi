@@ -30,3 +30,65 @@
 &l2ccc_1 {
 	qcom,clamped-reset-seq;
 };
+
+/* GPU overrides */
+&msm_gpu {
+	/* Updated chip ID */
+	qcom,chipid = <0x05030001>;
+
+	/* Power levels */
+	qcom,gpu-pwrlevels {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "qcom,gpu-pwrlevels";
+
+		qcom,gpu-pwrlevel@0 {
+			reg = <0>;
+			qcom,gpu-freq = <604800000>;
+			qcom,bus-freq = <13>;
+			qcom,bus-min = <12>;
+			qcom,bus-max = <13>;
+		};
+
+		qcom,gpu-pwrlevel@1 {
+			reg = <1>;
+			qcom,gpu-freq = <500000000>;
+			qcom,bus-freq = <10>;
+			qcom,bus-min = <9>;
+			qcom,bus-max = <11>;
+		};
+
+		qcom,gpu-pwrlevel@2 {
+			reg = <2>;
+			qcom,gpu-freq = <315000000>;
+			qcom,bus-freq = <7>;
+			qcom,bus-min = <6>;
+			qcom,bus-max = <8>;
+		};
+
+		qcom,gpu-pwrlevel@3 {
+			reg = <3>;
+			qcom,gpu-freq = <214000000>;
+			qcom,bus-freq = <4>;
+			qcom,bus-min = <3>;
+			qcom,bus-max = <5>;
+		};
+
+		qcom,gpu-pwrlevel@4 {
+			reg = <4>;
+			qcom,gpu-freq = <125000000>;
+			qcom,bus-freq = <2>;
+			qcom,bus-min = <1>;
+			qcom,bus-max = <3>;
+		};
+
+		qcom,gpu-pwrlevel@5 {
+			reg = <5>;
+			qcom,gpu-freq = <27000000>;
+			qcom,bus-freq = <0>;
+			qcom,bus-min = <0>;
+			qcom,bus-max = <0>;
+		};
+	};
+};
