@@ -28,7 +28,6 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 				<&clock_gcc  clk_bimc_msmbus_a_clk>;
@@ -46,7 +45,6 @@
 			label = "fab-pcnoc";
 			qcom,fab-dev;
 			qcom,base-name = "pcnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-delta = <0x1000>;
@@ -60,7 +58,6 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
@@ -197,8 +194,8 @@
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_usb3 &slv_imem &slv_snoc_bimc
 				 &slv_snoc_pcnoc>;
-			qcom,prio1 = <1>;
-			qcom,prio0 = <1>;
+			qcom,prio1 = <0>;
+			qcom,prio0 = <0>;
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_QDSS_BAM>;
 		};
@@ -235,8 +232,8 @@
 			qcom,prio1 = <0>;
 			qcom,prio0 = <0>;
 			qcom,bus-dev = <&fab_snoc>;
-			//clock-names = "bus_qos_clocks";
-			//clocks =  <&gcc_sys_noc_usb3_axi_clk>;
+			clock-names = "bus_qos_clk";
+			clocks =  <&gcc_sys_noc_usb3_axi_clk>;
 			qcom,mas-rpm-id = <ICBID_MASTER_USB3>;
 		};
 
@@ -262,8 +259,8 @@
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_usb3 &slv_imem &slv_snoc_bimc
 				 &slv_snoc_pcnoc>;
-			qcom,prio1 = <1>;
-			qcom,prio0 = <1>;
+			qcom,prio1 = <0>;
+			qcom,prio0 = <0>;
 			qcom,bus-dev = <&fab_snoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_QDSS_ETR>;
 		};
