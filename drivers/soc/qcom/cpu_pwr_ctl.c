@@ -126,7 +126,8 @@ static int kick_l2spm_8994(struct device_node *l2ccc_node,
 				struct device_node *vctl_node)
 {
 	struct resource res;
-	int val, ret = 0;
+	int val;
+	int timeout = 10, ret = 0;
 	void __iomem *l2spm_base = of_iomap(vctl_node, 0);
 
 	if (!l2spm_base)
@@ -150,8 +151,6 @@ static int kick_l2spm_8994(struct device_node *l2ccc_node,
 	 * bits are clear.
 	 */
 	while (readl_relaxed(l2spm_base + L2_SPM_STS) & 0xFFFF0000) {
-		int timeout = 10;
-
 		BUG_ON(!timeout--);
 		cpu_relax();
 		usleep(100);

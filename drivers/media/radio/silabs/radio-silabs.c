@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,6 +43,7 @@
 #include <linux/of_gpio.h>
 #include <media/v4l2-common.h>
 #include <media/v4l2-ioctl.h>
+#include <media/v4l2-device.h>
 #include "radio-silabs.h"
 
 struct silabs_fm_device {
@@ -58,6 +59,7 @@ struct silabs_fm_device {
 	struct pinctrl_state *gpio_state_active;
 	struct pinctrl_state *gpio_state_suspend;
 	struct video_device *videodev;
+	struct v4l2_device v4l2_dev;
 	/* driver management */
 	atomic_t users;
 	/* To send commands*/
@@ -3701,6 +3703,12 @@ static int silabs_fm_probe(struct i2c_client *client,
 	/* initial configuration */
 	memcpy(radio->videodev, &silabs_fm_viddev_template,
 	  sizeof(silabs_fm_viddev_template));
+	strlcpy(radio->v4l2_dev.name, DRIVER_NAME,
+				sizeof(radio->v4l2_dev.name));
+	retval = v4l2_device_register(NULL, &radio->v4l2_dev);
+	if (retval)
+		goto err_dreg;
+	radio->videodev->v4l2_dev = &radio->v4l2_dev;
 
 	/*allocate internal buffers for decoded rds and event buffer*/
 	for (i = 0; i < SILABS_FM_BUF_MAX; i++) {
