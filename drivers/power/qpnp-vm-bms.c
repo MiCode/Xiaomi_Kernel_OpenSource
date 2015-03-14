@@ -3460,7 +3460,8 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	rc = of_batterydata_read_data(node, batt_data, battery_id);
 	if (rc || !batt_data->pc_temp_ocv_lut
 		|| !batt_data->fcc_temp_lut
-		|| !batt_data->rbatt_sf_lut) {
+		|| !batt_data->rbatt_sf_lut
+		|| !batt_data->ibat_acc_lut) {
 		pr_err("battery data load failed\n");
 		devm_kfree(chip->dev, batt_data->fcc_temp_lut);
 		devm_kfree(chip->dev, batt_data->pc_temp_ocv_lut);
