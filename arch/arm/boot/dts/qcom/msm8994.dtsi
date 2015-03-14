@@ -37,6 +37,7 @@
 		i2c5 = &i2c_5;
 		spi0 = &spi_0;
 		qup2 = &i2c_2;
+		qup10 = &test_pacman;
 	};
 
 	cpus {
@@ -1346,6 +1347,10 @@
 	qcom,msm-pacman {
 		compatible = "qcom,msm-pacman";
 	};
+
+	test_pacman: test@f9966000 {
+                compatible = "qcom,msm-test-pacman";
+        };
 
 	wcd9xxx_intc: wcd9xxx-irq {
 		compatible = "qcom,wcd9xxx-irq";
