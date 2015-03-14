@@ -403,8 +403,12 @@ static int hw_device_state(u32 dma)
 			 * clock upto 133MHz. But, going to 133MHz require
 			 * system to run at turbo. Hence setting up optimum
 			 * frequency 100MHZ, that operates in nominal mode.
+			 * If HW fix for prime failure bug is enabled, then
+			 * system clock will be running >= 100Mhz and hence
+			 * in this case, it is not required to change system
+			 * clock rate.
 			 */
-			if (udc->system_clk) {
+			if (udc->system_clk && !udc->enable_epprime_fix) {
 				ret = clk_set_rate(udc->system_clk, 100000000);
 				if (ret)
 					pr_err("fail to set system_clk: %d\n",
@@ -418,7 +422,7 @@ static int hw_device_state(u32 dma)
 			/* In non-stream mode, due to HW limitation cannot go
 			 * beyond 80MHz, otherwise, may see EP prime failures.
 			 */
-			if (udc->system_clk) {
+			if (udc->system_clk && !udc->enable_epprime_fix) {
 				ret = clk_set_rate(udc->system_clk, 80000000);
 				if (ret)
 					pr_err("fail to set system_clk: %d\n",
@@ -456,7 +460,7 @@ static int hw_device_state(u32 dma)
 		/* In non-stream mode, due to HW limitation cannot go
 		 * beyond 80MHz, otherwise, may see EP prime failures.
 		 */
-		if (udc->system_clk) {
+		if (udc->system_clk && !udc->enable_epprime_fix) {
 			ret = clk_set_rate(udc->system_clk, 80000000);
 			if (ret)
 				pr_err("fail to set system_clk ret:%d\n", ret);
@@ -4046,6 +4050,7 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	if (pdata) {
 		udc->gadget.usb_core_id = pdata->usb_core_id;
 		udc->system_clk = pdata->system_clk;
+		udc->enable_epprime_fix = pdata->enable_epprime_fix;
 	}
 
 	if (udc->udc_driver->flags & CI13XXX_REQUIRE_TRANSCEIVER) {
