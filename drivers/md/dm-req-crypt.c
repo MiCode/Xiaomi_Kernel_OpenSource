@@ -116,6 +116,17 @@ struct req_dm_split_req_io {
 	struct request *clone;
 };
 
+#ifdef CONFIG_FIPS_ENABLE
+static struct qcrypto_func_set dm_qcrypto_func;
+#else
+static struct qcrypto_func_set dm_qcrypto_func = {
+		qcrypto_cipher_set_device_hw,
+		qcrypto_cipher_set_flag,
+		qcrypto_get_num_engines,
+		qcrypto_get_engine_list
+};
+#endif
+
 static void req_crypt_cipher_complete
 		(struct crypto_async_request *req, int err);
 static void req_cryptd_split_req_queue_cb
@@ -522,7 +533,7 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 	(*engine_cursor)++;
 	(*engine_cursor) %= engine_list_total;
 
-	err = qcrypto_cipher_set_device_hw(req, engine.ce_device,
+	err = (dm_qcrypto_func.cipher_set)(req, engine.ce_device,
 				   engine.hw_instance);
 	if (err) {
 		DMERR("%s qcrypto_cipher_set_device_hw failed with err %d\n",
@@ -534,7 +545,7 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 
 	init_completion(&result.completion);
 
-	qcrypto_cipher_set_flag(req,
+	(dm_qcrypto_func.cipher_flag)(req,
 		QCRYPTO_CTX_USE_PIPE_KEY | QCRYPTO_CTX_XTS_DU_SIZE_512B);
 	crypto_ablkcipher_clear_flags(tfm, ~0);
 	crypto_ablkcipher_setkey(tfm, NULL, KEY_SIZE_XTS);
@@ -745,7 +756,7 @@ static void req_cryptd_split_req_queue_cb(struct work_struct *work)
 
 	engine = io->engine;
 
-	err = qcrypto_cipher_set_device_hw(req, engine->ce_device,
+	err = (dm_qcrypto_func.cipher_set)(req, engine->ce_device,
 			engine->hw_instance);
 	if (err) {
 		DMERR("%s qcrypto_cipher_set_device_hw failed with err %d\n",
@@ -753,7 +764,7 @@ static void req_cryptd_split_req_queue_cb(struct work_struct *work)
 		goto ablkcipher_req_alloc_failure;
 	}
 	init_completion(&result.completion);
-	qcrypto_cipher_set_flag(req,
+	(dm_qcrypto_func.cipher_flag)(req,
 		QCRYPTO_CTX_USE_PIPE_KEY | QCRYPTO_CTX_XTS_DU_SIZE_512B);
 
 	crypto_ablkcipher_clear_flags(tfm, ~0);
@@ -1171,7 +1182,7 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 	num_engines_fde = num_engines_pfe = 0;
 
 	mutex_lock(&engine_list_mutex);
-	num_engines = qcrypto_get_num_engines();
+	num_engines = (dm_qcrypto_func.get_num_engines)();
 	if (!num_engines) {
 		DMERR(KERN_INFO "%s qcrypto_get_num_engines failed\n",
 				__func__);
@@ -1187,7 +1198,7 @@ static int req_crypt_ctr(struct dm_target *ti, unsigned int argc, char **argv)
 		goto ctr_exit;
 	}
 
-	qcrypto_get_engine_list(num_engines, eng_list);
+	(dm_qcrypto_func.get_engine_list)(num_engines, eng_list);
 
 	for (i = 0; i < num_engines; i++) {
 		if (eng_list[i].ce_device == FDE_KEY_ID)
@@ -1256,6 +1267,18 @@ static int req_crypt_iterate_devices(struct dm_target *ti,
 {
 	return fn(ti, dev, start_sector_orig, ti->len, data);
 }
+
+void set_qcrypto_func_dm(void *dev,
+			void *flag,
+			void *engines,
+			void *engine_list)
+{
+	dm_qcrypto_func.cipher_set  = dev;
+	dm_qcrypto_func.cipher_flag = flag;
+	dm_qcrypto_func.get_num_engines = engines;
+	dm_qcrypto_func.get_engine_list = engine_list;
+}
+EXPORT_SYMBOL(set_qcrypto_func_dm);
 
 static struct target_type req_crypt_target = {
 	.name   = "req-crypt",
