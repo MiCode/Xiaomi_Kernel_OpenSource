@@ -1128,65 +1128,44 @@ union hal_get_property {
 };
 
 /* HAL Response */
-
-enum command_response {
-/* SYSTEM COMMANDS_DONE*/
-	VIDC_EVENT_CHANGE,
-	SYS_INIT_DONE,
-	SET_RESOURCE_DONE,
-	RELEASE_RESOURCE_DONE,
-	PING_ACK_DONE,
-	PC_PREP_DONE,
-	SYS_IDLE,
-	SYS_DEBUG,
-	SYS_WATCHDOG_TIMEOUT,
-	SYS_ERROR,
-/* SESSION COMMANDS_DONE */
-	SESSION_LOAD_RESOURCE_DONE,
-	SESSION_INIT_DONE,
-	SESSION_END_DONE,
-	SESSION_ABORT_DONE,
-	SESSION_START_DONE,
-	SESSION_STOP_DONE,
-	SESSION_ETB_DONE,
-	SESSION_FTB_DONE,
-	SESSION_FLUSH_DONE,
-	SESSION_SUSPEND_DONE,
-	SESSION_RESUME_DONE,
-	SESSION_SET_PROP_DONE,
-	SESSION_GET_PROP_DONE,
-	SESSION_PARSE_SEQ_HDR_DONE,
-	SESSION_GET_SEQ_HDR_DONE,
-	SESSION_RELEASE_BUFFER_DONE,
-	SESSION_RELEASE_RESOURCE_DONE,
-	SESSION_PROPERTY_INFO,
-	SESSION_ERROR,
-	RESPONSE_UNUSED = 0x10000000,
+#define IS_HAL_SYS_CMD(cmd) ((cmd) >= HAL_SYS_INIT_DONE && \
+		(cmd) <= HAL_SYS_ERROR)
+#define IS_HAL_SESSION_CMD(cmd) ((cmd) >= HAL_SESSION_EVENT_CHANGE && \
+		(cmd) <= HAL_SESSION_ERROR)
+enum hal_command_response {
+	/* SYSTEM COMMANDS_DONE*/
+	HAL_SYS_INIT_DONE,
+	HAL_SYS_SET_RESOURCE_DONE,
+	HAL_SYS_RELEASE_RESOURCE_DONE,
+	HAL_SYS_PING_ACK_DONE,
+	HAL_SYS_PC_PREP_DONE,
+	HAL_SYS_IDLE,
+	HAL_SYS_DEBUG,
+	HAL_SYS_WATCHDOG_TIMEOUT,
+	HAL_SYS_ERROR,
+	/* SESSION COMMANDS_DONE */
+	HAL_SESSION_EVENT_CHANGE,
+	HAL_SESSION_LOAD_RESOURCE_DONE,
+	HAL_SESSION_INIT_DONE,
+	HAL_SESSION_END_DONE,
+	HAL_SESSION_ABORT_DONE,
+	HAL_SESSION_START_DONE,
+	HAL_SESSION_STOP_DONE,
+	HAL_SESSION_ETB_DONE,
+	HAL_SESSION_FTB_DONE,
+	HAL_SESSION_FLUSH_DONE,
+	HAL_SESSION_SUSPEND_DONE,
+	HAL_SESSION_RESUME_DONE,
+	HAL_SESSION_SET_PROP_DONE,
+	HAL_SESSION_GET_PROP_DONE,
+	HAL_SESSION_PARSE_SEQ_HDR_DONE,
+	HAL_SESSION_GET_SEQ_HDR_DONE,
+	HAL_SESSION_RELEASE_BUFFER_DONE,
+	HAL_SESSION_RELEASE_RESOURCE_DONE,
+	HAL_SESSION_PROPERTY_INFO,
+	HAL_SESSION_ERROR,
+	HAL_RESPONSE_UNUSED = 0x10000000,
 };
-
-/* Command Callback structure */
-
-struct msm_vidc_cb_cmd_done {
-	u32 device_id;
-	void *session_id;
-	enum vidc_status status;
-	u32 size;
-	void *data;
-};
-
-struct msm_vidc_cb_event {
-	u32 device_id;
-	void *session_id;
-	enum vidc_status status;
-	u32 height;
-	u32 width;
-	enum msm_vidc_pixel_depth bit_depth;
-	u32 hal_event_type;
-	ion_phys_addr_t packet_buffer;
-	ion_phys_addr_t extra_data_buffer;
-};
-
-/* Data callback structure */
 
 struct vidc_hal_ebd {
 	u32 timestamp_hi;
@@ -1238,18 +1217,6 @@ struct vidc_hal_fbd {
 	enum hal_buffer buffer_type;
 };
 
-struct msm_vidc_cb_data_done {
-	u32 device_id;
-	void *session_id;
-	enum vidc_status status;
-	u32 size;
-	u32 clnt_data;
-	union {
-		struct vidc_hal_ebd input_done;
-		struct vidc_hal_fbd output_done;
-	};
-};
-
 struct vidc_hal_sys_init_done {
 	u32 enc_codec_supported;
 	u32 dec_codec_supported;
@@ -1275,6 +1242,60 @@ struct vidc_hal_session_init_done {
 	struct hal_intra_refresh intra_refresh;
 	struct hal_seq_header_info seq_hdr_info;
 	enum buffer_mode_type alloc_mode_out;
+};
+
+struct msm_vidc_cb_cmd_done {
+	u32 device_id;
+	void *session_id;
+	enum vidc_status status;
+	u32 size;
+	union {
+		struct vidc_resource_hdr resource_hdr;
+		struct vidc_buffer_addr_info buffer_addr_info;
+		struct vidc_frame_plane_config frame_plane_config;
+		struct vidc_uncompressed_frame_config uncompressed_frame_config;
+		struct vidc_frame_data frame_data;
+		struct vidc_seq_hdr seq_hdr;
+		struct vidc_hal_ebd ebd;
+		struct vidc_hal_fbd fbd;
+		struct vidc_hal_sys_init_done sys_init_done;
+		struct vidc_hal_session_init_done session_init_done;
+		struct hal_buffer_info buffer_info;
+		union hal_get_property property;
+	} data;
+};
+
+struct msm_vidc_cb_event {
+	u32 device_id;
+	void *session_id;
+	enum vidc_status status;
+	u32 height;
+	u32 width;
+	enum msm_vidc_pixel_depth bit_depth;
+	u32 hal_event_type;
+	ion_phys_addr_t packet_buffer;
+	ion_phys_addr_t extra_data_buffer;
+};
+
+struct msm_vidc_cb_data_done {
+	u32 device_id;
+	void *session_id;
+	enum vidc_status status;
+	u32 size;
+	u32 clnt_data;
+	union {
+		struct vidc_hal_ebd input_done;
+		struct vidc_hal_fbd output_done;
+	};
+};
+
+struct msm_vidc_cb_info {
+	enum hal_command_response response_type;
+	union {
+		struct msm_vidc_cb_cmd_done cmd;
+		struct msm_vidc_cb_event event;
+		struct msm_vidc_cb_data_done data;
+	} response;
 };
 
 enum msm_vidc_hfi_type {
@@ -1391,7 +1412,7 @@ struct hfi_device {
 	enum hal_default_properties (*get_default_properties)(void *dev);
 };
 
-typedef void (*hfi_cmd_response_callback) (enum command_response cmd,
+typedef void (*hfi_cmd_response_callback) (enum hal_command_response cmd,
 			void *data);
 typedef void (*msm_vidc_callback) (u32 response, void *callback);
 

@@ -49,12 +49,13 @@
 
 #define V4L2_EVENT_VIDC_BASE  10
 
-#define SYS_MSG_START VIDC_EVENT_CHANGE
-#define SYS_MSG_END SYS_DEBUG
-#define SESSION_MSG_START SESSION_LOAD_RESOURCE_DONE
-#define SESSION_MSG_END SESSION_PROPERTY_INFO
+#define SYS_MSG_START HAL_SYS_INIT_DONE
+#define SYS_MSG_END HAL_SYS_ERROR
+#define SESSION_MSG_START HAL_SESSION_EVENT_CHANGE
+#define SESSION_MSG_END HAL_SESSION_ERROR
 #define SYS_MSG_INDEX(__msg) (__msg - SYS_MSG_START)
 #define SESSION_MSG_INDEX(__msg) (__msg - SESSION_MSG_START)
+
 
 #define MAX_NAME_LENGTH 64
 
@@ -321,7 +322,7 @@ struct msm_vidc_ctrl {
 	const char * const *qmenu;
 };
 
-void handle_cmd_response(enum command_response cmd, void *data);
+void handle_cmd_response(enum hal_command_response cmd, void *data);
 int msm_vidc_trigger_ssr(struct msm_vidc_core *core,
 	enum hal_ssr_trigger_type type);
 int msm_vidc_check_session_supported(struct msm_vidc_inst *inst);

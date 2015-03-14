@@ -877,11 +877,7 @@ struct msm_vidc_fw {
 	void *cookie;
 };
 
-u32 hfi_process_msg_packet(msm_vidc_callback callback,
-		u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
-		struct list_head *sessions, struct mutex *session_lock);
-
-struct hal_session *hfi_process_get_session(
-		struct list_head *sessions, u32 session_id);
+int hfi_process_msg_packet(u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
+		struct msm_vidc_cb_info *info);
 #endif
 

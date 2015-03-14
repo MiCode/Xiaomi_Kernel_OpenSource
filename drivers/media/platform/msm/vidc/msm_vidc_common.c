@@ -49,11 +49,6 @@
 #define V4L2_EVENT_SEQ_BITDEPTH_CHANGED_INSUFFICIENT \
 		V4L2_EVENT_MSM_VIDC_PORT_SETTINGS_BITDEPTH_CHANGED_INSUFFICIENT
 
-#define IS_SESSION_CMD_VALID(cmd) (((cmd) >= SESSION_MSG_START) && \
-		((cmd) <= SESSION_MSG_END))
-#define IS_SYS_CMD_VALID(cmd) (((cmd) >= SYS_MSG_START) && \
-		((cmd) <= SYS_MSG_END))
-
 struct getprop_buf {
 	struct list_head list;
 	void *data;
@@ -61,7 +56,7 @@ struct getprop_buf {
 
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
-static void handle_session_error(enum command_response cmd, void *data);
+static void handle_session_error(enum hal_command_response cmd, void *data);
 
 static inline bool is_turbo_session(struct msm_vidc_inst *inst)
 {
@@ -412,17 +407,18 @@ struct buf_queue *msm_comm_get_vb2q(
 	return NULL;
 }
 
-static void handle_sys_init_done(enum command_response cmd, void *data)
+static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core;
 	struct vidc_hal_sys_init_done *sys_init_msg;
 	unsigned int index;
 
-	if (!IS_SYS_CMD_VALID(cmd)) {
+	if (!IS_HAL_SYS_CMD(cmd)) {
 		dprintk(VIDC_ERR, "%s - invalid cmd\n", __func__);
 		return;
 	}
+
 	index = SYS_MSG_INDEX(cmd);
 
 	if (!response) {
@@ -435,7 +431,7 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Wrong device_id received\n");
 		return;
 	}
-	sys_init_msg = response->data;
+	sys_init_msg = &response->data.sys_init_done;
 	if (!sys_init_msg) {
 		dprintk(VIDC_ERR, "sys_init_done message not proper\n");
 		return;
@@ -452,7 +448,7 @@ static void handle_sys_init_done(enum command_response cmd, void *data)
 	complete(&(core->completions[index]));
 }
 
-static void handle_session_release_buf_done(enum command_response cmd,
+static void handle_session_release_buf_done(enum hal_command_response cmd,
 	void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
@@ -463,13 +459,13 @@ static void handle_session_release_buf_done(enum command_response cmd,
 	u32 buf_found = false;
 	u32 address;
 
-	if (!response || !response->data) {
+	if (!response) {
 		dprintk(VIDC_ERR, "Invalid release_buf_done response\n");
 		return;
 	}
 
 	inst = (struct msm_vidc_inst *)response->session_id;
-	buffer = (struct hal_buffer_info *) response->data;
+	buffer = &response->data.buffer_info;
 	address = buffer->buffer_addr;
 
 	mutex_lock(&inst->internalbufs.lock);
@@ -496,7 +492,7 @@ static void handle_session_release_buf_done(enum command_response cmd,
 
 	if (!buf_found)
 		dprintk(VIDC_ERR, "invalid buffer received from firmware");
-	if (IS_SESSION_CMD_VALID(cmd)) {
+	if (IS_HAL_SESSION_CMD(cmd)) {
 		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
 	} else {
 		dprintk(VIDC_ERR, "Invalid inst cmd response: %d\n", cmd);
@@ -505,7 +501,7 @@ static void handle_session_release_buf_done(enum command_response cmd,
 }
 
 static void handle_sys_release_res_done(
-	enum command_response cmd, void *data)
+	enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core;
@@ -519,7 +515,8 @@ static void handle_sys_release_res_done(
 		dprintk(VIDC_ERR, "Wrong device_id received\n");
 		return;
 	}
-	complete(&core->completions[SYS_MSG_INDEX(RELEASE_RESOURCE_DONE)]);
+	complete(&core->completions[
+			SYS_MSG_INDEX(HAL_SYS_RELEASE_RESOURCE_DONE)]);
 }
 
 static void change_inst_state(struct msm_vidc_inst *inst,
@@ -543,14 +540,14 @@ exit:
 	mutex_unlock(&inst->lock);
 }
 
-static int signal_session_msg_receipt(enum command_response cmd,
+static int signal_session_msg_receipt(enum hal_command_response cmd,
 		struct msm_vidc_inst *inst)
 {
 	if (!inst) {
 		dprintk(VIDC_ERR, "Invalid(%p) instance id\n", inst);
 		return -EINVAL;
 	}
-	if (IS_SESSION_CMD_VALID(cmd)) {
+	if (IS_HAL_SESSION_CMD(cmd)) {
 		complete(&inst->completions[SESSION_MSG_INDEX(cmd)]);
 	} else {
 		dprintk(VIDC_ERR, "Invalid inst cmd response: %d\n", cmd);
@@ -560,11 +557,11 @@ static int signal_session_msg_receipt(enum command_response cmd,
 }
 
 static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
-	enum command_response cmd)
+	enum hal_command_response cmd)
 {
 	int rc = 0;
 
-	if (!IS_SESSION_CMD_VALID(cmd)) {
+	if (!IS_HAL_SESSION_CMD(cmd)) {
 		dprintk(VIDC_ERR, "Invalid inst cmd response: %d\n", cmd);
 		return -EINVAL;
 	}
@@ -572,7 +569,8 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 		&inst->completions[SESSION_MSG_INDEX(cmd)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
-		dprintk(VIDC_ERR, "Wait interrupted or timedout: %d\n", rc);
+		dprintk(VIDC_ERR, "Wait interrupted or timed out: %d\n",
+				SESSION_MSG_INDEX(cmd));
 		msm_comm_kill_session(inst);
 		rc = -EIO;
 	} else {
@@ -584,7 +582,7 @@ static int wait_for_sess_signal_receipt(struct msm_vidc_inst *inst,
 static int wait_for_state(struct msm_vidc_inst *inst,
 	enum instance_state flipped_state,
 	enum instance_state desired_state,
-	enum command_response hal_cmd)
+	enum hal_command_response hal_cmd)
 {
 	int rc = 0;
 	if (IS_ALREADY_IN_STATE(flipped_state, desired_state)) {
@@ -608,7 +606,7 @@ void msm_vidc_queue_v4l2_event(struct msm_vidc_inst *inst, int event_type)
 
 static void msm_comm_generate_max_clients_error(struct msm_vidc_inst *inst)
 {
-	enum command_response cmd = SESSION_ERROR;
+	enum hal_command_response cmd = HAL_SESSION_ERROR;
 	struct msm_vidc_cb_cmd_done response = {0};
 
 	if (!inst) {
@@ -621,7 +619,7 @@ static void msm_comm_generate_max_clients_error(struct msm_vidc_inst *inst)
 	handle_session_error(cmd, (void *)&response);
 }
 
-static void handle_session_init_done(enum command_response cmd, void *data)
+static void handle_session_init_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL;
@@ -629,8 +627,7 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 
 	if (response) {
 		struct vidc_hal_session_init_done *session_init_done =
-			(struct vidc_hal_session_init_done *)
-			response->data;
+			&response->data.session_init_done;
 		inst = (struct msm_vidc_inst *)response->session_id;
 		if (!inst || !inst->core || !inst->core->device) {
 			dprintk(VIDC_ERR, "%s: invalid parameters (%p)\n",
@@ -675,7 +672,7 @@ static void handle_session_init_done(enum command_response cmd, void *data)
 	}
 }
 
-static void handle_event_change(enum command_response cmd, void *data)
+static void handle_event_change(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_inst *inst;
 	struct msm_vidc_cb_event *event_notify = data;
@@ -825,12 +822,12 @@ err_bad_event:
 	return;
 }
 
-static void handle_session_prop_info(enum command_response cmd, void *data)
+static void handle_session_prop_info(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct getprop_buf *getprop;
 	struct msm_vidc_inst *inst;
-	if (!response || !response->data) {
+	if (!response) {
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for prop info\n");
 		return;
@@ -843,7 +840,8 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 		return;
 	}
 
-	getprop->data = kmemdup(response->data, response->size, GFP_KERNEL);
+	getprop->data = kmemdup(&response->data.property,
+			response->size, GFP_KERNEL);
 	if (!getprop->data) {
 		dprintk(VIDC_ERR, "%s: kmemdup failed\n", __func__);
 		kfree(getprop);
@@ -858,7 +856,7 @@ static void handle_session_prop_info(enum command_response cmd, void *data)
 	return;
 }
 
-static void handle_load_resource_done(enum command_response cmd, void *data)
+static void handle_load_resource_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -875,7 +873,7 @@ static void handle_load_resource_done(enum command_response cmd, void *data)
 			"Failed to get valid response for load resource\n");
 }
 
-static void handle_start_done(enum command_response cmd, void *data)
+static void handle_start_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -888,7 +886,7 @@ static void handle_start_done(enum command_response cmd, void *data)
 	}
 }
 
-static void handle_stop_done(enum command_response cmd, void *data)
+static void handle_stop_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -901,7 +899,7 @@ static void handle_stop_done(enum command_response cmd, void *data)
 	}
 }
 
-static void handle_release_res_done(enum command_response cmd, void *data)
+static void handle_release_res_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -1000,7 +998,7 @@ int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
 	return 0;
 }
 
-static void handle_session_flush(enum command_response cmd, void *data)
+static void handle_session_flush(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -1025,7 +1023,7 @@ static void handle_session_flush(enum command_response cmd, void *data)
 	}
 }
 
-static void handle_session_error(enum command_response cmd, void *data)
+static void handle_session_error(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct hfi_device *hdev = NULL;
@@ -1136,7 +1134,7 @@ exit:
 	kfree(handler);
 }
 
-static void handle_sys_error(enum command_response cmd, void *data)
+static void handle_sys_error(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core = NULL;
@@ -1203,7 +1201,7 @@ void msm_comm_session_clean(struct msm_vidc_inst *inst)
 	mutex_unlock(&inst->lock);
 }
 
-static void handle_session_close(enum command_response cmd, void *data)
+static void handle_session_close(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -1253,7 +1251,7 @@ static struct vb2_buffer *get_vb_from_device_addr(struct buf_queue *bufq,
 	return vb;
 }
 
-static void handle_ebd(enum command_response cmd, void *data)
+static void handle_ebd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
 	struct vb2_buffer *vb;
@@ -1466,7 +1464,7 @@ enum hal_buffer msm_comm_get_hal_output_buffer(struct msm_vidc_inst *inst)
 		return HAL_BUFFER_OUTPUT;
 }
 
-static void handle_fbd(enum command_response cmd, void *data)
+static void handle_fbd(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -1617,7 +1615,7 @@ static void handle_fbd(enum command_response cmd, void *data)
 	}
 }
 
-static void handle_seq_hdr_done(enum command_response cmd, void *data)
+static void handle_seq_hdr_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_data_done *response = data;
 	struct msm_vidc_inst *inst;
@@ -1652,63 +1650,63 @@ static void handle_seq_hdr_done(enum command_response cmd, void *data)
 	mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
 }
 
-void handle_cmd_response(enum command_response cmd, void *data)
+void handle_cmd_response(enum hal_command_response cmd, void *data)
 {
 	dprintk(VIDC_DBG, "Command response = %d\n", cmd);
 	switch (cmd) {
-	case SYS_INIT_DONE:
+	case HAL_SYS_INIT_DONE:
 		handle_sys_init_done(cmd, data);
 		break;
-	case RELEASE_RESOURCE_DONE:
+	case HAL_SYS_RELEASE_RESOURCE_DONE:
 		handle_sys_release_res_done(cmd, data);
 		break;
-	case SESSION_INIT_DONE:
+	case HAL_SESSION_INIT_DONE:
 		handle_session_init_done(cmd, data);
 		break;
-	case SESSION_PROPERTY_INFO:
+	case HAL_SESSION_PROPERTY_INFO:
 		handle_session_prop_info(cmd, data);
 		break;
-	case SESSION_LOAD_RESOURCE_DONE:
+	case HAL_SESSION_LOAD_RESOURCE_DONE:
 		handle_load_resource_done(cmd, data);
 		break;
-	case SESSION_START_DONE:
+	case HAL_SESSION_START_DONE:
 		handle_start_done(cmd, data);
 		break;
-	case SESSION_ETB_DONE:
+	case HAL_SESSION_ETB_DONE:
 		handle_ebd(cmd, data);
 		break;
-	case SESSION_FTB_DONE:
+	case HAL_SESSION_FTB_DONE:
 		handle_fbd(cmd, data);
 		break;
-	case SESSION_STOP_DONE:
+	case HAL_SESSION_STOP_DONE:
 		handle_stop_done(cmd, data);
 		break;
-	case SESSION_RELEASE_RESOURCE_DONE:
+	case HAL_SESSION_RELEASE_RESOURCE_DONE:
 		handle_release_res_done(cmd, data);
 		break;
-	case SESSION_END_DONE:
-	case SESSION_ABORT_DONE:
+	case HAL_SESSION_END_DONE:
+	case HAL_SESSION_ABORT_DONE:
 		handle_session_close(cmd, data);
 		break;
-	case VIDC_EVENT_CHANGE:
+	case HAL_SESSION_EVENT_CHANGE:
 		handle_event_change(cmd, data);
 		break;
-	case SESSION_FLUSH_DONE:
+	case HAL_SESSION_FLUSH_DONE:
 		handle_session_flush(cmd, data);
 		break;
-	case SESSION_GET_SEQ_HDR_DONE:
+	case HAL_SESSION_GET_SEQ_HDR_DONE:
 		handle_seq_hdr_done(cmd, data);
 		break;
-	case SYS_WATCHDOG_TIMEOUT:
+	case HAL_SYS_WATCHDOG_TIMEOUT:
 		handle_sys_error(cmd, data);
 		break;
-	case SYS_ERROR:
+	case HAL_SYS_ERROR:
 		handle_sys_error(cmd, data);
 		break;
-	case SESSION_ERROR:
+	case HAL_SESSION_ERROR:
 		handle_session_error(cmd, data);
 		break;
-	case SESSION_RELEASE_BUFFER_DONE:
+	case HAL_SESSION_RELEASE_BUFFER_DONE:
 		handle_session_release_buf_done(cmd, data);
 		break;
 	default:
@@ -1884,7 +1882,7 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 			"%s session_abort failed rc: %d\n", __func__, rc);
 		return rc;
 	}
-	abort_completion = SESSION_MSG_INDEX(SESSION_ABORT_DONE);
+	abort_completion = SESSION_MSG_INDEX(HAL_SESSION_ABORT_DONE);
 	init_completion(&inst->completions[abort_completion]);
 	rc = wait_for_completion_timeout(
 			&inst->completions[abort_completion],
@@ -1971,11 +1969,11 @@ int msm_comm_check_core_init(struct msm_vidc_core *core)
 	}
 	dprintk(VIDC_DBG, "Waiting for SYS_INIT_DONE\n");
 	rc = wait_for_completion_timeout(
-		&core->completions[SYS_MSG_INDEX(SYS_INIT_DONE)],
+		&core->completions[SYS_MSG_INDEX(HAL_SYS_INIT_DONE)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR, "%s: Wait interrupted or timed out: %d\n",
-				__func__, SYS_MSG_INDEX(SYS_INIT_DONE));
+				__func__, SYS_MSG_INDEX(HAL_SYS_INIT_DONE));
 		rc = -EIO;
 		goto exit;
 	} else {
@@ -2030,7 +2028,7 @@ int msm_comm_load_fw(struct msm_vidc_core *core)
 
 	if (core->state == VIDC_CORE_LOADED) {
 		init_completion(&core->completions
-			[SYS_MSG_INDEX(SYS_INIT_DONE)]);
+			[SYS_MSG_INDEX(HAL_SYS_INIT_DONE)]);
 		rc = call_hfi_op(hdev, core_init, hdev->hfi_device_data);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to init core, id = %d\n",
@@ -2161,7 +2159,7 @@ static int msm_comm_session_init(int flipped_state,
 		return -EINVAL;
 	}
 	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(SESSION_INIT_DONE)]);
+		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_INIT_DONE)]);
 
 	inst->session = call_hfi_op(hdev, session_init, hdev->hfi_device_data,
 			inst, get_hal_domain(inst->session_type),
@@ -2295,7 +2293,7 @@ static int msm_vidc_start(int flipped_state, struct msm_vidc_inst *inst)
 		goto exit;
 	}
 	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(SESSION_START_DONE)]);
+		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_START_DONE)]);
 	rc = call_hfi_op(hdev, session_start, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2326,7 +2324,7 @@ static int msm_vidc_stop(int flipped_state, struct msm_vidc_inst *inst)
 	}
 	dprintk(VIDC_DBG, "Send Stop to hal\n");
 	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(SESSION_STOP_DONE)]);
+		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_STOP_DONE)]);
 	rc = call_hfi_op(hdev, session_stop, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to send stop\n");
@@ -2356,8 +2354,8 @@ static int msm_vidc_release_res(int flipped_state, struct msm_vidc_inst *inst)
 	}
 	dprintk(VIDC_DBG,
 		"Send release res to hal\n");
-	init_completion(
-	&inst->completions[SESSION_MSG_INDEX(SESSION_RELEASE_RESOURCE_DONE)]);
+	init_completion(&inst->completions[
+			SESSION_MSG_INDEX(HAL_SESSION_RELEASE_RESOURCE_DONE)]);
 	rc = call_hfi_op(hdev, session_release_res, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2389,7 +2387,7 @@ static int msm_comm_session_close(int flipped_state,
 	dprintk(VIDC_DBG,
 		"Send session close to hal\n");
 	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(SESSION_END_DONE)]);
+		&inst->completions[SESSION_MSG_INDEX(HAL_SESSION_END_DONE)]);
 	rc = call_hfi_op(hdev, session_end, (void *) inst->session);
 	if (rc) {
 		dprintk(VIDC_ERR,
@@ -2570,15 +2568,22 @@ err_no_mem:
 	return rc;
 }
 
-static inline char *get_internal_buffer_name(enum hal_buffer buffer_type)
+static inline char *get_buffer_name(enum hal_buffer buffer_type)
 {
 	switch (buffer_type) {
+	case HAL_BUFFER_INPUT: return "input";
+	case HAL_BUFFER_OUTPUT: return "output";
+	case HAL_BUFFER_OUTPUT2: return "output_2";
+	case HAL_BUFFER_EXTRADATA_INPUT: return "input_extra";
+	case HAL_BUFFER_EXTRADATA_OUTPUT: return "output_extra";
+	case HAL_BUFFER_EXTRADATA_OUTPUT2: return "output2_extra";
 	case HAL_BUFFER_INTERNAL_SCRATCH: return "scratch";
 	case HAL_BUFFER_INTERNAL_SCRATCH_1: return "scratch_1";
 	case HAL_BUFFER_INTERNAL_SCRATCH_2: return "scratch_2";
 	case HAL_BUFFER_INTERNAL_PERSIST: return "persist";
 	case HAL_BUFFER_INTERNAL_PERSIST_1: return "persist_1";
-	default: return "unknown";
+	case HAL_BUFFER_INTERNAL_CMD_QUEUE: return "queue";
+	default: return "????";
 	}
 }
 
@@ -2610,7 +2615,7 @@ static int set_internal_buf_on_fw(struct msm_vidc_inst *inst,
 	buffer_info.align_device_addr = handle->device_addr;
 	dprintk(VIDC_DBG, "%s %s buffer : %pa\n",
 				reuse ? "Reusing" : "Allocated",
-				get_internal_buffer_name(buffer_type),
+				get_buffer_name(buffer_type),
 				&buffer_info.align_device_addr);
 
 	rc = call_hfi_op(hdev, session_set_buffers,
@@ -2821,7 +2826,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 			break;
 	case MSM_VIDC_OPEN_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_OPEN_DONE,
-			SESSION_INIT_DONE);
+			HAL_SESSION_INIT_DONE);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_LOAD_RESOURCES:
@@ -2835,7 +2840,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 			break;
 	case MSM_VIDC_START_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_START_DONE,
-				SESSION_START_DONE);
+				HAL_SESSION_START_DONE);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_STOP:
@@ -2844,7 +2849,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 			break;
 	case MSM_VIDC_STOP_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_STOP_DONE,
-				SESSION_STOP_DONE);
+				HAL_SESSION_STOP_DONE);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 		dprintk(VIDC_DBG, "Moving to Stop Done state\n");
@@ -2855,7 +2860,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 	case MSM_VIDC_RELEASE_RESOURCES_DONE:
 		rc = wait_for_state(inst, flipped_state,
 			MSM_VIDC_RELEASE_RESOURCES_DONE,
-			SESSION_RELEASE_RESOURCE_DONE);
+			HAL_SESSION_RELEASE_RESOURCE_DONE);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 		dprintk(VIDC_DBG,
@@ -2866,7 +2871,7 @@ int msm_comm_try_state(struct msm_vidc_inst *inst, int state)
 			break;
 	case MSM_VIDC_CLOSE_DONE:
 		rc = wait_for_state(inst, flipped_state, MSM_VIDC_CLOSE_DONE,
-				SESSION_END_DONE);
+				HAL_SESSION_END_DONE);
 		if (rc || state <= get_flipped_state(inst->state, state))
 			break;
 	case MSM_VIDC_CORE_UNINIT:
@@ -3100,28 +3105,27 @@ err_no_mem:
 
 int msm_comm_try_get_bufreqs(struct msm_vidc_inst *inst)
 {
-	struct buffer_requirements buf_req;
-	int rc = 0;
-	int i = 0;
+	int rc = 0, i = 0;
 	union hal_get_property hprop;
 
-	rc = msm_comm_try_get_prop(inst,
-					HAL_PARAM_GET_BUFFER_REQUIREMENTS,
+	rc = msm_comm_try_get_prop(inst, HAL_PARAM_GET_BUFFER_REQUIREMENTS,
 					&hprop);
 	if (rc) {
-		dprintk(VIDC_ERR, "%s Error rc:%d\n", __func__, rc);
+		dprintk(VIDC_ERR, "Failed getting buffer requirements: %d", rc);
 		return rc;
 	}
-	buf_req = hprop.buf_req;
-	memcpy(&inst->buff_req, &buf_req,
-			sizeof(struct buffer_requirements));
+
+	dprintk(VIDC_DBG, "Buffer requirements:\n");
+	dprintk(VIDC_DBG, "%15s %8s %8s\n", "buffer type", "count", "size");
 	for (i = 0; i < HAL_BUFFER_MAX; i++) {
-		dprintk(VIDC_DBG,
-				"buffer type: %d, count : %d, size: %d\n",
-				inst->buff_req.buffer[i].buffer_type,
-				inst->buff_req.buffer[i].buffer_count_actual,
-				inst->buff_req.buffer[i].buffer_size);
+		struct hal_buffer_requirements req = hprop.buf_req.buffer[i];
+
+		inst->buff_req.buffer[i] = req;
+		dprintk(VIDC_DBG, "%15s %8d %8d\n",
+				get_buffer_name(req.buffer_type),
+				req.buffer_count_actual, req.buffer_size);
 	}
+
 	dprintk(VIDC_PROF, "Input buffers: %d, Output buffers: %d\n",
 			inst->buff_req.buffer[0].buffer_count_actual,
 			inst->buff_req.buffer[1].buffer_count_actual);
@@ -3154,8 +3158,8 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		rc = -EAGAIN;
 		goto exit;
 	}
-	init_completion(
-		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)]);
+	init_completion(&inst->completions[
+			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO)]);
 	switch (ptype) {
 	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
 		rc = call_hfi_op(hdev, session_get_property,
@@ -3181,14 +3185,14 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		dprintk(VIDC_ERR, "%s id:%d not supported\n", __func__, ptype);
 		break;
 	}
-	rc = wait_for_completion_timeout(
-		&inst->completions[SESSION_MSG_INDEX(SESSION_PROPERTY_INFO)],
+	rc = wait_for_completion_timeout(&inst->completions[
+			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
 	if (!rc) {
 		dprintk(VIDC_ERR,
 			"%s: Wait interrupted or timed out [%p]: %d\n",
 			__func__, inst,
-			SESSION_MSG_INDEX(SESSION_PROPERTY_INFO));
+			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO));
 		inst->state = MSM_VIDC_CORE_INVALID;
 		msm_comm_kill_session(inst);
 		rc = -EIO;
@@ -3199,7 +3203,7 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 	if (!list_empty(&inst->pending_getpropq.list)) {
 		buf = list_first_entry(&inst->pending_getpropq.list,
 					struct getprop_buf, list);
-		*hprop = *((union hal_get_property *) buf->data);
+		*hprop = *(union hal_get_property *)buf->data;
 		kfree(buf->data);
 		list_del(&buf->list);
 		kfree(buf);
@@ -3383,7 +3387,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 				core->state != VIDC_CORE_INVALID) {
 			buffer_info.response_required = true;
 			init_completion(&inst->completions[SESSION_MSG_INDEX
-			   (SESSION_RELEASE_BUFFER_DONE)]);
+			   (HAL_SESSION_RELEASE_BUFFER_DONE)]);
 			rc = call_hfi_op(hdev, session_release_buffers,
 				(void *)inst->session, &buffer_info);
 			if (rc) {
@@ -3394,7 +3398,7 @@ int msm_comm_release_scratch_buffers(struct msm_vidc_inst *inst,
 			}
 			mutex_unlock(&inst->internalbufs.lock);
 			rc = wait_for_sess_signal_receipt(inst,
-				SESSION_RELEASE_BUFFER_DONE);
+				HAL_SESSION_RELEASE_BUFFER_DONE);
 			if (rc) {
 				change_inst_state(inst,
 					MSM_VIDC_CORE_INVALID);
@@ -3456,7 +3460,7 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 			buffer_info.response_required = true;
 			init_completion(
 			   &inst->completions[SESSION_MSG_INDEX
-			   (SESSION_RELEASE_BUFFER_DONE)]);
+			   (HAL_SESSION_RELEASE_BUFFER_DONE)]);
 			rc = call_hfi_op(hdev, session_release_buffers,
 				(void *)inst->session, &buffer_info);
 			if (rc) {
@@ -3467,7 +3471,7 @@ int msm_comm_release_persist_buffers(struct msm_vidc_inst *inst)
 			}
 			mutex_unlock(&inst->persistbufs.lock);
 			rc = wait_for_sess_signal_receipt(inst,
-				SESSION_RELEASE_BUFFER_DONE);
+				HAL_SESSION_RELEASE_BUFFER_DONE);
 			if (rc) {
 				change_inst_state(inst, MSM_VIDC_CORE_INVALID);
 				msm_comm_kill_session(inst);
@@ -4079,7 +4083,7 @@ int msm_vidc_check_session_supported(struct msm_vidc_inst *inst)
 
 static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 {
-	enum command_response cmd = SESSION_ERROR;
+	enum hal_command_response cmd = HAL_SESSION_ERROR;
 	struct msm_vidc_cb_cmd_done response = {0};
 
 	dprintk(VIDC_WARN, "msm_comm_generate_session_error\n");
@@ -4096,7 +4100,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst)
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst)
 {
 	struct msm_vidc_core *core;
-	enum command_response cmd = SYS_ERROR;
+	enum hal_command_response cmd = HAL_SYS_ERROR;
 	struct msm_vidc_cb_cmd_done response  = {0};
 	if (!inst || !inst->core) {
 		dprintk(VIDC_ERR, "%s: invalid input parameters\n", __func__);

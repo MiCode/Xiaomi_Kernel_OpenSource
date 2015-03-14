@@ -1362,7 +1362,9 @@ static int set_default_properties(struct msm_vidc_inst *inst)
 		ctrl.value = V4L2_MPEG_VIDC_VIDEO_DYNAMIC;
 		rc = v4l2_s_ctrl(NULL, &inst->ctrl_handler, &ctrl);
 		if (rc)
-			dprintk(VIDC_ERR, "set alloc_mode failed\n");
+			dprintk(VIDC_ERR,
+				"Failed to enable dynamic buffer mode by default: %d\n",
+				rc);
 	}
 
 	if (defaults & HAL_VIDEO_CONTINUE_DATA_TRANSFER) {
@@ -2006,20 +2008,16 @@ static inline enum buffer_mode_type get_buf_type(int val)
 
 static int check_tz_dynamic_buffer_support(void)
 {
-	int rc = 0;
 	int version = scm_get_feat_version(TZ_DYNAMIC_BUFFER_FEATURE_ID);
 
-	/*
-	 * if the version is < 1.1.0 then dynamic buffer allocation is
-	 * not supported
-	 */
 	if (version < TZ_FEATURE_VERSION(1, 1, 0)) {
 		dprintk(VIDC_DBG,
-			"Dynamic buffer mode not supported, tz version is : %u vs required : %u\n",
+			"Dynamic buffer mode not supported, tz version is: %u vs required : %u\n",
 			version, TZ_FEATURE_VERSION(1, 1, 0));
-		rc = -ENOTSUPP;
+		return -ENOTSUPP;
 	}
-	return rc;
+
+	return 0;
 }
 
 static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
@@ -2326,7 +2324,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 		if (!(alloc_mode.buffer_mode &
 			inst->capability.buffer_mode[CAPTURE_PORT])) {
-			dprintk(VIDC_DBG,
+			dprintk(VIDC_ERR,
 				"buffer mode[%d] not supported for Capture Port\n",
 				ctrl->val);
 			rc = -ENOTSUPP;
@@ -2496,7 +2494,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		dprintk(VIDC_DBG,
 			"Control: HAL property=%#x,ctrl: id=%#x,value=%#x\n",
 			property_id, ctrl->id, ctrl->val);
-			rc = call_hfi_op(hdev, session_set_property, (void *)
+		rc = call_hfi_op(hdev, session_set_property, (void *)
 				inst->session, property_id, pdata);
 	}
 
@@ -2613,9 +2611,6 @@ static int msm_vdec_op_s_ctrl(struct v4l2_ctrl *ctrl)
 	}
 
 failed_open_done:
-	if (rc)
-		dprintk(VIDC_ERR, "Failed setting control: %x (%s)",
-				ctrl->id, v4l2_ctrl_get_name(ctrl->id));
 	return rc;
 }
 

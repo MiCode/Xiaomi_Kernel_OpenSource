@@ -16,6 +16,7 @@
 #include <linux/coresight-stm.h>
 #include <linux/delay.h>
 #include <linux/devfreq.h>
+#include <linux/hash.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/iommu.h>
@@ -81,6 +82,8 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device);
 static inline void __disable_unprepare_clks(struct venus_hfi_device *device);
 static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet);
 static int __initialize_packetization(struct venus_hfi_device *device);
+static struct hal_session *__get_session(struct venus_hfi_device *device,
+		u32 session_id);
 
 static inline void __set_state(struct venus_hfi_device *device,
 		enum venus_hfi_state state)
@@ -132,16 +135,7 @@ static void __sim_modify_cmd_packet(u8 *packet, struct venus_hfi_device *device)
 	fw_bias = device->hal_data->firmware_base;
 	sys_init = (struct hfi_cmd_sys_session_init_packet *)packet;
 
-	/* Ideally we should acquire device->session_lock. If we acquire
-	 * we may go to deadlock with inst->*_lock between two threads.
-	 * Ex : in the forward path we acquire inst->internalbufs.lock and
-	 * session_lock and in the reverse path, we acquire session_lock and
-	 * internalbufs.lock. So this may introduce deadlock. So we are not
-	 * doing that. On virtio it is less likely to run two sessions
-	 * concurrently. So it should be fine */
-
-	session = hfi_process_get_session(
-			&device->sess_head, sys_init->session_id);
+	session = __get_session(device, sys_init->session_id);
 	if (!session) {
 		dprintk(VIDC_DBG, "%s :Invalid session id: %x\n",
 				__func__, sys_init->session_id);
@@ -419,8 +413,7 @@ static void __hal_sim_modify_msg_packet(u8 *packet,
 	sys_idle = (struct hfi_msg_sys_session_init_done_packet *)packet;
 	if (&device->session_lock) {
 		mutex_lock(&device->session_lock);
-		session = hfi_process_get_session(
-				&device->sess_head, sys_idle->session_id);
+		session = __get_session(device, sys_idle->session_id);
 		mutex_unlock(&device->session_lock);
 	}
 
@@ -2984,10 +2977,9 @@ static int __check_core_registered(struct hal_device_data core,
 
 static void __process_sys_watchdog_timeout(struct venus_hfi_device *device)
 {
-	struct msm_vidc_cb_cmd_done cmd_done;
-	memset(&cmd_done, 0, sizeof(struct msm_vidc_cb_cmd_done));
+	struct msm_vidc_cb_cmd_done cmd_done = {0};
 	cmd_done.device_id = device->device_id;
-	device->callback(SYS_WATCHDOG_TIMEOUT, &cmd_done);
+	device->callback(HAL_SYS_WATCHDOG_TIMEOUT, &cmd_done);
 }
 
 static int venus_hfi_core_pc_prep(void *device)
@@ -3145,39 +3137,30 @@ err_unset_imem:
 	return;
 }
 
-static void __process_msg_event_notify(struct venus_hfi_device *device,
-		void *packet)
+static void __process_sys_error(struct venus_hfi_device *device)
 {
 	struct hfi_sfr_struct *vsfr = NULL;
-	struct hfi_msg_event_notify_packet *event_pkt;
-	struct vidc_hal_msg_pkt_hdr *msg_hdr;
 
-	msg_hdr = (struct vidc_hal_msg_pkt_hdr *)packet;
-	event_pkt = (struct hfi_msg_event_notify_packet *)msg_hdr;
-	if (event_pkt && event_pkt->event_id == HFI_EVENT_SYS_ERROR) {
-		__set_state(device, VENUS_STATE_DEINIT);
+	__set_state(device, VENUS_STATE_DEINIT);
 
-		/* Once SYS_ERROR received from HW, it is safe to halt the AXI.
-		 * With SYS_ERROR, Venus FW may have crashed and HW might be
-		 * active and causing unnecessary transactions. Hence it is
-		 * safe to stop all AXI transactions from venus sub-system. */
-		if (__halt_axi(device))
-			dprintk(VIDC_WARN,
-				"Failed to halt AXI after SYS_ERROR\n");
+	/* Once SYS_ERROR received from HW, it is safe to halt the AXI.
+	 * With SYS_ERROR, Venus FW may have crashed and HW might be
+	 * active and causing unnecessary transactions. Hence it is
+	 * safe to stop all AXI transactions from venus sub-system. */
+	if (__halt_axi(device))
+		dprintk(VIDC_WARN, "Failed to halt AXI after SYS_ERROR\n");
 
-		vsfr = (struct hfi_sfr_struct *)device->sfr.align_virtual_addr;
-		if (vsfr) {
-			void *p = memchr(vsfr->rg_data, '\0',
-							vsfr->bufSize);
-			/* SFR isn't guaranteed to be NULL terminated
-			since SYS_ERROR indicates that Venus is in the
-			process of crashing.*/
-			if (p == NULL)
-				vsfr->rg_data[vsfr->bufSize - 1] = '\0';
+	vsfr = (struct hfi_sfr_struct *)device->sfr.align_virtual_addr;
+	if (vsfr) {
+		void *p = memchr(vsfr->rg_data, '\0', vsfr->bufSize);
+		/* SFR isn't guaranteed to be NULL terminated
+		   since SYS_ERROR indicates that Venus is in the
+		   process of crashing.*/
+		if (p == NULL)
+			vsfr->rg_data[vsfr->bufSize - 1] = '\0';
 
-			dprintk(VIDC_ERR, "SFR Message from FW: %s\n",
+		dprintk(VIDC_ERR, "SFR Message from FW: %s\n",
 				vsfr->rg_data);
-		}
 	}
 }
 
@@ -3225,65 +3208,141 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 		kfree(packet);
 }
 
+static struct hal_session *__get_session(struct venus_hfi_device *device,
+		u32 session_id)
+{
+	struct hal_session *temp = NULL;
+
+	list_for_each_entry(temp, &device->sess_head, list) {
+		if (session_id == hash32_ptr(temp))
+			return temp;
+	}
+
+	return NULL;
+}
+
 static void __response_handler(struct venus_hfi_device *device)
 {
 	u8 *packet = NULL;
-	u32 rc = 0;
-	struct hfi_sfr_struct *vsfr = NULL;
 
 	packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
 	if (!packet) {
-		dprintk(VIDC_ERR, "In %s() Fail to allocate mem\n",  __func__);
+		dprintk(VIDC_ERR, "%s: Failed to allocate memory\n",  __func__);
 		return;
 	}
 
-	dprintk(VIDC_INFO, "#####__response_handler#####\n");
-	if (device) {
-		if (device->intr_status &
-			VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK) {
-			dprintk(VIDC_ERR, "Received: Watchdog timeout %s\n",
-				__func__);
-			vsfr = (struct hfi_sfr_struct *)
-					device->sfr.align_virtual_addr;
-			if (vsfr)
-				dprintk(VIDC_ERR,
-					"SFR Message from FW: %s\n",
-						vsfr->rg_data);
-			__process_sys_watchdog_timeout(device);
+	if (device->intr_status & VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK) {
+		struct hfi_sfr_struct *vsfr = NULL;
+		dprintk(VIDC_ERR, "Received watchdog timeout\n");
+		vsfr = (struct hfi_sfr_struct *)device->sfr.align_virtual_addr;
+		if (vsfr)
+			dprintk(VIDC_ERR, "SFR Message from FW: %s\n",
+					vsfr->rg_data);
+
+		__process_sys_watchdog_timeout(device);
+	}
+
+	while (!__iface_msgq_read(device, packet)) {
+		void **session_id = NULL;
+		struct msm_vidc_cb_info info;
+		int rc = 0;
+
+		rc = hfi_process_msg_packet(device->device_id,
+				(struct vidc_hal_msg_pkt_hdr *)packet, &info);
+		if (rc) {
+			dprintk(VIDC_WARN,
+					"Corrupt/unknown packet found, discarding\n");
+			continue;
 		}
 
-		while (!__iface_msgq_read(device, packet)) {
-			rc = hfi_process_msg_packet(device->callback,
-				device->device_id,
-				(struct vidc_hal_msg_pkt_hdr *) packet,
-				&device->sess_head, &device->session_lock);
-			if (rc == HFI_MSG_EVENT_NOTIFY) {
-				__process_msg_event_notify(device, packet);
-			} else if (rc == HFI_MSG_SYS_RELEASE_RESOURCE) {
-				dprintk(VIDC_DBG,
-					"Received HFI_MSG_SYS_RELEASE_RESOURCE\n");
-				complete(&release_resources_done);
-			} else if (rc == HFI_MSG_SYS_INIT_DONE) {
-				dprintk(VIDC_DBG,
-					"Received HFI_MSG_SYS_INIT_DONE\n");
-				if (__alloc_set_imem(device, true))
-					dprintk(VIDC_WARN,
+		/* Process the packet types that we're interested in */
+		switch (info.response_type) {
+		case HAL_SYS_ERROR:
+			__process_sys_error(device);
+			break;
+		case HAL_SYS_RELEASE_RESOURCE_DONE:
+			dprintk(VIDC_DBG, "Received SYS_RELEASE_RESOURCE\n");
+			complete(&release_resources_done);
+			break;
+		case HAL_SYS_INIT_DONE:
+			dprintk(VIDC_DBG, "Received SYS_INIT_DONE\n");
+			if (__alloc_set_imem(device, true))
+				dprintk(VIDC_WARN,
 						"Failed to allocate IMEM. Performance will be impacted\n");
-			}
-		}
-
-		__flush_debug_queue(device, packet);
-
-		switch (rc) {
-		case HFI_MSG_SYS_PC_PREP_DONE:
-			dprintk(VIDC_DBG,
-					"Received HFI_MSG_SYS_PC_PREP_DONE\n");
+			break;
+		case HAL_SYS_PC_PREP_DONE:
+			dprintk(VIDC_DBG, "Received SYS_PC_PREP_DONE\n");
 			complete(&pc_prep_done);
 			break;
+		default:
+			break;
 		}
-	} else {
-		dprintk(VIDC_ERR, "SPURIOUS_INTERRUPT\n");
+
+		/* For session-related packets, validate session */
+		switch (IS_HAL_SESSION_CMD(info.response_type) ?
+			info.response_type : HAL_RESPONSE_UNUSED) {
+		case HAL_SESSION_LOAD_RESOURCE_DONE:
+		case HAL_SESSION_INIT_DONE:
+		case HAL_SESSION_END_DONE:
+		case HAL_SESSION_ABORT_DONE:
+		case HAL_SESSION_START_DONE:
+		case HAL_SESSION_STOP_DONE:
+		case HAL_SESSION_FLUSH_DONE:
+		case HAL_SESSION_SUSPEND_DONE:
+		case HAL_SESSION_RESUME_DONE:
+		case HAL_SESSION_SET_PROP_DONE:
+		case HAL_SESSION_GET_PROP_DONE:
+		case HAL_SESSION_PARSE_SEQ_HDR_DONE:
+		case HAL_SESSION_RELEASE_BUFFER_DONE:
+		case HAL_SESSION_RELEASE_RESOURCE_DONE:
+		case HAL_SESSION_PROPERTY_INFO:
+			session_id = &info.response.cmd.session_id;
+			break;
+		case HAL_SESSION_ERROR:
+		case HAL_SESSION_GET_SEQ_HDR_DONE:
+		case HAL_SESSION_ETB_DONE:
+		case HAL_SESSION_FTB_DONE:
+			session_id = &info.response.data.session_id;
+			break;
+		case HAL_SESSION_EVENT_CHANGE:
+			session_id = &info.response.event.session_id;
+			break;
+		case HAL_RESPONSE_UNUSED:
+			session_id = 0;
+			break;
+		}
+
+		/*
+		 * hfi_process_msg_packet provides a session_id that's a hashed
+		 * value of struct hal_session, we need to coerce the hashed
+		 * value back to pointer that we can use. Ideally, hfi_process\
+		 * _msg_packet should take care of * this, but it doesn't have
+		 * required information for it
+		 */
+		if (session_id) {
+			struct hal_session *session = NULL;
+
+			WARN_ON(upper_32_bits((uintptr_t)*session_id) != 0);
+			session = __get_session(device,
+					(u32)(uintptr_t)*session_id);
+			if (!session) {
+				dprintk(VIDC_ERR,
+						"Received a packet (%#x) for an unrecognized session (%p), discarding\n",
+						info.response_type,
+						(void *)session_id);
+				info.response_type = HAL_RESPONSE_UNUSED;
+				goto bad_session;
+			}
+
+			*session_id = session->session_id;
+		}
+
+		device->callback(info.response_type, &info.response);
+bad_session:
+		continue;
 	}
+
+	__flush_debug_queue(device, packet);
 
 	kfree(packet);
 }
