@@ -676,7 +676,7 @@ static inline void msm_pcie_write_reg_field(void *base, u32 offset,
 #define PCIE20_PARF_PHY_CTRL3        0x94
 #define PCIE20_PARF_PCS_CTRL         0x80
 
-#define TX_AMP_VAL                   127
+#define TX_AMP_VAL                   120
 #define PHY_RX0_EQ_GEN1_VAL          0
 #define PHY_RX0_EQ_GEN2_VAL          4
 #define TX_DEEMPH_GEN1_VAL           24
@@ -699,8 +699,12 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	PCIE_DBG(dev, "RC%d: Initializing 28LP SNS phy - 100MHz\n",
 		dev->rc_idx);
 
-	/* De-assert Phy SW Reset */
-	pcie20_phy_reset(dev, 1);
+	/* Program REF_CLK source */
+	msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PHY_REFCLK_CTRL2, BIT(1),
+		dev->ext_ref_clk ? 1 : 0);
+
+	usleep_range(REFCLK_STABILIZATION_DELAY_US_MIN,
+		REFCLK_STABILIZATION_DELAY_US_MAX);
 
 	/* Program SSP ENABLE */
 	if (readl_relaxed(dev->phy + PCIE20_PARF_PHY_REFCLK_CTRL2) & BIT(0))
@@ -710,6 +714,13 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 								 BIT(0)) == 0)
 		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PHY_REFCLK_CTRL3,
 								 BIT(0), 1);
+
+	usleep_range(REFCLK_STABILIZATION_DELAY_US_MIN,
+		REFCLK_STABILIZATION_DELAY_US_MAX);
+
+	/* De-assert Phy SW Reset */
+	pcie20_phy_reset(dev, 1);
+
 	/* Program Tx Amplitude */
 	if ((readl_relaxed(dev->phy + PCIE20_PARF_PCS_SWING_CTRL1) &
 		(BIT(6)|BIT(5)|BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0))) !=
@@ -747,9 +758,9 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 
 	/* Program Rx_Eq */
 	if ((readl_relaxed(dev->phy + PCIE20_PARF_CONFIGBITS) &
-			(BIT(2)|BIT(1)|BIT(0))) != PHY_RX0_EQ_GEN1_VAL)
+			(BIT(2)|BIT(1)|BIT(0))) != PHY_RX0_EQ_GEN2_VAL)
 		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_CONFIGBITS,
-				 BIT(2)|BIT(1)|BIT(0), PHY_RX0_EQ_GEN1_VAL);
+				 BIT(2)|BIT(1)|BIT(0), PHY_RX0_EQ_GEN2_VAL);
 
 	/* Program Tx0_term_offset */
 	if ((readl_relaxed(dev->phy + PCIE20_PARF_PHY_CTRL3) &
@@ -759,9 +770,6 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 			 BIT(4)|BIT(3)|BIT(2)|BIT(1)|BIT(0),
 				PHY_TX0_TERM_OFFST_VAL);
 
-	/* Program REF_CLK source */
-	msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PHY_REFCLK_CTRL2, BIT(1),
-		(dev->ext_ref_clk) ? 1 : 0);
 	/* disable Tx2Rx Loopback */
 	if (readl_relaxed(dev->phy + PCIE20_PARF_PCS_CTRL) & BIT(1))
 		msm_pcie_write_reg_field(dev->phy, PCIE20_PARF_PCS_CTRL,
