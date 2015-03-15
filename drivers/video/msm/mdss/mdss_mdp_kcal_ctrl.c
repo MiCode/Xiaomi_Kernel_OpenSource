@@ -132,7 +132,7 @@ static uint32_t igc_Table_RGB[IGC_LUT_ENTRIES] = {
 	48, 32, 16, 0
 };
 
-static void mdss_mdp_pp_kcal_update(struct kcal_lut_data *lut_data)
+static void mdss_mdp_kcal_update_pcc(struct kcal_lut_data *lut_data)
 {
 	u32 copyback = 0;
 	struct mdp_pcc_cfg_data pcc_config;
@@ -149,7 +149,7 @@ static void mdss_mdp_pp_kcal_update(struct kcal_lut_data *lut_data)
 	mdss_mdp_pcc_config(&pcc_config, &copyback);
 }
 
-static void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data)
+static void mdss_mdp_kcal_update_pa(struct kcal_lut_data *lut_data)
 {
 	u32 copyback = 0;
 	struct mdp_pa_cfg_data pa_config;
@@ -160,7 +160,8 @@ static void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data)
 		memset(&pa_config, 0, sizeof(struct mdp_pa_cfg_data));
 
 		pa_config.block = MDP_LOGICAL_BLOCK_DISP_0;
-		pa_config.pa_data.flags = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
+		pa_config.pa_data.flags = lut_data->enable ? MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE :
+			MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
 		pa_config.pa_data.hue_adj = lut_data->hue;
 		pa_config.pa_data.sat_adj = lut_data->sat;
 		pa_config.pa_data.val_adj = lut_data->val;
@@ -171,7 +172,8 @@ static void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data)
 		memset(&pa_v2_config, 0, sizeof(struct mdp_pa_v2_cfg_data));
 
 		pa_v2_config.block = MDP_LOGICAL_BLOCK_DISP_0;
-		pa_v2_config.pa_v2_data.flags = MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE;
+		pa_v2_config.pa_v2_data.flags = lut_data->enable ? MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE :
+			MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
 		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_HUE_ENABLE;
 		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_HUE_MASK;
 		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_SAT_ENABLE;
@@ -189,7 +191,7 @@ static void mdss_mdp_pp_kcal_pa(struct kcal_lut_data *lut_data)
 	}
 }
 
-static void mdss_mdp_pp_kcal_invert(struct kcal_lut_data *lut_data)
+static void mdss_mdp_kcal_update_igc(struct kcal_lut_data *lut_data)
 {
 	u32 copyback = 0, copy_from_kernel = 1;
 	struct mdp_igc_lut_data igc_config;
@@ -197,7 +199,7 @@ static void mdss_mdp_pp_kcal_invert(struct kcal_lut_data *lut_data)
 	memset(&igc_config, 0, sizeof(struct mdp_igc_lut_data));
 
 	igc_config.block = MDP_LOGICAL_BLOCK_DISP_0;
-	igc_config.ops = lut_data->invert ? MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE :
+	igc_config.ops = lut_data->invert && lut_data->enable ? MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE :
 		MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
 	igc_config.len = IGC_LUT_ENTRIES;
 	igc_config.c0_c1_data = &igc_Table_Inverted[0];
@@ -215,7 +217,7 @@ static void kcal_apply_values(struct kcal_lut_data *lut_data)
 	lut_data->blue = (lut_data->blue < lut_data->minimum) ?
 		lut_data->minimum : lut_data->blue;
 
-	mdss_mdp_pp_kcal_update(lut_data);
+	mdss_mdp_kcal_update_pcc(lut_data);
 }
 
 static ssize_t kcal_store(struct device *dev, struct device_attribute *attr,
@@ -304,7 +306,9 @@ static ssize_t kcal_enable_store(struct device *dev,
 
 	lut_data->enable = kcal_enable;
 
-	mdss_mdp_pp_kcal_update(lut_data);
+	mdss_mdp_kcal_update_pcc(lut_data);
+	mdss_mdp_kcal_update_pa(lut_data);
+	mdss_mdp_kcal_update_igc(lut_data);
 
 	return count;
 }
@@ -336,7 +340,7 @@ static ssize_t kcal_invert_store(struct device *dev,
 
 	lut_data->invert = kcal_invert;
 
-	mdss_mdp_pp_kcal_invert(lut_data);
+	mdss_mdp_kcal_update_igc(lut_data);
 
 	return count;
 }
@@ -365,7 +369,7 @@ static ssize_t kcal_sat_store(struct device *dev,
 
 	lut_data->sat = kcal_sat;
 
-	mdss_mdp_pp_kcal_pa(lut_data);
+	mdss_mdp_kcal_update_pa(lut_data);
 
 	return count;
 }
@@ -394,7 +398,7 @@ static ssize_t kcal_hue_store(struct device *dev,
 
 	lut_data->hue = kcal_hue;
 
-	mdss_mdp_pp_kcal_pa(lut_data);
+	mdss_mdp_kcal_update_pa(lut_data);
 
 	return count;
 }
@@ -423,7 +427,7 @@ static ssize_t kcal_val_store(struct device *dev,
 
 	lut_data->val = kcal_val;
 
-	mdss_mdp_pp_kcal_pa(lut_data);
+	mdss_mdp_kcal_update_pa(lut_data);
 
 	return count;
 }
@@ -452,7 +456,7 @@ static ssize_t kcal_cont_store(struct device *dev,
 
 	lut_data->cont = kcal_cont;
 
-	mdss_mdp_pp_kcal_pa(lut_data);
+	mdss_mdp_kcal_update_pa(lut_data);
 
 	return count;
 }
