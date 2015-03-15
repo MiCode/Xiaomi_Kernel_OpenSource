@@ -35,6 +35,7 @@
 #include <linux/freezer.h>
 #include <linux/scatterlist.h>
 #include <linux/regulator/consumer.h>
+#include <linux/dma-mapping.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/scm.h>
 #include <soc/qcom/socinfo.h>
@@ -205,6 +206,18 @@ struct qseecom_control {
 	bool appsbl_qseecom_support;
 };
 
+struct qseecom_sec_buf_fd_info {
+	bool is_sec_buf_fd;
+	size_t size;
+	void *vbase;
+	dma_addr_t pbase;
+};
+
+struct qseecom_param_memref {
+	uint32_t buffer;
+	uint32_t size;
+};
+
 struct qseecom_client_handle {
 	u32  app_id;
 	u8 *sb_virt;
@@ -214,6 +227,7 @@ struct qseecom_client_handle {
 	struct ion_handle *ihandle;		/* Retrieve phy addr */
 	char app_name[MAX_APP_NAME_SIZE];
 	u32  app_arch;
+	struct qseecom_sec_buf_fd_info sec_buf_fd[MAX_ION_FD];
 };
 
 struct qseecom_listener_handle {
@@ -4819,6 +4833,49 @@ static int __qseecom_qteec_validate_msg(struct qseecom_dev_handle *data,
 	return 0;
 }
 
+static int __qseecom_qteec_handle_pre_alc_fd(struct qseecom_dev_handle *data,
+				uint32_t fd_idx, struct sg_table *sg_ptr)
+{
+	struct scatterlist *sg = sg_ptr->sgl;
+	struct qseecom_sg_entry *sg_entry;
+	void *buf;
+	uint i;
+	size_t size;
+	dma_addr_t coh_pmem;
+
+	if (fd_idx >= MAX_ION_FD) {
+		pr_err("fd_idx [%d] is invalid\n", fd_idx);
+		return -ENOMEM;
+	}
+	/*
+	* Allocate a buffer, populate it with number of entry plus
+	* each sg entry's phy addr and lenth; then return the
+	* phy_addr of the buffer.
+	*/
+	size = sizeof(uint32_t) +
+		sizeof(struct qseecom_sg_entry) * sg_ptr->nents;
+	size = (size + PAGE_SIZE) & PAGE_MASK;
+	buf = dma_alloc_coherent(qseecom.pdev,
+			size, &coh_pmem, GFP_KERNEL);
+	if (buf == NULL) {
+		pr_err("failed to alloc memory for sg buf\n");
+		return -ENOMEM;
+	}
+	*(uint32_t *)buf = sg_ptr->nents;
+	sg_entry = (struct qseecom_sg_entry *) (buf + sizeof(uint32_t));
+	for (i = 0; i < sg_ptr->nents; i++) {
+		sg_entry->phys_addr = (uint32_t)sg_dma_address(sg);
+		sg_entry->len = sg->length;
+		sg_entry++;
+		sg = sg_next(sg);
+	}
+	data->client.sec_buf_fd[fd_idx].is_sec_buf_fd = true;
+	data->client.sec_buf_fd[fd_idx].vbase = buf;
+	data->client.sec_buf_fd[fd_idx].pbase = coh_pmem;
+	data->client.sec_buf_fd[fd_idx].size = size;
+	return 0;
+}
+
 static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 			struct qseecom_dev_handle *data, bool cleanup)
 {
@@ -4828,6 +4885,7 @@ static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 	uint32_t *update;
 	struct sg_table *sg_ptr = NULL;
 	struct scatterlist *sg;
+	struct qseecom_param_memref *memref;
 
 	if (req == NULL) {
 		pr_err("Invalid address\n");
@@ -4851,6 +4909,10 @@ static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 			}
 			update = (uint32_t *)((char *) req->req_ptr +
 				req->ifd_data[i].cmd_buf_offset);
+			if (!update) {
+				pr_err("update pointer is NULL\n");
+				return -EINVAL;
+			}
 		} else {
 			continue;
 		}
@@ -4861,24 +4923,64 @@ static int __qseecom_update_qteec_req_buf(struct qseecom_qteec_modfd_req *req,
 			goto err;
 		}
 		sg = sg_ptr->sgl;
-		if ((sg_ptr->nents != 1) || (sg->length == 0)) {
+		if (sg == NULL) {
+			pr_err("sg is NULL\n");
+			goto err;
+		}
+		if ((sg_ptr->nents == 0) || (sg->length == 0)) {
 			pr_err("Num of scat entr (%d)or length(%d) invalid\n",
 					sg_ptr->nents, sg->length);
 			goto err;
 		}
-		if (cleanup)
-			*update = 0;
-		else
-			*update = (uint32_t)sg_dma_address(sg_ptr->sgl);
+		/* clean up buf for pre-allocated fd */
+		if (cleanup && data->client.sec_buf_fd[i].is_sec_buf_fd &&
+			(*update)) {
+			if (data->client.sec_buf_fd[i].vbase)
+				dma_free_coherent(qseecom.pdev,
+					data->client.sec_buf_fd[i].size,
+					data->client.sec_buf_fd[i].vbase,
+					data->client.sec_buf_fd[i].pbase);
+			memset((void *)update, 0,
+				sizeof(struct qseecom_param_memref));
+			memset(&(data->client.sec_buf_fd[i]), 0,
+				sizeof(struct qseecom_sec_buf_fd_info));
+			goto clean;
+		}
 
+		if (*update == 0) {
+			/* update buf for pre-allocated fd from secure heap*/
+			ret = __qseecom_qteec_handle_pre_alc_fd(data, i,
+				sg_ptr);
+			if (ret) {
+				pr_err("Failed to handle buf for fd[%d]\n", i);
+				goto err;
+			}
+			memref = (struct qseecom_param_memref *)update;
+			memref->buffer =
+				(uint32_t)(data->client.sec_buf_fd[i].pbase);
+			memref->size =
+				(uint32_t)(data->client.sec_buf_fd[i].size);
+		} else {
+			/* update buf for fd from non-secure qseecom heap */
+			if (sg_ptr->nents != 1) {
+				pr_err("Num of scat entr (%d) invalid\n",
+					sg_ptr->nents);
+				goto err;
+			}
+			if (cleanup)
+				*update = 0;
+			else
+				*update = (uint32_t)sg_dma_address(sg_ptr->sgl);
+		}
+clean:
 		if (cleanup)
 			msm_ion_do_cache_op(qseecom.ion_clnt,
-					ihandle, NULL, sg->length,
-					ION_IOC_INV_CACHES);
+				ihandle, NULL, sg->length,
+				ION_IOC_INV_CACHES);
 		else
 			msm_ion_do_cache_op(qseecom.ion_clnt,
-					ihandle, NULL, sg->length,
-					ION_IOC_CLEAN_INV_CACHES);
+				ihandle, NULL, sg->length,
+				ION_IOC_CLEAN_INV_CACHES);
 		/* Deallocate the handle */
 		if (!IS_ERR_OR_NULL(ihandle))
 			ion_free(qseecom.ion_clnt, ihandle);
