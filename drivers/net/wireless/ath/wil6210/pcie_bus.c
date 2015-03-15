@@ -254,8 +254,6 @@ static int wil_pcie_probe(struct pci_dev *pdev, const struct pci_device_id *id)
 
 	wil6210_debugfs_init(wil);
 
-	/* check FW is alive */
-	wmi_echo(wil);
 
 	return 0;
 
