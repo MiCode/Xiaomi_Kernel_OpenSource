@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,10 @@ struct msm_rpm_master_stats {
 	uint32_t wakeup_reason; /* 0 = rude wakeup, 1 = scheduled wakeup */
 	uint32_t last_sleep_transition_duration;
 	uint32_t last_wake_transition_duration;
+	uint32_t count;
+	uint64_t last_entered_at;
+	uint64_t last_exited_at;
+	uint64_t accumulated_duration;
 };
 
 struct msm_rpm_master_stats_private_data {
@@ -161,6 +165,42 @@ static int msm_rpm_master_copy_stats(
 		SNPRINTF(buf, count, "\t%s:0x%x\n",
 			GET_FIELD(record.last_wake_transition_duration),
 			record.last_wake_transition_duration);
+
+		record.count = readl_relaxed(prvdata->reg_base +
+				(master_cnt * pdata->master_offset +
+				offsetof(struct msm_rpm_master_stats,
+				count)));
+
+		SNPRINTF(buf, count, "\t%s:%d\n", GET_FIELD(record.count),
+			record.count);
+
+		record.last_entered_at = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats,
+			last_entered_at)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.last_entered_at),
+			record.last_entered_at);
+
+		record.last_exited_at = readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats,
+			last_exited_at)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.last_exited_at),
+			record.last_exited_at);
+
+		record.accumulated_duration =
+			readq_relaxed(prvdata->reg_base +
+			(master_cnt * pdata->master_offset +
+			offsetof(struct msm_rpm_master_stats,
+			accumulated_duration)));
+
+		SNPRINTF(buf, count, "\t%s:0x%llX\n",
+			GET_FIELD(record.accumulated_duration),
+			record.accumulated_duration);
 
 		record.wakeup_reason = readl_relaxed(prvdata->reg_base +
 					(master_cnt * pdata->master_offset +
