@@ -26,6 +26,7 @@
 #include <linux/qdsp6v2/apr.h>
 #include <linux/of_device.h>
 #include <linux/msm_audio_ion.h>
+#include <linux/export.h>
 #include <asm/dma-iommu.h>
 
 #define MSM_AUDIO_ION_PROBED (1 << 0)
@@ -163,6 +164,7 @@ err_ion_client:
 err:
 	return rc;
 }
+EXPORT_SYMBOL(msm_audio_ion_alloc);
 
 int msm_audio_ion_import(const char *name, struct ion_client **client,
 			struct ion_handle **handle, int fd,
@@ -255,6 +257,7 @@ int msm_audio_ion_free(struct ion_client *client, struct ion_handle *handle)
 	msm_audio_ion_client_destroy(client);
 	return 0;
 }
+EXPORT_SYMBOL(msm_audio_ion_free);
 
 int msm_audio_ion_mmap(struct audio_buffer *ab,
 		       struct vm_area_struct *vma)
