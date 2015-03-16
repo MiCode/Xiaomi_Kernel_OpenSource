@@ -443,3 +443,7 @@
 &bam_dmux {
 	qcom,no-cpu-affinity;
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-8936-v3";
+};
