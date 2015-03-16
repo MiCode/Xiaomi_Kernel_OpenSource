@@ -1214,7 +1214,7 @@ void arm_iommu_unmap_sg(struct device *dev, struct scatterlist *sg, int nents,
 {
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	unsigned int total_length = sg_dma_len(sg);
-	unsigned int iova = sg_dma_address(sg);
+	dma_addr_t iova = sg_dma_address(sg);
 
 	total_length = PAGE_ALIGN((iova & ~PAGE_MASK) + total_length);
 	iova &= PAGE_MASK;
