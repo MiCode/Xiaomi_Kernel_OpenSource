@@ -3334,10 +3334,14 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	struct clk *tmp_clk;
 	int ret;
 	u32 regval;
+	bool compat_bin = false;
 
 	ret = get_memory(pdev);
 	if (ret)
 		return ret;
+
+	compat_bin = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gcc-8936-v3");
 
 	vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(vdd_dig.regulator[0])) {
@@ -3414,6 +3418,9 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	clk_set_rate(&apss_ahb_clk_src.c, 19200000);
 	clk_prepare_enable(&apss_ahb_clk_src.c);
 
+	if (compat_bin)
+		gcc_bimc_gfx_clk.c.depends = NULL;
+
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
 	return 0;
@@ -3421,6 +3428,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8936" },
+	{ .compatible = "qcom,gcc-8936-v3" },
 	{}
 };
 
