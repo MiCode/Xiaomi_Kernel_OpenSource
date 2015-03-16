@@ -980,6 +980,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	u16 result1, result2;
 	bool wrk_complete = false;
 	int pt_gnd_mic_swap_cnt = 0;
+	int no_gnd_mic_swap_cnt = 0;
 	bool is_pa_on;
 	bool micbias2;
 	bool micbias1;
@@ -1029,6 +1030,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			/* Check for cross connection*/
 			if (wcd_check_cross_conn(mbhc)) {
 				pt_gnd_mic_swap_cnt++;
+				no_gnd_mic_swap_cnt = 0;
 				if (pt_gnd_mic_swap_cnt <
 						GND_MIC_SWAP_THRESHOLD) {
 					continue;
@@ -1046,13 +1048,14 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 					plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
 				}
 			} else {
-				pt_gnd_mic_swap_cnt++;
+				no_gnd_mic_swap_cnt++;
+				pt_gnd_mic_swap_cnt = 0;
 				plug_type = MBHC_PLUG_TYPE_HEADSET;
-				if (pt_gnd_mic_swap_cnt <
+				if (no_gnd_mic_swap_cnt <
 						GND_MIC_SWAP_THRESHOLD) {
 					continue;
 				} else {
-					pt_gnd_mic_swap_cnt = 0;
+					no_gnd_mic_swap_cnt = 0;
 				}
 			}
 		}
