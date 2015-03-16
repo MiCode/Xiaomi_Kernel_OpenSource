@@ -11,6 +11,8 @@ Required properties :
 	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
 	This can be left as optional if "host-only-mode" is selected in the
 	'dwc3' sub node for "DWC3-USB3 Core device".
+	"vdda33" : 3.3V analog voltage supply is applied to remove Dp & Dm pull
+	downs for proper USB charger detection by charger driver.
 
 Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
