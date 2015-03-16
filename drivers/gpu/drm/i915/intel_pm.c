@@ -3931,6 +3931,9 @@ static void valleyview_disable_rps(struct drm_device *dev)
 void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
 				    bool media_active)
 {
+	if (dev_priv->last_media_active_state == media_active)
+		return;
+
 	intel_runtime_pm_get(dev_priv);
 
 	/* Update RC6 promotion timers */
@@ -3947,6 +3950,8 @@ void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
 	}
 
 	intel_runtime_pm_put(dev_priv);
+
+	dev_priv->last_media_active_state = media_active;
 }
 
 static void vlv_media_timeout_work_func(struct work_struct *work)

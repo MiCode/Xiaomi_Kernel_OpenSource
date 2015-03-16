@@ -1747,6 +1747,9 @@ struct drm_i915_private {
 	bool is_resuming;
 	bool is_video_playing;  /* Indicates enabling only in videomode */
 
+	/* Track the media promotion timer update */
+	bool last_media_active_state;
+
 	/* Indicates currently enabled planes */
 	unsigned int plane_stat;
 
