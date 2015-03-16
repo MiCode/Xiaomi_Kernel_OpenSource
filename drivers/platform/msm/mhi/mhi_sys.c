@@ -39,9 +39,6 @@ MODULE_PARM_DESC(mhi_ipc_log_lvl, "dbg lvl");
 
 module_param(mhi_msg_class , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_msg_class, "dbg class");
-u32 m3_timer_val_ms = 1000;
-module_param(m3_timer_val_ms, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(m3_timer_val_ms, "timer val");
 
 static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 				size_t count, loff_t *offp)

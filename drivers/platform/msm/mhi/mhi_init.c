@@ -473,14 +473,6 @@ static enum MHI_STATUS mhi_init_contexts(struct mhi_device_ctxt *mhi_dev_ctxt)
 static enum MHI_STATUS mhi_init_work_queues(
 		struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	mhi_dev_ctxt->work_queue = create_singlethread_workqueue("mhi");
-	if (NULL == mhi_dev_ctxt->work_queue) {
-		mhi_log(MHI_MSG_CRITICAL | MHI_DBG_POWER,
-			"Failed to create MHI work queue.\n");
-		return MHI_STATUS_ERROR;
-	}
-	INIT_DELAYED_WORK(&mhi_dev_ctxt->m3_work, delayed_m3);
-	INIT_WORK(&mhi_dev_ctxt->m0_work, m0_work);
 	return MHI_STATUS_SUCCESS;
 }
 
