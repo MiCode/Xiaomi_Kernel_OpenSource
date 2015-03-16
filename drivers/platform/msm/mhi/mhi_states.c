@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -950,6 +950,7 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	unsigned long flags;
 	int r;
+	int abort_m3 = 0;
 
 	mhi_log(MHI_MSG_INFO,
 		"Entered MHI state %d, Pending M0 %d Pending M3 %d\n",
@@ -1007,11 +1008,14 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 			atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
+		abort_m3 = 1;
 		goto exit;
 	}
 
-	if (atomic_read(&mhi_dev_ctxt->flags.data_pending))
+	if (atomic_read(&mhi_dev_ctxt->flags.data_pending)) {
+		abort_m3 = 1;
 		goto exit;
+	}
 	r = hrtimer_cancel(&mhi_dev_ctxt->m1_timer);
 	if (r)
 		mhi_log(MHI_MSG_INFO, "Cancelled M1 timer, timer was active\n");
@@ -1061,6 +1065,13 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 	if (r)
 		mhi_log(MHI_MSG_INFO, "Failed to set bus freq ret %d\n", r);
 exit:
+	if (abort_m3) {
+		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+		atomic_inc(&mhi_dev_ctxt->flags.data_pending);
+		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
+		ring_all_chan_dbs(mhi_dev_ctxt);
+		atomic_dec(&mhi_dev_ctxt->flags.data_pending);
+	}
 	atomic_set(&mhi_dev_ctxt->flags.m3_work_enabled, 0);
 	mhi_dev_ctxt->flags.pending_M3 = 0;
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
