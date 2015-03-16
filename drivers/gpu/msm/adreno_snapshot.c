@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +27,9 @@
 #define SNAPSHOT_OBJ_BUFSIZE 64
 
 #define SNAPSHOT_OBJ_TYPE_IB 0
+
+/* Used to print error message if an IB has too many objects in it */
+static int ib_max_objs;
 
 /* Keep track of how many bytes are frozen after a snapshot and tell the user */
 static size_t snapshot_frozen_objsize;
@@ -167,14 +170,13 @@ static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
  * access the dynamic data from the sysfs file.  Push all other IBs on the
  * dynamic list
  */
-static inline int parse_ib(struct kgsl_device *device,
+static inline void parse_ib(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_process_private *process,
 		unsigned int gpuaddr, unsigned int dwords)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	unsigned int ib1base;
-	int ret = 0;
 	struct adreno_ib_object_list *ib_obj_list;
 
 	/*
@@ -188,24 +190,20 @@ static inline int parse_ib(struct kgsl_device *device,
 	if (gpuaddr == ib1base) {
 		push_object(SNAPSHOT_OBJ_TYPE_IB, process,
 			gpuaddr, dwords);
-		goto done;
+		return;
 	}
 
 	if (kgsl_snapshot_have_object(snapshot, process,
 					gpuaddr, dwords << 2))
-		goto done;
+		return;
 
-	ret = adreno_ib_create_object_list(device, process,
-				gpuaddr, dwords, &ib_obj_list);
-	if (ret)
-		goto done;
+	if (-E2BIG == adreno_ib_create_object_list(device, process,
+				gpuaddr, dwords, &ib_obj_list))
+		ib_max_objs = 1;
 
-	ret = kgsl_snapshot_add_ib_obj_list(snapshot, ib_obj_list);
+	if (ib_obj_list)
+		kgsl_snapshot_add_ib_obj_list(snapshot, ib_obj_list);
 
-	if (ret)
-		adreno_ib_destroy_obj_list(ib_obj_list);
-done:
-	return ret;
 }
 
 /* Snapshot the ringbuffer memory */
@@ -450,9 +448,12 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 
 	/* only do this for IB1 because the IB2's are part of IB1 objects */
 	if (meta->ib1base == obj->gpuaddr) {
-		if (!adreno_ib_create_object_list(device, obj->entry->priv,
-					obj->gpuaddr, obj->size >> 2,
-					&ib_obj_list)) {
+		if (-E2BIG == adreno_ib_create_object_list(device,
+				obj->entry->priv,
+				obj->gpuaddr, obj->size >> 2,
+				&ib_obj_list))
+			ib_max_objs = 1;
+		if (ib_obj_list) {
 			/* freeze the IB objects in the IB */
 			snapshot_freeze_obj_list(snapshot,
 						obj->entry->priv,
@@ -615,6 +616,7 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 
+	ib_max_objs = 0;
 	/* Reset the list of objects */
 	objbufptr = 0;
 
@@ -696,6 +698,8 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		dump_object(device, i, snapshot, ib1base, ib1size,
 			ib2base, ib2size);
 
+	if (ib_max_objs)
+		KGSL_CORE_ERR("Max objects found in IB\n");
 	if (snapshot_frozen_objsize)
 		KGSL_CORE_ERR("GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
