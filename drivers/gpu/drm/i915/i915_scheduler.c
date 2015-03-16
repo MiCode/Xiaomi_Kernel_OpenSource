@@ -1675,6 +1675,11 @@ bool i915_scheduler_is_ring_flying(struct intel_engine_cs *ring)
 	unsigned long   flags;
 	bool            found = false;
 
+	/* With the scheduler in bypass mode, no information can be returned. */
+	if (i915.scheduler_override & i915_so_direct_submit) {
+		return true;
+	}
+
 	spin_lock_irqsave(&scheduler->lock, flags);
 
 	list_for_each_entry(node, &scheduler->node_queue[ring->id], link) {
