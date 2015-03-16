@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -388,17 +388,16 @@ void a4xx_snapshot(struct adreno_device *adreno_dev,
 	list.registers = regs;
 	list.count = 0;
 
-	/* Disable SP clock gating for the debug bus to work on A430v2/A418 */
-	if (adreno_is_a430v2(adreno_dev) || adreno_is_a418(adreno_dev)) {
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP0, 0);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP1, 0);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP2, 0);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP3, 0);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP0, 0);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP1, 0);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP2, 0);
-		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP3, 0);
-	}
+	/* Disable SP clock gating for the debug bus to work */
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP0, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP1, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP2, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL_SP3, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP0, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP1, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP2, 0);
+	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2_SP3, 0);
+
 	/* Disable top level clock gating the debug bus to work */
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
