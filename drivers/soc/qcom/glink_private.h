@@ -758,6 +758,20 @@ uint32_t glink_ssr_get_seq_num(void);
 int glink_ssr(const char *subsystem);
 
 /**
+ * notify for subsystem() - Notify other subsystems that a subsystem is being
+ *                          restarted
+ * @ss_info:	Subsystem info structure for the subsystem being restarted
+ *
+ * This function sends notifications to affected subsystems that the subsystem
+ * in ss_info is being restarted, and waits for the cleanup done response from
+ * all of those subsystems. It also initiates any local cleanup that is
+ * necessary.
+ *
+ * Return: 0 on success, standard error codes otherwise
+ */
+int notify_for_subsystem(struct subsys_info *ss_info);
+
+/**
  * glink_ssr_wait_cleanup_done() - Get the value of the
  *                                 notifications_successful flag in glink_ssr.
  * @timeout_multiplier: timeout multiplier for waiting on all processors
