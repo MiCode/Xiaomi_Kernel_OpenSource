@@ -23,6 +23,7 @@
 #include <linux/sched.h>
 #include <linux/cdev.h>
 #include <mach/msm_pcie.h>
+#include <linux/sched.h>
 
 extern struct mhi_pcie_devices mhi_devices;
 
@@ -115,7 +116,8 @@ enum MHI_STATE {
 	MHI_STATE_M2 = 0x4,
 	MHI_STATE_M3 = 0x5,
 	MHI_STATE_BHI  = 0x7,
-	MHI_STATE_LIMIT = 0x8,
+	MHI_STATE_SYS_ERR  = 0x8,
+	MHI_STATE_LIMIT = 0x9,
 	MHI_STATE_reserved = 0x80000000
 };
 
@@ -170,6 +172,7 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_CMD_COMPLETION_EVENT = 0x21,
 	MHI_PKT_TYPE_TX_EVENT = 0x22,
 	MHI_PKT_TYPE_EE_EVENT = 0x40,
+	MHI_PKT_TYPE_SYS_ERR_EVENT = 0xFF,
 };
 
 struct __packed mhi_tx_pkt {
@@ -541,6 +544,8 @@ enum MHI_STATUS parse_cmd_event(struct mhi_device_ctxt *ctxt,
 int parse_event_thread(void *ctxt);
 enum MHI_STATUS mhi_test_for_device_ready(
 					struct mhi_device_ctxt *mhi_dev_ctxt);
+enum MHI_STATUS mhi_test_for_device_reset(
+					struct mhi_device_ctxt *mhi_dev_ctxt);
 enum MHI_STATUS validate_ring_el_addr(struct mhi_ring *ring, uintptr_t addr);
 enum MHI_STATUS validate_ev_el_addr(struct mhi_ring *ring, uintptr_t addr);
 int mhi_state_change_thread(void *ctxt);
@@ -590,5 +595,6 @@ u32 mhi_reg_read_field(void __iomem *io_addr, uintptr_t io_offset,
 void mhi_exit_m2(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_runtime_suspend(struct device *dev);
 int mhi_runtime_resume(struct device *dev);
+enum MHI_STATUS mhi_trigger_reset(struct mhi_device_ctxt *mhi_dev_ctxt);
 
 #endif

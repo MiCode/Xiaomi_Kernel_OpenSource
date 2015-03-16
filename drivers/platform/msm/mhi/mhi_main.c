@@ -239,7 +239,6 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 	chan = client_handle->chan;
 	mhi_log(MHI_MSG_INFO,
 		"Entered: Client opening chan 0x%x\n", chan);
-	init_completion(&client_handle->chan_open_complete);
 	mhi_dev_ctxt = client_handle->mhi_dev_ctxt;
 	switch (mhi_dev_ctxt->dev_exec_env) {
 	case MHI_EXEC_ENV_PBL:
@@ -688,6 +687,7 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 		break;
 	case MHI_COMMAND_START_CHAN:
 		switch (from_state) {
+		case MHI_CHAN_STATE_DISABLED:
 		case MHI_CHAN_STATE_ENABLED:
 		case MHI_CHAN_STATE_STOP:
 			to_state = MHI_CHAN_STATE_RUNNING;

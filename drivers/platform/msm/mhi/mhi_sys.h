@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,8 @@ int mhi_probe(struct pci_dev *mhi_device,
 ssize_t sysfs_init_m3(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count);
 ssize_t sysfs_init_m0(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count);
+ssize_t sysfs_init_mhi_reset(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count);
 
 #endif
