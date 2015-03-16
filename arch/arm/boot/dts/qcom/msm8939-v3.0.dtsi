@@ -457,3 +457,13 @@
 	qcom,enable-root-clk;
 	status = "okay";
 };
+
+&mdss_dsi0 {
+	qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
+	/delete-property/ qcom,regulator-ldo-mode;
+};
+
+&mdss_dsi1 {
+	qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
+	/delete-property/ qcom,regulator-ldo-mode;
+};
