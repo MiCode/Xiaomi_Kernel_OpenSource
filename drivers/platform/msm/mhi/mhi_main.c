@@ -731,14 +731,8 @@ static enum MHI_STATUS parse_outbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 	client_handle = mhi_dev_ctxt->client_handle_list[chan];
 
 	/* If ring is empty */
-	if (mhi_dev_ctxt->mhi_local_chan_ctxt[chan].rp ==
-	    mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp) {
-		mhi_dev_ctxt->mhi_chan_cntr[chan].empty_ring_removal++;
-		mhi_wait_for_mdm(mhi_dev_ctxt);
-		return mhi_send_cmd(mhi_dev_ctxt,
-					MHI_COMMAND_RESET_CHAN,
-					chan);
-	}
+	MHI_ASSERT(!unlikely(mhi_dev_ctxt->mhi_local_chan_ctxt[chan].rp ==
+	    mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp), "Empty Event Ring\n");
 
 	if (NULL != client_handle) {
 		result = &mhi_dev_ctxt->client_handle_list[chan]->result;
@@ -771,14 +765,8 @@ static enum MHI_STATUS parse_inbound(struct mhi_device_ctxt *mhi_dev_ctxt,
 	client_handle = mhi_dev_ctxt->client_handle_list[chan];
 	local_chan_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 
-	if (unlikely(mhi_dev_ctxt->mhi_local_chan_ctxt[chan].rp ==
-	    mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp)) {
-		mhi_dev_ctxt->mhi_chan_cntr[chan].empty_ring_removal++;
-		mhi_wait_for_mdm(mhi_dev_ctxt);
-		return mhi_send_cmd(mhi_dev_ctxt,
-				    MHI_COMMAND_RESET_CHAN,
-				    chan);
-	}
+	MHI_ASSERT(!unlikely(mhi_dev_ctxt->mhi_local_chan_ctxt[chan].rp ==
+	    mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp), "Empty Event Ring\n");
 
 	if (NULL != mhi_dev_ctxt->client_handle_list[chan])
 		result = &mhi_dev_ctxt->client_handle_list[chan]->result;
