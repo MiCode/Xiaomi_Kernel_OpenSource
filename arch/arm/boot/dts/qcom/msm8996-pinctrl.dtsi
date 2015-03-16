@@ -325,26 +325,6 @@
 			};
 		};
 
-		i2c_2 {
-			i2c_2_active: i2c_2_active {
-				i2c_2 {
-					pins = "gpio43", "gpio44";
-					function = "blsp_i2c2";
-					drive-strength = <2>;
-					bias-disable;
-				};
-			};
-
-			i2c_2_sleep: i2c_2_sleep {
-				i2c_2 {
-					pins = "gpio43", "gpio44";
-					function = "blsp_i2c2";
-					drive-strength = <2>;
-					bias-disable;
-				};
-			};
-		};
-
 		i2c_12 {
                         i2c_12_active: i2c_12_active {
                                 i2c_12 {
