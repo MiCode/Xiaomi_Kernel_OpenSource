@@ -2935,6 +2935,7 @@ struct drm_i915_gem_request *i915_gem_request_find_by_seqno(struct intel_engine_
 	unsigned long flags;
 
 	spin_lock_irqsave(&ring->reqlist_lock, flags);
+
 	list_for_each_entry(req, &ring->request_list, list) {
 		if (req->seqno == seqno)
 			break;
@@ -2944,6 +2945,10 @@ struct drm_i915_gem_request *i915_gem_request_find_by_seqno(struct intel_engine_
 			break;
 		}
 	}
+
+	if (&req->list == &ring->request_list)
+		req = NULL;
+
 	spin_unlock_irqrestore(&ring->reqlist_lock, flags);
 
 	return req;
