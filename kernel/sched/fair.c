@@ -8666,8 +8666,7 @@ static struct sched_group *find_busiest_group(struct lb_env *env)
 	if (!sds.busiest || busiest->sum_nr_running == 0)
 		goto out_balanced;
 
-	if (sched_boost() && (capacity(env->dst_rq) >
-				group_rq_capacity(sds.busiest)))
+	if (env->flags & LBF_HMP_ACTIVE_BALANCE)
 		goto force_balance;
 
 	if (bail_inter_cluster_balance(env, &sds))
