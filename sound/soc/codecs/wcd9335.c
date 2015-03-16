@@ -37,6 +37,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
 #include "wcd9335.h"
+#include "wcd-mbhc-v2.h"
 #include "wcd9xxx-common-v2.h"
 #include "wcd9xxx-resmgr-v2.h"
 
@@ -266,6 +267,77 @@ struct wcd_swr_ctrl_platform_data {
 			  int action);
 };
 
+static struct wcd_mbhc_register wcd_mbhc_registers[] = {
+	WCD_MBHC_REGISTER("WCD_MBHC_L_DET_EN",
+			  WCD9335_ANA_MBHC_MECH, 0x80, 7, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_GND_DET_EN",
+			  WCD9335_ANA_MBHC_MECH, 0x40, 6, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_MECH_DETECTION_TYPE",
+			  WCD9335_ANA_MBHC_MECH, 0x20, 5, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_MIC_CLAMP_CTL",
+			  WCD9335_MBHC_PLUG_DETECT_CTL, 0x30, 4, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ELECT_DETECTION_TYPE",
+			  WCD9335_ANA_MBHC_ELECT, 0x08, 3, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HS_L_DET_PULL_UP_CTRL",
+			  WCD9335_MBHC_PLUG_DETECT_CTL, 0xC0, 6, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HS_L_DET_PULL_UP_COMP_CTRL",
+			  WCD9335_ANA_MBHC_MECH, 0x04, 2, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HPHL_PLUG_TYPE",
+			  WCD9335_ANA_MBHC_MECH, 0x10, 4, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_GND_PLUG_TYPE",
+			  WCD9335_ANA_MBHC_MECH, 0x08, 3, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_SW_HPH_LP_100K_TO_GND",
+			  WCD9335_ANA_MBHC_MECH, 0x01, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ELECT_SCHMT_ISRC",
+			  WCD9335_ANA_MBHC_ELECT, 0x06, 1, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_FSM_EN",
+			  WCD9335_ANA_MBHC_ELECT, 0x80, 7, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_INSREM_DBNC",
+			  WCD9335_MBHC_PLUG_DETECT_CTL, 0x0F, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_BTN_DBNC",
+			  WCD9335_MBHC_CTL_1, 0x03, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HS_VREF",
+			  WCD9335_MBHC_CTL_2, 0x03, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HS_COMP_RESULT",
+			  WCD9335_ANA_MBHC_RESULT_3, 0x08, 3, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_MIC_SCHMT_RESULT",
+			  WCD9335_ANA_MBHC_RESULT_3, 0x20, 5, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HPHL_SCHMT_RESULT",
+			  WCD9335_ANA_MBHC_RESULT_3, 0x80, 7, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HPHR_SCHMT_RESULT",
+			  WCD9335_ANA_MBHC_RESULT_3, 0x40, 6, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_OCP_FSM_EN",
+			  WCD9335_HPH_OCP_CTL, 0x10, 4, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_BTN_RESULT",
+			  WCD9335_ANA_MBHC_RESULT_3, 0x07, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_BTN_ISRC_CTL",
+			  WCD9335_ANA_MBHC_ELECT, 0x70, 4, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_ELECT_RESULT",
+			  WCD9335_ANA_MBHC_RESULT_3, 0xFF, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_MICB_CTRL",
+			  WCD9335_ANA_MICB2, 0xC0, 6, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HPH_CNP_WG_TIME",
+			  WCD9335_HPH_CNP_WG_TIME, 0xFF, 0, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HPHR_PA_EN",
+			  WCD9335_ANA_HPH, 0x40, 6, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HPHL_PA_EN",
+			  WCD9335_ANA_HPH, 0x80, 7, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_HPH_PA_EN",
+			  WCD9335_ANA_HPH, 0xC0, 6, 0),
+	WCD_MBHC_REGISTER("WCD_MBHC_SWCH_LEVEL_REMOVE",
+			  WCD9335_ANA_MBHC_RESULT_3, 0x10, 4, 0),
+};
+
+static const struct wcd_mbhc_intr intr_ids = {
+	.mbhc_sw_intr =  WCD9335_IRQ_MBHC_SW_DET,
+	.mbhc_btn_press_intr = WCD9335_IRQ_MBHC_BUTTON_PRESS_DET,
+	.mbhc_btn_release_intr = WCD9335_IRQ_MBHC_BUTTON_RELEASE_DET,
+	.mbhc_hs_ins_intr = WCD9335_IRQ_MBHC_ELECT_INS_REM_LEG_DET,
+	.mbhc_hs_rem_intr = WCD9335_IRQ_MBHC_ELECT_INS_REM_DET,
+	.hph_left_ocp = WCD9335_IRQ_HPH_PA_OCPL_FAULT,
+	.hph_right_ocp = WCD9335_IRQ_HPH_PA_OCPR_FAULT,
+};
+
 struct tasha_priv {
 	struct device *dev;
 	struct wcd9xxx *wcd9xxx;
@@ -277,7 +349,8 @@ struct tasha_priv {
 	s32 dmic_2_3_clk_cnt;
 	s32 dmic_4_5_clk_cnt;
 	s32 ldo_h_users;
-	s32 micb_2_users;
+	s32 micb_ref;
+	s32 pullup_ref;
 
 	u32 anc_slot;
 	bool anc_func;
@@ -338,6 +411,11 @@ struct tasha_priv {
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
 
+	/* mbhc module */
+	struct wcd_mbhc mbhc;
+	struct blocking_notifier_head notifier;
+	struct mutex micb_lock;
+
 	struct clk *wcd_ext_clk;
 	struct mutex swr_read_lock;
 	struct mutex swr_write_lock;
@@ -392,6 +470,263 @@ void *tasha_get_afe_config(struct snd_soc_codec *codec,
 	}
 }
 EXPORT_SYMBOL(tasha_get_afe_config);
+
+static int tasha_mbhc_request_irq(struct snd_soc_codec *codec,
+				   int irq, irq_handler_t handler,
+				   const char *name, void *data)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
+	struct wcd9xxx_core_resource *core_res =
+				&wcd9xxx->core_res;
+
+	return wcd9xxx_request_irq(core_res, irq, handler, name, data);
+}
+
+static void tasha_mbhc_irq_control(struct snd_soc_codec *codec,
+				   int irq, bool enable)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
+	struct wcd9xxx_core_resource *core_res =
+				&wcd9xxx->core_res;
+	if (enable)
+		wcd9xxx_enable_irq(core_res, irq);
+	else
+		wcd9xxx_disable_irq(core_res, irq);
+}
+
+static int tasha_mbhc_free_irq(struct snd_soc_codec *codec,
+			       int irq, void *data)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
+	struct wcd9xxx_core_resource *core_res =
+				&wcd9xxx->core_res;
+
+	wcd9xxx_free_irq(core_res, irq, data);
+	return 0;
+}
+
+static void tasha_mbhc_clk_setup(struct snd_soc_codec *codec,
+				 bool enable)
+{
+	if (enable)
+		snd_soc_update_bits(codec, WCD9335_MBHC_CTL_1,
+				    0x80, 0x80);
+	else
+		snd_soc_update_bits(codec, WCD9335_MBHC_CTL_1,
+				    0x80, 0x00);
+}
+
+static int tasha_mbhc_btn_to_num(struct snd_soc_codec *codec)
+{
+	return snd_soc_read(codec, WCD9335_ANA_MBHC_RESULT_3) & 0x7;
+}
+
+static void tasha_mbhc_mbhc_bias_control(struct snd_soc_codec *codec,
+					 bool enable)
+{
+	if (enable)
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ELECT,
+				    0x01, 0x01);
+	else
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ELECT,
+				    0x01, 0x00);
+}
+
+static void tasha_mbhc_program_btn_thr(struct snd_soc_codec *codec,
+				       s16 *btn_low, s16 *btn_high,
+				       int num_btn, bool is_micbias)
+{
+	int i;
+	int vth;
+
+	if (num_btn > WCD_MBHC_DEF_BUTTONS) {
+		dev_err(codec->dev, "%s: invalid number of buttons: %d\n",
+			__func__, num_btn);
+		return;
+	}
+	/*
+	 * Tasha just needs one set of thresholds for button detection
+	 * due to micbias voltage ramp to pullup upon button press. So
+	 * btn_low and is_micbias are ignored and always program button
+	 * thresholds using btn_high.
+	 */
+	for (i = 0; i < num_btn; i++) {
+		vth = ((btn_high[i] * 2) / 25) & 0x3F;
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN0 + i,
+				    0xFC, vth << 2);
+		dev_dbg(codec->dev, "%s: btn_high[%d]: %d, vth: %d\n",
+			__func__, i, btn_high[i], vth);
+	}
+}
+
+static bool tasha_mbhc_lock_sleep(struct wcd_mbhc *mbhc, bool lock)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx *wcd9xxx = tasha->wcd9xxx;
+	struct wcd9xxx_core_resource *core_res =
+				&wcd9xxx->core_res;
+	if (lock)
+		return wcd9xxx_lock_sleep(core_res);
+	else {
+		wcd9xxx_unlock_sleep(core_res);
+		return 0;
+	}
+}
+
+static int tasha_mbhc_register_notifier(struct snd_soc_codec *codec,
+					struct notifier_block *nblock,
+					bool enable)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	if (enable)
+		return blocking_notifier_chain_register(&tasha->notifier,
+							nblock);
+	else
+		return blocking_notifier_chain_unregister(&tasha->notifier,
+							  nblock);
+}
+
+static bool tasha_mbhc_micb_en_status(struct wcd_mbhc *mbhc, int micb_num)
+{
+	u8 val;
+	if (micb_num == MIC_BIAS_2) {
+		val = (snd_soc_read(mbhc->codec, WCD9335_ANA_MICB2) >> 6);
+		if (val == 0x01)
+			return true;
+	}
+	return false;
+}
+
+static bool tasha_mbhc_hph_pa_on_status(struct snd_soc_codec *codec)
+{
+	return (snd_soc_read(codec, WCD9335_ANA_HPH) & 0xC0) ? true : false;
+}
+
+static void tasha_mbhc_hph_l_pull_up_control(struct snd_soc_codec *codec,
+					     bool is_insert)
+{
+	if (is_insert)
+		snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
+				    0xC0, 0x40);
+	else
+		snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
+				    0xC0, 0xC0);
+}
+
+static int tasha_micbias_control(struct snd_soc_codec *codec,
+				 int req)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	mutex_lock(&tasha->micb_lock);
+
+	switch (req) {
+	case MICB_PULLUP_ENABLE:
+		tasha->pullup_ref++;
+		if ((tasha->pullup_ref == 1) && (tasha->micb_ref == 0))
+			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
+					    0x80);
+		break;
+	case MICB_PULLUP_DISABLE:
+		tasha->pullup_ref--;
+		if ((tasha->pullup_ref == 0) && (tasha->micb_ref == 0))
+			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
+					    0x00);
+		break;
+	case MICB_ENABLE:
+		tasha->micb_ref++;
+		if (tasha->micb_ref == 1) {
+			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
+					    0x40);
+			blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_POST_MICBIAS_2_ON,
+					&tasha->mbhc);
+		}
+		break;
+	case MICB_DISABLE:
+		tasha->micb_ref--;
+		if ((tasha->micb_ref == 0) && (tasha->pullup_ref > 0))
+			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
+					    0x80);
+		else if ((tasha->micb_ref == 0) && (tasha->pullup_ref == 0)) {
+			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
+					    0x00);
+			blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_POST_MICBIAS_2_OFF,
+					&tasha->mbhc);
+		}
+		break;
+	};
+
+	dev_dbg(codec->dev, "%s: micb_ref: %d, pullup_ref: %d\n",
+		__func__, tasha->micb_ref, tasha->pullup_ref);
+
+	mutex_unlock(&tasha->micb_lock);
+
+	return 0;
+}
+
+static int tasha_mbhc_request_micbias(struct snd_soc_codec *codec,
+				      int req)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	/*
+	 * If micbias is requested, make sure that there
+	 * is vote to enable master bias
+	 */
+	if (req == MICB_ENABLE)
+		wcd_resmgr_enable_master_bias(tasha->resmgr);
+
+	tasha_micbias_control(codec, req);
+
+	/*
+	 * Release vote for master bias while requesting for
+	 * micbias disable
+	 */
+	if (req == MICB_DISABLE)
+		wcd_resmgr_disable_master_bias(tasha->resmgr);
+
+	return 0;
+}
+
+static void tasha_mbhc_micb_ramp_control(struct snd_soc_codec *codec,
+					bool enable)
+{
+	if (enable) {
+		snd_soc_update_bits(codec, WCD9335_ANA_MICB2_RAMP,
+				    0x1C, 0x0C);
+		snd_soc_update_bits(codec, WCD9335_ANA_MICB2_RAMP,
+				    0x80, 0x80);
+	} else {
+		snd_soc_update_bits(codec, WCD9335_ANA_MICB2_RAMP,
+				    0x80, 0x00);
+		snd_soc_update_bits(codec, WCD9335_ANA_MICB2_RAMP,
+				    0x1C, 0x00);
+	}
+}
+
+static const struct wcd_mbhc_cb mbhc_cb = {
+	.request_irq = tasha_mbhc_request_irq,
+	.irq_control = tasha_mbhc_irq_control,
+	.free_irq = tasha_mbhc_free_irq,
+	.clk_setup = tasha_mbhc_clk_setup,
+	.map_btn_code_to_num = tasha_mbhc_btn_to_num,
+	.mbhc_bias = tasha_mbhc_mbhc_bias_control,
+	.set_btn_thr = tasha_mbhc_program_btn_thr,
+	.lock_sleep = tasha_mbhc_lock_sleep,
+	.register_notifier = tasha_mbhc_register_notifier,
+	.micbias_enable_status = tasha_mbhc_micb_en_status,
+	.hph_pa_on_status = tasha_mbhc_hph_pa_on_status,
+	.hph_pull_up_control = tasha_mbhc_hph_l_pull_up_control,
+	.mbhc_micbias_control = tasha_mbhc_request_micbias,
+	.mbhc_micb_ramp_control = tasha_mbhc_micb_ramp_control,
+};
 
 static int tasha_get_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
@@ -2144,14 +2479,25 @@ static int tasha_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+		/*
+		 * MIC BIAS2 can also be requested by MBHC,
+		 * so use ref count to handle micbias2 pullup
+		 * and enable requests
+		 */
+		if (micb_reg == WCD9335_ANA_MICB2)
+			tasha_micbias_control(codec, MICB_ENABLE);
+		else
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
 		/* wait for cnp time */
 		usleep_range(1000, 1100);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
+		if (micb_reg == WCD9335_ANA_MICB2)
+			tasha_micbias_control(codec, MICB_DISABLE);
+		else
+			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
 		break;
 	};
 
@@ -6118,6 +6464,33 @@ int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 	return ret;
 }
 
+/*
+ * tasha_mbhc_hs_detect: starts mbhc insertion/removal functionality
+ * @codec: handle to snd_soc_codec *
+ * @mbhc_cfg: handle to mbhc configuration structure
+ * return 0 if mbhc_start is success or error code in case of failure
+ */
+int tasha_mbhc_hs_detect(struct snd_soc_codec *codec,
+			 struct wcd_mbhc_config *mbhc_cfg)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	return wcd_mbhc_start(&tasha->mbhc, mbhc_cfg);
+}
+EXPORT_SYMBOL(tasha_mbhc_hs_detect);
+
+/*
+ * tasha_mbhc_hs_detect_exit: stop mbhc insertion/removal functionality
+ * @codec: handle to snd_soc_codec *
+ */
+void tasha_mbhc_hs_detect_exit(struct snd_soc_codec *codec)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	wcd_mbhc_stop(&tasha->mbhc);
+}
+EXPORT_SYMBOL(tasha_mbhc_hs_detect_exit);
+
 static int wcd9335_get_micb_vout_ctl_val(u32 micb_mv)
 {
 	/* min micbias voltage is 1V and maximum is 2.85V */
@@ -6136,6 +6509,8 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	/* Rbuckfly/R_EAR(32) */
 	{WCD9335_CDC_CLSH_K2_MSB, 0x0F, 0x00},
 	{WCD9335_CDC_CLSH_K2_LSB, 0xFF, 0x60},
+	{WCD9335_HPH_R_TEST, 0x01, 0x01},
+	{WCD9335_HPH_L_TEST, 0x01, 0x01},
 	/* Enable TX HPF Filter & Linear Phase */
 	{WCD9335_CDC_TX0_TX_PATH_CFG0, 0x11, 0x11},
 	{WCD9335_CDC_TX1_TX_PATH_CFG0, 0x11, 0x11},
@@ -6179,6 +6554,8 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CDC_RX4_RX_PATH_SEC0, 0xF8, 0xF8},
 	{WCD9335_CDC_RX5_RX_PATH_SEC0, 0xF8, 0xF8},
 	{WCD9335_CDC_RX6_RX_PATH_SEC0, 0xF8, 0xF8},
+	{WCD9335_RX_OCP_COUNT, 0xFF, 0xFF},
+	{WCD9335_HPH_OCP_CTL, 0xF0, 0x70},
 };
 
 static void tasha_codec_init_reg(struct snd_soc_codec *codec)
@@ -6502,6 +6879,14 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	ret = tasha_handle_pdata(tasha, pdata);
 	if (IS_ERR_VALUE(ret)) {
 		pr_err("%s: bad pdata\n", __func__);
+		goto err;
+	}
+
+	/* Initialize MBHC module */
+	ret = wcd_mbhc_init(&tasha->mbhc, codec, &mbhc_cb, &intr_ids,
+		      wcd_mbhc_registers, TASHA_ZDET_SUPPORTED);
+	if (ret) {
+		pr_err("%s: mbhc initialization failed\n", __func__);
 		goto err;
 	}
 
@@ -6852,6 +7237,7 @@ static int tasha_probe(struct platform_device *pdev)
 	tasha->wcd9xxx = dev_get_drvdata(pdev->dev.parent);
 	tasha->dev = &pdev->dev;
 	INIT_WORK(&tasha->swr_add_devices_work, wcd_swr_ctrl_add_devices);
+	mutex_init(&tasha->micb_lock);
 	mutex_init(&tasha->swr_read_lock);
 	mutex_init(&tasha->swr_write_lock);
 	mutex_init(&tasha->swr_clk_lock);

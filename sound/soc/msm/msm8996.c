@@ -123,8 +123,6 @@ struct msm8996_asoc_mach_data {
 struct msm8996_asoc_wcd93xx_codec {
 	void* (*get_afe_config_fn)(struct snd_soc_codec *codec,
 				   enum afe_config_type config_type);
-	int (*mbhc_hs_detect)(struct snd_soc_codec *codec,
-			       struct wcd9xxx_mbhc_config *mbhc_cfg);
 	void (*mbhc_hs_detect_exit)(struct snd_soc_codec *codec);
 };
 
@@ -141,8 +139,18 @@ static struct msm8996_liquid_dock_dev *msm8996_liquid_dock_dev;
 
 static void *adsp_state_notifier;
 static void *def_codec_mbhc_cal(void);
+static void *def_tasha_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
+
+static struct wcd_mbhc_config wcd_mbhc_cfg = {
+	.read_fw_bin = false,
+	.calibration = NULL,
+	.detect_extn_cable = true,
+	.mono_stero_detection = false,
+	.swap_gnd_mic = NULL,
+	.hs_ext_micbias = true,
+};
 
 static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.read_fw_bin = false,
@@ -1299,6 +1307,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
 	struct snd_soc_dai *codec_dai = rtd->codec_dai;
 	bool cdc_type = 0;
+	void *mbhc_calibration;
 
 	/* Codec SLIMBUS configuration
 	 * RX1, RX2, RX3, RX4, RX5, RX6, RX7, RX8, RX9, RX10, RX11, RX12, RX13
@@ -1404,11 +1413,10 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 
 	if (cdc_type) {
 		msm8996_codec_fn.get_afe_config_fn = tasha_get_afe_config;
-		msm8996_codec_fn.mbhc_hs_detect = NULL;
-		msm8996_codec_fn.mbhc_hs_detect_exit = NULL;
+		msm8996_codec_fn.mbhc_hs_detect_exit =
+						tasha_mbhc_hs_detect_exit;
 	} else {
 		msm8996_codec_fn.get_afe_config_fn = tomtom_get_afe_config;
-		msm8996_codec_fn.mbhc_hs_detect = tomtom_hs_detect;
 		msm8996_codec_fn.mbhc_hs_detect_exit = tomtom_hs_detect_exit;
 	}
 	err = msm_afe_set_config(codec);
@@ -1449,13 +1457,22 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		}
 	}
 	/* Start mbhc */
-	if (cdc_type == 1)
-		goto out_mbhc;
-	mbhc_cfg.calibration = def_codec_mbhc_cal();
-	if (mbhc_cfg.calibration) {
-		err = tomtom_hs_detect(codec, &mbhc_cfg);
+	if (cdc_type)
+		mbhc_calibration = def_tasha_mbhc_cal();
+	else
+		mbhc_calibration = def_codec_mbhc_cal();
+	if (mbhc_calibration) {
+		if (cdc_type) {
+			wcd_mbhc_cfg.calibration = mbhc_calibration;
+			err = tasha_mbhc_hs_detect(codec,
+					&wcd_mbhc_cfg);
+		} else {
+			mbhc_cfg.calibration = mbhc_calibration;
+			err = tomtom_hs_detect(codec,
+					&mbhc_cfg);
+		}
 		if (err) {
-			pr_err("%s: tomtom_hs_detect failed, err:%d\n",
+			pr_err("%s: mbhc hs detect failed, err:%d\n",
 				__func__, err);
 			goto out;
 		}
@@ -1464,7 +1481,6 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		err = -ENOMEM;
 		goto out;
 	}
-out_mbhc:
 	adsp_state_notifier = subsys_notif_register_notifier("adsp",
 						&adsp_state_notifier_block);
 	if (!adsp_state_notifier) {
@@ -1472,7 +1488,7 @@ out_mbhc:
 		       __func__);
 		err = -EFAULT;
 		if (cdc_type == 0)
-			tomtom_hs_detect_exit(codec);
+			msm8996_codec_fn.mbhc_hs_detect_exit(codec);
 		goto out;
 	}
 
@@ -1488,6 +1504,42 @@ out:
 	return err;
 }
 
+static void *def_tasha_mbhc_cal(void)
+{
+	void *tasha_wcd_cal;
+	struct wcd_mbhc_btn_detect_cfg *btn_cfg;
+	u16 *btn_high;
+
+	tasha_wcd_cal = kzalloc(WCD_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
+				WCD9XXX_MBHC_DEF_RLOADS), GFP_KERNEL);
+	if (!tasha_wcd_cal) {
+		pr_err("%s: out of memory\n", __func__);
+		return NULL;
+	}
+
+#define S(X, Y) ((WCD_MBHC_CAL_PLUG_TYPE_PTR(tasha_wcd_cal)->X) = (Y))
+	S(v_hs_max, 1500);
+#undef S
+#define S(X, Y) ((WCD_MBHC_CAL_BTN_DET_PTR(tasha_wcd_cal)->X) = (Y))
+	S(num_btn, WCD_MBHC_DEF_BUTTONS);
+#undef S
+
+	btn_cfg = WCD_MBHC_CAL_BTN_DET_PTR(tasha_wcd_cal);
+	btn_high = ((void *)&btn_cfg->_v_btn_low) +
+		(sizeof(btn_cfg->_v_btn_low[0]) * btn_cfg->num_btn);
+
+	btn_high[0] = 75;
+	btn_high[1] = 150;
+	btn_high[2] = 237;
+	btn_high[3] = 450;
+	btn_high[4] = 500;
+	btn_high[5] = 590;
+	btn_high[6] = 675;
+	btn_high[7] = 780;
+
+	return tasha_wcd_cal;
+}
+
 static void *def_codec_mbhc_cal(void)
 {
 	void *codec_cal;
@@ -1495,7 +1547,7 @@ static void *def_codec_mbhc_cal(void)
 	u16 *btn_low, *btn_high;
 	u8 *n_ready, *n_cic, *gain;
 
-	codec_cal = kzalloc(WCD9XXX_MBHC_CAL_SIZE(WCD9XXX_MBHC_DEF_BUTTONS,
+	codec_cal = kzalloc(WCD9XXX_MBHC_CAL_SIZE(WCD_MBHC_DEF_BUTTONS,
 						WCD9XXX_MBHC_DEF_RLOADS),
 			    GFP_KERNEL);
 	if (!codec_cal) {

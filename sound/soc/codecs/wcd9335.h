@@ -17,6 +17,7 @@
 #include <sound/jack.h>
 #include <sound/apr_audio-v2.h>
 #include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
+#include "wcd-mbhc-v2.h"
 
 #define TASHA_REG_VAL(reg, val)      {reg, 0, val}
 
@@ -99,4 +100,7 @@ extern void *tasha_get_afe_config(struct snd_soc_codec *codec,
 extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable,
 				 bool dapm);
 extern int tasha_enable_efuse_sensing(struct snd_soc_codec *codec);
+extern int tasha_mbhc_hs_detect(struct snd_soc_codec *codec,
+				struct wcd_mbhc_config *mbhc_cfg);
+extern void tasha_mbhc_hs_detect_exit(struct snd_soc_codec *codec);
 #endif

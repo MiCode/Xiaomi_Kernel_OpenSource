@@ -31,6 +31,7 @@ struct wcd9xxx_resmgr_v2 {
 	int clk_rco_users;
 
 	struct mutex codec_bg_clk_lock;
+	struct mutex master_bias_lock;
 
 	enum wcd_clock_type clk_type;
 };

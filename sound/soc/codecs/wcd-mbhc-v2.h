@@ -80,6 +80,18 @@ enum {
 };
 
 enum {
+	REMOVE = 0,
+	INSERT,
+};
+
+enum {
+	MICB_PULLUP_ENABLE,
+	MICB_PULLUP_DISABLE,
+	MICB_ENABLE,
+	MICB_DISABLE,
+};
+
+enum {
 	MBHC_COMMON_MICB_PRECHARGE,
 	MBHC_COMMON_MICB_SET_VAL,
 	MBHC_COMMON_MICB_TAIL_CURR,
@@ -282,6 +294,9 @@ struct wcd_mbhc_cb {
 	bool (*hph_pa_on_status)(struct snd_soc_codec *);
 	void (*set_btn_thr)(struct snd_soc_codec *, s16 *, s16 *,
 			    int num_btn, bool);
+	void (*hph_pull_up_control)(struct snd_soc_codec *, bool);
+	int (*mbhc_micbias_control)(struct snd_soc_codec *, int req);
+	void (*mbhc_micb_ramp_control)(struct snd_soc_codec *, bool);
 };
 
 struct wcd_mbhc {
