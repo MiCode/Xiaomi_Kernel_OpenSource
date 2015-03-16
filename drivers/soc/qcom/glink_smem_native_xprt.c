@@ -111,6 +111,8 @@ struct channel_desc {
  * @xprt_cfg:			The transport configuration for the glink core
  *				assocaited with this edge.
  * @intentless:			True if this edge runs in intentless mode.
+ * @irq_disabled:		Flag indicating the whether interrupt is enabled
+ *				or disabled.
  * @remote_proc_id:		The SMEM processor id for the remote side.
  * @out_irq_reg:		Reference to the register to send an irq to the
  *				remote side.
@@ -147,6 +149,7 @@ struct edge_info {
 	struct glink_transport_if xprt_if;
 	struct glink_core_transport_cfg xprt_cfg;
 	bool intentless;
+	bool irq_disabled;
 	uint32_t remote_proc_id;
 	void __iomem *out_irq_reg;
 	uint32_t out_irq_mask;
@@ -1511,10 +1514,12 @@ static int mask_rx_irq(struct glink_transport_if *if_ptr, uint32_t lcid,
 
 	if (mask) {
 		irq_chip->irq_mask(irq_data);
+		einfo->irq_disabled = true;
 		if (pstruct)
 			irq_set_affinity(einfo->irq_line, pstruct);
 	} else {
 		irq_chip->irq_unmask(irq_data);
+		einfo->irq_disabled = false;
 	}
 
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
