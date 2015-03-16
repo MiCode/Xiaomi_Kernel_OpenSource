@@ -141,13 +141,11 @@ DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_CLK_ID);
 /* SMD_XO_BUFFER */
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk2, bb_clk2_a, BB_CLK2_ID);
-DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk1, rf_clk1_a, RF_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER(rf_clk2, rf_clk2_a, RF_CLK2_ID);
+DEFINE_CLK_RPM_SMD_XO_BUFFER(div_clk1, div_clk1_a, DIV_CLK1_ID);
 
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk1_pin, bb_clk1_a_pin, BB_CLK1_ID);
 DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(bb_clk2_pin, bb_clk2_a_pin, BB_CLK2_ID);
-DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk1_pin, rf_clk1_a_pin, RF_CLK1_ID);
-DEFINE_CLK_RPM_SMD_XO_BUFFER_PINCTRL(rf_clk2_pin, rf_clk2_a_pin, RF_CLK2_ID);
 
 /* Voter clocks */
 static DEFINE_CLK_VOTER(pnoc_msmbus_clk, &pnoc_clk.c, LONG_MAX);
@@ -173,6 +171,8 @@ static DEFINE_CLK_BRANCH_VOTER(xo_pil_pronto_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_mss_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_wlan_clk, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_pil_lpass_clk, &xo_clk_src.c);
+
+DEFINE_CLK_DUMMY(wcnss_m_clk, 0);
 
 enum vdd_sr2_pll_levels {
 	VDD_SR2_PLL_OFF,
@@ -2966,6 +2966,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_mdss_vsync_clk.c, 0x01fb },
 		{ &gcc_mdss_byte0_clk.c, 0x01fc },
 		{ &gcc_mdss_esc0_clk.c, 0x01fd },
+		{ &wcnss_m_clk.c, 0x0198 },
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -3020,19 +3021,15 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(bb_clk1_a),
 	CLK_LIST(bb_clk2),
 	CLK_LIST(bb_clk2_a),
-	CLK_LIST(rf_clk1),
-	CLK_LIST(rf_clk1_a),
 	CLK_LIST(rf_clk2),
 	CLK_LIST(rf_clk2_a),
+	CLK_LIST(div_clk1),
+	CLK_LIST(div_clk1_a),
 
 	CLK_LIST(bb_clk1_pin),
 	CLK_LIST(bb_clk1_a_pin),
 	CLK_LIST(bb_clk2_pin),
 	CLK_LIST(bb_clk2_a_pin),
-	CLK_LIST(rf_clk1_pin),
-	CLK_LIST(rf_clk1_a_pin),
-	CLK_LIST(rf_clk2_pin),
-	CLK_LIST(rf_clk2_a_pin),
 
 	CLK_LIST(gpll0_clk_src),
 	CLK_LIST(gpll0_ao_clk_src),
@@ -3212,6 +3209,9 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	/* Reset clks */
 	CLK_LIST(gcc_usb2_hs_phy_only_clk),
 	CLK_LIST(gcc_qusb2_phy_clk),
+
+	/* WCNSS Debug */
+	CLK_LIST(wcnss_m_clk),
 };
 
 /* Please note that the order of reg-names is important */
