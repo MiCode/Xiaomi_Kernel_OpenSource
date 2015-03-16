@@ -675,6 +675,7 @@ struct intel_dp {
 	int backlight_off_delay;
 	struct delayed_work panel_vdd_work;
 	bool want_panel_vdd;
+	bool psr_setup_done;
 	bool do_fast_link_train;
 	bool has_fast_link_train;
 	unsigned long last_power_cycle;
@@ -990,7 +991,7 @@ void intel_edp_panel_on(struct intel_dp *intel_dp);
 void intel_edp_panel_off(struct intel_dp *intel_dp);
 void intel_edp_psr_enable(struct intel_dp *intel_dp);
 void intel_edp_psr_disable(struct intel_dp *intel_dp);
-void intel_edp_psr_update(struct drm_device *dev);
+void intel_edp_psr_update(struct drm_device *dev, bool suspend);
 void intel_vlv_edp_psr_update(struct drm_device *dev);
 void intel_vlv_edp_psr_disable(struct drm_device *dev);
 void intel_vlv_edp_psr_exit(struct drm_device *dev, bool disable);

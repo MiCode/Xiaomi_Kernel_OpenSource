@@ -1782,7 +1782,7 @@ static void intel_edp_psr_setup(struct intel_dp *intel_dp)
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct edp_vsc_psr psr_vsc;
 
-	if (dev_priv->psr.setup_done)
+	if (intel_dp->psr_setup_done)
 		return;
 
 	mutex_init(&dev_priv->psr.lock);
@@ -1799,7 +1799,7 @@ static void intel_edp_psr_setup(struct intel_dp *intel_dp)
 	I915_WRITE(EDP_PSR_DEBUG_CTL(dev), EDP_PSR_DEBUG_MASK_MEMUP |
 		   EDP_PSR_DEBUG_MASK_HPD | EDP_PSR_DEBUG_MASK_LPSP);
 
-	dev_priv->psr.setup_done = true;
+	intel_dp->psr_setup_done = true;
 }
 
 static void intel_edp_psr_enable_sink(struct intel_dp *intel_dp)
@@ -1968,14 +1968,11 @@ void intel_edp_psr_disable(struct intel_dp *intel_dp)
 		DRM_ERROR("Timed out waiting for PSR Idle State\n");
 }
 
-void intel_edp_psr_update(struct drm_device *dev)
+void intel_edp_psr_update(struct drm_device *dev, bool suspend)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct intel_encoder *encoder;
 	struct intel_dp *intel_dp = NULL;
-
-	if (!dev_priv->psr.setup_done)
-		return;
 
 	/* VLV/CHV handle PSR differently */
 	if (IS_VALLEYVIEW(dev))
@@ -1985,8 +1982,13 @@ void intel_edp_psr_update(struct drm_device *dev)
 		if (encoder->type == INTEL_OUTPUT_EDP) {
 			intel_dp = enc_to_intel_dp(&encoder->base);
 
-			if (!is_edp_psr(dev))
+			if (!is_edp_psr(dev) || !intel_dp->psr_setup_done)
 				return;
+			else if (suspend) {
+				/* call is from suspend path to clear flag */
+				intel_dp->psr_setup_done = false;
+				return;
+			}
 
 			mutex_lock(&dev_priv->psr.lock);
 			if (!intel_edp_psr_match_conditions(intel_dp))
@@ -2334,9 +2336,6 @@ void intel_vlv_edp_psr_update(struct drm_device *dev)
 	struct intel_dp *intel_dp = NULL;
 	bool flag;
 
-	if (!dev_priv->psr.setup_done)
-		return;
-
 	if (!IS_VALLEYVIEW(dev) || !is_edp_psr(dev))
 		return;
 
@@ -2345,7 +2344,7 @@ void intel_vlv_edp_psr_update(struct drm_device *dev)
 			continue;
 
 		intel_dp = enc_to_intel_dp(&enc->base);
-		if (!intel_dp)
+		if (!intel_dp || !intel_dp->psr_setup_done)
 			break;
 
 		mutex_lock(&dev_priv->psr.lock);
@@ -2371,8 +2370,9 @@ void intel_vlv_edp_psr_update(struct drm_device *dev)
 void intel_vlv_edp_psr_exit(struct drm_device *dev, bool disable)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	struct intel_dp *intel_dp = dev_priv->psr.enabled;
 
-	if (!dev_priv->psr.setup_done || !IS_VALLEYVIEW(dev))
+	if (!intel_dp || !intel_dp->psr_setup_done || !IS_VALLEYVIEW(dev))
 		return;
 
 	mutex_lock(&dev_priv->psr.lock);
@@ -2440,7 +2440,7 @@ static void intel_vlv_edp_psr_init(struct intel_dp *intel_dp)
 	mutex_init(&dev_priv->psr.lock);
 	dev_priv->psr.dp_setup = intel_dp;
 	dev_priv->psr.enabled = NULL;
-	dev_priv->psr.setup_done = true;
+	intel_dp->psr_setup_done = true;
 	atomic_set(&dev_priv->psr.update_pending, 0);
 
 	INIT_DELAYED_WORK(&dev_priv->psr.work,
@@ -5445,8 +5445,6 @@ intel_dp_init_connector(struct intel_digital_port *intel_dig_port,
 	}
 
 	intel_dp_aux_init(intel_dp, intel_connector);
-
-	dev_priv->psr.setup_done = false;
 
 	if (!intel_edp_init_connector(intel_dp, intel_connector, &power_seq)) {
 		drm_dp_aux_unregister(&intel_dp->aux);

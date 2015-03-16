@@ -313,8 +313,7 @@ static void i915_restore_display(struct drm_device *dev)
 	}
 
 	/* Force a full PSR setup on resume */
-	dev_priv->psr.setup_done = false;
-	intel_edp_psr_update(dev);
+	intel_edp_psr_update(dev, true);
 
 	/* only restore FBC info on the platform that supports FBC*/
 	intel_disable_fbc(dev);
