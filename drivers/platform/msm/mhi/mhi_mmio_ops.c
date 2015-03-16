@@ -13,6 +13,33 @@
 #include "mhi_hwio.h"
 #include "mhi.h"
 
+enum MHI_STATUS mhi_test_for_device_reset(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	u32 pcie_word_val = 0;
+	u32 expiry_counter;
+	mhi_log(MHI_MSG_INFO, "Waiting for MMIO RESET bit to be cleared.\n");
+	pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_addr, MHISTATUS);
+	MHI_READ_FIELD(pcie_word_val,
+			MHICTRL_RESET_MASK,
+			MHICTRL_RESET_SHIFT);
+	if (pcie_word_val == 0xFFFFFFFF)
+		return MHI_STATUS_LINK_DOWN;
+	while (MHI_STATE_RESET != pcie_word_val && expiry_counter < 100) {
+		expiry_counter++;
+		mhi_log(MHI_MSG_ERROR,
+			"Device is not RESET, sleeping and retrying.\n");
+		msleep(MHI_READY_STATUS_TIMEOUT_MS);
+		pcie_word_val = mhi_reg_read(mhi_dev_ctxt->mmio_addr, MHICTRL);
+		MHI_READ_FIELD(pcie_word_val,
+				MHICTRL_RESET_MASK,
+				MHICTRL_RESET_SHIFT);
+	}
+
+	if (MHI_STATE_READY != pcie_word_val)
+		return MHI_STATUS_DEVICE_NOT_READY;
+	return MHI_STATUS_SUCCESS;
+}
+
 enum MHI_STATUS mhi_test_for_device_ready(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 pcie_word_val = 0;
