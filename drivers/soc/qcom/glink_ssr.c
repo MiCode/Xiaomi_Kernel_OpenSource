@@ -408,8 +408,10 @@ int notify_for_subsystem(struct subsys_info *ss_info)
 		ss_leaf_entry->cb_data = ss_info_channel->cb_data;
 
 		if (IS_ERR_OR_NULL(ss_info_channel->handle) ||
-			ss_info_channel->cb_data->event != GLINK_CONNECTED ||
-				!ss_info_channel->link_up) {
+				!ss_info_channel->cb_data ||
+				!ss_info_channel->link_up ||
+				ss_info_channel->cb_data->event
+						!= GLINK_CONNECTED) {
 
 			GLINK_INFO("<SSR> %s: %s:%s %s[%d], %s[%p], %s[%d]\n",
 				__func__, ss_leaf_entry->edge, "Not connected",
