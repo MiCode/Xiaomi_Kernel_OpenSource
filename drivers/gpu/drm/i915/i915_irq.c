@@ -4933,11 +4933,21 @@ static void i915_hpd_irq_setup(struct drm_device *dev)
 	if (I915_HAS_HOTPLUG(dev)) {
 		hotplug_en = I915_READ(PORT_HOTPLUG_EN);
 		hotplug_en &= ~HOTPLUG_INT_EN_MASK;
-		/* Note HDMI and DP share hotplug bits */
-		/* enable bits are the same for all generations */
-		list_for_each_entry(intel_encoder, &mode_config->encoder_list, base.head)
-			if (dev_priv->hpd_stats[intel_encoder->hpd_pin].hpd_mark == HPD_ENABLED)
+
+		/*
+		 * Note HDMI and DP share hotplug bits
+		 * enable bits are the same for all generations
+		 * Also, avoid enabling HPD for eDP since it is not required
+		 */
+		list_for_each_entry(intel_encoder,
+			&mode_config->encoder_list, base.head) {
+			int hpd_status;
+			int port = intel_encoder->hpd_pin;
+			hpd_status = dev_priv->hpd_stats[port].hpd_mark;
+			if ((intel_encoder->type != INTEL_OUTPUT_EDP) &&
+				(hpd_status == HPD_ENABLED))
 				hotplug_en |= hpd_mask_i915[intel_encoder->hpd_pin];
+		}
 		/* Programming the CRT detection parameters tends
 		   to generate a spurious hotplug event about three
 		   seconds later.  So just do it once.
