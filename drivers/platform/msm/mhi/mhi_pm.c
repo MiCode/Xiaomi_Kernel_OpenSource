@@ -24,12 +24,14 @@
 /* Write only sysfs attributes */
 static DEVICE_ATTR(MHI_M3, S_IWUSR, NULL, sysfs_init_m3);
 static DEVICE_ATTR(MHI_M0, S_IWUSR, NULL, sysfs_init_m0);
+static DEVICE_ATTR(MHI_RESET, S_IWUSR, NULL, sysfs_init_mhi_reset);
 
 /* Read only sysfs attributes */
 
 static struct attribute *mhi_attributes[] = {
 	&dev_attr_MHI_M3.attr,
 	&dev_attr_MHI_M0.attr,
+	&dev_attr_MHI_RESET.attr,
 	NULL,
 };
 
@@ -141,7 +143,22 @@ ssize_t sysfs_init_m3(struct device *dev, struct device_attribute *attr,
 
 	return count;
 }
-
+ssize_t sysfs_init_mhi_reset(struct device *dev, struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	struct mhi_device_ctxt *mhi_dev_ctxt =
+		&mhi_devices.device_list[0].mhi_ctxt;
+	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	mhi_log(MHI_MSG_INFO, "Triggering MHI Reset.\n");
+	ret_val = mhi_trigger_reset(mhi_dev_ctxt);
+	if (ret_val != MHI_STATUS_SUCCESS)
+		mhi_log(MHI_MSG_CRITICAL,
+			"Failed to trigger MHI RESET ret %d\n",
+			ret_val);
+	else
+		mhi_log(MHI_MSG_INFO, "Triggered! MHI RESET\n");
+	return count;
+}
 ssize_t sysfs_init_m0(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t count)
 {

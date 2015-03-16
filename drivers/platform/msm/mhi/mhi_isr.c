@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -71,6 +71,7 @@ static enum MHI_STATUS mhi_process_event_ring(
 	struct mhi_event_ctxt *ev_ctxt = NULL;
 	struct mhi_ring *local_ev_ctxt =
 		&mhi_dev_ctxt->mhi_local_event_ctxt[ev_index];
+	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 
 	ev_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[ev_index];
 
@@ -103,7 +104,7 @@ static enum MHI_STATUS mhi_process_event_ring(
 					ev_index);
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
-			parse_cmd_event(mhi_dev_ctxt,
+			ret_val = parse_cmd_event(mhi_dev_ctxt,
 					&event_to_process);
 			break;
 		case MHI_PKT_TYPE_TX_EVENT:
@@ -143,6 +144,13 @@ static enum MHI_STATUS mhi_process_event_ring(
 			}
 			break;
 		}
+		case MHI_PKT_TYPE_SYS_ERR_EVENT:
+			mhi_log(MHI_MSG_INFO,
+				"MHI System Error Detected. Triggering Reset\n");
+			if (!mhi_trigger_reset(mhi_dev_ctxt))
+				mhi_log(MHI_MSG_ERROR,
+				"Failed to reset for SYSERR recovery\n");
+		break;
 		default:
 			mhi_log(MHI_MSG_ERROR,
 				"Unsupported packet type code 0x%x\n",
@@ -154,6 +162,11 @@ static enum MHI_STATUS mhi_process_event_ring(
 		device_rp = (union mhi_event_pkt *)mhi_p2v_addr(
 					mhi_dev_ctxt->mhi_ctrl_seg_info,
 					(u64)ev_ctxt->mhi_event_read_ptr);
+		if (mhi_dev_ctxt->mhi_state == MHI_STATE_SYS_ERR) {
+			mhi_log(MHI_MSG_ERROR,
+				"Detected system error, stopping.\n");
+			return MHI_STATUS_ERROR;
+		}
 		--event_quota;
 	}
 	return MHI_STATUS_SUCCESS;
@@ -200,6 +213,13 @@ int parse_event_thread(void *ctxt)
 			MHI_GET_EVENT_RING_INFO(EVENT_RING_POLLING,
 					mhi_dev_ctxt->ev_ring_props[i],
 					ev_poll_en)
+			if (mhi_dev_ctxt->mhi_state == MHI_STATE_SYS_ERR) {
+				mhi_log(MHI_MSG_INFO,
+				   "SYS_ERR detected, not processing events\n");
+				atomic_set(&mhi_dev_ctxt->flags.events_pending,
+					   0);
+				break;
+			}
 			if (ev_poll_en) {
 				mhi_process_event_ring(mhi_dev_ctxt,
 				 mhi_dev_ctxt->alloced_ev_rings[i],
