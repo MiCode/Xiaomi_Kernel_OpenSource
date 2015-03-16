@@ -4375,6 +4375,7 @@
 		interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
 		USB3_GDSC-supply = <&gdsc_usb30>;
+		vdda33-supply = <&pma8084_l24>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
 		qcom,misc-ref = <&pma8084_misc>;

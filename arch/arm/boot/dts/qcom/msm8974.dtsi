@@ -1573,6 +1573,7 @@
 		interrupt-names = "hs_phy_irq", "pmic_id_irq";
 
 		vbus_dwc3-supply = <&pm8941_mvs1>;
+		vdda33-supply = <&pm8941_l24>;
 		qcom,misc-ref = <&pm8941_misc>;
 		dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
