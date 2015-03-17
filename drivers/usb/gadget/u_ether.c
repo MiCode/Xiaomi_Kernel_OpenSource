@@ -130,9 +130,9 @@ struct eth_dev {
 	unsigned long		rx_throttle;
 	unsigned int		tx_aggr_cnt[DL_MAX_PKTS_PER_XFER];
 	unsigned int		tx_pkts_rcvd;
+	unsigned int		tx_bytes_rcvd;
 	unsigned int		loop_brk_cnt;
 	struct dentry		*uether_dent;
-	struct dentry		*uether_dfile;
 
 	enum ifc_state		state;
 	struct notifier_block	cpufreq_notifier;
@@ -392,7 +392,6 @@ static void rx_complete(struct usb_ep *ep, struct usb_request *req)
 	/* normal completion */
 	case 0:
 		skb_put(skb, req->actual);
-
 		if (dev->unwrap) {
 			unsigned long	flags;
 
@@ -1075,6 +1074,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 
 	dev->tx_pkts_rcvd++;
+	dev->tx_bytes_rcvd += skb->len;
 	if (dev->sg_enabled) {
 		skb_queue_tail(&dev->tx_skb_q, skb);
 		if (dev->tx_skb_q.qlen > tx_stop_threshold) {
@@ -2017,6 +2017,38 @@ const struct file_operations uether_stats_ops = {
 	.write = uether_stat_reset,
 };
 
+static int uether_bytes_rcvd_show(struct seq_file *s, void *unused)
+{
+	struct eth_dev *dev = s->private;
+
+	if (dev)
+		seq_printf(s, "%u\n", dev->tx_bytes_rcvd);
+
+	return 0;
+}
+
+static int uether_bytes_rcvd_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, uether_bytes_rcvd_show, inode->i_private);
+}
+
+static ssize_t uether_bytes_rcvd_reset(struct file *file,
+		const char __user *ubuf, size_t count, loff_t *ppos)
+{
+	struct seq_file *s = file->private_data;
+	struct eth_dev *dev = s->private;
+
+	dev->tx_bytes_rcvd = 0;
+
+	return count;
+}
+
+const struct file_operations uether_bytes_rcvd_ops = {
+	.open = uether_bytes_rcvd_open,
+	.read = seq_read,
+	.write = uether_bytes_rcvd_reset,
+};
+
 static void uether_debugfs_init(struct eth_dev *dev, const char *name)
 {
 	struct dentry *uether_dent;
@@ -2031,15 +2063,16 @@ static void uether_debugfs_init(struct eth_dev *dev, const char *name)
 				uether_dent, dev, &uether_stats_ops);
 	if (!uether_dfile || IS_ERR(uether_dfile))
 		debugfs_remove(uether_dent);
-	dev->uether_dfile = uether_dfile;
+
+	uether_dfile = debugfs_create_file("tx_bytes_rcvd", S_IRUGO | S_IWUSR,
+				uether_dent, dev, &uether_bytes_rcvd_ops);
+	if (!uether_dfile || IS_ERR(uether_dfile))
+		debugfs_remove_recursive(uether_dent);
 }
 
 static void uether_debugfs_exit(struct eth_dev *dev)
 {
-	debugfs_remove(dev->uether_dfile);
-	debugfs_remove(dev->uether_dent);
-	dev->uether_dent = NULL;
-	dev->uether_dfile = NULL;
+	debugfs_remove_recursive(dev->uether_dent);
 }
 
 static int __init gether_init(void)
