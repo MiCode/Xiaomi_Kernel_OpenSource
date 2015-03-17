@@ -531,7 +531,7 @@ enum ia_css_err
 ia_css_binary_init_infos(void)
 {
 	unsigned int i;
-	unsigned int num_of_isp_binaries = sh_css_num_binaries - NUM_OF_SPS - NUM_OF_BLS;
+	unsigned int num_of_isp_binaries = sh_css_num_binaries - NUM_OF_SPS;
 
 	if (num_of_isp_binaries == 0)
 		return IA_CSS_SUCCESS;

@@ -282,16 +282,5 @@ extern void ia_css_pipe_get_ldc_binarydesc(
 	struct ia_css_frame_info *in_info,
 	struct ia_css_frame_info *out_info);
 
-/** @brief Calculates the required BDS factor
- *
- * @param[in] input_res
- * @param[in] output_res
- * @param[in/out] bds_factor
- * @return	IA_CSS_SUCCESS or error code upon error.
- */
-enum ia_css_err binarydesc_calculate_bds_factor(
-	struct ia_css_resolution input_res,
-	struct ia_css_resolution output_res,
-	unsigned int *bds_factor);
 
 #endif /* __IA_CSS_PIPE_BINARYDESC_H__ */

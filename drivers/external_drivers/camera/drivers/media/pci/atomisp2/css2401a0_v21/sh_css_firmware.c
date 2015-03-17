@@ -47,10 +47,10 @@ struct fw_param {
 /* Warning: same order as SH_CSS_BINARY_ID_* */
 static struct firmware_header *firmware_header;
 
-/* The string STR(irci_master_20150311_1503) is a place holder
+/* The string STR(irci_master_20150308_0200) is a place holder
  * which will be replaced with the actual RELEASE_VERSION
  * during package generation. Please do not modify  */
-static const char *release_version = STR(irci_master_20150311_1503);
+static const char *release_version = STR(irci_master_20150308_0200);
 
 #define MAX_FW_REL_VER_NAME	300
 static char FW_rel_ver_name[MAX_FW_REL_VER_NAME] = "---";
@@ -59,9 +59,6 @@ struct ia_css_fw_info	  sh_css_sp_fw;
 #if defined(HAS_SEC_SP)
 struct ia_css_fw_info	  sh_css_sp1_fw;
 #endif /* HAS_SEC_SP */
-#if defined(HAS_BL)
-struct ia_css_fw_info     sh_css_bl_fw;
-#endif /* HAS_BL */
 struct ia_css_blob_descr *sh_css_blob_info; /* Only ISP blob info (no SP) */
 unsigned		  sh_css_num_binaries; /* This includes 1 SP binary */
 
@@ -80,7 +77,7 @@ char *sh_css_get_fw_version(void)
 
 /* Setup sp/sp1 binary */
 static enum ia_css_err
-setup_binary(struct ia_css_fw_info *fw, const char *fw_data, struct ia_css_fw_info *sh_css_fw, unsigned binary_id)
+setup_sp(struct ia_css_fw_info *fw, const char *fw_data, struct ia_css_fw_info *sh_css_sp_sp1_fw, unsigned sp_id)
 {
 	const char *blob_data;
 
@@ -89,20 +86,20 @@ setup_binary(struct ia_css_fw_info *fw, const char *fw_data, struct ia_css_fw_in
 
 	blob_data = fw_data + fw->blob.offset;
 
-	*sh_css_fw = *fw;
+	*sh_css_sp_sp1_fw = *fw;
 
 #if defined(C_RUN) || defined(HRT_UNSCHED)
-	sh_css_fw->blob.code = sh_css_malloc(1);
+	sh_css_sp_sp1_fw->blob.code = sh_css_malloc(1);
 #else
-	sh_css_fw->blob.code = sh_css_malloc(fw->blob.size);
+	sh_css_sp_sp1_fw->blob.code = sh_css_malloc(fw->blob.size);
 #endif
 
-	if (sh_css_fw->blob.code == NULL)
+	if (sh_css_sp_sp1_fw->blob.code == NULL)
 		return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
 
-	memcpy((void *)sh_css_fw->blob.code, blob_data, fw->blob.size);
-	sh_css_fw->blob.data = (char *)sh_css_fw->blob.code + fw->blob.data_source;
-	fw_minibuffer[binary_id].buffer = sh_css_fw->blob.code;
+	memcpy((void *)sh_css_sp_sp1_fw->blob.code, blob_data, fw->blob.size);
+	sh_css_sp_sp1_fw->blob.data = (char *)sh_css_sp_sp1_fw->blob.code + fw->blob.data_source;
+	fw_minibuffer[sp_id].buffer = sh_css_sp_sp1_fw->blob.code;
 
 	return IA_CSS_SUCCESS;
 }
@@ -137,9 +134,6 @@ sh_css_load_blob_info(const char *fw, const struct ia_css_fw_info *bi, struct ia
 #if defined(HAS_SEC_SP)
 	|| (bi->type == ia_css_sp1_firmware)
 #endif /* HAS_SEC_SP */
-#if defined(HAS_BL)
-	|| (bi->type == ia_css_bootloader_firmware)
-#endif /* HAS_BL */
 	)
 	{
 		char *namebuffer;
@@ -240,9 +234,9 @@ sh_css_load_firmware(const char *fw_data,
 
 	sh_css_num_binaries = file_header->binary_nr;
 	/* Only allocate memory for ISP blob info */
-	if (sh_css_num_binaries > (NUM_OF_SPS + NUM_OF_BLS)) {
+	if (sh_css_num_binaries > NUM_OF_SPS) {
 		sh_css_blob_info = sh_css_malloc(
-					(sh_css_num_binaries - (NUM_OF_SPS + NUM_OF_BLS)) *
+					(sh_css_num_binaries - NUM_OF_SPS) *
 					sizeof(*sh_css_blob_info));
 		if (sh_css_blob_info == NULL)
 			return IA_CSS_ERR_CANNOT_ALLOCATE_MEMORY;
@@ -275,36 +269,26 @@ sh_css_load_firmware(const char *fw_data,
 		if (bi->type == ia_css_sp_firmware) {
 			if (i != SP_FIRMWARE)
 				return IA_CSS_ERR_INTERNAL_ERROR;
-			err = setup_binary(bi, fw_data, &sh_css_sp_fw, i);
+			err = setup_sp(bi, fw_data, &sh_css_sp_fw, i);
 			if (err != IA_CSS_SUCCESS)
 				return err;
 #if defined(HAS_SEC_SP)
 		} else if (bi->type == ia_css_sp1_firmware) {
 			if (i != SP1_FIRMWARE)
 				return IA_CSS_ERR_INTERNAL_ERROR;
-			err = setup_binary(bi, fw_data, &sh_css_sp1_fw, i);
+			err = setup_sp(bi, fw_data, &sh_css_sp1_fw, i);
 			if (err != IA_CSS_SUCCESS)
 				return err;
 #endif /* HAS_SEC_SP */
-#if defined(HAS_BL)
-		} else if (bi->type == ia_css_bootloader_firmware) {
-			if (i != BOOTLOADER_FIRMWARE)
-				return IA_CSS_ERR_INTERNAL_ERROR;
-			err = setup_binary(bi, fw_data, &sh_css_bl_fw, i);
-			if (err != IA_CSS_SUCCESS)
-				return err;
-			IA_CSS_LOG("Bootloader binary recognized\n");
-#endif
 		} else {
-			/* All subsequent binaries (including bootloaders) (i>NUM_OF_SPS+NUM_OF_BLS) are ISP firmware */
-			if (i < (NUM_OF_SPS + NUM_OF_BLS))
+			/* All subsequent binaries (i>NUM_OF_SPS) are ISP firmware */
+			if (i < NUM_OF_SPS)
 				return IA_CSS_ERR_INTERNAL_ERROR;
-
 			if (bi->type != ia_css_isp_firmware)
 				return IA_CSS_ERR_INTERNAL_ERROR;
 			if (sh_css_blob_info == NULL) /* cannot happen but KW does not see this */
 				return IA_CSS_ERR_INTERNAL_ERROR;
-			sh_css_blob_info[i-(NUM_OF_SPS + NUM_OF_BLS)] = bd;
+			sh_css_blob_info[i-NUM_OF_SPS] = bd;
 		}
 	}
 

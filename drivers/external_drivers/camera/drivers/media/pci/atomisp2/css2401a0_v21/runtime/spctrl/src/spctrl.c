@@ -123,11 +123,6 @@ enum ia_css_err ia_css_spctrl_load_fw(sp_ID_t sp_id,
 	return IA_CSS_SUCCESS;
 }
 
-hrt_vaddress get_sp_code_addr(sp_ID_t  sp_id)
-{
-	return spctrl_cofig_info[sp_id].code_addr;
-}
-
 enum ia_css_err ia_css_spctrl_unload_fw(sp_ID_t sp_id)
 {
 	if ((sp_id >= N_SP_ID) || ((sp_id < N_SP_ID) && (!spctrl_loaded[sp_id])))

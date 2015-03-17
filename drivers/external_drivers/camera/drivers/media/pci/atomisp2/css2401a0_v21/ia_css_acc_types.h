@@ -49,15 +49,6 @@ enum ia_css_acc_type {
 	IA_CSS_ACC_STANDALONE,	/**< Stand-alone acceleration */
 };
 
-/** Cells types
- */
-enum ia_css_cell_type {
-	IA_CSS_SP0 = 0,
-	IA_CSS_SP1,
-	IA_CSS_ISP,
-	MAX_NUM_OF_CELLS
-};
-
 /** Firmware types.
  */
 enum ia_css_fw_type {
