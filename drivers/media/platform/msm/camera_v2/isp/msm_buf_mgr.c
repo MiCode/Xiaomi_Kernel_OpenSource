@@ -107,7 +107,18 @@ static int msm_isp_free_buf_handle(struct msm_isp_buf_mgr *buf_mgr,
 		msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq)
 		return -EINVAL;
-	memset(bufq, 0, sizeof(struct msm_isp_bufq));
+
+	/* Set everything except lock to 0 */
+	bufq->bufq_handle = 0;
+	bufq->bufs = 0;
+	bufq->session_id = 0;
+	bufq->stream_id = 0;
+	bufq->num_bufs = 0;
+	bufq->buf_type = 0;
+	memset(&bufq->head, 0, sizeof(bufq->head));
+	memset(&bufq->share_head, 0, sizeof(bufq->share_head));
+	bufq->buf_client_count = 0;
+
 	return 0;
 }
 
@@ -1023,19 +1034,25 @@ static int msm_isp_release_bufq(struct msm_isp_buf_mgr *buf_mgr,
 	uint32_t bufq_handle)
 {
 	struct msm_isp_bufq *bufq = NULL;
+	unsigned long flags;
 	int rc = -1;
 	mutex_lock(&buf_mgr->lock);
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
 		pr_err("Invalid bufq release\n");
+		mutex_unlock(&buf_mgr->lock);
 		return rc;
 	}
 
 	msm_isp_buf_unprepare_all(buf_mgr, bufq_handle);
 
+	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	kfree(bufq->bufs);
 	msm_isp_free_buf_handle(buf_mgr, bufq_handle);
+
+	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	mutex_unlock(&buf_mgr->lock);
+
 	return 0;
 }
 
@@ -1043,15 +1060,19 @@ static void msm_isp_release_all_bufq(
 	struct msm_isp_buf_mgr *buf_mgr)
 {
 	struct msm_isp_bufq *bufq = NULL;
+	unsigned long flags;
 	int i;
 	for (i = 0; i < buf_mgr->num_buf_q; i++) {
 		bufq = &buf_mgr->bufq[i];
 		if (!bufq->bufq_handle)
 			continue;
+
 		msm_isp_buf_unprepare_all(buf_mgr, bufq->bufq_handle);
 
+		spin_lock_irqsave(&bufq->bufq_lock, flags);
 		kfree(bufq->bufs);
 		msm_isp_free_buf_handle(buf_mgr, bufq->bufq_handle);
+		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 	}
 }
 
