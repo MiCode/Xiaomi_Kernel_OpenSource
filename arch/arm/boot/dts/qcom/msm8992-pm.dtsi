@@ -555,6 +555,8 @@
 
 		qcom,tz-flushes-cache;
 
+		qcom,no-pll-switch-for-retention;
+
 		qcom,pm-snoc-client {
 			compatible = "qcom,pm-snoc-client";
 			qcom,msm-bus,name = "ocimem_snoc";
