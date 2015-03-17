@@ -60,7 +60,6 @@
 #define QSERDES_COM_PLLLOCK_CMP1	0x090
 #define QSERDES_COM_PLLLOCK_CMP2	0x094
 #define QSERDES_COM_PLLLOCK_CMP_EN	0x09C
-#define QSERDES_COM_BGTC		0x0A0
 #define QSERDES_COM_DEC_START1	0x0AC
 #define QSERDES_COM_RES_CODE_START_SEG1	0x0E0
 #define QSERDES_COM_RES_CODE_CAL_CSR	0x0E8
@@ -985,10 +984,9 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IP_SETP, 0x12);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CP_SETP, 0x0F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IP_SETI, 0x01);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_IE_TRIM, 0x03);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_IP_TRIM, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_IE_TRIM, 0x0F);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_IP_TRIM, 0x0F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CNTRL, 0x46);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_BGTC, 0xFF);
 
 	/* CDR Settings */
 	msm_pcie_write_reg(dev->phy, QSERDES_RX_CDR_CONTROL1, 0xF4);
