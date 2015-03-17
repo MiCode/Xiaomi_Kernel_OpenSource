@@ -1159,6 +1159,8 @@ static inline int venus_hfi_clk_enable(struct venus_hfi_device *device)
 	}
 
 	for (i = VCODEC_CLK; i <= device->clk_gating_level; i++) {
+		if (i == VCODEC_OCMEM_CLK && !device->res->ocmem_size)
+			continue;
 		cl = &device->resources.clock[i];
 		rc = clk_enable(cl->clk);
 		if (rc) {
@@ -1175,6 +1177,8 @@ static inline int venus_hfi_clk_enable(struct venus_hfi_device *device)
 	return 0;
 fail_clk_enable:
 	for (i--; i >= VCODEC_CLK; i--) {
+		if (i == VCODEC_OCMEM_CLK && !device->res->ocmem_size)
+			continue;
 		cl = &device->resources.clock[i];
 		usleep(100);
 		clk_disable(cl->clk);
@@ -1209,15 +1213,17 @@ static inline void venus_hfi_clk_disable(struct venus_hfi_device *device)
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to set clock rate to min: %d\n", rc);
 
+	device->clk_state = DISABLED_PREPARED;
+	--device->clk_cnt;
 	for (i = VCODEC_CLK; i <= device->clk_gating_level; i++) {
+		if (i == VCODEC_OCMEM_CLK && !device->res->ocmem_size)
+			continue;
 		cl = &device->resources.clock[i];
 		usleep(100);
 		clk_disable(cl->clk);
 		dprintk(VIDC_DBG, "%s: Clock: %s disabled\n",
 			__func__, cl->name);
 	}
-	device->clk_state = DISABLED_PREPARED;
-	--device->clk_cnt;
 }
 
 static int venus_hfi_halt_axi(struct venus_hfi_device *device)
@@ -3249,7 +3255,18 @@ static inline void venus_hfi_disable_unprepare_clks(
 	}
 
 	WARN_ON(!mutex_is_locked(&device->clk_pwr_lock));
+	/*
+	* Make the clock state variable as unprepared before actually
+	* unpreparing clocks. This will make sure that when we check
+	* the state, we have the right clock state. We are not taking
+	* any action based unprepare failures. So it is safe to do
+	* before the call. This is also in sync with prepare_enable
+	* state update.
+	*/
+
+	--device->clk_cnt;
 	if (device->clk_state == ENABLED_PREPARED) {
+                device->clk_state = DISABLED_PREPARED;
 		for (i = VCODEC_CLK; i < VCODEC_MAX_CLKS; i++) {
 			if (i == VCODEC_OCMEM_CLK && !device->res->ocmem_size)
 				continue;
@@ -3260,8 +3277,11 @@ static inline void venus_hfi_disable_unprepare_clks(
 				__func__, cl->name);
 		}
 	} else {
+                device->clk_state = DISABLED_PREPARED;
 		for (i = device->clk_gating_level + 1;
 			i < VCODEC_MAX_CLKS; i++) {
+			if (i == VCODEC_OCMEM_CLK && !device->res->ocmem_size)
+				continue;
 			cl = &device->resources.clock[i];
 			usleep(100);
 			clk_disable(cl->clk);
@@ -3269,6 +3289,7 @@ static inline void venus_hfi_disable_unprepare_clks(
 				__func__, cl->name);
 		}
 	}
+	device->clk_state = DISABLED_UNPREPARED;
 	for (i = VCODEC_CLK; i < VCODEC_MAX_CLKS; i++) {
 		if (i == VCODEC_OCMEM_CLK && !device->res->ocmem_size)
 			continue;
@@ -3277,8 +3298,6 @@ static inline void venus_hfi_disable_unprepare_clks(
 		dprintk(VIDC_DBG, "%s: Clock: %s unprepared\n",
 			__func__, cl->name);
 	}
-	device->clk_state = DISABLED_UNPREPARED;
-	--device->clk_cnt;
 }
 
 static inline int venus_hfi_prepare_enable_clks(struct venus_hfi_device *device)
@@ -3315,6 +3334,8 @@ static inline int venus_hfi_prepare_enable_clks(struct venus_hfi_device *device)
 	return rc;
 fail_clk_enable:
 	for (; i >= VCODEC_CLK; i--) {
+		if (i == VCODEC_OCMEM_CLK && !device->res->ocmem_size)
+			continue;
 		cl = &device->resources.clock[i];
 		usleep(100);
 		clk_disable_unprepare(cl->clk);
