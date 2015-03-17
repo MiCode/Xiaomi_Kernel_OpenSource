@@ -13,6 +13,14 @@ The optional properties are:
 - lpm-cx-supply:  will hold handle for CX regulator supply which is used
 	to unvote.
 
+- qcom,lpm-wa-skip-l2-spm: Due to a hardware bug on 8939 and 8909, secure
+	world needs to disable and enable L2 SPM to get the proper context
+	in secure watchdog bite cases. With this workaround there is a race
+	in programming L2 SPM between HLOS and secure world. This leads to
+	stability issues. To avoid this program L2 SPM only in secure world
+	based on the L2 mode flag passed. Set lpm-wa-skip-l2-spm node if this
+	is required.
+
 Example:
 
 qcom,lpm-workarounds {
@@ -20,4 +28,5 @@ qcom,lpm-workarounds {
 
 	lpm-cx-supply = <&pm8916_s2_corner>;
 	qcom,lpm-wa-cx-turbo-unvote;
+	qcom,lpm-wa-skip-l2-spm;
 }
