@@ -776,7 +776,7 @@ static int venus_hfi_devfreq_target(struct device *devfreq_dev,
 		goto err_unknown_device;
 	}
 
-	/* we expect governors to provide values in kbps form, convert to bps */
+	/* we expect governors to provide values in kBps form, convert to Bps */
 	ab = *freq * 1000;
 	rc = msm_bus_scale_update_bw(bus->client, ab, 0);
 	if (rc) {

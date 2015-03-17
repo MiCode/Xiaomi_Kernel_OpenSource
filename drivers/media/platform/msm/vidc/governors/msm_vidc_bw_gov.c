@@ -36,7 +36,7 @@ enum scenario {
 };
 
 
-/* converts Mbps to bps (bits per sec) */
+/* converts Mbps to bps (the "b" part can be bits or bytes based on context) */
 #define kbps(__mbps) ((__mbps) * U64_C(1000))
 #define bps(__mbps) (kbps(__mbps) * U64_C(1000))
 
