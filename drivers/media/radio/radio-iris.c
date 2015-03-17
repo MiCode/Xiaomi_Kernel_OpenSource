@@ -3948,6 +3948,11 @@ static int iris_vidioc_s_ctrl(struct file *file, void *priv,
 	case V4L2_CID_PRIVATE_IRIS_STATE:
 		switch (ctrl->value) {
 		case FM_RECV:
+			if (radio->mode != FM_OFF) {
+				FMDERR("FM is not in proper state\n");
+				retval = -EINVAL;
+				goto END;
+			}
 			if (is_enable_rx_possible(radio) != 0) {
 				FMDERR("%s: fm is not in proper state\n",
 					 __func__);
