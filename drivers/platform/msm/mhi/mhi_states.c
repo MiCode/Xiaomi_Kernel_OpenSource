@@ -122,11 +122,13 @@ static enum MHI_STATUS process_m0_transition(
 	} else if (mhi_dev_ctxt->mhi_state == MHI_STATE_READY) {
 		mhi_log(MHI_MSG_INFO,
 			"Transitioning from READY.\n");
+	} else if (mhi_dev_ctxt->mhi_state == MHI_STATE_M1) {
+		mhi_log(MHI_MSG_INFO,
+			"Transitioning from M1.\n");
 	} else {
 		mhi_log(MHI_MSG_INFO,
 			"MHI State %d link state %d. Quitting\n",
 			mhi_dev_ctxt->mhi_state, mhi_dev_ctxt->flags.link_up);
-		goto exit;
 	}
 
 	read_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
@@ -147,20 +149,20 @@ static enum MHI_STATUS process_m0_transition(
 			"Could not set bus frequency ret: %d\n",
 			ret_val);
 	mhi_dev_ctxt->flags.pending_M0 = 0;
-	wake_up_interruptible(mhi_dev_ctxt->M0_event);
-	if (ret_val == -ERESTARTSYS)
-		mhi_log(MHI_MSG_CRITICAL,
-			"Pending restart detected\n");
-
-	ret_val = hrtimer_start(&mhi_dev_ctxt->m1_timer,
-				mhi_dev_ctxt->m1_timeout,
-				HRTIMER_MODE_REL);
 	if (atomic_read(&mhi_dev_ctxt->flags.pending_powerup)) {
 		atomic_set(&mhi_dev_ctxt->flags.pending_ssr, 0);
 		atomic_set(&mhi_dev_ctxt->flags.pending_powerup, 0);
 	}
-	mhi_log(MHI_MSG_VERBOSE, "Starting M1 timer, ret %d\n", ret_val);
-exit:
+	wake_up_interruptible(mhi_dev_ctxt->M0_event);
+	if (ret_val == -ERESTARTSYS)
+		mhi_log(MHI_MSG_CRITICAL,
+			"Pending restart detected\n");
+	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+	if ((!mhi_dev_ctxt->flags.pending_M3) &&
+	   (mhi_dev_ctxt->flags.link_up))
+		mhi_deassert_device_wake(mhi_dev_ctxt);
+	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
+
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return MHI_STATUS_SUCCESS;
 }
@@ -176,25 +178,10 @@ static enum MHI_STATUS process_m1_transition(
 			"Processing M1 state transition from state %d\n",
 			mhi_dev_ctxt->mhi_state);
 
-	mhi_dev_ctxt->counters.m0_m1++;
-	mhi_log(MHI_MSG_VERBOSE,
-		"Cancelling Inactivity timer\n");
-	switch (hrtimer_try_to_cancel(&mhi_dev_ctxt->m1_timer)) {
-	case 0:
-		mhi_log(MHI_MSG_VERBOSE,
-			"Timer was not active\n");
-		break;
-	case 1:
-		mhi_log(MHI_MSG_VERBOSE,
-			"Timer was active\n");
-		break;
-	case -1:
-		mhi_log(MHI_MSG_VERBOSE,
-			"Timer executing and can't stop\n");
-		break;
-	}
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 	if (!mhi_dev_ctxt->flags.pending_M3) {
+		mhi_log(MHI_MSG_INFO, "Setting M2 Transition flag\n");
+		atomic_inc(&mhi_dev_ctxt->m2_transition);
 		mhi_dev_ctxt->mhi_state = MHI_STATE_M2;
 		mhi_log(MHI_MSG_INFO, "Allowing transition to M2\n");
 		mhi_reg_write_field(mhi_dev_ctxt,
@@ -206,24 +193,32 @@ static enum MHI_STATUS process_m1_transition(
 		mhi_dev_ctxt->counters.m1_m2++;
 	}
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-	ret_val  =
-		mhi_set_bus_request(mhi_dev_ctxt,
-							0);
+	ret_val = mhi_set_bus_request(mhi_dev_ctxt, 0);
 	if (ret_val)
 		mhi_log(MHI_MSG_INFO, "Failed to update bus request\n");
 
-	mhi_log(MHI_MSG_INFO, "Start Deferred Suspend usage_count: %d\n",
-		atomic_read(
-		&mhi_dev_ctxt->dev_info->plat_dev->dev.power.usage_count));
+	mhi_log(MHI_MSG_INFO, "Debouncing M2\n");
+	msleep(MHI_M2_DEBOUNCE_TMR_MS);
 
-	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-	r = pm_request_autosuspend(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-	if (r) {
-		mhi_log(MHI_MSG_ERROR, "Failed to remove counter ret %d\n", r);
-		mhi_log(MHI_MSG_ERROR, "Usage counter is %d\n",
-		atomic_read(
-		&mhi_dev_ctxt->dev_info->plat_dev->dev.power.usage_count));
+	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+	mhi_log(MHI_MSG_INFO, "Pending acks %d\n",
+		atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
+	if (atomic_read(&mhi_dev_ctxt->counters.outbound_acks) ||
+			 mhi_dev_ctxt->flags.pending_M3) {
+		mhi_assert_device_wake(mhi_dev_ctxt);
+	} else {
+		pm_runtime_mark_last_busy(
+				&mhi_dev_ctxt->dev_info->plat_dev->dev);
+		r = pm_request_autosuspend(
+				&mhi_dev_ctxt->dev_info->plat_dev->dev);
+		if (r) {
+			mhi_log(MHI_MSG_ERROR,
+				"Failed to remove counter ret %d\n", r);
+		}
 	}
+	atomic_set(&mhi_dev_ctxt->m2_transition, 0);
+	mhi_log(MHI_MSG_INFO, "M2 transition complete.\n");
+	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
 	return MHI_STATUS_SUCCESS;
 }
@@ -235,19 +230,6 @@ static enum MHI_STATUS process_m3_transition(
 	unsigned long flags;
 	mhi_log(MHI_MSG_INFO,
 			"Processing M3 state transition\n");
-	switch (hrtimer_try_to_cancel(&mhi_dev_ctxt->m1_timer)) {
-	case 0:
-		mhi_log(MHI_MSG_VERBOSE,
-			"Timer was not active\n");
-		break;
-	case 1:
-		mhi_log(MHI_MSG_VERBOSE,
-			"Timer was active\n");
-		break;
-	case -1:
-		mhi_log(MHI_MSG_VERBOSE,
-			"Timer executing and can't stop\n");
-	}
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_M3;
 	mhi_dev_ctxt->flags.pending_M3 = 0;
@@ -284,19 +266,6 @@ static enum MHI_STATUS mhi_process_link_down(
 		msleep(20);
 	}
 
-	switch (hrtimer_try_to_cancel(&mhi_dev_ctxt->m1_timer)) {
-	case 0:
-		mhi_log(MHI_MSG_CRITICAL,
-			"Timer was not active\n");
-		break;
-	case 1:
-		mhi_log(MHI_MSG_CRITICAL,
-			"Timer was active\n");
-		break;
-	case -1:
-		mhi_log(MHI_MSG_CRITICAL,
-			"Timer executing and can't stop\n");
-	}
 	r = mhi_set_bus_request(mhi_dev_ctxt, 0);
 	if (r)
 		mhi_log(MHI_MSG_INFO,
@@ -578,6 +547,7 @@ static void enable_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 					mhi_dev_ctxt->client_handle_list[i];
 				mhi_notify_client(client_handle,
 						  MHI_CB_MHI_ENABLED);
+				mhi_deassert_device_wake(mhi_dev_ctxt);
 				}
 			}
 		break;
@@ -897,7 +867,11 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 			"Triggering wake out of M2\n");
 		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 		mhi_dev_ctxt->flags.pending_M3 = 1;
-		mhi_assert_device_wake(mhi_dev_ctxt);
+		if ((atomic_read(&mhi_dev_ctxt->m2_transition)) == 0) {
+			mhi_log(MHI_MSG_INFO,
+				"M2_transition not set\n");
+			mhi_assert_device_wake(mhi_dev_ctxt);
+		}
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 		r = wait_event_interruptible_timeout(*mhi_dev_ctxt->M0_event,
 				mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
@@ -943,12 +917,6 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 		r = -EAGAIN;
 		goto exit;
 	}
-	r = hrtimer_cancel(&mhi_dev_ctxt->m1_timer);
-	if (r)
-		mhi_log(MHI_MSG_INFO, "Cancelled M1 timer, timer was active\n");
-	else
-		mhi_log(MHI_MSG_INFO,
-			"Cancelled M1 timer, timer was not active\n");
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 	if (mhi_dev_ctxt->flags.pending_M0) {
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
@@ -974,17 +942,12 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_dev_ctxt->flags.pending_M3 = 0;
 		goto exit;
 		break;
-	case -ERESTARTSYS:
-		mhi_log(MHI_MSG_CRITICAL,
-			"Going Down...\n");
-		goto exit;
-		break;
+
 	default:
 		mhi_log(MHI_MSG_INFO,
 			"M3 completion received\n");
 		break;
 	}
-	mhi_deassert_device_wake(mhi_dev_ctxt);
 	mhi_turn_off_pcie_link(mhi_dev_ctxt);
 	r = mhi_set_bus_request(mhi_dev_ctxt, 0);
 	if (r)
@@ -996,6 +959,7 @@ exit:
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 		ring_all_chan_dbs(mhi_dev_ctxt);
 		atomic_dec(&mhi_dev_ctxt->flags.data_pending);
+		mhi_deassert_device_wake(mhi_dev_ctxt);
 	}
 	mhi_dev_ctxt->flags.pending_M3 = 0;
 	mutex_unlock(&mhi_dev_ctxt->pm_lock);
