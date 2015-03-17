@@ -171,12 +171,21 @@
 #define NUM_OF_SPS 1
 #endif /* HAS_SEC_SP */
 
-/* Enum for Number of Binaries */
-enum sh_css_num_binaries {
+#if defined(HAS_BL)
+#define NUM_OF_BLS 1
+#else
+#define NUM_OF_BLS 0
+#endif
+
+/* Enum for order of Binaries */
+enum sh_css_order_binaries {
 	SP_FIRMWARE = 0,
 #if defined(HAS_SEC_SP)
 	SP1_FIRMWARE,
 #endif /* HAS_SEC_SP */
+#if defined(HAS_BL)
+	BOOTLOADER_FIRMWARE,
+#endif
 	ISP_FIRMWARE
 };
 

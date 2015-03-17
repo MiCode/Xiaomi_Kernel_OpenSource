@@ -35,7 +35,7 @@ The version string has four dot-separated numbers, read left to right:
 
 */
 
-#define CSS_API_VERSION_STRING	"2.1.14.19"
+#define CSS_API_VERSION_STRING	"2.1.14.20"
 
 /*
 Change log
@@ -317,7 +317,10 @@ v2.1.14.17 (21 changes parallel), eliminate two_pixels_per_clock field
 v2.1.14.18 (2 changes parallel), Fix copyright headers (no functional change)
 - No functional change; only fixes copyright headers
 
-v2.1.14.19 (1 changes parallel), ia_css_skc_dvs_statistics field size change
+v2.1.14.20 (1 changes parallel), Return an error when both DPC and BDS are enabled in a pipe config
+- Return an error when both DPC and BDS are enabled in a pipe config
+
+v2.1.14.20 (2 changes parallel), ia_css_skc_dvs_statistics field size change
 - ia_css_skc_dvs_statistics field size change
 
 */
