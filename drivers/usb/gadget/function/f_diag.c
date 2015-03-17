@@ -2,7 +2,7 @@
  * Diag Function Device - Route ARM9 and ARM11 DIAG messages
  * between HOST and DEVICE.
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -240,6 +240,8 @@ static void diag_write_complete(struct usb_ep *ep,
 			/* Queue zero length packet */
 			if (!usb_ep_queue(ctxt->in, req, GFP_ATOMIC))
 				return;
+		} else {
+			ctxt->dpkts_tolaptop++;
 		}
 	}
 
@@ -555,10 +557,12 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 		return -EIO;
 	}
 
+	ctxt->dpkts_tolaptop_pending++;
 	if (usb_ep_queue(in, req, GFP_ATOMIC)) {
 		/* If error add the link to linked list again*/
 		spin_lock_irqsave(&ctxt->lock, flags);
 		list_add_tail(&req->list, &ctxt->write_pool);
+		ctxt->dpkts_tolaptop_pending--;
 		/* 1 error message for every 10 sec */
 		if (__ratelimit(&rl))
 			ERROR(ctxt->cdev, "%s: cannot queue"
@@ -572,8 +576,11 @@ int usb_diag_write(struct usb_diag_ch *ch, struct diag_request *d_req)
 		return -EIO;
 	}
 
-	ctxt->dpkts_tolaptop++;
-	ctxt->dpkts_tolaptop_pending++;
+	/*
+	 * It's possible that both write completion AND unbind could have been
+	 * completed asynchronously by this point. Since they both release the
+	 * kref, ctxt is _NOT_ guaranteed to be valid here.
+	 */
 
 	return 0;
 }
@@ -826,8 +833,10 @@ static ssize_t debug_read_stats(struct file *file, char __user *ubuf,
 
 	list_for_each_entry(ch, &usb_diag_ch_list, list) {
 		struct diag_context *ctxt = ch->priv_usb;
+		unsigned long flags;
 
-		if (ctxt)
+		if (ctxt) {
+			spin_lock_irqsave(&ctxt->lock, flags);
 			temp += scnprintf(buf + temp, PAGE_SIZE - temp,
 					"---Name: %s---\n"
 					"endpoints: %s, %s\n"
@@ -839,6 +848,8 @@ static ssize_t debug_read_stats(struct file *file, char __user *ubuf,
 					ctxt->dpkts_tolaptop,
 					ctxt->dpkts_tomodem,
 					ctxt->dpkts_tolaptop_pending);
+			spin_unlock_irqrestore(&ctxt->lock, flags);
+		}
 	}
 
 	return simple_read_from_buffer(ubuf, count, ppos, buf, temp);
@@ -851,11 +862,14 @@ static ssize_t debug_reset_stats(struct file *file, const char __user *buf,
 
 	list_for_each_entry(ch, &usb_diag_ch_list, list) {
 		struct diag_context *ctxt = ch->priv_usb;
+		unsigned long flags;
 
 		if (ctxt) {
+			spin_lock_irqsave(&ctxt->lock, flags);
 			ctxt->dpkts_tolaptop = 0;
 			ctxt->dpkts_tomodem = 0;
 			ctxt->dpkts_tolaptop_pending = 0;
+			spin_unlock_irqrestore(&ctxt->lock, flags);
 		}
 	}
 
