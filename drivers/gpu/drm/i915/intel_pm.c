@@ -3895,11 +3895,16 @@ static void gen6_disable_rps(struct drm_device *dev)
 
 static void cherryview_disable_rps(struct drm_device *dev)
 {
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
 	/* Disable rc6 */
 	vlv_set_rc6_mode(dev, true);
 
 	/* Disable rps */
 	vlv_set_rps_mode(dev, true);
+
+	/* Cancel pending work-item */
+	cancel_delayed_work_sync(&dev_priv->rps.vlv_media_timeout_work);
 }
 
 static void valleyview_disable_rps(struct drm_device *dev)
