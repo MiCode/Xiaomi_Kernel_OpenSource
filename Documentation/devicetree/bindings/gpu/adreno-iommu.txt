@@ -36,6 +36,8 @@ Optional properties:
 			target
 	 - qcom,global_pt :  A boolean specifying if global pagetable should be used.
 			     When not set we use per process pagetables
+	 - qcom,hyp_secure_alloc : A bool specifying if the hypervisor is used on
+				   this target for secure buffer allocation
 
 Example:
 

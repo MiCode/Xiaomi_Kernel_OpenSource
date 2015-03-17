@@ -121,7 +121,8 @@ struct kgsl_mmu_pt_ops {
 #define KGSL_MMU_FLUSH_TLB_ON_MAP BIT(2)
 /* MMU uses global pagetable */
 #define KGSL_MMU_GLOBAL_PAGETABLE BIT(3)
-
+/* MMU uses hypervisor for content protection */
+#define KGSL_MMU_HYP_SECURE_ALLOC BIT(4)
 
 struct kgsl_mmu {
 	uint32_t      flags;

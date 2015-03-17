@@ -17,7 +17,9 @@
 #include <linux/slab.h>
 #include <linux/kmemleak.h>
 #include <linux/highmem.h>
+#include <linux/scatterlist.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include "kgsl.h"
 #include "kgsl_sharedmem.h"
@@ -301,6 +303,30 @@ kgsl_sharedmem_init_sysfs(void)
 		drv_attr_list);
 }
 
+int kgsl_allocate_user(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc,
+		struct kgsl_pagetable *pagetable,
+		uint64_t size, uint64_t mmapsize, uint64_t flags)
+{
+	int ret;
+	struct kgsl_mmu *mmu = &device->mmu;
+
+	if (size == 0)
+		return -EINVAL;
+
+	memdesc->flags = flags;
+
+	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
+		ret = kgsl_cma_alloc_coherent(device, memdesc, pagetable, size);
+	else if (flags & KGSL_MEMFLAGS_SECURE &&
+			!MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC))
+		ret = kgsl_cma_alloc_secure(device, memdesc, size);
+	else
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
+
+	return ret;
+}
+
 static int kgsl_page_alloc_vmfault(struct kgsl_memdesc *memdesc,
 				struct vm_area_struct *vma,
 				struct vm_fault *vmf)
@@ -372,13 +398,30 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 	unsigned int i = 0;
 	struct scatterlist *sg;
 
-	kgsl_driver.stats.page_alloc -= (size_t) memdesc->size;
-
 	kgsl_page_alloc_unmap_kernel(memdesc);
 	/* we certainly do not expect the hostptr to still be mapped */
 	BUG_ON(memdesc->hostptr);
 
-	for_each_sg(memdesc->sgt->sgl, sg,  memdesc->sgt->nents, i) {
+	/* Secure buffers need to be unlocked before being freed */
+	if (memdesc->priv & KGSL_MEMDESC_TZ_LOCKED) {
+		int ret;
+		int dest_perms = PERM_READ | PERM_WRITE;
+		int source_vm = VMID_CP_PIXEL;
+		int dest_vm = VMID_HLOS;
+
+		ret = hyp_assign_table(memdesc->sgt, &source_vm, 1,
+					&dest_vm, &dest_perms, 1);
+		if (ret) {
+			pr_err("Secure buf unlock failed: gpuaddr: %llx size: %llx ret: %d\n",
+					memdesc->gpuaddr, memdesc->size, ret);
+			BUG();
+		}
+		kgsl_driver.stats.secure -= memdesc->size;
+	} else {
+		kgsl_driver.stats.page_alloc -= (size_t) memdesc->size;
+	}
+
+	for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i) {
 		/*
 		 * sg_alloc_table_from_pages() will collapse any physically
 		 * adjacent pages into a single scatterlist entry. We cannot
@@ -389,6 +432,9 @@ static void kgsl_page_alloc_free(struct kgsl_memdesc *memdesc)
 		struct page *p = sg_page(sg), *next;
 		unsigned int j = 0, count;
 		while (j < (sg->length/PAGE_SIZE)) {
+			if (memdesc->priv & KGSL_MEMDESC_TZ_LOCKED)
+				ClearPagePrivate(p);
+
 			count = 1 << compound_order(p);
 			next = nth_page(p, count);
 			__free_pages(p, compound_order(p));
@@ -711,6 +757,33 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	if (ret)
 		goto done;
 
+	/* Call to the hypervisor to lock any secure buffer allocations */
+	if (memdesc->flags & KGSL_MEMFLAGS_SECURE) {
+		unsigned int i;
+		struct scatterlist *sg;
+		int dest_perms = PERM_READ | PERM_WRITE;
+		int source_vm = VMID_HLOS;
+		int dest_vm = VMID_CP_PIXEL;
+
+		ret = hyp_assign_table(memdesc->sgt, &source_vm, 1,
+					&dest_vm, &dest_perms, 1);
+		if (ret)
+			goto done;
+
+		/* Set private bit for each sg to indicate that its secured */
+		for_each_sg(memdesc->sgt->sgl, sg, memdesc->sgt->nents, i)
+			SetPagePrivate(sg_page(sg));
+
+		memdesc->priv |= KGSL_MEMDESC_TZ_LOCKED;
+
+		/* Record statistics */
+		KGSL_STATS_ADD(memdesc->size, kgsl_driver.stats.secure,
+			kgsl_driver.stats.secure_max);
+
+		/* Don't map and zero the locked secure buffer */
+		goto done;
+	}
+
 	/*
 	 * All memory that goes to the user has to be zeroed out before it gets
 	 * exposed to userspace. This means that the memory has to be mapped in
@@ -974,6 +1047,8 @@ int kgsl_cma_alloc_coherent(struct kgsl_device *device,
 			struct kgsl_pagetable *pagetable, uint64_t size)
 {
 	int result = 0;
+
+	size = ALIGN(size, PAGE_SIZE);
 
 	if (size == 0 || size > SIZE_MAX)
 		return -EINVAL;
