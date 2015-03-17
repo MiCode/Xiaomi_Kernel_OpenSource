@@ -233,7 +233,7 @@
 			qcom,prio0 = <0>;
 			qcom,bus-dev = <&fab_snoc>;
 			clock-names = "bus_qos_clk";
-			clocks =  <&gcc_sys_noc_usb3_axi_clk>;
+			clocks =  <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>;
 			qcom,mas-rpm-id = <ICBID_MASTER_USB3>;
 		};
 
