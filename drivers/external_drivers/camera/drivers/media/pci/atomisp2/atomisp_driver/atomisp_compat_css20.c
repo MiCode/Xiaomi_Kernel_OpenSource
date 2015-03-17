@@ -628,8 +628,6 @@ static int __create_streams(struct atomisp_sub_device *asd)
 {
 	int ret, i;
 
-	ia_css_mipi_frame_specify(asd->isp->mipi_frame_size, false);
-
 	for (i = 0; i < ATOMISP_INPUT_STREAM_NUM; i++) {
 		ret = __create_stream(asd, &asd->stream_env[i]);
 		if (ret)
@@ -1313,52 +1311,6 @@ int atomisp_css_start(struct atomisp_sub_device *asd,
 	 */
 	if (atomisp_streaming_count(isp)) {
 		dev_dbg(isp->dev, "skip start sp\n");
-		if (!IS_HWREVISION(isp, ATOMISP_HW_REVISION_ISP2401)) {
-			/*
-			 * FIXME! VIED BZ 1439:
-			 * ISP timeout in start second stream due to incorrect MIPI
-			 * Buffer size.
-			 *
-			 * Note that ISP2401 New Input System does not have
-			 * such issue.
-			 *
-			 * This is due to MIPI buffers are allocated once and shared
-			 * by all streams. So if the first sensor start running, MIPI
-			 * buffer is allocated with size conrresponding to the sensor
-			 * output frame size; when start second sensor, whose output
-			 * resolution requires more MIPI buffers, the previous
-			 * allocated MIPI buffer could not fulfill the requirement and
-			 * hense get ISP timeout or other unexpected behavor.
-			 *
-			 * Workaround here is to reset ISP which will stop previous
-			 * running stream, re-allocate mipi buffer, and start again.
-			 */
-			if (__need_realloc_mipi_buffer(isp)) {
-				dev_warn(isp->dev, "Need to reallocate mipi buffer.\n");
-				/* destroy stream/pipe for this stream */
-				if (__destroy_streams(asd, true))
-					dev_warn(isp->dev, "destroy stream failed.\n");
-
-				if (__destroy_pipes(asd, true))
-					dev_warn(isp->dev, "destroy pipe failed.\n");
-
-				/*
-				 * reset running stream which will reset mipi buffer
-				 */
-				atomisp_css_flush(isp);
-
-				/* recreate stream/pipe for this stream */
-				if (__create_pipes(asd)) {
-					dev_err(isp->dev, "create pipe error.\n");
-					return -EINVAL;
-				}
-				if (__create_streams(asd)) {
-					dev_err(isp->dev, "create stream error.\n");
-					ret = -EINVAL;
-					goto stream_err;
-				}
-			}
-		}
 	} else {
 		if (!sh_css_hrt_system_is_idle())
 			dev_err(isp->dev, "CSS HW not idle before starting SP\n");
@@ -2119,7 +2071,7 @@ void atomisp_css_input_set_mode(struct atomisp_sub_device *asd,
 {
 	int i;
 	struct atomisp_device *isp = asd->isp;
-	unsigned int size_mem_words, total_size_mem_words = 0;
+	unsigned int size_mem_words;
 	for (i = 0; i < ATOMISP_INPUT_STREAM_NUM; i++)
 		asd->stream_env[i].stream_config.mode = mode;
 
@@ -2168,13 +2120,9 @@ void atomisp_css_input_set_mode(struct atomisp_sub_device *asd,
 				"applying pre-defined MIPI buffer size %u.\n",
 				size_mem_words);
 		}
-		total_size_mem_words += size_mem_words;
+		s_config->mipi_buffer_config.size_mem_words = size_mem_words;
+		s_config->mipi_buffer_config.nof_mipi_buffers = 2;
 	}
-
-	if (total_size_mem_words > asd->isp->mipi_frame_size)
-		asd->isp->mipi_frame_size = size_mem_words;
-
-	asd->mipi_frame_size = asd->isp->mipi_frame_size;
 }
 
 void atomisp_css_capture_enable_online(struct atomisp_sub_device *asd,
