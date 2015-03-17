@@ -55,8 +55,10 @@ Required properties:
 		- "retention"
 		- "gdhs"
 		- "pc"
+		- "fpc"
 	- qcom,min-child-idx: The minimum level that a child CPU should be in
-	before this level can be chosen.
+	before this level can be chosen. This property is required for all
+        non-default level.
 	- qcom,latency-us: The latency in handling the interrupt if this level
 	was chosen, in uSec
 	- qcom,ss-power: The steady state power expelled when the processor is

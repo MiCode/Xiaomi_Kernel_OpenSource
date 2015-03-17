@@ -9,11 +9,13 @@ the resources that are used by the offlined core.
 The required properties of sleep status device are:
 
 - compatible: qcom,cpu-sleep-status
-- reg: physical address of the sleep status register for Core 0
-- qcom,cpu-alias-addr - On MSM chipset, the each cores registers are at a
-	fixed offset each other.
+- reg: physical address of the sleep status register for the cpus
 - qcom,cpu-sleep-status-mask - The bit mask within the status register that
 	indicates the Core's sleep state.
+
+Optional properties:
+- qcom,cpu-alias-addr - On MSM chipset, the each cores registers are at a
+	fixed offset each other.
 
 Example:
 	qcom,cpu-sleep-status@f9088008 {

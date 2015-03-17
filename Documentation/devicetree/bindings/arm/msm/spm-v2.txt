@@ -21,14 +21,9 @@ Required properties
 	{0..n} for cores {0..n}
 - qcom,saw2-ver-reg: The location of the version register
 - qcom,saw2-cfg: SAW2 configuration register
-- qcom,saw2-avs-ctl: The AVS control register
-- qcom,saw2-avs-hysterisis: The AVS hysterisis register to delay the AVS
-	controller requests
+- qcom,saw2-spm-ctl: The SPM control register
 - qcom,saw2-spm-dly: Provides the values for the SPM delay command in the SPM
 	sequence
-- qcom,saw2-spm-ctl: The SPM control register
-- qcom,vctl-timeout-us: The timeout value in us to wait for voltage to change
-	after sending the voltage command to the PMIC
 - qcom,name: The name with which a SPM device is identified by the power
 management code.
 
@@ -36,7 +31,12 @@ Optional properties
 
 - reg-names: Register names for the physical address required if spm device
         has more than one physical addressed to be mapped. Allowed register
-        names are: "saw-base", "q2s", "hw-flush"
+        names are: "saw-base", "q2s", "hw-flush", "slpreq"
+- qcom,saw2-avs-ctl: The AVS control register
+- qcom,saw2-avs-hysterisis: The AVS hysterisis register to delay the AVS
+	controller requests
+- qcom,vctl-timeout-us: The timeout value in us to wait for voltage to change
+	after sending the voltage command to the PMIC
 - qcom,saw2-avs-limit: The AVS limit register
 - qcom,saw2-avs-dly: The AVS delay register is used to specify the delay values
 	between AVS controller requests
