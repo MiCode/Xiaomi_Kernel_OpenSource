@@ -967,6 +967,10 @@ static int venus_hfi_vote_active_buses(void *dev,
 			if (matches) {
 				aggregate_load_table[j].load +=
 					data[i].load;
+				if (data[i].low_power) {
+					aggregate_load_table[3].load +=
+					data[i].load;
+				}
 			}
 		}
 	}
