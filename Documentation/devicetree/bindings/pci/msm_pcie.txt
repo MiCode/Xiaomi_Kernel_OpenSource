@@ -66,6 +66,7 @@ Optional Properties:
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
+  - qcom,vbg-opt: The vbg optimization is supported.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
   - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
@@ -156,6 +157,7 @@ Example:
 		qcom,msi-gicm-addr = <0xf9040040>;
 		qcom,msi-gicm-base = <0x160>;
 		qcom,ext-ref-clk;
+		qcom,vbg-opt;
 		qcom,tlp-rd-size = <0x5>;
 		qcom,ep-latency = <100>;
 

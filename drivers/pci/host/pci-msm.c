@@ -60,6 +60,7 @@
 #define QSERDES_COM_PLLLOCK_CMP1	0x090
 #define QSERDES_COM_PLLLOCK_CMP2	0x094
 #define QSERDES_COM_PLLLOCK_CMP_EN	0x09C
+#define QSERDES_COM_BGTC		0x0A0
 #define QSERDES_COM_DEC_START1	0x0AC
 #define QSERDES_COM_RES_CODE_START_SEG1	0x0E0
 #define QSERDES_COM_RES_CODE_CAL_CSR	0x0E8
@@ -498,6 +499,7 @@ struct msm_pcie_dev_t {
 	bool				 aux_clk_sync;
 	uint32_t			   n_fts;
 	bool				 ext_ref_clk;
+	bool				vbg_opt;
 	uint32_t			   ep_latency;
 	uint32_t			current_bdf;
 	uint32_t			tlp_rd_size;
@@ -992,8 +994,16 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IP_SETP, 0x12);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CP_SETP, 0x0F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IP_SETI, 0x01);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_IE_TRIM, 0x0F);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_IP_TRIM, 0x0F);
+
+	if (dev->vbg_opt) {
+		msm_pcie_write_reg(dev->phy, QSERDES_COM_IE_TRIM, 0x03);
+		msm_pcie_write_reg(dev->phy, QSERDES_COM_IP_TRIM, 0x00);
+		msm_pcie_write_reg(dev->phy, QSERDES_COM_BGTC, 0xFF);
+	} else {
+		msm_pcie_write_reg(dev->phy, QSERDES_COM_IE_TRIM, 0x0F);
+		msm_pcie_write_reg(dev->phy, QSERDES_COM_IP_TRIM, 0x0F);
+	}
+
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_CNTRL, 0x46);
 
 	/* CDR Settings */
@@ -1251,6 +1261,8 @@ static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 		dev->aux_clk_sync);
 	pr_alert("ext_ref_clk is %d\n",
 		dev->ext_ref_clk);
+	pr_alert("vbg_opt is %s supported\n",
+		dev->vbg_opt ? "" : "not");
 	pr_alert("ep_wakeirq is %d\n",
 		dev->ep_wakeirq);
 	pr_alert("drv_ready is %d\n",
@@ -4594,6 +4606,12 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				"qcom,ext-ref-clk");
 	PCIE_DBG(&msm_pcie_dev[rc_idx], "ref clk is %s.\n",
 		msm_pcie_dev[rc_idx].ext_ref_clk ? "external" : "internal");
+
+	msm_pcie_dev[rc_idx].vbg_opt =
+		of_property_read_bool((&pdev->dev)->of_node,
+				"qcom,vbg-opt");
+	PCIE_DBG(&msm_pcie_dev[rc_idx], "vbg opt is %s supported.\n",
+		msm_pcie_dev[rc_idx].vbg_opt ? "" : "not");
 
 	msm_pcie_dev[rc_idx].ep_latency = 0;
 	ret = of_property_read_u32((&pdev->dev)->of_node,
