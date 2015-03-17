@@ -669,12 +669,24 @@ static void handle_event_change(enum command_response cmd, void *data)
 				__func__, inst, &event_notify->packet_buffer,
 				&event_notify->extra_data_buffer);
 
-		if (inst->state == MSM_VIDC_CORE_INVALID ||
-				inst->core->state == VIDC_CORE_INVALID) {
-			dprintk(VIDC_DBG,
-					"Event release buf ref received in invalid state - discard\n");
+		/*
+		* If buffer release event is received with inst->state
+		* greater than STOP means client called STOP directly
+		* without FLUSH. This also means that they don't expect
+		* these buffers back. Processing these commands will not
+		* add any value. This can also results deadlocks between
+		* try_state and event_notify due to inst->sync_lock.
+		*/
+
+		mutex_lock(&inst->lock);
+		if (inst->state >= MSM_VIDC_STOP ||
+			inst->core->state == VIDC_CORE_INVALID) {
+			dprintk(VIDC_ERR,
+				"Event release buf ref received in invalid state - discard\n");
+			mutex_unlock(&inst->lock);
 			return;
 		}
+		mutex_unlock(&inst->lock);
 
 		/*
 		 * Get the buffer_info entry for the
