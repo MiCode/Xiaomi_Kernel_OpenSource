@@ -497,6 +497,28 @@ void mhi_update_chan_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 				chan, db_value);
 	}
 }
+enum MHI_STATUS mhi_check_m2_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	mhi_log(MHI_MSG_VERBOSE, "state = %d\n", mhi_dev_ctxt->mhi_state);
+	if (mhi_dev_ctxt->mhi_state == MHI_STATE_M2) {
+		mhi_log(MHI_MSG_INFO, "M2 Transition flag value = %d\n",
+			(atomic_read(&mhi_dev_ctxt->m2_transition)));
+		if ((atomic_read(&mhi_dev_ctxt->m2_transition)) == 0) {
+			if (mhi_dev_ctxt->flags.link_up) {
+				mhi_assert_device_wake(mhi_dev_ctxt);
+				ret_val = MHI_STATUS_CHAN_NOT_READY;
+			}
+		} else{
+			mhi_log(MHI_MSG_INFO, "m2_transition flag is set\n");
+			ret_val = MHI_STATUS_CHAN_NOT_READY;
+		}
+	} else {
+	   ret_val = MHI_STATUS_SUCCESS;
+	}
+
+	return ret_val;
+}
 
 static inline enum MHI_STATUS mhi_queue_tre(struct mhi_device_ctxt
 							*mhi_dev_ctxt,
@@ -516,11 +538,12 @@ static inline enum MHI_STATUS mhi_queue_tre(struct mhi_device_ctxt
 			"Queued outbound pkt. Pending Acks %d\n",
 		atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
 	}
-	if (likely((((
-	    (mhi_dev_ctxt->mhi_state == MHI_STATE_M0) ||
-	    (mhi_dev_ctxt->mhi_state == MHI_STATE_M1)) &&
+	ret_val = mhi_check_m2_transition(mhi_dev_ctxt);
+	if (likely(((ret_val == MHI_STATUS_SUCCESS) &&
+	    (((mhi_dev_ctxt->mhi_state == MHI_STATE_M0) ||
+	      (mhi_dev_ctxt->mhi_state == MHI_STATE_M1))) &&
 	    (chan_ctxt->mhi_chan_state != MHI_CHAN_STATE_ERROR)) &&
-	    (!mhi_dev_ctxt->flags.pending_M3)))) {
+	    (!mhi_dev_ctxt->flags.pending_M3))) {
 		if (likely(type == MHI_RING_TYPE_XFER_RING)) {
 			spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan],
 					   flags);
@@ -574,14 +597,6 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 	chan = client_handle->chan;
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 
-	/* Bump up the vote for pending data */
-	read_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
-
-	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
-	if (mhi_dev_ctxt->flags.link_up)
-		mhi_assert_device_wake(mhi_dev_ctxt);
-	read_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-
 	pkt_loc = mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp;
 	pkt_loc->data_tx_pkt.buffer_ptr = buf;
 	pkt_loc->type.info = mhi_flags;
@@ -602,19 +617,20 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 	ret_val = ctxt_add_element(&mhi_dev_ctxt->mhi_local_chan_ctxt[chan],
 				(void *)&pkt_loc);
 	if (unlikely(MHI_STATUS_SUCCESS != ret_val)) {
-		mhi_log(MHI_MSG_CRITICAL,
+		mhi_log(MHI_MSG_VERBOSE,
 				"Failed to insert trb in xfer ring\n");
 		goto error;
 	}
 
 	read_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 	ret_val = mhi_queue_tre(mhi_dev_ctxt, chan, MHI_RING_TYPE_XFER_RING);
 	if (unlikely(MHI_STATUS_SUCCESS != ret_val))
 		mhi_log(MHI_MSG_VERBOSE, "Failed queue TRE.\n");
+	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 	read_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
 error:
-	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	return ret_val;
@@ -645,18 +661,18 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 			mhi_dev_ctxt->dev_exec_env,
 			chan, cmd);
 
-	mhi_assert_device_wake(mhi_dev_ctxt);
-	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	/*
 	 * If there is a cmd pending a device confirmation,
 	 * do not send anymore for this channel
 	 */
 	if (MHI_CMD_PENDING == mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan]) {
+		mhi_log(MHI_MSG_ERROR, "Cmd Pending on chan %d", chan);
 		ret_val = MHI_STATUS_CMD_PENDING;
 		goto error_invalid;
 	}
 
+	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 	from_state =
 		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan].mhi_chan_state;
 
@@ -1341,21 +1357,38 @@ int mhi_get_epid(struct mhi_client_handle *client_handle)
 
 int mhi_assert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	mhi_log(MHI_MSG_VERBOSE, "GPIO %d\n",
-			mhi_dev_ctxt->dev_props->device_wake_gpio);
-	gpio_direction_output(mhi_dev_ctxt->dev_props->device_wake_gpio, 1);
+	if ((mhi_dev_ctxt->channel_db_addr) &&
+	       (mhi_dev_ctxt->flags.link_up)) {
+			mhi_log(MHI_MSG_VERBOSE, "LPM %d\n",
+				mhi_dev_ctxt->enable_lpm);
+			atomic_set(&mhi_dev_ctxt->flags.device_wake, 1);
+			mhi_write_db(mhi_dev_ctxt,
+				     mhi_dev_ctxt->channel_db_addr,
+				     MHI_DEV_WAKE_DB, 1);
+			mhi_dev_ctxt->device_wake_asserted = 1;
+	} else {
+		mhi_log(MHI_MSG_VERBOSE, "LPM %d\n", mhi_dev_ctxt->enable_lpm);
+	}
 	return 0;
 }
 
 inline int mhi_deassert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	mhi_log(MHI_MSG_VERBOSE, "GPIO %d\n",
-			mhi_dev_ctxt->dev_props->device_wake_gpio);
-	if (mhi_dev_ctxt->enable_lpm)
-		gpio_direction_output(
-			mhi_dev_ctxt->dev_props->device_wake_gpio, 0);
-	else
-		mhi_log(MHI_MSG_VERBOSE, "LPM Enabled\n");
+	if ((mhi_dev_ctxt->enable_lpm) &&
+	    (atomic_read(&mhi_dev_ctxt->flags.device_wake)) &&
+	    (mhi_dev_ctxt->channel_db_addr != NULL) &&
+	    (mhi_dev_ctxt->flags.link_up)) {
+		mhi_log(MHI_MSG_VERBOSE, "LPM %d\n", mhi_dev_ctxt->enable_lpm);
+		atomic_set(&mhi_dev_ctxt->flags.device_wake, 0);
+		mhi_write_db(mhi_dev_ctxt, mhi_dev_ctxt->channel_db_addr,
+				MHI_DEV_WAKE_DB, 0);
+		mhi_dev_ctxt->device_wake_asserted = 0;
+	} else {
+		mhi_log(MHI_MSG_VERBOSE, "LPM %d DEV_WAKE %d link %d\n",
+				mhi_dev_ctxt->enable_lpm,
+				atomic_read(&mhi_dev_ctxt->flags.device_wake),
+				mhi_dev_ctxt->flags.link_up);
+	}
 	return 0;
 }
 

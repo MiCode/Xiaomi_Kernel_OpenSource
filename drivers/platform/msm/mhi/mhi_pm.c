@@ -113,46 +113,6 @@ exit:
 	return r;
 }
 
-enum hrtimer_restart mhi_initiate_m1(struct hrtimer *timer)
-{
-	int ret_val = 0;
-	unsigned long flags;
-	ktime_t curr_time, timer_inc;
-	struct mhi_device_ctxt *mhi_dev_ctxt = container_of(timer,
-						struct mhi_device_ctxt,
-						m1_timer);
-	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
-
-	/*
-	 * We will allow M1 if no data is pending, the current
-	 * state is M0 and no M3 transition is pending
-	 */
-	if ((0 == atomic_read(&mhi_dev_ctxt->flags.data_pending)) &&
-			(MHI_STATE_M1 == mhi_dev_ctxt->mhi_state ||
-			 MHI_STATE_M0 == mhi_dev_ctxt->mhi_state) &&
-			(0 == mhi_dev_ctxt->flags.pending_M3) &&
-			mhi_dev_ctxt->flags.mhi_initialized &&
-			(0 == atomic_read(
-			&mhi_dev_ctxt->counters.outbound_acks))) {
-		mhi_dev_ctxt->mhi_state = MHI_STATE_M1;
-		ret_val = mhi_deassert_device_wake(mhi_dev_ctxt);
-		mhi_dev_ctxt->counters.m0_m1++;
-		if (ret_val)
-			mhi_log(MHI_MSG_ERROR,
-				"Could not set DEVICE WAKE GPIO LOW\n");
-	}
-	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-	if (mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
-	    mhi_dev_ctxt->mhi_state == MHI_STATE_M1 ||
-	    mhi_dev_ctxt->mhi_state == MHI_STATE_READY) {
-		curr_time = ktime_get();
-		timer_inc = ktime_set(0, MHI_M1_ENTRY_DELAY_MS * 1E6L);
-		hrtimer_forward(timer, curr_time, timer_inc);
-		return HRTIMER_RESTART;
-	}
-	return HRTIMER_NORESTART;
-}
-
 int mhi_init_pm_sysfs(struct device *dev)
 {
 	return sysfs_create_group(&dev->kobj, &mhi_attribute_group);
