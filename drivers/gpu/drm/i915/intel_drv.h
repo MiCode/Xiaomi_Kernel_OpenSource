@@ -623,6 +623,15 @@ struct intel_hdmi {
 	bool rgb_quant_range_selectable;
 	struct edid *edid;
 	u32 edid_mode_count;
+
+	/*
+	 * For HDCP compliance, we disable port immediately after detecting
+	 * hdmi hot unplug event. This bool is set to supress hw/ sw tracking
+	 * warnings for HDMI as we disable port immediately after hot un plug
+	 * whereas the planes/pipe will get disabled as per existing flow.
+	 */
+	bool skip_port_check;
+
 	void (*write_infoframe)(struct drm_encoder *encoder,
 				enum hdmi_infoframe_type type,
 				const void *frame, ssize_t len);

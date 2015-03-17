@@ -1135,6 +1135,22 @@ static bool intel_hpd_irq_event(struct drm_device *dev,
 	return true;
 }
 
+static void intel_hdmi_disable_port(struct drm_device *dev,
+				struct drm_connector *connector)
+{
+	u32 temp;
+	struct intel_connector *intel_connector = to_intel_connector(connector);
+	struct intel_encoder *intel_encoder = intel_connector->encoder;
+	struct intel_hdmi *intel_hdmi = enc_to_intel_hdmi(&intel_encoder->base);
+	struct drm_i915_private *dev_priv = dev->dev_private;
+
+	temp = I915_READ(intel_hdmi->hdmi_reg);
+	temp &= ~(SDVO_ENABLE | SDVO_AUDIO_ENABLE);
+	I915_WRITE(intel_hdmi->hdmi_reg, temp);
+	POSTING_READ(intel_hdmi->hdmi_reg);
+	intel_hdmi->skip_port_check = true;
+}
+
 /*
  * Handle hotplug events outside the interrupt handler proper.
  */
@@ -1201,8 +1217,19 @@ static void i915_hotplug_work_func(struct work_struct *work)
 		if (hpd_event_bits & (1 << intel_encoder->hpd_pin)) {
 			if (intel_encoder->hot_plug)
 				intel_encoder->hot_plug(intel_encoder);
-			if (intel_hpd_irq_event(dev, connector))
+			if (intel_hpd_irq_event(dev, connector)) {
+				if (connector->status ==
+				    connector_status_disconnected &&
+				    intel_encoder->type == INTEL_OUTPUT_HDMI) {
+					/*
+					 * Disable HDMI port immediately
+					 * for HDCP
+					 */
+					intel_hdmi_disable_port(dev, connector);
+				}
+
 				changed = true;
+			}
 		}
 	}
 

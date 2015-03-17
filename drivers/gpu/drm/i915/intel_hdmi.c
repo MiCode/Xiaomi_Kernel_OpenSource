@@ -1979,6 +1979,8 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 
 	/* Update the first status */
 	connector->status = intel_hdmi_detect(connector, false);
+
+	intel_hdmi->skip_port_check = false;
 }
 
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO

@@ -11902,9 +11902,16 @@ static void
 check_connector_state(struct drm_device *dev)
 {
 	struct intel_connector *connector;
+	struct intel_hdmi *intel_hdmi;
 
 	list_for_each_entry(connector, &dev->mode_config.connector_list,
 			    base.head) {
+		if (connector->encoder->type == INTEL_OUTPUT_HDMI) {
+			intel_hdmi =
+				enc_to_intel_hdmi(&connector->encoder->base);
+			if (intel_hdmi->skip_port_check)
+				continue;
+		}
 		/* This also checks the encoder/connector hw state with the
 		 * ->get_hw_state callbacks. */
 		intel_connector_check_state(connector);
@@ -11919,12 +11926,21 @@ check_encoder_state(struct drm_device *dev)
 {
 	struct intel_encoder *encoder;
 	struct intel_connector *connector;
+	struct intel_hdmi *intel_hdmi;
 
 	list_for_each_entry(encoder, &dev->mode_config.encoder_list,
 			    base.head) {
 		bool enabled = false;
 		bool active = false;
 		enum pipe pipe, tracked_pipe;
+
+		if (encoder->type == INTEL_OUTPUT_HDMI) {
+			intel_hdmi = enc_to_intel_hdmi(&encoder->base);
+			if (intel_hdmi->skip_port_check) {
+				intel_hdmi->skip_port_check = false;
+				continue;
+			}
+		}
 
 		DRM_DEBUG_KMS("[ENCODER:%d:%s]\n",
 			      encoder->base.base.id,
