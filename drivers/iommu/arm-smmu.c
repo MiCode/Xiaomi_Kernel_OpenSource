@@ -1604,6 +1604,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.detach_dev	= arm_smmu_detach_dev,
 	.map		= arm_smmu_map,
 	.unmap		= arm_smmu_unmap,
+	.map_sg		= default_iommu_map_sg,
 	.iova_to_phys	= arm_smmu_iova_to_phys,
 	.domain_has_cap	= arm_smmu_domain_has_cap,
 	.add_device	= arm_smmu_add_device,

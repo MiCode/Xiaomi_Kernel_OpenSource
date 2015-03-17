@@ -954,6 +954,7 @@ static struct iommu_ops smmu_iommu_ops = {
 	.detach_dev	= smmu_iommu_detach_dev,
 	.map		= smmu_iommu_map,
 	.unmap		= smmu_iommu_unmap,
+	.map_sg		= default_iommu_map_sg,
 	.iova_to_phys	= smmu_iommu_iova_to_phys,
 	.domain_has_cap	= smmu_iommu_domain_has_cap,
 	.pgsize_bitmap	= SMMU_IOMMU_PGSIZES,
