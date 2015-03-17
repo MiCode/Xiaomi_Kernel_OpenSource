@@ -15,5 +15,5 @@
 #define __LPM_WA_H
 
 void lpm_wa_cx_unvote_send(void);
-
+bool lpm_wa_get_skip_l2_spm(void);
 #endif  /* __LPM_WA_H */

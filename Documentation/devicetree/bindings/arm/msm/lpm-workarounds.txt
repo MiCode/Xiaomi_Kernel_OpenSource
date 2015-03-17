@@ -13,6 +13,11 @@ The optional properties are:
 - lpm-cx-supply:  will hold handle for CX regulator supply which is used
 	to unvote.
 
+- qcom,lpm-wa-skip-l2-spm: indicates the workaround is for not to program the
+	L2 spm from HLOS as TZ will program the SPM based on the tz flag sent from
+	HLOS as workaround for SDI fix.
+
+
 Example:
 
 qcom,lpm-workarounds {
@@ -20,4 +25,5 @@ qcom,lpm-workarounds {
 
 	lpm-cx-supply = <&pm8916_s2_corner>;
 	qcom,lpm-wa-cx-turbo-unvote;
+	qcom,lpm-wa-skip-l2-spm;
 }
