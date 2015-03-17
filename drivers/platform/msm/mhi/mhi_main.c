@@ -652,7 +652,7 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	/*
-	 * If there is a cmd pending a struct device confirmation,
+	 * If there is a cmd pending a device confirmation,
 	 * do not send anymore for this channel
 	 */
 	if (MHI_CMD_PENDING == mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan]) {
@@ -664,8 +664,6 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan].mhi_chan_state;
 
 	switch (cmd) {
-	case MHI_COMMAND_NOOP:
-		ring_el_type = MHI_PKT_TYPE_NOOP_CMD;
 		break;
 	case MHI_COMMAND_RESET_CHAN:
 		to_state = MHI_CHAN_STATE_DISABLED;
@@ -686,22 +684,6 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 			goto error_invalid;
 		}
 		ring_el_type = MHI_PKT_TYPE_START_CHAN_CMD;
-		break;
-	case MHI_COMMAND_STOP_CHAN:
-		switch (from_state) {
-		case MHI_CHAN_STATE_RUNNING:
-		case MHI_CHAN_STATE_SUSPENDED:
-			to_state = MHI_CHAN_STATE_STOP;
-			break;
-		default:
-			mhi_log(MHI_MSG_ERROR,
-				"Invalid state transition for "
-				"cmd 0x%x, from_state 0x%x\n",
-					cmd, from_state);
-			ret_val = MHI_STATUS_BAD_STATE;
-			goto error_invalid;
-		}
-		ring_el_type = MHI_PKT_TYPE_STOP_CHAN_CMD;
 		break;
 	default:
 		mhi_log(MHI_MSG_ERROR, "Bad command received\n");
