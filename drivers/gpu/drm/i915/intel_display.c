@@ -11104,6 +11104,8 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	}
 	dev_priv->atomic_update = true;
 
+	intel_runtime_pm_get(dev_priv);
+
 	/* FIXME - Sometime unpin work is not yet cleared */
 	if (intel_crtc->unpin_work)
 		intel_crtc_wait_for_pending_flips(crtc);
@@ -11178,6 +11180,8 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	/* Enable maxfifo if needed */
 	intel_update_maxfifo(dev_priv, intel_crtc->pipe, plane_cnt);
 	dev_priv->atomic_update = false;
+
+	intel_runtime_pm_put(dev_priv);
 	return ret;
 }
 

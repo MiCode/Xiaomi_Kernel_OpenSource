@@ -1513,6 +1513,8 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 		return -EINVAL;
 	}
 
+	intel_runtime_pm_get(dev_priv);
+
 	ret = i915_mutex_lock_interruptible(dev);
 	if (ret)
 		goto pre_mutex_err;
@@ -1745,6 +1747,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	 */
 	mutex_unlock(&dev->struct_mutex);
 
+	intel_runtime_pm_put(dev_priv);
 	return ret;
 
 err:
@@ -1785,6 +1788,7 @@ pre_mutex_err:
 		args->rsvd2 = (__u64) -1;
 
 	dev_priv->scheduler->stats[ring->id].exec_early++;
+	intel_runtime_pm_put(dev_priv);
 
 	return ret;
 }
