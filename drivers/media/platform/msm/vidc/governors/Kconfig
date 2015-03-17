@@ -1,4 +1,4 @@
-menuconfig MSM_VIDC_V4L2_GOVERNORS
+menuconfig MSM_VIDC_GOVERNORS
 	bool "Clock and bandwidth governors for QTI MSM V4L2 based video driver"
 	depends on MSM_VIDC_V4L2 && PM_DEVFREQ
 	help
