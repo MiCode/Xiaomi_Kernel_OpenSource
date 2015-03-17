@@ -395,6 +395,7 @@ struct mhi_flags {
 	atomic_t pending_ssr;
 	atomic_t pending_powerup;
 	int stop_threads;
+	atomic_t device_wake;
 	u32 ssr;
 };
 
@@ -453,8 +454,10 @@ struct mhi_device_ctxt {
 	u32 outbound_evmod_rate;
 	struct mhi_counters counters;
 	struct mhi_flags flags;
+	u32 device_wake_asserted;
 
 	rwlock_t xfer_lock;
+	atomic_t m2_transition;
 	struct hrtimer m1_timer;
 	ktime_t m1_timeout;
 	ktime_t ul_acc_tmr_timeout;

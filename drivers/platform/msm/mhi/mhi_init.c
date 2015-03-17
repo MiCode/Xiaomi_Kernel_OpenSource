@@ -115,6 +115,7 @@ static enum MHI_STATUS mhi_init_sync(struct mhi_device_ctxt *mhi_dev_ctxt)
 	rwlock_init(&mhi_dev_ctxt->xfer_lock);
 	mutex_init(&mhi_dev_ctxt->mhi_link_state);
 	mutex_init(&mhi_dev_ctxt->pm_lock);
+	atomic_set(&mhi_dev_ctxt->m2_transition, 0);
 	return MHI_STATUS_SUCCESS;
 
 db_write_lock_free:
@@ -368,14 +369,6 @@ static enum MHI_STATUS mhi_cmd_ring_init(struct mhi_cmd_ctxt *cmd_ctxt,
 
 static enum MHI_STATUS mhi_init_timers(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	hrtimer_init(&mhi_dev_ctxt->m1_timer,
-			CLOCK_MONOTONIC,
-			HRTIMER_MODE_REL);
-	mhi_dev_ctxt->m1_timeout =
-			ktime_set(0, MHI_M1_ENTRY_DELAY_MS * 1E6L);
-	mhi_dev_ctxt->m1_timer.function = mhi_initiate_m1;
-	mhi_log(MHI_MSG_CRITICAL | MHI_DBG_POWER,
-		"Starting M1 timer\n");
 	return MHI_STATUS_SUCCESS;
 }
 
