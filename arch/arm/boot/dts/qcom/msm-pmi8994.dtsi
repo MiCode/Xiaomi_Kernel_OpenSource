@@ -305,6 +305,7 @@
 			qcom,cycle-counter-low-soc = <15>;
 			qcom,cycle-counter-high-soc = <85>;
 			qcom,capacity-learning-on;
+			qcom,fg-cc-cv-threshold-mv = <4340>;
 
 			qcom,fg-soc@4000 {
 				status = "okay";
