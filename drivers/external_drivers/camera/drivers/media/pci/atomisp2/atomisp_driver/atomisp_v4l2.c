@@ -365,8 +365,8 @@ void punit_ddr_dvfs_enable(bool enable)
 	if (enable) {
 		reg &= ~(MRFLD_BIT0 | MRFLD_BIT1);
 	} else {
-		reg |= (MRFLD_BIT0);
-		reg &= ~(MRFLD_BIT1);
+		reg |= (MRFLD_BIT1);
+		reg &= ~(MRFLD_BIT0);
 	}
 
 	intel_mid_msgbus_write32(PUNIT_PORT, MRFLD_ISPSSDVFS, reg);
