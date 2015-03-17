@@ -222,10 +222,12 @@
 #define BUS_SCALING		0x2
 
 /* XO clock */
-#define BB_CLK1_ID		1
-#define BB_CLK2_ID		2
-#define RF_CLK1_ID		4
-#define RF_CLK2_ID		5
+#define BB_CLK1_ID		0x1
+#define BB_CLK2_ID		0x2
+#define RF_CLK2_ID		0x5
+#define LN_BB_CLK_ID		0x8
+#define DIV_CLK1_ID		0xb
+#define DIV_CLK2_ID		0xc
 
 #define APCS_CCI_PLL_MODE		0x00000
 #define APCS_CCI_PLL_L_VAL		0x00004
