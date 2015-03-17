@@ -77,6 +77,11 @@ void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 int kgsl_sharedmem_init_sysfs(void);
 void kgsl_sharedmem_uninit_sysfs(void);
 
+int kgsl_allocate_user(struct kgsl_device *device,
+		struct kgsl_memdesc *memdesc,
+		struct kgsl_pagetable *pagetable,
+		uint64_t size, uint64_t mmapsize, uint64_t flags);
+
 #define MEMFLAGS(_flags, _mask, _shift) \
 	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
 
@@ -247,30 +252,6 @@ kgsl_memdesc_mmapsize(const struct kgsl_memdesc *memdesc)
 	if (kgsl_memdesc_has_guard_page(memdesc))
 		size += SZ_4K;
 	return size;
-}
-
-static inline int
-kgsl_allocate_user(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc,
-		struct kgsl_pagetable *pagetable,
-		uint64_t size, uint64_t mmapsize, uint64_t flags)
-{
-	int ret;
-
-	if (size == 0)
-		return -EINVAL;
-
-	memdesc->flags = flags;
-
-	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE) {
-		size = ALIGN(size, PAGE_SIZE);
-		ret = kgsl_cma_alloc_coherent(device, memdesc, pagetable, size);
-	} else if (flags & KGSL_MEMFLAGS_SECURE)
-		ret = kgsl_cma_alloc_secure(device, memdesc, size);
-	else
-		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
-
-	return ret;
 }
 
 static inline int
