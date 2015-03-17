@@ -11143,8 +11143,9 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	/* Commit to registers */
 	ret = intel_set_disp_commit_regs(disp, dev, intel_crtc);
 
-	/* updat the watermarks*/
-	valleyview_update_wm_pm5(crtc);
+	/* PM5 requires that we update the watermarks straight way */
+	if (IS_CHERRYVIEW(dev))
+		valleyview_update_wm_pm5(crtc);
 
 	/* Enable maxfifo if needed */
 	intel_update_maxfifo(dev_priv, intel_crtc->pipe, plane_cnt);

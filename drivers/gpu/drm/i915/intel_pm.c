@@ -1559,7 +1559,7 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv, enum pipe pipe,
 	 * enabled.
 	 */
 	if (single_plane_enabled(dev_priv->plane_stat
-			& (PIPE_A_PLANES_MASK || PIPE_B_PLANES_MASK))
+			& (PIPE_A_PLANES_MASK | PIPE_B_PLANES_MASK))
 		&& !(dev_priv->plane_stat & PIPE_C_MASK)
 		&& (single_plane_enabled(dev_priv->plane_stat
 			& PIPE_ENABLE_MASK))
