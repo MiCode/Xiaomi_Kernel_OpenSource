@@ -187,6 +187,11 @@
 		};
 	};
 
+	qcom,lpm-workarounds {
+		compatible = "qcom,lpm-workarounds";
+		qcom,lpm-wa-skip-l2-spm;
+	};
+
 	qcom,mpm@601d0 {
 		compatible = "qcom,mpm-v2";
 		reg = <0x601d0 0x1000>, /* MSM_RPM_MPM_BASE 4K */
