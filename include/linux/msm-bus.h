@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -142,7 +142,7 @@ static inline void msm_bus_scale_unregister(struct msm_bus_client_handle *cl)
 }
 
 static inline int
-msm_bus_scale_update_bw(uint32_t cl, u64 ab, u64 ib)
+msm_bus_scale_update_bw(struct msm_bus_client_handle *cl, u64 ab, u64 ib)
 {
 	return 0;
 }
