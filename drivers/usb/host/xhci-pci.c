@@ -301,7 +301,7 @@ static int xhci_pci_suspend(struct usb_hcd *hcd, bool do_wakeup)
 	/* This is SW workaround for spurious PME issue and HCRST hang problem
 	 * It required to set anc clear SSIC_PORT_UNUSED bit in D3 entry and
 	 * D3 exit. */
-	if (xhci->quirks & XHCI_SPURIOUS_PME)
+	if (!retval && xhci->quirks & XHCI_SPURIOUS_PME)
 		xhci_intel_ssic_port_unused(xhci, 1);
 
 	return retval;
