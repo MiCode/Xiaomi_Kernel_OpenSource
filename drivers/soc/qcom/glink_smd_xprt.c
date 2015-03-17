@@ -68,6 +68,8 @@ enum command_types {
  * @channels:		A list of all the channels that currently exist on this
  *			edge.
  * @intentless:		Flag indicating this edge is intentless.
+ * @irq_disabled:	Flag indicating whether interrupt is enabled or
+ *			disabled.
  * @ssr_sync:		Synchronizes SSR with any ongoing activity that might
  *			conflict.
  * @in_ssr:		Prevents new activity that might conflict with an active
@@ -89,6 +91,7 @@ struct edge_info {
 	uint32_t smd_edge;
 	struct list_head channels;
 	bool intentless;
+	bool irq_disabled;
 	struct srcu_struct ssr_sync;
 	bool in_ssr;
 	struct delayed_work ssr_work;
@@ -1650,13 +1653,19 @@ static int mask_rx_irq(struct glink_transport_if *if_ptr, uint32_t lcid,
 {
 	struct edge_info *einfo;
 	struct channel *ch;
+	int ret = 0;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 	list_for_each_entry(ch, &einfo->channels, node) {
 		if (lcid == ch->lcid)
 			break;
 	}
-	return smd_mask_receive_interrupt(ch->smd_ch, mask, pstruct);
+	ret = smd_mask_receive_interrupt(ch->smd_ch, mask, pstruct);
+
+	if (ret == 0)
+		einfo->irq_disabled = mask;
+
+	return ret;
 }
 
 /**
