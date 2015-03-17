@@ -29,6 +29,10 @@
 	mpu6050@68 { /* Gyroscope and accelerometer sensor combo */
 		invn,place = "Landscape Left";
 	};
+
+	memsic@30 { /* Magnetic field sensor */
+		memsic,dir = "reverse-x-axis-rightward";
+	};
 };
 
 &i2c_4 {
