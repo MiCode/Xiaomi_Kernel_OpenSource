@@ -364,126 +364,132 @@ static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config,
 	if (config->flags & MDP_PP_OPS_READ) {
 		pr_err("read op is not supported\n");
 		return -EINVAL;
-	} else {
-		disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
-		mdss_pp_res->gamut_disp_cfg[disp_num] = *config;
-		v17_cache_data = &res_cache->gamut_v17_data[disp_num];
-		mdss_pp_res->gamut_disp_cfg[disp_num].cfg_payload =
-			(void *) v17_cache_data;
-		tbl_gamut = v17_cache_data->c0_data[0];
+	}
 
-		if (copy_from_user(&v17_usr_config, config->cfg_payload,
-				   sizeof(v17_usr_config))) {
-			pr_err("failed to copy v17 gamut\n");
-			ret = -EFAULT;
+	disp_num = config->block - MDP_LOGICAL_BLOCK_DISP_0;
+
+	/* Copy top level gamut cfg struct into PP res cache */
+	memcpy(&mdss_pp_res->gamut_disp_cfg[disp_num], config,
+			sizeof(struct mdp_gamut_cfg_data));
+
+	v17_cache_data = &res_cache->gamut_v17_data[disp_num];
+	mdss_pp_res->gamut_disp_cfg[disp_num].cfg_payload =
+		(void *) v17_cache_data;
+	tbl_gamut = v17_cache_data->c0_data[0];
+
+	if ((config->flags & MDP_PP_OPS_DISABLE)) {
+		pr_debug("disable gamut\n");
+		ret = 0;
+		goto gamut_config_exit;
+	}
+
+	if (copy_from_user(&v17_usr_config, config->cfg_payload,
+			   sizeof(v17_usr_config))) {
+		pr_err("failed to copy v17 gamut\n");
+		ret = -EFAULT;
+		goto gamut_config_exit;
+	}
+	if (v17_usr_config.mode != mdp_gamut_coarse_mode &&
+	   v17_usr_config.mode != mdp_gamut_fine_mode) {
+		pr_err("invalid gamut mode %d\n", v17_usr_config.mode);
+		return -EINVAL;
+	}
+	if (!(config->flags & MDP_PP_OPS_WRITE)) {
+		pr_debug("op for gamut %d\n", config->flags);
+		goto gamut_config_exit;
+	}
+	tbl_sz = (v17_usr_config.mode == mdp_gamut_fine_mode) ?
+		MDP_GAMUT_TABLE_V1_7_SZ :
+		 MDP_GAMUT_TABLE_V1_7_COARSE_SZ;
+	v17_cache_data->mode = v17_usr_config.mode;
+	/* sanity check for sizes */
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
+		if (v17_usr_config.tbl_size[i] != tbl_sz) {
+			pr_err("invalid tbl_sz %d exp %d for mode %d\n",
+			       v17_usr_config.tbl_size[i], tbl_sz,
+			       v17_usr_config.mode);
 			goto gamut_config_exit;
 		}
-		if ((config->flags & MDP_PP_OPS_DISABLE)) {
-			pr_debug("disable gamut\n");
-			ret = 0;
+		gamut_size += v17_usr_config.tbl_size[i];
+		if (i >= MDP_GAMUT_SCALE_OFF_TABLE_NUM)
+			continue;
+		if (v17_usr_config.tbl_scale_off_sz[i] !=
+		    MDP_GAMUT_SCALE_OFF_SZ) {
+			pr_err("invalid scale_sz %d exp %d for mode %d\n",
+			       v17_usr_config.tbl_scale_off_sz[i],
+			       MDP_GAMUT_SCALE_OFF_SZ,
+			       v17_usr_config.mode);
+			goto gamut_config_exit;
+		}
+		scal_coff_size += v17_usr_config.tbl_scale_off_sz[i];
+
+	}
+	/* gamut size should be accounted for c0, c1c2 table */
+	sz = gamut_size * 2 + scal_coff_size;
+	if (sz > GAMUT_TOTAL_TABLE_SIZE_V1_7) {
+		pr_err("Invalid table size act %d max %d\n",
+		      sz, GAMUT_TOTAL_TABLE_SIZE_V1_7);
+		ret = -EINVAL;
+		goto gamut_config_exit;
+	}
+	/* Allocate for fine mode other modes will fit */
+	if (!tbl_gamut)
+		tbl_gamut = vmalloc(GAMUT_TOTAL_TABLE_SIZE_V1_7 *
+				    sizeof(u32));
+	if (!tbl_gamut) {
+		pr_err("failed to allocate buffer for gamut size %zd",
+			(GAMUT_TOTAL_TABLE_SIZE_V1_7 * sizeof(u32)));
+		ret = -ENOMEM;
+		goto gamut_config_exit;
+	}
+	index = 0;
+	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
+		ret = copy_from_user(&tbl_gamut[index],
+			v17_usr_config.c0_data[i],
+			(sizeof(u32) * v17_usr_config.tbl_size[i]));
+		if (ret) {
+			pr_err("copying c0 table %d from userspace failed size %zd ret %d\n",
+				i, (sizeof(u32) *
+				v17_usr_config.tbl_size[i]), ret);
+			ret = -EFAULT;
 			goto gamut_memory_free_exit;
 		}
-		if (v17_usr_config.mode != mdp_gamut_coarse_mode &&
-		   v17_usr_config.mode != mdp_gamut_fine_mode) {
-			pr_err("invalid gamut mode %d\n", v17_usr_config.mode);
-			return -EINVAL;
-		}
-		if (!(config->flags & MDP_PP_OPS_WRITE)) {
-			pr_debug("op for gamut %d\n", config->flags);
-			goto gamut_config_exit;
-		}
-		tbl_sz = (v17_usr_config.mode == mdp_gamut_fine_mode) ?
-			MDP_GAMUT_TABLE_V1_7_SZ :
-			 MDP_GAMUT_TABLE_V1_7_COARSE_SZ;
-		v17_cache_data->mode = v17_usr_config.mode;
-		/* sanity check for sizes */
-		for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
-			if (v17_usr_config.tbl_size[i] != tbl_sz) {
-				pr_err("invalid tbl_sz %d exp %d for mode %d\n",
-				       v17_usr_config.tbl_size[i], tbl_sz,
-				       v17_usr_config.mode);
-				goto gamut_config_exit;
-			}
-			gamut_size += v17_usr_config.tbl_size[i];
-			if (i >= MDP_GAMUT_SCALE_OFF_TABLE_NUM)
-				continue;
-			if (v17_usr_config.tbl_scale_off_sz[i] !=
-			    MDP_GAMUT_SCALE_OFF_SZ) {
-				pr_err("invalid scale_sz %d exp %d for mode %d\n",
-				       v17_usr_config.tbl_scale_off_sz[i],
-				       MDP_GAMUT_SCALE_OFF_SZ,
-				       v17_usr_config.mode);
-				goto gamut_config_exit;
-			}
-			scal_coff_size += v17_usr_config.tbl_scale_off_sz[i];
-
-		}
-		/* gamut size should be accounted for c0, c1c2 table */
-		sz = gamut_size * 2 + scal_coff_size;
-		if (sz > GAMUT_TOTAL_TABLE_SIZE_V1_7) {
-			pr_err("Invalid table size act %d max %d\n",
-			      sz, GAMUT_TOTAL_TABLE_SIZE_V1_7);
+		v17_cache_data->c0_data[i] = &tbl_gamut[index];
+		v17_cache_data->tbl_size[i] =
+			v17_usr_config.tbl_size[i];
+		index += v17_usr_config.tbl_size[i];
+		ret = copy_from_user(&tbl_gamut[index],
+			v17_usr_config.c1_c2_data[i],
+			(sizeof(u32) * v17_usr_config.tbl_size[i]));
+		if (ret) {
+			pr_err("copying c1_c2 table %d from userspace failed size %zd ret %d\n",
+				i, (sizeof(u32) *
+				v17_usr_config.tbl_size[i]), ret);
 			ret = -EINVAL;
-			goto gamut_config_exit;
+			goto gamut_memory_free_exit;
 		}
-		/* Allocate for fine mode other modes will fit */
-		if (!tbl_gamut)
-			tbl_gamut = vmalloc(GAMUT_TOTAL_TABLE_SIZE_V1_7 *
-					    sizeof(u32));
-		if (!tbl_gamut) {
-			pr_err("failed to allocate buffer for gamut size %zd",
-				(GAMUT_TOTAL_TABLE_SIZE_V1_7 * sizeof(u32)));
-			ret = -ENOMEM;
-			goto gamut_config_exit;
-		}
-		index = 0;
-		for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
-			ret = copy_from_user(&tbl_gamut[index],
-				v17_usr_config.c0_data[i],
-				(sizeof(u32) * v17_usr_config.tbl_size[i]));
-			if (ret) {
-				pr_err("copying c0 table %d from userspace failed size %zd ret %d\n",
-					i, (sizeof(u32) *
-					v17_usr_config.tbl_size[i]), ret);
-				ret = -EFAULT;
-				goto gamut_memory_free_exit;
-			}
-			v17_cache_data->c0_data[i] = &tbl_gamut[index];
-			v17_cache_data->tbl_size[i] =
-				v17_usr_config.tbl_size[i];
-			index += v17_usr_config.tbl_size[i];
-			ret = copy_from_user(&tbl_gamut[index],
-				v17_usr_config.c1_c2_data[i],
-				(sizeof(u32) * v17_usr_config.tbl_size[i]));
-			if (ret) {
-				pr_err("copying c1_c2 table %d from userspace failed size %zd ret %d\n",
-					i, (sizeof(u32) *
-					v17_usr_config.tbl_size[i]), ret);
-				ret = -EINVAL;
-				goto gamut_memory_free_exit;
-			}
-			v17_cache_data->c1_c2_data[i] = &tbl_gamut[index];
-			index += v17_usr_config.tbl_size[i];
-		}
-		for (i = 0; i < MDP_GAMUT_SCALE_OFF_TABLE_NUM; i++) {
-			ret = copy_from_user(&tbl_gamut[index],
-				v17_usr_config.scale_off_data[i],
-				(sizeof(u32) *
-				v17_usr_config.tbl_scale_off_sz[i]));
-			if (ret) {
-				pr_err("copying scale offset table %d from userspace failed size %zd ret %d\n",
-					i, (sizeof(u32) *
-					v17_usr_config.tbl_scale_off_sz[i]),
-					ret);
-				ret = -EFAULT;
-				goto gamut_memory_free_exit;
-			}
-			v17_cache_data->tbl_scale_off_sz[i] =
-				v17_usr_config.tbl_scale_off_sz[i];
-			v17_cache_data->scale_off_data[i] = &tbl_gamut[index];
-			index += v17_usr_config.tbl_scale_off_sz[i];
-		}
+		v17_cache_data->c1_c2_data[i] = &tbl_gamut[index];
+		index += v17_usr_config.tbl_size[i];
 	}
+	for (i = 0; i < MDP_GAMUT_SCALE_OFF_TABLE_NUM; i++) {
+		ret = copy_from_user(&tbl_gamut[index],
+			v17_usr_config.scale_off_data[i],
+			(sizeof(u32) *
+			v17_usr_config.tbl_scale_off_sz[i]));
+		if (ret) {
+			pr_err("copying scale offset table %d from userspace failed size %zd ret %d\n",
+				i, (sizeof(u32) *
+				v17_usr_config.tbl_scale_off_sz[i]),
+				ret);
+			ret = -EFAULT;
+			goto gamut_memory_free_exit;
+		}
+		v17_cache_data->tbl_scale_off_sz[i] =
+			v17_usr_config.tbl_scale_off_sz[i];
+		v17_cache_data->scale_off_data[i] = &tbl_gamut[index];
+		index += v17_usr_config.tbl_scale_off_sz[i];
+	}
+
 gamut_config_exit:
 	return ret;
 gamut_memory_free_exit:

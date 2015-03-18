@@ -824,9 +824,15 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 		return -EINVAL;
 	}
 	if (!(gamut_cfg_data->flags & ~(MDP_PP_OPS_READ))) {
-		pr_info("only read ops is set %d", gamut_cfg_data->flags);
+		pr_debug("only read ops is set %d", gamut_cfg_data->flags);
 		return 0;
 	}
+
+	if (gamut_cfg_data->flags & MDP_PP_OPS_DISABLE) {
+		pr_debug("disabling gamut\n");
+		goto bail_out;
+	}
+
 	gamut_data = (struct mdp_gamut_data_v1_7 *)
 		      gamut_cfg_data->cfg_payload;
 	if (!gamut_data) {
