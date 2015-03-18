@@ -13,7 +13,6 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/of_platform.h>
-#include <linux/wl12xx.h>
 
 #include <linux/platform_data/pinctrl-single.h>
 #include <linux/platform_data/iommu-omap.h>
@@ -34,35 +33,6 @@ struct pdata_init {
 
 struct of_dev_auxdata omap_auxdata_lookup[];
 static struct twl4030_gpio_platform_data twl_gpio_auxdata;
-
-#if IS_ENABLED(CONFIG_WL12XX)
-
-static struct wl12xx_platform_data wl12xx __initdata;
-
-static void __init __used legacy_init_wl12xx(u32 ref_clock_freq,
-					     u32 tcxo_clock_freq,
-					     int gpio)
-{
-	int res;
-
-	wl12xx.ref_clock_freq = ref_clock_freq;
-	wl12xx.tcxo_clock_freq = tcxo_clock_freq;
-	wl12xx.irq = gpio_to_irq(gpio);
-	wl12xx.irq_trigger = IRQ_TYPE_LEVEL_HIGH;
-
-	res = wl12xx_set_platform_data(&wl12xx);
-	if (res) {
-		pr_err("error setting wl12xx data: %d\n", res);
-		return;
-	}
-}
-#else
-static inline void legacy_init_wl12xx(u32 ref_clock_freq,
-				      u32 tcxo_clock_freq,
-				      int gpio)
-{
-}
-#endif
 
 #ifdef CONFIG_MACH_NOKIA_N8X0
 static void __init omap2420_n8x0_legacy_init(void)
@@ -130,7 +100,6 @@ static void __init omap3_sbc_t3730_twl_init(void)
 static void __init omap3_sbc_t3730_legacy_init(void)
 {
 	omap3_sbc_t3x_usb_hub_init(167, "sb-t35 usb hub");
-	legacy_init_wl12xx(38400000, 0, 136);
 	omap_ads7846_init(1, 57, 0, NULL);
 }
 
@@ -140,18 +109,8 @@ static void __init omap3_sbc_t3530_legacy_init(void)
 	omap_ads7846_init(1, 57, 0, NULL);
 }
 
-static void __init omap3_igep0020_legacy_init(void)
-{
-}
-
 static void __init omap3_evm_legacy_init(void)
 {
-	legacy_init_wl12xx(38400000, 0, 149);
-}
-
-static void __init omap3_zoom_legacy_init(void)
-{
-	legacy_init_wl12xx(26000000, 0, 162);
 }
 
 static void am35xx_enable_emac_int(void)
@@ -218,7 +177,6 @@ static void __init omap3_sbc_t3517_legacy_init(void)
 	am35xx_emac_reset();
 	hsmmc2_internal_input_clk();
 	omap3_sbc_t3517_wifi_init();
-	legacy_init_wl12xx(38400000, 0, 145);
 	omap_ads7846_init(1, 57, 0, NULL);
 }
 
@@ -261,36 +219,12 @@ static void __init omap3_tao3530_legacy_init(void)
 }
 #endif /* CONFIG_ARCH_OMAP3 */
 
-#ifdef CONFIG_ARCH_OMAP4
-static void __init omap4_sdp_legacy_init(void)
-{
-	legacy_init_wl12xx(26000000, 26000000, 53);
-}
-
-static void __init omap4_panda_legacy_init(void)
-{
-	legacy_init_wl12xx(38400000, 0, 53);
-}
-
-static void __init var_som_om44_legacy_init(void)
-{
-	legacy_init_wl12xx(38400000, 0, 41);
-}
-#endif
-
 #if defined(CONFIG_ARCH_OMAP4) || defined(CONFIG_SOC_OMAP5)
 static struct iommu_platform_data omap4_iommu_pdata = {
 	.reset_name = "mmu_cache",
 	.assert_reset = omap_device_assert_hardreset,
 	.deassert_reset = omap_device_deassert_hardreset,
 };
-#endif
-
-#ifdef CONFIG_SOC_AM33XX
-static void __init am335x_evmsk_legacy_init(void)
-{
-	legacy_init_wl12xx(38400000, 0, 31);
-}
 #endif
 
 #ifdef CONFIG_SOC_OMAP5
@@ -390,20 +324,9 @@ static struct pdata_init pdata_quirks[] __initdata = {
 	{ "nokia,omap3-n900", nokia_n900_legacy_init, },
 	{ "nokia,omap3-n9", hsmmc2_internal_input_clk, },
 	{ "nokia,omap3-n950", hsmmc2_internal_input_clk, },
-	{ "isee,omap3-igep0020", omap3_igep0020_legacy_init, },
 	{ "ti,omap3-evm-37xx", omap3_evm_legacy_init, },
-	{ "ti,omap3-zoom3", omap3_zoom_legacy_init, },
 	{ "ti,am3517-evm", am3517_evm_legacy_init, },
 	{ "technexion,omap3-tao3530", omap3_tao3530_legacy_init, },
-#endif
-#ifdef CONFIG_ARCH_OMAP4
-	{ "ti,omap4-sdp", omap4_sdp_legacy_init, },
-	{ "ti,omap4-panda", omap4_panda_legacy_init, },
-	{ "variscite,var-dvk-om44", var_som_om44_legacy_init, },
-	{ "variscite,var-stk-om44", var_som_om44_legacy_init, },
-#endif
-#ifdef CONFIG_SOC_AM33XX
-	{ "ti,am335x-evmsk", am335x_evmsk_legacy_init, },
 #endif
 #ifdef CONFIG_SOC_OMAP5
 	{ "ti,omap5-uevm", omap5_uevm_legacy_init, },
