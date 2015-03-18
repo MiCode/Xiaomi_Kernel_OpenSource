@@ -89,6 +89,7 @@ enum {
 enum dig_major {
 	DIG_REV_8994_1 = 0x1,
 	DIG_REV_8994_2 = 0x2,
+	DIG_REV_8950_3 = 0x3,
 };
 
 struct fg_mem_setting {
@@ -279,6 +280,10 @@ static struct register_offset offset[] = {
 			 /* CFG   CTL   LSB   RD0   WD0 */
 		.address = {0x40, 0x41, 0x42, 0x4C, 0x48},
 	},
+	[1] = {
+			 /* CFG   CTL   LSB   RD0   WD0 */
+		.address = {0x50, 0x51, 0x61, 0x67, 0x63},
+	},
 };
 
 #define MEM_INTF_CFG(chip)	\
@@ -394,6 +399,7 @@ struct fg_chip {
 	struct alarm		fg_cap_learning_alarm;
 	struct work_struct	fg_cap_learning_work;
 	u16			*offset;
+	bool			ima_supported;
 };
 
 /* FG_MEMIF DEBUGFS structures */
@@ -793,7 +799,7 @@ static int fg_sub_mem_read(struct fg_chip *chip, u8 *val, u16 address, int len,
 	return rc;
 }
 
-static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address,
+static int fg_conventional_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 		int len, int offset, bool keep_access)
 {
 	int rc = 0, user_cnt = 0, orig_address = address;
@@ -837,7 +843,7 @@ out:
 	return rc;
 }
 
-static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
+static int fg_conventional_mem_write(struct fg_chip *chip, u8 *val, u16 address,
 		int len, int offset, bool keep_access)
 {
 	int rc = 0, user_cnt = 0, sublen;
@@ -944,6 +950,419 @@ out:
 
 	mutex_unlock(&chip->rw_lock);
 	return rc;
+}
+
+#define MEM_INTF_IMA_OPR_STS		0x54
+#define MEM_INTF_IMA_ERR_STS		0x5F
+#define MEM_INTF_IMA_EXP_STS		0x55
+#define MEM_INTF_IMA_HW_STS		0x56
+#define MEM_INTF_IMA_BYTE_EN		0x60
+#define IMA_ADDR_STBL_ERR		BIT(7)
+#define IMA_WR_ACS_ERR			BIT(6)
+#define IMA_RD_ACS_ERR			BIT(5)
+#define IMA_IACS_CLR			BIT(2)
+#define IMA_IACS_RDY			BIT(1)
+static int fg_check_ima_exception(struct fg_chip *chip)
+{
+	int rc = 0, ret = 0;
+	u8 err_sts, exp_sts = 0, hw_sts = 0;
+
+	rc = fg_read(chip, &err_sts,
+			chip->mem_base + MEM_INTF_IMA_ERR_STS, 1);
+	if (rc) {
+		pr_err("failed to read beat count rc=%d\n", rc);
+		return rc;
+	}
+
+	if (err_sts & (IMA_ADDR_STBL_ERR | IMA_WR_ACS_ERR | IMA_RD_ACS_ERR)) {
+		u8 temp;
+
+		fg_read(chip, &exp_sts,
+			chip->mem_base + MEM_INTF_IMA_EXP_STS, 1);
+		fg_read(chip, &hw_sts,
+			chip->mem_base + MEM_INTF_IMA_HW_STS, 1);
+		pr_err("IMA access failed ima_err_sts=%x ima_exp_sts=%x ima_hw_sts=%x\n",
+				err_sts, exp_sts, hw_sts);
+		rc = err_sts;
+
+		/* clear the error */
+		ret |= fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_IACS_CLR,
+							IMA_IACS_CLR, 1);
+		temp = 0x4;
+		ret |= fg_write(chip, &temp, MEM_INTF_ADDR_LSB(chip) + 1, 1);
+		temp = 0x0;
+		ret |= fg_write(chip, &temp, MEM_INTF_WR_DATA0(chip) + 3, 1);
+		ret |= fg_read(chip, &temp, MEM_INTF_RD_DATA0(chip) + 3, 1);
+		ret |= fg_masked_write(chip, MEM_INTF_CFG(chip),
+						IMA_IACS_CLR, 0, 1);
+		if (!ret)
+			return -EAGAIN;
+		else
+			pr_err("Error clearing IMA exception ret=%d\n", ret);
+	}
+
+	return rc;
+}
+
+static int fg_check_iacs_ready(struct fg_chip *chip)
+{
+	int rc = 0, timeout = 250;
+	u8 ima_opr_sts = 0;
+
+	while (1) {
+		rc = fg_read(chip, &ima_opr_sts,
+			chip->mem_base + MEM_INTF_IMA_OPR_STS, 1);
+		if (!rc && (ima_opr_sts & IMA_IACS_RDY)) {
+			break;
+		} else {
+			if (!(--timeout) || rc)
+				break;
+			/* delay for iacs_ready to be asserted */
+			usleep_range(10000, 12000);
+		}
+	}
+
+	if (!timeout || rc) {
+		pr_err("IACS_RDY not set\n");
+		return -EBUSY;
+	}
+
+	return 0;
+}
+
+#define IACL_SCLT			BIT(5)
+static int __fg_interleaved_mem_write(struct fg_chip *chip, u8 *val,
+				u16 address, int offset, int len)
+{
+	int rc = 0, i;
+	u8 *word = val, byte_enable = 0, num_bytes = 0;
+
+	if (fg_debug_mask & FG_MEM_DEBUG_WRITES)
+		pr_info("length %d addr=%02X offset=%d\n",
+					len, address, offset);
+
+	while (len > 0) {
+			num_bytes = (offset + len) > BUF_LEN ?
+				(BUF_LEN - offset) : len;
+			/* write to byte_enable */
+			for (i = offset; i < (offset + num_bytes); i++)
+				byte_enable |= BIT(i);
+
+			rc = fg_write(chip, &byte_enable,
+				chip->mem_base + MEM_INTF_IMA_BYTE_EN, 1);
+			if (rc) {
+				pr_err("Unable to write to byte_en_reg rc=%d\n",
+								rc);
+				return rc;
+			}
+			/* write data */
+		rc = fg_write(chip, word, MEM_INTF_WR_DATA0(chip) + offset,
+				num_bytes);
+		if (rc) {
+			pr_err("spmi write failed: addr=%03x, rc=%d\n",
+				MEM_INTF_WR_DATA0(chip) + offset, rc);
+			return rc;
+		}
+		/*
+		 * The last-byte WR_DATA3 starts the write transaction.
+		 * Write a dummy value to WR_DATA3 if it does not have
+		 * valid data. This dummy data is not written to the
+		 * SRAM as byte_en for WR_DATA3 is not set.
+		 */
+		if (!(byte_enable & BIT(3))) {
+			u8 dummy_byte = 0x0;
+			rc = fg_write(chip, &dummy_byte,
+				MEM_INTF_WR_DATA0(chip) + 3, 1);
+			if (rc) {
+				pr_err("Unable to write dummy-data to WR_DATA3 rc=%d\n",
+									rc);
+				return rc;
+			}
+		}
+
+		rc = fg_check_iacs_ready(chip);
+		if (rc) {
+			pr_debug("IACS_RDY failed rc=%d\n", rc);
+			return rc;
+		}
+
+		/* check for error condition */
+		rc = fg_check_ima_exception(chip);
+		if (rc) {
+			pr_err("IMA transaction failed rc=%d", rc);
+			return rc;
+		}
+
+		word += num_bytes;
+		len -= num_bytes;
+		offset = byte_enable = 0;
+	}
+
+	return rc;
+}
+
+static int __fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
+						int offset, int len)
+{
+	int rc = 0, total_len;
+	u8 *rd_data = val, num_bytes;
+	char str[DEBUG_PRINT_BUFFER_SIZE];
+
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("length %d addr=%02X\n", len, address);
+
+	total_len = len;
+	while (len > 0) {
+		num_bytes = (offset + len) > BUF_LEN ? (BUF_LEN - offset) : len;
+		rc = fg_read(chip, rd_data, MEM_INTF_RD_DATA0(chip) + offset,
+								num_bytes);
+		if (rc) {
+			pr_err("spmi read failed: addr=%03x, rc=%d\n",
+				MEM_INTF_RD_DATA0(chip) + offset, rc);
+			return rc;
+		}
+
+		rd_data += num_bytes;
+		len -= num_bytes;
+		offset = 0;
+
+		rc = fg_check_iacs_ready(chip);
+		if (rc) {
+			pr_debug("IACS_RDY failed rc=%d\n", rc);
+			return rc;
+		}
+
+		/* check for error condition */
+		rc = fg_check_ima_exception(chip);
+		if (rc) {
+			pr_err("IMA transaction failed rc=%d", rc);
+			return rc;
+		}
+
+		if (len && (len + offset) < BUF_LEN) {
+			/* move to single mode */
+			u8 intr_ctl = 0;
+
+			rc = fg_write(chip, &intr_ctl, MEM_INTF_CTL(chip), 1);
+			if (rc) {
+				pr_err("failed to move to single mode rc=%d\n",
+									rc);
+				return -EIO;
+			}
+		}
+	}
+
+	if (fg_debug_mask & FG_MEM_DEBUG_READS) {
+		fill_string(str, DEBUG_PRINT_BUFFER_SIZE, val, total_len);
+		pr_info("data: %s\n", str);
+	}
+
+	return rc;
+}
+
+#define IMA_REQ_ACCESS		(IACL_SCLT | RIF_MEM_ACCESS_REQ)
+static int fg_interleaved_mem_config(struct fg_chip *chip, u8 *val,
+		u16 address, int len, int offset, int op)
+{
+	int rc = 0;
+
+	/* configure for IMA access */
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip),
+				IMA_REQ_ACCESS, IMA_REQ_ACCESS, 1);
+	if (rc) {
+		pr_err("failed to set mem access bit rc = %d\n", rc);
+		return rc;
+	}
+
+	/* configure for the read/write single/burst mode */
+	rc = fg_config_access(chip, op, (offset + len) > 4, 0);
+	if (rc) {
+		pr_err("failed to set configure memory access rc = %d\n", rc);
+		return rc;
+	}
+
+	rc = fg_check_iacs_ready(chip);
+	if (rc) {
+		pr_debug("IACS_RDY failed rc=%d\n", rc);
+		return rc;
+	}
+
+	/* write addresses to the register */
+	rc = fg_set_ram_addr(chip, &address);
+	if (rc) {
+		pr_err("failed to set SRAM address rc = %d\n", rc);
+		return rc;
+	}
+
+	rc = fg_check_iacs_ready(chip);
+	if (rc)
+		pr_debug("IACS_RDY failed rc=%d\n", rc);
+
+	return rc;
+}
+
+#define MEM_INTF_FG_BEAT_COUNT		0x57
+#define BEAT_COUNT_MASK			0x0F
+#define RETRY_COUNT			3
+static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
+						int len, int offset)
+{
+	int rc = 0, orig_address = address;
+	u8 start_beat_count, end_beat_count, count = 0;
+
+	if (offset > 3) {
+		pr_err("offset too large %d\n", offset);
+		return -EINVAL;
+	}
+
+	fg_stay_awake(&chip->memif_wakeup_source);
+	address = ((orig_address + offset) / 4) * 4;
+	offset = (orig_address + offset) % 4;
+
+	if (address < RAM_OFFSET) {
+		/*
+		 * OTP memory reads need a conventional memory access, do a
+		 * conventional read when SRAM offset < RAM_OFFSET.
+		 */
+		rc = fg_conventional_mem_read(chip, val, address, len, offset,
+						0);
+		if (rc) {
+			pr_err("Failed to read OTP memory %d\n", rc);
+			goto exit;
+		}
+	}
+
+	mutex_lock(&chip->rw_lock);
+
+retry:
+	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 0);
+	if (rc) {
+		pr_err("failed to configure SRAM for IMA rc = %d\n", rc);
+		goto out;
+	}
+
+	/* read the start beat count */
+	rc = fg_read(chip, &start_beat_count,
+			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
+	if (rc) {
+		pr_err("failed to read beat count rc=%d\n", rc);
+		goto out;
+	}
+
+	/* read data */
+	rc = __fg_interleaved_mem_read(chip, val, address, offset, len);
+	if (rc) {
+		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
+			count++;
+			pr_err("IMA access failed retry_count = %d\n", count);
+			goto retry;
+		} else {
+			pr_err("failed to read SRAM address rc = %d\n", rc);
+			goto out;
+		}
+	}
+
+	/* read the end beat count */
+	rc = fg_read(chip, &end_beat_count,
+			chip->mem_base + MEM_INTF_FG_BEAT_COUNT, 1);
+	if (rc) {
+		pr_err("failed to read beat count rc=%d\n", rc);
+		goto out;
+	}
+
+	start_beat_count &= BEAT_COUNT_MASK;
+	end_beat_count &= BEAT_COUNT_MASK;
+	if (fg_debug_mask & FG_MEM_DEBUG_READS)
+		pr_info("Start beat_count = %x End beat_count = %x\n",
+				start_beat_count, end_beat_count);
+	if (start_beat_count != end_beat_count) {
+		pr_err("Beat count do not match - retry transaction\n");
+		goto retry;
+	}
+out:
+	/* Release IMA access */
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
+	if (rc)
+		pr_err("failed to reset IMA access bit rc = %d\n", rc);
+
+	mutex_unlock(&chip->rw_lock);
+
+exit:
+	fg_relax(&chip->memif_wakeup_source);
+	return rc;
+}
+
+static int fg_interleaved_mem_write(struct fg_chip *chip, u8 *val, u16 address,
+							int len, int offset)
+{
+	int rc = 0, orig_address = address;
+	u8 count = 0;
+
+	if (address < RAM_OFFSET)
+		return -EINVAL;
+
+	if (offset > 3) {
+		pr_err("offset too large %d\n", offset);
+		return -EINVAL;
+	}
+
+	fg_stay_awake(&chip->memif_wakeup_source);
+	address = ((orig_address + offset) / 4) * 4;
+	offset = (orig_address + offset) % 4;
+
+	mutex_lock(&chip->rw_lock);
+
+retry:
+	rc = fg_interleaved_mem_config(chip, val, address, offset, len, 1);
+	if (rc) {
+		pr_err("failed to xonfigure SRAM for IMA rc = %d\n", rc);
+		goto out;
+	}
+
+	/* write data */
+	rc = __fg_interleaved_mem_write(chip, val, address, offset, len);
+	if (rc) {
+		if ((rc == -EAGAIN) && (count < RETRY_COUNT)) {
+			count++;
+			pr_err("IMA access failed retry_count = %d\n", count);
+			goto retry;
+		} else {
+			pr_err("failed to write SRAM address rc = %d\n", rc);
+			goto out;
+		}
+	}
+
+out:
+	/* Release IMA access */
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), IMA_REQ_ACCESS, 0, 1);
+	if (rc)
+		pr_err("failed to reset IMA access bit rc = %d\n", rc);
+
+	mutex_unlock(&chip->rw_lock);
+	fg_relax(&chip->memif_wakeup_source);
+	return rc;
+}
+
+static int fg_mem_read(struct fg_chip *chip, u8 *val, u16 address,
+			int len, int offset, bool keep_access)
+{
+	if (chip->ima_supported)
+		return fg_interleaved_mem_read(chip, val, address,
+						len, offset);
+	else
+		return fg_conventional_mem_read(chip, val, address,
+					len, offset, keep_access);
+}
+
+static int fg_mem_write(struct fg_chip *chip, u8 *val, u16 address,
+		int len, int offset, bool keep_access)
+{
+	if (chip->ima_supported)
+		return fg_interleaved_mem_write(chip, val, address,
+						len, offset);
+	else
+		return fg_conventional_mem_write(chip, val, address,
+					len, offset, keep_access);
 }
 
 static int fg_mem_masked_write(struct fg_chip *chip, u16 addr,
@@ -4120,6 +4539,7 @@ static int fg_hw_init(struct fg_chip *chip)
 #define DIG_MAJOR		0x1
 #define ANA_MINOR		0x2
 #define ANA_MAJOR		0x3
+#define IACS_INTR_SRC_SLCT	BIT(3)
 static int fg_setup_memif_offset(struct fg_chip *chip)
 {
 	int rc;
@@ -4136,9 +4556,28 @@ static int fg_setup_memif_offset(struct fg_chip *chip)
 	case DIG_REV_8994_2:
 		chip->offset = offset[0].address;
 		break;
+	case DIG_REV_8950_3:
+		chip->offset = offset[1].address;
+		chip->ima_supported = true;
+		break;
 	default:
 		pr_err("Digital Major rev=%d not supported\n", dig_major);
 		return -EINVAL;
+	}
+
+	if (chip->ima_supported) {
+		/*
+		 * Change the FG_MEM_INT interrupt to track IACS_READY
+		 * condition instead of end-of-transation. This makes sure
+		 * that the next transaction starts only after the hw is ready.
+		 */
+		rc = fg_masked_write(chip,
+			chip->mem_base + chip->offset[MEM_INTF_CFG],
+				IACS_INTR_SRC_SLCT, IACS_INTR_SRC_SLCT, 1);
+		if (rc) {
+			pr_err("failed to configure interrupt source %d\n", rc);
+			return rc;
+		}
 	}
 
 	return 0;
