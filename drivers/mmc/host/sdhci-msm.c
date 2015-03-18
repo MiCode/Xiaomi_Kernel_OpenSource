@@ -42,6 +42,7 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/msm-bus.h>
 
+#include <trace/events/mmc.h>
 #include "sdhci-pltfm.h"
 
 enum sdc_mpm_pin_state {
@@ -1629,6 +1630,11 @@ static void pm_qos_dump_configuration(struct device *dev,
 			config->cpu_dma_latency_tbl_us[2]);
 	else
 		dev_dbg(dev, "not dumping latency_us table\n");
+
+	trace_mmc_pm_qos_config(dev_name(dev), config->cpu_affinity_type,
+			&config->cpu_affinity_mask, config->rw_policy,
+			config->cpu_dma_latency_tbl_us,
+			config->cpu_dma_latency_tbl_sz);
 }
 
 static struct sdhci_msm_pm_qos_config *search_pm_qos_config(
@@ -1662,6 +1668,7 @@ static void pm_qos_update(struct sdhci_host *host,
 	s32 latency;
 	unsigned int default_num;
 	bool update_timeout;
+	const char *name = dev_name(dev);
 
 	if (list_empty(&mngmt->head))
 		return;
@@ -1698,6 +1705,9 @@ static void pm_qos_update(struct sdhci_host *host,
 		     config->cpu_affinity_type != PM_QOS_REQ_AFFINE_IRQ)) {
 			dev_dbg(dev,
 				"could not find default configuration got mngmt->type=%d\n",
+				mngmt->type);
+			trace_mmc_pm_qos_skip(name,
+				"could not find default configuration",
 				mngmt->type);
 			goto out_no_update;
 		}
@@ -1737,6 +1747,8 @@ static void pm_qos_update(struct sdhci_host *host,
 		dev_dbg(dev,
 			"skipping update of pm qos for mngmt->type=%d (no change)\n",
 			mngmt->type);
+		trace_mmc_pm_qos_skip(name, "no change, skipping pm_qos_voting",
+			mngmt->type);
 		goto out_no_update;
 	}
 
@@ -1750,16 +1762,26 @@ static void pm_qos_update(struct sdhci_host *host,
 		 * request, it is necessary to remove the old one and add
 		 * a new one.
 		 */
+		trace_mmc_pm_qos_remove(name, mngmt->prev_latency,
+					mngmt->type,
+					&mngmt->prev->cpu_affinity_mask);
 		pm_qos_remove_request(&mngmt->dma_req);
 		cpumask_copy(&mngmt->dma_req.cpus_affine,
 			     &config->cpu_affinity_mask);
+		trace_mmc_pm_qos_add(name, latency, mngmt->type,
+					&config->cpu_affinity_mask);
 		pm_qos_add_request(&mngmt->dma_req,
 				   PM_QOS_CPU_DMA_LATENCY, latency);
 	} else {
+		trace_mmc_pm_qos_update(name, latency, mngmt->type,
+					&config->cpu_affinity_mask);
 		pm_qos_update_request(&mngmt->dma_req, latency);
 	}
 
 	if (update_timeout) {
+		trace_mmc_pm_qos_update_timeout(name,
+					latency, mngmt->type,
+					&mngmt->prev->cpu_affinity_mask);
 		pm_qos_update_request_timeout(&mngmt->dma_req,
 			latency, pdata->pm_qos.pm_qos_timeout_us);
 		/*
