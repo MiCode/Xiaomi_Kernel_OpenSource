@@ -370,7 +370,7 @@ static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 #endif
 
 static int __msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt,
-		       unsigned int va, void *cookie,
+		       unsigned long va, void *cookie,
 		       struct msm_iommu_map_ops *ops,
 		       unsigned int len, int prot)
 {
@@ -587,7 +587,7 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 	}
 }
 
-int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned int va,
+int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned long va,
 		struct scatterlist *sg, unsigned int len, int prot)
 {
 	return __msm_iommu_pagetable_map_range(pt, va, sg, &sg_ops, len, prot);
