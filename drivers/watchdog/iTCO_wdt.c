@@ -266,6 +266,7 @@ static int iTCO_wdt_stop(struct watchdog_device *wd_dev)
 
 static int iTCO_wdt_ping(struct watchdog_device *wd_dev)
 {
+	pr_notice("%s\n", __func__);
 	spin_lock(&iTCO_wdt_private.io_lock);
 
 	iTCO_vendor_pre_keepalive(iTCO_wdt_private.smi_res, wd_dev->timeout);
