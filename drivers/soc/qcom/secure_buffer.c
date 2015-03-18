@@ -16,12 +16,11 @@
 #include <linux/highmem.h>
 #include <linux/kernel.h>
 #include <linux/kref.h>
-#include <linux/msm_ion.h>
 #include <linux/mutex.h>
 #include <linux/scatterlist.h>
 #include <linux/slab.h>
 #include <soc/qcom/scm.h>
-
+#include <soc/qcom/secure_buffer.h>
 
 DEFINE_MUTEX(secure_buffer_mutex);
 
@@ -47,7 +46,6 @@ struct info_list {
 	struct mem_prot_info *list_head;
 	u64 list_size;
 };
-
 
 #define MEM_PROT_ASSIGN_ID		0x16
 #define MEM_PROTECT_LOCK_ID2		0x0A
@@ -163,7 +161,7 @@ static int secure_buffer_change_table(struct sg_table *table, int lock)
 	return ret;
 }
 
-int msm_ion_secure_table(struct sg_table *table)
+int msm_secure_table(struct sg_table *table)
 {
 	int ret;
 
@@ -175,7 +173,7 @@ int msm_ion_secure_table(struct sg_table *table)
 
 }
 
-int msm_ion_unsecure_table(struct sg_table *table)
+int msm_unsecure_table(struct sg_table *table)
 {
 	int ret;
 
