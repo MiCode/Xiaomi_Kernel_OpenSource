@@ -39,14 +39,14 @@ static struct twl4030_gpio_platform_data twl_gpio_auxdata;
 
 static struct wl12xx_platform_data wl12xx __initdata;
 
-static void __init __used legacy_init_wl12xx(unsigned ref_clock,
-					     unsigned tcxo_clock,
+static void __init __used legacy_init_wl12xx(u32 ref_clock_freq,
+					     u32 tcxo_clock_freq,
 					     int gpio)
 {
 	int res;
 
-	wl12xx.board_ref_clock = ref_clock;
-	wl12xx.board_tcxo_clock = tcxo_clock;
+	wl12xx.ref_clock_freq = ref_clock_freq;
+	wl12xx.tcxo_clock_freq = tcxo_clock_freq;
 	wl12xx.irq = gpio_to_irq(gpio);
 	wl12xx.irq_trigger = IRQ_TYPE_LEVEL_HIGH;
 
@@ -57,8 +57,8 @@ static void __init __used legacy_init_wl12xx(unsigned ref_clock,
 	}
 }
 #else
-static inline void legacy_init_wl12xx(unsigned ref_clock,
-				      unsigned tcxo_clock,
+static inline void legacy_init_wl12xx(u32 ref_clock_freq,
+				      u32 tcxo_clock_freq,
 				      int gpio)
 {
 }
@@ -130,7 +130,7 @@ static void __init omap3_sbc_t3730_twl_init(void)
 static void __init omap3_sbc_t3730_legacy_init(void)
 {
 	omap3_sbc_t3x_usb_hub_init(167, "sb-t35 usb hub");
-	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 136);
+	legacy_init_wl12xx(38400000, 0, 136);
 	omap_ads7846_init(1, 57, 0, NULL);
 }
 
@@ -146,12 +146,12 @@ static void __init omap3_igep0020_legacy_init(void)
 
 static void __init omap3_evm_legacy_init(void)
 {
-	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 149);
+	legacy_init_wl12xx(38400000, 0, 149);
 }
 
 static void __init omap3_zoom_legacy_init(void)
 {
-	legacy_init_wl12xx(WL12XX_REFCLOCK_26, 0, 162);
+	legacy_init_wl12xx(26000000, 0, 162);
 }
 
 static void am35xx_enable_emac_int(void)
@@ -218,7 +218,7 @@ static void __init omap3_sbc_t3517_legacy_init(void)
 	am35xx_emac_reset();
 	hsmmc2_internal_input_clk();
 	omap3_sbc_t3517_wifi_init();
-	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 145);
+	legacy_init_wl12xx(38400000, 0, 145);
 	omap_ads7846_init(1, 57, 0, NULL);
 }
 
@@ -264,18 +264,17 @@ static void __init omap3_tao3530_legacy_init(void)
 #ifdef CONFIG_ARCH_OMAP4
 static void __init omap4_sdp_legacy_init(void)
 {
-	legacy_init_wl12xx(WL12XX_REFCLOCK_26,
-			   WL12XX_TCXOCLOCK_26, 53);
+	legacy_init_wl12xx(26000000, 26000000, 53);
 }
 
 static void __init omap4_panda_legacy_init(void)
 {
-	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 53);
+	legacy_init_wl12xx(38400000, 0, 53);
 }
 
 static void __init var_som_om44_legacy_init(void)
 {
-	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 41);
+	legacy_init_wl12xx(38400000, 0, 41);
 }
 #endif
 
@@ -290,7 +289,7 @@ static struct iommu_platform_data omap4_iommu_pdata = {
 #ifdef CONFIG_SOC_AM33XX
 static void __init am335x_evmsk_legacy_init(void)
 {
-	legacy_init_wl12xx(WL12XX_REFCLOCK_38, 0, 31);
+	legacy_init_wl12xx(38400000, 0, 31);
 }
 #endif
 
