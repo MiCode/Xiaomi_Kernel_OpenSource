@@ -2944,7 +2944,7 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 		return;
 
 	ctl = mixer->ctl;
-	if (!ctl || !ctl->valid_roi)
+	if (!ctl)
 		return;
 
 	mixer->params_changed = 0;
@@ -2955,6 +2955,9 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 			mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_LAYER(i), 0);
 		return;
 	}
+
+	if (!ctl->valid_roi)
+		return;
 
 	trace_mdp_mixer_update(mixer->num);
 	pr_debug("setup mixer=%d\n", mixer->num);
