@@ -8129,6 +8129,7 @@ static int ufshcd_scale_clks(struct ufs_hba *hba, bool scale_up)
 	if (!head || list_empty(head))
 		goto out;
 
+	mutex_lock(&hba->uic_cmd_mutex);
 	list_for_each_entry(clki, head, list) {
 		if (!IS_ERR_OR_NULL(clki->clk)) {
 			if (scale_up && clki->max_freq) {
@@ -8184,6 +8185,7 @@ out:
 		trace_ufshcd_profile_clk_scaling(dev_name(hba->dev),
 			(scale_up ? "up" : "down"),
 			ktime_to_us(ktime_sub(ktime_get(), start)), ret);
+	mutex_unlock(&hba->uic_cmd_mutex);
 	return ret;
 }
 
