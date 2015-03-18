@@ -325,26 +325,35 @@ static int ov2685_s_wb(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	int ret;
 
 	switch (value) {
 	case V4L2_WHITE_BALANCE_MANUAL:
-		ov2685_write_reg_array(client, ov2685_AWB_manual);
+		ret = ov2685_write_reg_array(client, ov2685_AWB_manual);
 		break;
 	case V4L2_WHITE_BALANCE_AUTO:
-		ov2685_write_reg_array(client, ov2685_AWB_auto);
+		ret = ov2685_write_reg_array(client, ov2685_AWB_auto);
 		break;
 	case V4L2_WHITE_BALANCE_INCANDESCENT:
-		ov2685_write_reg_array(client, ov2685_AWB_incandescent);
+		ret = ov2685_write_reg_array(client, ov2685_AWB_incandescent);
+		break;
+	case V4L2_WHITE_BALANCE_FLUORESCENT:
+	case V4L2_WHITE_BALANCE_FLUORESCENT_H:
+		ret = ov2685_write_reg_array(client, ov2685_AWB_fluorescent);
 		break;
 	case V4L2_WHITE_BALANCE_CLOUDY:
-		ov2685_write_reg_array(client, ov2685_AWB_cloudy);
+		ret = ov2685_write_reg_array(client, ov2685_AWB_cloudy);
 		break;
 	case V4L2_WHITE_BALANCE_DAYLIGHT:
-		ov2685_write_reg_array(client, ov2685_AWB_sunny);
+		ret = ov2685_write_reg_array(client, ov2685_AWB_sunny);
 		break;
 	default:
 		dev_err(&client->dev, "ov2685_s_wb: %d\n", value);
+		return -EINVAL;
 	}
+
+	if (ret)
+		return ret;
 
 	dev->wb_mode = value;
 	return 0;

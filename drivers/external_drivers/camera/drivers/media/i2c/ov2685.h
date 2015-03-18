@@ -326,6 +326,20 @@ static struct ov2685_reg const ov2685_AWB_incandescent[] = {
 	{OV2685_TOK_TERM, 0, 0}
 };
 
+static struct ov2685_reg const ov2685_AWB_fluorescent[] = {
+	{OV2685_8BIT, 0x3208 , 0x00},
+	{OV2685_8BIT, 0x5180 , 0xf6},
+	{OV2685_8BIT, 0x5195 , 0x04},
+	{OV2685_8BIT, 0x5196 , 0x90},
+	{OV2685_8BIT, 0x5197 , 0x04},
+	{OV2685_8BIT, 0x5198 , 0x00},
+	{OV2685_8BIT, 0x5199 , 0x09},
+	{OV2685_8BIT, 0x519a , 0x20},
+	{OV2685_8BIT, 0x3208 , 0x10},
+	{OV2685_8BIT, 0x3208 , 0xa0},
+	{OV2685_TOK_TERM, 0, 0}
+};
+
 static struct ov2685_reg const ov2685_AWB_cloudy[] = {
 	{OV2685_8BIT, 0x3208 , 0x00},
 	{OV2685_8BIT, 0x5180 , 0xf6},
