@@ -1102,9 +1102,13 @@ static void qpnp_hap_td_enable(struct timed_output_dev *dev, int value)
 	mutex_lock(&hap->lock);
 	hrtimer_cancel(&hap->hap_timer);
 
-	if (value == 0)
+	if (value == 0) {
+		if (hap->state == 0) {
+			mutex_unlock(&hap->lock);
+			return;
+		}
 		hap->state = 0;
-	else {
+	} else {
 		value = (value > hap->timeout_ms ?
 				 hap->timeout_ms : value);
 		hap->state = 1;
