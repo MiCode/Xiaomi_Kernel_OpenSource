@@ -43,6 +43,14 @@ extern inline int cpuid_asm(uint32_t leaf, uint32_t b_val, uint32_t c,
         uint32_t d, uint32_t S, uint32_t D);
 #endif
 
+#ifdef __x86_64__
+extern inline int vmcall_asm64(uint32_t leaf, uint32_t b_val, uint64_t c,
+			       uint64_t d, uint64_t S, uint64_t D);
+#else
+extern inline int vmcall_asm(uint32_t leaf, uint32_t b_val, uint32_t c,
+			     uint32_t d, uint32_t S, uint32_t D);
+#endif
+
 #define SIG_CLEAN 44 // we choose 44 as our signal number (real-time signals are in the range of 33 to 64)
 #define DEBUG_LEAF 42
 #define EPTP_SWITCH_LEAF 0
@@ -78,9 +86,11 @@ static int chk_hsim_version()
     memset(&info, 0, sizeof(sl_info_t));
 
 #ifdef __x86_64__
-    ret = cpuid_asm64(SL_CMD_HSEC_GET_INFO, CMD_GET, (uint64_t)&info, sizeof(info), 0, 0);
+	ret = cpuid_asm64(SL_CMD_HSEC_GET_INFO, CMD_GET,
+			   (uint64_t)&info, sizeof(info), 0, 0);
 #else
-    ret = cpuid_asm(SL_CMD_HSEC_GET_INFO, CMD_GET, (uint32_t)&info, sizeof(info), 0, 0);
+	ret = cpuid_asm(SL_CMD_HSEC_GET_INFO, CMD_GET,
+			 (uint32_t)&info, sizeof(info), 0, 0);
 #endif
     if (ret)
         return SL_EUNKNOWN;

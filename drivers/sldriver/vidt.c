@@ -229,14 +229,22 @@ uint64 ptr_core_state DATA_SECT(".vidtd") = 1; //initialize before use in vidt_s
 uint64 secs_la ALIGN_DATA_SECT(".vidtd") = 0x0; //alloc and init during vidt setup
 
 
+/* FIXME: these inlines should come from an appropriate header file */
 #ifdef __x86_64__
 extern inline int cpuid_asm64(uint32_t leaf, uint32_t b_val, uint64_t c,
-        uint64_t d, uint64_t S, uint64_t D);
+			      uint64_t d, uint64_t S, uint64_t D);
 #else
 extern inline int cpuid_asm(uint32_t leaf, uint32_t b_val, uint32_t c,
-        uint32_t d, uint32_t S, uint32_t D);
+			    uint32_t d, uint32_t S, uint32_t D);
 #endif
 
+#ifdef __x86_64__
+extern inline int vmcall_asm64(uint32_t leaf, uint32_t b_val, uint64_t c,
+			       uint64_t d, uint64_t S, uint64_t D);
+#else
+extern inline int vmcall_asm(uint32_t leaf, uint32_t b_val, uint32_t c,
+			     uint32_t d, uint32_t S, uint32_t D);
+#endif
 
 int map_pid_viewId(void *priv_data, struct entry_pid_viewid view_new);
 int unmap_pid_viewId(void *priv_data, struct entry_pid_viewid view_entry);
@@ -266,29 +274,30 @@ void clean_view_map_list(struct file *file)
 
 int clean_ta_view(void *priv_data)
 {
-     struct view_list *temp_head = NULL;
-     struct view_list *pos=NULL;
-     struct view_list *temp_node=NULL;
-     temp_head = (struct view_list*) priv_data;
-     if(temp_head == NULL) {
-         return VIDT_FAIL;
-     }
-     list_for_each_entry_safe(pos, temp_node,&temp_head->list,list){
-         if((pos->view_data.magic == VIDT_PRIV_MAGIC)){
+	struct view_list *temp_head = NULL;
+	struct view_list *pos = NULL;
+	struct view_list *temp_node = NULL;
+	temp_head = (struct view_list *) priv_data;
+	if (temp_head == NULL)
+		return VIDT_FAIL;
+	list_for_each_entry_safe(pos, temp_node, &temp_head->list, list) {
+		if (pos->view_data.magic == VIDT_PRIV_MAGIC) {
 #ifdef __x86_64__
-            cpuid_asm64(SL_CMD_HSEC_REMOVE_VIEW, 0, 0,pos->view_data.viewid, 0, 0);
+			vmcall_asm64(SL_CMD_HSEC_REMOVE_VIEW, 0, 0,
+				     pos->view_data.viewid, 0, 0);
 #else
-            cpuid_asm(SL_CMD_HSEC_REMOVE_VIEW, 0, 0,pos->view_data.viewid, 0, 0);
+			vmcall_asm(SL_CMD_HSEC_REMOVE_VIEW, 0, 0,
+				   pos->view_data.viewid, 0, 0);
 #endif
-            list_del(&pos->list);
-            kfree(pos);
-         }
-         else {
-             printk("MAGIC 0x%lx doesn't match 0x%lx\n", pos->view_data.magic, VIDT_PRIV_MAGIC);
-         }
-     }
+			list_del(&pos->list);
+			kfree(pos);
+		} else {
+			pr_info("MAGIC 0x%lx doesn't match 0x%lx\n",
+				pos->view_data.magic, VIDT_PRIV_MAGIC);
+		}
+	}
 
-     return VIDT_SUCCESS;
+	return VIDT_SUCCESS;
 }
 
 
@@ -1211,7 +1220,7 @@ int setup_vidt(void)
             (unsigned long)enter_eresume_code;
         enter_eresume_code_patch[1].val = (unsigned long)~0x0;
         enter_eresume_code_patch[1].offset = enter_eresume_code_offset + MOV_OPCODE_SIZE;
-		enter_eresume_code_patch[1].type = PATCH_TYPE_SECS_SCV_UN;
+	enter_eresume_code_patch[1].type = PATCH_TYPE_SECS_SCV_UN;
 
 
         enter_eresume_code_offset = (unsigned long)enter_eresume_code_cmp_patch2 -

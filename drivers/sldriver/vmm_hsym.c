@@ -29,6 +29,7 @@ enum{
 }perm_t;
 
 
+/* FIXME: these inlines should come from an appropriate header file */
 #ifdef __x86_64__
 inline int cpuid_asm64(uint32_t leaf, uint32_t b_val, uint64_t c, 
         uint64_t d, uint64_t S, uint64_t D)
@@ -59,6 +60,36 @@ inline int cpuid_asm(uint32_t leaf, uint32_t b_val, uint32_t c,
 }
 #endif
 
+#ifdef __x86_64__
+inline int vmcall_asm64(uint32_t leaf, uint32_t b_val, uint64_t c,
+			uint64_t d, uint64_t S, uint64_t D)
+{
+	int status;
+	asm volatile("vmcall"
+		     : "=a" (status), "+g" (b_val), "+c" (c), "+d" (d)
+		     : "0" (leaf), "m" (b_val), "S" (S), "D" (D)
+		     : );
+	/* printk(KERN_ERR"exit cpuid status (%x) %x %x %x %x %x %x",
+	   status, leaf, b_val, c, d, S, D); */
+	return status;
+}
+#else
+inline int vmcall_asm(uint32_t leaf, uint32_t b_val, uint32_t c,
+		      uint32_t d, uint32_t S, uint32_t D)
+{
+	int status;
+	/* pr_err("entry cpuid %x %x %x %x %x %x\n",
+	   leaf, b_val, c, d, S, D); */
+	asm volatile("vmcall"
+		     : "=a" (status), "+g" (b_val), "+c" (c), "+d" (d)
+		     : "0" (leaf), "m" (b_val), "S" (S), "D" (D)
+		     : );
+	/* printk(KERN_ERR"exit cpuid status (%x) %x %x %x %x %x %x",
+	   status, leaf, b_val, c, d, S, D); */
+	return status;
+}
+#endif
+
 static int do_get_data(const char *msg, perf_type_t type, uint32_t cmd,
                         void *buf, uint32_t n, uint32_t cpu, uint32_t offset)
 {
@@ -80,13 +111,13 @@ static int do_get_data(const char *msg, perf_type_t type, uint32_t cmd,
         //type, cmd, (uint32_t)dst, n - count, offset + count, cpu);
 
 #ifdef __x86_64__
-        actual_bytes = cpuid_asm64(type, cmd, dst, n - count,
+	actual_bytes = vmcall_asm64(type, cmd, dst, n - count,
                                     offset + count, cpu);
 #else
-        actual_bytes = cpuid_asm(type, cmd, (uint32_t)dst, n - count,
-                                    offset + count, cpu);
+	actual_bytes = vmcall_asm(type, cmd, (uint32_t)dst, n - count,
+				  offset + count, cpu);
 #endif
-        //printk(KERN_INFO "after cpuid %x \n", actual_bytes);
+	/* pr_err("after cpuid %x\n", actual_bytes); */
 
         if (actual_bytes == -1u) {
             if (*msg == '+')
@@ -126,37 +157,37 @@ static int do_get_data(const char *msg, perf_type_t type, uint32_t cmd,
 //void reg_vIDT(hsec_vIDT_param_t *vIDT_info, uint32_t cpu)
 void reg_vIDT(void *data)
 {
-    hsec_vIDT_param_t *vIDT_info = (hsec_vIDT_param_t *) data;
-    if (!vIDT_info) {
-        printk(KERN_ERR"hypersec: vIDT_info is invalid\n");
-        return;
-    }
+	hsec_vIDT_param_t *vIDT_info = (hsec_vIDT_param_t *) data;
+	if (!vIDT_info) {
+		pr_err("hypersec: vIDT_info is invalid\n");
+		return;
+	}
 
 #ifdef __x86_64__
-   cpuid_asm64(SL_CMD_HSEC_REG_VIDT, CMD_GET, (uint64_t)vIDT_info,
-           sizeof(*vIDT_info), 0, vIDT_info->cpu);
+	vmcall_asm64(SL_CMD_HSEC_REG_VIDT, CMD_GET, (uint64_t)vIDT_info,
+		     sizeof(*vIDT_info), 0, vIDT_info->cpu);
 #else
-   cpuid_asm(SL_CMD_HSEC_REG_VIDT, CMD_GET, (uint32_t)vIDT_info,
-           sizeof(*vIDT_info), 0, vIDT_info->cpu);
+	vmcall_asm(SL_CMD_HSEC_REG_VIDT, CMD_GET, (uint32_t)vIDT_info,
+		   sizeof(*vIDT_info), 0, vIDT_info->cpu);
 #endif
-    return;
+	return;
 }
 EXPORT_SYMBOL(reg_vIDT);
 
 void reg_sl_global_info(hsec_sl_param_t *sl_info)
 {
-    if (!sl_info) {
-        printk(KERN_ERR"hypersec: sl_info is invalid\n");
-        return;
-    }
+	if (!sl_info) {
+		pr_err("hypersec: sl_info is invalid\n");
+		return;
+	}
 #ifdef __x86_64__
-   cpuid_asm64(SL_CMD_HSEC_REG_SL_INFO, CMD_GET, (uint64_t)sl_info,
-           sizeof(*sl_info), 0, 0);
+	vmcall_asm64(SL_CMD_HSEC_REG_SL_INFO, CMD_GET, (uint64_t)sl_info,
+		     sizeof(*sl_info), 0, 0);
 #else
-   cpuid_asm(SL_CMD_HSEC_REG_SL_INFO, CMD_GET, (uint32_t)sl_info,
-           sizeof(*sl_info), 0, 0);
+	vmcall_asm(SL_CMD_HSEC_REG_SL_INFO, CMD_GET, (uint32_t)sl_info,
+		   sizeof(*sl_info), 0, 0);
 #endif
-    return;
+	return;
 }
 EXPORT_SYMBOL(reg_sl_global_info);
 
