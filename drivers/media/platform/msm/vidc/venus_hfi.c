@@ -3533,6 +3533,7 @@ static void venus_hfi_deinit_bus(struct venus_hfi_device *device)
 	venus_hfi_for_each_bus_reverse(device, bus) {
 		devfreq_remove_device(bus->devfreq);
 		bus->devfreq = NULL;
+		dev_set_drvdata(bus->dev, NULL);
 
 		msm_bus_scale_unregister(bus->client);
 		bus->client = NULL;
