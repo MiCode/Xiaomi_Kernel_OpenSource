@@ -778,6 +778,21 @@ void atomisp_flush_params_queue(struct atomisp_video_pipe *pipe)
 	}
 }
 
+/* Re-queue per-frame parameters */
+static void atomisp_recover_params_queue(struct atomisp_video_pipe *pipe)
+{
+	struct atomisp_css_params_with_list *param;
+	int i;
+
+	for (i = 0; i < VIDEO_MAX_FRAME; i++) {
+		param = pipe->frame_params[i];
+		if (param)
+			list_add_tail(&param->list, &pipe->per_frame_params);
+		pipe->frame_params[i] = NULL;
+	}
+	atomisp_handle_parameter_and_buffer(pipe);
+}
+
 /* find atomisp_video_pipe with css pipe id, buffer type and atomisp run_mode */
 static struct atomisp_video_pipe *__atomisp_get_pipe(
 		struct atomisp_sub_device *asd,
@@ -1095,6 +1110,14 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 			break;
 		}
 
+		/* free the parameters */
+		if (pipe->frame_params[vb->i]) {
+			atomisp_free_css_parameters(
+				&pipe->frame_params[vb->i]->params);
+			atomisp_kernel_free(pipe->frame_params[vb->i]);
+			pipe->frame_params[vb->i] = NULL;
+		}
+
 		pipe->frame_config_id[vb->i] = frame->isp_config_id;
 		ctrl.id = V4L2_CID_FLASH_MODE;
 		if (asd->params.flash_state == ATOMISP_FLASH_ONGOING) {
@@ -1381,6 +1404,11 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 		 * buffers that it has.
 		 */
 		atomisp_flush_bufs_and_wakeup(asd);
+
+		/* Requeue unprocessed per-frame parameters. */
+		atomisp_recover_params_queue(&asd->video_out_capture);
+		atomisp_recover_params_queue(&asd->video_out_preview);
+		atomisp_recover_params_queue(&asd->video_out_video_capture);
 
 		if ((asd->depth_mode->val) &&
 			(depth_cnt == ATOMISP_DEPTH_SENSOR_STREAMON_COUNT)) {

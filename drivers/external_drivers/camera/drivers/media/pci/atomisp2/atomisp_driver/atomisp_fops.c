@@ -283,10 +283,6 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 					&asd->params.css_param.dz_config;
 				asd->params.css_update_params_needed = true;
 			}
-			/* free the parameters */
-			atomisp_free_css_parameters(&param->params);
-			atomisp_kernel_free(param);
-			pipe->frame_params[vb->i] = NULL;
 		}
 		/* Enqueue buffer */
 		err = atomisp_q_video_buffer_to_css(asd, vm_mem, stream_id,
