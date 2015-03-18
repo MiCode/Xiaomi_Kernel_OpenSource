@@ -52,7 +52,7 @@
 #include "bstclass.h"
 
 #define ACC_NAME  "ACC"
-#define BMA2X2_ENABLE_INT1
+#define BMA2X2_ENABLE_INT2
 
 #ifdef ENABLE_ISR_DEBUG_MSG
 #define ISR_INFO(dev, fmt, arg...) dev_info(dev, fmt, ##arg)
@@ -1237,6 +1237,13 @@
 #define BMA2X2_SET_BITSLICE(regvar, bitname, val)\
 	((regvar & ~bitname##__MSK) | ((val<<bitname##__POS)&bitname##__MSK))
 
+#ifdef BMA2X2_SENSOR_IDENTIFICATION_ENABLE
+#define BMA2X2_SHIFT_BITWIDTH(data, bitwidth)
+#else
+#define BMA2X2_SHIFT_BITWIDTH(data, bitwidth)\
+	(data = data >> (16 - bitwidth))
+#endif
+
 #ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
 #define BMA2x2_IS_NEWDATA_INT_ENABLED()	(true)
 #else
@@ -1269,6 +1276,8 @@
 
 #define MAX_FIFO_F_LEVEL 32
 #define MAX_FIFO_F_BYTES 6
+#define FIFO_FRAMESIZE_3_AXIS 6
+#define FIFO_FRAMESIZE_1_AXIS 2
 #define BMA_MAX_RETRY_I2C_XFER (100)
 
 #ifdef CONFIG_DOUBLE_TAP
@@ -1288,9 +1297,20 @@
  *  macro definition
 */
 
-#define BMA2X2_FIFO_DAT_SEL_X                     1
-#define BMA2X2_FIFO_DAT_SEL_Y                     2
-#define BMA2X2_FIFO_DAT_SEL_Z                     3
+#define BMA2X2_IS_NEWDATA_INT           BMA2X2_DATA_INT_S__MSK
+#define BMA2X2_FIFO_MODE_BYPASS         0x0
+#define BMA2X2_FIFO_MODE_FIFO           0x1
+#define BMA2X2_FIFO_MODE_STREAM         0x2
+
+#define BMA2X2_FIFO_DAT_SEL_XYZ         0
+#define BMA2X2_FIFO_DAT_SEL_X           1
+#define BMA2X2_FIFO_DAT_SEL_Y           2
+#define BMA2X2_FIFO_DAT_SEL_Z           3
+
+#define BMA2X2_FIFO_WM_INT_FLAG         BMA2X2_FIFO_WM_INT_S__MSK
+#define BMA2X2_FIFO_FULL_INT_FLAG       BMA2X2_FIFO_FULL_INT_S__MSK
+#define BMA2X2_IS_FIFO_INT\
+	(BMA2X2_FIFO_WM_INT_FLAG | BMA2X2_FIFO_FULL_INT_FLAG)
 
 #ifdef CONFIG_SENSORS_BMI058
 #define C_BMI058_One_U8X                                 1
@@ -1491,13 +1511,17 @@ struct bma2x2_data {
 	atomic_t enable;
 	atomic_t selftest_result;
 	atomic_t cal_status;
+	atomic_t fifo_enabled;
 	char calibrate_buf[BMA_CAL_BUF_SIZE];
 	unsigned int chip_id;
 	unsigned int chip_type;
-	unsigned int fifo_count;
-	unsigned char fifo_datasel;
 	unsigned char mode;
 	signed char sensor_type;
+	unsigned char fifo_datasel;
+	unsigned int fifo_count;
+	signed char *fifo_buf;
+	s64 fifo_start_ns;
+	unsigned int max_latency_ms;
 	struct input_dev *input;
 
 	struct bst_dev *bst_acc;
@@ -1546,6 +1570,11 @@ struct bma2x2_data {
 #endif
 };
 
+struct bma2x2_delay2bw {
+	unsigned int delay_ms;
+	unsigned int bw_config;
+};
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void bma2x2_early_suspend(struct early_suspend *h);
 static void bma2x2_late_resume(struct early_suspend *h);
@@ -1565,6 +1594,7 @@ static int bma2x2_power_ctl(struct bma2x2_data *data, bool on);
 static int bma2x2_eeprom_prog(struct i2c_client *client);
 static int bma2x2_get_sensitivity(struct bma2x2_data *bma2x2, int range);
 static void bma2x2_pinctrl_state(struct bma2x2_data *data, bool active);
+static int bma2x2_flush_fifo(struct bma2x2_data *bma2x2);
 
 static struct sensors_classdev sensors_cdev = {
 		.name = "bma2x2-accel",
@@ -1609,6 +1639,25 @@ static const int bosch_sensor_range_map[MAX_RANGE_MAP] = {
 	2, /*8G range*/
 	3  /*16G range*/
 };
+
+/* Convert bandwidth to sampling delay */
+static const struct bma2x2_delay2bw bma2x2_delay2bw_table[] = {
+		{	1, BMA2X2_BW_500HZ	},
+		{	2, BMA2X2_BW_250HZ	},
+		{	4, BMA2X2_BW_125HZ	},
+		{	8, BMA2X2_BW_62_50HZ	},
+		{	16, BMA2X2_BW_31_25HZ	},
+		{	32, BMA2X2_BW_15_63HZ	},
+		{	64, BMA2X2_BW_7_81HZ	},
+};
+
+static inline void bma2x2_set_fifo_start_time(struct bma2x2_data *bma2x2)
+{
+	struct timespec ts;
+
+	ktime_get_ts(&ts);
+	bma2x2->fifo_start_ns = timespec_to_ns(&ts);
+}
 
 static void bst_remap_sensor_data(struct bosch_sensor_data *data,
 		const struct bosch_sensor_axis_remap *remap)
@@ -1810,6 +1859,68 @@ static int bma2x2_set_newdata(struct i2c_client *client,
 
 	return comres;
 
+}
+
+static int bma2x2_set_fwm_int_pad_sel(struct i2c_client *client,
+			unsigned char channel, unsigned char fifo_int)
+{
+	unsigned char data;
+	int comres = 0;
+
+	switch (channel) {
+	case BMA2X2_INT1_FWM:
+		comres = bma2x2_smbus_read_byte(client,
+				BMA2X2_EN_INT1_PAD_FWM__REG, &data);
+		data = BMA2X2_SET_BITSLICE(data,
+				BMA2X2_EN_INT1_PAD_FWM, fifo_int);
+		comres = bma2x2_smbus_write_byte(client,
+				BMA2X2_EN_INT1_PAD_FWM__REG, &data);
+		break;
+	case BMA2X2_INT2_FWM:
+		comres = bma2x2_smbus_read_byte(client,
+				BMA2X2_EN_INT2_PAD_FWM__REG, &data);
+		data = BMA2X2_SET_BITSLICE(data,
+				BMA2X2_EN_INT2_PAD_FWM, fifo_int);
+		comres = bma2x2_smbus_write_byte(client,
+				BMA2X2_EN_INT2_PAD_FWM__REG, &data);
+		break;
+	default:
+		comres = -1;
+		break;
+	}
+
+	return comres;
+}
+
+static int bma2x2_set_ffull_int_pad_sel(struct i2c_client *client,
+			unsigned char channel, unsigned char fifo_int)
+{
+	unsigned char data;
+	int comres = 0;
+
+	switch (channel) {
+	case BMA2X2_INT1_FFULL:
+		comres = bma2x2_smbus_read_byte(client,
+				BMA2X2_EN_INT1_PAD_FFULL__REG, &data);
+		data = BMA2X2_SET_BITSLICE(data,
+				BMA2X2_EN_INT1_PAD_FFULL, fifo_int);
+		comres = bma2x2_smbus_write_byte(client,
+				BMA2X2_EN_INT1_PAD_FFULL__REG, &data);
+		break;
+	case BMA2X2_INT2_FFULL:
+		comres = bma2x2_smbus_read_byte(client,
+				BMA2X2_EN_INT2_PAD_FFULL__REG, &data);
+		data = BMA2X2_SET_BITSLICE(data,
+				BMA2X2_EN_INT2_PAD_FFULL, fifo_int);
+		comres = bma2x2_smbus_write_byte(client,
+				BMA2X2_EN_INT2_PAD_FFULL__REG, &data);
+		break;
+	default:
+		comres = -1;
+		break;
+	}
+
+	return comres;
 }
 #endif
 
@@ -2114,34 +2225,37 @@ static int bma2x2_set_Int_Enable(struct i2c_client *client, unsigned char
 	return comres;
 }
 
+static int bma2x2_set_watermark_int(struct i2c_client *client, bool enable)
+{
+	int comres = 0;
+	unsigned char data;
+
+	comres = bma2x2_smbus_read_byte(client,
+		BMA2X2_INT_FWM_EN_INT__REG, &data);
+	data = BMA2X2_SET_BITSLICE(data,
+		BMA2X2_INT_FWM_EN_INT, (unsigned char)(enable ? 1 : 0));
+	comres = bma2x2_smbus_write_byte(client,
+		BMA2X2_INT_FWM_EN_INT__REG, &data);
+
+	return comres;
+}
+
+static int bma2x2_set_fifo_full_int(struct i2c_client *client, bool enable)
+{
+	int comres = 0;
+	unsigned char data;
+
+	comres = bma2x2_smbus_read_byte(client,
+		BMA2X2_INT_FFULL_EN_INT__REG, &data);
+	data = BMA2X2_SET_BITSLICE(data,
+		BMA2X2_INT_FFULL_EN_INT, (unsigned char)(enable ? 1 : 0));
+	comres = bma2x2_smbus_write_byte(client,
+		BMA2X2_INT_FFULL_EN_INT__REG, &data);
+
+	return comres;
+}
 
 #if defined(BMA2X2_ENABLE_INT1) || defined(BMA2X2_ENABLE_INT2)
-static int bma2x2_get_interruptstatus1(struct i2c_client *client, unsigned char
-		*intstatus)
-{
-	int comres = 0;
-	unsigned char data;
-
-	comres = bma2x2_smbus_read_byte(client, BMA2X2_STATUS1_REG, &data);
-	*intstatus = data;
-
-	return comres;
-}
-
-#ifdef CONFIG_BMA_ENABLE_NEWDATA_INT
-static int bma2x2_get_interruptstatus2(struct i2c_client *client, unsigned char
-		*intstatus)
-{
-	int comres = 0;
-	unsigned char data;
-
-	comres = bma2x2_smbus_read_byte(client, BMA2X2_STATUS2_REG, &data);
-	*intstatus = data;
-
-	return comres;
-}
-#endif
-
 static int bma2x2_get_HIGH_first(struct i2c_client *client, unsigned char
 						param, unsigned char *intstatus)
 {
@@ -2292,8 +2406,8 @@ static int bma2x2_set_int1_active_lvl(struct i2c_client *client,
 	if (comres)
 		return comres;
 
-	data = BMA2X2_SET_BITSLICE(data,
-		BMA2X2_INT1_PAD_ACTIVE_LEVEL, activeHigh ? 1 : 0);
+	data = BMA2X2_SET_BITSLICE(data, BMA2X2_INT1_PAD_ACTIVE_LEVEL,
+		(unsigned char)(activeHigh ? 1 : 0));
 	comres = bma2x2_smbus_write_byte(client,
 			BMA2X2_INT1_PAD_ACTIVE_LEVEL__REG, &data);
 
@@ -2311,8 +2425,8 @@ static int bma2x2_set_int2_active_lvl(struct i2c_client *client,
 	if (comres)
 		return comres;
 
-	data = BMA2X2_SET_BITSLICE(data,
-		BMA2X2_INT2_PAD_ACTIVE_LEVEL, activeHigh ? 1 : 0);
+	data = BMA2X2_SET_BITSLICE(data, BMA2X2_INT2_PAD_ACTIVE_LEVEL,
+		(unsigned char)(activeHigh ? 1 : 0));
 	comres = bma2x2_smbus_write_byte(client,
 			BMA2X2_INT2_PAD_ACTIVE_LEVEL__REG, &data);
 
@@ -3114,12 +3228,28 @@ static int bma2x2_get_range(struct i2c_client *client, unsigned char *Range)
 	return comres;
 }
 
+static int bma2x2_set_watermark_lvl(struct i2c_client *client,
+					unsigned char watermark)
+{
+	int comres = 0;
+	unsigned char data;
+
+	comres = bma2x2_smbus_read_byte(client,
+		BMA2X2_FIFO_WML_TRIG_RETAIN__REG, &data);
+	data = BMA2X2_SET_BITSLICE(data,
+		BMA2X2_FIFO_WML_TRIG_RETAIN, watermark);
+	comres = bma2x2_smbus_write_byte(client,
+		BMA2X2_FIFO_WML_TRIG_RETAIN__REG, &data);
+
+	return comres;
+}
 
 static int bma2x2_set_bandwidth(struct i2c_client *client, unsigned char BW)
 {
 	int comres = 0;
 	unsigned char data;
 	int Bandwidth = 0;
+	struct bma2x2_data *bma2x2 = i2c_get_clientdata(client);
 
 	if (BW > 7 && BW < 16) {
 		switch (BW) {
@@ -3171,6 +3301,8 @@ static int bma2x2_set_bandwidth(struct i2c_client *client, unsigned char BW)
 		data = BMA2X2_SET_BITSLICE(data, BMA2X2_BANDWIDTH, Bandwidth);
 		comres += bma2x2_smbus_write_byte(client, BMA2X2_BANDWIDTH__REG,
 				&data);
+		if (comres == 0)
+			bma2x2->bandwidth = Bandwidth;
 	} else {
 		comres = -1;
 	}
@@ -3937,6 +4069,61 @@ static ssize_t bma2x2_enable_int_store(struct device *dev,
 	return count;
 }
 
+static int bma2x2_update_bandwidth(const struct bma2x2_data *bma2x2)
+{
+	int err = 0;
+	int i;
+	int delay = atomic_read(&bma2x2->delay);
+
+	for (i = ARRAY_SIZE(bma2x2_delay2bw_table) - 1; i > 0; i--) {
+		if (bma2x2_delay2bw_table[i].delay_ms <= delay)
+			break;
+	}
+
+	err = bma2x2_set_bandwidth(bma2x2->bma2x2_client,
+		bma2x2_delay2bw_table[i].bw_config);
+	if (err)
+		dev_err(&bma2x2->bma2x2_client->dev,
+			"Update bandwidth not success,delay=%d err=%d\n",
+			delay, err);
+
+	dev_dbg(&bma2x2->bma2x2_client->dev,
+		"Update bandwidth success,delay=%d config=%u\n",
+		delay, bma2x2_delay2bw_table[i].bw_config);
+	return err;
+}
+
+static int bma2x2_update_delay(struct bma2x2_data *bma2x2, unsigned int delay)
+{
+	int pre_enable = atomic_read(&bma2x2->enable);
+	int err = 0;
+
+	atomic_set(&bma2x2->delay, delay);
+
+	if (!pre_enable)
+		return 0;
+
+	/*
+	  * Flush fifo data as ODR is about to change.
+	  * Data acquisition and fifo buffering is not disabled during this
+	  * configuration changing process, timestamp of sensor
+	  * event my not correct. Set sensor to standby state during
+	  * configuration update if accurate timestamp is required.
+	  */
+	if (atomic_read(&bma2x2->fifo_enabled))
+		bma2x2_flush_fifo(bma2x2);
+	if (bma2x2->pdata->int_en)
+		err = bma2x2_update_bandwidth(bma2x2);
+	if (!bma2x2->pdata->int_en ||
+		((bma2x2->pdata->int_en) &&
+		!BMA2x2_IS_NEWDATA_INT_ENABLED())) {
+		cancel_delayed_work_sync(&bma2x2->work);
+		queue_delayed_work(bma2x2->data_wq, &bma2x2->work,
+			msecs_to_jiffies(delay));
+	}
+	return err;
+}
+
 #if defined(BMA2X2_ENABLE_INT1)
 static int bma2x2_sel_int1_pad(const struct bma2x2_data *data)
 {
@@ -3954,6 +4141,10 @@ static int bma2x2_sel_int1_pad(const struct bma2x2_data *data)
 	err |= bma2x2_set_int1_pad_sel(client, PAD_SLOW_NO_MOTION);
 	err |= bma2x2_set_newdata(client, BMA2X2_INT1_NDATA, 1);
 	err |= bma2x2_set_newdata(client, BMA2X2_INT2_NDATA, 0);
+	err |= bma2x2_set_fwm_int_pad_sel(client, BMA2X2_INT1_FWM, 1);
+	err |= bma2x2_set_fwm_int_pad_sel(client, BMA2X2_INT2_FWM, 0);
+	err |= bma2x2_set_ffull_int_pad_sel(client, BMA2X2_INT1_FFULL, 1);
+	err |= bma2x2_set_ffull_int_pad_sel(client, BMA2X2_INT2_FFULL, 0);
 
 	if (err) {
 		dev_err(&client->dev, "select pad int1 error, ret=%d\n", err);
@@ -3985,6 +4176,10 @@ static int bma2x2_sel_int2_pad(const struct bma2x2_data *data)
 	err |= bma2x2_set_int2_pad_sel(client, PAD_SLOW_NO_MOTION);
 	err |= bma2x2_set_newdata(client, BMA2X2_INT1_NDATA, 0);
 	err |= bma2x2_set_newdata(client, BMA2X2_INT2_NDATA, 1);
+	err |= bma2x2_set_fwm_int_pad_sel(client, BMA2X2_INT1_FWM, 0);
+	err |= bma2x2_set_fwm_int_pad_sel(client, BMA2X2_INT2_FWM, 1);
+	err |= bma2x2_set_ffull_int_pad_sel(client, BMA2X2_INT1_FFULL, 0);
+	err |= bma2x2_set_ffull_int_pad_sel(client, BMA2X2_INT2_FFULL, 1);
 
 	if (err) {
 		dev_err(&client->dev, "select pad int1 error, ret=%d\n", err);
@@ -4984,9 +5179,8 @@ static int bma2x2_read_accel_xyz(struct i2c_client *client,
 	int comres = 0;
 	unsigned char data[6];
 	struct bma2x2_data *client_data = i2c_get_clientdata(client);
-#ifndef BMA2X2_SENSOR_IDENTIFICATION_ENABLE
 	int bitwidth;
-#endif
+
 	comres = bma2x2_smbus_read_byte_block(client,
 				BMA2X2_ACC_X12_LSB__REG, data, 6);
 	if (sensor_type >= 4)
@@ -4996,13 +5190,10 @@ static int bma2x2_read_accel_xyz(struct i2c_client *client,
 	acc->y = (data[3]<<8)|data[2];
 	acc->z = (data[5]<<8)|data[4];
 
-#ifndef BMA2X2_SENSOR_IDENTIFICATION_ENABLE
 	bitwidth = bma2x2_sensor_bitwidth[sensor_type];
-
-	acc->x = (acc->x >> (16 - bitwidth));
-	acc->y = (acc->y >> (16 - bitwidth));
-	acc->z = (acc->z >> (16 - bitwidth));
-#endif
+	BMA2X2_SHIFT_BITWIDTH(acc->x, bitwidth);
+	BMA2X2_SHIFT_BITWIDTH(acc->y, bitwidth);
+	BMA2X2_SHIFT_BITWIDTH(acc->z, bitwidth);
 
 	bma2x2_remap_sensor_data(acc, client_data);
 	return comres;
@@ -5078,7 +5269,7 @@ static ssize_t bma2x2_register_show(struct device *dev,
 		bma2x2_smbus_read_byte(bma2x2->bma2x2_client, i, reg+i);
 
 		count += snprintf(&buf[count], PAGE_SIZE,
-			"0x%x: %d\n", i, reg[i]);
+			"0x%x: 0x%x\n", i, reg[i]);
 	}
 	return count;
 
@@ -5261,13 +5452,13 @@ static ssize_t bma2x2_delay_store(struct device *dev,
 	error = kstrtoul(buf, 10, &data);
 	if (error)
 		return error;
-	if (data < POLL_INTERVAL_MIN_MS)
-		data = POLL_INTERVAL_MIN_MS;
-	if (data > POLL_INTERVAL_MAX_MS)
-		data = POLL_INTERVAL_MAX_MS;
-	atomic_set(&bma2x2->delay, (unsigned int) data);
+	data = clamp_val(data, POLL_INTERVAL_MIN_MS, POLL_INTERVAL_MAX_MS);
 
-	return count;
+	error = bma2x2_update_delay(bma2x2, (unsigned int)data);
+	if (error)
+		return -EBUSY;
+	else
+		return count;
 }
 
 
@@ -5291,8 +5482,8 @@ static int bma2x2_config_interrupt(struct bma2x2_data *data, int enable)
 		/* No need reset these interrupt configurations */
 		goto exit;
 
-	if ((data->int_flag | IRQF_TRIGGER_RISING) ||
-			(data->int_flag | IRQF_TRIGGER_HIGH))
+	if ((data->int_flag & IRQF_TRIGGER_RISING) ||
+			(data->int_flag & IRQF_TRIGGER_HIGH))
 		act_high = true;
 	else
 		act_high = false;
@@ -5330,7 +5521,7 @@ static int bma2x2_config_interrupt(struct bma2x2_data *data, int enable)
 		}
 	}
 
-	err = bma2x2_set_Int_Mode(client, BMA2X2_LATCH_DUR_LATCH1);
+	err = bma2x2_set_Int_Mode(client, BMA2X2_LATCH_DUR_NON_LATCH);
 	if (err) {
 		dev_err(&client->dev,
 			"Failed to set interrupt latch, err=%d\n",
@@ -5342,11 +5533,103 @@ exit:
 	return err;
 }
 
-static void bma2x2_set_enable(struct device *dev, int enable)
+static unsigned int bma2x2_bandwidth_to_interval(struct bma2x2_data *bma2x2)
+{
+	unsigned int i;
+
+	for (i = ARRAY_SIZE(bma2x2_delay2bw_table) - 1; i > 0; i--) {
+		if (bma2x2_delay2bw_table[i].bw_config == bma2x2->bandwidth)
+			break;
+	}
+
+	return bma2x2_delay2bw_table[i].delay_ms;
+}
+
+static int bma2x2_set_fifo_enable(struct bma2x2_data *bma2x2, bool enable)
+{
+	struct i2c_client *client = bma2x2->bma2x2_client;
+	unsigned int interval, wml;
+	unsigned int latency = bma2x2->max_latency_ms;
+	int delay = atomic_read(&bma2x2->delay);
+	int fifo_en = atomic_read(&bma2x2->fifo_enabled);
+	int err = 0;
+
+	if (enable && !fifo_en) {
+		if ((latency == 0) || (latency < delay)) {
+			dev_err(&client->dev,
+				"Invalid parameter! latency=%d delay=%d\n",
+				latency, delay);
+			err = -EINVAL;
+			goto exit;
+		}
+		if (IS_ERR_OR_NULL(bma2x2->fifo_buf)) {
+			dev_err(&client->dev,
+				"Not enough memory for sensor FIFO\n");
+			err = -ENOMEM;
+			goto exit;
+		}
+		err = bma2x2_update_bandwidth(bma2x2);
+		if (err)
+			goto print_error;
+
+		interval = bma2x2_bandwidth_to_interval(bma2x2);
+		wml = (unsigned int)(latency / interval);
+		if (wml > MAX_FIFO_F_LEVEL)
+			wml = MAX_FIFO_F_LEVEL;
+		err = bma2x2_set_watermark_lvl(client, wml);
+		if (err)
+			goto print_error;
+
+		bma2x2->fifo_datasel = BMA2X2_FIFO_DAT_SEL_XYZ;
+		err = bma2x2_set_fifo_data_sel(bma2x2->bma2x2_client,
+					(unsigned char)BMA2X2_FIFO_DAT_SEL_XYZ);
+		if (err)
+			goto print_error;
+
+		err = bma2x2_set_watermark_int(client, true);
+		if (err)
+			goto print_error;
+
+		err = bma2x2_set_fifo_full_int(client, true);
+		if (err)
+			goto print_error;
+
+		err = bma2x2_set_fifo_mode(client, BMA2X2_FIFO_MODE_FIFO);
+		if (err)
+			goto print_error;
+		bma2x2_set_fifo_start_time(bma2x2);
+		atomic_set(&bma2x2->fifo_enabled, 1);
+	} else if (!enable && fifo_en) {
+		bma2x2_flush_fifo(bma2x2);
+		bma2x2_set_watermark_int(client, false);
+		bma2x2_set_fifo_full_int(client, false);
+		err = bma2x2_set_fifo_mode(client, BMA2X2_FIFO_MODE_BYPASS);
+		if (err)
+			goto print_error;
+		atomic_set(&bma2x2->fifo_enabled, 0);
+	} else {
+		dev_err(&client->dev,
+			"FIFO state incorrect! enable=%d, fifo enable=%d\n",
+			enable, fifo_en);
+		err = -EINVAL;
+		goto exit;
+	}
+
+print_error:
+	if (err)
+		dev_err(&client->dev,
+			"Set fifo error! enable=%d latency=%d, err=%d\n",
+			enable, latency, err);
+exit:
+	return err;
+}
+
+static int bma2x2_set_enable(struct device *dev, int enable)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bma2x2_data *bma2x2 = i2c_get_clientdata(client);
 	int pre_enable = atomic_read(&bma2x2->enable);
+	int err = 0;
 
 	if (atomic_read(&bma2x2->cal_status)) {
 		dev_err(dev, "can not enable or disable when calibration\n");
@@ -5363,9 +5646,20 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 				dev_err(dev, "set init failed\n");
 				goto mutex_exit;
 			}
+
 			bma2x2_set_mode(bma2x2->bma2x2_client,
 					BMA2X2_MODE_NORMAL);
 			if ((bma2x2->pdata->int_en) &&
+				(bma2x2->max_latency_ms > 0)) {
+				err = bma2x2_set_fifo_enable(bma2x2, true);
+				if (err)
+					goto mutex_exit;
+				err = bma2x2_config_interrupt(bma2x2, true);
+				if (err)
+					goto mutex_exit;
+				bma2x2_pinctrl_state(bma2x2, true);
+				enable_irq(bma2x2->IRQ);
+			} else if ((bma2x2->pdata->int_en) &&
 				(BMA2x2_IS_NEWDATA_INT_ENABLED())) {
 				if (bma2x2_config_interrupt(bma2x2, true)) {
 					dev_err(&client->dev,
@@ -5398,7 +5692,13 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 			bma2x2_set_mode(bma2x2->bma2x2_client,
 					BMA2X2_MODE_SUSPEND);
 			bma2x2_pinctrl_state(bma2x2, false);
-			if ((bma2x2->pdata->int_en) &&
+			if (atomic_read(&bma2x2->fifo_enabled)) {
+				disable_irq(bma2x2->IRQ);
+				bma2x2_pinctrl_state(bma2x2, false);
+				err = bma2x2_set_fifo_enable(bma2x2, false);
+				if (err)
+					goto mutex_exit;
+			} else if ((bma2x2->pdata->int_en) &&
 				(BMA2x2_IS_NEWDATA_INT_ENABLED())) {
 				disable_irq(bma2x2->IRQ);
 				bma2x2_pinctrl_state(bma2x2, false);
@@ -5427,10 +5727,17 @@ static void bma2x2_set_enable(struct device *dev, int enable)
 	}
 mutex_exit:
 	mutex_unlock(&bma2x2->enable_mutex);
-	dev_dbg(&client->dev,
-		"set enable: en=%d, en_state=%d, use_int=%d\n",
+	if ((!!enable) != atomic_read(&bma2x2->enable)) {
+		dev_err(&client->dev,
+		"set enable failed! en=%d, en_state=%d, use_int=%d\n",
 		enable, atomic_read(&bma2x2->enable),
 		bma2x2->pdata->int_en);
+		err = -EBUSY;
+	}
+	dev_dbg(&client->dev,
+		"set enable: en=%d, en_state=%d\n",
+		enable, atomic_read(&bma2x2->enable));
+	return err;
 }
 
 static ssize_t bma2x2_enable_store(struct device *dev,
@@ -5443,8 +5750,11 @@ static ssize_t bma2x2_enable_store(struct device *dev,
 	error = kstrtoul(buf, 10, &data);
 	if (error)
 		return error;
-	if ((data == 0) || (data == 1))
-		bma2x2_set_enable(dev, data);
+	if ((data == 0) || (data == 1)) {
+		error = bma2x2_set_enable(dev, data);
+		if (error)
+			return -EBUSY;
+	}
 
 	return count;
 }
@@ -5469,14 +5779,64 @@ static int bma2x2_cdev_poll_delay(struct sensors_classdev *sensors_cdev,
 {
 	struct bma2x2_data *data = container_of(sensors_cdev,
 					struct bma2x2_data, cdev);
+	int err;
 
-	if (delay_ms < POLL_INTERVAL_MIN_MS)
-		delay_ms = POLL_INTERVAL_MIN_MS;
-	if (delay_ms > POLL_INTERVAL_MAX_MS)
-		delay_ms = POLL_INTERVAL_MAX_MS;
-	atomic_set(&data->delay, (unsigned int) delay_ms);
+	delay_ms = clamp_val(delay_ms,
+		POLL_INTERVAL_MIN_MS, POLL_INTERVAL_MAX_MS);
 
-	return 0;
+	dev_dbg(&data->bma2x2_client->dev,
+			"bma2x2_cdev_poll_delay delay_ms=%d\n",
+			delay_ms);
+	err = bma2x2_update_delay(data, delay_ms);
+	if (err)
+		return -EBUSY;
+	else
+		return 0;
+}
+
+static int bma2x2_cdev_set_latency(struct sensors_classdev *sensors_cdev,
+					unsigned int max_latency_ms)
+{
+	struct bma2x2_data *bma2x2 = container_of(sensors_cdev,
+					struct bma2x2_data, cdev);
+	struct i2c_client *client = bma2x2->bma2x2_client;
+	unsigned int delay = atomic_read(&bma2x2->delay);
+	int err = 0;
+
+	dev_dbg(&client->dev,
+			"bma2x2_cdev_set_latency latency=%d\n",
+			max_latency_ms);
+	if ((max_latency_ms > 0) && (max_latency_ms < delay)) {
+		dev_err(&client->dev,
+			"Latency should not less than delay! latency=%d, delay=%d\n",
+			max_latency_ms, delay);
+		return -EINVAL;
+	}
+
+	bma2x2->max_latency_ms = max_latency_ms;
+	if (!atomic_read(&bma2x2->enable))
+		return 0;
+
+	if (max_latency_ms > 0)
+		err = bma2x2_set_fifo_enable(bma2x2, true);
+	else
+		err = bma2x2_set_fifo_enable(bma2x2, false);
+	if (err)
+		dev_err(&client->dev,
+			"Set latency error! latency=%d, err=%d\n",
+			max_latency_ms, err);
+	return err;
+}
+
+static int bma2x2_cdev_flush(struct sensors_classdev *sensors_cdev)
+{
+	struct bma2x2_data *bma2x2 = container_of(sensors_cdev,
+					struct bma2x2_data, cdev);
+
+	if (atomic_read(&bma2x2->fifo_enabled))
+		return bma2x2_flush_fifo(bma2x2);
+	else
+		return 0;
 }
 
 #ifdef CONFIG_SENSORS_BMI058
@@ -6259,6 +6619,96 @@ static void bma2x2_single_axis_remaping(unsigned char fifo_datasel,
 	return;
 }
 
+static int bma2x2_flush_fifo(struct bma2x2_data *bma2x2)
+{
+	struct i2c_client *client = bma2x2->bma2x2_client;
+	int bitwidth, i, err, ns;
+	unsigned char f_len = 0;
+	unsigned char fifo_count;
+	s64 interval_ns, ts_ns, sec;
+	struct bma2x2acc acc;
+
+	err = bma2x2_get_fifo_framecount(bma2x2->bma2x2_client, &fifo_count);
+	if (err)
+		dev_err(&client->dev,
+			"Get fifo count error! err=%d\n", err);
+
+	dev_dbg(&client->dev,
+			"bma2x2_flush_fifo fifo_count=%d\n", fifo_count);
+	if ((fifo_count == 0) || (fifo_count > MAX_FIFO_F_LEVEL)) {
+		dev_err(&client->dev,
+			"Invalid fifo framecount: %d\n", fifo_count);
+		return -EINVAL;
+	}
+
+	if (IS_ERR_OR_NULL(bma2x2->fifo_buf)) {
+		dev_err(&client->dev,
+			"Not enough memory for fifo data\n");
+		return -ENOMEM;
+	}
+	interval_ns = bma2x2_bandwidth_to_interval(bma2x2) * NSEC_PER_MSEC;
+	ts_ns = bma2x2->fifo_start_ns + interval_ns;
+	bma2x2_set_fifo_start_time(bma2x2);
+	f_len = bma2x2->fifo_datasel ?
+		FIFO_FRAMESIZE_1_AXIS : FIFO_FRAMESIZE_3_AXIS;
+	if (f_len  != FIFO_FRAMESIZE_3_AXIS) {
+		/* Reset FIFO if it doesn't contain X Y Z three axis data */
+		dev_err(&client->dev,
+			"Incorrect FIFO data select (0x%x)!\n",
+			bma2x2->fifo_datasel);
+		err = -EBUSY;
+		goto reset_fifo;
+	}
+	err = bma_i2c_burst_read(client,
+			BMA2X2_FIFO_DATA_OUTPUT_REG, bma2x2->fifo_buf,
+			fifo_count * f_len);
+	if (err < 0) {
+		dev_err(&client->dev,
+			"Read byte block error ret=%d\n", err);
+		err = -EIO;
+		goto reset_fifo;
+	}
+
+	for (i = 0; i < fifo_count; i++) {
+		acc.x =
+		((unsigned char)bma2x2->fifo_buf[i * f_len + 1] << 8 |
+			(unsigned char)bma2x2->fifo_buf[i * f_len + 0]);
+		acc.y =
+		((unsigned char)bma2x2->fifo_buf[i * f_len + 3] << 8 |
+			(unsigned char)bma2x2->fifo_buf[i * f_len + 2]);
+		acc.z =
+		((unsigned char)bma2x2->fifo_buf[i * f_len + 5] << 8 |
+			(unsigned char)bma2x2->fifo_buf[i * f_len + 4]);
+		bitwidth = bma2x2_sensor_bitwidth[bma2x2->sensor_type];
+		BMA2X2_SHIFT_BITWIDTH(acc.x, bitwidth);
+		BMA2X2_SHIFT_BITWIDTH(acc.y, bitwidth);
+		BMA2X2_SHIFT_BITWIDTH(acc.z, bitwidth);
+
+		bma2x2_remap_sensor_data(&acc, bma2x2);
+
+		sec = ts_ns;
+		ns = do_div(sec, NSEC_PER_SEC);
+		ts_ns += interval_ns;
+		input_report_abs(bma2x2->input, ABS_X,
+				(int)acc.x << bma2x2->sensitivity);
+		input_report_abs(bma2x2->input, ABS_Y,
+				(int)acc.y << bma2x2->sensitivity);
+		input_report_abs(bma2x2->input, ABS_Z,
+				(int)acc.z << bma2x2->sensitivity);
+		input_event(bma2x2->input, EV_SYN, SYN_TIME_SEC,
+				(int)sec);
+		input_event(bma2x2->input, EV_SYN, SYN_TIME_NSEC,
+				(int)ns);
+		input_sync(bma2x2->input);
+	}
+	return 0;
+
+reset_fifo:
+	/* Clear FIFO content and reset interrupt */
+	bma2x2_set_fifo_mode(client, BMA2X2_FIFO_MODE_FIFO);
+	return err;
+}
+
 static ssize_t bma2x2_fifo_data_out_frame_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -6272,10 +6722,10 @@ static ssize_t bma2x2_fifo_data_out_frame_show(struct device *dev,
 	unsigned char axis_dir_remap = 0;
 	if (bma2x2->fifo_datasel) {
 		/*Select one axis data output for every fifo frame*/
-		f_len = 2;
+		f_len = FIFO_FRAMESIZE_1_AXIS;
 	} else	{
 		/*Select X Y Z axis data output for every fifo frame*/
-		f_len = 6;
+		f_len = FIFO_FRAMESIZE_3_AXIS;
 	}
 
 	if (bma2x2->fifo_count == 0)
@@ -6290,7 +6740,7 @@ static ssize_t bma2x2_fifo_data_out_frame_show(struct device *dev,
 	err = 0;
 
 /* please give attation for the fifo output data format*/
-	if (f_len == 6) {
+	if (f_len == FIFO_FRAMESIZE_3_AXIS) {
 		/* Select X Y Z axis data output for every frame */
 		for (i = 0; i < bma2x2->fifo_count; i++) {
 			acc_lsb.x =
@@ -6975,58 +7425,10 @@ static void bma2x2_read_new_data(struct bma2x2_data *bma2x2)
 	mutex_unlock(&bma2x2->value_mutex);
 	return;
 }
-
-static int bma2x2_data_ready_handle(struct bma2x2_data *bma2x2)
-{
-	int ret;
-	unsigned char status = 0;
-
-	ret = bma2x2_get_interruptstatus2(bma2x2->bma2x2_client, &status);
-	if (ret) {
-		dev_err(&bma2x2->bma2x2_client->dev,
-			"read interrupt status2 err, err=%d\n", ret);
-		return -EIO;
-	}
-
-	if ((status & 0x80) == 0x80) {
-		bma2x2_read_new_data(bma2x2);
-		return 0;
-	}
-
-	if (status != 0) {
-		dev_dbg(&bma2x2->bma2x2_client->dev,
-			"Interrupt flag is detected, state2 =0x%x\n",
-			status);
-		return -EAGAIN;
-	}
-
-	/* Check if any other interrupt is triggered. */
-	ret = bma2x2_get_interruptstatus1(bma2x2->bma2x2_client,
-			&status);
-	if (ret) {
-		dev_err(&bma2x2->bma2x2_client->dev,
-			"read interrupt status1 err, err=%d\n", ret);
-		return -EIO;
-	}
-
-	/*
-	  * Read new data if no other interrupt is triggered.
-	  * BMA2x2 data ready flag will be cleared if new data acquisition
-	  * is started, sometimes we cannot get that flag.
-	  */
-	if (status == 0) {
-		bma2x2_read_new_data(bma2x2);
-		return 0;
-	}
-
-	dev_dbg(&bma2x2->bma2x2_client->dev,
-		"Data ready int is not detected, state1 =0x%x\n", status);
-	return -EAGAIN;
-}
 #else
-static int bma2x2_data_ready_handle(struct bma2x2_data *bma2x2)
+static void bma2x2_read_new_data(struct bma2x2_data *bma2x2)
 {
-	return -EAGAIN;
+	return;
 }
 #endif
 
@@ -7034,23 +7436,40 @@ static void bma2x2_irq_work_func(struct work_struct *work)
 {
 	struct bma2x2_data *bma2x2 = container_of((struct work_struct *)work,
 			struct bma2x2_data, irq_work);
-#ifdef CONFIG_DOUBLE_TAP
 	struct i2c_client *client = bma2x2->bma2x2_client;
-#endif
-
-	unsigned char status = 0;
+	unsigned char intstatus[2] = {0};
 	unsigned char first_value = 0;
 	unsigned char sign_value = 0;
+	int ret;
 
-	if (bma2x2_data_ready_handle(bma2x2) != -EAGAIN)
+	ret = bma2x2_smbus_read_byte_block(client,
+		BMA2X2_STATUS1_REG, intstatus, ARRAY_SIZE(intstatus));
+	if (ret) {
+		dev_err(&client->dev,
+			"read interrupt status2 err, err=%d\n", ret);
 		return;
+	}
 
-	bma2x2_get_interruptstatus1(bma2x2->bma2x2_client, &status);
-	ISR_INFO(&bma2x2->bma2x2_client->dev,
-		"bma2x2_irq_work_func, status = 0x%x, ret=%d\n", status);
+	ISR_INFO(&client->dev,
+		"bma2x2_irq_work_func, intstatus=0x%x,0x%x\n",
+		intstatus[0], intstatus[1]);
+
+	if (intstatus[1] & BMA2X2_IS_FIFO_INT)
+		bma2x2_flush_fifo(bma2x2);
+	if (intstatus[1] & BMA2X2_IS_NEWDATA_INT)
+		bma2x2_read_new_data(bma2x2);
+	if ((intstatus[1] == 0) && (intstatus[0] == 0)) {
+		/*
+		 * Read new data if no other interrupt is triggered.
+		 * BMA2x2 data ready flag will be cleared if new data
+		 * acquisition is started, sometimes we cannot get that flag.
+		 */
+		bma2x2_read_new_data(bma2x2);
+		return;
+	}
 
 #ifdef CONFIG_SIG_MOTION
-	if (status & 0x04)	{
+	if (intstatus[0] & 0x04)	{
 		if (atomic_read(&bma2x2->en_sig_motion) == 1) {
 			ISR_INFO(&bma2x2->bma2x2_client->dev,
 				"Significant motion interrupt happened\n");
@@ -7066,7 +7485,7 @@ static void bma2x2_irq_work_func(struct work_struct *work)
 #endif
 
 #ifdef CONFIG_DOUBLE_TAP
-	if (status & 0x20) {
+	if (intstatus[0] & 0x20) {
 		if (atomic_read(&bma2x2->en_double_tap) == 1) {
 			ISR_INFO(&bma2x2->bma2x2_client->dev,
 				"single tap interrupt happened\n");
@@ -7093,8 +7512,7 @@ static void bma2x2_irq_work_func(struct work_struct *work)
 	}
 #endif
 
-	switch (status) {
-
+	switch (intstatus[0]) {
 	case 0x01:
 		ISR_INFO(&bma2x2->bma2x2_client->dev,
 			"Low G interrupt happened\n");
@@ -7641,6 +8059,7 @@ static int bma2x2_probe(struct i2c_client *client,
 	data->range = BMA2X2_RANGE_SET;
 	data->sensitivity = bosch_sensor_range_map[0];
 	atomic_set(&data->cal_status, 0);
+	data->fifo_buf = NULL;
 	err = bma2x2_open_init(client, data);
 	if (err < 0) {
 		err = -EINVAL;
@@ -7700,9 +8119,10 @@ static int bma2x2_probe(struct i2c_client *client,
 		}
 		disable_irq(data->IRQ);
 		INIT_WORK(&data->irq_work, bma2x2_irq_work_func);
-	} else {
-		INIT_DELAYED_WORK(&data->work, bma2x2_work_func);
+		data->fifo_buf = devm_kmalloc(&client->dev,
+			(MAX_FIFO_F_LEVEL * MAX_FIFO_F_BYTES), GFP_KERNEL);
 	}
+	INIT_DELAYED_WORK(&data->work, bma2x2_work_func);
 
 	data->data_wq = create_freezable_workqueue("bma2x2_data_work");
 	if (!data->data_wq) {
@@ -7904,8 +8324,14 @@ static int bma2x2_probe(struct i2c_client *client,
 	data->cdev.sensors_calibrate = bma2x2_self_calibration_xyz;
 	data->cdev.sensors_write_cal_params = bma2x2_write_cal_params;
 	data->cdev.resolution = sensor_type_map[data->chip_type].resolution;
-	if (pdata->int_en)
-		data->cdev.max_delay = BMA_INT_MAX_DELAY;
+	if (pdata->int_en) {
+		if (BMA2x2_IS_NEWDATA_INT_ENABLED())
+			data->cdev.max_delay = BMA_INT_MAX_DELAY;
+		data->cdev.sensors_set_latency = bma2x2_cdev_set_latency;
+		data->cdev.sensors_flush = bma2x2_cdev_flush;
+		data->cdev.fifo_max_event_count = MAX_FIFO_F_LEVEL;
+		data->cdev.fifo_reserved_event_count = MAX_FIFO_F_LEVEL;
+	}
 	err = sensors_classdev_register(&client->dev, &data->cdev);
 	if (err) {
 		dev_err(&client->dev, "create class device file failed!\n");
@@ -8034,8 +8460,8 @@ static int bma2x2_remove(struct i2c_client *client)
 		sysfs_remove_group(&data->input->dev.kobj,
 				&bma2x2_attribute_group);
 
-	destroy_workqueue(data->data_wq);
 	bma2x2_set_enable(&client->dev, 0);
+	destroy_workqueue(data->data_wq);
 	bma2x2_power_deinit(data);
 	i2c_set_clientdata(client, NULL);
 	if (data->pdata && (client->dev.of_node))
