@@ -302,13 +302,4 @@ config ARM_SMMU
 	  Say Y here if your SoC includes an IOMMU device implementing
 	  the ARM SMMU architecture.
 
-config ARM_SMMU_DONT_USE_PCI
-	bool "Don't use the ARM SMMU driver on PCI bus"
-	depends on ARM_SMMU
-	help
-	  Don't use the ARM SMMU driver as the IOMMU on the PCI bus.
-
-	  Say Y here if your SoC's PCI driver is busted such that the ARM
-	  SMMU driver doesn't work on the PCI bus.
-
 endif # IOMMU_SUPPORT
