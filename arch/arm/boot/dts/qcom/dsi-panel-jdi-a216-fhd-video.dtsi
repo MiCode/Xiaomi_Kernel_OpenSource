@@ -39,11 +39,15 @@
 		qcom,mdss-dsi-on-command = [15 01 00 00 0a 00 02 51 FF
 					15 01 00 00 0a 00 02 53 0C
 					15 01 00 00 0a 00 02 55 00
-					05 01 00 00 28 00 01 29
-					05 01 00 00 c8 00 01 11];
-		qcom,mdss-dsi-off-command = [05 01 00 00 32 00 02 28 00
-					05 01 00 00 78 00 02 10 00];
-		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+					05 01 00 00 C8 00 01 11 /* sleep out */
+					05 01 00 00 28 00 01 29 /* display on */
+					29 01 00 00 0a 00 02 B0 04
+					29 01 00 00 0a 00 06 D0 10 93 BB 12 8E
+		];
+		qcom,mdss-dsi-off-command = [
+					05 01 00 00 32 00 02 28 00 /* display off */
+					05 01 00 00 78 00 02 10 00 /* enter sleep */];
+		qcom,mdss-dsi-on-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
 		qcom,mdss-dsi-h-sync-pulse = <0>;
 		qcom,mdss-dsi-traffic-mode = "burst_mode";
@@ -61,5 +65,6 @@
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-reset-sequence = <1 10>;
 	};
 };

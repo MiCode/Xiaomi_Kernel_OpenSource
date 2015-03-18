@@ -184,8 +184,18 @@
 	qcom,use-external-charger;
 };
 
+/ {
+	qrd_batterydata: qcom,battery-data {
+		qcom,rpull-up-kohm = <100>;
+		qcom,vref-batt-therm = <1800000>;
+		#include "batterydata-qrd-skul-4v4-2920mah.dtsi"
+	};
+};
+
 &pm8916_bms {
 	status = "ok";
+	qcom,resume-soc = <99>;
+	qcom,battery-data = <&qrd_batterydata>;
 };
 
 &mdss_dsi0 {
