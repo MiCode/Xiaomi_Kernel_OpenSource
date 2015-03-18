@@ -15,6 +15,7 @@
 
 #include <linux/slab.h>
 #include <linux/msm_ion.h>
+#include <soc/qcom/secure_buffer.h>
 #include "ion.h"
 #include "ion_priv.h"
 

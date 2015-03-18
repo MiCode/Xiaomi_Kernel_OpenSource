@@ -3,7 +3,7 @@
  *
  * Copyright (C) Linaro 2012
  * Author: <benjamin.gaignard@linaro.org> for ST-Ericsson.
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -25,6 +25,7 @@
 #include <linux/msm_ion.h>
 #include <trace/events/kmem.h>
 
+#include <soc/qcom/secure_buffer.h>
 #include <asm/cacheflush.h>
 
 /* for ion_heap_ops structure */
@@ -695,7 +696,7 @@ static int ion_secure_cma_allocate(struct ion_heap *heap,
 		} else {
 			trace_ion_cp_secure_buffer_start(heap->name, len, align,
 									flags);
-			ret = msm_ion_secure_table(buf->table);
+			ret = msm_secure_table(buf->table);
 			trace_ion_cp_secure_buffer_end(heap->name, len, align,
 									flags);
 		}
@@ -722,7 +723,7 @@ static void ion_secure_cma_free(struct ion_buffer *buffer)
 
 	dev_dbg(sheap->dev, "Release buffer %p\n", buffer);
 	if (msm_secure_v2_is_supported())
-		ret = msm_ion_unsecure_table(info->table);
+		ret = msm_unsecure_table(info->table);
 	atomic_sub(buffer->size, &sheap->total_allocated);
 	BUG_ON(atomic_read(&sheap->total_allocated) < 0);
 
