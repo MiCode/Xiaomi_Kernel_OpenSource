@@ -61,6 +61,9 @@
 #define CHRG_STAT_CHARGING		(1 << 6)
 #define CHRG_STAT_PMIC_OTP		(1 << 7)
 
+#define DC_PWR_BAT_LED_CNTL_REG		0x32
+#define CHRG_BATT_DET_MASK		(1 << 6)
+
 #define DC_CHRG_CCCV_REG		0x33
 #define CHRG_CCCV_CC_MASK		0xf		/* 4 bits */
 #define CHRG_CCCV_CC_BIT_POS		0
@@ -176,6 +179,7 @@
 #define STATUS_MON_DELAY_JIFFIES	(HZ * 60)	/*60 sec */
 #define STATUS_MON_FULL_DELAY_JIFFIES	(HZ * 30)	/*30sec */
 #define FULL_CAP_THLD			98	/* 98% capacity */
+#define BATT_DET_CAP_THLD		95	/* 95% capacity */
 #define DC_FG_INTR_NUM			6
 
 #define THERM_CURVE_MAX_SAMPLES		18
@@ -771,6 +775,34 @@ pmic_fg_read_err:
 	return ret;
 }
 
+static void pmic_fg_handle_battery_detection(struct pmic_fg_info *info)
+{
+	int ret;
+	int batt_cap = pmic_fg_get_capacity(info);
+
+	ret = pmic_fg_reg_readb(info, DC_PWR_BAT_LED_CNTL_REG);
+	if (ret < 0)
+		return;
+	/*
+	 * PMIC is raising spurious charging done and start interrupts
+	 * continuously if high load applied near battery full.
+	 * To avoid these spurious  interrupts xpwr vendor as suggested a
+	 * software WA to disable battery detection logic in pmic
+	 * if  battery capacity > 95% and charging.
+	 */
+	if ((batt_cap >= BATT_DET_CAP_THLD)
+			&& ((info->status == POWER_SUPPLY_STATUS_CHARGING)
+			|| (info->status == POWER_SUPPLY_STATUS_FULL))) {
+		if (ret & CHRG_BATT_DET_MASK)
+			pmic_fg_reg_clearb(info,
+				DC_PWR_BAT_LED_CNTL_REG, CHRG_BATT_DET_MASK);
+	} else {
+		if (!(ret & CHRG_BATT_DET_MASK))
+			pmic_fg_reg_setb(info,
+				DC_PWR_BAT_LED_CNTL_REG, CHRG_BATT_DET_MASK);
+	}
+}
+
 static int pmic_fg_set_battery_property(struct power_supply *psy,
 				    enum power_supply_property psp,
 				    const union power_supply_propval *val)
@@ -782,7 +814,10 @@ static int pmic_fg_set_battery_property(struct power_supply *psy,
 	mutex_lock(&info->lock);
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		info->status = val->intval;
+		if (info->status != val->intval) {
+			info->status = val->intval;
+			pmic_fg_handle_battery_detection(info);
+		}
 		break;
 	default:
 		ret = -EINVAL;
@@ -836,6 +871,8 @@ static void pmic_fg_status_monitor(struct work_struct *work)
 		 */
 		delay = STATUS_MON_FULL_DELAY_JIFFIES;
 	}
+	pmic_fg_handle_battery_detection(info);
+
 end_stat_mon:
 	schedule_delayed_work(&info->status_monitor, delay);
 }
