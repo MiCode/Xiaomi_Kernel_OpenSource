@@ -221,6 +221,9 @@ struct smbchg_chip {
 	unsigned long			first_aicl_seconds;
 	int				aicl_irq_count;
 	struct mutex			usb_status_lock;
+	struct work_struct		rerun_apsd_work;
+	bool				apsd_rerun;
+	bool				apsd_rerun_ignore_uv_irq;
 };
 
 enum qpnp_schg {
@@ -611,6 +614,22 @@ static bool is_dc_present(struct smbchg_chip *chip)
 		return false;
 
 	return true;
+}
+
+static bool is_usb_uv(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
+		return false;
+	}
+	if ((reg & USBIN_UV_BIT))
+		return true;
+
+	return false;
 }
 
 static bool is_usb_present(struct smbchg_chip *chip)
@@ -3099,7 +3118,9 @@ struct regulator_ops smbchg_otg_reg_ops = {
 };
 
 #define USBIN_CHGR_CFG			0xF1
+#define ADAPTER_ALLOWANCE_MASK		0x7
 #define USBIN_ADAPTER_9V		0x3
+#define USBIN_ADAPTER_5V_9V_UNREG	0x5
 #define HVDCP_EN_BIT			BIT(3)
 static int smbchg_external_otg_regulator_enable(struct regulator_dev *rdev)
 {
@@ -3794,6 +3815,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 	int rc;
 
+	chip->apsd_rerun = false;
 	smbchg_aicl_deglitch_wa_check(chip);
 	/* Clear the OV detected status set before */
 	if (chip->usb_ov_det)
@@ -3801,11 +3823,13 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	if (chip->usb_psy) {
 		pr_smb(PR_MISC, "setting usb psy type = %d\n",
 				POWER_SUPPLY_TYPE_UNKNOWN);
-		pr_smb(PR_MISC, "setting usb psy present = %d\n",
-				chip->usb_present);
 		power_supply_set_supply_type(chip->usb_psy,
 				POWER_SUPPLY_TYPE_UNKNOWN);
+		pr_smb(PR_MISC, "setting usb psy present = %d\n",
+				chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
+		pr_smb(PR_MISC, "setting usb psy allow detection 0\n");
+		power_supply_set_allow_detection(chip->usb_psy, 0);
 		schedule_work(&chip->usb_set_online_work);
 		rc = power_supply_set_health_state(chip->usb_psy,
 				POWER_SUPPLY_HEALTH_UNKNOWN);
@@ -3824,24 +3848,61 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	chip->vbat_above_headroom = false;
 }
 
+static bool is_src_detect_high(struct smbchg_chip *chip)
+{
+	int rc;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
+		return false;
+	}
+	return reg &= USBIN_SRC_DET_BIT;
+}
+
+static void read_usb_type(struct smbchg_chip *chip, char **usb_type_name,
+				enum power_supply_type *usb_supply_type)
+{
+	int rc, type;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->misc_base + IDEV_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read status 5 rc = %d\n", rc);
+		*usb_type_name = "Other";
+		*usb_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
+	}
+	type = get_type(reg);
+	*usb_type_name = get_usb_type_name(type);
+	*usb_supply_type = get_usb_supply_type(type);
+}
+
 #define HVDCP_NOTIFY_MS		2500
 static void handle_usb_insertion(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 	enum power_supply_type usb_supply_type;
-	int rc, type;
+	int rc;
 	char *usb_type_name = "null";
-	u8 reg = 0;
 
 	/* usb inserted */
-	rc = smbchg_read(chip, &reg, chip->misc_base + IDEV_STS, 1);
-	if (rc < 0)
-		dev_err(chip->dev, "Couldn't read status 5 rc = %d\n", rc);
-	type = get_type(reg);
-	usb_type_name = get_usb_type_name(type);
-	usb_supply_type = get_usb_supply_type(type);
-	pr_smb(PR_STATUS, "inserted %s, usb psy type = %d stat_5 = 0x%02x\n",
-			usb_type_name, usb_supply_type, reg);
+	read_usb_type(chip, &usb_type_name, &usb_supply_type);
+	pr_smb(PR_STATUS,
+		"inserted type = %d (%s) apsd_rerun = %d\n",
+		usb_supply_type, usb_type_name, chip->apsd_rerun);
+
+	if (chip->usb_psy) {
+		pr_smb(PR_MISC, "setting usb psy allow detection 1\n");
+		power_supply_set_allow_detection(chip->usb_psy, 1);
+	}
+
+	if (!chip->apsd_rerun && usb_supply_type == POWER_SUPPLY_TYPE_USB) {
+		chip->apsd_rerun = true;
+		schedule_work(&chip->rerun_apsd_work);
+		return;
+	}
+
 	smbchg_aicl_deglitch_wa_check(chip);
 	if (chip->usb_psy) {
 		pr_smb(PR_MISC, "setting usb psy type = %d\n",
@@ -3893,6 +3954,69 @@ void update_usb_status(struct smbchg_chip *chip, bool usb_present, bool force)
 	}
 unlock:
 	mutex_unlock(&chip->usb_status_lock);
+}
+
+static void rerun_apsd_work(struct work_struct *work)
+{
+	int rc, tries = 0;
+	struct smbchg_chip *chip = container_of(work,
+				struct smbchg_chip,
+				rerun_apsd_work);
+	bool usb_uv;
+
+	if (!is_usb_present(chip))
+		goto abort;
+
+	if (!chip->apsd_rerun)
+		goto abort;
+
+	pr_smb(PR_STATUS, "Rerunning APSD\n");
+	pr_smb(PR_MISC, "Allow only 9V chargers\n");
+	chip->apsd_rerun_ignore_uv_irq = true;
+	rc = smbchg_sec_masked_write(chip,
+			chip->usb_chgpth_base + USBIN_CHGR_CFG,
+			ADAPTER_ALLOWANCE_MASK, USBIN_ADAPTER_9V);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't write usb allowance rc=%d\n", rc);
+		goto abort;
+	}
+
+	usb_uv = is_usb_uv(chip);
+	while (!usb_uv && tries++ < 5) {
+		msleep(20); /* sleep for UV condition to happen */
+		usb_uv = is_usb_uv(chip);
+	}
+	if (!usb_uv) {
+		pr_err("USB didnt go to UV after 9V aborting\n");
+		goto abort;
+	}
+
+	pr_smb(PR_MISC, "Allow 5V-9V\n");
+	rc = smbchg_sec_masked_write(chip,
+			chip->usb_chgpth_base + USBIN_CHGR_CFG,
+			ADAPTER_ALLOWANCE_MASK, USBIN_ADAPTER_5V_9V_UNREG);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't write usb allowance rc=%d\n", rc);
+		goto abort;
+	}
+	chip->apsd_rerun_ignore_uv_irq = false;
+
+	tries = 0;
+	usb_uv = is_usb_uv(chip);
+	while (usb_uv && tries++ < 2) {
+		msleep(20); /* sleep for UV condition to disappear */
+		usb_uv = is_usb_uv(chip);
+	}
+	if (usb_uv) {
+		/* looks like USB was removed */
+		update_usb_status(chip, 0, 0);
+		goto abort;
+	}
+	return;
+
+abort:
+	chip->apsd_rerun_ignore_uv_irq = false;
+	chip->apsd_rerun = false;
 }
 
 /**
@@ -3947,8 +4071,14 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
-	pr_smb(PR_STATUS, "chip->usb_present = %d usb_present = %d\n",
-			chip->usb_present, usb_present);
+
+	pr_smb(PR_STATUS,
+		"%s chip->usb_present = %d usb_present = %d apsd_rerun_ignore_uv_irq = %d\n",
+		chip->apsd_rerun_ignore_uv_irq ? "Ignoring":"",
+		chip->usb_present, usb_present, chip->apsd_rerun_ignore_uv_irq);
+
+	if (chip->apsd_rerun_ignore_uv_irq)
+		goto out;
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
 	if (rc < 0) {
@@ -3960,8 +4090,9 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	if (reg && chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
 							POWER_SUPPLY_PROP_TYPE,
 							&prop)) {
-		if ((prop.intval == POWER_SUPPLY_TYPE_USB_HVDCP) ||
-			(prop.intval == POWER_SUPPLY_TYPE_USB_DCP)) {
+		if ((prop.intval == POWER_SUPPLY_TYPE_USB_HVDCP)
+			|| (prop.intval == POWER_SUPPLY_TYPE_USB_DCP)
+			|| (prop.intval == POWER_SUPPLY_TYPE_UNKNOWN)) {
 				if (!usb_present) {
 					update_usb_status(chip, 0, false);
 					chip->aicl_irq_count = 0;
@@ -3983,30 +4114,26 @@ out:
  */
 static irqreturn_t src_detect_handler(int irq, void *_chip)
 {
-	int rc;
-	u8 reg;
 	union power_supply_propval prop = {0, };
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
-	pr_smb(PR_STATUS, "chip->usb_present = %d usb_present = %d\n",
-			chip->usb_present, usb_present);
+	pr_smb(PR_STATUS,
+		"%s chip->usb_present = %d usb_present = %d apsd_rerun_ignore_uv_irq=%d\n",
+		chip->apsd_rerun_ignore_uv_irq ? "Ignoring":"",
+		chip->usb_present, usb_present, chip->apsd_rerun_ignore_uv_irq);
 
-	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
+	if (chip->apsd_rerun_ignore_uv_irq)
 		goto out;
-	}
-	reg &= USBIN_SRC_DET_BIT;
 
-	if (reg) {
-		if (usb_present)
-			update_usb_status(chip, usb_present, false);
+	if (is_src_detect_high(chip)) {
+		if (usb_present || chip->apsd_rerun)
+			update_usb_status(chip, usb_present, chip->apsd_rerun);
 	} else if (chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
 							POWER_SUPPLY_PROP_TYPE,
 							&prop)) {
-		if (((prop.intval == POWER_SUPPLY_TYPE_USB_CDP) ||
-			(prop.intval == POWER_SUPPLY_TYPE_USB))) {
+		if ((prop.intval == POWER_SUPPLY_TYPE_USB_CDP) ||
+			(prop.intval == POWER_SUPPLY_TYPE_USB)) {
 				/* CDP or SDP removed */
 				update_usb_status(chip, 0, false);
 				chip->aicl_irq_count = 0;
@@ -5364,6 +5491,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->pm_lock);
 	mutex_init(&chip->wipower_config);
 	mutex_init(&chip->usb_status_lock);
+	INIT_WORK(&chip->rerun_apsd_work, rerun_apsd_work);
 
 	rc = smbchg_parse_peripherals(chip);
 	if (rc) {
