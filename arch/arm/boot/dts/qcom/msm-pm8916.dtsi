@@ -221,7 +221,6 @@
 			qcom,batt-hot-percentage = <25>;
 			qcom,batt-cold-percentage = <80>;
 			qcom,tchg-mins = <232>;
-			qcom,resume-soc = <99>;
 			qcom,chg-vadc = <&pm8916_vadc>;
 			qcom,chg-adc_tm = <&pm8916_adc_tm>;
 
@@ -289,6 +288,7 @@
 			qcom,force-s3-on-suspend;
 			qcom,force-s2-in-charging;
 			qcom,report-charger-eoc;
+			qcom,resume-soc = <99>;
 
 			qcom,batt-pres-status@1208 {
 				reg = <0x1208 0x1>;

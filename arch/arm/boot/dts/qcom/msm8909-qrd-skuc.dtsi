@@ -227,7 +227,6 @@
 	qcom,batt-cold-percentage = <70>;
 	qcom,tchg-mins = <360>;
 	qcom,chgr-led-support;
-	qcom,bms-controlled-charging;
 	qcom,disable-vbatdet-based-recharge;
 	status = "okay";
 };
