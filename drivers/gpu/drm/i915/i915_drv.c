@@ -773,7 +773,8 @@ static int __i915_drm_thaw(struct drm_device *dev, bool restore_gtt_mappings)
 			drm_modeset_lock_all(dev);
 			intel_modeset_setup_hw_state(dev, true);
 			drm_modeset_unlock_all(dev);
-		}
+		} else
+			intel_display_set_init_power(dev_priv, false);
 
 		/*
 		 * ... but also need to make sure that hotplug processing
