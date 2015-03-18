@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
 #include <linux/regmap.h>
 #include <linux/soundwire/soundwire.h>
 #include <sound/pcm.h>
@@ -63,6 +64,7 @@ struct wsa881x_priv {
 	bool comp_enable;	bool boost_enable;
 	bool visense_enable;
 	struct swr_port port[WSA881X_MAX_SWR_PORTS];
+	int pd_gpio;
 };
 
 static int wsa881x_boost_ctrl(struct snd_soc_codec *codec, bool enable)
@@ -478,10 +480,34 @@ static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
 	.num_dapm_routes = ARRAY_SIZE(wsa881x_audio_map),
 };
 
-static int wsa881x_reset(struct regmap *map)
+static int wsa881x_gpio_ctrl(struct wsa881x_priv *wsa881x, bool enable)
 {
-	/* Reset codec GPIO */
+	if (wsa881x->pd_gpio < 0) {
+		dev_err(wsa881x->dev, "%s: gpio is not valid %d\n",
+			__func__, wsa881x->pd_gpio);
+		return -EINVAL;
+	}
+	gpio_direction_output(wsa881x->pd_gpio, enable);
 	return 0;
+}
+
+static int wsa881x_gpio_init(struct swr_device *pdev)
+{
+	int ret = 0;
+	struct wsa881x_priv *wsa881x;
+
+	wsa881x = swr_get_dev_data(pdev);
+	if (!wsa881x) {
+		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
+	dev_dbg(&pdev->dev, "%s: gpio %d request with name %s\n",
+		__func__, wsa881x->pd_gpio, dev_name(&pdev->dev));
+	ret = gpio_request(wsa881x->pd_gpio, dev_name(&pdev->dev));
+	if (ret)
+		dev_err(&pdev->dev, "%s: Failed to request gpio %d, err: %d\n",
+			__func__, wsa881x->pd_gpio, ret);
+	return ret;
 }
 
 static int wsa881x_swr_probe(struct swr_device *pdev)
@@ -496,6 +522,14 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 			__func__);
 		return -ENOMEM;
 	}
+	wsa881x->pd_gpio = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,spkr-sd-n-gpio", 0);
+	if (wsa881x->pd_gpio < 0) {
+		dev_err(&pdev->dev, "%s: %s property is not found %d\n",
+			__func__, "qcom,spkr-sd-n-gpio", wsa881x->pd_gpio);
+		goto err;
+	}
+	dev_dbg(&pdev->dev, "%s: reset gpio %d\n", __func__, wsa881x->pd_gpio);
 	swr_set_dev_data(pdev, wsa881x);
 
 	wsa881x->regmap = devm_regmap_init_swr(pdev, &wsa881x_regmap_config);
@@ -506,13 +540,10 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 		goto err;
 	}
 	wsa881x->swr_slave = pdev;
-	/* bus reset sequence */
-	ret = wsa881x_reset(wsa881x->regmap);
-	if (ret < 0) {
-		dev_err(&pdev->dev, "%s: Codec reset Failed %d\n",
-			__func__, ret);
+	ret = wsa881x_gpio_init(pdev);
+	if (ret)
 		goto err;
-	}
+	wsa881x_gpio_ctrl(wsa881x, true);
 	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_wsa881x,
 				     NULL, 0);
 	if (ret < 0) {
@@ -530,8 +561,15 @@ err:
 static int wsa881x_swr_remove(struct swr_device *pdev)
 {
 	struct wsa881x_priv *wsa881x;
+
 	wsa881x = swr_get_dev_data(pdev);
+	if (!wsa881x) {
+		dev_err(&pdev->dev, "%s: wsa881x is NULL\n", __func__);
+		return -EINVAL;
+	}
 	snd_soc_unregister_codec(&pdev->dev);
+	if (wsa881x->pd_gpio)
+		gpio_free(wsa881x->pd_gpio);
 	swr_set_dev_data(pdev, NULL);
 	return 0;
 }

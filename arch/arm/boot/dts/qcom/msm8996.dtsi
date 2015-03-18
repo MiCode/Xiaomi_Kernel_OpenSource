@@ -1048,11 +1048,13 @@
 				wsa881x@32000 {
 					compatible = "qcom,wsa881x";
 					reg = <0x00 0x032000>;
+					qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
 				};
 
 				wsa881x@42000 {
 					compatible = "qcom,wsa881x";
 					reg = <0x00 0x042000>;
+					qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
 				};
 			};
 		};
