@@ -5,6 +5,9 @@
 #include <linux/types.h>
 #include <linux/ioctl.h>
 
+#define MSM_CAM_LOGSYNC_FILE_NAME "logsync"
+#define MSM_CAM_LOGSYNC_FILE_BASEDIR "camera"
+
 #define MSM_CAM_V4L2_IOCTL_NOTIFY \
 	_IOW('V', BASE_VIDIOC_PRIVATE + 30, struct msm_v4l2_event_data)
 
