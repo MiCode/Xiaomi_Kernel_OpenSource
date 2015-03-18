@@ -393,13 +393,4 @@ config S390_IOMMU
 	help
 	  Support for the IOMMU API for s390 PCI devices.
 
-config ARM_SMMU_DONT_USE_PCI
-	bool "Don't use the ARM SMMU driver on PCI bus"
-	depends on ARM_SMMU
-	help
-	  Don't use the ARM SMMU driver as the IOMMU on the PCI bus.
-
-	  Say Y here if your SoC's PCI driver is busted such that the ARM
-	  SMMU driver doesn't work on the PCI bus.
-
 endif # IOMMU_SUPPORT
