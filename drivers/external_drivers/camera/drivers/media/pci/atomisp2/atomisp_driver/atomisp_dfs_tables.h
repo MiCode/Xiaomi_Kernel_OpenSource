@@ -345,7 +345,7 @@ static const struct atomisp_freq_scaling_rule dfs_rules_cht[] = {
 };
 
 static const struct atomisp_dfs_config dfs_config_cht = {
-	.lowest_freq = ISP_FREQ_200MHZ,
+	.lowest_freq = ISP_FREQ_100MHZ,
 	.max_freq_at_vmin = ISP_FREQ_356MHZ,
 	.highest_freq = ISP_FREQ_356MHZ,
 	.dfs_table = dfs_rules_cht,
