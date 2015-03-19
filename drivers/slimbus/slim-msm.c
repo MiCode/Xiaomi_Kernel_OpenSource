@@ -424,6 +424,7 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 	struct sps_pipe *pipe = endpoint->sps;
 	struct sps_iovec iovec;
 	int idx, ret = 0;
+	phys_addr_t addr;
 	if (dev->use_tx_msgqs != MSM_MSGQ_ENABLED) {
 		/* use 1 buffer, non-blocking writes are not possible */
 		if (dev->wr_comp[0]) {
@@ -435,20 +436,21 @@ void msm_slim_tx_msg_return(struct msm_slim_ctrl *dev, int err)
 	}
 	while (!ret) {
 		ret = sps_get_iovec(pipe, &iovec);
-		if (ret || iovec.addr == 0) {
+		addr = DESC_FULL_ADDR(iovec.flags, iovec.addr);
+		if (ret || addr == 0) {
 			if (ret)
 				pr_err("SLIM TX get IOVEC failed:%d", ret);
 			return;
 		}
-		idx = (int) ((iovec.addr - (unsigned long) mem->phys_base)
+		idx = (int) ((addr - mem->phys_base)
 			/ SLIM_MSGQ_BUF_LEN);
 		if (idx < MSM_TX_BUFS && dev->wr_comp[idx]) {
 			struct completion *comp = dev->wr_comp[idx];
 			dev->wr_comp[idx] = NULL;
 			complete(comp);
 		} else if (idx >= MSM_TX_BUFS) {
-			SLIM_ERR(dev, "BUF out of bounds:base:0x%llx, io:0x%x",
-					(u64)mem->phys_base, iovec.addr);
+			SLIM_ERR(dev, "BUF out of bounds:base:0x%pa, io:0x%pa",
+					&mem->phys_base, &addr);
 			/* print BAM debug info for TX pipe */
 			sps_get_bam_debug_info(dev->bam.hdl, 93,
 						SPS_BAM_PIPE(4), 0, 2);
@@ -632,6 +634,7 @@ int msm_slim_rx_msgq_get(struct msm_slim_ctrl *dev, u32 *data, int offset)
 	struct sps_mem_buffer *mem = &endpoint->buf;
 	struct sps_pipe *pipe = endpoint->sps;
 	struct sps_iovec iovec;
+	phys_addr_t addr;
 	int index;
 	int ret;
 
@@ -641,13 +644,14 @@ int msm_slim_rx_msgq_get(struct msm_slim_ctrl *dev, u32 *data, int offset)
 		goto err_exit;
 	}
 
+	addr = DESC_FULL_ADDR(iovec.flags, iovec.addr);
 	pr_debug("iovec = (0x%x 0x%x 0x%x)\n",
 		iovec.addr, iovec.size, iovec.flags);
-	BUG_ON(iovec.addr < mem->phys_base);
-	BUG_ON(iovec.addr >= mem->phys_base + mem->size);
+	BUG_ON(addr < mem->phys_base);
+	BUG_ON(addr >= mem->phys_base + mem->size);
 
 	/* Calculate buffer index */
-	index = (iovec.addr - mem->phys_base) / 4;
+	index = (addr - mem->phys_base) / 4;
 	*(data + offset) = *((u32 *)mem->base + index);
 
 	pr_debug("buf = 0x%p, data = 0x%x\n", (u32 *)mem->base + index, *data);
