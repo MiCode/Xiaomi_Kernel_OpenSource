@@ -1792,6 +1792,15 @@ static void pm_qos_update(struct sdhci_host *host,
 		latency = MSM_MMC_PM_QOS_INVALID_LATENCY;
 	}
 
+	/*
+	 * IRQ shall be served on mmc thread affined CPU
+	 */
+	if (changed_cpu && mngmt->type == PM_QOS_MNGMT_THREAD_TYPE) {
+		irq_set_affinity(host->irq, &config->cpu_affinity_mask);
+		pr_debug("irq %d affinity was set for cpumask 0x%lx\n",
+			host->irq, config->cpu_affinity_mask.bits[0]);
+	}
+
 out_ok:
 	dev_dbg(dev, "new pm_qos configuration for mngmt->type=%d:\n",
 		mngmt->type);
