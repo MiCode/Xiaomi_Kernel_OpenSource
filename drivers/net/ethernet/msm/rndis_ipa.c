@@ -1694,7 +1694,7 @@ static int rndis_ipa_create_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 	result = ipa_rm_add_dependency(DRV_RESOURCE_ID,
 				IPA_RM_RESOURCE_USB_CONS);
 
-	if (result)
+	if (result && result != -EINPROGRESS)
 		RNDIS_IPA_ERROR("unable to add RNDIS/USB dependency (%d)\n",
 				result);
 	else
@@ -1702,7 +1702,7 @@ static int rndis_ipa_create_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 
 	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_USB_PROD,
 				IPA_RM_RESOURCE_APPS_CONS);
-	if (result)
+	if (result && result != -EINPROGRESS)
 		RNDIS_IPA_ERROR("unable to add USB/APPS dependency (%d)\n",
 				result);
 	else
@@ -1735,7 +1735,7 @@ static int rndis_ipa_destory_rm_resource(struct rndis_ipa_dev *rndis_ipa_ctx)
 
 	result = ipa_rm_delete_dependency(DRV_RESOURCE_ID,
 			IPA_RM_RESOURCE_USB_CONS);
-	if (result) {
+	if (result && result != -EINPROGRESS) {
 		RNDIS_IPA_ERROR("Fail to delete RNDIS/USB dependency\n");
 		goto bail;
 	}
