@@ -159,7 +159,6 @@
 #include "msm8996-mdss-pll.dtsi"
 #include "msm8996-smp2p.dtsi"
 #include "msm8996-ipcrouter.dtsi"
-#include "msm-arm-smmu.dtsi"
 #include "msm-gdsc-8996.dtsi"
 #include "msm8996-bus.dtsi"
 #include "msm8996-coresight.dtsi"

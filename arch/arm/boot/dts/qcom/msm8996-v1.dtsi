@@ -17,6 +17,7 @@
  */
 
 #include "msm8996.dtsi"
+#include "msm-arm-smmu-8996v1.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996 v1";
