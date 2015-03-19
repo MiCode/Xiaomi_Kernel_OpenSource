@@ -258,22 +258,6 @@ enum {
 
 static struct ov2685_res_struct ov2685_res[] = {
 	{
-	.desc	= "720P",
-	.res	= OV2685_RES_720P,
-	.width	= 1280,
-	.height	= 720,
-	.pixels_per_line = 1446,
-	.lines_per_frame = 760,
-	.fps	= 30,
-	.pix_clk = 33,
-	.used	= 0,
-	.regs	= NULL,
-	.skip_frames = 1,
-	.lanes = 1,
-	.bin_mode = 0,
-	.bin_factor_x = 0,
-	},
-	{
 	.desc	= "2M",
 	.res	= OV2685_RES_2M,
 	.width	= 1600,
