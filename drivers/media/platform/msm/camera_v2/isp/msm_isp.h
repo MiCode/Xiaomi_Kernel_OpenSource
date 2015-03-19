@@ -53,8 +53,8 @@
 #define VFE_CLK_INFO_MAX 16
 #define STATS_COMP_BIT_MASK 0xFF0000
 
-#define MSM_ISP_MIN_AB 100000000
-#define MSM_ISP_MIN_IB 120000000
+#define MSM_ISP_MIN_AB 11000000
+#define MSM_ISP_MIN_IB 11000000
 
 struct vfe_device;
 struct msm_vfe_axi_stream;
