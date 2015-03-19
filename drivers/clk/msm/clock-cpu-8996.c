@@ -64,6 +64,7 @@ static void *vbases[NUM_BASES];
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 
+/* Power cluster primary PLL */
 #define C0_PLL_MODE         0x0
 #define C0_PLL_L_VAL        0x4
 #define C0_PLL_ALPHA        0x8
@@ -72,6 +73,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C0_PLL_STATUS      0x28
 #define C0_PLL_TEST_CTL_LO 0x20
 
+/* Power cluster alt PLL */
 #define C0_PLLA_MODE        0x100
 #define C0_PLLA_L_VAL       0x104
 #define C0_PLLA_ALPHA       0x108
@@ -80,6 +82,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C0_PLLA_STATUS      0x128
 #define C0_PLLA_TEST_CTL_LO 0x120
 
+/* Perf cluster primary PLL */
 #define C1_PLL_MODE         0x0
 #define C1_PLL_L_VAL        0x4
 #define C1_PLL_ALPHA        0x8
@@ -88,6 +91,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C1_PLL_STATUS      0x28
 #define C1_PLL_TEST_CTL_LO 0x20
 
+/* Perf cluster alt PLL */
 #define C1_PLLA_MODE        0x100
 #define C1_PLLA_L_VAL       0x104
 #define C1_PLLA_ALPHA       0x108
@@ -108,6 +112,7 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define MUX_OFFSET	0x40
 
 DEFINE_EXT_CLK(xo_ao, NULL);
+DEFINE_CLK_DUMMY(alpha_xo_ao, 19200000);
 DEFINE_EXT_CLK(sys_apcsaux_clk_gcc, NULL);
 DEFINE_FIXED_SLAVE_DIV_CLK(sys_apcsaux_clk, 2, &sys_apcsaux_clk_gcc.c);
 
@@ -132,13 +137,49 @@ static struct pll_clk perfcl_pll = {
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
+	.src_rate = 19200000,
 	.base = &vbases[APC1_PLL_BASE],
 	.c = {
+		.always_on = true,
 		.parent = &xo_ao.c,
 		.dbg_name = "perfcl_pll",
-		.ops = &clk_ops_variable_rate_pll,
+		.ops = &clk_ops_variable_rate_pll_hwfsm,
 		VDD_DIG_FMAX_MAP1(LOW, 3000000000),
 		CLK_INIT(perfcl_pll.c),
+	},
+};
+
+static struct alpha_pll_masks alt_pll_masks = {
+	.lock_mask = BIT(31),
+	.active_mask = BIT(30),
+	.vco_mask = BM(21, 20) >> 20,
+	.vco_shift = 20,
+	.alpha_en_mask = BIT(24),
+	.output_mask = 0xf,
+	.post_div_mask = 0xf00,
+};
+
+static struct alpha_pll_vco_tbl alt_pll_vco_modes[] = {
+	VCO(3,  250000000,  500000000),
+	VCO(2,  500000000,  750000000),
+	VCO(1,  750000000, 1000000000),
+	VCO(0, 1000000000, 2000000000),
+};
+
+static struct alpha_pll_clk perfcl_alt_pll = {
+	.masks = &alt_pll_masks,
+	.base = &vbases[APC1_PLL_BASE],
+	.offset = C1_PLLA_MODE,
+	.vco_tbl = alt_pll_vco_modes,
+	.num_vco = ARRAY_SIZE(alt_pll_vco_modes),
+	.enable_config = 0x9, /* Main and early outputs */
+	.post_div_config = 0x100, /* Div-2 */
+	.c = {
+		.always_on = true,
+		.parent = &alpha_xo_ao.c,
+		.dbg_name = "perfcl_alt_pll",
+		.ops = &clk_ops_alpha_pll_hwfsm,
+		CLK_INIT(perfcl_alt_pll.c),
 	},
 };
 
@@ -163,13 +204,32 @@ static struct pll_clk pwrcl_pll = {
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
+	.src_rate = 19200000,
 	.base = &vbases[APC0_PLL_BASE],
 	.c = {
+		.always_on = true,
 		.parent = &xo_ao.c,
 		.dbg_name = "pwrcl_pll",
-		.ops = &clk_ops_variable_rate_pll,
+		.ops = &clk_ops_variable_rate_pll_hwfsm,
 		VDD_DIG_FMAX_MAP1(LOW, 3000000000),
 		CLK_INIT(pwrcl_pll.c),
+	},
+};
+
+static struct alpha_pll_clk pwrcl_alt_pll = {
+	.masks = &alt_pll_masks,
+	.base = &vbases[APC0_PLL_BASE],
+	.offset = C0_PLLA_MODE,
+	.vco_tbl = alt_pll_vco_modes,
+	.num_vco = ARRAY_SIZE(alt_pll_vco_modes),
+	.enable_config = 0x9, /* Main and early outputs */
+	.post_div_config = 0x100, /* Div-2 */
+	.c = {
+		.always_on = true,
+		.dbg_name = "pwrcl_alt_pll",
+		.parent = &alpha_xo_ao.c,
+		.ops = &clk_ops_alpha_pll_hwfsm,
+		CLK_INIT(pwrcl_alt_pll.c),
 	},
 };
 
@@ -209,20 +269,7 @@ static void __cpu_mux_set_sel(struct mux_clk *mux, int sel)
 /* It is assumed that the mux enable state is locked in this function */
 static int cpu_mux_set_sel(struct mux_clk *mux, int sel)
 {
-	mux->en_mask = sel;
-
-	/*
-	 * Don't switch the mux if it isn't enabled.
-	 * However, if this is a request to select the safe source
-	 * do it unconditionally. This is to allow the safe source
-	 * to be selected during frequency switches even if the mux
-	 * is disabled (specifically on 8996 V1, the LFMUX may be
-	 * disabled).
-	 */
-	if (!mux->c.count && sel != mux->safe_sel)
-		return 0;
-
-	__cpu_mux_set_sel(mux, mux->en_mask);
+	__cpu_mux_set_sel(mux, sel);
 
 	return 0;
 }
@@ -240,13 +287,11 @@ static int cpu_mux_get_sel(struct mux_clk *mux)
 
 static int cpu_mux_enable(struct mux_clk *mux)
 {
-	__cpu_mux_set_sel(mux, mux->en_mask);
 	return 0;
 }
 
 static void cpu_mux_disable(struct mux_clk *mux)
 {
-	__cpu_mux_set_sel(mux, mux->safe_sel);
 }
 
 /* It is assumed that the mux enable state is locked in this function */
@@ -313,12 +358,9 @@ static struct clk_mux_ops cpu_debug_mux_ops = {
 static struct mux_clk pwrcl_lf_mux = {
 	.offset = MUX_OFFSET,
 	MUX_SRC_LIST(
-		{ &xo_ao.c,           0 },
 		{ &pwrcl_pll_main.c,  1 },
 		{ &sys_apcsaux_clk.c, 3 },
 	),
-	.en_mask = 3,
-	.safe_parent = &sys_apcsaux_clk.c,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 2,
@@ -337,9 +379,6 @@ static struct mux_clk pwrcl_hf_mux = {
 		{ &pwrcl_pll.c,     1 },
 		{ &pwrcl_lf_mux.c,  0 },
 	),
-	.en_mask = 0,
-	.safe_parent = &pwrcl_lf_mux.c,
-	.safe_freq = 300000000,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 0,
@@ -355,11 +394,9 @@ static struct mux_clk pwrcl_hf_mux = {
 static struct mux_clk perfcl_lf_mux = {
 	.offset = MUX_OFFSET,
 	MUX_SRC_LIST(
-		{ &xo_ao.c,           0 },
 		{ &perfcl_pll_main.c, 1 },
 		{ &sys_apcsaux_clk.c, 3 },
 	),
-	.safe_parent = &sys_apcsaux_clk.c,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 2,
@@ -378,8 +415,6 @@ static struct mux_clk perfcl_hf_mux = {
 		{ &perfcl_pll.c,     1 },
 		{ &perfcl_lf_mux.c,  0 },
 	),
-	.safe_parent = &perfcl_lf_mux.c,
-	.safe_freq = 300000000,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 0,
@@ -393,6 +428,9 @@ static struct mux_clk perfcl_hf_mux = {
 
 struct cpu_clk_8996 {
 	u32 cpu_reg_mask;
+	struct clk *alt_pll;
+	unsigned long *alt_pll_freqs;
+	int n_alt_pll_freqs;
 	struct clk c;
 };
 
@@ -413,9 +451,87 @@ static long cpu_clk_8996_round_rate(struct clk *c, unsigned long rate)
 	return clk_round_rate(c->parent, rate);
 }
 
+static unsigned long alt_pll_pwrcl_freqs[] = {
+	 268800000,
+	 480000000,
+	 883200000,
+};
+
+static unsigned long alt_pll_perfcl_freqs[] = {
+	 268800000,
+	 403200000,
+	 576000000,
+};
+
 static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 {
-	return clk_set_rate(c->parent, rate);
+	struct cpu_clk_8996 *cpuclk = to_cpu_clk_8996(c);
+	int ret, err_ret, i;
+	unsigned long alt_pll_prev_rate = cpuclk->alt_pll->rate;
+	unsigned long alt_pll_rate;
+	unsigned long n_alt_freqs = cpuclk->n_alt_pll_freqs;
+
+	alt_pll_rate = cpuclk->alt_pll_freqs[0];
+	if (rate >= cpuclk->alt_pll_freqs[n_alt_freqs - 1])
+		alt_pll_rate = cpuclk->alt_pll_freqs[n_alt_freqs - 1];
+
+	for (i = 0; i < n_alt_freqs - 1; i++)
+		if (cpuclk->alt_pll_freqs[i] < rate &&
+		    cpuclk->alt_pll_freqs[i+1] >= rate)
+			alt_pll_rate = cpuclk->alt_pll_freqs[i];
+
+	ret = clk_set_rate(cpuclk->alt_pll, alt_pll_rate);
+	if (ret) {
+		pr_err("failed to set rate %lu on alt_pll when setting %lu on %s (%d)\n",
+			alt_pll_rate, rate, c->dbg_name, ret);
+		goto out;
+	}
+
+	/*
+	 * Special handling needed for the case when using the div-2 output.
+	 * Since the PLL needs to be running at twice the requested rate,
+	 * we need to switch the mux first and then change the PLL rate.
+	 * Otherwise the current voltage may not suffice with the PLL running at
+	 * 2 * rate. Example: switching from 768MHz down to 550Mhz - if we raise
+	 * the PLL to 1.1GHz, that's undervolting the system. So, we switch to
+	 * the div-2 mux select first (by requesting rate/2), allowing the CPU
+	 * to run at 384MHz. Then, we ramp up the PLL to 1.1GHz, allowing the
+	 * CPU frequency to ramp up from 384MHz to 550MHz.
+	 */
+	if (c->rate > 600000000 && rate < 600000000) {
+		ret = clk_set_rate(c->parent, c->rate/2);
+		if (ret) {
+			pr_err("failed to set rate %lu on %s (%d)\n",
+				c->rate/2, c->dbg_name, ret);
+			goto fail;
+		}
+	}
+
+	ret = clk_set_rate(c->parent, rate);
+	if (ret) {
+		pr_err("failed to set rate %lu on %s (%d)\n",
+			rate, c->dbg_name, ret);
+		goto set_rate_fail;
+	}
+
+	return 0;
+
+set_rate_fail:
+	/* Restore parent rate if we halved it */
+	if (c->rate > 600000000 && rate < 600000000) {
+		err_ret = clk_set_rate(c->parent, c->rate);
+		if (err_ret)
+			pr_err("failed to restore %s rate to %lu\n",
+			       c->dbg_name, c->rate);
+	}
+
+fail:
+	err_ret = clk_set_rate(cpuclk->alt_pll, alt_pll_prev_rate);
+	if (err_ret)
+		pr_err("failed to reset rate to %lu on alt pll after failing to  set %lu on %s (%d)\n",
+			alt_pll_prev_rate, rate, c->dbg_name, err_ret);
+out:
+	return ret;
 }
 
 static struct clk_ops clk_ops_cpu_8996 = {
@@ -428,6 +544,9 @@ DEFINE_VDD_REGS_INIT(vdd_pwrcl, 1);
 
 static struct cpu_clk_8996 pwrcl_clk = {
 	.cpu_reg_mask = 0x3,
+	.alt_pll = &pwrcl_alt_pll.c,
+	.alt_pll_freqs = alt_pll_pwrcl_freqs,
+	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_pwrcl_freqs),
 	.c = {
 		.parent = &pwrcl_hf_mux.c,
 		.dbg_name = "pwrcl_clk",
@@ -441,6 +560,9 @@ DEFINE_VDD_REGS_INIT(vdd_perfcl, 1);
 
 static struct cpu_clk_8996 perfcl_clk = {
 	.cpu_reg_mask = 0x103,
+	.alt_pll = &perfcl_alt_pll.c,
+	.alt_pll_freqs = alt_pll_perfcl_freqs,
+	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_perfcl_freqs),
 	.c = {
 		.parent = &perfcl_hf_mux.c,
 		.dbg_name = "perfcl_clk",
@@ -515,31 +637,11 @@ DEFINE_FIXED_DIV_CLK(cbf_pll_main, 2, &cbf_pll.c);
 
 #define CBF_MUX_OFFSET 0x018
 
-static struct mux_clk cbf_lf_mux = {
-	.offset = CBF_MUX_OFFSET,
-	MUX_SRC_LIST(
-		{ &xo_ao.c, 0 },
-	),
-	.en_mask = 0,
-	.safe_parent = &xo_ao.c,
-	.ops = &cpu_mux_ops,
-	.mask = 0x3,
-	.shift = 2,
-	.base = &vbases[CBF_BASE],
-	.c = {
-		.dbg_name = "cbf_lf_mux",
-		.ops = &clk_ops_gen_mux,
-		.flags = CLKFLAG_NO_RATE_CACHE,
-		CLK_INIT(cbf_lf_mux.c),
-	},
-};
-
 DEFINE_VDD_REGS_INIT(vdd_cbf, 1);
 
 static struct mux_clk cbf_hf_mux = {
 	.offset = CBF_MUX_OFFSET,
 	MUX_SRC_LIST(
-		{ &cbf_lf_mux.c,      0 },
 		{ &cbf_pll.c,         1 },
 		{ &cbf_pll_main.c,    2 },
 		{ &sys_apcsaux_clk.c, 3 },
@@ -591,19 +693,20 @@ static struct mux_clk cpu_debug_mux = {
 static struct clk_lookup cpu_clocks_8996[] = {
 	CLK_LIST(pwrcl_clk),
 	CLK_LIST(pwrcl_pll),
+	CLK_LIST(pwrcl_alt_pll),
 	CLK_LIST(pwrcl_pll_main),
 	CLK_LIST(pwrcl_hf_mux),
 	CLK_LIST(pwrcl_lf_mux),
 
 	CLK_LIST(perfcl_clk),
 	CLK_LIST(perfcl_pll),
+	CLK_LIST(perfcl_alt_pll),
 	CLK_LIST(perfcl_pll_main),
 	CLK_LIST(perfcl_hf_mux),
 	CLK_LIST(perfcl_lf_mux),
 
 	CLK_LIST(cbf_pll),
 	CLK_LIST(cbf_hf_mux),
-	CLK_LIST(cbf_lf_mux),
 
 	CLK_LIST(xo_ao),
 	CLK_LIST(sys_apcsaux_clk),
@@ -927,6 +1030,12 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	clk_set_rate(&perfcl_clk.c, 300000000);
 	clk_set_rate(&cbf_hf_mux.c, 595200000);
 
+	/* Permanently enable the cluster PLLs */
+	clk_prepare_enable(&perfcl_pll.c);
+	clk_prepare_enable(&pwrcl_pll.c);
+	clk_prepare_enable(&perfcl_alt_pll.c);
+	clk_prepare_enable(&pwrcl_alt_pll.c);
+
 	populate_opp_table(pdev);
 
 	put_online_cpus();
@@ -964,7 +1073,19 @@ module_exit(cpu_clock_8996_exit);
 #define APC1_BASE_PHY 0x06480000
 #define AUX_BASE_PHY 0x09820050
 
-int __init cpu_clock_8996_init_perfcl(void)
+#define CLK_CTL_OFFSET 0x44
+#define AUTO_CLK_SEL_BIT BIT(8)
+#define AUTO_CLK_SEL_ALWAYS_ON_MASK BM(5, 4)
+#define AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL (0x3 << 4)
+
+#define HF_MUX_MASK 0x3
+#define LF_MUX_MASK 0x3
+#define LF_MUX_SHIFT 0x2
+#define HF_MUX_SEL_EARLY_PLL 0x1
+#define HF_MUX_SEL_LF_MUX 0x1
+#define LF_MUX_SEL_ALT_PLL 0x1
+
+int __init cpu_clock_8996_early_init(void)
 {
 	int ret = 0;
 	void __iomem *auxbase;
@@ -972,16 +1093,26 @@ int __init cpu_clock_8996_init_perfcl(void)
 
 	pr_info("clock-cpu-8996: configuring clocks for the perf cluster\n");
 
-	vbases[APC1_BASE] = ioremap(APC1_BASE_PHY, SZ_4K);
-	if (!vbases[APC1_BASE]) {
-		WARN(1, "Unable to ioremap perf mux base. Can't configure perf cluster clocks.\n");
+	vbases[APC0_BASE] = ioremap(APC0_BASE_PHY, SZ_4K);
+	if (!vbases[APC0_BASE]) {
+		WARN(1, "Unable to ioremap power mux base. Can't configure CPU clocks\n");
 		ret = -ENOMEM;
 		goto fail;
 	}
 
+	vbases[APC1_BASE] = ioremap(APC1_BASE_PHY, SZ_4K);
+	if (!vbases[APC1_BASE]) {
+		WARN(1, "Unable to ioremap perf mux base. Can't configure CPU clocks\n");
+		ret = -ENOMEM;
+		goto apc1_fail;
+	}
+
+	vbases[APC0_PLL_BASE] = vbases[APC0_BASE];
+	vbases[APC1_PLL_BASE] = vbases[APC1_BASE];
+
 	auxbase = ioremap(AUX_BASE_PHY, SZ_4K);
 	if (!auxbase) {
-		WARN(1, "Unable to ioremap aux base. Can't set safe source freq.\n");
+		WARN(1, "Unable to ioremap aux base. Can't configure CPU clocks\n");
 		ret = -ENOMEM;
 		goto auxbase_fail;
 	}
@@ -995,26 +1126,113 @@ int __init cpu_clock_8996_init_perfcl(void)
 	regval |= 0x1 << 16;
 	writel_relaxed(regval, auxbase);
 
-	/* Ensure write goes through before selecting the aux clock. */
+	/* Ensure write goes through before selecting the aux clock */
 	mb();
 	udelay(5);
 
 	/* Select GPLL0 for 300MHz for the perf cluster */
 	writel_relaxed(0xC, vbases[APC1_BASE] + MUX_OFFSET);
 
-	/* Ensure write goes through before CPUs are brought up. */
+	/* Select GPLL0 for 300MHz for the power cluster */
+	writel_relaxed(0xC, vbases[APC0_BASE] + MUX_OFFSET);
+
+	/* Ensure write goes through before PLLs are reconfigured */
 	mb();
 	udelay(5);
 
-	pr_cont("clock-cpu-8996: finished configuring perf cluster clocks.\n");
+	/* Set the auto clock sel always-on source to GPLL0/2 (300MHz) */
+	regval = readl_relaxed(vbases[APC0_BASE] + MUX_OFFSET);
+	regval &= ~AUTO_CLK_SEL_ALWAYS_ON_MASK;
+	regval |= AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL;
+	writel_relaxed(regval, vbases[APC0_BASE] + MUX_OFFSET);
+
+	regval = readl_relaxed(vbases[APC1_BASE] + MUX_OFFSET);
+	regval &= ~AUTO_CLK_SEL_ALWAYS_ON_MASK;
+	regval |= AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL;
+	writel_relaxed(regval, vbases[APC1_BASE] + MUX_OFFSET);
+
+	/* == Setup PLLs in FSM mode == */
+
+	/* Disable all PLLs (we're already on GPLL0 for both clusters) */
+	perfcl_alt_pll.c.ops->disable(&perfcl_alt_pll.c);
+	pwrcl_alt_pll.c.ops->disable(&pwrcl_alt_pll.c);
+	writel_relaxed(0x0, vbases[APC0_BASE] +
+			(unsigned long)pwrcl_pll.mode_reg);
+	writel_relaxed(0x0, vbases[APC1_BASE] +
+			(unsigned long)perfcl_pll.mode_reg);
+
+	/* Let PLLs disable before re-init'ing them */
+	mb();
+
+	/* Initialize all the PLLs */
+	__variable_rate_pll_init(&perfcl_pll.c);
+	__variable_rate_pll_init(&pwrcl_pll.c);
+	__init_alpha_pll(&perfcl_alt_pll.c);
+	__init_alpha_pll(&pwrcl_alt_pll.c);
+
+	/* Set an appropriate rate on the perf cluster's PLLs */
+	perfcl_pll.c.ops->set_rate(&perfcl_pll.c, 614400000);
+	perfcl_alt_pll.c.ops->set_rate(&perfcl_alt_pll.c, 307200000);
+
+	/* Set an appropriate rate on the power cluster's alternate PLL */
+	pwrcl_alt_pll.c.ops->set_rate(&pwrcl_alt_pll.c, 307200000);
+
+	/*
+	 * Enable FSM mode on the primary PLLs.
+	 * This should turn on the PLLs as well.
+	 */
+	writel_relaxed(0x00118000, vbases[APC0_BASE] +
+			(unsigned long)pwrcl_pll.mode_reg);
+	writel_relaxed(0x00118000, vbases[APC1_BASE] +
+			(unsigned long)perfcl_pll.mode_reg);
+	/*
+	 * Enable FSM mode on the alternate PLLs.
+	 * This should turn on the PLLs as well.
+	 */
+	writel_relaxed(0x00118000, vbases[APC0_BASE] +
+			(unsigned long)pwrcl_alt_pll.offset);
+	writel_relaxed(0x00118000, vbases[APC1_BASE] +
+			(unsigned long)perfcl_alt_pll.offset);
+
+	/* Ensure write goes through before auto clock selection is enabled */
+	mb();
+
+	/* Wait for PLL(s) to lock */
+	udelay(50);
+
+	/* Enable auto clock selection for both clusters */
+	regval = readl_relaxed(vbases[APC0_BASE] + CLK_CTL_OFFSET);
+	regval |= AUTO_CLK_SEL_BIT;
+	writel_relaxed(regval, vbases[APC0_BASE] + CLK_CTL_OFFSET);
+
+	regval = readl_relaxed(vbases[APC1_BASE] + CLK_CTL_OFFSET);
+	regval |= AUTO_CLK_SEL_BIT;
+	writel_relaxed(regval, vbases[APC1_BASE] + CLK_CTL_OFFSET);
+
+	/* Ensure write goes through before muxes are switched */
+	mb();
+	udelay(5);
+
+	/* Switch the power cluster to use the primary PLL again */
+	writel_relaxed(0x34, vbases[APC0_BASE] + MUX_OFFSET);
+
+	/*
+	 * One time print during boot - this is the earliest time
+	 * that Linux configures the CPU clocks. It's critical for
+	 * debugging that we know that this configuration completed,
+	 * especially when debugging CPU hangs.
+	 */
+	pr_info("%s: finished CPU clock configuration\n", __func__);
 
 	iounmap(auxbase);
 auxbase_fail:
 	iounmap(vbases[APC1_BASE]);
+apc1_fail:
+	iounmap(vbases[APC0_BASE]);
 fail:
 	return ret;
 }
-early_initcall(cpu_clock_8996_init_perfcl);
+early_initcall(cpu_clock_8996_early_init);
 
 MODULE_DESCRIPTION("CPU clock driver for msm8996");
 MODULE_LICENSE("GPL v2");

@@ -515,7 +515,6 @@
 #define clk_perfcl_lf_mux 0x2f9c278d
 #define clk_cbf_pll 0xfe2e96a3
 #define clk_cbf_hf_mux 0x71244f73
-#define clk_cbf_lf_mux 0x8abdf099
 #define clk_xo_ao 0x428c856d
 #define clk_sys_apcsaux_clk 0x0b0dd513
 #define clk_cpu_debug_mux 0xc7acaa31
