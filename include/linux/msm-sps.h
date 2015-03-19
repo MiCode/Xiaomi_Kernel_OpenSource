@@ -24,7 +24,7 @@
 
 /* Returns 36bits physical address from 32bit address &
  * flags word */
-#define DESC_FULL_ADDR(flags, addr) (((flags & 0xF) << 32) | addr)
+#define DESC_FULL_ADDR(flags, addr) ((((phys_addr_t)flags & 0xF) << 32) | addr)
 
 /* Returns flags word with flags and 4bit upper address
  * from flags and 36bit physical address */
