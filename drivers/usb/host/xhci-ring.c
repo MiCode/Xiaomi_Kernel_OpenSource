@@ -1746,6 +1746,9 @@ static void handle_port_status(struct xhci_hcd *xhci,
 		temp1 = readl(&xhci->op_regs->command);
 		if (!(temp1 & CMD_RUN)) {
 			xhci_warn(xhci, "xHC is not running.\n");
+			if (DEV_SUPERSPEED(temp))
+				set_bit(faked_port_index,
+						&bus_state->resume_pending);
 			goto cleanup;
 		}
 
