@@ -262,16 +262,14 @@ static int i915_obj_get_shmem_pages_alloced(struct drm_i915_gem_object *obj)
 
 int i915_gem_obj_insert_pid(struct drm_i915_gem_object *obj)
 {
-	int ret = 0, found = 0;
+	int found = 0;
 	struct drm_i915_obj_pid_info *entry;
 	pid_t current_tgid = task_tgid_nr(current);
 
 	if (!i915.memtrack_debug)
 		return 0;
 
-	ret = i915_mutex_lock_interruptible(obj->base.dev);
-	if (ret)
-		return ret;
+	mutex_lock(&obj->base.dev->struct_mutex);
 
 	list_for_each_entry(entry, &obj->pid_info, head) {
 		if (entry->tgid == current_tgid) {
@@ -284,17 +282,17 @@ int i915_gem_obj_insert_pid(struct drm_i915_gem_object *obj)
 		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
 		if (entry == NULL) {
 			DRM_ERROR("alloc failed\n");
-			ret = -ENOMEM;
-			goto out;
+			mutex_unlock(&obj->base.dev->struct_mutex);
+			return -ENOMEM;
 		}
 		entry->tgid = current_tgid;
 		entry->open_handle_count = 1;
 		INIT_LIST_HEAD(&entry->virt_addr_head);
 		list_add_tail(&entry->head, &obj->pid_info);
 	}
-out:
+
 	mutex_unlock(&obj->base.dev->struct_mutex);
-	return ret;
+	return 0;
 }
 
 void i915_gem_obj_remove_pid(struct drm_i915_gem_object *obj)
@@ -302,14 +300,12 @@ void i915_gem_obj_remove_pid(struct drm_i915_gem_object *obj)
 	pid_t current_tgid = task_tgid_nr(current);
 	struct drm_i915_obj_pid_info *pid_entry, *pid_next;
 	struct drm_i915_obj_virt_addr *virt_entry, *virt_next;
-	int ret, found = 0;
+	int found = 0;
 
 	if (!i915.memtrack_debug)
 		return;
 
-	ret = i915_mutex_lock_interruptible(obj->base.dev);
-	if (ret)
-		return;
+	mutex_lock(&obj->base.dev->struct_mutex);
 
 	list_for_each_entry_safe(pid_entry, pid_next, &obj->pid_info, head) {
 		if (pid_entry->tgid == current_tgid) {
