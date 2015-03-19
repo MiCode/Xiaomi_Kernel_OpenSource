@@ -839,7 +839,6 @@ void ecm_ipa_cleanup(void *priv)
 	ECM_IPA_STATE_DEBUG(ecm_ipa_ctx);
 
 	ecm_ipa_rules_destroy(ecm_ipa_ctx);
-	ecm_ipa_destory_rm_resource(ecm_ipa_ctx);
 	ecm_ipa_debugfs_destroy(ecm_ipa_ctx);
 
 	unregister_netdev(ecm_ipa_ctx->net);
