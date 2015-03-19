@@ -667,8 +667,11 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 	/* On A420 cores turn on SKIP_IB2_DISABLE in addition to the default */
 	if (adreno_is_a420(adreno_dev))
 		cp_debug |= (1 << 29);
-	/* Set chicken bit to disable the speed up of bootstrap on A430 */
-	else if (adreno_is_a430(adreno_dev))
+	/*
+	 * Set chicken bit to disable the speed up of bootstrap on A430
+	 * and its derivatives
+	 */
+	else
 		cp_debug |= (1 << 14);
 
 	kgsl_regwrite(device, A4XX_CP_DEBUG, cp_debug);

@@ -1735,8 +1735,8 @@ static int _ringbuffer_bootstrap_ucode(struct adreno_ringbuffer *rb,
 		kgsl_device_snapshot(device, NULL);
 	}
 
-	/* Clear the chicken bit for speed up on A430 cores */
-	if (adreno_is_a430(adreno_dev))
+	/* Clear the chicken bit for speed up on A430 and its derivatives */
+	if (!adreno_is_a420(adreno_dev))
 		kgsl_regwrite(device, A4XX_CP_DEBUG,
 					A4XX_CP_DEBUG_DEFAULT & ~(1 << 14));
 
