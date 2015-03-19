@@ -2348,6 +2348,17 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				dprintk(VIDC_ERR,
 					"Failed setting OUTPUT2 size : %d\n",
 					rc);
+
+			alloc_mode.buffer_mode =
+				inst->buffer_mode_set[CAPTURE_PORT];
+			alloc_mode.buffer_type = HAL_BUFFER_OUTPUT2;
+			rc = call_hfi_op(hdev, session_set_property,
+				inst->session, HAL_PARAM_BUFFER_ALLOC_MODE,
+				&alloc_mode);
+			if (rc)
+				dprintk(VIDC_ERR,
+					"Failed to set alloc_mode on OUTPUT2: %d\n",
+					rc);
 			break;
 		default:
 			dprintk(VIDC_ERR,
