@@ -1,7 +1,7 @@
 /*
  * f_audio.c -- USB Audio class function driver
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  * Copyright (C) 2008 Bryan Wu <cooloney@kernel.org>
  * Copyright (C) 2008 Analog Devices, Inc
  *
@@ -371,9 +371,24 @@ static struct usb_audio_control_selector microphone_as_iso_in = {
 	.desc = (struct usb_descriptor_header *)&microphone_as_iso_in_desc,
 };
 
+static struct usb_interface_assoc_descriptor
+audio_iad_descriptor = {
+	.bLength =		sizeof(audio_iad_descriptor),
+	.bDescriptorType =	USB_DT_INTERFACE_ASSOCIATION,
+
+	.bFirstInterface =	0, /* updated at bind */
+	.bInterfaceCount =	3,
+	.bFunctionClass =	USB_CLASS_AUDIO,
+	.bFunctionSubClass =	0,
+	.bFunctionProtocol =	UAC_VERSION_1,
+};
+
+
 /*--------------------------------- */
 
 static struct usb_descriptor_header *f_audio_desc[]  = {
+	(struct usb_descriptor_header *)&audio_iad_descriptor,
+
 	(struct usb_descriptor_header *)&ac_interface_desc,
 	(struct usb_descriptor_header *)&ac_header_desc,
 
@@ -401,6 +416,8 @@ static struct usb_descriptor_header *f_audio_desc[]  = {
 };
 
 static struct usb_descriptor_header *f_audio_ss_desc[]  = {
+	(struct usb_descriptor_header *)&audio_iad_descriptor,
+
 	(struct usb_descriptor_header *)&ac_interface_desc,
 	(struct usb_descriptor_header *)&ac_header_desc,
 
@@ -1129,6 +1146,7 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 		goto fail;
 	}
 	ac_interface_desc.bInterfaceNumber = status;
+	audio_iad_descriptor.bFirstInterface = status;
 
 	status = -ENOMEM;
 
