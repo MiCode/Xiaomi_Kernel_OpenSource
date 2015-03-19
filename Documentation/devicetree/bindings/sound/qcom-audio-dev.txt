@@ -1123,12 +1123,14 @@ Optional properties:
 	no SMMU. Audio lib introduce wrapper for ION APIs. The wrapper needs
         presence of SMMU in ADSP to handle ION APIs differently.
         Presence of this property means ADSP has SMMU in it.
+ - qcom,smmu-sid: Slave ID to be appended to the physical address passed to ADSP.
 
 Example:
 
 qcom,msm-audio-ion {
 	compatible = "qcom,msm-audio-ion;
 	qcom,smmu-enabled;
+	qcom,smmu-sid = <0x1>;
 };
 
 * MSM8226 ASoC Machine driver
