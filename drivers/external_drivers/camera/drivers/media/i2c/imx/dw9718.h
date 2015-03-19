@@ -58,4 +58,9 @@ struct dw9718_device {
 #define DW9718_SACT_PERIOD_8_8MS	0x19
 #define DW9718_SACT_DEFAULT_VAL		0x60
 
+#define DW9718_CLICK_REDUCTION_STEP	 30 /* in vcm units */
+#define DW9718_CLICK_REDUCTION_SLEEP	 20 /* in milliseconds */
+#define DW9718_LENS_MOVE_POSITION	120 /* in vcm units */
+#define DW9718_DEFAULT_FOCUS_POSITION	300 /* in vcm units */
+
 #endif /* __DW9718_H__ */

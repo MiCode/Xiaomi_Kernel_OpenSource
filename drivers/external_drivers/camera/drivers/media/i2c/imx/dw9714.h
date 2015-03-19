@@ -40,6 +40,7 @@ struct dw9714_device {
 
 #define DW9714_INVALID_CONFIG	0xffffffff
 #define DW9714_MAX_FOCUS_POS	1023
+#define DW9714_DEFAULT_FOCUS_POS	290
 
 
 /* MCLK[1:0] = 01 T_SRC[4:0] = 00001 S[3:0] = 0111 */

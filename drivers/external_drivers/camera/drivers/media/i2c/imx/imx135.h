@@ -653,6 +653,404 @@ static struct imx_reg const imx135_10m_for_mipi_342[] = {
 	{IMX_TOK_TERM, 0, 0},
 };
 
+/*
+ * It is 8.5 DS from (3:2)8m cropped setting.
+ *
+ * The 8m(3:2) cropped setting is 2992x2448 effective res.
+ * The ISP effect cropped setting should be 1408x1152 effect res.
+ *
+ * Consider ISP 16x16 padding:
+ * sensor outputs 368x304
+ * cropped region is 3128x2584
+ */
+static struct imx_reg const imx135_368x304_cropped[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03},
+	{IMX_8BIT, 0x0112, 0x0A},
+	{IMX_8BIT, 0x0113, 0x0A},
+	{IMX_8BIT, 0x0381, 0x01},
+	{IMX_8BIT, 0x0383, 0x01},
+	{IMX_8BIT, 0x0385, 0x01},
+	{IMX_8BIT, 0x0387, 0x01},
+	{IMX_8BIT, 0x0390, 0x00},
+	{IMX_8BIT, 0x0391, 0x11}, /* no binning */
+	{IMX_8BIT, 0x0392, 0x00},
+	{IMX_8BIT, 0x0401, 0x02}, /* resize */
+	{IMX_8BIT, 0x0404, 0x00},
+	{IMX_8BIT, 0x0405, 0x88}, /* 136/16=8.5 */
+	{IMX_8BIT, 0x4082, 0x00},
+	{IMX_8BIT, 0x4083, 0x00},
+	{IMX_8BIT, 0x4203, 0xFF},
+	{IMX_8BIT, 0x7006, 0x04},
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x02}, /* X_ADD_STA */
+	{IMX_8BIT, 0x0345, 0x1C}, /* 540 */
+	{IMX_8BIT, 0x0346, 0x01}, /* Y_ADD_STA */
+	{IMX_8BIT, 0x0347, 0x0C}, /* 268 */
+	{IMX_8BIT, 0x0348, 0x0E}, /* X_ADD_END */
+	{IMX_8BIT, 0x0349, 0x53}, /* 3667 */
+	{IMX_8BIT, 0x034A, 0x0B}, /* Y_ADD_END */
+	{IMX_8BIT, 0x034B, 0x23}, /* 2851 */
+	{IMX_8BIT, 0x034C, 0x01}, /* X_OUT_SIZE */
+	{IMX_8BIT, 0x034D, 0x70}, /* 368 */
+	{IMX_8BIT, 0x034E, 0x01}, /* Y_OUT_SIZE */
+	{IMX_8BIT, 0x034F, 0x30}, /* 304 */
+	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
+	{IMX_8BIT, 0x0351, 0x00},
+	{IMX_8BIT, 0x0352, 0x00},
+	{IMX_8BIT, 0x0353, 0x00},
+	{IMX_8BIT, 0x0354, 0x0C}, /* Cut out siz same as the size after crop */
+	{IMX_8BIT, 0x0355, 0x38},
+	{IMX_8BIT, 0x0356, 0x0A},
+	{IMX_8BIT, 0x0357, 0x18},
+	{IMX_8BIT, 0x301D, 0x30}, /* ?? */
+	{IMX_8BIT, 0x3310, 0x01}, /* Write H and V size  same as output size? */
+	{IMX_8BIT, 0x3311, 0x70},
+	{IMX_8BIT, 0x3312, 0x01},
+	{IMX_8BIT, 0x3313, 0x30},
+	{IMX_8BIT, 0x331C, 0x02}, /* ?? */
+	{IMX_8BIT, 0x331D, 0xD0},
+	{IMX_8BIT, 0x4084, 0x01}, /* Scaling related? */
+	{IMX_8BIT, 0x4085, 0x70},
+	{IMX_8BIT, 0x4086, 0x01},
+	{IMX_8BIT, 0x4087, 0x30},
+	{IMX_8BIT, 0x4400, 0x00}, /* STATS off */
+	{IMX_TOK_TERM, 0, 0},
+};
+
+/*
+ * It is 1/4 binning from 8m cropped setting.
+ *
+ * The 8m cropped setting is 3264x2448 effective res.
+ * The xga cropped setting should be 816x612 effect res.
+ *
+ * Consider ISP 16x16 padding:
+ * sensor outputs 832x628
+ * cropped region is 3328x2512
+ */
+static struct imx_reg const imx135_xga_cropped[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03},
+	{IMX_8BIT, 0x0112, 0x0A},
+	{IMX_8BIT, 0x0113, 0x0A},
+	{IMX_8BIT, 0x0381, 0x01},
+	{IMX_8BIT, 0x0383, 0x01},
+	{IMX_8BIT, 0x0385, 0x01},
+	{IMX_8BIT, 0x0387, 0x01},
+	{IMX_8BIT, 0x0390, 0x01},
+	{IMX_8BIT, 0x0391, 0x44},
+	{IMX_8BIT, 0x0392, 0x00},
+	{IMX_8BIT, 0x0401, 0x00},
+	{IMX_8BIT, 0x0404, 0x00},
+	{IMX_8BIT, 0x0405, 0x10},
+	{IMX_8BIT, 0x4082, 0x00},
+	{IMX_8BIT, 0x4083, 0x00},
+/*	{IMX_8BIT, 0x4203, 0xFF}, */
+	{IMX_8BIT, 0x7006, 0x04},
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x01}, /* X_ADD_STA */
+	{IMX_8BIT, 0x0345, 0xB8}, /* 440 */
+	{IMX_8BIT, 0x0346, 0x01}, /* Y_ADD_STA */
+	{IMX_8BIT, 0x0347, 0x30}, /* 304 */
+	{IMX_8BIT, 0x0348, 0x0E}, /* X_ADD_END */
+	{IMX_8BIT, 0x0349, 0xB7}, /* 4207-440=3767 */
+	{IMX_8BIT, 0x034A, 0x0A}, /* Y_ADD_END */
+	{IMX_8BIT, 0x034B, 0xFF}, /* 3119-304=2815 */
+	{IMX_8BIT, 0x034C, 0x03}, /* X_OUT_SIZE */
+	{IMX_8BIT, 0x034D, 0x40}, /* 832 */
+	{IMX_8BIT, 0x034E, 0x02}, /* Y_OUT_SIZE */
+	{IMX_8BIT, 0x034F, 0x74}, /* 628 */
+	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
+	{IMX_8BIT, 0x0351, 0x00},
+	{IMX_8BIT, 0x0352, 0x00},
+	{IMX_8BIT, 0x0353, 0x00},
+	{IMX_8BIT, 0x0354, 0x03}, /* Cut out size same as the size after crop */
+	{IMX_8BIT, 0x0355, 0x40},
+	{IMX_8BIT, 0x0356, 0x02},
+	{IMX_8BIT, 0x0357, 0x74},
+	{IMX_8BIT, 0x301D, 0x30}, /* ?? */
+	{IMX_8BIT, 0x3310, 0x03}, /* Write H and V size  same as output size? */
+	{IMX_8BIT, 0x3311, 0x40},
+	{IMX_8BIT, 0x3312, 0x02},
+	{IMX_8BIT, 0x3313, 0x74},
+	{IMX_8BIT, 0x331C, 0x02}, /* ?? */
+	{IMX_8BIT, 0x331D, 0x21},
+	{IMX_8BIT, 0x4084, 0x03}, /* Scaling related? */
+	{IMX_8BIT, 0x4085, 0x40},
+	{IMX_8BIT, 0x4086, 0x02},
+	{IMX_8BIT, 0x4087, 0x74},
+	{IMX_8BIT, 0x4400, 0x00}, /* STATS off */
+	{IMX_TOK_TERM, 0, 0},
+};
+
+/*
+ * It is 28/16 DS from (16:9)8m cropped setting.
+ *
+ * The 8m(16:9) cropped setting is 3360x1890 effective res.
+ * - this is larger then the expected 3264x1836 FOV
+ *
+ * Consider ISP 16x16 padding:
+ * sensor outputs 1936x1096
+ * cropped region is 3388x1918
+ */
+static struct imx_reg const imx135_1936x1096_cropped[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03},
+	{IMX_8BIT, 0x0112, 0x0A},
+	{IMX_8BIT, 0x0113, 0x0A},
+	{IMX_8BIT, 0x0381, 0x01},
+	{IMX_8BIT, 0x0383, 0x01},
+	{IMX_8BIT, 0x0385, 0x01},
+	{IMX_8BIT, 0x0387, 0x01},
+	{IMX_8BIT, 0x0390, 0x00},
+	{IMX_8BIT, 0x0391, 0x11}, /* no binning */
+	{IMX_8BIT, 0x0392, 0x00},
+	{IMX_8BIT, 0x0401, 0x02}, /* resize */
+	{IMX_8BIT, 0x0404, 0x00},
+	{IMX_8BIT, 0x0405, 0x1C}, /* 28/16 */
+	{IMX_8BIT, 0x4082, 0x00},
+	{IMX_8BIT, 0x4083, 0x00},
+	{IMX_8BIT, 0x4203, 0xFF},
+	{IMX_8BIT, 0x7006, 0x04},
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x01}, /* X_ADD_STA */
+	{IMX_8BIT, 0x0345, 0x9A}, /* 410 */
+	{IMX_8BIT, 0x0346, 0x02}, /* Y_ADD_STA */
+	{IMX_8BIT, 0x0347, 0x58}, /* 600 */
+	{IMX_8BIT, 0x0348, 0x0E}, /* X_ADD_END */
+	{IMX_8BIT, 0x0349, 0xD5}, /* 3797 */
+	{IMX_8BIT, 0x034A, 0x09}, /* Y_ADD_END */
+	{IMX_8BIT, 0x034B, 0xD5}, /* 2517 */
+	{IMX_8BIT, 0x034C, 0x07}, /* X_OUT_SIZE */
+	{IMX_8BIT, 0x034D, 0x90}, /* 1936 */
+	{IMX_8BIT, 0x034E, 0x04}, /* Y_OUT_SIZE */
+	{IMX_8BIT, 0x034F, 0x48}, /* 1096 */
+	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
+	{IMX_8BIT, 0x0351, 0x00},
+	{IMX_8BIT, 0x0352, 0x00},
+	{IMX_8BIT, 0x0353, 0x00},
+	{IMX_8BIT, 0x0354, 0x0D}, /* Cut out siz same as the size after crop */
+	{IMX_8BIT, 0x0355, 0x3C},
+	{IMX_8BIT, 0x0356, 0x07},
+	{IMX_8BIT, 0x0357, 0x7E},
+	{IMX_8BIT, 0x301D, 0x30}, /* ?? */
+	{IMX_8BIT, 0x3310, 0x07}, /* Write H and V size  same as output size? */
+	{IMX_8BIT, 0x3311, 0x90},
+	{IMX_8BIT, 0x3312, 0x04},
+	{IMX_8BIT, 0x3313, 0x48},
+	{IMX_8BIT, 0x331C, 0x00}, /* ?? */
+	{IMX_8BIT, 0x331D, 0xAA},
+	{IMX_8BIT, 0x4084, 0x07}, /* Scaling related? */
+	{IMX_8BIT, 0x4085, 0x90},
+	{IMX_8BIT, 0x4086, 0x04},
+	{IMX_8BIT, 0x4087, 0x48},
+	{IMX_8BIT, 0x4400, 0x00}, /* STATS off */
+	{IMX_TOK_TERM, 0, 0},
+};
+
+/*
+ * It is 2.125 DS from (3:2)8m cropped setting.
+ *
+ * The 8m(3:2) cropped setting is 2992x2448 effective res.
+ * The ISP effect cropped setting should be 1408x1152 effect res.
+ *
+ * Consider ISP 16x16 padding:
+ * sensor outputs 1424x1168
+ * cropped region is 3026x2482
+ */
+static struct imx_reg const imx135_1424x1168_cropped[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03},
+	{IMX_8BIT, 0x0112, 0x0A},
+	{IMX_8BIT, 0x0113, 0x0A},
+	{IMX_8BIT, 0x0381, 0x01},
+	{IMX_8BIT, 0x0383, 0x01},
+	{IMX_8BIT, 0x0385, 0x01},
+	{IMX_8BIT, 0x0387, 0x01},
+	{IMX_8BIT, 0x0390, 0x00},
+	{IMX_8BIT, 0x0391, 0x11}, /* no binning */
+	{IMX_8BIT, 0x0392, 0x00},
+	{IMX_8BIT, 0x0401, 0x02}, /* resize */
+	{IMX_8BIT, 0x0404, 0x00},
+	{IMX_8BIT, 0x0405, 0x22}, /* 34/16=2.125 */
+	{IMX_8BIT, 0x4082, 0x00},
+	{IMX_8BIT, 0x4083, 0x00},
+	{IMX_8BIT, 0x4203, 0xFF},
+	{IMX_8BIT, 0x7006, 0x04},
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x02}, /* X_ADD_STA */
+	{IMX_8BIT, 0x0345, 0x4E}, /* 590 */
+	{IMX_8BIT, 0x0346, 0x01}, /* Y_ADD_STA */
+	{IMX_8BIT, 0x0347, 0x3E}, /* 318 */
+	{IMX_8BIT, 0x0348, 0x0E}, /* X_ADD_END */
+	{IMX_8BIT, 0x0349, 0x1F}, /* 3615 */
+	{IMX_8BIT, 0x034A, 0x0A}, /* Y_ADD_END */
+	{IMX_8BIT, 0x034B, 0xEF}, /* 2799 */
+	{IMX_8BIT, 0x034C, 0x05}, /* X_OUT_SIZE */
+	{IMX_8BIT, 0x034D, 0x90}, /* 1424 */
+	{IMX_8BIT, 0x034E, 0x04}, /* Y_OUT_SIZE */
+	{IMX_8BIT, 0x034F, 0x90}, /* 1168 */
+	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
+	{IMX_8BIT, 0x0351, 0x00},
+	{IMX_8BIT, 0x0352, 0x00},
+	{IMX_8BIT, 0x0353, 0x00},
+	{IMX_8BIT, 0x0354, 0x0B}, /* Cut out siz same as the size after crop */
+	{IMX_8BIT, 0x0355, 0xD2},
+	{IMX_8BIT, 0x0356, 0x09},
+	{IMX_8BIT, 0x0357, 0xB2},
+	{IMX_8BIT, 0x301D, 0x30}, /* ?? */
+	{IMX_8BIT, 0x3310, 0x05}, /* Write H and V size  same as output size? */
+	{IMX_8BIT, 0x3311, 0x90},
+	{IMX_8BIT, 0x3312, 0x04},
+	{IMX_8BIT, 0x3313, 0x90},
+	{IMX_8BIT, 0x331C, 0x00}, /* ?? */
+	{IMX_8BIT, 0x331D, 0xAA},
+	{IMX_8BIT, 0x4084, 0x05}, /* Scaling related? */
+	{IMX_8BIT, 0x4085, 0x90},
+	{IMX_8BIT, 0x4086, 0x04},
+	{IMX_8BIT, 0x4087, 0x90},
+	{IMX_8BIT, 0x4400, 0x00}, /* STATS off */
+	{IMX_TOK_TERM, 0, 0},
+};
+
+/*
+ * It is 1/2 binning from 8m cropped setting.
+ *
+ * The 8m cropped setting is 3264x2448 effective res.
+ * The 2m cropped setting should be 1632x1224 effect res.
+ *
+ * Consider ISP 16x16 padding:
+ * sensor outputs 1648x1240
+ * cropped region is 3296x2480
+ */
+static struct imx_reg const imx135_2m_cropped[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03},
+	{IMX_8BIT, 0x0112, 0x0A},
+	{IMX_8BIT, 0x0113, 0x0A},
+	{IMX_8BIT, 0x0381, 0x01},
+	{IMX_8BIT, 0x0383, 0x01},
+	{IMX_8BIT, 0x0385, 0x01},
+	{IMX_8BIT, 0x0387, 0x01},
+	{IMX_8BIT, 0x0390, 0x01},
+	{IMX_8BIT, 0x0391, 0x22},
+	{IMX_8BIT, 0x0392, 0x00},
+	{IMX_8BIT, 0x0401, 0x00},
+	{IMX_8BIT, 0x0404, 0x00},
+	{IMX_8BIT, 0x0405, 0x10},
+	{IMX_8BIT, 0x4082, 0x01},
+	{IMX_8BIT, 0x4083, 0x01},
+	{IMX_8BIT, 0x4203, 0xFF},
+	{IMX_8BIT, 0x7006, 0x04},
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x01}, /* X_ADD_STA */
+	{IMX_8BIT, 0x0345, 0xC8}, /* 464(1D0) -> 456(1C8)*/
+	{IMX_8BIT, 0x0346, 0x01}, /* Y_ADD_STA */
+	{IMX_8BIT, 0x0347, 0x40}, /* 320 */
+	{IMX_8BIT, 0x0348, 0x0E}, /* X_ADD_END */
+	{IMX_8BIT, 0x0349, 0xA7}, /* 4207-456=3751 */
+	{IMX_8BIT, 0x034A, 0x0A}, /* Y_ADD_END */
+	{IMX_8BIT, 0x034B, 0xEF}, /* 3119-320=2799 */
+	{IMX_8BIT, 0x034C, 0x06}, /* X_OUT_SIZE */
+	{IMX_8BIT, 0x034D, 0x70}, /* 1648 */
+	{IMX_8BIT, 0x034E, 0x04}, /* Y_OUT_SIZE */
+	{IMX_8BIT, 0x034F, 0xD8}, /* 1240 */
+	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
+	{IMX_8BIT, 0x0351, 0x00},
+	{IMX_8BIT, 0x0352, 0x00},
+	{IMX_8BIT, 0x0353, 0x00},
+	{IMX_8BIT, 0x0354, 0x06}, /* Cut out size same as the size after crop */
+	{IMX_8BIT, 0x0355, 0x70},
+	{IMX_8BIT, 0x0356, 0x04},
+	{IMX_8BIT, 0x0357, 0xD8},
+	{IMX_8BIT, 0x301D, 0x30}, /* ?? */
+	{IMX_8BIT, 0x3310, 0x06}, /* Write H and V size  same as output size? */
+	{IMX_8BIT, 0x3311, 0x70},
+	{IMX_8BIT, 0x3312, 0x04},
+	{IMX_8BIT, 0x3313, 0xD8},
+	{IMX_8BIT, 0x331C, 0x00}, /* ?? */
+	{IMX_8BIT, 0x331D, 0xAA},
+	{IMX_8BIT, 0x4084, 0x00}, /* Scaling related? */
+	{IMX_8BIT, 0x4085, 0x00},
+	{IMX_8BIT, 0x4086, 0x00},
+	{IMX_8BIT, 0x4087, 0x00},
+	{IMX_8BIT, 0x4400, 0x00}, /* STATS off */
+	{IMX_TOK_TERM, 0, 0},
+};
+
+/*
+ * 8M Cropped 16:9 setting
+ *
+ * Effect res: 3264x1836
+ * Sensor out: 3280x1852
+ */
+static struct imx_reg const imx135_6m_cropped[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_451_2MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03},
+	{IMX_8BIT, 0x0112, 0x0A},
+	{IMX_8BIT, 0x0113, 0x0A},
+	{IMX_8BIT, 0x0381, 0x01},
+	{IMX_8BIT, 0x0383, 0x01},
+	{IMX_8BIT, 0x0385, 0x01},
+	{IMX_8BIT, 0x0387, 0x01},
+	{IMX_8BIT, 0x0390, 0x00},
+	{IMX_8BIT, 0x0391, 0x11},
+	{IMX_8BIT, 0x0392, 0x00},
+	{IMX_8BIT, 0x0401, 0x00},
+	{IMX_8BIT, 0x0404, 0x00},
+	{IMX_8BIT, 0x0405, 0x10},
+	{IMX_8BIT, 0x4082, 0x01},
+	{IMX_8BIT, 0x4083, 0x01},
+	{IMX_8BIT, 0x4203, 0xFF},
+	{IMX_8BIT, 0x7006, 0x04},
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x01},
+	{IMX_8BIT, 0x0345, 0xD0},
+	{IMX_8BIT, 0x0346, 0x02}, /* 634 */
+	{IMX_8BIT, 0x0347, 0x7A},
+	{IMX_8BIT, 0x0348, 0x0E},
+	{IMX_8BIT, 0x0349, 0x9F},
+	{IMX_8BIT, 0x034A, 0x09}, /* 2485 */
+	{IMX_8BIT, 0x034B, 0xB5},
+	{IMX_8BIT, 0x034C, 0x0C}, /* 3280 */
+	{IMX_8BIT, 0x034D, 0xD0},
+	{IMX_8BIT, 0x034E, 0x07}, /* 1852 */
+	{IMX_8BIT, 0x034F, 0x3C},
+	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
+	{IMX_8BIT, 0x0351, 0x00},
+	{IMX_8BIT, 0x0352, 0x00},
+	{IMX_8BIT, 0x0353, 0x00},
+	{IMX_8BIT, 0x0354, 0x0C}, /* Cut out size same as the size after crop */
+	{IMX_8BIT, 0x0355, 0xD0},
+	{IMX_8BIT, 0x0356, 0x07},
+	{IMX_8BIT, 0x0357, 0x3C},
+	{IMX_8BIT, 0x301D, 0x30}, /* ?? */
+	{IMX_8BIT, 0x3310, 0x0C}, /* Write H and V size  same as output size? */
+	{IMX_8BIT, 0x3311, 0xD0},
+	{IMX_8BIT, 0x3312, 0x07},
+	{IMX_8BIT, 0x3313, 0x3C},
+	{IMX_8BIT, 0x331C, 0x00}, /* ?? */
+	{IMX_8BIT, 0x331D, 0x10},
+	{IMX_8BIT, 0x4084, 0x00}, /* Scaling related? */
+	{IMX_8BIT, 0x4085, 0x00},
+	{IMX_8BIT, 0x4086, 0x00},
+	{IMX_8BIT, 0x4087, 0x00},
+	{IMX_8BIT, 0x4400, 0x00}, /* STATS off */
+	{IMX_TOK_TERM, 0, 0},
+};
+
 static struct imx_reg const imx135_8m_cropped[] = {
 	GROUPED_PARAMETER_HOLD_ENABLE,
 	PLL_SETTINGS_FOR_MIPI_451_2MHZ_SALTBAY,
@@ -683,9 +1081,9 @@ static struct imx_reg const imx135_8m_cropped[] = {
 	{IMX_8BIT, 0x0349, 0x9F},
 	{IMX_8BIT, 0x034A, 0x0A},
 	{IMX_8BIT, 0x034B, 0xE7},
-	{IMX_8BIT, 0x034C, 0x0C}, /* 3280x2464 */
+	{IMX_8BIT, 0x034C, 0x0C}, /* 3280 */
 	{IMX_8BIT, 0x034D, 0xD0},
-	{IMX_8BIT, 0x034E, 0x09},
+	{IMX_8BIT, 0x034E, 0x09}, /* 2464 */
 	{IMX_8BIT, 0x034F, 0xA0},
 	{IMX_8BIT, 0x0350, 0x00}, /* No Dig crop */
 	{IMX_8BIT, 0x0351, 0x00},
@@ -934,6 +1332,68 @@ static struct imx_reg const imx135_6m_for_mipi_342[] = {
 	{IMX_8BIT, 0x4085, 0xD0},
 	{IMX_8BIT, 0x4086, 0x07},
 	{IMX_8BIT, 0x4087, 0x3C},
+	{IMX_8BIT, 0x4400, 0x00},
+	{IMX_TOK_TERM, 0, 0},
+};
+
+/*
+ * FOV is: 3280x2464, larger then 3264x2448.
+ * Sensor output: 336x256
+ * Cropping region: 3444x2624
+ */
+static struct imx_reg const imx135_336x256[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* mode setting */
+	{IMX_8BIT, 0x0108, 0x03},
+	{IMX_8BIT, 0x0112, 0x0A},
+	{IMX_8BIT, 0x0113, 0x0A},
+	{IMX_8BIT, 0x0381, 0x01},
+	{IMX_8BIT, 0x0383, 0x01},
+	{IMX_8BIT, 0x0385, 0x01},
+	{IMX_8BIT, 0x0387, 0x01},
+	{IMX_8BIT, 0x0390, 0x01},
+	{IMX_8BIT, 0x0391, 0x22},
+	{IMX_8BIT, 0x0392, 0x00},
+	{IMX_8BIT, 0x0401, 0x02}, /* 2x binning */
+	{IMX_8BIT, 0x0404, 0x00},
+	{IMX_8BIT, 0x0405, 0x52}, /* scaling: 82/16 */
+	{IMX_8BIT, 0x4082, 0x00},
+	{IMX_8BIT, 0x4083, 0x00},
+	{IMX_8BIT, 0x4203, 0xFF},
+	{IMX_8BIT, 0x7006, 0x04},
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x01}, /* x_start: 374 */
+	{IMX_8BIT, 0x0345, 0x76},
+	{IMX_8BIT, 0x0346, 0x00}, /* y_start: 248 */
+	{IMX_8BIT, 0x0347, 0xF8},
+	{IMX_8BIT, 0x0348, 0x0E}, /* x_end: 3817 */
+	{IMX_8BIT, 0x0349, 0xE9},
+	{IMX_8BIT, 0x034A, 0x0B}, /* y_end: 2871 */
+	{IMX_8BIT, 0x034B, 0x37},
+	{IMX_8BIT, 0x034C, 0x01}, /* x_out: 336 */
+	{IMX_8BIT, 0x034D, 0x50},
+	{IMX_8BIT, 0x034E, 0x01}, /* y_out: 256 */
+	{IMX_8BIT, 0x034F, 0x00},
+	{IMX_8BIT, 0x0350, 0x00},
+	{IMX_8BIT, 0x0351, 0x00},
+	{IMX_8BIT, 0x0352, 0x00},
+	{IMX_8BIT, 0x0353, 0x00},
+	{IMX_8BIT, 0x0354, 0x06}, /* dig x_out: 1722 */
+	{IMX_8BIT, 0x0355, 0xBA},
+	{IMX_8BIT, 0x0356, 0x05}, /* dig y_out: 1312  */
+	{IMX_8BIT, 0x0357, 0x20},
+	{IMX_8BIT, 0x301D, 0x30},
+	{IMX_8BIT, 0x3310, 0x01}, /* ?: x_out */
+	{IMX_8BIT, 0x3311, 0x50},
+	{IMX_8BIT, 0x3312, 0x01}, /* ?: y_out */
+	{IMX_8BIT, 0x3313, 0x00},
+	{IMX_8BIT, 0x331C, 0x02},
+	{IMX_8BIT, 0x331D, 0x4E},
+	{IMX_8BIT, 0x4084, 0x01}, /* ?: x_out */
+	{IMX_8BIT, 0x4085, 0x50},
+	{IMX_8BIT, 0x4086, 0x01}, /* ?: y_out */
+	{IMX_8BIT, 0x4087, 0x00},
 	{IMX_8BIT, 0x4400, 0x00},
 	{IMX_TOK_TERM, 0, 0},
 };
@@ -1565,6 +2025,63 @@ static const struct imx_reg imx135_wvga_dvs_binning[] = {
 	{IMX_TOK_TERM, 0, 0}
 };
 
+/* 480P 1036 x 696 */
+static const struct imx_reg imx135_480p_binning[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03 },
+	{IMX_8BIT, 0x0112, 0x0A },
+	{IMX_8BIT, 0x0113, 0x0A },
+	{IMX_8BIT, 0x0381, 0x01 },
+	{IMX_8BIT, 0x0383, 0x01 },
+	{IMX_8BIT, 0x0385, 0x01 },
+	{IMX_8BIT, 0x0387, 0x01 },
+	{IMX_8BIT, 0x0390, 0x01 },
+	{IMX_8BIT, 0x0391, 0x44 },
+	{IMX_8BIT, 0x0392, 0x00 },
+	{IMX_8BIT, 0x0401, 0x00 },
+	{IMX_8BIT, 0x0404, 0x00 },
+	{IMX_8BIT, 0x0405, 0x10 },/* No scal */
+	{IMX_8BIT, 0x4082, 0x00 },
+	{IMX_8BIT, 0x4083, 0x00 },
+	{IMX_8BIT, 0x7006, 0x04 },
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x00 }, /* 52,20,4155, 3099 4144x2784*/
+	{IMX_8BIT, 0x0345, 0x20 },
+	{IMX_8BIT, 0x0346, 0x00 },
+	{IMX_8BIT, 0x0347, 0xA8 },
+	{IMX_8BIT, 0x0348, 0x10 },
+	{IMX_8BIT, 0x0349, 0x4F },
+	{IMX_8BIT, 0x034A, 0x0B },
+	{IMX_8BIT, 0x034B, 0x88 },
+	{IMX_8BIT, 0x034C, 0x04 }, /* 1036 * 696 */
+	{IMX_8BIT, 0x034D, 0x0C },
+	{IMX_8BIT, 0x034E, 0x02 },
+	{IMX_8BIT, 0x034F, 0xB8 },
+	{IMX_8BIT, 0x0350, 0x00 },
+	{IMX_8BIT, 0x0351, 0x00 },
+	{IMX_8BIT, 0x0352, 0x00 },
+	{IMX_8BIT, 0x0353, 0x00 },
+	{IMX_8BIT, 0x0354, 0x04 }, /* 1036x696 */
+	{IMX_8BIT, 0x0355, 0x0C },
+	{IMX_8BIT, 0x0356, 0x02 },
+	{IMX_8BIT, 0x0357, 0xB8 },
+	{IMX_8BIT, 0x301D, 0x30 },
+	{IMX_8BIT, 0x3310, 0x04 },
+	{IMX_8BIT, 0x3311, 0x0C },
+	{IMX_8BIT, 0x3312, 0x02 },
+	{IMX_8BIT, 0x3313, 0xB8 },
+	{IMX_8BIT, 0x331C, 0x02 },
+	{IMX_8BIT, 0x331D, 0x21 },
+	{IMX_8BIT, 0x4084, 0x04 },
+	{IMX_8BIT, 0x4085, 0x0C },
+	{IMX_8BIT, 0x4086, 0x02 },
+	{IMX_8BIT, 0x4087, 0xB8 },
+	{IMX_8BIT, 0x4400, 0x00 },
+	{IMX_TOK_TERM, 0, 0}
+};
+
 /* 480P DVS 936 x 602 */
 static const struct imx_reg imx135_480p_dvs_binning[] = {
 	GROUPED_PARAMETER_HOLD_ENABLE,
@@ -1620,6 +2137,63 @@ static const struct imx_reg imx135_480p_dvs_binning[] = {
 	{ IMX_8BIT, 0x4087, 0x5a },
 	{ IMX_8BIT, 0x4400, 0x00 },
 	{ IMX_TOK_TERM, 0, 0}
+};
+
+/* VGA: H : 1036 V : 780 */
+static const struct imx_reg imx135_vga_binning[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03 },
+	{IMX_8BIT, 0x0112, 0x0A },
+	{IMX_8BIT, 0x0113, 0x0A },
+	{IMX_8BIT, 0x0381, 0x01 },
+	{IMX_8BIT, 0x0383, 0x01 },
+	{IMX_8BIT, 0x0385, 0x01 },
+	{IMX_8BIT, 0x0387, 0x01 },
+	{IMX_8BIT, 0x0390, 0x01 },
+	{IMX_8BIT, 0x0391, 0x44 },
+	{IMX_8BIT, 0x0392, 0x00 },
+	{IMX_8BIT, 0x0401, 0x00 },
+	{IMX_8BIT, 0x0404, 0x00 },
+	{IMX_8BIT, 0x0405, 0x10 },
+	{IMX_8BIT, 0x4082, 0x00 },
+	{IMX_8BIT, 0x4083, 0x00 },
+	{IMX_8BIT, 0x7006, 0x04 },
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x00 }, /* 52,20,4155, 3099 4144x3120*/
+	{IMX_8BIT, 0x0345, 0x20 },
+	{IMX_8BIT, 0x0346, 0x00 },
+	{IMX_8BIT, 0x0347, 0x00 },
+	{IMX_8BIT, 0x0348, 0x10 },
+	{IMX_8BIT, 0x0349, 0x4F },
+	{IMX_8BIT, 0x034A, 0x0C },
+	{IMX_8BIT, 0x034B, 0x2F },
+	{IMX_8BIT, 0x034C, 0x04 }, /* 1036x780 */
+	{IMX_8BIT, 0x034D, 0x0C },
+	{IMX_8BIT, 0x034E, 0x03 },
+	{IMX_8BIT, 0x034F, 0x0C },
+	{IMX_8BIT, 0x0350, 0x00 },
+	{IMX_8BIT, 0x0351, 0x00 },
+	{IMX_8BIT, 0x0352, 0x00 },
+	{IMX_8BIT, 0x0353, 0x00 },
+	{IMX_8BIT, 0x0354, 0x04 }, /* 1036x780 */
+	{IMX_8BIT, 0x0355, 0x0C },
+	{IMX_8BIT, 0x0356, 0x03 },
+	{IMX_8BIT, 0x0357, 0x0C },
+	{IMX_8BIT, 0x301D, 0x30 },
+	{IMX_8BIT, 0x3310, 0x04 },
+	{IMX_8BIT, 0x3311, 0x0C },
+	{IMX_8BIT, 0x3312, 0x03 },
+	{IMX_8BIT, 0x3313, 0x0C },
+	{IMX_8BIT, 0x331C, 0x02 },
+	{IMX_8BIT, 0x331D, 0x21 },
+	{IMX_8BIT, 0x4084, 0x04 },
+	{IMX_8BIT, 0x4085, 0x0C },
+	{IMX_8BIT, 0x4086, 0x03 },
+	{IMX_8BIT, 0x4087, 0x0C },
+	{IMX_8BIT, 0x4400, 0x00 },
+	{IMX_TOK_TERM, 0, 0}
 };
 
 /* VGA: H : 820 V : 616 */
@@ -1853,6 +2427,63 @@ static const struct imx_reg imx135_cif_binning[] = {
 	{IMX_TOK_TERM, 0, 0}
 };
 
+/* CIF H : 1888 V : 1548 */
+static const struct imx_reg imx135_cif_binning_1888x1548[] = {
+	GROUPED_PARAMETER_HOLD_ENABLE,
+	PLL_SETTINGS_FOR_MIPI_209_6MHZ_SALTBAY,
+	/* Mode setting */
+	{IMX_8BIT, 0x0108, 0x03 },
+	{IMX_8BIT, 0x0112, 0x0A },
+	{IMX_8BIT, 0x0113, 0x0A },
+	{IMX_8BIT, 0x0381, 0x01 },
+	{IMX_8BIT, 0x0383, 0x01 },
+	{IMX_8BIT, 0x0385, 0x01 },
+	{IMX_8BIT, 0x0387, 0x01 },
+	{IMX_8BIT, 0x0390, 0x01 },
+	{IMX_8BIT, 0x0391, 0x22 },
+	{IMX_8BIT, 0x0392, 0x00 },
+	{IMX_8BIT, 0x0401, 0x00 },
+	{IMX_8BIT, 0x0404, 0x00 },
+	{IMX_8BIT, 0x0405, 0x10 },
+	{IMX_8BIT, 0x4082, 0x00 },
+	{IMX_8BIT, 0x4083, 0x00 },
+	{IMX_8BIT, 0x7006, 0x04 },
+	/* Size setting */
+	{IMX_8BIT, 0x0344, 0x00 }, /* 264,42, 3776x3096 */
+	{IMX_8BIT, 0x0345, 0xD8 },
+	{IMX_8BIT, 0x0346, 0x00 },
+	{IMX_8BIT, 0x0347, 0x0C },
+	{IMX_8BIT, 0x0348, 0x0F },
+	{IMX_8BIT, 0x0349, 0x97 },
+	{IMX_8BIT, 0x034A, 0x0C },
+	{IMX_8BIT, 0x034B, 0x23 },
+	{IMX_8BIT, 0x034C, 0x07 }, /* 1888x1548 */
+	{IMX_8BIT, 0x034D, 0x60 },
+	{IMX_8BIT, 0x034E, 0x06 },
+	{IMX_8BIT, 0x034F, 0x0C },
+	{IMX_8BIT, 0x0350, 0x00 },
+	{IMX_8BIT, 0x0351, 0x00 },
+	{IMX_8BIT, 0x0352, 0x00 },
+	{IMX_8BIT, 0x0353, 0x00 },
+	{IMX_8BIT, 0x0354, 0x07 }, /* 1888x1548 */
+	{IMX_8BIT, 0x0355, 0x60 },
+	{IMX_8BIT, 0x0356, 0x06 },
+	{IMX_8BIT, 0x0357, 0x0C },
+	{IMX_8BIT, 0x301D, 0x30 },
+	{IMX_8BIT, 0x3310, 0x07 },
+	{IMX_8BIT, 0x3311, 0x60 },
+	{IMX_8BIT, 0x3312, 0x06 },
+	{IMX_8BIT, 0x3313, 0x0C },
+	{IMX_8BIT, 0x331C, 0x02 }, /* TODO! binning 4x4 must be 021c? */
+	{IMX_8BIT, 0x331D, 0x1C },
+	{IMX_8BIT, 0x4084, 0x07 },
+	{IMX_8BIT, 0x4085, 0x60 },
+	{IMX_8BIT, 0x4086, 0x06 },
+	{IMX_8BIT, 0x4087, 0x0C },
+	{IMX_8BIT, 0x4400, 0x00 },
+	{IMX_TOK_TERM, 0, 0}
+};
+
 /* QCIF H : 216 V : 176 */
 static const struct imx_reg imx135_qcif_dvs_binning[] = {
 	GROUPED_PARAMETER_HOLD_ENABLE,
@@ -1920,7 +2551,7 @@ static const struct imx_reg imx135_qcif_dvs_binning[] = {
  * than these take 8MP or 6MP espectively for down scaling based on the
  * aspect ratio.
  */
-struct imx_resolution imx135_res_preview[] = {
+struct imx_resolution imx135_res_preview_mofd[] = {
 	{
 		.desc = "imx135_cif_binning_preview",
 		.regs = imx135_cif_binning,
@@ -1940,28 +2571,10 @@ struct imx_resolution imx135_res_preview[] = {
 		.mipi_freq = 209600,
 	},
 	{
-		 .desc = "imx135_480p_binning_preview",
-		 .regs = imx135_480p_dvs_binning,
-		 .width = 936,
-		 .height = 602,
-		.fps_options = {
-			{ /* Binning Pixel clock: 335.36MHz */
-				 .fps = 30,
-				 .pixels_per_line = 5464,
-				 .lines_per_frame = 2046,
-			},
-			{
-			}
-		},
-		 .bin_factor_x = 1,
-		 .bin_factor_y = 1,
-		.mipi_freq = 209600,
-	},
-	{
-		.desc = "imx135_vga_dvs_binning_preview",
-		.regs = imx135_vga_dvs_binning,
-		.width = 820,
-		.height = 616,
+		.desc = "imx135_vga_binning_preview",
+		.regs = imx135_vga_binning,
+		.width = 1036,
+		.height = 780,
 		.fps_options = {
 			{
 				 .fps = 30,
@@ -1973,6 +2586,24 @@ struct imx_resolution imx135_res_preview[] = {
 		},
 		.bin_factor_x = 2,
 		.bin_factor_y = 2,
+		.mipi_freq = 209600,
+	},
+	{
+		 .desc = "imx135_480p_preview",
+		 .regs = imx135_480p_binning,
+		 .width = 1036,
+		 .height = 696,
+		.fps_options = {
+			{ /* Binning Pixel clock: 335.36MHz */
+				 .fps = 30,
+				 .pixels_per_line = 9144,
+				 .lines_per_frame = 1226,
+			},
+			{
+			}
+		},
+		 .bin_factor_x = 2,
+		 .bin_factor_y = 2,
 		.mipi_freq = 209600,
 	},
 	{
@@ -2091,6 +2722,88 @@ struct imx_resolution imx135_res_preview[] = {
 	},
 };
 
+struct imx_resolution imx135_res_preview[] = {
+	{
+		.desc = "imx135_xga_cropped_video",
+		.regs = imx135_xga_cropped,
+		.width = 832,
+		.height = 628,
+		.fps_options = {
+			{ /* Binning Pixel clock: 335.36MHz */
+				 .fps = 30,
+				 .pixels_per_line = 5464,
+				 .lines_per_frame = 2046,
+
+			},
+			{
+			}
+		},
+		.bin_factor_x = 2,
+		.bin_factor_y = 2,
+		.used = 0,
+		.mipi_freq = 209600,
+	},
+	{
+		.desc = "imx135_2m_cropped_video",
+		.regs = imx135_2m_cropped,
+		.width = 1648,
+		.height = 1240,
+		.fps_options = {
+			{ /* Pixel clock: 335.36MHz */
+				 .fps = 30,
+				 .pixels_per_line = 5464,
+				 .lines_per_frame = 2046,
+
+			},
+			{
+			}
+		},
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.used = 0,
+		.mipi_freq = 209600,
+	},
+	{
+		.desc = "imx135_1936x1096_cropped",
+		.regs = imx135_1936x1096_cropped,
+		.width = 1936,
+		.height = 1096,
+		.fps_options = {
+			{ /* Pixel clock: 335.36MHz */
+				 .fps = 30,
+				 .pixels_per_line = 5464,
+				 .lines_per_frame = 2046,
+
+			},
+			{
+			}
+		},
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.used = 0,
+		.mipi_freq = 209600,
+	},
+	{
+		.desc = "imx135_8m_cropped_video",
+		.regs = imx135_8m_cropped,
+		.width = 3280,
+		.height = 2464,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 30,
+				 .pixels_per_line = 4572,
+				 .lines_per_frame = 2624,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.used = 0,
+		.mipi_freq = 451200,
+	},
+};
+
 /*
  * ISP Scaling is now supported in online capture use cases. Because of that
  * we need only few modes to cover the different aspect ratios from the
@@ -2101,16 +2814,34 @@ struct imx_resolution imx135_res_preview[] = {
  * than these take 8MP or 6MP espectively for down scaling based on the
  * aspect ratio.
  */
-struct imx_resolution imx135_res_still[] = {
+struct imx_resolution imx135_res_still_mofd[] = {
 	{
 		.desc = "imx135_cif_binning_still",
-		.regs = imx135_cif_binning,
-		.width = 368,
-		.height = 304,
+		.regs = imx135_cif_binning_1888x1548,
+		.width = 1888,
+		.height = 1548,
 		.fps_options = {
 			{ /* Binning Pixel clock: 335.36MHz */
 				 .fps = 30,
-				 .pixels_per_line = 9114,
+				 .pixels_per_line = 5464,
+				 .lines_per_frame = 2046,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.mipi_freq = 209600,
+	},
+	{
+		.desc = "imx135_vga_binning_preview",
+		.regs = imx135_vga_binning,
+		.width = 1036,
+		.height = 780,
+		.fps_options = {
+			{
+				 .fps = 30,
+				 .pixels_per_line = 9144,
 				 .lines_per_frame = 1226,
 			},
 			{
@@ -2121,40 +2852,21 @@ struct imx_resolution imx135_res_still[] = {
 		.mipi_freq = 209600,
 	},
 	{
-		 .desc = "imx135_480p_binning_still",
-		 .regs = imx135_480p_dvs_binning,
-		 .width = 936,
-		 .height = 602,
+		 .desc = "imx135_480p_preview",
+		 .regs = imx135_480p_binning,
+		 .width = 1036,
+		 .height = 696,
 		.fps_options = {
 			{ /* Binning Pixel clock: 335.36MHz */
 				 .fps = 30,
-				 .pixels_per_line = 9114,
-				 .lines_per_frame = 2453,
+				 .pixels_per_line = 9144,
+				 .lines_per_frame = 1226,
 			},
 			{
 			}
 		},
-		 .bin_factor_x = 1,
-		 .bin_factor_y = 1,
-		.mipi_freq = 209600,
-	},
-	{
-		.desc = "imx135_1m_still",
-		.regs = imx135_1m,
-		.width = 1040,
-		.height = 784,
-		.fps_options = {
-			{
-				 .fps = 30,
-				 .pixels_per_line = 5464,
-				 .lines_per_frame = 2046,
-			},
-			{
-			}
-		},
-		.bin_factor_x = 1,
-		.bin_factor_y = 1,
-		.used = 0,
+		 .bin_factor_x = 2,
+		 .bin_factor_y = 2,
 		.mipi_freq = 209600,
 	},
 	{
@@ -2275,6 +2987,142 @@ struct imx_resolution imx135_res_still[] = {
 		.bin_factor_y = 0,
 		.used = 0,
 		.mipi_freq = 342000,
+	},
+};
+
+struct imx_resolution imx135_res_still[] = {
+	{
+		.desc = "imx135_qvga",
+		.regs = imx135_336x256,
+		.width = 336,
+		.height = 256,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 30,
+				 .pixels_per_line = 4572,
+				 .lines_per_frame = 2624,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.used = 0,
+		.mipi_freq = 451200,
+	},
+	{
+		.desc = "imx135_cif",
+		.regs = imx135_368x304_cropped,
+		.width = 368,
+		.height = 304,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 30,
+				 .pixels_per_line = 4572,
+				 .lines_per_frame = 2624,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.used = 0,
+		.mipi_freq = 451200,
+	},
+	{
+		.desc = "imx135_xga_cropped_video",
+		.regs = imx135_xga_cropped,
+		.width = 832,
+		.height = 628,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 30,
+				 .pixels_per_line = 4572,
+				 .lines_per_frame = 2624,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 2,
+		.bin_factor_y = 2,
+		.used = 0,
+		.mipi_freq = 451200,
+	},
+	{
+		.desc = "imx135_2M_for_11:9",
+		.regs = imx135_1424x1168_cropped,
+		.width = 1424,
+		.height = 1168,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 30,
+				 .pixels_per_line = 4572,
+				 .lines_per_frame = 2624,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.used = 0,
+		.mipi_freq = 451200,
+	},
+	{
+		.desc = "imx135_2m_cropped_video",
+		.regs = imx135_2m_cropped,
+		.width = 1648,
+		.height = 1240,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 15,
+				 .pixels_per_line = 6466,
+				 .lines_per_frame = 3710,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.used = 0,
+		.mipi_freq = 451200,
+	},
+	{
+		.desc = "imx135_6m_cropped_video",
+		.regs = imx135_6m_cropped,
+		.width = 3280,
+		.height = 1852,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 8,
+				 .pixels_per_line = 8850,
+				 .lines_per_frame = 5080,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.used = 0,
+		.mipi_freq = 451200,
+	},
+	{
+		.desc = "imx135_8m_cropped_video",
+		.regs = imx135_8m_cropped,
+		.width = 3280,
+		.height = 2464,
+		.fps_options = {
+			{ /* Pixel clock: 360.96MHz */
+				 .fps = 8,
+				 .pixels_per_line = 8850,
+				 .lines_per_frame = 5080,
+			},
+			{
+			}
+		},
+		.bin_factor_x = 0,
+		.bin_factor_y = 0,
+		.used = 0,
+		.mipi_freq = 451200,
 	},
 };
 

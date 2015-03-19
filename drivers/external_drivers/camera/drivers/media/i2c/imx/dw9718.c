@@ -79,27 +79,53 @@ static int dw9718_i2c_wr16(struct i2c_client *client, u8 reg, u16 val)
 	return 0;
 }
 
+int dw9718_t_focus_abs(struct v4l2_subdev *sd, s32 value)
+{
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+
+	value = clamp(value, 0, DW9718_MAX_FOCUS_POS);
+	ret = dw9718_i2c_wr16(client, DW9718_DATA_M, value);
+	pr_info("%s: value = %d\n", __func__, value);
+	if (ret < 0)
+		return ret;
+
+	getnstimeofday(&dw9718_dev.focus_time);
+	dw9718_dev.focus = value;
+
+	return 0;
+}
+
 int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	int ret;
 	u8 value;
+	int i;
+	int step = DW9718_CLICK_REDUCTION_STEP;
 
 	/* Enable power */
 	ret = dw9718_dev.platform_data->power_ctrl(sd, 1);
 	if (ret)
 		return ret;
-	/* Wait for VBAT to stabilize */
-	udelay(100);
+	/* Wait t_OPR for VBAT to stabilize */
+	usleep_range(100, 110);
 
 	/* Detect device */
 	ret = dw9718_i2c_rd8(client, DW9718_SACT, &value);
 	if (ret < 0)
 		goto fail_powerdown;
-	if (value != DW9718_SACT_DEFAULT_VAL) {
-		dev_err(&client->dev, "%s error, incorrect ID\n", __func__);
-		return -ENXIO;
-	}
+
+	/*
+	 * WORKAROUND: for module P8V12F-203 which are used on
+	 * Cherrytrail Refresh Davis Reef AoB, register SACT is not
+	 * returning default value as spec. But VCM works as expected and
+	 * root cause is still under discussion with vendor.
+	 * workaround here to avoid aborting the power up sequence and just
+	 * give a warning about this error.
+	 */
+	if (value != DW9718_SACT_DEFAULT_VAL)
+		dev_warn(&client->dev, "%s error, incorrect ID\n", __func__);
 
 	/* Initialize according to recommended settings */
 	ret = dw9718_i2c_wr8(client, DW9718_CONTROL,
@@ -115,7 +141,25 @@ int dw9718_vcm_power_up(struct v4l2_subdev *sd)
 	if (ret < 0)
 		goto fail_powerdown;
 
-	dw9718_dev.focus = DW9718_MAX_FOCUS_POS;
+	/* Wait t_MODE after changing from switching to linear mode */
+	usleep_range(85, 95);
+
+	/* Minimize the click sounds from the lens during power up */
+	i = DW9718_LENS_MOVE_POSITION;
+	while (i <= dw9718_dev.focus) {
+		ret = dw9718_i2c_wr16(client, DW9718_DATA_M, i);
+		if (ret) {
+			dev_err(&client->dev, "%s: write failed\n", __func__);
+			break;
+		}
+		msleep(DW9718_CLICK_REDUCTION_SLEEP);
+		i += step;
+	}
+
+	ret = dw9718_t_focus_abs(sd, dw9718_dev.focus);
+	if (ret)
+		return ret;
+
 	dw9718_dev.initialized = true;
 
 	return 0;
@@ -128,6 +172,23 @@ fail_powerdown:
 
 int dw9718_vcm_power_down(struct v4l2_subdev *sd)
 {
+	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
+	int i;
+	int step = DW9718_CLICK_REDUCTION_STEP;
+
+	/* Minimize the click sounds from the lens during power down */
+	i = min(dw9718_dev.focus, DW9718_DEFAULT_FOCUS_POSITION) - step;
+	while (i >= DW9718_LENS_MOVE_POSITION) {
+		ret = dw9718_i2c_wr16(client, DW9718_DATA_M, i);
+		if (ret) {
+			dev_err(&client->dev, "%s: write failed\n", __func__);
+			break;
+		}
+		msleep(DW9718_CLICK_REDUCTION_SLEEP);
+		i -= step;
+	}
+
 	return dw9718_dev.platform_data->power_ctrl(sd, 0);
 }
 
@@ -158,22 +219,6 @@ int dw9718_t_focus_vcm(struct v4l2_subdev *sd, u16 val)
 	return -EINVAL;
 }
 
-int dw9718_t_focus_abs(struct v4l2_subdev *sd, s32 value)
-{
-	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int ret;
-
-	value = clamp(value, 0, DW9718_MAX_FOCUS_POS);
-	ret = dw9718_i2c_wr16(client, DW9718_DATA_M, value);
-	if (ret < 0)
-		return ret;
-
-	getnstimeofday(&dw9718_dev.focus_time);
-	dw9718_dev.focus = value;
-
-	return 0;
-}
-
 int dw9718_t_focus_rel(struct v4l2_subdev *sd, s32 value)
 {
 	return dw9718_t_focus_abs(sd, dw9718_dev.focus + value);
@@ -197,5 +242,6 @@ int dw9718_t_vcm_timing(struct v4l2_subdev *sd, s32 value)
 int dw9718_vcm_init(struct v4l2_subdev *sd)
 {
 	dw9718_dev.platform_data = camera_get_af_platform_data();
+	dw9718_dev.focus = DW9718_DEFAULT_FOCUS_POSITION;
 	return (NULL == dw9718_dev.platform_data) ? -ENODEV : 0;
 }

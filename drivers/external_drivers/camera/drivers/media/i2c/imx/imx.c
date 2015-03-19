@@ -1512,11 +1512,16 @@ static const struct v4l2_ctrl_config imx_controls[] = {
  * Returns the value of gap or -1 if fail.
  */
 #define LARGEST_ALLOWED_RATIO_MISMATCH 600
-static int distance(struct imx_resolution const *res, u32 w, u32 h)
+static int distance(struct imx_resolution const *res, u32 w, u32 h,
+		bool keep_ratio)
 {
 	unsigned int w_ratio;
 	unsigned int h_ratio;
 	int match;
+	unsigned int allowed_ratio_mismatch = LARGEST_ALLOWED_RATIO_MISMATCH;
+
+	if (!keep_ratio)
+		allowed_ratio_mismatch = ~0;
 
 	if (w == 0)
 		return -1;
@@ -1529,7 +1534,7 @@ static int distance(struct imx_resolution const *res, u32 w, u32 h)
 	match   = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
 
 	if ((w_ratio < (int)8192) || (h_ratio < (int)8192)  ||
-		(match > LARGEST_ALLOWED_RATIO_MISMATCH))
+		(match > allowed_ratio_mismatch))
 		return -1;
 
 	return w_ratio + h_ratio;
@@ -1546,10 +1551,11 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 	int min_dist = INT_MAX;
 	const struct imx_resolution *tmp_res = NULL;
 	struct imx_device *dev = to_imx_sensor(sd);
-
+	bool again = 1;
+retry:
 	for (i = 0; i < dev->entries_curr_table; i++) {
 		tmp_res = &dev->curr_res_table[i];
-		dist = distance(tmp_res, w, h);
+		dist = distance(tmp_res, w, h, again);
 		if (dist == -1)
 			continue;
 		if (dist < min_dist) {
@@ -1566,6 +1572,14 @@ static int nearest_resolution_index(struct v4l2_subdev *sd, int w, int h)
 		}
 	}
 
+	/*
+	 * FIXME!
+	 * only IMX135 for Saltbay use this algorithm
+	 */
+	if (idx == -1 && again == true && dev->new_res_sel_method) {
+		again = false;
+		goto retry;
+	}
 	return idx;
 }
 
@@ -1882,6 +1896,8 @@ static int imx_s_stream(struct v4l2_subdev *sd, int enable)
 			return ret;
 		}
 		dev->streaming = 1;
+		if (dev->vcm_driver && dev->vcm_driver->t_focus_abs_init)
+			dev->vcm_driver->t_focus_abs_init(sd);
 	} else {
 		ret = imx_write_reg_array(client, imx_soft_standby);
 		if (ret != 0) {
@@ -1995,6 +2011,8 @@ static int __update_imx_device_settings(struct imx_device *dev, u16 sensor_id)
 			dev->mode_tables = &imx_sets[IMX135_SALTBAY];
 			dev->vcm_driver = &imx_vcms[IMX135_SALTBAY];
 			dev->otp_driver = &imx_otps[IMX135_SALTBAY];
+			/* FIXME! */
+			dev->new_res_sel_method = true;
 		}
 		break;
 	case IMX134_ID:

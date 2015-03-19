@@ -148,6 +148,21 @@ int dw9714_t_focus_abs(struct v4l2_subdev *sd, s32 value)
 	return ret;
 }
 
+int dw9714_t_focus_abs_init(struct v4l2_subdev *sd)
+{
+	int ret;
+
+	ret = dw9714_t_focus_vcm(sd, DW9714_DEFAULT_FOCUS_POS);
+	if (ret == 0) {
+		dw9714_dev.number_of_steps =
+			DW9714_DEFAULT_FOCUS_POS - dw9714_dev.focus;
+		dw9714_dev.focus = DW9714_DEFAULT_FOCUS_POS;
+		getnstimeofday(&(dw9714_dev.timestamp_t_focus_abs));
+	}
+
+	return ret;
+}
+
 int dw9714_t_focus_rel(struct v4l2_subdev *sd, s32 value)
 {
 
