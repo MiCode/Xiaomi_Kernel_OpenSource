@@ -20,6 +20,7 @@
 #include "msm_vidc_resources.h"
 #include "msm_vidc_res_parse.h"
 #include "venus_boot.h"
+#include "soc/qcom/secure_buffer.h"
 
 enum clock_properties {
 	CLOCK_PROP_HAS_SCALING = 1 << 0,
@@ -691,12 +692,28 @@ err_load_freq_table:
 	return rc;
 }
 
+static int get_secure_vmid(struct context_bank_info *cb)
+{
+	if (!strcasecmp(cb->name, "venus_sec_bitstream"))
+		return VMID_CP_BITSTREAM;
+	else if (!strcasecmp(cb->name, "venus_sec_pixel"))
+		return VMID_CP_PIXEL;
+	else if (!strcasecmp(cb->name, "venus_sec_non_pixel"))
+		return VMID_CP_NON_PIXEL;
+	else {
+		WARN(1, "No matching secure vmid for cb name: %s\n",
+			cb->name);
+		return VMID_INVAL;
+	}
+}
+
 static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 		struct device *dev)
 {
 	int rc = 0;
 	int order = 0;
 	bool disable_htw = true;
+	int secure_vmid = VMID_INVAL;
 
 	if (!dev || !cb) {
 		dprintk(VIDC_ERR,
@@ -714,19 +731,31 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 		goto remove_cb;
 	}
 
-	rc = arm_iommu_attach_device(cb->dev, cb->mapping);
-	if (rc) {
-		dprintk(VIDC_ERR, "%s - Couldn't arm_iommu_attach_device\n",
-			__func__);
-		goto release_mapping;
-	}
-
 	rc = iommu_domain_set_attr(cb->mapping->domain,
 			DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
 	if (rc) {
 		dprintk(VIDC_ERR, "%s - disable coherent HTW failed: %s %d\n",
 				__func__, dev_name(dev), rc);
-		goto detach_device;
+		goto release_mapping;
+	}
+
+	if (cb->is_secure) {
+		secure_vmid = get_secure_vmid(cb);
+		rc = iommu_domain_set_attr(cb->mapping->domain,
+				DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"%s - programming secure vmid failed: %s %d\n",
+					__func__, dev_name(dev), rc);
+			goto release_mapping;
+		}
+	}
+
+	rc = arm_iommu_attach_device(cb->dev, cb->mapping);
+	if (rc) {
+		dprintk(VIDC_ERR, "%s - Couldn't arm_iommu_attach_device\n",
+			__func__);
+		goto release_mapping;
 	}
 
 	dprintk(VIDC_DBG, "Attached %s and created mapping\n", dev_name(dev));
@@ -737,8 +766,6 @@ static int msm_vidc_setup_context_bank(struct context_bank_info *cb,
 
 	return rc;
 
-detach_device:
-	arm_iommu_detach_device(cb->dev);
 release_mapping:
 	arm_iommu_release_mapping(cb->mapping);
 remove_cb:
