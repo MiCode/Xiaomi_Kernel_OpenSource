@@ -590,9 +590,9 @@ binary_grid_deci_factor_log2(int width, int height)
 /* 3A/Shading decimation factor spcification (at August 2008)
  * ------------------------------------------------------------------
  * [Image Width (BQ)] [Decimation Factor (BQ)] [Resulting grid cells]
- * 1280 …             32                       40 …
- *  640 … 1279        16                       40 … 80
- *      …  639         8                          … 80
+ * 1280 ?c             32                       40 ?c
+ *  640 ?c 1279        16                       40 ?c 80
+ *      ?c  639         8                          ?c 80
  * ------------------------------------------------------------------
  */
 /* Maximum and minimum decimation factor by the specification */

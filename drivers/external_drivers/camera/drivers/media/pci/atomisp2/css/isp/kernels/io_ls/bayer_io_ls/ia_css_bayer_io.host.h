@@ -12,18 +12,18 @@
  * more details.
  */
 
-//
-// This file contains the version data for the CSS
-//
-// === Do not change - automatically generated ===
-//
+#ifndef __BAYER_IO_HOST_H
+#define __BAYER_IO_HOST_H
 
-#ifndef __IA_CSS_VERSION_DATA_H
-#define __IA_CSS_VERSION_DATA_H
-
-
-#define CSS_VERSION_STRING "REL:20150318_12.3_1808; API:2.1.15.3; GIT:scci_20150317_1900_#d3c2be9873be3d0c69ebe6837d458890ca2fec87; SDK:/nfs/iir/disks/iir_hivepackages_003/iir_hivepkgs_disk017/Css_Mizuchi/packages/Css_Mizuchi/int_css_mizuchi_20140829_1053; USER:viedifw; "
+#include "ia_css_bayer_io_param.h"
+#include "ia_css_bayer_io_types.h"
+#include "ia_css_binary.h"
+#include "sh_css_internal.h"
 
 
-#endif
+void
+ia_css_bayer_io_config(
+	const struct ia_css_binary     *binary,
+	const struct sh_css_binary_args *args);
 
+#endif /*__BAYER_IO_HOST_H */

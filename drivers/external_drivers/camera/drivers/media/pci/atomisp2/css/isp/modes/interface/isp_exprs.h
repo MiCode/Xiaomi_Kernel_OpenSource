@@ -65,7 +65,7 @@
 						 (fmt) == IA_CSS_FRAME_FORMAT_NV12    || (fmt) == IA_CSS_FRAME_FORMAT_NV21 || \
 						 (fmt) == IA_CSS_FRAME_FORMAT_NV16    || (fmt) == IA_CSS_FRAME_FORMAT_NV61 || \
 						 (fmt) == IA_CSS_FRAME_FORMAT_UYVY    || (fmt) == IA_CSS_FRAME_FORMAT_YUYV || \
-						 (fmt) == IA_CSS_FRAME_FORMAT_NV12_TILEY)
+						 (fmt) == IA_CSS_FRAME_FORMAT_NV12_16 || (fmt) == IA_CSS_FRAME_FORMAT_NV12_TILEY)
 
 #define IMAGEFORMAT_YUV_INTERLEAVED(fmt)	((fmt) == IA_CSS_FRAME_FORMAT_UYVY    || (fmt) == IA_CSS_FRAME_FORMAT_YUYV)
 
@@ -73,7 +73,7 @@
 
 #define IMAGEFORMAT_SUB_SAMPL_420(fmt)		((fmt) == IA_CSS_FRAME_FORMAT_YUV420 || (fmt) == IA_CSS_FRAME_FORMAT_YV12 || \
 						 (fmt) == IA_CSS_FRAME_FORMAT_NV12   || (fmt) == IA_CSS_FRAME_FORMAT_NV21 || \
-						 (fmt) == IA_CSS_FRAME_FORMAT_NV12TILEY)
+						 (fmt) == IA_CSS_FRAME_FORMAT_NV12_16 || (fmt) == IA_CSS_FRAME_FORMAT_NV12TILEY)
 
 #define IMAGEFORMAT_SUB_SAMPL_422(fmt)		((fmt) == IA_CSS_FRAME_FORMAT_YUV422 || (fmt) == IA_CSS_FRAME_FORMAT_YV16 || \
 						 (fmt) == IA_CSS_FRAME_FORMAT_NV16   || (fmt) == IA_CSS_FRAME_FORMAT_NV61)
@@ -86,7 +86,7 @@
 
 #define IMAGEFORMAT_IS_NV11(fmt)		((fmt) == IA_CSS_FRAME_FORMAT_NV11)
 
-#define IMAGEFORMAT_IS_16BIT(fmt)               ((fmt) == IA_CSS_FRAME_FORMAT_YUV420_16 || (fmt) == IA_CSS_FRAME_FORMAT_YUV422_16)
+#define IMAGEFORMAT_IS_16BIT(fmt)               ((fmt) == IA_CSS_FRAME_FORMAT_YUV420_16 || (fmt) == IA_CSS_FRAME_FORMAT_NV12_16 || (fmt) == IA_CSS_FRAME_FORMAT_YUV422_16)
 
 #endif
 

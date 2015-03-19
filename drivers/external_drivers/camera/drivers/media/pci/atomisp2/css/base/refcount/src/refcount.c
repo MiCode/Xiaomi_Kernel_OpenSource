@@ -260,3 +260,16 @@ void ia_css_refcount_clear(int32_t id, clear_func clear_func_ptr)
 			    "ia_css_refcount_clear(%x): cleared %d\n", id,
 			    count);
 }
+
+bool ia_css_refcount_is_valid(hrt_vaddress ptr)
+{
+	struct ia_css_refcount_entry *entry;
+
+	if (ptr == mmgr_NULL)
+		return false;
+
+	entry = refcount_find_entry(ptr, false);
+
+	return entry != NULL;
+}
+

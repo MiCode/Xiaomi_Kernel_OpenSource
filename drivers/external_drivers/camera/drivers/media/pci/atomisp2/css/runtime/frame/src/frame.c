@@ -53,8 +53,9 @@ static void frame_init_mipi_plane(struct ia_css_frame *frame,
 	unsigned int bytes_per_pixel);
 
 static void frame_init_nv_planes(struct ia_css_frame *frame,
-	unsigned int horizontal_decimation,
-	unsigned int vertical_decimation);
+				 unsigned int horizontal_decimation,
+				 unsigned int vertical_decimation,
+				 unsigned int bytes_per_element);
 
 static void frame_init_yuv_planes(struct ia_css_frame *frame,
 	unsigned int horizontal_decimation,
@@ -368,7 +369,7 @@ enum ia_css_err ia_css_frame_init_planes(struct ia_css_frame *frame)
 			frame->info.padded_width, 1);
 		break;
 	case IA_CSS_FRAME_FORMAT_NV11:
-		frame_init_nv_planes(frame, 4, 1);
+	  frame_init_nv_planes(frame, 4, 1, 1);
 		break;
 		/* nv12 and nv21 have the same frame layout, only the data
 		 * positioning differs.
@@ -376,14 +377,17 @@ enum ia_css_err ia_css_frame_init_planes(struct ia_css_frame *frame)
 	case IA_CSS_FRAME_FORMAT_NV12:
 	case IA_CSS_FRAME_FORMAT_NV21:
 	case IA_CSS_FRAME_FORMAT_NV12_TILEY:
-		frame_init_nv_planes(frame, 2, 2);
+		frame_init_nv_planes(frame, 2, 2, 1);
+		break;
+	case IA_CSS_FRAME_FORMAT_NV12_16:
+		frame_init_nv_planes(frame, 2, 2, 2);
 		break;
 		/* nv16 and nv61 have the same frame layout, only the data
 		 * positioning differs.
 		 */
 	case IA_CSS_FRAME_FORMAT_NV16:
 	case IA_CSS_FRAME_FORMAT_NV61:
-		frame_init_nv_planes(frame, 2, 1);
+		frame_init_nv_planes(frame, 2, 1, 1);
 		break;
 	case IA_CSS_FRAME_FORMAT_YUV420:
 		frame_init_yuv_planes(frame, 2, 2, false, 1);
@@ -654,13 +658,23 @@ static void frame_init_mipi_plane(struct ia_css_frame *frame,
 }
 
 static void frame_init_nv_planes(struct ia_css_frame *frame,
-	unsigned int horizontal_decimation,
-	unsigned int vertical_decimation)
+				 unsigned int horizontal_decimation,
+				 unsigned int vertical_decimation,
+				 unsigned int bytes_per_element)
 {
-	unsigned int y_width = frame->info.padded_width,
-	    y_height = frame->info.res.height,
-	    uv_width = 2 * (y_width / horizontal_decimation),
-	    uv_height = y_height / vertical_decimation, y_bytes, uv_bytes;
+	unsigned int y_width = frame->info.padded_width;
+	unsigned int y_height = frame->info.res.height;
+	unsigned int uv_width;
+	unsigned int uv_height;
+	unsigned int y_bytes;
+	unsigned int uv_bytes;
+	unsigned int y_stride;
+	unsigned int uv_stride;
+
+	assert(horizontal_decimation != 0 && vertical_decimation != 0);
+
+	uv_width = 2 * (y_width / horizontal_decimation);
+	uv_height = y_height / vertical_decimation;
 
 	if (IA_CSS_FRAME_FORMAT_NV12_TILEY == frame->info.format) {
 		y_width   = CEIL_MUL(y_width,   NV12_TILEY_TILE_WIDTH);
@@ -669,13 +683,15 @@ static void frame_init_nv_planes(struct ia_css_frame *frame,
 		uv_height = CEIL_MUL(uv_height, NV12_TILEY_TILE_HEIGHT);
 	}
 
-	y_bytes = y_width * y_height;
-	uv_bytes = uv_width * uv_height;
+	y_stride = y_width * bytes_per_element;
+	uv_stride = uv_width * bytes_per_element;
+	y_bytes = y_stride * y_height;
+	uv_bytes = uv_stride * uv_height;
 
 	frame->data_bytes = y_bytes + uv_bytes;
-	frame_init_plane(&frame->planes.nv.y, y_width, y_width, y_height, 0);
+	frame_init_plane(&frame->planes.nv.y, y_width, y_stride, y_height, 0);
 	frame_init_plane(&frame->planes.nv.uv, uv_width,
-			 uv_width, uv_height, y_bytes);
+			 uv_stride, uv_height, y_bytes);
 	return;
 }
 
@@ -839,6 +855,13 @@ ia_css_elems_bytes_from_info(const struct ia_css_frame_info *info)
 		return 2; /* bytes per pixel */
 	if (info->format == IA_CSS_FRAME_FORMAT_YUV422_16)
 		return 2; /* bytes per pixel */
+	/* Note: Essentially NV12_16 is a 2 bytes per pixel format, this return value is used
+	 * to configure DMA for the output buffer,
+	 * At least in SKC this data is overwriten by isp_output_init.sp.c except for elements(elems),
+	 * which is configured from this return value,
+	 * NV12_16 is implemented by a double buffer of 8 bit elements hence elems should be configured as 8 */
+	if (info->format == IA_CSS_FRAME_FORMAT_NV12_16)
+		return 1; /* bytes per pixel */
 
 	if (info->format == IA_CSS_FRAME_FORMAT_RAW
 		|| (info->format == IA_CSS_FRAME_FORMAT_RAW_PACKED)) {

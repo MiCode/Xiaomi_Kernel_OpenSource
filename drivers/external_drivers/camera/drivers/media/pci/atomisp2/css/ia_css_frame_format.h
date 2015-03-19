@@ -50,6 +50,7 @@
 enum ia_css_frame_format {
 	IA_CSS_FRAME_FORMAT_NV11 = 0,   /**< 12 bit YUV 411, Y, UV plane */
 	IA_CSS_FRAME_FORMAT_NV12,       /**< 12 bit YUV 420, Y, UV plane */
+	IA_CSS_FRAME_FORMAT_NV12_16,    /**< 16 bit YUV 420, Y, UV plane */
 	IA_CSS_FRAME_FORMAT_NV12_TILEY, /**< 12 bit YUV 420, Intel proprietary tiled format, TileY */
 	IA_CSS_FRAME_FORMAT_NV16,       /**< 16 bit YUV 422, Y, UV plane */
 	IA_CSS_FRAME_FORMAT_NV21,       /**< 12 bit YUV 420, Y, VU plane */

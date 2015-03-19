@@ -110,6 +110,8 @@ struct ia_css_memory_offsets {
 		struct ia_css_isp_parameter ctc;
 		struct ia_css_isp_parameter xnr;
 		struct ia_css_isp_parameter xnr3;
+		struct ia_css_isp_parameter get;
+		struct ia_css_isp_parameter put;
 	} dmem;
 	struct {
 		struct ia_css_isp_parameter anr2;

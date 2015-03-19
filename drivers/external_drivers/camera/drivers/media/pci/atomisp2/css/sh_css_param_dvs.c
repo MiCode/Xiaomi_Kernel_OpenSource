@@ -23,9 +23,6 @@
 #if defined(IS_ISP_2500_SYSTEM)
 #include <components/acc_cluster/acc_dvs_stat/dvs_stat_private.h>
 #include <components/acc_cluster/acc_dvs_stat/host/dvs_stat.host.h>
-
-void dump_mv(struct dvs_stat_mv_entry_public *p_host_entry, int num);
-#define DVS_STAT_MV_DEBUG 0
 #endif
 
 static struct ia_css_dvs_6axis_config *
@@ -256,41 +253,24 @@ void copy_dvs_6axis_table(struct ia_css_dvs_6axis_config *dvs_config_dst,
 }
 
 #if defined(IS_ISP_2500_SYSTEM)
-void dump_mv(struct dvs_stat_mv_entry_public *p_host_entry, int num)
-{
-	int i;
-	static int flag = 0;
-	if (flag == 0) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "level xPos  yPos  HarrisGrade  xMatch   yMatch   MatchGrade\n");
-		flag = 1;
-	}
-	for (i = 0; i < num; i++) {
-		ia_css_debug_dtrace(IA_CSS_DEBUG_TRACE, "%-1d     %-5d %-5d %-10d   %-5d    %-5d     %-10d\n",
-			p_host_entry[i].level, p_host_entry[i].vec_fe_x_pos, p_host_entry[i].vec_fe_y_pos,
-			p_host_entry[i].harris_grade, p_host_entry[i].vec_fm_x_pos, p_host_entry[i].vec_fm_y_pos,
-			p_host_entry[i].match_grade);
-	}
-}
-
 enum ia_css_err ia_css_get_skc_dvs_statistics(struct ia_css_skc_dvs_statistics *host_stats,
 				   const struct ia_css_isp_skc_dvs_statistics *isp_stats)
 {
 	struct dvs_stat_private_dvs_stat_cfg	dvs_stat_cfg;
 	struct dvs_stat_stripe_data		stripe_data;
 	struct dvs_stat_private_motion_vec *dvs_stat_mv_p = NULL;
-	unsigned char	set_idx, idx, i;
-	hrt_vaddress	dvs_stat_ddr_addr;
-	hrt_vaddress	dvs_stat_cfg_ddr_addr;
-	hrt_vaddress	dvs_stat_stripe_data_ddr_addr;
+	unsigned char				set_idx, entry_idx, idx, i;
+	hrt_vaddress				dvs_stat_ddr_addr;
+	hrt_vaddress				dvs_stat_cfg_ddr_addr;
+	hrt_vaddress				dvs_stat_stripe_data_ddr_addr;
 	struct dvs_stat_private_raw_buffer *raw_buffer_p =
 				(dvs_stat_private_raw_buffer_t *)isp_stats;
 	struct dvs_stat_mv_entry_public	*p_host_entry;
 	struct dvs_stat_mv_private		*p_isp_entry;
-	unsigned short	stripe_x_update;
-	unsigned int	stripe_num;
-	unsigned int	stripe_idx;
-	unsigned int	width_idx;
-	unsigned int	grid_width;
+	unsigned char				stripe_align_skip_idx;
+	unsigned char				stripe_grd_width_align;
+	unsigned short				stripe_x_update;
+	unsigned short				idx_update;
 
 	IA_CSS_ENTER_PRIVATE("host_stats=%p, isp_stats=%p", host_stats, isp_stats);
 
@@ -322,65 +302,68 @@ enum ia_css_err ia_css_get_skc_dvs_statistics(struct ia_css_skc_dvs_statistics *
 
 	/* Translate between private and public configuration */
 	ia_css_dvs_stat_private_to_public_cfg(&host_stats->dvs_stat_cfg, &dvs_stat_cfg);
-	stripe_num = stripe_data.stripe_nums;
-#if DVS_STAT_MV_DEBUG
-	ia_css_dvs_stat_public_cfg_dump((const struct ia_css_2500_dvs_statistics_kernel_config *)&host_stats->dvs_stat_cfg);
-#endif
 
 	/* Translate between private and public motion vectors */
 	for (i = 0; i < IA_CSS_SKC_DVS_STAT_NUM_OF_LEVELS; i++) {
-		idx = 0;
 
-		if (i == 0) {
-			p_host_entry = host_stats->dvs_stat_mv_l0;
-		} else if (i == 1) {
-			p_host_entry = host_stats->dvs_stat_mv_l1;
-		} else {
-			p_host_entry = host_stats->dvs_stat_mv_l2;
-		}
-
-		for (set_idx = 0;
-			 set_idx < host_stats->dvs_stat_cfg.grd_cfg[i].grd_cfg.grid_height;
-			 set_idx++)
+		/* Stripping check - is debubbling needed */
+		stripe_grd_width_align =
+			host_stats->dvs_stat_cfg.grd_cfg[i].grd_cfg.grid_width;
+		stripe_align_skip_idx = stripe_grd_width_align;
+		if (host_stats->dvs_stat_cfg.grd_cfg[i].grd_cfg.grid_width !=
+			stripe_data.grid_width[0][i])
 		{
-			for (stripe_idx = 0; stripe_idx < stripe_num; stripe_idx++) {
-				grid_width = stripe_num == 1 ?
-					host_stats->dvs_stat_cfg.grd_cfg[i].grd_cfg.grid_width :
-					stripe_data.grid_width[stripe_idx][i];
-				stripe_x_update = stripe_idx == 1 ? stripe_data.stripe_offset : 0;
-
-				for (width_idx = 0; width_idx < grid_width; width_idx++) {
-
-					if (i == 0) {
-						p_isp_entry = &dvs_stat_mv_p->dvs_mv_output_l0[stripe_idx][set_idx].mv_entry[width_idx];
-					} else if (i == 1) {
-						p_isp_entry = &dvs_stat_mv_p->dvs_mv_output_l1[stripe_idx][set_idx].mv_entry[width_idx];
-					} else {
-						p_isp_entry = &dvs_stat_mv_p->dvs_mv_output_l2[stripe_idx][set_idx].mv_entry[width_idx];
-					}
-
-
-					p_host_entry[idx].vec_fe_x_pos =
-						p_isp_entry->part0.vec_fe_x_pos + stripe_x_update;
-					p_host_entry[idx].vec_fe_y_pos =
-						p_isp_entry->part0.vec_fe_y_pos;
-					p_host_entry[idx].vec_fm_x_pos =
-						p_isp_entry->part1.vec_fm_x_pos + stripe_x_update;
-					p_host_entry[idx].vec_fm_y_pos =
-						p_isp_entry->part1.vec_fm_y_pos;
-					p_host_entry[idx].harris_grade =
-						p_isp_entry->part2.harris_grade;
-					p_host_entry[idx].match_grade =
-						p_isp_entry->part3.match_grade;
-					p_host_entry[idx].level =
-						p_isp_entry->part3.level;
-					idx++;
-				}
+			if (stripe_data.grid_width[0][i] % 2)
+			{
+				stripe_grd_width_align++;
+				stripe_align_skip_idx = stripe_data.grid_width[0][i];
 			}
 		}
-#if DVS_STAT_MV_DEBUG
-		dump_mv(p_host_entry, idx - 1);
-#endif
+		for (set_idx = 0;
+		     set_idx < host_stats->dvs_stat_cfg.grd_cfg[i].grd_cfg.grid_height;
+		     set_idx++)
+		{
+			if (i == 0) {
+				p_host_entry = host_stats->dvs_stat_mv_l0;
+				p_isp_entry = &dvs_stat_mv_p->dvs_mv_output_l0[set_idx].mv_entry[0];
+			} else if (i == 1) {
+				p_host_entry = host_stats->dvs_stat_mv_l1;
+				p_isp_entry = &dvs_stat_mv_p->dvs_mv_output_l1[set_idx].mv_entry[0];
+			} else {
+				p_host_entry = host_stats->dvs_stat_mv_l2;
+				p_isp_entry = &dvs_stat_mv_p->dvs_mv_output_l2[set_idx].mv_entry[0];
+			}
+			stripe_x_update = 0;
+			idx_update = 0;
+			for (entry_idx = 0; entry_idx < stripe_grd_width_align; entry_idx++)
+			{
+				if (entry_idx == stripe_align_skip_idx)
+				{
+					idx_update = 1;
+					p_isp_entry++;
+					continue;
+				}
+				if (entry_idx >= stripe_data.grid_width[0][i])
+					stripe_x_update = stripe_data.stripe_offset;
+				idx = set_idx * host_stats->dvs_stat_cfg.grd_cfg[i].grd_cfg.grid_width +
+					entry_idx - idx_update;
+				p_host_entry[idx].vec_fe_x_pos =
+					p_isp_entry->part0.vec_fe_x_pos + stripe_x_update;
+				p_host_entry[idx].vec_fe_y_pos =
+					p_isp_entry->part0.vec_fe_y_pos;
+				p_host_entry[idx].vec_fm_x_pos =
+					p_isp_entry->part1.vec_fm_x_pos + stripe_x_update;
+				p_host_entry[idx].vec_fm_y_pos =
+					p_isp_entry->part1.vec_fm_y_pos;
+				p_host_entry[idx].harris_grade =
+					p_isp_entry->part2.harris_grade;
+				p_host_entry[idx].match_grade =
+					p_isp_entry->part3.match_grade;
+				p_host_entry[idx].level =
+					p_isp_entry->part3.level;
+				p_isp_entry++;
+			}
+		}
 	}
 
 	sh_css_free(dvs_stat_mv_p);

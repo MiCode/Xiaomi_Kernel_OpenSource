@@ -346,6 +346,8 @@ static const char *debug_frame_format2str(const enum ia_css_frame_format frame_f
 		return "NV11";
 	case IA_CSS_FRAME_FORMAT_NV12:
 		return "NV12";
+	case IA_CSS_FRAME_FORMAT_NV12_16:
+		return "NV12_16";
 	case IA_CSS_FRAME_FORMAT_NV12_TILEY:
 		return "NV12_TILEY";
 	case IA_CSS_FRAME_FORMAT_NV16:

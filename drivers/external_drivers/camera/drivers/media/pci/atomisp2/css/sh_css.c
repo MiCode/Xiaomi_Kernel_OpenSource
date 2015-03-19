@@ -2977,7 +2977,9 @@ load_preview_binaries(struct ia_css_pipe *pipe)
 	 * */
 	need_vf_pp = pipe->config.enable_dz;
 	need_vf_pp |= pipe_out_info->format != IA_CSS_FRAME_FORMAT_YUV_LINE &&
-		      !(pipe_out_info->format == IA_CSS_FRAME_FORMAT_NV12 || pipe_out_info->format == IA_CSS_FRAME_FORMAT_NV12_TILEY);
+		      !(pipe_out_info->format == IA_CSS_FRAME_FORMAT_NV12 ||
+			pipe_out_info->format == IA_CSS_FRAME_FORMAT_NV12_16 ||
+			pipe_out_info->format == IA_CSS_FRAME_FORMAT_NV12_TILEY);
 
 	/* Preview step 1 */
 	if (pipe->vf_yuv_ds_input_info.res.width)

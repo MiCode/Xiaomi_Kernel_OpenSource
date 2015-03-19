@@ -61,6 +61,10 @@
 #include "ia_css_isp_configs.h"
 #define IA_CSS_INCLUDE_STATES
 #include "ia_css_isp_states.h"
+#if !defined(IS_ISP_2500_SYSTEM)
+/* This kernel is not used by SKC yet. */
+#include "isp/kernels/io_ls/bayer_io_ls/ia_css_bayer_io.host.h"
+#endif
 
 struct sh_css_sp_group		sh_css_sp_group;
 struct sh_css_sp_stage		sh_css_sp_stage;
@@ -481,6 +485,7 @@ sh_css_copy_frame_to_spframe(struct ia_css_frame_sp *sp_frame_out,
 		break;
 	case IA_CSS_FRAME_FORMAT_NV11:
 	case IA_CSS_FRAME_FORMAT_NV12:
+	case IA_CSS_FRAME_FORMAT_NV12_16:
 	case IA_CSS_FRAME_FORMAT_NV12_TILEY:
 	case IA_CSS_FRAME_FORMAT_NV21:
 	case IA_CSS_FRAME_FORMAT_NV16:
@@ -547,6 +552,7 @@ set_input_frame_buffer(const struct ia_css_frame *frame)
 	case IA_CSS_FRAME_FORMAT_YUYV:
 	case IA_CSS_FRAME_FORMAT_YUV_LINE:
 	case IA_CSS_FRAME_FORMAT_NV12:
+	case IA_CSS_FRAME_FORMAT_NV12_16:
 	case IA_CSS_FRAME_FORMAT_NV12_TILEY:
 	case IA_CSS_FRAME_FORMAT_NV21:
 	case IA_CSS_FRAME_FORMAT_CSI_MIPI_YUV420_8:
@@ -578,6 +584,7 @@ set_output_frame_buffer(const struct ia_css_frame *frame,
 	case IA_CSS_FRAME_FORMAT_YUV422_16:
 	case IA_CSS_FRAME_FORMAT_NV11:
 	case IA_CSS_FRAME_FORMAT_NV12:
+	case IA_CSS_FRAME_FORMAT_NV12_16:
 	case IA_CSS_FRAME_FORMAT_NV12_TILEY:
 	case IA_CSS_FRAME_FORMAT_NV16:
 	case IA_CSS_FRAME_FORMAT_NV21:
@@ -611,6 +618,7 @@ set_view_finder_buffer(const struct ia_css_frame *frame)
 	switch (frame->info.format) {
 	/* the dual output pin */
 	case IA_CSS_FRAME_FORMAT_NV12:
+	case IA_CSS_FRAME_FORMAT_NV12_16:
 	case IA_CSS_FRAME_FORMAT_NV21:
 	case IA_CSS_FRAME_FORMAT_YUYV:
 	case IA_CSS_FRAME_FORMAT_UYVY:
@@ -834,6 +842,9 @@ configure_isp_from_args(
 	ia_css_raw_configure(pipe, binary, &args->in_frame->info, &binary->in_frame_info, two_ppc, deinterleaved);
 	ia_css_ref_configure(binary, (const struct ia_css_frame **)args->delay_frames, pipe->dvs_frame_delay);
 	ia_css_tnr_configure(binary, (const struct ia_css_frame **)args->tnr_frames);
+#if !defined(IS_ISP_2500_SYSTEM)
+	ia_css_bayer_io_config(binary, args);
+#endif
 }
 
 static void

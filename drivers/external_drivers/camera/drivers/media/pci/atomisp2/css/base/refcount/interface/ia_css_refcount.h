@@ -71,4 +71,13 @@ extern bool ia_css_refcount_is_single(hrt_vaddress ptr);
 extern void ia_css_refcount_clear(int32_t id,
 				  clear_func clear_func_ptr);
 
+/*! \brief Function to verify if object is valid
+ *
+ * \param[in] ptr       Data of the object (ptr)
+ *
+ *      - true, if valid
+ *      - false, if invalid
+ */
+extern bool ia_css_refcount_is_valid(hrt_vaddress ptr);
+
 #endif /* _IA_CSS_REFCOUNT_H_ */

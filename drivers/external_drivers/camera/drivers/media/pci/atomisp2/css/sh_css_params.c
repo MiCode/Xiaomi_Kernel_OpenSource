@@ -4878,6 +4878,14 @@ free_ia_css_isp_parameter_set_info(
 
 	IA_CSS_ENTER_PRIVATE("void");
 
+	/* sanity check - ptr must be valid */
+	if (!ia_css_refcount_is_valid(ptr)) {
+		IA_CSS_ERROR("%s: IA_CSS_REFCOUNT_PARAM_SET_POOL(0x%x) invalid arg", __func__, ptr);
+		err = IA_CSS_ERR_INVALID_ARGUMENTS;
+		IA_CSS_LEAVE_ERR_PRIVATE(err);
+		return err;
+	}
+
 	mmgr_load(ptr, &isp_params_info.mem_map, sizeof(struct sh_css_ddr_address_map));
 	/* copy map using size info */
 	for (i = 0; i < (sizeof(struct sh_css_ddr_address_map_size)/
