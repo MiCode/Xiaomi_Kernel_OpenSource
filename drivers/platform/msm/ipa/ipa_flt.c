@@ -273,7 +273,7 @@ static int ipa_get_flt_hw_tbl_size(enum ipa_ip_type ip, u32 *hdr_sz)
 		}
 	}
 
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		rule_set_sz = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
@@ -417,7 +417,7 @@ static int ipa_generate_flt_hw_tbl_common(enum ipa_ip_type ip, u8 *base,
 		}
 	}
 
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		if (!list_empty(&tbl->head_flt_rule_list)) {
 			/* pipe "i" is at bit "i+1" */
@@ -600,7 +600,7 @@ static void __ipa_reap_sys_flt_tbls(enum ipa_ip_type ip)
 		}
 	}
 
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		if (tbl->prev_mem.phys_base) {
 			IPADBG("reaping flt tbl (prev) pipe=%d ip=%d\n", i, ip);
@@ -906,7 +906,7 @@ int __ipa_commit_flt_v2(enum ipa_ip_type ip)
 		desc[num_desc++].type = IPA_IMM_CMD_DESC;
 	}
 
-	for (i = 11; i < IPA_NUM_PIPES; i++) {
+	for (i = 11; i < ipa_ctx->ipa_num_pipes; i++) {
 		if (ipa_ctx->skip_ep_cfg_shadow[i]) {
 			IPADBG("skip %d\n", i);
 			continue;
@@ -1407,7 +1407,7 @@ int ipa_reset_flt(enum ipa_ip_type ip)
 		ipa_id_remove(id);
 	}
 
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		tbl = &ipa_ctx->flt_tbl[i][ip];
 		list_for_each_entry_safe(entry, next, &tbl->head_flt_rule_list,
 				link) {

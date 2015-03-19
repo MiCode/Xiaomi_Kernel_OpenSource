@@ -114,7 +114,7 @@ static void ipa_wq_write_done_status(int src_pipe)
 	struct ipa_sys_context *sys;
 	u32 cnt;
 
-	WARN_ON(src_pipe >= IPA_NUM_PIPES);
+	WARN_ON(src_pipe >= ipa_ctx->ipa_num_pipes);
 
 	if (!ipa_ctx->ep[src_pipe].status.status_en)
 		return;
@@ -1152,7 +1152,8 @@ int ipa_teardown_sys_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	int empty;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -1890,8 +1891,8 @@ begin:
 		}
 		IPA_STATS_EXCP_CNT(status->exception,
 				ipa_ctx->stats.rx_excp_pkts);
-		if (status->endp_dest_idx >= IPA_NUM_PIPES ||
-			status->endp_src_idx >= IPA_NUM_PIPES ||
+		if (status->endp_dest_idx >= ipa_ctx->ipa_num_pipes ||
+			status->endp_src_idx >= ipa_ctx->ipa_num_pipes ||
 			status->pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
 			IPAERR("status fields invalid\n");
 			WARN_ON(1);
@@ -2125,8 +2126,8 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 			continue;
 		}
 		IPA_STATS_INC_CNT(ipa_ctx->stats.rx_pkts);
-		if (status->endp_dest_idx >= IPA_NUM_PIPES ||
-			status->endp_src_idx >= IPA_NUM_PIPES ||
+		if (status->endp_dest_idx >= ipa_ctx->ipa_num_pipes ||
+			status->endp_src_idx >= ipa_ctx->ipa_num_pipes ||
 			status->pkt_len > IPA_GENERIC_AGGR_BYTE_LIMIT * 1024) {
 			IPAERR("status fields invalid\n");
 			WARN_ON(1);
@@ -2246,7 +2247,7 @@ static int ipa_rx_pyld_hdlr(struct sk_buff *rx_skb, struct ipa_sys_context *sys)
 		src_pipe = WLAN_PROD_TX_EP;
 
 	ep = &ipa_ctx->ep[src_pipe];
-	if (unlikely(src_pipe >= IPA_NUM_PIPES ||
+	if (unlikely(src_pipe >= ipa_ctx->ipa_num_pipes ||
 		!ep->valid || !ep->client_notify)) {
 		IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
 		  src_pipe, ep->valid, ep->client_notify);
@@ -2294,7 +2295,7 @@ void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 	src_pipe = status->endp_src_idx;
 	metadata = status->metadata;
 	ep = &ipa_ctx->ep[src_pipe];
-	if (unlikely(src_pipe >= IPA_NUM_PIPES ||
+	if (unlikely(src_pipe >= ipa_ctx->ipa_num_pipes ||
 		!ep->valid ||
 		!ep->client_notify)) {
 		IPAERR("drop pipe=%d ep_valid=%d client_notify=%p\n",
@@ -2502,8 +2503,7 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 			WARN_ON(1);
 			return -EINVAL;
 		}
-	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		sys->ep->status.status_en = true;
 		if (IPA_CLIENT_IS_PROD(in->client)) {
 			if (!sys->ep->skip_ep_cfg) {
@@ -2949,7 +2949,8 @@ int ipa_sys_teardown(u32 clnt_hdl)
 {
 	struct ipa_ep_context *ep;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm(Either endpoint or client hdl invalid)\n");
 		return -EINVAL;
 	}

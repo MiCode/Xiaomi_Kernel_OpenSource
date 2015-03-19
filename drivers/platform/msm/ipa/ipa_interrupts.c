@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,7 @@ static bool is_valid_ep(u32 ep_suspend_data)
 	u32 bmsk = 1;
 	u32 i = 0;
 
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		if ((ep_suspend_data & bmsk) && (ipa_ctx->ep[i].valid))
 			return true;
 		bmsk = bmsk << 1;

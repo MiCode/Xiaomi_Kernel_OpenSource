@@ -218,7 +218,7 @@ static ssize_t ipa_write_ep_reg(struct file *file, const char __user *buf,
 	if (kstrtos8(dbg_buff, 0, &option))
 		return -EFAULT;
 
-	if (option >= IPA_NUM_PIPES) {
+	if (option >= ipa_ctx->ipa_num_pipes) {
 		IPAERR("bad pipe specified %u\n", option);
 		return count;
 	}
@@ -311,7 +311,7 @@ static ssize_t ipa_read_ep_reg(struct file *file, char __user *ubuf,
 	/* negative ep_reg_idx means all registers */
 	if (ep_reg_idx < 0) {
 		start_idx = 0;
-		end_idx = IPA_NUM_PIPES;
+		end_idx = ipa_ctx->ipa_num_pipes;
 	} else {
 		start_idx = ep_reg_idx;
 		end_idx = start_idx + 1;
@@ -800,7 +800,7 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 		i++;
 	}
 
-	for (j = 0; j < IPA_NUM_PIPES; j++) {
+	for (j = 0; j < ipa_ctx->ipa_num_pipes; j++) {
 		tbl = &ipa_ctx->flt_tbl[j][ip];
 		i = 0;
 		list_for_each_entry(entry, &tbl->head_flt_rule_list, link) {
@@ -845,11 +845,10 @@ static ssize_t ipa_read_stats(struct file *file, char __user *ubuf,
 	int cnt = 0;
 	uint connect = 0;
 
-	for (i = 0; i < IPA_NUM_PIPES; i++)
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++)
 		connect |= (ipa_ctx->ep[i].valid << i);
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+	if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		nbytes = scnprintf(dbg_buff, IPA_MAX_MSG_LEN,
 			"sw_tx=%u\n"
 			"hw_tx=%u\n"

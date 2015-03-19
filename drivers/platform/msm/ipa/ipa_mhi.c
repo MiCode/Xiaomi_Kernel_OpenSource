@@ -1343,7 +1343,7 @@ int ipa_mhi_disconnect_pipe(u32 clnt_hdl)
 
 	IPA_MHI_FUNC_ENTRY();
 
-	if (clnt_hdl >= IPA_NUM_PIPES) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes) {
 		IPAERR("invalid handle %d\n", clnt_hdl);
 		return -EINVAL;
 	}

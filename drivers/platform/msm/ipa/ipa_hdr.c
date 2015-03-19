@@ -464,6 +464,17 @@ end:
 	return rc;
 }
 
+/**
+ * __ipa_commit_hdr_v2_6L() - Commits a header to the IPA HW.
+ *
+ * This function needs to be called with a locked mutex.
+ */
+int __ipa_commit_hdr_v2_6L(void)
+{
+	/* Same implementation as IPAv2 */
+	return __ipa_commit_hdr_v2();
+}
+
 static int __ipa_add_hdr_proc_ctx(struct ipa_hdr_proc_ctx_add *proc_ctx,
 	bool add_ref_hdr)
 {
@@ -624,10 +635,11 @@ static int __ipa_add_hdr(struct ipa_hdr_add *hdr)
 
 	/*
 	 * if header does not fit to table, place it in DDR
-	 * This is valid for IPA 2.5 and above
+	 * This is valid for IPA 2.5 and on,
+	 * with the exception of IPA2.6L.
 	 */
 	if (htbl->end + ipa_hdr_bin_sz[bin] > mem_size) {
-		if (ipa_ctx->ipa_hw_type < IPA_HW_v2_5) {
+		if (ipa_ctx->ipa_hw_type != IPA_HW_v2_5) {
 			IPAERR("not enough room for header\n");
 			goto bad_hdr_len;
 		} else {
@@ -904,6 +916,13 @@ int ipa_add_hdr_proc_ctx(struct ipa_ioc_add_hdr_proc_ctx *proc_ctxs)
 	int i;
 	int result = -EFAULT;
 
+	if (ipa_ctx->ipa_hw_type <= IPA_HW_v2_0 ||
+	    ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) {
+		IPAERR("Processing context not supported on IPA HW %d\n",
+			ipa_ctx->ipa_hw_type);
+		return -EFAULT;
+	}
+
 	if (proc_ctxs == NULL || proc_ctxs->num_proc_ctxs == 0) {
 		IPAERR("bad parm\n");
 		return -EINVAL;
@@ -949,6 +968,13 @@ int ipa_del_hdr_proc_ctx(struct ipa_ioc_del_hdr_proc_ctx *hdls)
 {
 	int i;
 	int result;
+
+	if (ipa_ctx->ipa_hw_type <= IPA_HW_v2_0 ||
+	    ipa_ctx->ipa_hw_type == IPA_HW_v2_6L) {
+		IPAERR("Processing context not supported on IPA HW %d\n",
+			ipa_ctx->ipa_hw_type);
+		return -EFAULT;
+	}
 
 	if (hdls == NULL || hdls->num_hdls == 0) {
 		IPAERR("bad parm\n");

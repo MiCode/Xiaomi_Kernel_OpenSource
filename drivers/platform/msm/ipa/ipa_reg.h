@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -89,10 +89,19 @@
  */
 
 /*
+ * IPA HW 2.6/2.6L Registers
+ */
+#define IPA_ENABLED_PIPES_OFST 0x000005DC
+/*
+ * End of IPA 2.6/2.6L Registers
+ */
+
+/*
 Common Registers
 */
 #define IPA_REG_BASE_OFST_v2_0 0x00020000
 #define IPA_REG_BASE_OFST_v2_5 0x00040000
+#define IPA_REG_BASE_OFST_v2_6L IPA_REG_BASE_OFST_v2_5
 #define IPA_COMP_SW_RESET_OFST 0x0000003c
 
 #define IPA_VERSION_OFST 0x00000034
@@ -156,7 +165,7 @@ Common Registers
 #define IPA_ENDP_INIT_MODE_N_DEST_PIPE_INDEX_SHFT_v1_1 0x2
 #define IPA_ENDP_INIT_MODE_N_DEST_PIPE_INDEX_BMSK_v2_0 0x1f0
 #define IPA_ENDP_INIT_MODE_N_DEST_PIPE_INDEX_SHFT_v2_0 0x4
-#define IPA_ENDP_INIT_MODE_N_MODE_BMSK 0x3
+#define IPA_ENDP_INIT_MODE_N_MODE_BMSK 0x7
 #define IPA_ENDP_INIT_MODE_N_MODE_SHFT 0x0
 
 #define IPA_ENDP_INIT_HDR_N_OFST_v1_1(n) (0x00000120 + 0x4 * (n))

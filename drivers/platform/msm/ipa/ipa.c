@@ -53,17 +53,6 @@
 #define IPA_AGGR_STR_IN_BYTES(str) \
 	(strnlen((str), IPA_AGGR_MAX_STR_LENGTH - 1) + 1)
 
-#define IPA_Q6_CLEANUP_FLT_RT_MAX_CMDS \
-	(IPA_NUM_PIPES*2 + \
-	(IPA_MEM_PART(v4_modem_rt_index_hi) - \
-		IPA_MEM_PART(v4_modem_rt_index_lo) + 1) + \
-	(IPA_MEM_PART(v6_modem_rt_index_hi) - \
-		IPA_MEM_PART(v6_modem_rt_index_lo) + 1))
-
-/* To be on the safe side */
-#define IPA_Q6_CLEANUP_EXP_AGGR_MAX_CMDS \
-	(IPA_NUM_PIPES*2) \
-
 #define IPA_SPS_PROD_TIMEOUT_MSEC 100
 
 #ifdef CONFIG_COMPAT
@@ -1064,8 +1053,7 @@ static int ipa_setup_exception_path(void)
 				IPA_RESOURCE_NAME_MAX);
 		/* set template for the A5_MUX hdr in header addition block */
 		hdr_entry->hdr_len = IPA_A5_MUX_HEADER_LENGTH;
-	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		strlcpy(hdr_entry->name, IPA_LAN_RX_HDR_NAME,
 				IPA_RESOURCE_NAME_MAX);
 		hdr_entry->hdr_len = IPA_LAN_RX_HEADER_LENGTH;
@@ -1189,6 +1177,14 @@ int ipa_init_q6_smem(void)
 		return rc;
 	}
 
+	rc = ipa_init_smem_region(IPA_MEM_PART(modem_comp_decomp_size),
+		IPA_MEM_PART(modem_comp_decomp_ofst));
+	if (rc) {
+		IPAERR("failed to initialize Modem Comp/Decomp RAM memory\n");
+		ipa_dec_client_disable_clks();
+		return rc;
+	}
+
 	ipa_dec_client_disable_clks();
 
 	return rc;
@@ -1270,6 +1266,23 @@ static int ipa_q6_avoid_holb(void)
 	return 0;
 }
 
+static u32 ipa_get_max_flt_rt_cmds(u32 num_pipes)
+{
+	u32 max_cmds = 0;
+
+	/* As many filter tables as there are pipes, x2 for IPv4 and IPv6 */
+	max_cmds += num_pipes * 2;
+
+	/* For each of the Modem routing tables */
+	max_cmds += (IPA_MEM_PART(v4_modem_rt_index_hi) -
+		     IPA_MEM_PART(v4_modem_rt_index_lo) + 1);
+
+	max_cmds += (IPA_MEM_PART(v6_modem_rt_index_hi) -
+		     IPA_MEM_PART(v6_modem_rt_index_lo) + 1);
+
+	return max_cmds;
+}
+
 static int ipa_q6_clean_q6_tables(void)
 {
 	struct ipa_desc *desc;
@@ -1280,6 +1293,7 @@ static int ipa_q6_clean_q6_tables(void)
 	int retval;
 	struct ipa_mem_buffer mem = { 0 };
 	u32 *entry;
+	u32 max_cmds = ipa_get_max_flt_rt_cmds(ipa_ctx->ipa_num_pipes);
 
 	mem.base = dma_alloc_coherent(ipa_ctx->pdev, 4, &mem.phys_base,
 		GFP_KERNEL);
@@ -1292,16 +1306,15 @@ static int ipa_q6_clean_q6_tables(void)
 	entry = mem.base;
 	*entry = ipa_ctx->empty_rt_tbl_mem.phys_base;
 
-	desc = kzalloc(sizeof(struct ipa_desc) *
-		IPA_Q6_CLEANUP_FLT_RT_MAX_CMDS, GFP_KERNEL);
+	desc = kzalloc(sizeof(struct ipa_desc) * max_cmds, GFP_KERNEL);
 	if (!desc) {
 		IPAERR("failed to allocate memory\n");
 		retval = -ENOMEM;
 		goto bail_dma;
 	}
 
-	cmd = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem) *
-		IPA_Q6_CLEANUP_FLT_RT_MAX_CMDS, GFP_KERNEL);
+	cmd = kzalloc(sizeof(struct ipa_hw_imm_cmd_dma_shared_mem) * max_cmds,
+		GFP_KERNEL);
 	if (!cmd) {
 		IPAERR("failed to allocate memory\n");
 		retval = -ENOMEM;
@@ -1312,7 +1325,7 @@ static int ipa_q6_clean_q6_tables(void)
 	 * Iterating over all the pipes which are either invalid but connected
 	 * or connected but not configured by AP.
 	 */
-	for (pipe_idx = 0; pipe_idx < IPA_NUM_PIPES; pipe_idx++) {
+	for (pipe_idx = 0; pipe_idx < ipa_ctx->ipa_num_pipes; pipe_idx++) {
 		if (!ipa_ctx->ep[pipe_idx].valid ||
 		    ipa_ctx->ep[pipe_idx].skip_ep_cfg) {
 			/*
@@ -1424,8 +1437,8 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 	struct ipa_register_write *reg_write;
 	int retval;
 
-	desc = kzalloc(sizeof(struct ipa_desc) *
-		IPA_Q6_CLEANUP_EXP_AGGR_MAX_CMDS, GFP_KERNEL);
+	desc = kzalloc(sizeof(struct ipa_desc) * ipa_ctx->ipa_num_pipes,
+		GFP_KERNEL);
 	if (!desc) {
 		IPAERR("failed to allocate memory\n");
 		return -ENOMEM;
@@ -1439,6 +1452,7 @@ static int ipa_q6_set_ex_path_dis_agg(void)
 
 		if (ipa_ctx->ep[ep_idx].valid &&
 			ipa_ctx->ep[ep_idx].skip_ep_cfg) {
+			BUG_ON(num_descs >= ipa_ctx->ipa_num_pipes);
 			reg_write = kzalloc(sizeof(*reg_write), GFP_KERNEL);
 
 			if (!reg_write) {
@@ -1519,6 +1533,12 @@ int ipa_q6_cleanup(void)
 {
 	int client_idx;
 	int res;
+
+	/* If uC has notified the APPS upon a ZIP engine error,
+	 * APPS need to assert (This is a non recoverable error).
+	 */
+	if (ipa_ctx->uc_ctx.uc_zip_error)
+		BUG();
 
 	ipa_inc_client_enable_clks();
 
@@ -1686,6 +1706,76 @@ int _ipa_init_sram_v2_5(void)
 	return rc;
 }
 
+static inline void ipa_sram_set_canary(u32 *sram_mmio, int offset)
+{
+	/* Set 4 bytes of CANARY before the offset */
+	sram_mmio[(offset - 4) / 4] = IPA_MEM_CANARY_VAL;
+}
+
+int _ipa_init_sram_v2_6L(void)
+{
+	u32 *ipa_sram_mmio;
+	unsigned long phys_addr;
+	struct ipa_hw_imm_cmd_dma_shared_mem cmd = { 0 };
+	struct ipa_desc desc = { 0 };
+	struct ipa_mem_buffer mem;
+	int rc = 0;
+
+	phys_addr = ipa_ctx->ipa_wrapper_base +
+		ipa_ctx->ctrl->ipa_reg_base_ofst +
+		IPA_SRAM_SW_FIRST_v2_5;
+
+	ipa_sram_mmio = ioremap(phys_addr,
+		ipa_ctx->smem_sz - ipa_ctx->smem_restricted_bytes);
+	if (!ipa_sram_mmio) {
+		IPAERR("fail to ioremap IPA SRAM\n");
+		return -ENOMEM;
+	}
+
+	/* Consult with ipa_ram_mmap.h on the location of the CANARY values */
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_ofst) - 4);
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_flt_ofst));
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_ofst) - 4);
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_flt_ofst));
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_ofst) - 4);
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v4_rt_ofst));
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(v6_rt_ofst));
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_hdr_ofst));
+	ipa_sram_set_canary(ipa_sram_mmio,
+			    IPA_MEM_PART(modem_comp_decomp_ofst) - 4);
+	ipa_sram_set_canary(ipa_sram_mmio,
+			    IPA_MEM_PART(modem_comp_decomp_ofst));
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(modem_ofst));
+	ipa_sram_set_canary(ipa_sram_mmio, IPA_MEM_PART(end_ofst));
+
+	iounmap(ipa_sram_mmio);
+
+	mem.size = IPA_STATUS_CLEAR_SIZE;
+	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
+		GFP_KERNEL);
+	if (!mem.base) {
+		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
+		return -ENOMEM;
+	}
+	memset(mem.base, 0, mem.size);
+
+	cmd.size = mem.size;
+	cmd.system_addr = mem.phys_base;
+	cmd.local_addr = IPA_STATUS_CLEAR_OFST;
+	desc.opcode = IPA_DMA_SHARED_MEM;
+	desc.pyld = &cmd;
+	desc.len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
+	desc.type = IPA_IMM_CMD_DESC;
+
+	if (ipa_send_cmd(1, &desc)) {
+		IPAERR("fail to send immediate command\n");
+		rc = -EFAULT;
+	}
+
+	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
+	return rc;
+}
+
 int _ipa_init_hdr_v2(void)
 {
 	struct ipa_desc desc = { 0 };
@@ -1796,6 +1886,12 @@ int _ipa_init_hdr_v2_5(void)
 	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
 
 	return 0;
+}
+
+int _ipa_init_hdr_v2_6L(void)
+{
+	/* Same implementation as IPAv2 */
+	return _ipa_init_hdr_v2();
 }
 
 int _ipa_init_rt4_v2(void)
@@ -1922,7 +2018,7 @@ int _ipa_init_flt4_v2(void)
 	*entry = ((0xFFFFF << 1) | 0x1);
 	entry++;
 
-	for (i = 0; i <= IPA_NUM_PIPES; i++) {
+	for (i = 0; i <= ipa_ctx->ipa_num_pipes; i++) {
 		*entry = ipa_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
@@ -1971,7 +2067,7 @@ int _ipa_init_flt6_v2(void)
 	*entry = (0xFFFFF << 1) | 0x1;
 	entry++;
 
-	for (i = 0; i <= IPA_NUM_PIPES; i++) {
+	for (i = 0; i <= ipa_ctx->ipa_num_pipes; i++) {
 		*entry = ipa_ctx->empty_rt_tbl_mem.phys_base;
 		entry++;
 	}
@@ -2056,8 +2152,7 @@ static int ipa_setup_apps_pipes(void)
 	if (ipa_ctx->ipa_hw_type == IPA_HW_v1_1) {
 		sys_in.ipa_ep_cfg.hdr.hdr_a5_mux = 1;
 		sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_A5_MUX_HEADER_LENGTH;
-	} else if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+	} else if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		sys_in.notify = ipa_lan_rx_cb;
 		sys_in.priv = NULL;
 		sys_in.ipa_ep_cfg.hdr.hdr_len = IPA_LAN_RX_HEADER_LENGTH;
@@ -2269,8 +2364,7 @@ static int ipa_get_clks(struct device *dev)
 		return -ENODEV;
 	}
 
-	if (ipa_ctx->ipa_hw_type != IPA_HW_v2_0 &&
-		ipa_ctx->ipa_hw_type != IPA_HW_v2_5) {
+	if (ipa_ctx->ipa_hw_type < IPA_HW_v2_0) {
 		ipa_cnoc_clk = clk_get(dev, "iface_clk");
 		if (IS_ERR(ipa_cnoc_clk)) {
 			ipa_cnoc_clk = NULL;
@@ -2401,9 +2495,10 @@ void ipa_enable_clks(void)
 
 	ipa_ctx->ctrl->ipa_enable_clks();
 
-	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl,
-				ipa_get_bus_vote()))
-		WARN_ON(1);
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL)
+		if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl,
+		    ipa_get_bus_vote()))
+			WARN_ON(1);
 }
 
 void _ipa_disable_clks_v1_1(void)
@@ -2453,8 +2548,10 @@ void ipa_disable_clks(void)
 
 	ipa_ctx->ctrl->ipa_disable_clks();
 
-	if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl, 0))
-		WARN_ON(1);
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL)
+		if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl,
+		    0))
+			WARN_ON(1);
 }
 
 /**
@@ -2578,6 +2675,7 @@ static int ipa_setup_bam_cfg(const struct ipa_plat_drv_res *res)
 		break;
 	case IPA_HW_v2_0:
 	case IPA_HW_v2_5:
+	case IPA_HW_v2_6L:
 		reg_val = IPA_BAM_CNFG_BITS_VALv2_0;
 		break;
 	default:
@@ -2642,9 +2740,10 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	IPADBG("setting clock rate to %u\n", ipa_ctx->curr_ipa_clk_rate);
 	if (ipa_ctx->ipa_active_clients.cnt > 0) {
 		clk_set_rate(ipa_clk, ipa_ctx->curr_ipa_clk_rate);
-		if (msm_bus_scale_client_update_request(ipa_ctx->ipa_bus_hdl,
-					ipa_get_bus_vote()))
-			WARN_ON(1);
+		if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL)
+			if (msm_bus_scale_client_update_request(
+			    ipa_ctx->ipa_bus_hdl, ipa_get_bus_vote()))
+				WARN_ON(1);
 	} else {
 		IPADBG("clocks are gated, not setting rate\n");
 	}
@@ -2752,7 +2851,7 @@ void ipa_suspend_handler(enum ipa_irq_type interrupt,
 	u32 i = 0;
 
 	IPADBG("interrupt=%d, interrupt_data=%u\n", interrupt, suspend_data);
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		if ((suspend_data & bmsk) && (ipa_ctx->ep[i].valid)) {
 			resource = ipa_get_rm_resource_from_ep(i);
 			ipa_rm_request_resource_with_timer(resource);
@@ -2996,13 +3095,18 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 		ipa_ctx->ctrl->msm_bus_data_ptr = bus_scale_table;
 	}
 
-	/* get BUS handle */
-	ipa_ctx->ipa_bus_hdl =
-		msm_bus_scale_register_client(ipa_ctx->ctrl->msm_bus_data_ptr);
-	if (!ipa_ctx->ipa_bus_hdl) {
-		IPAERR("fail to register with bus mgr!\n");
-		result = -ENODEV;
-		goto fail_bind;
+	if (ipa_ctx->ipa_hw_mode != IPA_HW_MODE_VIRTUAL) {
+		/* get BUS handle */
+		ipa_ctx->ipa_bus_hdl =
+			msm_bus_scale_register_client(
+				ipa_ctx->ctrl->msm_bus_data_ptr);
+		if (!ipa_ctx->ipa_bus_hdl) {
+			IPAERR("fail to register with bus mgr!\n");
+			result = -ENODEV;
+			goto fail_bind;
+		}
+	} else {
+		IPADBG("Skipping bus scaling registration on Virtual plat\n");
 	}
 
 	/* get IPA clocks */
@@ -3037,6 +3141,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 	IPADBG("IPA HW initialization sequence completed");
 
+	ipa_ctx->ipa_num_pipes = ipa_get_num_pipes();
 	ipa_ctx->ctrl->ipa_sram_read_settings();
 	IPADBG("SRAM, size: 0x%x, restricted bytes: 0x%x\n",
 		ipa_ctx->smem_sz, ipa_ctx->smem_restricted_bytes);
@@ -3079,7 +3184,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	bam_props.phys_addr = resource_p->bam_mem_base;
 	bam_props.virt_size = resource_p->bam_mem_size;
 	bam_props.irq = resource_p->bam_irq;
-	bam_props.num_pipes = IPA_NUM_PIPES;
+	bam_props.num_pipes = ipa_ctx->ipa_num_pipes;
 	bam_props.summing_threshold = IPA_SUMMING_THRESHOLD;
 	bam_props.event_threshold = IPA_EVENT_THRESHOLD;
 	bam_props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
@@ -3203,7 +3308,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	}
 	INIT_LIST_HEAD(&ipa_ctx->rt_tbl_set[IPA_IP_v4].head_rt_tbl_list);
 	INIT_LIST_HEAD(&ipa_ctx->rt_tbl_set[IPA_IP_v6].head_rt_tbl_list);
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		flt_tbl = &ipa_ctx->flt_tbl[i][IPA_IP_v4];
 		INIT_LIST_HEAD(&flt_tbl->head_flt_rule_list);
 		flt_tbl->in_sys = !ipa_ctx->ip4_flt_tbl_lcl;
@@ -3639,7 +3744,7 @@ static int ipa_ap_suspend(struct device *dev)
 	}
 
 	/* In case there is a tx/rx handler in polling mode fail to suspend */
-	for (i = 0; i < IPA_NUM_PIPES; i++) {
+	for (i = 0; i < ipa_ctx->ipa_num_pipes; i++) {
 		if (ipa_ctx->ep[i].sys &&
 			atomic_read(&ipa_ctx->ep[i].sys->curr_polling_state)) {
 			IPAERR("EP %d is in polling state, do not suspend\n",

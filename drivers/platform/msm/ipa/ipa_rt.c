@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -181,6 +181,29 @@ int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 	}
 
 	return 0;
+}
+
+/**
+ * __ipa_generate_rt_hw_rule_v2_6L() - generates the routing hardware rule
+ * @ip: the ip address family type
+ * @entry: routing entry
+ * @buf: output buffer, buf == NULL means that the caller wants to know the size
+ *       of the rule as seen by HW so they did not pass a valid buffer, we will
+ *       use a scratch buffer instead.
+ *       With this scheme we are going to generate the rule twice, once to know
+ *       size using scratch buffer and second to write the rule to the actual
+ *       caller supplied buffer which is of required size.
+ *
+ * Returns:	0 on success, negative on failure
+ *
+ * caller needs to hold any needed locks to ensure integrity
+ *
+ */
+int __ipa_generate_rt_hw_rule_v2_6L(enum ipa_ip_type ip,
+		struct ipa_rt_entry *entry, u8 *buf)
+{
+	/* Same implementation as IPAv2 */
+	return __ipa_generate_rt_hw_rule_v2(ip, entry, buf);
 }
 
 /**
@@ -1163,8 +1186,7 @@ int ipa_reset_rt(enum ipa_ip_type ip)
 		return -EINVAL;
 	}
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
-			ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+	if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) {
 		if (ip == IPA_IP_v4)
 			apps_start_idx = IPA_MEM_PART(v4_apps_rt_index_lo);
 		else

@@ -1781,12 +1781,10 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 	ret = get_ipa_rmnet_dts_configuration(pdev, &ipa_rmnet_res);
 	ipa_rmnet_ctx.ipa_rmnet_ssr = ipa_rmnet_res.ipa_rmnet_ssr;
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0) {
-		ret = ipa_init_q6_smem();
-		if (ret) {
-			IPAWANERR("ipa_init_q6_smem failed!\n");
-			return ret;
-		}
+	ret = ipa_init_q6_smem();
+	if (ret) {
+		IPAWANERR("ipa_init_q6_smem failed!\n");
+		return ret;
 	}
 
 	/* initialize tx/rx enpoint setup */
