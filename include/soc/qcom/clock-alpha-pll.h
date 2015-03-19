@@ -66,7 +66,11 @@ static inline struct alpha_pll_clk *to_alpha_pll_clk(struct clk *c)
 {
 	return container_of(c, struct alpha_pll_clk, c);
 }
+
+void __init_alpha_pll(struct clk *c);
+
 #endif
 
 extern struct clk_ops clk_ops_alpha_pll;
+extern struct clk_ops clk_ops_alpha_pll_hwfsm;
 extern struct clk_ops clk_ops_fixed_alpha_pll;

@@ -155,8 +155,6 @@ static int __alpha_pll_enable(struct alpha_pll_clk *pll)
 	return 0;
 }
 
-static void __init_alpha_pll(struct clk *c);
-
 static int alpha_pll_enable(struct clk *c)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
@@ -174,6 +172,51 @@ static int alpha_pll_enable(struct clk *c)
 	spin_unlock_irqrestore(&alpha_pll_reg_lock, flags);
 
 	return rc;
+}
+
+#define PLL_OFFLINE_REQ_BIT BIT(7)
+#define PLL_FSM_ENA_BIT BIT(20)
+#define PLL_OFFLINE_ACK_BIT BIT(28)
+
+static int alpha_pll_enable_hwfsm(struct clk *c)
+{
+	u32 mode;
+	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
+
+	/* Re-enable HW FSM mode, clear OFFLINE request */
+	mode = readl_relaxed(MODE_REG(pll));
+	mode |= PLL_FSM_ENA_BIT;
+	mode &= ~PLL_OFFLINE_REQ_BIT;
+	writel_relaxed(mode, MODE_REG(pll));
+
+	/* Make sure enable request goes through before waiting for update */
+	mb();
+
+	if (wait_for_update(pll) < 0)
+		panic("PLL %s failed to lock", c->dbg_name);
+
+	return 0;
+}
+
+static void alpha_pll_disable_hwfsm(struct clk *c)
+{
+	u32 mode;
+	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
+
+	/* Request PLL_OFFLINE and wait for ack */
+	mode = readl_relaxed(MODE_REG(pll));
+	writel_relaxed(mode | PLL_OFFLINE_REQ_BIT, MODE_REG(pll));
+	while (!(readl_relaxed(MODE_REG(pll)) & PLL_OFFLINE_ACK_BIT))
+		;
+
+	/* Disable HW FSM */
+	mode = readl_relaxed(MODE_REG(pll));
+	mode &= ~PLL_FSM_ENA_BIT;
+	writel_relaxed(mode, MODE_REG(pll));
+
+	/* Wait for FSM to disable the PLL */
+	mb();
+	udelay(5);
 }
 
 static void __alpha_pll_vote_disable(struct alpha_pll_clk *pll)
@@ -297,7 +340,7 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	 */
 	spin_lock_irqsave(&c->lock, flags);
 	if (c->count)
-		alpha_pll_disable(c);
+		c->ops->disable(c);
 
 	a_val = a_val << (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
 
@@ -316,7 +359,7 @@ static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
 	writel_relaxed(regval, ALPHA_EN_REG(pll));
 
 	if (c->count)
-		alpha_pll_enable(c);
+		c->ops->enable(c);
 
 	spin_unlock_irqrestore(&c->lock, flags);
 	return 0;
@@ -402,7 +445,7 @@ static bool is_fsm_mode(void __iomem *mode_reg)
 	return !!(readl_relaxed(mode_reg) & BIT(20));
 }
 
-static void __init_alpha_pll(struct clk *c)
+void __init_alpha_pll(struct clk *c)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
@@ -473,6 +516,14 @@ static enum handoff alpha_pll_handoff(struct clk *c)
 struct clk_ops clk_ops_alpha_pll = {
 	.enable = alpha_pll_enable,
 	.disable = alpha_pll_disable,
+	.round_rate = alpha_pll_round_rate,
+	.set_rate = alpha_pll_set_rate,
+	.handoff = alpha_pll_handoff,
+};
+
+struct clk_ops clk_ops_alpha_pll_hwfsm = {
+	.enable = alpha_pll_enable_hwfsm,
+	.disable = alpha_pll_disable_hwfsm,
 	.round_rate = alpha_pll_round_rate,
 	.set_rate = alpha_pll_set_rate,
 	.handoff = alpha_pll_handoff,
