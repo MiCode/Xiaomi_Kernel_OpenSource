@@ -212,9 +212,6 @@ qpnp_flash_led_get_max_avail_current(struct flash_node_data *flash_node,
 	int max_curr_avail_ma;
 	int rc;
 
-	if (!led->battery_psy)
-		led->battery_psy = power_supply_get_by_name("battery");
-
 	if (led->battery_psy) {
 		rc = led->battery_psy->get_property(led->battery_psy,
 				POWER_SUPPLY_PROP_FLASH_CURRENT_MAX,
@@ -497,6 +494,7 @@ qpnp_flash_led_get_peripheral_type(struct qpnp_flash_led *led)
 static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 				struct flash_node_data *flash_node)
 {
+	union power_supply_propval psy_prop;
 	int rc;
 	u8 val, tmp;
 
@@ -539,6 +537,18 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			dev_err(&led->spmi_dev->dev, "Module disable failed\n");
 			return -EINVAL;
 		}
+
+		if (led->battery_psy) {
+			psy_prop.intval = false;
+			rc = led->battery_psy->set_property(led->battery_psy,
+						POWER_SUPPLY_PROP_FLASH_ACTIVE,
+								&psy_prop);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+					"Failed to setup OTG pulse skip enable\n");
+				return -EINVAL;
+			}
+		}
 	} else {
 		rc = qpnp_led_masked_write(led->spmi_dev,
 			FLASH_MODULE_ENABLE_CTRL(led->base),
@@ -563,6 +573,7 @@ static void qpnp_flash_led_work(struct work_struct *work)
 				struct flash_node_data, work);
 	struct qpnp_flash_led *led =
 			dev_get_drvdata(&flash_node->spmi_dev->dev);
+	union power_supply_propval psy_prop;
 	int rc, brightness = flash_node->cdev.brightness;
 	int max_curr_avail_ma;
 	u8 val;
@@ -657,6 +668,24 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			goto exit_flash_led_work;
 		}
 	} else if (flash_node->type == FLASH) {
+		if (!led->battery_psy)
+			led->battery_psy = power_supply_get_by_name("battery");
+		if (!led->battery_psy) {
+			dev_err(&led->spmi_dev->dev,
+				"Failed to get battery power supply\n");
+			goto exit_flash_led_work;
+		}
+
+		psy_prop.intval = true;
+		rc = led->battery_psy->set_property(led->battery_psy,
+						POWER_SUPPLY_PROP_FLASH_ACTIVE,
+								&psy_prop);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+				"Failed to setup OTG pulse skip enable\n");
+			goto exit_flash_led_work;
+		}
+
 		if (led->pdata->power_detect_en) {
 			max_curr_avail_ma =
 				qpnp_flash_led_get_max_avail_current
