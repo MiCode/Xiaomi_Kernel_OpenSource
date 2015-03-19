@@ -134,6 +134,24 @@ config COMMON_CLK_PXA
 	---help---
 	  Sypport for the Marvell PXA SoC.
 
+config COMMON_CLK_FREQ_STATS_ACCOUNTING
+	bool "Enable clock frequency stats accounting"
+	depends on COMMON_CLK
+	depends on DEBUG_FS
+	---help---
+	 Allows accounting of the time spent by various clocks in each
+	 of its operating frequency. The stats get reported as a part
+	 of clk_summary. Would be be useful in finding out which
+	 components are running at what power states to debug
+	 battery consumption issues.
+
+config COMMON_CLK_BEGIN_ACCOUNTING_FROM_BOOT
+	bool "Start clock frequency stats accounting from boot"
+	depends on COMMON_CLK_FREQ_STATS_ACCOUNTING
+	---help---
+	 Enabling this option starts the frequency accounting right from
+	 the boot.
+
 source "drivers/clk/qcom/Kconfig"
 
 endmenu
