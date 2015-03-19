@@ -4847,7 +4847,9 @@ static void atomisp_check_copy_mode(struct atomisp_sub_device *asd,
 	    (!atomisp_subdev_format_conversion(asd, source_pad))) ||
 	    ((asd->isp->inputs[asd->input_curr].type == SOC_CAMERA) &&
 	    (asd->isp->inputs[asd->input_curr].camera_caps->
-		sensor[asd->sensor_curr].stream_num > 1)))
+		sensor[asd->sensor_curr].stream_num > 1)) ||
+	    ((asd->depth_mode->val) &&
+	     (!atomisp_subdev_format_conversion(asd, source_pad))))
 		asd->copy_mode = true;
 	else
 #endif
