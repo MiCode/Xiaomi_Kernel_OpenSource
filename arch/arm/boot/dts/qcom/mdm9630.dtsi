@@ -493,6 +493,59 @@
 		compatible = "qcom,rmnet-ipa";
 	};
 
+	pcie_ep: qcom,pcie@bfffd000 {
+		compatible = "qcom,pcie-ep";
+
+		reg = <0xbfffd000 0x1000>,
+			<0xbfffe000 0x1000>,
+			<0xbffff000 0x1000>,
+			<0xfc520000 0x2000>,
+			<0xfc526000 0x1000>,
+			<0xfc527000 0x1000>;
+		reg-names = "msi", "dm_core", "elbi", "parf", "phy", "mmio";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie_ep>;
+		interrupts = <0 1 2 3 4 5>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 44 0
+				1 &intc 0 46 0
+				2 &intc 0 47 0
+				3 &intc 0 50 0
+				4 &intc 0 51 0
+				5 &intc 0 52 0>;
+		interrupt-names = "int_pm_turnoff", "int_dstate_change",
+				"int_l1sub_timeout", "int_link_up",
+				"int_link_down", "int_bridge_flush_n";
+
+		perst-gpio = <&msmgpio 65 0>;
+		wake-gpio = <&msmgpio 61 0>;
+		clkreq-gpio = <&msmgpio 64 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie_0>;
+		vreg-1.8-supply = <&pmd9635_l8>;
+		vreg-0.9-supply = <&pmd9635_l4>;
+
+		qcom,vreg-1.8-voltage-level = <1800000 1800000 1000>;
+		qcom,vreg-0.9-voltage-level = <950000 950000 24000>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_aux_clk", "pcie_0_ldo";
+		max-clock-frequency-hz = <62500000>, <0>,
+					<0>, <0>, <1000000>, <0>;
+
+		qcom,msm-bus,name = "pcie-ep";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		qcom,pcie-link-speed = <1>;
+	};
+
 	usb3: ssusb@f9200000 {
 		compatible = "qcom,dwc-usb3-msm";
 		reg = <0xf9200000 0xfc000>,
