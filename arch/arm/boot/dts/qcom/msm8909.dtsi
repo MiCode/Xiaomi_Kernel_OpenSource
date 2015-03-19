@@ -426,6 +426,16 @@
 			qcom,sensor-name = "pm8909_tz";
 			qcom,scaling-factor = <1000>;
 		};
+
+		sensor_information8: qcom,sensor-information@8 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "xo_therm";
+		};
+
+		sensor_information9: qcom,sensor-information@9 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "xo_therm_buf";
+		};
 	};
 
 	qcom,msm-thermal {
