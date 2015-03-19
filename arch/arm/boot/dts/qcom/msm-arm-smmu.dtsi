@@ -256,4 +256,4 @@
 	};
 };
 
-#include "msm8996-iommu-impl-defs.dtsi"
+#include "msm-arm-smmu-impl-defs.dtsi"
