@@ -151,3 +151,11 @@ config KRAITCC
 config KRAIT_CLOCKS
 	bool
 	select KRAIT_L2_ACCESSORS
+
+config QCOM_A53
+	tristate "A53 Clock Controller"
+	depends on COMMON_CLK_QCOM
+	help
+	  Support for the A53 clock controller on MSM devices.
+	  Say Y if you want to support CPU frequency scaling on devices
+	  such as MSM8916.

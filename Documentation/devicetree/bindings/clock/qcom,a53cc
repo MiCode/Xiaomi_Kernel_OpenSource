@@ -1,0 +1,25 @@
+Qualcomm A53 Clock Controller Binding
+------------------------------------------------
+The A53 Clock Controller provides higher frequency clocks
+and allows CPU frequency scaling on msm8916 based platforms.
+
+Required properties :
+- compatible : shall contain:
+			"qcom,a53cc"
+- reg : shall contain base register location and length
+	of the A53 PLL
+- #clock-cells : shall contain 1
+- qcom,apcs : phandle of apcs syscon node
+
+Example:
+	apcs: syscon@b011000 {
+		compatible = "syscon";
+		reg = <0x0b011000 0x1000>;
+	};
+
+	a53cc: clock-controller@0b016000 {
+		compatible = "qcom,clock-a53-msm8916";
+		reg = <0x0b016000 0x40>;
+		#clock-cells = <1>;
+		qcom,apcs = <&apcs>;
+	};
