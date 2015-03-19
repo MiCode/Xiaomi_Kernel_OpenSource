@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -158,6 +158,9 @@ struct pll_clk {
 extern struct clk_ops clk_ops_local_pll;
 extern struct clk_ops clk_ops_sr2_pll;
 extern struct clk_ops clk_ops_variable_rate_pll;
+extern struct clk_ops clk_ops_variable_rate_pll_hwfsm;
+
+void __variable_rate_pll_init(struct clk *c);
 
 static inline struct pll_clk *to_pll_clk(struct clk *c)
 {

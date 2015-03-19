@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -206,7 +206,7 @@ static int sr2_pll_clk_enable(struct clk *c)
 	return ret;
 }
 
-static void __variable_rate_pll_init(struct clk *c)
+void __variable_rate_pll_init(struct clk *c)
 {
 	struct pll_clk *pll = to_pll_clk(c);
 	u32 regval;
@@ -331,6 +331,56 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 	spin_unlock_irqrestore(&pll_reg_lock, flags);
 
 	return ret;
+}
+
+static void variable_rate_pll_clk_disable_hwfsm(struct clk *c)
+{
+	struct pll_clk *pll = to_pll_clk(c);
+	u32 regval;
+
+	/* Set test control bit to stay-in-CFA if necessary */
+	if (pll->test_ctl_lo_reg && pll->pgm_test_ctl_enable) {
+		regval = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+		writel_relaxed(regval | BIT(16),
+				PLL_TEST_CTL_LO_REG(pll));
+	}
+
+	/* 8 reference clock cycle delay mandated by the HPG */
+	udelay(1);
+}
+
+static int variable_rate_pll_clk_enable_hwfsm(struct clk *c)
+{
+	struct pll_clk *pll = to_pll_clk(c);
+	int count;
+	u32 lockmask = pll->masks.lock_mask ?: PLL_LOCKED_BIT;
+	unsigned long flags;
+	u32 regval;
+
+	spin_lock_irqsave(&pll_reg_lock, flags);
+
+	/* Clear test control bit if necessary */
+	if (pll->test_ctl_lo_reg && pll->pgm_test_ctl_enable) {
+		regval = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+		regval &= ~BIT(16);
+		writel_relaxed(regval, PLL_TEST_CTL_LO_REG(pll));
+	}
+
+	/* Wait for 50us explicitly to avoid transient locks */
+	udelay(50);
+
+	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
+		if (readl_relaxed(PLL_STATUS_REG(pll)) & lockmask)
+			break;
+		udelay(1);
+	}
+
+	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & lockmask))
+		pr_err("PLL %s didn't lock after enabling it!\n", c->dbg_name);
+
+	spin_unlock_irqrestore(&pll_reg_lock, flags);
+
+	return 0;
 }
 
 static void __pll_clk_enable_reg(void __iomem *mode_reg)
@@ -538,12 +588,12 @@ static int variable_rate_pll_set_rate(struct clk *c, unsigned long rate)
 
 	spin_lock_irqsave(&c->lock, flags);
 
-	if (c->count)
+	if (c->count && c->ops->disable)
 		c->ops->disable(c);
 
 	writel_relaxed(l_val, PLL_L_REG(pll));
 
-	if (c->count)
+	if (c->count && c->ops->enable)
 		c->ops->enable(c);
 
 	spin_unlock_irqrestore(&c->lock, flags);
@@ -687,6 +737,15 @@ struct clk_ops clk_ops_sr2_pll = {
 	.round_rate = local_pll_clk_round_rate,
 	.handoff = local_pll_clk_handoff,
 	.list_registers = local_pll_clk_list_registers,
+};
+
+struct clk_ops clk_ops_variable_rate_pll_hwfsm = {
+	.enable = variable_rate_pll_clk_enable_hwfsm,
+	.disable = variable_rate_pll_clk_disable_hwfsm,
+	.set_rate = variable_rate_pll_set_rate,
+	.round_rate = variable_rate_pll_round_rate,
+	.handoff = variable_rate_pll_handoff,
+	.list_registers = variable_rate_pll_list_registers,
 };
 
 struct clk_ops clk_ops_variable_rate_pll = {
