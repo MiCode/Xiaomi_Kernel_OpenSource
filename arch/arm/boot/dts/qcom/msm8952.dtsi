@@ -1304,9 +1304,10 @@
 				 "rmb_base", "restart_reg";
 
 		interrupts = <0 24 1>;
+		vdd_mss-supply = <&pm8950_s1>;
 		vdd_cx-supply = <&pm8950_s2_corner>;
-		vdd_mx-supply = <&pm8950_l3>;
-		vdd_mx-uV = <1050000>;
+		vdd_mx-supply = <&pm8950_l3_corner_ao>;
+		vdd_mx-uV = <7>;
 		vdd_pll-supply = <&pm8950_l7>;
 		qcom,vdd_pll = <1800000>;
 
