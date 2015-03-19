@@ -33,7 +33,7 @@
 #define IPA_COOKIE 0x57831603
 #define MTU_BYTE 1500
 
-#define IPA_NUM_PIPES 0x14
+#define IPA_MAX_NUM_PIPES 0x14
 #define IPA_SYS_DESC_FIFO_SZ 0x800
 #define IPA_SYS_TX_DATA_DESC_FIFO_SZ 0x1000
 #define IPA_LAN_RX_HEADER_LENGTH (2)
@@ -990,6 +990,7 @@ union IpaHwMhiDlUlSyncCmdData_t {
  * @uc_sram_mmio: Pointer to uC mapped memory
  * @pending_cmd: The last command sent waiting to be ACKed
  * @uc_status: The last status provided by the uC
+ * @uc_zip_error: uC has notified the APPS upon a ZIP engine error
  */
 struct ipa_uc_ctx {
 	bool uc_inited;
@@ -1002,6 +1003,7 @@ struct ipa_uc_ctx {
 	u32 uc_event_top_ofst;
 	u32 pending_cmd;
 	u32 uc_status;
+	bool uc_zip_error;
 };
 
 /**
@@ -1104,6 +1106,7 @@ struct ipa_sps_pm {
  * @wcstats: wlan common buffer stats
  * @uc_ctx: uC interface context
  * @uc_wdi_ctx: WDI specific fields for uC interface
+ * @ipa_num_pipes: The number of pipes used by IPA HW
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1113,10 +1116,10 @@ struct ipa_context {
 	struct device *dev;
 	struct cdev cdev;
 	unsigned long bam_handle;
-	struct ipa_ep_context ep[IPA_NUM_PIPES];
-	bool skip_ep_cfg_shadow[IPA_NUM_PIPES];
+	struct ipa_ep_context ep[IPA_MAX_NUM_PIPES];
+	bool skip_ep_cfg_shadow[IPA_MAX_NUM_PIPES];
 	bool resume_on_connect[IPA_CLIENT_MAX];
-	struct ipa_flt_tbl flt_tbl[IPA_NUM_PIPES][IPA_IP_MAX];
+	struct ipa_flt_tbl flt_tbl[IPA_MAX_NUM_PIPES][IPA_IP_MAX];
 	void __iomem *mmio;
 	u32 ipa_wrapper_base;
 	struct ipa_flt_tbl glob_flt_tbl[IPA_IP_MAX];
@@ -1186,6 +1189,7 @@ struct ipa_context {
 	u32 enable_clock_scaling;
 	u32 curr_ipa_clk_rate;
 	bool q6_proxy_clk_vote_valid;
+	u32 ipa_num_pipes;
 
 	struct ipa_wlan_comm_memb wc_memb;
 
@@ -1279,6 +1283,8 @@ struct ipa_mem_partition {
 	u16 apps_hdr_proc_ctx_ofst;
 	u16 apps_hdr_proc_ctx_size;
 	u16 apps_hdr_proc_ctx_size_ddr;
+	u16 modem_comp_decomp_ofst;
+	u16 modem_comp_decomp_size;
 	u16 modem_ofst;
 	u16 modem_size;
 	u16 apps_v4_flt_ofst;
@@ -1444,8 +1450,10 @@ void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data);
 
 int _ipa_init_sram_v2(void);
 int _ipa_init_sram_v2_5(void);
+int _ipa_init_sram_v2_6L(void);
 int _ipa_init_hdr_v2(void);
 int _ipa_init_hdr_v2_5(void);
+int _ipa_init_hdr_v2_6L(void);
 int _ipa_init_rt4_v2(void);
 int _ipa_init_rt6_v2(void);
 int _ipa_init_flt4_v2(void);
@@ -1459,10 +1467,13 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 	struct ipa_rt_entry *entry, u8 *buf);
 int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 	struct ipa_rt_entry *entry, u8 *buf);
+int __ipa_generate_rt_hw_rule_v2_6L(enum ipa_ip_type ip,
+	struct ipa_rt_entry *entry, u8 *buf);
 
 int __ipa_commit_hdr_v1_1(void);
 int __ipa_commit_hdr_v2(void);
 int __ipa_commit_hdr_v2_5(void);
+int __ipa_commit_hdr_v2_6L(void);
 int ipa_generate_flt_eq(enum ipa_ip_type ip,
 		const struct ipa_rule_attrib *attrib,
 		struct ipa_ipfltri_rule_eq *eq_attrib);
@@ -1534,4 +1545,6 @@ int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
 int ipa_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
+
+u32 ipa_get_num_pipes(void);
 #endif /* _IPA_I_H_ */
