@@ -1159,7 +1159,6 @@ static irqreturn_t mxs_lradc_handle_irq(int irq, void *data)
 				LRADC_CTRL1_LRADC_IRQ(TOUCHSCREEN_VCHANNEL2));
 	}
 
-	if (iio_buffer_enabled(iio))
 	if (iio_buffer_enabled(iio)) {
 		if (reg & lradc->buffer_vchans)
 			iio_trigger_poll(iio->trig, iio_get_time_ns());
