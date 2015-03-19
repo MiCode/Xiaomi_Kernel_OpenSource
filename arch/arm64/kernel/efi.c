@@ -296,7 +296,11 @@ static struct mm_struct efi_mm = {
 
 static void efi_set_pgd(struct mm_struct *mm)
 {
-	cpu_switch_mm(mm->pgd, mm);
+	if (mm == &init_mm)
+		cpu_set_reserved_ttbr0();
+	else
+		cpu_switch_mm(mm->pgd, mm);
+
 	flush_tlb_all();
 	if (icache_is_aivivt())
 		__flush_icache_all();
