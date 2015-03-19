@@ -671,10 +671,21 @@ static int arm_smmu_parse_iommus_properties(struct arm_smmu_device *smmu,
 				entry->node = master;
 				list_add(&entry->list, &iommus);
 			}
-			BUG_ON(iommuspec.args_count != 1);
-			entry->num_sids++;
-			entry->streamids[entry->num_sids - 1]
-				= iommuspec.args[0];
+			switch (iommuspec.args_count) {
+			case 0:
+				/*
+				 * For pci-e devices the SIDs are provided
+				 * at device attach time.
+				 */
+				break;
+			case 1:
+				entry->num_sids++;
+				entry->streamids[entry->num_sids - 1]
+					= iommuspec.args[0];
+				break;
+			default:
+				BUG();
+			}
 			arg_ind++;
 		}
 
