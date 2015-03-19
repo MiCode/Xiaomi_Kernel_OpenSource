@@ -46,6 +46,7 @@
  * glink_pkt_dev - G-Link packet device structure
  * dev_list:	G-Link packets device list.
  * open_cfg:	Transport configuration used to open Logical channel.
+ * dev_name:	Device node name used by the clients.
  * handle:	Opaque Channel handle returned by G-Link.
  * ch_lock:	Per channel lock for synchronization.
  * ch_satet:	flag used to check the channel state.
@@ -69,6 +70,7 @@
 struct glink_pkt_dev {
 	struct list_head dev_list;
 	struct glink_open_config open_cfg;
+	const char *dev_name;
 	void *handle;
 	struct mutex ch_lock;
 	unsigned ch_state;
@@ -996,7 +998,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	spin_lock_init(&devp->pa_spinlock);
 	INIT_LIST_HEAD(&devp->pkt_list);
 	mutex_init(&devp->pkt_list_lock);
-	wakeup_source_init(&devp->pa_ws, devp->open_cfg.name);
+	wakeup_source_init(&devp->pa_ws, devp->dev_name);
 	INIT_WORK(&devp->packet_arrival_work, packet_arrival_worker);
 
 	cdev_init(&devp->cdev, &glink_pkt_fops);
@@ -1014,7 +1016,7 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 			      NULL,
 			      (glink_pkt_number + i),
 			      NULL,
-			      devp->open_cfg.name);
+			      devp->dev_name);
 
 	if (IS_ERR_OR_NULL(devp->devicep)) {
 		GLINK_PKT_ERR("%s: device_create() failed for dev id:%d\n",
@@ -1130,6 +1132,13 @@ static int parse_glinkpkt_devicetree(struct device_node *node,
 		goto error;
 	GLINK_PKT_INFO("%s ch_name = %s\n", __func__,
 			glink_pkt_devp->open_cfg.name);
+
+	key = "qcom,glinkpkt-dev-name";
+	glink_pkt_devp->dev_name = of_get_property(node, key, NULL);
+	if (!glink_pkt_devp->dev_name)
+		goto error;
+	GLINK_PKT_INFO("%s dev_name = %s\n", __func__,
+			glink_pkt_devp->dev_name);
 	return 0;
 
 error:
