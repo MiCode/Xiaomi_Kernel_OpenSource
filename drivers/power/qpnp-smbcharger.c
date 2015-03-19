@@ -220,6 +220,7 @@ struct smbchg_chip {
 	/* aicl deglitch workaround */
 	unsigned long			first_aicl_seconds;
 	int				aicl_irq_count;
+	struct mutex			usb_status_lock;
 };
 
 enum qpnp_schg {
@@ -3874,6 +3875,26 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	}
 }
 
+void update_usb_status(struct smbchg_chip *chip, bool usb_present, bool force)
+{
+	mutex_lock(&chip->usb_status_lock);
+	if (force) {
+		chip->usb_present = usb_present;
+		chip->usb_present ? handle_usb_insertion(chip)
+			: handle_usb_removal(chip);
+		goto unlock;
+	}
+	if (!chip->usb_present && usb_present) {
+		chip->usb_present = usb_present;
+		handle_usb_insertion(chip);
+	} else if (chip->usb_present && !usb_present) {
+		chip->usb_present = usb_present;
+		handle_usb_removal(chip);
+	}
+unlock:
+	mutex_unlock(&chip->usb_status_lock);
+}
+
 /**
  * usbin_ov_handler() - this is called when an overvoltage condition occurs
  * @chip: pointer to smbchg_chip chip
@@ -3883,6 +3904,7 @@ static irqreturn_t usbin_ov_handler(int irq, void *_chip)
 	struct smbchg_chip *chip = _chip;
 	int rc;
 	u8 reg;
+	bool usb_present;
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
 	if (rc < 0) {
@@ -3904,8 +3926,9 @@ static irqreturn_t usbin_ov_handler(int irq, void *_chip)
 	} else {
 		chip->usb_ov_det = false;
 		/* If USB is present, then handle the USB insertion */
-		if (is_usb_present(chip))
-			handle_usb_insertion(chip);
+		usb_present = is_usb_present(chip);
+		if (usb_present)
+			update_usb_status(chip, usb_present, false);
 	}
 out:
 	return IRQ_HANDLED;
@@ -3939,12 +3962,10 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 							&prop)) {
 		if ((prop.intval == POWER_SUPPLY_TYPE_USB_HVDCP) ||
 			(prop.intval == POWER_SUPPLY_TYPE_USB_DCP)) {
-			if (chip->usb_present && !usb_present) {
-				/* DCP or HVDCP removed */
-				chip->usb_present = usb_present;
-				handle_usb_removal(chip);
-				chip->aicl_irq_count = 0;
-			}
+				if (!usb_present) {
+					update_usb_status(chip, 0, false);
+					chip->aicl_irq_count = 0;
+				}
 		}
 	}
 	smbchg_wipower_check(chip);
@@ -3979,20 +4000,15 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 	reg &= USBIN_SRC_DET_BIT;
 
 	if (reg) {
-		if (!chip->usb_present && usb_present) {
-			/* USB inserted */
-			chip->usb_present = usb_present;
-			handle_usb_insertion(chip);
-		}
+		if (usb_present)
+			update_usb_status(chip, usb_present, false);
 	} else if (chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
 							POWER_SUPPLY_PROP_TYPE,
 							&prop)) {
 		if (((prop.intval == POWER_SUPPLY_TYPE_USB_CDP) ||
-			(prop.intval == POWER_SUPPLY_TYPE_USB)) &&
-			chip->usb_present) {
+			(prop.intval == POWER_SUPPLY_TYPE_USB))) {
 				/* CDP or SDP removed */
-				chip->usb_present = !chip->usb_present;
-				handle_usb_removal(chip);
+				update_usb_status(chip, 0, false);
 				chip->aicl_irq_count = 0;
 		}
 	}
@@ -5347,6 +5363,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->taper_irq_lock);
 	mutex_init(&chip->pm_lock);
 	mutex_init(&chip->wipower_config);
+	mutex_init(&chip->usb_status_lock);
 
 	rc = smbchg_parse_peripherals(chip);
 	if (rc) {
