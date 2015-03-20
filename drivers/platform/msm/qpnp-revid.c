@@ -208,7 +208,7 @@ static void __exit qpnp_revid_exit(void)
 	return spmi_driver_unregister(&qpnp_revid_driver);
 }
 
-module_init(qpnp_revid_init);
+subsys_initcall(qpnp_revid_init);
 module_exit(qpnp_revid_exit);
 
 MODULE_DESCRIPTION("QPNP REVID DRIVER");
