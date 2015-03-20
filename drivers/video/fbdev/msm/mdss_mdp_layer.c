@@ -1195,9 +1195,12 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	ret = __handle_buffer_fences(mfd, commit, layer_list);
 
 map_err:
-	if (ret)
+	if (ret) {
+		mutex_lock(&mdp5_data->list_lock);
 		for (i--; i >= 0; i--)
 			mdss_mdp_overlay_buf_free(mfd, src_data[i]);
+		mutex_unlock(&mdp5_data->list_lock);
+	}
 end:
 
 	return ret;

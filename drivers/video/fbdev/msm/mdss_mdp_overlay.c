@@ -1033,6 +1033,10 @@ static int mdss_mdp_overlay_set(struct msm_fb_data_type *mfd,
 	return ret;
 }
 
+/*
+ * it's caller responsibility to acquire mdp5_data->list_lock while calling
+ * this function
+ */
 struct mdss_mdp_data *mdss_mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
 		struct mdss_mdp_pipe *pipe)
 {
@@ -1053,20 +1057,37 @@ struct mdss_mdp_data *mdss_mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
 		list_add(&buf->chunk_list, &mdp5_data->bufs_chunks);
 		kmemleak_not_leak(buf);
 
-		for (i = 0; i < BUF_POOL_SIZE; i++)
+		for (i = 0; i < BUF_POOL_SIZE; i++) {
+			buf->state = MDP_BUF_STATE_UNUSED;
 			list_add(&buf[i].buf_list, &mdp5_data->bufs_pool);
+		}
 	}
 
 	buf = list_first_entry(&mdp5_data->bufs_pool,
 			struct mdss_mdp_data, buf_list);
-	list_move_tail(&buf->buf_list, &mdp5_data->bufs_used);
+	BUG_ON(buf->state != MDP_BUF_STATE_UNUSED);
+	buf->state = MDP_BUF_STATE_READY;
 	buf->last_alloc = local_clock();
 	buf->last_pipe = pipe;
 
+	list_move_tail(&buf->buf_list, &mdp5_data->bufs_used);
 	list_add_tail(&buf->pipe_list, &pipe->buf_queue);
-	buf->state = MDP_BUF_STATE_READY;
 
 	pr_debug("buffer alloc: %p\n", buf);
+
+	return buf;
+}
+
+static
+struct mdss_mdp_data *__mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_pipe *pipe)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_data *buf;
+
+	mutex_lock(&mdp5_data->list_lock);
+	buf = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+	mutex_unlock(&mdp5_data->list_lock);
 
 	return buf;
 }
@@ -1089,6 +1110,10 @@ static void mdss_mdp_overlay_buf_deinit(struct msm_fb_data_type *mfd)
 	}
 }
 
+/*
+ * it's caller responsibility to acquire mdp5_data->list_lock while calling
+ * this function
+ */
 void mdss_mdp_overlay_buf_free(struct msm_fb_data_type *mfd,
 		struct mdss_mdp_data *buf)
 {
@@ -1105,6 +1130,16 @@ void mdss_mdp_overlay_buf_free(struct msm_fb_data_type *mfd,
 	pr_debug("buffer freed: %p\n", buf);
 
 	list_move_tail(&buf->buf_list, &mdp5_data->bufs_pool);
+}
+
+static void __mdp_overlay_buf_free(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_data *buf)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
+	mutex_lock(&mdp5_data->list_lock);
+	mdss_mdp_overlay_buf_free(mfd, buf);
+	mutex_unlock(&mdp5_data->list_lock);
 }
 
 static inline void __pipe_buf_mark_cleanup(struct msm_fb_data_type *mfd,
@@ -2356,7 +2391,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		goto pan_display_error;
 	}
 
-	buf_l = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+	buf_l = __mdp_overlay_buf_alloc(mfd, pipe);
 	if (!buf_l) {
 		pr_err("unable to allocate memory for fb buffer\n");
 		goto pan_display_error;
@@ -2395,7 +2430,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 			goto pan_display_error;
 		}
 
-		buf_r = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+		buf_r = __mdp_overlay_buf_alloc(mfd, pipe);
 		if (!buf_r) {
 			pr_err("unable to allocate memory for fb buffer\n");
 			goto pan_display_error;
@@ -2418,9 +2453,9 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 
 pan_display_error:
 	if (buf_l)
-		mdss_mdp_overlay_buf_free(mfd, buf_l);
+		__mdp_overlay_buf_free(mfd, buf_l);
 	if (buf_r)
-		mdss_mdp_overlay_buf_free(mfd, buf_r);
+		__mdp_overlay_buf_free(mfd, buf_r);
 	mdss_iommu_ctrl(0);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	mutex_unlock(&mdp5_data->ov_lock);
@@ -3015,7 +3050,7 @@ static int mdss_mdp_cursor_pipe_setup(struct msm_fb_data_type *mfd,
 		cursor_addr = mfd->cursor_buf_phys;
 	}
 
-	buf = mdss_mdp_overlay_buf_alloc(mfd, pipe);
+	buf = __mdp_overlay_buf_alloc(mfd, pipe);
 	if (!buf) {
 		pr_err("unable to allocate memory for cursor buffer\n");
 		ret = -ENOMEM;

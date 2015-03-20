@@ -311,6 +311,7 @@ static struct mdss_mdp_pipe *mdss_mdp_splash_get_pipe(
 	struct mdss_mdp_pipe *pipe;
 	int ret;
 	struct mdss_mdp_data *buf;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	uint32_t image_size = SPLASH_IMAGE_WIDTH * SPLASH_IMAGE_HEIGHT
 						* SPLASH_IMAGE_BPP;
 
@@ -323,12 +324,15 @@ static struct mdss_mdp_pipe *mdss_mdp_splash_get_pipe(
 		return NULL;
 	}
 
+	mutex_lock(&mdp5_data->list_lock);
 	buf = mdss_mdp_overlay_buf_alloc(mfd, pipe);
 	if (!buf) {
 		pr_err("unable to allocate memory for splash buffer\n");
 		mdss_mdp_pipe_unmap(pipe);
+		mutex_unlock(&mdp5_data->list_lock);
 		return NULL;
 	}
+	mutex_unlock(&mdp5_data->list_lock);
 
 	buf->p[0].addr = mfd->splash_info.iova;
 	buf->p[0].len = image_size;
