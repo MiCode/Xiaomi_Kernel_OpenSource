@@ -1246,6 +1246,7 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 	for (i = 0; i < isp->num_of_streams; i++) {
 		struct atomisp_sub_device *asd = &isp->asd[i];
 		struct ia_css_pipeline *acc_pipeline;
+		struct ia_css_pipe *acc_pipe = NULL;
 
 		if (asd->streaming != ATOMISP_DEVICE_STREAMING_ENABLED &&
 		    !asd->stream_prepared)
@@ -1256,16 +1257,17 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 		* By calling acc_done() for all loaded fw_handles,
 		* HAL will be unblocked.
 		*/
-		acc_pipeline =
-			ia_css_pipe_get_pipeline(
-			asd->stream_env[i].pipes[CSS_PIPE_ID_ACC]);
-		if (acc_pipeline) {
-			struct ia_css_pipeline_stage *stage;
-			for (stage = acc_pipeline->stages; stage;
-				stage = stage->next) {
-				const struct ia_css_fw_info *fw;
-				fw = stage->firmware;
-				atomisp_acc_done(asd, fw->handle);
+		acc_pipe = asd->stream_env[i].pipes[CSS_PIPE_ID_ACC];
+		if (acc_pipe != NULL) {
+			acc_pipeline = ia_css_pipe_get_pipeline(acc_pipe);
+			if (acc_pipeline) {
+				struct ia_css_pipeline_stage *stage;
+				for (stage = acc_pipeline->stages; stage;
+					stage = stage->next) {
+					const struct ia_css_fw_info *fw;
+					fw = stage->firmware;
+					atomisp_acc_done(asd, fw->handle);
+				}
 			}
 		}
 
