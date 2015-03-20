@@ -753,8 +753,12 @@ void do_exit(long code)
 	 * leave this task alone and wait for reboot.
 	 */
 	if (unlikely(tsk->flags & PF_EXITING)) {
+#ifdef CONFIG_PANIC_ON_RECURSIVE_FAULT
+		panic("Recursive fault!\n");
+#else
 		printk(KERN_ALERT
 			"Fixing recursive fault but reboot is needed!\n");
+#endif
 		/*
 		 * We can do this unlocked here. The futex code uses
 		 * this flag just to verify whether the pi state
