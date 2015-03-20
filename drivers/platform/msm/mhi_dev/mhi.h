@@ -497,6 +497,8 @@ struct mhi_dev {
 
 	/* EP PCIe registration */
 	struct ep_pcie_register_event	event_reg;
+	u32                             ifc_id;
+	struct ep_pcie_hw               *phandle;
 
 	atomic_t			write_active;
 	atomic_t			is_suspended;
