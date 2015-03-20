@@ -15,6 +15,7 @@
 #define __MSM_CLOCKS_8976_H
 
 #define clk_gpll0_clk_src			0x5933b69f
+#define clk_gpll0_ao_clk_src                    0x6b2fb034
 #define clk_gpll2_clk_src			0x7c34503b
 #define clk_gpll3_clk_src			0x5b1eccd5
 #define clk_gpll4_clk_src			0x10525d57
@@ -53,6 +54,9 @@
 #define clk_xo_pil_mss_clk			0xe97a8354
 #define clk_xo_pil_pronto_clk			0x89dae6d0
 #define clk_xo_wlan_clk				0x0116b76f
+#define clk_gcc_blsp1_qup2_i2c_apps_clk		0x1076f220
+#define clk_gcc_blsp1_qup1_i2c_apps_clk		0xc303fae9
+#define clk_gcc_blsp1_qup1_spi_apps_clk		0x759a76b0
 #define clk_gcc_blsp1_qup2_spi_apps_clk		0x3e77d48f
 #define clk_gcc_blsp1_qup3_i2c_apps_clk		0x9e25ac82
 #define clk_gcc_blsp1_qup3_spi_apps_clk		0xfb978880
@@ -138,6 +142,7 @@
 #define clk_gcc_oxili_timer_clk			0x1180db06
 #define clk_gcc_pdm2_clk			0x99d55711
 #define clk_gcc_pdm_ahb_clk			0x365664f6
+#define clk_gcc_prng_ahb_clk			0x397e7eaa
 #define clk_gcc_rbcpr_gfx_ahb_clk		0xf2f28a7c
 #define clk_gcc_rbcpr_gfx_clk			0x20c0af83
 #define clk_gcc_sdcc1_ahb_clk			0x691e0caa
@@ -171,6 +176,7 @@
 #define clk_gcc_crypto_ahb_clk			0x94de4919
 #define clk_gcc_crypto_axi_clk			0xd4415c9b
 #define clk_gcc_crypto_clk			0x00d390d2
+#define clk_gcc_apss_tcu_clk			0xaf56a329
 #define clk_gcc_cpp_tbu_clk			0xab6f19ab
 #define clk_gcc_gfx_1_tbu_clk			0xe66048ad
 #define clk_gcc_gfx_tbu_clk			0x18bb9a90
@@ -254,5 +260,9 @@
 #define clk_gcc_debug_mux			0x8121ac15
 #define clk_rpm_debug_mux			0x25cd1f3a
 #define clk_wcnss_m_clk				0x709f430b
+
+#define clk_a53ssmux_lc				0x71a9377b
+#define clk_a53ssmux_bc				0xb5983c42
+#define clk_a53ssmux_cci			0x15560bd5
 
 #endif
