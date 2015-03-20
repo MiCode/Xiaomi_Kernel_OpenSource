@@ -978,7 +978,7 @@ static void i915_gem_record_rings(struct drm_device *dev,
 			 * for it to be useful (e.g. dump the context being
 			 * executed).
 			 */
-			if (request)
+			if (request && request->ctx)
 				rbuf = request->ctx->engine[ring->id].ringbuf;
 			else
 				rbuf = ring->default_context->engine[ring->id].ringbuf;
