@@ -32,7 +32,6 @@
 #include "intel_drv.h"
 #include "intel_dsi.h"
 #include "intel_dsi_cmd.h"
-#include <linux/mfd/intel_soc_pmic.h>
 
 /* the sub-encoders aka panel drivers */
 static struct intel_dsi_device intel_dsi_devices[] = {
@@ -42,6 +41,45 @@ static struct intel_dsi_device intel_dsi_devices[] = {
 		.dev_ops = &vbt_generic_dsi_display_ops,
 	},
 };
+
+#define        PMIC_ACCESS_RETRY_TIMES         3
+int dsi_soc_pmic_readb(int reg)
+{
+	int try = PMIC_ACCESS_RETRY_TIMES;
+	int ret;
+
+	do {
+		ret = intel_soc_pmic_readb(reg);
+		if (ret < 0) {
+			DRM_ERROR("PMIC Read failed, reg[%x] result[%x]\n",
+					reg, ret);
+			DRM_ERROR("retry ...\n");
+			usleep_range(100, 200);
+		} else
+			break;
+	} while (ret < 0 && --try);
+
+	return ret;
+}
+
+int dsi_soc_pmic_writeb(int reg, u8 val)
+{
+	int try = PMIC_ACCESS_RETRY_TIMES;
+	int ret;
+
+	do {
+		ret = intel_soc_pmic_writeb(reg, val);
+		if (ret < 0) {
+			DRM_ERROR("PMIC Write failed, reg[%x] result[%x]\n",
+					reg, val);
+			DRM_ERROR("retry ...\n");
+			usleep_range(100, 200);
+		} else
+			break;
+	} while (ret < 0 && --try);
+
+	return ret;
+}
 
 static void band_gap_reset(struct drm_i915_private *dev_priv)
 {
@@ -303,7 +341,7 @@ static void intel_dsi_soc_power_on(struct intel_dsi_device *dsi)
 
 static void intel_dsi_pmic_power_on(struct intel_dsi_device *dsi)
 {
-	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
+	dsi_soc_pmic_writeb(PMIC_PANEL_EN, 0x01);
 }
 
 static void intel_dsi_pre_enable(struct intel_encoder *encoder)
@@ -582,7 +620,7 @@ static void intel_dsi_soc_power_off(struct intel_dsi_device *dsi)
 
 static void intel_dsi_pmic_power_off(struct intel_dsi_device *dsi)
 {
-	intel_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
+	dsi_soc_pmic_writeb(PMIC_PANEL_EN, 0x00);
 }
 
 static void intel_dsi_post_disable(struct intel_encoder *encoder)
@@ -1129,8 +1167,8 @@ static const struct drm_connector_funcs intel_dsi_connector_funcs = {
 
 void intel_dsi_pmic_backlight_on(struct intel_dsi_device *dsi)
 {
-	intel_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
-	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
+	dsi_soc_pmic_writeb(PMIC_BKL_EN, 0xFF);
+	dsi_soc_pmic_writeb(PMIC_PWM_EN, 0x01);
 
 	generic_enable_bklt(dsi);
 }
@@ -1152,8 +1190,8 @@ void intel_dsi_pmic_backlight_off(struct intel_dsi_device *dsi)
 {
 	generic_disable_bklt(dsi);
 
-	intel_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
-	intel_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
+	dsi_soc_pmic_writeb(PMIC_PWM_EN, 0x00);
+	dsi_soc_pmic_writeb(PMIC_BKL_EN, 0x7F);
 }
 
 void intel_dsi_soc_backlight_off(struct intel_dsi_device *dsi)

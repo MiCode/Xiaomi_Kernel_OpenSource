@@ -505,7 +505,7 @@ static u32 vlv_get_mipi_backlight(struct intel_connector *connector)
 	if (dev_priv->vbt.dsi.config->pmic_soc_blc)
 		return (~lpio_bl_read(0, LPIO_PWM_CTRL)) & 0xff;
 	else
-		return intel_soc_pmic_readb(PMIC_PWM_LEVEL);
+		return dsi_soc_pmic_readb(PMIC_PWM_LEVEL);
 }
 
 static u32 _vlv_get_backlight(struct drm_device *dev, enum pipe pipe)
@@ -636,7 +636,7 @@ static void vlv_set_mipi_backlight(struct intel_connector *connector, u32 level)
 		lpio_bl_write_bits(0, LPIO_PWM_CTRL, (0xff - level), 0xFF);
 		lpio_bl_update(0, LPIO_PWM_CTRL);
 	} else
-		intel_soc_pmic_writeb(PMIC_PWM_LEVEL, level);
+		dsi_soc_pmic_writeb(PMIC_PWM_LEVEL, level);
 }
 
 void
@@ -1423,7 +1423,7 @@ static int vlv_setup_mipi_backlight(struct intel_connector *connector)
 			0x80000000;
 	} else {
 		panel->backlight.enabled =
-			(intel_soc_pmic_readb(PMIC_PWM_EN) & 0x1) &&
+			(dsi_soc_pmic_readb(PMIC_PWM_EN) & 0x1) &&
 			panel->backlight.level != 0;
 	}
 

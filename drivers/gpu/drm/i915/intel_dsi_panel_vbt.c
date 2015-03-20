@@ -33,7 +33,6 @@
 #include <linux/i2c.h>
 #include <asm/intel-mid.h>
 #include <video/mipi_display.h>
-#include <linux/mfd/intel_soc_pmic.h>
 #include "i915_drv.h"
 #include "intel_drv.h"
 #include "intel_dsi.h"
@@ -577,20 +576,17 @@ static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 		data += 4;
 	}
 
-	tmp = intel_soc_pmic_readb(register_address);
-	if (tmp < 0) {
-		DRM_ERROR("PMIC Read failed\n");
+	tmp = dsi_soc_pmic_readb(register_address);
+	if (tmp < 0)
 		return ERR_PTR(tmp);
-	}
 
 	tmp &= ~data_mask;
 	register_data &= data_mask;
 	register_data |= tmp;
-	ret = intel_soc_pmic_writeb(register_address, register_data);
-	if (ret < 0) {
-		DRM_ERROR("PMIC Write failed\n");
+
+	ret = dsi_soc_pmic_writeb(register_address, register_data);
+	if (ret < 0)
 		return ERR_PTR(ret);
-	}
 
 	return data;
 }
@@ -663,6 +659,11 @@ static void generic_exec_sequence(struct intel_dsi *intel_dsi, char *sequence)
 
 		/* execute the element specific rotines */
 		data = mipi_elem_exec(intel_dsi, data);
+
+		if (IS_ERR(data)) {
+			DRM_ERROR("Need abort exec, data[%p]\n", data);
+			break;
+		}
 
 		/*
 		 * After processing the element, data should point to

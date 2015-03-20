@@ -26,6 +26,7 @@
 
 #include <drm/drmP.h>
 #include <drm/drm_crtc.h>
+#include <linux/mfd/intel_soc_pmic.h>
 #include "intel_drv.h"
 
 #define HV_DDI0_HPD_GPIONC_0_PCONF0		0x4130
@@ -541,4 +542,9 @@ extern struct intel_dsi *intel_attached_dsi(struct drm_connector *connector);
 
 void generic_enable_bklt(struct intel_dsi_device *dsi);
 void generic_disable_bklt(struct intel_dsi_device *dsi);
+
+/*Wrappers to access PMIC with retry*/
+int dsi_soc_pmic_readb(int reg);
+int dsi_soc_pmic_writeb(int reg, u8 val);
+
 #endif /* _INTEL_DSI_H */
