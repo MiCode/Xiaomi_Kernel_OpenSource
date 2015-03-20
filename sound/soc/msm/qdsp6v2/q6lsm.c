@@ -1606,10 +1606,10 @@ int q6lsm_lab_control(struct lsm_client *client, u32 enable)
 	q6lsm_add_hdr(client, &lab_config.msg_hdr, sizeof(lab_config), true);
 	lab_config.msg_hdr.opcode = LSM_SESSION_CMD_SET_PARAMS;
 	q6lsm_set_param_hdr_info(&lab_config.params_hdr,
-				 sizeof(struct lsm_lab_enable),
+				 sizeof(struct lsm_lab_config),
 				 0, 0, 0);
 	lab_ids.module_id = LSM_MODULE_ID_LAB;
-	lab_ids.param_id = LSM_PARAM_ID_LAB_ENABLE;
+	lab_ids.param_id = LSM_PARAM_ID_LAB_CONFIG;
 	param_size = (sizeof(struct lsm_lab_config) -
 		      sizeof(struct lsm_param_payload_common));
 	q6lsm_set_param_common(&lab_config.lab_config.common,
