@@ -21,3 +21,8 @@
 	compatible = "qcom,msm8996-cdp", "qcom,msm8996", "qcom,cdp";
 	qcom,board-id = <1 0>;
 };
+
+&bluetooth {
+	/delete-property/ qca,bt-vdd-core-supply;
+	/delete-property/ qca,bt-vdd-core-voltage-level;
+};

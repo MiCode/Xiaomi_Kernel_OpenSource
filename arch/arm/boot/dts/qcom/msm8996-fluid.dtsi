@@ -17,6 +17,18 @@
 	model = "Qualcomm Technologies, Inc. MSM 8996 FLUID";
 	compatible = "qcom,msm8996-fluid", "qcom,msm8996", "qcom,fluid";
 	qcom,board-id = <3 0>;
+
+	bluetooth: bt_qca6174 {
+		compatible = "qca,qca6174";
+		qca,bt-reset-gpio = <&pm8994_gpios 19 0>; /* BT_EN */
+		qca,bt-vdd-core-supply = <&pm8994_s3>;
+		qca,bt-vdd-pa-supply = <&rome_vreg>;
+		qca,bt-vdd-io-supply = <&pm8994_s4>;
+		qca,bt-vdd-xtal-supply = <&pm8994_l30>;
+		qca,bt-vdd-core-voltage-level = <1300000 1800000>;
+		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
+		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
+	};
 };
 
 &sdhc_1 {

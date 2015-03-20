@@ -35,3 +35,8 @@
 		qcom,recharge-thresh-mv = <100>;
 	};
 };
+
+&bluetooth {
+	/delete-property/ qca,bt-vdd-core-supply;
+	/delete-property/ qca,bt-vdd-core-voltage-level;
+};
