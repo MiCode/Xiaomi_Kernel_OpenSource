@@ -470,8 +470,8 @@ static int dc_ti_gpadc_resume(struct device *dev)
 #endif
 
 static const struct dev_pm_ops dc_ti_gpadc_pm_ops = {
-	.suspend	= dc_ti_gpadc_suspend,
-	.resume		= dc_ti_gpadc_resume,
+	.suspend_late	= dc_ti_gpadc_suspend,
+	.resume_early	= dc_ti_gpadc_resume,
 };
 
 static struct platform_driver dc_ti_gpadc_driver = {
