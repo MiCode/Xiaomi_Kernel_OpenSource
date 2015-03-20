@@ -256,7 +256,7 @@ static struct pll_vote_clk gpll4 = {
 	.status_mask = BIT(30),
 	.base = &virt_base,
 	.c = {
-		.rate = 1536000000,
+		.rate = 1376000000,
 		.parent = &gcc_xo.c,
 		.dbg_name = "gpll4",
 		.ops = &clk_ops_pll_vote,
@@ -1102,8 +1102,8 @@ static struct clk_freq_tbl ftbl_sdcc1_apps_clk_src[] = {
 	F(  25000000, gpll0_out_main,   12,    1,     2),
 	F(  50000000, gpll0_out_main,   12,    0,     0),
 	F( 100000000, gpll0_out_main,    6,    0,     0),
-	F( 192000000, gpll4_out_main,    2,    0,     0),
-	F( 384000000, gpll4_out_main,    1,    0,     0),
+	F( 172000000, gpll4_out_main,    2,    0,     0),
+	F( 344000000, gpll4_out_main,    1,    0,     0),
 	F_END
 };
 
