@@ -1284,7 +1284,7 @@ static int copy_user_space_cmds(struct drm_i915_private *dev_priv,
 	temp_cmd_table->count = args->cmd_count;
 	temp_cmd_table->table = drm_malloc_ab(sizeof(*temp_cmd_table->table),
 					 args->cmd_count);
-	if (!temp_cmd_table) {
+	if (!temp_cmd_table->table) {
 		drm_free_large(temp_cmd_table);
 		return -ENOMEM;
 	}
