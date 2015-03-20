@@ -277,11 +277,10 @@ static int capture_prepare_params(struct gaudio_snd_dev *snd)
 
 	runtime->frame_bits = snd_pcm_format_physical_width(runtime->format);
 
-	kfree(params);
-
 	swparams = kzalloc(sizeof(*swparams), GFP_KERNEL);
 	if (!swparams) {
 		pr_err("Failed to allocate sw params");
+		kfree(params);
 		return -ENOMEM;
 	}
 
@@ -304,6 +303,7 @@ static int capture_prepare_params(struct gaudio_snd_dev *snd)
 			"SNDRV_PCM_IOCTL_SW_PARAMS failed: %d\n", (int)result);
 
 	kfree(swparams);
+	kfree(params);
 
 	INFO(snd->card,
 		"capture params: access %x, format %x, channels %d, rate %d\n",
