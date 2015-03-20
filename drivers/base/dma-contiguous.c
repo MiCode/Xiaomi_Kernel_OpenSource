@@ -25,6 +25,7 @@
 #include <asm/page.h>
 #include <asm/dma-contiguous.h>
 
+#include <linux/bootmem.h>
 #include <linux/memblock.h>
 #include <linux/err.h>
 #include <linux/of.h>
@@ -47,6 +48,7 @@ struct cma {
 	unsigned long	count;
 	unsigned long	*bitmap;
 	bool in_system;
+	bool fixup;
 	struct mutex lock;
 };
 
@@ -61,6 +63,7 @@ static struct cma_area {
 	struct cma *cma;
 	const char *name;
 	bool to_system;
+	bool fixup;
 	unsigned long alignment;
 	unsigned long limit;
 } cma_areas[MAX_CMA_AREAS];
@@ -179,7 +182,8 @@ static __init int cma_activate_area(unsigned long base_pfn, unsigned long count)
 }
 
 static __init struct cma *cma_create_area(unsigned long base_pfn,
-				     unsigned long count, bool system)
+				     unsigned long count, bool system,
+				     bool fixup)
 {
 	int bitmap_size = BITS_TO_LONGS(count) * sizeof(long);
 	struct cma *cma;
@@ -194,6 +198,7 @@ static __init struct cma *cma_create_area(unsigned long base_pfn,
 	cma->base_pfn = base_pfn;
 	cma->count = count;
 	cma->in_system = system;
+	cma->fixup = fixup;
 	cma->bitmap = kzalloc(bitmap_size, GFP_KERNEL);
 
 	if (!cma->bitmap)
@@ -216,6 +221,26 @@ no_mem:
 	return ERR_PTR(ret);
 }
 
+static void cma_fixup_area(struct cma *cma, unsigned long max_pfn)
+{
+	unsigned long fixup_size;
+
+	mutex_lock(&cma->lock);
+	if (max_pfn >= (cma->base_pfn + cma->count)) {
+		mutex_unlock(&cma->lock);
+		return;
+	}
+
+	/* return rest of the cma pages to buddy */
+	fixup_size = (cma->count - (max_pfn - cma->base_pfn)) << PAGE_SHIFT;
+	memblock_free(max_pfn << PAGE_SHIFT, fixup_size);
+	free_bootmem_late(max_pfn << PAGE_SHIFT, fixup_size);
+
+	/* now fixup cma region */
+	cma->count = max_pfn - cma->base_pfn;
+	mutex_unlock(&cma->lock);
+}
+
 /*****************************************************************************/
 
 #ifdef CONFIG_OF
@@ -227,7 +252,7 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	const __be32 *prop;
 	const char *name;
 	bool in_system;
-	bool remove;
+	bool remove, fixup;
 	unsigned long size_cells = dt_root_size_cells;
 	unsigned long addr_cells = dt_root_addr_cells;
 	phys_addr_t limit = MEMBLOCK_ALLOC_ANYWHERE;
@@ -262,6 +287,8 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	name = of_get_flat_dt_prop(node, "label", NULL);
 	in_system =
 		of_get_flat_dt_prop(node, "linux,reserve-region", NULL) ? 0 : 1;
+	fixup = of_get_flat_dt_prop(node, "linux,fixup-reserve-region",
+			NULL) ? 1 : 0;
 
 	prop = of_get_flat_dt_prop(node, "linux,memory-limit", NULL);
 	if (prop)
@@ -270,10 +297,20 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	remove =
 	     of_get_flat_dt_prop(node, "linux,remove-completely", NULL) ? 1 : 0;
 
+	/* fixup demands base and size to be section aligned, if it doesn't
+	 * then reduce fixup to remove
+	 */
+	if (fixup) {
+		if (!IS_ALIGNED(base, SECTION_SIZE) ||
+				!IS_ALIGNED(size, SECTION_SIZE)) {
+			fixup = 0;
+			remove = 1;
+		}
+	}
 	pr_info("Found %s, memory base %pa, size %ld MiB, limit %pa\n", uname,
 			&base, (unsigned long)size / SZ_1M, &limit);
 	dma_contiguous_reserve_area(size, &base, limit, name,
-					in_system, remove);
+					in_system, remove, fixup);
 
 	return 0;
 }
@@ -368,7 +405,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
 			 (unsigned long)sel_size / SZ_1M);
 
 		if (dma_contiguous_reserve_area(sel_size, &base, limit, NULL,
-		    CMA_RESERVE_AREA ? 0 : 1, false) == 0) {
+		    CMA_RESERVE_AREA ? 0 : 1, false, false) == 0) {
 			pr_info("CMA: reserved %ld MiB at %pa for default region\n",
 				(unsigned long)sel_size / SZ_1M, &base);
 			dma_contiguous_def_base = base;
@@ -392,7 +429,7 @@ void __init dma_contiguous_reserve(phys_addr_t limit)
  */
 int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 				       phys_addr_t limit, const char *name,
-				       bool to_system, bool remove)
+				       bool to_system, bool remove, bool fixup)
 {
 	phys_addr_t base = *res_base;
 	phys_addr_t alignment = PAGE_SIZE;
@@ -411,9 +448,18 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	if (!size)
 		return -EINVAL;
 
+	/* fixup allowed only if !to_system and !remove */
+	if (fixup && (to_system || remove)) {
+		pr_err("cannot fixup cma region\n");
+		return -EINVAL;
+	}
+
 	/* Sanitise input arguments */
-	if (!remove)
+	if (fixup)
+		alignment = SECTION_SIZE;
+	else if (!remove)
 		alignment = PAGE_SIZE << max(MAX_ORDER - 1, pageblock_order);
+
 	base = ALIGN(base, alignment);
 	size = ALIGN(size, alignment);
 	limit &= ~(alignment - 1);
@@ -451,6 +497,7 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 	cma_areas[cma_area_count].alignment = alignment;
 	cma_areas[cma_area_count].limit = limit;
 	cma_areas[cma_area_count].to_system = to_system;
+	cma_areas[cma_area_count].fixup = fixup;
 	cma_area_count++;
 	*res_base = base;
 
@@ -511,6 +558,13 @@ static void cma_assign_device_from_dt(struct device *dev)
 	if (of_property_read_bool(node, "linux,remove-completely"))
 		set_dma_ops(dev, &removed_dma_ops);
 
+	/* see if fixup was over-ruled and we fallback to removed region
+	 * because of non aligned base/size
+	 */
+	if (of_property_read_bool(node, "linux,fixup-reserve-region") &&
+			!cma->fixup)
+		set_dma_ops(dev, &removed_dma_ops);
+
 	pr_info("Assigned CMA region at %lx to %s device\n", (unsigned long)value, dev_name(dev));
 }
 
@@ -537,8 +591,9 @@ static int __init cma_init_reserved_areas(void)
 		phys_addr_t base = PFN_DOWN(cma_areas[i].base);
 		unsigned int count = cma_areas[i].size >> PAGE_SHIFT;
 		bool system = cma_areas[i].to_system;
+		bool fixup = cma_areas[i].fixup;
 
-		cma = cma_create_area(base, count, system);
+		cma = cma_create_area(base, count, system, fixup);
 		if (!IS_ERR(cma))
 			cma_areas[i].cma = cma;
 	}
@@ -671,6 +726,11 @@ unsigned long dma_alloc_from_contiguous(struct device *dev, int count,
 		start = pageno + mask + 1;
 	}
 
+	if (cma->fixup && pfn) {
+		cma_fixup_area(cma, pfn + count);
+		/* fixup is only one time */
+		cma->fixup = 0;
+	}
 	pr_debug("%s(): returned %lx\n", __func__, pfn);
 	return pfn;
 }
