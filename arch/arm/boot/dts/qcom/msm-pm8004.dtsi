@@ -28,6 +28,7 @@
 			qcom,secondary-pon-reset;
 			qcom,s3-debounce = <32>;
 			qcom,s3-src = "kpdpwr-and-resin";
+			status = "disabled";
 		};
 
 		qcom,temp-alarm@2400 {
