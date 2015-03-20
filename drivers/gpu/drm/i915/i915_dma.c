@@ -2066,10 +2066,9 @@ int i915_driver_unload(struct drm_device *dev)
 	i915_cmd_parser_cleanup(dev_priv);
 
 	pci_dev_put(dev_priv->bridge_dev);
-	kfree(dev_priv);
 
 	i915_perfmon_cleanup(dev_priv);
-
+	kfree(dev_priv);
 	return 0;
 }
 
