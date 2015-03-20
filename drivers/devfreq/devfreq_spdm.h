@@ -79,6 +79,8 @@ struct spdm_data {
 	struct list_head list;
 
 	struct dentry *debugfs_dir;
+
+	bool enabled;
 };
 
 extern void spdm_init_debugfs(struct device *dev);
