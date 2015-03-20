@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2010, 2013-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2010, 2013-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -190,11 +190,18 @@ static int bluetooth_power(int on)
 	BT_PWR_DBG("on: %d", on);
 
 	if (on) {
+		if (bt_power_pdata->bt_vdd_core) {
+			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_core);
+			if (rc < 0) {
+				BT_PWR_ERR("bt_power vddcore config failed");
+				goto out;
+			}
+		}
 		if (bt_power_pdata->bt_vdd_io) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_io);
 			if (rc < 0) {
 				BT_PWR_ERR("bt_power vddio config failed");
-				goto out;
+				goto vdd_io_fail;
 			}
 		}
 		if (bt_power_pdata->bt_vdd_xtal) {
@@ -221,7 +228,7 @@ static int bluetooth_power(int on)
 		if (bt_power_pdata->bt_chip_pwd) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_chip_pwd);
 			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddldo config failed");
+				BT_PWR_ERR("bt_power chippwd config failed");
 				goto chip_pwd_fail;
 			}
 		}
@@ -246,6 +253,8 @@ vdd_pa_fail:
 		bt_vreg_disable(bt_power_pdata->bt_vdd_xtal);
 vdd_xtal_fail:
 		bt_vreg_disable(bt_power_pdata->bt_vdd_io);
+vdd_io_fail:
+		bt_vreg_disable(bt_power_pdata->bt_vdd_core);
 	}
 out:
 	return rc;
@@ -407,6 +416,11 @@ static int bt_power_populate_dt_pinfo(struct platform_device *pdev)
 			BT_PWR_ERR("bt-reset-gpio not provided in device tree");
 			return bt_power_pdata->bt_gpio_sys_rst;
 		}
+		rc = bt_dt_parse_vreg_info(&pdev->dev,
+					&bt_power_pdata->bt_vdd_core,
+					"qca,bt-vdd-core");
+		if (rc < 0)
+			return rc;
 
 		rc = bt_dt_parse_vreg_info(&pdev->dev,
 					&bt_power_pdata->bt_vdd_io,
