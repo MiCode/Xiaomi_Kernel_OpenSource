@@ -5233,6 +5233,11 @@
 		asoc-codec-names = "msm-stub-codec.1";
 	};
 
+	qcom,msmapr-audio {
+		compatible = "qcom,msmapr-audio";
+		qcom,apr-dest-type = "ADSP";
+	};
+
 	qcom,msm-adsp-loader {
 		compatible = "qcom,adsp-loader";
 		qcom,adsp-state = <0>;

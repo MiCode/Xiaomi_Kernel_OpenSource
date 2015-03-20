@@ -672,6 +672,11 @@
 		qcom,proc-img-to-load = "modem";
 	};
 
+	qcom,msmapr-audio {
+		compatible = "qcom,msmapr-audio";
+		qcom,apr-dest-type = "MDSP";
+	};
+
 	qcom_crypto: qcrypto@720000 {
 		compatible = "qcom,qcrypto";
 		reg = <0x720000 0x20000>,

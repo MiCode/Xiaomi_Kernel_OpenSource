@@ -261,7 +261,7 @@ config SND_SOC_MSM8X16
 	select DTS_SRS_TM
 	select DOLBY_DAP
 	select DOLBY_DS2
-	select MSM_QDSP6_APRV3
+	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select SND_SOC_CPE
 	select SND_HWDEP
@@ -285,7 +285,7 @@ config SND_SOC_MSM8909
 	select QTI_PP
 	select DTS_SRS_TM
 	select DOLBY_DAP
-	select MSM_QDSP6_APRV3
+	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select SND_HWDEP
 	select DOLBY_DS2
@@ -304,6 +304,7 @@ config SND_SOC_MDM9630
 	select SND_SOC_WCD9320
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_DYNAMIC_MINORS
+	select MSM_QDSP6_APRV2
 	help
 	 To add support for SoC audio on MDM9630 boards.
 
@@ -340,7 +341,7 @@ config SND_SOC_MDM9640
 	select SND_SOC_WCD9330
 	select SND_SOC_MSM_HOSTLESS_PCM
 	select SND_DYNAMIC_MINORS
-	select MSM_QDSP6_APRV3
+	select MSM_QDSP6_APRV2
 	select MSM_QDSP6V2_CODECS
 	select SND_HWDEP
         help

@@ -1674,6 +1674,11 @@
 		qcom,adsp-state = <0>;
 	};
 
+	qcom,msmapr-audio {
+		compatible = "qcom,msmapr-audio";
+		qcom,apr-dest-type = "ADSP";
+	};
+
 	qcom,msm-audio-ion {
 		compatible = "qcom,msm-audio-ion";
 	};

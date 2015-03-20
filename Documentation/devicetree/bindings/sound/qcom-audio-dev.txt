@@ -1,5 +1,17 @@
 Qualcomm audio devices for ALSA sound SoC
 
+* msmapr-audio
+
+Required properties:
+
+ - compatible : "qcom,msmapr-audio"
+
+ - qcom,apr-dest-type : Name of hardware module to which apr packets
+                        are routed."MDSP" indicates that apr module is in modem
+                        "ADSP" indicates that apr module is in adsp.
+                        "Dynamic" indicates using service registry to discover
+                        services.
+
 * msm-pcm
 
 Required properties:
