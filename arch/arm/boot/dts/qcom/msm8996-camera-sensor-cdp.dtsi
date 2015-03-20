@@ -37,7 +37,7 @@
 		cell-index = <1>;
 		reg = <0x1>;
 		compatible = "qcom,actuator";
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		cam_vaf-supply = <&pm8994_l23>;
 		qcom,cam-vreg-name = "cam_vaf";
 		qcom,cam-vreg-min-voltage = <2800000>;
@@ -75,7 +75,7 @@
 		qcom,eeprom-name = "onsemi_cat24c16";
 		compatible = "qcom,eeprom";
 		qcom,slave-addr = <0xa0>;
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		qcom,num-blocks = <7>;
 
 		qcom,page0 = <0 0 0 0 0 0>;
@@ -140,7 +140,6 @@
 			"sensor_gpio_reset", "sensor_gpio_standby","sensor_cam_mclk";
 		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 24000000>;
 		qcom,cam-power-seq-delay = <1 1 1 30 30 5>;
-		status = "ok";
 		clocks = <&clock_mmss clk_mclk2_clk_src>,
 				<&clock_mmss clk_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
@@ -154,6 +153,7 @@
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <0>;
 		qcom,led-flash-src = <&led_flash0>;
+		qcom,eeprom-src = <&eeprom0>;
 		cam_vdig-supply = <&pm8994_s3>;
 		cam_vio-supply = <&pm8994_lvs1>;
 		cam_vana-supply = <&pm8994_l17>;
@@ -291,7 +291,7 @@
 					  "CAM_STANDBY2";
 		qcom,sensor-position = <1>;
 		qcom,sensor-mode = <0>;
-		qcom,cci-master = <0>;
+		qcom,cci-master = <1>;
 		status = "ok";
 		clocks = <&clock_mmss clk_mclk2_clk_src>,
 			<&clock_mmss clk_camss_mclk2_clk>;
