@@ -1996,6 +1996,7 @@ struct rt5670_priv {
 	int lrck[RT5670_AIFS];
 	int bclk[RT5670_AIFS];
 	int master[RT5670_AIFS];
+	int pre_div[RT5670_AIFS];
 
 	int pll_src;
 	int pll_in;

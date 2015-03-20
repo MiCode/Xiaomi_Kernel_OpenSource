@@ -64,7 +64,6 @@ struct rt5670_init_reg {
 static struct rt5670_init_reg init_list[] = {
 	{ RT5670_DIG_MISC	, 0xc019 }, /* fa[0]=1, fa[3]=1'b MCLK det,
 						fa[15:14]=11'b for pdm */
-	{ RT5670_ADDA_CLK1	, 0x0000 },
 	{ RT5670_IL_CMD2	, 0x0010 }, /* set Inline Command Window */
 	{ RT5670_A_JD_CTRL1     , 0x0001 }, /* set JD1 mode 1 (1 port) */
 	{ RT5670_PRIV_INDEX	, 0x0014 },
@@ -159,7 +158,7 @@ static const u16 rt5670_reg[RT5670_VENDOR_ID2 + 1] = {
 	[RT5670_I2S1_SDP] = 0x8000,
 	[RT5670_I2S2_SDP] = 0x8000,
 	[RT5670_I2S3_SDP] = 0x8000,
-	[RT5670_ADDA_CLK1] = 0x1110,
+	[RT5670_ADDA_CLK1] = 0x7770,
 	[RT5670_ADDA_CLK2] = 0x0e00,
 	[RT5670_DMIC_CTRL1] = 0x1505,
 	[RT5670_DMIC_CTRL2] = 0x0015,
@@ -2880,6 +2879,7 @@ static int rt5670_hw_params(struct snd_pcm_substream *substream,
 		dev_err(codec->dev, "Unsupported clock setting\n");
 		return -EINVAL;
 	}
+	rt5670->pre_div[dai->id] = pre_div;
 	frame_size = snd_soc_params_to_frame_size(params);
 	if (frame_size < 0) {
 		dev_err(codec->dev, "Unsupported frame size: %d\n", frame_size);
@@ -3429,6 +3429,10 @@ static int rt5670_set_bias_level(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, RT5670_DIG_MISC, 0x1, 0x1);
 			snd_soc_update_bits(codec, RT5670_PWR_ANLG1,
 				RT5670_LDO_SEL_MASK, 0x3);
+			snd_soc_update_bits(codec, RT5670_ADDA_CLK1, 0x7770,
+			rt5670->pre_div[RT5670_AIF1] << RT5670_I2S_PD1_SFT |
+			rt5670->pre_div[RT5670_AIF2] << RT5670_I2S_PD2_SFT |
+			rt5670->pre_div[RT5670_AIF3] << RT5670_I2S_PD3_SFT);
 		}
 		break;
 
@@ -3436,6 +3440,7 @@ static int rt5670_set_bias_level(struct snd_soc_codec *codec,
 		break;
 
 	case SND_SOC_BIAS_OFF:
+		snd_soc_update_bits(codec, RT5670_ADDA_CLK1, 0x7770, 0x7770);
 		snd_soc_write(codec, RT5670_PWR_DIG1, 0x0000);
 		snd_soc_write(codec, RT5670_PWR_DIG2, 0x0001);
 		snd_soc_write(codec, RT5670_PWR_VOL, 0x0000);
@@ -3570,6 +3575,9 @@ static int rt5670_probe(struct snd_soc_codec *codec)
 
 	rt5670_codec = codec;
 	rt5670->jack_type = 0;
+	rt5670->pre_div[RT5670_AIF1] = 7;
+	rt5670->pre_div[RT5670_AIF2] = 7;
+	rt5670->pre_div[RT5670_AIF3] = 7;
 
 	return 0;
 }
