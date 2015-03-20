@@ -542,7 +542,7 @@ static int venus_hfi_read_queue(void *info, u8 *packet, u32 *pb_tx_req_is_set)
 	}
 
 	new_read_idx = queue->qhdr_read_idx + packet_size_in_words;
-	if (((packet_size_in_words << 2) <= VIDC_IFACEQ_VAR_HUGE_PKT_SIZE)
+	if (((packet_size_in_words << 2) <= VIDC_IFACEQ_MED_PKT_SIZE)
 			&& queue->qhdr_read_idx <= queue->qhdr_q_size) {
 		if (new_read_idx < queue->qhdr_q_size) {
 			memcpy(packet, read_ptr,
@@ -2249,27 +2249,6 @@ static int venus_hfi_sys_set_debug(struct venus_hfi_device *device, u32 debug)
 	return 0;
 }
 
-static int venus_hfi_sys_set_coverage(struct venus_hfi_device *device, u32 mode)
-{
-	u8 packet[VIDC_IFACEQ_VAR_SMALL_PKT_SIZE];
-	int rc = 0;
-	struct hfi_cmd_sys_set_property_packet *pkt =
-		(struct hfi_cmd_sys_set_property_packet *) &packet;
-
-	rc = call_hfi_pkt_op(device, sys_coverage_config,
-			pkt, mode);
-	if (rc) {
-		dprintk(VIDC_WARN,
-			"Coverage mode setting to FW failed\n");
-		return -ENOTEMPTY;
-	}
-	if (venus_hfi_iface_cmdq_write(device, pkt)) {
-		dprintk(VIDC_WARN, "Failed to send coverage pkt to f/w\n");
-		return -ENOTEMPTY;
-	}
-	return 0;
-}
-
 static int venus_hfi_sys_set_idle_message(struct venus_hfi_device *device,
 	bool enable)
 {
@@ -2728,16 +2707,9 @@ err_create_pkt:
 
 static int venus_hfi_session_end(void *session)
 {
-	struct hal_session *sess;
 	if (!session) {
 		dprintk(VIDC_ERR, "Invalid Params %s\n", __func__);
 		return -EINVAL;
-	}
-	sess = session;
-	if (msm_fw_coverage) {
-		if (venus_hfi_sys_set_coverage(sess->device,
-				msm_fw_coverage))
-			dprintk(VIDC_WARN, "Fw_coverage msg ON failed\n");
 	}
 	return venus_hfi_send_session_cmd(session,
 		HFI_CMD_SYS_SESSION_END);
@@ -3288,56 +3260,35 @@ static void venus_hfi_process_msg_event_notify(
 static void venus_hfi_flush_debug_queue(
 	struct venus_hfi_device *device, u8 *packet)
 {
-	bool local_packet = false;
-
+	u8 local_packet[VIDC_IFACEQ_MED_PKT_SIZE];
 	if (!device) {
 		dprintk(VIDC_ERR, "%s: Invalid params\n", __func__);
 		return;
 	}
-	if (!packet) {
-		packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
-		if (!packet) {
-			dprintk(VIDC_ERR, "In %s() Fail to allocate mem\n",
-				__func__);
-			return;
-		}
-		local_packet = true;
-	}
+	if (!packet)
+		packet = local_packet;
 
 	while (!venus_hfi_iface_dbgq_read(device, packet)) {
 		struct hfi_msg_sys_coverage_packet *pkt =
 			(struct hfi_msg_sys_coverage_packet *) packet;
 		if (pkt->packet_type == HFI_MSG_SYS_COV) {
-			int stm_size = 0;
-			dprintk(VIDC_DBG,
-				"DbgQ pkt size:%d\n", pkt->msg_size);
-			stm_size = stm_log_inv_ts(0, 0,
-				pkt->rg_msg_data, pkt->msg_size);
-			if (stm_size == 0)
-				dprintk(VIDC_ERR,
-					"In %s, stm_log returned size of 0\n",
-					__func__);
+			dprintk(VIDC_ERR,
+				"Code coverage support is deprecated\n");
+			continue;
 		} else {
 			struct hfi_msg_sys_debug_packet *pkt =
 				(struct hfi_msg_sys_debug_packet *) packet;
 			dprintk(VIDC_FW, "%s", pkt->rg_msg_data);
 		}
 	}
-	if (local_packet)
-		kfree(packet);
 }
 
 static void venus_hfi_response_handler(struct venus_hfi_device *device)
 {
-	u8 *packet = NULL;
+	u8 packet[VIDC_IFACEQ_MED_PKT_SIZE];
 	u32 rc = 0;
 	struct hfi_sfr_struct *vsfr = NULL;
 
-	packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
-	if (!packet) {
-		dprintk(VIDC_ERR, "In %s() Fail to allocate mem\n",  __func__);
-		return;
-	}
 	dprintk(VIDC_INFO, "#####venus_hfi_response_handler#####\n");
 	/* Process messages only if device is in valid state*/
 	if (device && device->state != VENUS_STATE_DEINIT) {
@@ -3397,7 +3348,6 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 	} else {
 		dprintk(VIDC_ERR, "SPURIOUS_INTERRUPT\n");
 	}
-	kfree(packet);
 }
 
 static void venus_hfi_core_work_handler(struct work_struct *work)
