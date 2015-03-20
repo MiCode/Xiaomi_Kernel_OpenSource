@@ -27,10 +27,11 @@
 #define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D0c"
 #define FILE_CONTROL		"/dev/snd/controlC0"
 
-#define UAC1_IN_EP_MAX_PACKET_SIZE	32
+#define UAC1_IN_EP_MAX_PACKET_SIZE	16
 #define UAC1_OUT_EP_MAX_PACKET_SIZE	200
 #define UAC1_REQ_COUNT			256
-#define UAC1_AUDIO_BUF_SIZE		48000
+#define UAC1_AUDIO_PLAYBACK_BUF_SIZE	(64*32)
+#define UAC1_AUDIO_CAPTURE_BUF_SIZE	(64*16)
 
 /*
  * This represents the USB side of an audio card device, managed by a USB
@@ -68,6 +69,7 @@ struct f_uac1_opts {
 	int				req_capture_count;
 	int				audio_playback_buf_size;
 	int				audio_capture_buf_size;
+	int				audio_playback_realtime;
 	char				*fn_play;
 	char				*fn_cap;
 	char				*fn_cntl;

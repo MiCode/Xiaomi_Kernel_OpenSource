@@ -519,6 +519,7 @@ static void f_audio_playback_work(struct work_struct *data)
 	unsigned long flags;
 	int res = 0;
 
+	pr_debug("%s: started\n", __func__);
 	spin_lock_irqsave(&audio->playback_lock, flags);
 	if (list_empty(&audio->play_queue)) {
 		pr_err("playback_buf is empty");
@@ -537,6 +538,7 @@ static void f_audio_playback_work(struct work_struct *data)
 		pr_err("copying failed");
 
 	f_audio_buffer_free(play_buf);
+	pr_debug("%s: Done\n", __func__);
 }
 
 static int
@@ -547,6 +549,7 @@ f_audio_playback_ep_complete(struct usb_ep *ep, struct usb_request *req)
 	struct f_audio_buf *copy_buf = audio->playback_copy_buf;
 	struct f_uac1_opts *opts;
 	int audio_playback_buf_size;
+	unsigned long flags;
 	int err;
 
 	opts = container_of(audio->card.func.fi, struct f_uac1_opts,
@@ -560,7 +563,15 @@ f_audio_playback_ep_complete(struct usb_ep *ep, struct usb_request *req)
 	if (audio_playback_buf_size - copy_buf->actual < req->actual) {
 		pr_debug("audio_playback_buf_size %d - copy_buf->actual %d, req->actual %d",
 			audio_playback_buf_size, copy_buf->actual, req->actual);
-		list_add_tail(&copy_buf->list, &audio->play_queue);
+		spin_lock_irqsave(&audio->playback_lock, flags);
+		if (!list_empty(&audio->play_queue) &&
+					opts->audio_playback_realtime) {
+			pr_debug("over-runs, audio write slow.. drop the packet\n");
+			f_audio_buffer_free(copy_buf);
+		} else {
+			list_add_tail(&copy_buf->list, &audio->play_queue);
+		}
+		spin_unlock_irqrestore(&audio->playback_lock, flags);
 		schedule_work(&audio->playback_work);
 		copy_buf = f_audio_buffer_alloc(audio_playback_buf_size);
 		if (IS_ERR(copy_buf)) {
@@ -568,6 +579,8 @@ f_audio_playback_ep_complete(struct usb_ep *ep, struct usb_request *req)
 			return -ENOMEM;
 		}
 	}
+
+	pr_debug("Playback %d bytes", req->actual);
 
 	memcpy(copy_buf->buf + copy_buf->actual, req->buf, req->actual);
 	copy_buf->actual += req->actual;
@@ -590,6 +603,15 @@ static void f_audio_capture_work(struct work_struct *data)
 	int audio_capture_buf_size = opts->audio_capture_buf_size;
 	unsigned long flags;
 	int res = 0;
+
+	pr_debug("%s Started\n", __func__);
+	spin_lock_irqsave(&audio->capture_lock, flags);
+	if (!list_empty(&audio->capture_queue)) {
+		spin_unlock_irqrestore(&audio->capture_lock, flags);
+		pr_debug("%s !! buffer already filled\n", __func__);
+		return;
+	}
+	spin_unlock_irqrestore(&audio->capture_lock, flags);
 
 	capture_buf = f_audio_buffer_alloc(audio_capture_buf_size);
 	if (capture_buf <= 0) {
@@ -624,12 +646,18 @@ f_audio_capture_ep_complete(struct usb_ep *ep, struct usb_request *req)
 		spin_lock_irqsave(&audio->capture_lock, flags);
 		if (list_empty(&audio->capture_queue)) {
 			spin_unlock_irqrestore(&audio->capture_lock, flags);
+			pr_debug("%s no data from Audio to send\n", __func__);
 			schedule_work(&audio->capture_work);
+			memset(req->buf, 0, opts->req_capture_buf_size);
 			goto done;
 		}
 		copy_buf = list_first_entry(&audio->capture_queue,
 						struct f_audio_buf, list);
 		list_del(&copy_buf->list);
+
+		if (list_empty(&audio->capture_queue))
+			schedule_work(&audio->capture_work);
+
 		audio->capture_copy_buf = copy_buf;
 		spin_unlock_irqrestore(&audio->capture_lock, flags);
 	}
@@ -1359,6 +1387,7 @@ UAC1_INT_ATTRIBUTE(req_playback_count);
 UAC1_INT_ATTRIBUTE(req_capture_count);
 UAC1_INT_ATTRIBUTE(audio_playback_buf_size);
 UAC1_INT_ATTRIBUTE(audio_capture_buf_size);
+UAC1_INT_ATTRIBUTE(audio_playback_realtime);
 
 #define UAC1_STR_ATTRIBUTE(name)					\
 static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
@@ -1415,6 +1444,7 @@ static struct configfs_attribute *f_uac1_attrs[] = {
 	&f_uac1_opts_req_capture_count.attr,
 	&f_uac1_opts_audio_playback_buf_size.attr,
 	&f_uac1_opts_audio_capture_buf_size.attr,
+	&f_uac1_opts_audio_playback_realtime.attr,
 	&f_uac1_opts_fn_play.attr,
 	&f_uac1_opts_fn_cap.attr,
 	&f_uac1_opts_fn_cntl.attr,
@@ -1460,8 +1490,9 @@ static struct usb_function_instance *f_audio_alloc_inst(void)
 	opts->req_capture_buf_size = UAC1_IN_EP_MAX_PACKET_SIZE;
 	opts->req_playback_count = UAC1_REQ_COUNT;
 	opts->req_capture_count = UAC1_REQ_COUNT;
-	opts->audio_playback_buf_size = UAC1_AUDIO_BUF_SIZE;
-	opts->audio_capture_buf_size = UAC1_AUDIO_BUF_SIZE;
+	opts->audio_playback_buf_size = UAC1_AUDIO_PLAYBACK_BUF_SIZE;
+	opts->audio_capture_buf_size = UAC1_AUDIO_CAPTURE_BUF_SIZE;
+	opts->audio_playback_realtime = 1;
 	opts->fn_play = FILE_PCM_PLAYBACK;
 	opts->fn_cap = FILE_PCM_CAPTURE;
 	opts->fn_cntl = FILE_CONTROL;
