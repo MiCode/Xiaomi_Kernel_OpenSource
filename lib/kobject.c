@@ -610,6 +610,12 @@ static void kobject_cleanup(struct kobject *kobj)
 		pr_debug("kobject: '%s' (%p): auto cleanup 'remove' event\n",
 			 kobject_name(kobj), kobj);
 		kobject_uevent(kobj, KOBJ_REMOVE);
+
+#ifdef CONFIG_PM_SLEEP
+		/* if kobj was buffered in kobject_uevent_env, do not free it */
+		if (atomic_read(&kobj->kref.refcount) > 0)
+			return;
+#endif
 	}
 
 	/* remove from sysfs if the caller did not do it */
