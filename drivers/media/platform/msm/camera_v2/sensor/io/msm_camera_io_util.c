@@ -112,9 +112,14 @@ void msm_camera_io_memcpy_mb(void __iomem *dest_addr,
 	int i;
 	u32 *d = (u32 *) dest_addr;
 	u32 *s = (u32 *) src_addr;
-
-	for (i = 0; i < (len / 4); i++)
-		msm_camera_io_w_mb(*s++, d++);
+	/* This is generic function called who needs to register
+	writes with memory barrier */
+	wmb();
+	for (i = 0; i < (len / 4); i++) {
+		msm_camera_io_w(*s++, d++);
+		/* ensure write is done after every iteration */
+		wmb();
+	}
 }
 
 int msm_cam_clk_sel_src(struct device *dev, struct msm_cam_clk_info *clk_info,
