@@ -2917,6 +2917,10 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 	kp_ioctl.trans_code = up32_ioctl.trans_code;
 	/* Convert the 32 bit pointer to 64 bit pointer */
 	kp_ioctl.ioctl_ptr = compat_ptr(up32_ioctl.ioctl_ptr);
+	if (!kp_ioctl.ioctl_ptr) {
+		pr_err("%s: Invalid ioctl pointer\n", __func__);
+		return -EINVAL;
+	}
 
 	/*
 	 * Convert 32 bit IOCTL ID's to 64 bit IOCTL ID's
