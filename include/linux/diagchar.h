@@ -38,6 +38,7 @@
 #define DATA_TYPE_F3            	1
 #define DATA_TYPE_LOG           	2
 #define DATA_TYPE_RESPONSE      	3
+#define DATA_TYPE_DELAYED_RESPONSE	4
 #define DATA_TYPE_DCI_LOG		0x00000100
 #define DATA_TYPE_DCI_EVENT		0x00000200
 

@@ -1641,6 +1641,7 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	case DATA_TYPE_F3:
 	case DATA_TYPE_LOG:
 	case DATA_TYPE_RESPONSE:
+	case DATA_TYPE_DELAYED_RESPONSE:
 		break;
 	default:
 		pr_err_ratelimited("diag: In %s, invalid pkt_type: %d\n",
@@ -2023,6 +2024,7 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 	case DATA_TYPE_EVENT:
 	case DATA_TYPE_F3:
 	case DATA_TYPE_LOG:
+	case DATA_TYPE_DELAYED_RESPONSE:
 	case DATA_TYPE_RESPONSE:
 		return diag_user_process_apps_data(payload_buf, payload_len,
 						   pkt_type);
