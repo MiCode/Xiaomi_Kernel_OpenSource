@@ -120,3 +120,14 @@
 		};
 	};
 };
+
+&soc {
+	pcie_smmu {
+		compatible = "qcom,pci-msm";
+		/*
+		 * no stream IDs specified since they will be added dynamically
+		 * as PCI-e endpoints attach.
+		 */
+		iommus = <&anoc0_smmu>;
+	};
+};
