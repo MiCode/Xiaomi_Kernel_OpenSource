@@ -33,6 +33,7 @@
 
 #define FIRMWARE_SIZE			0X00A00000
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
+#define VENUS_VERSION_LENGTH 128
 
 #define SHARED_QSIZE 0x1000000
 
@@ -4166,47 +4167,59 @@ static void venus_hfi_unload_fw(void *dev)
 	}
 }
 
-static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
+static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)
 {
-	int rc = 0;
+	int rc = 0, i = 0, j = 0;
 	struct venus_hfi_device *device = dev;
+	u32 smem_block_size = 0;
+	u8 *smem_table_ptr;
+	char version[VENUS_VERSION_LENGTH];
+	const u32 version_string_size = VENUS_VERSION_LENGTH;
+	const u32 smem_image_index_venus = 14 * 128;
 
-	if (!device) {
-		dprintk(VIDC_ERR, "%s Invalid paramter: %p\n",
-			__func__, device);
+	if (!device || !fw_info) {
+		dprintk(VIDC_ERR,
+			"%s Invalid paramter: device = %p fw_info = %p\n",
+				__func__, device, fw_info);
 		return -EINVAL;
 	}
 
-	switch (info) {
-	case FW_BASE_ADDRESS:
-		rc = (u32)device->hal_data->firmware_base;
-		if ((phys_addr_t)rc != device->hal_data->firmware_base) {
-			dprintk(VIDC_INFO,
+	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
+			&smem_block_size, 0, SMEM_ANY_HOST_FLAG);
+	if (smem_table_ptr &&
+			((smem_image_index_venus +
+			  version_string_size) <= smem_block_size))
+		memcpy(version,
+			smem_table_ptr + smem_image_index_venus,
+			version_string_size);
+
+	while (version[i++] != 'V' && i < version_string_size)
+		;
+
+	for (i--; i < version_string_size && j < version_string_size; i++)
+		fw_info->version[j++] = version[i];
+	fw_info->version[version_string_size - 1] = '\0';
+	dprintk(VIDC_DBG, "F/W version retrieved : %s\n", fw_info->version);
+
+	fw_info->base_addr = (u32)device->hal_data->firmware_base;
+	if ((phys_addr_t)fw_info->base_addr !=
+		device->hal_data->firmware_base) {
+		dprintk(VIDC_INFO,
 				"%s: firmware_base (0x%pa) truncated to 0x%x",
-				__func__, &device->hal_data->firmware_base, rc);
-		}
-		break;
-
-	case FW_REGISTER_BASE:
-		rc = (u32)device->res->register_base;
-		if ((phys_addr_t)rc != device->res->register_base) {
-			dprintk(VIDC_INFO,
-				"%s: register_base (0x%pa) truncated to 0x%x",
-				__func__, &device->res->register_base, rc);
-		}
-		break;
-
-	case FW_REGISTER_SIZE:
-		rc = device->hal_data->register_size;
-		break;
-
-	case FW_IRQ:
-		rc = device->hal_data->irq;
-		break;
-
-	default:
-		dprintk(VIDC_ERR, "Invalid fw info requested\n");
+				__func__, &device->hal_data->firmware_base,
+				fw_info->base_addr);
 	}
+
+	fw_info->register_base = (u32)device->res->register_base;
+	if ((phys_addr_t)fw_info->register_base != device->res->register_base) {
+		dprintk(VIDC_INFO,
+				"%s: register_base (0x%pa) truncated to 0x%x",
+				__func__, &device->res->register_base,
+				fw_info->register_base);
+	}
+
+	fw_info->register_size = device->hal_data->register_size;
+	fw_info->irq = device->hal_data->irq;
 	return rc;
 }
 
