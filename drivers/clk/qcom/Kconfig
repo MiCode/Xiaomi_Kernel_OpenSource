@@ -131,3 +131,7 @@ config QCOM_HFPLL
 	  Support for the high-frequency PLLs present on MSM devices.
 	  Say Y if you want to support CPU frequency scaling on devices
 	  such as MSM8974, APQ8084, etc.
+
+config KRAIT_CLOCKS
+	bool
+	select KRAIT_L2_ACCESSORS
