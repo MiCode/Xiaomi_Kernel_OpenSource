@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -487,6 +487,9 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 			}
 
 			phy->lpm_flags |= PHY_RETENTIONED;
+
+			/* Allow VDD min if PHY is put in RETENTION */
+			msm_hsusb_config_vdd(phy, 0);
 		}
 
 		/* can turn off regulators if disconnected in device mode */
@@ -495,7 +498,6 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 				msm_hsusb_ldo_enable(phy, 0);
 				phy->lpm_flags |= PHY_PWR_COLLAPSED;
 			}
-			msm_hsusb_config_vdd(phy, 0);
 		}
 
 		count = atomic_dec_return(&hsphy_active_count);
@@ -506,8 +508,10 @@ static int msm_hsphy_set_suspend(struct usb_phy *uphy, int suspend)
 		}
 	} else {
 		atomic_inc(&hsphy_active_count);
-		if (phy->lpm_flags & PHY_RETENTIONED && !phy->cable_connected) {
+		if (phy->lpm_flags & PHY_RETENTIONED)
 			msm_hsusb_config_vdd(phy, 1);
+
+		if (phy->lpm_flags & PHY_RETENTIONED && !phy->cable_connected) {
 			if (phy->ext_vbus_id) {
 				msm_hsusb_ldo_enable(phy, 1);
 				phy->lpm_flags &= ~PHY_PWR_COLLAPSED;
