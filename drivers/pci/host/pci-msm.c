@@ -4672,6 +4672,9 @@ static int msm_pcie_smmu_probe(struct platform_device *pdev)
 {
 	struct msm_pcie_smmu_cb *cb;
 
+	if (!of_property_read_bool(pdev->dev.of_node, "qcom,iommu-auto-attach"))
+		return 0;
+
 	cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
 	if (!cb)
 		return -ENOMEM;
