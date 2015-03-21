@@ -2199,13 +2199,13 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 {
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_mdp_pipe *pipe;
-	int ret;
+	int ret = 0;
+	struct mdp_overlay *req = NULL;
 
 	pipe = mdss_mdp_get_staged_pipe(mdp5_data->ctl, mixer_mux,
 		MDSS_MDP_STAGE_BASE, false);
 
 	if (pipe == NULL) {
-		struct mdp_overlay req;
 		struct fb_info *fbi = mfd->fbi;
 		struct mdss_mdp_mixer *mixer;
 		int bpp;
@@ -2222,53 +2222,61 @@ static int mdss_mdp_overlay_get_fb_pipe(struct msm_fb_data_type *mfd,
 			return -ENODEV;
 		}
 
-		memset(&req, 0, sizeof(req));
+		req = kzalloc(sizeof(struct mdp_overlay), GFP_KERNEL);
+		if (!req) {
+			pr_err("not able to allocate memory for req\n");
+			return -ENOMEM;
+		}
 
 		bpp = fbi->var.bits_per_pixel / 8;
-		req.id = MSMFB_NEW_REQUEST;
-		req.src.format = mfd->fb_imgType;
-		req.src.height = fbi->var.yres;
-		req.src.width = fbi->fix.line_length / bpp;
+		req->id = MSMFB_NEW_REQUEST;
+		req->src.format = mfd->fb_imgType;
+		req->src.height = fbi->var.yres;
+		req->src.width = fbi->fix.line_length / bpp;
 
 		left_rect.x = 0;
 		left_rect.w = MIN(fbi->var.xres, mixer->width);
 		left_rect.y = 0;
-		left_rect.h = req.src.height;
+		left_rect.h = req->src.height;
 
 		right_rect.x = mixer->width;
 		right_rect.w = fbi->var.xres - mixer->width;
 		right_rect.y = 0;
-		right_rect.h = req.src.height;
+		right_rect.h = req->src.height;
 
 		if (mixer_mux == MDSS_MDP_MIXER_MUX_RIGHT) {
-			if (req.src.width <= mixer->width) {
+			if (req->src.width <= mixer->width) {
 				pr_warn("right fb pipe not needed\n");
-				return -EINVAL;
+				ret = -EINVAL;
+				goto done;
 			}
-			req.src_rect = req.dst_rect = right_rect;
+			req->src_rect = req->dst_rect = right_rect;
 			if (split_lm && rotate_180)
-				req.src_rect = left_rect;
+				req->src_rect = left_rect;
 		} else {
-			req.src_rect = req.dst_rect = left_rect;
+			req->src_rect = req->dst_rect = left_rect;
 			if (split_lm && rotate_180)
-				req.src_rect = right_rect;
+				req->src_rect = right_rect;
 		}
 
-		req.z_order = MDSS_MDP_STAGE_BASE;
+		req->z_order = MDSS_MDP_STAGE_BASE;
 		if (rotate_180)
-			req.flags |= (MDP_FLIP_LR | MDP_FLIP_UD);
+			req->flags |= (MDP_FLIP_LR | MDP_FLIP_UD);
 
 		pr_debug("allocating base pipe mux=%d\n", mixer_mux);
 
-		ret = mdss_mdp_overlay_pipe_setup(mfd, &req, &pipe, NULL,
+		ret = mdss_mdp_overlay_pipe_setup(mfd, req, &pipe, NULL,
 			false);
 		if (ret)
-			return ret;
+			goto done;
 	}
 	pr_debug("ctl=%d pnum=%d\n", mdp5_data->ctl->num, pipe->num);
 
 	*ppipe = pipe;
-	return 0;
+
+done:
+	kfree(req);
+	return ret;
 }
 
 static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
