@@ -318,52 +318,52 @@
 
 /* IRQ status registers */
 #define IRQ_A_REG				0x40
-#define IRQ_HOT_HARD_BIT			BIT(7)
-#define IRQ_COLD_HARD_BIT			BIT(5)
-#define IRQ_HOT_SOFT_BIT			BIT(3)
-#define IRQ_COLD_SOFT_BIT			BIT(1)
+#define IRQ_HOT_HARD_BIT			BIT(6)
+#define IRQ_COLD_HARD_BIT			BIT(4)
+#define IRQ_HOT_SOFT_BIT			BIT(2)
+#define IRQ_COLD_SOFT_BIT			BIT(0)
 
 #define IRQ_B_REG				0x41
-#define IRQ_BATT_TERMINAL_REMOVED_BIT		BIT(7)
-#define IRQ_BATT_MISSING_BIT			BIT(5)
-#define IRQ_LOW_BATT_VOLTAGE_BIT		BIT(3)
-#define IRQ_INTERNAL_TEMP_LIMIT_BIT		BIT(1)
+#define IRQ_BATT_TERMINAL_REMOVED_BIT		BIT(6)
+#define IRQ_BATT_MISSING_BIT			BIT(4)
+#define IRQ_LOW_BATT_VOLTAGE_BIT		BIT(2)
+#define IRQ_INTERNAL_TEMP_LIMIT_BIT		BIT(0)
 
 #define IRQ_C_REG				0x42
-#define IRQ_PRE_TO_FAST_VOLTAGE_BIT		BIT(7)
-#define IRQ_RECHG_BIT				BIT(5)
-#define IRQ_TAPER_BIT				BIT(3)
-#define IRQ_TERM_BIT				BIT(1)
+#define IRQ_PRE_TO_FAST_VOLTAGE_BIT		BIT(6)
+#define IRQ_RECHG_BIT				BIT(4)
+#define IRQ_TAPER_BIT				BIT(2)
+#define IRQ_TERM_BIT				BIT(0)
 
 #define IRQ_D_REG				0x43
-#define IRQ_BATT_OV_BIT				BIT(7)
-#define IRQ_CHG_ERROR_BIT			BIT(5)
-#define IRQ_CHG_TIMEOUT_BIT			BIT(3)
-#define IRQ_PRECHG_TIMEOUT_BIT			BIT(1)
+#define IRQ_BATT_OV_BIT				BIT(6)
+#define IRQ_CHG_ERROR_BIT			BIT(4)
+#define IRQ_CHG_TIMEOUT_BIT			BIT(2)
+#define IRQ_PRECHG_TIMEOUT_BIT			BIT(0)
 
 #define IRQ_E_REG				0x44
-#define IRQ_USBIN_OV_BIT			BIT(7)
-#define IRQ_USBIN_UV_BIT			BIT(5)
-#define IRQ_AFVC_BIT				BIT(3)
-#define IRQ_POWER_OK_BIT			BIT(1)
+#define IRQ_USBIN_OV_BIT			BIT(6)
+#define IRQ_USBIN_UV_BIT			BIT(4)
+#define IRQ_AFVC_BIT				BIT(2)
+#define IRQ_POWER_OK_BIT			BIT(0)
 
 #define IRQ_F_REG				0x45
-#define IRQ_OTG_OVER_CURRENT_BIT		BIT(7)
-#define IRQ_OTG_FAIL_BIT			BIT(5)
-#define IRQ_RID_BIT				BIT(3)
-#define IRQ_OTG_OC_RETRY_BIT			BIT(1)
+#define IRQ_OTG_OVER_CURRENT_BIT		BIT(6)
+#define IRQ_OTG_FAIL_BIT			BIT(4)
+#define IRQ_RID_BIT				BIT(2)
+#define IRQ_OTG_OC_RETRY_BIT			BIT(0)
 
 #define IRQ_G_REG				0x46
-#define IRQ_SOURCE_DET_BIT			BIT(7)
-#define IRQ_AICL_DONE_BIT			BIT(5)
-#define IRQ_AICL_FAIL_BIT			BIT(3)
-#define IRQ_CHG_INHIBIT_BIT			BIT(1)
+#define IRQ_SOURCE_DET_BIT			BIT(6)
+#define IRQ_AICL_DONE_BIT			BIT(4)
+#define IRQ_AICL_FAIL_BIT			BIT(2)
+#define IRQ_CHG_INHIBIT_BIT			BIT(0)
 
 #define IRQ_H_REG				0x47
 #define IRQ_IC_LIMIT_STATUS_BIT			BIT(5)
 #define IRQ_HVDCP_2P1_STATUS_BIT		BIT(4)
-#define IRQ_HVDCP_AUTH_DONE_BIT			BIT(3)
-#define IRQ_WDOG_TIMEOUT_BIT			BIT(1)
+#define IRQ_HVDCP_AUTH_DONE_BIT			BIT(2)
+#define IRQ_WDOG_TIMEOUT_BIT			BIT(0)
 
 /* constants */
 #define USB2_MIN_CURRENT_MA			100
