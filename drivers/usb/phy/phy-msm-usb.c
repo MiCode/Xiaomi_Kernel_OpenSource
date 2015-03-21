@@ -107,6 +107,16 @@ static unsigned int enable_dbg_log = 1;
 module_param(enable_dbg_log, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(enable_dbg_log, "Debug buffer events");
 
+/* Max current to be drawn for HVDCP charger */
+static int hvdcp_max_current = IDEV_HVDCP_CHG_MAX;
+module_param(hvdcp_max_current, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(hvdcp_max_current, "max current drawn for HVDCP charger");
+
+/* Max current to be drawn for DCP charger */
+static int dcp_max_current = IDEV_CHG_MAX;
+module_param(dcp_max_current, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
+
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_aca_enabled;
@@ -3357,7 +3367,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 					/* fall through */
 				case USB_PROPRIETARY_CHARGER:
 					msm_otg_notify_charger(motg,
-							IDEV_CHG_MAX);
+							dcp_max_current);
 					msm_otg_dbg_log_event(&motg->phy,
 					"PM RUNTIME: PROPCHG PUT",
 					get_pm_runtime_counter(otg->phy->dev),
@@ -4746,6 +4756,10 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 			break;
 		case POWER_SUPPLY_TYPE_USB_DCP:
 			motg->chg_type = USB_DCP_CHARGER;
+			break;
+		case POWER_SUPPLY_TYPE_USB_HVDCP:
+			motg->chg_type = USB_DCP_CHARGER;
+			msm_otg_notify_charger(motg, hvdcp_max_current);
 			break;
 		case POWER_SUPPLY_TYPE_USB_CDP:
 			motg->chg_type = USB_CDP_CHARGER;
