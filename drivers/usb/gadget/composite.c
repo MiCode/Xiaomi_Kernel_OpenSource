@@ -189,6 +189,7 @@ int usb_add_function(struct usb_configuration *config,
 		goto done;
 
 	function->config = config;
+	function->intf_id = -EINVAL;
 	list_add_tail(&function->list, &config->functions);
 
 	/* REVISIT *require* function->bind? */
@@ -331,7 +332,8 @@ int usb_interface_id(struct usb_configuration *config,
 
 	if (id < MAX_CONFIG_INTERFACES) {
 		config->interface[id] = function;
-		function->intf_id = id;
+		if (function->intf_id < 0)
+			function->intf_id = id;
 		config->next_interface_id = id + 1;
 		return id;
 	}
