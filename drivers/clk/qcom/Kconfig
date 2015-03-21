@@ -140,6 +140,14 @@ config KPSS_XCC
 	  if you want to support CPU frequency scaling on devices such
 	  as MSM8960, APQ8064, etc.
 
+config KRAITCC
+	tristate "Krait Clock Controller"
+	depends on COMMON_CLK_QCOM && ARM
+	select KRAIT_CLOCKS
+	help
+	  Support for the Krait CPU clocks on MSM devices.
+	  Say Y if you want to support CPU frequency scaling.
+
 config KRAIT_CLOCKS
 	bool
 	select KRAIT_L2_ACCESSORS
