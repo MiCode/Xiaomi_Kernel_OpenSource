@@ -1322,6 +1322,11 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	if (reg < 0x100)
 		return true;
 
+	/* IIR Coeff registers are not cacheable */
+	if ((reg >= WCD9335_CDC_SIDETONE_IIR0_IIR_COEF_B1_CTL) &&
+	    (reg <= WCD9335_CDC_SIDETONE_IIR1_IIR_COEF_B2_CTL))
+		return true;
+
 	switch (reg) {
 	case WCD9335_CPE_SS_INBOX1_TRG:
 	case WCD9335_CPE_SS_INBOX2_TRG:
