@@ -72,7 +72,7 @@ static int delay_skb(struct sk_buff *skb, struct ipc_to_virt_map *map)
 		INIT_LIST_HEAD(&dskb->list);
 
 		spin_lock_irqsave(&skbs_lock, flags);
-		list_add_tail(&delayed_skbs, &dskb->list);
+		list_add_tail(&dskb->list, &delayed_skbs);
 		atomic_inc(&map->pending_skbs);
 		spin_unlock_irqrestore(&skbs_lock, flags);
 
