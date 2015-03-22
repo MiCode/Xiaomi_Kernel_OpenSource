@@ -1164,9 +1164,9 @@
 		reg = <0xc200000 0x00100>;
 		interrupts = <0 293 1>;
 
-		vdd_cx-supply = <&pm8950_s2_corner>;
+		vdd_cx-supply = <&pm8950_s2_level>;
 		qcom,proxy-reg-names = "vdd_cx";
-		qcom,vdd_cx-uV-uA = <7 100000>;
+		qcom,vdd_cx-uV-uA = <RPM_SMD_REGULATOR_LEVEL_TURBO 100000>;
 
 		clocks = <&clock_gcc clk_xo_pil_lpass_clk>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
@@ -1587,9 +1587,10 @@
 
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8950_s1>;
-		vdd_cx-supply = <&pm8950_s2_corner>;
-		vdd_mx-supply = <&pm8950_l3_corner_ao>;
-		vdd_mx-uV = <7>;
+		vdd_cx-supply = <&pm8950_s2_level>;
+		vdd_cx-voltage = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		vdd_mx-supply = <&pm8950_l3_level_ao>;
+		vdd_mx-uV = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		vdd_pll-supply = <&pm8950_l7>;
 		qcom,vdd_pll = <1800000>;
 
