@@ -1985,7 +1985,7 @@ static void ufshcd_exit_clk_gating(struct ufs_hba *hba)
  *
  * Return 0 on success, non-zero on failure.
  */
-int ufshcd_hibern8_hold(struct ufs_hba *hba, bool async)
+static int ufshcd_hibern8_hold(struct ufs_hba *hba, bool async)
 {
 	int rc = 0;
 	unsigned long flags;
@@ -2090,7 +2090,7 @@ static void __ufshcd_hibern8_release(struct ufs_hba *hba, bool no_sched)
 			      delay_in_jiffies);
 }
 
-void ufshcd_hibern8_release(struct ufs_hba *hba, bool no_sched)
+static void ufshcd_hibern8_release(struct ufs_hba *hba, bool no_sched)
 {
 	unsigned long flags;
 
