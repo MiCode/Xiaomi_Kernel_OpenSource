@@ -88,12 +88,19 @@ int qpic_on(struct msm_fb_data_type *mfd)
 		qpic_res->panel_io.splash_screen_transition = false;
 		qpic_res->lk_transition_done = true;
 	}
+
+	if (qpic_res->qpic_a_clk)
+		clk_disable_unprepare(qpic_res->qpic_a_clk);
 	return ret;
 }
 
 int qpic_off(struct msm_fb_data_type *mfd)
 {
 	int ret;
+
+	if (qpic_res->qpic_a_clk)
+		clk_prepare_enable(qpic_res->qpic_a_clk);
+
 	ret = mdss_qpic_panel_off(qpic_res->panel_data, &qpic_res->panel_io);
 	if (use_irq)
 		qpic_interrupt_en(false);
@@ -155,8 +162,15 @@ static void mdss_qpic_pan_display(struct msm_fb_data_type *mfd)
 	msm_qpic_bus_set_vote(1);
 	size = fbi->var.xres * fbi->var.yres * bpp;
 
+	if (qpic_res->qpic_a_clk)
+		clk_prepare_enable(qpic_res->qpic_a_clk);
+
 	qpic_send_frame(0, 0, fbi->var.xres - 1, fbi->var.yres - 1,
 		(u32 *)fb_offset, size);
+
+	if (qpic_res->qpic_a_clk)
+		clk_disable_unprepare(qpic_res->qpic_a_clk);
+
 	msm_qpic_bus_set_vote(0);
 }
 
@@ -763,8 +777,12 @@ static int mdss_qpic_probe(struct platform_device *pdev)
 		goto probe_done;
 	}
 	qpic_res->qpic_a_clk = clk_get(&pdev->dev, "core_a_clk");
-	if (IS_ERR(qpic_res->qpic_a_clk))
-		pr_warn("%s: Can't find core_a_clk", __func__);
+	if (IS_ERR(qpic_res->qpic_a_clk)) {
+		pr_err("%s: Can't find core_a_clk", __func__);
+		qpic_res->qpic_a_clk = NULL;
+		rc = -EPERM;
+		goto probe_done;
+	}
 
 	qpic_res->irq = res->start;
 	qpic_res->res_init = true;
