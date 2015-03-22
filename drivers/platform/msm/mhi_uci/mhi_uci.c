@@ -224,6 +224,9 @@ struct mhi_uci_ctxt_t {
 module_param(mhi_uci_msg_lvl , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_uci_msg_lvl, "uci dbg lvl");
 
+module_param(mhi_uci_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(mhi_uci_ipc_log_lvl, "ipc dbg lvl");
+
 static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		size_t count, loff_t *offp);
 static ssize_t mhi_uci_client_write(struct file *file,
