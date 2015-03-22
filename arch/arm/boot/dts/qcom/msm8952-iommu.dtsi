@@ -31,7 +31,7 @@
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1f09000 0x1000>;
 			qcom,secure-context;
-			interrupts = <0 241 0>;
+			interrupts = <0 241 0>, <0 241 0>;
 			qcom,iommu-ctx-sids = <0x2>;
 			label = "gfx3d_user";
 		};
@@ -69,25 +69,6 @@
 		clock-names = "iface_clk", "core_clk";
 		qcom,cb-base-offset = <0x20000>;
 		status = "ok";
-
-		adsp_elf: qcom,iommu-ctx@1e20000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1e20000 0x1000>;
-			qcom,secure-context;
-			qcom,iommu-ctx-sids = <0x2c00>;
-			interrupts = <0 254 0>, <0 254 0>;
-			label = "adsp_elf";
-		};
-
-		adsp_sec: qcom,iommu-ctx@1e21000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1e21000 0x1000>;
-			qcom,secure-context;
-			interrupts = <0 255 0>, <0 255 0>;
-			qcom,iommu-ctx-sids = <0x2c02>;
-			qcom,iommu-sid-mask = <0x1>;
-			label = "adsp_sec";
-		};
 
 		qcom,iommu-ctx@1e22000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
@@ -150,15 +131,6 @@
 			interrupts = <0 106 0>;
 			qcom,iommu-ctx-sids = <0x2c04>;
 			label = "adsp_opendsp";
-		};
-
-		qcom,iommu-ctx@1e31000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1e31000 0x1000>;
-			interrupts = <0 109 0>;
-			qcom,iommu-ctx-sids = <0x2c05 0x2c06 0x2c08 0x2c0c>;
-			qcom,iommu-sid-mask = <0x0 0x1 0x3 0x0>;
-			label = "adsp_shared";
 		};
 
 		qcom,iommu-ctx@1e32000 {
