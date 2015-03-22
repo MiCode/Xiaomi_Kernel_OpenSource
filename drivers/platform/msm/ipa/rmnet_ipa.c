@@ -2092,6 +2092,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 		if (SUBSYS_BEFORE_SHUTDOWN == code) {
 			pr_info("IPA received MPSS BEFORE_SHUTDOWN\n");
 			ipa_q6_cleanup();
+			ipa_qmi_stop_workqueues();
 			wan_ioctl_stop_qmi_messages();
 			atomic_set(&is_ssr, 1);
 			if (atomic_read(&is_initialized))

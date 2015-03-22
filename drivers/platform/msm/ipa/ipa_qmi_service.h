@@ -114,6 +114,8 @@ void wan_ioctl_enable_qmi_messages(void);
 
 void wan_ioctl_deinit(void);
 
+void ipa_qmi_stop_workqueues(void);
+
 #else /* CONFIG_RMNET_IPA */
 
 static inline int ipa_qmi_service_init(bool load_uc, uint32_t wan_platform_type)
@@ -179,6 +181,11 @@ static inline void wan_ioctl_enable_qmi_messages(void)
 }
 
 static inline void wan_ioctl_deinit(void)
+{
+	return;
+}
+
+static inline void ipa_qmi_stop_workqueues(void)
 {
 	return;
 }
