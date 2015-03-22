@@ -1700,6 +1700,10 @@ static int smbchg_get_aicl_level_ma(struct smbchg_chip *chip)
 		return 0;
 	}
 	reg &= ICL_STS_MASK;
+	if (reg & AICL_SUSP_BIT) {
+		pr_warn("AICL suspended: %02x\n", reg);
+		return 0;
+	}
 	if (reg >= ARRAY_SIZE(usb_current_table)) {
 		pr_warn("invalid AICL value: %02x\n", reg);
 		return 0;
@@ -1802,8 +1806,12 @@ static void smbchg_parallel_usb_en_work(struct work_struct *work)
 
 	smbchg_relax(chip, PM_PARALLEL_CHECK);
 	mutex_lock(&chip->parallel.lock);
-	if (smbchg_is_parallel_usb_ok(chip))
+	if (smbchg_is_parallel_usb_ok(chip)) {
 		smbchg_parallel_usb_enable(chip);
+	} else if (chip->parallel.current_max_ma != 0) {
+		pr_smb(PR_STATUS, "parallel charging unavailable\n");
+		smbchg_parallel_usb_disable(chip);
+	}
 	mutex_unlock(&chip->parallel.lock);
 }
 
