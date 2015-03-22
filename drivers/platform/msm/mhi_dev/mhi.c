@@ -1729,6 +1729,14 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	/* Invoke MHI SM when device is in RESET state */
 	mhi_dev_sm_init(mhi_ctx);
+
+	/* set the env before setting the ready bit */
+	rc = mhi_dev_mmio_set_env(mhi, MHI_ENV_VALUE);
+	if (rc) {
+		pr_err("%s: env setting failed\n", __func__);
+		return rc;
+	}
+
 	mhi_dev_sm_set_ready();
 	rc = mhi_dev_mmio_write(mhi, MHIVER, MHI_VERSION_E);
 	if (rc) {
