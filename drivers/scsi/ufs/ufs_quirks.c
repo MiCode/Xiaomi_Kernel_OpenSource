@@ -23,7 +23,8 @@ static struct ufs_card_fix ufs_fixups[] = {
 	END_FIX
 };
 
-int ufs_get_device_info(struct ufs_hba *hba, struct ufs_card_info *card_data)
+static int ufs_get_device_info(struct ufs_hba *hba,
+				struct ufs_card_info *card_data)
 {
 	int err;
 	u8 model_index;
