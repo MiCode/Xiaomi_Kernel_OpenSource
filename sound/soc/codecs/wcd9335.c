@@ -1749,13 +1749,49 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
-static int tasha_codec_iir_mux_event(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
+static int tasha_codec_set_iir_gain(struct snd_soc_dapm_widget *w,
+				    struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
 
 	dev_dbg(codec->dev, "%s: event = %d\n", __func__, event);
 
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU: /* fall through */
+	case SND_SOC_DAPM_PRE_PMD:
+		if (strnstr(w->name, "IIR0", sizeof("IIR0"))) {
+			snd_soc_write(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B1_CTL,
+				snd_soc_read(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B1_CTL));
+			snd_soc_write(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B2_CTL,
+				snd_soc_read(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B2_CTL));
+			snd_soc_write(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B3_CTL,
+				snd_soc_read(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B3_CTL));
+			snd_soc_write(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B4_CTL,
+				snd_soc_read(codec,
+				WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B4_CTL));
+		} else {
+			snd_soc_write(codec,
+				WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B1_CTL,
+				snd_soc_read(codec,
+				WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B1_CTL));
+			snd_soc_write(codec,
+				WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B2_CTL,
+				snd_soc_read(codec,
+				WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B2_CTL));
+			snd_soc_write(codec,
+				WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B3_CTL,
+				snd_soc_read(codec,
+				WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B3_CTL));
+		}
+		break;
+	}
 	return 0;
 }
 
@@ -3074,29 +3110,29 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("DEC8 Volume", WCD9335_CDC_TX8_TX_VOL_CTL, 0,
 					  -84, 40, digital_gain),
 
-	SOC_SINGLE_SX_TLV("IIR0 INP1 Volume",
+	SOC_SINGLE_SX_TLV("IIR0 INP0 Volume",
 			  WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B1_CTL, 0, -84,
 			  40, digital_gain),
-	SOC_SINGLE_SX_TLV("IIR0 INP2 Volume",
+	SOC_SINGLE_SX_TLV("IIR0 INP1 Volume",
 			  WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B2_CTL, 0, -84,
 			  40, digital_gain),
-	SOC_SINGLE_SX_TLV("IIR0 INP3 Volume",
+	SOC_SINGLE_SX_TLV("IIR0 INP2 Volume",
 			  WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B3_CTL, 0, -84,
 			  40, digital_gain),
-	SOC_SINGLE_SX_TLV("IIR0 INP4 Volume",
+	SOC_SINGLE_SX_TLV("IIR0 INP3 Volume",
 			  WCD9335_CDC_SIDETONE_IIR0_IIR_GAIN_B4_CTL, 0, -84,
 			  40, digital_gain),
-	SOC_SINGLE_SX_TLV("IIR1 INP1 Volume",
+	SOC_SINGLE_SX_TLV("IIR1 INP0 Volume",
 			  WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B1_CTL, 0, -84,
 			  40, digital_gain),
-	SOC_SINGLE_SX_TLV("IIR1 INP2 Volume",
+	SOC_SINGLE_SX_TLV("IIR1 INP1 Volume",
 			  WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B2_CTL, 0, -84,
+			  40, digital_gain),
+	SOC_SINGLE_SX_TLV("IIR1 INP2 Volume",
+			  WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B3_CTL, 0, -84,
 			  40, digital_gain),
 	SOC_SINGLE_SX_TLV("IIR1 INP3 Volume",
-			  WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B2_CTL, 0, -84,
-			  40, digital_gain),
-	SOC_SINGLE_SX_TLV("IIR1 INP4 Volume",
-			  WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B2_CTL, 0, -84,
+			  WCD9335_CDC_SIDETONE_IIR1_IIR_GAIN_B4_CTL, 0, -84,
 			  40, digital_gain),
 
 	SOC_ENUM("TX0 HPF cut off", cf_dec0_enum),
@@ -4632,42 +4668,25 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		tasha_codec_enable_dmic, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
 
-	SND_SOC_DAPM_MUX_E("IIR0 INP0 MUX", SND_SOC_NOPM, 0, 0,
-		&iir0_inp0_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX("IIR0 INP0 MUX", SND_SOC_NOPM, 0, 0, &iir0_inp0_mux),
+	SND_SOC_DAPM_MUX("IIR0 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir0_inp1_mux),
+	SND_SOC_DAPM_MUX("IIR0 INP2 MUX", SND_SOC_NOPM, 0, 0, &iir0_inp2_mux),
+	SND_SOC_DAPM_MUX("IIR0 INP3 MUX", SND_SOC_NOPM, 0, 0, &iir0_inp3_mux),
+	SND_SOC_DAPM_MUX("IIR1 INP0 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp0_mux),
+	SND_SOC_DAPM_MUX("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp1_mux),
+	SND_SOC_DAPM_MUX("IIR1 INP2 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp2_mux),
+	SND_SOC_DAPM_MUX("IIR1 INP3 MUX", SND_SOC_NOPM, 0, 0, &iir1_inp3_mux),
 
-	SND_SOC_DAPM_MUX_E("IIR0 INP1 MUX", SND_SOC_NOPM, 0, 0,
-		&iir0_inp1_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX_E("IIR0 INP2 MUX", SND_SOC_NOPM, 0, 0,
-		&iir0_inp2_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX_E("IIR0 INP3 MUX", SND_SOC_NOPM, 0, 0,
-		&iir0_inp3_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX_E("IIR1 INP0 MUX", SND_SOC_NOPM, 0, 0,
-		&iir1_inp0_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX_E("IIR1 INP1 MUX", SND_SOC_NOPM, 0, 0,
-		&iir1_inp1_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX_E("IIR1 INP2 MUX", SND_SOC_NOPM, 0, 0,
-		&iir1_inp2_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX_E("IIR1 INP3 MUX", SND_SOC_NOPM, 0, 0,
-		&iir1_inp3_mux, tasha_codec_iir_mux_event,
-		SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MIXER("IIR0", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("IIR1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("SRC0", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("SRC1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER_E("IIR0", WCD9335_CDC_SIDETONE_IIR0_IIR_PATH_CTL,
+			     4, 0, NULL, 0, tasha_codec_set_iir_gain,
+			     SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MIXER_E("IIR1", WCD9335_CDC_SIDETONE_IIR1_IIR_PATH_CTL,
+			     4, 0, NULL, 0, tasha_codec_set_iir_gain,
+			     SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_MIXER("SRC0", WCD9335_CDC_SIDETONE_SRC0_ST_SRC_PATH_CTL,
+			     4, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("SRC1", WCD9335_CDC_SIDETONE_SRC1_ST_SRC_PATH_CTL,
+			     4, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX("RX MIX TX0 MUX", SND_SOC_NOPM, 0, 0,
 		&rx_mix_tx0_mux),
