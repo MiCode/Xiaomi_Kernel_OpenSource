@@ -721,6 +721,10 @@
 		};
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	qcom,usbbam@78c4000 {
 		compatible = "qcom,usb-bam-msm";
 		reg = <0x78c4000 0x17000>;
