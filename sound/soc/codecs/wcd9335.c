@@ -1224,6 +1224,62 @@ static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int tasha_codec_enable_lineout_pa(struct snd_soc_dapm_widget *w,
+					 struct snd_kcontrol *kcontrol,
+					 int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	u16 lineout_vol_reg, lineout_mix_vol_reg;
+
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
+
+	if (w->reg == WCD9335_ANA_LO_1_2) {
+		if (w->shift == 7) {
+			lineout_vol_reg = WCD9335_CDC_RX3_RX_PATH_CTL;
+			lineout_mix_vol_reg = WCD9335_CDC_RX3_RX_PATH_MIX_CTL;
+		} else if (w->shift == 6) {
+			lineout_vol_reg = WCD9335_CDC_RX4_RX_PATH_CTL;
+			lineout_mix_vol_reg = WCD9335_CDC_RX4_RX_PATH_MIX_CTL;
+		}
+	} else if (w->reg == WCD9335_ANA_LO_3_4) {
+		if (w->shift == 7) {
+			lineout_vol_reg = WCD9335_CDC_RX5_RX_PATH_CTL;
+			lineout_mix_vol_reg = WCD9335_CDC_RX5_RX_PATH_MIX_CTL;
+		} else if (w->shift == 6) {
+			lineout_vol_reg = WCD9335_CDC_RX6_RX_PATH_CTL;
+			lineout_mix_vol_reg = WCD9335_CDC_RX6_RX_PATH_MIX_CTL;
+		}
+	} else {
+		dev_err(codec->dev, "%s: Error enabling lineout PA\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		/* 5ms sleep is required after PA is enabled as per
+		 * HW requirement
+		 */
+		usleep_range(5000, 5500);
+		snd_soc_update_bits(codec, lineout_vol_reg,
+				    0x10, 0x00);
+		/* Remove mix path mute if it is enabled */
+		if ((snd_soc_read(codec, lineout_mix_vol_reg)) & 0x10)
+			snd_soc_update_bits(codec,
+					    lineout_mix_vol_reg,
+					    0x10, 0x00);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* 5ms sleep is required after PA is disabled as per
+		 * HW requirement
+		 */
+		usleep_range(5000, 5500);
+		break;
+	};
+
+	return 0;
+}
+
 static int tasha_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 				     struct snd_kcontrol *kcontrol,
 				     int event)
@@ -1344,6 +1400,33 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			     hph_mode);
 		break;
 	};
+
+	return 0;
+}
+
+static int tasha_codec_lineout_dac_event(struct snd_soc_dapm_widget *w,
+					 struct snd_kcontrol *kcontrol,
+					 int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		wcd_clsh_fsm(codec, &tasha->clsh_d,
+			     WCD_CLSH_EVENT_PRE_DAC,
+			     WCD_CLSH_STATE_LO,
+			     CLS_AB);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		wcd_clsh_fsm(codec, &tasha->clsh_d,
+			     WCD_CLSH_EVENT_POST_PA,
+			     WCD_CLSH_STATE_LO,
+			     CLS_AB);
+		break;
+	}
 
 	return 0;
 }
@@ -1693,6 +1776,14 @@ static int tasha_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 			reg = WCD9335_CDC_RX1_RX_PATH_CTL;
 	else if (!(strcmp(w->name, "RX INT2 INTERP")))
 			reg = WCD9335_CDC_RX2_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT3 INTERP")))
+			reg = WCD9335_CDC_RX3_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT4 INTERP")))
+			reg = WCD9335_CDC_RX4_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT5 INTERP")))
+			reg = WCD9335_CDC_RX5_RX_PATH_CTL;
+	else if (!(strcmp(w->name, "RX INT6 INTERP")))
+			reg = WCD9335_CDC_RX6_RX_PATH_CTL;
 	else if (!(strcmp(w->name, "RX INT7 INTERP")))
 			reg = WCD9335_CDC_RX7_RX_PATH_CTL;
 	else if (!(strcmp(w->name, "RX INT8 INTERP")))
@@ -2199,90 +2290,90 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX MIX TX0 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX0 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX0 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX0 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX0 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX0 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX0 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX0 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX0 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX0 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX0 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX0 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX0 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX1 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX1 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX1 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX1 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX1 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX1 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX1 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX1 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX1 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX1 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX1 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX1 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX1 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX2 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX2 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX2 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX2 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX2 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX2 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX2 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX2 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX2 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX2 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX2 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX2 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX2 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX3 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX3 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX3 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX3 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX3 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX3 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX3 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX3 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX3 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX3 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX3 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX3 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX3 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX4 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX4 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX4 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX4 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX4 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX4 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX4 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX4 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX4 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX4 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX4 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX4 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX4 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX5 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX5 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX5 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX5 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX5 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX5 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX5 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX5 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX5 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX5 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX5 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX5 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX5 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX6 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX6 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX6 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX6 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX6 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX6 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX6 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX6 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX6 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX6 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX6 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX6 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX6 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX7 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX7 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX7 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX7 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX7 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX7 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX7 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX7 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX7 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX7 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX7 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX7 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX7 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
 	{"RX MIX TX8 MUX", "RX_MIX0", "RX INT0 SEC MIX"},
 	{"RX MIX TX8 MUX", "RX_MIX1", "RX INT1 SEC MIX"},
 	{"RX MIX TX8 MUX", "RX_MIX2", "RX INT2 SEC MIX"},
-	{"RX MIX TX8 MUX", "RX_MIX3", "RX INT3_1 MIX1"},
-	{"RX MIX TX8 MUX", "RX_MIX4", "RX INT4_1 MIX1"},
-	{"RX MIX TX8 MUX", "RX_MIX5", "RX INT5_1 MIX1"},
-	{"RX MIX TX8 MUX", "RX_MIX6", "RX INT6_1 MIX1"},
+	{"RX MIX TX8 MUX", "RX_MIX3", "RX INT3 SEC MIX"},
+	{"RX MIX TX8 MUX", "RX_MIX4", "RX INT4 SEC MIX"},
+	{"RX MIX TX8 MUX", "RX_MIX5", "RX INT5 SEC MIX"},
+	{"RX MIX TX8 MUX", "RX_MIX6", "RX INT6 SEC MIX"},
 	{"RX MIX TX8 MUX", "RX_MIX7", "RX INT7 SEC MIX"},
 	{"RX MIX TX8 MUX", "RX_MIX8", "RX INT8 SEC MIX"},
 
@@ -2494,10 +2585,51 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHR PA", NULL, "RX INT2 DAC"},
 	{"HPHR", NULL, "HPHR PA"},
 
-	{"RX INT3 MIX2", NULL, "RX INT3_1 MIX1"},
+	{"RX INT3 INTERP", NULL, "RX INT3_1 MIX1"},
+	{"SPL SRC0 MUX", "SRC_IN_LO1", "RX INT3 INTERP"},
+	{"RX INT3 SPLINE MIX", NULL, "RX INT3 INTERP"},
+	{"RX INT3 SPLINE MIX", NULL, "SPL SRC0 MUX"},
+	{"RX INT3 SEC MIX", NULL, "RX INT3 SPLINE MIX"},
+	{"RX INT3 MIX2", NULL, "RX INT3 SEC MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 MIX2 INP"},
-	{"RX INT4 MIX2", NULL, "RX INT4_1 MIX1"},
+	{"RX INT3 DAC", NULL, "RX INT3 MIX2"},
+	{"RX INT3 DAC", NULL, "RX_BIAS"},
+	{"LINEOUT1 PA", NULL, "RX INT3 DAC"},
+	{"LINEOUT1", NULL, "LINEOUT1 PA"},
+
+	{"RX INT4 INTERP", NULL, "RX INT4_1 MIX1"},
+	{"SPL SRC1 MUX", "SRC_IN_LO2", "RX INT4 INTERP"},
+	{"RX INT4 SPLINE MIX", NULL, "RX INT4 INTERP"},
+	{"RX INT4 SPLINE MIX", NULL, "SPL SRC1 MUX"},
+	{"RX INT4 SEC MIX", NULL, "RX INT4 SPLINE MIX"},
+	{"RX INT4 MIX2", NULL, "RX INT4 SEC MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
+	{"RX INT4 DAC", NULL, "RX INT4 MIX2"},
+	{"RX INT4 DAC", NULL, "RX_BIAS"},
+	{"LINEOUT2 PA", NULL, "RX INT4 DAC"},
+	{"LINEOUT2", NULL, "LINEOUT2 PA"},
+
+	{"RX INT5 INTERP", NULL, "RX INT5_1 MIX1"},
+	{"SPL SRC2 MUX", "SRC_IN_LO3", "RX INT5 INTERP"},
+	{"RX INT5 SPLINE MIX", NULL, "RX INT5 INTERP"},
+	{"RX INT5 SPLINE MIX", NULL, "SPL SRC2 MUX"},
+	{"RX INT5 SEC MIX", NULL, "RX INT5 SPLINE MIX"},
+	{"RX INT5 MIX2", NULL, "RX INT5 SEC MIX"},
+	{"RX INT5 DAC", NULL, "RX INT5 MIX2"},
+	{"RX INT5 DAC", NULL, "RX_BIAS"},
+	{"LINEOUT3 PA", NULL, "RX INT5 DAC"},
+	{"LINEOUT3", NULL, "LINEOUT3 PA"},
+
+	{"RX INT6 INTERP", NULL, "RX INT6_1 MIX1"},
+	{"SPL SRC3 MUX", "SRC_IN_LO4", "RX INT6 INTERP"},
+	{"RX INT6 SPLINE MIX", NULL, "RX INT6 INTERP"},
+	{"RX INT6 SPLINE MIX", NULL, "SPL SRC3 MUX"},
+	{"RX INT6 SEC MIX", NULL, "RX INT6 SPLINE MIX"},
+	{"RX INT6 MIX2", NULL, "RX INT6 SEC MIX"},
+	{"RX INT6 DAC", NULL, "RX INT6 MIX2"},
+	{"RX INT6 DAC", NULL, "RX_BIAS"},
+	{"LINEOUT4 PA", NULL, "RX INT6 DAC"},
+	{"LINEOUT4", NULL, "LINEOUT4 PA"},
 
 	{"RX INT7 INTERP", NULL, "RX INT7_1 MIX1"},
 	{"SPL SRC2 MUX", "SRC_IN_SPKRL", "RX INT7 INTERP"},
@@ -2511,8 +2643,8 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT2 MIX2", NULL, "COMP2_CLK"},
 	{"RX INT3 MIX2", NULL, "COMP3_CLK"},
 	{"RX INT4 MIX2", NULL, "COMP4_CLK"},
-	{"RX INT5_1 MIX1", NULL, "COMP5_CLK"},
-	{"RX INT6_1 MIX1", NULL, "COMP6_CLK"},
+	{"RX INT5 MIX2", NULL, "COMP5_CLK"},
+	{"RX INT6 MIX2", NULL, "COMP6_CLK"},
 	{"RX INT7 MIX2", NULL, "COMP7_CLK"},
 	{"RX INT8 SEC MIX", NULL, "COMP8_CLK"},
 
@@ -2633,6 +2765,50 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT2_2 MUX", "RX6", "SLIM RX6"},
 	{"RX INT2_2 MUX", "RX7", "SLIM RX7"},
 	{"RX INT2 SEC MIX", NULL, "RX INT2_2 MUX"},
+
+	/* MIXing path INT3 */
+	{"RX INT3_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT3_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT3_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT3_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT3_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT3_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT3_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT3_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT3 SEC MIX", NULL, "RX INT3_2 MUX"},
+
+	/* MIXing path INT4 */
+	{"RX INT4_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT4_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT4_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT4_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT4_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT4_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT4_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT4_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT4 SEC MIX", NULL, "RX INT4_2 MUX"},
+
+	/* MIXing path INT5 */
+	{"RX INT5_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT5_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT5_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT5_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT5_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT5_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT5_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT5_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT5 SEC MIX", NULL, "RX INT5_2 MUX"},
+
+	/* MIXing path INT6 */
+	{"RX INT6_2 MUX", "RX0", "SLIM RX0"},
+	{"RX INT6_2 MUX", "RX1", "SLIM RX1"},
+	{"RX INT6_2 MUX", "RX2", "SLIM RX2"},
+	{"RX INT6_2 MUX", "RX3", "SLIM RX3"},
+	{"RX INT6_2 MUX", "RX4", "SLIM RX4"},
+	{"RX INT6_2 MUX", "RX5", "SLIM RX5"},
+	{"RX INT6_2 MUX", "RX6", "SLIM RX6"},
+	{"RX INT6_2 MUX", "RX7", "SLIM RX7"},
+	{"RX INT6 SEC MIX", NULL, "RX INT6_2 MUX"},
 
 	/* MIXing path INT7 */
 	{"RX INT7_2 MUX", "RX0", "SLIM RX0"},
@@ -3356,29 +3532,14 @@ static const char * const spl_src3_mux_text[] = {
 	"ZERO", "SRC_IN_LO4", "SRC_IN_SPKRR",
 };
 
-static const char * const rx_int0_mix_mux_text[] = {
+static const char * const rx_int0_7_mix_mux_text[] = {
 	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
 	"RX6", "RX7", "PROXIMITY"
 };
 
-static const char * const rx_int1_mix_mux_text[] = {
+static const char * const rx_int_mix_mux_text[] = {
 	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
 	"RX6", "RX7"
-};
-
-static const char * const rx_int2_mix_mux_text[] = {
-	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
-	"RX6", "RX7"
-};
-
-static const char * const rx_int7_mix_mux_text[] = {
-	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
-	"RX6", "RX7", "PROXIMITY"
-};
-
-static const char * const rx_int8_mix_mux_text[] = {
-	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
-	"RX6", "RX7",
 };
 
 static const char * const rx_prim_mix_text[] = {
@@ -3468,6 +3629,22 @@ static const char * const rx_int2_interp_mux_text[] = {
 	"ZERO", "RX INT2_1 MIX1",
 };
 
+static const char * const rx_int3_interp_mux_text[] = {
+	"ZERO", "RX INT3_1 MIX1",
+};
+
+static const char * const rx_int4_interp_mux_text[] = {
+	"ZERO", "RX INT4_1 MIX1",
+};
+
+static const char * const rx_int5_interp_mux_text[] = {
+	"ZERO", "RX INT5_1 MIX1",
+};
+
+static const char * const rx_int6_interp_mux_text[] = {
+	"ZERO", "RX INT6_1 MIX1",
+};
+
 static const char * const rx_int7_interp_mux_text[] = {
 	"ZERO", "RX INT7_1 MIX1",
 };
@@ -3517,23 +3694,39 @@ static const struct soc_enum spl_src3_mux_chain_enum =
 
 static const struct soc_enum rx_int0_2_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG1, 0, 10,
-			rx_int0_mix_mux_text);
+			rx_int0_7_mix_mux_text);
 
 static const struct soc_enum rx_int1_2_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT1_CFG1, 0, 9,
-			rx_int1_mix_mux_text);
+			rx_int_mix_mux_text);
 
 static const struct soc_enum rx_int2_2_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT2_CFG1, 0, 9,
-			rx_int2_mix_mux_text);
+			rx_int_mix_mux_text);
+
+static const struct soc_enum rx_int3_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT3_CFG1, 0, 9,
+			rx_int_mix_mux_text);
+
+static const struct soc_enum rx_int4_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT4_CFG1, 0, 9,
+			rx_int_mix_mux_text);
+
+static const struct soc_enum rx_int5_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT5_CFG1, 0, 9,
+			rx_int_mix_mux_text);
+
+static const struct soc_enum rx_int6_2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT6_CFG1, 0, 9,
+			rx_int_mix_mux_text);
 
 static const struct soc_enum rx_int7_2_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT7_CFG1, 0, 10,
-			rx_int7_mix_mux_text);
+			rx_int0_7_mix_mux_text);
 
 static const struct soc_enum rx_int8_2_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT8_CFG1, 0, 9,
-			rx_int8_mix_mux_text);
+			rx_int_mix_mux_text);
 
 static const struct soc_enum rx_int0_1_mix_inp0_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG0, 0, 13,
@@ -3926,6 +4119,22 @@ static const struct soc_enum rx_int2_interp_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX2_RX_PATH_CTL, 5, 2,
 			rx_int2_interp_mux_text);
 
+static const struct soc_enum rx_int3_interp_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX3_RX_PATH_CTL, 5, 2,
+			rx_int3_interp_mux_text);
+
+static const struct soc_enum rx_int4_interp_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX4_RX_PATH_CTL, 5, 2,
+			rx_int4_interp_mux_text);
+
+static const struct soc_enum rx_int5_interp_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX5_RX_PATH_CTL, 5, 2,
+			rx_int5_interp_mux_text);
+
+static const struct soc_enum rx_int6_interp_mux_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX6_RX_PATH_CTL, 5, 2,
+			rx_int6_interp_mux_text);
+
 static const struct soc_enum rx_int7_interp_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX7_RX_PATH_CTL, 5, 2,
 			rx_int7_interp_mux_text);
@@ -3969,6 +4178,18 @@ static const struct snd_kcontrol_new rx_int1_2_mux =
 
 static const struct snd_kcontrol_new rx_int2_2_mux =
 	SOC_DAPM_ENUM("RX INT2_2 MUX Mux", rx_int2_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int3_2_mux =
+	SOC_DAPM_ENUM("RX INT3_2 MUX Mux", rx_int3_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int4_2_mux =
+	SOC_DAPM_ENUM("RX INT4_2 MUX Mux", rx_int4_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int5_2_mux =
+	SOC_DAPM_ENUM("RX INT5_2 MUX Mux", rx_int5_2_mux_chain_enum);
+
+static const struct snd_kcontrol_new rx_int6_2_mux =
+	SOC_DAPM_ENUM("RX INT6_2 MUX Mux", rx_int6_2_mux_chain_enum);
 
 static const struct snd_kcontrol_new rx_int7_2_mux =
 	SOC_DAPM_ENUM("RX INT7_2 MUX Mux", rx_int7_2_mux_chain_enum);
@@ -4258,6 +4479,18 @@ static const struct snd_kcontrol_new rx_int1_interp_mux =
 static const struct snd_kcontrol_new rx_int2_interp_mux =
 	SOC_DAPM_ENUM("RX INT2 INTERP Mux", rx_int2_interp_mux_enum);
 
+static const struct snd_kcontrol_new rx_int3_interp_mux =
+	SOC_DAPM_ENUM("RX INT3 INTERP Mux", rx_int3_interp_mux_enum);
+
+static const struct snd_kcontrol_new rx_int4_interp_mux =
+	SOC_DAPM_ENUM("RX INT4 INTERP Mux", rx_int4_interp_mux_enum);
+
+static const struct snd_kcontrol_new rx_int5_interp_mux =
+	SOC_DAPM_ENUM("RX INT5 INTERP Mux", rx_int5_interp_mux_enum);
+
+static const struct snd_kcontrol_new rx_int6_interp_mux =
+	SOC_DAPM_ENUM("RX INT6 INTERP Mux", rx_int6_interp_mux_enum);
+
 static const struct snd_kcontrol_new rx_int7_interp_mux =
 	SOC_DAPM_ENUM("RX INT7 INTERP Mux", rx_int7_interp_mux_enum);
 
@@ -4329,6 +4562,22 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT2_2 MUX", WCD9335_CDC_RX2_RX_PATH_MIX_CTL,
 			5, 0, &rx_int2_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT3_2 MUX", WCD9335_CDC_RX3_RX_PATH_MIX_CTL,
+			5, 0, &rx_int3_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT4_2 MUX", WCD9335_CDC_RX4_RX_PATH_MIX_CTL,
+			5, 0, &rx_int4_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT5_2 MUX", WCD9335_CDC_RX5_RX_PATH_MIX_CTL,
+			5, 0, &rx_int5_2_mux, tasha_codec_enable_mix_path,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT6_2 MUX", WCD9335_CDC_RX6_RX_PATH_MIX_CTL,
+			5, 0, &rx_int6_2_mux, tasha_codec_enable_mix_path,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT7_2 MUX", WCD9335_CDC_RX7_RX_PATH_MIX_CTL,
@@ -4404,9 +4653,17 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX INT2 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT2 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT3_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT3 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT3 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT4_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT4 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT4 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT5_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT5 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT5 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT6_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT6 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT6 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -4419,6 +4676,8 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX INT2 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT3 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT4 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT5 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT6 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT8 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -4715,6 +4974,22 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		0, 0, &rx_int2_interp_mux, tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT3 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int3_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT4 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int4_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT5 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int5_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT6 INTERP", SND_SOC_NOPM,
+		0, 0, &rx_int6_interp_mux, tasha_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
+		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_MUX_E("RX INT7 INTERP", SND_SOC_NOPM,
 		0, 0, &rx_int7_interp_mux, tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -4736,6 +5011,18 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		4, 0, tasha_codec_hphr_dac_event,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
 		SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("RX INT3 DAC", NULL, SND_SOC_NOPM,
+		0, 0, tasha_codec_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("RX INT4 DAC", NULL, SND_SOC_NOPM,
+		0, 0, tasha_codec_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("RX INT5 DAC", NULL, SND_SOC_NOPM,
+		0, 0, tasha_codec_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("RX INT6 DAC", NULL, SND_SOC_NOPM,
+		0, 0, tasha_codec_lineout_dac_event,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("HPHL PA", WCD9335_ANA_HPH, 7, 0, NULL, 0,
 			   tasha_codec_enable_hphl_pa,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -4748,6 +5035,22 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 			   tasha_codec_enable_ear_pa,
 			   SND_SOC_DAPM_POST_PMU |
 			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT1 PA", WCD9335_ANA_LO_1_2, 7, 0, NULL, 0,
+			   tasha_codec_enable_lineout_pa,
+			   SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT2 PA", WCD9335_ANA_LO_1_2, 6, 0, NULL, 0,
+			   tasha_codec_enable_lineout_pa,
+			   SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT3 PA", WCD9335_ANA_LO_3_4, 7, 0, NULL, 0,
+			   tasha_codec_enable_lineout_pa,
+			   SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_E("LINEOUT4 PA", WCD9335_ANA_LO_3_4, 6, 0, NULL, 0,
+			   tasha_codec_enable_lineout_pa,
+			   SND_SOC_DAPM_POST_PMU |
+			   SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_OUTPUT("HPHL"),
 	SND_SOC_DAPM_OUTPUT("HPHR"),
 	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM, 0, 0,
@@ -4755,6 +5058,10 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_OUTPUT("SPK1 OUT"),
 	SND_SOC_DAPM_OUTPUT("SPK2 OUT"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT1"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT2"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT3"),
+	SND_SOC_DAPM_OUTPUT("LINEOUT4"),
 };
 
 static int tasha_get_channel_map(struct snd_soc_dai *dai,

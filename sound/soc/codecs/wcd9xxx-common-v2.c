@@ -89,6 +89,61 @@ wcd_enable_clsh_block(struct snd_soc_codec *codec,
 		clsh_d->clsh_users, enable);
 }
 
+static inline bool wcd_clsh_enable_status(struct snd_soc_codec *codec)
+{
+	return snd_soc_read(codec, WCD9XXX_A_CDC_CLSH_CRC) & 0x01;
+}
+
+static inline int wcd_clsh_get_int_mode(struct wcd_clsh_cdc_data *clsh_d,
+					int clsh_state)
+{
+	int mode;
+
+	if ((clsh_state != WCD_CLSH_STATE_EAR) &&
+	    (clsh_state != WCD_CLSH_STATE_HPHL) &&
+	    (clsh_state != WCD_CLSH_STATE_HPHR) &&
+	    (clsh_state != WCD_CLSH_STATE_LO))
+		mode = CLS_NONE;
+	else
+		mode = clsh_d->interpolator_modes[ffs(clsh_state)];
+
+	return mode;
+}
+
+static inline void wcd_clsh_set_int_mode(struct wcd_clsh_cdc_data *clsh_d,
+					int clsh_state, int mode)
+{
+	if ((clsh_state != WCD_CLSH_STATE_EAR) &&
+	    (clsh_state != WCD_CLSH_STATE_HPHL) &&
+	    (clsh_state != WCD_CLSH_STATE_HPHR) &&
+	    (clsh_state != WCD_CLSH_STATE_LO))
+		return;
+
+	clsh_d->interpolator_modes[ffs(clsh_state)] = mode;
+}
+
+static inline void wcd_clsh_set_buck_mode(struct snd_soc_codec *codec,
+					  int mode)
+{
+	if (mode == CLS_H_HIFI)
+		snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
+				    0x08, 0x08); /* set to HIFI */
+	else
+		snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
+				    0x08, 0x00); /* set to default */
+}
+
+static inline void wcd_clsh_set_flyback_mode(struct snd_soc_codec *codec,
+					     int mode)
+{
+	if (mode == CLS_H_HIFI)
+		snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
+				    0x04, 0x04); /* set to HIFI */
+	else
+		snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
+				    0x04, 0x00); /* set to Default */
+}
+
 static void wcd_clsh_buck_ctrl(struct snd_soc_codec *codec,
 			       struct wcd_clsh_cdc_data *clsh_d,
 			       int mode,
@@ -173,6 +228,227 @@ static void wcd_clsh_set_buck_regulator_mode(struct snd_soc_codec *codec,
 	else
 		snd_soc_update_bits(codec, WCD9XXX_A_ANA_RX_SUPPLIES,
 				    0x02, 0x00);
+}
+
+static void wcd_clsh_state_lo(struct snd_soc_codec *codec,
+			      struct wcd_clsh_cdc_data *clsh_d,
+			      u8 req_state, bool is_enable, int mode)
+{
+	dev_dbg(codec->dev, "%s: mode: %s, %s\n", __func__, mode_to_str(mode),
+		is_enable ? "enable" : "disable");
+
+	if (mode != CLS_AB) {
+		dev_err(codec->dev, "%s: LO cannot be in this mode: %d\n",
+			__func__, mode);
+		return;
+	}
+
+	if (is_enable) {
+		wcd_clsh_set_buck_regulator_mode(codec, mode);
+		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
+		wcd_clsh_buck_ctrl(codec, clsh_d, mode, true);
+	} else {
+		wcd_clsh_buck_ctrl(codec, clsh_d, mode, false);
+		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, false);
+		wcd_clsh_set_buck_regulator_mode(codec, CLS_H_NORMAL);
+	}
+}
+
+static void wcd_clsh_state_hph_ear(struct snd_soc_codec *codec,
+				   struct wcd_clsh_cdc_data *clsh_d,
+				   u8 req_state, bool is_enable, int mode)
+{
+	int hph_mode;
+
+	dev_dbg(codec->dev, "%s: mode: %s, %s\n", __func__, mode_to_str(mode),
+		is_enable ? "enable" : "disable");
+
+	if (is_enable) {
+		if (req_state == WCD_CLSH_STATE_EAR) {
+			/* If HPH is running in CLS-AB when
+			 * EAR comes, let it continue to run
+			 * in Class-AB, no need to enable Class-H
+			 * for EAR.
+			 */
+			if (clsh_d->state & WCD_CLSH_STATE_HPHL)
+				hph_mode = wcd_clsh_get_int_mode(clsh_d,
+						WCD_CLSH_STATE_HPHL);
+			else if (clsh_d->state & WCD_CLSH_STATE_HPHR)
+				hph_mode = wcd_clsh_get_int_mode(clsh_d,
+						WCD_CLSH_STATE_HPHR);
+			if (hph_mode != CLS_AB)
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+						0x40, 0x40);
+		}
+		if (req_state == WCD_CLSH_STATE_HPHL)
+			snd_soc_update_bits(codec,
+					    WCD9XXX_A_CDC_RX1_RX_PATH_CFG0,
+					    0x40, 0x40);
+		if (req_state == WCD_CLSH_STATE_HPHR)
+			snd_soc_update_bits(codec,
+					    WCD9XXX_A_CDC_RX2_RX_PATH_CFG0,
+					    0x40, 0x40);
+		if ((req_state == WCD_CLSH_STATE_HPHL) ||
+		    (req_state == WCD_CLSH_STATE_HPHR)) {
+			wcd_clsh_set_flyback_mode(codec, mode);
+			wcd_clsh_set_buck_mode(codec, mode);
+		}
+	} else {
+		if (req_state == WCD_CLSH_STATE_EAR) {
+			/*
+			 * If EAR goes away, disable EAR Channel Enable
+			 * if HPH running in Class-H otherwise
+			 * and if HPH requested mode is CLS_AB then
+			 * no need to disable EAR channel enable bit.
+			 */
+		       if (wcd_clsh_enable_status(codec))
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+						0x40, 0x00);
+		}
+		if (req_state == WCD_CLSH_STATE_HPHL)
+			snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_RX1_RX_PATH_CFG0,
+					0x40, 0x00);
+		if (req_state == WCD_CLSH_STATE_HPHR)
+			snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_RX2_RX_PATH_CFG0,
+					0x40, 0x00);
+		if ((req_state & WCD_CLSH_STATE_HPH_ST) &&
+		    !wcd_clsh_enable_status(codec)) {
+			/* If Class-H is not enabled when HPH is turned
+			 * off, enable it as EAR is in progress
+			 */
+			wcd_enable_clsh_block(codec, clsh_d, true);
+			snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+					0x40, 0x40);
+			wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
+			wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
+		}
+	}
+}
+
+static void wcd_clsh_state_ear_lo(struct snd_soc_codec *codec,
+				  struct wcd_clsh_cdc_data *clsh_d,
+				  u8 req_state, bool is_enable, int mode)
+{
+	dev_dbg(codec->dev, "%s: mode: %s, %s\n", __func__, mode_to_str(mode),
+		is_enable ? "enable" : "disable");
+
+	if (is_enable && (req_state == WCD_CLSH_STATE_LO)) {
+		wcd_clsh_set_buck_regulator_mode(codec, CLS_AB);
+	} else {
+		if (req_state == WCD_CLSH_STATE_EAR)
+			goto end;
+
+		/* LO powerdown.
+		 * If EAR Class-H is already enabled, just
+		 * turn on regulator other enable Class-H
+		 * configuration
+		 */
+		if (wcd_clsh_enable_status(codec)) {
+			wcd_clsh_set_buck_regulator_mode(codec,
+					CLS_H_NORMAL);
+			goto end;
+		}
+		wcd_enable_clsh_block(codec, clsh_d, true);
+		snd_soc_update_bits(codec,
+				WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
+				0x40, 0x40);
+		wcd_clsh_set_buck_regulator_mode(codec,
+				CLS_H_NORMAL);
+		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
+		wcd_clsh_buck_ctrl(codec, clsh_d, mode, true);
+	}
+end:
+	return;
+}
+
+static void wcd_clsh_state_hph_lo(struct snd_soc_codec *codec,
+				  struct wcd_clsh_cdc_data *clsh_d,
+				  u8 req_state, bool is_enable, int mode)
+{
+	int hph_mode;
+
+	dev_dbg(codec->dev, "%s: mode: %s, %s\n", __func__, mode_to_str(mode),
+		is_enable ? "enable" : "disable");
+
+	if (is_enable) {
+		/*
+		 * If requested state is LO, put regulator
+		 * in class-AB or if requested state is HPH,
+		 * which means LO is already enabled, keep
+		 * the regulator config the same at class-AB
+		 * and just set the power modes for flyback
+		 * and buck.
+		 */
+		if (req_state == WCD_CLSH_STATE_LO)
+			wcd_clsh_set_buck_regulator_mode(codec, CLS_AB);
+		else {
+			wcd_clsh_set_flyback_mode(codec, mode);
+			wcd_clsh_set_buck_mode(codec, mode);
+		}
+	} else {
+		if ((req_state == WCD_CLSH_STATE_HPHL) ||
+		    (req_state == WCD_CLSH_STATE_HPHR)) {
+			/*
+			 * If HPH is powering down first, then set the
+			 * buck/flyback mode to default and keep the
+			 * regulator at Class-AB
+			 */
+			wcd_clsh_set_flyback_mode(codec, CLS_H_NORMAL);
+			wcd_clsh_set_buck_mode(codec, CLS_H_NORMAL);
+		} else {
+			/* LO powerdown.
+			 * If HPH mode also is CLS-AB, no need
+			 * to turn-on class-H, otherwise enable
+			 * Class-H configuration.
+			 */
+			if (clsh_d->state & WCD_CLSH_STATE_HPHL)
+				hph_mode = wcd_clsh_get_int_mode(clsh_d,
+						WCD_CLSH_STATE_HPHL);
+			else if (clsh_d->state & WCD_CLSH_STATE_HPHR)
+				hph_mode = wcd_clsh_get_int_mode(clsh_d,
+						WCD_CLSH_STATE_HPHR);
+			if ((hph_mode == CLS_AB) ||
+			   (hph_mode == CLS_NONE))
+				goto end;
+
+			/*
+			 * If Class-H is already enabled (HPH ON and then
+			 * LO ON), no need to turn on again, just set the
+			 * regulator mode.
+			 */
+			if (wcd_clsh_enable_status(codec)) {
+				wcd_clsh_set_buck_regulator_mode(codec,
+								 hph_mode);
+				goto end;
+			}
+
+			wcd_enable_clsh_block(codec, clsh_d, true);
+			snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_CLSH_K1_MSB,
+					0x0F, 0x00);
+			snd_soc_update_bits(codec,
+					WCD9XXX_A_CDC_CLSH_K1_LSB,
+					0xFF, 0xC0);
+			wcd_clsh_set_buck_regulator_mode(codec,
+							 hph_mode);
+			if (clsh_d->state & WCD_CLSH_STATE_HPHL)
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_RX1_RX_PATH_CFG0,
+						0x40, 0x40);
+			if (clsh_d->state & WCD_CLSH_STATE_HPHR)
+				snd_soc_update_bits(codec,
+						WCD9XXX_A_CDC_RX2_RX_PATH_CFG0,
+						0x40, 0x40);
+			wcd_clsh_set_hph_mode(codec, hph_mode);
+		}
+	}
+end:
+	return;
 }
 
 static void wcd_clsh_state_hph_st(struct snd_soc_codec *codec,
@@ -401,9 +677,10 @@ void wcd_clsh_fsm(struct snd_soc_codec *codec,
 				state_to_str(new_state, msg0, sizeof(msg0)));
 			return;
 		}
+		cdc_clsh_d->state = new_state;
+		wcd_clsh_set_int_mode(cdc_clsh_d, req_state, int_mode);
 		(*clsh_state_fp[new_state]) (codec, cdc_clsh_d, req_state,
 					     CLSH_REQ_ENABLE, int_mode);
-		cdc_clsh_d->state = new_state;
 		dev_dbg(codec->dev,
 			"%s: ClassH state transition from %s to %s\n",
 			__func__, state_to_str(old_state, msg0, sizeof(msg0)),
@@ -433,6 +710,7 @@ void wcd_clsh_fsm(struct snd_soc_codec *codec,
 					req_state, CLSH_REQ_DISABLE,
 					int_mode);
 			cdc_clsh_d->state = new_state;
+			wcd_clsh_set_int_mode(cdc_clsh_d, req_state, CLS_NONE);
 			dev_dbg(codec->dev, "%s: ClassH state transition from %s to %s\n",
 				__func__, state_to_str(old_state, msg0,
 						       sizeof(msg0)),
@@ -458,6 +736,23 @@ void wcd_clsh_init(struct wcd_clsh_cdc_data *clsh)
 						wcd_clsh_state_hph_r;
 	clsh_state_fp[WCD_CLSH_STATE_HPH_ST] =
 						wcd_clsh_state_hph_st;
+	clsh_state_fp[WCD_CLSH_STATE_LO] = wcd_clsh_state_lo;
+	clsh_state_fp[WCD_CLSH_STATE_HPHL_EAR] =
+						wcd_clsh_state_hph_ear;
+	clsh_state_fp[WCD_CLSH_STATE_HPHR_EAR] =
+						wcd_clsh_state_hph_ear;
+	clsh_state_fp[WCD_CLSH_STATE_HPH_ST_EAR] =
+						wcd_clsh_state_hph_ear;
+	clsh_state_fp[WCD_CLSH_STATE_HPHL_LO] = wcd_clsh_state_hph_lo;
+	clsh_state_fp[WCD_CLSH_STATE_HPHR_LO] = wcd_clsh_state_hph_lo;
+	clsh_state_fp[WCD_CLSH_STATE_HPH_ST_LO] =
+						wcd_clsh_state_hph_lo;
+	clsh_state_fp[WCD_CLSH_STATE_EAR_LO] = wcd_clsh_state_ear_lo;
+	/* Set interpolaotr modes to NONE */
+	wcd_clsh_set_int_mode(clsh, WCD_CLSH_STATE_EAR, CLS_NONE);
+	wcd_clsh_set_int_mode(clsh, WCD_CLSH_STATE_HPHL, CLS_NONE);
+	wcd_clsh_set_int_mode(clsh, WCD_CLSH_STATE_HPHR, CLS_NONE);
+	wcd_clsh_set_int_mode(clsh, WCD_CLSH_STATE_LO, CLS_NONE);
 }
 EXPORT_SYMBOL(wcd_clsh_init);
 
