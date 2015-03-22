@@ -18,6 +18,8 @@
 #include "dsi-panel-nt35597-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-wqxga-cmd.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
+#include "dsi-panel-nt35597-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-wqxga-cmd.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
@@ -46,6 +48,14 @@
 
 &mdss_dsi1 {
 	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video_1>;
+};
+
+&dsi_nt35597_wqxga_video {
+	qcom,cont-splash-enabled;
+};
+
+&dsi_nt35597_wqxga_cmd {
+	qcom,cont-splash-enabled;
 };
 
 &dsi_dual_sharp_video_0 {
