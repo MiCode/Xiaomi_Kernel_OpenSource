@@ -28,7 +28,6 @@ enum sdhci_power_policy {
 	SDHCI_PERFORMANCE_MODE,
 	SDHCI_PERFORMANCE_MODE_INIT,
 	SDHCI_POWER_SAVE_MODE,
-	SDHCI_NUM_PWR_POLICIES, /* MUST remain last */
 };
 
 struct sdhci_host {
@@ -265,8 +264,11 @@ struct sdhci_host {
 #define SDHCI_TUNING_MODE_1	0
 	struct timer_list	tuning_timer;	/* Timer for tuning */
 
-	unsigned int		when_to_vote;
-#define PM_QOS_VOTE_REQUEST	BIT(0)		/* vote for each request */
+	unsigned int *cpu_dma_latency_us;
+	unsigned int cpu_dma_latency_tbl_sz;
+	struct pm_qos_request pm_qos_req_dma;
+	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
+	struct device_attribute pm_qos_tout;
 
 	struct sdhci_next next_data;
 	ktime_t data_start_time;

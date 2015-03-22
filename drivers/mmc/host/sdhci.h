@@ -277,12 +277,6 @@
 #define SDHCI_DEFAULT_BOUNDARY_SIZE  (512 * 1024)
 #define SDHCI_DEFAULT_BOUNDARY_ARG   (ilog2(SDHCI_DEFAULT_BOUNDARY_SIZE) - 12)
 
-enum sdhci_pm_qos_update {
-	SDHCI_PM_QOS_VOTE,
-	SDHCI_PM_QOS_UNVOTE,
-	SDHCI_PM_QOS_UPDATE,
-};
-
 struct sdhci_ops {
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
 	u32		(*read_l)(struct sdhci_host *host, int reg);
@@ -327,9 +321,6 @@ struct sdhci_ops {
 					  bool enable,
 					  u32 type);
 	int	(*enable_controller_clock)(struct sdhci_host *host);
-	void	(*pm_qos_update)(struct sdhci_host *host,
-				 struct mmc_request *mrq,
-				 enum sdhci_pm_qos_update type);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
