@@ -401,85 +401,85 @@
 
 	qcom,sensor-information {
 		compatible = "qcom,sensor-information";
-		sensor_information0: qcom,sensor-information@0 {
+		sensor_information0: qcom,sensor-information-0 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor0";
 		};
 
-		sensor_information1: qcom,sensor-information@1 {
+		sensor_information1: qcom,sensor-information-1 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor1";
 		};
 
-		sensor_information2: qcom,sensor-information@2 {
+		sensor_information2: qcom,sensor-information-2 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor2";
 		};
 
-		sensor_information3: qcom,sensor-information@3 {
+		sensor_information3: qcom,sensor-information-3 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor3";
 			qcom,alias-name = "pop_mem";
 		};
 
-		sensor_information4: qcom,sensor-information@4 {
+		sensor_information4: qcom,sensor-information-4 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor4";
 			qcom,alias-name = "L2_cache_1";
 		};
 
-		sensor_information5: qcom,sensor-information@5 {
+		sensor_information5: qcom,sensor-information-5 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor5";
 			qcom,alias-name = "cpu0";
 		};
 
-		sensor_information6: qcom,sensor-information@6 {
+		sensor_information6: qcom,sensor-information-6 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor6";
 			qcom,alias-name = "cpu1";
 		};
 
-		sensor_information7: qcom,sensor-information@7 {
+		sensor_information7: qcom,sensor-information-7 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor7";
 			qcom,alias-name = "cpu2";
 		};
 
-		sensor_information8: qcom,sensor-information@8 {
+		sensor_information8: qcom,sensor-information-8 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor8";
 			qcom,alias-name = "cpu3";
 		};
 
-		sensor_information9: qcom,sensor-information@9 {
+		sensor_information9: qcom,sensor-information-9 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor9";
 			qcom,alias-name = "cpu4-5-6-7";
 		};
 
-		sensor_information10: qcom,sensor-information@10 {
+		sensor_information10: qcom,sensor-information-10 {
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor10";
 			qcom,alias-name = "gpu";
 		};
 
-		sensor_information11: qcom,sensor-information@11 {
+		sensor_information11: qcom,sensor-information-11 {
 			qcom,sensor-type = "adc";
 			qcom,sensor-name = "pa_therm0";
 		};
 
-		sensor_information12: qcom,sensor-information@12 {
+		sensor_information12: qcom,sensor-information-12 {
 			qcom,sensor-type = "adc";
 			qcom,sensor-name = "pa_therm1";
 		};
 
-		sensor_information13: qcom,sensor-information@13 {
+		sensor_information13: qcom,sensor-information-13 {
 			qcom,sensor-type = "adc";
 			qcom,sensor-name = "xo_therm";
 		};
 
-		sensor_information14: qcom,sensor-information@14 {
+		sensor_information14: qcom,sensor-information-14 {
 			qcom,sensor-type = "adc";
 			qcom,sensor-name = "xo_therm_buf";
 		};
