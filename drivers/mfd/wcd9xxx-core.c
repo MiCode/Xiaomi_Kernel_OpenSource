@@ -204,6 +204,23 @@ static int wcd9xxx_page_write(struct wcd9xxx *wcd9xxx, unsigned short *reg)
 	return ret;
 }
 
+static bool is_codec_digital_reg(struct wcd9xxx *wcd9xxx, u16 rreg)
+{
+	bool ret = false;
+
+	if (((wcd9xxx->pwr_collapse_reg_min == 0) &&
+	     (wcd9xxx->pwr_collapse_reg_max == 0)) ||
+	    (wcd9xxx->power_state == WCD_DIG_CORE_POWER_COLLAPSE_REMOVE))
+		ret = false;
+	else if (((wcd9xxx->power_state == WCD_DIG_CORE_POWER_DOWN) ||
+	    (wcd9xxx->power_state == WCD_DIG_CORE_POWER_COLLAPSE_BEGIN)) &&
+	    (rreg >= wcd9xxx->pwr_collapse_reg_min) &&
+	    (rreg <= wcd9xxx->pwr_collapse_reg_max))
+		ret = true;
+
+	return ret;
+}
+
 static int regmap_slim_read(void *context, const void *reg, size_t reg_size,
 			    void *val, size_t val_size)
 {
@@ -231,6 +248,10 @@ static int regmap_slim_read(void *context, const void *reg, size_t reg_size,
 	c_reg = *(u16 *)reg;
 	rreg = c_reg;
 
+	if (is_codec_digital_reg(wcd9xxx, rreg)) {
+		ret = 0;
+		goto err;
+	}
 	ret = wcd9xxx_page_write(wcd9xxx, &c_reg);
 	if (ret)
 		goto err;
@@ -323,6 +344,10 @@ static int regmap_slim_gather_write(void *context,
 	c_reg = *(u16 *)reg;
 	rreg = c_reg;
 
+	if (is_codec_digital_reg(wcd9xxx, rreg)) {
+		ret = 0;
+		goto err;
+	}
 	ret = wcd9xxx_page_write(wcd9xxx, &c_reg);
 	if (ret)
 		goto err;
@@ -497,6 +522,28 @@ int wcd9xxx_bulk_write(
 	return __wcd9xxx_bulk_write(wcd9xxx, reg, count, buf);
 }
 EXPORT_SYMBOL(wcd9xxx_bulk_write);
+
+int wcd9xxx_get_current_power_state(struct wcd9xxx *wcd9xxx)
+{
+	int state;
+
+	mutex_lock(&wcd9xxx->io_lock);
+	state = wcd9xxx->power_state;
+	mutex_unlock(&wcd9xxx->io_lock);
+
+	return state;
+}
+EXPORT_SYMBOL(wcd9xxx_get_current_power_state);
+
+int wcd9xxx_set_power_state(struct wcd9xxx *wcd9xxx, int state)
+{
+	mutex_lock(&wcd9xxx->io_lock);
+	wcd9xxx->power_state = state;
+	mutex_unlock(&wcd9xxx->io_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(wcd9xxx_set_power_state);
 
 static int wcd9xxx_slim_read_device(struct wcd9xxx *wcd9xxx, unsigned short reg,
 				int bytes, void *dest, bool interface)
@@ -1291,6 +1338,20 @@ static void wcd9xxx_core_res_update_irq_regs(
 	};
 }
 
+static void wcd9xxx_init_power_states(struct wcd9xxx *wcd9xxx)
+{
+	wcd9xxx_set_power_state(wcd9xxx, WCD_DIG_CORE_POWER_COLLAPSE_REMOVE);
+
+	switch (wcd9xxx->codec_type->id_major) {
+	case TASHA_MAJOR:
+		wcd9xxx->pwr_collapse_reg_min = 0xA00;
+		wcd9xxx->pwr_collapse_reg_max = 0xDFF;
+		break;
+	default:
+		break;
+	}
+}
+
 static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 {
 	int ret = 0;
@@ -1313,6 +1374,7 @@ static int wcd9xxx_device_init(struct wcd9xxx *wcd9xxx)
 		wcd9xxx->version = version;
 	}
 
+	wcd9xxx_init_power_states(wcd9xxx);
 	core_res->parent = wcd9xxx;
 	core_res->dev = wcd9xxx->dev;
 

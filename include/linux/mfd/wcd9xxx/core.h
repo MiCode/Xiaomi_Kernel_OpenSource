@@ -222,6 +222,12 @@ enum wcd9xxx_chipid_major {
 	TASHA_MAJOR = cpu_to_le16(0x0),
 };
 
+enum codec_power_states {
+	WCD_DIG_CORE_POWER_COLLAPSE_REMOVE,
+	WCD_DIG_CORE_POWER_COLLAPSE_BEGIN,
+	WCD_DIG_CORE_POWER_DOWN,
+};
+
 struct wcd9xxx_codec_type {
 	u16 id_major;
 	u16 id_minor;
@@ -274,6 +280,9 @@ struct wcd9xxx {
 	const struct wcd9xxx_codec_type *codec_type;
 	bool prev_pg_valid;
 	u8 prev_pg;
+	enum codec_power_states power_state;
+	u16 pwr_collapse_reg_min;
+	u16 pwr_collapse_reg_max;
 };
 
 struct wcd9xxx_reg_val {
@@ -290,6 +299,8 @@ int wcd9xxx_slim_write_repeat(struct wcd9xxx *wcd9xxx, unsigned short reg,
 			     int bytes, void *src);
 int wcd9xxx_slim_reserve_bw(struct wcd9xxx *wcd9xxx,
 			    u32 bw_ops, bool commit);
+int wcd9xxx_set_power_state(struct wcd9xxx *, int);
+int wcd9xxx_get_current_power_state(struct wcd9xxx *wcd9xxx);
 
 int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
 			    struct wcd9xxx_reg_val *bulk_reg,
