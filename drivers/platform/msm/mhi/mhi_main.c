@@ -496,37 +496,64 @@ void mhi_update_chan_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 		}
 	} else {
 		mhi_process_db(mhi_dev_ctxt,
-		     mhi_dev_ctxt->channel_db_addr,
-		     chan, db_value);
+				mhi_dev_ctxt->channel_db_addr,
+				chan, db_value);
 	}
 }
 
-static enum MHI_STATUS mhi_notify_device(
-			struct mhi_device_ctxt *mhi_dev_ctxt, u32 chan)
+static inline enum MHI_STATUS mhi_queue_tre(struct mhi_device_ctxt
+							*mhi_dev_ctxt,
+					    u32 chan,
+					    enum MHI_RING_TYPE type)
 {
-	unsigned long flags = 0;
 	struct mhi_chan_ctxt *chan_ctxt;
+	unsigned long flags = 0;
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	u64 db_value = 0;
 	chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan];
-
-	spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan], flags);
-	if (likely(((MHI_STATE_M0 == mhi_dev_ctxt->mhi_state) ||
-		(MHI_STATE_M1 == mhi_dev_ctxt->mhi_state)) &&
-		(chan_ctxt->mhi_chan_state != MHI_CHAN_STATE_ERROR) &&
-		!mhi_dev_ctxt->flags.pending_M3)) {
-		mhi_update_chan_db(mhi_dev_ctxt, chan);
+	mhi_dev_ctxt->counters.m1_m0++;
+	mhi_log(MHI_MSG_VERBOSE, "Entered");
+	if (chan % 2 == 0) {
+		atomic_inc(&mhi_dev_ctxt->counters.outbound_acks);
+		mhi_log(MHI_MSG_VERBOSE,
+			"Queued outbound pkt. Pending Acks %d\n",
+		atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
+	}
+	if (likely((((
+	    (mhi_dev_ctxt->mhi_state == MHI_STATE_M0) ||
+	    (mhi_dev_ctxt->mhi_state == MHI_STATE_M1)) &&
+	    (chan_ctxt->mhi_chan_state != MHI_CHAN_STATE_ERROR)) &&
+	    (!mhi_dev_ctxt->flags.pending_M3)))) {
+		if (likely(type == MHI_RING_TYPE_XFER_RING)) {
+			spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan],
+					   flags);
+			db_value = mhi_v2p_addr(
+			      mhi_dev_ctxt->mhi_ctrl_seg_info,
+				(uintptr_t)
+				mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
+			mhi_dev_ctxt->mhi_chan_db_order[chan]++;
+			mhi_update_chan_db(mhi_dev_ctxt, chan);
+			spin_unlock_irqrestore(
+			   &mhi_dev_ctxt->db_write_lock[chan], flags);
+		} else if (type == MHI_RING_TYPE_CMD_RING) {
+			db_value = mhi_v2p_addr(
+			   mhi_dev_ctxt->mhi_ctrl_seg_info,
+			   (uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt->wp);
+			mhi_dev_ctxt->cmd_ring_order++;
+			mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
+				       0, db_value);
+		} else {
+			mhi_log(MHI_MSG_VERBOSE,
+			"Wrong type of packet = %d\n", type);
+			ret_val = MHI_STATUS_ERROR;
+		}
 	} else {
 		mhi_log(MHI_MSG_VERBOSE,
 			"Wakeup, pending data state %d chan state %d\n",
-						mhi_dev_ctxt->mhi_state,
-						chan_ctxt->mhi_chan_state);
-		ret_val = MHI_STATUS_SUCCESS;
+						 mhi_dev_ctxt->mhi_state,
+						 chan_ctxt->mhi_chan_state);
+			ret_val = MHI_STATUS_SUCCESS;
 	}
-	spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan], flags);
-	/*
-	 * If there are no clients still sending we can trigger our
-	 * inactivity timer
-	 */
 	return ret_val;
 }
 
@@ -554,7 +581,6 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 	read_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 
 	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
-	mhi_dev_ctxt->counters.m1_m0++;
 	if (mhi_dev_ctxt->flags.link_up)
 		mhi_assert_device_wake(mhi_dev_ctxt);
 	read_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
@@ -584,14 +610,12 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 		goto error;
 	}
 
-	if (chan % 2 == 0) {
-		atomic_inc(&mhi_dev_ctxt->counters.outbound_acks);
-		mhi_log(MHI_MSG_VERBOSE,
-			"Queued outbound pkt. Pending Acks %d\n",
-		atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
-	}
+	read_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+	ret_val = mhi_queue_tre(mhi_dev_ctxt, chan, MHI_RING_TYPE_XFER_RING);
+	if (unlikely(MHI_STATUS_SUCCESS != ret_val))
+		mhi_log(MHI_MSG_VERBOSE, "Failed queue TRE.\n");
+	read_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
-	mhi_notify_device(mhi_dev_ctxt, chan);
 error:
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
@@ -603,12 +627,13 @@ EXPORT_SYMBOL(mhi_queue_xfer);
 enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 			enum MHI_COMMAND cmd, u32 chan)
 {
-	u64 db_value = 0;
+	unsigned long flags = 0;
 	union mhi_cmd_pkt *cmd_pkt = NULL;
 	enum MHI_CHAN_STATE from_state = MHI_CHAN_STATE_DISABLED;
 	enum MHI_CHAN_STATE to_state = MHI_CHAN_STATE_DISABLED;
 	enum MHI_PKT_TYPE ring_el_type = MHI_PKT_TYPE_NOOP_CMD;
 	struct mutex *chan_mutex = NULL;
+	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 
 	if (chan >= MHI_MAX_CHANNELS ||
 		cmd >= MHI_COMMAND_MAX_NR || mhi_dev_ctxt == NULL) {
@@ -624,13 +649,16 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 			chan, cmd);
 
 	mhi_assert_device_wake(mhi_dev_ctxt);
+	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
 	pm_runtime_get(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	/*
 	 * If there is a cmd pending a struct device confirmation,
 	 * do not send anymore for this channel
 	 */
-	if (MHI_CMD_PENDING == mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan])
-		return MHI_STATUS_CMD_PENDING;
+	if (MHI_CMD_PENDING == mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan]) {
+		ret_val = MHI_STATUS_CMD_PENDING;
+		goto error_invalid;
+	}
 
 	from_state =
 		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan].mhi_chan_state;
@@ -654,7 +682,8 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 				"Invalid state transition for "
 				"cmd 0x%x, from_state 0x%x\n",
 				cmd, from_state);
-			goto error_general;
+			ret_val = MHI_STATUS_BAD_STATE;
+			goto error_invalid;
 		}
 		ring_el_type = MHI_PKT_TYPE_START_CHAN_CMD;
 		break;
@@ -669,6 +698,7 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 				"Invalid state transition for "
 				"cmd 0x%x, from_state 0x%x\n",
 					cmd, from_state);
+			ret_val = MHI_STATUS_BAD_STATE;
 			goto error_invalid;
 		}
 		ring_el_type = MHI_PKT_TYPE_STOP_CHAN_CMD;
@@ -678,45 +708,34 @@ enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	}
 
 	mutex_lock(&mhi_dev_ctxt->mhi_cmd_mutex_list[PRIMARY_CMD_RING]);
-
-	if (MHI_STATUS_SUCCESS !=
-			ctxt_add_element(mhi_dev_ctxt->mhi_local_cmd_ctxt,
-			(void *)&cmd_pkt)) {
+	ret_val = ctxt_add_element(mhi_dev_ctxt->mhi_local_cmd_ctxt,
+			(void *)&cmd_pkt);
+	if (ret_val) {
 		mhi_log(MHI_MSG_ERROR, "Failed to insert element\n");
 		goto error_general;
 	}
 	chan_mutex = &mhi_dev_ctxt->mhi_chan_mutex[chan];
-	if (MHI_COMMAND_NOOP != cmd) {
-		mutex_lock(chan_mutex);
-		MHI_TRB_SET_INFO(CMD_TRB_TYPE, cmd_pkt, ring_el_type);
-		MHI_TRB_SET_INFO(CMD_TRB_CHID, cmd_pkt, chan);
-		mutex_unlock(chan_mutex);
-	}
-	db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt->wp);
+	mutex_lock(chan_mutex);
+	MHI_TRB_SET_INFO(CMD_TRB_TYPE, cmd_pkt, ring_el_type);
+	MHI_TRB_SET_INFO(CMD_TRB_CHID, cmd_pkt, chan);
+	mutex_unlock(chan_mutex);
 	mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan] = MHI_CMD_PENDING;
 
-	if (MHI_STATE_M0 == mhi_dev_ctxt->mhi_state ||
-		MHI_STATE_M1 == mhi_dev_ctxt->mhi_state) {
-		mhi_dev_ctxt->cmd_ring_order++;
-		mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr, 0,
-								db_value);
-	}
+	read_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+	mhi_queue_tre(mhi_dev_ctxt, 0, MHI_RING_TYPE_CMD_RING);
+	read_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
 	mhi_log(MHI_MSG_VERBOSE, "Sent command 0x%x for chan %d\n",
 								cmd, chan);
-	mutex_unlock(&mhi_dev_ctxt->mhi_cmd_mutex_list[PRIMARY_CMD_RING]);
-	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-
-	mhi_log(MHI_MSG_INFO, "Exited.\n");
-	return MHI_STATUS_SUCCESS;
-
 error_general:
 	mutex_unlock(&mhi_dev_ctxt->mhi_cmd_mutex_list[PRIMARY_CMD_RING]);
 error_invalid:
-	mhi_log(MHI_MSG_INFO, "Exited due to error.\n");
-	return MHI_STATUS_ERROR;
+	pm_runtime_mark_last_busy(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+
+	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
+	mhi_log(MHI_MSG_INFO, "Exited ret %d.\n", ret_val);
+	return ret_val;
 }
 
 static enum MHI_STATUS parse_outbound(struct mhi_device_ctxt *mhi_dev_ctxt,
@@ -1224,6 +1243,10 @@ enum MHI_STATUS parse_cmd_event(struct mhi_device_ctxt *mhi_dev_ctxt,
 			break;
 		}
 		mhi_dev_ctxt->mhi_chan_pend_cmd_ack[chan] = MHI_CMD_NOT_PENDING;
+		atomic_dec(&mhi_dev_ctxt->counters.outbound_acks);
+		MHI_ASSERT(
+			atomic_read(&mhi_dev_ctxt->counters.outbound_acks) >= 0,
+					"MHI BAD STATE\n");
 		break;
 	}
 	default:
