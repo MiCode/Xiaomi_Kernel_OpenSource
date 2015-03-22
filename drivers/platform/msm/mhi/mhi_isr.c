@@ -35,13 +35,11 @@ irqreturn_t mhi_msi_handlr(int irq_number, void *dev_id)
 	switch (IRQ_TO_MSI(mhi_dev_ctxt, irq_number)) {
 	case 0:
 	case 1:
-	case 2:
 		atomic_inc(&mhi_dev_ctxt->flags.events_pending);
 		wake_up_interruptible(mhi_dev_ctxt->event_handle);
 		break;
-	case 3:
-		client_index =
-			mhi_dev_ctxt->alloced_ev_rings[IPA_IN_EV_RING];
+	case 2:
+		client_index = MHI_CLIENT_IP_HW_0_IN;
 		client_handle = mhi_dev_ctxt->client_handle_list[client_index];
 		client_info = &client_handle->client_info;
 
