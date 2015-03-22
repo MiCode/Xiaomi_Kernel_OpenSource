@@ -1360,6 +1360,13 @@ static void gbam2bam_connect_work(struct work_struct *w)
 
 		d->ipa_params.usb_connection_speed = gadget->speed;
 
+		/*
+		 * Invalidate prod and cons client handles from previous
+		 * disconnect.
+		 */
+		d->ipa_params.cons_clnt_hdl = -1;
+		d->ipa_params.prod_clnt_hdl = -1;
+
 		if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
 				&d->src_pipe_type) ||
 			usb_bam_get_pipe_type(d->ipa_params.dst_idx,
