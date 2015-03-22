@@ -27,7 +27,7 @@
 		clock-names = "iface_clk", "core_clk";
 		status = "ok";
 
-		qcom,iommu-ctx@1f09000 {
+		gfx3d_user: qcom,iommu-ctx@1f09000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1f09000 0x1000>;
 			qcom,secure-context;
@@ -36,7 +36,7 @@
 			label = "gfx3d_user";
 		};
 
-		qcom,iommu-ctx@1f0a000 {
+		gfx3d_priv: qcom,iommu-ctx@1f0a000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1f0a000 0x1000>;
 			interrupts = <0 242 0>;
@@ -44,7 +44,7 @@
 			label = "gfx3d_priv";
 		};
 
-		qcom,iommu-ctx@1f0b000 {
+		gfx3d_priv2: qcom,iommu-ctx@1f0b000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1f0b000 0x1000>;
 			interrupts = <0 245 0>;
@@ -70,7 +70,7 @@
 		qcom,cb-base-offset = <0x20000>;
 		status = "ok";
 
-		qcom,iommu-ctx@1e22000 {
+		venus_fw: qcom,iommu-ctx@1e22000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e22000 0x1000>;
 			qcom,secure-context;
@@ -79,7 +79,7 @@
 			label = "venus_fw";
 		};
 
-		qcom,iommu-ctx@1e23000 {
+		venus_sec_bitstream: qcom,iommu-ctx@1e23000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e23000 0x1000>;
 			qcom,secure-context;
@@ -89,7 +89,7 @@
 			label = "venus_sec_bitstream";
 		};
 
-		qcom,iommu-ctx@1e24000 {
+		venus_sec_pixel: qcom,iommu-ctx@1e24000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e24000 0x1000>;
 			qcom,secure-context;
@@ -98,7 +98,7 @@
 			label = "venus_sec_pixel";
 		};
 
-		qcom,iommu-ctx@1e25000 {
+		venus_sec_non_pixel: qcom,iommu-ctx@1e25000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e25000 0x1000>;
 			qcom,secure-context;
@@ -108,7 +108,7 @@
 			label = "venus_sec_non_pixel";
 		};
 
-		qcom,iommu-ctx@1e26000 {
+		mdp_1: qcom,iommu-ctx@1e26000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e26000 0x1000>;
 			qcom,secure-context;
@@ -117,7 +117,7 @@
 			label = "mdp_1";
 		};
 
-		qcom,iommu-ctx@1e2f000 {
+		adsp_io: qcom,iommu-ctx@1e2f000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e2f000 0x1000>;
 			interrupts = <0 105 0>;
@@ -125,7 +125,7 @@
 			label = "adsp_io";
 		};
 
-		qcom,iommu-ctx@1e30000 {
+		adsp_opendsp: qcom,iommu-ctx@1e30000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e30000 0x1000>;
 			interrupts = <0 106 0>;
@@ -133,7 +133,7 @@
 			label = "adsp_opendsp";
 		};
 
-		qcom,iommu-ctx@1e32000 {
+		lpass_stream: qcom,iommu-ctx@1e32000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e32000 0x1000>;
 			interrupts = <0 110 0>, <0 110 0>;
@@ -142,7 +142,7 @@
 			label = "lpass_stream";
 		};
 
-		qcom,iommu-ctx@1e33000 {
+		cpp: qcom,iommu-ctx@1e33000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e33000 0x1000>;
 			interrupts = <0 111 0>, <0 111 0>;
@@ -150,7 +150,7 @@
 			label = "cpp";
 		};
 
-		qcom,iommu-ctx@1e34000 {
+		jpeg_enc0: qcom,iommu-ctx@1e34000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e34000 0x1000>;
 			interrupts = <0 112 0>, <0 112 0>;
@@ -158,7 +158,7 @@
 			label = "jpeg_enc0";
 		};
 
-		qcom,iommu-ctx@1e35000 {
+		vfe: qcom,iommu-ctx@1e35000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e35000 0x1000>;
 			interrupts = <0 113 0>, <0 113 0>;
@@ -166,7 +166,7 @@
 			label = "vfe";
 		};
 
-		qcom,iommu-ctx@1e36000 {
+		venus_ns: qcom,iommu-ctx@1e36000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e36000 0x1000>;
 			interrupts = <0 114 0>, <0 114 0>;
@@ -175,7 +175,7 @@
 			label = "venus_ns";
 		};
 
-		qcom,iommu-ctx@1e37000 {
+		mdp_0: qcom,iommu-ctx@1e37000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e37000 0x1000>;
 			qcom,secure-context;
@@ -184,7 +184,7 @@
 			label = "mdp_0";
 		};
 
-		qcom,iommu-ctx@1e38000 {
+		pronto_buf: qcom,iommu-ctx@1e38000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e38000 0x1000>;
 			interrupts = <0 116 0>;
@@ -193,7 +193,7 @@
 			label = "pronto_buf";
 		};
 
-		qcom,iommu-ctx@1e39000 {
+		ipa_shared: qcom,iommu-ctx@1e39000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e39000 0x1000>;
 			interrupts = <0 117 0>;
@@ -201,7 +201,7 @@
 			label = "ipa_shared";
 		};
 
-		qcom,iommu-ctx@1e3a000 {
+		ipa_wlan: qcom,iommu-ctx@1e3a000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e3a000 0x1000>;
 			interrupts = <0 118 0>;
@@ -209,7 +209,7 @@
 			label = "ipa_wlan";
 		};
 
-		qcom,iommu-ctx@1e3b000 {
+		ipa_uc: qcom,iommu-ctx@1e3b000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1e3b000 0x1000>;
 			interrupts = <0 119 0>;
