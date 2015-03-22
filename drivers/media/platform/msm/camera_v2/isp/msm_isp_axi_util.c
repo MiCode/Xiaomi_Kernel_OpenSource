@@ -2165,6 +2165,13 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 			}
 			stream_idx = HANDLE_TO_IDX(comp_info->stream_handle);
 			stream_info = &axi_data->stream_info[stream_idx];
+
+			if (stream_info->state == INACTIVE) {
+				pr_warn("%s: Warning! Stream already inactive. Drop irq handling\n",
+					__func__);
+				continue;
+			}
+
 			ISP_DBG("%s: stream id %x frame id: 0x%x\n", __func__,
 				stream_info->stream_id, stream_info->frame_id);
 			stream_info->frame_id++;
@@ -2202,6 +2209,13 @@ void msm_isp_process_axi_irq(struct vfe_device *vfe_dev,
 				continue;
 			}
 			stream_info = &axi_data->stream_info[stream_idx];
+
+			if (stream_info->state == INACTIVE) {
+				pr_warn("%s: Warning! Stream already inactive. Drop irq handling\n",
+					__func__);
+				continue;
+			}
+
 			ISP_DBG("%s: stream id %x frame id: 0x%x\n", __func__,
 				stream_info->stream_id, stream_info->frame_id);
 			stream_info->frame_id++;
