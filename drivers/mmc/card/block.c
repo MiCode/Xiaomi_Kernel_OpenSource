@@ -713,7 +713,8 @@ static inline int mmc_blk_part_switch(struct mmc_card *card,
 			pm_suspend_ignore_children(&host->class_dev, true);
 		} else if ((md->part_type == EXT_CSD_PART_CONFIG_USER) &&
 					card->ext_csd.cmdq_support &&
-				!card->ext_csd.cmdq_en) {
+					(host->caps2 & MMC_CAP2_CAN_DO_CMDQ) &&
+					!card->ext_csd.cmdq_en) {
 			/* enable CMDQ mode */
 			ret = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 					EXT_CSD_CMDQ_MODE_EN,
