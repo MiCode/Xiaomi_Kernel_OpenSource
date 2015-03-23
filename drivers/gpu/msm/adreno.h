@@ -237,9 +237,9 @@ struct adreno_device {
 	struct adreno_ringbuffer *next_rb;
 	struct adreno_ringbuffer *prev_rb;
 	unsigned int fast_hang_detect;
-	unsigned int ft_policy;
+	unsigned long ft_policy;
 	unsigned int long_ib_detect;
-	unsigned int ft_pf_policy;
+	unsigned long ft_pf_policy;
 	struct ocmem_buf *ocmem_hdl;
 	struct adreno_profile profile;
 	struct adreno_dispatcher dispatcher;
@@ -672,32 +672,39 @@ struct log_field {
 	const char *display;
 };
 
-/* Fault Tolerance policy flags */
-#define  KGSL_FT_OFF                      0
-#define  KGSL_FT_REPLAY                   1
-#define  KGSL_FT_SKIPIB                   2
-#define  KGSL_FT_SKIPFRAME                3
-#define  KGSL_FT_DISABLE                  4
-#define  KGSL_FT_TEMP_DISABLE             5
-#define  KGSL_FT_THROTTLE                 6
-#define  KGSL_FT_SKIPCMD                  7
-#define  KGSL_FT_DEFAULT_POLICY (BIT(KGSL_FT_REPLAY) + \
-	BIT(KGSL_FT_SKIPCMD) + BIT(KGSL_FT_THROTTLE))
-#define KGSL_FT_POLICY_MASK (BIT(KGSL_FT_OFF) + \
-	BIT(KGSL_FT_REPLAY) + BIT(KGSL_FT_SKIPIB) \
-	+ BIT(KGSL_FT_SKIPFRAME) + BIT(KGSL_FT_DISABLE) + \
-	BIT(KGSL_FT_TEMP_DISABLE) + BIT(KGSL_FT_THROTTLE) + \
-	BIT(KGSL_FT_SKIPCMD))
+/**
+ * enum kgsl_ft_policy_bits - KGSL fault tolerance policy bits
+ * @KGSL_FT_OFF: Disable fault detection (not used)
+ * @KGSL_FT_REPLAY: Replay the faulting command
+ * @KGSL_FT_SKIPIB: Skip the faulting indirect buffer
+ * @KGSL_FT_SKIPFRAME: Skip the frame containing the faulting IB
+ * @KGSL_FT_DISABLE: Tells the dispatcher to disable FT for the command batch
+ * @KGSL_FT_TEMP_DISABLE: Disables FT for all commands
+ * @KGSL_FT_THROTTLE: Disable the context if it faults too often
+ * @KGSL_FT_SKIPCMD: Skip the command containing the faulting IB
+ */
+enum kgsl_ft_policy_bits {
+	KGSL_FT_OFF = 0,
+	KGSL_FT_REPLAY = 1,
+	KGSL_FT_SKIPIB = 2,
+	KGSL_FT_SKIPFRAME = 3,
+	KGSL_FT_DISABLE = 4,
+	KGSL_FT_TEMP_DISABLE = 5,
+	KGSL_FT_THROTTLE = 6,
+	KGSL_FT_SKIPCMD = 7,
+	/* KGSL_FT_MAX_BITS is used to calculate the mask */
+	KGSL_FT_MAX_BITS,
+	/* Internal bits - set during GFT */
+	/* Skip the PM dump on replayed command batches */
+	KGSL_FT_SKIP_PMDUMP = 31,
+};
 
-/* This internal bit is used to skip the PM dump on replayed command batches */
-#define  KGSL_FT_SKIP_PMDUMP              31
+#define KGSL_FT_POLICY_MASK GENMASK(KGSL_FT_MAX_BITS - 1, 0)
 
-/* Pagefault policy flags */
-#define KGSL_FT_PAGEFAULT_INT_ENABLE         BIT(0)
-#define KGSL_FT_PAGEFAULT_GPUHALT_ENABLE     BIT(1)
-#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE   BIT(2)
-#define KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT    BIT(3)
-#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY     KGSL_FT_PAGEFAULT_INT_ENABLE
+#define  KGSL_FT_DEFAULT_POLICY \
+	(BIT(KGSL_FT_REPLAY) | \
+	 BIT(KGSL_FT_SKIPCMD) | \
+	 BIT(KGSL_FT_THROTTLE))
 
 #define ADRENO_FT_TYPES \
 	{ BIT(KGSL_FT_OFF), "off" }, \
@@ -708,6 +715,26 @@ struct log_field {
 	{ BIT(KGSL_FT_TEMP_DISABLE), "temp" }, \
 	{ BIT(KGSL_FT_THROTTLE), "throttle"}, \
 	{ BIT(KGSL_FT_SKIPCMD), "skipcmd" }
+
+/**
+ * enum kgsl_ft_pagefault_policy_bits - KGSL pagefault policy bits
+ * @KGSL_FT_PAGEFAULT_INT_ENABLE: No longer used, but retained for compatibility
+ * @KGSL_FT_PAGEFAULT_GPUHALT_ENABLE: enable GPU halt on pagefaults
+ * @KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE: log one pagefault per page
+ * @KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT: log one pagefault per interrupt
+ */
+enum {
+	KGSL_FT_PAGEFAULT_INT_ENABLE = 0,
+	KGSL_FT_PAGEFAULT_GPUHALT_ENABLE = 1,
+	KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE = 2,
+	KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT = 3,
+	/* KGSL_FT_PAGEFAULT_MAX_BITS is used to calculate the mask */
+	KGSL_FT_PAGEFAULT_MAX_BITS,
+};
+
+#define KGSL_FT_PAGEFAULT_MASK GENMASK(KGSL_FT_PAGEFAULT_MAX_BITS - 1, 0)
+
+#define KGSL_FT_PAGEFAULT_DEFAULT_POLICY 0
 
 #define FOR_EACH_RINGBUFFER(_dev, _rb, _i)			\
 	for ((_i) = 0, (_rb) = &((_dev)->ringbuffers[0]);	\

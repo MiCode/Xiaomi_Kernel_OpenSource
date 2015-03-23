@@ -57,12 +57,8 @@ static int _ft_pagefault_policy_store(struct adreno_device *adreno_dev,
 	int ret;
 
 	mutex_lock(&device->mutex);
-
-	val &= (KGSL_FT_PAGEFAULT_INT_ENABLE |
-			KGSL_FT_PAGEFAULT_GPUHALT_ENABLE |
-			KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE |
-			KGSL_FT_PAGEFAULT_LOG_ONE_PER_INT);
-	ret = kgsl_mmu_set_pagefault_policy(&device->mmu, val);
+	val &= KGSL_FT_PAGEFAULT_MASK;
+	ret = kgsl_mmu_set_pagefault_policy(&device->mmu, (unsigned long) val);
 	if (!ret)
 		adreno_dev->ft_pf_policy = val;
 

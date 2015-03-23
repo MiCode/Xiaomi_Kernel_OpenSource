@@ -337,7 +337,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 
 	iommu_dev->fault = 1;
 
-	if (adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE) {
+	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+		&adreno_dev->ft_pf_policy)) {
 		adreno_set_gpu_fault(adreno_dev, ADRENO_IOMMU_PAGE_FAULT);
 		/* turn off GPU IRQ so we don't get faults from it too */
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
@@ -357,7 +358,8 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 
 	pid = kgsl_mmu_get_ptname_from_ptbase(mmu, ptbase);
 
-	if (adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE)
+	if (test_bit(KGSL_FT_PAGEFAULT_LOG_ONE_PER_PAGE,
+		&adreno_dev->ft_pf_policy))
 		no_page_fault_log = kgsl_mmu_log_fault_addr(mmu, ptbase, addr);
 
 	if (!no_page_fault_log) {
@@ -398,7 +400,9 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	 * the GPU and trigger a snapshot. To stall the transaction return
 	 * EBUSY error.
 	 */
-	if (adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)
+
+	if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+		&adreno_dev->ft_pf_policy))
 		ret = -EBUSY;
 done:
 	return ret;
@@ -1057,8 +1061,9 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 		 * For IOMMU V1 do not halt IOMMU on pagefault if
 		 * FT pagefault policy is set accordingly
 		 */
-		if (!(adreno_dev->ft_pf_policy &
-			KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)) {
+
+		if (!test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE,
+				&adreno_dev->ft_pf_policy)) {
 			sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit,
 					iommu_unit->dev[j].ctx_id,
 					SCTLR);
@@ -1596,7 +1601,7 @@ static int kgsl_iommu_hw_halt_supported(struct kgsl_mmu *mmu)
  * policy, if same then return else set the policy
  */
 static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
-				unsigned int pf_policy)
+				unsigned long pf_policy)
 {
 	int j;
 	struct kgsl_iommu *iommu = mmu->priv;
@@ -1605,9 +1610,10 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 	unsigned int sctlr_val;
 	struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_unit;
 
-	if ((adreno_dev->ft_pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE) ==
-		(pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE))
-		return ret;
+	if ((adreno_dev->ft_pf_policy &
+		BIT(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)) ==
+		(pf_policy & BIT(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)))
+		return 0;
 
 	kgsl_iommu_enable_clk(mmu);
 
@@ -1633,7 +1639,7 @@ static int kgsl_iommu_set_pf_policy(struct kgsl_mmu *mmu,
 
 		sctlr_val = KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit,
 				iommu_unit->dev[j].ctx_id, SCTLR);
-		if (pf_policy & KGSL_FT_PAGEFAULT_GPUHALT_ENABLE)
+		if (test_bit(KGSL_FT_PAGEFAULT_GPUHALT_ENABLE, &pf_policy))
 			sctlr_val &= ~(0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
 		else
 			sctlr_val |= (0x1 << KGSL_IOMMU_SCTLR_HUPCF_SHIFT);
