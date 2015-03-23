@@ -1424,6 +1424,8 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 {
 	struct msm_ipc_resume_tx_port *rtx_port, *tmp_rtx_port;
 	struct msm_ipc_port *local_port;
+	struct sock *sk;
+	void (*write_space)(struct sock *sk) = NULL;
 
 	list_for_each_entry_safe(rtx_port, tmp_rtx_port,
 				&rport_ptr->resume_tx_port_list, list) {
@@ -1434,7 +1436,16 @@ static void post_resume_tx(struct msm_ipc_router_remote_port *rport_ptr,
 					   sizeof(*msg), local_port->priv);
 		} else if (local_port) {
 			wake_up(&local_port->port_tx_wait_q);
-			post_pkt_to_port(local_port, pkt, 1);
+			sk = ipc_port_sk(local_port->endpoint);
+			if (sk) {
+				read_lock(&sk->sk_callback_lock);
+				write_space = sk->sk_write_space;
+				read_unlock(&sk->sk_callback_lock);
+				if (write_space)
+					write_space(sk);
+			}
+			if (!write_space)
+				post_pkt_to_port(local_port, pkt, 1);
 		} else {
 			IPC_RTR_ERR("%s: Local Port %d not Found",
 				__func__, rtx_port->port_id);
