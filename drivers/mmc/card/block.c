@@ -2163,10 +2163,14 @@ static int mmc_blk_execute_cmdq(struct mmc_queue *mq,
 	cntx = &host->context_info;
 
 	do {
-		id = find_first_bit(&slots, mq->qdepth);
-		if (id < mq->qdepth)
+		if (slots) {
+			id = find_first_bit(&slots, mq->qdepth);
+			BUG_ON(id >= mq->qdepth);
+			__clear_bit(id, &slots);
 			areq = &mq->mqrq[id].mmc_active;
-		else
+			if (host->areq == areq)
+				continue;
+		} else
 			areq = NULL;
 
 		if (host->areq)
@@ -2184,10 +2188,6 @@ static int mmc_blk_execute_cmdq(struct mmc_queue *mq,
 		}
 		if (err)
 			return err;
-
-		if (host->areq && (host->areq == areq) &&
-				(atomic_read(&mq->active_slots) == 1))
-			cntx->is_last_cmdq = true;
 
 		switch (status) {
 		case MMC_BLK_SUCCESS:
@@ -2207,15 +2207,10 @@ static int mmc_blk_execute_cmdq(struct mmc_queue *mq,
 			cntx->is_pending_cmdq = true;
 			return MMC_BLK_NEW_REQUEST;
 		default:
+			pr_err("%s: err blk status 0x%x\n", __func__, status);
 			return -EIO;
 		}
-
-		/* this is just a flush operation */
-		if (!areq)
-			return 0;
-
-		__clear_bit(id, &slots);
-	} while (status);
+	} while (slots);
 
 	return 0;
 }
@@ -2225,6 +2220,7 @@ static int mmc_blk_flush_cmdq(struct mmc_queue *mq, bool urgent)
 	int err;
 	unsigned long status;
 	struct mmc_host *host = mq->card->host;
+	unsigned long timeout;
 
 	if (!mq)
 		return 0;
@@ -2237,18 +2233,45 @@ static int mmc_blk_flush_cmdq(struct mmc_queue *mq, bool urgent)
 	}
 
 	while (mq->cmdqslot) {
-		/* last CMDQ data */
-		if (mq->card->host->context_info.is_last_cmdq)
-			return mmc_blk_execute_cmdq(mq, 0);
+		/*
+		 * As eMMC5.1 spec mentioned, when the device, in its response
+		 * to CMD13, indicates that one or more tasks are
+		 * ready for execution, the host should select one of these
+		 * tasks for execution, and not send additional CMD13s in
+		 * expectation that additional tasks would become ‘ready for
+		 * execution’. Thus if there is areq, we should wait here
+		 */
+		if (host->areq) {
+			err = mmc_blk_execute_cmdq(mq, 0);
+			if (err)
+				return err;
+			if (!mq->cmdqslot)
+				break;
+		}
 
 		/*
 		 * send CMD13 to check QSR
+		 * Max to wait for 10s for a CMDQ request
+		 * getting ready
 		 */
 		status = 0;
+		timeout = jiffies + msecs_to_jiffies(10 * 1000);
 		do {
 			err = mmc_blk_cmdq_check(mq->card, &status);
 			if (err)
 				return err;
+
+			/*
+			 * Timeout if the device never becomes ready for data
+			 * and never leaves the program state.
+			 */
+			if (time_after(jiffies, timeout)) {
+				pr_err("%s: Card stuck in checking CMDQ state!\n",
+					mmc_hostname(host));
+				pr_err("%s: cmdqslot 0x%lx\n",
+					mmc_hostname(host), mq->cmdqslot);
+				return -ETIMEDOUT;
+			}
 		} while (!status);
 		err = mmc_blk_execute_cmdq(mq, status);
 		if (err)
@@ -2302,7 +2325,6 @@ static int mmc_blk_queue_cmdq_req(struct mmc_queue *mq,
 	card = mq->card;
 	mmc_blk_rw_rq_prep(mqrq, card, 0, mq);
 
-	card->host->context_info.is_last_cmdq = false;
 	areq = &mqrq->mmc_active;
 	areq->mrq->host = card->host;
 	areq->mrq->done = mmc_blk_wait_cmdq_data;
@@ -2373,6 +2395,12 @@ static void mmc_blk_discard_cmdq(struct mmc_card *card)
 	mmc_wait_for_cmd(card->host, &cmd, 0);
 }
 
+static inline void mmc_blk_clear_cmdq_context(struct mmc_host *host)
+{
+	host->context_info.is_pending_cmdq = false;
+	host->context_info.is_cmdq_busy = false;
+}
+
 static int mmc_blk_issue_cmdq_rw_rq(struct mmc_queue *mq,
 		struct request *rqc, bool urgent)
 {
@@ -2409,7 +2437,7 @@ requeue:
 	/*
 	 * error handling
 	 */
-	pr_warn("%s: requeue happens\n", __func__);
+	pr_err("%s: requeue happens\n", __func__);
 	if (card->host->areq)
 		mmc_blk_execute_cmdq(mq, 0);
 	BUG_ON(card->host->areq);
@@ -2418,6 +2446,7 @@ requeue:
 	 */
 	mmc_blk_discard_cmdq(card);
 
+	mmc_blk_clear_cmdq_context(card->host);
 	if (!mmc_blk_reset(md, card->host, type)
 			&& !mmc_blk_requeue_cmdq_reqs(card->host, mq)) {
 		/* flush error handling */
@@ -2443,8 +2472,7 @@ requeue:
 		atomic_dec(&mq->active_slots);
 	};
 	BUG_ON(atomic_read(&mq->active_slots) != 0);
-	card->host->context_info.is_cmdq_busy = false;
-	card->host->context_info.is_last_cmdq = false;
+	mmc_blk_clear_cmdq_context(card->host);
 	return 0;
 }
 

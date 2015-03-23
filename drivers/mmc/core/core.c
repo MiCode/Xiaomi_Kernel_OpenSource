@@ -679,7 +679,7 @@ int mmc_execute_cmdq(struct mmc_host *host,
 			return 0;
 		default:
 			host->areq = NULL;
-			return -EIO;
+			return 0;
 		}
 	}
 
@@ -694,12 +694,7 @@ int mmc_execute_cmdq(struct mmc_host *host,
 	mrq.data = areq->mrq->data;
 	/* CMD complete only */
 	mmc_wait_for_req(host, &mrq);
-	if (mrq.cmd->error) {
-		host->areq = NULL;
-		return mrq.cmd->error;
-	}
-
-	return 0;
+	return mrq.cmd->error;
 }
 EXPORT_SYMBOL(mmc_execute_cmdq);
 

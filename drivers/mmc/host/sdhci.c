@@ -1034,6 +1034,14 @@ void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		timeout += 10 * HZ;
 	mod_timer(&host->timer, timeout);
 
+	/*
+	 * For the command which has async data like CMD46/47, the data
+	 * is not completed at the same time with command. Thus needs a
+	 * separate timeout timer to make sure driver won't wait for ever
+	 */
+	if (mmc_op_cmdq_execute_task(cmd->opcode))
+		mod_timer(&host->async_data_timer, timeout);
+
 	host->cmd = cmd;
 	host->busy_handle = 0;
 
@@ -2274,7 +2282,7 @@ static void sdhci_tasklet_finish_async_data(unsigned long param)
 		return;
 	}
 
-	del_timer(&host->timer);
+	del_timer(&host->async_data_timer);
 
 	mrq = host->mmc->areq->mrq;
 
@@ -2331,9 +2339,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	BUG_ON(!mrq->cmd);
 	opcode = mrq->cmd->opcode;
 
-	/* for CMD46/47, doesn't delete timer */
-	if (!mmc_op_cmdq_execute_task(opcode))
-		del_timer(&host->timer);
+	del_timer(&host->timer);
 
 	/*
 	 * The controller needs a reset of internal state machines
@@ -2405,6 +2411,39 @@ static void sdhci_timeout_timer(unsigned long data)
 				host->mrq->cmd->error = -ETIMEDOUT;
 
 			tasklet_schedule(&host->finish_tasklet);
+		}
+	}
+
+	mmiowb();
+	spin_unlock_irqrestore(&host->lock, flags);
+}
+
+static void sdhci_async_data_timeout_timer(unsigned long data)
+{
+	struct sdhci_host *host;
+	unsigned long flags;
+	struct mmc_request *mrq;
+
+	host = (struct sdhci_host *)data;
+
+	spin_lock_irqsave(&host->lock, flags);
+
+	if (host->mmc->areq && host->mmc->areq->mrq) {
+		mrq = host->mmc->areq->mrq;
+		pr_err("%s: SW CMDQ Timeout waiting for hardware interrupt\n",
+				mmc_hostname(host->mmc));
+		pr_err("%s: CMDQ CMD %d, ARG 0x%x\n", mmc_hostname(host->mmc),
+				mrq->postcmd->opcode, mrq->postcmd->arg);
+		sdhci_dumpregs(host);
+
+		/*
+		 * if host has data then means IRQ handler is not
+		 * called yet. if host has no data means IRQ handler
+		 * is called and maybe the soft tasklet is stuck
+		 */
+		if (host->data) {
+			host->data->error = -ETIMEDOUT;
+			sdhci_finish_data(host);
 		}
 	}
 
@@ -3428,6 +3467,8 @@ int sdhci_add_host(struct sdhci_host *host)
 		sdhci_tasklet_finish_async_data, (unsigned long)host);
 
 	setup_timer(&host->timer, sdhci_timeout_timer, (unsigned long)host);
+	setup_timer(&host->async_data_timer, sdhci_async_data_timeout_timer,
+			(unsigned long)host);
 
 	if (host->version >= SDHCI_SPEC_300) {
 		init_waitqueue_head(&host->buf_ready_int);

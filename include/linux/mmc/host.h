@@ -186,7 +186,6 @@ struct mmc_context_info {
 	bool			is_done_rcv;
 	bool			is_new_req;
 	bool			is_waiting_last_req;
-	bool			is_last_cmdq;
 	bool			is_cmdq_busy;
 	bool			is_pending_cmdq;
 	wait_queue_head_t	wait;
