@@ -223,6 +223,28 @@ config BUS_TOPOLOGY_ADHOC
 		directionality of connections by explicitly listing device connections
 		thus avoiding illegal routes.
 
+config DEBUG_BUS_VOTER
+	bool "direct client to vote bus clocks for debugging purposes"
+	depends on BUS_TOPOLOGY_ADHOC
+	default n
+	help
+		This option enables a driver that allows putting in a bus clock vote.
+		This driver allows clients to use the bus scaling driver to put in a
+		floor vote on bus clocks. This feature is meant to be a shortcut to directly
+		put in a vote for bus clocks instead of using the bus scaling APIs which deal
+		with topology end points and not bus clocks directly.
+
+config I2C_MSM_PROF_DBG
+	tristate "I2C_MSM_PROF_DBG"
+	depends on ARCH_MSM && I2C_MSM_V2
+	help
+	  This option enables the enhanced logging, profiling and debugfs
+	  support to the i2c-msm-v2 driver. If you say yes to this option,
+	  you can change the deugging level to adjust the amount of debugging
+	  information as needed at run time using debugfs.
+
+	  This module can also be dynamically linked as a shared kernel object.
+
 config MSM_UIM_HSL
 	tristate "User Indentification Module (UIM) on UART High Speed"
 	help
