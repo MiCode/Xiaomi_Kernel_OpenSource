@@ -316,8 +316,7 @@ new_packet:
 
 schedule:
 	if (config->agg_state != RMNET_MAP_TXFER_SCHEDULED) {
-		work = (struct agg_work *)
-			kmalloc(sizeof(struct agg_work), GFP_ATOMIC);
+		work = kmalloc(sizeof(*work), GFP_ATOMIC);
 		if (!work) {
 			LOGE("Failed to allocate work item for packet %s",
 			     "transfer. DATA PATH LIKELY BROKEN!");

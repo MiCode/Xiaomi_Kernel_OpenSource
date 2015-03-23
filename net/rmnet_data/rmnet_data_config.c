@@ -818,8 +818,7 @@ int rmnet_associate_network_device(struct net_device *dev)
 		return RMNET_CONFIG_INVALID_REQUEST;
 	}
 
-	config = (struct rmnet_phys_ep_conf_s *)
-		 kmalloc(sizeof(struct rmnet_phys_ep_conf_s), GFP_ATOMIC);
+	config = kmalloc(sizeof(*config), GFP_ATOMIC);
 
 	if (!config)
 		return RMNET_CONFIG_NOMEM;
@@ -1132,8 +1131,7 @@ static void rmnet_force_unassociate_device(struct net_device *dev)
 	}
 
 	trace_rmnet_unregister_cb_clear_vnds(dev);
-	vnd_work = (struct rmnet_free_vnd_work *)
-		kmalloc(sizeof(struct rmnet_free_vnd_work), GFP_KERNEL);
+	vnd_work = kmalloc(sizeof(*vnd_work), GFP_KERNEL);
 	if (!vnd_work) {
 		LOGH("%s", "Out of Memory");
 		return;

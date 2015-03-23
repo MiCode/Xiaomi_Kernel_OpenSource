@@ -305,8 +305,7 @@ static int _rmnet_vnd_do_flow_control(struct net_device *dev,
 {
 	struct rmnet_vnd_fc_work *fcwork;
 
-	fcwork = (struct rmnet_vnd_fc_work *)
-			kmalloc(sizeof(struct rmnet_vnd_fc_work), GFP_ATOMIC);
+	fcwork = kmalloc(sizeof(*fcwork), GFP_ATOMIC);
 	if (!fcwork)
 		return RMNET_VND_FC_KMALLOC_ERR;
 	memset(fcwork, 0, sizeof(struct rmnet_vnd_fc_work));
@@ -901,8 +900,7 @@ int rmnet_vnd_add_tc_flow(uint32_t id, uint32_t map_flow, uint32_t tc_flow)
 	}
 	write_unlock_irqrestore(&dev_conf->flow_map_lock, flags);
 
-	itm = (struct rmnet_map_flow_mapping_s *)
-		kmalloc(sizeof(struct rmnet_map_flow_mapping_s), GFP_KERNEL);
+	itm = kmalloc(sizeof(*itm), GFP_KERNEL);
 
 	if (!itm) {
 		LOGM("%s", "Failure allocating flow mapping");
