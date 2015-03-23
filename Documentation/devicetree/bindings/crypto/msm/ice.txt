@@ -5,14 +5,25 @@ Required properties:
   - reg : <register mapping>
 
 Optional properties:
-  - interrupt-names : name describing the interrupts for ICE IRQ
-  - interrupts : <interrupt mapping for ICE IRQ>
+  - interrupt-names     : name describing the interrupts for ICE IRQ
+  - interrupts          : <interrupt mapping for ICE IRQ>
+  - qcom,enable-ice-clk : should enable clocks for ICE HW
+  - clocks              : List of phandle and clock specifier pairs
+  - clock-names         : List of clock input name strings sorted in the same
+                          order as the clocks property.
+  - qocm,op-freq-hz     : max clock speed sorted in the same order as the clocks
+                          property.
 
 Example:
-	ufs_ice: ufsice@fc5a0000 {
-		compatible = "qcom,ice";
-		reg = <0xfc5a0000 0x8000>;
-		interrupt-names = "ufs_ice_nonsec_level_irq", "ufs_ice_sec_level_irq";
-		interrupts = <0 258 0>, <0 257 0>;
-		status = "disabled";
-	};
+        ufs_ice: ufsice@630000 {
+                compatible = "qcom,ice";
+                reg = <0x630000 0x8000>;
+                interrupt-names = "ufs_ice_nonsec_level_irq", "ufs_ice_sec_level_irq";
+                interrupts = <0 258 0>, <0 257 0>;
+                qcom,enable-ice-clk;
+                clock-names = "ice_core_clk_src", "ice_core_clk";
+                clocks = <&clock_gcc clk_ufs_ice_core_clk_src>,
+                         <&clock_gcc clk_gcc_ufs_ice_core_clk>;
+                qcom,op-freq-hz = <300000000>, <0>;
+                status = "disabled";
+        };
