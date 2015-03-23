@@ -76,8 +76,11 @@
 #define ADC_NON_BAT_CUR_DATAL_MASK	0x0F
 
 #define ADC_TS_PIN_CNRTL_REG           0x84
-#define ADC_TS_PIN_ON                  0xF2
-
+#define ADC_TS_PIN_ON                  0x32
+#define ADC_GP_CURSRC_MASK		0xC0
+#define ADC_GP_CURSRC_SHIFT		6
+#define ADC_VOLTS_PER_BIT		80
+#define ADC_CURSRC_STEP			20
 
 #define DEV_NAME			"dollar_cove_adc"
 
@@ -151,6 +154,7 @@ static int iio_dc_xpwr_gpadc_sample(struct iio_dev *indio_dev,
 {
 	struct gpadc_info *info = iio_priv(indio_dev);
 	int i;
+	int ret, cursrc;
 	u8 th, tl;
 
 	mutex_lock(&info->lock);
@@ -159,6 +163,22 @@ static int iio_dc_xpwr_gpadc_sample(struct iio_dev *indio_dev,
 			th = intel_soc_pmic_readb(gpadc_regmaps[i].rslth);
 			tl = intel_soc_pmic_readb(gpadc_regmaps[i].rsltl);
 			res->data[i] = (th << 4) + ((tl >> 4) & 0x0F);
+			if (strcmp(gpadc_regmaps[i].name, "SYSTEMP0") == 0) {
+				pr_info("chn:%s adc val:%x\n",
+					gpadc_regmaps[i].name,
+					res->data[i]);
+				ret = intel_soc_pmic_readb(
+						ADC_TS_PIN_CNRTL_REG);
+				cursrc = ((ret & ADC_GP_CURSRC_MASK) >>
+					ADC_GP_CURSRC_SHIFT) + 1;
+				cursrc *= ADC_CURSRC_STEP;
+				res->data[i] = ((res->data[i] *
+						ADC_VOLTS_PER_BIT) /
+						cursrc);
+				pr_info("chn:%s conv adc val:%x\n",
+					gpadc_regmaps[i].name,
+					res->data[i]);
+			}
 		}
 	}
 
