@@ -39,6 +39,20 @@ Profile data node required properties:
 			influencing the final output of the state of charge read
 			by software.
 
+Profile data node optional properties:
+- qcom,chg-rslow-comp-c1 : A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+- qcom,chg-rslow-comp-c2 : A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+- qcom,chg-rslow-comp-thr : A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+- qcom,chg-rs-to-rslow: A constant for rslow compensation in the fuel gauge.
+			This will be provided by the profiling tool for
+			additional fuel gauge accuracy during charging.
+
 Profile data node required subnodes:
 - qcom,fcc-temp-lut : An 1-dimensional lookup table node that encodes
 			temperature to fcc lookup. The units for this lookup
