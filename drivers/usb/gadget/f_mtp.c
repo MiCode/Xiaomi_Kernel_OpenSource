@@ -1185,7 +1185,7 @@ static struct miscdevice mtp_device = {
 };
 
 static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
-				const struct usb_ctrlrequest *ctrl)
+				const struct usb_ctrlrequest *ctrl, int ptp)
 {
 	struct mtp_dev *dev = _mtp_dev;
 	int	value = -EOPNOTSUPP;
@@ -1199,8 +1199,8 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 			ctrl->bRequestType, ctrl->bRequest,
 			w_value, w_index, w_length);
 
-	/* Handle MTP OS string */
-	if (ctrl->bRequestType ==
+	/* Handle MTP OS string, ignore this request if running in ptp mode. */
+	if (!ptp && ctrl->bRequestType ==
 			(USB_DIR_IN | USB_TYPE_STANDARD | USB_RECIP_DEVICE)
 			&& ctrl->bRequest == USB_REQ_GET_DESCRIPTOR
 			&& (w_value >> 8) == USB_DT_STRING
@@ -1208,7 +1208,8 @@ static int mtp_ctrlrequest(struct usb_composite_dev *cdev,
 		value = (w_length < sizeof(mtp_os_string)
 				? w_length : sizeof(mtp_os_string));
 		memcpy(cdev->req->buf, mtp_os_string, value);
-	} else if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR) {
+	} else if ((ctrl->bRequestType & USB_TYPE_MASK) == USB_TYPE_VENDOR
+			&& !ptp) {
 		/* Handle MTP OS descriptor */
 		DBG(cdev, "vendor request: %d index: %d value: %d length: %d\n",
 			ctrl->bRequest, w_index, w_value, w_length);
@@ -1650,7 +1651,7 @@ static struct usb_function_instance *mtp_alloc_inst(void)
 static int mtp_ctrlreq_configfs(struct usb_function *f,
 				const struct usb_ctrlrequest *ctrl)
 {
-	return mtp_ctrlrequest(f->config->cdev, ctrl);
+	return mtp_ctrlrequest(f->config->cdev, ctrl, 0);
 }
 
 static void mtp_free(struct usb_function *f)
