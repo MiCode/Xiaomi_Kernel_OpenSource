@@ -120,6 +120,19 @@ struct fg_learning_data {
 	int			max_temp;
 };
 
+struct fg_rslow_data {
+	u8			rslow_cfg;
+	u8			rslow_thr;
+	u8			rs_to_rslow[2];
+	u8			rslow_comp[4];
+	uint32_t		chg_rs_to_rslow;
+	uint32_t		chg_rslow_comp_c1;
+	uint32_t		chg_rslow_comp_c2;
+	uint32_t		chg_rslow_comp_thr;
+	bool			active;
+	struct mutex		lock;
+};
+
 /* FG_MEMIF setting index */
 enum fg_mem_setting_index {
 	FG_MEM_SOFT_COLD = 0,
@@ -352,6 +365,7 @@ struct fg_chip {
 	struct work_struct	battery_age_work;
 	struct work_struct	update_esr_work;
 	struct work_struct	set_resume_soc_work;
+	struct work_struct	rslow_comp_work;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
@@ -406,6 +420,9 @@ struct fg_chip {
 	struct fg_learning_data	learning_data;
 	struct alarm		fg_cap_learning_alarm;
 	struct work_struct	fg_cap_learning_work;
+	/* rslow compensation */
+	struct fg_rslow_data	rslow_comp;
+	/* interleaved memory access */
 	u16			*offset;
 	bool			ima_supported;
 };
@@ -1457,19 +1474,33 @@ close_time:
 	return rc;
 }
 
+#define BATTERY_SOC_REG		0x56C
+#define BATTERY_SOC_OFFSET	1
+#define FULL_PERCENT_3B		0xFFFFFF
+static int get_battery_soc_raw(struct fg_chip *chip)
+{
+	int rc;
+	u8 buffer[3];
+
+	rc = fg_mem_read(chip, buffer, BATTERY_SOC_REG, 3, 1, 0);
+	if (rc) {
+		pr_err("Unable to read battery soc: %d\n", rc);
+		return 0;
+	}
+	return (int)(buffer[2] << 16 | buffer[1] << 8 | buffer[0]);
+}
+
 #define COUNTER_IMPTR_REG	0X558
 #define COUNTER_PULSE_REG	0X55C
 #define SOC_FULL_REG		0x564
-#define BATTERY_SOC_REG		0x56C
 #define COUNTER_IMPTR_OFFSET	2
 #define COUNTER_PULSE_OFFSET	0
 #define SOC_FULL_OFFSET		3
-#define BATTERY_SOC_OFFSET	1
 #define ESR_PULSE_RECONFIG_SOC	0xFFF971
 static int fg_configure_soc(struct fg_chip *chip)
 {
 	u32 batt_soc;
-	u8 reg[3], cntr[2] = {0, 0};
+	u8 cntr[2] = {0, 0};
 	int rc = 0;
 
 	mutex_lock(&chip->rw_lock);
@@ -1477,13 +1508,7 @@ static int fg_configure_soc(struct fg_chip *chip)
 	mutex_unlock(&chip->rw_lock);
 
 	/* Read Battery SOC */
-	rc = fg_mem_read(chip, reg, BATTERY_SOC_REG, 3, BATTERY_SOC_OFFSET, 1);
-	if (rc) {
-		pr_err("Failed to read battery soc rc: %d\n", rc);
-		goto out;
-	}
-
-	batt_soc = reg[0] | reg[1] << 8 | reg[2] << 16;
+	batt_soc = get_battery_soc_raw(chip);
 
 	if (batt_soc > ESR_PULSE_RECONFIG_SOC) {
 		if (fg_debug_mask & FG_POWER_SUPPLY)
@@ -1712,6 +1737,63 @@ static int64_t float_decode(u16 reg)
 	return final_val;
 }
 
+#define MIN_HALFFLOAT_EXP_N		-15
+#define MAX_HALFFLOAT_EXP_N		 16
+static int log2_floor(int64_t uval)
+{
+	int n = 0;
+	int64_t i = MICRO_UNIT;
+
+	if (uval > i) {
+		while (uval > i && n > MIN_HALFFLOAT_EXP_N) {
+			i <<= 1;
+			n += 1;
+		}
+		if (uval < i)
+			n -= 1;
+	} else if (uval < i) {
+		while (uval < i && n < MAX_HALFFLOAT_EXP_N) {
+			i >>= 1;
+			n -= 1;
+		}
+	}
+
+	return n;
+}
+
+static int64_t exp2_int(int64_t n)
+{
+	int p = n - 1;
+
+	if (p > 0)
+		return (2 * MICRO_UNIT) << p;
+	else
+		return (2 * MICRO_UNIT) >> abs(p);
+}
+
+static u16 float_encode(int64_t uval)
+{
+	int sign = 0, n, exp, mantissa;
+	u16 half = 0;
+
+	if (uval < 0) {
+		sign = 1;
+		uval = abs(uval);
+	}
+	n = log2_floor(uval);
+	exp = n + 15;
+	mantissa = div_s64(div_s64((uval - exp2_int(n)) * exp2_int(10 - n),
+				MICRO_UNIT) + MICRO_UNIT / 2, MICRO_UNIT);
+
+	half = (mantissa & MANTISSA_MASK) | ((sign << 10) & SIGN)
+		| ((exp << 11) & EXPONENT_MASK);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("uval = %lld, m = 0x%02x, sign = 0x%02x, exp = 0x%02x, half = 0x%04x\n",
+				uval, mantissa, sign, exp, half);
+	return half;
+}
+
 #define BATT_IDED	BIT(3)
 static int fg_is_batt_id_valid(struct fg_chip *chip)
 {
@@ -1756,7 +1838,6 @@ static int64_t twos_compliment_extend(int64_t val, int nbytes)
 #define SRAM_PERIOD_UPDATE_MS		30000
 #define SRAM_PERIOD_NO_ID_UPDATE_MS	100
 #define FULL_PERCENT_28BIT		0xFFFFFFF
-#define FULL_PERCENT_3B			0xFFFFFF
 static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 {
 	int i, j, rc = 0;
@@ -2084,6 +2165,15 @@ static int fg_get_cycle_count(struct fg_chip *chip)
 	return cyc_count;
 }
 
+static void half_float_to_buffer(int64_t uval, u8 *buffer)
+{
+	u16 raw;
+
+	raw = float_encode(uval);
+	buffer[0] = (u8)(raw & 0xFF);
+	buffer[1] = (u8)((raw >> 8) & 0xFF);
+}
+
 static int64_t half_float(u8 *buffer)
 {
 	u16 val;
@@ -2201,9 +2291,7 @@ static int estimate_battery_age(struct fg_chip *chip, int *actual_capacity)
 		goto done;
 	}
 
-	rc = fg_mem_read(chip, buffer, BATTERY_SOC_REG, 3, 1, 0);
-	battery_soc = ((int)(buffer[2] << 16 | buffer[1] << 8 | buffer[0]))
-			* 100 / FULL_PERCENT_3B;
+	battery_soc = get_battery_soc_raw(chip) * 100 / FULL_PERCENT_3B;
 	if (rc) {
 		goto error_done;
 	} else if (battery_soc < 25 || battery_soc > 75) {
@@ -2676,16 +2764,7 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 			goto fail;
 
 		fg_mem_lock(chip);
-
-		rc = fg_mem_read(chip, data, BATTERY_SOC_REG, 3, 1, 0);
-		if (rc) {
-			pr_err("Failed to read Battery SOC: %d\n", rc);
-			fg_mem_release(chip);
-			fg_cap_learning_stop(chip);
-			goto fail;
-		}
-
-		battery_soc = (int)(data[2] << 16 | data[1] << 8 | data[0]);
+		battery_soc = get_battery_soc_raw(chip);
 		if (fg_debug_mask & FG_AGING)
 			pr_info("checking battery soc (%d vs %d)\n",
 				battery_soc * 100 / FULL_PERCENT_3B,
@@ -3101,6 +3180,10 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
 
+	if (chip->rslow_comp.chg_rs_to_rslow > 0 &&
+			chip->rslow_comp.chg_rslow_comp_c1 > 0 &&
+			chip->rslow_comp.chg_rslow_comp_c2 > 0)
+		schedule_work(&chip->rslow_comp_work);
 	if (chip->cyc_ctr_en)
 		schedule_work(&chip->cycle_count_work);
 	schedule_work(&chip->update_esr_work);
@@ -3154,6 +3237,11 @@ static void fg_external_power_changed(struct power_supply *psy)
 {
 	struct fg_chip *chip = container_of(psy, struct fg_chip, bms_psy);
 
+	if (is_input_present(chip) && chip->rslow_comp.active &&
+			chip->rslow_comp.chg_rs_to_rslow > 0 &&
+			chip->rslow_comp.chg_rslow_comp_c1 > 0 &&
+			chip->rslow_comp.chg_rslow_comp_c2 > 0)
+		schedule_work(&chip->rslow_comp_work);
 	if (!is_input_present(chip) && chip->resume_soc_lowered) {
 		fg_stay_awake(&chip->resume_soc_wakeup_source);
 		schedule_work(&chip->set_resume_soc_work);
@@ -3217,7 +3305,15 @@ done:
 #define OCV_JUNCTION_REG		0x4D8
 #define NOM_CAP_REG			0x4F4
 #define CUTOFF_VOLTAGE_REG		0x40C
-static int populate_learning_data(struct fg_chip *chip)
+#define RSLOW_CFG_REG			0x538
+#define RSLOW_CFG_OFFSET		2
+#define RSLOW_THRESH_REG		0x52C
+#define RSLOW_THRESH_OFFSET		0
+#define TEMP_RS_TO_RSLOW_OFFSET		2
+#define RSLOW_COMP_REG			0x528
+#define RSLOW_COMP_C1_OFFSET		0
+#define RSLOW_COMP_C2_OFFSET		2
+static int populate_system_data(struct fg_chip *chip)
 {
 	u8 buffer[24];
 	int rc, i;
@@ -3271,9 +3367,156 @@ static int populate_learning_data(struct fg_chip *chip)
 				chip->cutoff_voltage, chip->nom_cap_uah,
 				chip->ocv_junction_p1p2,
 				chip->ocv_junction_p2p3);
+
+	rc = fg_mem_read(chip, buffer, RSLOW_CFG_REG, 1, RSLOW_CFG_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rslow cfg: %d\n", rc);
+		goto done;
+	}
+	chip->rslow_comp.rslow_cfg = buffer[0];
+	rc = fg_mem_read(chip, buffer, RSLOW_THRESH_REG, 1,
+			RSLOW_THRESH_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rslow thresh: %d\n", rc);
+		goto done;
+	}
+	chip->rslow_comp.rslow_thr = buffer[0];
+	rc = fg_mem_read(chip, buffer, TEMP_RS_TO_RSLOW_REG, 2,
+			RSLOW_THRESH_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rs to rslow: %d\n", rc);
+		goto done;
+	}
+	memcpy(chip->rslow_comp.rs_to_rslow, buffer, 2);
+	rc = fg_mem_read(chip, buffer, RSLOW_COMP_REG, 4,
+			RSLOW_COMP_C1_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to read rslow comp: %d\n", rc);
+		goto done;
+	}
+	memcpy(chip->rslow_comp.rslow_comp, buffer, 4);
+
 done:
 	fg_mem_release(chip);
 	return rc;
+}
+
+#define RSLOW_CFG_MASK		(BIT(2) | BIT(3) | BIT(4) | BIT(5))
+#define RSLOW_CFG_ON_VAL	(BIT(2) | BIT(3))
+#define RSLOW_THRESH_FULL_VAL	0xFF
+static int fg_rslow_charge_comp_set(struct fg_chip *chip)
+{
+	int rc;
+	u8 buffer[2];
+
+	mutex_lock(&chip->rslow_comp.lock);
+	fg_mem_lock(chip);
+
+	rc = fg_mem_masked_write(chip, RSLOW_CFG_REG,
+			RSLOW_CFG_MASK, RSLOW_CFG_ON_VAL, RSLOW_CFG_OFFSET);
+	if (rc) {
+		pr_err("unable to write rslow cfg: %d\n", rc);
+		goto done;
+	}
+	rc = fg_mem_masked_write(chip, RSLOW_THRESH_REG,
+			0xFF, RSLOW_THRESH_FULL_VAL, RSLOW_THRESH_OFFSET);
+	if (rc) {
+		pr_err("unable to write rslow thresh: %d\n", rc);
+		goto done;
+	}
+
+	half_float_to_buffer(chip->rslow_comp.chg_rs_to_rslow, buffer);
+	rc = fg_mem_write(chip, buffer,
+			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rs to rslow: %d\n", rc);
+		goto done;
+	}
+	half_float_to_buffer(chip->rslow_comp.chg_rslow_comp_c1, buffer);
+	rc = fg_mem_write(chip, buffer,
+			RSLOW_COMP_REG, 2, RSLOW_COMP_C1_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rslow comp: %d\n", rc);
+		goto done;
+	}
+	half_float_to_buffer(chip->rslow_comp.chg_rslow_comp_c2, buffer);
+	rc = fg_mem_write(chip, buffer,
+			RSLOW_COMP_REG, 2, RSLOW_COMP_C2_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rslow comp: %d\n", rc);
+		goto done;
+	}
+	chip->rslow_comp.active = true;
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Activated rslow charge comp values\n");
+
+done:
+	fg_mem_release(chip);
+	mutex_unlock(&chip->rslow_comp.lock);
+	return rc;
+}
+
+#define RSLOW_CFG_ORIG_MASK	(BIT(4) | BIT(5))
+static int fg_rslow_charge_comp_clear(struct fg_chip *chip)
+{
+	u8 reg;
+	int rc;
+
+	mutex_lock(&chip->rslow_comp.lock);
+	fg_mem_lock(chip);
+
+	reg = chip->rslow_comp.rslow_cfg & RSLOW_CFG_ORIG_MASK;
+	rc = fg_mem_masked_write(chip, RSLOW_CFG_REG,
+			RSLOW_CFG_MASK, reg, RSLOW_CFG_OFFSET);
+	if (rc) {
+		pr_err("unable to write rslow cfg: %d\n", rc);
+		goto done;
+	}
+	rc = fg_mem_masked_write(chip, RSLOW_THRESH_REG,
+			0xFF, chip->rslow_comp.rslow_thr, RSLOW_THRESH_OFFSET);
+	if (rc) {
+		pr_err("unable to write rslow thresh: %d\n", rc);
+		goto done;
+	}
+
+	rc = fg_mem_write(chip, chip->rslow_comp.rs_to_rslow,
+			TEMP_RS_TO_RSLOW_REG, 2, TEMP_RS_TO_RSLOW_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rs to rslow: %d\n", rc);
+		goto done;
+	}
+	rc = fg_mem_write(chip, chip->rslow_comp.rslow_comp,
+			RSLOW_COMP_REG, 4, RSLOW_COMP_C1_OFFSET, 0);
+	if (rc) {
+		pr_err("unable to write rslow comp: %d\n", rc);
+		goto done;
+	}
+	chip->rslow_comp.active = false;
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("Cleared rslow charge comp values\n");
+
+done:
+	fg_mem_release(chip);
+	mutex_unlock(&chip->rslow_comp.lock);
+	return rc;
+}
+
+static void rslow_comp_work(struct work_struct *work)
+{
+	int battery_soc_1b;
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				rslow_comp_work);
+
+	battery_soc_1b = get_battery_soc_raw(chip) >> 16;
+	if (battery_soc_1b > chip->rslow_comp.chg_rslow_comp_thr
+			&& chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+		if (!chip->rslow_comp.active)
+			fg_rslow_charge_comp_set(chip);
+	} else {
+		if (chip->rslow_comp.active)
+			fg_rslow_charge_comp_clear(chip);
+	}
 }
 
 #define MICROUNITS_TO_ADC_RAW(units)	\
@@ -3366,6 +3609,36 @@ wait:
 		old_batt_type = default_batt_type;
 		rc = -ENODATA;
 		goto fail;
+	}
+
+	/* read rslow compensation values if they're available */
+	rc = of_property_read_u32(profile_node, "qcom,chg-rs-to-rslow",
+					&chip->rslow_comp.chg_rs_to_rslow);
+	if (rc) {
+		chip->rslow_comp.chg_rs_to_rslow = -EINVAL;
+		if (rc != -EINVAL)
+			pr_err("Could not read rs to rslow: %d\n", rc);
+	}
+	rc = of_property_read_u32(profile_node, "qcom,chg-rslow-comp-c1",
+					&chip->rslow_comp.chg_rslow_comp_c1);
+	if (rc) {
+		chip->rslow_comp.chg_rslow_comp_c1 = -EINVAL;
+		if (rc != -EINVAL)
+			pr_err("Could not read rslow comp c1: %d\n", rc);
+	}
+	rc = of_property_read_u32(profile_node, "qcom,chg-rslow-comp-c2",
+					&chip->rslow_comp.chg_rslow_comp_c2);
+	if (rc) {
+		chip->rslow_comp.chg_rslow_comp_c2 = -EINVAL;
+		if (rc != -EINVAL)
+			pr_err("Could not read rslow comp c2: %d\n", rc);
+	}
+	rc = of_property_read_u32(profile_node, "qcom,chg-rslow-comp-thr",
+					&chip->rslow_comp.chg_rslow_comp_thr);
+	if (rc) {
+		chip->rslow_comp.chg_rslow_comp_thr = -EINVAL;
+		if (rc != -EINVAL)
+			pr_err("Could not read rslow comp thr: %d\n", rc);
 	}
 
 	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
@@ -3589,7 +3862,7 @@ done:
 	chip->battery_missing = is_battery_missing(chip);
 	update_chg_iterm(chip);
 	update_cc_cv_setpoint(chip);
-	rc = populate_learning_data(chip);
+	rc = populate_system_data(chip);
 	if (rc) {
 		pr_err("failed to read ocv properties=%d\n", rc);
 		return rc;
@@ -4044,6 +4317,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
 	cancel_delayed_work_sync(&chip->check_empty_work);
 	alarm_try_to_cancel(&chip->fg_cap_learning_alarm);
+	cancel_work_sync(&chip->rslow_comp_work);
 	cancel_work_sync(&chip->set_resume_soc_work);
 	cancel_work_sync(&chip->fg_cap_learning_work);
 	cancel_work_sync(&chip->batt_profile_init);
@@ -4052,6 +4326,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->cycle_count_work);
 	cancel_work_sync(&chip->update_esr_work);
 	power_supply_unregister(&chip->bms_psy);
+	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
 	wakeup_source_trash(&chip->resume_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
@@ -4750,10 +5025,12 @@ static int fg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->rw_lock);
 	mutex_init(&chip->cyc_ctr_lock);
 	mutex_init(&chip->learning_data.learning_lock);
+	mutex_init(&chip->rslow_comp.lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
 	INIT_DELAYED_WORK(&chip->check_empty_work, check_empty_work);
+	INIT_WORK(&chip->rslow_comp_work, rslow_comp_work);
 	INIT_WORK(&chip->fg_cap_learning_work, fg_cap_learning_work);
 	INIT_WORK(&chip->batt_profile_init, batt_profile_init);
 	INIT_WORK(&chip->dump_sram, dump_sram);
@@ -4926,7 +5203,9 @@ cancel_work:
 	cancel_work_sync(&chip->status_change_work);
 	cancel_work_sync(&chip->cycle_count_work);
 	cancel_work_sync(&chip->update_esr_work);
+	cancel_work_sync(&chip->rslow_comp_work);
 of_init_fail:
+	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr_lock);
 	mutex_destroy(&chip->learning_data.learning_lock);
