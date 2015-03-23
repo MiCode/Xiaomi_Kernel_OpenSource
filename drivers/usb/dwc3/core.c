@@ -236,6 +236,9 @@ void dwc3_set_phy_dpm_pulldown(struct dwc3 *dwc, int pull_down)
 {
 	u32 reg;
 
+	if (!dwc->ulpi_phy)
+		return;
+
 	reg = ulpi_read(dwc, TUSB1211_OTG_CTRL);
 	if (pull_down)
 		reg |= TUSB1211_OTG_CTRL_DPPULLDOWN | TUSB1211_OTG_CTRL_DMPULLDOWN;
@@ -296,8 +299,10 @@ static void dwc3_core_soft_reset(struct dwc3 *dwc)
 	reg &= ~DWC3_GCTL_CORESOFTRESET;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
-	dwc3_check_ulpi(dwc);
-	set_phy_eye_optim(dwc);
+	if (dwc->ulpi_phy) {
+		dwc3_check_ulpi(dwc);
+		set_phy_eye_optim(dwc);
+	}
  }
 
 /**
@@ -679,6 +684,7 @@ static int dwc3_probe(struct platform_device *pdev)
 		dwc->needs_fifo_resize = pdata->tx_fifo_resize;
 		dwc->dr_mode = pdata->dr_mode;
 		dwc->runtime_suspend = pdata->runtime_suspend;
+		dwc->ulpi_phy = pdata->ulpi_phy;
 		dwc->quirks = pdata->quirks;
 	} else {
 		dwc->usb2_phy = devm_usb_get_phy(dev, USB_PHY_TYPE_USB2);
@@ -1023,11 +1029,14 @@ static int dwc3_resume_common(struct device *dev)
 		/* do nothing */
 		break;
 	}
-	set_phy_eye_optim(dwc);
+
+	if (dwc->ulpi_phy)
+		set_phy_eye_optim(dwc);
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 
-	dwc3_check_ulpi(dwc);
+	if (dwc->ulpi_phy)
+		dwc3_check_ulpi(dwc);
 
 	return 0;
 }

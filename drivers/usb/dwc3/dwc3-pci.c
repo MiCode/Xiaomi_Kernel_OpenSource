@@ -187,6 +187,14 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	}
 
 	pdata.runtime_suspend = true;
+
+	/* CHT is not using ULPI PHY */
+	if (pci->vendor == PCI_VENDOR_ID_INTEL &&
+			pci->device == PCI_DEVICE_ID_INTEL_CHT)
+		pdata.ulpi_phy = false;
+	else
+		pdata.ulpi_phy = true;
+
 	fixes = (const struct dwc3_pci_fixes *)id->driver_data;
 	if (fixes)
 		pdata.quirks = fixes->quirks;
@@ -226,7 +234,8 @@ static int dwc3_pci_probe(struct pci_dev *pci,
 	 * refclock to the phy is not being enabled.
 	 * We need an extra step to make sure such clock is enabled.
 	 */
-	dwc3_pci_enable_ulpi_refclock(pci);
+	if (pdata.ulpi_phy)
+		dwc3_pci_enable_ulpi_refclock(pci);
 
 	ret = platform_device_add(dwc3);
 	if (ret) {

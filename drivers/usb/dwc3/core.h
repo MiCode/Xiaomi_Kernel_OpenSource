@@ -740,6 +740,7 @@ struct dwc3 {
 	u8			test_mode_nr;
 
 	bool			runtime_suspend;
+	bool			ulpi_phy;
 	struct notifier_block	nb;
 	atomic_t		suspend_depth;
 
