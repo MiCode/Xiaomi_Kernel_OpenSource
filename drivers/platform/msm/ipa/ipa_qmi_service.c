@@ -984,3 +984,28 @@ void ipa_qmi_stop_workqueues(void)
 	cancel_delayed_work(&work_svc_arrive);
 	cancel_delayed_work(&work_svc_exit);
 }
+
+/* voting for bus BW to ipa_rm*/
+int vote_for_bus_bw(uint32_t *bw_mbps)
+{
+	struct ipa_rm_perf_profile profile;
+	int ret;
+
+	if (bw_mbps == NULL) {
+		IPAWANERR("Bus BW is invalid\n");
+		return -EINVAL;
+	}
+
+	memset(&profile, 0, sizeof(profile));
+	profile.max_supported_bandwidth_mbps = *bw_mbps;
+	ret = ipa_rm_set_perf_profile(IPA_RM_RESOURCE_Q6_PROD,
+			&profile);
+	if (ret)
+		IPAWANERR("Failed to set perf profile to BW %u\n",
+			profile.max_supported_bandwidth_mbps);
+	else
+		IPAWANDBG("Succeeded to set perf profile to BW %u\n",
+			profile.max_supported_bandwidth_mbps);
+
+	return ret;
+}
