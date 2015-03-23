@@ -158,6 +158,8 @@ err_i1:
 const struct drm_ioctl_desc i915_ext_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(I915_EXT_USERDATA, i915_gem_userdata_ioctl,
 			  DRM_UNLOCKED|DRM_CONTROL_ALLOW|DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(I915_GEM_FALLOCATE, i915_gem_fallocate_ioctl,
+			  DRM_UNLOCKED|DRM_CONTROL_ALLOW|DRM_RENDER_ALLOW),
 };
 
 int i915_max_ext_ioctl = ARRAY_SIZE(i915_ext_ioctls);

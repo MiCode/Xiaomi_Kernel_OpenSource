@@ -313,9 +313,12 @@ struct i915_ext_ioctl_data {
 
 /* Extended ioctl definitions */
 #define DRM_I915_EXT_USERDATA		0x0
+#define DRM_I915_GEM_FALLOCATE		0x1
 
 #define DRM_IOCTL_I915_EXT_USERDATA \
 	DRM_IOWR(DRM_I915_EXT_USERDATA, struct drm_i915_gem_userdata_blk)
+#define DRM_IOCTL_I915_GEM_FALLOCATE \
+	DRM_IOW(DRM_I915_GEM_FALLOCATE,	struct drm_i915_gem_fallocate)
 
 
 #define DRM_IOCTL_I915_INIT		DRM_IOW( DRM_COMMAND_BASE + DRM_I915_INIT, drm_i915_init_t)
@@ -472,6 +475,7 @@ typedef struct drm_i915_irq_wait {
 #define I915_PARAM_HAS_DPST              0x800
 #define I915_PARAM_EU_COUNT              0x801
 #define I915_PARAM_HAS_RS		 0x802
+#define I915_PARAM_HAS_GEM_FALLOCATE     0x803
 
 typedef struct drm_i915_getparam {
 	int param;
@@ -567,6 +571,31 @@ struct drm_i915_gem_create {
 	 */
 	__u32 handle;
 	__u32 pad;
+};
+
+struct drm_i915_gem_fallocate {
+	/**
+	 * Start position of the range
+	 *
+	 * This should be page-aligned.
+	 */
+	__u64 start;
+	/**
+	 * Length of the range
+	 *
+	 * This should be page-aligned.
+	 */
+	__u64 length;
+	/**
+	 * Mode applied to the range
+	 */
+	__u32 mode;
+#define I915_GEM_FALLOC_UNCOMMIT    0
+#define I915_GEM_FALLOC_COMMIT      1
+	/**
+	 * handle for the object being manipulated
+	 */
+	__u32 handle;
 };
 
 struct drm_i915_gem_pread {

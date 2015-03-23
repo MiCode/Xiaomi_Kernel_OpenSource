@@ -4800,6 +4800,296 @@ unlock:
 	return ret;
 }
 
+static int
+__i915_gem_obj_fallocate(struct drm_i915_gem_object *obj,
+		       uint32_t mode, uint64_t start, uint64_t end)
+{
+	int i;
+	int ret;
+	uint64_t start_page, end_page;
+	uint32_t num_pages;
+	bool update_sg_table = false;
+	unsigned long scratch_pfn;
+	struct page *scratch;
+	struct page **pages;
+	struct sg_table *sg = NULL;
+	struct sg_page_iter sg_iter;
+	struct drm_i915_private *dev_priv;
+
+	dev_priv = obj->base.dev->dev_private;
+	start_page = start >> PAGE_SHIFT;
+	end_page = end >> PAGE_SHIFT;
+	num_pages = obj->base.size >> PAGE_SHIFT;
+
+	pages = drm_malloc_ab(num_pages, sizeof(*pages));
+	if (pages == NULL)
+		return -ENOMEM;
+
+	scratch = dev_priv->gtt.base.scratch.page;
+	scratch_pfn = page_to_pfn(scratch);
+
+	/*
+	 * The pages of obj are manipulated in two stages;
+	 * This is done mainly to handle all possible failure cases before
+	 * we actually start modifying it's pages; If we hit any failure
+	 * in between we can return without changing the state of the obj.
+	 *
+	 * At the end of first pass we create a new sg table with pages
+	 * in the given range pointing to scratch page in case of uncommit op
+	 * or real pages in case of commit operation.
+	 */
+	i = 0;
+	for_each_sg_page(obj->pages->sgl, &sg_iter, obj->pages->nents, 0)
+		pages[i++] = sg_page_iter_page(&sg_iter);
+
+	if (mode == I915_GEM_FALLOC_UNCOMMIT) {
+		for (i = start_page; i < end_page; ++i) {
+			if (scratch_pfn == page_to_pfn(pages[i]))
+				continue;
+
+			update_sg_table = true;
+			pages[i] = scratch;
+		}
+	} else if (mode == I915_GEM_FALLOC_COMMIT) {
+		gfp_t gfp;
+		struct page *page;
+		struct address_space *mapping;
+
+		mapping = file_inode(obj->base.filp)->i_mapping;
+		gfp = mapping_gfp_mask(mapping);
+		gfp |= __GFP_NORETRY | __GFP_NOWARN | __GFP_NO_KSWAPD;
+		gfp &= ~(__GFP_IO | __GFP_WAIT);
+
+		for (i = start_page; i < end_page; ++i) {
+			if (scratch_pfn != page_to_pfn(pages[i]))
+				continue;
+
+			page = shmem_read_mapping_page_gfp(mapping, i, gfp);
+			if (IS_ERR(page)) {
+				ret = PTR_ERR(page);
+				goto err_alloc;
+			}
+
+			update_sg_table = true;
+			/*
+			 * As we are not updating the domain of the object here
+			 * and since shmem zeroes out the newly allocated page,
+			 * need to do an inline flush of cachelines for the
+			 * newly acquired pages
+			 */
+			if (!HAS_LLC(dev_priv->dev))
+				drm_clflush_pages(&page, 1);
+
+			pages[i] = page;
+		}
+	}
+
+	if (update_sg_table == false) {
+		ret = 0;
+		goto out;
+	}
+
+	sg = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	if (!sg) {
+		ret = -ENOMEM;
+		goto err_alloc;
+	}
+
+	ret = sg_alloc_table_from_pages(sg, pages, num_pages, 0,
+					num_pages << PAGE_SHIFT, GFP_KERNEL);
+	if (ret)
+		goto err_alloc_sgt;
+
+	/*
+	 * In the second pass we release page reference counts of obj and
+	 * in case of uncommit operation we release any mappings to obj pages
+	 * and finally release backing store
+	 *
+	 */
+	if (mode == I915_GEM_FALLOC_UNCOMMIT) {
+		struct page *page;
+		uint32_t page_count = end_page - start_page;
+
+		__sg_page_iter_start(&sg_iter, obj->pages->sgl,
+				     sg_nents(obj->pages->sgl), start_page);
+		while (page_count-- && __sg_page_iter_next(&sg_iter)) {
+			page = sg_page_iter_page(&sg_iter);
+
+			if (scratch_pfn == page_to_pfn(page))
+				continue;
+
+			page_cache_release(page);
+
+			/*
+			 * We are using a single scratch page to replace all of
+			 * the real pages in the range but when we destroy the
+			 * object we decrement reference count multiple times
+			 * even though they all refer to the same page, this
+			 * will take the count to -ve value.
+			 * To counter this we increment scratch page ref count
+			 * everytime it is used and it is decremented when
+			 * it is replaced with a real page.
+			 */
+			page_cache_get(scratch);
+		}
+		/*
+		 * Invalidate the CPU mappings on this object as
+		 * the pages being uncommited could be mapped already
+		 * in process’s address space
+		 */
+		unmap_mapping_range(file_inode(obj->base.filp)->i_mapping,
+				    start, end - start, 0);
+		/*
+		 * Release the uncommited pages from shmem’s page cache and
+		 * immediately hand them over to kernel
+		 */
+		shmem_truncate_range(file_inode(obj->base.filp),
+				     start, end - 1);
+
+	} else if (mode == I915_GEM_FALLOC_COMMIT) {
+		struct page *page;
+		uint32_t page_count = end_page - start_page;
+
+		__sg_page_iter_start(&sg_iter, obj->pages->sgl,
+				     sg_nents(obj->pages->sgl), start_page);
+		while (page_count-- && __sg_page_iter_next(&sg_iter)) {
+			page = sg_page_iter_page(&sg_iter);
+
+			if (scratch_pfn != page_to_pfn(page))
+				continue;
+
+			/* decrease scratch page ref count */
+			page_cache_release(page);
+		}
+	}
+
+	if (pages)
+		drm_free_large(pages);
+
+	if (obj->pages) {
+		sg_free_table(obj->pages);
+		kfree(obj->pages);
+	}
+	obj->pages = sg;
+
+	return 0;
+
+err_alloc_sgt:
+	kfree(sg);
+err_alloc:
+	if (mode == I915_GEM_FALLOC_COMMIT) {
+		/*
+		 * Release page references for pages whose allocation is
+		 * successful as the driver would have taken a ref count
+		 */
+		while (--i >= start_page)
+			page_cache_release(pages[i]);
+	}
+
+out:
+	if (pages)
+		drm_free_large(pages);
+
+	return ret;
+}
+
+/**
+ * This ioctl allows to change the effective size of an existing gem object.
+ * The object size is always constant and this fact is tightly coupled in our
+ * driver. This ioctl() allows user to define certain ranges in the obj to be
+ * marked as usable/scratch thus modifying the effective size of the object.
+ *
+ * This is mainly useful in situations where object size requirements are
+ * not clear at the time of it's creation. In such case it is helpful to
+ * create a larger object and release the excess backing store. This space
+ * can be claimed back when required by unmarking the region.
+ *
+ * I915_GEM_FALLOC_UNCOMMIT: specified range of pages are replaced
+ * by scratch page. If the backing store is not yet created for the object
+ * then it is created first.
+ *
+ * I915_GEM_FALLOC_COMMIT: specified range of scratch pages are
+ * replaced by real backing store.
+ */
+int i915_gem_fallocate_ioctl(struct drm_device *dev, void *data,
+			     struct drm_file *file)
+{
+	int ret;
+	uint64_t start, end;
+	struct i915_vma *vma, *next;
+	struct drm_i915_gem_object *obj;
+	struct drm_i915_gem_fallocate *args = data;
+
+	if (args->mode > I915_GEM_FALLOC_COMMIT)
+		return -EINVAL;
+
+	if (!IS_ALIGNED(args->start, PAGE_SIZE) ||
+	    !IS_ALIGNED(args->length, PAGE_SIZE)) {
+		DRM_DEBUG_DRIVER("start/length are not page aligned\n");
+		return -EINVAL;
+	}
+
+	ret = i915_mutex_lock_interruptible(dev);
+	if (ret)
+		return ret;
+
+	obj = to_intel_bo(drm_gem_object_lookup(dev, file, args->handle));
+	if (&obj->base == NULL) {
+		ret = -ENOENT;
+		goto unlock;
+	}
+
+	if (!obj->base.filp) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	start = args->start;
+	end = args->start + args->length;
+	if (start >= end || end > obj->base.size) {
+		ret = -EINVAL;
+		goto out;
+	}
+
+	/*
+	 * The procedure is simple:
+	 *
+	 * If the object is not bound we first allocate real backing store
+	 * If the object is bound we simply unbind object from all VMAs
+	 * fallocate on the object pages in the given range
+	 *  - uncommit operation - replace real pages with scratch page
+	 *  - commit operation - replace scratch page with real page
+	 * binding the object after fallocate is deferred
+	 */
+	if (!i915_gem_obj_bound_any(obj)) {
+		ret = i915_gem_object_get_pages(obj);
+		if (ret)
+			goto out;
+	} else {
+		list_for_each_entry_safe(vma, next, &obj->vma_list, vma_link) {
+			ret = i915_vma_unbind(vma);
+			if (ret) {
+				DRM_ERROR("Failed to unbind object\n");
+				goto out;
+			}
+		}
+	}
+
+	ret = __i915_gem_obj_fallocate(obj, args->mode, start, end);
+	if (ret) {
+		DRM_ERROR("fallocate failed for pages %llu to %llu, ret=%d\n",
+			  start >> PAGE_SHIFT, end >> PAGE_SHIFT, ret);
+		goto out;
+	}
+
+out:
+	drm_gem_object_unreference(&obj->base);
+unlock:
+	mutex_unlock(&dev->struct_mutex);
+
+	return ret;
+}
+
 void i915_gem_object_init(struct drm_i915_gem_object *obj,
 			  const struct drm_i915_gem_object_ops *ops)
 {
