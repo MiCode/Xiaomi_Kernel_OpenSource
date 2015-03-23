@@ -481,6 +481,16 @@ static void atomisp_metadata_ready_event(struct atomisp_sub_device *asd,
 	v4l2_event_queue(asd->subdev.devnode, &event);
 }
 
+static void atomisp_reset_event(struct atomisp_sub_device *asd)
+{
+	struct v4l2_event event = {0};
+
+	event.type = V4L2_EVENT_ATOMISP_CSS_RESET;
+
+	v4l2_event_queue(asd->subdev.devnode, &event);
+}
+
+
 static void print_csi_rx_errors(enum ia_css_csi2_port port,
 				struct atomisp_device *isp)
 {
@@ -1324,6 +1334,10 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 
 		asd->preview_exp_id = 1;
 		asd->postview_exp_id = 1;
+		/* notify HAL the CSS reset */
+		dev_dbg(isp->dev,
+			"send reset event to %s\n", asd->subdev.devnode->name);
+		atomisp_reset_event(asd);
 	}
 
 	/* clear irq */
