@@ -1774,7 +1774,6 @@ static int mpu6050_gyro_cdev_set_latency(struct sensors_classdev *sensors_cdev,
 
 	mutex_lock(&sensor->op_lock);
 	if (max_latency <= sensor->gyro_poll_ms) {
-		sensor->gyro_poll_ms = max_latency;
 		sensor->batch_gyro = false;
 	} else {
 		sensor->batch_gyro = true;
