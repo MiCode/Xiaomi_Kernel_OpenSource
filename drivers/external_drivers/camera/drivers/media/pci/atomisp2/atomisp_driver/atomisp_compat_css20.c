@@ -2703,8 +2703,6 @@ static void __configure_preview_pp_input(struct atomisp_sub_device *asd,
 	pipe_configs->mode = __pipe_id_to_pipe_mode(asd, pipe_id);
 	stream_env->update_pipe[pipe_id] = true;
 
-	pipe_extra_configs->enable_yuv_ds = true;
-
 	out_width = pipe_configs->output_info[0].res.width;
 	out_height = pipe_configs->output_info[0].res.height;
 
@@ -2779,6 +2777,15 @@ static void __configure_preview_pp_input(struct atomisp_sub_device *asd,
 			vf_pp_in_res->height = yuv_ds_in_height / yuv_dec_fct[i];
 			break;
 		}
+	}
+
+	if (vf_pp_in_res->width == out_width &&
+		vf_pp_in_res->height == out_height) {
+		pipe_extra_configs->enable_yuv_ds = false;
+		vf_pp_in_res->width = 0;
+		vf_pp_in_res->height = 0;
+	} else {
+		pipe_extra_configs->enable_yuv_ds = true;
 	}
 
 	dev_dbg(isp->dev, "configuring pipe[%d]preview pp input w=%d.h=%d.\n",
