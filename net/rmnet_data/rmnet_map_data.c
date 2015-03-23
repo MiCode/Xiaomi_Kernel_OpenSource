@@ -120,6 +120,9 @@ struct sk_buff *rmnet_map_deaggregate(struct sk_buff *skb,
 	maph = (struct rmnet_map_header_s *) skb->data;
 	packet_len = ntohs(maph->pkt_len) + sizeof(struct rmnet_map_header_s);
 
+	if (config->ingress_data_format & RMNET_INGRESS_FORMAT_MAP_CKSUMV3)
+		packet_len += sizeof(struct rmnet_map_dl_checksum_trailer_s);
+
 	if ((((int)skb->len) - ((int)packet_len)) < 0) {
 		LOGM("%s", "Got malformed packet. Dropping");
 		return 0;
