@@ -434,7 +434,6 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 	int rc = 0;
 	u32 frame_rate = 0;
 
-	mutex_lock(&ctl->offlock);
 	if (ctx->timegen_en) {
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL);
 		if (rc == -EBUSY) {
@@ -464,7 +463,6 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 
 	ctx->ref_cnt--;
 end:
-	mutex_unlock(&ctl->offlock);
 	return rc;
 }
 
@@ -528,6 +526,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 {
 	int intfs_num, ret = 0;
 
+	mutex_lock(&ctl->offlock);
 	intfs_num = ctl->intf_num - MDSS_MDP_INTF0;
 	ret = mdss_mdp_video_intfs_stop(ctl, ctl->panel_data, intfs_num);
 	if (IS_ERR_VALUE(ret)) {
@@ -539,6 +538,7 @@ static int mdss_mdp_video_stop(struct mdss_mdp_ctl *ctl, int panel_power_state)
 
 	mdss_mdp_ctl_reset(ctl);
 	ctl->intf_ctx[MASTER_CTX] = NULL;
+	mutex_unlock(&ctl->offlock);
 
 	return 0;
 }
