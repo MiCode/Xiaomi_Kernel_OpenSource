@@ -159,6 +159,7 @@ struct msm_vfe_fetch_engine_cfg {
 struct msm_vfe_camif_subsample_cfg {
 	uint32_t irq_subsample_period;
 	uint32_t irq_subsample_pattern;
+	uint32_t sof_counter_step;
 };
 
 /*
