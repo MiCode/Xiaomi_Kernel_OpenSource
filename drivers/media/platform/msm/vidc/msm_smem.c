@@ -56,7 +56,6 @@ static int get_device_address(struct smem_client *smem_client,
 	}
 
 	if (is_iommu_present(smem_client->res)) {
-		phys_addr_t phys, orig_phys;
 		cb = msm_smem_get_context_bank(smem_client, flags & SMEM_SECURE,
 				buffer_type);
 		if (!cb) {
@@ -98,7 +97,7 @@ static int get_device_address(struct smem_client *smem_client,
 		/* Map a scatterlist into an SMMU */
 		rc = dma_map_sg(cb->dev, table->sgl, table->nents,
 				DMA_BIDIRECTIONAL);
-		if (!rc) {
+		if (rc != table->nents) {
 			dprintk(VIDC_ERR, "dma_map_sg failed! (%d != %d)\n",
 				rc, table->nents);
 			goto mem_map_sg_failed;
@@ -116,17 +115,6 @@ static int get_device_address(struct smem_client *smem_client,
 			dprintk(VIDC_ERR, "sgl is NULL\n");
 			rc = -ENOMEM;
 			goto mem_map_sg_failed;
-		}
-
-		/* Translation check for debugging */
-		orig_phys = sg_phys(table->sgl);
-		phys = iommu_iova_to_phys(cb->mapping->domain, *iova);
-		if (phys != orig_phys) {
-			dprintk(VIDC_ERR,
-				"%s iova_to_phys failed!!! mapped: %pa, got: %pa\n",
-				__func__, &orig_phys, &phys);
-			rc = -EIO;
-			goto mem_iova_to_phys_failed;
 		}
 
 		mapping_info->dev = cb->dev;
@@ -148,8 +136,6 @@ static int get_device_address(struct smem_client *smem_client,
 
 	dprintk(VIDC_DBG, "mapped ion handle %p to %pa\n", hndl, iova);
 	return 0;
-mem_iova_to_phys_failed:
-	dma_unmap_sg(cb->dev, table->sgl, table->nents, DMA_BIDIRECTIONAL);
 mem_map_sg_failed:
 	dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
 mem_map_table_failed:

@@ -276,7 +276,7 @@ static int pil_venus_auth_and_reset(void)
 	udelay(1);
 
 	if (iommu_present) {
-		phys_addr_t temp, pa = fw_bias;
+		phys_addr_t pa = fw_bias;
 
 		rc = arm_iommu_attach_device(dev, venus_data->mapping);
 		if (rc) {
@@ -303,14 +303,7 @@ static int pil_venus_auth_and_reset(void)
 		rc = iommu_map(venus_data->mapping->domain,
 			venus_data->fw_iova, pa, venus_data->fw_sz,
 			IOMMU_READ|IOMMU_WRITE|IOMMU_EXEC|IOMMU_PRIV);
-		temp = iommu_iova_to_phys(venus_data->mapping->domain,
-				venus_data->fw_iova);
-
-		if (temp != pa) {
-			dprintk(VIDC_ERR,
-				"%s : iova_to_phys didn't match what we mapped! (mapped: %p, got: %p)\n",
-				dev_name(dev), &pa, &temp);
-		} else {
+		if (!rc) {
 			dprintk(VIDC_DBG,
 				"%s - Successfully mapped and performed test translation!\n",
 				dev_name(dev));
