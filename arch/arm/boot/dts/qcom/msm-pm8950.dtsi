@@ -75,6 +75,11 @@
 			};
 		};
 
+		pm8950_coincell: qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
 		pm8950_mpps: mpps {
 			compatible = "qcom,qpnp-pin";
 			spmi-dev-container;
