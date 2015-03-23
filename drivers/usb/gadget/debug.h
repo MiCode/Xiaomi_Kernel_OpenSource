@@ -1,0 +1,41 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ */
+
+#ifndef __DEBUG_H_
+#define __DEBUG_H_
+
+#define DBG_MAX_MSG   512UL
+#define DBG_MSG_LEN   160UL
+#define TIME_BUF_LEN  17
+#define DBG_EVENT_LEN  143
+
+extern unsigned int enable_event_log;
+extern void put_timestamp(char *tbuf);
+extern void add_event_to_buf(char *tbuf);
+extern int debug_debugfs_init(void);
+extern void debug_debugfs_exit(void);
+
+#define log_event(dlog, x...)						\
+do {									\
+	char buf[160];							\
+	if (dlog)							\
+		pr_debug(x);						\
+	if (enable_event_log) {						\
+		put_timestamp(buf);					\
+		snprintf(&buf[TIME_BUF_LEN - 1], DBG_EVENT_LEN, x);	\
+		add_event_to_buf(buf);					\
+	}								\
+} while (0)
+
+#endif	/* __DEBUG_H_ */
