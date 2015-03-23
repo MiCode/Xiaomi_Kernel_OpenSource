@@ -1554,6 +1554,8 @@ static int sdhci_enable(struct mmc_host *mmc)
 	sdhci_set_pmqos_req_type(host, true);
 	pm_qos_update_request(&host->pm_qos_req_dma,
 		host->cpu_dma_latency_us[host->pm_qos_index]);
+	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_CORES)
+		irq_set_affinity(host->irq, &host->pm_qos_req_dma.cpus_affine);
 
 platform_bus_vote:
 	if (host->ops->platform_bus_voting)
