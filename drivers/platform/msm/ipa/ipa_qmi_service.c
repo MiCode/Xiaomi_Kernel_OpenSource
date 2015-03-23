@@ -797,6 +797,8 @@ static void ipa_qmi_service_init_worker(struct work_struct *work)
 		IPAWANERR(":kzalloc err.\n");
 		return;
 	}
+	ipa_qmi_ctx->modem_cfg_emb_pipe_flt =
+		ipa_get_modem_cfg_emb_pipe_flt();
 
 	ipa_svc_workqueue = create_singlethread_workqueue("ipa_A7_svc");
 	if (!ipa_svc_workqueue) {
