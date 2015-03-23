@@ -5633,7 +5633,7 @@ static int bma2x2_set_enable(struct device *dev, int enable)
 
 	if (atomic_read(&bma2x2->cal_status)) {
 		dev_err(dev, "can not enable or disable when calibration\n");
-		goto mutex_exit;
+		return -EBUSY;
 	}
 	mutex_lock(&bma2x2->enable_mutex);
 	if (enable) {
