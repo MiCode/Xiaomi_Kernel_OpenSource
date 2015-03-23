@@ -319,7 +319,7 @@
 	rpm-regulator-ldoa19 {
 		compatible = "qcom,rpm-smd-regulator-resource";
 		qcom,resource-name = "ldoa";
-		qcom,resource-id = <21>;
+		qcom,resource-id = <19>;
 		qcom,regulator-type = <0>;
 		qcom,hpm-min-load = <10000>;
 		status = "disabled";
