@@ -60,7 +60,10 @@
 #define HOST_ADDR_LSB(addr)		(addr & 0xFFFFFFFF)
 #define HOST_ADDR_MSB(addr)		((addr >> 32) & 0xFFFFFFFF)
 
+#define MHI_IPC_LOG_PAGES		(100)
 enum mhi_msg_level mhi_msg_lvl = MHI_MSG_ERROR;
+enum mhi_msg_level mhi_ipc_msg_lvl = MHI_MSG_VERBOSE;
+void *mhi_ipc_log;
 
 static struct mhi_dev *mhi_ctx;
 static void mhi_hwc_cb(void *priv, enum ipa_mhi_event_type event,
@@ -1822,6 +1825,13 @@ static int mhi_init(struct mhi_dev *mhi)
 		return -ENOMEM;
 	}
 
+	mhi_ipc_log = ipc_log_context_create(MHI_IPC_LOG_PAGES, "mhi");
+
+	if (mhi_ipc_log == NULL) {
+		dev_err(&pdev->dev,
+				"Failed to create IPC logging context\n");
+	}
+
 	return 0;
 }
 
@@ -1880,7 +1890,10 @@ static struct platform_driver mhi_dev_driver = {
 };
 
 module_param(mhi_msg_lvl , uint, S_IRUGO | S_IWUSR);
+module_param(mhi_ipc_msg_lvl, uint, S_IRUGO | S_IWUSR);
+
 MODULE_PARM_DESC(mhi_msg_lvl, "mhi msg lvl");
+MODULE_PARM_DESC(mhi_ipc_msg_lvl, "mhi ipc msg lvl");
 
 static int __init mhi_dev_init(void)
 {
