@@ -26,11 +26,13 @@
 
 #define VFE40_BURST_LEN 1
 #define VFE40_BURST_LEN_8916_VERSION 2
+#define VFE40_BURST_LEN_8952_VERSION 3
 #define VFE40_STATS_BURST_LEN 1
 #define VFE40_STATS_BURST_LEN_8916_VERSION 2
 #define VFE40_FETCH_BURST_LEN 3
 #define VFE40_UB_SIZE 1536 /* 1536 * 128 bits = 24KB */
-#define VFE40_UB_SIZE_8916 2048 /* 2048 * 128 bits = 32KB */
+#define VFE40_UB_SIZE_8952 2048 /* 2048 * 128 bits = 32KB */
+#define VFE40_UB_SIZE_8916 3072 /* 3072 * 128 bits = 48KB */
 #define VFE40_EQUAL_SLICE_UB 190 /* (UB_SIZE - STATS SIZE)/6 */
 #define VFE40_EQUAL_SLICE_UB_8916 276
 #define VFE40_TOTAL_WM_UB 1144 /* UB_SIZE - STATS SIZE */
@@ -1299,6 +1301,8 @@ static void msm_vfe40_axi_cfg_wm_reg(
 	if (vfe_dev->vfe_hw_version == VFE40_8916_VERSION ||
 	    vfe_dev->vfe_hw_version == VFE40_8939_VERSION)
 		burst_len = VFE40_BURST_LEN_8916_VERSION;
+	else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION)
+		burst_len = VFE40_BURST_LEN_8952_VERSION;
 	else
 		burst_len = VFE40_BURST_LEN;
 
@@ -1789,6 +1793,9 @@ static void msm_vfe40_stats_cfg_ub(struct vfe_device *vfe_dev)
 	    vfe_dev->vfe_hw_version == VFE40_8939_VERSION) {
 		stats_burst_len = VFE40_STATS_BURST_LEN_8916_VERSION;
 		ub_offset = VFE40_UB_SIZE_8916;
+	} else if (vfe_dev->vfe_hw_version == VFE40_8952_VERSION) {
+		stats_burst_len = VFE40_STATS_BURST_LEN_8916_VERSION;
+		ub_offset = VFE40_UB_SIZE_8952;
 	} else {
 		stats_burst_len = VFE40_STATS_BURST_LEN;
 		ub_offset = VFE40_UB_SIZE;
