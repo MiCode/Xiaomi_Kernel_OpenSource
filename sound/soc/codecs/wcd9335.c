@@ -1078,7 +1078,7 @@ static int tasha_set_compander(struct snd_kcontrol *kcontrol,
 	int value = ucontrol->value.integer.value[0];
 
 	pr_debug("%s: Compander %d enable current %d, new %d\n",
-		 __func__, comp, tasha->comp_enabled[comp], value);
+		 __func__, comp + 1, tasha->comp_enabled[comp], value);
 	tasha->comp_enabled[comp] = value;
 
 	/* Any specific register configuration for compander */
@@ -3265,7 +3265,7 @@ static int tasha_config_compander(struct snd_soc_dapm_widget *w,
 	u16 comp_ctl0_reg, rx_path_cfg0_reg;
 
 	pr_debug("%s: %s event %d compander %d, enabled %d", __func__,
-		 w->name, event, comp, tasha->comp_enabled[comp]);
+		 w->name, event, comp + 1, tasha->comp_enabled[comp]);
 
 	if (!tasha->comp_enabled[comp])
 		return 0;
