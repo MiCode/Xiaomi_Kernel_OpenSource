@@ -1590,6 +1590,12 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 		}
 	}
 
+	/* send masks to local processor now */
+	if (!remote_proc) {
+		diag_process_hdlc((void *)(driver->user_space_data_buf), len);
+		return 0;
+	}
+
 	err = diag_process_userspace_remote(remote_proc,
 					    driver->user_space_data_buf +
 					    token_offset, len);
@@ -1597,14 +1603,9 @@ static int diag_user_process_userspace_data(const char __user *buf, int len)
 		driver->user_space_data_busy = 0;
 		pr_err("diag: Error sending mask to remote proc %d, err: %d\n",
 		       remote_proc, err);
-		return err;
 	}
 
-	/* send masks to local processor now */
-	if (!remote_proc)
-		diag_process_hdlc((void *)(driver->user_space_data_buf), len);
-
-	return 0;
+	return err;
 }
 
 static int diag_user_process_apps_data(const char __user *buf, int len,
