@@ -1480,6 +1480,7 @@ static int atomisp_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	rt_mutex_lock(&isp->mutex);
 	buf->bytesused = pipe->pix.sizeimage;
 	buf->reserved = asd->frame_status[buf->index];
+
 	/*
 	 * Hack:
 	 * Currently frame_status in the enum type which takes no more lower
@@ -1487,12 +1488,13 @@ static int atomisp_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	 * use bit[31:16] for exp_id as it is only in the range of 1~255
 	 */
 	buf->reserved &= 0x0000ffff;
-	buf->reserved |= __get_frame_exp_id(pipe, buf) << 16;
+	if (!(buf->flags & V4L2_BUF_FLAG_ERROR))
+		buf->reserved |= __get_frame_exp_id(pipe, buf) << 16;
 	buf->reserved2 = pipe->frame_config_id[buf->index];
 	rt_mutex_unlock(&isp->mutex);
 
 	dev_dbg(isp->dev, "dqbuf buffer %d (%s) for asd%d with exp_id %d, isp_config_id %d\n",
-		buf->index, vdev->name, asd->index, __get_frame_exp_id(pipe, buf),
+		buf->index, vdev->name, asd->index, buf->reserved >> 16,
 		buf->reserved2);
 	return 0;
 }
