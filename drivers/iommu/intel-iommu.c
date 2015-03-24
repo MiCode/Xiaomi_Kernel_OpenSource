@@ -1759,7 +1759,6 @@ static int domain_init(struct dmar_domain *domain, int guest_width)
 
 static void domain_exit(struct dmar_domain *domain)
 {
-	struct dmar_drhd_unit *drhd;
 	struct page *freelist = NULL;
 	int i;
 
