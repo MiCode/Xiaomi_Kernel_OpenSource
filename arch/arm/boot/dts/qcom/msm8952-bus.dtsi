@@ -81,7 +81,7 @@
 		mas_apps_proc: mas-apps-proc {
 			cell-id = <MSM_BUS_MASTER_AMPSS_M0>;
 			label = "mas-apps-proc";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <0>;
@@ -97,7 +97,7 @@
 		mas_oxili: mas-oxili {
 			cell-id = <MSM_BUS_MASTER_GRAPHICS_3D>;
 			label = "mas-oxili";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <2>;
@@ -113,7 +113,7 @@
 		mas_snoc_bimc_0: mas-snoc-bimc-0 {
 			cell-id = <MSM_BUS_SNOC_BIMC_0_MAS>;
 			label = "mas-snoc-bimc-0";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <3>;
@@ -126,7 +126,7 @@
 		mas_snoc_bimc_2: mas-snoc-bimc-2 {
 			cell-id = <MSM_BUS_SNOC_BIMC_2_MAS>;
 			label = "mas-snoc-bimc-2";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <4>;
@@ -139,7 +139,7 @@
 		mas_snoc_bimc_1: mas-snoc-bimc-1 {
 			cell-id = <MSM_BUS_SNOC_BIMC_1_MAS>;
 			label = "mas-snoc-bimc-1";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,qport = <5>;
 			qcom,qos-mode = "bypass";
@@ -151,7 +151,7 @@
 		mas_tcu_0: mas-tcu-0 {
 			cell-id = <MSM_BUS_MASTER_TCU_0>;
 			label = "mas-tcu-0";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <6>;
@@ -709,7 +709,7 @@
 		slv_ebi:slv-ebi {
 			cell-id = <MSM_BUS_SLAVE_EBI_CH0>;
 			label = "slv-ebi";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_EBI1>;
@@ -718,7 +718,7 @@
 		slv_appss_l2:slv-appss-l2 {
 			cell-id = <MSM_BUS_SLAVE_AMPSS_L2>;
 			label = "slv-appss-l2";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_APPSS_L2>;
@@ -727,7 +727,7 @@
 		slv_bimc_snoc:slv-bimc-snoc {
 			cell-id = <MSM_BUS_BIMC_SNOC_SLV>;
 			label = "slv-bimc-snoc";
-			qcom,buswidth = <8>;
+			qcom,buswidth = <16>;
 			qcom,agg-ports = <1>;
 			qcom,bus-dev = <&fab_bimc>;
 			qcom,connections = <&mas_bimc_snoc>;
