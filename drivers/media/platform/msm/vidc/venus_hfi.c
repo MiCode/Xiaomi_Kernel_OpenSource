@@ -2319,13 +2319,11 @@ static int venus_hfi_core_release(void *device)
 	return 0;
 }
 
-static int __get_q_size(struct venus_hfi_device *dev,
-	unsigned int q_index)
+static int __get_q_size(struct venus_hfi_device *dev, unsigned int q_index)
 {
 	struct hfi_queue_header *queue;
 	struct vidc_iface_q_info *q_info;
 	u32 write_ptr, read_ptr;
-	u32 rc = 0;
 
 	if (q_index >= VIDC_IFACEQ_NUMQ) {
 		dprintk(VIDC_ERR, "Invalid q index: %d\n", q_index);
@@ -2346,8 +2344,7 @@ static int __get_q_size(struct venus_hfi_device *dev,
 
 	write_ptr = (u32)queue->qhdr_write_idx;
 	read_ptr = (u32)queue->qhdr_read_idx;
-	rc = read_ptr - write_ptr;
-	return rc;
+	return read_ptr - write_ptr;
 }
 
 static void __core_clear_interrupt(struct venus_hfi_device *device)
@@ -3189,8 +3186,6 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet)
 			(struct hfi_msg_sys_coverage_packet *) packet;
 		if (pkt->packet_type == HFI_MSG_SYS_COV) {
 			int stm_size = 0;
-			dprintk(VIDC_DBG,
-				"DbgQ pkt size: %d\n", pkt->msg_size);
 			stm_size = stm_log_inv_ts(0, 0,
 				pkt->rg_msg_data, pkt->msg_size);
 			if (stm_size == 0)
@@ -3223,40 +3218,45 @@ static struct hal_session *__get_session(struct venus_hfi_device *device,
 
 static void __response_handler(struct venus_hfi_device *device)
 {
-	u8 *packet = NULL;
+	struct msm_vidc_cb_info packets[1];
+	int num_packets = 0, i = 0;
+	u8 *raw_packet = NULL;
+	bool pending_packets = false;
 
-	packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
-	if (!packet) {
+	raw_packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
+	if (!raw_packet) {
 		dprintk(VIDC_ERR, "%s: Failed to allocate memory\n",  __func__);
 		return;
 	}
 
 	if (device->intr_status & VIDC_WRAPPER_INTR_CLEAR_A2HWD_BMSK) {
-		struct hfi_sfr_struct *vsfr = NULL;
-		dprintk(VIDC_ERR, "Received watchdog timeout\n");
-		vsfr = (struct hfi_sfr_struct *)device->sfr.align_virtual_addr;
+		struct hfi_sfr_struct *vsfr = (struct hfi_sfr_struct *)
+			device->sfr.align_virtual_addr;
 		if (vsfr)
 			dprintk(VIDC_ERR, "SFR Message from FW: %s\n",
 					vsfr->rg_data);
 
+		dprintk(VIDC_ERR, "Received watchdog timeout\n");
 		__process_sys_watchdog_timeout(device);
 	}
 
-	while (!__iface_msgq_read(device, packet)) {
+	/* Bleed the msg queue dry of packets */
+	while (!__iface_msgq_read(device, raw_packet)) {
 		void **session_id = NULL;
-		struct msm_vidc_cb_info info;
+		struct msm_vidc_cb_info *info = &packets[num_packets++];
 		int rc = 0;
 
 		rc = hfi_process_msg_packet(device->device_id,
-				(struct vidc_hal_msg_pkt_hdr *)packet, &info);
+			(struct vidc_hal_msg_pkt_hdr *)raw_packet, info);
 		if (rc) {
 			dprintk(VIDC_WARN,
 					"Corrupt/unknown packet found, discarding\n");
+			--num_packets;
 			continue;
 		}
 
 		/* Process the packet types that we're interested in */
-		switch (info.response_type) {
+		switch (info->response_type) {
 		case HAL_SYS_ERROR:
 			__process_sys_error(device);
 			break;
@@ -3279,8 +3279,7 @@ static void __response_handler(struct venus_hfi_device *device)
 		}
 
 		/* For session-related packets, validate session */
-		switch (IS_HAL_SESSION_CMD(info.response_type) ?
-			info.response_type : HAL_RESPONSE_UNUSED) {
+		switch (info->response_type) {
 		case HAL_SESSION_LOAD_RESOURCE_DONE:
 		case HAL_SESSION_INIT_DONE:
 		case HAL_SESSION_END_DONE:
@@ -3296,19 +3295,20 @@ static void __response_handler(struct venus_hfi_device *device)
 		case HAL_SESSION_RELEASE_BUFFER_DONE:
 		case HAL_SESSION_RELEASE_RESOURCE_DONE:
 		case HAL_SESSION_PROPERTY_INFO:
-			session_id = &info.response.cmd.session_id;
+			session_id = &info->response.cmd.session_id;
 			break;
 		case HAL_SESSION_ERROR:
 		case HAL_SESSION_GET_SEQ_HDR_DONE:
 		case HAL_SESSION_ETB_DONE:
 		case HAL_SESSION_FTB_DONE:
-			session_id = &info.response.data.session_id;
+			session_id = &info->response.data.session_id;
 			break;
 		case HAL_SESSION_EVENT_CHANGE:
-			session_id = &info.response.event.session_id;
+			session_id = &info->response.event.session_id;
 			break;
 		case HAL_RESPONSE_UNUSED:
-			session_id = 0;
+		default:
+			session_id = NULL;
 			break;
 		}
 
@@ -3316,7 +3316,7 @@ static void __response_handler(struct venus_hfi_device *device)
 		 * hfi_process_msg_packet provides a session_id that's a hashed
 		 * value of struct hal_session, we need to coerce the hashed
 		 * value back to pointer that we can use. Ideally, hfi_process\
-		 * _msg_packet should take care of * this, but it doesn't have
+		 * _msg_packet should take care of this, but it doesn't have
 		 * required information for it
 		 */
 		if (session_id) {
@@ -3328,23 +3328,51 @@ static void __response_handler(struct venus_hfi_device *device)
 			if (!session) {
 				dprintk(VIDC_ERR,
 						"Received a packet (%#x) for an unrecognized session (%p), discarding\n",
-						info.response_type,
+						info->response_type,
 						(void *)session_id);
-				info.response_type = HAL_RESPONSE_UNUSED;
-				goto bad_session;
+				--num_packets;
+				continue;
 			}
 
 			*session_id = session->session_id;
 		}
 
-		device->callback(info.response_type, &info.response);
-bad_session:
-		continue;
+		if (num_packets >= ARRAY_SIZE(packets) &&
+				__get_q_size(device, VIDC_IFACEQ_MSGQ_IDX)) {
+			dprintk(VIDC_DBG,
+					"Too many packets in message queue to handle at once, deferring read\n");
+			pending_packets = true;
+			break;
+		}
 	}
 
-	__flush_debug_queue(device, packet);
+	__flush_debug_queue(device, raw_packet);
 
-	kfree(packet);
+	/* Fire the callbacks */
+	for (i = 0; i < num_packets; ++i) {
+		struct msm_vidc_cb_info *info = &packets[i];
+
+		device->callback(info->response_type, &info->response);
+	}
+
+	kfree(raw_packet);
+
+	/* XXX: There's a recursive call here to continue reading reading
+	 * packets, which is something of a clever/lazy hack. The hack is
+	 * necessitated by sizeof(msm_vidc_cb_info), which is _huge_ limiting
+	 * our storage capacity of `packets` to only 4 (due to stack frame size
+	 * limits enforced by the compiler).  Since we don't really know how
+	 * many packets will be in the queue, just read 4 at a time, and if
+	 * there are any left, recursively call ourself to finish reading the
+	 * rest.  This allows us to keep our "RCU" semantics in this function
+	 * simple, reducing the need to lock and unlock constantly.
+	 *
+	 * Moving forward, if we can accurately figure out the size of `packets`
+	 * we should kmalloc it and save ourselves the trouble of recursion
+	 * or even having to unlock.
+	 */
+	if (pending_packets)
+		__response_handler(device);
 }
 
 static void venus_hfi_core_work_handler(struct work_struct *work)
