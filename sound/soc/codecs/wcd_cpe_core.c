@@ -3000,156 +3000,108 @@ static int wcd_cpe_dealloc_lsm_session(void *core_handle,
 	return ret;
 }
 
-static int slim_master_read_enable(void *core_handle,
-				   struct cpe_lsm_session *session)
+static int wcd_cpe_lab_ch_setup(void *core_handle,
+		struct cpe_lsm_session *session,
+		enum wcd_cpe_event event)
 {
-	int rc = 0;
-	struct wcd_cpe_lsm_lab *lab_s = NULL;
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
+	struct wcd_cpe_core *core = core_handle;
 	struct snd_soc_codec *codec;
-	struct wcd9xxx *wcd9xxx;
-	struct wcd_cpe_lab_hw_params *lsm_params;
-
-	codec = core->codec;
-	wcd9xxx = dev_get_drvdata(codec->dev->parent);
-	lab_s = &session->lab;
-	lsm_params = &lab_s->hw_params;
-	/* The sequence should be maintained strictly */
-	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
-	if (core->cpe_cdc_cb->cdc_ext_clk)
-		core->cpe_cdc_cb->cdc_ext_clk(codec, true, false);
-	else {
-		pr_err("%s: Invalid callback for codec ext clk\n",
-			__func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	if (core->cpe_cdc_cb->lab_cdc_ch_ctl)
-		core->cpe_cdc_cb->lab_cdc_ch_ctl(codec, 1);
-	else {
-		pr_err("%s: Failed to enable codec slave port\n",
-			__func__);
-		rc = -EINVAL;
-		goto fail_mclk;
-	}
-	lab_s->slim_handle = NULL;
-	rc = wcd9xxx_slim_ch_master_open(wcd9xxx, lsm_params->sample_rate,
-					 lsm_params->sample_size,
-					 &lab_s->slim_handle,
-					 WCD_CPE_MAD_SLIM_CHANNEL);
-	if (rc || lab_s->slim_handle == NULL) {
-		pr_err("%s: Slim Open rc %d\n",
-			__func__, rc);
-		rc = -EINVAL;
-		goto fail_slim_open;
-	}
-	rc = wcd9xxx_slim_ch_master_enable_read(wcd9xxx, lab_s->slim_handle);
-	if (rc) {
-		pr_err("%s: Slim enable read rc %d\n",
-			__func__, rc);
-		rc = -EINVAL;
-		goto fail_slim_open;
-	}
-	rc = cpe_svc_toggle_lab(core->cpe_handle, true);
-	if (rc) {
-		pr_err("%s: SVC toggle codec LAB Enable error\n", __func__);
-		rc = -EINVAL;
-		goto fail_slim_open;
-	}
-	init_waitqueue_head(&lab_s->period_wait);
-	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
-	return 0;
-
-fail_slim_open:
-	core->cpe_cdc_cb->lab_cdc_ch_ctl(codec, 0);
-fail_mclk:
-	core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
-exit:
-	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
-	return rc;
-}
-
-int slim_master_read_status(void *core_handle,
-			    struct cpe_lsm_session *session,
-			    phys_addr_t phys, u32 *len)
-{
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
-	struct snd_soc_codec *codec;
-	struct wcd9xxx *wcd9xxx;
-	struct wcd_cpe_lsm_lab *lab = &session->lab;
 	int rc = 0;
 
-	codec = core->codec;
-	wcd9xxx = dev_get_drvdata(codec->dev->parent);
-	rc = wcd9xxx_slim_ch_master_status(wcd9xxx, lab->slim_handle,
-					   phys, len);
-	return rc;
-}
-int slim_master_read(void *core_handle,
-		     struct cpe_lsm_session *session,
-		     phys_addr_t phys, u8 *mem,
-		     u32 read_len)
-{
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
-	struct snd_soc_codec *codec;
-	struct wcd9xxx *wcd9xxx;
-	struct wcd_cpe_lsm_lab *lab = &session->lab;
-	int rc = 0;
+	if (!core || !core->codec) {
+		pr_err("%s: Invalid handle to %s\n",
+			__func__,
+			(!core) ? "core" : "codec");
+		rc = EINVAL;
+		goto done;
+	}
 
-	codec = core->codec;
-	wcd9xxx = dev_get_drvdata(codec->dev->parent);
-	rc = wcd9xxx_slim_ch_master_read(wcd9xxx, lab->slim_handle,
-					 phys, mem, read_len);
-	return rc;
-}
-static int wcd_cpe_lsm_stop_lab(void *core_handle,
-				struct cpe_lsm_session *session)
-{
-	struct wcd_cpe_lsm_lab *lab_s = NULL;
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
-	struct snd_soc_codec *codec;
-	struct wcd9xxx *wcd9xxx;
-	int rc = 0;
-
-	codec = core->codec;
-	wcd9xxx = dev_get_drvdata(codec->dev->parent);
-	lab_s = &session->lab;
-	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
-	/* This seqeunce should be followed strictly for closing sequence */
-	if (core->cpe_cdc_cb->lab_cdc_ch_ctl)
-		core->cpe_cdc_cb->lab_cdc_ch_ctl(codec, 0);
-	else
-		pr_err("%s: Failed to disable codec slave port\n",
-			__func__);
-
-	rc = wcd9xxx_slim_ch_master_close(wcd9xxx, &lab_s->slim_handle);
-	if (rc != 0)
-		pr_err("%s: wcd9xxx_slim_pcm_close rc %d\n",
-			__func__, rc);
-
-	rc = wcd_cpe_lsm_eob(core, session);
-	if (rc != 0)
+	if (!core->cpe_cdc_cb ||
+	    !core->cpe_cdc_cb->cdc_ext_clk ||
+	    !core->cpe_cdc_cb->lab_cdc_ch_ctl) {
 		dev_err(core->dev,
-			"%s: wcd_cpe_lsm_eob failed, rc %d\n",
-		       __func__, rc);
-
-	rc = cpe_svc_toggle_lab(core->cpe_handle, false);
-	if (rc)
-		dev_err(core->dev,
-			"%s: LAB Voice Tx codec error, rc %d\n",
-			__func__, rc);
-
-	lab_s->buf_idx = 0;
-	lab_s->thread_status = MSM_LSM_LAB_THREAD_STOP;
-	atomic_set(&lab_s->in_count, 0);
-	lab_s->dma_write = 0;
-	if (core->cpe_cdc_cb->cdc_ext_clk)
-		core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
-	else
-		pr_err("%s: Failed to disable cdc ext clk\n",
+			"%s: Invalid codec callbacks\n",
 			__func__);
-	WCD_CPE_REL_LOCK(&session->lsm_lock, "lsm");
+		rc = -EINVAL;
+		goto done;
+	}
+
+	codec = core->codec;
+	dev_dbg(core->dev,
+		"%s: event = 0x%x\n",
+		__func__, event);
+
+	switch (event) {
+	case WCD_CPE_PRE_ENABLE:
+		rc = core->cpe_cdc_cb->cdc_ext_clk(codec, true, false);
+		if (rc) {
+			dev_err(core->dev,
+				"%s: failed to enable cdc clk, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
+		rc = core->cpe_cdc_cb->lab_cdc_ch_ctl(codec,
+						      true);
+		if (rc) {
+			dev_err(core->dev,
+				"%s: failed to enable cdc port, err = %d\n",
+				__func__, rc);
+			rc = core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
+			goto done;
+		}
+
+		break;
+
+	case WCD_CPE_POST_ENABLE:
+		rc = cpe_svc_toggle_lab(core->cpe_handle, true);
+		if (rc)
+			dev_err(core->dev,
+			"%s: Failed to enable lab\n", __func__);
+		break;
+
+	case WCD_CPE_PRE_DISABLE:
+		rc = core->cpe_cdc_cb->lab_cdc_ch_ctl(codec,
+						      false);
+		if (rc)
+			dev_err(core->dev,
+				"%s: failed to disable cdc port, err = %d\n",
+				__func__, rc);
+		break;
+
+	case WCD_CPE_POST_DISABLE:
+		rc = wcd_cpe_lsm_eob(core, session);
+		if (rc)
+			dev_err(core->dev,
+				"%s: eob send failed, err = %d\n",
+				__func__, rc);
+
+		/* Continue teardown even if eob failed */
+		rc = cpe_svc_toggle_lab(core->cpe_handle, false);
+		if (rc)
+			dev_err(core->dev,
+			"%s: Failed to disable lab\n", __func__);
+
+		/* Continue with disabling even if toggle lab fails */
+		rc = core->cpe_cdc_cb->cdc_ext_clk(codec, false, false);
+		if (rc) {
+			dev_err(core->dev,
+				"%s: failed to disable cdc clk, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
+		break;
+
+	default:
+		dev_err(core->dev,
+			"%s: Invalid event 0x%x\n",
+			__func__, event);
+		rc = -EINVAL;
+		break;
+	}
+
+done:
 	return rc;
 }
 
@@ -3171,10 +3123,7 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lsm_start = wcd_cpe_cmd_lsm_start;
 	lsm_ops->lsm_stop = wcd_cpe_cmd_lsm_stop;
 	lsm_ops->lsm_lab_control = wcd_cpe_lsm_control_lab;
-	lsm_ops->lsm_lab_stop = wcd_cpe_lsm_stop_lab;
-	lsm_ops->lsm_lab_data_channel_read = slim_master_read;
-	lsm_ops->lsm_lab_data_channel_read_status = slim_master_read_status;
-	lsm_ops->lsm_lab_data_channel_open = slim_master_read_enable;
+	lsm_ops->lab_ch_setup = wcd_cpe_lab_ch_setup;
 	lsm_ops->lsm_set_data = wcd_cpe_lsm_set_data;
 	return 0;
 }
