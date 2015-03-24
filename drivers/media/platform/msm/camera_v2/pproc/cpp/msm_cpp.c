@@ -57,6 +57,7 @@
 
 #define CPP_FW_VERSION_1_2_0	0x10020000
 #define CPP_FW_VERSION_1_4_0	0x10040000
+#define CPP_FW_VERSION_1_5_0	0x10050000
 #define CPP_FW_VERSION_1_6_0	0x10060000
 #define CPP_FW_VERSION_1_8_0	0x10080000
 #define CPP_FW_VERSION_1_10_0	0x10100000
@@ -64,6 +65,7 @@
 /* stripe information offsets in frame command */
 #define STRIPE_BASE_FW_1_2_0	130
 #define STRIPE_BASE_FW_1_4_0	140
+#define STRIPE_BASE_FW_1_5_0	156
 #define STRIPE_BASE_FW_1_6_0	464
 #define STRIPE_BASE_FW_1_8_0	493
 #define STRIPE_BASE_FW_1_10_0	553
@@ -896,6 +898,22 @@ static void msm_cpp_calculate_stripe_base(struct cpp_device *cpp_dev)
 	} else if ((cpp_dev->fw_version & 0xffff0000) ==
 		CPP_FW_VERSION_1_4_0) {
 		cpp_dev->stripe_base = STRIPE_BASE_FW_1_4_0;
+		cpp_dev->stripe_info_offset = 12;
+		cpp_dev->stripe_size = 27;
+		cpp_dev->rd_pntr = 5;
+		cpp_dev->wr_0_pntr = 11;
+		cpp_dev->wr_1_pntr = 12;
+		cpp_dev->wr_2_pntr = 13;
+		cpp_dev->wr_3_pntr = 14;
+		cpp_dev->rd_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_ref_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_0_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_1_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_2_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+		cpp_dev->wr_3_meta_data_wr_pntr = MSM_CPP_INVALID_OFFSET;
+	} else if ((cpp_dev->fw_version & 0xffff0000) ==
+		CPP_FW_VERSION_1_5_0) {
+		cpp_dev->stripe_base = STRIPE_BASE_FW_1_5_0;
 		cpp_dev->stripe_info_offset = 12;
 		cpp_dev->stripe_size = 27;
 		cpp_dev->rd_pntr = 5;
