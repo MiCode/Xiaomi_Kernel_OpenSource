@@ -385,6 +385,8 @@ Optional properties:
  - qcom,cdc-micbias-cfilt-mv : MICBIAS voltage value
  - qcom,cdc-boost-voltage: Specifies the analog boost output voltage value.
 				Value from 4000 to 5550 in mV in steps of 50 mV can be given.
+ - qcom,dig-cdc-base-addr: Specifies the digital codec base address for MSM digital
+				core register writes.
 
 Example:
 msm8x16_wcd_codec@f000{
@@ -436,4 +438,5 @@ msm8x16_wcd_codec@f000{
 				   "cdc-vdda-cp";
 
 	qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
+	qcom,dig-cdc-base-addr = <0xc0f0000>;
 };

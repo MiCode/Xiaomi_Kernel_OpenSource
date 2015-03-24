@@ -47,17 +47,19 @@
 #define MCLK_SUS_RSC	2
 #define MCLK_SUS_NO_ACT	3
 
-#define NUM_DECIMATORS	2
+#define NUM_DECIMATORS	4
 #define MSM89XX_VDD_SPKDRV_NAME "cdc-vdd-spkdrv"
 
 extern const u8 msm8x16_wcd_reg_readable[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reg_readonly[MSM8X16_WCD_CACHE_SIZE];
 extern const u8 msm8x16_wcd_reset_reg_defaults[MSM8X16_WCD_CACHE_SIZE];
+extern const u8 cajon_digital_reg[MSM8X16_WCD_CACHE_SIZE];
 
 enum codec_versions {
 	TOMBAK_1_0,
 	TOMBAK_2_0,
 	CONGA,
+	CAJON,
 	UNSUPPORTED,
 };
 
@@ -184,6 +186,8 @@ struct msm8x16_wcd_pdata {
 	struct wcd9xxx_micbias_setting micbias;
 	struct msm8x16_wcd_regulator regulator[MAX_REGULATOR];
 	u32 mclk_rate;
+	u32 is_lpass;
+	u32 dig_cdc_addr;
 };
 
 enum msm8x16_wcd_micbias_num {
