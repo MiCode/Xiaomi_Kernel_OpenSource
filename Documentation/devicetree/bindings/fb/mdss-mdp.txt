@@ -349,8 +349,6 @@ Optional properties:
 				will enable this dynamic limiting for the read
 				operations in the platforms that require these
 				limits.
-- qcom,mdss-default-pipe-qos-lut: This value is used to program the default qos lut
-				  register for the rt clients and nrt rotator read clients.
 - qcom,mdss-clk-levels:		This array indicates the mdp core clock level selection
 				array. Core clock is calculated for each frame and
 				hence depending upon calculated value, clock rate

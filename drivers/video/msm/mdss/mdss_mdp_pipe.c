@@ -33,6 +33,11 @@
 /* following offsets are relative to status register bit offset */
 #define CLK_STATUS_OFFSET	0x0
 
+#define QOS_LUT_WFD_READ	0x0
+#define QOS_LUT_UBWC		0x55AAFF
+#define QOS_LUT_420_CHROMA	0x555557
+#define QOS_LUT_LINEAR		0x55555B
+
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
 
@@ -59,17 +64,20 @@ static inline u32 mdss_mdp_pipe_read(struct mdss_mdp_pipe *pipe, u32 reg)
 
 int mdss_mdp_pipe_qos_lut(struct mdss_mdp_pipe *pipe)
 {
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	struct mdss_mdp_ctl *ctl = pipe->mixer_left->ctl;
-	u32 qos_lut = mdata->default_pipe_qos_lut;
+	u32 qos_lut;
 
-	if (!qos_lut)
-		goto end;
-
-	/* set lowest priority lut for non-real time wfd */
 	if ((ctl->intf_num == MDSS_MDP_NO_INTF) &&
-		!pipe->mixer_left->rotator_mode)
-		qos_lut = 0;
+			!pipe->mixer_left->rotator_mode)
+		qos_lut = QOS_LUT_WFD_READ; /* low priority for nrt wfd */
+	else if (mdss_mdp_is_ubwc_format(pipe->src_fmt))
+		qos_lut = QOS_LUT_UBWC;
+	else if ((pipe->src_fmt->chroma_sample == MDSS_MDP_CHROMA_420) ||
+			(pipe->src_fmt->fetch_planes ==
+			MDSS_MDP_PLANE_PSEUDO_PLANAR))
+		qos_lut = QOS_LUT_420_CHROMA; /* nv12 and planar 420 */
+	else
+		qos_lut = QOS_LUT_LINEAR; /* rest of the linear formats */
 
 	pr_debug("lut:0x%x wfd:%d\n", qos_lut,
 		((ctl->intf_num == MDSS_MDP_NO_INTF) &&
@@ -80,7 +88,6 @@ int mdss_mdp_pipe_qos_lut(struct mdss_mdp_pipe *pipe)
 		qos_lut);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
-end:
 	return 0;
 }
 
@@ -1962,7 +1969,8 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_VIG_OP_MODE,
 			opmode);
 
-		mdss_mdp_pipe_qos_lut(pipe);
+		if (test_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map))
+			mdss_mdp_pipe_qos_lut(pipe);
 
 		mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
 
