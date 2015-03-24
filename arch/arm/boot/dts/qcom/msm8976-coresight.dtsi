@@ -894,6 +894,71 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	rpm_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <55>;
+		coresight-name = "coresight-rpm-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <4>;
+	};
+
+	wcn_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <56>;
+		coresight-name = "coresight-wcn-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <0>;
+
+		qcom,inst-id = <3>;
+	};
+
+	modem_etm0 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <57>;
+		coresight-name = "coresight-modem-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in1>;
+		coresight-child-ports = <7>;
+
+		qcom,inst-id = <2>;
+	};
+
+	modem_etm1 {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <58>;
+		coresight-name = "coresight-modem-etm1";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <1>;
+
+		qcom,inst-id = <11>;
+	};
+
+	audio_etm {
+		compatible = "qcom,coresight-remote-etm";
+
+		coresight-id = <59>;
+		coresight-name = "coresight-audio-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <2>;
+
+		qcom,inst-id = <5>;
+	};
+
 	fuse: fuse@a601c {
 		compatible = "arm,coresight-fuse-v2";
 		reg = <0xa601c 0x8>,
@@ -901,7 +966,7 @@
 		      <0x5e00c 0x4>;
 		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
-		coresight-id = <55>;
+		coresight-id = <60>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
@@ -911,7 +976,7 @@
 		reg = <0x1941000 0x4>;
 		reg-names = "qpdi-base";
 
-		coresight-id = <56>;
+		coresight-id = <61>;
 		coresight-name = "coresight-qpdi";
 		coresight-nr-inports = <0>;
 
