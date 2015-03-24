@@ -62,6 +62,7 @@ struct pll_config_vals {
 	u32 post_div_masked;
 	u32 pre_div_masked;
 	u32 config_ctl_val;
+	u32 config_ctl_hi_val;
 	u32 test_ctl_lo_val;
 	u32 test_ctl_hi_val;
 	u32 alpha_val;
@@ -115,6 +116,8 @@ static inline struct pll_vote_clk *to_pll_vote_clk(struct clk *c)
  * @config_reg: configuration register, contains mn divider enable, pre divider,
  *   post divider and vco configuration. register name can be configure register
  *   or user_ctl register depending on targets
+ * @config_ctl_reg: "expert" configuration register
+ * @config_ctl_hi_reg: upper 32 bits of the "expert" configuration register
  * @status_reg: status register, contains the lock detection bit
  * @init_test_ctl: initialize the test control register
  * @pgm_test_ctl_enable: program the test_ctl register in the enable sequence
@@ -133,6 +136,7 @@ struct pll_clk {
 	void __iomem *const alpha_reg;
 	void __iomem *const config_reg;
 	void __iomem *const config_ctl_reg;
+	void __iomem *const config_ctl_hi_reg;
 	void __iomem *const status_reg;
 	void __iomem *const test_ctl_lo_reg;
 	void __iomem *const test_ctl_hi_reg;

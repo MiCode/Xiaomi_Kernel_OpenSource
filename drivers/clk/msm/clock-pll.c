@@ -41,6 +41,8 @@
 							(x)->config_alt_reg)
 #define PLL_CFG_CTL_REG(x)	(*(x)->base + (unsigned long) \
 							(x)->config_ctl_reg)
+#define PLL_CFG_CTL_HI_REG(x)	(*(x)->base + (unsigned long) \
+							(x)->config_ctl_hi_reg)
 #define PLL_TEST_CTL_LO_REG(x)	(*(x)->base + (unsigned long) \
 							(x)->test_ctl_lo_reg)
 #define PLL_TEST_CTL_HI_REG(x)	(*(x)->base + (unsigned long) \
@@ -243,6 +245,9 @@ void __variable_rate_pll_init(struct clk *c)
 
 	writel_relaxed(pll->vals.alpha_val, PLL_ALPHA_REG(pll));
 	writel_relaxed(pll->vals.config_ctl_val, PLL_CFG_CTL_REG(pll));
+	if (pll->vals.config_ctl_hi_val)
+		writel_relaxed(pll->vals.config_ctl_hi_val,
+				PLL_CFG_CTL_HI_REG(pll));
 	if (pll->init_test_ctl) {
 		writel_relaxed(pll->vals.test_ctl_lo_val,
 				PLL_TEST_CTL_LO_REG(pll));
