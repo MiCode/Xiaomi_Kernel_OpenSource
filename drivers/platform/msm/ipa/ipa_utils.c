@@ -20,14 +20,16 @@
 
 #define IPA_V1_CLK_RATE (92.31 * 1000 * 1000UL)
 #define IPA_V1_1_CLK_RATE (100 * 1000 * 1000UL)
-#define IPA_V2_0_CLK_RATE_LOW (75 * 1000 * 1000UL)
-#define IPA_V2_0_CLK_RATE_HIGH (150 * 1000 * 1000UL)
+#define IPA_V2_0_CLK_RATE_SVS (75 * 1000 * 1000UL)
+#define IPA_V2_0_CLK_RATE_NOMINAL (150 * 1000 * 1000UL)
+#define IPA_V2_0_CLK_RATE_TURBO (200 * 1000 * 1000UL)
 #define IPA_V1_MAX_HOLB_TMR_VAL (512 - 1)
 #define IPA_V2_0_MAX_HOLB_TMR_VAL (65536 - 1)
 #define IPA_V2_5_MAX_HOLB_TMR_VAL (4294967296 - 1)
 #define IPA_V2_6L_MAX_HOLB_TMR_VAL IPA_V2_5_MAX_HOLB_TMR_VAL
 
-#define IPA_V2_0_BW_THRESHOLD_MBPS (800)
+#define IPA_V2_0_BW_THRESHOLD_TURBO_MBPS (1200)
+#define IPA_V2_0_BW_THRESHOLD_NOMINAL_MBPS (600)
 
 /* Max pipes + ICs for TAG process */
 #define IPA_TAG_MAX_DESC (IPA_MAX_NUM_PIPES + 6)
@@ -4190,8 +4192,9 @@ void ipa_controller_shared_static_bind(struct ipa_controller *ctrl)
 	ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v2_0;
 	ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v2_0;
 	ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v2_0;
-	ctrl->ipa_clk_rate_hi = IPA_V2_0_CLK_RATE_HIGH;
-	ctrl->ipa_clk_rate_lo = IPA_V2_0_CLK_RATE_LOW;
+	ctrl->ipa_clk_rate_turbo = IPA_V2_0_CLK_RATE_TURBO;
+	ctrl->ipa_clk_rate_nominal = IPA_V2_0_CLK_RATE_NOMINAL;
+	ctrl->ipa_clk_rate_svs = IPA_V2_0_CLK_RATE_SVS;
 	ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v2_0;
 	ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v2_0;
 	ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v2_0;
@@ -4203,7 +4206,10 @@ void ipa_controller_shared_static_bind(struct ipa_controller *ctrl)
 	ctrl->ipa_disable_clks = _ipa_disable_clks_v2_0;
 	ctrl->msm_bus_data_ptr = &ipa_bus_client_pdata_v2_0;
 	ctrl->ipa_cfg_ep_metadata = _ipa_cfg_ep_metadata_v2_0;
-	ctrl->clock_scaling_bw_threshold = IPA_V2_0_BW_THRESHOLD_MBPS;
+	ctrl->clock_scaling_bw_threshold_nominal =
+		IPA_V2_0_BW_THRESHOLD_NOMINAL_MBPS;
+	ctrl->clock_scaling_bw_threshold_turbo =
+		IPA_V2_0_BW_THRESHOLD_TURBO_MBPS;
 }
 
 /**
@@ -4235,8 +4241,9 @@ int ipa_controller_static_bind(struct ipa_controller *ctrl,
 		ctrl->ipa_cfg_ep_status = _ipa_cfg_ep_status_v1_1;
 		ctrl->ipa_cfg_ep_cfg = _ipa_cfg_ep_cfg_v1_1;
 		ctrl->ipa_cfg_ep_metadata_mask = _ipa_cfg_ep_metadata_mask_v1_1;
-		ctrl->ipa_clk_rate_hi = IPA_V1_1_CLK_RATE;
-		ctrl->ipa_clk_rate_lo = IPA_V1_1_CLK_RATE;
+		ctrl->ipa_clk_rate_turbo = IPA_V1_1_CLK_RATE;
+		ctrl->ipa_clk_rate_nominal = IPA_V1_1_CLK_RATE;
+		ctrl->ipa_clk_rate_svs = IPA_V1_1_CLK_RATE;
 		ctrl->ipa_read_gen_reg = _ipa_read_gen_reg_v1_1;
 		ctrl->ipa_read_ep_reg = _ipa_read_ep_reg_v1_1;
 		ctrl->ipa_write_dbg_cnt = _ipa_write_dbg_cnt_v1_1;

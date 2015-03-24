@@ -2410,16 +2410,17 @@ static unsigned int ipa_get_bus_vote(void)
 {
 	unsigned int idx = 1;
 
-	if (ipa_ctx->curr_ipa_clk_rate == ipa_ctx->ctrl->ipa_clk_rate_lo) {
+	if (ipa_ctx->curr_ipa_clk_rate == ipa_ctx->ctrl->ipa_clk_rate_svs) {
 		idx = 1;
 	} else if (ipa_ctx->curr_ipa_clk_rate ==
-			ipa_ctx->ctrl->ipa_clk_rate_hi) {
-		if (ipa_ctx->ctrl->msm_bus_data_ptr->num_usecases == 2)
+			ipa_ctx->ctrl->ipa_clk_rate_nominal) {
+		if (ipa_ctx->ctrl->msm_bus_data_ptr->num_usecases <= 2)
 			idx = 1;
-		else if (ipa_ctx->ctrl->msm_bus_data_ptr->num_usecases == 3)
-			idx = 2;
 		else
-			WARN_ON(1);
+			idx = 2;
+	} else if (ipa_ctx->curr_ipa_clk_rate ==
+			ipa_ctx->ctrl->ipa_clk_rate_turbo) {
+		idx = ipa_ctx->ctrl->msm_bus_data_ptr->num_usecases - 1;
 	} else {
 		WARN_ON(1);
 	}
@@ -2653,7 +2654,11 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 
 	if (ipa_ctx->enable_clock_scaling) {
 		IPADBG("Clock scaling is enabled\n");
-		if (bandwidth_mbps >= ipa_ctx->ctrl->clock_scaling_bw_threshold)
+		if (bandwidth_mbps >=
+			ipa_ctx->ctrl->clock_scaling_bw_threshold_turbo)
+			needed_voltage = IPA_VOLTAGE_TURBO;
+		else if (bandwidth_mbps >=
+			ipa_ctx->ctrl->clock_scaling_bw_threshold_nominal)
 			needed_voltage = IPA_VOLTAGE_NOMINAL;
 		else
 			needed_voltage = IPA_VOLTAGE_SVS;
@@ -2665,10 +2670,13 @@ int ipa_set_required_perf_profile(enum ipa_voltage_level floor_voltage,
 	needed_voltage = max(needed_voltage, floor_voltage);
 	switch (needed_voltage) {
 	case IPA_VOLTAGE_SVS:
-		clk_rate = ipa_ctx->ctrl->ipa_clk_rate_lo;
+		clk_rate = ipa_ctx->ctrl->ipa_clk_rate_svs;
 		break;
 	case IPA_VOLTAGE_NOMINAL:
-		clk_rate = ipa_ctx->ctrl->ipa_clk_rate_hi;
+		clk_rate = ipa_ctx->ctrl->ipa_clk_rate_nominal;
+		break;
+	case IPA_VOLTAGE_TURBO:
+		clk_rate = ipa_ctx->ctrl->ipa_clk_rate_turbo;
 		break;
 	default:
 		IPAERR("bad voltage\n");
@@ -3065,7 +3073,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 
 	/* Enable ipa_ctx->enable_clock_scaling */
 	ipa_ctx->enable_clock_scaling = 1;
-	ipa_ctx->curr_ipa_clk_rate = ipa_ctx->ctrl->ipa_clk_rate_hi;
+	ipa_ctx->curr_ipa_clk_rate = ipa_ctx->ctrl->ipa_clk_rate_turbo;
 
 	/* enable IPA clocks explicitly to allow the initialization */
 	ipa_enable_clks();
