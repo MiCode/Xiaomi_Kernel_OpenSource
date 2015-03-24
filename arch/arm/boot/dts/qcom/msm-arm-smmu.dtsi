@@ -84,6 +84,20 @@
 		reg = <0x1640000 0x10000>;
 		#iommu-cells = <1>;
 	};
+
+	anoc1_smmu: arm,smmu-anoc1@1660000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		reg = <0x1660000 0x10000>;
+		#iommu-cells = <1>;
+	};
+
+	anoc2_smmu: arm,smmu-anoc2@1680000 {
+		status = "disabled";
+		compatible = "qcom,smmu-v2";
+		reg = <0x1680000 0x20000>;
+		#iommu-cells = <1>;
+	};
 };
 
 #include "msm-arm-smmu-impl-defs.dtsi"
