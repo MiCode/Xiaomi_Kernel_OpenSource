@@ -25,6 +25,7 @@
 #include <linux/pm_wakeup.h>
 #include <linux/sched.h>
 #include <linux/pm_qos.h>
+#include <linux/pm_runtime.h>
 #include <linux/esoc_client.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/firmware.h>
@@ -130,7 +131,6 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_BOOTSTRAP_DELAY	10
 #define EVICT_BIN_MAX_SIZE      (512*1024)
 #define CNSS_PINCTRL_STATE_ACTIVE "default"
-#define BUS_ACTIVITY_TIMEOUT	1000
 
 static DEFINE_SPINLOCK(pci_link_down_lock);
 
@@ -273,8 +273,6 @@ static struct cnss_data {
 	int wlan_bootstrap_gpio[NUM_OF_BOOTSTRAP];
 	atomic_t auto_suspended;
 	bool monitor_wake_intr;
-	atomic_t auto_suspend_prevent_count;
-	unsigned long last_activity;
 } *penv;
 
 static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
@@ -1334,10 +1332,13 @@ static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 	device_remove_file(dev, &dev_attr_wlan_setup);
 }
 
-static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
+static int cnss_wlan_pci_suspend(struct device *dev)
 {
 	int ret = 0;
 	struct cnss_wlan_driver *wdriver;
+	struct pci_dev *pdev = to_pci_dev(dev);
+
+	pm_message_t state = { .event = PM_EVENT_SUSPEND };
 
 	if (!penv)
 		goto out;
@@ -1346,7 +1347,7 @@ static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
 	if (!wdriver)
 		goto out;
 
-	if (wdriver->suspend && !atomic_read(&penv->auto_suspended)) {
+	if (wdriver->suspend) {
 		ret = wdriver->suspend(pdev, state);
 
 		if (penv->pcie_link_state) {
@@ -1360,10 +1361,11 @@ out:
 	return ret;
 }
 
-static int cnss_wlan_pci_resume(struct pci_dev *pdev)
+static int cnss_wlan_pci_resume(struct device *dev)
 {
 	int ret = 0;
 	struct cnss_wlan_driver *wdriver;
+	struct pci_dev *pdev = to_pci_dev(dev);
 
 	if (!penv)
 		goto out;
@@ -1372,7 +1374,7 @@ static int cnss_wlan_pci_resume(struct pci_dev *pdev)
 	if (!wdriver)
 		goto out;
 
-	if (atomic_read(&penv->auto_suspended) && !penv->pcie_link_down_ind) {
+	if (!penv->pcie_link_down_ind) {
 		if (msm_pcie_pm_control(MSM_PCIE_RESUME,
 			cnss_get_pci_dev_bus_number(pdev),
 			pdev, NULL, PM_OPTIONS)) {
@@ -1380,7 +1382,6 @@ static int cnss_wlan_pci_resume(struct pci_dev *pdev)
 			ret = -EAGAIN;
 			goto out;
 		}
-		atomic_set(&penv->auto_suspended, 0);
 		penv->pcie_link_state = PCIE_LINK_UP;
 	}
 	if (wdriver->resume && !penv->pcie_link_down_ind) {
@@ -1393,6 +1394,57 @@ static int cnss_wlan_pci_resume(struct pci_dev *pdev)
 	}
 
 out:
+	return ret;
+}
+
+static int cnss_wlan_runtime_suspend(struct device *dev)
+{
+	int ret = 0;
+	struct cnss_wlan_driver *wdrv;
+
+	if (!penv)
+		return -EAGAIN;
+
+	if (penv->pcie_link_down_ind) {
+		pr_debug("PCI link down recovery is in progress!\n");
+		return -EAGAIN;
+	}
+
+	pr_debug("cnss: runtime suspend start\n");
+
+	wdrv = penv->driver;
+
+	if (wdrv && wdrv->runtime_ops && wdrv->runtime_ops->runtime_suspend)
+		ret = wdrv->runtime_ops->runtime_suspend(to_pci_dev(dev));
+
+	pr_info("cnss: runtime suspend status: %d\n", ret);
+
+	return ret;
+
+}
+
+static int cnss_wlan_runtime_resume(struct device *dev)
+{
+	struct cnss_wlan_driver *wdrv;
+	int ret = 0;
+
+	if (!penv)
+		return -EAGAIN;
+
+	if (penv->pcie_link_down_ind) {
+		pr_debug("PCI link down recovery is in progress!\n");
+		return -EAGAIN;
+	}
+
+	pr_debug("cnss: runtime resume start\n");
+
+	wdrv = penv->driver;
+
+	if (wdrv && wdrv->runtime_ops && wdrv->runtime_ops->runtime_resume)
+		ret = wdrv->runtime_ops->runtime_resume(to_pci_dev(dev));
+
+	pr_info("cnss: runtime resume status: %d\n", ret);
+
 	return ret;
 }
 
@@ -1426,13 +1478,24 @@ static DEFINE_PCI_DEVICE_TABLE(cnss_wlan_pci_id_table) = {
 };
 MODULE_DEVICE_TABLE(pci, cnss_wlan_pci_id_table);
 
+#ifdef CONFIG_PM
+static const struct dev_pm_ops cnss_wlan_pm_ops = {
+	SET_SYSTEM_SLEEP_PM_OPS(cnss_wlan_pci_suspend, cnss_wlan_pci_resume)
+	SET_RUNTIME_PM_OPS(cnss_wlan_runtime_suspend, cnss_wlan_runtime_resume,
+			NULL)
+};
+#endif
+
 struct pci_driver cnss_wlan_pci_driver = {
 	.name     = "cnss_wlan_pci",
 	.id_table = cnss_wlan_pci_id_table,
 	.probe    = cnss_wlan_pci_probe,
 	.remove   = cnss_wlan_pci_remove,
-	.suspend  = cnss_wlan_pci_suspend,
-	.resume   = cnss_wlan_pci_resume,
+#ifdef CONFIG_PM
+	.driver = {
+		.pm = &cnss_wlan_pm_ops,
+	},
+#endif
 };
 
 static ssize_t fw_image_setup_show(struct device *dev,
@@ -1491,13 +1554,6 @@ void cnss_schedule_recovery_work(void)
 }
 EXPORT_SYMBOL(cnss_schedule_recovery_work);
 
-void auto_resume_work_handler(struct work_struct *auto_resume)
-{
-	cnss_auto_resume();
-}
-
-DECLARE_WORK(auto_resume_work, auto_resume_work_handler);
-
 void cnss_pci_events_cb(struct msm_pcie_notify *notify)
 {
 	unsigned long flags;
@@ -1525,7 +1581,7 @@ void cnss_pci_events_cb(struct msm_pcie_notify *notify)
 		if (penv->monitor_wake_intr &&
 			atomic_read(&penv->auto_suspended)) {
 			penv->monitor_wake_intr = false;
-			schedule_work(&auto_resume_work);
+			pm_request_resume(&penv->pdev->dev);
 		}
 		break;
 
@@ -1882,7 +1938,6 @@ void cnss_wlan_unregister_driver(struct cnss_wlan_driver *driver)
 	}
 	penv->pcie_link_state = PCIE_LINK_DOWN;
 	penv->driver_status = CNSS_UNINITIALIZED;
-	atomic_set(&penv->auto_suspend_prevent_count, 0);
 	penv->monitor_wake_intr = false;
 	atomic_set(&penv->auto_suspended, 0);
 
@@ -2811,37 +2866,11 @@ int cnss_auto_suspend(void)
 {
 	int ret = 0;
 	struct pci_dev *pdev;
-	struct cnss_wlan_driver *wdriver;
-	pm_message_t state;
 
 	if (!penv || !penv->driver)
 		return -ENODEV;
 
-	if (atomic_read(&penv->auto_suspended)) {
-		pr_err("cnss: trying to auto suspend, but is already suspended\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	wdriver = penv->driver;
-
-	if (!wdriver->suspend || penv->pcie_link_down_ind
-		|| penv->recovery_in_progress) {
-		pr_err("cnss: suspend not registered or link down or in recovery %d %d\n",
-			penv->pcie_link_down_ind, penv->recovery_in_progress);
-		ret = -EINVAL;
-		goto out;
-	}
-
 	pdev = penv->pdev;
-	state.event = PM_EVENT_SUSPEND;
-
-	ret = wdriver->suspend(pdev, state);
-	if (ret) {
-		pr_err("%s: auto suspend failed %d\n", __func__, ret);
-		ret = -EAGAIN;
-		goto out;
-	}
 
 	if (penv->pcie_link_state) {
 		pci_save_state(pdev);
@@ -2867,26 +2896,9 @@ int cnss_auto_resume(void)
 {
 	int ret = 0;
 	struct pci_dev *pdev;
-	struct cnss_wlan_driver *wdriver;
 
 	if (!penv || !penv->driver)
 		return -ENODEV;
-
-	if (!atomic_read(&penv->auto_suspended)) {
-		pr_err("cnss: trying to auto resume, but not suspended\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	wdriver = penv->driver;
-
-	if (!wdriver->resume || penv->pcie_link_down_ind
-		|| penv->recovery_in_progress) {
-		pr_err("cnss: resume not registered or link down or in recovery %d %d\n",
-			penv->pcie_link_down_ind, penv->recovery_in_progress);
-		ret = -EINVAL;
-		goto out;
-	}
 
 	pdev = penv->pdev;
 
@@ -2907,62 +2919,63 @@ int cnss_auto_resume(void)
 
 	pci_restore_state(pdev);
 
-	ret = wdriver->resume(pdev);
-	if (ret)
-		pr_err("%s: Failed to resume wlan driver\n", __func__);
-
 	atomic_set(&penv->auto_suspended, 0);
 out:
 	return ret;
 }
 EXPORT_SYMBOL(cnss_auto_resume);
 
-
-int cnss_prevent_auto_suspend(const char *caller_func)
+int cnss_pm_runtime_request(struct device *dev,
+		enum cnss_runtime_request request)
 {
-	if (!penv || !penv->driver)
-		return -ENODEV;
+	int ret = 0;
 
-	atomic_inc_return(&penv->auto_suspend_prevent_count);
+	switch (request) {
+	case CNSS_PM_RUNTIME_GET:
+		ret = pm_runtime_get(dev);
+		break;
+	case CNSS_PM_RUNTIME_PUT:
+		ret = pm_runtime_put(dev);
+		break;
+	case CNSS_PM_RUNTIME_MARK_LAST_BUSY:
+		pm_runtime_mark_last_busy(dev);
+		break;
+	case CNSS_PM_RUNTIME_RESUME:
+		ret = pm_runtime_resume(dev);
+		break;
+	case CNSS_PM_RUNTIME_PUT_AUTO:
+		ret = pm_runtime_put_autosuspend(dev);
+		break;
+	case CNSS_PM_RUNTIME_PUT_NOIDLE:
+		pm_runtime_put_noidle(dev);
+		break;
+	case CNSS_PM_REQUEST_RESUME:
+		ret = pm_request_resume(dev);
+		break;
+	default:
+		ret = -EINVAL;
+		break;
+	}
 
-	return 0;
+	return ret;
 }
-EXPORT_SYMBOL(cnss_prevent_auto_suspend);
+EXPORT_SYMBOL(cnss_pm_runtime_request);
 
-int cnss_allow_auto_suspend(const char *caller_func)
+void cnss_runtime_init(struct device *dev, int auto_delay)
 {
-	if (!penv || !penv->driver)
-		return -ENODEV;
-
-	atomic_dec_return(&penv->auto_suspend_prevent_count);
-	penv->last_activity = jiffies;
-
-	return 0;
+	pm_runtime_set_autosuspend_delay(dev, auto_delay);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_allow(dev);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_noidle(dev);
 }
-EXPORT_SYMBOL(cnss_allow_auto_suspend);
+EXPORT_SYMBOL(cnss_runtime_init);
 
-int cnss_is_auto_suspend_allowed(const char *caller_func)
+void cnss_runtime_exit(struct device *dev)
 {
-	int count;
-	unsigned long timeout;
-
-	if (!penv || !penv->driver)
-		return -ENODEV;
-
-	timeout = penv->last_activity + msecs_to_jiffies(BUS_ACTIVITY_TIMEOUT);
-
-	count = atomic_read(&penv->auto_suspend_prevent_count);
-	if (!count && time_after(jiffies, timeout)) {
-		pr_err("cnss: Auto suspend allowed");
-		return 0;
-
-	} else if (!count)
-		return -EAGAIN;
-
-	return count;
+	pm_runtime_get_noresume(dev);
 }
-EXPORT_SYMBOL(cnss_is_auto_suspend_allowed);
-
+EXPORT_SYMBOL(cnss_runtime_exit);
 module_init(cnss_initialize);
 module_exit(cnss_exit);
 
