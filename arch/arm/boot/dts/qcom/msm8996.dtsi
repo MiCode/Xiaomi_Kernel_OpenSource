@@ -17,7 +17,7 @@
 	model = "Qualcomm Technologies, Inc. MSM 8996";
 	compatible = "qcom,msm8996";
 	qcom,msm-id = <246 0x0>;
-	qcom,pmic-id = <0x10009 0x1000A 0x0 0x0>;
+	qcom,pmic-id = <0x20009 0x2000A 0x0 0x0>;
 	interrupt-parent = <&intc>;
 
 	chosen {
