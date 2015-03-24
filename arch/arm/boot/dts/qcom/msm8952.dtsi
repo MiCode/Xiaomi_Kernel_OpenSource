@@ -104,6 +104,7 @@
 
 #include "msm8952-ion.dtsi"
 #include "msm8952-iommu.dtsi"
+#include "msm8952-iommu-domains.dtsi"
 #include "msm8939-cpu.dtsi"
 #include "msm8952-pinctrl.dtsi"
 #include "msm8952-smp2p.dtsi"
