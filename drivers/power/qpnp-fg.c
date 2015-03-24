@@ -1227,10 +1227,9 @@ static int fg_interleaved_mem_read(struct fg_chip *chip, u8 *val, u16 address,
 		 */
 		rc = fg_conventional_mem_read(chip, val, address, len, offset,
 						0);
-		if (rc) {
+		if (rc)
 			pr_err("Failed to read OTP memory %d\n", rc);
-			goto exit;
-		}
+		goto exit;
 	}
 
 	mutex_lock(&chip->rw_lock);
