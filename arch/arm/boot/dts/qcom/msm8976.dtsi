@@ -248,6 +248,13 @@
 		poll-delay-ms = <5000>;
 	};
 
+	qcom,msm-gladiator@b1c0000 {
+		compatible = "qcom,msm-gladiator";
+		reg = <0x0b1C0000 0x4000>;
+		reg-names = "gladiator_base";
+		interrupts = <0 22 0>;
+	};
+
 	l2ccc_0: clock-controller@b111000 {
 		compatible = "qcom,8976-l2ccc";
 		reg = <0x0b111000 0x1000>;
