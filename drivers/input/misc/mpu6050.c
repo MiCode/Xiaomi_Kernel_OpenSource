@@ -3079,7 +3079,6 @@ static int mpu6050_probe(struct i2c_client *client,
 	sensor->gyro_cdev.sensors_enable = mpu6050_gyro_cdev_enable;
 	sensor->gyro_cdev.sensors_poll_delay = mpu6050_gyro_cdev_poll_delay;
 	sensor->gyro_cdev.fifo_reserved_event_count = 0;
-	sensor->gyro_cdev.fifo_max_event_count = MPU6050_MAX_EVENT_CNT;
 	sensor->gyro_cdev.sensors_set_latency = mpu6050_gyro_cdev_set_latency;
 	sensor->gyro_cdev.sensors_flush = mpu6050_gyro_cdev_flush;
 	if ((sensor->pdata->use_int) &&
