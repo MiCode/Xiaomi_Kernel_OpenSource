@@ -2743,8 +2743,14 @@ static int venus_hfi_session_end(void *session)
 		HFI_CMD_SYS_SESSION_END);
 }
 
-static int venus_hfi_session_abort(void *session)
+static int venus_hfi_session_abort(void *sess)
 {
+	struct hal_session *session;
+	session = sess;
+	if (!session || !session->device) {
+		dprintk(VIDC_ERR, "Invalid Params\n");
+		return -EINVAL;
+	}
 	venus_hfi_flush_debug_queue(
 		((struct hal_session *)session)->device, NULL);
 	return venus_hfi_send_session_cmd(session,
