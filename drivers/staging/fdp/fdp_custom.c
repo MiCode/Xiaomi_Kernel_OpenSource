@@ -894,16 +894,20 @@ static const struct acpi_device_id fdp_acpi_match[] = {
 
 MODULE_DEVICE_TABLE(i2c, fdp_id);
 
+static const struct dev_pm_ops fdp_i2c_pm_ops = {
+	.suspend = fdp_suspend,
+	.resume = fdp_resume,
+};
+
 static struct i2c_driver fdp_i2c_driver = {
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = I2C_ID_NAME,
 		   .acpi_match_table = ACPI_PTR(fdp_acpi_match),
+		   .pm = &fdp_i2c_pm_ops,
 	},
 	.probe = fdp_probe,
 	.remove = __devexit_p(fdp_remove),
-	.suspend = fdp_suspend,
-	.resume = fdp_resume,
 	.id_table = fdp_id,
 
 };
