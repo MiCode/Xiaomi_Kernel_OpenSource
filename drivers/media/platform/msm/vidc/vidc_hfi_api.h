@@ -1365,7 +1365,6 @@ struct hfi_device {
 	/*Add function pointers for all the hfi functions below*/
 	int (*core_init)(void *device);
 	int (*core_release)(void *device);
-	int (*core_pc_prep)(void *device);
 	int (*core_ping)(void *device);
 	int (*core_trigger_ssr)(void *device, enum hal_ssr_trigger_type);
 	void *(*session_init)(void *device, void *session_id,
@@ -1405,8 +1404,8 @@ struct hfi_device {
 	int (*get_stride_scanline)(int color_fmt, int width,
 		int height,	int *stride, int *scanlines);
 	int (*session_clean)(void *sess);
-	int (*get_core_capabilities)(void);
-	int (*power_enable)(void *dev);
+	int (*get_core_capabilities)(void *dev);
+	int (*resume)(void *dev);
 	int (*suspend)(void *dev);
 	unsigned long (*get_core_clock_rate)(void *dev);
 	enum hal_default_properties (*get_default_properties)(void *dev);

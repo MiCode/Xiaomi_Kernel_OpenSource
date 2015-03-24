@@ -648,7 +648,8 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 			inst->capability.ltr_count =
 				session_init_done->ltr_count;
 			inst->capability.pixelprocess_capabilities =
-				call_hfi_op(hdev, get_core_capabilities);
+				call_hfi_op(hdev, get_core_capabilities,
+						hdev->hfi_device_data);
 			inst->capability.mbs_per_frame =
 				session_init_done->mbs_per_frame;
 			inst->capability.capability_set = true;
@@ -4161,7 +4162,7 @@ static inline int power_on_for_smem(struct msm_vidc_inst *inst)
 		return -EINVAL;
 	}
 	hdev = inst->core->device;
-	rc = call_hfi_op(hdev, power_enable, hdev->hfi_device_data);
+	rc = call_hfi_op(hdev, resume, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_ERR, "%s: failed to power on fw\n", __func__);
 	return rc;
