@@ -2937,13 +2937,6 @@ static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	if (mutex_is_locked(&tomtom->resmgr.codec_bg_clk_lock)) {
-		dev_err(codec->dev, "%s: BG_CLK already acquired\n",
-			__func__);
-		ret = -EINVAL;
-		goto done;
-	}
-
 	if (!tomtom->codec_ext_clk_en_cb) {
 		dev_err(codec->dev,
 			"%s: Invalid ext_clk_callback\n",
