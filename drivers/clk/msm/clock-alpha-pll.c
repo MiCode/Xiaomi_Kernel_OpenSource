@@ -37,6 +37,7 @@
 #define OUTPUT_REG(pll) (*pll->base + pll->offset + 0x10)
 #define VOTE_REG(pll) (*pll->base + pll->fsm_reg_offset)
 #define USER_CTL_LO_REG(pll) (*pll->base + pll->offset + 0x10)
+#define CONFIG_CTL_REG(pll) (*pll->base + pll->offset + 0x18)
 
 #define PLL_BYPASSNL 0x2
 #define PLL_RESET_N  0x4
@@ -450,6 +451,9 @@ void __init_alpha_pll(struct clk *c)
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
 	u32 output_en, userval;
+
+	if (pll->config_ctl_val)
+		writel_relaxed(pll->config_ctl_val, CONFIG_CTL_REG(pll));
 
 	if (masks->output_mask && pll->enable_config) {
 		output_en = readl_relaxed(OUTPUT_REG(pll));

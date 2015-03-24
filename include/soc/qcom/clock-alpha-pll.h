@@ -52,6 +52,7 @@ struct alpha_pll_clk {
 
 	u32 enable_config;	/* bitmask of outputs to be enabled */
 	u32 post_div_config;	/* masked post divider setting */
+	u32 config_ctl_val;	/* config register init value */
 
 	struct alpha_pll_vco_tbl *vco_tbl;
 	u32 num_vco;
