@@ -28,6 +28,8 @@ Optional properties:
   - vdd-wlan-io-supply: phandle to the 1.8V IO regulator for QCA6174
   - vdd-wlan-xtal-supply: phandle to the 1.8V XTAL regulator for QCA6174
   - vdd-wlan-sp2t-supply: phandle to the 2.7V SP2T regulator for QCA6174
+  - qcom,wlan-smmu-iova-address: I/O virtual address range as <start length>
+    format to be used for allocations associated between WLAN/PCIe and SMMU
   - qcom,wlan-ramdump-dynamic: To enable CNSS RAMDUMP collection
     by providing the size of CNSS DUMP
   - reg: Memory regions defined as starting address and size
@@ -49,4 +51,5 @@ Example:
         pinctrl-names = "default";
         pinctrl-0 = <&cnss_default>;
         qcom,wlan-rc-num = <0>;
+        qcom,wlan-smmu-iova-address = <0 0x10000000>;
     };

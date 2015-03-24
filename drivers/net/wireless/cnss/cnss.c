@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#include <asm/dma-iommu.h>
+#include <linux/iommu.h>
 #include <linux/export.h>
 #include <linux/err.h>
 #include <linux/of.h>
@@ -226,6 +228,9 @@ static struct cnss_data {
 	struct cnss_wlan_driver *driver;
 	struct pci_dev *pdev;
 	const struct pci_device_id *id;
+	struct dma_iommu_mapping *smmu_mapping;
+	dma_addr_t smmu_iova_start;
+	size_t smmu_iova_len;
 	struct cnss_wlan_vreg_info vreg_info;
 	struct cnss_wlan_gpio_info gpio_info;
 	bool pcie_link_state;
@@ -1214,6 +1219,56 @@ static int cnss_wlan_is_codeswap_supported(u16 revision)
 	}
 }
 
+static int cnss_smmu_init(struct device *dev)
+{
+	struct dma_iommu_mapping *mapping;
+	int order = 0;
+	int disable_htw = 1;
+	int ret;
+
+	mapping = arm_iommu_create_mapping(&platform_bus_type,
+					   penv->smmu_iova_start,
+					   penv->smmu_iova_len,
+					   order);
+	if (IS_ERR(mapping)) {
+		pr_err("%s: create mapping failed, err = %d\n", __func__, ret);
+		ret = PTR_ERR(mapping);
+		goto map_fail;
+	}
+
+	ret = iommu_domain_set_attr(mapping->domain,
+			      DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+			      &disable_htw);
+	if (ret) {
+		pr_err("%s: set attributes failed, err = %d\n", __func__, ret);
+		goto set_attr_fail;
+	}
+
+	ret = arm_iommu_attach_device(dev, mapping);
+	if (ret) {
+		pr_err("%s: attach device failed, err = %d\n", __func__, ret);
+		goto attach_fail;
+	}
+
+	penv->smmu_mapping = mapping;
+
+	return ret;
+
+attach_fail:
+set_attr_fail:
+	arm_iommu_release_mapping(mapping);
+map_fail:
+	return ret;
+}
+
+static void cnss_smmu_remove(struct device *dev)
+{
+	arm_iommu_detach_device(dev);
+	arm_iommu_release_mapping(penv->smmu_mapping);
+
+	penv->smmu_mapping = NULL;
+}
+
 static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 			       const struct pci_device_id *id)
 {
@@ -1229,6 +1284,15 @@ static int cnss_wlan_pci_probe(struct pci_dev *pdev,
 	penv->id = id;
 	penv->fw_available = false;
 	penv->device_id = pdev->device;
+
+	if (penv->smmu_iova_len) {
+		ret = cnss_smmu_init(&pdev->dev);
+		if (ret) {
+			pr_err("%s: SMMU init failed, err = %d\n",
+				__func__, ret);
+			goto smmu_init_fail;
+		}
+	}
 
 	if (penv->pci_register_again) {
 		pr_debug("%s: PCI re-registration complete\n", __func__);
@@ -1323,6 +1387,7 @@ end_dma_alloc:
 	dma_free_coherent(dev, EVICT_BIN_MAX_SIZE, cpu_addr, dma_handle);
 err_unknown:
 err_pcie_suspend:
+smmu_init_fail:
 	return ret;
 }
 
@@ -1335,6 +1400,9 @@ static void cnss_wlan_pci_remove(struct pci_dev *pdev)
 
 	dev = &penv->pldev->dev;
 	device_remove_file(dev, &dev_attr_wlan_setup);
+
+	if (penv->smmu_mapping)
+		cnss_smmu_remove(&pdev->dev);
 }
 
 static int cnss_wlan_pci_suspend(struct pci_dev *pdev, pm_message_t state)
@@ -2394,6 +2462,7 @@ static int cnss_probe(struct platform_device *pdev)
 	struct msm_dump_entry dump_entry;
 	struct resource *res;
 	u32 ramdump_size = 0;
+	u32 smmu_iova_address[2];
 
 	if (penv)
 		return -ENODEV;
@@ -2537,6 +2606,13 @@ skip_ramdump:
 			pr_err("%s: Register notifier Failed\n", __func__);
 			goto err_notif_modem;
 		}
+	}
+
+	if (of_property_read_u32_array(dev->of_node,
+				       "qcom,wlan-smmu-iova-address",
+				       smmu_iova_address, 2) == 0) {
+		penv->smmu_iova_start = smmu_iova_address[0];
+		penv->smmu_iova_len = smmu_iova_address[1];
 	}
 
 	ret = pci_register_driver(&cnss_wlan_pci_driver);
