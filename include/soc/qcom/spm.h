@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,17 +95,19 @@ static inline void msm_spm_dump_regs(unsigned int cpu)
 	return;
 }
 
-int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
+static inline int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
 		unsigned int mode, bool notify_rpm)
 {
 	return -ENODEV;
 }
-struct msm_spm_device *msm_spm_get_device_by_name(const char *name)
+
+static inline struct msm_spm_device *msm_spm_get_device_by_name
+						(const char *name)
 {
 	return NULL;
 }
 
-bool msm_spm_is_mode_avail(unsigned int mode)
+static inline bool msm_spm_is_mode_avail(unsigned int mode)
 {
 	return false;
 }
