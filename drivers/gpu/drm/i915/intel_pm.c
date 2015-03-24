@@ -8150,10 +8150,12 @@ void program_pfi_credits(struct drm_i915_private *dev_priv, bool flag)
 	} else {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
 			val |= PFI_CREDITS_12;
+
+			/* Disable before enabling */
 			I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE);
 			I915_WRITE(GCI_CONTROL, val);
+		} else
 			DRM_ERROR("cd clk < cz clk");
-		}
 	}
 }
 

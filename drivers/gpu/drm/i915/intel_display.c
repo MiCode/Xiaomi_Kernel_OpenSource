@@ -5260,7 +5260,7 @@ int valleyview_cur_cdclk(struct drm_i915_private *dev_priv)
 static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 				 int max_pixclk)
 {
-	int new_cdclk, cur_cdclk, czclk;
+	int new_cdclk;
 	/*
 	 * Really only a few cases to deal with, as only 4 CDclks are supported:
 	 *   200MHz
@@ -5277,17 +5277,6 @@ static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 	else
 		new_cdclk = 266;
 	/* Looks like the 200MHz CDclk freq doesn't work on some configs */
-
-	if (IS_CHERRYVIEW(dev_priv->dev)) {
-		/*
-		 * The existing CHT systems can work only when
-		 * CDclk freq is equal to OR higher than CZclk.
-		 * freq. So, cap the CDclk freq, if required.
-		 */
-		intel_get_cd_cz_clk(dev_priv, &cur_cdclk, &czclk);
-		if (new_cdclk < czclk)
-			new_cdclk = czclk;
-	}
 
 	return new_cdclk;
 }
@@ -5336,6 +5325,13 @@ static void valleyview_modeset_global_resources(struct drm_device *dev)
 			cherryview_set_cdclk(dev, req_cdclk);
 		else
 			valleyview_set_cdclk(dev, req_cdclk);
+
+		/*
+		 * The PFI credits has to be programmed after
+		 * the cd_clk change, else we were facing a display
+		 * blank in MIPI
+		 */
+		program_pfi_credits(dev_priv, true);
 	}
 	modeset_update_crtc_power_domains(dev);
 }
@@ -12235,12 +12231,6 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			mutex_unlock(&dev_priv->rps.hw_lock);
 		}
 
-	/* DO it only once */
-	if (IS_VALLEYVIEW(dev))
-		if (dev_priv->is_first_modeset) {
-			program_pfi_credits(dev_priv, true);
-			valleyview_update_wm_pm5(crtc);
-		}
 
 	/* crtc->mode is already used by the ->mode_set callbacks, hence we need
 	 * to set it here already despite that we pass it down the callchain.
@@ -12271,12 +12261,13 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 	}
 
 	/* DO it only once */
-	if (IS_VALLEYVIEW(dev))
-		if (dev_priv->is_first_modeset) {
-			/* This will drop reference taken in i915_driver_load */
-			intel_runtime_pm_put(dev_priv);
-			dev_priv->is_first_modeset = false;
-		}
+	if (IS_VALLEYVIEW(dev) && dev_priv->is_first_modeset) {
+		valleyview_update_wm_pm5(crtc);
+
+		/* This will drop reference taken in i915_driver_load */
+		intel_runtime_pm_put(dev_priv);
+		dev_priv->is_first_modeset = false;
+	}
 
 	/* Set up the DPLL and any encoders state that needs to adjust or depend
 	 * on the DPLL.
