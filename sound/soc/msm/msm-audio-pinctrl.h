@@ -13,8 +13,17 @@
 #ifndef __MSM_AUDIO_PINCTRL_H
 #define __MSM_AUDIO_PINCTRL_H
 
+enum pinctrl_client {
+	CLIENT_WCD_INT,
+	CLIENT_WCD_EXT,
+	CLIENT_WSA_BONGO_1,
+	CLIENT_WSA_BONGO_2,
+	MAX_PINCTRL_CLIENT,
+};
+
+
 /* finds the index for the gpio set in the dtsi file */
-int msm_get_gpioset_index(char *keyword);
+int msm_get_gpioset_index(enum pinctrl_client client, char *keyword);
 
 /*
  * this function reads the following from dtsi file
@@ -26,10 +35,10 @@ int msm_get_gpioset_index(char *keyword);
  * 1. problem reading from dtsi file
  * 2. memory allocation failure
  */
-int msm_gpioset_initialize(struct platform_device *pdev);
+int msm_gpioset_initialize(enum pinctrl_client client, struct device *dev);
 
-int msm_gpioset_activate(char *keyword);
+int msm_gpioset_activate(enum pinctrl_client client, char *keyword);
 
-int msm_gpioset_suspend(char *keyword);
+int msm_gpioset_suspend(enum pinctrl_client client, char *keyword);
 
 #endif /* __MSM_AUDIO_PINCTRL_H */
