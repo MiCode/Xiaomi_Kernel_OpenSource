@@ -97,6 +97,8 @@ struct mdss_mdp_prefill_params {
 	bool is_tile;
 	bool is_hflip;
 	bool is_cmd;
+	bool is_ubwc;
+	bool is_nv12;
 };
 
 static inline bool mdss_mdp_perf_is_caf(struct mdss_mdp_pipe *pipe)
@@ -165,6 +167,10 @@ static inline u32 mdss_mdp_align_latency_buf_bytes(
  * @bpp - Bytes per pixel of source rectangle
  * @use_latency_buf_percentage - use an extra percentage for
  *				the latency bytes calculation.
+ * @smp_bytes - size of the smp for alignment
+ * @is_ubwc - true if UBWC is enabled
+ * @is_nv12 - true if NV12 format is used
+ * @is_hflip - true if HFLIP is enabled
  *
  * Return:
  * The amount of bytes to consider for the latency lines, where:
@@ -182,18 +188,29 @@ static inline u32 mdss_mdp_align_latency_buf_bytes(
  */
 u32 mdss_mdp_calc_latency_buf_bytes(bool is_yuv, bool is_bwc,
 	bool is_tile, u32 src_w, u32 bpp, bool use_latency_buf_percentage,
-	u32 smp_bytes)
+	u32 smp_bytes, bool is_ubwc, bool is_nv12, bool is_hflip)
 {
-	u32 latency_lines, latency_buf_bytes;
+	u32 latency_lines = 0, latency_buf_bytes;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
+	if (is_hflip && !mdata->hflip_buffer_reused)
+		latency_lines = 1;
+
 	if (is_yuv) {
-		if (is_bwc) {
-			latency_lines = 4;
-			latency_buf_bytes = src_w * bpp *
-				latency_lines;
+		if (is_ubwc) {
+			if (is_nv12)
+				latency_lines += 8;
+			else
+				latency_lines += 4;
+			latency_buf_bytes = src_w * bpp * latency_lines;
+		} else if (is_bwc) {
+			latency_lines += 4;
+			latency_buf_bytes = src_w * bpp * latency_lines;
 		} else {
-			latency_lines = 2;
+			if (!mdata->hflip_buffer_reused)
+				latency_lines += 1;
+			else
+				latency_lines = 2;
 			/* multiply * 2 for the two YUV planes */
 			latency_buf_bytes = mdss_mdp_align_latency_buf_bytes(
 				src_w * bpp * latency_lines,
@@ -201,16 +218,20 @@ u32 mdss_mdp_calc_latency_buf_bytes(bool is_yuv, bool is_bwc,
 				mdata->latency_buff_per : 0, smp_bytes) * 2;
 		}
 	} else {
-		if (is_tile) {
-			latency_lines = 8;
-			latency_buf_bytes = src_w * bpp *
-				latency_lines;
+		if (is_ubwc) {
+			latency_lines += 4;
+			latency_buf_bytes = src_w * bpp * latency_lines;
+		} else if (is_tile) {
+			latency_lines += 8;
+			latency_buf_bytes = src_w * bpp * latency_lines;
 		} else if (is_bwc) {
-			latency_lines = 4;
-			latency_buf_bytes = src_w * bpp *
-				latency_lines;
+			latency_lines += 4;
+			latency_buf_bytes = src_w * bpp * latency_lines;
 		} else {
-			latency_lines = 2;
+			if (!mdata->hflip_buffer_reused)
+				latency_lines += 1;
+			else
+				latency_lines = 2;
 			latency_buf_bytes = mdss_mdp_align_latency_buf_bytes(
 				src_w * bpp * latency_lines,
 				use_latency_buf_percentage ?
@@ -249,7 +270,8 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_video(struct mdss_mdp_prefill_params
 
 	latency_buf_bytes = mdss_mdp_calc_latency_buf_bytes(params->is_yuv,
 		params->is_bwc, params->is_tile, params->src_w, params->bpp,
-		true, params->smp_bytes);
+		true, params->smp_bytes, params->is_ubwc, params->is_nv12,
+		params->is_hflip);
 	prefill_bytes += latency_buf_bytes;
 	pr_debug("latency_buf_bytes bw_calc=%d actual=%d\n", latency_buf_bytes,
 		params->smp_bytes);
@@ -261,10 +283,14 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_video(struct mdss_mdp_prefill_params
 
 	prefill_bytes += y_buf_bytes + y_scaler_bytes;
 
-	post_scaler_bytes = prefill->post_scaler_pixels * params->bpp;
-	post_scaler_bytes = mdss_mdp_calc_scaling_w_h(post_scaler_bytes,
-		params->src_h, params->dst_h, params->src_w, params->dst_w);
-	prefill_bytes += post_scaler_bytes;
+	if (mdata->apply_post_scale_bytes || (params->src_h != params->dst_h) ||
+			(params->src_w != params->dst_w)) {
+		post_scaler_bytes = prefill->post_scaler_pixels * params->bpp;
+		post_scaler_bytes = mdss_mdp_calc_scaling_w_h(post_scaler_bytes,
+			params->src_h, params->dst_h, params->src_w,
+			params->dst_w);
+		prefill_bytes += post_scaler_bytes;
+	}
 
 	if (params->xres)
 		pp_lines = DIV_ROUND_UP(prefill->pp_pixels, params->xres);
@@ -311,12 +337,18 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
 	/* 1st line if fbc is not enabled and 2nd line if fbc is enabled */
 	if (((params->dst_y == 0) && !params->is_fbc) ||
 		((params->dst_y <= 1) && params->is_fbc)) {
-		if (params->is_bwc || params->is_tile)
+		if (params->is_ubwc) {
+			if (params->is_nv12)
+				latency_lines = 8;
+			else
+				latency_lines = 4;
+		} else if (params->is_bwc || params->is_tile) {
 			latency_lines = 4;
-		else if (!params->is_caf && params->is_hflip)
+		} else if (params->is_hflip) {
 			latency_lines = 1;
-		else
+		} else {
 			latency_lines = 0;
+		}
 		latency_buf_bytes = params->src_w * params->bpp * latency_lines;
 		prefill_bytes += latency_buf_bytes;
 
@@ -334,18 +366,25 @@ static u32 mdss_mdp_perf_calc_pipe_prefill_cmd(struct mdss_mdp_prefill_params
 
 		latency_buf_bytes = mdss_mdp_calc_latency_buf_bytes(
 			params->is_yuv, params->is_bwc, params->is_tile,
-			params->src_w, params->bpp, true, params->smp_bytes);
+			params->src_w, params->bpp, true, params->smp_bytes,
+			params->is_ubwc, params->is_nv12, params->is_hflip);
 		prefill_bytes += latency_buf_bytes;
 
 		if (params->is_yuv)
 			y_buf_bytes = prefill->y_buf_bytes;
 		prefill_bytes += y_buf_bytes;
 
-		post_scaler_bytes = prefill->post_scaler_pixels * params->bpp;
-		post_scaler_bytes = mdss_mdp_calc_scaling_w_h(post_scaler_bytes,
-			params->src_h, params->dst_h, params->src_w,
-			params->dst_w);
-		prefill_bytes += post_scaler_bytes;
+		if (mdata->apply_post_scale_bytes ||
+				(params->src_h != params->dst_h) ||
+				(params->src_w != params->dst_w)) {
+			post_scaler_bytes = prefill->post_scaler_pixels *
+				params->bpp;
+			post_scaler_bytes = mdss_mdp_calc_scaling_w_h(
+				post_scaler_bytes, params->src_h,
+				params->dst_h, params->src_w,
+				params->dst_w);
+			prefill_bytes += post_scaler_bytes;
+		}
 	}
 
 	pr_debug("ot=%d bwc=%d smp=%d y_buf=%d fbc=%d\n", ot_bytes,
@@ -364,10 +403,15 @@ u32 mdss_mdp_perf_calc_pipe_prefill_single(struct mdss_mdp_prefill_params
 	u32 y_scaler_bytes;
 	u32 fbc_cmd_lines = 0, fbc_cmd_bytes = 0;
 
-	if (params->is_bwc || params->is_tile)
+	if (params->is_ubwc) {
+		if (params->is_nv12)
+			latency_lines = 8;
+		else
+			latency_lines = 4;
+	} else if (params->is_bwc || params->is_tile)
 		/* can start processing after receiving 4 lines */
 		latency_lines = 4;
-	else if (!params->is_caf && params->is_hflip)
+	else if (params->is_hflip)
 		/* need oneline before reading backwards */
 		latency_lines = 1;
 	else
@@ -730,6 +774,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	prefill_params.is_hflip = pipe->flags & MDP_FLIP_LR;
 	prefill_params.is_cmd = !mixer->ctl->is_video_mode;
 	prefill_params.pnum = pipe->num;
+	prefill_params.is_bwc = mdss_mdp_is_ubwc_format(pipe->src_fmt);
+	prefill_params.is_nv12 = mdss_mdp_is_nv12_format(pipe->src_fmt);
 
 	mdss_mdp_get_bw_vote_mode(mixer, mdata->mdp_rev, perf, flags);
 

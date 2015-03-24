@@ -296,6 +296,8 @@ struct mdss_data_type {
 	struct mdss_fudge_factor clk_factor;
 	struct mdss_fudge_factor per_pipe_ib_factor;
 	u32 ubwc_comp_ratio_factors_row;
+	bool apply_post_scale_bytes;
+	bool hflip_buffer_reused;
 
 	u32 disable_prefill;
 	u32 *clock_levels;

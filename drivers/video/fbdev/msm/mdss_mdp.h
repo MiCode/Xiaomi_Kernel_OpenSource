@@ -886,6 +886,12 @@ static inline bool mdss_mdp_is_linear_format(struct mdss_mdp_format_params *fmt)
 	return fmt && (fmt->fetch_mode == MDSS_MDP_FETCH_LINEAR);
 }
 
+static inline bool mdss_mdp_is_nv12_format(struct mdss_mdp_format_params *fmt)
+{
+	return fmt && (fmt->chroma_sample == MDSS_MDP_CHROMA_420) &&
+		(fmt->fetch_planes == MDSS_MDP_PLANE_PSEUDO_PLANAR);
+}
+
 static inline int mdss_mdp_is_ubwc_supported(struct mdss_data_type *mdata)
 {
 	return IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_107);
@@ -999,7 +1005,7 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	u32 flags);
 u32 mdss_mdp_calc_latency_buf_bytes(bool is_yuv, bool is_bwc,
 	bool is_tile, u32 src_w, u32 bpp, bool use_latency_buf_percentage,
-	u32 smp_bytes);
+	u32 smp_bytes, bool is_ubwc, bool is_nv12, bool is_hflip);
 u32 mdss_mdp_get_mdp_clk_rate(struct mdss_data_type *mdata);
 int mdss_mdp_ctl_notify(struct mdss_mdp_ctl *ctl, int event);
 void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,

@@ -405,7 +405,10 @@ static void mdss_mdp_smp_set_wm_levels(struct mdss_mdp_pipe *pipe, int mb_cnt)
 
 	latency_bytes = mdss_mdp_calc_latency_buf_bytes(pipe->src_fmt->is_yuv,
 		pipe->bwc_mode, mdss_mdp_is_tile_format(pipe->src_fmt),
-		pipe->src.w, pipe->src_fmt->bpp, false, useable_space);
+		pipe->src.w, pipe->src_fmt->bpp, false, useable_space,
+		mdss_mdp_is_ubwc_format(pipe->src_fmt),
+		mdss_mdp_is_nv12_format(pipe->src_fmt),
+		(pipe->flags & MDP_FLIP_LR));
 
 	if ((pipe->flags & MDP_FLIP_LR) &&
 		!mdss_mdp_is_tile_format(pipe->src_fmt)) {
