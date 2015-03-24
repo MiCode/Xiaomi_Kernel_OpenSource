@@ -1264,8 +1264,6 @@ static int adreno_init(struct kgsl_device *device)
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
 
-	gpudev->microcode_read(adreno_dev);
-
 	adreno_perfcounter_init(adreno_dev);
 	adreno_fault_detect_init(adreno_dev);
 
