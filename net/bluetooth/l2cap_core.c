@@ -3624,6 +3624,8 @@ void __l2cap_connect_rsp_defer(struct l2cap_chan *chan)
 	else
 		rsp_code = L2CAP_CONN_RSP;
 
+	l2cap_chan_check_security(chan);
+
 	BT_DBG("chan %p rsp_code %u", chan, rsp_code);
 
 	l2cap_send_cmd(conn, chan->ident, rsp_code, sizeof(rsp), &rsp);
