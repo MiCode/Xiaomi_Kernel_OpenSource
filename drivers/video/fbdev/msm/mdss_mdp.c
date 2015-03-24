@@ -1042,6 +1042,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map);
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
 		break;
 	case MDSS_MDP_HW_REV_105:
@@ -2732,10 +2733,6 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev)
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,mdss-default-ot-wr-limit", &data);
 	mdata->default_ot_wr_limit = (!rc ? data : 0);
-
-	rc = of_property_read_u32(pdev->dev.of_node,
-		"qcom,mdss-default-pipe-qos-lut", &data);
-	mdata->default_pipe_qos_lut = (!rc ? data : 0);
 
 	mdata->has_non_scalar_rgb = of_property_read_bool(pdev->dev.of_node,
 		"qcom,mdss-has-non-scalar-rgb");
