@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 int msm_unclamp_secondary_arm_cpu_sim(unsigned int cpu);
 int msm_unclamp_secondary_arm_cpu(unsigned int cpu);
 int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu);
+int msmterbium_unclamp_secondary_arm_cpu(unsigned int cpu);
 int msm8994_cpu_ldo_config(unsigned int cpu);
 #else
 static inline int msm_unclamp_secondary_arm_cpu_sim(unsigned int cpu)
@@ -28,6 +29,10 @@ static inline int msm_unclamp_secondary_arm_cpu(unsigned int cpu)
 	return 0;
 }
 static inline int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
+{
+	return 0;
+}
+static inline int msmterbium_unclamp_secondary_arm_cpu(unsigned int cpu)
 {
 	return 0;
 }

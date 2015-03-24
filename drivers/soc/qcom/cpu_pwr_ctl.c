@@ -29,6 +29,7 @@
 
 #include <asm/barrier.h>
 #include <asm/cacheflush.h>
+#include <asm/smp_plat.h>
 
 /* CPU power domain register offsets */
 #define CPU_PWR_CTL		0x4
@@ -60,6 +61,77 @@ struct msm_l2ccc_of_info {
 	u32 l2_power_on_mask;
 };
 
+
+static int power_on_l2_msmterbium(struct device_node *l2ccc_node, u32 pon_mask,
+				int cpu)
+{
+	u32 pon_status;
+	void __iomem *l2_base;
+
+	l2_base = of_iomap(l2ccc_node, 0);
+	if (!l2_base)
+		return -ENOMEM;
+
+	/* Skip power-on sequence if l2 cache is already powered up */
+	pon_status = (__raw_readl(l2_base + L2_PWR_STATUS) & pon_mask)
+				== pon_mask;
+	if (pon_status) {
+		iounmap(l2_base);
+		return 0;
+	}
+
+	/* Close Few of the head-switches for L2SCU logic */
+	writel_relaxed(0x10F700, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Close Rest of the head-switches for L2SCU logic */
+	writel_relaxed(0x410F700, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Assert PRESETDBG */
+	writel_relaxed(0x400000, l2_base + L2_PWR_CTL_OVERRIDE);
+	mb();
+	udelay(2);
+
+	/* De-assert L2/SCU memory Clamp */
+	writel_relaxed(0x4103700, l2_base + L2_PWR_CTL);
+	/* Assert L2 memory slp_nret_n */
+	writel_relaxed(0x4103703, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(4);
+	/* Assert L2 memory slp_ret_n */
+	writel_relaxed(0x4101703, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(4);
+
+	/* Enable clocks via SW_CLK_EN */
+	writel_relaxed(0x01, l2_base + L2_CORE_CBCR);
+
+	/* De-assert L2/SCU logic clamp */
+	writel_relaxed(0x4101603, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert PRESETDBG */
+	writel_relaxed(0x0, l2_base + L2_PWR_CTL_OVERRIDE);
+
+	/* De-assert L2/SCU Logic reset */
+	writel_relaxed(0x4100203, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(54);
+
+	/* Turn on the PMIC_APC */
+	writel_relaxed(0x14100203, l2_base + L2_PWR_CTL);
+
+	/* Set H/W clock control for the cluster CBC block */
+	writel_relaxed(0x03, l2_base + L2_CORE_CBCR);
+	mb();
+	iounmap(l2_base);
+
+	return 0;
+}
 
 static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
 				int cpu)
@@ -265,6 +337,12 @@ static const struct msm_l2ccc_of_info l2ccc_info[] = {
 		.l2_power_on = power_on_l2_msm8916,
 		.l2_power_on_mask = BIT(9),
 	},
+	{
+		.compat = "qcom,terbium-l2ccc",
+		.l2_power_on = power_on_l2_msmterbium,
+		.l2_power_on_mask = BIT(9) | BIT(28),
+	},
+
 };
 
 static int power_on_l2_cache(struct device_node *l2ccc_node, int cpu)
@@ -476,6 +554,151 @@ int msm8994_unclamp_secondary_arm_cpu(unsigned int cpu)
 out_acc_reg:
 	iounmap(ldo_bhs_reg);
 out_bhs_reg:
+	of_node_put(l2ccc_node);
+out_l2ccc:
+	of_node_put(l2_node);
+out_l2:
+	of_node_put(acc_node);
+out_acc:
+	of_node_put(cpu_node);
+
+	return ret;
+}
+
+static inline void msmterbium_unclamp_perf_cluster_cpu(void __iomem *reg)
+{
+
+	/* Assert head switch enable few */
+	writel_relaxed(0x00000001, reg + CPU_PWR_GATE_CTL);
+	mb();
+	udelay(2);
+
+	/* Assert head switch enable rest */
+	writel_relaxed(0x00000003, reg + CPU_PWR_GATE_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert coremem clamp */
+	writel_relaxed(0x00000079, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Close coremem array gdhs */
+	writel_relaxed(0x0000007D, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Ungate clock */
+	writel_relaxed(0x0000003D, reg + CPU_PWR_CTL);
+	mb();
+	/* De-assert clamp */
+	writel_relaxed(0x0000003C, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Deassert Core-n reset */
+	writel_relaxed(0x0000000C, reg + CPU_PWR_CTL);
+	mb();
+
+	/* Assert PWRDUP */
+	writel_relaxed(0x0000008C, reg + CPU_PWR_CTL);
+	mb();
+}
+
+static inline void msmterbium_unclamp_power_cluster_cpu(void __iomem *reg)
+{
+	/* Deassert CPU in sleep state */
+	writel_relaxed(0x00000033, reg + CPU_PWR_CTL);
+	mb();
+
+	/* Program skew between en_few and en_rest to 16 XO clk cycles,
+	close Core logic head switch*/
+	writel_relaxed(0x10000001, reg + CPU_PWR_GATE_CTL);
+	mb();
+	udelay(2);
+
+	/* De-assert coremem clamp */
+	writel_relaxed(0x00000031, reg + CPU_PWR_CTL);
+	mb();
+
+	/* Assert Core memory slp_nret_n */
+	writel_relaxed(0x00000039, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Assert Core memory slp_ret_n */
+	writel_relaxed(0x00000239, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Deassert Clamp */
+	writel_relaxed(0x00000238, reg + CPU_PWR_CTL);
+	mb();
+	udelay(2);
+
+	/* Deassert Core0 reset */
+	writel_relaxed(0x00000208, reg + CPU_PWR_CTL);
+	mb();
+
+	/* Assert PWRDUP; */
+	writel_relaxed(0x00000288, reg + CPU_PWR_CTL);
+	mb();
+}
+
+int msmterbium_unclamp_secondary_arm_cpu(unsigned int cpu)
+{
+
+	int ret = 0;
+	struct device_node *cpu_node, *acc_node, *l2_node, *l2ccc_node;
+	void __iomem *reg;
+	u32 mpidr = cpu_logical_map(cpu);
+
+	cpu_node = of_get_cpu_node(cpu, NULL);
+	if (!cpu_node)
+		return -ENODEV;
+
+	acc_node = of_parse_phandle(cpu_node, "qcom,acc", 0);
+	if (!acc_node) {
+			ret = -ENODEV;
+			goto out_acc;
+	}
+
+	l2_node = of_parse_phandle(cpu_node, "next-level-cache", 0);
+	if (!l2_node) {
+		ret = -ENODEV;
+		goto out_l2;
+	}
+
+	l2ccc_node = of_parse_phandle(l2_node, "power-domain", 0);
+	if (!l2ccc_node) {
+		ret = -ENODEV;
+		goto out_l2ccc;
+	}
+
+	/*
+	* Ensure L2-cache of the CPU is powered on before
+	* unclamping cpu power rails.
+	*/
+	ret = power_on_l2_cache(l2ccc_node, cpu);
+	if (ret) {
+		pr_err("L2 cache power up failed for CPU%d\n", cpu);
+		goto out_acc_reg;
+	}
+
+	reg = of_iomap(acc_node, 0);
+	if (!reg) {
+		ret = -ENOMEM;
+		goto out_acc_reg;
+	}
+
+	if (MPIDR_AFFINITY_LEVEL(mpidr, 1))
+		msmterbium_unclamp_perf_cluster_cpu(reg);
+	else
+		msmterbium_unclamp_power_cluster_cpu(reg);
+
+	/* Secondary CPU-N is now alive */
+	iounmap(reg);
+out_acc_reg:
 	of_node_put(l2ccc_node);
 out_l2ccc:
 	of_node_put(l2_node);
