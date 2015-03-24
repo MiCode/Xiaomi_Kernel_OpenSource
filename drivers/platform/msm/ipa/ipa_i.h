@@ -1307,9 +1307,11 @@ struct ipa_mem_partition {
 
 struct ipa_controller {
 	struct ipa_mem_partition mem_partition;
-	u32 ipa_clk_rate_hi;
-	u32 ipa_clk_rate_lo;
-	u32 clock_scaling_bw_threshold;
+	u32 ipa_clk_rate_turbo;
+	u32 ipa_clk_rate_nominal;
+	u32 ipa_clk_rate_svs;
+	u32 clock_scaling_bw_threshold_turbo;
+	u32 clock_scaling_bw_threshold_nominal;
 	u32 ipa_reg_base_ofst;
 	u32 max_holb_tmr_val;
 	void (*ipa_sram_read_settings)(void);

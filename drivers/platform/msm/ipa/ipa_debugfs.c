@@ -1667,11 +1667,19 @@ void ipa_debugfs_init(void)
 		goto fail;
 	}
 
-	file = debugfs_create_u32("clock_scaling_bw_threshold_mbps",
+	file = debugfs_create_u32("clock_scaling_bw_threshold_nominal_mbps",
 		read_write_mode, dent,
-		&ipa_ctx->ctrl->clock_scaling_bw_threshold);
+		&ipa_ctx->ctrl->clock_scaling_bw_threshold_nominal);
 	if (!file) {
-		IPAERR("could not create clock_scaling_bw_threshold_mbps\n");
+		IPAERR("could not create bw_threshold_nominal_mbps\n");
+		goto fail;
+	}
+
+	file = debugfs_create_u32("clock_scaling_bw_threshold_turbo_mbps",
+		read_write_mode, dent,
+		&ipa_ctx->ctrl->clock_scaling_bw_threshold_turbo);
+	if (!file) {
+		IPAERR("could not create bw_threshold_turbo_mbps\n");
 		goto fail;
 	}
 
