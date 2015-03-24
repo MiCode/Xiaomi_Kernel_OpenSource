@@ -44,6 +44,11 @@ struct cnss_fw_files {
 	char evicted_data[CNSS_MAX_FILE_NAME];
 };
 
+struct cnss_wlan_runtime_ops {
+	int (*runtime_suspend)(struct pci_dev *pdev);
+	int (*runtime_resume)(struct pci_dev *pdev);
+};
+
 struct cnss_wlan_driver {
 	char *name;
 	int  (*probe)(struct pci_dev *pdev, const struct pci_device_id *id);
@@ -54,6 +59,7 @@ struct cnss_wlan_driver {
 	int  (*suspend)(struct pci_dev *pdev, pm_message_t state);
 	int  (*resume)(struct pci_dev *pdev);
 	void (*modem_status)(struct pci_dev *, int state);
+	struct cnss_wlan_runtime_ops *runtime_ops;
 	const struct pci_device_id *id_table;
 };
 
@@ -98,8 +104,19 @@ enum cnss_driver_status {
 	CNSS_LOAD_UNLOAD
 };
 
-extern int cnss_get_fw_image(struct image_desc_info *image_desc_info);
+enum cnss_runtime_request {
+	CNSS_PM_RUNTIME_GET,
+	CNSS_PM_RUNTIME_PUT,
+	CNSS_PM_RUNTIME_MARK_LAST_BUSY,
+	CNSS_PM_RUNTIME_RESUME,
+	CNSS_PM_RUNTIME_PUT_NOIDLE,
+	CNSS_PM_REQUEST_RESUME,
+	CNSS_PM_RUNTIME_PUT_AUTO,
+};
 
+extern int cnss_get_fw_image(struct image_desc_info *image_desc_info);
+extern void cnss_runtime_init(struct device *dev, int auto_delay);
+extern void cnss_runtime_exit(struct device *dev);
 extern void cnss_device_crashed(void);
 extern void cnss_device_self_recovery(void);
 extern int cnss_get_ramdump_mem(unsigned long *address, unsigned long *size);
@@ -170,4 +187,8 @@ extern int cnss_auto_resume(void);
 extern int cnss_prevent_auto_suspend(const char *caller_func);
 extern int cnss_allow_auto_suspend(const char *caller_func);
 extern int cnss_is_auto_suspend_allowed(const char *caller_func);
+
+extern int cnss_pm_runtime_request(struct device *dev, enum
+		cnss_runtime_request request);
+
 #endif /* _NET_CNSS_H_ */
