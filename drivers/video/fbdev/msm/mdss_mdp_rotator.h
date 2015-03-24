@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +68,7 @@ static inline u32 mdss_mdp_get_rotator_dst_format(u32 in_format, u32 in_rot90,
 		else
 			return in_format;
 	case MDP_Y_CBCR_H2V2_VENUS:
+	case MDP_Y_CRCB_H2V2_VENUS:
 	case MDP_Y_CBCR_H2V2:
 		if (in_rot90)
 			return MDP_Y_CRCB_H2V2;
