@@ -1559,6 +1559,14 @@ static void msm_rpm_trans_notify_state(void *handle, const void *priv,
 {
 	switch (event) {
 	case GLINK_CONNECTED:
+		glink_data->glink_handle = handle;
+
+		if (IS_ERR_OR_NULL(glink_data->glink_handle)) {
+			pr_err("glink_handle %d\n",
+					(int)PTR_ERR(glink_data->glink_handle));
+			BUG_ON(1);
+		}
+
 		/*
 		 * Do not allow clients to send data to RPM until glink
 		 * is fully open.
