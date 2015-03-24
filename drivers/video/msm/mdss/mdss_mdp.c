@@ -1029,6 +1029,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 	mdata->per_pipe_ib_factor.numer = 0;
 	mdata->per_pipe_ib_factor.denom = 0;
 	mdata->ubwc_comp_ratio_factors_row = 1;
+	mdata->apply_post_scale_bytes = true;
+	mdata->hflip_buffer_reused = true;
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_107:
@@ -1040,6 +1042,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->max_cursor_size = 128;
 		mdata->per_pipe_ib_factor.numer = 3;
 		mdata->per_pipe_ib_factor.denom = 2;
+		mdata->apply_post_scale_bytes = false;
+		mdata->hflip_buffer_reused = false;
 		set_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
