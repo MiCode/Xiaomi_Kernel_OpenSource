@@ -613,6 +613,7 @@ struct mdss_panel_info {
 	u32 lm_widths[2];
 
 	bool is_prim_panel;
+	bool is_pluggable;
 
 	/* refer sim_panel_modes enum for different modes */
 	u8 sim_panel_mode;
