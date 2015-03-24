@@ -536,7 +536,7 @@ int ufs_qcom_ice_get_status(struct ufs_qcom_host *qcom_host, int *ice_status)
 	int err = 0;
 	int stat = -EINVAL;
 
-	ice_status = 0;
+	*ice_status = 0;
 
 	dev = qcom_host->hba->dev;
 	if (!dev) {
