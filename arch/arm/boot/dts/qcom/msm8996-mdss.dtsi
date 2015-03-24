@@ -123,11 +123,11 @@
 				    <0x2706c 0x00000000>;
 
 		/* buffer parameters to calculate prefill bandwidth */
-		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
-		qcom,mdss-prefill-y-buffer-bytes = <4096>;
+		qcom,mdss-prefill-outstanding-buffer-bytes = <0>;
+		qcom,mdss-prefill-y-buffer-bytes = <0>;
 		qcom,mdss-prefill-scaler-buffer-lines-bilinear = <2>;
 		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
-		qcom,mdss-prefill-post-scaler-buffer-pixels = <2048>;
+		qcom,mdss-prefill-post-scaler-buffer-pixels = <2560>;
 		qcom,mdss-prefill-pingpong-buffer-pixels = <5120>;
 
 		qcom,mdss-pp-offsets {
