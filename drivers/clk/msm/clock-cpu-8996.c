@@ -70,8 +70,10 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C0_PLL_ALPHA        0x8
 #define C0_PLL_USER_CTL    0x10
 #define C0_PLL_CONFIG_CTL  0x18
+#define C0_PLL_CONFIG_CTL_HI 0x1C
 #define C0_PLL_STATUS      0x28
 #define C0_PLL_TEST_CTL_LO 0x20
+#define C0_PLL_TEST_CTL_HI 0x24
 
 /* Power cluster alt PLL */
 #define C0_PLLA_MODE        0x100
@@ -88,8 +90,10 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define C1_PLL_ALPHA        0x8
 #define C1_PLL_USER_CTL    0x10
 #define C1_PLL_CONFIG_CTL  0x18
+#define C1_PLL_CONFIG_CTL_HI 0x1C
 #define C1_PLL_STATUS      0x28
 #define C1_PLL_TEST_CTL_LO 0x20
+#define C1_PLL_TEST_CTL_HI 0x24
 
 /* Perf cluster alt PLL */
 #define C1_PLLA_MODE        0x100
@@ -105,8 +109,10 @@ static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
 #define CBF_PLL_ALPHA       0x10
 #define CBF_PLL_USER_CTL    0x18
 #define CBF_PLL_CONFIG_CTL  0x20
+#define CBF_PLL_CONFIG_CTL_HI 0x24
 #define CBF_PLL_STATUS      0x28
 #define CBF_PLL_TEST_CTL_LO 0x30
+#define CBF_PLL_TEST_CTL_HI 0x34
 
 #define APC_DIAG_OFFSET	0x48
 #define MUX_OFFSET	0x40
@@ -121,7 +127,13 @@ static struct pll_clk perfcl_pll = {
 	.l_reg = (void __iomem *)C1_PLL_L_VAL,
 	.alpha_reg = (void __iomem *)C1_PLL_ALPHA,
 	.config_reg = (void __iomem *)C1_PLL_USER_CTL,
+	.config_ctl_reg = (void __iomem *)C1_PLL_CONFIG_CTL,
+	.config_ctl_hi_reg = (void __iomem *)C1_PLL_CONFIG_CTL_HI,
 	.status_reg = (void __iomem *)C1_PLL_MODE,
+	.test_ctl_lo_reg = (void __iomem *)C1_PLL_TEST_CTL_LO,
+	.test_ctl_hi_reg = (void __iomem *)C1_PLL_TEST_CTL_HI,
+	.pgm_test_ctl_enable = true,
+	.init_test_ctl = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -134,6 +146,10 @@ static struct pll_clk perfcl_pll = {
 	.vals = {
 		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
+		.test_ctl_hi_val = 0x00004000,
+		.test_ctl_lo_val = 0x04000000,
+		.config_ctl_val = 0x200D4AA8,
+		.config_ctl_hi_val = 0x002,
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
@@ -174,6 +190,7 @@ static struct alpha_pll_clk perfcl_alt_pll = {
 	.num_vco = ARRAY_SIZE(alt_pll_vco_modes),
 	.enable_config = 0x9, /* Main and early outputs */
 	.post_div_config = 0x100, /* Div-2 */
+	.config_ctl_val = 0x4001051B,
 	.c = {
 		.always_on = true,
 		.parent = &alpha_xo_ao.c,
@@ -188,7 +205,13 @@ static struct pll_clk pwrcl_pll = {
 	.l_reg = (void __iomem *)C0_PLL_L_VAL,
 	.alpha_reg = (void __iomem *)C0_PLL_ALPHA,
 	.config_reg = (void __iomem *)C0_PLL_USER_CTL,
+	.config_ctl_reg = (void __iomem *)C0_PLL_CONFIG_CTL,
+	.config_ctl_hi_reg = (void __iomem *)C0_PLL_CONFIG_CTL_HI,
 	.status_reg = (void __iomem *)C0_PLL_MODE,
+	.test_ctl_lo_reg = (void __iomem *)C0_PLL_TEST_CTL_LO,
+	.test_ctl_hi_reg = (void __iomem *)C0_PLL_TEST_CTL_HI,
+	.pgm_test_ctl_enable = true,
+	.init_test_ctl = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -201,6 +224,10 @@ static struct pll_clk pwrcl_pll = {
 	.vals = {
 		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
+		.test_ctl_hi_val = 0x00004000,
+		.test_ctl_lo_val = 0x04000000,
+		.config_ctl_val = 0x200D4AA8,
+		.config_ctl_hi_val = 0x002,
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
@@ -224,6 +251,7 @@ static struct alpha_pll_clk pwrcl_alt_pll = {
 	.num_vco = ARRAY_SIZE(alt_pll_vco_modes),
 	.enable_config = 0x9, /* Main and early outputs */
 	.post_div_config = 0x100, /* Div-2 */
+	.config_ctl_val = 0x4001051B,
 	.c = {
 		.always_on = true,
 		.dbg_name = "pwrcl_alt_pll",
@@ -604,8 +632,12 @@ static struct pll_clk cbf_pll = {
 	.alpha_reg = (void __iomem *)CBF_PLL_ALPHA,
 	.config_reg = (void __iomem *)CBF_PLL_USER_CTL,
 	.config_ctl_reg = (void __iomem *)CBF_PLL_CONFIG_CTL,
+	.config_ctl_hi_reg = (void __iomem *)CBF_PLL_CONFIG_CTL_HI,
 	.status_reg = (void __iomem *)CBF_PLL_MODE,
 	.test_ctl_lo_reg = (void __iomem *)CBF_PLL_TEST_CTL_LO,
+	.test_ctl_hi_reg = (void __iomem *)CBF_PLL_TEST_CTL_HI,
+	.pgm_test_ctl_enable = true,
+	.init_test_ctl = true,
 	.masks = {
 		.pre_div_mask = BIT(12),
 		.post_div_mask = BM(9, 8),
@@ -618,8 +650,9 @@ static struct pll_clk cbf_pll = {
 	.vals = {
 		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
-		.config_ctl_val = 0x000D6968,
-		.test_ctl_lo_val = 0x00010000,
+		.test_ctl_hi_val = 0x00004000,
+		.config_ctl_val = 0x200D4AA8,
+		.config_ctl_hi_val = 0x002,
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
