@@ -13,6 +13,7 @@
 #include "msm-arm-smmu.dtsi"
 
 &jpeg_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -35,6 +36,7 @@
 };
 
 &kgsl_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -56,6 +58,7 @@
 };
 
 &vfe_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -79,6 +82,7 @@
 };
 
 &venus_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -103,6 +107,7 @@
 };
 
 &mdp_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -126,6 +131,7 @@
 };
 
 &rot_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -148,6 +154,7 @@
 };
 
 &cpp_fd_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -171,6 +178,7 @@
 };
 
 &lpass_q6_smmu {
+	status = "ok";
 	qcom,halt-and-tlb-on-atos;
 	qcom,register-save;
 	qcom,skip-init;
@@ -190,6 +198,7 @@
 };
 
 &anoc0_smmu {
+	status = "ok";
 	qcom,no-mmu-enable;
 	#global-interrupts = <1>;
 	interrupts = <0 362 0>, <0 355 0>, <0 356 0>, <0 357 0>,

@@ -14,6 +14,7 @@
 
 &soc {
 	jpeg_smmu: arm,smmu-jpeg@d80000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "JPEG";
 		reg = <0xd80000 0x10000>;
@@ -21,6 +22,7 @@
 	};
 
 	kgsl_smmu: arm,smmu-kgsl@b40000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "GPU";
 		reg = <0xb40000 0x10000>;
@@ -28,6 +30,7 @@
 	};
 
 	vfe_smmu: arm,smmu-vfe@da0000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "VFE";
 		reg = <0xda0000 0x10000>;
@@ -35,6 +38,7 @@
 	};
 
 	venus_smmu: arm,smmu-venus@d40000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "VIDEO";
 		reg = <0xd40000 0x20000>;
@@ -42,6 +46,7 @@
 	};
 
 	mdp_smmu: arm,smmu-mdp@d00000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "MDSS";
 		reg = <0xd00000 0x10000>;
@@ -49,6 +54,7 @@
 	};
 
 	rot_smmu: arm,smmu-rot@d20000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "ROT";
 		reg = <0xd20000 0x10000>;
@@ -56,6 +62,7 @@
 	};
 
 	cpp_fd_smmu: arm,smmu-cpp_fd@d60000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "CPP";
 		reg = <0xd60000 0x10000>;
@@ -63,6 +70,7 @@
 	};
 
 	lpass_q6_smmu: arm,smmu-lpass_q6@1600000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,tz-device-id = "LPASS";
 		reg = <0x1600000 0x20000>;
@@ -70,6 +78,7 @@
 	};
 
 	anoc0_smmu: arm,smmu-anoc0@1640000 {
+		status = "disabled";
 		compatible = "qcom,smmu-v2";
 		qcom,no-mmu-enable;
 		reg = <0x1640000 0x10000>;
