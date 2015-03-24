@@ -15,6 +15,8 @@ Required properties :
 	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
 	This can be left as optional if "host-only-mode" is selected in the
 	'dwc3' sub node for "DWC3-USB3 Core device".
+	"vdda33" : 3.3V analog voltage supply is applied to remove Dp & Dm pull
+	downs for proper USB charger detection by charger driver.
 
 Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
@@ -71,6 +73,7 @@ Example MSM USB3.0 controller device node :
 		interrupt-names = "hs_phy_irq";
 		vbus_dwc3-supply = <&pm8941_mvs1>;
 		USB3_GDSC-supply = <&gdsc_usb30>;
+		vdda33-supply = <&pm8994_l24>;
 		qcom,dwc-usb3-msm-dbm-eps = <4>
 		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;

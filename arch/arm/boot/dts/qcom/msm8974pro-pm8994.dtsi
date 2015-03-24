@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -348,4 +348,8 @@
 
 &pm8994_s1_corner {
 	qcom,init-smps-mode = <0>;	/* Allow AUTO mode for VDD_CX. */
+};
+
+&usb3 {
+	vdda33-supply = <&pm8994_l24>;
 };
