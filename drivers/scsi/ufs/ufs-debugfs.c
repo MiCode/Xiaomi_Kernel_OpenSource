@@ -205,7 +205,8 @@ static int inject_cmd_hang_tm(struct ufs_hba *hba)
 	return 1;
 }
 
-void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
+static void
+ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
 {
 	u8 ocs_err;
 	static const u32 errors[] = {
@@ -273,6 +274,9 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 	if (!hba || !ret_value)
 		goto out;
 
+	if (!(hba->debugfs_files.err_inj_scenario_mask & (1 << usecase)))
+		goto out;
+
 	switch (usecase) {
 	case ERR_INJECT_INTR:
 		ufsdbg_fail_request(hba, ret_value);
@@ -307,27 +311,131 @@ out:
 	return;
 }
 
+static int ufsdbg_error_injection_mask_read(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+	enum ufsdbg_err_inject_scenario err_case;
+
+	seq_puts(file, "echo \"x, y\" > /sys/kernel/debug/.../err_inj_codes\n");
+	seq_puts(file, "for error scenario x, enable error codes bitwise y\n\n");
+	seq_puts(file, "example: echo \"2, 0x6\" > /sys/kernel/debug/.../err_inj_codes\n");
+	seq_puts(file, "for error scenario ERR_INJECT_HIBERN8_EXIT_ERR (error scenario#2)\n");
+	seq_puts(file, "enable error codes 0100b and 0010b (0110b)\n\n");
+	seq_printf(file, "%-40s %-20s %-17s %-15s %-15s\n",
+		   "Error Scenario:", "Error-Scenario#",
+		   "Bit[#]", "STATUS", "Enabled Err Codes");
+
+	for (err_case = 0; err_case < ERR_INJECT_MAX_ERR_SCENARIOS;
+								++err_case) {
+		seq_printf(file, "%-40s %-20d 0x%-15x %-15s 0x%-15x\n",
+			   err_scen_arr[err_case].name,
+			   err_case,
+			   (1 << err_case),
+			   hba->debugfs_files.err_inj_scenario_mask &
+				(1 << err_case) ? "ENABLE" : "DISABLE",
+			   err_scen_arr[err_case].err_code_mask);
+	}
+
+	return 0;
+}
+
+static
+int ufsdbg_err_code_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			ufsdbg_error_injection_mask_read, inode->i_private);
+}
+
+static ssize_t ufsdbg_err_code_write(struct file *file,
+				     const char __user *ubuf, size_t cnt,
+				     loff_t *ppos)
+{
+#define ERROR_CODE_CONTROL_BUF	20
+	struct ufs_hba *hba = file->f_mapping->host->i_private;
+	char buf[ERROR_CODE_CONTROL_BUF] = {0};
+	int ret;
+	int err_code_mask = 0;
+	int err_scen = 0;
+
+	ret = simple_write_to_buffer(buf, ERROR_CODE_CONTROL_BUF,
+				     ppos, ubuf, cnt);
+
+	if (sscanf(buf, "%d,%d", &err_scen, &err_code_mask) != 2) {
+		dev_err(hba->dev, "%s: invalid number of arguments\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (err_scen >= ERR_INJECT_MAX_ERR_SCENARIOS) {
+		dev_err(hba->dev, "%s: invalid number error scenario\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	err_scen_arr[err_scen].err_code_mask = err_code_mask;
+	return cnt;
+}
+
+static const struct file_operations ufsdbg_err_code_ops = {
+	.open		= ufsdbg_err_code_open,
+	.read		= seq_read,
+	.write		= ufsdbg_err_code_write,
+};
+
 static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 {
+	struct dentry *fault_dir;
+
 	hba->debugfs_files.fail_attr = fail_default_attr;
 
 	if (fail_request)
 		setup_fault_attr(&hba->debugfs_files.fail_attr, fail_request);
 
-	/* suppress dump stack everytime failure is injected */
+	/* suppress dump stack every time failure is injected */
 	hba->debugfs_files.fail_attr.verbose = 0;
 
-	if (IS_ERR(fault_create_debugfs_attr("inject_fault",
+	fault_dir = fault_create_debugfs_attr("inject_fault",
 					hba->debugfs_files.debugfs_root,
-					&hba->debugfs_files.fail_attr)))
-		dev_err(hba->dev, "%s: failed to create debugfs entry\n",
+					&hba->debugfs_files.fail_attr);
+
+	if (IS_ERR(fault_dir)) {
+		dev_err(hba->dev, "%s: failed to create debugfs entry for fault injection\n",
+			__func__);
+		return;
+	}
+
+	hba->debugfs_files.err_inj_scenario =
+		debugfs_create_u32("err_inj_scenario",
+				   S_IRUGO | S_IWUGO,
+				   hba->debugfs_files.debugfs_root,
+				   &hba->debugfs_files.err_inj_scenario_mask);
+
+	if (!hba->debugfs_files.err_inj_scenario) {
+		dev_err(hba->dev,
+			"%s: Could not create debugfs entry for err_scenario",
 				__func__);
+		goto fail_err_inj_scenario;
+	}
+
+	hba->debugfs_files.err_inj_codes =
+		debugfs_create_file("err_inj_codes", S_IRUSR | S_IWUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_err_code_ops);
+	if (!hba->debugfs_files.err_inj_codes) {
+		dev_err(hba->dev,
+			"%s:  failed create error_codes debugfs entry\n",
+			__func__);
+		goto fail_err_inj_codes;
+	}
+
+	return;
+
+fail_err_inj_codes:
+	debugfs_remove(hba->debugfs_files.err_inj_scenario);
+fail_err_inj_scenario:
+	debugfs_remove_recursive(fault_dir);
 }
 #else
-void ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
-{
-}
-
 static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 {
 }
