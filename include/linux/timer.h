@@ -182,6 +182,9 @@ extern void set_timer_slack(struct timer_list *time, int slack_hz);
  */
 #define NEXT_TIMER_MAX_DELTA	((1UL << 30) - 1)
 
+/* To be used from cpusets, only */
+extern void timer_quiesce_cpu(void *cpup);
+
 /*
  * Timer-statistics info:
  */
