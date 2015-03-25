@@ -41,6 +41,25 @@
 #include "ov5693.h"
 #include "ad5823.h"
 
+#define __cci_delay(t) \
+	do { \
+		if ((t) < 10) { \
+			usleep_range((t) * 1000, ((t) + 1) * 1000); \
+		} else { \
+			msleep((t)); \
+		} \
+	} while (0)
+
+/* Value 30ms reached through experimentation on byt ecs.
+ * The DS specifies a much lower value but when using a smaller value
+ * the I2C bus sometimes locks up permanently when starting the camera.
+ * This issue could not be reproduced on cht, so we can reduce the
+ * delay value to a lower value when insmod.
+ */
+static uint up_delay = 30;
+module_param(up_delay, uint, 0644);
+MODULE_PARM_DESC(up_delay, "Delay prior to the first CCI transaction for ov5693");
+
 static int vcm_ad_i2c_wr8(struct i2c_client *client, u8 reg, u8 val)
 {
 	int err;
@@ -1403,10 +1422,7 @@ static int __power_up(struct v4l2_subdev *sd)
 	if (ret)
 		goto fail_clk;
 
-	/* Value reached through experimentation. The DS specifies a much
-	 * lower value but when using a smaller value the I2C bus sometimes
-	 * locks up permanently when starting the camera. */
-	msleep(30);
+	__cci_delay(up_delay);
 
 	return 0;
 
