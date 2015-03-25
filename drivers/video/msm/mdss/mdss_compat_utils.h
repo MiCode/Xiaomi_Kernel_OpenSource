@@ -408,10 +408,6 @@ struct mdss_calib_cfg32 {
 	uint32_t calib_mask;
 };
 
-struct mdp_pp_init_data32 {
-	uint32_t init_request;
-};
-
 struct mdp_histogram_cfg32 {
 	uint32_t ops;
 	uint32_t block;
@@ -460,7 +456,6 @@ struct msmfb_mdp_pp32 {
 		struct mdss_ad_input32 ad_input;
 		struct mdp_calib_config_buffer32 calib_buffer;
 		struct mdp_calib_dcm_state32 calib_dcm;
-		struct mdp_pp_init_data32 init_data;
 	} data;
 };
 
