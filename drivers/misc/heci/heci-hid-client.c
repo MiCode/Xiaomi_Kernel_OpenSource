@@ -26,8 +26,8 @@
 #include "heci-hid.h"
 
 /* Rx ring buffer pool size */
-#define RX_RING_SIZE	16	
-#define TX_RING_SIZE	32	
+#define RX_RING_SIZE	32
+#define TX_RING_SIZE	16
 
 /* Declaration will go to header file, probably*/
 int hid_heci_cl_recv(struct heci_cl *cl, u8 *buf, size_t length);

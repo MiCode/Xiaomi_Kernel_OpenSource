@@ -249,14 +249,25 @@ int write_ipc_from_queue(struct heci_device *dev)
 	struct wr_msg_ctl_info	*ipc_link;
 	u32	reg_addr;
 	unsigned long	flags;
+	static int	out_ipc_locked;
+	unsigned long	out_ipc_flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	g_ish_print_log("%s(): +++\n", __func__);
+	spin_lock_irqsave(&dev->out_ipc_spinlock, out_ipc_flags);
+	if (out_ipc_locked) {
+		spin_unlock_irqrestore(&dev->out_ipc_spinlock, out_ipc_flags);
+		return -EBUSY;
+	}
+	out_ipc_locked = 1;
 	if (!ish_is_input_ready(dev)) {
 		ISH_DBG_PRINT(KERN_ALERT "%s(): --- EBUSY\n", __func__);
 		g_ish_print_log(KERN_ALERT "%s(): --- EBUSY\n", __func__);
+		out_ipc_locked = 0;
+		spin_unlock_irqrestore(&dev->out_ipc_spinlock, out_ipc_flags);
 		return -EBUSY;
 	}
+	spin_unlock_irqrestore(&dev->out_ipc_spinlock, out_ipc_flags);
 
 	spin_lock_irqsave(&dev->wr_processing_spinlock, flags);
 	/* if empty list - return 0; may happen, as RX_COMPLETE handler doesn't check list emptiness */
@@ -264,6 +275,7 @@ int write_ipc_from_queue(struct heci_device *dev)
 		spin_unlock_irqrestore(&dev->wr_processing_spinlock, flags);
 		ISH_DBG_PRINT(KERN_ALERT "%s(): --- empty\n", __func__);
 		g_ish_print_log(KERN_ALERT "%s(): --- empty\n", __func__);
+		out_ipc_locked = 0;
 		return	0;
 	}
 
@@ -283,11 +295,27 @@ int write_ipc_from_queue(struct heci_device *dev)
 		ish_reg_write(dev, reg_addr, reg);
 	}
 
+	/* HID client debug */
+	if (doorbell_val == 0x8000040C &&
+		ish_reg_read(dev, IPC_REG_HOST2ISH_MSG) == 0x80080000 &&
+		ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+4) == 0x00030508) {
+			++dev->ipc_hid_out_fc;
+			++dev->ipc_hid_out_fc_cnt;
+		}
+	else if ((doorbell_val & 0xFFFFFC00) == 0x80000400 &&
+		(ish_reg_read(dev, IPC_REG_HOST2ISH_MSG) & 0x8000FFFF) ==
+				0x80000305)
+			--dev->ipc_hid_in_fc;
+
+	/* Update IPC counters */
+	++dev->ipc_tx_cnt;
+	dev->ipc_tx_bytes_cnt += IPC_HEADER_GET_LENGTH(doorbell_val);
+
 	ish_reg_write(dev, IPC_REG_HOST2ISH_DRBL, doorbell_val);
+	out_ipc_locked = 0;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): in msg. registers: %08X ! %08X %08X %08X %08X... hostcomm reg: %08X\n", __func__, ish_reg_read(dev, IPC_REG_HOST2ISH_DRBL), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+4), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+8), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+0xC), ish_reg_read(dev, IPC_REG_HOST_COMM));
 	g_ish_print_log(KERN_ALERT "%s(): in msg. registers: %08X ! %08X %08X %08X %08X... hostcomm reg: %08X\n", __func__, ish_reg_read(dev, IPC_REG_HOST2ISH_DRBL), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+4), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+8), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+0xC), ish_reg_read(dev, IPC_REG_HOST_COMM));
-
 
 	if (ipc_link->ipc_send_compl)
 		ipc_link->ipc_send_compl(ipc_link->ipc_send_compl_prm);
@@ -457,6 +485,15 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 
 	ish_intr_disable(dev);
 
+	/* Sanity check: IPC dgram length in header */
+	if (IPC_HEADER_GET_LENGTH(doorbell_val) > IPC_PAYLOAD_SIZE) {
+		dev_err(&dev->pdev->dev,
+			"%s(): IPC hdr - bad length: %u; dropped\n",
+			__func__,
+			(unsigned)IPC_HEADER_GET_LENGTH(doorbell_val));
+		goto	eoi;
+	}
+
 	ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s(): protocol=%u\n", __func__, IPC_HEADER_GET_PROTOCOL(doorbell_val));
 	g_ish_print_log(KERN_ALERT "[heci-ish] %s(): protocol=%u\n", __func__, IPC_HEADER_GET_PROTOCOL(doorbell_val));
 
@@ -475,6 +512,15 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 		goto	eoi;
 
 	heci_hdr = (struct heci_msg_hdr *)&msg_hdr;
+
+	/* Sanity check: HECI frag. length in header */
+	if (heci_hdr->length > dev->mtu) {
+		dev_err(&dev->pdev->dev,
+			"%s(): HECI hdr - bad length: %u; dropped [%08X]\n",
+			__func__,
+			(unsigned)heci_hdr->length, msg_hdr);
+		goto	eoi;
+	}
 
 	/* HECI bus message */
 	if (!heci_hdr->host_addr && !heci_hdr->me_addr) {
@@ -499,6 +545,11 @@ irqreturn_t ish_irq_handler(int irq, void *dev_id)
 eoi:
 	ISH_DBG_PRINT(KERN_ALERT "%s(): Doorbell cleared, busy reading cleared\n", __func__);
 	g_ish_print_log(KERN_ALERT "%s(): Doorbell cleared, busy reading cleared\n", __func__);
+
+	/* Update IPC counters */
+	++dev->ipc_rx_cnt;
+	dev->ipc_rx_bytes_cnt += IPC_HEADER_GET_LENGTH(doorbell_val);
+
 	ish_reg_write(dev, IPC_REG_ISH2HOST_DRBL, 0);
 	/* Here and above: we need to actually read this register in order to unblock further interrupts on CHT A0 */
 	ish_intr_enable(dev);
@@ -714,6 +765,7 @@ struct heci_device *ish_dev_init(struct pci_dev *pdev)
 	dev->rd_msg_fifo_tail = 0;
 	spin_lock_init(&dev->rd_msg_spinlock);
 	spin_lock_init(&dev->wr_processing_spinlock);
+	spin_lock_init(&dev->out_ipc_spinlock);
 	spin_lock_init(&dev->read_list_spinlock);
 	spin_lock_init(&dev->device_lock);
 	INIT_WORK(&dev->bh_hbm_work, bh_hbm_work_fn);

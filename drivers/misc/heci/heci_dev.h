@@ -70,12 +70,10 @@ const char *heci_dev_state_str(int state);
  *
  * @props  - client properties
  * @client_id - me client id
- * @heci_flow_ctrl_creds - flow control credits
  */
 struct heci_me_client {
 	struct heci_client_properties props;
 	u8 client_id;
-	u8 heci_flow_ctrl_creds;
 };
 
 
@@ -203,6 +201,7 @@ struct heci_device {
 
 	struct wr_msg_ctl_info wr_processing_list_head, wr_free_list_head;
 	spinlock_t	wr_processing_spinlock;		/* For both processing and free lists */
+	spinlock_t	out_ipc_spinlock;
 /*
 	unsigned	wr_msg_fifo_head, wr_msg_fifo_tail;
 	spinlock_t	wr_msg_spinlock;
@@ -224,10 +223,24 @@ struct heci_device {
 	size_t log_tail;
 	void (*print_log)(struct heci_device *dev, char *format, ...);
 	spinlock_t      log_spinlock;   /* spinlock to protect prints buffer */
+	unsigned long	max_log_sec, max_log_usec;
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *dbgfs_dir;
 #endif /* CONFIG_DEBUG_FS */
+
+	/* Debug stats */
+	unsigned	ipc_hid_out_fc;
+	int	ipc_hid_in_msg;
+	unsigned	ipc_hid_in_fc;
+	int	ipc_hid_out_msg;
+	unsigned	ipc_hid_out_fc_cnt;
+	unsigned	ipc_hid_in_fc_cnt;
+
+	unsigned	ipc_rx_cnt;
+	unsigned long long	ipc_rx_bytes_cnt;
+	unsigned	ipc_tx_cnt;
+	unsigned long long	ipc_tx_bytes_cnt;
 
 	const struct heci_hw_ops *ops;
 

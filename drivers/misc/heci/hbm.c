@@ -254,7 +254,6 @@ static int heci_hbm_prop_req(struct heci_device *dev)
 	}
 
 	dev->me_clients[client_num].client_id = next_client_index;
-	dev->me_clients[client_num].heci_flow_ctrl_creds = 0;
 
 #ifndef DEBUG_FW_BOOT_SEQ
 	dev->print_log(dev, "%s(): retrieving real fw client #%d properties\n", __func__, client_num);
@@ -318,7 +317,10 @@ int heci_hbm_cl_flow_control_req(struct heci_device *dev, struct heci_cl *cl)
 	struct heci_msg_hdr *heci_hdr = &hdr;
 	const size_t len = sizeof(struct hbm_flow_control);
 	int	rv;
+	unsigned	num_frags;
+	unsigned long	flags;
 
+	spin_lock_irqsave(&cl->fc_spinlock, flags);
 	heci_hbm_hdr(heci_hdr, len);
 	heci_hbm_cl_hdr(cl, HECI_FLOW_CONTROL_CMD, data, len);
 
@@ -327,70 +329,56 @@ int heci_hbm_cl_flow_control_req(struct heci_device *dev, struct heci_cl *cl)
 
 dev->print_log(dev, "%s(): send flow_control: %02X %02X %02X %02X: %02X %02X %02X\n", __func__, ((char *)heci_hdr)[0]&0xFF, ((char *)heci_hdr)[1]&0xFF, ((char *)heci_hdr)[2]&0xFF, ((char *)heci_hdr)[3]&0xFF, data[0]&0xFF, data[1]&0xFF, data[2]&0xFF);
 
+	/* Sync possible race when RB recycle and packet receive paths
+	   both try to send an out FC */
+	if (cl->out_flow_ctrl_creds) {
+		spin_unlock_irqrestore(&cl->fc_spinlock, flags);
+		return	0;
+	}
+
+	num_frags = cl->recv_msg_num_frags;
+	cl->recv_msg_num_frags = 0;
+
 	rv = heci_write_message(dev, heci_hdr, data);
 	if (!rv) {
+		struct timeval	tv;
+
 dev->print_log(dev, "%s(): ++cl->out_flow_ctrl_creds\n", __func__);
 		++cl->out_flow_ctrl_creds;
+		++cl->out_flow_ctrl_cnt;
+		do_gettimeofday(&tv);
+		cl->out_fc_sec = tv.tv_sec;
+		cl->out_fc_usec = tv.tv_usec;
+		if (cl->rx_sec && cl->rx_usec) {
+			unsigned long	s, us;
+
+			s = cl->out_fc_sec - cl->rx_sec;
+			us = cl->out_fc_usec - cl->rx_usec;
+			if (cl->rx_usec > cl->out_fc_usec) {
+				us += 1000000UL;
+				--s;
+			}
+			dev->print_log(dev, "%s(): time Rx ... FC: %lu.%06lu\n",
+				__func__, s, us);
+			dev->print_log(dev, "(%lu.%06lu ... %lu.%06lu)\n",
+				cl->rx_sec, cl->rx_usec, cl->out_fc_sec,
+				cl->out_fc_usec);
+			dev->print_log(dev, "fragments: %u\n", num_frags);
+			if (s > cl->max_fc_delay_sec ||
+					s == cl->max_fc_delay_sec &&
+					us > cl->max_fc_delay_usec) {
+				cl->max_fc_delay_sec = s;
+				cl->max_fc_delay_usec = us;
+			}
+		}
 	} else {
 		++cl->err_send_fc;
 	}
+
+	spin_unlock_irqrestore(&cl->fc_spinlock, flags);
 	return	rv;
 }
 EXPORT_SYMBOL(heci_hbm_cl_flow_control_req);
-
-#if 0
-/**
- * add_single_flow_creds - adds single buffer credentials.
- *
- * @file: private data ot the file object.
- * @flow: flow control.
- */
-static void heci_hbm_add_single_flow_creds(struct heci_device *dev,
-				  struct hbm_flow_control *flow)
-{
-	struct heci_me_client *client;
-	int i;
-
-	for (i = 0; i < dev->me_clients_num; i++) {
-		client = &dev->me_clients[i];
-		if (client && flow->me_addr == client->client_id) {
-			if (client->props.single_recv_buf) {
-				client->heci_flow_ctrl_creds++;
-				dev_dbg(&dev->pdev->dev, "recv flow ctrl msg ME %d (single).\n",
-				    flow->me_addr);
-				dev_dbg(&dev->pdev->dev, "flow control credentials =%d.\n",
-				    client->heci_flow_ctrl_creds);
-			} else {
-				BUG();	/* error in flow control */
-			}
-		}
-	}
-}
-#endif
-
-/**
- * heci_hbm_cl_flow_control_res - flow control response from me
- *
- * @dev: the device structure
- * @flow_control: flow control response bus message
- */
-static void heci_hbm_cl_flow_control_res(struct heci_device *dev,
-		struct hbm_flow_control *flow_control)
-{
-	struct heci_cl *cl = NULL;
-	struct heci_cl *next = NULL;
-	unsigned long	flags;
-
-	/* normal connection */
-	spin_lock_irqsave(&dev->device_lock, flags);
-	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
-		if (heci_hbm_cl_addr_equal(cl, flow_control)) {
-			cl->heci_flow_ctrl_creds++;
-				break;
-		}
-	}
-	spin_unlock_irqrestore(&dev->device_lock, flags);
-}
 
 
 /**
@@ -411,6 +399,8 @@ int heci_hbm_cl_disconnect_req(struct heci_device *dev, struct heci_cl *cl)
 	heci_hbm_hdr(heci_hdr, len);
 	heci_hbm_cl_hdr(cl, CLIENT_DISCONNECT_REQ_CMD, data, len);
 
+	dev->print_log(dev, "%s(): host client %d disconnecting, FW ID: %d\n",
+	__func__, (int)cl->host_client_id, (int)cl->me_client_id);
 	return heci_write_message(dev, heci_hdr, data);
 }
 
@@ -438,6 +428,8 @@ static void heci_hbm_cl_disconnect_res(struct heci_device *dev, struct hbm_clien
 	list_for_each_entry_safe(cl, next, &dev->cl_list, link) {
 		if (!rs->status && heci_hbm_cl_addr_equal(cl, rs)) {
 			cl->state = HECI_CL_DISCONNECTED;
+	dev->print_log(dev, "%s(): host client %d disconnected, FW ID: %d\n",
+	__func__, (int)rs->host_addr, (int)rs->me_addr);
 			break;
 		}
 	}
@@ -494,6 +486,8 @@ static void heci_hbm_cl_connect_res(struct heci_device *dev, struct hbm_client_c
 			if (!rs->status) {
 				cl->state = HECI_CL_CONNECTED;
 				cl->status = 0;
+	dev->print_log(dev, "%s(): host client %d connected, FW ID: %d\n",
+	__func__, (int)rs->host_addr, (int)rs->me_addr);
 			} else {
 				cl->state = HECI_CL_DISCONNECTED;
 				cl->status = -ENODEV;
@@ -553,7 +547,6 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 	struct hbm_client_connect_response *connect_res;
 	struct hbm_client_connect_response *disconnect_res;
 	struct hbm_client_connect_request *disconnect_req;
-	struct hbm_flow_control *flow_control;
 	struct hbm_props_response *props_res;
 	struct hbm_host_enum_response *enum_res;
 	struct heci_msg_hdr heci_hdr;
@@ -602,12 +595,6 @@ void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr)
 		disconnect_res = (struct hbm_client_connect_response *)heci_msg;
 		heci_hbm_cl_disconnect_res(dev, disconnect_res);
 		dev_dbg(&dev->pdev->dev, "client disconnect response message received.\n");
-		break;
-
-	case HECI_FLOW_CONTROL_CMD:
-		flow_control = (struct hbm_flow_control *) heci_msg;
-		heci_hbm_cl_flow_control_res(dev, flow_control);
-		dev_dbg(&dev->pdev->dev, "client flow control response message received.\n");
 		break;
 
 	case HOST_CLIENT_PROPERTIES_RES_CMD:
@@ -737,7 +724,7 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 {
 	uint8_t	rd_msg_buf[HECI_RD_MSG_BUF_SIZE];
 	struct heci_bus_message	*heci_msg = (struct heci_bus_message *)rd_msg_buf;
-	unsigned long	flags;
+	unsigned long	flags, tx_flags;
 
 	dev->ops->read(dev, rd_msg_buf, heci_hdr->length);
 
@@ -757,10 +744,36 @@ void	recv_hbm(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 			if (cl->host_client_id == flow_control->host_addr && cl->me_client_id == flow_control->me_addr) {
 			/*#############################################*/
 				/* FIXME: It's valid only for counting flow-control implementation to receive an FC in the middle of sending */
-				++cl->heci_flow_ctrl_creds;
-				if (!list_empty(&cl->tx_list.list))
-					/*call function to start sending the first msg = the callback function*/
-					heci_cl_send_msg(dev, cl);
+				if (cl->heci_flow_ctrl_creds)
+					dev_err(&dev->pdev->dev,
+"recv extra FC from FW client %u (host client %u) (FC count was %u)\n",
+						(unsigned)cl->me_client_id,
+						(unsigned)cl->host_client_id,
+(unsigned)cl->heci_flow_ctrl_creds);
+				else {
+					if (cl->host_client_id == 3 &&
+							cl->me_client_id == 5) {
+						++dev->ipc_hid_in_fc;
+						++dev->ipc_hid_in_fc_cnt;
+					}
+					++cl->heci_flow_ctrl_creds;
+					++cl->heci_flow_ctrl_cnt;
+					spin_lock_irqsave(&cl->tx_list_spinlock,
+						tx_flags);
+					if (!list_empty(&cl->tx_list.list)) {
+						/* start sending the first msg
+						 = the callback function */
+
+						spin_unlock_irqrestore(
+							&cl->tx_list_spinlock,
+							tx_flags);
+						heci_cl_send_msg(dev, cl);
+					} else {
+						spin_unlock_irqrestore(
+							&cl->tx_list_spinlock,
+							tx_flags);
+					}
+				}
 				break;
 			/*#############################################*/
 			}
@@ -816,7 +829,9 @@ void recv_fixed_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 			send_resume(dev);       /* if FW request arrived here,
 						the system is not suspended */
 		else
-			dev_err(&dev->pdev->dev, "unknown fixed client msg\n");
+			dev_err(&dev->pdev->dev,
+				"unknown fixed client msg [%02X]\n",
+				msg_hdr->cmd);
 	}
 }
 EXPORT_SYMBOL(recv_fixed_cl_msg);
@@ -850,7 +865,7 @@ void send_suspend(struct heci_device *dev)
 	dev->print_log(dev, "%s() sends SUSPEND notification\n", __func__);
 	state_status_msg.states_status = current_state;
 
-	heci_write_message(dev, &heci_hdr, &state_status_msg);
+	heci_write_message(dev, &heci_hdr, (unsigned char *)&state_status_msg);
 }
 EXPORT_SYMBOL(send_suspend);
 
@@ -869,7 +884,7 @@ void send_resume(struct heci_device *dev)
 	dev->print_log(dev, "%s() sends RESUME notification\n", __func__);
 	state_status_msg.states_status = current_state;
 
-	heci_write_message(dev, &heci_hdr, &state_status_msg);
+	heci_write_message(dev, &heci_hdr, (unsigned char *)&state_status_msg);
 }
 EXPORT_SYMBOL(send_resume);
 
@@ -884,6 +899,7 @@ void query_subscribers(struct heci_device *dev)
 	memset(&query_subscribers_msg, 0, len);
 	query_subscribers_msg.hdr.cmd = SYSTEM_STATE_QUERY_SUBSCRIBERS;
 
-	heci_write_message(dev, &heci_hdr, &query_subscribers_msg);
+	heci_write_message(dev, &heci_hdr,
+		(unsigned char *)&query_subscribers_msg);
 }
 

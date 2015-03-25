@@ -243,6 +243,12 @@ static void ish_print_log(struct heci_device *dev, char *format, ...)
 	int length, i, full_space, free_space;
 	unsigned long	flags;
 	struct timeval tv;
+	struct timeval tv1, tv2, tv_diff;
+
+	do_gettimeofday(&tv1);
+	/* Fix for power-off path */
+	if (!heci_pci_device)
+		return;
 
 	do_gettimeofday(&tv);
 	i = sprintf(tmp_buf, "[%ld.%06ld] ", tv.tv_sec, tv.tv_usec);
@@ -276,6 +282,20 @@ static void ish_print_log(struct heci_device *dev, char *format, ...)
 	dev->log_head = (dev->log_head + length) % PRINT_BUFFER_SIZE;
 
 	spin_unlock_irqrestore(&dev->log_spinlock, flags);
+
+	do_gettimeofday(&tv2);
+	tv_diff.tv_sec = tv2.tv_sec - tv1.tv_sec;
+	tv_diff.tv_usec = tv2.tv_usec - tv1.tv_usec;
+	if (tv1.tv_usec > tv2.tv_usec) {
+		tv_diff.tv_usec += 1000000UL;
+		--tv_diff.tv_sec;
+	}
+	if (tv_diff.tv_sec > dev->max_log_sec ||
+			tv_diff.tv_sec == dev->max_log_sec &&
+			tv_diff.tv_usec > dev->max_log_usec) {
+		dev->max_log_sec = tv_diff.tv_sec;
+		dev->max_log_usec = tv_diff.tv_usec;
+	}
 }
 
 
@@ -411,6 +431,17 @@ static struct device_attribute flush_attr = {
 	.store = store_flush
 };
 
+#else
+
+static void ish_print_log_nolog(struct heci_device *dev, char *format, ...)
+{
+}
+
+void	g_ish_print_log(char *fmt, ...)
+{
+}
+EXPORT_SYMBOL(g_ish_print_log);
+
 #endif /* ISH_LOG */
 
 ssize_t show_heci_dev_props(struct device *dev, struct device_attribute *dev_attr, char *buf)
@@ -419,7 +450,7 @@ ssize_t show_heci_dev_props(struct device *dev, struct device_attribute *dev_att
 	struct heci_device *heci_dev;
 	ssize_t	ret = -ENOENT;
 	unsigned	count;
-	unsigned long   flags, flags2;
+	unsigned long   flags, flags2, tx_flags, tx_free_flags;
 
 	pdev = container_of(dev, struct pci_dev, dev);
 	heci_dev = pci_get_drvdata(pdev);
@@ -495,15 +526,25 @@ ssize_t show_heci_dev_props(struct device *dev, struct device_attribute *dev_att
 					count);
 
 				count = 0;
+				spin_lock_irqsave(&cl->tx_list_spinlock,
+					tx_flags);
 				list_for_each_entry_safe(tx_rb, next_tx_rb,
 						&cl->tx_list.list, list)
 					++count;
+				spin_unlock_irqrestore(&cl->tx_list_spinlock,
+					tx_flags);
 				sprintf(buf + strlen(buf), "TX pending: %u\n",
 					count);
 				count = 0;
+				spin_lock_irqsave(
+					&cl->tx_free_list_spinlock,
+					tx_free_flags);
 				list_for_each_entry_safe(tx_rb, next_tx_rb,
 						&cl->tx_free_list.list, list)
 					++count;
+				spin_unlock_irqrestore(
+					&cl->tx_free_list_spinlock,
+					tx_free_flags);
 				sprintf(buf + strlen(buf), "TX free: %u\n",
 					count);
 				sprintf(buf + strlen(buf), "FC: %u\n",
@@ -514,9 +555,41 @@ ssize_t show_heci_dev_props(struct device *dev, struct device_attribute *dev_att
 					(unsigned)cl->err_send_msg);
 				sprintf(buf + strlen(buf), "Err snd FC: %u\n",
 					(unsigned)cl->err_send_fc);
+				sprintf(buf + strlen(buf), "Tx count: %u\n",
+					(unsigned)cl->send_msg_cnt);
+				sprintf(buf + strlen(buf), "Rx count: %u\n",
+					(unsigned)cl->recv_msg_cnt);
+				sprintf(buf + strlen(buf), "FC count: %u\n",
+					(unsigned)cl->heci_flow_ctrl_cnt);
+				sprintf(buf + strlen(buf), "out FC cnt: %u\n",
+					(unsigned)cl->out_flow_ctrl_cnt);
+				sprintf(buf + strlen(buf),
+					"Max FC delay: %lu.%06lu\n",
+					cl->max_fc_delay_sec,
+					cl->max_fc_delay_usec);
 			}
 		}
+		sprintf(buf + strlen(buf), "IPC HID out FC: %u\n",
+			(unsigned)heci_dev->ipc_hid_out_fc);
+		sprintf(buf + strlen(buf), "IPC HID out FC count: %u\n",
+			(unsigned)heci_dev->ipc_hid_out_fc_cnt);
+		sprintf(buf + strlen(buf), "IPC HID in msg: %u\n",
+			(unsigned)heci_dev->ipc_hid_in_msg);
+		sprintf(buf + strlen(buf), "IPC HID in FC: %u\n",
+			(unsigned)heci_dev->ipc_hid_in_fc);
+		sprintf(buf + strlen(buf), "IPC HID in FC count: %u\n",
+			(unsigned)heci_dev->ipc_hid_in_fc_cnt);
+		sprintf(buf + strlen(buf), "IPC HID out msg: %u\n",
+			(unsigned)heci_dev->ipc_hid_out_msg);
 		spin_unlock_irqrestore(&heci_dev->device_lock, flags);
+		ret = strlen(buf);
+	} else if (!strcmp(dev_attr->attr.name, "stats")) {
+		sprintf(buf, "Max. log time: %lu.%06lu\n",
+			heci_dev->max_log_sec, heci_dev->max_log_usec);
+		sprintf(buf + strlen(buf), "IPC Rx frames: %u; bytes: %llu\n",
+			heci_dev->ipc_rx_cnt, heci_dev->ipc_rx_bytes_cnt);
+		sprintf(buf + strlen(buf), "IPC Tx frames: %u; bytes: %llu\n",
+			heci_dev->ipc_tx_cnt, heci_dev->ipc_tx_bytes_cnt);
 		ret = strlen(buf);
 	}
 
@@ -527,6 +600,52 @@ ssize_t store_heci_dev_props(struct device *dev, struct device_attribute *dev_at
 {
 	return	-EINVAL;
 }
+
+/* Debug interface to force flow-control to HID client */
+static unsigned	num_force_hid_fc;
+
+ssize_t show_force_hid_fc(struct device *dev, struct device_attribute *dev_attr,
+	char *buf)
+{
+	sprintf(buf, "%u\n", num_force_hid_fc);
+	return	 strlen(buf);
+}
+
+ssize_t store_force_hid_fc(struct device *dev,
+	struct device_attribute *dev_attr, const char *buf, size_t count)
+{
+	struct pci_dev *pdev;
+	struct heci_device *heci_dev;
+	struct heci_cl *cl, *next;
+	unsigned long	tx_flags;
+
+	pdev = container_of(dev, struct pci_dev, dev);
+	heci_dev = pci_get_drvdata(pdev);
+
+	list_for_each_entry_safe(cl, next, &heci_dev->cl_list, link) {
+		if (cl->host_client_id == 3 && cl->me_client_id == 5) {
+			dev_warn(dev, "HID FC %u, forced to 1\n",
+				(unsigned)cl->heci_flow_ctrl_creds);
+			cl->heci_flow_ctrl_creds = 1;
+			++num_force_hid_fc;
+			spin_lock_irqsave(&cl->tx_list_spinlock, tx_flags);
+			if (!list_empty(&cl->tx_list.list)) {
+				/* start sending the first msg
+				 = the callback function */
+				spin_unlock_irqrestore(&cl->tx_list_spinlock,
+					tx_flags);
+				heci_cl_send_msg(heci_dev, cl);
+			} else {
+				spin_unlock_irqrestore(&cl->tx_list_spinlock,
+					tx_flags);
+			}
+			break;
+		}
+	}
+
+	return	 strlen(buf);
+}
+/*******************/
 
 static struct device_attribute heci_dev_state_attr = {
 	.attr = {
@@ -573,6 +692,24 @@ static struct device_attribute ipc_buf_attr = {
 	.store = store_heci_dev_props
 };
 
+static struct device_attribute stats_attr = {
+	.attr = {
+		.name = "stats",
+		.mode = (S_IWUSR | S_IRUGO)
+	},
+	.show = show_heci_dev_props,
+	.store = store_heci_dev_props
+};
+
+static struct device_attribute force_hid_fc_attr = {
+	.attr = {
+		.name = "force_hid_fc",
+		.mode = (S_IWUSR | S_IRUGO)
+	},
+	.show = show_force_hid_fc,
+	.store = store_force_hid_fc
+};
+
 /**********************************/
 
 typedef struct {
@@ -595,6 +732,8 @@ void workqueue_init_function(struct work_struct *work)
 	device_create_file(&dev->pdev->dev, &fw_status_attr);
 	device_create_file(&dev->pdev->dev, &host_clients_attr);
 	device_create_file(&dev->pdev->dev, &ipc_buf_attr);
+	device_create_file(&dev->pdev->dev, &stats_attr);
+	device_create_file(&dev->pdev->dev, &force_hid_fc_attr);
 
 #if ISH_LOG
 
@@ -618,7 +757,10 @@ void workqueue_init_function(struct work_struct *work)
 		REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
 		dev->pdev->revision);
 
+#else
+	dev->print_log = ish_print_log_nolog;
 #endif /*ISH_LOG*/
+
 	init_waitqueue_head(&suspend_wait);
 
 	mutex_lock(&heci_mutex);
@@ -667,7 +809,12 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 	ISH_INFO_PRINT(KERN_ERR "[heci-ish]: %s():+++ [Build "BUILD_ID "]\n", __func__);
 	ISH_INFO_PRINT(KERN_ERR "[heci-ish] %s() running on %s revision [%02X]\n", __func__,
 		pdev->revision == REVISION_ID_CHT_A0 || (pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_A0_SI ? "CHT A0" :
-		pdev->revision == REVISION_ID_CHT_B0 || (pdev->revision & REVISION_ID_SI_MASK) == REVISION_ID_CHT_Bx_SI ? "CHT B0" : "Unknown", pdev->revision);
+		pdev->revision == REVISION_ID_CHT_B0 ||
+		(pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Bx_SI ? "CHT B0" :
+		(pdev->revision & REVISION_ID_SI_MASK) ==
+			REVISION_ID_CHT_Kx_SI ? "CHT Kx/Cx" : "Unknown",
+		 pdev->revision);
 #if defined (SUPPORT_Ax_ONLY)
 	pdev->revision = REVISION_ID_CHT_A0;
 	ISH_DBG_PRINT(KERN_ALERT "[heci-ish] %s() revision forced to A0\n", __func__);
@@ -695,7 +842,7 @@ static int ish_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
 		goto disable_device;
 	}
 
-	/* allocates and initializes the heci dev structure */
+	/* allocates and initializes the heci_dev structure */
 	dev = ish_dev_init(pdev);
 	if (!dev) {
 		err = -ENOMEM;

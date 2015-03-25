@@ -204,6 +204,9 @@ void heci_cl_init(struct heci_cl *cl, struct heci_device *dev)
 	init_waitqueue_head(&cl->wait_ctrl_res);
 	spin_lock_init(&cl->free_list_spinlock);
 	spin_lock_init(&cl->in_process_spinlock);
+	spin_lock_init(&cl->tx_list_spinlock);
+	spin_lock_init(&cl->tx_free_list_spinlock);
+	spin_lock_init(&cl->fc_spinlock);
 	INIT_LIST_HEAD(&cl->link);
 	cl->dev = dev;
 
@@ -319,7 +322,6 @@ int	heci_cl_alloc_tx_ring(struct heci_cl *cl)
 	}
 	ISH_DBG_PRINT(KERN_ALERT "%s() allocated Tx  pool successfully\n", __func__);
 
-	spin_lock_init(&cl->tx_spinlock);	
 	return	0;
 
 out:
@@ -662,76 +664,6 @@ out:
 }
 EXPORT_SYMBOL(heci_cl_connect);
 
-/**
- * heci_cl_flow_ctrl_creds - checks flow_control credits for cl.
- *
- * @dev: the device structure
- * @cl: private data of the file object
- *
- * returns 1 if heci_flow_ctrl_creds >0, 0 - otherwise.
- *	-ENOENT if heci_cl is not present
- *	-EINVAL if single_recv_buf == 0
- */
-int heci_cl_flow_ctrl_creds(struct heci_cl *cl)
-{
-	struct heci_device *dev;
-	struct heci_me_client  *me_cl = cl->device->fw_client;
-
-	if (WARN_ON(!cl || !cl->dev))
-		return -EINVAL;
-
-	dev = cl->dev;
-
-	if (!dev->me_clients_num)
-		return 0;
-
-	if (cl->heci_flow_ctrl_creds > 0)
-		return 1;
-
-	if (me_cl->heci_flow_ctrl_creds) {
-		if (WARN_ON(me_cl->props.single_recv_buf == 0)) /* fixed client: single_recv_buf != 0*/
-			return -EINVAL;
-		return 1;
-	} else {
-		return 0;
-	}
-	return -ENOENT;
-}
-
-/**
- * heci_cl_flow_ctrl_reduce - reduces flow_control.
- *
- * @dev: the device structure
- * @cl: private data of the file object
- * @returns
- *	0 on success
- *	-ENOENT when me client is not found
- *	-EINVAL when ctrl credits are <= 0
- */
-int heci_cl_flow_ctrl_reduce(struct heci_cl *cl)
-{
-	struct heci_device *dev;
-	struct heci_me_client  *me_cl = cl->device->fw_client;
-
-	if (WARN_ON(!cl || !cl->dev))
-		return -EINVAL;
-
-	dev = cl->dev;
-
-	if (!dev->me_clients_num)
-		return -ENOENT;
-
-	if (me_cl->props.single_recv_buf != 0) { /* fixed client: single_recv_buf != 0*/
-		if (WARN_ON(me_cl->heci_flow_ctrl_creds <= 0))
-			return -EINVAL;
-		me_cl->heci_flow_ctrl_creds--;
-	} else {
-		if (WARN_ON(cl->heci_flow_ctrl_creds <= 0))
-			return -EINVAL;
-		cl->heci_flow_ctrl_creds--;
-	}
-	return 0;
-}
 
 /**
  * heci_cl_read_start - the start read client message function.
@@ -783,7 +715,7 @@ int heci_cl_read_start(struct heci_cl *cl)
 	/* The current rb is the head of the free rb list */
 	spin_lock_irqsave(&cl->free_list_spinlock, flags);
 	if (list_empty(&cl->free_rb_list.list)) {
-		printk(KERN_ERR "[heci-ish] error: rb pool is empty\n");
+		dev_warn(&dev->pdev->dev, "[heci-ish]: rb pool is empty\n");
 		rets = -1;
 		rb = NULL;
 		spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
@@ -830,6 +762,7 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 	int id;
 	struct heci_cl_tx_ring  *cl_msg;
 	int	have_msg_to_send = 0;
+	unsigned long	tx_flags, tx_free_flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	if (WARN_ON(!cl || !cl->dev))
@@ -900,7 +833,10 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 	}
 
 	/* No free bufs */
+	spin_lock_irqsave(&cl->tx_free_list_spinlock, tx_free_flags);
 	if (list_empty(&cl->tx_free_list.list)) {
+		spin_unlock_irqrestore(&cl->tx_free_list_spinlock,
+			tx_free_flags);
 		++cl->err_send_msg;
 		return	-ENOMEM;
 	}
@@ -911,17 +847,24 @@ int heci_cl_send(struct heci_cl *cl, u8 *buf, size_t length)
 		return	-EIO;		/* Should not happen, as free list is pre-allocated */
 	}
 	dev->print_log(dev, KERN_ALERT "%s(): have send_buf.data OK\n", __func__);
+	++cl->send_msg_cnt;
 
 	/* This is safe, as 'length' is already checked for not exceeding max. HECI message size per client */
 	list_del_init(&cl_msg->list);
+	spin_unlock_irqrestore(&cl->tx_free_list_spinlock, tx_free_flags);
 	memcpy(cl_msg->send_buf.data, buf, length);
 	cl_msg->send_buf.size = length;
+	spin_lock_irqsave(&cl->tx_list_spinlock, tx_flags);
 	have_msg_to_send = !list_empty(&cl->tx_list.list);
 	list_add_tail(&cl_msg->list, &cl->tx_list.list);
-	dev->print_log(dev, KERN_ALERT "%s(): have send_buf.data OK. have_msg_to_send=%d FC creds=%d\n", __func__, have_msg_to_send, (int)heci_cl_flow_ctrl_creds(cl));
+	spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
+	dev->print_log(dev, KERN_ALERT "%s(): have send_buf.data OK.\n",
+		__func__);
+	dev->print_log(dev, "have_msg_to_send=%d FC creds=%d\n",
+		have_msg_to_send, (int)cl->heci_flow_ctrl_creds);
 
-	if (!have_msg_to_send &&  heci_cl_flow_ctrl_creds(cl) > 0)
-		heci_cl_send_msg(dev, cl);	
+	if (!have_msg_to_send && cl->heci_flow_ctrl_creds > 0)
+		heci_cl_send_msg(dev, cl);
 
 	return	0;
 }
@@ -1005,6 +948,7 @@ static void	ipc_tx_callback(void *prm)
 	size_t	rem;
 	struct heci_device	*dev = (cl ? cl->dev : NULL);
 	struct heci_msg_hdr	heci_hdr;
+	unsigned long	flags, tx_flags, tx_free_flags;
 
 	dev->print_log(dev, KERN_ALERT "%s() +++\n", __func__);
 	if (!dev)
@@ -1012,9 +956,20 @@ static void	ipc_tx_callback(void *prm)
 	dev->print_log(dev, KERN_ALERT "%s() dev OK\n", __func__);
 
 	/* FIXME: there may be other conditions if some critical error has ocurred before this callback is called */
-	if (list_empty(&cl->tx_list.list))
+	spin_lock_irqsave(&cl->tx_list_spinlock, tx_flags);
+	if (list_empty(&cl->tx_list.list)) {
+		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 		return;
+	}
 	dev->print_log(dev, KERN_ALERT "%s() TX list is not empty, sending\n", __func__);
+
+	/* Last call check for fc credits */
+	if (cl->heci_flow_ctrl_creds != 1) {
+		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
+		return;
+	}
+
+	--cl->heci_flow_ctrl_creds;
 
 	cl_msg = list_entry(cl->tx_list.list.next, struct heci_cl_tx_ring, list);
 	rem = cl_msg->send_buf.size - cl->tx_offs;
@@ -1027,17 +982,21 @@ static void	ipc_tx_callback(void *prm)
 		dev->print_log(dev, KERN_ALERT "%s() message complete\n", __func__);
 		heci_hdr.length = rem;
 		heci_hdr.msg_complete = 1;
+		list_del_init(&cl_msg->list);	/* Must be before write */
+		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 		heci_write_message(dev, &heci_hdr, cl_msg->send_buf.data);	/* Submit to IPC queue with no callback */
-		--cl->heci_flow_ctrl_creds;
-		list_del_init(&cl_msg->list);
+		spin_lock_irqsave(&cl->tx_free_list_spinlock, tx_free_flags);
 		list_add_tail(&cl_msg->list, &cl->tx_free_list.list);
+		spin_unlock_irqrestore(&cl->tx_free_list_spinlock,
+			tx_free_flags);
 	} else {
-		/* Send IPC fragment */
+		/* FIXME: Send IPC fragment */
 		dev->print_log(dev, KERN_ALERT "%s() message fragmented, sending fragment\n", __func__);
 		cl->tx_offs += dev->mtu;
 		heci_hdr.length = dev->mtu;
 		heci_hdr.msg_complete = 0;
 		dev->ops->write_ex(dev, &heci_hdr, cl_msg->send_buf.data, ipc_tx_callback, cl);
+		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 	}
 }
 
@@ -1060,10 +1019,12 @@ void	recv_heci_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr)
 {
 	struct heci_cl *cl;
 	struct heci_cl_rb *rb, *next;
+	struct heci_cl_rb *new_rb;
 	unsigned char *buffer = NULL;
 	struct heci_cl_rb *complete_rb = NULL;
 	unsigned long	dev_flags;
 	unsigned long	flags;
+	int	rb_count;
 
 dev->print_log(dev, "%s(): +++\n", __func__);
 
@@ -1080,8 +1041,11 @@ dev->print_log(dev, "%s(): msg header OK\n", __func__);
 dev->print_log(dev, "%s(): msg length OK\n", __func__);
 
 	spin_lock_irqsave(&dev->read_list_spinlock, dev_flags);
+	rb_count = -1;
 	list_for_each_entry_safe(rb, next, &dev->read_list.list, list) {
+		++rb_count;
 		cl = rb->cl;
+
 		if (!cl || !(cl->host_client_id == heci_hdr->host_addr && cl->me_client_id == heci_hdr->me_addr) ||
 				!(cl->state == HECI_CL_CONNECTED))
 			continue;
@@ -1104,11 +1068,22 @@ dev->print_log(dev, "%s(): msg length OK\n", __func__);
 		buffer = rb->buffer.data + rb->buf_idx;
 		dev->ops->read(dev, buffer, heci_hdr->length);
 
+		/* Debug HID client */
+		if (cl->host_client_id == 3 && cl->me_client_id == 5)
+			dev->ipc_hid_in_msg = 1;
+
 		rb->buf_idx += heci_hdr->length;
 		if (heci_hdr->msg_complete) {
+			/* Last fragment in message - it's complete */
 			cl->status = 0;
 			list_del(&rb->list);
 			complete_rb = rb;
+
+			/* Debug HID client */
+			if (cl->host_client_id == 3 && cl->me_client_id == 5) {
+				dev->ipc_hid_in_msg = 0;
+				--dev->ipc_hid_out_fc;
+			}
 
 			--cl->out_flow_ctrl_creds;
 dev->print_log(dev,"%s(): rb[%p] content %02X %02X %02X %02X\n", __func__, rb, rb->buffer.data[0], rb->buffer.data[1], rb->buffer.data[2], rb->buffer.data[3]);
@@ -1116,14 +1091,17 @@ dev->print_log(dev,"%s(): rb[%p] content %02X %02X %02X %02X\n", __func__, rb, r
 			spin_lock_irqsave(&cl->free_list_spinlock, flags);
 
 			if (!list_empty(&cl->free_rb_list.list)) {
-				rb = list_entry(cl->free_rb_list.list.next, struct heci_cl_rb, list);
-				list_del_init(&rb->list);
-				spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
-				rb->cl = cl;
-				rb->buf_idx = 0;
+				new_rb = list_entry(cl->free_rb_list.list.next,
+					struct heci_cl_rb, list);
+				list_del_init(&new_rb->list);
+				spin_unlock_irqrestore(&cl->free_list_spinlock,
+					flags);
+				new_rb->cl = cl;
+				new_rb->buf_idx = 0;
 				INIT_LIST_HEAD(&rb->list);
-dev->print_log(dev, "%s(): add cd = %p to read_list\n", __func__, rb);
-				list_add_tail(&rb->list, &dev->read_list.list);
+dev->print_log(dev, "%s(): add cd = %p to read_list\n", __func__, new_rb);
+				list_add_tail(&new_rb->list,
+					&dev->read_list.list);
 dev->print_log(dev, "%s(): call heci_hbm_cl_flow_control_req\n", __func__);
 
 				/* will work properly just after the transmit path fixes (which sends hbm command without sleeping) */
@@ -1133,6 +1111,8 @@ dev->print_log(dev, "%s(): call heci_hbm_cl_flow_control_req\n", __func__);
 				spin_unlock_irqrestore(&cl->free_list_spinlock, flags);
 			}
 		}
+		/* One more fragment in message (even if this was last) */
+		++cl->recv_msg_num_frags;
 
 		/* We can safely break here (and in BH too), a single input message can go only to a single request! */
 		break;
@@ -1144,13 +1124,21 @@ dev->print_log(dev, "%s(): buffer=%p complete_rb=%p\n", __func__, buffer, comple
 	if (!buffer) {
 		uint8_t	rd_msg_buf[HECI_RD_MSG_BUF_SIZE];
 
+		dev_err(&dev->pdev->dev, "%s(): Dropped msg - no request\n",
+			__func__);
 		dev->ops->read(dev, rd_msg_buf, heci_hdr->length);
 		goto	eoi;
 	}
 
 	/* Looks like this is interrupt-safe */
-	if (complete_rb)
+	if (complete_rb) {
+		struct timeval	tv;
+		do_gettimeofday(&tv);
+		cl->rx_sec = tv.tv_sec;
+		cl->rx_usec = tv.tv_usec;
+		++cl->recv_msg_cnt;
 		heci_cl_read_complete(complete_rb);
+	}
 
 eoi:
 dev->print_log(dev, "%s(): ---\n", __func__);

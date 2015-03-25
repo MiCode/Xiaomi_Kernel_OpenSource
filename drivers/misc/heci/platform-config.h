@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"imin-0133-fixes-batch-wake-hid-dbg"
+#define	BUILD_ID	"imin-0159-sync-send-ipc-fc"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG
@@ -33,7 +33,11 @@
 #define	ISH_INFO_PRINT	no_printk
 #endif
 
+/* Define for ISH internal logging facility */
+#if 0
 #define ISH_LOG		1
+#endif
+
 
 #if 0
 /* Define if running on VirtualBox - may solve imprecise timer emulation problems */

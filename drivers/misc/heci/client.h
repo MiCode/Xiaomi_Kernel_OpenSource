@@ -71,6 +71,8 @@ struct heci_cl {
 	/* Client Tx buffers list */
 	unsigned	tx_ring_size;
 	struct heci_cl_tx_ring	tx_list, tx_free_list;
+	spinlock_t      tx_list_spinlock;
+	spinlock_t      tx_free_list_spinlock;
 	size_t	tx_offs;			/* Offset in buffer at head of 'tx_list' */
 	/*#############################*/
 	/* if we get a FC, and the list is not empty, we must know whether we are at the middle of sending.
@@ -79,7 +81,9 @@ struct heci_cl {
 	 */
 	int sending;
 	/*#############################*/
-	spinlock_t	tx_spinlock;
+
+	/* Send FC spinlock */
+	spinlock_t      fc_spinlock;
 
 	/* wait queue for connect and disconnect response from FW */
 	wait_queue_head_t wait_ctrl_res;
@@ -87,6 +91,18 @@ struct heci_cl {
 	/* Error stats */
 	unsigned	err_send_msg;
 	unsigned	err_send_fc;
+
+	/* Send/recv stats */
+	unsigned	send_msg_cnt;
+	unsigned	recv_msg_cnt;
+	unsigned	recv_msg_num_frags;
+	unsigned	heci_flow_ctrl_cnt;
+	unsigned	out_flow_ctrl_cnt;
+
+	/* Rx msg ... out FC timing */
+	unsigned long	rx_sec, rx_usec;
+	unsigned long	out_fc_sec, out_fc_usec;
+	unsigned long	max_fc_delay_sec, max_fc_delay_usec;
 };
 
 int heci_me_cl_by_uuid(const struct heci_device *dev, const uuid_le *cuuid);
@@ -150,7 +166,6 @@ static inline bool heci_cl_cmp_id(const struct heci_cl *cl1,
 
 int heci_cl_flow_ctrl_creds(struct heci_cl *cl);
 
-int heci_cl_flow_ctrl_reduce(struct heci_cl *cl);
 /*
  *  HECI input output function prototype
  */

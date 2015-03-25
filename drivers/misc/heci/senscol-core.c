@@ -195,7 +195,7 @@ static ssize_t	sc_sensdef_show(struct kobject *kobj, struct attribute *attr, cha
 {
 	ssize_t	rv;
 	struct sensor_def	*sensdef;
-	char    tmp_buf[0x1000];
+	static char    tmp_buf[0x1000];
 	unsigned long flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "[senscol]: %s(): +++ attr='%s'\n", __func__, attr->name);
@@ -209,7 +209,7 @@ static ssize_t	sc_sensdef_show(struct kobject *kobj, struct attribute *attr, cha
 		sprintf(buf, "%08X\n", sensdef->usage_id);
 	else if (!strcmp(attr->name, "name"))
 		sprintf(buf, "%s\n", sensdef->name);
-	else if (!strcmp(attr->name, "flush"))
+	else if (!strcmp(attr->name, "flush")) {
 		/*if "sensdef" is activated in batch mode,
 		mark it as asking flush*/
 		if (sensdef->impl->batch_check(sensdef)) {
@@ -230,6 +230,7 @@ static ssize_t	sc_sensdef_show(struct kobject *kobj, struct attribute *attr, cha
 			push_sample(pseudo_event_id, &pseudo_event_content);
 			sprintf(buf, "0\n");
 		}
+	}
 
 	rv = strlen(buf) + 1;
 	return	rv;
