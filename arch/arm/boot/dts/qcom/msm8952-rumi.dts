@@ -71,3 +71,15 @@
 &ipa_hw {
 	qcom,ipa-hw-mode = <1>; /* IPA hw type = Virtual */
 };
+
+&pm8950_vadc {
+	chan@11 {
+	        /delete-property/ qcom,vadc-thermal-node;
+	};
+	chan@32 {
+	        /delete-property/ qcom,vadc-thermal-node;
+	};
+	chan@3c {
+		/delete-property/ qcom,vadc-thermal-node;
+	};
+};
