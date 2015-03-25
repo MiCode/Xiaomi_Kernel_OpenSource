@@ -189,6 +189,9 @@ struct swr_driver {
 	void	(*shutdown)(struct swr_device *swr);
 	int	(*suspend)(struct swr_device *swr, pm_message_t pmesg);
 	int	(*resume)(struct swr_device *swr);
+	int	(*device_up)(struct swr_device *swr);
+	int	(*device_down)(struct swr_device *swr);
+	int	(*reset_device)(struct swr_device *swr);
 	struct device_driver		driver;
 	const struct swr_device_id	*id_table;
 };
@@ -270,5 +273,11 @@ extern void swr_master_add_boarddevices(struct swr_master *master);
 extern void swr_unregister_master(struct swr_master *master);
 
 extern int swr_register_master(struct swr_master *master);
+
+extern int swr_device_up(struct swr_device *swr_dev);
+
+extern int swr_device_down(struct swr_device *swr_dev);
+
+extern int swr_reset_device(struct swr_device *swr_dev);
 
 #endif /* _LINUX_SOUNDWIRE_H */
