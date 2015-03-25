@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -328,10 +328,6 @@ struct mdss_calib_cfg32 {
 	uint32_t calib_mask;
 };
 
-struct mdp_pp_init_data32 {
-	uint32_t init_request;
-};
-
 struct mdp_histogram_cfg32 {
 	uint32_t ops;
 	uint32_t block;
@@ -378,7 +374,6 @@ struct msmfb_mdp_pp32 {
 		struct mdss_ad_input32 ad_input;
 		struct mdp_calib_config_buffer32 calib_buffer;
 		struct mdp_calib_dcm_state32 calib_dcm;
-		struct mdp_pp_init_data32 init_data;
 	} data;
 };
 
