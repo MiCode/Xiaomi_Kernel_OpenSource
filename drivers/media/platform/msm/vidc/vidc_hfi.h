@@ -147,7 +147,7 @@ struct hfi_extradata_header {
 	(HFI_PROPERTY_PARAM_OX_START + 0x00A)
 #define  HFI_PROPERTY_PARAM_BUFFER_ALLOC_MODE_SUPPORTED	\
 	(HFI_PROPERTY_PARAM_OX_START + 0x00B)
-#define  HFI_PROPERTY_PARAM_BUFFER_SIZE_ACTUAL			\
+#define  HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM			\
 	(HFI_PROPERTY_PARAM_OX_START + 0x00C)
 
 #define HFI_PROPERTY_CONFIG_OX_START					\
@@ -256,7 +256,7 @@ struct hfi_buffer_count_actual {
 	u32 buffer_count_actual;
 };
 
-struct hfi_buffer_size_actual {
+struct hfi_buffer_size_minimum {
 	u32 buffer_type;
 	u32 buffer_size;
 };
@@ -371,6 +371,7 @@ struct hfi_uncompressed_plane_actual_constraints_info {
 	(HFI_CMD_SESSION_OX_START + 0x00B)
 #define HFI_CMD_SESSION_RELEASE_RESOURCES	\
 	(HFI_CMD_SESSION_OX_START + 0x00C)
+#define  HFI_CMD_SESSION_CONTINUE  (HFI_CMD_SESSION_OX_START + 0x00D)
 
 #define HFI_MSG_SYS_OX_START			\
 (HFI_DOMAIN_BASE_COMMON + HFI_ARCH_OX_OFFSET + HFI_MSG_START_OFFSET + 0x0000)
@@ -852,6 +853,12 @@ struct hfi_extradata_frame_type_payload {
 
 struct hfi_extradata_recovery_point_sei_payload {
 	u32 flag;
+};
+
+struct hfi_cmd_session_continue_packet {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
 };
 
 struct hal_session {

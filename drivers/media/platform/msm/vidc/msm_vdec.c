@@ -556,6 +556,11 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
 
+static int set_buffer_size(struct msm_vidc_inst *inst,
+				u32 buffer_size, enum hal_buffer buffer_type);
+static int update_output_buffer_size(struct msm_vidc_inst *inst,
+		struct v4l2_format *f, int num_planes);
+
 static u32 get_frame_size_nv12(int plane,
 					u32 height, u32 width)
 {
@@ -1124,6 +1129,13 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		for (i = 0; i < fmt->num_planes; ++i)
 			inst->bufq[CAPTURE_PORT].vb2_bufq.plane_sizes[i] =
 				f->fmt.pix_mp.plane_fmt[i].sizeimage;
+		rc = update_output_buffer_size(inst, f, fmt->num_planes);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s - failed to update buffer size: %d\n",
+				__func__, rc);
+			goto exit;
+		}
 	}
 
 	if (stride && scanlines) {
@@ -1207,7 +1219,7 @@ static int set_buffer_size(struct msm_vidc_inst *inst,
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_buffer_size_actual buffer_size_actual;
+	struct hal_buffer_size_minimum b;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1217,14 +1229,14 @@ static int set_buffer_size(struct msm_vidc_inst *inst,
 	hdev = inst->core->device;
 
 	dprintk(VIDC_DBG,
-		"Set actual buffer size = %d for buffer type %d to fw\n",
+		"Set minimum buffer size = %d for buffer type %d to fw\n",
 		buffer_size, buffer_type);
 
-	buffer_size_actual.buffer_type = buffer_type;
-	buffer_size_actual.buffer_size = buffer_size;
+	b.buffer_type = buffer_type;
+	b.buffer_size = buffer_size;
 	rc = call_hfi_op(hdev, session_set_property,
-			 inst->session, HAL_PARAM_BUFFER_SIZE_ACTUAL,
-			 &buffer_size_actual);
+			 inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
+			 &b);
 	if (rc)
 		dprintk(VIDC_ERR,
 			"%s - failed to set actual buffer size %u on firmware\n",
@@ -1233,31 +1245,31 @@ static int set_buffer_size(struct msm_vidc_inst *inst,
 }
 
 static int update_output_buffer_size(struct msm_vidc_inst *inst,
-		struct v4l2_format *f, struct msm_vidc_format *fmt)
+		struct v4l2_format *f, int num_planes)
 {
 	int rc = 0, i = 0;
 	struct hal_buffer_requirements *bufreq;
 
-	if (!inst || !f || !fmt)
+	if (!inst || !f)
 		return -EINVAL;
 
 	/*
-	 * Compare set buffer size and update to firmware if it's bigger
-	 * then firmware returned buffer size.
+	 * Firmware expects driver to always set the minimum buffer
+	 * size negotiated with the v4l2 client. Firmware will use this
+	 * size to check for buffer sufficiency in dynamic buffer mode.
 	 */
-	for (i = 0; i < fmt->num_planes; ++i) {
+	for (i = 0; i < num_planes; ++i) {
 		enum hal_buffer type = msm_comm_get_hal_output_buffer(inst);
 
-		if (EXTRADATA_IDX(fmt->num_planes) &&
-			i == EXTRADATA_IDX(fmt->num_planes)) {
-			type = HAL_BUFFER_EXTRADATA_OUTPUT;
-		}
+		if (EXTRADATA_IDX(num_planes) &&
+			i == EXTRADATA_IDX(num_planes))
+			continue;
 
 		bufreq = get_buff_req_buffer(inst, type);
 		if (!bufreq)
 			goto exit;
 
-		if (f->fmt.pix_mp.plane_fmt[i].sizeimage >
+		if (f->fmt.pix_mp.plane_fmt[i].sizeimage >=
 			bufreq->buffer_size) {
 			rc = set_buffer_size(inst,
 				f->fmt.pix_mp.plane_fmt[i].sizeimage, type);
@@ -1273,11 +1285,11 @@ static int update_output_buffer_size(struct msm_vidc_inst *inst,
 			"Failed to get buf req, %d\n", rc);
 
 	/* Read back updated firmware size */
-	for (i = 0; i < fmt->num_planes; ++i) {
+	for (i = 0; i < num_planes; ++i) {
 		enum hal_buffer type = msm_comm_get_hal_output_buffer(inst);
 
-		if (EXTRADATA_IDX(fmt->num_planes) &&
-			i == EXTRADATA_IDX(fmt->num_planes)) {
+		if (EXTRADATA_IDX(num_planes) &&
+			i == EXTRADATA_IDX(num_planes)) {
 			type = HAL_BUFFER_EXTRADATA_OUTPUT;
 		}
 
@@ -1391,7 +1403,8 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 					get_frame_size(inst, fmt, f->type, i);
 			}
 		} else {
-			rc = update_output_buffer_size(inst, f, fmt);
+			rc = update_output_buffer_size(inst, f,
+				fmt->num_planes);
 			if (rc) {
 				dprintk(VIDC_ERR,
 					"%s - failed to update buffer size: %d\n",
@@ -1607,14 +1620,14 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		}
 
 		*num_buffers = max(*num_buffers, bufreq->buffer_count_min);
-		if (*num_buffers != bufreq->buffer_count_actual) {
-			property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
-			new_buf_count.buffer_type =
-				msm_comm_get_hal_output_buffer(inst);
-			new_buf_count.buffer_count_actual = *num_buffers;
-			rc = call_hfi_op(hdev, session_set_property,
-				inst->session, property_id, &new_buf_count);
-		}
+		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
+		new_buf_count.buffer_type =
+			msm_comm_get_hal_output_buffer(inst);
+		new_buf_count.buffer_count_actual = *num_buffers;
+		dprintk(VIDC_DBG, "Set actual output buffer count: %d\n",
+				*num_buffers);
+		rc = call_hfi_op(hdev, session_set_property,
+			inst->session, property_id, &new_buf_count);
 
 		if (*num_buffers != bufreq->buffer_count_actual) {
 			rc = msm_comm_try_get_bufreqs(inst);
@@ -1656,7 +1669,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 	struct list_head *ptr, *next;
 
 	hdev = inst->core->device;
-	inst->in_reconfig = false;
+
 	if (msm_comm_get_stream_output_mode(inst) ==
 		HAL_VIDEO_DECODER_SECONDARY)
 		rc = msm_vidc_check_scaling_supported(inst);
@@ -1686,6 +1699,29 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			goto fail_start;
 		}
 	}
+
+	/*
+	 * For seq_changed_insufficient, driver should set session_continue
+	 * to firmware after the following sequence
+	 * - driver raises insufficient event to v4l2 client
+	 * - all output buffers have been flushed and freed
+	 * - v4l2 client queries buffer requirements and splits/combines OPB-DPB
+	 * - v4l2 client sets new set of buffers to firmware
+	 * - v4l2 client issues CONTINUE to firmware to resume decoding of
+	 *   submitted ETBs.
+	 */
+	if (inst->in_reconfig) {
+		dprintk(VIDC_DBG, "send session_continue after reconfig\n");
+		rc = call_hfi_op(hdev, session_continue,
+			(void *) inst->session);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s - failed to send session_continue\n",
+				__func__);
+			goto fail_start;
+		}
+	}
+	inst->in_reconfig = false;
 
 	msm_comm_scale_clocks_and_bus(inst);
 
