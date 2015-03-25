@@ -2510,8 +2510,8 @@
 		pinctrl-1 = <&i2c_5_sleep>;
 		qcom,noise-rjct-scl = <0>;
 		qcom,noise-rjct-sda = <0>;
-		dmas = <&dma_blsp1 20 64 0x20000020 0x20>,
-			<&dma_blsp1 21 32 0x20000020 0x20>;
+		dmas = <&dma_blsp2 20 64 0x20000020 0x20>,
+			<&dma_blsp2 21 32 0x20000020 0x20>;
 		dma-names = "tx", "rx";
 		qcom,master-id = <84>;
 	};
