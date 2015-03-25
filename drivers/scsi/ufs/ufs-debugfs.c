@@ -67,10 +67,44 @@ struct ufsdbg_err_scenario {
 	u32 num_err_codes;
 };
 
+/*
+ * the following static arrays are aggregation of possible errors
+ * that might occur during the relevant error scenario
+ */
 static const int err_inject_intr_err_codes[] = {
 	CONTROLLER_FATAL_ERROR,
 	SYSTEM_BUS_FATAL_ERROR,
 	INJECT_COMMAND_HANG,
+};
+
+static const int err_inject_pwr_change_err_codes[] = {
+	-EIO,
+	-ETIMEDOUT,
+	-1,
+	PWR_REMOTE,
+	PWR_BUSY,
+	PWR_ERROR_CAP,
+	PWR_FATAL_ERROR,
+};
+
+static const int err_inject_link_startup_err_codes[] = {
+	-EIO,
+	-ETIMEDOUT,
+};
+
+static const int err_inject_uic_err_codes[] = {
+	-EIO,
+	-ETIMEDOUT,
+};
+
+static const int err_inject_dme_attr_err_codes[] = {
+	/* an invalid DME attribute for host and device */
+	0x1600,
+};
+
+static const int err_inject_query_err_codes[] = {
+	/* an invalid idn for flag/attribute/descriptor query request */
+	0xFF,
 };
 
 static struct ufsdbg_err_scenario err_scen_arr[] = {
@@ -93,34 +127,34 @@ static struct ufsdbg_err_scenario err_scen_arr[] = {
 		0,
 	},
 	{
-		"ERR_INJECT_GEAR_CHANGE",
+		"ERR_INJECT_PWR_CHANGE",
 		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
+		err_inject_pwr_change_err_codes,
+		ARRAY_SIZE(err_inject_pwr_change_err_codes),
 	},
 	{
 		"ERR_INJECT_LINK_STARTUP",
 		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
+		err_inject_link_startup_err_codes,
+		ARRAY_SIZE(err_inject_link_startup_err_codes),
+	},
+	{
+		"ERR_INJECT_UIC",
+		ERR_CODES_ALL_ENABLED,
+		err_inject_uic_err_codes,
+		ARRAY_SIZE(err_inject_uic_err_codes),
 	},
 	{
 		"ERR_INJECT_DME_ATTR",
 		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
-	},
-	{
-		"ERR_INJECT_DME_PEER_ATTR",
-		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
+		err_inject_dme_attr_err_codes,
+		ARRAY_SIZE(err_inject_dme_attr_err_codes),
 	},
 	{
 		"ERR_INJECT_QUERY",
 		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
+		err_inject_query_err_codes,
+		ARRAY_SIZE(err_inject_query_err_codes),
 	},
 	{
 		"ERR_INJECT_RUNTIME_PM",
@@ -264,7 +298,7 @@ ufsdbg_find_err_code(enum ufsdbg_err_inject_scenario usecase, int *ret)
 
 void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 			enum ufsdbg_err_inject_scenario usecase,
-			int *ret_value)
+			int success_value, int *ret_value)
 {
 	int opt_ret = 0;
 
@@ -280,16 +314,24 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 	if (!should_fail(&hba->debugfs_files.fail_attr, 1))
 		goto out;
 
+	/* if an error already occurred/injected */
+	if (*ret_value != success_value)
+		goto out;
+
 	switch (usecase) {
 	case ERR_INJECT_INTR:
-		ufsdbg_intr_fail_request(hba, &opt_ret);
+		/* an error already occurred */
+		if (*ret_value & UFSHCD_ERROR_MASK)
+			goto out;
+
+		ufsdbg_intr_fail_request(hba, (u32 *)&opt_ret);
 		/* fall through */
 	case ERR_INJECT_HIBERN8_ENTER:
 	case ERR_INJECT_HIBERN8_EXIT:
-	case ERR_INJECT_GEAR_CHANGE:
+	case ERR_INJECT_PWR_CHANGE:
 	case ERR_INJECT_LINK_STARTUP:
+	case ERR_INJECT_UIC:
 	case ERR_INJECT_DME_ATTR:
-	case ERR_INJECT_DME_PEER_ATTR:
 	case ERR_INJECT_QUERY:
 	case ERR_INJECT_RUNTIME_PM:
 	case ERR_INJECT_SYSTEM_PM:
