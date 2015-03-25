@@ -259,7 +259,7 @@ relocate_entry_cpu(struct drm_i915_gem_object *obj,
 {
 	struct drm_device *dev = obj->base.dev;
 	uint32_t page_offset = offset_in_page(reloc->offset);
-	uint64_t delta = reloc->delta + target_offset;
+	uint64_t delta = (int32_t)reloc->delta + target_offset;
 	char *vaddr;
 	int ret;
 
@@ -295,7 +295,7 @@ relocate_entry_gtt(struct drm_i915_gem_object *obj,
 {
 	struct drm_device *dev = obj->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
-	uint64_t delta = reloc->delta + target_offset;
+	uint64_t delta = (int32_t)reloc->delta + target_offset;
 	uint32_t __iomem *reloc_entry;
 	void __iomem *reloc_page;
 	int ret;
