@@ -51,6 +51,7 @@
 #define clk_gcc_ce1_clk				0xc1c80572
 #define clk_ce1_clk_src				0x8e8c7e03
 #define clk_gcc_sys_noc_usb3_axi_clk		0x94d26800
+#define clk_gcc_usb2a_phy_sleep_clk		0x6caa736f
 #define clk_gcc_usb30_master_clk		0xb3b4e2cb
 #define clk_gcc_usb30_sleep_clk			0xd0b65c92
 #define clk_gcc_usb30_mock_utmi_clk		0xa800b65a
@@ -58,6 +59,7 @@
 #define clk_gcc_usb3_pipe_clk			0x26f8a97a
 #define clk_gcc_usb3_aux_clk			0x555d16b2
 #define clk_gcc_qusb2a_phy_reset		0x2a9dfa9f
+#define clk_gcc_usb3phy_phy_reset		0xb1a4f885
 #define clk_gcc_usb3_phy_reset			0x03d559f1
 #define clk_usb_ss_ldo				0x88d5fdf7
 #define clk_gcc_pdm2_clk			0x31e494fd

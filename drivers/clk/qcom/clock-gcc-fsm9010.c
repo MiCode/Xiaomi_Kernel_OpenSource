@@ -1076,14 +1076,57 @@ static struct branch_clk gcc_sdcc1_apps_clk = {
 	},
 };
 
-static struct branch_clk gcc_usb2a_phy_sleep_clk = {
-	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
-	.has_sibling = 1,
+static struct clk_freq_tbl ftbl_usb30_master_clk_src[] = {
+	F( 125000000,         gpll0,    1,    5,    24),
+	F_END
+};
+
+static struct clk_freq_tbl ftbl_gcc_usb3_aux_clk[] = {
+	F(   1000000,         xo,    1,    5,    96),
+	F_END
+};
+
+static struct rcg_clk usb30_master_clk_src = {
+	.cmd_rcgr_reg = USB30_MASTER_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_usb30_master_clk_src,
+	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
-		.dbg_name = "gcc_usb2a_phy_sleep_clk",
+		.dbg_name = "usb30_master_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		CLK_INIT(usb30_master_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_gcc_usb30_mock_utmi_clk[] = {
+	F(48000000,  gpll0, 12.5,   0,   0),
+	F(60000000,  gpll0,   10,   0,   0),
+	F_END
+};
+
+static struct rcg_clk usb30_mock_utmi_clk_src = {
+	.cmd_rcgr_reg = USB30_MOCK_UTMI_CMD_RCGR,
+	.set_rate = set_rate_hid,
+	.freq_tbl = ftbl_gcc_usb30_mock_utmi_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "usb30_mock_utmi_clk_src",
+		.ops = &clk_ops_rcg,
+		CLK_INIT(usb30_mock_utmi_clk_src.c),
+	},
+};
+
+static struct branch_clk gcc_usb30_mock_utmi_clk = {
+	.cbcr_reg = USB30_MOCK_UTMI_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb30_mock_utmi_clk",
+		.parent = &usb30_mock_utmi_clk_src.c,
 		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_usb2a_phy_sleep_clk.c),
+		CLK_INIT(gcc_usb30_mock_utmi_clk.c),
 	},
 };
 
@@ -1108,6 +1151,68 @@ static struct branch_clk gcc_usb_hs_system_clk = {
 		.dbg_name = "gcc_usb_hs_system_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_usb_hs_system_clk.c),
+	},
+};
+
+static struct branch_clk gcc_sys_noc_usb3_axi_clk = {
+	.cbcr_reg = SYS_NOC_USB3_AXI_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_sys_noc_usb3_axi_clk",
+		.parent = &usb30_master_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_sys_noc_usb3_axi_clk.c),
+	},
+};
+
+static struct branch_clk gcc_usb30_master_clk = {
+	.cbcr_reg = USB30_MASTER_CBCR,
+	.bcr_reg = USB_30_BCR,
+	.has_sibling = 0,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb30_master_clk",
+		.parent = &usb30_master_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb30_master_clk.c),
+		.depends = &gcc_sys_noc_usb3_axi_clk.c,
+	},
+};
+
+struct branch_clk gcc_usb30_sleep_clk = {
+	.cbcr_reg = USB30_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb30_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb30_sleep_clk.c),
+	},
+};
+
+static struct rcg_clk usb3_aux_clk_src = {
+	.cmd_rcgr_reg = USB3_PHY_AUX_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_gcc_usb3_aux_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "usb3_aux_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		CLK_INIT(usb3_aux_clk_src.c),
+	},
+};
+
+static struct branch_clk gcc_usb3_aux_clk = {
+	.cbcr_reg = USB3_PHY_AUX_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb3_aux_clk",
+		.parent = &usb3_aux_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb3_aux_clk.c),
 	},
 };
 
@@ -1184,6 +1289,60 @@ static struct measure_clk_data debug_mux_priv = {
 	.base = &virt_bases[GCC_BASE],
 };
 
+static struct gate_clk gcc_usb3_pipe_clk = {
+	.en_reg = USB3_PHY_PIPE_CBCR,
+	.en_mask = BIT(0),
+	.delay_us = 50,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb3_phy_pipe_clk",
+		.ops = &clk_ops_gate,
+		CLK_INIT(gcc_usb3_pipe_clk.c),
+	},
+};
+
+static struct branch_clk gcc_usb_phy_cfg_ahb_clk = {
+	.cbcr_reg = USB_HS_PHY_CFG_AHB_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb_phy_cfg_ahb_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb_phy_cfg_ahb_clk.c),
+	},
+};
+
+static struct reset_clk gcc_usb3_phy_reset = {
+	.reset_reg = USB3_PHY_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb3_phy_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3_phy_reset.c),
+	},
+};
+
+static struct reset_clk gcc_usb3phy_phy_reset = {
+	.reset_reg = USB3PHY_PHY_BCR,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb3phy_phy_reset",
+		.ops = &clk_ops_rst,
+		CLK_INIT(gcc_usb3phy_phy_reset.c),
+	},
+};
+
+struct branch_clk gcc_usb2a_phy_sleep_clk = {
+	.cbcr_reg = USB2A_PHY_SLEEP_CBCR,
+	.has_sibling = 1,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_usb2a_phy_sleep_clk",
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_usb2a_phy_sleep_clk.c),
+	},
+};
+
 static struct mux_clk gcc_debug_mux = {
 	.priv = &debug_mux_priv,
 	.ops = &mux_reg_ops,
@@ -1193,6 +1352,7 @@ static struct mux_clk gcc_debug_mux = {
 	.en_mask = BIT(16),
 	.base = &virt_bases[GCC_BASE],
 	MUX_SRC_LIST(
+		{ &gcc_sys_noc_usb3_axi_clk.c, 0x0007 },
 		{ &gcc_sdcc1_apps_clk.c, 0x0068 },
 		{ &gcc_sdcc1_ahb_clk.c, 0x0069 },
 		{ &gcc_pdm2_ahb_clk.c, 0x00d0 },
@@ -1227,6 +1387,10 @@ static struct mux_clk gcc_debug_mux = {
 		{ &pcie_1_phy_ldo.c, 0x02c8 },
 		{ &gcc_gmac0_axi_clk.c, 0x02e5 },
 		{ &gcc_gmac1_axi_clk.c, 0x02e6 },
+		{ &gcc_usb30_master_clk.c, 0x02f0 },
+		{ &gcc_usb30_mock_utmi_clk.c, 0x02f2 },
+		{ &gcc_usb3_aux_clk.c, 0x02f3 },
+		{ &gcc_usb_phy_cfg_ahb_clk.c, 0x02f7 },
 	),
 	.c = {
 		.dbg_name = "gcc_debug_mux",
@@ -1268,6 +1432,13 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_pdm2_ahb_clk),
 	CLK_LIST(gcc_pcie_phy_0_reset),
 	CLK_LIST(gcc_pcie_phy_1_reset),
+	CLK_LIST(gcc_sys_noc_usb3_axi_clk),
+	CLK_LIST(gcc_usb30_mock_utmi_clk),
+	CLK_LIST(gcc_usb2a_phy_sleep_clk),
+	CLK_LIST(gcc_usb30_master_clk),
+	CLK_LIST(gcc_usb30_sleep_clk),
+	CLK_LIST(gcc_usb3phy_phy_reset),
+	CLK_LIST(gcc_usb3_phy_reset),
 };
 
 static int msm_gcc_probe(struct platform_device *pdev)
