@@ -2045,6 +2045,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	ctl->mixer_left->width = width;
 	ctl->mixer_left->height = height;
 	ctl->mixer_left->roi = (struct mdss_rect) {0, 0, width, height};
+	ctl->valid_roi = true;
 
 	if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY) {
 		pr_debug("dual display detected\n");
@@ -2361,6 +2362,7 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 	mixer->height = sctl->height;
 	mixer->roi = (struct mdss_rect)
 				{0, 0, mixer->width, mixer->height};
+	sctl->valid_roi = true;
 	sctl->mixer_left = mixer;
 
 	return mdss_mdp_set_split_ctl(ctl, sctl);
