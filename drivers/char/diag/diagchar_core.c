@@ -1686,7 +1686,6 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 					 POOL_TYPE_HDLC);
 	if (!buf_hdlc) {
 		ret = -ENOMEM;
-		driver->used = 0;
 		goto fail_free_copy;
 	}
 
