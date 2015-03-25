@@ -1034,15 +1034,6 @@ struct mdp_calib_dcm_state {
 	uint32_t dcm_state;
 };
 
-struct mdp_pp_init_data {
-	uint32_t init_request;
-};
-
-enum {
-	MDP_PP_DISABLE,
-	MDP_PP_ENABLE,
-};
-
 enum {
 	DCM_UNINIT,
 	DCM_UNBLANK,
@@ -1157,7 +1148,6 @@ enum {
 	mdp_op_calib_buffer,
 	mdp_op_calib_dcm_state,
 	mdp_op_max,
-	mdp_op_pp_init_cfg,
 };
 
 enum {
@@ -1189,7 +1179,6 @@ struct msmfb_mdp_pp {
 		struct mdss_ad_input ad_input;
 		struct mdp_calib_config_buffer calib_buffer;
 		struct mdp_calib_dcm_state calib_dcm;
-		struct mdp_pp_init_data init_data;
 	} data;
 };
 
