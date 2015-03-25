@@ -1809,6 +1809,31 @@
 		asoc-codec = <&stub_codec>, <&pm8950_cajon_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 	};
+
+	i2c@7af8000 {
+		wsa881x-i2c-codec@e {
+			compatible = "qcom,wsa881x-i2c-codec";
+			reg = <0x0e>;
+			qcom,msm-gpios = "wsa_clk",
+					"wsa_reset";
+			qcom,pinctrl-names = "all_off",
+					"wsa_clk",
+					"wsa_active",
+					"wsa_clk_active";
+			pinctrl-names = "all_off",
+					"wsa_clk",
+					"wsa_active",
+					"wsa_clk_active";
+			pinctrl-0 = <&wsa_clk_off &wsa_suspend>;
+			pinctrl-1 = <&wsa_clk_on &wsa_suspend>;
+			pinctrl-2 = <&wsa_clk_off &wsa_active>;
+			pinctrl-3 = <&wsa_clk_on &wsa_active>;
+		};
+		wsa881x-i2c-codec@44 {
+			compatible = "qcom,wsa881x-i2c-codec";
+			reg = <0x44>;
+		};
+	};
 };
 
 &gdsc_venus {
