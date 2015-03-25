@@ -3362,10 +3362,14 @@ int mdss_mdp_ctl_update_fps(struct mdss_mdp_ctl *ctl, int fps)
 	int ret = 0;
 	struct mdss_mdp_ctl *sctl = NULL;
 
+	mutex_lock(&ctl->offlock);
+
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
 	if (ctl->ops.config_fps_fnc)
 		ret = ctl->ops.config_fps_fnc(ctl, sctl, fps);
+
+	mutex_unlock(&ctl->offlock);
 
 	return ret;
 }
