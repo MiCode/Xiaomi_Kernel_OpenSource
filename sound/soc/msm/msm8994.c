@@ -2177,8 +2177,58 @@ end:
 	return ret;
 }
 
+static int msm_snd_cpe_hw_params(struct snd_pcm_substream *substream,
+				 struct snd_pcm_hw_params *params)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_dai *codec_dai = rtd->codec_dai;
+	struct snd_soc_dai *cpu_dai = rtd->cpu_dai;
+	struct snd_soc_dai_link *dai_link = rtd->dai_link;
+
+	int ret = 0;
+	u32 tx_ch[SLIM_MAX_TX_PORTS];
+	u32 tx_ch_cnt = 0;
+	u32 user_set_tx_ch = 0;
+
+	if (substream->stream != SNDRV_PCM_STREAM_CAPTURE) {
+		pr_err("%s: Invalid stream type %d\n",
+			__func__, substream->stream);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	pr_debug("%s: %s_tx_dai_id_%d\n", __func__,
+		 codec_dai->name, codec_dai->id);
+	ret = snd_soc_dai_get_channel_map(codec_dai,
+				 &tx_ch_cnt, tx_ch, NULL , NULL);
+	if (ret < 0) {
+		pr_err("%s: failed to get codec chan map\n, err:%d\n",
+			__func__, ret);
+		goto end;
+	}
+
+	user_set_tx_ch = tx_ch_cnt;
+
+	pr_debug("%s: tx_ch_cnt(%d) be_id %d\n",
+		 __func__, tx_ch_cnt, dai_link->be_id);
+
+	ret = snd_soc_dai_set_channel_map(cpu_dai,
+					  user_set_tx_ch, tx_ch, 0 , 0);
+	if (ret < 0) {
+		pr_err("%s: failed to set cpu chan map, err:%d\n",
+			__func__, ret);
+		goto end;
+	}
+end:
+	return ret;
+}
+
 static struct snd_soc_ops msm8994_be_ops = {
 	.hw_params = msm_snd_hw_params,
+};
+
+static struct snd_soc_ops msm8994_cpe_ops = {
+	.hw_params = msm_snd_cpe_hw_params,
 };
 
 static int msm8994_slimbus_2_hw_params(struct snd_pcm_substream *substream,
@@ -2878,7 +2928,7 @@ static struct snd_soc_dai_link msm8994_common_dai_links[] = {
 	{
 		.name = "CPE Listen service",
 		.stream_name = "CPE Listen Audio Service",
-		.cpu_dai_name = "CPE_LSM_NOHOST",
+		.cpu_dai_name = "msm-dai-slim",
 		.platform_name = "msm-cpe-lsm",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST },
@@ -2887,6 +2937,7 @@ static struct snd_soc_dai_link msm8994_common_dai_links[] = {
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "tomtom_mad1",
 		.codec_name = "tomtom_codec",
+		.ops = &msm8994_cpe_ops,
 	},
 	/* End of FE DAI LINK */
 	/* Backend FM DAI Links */
