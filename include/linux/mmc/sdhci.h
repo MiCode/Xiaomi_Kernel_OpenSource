@@ -30,6 +30,11 @@ enum sdhci_power_policy {
 	SDHCI_POWER_SAVE_MODE,
 };
 
+enum sdhci_cluster_info {
+	SDHCI_LITTLE_CLUSTER,
+	SDHCI_BIG_CLUSTER,
+};
+
 struct sdhci_host {
 	/* Data set by hardware interface driver */
 	const char *hw_name;	/* Hardware bus name */
@@ -266,6 +271,8 @@ struct sdhci_host {
 
 	unsigned int *cpu_dma_latency_us;
 	unsigned int cpu_dma_latency_tbl_sz;
+	enum sdhci_cluster_info pm_qos_index;
+	unsigned int *cpu_affinity_mask;
 	struct pm_qos_request pm_qos_req_dma;
 	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
 	struct device_attribute pm_qos_tout;
