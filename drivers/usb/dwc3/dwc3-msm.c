@@ -1482,45 +1482,43 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 {
 	unsigned long timeout;
 	u32 reg = 0;
+	bool host_mode, device_mode;
 
-	if (dwc3_msm_is_superspeed(mdwc)) {
+	host_mode = mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM;
+	device_mode = mdwc->otg_xceiv &&
+			mdwc->otg_xceiv->state == OTG_STATE_B_PERIPHERAL;
+
+	if ((host_mode || device_mode) && dwc3_msm_is_superspeed(mdwc)) {
 		if (!atomic_read(&mdwc->in_p3)) {
-			dev_err(mdwc->dev,
-				"Not in P3, stoping LPM sequence\n");
+			dev_err(mdwc->dev, "Not in P3, aborting LPM sequence\n");
 			return -EBUSY;
 		}
-	} else {
-		/* Clear previous L2 events */
-		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
-			PWR_EVNT_LPM_IN_L2_MASK |
-			PWR_EVNT_LPM_OUT_L2_MASK);
-
-		/* Prepare HSPHY for suspend */
-		dwc3_msm_write_reg(mdwc->base,
-			DWC3_GUSB2PHYCFG(0),
-			dwc3_msm_read_reg(mdwc->base,
-			DWC3_GUSB2PHYCFG(0)) |
-			DWC3_GUSB2PHYCFG_ENBLSLPM |
-			DWC3_GUSB2PHYCFG_SUSPHY);
-
-		/* Wait for PHY to go into L2 */
-		timeout = jiffies + msecs_to_jiffies(5);
-		while (!time_after(jiffies, timeout)) {
-			reg = dwc3_msm_read_reg(mdwc->base,
-				PWR_EVNT_IRQ_STAT_REG);
-			if (reg & PWR_EVNT_LPM_IN_L2_MASK)
-				break;
-		}
-		if (!(reg & PWR_EVNT_LPM_IN_L2_MASK)) {
-			dev_err(mdwc->dev,
-				"could not transition HS PHY to L2\n");
-			return -EBUSY;
-		}
-
-		/* Clear L2 event bit */
-		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
-			PWR_EVNT_LPM_IN_L2_MASK);
 	}
+
+	/* Clear previous L2 events */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+		PWR_EVNT_LPM_IN_L2_MASK | PWR_EVNT_LPM_OUT_L2_MASK);
+
+	/* Prepare HSPHY for suspend */
+	reg = dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0));
+	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
+		reg | DWC3_GUSB2PHYCFG_ENBLSLPM | DWC3_GUSB2PHYCFG_SUSPHY);
+
+	/* Wait for PHY to go into L2 */
+	timeout = jiffies + msecs_to_jiffies(5);
+	while (!time_after(jiffies, timeout)) {
+		reg = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
+		if (reg & PWR_EVNT_LPM_IN_L2_MASK)
+			break;
+	}
+	if (!(reg & PWR_EVNT_LPM_IN_L2_MASK)) {
+		dev_err(mdwc->dev, "could not transition HS PHY to L2\n");
+		return -EBUSY;
+	}
+
+	/* Clear L2 event bit */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
+		PWR_EVNT_LPM_IN_L2_MASK);
 
 	return 0;
 }
@@ -1647,11 +1645,9 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		dwc3_msm_write_reg(mdwc->base, QSCRATCH_CTRL_REG,
 			mdwc->qscratch_ctl_val);
 
-	if (host_bus_suspend || device_bus_suspend) {
-		ret = dwc3_msm_prepare_suspend(mdwc);
-		if (ret)
-			return ret;
-	}
+	ret = dwc3_msm_prepare_suspend(mdwc);
+	if (ret)
+		return ret;
 
 	/* Enable wakeup from LPM */
 	if (mdwc->pwr_event_irq) {
