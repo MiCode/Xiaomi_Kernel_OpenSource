@@ -5697,8 +5697,6 @@ static void ufshcd_sl_intr(struct ufs_hba *hba, u32 intr_status)
 {
 	bool crypto_engine_err = false;
 
-	ufsdbg_fail_request(hba, &intr_status);
-
 	if (hba->vops && hba->vops->crypto_engine_eh)
 		crypto_engine_err = hba->vops->crypto_engine_eh(hba);
 

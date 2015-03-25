@@ -47,10 +47,100 @@ struct desc_field_offset {
 #ifdef CONFIG_UFS_FAULT_INJECTION
 
 #define INJECT_COMMAND_HANG (0x0)
+#define ERR_CODES_ALL_ENABLED	0xFFFFFFFF
 
 static DECLARE_FAULT_ATTR(fail_default_attr);
 static char *fail_request;
 module_param(fail_request, charp, 0);
+
+/**
+ * struct ufsdbg_err_scenario - error scenario use case
+ * @name: the name of the error scenario
+ * @err_code_mask: enabled error codes for this scenario
+ * @err_code_arr: error codes array for this error scenario
+ * @num_err_codes: number of error codes in err_code_arr
+ */
+struct ufsdbg_err_scenario {
+	const char *name;
+	u32 err_code_mask;
+	int *err_code_arr;
+	u32 num_err_codes;
+};
+
+struct ufsdbg_err_scenario err_scen_arr[] = {
+	{
+		"ERR_INJECT_INTR",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_HIBERN8_ENTER",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_HIBERN8_EXIT",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_GEAR_CHANGE",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_LINK_STARTUP",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_DME_ATTR",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_DME_PEER_ATTR",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_QUERY",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_RUNTIME_PM",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_SYSTEM_PM",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_CLOCK_GATING_SCALING",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+	{
+		"ERR_INJECT_PHY_POWER_UP_SEQ",
+		ERR_CODES_ALL_ENABLED,
+		NULL,
+		0,
+	},
+};
 
 static bool inject_fatal_err_tr(struct ufs_hba *hba, u8 ocs_err)
 {
@@ -150,6 +240,68 @@ set_ocs:
 		BUG();
 		/* some configurations ignore panics caused by BUG() */
 		break;
+	}
+out:
+	return;
+}
+
+static bool
+ufsdbg_find_err_code(enum ufsdbg_err_inject_scenario usecase, int *ret)
+{
+	struct ufsdbg_err_scenario *err_scen = &err_scen_arr[usecase];
+	u32 err_code_index;
+
+	if (!err_scen->num_err_codes)
+		return false;
+
+	err_code_index = prandom_u32() % err_scen->num_err_codes;
+
+	/* if the randomly chosen error code is not an enabled error code */
+	if (!(err_scen->err_code_mask & (1 << err_code_index)))
+		return false;
+
+	*ret = err_scen->err_code_arr[err_code_index];
+	return true;
+}
+
+void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
+			enum ufsdbg_err_inject_scenario usecase,
+			int *ret_value)
+{
+	int opt_ret = 0;
+
+	if (!hba || !ret_value)
+		goto out;
+
+	switch (usecase) {
+	case ERR_INJECT_INTR:
+		ufsdbg_fail_request(hba, ret_value);
+		goto out;
+	case ERR_INJECT_HIBERN8_ENTER:
+	case ERR_INJECT_HIBERN8_EXIT:
+	case ERR_INJECT_GEAR_CHANGE:
+	case ERR_INJECT_LINK_STARTUP:
+	case ERR_INJECT_DME_ATTR:
+	case ERR_INJECT_DME_PEER_ATTR:
+	case ERR_INJECT_QUERY:
+	case ERR_INJECT_RUNTIME_PM:
+	case ERR_INJECT_SYSTEM_PM:
+	case ERR_INJECT_CLOCK_GATING_SCALING:
+	case ERR_INJECT_PHY_POWER_UP_SEQ:
+		if (!ufsdbg_find_err_code(usecase, &opt_ret))
+			goto out;
+		goto should_fail;
+	default:
+		dev_err(hba->dev, "%s: unsupported error scenario\n",
+				__func__);
+		goto out;
+	}
+should_fail:
+	if (should_fail(&hba->debugfs_files.fail_attr, 1)) {
+		pr_debug("%s: error %d (0x%x) is injected for scenario \"%s\"\n",
+			 __func__, *ret_value, *ret_value,
+			 err_scen_arr[usecase].name);
+		*ret_value = opt_ret;
 	}
 out:
 	return;
