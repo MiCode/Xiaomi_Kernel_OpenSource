@@ -678,10 +678,40 @@ static int swrm_probe(struct platform_device *pdev)
 		goto err_pdata_fail;
 	}
 	swrm->handle = (void *)pdata->handle;
+	if (!swrm->handle) {
+		dev_err(&pdev->dev, "%s: swrm->handle is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_pdata_fail;
+	}
 	swrm->read = pdata->read;
+	if (!swrm->read) {
+		dev_err(&pdev->dev, "%s: swrm->read is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_pdata_fail;
+	}
 	swrm->write = pdata->write;
+	if (!swrm->write) {
+		dev_err(&pdev->dev, "%s: swrm->write is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_pdata_fail;
+	}
 	swrm->clk = pdata->clk;
+	if (!swrm->clk) {
+		dev_err(&pdev->dev, "%s: swrm->clk is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_pdata_fail;
+	}
 	swrm->reg_irq = pdata->reg_irq;
+	if (!swrm->reg_irq) {
+		dev_err(&pdev->dev, "%s: swrm->reg_irq is NULL\n",
+			__func__);
+		ret = -EINVAL;
+		goto err_pdata_fail;
+	}
 	swrm->master.read = swrm_read;
 	swrm->master.write = swrm_write;
 	swrm->master.get_logical_dev_num = swrm_get_logical_dev_num;
@@ -725,6 +755,7 @@ static int swrm_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev,
 			"%s: Error in master Initializaiton, err %d\n",
 			__func__, ret);
+		mutex_unlock(&swrm->mlock);
 		goto err_mstr_fail;
 	}
 	mutex_unlock(&swrm->mlock);
