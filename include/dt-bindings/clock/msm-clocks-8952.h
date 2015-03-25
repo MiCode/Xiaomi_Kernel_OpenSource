@@ -191,6 +191,7 @@
 #define clk_gcc_mss_q6_bimc_axi_clk		0x67544d62
 #define clk_gcc_oxili_ahb_clk			0xd15c8a00
 #define clk_gcc_oxili_gfx3d_clk			0x49a51fd9
+#define clk_gcc_oxili_timer_clk			0x1180db06
 #define clk_gcc_pdm2_clk			0x99d55711
 #define clk_gcc_pdm_ahb_clk			0x365664f6
 #define clk_gcc_sdcc1_ahb_clk			0x691e0caa
