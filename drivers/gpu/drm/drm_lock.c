@@ -156,6 +156,14 @@ int drm_unlock(struct drm_device *dev, void *data, struct drm_file *file_priv)
 		return -EINVAL;
 	}
 
+	if (!master->lock.hw_lock) {
+		DRM_ERROR(
+			"Device has been unregistered. Hard exit. Process %d\n",
+			task_pid_nr(current));
+		send_sig(SIGTERM, current, 0);
+		return -EINTR;
+	}
+
 	if (drm_lock_free(&master->lock, lock->context)) {
 		/* FIXME: Should really bail out here. */
 	}
