@@ -58,34 +58,9 @@ Optional Properties:
 				"HS200_1p2v" - indicates that host can support HS200 at 1.2v.
 				"DDR_1p8v" - indicates that host can support DDR mode at 1.8v.
 				"DDR_1p2v" - indicates that host can support DDR mode at 1.2v.
-	- qcom,num-pm-qos-configs: allows for multiple configurations of pm_qos. if
-				not provided, defaults to 1.
-	- qcom,pm-qos-rw-policy: an array of strings the size of
-				qcom,num-pm-qos-configs. legal values are "rw", "r" or "w"
-				which indicate whether this configuration is specific to read
-				or to write accesses. if not provided at all - all
-				configurations default to "rw"
-	- qcom,default-rd-pm-qos: default pm_qos configuration for read
-				request. contains a string of numeric value (e.g. "1") or "cpu".
-				if equals "cpu", if can't find exact match for read request
-				in other configurations, searches again while ignoring
-				qcom,pm-qos-rw-policy.
-				if equals numeric value, must be less than
-				qcom,num-pm-qos-configs. if not provided, defaults to "0".
-	- qcom,default-wr-pm-qos: default pm_qos configuration for write
-				request. contains a string of numeric value (e.g. "1") or "cpu".
-				if equals "cpu", if can't find exact match for read request
-				in other configurations, searches again while ignoring
-				qcom,pm-qos-rw-policy.
-				if equals numeric value, must be less than
-				qcom,num-pm-qos-configs. if not provided, defaults to "0".
 	- qcom,cpu-dma-latency-us: specifies acceptable DMA latency in microseconds.
-				Default value is 200 us. The value for each configuration can
-				either be a single value or an array of 3 values corresponding
-				to {SDHCI_PERFORMANCE_MODE, SDHCI_PERFORMANCE_MODE_INIT,
-				SDHCI_POWER_SAVE_MODE}. If qcom,num-pm-qos-configs is larger
-				than 1, provide multiple arrays - each must have the size of 3
-				(although they may be duplicated values).
+				Default value is 200 ms. If this property specified as 0,
+				then SDHC driver will not vote for PM QOS.
         - qcom,dat1-mpm-int:    specifies MPM interrupt number (e.g. sdhc_2 node below)
 				corresponding to DAT1 line of SDHC (used only if slot has dedicated
 				DAT1 MSM pin (not GPIO))
@@ -139,14 +114,10 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 	  all the cores in the little cluster.
 	  The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ to maintain
 	  backward compatibility.
-	  If qcom,num-pm-qos-configs is larger than 1, provide an array of strings.
 
-	- qcom,cpu-affinity-mask: this is a bitmap that specifies the CPU cores used
-	  for PM QoS voting. This is parsed only for pm QoS request type of
+	- qcom,cpu-affinity-mask: this is a bitmap that specifies little cluster CPU
+	  cores used for PM QoS voting. This is parsed only for pm QoS request type of
 	  PM_QOS_REQ_AFFINE_CORES ("affine_cores").
-	  If qcom,num-pm-qos-configs is larger than 1, provide an array of masks.
-	  The values corresponding to configurations for which qcom,cpu-affinity is
-	  not "affine_cores" will be ignored.
 
 	- qcom,wakeup-on-idle: if configured, the mmcqd thread will call
 	  set_wake_up_idle(), thereby voting for it to be called on idle CPUs.
@@ -181,13 +152,9 @@ Example:
 
 
                 qcom,bus-width = <4>;
-		qcom,num-pm-qos-configs = <2>;
-		qcom,default-rd-pm-qos-config = "0";
-		qcom,default-wr-pm-qos-config = "cpu";
-		qcom,pm-qos-rw-policy = "r", "w";
-		qcom,cpu-dma-latency-us = <201 301 701>, <301 301 301>;
-		qcom,cpu-affinity = "affine_cores", "irq";
-		qcom,cpu-affinity-mask = <0x0f 0>;
+		qcom,cpu-dma-latency-us = <301>;
+		qcom,cpu-affinity = "affine_cores";
+		qcom,cpu-affinity-mask = <0x0f>;
 
 		qcom,nonremovable;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
