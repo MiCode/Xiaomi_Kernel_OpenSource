@@ -1260,22 +1260,36 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	return ret;
 }
 
-void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
+void mdss_mdp_pipe_pp_clear(struct mdss_mdp_pipe *pipe)
 {
 	struct pp_hist_col_info *hist_info;
 
-	if (pipe) {
-		if (pipe->pp_res.hist.col_en) {
-			hist_info = &pipe->pp_res.hist;
-			pp_hist_disable(hist_info);
-		}
-		kfree(pipe->pp_res.pa_cfg_payload);
-		kfree(pipe->pp_res.igc_cfg_payload);
-		kfree(pipe->pp_res.pcc_cfg_payload);
-		kfree(pipe->pp_res.hist_lut_cfg_payload);
-		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
-		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
+	if (!pipe) {
+		pr_err("Invalid pipe context passed, %p\n",
+			pipe);
+		return;
 	}
+
+	if (mdss_mdp_pipe_is_yuv(pipe)) {
+		hist_info = &pipe->pp_res.hist;
+		pp_hist_disable(hist_info);
+	}
+
+	kfree(pipe->pp_res.pa_cfg_payload);
+	pipe->pp_res.pa_cfg_payload = NULL;
+	pipe->pp_cfg.pa_v2_cfg_data.cfg_payload = NULL;
+	kfree(pipe->pp_res.igc_cfg_payload);
+	pipe->pp_res.igc_cfg_payload = NULL;
+	pipe->pp_cfg.igc_cfg.cfg_payload = NULL;
+	kfree(pipe->pp_res.pcc_cfg_payload);
+	pipe->pp_res.pcc_cfg_payload = NULL;
+	pipe->pp_cfg.pcc_cfg_data.cfg_payload = NULL;
+	kfree(pipe->pp_res.hist_lut_cfg_payload);
+	pipe->pp_res.hist_lut_cfg_payload = NULL;
+	pipe->pp_cfg.hist_lut_cfg.cfg_payload = NULL;
+
+	memset(&pipe->pp_res.pp_sts, 0, sizeof(struct pp_sts_type));
+	pipe->pp_cfg.config_ops = 0;
 }
 
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
