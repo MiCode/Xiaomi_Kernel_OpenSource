@@ -202,8 +202,7 @@ static int mhi_uci_send_packet(struct mhi_dev_client **client_handle, void *buf,
 			return -ENOMEM;
 		}
 		memcpy_result = copy_from_user(data_loc, buf, size);
-
-		if (!memcpy_result)
+		if (memcpy_result)
 			goto error_memcpy;
 	} else {
 		data_loc = buf;
@@ -486,7 +485,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 
 	if (uspace_buf_size >= *bytes_pending) {
 		addr_offset = uci_handle->pkt_size - *bytes_pending;
-		if (!copy_to_user(buf, uci_handle->pkt_loc + addr_offset,
+		if (copy_to_user(buf, uci_handle->pkt_loc + addr_offset,
 							*bytes_pending)) {
 			ret_val = -EIO;
 			goto error;
