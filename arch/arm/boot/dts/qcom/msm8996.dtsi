@@ -1555,7 +1555,7 @@
 			qcom,smd-edge = <0>;
 			qcom,smd-irq-offset = <0x0>;
 			qcom,smd-irq-bitmask = <0x1000>;
-			interrupts = <0 25 1>;
+			interrupts = <0 449 1>;
 			label = "modem";
 		};
 
