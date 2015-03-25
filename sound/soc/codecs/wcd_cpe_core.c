@@ -2541,7 +2541,7 @@ end_ret:
  * @lsm_priv_d: lsm private data
  */
 static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
-	void *core_handle, void *lsm_priv_d,
+	void *core_handle, void *client_data,
 	void (*event_cb) (void *, u8, u8, u8 *))
 {
 	struct cpe_lsm_session *session;
@@ -2599,7 +2599,7 @@ static struct cpe_lsm_session *wcd_cpe_alloc_lsm_session(
 			__func__);
 		goto err_ret;
 	}
-	session->priv_d = lsm_priv_d;
+	session->priv_d = client_data;
 	mutex_init(&session->lsm_lock);
 	if (afe_register_service) {
 		/* Register for AFE Service */
@@ -2680,157 +2680,17 @@ static int wcd_cpe_lsm_config_lab_latency(
 }
 
 /*
- * wcd_cpe_buf_alloc: allocate lab DMA buffer.
- * @core: handle to wcd_cpe_core
- * @session: lsm session to be deallocated
- */
-static int wcd_cpe_buf_alloc(void *core_handle,
-			     struct cpe_lsm_session *session,
-			     u32 bufsz, u32 bufcnt)
-{
-	int rc = 0;
-	int dma_alloc = 0;
-	u32 count = 0;
-	struct wcd_cpe_data_pcm_buf *pcm_buf = NULL;
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
-	struct wcd_cpe_lsm_lab *lab = NULL;
-	struct snd_soc_codec *codec;
-	struct wcd9xxx *wcd9xxx;
-
-
-	pr_debug("%s:Buf Size %d Buf count %d\n", __func__,
-		 bufsz, bufcnt);
-
-	if (bufcnt <= 0 || bufsz <= 0) {
-		pr_err("%s:HW Params Error for LAB\n", __func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-	if (core == NULL || session == NULL) {
-		pr_err("%s:Err core handle/Session ptr NULL\n", __func__);
-		rc = -EINVAL;
-		goto exit;
-	}
-	codec = core->codec;
-	wcd9xxx = codec->control_data;
-	if (session)
-		lab = &session->lab;
-	else {
-		pr_err("%s: Session ptr NULL\n", __func__);
-		rc = -EINVAL;
-		goto exit;
-
-	}
-	pcm_buf = kzalloc(((sizeof(struct wcd_cpe_data_pcm_buf)) * bufcnt),
-			  GFP_KERNEL);
-	if (!pcm_buf) {
-		pr_err("%s: No memory for pcm_buf\n", __func__);
-		rc = -ENOMEM;
-		goto exit;
-	}
-	lab->pcm_buf = pcm_buf;
-	dma_alloc = bufsz * bufcnt;
-	pcm_buf->mem = NULL;
-	pcm_buf->mem = dma_alloc_coherent(wcd9xxx->slim->dev.parent,
-					  dma_alloc,
-					  &(pcm_buf->phys),
-					  GFP_KERNEL);
-
-	if (pcm_buf->mem == NULL) {
-		pr_err("%s:DMA alloc failed size = %x\n",
-		       __func__, dma_alloc);
-		rc = -ENOMEM;
-		goto fail;
-	}
-	count = 0;
-	while (count < bufcnt) {
-		pcm_buf[count].mem =  pcm_buf[0].mem + (count * bufsz);
-		pcm_buf[count].phys =  pcm_buf[0].phys + (count * bufsz);
-		if (!pcm_buf[count].mem) {
-			pr_err("%s: pcm buf mem Null\n", __func__);
-				rc = -EINVAL;
-				goto fail;
-		}
-		pr_debug("%s: pcm_buf[%d].mem %p pcm_buf[%d].phys %pa\n",
-			 __func__, count,
-			 (void *)pcm_buf[count].mem,
-			 count, &(pcm_buf[count].phys));
-		count++;
-	}
-
-	return 0;
-fail:
-	if (pcm_buf) {
-		if (pcm_buf->mem)
-			dma_free_coherent(wcd9xxx->slim->dev.parent, dma_alloc,
-					  pcm_buf->mem, pcm_buf->phys);
-		kfree(pcm_buf);
-	}
-exit:
-	return rc;
-}
-
-/*
- * wcd_cpe_buf_dealloc: deallocate DMA buffers
+ * wcd_cpe_lsm_lab_control: enable/disable lab
  * @core: handle to wcd_cpe_core
  * @session: lsm session
- * @bufz: buffer size
- * @bufCnt: no of period or buffers
+ * @enable: Indicates whether to enable / disable lab
  */
-static int wcd_cpe_buf_dealloc(void *core_handle,
-			       struct cpe_lsm_session *session,
-			       u32 bufsz, u32 bufcnt)
+static int wcd_cpe_lsm_lab_control(
+		void *core_handle,
+		struct cpe_lsm_session *session,
+		bool enable)
 {
-	int rc = 0;
-	int dma_alloc = 0;
-	struct wcd_cpe_data_pcm_buf *pcm_buf = NULL;
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
-	struct wcd_cpe_lsm_lab *lab = NULL;
-	struct snd_soc_codec *codec;
-	struct wcd9xxx *wcd9xxx;
-
-	pr_debug("%s:Buf Size %d Buf count %d\n", __func__,
-		 bufsz, bufcnt);
-
-	if (bufcnt <= 0 || bufsz <= 0) {
-		pr_err("%s:HW Params Error for LAB\n", __func__);
-		return -EINVAL;
-	}
-
-	if (core == NULL || session == NULL) {
-		pr_err("%s:Err core handle/Session ptr NULL\n", __func__);
-		rc = -ENOMEM;
-		return rc;
-	}
-	codec = core->codec;
-	wcd9xxx = codec->control_data;
-	if (session)
-		lab = &session->lab;
-	else {
-		pr_err("%s: Session ptr NULL\n", __func__);
-		rc = -EINVAL;
-		return rc;
-	}
-	pcm_buf = lab->pcm_buf;
-	dma_alloc = bufsz * bufcnt;
-	if (pcm_buf)
-		dma_free_coherent(wcd9xxx->slim->dev.parent, dma_alloc,
-				  pcm_buf->mem, pcm_buf->phys);
-	kfree(pcm_buf);
-	lab->pcm_buf = NULL;
-	return rc;
-}
-
-/*
- * wcd_cpe_lsm_lab_enable_disable: enable/disable lab
- * @core: handle to wcd_cpe_core
- * @session: lsm session
- */
-static int wcd_cpe_lsm_lab_enable_disable(
-				struct wcd_cpe_core *core,
-				struct cpe_lsm_session *session,
-				bool enable)
-{
+	struct wcd_cpe_core *core = core_handle;
 	int ret = 0, pld_size = CPE_PARAM_SIZE_LSM_LAB_CONTROL;
 	struct cpe_lsm_control_lab cpe_lab_enable;
 	struct cpe_lsm_lab_enable *lab_enable = &cpe_lab_enable.lab_enable;
@@ -2864,49 +2724,6 @@ static int wcd_cpe_lsm_lab_enable_disable(
 		wcd_cpe_lsm_config_lab_latency(core, session,
 					       WCD_CPE_LAB_MAX_LATENCY);
 	return 0;
-}
-
-static int wcd_cpe_lsm_control_lab(void *core_handle,
-				   struct cpe_lsm_session *session,
-				   u32 bufsz, u32 bufcnt, bool enable)
-{
-	int rc = 0;
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)core_handle;
-
-	if (enable) {
-		rc = wcd_cpe_buf_alloc(core_handle, session, bufsz, bufcnt);
-		if (rc) {
-			pr_err("%s: DMA buffer allocation failed rc %d\n",
-			       __func__, rc);
-			return rc;
-		}
-		rc = wcd_cpe_lsm_lab_enable_disable(core, session, enable);
-		if (rc) {
-			pr_err("%s: LAB disable/ Enable failed rc %d\n",
-			       __func__, rc);
-			return rc;
-		}
-		session->lab.core_handle = core_handle;
-		session->lab.lsm_s = session;
-	} else {
-		rc = wcd_cpe_buf_dealloc(core_handle, session, bufsz, bufcnt);
-		/* do not return error for DMA dealloc put
-		 * session in detection mode
-		 */
-		if (rc) {
-			pr_err("%s: DMA buffer De-allocation failed, rc %d\n",
-			       __func__, rc);
-		}
-
-		rc = wcd_cpe_lsm_lab_enable_disable(core, session, enable);
-		if (rc) {
-			pr_err("%s: LAB disable/ Enable failed rc %d\n",
-			       __func__, rc);
-			return rc;
-		}
-		session->lab.lab_enable = false;
-	}
-	return rc;
 }
 
 /*
@@ -3102,7 +2919,7 @@ int wcd_cpe_get_lsm_ops(struct wcd_cpe_lsm_ops *lsm_ops)
 	lsm_ops->lsm_deregister_snd_model = wcd_cpe_lsm_dereg_snd_model;
 	lsm_ops->lsm_start = wcd_cpe_cmd_lsm_start;
 	lsm_ops->lsm_stop = wcd_cpe_cmd_lsm_stop;
-	lsm_ops->lsm_lab_control = wcd_cpe_lsm_control_lab;
+	lsm_ops->lsm_lab_control = wcd_cpe_lsm_lab_control;
 	lsm_ops->lab_ch_setup = wcd_cpe_lab_ch_setup;
 	lsm_ops->lsm_set_data = wcd_cpe_lsm_set_data;
 	return 0;
