@@ -1559,14 +1559,6 @@
 			label = "modem";
 		};
 
-		qcom,smsm-modem {
-			compatible = "qcom,smsm";
-			qcom,smsm-edge = <0>;
-			qcom,smsm-irq-offset = <0x0>;
-			qcom,smsm-irq-bitmask = <0x2000>;
-			interrupts = <0 26 1>;
-		};
-
 		qcom,smd-adsp {
 			compatible = "qcom,smd";
 			qcom,smd-edge = <1>;
