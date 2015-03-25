@@ -484,6 +484,17 @@
 			qcom,sensor-type = "adc";
 			qcom,sensor-name = "xo_therm_buf";
 		};
+
+		sensor_information15: qcom,sensor-information-15 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "case_therm";
+		};
+
+		sensor_information16: qcom,sensor-information-16 {
+			qcom,sensor-type = "alarm";
+			qcom,sensor-name = "pm8950_tz";
+			qcom,scaling-factor = <1000>;
+		};
 	};
 
 	qcom,msm-thermal {
