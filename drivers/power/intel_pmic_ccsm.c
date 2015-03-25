@@ -1711,8 +1711,17 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 		}
 	}
 
-	intel_soc_pmic_writeb(chc.reg_map->pmic_mthrmirq1,
+	ret = intel_soc_pmic_writeb(chc.reg_map->pmic_mthrmirq1,
 						~MTHRMIRQ1_CCSM_MASK);
+	if (ret)
+		dev_warn(&pdev->dev, "Error writing to register: %x\n",
+				chc.reg_map->pmic_mthrmirq1);
+
+	ret = intel_soc_pmic_update(chc.reg_map->pmic_mchgrirq1,
+				MPWRSRCIRQ_CCSM_VAL, MPWRSRCIRQ_CCSM_MASK);
+	if (ret)
+		dev_warn(&pdev->dev, "Error updating register: %x\n",
+				chc.reg_map->pmic_mchgrirq1);
 
 	ret = pmic_check_initial_events();
 	if (ret)

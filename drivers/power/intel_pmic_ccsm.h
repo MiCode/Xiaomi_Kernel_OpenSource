@@ -240,6 +240,9 @@
 #define MTHRMIRQ1_CCSM_MASK		0x80
 #define MTHRMIRQ2_CCSM_MASK		0x3
 
+#define MPWRSRCIRQ_CCSM_MASK		0x9F
+#define MPWRSRCIRQ_CCSM_VAL		0x84
+
 /*Interrupt registers*/
 #define BATT_CHR_BATTDET_MASK	(1 << 2)
 /*Status registers*/
