@@ -374,6 +374,9 @@ static inline void hrtimer_cancel_wait_running(struct hrtimer *timer)
 
 /* Exported timer functions: */
 
+/* To be used from cpusets, only */
+extern void hrtimer_quiesce_cpu(void *cpup);
+
 /* Initialize timers: */
 extern void hrtimer_init(struct hrtimer *timer, clockid_t which_clock,
 			 enum hrtimer_mode mode);
