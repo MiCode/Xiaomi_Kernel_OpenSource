@@ -5369,6 +5369,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CDC_TX6_TX_PATH_CFG0, 0x11, 0x11},
 	{WCD9335_CDC_TX7_TX_PATH_CFG0, 0x11, 0x11},
 	{WCD9335_CDC_TX8_TX_PATH_CFG0, 0x11, 0x11},
+	{WCD9335_CPE_SS_DMIC_CFG, 0x80, 0x00},
 };
 
 static void tasha_codec_init_reg(struct snd_soc_codec *codec)
