@@ -27,10 +27,10 @@ enum ufsdbg_err_inject_scenario {
 	ERR_INJECT_INTR,
 	ERR_INJECT_HIBERN8_ENTER,
 	ERR_INJECT_HIBERN8_EXIT,
-	ERR_INJECT_GEAR_CHANGE,
+	ERR_INJECT_PWR_CHANGE,
 	ERR_INJECT_LINK_STARTUP,
+	ERR_INJECT_UIC,
 	ERR_INJECT_DME_ATTR,
-	ERR_INJECT_DME_PEER_ATTR,
 	ERR_INJECT_QUERY,
 	ERR_INJECT_RUNTIME_PM,
 	ERR_INJECT_SYSTEM_PM,
@@ -60,11 +60,11 @@ static inline void ufsdbg_pr_buf_to_std(struct ufs_hba *hba, int offset,
 #ifdef CONFIG_UFS_FAULT_INJECTION
 void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 			enum ufsdbg_err_inject_scenario err_scenario,
-			int *ret_value);
+			int success_value, int *ret_value);
 #else
 static inline void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 			enum ufsdbg_err_inject_scenario err_scenario,
-			int *ret_value)
+			int success_value, int *ret_value)
 {
 }
 #endif
