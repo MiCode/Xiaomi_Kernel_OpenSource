@@ -252,7 +252,13 @@ static int drm_context_switch_complete(struct drm_device *dev,
 {
 	dev->last_context = new;	/* PRE/POST: This is the _only_ writer. */
 
-	if (!_DRM_LOCK_IS_HELD(file_priv->master->lock.hw_lock->lock)) {
+	if (file_priv->master->lock.hw_lock == NULL) {
+		DRM_ERROR(
+			"Device has been unregistered. Hard exit. Process %d\n",
+			task_pid_nr(current));
+		send_sig(SIGTERM, current, 0);
+		return -EINTR;
+	} else if (!_DRM_LOCK_IS_HELD(file_priv->master->lock.hw_lock->lock)) {
 		DRM_ERROR("Lock isn't held after context switch\n");
 	}
 
