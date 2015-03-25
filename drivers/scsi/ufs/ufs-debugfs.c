@@ -63,16 +63,22 @@ module_param(fail_request, charp, 0);
 struct ufsdbg_err_scenario {
 	const char *name;
 	u32 err_code_mask;
-	int *err_code_arr;
+	const int *err_code_arr;
 	u32 num_err_codes;
 };
 
-struct ufsdbg_err_scenario err_scen_arr[] = {
+static const int err_inject_intr_err_codes[] = {
+	CONTROLLER_FATAL_ERROR,
+	SYSTEM_BUS_FATAL_ERROR,
+	INJECT_COMMAND_HANG,
+};
+
+static struct ufsdbg_err_scenario err_scen_arr[] = {
 	{
 		"ERR_INJECT_INTR",
 		ERR_CODES_ALL_ENABLED,
-		NULL,
-		0,
+		err_inject_intr_err_codes,
+		ARRAY_SIZE(err_inject_intr_err_codes),
 	},
 	{
 		"ERR_INJECT_HIBERN8_ENTER",
@@ -206,19 +212,10 @@ static int inject_cmd_hang_tm(struct ufs_hba *hba)
 }
 
 static void
-ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
+ufsdbg_intr_fail_request(struct ufs_hba *hba, u32 *intr_status)
 {
 	u8 ocs_err;
-	static const u32 errors[] = {
-		CONTROLLER_FATAL_ERROR,
-		SYSTEM_BUS_FATAL_ERROR,
-		INJECT_COMMAND_HANG,
-	};
 
-	if (!should_fail(&hba->debugfs_files.fail_attr, 1))
-		goto out;
-
-	*intr_status = errors[prandom_u32() % ARRAY_SIZE(errors)];
 	dev_info(hba->dev, "%s: fault-inject error: 0x%x\n",
 			__func__, *intr_status);
 
@@ -231,7 +228,7 @@ ufsdbg_fail_request(struct ufs_hba *hba, u32 *intr_status)
 set_ocs:
 		if (!inject_fatal_err_tr(hba, ocs_err))
 			if (!inject_fatal_err_tm(hba, ocs_err))
-				*intr_status = 0;
+				goto out;
 		break;
 	case INJECT_COMMAND_HANG:
 		if (!inject_cmd_hang_tr(hba))
@@ -271,16 +268,22 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 {
 	int opt_ret = 0;
 
-	if (!hba || !ret_value)
+	/* sanity check and verify error scenario bit */
+	if ((unlikely(!hba || !ret_value)) ||
+	    (likely(!(hba->debugfs_files.err_inj_scenario_mask &
+						BIT(usecase)))))
 		goto out;
 
-	if (!(hba->debugfs_files.err_inj_scenario_mask & (1 << usecase)))
+	if (!ufsdbg_find_err_code(usecase, &opt_ret))
+		goto out;
+
+	if (!should_fail(&hba->debugfs_files.fail_attr, 1))
 		goto out;
 
 	switch (usecase) {
 	case ERR_INJECT_INTR:
-		ufsdbg_fail_request(hba, ret_value);
-		goto out;
+		ufsdbg_intr_fail_request(hba, &opt_ret);
+		/* fall through */
 	case ERR_INJECT_HIBERN8_ENTER:
 	case ERR_INJECT_HIBERN8_EXIT:
 	case ERR_INJECT_GEAR_CHANGE:
@@ -292,22 +295,24 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 	case ERR_INJECT_SYSTEM_PM:
 	case ERR_INJECT_CLOCK_GATING_SCALING:
 	case ERR_INJECT_PHY_POWER_UP_SEQ:
-		if (!ufsdbg_find_err_code(usecase, &opt_ret))
-			goto out;
 		goto should_fail;
 	default:
 		dev_err(hba->dev, "%s: unsupported error scenario\n",
 				__func__);
 		goto out;
 	}
+
 should_fail:
-	if (should_fail(&hba->debugfs_files.fail_attr, 1)) {
-		pr_debug("%s: error %d (0x%x) is injected for scenario \"%s\"\n",
+	*ret_value = opt_ret;
+	pr_debug("%s: error %d (0x%x) is injected for scenario \"%s\"\n",
 			 __func__, *ret_value, *ret_value,
 			 err_scen_arr[usecase].name);
-		*ret_value = opt_ret;
-	}
 out:
+	/**
+	 * here it's guaranteed that ret_value has the correct value,
+	 * whether it was assigned with a new value, or kept its own
+	 * original incoming value
+	 */
 	return;
 }
 
