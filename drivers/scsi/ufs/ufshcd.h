@@ -469,6 +469,9 @@ struct debugfs_files {
 	u32 dme_local_attr_id;
 	u32 dme_peer_attr_id;
 #ifdef CONFIG_UFS_FAULT_INJECTION
+	struct dentry *err_inj_codes;
+	struct dentry *err_inj_scenario;
+	u32 err_inj_scenario_mask;
 	struct fault_attr fail_attr;
 #endif
 	bool is_sys_suspended;
