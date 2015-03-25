@@ -60,7 +60,7 @@ int drm_lock(struct drm_device *dev, void *data, struct drm_file *file_priv)
 
 	++file_priv->lock_count;
 
-	if (lock->context == DRM_KERNEL_CONTEXT) {
+	if (_DRM_LOCKING_CONTEXT(lock->context) == DRM_KERNEL_CONTEXT) {
 		DRM_ERROR("Process %d using kernel context %d\n",
 			  task_pid_nr(current), lock->context);
 		return -EINVAL;
@@ -150,7 +150,7 @@ int drm_unlock(struct drm_device *dev, void *data, struct drm_file *file_priv)
 	struct drm_lock *lock = data;
 	struct drm_master *master = file_priv->master;
 
-	if (lock->context == DRM_KERNEL_CONTEXT) {
+	if (_DRM_LOCKING_CONTEXT(lock->context) == DRM_KERNEL_CONTEXT) {
 		DRM_ERROR("Process %d using kernel context %d\n",
 			  task_pid_nr(current), lock->context);
 		return -EINVAL;
