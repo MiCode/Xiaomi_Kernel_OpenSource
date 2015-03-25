@@ -15,7 +15,7 @@
 		reg = <0x9820010 0x4>;
 		qcom,remote-pid = <1>;
 		qcom,irq-bitmask = <0x4000>;
-		interrupts = <0 27 1>;
+		interrupts = <0 451 1>;
 	};
 
 	qcom,smp2p-adsp@9820010 {
