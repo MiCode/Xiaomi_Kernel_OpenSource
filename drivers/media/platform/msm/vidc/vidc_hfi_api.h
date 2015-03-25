@@ -126,7 +126,7 @@ enum hal_property {
 	HAL_PARAM_FRAME_SIZE,
 	HAL_CONFIG_REALTIME,
 	HAL_PARAM_BUFFER_COUNT_ACTUAL,
-	HAL_PARAM_BUFFER_SIZE_ACTUAL,
+	HAL_PARAM_BUFFER_SIZE_MINIMUM,
 	HAL_PARAM_NAL_STREAM_FORMAT_SELECT,
 	HAL_PARAM_VDEC_OUTPUT_ORDER,
 	HAL_PARAM_VDEC_PICTURE_TYPE_DECODE,
@@ -573,7 +573,7 @@ struct hal_buffer_count_actual {
 	u32 buffer_count_actual;
 };
 
-struct hal_buffer_size_actual {
+struct hal_buffer_size_minimum {
 	enum hal_buffer buffer_type;
 	u32 buffer_size;
 };
@@ -1341,6 +1341,7 @@ struct hfi_device {
 	int (*session_load_res)(void *sess);
 	int (*session_release_res)(void *sess);
 	int (*session_start)(void *sess);
+	int (*session_continue)(void *sess);
 	int (*session_stop)(void *sess);
 	int (*session_etb)(void *sess,
 			struct vidc_frame_data *input_frame);

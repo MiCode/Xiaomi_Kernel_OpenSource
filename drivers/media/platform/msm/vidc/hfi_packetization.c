@@ -351,6 +351,34 @@ int create_pkt_cmd_session_cmd(struct vidc_hal_session_cmd_pkt *pkt,
 	if (!pkt)
 		return -EINVAL;
 
+	/*
+	 * Legacy packetization should skip sending any 3xx specific session
+	 * cmds. Add 3xx specific packetization to the switch case below.
+	 */
+	switch (pkt_type) {
+	case HFI_CMD_SESSION_CONTINUE:
+		dprintk(VIDC_DBG,
+			"%s - skip sending %x for legacy hfi\n",
+			__func__, pkt_type);
+		return -EPERM;
+	default:
+		break;
+	}
+
+	pkt->size = sizeof(struct vidc_hal_session_cmd_pkt);
+	pkt->packet_type = pkt_type;
+	pkt->session_id = hash32_ptr(session);
+
+	return rc;
+}
+
+int create_3x_pkt_cmd_session_cmd(struct vidc_hal_session_cmd_pkt *pkt,
+			int pkt_type, struct hal_session *session)
+{
+	int rc = 0;
+	if (!pkt)
+		return -EINVAL;
+
 	pkt->size = sizeof(struct vidc_hal_session_cmd_pkt);
 	pkt->packet_type = pkt_type;
 	pkt->session_id = hash32_ptr(session);
@@ -973,17 +1001,17 @@ int create_pkt_cmd_session_set_property(
 
 		break;
 	}
-	case HAL_PARAM_BUFFER_SIZE_ACTUAL:
+	case HAL_PARAM_BUFFER_SIZE_MINIMUM:
 	{
-		struct hfi_buffer_size_actual *hfi;
-		struct hal_buffer_size_actual *prop =
-			(struct hal_buffer_size_actual *) pdata;
+		struct hfi_buffer_size_minimum *hfi;
+		struct hal_buffer_size_minimum *prop =
+			(struct hal_buffer_size_minimum *) pdata;
 		u32 buffer_type;
 
 		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_BUFFER_SIZE_ACTUAL;
+			HFI_PROPERTY_PARAM_BUFFER_SIZE_MINIMUM;
 
-		hfi = (struct hfi_buffer_size_actual *)
+		hfi = (struct hfi_buffer_size_minimum *)
 			&pkt->rg_property_data[1];
 		hfi->buffer_size = prop->buffer_size;
 
@@ -2066,6 +2094,7 @@ static struct hfi_packetization_ops *get_venus_3x_ops(void)
 	/* Override new HFI functions for HFI_PACKETIZATION_3XX here. */
 	hfi_venus_3x.session_set_property =
 		create_3x_pkt_cmd_session_set_property;
+	hfi_venus_3x.session_cmd = create_3x_pkt_cmd_session_cmd;
 
 	return &hfi_venus_3x;
 }
