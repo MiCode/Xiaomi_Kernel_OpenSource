@@ -1816,14 +1816,20 @@ signed long __sched schedule_timeout_idle(signed long timeout)
 EXPORT_SYMBOL(schedule_timeout_idle);
 
 #ifdef CONFIG_HOTPLUG_CPU
-static void migrate_timer_list(struct timer_base *new_base, struct hlist_head *head)
+static void migrate_timer_list(struct timer_base *new_base,
+			       struct hlist_head *head, bool remove_pinned)
 {
 	struct timer_list *timer;
 	int cpu = new_base->cpu;
+	struct hlist_node *n;
+	int is_pinned;
 
-	while (!hlist_empty(head)) {
-		timer = hlist_entry(head->first, struct timer_list, entry);
-		detach_timer(timer, false);
+	hlist_for_each_entry_safe(timer, n, head, entry) {
+		is_pinned = timer->flags & TIMER_PINNED;
+		if (!remove_pinned && is_pinned)
+			continue;
+
+		detach_if_pending(timer, get_timer_base(timer->flags), false);
 		timer->flags = (timer->flags & ~TIMER_BASEMASK) | cpu;
 		internal_add_timer(new_base, timer);
 	}
@@ -1844,13 +1850,12 @@ int timers_prepare_cpu(unsigned int cpu)
 	return 0;
 }
 
-int timers_dead_cpu(unsigned int cpu)
+static void __migrate_timers(unsigned int cpu, bool remove_pinned)
 {
 	struct timer_base *old_base;
 	struct timer_base *new_base;
+	unsigned long flags;
 	int b, i;
-
-	BUG_ON(cpu_online(cpu));
 
 	for (b = 0; b < NR_BASES; b++) {
 		old_base = per_cpu_ptr(&timer_bases[b], cpu);
@@ -1859,18 +1864,25 @@ int timers_dead_cpu(unsigned int cpu)
 		 * The caller is globally serialized and nobody else
 		 * takes two locks at once, deadlock is not possible.
 		 */
-		raw_spin_lock_irq(&new_base->lock);
+		raw_spin_lock_irqsave(&new_base->lock, flags);
 		raw_spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
 		BUG_ON(old_base->running_timer);
 
 		for (i = 0; i < WHEEL_SIZE; i++)
-			migrate_timer_list(new_base, old_base->vectors + i);
+			migrate_timer_list(new_base, old_base->vectors + i,
+					   remove_pinned);
 
 		raw_spin_unlock(&old_base->lock);
-		raw_spin_unlock_irq(&new_base->lock);
+		raw_spin_unlock_irqrestore(&new_base->lock, flags);
 		put_cpu_ptr(&timer_bases);
 	}
+}
+
+int timers_dead_cpu(unsigned int cpu)
+{
+	BUG_ON(cpu_online(cpu));
+	__migrate_timers(cpu, true);
 	return 0;
 }
 
