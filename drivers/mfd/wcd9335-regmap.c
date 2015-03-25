@@ -18,7 +18,7 @@
 #include <linux/device.h>
 #include "wcd9xxx-regmap.h"
 
-static struct reg_default wcd9335_defaults[] = {
+static const struct reg_default wcd9335_defaults[] = {
 	/* Page #0 registers */
 	{ WCD9335_PAGE0_PAGE_REGISTER                   , 0x00 },
 	{ WCD9335_CODEC_RPM_CLK_BYPASS                  , 0x00 },
@@ -1287,11 +1287,15 @@ static struct reg_default wcd9335_defaults[] = {
 	{ WCD9335_TEST_DEBUG_DEBUG_EN_3                 , 0x00 },
 };
 
-static bool wcd9335_readable_register(struct device *dev, unsigned int reg)
+static bool wcd9335_is_readable_register(struct device *dev, unsigned int reg)
 {
 	u8 pg_num, reg_offset;
 	const u8 *reg_tbl = NULL;
 
+	/*
+	 * Get the page number from MSB of codec register. If its 0x80, assign
+	 * the corresponding page index PAGE_0x80.
+	 */
 	pg_num = reg >> 0x8;
 	if (pg_num == 0x80)
 		pg_num = PAGE_0X80;
@@ -1307,7 +1311,7 @@ static bool wcd9335_readable_register(struct device *dev, unsigned int reg)
 	}
 }
 
-static bool wcd9335_volatile_register(struct device *dev, unsigned int reg)
+static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 {
 	/*
 	 * registers from 0x000 to 0x0FF are volatile because
@@ -1358,7 +1362,7 @@ struct regmap_config wcd9335_regmap_config = {
 	.reg_defaults = wcd9335_defaults,
 	.num_reg_defaults = ARRAY_SIZE(wcd9335_defaults),
 	.max_register = WCD9335_MAX_REGISTER,
-	.volatile_reg = wcd9335_volatile_register,
-	.readable_reg = wcd9335_readable_register,
+	.volatile_reg = wcd9335_is_volatile_register,
+	.readable_reg = wcd9335_is_readable_register,
 };
 

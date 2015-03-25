@@ -42,18 +42,22 @@
 
 #define TASHA_RX_PORT_START_NUMBER  16
 
-#define WCD9335_RATES (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
-		       SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
-		       SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
+#define WCD9335_RATES_MASK (SNDRV_PCM_RATE_8000 | SNDRV_PCM_RATE_16000 |\
+			    SNDRV_PCM_RATE_32000 | SNDRV_PCM_RATE_48000 |\
+			    SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
 
-#define WCD9335_MIX_RATES (SNDRV_PCM_RATE_48000 |\
-		       SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
+#define WCD9335_MIX_RATES_MASK (SNDRV_PCM_RATE_48000 |\
+				SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
 
 #define TASHA_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 				  SNDRV_PCM_FORMAT_S24_LE)
 
 #define TASHA_FORMATS (SNDRV_PCM_FMTBIT_S16_LE)
 
+/*
+ * Timeout in milli seconds and it is the wait time for
+ * slim channel removal interrupt to receive.
+ */
 #define TASHA_SLIM_CLOSE_TIMEOUT 1000
 #define TASHA_SLIM_IRQ_OVERFLOW (1 << 0)
 #define TASHA_SLIM_IRQ_UNDERFLOW (1 << 1)
@@ -64,6 +68,7 @@
 #define TASHA_SLIM_PGD_PORT_INT_TX_EN0 (TASHA_SLIM_PGD_PORT_INT_EN0 + 2)
 
 #define TASHA_NUM_INTERPOLATORS 9
+#define BYTE_BIT_MASK(nr) (1 << ((nr) % BITS_PER_BYTE))
 
 static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.minor_version = 1,
@@ -371,6 +376,7 @@ static int tasha_get_iir_enable_audio_mixer(
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
+	/* IIR filter band registers are at integer multiples of 16 */
 	u16 iir_reg = WCD9335_CDC_SIDETONE_IIR0_IIR_CTL + 16 * iir_idx;
 
 	ucontrol->value.integer.value[0] = (snd_soc_read(codec, iir_reg) &
@@ -411,7 +417,7 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 	u32 dai_id = widget->shift;
 	u32 port_id = mixer->shift;
 	u32 enable = ucontrol->value.integer.value[0];
-	u32 vtable = vport_check_table[dai_id];
+	u32 vtable;
 
 
 	dev_dbg(codec->dev, "%s: wname %s cname %s value %u shift %d item %ld\n",
@@ -421,6 +427,13 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 
 	mutex_lock(&codec->mutex);
 
+	if (dai_id >= ARRAY_SIZE(vport_check_table)) {
+		dev_err(codec->dev, "%s: dai_id: %d, out of bounds\n",
+			__func__, dai_id);
+		mutex_unlock(&codec->mutex);
+		return -EINVAL;
+	}
+	vtable = vport_check_table[dai_id];
 	if (tasha_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		if (dai_id != AIF1_CAP) {
 			dev_err(codec->dev, "%s: invalid AIF for I2C mode\n",
@@ -433,17 +446,10 @@ static int slim_tx_mixer_put(struct snd_kcontrol *kcontrol,
 	case AIF1_CAP:
 	case AIF2_CAP:
 	case AIF3_CAP:
-		/* only add to the list if value not set
-		 */
+		/* only add to the list if value not set */
 		if (enable && !(tasha_p->tx_port_value & 1 << port_id)) {
 
-			if (tasha_p->intf_type ==
-				WCD9XXX_INTERFACE_TYPE_SLIMBUS)
-				vtable = vport_check_table[dai_id];
-
-			if (wcd9xxx_tx_vport_validation(
-					vtable,
-					port_id,
+			if (wcd9xxx_tx_vport_validation(vtable, port_id,
 					tasha_p->dai, NUM_CODEC_DAIS)) {
 				dev_dbg(codec->dev, "%s: TX%u is used by other virtual port\n",
 					__func__, port_id);
@@ -532,8 +538,7 @@ static int slim_rx_mux_put(struct snd_kcontrol *kcontrol,
 			goto err;
 		}
 	}
-	/* value need to match the Virtual port and AIF number
-	 */
+	/* value need to match the Virtual port and AIF number */
 	switch (tasha_p->rx_port_value) {
 	case 0:
 		list_del_init(&core->rx_chs[port_id].list);
@@ -715,6 +720,7 @@ static int tasha_put_iir_enable_audio_mixer(
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
+	bool iir_band_en_status;
 	int value = ucontrol->value.integer.value[0];
 	u16 iir_reg = WCD9335_CDC_SIDETONE_IIR0_IIR_CTL + 16 * iir_idx;
 
@@ -722,10 +728,10 @@ static int tasha_put_iir_enable_audio_mixer(
 	snd_soc_update_bits(codec, iir_reg, (1 << band_idx),
 			    (value << band_idx));
 
+	iir_band_en_status = ((snd_soc_read(codec, iir_reg) &
+			      (1 << band_idx)) != 0);
 	pr_debug("%s: IIR #%d band #%d enable %d\n", __func__,
-		iir_idx, band_idx,
-		((snd_soc_read(codec, iir_reg) &
-		(1 << band_idx)) != 0));
+		iir_idx, band_idx, iir_band_en_status);
 	return 0;
 }
 
@@ -857,8 +863,8 @@ static void tasha_codec_enable_int_port(struct wcd9xxx_codec_dai_data *dai,
 			reg = TASHA_SLIM_PGD_PORT_INT_EN0 + (port_num / 8);
 			val = wcd9xxx_interface_reg_read(tasha_p->wcd9xxx,
 				reg);
-			if (!(val & (1 << (port_num % 8)))) {
-				val |= (1 << (port_num % 8));
+			if (!(val & BYTE_BIT_MASK(port_num))) {
+				val |= BYTE_BIT_MASK(port_num);
 				wcd9xxx_interface_reg_write(
 					tasha_p->wcd9xxx, reg, val);
 				val = wcd9xxx_interface_reg_read(
@@ -869,8 +875,8 @@ static void tasha_codec_enable_int_port(struct wcd9xxx_codec_dai_data *dai,
 			reg = TASHA_SLIM_PGD_PORT_INT_TX_EN0 + (port_num / 8);
 			val = wcd9xxx_interface_reg_read(tasha_p->wcd9xxx,
 				reg);
-			if (!(val & (1 << (port_num % 8)))) {
-				val |= (1 << (port_num % 8));
+			if (!(val & BYTE_BIT_MASK(port_num))) {
+				val |= BYTE_BIT_MASK(port_num);
 				wcd9xxx_interface_reg_write(tasha_p->wcd9xxx,
 					reg, val);
 				val = wcd9xxx_interface_reg_read(
@@ -1020,8 +1026,10 @@ static int tasha_put_iir_band_audio_mixer(
 	int band_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->shift;
 
-	/* Mask top bit it is reserved */
-	/* Updates addr automatically for each B2 write */
+	/*
+	 * Mask top bit it is reserved
+	 * Updates addr automatically for each B2 write
+	 */
 	snd_soc_write(codec,
 		(WCD9335_CDC_SIDETONE_IIR0_IIR_COEF_B1_CTL + 16 * iir_idx),
 		(band_idx * BAND_MAX * sizeof(uint32_t)) & 0x7F);
@@ -1108,6 +1116,14 @@ static int tasha_set_compander(struct snd_kcontrol *kcontrol,
 		break;
 	case COMPANDER_8:
 		break;
+	default:
+		/*
+		 * if compander is not enabled for any interpolator,
+		 * it does not cause any audio failure, so do not
+		 * return error in this case, but just print a log
+		 */
+		dev_warn(codec->dev, "%s: unknown compander: %d\n",
+			__func__, comp);
 	};
 	return 0;
 }
@@ -3046,7 +3062,7 @@ static const struct soc_enum rx_hph_mode_mux_enum =
 
 static const struct snd_kcontrol_new tasha_snd_controls[] = {
 	SOC_SINGLE_SX_TLV("RX0 Digital Volume", WCD9335_CDC_RX0_RX_VOL_CTL,
-		0, -84, 40, digital_gain),
+		0, -84, 40, digital_gain), /* -84dB min - 40dB max */
 	SOC_SINGLE_SX_TLV("RX1 Digital Volume", WCD9335_CDC_RX1_RX_VOL_CTL,
 		0, -84, 40, digital_gain),
 	SOC_SINGLE_SX_TLV("RX2 Digital Volume", WCD9335_CDC_RX2_RX_VOL_CTL,
@@ -4798,8 +4814,16 @@ static int tasha_set_channel_map(struct snd_soc_dai *dai,
 				 unsigned int tx_num, unsigned int *tx_slot,
 				 unsigned int rx_num, unsigned int *rx_slot)
 {
-	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(dai->codec);
-	struct wcd9xxx *core = dev_get_drvdata(dai->codec->dev->parent);
+	struct tasha_priv *tasha;
+	struct wcd9xxx *core;
+
+	if (!dai) {
+		pr_err("%s: dai is empty\n", __func__);
+		return -EINVAL;
+	}
+	tasha = snd_soc_codec_get_drvdata(dai->codec);
+	core = dev_get_drvdata(dai->codec->dev->parent);
+
 	if (!tx_slot || !rx_slot) {
 		pr_err("%s: Invalid tx_slot=%p, rx_slot=%p\n",
 			__func__, tx_slot, rx_slot);
@@ -4967,6 +4991,7 @@ static int tasha_set_prim_interpolator_rate(struct snd_soc_dai *dai,
 	u16 int_mux_cfg0, int_mux_cfg1;
 	u16 int_fs_reg;
 	u8 int_mux_cfg0_val, int_mux_cfg1_val;
+	u8 inp0_sel, inp1_sel, inp2_sel;
 	struct snd_soc_codec *codec = dai->codec;
 	struct wcd9xxx_ch *ch;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
@@ -4985,7 +5010,8 @@ static int tasha_set_prim_interpolator_rate(struct snd_soc_dai *dai,
 
 		int_mux_cfg0 = WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG0;
 
-		/* Loop through all interpolator MUX inputs and find out
+		/*
+		 * Loop through all interpolator MUX inputs and find out
 		 * to which interpolator input, the slim rx port
 		 * is connected
 		 */
@@ -4994,18 +5020,19 @@ static int tasha_set_prim_interpolator_rate(struct snd_soc_dai *dai,
 
 			int_mux_cfg0_val = snd_soc_read(codec, int_mux_cfg0);
 			int_mux_cfg1_val = snd_soc_read(codec, int_mux_cfg1);
-
-			if (((int_mux_cfg0_val & 0x0F) == int_1_mix1_inp) ||
-			(((int_mux_cfg0_val >> 4) & 0x0F) ==
-			 int_1_mix1_inp) ||
-			(((int_mux_cfg1_val >> 4) & 0x0F) ==
-			 int_1_mix1_inp)) {
+			inp0_sel = int_mux_cfg0_val & 0x0F;
+			inp1_sel = (int_mux_cfg0_val >> 4) & 0x0F;
+			inp2_sel = (int_mux_cfg1_val >> 4) & 0x0F;
+			if ((inp0_sel == int_1_mix1_inp) ||
+			    (inp1_sel == int_1_mix1_inp) ||
+			    (inp2_sel == int_1_mix1_inp)) {
 				int_fs_reg = WCD9335_CDC_RX0_RX_PATH_CTL +
 					     20 * j;
 				pr_debug("%s: AIF_PB DAI(%d) connected to INT%u_1\n",
 					  __func__, dai->id, j);
 				pr_debug("%s: set INT%u_1 sample rate to %u\n",
 					__func__, j, sample_rate);
+				/* sample_rate is in Hz */
 				if ((j == 0) && (sample_rate == 44100)) {
 					pr_info("%s: Cannot set 44.1KHz on INT0\n",
 						__func__);
@@ -5069,7 +5096,7 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 	int ret;
 	int tx_fs_rate = -EINVAL;
 
-	pr_err("%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n", __func__,
+	pr_debug("%s: dai_name = %s DAI-ID %x rate %d num_ch %d\n", __func__,
 		 dai->name, dai->id, params_rate(params),
 		 params_channels(params));
 
@@ -5175,7 +5202,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF1_PB,
 		.playback = {
 			.stream_name = "AIF1 Playback",
-			.rates = WCD9335_RATES,
+			.rates = WCD9335_RATES_MASK,
 			.formats = TASHA_FORMATS_S16_S24_LE,
 			.rate_max = 192000,
 			.rate_min = 8000,
@@ -5189,7 +5216,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF1_CAP,
 		.capture = {
 			.stream_name = "AIF1 Capture",
-			.rates = WCD9335_RATES,
+			.rates = WCD9335_RATES_MASK,
 			.formats = TASHA_FORMATS,
 			.rate_max = 192000,
 			.rate_min = 8000,
@@ -5203,7 +5230,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF2_PB,
 		.playback = {
 			.stream_name = "AIF2 Playback",
-			.rates = WCD9335_RATES,
+			.rates = WCD9335_RATES_MASK,
 			.formats = TASHA_FORMATS_S16_S24_LE,
 			.rate_min = 8000,
 			.rate_max = 192000,
@@ -5217,7 +5244,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF2_CAP,
 		.capture = {
 			.stream_name = "AIF2 Capture",
-			.rates = WCD9335_RATES,
+			.rates = WCD9335_RATES_MASK,
 			.formats = TASHA_FORMATS,
 			.rate_max = 192000,
 			.rate_min = 8000,
@@ -5231,7 +5258,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF3_PB,
 		.playback = {
 			.stream_name = "AIF3 Playback",
-			.rates = WCD9335_RATES,
+			.rates = WCD9335_RATES_MASK,
 			.formats = TASHA_FORMATS_S16_S24_LE,
 			.rate_min = 8000,
 			.rate_max = 192000,
@@ -5245,7 +5272,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF3_CAP,
 		.capture = {
 			.stream_name = "AIF3 Capture",
-			.rates = WCD9335_RATES,
+			.rates = WCD9335_RATES_MASK,
 			.formats = TASHA_FORMATS,
 			.rate_max = 48000,
 			.rate_min = 8000,
@@ -5259,7 +5286,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF_MIX1_PB,
 		.playback = {
 			.stream_name = "AIF Mix Playback",
-			.rates = WCD9335_MIX_RATES,
+			.rates = WCD9335_MIX_RATES_MASK,
 			.formats = TASHA_FORMATS_S16_S24_LE,
 			.rate_min = 48000,
 			.rate_max = 192000,
@@ -5727,8 +5754,8 @@ static int tasha_codec_remove(struct snd_soc_codec *codec)
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_tasha = {
-	.probe	= tasha_codec_probe,
-	.remove	= tasha_codec_remove,
+	.probe = tasha_codec_probe,
+	.remove = tasha_codec_remove,
 	.controls = tasha_snd_controls,
 	.num_controls = ARRAY_SIZE(tasha_snd_controls),
 	.dapm_widgets = tasha_dapm_widgets,
@@ -5839,7 +5866,6 @@ static int tasha_swrm_write(void *handle, int reg, int val)
 		pr_err("%s: WR Addr Failure\n", __func__);
 		goto err;
 	}
-	/* Wait for WR status */
 
 err:
 	mutex_unlock(&tasha->swr_write_lock);

@@ -83,7 +83,7 @@ struct pinctrl_info {
 
 static struct pinctrl_info pinctrl_info;
 
-struct regmap_config wcd9xxx_base_regmap_config = {
+static struct regmap_config wcd9xxx_base_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 };
@@ -216,6 +216,11 @@ static int regmap_slim_read(void *context, const void *reg, size_t reg_size,
 		dev_err(dev, "%s: wcd9xxx is NULL\n", __func__);
 		return -EINVAL;
 	}
+	if (!reg || !val) {
+		dev_err(dev, "%s: reg or val is NULL\n", __func__);
+		return -EINVAL;
+	}
+
 	if (reg_size != REG_BYTES) {
 		dev_err(dev, "%s: register size %zd bytes, not supported\n",
 			__func__, reg_size);
@@ -303,6 +308,10 @@ static int regmap_slim_gather_write(void *context,
 
 	if (!wcd9xxx) {
 		dev_err(dev, "%s: wcd9xxx is NULL\n", __func__);
+		return -EINVAL;
+	}
+	if (!reg || !val) {
+		dev_err(dev, "%s: reg or val is NULL\n", __func__);
 		return -EINVAL;
 	}
 	if (reg_size != REG_BYTES) {
@@ -2442,6 +2451,10 @@ static int wcd9xxx_slim_probe(struct slim_device *slim)
 			dev_info(&slim->dev, "%s: codec type is %d\n",
 				 __func__, wcd9xxx->type);
 		}
+	} else {
+		dev_info(&slim->dev, "%s: dev.of_node is NULL, default to WCD9XXX\n",
+			 __func__);
+		wcd9xxx->type = WCD9XXX;
 	}
 	wcd9xxx_set_codec_specific_param(wcd9xxx);
 	if (wcd9xxx->using_regmap) {
