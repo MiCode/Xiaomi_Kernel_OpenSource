@@ -29,6 +29,10 @@
 #include <linux/power_supply.h>
 #include <linux/cpumask.h>
 
+#define CREATE_TRACE_POINTS
+#define _BCL_SW_TRACE
+#include <trace/trace_thermal.h>
+
 #define BCL_DEV_NAME "battery_current_limit"
 #define BCL_NAME_LENGTH 20
 /*
@@ -216,6 +220,7 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 {
 	int ret = 0, _cpu = 0;
 
+	trace_bcl_sw_mitigation_event("start hotplug mitigation");
 	mutex_lock(&bcl_hotplug_mutex);
 	if (cpumask_empty(bcl_cpu_online_mask))
 		bcl_update_online_mask();
@@ -237,25 +242,30 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 		if (bcl_hotplug_request & BIT(_cpu)) {
 			if (!cpu_online(_cpu))
 				continue;
+			trace_bcl_sw_mitigation("Start hotplug CPU", _cpu);
 			ret = cpu_down(_cpu);
 			if (ret)
 				pr_err("Error %d offlining core %d\n",
 					ret, _cpu);
 			else
 				pr_info("Set Offline CPU:%d\n", _cpu);
+			trace_bcl_sw_mitigation("End hotplug CPU", _cpu);
 		} else {
 			if (cpu_online(_cpu))
 				continue;
+			trace_bcl_sw_mitigation("Start Online CPU", _cpu);
 			ret = cpu_up(_cpu);
 			if (ret)
 				pr_err("Error %d onlining core %d\n",
 					ret, _cpu);
 			else
 				pr_info("Allow Online CPU:%d\n", _cpu);
+			trace_bcl_sw_mitigation("End Online CPU", _cpu);
 		}
 	}
 
 	mutex_unlock(&bcl_hotplug_mutex);
+	trace_bcl_sw_mitigation_event("stop hotplug mitigation");
 	return;
 }
 #else
@@ -276,6 +286,7 @@ static int __ref bcl_cpu_ctrl_callback(struct notifier_block *nfb,
 				cpumask_weight(bcl_cpu_online_mask));
 		if (bcl_hotplug_request & BIT(cpu)) {
 			pr_info("preventing CPU%d from coming online\n", cpu);
+			trace_bcl_sw_mitigation("Veto Online CPU", cpu);
 			return NOTIFY_BAD;
 		} else {
 			pr_debug("voting for CPU%d to be online\n", cpu);
@@ -307,6 +318,7 @@ static int bcl_cpufreq_callback(struct notifier_block *nfb,
 				== BCL_IBAT_MONITOR_TYPE) ? gbcl->btm_freq_max
 				: gbcl->bcl_p_freq_max;
 		}
+		trace_bcl_sw_mitigation("Mitigation Frequency",	max_freq);
 		pr_debug("Requesting Max freq:%u for CPU%d\n",
 			max_freq, policy->cpu);
 		cpufreq_verify_within_limits(policy, 0,
@@ -325,9 +337,11 @@ static void update_cpu_freq(void)
 {
 	int cpu, ret = 0;
 
+	trace_bcl_sw_mitigation_event("Start Frequency Mitigate");
 	get_online_cpus();
 	for_each_online_cpu(cpu) {
 		if (bcl_frequency_mask & BIT(cpu)) {
+			trace_bcl_sw_mitigation("Frequency Mitigate CPU", cpu);
 			ret = cpufreq_update_policy(cpu);
 			if (ret)
 				pr_err(
@@ -336,6 +350,7 @@ static void update_cpu_freq(void)
 		}
 	}
 	put_online_cpus();
+	trace_bcl_sw_mitigation_event("End Frequency Mitigation");
 }
 
 static void power_supply_callback(struct power_supply *psy)
@@ -358,11 +373,16 @@ static void power_supply_callback(struct power_supply *psy)
 		battery_percentage = ret.intval;
 		battery_soc_val = battery_percentage;
 		pr_debug("Battery SOC reported:%d", battery_soc_val);
+		trace_bcl_sw_mitigation("SoC reported", battery_soc_val);
 		prev_soc_state = bcl_soc_state;
 		bcl_soc_state = (battery_soc_val <= soc_low_threshold) ?
 					BCL_LOW_THRESHOLD : BCL_HIGH_THRESHOLD;
 		if (bcl_soc_state == prev_soc_state)
 			return;
+		trace_bcl_sw_mitigation_event(
+			(bcl_soc_state == BCL_LOW_THRESHOLD)
+			? "trigger SoC mitigation"
+			: "clear SoC mitigation");
 		if (bcl_hotplug_enabled)
 			queue_work(gbcl->bcl_hotplug_wq, &bcl_hotplug_work);
 		update_cpu_freq();
@@ -509,6 +529,9 @@ int bcl_voltage_notify(bool is_high_thresh)
 		return -EINVAL;
 	}
 
+	trace_bcl_sw_mitigation_event((is_high_thresh)
+		? "vbat High trip notify"
+		: "vbat Low trip notify");
 	bcl_vph_notify((is_high_thresh) ? BCL_HIGH_THRESHOLD
 			: BCL_LOW_THRESHOLD);
 	return ret;
@@ -528,6 +551,9 @@ int bcl_current_notify(bool is_high_thresh)
 		return -EINVAL;
 	}
 
+	trace_bcl_sw_mitigation_event((is_high_thresh)
+		? "ibat High trip notify"
+		: "ibat Low trip notify");
 	bcl_ibat_notify((is_high_thresh) ? BCL_HIGH_THRESHOLD
 			: BCL_LOW_THRESHOLD);
 	return ret;
