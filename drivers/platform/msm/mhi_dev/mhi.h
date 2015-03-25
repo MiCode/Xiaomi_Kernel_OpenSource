@@ -15,6 +15,7 @@
 
 #include <linux/msm_ep_pcie.h>
 #include <linux/types.h>
+#include <linux/ipc_logging.h>
 
 /* MHI control data structures alloted by the host, including
  * channel context array, event context array, command context and rings */
@@ -513,10 +514,16 @@ enum mhi_msg_level {
 };
 
 extern enum mhi_msg_level mhi_msg_lvl;
+extern enum mhi_msg_level mhi_ipc_msg_lvl;
+extern void *mhi_ipc_log;
 
 #define mhi_log(_msg_lvl, _msg, ...) do { \
 	if (_msg_lvl >= mhi_msg_lvl) { \
 		pr_err("[%s] "_msg, __func__, ##__VA_ARGS__); \
+	} \
+	if (mhi_ipc_log && (_msg_lvl >= mhi_ipc_msg_lvl)) { \
+		ipc_log_string(mhi_ipc_log,                     \
+			"[%s] " _msg, __func__, ##__VA_ARGS__);     \
 	} \
 } while (0)
 
