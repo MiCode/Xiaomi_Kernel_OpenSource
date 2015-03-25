@@ -6148,6 +6148,10 @@ static int qseecom_probe(struct platform_device *pdev)
 				goto exit_destroy_hw_instance_list;
 			}
 		}
+		if (!of_parse_phandle(pdev->dev.of_node, "vdd-hba-supply", 0))
+			qseecom.is_regulator_available = false;
+		else
+			qseecom.is_regulator_available = true;
 	} else {
 		qseecom_platform_support = (struct msm_bus_scale_pdata *)
 						pdev->dev.platform_data;
@@ -6163,13 +6167,6 @@ static int qseecom_probe(struct platform_device *pdev)
 	qseecom.qsee_perf_client = msm_bus_scale_register_client(
 					qseecom_platform_support);
 
-	if (!of_parse_phandle(pdev->dev.of_node, "vdd-hba-supply", 0)) {
-		pr_err("%s: No vdd-hba-supply regulator, assuming not needed\n",
-								 __func__);
-		qseecom.is_regulator_available = false;
-	} else {
-		qseecom.is_regulator_available = true;
-	}
 	if (!qseecom.qsee_perf_client)
 		pr_err("Unable to register bus client\n");
 	return 0;
