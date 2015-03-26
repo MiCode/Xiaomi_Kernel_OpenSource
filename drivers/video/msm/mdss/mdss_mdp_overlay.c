@@ -26,6 +26,7 @@
 #include <linux/memblock.h>
 #include <linux/sort.h>
 #include <linux/sw_sync.h>
+#include <linux/kmemleak.h>
 
 #include <soc/qcom/event_timer.h>
 #include <linux/msm-bus.h>
@@ -1050,6 +1051,8 @@ struct mdss_mdp_data *mdss_mdp_overlay_buf_alloc(struct msm_fb_data_type *mfd,
 		}
 
 		list_add(&buf->chunk_list, &mdp5_data->bufs_chunks);
+		kmemleak_not_leak(buf);
+
 		for (i = 0; i < BUF_POOL_SIZE; i++)
 			list_add(&buf[i].buf_list, &mdp5_data->bufs_pool);
 	}
