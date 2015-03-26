@@ -2050,13 +2050,17 @@ int glink_close(void *handle)
 				ctx->transport_ptr->ops,
 				ctx->lcid);
 	} else if (!strcmp(ctx->transport_ptr->name, "dummy")) {
-		/* This case should appear only in case dummy transports */
+		/*
+		 * This check will avoid any race condition when clients call
+		 * glink_close before the dummy xprt swapping happens in link
+		 * down scenario.
+		 */
 		ret = 0;
+		xprt_ctx = ctx->transport_ptr;
+		rwref_write_get(&xprt_ctx->xprt_state_lhb0);
 		glink_core_ch_close_ack_common(ctx);
 		if (ch_is_fully_closed(ctx)) {
-			xprt_ctx = ctx->transport_ptr;
 			glink_delete_ch_from_list(ctx, false);
-			/* For each channel reference in the dummy transport */
 			rwref_put(&xprt_ctx->xprt_state_lhb0);
 			if (list_empty(&xprt_ctx->channels))
 				/* For the xprt reference */
@@ -2066,6 +2070,7 @@ int glink_close(void *handle)
 			"channel Not closed yet local state [%d] remote_state [%d]\n",
 			ctx->local_open_state, ctx->remote_opened);
 		}
+		rwref_write_put(&xprt_ctx->xprt_state_lhb0);
 	}
 
 	return ret;
@@ -2891,43 +2896,34 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 		return;
 	}
 
+	rwref_get(&dummy_xprt_ctx->xprt_state_lhb0);
 	spin_lock_irqsave(&xprt_ptr->xprt_ctx_lock_lhb1, flags);
 	list_for_each_entry_safe(ctx, tmp_ctx, &xprt_ptr->channels,
 						port_list_node) {
-		if (!ch_is_fully_closed(ctx)) {
-			rwref_get(&ctx->ch_state_lhc0);
-			if (ctx->local_open_state == GLINK_CHANNEL_CLOSED ||
-				ctx->local_open_state ==
-						GLINK_CHANNEL_CLOSING) {
-				spin_unlock_irqrestore(
-					&xprt_ptr->xprt_ctx_lock_lhb1, flags);
-				glink_core_remote_close_common(ctx);
-				if (ctx->local_open_state ==
-						GLINK_CHANNEL_CLOSING)
-					glink_core_ch_close_ack_common(ctx);
-				/* Channel is fully closed. Delete here */
-				if (ch_is_fully_closed(ctx))
-					glink_delete_ch_from_list(ctx, false);
-			} else {
-				rwref_get(&dummy_xprt_ctx->xprt_state_lhb0);
-				spin_lock_irqsave(
-					&dummy_xprt_ctx->xprt_ctx_lock_lhb1,
-					d_flags);
-				list_move_tail(&ctx->port_list_node,
-						&dummy_xprt_ctx->channels);
-				spin_unlock_irqrestore(
-					&dummy_xprt_ctx->xprt_ctx_lock_lhb1,
-					d_flags);
-				spin_unlock_irqrestore(
-					&xprt_ptr->xprt_ctx_lock_lhb1, flags);
-				glink_add_free_lcid_list(ctx);
-				ctx->transport_ptr = dummy_xprt_ctx;
-				glink_core_remote_close_common(ctx);
-			}
-			rwref_put(&ctx->ch_state_lhc0);
-			spin_lock_irqsave(
-				&xprt_ptr->xprt_ctx_lock_lhb1, flags);
+		rwref_get(&ctx->ch_state_lhc0);
+		if (ctx->local_open_state == GLINK_CHANNEL_OPENED ||
+			ctx->local_open_state == GLINK_CHANNEL_OPENING) {
+			rwref_get(&dummy_xprt_ctx->xprt_state_lhb0);
+			spin_lock_irqsave(&dummy_xprt_ctx->xprt_ctx_lock_lhb1,
+						d_flags);
+			list_move_tail(&ctx->port_list_node,
+					&dummy_xprt_ctx->channels);
+			spin_unlock_irqrestore(
+				&dummy_xprt_ctx->xprt_ctx_lock_lhb1, d_flags);
+			ctx->transport_ptr = dummy_xprt_ctx;
+		} else {
+			/* local state is in either CLOSED or CLOSING */
+			spin_unlock_irqrestore(&xprt_ptr->xprt_ctx_lock_lhb1,
+							flags);
+			glink_core_remote_close_common(ctx);
+			if (ctx->local_open_state == GLINK_CHANNEL_CLOSING)
+				glink_core_ch_close_ack_common(ctx);
+			/* Channel should be fully closed now. Delete here */
+			if (ch_is_fully_closed(ctx))
+				glink_delete_ch_from_list(ctx, false);
+			spin_lock_irqsave(&xprt_ptr->xprt_ctx_lock_lhb1, flags);
 		}
+		rwref_put(&ctx->ch_state_lhc0);
 	}
 	list_for_each_entry_safe(temp_lcid, temp_lcid1,
 			&xprt_ptr->free_lcid_list, list_node) {
@@ -2936,6 +2932,19 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr)
 	}
 	spin_unlock_irqrestore(&xprt_ptr->xprt_ctx_lock_lhb1, flags);
 
+	spin_lock_irqsave(&dummy_xprt_ctx->xprt_ctx_lock_lhb1, d_flags);
+	list_for_each_entry_safe(ctx, tmp_ctx, &dummy_xprt_ctx->channels,
+						port_list_node) {
+		rwref_get(&ctx->ch_state_lhc0);
+		spin_unlock_irqrestore(&dummy_xprt_ctx->xprt_ctx_lock_lhb1,
+				d_flags);
+		glink_core_remote_close_common(ctx);
+		spin_lock_irqsave(&dummy_xprt_ctx->xprt_ctx_lock_lhb1,
+				d_flags);
+		rwref_put(&ctx->ch_state_lhc0);
+	}
+	spin_unlock_irqrestore(&dummy_xprt_ctx->xprt_ctx_lock_lhb1, d_flags);
+	rwref_put(&dummy_xprt_ctx->xprt_state_lhb0);
 }
 /**
  * glink_core_rx_cmd_version() - receive version/features from remote system
