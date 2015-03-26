@@ -263,5 +263,41 @@
 				bias-pull-up;
 			};
 		};
+
+		uim0_present {
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "uim0_present";
+
+			uim0_present_default: uim0_present_default {
+				drive-strength = <4>;
+				bias-pull-down;
+			};
+		};
+
+		uim0_reset {
+			qcom,pins = <&gp 7>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "uim0_reset";
+
+			uim0_reset_default: uim0_reset_default {
+				drive-strength = <4>;
+				bias-pull-down;
+			};
+		};
+
+		uim0_clk_data {
+			qcom,pins = <&gp 8>, <&gp 9>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "uim0_clk_data";
+
+			uim0_clk_data_default: uim0_clk_data_default {
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
 	};
 };

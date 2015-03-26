@@ -252,6 +252,19 @@
 		interrupts = <0 96 0>;
 	};
 
+	qcom,uim@f991d000 {
+		compatible = "qcom,uim";
+		reg = <0xf991d000 0x1000>;
+		interrupts = <0 98 0>;
+		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart1_apps_clk>,
+		<&clock_gcc clk_gcc_blsp1_ahb_clk>,
+		<&clock_gcc clk_blsp_sim_clk_src>;
+		clock-names = "core_clk", "iface_clk", "sim_clk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&uim0_present_default &uim0_clk_data_default &uim0_reset_default>;
+	};
+
 	qcom,pp2s {
 		compatible = "qcom,pp2s";
 		interrupts = <0 219 0>;

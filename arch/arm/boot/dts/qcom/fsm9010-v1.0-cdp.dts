@@ -34,6 +34,11 @@
 		vdd-blow-supply = <&dummy_vreg>;
 	};
 
+	uim0: qcom,uim@f991d000 {
+		status = "ok";
+		qcom,uim-1v8;
+	};
+
 	pcie0: qcom,pcie@fc520000 {
 		status = "ok";
 	};
