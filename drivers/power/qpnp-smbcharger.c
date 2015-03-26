@@ -3531,6 +3531,7 @@ static int smbchg_adjust_vfloat_mv_trim(struct smbchg_chip *chip,
 	return rc;
 }
 
+#define VFLOAT_RESAMPLE_DELAY_MS	10000
 static void smbchg_vfloat_adjust_work(struct work_struct *work)
 {
 	struct smbchg_chip *chip = container_of(work,
@@ -3539,7 +3540,6 @@ static void smbchg_vfloat_adjust_work(struct work_struct *work)
 	int vbat_uv, vbat_mv, ibat_ua, rc, delta_vfloat_mv;
 	bool taper, enable;
 
-start:
 	taper = (get_prop_charge_type(chip)
 		== POWER_SUPPLY_CHARGE_TYPE_TAPER);
 	enable = taper && (chip->parallel.current_max_ma == 0);
@@ -3563,7 +3563,7 @@ start:
 
 	if ((vbat_mv - chip->vfloat_mv) < -1 * vf_adjust_max_delta_mv) {
 		pr_smb(PR_STATUS, "Skip vbat out of range: %d\n", vbat_mv);
-		goto start;
+		goto reschedule;
 	}
 
 	rc = get_property_from_fg(chip,
@@ -3576,7 +3576,7 @@ start:
 
 	if (ibat_ua / 1000 > -chip->iterm_ma) {
 		pr_smb(PR_STATUS, "Skip ibat too high: %d\n", ibat_ua);
-		goto start;
+		goto reschedule;
 	}
 
 	pr_smb(PR_STATUS, "sample number = %d vbat_mv = %d ibat_ua = %d\n",
@@ -3589,7 +3589,7 @@ start:
 	if (chip->n_vbat_samples < vf_adjust_n_samples) {
 		pr_smb(PR_STATUS, "Skip %d samples; max = %d\n",
 			chip->n_vbat_samples, chip->max_vbat_sample);
-		goto start;
+		goto reschedule;
 	}
 	/* if max vbat > target vfloat, delta_vfloat_mv could be negative */
 	delta_vfloat_mv = chip->vfloat_mv - chip->max_vbat_sample;
@@ -3610,13 +3610,18 @@ start:
 		}
 		chip->max_vbat_sample = 0;
 		chip->n_vbat_samples = 0;
-		goto start;
+		goto reschedule;
 	}
 
 stop:
 	chip->max_vbat_sample = 0;
 	chip->n_vbat_samples = 0;
 	smbchg_relax(chip, PM_REASON_VFLOAT_ADJUST);
+	return;
+
+reschedule:
+	schedule_delayed_work(&chip->vfloat_adjust_work,
+			msecs_to_jiffies(VFLOAT_RESAMPLE_DELAY_MS));
 	return;
 }
 
