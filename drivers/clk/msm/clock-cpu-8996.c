@@ -1123,6 +1123,12 @@ int __init cpu_clock_8996_early_init(void)
 	int ret = 0;
 	void __iomem *auxbase;
 	u32 regval;
+	struct device_node *ofnode;
+
+	ofnode = of_find_compatible_node(NULL, NULL,
+					 "qcom,cpu-clock-8996");
+	if (!ofnode)
+		return 0;
 
 	pr_info("clock-cpu-8996: configuring clocks for the perf cluster\n");
 
