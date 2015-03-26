@@ -327,6 +327,7 @@
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
 				qcom,btm-channel-number = <0x48>;
+				qcom,thermal-node;
 			};
 		};
 
