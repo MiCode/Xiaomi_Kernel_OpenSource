@@ -533,6 +533,7 @@
 		qcom,hsusb-otg-disable-reset;
 		qcom,hsusb-otg-mpm-dpsehv-int = <49>;
 		qcom,hsusb-otg-mpm-dmsehv-int = <58>;
+		qcom,boost-sysclk-with-streaming;
 
 		qcom,msm-bus,name = "usb2";
 		qcom,msm-bus,num-cases = <3>;
@@ -557,13 +558,13 @@
 				"phy_reset_clk", "phy_por_clk", "phy_csr_clk",
 				"xo";
 		qcom,bus-clk-rate = <320000000 200000000 100000000>;
+		qcom,max-nominal-sysclk-rate = <133330000>;
 	};
 
 	android_usb: android_usb@086000c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x086000c8 0xc8>;
 		qcom,pm-qos-latency = <2 1001 12701>;
-		qcom,streaming-func = "mtp";
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
 

@@ -839,6 +839,7 @@
 				"bimc_clk", "snoc_clk", "pcnoc_clk",
 				"xo";
 		qcom,bus-clk-rate = <331200000 200000000 100000000>;
+		qcom,max-nominal-sysclk-rate = <100000000>;
 	};
 
 	android_usb: android_usb@086000c8 {

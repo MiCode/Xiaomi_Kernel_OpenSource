@@ -847,6 +847,7 @@
 				"phy_reset_clk", "phy_por_clk", "phy_csr_clk",
 				"xo";
 		qcom,bus-clk-rate = <400000000 200000000 100000000>;
+		qcom,max-nominal-sysclk-rate = <100000000>;
 	};
 
 	android_usb: android_usb@086000c8 {

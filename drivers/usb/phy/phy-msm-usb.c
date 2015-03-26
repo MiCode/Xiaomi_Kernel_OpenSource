@@ -831,10 +831,6 @@ static int msm_otg_reset(struct usb_phy *phy)
 		writel_relaxed(readl_relaxed(USB_OTGSC) & ~(OTGSC_IDPU),
 								USB_OTGSC);
 
-	if (pdata->enable_epprime_fix)
-		writel_relaxed(readl_relaxed(USB_GENCONFIG2) |
-				GENCFG2_TX_BUF_PREFETCH_FIX_EN, USB_GENCONFIG2);
-
 	msm_otg_dbg_log_event(&motg->phy, "USB RESET DONE", phy->state,
 			get_pm_runtime_counter(phy->dev));
 	return 0;
@@ -4951,6 +4947,7 @@ static struct platform_device *msm_otg_add_pdev(
 	int retval;
 	struct ci13xxx_platform_data ci_pdata;
 	struct msm_otg_platform_data *otg_pdata;
+	struct msm_otg *motg;
 
 	pdev = platform_device_alloc(name, -1);
 	if (!pdev) {
@@ -4971,13 +4968,17 @@ static struct platform_device *msm_otg_add_pdev(
 		otg_pdata =
 			(struct msm_otg_platform_data *)
 				ofdev->dev.platform_data;
+		motg = platform_get_drvdata(ofdev);
 		ci_pdata.log2_itc = otg_pdata->log2_itc;
 		ci_pdata.usb_core_id = 0;
 		ci_pdata.l1_supported = otg_pdata->l1_supported;
 		ci_pdata.enable_ahb2ahb_bypass =
 				otg_pdata->enable_ahb2ahb_bypass;
 		ci_pdata.system_clk = otg_pdata->system_clk;
-		ci_pdata.enable_epprime_fix = otg_pdata->enable_epprime_fix;
+		ci_pdata.enable_streaming = otg_pdata->enable_streaming;
+		ci_pdata.max_nominal_system_clk_rate =
+					motg->max_nominal_system_clk_rate;
+		ci_pdata.default_system_clk_rate = motg->core_clk_rate;
 		retval = platform_device_add_data(pdev, &ci_pdata,
 			sizeof(ci_pdata));
 		if (retval)
@@ -5393,8 +5394,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	pdata->emulation = of_property_read_bool(node,
 						"qcom,emulation");
 
-	pdata->enable_epprime_fix = of_property_read_bool(node,
-					"qcom,boost-sysclk-with-epprime-fix");
+	pdata->enable_streaming = of_property_read_bool(node,
+					"qcom,boost-sysclk-with-streaming");
 
 	return pdata;
 }
@@ -5437,14 +5438,21 @@ static int msm_otg_probe(struct platform_device *pdev)
 	}
 
 	/*
-	 * USB Core CLK can run at max freq if EP prime fix is present. If that
-	 * is the case, get Max supported clk frequency for USB Core CLK and
-	 * request to set the same. Otherwise set USB Core CLK to defined
-	 * default value.
+	 * USB Core CLK can run at max freq if streaming is enabled. Hence,
+	 * get Max supported clk frequency for USB Core CLK and request to set
+	 * the same. Otherwise set USB Core CLK to defined default value.
 	 */
+	if (of_property_read_u32(pdev->dev.of_node,
+					"qcom,max-nominal-sysclk-rate",
+					&motg->max_nominal_system_clk_rate)) {
+		ret = -EINVAL;
+		goto put_core_clk;
+	}
+
 	if (of_property_read_bool(pdev->dev.of_node,
-					"qcom,boost-sysclk-with-epprime-fix"))
-		motg->core_clk_rate = clk_round_rate(motg->core_clk, LONG_MAX);
+					"qcom,boost-sysclk-with-streaming"))
+		motg->core_clk_rate = clk_round_rate(motg->core_clk,
+					motg->max_nominal_system_clk_rate);
 	else
 		motg->core_clk_rate = clk_round_rate(motg->core_clk,
 						USB_DEFAULT_SYSTEM_CLOCK);
