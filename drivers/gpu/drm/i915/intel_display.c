@@ -119,6 +119,86 @@ struct intel_limit {
 	intel_p2_t	    p2;
 };
 
+struct format_info {
+	u32 drm_format;
+	u32 hw_config;
+	u8 bpp;
+};
+
+static const struct format_info format_mapping[] = {
+	{
+		.drm_format = DRM_FORMAT_C8,
+		.hw_config = DISPPLANE_8BPP,
+		.bpp = 1,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_XRGB1555,
+		.hw_config = DISPPLANE_BGRX555,
+		.bpp = 2,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_ARGB1555,
+		.hw_config = DISPPLANE_BGRA555,
+		.bpp = 2,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_RGB565,
+		.hw_config = DISPPLANE_BGRX565,
+		.bpp = 2,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_XRGB8888,
+		.hw_config = DISPPLANE_BGRX888,
+		.bpp = 4,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_ARGB8888,
+		.hw_config = DISPPLANE_BGRA888,
+		.bpp = 4,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_XBGR2101010,
+		.hw_config = DISPPLANE_RGBX101010,
+		.bpp = 4,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_ABGR2101010,
+		.hw_config = DISPPLANE_RGBA101010,
+		.bpp = 4,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_XRGB2101010,
+		.hw_config = DISPPLANE_BGRX101010,
+		.bpp = 4,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_ARGB2101010,
+		.hw_config = DISPPLANE_BGRA101010,
+		.bpp = 4,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_XBGR8888,
+		.hw_config = DISPPLANE_RGBX888,
+		.bpp = 4,
+	},
+
+	{
+		.drm_format = DRM_FORMAT_ABGR8888,
+		.hw_config = DISPPLANE_RGBA888,
+		.bpp = 4,
+	},
+};
+
 /* Color space conversion coff's */
 static u32 csc_softlut_hsw[I915_MAX_PIPES][CSC_MAX_COEFF_REG_COUNT] = {
 	{0x78000000, 0, 0x7800, 0, 0, 0x78000000},
@@ -10670,6 +10750,20 @@ out_hang:
 	return ret;
 }
 
+static int get_format_config(u32 drm_format, u32 *config, u8 *bpp)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(format_mapping); i++) {
+		if (format_mapping[i].drm_format == drm_format) {
+			*config = format_mapping[i].hw_config;
+			*bpp = format_mapping[i].bpp;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
 /* Callback function - Called if change in pixel format is detected.
 * Sends MI command to update change in pixel format.
 */
@@ -10693,7 +10787,9 @@ static int intel_crtc_set_pixel_format(struct drm_crtc *crtc,
 		return hsw_set_pixelformat(crtc, fb->pixel_format);
 	} else if (IS_VALLEYVIEW(dev)) {
 		/* MMIO flip handles this for VLV */
-		return 0;
+		u32 *config;
+		u8 *bpp;
+		return get_format_config(fb->pixel_format, config, bpp);
 	} else {
 		DRM_ERROR("Pixel format change not allowed.\n");
 		return -EINVAL;
