@@ -1,0 +1,5 @@
+config MSM_CLK_CONTROLLER_V2
+	bool "QTI clock driver"
+	---help---
+	   Generate clock data structures from definitions found in
+	   device tree.

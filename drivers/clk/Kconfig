@@ -160,3 +160,4 @@ source "drivers/clk/bcm/Kconfig"
 source "drivers/clk/mvebu/Kconfig"
 
 source "drivers/clk/samsung/Kconfig"
+source "drivers/clk/msm/Kconfig"
