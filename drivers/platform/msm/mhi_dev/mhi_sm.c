@@ -462,11 +462,8 @@ static int mhi_sm_change_to_M0(void)
 			goto exit;
 
 		}
-	} else {
-		MHI_SM_ERR("unexpected old_state: %s\n",
-			mhi_sm_mstate_str(old_state));
-		goto exit;
 	}
+
 	mhi_sm_mmio_set_mhistatus(MHI_DEV_M0_STATE);
 
 	/* Tell the host, device move to M0 */
