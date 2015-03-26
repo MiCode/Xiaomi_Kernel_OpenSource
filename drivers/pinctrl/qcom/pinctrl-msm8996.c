@@ -91,7 +91,7 @@
 		.intr_detection_bit = -1,		\
 		.intr_detection_width = -1,		\
 	}
-static const struct pinctrl_pin_desc msmthulium_pins[] = {
+static const struct pinctrl_pin_desc msm8996_pins[] = {
 	PINCTRL_PIN(0, "GPIO_0"),
 	PINCTRL_PIN(1, "GPIO_1"),
 	PINCTRL_PIN(2, "GPIO_2"),
@@ -412,7 +412,7 @@ static const unsigned int sdc2_cmd_pins[] = { 154 };
 static const unsigned int sdc2_data_pins[] = { 155 };
 static const unsigned int sdc1_rclk_pins[] = { 156 };
 
-enum msmthulium_functions {
+enum msm8996_functions {
 	msm_mux_blsp_uart1,
 	msm_mux_blsp_spi1,
 	msm_mux_blsp_i2c1,
@@ -1298,7 +1298,7 @@ static const char * const pci_e1_groups[] = {
 	"gpio130", "gpio131", "gpio132",
 };
 
-static const struct msm_function msmthulium_functions[] = {
+static const struct msm_function msm8996_functions[] = {
 	FUNCTION(blsp_uart1),
 	FUNCTION(blsp_spi1),
 	FUNCTION(blsp_i2c1),
@@ -1520,7 +1520,7 @@ static const struct msm_function msmthulium_functions[] = {
 	FUNCTION(pci_e1),
 };
 
-static const struct msm_pingroup msmthulium_groups[] = {
+static const struct msm_pingroup msm8996_groups[] = {
 	PINGROUP(0, blsp_spi1, blsp_uart1, blsp_uim1, NA, NA, NA, NA, NA, NA),
 	PINGROUP(1, blsp_spi1, blsp_uart1, blsp_uim1, NA, NA, NA, NA, NA, NA),
 	PINGROUP(2, blsp_spi1, blsp_uart1, blsp_i2c1, NA, NA, NA, NA, NA, NA),
@@ -1742,48 +1742,48 @@ static const struct msm_pingroup msmthulium_groups[] = {
 	SDC_QDSD_PINGROUP(sdc1_rclk, 0x12c000, 15, 0),
 };
 
-static const struct msm_pinctrl_soc_data msmthulium_pinctrl = {
-	.pins = msmthulium_pins,
-	.npins = ARRAY_SIZE(msmthulium_pins),
-	.functions = msmthulium_functions,
-	.nfunctions = ARRAY_SIZE(msmthulium_functions),
-	.groups = msmthulium_groups,
-	.ngroups = ARRAY_SIZE(msmthulium_groups),
+static const struct msm_pinctrl_soc_data msm8996_pinctrl = {
+	.pins = msm8996_pins,
+	.npins = ARRAY_SIZE(msm8996_pins),
+	.functions = msm8996_functions,
+	.nfunctions = ARRAY_SIZE(msm8996_functions),
+	.groups = msm8996_groups,
+	.ngroups = ARRAY_SIZE(msm8996_groups),
 	.ngpios = 150,
 };
 
-static int msmthulium_pinctrl_probe(struct platform_device *pdev)
+static int msm8996_pinctrl_probe(struct platform_device *pdev)
 {
-	return msm_pinctrl_probe(pdev, &msmthulium_pinctrl);
+	return msm_pinctrl_probe(pdev, &msm8996_pinctrl);
 }
 
-static const struct of_device_id msmthulium_pinctrl_of_match[] = {
-	{ .compatible = "qcom,msmthulium-pinctrl", },
+static const struct of_device_id msm8996_pinctrl_of_match[] = {
+	{ .compatible = "qcom,msm8996-pinctrl", },
 	{ },
 };
 
-static struct platform_driver msmthulium_pinctrl_driver = {
+static struct platform_driver msm8996_pinctrl_driver = {
 	.driver = {
-		.name = "msmthulium-pinctrl",
+		.name = "msm8996-pinctrl",
 		.owner = THIS_MODULE,
-		.of_match_table = msmthulium_pinctrl_of_match,
+		.of_match_table = msm8996_pinctrl_of_match,
 	},
-	.probe = msmthulium_pinctrl_probe,
+	.probe = msm8996_pinctrl_probe,
 	.remove = msm_pinctrl_remove,
 };
 
-static int __init msmthulium_pinctrl_init(void)
+static int __init msm8996_pinctrl_init(void)
 {
-	return platform_driver_register(&msmthulium_pinctrl_driver);
+	return platform_driver_register(&msm8996_pinctrl_driver);
 }
-arch_initcall(msmthulium_pinctrl_init);
+arch_initcall(msm8996_pinctrl_init);
 
-static void __exit msmthulium_pinctrl_exit(void)
+static void __exit msm8996_pinctrl_exit(void)
 {
-	platform_driver_unregister(&msmthulium_pinctrl_driver);
+	platform_driver_unregister(&msm8996_pinctrl_driver);
 }
-module_exit(msmthulium_pinctrl_exit);
+module_exit(msm8996_pinctrl_exit);
 
-MODULE_DESCRIPTION("Qualcomm msmthulium pinctrl driver");
+MODULE_DESCRIPTION("Qualcomm msm8996 pinctrl driver");
 MODULE_LICENSE("GPL v2");
-MODULE_DEVICE_TABLE(of, msmthulium_pinctrl_of_match);
+MODULE_DEVICE_TABLE(of, msm8996_pinctrl_of_match);
