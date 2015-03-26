@@ -40,6 +40,13 @@ enum {
 	WCD_CPE_LSM_CAL_MAX,
 };
 
+enum cpe_err_irq_cntl_type {
+	CPE_ERR_IRQ_MASK = 0,
+	CPE_ERR_IRQ_UNMASK,
+	CPE_ERR_IRQ_CLEAR,
+	CPE_ERR_IRQ_STATUS,
+};
+
 struct wcd_cpe_cdc_cb {
 	/* codec provided callback to enable RCO */
 	int (*cdc_clk_en) (struct snd_soc_codec *, bool);
@@ -50,6 +57,11 @@ struct wcd_cpe_cdc_cb {
 	int (*slimtx_lab_en)(struct snd_soc_codec *codec, int event);
 	int (*bus_vote_bw)(struct snd_soc_codec *codec,
 			   bool vote);
+
+	/* Callback to control the cpe error interrupt mask/status/clear */
+	int (*cpe_err_irq_control)(struct snd_soc_codec *codec,
+				    enum cpe_err_irq_cntl_type cntl_type,
+				    u8 *status);
 };
 
 enum wcd_cpe_ssr_state_event {
@@ -74,6 +86,12 @@ struct wcd_cpe_ssr_entry {
 	u32 offline_change;
 	wait_queue_head_t offline_poll_wait;
 	struct snd_info_entry *entry;
+};
+
+struct wcd_cpe_irq_info {
+	int cpe_engine_irq;
+	int cpe_err_irq;
+	u8 cpe_fatal_irqs;
 };
 
 struct wcd_cpe_core {
@@ -152,6 +170,9 @@ struct wcd_cpe_core {
 	/* SFR support */
 	u32 sfr_buf_addr;
 	size_t sfr_buf_size;
+
+	/* IRQ information for CPE interrupts */
+	struct wcd_cpe_irq_info irq_info;
 };
 
 struct wcd_cpe_params {
@@ -163,6 +184,8 @@ struct wcd_cpe_params {
 	u16 cdc_major_ver;
 	u16 cdc_minor_ver;
 	u32 cdc_id;
+
+	struct wcd_cpe_irq_info cdc_irq_info;
 };
 
 int wcd_cpe_ssr_event(void *core_handle,

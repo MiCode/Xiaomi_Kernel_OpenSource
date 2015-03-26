@@ -64,6 +64,14 @@ enum {
 #define TOMTOM_HPH_PA_SETTLE_COMP_OFF 13000
 #define TOMTOM_HPH_PA_RAMP_DELAY 30000
 
+#define TOMTOM_SVASS_INT_STATUS_RCO_WDOG 0x20
+#define TOMTOM_SVASS_INT_STATUS_WDOG_BITE 0x02
+
+/* Add any SVA IRQs that are to be treated as FATAL */
+#define TOMTOM_CPE_FATAL_IRQS \
+	(TOMTOM_SVASS_INT_STATUS_RCO_WDOG | \
+	 TOMTOM_SVASS_INT_STATUS_WDOG_BITE)
+
 #define DAPM_MICBIAS2_EXTERNAL_STANDALONE "MIC BIAS2 External Standalone"
 
 /* RX_HPH_CNP_WG_TIME increases by 0.24ms */
@@ -8616,12 +8624,43 @@ static const struct wcd9xxx_resmgr_cb resmgr_cb = {
 	.cdc_rco_ctrl = tomtom_codec_internal_rco_ctrl,
 };
 
+static int tomtom_cpe_err_irq_control(struct snd_soc_codec *codec,
+	enum cpe_err_irq_cntl_type cntl_type, u8 *status)
+{
+	switch (cntl_type) {
+	case CPE_ERR_IRQ_MASK:
+		snd_soc_update_bits(codec,
+				    TOMTOM_A_SVASS_INT_MASK,
+				    0x3F, 0x3F);
+		break;
+	case CPE_ERR_IRQ_UNMASK:
+		snd_soc_update_bits(codec,
+				    TOMTOM_A_SVASS_INT_MASK,
+				    0x3F, 0x0C);
+		break;
+	case CPE_ERR_IRQ_CLEAR:
+		snd_soc_update_bits(codec,
+				    TOMTOM_A_SVASS_INT_CLR,
+				    0x3F, 0x3F);
+		break;
+	case CPE_ERR_IRQ_STATUS:
+		if (!status)
+			return -EINVAL;
+		*status = snd_soc_read(codec,
+				       TOMTOM_A_SVASS_INT_STATUS);
+		break;
+	}
+
+	return 0;
+}
+
 static const struct wcd_cpe_cdc_cb cpe_cb = {
 	.cdc_clk_en = tomtom_codec_internal_rco_ctrl,
 	.cpe_clk_en = tomtom_codec_fll_enable,
 	.slimtx_lab_en = tomtom_codec_enable_slimtx_mad,
 	.cdc_ext_clk = tomtom_codec_mclk_enable,
 	.bus_vote_bw = tomtom_codec_vote_max_bw,
+	.cpe_err_irq_control = tomtom_cpe_err_irq_control,
 };
 
 static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
@@ -8639,8 +8678,15 @@ static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
 	cpe_params.cdc_minor_ver = TOMTOM_CPE_MINOR_VER;
 	cpe_params.cdc_id = TOMTOM_CPE_CDC_ID;
 
+	cpe_params.cdc_irq_info.cpe_engine_irq =
+			WCD9330_IRQ_SVASS_ENGINE;
+	cpe_params.cdc_irq_info.cpe_err_irq =
+			WCD9330_IRQ_SVASS_ERR_EXCEPTION;
+	cpe_params.cdc_irq_info.cpe_fatal_irqs =
+			TOMTOM_CPE_FATAL_IRQS;
+
 	tomtom->cpe_core = wcd_cpe_init("cpe", codec,
-						 &cpe_params);
+					&cpe_params);
 	if (IS_ERR_OR_NULL(tomtom->cpe_core)) {
 		dev_err(codec->dev,
 			"%s: Failed to enable CPE\n",
