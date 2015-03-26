@@ -51,4 +51,28 @@ config MSM_CPU_PWR_CTL
 	Provides routines to power on cpu rails and l2 cache
 	controller during coldboot.
 
+config MSM_CACHE_M4M_ERP64
+       bool "Cache and M4M error report"
+       depends on ARCH_MSM8996
+       help
+         Say 'Y' here to enable reporting of cache and M4M errors to the kernel
+         log. The kernel log contains collected error syndrome and address
+         registers. These register dumps can be used as useful information
+         to find out possible hardware problems.
+
+config MSM_CACHE_M4M_ERP64_PANIC_ON_CE
+       bool "Panic on correctable cache/M4M errors"
+       help
+         Say 'Y' here to cause kernel panic when correctable cache/M4M errors
+         are detected.  Enabling this is useful when you want to dump memory
+         and system state close to the time when the error occured.
+
+          If unsure, say N.
+
+config MSM_CACHE_M4M_ERP64_PANIC_ON_UE
+       bool "Panic on uncorrectable cache/M4M errors"
+       help
+         Say 'Y' here to cause kernel panic when uncorrectable cache/M4M errors
+         are detected.
+
 endif # ARCH_MSM
