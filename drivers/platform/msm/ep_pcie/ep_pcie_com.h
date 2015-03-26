@@ -283,6 +283,7 @@ struct ep_pcie_dev_t {
 	bool                         perst_deast;
 	bool                         power_on;
 	bool                         suspending;
+	bool                         l23_ready;
 	bool                         l1ss_enabled;
 	struct ep_pcie_msi_config    msi_cfg;
 

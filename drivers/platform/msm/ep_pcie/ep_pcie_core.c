@@ -1075,6 +1075,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		goto link_fail;
 	} else {
 		dev->link_status = EP_PCIE_LINK_UP;
+		dev->l23_ready = false;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: link is up after %d checkings (%d ms)\n",
 			dev->rev, retries,
@@ -1250,6 +1251,7 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 		ep_pcie_reg_dump(dev, BIT(EP_PCIE_RES_DM_CORE), false);
 
 	if (dstate == 3) {
+		dev->l23_ready = true;
 		dev->d3_counter++;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: No. %ld change to D3 state.\n",
@@ -1257,6 +1259,7 @@ static irqreturn_t ep_pcie_handle_dstate_change_irq(int irq, void *data)
 		ep_pcie_write_mask(dev->parf + PCIE20_PARF_PM_CTRL, 0, BIT(1));
 		ep_pcie_notify_event(dev, EP_PCIE_EVENT_PM_D3_HOT);
 	} else if (dstate == 0) {
+		dev->l23_ready = false;
 		dev->d0_counter++;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: No. %ld change to D0 state.\n",
@@ -1647,14 +1650,17 @@ int ep_pcie_core_wakeup_host(void)
 {
 	struct ep_pcie_dev_t *dev = &ep_pcie_dev;
 
-	if (dev->perst_deast) {
+	if (dev->perst_deast && !dev->l23_ready) {
 		EP_PCIE_ERR(dev,
-			"PCIe V%d: request to assert WAKE# when PERST is de-asserted.\n",
+			"PCIe V%d: request to assert WAKE# when PERST is de-asserted and D3hot is not received.\n",
 			dev->rev);
 		return EP_PCIE_ERROR;
 	} else {
-		EP_PCIE_DBG(dev, "PCIe V%d: No. %ld to assert PCIe WAKE#.\n",
-			dev->rev, ++dev->wake_counter);
+		EP_PCIE_DBG(dev,
+			"PCIe V%d: No. %ld to assert PCIe WAKE#; perst is %s de-asserted; D3hot is %s received.\n",
+			dev->rev, ++dev->wake_counter,
+			dev->perst_deast ? "" : "not",
+			dev->l23_ready ? "" : "not");
 		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
 				1 - dev->gpio[EP_PCIE_GPIO_WAKE].on);
 		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
