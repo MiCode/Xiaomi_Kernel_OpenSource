@@ -28,7 +28,6 @@
 #include <soc/qcom/pm.h>
 #include <linux/mfd/wcd9xxx/core.h>
 #include <linux/mfd/wcd9xxx/core-resource.h>
-#include <linux/mfd/wcd9xxx/wcd9330_registers.h>
 #include <sound/audio_cal_utils.h>
 #include "wcd_cpe_core.h"
 #include "wcd_cpe_services.h"
@@ -63,13 +62,10 @@
 #define WCD_CPE_STATE_MAX_LEN 11
 #define CPE_OFFLINE_WAIT_TIMEOUT (2 * HZ)
 #define CPE_READY_WAIT_TIMEOUT (3 * HZ)
-#define SVASS_INT_STATUS_RCO_WDOG 0x20
-#define SVASS_INT_STATUS_WDOG_BITE 0x02
 
-/* Add any SVA IRQs that are to be treated as FATAL */
-#define SVASS_FATAL_IRQS \
-	(SVASS_INT_STATUS_RCO_WDOG | \
-	 SVASS_INT_STATUS_WDOG_BITE)
+
+#define CPE_ERR_IRQ_CB(core) \
+	(core->cpe_cdc_cb->cpe_err_irq_control)
 
 enum afe_port_state {
 	AFE_PORT_STATE_DEINIT = 0,
@@ -867,6 +863,7 @@ void wcd_cpe_ssr_work(struct work_struct *work)
 	int rc = 0;
 	u32 irq = 0;
 	struct wcd_cpe_core *core = NULL;
+	u8 status = 0;
 
 	core = container_of(work, struct wcd_cpe_core, ssr_work);
 	if (!core) {
@@ -886,15 +883,12 @@ void wcd_cpe_ssr_work(struct work_struct *work)
 		__func__, core->ssr_type);
 
 	if (core->ssr_type == WCD_CPE_SSR_EVENT) {
-		rc = snd_soc_read(core->codec,
-				  TOMTOM_A_SVASS_INT_STATUS);
-		if (rc & SVASS_INT_STATUS_RCO_WDOG)
-			irq = CPE_IRQ_RCO_WDOG_INT;
-		else
-			/*
-			 * For all other IRQ's treat
-			 * as WDOG_BITE internally
-			 */
+		if (CPE_ERR_IRQ_CB(core))
+			core->cpe_cdc_cb->cpe_err_irq_control(
+					core->codec,
+					CPE_ERR_IRQ_STATUS,
+					&status);
+		if (status & core->irq_info.cpe_fatal_irqs)
 			irq = CPE_IRQ_WDOG_BITE;
 	} else {
 		/* If bus is down, cdc reg cannot be read */
@@ -952,9 +946,9 @@ void wcd_cpe_ssr_work(struct work_struct *work)
 	/* Once image are downloaded make sure all
 	 * error interrupts are cleared
 	 */
-	snd_soc_update_bits(core->codec,
-				TOMTOM_A_SVASS_INT_CLR,
-			    0x3F, 0x3F);
+	if (CPE_ERR_IRQ_CB(core))
+		core->cpe_cdc_cb->cpe_err_irq_control(core->codec,
+					CPE_ERR_IRQ_CLEAR, NULL);
 
 err_ret:
 	/* remove after default pm qos */
@@ -1044,20 +1038,23 @@ static irqreturn_t svass_exception_irq(int irq, void *data)
 	struct wcd_cpe_core *core = data;
 	u8 status = 0;
 
-	status = snd_soc_read(core->codec,
-			      TOMTOM_A_SVASS_INT_STATUS);
-
+	if (CPE_ERR_IRQ_CB(core))
+		core->cpe_cdc_cb->cpe_err_irq_control(
+					core->codec,
+					CPE_ERR_IRQ_STATUS,
+					&status);
 	dev_err(core->dev,
 		"%s: err_interrupt status = 0x%x\n",
 		__func__, status);
 
-	if (status & SVASS_FATAL_IRQS) {
+	if (status & core->irq_info.cpe_fatal_irqs) {
 		wcd_cpe_ssr_event(core, WCD_CPE_SSR_EVENT);
 	} else {
 		/* Make sure all error interrupts are cleared */
-		snd_soc_update_bits(core->codec,
-				    TOMTOM_A_SVASS_INT_CLR,
-				    0x3F, 0x3F);
+		if (CPE_ERR_IRQ_CB(core))
+			core->cpe_cdc_cb->cpe_err_irq_control(
+					core->codec,
+					CPE_ERR_IRQ_CLEAR, NULL);
 	}
 
 	return IRQ_HANDLED;
@@ -1268,10 +1265,10 @@ static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core)
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
 
 	wcd9xxx_free_irq(core_res,
-			 WCD9330_IRQ_SVASS_ENGINE,
+			 core->irq_info.cpe_engine_irq,
 			 core);
 	wcd9xxx_free_irq(core_res,
-			 WCD9330_IRQ_SVASS_ERR_EXCEPTION,
+			 core->irq_info.cpe_err_irq,
 			 core);
 
 }
@@ -1289,7 +1286,8 @@ static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core)
 	struct wcd9xxx *wcd9xxx = codec->control_data;
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
 
-	ret = wcd9xxx_request_irq(core_res, WCD9330_IRQ_SVASS_ENGINE,
+	ret = wcd9xxx_request_irq(core_res,
+				  core->irq_info.cpe_engine_irq,
 				  svass_engine_irq, "SVASS_Engine", core);
 	if (ret) {
 		dev_err(core->dev,
@@ -1299,14 +1297,21 @@ static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core)
 	}
 
 	/* Make sure all error interrupts are cleared */
-	snd_soc_update_bits(codec, TOMTOM_A_SVASS_INT_CLR,
-			    0x3F, 0x3F);
+	if (CPE_ERR_IRQ_CB(core))
+		core->cpe_cdc_cb->cpe_err_irq_control(
+					core->codec,
+					CPE_ERR_IRQ_CLEAR,
+					NULL);
 
 	/* Enable required error interrupts */
-	snd_soc_update_bits(codec, TOMTOM_A_SVASS_INT_MASK,
-			    0x3F, 0x0C);
+	if (CPE_ERR_IRQ_CB(core))
+		core->cpe_cdc_cb->cpe_err_irq_control(
+					core->codec,
+					CPE_ERR_IRQ_UNMASK,
+					NULL);
 
-	ret = wcd9xxx_request_irq(core_res, WCD9330_IRQ_SVASS_ERR_EXCEPTION,
+	ret = wcd9xxx_request_irq(core_res,
+				  core->irq_info.cpe_err_irq,
 				  svass_exception_irq, "SVASS_Exception", core);
 	if (ret) {
 		dev_err(core->dev,
@@ -1318,7 +1323,8 @@ static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core)
 	return 0;
 
 fail_exception_irq:
-	wcd9xxx_free_irq(core_res, WCD9330_IRQ_SVASS_ENGINE, core);
+	wcd9xxx_free_irq(core_res,
+			 core->irq_info.cpe_engine_irq, core);
 
 fail_engine_irq:
 	return ret;
@@ -1515,6 +1521,34 @@ err_create_dir:
 	return rc;
 }
 
+static int wcd_cpe_validate_params(
+	struct snd_soc_codec *codec,
+	struct wcd_cpe_params *params)
+{
+
+	if (!codec) {
+		pr_err("%s: Invalid codec\n", __func__);
+		return -EINVAL;
+	}
+
+	if (!params) {
+		dev_err(codec->dev,
+			"%s: No params supplied for codec %s\n",
+			__func__, codec->name);
+		return -EINVAL;
+	}
+
+	if (!params->codec || !params->get_cpe_core ||
+	    !params->cdc_cb) {
+		dev_err(codec->dev,
+			"%s: Invalid params for codec %s\n",
+			__func__, codec->name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 /*
  * wcd_cpe_init: Initialize CPE related structures
  * @img_fname: filename for firmware image
@@ -1537,25 +1571,8 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	const char *state_name = "_state";
 	int id = 0;
 
-	if (!codec) {
-		pr_err("%s: Invalid codec\n", __func__);
+	if (wcd_cpe_validate_params(codec, params))
 		return NULL;
-	}
-
-	if (!params) {
-		dev_err(codec->dev,
-			"%s: No params supplied for codec %s\n",
-			__func__, codec->name);
-		return NULL;
-	}
-
-	if (!params->codec || !params->get_cpe_core ||
-	    !params->cdc_cb) {
-		dev_err(codec->dev,
-			"%s: Invalid params for codec %s\n",
-			__func__, codec->name);
-		return NULL;
-	}
 
 	core = kzalloc(sizeof(struct wcd_cpe_core), GFP_KERNEL);
 	if (!core) {
@@ -1578,6 +1595,9 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	core->cdc_info.id = params->cdc_id;
 
 	core->cpe_cdc_cb = params->cdc_cb;
+
+	memcpy(&core->irq_info, &params->cdc_irq_info,
+	       sizeof(core->irq_info));
 
 	INIT_WORK(&core->load_fw_work, wcd_cpe_load_fw_image);
 	INIT_WORK(&core->ssr_work, wcd_cpe_ssr_work);
