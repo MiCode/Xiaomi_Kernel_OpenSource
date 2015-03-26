@@ -1,7 +1,7 @@
-obj-$(CONFIG_ARM64) += cpu_ops.o
 obj-$(CONFIG_MSM_BOOT_STATS) += boot_stats.o
 obj-$(CONFIG_QCOM_GSBI)	+=	qcom_gsbi.o
 obj-$(CONFIG_MSM_MEMORY_DUMP) += memory_dump.o
 obj-$(CONFIG_MSM_MEMORY_DUMP_V2) += memory_dump_v2.o
 obj-$(CONFIG_MSM_WATCHDOG_V2) += watchdog_v2.o
 obj-$(CONFIG_MSM_CPU_PWR_CTL) += cpu_pwr_ctl.o
+obj-$(CONFIG_ARM64) += cpu_ops.o

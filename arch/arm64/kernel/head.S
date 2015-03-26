@@ -396,7 +396,6 @@ ENTRY(secondary_holding_pen)
 pen:	ldr	x4, [x3]
 	cmp	x4, x0
 	b.eq	secondary_startup
-	wfe
 	b	pen
 ENDPROC(secondary_holding_pen)
 
