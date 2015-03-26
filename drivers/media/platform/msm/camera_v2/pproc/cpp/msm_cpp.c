@@ -826,14 +826,16 @@ void msm_cpp_do_tasklet(unsigned long data)
 			if (tx_fifo[i] == MSM_CPP_MSG_ID_CMD) {
 				cmd_len = tx_fifo[i+1];
 				msg_id = tx_fifo[i+2];
-				if (msg_id == MSM_CPP_MSG_ID_FRAME_ACK) {
+				if ((msg_id == MSM_CPP_MSG_ID_FRAME_ACK)
+					&& (atomic_read(&cpp_timer.used))) {
 					CPP_DBG("Frame done!!\n");
-					/* delete CPP timer */
 					CPP_DBG("delete timer.\n");
+					/* delete CPP timer */
 					msm_cpp_timer_queue_update(cpp_dev);
 					msm_cpp_notify_frame_done(cpp_dev, 0);
-				} else if (msg_id ==
-					MSM_CPP_MSG_ID_FRAME_NACK) {
+				} else if ((msg_id ==
+					MSM_CPP_MSG_ID_FRAME_NACK)
+					&& (atomic_read(&cpp_timer.used))) {
 					pr_err("NACK error from hw!!\n");
 					CPP_DBG("delete timer.\n");
 					msm_cpp_timer_queue_update(cpp_dev);
@@ -1624,6 +1626,7 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 	disable_irq(cpp_timer.data.cpp_dev->irq->start);
 	pr_info("Reloading firmware\n");
+	atomic_set(&cpp_timer.used, 0);
 	cpp_load_fw(cpp_timer.data.cpp_dev,
 		cpp_timer.data.cpp_dev->fw_name_bin);
 	pr_info("Firmware loading done\n");
@@ -1633,11 +1636,6 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 	msm_camera_io_w_mb(0xFFFF,
 		cpp_timer.data.cpp_dev->base +
 		MSM_CPP_MICRO_IRQGEN_CLR);
-
-	if (!atomic_read(&cpp_timer.used)) {
-		pr_info("Delayed trigger, IRQ serviced\n");
-		return;
-	}
 
 	queue = &cpp_timer.data.cpp_dev->processing_q;
 	queue_len = queue->len;
@@ -1654,7 +1652,6 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 		cpp_timer.data.processed_frame[i] = NULL;
 	cpp_timer.data.cpp_dev->timeout_trial_cnt = 0;
 	mutex_unlock(&cpp_timer.data.cpp_dev->mutex);
-
 	pr_info("exit\n");
 	return;
 }
