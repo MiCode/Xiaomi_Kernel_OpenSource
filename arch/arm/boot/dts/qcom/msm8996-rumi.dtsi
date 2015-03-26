@@ -22,6 +22,18 @@
 	status = "disabled";
 };
 
+&apcc_cpr {
+	status = "disabled";
+};
+
+&gfx_cpr {
+	status = "disabled";
+};
+
+&spmi_bus {
+	status = "disabled";
+};
+
 &sdhc_1 {
 	vdd-supply = <&pm8994_l20>;
 	qcom,vdd-voltage-level = <2950000 2950000>;
