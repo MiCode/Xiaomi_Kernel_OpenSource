@@ -34,6 +34,8 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/cpufreq_interactive.h>
 
+struct timer_list  bootboost_safety_timer;
+
 struct cpufreq_interactive_cpuinfo {
 	struct timer_list cpu_timer;
 	struct timer_list cpu_slack_timer;
@@ -66,6 +68,7 @@ static struct mutex gov_lock;
 #define DEFAULT_TARGET_LOAD 90
 static unsigned int default_target_loads[] = {DEFAULT_TARGET_LOAD};
 
+#define BOOT_BOOST_TIME (35000 * USEC_PER_MSEC)
 #define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
 #define DEFAULT_ABOVE_HISPEED_DELAY DEFAULT_TIMER_RATE
 static unsigned int default_above_hispeed_delay[] = {
@@ -120,6 +123,12 @@ struct cpufreq_interactive_tunables {
 	int timer_slack_val;
 	bool io_is_busy;
 };
+static int boot_boost;
+static int __init bootboost(char *str)
+{
+	boot_boost = 1;
+	return 1;
+}
 
 /* For cases where we have single governor instance for system */
 static struct cpufreq_interactive_tunables *common_tunables;
@@ -1274,6 +1283,20 @@ static int cpufreq_interactive_idle_notifier(struct notifier_block *nb,
 static struct notifier_block cpufreq_interactive_idle_nb = {
 	.notifier_call = cpufreq_interactive_idle_notifier,
 };
+static void cpufreq_bootboost_safety_timer(unsigned long data)
+{
+	struct cpufreq_interactive_tunables *tunables;
+	struct cpufreq_interactive_cpuinfo *pcpu =
+		&per_cpu(cpuinfo, data);
+
+	if (have_governor_per_policy())
+		tunables = pcpu->policy->governor_data;
+	else
+		tunables = common_tunables;
+
+	tunables->boost_val = 0;
+	del_timer(&bootboost_safety_timer);
+}
 
 static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 		unsigned int event)
@@ -1347,6 +1370,18 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 					CPUFREQ_TRANSITION_NOTIFIER);
 		}
 
+		if (boot_boost) {
+			pr_info("Boot boost enabled\n");
+			tunables->boost_val = 1;
+			init_timer(&bootboost_safety_timer);
+			bootboost_safety_timer.function =
+				cpufreq_bootboost_safety_timer;
+			bootboost_safety_timer.data =
+				(unsigned long)(smp_processor_id());
+			bootboost_safety_timer.expires =
+				jiffies + usecs_to_jiffies(BOOT_BOOST_TIME);
+			add_timer(&bootboost_safety_timer);
+		}
 		break;
 
 	case CPUFREQ_GOV_POLICY_EXIT:
@@ -1515,6 +1550,7 @@ static int __init cpufreq_interactive_init(void)
 
 #ifdef CONFIG_CPU_FREQ_DEFAULT_GOV_INTERACTIVE
 fs_initcall(cpufreq_interactive_init);
+__setup("bootboost", bootboost);
 #else
 module_init(cpufreq_interactive_init);
 #endif
