@@ -1808,12 +1808,6 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 			QMI_IPA_PLATFORM_TYPE_LE_V01);
 	}
 
-	if (ipa_qmi_ctx)
-		ipa_qmi_ctx->modem_cfg_emb_pipe_flt
-		= ipa_get_modem_cfg_emb_pipe_flt();
-	else
-		IPAWANERR("ipa_qmi_ctx has not been initialized\n");
-
 	/* construct default WAN RT tbl for IPACM */
 	ret = ipa_setup_a7_qmap_hdr();
 	if (ret)
