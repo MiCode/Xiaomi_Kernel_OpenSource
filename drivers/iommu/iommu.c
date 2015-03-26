@@ -1124,6 +1124,9 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 		return -ENODEV;
 	}
 
+	if (unlikely(!(domain->type & __IOMMU_DOMAIN_PAGING)))
+		return -EINVAL;
+
 	/* find out the minimum page size supported */
 	min_pagesz = 1 << __ffs(domain->ops->pgsize_bitmap);
 
@@ -1180,6 +1183,12 @@ size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova, size_t size)
 		trace_unmap_end(iova, 0, size);
 		return -ENODEV;
 	}
+
+	if (unlikely(!(domain->type & __IOMMU_DOMAIN_PAGING))) {
+		trace_unmap_end(iova, 0, size);
+		return -EINVAL;
+	}
+
 	/* find out the minimum page size supported */
 	min_pagesz = 1 << __ffs(domain->ops->pgsize_bitmap);
 
