@@ -417,15 +417,6 @@ void dec_zone_page_state(struct page *page, enum zone_stat_item item)
 EXPORT_SYMBOL(dec_zone_page_state);
 #endif
 
-static inline void fold_diff(int *diff)
-{
-	int i;
-
-	for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
-		if (diff[i])
-			atomic_long_add(diff[i], &vm_stat[i]);
-}
-
 /*
  * Update the zone counters for the current cpu.
  *
@@ -495,7 +486,10 @@ static void refresh_cpu_vm_stats(int cpu)
 			drain_zone_pages(zone, &p->pcp);
 #endif
 	}
-	fold_diff(global_diff);
+
+	for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
+		if (global_diff[i])
+			atomic_long_add(global_diff[i], &vm_stat[i]);
 }
 
 /*
@@ -525,7 +519,9 @@ void cpu_vm_stats_fold(int cpu)
 			}
 	}
 
-	fold_diff(global_diff);
+	for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
+		if (global_diff[i])
+			atomic_long_add(global_diff[i], &vm_stat[i]);
 }
 
 /*
