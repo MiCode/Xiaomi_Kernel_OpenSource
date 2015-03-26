@@ -1303,7 +1303,6 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 	}
 	pr_err("%s\n", print_buf);
 	kfree(print_buf);
-	buf_mgr->pagefault_debug = 1;
 	return rc;
 }
 
