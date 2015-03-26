@@ -1,0 +1,26 @@
+* MSM 64bit L0, L1, L2 and L3 cache error reporting driver
+
+Required properties:
+- compatible: Should be "qcom,kryo_cache_erp64"
+- reg: I/O address L3 hardware block.
+- interrupts: Should contain the L0/L1, L2 and L3 cache error interrupt number.
+- interrupt-names: Should contain the interrupt names "l1_irq", "l2_irq_info_0",
+		   "l2_irq_info_1", "l2_irq_err_0", "l2_irq_err_1", "l3_irq".
+
+Example:
+	qcom,cache_erp64@6500000 {
+		compatible = "qcom,kryo_cache_erp64";
+		reg = <0x6500000 0x4000>;
+		/*
+		 * PPI 0  for L0/L1
+		 * SPI 1  for Cluster 1 L2 Info
+		 * SPI 9  for Cluster 2 L2 Info
+		 * SPI 2  for Cluster 1 L2 Error
+		 * SPI 10 for Cluster 2 L2 Error
+		 * SPI 17 for L3 error
+		 */
+		interrupts = <1 0 0>, <0 1 0>, <0 9 0>, <0 2 0>, <0 10 0>,
+			     <0 17 0>;
+		interrupt-names = "l1_irq", "l2_irq_info_0", "l2_irq_info_1",
+				  "l2_irq_err_0", "l2_irq_err_1", "l3_irq";
+	};
