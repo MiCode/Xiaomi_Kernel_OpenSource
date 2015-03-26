@@ -2284,7 +2284,7 @@ void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev)
 	int i, j;
 
 	if (!vfe_dev || !axi_data) {
-		pr_err("%s: error %p %p\n", __func__, vfe_dev, axi_data);
+		pr_err("%s: error  %p %p\n", __func__, vfe_dev, axi_data);
 		return;
 	}
 
@@ -2297,8 +2297,5 @@ void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev)
 		for (j = 0; j < stream_info->num_planes; j++)
 			vfe_dev->hw_info->vfe_ops.axi_ops.enable_wm(vfe_dev,
 				stream_info->wm[j], 0);
-
-		vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
-			SRC_TO_INTF(stream_info->stream_src));
 	}
 }
