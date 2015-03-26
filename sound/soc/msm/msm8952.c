@@ -1790,11 +1790,35 @@ static struct snd_soc_dai_link msm8952_dai[] = {
 	},
 };
 
+static int msm8952_wsa881x_init(struct snd_soc_dapm_context *dapm)
+{
+	return 0;
+}
+
+static struct snd_soc_aux_dev msm8952_aux_dev[] = {
+	{
+		.name = "wsa881x.0",
+		.codec_name = "wsa881x-i2c-codec.8-000e",
+		.init = msm8952_wsa881x_init,
+	},
+};
+
+static struct snd_soc_codec_conf msm8952_codec_conf[] = {
+	{
+		.dev_name = "wsa881x-i2c-codec.8-000e",
+		.name_prefix = "SpkrMono",
+	},
+};
+
 static struct snd_soc_card bear_card = {
 	/* snd_soc_card_msm8952 */
 	.name		= "msm8952-snd-card",
 	.dai_link	= msm8952_dai,
 	.num_links	= ARRAY_SIZE(msm8952_dai),
+	.aux_dev	= msm8952_aux_dev,
+	.num_aux_devs	= ARRAY_SIZE(msm8952_aux_dev),
+	.codec_conf	= msm8952_codec_conf,
+	.num_configs	= ARRAY_SIZE(msm8952_codec_conf),
 };
 
 void msm8952_disable_mclk(struct work_struct *work)

@@ -459,6 +459,39 @@
 			};
 		};
 
+		/* WSA Reset */
+		wsa_reset {
+			qcom,pins = <&gp 68>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "wsa_reset";
+			wsa_active: wsa_on {
+				drive-strength = <2>; /* 2 MA */
+				output-high;
+			};
+			wsa_suspend: wsa_off {
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+			};
+		};
+
+		/* WSA CLK */
+		wsa_clk {
+			qcom,pins = <&gp 25>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "wsa_clk";
+			wsa_clk_on: wsa_on {
+				drive-strength = <8>; /* 8 MA */
+				output-high;
+			};
+			wsa_clk_off: wsa_off {
+				drive-strength = <2>; /* 2 MA */
+				output-low;
+				bias-pull-down;
+			};
+		};
+
 		/* CoreSight */
 		tpiu_seta_1 {
 			qcom,pins = <&gp 8>;
