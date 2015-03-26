@@ -509,7 +509,7 @@ static int mxt_debug_msg_init(struct mxt_data *data)
 {
 	sysfs_bin_attr_init(&data->debug_msg_attr);
 	data->debug_msg_attr.attr.name = "debug_msg";
-	data->debug_msg_attr.attr.mode = 0666;
+	data->debug_msg_attr.attr.mode = 0660;
 	data->debug_msg_attr.read = mxt_debug_msg_read;
 	data->debug_msg_attr.write = mxt_debug_msg_write;
 	data->debug_msg_attr.size = data->T5_msg_size * DEBUG_MSG_MAX;
@@ -3285,7 +3285,7 @@ static DEVICE_ATTR(hw_version, S_IRUGO, mxt_hw_version_show, NULL);
 static DEVICE_ATTR(object, S_IRUGO, mxt_object_show, NULL);
 static DEVICE_ATTR(update_fw, S_IWUSR, NULL, mxt_update_fw_store);
 static DEVICE_ATTR(update_cfg, S_IWUSR, NULL, mxt_update_cfg_store);
-static DEVICE_ATTR(debug_v2_enable, S_IWUSR | S_IRUSR, NULL,
+static DEVICE_ATTR(debug_v2_enable, S_IWUSR, NULL,
 		   mxt_debug_v2_enable_store);
 static DEVICE_ATTR(debug_notify, S_IRUGO, mxt_debug_notify_show, NULL);
 static DEVICE_ATTR(debug_enable, S_IWUSR | S_IRUSR, mxt_debug_enable_show,
