@@ -2739,19 +2739,42 @@ static int mdp4_argc_process_write_req(uint32_t *offset,
 	struct mdp_ar_gc_lut_data r[MDP_AR_GC_MAX_STAGES];
 	struct mdp_ar_gc_lut_data g[MDP_AR_GC_MAX_STAGES];
 	struct mdp_ar_gc_lut_data b[MDP_AR_GC_MAX_STAGES];
+	uint8_t num_r_stages;
+	uint8_t num_g_stages;
+	uint8_t num_b_stages;
+
+	if (get_user(num_r_stages, &pgc_ptr->num_r_stages)) {
+		pr_err("%s failed: num_r_stages : Invalid arg\n", __func__);
+		return -EFAULT;
+	}
+
+	if (get_user(num_g_stages, &pgc_ptr->num_g_stages)) {
+		pr_err("%s failed: num_g_stages : Invalid arg\n", __func__);
+		return -EFAULT;
+	}
+
+	if (get_user(num_b_stages, &pgc_ptr->num_b_stages)) {
+		pr_err("%s failed: num_b_stages : Invalid arg\n", __func__);
+		return -EFAULT;
+	}
+
+	if ((!num_r_stages || num_r_stages > MDP_AR_GC_MAX_STAGES) ||
+		(!num_g_stages || num_g_stages > MDP_AR_GC_MAX_STAGES) ||
+		(!num_b_stages || num_b_stages > MDP_AR_GC_MAX_STAGES))
+		return -EINVAL;
 
 	ret = copy_from_user(&r[0], pgc_ptr->r_data,
-		pgc_ptr->num_r_stages * sizeof(struct mdp_ar_gc_lut_data));
+		num_r_stages * sizeof(struct mdp_ar_gc_lut_data));
 
 	if (!ret) {
 		ret = copy_from_user(&g[0],
 				pgc_ptr->g_data,
-				pgc_ptr->num_g_stages
+				num_g_stages
 				* sizeof(struct mdp_ar_gc_lut_data));
 		if (!ret)
 			ret = copy_from_user(&b[0],
 					pgc_ptr->b_data,
-					pgc_ptr->num_b_stages
+					num_b_stages
 					* sizeof(struct mdp_ar_gc_lut_data));
 	}
 
