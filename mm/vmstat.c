@@ -440,29 +440,33 @@ static inline void fold_diff(int *diff)
  * with the global counters. These could cause remote node cache line
  * bouncing and will have to be only done when necessary.
  */
-static void refresh_cpu_vm_stats(void)
+static void refresh_cpu_vm_stats(int cpu)
 {
 	struct zone *zone;
 	int i;
 	int global_diff[NR_VM_ZONE_STAT_ITEMS] = { 0, };
 
 	for_each_populated_zone(zone) {
-		struct per_cpu_pageset __percpu *p = zone->pageset;
+		struct per_cpu_pageset *p;
 
-		for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++) {
-			int v;
+		p = per_cpu_ptr(zone->pageset, cpu);
 
-			v = this_cpu_xchg(p->vm_stat_diff[i], 0);
-			if (v) {
+		for (i = 0; i < NR_VM_ZONE_STAT_ITEMS; i++)
+			if (p->vm_stat_diff[i]) {
+				unsigned long flags;
+				int v;
 
+				local_irq_save(flags);
+				v = p->vm_stat_diff[i];
+				p->vm_stat_diff[i] = 0;
+				local_irq_restore(flags);
 				atomic_long_add(v, &zone->vm_stat[i]);
 				global_diff[i] += v;
 #ifdef CONFIG_NUMA
 				/* 3 seconds idle till flush */
-				__this_cpu_write(p->expire, 3);
+				p->expire = 3;
 #endif
 			}
-		}
 		cond_resched();
 #ifdef CONFIG_NUMA
 		/*
@@ -472,24 +476,23 @@ static void refresh_cpu_vm_stats(void)
 		 * Check if there are pages remaining in this pageset
 		 * if not then there is nothing to expire.
 		 */
-		if (!__this_cpu_read(p->expire) ||
-			       !__this_cpu_read(p->pcp.count))
+		if (!p->expire || !p->pcp.count)
 			continue;
 
 		/*
 		 * We never drain zones local to this processor.
 		 */
 		if (zone_to_nid(zone) == numa_node_id()) {
-			__this_cpu_write(p->expire, 0);
+			p->expire = 0;
 			continue;
 		}
 
-
-		if (__this_cpu_dec_return(p->expire))
+		p->expire--;
+		if (p->expire)
 			continue;
 
-		if (__this_cpu_read(p->pcp.count))
-			drain_zone_pages(zone, __this_cpu_ptr(&p->pcp));
+		if (p->pcp.count)
+			drain_zone_pages(zone, &p->pcp);
 #endif
 	}
 	fold_diff(global_diff);
@@ -1305,7 +1308,7 @@ int sysctl_stat_interval __read_mostly = HZ;
 
 static void vmstat_update(struct work_struct *w)
 {
-	refresh_cpu_vm_stats();
+	refresh_cpu_vm_stats(smp_processor_id());
 	schedule_delayed_work(&__get_cpu_var(vmstat_work),
 		round_jiffies_relative(sysctl_stat_interval));
 }
