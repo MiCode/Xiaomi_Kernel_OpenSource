@@ -2209,6 +2209,17 @@
 		qcom,wlan-ramdump-dynamic = <0x200000>;
 	};
 
+	wil6210: qcom,wil6210 {
+		compatible = "qcom,wil6210";
+		qcom,msm-bus,name = "wil6210";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<100 512 0 0>,
+			<100 512 600000 800000>; /* ~4.6Gbps (MCS12) */
+		qcom,smmu-support;
+	};
+
 	qcom,ssc@1c00000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x1c00000 0x4000>;
