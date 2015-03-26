@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -139,7 +139,7 @@ static int __init init_memory_dump(void)
 	}
 	memdump.table->version = MSM_DUMP_TABLE_VERSION;
 	memdump.table_phys = virt_to_phys(memdump.table);
-	writel_relaxed(memdump.table_phys, imem_base);
+	memcpy_toio(imem_base, &memdump.table_phys, sizeof(memdump.table_phys));
 	/* Ensure write to imem_base is complete before unmapping */
 	mb();
 	pr_info("MSM Memory Dump base table set up\n");
