@@ -26,6 +26,7 @@
 #include <linux/of_platform.h>
 
 #include <asm/dma-iommu.h>
+#include "soc/qcom/secure_buffer.h"
 
 #include "mdss.h"
 #include "mdss_mdp.h"
@@ -142,7 +143,6 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 {
 	struct mdss_smmu_client *mdss_smmu;
 	int i, rc = 0;
-	int disable_htw = 1;
 	struct dss_module_power *mp;
 
 	for (i = 0; i < MDSS_IOMMU_MAX_DOMAIN; i++) {
@@ -165,16 +165,6 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 				if (rc) {
 					pr_err("iommu attach device failed for domain[%d] with err:%d\n",
 						i, rc);
-					mdss_smmu_enable_power(mp, false);
-					goto err;
-				}
-				if (iommu_domain_set_attr(
-					mdss_smmu->mmu_mapping->domain,
-					DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-					&disable_htw)) {
-
-					pr_err("couldn't disable coherent HTW\n");
-					arm_iommu_detach_device(mdss_smmu->dev);
 					mdss_smmu_enable_power(mp, false);
 					goto err;
 				}
@@ -503,6 +493,7 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	size_t va_start, va_size;
 	const struct of_device_id *match;
 	struct dss_module_power *mp;
+	int disable_htw = 1;
 
 	if (!mdata) {
 		pr_err("probe failed as mdata is not initialized\n");
@@ -578,12 +569,26 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		&platform_bus_type, va_start, va_size, order);
 	if (IS_ERR(mdss_smmu->mmu_mapping)) {
 		pr_err("iommu create mapping failed for domain[%d]\n", domain);
+		rc = PTR_ERR(mdss_smmu->mmu_mapping);
+		goto disable_power;
+	}
 
-		mdss_smmu_enable_power(mp, false);
-		msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
-			false);
+	rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
+		DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
+	if (rc) {
+		pr_err("couldn't disable coherent HTW\n");
+		goto release_mapping;
+	}
 
-		return PTR_ERR(mdss_smmu->mmu_mapping);
+	if (domain == MDSS_IOMMU_DOMAIN_SECURE ||
+		domain == MDSS_IOMMU_DOMAIN_ROT_SECURE) {
+		int secure_vmid = VMID_CP_PIXEL;
+		rc = iommu_domain_set_attr(mdss_smmu->mmu_mapping->domain,
+			DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
+		if (rc) {
+			pr_err("couldn't set secure pixel vmid\n");
+			goto release_mapping;
+		}
 	}
 
 	mdss_smmu_enable_power(mp, false);
@@ -592,6 +597,14 @@ int mdss_smmu_probe(struct platform_device *pdev)
 	pr_info("iommu v2 domain[%d] mapping and clk register successful!\n",
 			domain);
 	return 0;
+
+release_mapping:
+	arm_iommu_release_mapping(mdss_smmu->mmu_mapping);
+disable_power:
+	mdss_smmu_enable_power(mp, false);
+	msm_dss_config_vreg(&pdev->dev, mp->vreg_config, mp->num_vreg,
+			false);
+	return rc;
 }
 
 int mdss_smmu_remove(struct platform_device *pdev)
