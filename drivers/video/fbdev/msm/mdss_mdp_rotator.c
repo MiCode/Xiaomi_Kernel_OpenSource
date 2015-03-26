@@ -978,6 +978,10 @@ int mdss_mdp_rotator_release(struct mdss_mdp_rotator_session *rot)
 int mdss_mdp_rotator_release_all(void)
 {
 	struct mdss_mdp_rotator_session *rot;
+	if (!rot_mgr) {
+		pr_debug("rot manager not initialized\n");
+		return -EINVAL;
+	}
 
 	while (true) {
 		rot = mdss_mdp_rot_mgr_remove_first();
