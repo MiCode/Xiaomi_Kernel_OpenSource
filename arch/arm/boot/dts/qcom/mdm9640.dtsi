@@ -769,6 +769,11 @@
 			qcom,sensor-type = "tsens";
 			qcom,sensor-name = "tsens_tz_sensor5";
 		};
+
+		sensor_information5: qcom,sensor-information-5 {
+			qcom,sensor-type = "adc";
+			qcom,sensor-name = "pa_therm0";
+		};
 	};
 
 	qcom,wdt@b017000 {
