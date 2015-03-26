@@ -1890,6 +1890,10 @@ static const char * const ext_spk_text[] = {
 	"Off", "On"
 };
 
+static const char * const wsa_spk_text[] = {
+	"ZERO", "WSA"
+};
+
 static const char * const rdac2_mux_text[] = {
 	"ZERO", "RX2", "RX1"
 };
@@ -1903,6 +1907,9 @@ static const struct soc_enum adc2_enum =
 
 static const struct soc_enum ext_spk_enum =
 	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(ext_spk_text), ext_spk_text);
+
+static const struct soc_enum wsa_spk_enum =
+	SOC_ENUM_SINGLE(0, 0, ARRAY_SIZE(wsa_spk_text), wsa_spk_text);
 
 /* RX1 MIX1 */
 static const struct soc_enum rx_mix1_inp1_chain_enum =
@@ -2126,6 +2133,10 @@ static const struct soc_enum ear_enum =
 
 static const struct snd_kcontrol_new ear_pa_mux[] = {
 	SOC_DAPM_ENUM_VIRT("EAR_S", ear_enum)
+};
+
+static const struct snd_kcontrol_new wsa_spk_mux[] = {
+	SOC_DAPM_ENUM_VIRT("WSA Spk Switch", wsa_spk_enum)
 };
 
 static const struct snd_kcontrol_new iir2_inp1_mux =
@@ -3172,6 +3183,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RDAC2 MUX", "RX1", "RX1 CHAIN"},
 	{"RDAC2 MUX", "RX2", "RX2 CHAIN"},
 
+	/* WSA */
+	{"WSA_SPK OUT", NULL, "WSA Spk Switch"},
+	{"WSA Spk Switch", "WSA", "EAR PA"},
+
 	/* Earpiece (RX MIX1) */
 	{"EAR", NULL, "EAR_S"},
 	{"EAR_S", "Switch", "EAR PA"},
@@ -3709,6 +3724,7 @@ static int msm8x16_wcd_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 	/*RX stuff */
 	SND_SOC_DAPM_OUTPUT("EAR"),
+	SND_SOC_DAPM_OUTPUT("WSA_SPK OUT"),
 
 	SND_SOC_DAPM_PGA_E("EAR PA", SND_SOC_NOPM,
 			0, 0, NULL, 0, msm8x16_wcd_codec_enable_ear_pa,
@@ -3716,6 +3732,9 @@ static const struct snd_soc_dapm_widget msm8x16_wcd_dapm_widgets[] = {
 			SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_VIRT_MUX("EAR_S", SND_SOC_NOPM, 0, 0,
 		ear_pa_mux),
+
+	SND_SOC_DAPM_VIRT_MUX("WSA Spk Switch", SND_SOC_NOPM, 0, 0,
+		wsa_spk_mux),
 
 	SND_SOC_DAPM_AIF_IN("I2S RX1", "AIF1 Playback", 0, SND_SOC_NOPM, 0, 0),
 

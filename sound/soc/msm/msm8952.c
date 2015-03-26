@@ -29,6 +29,7 @@
 #include "qdsp6v2/msm-pcm-routing-v2.h"
 #include "msm-audio-pinctrl.h"
 #include "../codecs/msm8x16-wcd.h"
+#include "../codecs/wsa881x-analog.h"
 #define DRV_NAME "msm8952-asoc-wcd"
 
 #define BTSCO_RATE_8KHZ 8000
@@ -1768,15 +1769,26 @@ static struct snd_soc_codec_conf msm8952_codec_conf[] = {
 	},
 };
 
+static struct snd_soc_aux_dev msm8952_aux_dev_1[] = {
+	{
+		.name = "wsa881x.0",
+		.codec_name = "wsa881x-i2c-codec.8-000f",
+		.init = msm8952_wsa881x_init,
+	},
+};
+
+static struct snd_soc_codec_conf msm8952_codec_conf_1[] = {
+	{
+		.dev_name = "wsa881x-i2c-codec.8-000f",
+		.name_prefix = "SpkrMono",
+	},
+};
+
 static struct snd_soc_card bear_card = {
 	/* snd_soc_card_msm8952 */
 	.name		= "msm8952-snd-card",
 	.dai_link	= msm8952_dai,
 	.num_links	= ARRAY_SIZE(msm8952_dai),
-	.aux_dev	= msm8952_aux_dev,
-	.num_aux_devs	= ARRAY_SIZE(msm8952_aux_dev),
-	.codec_conf	= msm8952_codec_conf,
-	.num_configs	= ARRAY_SIZE(msm8952_codec_conf),
 };
 
 void msm8952_disable_mclk(struct work_struct *work)
@@ -2027,6 +2039,17 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
+	if (wsa881x_get_client_index() == WSA881X_I2C_SPK0_SLAVE0_ADDR) {
+		bear_card.aux_dev = msm8952_aux_dev;
+		bear_card.num_aux_devs = ARRAY_SIZE(msm8952_aux_dev);
+		bear_card.codec_conf = msm8952_codec_conf;
+		bear_card.num_configs = ARRAY_SIZE(msm8952_codec_conf);
+	} else if (wsa881x_get_client_index() == WSA881X_I2C_SPK1_SLAVE0_ADDR) {
+		bear_card.aux_dev = msm8952_aux_dev_1;
+		bear_card.num_aux_devs = ARRAY_SIZE(msm8952_aux_dev_1);
+		bear_card.codec_conf = msm8952_codec_conf_1;
+		bear_card.num_configs = ARRAY_SIZE(msm8952_codec_conf_1);
+	}
 	card = &bear_card;
 	bear_card.name = dev_name(&pdev->dev);
 	card = &bear_card;

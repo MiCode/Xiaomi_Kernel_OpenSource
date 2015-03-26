@@ -1776,7 +1776,8 @@
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
 			"AMIC2", "MIC BIAS External2",
-			"AMIC3", "MIC BIAS External";
+			"AMIC3", "MIC BIAS External",
+			"SpkrMono WSA_IN", "WSA_SPK OUT";
 		qcom,msm-gpios =
 			"pri_i2s",
 			"us_eu_gpio";
@@ -1851,6 +1852,28 @@
 		wsa881x-i2c-codec@44 {
 			compatible = "qcom,wsa881x-i2c-codec";
 			reg = <0x44>;
+		};
+		wsa881x-i2c-codec@f {
+			compatible = "qcom,wsa881x-i2c-codec";
+			reg = <0x0f>;
+			qcom,msm-gpios = "wsa_clk",
+					"wsa_reset";
+			qcom,pinctrl-names = "all_off",
+					"wsa_clk",
+					"wsa_active",
+					"wsa_clk_active";
+			pinctrl-names = "all_off",
+					"wsa_clk",
+					"wsa_active",
+					"wsa_clk_active";
+			pinctrl-0 = <&wsa_clk_off &wsa_suspend>;
+			pinctrl-1 = <&wsa_clk_on &wsa_suspend>;
+			pinctrl-2 = <&wsa_clk_off &wsa_active>;
+			pinctrl-3 = <&wsa_clk_on &wsa_active>;
+		};
+		wsa881x-i2c-codec@45 {
+			compatible = "qcom,wsa881x-i2c-codec";
+			reg = <0x45>;
 		};
 	};
 };
