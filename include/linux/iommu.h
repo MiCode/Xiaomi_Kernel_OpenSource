@@ -83,7 +83,6 @@ struct iommu_domain_geometry {
 struct iommu_domain {
 	unsigned type;
 	const struct iommu_ops *ops;
-	void *priv;
 	iommu_fault_handler_t handler;
 	void *handler_token;
 	struct iommu_domain_geometry geometry;
@@ -159,8 +158,6 @@ extern struct dentry *iommu_debugfs_top;
  */
 struct iommu_ops {
 	bool (*capable)(enum iommu_cap);
-	int (*domain_init)(struct iommu_domain *domain);
-	void (*domain_destroy)(struct iommu_domain *domain);
 
 	/* Domain allocation and freeing by the iommu driver */
 	struct iommu_domain *(*domain_alloc)(unsigned iommu_domain_type);
