@@ -1216,6 +1216,7 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic4");
 	snd_soc_dapm_ignore_suspend(dapm, "Digital Mic5");
 	snd_soc_dapm_ignore_suspend(dapm, "MADINPUT");
+	snd_soc_dapm_ignore_suspend(dapm, "MAD_CPE_INPUT");
 	snd_soc_dapm_ignore_suspend(dapm, "EAR");
 	snd_soc_dapm_ignore_suspend(dapm, "HEADPHONE");
 	snd_soc_dapm_ignore_suspend(dapm, "LINEOUT1");
@@ -2241,6 +2242,20 @@ static struct snd_soc_dai_link msm8996_tomtom_fe_dai_links[] = {
 		.ignore_suspend = 1,
 		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
 		.ops = &msm8996_slimbus_2_be_ops,
+	},
+	/* CPE LSM direct dai-link */
+	{
+		.name = "CPE Listen service",
+		.stream_name = "CPE Listen Audio Service",
+		.cpu_dai_name = "CPE_LSM_NOHOST",
+		.platform_name = "msm-cpe-lsm",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "tomtom_mad1",
+		.codec_name = "tomtom_codec",
 	},
 };
 
