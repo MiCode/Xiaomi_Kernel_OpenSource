@@ -1907,6 +1907,7 @@
 #include "msm-pm8950.dtsi"
 #include "msm-pmi8950.dtsi"
 #include "msm8952-regulator.dtsi"
+#include "msm8952-camera.dtsi"
 
 &pm8950_1 {
 	pm8950_cajon_dig: 8952_wcd_codec@f000 {
