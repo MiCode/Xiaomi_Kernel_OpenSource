@@ -37,8 +37,6 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 	{ adreno_is_a510, a530_vbif },
 };
 
-#define PWR_ON_BIT BIT(20)
-
 /**
  * Number of times to check if the regulator enabled before
  * giving up and returning failure.
@@ -333,6 +331,53 @@ static void a5xx_protect_init(struct adreno_device *adreno_dev)
 }
 
 /*
+ * a5xx_is_sptp_idle() - A530 SP/TP/RAC should be power collapsed to be
+ * considered idle
+ * @adreno_dev: The adreno_device pointer
+ */
+static bool a5xx_is_sptp_idle(struct adreno_device *adreno_dev)
+{
+	unsigned int reg;
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	/* If feature is not supported or enabled, no worry */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
+		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
+		return true;
+	kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
+	if (reg & BIT(20))
+		return false;
+	kgsl_regread(device, A5XX_GPMU_RBCCU_PWR_CLK_STATUS, &reg);
+	return !(reg & BIT(20));
+}
+
+/*
+ * _poll_gdsc_status() - Poll the GDSC status register
+ * @adreno_dev: The adreno device pointer
+ * @status_reg: Offset of the status register
+ * @status_value: The expected bit value
+ *
+ * Poll the status register till the power-on bit is equal to the
+ * expected value or the max retries are exceeded.
+ */
+static int _poll_gdsc_status(struct adreno_device *adreno_dev,
+				unsigned int status_reg,
+				unsigned int status_value)
+{
+	unsigned int reg, retry = PWR_RETRY;
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	/* Bit 20 is the power on bit of SPTP and RAC GDSC status register */
+	do {
+		udelay(1);
+		kgsl_regread(device, status_reg, &reg);
+	} while (((reg & BIT(20)) != (status_value << 20)) && retry--);
+	if ((reg & BIT(20)) != (status_value << 20))
+		return -ETIMEDOUT;
+	return 0;
+}
+
+/*
  * a5xx_regulator_enable() - Enable any necessary HW regulators
  * @adreno_dev: The adreno device pointer
  *
@@ -341,7 +386,7 @@ static void a5xx_protect_init(struct adreno_device *adreno_dev)
  */
 static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
 {
-	unsigned int reg, retry = PWR_RETRY;
+	unsigned int ret;
 	struct kgsl_device *device = &adreno_dev->dev;
 	if (!adreno_is_a530(adreno_dev))
 		return 0;
@@ -353,32 +398,17 @@ static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_GPMU_RBCCU_POWER_CNTL, 0x778000);
 	/* Insert a delay between RAC and SPTP GDSC to reduce voltage droop */
 	udelay(3);
-	/*
-	 * Poll the status register till the power-on bit is set or the max
-	 * retries are exceeded.
-	 */
-	do {
-		udelay(1);
-		kgsl_regread(device, A5XX_GPMU_RBCCU_PWR_CLK_STATUS, &reg);
-	} while (!(reg & PWR_ON_BIT) && retry--);
-	if (!(reg & PWR_ON_BIT)) {
-		KGSL_PWR_ERR(device, "RBCCU GDSC enable failed %x\n", reg);
-		return -ENODEV;
+	ret = _poll_gdsc_status(adreno_dev, A5XX_GPMU_RBCCU_PWR_CLK_STATUS, 1);
+	if (ret) {
+		KGSL_PWR_ERR(device, "RBCCU GDSC enable failed\n");
+		return ret;
 	}
 
 	kgsl_regwrite(device, A5XX_GPMU_SP_POWER_CNTL, 0x778000);
-	retry = PWR_RETRY;
-	/*
-	 * Poll the status register till the power-on bit is set or the max
-	 * retries are exceeded.
-	 */
-	do {
-		udelay(1);
-		kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
-	} while (!(reg & PWR_ON_BIT) && retry--);
-	if (!(reg & PWR_ON_BIT)) {
-		KGSL_PWR_ERR(device, "SPTP GDSC enable failed %x\n", reg);
-		return -ENODEV;
+	ret = _poll_gdsc_status(adreno_dev, A5XX_GPMU_SP_PWR_CLK_STATUS, 1);
+	if (ret) {
+		KGSL_PWR_ERR(device, "SPTP GDSC enable failed\n");
+		return ret;
 	}
 
 	return 0;
@@ -394,43 +424,72 @@ static int a5xx_regulator_enable(struct adreno_device *adreno_dev)
  */
 static void a5xx_regulator_disable(struct adreno_device *adreno_dev)
 {
-	unsigned int reg, retry = PWR_RETRY;
+	unsigned int reg;
 	struct kgsl_device *device = &adreno_dev->dev;
-	if (!adreno_is_a530(adreno_dev))
+
+	/* If feature is not supported or not enabled */
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
+		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag)) {
+		/* Set the default register values; set SW_COLLAPSE to 1 */
+		kgsl_regwrite(device, A5XX_GPMU_SP_POWER_CNTL, 0x778001);
+		/*
+		 * Insert a delay between SPTP and RAC GDSC to reduce voltage
+		 * droop.
+		 */
+		udelay(3);
+		if (_poll_gdsc_status(adreno_dev,
+					A5XX_GPMU_SP_PWR_CLK_STATUS, 0))
+			KGSL_PWR_WARN(device, "SPTP GDSC disable failed\n");
+
+		kgsl_regwrite(device, A5XX_GPMU_RBCCU_POWER_CNTL, 0x778001);
+		if (_poll_gdsc_status(adreno_dev,
+					A5XX_GPMU_RBCCU_PWR_CLK_STATUS, 0))
+			KGSL_PWR_WARN(device, "RBCCU GDSC disable failed\n");
+	} else if (test_bit(ADRENO_DEVICE_GPMU_INITIALIZED,
+			&adreno_dev->priv)) {
+		/* GPMU firmware is supposed to turn off SPTP & RAC GDSCs. */
+		kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
+		if (reg & BIT(20))
+			KGSL_PWR_WARN(device, "SPTP GDSC is not disabled\n");
+		kgsl_regread(device, A5XX_GPMU_RBCCU_PWR_CLK_STATUS, &reg);
+		if (reg & BIT(20))
+			KGSL_PWR_WARN(device, "RBCCU GDSC is not disabled\n");
+		/*
+		 * GPMU firmware is supposed to set GMEM to non-retention.
+		 * Bit 14 is the memory core force on bit.
+		 */
+		kgsl_regread(device, A5XX_GPMU_RBCCU_CLOCK_CNTL, &reg);
+		if (reg & BIT(14))
+			KGSL_PWR_WARN(device, "GMEM is forced on\n");
+	}
+
+	if (adreno_is_a530(adreno_dev)) {
+		/* Reset VBIF before PC to avoid popping bogus FIFO entries */
+		kgsl_regwrite(device, A5XX_RBBM_BLOCK_SW_RESET_CMD,
+			0x003C0000);
+		kgsl_regwrite(device, A5XX_RBBM_BLOCK_SW_RESET_CMD, 0);
+	}
+}
+
+/*
+ * a5xx_enable_pc() - Enable the GPMU based power collapse of the SPTP and RAC
+ * blocks
+ * @adreno_dev: The adreno device pointer
+ */
+static void a5xx_enable_pc(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC) ||
+		!test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
 		return;
 
-	/* Set the default register values; set SW_COLLAPSE to 1 */
-	kgsl_regwrite(device, A5XX_GPMU_SP_POWER_CNTL, 0x778001);
-	/* Insert a delay between SPTP and RAC GDSC to avoid voltage droop */
-	udelay(3);
-	/*
-	 * Poll the status register till the power-on bit is cleared or the max
-	 * retries are exceeded.
-	 */
-	do {
-		udelay(1);
-		kgsl_regread(device, A5XX_GPMU_SP_PWR_CLK_STATUS, &reg);
-	} while ((reg & PWR_ON_BIT) && retry--);
-	if (reg & PWR_ON_BIT)
-		KGSL_PWR_WARN(device, "SPTP GDSC disable failed %x\n", reg);
+	kgsl_regwrite(device, A5XX_GPMU_PWR_COL_INTER_FRAME_CTRL, 0x0000007F);
+	kgsl_regwrite(device, A5XX_GPMU_PWR_COL_BINNING_CTRL, 0);
+	kgsl_regwrite(device, A5XX_GPMU_PWR_COL_INTER_FRAME_HYST, 0x000A0080);
+	kgsl_regwrite(device, A5XX_GPMU_PWR_COL_STAGGER_DELAY, 0x00600040);
 
-	kgsl_regwrite(device, A5XX_GPMU_RBCCU_POWER_CNTL, 0x778001);
-	retry = PWR_RETRY;
-	/*
-	 * Poll the status register till the power-on bit is cleared or the max
-	 * retries are exceeded.
-	 */
-	do {
-		udelay(1);
-		kgsl_regread(device, A5XX_GPMU_RBCCU_PWR_CLK_STATUS, &reg);
-	} while ((reg & PWR_ON_BIT) && retry--);
-	if (reg & PWR_ON_BIT)
-		KGSL_PWR_WARN(device, "RBCCU GDSC disable failed %x\n", reg);
-
-	/* Reset VBIF before PC to avoid popping bogus FIFO entries */
-	kgsl_regwrite(device, A5XX_RBBM_BLOCK_SW_RESET_CMD, 0x003C0000);
-	kgsl_regwrite(device, A5XX_RBBM_BLOCK_SW_RESET_CMD, 0);
-}
+	trace_adreno_sp_tp((unsigned long) __builtin_return_address(0));
+};
 
 /*
  * a5xx_gpmu_ucode_load() - Load the ucode into the GPMU RAM
@@ -809,6 +868,10 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_CP_CHICKEN_DBG, 0x02000000);
 
 	a5xx_protect_init(adreno_dev);
+
+	/* Set A5x specific power control bits to enable features. */
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
+		adreno_dev->pwrctrl_flag |= BIT(ADRENO_SPTP_PC_CTRL);
 }
 
 /*
@@ -1656,6 +1719,8 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.microcode_load = a5xx_microcode_load,
 	.perfcounters = &a5xx_perfcounters,
 	.vbif_xin_halt_ctrl0_mask = A5XX_VBIF_XIN_HALT_CTRL0_MASK,
+	.is_sptp_idle = a5xx_is_sptp_idle,
+	.enable_pc = a5xx_enable_pc,
 	.regulator_enable = a5xx_regulator_enable,
 	.regulator_disable = a5xx_regulator_disable,
 	.preemption_pre_ibsubmit = a5xx_preemption_pre_ibsubmit,
