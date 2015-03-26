@@ -453,6 +453,7 @@ struct arm_smmu_domain {
 	struct mutex			assign_lock;
 	struct list_head		secure_pool_list;
 	bool				non_fatal_faults;
+	struct iommu_domain		domain;
 };
 
 static struct iommu_ops arm_smmu_ops;
@@ -502,6 +503,11 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 			     size_t size);
 static bool arm_smmu_is_domain_secure(struct arm_smmu_domain *smmu_domain);
 
+
+static struct arm_smmu_domain *to_smmu_domain(struct iommu_domain *dom)
+{
+	return container_of(dom, struct arm_smmu_domain, domain);
+}
 
 static void parse_driver_options(struct arm_smmu_device *smmu)
 {
@@ -1105,7 +1111,7 @@ static struct iommu_gather_ops arm_smmu_gather_ops = {
 static phys_addr_t arm_smmu_verify_fault(struct iommu_domain *domain,
 					 dma_addr_t iova, u32 fsr)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu;
 	void __iomem *cb_base;
@@ -1158,7 +1164,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	u32 fsr, fsynr, resume;
 	unsigned long iova, far;
 	struct iommu_domain *domain = dev;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu;
 	void __iomem *cb_base;
@@ -1345,7 +1351,7 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 static void arm_smmu_trigger_fault(struct iommu_domain *domain,
 				   unsigned long flags)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct arm_smmu_device *smmu;
 	void __iomem *cb_base;
@@ -1497,7 +1503,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	unsigned long ias, oas;
 	struct io_pgtable_ops *pgtbl_ops;
 	enum io_pgtable_fmt fmt;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 
 	if (smmu_domain->smmu)
@@ -1628,7 +1634,7 @@ out:
 
 static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	void __iomem *cb_base;
@@ -1657,10 +1663,12 @@ free_irqs:
 	smmu_domain->smmu = NULL;
 }
 
-static int arm_smmu_domain_init(struct iommu_domain *domain)
+static struct iommu_domain *arm_smmu_domain_alloc(unsigned type)
 {
 	struct arm_smmu_domain *smmu_domain;
 
+	if (type != IOMMU_DOMAIN_UNMANAGED)
+		return NULL;
 	/*
 	 * Allocate the domain and initialise some of its data structures.
 	 * We can't really do anything meaningful until we've added a
@@ -1668,7 +1676,7 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 	 */
 	smmu_domain = kzalloc(sizeof(*smmu_domain), GFP_KERNEL);
 	if (!smmu_domain)
-		return -ENOMEM;
+		return NULL;
 
 	smmu_domain->secure_vmid = VMID_INVAL;
 	/* disable coherent htw by default */
@@ -1684,13 +1692,13 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->pgtbl_lock);
 	mutex_init(&smmu_domain->assign_lock);
-	domain->priv = smmu_domain;
-	return 0;
+
+	return &smmu_domain->domain;
 }
 
-static void arm_smmu_domain_destroy(struct iommu_domain *domain)
+static void arm_smmu_domain_free(struct iommu_domain *domain)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	/*
 	 * Free the domain resources. We assume that all devices have
@@ -1854,7 +1862,7 @@ static int arm_smmu_attach_dynamic(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
 {
 	int ret;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	enum io_pgtable_fmt fmt;
 	struct io_pgtable_ops *pgtbl_ops = NULL;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
@@ -1936,7 +1944,7 @@ out:
 static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 {
 	int ret;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_master_cfg *cfg;
 	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
@@ -2065,7 +2073,7 @@ static void arm_smmu_power_off(struct arm_smmu_device *smmu,
 static void arm_smmu_detach_dynamic(struct iommu_domain *domain,
 					struct arm_smmu_device *smmu)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	mutex_lock(&smmu->attach_lock);
 	if (smmu->attach_count > 0) {
@@ -2083,7 +2091,7 @@ idr_remove:
 
 static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_master_cfg *cfg;
 	struct arm_smmu_device *smmu;
 	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
@@ -2211,7 +2219,7 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 {
 	int ret;
 	unsigned long flags;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
 
 	if (!ops)
@@ -2237,7 +2245,7 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	int ret;
 	size_t size;
 	unsigned long flags;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
 
 	if (!ops)
@@ -2269,7 +2277,7 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 {
 	size_t ret;
 	unsigned long flags;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
 	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
@@ -2339,7 +2347,7 @@ static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
 {
 	phys_addr_t ret;
 	unsigned long flags;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
 
 	if (!ops)
@@ -2401,7 +2409,7 @@ static void arm_smmu_resume(struct arm_smmu_device *smmu)
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 						dma_addr_t iova, bool do_halt)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	struct device *dev = smmu->dev;
@@ -2478,7 +2486,7 @@ static phys_addr_t arm_smmu_iova_to_phys_hard_no_halt(
 static unsigned long arm_smmu_reg_read(struct iommu_domain *domain,
 				       unsigned long offset)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	void __iomem *cb_base;
@@ -2513,7 +2521,7 @@ unlock:
 static void arm_smmu_reg_write(struct iommu_domain *domain,
 			       unsigned long offset, unsigned long val)
 {
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	void __iomem *cb_base;
@@ -2648,7 +2656,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	int ret;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	mutex_lock(&smmu_domain->init_mutex);
 	switch (attr) {
@@ -2725,7 +2733,7 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	int ret = 0;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 
 	mutex_lock(&smmu_domain->init_mutex);
 
@@ -2838,7 +2846,7 @@ static int arm_smmu_dma_supported(struct iommu_domain *domain,
 				  struct device *dev, u64 mask)
 {
 	struct arm_smmu_device *smmu;
-	struct arm_smmu_domain *smmu_domain = domain->priv;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret;
 
 	mutex_lock(&smmu_domain->init_mutex);
@@ -2857,8 +2865,8 @@ static int arm_smmu_dma_supported(struct iommu_domain *domain,
 
 static struct iommu_ops arm_smmu_ops = {
 	.capable		= arm_smmu_capable,
-	.domain_init		= arm_smmu_domain_init,
-	.domain_destroy		= arm_smmu_domain_destroy,
+	.domain_alloc		= arm_smmu_domain_alloc,
+	.domain_free		= arm_smmu_domain_free,
 	.attach_dev		= arm_smmu_attach_dev,
 	.detach_dev		= arm_smmu_detach_dev,
 	.map			= arm_smmu_map,
