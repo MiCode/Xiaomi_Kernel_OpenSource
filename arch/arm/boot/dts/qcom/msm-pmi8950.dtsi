@@ -551,7 +551,7 @@
 			interrupt-names = "sc-irq", "play-irq";
 			qcom,play-mode = "direct";
 			qcom,wave-play-rate-us = <5263>;
-			qcom,actuator-type = "lra";
+			qcom,actuator-type = "erm";
 			qcom,wave-shape = "square";
 			qcom,vmax-mv = <2000>;
 			qcom,ilim-ma = <800>;
