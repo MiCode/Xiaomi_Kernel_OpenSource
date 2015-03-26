@@ -1032,10 +1032,10 @@ static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 			readl_relaxed(dev->phy +
 				PCIE_COM_DEBUG_BUS_BYTE0_INDEX));
 		PCIE_DUMP(dev,
-			"PCIe: RC%d QSERDES_COM_DEBUG_BUS0: 0x%x\n\n",
+			"PCIe: RC%d PCIE_COM_DEBUG_BUS_0_STATUS: 0x%x\n\n",
 			dev->rc_idx,
 			readl_relaxed(dev->phy +
-				QSERDES_COM_DEBUG_BUS0));
+				PCIE_COM_DEBUG_BUS_0_STATUS));
 	}
 
 	size = resource_size(dev->res[MSM_PCIE_RES_PHY].resource);
