@@ -27,3 +27,4 @@ obj-$(CONFIG_QCOM_MEMORY_DUMP) += memory_dump.o
 obj-$(CONFIG_QCOM_MEMORY_DUMP_V2) += memory_dump_v2.o
 obj-$(CONFIG_QCOM_WATCHDOG_V2) += watchdog_v2.o
 obj-$(CONFIG_TRACER_PKT)	+=	tracer_pkt.o
+obj-$(CONFIG_SOC_BUS)  +=      socinfo.o

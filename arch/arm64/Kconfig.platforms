@@ -53,6 +53,7 @@ config ARCH_QCOM
 	select HAVE_CLK
 	select HAVE_CLK_PREPARE
 	select PM_OPP
+    select SOC_BUS
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
