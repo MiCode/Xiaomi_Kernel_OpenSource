@@ -1,0 +1,194 @@
+/*
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	gdsc_venus: qcom,gdsc@8c1024 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus";
+		reg = <0x8c1024 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_venus_core0: qcom,gdsc@8c1040 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core0";
+		reg = <0x8c1040 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_venus_core1: qcom,gdsc@8c1044 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_venus_core1";
+		reg = <0x8c1044 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_camss_top: qcom,gdsc@8c34a0 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_camss_top";
+		reg = <0x8c34a0 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_vfe0: qcom,gdsc@8c3664 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vfe0";
+		reg = <0x8c3664 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_vfe1: qcom,gdsc@8c3674 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_vfe1";
+		reg = <0x8c3674 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mdss: qcom,gdsc@8c2304 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mdss";
+		reg = <0x8c2304 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_jpeg: qcom,gdsc@8c35a4 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_jpeg";
+		reg = <0x8c35a4 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_cpp: qcom,gdsc@8c36d4 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_cpp";
+		reg = <0x8c36d4 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_pcie_0: qcom,gdsc@36b004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie_0";
+		reg = <0x36b004 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_pcie_1: qcom,gdsc@36d004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie_1";
+		reg = <0x36d004 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_pcie_2: qcom,gdsc@36e004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_pcie_2";
+		reg = <0x36e004 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_usb30: qcom,gdsc@30f004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_usb30";
+		reg = <0x30f004 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_ufs: qcom,gdsc@375004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_ufs";
+		reg = <0x375004 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_fd: qcom,gdsc@8c3b64 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_fd";
+		reg = <0x8c3b64 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_gpu: qcom,gdsc@8c4034 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_gpu";
+		reg = <0x8c4034 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_gpu_gx: qcom,gdsc@8c4024 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_gpu_gx";
+		reg = <0x8c4024 0x4>,
+		      <0x8c4300 0x4>;
+		reg-names = "base", "domain_addr";
+		status = "disabled";
+	};
+
+	gdsc_hlos1_vote_aggre0_noc: qcom,gdsc@37d024 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_hlos1_vote_aggre0_noc";
+		reg = <0x37d024 0x4>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	gdsc_hlos1_vote_lpass_adsp: qcom,gdsc@37d034 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_hlos1_vote_lpass_adsp";
+		reg = <0x37d034 0x4>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	gdsc_hlos1_vote_lpass_core: qcom,gdsc@37d038 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_hlos1_vote_lpass_core";
+		reg = <0x37d038 0x4>;
+		qcom,no-status-check-on-disable;
+		status = "disabled";
+	};
+
+	gdsc_aggre0_noc: qcom,gdsc@381004 {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_aggre0_noc";
+		reg = <0x381004 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mmagic_bimc: qcom,gdsc@8c529c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_bimc";
+		reg = <0x8c529c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mmagic_video: qcom,gdsc@8c119c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_video";
+		reg = <0x8c119c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mmagic_mdss: qcom,gdsc@8c247c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_mdss";
+		reg = <0x8c247c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mmagic_camss: qcom,gdsc@8c3c4c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_camss";
+		reg = <0x8c3c4c 0x4>;
+		status = "disabled";
+	};
+};

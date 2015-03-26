@@ -1,0 +1,669 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <3>;
+
+	qcom,pmi8994@2 {
+		spmi-slave-container;
+		reg = <0x2>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmi8994_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			qcom,secondary-pon-reset;
+			qcom,s3-debounce = <32>;
+			qcom,s3-src = "kpdpwr-and-resin";
+		};
+
+		pmi8994_gpios: gpios {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pmi8994-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+				status = "disabled";
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+				status = "disabled";
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+				status = "disabled";
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+
+			gpio@c400 {
+				reg = <0xc400 0x100>;
+				qcom,pin-num = <5>;
+				status = "disabled";
+			};
+
+			gpio@c500 {
+				reg = <0xc500 0x100>;
+				qcom,pin-num = <6>;
+				status = "disabled";
+			};
+
+			gpio@c600 {
+				reg = <0xc600 0x100>;
+				qcom,pin-num = <7>;
+				status = "disabled";
+			};
+
+			gpio@c700 {
+				reg = <0xc700 0x100>;
+				qcom,pin-num = <8>;
+				status = "disabled";
+			};
+
+			gpio@c800 {
+				reg = <0xc800 0x100>;
+				qcom,pin-num = <9>;
+				status = "disabled";
+			};
+
+			gpio@c900 {
+				reg = <0xc900 0x100>;
+				qcom,pin-num = <10>;
+				status = "disabled";
+			};
+		};
+
+		pmi8994_mpps: mpps {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pmi8994-mpp";
+
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+				status = "disabled";
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+				status = "disabled";
+			};
+
+			mpp@a200 {
+				reg = <0xa200 0x100>;
+				qcom,pin-num = <3>;
+				status = "disabled";
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+		};
+
+		bcl@4200 {
+			compatible = "qcom,msm-bcl";
+			reg = <0x4200 0xFF 0x88E 0x2>;
+			reg-names = "fg_user_adc", "pon_spare";
+			interrupts = <0x2 0x42 0x0>,
+					<0x2 0x42 0x1>;
+			interrupt-names = "bcl-high-ibat-int",
+					"bcl-low-vbat-int";
+			qcom,vbat-scaling-factor = <39000>;
+			qcom,vbat-gain-numerator = <1>;
+			qcom,vbat-gain-denominator = <128>;
+			qcom,vbat-polling-delay-ms = <100>;
+			qcom,ibat-scaling-factor = <39000>;
+			qcom,ibat-gain-numerator = <1>;
+			qcom,ibat-gain-denominator = <128>;
+			qcom,ibat-offset-numerator = <1200>;
+			qcom,ibat-offset-denominator = <1>;
+			qcom,ibat-polling-delay-ms = <100>;
+			qcom,inhibit-derating-ua = <550000>;
+		};
+
+		pmi8994_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x2 0x31 0x0>,
+					<0x2 0x31 0x3>,
+				     <0x2 0x31 0x4>;
+			interrupt-names =	"eoc-int-en-set",
+						"high-thr-en-set",
+						"low-thr-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,vadc-poll-eoc;
+			qcom,vadc-meas-int-mode;
+		};
+
+		pmi8994_charger: qcom,qpnp-smbcharger {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-smbcharger";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			qcom,iterm-ma = <100>;
+			qcom,fastchg-current-ma = <2000>;
+			qcom,float-voltage-mv = <4350>;
+			qcom,resume-delta-mv = <200>;
+			qcom,chg-inhibit-fg;
+			qcom,dc-psy-type = "Mains";
+			qcom,dc-psy-ma = <1500>;
+			qcom,rparasitic-uohm = <100000>;
+			qcom,bms-psy-name = "bms";
+			qcom,thermal-mitigation = <1500 700 600 0>;
+			qcom,parallel-usb-min-current-ma = <1400>;
+			qcom,parallel-usb-9v-min-current-ma = <900>;
+			qcom,parallel-allowed-lowering-ma = <500>;
+			qcom,autoadjust-vfloat;
+
+			qcom,chgr@1000 {
+				reg = <0x1000 0x100>;
+				interrupts =	<0x2 0x10 0x0>,
+						<0x2 0x10 0x1>,
+						<0x2 0x10 0x2>,
+						<0x2 0x10 0x3>,
+						<0x2 0x10 0x4>,
+						<0x2 0x10 0x5>,
+						<0x2 0x10 0x6>,
+						<0x2 0x10 0x7>;
+
+				interrupt-names =	"chg-error",
+							"chg-inhibit",
+							"chg-prechg-sft",
+							"chg-complete-chg-sft",
+							"chg-p2f-thr",
+							"chg-rechg-thr",
+							"chg-taper-thr",
+							"chg-tcc-thr";
+			};
+
+			qcom,otg@1100 {
+				reg = <0x1100 0x100>;
+			};
+
+			qcom,bat-if@1200 {
+				reg = <0x1200 0x100>;
+				interrupts =	<0x2 0x12 0x0>,
+						<0x2 0x12 0x1>,
+						<0x2 0x12 0x2>,
+						<0x2 0x12 0x3>,
+						<0x2 0x12 0x4>,
+						<0x2 0x12 0x5>,
+						<0x2 0x12 0x6>,
+						<0x2 0x12 0x7>;
+
+				interrupt-names =	"batt-hot",
+							"batt-warm",
+							"batt-cold",
+							"batt-cool",
+							"batt-ov",
+							"batt-low",
+							"batt-missing",
+							"batt-term-missing";
+			};
+
+			qcom,usb-chgpth@1300 {
+				reg = <0x1300 0x100>;
+				interrupts =	<0x2 0x13 0x0>,
+						<0x2 0x13 0x1>,
+						<0x2 0x13 0x2>,
+						<0x2 0x13 0x3>,
+						<0x2 0x13 0x4>,
+						<0x2 0x13 0x5>,
+						<0x2 0x13 0x6>;
+
+				interrupt-names =	"usbin-uv",
+							"usbin-ov",
+							"usbin-src-det",
+							"otg-fail",
+							"otg-oc",
+							"aicl-done",
+							"usbid-change";
+			};
+
+			qcom,dc-chgpth@1400 {
+				reg = <0x1400 0x100>;
+				interrupts =	<0x2 0x14 0x0>,
+						<0x2 0x14 0x1>;
+
+				interrupt-names =	"dcin-uv",
+							"dcin-ov";
+			};
+
+			qcom,chgr-misc@1600 {
+				reg = <0x1600 0x100>;
+				interrupts =	<0x2 0x16 0x0>,
+						<0x2 0x16 0x1>,
+						<0x2 0x16 0x2>,
+						<0x2 0x16 0x3>,
+						<0x2 0x16 0x4>,
+						<0x2 0x16 0x5>;
+
+				interrupt-names =	"power-ok",
+							"temp-shutdown",
+							"safety-timeout",
+							"flash-fail",
+							"otst2",
+							"otst3";
+			};
+		};
+
+		pmi8994_fg: qcom,fg {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-fg";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,resume-soc = <95>;
+			status = "okay";
+			qcom,bcl-lm-threshold-ma = <127>;
+			qcom,bcl-mh-threshold-ma = <405>;
+			qcom,fg-iterm-ma = <100>;
+			qcom,fg-chg-iterm-ma = <100>;
+			qcom,cycle-counter-en;
+			qcom,cycle-counter-low-soc = <15>;
+			qcom,cycle-counter-high-soc = <85>;
+			qcom,capacity-learning-on;
+
+			qcom,fg-soc@4000 {
+				status = "okay";
+				reg = <0x4000 0x100>;
+				interrupts =	<0x2 0x40 0x0>,
+						<0x2 0x40 0x1>,
+						<0x2 0x40 0x2>,
+						<0x2 0x40 0x3>,
+						<0x2 0x40 0x4>,
+						<0x2 0x40 0x5>,
+						<0x2 0x40 0x6>,
+						<0x2 0x40 0x7>;
+
+				interrupt-names =	"high-soc",
+							"low-soc",
+							"full-soc",
+							"empty-soc",
+							"delta-soc",
+							"first-est-done",
+							"sw-fallbk-ocv",
+							"sw-fallbk-new-battrt-sts",
+							"fg-soc-irq-count";
+			};
+
+			qcom,fg-batt@4100 {
+				reg = <0x4100 0x100>;
+				interrupts =	<0x2 0x41 0x0>,
+						<0x2 0x41 0x1>,
+						<0x2 0x41 0x2>,
+						<0x2 0x41 0x3>,
+						<0x2 0x41 0x4>,
+						<0x2 0x41 0x5>,
+						<0x2 0x41 0x6>,
+						<0x2 0x41 0x7>;
+
+				interrupt-names =	"soft-cold",
+							"soft-hot",
+							"vbatt-low",
+							"batt-ided",
+							"batt-id-req",
+							"batt-unknown",
+							"batt-missing",
+							"batt-match";
+			};
+
+			qcom,fg-adc-vbat@4254 {
+				reg = <0x4254 0x1>;
+			};
+
+			qcom,fg-adc-ibat@4255 {
+				reg = <0x4255 0x1>;
+			};
+
+			qcom,revid-tp-rev@1f1 {
+				reg = <0x1f1 0x1>;
+			};
+
+			qcom,fg-memif@4400 {
+				status = "okay";
+				reg = <0x4400 0x100>;
+				interrupts =	<0x2 0x44 0x0>,
+						<0x2 0x44 0x1>;
+
+				interrupt-names =	"mem-avail",
+							"data-rcvry-sug";
+			};
+		};
+	};
+
+	qcom,pmi8994@3 {
+		spmi-slave-container;
+		reg = <0x3>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pmi8994_pwm_1: pwm@b100 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb100 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			qcom,ramp-index = <0>;
+			#pwm-cells = <2>;
+		};
+
+		pmi8994_pwm_2: pwm@b200 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb200 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <9>;
+			qcom,ramp-index = <1>;
+			#pwm-cells = <2>;
+		};
+
+		pmi8994_pwm_3: pwm@b300 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb300 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <9>;
+			qcom,ramp-index = <2>;
+			#pwm-cells = <2>;
+		};
+
+		pmi8994_pwm_4: pwm@b400 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb400 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <9>;
+			qcom,ramp-index = <3>;
+			#pwm-cells = <2>;
+		};
+
+		labibb: qpnp-labibb-regulator {
+			status = "disabled";
+			spmi-dev-container;
+			compatible = "qcom,qpnp-labibb-regulator";
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			lab_regulator: qcom,lab@de00 {
+				reg = <0xde00 0x100>;
+				reg-names = "lab";
+				regulator-name = "lab_reg";
+
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6000000>;
+
+				qcom,qpnp-lab-min-voltage = <4600000>;
+				qcom,qpnp-lab-step-size = <100000>;
+				qcom,qpnp-lab-slew-rate = <5000>;
+				qcom,qpnp-lab-use-default-voltage;
+				qcom,qpnp-lab-init-voltage = <5500000>;
+				qcom,qpnp-lab-init-amoled-voltage = <4600000>;
+				qcom,qpnp-lab-init-lcd-voltage = <5500000>;
+
+				qcom,qpnp-lab-soft-start = <800>;
+
+				qcom,qpnp-lab-full-pull-down;
+				qcom,qpnp-lab-pull-down-enable;
+				qcom,qpnp-lab-switching-clock-frequency = <1600>;
+				qcom,qpnp-lab-limit-maximum-current = <800>;
+				qcom,qpnp-lab-limit-max-current-enable;
+				qcom,qpnp-lab-ps-threshold = <40>;
+				qcom,qpnp-lab-ps-enable;
+				qcom,qpnp-lab-nfet-size = <100>;
+				qcom,qpnp-lab-pfet-size = <100>;
+				qcom,qpnp-lab-max-precharge-time = <200>;
+			};
+
+			ibb_regulator: qcom,ibb@dc00 {
+				reg = <0xdc00 0x100>;
+				reg-names = "ibb_reg";
+				regulator-name = "ibb_reg";
+
+				regulator-min-microvolt = <4600000>;
+				regulator-max-microvolt = <6000000>;
+
+				qcom,qpnp-ibb-min-voltage = <1400000>;
+				qcom,qpnp-ibb-step-size = <100000>;
+				qcom,qpnp-ibb-slew-rate = <2000000>;
+				qcom,qpnp-ibb-use-default-voltage;
+				qcom,qpnp-ibb-init-voltage = <5500000>;
+				qcom,qpnp-ibb-init-amoled-voltage = <4000000>;
+				qcom,qpnp-ibb-init-lcd-voltage = <5500000>;
+
+				qcom,qpnp-ibb-soft-start = <1000>;
+
+				qcom,qpnp-ibb-discharge-resistor = <300>;
+				qcom,qpnp-ibb-lab-pwrup-delay = <4000>;
+				qcom,qpnp-ibb-lab-pwrdn-delay = <4000>;
+				qcom,qpnp-ibb-en-discharge;
+
+				qcom,qpnp-ibb-full-pull-down;
+				qcom,qpnp-ibb-pull-down-enable;
+				qcom,qpnp-ibb-switching-clock-frequency = <1480>;
+				qcom,qpnp-ibb-limit-maximum-current = <1550>;
+				qcom,qpnp-ibb-debounce-cycle = <16>;
+				qcom,qpnp-ibb-limit-max-current-enable;
+				qcom,qpnp-ibb-ps-enable;
+			};
+
+		};
+
+		qcom,leds@d800 {
+			compatible = "qcom,qpnp-wled";
+			reg = <0xd800 0x100>,
+				<0xd900 0x100>,
+				<0xdc00 0x100>,
+				<0xde00 0x100>;
+			reg-names = "qpnp-wled-ctrl-base",
+					"qpnp-wled-sink-base",
+					"qpnp-wled-ibb-base",
+					"qpnp-wled-lab-base";
+			interrupts = <0x3 0xd8 0x2>;
+			interrupt-names = "sc-irq";
+			status = "okay";
+			linux,name = "wled";
+			linux,default-trigger = "bkl-trigger";
+			qcom,fdbk-output = "auto";
+			qcom,vref-mv = <350>;
+			qcom,switch-freq-khz = <800>;
+			qcom,ovp-mv = <29500>;
+			qcom,ilim-ma = <980>;
+			qcom,boost-duty-ns = <26>;
+			qcom,mod-freq-khz = <9600>;
+			qcom,dim-mode = "hybrid";
+			qcom,dim-method = "linear";
+			qcom,hyb-thres = <625>;
+			qcom,sync-dly-us = <800>;
+			qcom,fs-curr-ua = <16000>;
+			qcom,en-phase-stag;
+			qcom,ibb-pwrup-dly = <8>;
+			qcom,led-strings-list = [00 01 02 03];
+			qcom,en-ext-pfet-sc-pro;
+		};
+
+		pmi8994_haptics: qcom,haptic@c000 {
+			status = "disabled";
+			compatible = "qcom,qpnp-haptic";
+			reg = <0xc000 0x100>;
+			interrupts = <0x3 0xc0 0x0>,
+				     <0x3 0xc0 0x1>;
+			interrupt-names = "sc-irq", "play-irq";
+			qcom,play-mode = "direct";
+			qcom,wave-play-rate-us = <5263>;
+			qcom,actuator-type = "lra";
+			qcom,wave-shape = "square";
+			qcom,vmax-mv = <2000>;
+			qcom,ilim-ma = <800>;
+			qcom,sc-deb-cycles = <8>;
+			qcom,int-pwm-freq-khz = <505>;
+			qcom,en-brake;
+			qcom,brake-pattern = [03 03 00 00];
+			qcom,use-play-irq;
+			qcom,use-sc-irq;
+			qcom,wave-samples = [3e 3e 3e 3e 3e 3e 3e 3e];
+			qcom,wave-rep-cnt = <1>;
+			qcom,wave-samp-rep-cnt = <1>;
+		};
+
+		qcom,leds@d000 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xd000 0x100>;
+			label = "rgb";
+			status = "okay";
+
+			qcom,rgb_0 {
+				label = "rgb";
+				qcom,id = <3>;
+				qcom,mode = "pwm";
+				pwms = <&pmi8994_pwm_3 0 0>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "red";
+				linux,default-trigger =
+					"battery-charging";
+			};
+
+			qcom,rgb_1 {
+				label = "rgb";
+				qcom,id = <4>;
+				qcom,mode = "pwm";
+				pwms = <&pmi8994_pwm_2 0 0>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "green";
+				linux,default-trigger = "battery-full";
+			};
+
+			qcom,rgb_2 {
+				label = "rgb";
+				qcom,id = <5>;
+				qcom,mode = "pwm";
+				pwms = <&pmi8994_pwm_1 0 0>;
+				qcom,pwm-us = <1000>;
+				qcom,max-current = <12>;
+				qcom,default-state = "off";
+				linux,name = "blue";
+				linux,default-trigger = "boot-indication";
+			};
+		};
+
+		qcom,leds@d300 {
+			compatible = "qcom,qpnp-flash-led";
+			status = "okay";
+			reg = <0xd300 0x100>;
+			label = "flash";
+			qcom,headroom = <500>;
+			qcom,startup-dly = <128>;
+			qcom,clamp-curr = <200>;
+			qcom,pmic-charger-support;
+			qcom,self-check-enabled;
+			qcom,thermal-derate-enabled;
+			qcom,thermal-derate-threshold = <100>;
+			qcom,thermal-derate-rate = "5_PERCENT";
+			qcom,current-ramp-enabled;
+			qcom,ramp_up_step = "6P7_US";
+			qcom,ramp_dn_step = "6P7_US";
+			qcom,vph-pwr-droop-enabled;
+			qcom,vph-pwr-droop-threshold = <3000>;
+			qcom,vph-pwr-droop-debounce-time = <10>;
+			qcom,headroom-sense-ch0-enabled;
+			qcom,headroom-sense-ch1-enabled;
+			qcom,power-detect-enabled;
+
+			pmi8994_flash0: qcom,flash_0 {
+				label = "flash";
+				qcom,led-name = "led:flash_0";
+				qcom,default-led-trigger =
+						"flash0_trigger";
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				qcom,id = <0>;
+				qcom,current = <625>;
+			};
+
+			pmi8994_flash1: qcom,flash_1 {
+				label = "flash";
+				qcom,led-name = "led:flash_1";
+				qcom,default-led-trigger =
+						"flash1_trigger";
+				qcom,max-current = <1000>;
+				qcom,duration = <1280>;
+				qcom,id = <1>;
+				qcom,current = <625>;
+			};
+
+			pmi8994_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,default-led-trigger =
+						"torch0_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <0>;
+				qcom,current = <120>;
+				boost-supply = <&pmi8994_boostbypass>;
+				boost-voltage-max = <3600000>;
+			};
+
+			pmi8994_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,default-led-trigger =
+						"torch1_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <1>;
+				qcom,current = <120>;
+				boost-supply = <&pmi8994_boostbypass>;
+				boost-voltage-max = <3600000>;
+			};
+		};
+	};
+};

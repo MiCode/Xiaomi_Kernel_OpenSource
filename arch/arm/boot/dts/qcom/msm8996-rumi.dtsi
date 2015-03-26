@@ -1,0 +1,257 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "msm8996-pinctrl.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996 RUMI";
+	compatible = "qcom,msm8996-rumi", "qcom,msm8996", "qcom,rumi";
+	qcom,board-id = <15 0>;
+};
+
+&clock_cpu {
+	status = "disabled";
+};
+
+&sdhc_1 {
+	vdd-supply = <&pm8994_l20>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 570000>;
+
+	vdd-io-supply = <&pm8994_s4>;
+	qcom,vdd-io-always-on;
+	qcom,vdd-io-voltage-level = <1800000 1800000>;
+	qcom,vdd-io-current-level = <110 325000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc1_clk_on &sdc1_cmd_on &sdc1_data_on &sdc1_rclk_on>;
+	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off &sdc1_rclk_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000>;
+	qcom,nonremovable;
+
+	status = "ok";
+};
+
+&sdhc_2 {
+	vdd-supply = <&pm8994_l21>;
+	qcom,vdd-voltage-level = <2950000 2950000>;
+	qcom,vdd-current-level = <200 800000>;
+
+	vdd-io-supply = <&pm8994_l13>;
+	qcom,vdd-io-voltage-level = <1800000 2950000>;
+	qcom,vdd-io-current-level = <200 22000>;
+
+	pinctrl-names = "active", "sleep";
+	pinctrl-0 = <&sdc2_clk_on  &sdc2_cmd_on &sdc2_data_on>;
+	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
+
+	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+	qcom,bus-speed-mode = "SDR12", "SDR25", "SDR50", "DDR50", "SDR104";
+
+	status = "ok";
+};
+
+&lmh {
+	status = "disabled";
+};
+
+&wdog {
+	status = "disabled";
+};
+
+&vmem {
+	status = "disabled";
+};
+
+&uartblsp1dm1 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&uartblsp2dm1 {
+	status = "ok";
+	pinctrl-names = "default";
+	pinctrl-0 = <&uart_console_active>;
+};
+
+&jpeg_smmu {
+	status = "disable";
+};
+
+&vfe_smmu {
+	status = "disable";
+};
+
+&cpp_fd_smmu {
+	status = "disable";
+};
+
+&kgsl_smmu {
+	status = "disable";
+};
+
+&venus_smmu {
+	status = "disable";
+};
+
+&mdp_smmu {
+	status = "disable";
+};
+
+&rot_smmu {
+	status = "disable";
+};
+
+&lpass_q6_smmu {
+	status = "disable";
+};
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_mmss {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_gpu {
+	compatible = "qcom,dummycc";
+	#clock-cells = <1>;
+};
+
+&clock_debug {
+	status = "disable";
+};
+
+&gdsc_venus {
+	status = "disable";
+};
+
+&gdsc_venus_core0 {
+	status = "disable";
+};
+
+&gdsc_venus_core1 {
+	status = "disable";
+};
+
+&gdsc_camss_top {
+	status = "disable";
+};
+
+&gdsc_vfe0 {
+	status = "disable";
+};
+
+&gdsc_vfe1 {
+	status = "disable";
+};
+
+&gdsc_jpeg {
+	status = "disable";
+};
+
+&gdsc_cpp {
+	status = "disable";
+};
+
+&gdsc_fd {
+	status = "disable";
+};
+
+&gdsc_mdss {
+	status = "disable";
+};
+
+&gdsc_pcie_0 {
+	status = "disable";
+};
+
+&gdsc_pcie_1 {
+	status = "disable";
+};
+
+&gdsc_pcie_2 {
+	status = "disable";
+};
+
+&gdsc_usb30 {
+	status = "disable";
+};
+
+&gdsc_ufs {
+	status = "disable";
+};
+
+&gdsc_gpu {
+	status = "disable";
+};
+
+&gdsc_gpu_gx {
+	status = "disable";
+};
+
+&gdsc_hlos1_vote_aggre0_noc {
+	status = "disable";
+};
+
+&gdsc_hlos1_vote_lpass_adsp {
+	status = "disable";
+};
+
+&gdsc_hlos1_vote_lpass_core {
+	status = "disable";
+};
+
+&gdsc_aggre0_noc {
+	status = "disable";
+};
+
+&gdsc_mmagic_bimc {
+	status = "disable";
+};
+
+&gdsc_mmagic_video {
+	status = "disable";
+};
+
+&gdsc_mmagic_mdss {
+	status = "disable";
+};
+
+&gdsc_mmagic_camss {
+	status = "disable";
+};
+
+&msm_vidc {
+	status = "disable";
+};
+
+&qcom_rng {
+	status = "disable";
+};
+
+&tpdm_vsense {
+	status = "disable";
+};
+
+&tpdm_prng {
+	status = "disable";
+};
+
+&rpm_bus {
+	rpm-standalone;
+};

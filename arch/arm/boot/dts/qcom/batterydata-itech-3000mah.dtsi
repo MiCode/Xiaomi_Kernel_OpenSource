@@ -1,0 +1,55 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+qcom,itech-3000mah {
+	/* #Itech_B00826LF_3000mAh_Averaged_Feb022015*/
+	qcom,max-voltage-uv = <4350000>;
+	qcom,v-cutoff-uv = <3400000>;
+	qcom,chg-term-ua = <100000>;
+	qcom,batt-id-kohm = <100>;
+	qcom,battery-type = "itech_3000mah";
+	qcom,checksum = <0xF99F>;
+	qcom,fg-profile-data = [
+		E9 83 24 7D
+		14 81 2A 77
+		22 83 D9 73
+		8E 76 CC 75
+		E2 81 DC 98
+		E8 B5 67 C1
+		5B 10 0A 83
+		00 72 08 6E
+		25 6B 11 83
+		FB 7B 56 8D
+		3B 89 22 82
+		40 99 0D BC
+		5F C8 77 14
+		CB 0B 61 5B
+		CE 6E 71 FD
+		8C 19 7B 46
+		02 42 00 00
+		B0 44 27 31
+		DD 37 00 00
+		00 00 00 00
+		00 00 00 00
+		54 6B C2 69
+		12 6D A9 82
+		F9 77 BA 6B
+		79 64 1F 82
+		35 76 51 68
+		DE 5A 00 A9
+		2B 1E 68 53
+		66 A0 71 0C
+		28 00 FF 36
+		F0 11 30 03
+		00 00 00 0D
+	];
+};

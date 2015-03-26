@@ -1,0 +1,645 @@
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <3>;
+
+	qcom,pm8110@0 {
+		spmi-slave-container;
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm8110_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0>,
+				     <0x0 0x8 0x1>,
+				     <0x0 0x8 0x4>,
+				     <0x0 0x8 0x6>;
+			interrupt-names = "kpdpwr",
+					  "resin",
+					  "resin-bark",
+					  "pmic-wd-bark";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+
+			qcom,pon_1 {
+				qcom,pon-type = <0>;
+				qcom,pull-up = <1>;
+				linux,code = <116>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <1>;
+				qcom,pull-up = <1>;
+				linux,code = <114>;
+			};
+		};
+
+		pm8110_chg: qcom,charger {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-charger";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,vddmax-mv = <4200>;
+			qcom,vddsafe-mv = <4230>;
+			qcom,vinmin-mv = <4300>;
+			qcom,vbatdet-mv = <4100>;
+			qcom,ibatmax-ma = <1500>;
+			qcom,ibatterm-ma = <100>;
+			qcom,ibatsafe-ma = <1500>;
+			qcom,thermal-mitigation = <1500 700 600 325>;
+			qcom,vbatdet-delta-mv = <100>;
+			qcom,resume-soc = <99>;
+			qcom,tchg-mins = <150>;
+			qcom,chg-vadc = <&pm8110_vadc>;
+			qcom,chg-adc_tm = <&pm8110_adc_tm>;
+
+			qcom,chgr@1000 {
+				status = "disabled";
+				reg = <0x1000 0x100>;
+				interrupts =	<0x0 0x10 0x0>,
+						<0x0 0x10 0x1>,
+						<0x0 0x10 0x2>,
+						<0x0 0x10 0x3>,
+						<0x0 0x10 0x4>,
+						<0x0 0x10 0x5>,
+						<0x0 0x10 0x6>,
+						<0x0 0x10 0x7>;
+
+				interrupt-names =	"vbat-det-lo",
+							"vbat-det-hi",
+							"chgwdog",
+							"state-change",
+							"trkl-chg-on",
+							"fast-chg-on",
+							"chg-failed",
+							"chg-done";
+			};
+
+			qcom,buck@1100 {
+				status = "disabled";
+				reg = <0x1100 0x100>;
+				interrupts =	<0x0 0x11 0x0>,
+						<0x0 0x11 0x1>,
+						<0x0 0x11 0x2>,
+						<0x0 0x11 0x3>,
+						<0x0 0x11 0x4>,
+						<0x0 0x11 0x5>,
+						<0x0 0x11 0x6>;
+
+				interrupt-names =	"vbat-ov",
+							"vreg-ov",
+							"overtemp",
+							"vchg-loop",
+							"ichg-loop",
+							"ibat-loop",
+							"vdd-loop";
+			};
+
+			pm8110_chg_batif: qcom,bat-if@1200 {
+				status = "disabled";
+				reg = <0x1200 0x100>;
+				interrupts =	<0x0 0x12 0x0>,
+						<0x0 0x12 0x1>,
+						<0x0 0x12 0x2>,
+						<0x0 0x12 0x3>,
+						<0x0 0x12 0x4>;
+
+				interrupt-names =	"batt-pres",
+							"bat-temp-ok",
+							"bat-fet-on",
+							"vcp-on",
+							"psi";
+			};
+
+			qcom,usb-chgpth@1300 {
+				status = "disabled";
+				reg = <0x1300 0x100>;
+				interrupts =	<0 0x13 0x0>,
+						<0 0x13 0x1>,
+						<0x0 0x13 0x2>,
+						<0x0 0x13 0x3>;
+
+				interrupt-names =	"coarse-det-usb",
+							"usbin-valid",
+							"chg-gone",
+							"usb-ocp";
+			};
+
+			qcom,chg-misc@1600 {
+				status = "disabled";
+				reg = <0x1600 0x100>;
+			};
+		};
+
+		pm8110_gpios: gpios {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8110-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+			};
+		};
+
+		pm8110_mpps: mpps {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8110-mpp";
+
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+			};
+
+			mpp@a200 {
+				reg = <0xa200 0x100>;
+				qcom,pin-num = <3>;
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+			};
+		};
+
+		pm8110_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,vadc-poll-eoc;
+			qcom,pmic-revid = <&pm8110_revid>;
+
+			chan@8 {
+				label = "die_temp";
+				reg = <8>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@9 {
+				label = "ref_625mv";
+				reg = <9>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@a {
+				label = "ref_1250v";
+				reg = <0xa>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+		};
+
+		pm8110_iadc: iadc@3600 {
+			compatible = "qcom,qpnp-iadc";
+			reg = <0x3600 0x100>,
+			      <0x12f1 0x1>;
+			reg-names = "iadc-base", "batt-id-trim-cnst-rds";
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x36 0x0>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-bit-resolution = <16>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,iadc-vadc = <&pm8110_vadc>;
+			qcom,iadc-poll-eoc;
+			qcom,pmic-revid = <&pm8110_revid>;
+			qcom,use-default-rds-trim = <1>;
+
+			chan@0 {
+				label = "internal_rsense";
+				reg = <0>;
+				qcom,decimation = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+		};
+
+		pm8110_adc_tm: vadc@3400 {
+			compatible = "qcom,qpnp-adc-tm";
+			reg = <0x3400 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts =	<0x0 0x34 0x0>,
+					<0x0 0x34 0x3>,
+				     <0x0 0x34 0x4>;
+			interrupt-names =	"eoc-int-en-set",
+						"high-thr-en-set",
+						"low-thr-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pm8110_vadc>;
+		};
+
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0>;
+			label = "pm8110_tz";
+			qcom,channel-num = <8>;
+			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pm8110_vadc>;
+		};
+
+		pm8110_bms: qcom,bms {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-bms";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			status = "disabled";
+
+			qcom,r-sense-uohm = <10000>;
+			qcom,v-cutoff-uv = <3400000>;
+			qcom,max-voltage-uv = <4200000>;
+			qcom,r-conn-mohm = <0>;
+			qcom,shutdown-soc-valid-limit = <100>;
+			qcom,adjust-soc-low-threshold = <15>;
+			qcom,ocv-voltage-high-threshold-uv = <3750000>;
+			qcom,ocv-voltage-low-threshold-uv = <3650000>;
+			qcom,low-soc-calculate-soc-threshold = <15>;
+			qcom,low-voltage-calculate-soc-ms = <1000>;
+			qcom,low-soc-calculate-soc-ms = <5000>;
+			qcom,calculate-soc-ms = <20000>;
+			qcom,chg-term-ua = <100000>;
+			qcom,batt-type = <0>;
+			qcom,low-voltage-threshold = <3420000>;
+			qcom,tm-temp-margin = <5000>;
+			qcom,low-ocv-correction-limit-uv = <100>;
+			qcom,high-ocv-correction-limit-uv = <250>;
+			qcom,hold-soc-est = <3>;
+			qcom,bms-vadc = <&pm8110_vadc>;
+			qcom,bms-iadc = <&pm8110_iadc>;
+			qcom,bms-adc_tm = <&pm8110_adc_tm>;
+
+			qcom,batt-pres-status@1208 {
+				reg = <0x1208 0x1>;
+			};
+
+			qcom,bms-iadc@3800 {
+				reg = <0x3800 0x100>;
+			};
+
+			qcom,bms-bms@4000 {
+				reg = <0x4000 0x100>;
+				interrupts =	<0x0 0x40 0x0>,
+						<0x0 0x40 0x1>,
+						<0x0 0x40 0x2>,
+						<0x0 0x40 0x3>,
+						<0x0 0x40 0x4>,
+						<0x0 0x40 0x5>,
+						<0x0 0x40 0x6>,
+						<0x0 0x40 0x7>;
+
+				interrupt-names = "cc_thr",
+						  "ocv_for_r",
+						  "good_ocv",
+						  "charge_begin",
+						  "ocv_thr",
+						  "sw_cc_thr",
+						  "vsense_avg",
+						  "vsense_for_r";
+			};
+		};
+
+		qcom,pm8110_rtc {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pm8110_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+
+			qcom,pm8110_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1>;
+			};
+		};
+
+		qcom,leds@a100 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa100 0x100>;
+			label = "mpp";
+		};
+
+		qcom,leds@a200 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa200 0x100>;
+			label = "mpp";
+		};
+	};
+
+	qcom,pm8110@1 {
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		regulator@1400 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_s1";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x1400 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1400 {
+				reg = <0x1400 0x100>;
+			};
+			qcom,ps@1500 {
+				reg = <0x1500 0x100>;
+			};
+			qcom,freq@1600 {
+				reg = <0x1600 0x100>;
+			};
+		};
+
+		regulator@1700 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_s2";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x1700 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1700 {
+				reg = <0x1700 0x100>;
+			};
+			qcom,ps@1800 {
+				reg = <0x1800 0x100>;
+			};
+			qcom,freq@1900 {
+				reg = <0x1900 0x100>;
+			};
+		};
+
+		regulator@1a00 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_s3";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x1a00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1a00 {
+				reg = <0x1a00 0x100>;
+			};
+			qcom,ps@1b00 {
+				reg = <0x1b00 0x100>;
+			};
+			qcom,freq@1c00 {
+				reg = <0x1c00 0x100>;
+			};
+		};
+
+		regulator@1d00 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_s4";
+			spmi-dev-container;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x1d00 0x300>;
+			status = "disabled";
+
+			qcom,ctl@1d00 {
+				reg = <0x1d00 0x100>;
+			};
+			qcom,ps@1e00 {
+				reg = <0x1e00 0x100>;
+			};
+			qcom,freq@1f00 {
+				reg = <0x1f00 0x100>;
+			};
+		};
+
+		regulator@4000 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l1";
+			reg = <0x4000 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4100 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l2";
+			reg = <0x4100 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4200 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l3";
+			reg = <0x4200 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4300 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l4";
+			reg = <0x4300 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4400 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l5";
+			reg = <0x4400 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4500 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l6";
+			reg = <0x4500 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4600 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l7";
+			reg = <0x4600 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4700 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l8";
+			reg = <0x4700 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4800 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l9";
+			reg = <0x4800 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4900 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l10";
+			reg = <0x4900 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4b00 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l12";
+			reg = <0x4b00 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4d00 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l14";
+			reg = <0x4d00 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4e00 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l15";
+			reg = <0x4e00 0x100>;
+			status = "disabled";
+		};
+
+		regulator@4f00 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l16";
+			reg = <0x4f00 0x100>;
+			status = "disabled";
+		};
+
+		regulator@5000 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l17";
+			reg = <0x5000 0x100>;
+			status = "disabled";
+		};
+
+		regulator@5100 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l18";
+			reg = <0x5100 0x100>;
+			status = "disabled";
+		};
+
+		regulator@5200 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l19";
+			reg = <0x5200 0x100>;
+			status = "disabled";
+		};
+
+		regulator@5300 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l20";
+			reg = <0x5300 0x100>;
+			status = "disabled";
+		};
+
+		regulator@5400 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l21";
+			reg = <0x5400 0x100>;
+			status = "disabled";
+		};
+
+		regulator@5500 {
+			compatible = "qcom,qpnp-regulator";
+			regulator-name = "8110_l22";
+			reg = <0x5500 0x100>;
+			status = "disabled";
+		};
+
+		qcom,vibrator@c000 {
+			compatible = "qcom,qpnp-vibrator";
+			reg = <0xc000 0x100>;
+			label = "vibrator";
+			status = "disabled";
+		};
+
+		pm8110_pwm_1: pwm@bc00 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xbc00 0x100>;
+			reg-names = "qpnp-lpg-channel-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <9>;
+			#pwm-cells = <2>;
+		};
+	};
+};

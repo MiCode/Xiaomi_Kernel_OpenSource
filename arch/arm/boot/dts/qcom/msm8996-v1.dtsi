@@ -1,0 +1,80 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only version-specific property overrides should be placed
+ * inside this file. Common device definitions should be placed inside the
+ * msm8996.dtsi file.
+ */
+
+#include "msm8996.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM 8996 v1";
+	qcom,msm-id = <246 0x10000>;
+};
+
+&l2ccc_0 {
+	qcom,clamped-reset-seq;
+};
+
+&l2ccc_1 {
+	qcom,cbf-clock-seq;
+	qcom,clamped-reset-seq;
+};
+
+&msm_vidc {
+	qcom,firmware-name = "venus-v1";
+};
+
+&vmem {
+	status = "disabled";
+};
+
+/* Ensure that both possible VDD_GFX supplies cannot be disabled. */
+&pmi8994_s2 {
+	regulator-always-on;
+};
+
+&pm8004_s2 {
+	regulator-always-on;
+};
+
+&venus_secure_pixel_cb {
+	status = "disabled";
+};
+
+&venus_secure_non_pixel_cb {
+	iommus = <&venus_smmu 0x104>,
+	       <&venus_smmu 0x10c>,
+	       <&venus_smmu 0x110>,
+	       <&venus_smmu 0x12c>,
+	       <&venus_smmu 0x105>,
+	       <&venus_smmu 0x107>,
+	       <&venus_smmu 0x108>,
+	       <&venus_smmu 0x10d>,
+	       <&venus_smmu 0x10f>,
+	       <&venus_smmu 0x125>,
+	       <&venus_smmu 0x128>,
+	       <&venus_smmu 0x12d>,
+	       <&venus_smmu 0x140>;
+	buffer-types = <0x586>;
+	virtual-addr-pool = <0x1000000 0x4A000000>;
+};
+
+&soc {
+	pcie_smmu {
+		compatible = "qcom,pci-msm";
+		iommus = <&anoc0_smmu 0x0>,
+			<&anoc0_smmu 0x100>;
+	};
+};

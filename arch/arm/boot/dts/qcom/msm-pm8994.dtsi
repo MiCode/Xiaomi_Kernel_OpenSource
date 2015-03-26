@@ -1,0 +1,437 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&spmi_bus {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	interrupt-controller;
+	#interrupt-cells = <3>;
+
+	qcom,pm8994@0 {
+		spmi-slave-container;
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pm8994_revid: qcom,revid@100 {
+			compatible = "qcom,qpnp-revid";
+			reg = <0x100 0x100>;
+		};
+
+		qcom,temp-alarm@2400 {
+			compatible = "qcom,qpnp-temp-alarm";
+			reg = <0x2400 0x100>;
+			interrupts = <0x0 0x24 0x0>;
+			label = "pm8994_tz";
+			qcom,channel-num = <8>;
+			qcom,threshold-set = <0>;
+			qcom,temp_alarm-vadc = <&pm8994_vadc>;
+		};
+
+		qcom,power-on@800 {
+			compatible = "qcom,qpnp-power-on";
+			reg = <0x800 0x100>;
+			interrupts = <0x0 0x8 0x0>,
+				     <0x0 0x8 0x1>,
+				     <0x0 0x8 0x4>,
+				     <0x0 0x8 0x5>;
+			interrupt-names = "kpdpwr", "resin",
+					"resin-bark", "kpdpwr-resin-bark";
+			qcom,pon-dbc-delay = <15625>;
+			qcom,system-reset;
+			qcom,s3-debounce = <32>;
+			qcom,s3-src = "kpdpwr-and-resin";
+
+			qcom,pon_1 {
+				qcom,pon-type = <0>;
+				qcom,pull-up = <1>;
+				linux,code = <116>;
+				qcom,support-reset = <1>;
+				qcom,s1-timer = <10256>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <1>;
+			};
+
+			qcom,pon_2 {
+				qcom,pon-type = <1>;
+				qcom,pull-up = <1>;
+				linux,code = <114>;
+			};
+
+			qcom,pon_3 {
+				qcom,pon-type = <3>;
+				qcom,support-reset = <1>;
+				qcom,pull-up = <1>;
+				qcom,s1-timer = <6720>;
+				qcom,s2-timer = <2000>;
+				qcom,s2-type = <7>;
+				qcom,use-bark;
+			};
+		};
+
+		pm8994_gpios: gpios {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8994-gpio";
+
+			gpio@c000 {
+				reg = <0xc000 0x100>;
+				qcom,pin-num = <1>;
+				status = "disabled";
+			};
+
+			gpio@c100 {
+				reg = <0xc100 0x100>;
+				qcom,pin-num = <2>;
+				status = "disabled";
+			};
+
+			gpio@c200 {
+				reg = <0xc200 0x100>;
+				qcom,pin-num = <3>;
+				status = "disabled";
+			};
+
+			gpio@c300 {
+				reg = <0xc300 0x100>;
+				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+
+			gpio@c400 {
+				reg = <0xc400 0x100>;
+				qcom,pin-num = <5>;
+				status = "disabled";
+			};
+
+			gpio@c500 {
+				reg = <0xc500 0x100>;
+				qcom,pin-num = <6>;
+				status = "disabled";
+			};
+
+			gpio@c600 {
+				reg = <0xc600 0x100>;
+				qcom,pin-num = <7>;
+				status = "disabled";
+			};
+
+			gpio@c700 {
+				reg = <0xc700 0x100>;
+				qcom,pin-num = <8>;
+				status = "disabled";
+			};
+
+			gpio@c800 {
+				reg = <0xc800 0x100>;
+				qcom,pin-num = <9>;
+				status = "disabled";
+			};
+
+			gpio@c900 {
+				reg = <0xc900 0x100>;
+				qcom,pin-num = <10>;
+				status = "disabled";
+			};
+
+			gpio@ca00 {
+				reg = <0xca00 0x100>;
+				qcom,pin-num = <11>;
+				status = "disabled";
+			};
+
+			gpio@cb00 {
+				reg = <0xcb00 0x100>;
+				qcom,pin-num = <12>;
+				status = "disabled";
+			};
+
+			gpio@cc00 {
+				reg = <0xcc00 0x100>;
+				qcom,pin-num = <13>;
+				status = "disabled";
+			};
+
+			gpio@cd00 {
+				reg = <0xcd00 0x100>;
+				qcom,pin-num = <14>;
+				status = "disabled";
+			};
+
+			gpio@ce00 {
+				reg = <0xce00 0x100>;
+				qcom,pin-num = <15>;
+				status = "disabled";
+			};
+
+			gpio@cf00 {
+				reg = <0xcf00 0x100>;
+				qcom,pin-num = <16>;
+				status = "disabled";
+			};
+
+			gpio@d000 {
+				reg = <0xd000 0x100>;
+				qcom,pin-num = <17>;
+				status = "disabled";
+			};
+
+			gpio@d100 {
+				reg = <0xd100 0x100>;
+				qcom,pin-num = <18>;
+				status = "disabled";
+			};
+
+			gpio@d200 {
+				reg = <0xd200 0x100>;
+				qcom,pin-num = <19>;
+				status = "disabled";
+			};
+
+			gpio@d300 {
+				reg = <0xd300 0x100>;
+				qcom,pin-num = <20>;
+				status = "disabled";
+			};
+
+			gpio@d500 {
+				reg = <0xd500 0x100>;
+				qcom,pin-num = <22>;
+				status = "disabled";
+			};
+		};
+
+		pm8994_mpps: mpps {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+			gpio-controller;
+			#gpio-cells = <2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			label = "pm8994-mpp";
+
+			mpp@a000 {
+				reg = <0xa000 0x100>;
+				qcom,pin-num = <1>;
+				status = "disabled";
+			};
+
+			mpp@a100 {
+				reg = <0xa100 0x100>;
+				qcom,pin-num = <2>;
+				status = "disabled";
+			};
+
+			mpp@a200 {
+				reg = <0xa200 0x100>;
+				qcom,pin-num = <3>;
+				status = "disabled";
+			};
+
+			mpp@a300 {
+				reg = <0xa300 0x100>;
+				qcom,pin-num = <4>;
+				status = "disabled";
+			};
+
+			mpp@a400 {
+				reg = <0xa400 0x100>;
+				qcom,pin-num = <5>;
+				status = "disabled";
+			};
+
+			mpp@a500 {
+				reg = <0xa500 0x100>;
+				qcom,pin-num = <6>;
+				status = "disabled";
+			};
+
+			mpp@a600 {
+				reg = <0xa600 0x100>;
+				qcom,pin-num = <7>;
+				status = "disabled";
+			};
+
+			mpp@a700 {
+				reg = <0xa700 0x100>;
+				qcom,pin-num = <8>;
+				status = "disabled";
+			};
+		};
+
+		pm8994_vadc: vadc@3100 {
+			compatible = "qcom,qpnp-vadc";
+			reg = <0x3100 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts = <0x0 0x31 0x0>;
+			interrupt-names = "eoc-int-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,vadc-poll-eoc;
+
+			chan@8 {
+				label = "die_temp";
+				reg = <8>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <3>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@9 {
+				label = "ref_625mv";
+				reg = <9>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+
+			chan@a {
+				label = "ref_1250v";
+				reg = <0xa>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "absolute";
+				qcom,scale-function = <0>;
+				qcom,hw-settle-time = <0>;
+				qcom,fast-avg-setup = <0>;
+			};
+		};
+
+		pm8994_adc_tm: vadc@3400 {
+			compatible = "qcom,qpnp-adc-tm";
+			reg = <0x3400 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			interrupts =	<0x0 0x34 0x0>,
+					<0x0 0x34 0x3>,
+				     <0x0 0x34 0x4>;
+			interrupt-names =	"eoc-int-en-set",
+						"high-thr-en-set",
+						"low-thr-en-set";
+			qcom,adc-bit-resolution = <15>;
+			qcom,adc-vdd-reference = <1800>;
+			qcom,adc_tm-vadc = <&pm8994_vadc>;
+		};
+
+		pm8994_coincell: qcom,coincell@2800 {
+			compatible = "qcom,qpnp-coincell";
+			reg = <0x2800 0x100>;
+		};
+
+		qcom,pm8994_rtc {
+			spmi-dev-container;
+			compatible = "qcom,qpnp-rtc";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			qcom,qpnp-rtc-write = <0>;
+			qcom,qpnp-rtc-alarm-pwrup = <0>;
+
+			qcom,pm8994_rtc_rw@6000 {
+				reg = <0x6000 0x100>;
+			};
+			qcom,pm8994_rtc_alarm@6100 {
+				reg = <0x6100 0x100>;
+				interrupts = <0x0 0x61 0x1>;
+			};
+		};
+	};
+
+	qcom,pm8994@1 {
+		spmi-slave-container;
+		reg = <0x1>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		pwm@b100 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb100 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <0>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <0>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pwm@b200 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb200 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <1>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <1>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pwm@b300 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb300 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <2>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <2>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pwm@b400 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb400 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <3>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <3>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pwm@b500 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb500 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <4>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <4>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+
+		pwm@b600 {
+			compatible = "qcom,qpnp-pwm";
+			reg = <0xb600 0x100>,
+			      <0xb042 0x7e>;
+			reg-names = "qpnp-lpg-channel-base", "qpnp-lpg-lut-base";
+			qcom,channel-id = <5>;
+			qcom,supported-sizes = <6>, <7>, <9>;
+			qcom,ramp-index = <5>;
+			#pwm-cells = <2>;
+			status = "disabled";
+		};
+	};
+};
