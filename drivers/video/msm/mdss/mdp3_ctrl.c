@@ -537,7 +537,7 @@ static int mdp3_ctrl_get_source_format(u32 imgType)
 static int mdp3_ctrl_get_pack_pattern(u32 imgType)
 {
 	int packPattern = MDP3_DMA_OUTPUT_PACK_PATTERN_RGB;
-	if (imgType == MDP_RGBA_8888)
+	if (imgType == MDP_RGBA_8888 || imgType == MDP_RGB_888)
 		packPattern = MDP3_DMA_OUTPUT_PACK_PATTERN_BGR;
 	return packPattern;
 }
