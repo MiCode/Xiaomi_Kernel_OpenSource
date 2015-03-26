@@ -134,6 +134,14 @@ void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata)
 			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
 				robust_lut);
 		}
+
+		for (i = 0; i < mdata->ncursor_pipes; i++) {
+			pipe = &mdata->cursor_pipes[i];
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DANGER_LUT,
+				panic_lut);
+			mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SAFE_LUT,
+				robust_lut);
+		}
 	}
 }
 
