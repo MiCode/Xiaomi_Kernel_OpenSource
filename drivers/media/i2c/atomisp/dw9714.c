@@ -254,7 +254,7 @@ struct dw9714_control dw9714_controls[] = {
 			.minimum = 0,
 			.maximum = DW9714_MAX_FOCUS_POS,
 			.step = 1,
-			.default_value = 0,
+			.default_value = DW9714_MAX_FOCUS_POS,
 			.flags = 0,
 		},
 		.tweak = dw9714_t_focus_abs,
