@@ -541,6 +541,26 @@
 				qcom,id = <1>;
 				qcom,current = <625>;
 			};
+
+			pmi8950_torch0: qcom,torch_0 {
+				label = "torch";
+				qcom,led-name = "led:torch_0";
+				qcom,default-led-trigger =
+						"torch0_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <0>;
+				qcom,current = <120>;
+			};
+
+			pmi8950_torch1: qcom,torch_1 {
+				label = "torch";
+				qcom,led-name = "led:torch_1";
+				qcom,default-led-trigger =
+						"torch1_trigger";
+				qcom,max-current = <200>;
+				qcom,id = <1>;
+				qcom,current = <120>;
+			};
 		};
 
 		qcom,haptic@c000 {
