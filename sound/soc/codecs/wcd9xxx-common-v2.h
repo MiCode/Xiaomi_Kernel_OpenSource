@@ -74,6 +74,57 @@ struct wcd_clsh_cdc_data {
 	int interpolator_modes[WCD_CLSH_STATE_MAX];
 };
 
+struct wcd_mad_audio_header {
+	u32 reserved[3];
+	u32 num_reg_cfg;
+};
+
+struct wcd_mad_microphone_info {
+	uint8_t input_microphone;
+	uint8_t cycle_time;
+	uint8_t settle_time;
+	uint8_t padding;
+} __packed;
+
+struct wcd_mad_micbias_info {
+	uint8_t micbias;
+	uint8_t k_factor;
+	uint8_t external_bypass_capacitor;
+	uint8_t internal_biasing;
+	uint8_t cfilter;
+	uint8_t padding[3];
+} __packed;
+
+struct wcd_mad_rms_audio_beacon_info {
+	uint8_t rms_omit_samples;
+	uint8_t rms_comp_time;
+	uint8_t detection_mechanism;
+	uint8_t rms_diff_threshold;
+	uint8_t rms_threshold_lsb;
+	uint8_t rms_threshold_msb;
+	uint8_t padding[2];
+	uint8_t iir_coefficients[36];
+} __packed;
+
+struct wcd_mad_rms_ultrasound_info {
+	uint8_t rms_comp_time;
+	uint8_t detection_mechanism;
+	uint8_t rms_diff_threshold;
+	uint8_t rms_threshold_lsb;
+	uint8_t rms_threshold_msb;
+	uint8_t padding[3];
+	uint8_t iir_coefficients[36];
+} __packed;
+
+struct wcd_mad_audio_cal {
+	uint32_t version;
+	struct wcd_mad_microphone_info microphone_info;
+	struct wcd_mad_micbias_info micbias_info;
+	struct wcd_mad_rms_audio_beacon_info audio_info;
+	struct wcd_mad_rms_audio_beacon_info beacon_info;
+	struct wcd_mad_rms_ultrasound_info ultrasound_info;
+} __packed;
+
 extern void wcd_clsh_fsm(struct snd_soc_codec *codec,
 		struct wcd_clsh_cdc_data *cdc_clsh_d,
 		u8 clsh_event, u8 req_state,

@@ -71,6 +71,7 @@
 
 #define TASHA_NUM_INTERPOLATORS 9
 #define BYTE_BIT_MASK(nr) (1 << ((nr) % BITS_PER_BYTE))
+#define TASHA_MAD_AUDIO_FIRMWARE_PATH "wcd9335/wcd9335_mad_audio.bin"
 
 static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.minor_version = 1,
@@ -90,6 +91,7 @@ enum {
 	AIF3_PB,
 	AIF3_CAP,
 	AIF_MIX1_PB,
+	AIF4_MAD_TX,
 	NUM_CODEC_DAIS,
 };
 
@@ -2199,6 +2201,13 @@ static const struct soc_enum cf_int8_1_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX8_RX_PATH_CFG2, 0, 4, rx_cf_text);
 
 static const struct snd_soc_dapm_route audio_map[] = {
+
+	/* MAD */
+	{"MAD_SEL MUX", "SPE", "MAD_CPE_INPUT"},
+	{"MAD_SEL MUX", "MSM", "MADINPUT"},
+	{"MADONOFF", "Switch", "MAD_SEL MUX"},
+	{"AIF4 MAD", NULL, "MADONOFF"},
+
 	/* SLIMBUS Connections */
 	{"AIF1 CAP", NULL, "AIF1_CAP Mixer"},
 	{"AIF2 CAP", NULL, "AIF2_CAP Mixer"},
@@ -3230,6 +3239,136 @@ static int tasha_rx_hph_mode_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static const char *const tasha_conn_mad_text[] = {
+	"NOTUSED1", "ADC1", "ADC2", "ADC3", "ADC4", "ADC5", "ADC6",
+	"NOTUSED2", "DMIC0", "DMIC1", "DMIC2", "DMIC3", "DMIC4",
+	"DMIC5", "NOTUSED3", "NOTUSED4"
+};
+
+static const struct soc_enum tasha_conn_mad_enum =
+	SOC_ENUM_SINGLE_EXT(ARRAY_SIZE(tasha_conn_mad_text),
+			    tasha_conn_mad_text);
+
+static int tasha_mad_input_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	u8 tasha_mad_input;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
+	tasha_mad_input = snd_soc_read(codec,
+				WCD9335_SOC_MAD_INP_SEL) & 0x0F;
+	ucontrol->value.integer.value[0] = tasha_mad_input;
+
+	dev_dbg(codec->dev,
+		"%s: tasha_mad_input = %s\n", __func__,
+		tasha_conn_mad_text[tasha_mad_input]);
+	return 0;
+}
+
+static int tasha_mad_input_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	u8 tasha_mad_input;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_card *card = codec->card;
+	char mad_amic_input_widget[6];
+	const char *mad_input_widget;
+	const char *source_widget = NULL;
+	u32 adc, i, mic_bias_found = 0;
+	int ret = 0;
+	char *mad_input;
+
+	tasha_mad_input = ucontrol->value.integer.value[0];
+
+	if (!strcmp(tasha_conn_mad_text[tasha_mad_input], "NOTUSED1") ||
+	    !strcmp(tasha_conn_mad_text[tasha_mad_input], "NOTUSED2") ||
+	    !strcmp(tasha_conn_mad_text[tasha_mad_input], "NOTUSED3") ||
+	    !strcmp(tasha_conn_mad_text[tasha_mad_input], "NOTUSED4")) {
+		dev_err(codec->dev,
+			"%s: Unsupported tasha_mad_input = %s\n",
+			__func__, tasha_conn_mad_text[tasha_mad_input]);
+		return -EINVAL;
+	}
+
+	if (strnstr(tasha_conn_mad_text[tasha_mad_input],
+		    "ADC", sizeof("ADC"))) {
+		mad_input = strpbrk(tasha_conn_mad_text[tasha_mad_input],
+				    "123456");
+		if (!mad_input) {
+			dev_err(codec->dev, "%s: Invalid MAD input %s\n",
+				__func__,
+				tasha_conn_mad_text[tasha_mad_input]);
+			return -EINVAL;
+		}
+		ret = kstrtouint(mad_input, 10, &adc);
+		if ((ret < 0) || (adc > 6)) {
+			dev_err(codec->dev,
+				"%s: Invalid ADC = %s\n", __func__,
+				tasha_conn_mad_text[tasha_mad_input]);
+			ret =  -EINVAL;
+		}
+
+		snprintf(mad_amic_input_widget, 6, "%s%u", "AMIC", adc);
+
+		mad_input_widget = mad_amic_input_widget;
+	} else {
+		/* DMIC type input widget*/
+		mad_input_widget = tasha_conn_mad_text[tasha_mad_input];
+	}
+
+	dev_dbg(codec->dev,
+		"%s: tasha input widget = %s\n", __func__,
+		mad_input_widget);
+
+	for (i = 0; i < card->num_dapm_routes; i++) {
+		if (!strcmp(card->dapm_routes[i].sink, mad_input_widget)) {
+			source_widget = card->dapm_routes[i].source;
+			if (!source_widget) {
+				dev_err(codec->dev,
+					"%s: invalid source widget\n",
+					__func__);
+				return -EINVAL;
+			}
+
+			if (strnstr(source_widget,
+				"MIC BIAS1", sizeof("MIC BIAS1"))) {
+				mic_bias_found = 1;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS2", sizeof("MIC BIAS2"))) {
+				mic_bias_found = 2;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS3", sizeof("MIC BIAS3"))) {
+				mic_bias_found = 3;
+				break;
+			} else if (strnstr(source_widget,
+				"MIC BIAS4", sizeof("MIC BIAS4"))) {
+				mic_bias_found = 4;
+				break;
+			}
+		}
+	}
+
+	if (!mic_bias_found) {
+		dev_err(codec->dev,
+			"%s: mic bias source not found for input = %s\n",
+			__func__, mad_input_widget);
+		return -EINVAL;
+	}
+
+	dev_dbg(codec->dev,
+		"%s: mic_bias found = %d\n", __func__,
+		mic_bias_found);
+
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_INP_SEL,
+			    0x0F, tasha_mad_input);
+	snd_soc_update_bits(codec, WCD9335_ANA_MAD_SETUP,
+			    0x07, mic_bias_found);
+
+	return 0;
+}
+
 static const char * const rx_hph_mode_mux_text[] = {
 	"CLS_H_INVALID", "CLS_H_HIFI", "CLS_H_LP", "CLS_AB"
 };
@@ -3383,6 +3522,9 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 
 	SOC_ENUM_EXT("RX HPH Mode", rx_hph_mode_mux_enum,
 		       tasha_rx_hph_mode_get, tasha_rx_hph_mode_put),
+
+	SOC_ENUM_EXT("MAD Input", tasha_conn_mad_enum,
+		     tasha_mad_input_get, tasha_mad_input_put),
 };
 
 static int tasha_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
@@ -3485,6 +3627,142 @@ static int tasha_config_compander(struct snd_soc_dapm_widget *w,
 
 	return 0;
 }
+
+static int tasha_codec_config_mad(struct snd_soc_codec *codec)
+{
+	int ret, idx;
+	const struct firmware *fw;
+	struct wcd_mad_audio_cal *mad_cal = NULL;
+	const char *filename = TASHA_MAD_AUDIO_FIRMWARE_PATH;
+
+	ret = request_firmware(&fw, filename, codec->dev);
+	if (ret || !fw) {
+		dev_err(codec->dev,
+			"%s: MAD firmware acquire failed, err = %d\n",
+			__func__, ret);
+		return -ENODEV;
+	}
+	if (fw->size < sizeof(*mad_cal)) {
+		dev_err(codec->dev,
+			"%s: Incorrect size %zd for MAD Cal, expected %zd\n",
+			__func__, fw->size, sizeof(*mad_cal));
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	mad_cal = (struct wcd_mad_audio_cal *) (fw->data);
+	if (!mad_cal) {
+		dev_err(codec->dev,
+			"%s: Invalid calibration data\n",
+			__func__);
+		ret = -EINVAL;
+		goto done;
+	}
+
+	snd_soc_write(codec, WCD9335_SOC_MAD_MAIN_CTL_2,
+		      mad_cal->microphone_info.cycle_time);
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_MAIN_CTL_1, 0xFF << 3,
+			    ((uint16_t)mad_cal->microphone_info.settle_time)
+			    << 3);
+
+	/* Audio */
+	snd_soc_write(codec, WCD9335_SOC_MAD_AUDIO_CTL_8,
+		      mad_cal->audio_info.rms_omit_samples);
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_AUDIO_CTL_1,
+			    0x07 << 4, mad_cal->audio_info.rms_comp_time << 4);
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_AUDIO_CTL_2, 0x03 << 2,
+			    mad_cal->audio_info.detection_mechanism << 2);
+	snd_soc_write(codec, WCD9335_SOC_MAD_AUDIO_CTL_7,
+		      mad_cal->audio_info.rms_diff_threshold & 0x3F);
+	snd_soc_write(codec, WCD9335_SOC_MAD_AUDIO_CTL_5,
+		      mad_cal->audio_info.rms_threshold_lsb);
+	snd_soc_write(codec, WCD9335_SOC_MAD_AUDIO_CTL_6,
+		      mad_cal->audio_info.rms_threshold_msb);
+
+	for (idx = 0; idx < ARRAY_SIZE(mad_cal->audio_info.iir_coefficients);
+	     idx++) {
+		snd_soc_update_bits(codec, WCD9335_SOC_MAD_AUDIO_IIR_CTL_PTR,
+				    0x3F, idx);
+		snd_soc_write(codec, WCD9335_SOC_MAD_AUDIO_IIR_CTL_VAL,
+			      mad_cal->audio_info.iir_coefficients[idx]);
+		dev_dbg(codec->dev, "%s:MAD Audio IIR Coef[%d] = 0X%x",
+			__func__, idx,
+			mad_cal->audio_info.iir_coefficients[idx]);
+	}
+
+	/* Beacon */
+	snd_soc_write(codec, WCD9335_SOC_MAD_BEACON_CTL_8,
+		      mad_cal->beacon_info.rms_omit_samples);
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_BEACON_CTL_1,
+			    0x07 << 4, mad_cal->beacon_info.rms_comp_time << 4);
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_BEACON_CTL_2, 0x03 << 2,
+			    mad_cal->beacon_info.detection_mechanism << 2);
+	snd_soc_write(codec, WCD9335_SOC_MAD_BEACON_CTL_7,
+		      mad_cal->beacon_info.rms_diff_threshold & 0x1F);
+	snd_soc_write(codec, WCD9335_SOC_MAD_BEACON_CTL_5,
+		      mad_cal->beacon_info.rms_threshold_lsb);
+	snd_soc_write(codec, WCD9335_SOC_MAD_BEACON_CTL_6,
+		      mad_cal->beacon_info.rms_threshold_msb);
+
+	for (idx = 0; idx < ARRAY_SIZE(mad_cal->beacon_info.iir_coefficients);
+	     idx++) {
+		snd_soc_update_bits(codec, WCD9335_SOC_MAD_BEACON_IIR_CTL_PTR,
+				    0x3F, idx);
+		snd_soc_write(codec, WCD9335_SOC_MAD_BEACON_IIR_CTL_VAL,
+			      mad_cal->beacon_info.iir_coefficients[idx]);
+		dev_dbg(codec->dev, "%s:MAD Beacon IIR Coef[%d] = 0X%x",
+			__func__, idx,
+			mad_cal->beacon_info.iir_coefficients[idx]);
+	}
+
+	/* Ultrasound */
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_ULTR_CTL_1,
+			    0x07 << 4,
+			    mad_cal->ultrasound_info.rms_comp_time << 4);
+	snd_soc_update_bits(codec, WCD9335_SOC_MAD_ULTR_CTL_2, 0x03 << 2,
+			    mad_cal->ultrasound_info.detection_mechanism << 2);
+	snd_soc_write(codec, WCD9335_SOC_MAD_ULTR_CTL_7,
+		      mad_cal->ultrasound_info.rms_diff_threshold & 0x1F);
+	snd_soc_write(codec, WCD9335_SOC_MAD_ULTR_CTL_5,
+		      mad_cal->ultrasound_info.rms_threshold_lsb);
+	snd_soc_write(codec, WCD9335_SOC_MAD_ULTR_CTL_6,
+		      mad_cal->ultrasound_info.rms_threshold_msb);
+
+done:
+	release_firmware(fw);
+
+	return ret;
+}
+
+static int tasha_codec_enable_mad(struct snd_soc_dapm_widget *w,
+	struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+
+	dev_dbg(codec->dev,
+		"%s: event = %d\n", __func__, event);
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/* Undo reset for MAD */
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_MAD_CTL,
+				    0x02, 0x00);
+		ret = tasha_codec_config_mad(codec);
+		if (ret)
+			dev_err(codec->dev,
+				"%s: Failed to config MAD, err = %d\n",
+				__func__, ret);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		/* Reset the MAD block */
+		snd_soc_update_bits(codec, WCD9335_CPE_SS_MAD_CTL,
+				    0x02, 0x02);
+		break;
+	}
+
+	return ret;
+}
+
 
 static const char * const tasha_ear_pa_gain_text[] = {
 	"G_6_DB", "G_4P5_DB", "G_3_DB", "G_1P5_DB",
@@ -3653,6 +3931,10 @@ static const char * const rx_int7_interp_mux_text[] = {
 
 static const char * const rx_int8_interp_mux_text[] = {
 	"ZERO", "RX INT8_1 MIX1",
+};
+
+static const char * const mad_sel_text[] = {
+	"SPE", "MSM"
 };
 
 static const char * const adc_mux_text[] = {
@@ -4145,6 +4427,9 @@ static const struct soc_enum rx_int8_interp_mux_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX8_RX_PATH_CTL, 5, 2,
 			rx_int8_interp_mux_text);
 
+static const struct soc_enum mad_sel_enum =
+	SOC_ENUM_SINGLE(WCD9335_CPE_SS_CFG, 0, 2, mad_sel_text);
+
 static const struct snd_kcontrol_new rx_int0_dem_inp_mux =
 	SOC_DAPM_ENUM_EXT("RX INT0 DEM MUX Mux", rx_int0_dem_inp_mux_enum,
 			  snd_soc_dapm_get_enum_double,
@@ -4498,6 +4783,12 @@ static const struct snd_kcontrol_new rx_int7_interp_mux =
 
 static const struct snd_kcontrol_new rx_int8_interp_mux =
 	SOC_DAPM_ENUM("RX INT8 INTERP Mux", rx_int8_interp_mux_enum);
+
+static const struct snd_kcontrol_new mad_sel_mux =
+	SOC_DAPM_ENUM("MAD_SEL MUX Mux", mad_sel_enum);
+
+static const struct snd_kcontrol_new aif4_mad_switch =
+	SOC_DAPM_SINGLE("Switch", WCD9335_CPE_SS_MAD_CTL, 0, 1, 0);
 
 static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("EAR"),
@@ -5064,6 +5355,19 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_OUTPUT("LINEOUT2"),
 	SND_SOC_DAPM_OUTPUT("LINEOUT3"),
 	SND_SOC_DAPM_OUTPUT("LINEOUT4"),
+
+	/* MAD related widgets */
+	SND_SOC_DAPM_AIF_OUT_E("AIF4 MAD", "AIF4 MAD TX", 0,
+			       SND_SOC_NOPM, 0, 0,
+			       tasha_codec_enable_mad,
+			       SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
+	SND_SOC_DAPM_MUX("MAD_SEL MUX", SND_SOC_NOPM, 0, 0,
+			 &mad_sel_mux),
+	SND_SOC_DAPM_INPUT("MAD_CPE_INPUT"),
+	SND_SOC_DAPM_INPUT("MADINPUT"),
+	SND_SOC_DAPM_SWITCH("MADONOFF", SND_SOC_NOPM, 0, 0,
+			    &aif4_mad_switch),
 };
 
 static int tasha_get_channel_map(struct snd_soc_dai *dai,
@@ -5096,6 +5400,7 @@ static int tasha_get_channel_map(struct snd_soc_dai *dai,
 	case AIF1_CAP:
 	case AIF2_CAP:
 	case AIF3_CAP:
+	case AIF4_MAD_TX:
 		if (!tx_slot || !tx_num) {
 			pr_err("%s: Invalid tx_slot %p or tx_num %p\n",
 				 __func__, tx_slot, tx_num);
@@ -5601,6 +5906,20 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 			.rate_max = 192000,
 			.channels_min = 1,
 			.channels_max = 8,
+		},
+		.ops = &tasha_dai_ops,
+	},
+	{
+		.name = "tasha_mad1",
+		.id = AIF4_MAD_TX,
+		.capture = {
+			.stream_name = "AIF4 MAD TX",
+			.rates = SNDRV_PCM_RATE_16000,
+			.formats = TASHA_FORMATS_S16_S24_LE,
+			.rate_min = 16000,
+			.rate_max = 16000,
+			.channels_min = 1,
+			.channels_max = 1,
 		},
 		.ops = &tasha_dai_ops,
 	},
