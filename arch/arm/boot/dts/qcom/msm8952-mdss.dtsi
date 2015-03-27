@@ -65,7 +65,7 @@
 						      <0x2b4 4 8>;
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2ac 8 12>;
 
-		qcom,mdss-smp-data = <8 8192>;
+		qcom,mdss-smp-data = <12 8192>;
 
 		qcom,mdss-ctl-off = <0x00002000 0x00002200 0x00002400>;
 		qcom,mdss-mixer-intf-off = <0x00045000>;
@@ -105,9 +105,6 @@
 		mdss_fb0: qcom,mdss_fb_primary {
 			cell-index = <0>;
 			compatible = "qcom,mdss-fb";
-			qcom,cont-splash-memory {
-				linux,contiguous-region = <&cont_splash_mem>;
-			};
 		};
 
 		mdss_fb1: qcom,mdss_fb_wfd {
@@ -122,7 +119,7 @@
 		cell-index = <0>;
 		reg = <0x1a98000 0x25c>,
 		      <0x1a98500 0x280>,
-		      <0x1a98780 0x30>,
+		      <0x1a98780 0x30>;
 		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator";
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
