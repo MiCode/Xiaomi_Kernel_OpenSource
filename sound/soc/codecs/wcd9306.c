@@ -39,7 +39,7 @@
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
 
-#define TAPAN_HPH_PA_SETTLE_COMP_ON 3000
+#define TAPAN_HPH_PA_SETTLE_COMP_ON 5000
 #define TAPAN_HPH_PA_SETTLE_COMP_OFF 13000
 
 #define DAPM_MICBIAS2_EXTERNAL_STANDALONE "MIC BIAS2 External Standalone"
@@ -1136,6 +1136,26 @@ static const struct soc_enum class_h_dsm_enum =
 
 static const struct snd_kcontrol_new class_h_dsm_mux =
 	SOC_DAPM_ENUM("CLASS_H_DSM MUX Mux", class_h_dsm_enum);
+
+static const char * const rx1_interpolator_text[] = {
+	"ZERO", "RX1 MIX2"
+};
+
+static const struct soc_enum rx1_interpolator_enum =
+	SOC_ENUM_SINGLE(0, 0, 2, rx1_interpolator_text);
+
+static const struct snd_kcontrol_new rx1_interpolator =
+	SOC_DAPM_ENUM_VIRT("RX1 INTERPOLATOR Mux", rx1_interpolator_enum);
+
+static const char * const rx2_interpolator_text[] = {
+	"ZERO", "RX2 MIX2"
+};
+
+static const struct soc_enum rx2_interpolator_enum =
+	SOC_ENUM_SINGLE(0, 1, 2, rx2_interpolator_text);
+
+static const struct snd_kcontrol_new rx2_interpolator =
+	SOC_DAPM_ENUM_VIRT("RX2 INTERPOLATOR Mux", rx2_interpolator_enum);
 
 static int tapan_hph_impedance_get(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
@@ -3182,8 +3202,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPK PA", NULL, "SPK DAC"},
 	{"SPK DAC", NULL, "VDD_SPKDRV"},
 
-	{"RX1 CHAIN", NULL, "RX1 MIX2"},
-	{"RX2 CHAIN", NULL, "RX2 MIX2"},
+	{"RX1 INTERPOLATOR", NULL, "RX1 MIX2"},
+	{"RX1 CHAIN", NULL, "RX1 INTERPOLATOR"},
+	{"RX2 INTERPOLATOR", NULL, "RX2 MIX2"},
+	{"RX2 CHAIN", NULL, "RX2 INTERPOLATOR"},
 	{"CLASS_H_DSM MUX", "RX_HPHL", "RX1 CHAIN"},
 
 	{"LINEOUT1 DAC", NULL, "RX_BIAS"},
@@ -4531,11 +4553,12 @@ static int tapan_codec_enable_ear_pa(struct snd_soc_dapm_widget *w,
 		usleep_range(5000, 5010);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
+		usleep_range(5000, 5010);
+		snd_soc_update_bits(codec, TAPAN_A_RX_EAR_EN, 0x40, 0x00);
 		wcd9xxx_clsh_fsm(codec, &tapan_p->clsh_d,
 						 WCD9XXX_CLSH_STATE_EAR,
 						 WCD9XXX_CLSH_REQ_DISABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
-		usleep_range(5000, 5010);
 	}
 	return 0;
 }
@@ -4861,15 +4884,21 @@ static const struct snd_soc_dapm_widget tapan_common_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 
-	SND_SOC_DAPM_MIXER_E("RX1 MIX2", TAPAN_A_CDC_CLK_RX_B1_CTL, 0, 0, NULL,
-		0, tapan_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU),
-	SND_SOC_DAPM_MIXER_E("RX2 MIX2", TAPAN_A_CDC_CLK_RX_B1_CTL, 1, 0, NULL,
-		0, tapan_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
-		SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_MIXER("RX1 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX2 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
+
 	SND_SOC_DAPM_MIXER_E("RX3 MIX1", TAPAN_A_CDC_CLK_RX_B1_CTL, 2, 0, NULL,
 		0, tapan_codec_enable_interpolator, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMU),
+
+	SND_SOC_DAPM_VIRT_MUX_E("RX1 INTERPOLATOR",
+		TAPAN_A_CDC_CLK_RX_B1_CTL, 0, 0,
+		&rx1_interpolator, tapan_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
+	SND_SOC_DAPM_VIRT_MUX_E("RX2 INTERPOLATOR",
+		TAPAN_A_CDC_CLK_RX_B1_CTL, 1, 0,
+		&rx2_interpolator, tapan_codec_enable_interpolator,
+		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 
 	SND_SOC_DAPM_MIXER("RX1 CHAIN", TAPAN_A_CDC_RX1_B6_CTL, 5, 0,
 						NULL, 0),
