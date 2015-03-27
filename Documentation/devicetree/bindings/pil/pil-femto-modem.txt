@@ -19,7 +19,7 @@ Optional properties:
 - qcom,q6-freq-row:    Row number from the frequency table.  Must be specified
                        with qcom,q6-freq-col.  Refer to MBA documentation for
                        specifics on frequency table row selection.  Current
-                       row maximum is 6.
+                       row maximum is 5.
 - qcom,q6-freq-col:    The column numbers from the frequency table.  This must
                        be specified if qcom,q6-freq-row is specified.  The
                        number of column values corresponds to the number of

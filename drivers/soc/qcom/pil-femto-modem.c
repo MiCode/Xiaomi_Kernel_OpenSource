@@ -38,7 +38,7 @@
 #define Q6_FREQ_COL_MAX		7
 #define Q6_FREQ_COL_MIN		0
 #define Q6_FREQ_COL_MASK	0x00000007
-#define Q6_FREQ_ROW_MAX		6
+#define Q6_FREQ_ROW_MAX		5
 #define Q6_FREQ_ROW_MIN		0
 #define Q6_FREQ_ROW_MASK	0x0000000F
 #define Q6_FREQ_ROW_SHIFT	28
@@ -533,10 +533,9 @@ static ssize_t show_q6_freq_col(struct kobject *kobj,
 	if (!drv)
 		return -EINVAL;
 
-	for (index = 0; index < MAX_NUM_Q6; index++) {
+	for (index = 0; index < MAX_NUM_Q6; index++)
 		len += snprintf(freq_str + len, 16, "%u ",
 				drv->q6_freq_col[index]);
-	}
 
 	return scnprintf(buf, PAGE_SIZE, "%s\n", freq_str);
 }
