@@ -584,6 +584,12 @@ static int i915_drm_freeze(struct drm_device *dev)
 			return error;
 		}
 
+		if (IS_VALLEYVIEW(dev)) {
+			spin_lock_irq(&dev_priv->irq_lock);
+			valleyview_disable_display_irqs(dev_priv);
+			spin_unlock_irq(&dev_priv->irq_lock);
+		}
+
 		/* Clear any pending reset requests. They should be picked up
 		* after resume when new work is submitted */
 		for (i = 0; i < I915_NUM_RINGS; i++)
@@ -1912,12 +1918,19 @@ static int intel_runtime_suspend(struct device *device)
 
 		return -EAGAIN;
 	}
+
 	/*
 	 * We are safe here against re-faults, since the fault handler takes
 	 * an RPM reference.
 	 */
 	i915_gem_release_all_mmaps(dev_priv);
 	mutex_unlock(&dev->struct_mutex);
+
+	if (IS_VALLEYVIEW(dev)) {
+		spin_lock_irq(&dev_priv->irq_lock);
+		valleyview_disable_display_irqs(dev_priv);
+		spin_unlock_irq(&dev_priv->irq_lock);
+	}
 
 	/*
 	 * rps.work can't be rearmed here, since we get here only after making
