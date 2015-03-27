@@ -735,7 +735,7 @@
 
 	pcie_aux_clk_src {
 		qcom,freq-tbl =
-			<   1000000    1    0    5    96 &xo>,
+			<   1010000    1    0    1    19 &xo>,
 			<>;
 	};
 
@@ -747,9 +747,9 @@
 			<>;
 		qcom,supply-group = <&gcc_vdd_dig>;
 		qcom,clk-fmax =
-			<FMAX_LOW 1000000>,
-			<FMAX_NOM 1000000>,
-			<FMAX_TURBO 1000000>;
+			<FMAX_LOW 1010000>,
+			<FMAX_NOM 1010000>,
+			<FMAX_TURBO 1010000>;
 	};
 
 	pcie_pipe_clk_src {
