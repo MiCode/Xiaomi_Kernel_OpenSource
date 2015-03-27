@@ -697,11 +697,24 @@ static long ftr_ioctl(struct file *file,
 uint8_t rf_interface_id(void)
 {
 	uint8_t tempid = 0;
+	uint8_t variant = 0;
 
 	if (ftr_i2c_read(I2C_B_FIELD, &rfbid, 1) == 0) {
-		pr_info("%s: RF Board Id (i2c) 0x%x\n", __func__, rfbid);
-		rf_eeprom = 1;
-		return rfbid;
+		if (ftr_i2c_read(I2C_V_FIELD, &variant, 1) == 0) {
+			if (rfbid > 0xF) {
+				pr_err("%s:Incorrect Board field\n", __func__);
+				return 0;
+			}
+			rfbid = rfbid << 4;
+			if (variant > 0xF) {
+				pr_err("%s:Incorrect variant\n", __func__);
+				return 0;
+			}
+			rfbid += variant;
+			rf_eeprom = 1;
+			pr_info("%s: I2C Board Id 0x%x\n", __func__, rfbid);
+			return rfbid;
+		}
 	}
 
 	tempid = gpio_get_value(FTR1_LB_NL_SEL);
@@ -961,7 +974,7 @@ static int ftr_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	struct clk *pdm_clk;
 	int ret;
-	u8 version = 0;
+	u8 ftr_ver = 0;
 
 	pr_debug("%s: me = %p, parent = %p\n",
 		__func__, pdev, pdev->dev.parent);
@@ -986,13 +999,9 @@ static int ftr_probe(struct platform_device *pdev)
 		case RF_TYPE_32:
 			glu_regulator_init(pdev);
 			break;
-		case RF_TYPE_48:
-		case RF_TYPE_4:
+		default:
 			mtr_regulator_init(pdev);
 			break;
-		default:
-			pr_warn("%s:Regulators not turned ON %d\n",
-					__func__, rfbid);
 		}
 
 		rfbid = rf_interface_id();
@@ -1041,8 +1050,7 @@ static int ftr_probe(struct platform_device *pdev)
 			clk_enable(pdm_clk);
 		}
 
-		if ((rfbid == RF_TYPE_4) || ((rfbid > RF_TYPE_48) &&
-			(rfbid != 0xff))) {
+		if ((rfbid > RF_TYPE_48) && (rfbid != 0xff)) {
 			fsm9900_mtr_init();
 			pdm_mtr_enable();
 			pr_info("%s: MTR PDM Enabled\n", __func__);
@@ -1056,13 +1064,6 @@ static int ftr_probe(struct platform_device *pdev)
 		} else {
 			pr_warn("%s:PDMs not configured %d\n",
 					__func__, rfbid);
-		}
-
-		/* To work with older RF software */
-		if ((rf_eeprom != 0) &&
-			(ftr_i2c_read(I2C_V_FIELD, &version, 1) == 0)) {
-			rfbid = rfbid << 4;
-			rfbid += version;
 		}
 
 		ret = device_create_file(&pdev->dev, &dev_attr_rfboard_id);
@@ -1101,9 +1102,9 @@ static int ftr_probe(struct platform_device *pdev)
 	}
 
 	if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_48) && (n_dev == 1)) {
-		ssbi_write(pdev->dev.parent, 0xff, &version, 1);
-		ssbi_read(pdev->dev.parent, 0x2, &version, 1);
-		pr_info("%s: FTR1 Version = %02x\n", __func__, version);
+		ssbi_write(pdev->dev.parent, 0xff, &ftr_ver, 1);
+		ssbi_read(pdev->dev.parent, 0x2, &ftr_ver, 1);
+		pr_info("%s: FTR1 Version = %02x\n", __func__, ftr_ver);
 
 		ptr->grfcctrladdr = grfc_base + 0x10; /* grp 4 */
 		ptr->grfcmaskaddr = grfc_base + 0x30;
@@ -1115,9 +1116,9 @@ static int ftr_probe(struct platform_device *pdev)
 		ptr->busselect[RX_BUS] = 0x00001800;
 	} else if ((rfbid > RF_TYPE_16) && (rfbid < RF_TYPE_48) &&
 		(n_dev == 2)) {
-		ssbi_write(pdev->dev.parent, 0xff, &version, 1);
-		ssbi_read(pdev->dev.parent, 0x2, &version, 1);
-		pr_info("%s: FTR2 Version = %02x\n", __func__, version);
+		ssbi_write(pdev->dev.parent, 0xff, &ftr_ver, 1);
+		ssbi_read(pdev->dev.parent, 0x2, &ftr_ver, 1);
+		pr_info("%s: FTR2 Version = %02x\n", __func__, ftr_ver);
 
 		ptr->grfcctrladdr = grfc_base + 0x14; /* grp 5*/
 		ptr->grfcmaskaddr = grfc_base + 0x34;
