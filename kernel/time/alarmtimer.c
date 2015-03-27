@@ -62,8 +62,15 @@ void power_on_alarm_init(void)
 	struct rtc_wkalrm rtc_alarm;
 	struct rtc_time rt;
 	unsigned long alarm_time;
+	struct rtc_device *rtc;
 
-	rtc_read_alarm(rtcdev, &rtc_alarm);
+	rtc = alarmtimer_get_rtcdev();
+
+	/* If we have no rtcdev, just return */
+	if (!rtc)
+		return;
+
+	rtc_read_alarm(rtc, &rtc_alarm);
 	rt = rtc_alarm.time;
 
 	rtc_tm_to_time(&rt, &alarm_time);
