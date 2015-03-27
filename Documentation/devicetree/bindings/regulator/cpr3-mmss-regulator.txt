@@ -1,0 +1,85 @@
+Qualcomm Technologies, Inc. CPR3 Regulator - MMSS Specific Bindings
+
+MMSS CPR3 controllers each support one CPR thread that monitors the voltage of
+the graphics processor (MMSS) supply regulator.  The CPR open-loop voltages are
+stored in hardware fuses for MMSS CPR3 controllers.  However, the CPR target
+quotients must be defined in device tree.
+
+This document describes the MMSS specific CPR3 bindings.
+
+=======================
+Required Node Structure
+=======================
+
+CPR3 regulators must be described in two levels of devices nodes.  The first
+level describes the CPR3 controller.  The second level describes one or more
+hardware threads managed by the controller.
+
+All platform independent cpr3-regulator binding guidelines defined in
+cpr3-regulator.txt also apply to cpr3-hmss-regulator devices.
+
+====================================
+First Level Nodes - CPR3 Controllers
+====================================
+
+MMSS specific properties:
+- compatible
+	Usage:      required
+	Value type: <string>
+	Definition: should be "qcom,cpr3-msm8996-mmss-regulator"
+
+=================================================
+Second Level Nodes - CPR Threads for a Controller
+=================================================
+
+HMSS specific properties:
+- qcom,cpr-fuse-corners
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse corners.  This value must be 4
+		    for MMSS.
+
+- qcom,cpr-fuse-combos
+	Usage:      required
+	Value type: <u32>
+	Definition: Specifies the number of fuse combinations being supported by
+		    the device.  This value is utilized by several other
+		    properties.  Supported values are 1 up to the maximum
+		    possible for a given regulator type.  For MMSS the maximum
+		    supported value is 1.
+
+=======
+Example
+=======
+
+gfx_cpr: cpr3-ctrl@838000 {
+	compatible = "qcom,cpr3-msm8996-mmss-regulator";
+	reg = <0x00838000 0x4000>, <0x00074000 0x1000>;
+	reg-names = "cpr_ctrl", "fuse_base";
+	qcom,cpr-ctrl-name = "gfx";
+
+	vdd-supply = <&pmi8994_s2>;
+
+	gfx_vreg: regulator@0 {
+		qcom,cpr-thread-id = <0>;
+		regulator-name = "gfx_corner";
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <4>;
+
+		qcom,voltage-step = <5000>;
+
+		qcom,cpr-fuse-corners = <4>;
+		qcom,cpr-fuse-combos = <1>;
+		qcom,cpr-corners = <4>;
+
+		qcom,cpr-corner-fmax-map = <1 2 3 4>;
+
+		qcom,cpr-voltage-ceiling = <670000  745000  905000 1015000>;
+		qcom,cpr-voltage-floor =   <545000  625000  755000  855000>;
+
+		qcom,corner-frequencies =
+			<120000000 205000000 360000000 480000000>;
+
+		qcom,allow-voltage-interpolation;
+	};
+};

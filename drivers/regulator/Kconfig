@@ -736,5 +736,113 @@ config REGULATOR_RPM_SMD
 	  be used on systems which contain an RPM which communicates with the
 	  application processor over SMD.
 
+config REGULATOR_QPNP
+	depends on SPMI
+	depends on OF_SPMI
+	tristate "Qualcomm QPNP regulator support"
+	help
+	  This driver supports voltage regulators in Qualcomm PMIC chips which
+	  comply with QPNP.  QPNP is a SPMI based PMIC implementation.  These
+	  chips provide several different varieties of LDO and switching
+	  regulators.  They also provide voltage switches and boost regulators.
+
+config REGULATOR_QPNP_LABIBB
+	depends on SPMI
+	depends on OF_SPMI
+	tristate "Qualcomm Technologies, Inc QPNP LAB/IBB regulator support"
+	help
+	  This driver supports voltage regulators in Qualcomm Technologies, Inc
+	  PMIC chips which comply with QPNP LAB/IBB regulators. QPNP LAB and IBB
+	  are SPMI based PMIC implementation. LAB regulator can be used as a
+	  regular positive boost regulator. IBB can be used as a regular
+	  negative boost regulator. LAB/IBB regulators can also be used
+	  together for LCD or AMOLED.
+
+config REGULATOR_SPM
+	bool "SPM regulator driver"
+	depends on SPMI && OF_SPMI
+	help
+	  Enable support for the SPM regulator driver which is used for
+	  setting voltages of processor supply regulators via the SPM module
+	  found inside of Qualcomm Technologies (QTI) chips.  The SPM regulator
+	  driver can be used on QTI SoCs where the APSS processor cores are
+	  supplied by their own PMIC regulator.
+
+config REGULATOR_CPR
+	bool "RBCPR regulator driver for APC"
+	depends on OF
+	help
+	  Compile in RBCPR (RapidBridge Core Power Reduction) driver to support
+	  corner vote for APC power rail. The driver takes PTE process voltage
+	  suggestions in efuse as initial settings. It converts corner vote
+	  to voltage value before writing to a voltage regulator API, such as
+	  that provided by spm-regulator driver.
+
+config REGULATOR_CPR3
+	bool "CPR3 regulator core support"
+	help
+	  This driver supports Core Power Reduction (CPR) version 3 controllers
+	  which are used by some Qualcomm Technologies, Inc. (QTI) SoCs to
+	  manage important voltage regulators.  CPR3 controllers are capable of
+	  monitoring several ring oscillator sensing loops simultaneously.  The
+	  CPR3 controller informs software when the silicon conditions require
+	  the supply voltage to be increased or decreased.  On certain supply
+	  rails, the CPR3 controller is able to propagate the voltage increase
+	  or decrease requests all the way to the PMIC without software
+	  involvement.
+
+config REGULATOR_CPR3_HMSS
+	bool "CPR3 regulator for HMSS"
+	depends on OF
+	select REGULATOR_CPR3
+	help
+	  This driver supports Qualcomm Technologies, Inc. HMSS application
+	  processor specific features including memory array power mux (APM)
+	  switching, two CPR3 threads which monitor the two HMSS clusters that
+	  are both powered by a shared supply, and hardware closed-loop auto
+	  voltage stepping.  This driver reads both initial voltage and CPR
+	  target quotient values out of hardware fuses.
+
+config REGULATOR_CPR3_MMSS
+	bool "RBCPR3 regulator for MMSS"
+	depends on OF
+	select REGULATOR_CPR3
+	help
+	  This driver supports Qualcomm Technologies, Inc. MMSS graphics
+	  processor specific features.  The MMSS CPR3 controller only uses one
+	  thread to monitor the MMSS voltage requirements.  This driver reads
+	  initial voltage values out of hardware fuses and CPR target quotient
+	  values out of device tree.
+
+config REGULATOR_STUB
+	tristate "Stub Regulator"
+	help
+	  This driver adds stub regulator support. The driver is absent of any
+	  real hardware based implementation. It allows for clients to register
+	  their regulator device constraints and use all of the standard
+	  regulator interfaces. This is useful for bringing up new platforms
+	  when the real hardware based implementation may not be yet available.
+	  Clients can use the real regulator device names with proper
+	  constraint checking while the real driver is being developed.
+
+config REGULATOR_PROXY_CONSUMER
+	bool "Boot time regulator proxy consumer support"
+	help
+	  This driver provides support for boot time regulator proxy requests.
+	  It can enforce a specified voltage range, set a minimum current,
+	  and/or keep a regulator enabled.  It is needed in circumstances where
+	  reducing one or more of these three quantities will cause hardware to
+	  stop working if performed before the driver managing the hardware has
+	  probed.
+
+config REGULATOR_MEM_ACC
+	tristate "QTI Memory accelerator regulator driver"
+	help
+	 Say y here to enable the memory accelerator driver for Qualcomm
+	 Technologies (QTI) chips. The accelerator controls delays applied
+	 for memory accesses.
+	 This driver configures the power-mode (corner) for the memory
+	 accelerator.
+
 endif
 

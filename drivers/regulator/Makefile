@@ -8,6 +8,7 @@ obj-$(CONFIG_OF) += of_regulator.o
 obj-$(CONFIG_REGULATOR_FIXED_VOLTAGE) += fixed.o
 obj-$(CONFIG_REGULATOR_VIRTUAL_CONSUMER) += virtual.o
 obj-$(CONFIG_REGULATOR_USERSPACE_CONSUMER) += userspace-consumer.o
+obj-$(CONFIG_REGULATOR_PROXY_CONSUMER) += proxy-consumer.o
 
 obj-$(CONFIG_REGULATOR_88PM800) += 88pm800.o
 obj-$(CONFIG_REGULATOR_88PM8607) += 88pm8607.o
@@ -96,6 +97,13 @@ obj-$(CONFIG_REGULATOR_WM8350) += wm8350-regulator.o
 obj-$(CONFIG_REGULATOR_WM8400) += wm8400-regulator.o
 obj-$(CONFIG_REGULATOR_WM8994) += wm8994-regulator.o
 obj-$(CONFIG_REGULATOR_RPM_SMD) += rpm-smd-regulator.o
-
+obj-$(CONFIG_REGULATOR_QPNP) += qpnp-regulator.o
+obj-$(CONFIG_REGULATOR_SPM) += spm-regulator.o
+obj-$(CONFIG_REGULATOR_CPR) += cpr-regulator.o
+obj-$(CONFIG_REGULATOR_CPR3) += cpr3-regulator.o cpr3-util.o
+obj-$(CONFIG_REGULATOR_CPR3_HMSS) += cpr3-hmss-regulator.o
+obj-$(CONFIG_REGULATOR_CPR3_MMSS) += cpr3-mmss-regulator.o
+obj-$(CONFIG_REGULATOR_QPNP_LABIBB) += qpnp-labibb-regulator.o
+obj-$(CONFIG_REGULATOR_STUB) += stub-regulator.o
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
