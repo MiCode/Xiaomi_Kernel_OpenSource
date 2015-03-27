@@ -609,6 +609,10 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 
 	MHI_TRB_SET_INFO(TX_TRB_TYPE, pkt_loc, MHI_PKT_TYPE_TRANSFER);
 	MHI_TX_TRB_SET_LEN(TX_TRB_LEN, pkt_loc, buf_len);
+
+	/* Ensure writes to descriptor are flushed */
+	wmb();
+
 	mhi_log(MHI_MSG_VERBOSE,
 		"Channel %d Has buf size of %d and buf addr %lx, flags 0x%x\n",
 				chan, buf_len, (uintptr_t)buf, mhi_flags);
