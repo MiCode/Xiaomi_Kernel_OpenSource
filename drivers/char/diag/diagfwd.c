@@ -425,13 +425,13 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 	if (write_length > 0) {
 		spin_lock_irqsave(&smd_info->in_busy_lock, flags);
 		*in_busy_ptr = 1;
+		spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
 		err = diag_mux_write(DIAG_LOCAL_PROC, write_buf, write_length,
 				     ctxt);
 		if (err) {
 			pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
 					   __func__, err);
 		}
-		spin_unlock_irqrestore(&smd_info->in_busy_lock, flags);
 	}
 
 	return 0;
@@ -1562,15 +1562,6 @@ static int diagfwd_mux_write_done(unsigned char *buf, int len, int buf_ctxt,
 		if (peripheral >= 0 && peripheral < NUM_SMD_DATA_CHANNELS) {
 			smd_info = &driver->smd_data[peripheral];
 			diag_smd_reset_buf(smd_info, num);
-			/*
-			 * Flush any work that is currently pending on the data
-			 * channels. This will ensure that the next read is not
-			 * missed.
-			 */
-			if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-				flush_workqueue(smd_info->wq);
-				wake_up(&driver->smd_wait_q);
-			}
 		} else if (peripheral == APPS_DATA) {
 			diagmem_free(driver, (unsigned char *)buf,
 				     POOL_TYPE_HDLC);
