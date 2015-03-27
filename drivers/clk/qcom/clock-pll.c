@@ -290,13 +290,13 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 	writel_relaxed(mode, PLL_MODE_REG(pll));
 
 	/*
-	 * 5us delay mandated by HPG. However, put in a 50us delay here.
+	 * 5us delay mandated by HPG. However, put in a 200us delay here.
 	 * This is to address possible locking issues with the PLL exhibit
 	 * early "transient" locks about 16us from this point. With this
 	 * higher delay, we avoid running into those transients.
 	 */
 	mb();
-	udelay(50);
+	udelay(200);
 
 	/* Clear test control bits */
 	if (pll->test_ctl_lo_reg && pll->vals.test_ctl_lo_val &&
