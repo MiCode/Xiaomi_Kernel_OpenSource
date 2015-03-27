@@ -1763,6 +1763,23 @@ static int adreno_getproperty(struct kgsl_device *device,
 			status = 0;
 		}
 		break;
+	case KGSL_PROP_UCHE_GMEM_VADDR:
+		{
+			uint64_t gmem_vaddr = 0;
+			if (adreno_is_a5xx(adreno_dev))
+				gmem_vaddr = ADRENO_UCHE_GMEM_BASE;
+			if (sizebytes != sizeof(uint64_t)) {
+				status = -EINVAL;
+				break;
+			}
+			if (copy_to_user(value, &gmem_vaddr,
+					sizeof(uint64_t))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
 	default:
 		status = -EINVAL;
 	}

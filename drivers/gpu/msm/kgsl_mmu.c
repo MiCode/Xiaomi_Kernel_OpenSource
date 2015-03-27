@@ -701,6 +701,7 @@ kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 	int page_align;
 	int align_mask;
 	unsigned long bit, start_bit, bitmap_size;
+	unsigned int lower_bound_bit = KGSL_SVM_LOWER_BOUND >> PAGE_SHIFT;
 
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
 		return _nommu_get_gpuaddr(memdesc);
@@ -745,7 +746,7 @@ kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 		start_bit = KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT;
 		bitmap_size = pagetable->bitmap_size;
 	} else {
-		start_bit = 1;
+		start_bit = lower_bound_bit;
 		bitmap_size = KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT;
 	}
 
@@ -759,9 +760,9 @@ kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
 			if (KGSL_MMU_SECURE_PT == pagetable->name)
 				return -ENOMEM;
 			if (KGSL_MEMFLAGS_USERMEM_MASK & memdesc->flags &&
-				start_bit > 1)
+				start_bit > lower_bound_bit)
 				/* retry with lower region */
-				start_bit = 1;
+				start_bit = lower_bound_bit;
 			else if (align_mask)
 				/* retry with just 4K alignment */
 				align_mask = 0;

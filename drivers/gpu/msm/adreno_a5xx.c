@@ -821,6 +821,15 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	/* Enable flush of shared cachelines for each timer trigger of 10ms */
 	kgsl_regwrite(device, A5XX_UCHE_SVM_CNTL, (1 << 16) | 0x2EE00);
 
+	/* Program the GMEM VA range for the UCHE path */
+	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MIN_LO,
+				ADRENO_UCHE_GMEM_BASE);
+	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MIN_HI, 0x0);
+	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MAX_LO,
+				ADRENO_UCHE_GMEM_BASE +
+				adreno_dev->gmem_size - 1);
+	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MAX_HI, 0x0);
+
 	/*
 	 * Below CP registers are 0x0 by default, program init
 	 * values based on a5xx flavor.

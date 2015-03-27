@@ -499,6 +499,10 @@
 #define A5XX_UCHE_WRITE_THRU_BASE_HI        0xE88
 #define A5XX_UCHE_TRAP_BASE_LO              0xE89
 #define A5XX_UCHE_TRAP_BASE_HI              0xE8A
+#define A5XX_UCHE_GMEM_RANGE_MIN_LO         0xE8B
+#define A5XX_UCHE_GMEM_RANGE_MIN_HI         0xE8C
+#define A5XX_UCHE_GMEM_RANGE_MAX_LO         0xE8D
+#define A5XX_UCHE_GMEM_RANGE_MAX_HI         0xE8E
 #define A5XX_UCHE_INVALIDATE0               0xE95
 #define A5XX_UCHE_PERFCTR_UCHE_SEL_0        0xEA0
 #define A5XX_UCHE_PERFCTR_UCHE_SEL_1        0xEA1

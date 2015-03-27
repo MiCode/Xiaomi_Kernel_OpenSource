@@ -43,7 +43,11 @@
 /* The SVM upper bound is the same as the TASK_SIZE in arm32 */
 #define KGSL_SVM_UPPER_BOUND (0xC0000000 - SZ_16M)
 
-#define KGSL_SVM_LOWER_BOUND PAGE_SIZE
+/*
+ * Defines the lowest possible addresses for SVM map. The VA space below
+ * has been reserved for GMEM and SP Memory regions.
+ */
+#define KGSL_SVM_LOWER_BOUND 0x300000
 
 /* A macro for memory statistics - add the new size to the stat and if
    the statisic is greater then _max, set _max

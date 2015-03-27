@@ -134,6 +134,8 @@
 
 #define ADRENO_IDLE_TIMEOUT (20 * 1000)
 
+#define ADRENO_UCHE_GMEM_BASE	0x100000
+
 enum adreno_gpurev {
 	ADRENO_REV_UNKNOWN = 0,
 	ADRENO_REV_A304 = 304,
