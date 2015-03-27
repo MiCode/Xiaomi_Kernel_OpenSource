@@ -228,9 +228,6 @@ struct atomisp_regs {
 
 struct atomisp_sw_contex {
 	bool file_input;
-	int  invalid_frame;
-	int  invalid_vf_frame;
-
 	int power_state;
 	int running_freq;
 };

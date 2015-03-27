@@ -1030,13 +1030,6 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 		break;
 	case CSS_BUFFER_TYPE_VF_OUTPUT_FRAME:
 	case CSS_BUFFER_TYPE_SEC_VF_OUTPUT_FRAME:
-		if (isp->sw_contex.invalid_vf_frame) {
-			error = true;
-			isp->sw_contex.invalid_vf_frame = 0;
-			dev_dbg(isp->dev, "%s css has marked this vf frame as invalid\n",
-				 __func__);
-		}
-
 		pipe->buffers_in_css--;
 		frame = buffer.css_buffer.data.frame;
 		if (!frame) {
@@ -1087,12 +1080,6 @@ void atomisp_buf_done(struct atomisp_sub_device *asd, int error,
 		break;
 	case CSS_BUFFER_TYPE_OUTPUT_FRAME:
 	case CSS_BUFFER_TYPE_SEC_OUTPUT_FRAME:
-		if (isp->sw_contex.invalid_frame) {
-			error = true;
-			isp->sw_contex.invalid_frame = 0;
-			dev_dbg(isp->dev, "%s css has marked this frame as invalid\n",
-				__func__);
-		}
 		pipe->buffers_in_css--;
 		frame = buffer.css_buffer.data.frame;
 		if (!frame) {
@@ -1353,11 +1340,6 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 	isp->isp_timeout = true;
 	atomisp_reset(isp);
 	isp->isp_timeout = false;
-
-	/* The following frame after an ISP timeout
-	 * may be corrupted, so mark it so. */
-	isp->sw_contex.invalid_frame = 1;
-	isp->sw_contex.invalid_vf_frame = 1;
 
 	if (!isp_timeout) {
 		for (i = 0; i < isp->num_of_streams; i++) {

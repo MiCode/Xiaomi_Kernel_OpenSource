@@ -1815,7 +1815,6 @@ static int atomisp_streamon(struct file *file, void *fh,
 	if (isp->sw_contex.file_input)
 		wdt_duration = ATOMISP_ISP_FILE_TIMEOUT_DURATION;
 
-	isp->sw_contex.invalid_frame = false;
 	asd->params.dis_proj_data_valid = false;
 	asd->latest_preview_exp_id = 0;
 	asd->postview_exp_id = 1;
