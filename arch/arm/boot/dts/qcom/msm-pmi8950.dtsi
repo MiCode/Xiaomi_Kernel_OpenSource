@@ -317,7 +317,6 @@
 			qcom,bcl-lm-threshold-ma = <127>;
 			qcom,bcl-mh-threshold-ma = <405>;
 			qcom,fg-iterm-ma = <100>;
-			qcom,use-otp-profile;
 			qcom,pmic-revid = <&pmi8950_revid>;
 
 			qcom,fg-soc@4000 {
