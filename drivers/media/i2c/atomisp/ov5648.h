@@ -790,6 +790,21 @@ struct ov5648_resolution ov5648_res_still[] = {
 
 struct ov5648_resolution ov5648_res_video[] = {
 	{
+	 .desc = "ov5648_5M_15fps",
+	 .width = 2592,
+	 .height = 1944,
+	 .pix_clk_freq = 84,
+	 .fps = 15,
+	 .used = 0,
+	 .pixels_per_line = 2838,
+	 .lines_per_frame = 1984,
+	 .bin_factor_x = 1,
+	 .bin_factor_y = 1,
+	 .bin_mode = 0,
+	 .skip_frames = 3,
+	 .regs = ov5648_5M_15fps_2lanes,
+	 },
+	{
 	 .desc = "ov5648_1280x960_30fps",
 	 .width = 1280,
 	 .height = 960,
