@@ -2146,17 +2146,38 @@ void post_big_small_task_count_change(const struct cpumask *cpus)
 
 DEFINE_MUTEX(policy_mutex);
 
+#ifdef CONFIG_SCHED_FREQ_INPUT
+static inline int invalid_value_freq_input(unsigned int *data)
+{
+	if (data == &sysctl_sched_migration_fixup)
+		return !(*data == 0 || *data == 1);
+
+	if (data == &sysctl_sched_freq_account_wait_time)
+		return !(*data == 0 || *data == 1);
+
+	return 0;
+}
+#else
+static inline int invalid_value_freq_input(unsigned int *data)
+{
+	return 0;
+}
+#endif
+
 static inline int invalid_value(unsigned int *data)
 {
-	int val = *data;
+	unsigned int val = *data;
 
 	if (data == &sysctl_sched_ravg_hist_size)
 		return (val < 2 || val > RAVG_HIST_SIZE_MAX);
 
 	if (data == &sysctl_sched_window_stats_policy)
-		return (val >= WINDOW_STATS_INVALID_POLICY);
+		return val >= WINDOW_STATS_INVALID_POLICY;
 
-	return 0;
+	if (data == &sysctl_sched_account_wait_time)
+		return !(val == 0 || val == 1);
+
+	return invalid_value_freq_input(data);
 }
 
 /*
@@ -2218,13 +2239,6 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	if (write && (old_val == *data))
 		return 0;
 
-	if ((sysctl_sched_downmigrate_pct > sysctl_sched_upmigrate_pct) ||
-		(sysctl_sched_mostly_idle_load_pct >
-			sysctl_sched_spill_load_pct) || *data > 100) {
-			*data = old_val;
-			return -EINVAL;
-	}
-
 	if (data == (unsigned int *)&sysctl_sched_upmigrate_min_nice)
 		update_min_nice = 1;
 
@@ -2235,8 +2249,10 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 		}
 	} else {
 		/* all tunables other than min_nice are in percentage */
-		if (sysctl_sched_downmigrate_pct >
-		    sysctl_sched_upmigrate_pct || *data > 100) {
+		if ((sysctl_sched_downmigrate_pct >
+		    sysctl_sched_upmigrate_pct) ||
+		    (sysctl_sched_mostly_idle_load_pct >
+		    sysctl_sched_spill_load_pct) || *data > 100) {
 			*data = old_val;
 			return -EINVAL;
 		}
