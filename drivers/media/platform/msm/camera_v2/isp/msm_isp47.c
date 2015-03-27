@@ -1043,7 +1043,7 @@ static void msm_vfe47_cfg_testgen(struct vfe_device *vfe_dev,
 
 	temp = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
 	temp |= (((testgen_cfg->h_blank) & 0x3FFF) << 8);
-	temp |= (1 << 24);
+	temp |= (1 << 22);
 	msm_camera_io_w(temp, vfe_dev->vfe_base + 0x50);
 
 	msm_camera_io_w((1 << 16) | testgen_cfg->v_blank,
@@ -1129,8 +1129,8 @@ static void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	subsample_period = camif_cfg->subsample_cfg.irq_subsample_period;
 	subsample_pattern = camif_cfg->subsample_cfg.irq_subsample_pattern;
 
-	msm_camera_io_w(camif_cfg->lines_per_frame << 16 |
-		camif_cfg->pixels_per_line, vfe_dev->vfe_base + 0x484);
+	msm_camera_io_w((camif_cfg->lines_per_frame - 1) << 16 |
+		(camif_cfg->pixels_per_line - 1), vfe_dev->vfe_base + 0x484);
 
 	msm_camera_io_w(first_pixel << 16 | last_pixel,
 	vfe_dev->vfe_base + 0x488);
