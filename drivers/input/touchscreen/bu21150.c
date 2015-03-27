@@ -1006,6 +1006,7 @@ static int bu21150_fb_resume(struct device *dev)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	int rc;
 	u8 buf[2] = {0x01, 0x00};
+	u8 buf1[2] = {0x00, 0x00};
 
 	if (!ts->suspended)
 		return 0;
@@ -1031,7 +1032,7 @@ static int bu21150_fb_resume(struct device *dev)
 			goto err_pin_enable;
 		}
 	}
-
+	bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
 	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
 
 	ts->suspended = false;
