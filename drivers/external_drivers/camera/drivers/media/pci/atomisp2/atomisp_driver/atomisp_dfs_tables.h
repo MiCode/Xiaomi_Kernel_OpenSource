@@ -311,7 +311,7 @@ static const struct atomisp_freq_scaling_rule dfs_rules_cht[] = {
 		.width = ISP_FREQ_RULE_ANY,
 		.height = ISP_FREQ_RULE_ANY,
 		.fps = ISP_FREQ_RULE_ANY,
-		.isp_freq = ISP_FREQ_356MHZ,
+		.isp_freq = ISP_FREQ_320MHZ,
 		.run_mode = ATOMISP_RUN_MODE_VIDEO,
 	},
 	{
@@ -325,14 +325,14 @@ static const struct atomisp_freq_scaling_rule dfs_rules_cht[] = {
 		.width = ISP_FREQ_RULE_ANY,
 		.height = ISP_FREQ_RULE_ANY,
 		.fps = ISP_FREQ_RULE_ANY,
-		.isp_freq = ISP_FREQ_356MHZ,
+		.isp_freq = ISP_FREQ_320MHZ,
 		.run_mode = ATOMISP_RUN_MODE_CONTINUOUS_CAPTURE,
 	},
 	{
 		.width = ISP_FREQ_RULE_ANY,
 		.height = ISP_FREQ_RULE_ANY,
 		.fps = ISP_FREQ_RULE_ANY,
-		.isp_freq = ISP_FREQ_356MHZ,
+		.isp_freq = ISP_FREQ_320MHZ,
 		.run_mode = ATOMISP_RUN_MODE_PREVIEW,
 	},
 	{
