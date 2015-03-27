@@ -62,7 +62,7 @@
 
 	qcom,csid@1b08000  {
 		cell-index = <0>;
-		compatible = "qcom,csid-v3.1", "qcom,csid";
+		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08000 0x100>;
 		reg-names = "csid";
 		interrupts = <0 51 0>;
@@ -86,7 +86,7 @@
 
 	qcom,csid@1b08400 {
 		cell-index = <1>;
-		compatible = "qcom,csid-v3.1", "qcom,csid";
+		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08400 0x100>;
 		reg-names = "csid";
 		interrupts = <0 52 0>;
@@ -110,7 +110,7 @@
 
 	qcom,csid@1b08800 {
 		cell-index = <2>;
-		compatible = "qcom,csid-v3.1", "qcom,csid";
+		compatible = "qcom,csid-v3.4.1", "qcom,csid";
 		reg = <0x1b08800 0x100>;
 		reg-names = "csid";
 		interrupts = <0 153 0>;
