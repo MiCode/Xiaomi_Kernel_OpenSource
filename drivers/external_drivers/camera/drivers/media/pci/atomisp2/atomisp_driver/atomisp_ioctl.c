@@ -2323,6 +2323,17 @@ static int atomisp_queryctl(struct file *file, void *fh,
 			    struct v4l2_queryctrl *qc)
 {
 	int i, ret = -EINVAL;
+	struct video_device *vdev = video_devdata(file);
+	struct atomisp_sub_device *asd = atomisp_to_video_pipe(vdev)->asd;
+	struct atomisp_device *isp = video_get_drvdata(vdev);
+
+	switch (qc->id) {
+		case V4L2_CID_FOCUS_ABSOLUTE:
+		case V4L2_CID_FOCUS_RELATIVE:
+		case V4L2_CID_FOCUS_STATUS:
+			return v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
+						core, queryctrl, qc);
+	}
 
 	if (qc->id & V4L2_CTRL_FLAG_NEXT_CTRL)
 		return ret;
