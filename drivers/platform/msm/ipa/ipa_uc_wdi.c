@@ -553,7 +553,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		tx->ce_ring_doorbell_pa = in->u.dl.ce_door_bell_pa;
 		tx->num_tx_buffers = in->u.dl.num_tx_buffers;
 		tx->ipa_pipe_number = ipa_ep_idx;
-		if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
 				out->uc_door_bell_pa =
 				 ipa_ctx->ipa_wrapper_base +
 				   IPA_REG_BASE_OFST_v2_5 +
@@ -574,7 +574,7 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 		rx->rx_ring_size = in->u.ul.rdy_ring_size;
 		rx->rx_ring_rp_pa = in->u.ul.rdy_ring_rp_pa;
 		rx->ipa_pipe_number = ipa_ep_idx;
-		if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
 				out->uc_door_bell_pa =
 				 ipa_ctx->ipa_wrapper_base +
 				   IPA_REG_BASE_OFST_v2_5 +
@@ -673,7 +673,8 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t tear;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -732,7 +733,8 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t enable;
 	struct ipa_ep_cfg_holb holb_cfg;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -795,7 +797,8 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -889,7 +892,8 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t resume;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -951,7 +955,8 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t suspend;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -1033,7 +1038,8 @@ int ipa_write_qmapid_wdi_pipe(u32 clnt_hdl, u8 qmap_id)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiRxExtCfgCmdData_t qmap;
 
-	if (clnt_hdl >= IPA_NUM_PIPES || ipa_ctx->ep[clnt_hdl].valid == 0) {
+	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
+	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
 		return -EINVAL;
 	}
@@ -1126,7 +1132,7 @@ int ipa_uc_wdi_get_dbpa(
 	}
 
 	if (IPA_CLIENT_IS_CONS(param->client)) {
-		if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
 				param->uc_door_bell_pa =
 				 ipa_ctx->ipa_wrapper_base +
 					IPA_REG_BASE_OFST_v2_5 +
@@ -1142,7 +1148,7 @@ int ipa_uc_wdi_get_dbpa(
 				    IPA_HW_WDI_TX_MBOX_START_INDEX % 32);
 		}
 	} else {
-		if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+		if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
 				param->uc_door_bell_pa =
 				 ipa_ctx->ipa_wrapper_base +
 					IPA_REG_BASE_OFST_v2_5 +

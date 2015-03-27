@@ -393,40 +393,58 @@ static int qmi_init_modem_send_sync_msg(void)
 
 	memset(&req, 0, sizeof(struct ipa_init_modem_driver_req_msg_v01));
 	memset(&resp, 0, sizeof(struct ipa_init_modem_driver_resp_msg_v01));
+
 	req.platform_type_valid = true;
 	req.platform_type = ipa_wan_platform;
-	req.hdr_tbl_info_valid = true;
+
+	req.hdr_tbl_info_valid = (IPA_MEM_PART(modem_hdr_size) != 0);
 	req.hdr_tbl_info.modem_offset_start =
 		IPA_MEM_PART(modem_hdr_ofst) + smem_restr_bytes;
 	req.hdr_tbl_info.modem_offset_end = IPA_MEM_PART(modem_hdr_ofst) +
 		smem_restr_bytes + IPA_MEM_PART(modem_hdr_size) - 1;
+
 	req.v4_route_tbl_info_valid = true;
 	req.v4_route_tbl_info.route_tbl_start_addr = IPA_MEM_PART(v4_rt_ofst) +
 		smem_restr_bytes;
 	req.v4_route_tbl_info.num_indices = IPA_MEM_PART(v4_modem_rt_index_hi);
 	req.v6_route_tbl_info_valid = true;
+
 	req.v6_route_tbl_info.route_tbl_start_addr = IPA_MEM_PART(v6_rt_ofst) +
 		smem_restr_bytes;
 	req.v6_route_tbl_info.num_indices = IPA_MEM_PART(v6_modem_rt_index_hi);
+
 	req.v4_filter_tbl_start_addr_valid = true;
 	req.v4_filter_tbl_start_addr =
 		IPA_MEM_PART(v4_flt_ofst) + smem_restr_bytes;
+
 	req.v6_filter_tbl_start_addr_valid = true;
 	req.v6_filter_tbl_start_addr =
 		IPA_MEM_PART(v6_flt_ofst) + smem_restr_bytes;
-	req.modem_mem_info_valid = true;
+
+	req.modem_mem_info_valid = (IPA_MEM_PART(modem_size) != 0);
 	req.modem_mem_info.block_start_addr =
 		IPA_MEM_PART(modem_ofst) + smem_restr_bytes;
 	req.modem_mem_info.size = IPA_MEM_PART(modem_size);
+
 	req.ctrl_comm_dest_end_pt_valid = true;
 	req.ctrl_comm_dest_end_pt =
 		ipa_get_ep_mapping(IPA_CLIENT_APPS_WAN_CONS);
-	req.hdr_proc_ctx_tbl_info_valid = true;
+
+	req.hdr_proc_ctx_tbl_info_valid =
+		(IPA_MEM_PART(modem_hdr_proc_ctx_size) != 0);
 	req.hdr_proc_ctx_tbl_info.modem_offset_start =
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) + smem_restr_bytes;
 	req.hdr_proc_ctx_tbl_info.modem_offset_end =
 		IPA_MEM_PART(modem_hdr_proc_ctx_ofst) +
 		IPA_MEM_PART(modem_hdr_proc_ctx_size) + smem_restr_bytes - 1;
+
+	req.zip_tbl_info_valid = (IPA_MEM_PART(modem_comp_decomp_size) != 0);
+	req.zip_tbl_info.modem_offset_start =
+		IPA_MEM_PART(modem_comp_decomp_size) + smem_restr_bytes;
+	req.zip_tbl_info.modem_offset_end =
+		IPA_MEM_PART(modem_comp_decomp_ofst) +
+		IPA_MEM_PART(modem_comp_decomp_size) + smem_restr_bytes - 1;
+
 	if (is_load_uc) {  /* First time boot */
 		req.is_ssr_bootup_valid = false;
 		req.is_ssr_bootup = 0;

@@ -695,7 +695,7 @@ int ipa_uc_mhi_init_channel(int ipa_ep_idx, int channelHandle,
 		return -EFAULT;
 	}
 
-	if (ipa_ep_idx < 0  || ipa_ep_idx >= IPA_NUM_PIPES) {
+	if (ipa_ep_idx < 0  || ipa_ep_idx >= ipa_ctx->ipa_num_pipes) {
 		IPAERR("Invalid ipa_ep_idx.\n");
 		return -EINVAL;
 	}

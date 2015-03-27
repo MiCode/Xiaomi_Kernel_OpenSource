@@ -87,6 +87,7 @@ enum ipa_hw_2_cpu_events {
  * @IPA_HW_DMA_ERROR : Unexpected DMA error
  * @IPA_HW_FATAL_SYSTEM_ERROR : HW has crashed and requires reset.
  * @IPA_HW_INVALID_OPCODE : Invalid opcode sent
+ * @IPA_HW_ZIP_ENGINE_ERROR : ZIP engine error
  */
 enum ipa_hw_errors {
 	IPA_HW_ERROR_NONE              =
@@ -98,7 +99,9 @@ enum ipa_hw_errors {
 	IPA_HW_FATAL_SYSTEM_ERROR      =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 3),
 	IPA_HW_INVALID_OPCODE          =
-		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4)
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 4),
+	IPA_HW_ZIP_ENGINE_ERROR        =
+		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 5)
 };
 
 /**
@@ -290,6 +293,10 @@ static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 	    IPA_HW_2_CPU_EVENT_ERROR) {
 		evt.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->eventParams;
 		IPADBG("uC evt errorType=%u\n", evt.params.errorType);
+		if (evt.params.errorType == IPA_HW_ZIP_ENGINE_ERROR) {
+			IPAERR("IPA has encountered a ZIP engine error\n");
+			ipa_ctx->uc_ctx.uc_zip_error = true;
+		}
 	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 		IPA_HW_2_CPU_EVENT_LOG_INFO) {
 			IPADBG("uC evt log info ofst=0x%x\n",
@@ -429,7 +436,7 @@ int ipa_uc_interface_init(void)
 
 	mutex_init(&ipa_ctx->uc_ctx.uc_lock);
 
-	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_5) {
+	if (ipa_ctx->ipa_hw_type >= IPA_HW_v2_5) {
 		phys_addr = ipa_ctx->ipa_wrapper_base +
 			ipa_ctx->ctrl->ipa_reg_base_ofst +
 			IPA_SRAM_SW_FIRST_v2_5;
