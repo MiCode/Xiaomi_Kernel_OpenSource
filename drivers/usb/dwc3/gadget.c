@@ -2338,7 +2338,8 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	 * In case TUSB121x phy is not used, this watchdog will create no harm
 	 * since we're not expecting it to be ever triggered.
 	 */
-	dwc3_gadget_kick_dog(dwc);
+	if (dwc->ulpi_phy)
+		dwc3_gadget_kick_dog(dwc);
 }
 
 static void dwc3_update_ram_clk_sel(struct dwc3 *dwc, u32 speed)
