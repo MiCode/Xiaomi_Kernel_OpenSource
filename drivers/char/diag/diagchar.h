@@ -49,12 +49,7 @@
 #define MAX_SSID_PER_RANGE	200
 
 #define ALL_PROC		-1
-#define MODEM_DATA		0
-#define LPASS_DATA		1
-#define WCNSS_DATA		2
-#define SENSORS_DATA		3
-#define LAST_PERIPHERAL		SENSORS_DATA
-#define APPS_DATA		(LAST_PERIPHERAL + 1)
+
 #define REMOTE_DATA		4
 
 #define USER_SPACE_DATA		16384
@@ -172,28 +167,31 @@
 #define DEFAULT_LOW_WM_VAL	15
 #define DEFAULT_HIGH_WM_VAL	85
 
-#define NUM_SMD_DATA_CHANNELS 4
-#define NUM_SMD_CONTROL_CHANNELS NUM_SMD_DATA_CHANNELS
-#define NUM_SMD_DCI_CHANNELS 4
-#define NUM_SMD_CMD_CHANNELS 4
-#define NUM_SMD_DCI_CMD_CHANNELS 4
+#define TYPE_DATA		0
+#define TYPE_CNTL		1
+#define TYPE_DCI		2
+#define TYPE_CMD		3
+#define TYPE_DCI_CMD		4
+#define NUM_TYPES		5
+
+#define PERIPHERAL_MODEM	0
+#define PERIPHERAL_LPASS	1
+#define PERIPHERAL_WCNSS	2
+#define PERIPHERAL_SENSORS	3
+#define NUM_PERIPHERALS		4
+#define APPS_DATA		(NUM_PERIPHERALS)
+
 /*
  * Number of stm processors includes all the peripherals and
  * apps.Added 1 below to indicate apps
  */
-#define NUM_STM_PROCESSORS	(NUM_SMD_CONTROL_CHANNELS + 1)
+#define NUM_STM_PROCESSORS	(NUM_PERIPHERALS + 1)
 /*
  * Indicates number of peripherals that can support DCI and Apps
  * processor. This doesn't mean that a peripheral has the
  * feature.
  */
-#define NUM_DCI_PERIPHERALS	(NUM_SMD_DATA_CHANNELS + 1)
-
-#define SMD_DATA_TYPE 0
-#define SMD_CNTL_TYPE 1
-#define SMD_DCI_TYPE 2
-#define SMD_CMD_TYPE 3
-#define SMD_DCI_CMD_TYPE 4
+#define NUM_DCI_PERIPHERALS	(NUM_PERIPHERALS + 1)
 
 #define DIAG_PROC_DCI			1
 #define DIAG_PROC_MEMORY_DEVICE		2
@@ -483,13 +481,13 @@ struct diagchar_dev {
 	spinlock_t rsp_buf_busy_lock;
 	int rsp_buf_ctxt;
 	/* State for diag forwarding */
-	struct diag_smd_info smd_data[NUM_SMD_DATA_CHANNELS];
-	struct diag_smd_info smd_cntl[NUM_SMD_CONTROL_CHANNELS];
-	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
-	struct diag_smd_info smd_cmd[NUM_SMD_CMD_CHANNELS];
-	struct diag_smd_info smd_dci_cmd[NUM_SMD_DCI_CMD_CHANNELS];
-	struct diag_feature_t feature[NUM_SMD_CONTROL_CHANNELS];
-	struct diag_buffering_mode_t buffering_mode[NUM_SMD_CONTROL_CHANNELS];
+	struct diag_smd_info smd_data[NUM_PERIPHERALS];
+	struct diag_smd_info smd_cntl[NUM_PERIPHERALS];
+	struct diag_smd_info smd_dci[NUM_PERIPHERALS];
+	struct diag_smd_info smd_cmd[NUM_PERIPHERALS];
+	struct diag_smd_info smd_dci_cmd[NUM_PERIPHERALS];
+	struct diag_feature_t feature[NUM_PERIPHERALS];
+	struct diag_buffering_mode_t buffering_mode[NUM_PERIPHERALS];
 	struct mutex mode_lock;
 	unsigned char *user_space_data_buf;
 	uint8_t user_space_data_busy;
@@ -544,9 +542,9 @@ struct diagchar_dev {
 	uint16_t event_mask_size;
 	uint16_t last_event_id;
 	/* Variables for Mask Centralization */
-	uint16_t num_event_id[NUM_SMD_CONTROL_CHANNELS];
-	uint32_t num_equip_id[NUM_SMD_CONTROL_CHANNELS];
-	uint32_t max_ssid_count[NUM_SMD_CONTROL_CHANNELS];
+	uint16_t num_event_id[NUM_PERIPHERALS];
+	uint32_t num_equip_id[NUM_PERIPHERALS];
+	uint32_t max_ssid_count[NUM_PERIPHERALS];
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	/* For sending command requests in callback mode */
 	unsigned char *cb_buf;

@@ -65,16 +65,16 @@ static int diag_apps_responds(void)
 	 * Modem channel is up, the feature mask is received from Modem
 	 * and if Modem supports Mask Centralization.
 	 */
-	if (chk_apps_only()) {
-		if (driver->smd_data[MODEM_DATA].ch &&
-			driver->feature[MODEM_DATA].rcvd_feature_mask) {
-			if (driver->feature[MODEM_DATA].mask_centralization)
-				return 1;
-			return 0;
-		}
-		return 1;
+	if (!chk_apps_only())
+		return 0;
+
+	if (driver->smd_data[PERIPHERAL_MODEM].ch &&
+	    driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask) {
+		if (driver->feature[PERIPHERAL_MODEM].mask_centralization)
+			return 1;
+		return 0;
 	}
-	return 0;
+	return 1;
 }
 
 static void diag_send_log_mask_update(struct diag_smd_info *smd_info,
@@ -595,7 +595,7 @@ static int diag_cmd_set_msg_mask(unsigned char *src_buf, int src_len,
 		mask_size = dest_len - write_len;
 	memcpy(dest_buf + write_len, src_buf + header_len, mask_size);
 	write_len += mask_size;
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		diag_send_msg_mask_update(&driver->smd_cntl[i],
 					  req->ssid_first, req->ssid_last);
 	}
@@ -644,7 +644,7 @@ static int diag_cmd_set_all_msg_mask(unsigned char *src_buf, int src_len,
 	memcpy(dest_buf, &rsp, header_len);
 	write_len += header_len;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		diag_send_msg_mask_update(&driver->smd_cntl[i], ALL_SSID,
 					  ALL_SSID);
 	}
@@ -730,7 +730,7 @@ static int diag_cmd_update_event_mask(unsigned char *src_buf, int src_len,
 	memcpy(dest_buf + write_len, event_mask.ptr, mask_len);
 	write_len += mask_len;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_send_event_mask_update(&driver->smd_cntl[i]);
 
 	return write_len;
@@ -768,7 +768,7 @@ static int diag_cmd_toggle_events(unsigned char *src_buf, int src_len,
 	 */
 	header.cmd_code = DIAG_CMD_EVENT_TOGGLE;
 	header.padding = 0;
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_send_event_mask_update(&driver->smd_cntl[i]);
 	memcpy(dest_buf, &header, sizeof(header));
 	write_len += sizeof(header);
@@ -963,7 +963,7 @@ static int diag_cmd_set_log_mask(unsigned char *src_buf, int src_len,
 	memcpy(dest_buf + write_len, src_buf + read_len, payload_len);
 	write_len += payload_len;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_send_log_mask_update(&driver->smd_cntl[i], req->equip_id);
 end:
 	return write_len;
@@ -1002,7 +1002,7 @@ static int diag_cmd_disable_log_mask(unsigned char *src_buf, int src_len,
 	header.status = LOG_STATUS_SUCCESS;
 	memcpy(dest_buf, &header, sizeof(struct diag_log_config_rsp_t));
 	write_len += sizeof(struct diag_log_config_rsp_t);
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_send_log_mask_update(&driver->smd_cntl[i], ALL_EQUIP_ID);
 
 	return write_len;
@@ -1244,7 +1244,7 @@ static int diag_msg_mask_init(void)
 	}
 	driver->msg_mask = &msg_mask;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		driver->max_ssid_count[i] = 0;
 
 	return 0;
@@ -1309,7 +1309,7 @@ static int diag_log_mask_init(void)
 		return err;
 	driver->log_mask = &log_mask;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		driver->num_equip_id[i] = 0;
 
 	return 0;
@@ -1342,7 +1342,7 @@ static int diag_event_mask_init(void)
 	driver->last_event_id = APPS_EVENT_LAST_ID;
 	driver->event_mask = &event_mask;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		driver->num_event_id[i] = 0;
 
 	return 0;
