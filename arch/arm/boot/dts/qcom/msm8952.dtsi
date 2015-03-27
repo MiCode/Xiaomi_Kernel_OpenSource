@@ -113,6 +113,7 @@
 #include "msm8952-coresight.dtsi"
 #include "msm8952-bus.dtsi"
 #include "msm8952-pm.dtsi"
+#include "msm8952-iommu-domains.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -1230,6 +1231,119 @@
 		clock-names = "core_clk_src", "core_clk",
 				"iface_clk", "bus_clk";
 		qcom,ce-opp-freq = <100000000>;
+	};
+
+	qcom,vidc@1d00000 {
+		compatible = "qcom,msm-vidc";
+		reg = <0x01d00000 0xff000>;
+		interrupts = <0 44 0>;
+		venus-supply = <&gdsc_venus>;
+		venus-core0-supply = <&gdsc_venus_core0>;
+		venus-core1-supply = <&gdsc_venus_core1>;
+		clocks = <&clock_gcc clk_gcc_venus0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_core0_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_core1_vcodec0_clk>,
+			<&clock_gcc clk_gcc_venus0_ahb_clk>,
+			<&clock_gcc clk_gcc_venus0_axi_clk>;
+		clock-names = "core_clk", "core0_clk", "core1_clk", "iface_clk", "bus_clk";
+		qcom,clock-configs = <0x1 0x0 0x0 0x0 0x0>;
+		qcom,sw-power-collapse;
+		qcom,load-freq-tbl =
+			<489600 266670000 0x01000414>, /* Encoder turbo (wfd) */
+			<489600 229000000 0xf0fcfff>, /* Legacy decoder 1080p 60fps  */
+			<244800 200000000 0x00030000>, /* VC1 decoder 1080p 30fps  */
+			<244800 180000000 0x01000414>, /* Legacy encoder 1080p 30fps   */
+			<244800 133330000 0xf0ccfff>, /* decoder 1080p 30fps   */
+			<220800 133330000 0xf0fcfff>, /*  decoder 720p 60fps  */
+			<108000 133330000 0xf0fcfff>, /*  decoder 720p 30fps   */
+			<108000 133330000 0x01000414>, /* encoder 720p 30fps   */
+			<72000 133330000 0xf0fcfff>, /* decoder VGA 60fps   */
+			<36000 133330000 0xf0fcfff>, /* decoder VGA 30 fps  */
+			<36000 133330000 0x01000414>; /* encoder VGA 30 fps   */
+		qcom,hfi = "venus";
+		qcom,reg-presets = <0xE0020 0x0aaaaaaa>,
+			<0xE0024 0x0aaaaaaa>,
+			<0x80124 0x00000003>;
+		qcom,qdss-presets = <0x825000 0x1000>,
+			<0x826000 0x1000>,
+			<0x821000 0x1000>,
+			<0x802000 0x1000>,
+			<0x9180000 0x1000>,
+			<0x9181000 0x1000>;
+		qcom,max-hw-load = <489600>; /* 1080p @ 30 + 1080p @ 30 */
+		qcom,enable-idle-indicator;
+		qcom,vidc-iommu-domains {
+			qcom,domain-ns {
+				qcom,vidc-domain-phandle = <&venus_domain_ns>;
+				qcom,vidc-partition-buffer-types = <0x7ff>,
+					<0x800>;
+			};
+			qcom,domain-sec-bs {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_bitstream>;
+				qcom,vidc-partition-buffer-types = <0x241>;
+			};
+			qcom,domain-sec-px {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_pixel>;
+				qcom,vidc-partition-buffer-types = <0x106>;
+			};
+			qcom,domain-sec-np {
+				qcom,vidc-domain-phandle = <&venus_domain_sec_non_pixel>;
+				qcom,vidc-partition-buffer-types = <0x480>;
+			};
+		};
+		qcom,msm-bus-clients {
+			qcom,msm-bus-client@0 {
+				qcom,msm-bus,name = "venc-ddr";
+				qcom,msm-bus,num-cases = <6>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 136806 0>, /* VGA 30 fps */
+					<63 512 350208 0>, /* VGA 60 fps */
+					<63 512 350208 0>, /* 720p 30 fps */
+					<63 512 787456 0>, /* 720p 60 fps */
+					<63 512 787456 0>; /* 1080p 30 fps */
+				qcom,bus-configs = <0x01000414>;
+			};
+			qcom,msm-bus-client@1 {
+				qcom,msm-bus,name = "vdec-core0-ddr";
+				qcom,msm-bus,num-cases = <7>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 118784 0>,
+					<63 512 233472 0>,
+					<63 512 314368 0>,
+					<63 512 618496 0>,
+					<63 512 615424 0>,
+					<63 512 1205248 0>;
+				qcom,bus-configs = <0x030fcfff>;
+			};
+			qcom,msm-bus-client@2 {
+				qcom,msm-bus,name = "vdec-core1-ddr";
+				qcom,msm-bus,num-cases = <7>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 111616 0>,
+					<63 512 221184 0>,
+					<63 512 294912 0>,
+					<63 512 580608 0>,
+					<63 512 571392 0>,
+					<63 512 1117184 0>;
+				qcom,bus-configs = <0x0c000000>;
+			};
+			qcom,msm-bus-client@3 {
+				qcom,msm-bus,name = "venus-arm9-ddr";
+				qcom,msm-bus,num-cases = <2>;
+				qcom,msm-bus,num-paths = <1>;
+				qcom,msm-bus,vectors-KBps =
+					<63 512 0 0>,
+					<63 512 1000 1000>;
+				qcom,bus-configs = <0x00000000>;
+				qcom,bus-passive;
+			};
+		};
 	};
 
 	qcom,pronto@a21b000 {
