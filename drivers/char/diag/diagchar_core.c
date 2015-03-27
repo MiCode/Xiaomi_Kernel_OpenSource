@@ -39,6 +39,7 @@
 #include "diag_usb.h"
 #include "diag_memorydevice.h"
 #include "diag_mux.h"
+#include "diag_ipc_logging.h"
 
 #include <linux/coresight-stm.h>
 #include <linux/kernel.h>
@@ -154,6 +155,11 @@ static struct diag_apps_data_t non_hdlc_data;
 static struct mutex apps_data_mutex;
 
 #define DIAGPKT_MAX_DELAYED_RSP 0xFFFF
+
+#ifdef DIAG_DEBUG
+uint16_t diag_debug_mask;
+void *diag_ipc_log;
+#endif
 
 /*
  * Returns the next delayed rsp id. If wrapping is enabled,
@@ -2601,6 +2607,25 @@ void diag_ws_release()
 	spin_unlock_irqrestore(&driver->ws_lock, flags);
 }
 
+#ifdef DIAG_DEBUG
+static void diag_debug_init(void)
+{
+	diag_ipc_log = ipc_log_context_create(DIAG_IPC_LOG_PAGES, "diag", 0);
+	if (!diag_ipc_log)
+		pr_err("diag: Failed to create IPC logging context\n");
+	/*
+	 * Set the bit mask here as per diag_ipc_logging.h to enable debug logs
+	 * to be logged to IPC
+	 */
+	diag_debug_mask = 0;
+}
+#else
+static void diag_debug_init(void)
+{
+
+}
+#endif
+
 static int diag_real_time_info_init(void)
 {
 	int i;
@@ -2809,6 +2834,7 @@ static int __init diagchar_init(void)
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	diag_ws_init();
 	diag_stats_init();
+	diag_debug_init();
 
 	driver->incoming_pkt.capacity = DIAG_MAX_REQ_SIZE;
 	driver->incoming_pkt.data = kzalloc(DIAG_MAX_REQ_SIZE, GFP_KERNEL);
