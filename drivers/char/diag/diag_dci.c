@@ -826,16 +826,16 @@ static void dci_process_ctrl_status(unsigned char *buf, int len, int token)
 		}
 
 		switch (*(uint8_t *)temp) {
-		case MODEM_DATA:
+		case PERIPHERAL_MODEM:
 			peripheral_mask = DIAG_CON_MPSS;
 			break;
-		case LPASS_DATA:
+		case PERIPHERAL_LPASS:
 			peripheral_mask = DIAG_CON_LPASS;
 			break;
-		case WCNSS_DATA:
+		case PERIPHERAL_WCNSS:
 			peripheral_mask = DIAG_CON_WCNSS;
 			break;
-		case SENSORS_DATA:
+		case PERIPHERAL_SENSORS:
 			peripheral_mask = DIAG_CON_SENSORS;
 			break;
 		default:
@@ -1028,9 +1028,9 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	rsp_buf->data_len += rsp_len;
 	rsp_buf->data_source = data_source;
 
-	if (token == DCI_LOCAL_PROC && data_source < NUM_SMD_DCI_CHANNELS) {
+	if (token == DCI_LOCAL_PROC && data_source < NUM_PERIPHERALS) {
 		if (driver->feature[data_source].separate_cmd_rsp &&
-					data_source < NUM_SMD_DCI_CMD_CHANNELS)
+					data_source < NUM_PERIPHERALS)
 			driver->smd_dci_cmd[data_source].in_busy_1 = 1;
 		else
 			driver->smd_dci[data_source].in_busy_1 = 1;
@@ -1428,7 +1428,7 @@ static int diag_send_dci_pkt(struct diag_cmd_reg_t *entry,
 		return DIAG_DCI_NO_ERROR;
 	}
 
-	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		if (entry->proc == i) {
 			status = 1;
 			break;
@@ -2231,7 +2231,7 @@ int diag_send_dci_event_mask(int token)
 	}
 	memcpy(buf, &header, header_size);
 	memcpy(buf+header_size, event_mask_ptr, DCI_EVENT_MASK_SIZE);
-	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		/*
 		 * Don't send to peripheral if its regular channel
 		 * is down. It may also mean that the peripheral doesn't
@@ -2395,7 +2395,7 @@ int diag_send_dci_log_mask(int token)
 			continue;
 		}
 		write_len = dci_fill_log_mask(buf, log_mask_ptr);
-		for (j = 0; j < NUM_SMD_DCI_CHANNELS && write_len; j++) {
+		for (j = 0; j < NUM_PERIPHERALS && write_len; j++) {
 			/*
 			 * Don't send to peripheral if its regular channel
 			 * is down. It may also mean that the peripheral
@@ -2426,16 +2426,16 @@ static int diag_dci_probe(struct platform_device *pdev)
 
 	switch (pdev->id) {
 	case SMD_APPS_MODEM:
-		index = MODEM_DATA;
+		index = PERIPHERAL_MODEM;
 		break;
 	case SMD_APPS_QDSP:
-		index = LPASS_DATA;
+		index = PERIPHERAL_LPASS;
 		break;
 	case SMD_APPS_WCNSS:
-		index = WCNSS_DATA;
+		index = PERIPHERAL_WCNSS;
 		break;
 	case SMD_APPS_DSPS:
-		index = SENSORS_DATA;
+		index = PERIPHERAL_SENSORS;
 		break;
 	default:
 		pr_debug("diag: In %s Received probe for invalid index %d",
@@ -2464,16 +2464,16 @@ static int diag_dci_cmd_probe(struct platform_device *pdev)
 
 	switch (pdev->id) {
 	case SMD_APPS_MODEM:
-		index = MODEM_DATA;
+		index = PERIPHERAL_MODEM;
 		break;
 	case SMD_APPS_QDSP:
-		index = LPASS_DATA;
+		index = PERIPHERAL_LPASS;
 		break;
 	case SMD_APPS_WCNSS:
-		index = WCNSS_DATA;
+		index = PERIPHERAL_WCNSS;
 		break;
 	case SMD_APPS_DSPS:
-		index = SENSORS_DATA;
+		index = PERIPHERAL_SENSORS;
 		break;
 	default:
 		pr_debug("diag: In %s Received probe for invalid index %d",
@@ -2626,17 +2626,17 @@ int diag_dci_init(void)
 	if (ret)
 		goto err;
 
-	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret = diag_smd_constructor(&driver->smd_dci[i], i,
-							SMD_DCI_TYPE);
+							TYPE_DCI);
 		if (ret)
 			goto err;
 	}
 
 	if (driver->supports_separate_cmdrsp) {
-		for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
+		for (i = 0; i < NUM_PERIPHERALS; i++) {
 			ret = diag_smd_constructor(&driver->smd_dci_cmd[i],
-							i, SMD_DCI_CMD_TYPE);
+							i, TYPE_DCI_CMD);
 			if (ret)
 				goto err;
 		}
@@ -2672,11 +2672,11 @@ int diag_dci_init(void)
 err:
 	pr_err("diag: Could not initialize diag DCI buffers");
 	kfree(driver->apps_dci_buf);
-	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_smd_destructor(&driver->smd_dci[i]);
 
 	if (driver->supports_separate_cmdrsp)
-		for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++)
+		for (i = 0; i < NUM_PERIPHERALS; i++)
 			diag_smd_destructor(&driver->smd_dci_cmd[i]);
 
 	if (driver->diag_dci_wq)
@@ -2692,13 +2692,13 @@ void diag_dci_exit(void)
 {
 	int i;
 
-	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_smd_destructor(&driver->smd_dci[i]);
 
 	platform_driver_unregister(&msm_diag_dci_driver);
 
 	if (driver->supports_separate_cmdrsp) {
-		for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++)
+		for (i = 0; i < NUM_PERIPHERALS; i++)
 			diag_smd_destructor(&driver->smd_dci_cmd[i]);
 
 		platform_driver_unregister(&msm_diag_dci_cmd_driver);
@@ -2822,10 +2822,10 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 
 	mutex_lock(&driver->dci_mutex);
 	if (!(driver->num_dci_client)) {
-		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
+		for (i = 0; i < NUM_PERIPHERALS; i++)
 			driver->smd_dci[i].in_busy_1 = 0;
 		if (driver->supports_separate_cmdrsp)
-			for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++)
+			for (i = 0; i < NUM_PERIPHERALS; i++)
 				driver->smd_dci_cmd[i].in_busy_1 = 0;
 	}
 
@@ -3080,7 +3080,7 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 	struct diag_smd_info *smd_info = NULL;
 	int err = 0;
 
-	if (!buf || (peripheral < 0 || peripheral >= NUM_SMD_DCI_CHANNELS)
+	if (!buf || (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
 		|| !driver->feature[peripheral].rcvd_feature_mask || len < 0) {
 		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
 				__func__, buf, peripheral, len);

@@ -1251,7 +1251,7 @@ static int diag_ioctl_get_real_time(unsigned long ioarg)
 	 * mode, overwrite the value of real time with UNKNOWN_MODE
 	 */
 	if (rt_query.proc == DIAG_LOCAL_PROC) {
-		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+		for (i = 0; i < NUM_PERIPHERALS; i++) {
 			if (!driver->feature[i].peripheral_buffering)
 				continue;
 			switch (driver->buffering_mode[i].mode) {
@@ -1288,7 +1288,7 @@ static int diag_ioctl_peripheral_drain_immediate(unsigned long ioarg)
 	if (copy_from_user(&peripheral, (void __user *)ioarg, sizeof(uint8_t)))
 		return -EFAULT;
 
-	if (peripheral > LAST_PERIPHERAL) {
+	if (peripheral >= NUM_PERIPHERALS) {
 		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
 		       peripheral);
 		return -EINVAL;
@@ -2343,14 +2343,14 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			if (exit_stat == 1)
 				goto exit;
 		}
-		for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++) {
+		for (i = 0; i < NUM_PERIPHERALS; i++) {
 			if (driver->smd_dci[i].ch) {
 				queue_work(driver->diag_dci_wq,
 				&(driver->smd_dci[i].diag_read_smd_work));
 			}
 		}
 		if (driver->supports_separate_cmdrsp) {
-			for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
+			for (i = 0; i < NUM_PERIPHERALS; i++) {
 				if (!driver->feature[i].separate_cmd_rsp)
 					continue;
 				if (driver->smd_dci_cmd[i].ch) {
@@ -2846,8 +2846,8 @@ static int __init diagchar_init(void)
 	 * peripheral) + data from SMD command channels
 	 */
 	diagmem_setsize(POOL_TYPE_MUX_APPS, itemsize_usb_apps,
-			poolsize_usb_apps + 1 + (NUM_SMD_DATA_CHANNELS * 2) +
-			NUM_SMD_CMD_CHANNELS);
+			poolsize_usb_apps + 1 + (NUM_PERIPHERALS * 2) +
+			NUM_PERIPHERALS);
 	driver->num_clients = max_clients;
 	driver->logging_mode = USB_MODE;
 	for (i = 0; i < DIAG_NUM_PROC; i++) {
@@ -2858,10 +2858,10 @@ static int __init diagchar_init(void)
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
-	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, SMD_CMD_TYPE, 1);
-	hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, SMD_DATA_TYPE, 1);
+	driver->rsp_buf_ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_CMD, 1);
+	hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_DATA, 1);
 	hdlc_data.len = 0;
-	non_hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, SMD_DATA_TYPE, 1);
+	non_hdlc_data.ctxt = SET_BUF_CTXT(APPS_DATA, TYPE_DATA, 1);
 	non_hdlc_data.len = 0;
 	mutex_init(&driver->hdlc_disable_mutex);
 	mutex_init(&driver->diagchar_mutex);

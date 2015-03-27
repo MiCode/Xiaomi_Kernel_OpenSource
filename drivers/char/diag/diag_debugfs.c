@@ -181,26 +181,26 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		"logging_mode: %d\n"
 		"rsp_in_busy: %d\n"
 		"hdlc disabled: %d\n",
-		driver->smd_data[MODEM_DATA].ch,
-		driver->smd_data[LPASS_DATA].ch,
-		driver->smd_data[WCNSS_DATA].ch,
-		driver->smd_data[SENSORS_DATA].ch,
-		driver->smd_dci[MODEM_DATA].ch,
-		driver->smd_dci[LPASS_DATA].ch,
-		driver->smd_dci[WCNSS_DATA].ch,
-		driver->smd_dci[SENSORS_DATA].ch,
-		driver->smd_cntl[MODEM_DATA].ch,
-		driver->smd_cntl[LPASS_DATA].ch,
-		driver->smd_cntl[WCNSS_DATA].ch,
-		driver->smd_cntl[SENSORS_DATA].ch,
-		driver->smd_cmd[MODEM_DATA].ch,
-		driver->smd_cmd[LPASS_DATA].ch,
-		driver->smd_cmd[WCNSS_DATA].ch,
-		driver->smd_cmd[SENSORS_DATA].ch,
-		driver->smd_dci_cmd[MODEM_DATA].ch,
-		driver->smd_dci_cmd[LPASS_DATA].ch,
-		driver->smd_dci_cmd[WCNSS_DATA].ch,
-		driver->smd_dci_cmd[SENSORS_DATA].ch,
+		driver->smd_data[PERIPHERAL_MODEM].ch,
+		driver->smd_data[PERIPHERAL_LPASS].ch,
+		driver->smd_data[PERIPHERAL_WCNSS].ch,
+		driver->smd_data[PERIPHERAL_SENSORS].ch,
+		driver->smd_dci[PERIPHERAL_MODEM].ch,
+		driver->smd_dci[PERIPHERAL_LPASS].ch,
+		driver->smd_dci[PERIPHERAL_WCNSS].ch,
+		driver->smd_dci[PERIPHERAL_SENSORS].ch,
+		driver->smd_cntl[PERIPHERAL_MODEM].ch,
+		driver->smd_cntl[PERIPHERAL_LPASS].ch,
+		driver->smd_cntl[PERIPHERAL_WCNSS].ch,
+		driver->smd_cntl[PERIPHERAL_SENSORS].ch,
+		driver->smd_cmd[PERIPHERAL_MODEM].ch,
+		driver->smd_cmd[PERIPHERAL_LPASS].ch,
+		driver->smd_cmd[PERIPHERAL_WCNSS].ch,
+		driver->smd_cmd[PERIPHERAL_SENSORS].ch,
+		driver->smd_dci_cmd[PERIPHERAL_MODEM].ch,
+		driver->smd_dci_cmd[PERIPHERAL_LPASS].ch,
+		driver->smd_dci_cmd[PERIPHERAL_WCNSS].ch,
+		driver->smd_dci_cmd[PERIPHERAL_SENSORS].ch,
 		chk_config_get_id(),
 		chk_apps_only(),
 		chk_apps_master(),
@@ -208,105 +208,135 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 		driver->polling_reg_flag,
 		driver->use_device_tree,
 		driver->supports_separate_cmdrsp,
-		driver->feature[MODEM_DATA].separate_cmd_rsp,
-		driver->feature[LPASS_DATA].separate_cmd_rsp,
-		driver->feature[WCNSS_DATA].separate_cmd_rsp,
-		driver->feature[SENSORS_DATA].separate_cmd_rsp,
-		driver->smd_data[MODEM_DATA].in_busy_1,
-		driver->smd_data[MODEM_DATA].in_busy_2,
-		driver->smd_data[LPASS_DATA].in_busy_1,
-		driver->smd_data[LPASS_DATA].in_busy_2,
-		driver->smd_data[WCNSS_DATA].in_busy_1,
-		driver->smd_data[WCNSS_DATA].in_busy_2,
-		driver->smd_data[SENSORS_DATA].in_busy_1,
-		driver->smd_data[SENSORS_DATA].in_busy_2,
-		driver->smd_dci[MODEM_DATA].in_busy_1,
-		driver->smd_dci[LPASS_DATA].in_busy_1,
-		driver->smd_dci[WCNSS_DATA].in_busy_1,
-		driver->smd_dci[SENSORS_DATA].in_busy_1,
-		driver->smd_cmd[MODEM_DATA].in_busy_1,
-		driver->smd_cmd[MODEM_DATA].in_busy_2,
-		driver->smd_cmd[LPASS_DATA].in_busy_1,
-		driver->smd_cmd[LPASS_DATA].in_busy_2,
-		driver->smd_cmd[WCNSS_DATA].in_busy_1,
-		driver->smd_cmd[WCNSS_DATA].in_busy_2,
-		driver->smd_cmd[SENSORS_DATA].in_busy_1,
-		driver->smd_cmd[SENSORS_DATA].in_busy_2,
-		driver->smd_dci_cmd[MODEM_DATA].in_busy_1,
-		driver->smd_dci_cmd[LPASS_DATA].in_busy_1,
-		driver->smd_dci_cmd[WCNSS_DATA].in_busy_1,
-		driver->smd_dci_cmd[SENSORS_DATA].in_busy_1,
-		driver->feature[MODEM_DATA].stm_support,
-		driver->feature[LPASS_DATA].stm_support,
-		driver->feature[WCNSS_DATA].stm_support,
-		driver->feature[SENSORS_DATA].stm_support,
-		driver->stm_state[MODEM_DATA],
-		driver->stm_state[LPASS_DATA],
-		driver->stm_state[WCNSS_DATA],
-		driver->stm_state[SENSORS_DATA],
+		driver->feature[PERIPHERAL_MODEM].separate_cmd_rsp,
+		driver->feature[PERIPHERAL_LPASS].separate_cmd_rsp,
+		driver->feature[PERIPHERAL_WCNSS].separate_cmd_rsp,
+		driver->feature[PERIPHERAL_SENSORS].separate_cmd_rsp,
+		driver->smd_data[PERIPHERAL_MODEM].in_busy_1,
+		driver->smd_data[PERIPHERAL_MODEM].in_busy_2,
+		driver->smd_data[PERIPHERAL_LPASS].in_busy_1,
+		driver->smd_data[PERIPHERAL_LPASS].in_busy_2,
+		driver->smd_data[PERIPHERAL_WCNSS].in_busy_1,
+		driver->smd_data[PERIPHERAL_WCNSS].in_busy_2,
+		driver->smd_data[PERIPHERAL_SENSORS].in_busy_1,
+		driver->smd_data[PERIPHERAL_SENSORS].in_busy_2,
+		driver->smd_dci[PERIPHERAL_MODEM].in_busy_1,
+		driver->smd_dci[PERIPHERAL_LPASS].in_busy_1,
+		driver->smd_dci[PERIPHERAL_WCNSS].in_busy_1,
+		driver->smd_dci[PERIPHERAL_SENSORS].in_busy_1,
+		driver->smd_cmd[PERIPHERAL_MODEM].in_busy_1,
+		driver->smd_cmd[PERIPHERAL_MODEM].in_busy_2,
+		driver->smd_cmd[PERIPHERAL_LPASS].in_busy_1,
+		driver->smd_cmd[PERIPHERAL_LPASS].in_busy_2,
+		driver->smd_cmd[PERIPHERAL_WCNSS].in_busy_1,
+		driver->smd_cmd[PERIPHERAL_WCNSS].in_busy_2,
+		driver->smd_cmd[PERIPHERAL_SENSORS].in_busy_1,
+		driver->smd_cmd[PERIPHERAL_SENSORS].in_busy_2,
+		driver->smd_dci_cmd[PERIPHERAL_MODEM].in_busy_1,
+		driver->smd_dci_cmd[PERIPHERAL_LPASS].in_busy_1,
+		driver->smd_dci_cmd[PERIPHERAL_WCNSS].in_busy_1,
+		driver->smd_dci_cmd[PERIPHERAL_SENSORS].in_busy_1,
+		driver->feature[PERIPHERAL_MODEM].stm_support,
+		driver->feature[PERIPHERAL_LPASS].stm_support,
+		driver->feature[PERIPHERAL_WCNSS].stm_support,
+		driver->feature[PERIPHERAL_SENSORS].stm_support,
+		driver->stm_state[PERIPHERAL_MODEM],
+		driver->stm_state[PERIPHERAL_LPASS],
+		driver->stm_state[PERIPHERAL_WCNSS],
+		driver->stm_state[PERIPHERAL_SENSORS],
 		driver->stm_state[APPS_DATA],
-		driver->stm_state_requested[MODEM_DATA],
-		driver->stm_state_requested[LPASS_DATA],
-		driver->stm_state_requested[WCNSS_DATA],
-		driver->stm_state_requested[SENSORS_DATA],
+		driver->stm_state_requested[PERIPHERAL_MODEM],
+		driver->stm_state_requested[PERIPHERAL_LPASS],
+		driver->stm_state_requested[PERIPHERAL_WCNSS],
+		driver->stm_state_requested[PERIPHERAL_SENSORS],
 		driver->stm_state_requested[APPS_DATA],
 		driver->supports_apps_hdlc_encoding,
-		driver->feature[MODEM_DATA].encode_hdlc,
-		driver->feature[LPASS_DATA].encode_hdlc,
-		driver->feature[WCNSS_DATA].encode_hdlc,
-		driver->feature[SENSORS_DATA].encode_hdlc,
-		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_2_size,
-		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_2_size,
-		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_2_size,
-		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_2_size,
-		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_data[MODEM_DATA].buf_in_2_raw_size,
-		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_data[LPASS_DATA].buf_in_2_raw_size,
-		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_data[WCNSS_DATA].buf_in_2_raw_size,
-		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_data[SENSORS_DATA].buf_in_2_raw_size,
-		(unsigned int)driver->smd_cmd[MODEM_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_cmd[MODEM_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_cmd[LPASS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_cmd[LPASS_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_cmd[WCNSS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_cmd[WCNSS_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_cmd[SENSORS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_cmd[SENSORS_DATA].buf_in_1_raw_size,
-		(unsigned int)driver->smd_cntl[MODEM_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_cntl[LPASS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_cntl[WCNSS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_cntl[SENSORS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci[MODEM_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci_cmd[MODEM_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci[LPASS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci_cmd[LPASS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci[WCNSS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci_cmd[WCNSS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci[SENSORS_DATA].buf_in_1_size,
-		(unsigned int)driver->smd_dci_cmd[SENSORS_DATA].buf_in_1_size,
-		driver->feature[MODEM_DATA].rcvd_feature_mask,
-		driver->feature[LPASS_DATA].rcvd_feature_mask,
-		driver->feature[WCNSS_DATA].rcvd_feature_mask,
-		driver->feature[SENSORS_DATA].rcvd_feature_mask,
-		driver->feature[MODEM_DATA].mask_centralization,
-		driver->feature[LPASS_DATA].mask_centralization,
-		driver->feature[WCNSS_DATA].mask_centralization,
-		driver->feature[SENSORS_DATA].mask_centralization,
-		driver->feature[MODEM_DATA].peripheral_buffering,
-		driver->feature[LPASS_DATA].peripheral_buffering,
-		driver->feature[WCNSS_DATA].peripheral_buffering,
-		driver->feature[SENSORS_DATA].peripheral_buffering,
-		driver->buffering_mode[MODEM_DATA].mode,
-		driver->buffering_mode[LPASS_DATA].mode,
-		driver->buffering_mode[WCNSS_DATA].mode,
-		driver->buffering_mode[SENSORS_DATA].mode,
+		driver->feature[PERIPHERAL_MODEM].encode_hdlc,
+		driver->feature[PERIPHERAL_LPASS].encode_hdlc,
+		driver->feature[PERIPHERAL_WCNSS].encode_hdlc,
+		driver->feature[PERIPHERAL_SENSORS].encode_hdlc,
+		(unsigned int)driver->smd_data[PERIPHERAL_MODEM].buf_in_1_size,
+		(unsigned int)driver->smd_data[PERIPHERAL_MODEM].buf_in_2_size,
+		(unsigned int)driver->smd_data[PERIPHERAL_LPASS].buf_in_1_size,
+		(unsigned int)driver->smd_data[PERIPHERAL_LPASS].buf_in_2_size,
+		(unsigned int)driver->smd_data[PERIPHERAL_WCNSS].buf_in_1_size,
+		(unsigned int)driver->smd_data[PERIPHERAL_WCNSS].buf_in_2_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_SENSORS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_SENSORS].buf_in_2_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_MODEM].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_MODEM].buf_in_2_raw_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_LPASS].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_LPASS].buf_in_2_raw_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_WCNSS].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_WCNSS].buf_in_2_raw_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_SENSORS].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_data[PERIPHERAL_SENSORS].buf_in_2_raw_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_MODEM].buf_in_1_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_MODEM].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_LPASS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_LPASS].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_WCNSS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_WCNSS].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_SENSORS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_cmd[PERIPHERAL_SENSORS].buf_in_1_raw_size,
+		(unsigned int)
+		driver->smd_cntl[PERIPHERAL_MODEM].buf_in_1_size,
+		(unsigned int)
+		driver->smd_cntl[PERIPHERAL_LPASS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_cntl[PERIPHERAL_WCNSS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_cntl[PERIPHERAL_SENSORS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci[PERIPHERAL_MODEM].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci_cmd[PERIPHERAL_MODEM].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci[PERIPHERAL_LPASS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci_cmd[PERIPHERAL_LPASS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci[PERIPHERAL_WCNSS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci_cmd[PERIPHERAL_WCNSS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci[PERIPHERAL_SENSORS].buf_in_1_size,
+		(unsigned int)
+		driver->smd_dci_cmd[PERIPHERAL_SENSORS].buf_in_1_size,
+		driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask,
+		driver->feature[PERIPHERAL_LPASS].rcvd_feature_mask,
+		driver->feature[PERIPHERAL_WCNSS].rcvd_feature_mask,
+		driver->feature[PERIPHERAL_SENSORS].rcvd_feature_mask,
+		driver->feature[PERIPHERAL_MODEM].mask_centralization,
+		driver->feature[PERIPHERAL_LPASS].mask_centralization,
+		driver->feature[PERIPHERAL_WCNSS].mask_centralization,
+		driver->feature[PERIPHERAL_SENSORS].mask_centralization,
+		driver->feature[PERIPHERAL_MODEM].peripheral_buffering,
+		driver->feature[PERIPHERAL_LPASS].peripheral_buffering,
+		driver->feature[PERIPHERAL_WCNSS].peripheral_buffering,
+		driver->feature[PERIPHERAL_SENSORS].peripheral_buffering,
+		driver->buffering_mode[PERIPHERAL_MODEM].mode,
+		driver->buffering_mode[PERIPHERAL_LPASS].mode,
+		driver->buffering_mode[PERIPHERAL_WCNSS].mode,
+		driver->buffering_mode[PERIPHERAL_SENSORS].mode,
 		driver->logging_mode,
 		driver->rsp_buf_busy,
 		driver->hdlc_disabled);
@@ -497,53 +527,53 @@ static ssize_t diag_dbgfs_read_workpending(struct file *file,
 		"WCNSS dci diag_notify_update_smd_work: %d\n"
 		"SENSORS dci diag_notify_update_smd_work: %d\n",
 		work_pending(&(driver->diag_drain_work)),
-		work_pending(&(driver->smd_data[MODEM_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_MODEM].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[LPASS_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_LPASS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[WCNSS_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_WCNSS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[SENSORS_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_SENSORS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[MODEM_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_MODEM].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[LPASS_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_LPASS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[WCNSS_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_WCNSS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[SENSORS_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_SENSORS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[MODEM_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_MODEM].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[LPASS_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_LPASS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[WCNSS_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_WCNSS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[SENSORS_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_SENSORS].
 							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[MODEM_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_MODEM].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[LPASS_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_LPASS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[WCNSS_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_WCNSS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[SENSORS_DATA].
+		work_pending(&(driver->smd_data[PERIPHERAL_SENSORS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[MODEM_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_MODEM].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[LPASS_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_LPASS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[WCNSS_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_WCNSS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[SENSORS_DATA].
+		work_pending(&(driver->smd_cntl[PERIPHERAL_SENSORS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[MODEM_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_MODEM].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[LPASS_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_LPASS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[WCNSS_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_WCNSS].
 						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[SENSORS_DATA].
+		work_pending(&(driver->smd_dci[PERIPHERAL_SENSORS].
 						diag_notify_update_smd_work)));
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 
@@ -584,8 +614,9 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 	if (diag_dbgfs_table_index == 0) {
 		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
 					  "Client ids: Modem: %d, LPASS: %d, WCNSS: %d, SLPI: %d, APPS: %d\n",
-					  MODEM_DATA, LPASS_DATA, WCNSS_DATA,
-					  SENSORS_DATA, APPS_DATA);
+					  PERIPHERAL_MODEM, PERIPHERAL_LPASS,
+					  PERIPHERAL_WCNSS, PERIPHERAL_SENSORS,
+					  APPS_DATA);
 		bytes_in_buffer += bytes_written;
 		bytes_remaining -= bytes_written;
 	}
