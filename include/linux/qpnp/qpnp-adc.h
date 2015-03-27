@@ -1859,11 +1859,11 @@ static inline int32_t qpnp_vadc_channel_monitor(struct qpnp_vadc_chip *chip,
 { return -ENXIO; }
 static inline int32_t qpnp_vadc_end_channel_monitor(struct qpnp_vadc_chip *chip)
 { return -ENXIO; }
-static int32_t qpnp_vadc_calib_vref(struct qpnp_vadc_chip *vadc,
+static inline int32_t qpnp_vadc_calib_vref(struct qpnp_vadc_chip *vadc,
 					enum qpnp_adc_calib_type calib_type,
 					int *calib_data)
 { return -ENXIO; }
-static int32_t qpnp_vadc_calib_gnd(struct qpnp_vadc_chip *vadc,
+static inline int32_t qpnp_vadc_calib_gnd(struct qpnp_vadc_chip *vadc,
 					enum qpnp_adc_calib_type calib_type,
 					int *calib_data)
 { return -ENXIO; }
@@ -1872,10 +1872,10 @@ static inline int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc)
 { return -ENXIO; }
 
 static inline void qpnp_adc_disable_voltage(struct qpnp_adc_drv *adc)
-{ return -ENXIO; }
+{ return; }
 
 static inline void qpnp_adc_free_voltage_resource(struct qpnp_adc_drv *adc)
-{ return -ENXIO; }
+{ return; }
 
 #endif
 
