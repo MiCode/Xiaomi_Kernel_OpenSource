@@ -842,7 +842,7 @@ int mhi_dev_restore_mmio(struct mhi_dev *dev)
 
 	for (i = 0; i < (MHI_DEV_MMIO_RANGE/4); i++) {
 		reg_cntl_addr = (uint32_t) dev->mmio_base_addr + (i * 4);
-		reg_cntl_value = dev->mmio_backup[i * 4];
+		reg_cntl_value = dev->mmio_backup[i];
 		writel_relaxed(reg_cntl_value, reg_cntl_addr);
 	}
 
@@ -866,7 +866,7 @@ int mhi_dev_backup_mmio(struct mhi_dev *dev)
 	}
 
 	for (i = 0; i < MHI_DEV_MMIO_RANGE/4; i++)
-		dev->mmio_backup[i * 4] =
+		dev->mmio_backup[i] =
 				readl_relaxed(dev->mmio_base_addr + (i * 4));
 
 	return 0;
