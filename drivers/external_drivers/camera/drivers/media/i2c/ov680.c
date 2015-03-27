@@ -1388,7 +1388,7 @@ static int ov680_probe(struct i2c_client *client,
 	/* Check firmware size: FW header size + FW data size */
 	if (dev->fw->size != (sizeof(*ov680_fw_header)+ov680_fw_data_size)) {
 		dev_err(&client->dev,
-			"Firmware size does not match: %lu<->%lu.\n",
+			"Firmware size does not match: %zu<->%zu.\n",
 			dev->fw->size,
 			sizeof(*ov680_fw_header)+ov680_fw_data_size);
 		ret = -EINVAL;
