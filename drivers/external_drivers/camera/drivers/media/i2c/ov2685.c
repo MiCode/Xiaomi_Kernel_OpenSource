@@ -989,54 +989,74 @@ static int ov2685_s_power(struct v4l2_subdev *sd, int power)
 #define OV2585_3_2 1500 /* 3:2*//* 720x480*/
 #define OV2685_16_9 1777 /* 16:9*//* 1280x720*/
 
-static int ov2685_try_res(u32 *w, u32 *h)
+
+#define LARGEST_ALLOWED_RATIO_MISMATCH 600
+static int distance(struct ov2685_res_struct const *res, u32 w, u32 h)
 {
-	int i;
-	/*
-	 * The mode list is in ascending order. We're done as soon as
-	 * we have found the first equal or bigger size.
-	 */
-	for (i = 0; i < N_RES; i++) {
-		if (ov2685_res[i].width >= *w &&
-		    ov2685_res[i].height >= *h)
-			break;
-	}
+	unsigned int w_ratio;
+	unsigned int h_ratio;
+	int match;
+	unsigned int allowed_ratio_mismatch = LARGEST_ALLOWED_RATIO_MISMATCH;
 
-	/*
-	 * If no mode was found, it means we can provide only a smaller size.
-	 * Returning the biggest one available in this case.
-	 */
-	if (i == N_RES)
-		i--;
+	if (w == 0)
+		return -1;
+	w_ratio = (res->width << 13) / w;
+	if (h == 0)
+		return -1;
+	h_ratio = (res->height << 13) / h;
+	if (h_ratio == 0)
+		return -1;
+	match   = abs(((w_ratio << 13) / h_ratio) - ((int)8192));
 
-	*w = ov2685_res[i].width;
-	*h = ov2685_res[i].height;
-	return 0;
+	if ((w_ratio < (int)8192) || (h_ratio < (int)8192)  ||
+		(match > allowed_ratio_mismatch))
+		return -1;
+
+	return w_ratio + h_ratio;
 }
 
-static int ov2685_to_res(u32 w, u32 h)
+/* Return the nearest higher resolution index */
+static int nearest_resolution_index(struct v4l2_subdev *sd, u32 w, u32 h)
 {
-	int  index;
+	int i;
+	int idx = -1;
+	int dist;
+	int min_dist = INT_MAX;
+	const struct ov2685_res_struct *tmp_res = NULL;
 
-	for (index = 0; index < N_RES; index++) {
-		if (ov2685_res[index].width == w &&
-		    ov2685_res[index].height == h)
-			break;
+	for (i = 0; i < N_RES; i++) {
+		tmp_res = &ov2685_res[i];
+		dist = distance(tmp_res, w, h);
+		if (dist == -1)
+			continue;
+		if (dist < min_dist) {
+			min_dist = dist;
+			idx = i;
+		}
 	}
-
-	/* No mode found */
-	if (index >= N_RES)
-		index--;
-
-	return index;
+	return idx;
 }
 
 static int ov2685_try_mbus_fmt(struct v4l2_subdev *sd,
 				struct v4l2_mbus_framefmt *fmt)
 {
-	int ret = ov2685_try_res(&fmt->width, &fmt->height);
+	struct ov2685_device *dev = to_ov2685_sensor(sd);
+	int idx;
+
+	mutex_lock(&dev->input_lock);
+
+	idx = nearest_resolution_index(sd, fmt->width, fmt->height);
+
+	if (idx == -1)
+		idx = N_RES - 1;
+
+	fmt->width = ov2685_res[idx].width;
+	fmt->height = ov2685_res[idx].height;
 	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
-	return ret;
+
+	mutex_unlock(&dev->input_lock);
+
+	return 0;
 }
 
 static int ov2685_g_mbus_fmt(struct v4l2_subdev *sd,
@@ -1072,17 +1092,20 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 	}
 
 	mutex_lock(&dev->input_lock);
-	ov2685_try_res(&width, &height);
-	res_index = ov2685_to_res(width, height);
+
+	res_index = nearest_resolution_index(sd, width, height);
+	if (res_index == -1)
+		res_index = N_RES - 1;
 
 	switch (ov2685_res[res_index].res)  {
-	/*
-	case OV2685_RES_VGA:
-		ret = ov2685_write_reg_array(c, ov2685_vga_init);
+	case OV2685_RES_XCIF:
+		ret = ov2685_write_reg_array(client, ov2685_732_600_init);
 		break;
-	*/
-	case OV2685_RES_720P:
-		ret = ov2685_write_reg_array(client, ov2685_720p_init);
+	case OV2685_RES_SVGA:
+		ret = ov2685_write_reg_array(client, ov2685_svga_init);
+		break;
+	case OV2685_RES_1M3:
+		ret = ov2685_write_reg_array(client, ov2685_1M3_init);
 		break;
 	case OV2685_RES_2M:
 		ret = ov2685_write_reg_array(client, ov2685_2M_init);
@@ -1107,8 +1130,8 @@ static int ov2685_s_mbus_fmt(struct v4l2_subdev *sd,
 	 * because it does not happen with streaming disabled.
 	 */
 	dev->fmt_idx = res_index;
-	fmt->width = width;
-	fmt->height = height;
+	fmt->width = ov2685_res[res_index].width;
+	fmt->height = ov2685_res[res_index].height;
 	fmt->code = V4L2_MBUS_FMT_UYVY8_1X16;
 
 	mutex_unlock(&dev->input_lock);
