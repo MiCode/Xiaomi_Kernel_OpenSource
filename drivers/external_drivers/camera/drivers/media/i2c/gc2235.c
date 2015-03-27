@@ -42,7 +42,11 @@
 #include <linux/acpi.h>
 #include <linux/io.h>
 
+#ifndef CONFIG_GMIN_INTEL_MID /* for BYT CR legacy settings */
+#include "gc2235-legacy.h"
+#else
 #include "gc2235.h"
+#endif
 
 /* i2c read/write stuff */
 static int gc2235_read_reg(struct i2c_client *client,
@@ -570,6 +574,7 @@ static int gc2235_s_ctrl(struct v4l2_subdev *sd, struct v4l2_control *ctrl)
 
 	return ret;
 }
+
 static int __gc2235_init(struct v4l2_subdev *sd)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
@@ -827,9 +832,10 @@ static int startup(struct v4l2_subdev *sd)
 	/* force gc2235 to do a reset, otherwise it
 	* can not output normal after switching res
 	*/
-	gc2235_s_power(sd, 0);
-	gc2235_s_power(sd, 1);
+	power_down(sd);
+	power_up(sd);
 
+	gc2235_write_reg_array(client, gc2235_init_settings);
 	ret = gc2235_write_reg_array(client, gc2235_res[dev->fmt_idx].regs);
 	if (ret) {
 		dev_err(&client->dev, "gc2235 write register err.\n");
