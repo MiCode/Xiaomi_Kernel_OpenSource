@@ -1029,7 +1029,7 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	rsp_buf->data_source = data_source;
 
 	if (token == DCI_LOCAL_PROC && data_source < NUM_SMD_DCI_CHANNELS) {
-		if (driver->separate_cmdrsp[data_source] &&
+		if (driver->feature[data_source].separate_cmd_rsp &&
 					data_source < NUM_SMD_DCI_CMD_CHANNELS)
 			driver->smd_dci_cmd[data_source].in_busy_1 = 1;
 		else
@@ -3012,9 +3012,10 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 			if (peripheral == APPS_DATA)
 				continue;
 			mutex_lock(&buf_entry->data_mutex);
-			smd_info = driver->separate_cmdrsp[peripheral] ?
-					&driver->smd_dci_cmd[peripheral] :
-					&driver->smd_dci[peripheral];
+			smd_info =
+				driver->feature[peripheral].separate_cmd_rsp ?
+				&driver->smd_dci_cmd[peripheral] :
+				&driver->smd_dci[peripheral];
 			smd_info->in_busy_1 = 0;
 			mutex_unlock(&buf_entry->data_mutex);
 		}
@@ -3080,14 +3081,14 @@ int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
 	int err = 0;
 
 	if (!buf || (peripheral < 0 || peripheral >= NUM_SMD_DCI_CHANNELS)
-		|| !driver->rcvd_feature_mask[peripheral] || len < 0) {
+		|| !driver->feature[peripheral].rcvd_feature_mask || len < 0) {
 		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
 				__func__, buf, peripheral, len);
 		return -EINVAL;
 	}
 
 	if (pkt_type == DIAG_DATA_TYPE) {
-		smd_info = driver->separate_cmdrsp[peripheral] ?
+		smd_info = driver->feature[peripheral].separate_cmd_rsp ?
 			&driver->smd_dci_cmd[peripheral] :
 			&driver->smd_dci[peripheral];
 	} else if (pkt_type == DIAG_CNTL_TYPE) {

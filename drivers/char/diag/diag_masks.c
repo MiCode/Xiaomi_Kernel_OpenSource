@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -67,8 +67,8 @@ static int diag_apps_responds(void)
 	 */
 	if (chk_apps_only()) {
 		if (driver->smd_data[MODEM_DATA].ch &&
-			driver->rcvd_feature_mask[MODEM_DATA]) {
-			if (driver->mask_centralization[MODEM_DATA])
+			driver->feature[MODEM_DATA].rcvd_feature_mask) {
+			if (driver->feature[MODEM_DATA].mask_centralization)
 				return 1;
 			return 0;
 		}

@@ -369,7 +369,6 @@ struct diag_smd_info {
 	int peripheral;	/* The peripheral this smd channel communicates with */
 	int type;	/* The type of smd channel (data, control, dci) */
 	uint16_t peripheral_mask;
-	int encode_hdlc; /* Whether data is raw and needs to be hdlc encoded */
 
 	smd_channel_t *ch;
 	smd_channel_t *ch_save;
@@ -419,6 +418,16 @@ struct diag_md_proc_info {
 	struct task_struct *callback_process;
 };
 
+struct diag_feature_t {
+	uint8_t feature_mask[FEATURE_MASK_LEN];
+	uint8_t rcvd_feature_mask;
+	uint8_t separate_cmd_rsp;
+	uint8_t encode_hdlc;
+	uint8_t peripheral_buffering;
+	uint8_t mask_centralization;
+	uint8_t stm_support;
+};
+
 struct diagchar_dev {
 
 	/* State for the char driver */
@@ -444,8 +453,6 @@ struct diagchar_dev {
 	int stm_state_requested[NUM_STM_PROCESSORS];
 	/* The current STM state */
 	int stm_state[NUM_STM_PROCESSORS];
-	/* Whether or not the peripheral supports STM */
-	int peripheral_supports_stm[NUM_SMD_CONTROL_CHANNELS];
 	/* Delayed response Variables */
 	uint16_t delayed_rsp_id;
 	struct mutex delayed_rsp_mutex;
@@ -481,11 +488,7 @@ struct diagchar_dev {
 	struct diag_smd_info smd_dci[NUM_SMD_DCI_CHANNELS];
 	struct diag_smd_info smd_cmd[NUM_SMD_CMD_CHANNELS];
 	struct diag_smd_info smd_dci_cmd[NUM_SMD_DCI_CMD_CHANNELS];
-	int rcvd_feature_mask[NUM_SMD_CONTROL_CHANNELS];
-	int separate_cmdrsp[NUM_SMD_CONTROL_CHANNELS];
-	uint8_t peripheral_feature[NUM_SMD_CONTROL_CHANNELS][FEATURE_MASK_LEN];
-	uint8_t mask_centralization[NUM_SMD_CONTROL_CHANNELS];
-	uint8_t peripheral_buffering_support[NUM_SMD_CONTROL_CHANNELS];
+	struct diag_feature_t feature[NUM_SMD_CONTROL_CHANNELS];
 	struct diag_buffering_mode_t buffering_mode[NUM_SMD_CONTROL_CHANNELS];
 	struct mutex mode_lock;
 	unsigned char *user_space_data_buf;

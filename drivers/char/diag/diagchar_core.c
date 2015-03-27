@@ -791,8 +791,8 @@ drop:
 					mutex_unlock(&buf_entry->data_mutex);
 					continue;
 				}
-				if (driver->separate_cmdrsp[
-						buf_entry->data_source]) {
+				if (driver->feature[buf_entry->data_source].
+				    separate_cmd_rsp) {
 					smd_info = &driver->smd_dci_cmd[
 						buf_entry->data_source];
 				} else {
@@ -1252,7 +1252,7 @@ static int diag_ioctl_get_real_time(unsigned long ioarg)
 	 */
 	if (rt_query.proc == DIAG_LOCAL_PROC) {
 		for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
-			if (!driver->peripheral_buffering_support[i])
+			if (!driver->feature[i].peripheral_buffering)
 				continue;
 			switch (driver->buffering_mode[i].mode) {
 			case DIAG_BUFFERING_MODE_CIRCULAR:
@@ -1294,7 +1294,7 @@ static int diag_ioctl_peripheral_drain_immediate(unsigned long ioarg)
 		return -EINVAL;
 	}
 
-	if (!driver->peripheral_buffering_support[peripheral]) {
+	if (!driver->feature[peripheral].peripheral_buffering) {
 		pr_err("diag: In %s, peripheral %d doesn't support buffering\n",
 		       __func__, peripheral);
 		return -EIO;
@@ -2351,7 +2351,7 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		}
 		if (driver->supports_separate_cmdrsp) {
 			for (i = 0; i < NUM_SMD_DCI_CMD_CHANNELS; i++) {
-				if (!driver->separate_cmdrsp[i])
+				if (!driver->feature[i].separate_cmd_rsp)
 					continue;
 				if (driver->smd_dci_cmd[i].ch) {
 					queue_work(driver->diag_dci_wq,

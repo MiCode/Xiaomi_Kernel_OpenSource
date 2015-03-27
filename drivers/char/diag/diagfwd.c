@@ -186,7 +186,7 @@ int chk_polling_response(void)
 		 */
 		return 1;
 	else if (!((driver->smd_data[MODEM_DATA].ch) &&
-		 (driver->rcvd_feature_mask[MODEM_DATA])) &&
+		 (driver->feature[MODEM_DATA].rcvd_feature_mask)) &&
 		 (chk_apps_master()))
 		/*
 		 * If the apps processor is not the master and the modem
@@ -371,7 +371,7 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 	 * channel is not designated to do so
 	 */
 	if ((smd_info->type == SMD_CMD_TYPE) &&
-		!driver->separate_cmdrsp[smd_info->peripheral]) {
+	    !driver->feature[smd_info->peripheral].separate_cmd_rsp) {
 		pr_debug("diag, In %s, received data on non-designated command channel: %d\n",
 			__func__, smd_info->peripheral);
 		return 0;
@@ -379,7 +379,7 @@ int diag_process_smd_read_data(struct diag_smd_info *smd_info, void *buf,
 
 	mutex_lock(&driver->hdlc_disable_mutex);
 
-	if (!smd_info->encode_hdlc) {
+	if (!driver->feature[smd_info->peripheral].encode_hdlc) {
 		/* If the data is already hdlc encoded*/
 		if (smd_info->buf_in_1 == buf) {
 			in_busy_ptr = &smd_info->in_busy_1;
@@ -502,7 +502,7 @@ static int diag_smd_resize_buf(struct diag_smd_info *smd_info, void **buf,
 
 	if (temp_buf) {
 		/* Match the buffer and reset the pointer and size */
-		if (smd_info->encode_hdlc) {
+		if (driver->feature[smd_info->peripheral].encode_hdlc) {
 			/*
 			 * This smd channel is supporting HDLC encoding
 			 * on the apps
@@ -571,7 +571,7 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 	/* Determine the buffer to read the data into. */
 	if (smd_info->type == SMD_DATA_TYPE) {
 		/* If the data is raw and not hdlc encoded */
-		if (smd_info->encode_hdlc) {
+		if (driver->feature[smd_info->peripheral].encode_hdlc) {
 			if (!smd_info->in_busy_1) {
 				buf = smd_info->buf_in_1_raw;
 				buf_size = smd_info->buf_in_1_raw_size;
@@ -590,7 +590,7 @@ void diag_smd_send_req(struct diag_smd_info *smd_info)
 		}
 	} else if (smd_info->type == SMD_CMD_TYPE) {
 		/* If the data is raw and not hdlc encoded */
-		if (smd_info->encode_hdlc) {
+		if (driver->feature[smd_info->peripheral].encode_hdlc) {
 			if (!smd_info->in_busy_1) {
 				buf = smd_info->buf_in_1_raw;
 				buf_size = smd_info->buf_in_1_raw_size;
@@ -982,13 +982,13 @@ static int diag_send_data(struct diag_cmd_reg_t *entry, unsigned char *buf,
 	if (peripheral >= NUM_SMD_DATA_CHANNELS)
 		return -EINVAL;
 
-	if (!driver->rcvd_feature_mask[peripheral]) {
+	if (!driver->feature[peripheral].rcvd_feature_mask) {
 		pr_debug("diag: In %s, yet to receive feature mask from %d\n",
 			 __func__, peripheral);
 		return -ENODEV;
 	}
 
-	if (driver->separate_cmdrsp[peripheral])
+	if (driver->feature[peripheral].separate_cmd_rsp)
 		smd_info = &driver->smd_cmd[peripheral];
 	else
 		smd_info = &driver->smd_data[peripheral];
@@ -1007,7 +1007,7 @@ void diag_process_stm_mask(uint8_t cmd, uint8_t data_mask, int data_type)
 {
 	int status = 0;
 	if (data_type >= MODEM_DATA && data_type <= SENSORS_DATA) {
-		if (driver->peripheral_supports_stm[data_type]) {
+		if (driver->feature[data_type].stm_support) {
 			status = diag_send_stm_state(
 				&driver->smd_cntl[data_type], cmd);
 			if (status == 1)
@@ -1070,16 +1070,16 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 		dest_buf[i] = *(buf + i);
 
 	/* Set mask denoting which peripherals support STM */
-	if (driver->peripheral_supports_stm[MODEM_DATA])
+	if (driver->feature[MODEM_DATA].stm_support)
 		rsp_supported |= DIAG_STM_MODEM;
 
-	if (driver->peripheral_supports_stm[LPASS_DATA])
+	if (driver->feature[LPASS_DATA].stm_support)
 		rsp_supported |= DIAG_STM_LPASS;
 
-	if (driver->peripheral_supports_stm[WCNSS_DATA])
+	if (driver->feature[WCNSS_DATA].stm_support)
 		rsp_supported |= DIAG_STM_WCNSS;
 
-	if (driver->peripheral_supports_stm[SENSORS_DATA])
+	if (driver->feature[SENSORS_DATA].stm_support)
 		rsp_supported |= DIAG_STM_SENSORS;
 
 	rsp_supported |= DIAG_STM_APPS;
@@ -1404,7 +1404,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	else if (chk_apps_master() &&
 			!(driver->polling_reg_flag) &&
 			!(driver->smd_data[MODEM_DATA].ch) &&
-			!(driver->rcvd_feature_mask[MODEM_DATA])) {
+			!(driver->feature[MODEM_DATA].rcvd_feature_mask)) {
 		/* respond to 0x0 command */
 		if (*buf == 0x00) {
 			for (i = 0; i < 55; i++)
@@ -2239,7 +2239,6 @@ int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 
 	smd_info->peripheral = peripheral;
 	smd_info->type = type;
-	smd_info->encode_hdlc = 0;
 	smd_info->inited = 0;
 	mutex_init(&smd_info->smd_ch_mutex);
 	spin_lock_init(&smd_info->in_busy_lock);
@@ -2508,10 +2507,12 @@ int diagfwd_init(void)
 	mutex_init(&driver->cmd_reg_mutex);
 
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
-		driver->separate_cmdrsp[i] = 0;
-		driver->peripheral_supports_stm[i] = DISABLE_STM;
-		driver->rcvd_feature_mask[i] = 0;
-		driver->peripheral_buffering_support[i] = 0;
+		driver->feature[i].separate_cmd_rsp = 0;
+		driver->feature[i].stm_support = DISABLE_STM;
+		driver->feature[i].rcvd_feature_mask = 0;
+		driver->feature[i].peripheral_buffering = 0;
+		driver->feature[i].encode_hdlc = 0;
+		driver->feature[i].mask_centralization = 0;
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;
