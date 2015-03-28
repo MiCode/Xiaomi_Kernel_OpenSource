@@ -66,6 +66,10 @@
 	qcom,battery-data = <&mtp_batterydata>;
 };
 
+&pmi8950_charger {
+	qcom,battery-data = <&mtp_batterydata>;
+};
+
 &spmi_bus {
 	qcom,pm8950@0 {
 		qcom,leds@a300 {
