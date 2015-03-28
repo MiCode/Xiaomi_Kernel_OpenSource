@@ -702,7 +702,7 @@ void ch_push_remote_rx_intent(struct channel_ctx *ctx, size_t size,
 /**
  * ch_push_local_rx_intent() - Create an rx_intent
  * @ctx:	Local channel context
- * @pkt_priv:	Data packet
+ * @pkt_priv:	Opaque private pointer provided by client to be returned later
  * @size:	Size of intent
  *
  * This functions creates a local intent and adds it to the local
@@ -718,11 +718,6 @@ struct glink_core_rx_intent *ch_push_local_rx_intent(struct channel_ctx *ctx,
 	if (GLINK_MAX_PKT_SIZE < size) {
 		GLINK_ERR_CH(ctx,
 			"%s: L[]:%zu Invalid size\n", __func__, size);
-		return NULL;
-	}
-
-	if (!pkt_priv) {
-		GLINK_ERR_CH(ctx, "%s: Invalid packet", __func__);
 		return NULL;
 	}
 
