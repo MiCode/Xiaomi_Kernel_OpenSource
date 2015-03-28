@@ -83,6 +83,8 @@ enum msm_otg_phy_reg_mode {
 	USB_PHY_REG_ON,
 	USB_PHY_REG_LPM_ON,
 	USB_PHY_REG_LPM_OFF,
+	USB_PHY_REG_3P3_ON,
+	USB_PHY_REG_3P3_OFF,
 };
 
 static char *override_phy_init;
@@ -254,13 +256,17 @@ static int msm_hsusb_ldo_enable(struct msm_otg *motg,
 			return ret;
 		}
 
+	/* fall through */
+	case USB_PHY_REG_3P3_ON:
 		ret = regulator_set_optimum_mode(hsusb_3p3,
 				USB_PHY_3P3_HPM_LOAD);
 		if (ret < 0) {
 			pr_err("%s: Unable to set HPM of the regulator "
 				"HSUSB_3p3\n", __func__);
-			regulator_set_optimum_mode(hsusb_1p8, 0);
-			regulator_disable(hsusb_1p8);
+			if (mode == USB_PHY_REG_ON) {
+				regulator_set_optimum_mode(hsusb_1p8, 0);
+				regulator_disable(hsusb_1p8);
+			}
 			return ret;
 		}
 
@@ -269,8 +275,10 @@ static int msm_hsusb_ldo_enable(struct msm_otg *motg,
 			dev_err(motg->phy.dev, "%s: unable to enable the hsusb 3p3\n",
 				__func__);
 			regulator_set_optimum_mode(hsusb_3p3, 0);
-			regulator_set_optimum_mode(hsusb_1p8, 0);
-			regulator_disable(hsusb_1p8);
+			if (mode == USB_PHY_REG_ON) {
+				regulator_set_optimum_mode(hsusb_1p8, 0);
+				regulator_disable(hsusb_1p8);
+			}
 			return ret;
 		}
 
@@ -289,6 +297,8 @@ static int msm_hsusb_ldo_enable(struct msm_otg *motg,
 			pr_err("%s: Unable to set LPM of the regulator "
 				"HSUSB_1p8\n", __func__);
 
+	/* fall through */
+	case USB_PHY_REG_3P3_OFF:
 		ret = regulator_disable(hsusb_3p3);
 		if (ret) {
 			dev_err(motg->phy.dev, "%s: unable to disable the hsusb 3p3\n",
@@ -4654,6 +4664,9 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = !!test_bit(B_SESS_VLD, &motg->inputs);
 		break;
+	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
+		val->intval = motg->rm_pulldown;
+		break;
 	/* Reflect USB enumeration */
 	case POWER_SUPPLY_PROP_ONLINE:
 		val->intval = motg->online;
@@ -4684,6 +4697,17 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_USB_OTG:
 		motg->id_state = val->intval ? USB_ID_GROUND : USB_ID_FLOAT;
 		queue_delayed_work(motg->otg_wq, &motg->id_status_work, 0);
+		break;
+	/* PMIC notification to remove pull down on Dp and Dm */
+	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
+		if (motg->rm_pulldown == val->intval)
+			break;
+
+		motg->rm_pulldown = val->intval;
+		msm_otg_dbg_log_event(&motg->phy, "RM Pulldown",
+							motg->rm_pulldown, 0);
+		msm_hsusb_ldo_enable(motg, motg->rm_pulldown ?
+				USB_PHY_REG_3P3_ON : USB_PHY_REG_3P3_OFF);
 		break;
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -4765,6 +4789,7 @@ static int otg_power_property_is_writeable_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_ONLINE:
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
+	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
 		return 1;
 	default:
 		break;
@@ -4786,6 +4811,7 @@ static enum power_supply_property otg_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
+	POWER_SUPPLY_PROP_ALLOW_DETECTION,
 };
 
 const struct file_operations msm_otg_bus_fops = {

@@ -428,6 +428,7 @@ struct msm_otg_platform_data {
  * host_suspend_wait: wait_queue on which USB core waits for USB entering lpm
 	     in host bus suspend case.
  * @id_state: Indicates USBID line status.
+ * @rm_pulldown: Indicates pulldown status on D+ and D- data lines.
  * @dbg_idx: Dynamic debug buffer Index.
  * @dbg_lock: Dynamic debug buffer Lock.
  * @buf: Dynamic Debug Buffer.
@@ -575,6 +576,7 @@ struct msm_otg {
 	bool phy_irq_pending;
 	wait_queue_head_t	host_suspend_wait;
 	enum usb_id_state id_state;
+	bool rm_pulldown;
 /* Maximum debug message length */
 #define DEBUG_MSG_LEN   128UL
 /* Maximum number of messages */
