@@ -125,6 +125,7 @@ struct edge_info {
  * @local_legacy:	The local side of the channel is in legacy mode.
  * @remote_legacy:	The remote side of the channel is in legacy mode.
  * @rx_data_lock:	Used to serialize RX data processing.
+ * @streaming_ch:	Indicates the underlying SMD channel is streaming type.
  */
 struct channel {
 	struct list_head node;
@@ -147,6 +148,7 @@ struct channel {
 	bool local_legacy;
 	bool remote_legacy;
 	spinlock_t rx_data_lock;
+	bool streaming_ch;
 };
 
 /**
@@ -488,10 +490,19 @@ static void process_open_event(struct work_struct *work)
 	struct channel_work *ch_work;
 	struct channel *ch;
 	struct edge_info *einfo;
+	int ret;
 
 	ch_work = container_of(work, struct channel_work, work);
 	ch = ch_work->ch;
 	einfo = ch->edge;
+	/*
+	 * The SMD client is supposed to already know its channel type, but we
+	 * are just a translation layer, so we need to dynamically detect the
+	 * channel type.
+	 */
+	ret = smd_write_segment_avail(ch->smd_ch);
+	if (ret == -ENODEV)
+		ch->streaming_ch = true;
 	if (ch->remote_legacy || !ch->rcid) {
 		ch->remote_legacy = true;
 		ch->rcid = ch->lcid + LEGACY_RCID_CHANNEL_OFFSET;
@@ -605,7 +616,10 @@ static void process_data_event(struct work_struct *work)
 
 	spin_lock_irqsave(&ch->rx_data_lock, rx_data_flags);
 	while (!ch->is_closing && smd_read_avail(ch->smd_ch)) {
-		pkt_remaining = smd_cur_packet_size(ch->smd_ch);
+		if (!ch->streaming_ch)
+			pkt_remaining = smd_cur_packet_size(ch->smd_ch);
+		else
+			pkt_remaining = smd_read_avail(ch->smd_ch);
 		GLINK_DBG("%s <SMDXPRT> Reading packet chunk %u '%s' %u:%u\n",
 				__func__, pkt_remaining, ch->name, ch->lcid,
 				ch->rcid);
@@ -1464,36 +1478,55 @@ static int tx(struct glink_transport_if *if_ptr, uint32_t lcid,
 		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 		return -EINVAL;
 	}
-	if (pctx->size == pctx->size_remaining) {
+
+	if (!ch->streaming_ch) {
+		if (pctx->size == pctx->size_remaining) {
+			rc = smd_write_avail(ch->smd_ch);
+			if (!rc) {
+				srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+				return 0;
+			}
+			rc = smd_write_start(ch->smd_ch, pctx->size);
+			if (rc) {
+				srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+				return 0;
+			}
+		}
+
+		rc = smd_write_segment_avail(ch->smd_ch);
+		if (!rc) {
+			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+			return 0;
+		}
+		if (rc > tx_size)
+			rc = tx_size;
+		rc = smd_write_segment(ch->smd_ch, data_start, rc);
+		if (rc < 0) {
+			SMDXPRT_ERR("%s: write segment failed %d\n", __func__,
+									rc);
+			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
+			return 0;
+		}
+	} else {
 		rc = smd_write_avail(ch->smd_ch);
 		if (!rc) {
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 			return 0;
 		}
-		rc = smd_write_start(ch->smd_ch, pctx->size);
-		if (rc) {
+		if (rc > tx_size)
+			rc = tx_size;
+		rc = smd_write(ch->smd_ch, data_start, rc);
+		if (rc < 0) {
+			SMDXPRT_ERR("%s: write failed %d\n", __func__, rc);
 			srcu_read_unlock(&einfo->ssr_sync, rcu_id);
 			return 0;
 		}
 	}
 
-	rc = smd_write_segment_avail(ch->smd_ch);
-	if (!rc) {
-		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-		return 0;
-	}
-	if (rc > tx_size)
-		rc = tx_size;
-	rc = smd_write_segment(ch->smd_ch, data_start, rc);
-	if (rc < 0) {
-		SMDXPRT_ERR("%s: write segment failed %d\n", __func__, rc);
-		srcu_read_unlock(&einfo->ssr_sync, rcu_id);
-		return 0;
-	}
-
 	pctx->size_remaining -= rc;
 	if (!pctx->size_remaining) {
-		smd_write_end(ch->smd_ch);
+		if (!ch->streaming_ch)
+			smd_write_end(ch->smd_ch);
 		tx_done = kmalloc(sizeof(*tx_done), GFP_ATOMIC);
 		tx_done->ch = ch;
 		tx_done->iid = pctx->riid;
