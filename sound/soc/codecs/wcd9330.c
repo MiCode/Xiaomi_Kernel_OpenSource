@@ -3539,7 +3539,7 @@ static int tomtom_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		usleep_range(20000, 20100);
+		usleep_range(5000, 5100);
 		/* Let MBHC module know so micbias is on */
 		wcd9xxx_resmgr_notifier_call(&tomtom->resmgr, e_post_on);
 		break;
