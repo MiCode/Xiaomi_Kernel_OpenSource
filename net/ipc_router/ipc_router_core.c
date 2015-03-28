@@ -101,6 +101,8 @@ if (msm_ipc_router_debug_mask & R2R_RAW_HDR) \
 #define IPC_ROUTER_LOG_EVENT_RX         0x02
 #define IPC_ROUTER_DUMMY_DEST_NODE	0xFFFFFFFF
 
+#define ipc_port_sk(port) ((struct sock *)(port))
+
 static LIST_HEAD(control_ports);
 static DECLARE_RWSEM(control_ports_lock_lha5);
 
@@ -1086,6 +1088,8 @@ struct msm_ipc_port *msm_ipc_router_create_raw_port(void *endpoint,
 	port_ptr->priv = priv;
 
 	msm_ipc_router_add_local_port(port_ptr);
+	if (endpoint)
+		sock_hold(ipc_port_sk(endpoint));
 	return port_ptr;
 }
 
@@ -1132,6 +1136,8 @@ void ipc_router_release_port(struct kref *ref)
 	}
 	mutex_unlock(&port_ptr->port_rx_q_lock_lhc3);
 	wakeup_source_trash(&port_ptr->port_rx_ws);
+	if (port_ptr->endpoint)
+		sock_put(ipc_port_sk(port_ptr->endpoint));
 	kfree(port_ptr);
 }
 
