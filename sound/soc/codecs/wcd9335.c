@@ -41,6 +41,7 @@
 #include "wcd9xxx-common-v2.h"
 #include "wcd9xxx-resmgr-v2.h"
 #include "wcd_cpe_core.h"
+#include "wcdcal-hwdep.h"
 
 #define TASHA_RX_PORT_START_NUMBER  16
 
@@ -378,6 +379,9 @@ struct tasha_priv {
 
 	u32 anc_slot;
 	bool anc_func;
+
+	/* cal info for codec */
+	struct fw_info *fw_data;
 
 	/*track tasha interface type*/
 	u8 intf_type;
@@ -740,6 +744,25 @@ static void tasha_mbhc_micb_ramp_control(struct snd_soc_codec *codec,
 	}
 }
 
+static struct firmware_cal *tasha_get_hwdep_fw_cal(struct snd_soc_codec *codec,
+						   enum wcd_cal_type type)
+{
+	struct tasha_priv *tasha;
+	struct firmware_cal *hwdep_cal;
+
+	if (!codec) {
+		pr_err("%s: NULL codec pointer\n", __func__);
+		return NULL;
+	}
+	tasha = snd_soc_codec_get_drvdata(codec);
+	hwdep_cal = wcdcal_get_fw_cal(tasha->fw_data, type);
+	if (!hwdep_cal)
+		dev_err(codec->dev, "%s: cal not sent by %d\n",
+			__func__, type);
+
+	return hwdep_cal;
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tasha_mbhc_request_irq,
 	.irq_control = tasha_mbhc_irq_control,
@@ -755,6 +778,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.hph_pull_up_control = tasha_mbhc_hph_l_pull_up_control,
 	.mbhc_micbias_control = tasha_mbhc_request_micbias,
 	.mbhc_micb_ramp_control = tasha_mbhc_micb_ramp_control,
+	.get_hwdep_fw_cal = tasha_get_hwdep_fw_cal,
 };
 
 static int tasha_get_iir_enable_audio_mixer(
@@ -7655,20 +7679,34 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 		goto err;
 	}
 
+	tasha->fw_data = devm_kzalloc(codec->dev,
+				      sizeof(*(tasha->fw_data)), GFP_KERNEL);
+	if (!tasha->fw_data) {
+		dev_err(codec->dev, "Failed to allocate fw_data\n");
+		goto err;
+	}
+	set_bit(WCD9XXX_MBHC_CAL, tasha->fw_data->cal_bit);
+	ret = wcd_cal_create_hwdep(tasha->fw_data,
+				   WCD9XXX_CODEC_HWDEP_NODE, codec);
+	if (ret < 0) {
+		dev_err(codec->dev, "%s hwdep failed %d\n", __func__, ret);
+		goto err_hwdep;
+	}
+
 	/* Initialize MBHC module */
 	ret = wcd_mbhc_init(&tasha->mbhc, codec, &mbhc_cb, &intr_ids,
 		      wcd_mbhc_registers, TASHA_ZDET_SUPPORTED);
 	if (ret) {
 		pr_err("%s: mbhc initialization failed\n", __func__);
-		goto err;
+		goto err_hwdep;
 	}
 
-	ptr = kmalloc((sizeof(tasha_rx_chs) +
-		       sizeof(tasha_tx_chs)), GFP_KERNEL);
+	ptr = devm_kzalloc(codec->dev, (sizeof(tasha_rx_chs) +
+			   sizeof(tasha_tx_chs)), GFP_KERNEL);
 	if (!ptr) {
 		pr_err("%s: no mem for slim chan ctl data\n", __func__);
 		ret = -ENOMEM;
-		goto err;
+		goto err_hwdep;
 	}
 
 	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
@@ -7713,7 +7751,9 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	return ret;
 
 err_pdata:
-	kfree(ptr);
+	devm_kfree(codec->dev, ptr);
+err_hwdep:
+	devm_kfree(codec->dev, tasha->fw_data);
 err:
 	return ret;
 }
