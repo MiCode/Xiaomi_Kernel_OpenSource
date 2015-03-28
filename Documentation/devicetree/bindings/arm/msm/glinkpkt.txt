@@ -10,22 +10,31 @@ Required properties:
 -qcom,glinkpkt-transport : the glinkpkt transport layer
 -qcom,glinkpkt-edge : the remote subsystem name
 -qcom,glinkpkt-ch-name : the glink channel name
+-qcom,glinkpkt-dev-name : the glinkpkt device name
 
 Example:
 
-	qcom,glinkpkt {
-		compatible = "qcom,glinkpkt";
+         qcom,glink_pkt {
+                 compatible = "qcom,glinkpkt";
 
-		qcom,glinkpkt-glink1 {
-			qcom,glinkpkt-transport = "smem";
-			qcom,glinkpkt-edge = "mpss";
-			qcom,glinkpkt-ch-name = "glink1";
-		};
+                 qcom,glinkpkt-at-mdm0 {
+                         qcom,glinkpkt-transport = "smd_trans";
+                         qcom,glinkpkt-edge = "mpss";
+                         qcom,glinkpkt-ch-name = "DS";
+                         qcom,glinkpkt-dev-name = "at_mdm0";
+                 };
 
-		qcom,glinkpkt-loopback {
-			qcom,glinkpkt-transport = "smem";
-			qcom,glinkpkt-edge = "mpss";
-			qcom,glinkpkt-ch-name = "glink_pkt_loopback";
-		};
-	};
+                 qcom,glinkpkt-loopback-cntl {
+                         qcom,glinkpkt-transport = "lloop";
+                         qcom,glinkpkt-edge = "local";
+                         qcom,glinkpkt-ch-name = "LOCAL_LOOPBACK_CLNT";
+                         qcom,glinkpkt-dev-name = "glink_pkt_loopback_ctrl";
+                 };
 
+                 qcom,glinkpkt-loopback-data {
+                         qcom,glinkpkt-transport = "lloop";
+                         qcom,glinkpkt-edge = "local";
+                         qcom,glinkpkt-ch-name = "glink_pkt_lloop_CLNT";
+                         qcom,glinkpkt-dev-name = "glink_pkt_loopback";
+                 };
+         };
