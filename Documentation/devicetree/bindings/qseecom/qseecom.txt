@@ -21,6 +21,7 @@ Optional properties:
   - qcom,support-pfe : indicates if driver support key managing for per file encryption feature.
   - qcom,no-clock-support : indicates clocks are not handled by qseecom (could be handled by RPM)
   - qcom,appsbl-qseecom-support : indicates if there is qseecom support in appsbootloader
+  - vdd-hba-supply   : handle for fixed power regulator
 
 Example:
 	qcom,qseecom@fe806000 {
@@ -47,4 +48,5 @@ Example:
 			<55 512 3936000000 393600000>,
 			<55 512 3936000000 393600000>;
 		qcom,ce-opp-freq = <100000000>;
+		vdd-hba-supply = <&gdsc_ufs>;
 	};
