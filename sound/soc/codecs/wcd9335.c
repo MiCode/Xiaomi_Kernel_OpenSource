@@ -5925,7 +5925,8 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 	},
 };
 
-static int __tasha_cdc_mclk_enable(struct tasha_priv *tasha, bool enable)
+static int __tasha_cdc_mclk_enable_locked(struct tasha_priv *tasha,
+					  bool enable)
 {
 	int ret = 0;
 
@@ -5936,13 +5937,12 @@ static int __tasha_cdc_mclk_enable(struct tasha_priv *tasha, bool enable)
 
 	dev_dbg(tasha->dev, "%s: mclk_enable = %u\n", __func__, enable);
 
-	WCD9XXX_V2_BG_CLK_LOCK(tasha->resmgr);
 	if (enable) {
 		ret = clk_prepare_enable(tasha->wcd_ext_clk);
 		if (ret) {
 			dev_err(tasha->dev, "%s: ext clk enable failed\n",
 				__func__);
-			goto bg_clk_unlock;
+			goto err;
 		}
 		/* get BG */
 		wcd_resmgr_enable_master_bias(tasha->resmgr);
@@ -5956,8 +5956,19 @@ static int __tasha_cdc_mclk_enable(struct tasha_priv *tasha, bool enable)
 		clk_disable_unprepare(tasha->wcd_ext_clk);
 	}
 
-bg_clk_unlock:
+err:
+	return ret;
+}
+
+static int __tasha_cdc_mclk_enable(struct tasha_priv *tasha,
+				   bool enable)
+{
+	int ret;
+
+	WCD9XXX_V2_BG_CLK_LOCK(tasha->resmgr);
+	ret = __tasha_cdc_mclk_enable_locked(tasha, enable);
 	WCD9XXX_V2_BG_CLK_UNLOCK(tasha->resmgr);
+
 	return ret;
 }
 
@@ -5968,6 +5979,44 @@ int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable, bool dapm)
 	return __tasha_cdc_mclk_enable(tasha, enable);
 }
 EXPORT_SYMBOL(tasha_cdc_mclk_enable);
+
+/*
+ * tasha_codec_internal_rco_ctrl()
+ * Make sure that the caller does not acquire
+ * BG_CLK_LOCK.
+ */
+int tasha_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
+				  bool enable)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	WCD9XXX_V2_BG_CLK_LOCK(tasha->resmgr);
+	if (enable) {
+		if (wcd_resmgr_get_clk_type(tasha->resmgr) ==
+		    WCD_CLK_RCO) {
+			ret = wcd_resmgr_enable_clk_block(tasha->resmgr,
+							  WCD_CLK_RCO);
+		} else {
+			ret = __tasha_cdc_mclk_enable_locked(tasha, true);
+			ret |= wcd_resmgr_enable_clk_block(tasha->resmgr,
+							   WCD_CLK_RCO);
+			ret |= __tasha_cdc_mclk_enable_locked(tasha, false);
+		}
+
+	} else {
+		ret = wcd_resmgr_disable_clk_block(tasha->resmgr,
+						   WCD_CLK_RCO);
+	}
+
+	if (ret) {
+		dev_err(codec->dev, "%s: Error in %s RCO\n",
+			__func__, (enable ? "enabling" : "disabling"));
+		ret = -EINVAL;
+	}
+	WCD9XXX_V2_BG_CLK_UNLOCK(tasha->resmgr);
+	return ret;
+}
 
 static int wcd9335_get_micb_vout_ctl_val(u32 micb_mv)
 {
@@ -6524,13 +6573,10 @@ static int tasha_swrm_clock(void *handle, bool enable)
 {
 	struct tasha_priv *tasha = (struct tasha_priv *) handle;
 
-	if (!tasha->wcd_ext_clk) {
-		dev_err(tasha->dev, "%s: codec ext clk is not init'ed\n",
-			__func__);
-		return -EINVAL;
-	}
-
 	mutex_lock(&tasha->swr_clk_lock);
+
+	dev_dbg(tasha->dev, "%s: swrm clock %s\n",
+		__func__, (enable?"enable" : "disable"));
 	if (enable) {
 		tasha->swr_clk_users++;
 		if (tasha->swr_clk_users == 1) {
@@ -6554,6 +6600,8 @@ static int tasha_swrm_clock(void *handle, bool enable)
 			__tasha_cdc_mclk_enable(tasha, false);
 		}
 	}
+	dev_dbg(tasha->dev, "%s: swrm clock users %d\n",
+		__func__, tasha->swr_clk_users);
 	mutex_unlock(&tasha->swr_clk_lock);
 	return 0;
 }
