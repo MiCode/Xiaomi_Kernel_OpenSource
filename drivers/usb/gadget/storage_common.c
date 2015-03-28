@@ -437,12 +437,14 @@ static void fsg_lun_close(struct fsg_lun *curlun)
 
 	if (curlun->filp) {
 		inode = file_inode(curlun->filp);
-		bdi = &inode->i_bdev->bd_queue->backing_dev_info;
+		if (inode->i_bdev) {
+			bdi = &inode->i_bdev->bd_queue->backing_dev_info;
 
-		if ((bdi->capabilities & BDI_CAP_STRICTLIMIT) &&
+			if ((bdi->capabilities & BDI_CAP_STRICTLIMIT) &&
 				bdi_set_max_ratio(bdi, curlun->max_ratio))
-			pr_debug("%s, error in setting max_ratio\n", __func__);
-
+				pr_debug("%s, error in setting max_ratio\n",
+						__func__);
+		}
 		LDBG(curlun, "close backing file\n");
 		fput(curlun->filp);
 		curlun->filp = NULL;
@@ -510,6 +512,16 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	} else if (inode->i_bdev) {
 		blksize = bdev_logical_block_size(inode->i_bdev);
 		blkbits = blksize_bits(blksize);
+
+		bdi = &inode->i_bdev->bd_queue->backing_dev_info;
+		if (bdi->capabilities & BDI_CAP_STRICTLIMIT) {
+			curlun->max_ratio = bdi->max_ratio;
+			curlun->nofua = 1;
+
+			if (bdi_set_max_ratio(bdi, uicc_ums_max_ratio))
+				pr_debug("%s, error in setting max_ratio\n",
+						__func__);
+		}
 	} else {
 		blksize = 512;
 		blkbits = 9;
@@ -541,16 +553,6 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	curlun->filp = filp;
 	curlun->file_length = size;
 	curlun->num_sectors = num_sectors;
-
-	bdi = &inode->i_bdev->bd_queue->backing_dev_info;
-
-	if (bdi->capabilities & BDI_CAP_STRICTLIMIT) {
-		curlun->max_ratio = bdi->max_ratio;
-		curlun->nofua = 1;
-
-		if (bdi_set_max_ratio(bdi, uicc_ums_max_ratio))
-			pr_debug("%s, error in setting max_ratio\n", __func__);
-	}
 
 	LDBG(curlun, "open backing file: %s\n", filename);
 	return 0;
