@@ -150,3 +150,36 @@
 
 	status = "ok";
 };
+
+#include "dsi-panel-truly-1080p-video.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <3>;
+	qcom,pins = <&gp 90>, <&gp 0>, <&gp 91>;
+};
+
+&pmx_mdss_te {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 24>;
+};
+
+&mdss_dsi0 {
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
+	qcom,dsi-panel-bias-vreg;
+
+	qcom,platform-enable-gpio = <&msm_gpio 90 0>;
+	qcom,platform-reset-gpio = <&msm_gpio 0 0>;
+	qcom,platform-bklight-en-gpio = <&msm_gpio 91 0>;
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+};
