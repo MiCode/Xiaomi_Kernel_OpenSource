@@ -46,6 +46,19 @@ static int wcd_resmgr_codec_reg_update_bits(struct wcd9xxx_resmgr_v2 *resmgr,
 }
 
 /*
+ * wcd_resmgr_get_clk_type()
+ * Returns clk type that is currently enabled
+ */
+int wcd_resmgr_get_clk_type(struct wcd9xxx_resmgr_v2 *resmgr)
+{
+	if (!resmgr) {
+		pr_err("%s: resmgr not initialized\n", __func__);
+		return -EINVAL;
+	}
+	return resmgr->clk_type;
+}
+
+/*
  * wcd_resmgr_enable_master_bias: enable codec master bias
  * @resmgr: handle to struct wcd9xxx_resmgr_v2
  */
