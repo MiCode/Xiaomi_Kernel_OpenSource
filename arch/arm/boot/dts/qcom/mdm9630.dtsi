@@ -840,6 +840,7 @@
 			    "ipa_uc_mbox_erdb";
 		interrupts = <0 42 0>;
 		interrupt-names = "mhi-device-inta";
+		qcom,mhi-ifc-id = <0x030017cb>;
 	};
 
 	clock_gcc: qcom,gcc@fc400000 {
