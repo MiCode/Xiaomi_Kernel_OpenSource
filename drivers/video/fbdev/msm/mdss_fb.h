@@ -188,17 +188,16 @@ struct msm_mdp_interface {
 	int (*on_fnc)(struct msm_fb_data_type *mfd);
 	int (*off_fnc)(struct msm_fb_data_type *mfd);
 	/* called to release resources associated to the process */
-	int (*release_fnc)(struct msm_fb_data_type *mfd, bool release_all,
-				uint32_t pid);
+	int (*release_fnc)(struct msm_fb_data_type *mfd, struct file *file);
 	int (*mode_switch)(struct msm_fb_data_type *mfd,
 					u32 mode);
 	int (*mode_switch_post)(struct msm_fb_data_type *mfd,
 					u32 mode);
 	int (*kickoff_fnc)(struct msm_fb_data_type *mfd,
 					struct mdp_display_commit *data);
-	int (*atomic_validate)(struct msm_fb_data_type *mfd,
+	int (*atomic_validate)(struct msm_fb_data_type *mfd, struct file *file,
 				struct mdp_layer_commit_v1 *commit);
-	int (*pre_commit)(struct msm_fb_data_type *mfd,
+	int (*pre_commit)(struct msm_fb_data_type *mfd, struct file *file,
 				struct mdp_layer_commit_v1 *commit);
 	int (*pre_commit_fnc)(struct msm_fb_data_type *mfd);
 	int (*ioctl_handler)(struct msm_fb_data_type *mfd, u32 cmd, void *arg);
@@ -231,13 +230,6 @@ struct msm_mdp_interface {
 
 struct mdss_fb_file_info {
 	struct file *file;
-	struct list_head list;
-};
-
-struct mdss_fb_proc_info {
-	int pid;
-	u32 ref_cnt;
-	struct list_head file_list;
 	struct list_head list;
 };
 
@@ -327,7 +319,7 @@ struct msm_fb_data_type {
 	u32 is_power_setting;
 
 	u32 dcm_state;
-	struct list_head proc_list;
+	struct list_head file_list;
 	struct ion_client *fb_ion_client;
 	struct ion_handle *fb_ion_handle;
 	struct dma_buf *fbmem_buf;
