@@ -186,6 +186,8 @@ struct wcd_cpe_params {
 	u32 cdc_id;
 
 	struct wcd_cpe_irq_info cdc_irq_info;
+
+	struct cpe_svc_init_param *cpe_svc_params;
 };
 
 int wcd_cpe_ssr_event(void *core_handle,

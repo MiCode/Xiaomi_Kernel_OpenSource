@@ -24,6 +24,9 @@
 #define EFAILED (MAX_ERRNO - 1)
 #define ENOTREADY (MAX_ERRNO - 2)
 
+#define MAX_SUPPORTED_CLKFREQ 8
+#define CPE_SVC_INIT_PARAM_V1 1
+
 enum cpe_svc_result {
 	CPE_SVC_SUCCESS			= 0,
 	CPE_SVC_FAILED			= -EFAILED,
@@ -59,11 +62,14 @@ enum cpe_svc_route_dest {
 enum cpe_svc_mem_type {
 	CPE_SVC_DATA_MEM		= 1,
 	CPE_SVC_INSTRUCTION_MEM		= 2,
+	CPE_SVC_IPC_MEM			= 3,
 	CPE_SVC_MEM_TYPE_ANCHOR		= 0x7F
 };
 
 enum cpe_svc_codec_id {
-	CPE_SVC_CODEC_TOMTOM		= 1,
+	CPE_SVC_CODEC_TOMTOM		= 5,
+	CPE_SVC_CODEC_WCD9335		= 7,
+	CPE_SVC_CODEC_WCD9326		= 8,
 	CPE_SVC_CODEC_ID_ANCHOR		= 0x7ffffff
 };
 
@@ -117,6 +123,22 @@ struct cpe_svc_hw_cfg {
 	u8 inbox_size;
 	u8 outbox_size;
 };
+
+struct cpe_svc_cfg_clk_plan {
+	u32 current_clk_feq;
+	u32 num_clk_freqs;
+	u32 clk_freqs[MAX_SUPPORTED_CLKFREQ];
+};
+
+struct cpe_svc_init_param {
+	void *context;
+	u32 version;
+	void (*query_freq_plans_cb)(void *cdc_priv,
+			struct cpe_svc_cfg_clk_plan *clk_freq);
+	void (*change_freq_plan_cb)(void *cdc_priv,
+			u32 clk_freq);
+};
+
 
 void *cpe_svc_initialize(
 		void irq_control_callback(u32 enable),

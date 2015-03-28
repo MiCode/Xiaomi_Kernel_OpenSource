@@ -415,7 +415,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 		return -EINVAL;
 	}
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	snprintf(mdt_name, sizeof(mdt_name), "%s.mdt", core->fname);
 	ret = request_firmware(&fw, mdt_name, core->dev);
 	if (IS_ERR_VALUE(ret)) {
@@ -1279,7 +1279,7 @@ static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core)
 {
 
 	struct snd_soc_codec *codec = core->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
 
 	wcd9xxx_free_irq(core_res,
@@ -1301,7 +1301,7 @@ static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core)
 {
 	int ret;
 	struct snd_soc_codec *codec = core->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
 
 	ret = wcd9xxx_request_irq(core_res,
@@ -1633,8 +1633,8 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	 */
 	core->ready_status = WCD_CPE_READY_TO_DLOAD;
 
-
-	core->cpe_handle = cpe_svc_initialize(NULL, &core->cdc_info, codec);
+	core->cpe_handle = cpe_svc_initialize(NULL, &core->cdc_info,
+					      params->cpe_svc_params);
 	if (!core->cpe_handle) {
 		dev_err(core->dev,
 			"%s: failed to initialize cpe services\n",
@@ -2732,7 +2732,7 @@ static int wcd_cpe_buf_alloc(void *core_handle,
 		goto exit;
 	}
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	if (session)
 		lab = &session->lab;
 	else {
@@ -2823,7 +2823,7 @@ static int wcd_cpe_buf_dealloc(void *core_handle,
 		return rc;
 	}
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	if (session)
 		lab = &session->lab;
 	else {
@@ -3011,7 +3011,7 @@ static int slim_master_read_enable(void *core_handle,
 	struct wcd_cpe_lab_hw_params *lsm_params;
 
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	lab_s = &session->lab;
 	lsm_params = &lab_s->hw_params;
 	/* The sequence should be maintained strictly */
@@ -3081,7 +3081,7 @@ int slim_master_read_status(void *core_handle,
 	int rc = 0;
 
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	rc = wcd9xxx_slim_ch_master_status(wcd9xxx, lab->slim_handle,
 					   phys, len);
 	return rc;
@@ -3098,7 +3098,7 @@ int slim_master_read(void *core_handle,
 	int rc = 0;
 
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	rc = wcd9xxx_slim_ch_master_read(wcd9xxx, lab->slim_handle,
 					 phys, mem, read_len);
 	return rc;
@@ -3113,7 +3113,7 @@ static int wcd_cpe_lsm_stop_lab(void *core_handle,
 	int rc = 0;
 
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	lab_s = &session->lab;
 	WCD_CPE_GRAB_LOCK(&session->lsm_lock, "lsm");
 	/* This seqeunce should be followed strictly for closing sequence */
