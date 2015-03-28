@@ -435,7 +435,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 
 	pipe->mixer_left = mixer;
 	pipe->mfd = mfd;
-	pipe->pid = current->tgid;
 	pipe->play_cnt = 0;
 	pipe->flags = 0;
 
@@ -1024,7 +1023,7 @@ static void __handle_free_list(struct mdss_overlay_private *mdp5_data,
  * to find failed layer from layer_list based on "error_code".
  */
 static int __validate_layers(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *commit)
+	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
 	int ret, i, release_ndx = 0;
 	u32 left_lm_layers = 0, right_lm_layers = 0;
@@ -1212,10 +1211,9 @@ validate_exit:
 	pr_debug("err=%d total_layer:%d left:%d right:%d release_ndx=0x%x processed=%d\n",
 		ret, layer_count, left_lm_layers, right_lm_layers,
 		release_ndx, i);
-	if (IS_ERR_VALUE(ret)) {
-		mutex_lock(&mdp5_data->list_lock);
-		list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used,
-		    list) {
+	mutex_lock(&mdp5_data->list_lock);
+	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
+		if (IS_ERR_VALUE(ret)) {
 			if (pipe->ndx & release_ndx) {
 				mdss_mdp_smp_unreserve(pipe);
 				pipe->params_changed = 0;
@@ -1224,9 +1222,13 @@ validate_exit:
 					list_del_init(&pipe->list);
 				mdss_mdp_pipe_destroy(pipe);
 			}
+		} else {
+			pipe->file = file;
+			pr_debug("file pointer attached with pipe is %p\n",
+				file);
 		}
-		mutex_unlock(&mdp5_data->list_lock);
 	}
+	mutex_unlock(&mdp5_data->list_lock);
 end:
 	mutex_unlock(&mdp5_data->ov_lock);
 
@@ -1248,7 +1250,7 @@ end:
  * This function is called from client context and can return the error.
  */
 int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *commit)
+	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
 	int ret, i;
 	int layer_count = commit->input_layer_cnt;
@@ -1282,7 +1284,7 @@ int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
 	}
 
 	if (validate_failed) {
-		ret = __validate_layers(mfd, commit);
+		ret = __validate_layers(mfd, file, commit);
 		if (ret)
 			goto end;
 	} else {
@@ -1338,7 +1340,7 @@ end:
  * display.
  */
 int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *commit)
+	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
 	struct mdss_overlay_private *mdp5_data;
 
@@ -1360,11 +1362,11 @@ int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
 		return -EPERM;
 	}
 
-	return __validate_layers(mfd, commit);
+	return __validate_layers(mfd, file, commit);
 }
 
 int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *commit)
+	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
 	int rc, count;
 	struct mdss_overlay_private *mdp5_data;
@@ -1402,7 +1404,7 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 		}
 	}
 
-	rc = mdss_mdp_layer_pre_commit(mfd, commit);
+	rc = mdss_mdp_layer_pre_commit(mfd, file, commit);
 	if (rc) {
 		pr_err("fail to import input layer buffers\n");
 		goto input_layer_err;
@@ -1428,7 +1430,7 @@ fence_get_err:
 }
 
 int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *commit)
+	struct file *file, struct mdp_layer_commit_v1 *commit)
 {
 	int rc = 0;
 	struct mdss_overlay_private *mdp5_data;
@@ -1465,7 +1467,7 @@ int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
 		goto validate_failed;
 	}
 
-	rc = mdss_mdp_layer_atomic_validate(mfd, commit);
+	rc = mdss_mdp_layer_atomic_validate(mfd, file, commit);
 	if (rc) {
 		pr_err("fail to validate the input layers = %d\n", rc);
 		goto validate_failed;

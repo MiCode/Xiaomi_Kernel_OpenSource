@@ -507,7 +507,7 @@ struct mdss_mdp_pipe {
 	struct kref kref;
 
 	u32 play_cnt;
-	int pid;
+	struct file *file;
 	bool is_handed_off;
 
 	u32 flags;
@@ -955,14 +955,14 @@ int mdss_mdp_secure_display_ctrl(unsigned int enable);
 
 int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd);
 int mdss_mdp_layer_atomic_validate(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *ov_commit);
+	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
 int mdss_mdp_layer_pre_commit(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *ov_commit);
+	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
 
 int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *ov_commit);
+	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
 int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
-	struct mdp_layer_commit_v1 *ov_commit);
+	struct file *file, struct mdp_layer_commit_v1 *ov_commit);
 
 int mdss_mdp_async_position_update(struct msm_fb_data_type *mfd,
 		struct mdp_position_update *update_pos);
