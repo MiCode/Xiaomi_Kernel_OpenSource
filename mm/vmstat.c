@@ -1396,8 +1396,8 @@ static void vmstat_shepherd(struct work_struct *w)
 		if (need_update(cpu) &&
 			cpumask_test_and_clear_cpu(cpu, cpu_stat_off))
 
-			schedule_delayed_work_on(cpu,
-				&per_cpu(vmstat_work, cpu), 0);
+			schedule_delayed_work_on(cpu, &per_cpu(vmstat_work, cpu),
+				__round_jiffies_relative(sysctl_stat_interval, cpu));
 
 	put_online_cpus();
 
