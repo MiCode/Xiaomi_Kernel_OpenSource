@@ -390,8 +390,11 @@ static ssize_t mei_write(struct file *file, const char __user *ubuf,
 		goto out;
 	}
 	rets = mei_io_cb_alloc_req_buf(write_cb, length);
-	if (rets)
+	if (rets) {
+		dev_warn(&dev->pdev->dev,
+			"failed to allocate req buffer, err = %d\n", rets);
 		goto out;
+	}
 
 	rets = copy_from_user(write_cb->request_buffer.data, ubuf, length);
 	if (rets) {

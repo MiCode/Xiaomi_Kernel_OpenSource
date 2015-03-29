@@ -384,6 +384,8 @@ void mei_device_init(struct mei_device *dev, const struct mei_cfg *cfg)
 	bitmap_zero(dev->host_clients_map, MEI_CLIENTS_MAX);
 	dev->open_handle_count = 0;
 
+	dev->write_mem_limit = 0;
+
 	/*
 	 * Reserving the first client ID
 	 * 0: Reserved for MEI Bus Message communications

@@ -79,6 +79,8 @@ static int mei_hbm_me_cl_allocate(struct mei_device *dev)
 	for_each_set_bit(b, dev->me_clients_map, MEI_CLIENTS_MAX)
 		dev->me_clients_num++;
 
+	dev->write_mem_limit = dev->me_clients_num * MEI_WRITE_BUF_LIMIT;
+
 	if (dev->me_clients_num == 0)
 		return 0;
 

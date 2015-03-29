@@ -144,6 +144,8 @@ void mei_io_cb_free(struct mei_cl_cb *cb)
 	if (cb == NULL)
 		return;
 
+	if (cb->fop_type == MEI_FOP_WRITE)
+		cb->cl->dev->write_mem_limit += cb->request_buffer.size;
 	kfree(cb->request_buffer.data);
 	kfree(cb->response_buffer.data);
 	kfree(cb);
@@ -182,6 +184,7 @@ struct mei_cl_cb *mei_io_cb_init(struct mei_cl *cl, struct file *fp)
  * returns 0 on success
  *         -EINVAL if cb is NULL
  *         -ENOMEM if allocation failed
+ *         -EBUSY  if write memory limit reached
  */
 int mei_io_cb_alloc_req_buf(struct mei_cl_cb *cb, size_t length)
 {
@@ -191,10 +194,16 @@ int mei_io_cb_alloc_req_buf(struct mei_cl_cb *cb, size_t length)
 	if (length == 0)
 		return 0;
 
+	if (length > cb->cl->dev->write_mem_limit)
+		return -EBUSY;
+
 	cb->request_buffer.data = kmalloc(length, GFP_KERNEL);
 	if (!cb->request_buffer.data)
 		return -ENOMEM;
 	cb->request_buffer.size = length;
+
+	/* register that we use length memory in this call */
+	cb->cl->dev->write_mem_limit -= length;
 	return 0;
 }
 /**
