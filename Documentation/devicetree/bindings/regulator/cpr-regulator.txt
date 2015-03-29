@@ -87,17 +87,21 @@ Optional properties:
 				  1 => equal to PVS corner ceiling voltage
 				  2 => equal to slow speed corner ceiling
 				  3 => equal to qcom,vdd-mx-vmax
-				  4 => equal to VDD_APC corner mapped vdd-mx voltage
+				  4 => equal to VDD_APC fuse corner mapped vdd-mx voltage
+				  5 => equal to VDD_APC virtual corner mapped vdd-mx voltage
 				This is required when vdd-mx-supply is present.
 - qcom,vdd-mx-corner-map:	Array of integers which defines the mapping from VDD_APC
-				fuse voltage corners to vdd-mx-supply voltages.
-				Each element is a voltage to request from vdd-mx
-				for the corresponding fuse corner.  The elements
+				voltage corners to vdd-mx-supply voltages.
+				Each element is a voltage to request from vdd-mx for the
+				corresponding fuse corner or virtual corner. The elements
 				in the array are ordered from lowest voltage corner
-				to highest voltage corner.  This property must be
-				of length defined by qcom,cpr-fuse-corners.
-				This is required when the qcom,vdd-mx-vmin-method
-				property has a value of 4.
+				to highest voltage corner.  The length of this property
+				depends on the value of qcom,vdd-mx-vmin-method property.
+				When qcom,vdd-mx-vmin-method property has a value of 4, the length
+				of this property must be equal to the value defined by qcom,cpr-fuse-corners.
+				When qcom,vdd-mx-vmin-method property has a value of 5, the length of
+				this property must be equal to the number of elements in the qcom,cpr-corner-map
+				property.
 - qcom,pvs-voltage-table: 	Array of N-tuples in which each tuple specifies the
 				initial voltage in microvolts of the PVS bin for each
 				fuse voltage corner.  The location or 0-based index
