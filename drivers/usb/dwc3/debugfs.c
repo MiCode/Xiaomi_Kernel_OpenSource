@@ -1172,6 +1172,9 @@ static int dwc3_gadget_int_events_show(struct seq_file *s, void *unused)
 		seq_printf(s, "%d\t", dwc->bh_completion_time[i]);
 	seq_putc(s, '\n');
 
+	seq_printf(s, "t_pwr evt irq : %lld\t",
+			ktime_to_us(dwc->t_pwr_evt_irq));
+
 	spin_unlock_irqrestore(&dwc->lock, flags);
 	return 0;
 }
