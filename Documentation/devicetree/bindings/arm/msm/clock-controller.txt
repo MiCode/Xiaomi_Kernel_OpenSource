@@ -12,6 +12,7 @@ Required properties:
 - compatible:		Must be one of following,
 			"qcom,gcc-8916"
 			"qcom,gcc-8936"
+			"qcom,gcc-8936-v3"
 			"qcom,gcc-8909"
 			"qcom,gcc-8992"
 			"qcom,gcc-8994"
