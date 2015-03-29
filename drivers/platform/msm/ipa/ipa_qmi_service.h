@@ -185,7 +185,7 @@ static inline void wan_ioctl_deinit(void)
 	return;
 }
 
-static inline void void ipa_qmi_stop_workqueues(void)
+static inline void ipa_qmi_stop_workqueues(void)
 {
 	return;
 }
