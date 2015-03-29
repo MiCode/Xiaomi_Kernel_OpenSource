@@ -71,9 +71,6 @@ Parent node optional properties:
 					to set recurring measurements and
 					receive notification for batt_therm.
 -qcom,float-charge			If specified enable float charging.
-- qcom,resume-soc			Capacity in percent at which charging
-					should resume when a fully charged
-					battery drops below this level.
 - qcom,chg-vadc				Corresponding VADC device's phandle.
 - qcom,charger-detect-eoc		If specified charger hardware will
 					detect end-of-charge.
@@ -97,10 +94,6 @@ Parent node optional properties:
 					charger module, it is used to control a
 					led which can act as a charger led as well
 					as a general notification led.
-- qcom,bms-controlled-charging		This property enables BMS to control
-					charging. BMS and charger communicates
-					with each other via power_supply
-					framework.
 - qcom,parallel-charger			This is a bool property to indicate the
 					LBC will operate as a secondary charger
 					in the parallel mode. If this is enabled
