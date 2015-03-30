@@ -6,6 +6,7 @@ config ARM_GIC
 	bool
 	select IRQ_DOMAIN
 	select MULTI_IRQ_HANDLER
+	select MSM_SHOW_RESUME_IRQ
 
 config GIC_NON_BANKED
 	bool
@@ -65,6 +66,16 @@ config MSM_GIC_SGI_NEEDS_BARRIER
 	  designs, select 'Y' here.
 
 	  For production kernels, you should say 'N' here.
+
+config MSM_SHOW_RESUME_IRQ
+	bool "Enable logging of interrupts that could have caused resume"
+	depends on ARM_GIC
+	default n
+	help
+	  This option logs wake up interrupts that have triggered just before
+	  the resume loop unrolls. It helps to debug to know any unnecessary
+	  wake up interrupts that causes system to come out of low power modes.
+	  Say Y if you want to debug why the system resumed.
 
 config DW_APB_ICTL
 	bool
