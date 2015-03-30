@@ -54,6 +54,7 @@ static void __iomem *virt_bases[N_BASES];
 
 #define gpll0_out_aux_source_val	2   /* cci_clk_src and
 					     * usb_fs_system_clk_src */
+#define gpll4_source_val		2   /* sdcc1_apss_clk_src */
 #define gpll6_source_val		2   /* mclk0_2_clk_src */
 #define gpll6_out_aux_source_val	3   /* gfx3d_clk_src */
 #define gpll6_out_main_source_val	1   /* usb_fs_ic_clk_src */
@@ -444,20 +445,17 @@ static struct alpha_pll_clk gpll3_clk_src = {
 	},
 };
 
-static struct alpha_pll_clk gpll4_clk_src = {
-	.masks = &pll_masks_p,
+static struct pll_vote_clk gpll4_clk_src = {
+	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
+	.en_mask = BIT(5),
+	.status_reg = (void __iomem *)GPLL4_STATUS,
+	.status_mask = BIT(17),
 	.base = &virt_bases[GCC_BASE],
-	.offset = GPLL4_MODE,
-	.vco_tbl = p_vco,
-	.num_vco = ARRAY_SIZE(p_vco),
-	.fsm_reg_offset = APCS_GPLL_ENA_VOTE,
-	.fsm_en_mask =  BIT(5),
-	.enable_config = 1,
 	.c = {
-		.rate =  1200000000,
+		.rate =  1152000000,
 		.parent = &xo_clk_src.c,
 		.dbg_name = "gpll4_clk_src",
-		.ops = &clk_ops_fixed_alpha_pll,
+		.ops = &clk_ops_pll_vote,
 		CLK_INIT(gpll4_clk_src.c),
 	},
 };
@@ -1343,7 +1341,9 @@ static struct clk_freq_tbl ftbl_gcc_sdcc1_2_apps_clk[] = {
 	F( 50000000,	gpll0,	16,	0,	0),
 	F( 100000000,	gpll0,	8,	0,	0),
 	F( 177770000,	gpll0,	4.5,	0,	0),
+	F( 192000000,	gpll4,	6,	0,	0),
 	F( 200000000,	gpll0,	4,	0,	0),
+	F( 384000000,	gpll4,	3,	0,	0),
 	F_END
 };
 
@@ -1356,7 +1356,7 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 	.c = {
 		.dbg_name = "sdcc1_apps_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOW, 200000000, NOMINAL, 400000000),
+		VDD_DIG_FMAX_MAP2(LOW, 200000000, NOMINAL, 384000000),
 		CLK_INIT(sdcc1_apps_clk_src.c),
 	},
 };
