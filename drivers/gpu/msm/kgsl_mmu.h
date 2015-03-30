@@ -90,7 +90,6 @@ struct kgsl_mmu_ops {
 	phys_addr_t (*mmu_get_pt_base_addr)
 			(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt);
-	int (*mmu_hw_halt_supported)(struct kgsl_mmu *mmu);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned long pf_policy);
 	void (*mmu_set_pagefault)(struct kgsl_mmu *mmu);
 	struct kgsl_protected_registers *(*mmu_get_prot_regs)
@@ -257,7 +256,7 @@ static inline void kgsl_mmu_disable_clk(struct kgsl_mmu *mmu)
  * kgsl_mmu_get_reg_ahbaddr() - Calls the mmu specific function pointer to
  * return the address that GPU can use to access register
  * @mmu:		Pointer to the device mmu
- * @ctx_id:		The context id within the iommu unit
+ * @ctx_id:		The MMU HW context ID
  * @reg:		Register whose address is to be returned
  *
  * Returns the ahb address of reg else 0
@@ -268,21 +267,6 @@ static inline unsigned int kgsl_mmu_get_reg_ahbaddr(struct kgsl_mmu *mmu,
 {
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_get_reg_ahbaddr)
 		return mmu->mmu_ops->mmu_get_reg_ahbaddr(mmu, ctx_id, reg);
-	else
-		return 0;
-}
-
-/*
- * kgsl_mmu_hw_halt_supported() - Runtime check for iommu hw halt
- * @mmu: the mmu
- *
- * Returns non-zero if the iommu supports hw halt,
- * 0 if not.
- */
-static inline int kgsl_mmu_hw_halt_supported(struct kgsl_mmu *mmu)
-{
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_hw_halt_supported)
-		return mmu->mmu_ops->mmu_hw_halt_supported(mmu);
 	else
 		return 0;
 }

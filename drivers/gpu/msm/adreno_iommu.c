@@ -413,40 +413,39 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 	ttbr0 = kgsl_mmu_get_reg_ahbaddr(&device->mmu, KGSL_IOMMU_CONTEXT_USER,
 					KGSL_IOMMU_CTX_TTBR0) >> 2;
 
-	if (kgsl_mmu_hw_halt_supported(&device->mmu)) {
-		cmds += cp_wait_for_idle(adreno_dev, cmds);
-		/*
-		 * glue commands together until next
-		 * WAIT_FOR_ME
-		 */
-		if (adreno_is_a4xx(adreno_dev))
-			cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds,
-			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-				1, 0xFFFFFFFF, 0xF);
-		else
-			cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
-			adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
-				1, 0xFFFFFFFF, 0xF);
+	cmds += cp_wait_for_idle(adreno_dev, cmds);
+	/*
+	 * glue commands together until next
+	 * WAIT_FOR_ME
+	 */
+	if (adreno_is_a4xx(adreno_dev))
+		cmds += _adreno_iommu_wait_reg_mem(adreno_dev, cmds,
+		adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
+			1, 0xFFFFFFFF, 0xF);
+	else
+		cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
+		adreno_getreg(adreno_dev, ADRENO_REG_CP_WFI_PEND_CTR),
+			1, 0xFFFFFFFF, 0xF);
 
-		/* set the iommu lock bit */
-		*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
-		*cmds++ = mmu_ctrl;
-		/* AND to unmask the lock bit */
-		*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
-		/* OR to set the IOMMU lock bit */
-		*cmds++ = KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
-		/* wait for smmu to lock */
-		if (adreno_is_a4xx(adreno_dev))
-			cmds += _adreno_iommu_wait_reg_mem(adreno_dev,
-				cmds, mmu_ctrl,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
-		else
-			cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
-				mmu_ctrl,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
-				KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
-	}
+	/* set the iommu lock bit */
+	*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
+	*cmds++ = mmu_ctrl;
+	/* AND to unmask the lock bit */
+	*cmds++ = ~(KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT);
+	/* OR to set the IOMMU lock bit */
+	*cmds++ = KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_HALT;
+	/* wait for smmu to lock */
+	if (adreno_is_a4xx(adreno_dev))
+		cmds += _adreno_iommu_wait_reg_mem(adreno_dev,
+			cmds, mmu_ctrl,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
+	else
+		cmds += _adreno_iommu_wait_reg_eq(adreno_dev, cmds,
+			mmu_ctrl,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE,
+			KGSL_IOMMU_IMPLDEF_MICRO_MMU_CTRL_IDLE, 0xF);
+
 	if (ADRENO_FEATURE(adreno_dev, ADRENO_HAS_REG_TO_REG_CMDS)) {
 		/* ME_SCRATCH_REG to REG copy */
 		*cmds++ = cp_packet(adreno_dev, CP_SCRATCH_TO_REG, 1);
@@ -473,8 +472,7 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 			*cmds++ = reg_pt_val;
 		}
 	}
-	if (kgsl_mmu_hw_halt_supported(&device->mmu) &&
-		adreno_is_a3xx(adreno_dev)) {
+	if (adreno_is_a3xx(adreno_dev)) {
 		/* unlock the IOMMU lock */
 		*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
 		*cmds++ = mmu_ctrl;
@@ -509,8 +507,7 @@ static unsigned int _adreno_iommu_set_pt_v1(struct adreno_ringbuffer *rb,
 			cmds, tlbstatus, 0,
 			KGSL_IOMMU_CTX_TLBSTATUS_SACTIVE, 0xF);
 
-	if (kgsl_mmu_hw_halt_supported(&device->mmu) &&
-		!adreno_is_a3xx(adreno_dev)) {
+	if (!adreno_is_a3xx(adreno_dev)) {
 		/* unlock the IOMMU lock */
 		*cmds++ = cp_packet(adreno_dev, CP_REG_RMW, 3);
 		*cmds++ = mmu_ctrl;
@@ -1068,7 +1065,6 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct kgsl_iommu *iommu = device->mmu.priv;
-	struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_unit;
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
 		return 0;
@@ -1076,13 +1072,13 @@ int adreno_iommu_init(struct adreno_device *adreno_dev)
 	/* Overwrite the ahb_base_offset for iommu v2 targets here */
 	if (kgsl_msm_supports_iommu_v2()) {
 		if (adreno_is_a405(adreno_dev))
-			iommu_unit->ahb_base_offset =
+			iommu->ahb_base_offset =
 					KGSL_IOMMU_V2_AHB_BASE_OFFSET_A405;
 		else if (adreno_is_a530(adreno_dev))
-			iommu_unit->ahb_base_offset =
+			iommu->ahb_base_offset =
 					KGSL_IOMMU_V2_AHB_BASE_OFFSET_A530;
 		else
-			iommu_unit->ahb_base_offset =
+			iommu->ahb_base_offset =
 					KGSL_IOMMU_V2_AHB_BASE_OFFSET;
 	}
 
