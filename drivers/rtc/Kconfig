@@ -1402,6 +1402,15 @@ config RTC_DRV_MOXART
 	   This driver can also be built as a module. If so, the module
 	   will be called rtc-moxart
 
+config RTC_DRV_QPNP
+	tristate "Qualcomm QPNP PMIC RTC"
+	depends on SPMI && OF_SPMI && MSM_QPNP_INT
+	help
+	  Say Y here if you want to support the Qualcomm QPNP PMIC RTC.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called qpnp-rtc.
+
 config RTC_DRV_XGENE
 	tristate "APM X-Gene RTC"
 	depends on HAS_IOMEM
