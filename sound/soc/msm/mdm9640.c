@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1031,6 +1031,38 @@ static struct snd_soc_dai_link mdm9640_dai[] = {
 		/* this dainlink has playback support */
 		.ignore_pmdown_time = 1,
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA5,
+	},
+	{
+		.name = "MDM VoiceMMode1",
+		.stream_name = "VoiceMMode1",
+		.cpu_dai_name   = "VoiceMMode1",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* This dainlink has Voice support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_VOICEMMODE1,
+	},
+	{
+		.name = "MDM VoiceMMode2",
+		.stream_name = "VoiceMMode2",
+		.cpu_dai_name   = "VoiceMMode2",
+		.platform_name  = "msm-pcm-voice",
+		.dynamic = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			    SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		/* This dainlink has Voice support */
+		.ignore_pmdown_time = 1,
+		.be_id = MSM_FRONTEND_DAI_VOICEMMODE2,
 	},
 	/* Backend DAI Links */
 	{
