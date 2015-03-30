@@ -23,19 +23,17 @@
 #include <linux/string.h>
 
 const struct cpu_operations *cpu_ops[NR_CPUS];
-extern struct cpu_operations *__cpu_method_of_table_begin[];
-extern struct cpu_operations *__cpu_method_of_table_end[];
+extern struct of_cpu_method __cpu_method_of_table[];
+static const struct of_cpu_method __cpu_method_of_table_sentinel
+	__used __section(__cpu_method_of_table_end);
 
 const struct cpu_operations * __init cpu_get_ops(const char *name)
 {
-	const struct cpu_operations **start = (void *)__cpu_method_of_table_begin;
-	const struct cpu_operations **end = (void *)__cpu_method_of_table_end;
+	struct of_cpu_method *m = __cpu_method_of_table;
 
-	while (start < end) {
-		if (!strcmp((*start)->name, name))
-			return *start;
-		start++;
-	};
+	for (; m->method; m++)
+		if (!strcmp(m->method, name))
+			return m->ops;
 
 	return NULL;
 }

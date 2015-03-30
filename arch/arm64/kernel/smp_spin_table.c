@@ -115,10 +115,11 @@ static int smp_spin_table_cpu_boot(unsigned int cpu)
 	return 0;
 }
 
-static const struct cpu_operations smp_spin_table_ops = {
+static struct cpu_operations smp_spin_table_ops = {
 	.name		= "spin-table",
 	.cpu_init	= smp_spin_table_cpu_init,
 	.cpu_prepare	= smp_spin_table_cpu_prepare,
 	.cpu_boot	= smp_spin_table_cpu_boot,
 };
-CPU_METHOD_OF_DECLARE(spin_table, &smp_spin_table_ops);
+CPU_METHOD_OF_DECLARE(spin_table,
+		"spin-table", &smp_spin_table_ops);

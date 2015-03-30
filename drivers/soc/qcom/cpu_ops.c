@@ -250,7 +250,7 @@ static int msm_cpu_kill(unsigned int cpu)
 }
 #endif
 
-static const struct cpu_operations msm_cortex_a_ops = {
+static struct cpu_operations msm_cortex_a_ops = {
 	.name		= "qcom,arm-cortex-acc",
 	.cpu_init	= msm_cpu_init,
 	.cpu_prepare	= msm_cpu_prepare,
@@ -261,9 +261,10 @@ static const struct cpu_operations msm_cortex_a_ops = {
 #endif
 	.cpu_suspend       = msm_pm_collapse,
 };
-CPU_METHOD_OF_DECLARE(msm_cortex_a_ops, &msm_cortex_a_ops);
+CPU_METHOD_OF_DECLARE(msm_cortex_a_ops,
+		"qcom,arm-cortex-acc", &msm_cortex_a_ops);
 
-static const struct cpu_operations msm8994_cortex_a_ops = {
+static struct cpu_operations msm8994_cortex_a_ops = {
 	.name		= "qcom,8994-arm-cortex-acc",
 	.cpu_init	= msm_cpu_init,
 	.cpu_prepare	= msm8994_cpu_prepare,
@@ -274,9 +275,10 @@ static const struct cpu_operations msm8994_cortex_a_ops = {
 #endif
 	.cpu_suspend       = msm_pm_collapse,
 };
-CPU_METHOD_OF_DECLARE(msm8994_cortex_a_ops, &msm8994_cortex_a_ops);
+CPU_METHOD_OF_DECLARE(msm8994_cortex_a_ops,
+		"qcom,8994-arm-cortex-acc", &msm8994_cortex_a_ops);
 
-static const struct cpu_operations msm8996_ops = {
+static struct cpu_operations msm8996_ops = {
 	.name		= "qcom,msm8996-acc",
 	.cpu_init	= msm_cpu_init,
 	.cpu_prepare	= msm8996_cpu_prepare,
@@ -288,4 +290,5 @@ static const struct cpu_operations msm8996_ops = {
 #endif
 	.cpu_suspend       = msm_pm_collapse,
 };
-CPU_METHOD_OF_DECLARE(msm8996_ops, &msm8996_ops);
+CPU_METHOD_OF_DECLARE(msm8996_ops,
+		"qcom,msm8996-acc", &msm8996_ops);
