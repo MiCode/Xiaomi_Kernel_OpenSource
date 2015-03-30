@@ -240,8 +240,8 @@ static int kgsl_iommu_pdev_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	data->physstart = reg_val[0];
-	data->physend = data->physstart + reg_val[1] - 1;
+	data->regstart = reg_val[0];
+	data->regsize = reg_val[1];
 
 	data->features |= KGSL_MMU_DMA_API;
 
@@ -876,8 +876,8 @@ static int adreno_of_get_iommu(struct platform_device *pdev,
 	if (of_property_read_u32_array(node, "reg", reg_val, 2))
 		goto err;
 
-	data->physstart = reg_val[0];
-	data->physend = data->physstart + reg_val[1] - 1;
+	data->regstart = reg_val[0];
+	data->regsize = reg_val[1];
 
 	data->iommu_ctx_count = 0;
 
@@ -1077,7 +1077,7 @@ int adreno_probe(struct platform_device *pdev)
 
 	/* Defer adreno probe if IOMMU is not already probed */
 	if (!of_parse_phandle(pdev->dev.of_node, "iommu", 0) &&
-			(iommu_pdev_data.physend == 0))
+			(iommu_pdev_data.regstart == 0))
 		return -EPROBE_DEFER;
 
 	adreno_dev = adreno_get_dev(pdev);
