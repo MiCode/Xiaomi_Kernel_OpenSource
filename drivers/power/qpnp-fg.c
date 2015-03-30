@@ -1740,12 +1740,12 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 	int battid_valid = fg_is_batt_id_valid(chip);
 
 	fg_stay_awake(&chip->update_sram_wakeup_source);
+	fg_mem_lock(chip);
 	for (i = 1; i < FG_DATA_MAX; i++) {
 		if (chip->profile_loaded && i >= FG_DATA_CPRED_VOLTAGE)
 			continue;
 		rc = fg_mem_read(chip, reg, fg_data[i].address,
-			fg_data[i].len, fg_data[i].offset,
-			(i+1 == FG_DATA_MAX) ? 0 : 1);
+			fg_data[i].len, fg_data[i].offset, 0);
 		if (rc) {
 			pr_err("Failed to update sram data\n");
 			break;
@@ -1786,6 +1786,7 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 		if (fg_debug_mask & FG_MEM_DEBUG_READS)
 			pr_info("%d %d %d\n", i, temp, fg_data[i].value);
 	}
+	fg_mem_release(chip);
 
 	if (!rc)
 		get_current_time(&chip->last_sram_update_time);
