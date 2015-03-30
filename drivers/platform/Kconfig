@@ -6,3 +6,7 @@ source "drivers/platform/goldfish/Kconfig"
 endif
 
 source "drivers/platform/chrome/Kconfig"
+
+if ARCH_MSM
+source "drivers/platform/msm/Kconfig"
+endif

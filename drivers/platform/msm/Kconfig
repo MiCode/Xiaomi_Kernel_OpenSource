@@ -1,0 +1,12 @@
+menu "Qualcomm MSM specific device drivers"
+	depends on ARCH_MSM
+
+config QPNP_POWER_ON
+	tristate "QPNP PMIC POWER-ON Driver"
+	depends on OF_SPMI && SPMI && MSM_QPNP_INT && INPUT
+	help
+	  This driver supports the power-on functionality on Qualcomm
+	  PNP PMIC. It currently supports reporting the change in status of
+	  the KPDPWR_N line (connected to the power-key).
+
+endmenu

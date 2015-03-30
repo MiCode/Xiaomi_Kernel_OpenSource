@@ -1077,12 +1077,9 @@ static int qpnp_pin_free_chip(struct qpnp_pin_chip *q_chip)
 	mutex_lock(&qpnp_pin_chips_lock);
 	list_del(&q_chip->chip_list);
 	mutex_unlock(&qpnp_pin_chips_lock);
-	if (q_chip->chip_registered) {
-		rc = gpiochip_remove(&q_chip->gpio_chip);
-		if (rc)
-			dev_err(&q_chip->spmi->dev, "%s: unable to remove gpio\n",
-					__func__);
-	}
+	if (q_chip->chip_registered)
+		gpiochip_remove(&q_chip->gpio_chip);
+
 	kfree(q_chip->chip_gpios);
 	kfree(q_chip->pmic_pins);
 	kfree(q_chip);
