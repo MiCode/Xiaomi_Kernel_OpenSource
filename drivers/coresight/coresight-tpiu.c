@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -836,12 +836,20 @@ static DEVICE_ATTR(out_mode, S_IRUGO | S_IWUSR, tpiu_show_out_mode,
 static ssize_t tpiu_show_available_out_modes(struct device *dev,
 				      struct device_attribute *attr, char *buf)
 {
+	struct tpiu_drvdata *drvdata = dev_get_drvdata(dev->parent);
 	int i;
 	ssize_t len = 0;
 
-	for (i = 0; i < ARRAY_SIZE(str_tpiu_out_mode); i++)
+	for (i = 0; i < ARRAY_SIZE(str_tpiu_out_mode); i++) {
+		if ((i == TPIU_OUT_MODE_SDC_SWDTRC && !drvdata->nidnt_swdtrc)
+		 || (i == TPIU_OUT_MODE_SDC_SWDUART && !drvdata->nidnt_swduart)
+		 || (i == TPIU_OUT_MODE_SDC_JTAG && !drvdata->nidnt_jtag)
+		 || (i == TPIU_OUT_MODE_SDC_SPMI && !drvdata->nidnt_spmi))
+			continue;
+
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%s ",
 					str_tpiu_out_mode[i]);
+	}
 
 	len += scnprintf(buf + len, PAGE_SIZE - len, "\n");
 	return len;
