@@ -343,7 +343,7 @@ static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 
 struct regmap_config wsa881x_regmap_config[] = {
 {
-	.reg_bits = 16,
+	.reg_bits = 8,
 	.val_bits = 8,
 	.cache_type = REGCACHE_NONE,
 	.reg_defaults = wsa881x_reg_defaults_0,
@@ -355,7 +355,7 @@ struct regmap_config wsa881x_regmap_config[] = {
 	.val_format_endian = REGMAP_ENDIAN_NATIVE,
 },
 {
-	.reg_bits = 16,
+	.reg_bits = 8,
 	.val_bits = 8,
 	.cache_type = REGCACHE_NONE,
 	.reg_defaults = wsa881x_reg_defaults_1,
