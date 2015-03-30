@@ -332,7 +332,7 @@ static void ch_remove_tx_pending_remote_done(struct channel_ctx *ctx,
 static void glink_core_rx_cmd_rx_intent_req_ack(struct glink_transport_if
 					*if_ptr, uint32_t rcid, bool granted);
 
-static void glink_core_remote_close_common(struct channel_ctx *ctx);
+static bool glink_core_remote_close_common(struct channel_ctx *ctx);
 
 static void check_link_notifier_and_notify(struct glink_core_xprt_ctx *xprt_ptr,
 					   enum glink_link_state link_state);
@@ -341,6 +341,9 @@ static void glink_core_channel_cleanup(struct glink_core_xprt_ctx *xprt_ptr);
 static void glink_pm_qos_vote(struct glink_core_xprt_ctx *xprt_ptr);
 static void glink_pm_qos_unvote(struct glink_core_xprt_ctx *xprt_ptr);
 static void glink_pm_qos_cancel_worker(struct work_struct *work);
+static bool ch_update_local_state(struct channel_ctx *ctx,
+			enum local_channel_state_e lstate);
+static bool ch_update_rmt_state(struct channel_ctx *ctx, bool rstate);
 
 /**
  * glink_ssr() - Clean up locally for SSR by simulating remote close
@@ -381,12 +384,17 @@ EXPORT_SYMBOL(glink_ssr);
  * glink_core_ch_close_ack_common() - handles the common operations during
  *                                    close ack.
  * @ctx:	Pointer to channel instance.
+ *
+ * Return: True if the channel is fully closed after the state change,
+ *	false otherwise.
  */
-static void glink_core_ch_close_ack_common(struct channel_ctx *ctx)
+static bool glink_core_ch_close_ack_common(struct channel_ctx *ctx)
 {
+	bool is_fully_closed;
+
 	if (ctx == NULL)
-		return;
-	ctx->local_open_state = GLINK_CHANNEL_CLOSED;
+		return false;
+	is_fully_closed = ch_update_local_state(ctx, GLINK_CHANNEL_CLOSED);
 	GLINK_INFO_PERF_CH(ctx,
 		"%s: local:GLINK_CHANNEL_CLOSING->GLINK_CHANNEL_CLOSED\n",
 		__func__);
@@ -399,18 +407,25 @@ static void glink_core_ch_close_ack_common(struct channel_ctx *ctx)
 		"%s: notify state: GLINK_LOCAL_DISCONNECTED\n",
 		__func__);
 	}
+
+	return is_fully_closed;
 }
 
 /**
  * glink_core_remote_close_common() - Handles the common operations during
  *                                    a remote close.
  * @ctx:	Pointer to channel instance.
+ *
+ * Return: True if the channel is fully closed after the state change,
+ *	false otherwise.
  */
-static void glink_core_remote_close_common(struct channel_ctx *ctx)
+static bool glink_core_remote_close_common(struct channel_ctx *ctx)
 {
+	bool is_fully_closed;
+
 	if (ctx == NULL)
-		return;
-	ctx->remote_opened = false;
+		return false;
+	is_fully_closed = ch_update_rmt_state(ctx, false);
 	ctx->rcid = 0;
 
 	if (ctx->local_open_state != GLINK_CHANNEL_CLOSED &&
@@ -430,6 +445,8 @@ static void glink_core_remote_close_common(struct channel_ctx *ctx)
 			"local state is already CLOSED");
 
 	ch_purge_intent_lists(ctx);
+
+	return is_fully_closed;
 }
 
 /**
@@ -1361,6 +1378,47 @@ static void ch_add_rcid(struct glink_core_xprt_ctx *xprt_ctx,
 			uint32_t rcid)
 {
 	ctx->rcid = rcid;
+}
+
+/**
+ * ch_update_local_state() - Update the local channel state
+ * @ctx:	Pointer to channel context.
+ * @lstate:	Local channel state.
+ *
+ * Return: True if the channel is fully closed as a result of this update,
+ *	false otherwise.
+ */
+static bool ch_update_local_state(struct channel_ctx *ctx,
+					enum local_channel_state_e lstate)
+{
+	bool is_fully_closed;
+
+	rwref_write_get(&ctx->ch_state_lhc0);
+	ctx->local_open_state = lstate;
+	is_fully_closed = ch_is_fully_closed(ctx);
+	rwref_write_put(&ctx->ch_state_lhc0);
+
+	return is_fully_closed;
+}
+
+/**
+ * ch_update_local_state() - Update the local channel state
+ * @ctx:	Pointer to channel context.
+ * @rstate:	Remote Channel state.
+ *
+ * Return: True if the channel is fully closed as result of this update,
+ *	false otherwise.
+ */
+static bool ch_update_rmt_state(struct channel_ctx *ctx, bool rstate)
+{
+	bool is_fully_closed;
+
+	rwref_write_get(&ctx->ch_state_lhc0);
+	ctx->remote_opened = rstate;
+	is_fully_closed = ch_is_fully_closed(ctx);
+	rwref_write_put(&ctx->ch_state_lhc0);
+
+	return is_fully_closed;
 }
 
 /*
@@ -3618,7 +3676,7 @@ static void glink_core_rx_cmd_ch_remote_close(
 		struct glink_transport_if *if_ptr, uint32_t rcid)
 {
 	struct channel_ctx *ctx;
-	unsigned long flags;
+	bool is_ch_fully_closed;
 
 	ctx = xprt_rcid_to_ch_ctx_get(if_ptr->glink_core_priv, rcid);
 	if (!ctx) {
@@ -3638,26 +3696,14 @@ static void glink_core_rx_cmd_ch_remote_close(
 	}
 	GLINK_INFO_CH(ctx, "%s: remote: OPENED->CLOSED\n", __func__);
 
-	glink_core_remote_close_common(ctx);
+	is_ch_fully_closed = glink_core_remote_close_common(ctx);
 
 	ctx->pending_delete = true;
 	if_ptr->tx_cmd_ch_remote_close_ack(if_ptr, rcid);
 
-	spin_lock_irqsave(&ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
-	if (ch_is_fully_closed(ctx)) {
-		if (!list_empty(&ctx->port_list_node))
-			list_del_init(&ctx->port_list_node);
-		spin_unlock_irqrestore(&ctx->transport_ptr->xprt_ctx_lock_lhb1,
-					flags);
-		glink_add_free_lcid_list(ctx);
-		mutex_lock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
-		glink_debugfs_remove_channel(ctx, ctx->transport_ptr);
-		mutex_unlock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
-		flush_workqueue(if_ptr->glink_core_priv->tx_wq);
-		rwref_put(&ctx->ch_state_lhc0);
-	} else {
-		spin_unlock_irqrestore(&ctx->transport_ptr->xprt_ctx_lock_lhb1,
-				flags);
+	if (is_ch_fully_closed) {
+		glink_delete_ch_from_list(ctx, true);
+		flush_workqueue(ctx->transport_ptr->tx_wq);
 	}
 	rwref_put(&ctx->ch_state_lhc0);
 }
@@ -3672,7 +3718,7 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 	uint32_t lcid)
 {
 	struct channel_ctx *ctx;
-	unsigned long flags;
+	bool is_ch_fully_closed;
 
 	ctx = xprt_lcid_to_ch_ctx_get(if_ptr->glink_core_priv, lcid);
 	if (!ctx) {
@@ -3691,37 +3737,10 @@ static void glink_core_rx_cmd_ch_close_ack(struct glink_transport_if *if_ptr,
 		return;
 	}
 
-	ctx->local_open_state = GLINK_CHANNEL_CLOSED;
-	GLINK_INFO_PERF_CH(ctx,
-		"%s: local:GLINK_CHANNEL_CLOSING->GLINK_CHANNEL_CLOSED\n",
-		__func__);
-
-	spin_lock_irqsave(&ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
-	if (ch_is_fully_closed(ctx)) {
-		if (!list_empty(&ctx->port_list_node))
-			list_del_init(&ctx->port_list_node);
-		spin_unlock_irqrestore(
-				&ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
-		glink_add_free_lcid_list(ctx);
-		mutex_lock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
-		glink_debugfs_remove_channel(ctx, ctx->transport_ptr);
-		mutex_unlock(&ctx->transport_ptr->xprt_dbgfs_lock_lhb3);
-
-	} else {
-		spin_unlock_irqrestore(&ctx->transport_ptr->xprt_ctx_lock_lhb1,
-					flags);
-	}
-	if (ctx->notify_state) {
-		ctx->notify_state(ctx, ctx->user_priv,
-				GLINK_LOCAL_DISCONNECTED);
-		ch_purge_intent_lists(ctx);
-		GLINK_INFO_PERF_CH(ctx,
-				"%s: notify state: GLINK_LOCAL_DISCONNECTED\n",
-				__func__);
-	}
-	if (ch_is_fully_closed(ctx)) {
-		flush_workqueue(if_ptr->glink_core_priv->tx_wq);
-		rwref_put(&ctx->ch_state_lhc0);
+	is_ch_fully_closed = glink_core_ch_close_ack_common(ctx);
+	if (is_ch_fully_closed) {
+		glink_delete_ch_from_list(ctx, true);
+		flush_workqueue(ctx->transport_ptr->tx_wq);
 	}
 	rwref_put(&ctx->ch_state_lhc0);
 }
