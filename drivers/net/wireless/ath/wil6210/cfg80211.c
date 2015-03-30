@@ -507,6 +507,8 @@ static int wil_cfg80211_disconnect(struct wiphy *wiphy,
 	int rc;
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
 
+	wil_dbg_misc(wil, "%s(reason=%d)\n", __func__, reason_code);
+
 	rc = wmi_send(wil, WMI_DISCONNECT_CMDID, NULL, 0);
 
 	return rc;
@@ -834,6 +836,9 @@ static int wil_cfg80211_del_station(struct wiphy *wiphy,
 				    struct net_device *dev, const u8 *mac)
 {
 	struct wil6210_priv *wil = wiphy_to_wil(wiphy);
+
+	wil_dbg_misc(wil, "%s(%pM, reason=%d)\n", __func__, mac,
+		     WLAN_REASON_UNSPECIFIED);
 
 	mutex_lock(&wil->mutex);
 	wil6210_disconnect(wil, mac, WLAN_REASON_UNSPECIFIED, false);
