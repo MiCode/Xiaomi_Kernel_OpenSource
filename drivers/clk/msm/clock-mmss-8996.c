@@ -3208,6 +3208,11 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 	regval &= ~BIT(31);
 	writel_relaxed(regval, virt_base + MMSS_MNOC_DCD_CONFIG_AHB);
 
+	/* Disable the NoC FSM for mmss_mmagic_cfg_ahb_clk */
+	regval = readl_relaxed(virt_base + mmss_mmagic_cfg_ahb_clk.cbcr_reg);
+	regval &= ~BIT(15);
+	writel_relaxed(regval, virt_base + mmss_mmagic_cfg_ahb_clk.cbcr_reg);
+
 	vdd_dig.vdd_uv[1] = RPM_REGULATOR_CORNER_SVS_KRAIT;
 	reg = vdd_dig.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_dig");
 	if (IS_ERR(reg)) {
