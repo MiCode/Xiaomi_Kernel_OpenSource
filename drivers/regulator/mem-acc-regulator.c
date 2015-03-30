@@ -31,6 +31,7 @@
 
 /* mem-acc config flags */
 #define MEM_ACC_SKIP_L1_CONFIG	BIT(0)
+#define MEM_ACC_OVERRIDE_CONFIG		BIT(1)
 
 enum {
 	MEMORY_L1,
@@ -391,7 +392,8 @@ static int mem_acc_efuse_init(struct platform_device *pdev,
 
 	pr_info("efuse_addr = %pa (len=0x%x)\n", &res->start, len);
 
-	mem_acc_vreg->efuse_base = ioremap(mem_acc_vreg->efuse_addr, len);
+	mem_acc_vreg->efuse_base = devm_ioremap(&pdev->dev,
+						mem_acc_vreg->efuse_addr, len);
 	if (!mem_acc_vreg->efuse_base) {
 		pr_err("Unable to map efuse_addr %pa\n",
 				&mem_acc_vreg->efuse_addr);
@@ -406,7 +408,7 @@ static int mem_acc_efuse_init(struct platform_device *pdev,
 		if (rc < 0) {
 			pr_err("Read failed - qcom,l1-config-skip-fuse-sel rc=%d\n",
 					rc);
-			goto err_out;
+			return rc;
 		}
 
 		if (mem_acc_fuse_is_setting_expected(mem_acc_vreg,
@@ -416,10 +418,7 @@ static int mem_acc_efuse_init(struct platform_device *pdev,
 		}
 	}
 
-
-err_out:
-	iounmap(mem_acc_vreg->efuse_base);
-	return rc;
+	return 0;
 }
 
 static int mem_acc_custom_data_init(struct platform_device *pdev,
@@ -480,19 +479,48 @@ static int mem_acc_custom_data_init(struct platform_device *pdev,
 
 	mem_acc_vreg->mem_acc_custom_supported[mem_type] = true;
 
-	/*
-	 * there is a possibility that L2 and L1 MEM_ACC_SEL configuration
-	 * bits are shared. In such a case the L2-custom ACC configuration
-	 * may not be needed for those parts which have valid skip-l1
-	 * fuse
-	 */
+	return 0;
+}
 
-	if (mem_type == MEMORY_L2 &&
-		(mem_acc_vreg->flags & MEM_ACC_SKIP_L1_CONFIG) &&
-		(of_property_read_bool(mem_acc_vreg->dev->of_node,
-					"qcom,skip-l2-custom-on-l1"))) {
-		pr_debug("Skip L2 custom data configuration\n");
-		mem_acc_vreg->mem_acc_custom_supported[mem_type] = false;
+static int override_mem_acc_custom_data(struct platform_device *pdev,
+				 struct mem_acc_regulator *mem_acc_vreg,
+				 int mem_type)
+{
+	char *custom_apc_data_str;
+	int len, rc = 0;
+
+	switch (mem_type) {
+	case MEMORY_L1:
+		custom_apc_data_str = "qcom,override-l1-acc-custom-data";
+		break;
+	case MEMORY_L2:
+		custom_apc_data_str = "qcom,override-l2-acc-custom-data";
+		break;
+	default:
+		pr_err("Invalid memory type: %d\n", mem_type);
+		return -EINVAL;
+	}
+
+	if (!of_find_property(mem_acc_vreg->dev->of_node,
+				custom_apc_data_str, NULL)) {
+		pr_debug("%s not specified\n", custom_apc_data_str);
+		return 0;
+	}
+
+	/* Free old custom data */
+	devm_kfree(&pdev->dev, mem_acc_vreg->acc_custom_data[mem_type]);
+
+	/* Populate override custom data */
+	rc = populate_acc_data(mem_acc_vreg, custom_apc_data_str,
+				&mem_acc_vreg->acc_custom_data[mem_type], &len);
+	if (rc) {
+		pr_err("Unable to find %s rc=%d\n", custom_apc_data_str, rc);
+		return rc;
+	}
+
+	if (mem_acc_vreg->num_corners != len) {
+		pr_err("Override custom data is not present for all the corners\n");
+		return -EINVAL;
 	}
 
 	return 0;
@@ -503,6 +531,7 @@ static int mem_acc_init(struct platform_device *pdev,
 {
 	struct resource *res;
 	int len, rc, i;
+	u32 override_acc_fuse_sel[5];
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "acc-en");
 	if (!res || !res->start) {
@@ -597,6 +626,53 @@ static int mem_acc_init(struct platform_device *pdev,
 			pr_err("Unable to initialize custom data for mem_type=%d rc=%d\n",
 					i, rc);
 			return rc;
+		}
+	}
+
+	if (of_find_property(mem_acc_vreg->dev->of_node,
+				"qcom,override-acc-fuse-sel", NULL)) {
+		rc = of_property_read_u32_array(mem_acc_vreg->dev->of_node,
+					"qcom,override-acc-fuse-sel",
+					override_acc_fuse_sel, 5);
+		if (rc < 0) {
+			pr_err("Read failed - qcom,override-acc-fuse-sel rc=%d\n",
+					rc);
+			return rc;
+		}
+
+		if (mem_acc_fuse_is_setting_expected(mem_acc_vreg,
+						override_acc_fuse_sel)) {
+			mem_acc_vreg->flags |= MEM_ACC_OVERRIDE_CONFIG;
+			pr_debug("Apply ACC override configuration\n");
+		}
+	}
+
+	if (mem_acc_vreg->flags & MEM_ACC_OVERRIDE_CONFIG) {
+		if (of_find_property(mem_acc_vreg->dev->of_node,
+				"qcom,override-corner-acc-map", NULL)) {
+			/* Free old corner-acc-map */
+			devm_kfree(&pdev->dev, mem_acc_vreg->corner_acc_map);
+
+			/* Populate override corner acc map */
+			rc = populate_acc_data(mem_acc_vreg,
+						"qcom,override-corner-acc-map",
+						&mem_acc_vreg->corner_acc_map,
+						&mem_acc_vreg->num_corners);
+			if (rc) {
+				pr_err("Unable to find 'qcom,overrie-corner-acc-map' rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+
+		for (i = 0; i < MEMORY_MAX; i++) {
+			rc = override_mem_acc_custom_data(pdev,
+							mem_acc_vreg, i);
+			if (rc) {
+				pr_err("Unable to override custom data for mem_type=%d rc=%d\n",
+					i, rc);
+				return rc;
+			}
 		}
 	}
 
