@@ -17,3 +17,4 @@ obj-$(CONFIG_MSM_RPM_SMD) +=	rpm-smd-debug.o
 endif
 obj-$(CONFIG_SOC_BUS)	+=	socinfo.o
 obj-$(CONFIG_MSM_SCM)  +=      scm.o scm-boot.o
+obj-$(CONFIG_MSM_MPM_OF) += mpm-of.o

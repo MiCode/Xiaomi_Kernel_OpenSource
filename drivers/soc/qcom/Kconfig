@@ -114,4 +114,15 @@ config MSM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
 
+config MSM_MPM_OF
+       bool "Modem Power Manager"
+       depends on OF
+       help
+        MPM is a dedicated hardware resource responsible for entering and
+        waking up from a system wide low power mode. The MPM driver tracks
+        the wakeup interrupts and configures the MPM to monitor the wakeup
+        interrupts when going to a system wide sleep mode. This config option
+        enables the MPM driver that supports initialization from a device
+        tree
+
 endif # ARCH_MSM
