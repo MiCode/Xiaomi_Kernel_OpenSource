@@ -135,6 +135,12 @@ static inline int tick_nohz_tick_stopped(void)
 	return __this_cpu_read(tick_cpu_sched.tick_stopped);
 }
 
+#if defined(CONFIG_GENERIC_CLOCKEVENTS_BROADCAST) && defined(CONFIG_TICK_ONESHOT)
+extern void hotplug_cpu__broadcast_tick_pull(int dead_cpu);
+#else
+static inline void hotplug_cpu__broadcast_tick_pull(int dead_cpu) { }
+#endif
+
 extern void tick_nohz_idle_enter(void);
 extern void tick_nohz_idle_exit(void);
 extern void tick_nohz_irq_exit(void);
