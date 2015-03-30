@@ -298,10 +298,34 @@ int atomisp_calculate_real_zoom_region(struct atomisp_sub_device *asd,
 			struct atomisp_css_dz_config   *dz_config,
 			enum atomisp_css_pipe_id css_pipe_id);
 
+int atomisp_cp_general_isp_parameters(struct atomisp_sub_device *asd,
+				      struct atomisp_parameters *arg,
+				      struct atomisp_css_params *css_param,
+				      bool from_user);
+
+int atomisp_cp_lsc_table(struct atomisp_sub_device *asd,
+			 struct atomisp_shading_table *source_st,
+			 struct atomisp_css_params *css_param,
+			 bool from_user);
+
+int atomisp_css_cp_dvs2_coefs(struct atomisp_sub_device *asd,
+			      struct ia_css_dvs2_coefficients *coefs,
+			      struct atomisp_css_params *css_param,
+			      bool from_user);
+
+int atomisp_cp_morph_table(struct atomisp_sub_device *asd,
+			   struct atomisp_morph_table *source_morph_table,
+			   struct atomisp_css_params *css_param,
+			   bool from_user);
 
 int atomisp_cp_dvs_6axis_config(struct atomisp_sub_device *asd,
 			struct atomisp_dvs_6axis_config *user_6axis_config,
-			struct atomisp_css_params *css_param);
+			struct atomisp_css_params *css_param,
+			bool from_user);
+
+int atomisp_makeup_css_parameters(struct atomisp_sub_device *asd,
+				  struct atomisp_parameters *arg,
+				  struct atomisp_css_params *css_param);
 
 int atomisp_compare_grid(struct atomisp_sub_device *asd,
 				struct atomisp_grid_info *atomgrid);

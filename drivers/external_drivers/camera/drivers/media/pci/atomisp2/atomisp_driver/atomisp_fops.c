@@ -249,6 +249,9 @@ int atomisp_q_video_buffers_to_css(struct atomisp_sub_device *asd,
 
 		param = pipe->frame_params[vb->i];
 		if (param) {
+			atomisp_makeup_css_parameters(asd,
+					&asd->params.css_param.update_flag,
+					&param->params);
 			atomisp_apply_css_parameters(asd, &param->params);
 
 			if (param->params.update_flag.dz_config &&
