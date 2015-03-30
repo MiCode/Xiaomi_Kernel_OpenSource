@@ -40,6 +40,7 @@
 	aliases {
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 		sdhc2 = &sdhc_2; /* SDC2 SD card slot */
+		spi0 = &spi_0;
 	};
 
 	memory {
@@ -1010,6 +1011,29 @@
                 #size-cells = <0>;
                 cell-index = <0>;
                 qcom,not-wakeup; /* Needed until MPM is fully configured. */
+	};
+
+	spi_0: spi@0x78B5000 { /* BLSP1 QUP0 */
+		compatible = "qcom,spi-qup-v2";
+		reg-names = "spi_physical", "spi_bam_physical";
+		reg = <0x78B5000 0x600>,
+		      <0x7884000 0x1f000>;
+		interrupt-names = "spi_irq", "spi_bam_irq";
+		interrupts = <0 95 0>, <0 238 0>;
+		spi-max-frequency = <19200000>;
+		pinctrl-names = "spi_default", "spi_sleep";
+		pinctrl-0 = <&spi0_default &spi0_cs0_active>;
+		pinctrl-1 = <&spi0_sleep &spi0_cs0_sleep>;
+		clocks = <&clock_gcc clk_gcc_blsp1_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
+		clock-names = "iface_clk", "core_clk";
+		qcom,infinite-mode = <0>;
+		qcom,use-bam;
+		qcom,use-pinctrl;
+		qcom,ver-reg-exists;
+		qcom,bam-consumer-pipe-index = <4>;
+		qcom,bam-producer-pipe-index = <5>;
+		qcom,master-id = <86>;
 	};
 };
 
