@@ -297,6 +297,8 @@ struct mdss_data_type {
 	u32 *vbif_rt_qos;
 	u32 *vbif_nrt_qos;
 	u32 npriority_lvl;
+	u32 bus_bw_cnt;
+	struct mutex bus_bw_lock;
 
 	u32 reg_bus_hdl;
 
