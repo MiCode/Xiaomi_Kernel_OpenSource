@@ -229,52 +229,84 @@ static int ov2685_s_freq(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	u16 reg_val;
+	int ret;
 
 	switch (value) {
 	case V4L2_CID_POWER_LINE_FREQUENCY_DISABLED:
-		ov2685_read_reg(client, OV2685_8BIT,
+		ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_AEC_CTRL0, &reg_val);
+		if (ret)
+			return -EINVAL;
+
 		/* turn off band filter, bit[0] = 0 */
 		reg_val &= ~OV2685_BAND_ENABLE_MASK;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_AEC_CTRL0, (u32)reg_val);
+		if (ret)
+			return -EINVAL;
 		break;
 	case V4L2_CID_POWER_LINE_FREQUENCY_50HZ:
-		ov2685_read_reg(client, OV2685_8BIT,
+		ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_AEC_CTRL2, &reg_val);
+		if (ret)
+			return -EINVAL;
+
 		/* set 50Hz, bit[7] = 1 */
 		reg_val |= OV2685_BAND_50HZ_MASK;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_AEC_CTRL2, (u32)reg_val);
+		if (ret)
+			return -EINVAL;
 
-		ov2685_read_reg(client, OV2685_8BIT,
+		ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_AEC_CTRL0, &reg_val);
+		if (ret)
+			return -EINVAL;
+
 		/* turn on band filter, bit[0] = 1 */
 		reg_val |= OV2685_BAND_ENABLE_MASK;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_AEC_CTRL0, (u32)reg_val);
+		if (ret)
+			return -EINVAL;
 		break;
 	case V4L2_CID_POWER_LINE_FREQUENCY_60HZ:
-		ov2685_read_reg(client, OV2685_8BIT,
+		ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_AEC_CTRL2, &reg_val);
+		if (ret)
+			return -EINVAL;
+
 		/* set 50Hz, bit[7] = 0 */
 		reg_val &= ~OV2685_BAND_50HZ_MASK;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_AEC_CTRL2, (u32)reg_val);
-		ov2685_read_reg(client, OV2685_8BIT,
+		if (ret)
+			return -EINVAL;
+
+		ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_AEC_CTRL0, &reg_val);
+		if (ret)
+			return -EINVAL;
+
 		/* turn on band filter, bit[0] = 1 */
 		reg_val |= OV2685_BAND_ENABLE_MASK;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_AEC_CTRL0, (u32)reg_val);
+		if (ret)
+			return -EINVAL;
 		break;
 	case V4L2_CID_POWER_LINE_FREQUENCY_AUTO:
-		ov2685_read_reg(client, OV2685_8BIT,
+		ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_AEC_CTRL0, &reg_val);
+		if (ret)
+			return -EINVAL;
+
 		/* turn on band filter, bit[0] = 1 */
 		reg_val |= OV2685_BAND_50HZ_MASK;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_AEC_CTRL0, (u32)reg_val);
+		if (ret)
+			return -EINVAL;
 		break;
 	default:
 		dev_err(&client->dev, "Invalid freq value %d\n", value);
@@ -359,43 +391,61 @@ static int ov2685_s_wb(struct v4l2_subdev *sd, int value)
 	return 0;
 }
 
-static int ov2685_get_sysclk(struct v4l2_subdev *sd)
+static int ov2685_get_sysclk(struct v4l2_subdev *sd, int *sysclk)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
-	int sysclk;
 	u16 reg_val;
 	int pre_div0, pre_div2x, div_loop, sp_div, sys_div, vco;
 	int pre_div2x_map[] = {2, 3, 4, 5, 6, 8, 12, 16};
+	int ret;
 
-	ov2685_read_reg(client, OV2685_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 			OV2685_REG_PLL_CTRL, &reg_val);
+	if (ret)
+		return -EINVAL;
+
 	pre_div0 = ((reg_val >> 4) & 0x01) + 1;
 
-	ov2685_read_reg(client, OV2685_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 			OV2685_REG_PLL_PRE_DIV, &reg_val);
+	if (ret)
+		return -EINVAL;
+
 	reg_val &= 0x07;
 	pre_div2x = pre_div2x_map[reg_val];
 
-	ov2685_read_reg(client, OV2685_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_MULT_H, &reg_val);
+	if (ret)
+		return -EINVAL;
+
 	div_loop = (reg_val & 0x01) << 8;
 
-	ov2685_read_reg(client, OV2685_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_MULT_L, &reg_val);
+	if (ret)
+		return -EINVAL;
+
 	div_loop += reg_val;
 
-	ov2685_read_reg(client, OV2685_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_SP_DIV, &reg_val);
+	if (ret)
+		return -EINVAL;
+
 	sp_div = (reg_val & 0x07) + 1;
 
-	ov2685_read_reg(client, OV2685_8BIT,
+	ret = ov2685_read_reg(client, OV2685_8BIT,
 				OV2685_REG_PLL_SYS_DIV, &reg_val);
+	if (ret)
+		return -EINVAL;
 
 	sys_div = (reg_val & 0x0f) + 1;
 
 	vco = OV2685_XVCLK * div_loop * 2 / pre_div0 / pre_div2x;
-	sysclk = vco / sp_div / sys_div;
-	return sysclk;
+	*sysclk = vco / sp_div / sys_div;
+
+	return 0;
 }
 
 static int ov2685_g_exposure(struct v4l2_subdev *sd, s32 *value)
@@ -403,7 +453,7 @@ static int ov2685_g_exposure(struct v4l2_subdev *sd, s32 *value)
 
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	u16 reg_v, reg_v2, hts, hts_v2;
-	u32 exp_val, sys_clk;
+	u32 exp_val, sysclk;
 	int ret;
 
 	*value = OV2685_EXPOSURE_DEFAULT_VAL;
@@ -413,48 +463,46 @@ static int ov2685_g_exposure(struct v4l2_subdev *sd, s32 *value)
 					OV2685_REG_EXPOSURE_2,
 					&reg_v);
 	if (ret)
-		goto err;
+		return -EINVAL;
 
 	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_EXPOSURE_1,
 					&reg_v2);
 	if (ret)
-		goto err;
+		return -EINVAL;
 
 	reg_v = (reg_v >> 4) | (reg_v2 << 4);
 	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_EXPOSURE_0,
 					&reg_v2);
 	if (ret)
-		goto err;
+		return -EINVAL;
 
 	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_HTS_H,
 					&hts);
 	if (ret)
-		goto err;
+		return -EINVAL;
 
 	ret = ov2685_read_reg(client, OV2685_8BIT,
 					OV2685_REG_HTS_L,
 					&hts_v2);
 	if (ret)
-		goto err;
+		return -EINVAL;
 
 	hts = (hts << 8) | hts_v2;
 
-	sys_clk = ov2685_get_sysclk(sd);
-	if (!sys_clk)
+	ret = ov2685_get_sysclk(sd, &sysclk);
+	if (ret || !sysclk)
 		return 0;
 
 	/* transfer exposure time to us */
-	exp_val = ((reg_v | (((u32)reg_v2 << 12))) * hts)  * 1000 / (sys_clk*10);
+	exp_val = ((reg_v | (((u32)reg_v2 << 12))) * hts)  * 1000 / (sysclk*10);
 
 	/* FIX ME! The exposure value could be 0 in some cases*/
 	if (exp_val)
 		*value = exp_val;
 
-	return 0;
-err:
 	return ret;
 }
 
@@ -463,7 +511,7 @@ static long ov2685_s_exposure(struct v4l2_subdev *sd,
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	u16 hts, hts_v2, gain;
-	u32 exp, exp_v2, sys_clk;
+	u32 exp, exp_v2, sysclk;
 	int ret;
 	/* set exposure */
 	ret = ov2685_read_reg(client, OV2685_8BIT,
@@ -480,75 +528,112 @@ static long ov2685_s_exposure(struct v4l2_subdev *sd,
 
 	hts = (hts << 8) | hts_v2;
 
-
-	sys_clk = ov2685_get_sysclk(sd);
-	if (!sys_clk)
+	ret = ov2685_get_sysclk(sd, &sysclk);
+	if (ret || !sysclk)
 		return 0;
 
-	exp = exposure->integration_time[0] * sys_clk / 1000;
+	exp = exposure->integration_time[0] * sysclk / 1000;
 
 	exp_v2 = exp >> 8;
-	ov2685_write_reg(client, OV2685_8BIT,
+	ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_0, exp_v2);
+	if (ret)
+		return -EINVAL;
 
 	exp_v2 = (exp & 0xff0) >> 4;
-	ov2685_write_reg(client, OV2685_8BIT,
+	ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_1, exp_v2);
+	if (ret)
+		return -EINVAL;
 
 	exp_v2 = (exp & 0x0f) << 4;
-	ov2685_write_reg(client, OV2685_8BIT,
+	ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_EXPOSURE_2, exp_v2);
+	if (ret)
+		return -EINVAL;
 
 	/* set gain */
 	gain = exposure->gain[0] >> 8;
-	ov2685_write_reg(client, OV2685_8BIT,
+	ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_GAIN_0, gain);
+	if (ret)
+		return -EINVAL;
 
 	gain =  exposure->gain[0] & 0xff;
-	ov2685_write_reg(client, OV2685_8BIT,
+	ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_GAIN_0, gain);
 
-	return 0;
+	return ret;
 }
 
 static int ov2685_s_ev(struct v4l2_subdev *sd, int value)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
+	int ret;
 
 	switch (value) {
 	case -2:
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_WPT, 0x32);
-		ov2685_write_reg(client, OV2685_8BIT,
+		if (ret)
+			return -EINVAL;
+
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_BPT, 0x28);
 		break;
 	case -1:
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_WPT, 0x3a);
-		ov2685_write_reg(client, OV2685_8BIT,
+		if (ret)
+			return -EINVAL;
+
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_BPT, 0x30);
+		if (ret)
+			return -EINVAL;
+
 		break;
 	case 0:
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_WPT, 0x4e);
-		ov2685_write_reg(client, OV2685_8BIT,
+		if (ret)
+			return -EINVAL;
+
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_BPT, 0x40);
+		if (ret)
+			return -EINVAL;
+
 		break;
 	case 1:
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_WPT, 0x5a);
-		ov2685_write_reg(client, OV2685_8BIT,
+		if (ret)
+			return -EINVAL;
+
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_BPT, 0x50);
+		if (ret)
+			return -EINVAL;
+
 		break;
 	case 2:
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_WPT, 0x62);
-		ov2685_write_reg(client, OV2685_8BIT,
+		if (ret)
+			return -EINVAL;
+
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 			OV2685_REG_BPT, 0x58);
+		if (ret)
+			return -EINVAL;
 		break;
+	default:
+		dev_err(&client->dev, "ov2685_s_ev: %d\n", value);
+		return -EINVAL;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int ov2685_g_exposure_mode(struct v4l2_subdev *sd, s32 *value)
@@ -584,13 +669,17 @@ static int ov2685_s_exposure_mode(struct v4l2_subdev *sd, int value)
 	switch (value) {
 	case V4L2_EXPOSURE_AUTO:
 		reg_v &= 0xfffc;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 					OV2685_REG_EXPOSURE_AUTO, reg_v);
+		if (ret)
+			return -EINVAL;
 		break;
 	case V4L2_EXPOSURE_MANUAL:
 		reg_v |= 0x03;
-		ov2685_write_reg(client, OV2685_8BIT,
+		ret = ov2685_write_reg(client, OV2685_8BIT,
 					OV2685_REG_EXPOSURE_AUTO, reg_v);
+		if (ret)
+			return -EINVAL;
 		break;
 	default:
 		dev_err(&client->dev,
@@ -598,7 +687,7 @@ static int ov2685_s_exposure_mode(struct v4l2_subdev *sd, int value)
 		return -EINVAL;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int ov2685_g_ae_lock(struct v4l2_subdev *sd, s32 *value)
@@ -620,38 +709,37 @@ static int ov2685_s_color_effect(struct v4l2_subdev *sd, int effect)
 {
 	struct i2c_client *client = v4l2_get_subdevdata(sd);
 	struct ov2685_device *dev = to_ov2685_sensor(sd);
-	int err = 0;
+	int ret = 0;
 
 	if (dev->color_effect == effect)
 		return 0;
 
 	switch (effect) {
 	case V4L2_COLORFX_NONE:
-		err = ov2685_write_reg_array(client, ov2685_normal_effect);
+		ret = ov2685_write_reg_array(client, ov2685_normal_effect);
 		break;
 	case V4L2_COLORFX_SEPIA:
-		err = ov2685_write_reg_array(client, ov2685_sepia_effect);
+		ret = ov2685_write_reg_array(client, ov2685_sepia_effect);
 		break;
 	case V4L2_COLORFX_NEGATIVE:
-		err = ov2685_write_reg_array(client, ov2685_negative_effect);
+		ret = ov2685_write_reg_array(client, ov2685_negative_effect);
 		break;
 	case V4L2_COLORFX_BW:
-		err = ov2685_write_reg_array(client, ov2685_bw_effect);
+		ret = ov2685_write_reg_array(client, ov2685_bw_effect);
 		break;
 	case V4L2_COLORFX_SKY_BLUE:
-		err = ov2685_write_reg_array(client, ov2685_blue_effect);
+		ret = ov2685_write_reg_array(client, ov2685_blue_effect);
 		break;
 	case V4L2_COLORFX_GRASS_GREEN:
-		err = ov2685_write_reg_array(client, ov2685_green_effect);
+		ret = ov2685_write_reg_array(client, ov2685_green_effect);
 		break;
 	default:
 		dev_err(&client->dev, "invalid color effect.\n");
 		return -ERANGE;
 	}
-	if (err) {
-		dev_err(&client->dev, "setting color effect fails.\n");
-		return err;
-	}
+
+	if (ret)
+		return ret;
 
 	dev->color_effect = effect;
 	return 0;
