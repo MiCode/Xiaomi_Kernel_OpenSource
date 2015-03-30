@@ -476,6 +476,12 @@ Subnode properties:
 - qcom,mdss-idle-power-collapse-enabled: Boolean property that enables support
 					for mdss power collapse in idle
 					screen use cases with smart panels.
+- qcom,mdss-fb-format:	String property describing MDSS frame buffer format.
+			Based on the current software implementation,
+			possible values are,
+			- "rgba8888"
+			- "rgb888"
+			- "rgb565"
 
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
@@ -613,6 +619,7 @@ Example:
 			qcom,mdss-fb-split = <480 240>
 			linux,contiguous-region = <&fb_mem>;
 			qcom,mdss-fb-splash-logo-enabled:
+			qcom,mdss-fb-format = "rgba8888";
 			qcom,cont-splash-memory {
 				linux,contiguous-region = <&cont_splash_mem>;
 			};
