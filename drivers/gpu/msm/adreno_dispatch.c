@@ -190,17 +190,23 @@ static void fault_detect_read(struct kgsl_device *device)
 }
 
 /*
- * Check to see if the device is idle and that the global timestamp is up to
- * date
+ * Check to see if the device is idle
  */
 static inline bool _isidle(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	unsigned int reg_rbbm_status;
 
-	/* If GPU is powered and is not idle return false */
-	if (kgsl_state_is_awake(device) && !adreno_hw_isidle(adreno_dev))
+	if (!kgsl_state_is_awake(device))
+		goto ret;
+
+	/* only check rbbm status to determine if GPU is idle */
+	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &reg_rbbm_status);
+
+	if (reg_rbbm_status & ADRENO_RBBM_STATUS_BUSY_MASK)
 		return false;
 
+ret:
 	/* Clear the existing register values */
 	memset(adreno_ft_regs_val, 0,
 		adreno_ft_regs_num * sizeof(unsigned int));

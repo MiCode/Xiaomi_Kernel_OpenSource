@@ -1933,7 +1933,7 @@ bool adreno_hw_isidle(struct adreno_device *adreno_dev)
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
 		&reg_rbbm_status);
 
-	if (reg_rbbm_status & ~0x80000001)
+	if (reg_rbbm_status & ADRENO_RBBM_STATUS_BUSY_MASK)
 		return false;
 
 	/* Don't consider ourselves idle if there is an IRQ pending */

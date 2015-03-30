@@ -33,6 +33,8 @@
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
+#define ADRENO_RBBM_STATUS_BUSY_MASK	~0x80000001
+
 #define ADRENO_PRIORITY_MAX_RB_LEVELS	4
 
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
