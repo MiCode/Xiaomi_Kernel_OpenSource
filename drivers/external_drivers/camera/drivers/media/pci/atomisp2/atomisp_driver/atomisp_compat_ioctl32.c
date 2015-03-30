@@ -691,18 +691,19 @@ static int put_atomisp_acc_s_mapped_arg32(struct atomisp_acc_s_mapped_arg *kp,
 static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 					struct atomisp_parameters32 __user *up)
 {
-	unsigned int n = sizeof(struct atomisp_parameters32) /
+	int n = offsetof(struct atomisp_parameters32, output_frame) /
 				sizeof(compat_uptr_t);
 
 	if (!access_ok(VERIFY_READ, up, sizeof(struct atomisp_parameters32)))
 			return -EFAULT;
 
-	while (n-- > 0) {
+	while (n >= 0) {
 		compat_uptr_t *src = (compat_uptr_t *)up + n;
 		uintptr_t *dst = (uintptr_t *)kp + n;
 
 		if (get_user((*dst), src))
 			return -EFAULT;
+		n--;
 	}
 	if (get_user(kp->isp_config_id, &up->isp_config_id) ||
 	    get_user(kp->per_frame_setting, &up->per_frame_setting))
