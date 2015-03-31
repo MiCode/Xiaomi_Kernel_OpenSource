@@ -278,7 +278,8 @@ out:
 }
 
 static bool
-ufsdbg_find_err_code(enum ufsdbg_err_inject_scenario usecase, int *ret)
+ufsdbg_find_err_code(enum ufsdbg_err_inject_scenario usecase,
+		     int *ret, u32 *index)
 {
 	struct ufsdbg_err_scenario *err_scen = &err_scen_arr[usecase];
 	u32 err_code_index;
@@ -292,6 +293,7 @@ ufsdbg_find_err_code(enum ufsdbg_err_inject_scenario usecase, int *ret)
 	if (!(err_scen->err_code_mask & (1 << err_code_index)))
 		return false;
 
+	*index = err_code_index;
 	*ret = err_scen->err_code_arr[err_code_index];
 	return true;
 }
@@ -301,6 +303,7 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 			int success_value, int *ret_value)
 {
 	int opt_ret = 0;
+	u32 err_code_index = 0;
 
 	/* sanity check and verify error scenario bit */
 	if ((unlikely(!hba || !ret_value)) ||
@@ -308,7 +311,13 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 						BIT(usecase)))))
 		goto out;
 
-	if (!ufsdbg_find_err_code(usecase, &opt_ret))
+	if (usecase < 0 || usecase >= ERR_INJECT_MAX_ERR_SCENARIOS) {
+		dev_err(hba->dev, "%s: invalid usecase value (%d)\n",
+			__func__, usecase);
+		goto out;
+	}
+
+	if (!ufsdbg_find_err_code(usecase, &opt_ret, &err_code_index))
 		goto out;
 
 	if (!should_fail(&hba->debugfs_files.fail_attr, 1))
@@ -346,9 +355,9 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 
 should_fail:
 	*ret_value = opt_ret;
-	pr_debug("%s: error %d (0x%x) is injected for scenario \"%s\"\n",
-			 __func__, *ret_value, *ret_value,
-			 err_scen_arr[usecase].name);
+	pr_debug("%s: error code index [%d], error code %d (0x%x) is injected for scenario \"%s\"\n",
+		 __func__, err_code_index, *ret_value, *ret_value,
+		 err_scen_arr[usecase].name);
 out:
 	/**
 	 * here it's guaranteed that ret_value has the correct value,
@@ -363,9 +372,9 @@ static int ufsdbg_error_injection_mask_read(struct seq_file *file, void *data)
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
 	enum ufsdbg_err_inject_scenario err_case;
 
-	seq_puts(file, "echo \"x, y\" > /sys/kernel/debug/.../err_inj_codes\n");
-	seq_puts(file, "for error scenario x, enable error codes bitwise y\n\n");
-	seq_puts(file, "example: echo \"2, 0x6\" > /sys/kernel/debug/.../err_inj_codes\n");
+	seq_puts(file, "echo \"x,y\" > /sys/kernel/debug/.../err_inj_codes\n");
+	seq_puts(file, "for error scenario x (decimal), enable error codes bitwise y (hexadecimal)\n\n");
+	seq_puts(file, "example: echo \"2,0x6\" > /sys/kernel/debug/.../err_inj_codes\n");
 	seq_puts(file, "for error scenario ERR_INJECT_HIBERN8_EXIT_ERR (error scenario#2)\n");
 	seq_puts(file, "enable error codes 0100b and 0010b (0110b)\n\n");
 	seq_printf(file, "%-40s %-20s %-17s %-15s %-15s\n",
@@ -407,8 +416,8 @@ static ssize_t ufsdbg_err_code_write(struct file *file,
 	ret = simple_write_to_buffer(buf, ERROR_CODE_CONTROL_BUF,
 				     ppos, ubuf, cnt);
 
-	if (sscanf(buf, "%d,%d", &err_scen, &err_code_mask) != 2) {
-		dev_err(hba->dev, "%s: invalid number of arguments\n",
+	if (sscanf(buf, "%d,0x%x", &err_scen, &err_code_mask) != 2) {
+		dev_err(hba->dev, "%s: invalid number of arguments or format\n",
 			__func__);
 		return -EINVAL;
 	}
