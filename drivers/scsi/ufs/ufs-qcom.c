@@ -1017,10 +1017,6 @@ static void ufs_qcom_advertise_quirks(struct ufs_hba *hba)
 static void ufs_qcom_set_caps(struct ufs_hba *hba)
 {
 	struct ufs_qcom_host *host = hba->priv;
-	u8 major;
-	u16 minor, step;
-
-	ufs_qcom_get_controller_revision(hba, &major, &minor, &step);
 
 	hba->caps |= UFSHCD_CAP_CLK_GATING;
 	hba->caps |= UFSHCD_CAP_AUTO_BKOPS_SUSPEND;
