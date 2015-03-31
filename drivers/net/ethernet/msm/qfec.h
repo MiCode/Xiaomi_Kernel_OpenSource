@@ -846,4 +846,10 @@ struct qfec_enh_buf_desc {
 
 #define SGMII_PHY_CTL_SGMII        0xc09c408f
 
+/* TLMM CSR */
+#define TLMM_RGMII_HDRV_CTL        0x2078
+#define TLMM_RGMII_HDRV_CTL_SEL    0x0003ffff
+
+#define TLMM_RGMII_PULL_CTL        0x207c
+
 #endif

@@ -2918,10 +2918,8 @@ static int qfec_map_resource(struct platform_device *plat,
 
 	/* allocate region to access controller registers */
 	res = platform_get_resource_byname(plat, IORESOURCE_MEM, name);
-	if (!res) {
-		QFEC_LOG_ERR("%s: platform_get_resource failed\n", __func__);
+	if (!res)
 		return -ENODEV;
-	}
 
 	*addr = ioremap(res->start, resource_size(res));
 	if (!*addr)
@@ -3002,6 +3000,7 @@ enum qfec_nss_reg_base {
 	QFEC_NSS_CSR,
 	QFEC_QSGMII,
 	QFEC_RGMII_CSR,
+	TLMM_CSR,
 	NUM_QFEC_NSS_REG_BASE,
 };
 
@@ -3010,6 +3009,7 @@ struct qfec_nss {
 	void __iomem           *reg_base[NUM_QFEC_NSS_REG_BASE];
 
 	unsigned int            ch_num;
+	bool                    rgmii_capable;
 };
 
 static int qfec_nss_clk_enable(struct qfec_priv *priv, uint8_t clk)
@@ -3266,6 +3266,20 @@ static int qsgmii_init(struct qfec_priv *priv)
 	return 0;
 }
 
+static void tlmm_csr_cfg(struct qfec_priv *priv)
+{
+	struct qfec_nss *nss = priv->pdata;
+
+	if (nss->rgmii_capable && nss->reg_base[TLMM_CSR]) {
+		qfec_reg_write(nss->reg_base[TLMM_CSR],
+			       TLMM_RGMII_HDRV_CTL,
+			       (priv->intf == INTFC_RGMII) ?
+			       TLMM_RGMII_HDRV_CTL_SEL : 0);
+		qfec_reg_write(nss->reg_base[TLMM_CSR],
+			       TLMM_RGMII_PULL_CTL, 0);
+	}
+}
+
 static int qfec_nss_init(struct qfec_priv *priv)
 {
 	struct qfec_nss *nss = priv->pdata;
@@ -3274,6 +3288,7 @@ static int qfec_nss_init(struct qfec_priv *priv)
 	switch (priv->intf) {
 	case INTFC_SGMII:
 	case INTFC_MII:
+		tlmm_csr_cfg(priv);
 		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
 				CFG_CLK_GATE_CTL_REG,
 				GMAC_N_TX_CLKEN(priv->idx) |
@@ -3300,6 +3315,13 @@ static int qfec_nss_init(struct qfec_priv *priv)
 			       GMAC_CTL_IFG_DEFAULT);
 		break;
 	case INTFC_RGMII:
+		if (nss->rgmii_capable == false) {
+			QFEC_LOG_ERR("%s: RGMII is not supported on intf%d\n",
+				     __func__, priv->idx);
+			res = -ENOTSUPP;
+			goto done;
+		}
+		tlmm_csr_cfg(priv);
 		qfec_reg_update(nss->reg_base[QFEC_NSS_CSR],
 				CFG_CLK_GATE_CTL_REG,
 				(GMAC_N_TX_CLKEN(priv->idx) |
@@ -3367,6 +3389,9 @@ static int qfec_nss_probe(struct platform_device *plat)
 	if (!nss)
 		return -ENOMEM;
 
+	nss->rgmii_capable = of_property_read_bool(of_node,
+						   "qcom,rgmii-capable");
+
 	/* map register regions */
 	res = qfec_map_resource(plat, "qfec_csr", &nss->reg_res[QFEC_NSS_CSR],
 				&nss->reg_base[QFEC_NSS_CSR]);
@@ -3377,8 +3402,9 @@ static int qfec_nss_probe(struct platform_device *plat)
 
 	switch (priv->intf) {
 	case INTFC_SGMII:
-		if (of_property_read_u32(of_node, "qcom,qsgmii-pcs-chan",
-					 &nss->ch_num)) {
+		res = of_property_read_u32(of_node, "qcom,qsgmii-pcs-chan",
+					   &nss->ch_num);
+		if (res) {
 			QFEC_LOG_ERR("%s: qsgmii-pcs-chan not specified\n",
 				     __func__);
 			goto err2;
@@ -3393,6 +3419,12 @@ static int qfec_nss_probe(struct platform_device *plat)
 		}
 		break;
 	case INTFC_RGMII:
+		if (nss->rgmii_capable == false) {
+			QFEC_LOG_ERR("%s: rgmii_capable not specified\n",
+				     __func__);
+			res = -ENOTSUPP;
+			goto err2;
+		}
 		res = qfec_map_resource(plat, "qfec_rgmii_csr",
 					&nss->reg_res[QFEC_RGMII_CSR],
 					&nss->reg_base[QFEC_RGMII_CSR]);
@@ -3405,6 +3437,10 @@ static int qfec_nss_probe(struct platform_device *plat)
 	default:
 		break;
 	}
+
+	res = qfec_map_resource(plat, "tlmm_csr",
+				&nss->reg_res[TLMM_CSR],
+				&nss->reg_base[TLMM_CSR]);
 
 	priv->pdata = nss;
 

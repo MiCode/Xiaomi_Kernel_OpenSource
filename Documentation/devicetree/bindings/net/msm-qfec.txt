@@ -18,6 +18,9 @@ Required properties:
 	"qfec_rgmii_csr"     : QFEC RGMII CDC CSR register block.
 	                       Required if 'phy-mode' is "rgmii" and
 			       'qcom,qfec-nss' compatibility is specified.
+	"tlmm_csr"           : TLMM CSR register block.
+	                       Required if TLMM CSR block provides the register
+			       to control the RGMII signal muxing.
 
 - interrupts : Interrupt numbers used by this controller
 - phy-addr : Specifies phy address on MDIO bus.
@@ -37,7 +40,8 @@ Optional properties:
 		      GPIO pins serves as MDIO pins.
 		      The "deactive" pinctrl-name specifies the binding when the
 		      GPIO pins does not serve as MDIO pins.
-
+- qcom,rgmii-capable : Specifies if the RGMII interface is supported
+		      This field is required if 'phy-mode' is "rgmii".
 Example:
 	qfec0: qcom,qfec@0xe7000000 {
 		compatible = "qcom,qfec-nss";
