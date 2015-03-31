@@ -28,23 +28,14 @@ Required properties:
 	"arm,coresight-fuse" for coresight fuse v1 device,
 	"arm,coresight-fuse-v2" for coresight fuse v2 device,
 	"arm,coresight-fuse-v3" for coresight fuse v3 device,
-	"qcom,coresight-audio-etm" for coresight audio etm trace device,
-	"qcom,coresight-modem-etm" for coresight modem etm trace device,
-	"qcom,coresight-wcn-etm" for coresight wireless etm trace device,
-	"qcom,coresight-rpm-etm" for coresight rpm etm trace device,
+	"qcom,coresight-remote-etm" for coresight remote processor etm trace device,
 	"qcom,coresight-qpdi" for coresight qpdi device
 - reg : physical base address and length of the register set(s) of the component.
-	Not required for the following compatible strings:
-	- "qcom,coresight-audio-etm",
-	- "qcom,coresight-modem-etm",
-	- "qcom,coresight-wcn-etm",
-	- "qcom,coresight-rpm-etm"
+	Not required for the following compatible string:
+	- "qcom,coresight-remote-etm"
 - reg-names : names corresponding to each reg property value.
-	Not required for the following compatible strings:
-	- "qcom,coresight-audio-etm",
-	- "qcom,coresight-modem-etm",
-	- "qcom,coresight-wcn-etm",
-	- "qcom,coresight-rpm-etm"
+	Not required for the following compatible string:
+	- "qcom,coresight-remote-etm"
 	The reg-names that need to be used with corresponding compatible string
 	for a coresight device are:
 	- for coresight tmc-etr or tmc-etf device:
@@ -119,6 +110,7 @@ Required properties:
 - coresight-id : unique integer identifier for the component
 - coresight-name : unique descriptive name of the component
 - coresight-nr-inports : number of input ports on the component
+- qcom,inst-id : QMI instance id for remote ETMs
 - coresight-cti-cpu : cpu phandle for cpu cti, required when qcom,cti-save is true
 - coresight-etm-cpu : specifies phandle for the cpu associated with the ETM device
 - qcom,dbgui-addr-offset : indicates the offset of dbgui address registers
@@ -215,7 +207,6 @@ Optional properties:
 		       connected to the aggregator on each port. Should be specified
 		       in pairs (port, cmb element size).
 - qcom,tpda-atid : specifies the ATID for TPDA.
--qcom,inst-id : QMI instance id for remote ETMs.
 
 Examples:
 
