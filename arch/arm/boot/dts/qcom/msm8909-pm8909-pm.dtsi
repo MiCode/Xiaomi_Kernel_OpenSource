@@ -232,6 +232,7 @@
 			<0xff 102>, /* smmu_bus_intr[14] */
 			<0xff 105>, /* msm_iommu_global_cfg_irq */
 			<0xff 107>, /* msm_iommu_global_cfg_irq */
+			<0xff 114>, /* qdsd_intr_out */
 			<0xff 131>, /* qup_irq */
 			<0xff 133>, /* smmu_bus_intr[29] */
 			<0xff 134>, /* smmu_bus_intr[30] */
@@ -288,6 +289,7 @@
 			<0xff 205>, /* rpm_ipc(25) */
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 215>, /* o_bimc_intr */
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdc2_pwr_cmd_irq */
