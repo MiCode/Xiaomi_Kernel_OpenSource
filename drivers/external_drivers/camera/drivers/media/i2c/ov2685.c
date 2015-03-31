@@ -574,12 +574,12 @@ static int ov2685_s_ev(struct v4l2_subdev *sd, int value)
 	switch (value) {
 	case -2:
 		ret = ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_WPT, 0x32);
+			OV2685_REG_WPT, 0x2a);
 		if (ret)
 			return -EINVAL;
 
 		ret = ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_BPT, 0x28);
+			OV2685_REG_BPT, 0x20);
 		break;
 	case -1:
 		ret = ov2685_write_reg(client, OV2685_8BIT,
@@ -619,12 +619,12 @@ static int ov2685_s_ev(struct v4l2_subdev *sd, int value)
 		break;
 	case 2:
 		ret = ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_WPT, 0x62);
+			OV2685_REG_WPT, 0x6a);
 		if (ret)
 			return -EINVAL;
 
 		ret = ov2685_write_reg(client, OV2685_8BIT,
-			OV2685_REG_BPT, 0x58);
+			OV2685_REG_BPT, 0x60);
 		if (ret)
 			return -EINVAL;
 		break;
