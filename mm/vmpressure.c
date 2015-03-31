@@ -24,6 +24,7 @@
 #include <linux/printk.h>
 #include <linux/notifier.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/vmpressure.h>
 
 /*
@@ -50,6 +51,10 @@ static const unsigned long vmpressure_win = SWAP_CLUSTER_MAX * 16;
  */
 static const unsigned int vmpressure_level_med = 60;
 static const unsigned int vmpressure_level_critical = 95;
+
+static unsigned long vmpressure_scale_max = 100;
+module_param_named(vmpressure_scale_max, vmpressure_scale_max,
+			ulong, 0644);
 
 static struct vmpressure global_vmpressure;
 static BLOCKING_NOTIFIER_HEAD(vmpressure_notifier);
@@ -176,6 +181,15 @@ out:
 		 scanned, reclaimed);
 
 	return pressure;
+}
+
+static unsigned long vmpressure_account_stall(unsigned long pressure,
+				unsigned long stall, unsigned long scanned)
+{
+	unsigned long scale =
+		((vmpressure_scale_max - pressure) * stall) / scanned;
+
+	return pressure + scale;
 }
 
 struct vmpressure_event {
@@ -334,6 +348,7 @@ static void vmpressure_global(gfp_t gfp, unsigned long scanned,
 {
 	struct vmpressure *vmpr = &global_vmpressure;
 	unsigned long pressure;
+	unsigned long stall;
 
 	if (!(gfp & (__GFP_HIGHMEM | __GFP_MOVABLE | __GFP_IO | __GFP_FS)))
 		return;
@@ -344,6 +359,11 @@ static void vmpressure_global(gfp_t gfp, unsigned long scanned,
 	spin_lock(&vmpr->sr_lock);
 	vmpr->scanned += scanned;
 	vmpr->reclaimed += reclaimed;
+
+	if (!current_is_kswapd())
+		vmpr->stall += scanned;
+
+	stall = vmpr->stall;
 	scanned = vmpr->scanned;
 	reclaimed = vmpr->reclaimed;
 	spin_unlock(&vmpr->sr_lock);
@@ -354,9 +374,11 @@ static void vmpressure_global(gfp_t gfp, unsigned long scanned,
 	spin_lock(&vmpr->sr_lock);
 	vmpr->scanned = 0;
 	vmpr->reclaimed = 0;
+	vmpr->stall = 0;
 	spin_unlock(&vmpr->sr_lock);
 
 	pressure = vmpressure_calc_pressure(scanned, reclaimed);
+	pressure = vmpressure_account_stall(pressure, stall, scanned);
 	vmpressure_notify(pressure);
 }
 
