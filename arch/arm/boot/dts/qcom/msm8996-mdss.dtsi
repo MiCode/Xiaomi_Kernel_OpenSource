@@ -43,7 +43,6 @@
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
 		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
 
-		qcom,mdss-default-pipe-qos-lut = <0x0055aaff>;
 		qcom,mdss-has-panic-ctrl;
 		qcom,mdss-per-pipe-panic-luts = <0xffff>,
 						<0xff00>;
