@@ -286,7 +286,7 @@ EXPORT_SYMBOL(kgsl_pwrctrl_buslevel_update);
  * @wake_up: flag to check if device is active or waking up
  */
 void kgsl_pwrctrl_pwrlevel_change_settings(struct kgsl_device *device,
-						bool post, bool wake_up)
+			bool post)
 {
 	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
 	unsigned int old = pwr->previous_pwrlevel;
@@ -299,13 +299,7 @@ void kgsl_pwrctrl_pwrlevel_change_settings(struct kgsl_device *device,
 	if (!device->ftbl->pwrlevel_change_settings)
 		return;
 
-	if (((old == 0) && !post) || ((old == 0) && wake_up)) {
-		/* Going to Non-Turbo mode - mask the throttle and reset */
-		device->ftbl->pwrlevel_change_settings(device, 1);
-	} else if (((new == 0) && post) || ((new == 0) && wake_up)) {
-		/* Going to Turbo mode - unmask the throttle and reset */
-		device->ftbl->pwrlevel_change_settings(device, 0);
-	}
+	device->ftbl->pwrlevel_change_settings(device, old, new, post);
 }
 
 /**
@@ -404,14 +398,14 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 
 	pwrlevel = &pwr->pwrlevels[pwr->active_pwrlevel];
 	/* Change register settings if any  BEFORE pwrlevel change*/
-	kgsl_pwrctrl_pwrlevel_change_settings(device, 0, 0);
+	kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
 	clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
 	trace_kgsl_pwrlevel(device,
 			pwr->active_pwrlevel, pwrlevel->gpu_freq,
 			pwr->previous_pwrlevel,
 			pwr->pwrlevels[old_level].gpu_freq);
 	/* Change register settings if any AFTER pwrlevel change*/
-	kgsl_pwrctrl_pwrlevel_change_settings(device, 1, 0);
+	kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 
 	/* Timestamp the frequency change */
 	device->pwrscale.freq_change_time = ktime_to_ms(ktime_get());
@@ -1883,7 +1877,7 @@ static int _wake(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
 
 		/* Change register settings if any after pwrlevel change*/
-		kgsl_pwrctrl_pwrlevel_change_settings(device, 1, 1);
+		kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 		/* All settings for power level transitions are complete*/
 		pwr->previous_pwrlevel = pwr->active_pwrlevel;
 		mod_timer(&device->idle_timer, jiffies +

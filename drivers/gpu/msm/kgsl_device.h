@@ -176,7 +176,7 @@ struct kgsl_functable {
 	bool (*is_hw_collapsible)(struct kgsl_device *);
 	void (*regulator_disable)(struct kgsl_device *);
 	void (*pwrlevel_change_settings)(struct kgsl_device *device,
-		bool mask_throttle);
+		unsigned int prelevel, unsigned int postlevel, bool post);
 };
 
 struct kgsl_ioctl {

@@ -100,6 +100,8 @@
 #define ADRENO_PREEMPTION BIT(7)
 /* The core uses GPMU for power and limit management */
 #define ADRENO_GPMU BIT(8)
+/* The GPMU supports Limits Management */
+#define ADRENO_LM BIT(9)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -165,6 +167,7 @@ enum adreno_start_type {
 
 #define ADRENO_SPTP_PC_CTRL 0
 #define ADRENO_PPD_CTRL     1
+#define ADRENO_LM_CTRL      2
 
 struct adreno_gpudev;
 
@@ -202,6 +205,11 @@ struct adreno_busy_data {
  * @gpmu_minor: Match for the GPMU & firmware, minor revision
  * @gpmu_features: Supported features for any given GPMU version
  * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
+ * @lm_major: Limits Management register sequence, major revision
+ * @lm_minor: LM register sequence, minor revision
+ * @regfw_name: Filename for the register sequence firmware
+ * @gpmu_tsens: ID for the temporature sensor used by the GPMU
+ * @max_power: Max possible power draw of a core, units elephant tail hairs
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -227,6 +235,10 @@ struct adreno_gpu_core {
 	unsigned int gpmu_minor;
 	unsigned int gpmu_features;
 	unsigned int busy_mask;
+	unsigned int lm_major, lm_minor;
+	const char *regfw_name;
+	unsigned int gpmu_tsens;
+	unsigned int max_power;
 };
 
 /**
@@ -271,6 +283,9 @@ struct adreno_gpu_core {
  * buffer
  * @sp_local_gpuaddr: Base GPU virtual address for SP local memory
  * @sp_pvt_gpuaddr: Base GPU virtual address for SP private memory
+ * @lm_fw: The LM firmware handle
+ * @lm_sequence: Pointer to the start of the register write sequence for LM
+ * @lm_size: The dword size of the LM sequence
  */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
@@ -314,6 +329,9 @@ struct adreno_device {
 	unsigned int cmdbatch_profile_index;
 	uint64_t sp_local_gpuaddr;
 	uint64_t sp_pvt_gpuaddr;
+	const struct firmware *lm_fw;
+	uint32_t *lm_sequence;
+	uint32_t lm_size;
 };
 
 /**
@@ -630,8 +648,11 @@ struct adreno_gpudev {
 	int (*regulator_enable)(struct adreno_device *);
 	void (*regulator_disable)(struct adreno_device *);
 	void (*gpmu_start)(struct adreno_device *);
+	void (*lm_init)(struct adreno_device *);
+	void (*lm_enable)(struct adreno_device *);
 	void (*pwrlevel_change_settings)(struct adreno_device *,
-					bool mask_throttle);
+				unsigned int prelevel, unsigned int postlevel,
+				bool post);
 	int (*preemption_pre_ibsubmit)(struct adreno_device *,
 				struct adreno_ringbuffer *, unsigned int *,
 				struct kgsl_context *, uint64_t cond_addr,
