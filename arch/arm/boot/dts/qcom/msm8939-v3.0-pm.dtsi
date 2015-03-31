@@ -413,6 +413,7 @@
 		qcom,l1-l2-gcc-secure;
 		qcom,cpu-offline-mask = <0xf>;
 		qcom,non-boot-cpu-index = <4>;
+		qcom,lpm-wa-skip-l2-spm;
 	};
 
 	qcom,mpm@601d0 {
