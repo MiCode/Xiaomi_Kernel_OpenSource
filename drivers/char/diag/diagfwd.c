@@ -972,7 +972,7 @@ static int diag_send_data(struct diag_cmd_reg_t *entry, unsigned char *buf,
 	if (!entry)
 		return -EIO;
 
-	if (entry->proc == APPS_PROC) {
+	if (entry->proc == APPS_DATA) {
 		diag_update_pkt_buffer(buf, len, PKT_TYPE);
 		diag_update_sleeping_process(entry->pid, PKT_TYPE);
 		return 0;

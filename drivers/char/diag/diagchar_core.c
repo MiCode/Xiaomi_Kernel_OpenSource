@@ -658,7 +658,7 @@ struct diag_cmd_reg_entry_t *diag_cmd_search(
 			    (proc == item->proc || proc == ALL_PROC)) {
 				if (entry->cmd_code == MODE_CMD &&
 				    entry->subsys_id == RESET_ID &&
-				    item->proc != APPS_PROC) {
+				    item->proc != APPS_DATA) {
 					continue;
 				}
 				return &item->entry;
