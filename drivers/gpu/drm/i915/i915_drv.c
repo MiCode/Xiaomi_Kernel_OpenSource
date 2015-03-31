@@ -1109,6 +1109,8 @@ int i915_handle_hung_ring(struct drm_device *dev, uint32_t ringid)
 		}
 	}
 
+	/* Restore RING_MAX_IDLE register post reset */
+	I915_WRITE(RING_MAX_IDLE(ring->mmio_base), 10);
 handle_hung_ring_error:
 	if (i915.enable_execlists)
 		i915_gem_context_unreference(current_context);
