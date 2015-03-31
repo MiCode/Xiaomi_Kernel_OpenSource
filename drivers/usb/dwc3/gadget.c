@@ -2816,7 +2816,9 @@ static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
 {
 	enum dwc3_link_state    next = evtinfo & DWC3_LINK_STATE_MASK;
 
-	if (next == DWC3_LINK_STATE_U3) {
+	dev_dbg(dwc->dev, "%s Entry to %d\n", __func__, next);
+
+	if (dwc->link_state != next && next == DWC3_LINK_STATE_U3) {
 		/*
 		 * When first connecting the cable, even before the initial
 		 * DWC3_DEVICE_EVENT_RESET or DWC3_DEVICE_EVENT_CONNECT_DONE
