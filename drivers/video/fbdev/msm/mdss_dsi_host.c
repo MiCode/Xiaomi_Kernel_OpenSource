@@ -404,6 +404,11 @@ void mdss_dsi_host_init(struct mdss_panel_data *pdata)
 		data |= BIT(0);
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x00cc,
 				data); /* DSI_EOT_PACKET_CTRL */
+	/*
+	 * DSI_HS_TIMER_CTRL -> timer resolution = 8 esc clk
+	 * HS TX timeout - 16136 (0x3f08) esc clk
+	 */
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x00bc, 0x3fd08);
 
 
 	/* allow only ack-err-status  to generate interrupt */
