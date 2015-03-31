@@ -87,30 +87,6 @@ static int kgsl_cma_unlock_secure(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc);
 
 /**
- * Given a kobj, find the process structure attached to it
- */
-
-static struct kgsl_process_private *
-_get_priv_from_kobj(struct kobject *kobj)
-{
-	struct kgsl_process_private *private;
-	unsigned int name;
-
-	if (!kobj)
-		return NULL;
-
-	if (kstrtou32(kobj->name, 0, &name))
-		return NULL;
-
-	list_for_each_entry(private, &kgsl_driver.process_list, list) {
-		if (private->pid == name)
-			return private;
-	}
-
-	return NULL;
-}
-
-/**
  * Show the current amount of memory allocated for the given memtype
  */
 
@@ -143,15 +119,22 @@ static ssize_t mem_entry_sysfs_show(struct kobject *kobj,
 	struct kgsl_process_private *priv;
 	ssize_t ret;
 
-	mutex_lock(&kgsl_driver.process_mutex);
-	priv = _get_priv_from_kobj(kobj);
+	/*
+	 * 1. sysfs_remove_file waits for reads to complete before the node
+	 *    is deleted.
+	 * 2. kgsl_process_init_sysfs takes a refcount to the process_private,
+	 *    which is put at the end of kgsl_process_uninit_sysfs.
+	 * These two conditions imply that priv will not be freed until this
+	 * function completes, and no further locking is needed.
+	 */
+	priv = kobj ? container_of(kobj, struct kgsl_process_private, kobj) :
+			NULL;
 
 	if (priv && pattr->show)
 		ret = pattr->show(priv, pattr->memtype, buf);
 	else
 		ret = -EIO;
 
-	mutex_unlock(&kgsl_driver.process_mutex);
 	return ret;
 }
 
@@ -189,6 +172,8 @@ kgsl_process_uninit_sysfs(struct kgsl_process_private *private)
 	}
 
 	kobject_put(&private->kobj);
+	/* Put the refcount we got in kgsl_process_init_sysfs */
+	kgsl_process_private_put(private);
 }
 
 /**
@@ -227,6 +212,11 @@ kgsl_process_init_sysfs(struct kgsl_device *device,
 		ret = sysfs_create_file(&private->kobj,
 			&mem_stats[i].max_attr.attr);
 	}
+
+	/* Keep private valid until the sysfs enries are removed. */
+	if (!ret)
+		kgsl_process_private_get(private);
+
 	return ret;
 }
 
