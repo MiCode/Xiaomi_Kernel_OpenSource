@@ -24,14 +24,6 @@ struct ion_system_secure_heap {
 	struct ion_heap heap;
 };
 
-#define VMID_HLOS 0x3
-#define VMID_CP_TOUCH 0x8
-#define VMID_CP_BITSTREAM 0x9
-#define VMID_CP_PIXEL 0xA
-#define VMID_CP_NON_PIXEL 0xB
-#define VMID_CP_CAMERA 0xD
-#define VMID_HLOS_FREE 0xE
-
 static bool is_cp_flag_present(unsigned long flags)
 {
 	return flags && (ION_FLAG_CP_TOUCH ||
@@ -59,26 +51,31 @@ static int get_secure_vmid(unsigned long flags)
 
 static void ion_system_secure_heap_free(struct ion_buffer *buffer)
 {
-	int ret;
+	int ret = 0;
 	u32 source_vm;
-	u32 dest_vm;
+	int dest_vmid;
+	int dest_perms;
 	struct ion_heap *heap = buffer->heap;
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
 						heap);
 
 	source_vm = get_secure_vmid(buffer->flags);
-	dest_vm = VMID_HLOS;
+	if (source_vm < 0) {
+		pr_info("%s: Unable to get secure VMID\n", __func__);
+		return;
+	}
+	dest_vmid = VMID_HLOS;
+	dest_perms = PERM_READ | PERM_WRITE;
 
-	ret = msm_ion_hyp_assign_call(buffer->priv_virt, &source_vm,
-					sizeof(source_vm), &dest_vm,
-					sizeof(dest_vm));
-
+	ret = hyp_assign_table(buffer->priv_virt, &source_vm, 1,
+					&dest_vmid, &dest_perms, 1);
 	if (ret) {
 		pr_err("%s: Not freeing memory since assign call failed\n",
 								__func__);
 		return;
 	}
+
 	buffer->heap = secure_heap->sys_heap;
 	secure_heap->sys_heap->ops->free(buffer);
 }
@@ -88,9 +85,10 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 					unsigned long size, unsigned long align,
 					unsigned long flags)
 {
-	int ret;
+	int ret = 0;
 	u32 source_vm;
-	u32 dest_vm;
+	int dest_vmid;
+	int dest_perms;
 	struct ion_system_secure_heap *secure_heap = container_of(heap,
 						struct ion_system_secure_heap,
 						heap);
@@ -102,13 +100,6 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 		return -EINVAL;
 	}
 
-	source_vm = VMID_HLOS;
-	dest_vm = get_secure_vmid(flags);
-	if (dest_vm < 0) {
-		pr_info("%s: Unable to get secure VMID\n", __func__);
-		return -EINVAL;
-	}
-
 	ret = secure_heap->sys_heap->ops->allocate(secure_heap->sys_heap,
 						buffer, size, align, flags);
 	if (ret) {
@@ -116,13 +107,26 @@ static int ion_system_secure_heap_allocate(struct ion_heap *heap,
 			__func__, heap->name, ret);
 		return ret;
 	}
-	ret = msm_ion_hyp_assign_call(buffer->priv_virt, &source_vm,
-					sizeof(source_vm), &dest_vm,
-					sizeof(dest_vm));
 
-	if (ret)
-		ion_system_secure_heap_free(buffer);
+	source_vm = VMID_HLOS;
+	dest_vmid = get_secure_vmid(flags);
+	if (dest_vmid < 0) {
+		pr_info("%s: Unable to get secure VMID\n", __func__);
+		ret = -EINVAL;
+		goto err;
+	}
+	dest_perms = PERM_READ | PERM_WRITE;
 
+	ret = hyp_assign_table(buffer->priv_virt, &source_vm, 1,
+					&dest_vmid, &dest_perms, 1);
+	if (ret) {
+		pr_err("%s: Assign call failed\n", __func__);
+		goto err;
+	}
+	return ret;
+
+err:
+	ion_system_secure_heap_free(buffer);
 	return ret;
 }
 
