@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,8 +55,10 @@ struct alpha_pll_clk {
 
 	struct alpha_pll_vco_tbl *vco_tbl;
 	u32 num_vco;
+	u32 current_vco_val;
 
 	bool inited;
+	bool slew;
 
 	struct clk c;
 };
@@ -69,3 +71,4 @@ static inline struct alpha_pll_clk *to_alpha_pll_clk(struct clk *c)
 
 extern struct clk_ops clk_ops_alpha_pll;
 extern struct clk_ops clk_ops_fixed_alpha_pll;
+extern struct clk_ops clk_ops_dyna_alpha_pll;
