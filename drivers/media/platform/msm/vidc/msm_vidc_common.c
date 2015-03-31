@@ -2445,7 +2445,6 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 	int rc = 0;
 	struct msm_smem *handle;
 	struct internal_buf *binfo;
-	struct vidc_buffer_addr_info buffer_info = {0};
 	u32 smem_flags = 0, buffer_size;
 	struct hal_buffer_requirements *output_buf, *extradata_buf;
 	int i;
@@ -2509,29 +2508,34 @@ static int set_output_buffers(struct msm_vidc_inst *inst,
 			}
 
 			binfo->handle = handle;
-			buffer_info.buffer_size = output_buf->buffer_size;
-			buffer_info.buffer_type = buffer_type;
 			binfo->buffer_type = buffer_type;
-			buffer_info.num_buffers = 1;
 			binfo->buffer_ownership = DRIVER;
-			buffer_info.align_device_addr = handle->device_addr;
-			buffer_info.extradata_addr = handle->device_addr +
-				output_buf->buffer_size;
-			if (extradata_buf) {
-				buffer_info.extradata_size =
-					extradata_buf->buffer_size;
-			}
 			dprintk(VIDC_DBG, "Output buffer address: %pa\n",
-					&buffer_info.align_device_addr);
-			dprintk(VIDC_DBG, "Output extradata address: %pa\n",
-					&buffer_info.extradata_addr);
-			rc = call_hfi_op(hdev, session_set_buffers,
+					&handle->device_addr);
+
+			if (inst->buffer_mode_set[CAPTURE_PORT] ==
+				HAL_BUFFER_MODE_STATIC) {
+				struct vidc_buffer_addr_info buffer_info = {0};
+				buffer_info.buffer_size =
+					output_buf->buffer_size;
+				buffer_info.buffer_type = buffer_type;
+				buffer_info.num_buffers = 1;
+				buffer_info.align_device_addr =
+					handle->device_addr;
+				buffer_info.extradata_addr =
+					handle->device_addr +
+					output_buf->buffer_size;
+				if (extradata_buf)
+					buffer_info.extradata_size =
+						extradata_buf->buffer_size;
+				rc = call_hfi_op(hdev, session_set_buffers,
 					(void *) inst->session, &buffer_info);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"%s : session_set_buffers failed\n",
-					__func__);
-				goto fail_set_buffers;
+				if (rc) {
+					dprintk(VIDC_ERR,
+						"%s : session_set_buffers failed\n",
+						__func__);
+					goto fail_set_buffers;
+				}
 			}
 			mutex_lock(&inst->outputbufs.lock);
 			list_add_tail(&binfo->list, &inst->outputbufs.list);
@@ -3227,7 +3231,9 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 		buffer_info.buffer_type = buf->buffer_type;
 		buffer_info.num_buffers = 1;
 		buffer_info.align_device_addr = handle->device_addr;
-		if (inst->state != MSM_VIDC_CORE_INVALID &&
+		if (inst->buffer_mode_set[CAPTURE_PORT] ==
+			HAL_BUFFER_MODE_STATIC &&
+			inst->state != MSM_VIDC_CORE_INVALID &&
 				core->state != VIDC_CORE_INVALID) {
 			buffer_info.response_required = false;
 			rc = call_hfi_op(hdev, session_release_buffers,
