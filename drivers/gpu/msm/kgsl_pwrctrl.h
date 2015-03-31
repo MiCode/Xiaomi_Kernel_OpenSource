@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,6 +26,9 @@
 #define KGSL_PWR_ON	0xFFFF
 
 #define KGSL_MAX_CLKS 9
+
+#define KGSL_MAX_REGULATORS 2
+#define KGSL_MAX_REGULATOR_NAME_LEN 8
 
 /* Only two supported levels, min & max */
 #define KGSL_CONSTRAINT_PWR_MAXLEVELS 2
@@ -93,8 +96,8 @@ struct kgsl_pwr_constraint {
  * @num_pwrlevels - number of available power levels
  * @interval_timeout - timeout in jiffies to be idle before a power event
  * @strtstp_sleepwake - true if the device supports low latency GPU start/stop
- * @gpu_reg - pointer to the regulator structure for gpu_reg
- * @gpu_cx - pointer to the regulator structure for gpu_cx
+ * @gpu_reg - array of pointers to the regulator structures
+ * @gpu_reg_name - array of pointers to the regulator names
  * @pcl - bus scale identifier
  * @ocmem - ocmem bus scale identifier
  * @irq_name - resource name for the IRQ
@@ -137,8 +140,8 @@ struct kgsl_pwrctrl {
 	unsigned int num_pwrlevels;
 	unsigned long interval_timeout;
 	bool strtstp_sleepwake;
-	struct regulator *gpu_reg;
-	struct regulator *gpu_cx;
+	struct regulator *gpu_reg[KGSL_MAX_REGULATORS];
+	char gpu_reg_name[KGSL_MAX_REGULATORS][KGSL_MAX_REGULATOR_NAME_LEN];
 	uint32_t pcl;
 	uint32_t ocmem_pcl;
 	const char *irq_name;
@@ -151,7 +154,7 @@ struct kgsl_pwrctrl {
 	unsigned int bus_percent_ab;
 	struct device *devbw;
 	unsigned int bus_index[KGSL_MAX_PWRLEVELS];
-	uint64_t bus_ib[KGSL_MAX_PWRLEVELS];
+	uint64_t *bus_ib;
 	struct kgsl_pwr_constraint constraint;
 	bool superfast;
 	struct work_struct thermal_cycle_ws;

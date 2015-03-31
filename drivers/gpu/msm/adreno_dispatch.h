@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +14,39 @@
 
 #ifndef ____ADRENO_DISPATCHER_H
 #define ____ADRENO_DISPATCHER_H
+
+/**
+ * enum adreno_dispatcher_preempt_states - States of dispatcher for ringbuffer
+ * preemption
+ * @ADRENO_DISPATCHER_PREEMPT_CLEAR: No preemption is underway,
+ * only 1 preemption can be underway at any point
+ * @ADRENO_DISPATCHER_PREEMPT_TRIGGERED: A preemption is underway
+ * @ADRENO_DISPATCHER_PREEMPT_COMPLETE: A preemption has just completed
+ */
+enum adreno_dispatcher_preempt_states {
+	ADRENO_DISPATCHER_PREEMPT_CLEAR = 0,
+	ADRENO_DISPATCHER_PREEMPT_TRIGGERED,
+	ADRENO_DISPATCHER_PREEMPT_COMPLETE,
+};
+
+/**
+ * enum adreno_dispatcher_starve_timer_states - Starvation control states of
+ * a RB
+ * @ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT: Uninitialized, starvation control
+ * is not operating
+ * @ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT: Starvation timer is initialized
+ * and counting
+ * @ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED: The starvation timer has elapsed
+ * this state indicates that the RB is starved
+ * @ADRENO_DISPATCHER_RB_STARVE_TIMER_SCHEDULED: RB is scheduled on the device
+ * and will remain scheduled for a minimum time slice when in this state.
+ */
+enum adreno_dispatcher_starve_timer_states {
+	ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT = 0,
+	ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT = 1,
+	ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED = 2,
+	ADRENO_DISPATCHER_RB_STARVE_TIMER_SCHEDULED = 3,
+};
 
 /*
  * Maximum size of the dispatcher ringbuffer - the actual inflight size will be
@@ -62,6 +95,14 @@ struct adreno_dispatcher_cmdqueue {
  * @work: work_struct to put the dispatcher in a work queue
  * @kobj: kobject for the dispatcher directory in the device sysfs node
  * @idle_gate: Gate to wait on for dispatcher to idle
+ * @preemption_state: Indicated what state the dispatcher is in, states are
+ * defined by enum adreno_dispatcher_preempt_states
+ * @preempt_token_submit: Indicates if a preempt token has been subnitted in
+ * current ringbuffer.
+ * @preempt_timer: Timer to track if preemption occured within specified time
+ * @disp_preempt_fair_sched: If set then dispatcher will try to be fair to
+ * starving RB's by scheduling them in and enforcing a minimum time slice
+ * for every RB that is scheduled to run on the device
  */
 struct adreno_dispatcher {
 	struct mutex mutex;
@@ -75,6 +116,10 @@ struct adreno_dispatcher {
 	struct work_struct work;
 	struct kobject kobj;
 	struct completion idle_gate;
+	atomic_t preemption_state;
+	int preempt_token_submit;
+	struct timer_list preempt_timer;
+	unsigned int disp_preempt_fair_sched;
 };
 
 enum adreno_dispatcher_flags {
@@ -97,5 +142,7 @@ void adreno_dispatcher_schedule(struct kgsl_device *device);
 void adreno_dispatcher_pause(struct adreno_device *adreno_dev);
 void adreno_dispatcher_queue_context(struct kgsl_device *device,
 		struct adreno_context *drawctxt);
+void adreno_dispatcher_preempt_callback(struct adreno_device *adreno_dev,
+					int bit);
 
 #endif /* __ADRENO_DISPATCHER_H */

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,8 +27,8 @@ extern const unsigned int a4xx_cp_addr_regs[];
  * @entry: The memory entry in which this range is found
  */
 struct adreno_ib_object {
-	unsigned int gpuaddr;
-	unsigned int size;
+	uint64_t gpuaddr;
+	uint64_t size;
 	int snapshot_obj_type;
 	struct kgsl_mem_entry *entry;
 };
@@ -115,8 +115,8 @@ enum adreno_cp_addr_regs {
  *
  * Returns the object pointer on success else error code in the pointer
  */
-static inline void adreno_ib_init_ib_obj(unsigned int gpuaddr,
-			unsigned int size, int obj_type,
+static inline void adreno_ib_init_ib_obj(uint64_t gpuaddr,
+			uint64_t size, int obj_type,
 			struct kgsl_mem_entry *entry,
 			struct adreno_ib_object *ib_obj)
 {
@@ -178,7 +178,7 @@ static inline int adreno_cp_parser_regindex(struct adreno_device *adreno_dev,
 int adreno_ib_create_object_list(
 		struct kgsl_device *device,
 		struct kgsl_process_private *process,
-		unsigned int gpuaddr, unsigned int dwords,
+		uint64_t gpuaddr, uint64_t dwords,
 		struct adreno_ib_object_list **out_ib_obj_list);
 
 void adreno_ib_destroy_obj_list(struct adreno_ib_object_list *ib_obj_list);

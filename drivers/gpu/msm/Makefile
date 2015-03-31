@@ -3,6 +3,7 @@ ccflags-y := -Iinclude/uapi/drm -Iinclude/drm -Idrivers/gpu/msm
 msm_kgsl_core-y = \
 	kgsl.o \
 	kgsl_trace.o \
+	kgsl_ioctl.o \
 	kgsl_sharedmem.o \
 	kgsl_pwrctrl.o \
 	kgsl_pwrscale.o \
@@ -13,11 +14,11 @@ msm_kgsl_core-y = \
 
 msm_kgsl_core-$(CONFIG_DEBUG_FS) += kgsl_debugfs.o
 msm_kgsl_core-$(CONFIG_MSM_KGSL_CFF_DUMP) += kgsl_cffdump.o
-msm_kgsl_core-$(CONFIG_MSM_KGSL_DRM) += kgsl_drm.o
 msm_kgsl_core-$(CONFIG_SYNC) += kgsl_sync.o
 msm_kgsl_core-$(CONFIG_COMPAT) += kgsl_compat.o
 
 msm_adreno-y += \
+	adreno_ioctl.o \
 	adreno_ringbuffer.o \
 	adreno_drawctxt.o \
 	adreno_dispatch.o \
@@ -26,8 +27,11 @@ msm_adreno-y += \
 	adreno_trace.o \
 	adreno_a3xx.o \
 	adreno_a4xx.o \
+	adreno_a5xx.o \
 	adreno_a3xx_snapshot.o \
 	adreno_a4xx_snapshot.o \
+	adreno_a5xx_snapshot.o \
+	adreno_sysfs.o \
 	adreno.o \
 	adreno_cp_parser.o \
 	adreno_iommu.o \

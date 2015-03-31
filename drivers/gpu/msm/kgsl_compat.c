@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,8 +20,6 @@
 #include "kgsl_compat.h"
 #include "kgsl_device.h"
 #include "kgsl_sync.h"
-
-#include "adreno.h"
 
 static long
 kgsl_ioctl_device_getproperty_compat(struct kgsl_device_private *dev_priv,
@@ -201,6 +199,13 @@ kgsl_ioctl_gpumem_alloc_compat(struct kgsl_device_private *dev_priv,
 	param.size = (size_t)param32->size;
 	param.flags = param32->flags;
 
+	/*
+	 * Since this is a 32 bit application the page aligned size is expected
+	 * to fit inside of 32 bits - check for overflow and return error if so
+	 */
+	if (PAGE_ALIGN(param.size) >= UINT_MAX)
+		return -EINVAL;
+
 	result = kgsl_ioctl_gpumem_alloc(dev_priv, cmd, &param);
 
 	param32->gpuaddr = gpuaddr_to_compat(param.gpuaddr);
@@ -223,6 +228,13 @@ kgsl_ioctl_gpumem_alloc_id_compat(struct kgsl_device_private *dev_priv,
 	param.size = (size_t)param32->size;
 	param.mmapsize = (size_t)param32->mmapsize;
 	param.gpuaddr = (unsigned long)param32->gpuaddr;
+
+	/*
+	 * Since this is a 32 bit application the page aligned size is expected
+	 * to fit inside of 32 bits - check for overflow and return error if so
+	 */
+	if (PAGE_ALIGN(param.size) >= UINT_MAX)
+		return -EINVAL;
 
 	result = kgsl_ioctl_gpumem_alloc_id(dev_priv, cmd, &param);
 
@@ -344,13 +356,35 @@ static const struct kgsl_ioctl kgsl_compat_ioctl_funcs[] = {
 			kgsl_ioctl_syncsource_create_fence),
 	KGSL_IOCTL_FUNC(IOCTL_KGSL_SYNCSOURCE_SIGNAL_FENCE,
 			kgsl_ioctl_syncsource_signal_fence),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_CFF_SYNC_GPUOBJ,
+			kgsl_ioctl_cff_sync_gpuobj),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_ALLOC,
+			kgsl_ioctl_gpuobj_alloc),
+	KGSL_IOCTL_FUNC(IOCTL_KGSL_GPUOBJ_FREE,
+			kgsl_ioctl_gpuobj_free),
 };
 
-long kgsl_compat_ioctl(struct file *filep, unsigned int cmd,
-				unsigned long arg)
+long kgsl_compat_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
-	return kgsl_ioctl_helper(filep, cmd, kgsl_compat_ioctl_funcs,
-				ARRAY_SIZE(kgsl_compat_ioctl_funcs), arg);
+	struct kgsl_device_private *dev_priv = filep->private_data;
+	struct kgsl_device *device = dev_priv->device;
+
+	long ret = kgsl_ioctl_helper(filep, cmd, arg, kgsl_compat_ioctl_funcs,
+		ARRAY_SIZE(kgsl_compat_ioctl_funcs));
+
+	/*
+	 * If the command was unrecognized in the generic core, try the device
+	 * specific function
+	 */
+
+	if (ret == -ENOIOCTLCMD) {
+		if (device->ftbl->compat_ioctl != NULL)
+			return device->ftbl->compat_ioctl(dev_priv, cmd, arg);
+
+		KGSL_DRV_INFO(device, "invalid ioctl code 0x%08X\n", cmd);
+	}
+
+	return ret;
 }
 
 /**

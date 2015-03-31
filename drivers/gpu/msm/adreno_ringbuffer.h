@@ -71,7 +71,7 @@ struct adreno_ringbuffer_pagetable_info {
 	int current_rb_ptname;
 	int incoming_ptname;
 	int switch_pt_enable;
-	union adreno_ttbr0 ttbr0[KGSL_IOMMU_MAX_UNITS];
+	union adreno_ttbr0 ttbr0;
 };
 
 /**
@@ -88,15 +88,23 @@ struct adreno_ringbuffer_pagetable_info {
  * @timestamp: The RB's global timestamp
  * @events: A kgsl_event_group for this context - contains the list of GPU
  * events
- * @mmu_events: A kgsl_event_group for this context - contains the list of mmu
- * events
  * @drawctxt_active: The last pagetable that this ringbuffer is set to
+ * @preemption_desc: The memory descriptor containing
+ * preemption info written/read by CP
  * @pagetable_desc: Memory to hold information about the pagetables being used
  * and the commands to switch pagetable on the RB
  * @pt_update_desc: The memory descriptor containing commands that update
  * pagetable
  * @dispatch_q: The dispatcher side queue for this ringbuffer
  * @ts_expire_waitq: Wait queue to wait for rb timestamp to expire
+ * @ts_expire_waitq: Wait q to wait for rb timestamp to expire
+ * @wptr_preempt_end: Used during preemption to check that preemption occurred
+ * at the right rptr
+ * @gpr11: The gpr11 value of this RB
+ * @preempted_midway: Indicates that the RB was preempted before rptr = wptr
+ * @sched_timer: Timer that tracks how long RB has been waiting to be scheduled
+ * or how long it has been scheduled for after preempting in
+ * @starve_timer_state: Indicates the state of the wait.
  */
 struct adreno_ringbuffer {
 	struct kgsl_device *device;
@@ -110,25 +118,17 @@ struct adreno_ringbuffer {
 	unsigned int fault_detect_ts;
 	unsigned int timestamp;
 	struct kgsl_event_group events;
-	struct kgsl_event_group mmu_events;
 	struct adreno_context *drawctxt_active;
+	struct kgsl_memdesc preemption_desc;
 	struct kgsl_memdesc pagetable_desc;
 	struct kgsl_memdesc pt_update_desc;
 	struct adreno_dispatcher_cmdqueue dispatch_q;
 	wait_queue_head_t ts_expire_waitq;
-};
-
-/**
- * struct adreno_ringbuffer_mmu_disable_clk_param - Parameter struct for
- * disble clk event
- * @rb: The rb pointer
- * @unit: The MMU unit whose clock is to be turned off
- * @ts: Timestamp on which clock is to be disabled
- */
-struct adreno_ringbuffer_mmu_disable_clk_param {
-	struct adreno_ringbuffer *rb;
-	int unit;
-	unsigned int ts;
+	unsigned int wptr_preempt_end;
+	unsigned int gpr11;
+	int preempted_midway;
+	unsigned long sched_timer;
+	enum adreno_dispatcher_starve_timer_states starve_timer_state;
 };
 
 /* enable timestamp (...scratch0) memory shadowing */
@@ -179,13 +179,12 @@ void kgsl_cp_intrcallback(struct kgsl_device *device);
 unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 						unsigned int numcmds);
 
-int adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
+void adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
 
-int adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
+void adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
 
 void adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
-			struct adreno_ringbuffer *rb, unsigned int ts,
-			int unit);
+			struct adreno_ringbuffer *rb, unsigned int ts);
 
 int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 					unsigned int timestamp,
@@ -194,6 +193,9 @@ int adreno_ringbuffer_waittimestamp(struct adreno_ringbuffer *rb,
 int adreno_rb_readtimestamp(struct kgsl_device *device,
 	void *priv, enum kgsl_timestamp_type type,
 	unsigned int *timestamp);
+
+int adreno_ringbuffer_submit_preempt_token(struct adreno_ringbuffer *rb,
+					struct adreno_ringbuffer *incoming_rb);
 
 static inline int adreno_ringbuffer_count(struct adreno_ringbuffer *rb,
 	unsigned int rptr)

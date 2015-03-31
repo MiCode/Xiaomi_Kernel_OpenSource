@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,17 +13,24 @@
 #ifndef __ADRENO_PM4TYPES_H
 #define __ADRENO_PM4TYPES_H
 
+#include "adreno.h"
 
 #define CP_PKT_MASK	0xc0000000
 
 #define CP_TYPE0_PKT	((unsigned int)0 << 30)
-#define CP_TYPE1_PKT	((unsigned int)1 << 30)
-#define CP_TYPE2_PKT	((unsigned int)2 << 30)
 #define CP_TYPE3_PKT	((unsigned int)3 << 30)
+#define CP_TYPE4_PKT    ((unsigned int)4 << 28)
+#define CP_TYPE7_PKT    ((unsigned int)7 << 28)
 
 
 /* type3 packets */
 
+/* Enable preemption flag */
+#define CP_PREEMPT_ENABLE 0x1C
+/* Preemption token command on which preemption occurs */
+#define CP_PREEMPT_TOKEN 0x1E
+/* Bit to set in CP_PREEMPT_TOKEN ordinal for interrupt on preemption */
+#define CP_PREEMPT_ORDINAL_INTERRUPT 24
 /* copy from ME scratch RAM to a register */
 #define CP_SCRATCH_TO_REG      0x4d
 
@@ -136,9 +143,6 @@
 /* load constants from a location in memory */
 #define CP_LOAD_CONSTANT_CONTEXT 0x2e
 
-/* (A2x) sets binning configuration registers */
-#define CP_SET_BIN_DATA             0x2f
-
 /* selective invalidation of state pointers */
 #define CP_INVALIDATE_STATE	0x3b
 
@@ -159,6 +163,20 @@
 /* generate interrupt from the command stream */
 #define CP_INTERRUPT		0x40
 
+/* A5XX Enable yield in RB only */
+#define CP_YIELD_ENABLE 0x1C
+
+/* Enable/Disable/Defer A5x global preemption model */
+#define CP_PREEMPT_ENABLE_GLOBAL    0x69
+
+/* Enable/Disable A5x local preemption model */
+#define CP_PREEMPT_ENABLE_LOCAL     0x6A
+
+/* Yeild token on a5xx similar to CP_PREEMPT on a4xx */
+#define CP_CONTEXT_SWITCH_YIELD     0x6B
+
+/* Inform CP about current render mode (needed for a5xx preemption) */
+#define CP_SET_RENDER_MODE          0x6C
 
 /* copy sequencer instruction memory to system memory */
 #define CP_IM_STORE            0x2c
@@ -182,21 +200,10 @@
 /* Record the real-time when this packet is processed by PFP */
 #define CP_RECORD_PFP_TIMESTAMP	0x11
 
-/*
- * for a20x
- * program an offset that will added to the BIN_BASE value of
- * the 3D_DRAW_INDX_BIN packet
- */
-#define CP_SET_BIN_BASE_OFFSET     0x4B
-
-/*
- * for a22x
- * sets draw initiator flags register in PFP, gets bitwise-ORed into
- * every draw initiator
- */
-#define CP_SET_DRAW_INIT_FLAGS      0x4B
-
 #define CP_SET_PROTECTED_MODE  0x5f /* sets the register protection mode */
+
+/* Used to switch GPU between secure and non-secure modes */
+#define CP_SET_SECURE_MODE 0x66
 
 #define CP_BOOTSTRAP_UCODE  0x6f /* bootstraps microcode */
 
@@ -225,25 +232,45 @@
 #define CP_LOADSTATE_STATETYPE_SHIFT 0x00000000
 #define CP_LOADSTATE_EXTSRCADDR_SHIFT 0x00000002
 
-/* packet header building macros */
-#define cp_type0_packet(regindx, cnt) \
-	(CP_TYPE0_PKT | (((cnt)-1) << 16) | ((regindx) & 0x7FFF))
+static inline uint pm4_calc_odd_parity_bit(uint val)
+{
+	return (0x9669 >> (0xf & ((val) ^
+	((val) >> 4) ^ ((val) >> 8) ^ ((val) >> 12) ^
+	((val) >> 16) ^ ((val) >> 20) ^ ((val) >> 24) ^
+	((val) >> 28)))) & 1;
+}
 
-#define cp_type0_packet_for_sameregister(regindx, cnt) \
-	((CP_TYPE0_PKT | (((cnt)-1) << 16) | ((1 << 15) | \
-		((regindx) & 0x7FFF)))
+/*
+ * PM4 packet header functions
+ * For all the packet functions the passed in count should be the size of the
+ * payload excluding the header
+ */
+static inline uint cp_type0_packet(uint regindx, uint cnt)
+{
+	return CP_TYPE0_PKT | ((cnt-1) << 16) | ((regindx) & 0x7FFF);
+}
 
-#define cp_type1_packet(reg0, reg1) \
-	 (CP_TYPE1_PKT | ((reg1) << 12) | (reg0))
+static inline uint cp_type3_packet(uint opcode, uint cnt)
+{
+	return CP_TYPE3_PKT | ((cnt-1) << 16) | (((opcode) & 0xFF) << 8);
+}
 
-#define cp_type3_packet(opcode, cnt) \
-	 (CP_TYPE3_PKT | (((cnt)-1) << 16) | (((opcode) & 0xFF) << 8))
+static inline uint cp_type4_packet(uint opcode, uint cnt)
+{
+	return CP_TYPE4_PKT | ((cnt) << 0) |
+	(pm4_calc_odd_parity_bit(cnt) << 7) |
+	(((opcode) & 0x3FFFF) << 8) |
+	((pm4_calc_odd_parity_bit(opcode) << 27));
+}
 
-#define cp_predicated_type3_packet(opcode, cnt) \
-	 (CP_TYPE3_PKT | (((cnt)-1) << 16) | (((opcode) & 0xFF) << 8) | 0x1)
+static inline uint cp_type7_packet(uint opcode, uint cnt)
+{
+	return CP_TYPE7_PKT | ((cnt) << 0) |
+	(pm4_calc_odd_parity_bit(cnt) << 15) |
+	(((opcode) & 0x7F) << 16) |
+	((pm4_calc_odd_parity_bit(opcode) << 23));
 
-#define cp_nop_packet(cnt) \
-	 (CP_TYPE3_PKT | (((cnt)-1) << 16) | (CP_NOP << 8))
+}
 
 #define pkt_is_type0(pkt) (((pkt) & 0XC0000000) == CP_TYPE0_PKT)
 
@@ -262,10 +289,26 @@
 #define cp_type3_opcode(pkt) (((pkt) >> 8) & 0xFF)
 #define type3_pkt_size(pkt) ((((pkt) >> 16) & 0x3FFF) + 1)
 
-/* packet headers */
-#define CP_HDR_ME_INIT	cp_type3_packet(CP_ME_INIT, 18)
-#define CP_HDR_INDIRECT_BUFFER_PFD cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2)
-#define CP_HDR_INDIRECT_BUFFER_PFE cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2)
+#define pkt_is_type4(pkt) \
+	((((pkt) & 0xF0000000) == CP_TYPE4_PKT) && \
+	 ((((pkt) >> 27) & 0x1) == \
+	 pm4_calc_odd_parity_bit(cp_type4_base_index_one_reg_wr(pkt))) \
+	 && ((((pkt) >> 7) & 0x1) == \
+	 pm4_calc_odd_parity_bit(type4_pkt_size(pkt))))
+
+#define cp_type4_base_index_one_reg_wr(pkt) (((pkt) >> 8) & 0x7FFFF)
+#define type4_pkt_size(pkt) ((pkt) & 0x7F)
+
+#define pkt_is_type7(pkt) \
+	((((pkt) & 0xF0000000) == CP_TYPE7_PKT) && \
+	 (((pkt) & 0x0F000000) == 0) && \
+	 ((((pkt) >> 23) & 0x1) == \
+	 pm4_calc_odd_parity_bit(cp_type7_opcode(pkt))) \
+	 && ((((pkt) >> 15) & 0x1) == \
+	 pm4_calc_odd_parity_bit(type7_pkt_size(pkt))))
+
+#define cp_type7_opcode(pkt) (((pkt) >> 16) & 0x7F)
+#define type7_pkt_size(pkt) ((pkt) & 0x3FFF)
 
 /* dword base address of the GFX decode space */
 #define SUBBLOCK_OFFSET(reg) ((unsigned int)((reg) - (0x2000)))
@@ -273,14 +316,152 @@
 /* gmem command buffer length */
 #define CP_REG(reg) ((0x4 << 16) | (SUBBLOCK_OFFSET(reg)))
 
+/* Return true if the hardware uses the legacy (A4XX and older) PM4 format */
+#define ADRENO_LEGACY_PM4(_d) (ADRENO_GPUREV(_d) < 500)
+
+/**
+ * cp_packet - Generic CP packet to support different opcodes on
+ * different GPU cores.
+ * @adreno_dev: The adreno device
+ * @opcode: Operation for cp packet
+ * @size: size for cp packet
+ */
+static inline uint cp_packet(struct adreno_device *adreno_dev,
+				int opcode, uint size)
+{
+	if (ADRENO_LEGACY_PM4(adreno_dev))
+		return cp_type3_packet(opcode, size);
+
+	return cp_type7_packet(opcode, size);
+}
+
+/**
+ * cp_mem_packet - Generic CP memory packet to support different
+ * opcodes on different GPU cores.
+ * @adreno_dev: The adreno device
+ * @opcode: mem operation for cp packet
+ * @size: size for cp packet
+ * @num_mem: num of mem access
+ */
+static inline uint cp_mem_packet(struct adreno_device *adreno_dev,
+				int opcode, uint size, uint num_mem)
+{
+	if (ADRENO_LEGACY_PM4(adreno_dev))
+		return cp_type3_packet(opcode, size);
+
+	return cp_type7_packet(opcode, size + num_mem);
+}
 
 /* Return 1 if the command is an indirect buffer of any kind */
-static inline int adreno_cmd_is_ib(unsigned int cmd)
+static inline int adreno_cmd_is_ib(struct adreno_device *adreno_dev,
+					unsigned int cmd)
 {
-	return (cmd == cp_type3_packet(CP_INDIRECT_BUFFER_PFE, 2) ||
-		cmd == cp_type3_packet(CP_INDIRECT_BUFFER_PFD, 2) ||
-		cmd == cp_type3_packet(CP_COND_INDIRECT_BUFFER_PFE, 2) ||
-		cmd == cp_type3_packet(CP_COND_INDIRECT_BUFFER_PFD, 2));
+	return cmd == cp_mem_packet(adreno_dev,
+			CP_INDIRECT_BUFFER_PFE, 2, 1) ||
+		cmd == cp_mem_packet(adreno_dev,
+			CP_INDIRECT_BUFFER_PFD, 2, 1) ||
+		cmd == cp_mem_packet(adreno_dev,
+			CP_COND_INDIRECT_BUFFER_PFE, 2, 1) ||
+		cmd == cp_mem_packet(adreno_dev,
+			CP_COND_INDIRECT_BUFFER_PFD, 2, 1);
+}
+
+/**
+ * cp_gpuaddr - Generic function to add 64bit and 32bit gpuaddr
+ * to pm4 commands
+ * @adreno_dev: The adreno device
+ * @cmds: command pointer to add gpuaddr
+ * @gpuaddr: gpuaddr to add
+ */
+static inline uint cp_gpuaddr(struct adreno_device *adreno_dev,
+		   uint *cmds, uint64_t gpuaddr)
+{
+	uint *start = cmds;
+
+	if (ADRENO_LEGACY_PM4(adreno_dev))
+		*cmds++ = (uint)gpuaddr;
+	else {
+		*cmds++ = (uint)(gpuaddr);
+		*cmds++ = ((uint64_t)(gpuaddr) >> 32);
+	}
+	return cmds - start;
+}
+
+/**
+ * cp_register - Generic function for gpu register operation
+ * @adreno_dev: The adreno device
+ * @reg: GPU register
+ * @size: count for PM4 operation
+ */
+static inline uint cp_register(struct adreno_device *adreno_dev,
+			unsigned int reg, unsigned int size)
+{
+	if (ADRENO_LEGACY_PM4(adreno_dev))
+		return cp_type0_packet(reg, size);
+
+	return cp_type4_packet(reg, size);
+}
+
+/**
+ * cp_wait_for_me - common function for WAIT_FOR_ME
+ * @adreno_dev: The adreno device
+ * @cmds: command pointer to add gpuaddr
+ */
+static inline uint cp_wait_for_me(struct adreno_device *adreno_dev,
+				uint *cmds)
+{
+	uint *start = cmds;
+
+	if (ADRENO_LEGACY_PM4(adreno_dev)) {
+		*cmds++ = cp_type3_packet(CP_WAIT_FOR_ME, 1);
+		*cmds++ = 0;
+	} else
+		*cmds++ = cp_type7_packet(CP_WAIT_FOR_ME, 0);
+
+	return cmds - start;
+}
+
+/**
+ * cp_wait_for_idle - common function for WAIT_FOR_IDLE
+ * @adreno_dev: The adreno device
+ * @cmds: command pointer to add gpuaddr
+ */
+static inline uint cp_wait_for_idle(struct adreno_device *adreno_dev,
+				uint *cmds)
+{
+	uint *start = cmds;
+
+	if (ADRENO_LEGACY_PM4(adreno_dev)) {
+		*cmds++ = cp_type3_packet(CP_WAIT_FOR_IDLE, 1);
+		*cmds++ = 0;
+	} else
+		*cmds++ = cp_type7_packet(CP_WAIT_FOR_IDLE, 0);
+
+	return cmds - start;
+}
+
+/**
+ * cp_invalidate_state - common function for invalidating cp
+ * state
+ * @adreno_dev: The adreno device
+ * @cmds: command pointer to add gpuaddr
+ */
+static inline uint cp_invalidate_state(struct adreno_device *adreno_dev,
+				uint *cmds)
+{
+	uint *start = cmds;
+
+	if (ADRENO_GPUREV(adreno_dev) < 500) {
+		*cmds++ = cp_type3_packet(CP_INVALIDATE_STATE, 1);
+		*cmds++ = 0x7fff;
+	} else {
+		*cmds++ = cp_type7_packet(CP_SET_DRAW_STATE, 4);
+		*cmds++ = 0x40000;
+		*cmds++ = 0;
+		*cmds++ = 0;
+	}
+
+	return cmds - start;
 }
 
 #endif	/* __ADRENO_PM4TYPES_H */

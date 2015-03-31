@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,13 +10,16 @@
  * GNU General Public License for more details.
  *
  */
-#ifndef __A3XX_SNAPSHOT_H
-#define __A3XX_SNAPSHOT_H
+#ifndef __ADRENO_SNAPSHOT_H
+#define __ADRENO_SNAPSHOT_H
 
 #include "kgsl_snapshot.h"
 
 #define DEBUG_SECTION_SZ(_dwords) (((_dwords) * sizeof(unsigned int)) \
 		+ sizeof(struct kgsl_snapshot_debug))
+
+#define SHADER_SECTION_SZ(_dwords) (((_dwords) * sizeof(unsigned int)) \
+		+ sizeof(struct kgsl_snapshot_shader))
 
 /* Section sizes for A320 */
 #define A320_SNAPSHOT_CP_STATE_SECTION_SIZE	0x2e
@@ -24,20 +27,20 @@
 #define A320_SNAPSHOT_CP_MERCIU_SECTION_SIZE	32
 
 /* snapshot functions used for A4XX as well */
-size_t a330_snapshot_cp_merciu(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_cp_merciu(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
-size_t a3xx_snapshot_vpc_memory(struct kgsl_device *device, u8 *buf,
+size_t adreno_snapshot_vpc_memory(struct kgsl_device *device, u8 *buf,
 		size_t remain, void *priv);
 
-static inline void _snapshot_a3xx_regs(struct kgsl_snapshot_registers *regs,
+static inline void adreno_snapshot_regs(struct kgsl_snapshot_registers *regs,
 	struct kgsl_snapshot_registers_list *list,
 	const unsigned int *registers,
 	const unsigned int count, int dump)
@@ -48,4 +51,4 @@ static inline void _snapshot_a3xx_regs(struct kgsl_snapshot_registers *regs,
 	regs[list->count].snap_addr = NULL;
 	list->count++;
 }
-#endif /*__A3XX_SNAPSHOT_H */
+#endif /*__ADRENO_SNAPSHOT_H */

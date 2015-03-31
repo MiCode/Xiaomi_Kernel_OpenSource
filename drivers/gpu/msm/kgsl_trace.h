@@ -23,7 +23,6 @@
 
 #include <linux/tracepoint.h>
 #include "kgsl_device.h"
-#include "kgsl_sharedmem.h"
 #include "adreno_drawctxt.h"
 
 struct kgsl_device;
@@ -385,8 +384,8 @@ TRACE_EVENT(kgsl_mem_alloc,
 	),
 
 	TP_fast_assign(
-		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
-		__entry->size = mem_entry->memdesc.size;
+		__entry->gpuaddr = (unsigned int) mem_entry->memdesc.gpuaddr;
+		__entry->size = (unsigned int) mem_entry->memdesc.size;
 		__entry->tgid = mem_entry->priv->pid;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
@@ -418,8 +417,8 @@ TRACE_EVENT(kgsl_mem_mmap,
 
 	TP_fast_assign(
 		__entry->useraddr = mem_entry->memdesc.useraddr;
-		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
-		__entry->size = mem_entry->memdesc.size;
+		__entry->gpuaddr = (unsigned int) mem_entry->memdesc.gpuaddr;
+		__entry->size = (unsigned int) mem_entry->memdesc.size;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
 		__entry->id = mem_entry->id;
@@ -438,8 +437,8 @@ TRACE_EVENT(kgsl_mem_unmapped_area_collision,
 
 	TP_PROTO(struct kgsl_mem_entry *mem_entry,
 		 unsigned long hint,
-		 unsigned long len,
-		 unsigned long addr),
+		 uint64_t len,
+		 uint64_t addr),
 
 	TP_ARGS(mem_entry, hint, len, addr),
 
@@ -453,8 +452,8 @@ TRACE_EVENT(kgsl_mem_unmapped_area_collision,
 	TP_fast_assign(
 		__entry->id = mem_entry->id;
 		__entry->hint  = hint;
-		__entry->len = len;
-		__entry->addr = addr;
+		__entry->len = (unsigned long) len;
+		__entry->addr = (unsigned long) addr;
 	),
 
 	TP_printk(
@@ -480,8 +479,8 @@ TRACE_EVENT(kgsl_mem_map,
 	),
 
 	TP_fast_assign(
-		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
-		__entry->size = mem_entry->memdesc.size;
+		__entry->gpuaddr = (unsigned int) mem_entry->memdesc.gpuaddr;
+		__entry->size = (unsigned int) mem_entry->memdesc.size;
 		__entry->fd = fd;
 		__entry->type = kgsl_memdesc_usermem_type(&mem_entry->memdesc);
 		__entry->tgid = mem_entry->priv->pid;
@@ -516,8 +515,8 @@ TRACE_EVENT(kgsl_mem_free,
 	),
 
 	TP_fast_assign(
-		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
-		__entry->size = mem_entry->memdesc.size;
+		__entry->gpuaddr = (unsigned int) mem_entry->memdesc.gpuaddr;
+		__entry->size = (unsigned int) mem_entry->memdesc.size;
 		__entry->type = kgsl_memdesc_usermem_type(&mem_entry->memdesc);
 		__entry->tgid = mem_entry->priv->pid;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
@@ -535,8 +534,8 @@ TRACE_EVENT(kgsl_mem_free,
 
 TRACE_EVENT(kgsl_mem_sync_cache,
 
-	TP_PROTO(struct kgsl_mem_entry *mem_entry, size_t offset,
-		size_t length, unsigned int op),
+	TP_PROTO(struct kgsl_mem_entry *mem_entry, uint64_t offset,
+		uint64_t length, unsigned int op),
 
 	TP_ARGS(mem_entry, offset, length, op),
 
@@ -551,14 +550,14 @@ TRACE_EVENT(kgsl_mem_sync_cache,
 	),
 
 	TP_fast_assign(
-		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
+		__entry->gpuaddr = (unsigned int) mem_entry->memdesc.gpuaddr;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
 		__entry->tgid = mem_entry->priv->pid;
 		__entry->id = mem_entry->id;
 		__entry->op = op;
-		__entry->offset = offset;
-		__entry->length = (length == 0) ?
+		__entry->offset = (unsigned int) offset;
+		__entry->length = (unsigned int) (length == 0) ?
 				mem_entry->memdesc.size : length;
 	),
 
@@ -575,7 +574,7 @@ TRACE_EVENT(kgsl_mem_sync_cache,
 
 TRACE_EVENT(kgsl_mem_sync_full_cache,
 
-	TP_PROTO(unsigned int num_bufs, unsigned int bulk_size,
+	TP_PROTO(unsigned int num_bufs, uint64_t bulk_size,
 		unsigned int op),
 
 	TP_ARGS(num_bufs, bulk_size, op),
@@ -588,7 +587,7 @@ TRACE_EVENT(kgsl_mem_sync_full_cache,
 
 	TP_fast_assign(
 		__entry->num_bufs = num_bufs;
-		__entry->bulk_size = bulk_size;
+		__entry->bulk_size = (unsigned int) bulk_size;
 		__entry->op = op;
 	),
 
@@ -621,8 +620,8 @@ DECLARE_EVENT_CLASS(kgsl_mem_timestamp_template,
 
 	TP_fast_assign(
 		__assign_str(device_name, device->name);
-		__entry->gpuaddr = mem_entry->memdesc.gpuaddr;
-		__entry->size = mem_entry->memdesc.size;
+		__entry->gpuaddr = (unsigned int) mem_entry->memdesc.gpuaddr;
+		__entry->size = (unsigned int) mem_entry->memdesc.size;
 		kgsl_get_memory_usage(__entry->usage, sizeof(__entry->usage),
 				     mem_entry->memdesc.flags);
 		__entry->id = mem_entry->id;

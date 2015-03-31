@@ -18,9 +18,12 @@
 #include "adreno_pm4types.h"
 #include "a3xx_reg.h"
 #include "adreno_cp_parser.h"
+#include "adreno_snapshot.h"
 
 /* Number of dwords of ringbuffer history to record */
 #define NUM_DWORDS_OF_RINGBUFFER_HISTORY 100
+
+#define VPC_MEMORY_BANKS 4
 
 /* Maintain a list of the objects we see during parsing */
 
@@ -39,10 +42,17 @@ static struct kgsl_snapshot_object objbuf[SNAPSHOT_OBJ_BUFSIZE];
 /* Pointer to the next open entry in the object list */
 static unsigned int objbufptr;
 
+static inline int adreno_rb_ctxtswitch(struct adreno_device *adreno_dev,
+				   unsigned int *cmd)
+{
+	return cmd[0] == cp_packet(adreno_dev, CP_NOP, 1) &&
+		cmd[1] == KGSL_CONTEXT_TO_MEM_IDENTIFIER;
+}
+
 /* Push a new buffer object onto the list */
 static void push_object(int type,
 	struct kgsl_process_private *process,
-	uint32_t gpuaddr, int dwords)
+	uint64_t gpuaddr, uint64_t dwords)
 {
 	int index;
 	struct kgsl_mem_entry *entry;
@@ -61,7 +71,7 @@ static void push_object(int type,
 		if (objbuf[index].gpuaddr == gpuaddr &&
 			objbuf[index].entry->priv == process) {
 
-			objbuf[index].size = max_t(unsigned int,
+			objbuf[index].size = max_t(uint64_t,
 						objbuf[index].size,
 						dwords << 2);
 			return;
@@ -75,7 +85,8 @@ static void push_object(int type,
 
 	entry = kgsl_sharedmem_find_region(process, gpuaddr, dwords << 2);
 	if (entry == NULL) {
-		KGSL_CORE_ERR("snapshot: Can't find entry for %X\n", gpuaddr);
+		KGSL_CORE_ERR("snapshot: Can't find entry for 0x%016llX\n",
+			gpuaddr);
 		return;
 	}
 
@@ -91,7 +102,7 @@ static void push_object(int type,
  * to be dumped
  */
 
-static int find_object(int type, unsigned int gpuaddr,
+static int find_object(int type, uint64_t gpuaddr,
 		struct kgsl_process_private *process)
 {
 	int index;
@@ -118,7 +129,7 @@ static int find_object(int type, unsigned int gpuaddr,
 static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
 		struct kgsl_process_private *process,
 		struct adreno_ib_object_list *ib_obj_list,
-		unsigned int ib2base)
+		uint64_t ib2base)
 {
 	int ret = 0;
 	struct adreno_ib_object *ib_objs;
@@ -173,10 +184,10 @@ static int snapshot_freeze_obj_list(struct kgsl_snapshot *snapshot,
 static inline void parse_ib(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_process_private *process,
-		unsigned int gpuaddr, unsigned int dwords)
+		uint64_t gpuaddr, uint64_t dwords)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	unsigned int ib1base;
+	uint64_t ib1base;
 	struct adreno_ib_object_list *ib_obj_list;
 
 	/*
@@ -185,7 +196,8 @@ static inline void parse_ib(struct kgsl_device *device,
 	 * list
 	 */
 
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ib1base);
+	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
+		ADRENO_REG_CP_IB1_BASE_HI, &ib1base);
 
 	if (gpuaddr == ib1base) {
 		push_object(SNAPSHOT_OBJ_TYPE_IB, process,
@@ -214,7 +226,8 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
-	unsigned int rptr, *rbptr, ibbase;
+	unsigned int rptr, *rbptr;
+	uint64_t ibbase;
 	int index, i;
 	int parse_ibs = 0, ib_parse_start;
 	struct kgsl_snapshot *snapshot = priv;
@@ -223,7 +236,8 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR, &rptr);
 
 	/* Address of the last processed IB */
-	adreno_readreg(adreno_dev, ADRENO_REG_CP_IB1_BASE, &ibbase);
+	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
+				ADRENO_REG_CP_IB1_BASE_HI, &ibbase);
 
 	/*
 	 * Figure out the window of ringbuffer data to dump.  First we need to
@@ -247,7 +261,7 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 			}
 		}
 
-		if (adreno_cmd_is_ib(rbptr[index]) &&
+		if (adreno_cmd_is_ib(adreno_dev, rbptr[index]) &&
 			rbptr[index + 1] == ibbase)
 			break;
 	} while (index != rb->wptr);
@@ -277,7 +291,7 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 		}
 
 		/* Break if the current packet is a context switch identifier */
-		if ((rbptr[index] == cp_nop_packet(1)) &&
+		if ((rbptr[index] == cp_packet(adreno_dev, CP_NOP, 1)) &&
 			(rbptr[index + 1] == KGSL_CONTEXT_TO_MEM_IDENTIFIER))
 			break;
 	}
@@ -327,12 +341,22 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 
 		if (parse_ibs == 0 && index == ib_parse_start)
 			parse_ibs = 1;
-		else if (index == rptr || adreno_rb_ctxtswitch(&rbptr[index]))
+		else if (index == rptr || adreno_rb_ctxtswitch(adreno_dev,
+							&rbptr[index]))
 			parse_ibs = 0;
 
-		if (parse_ibs && adreno_cmd_is_ib(rbptr[index])) {
-			unsigned int ibaddr = rbptr[index + 1];
-			unsigned int ibsize = rbptr[index + 2];
+		if (parse_ibs && adreno_cmd_is_ib(adreno_dev, rbptr[index])) {
+			uint64_t ibaddr;
+			unsigned int ibsize;
+
+			if (ADRENO_LEGACY_PM4(adreno_dev)) {
+				ibaddr = rbptr[index + 1];
+				ibsize = rbptr[index + 2];
+			} else {
+				ibaddr = rbptr[index + 2];
+				ibaddr = ibaddr << 32 | rbptr[index + 1];
+				ibsize = rbptr[index + 3];
+			}
 
 			/*
 			 * Sometimes the kernel generates IBs in global
@@ -396,10 +420,9 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 		entry = rb_entry(node, struct kgsl_mem_entry, node);
 		node = rb_next(&entry->node);
 
-		*data++ = entry->memdesc.gpuaddr;
-		*data++ = entry->memdesc.size;
-		*data++ = (entry->memdesc.flags & KGSL_MEMTYPE_MASK) >>
-							KGSL_MEMTYPE_SHIFT;
+		*data++ = (unsigned int) entry->memdesc.gpuaddr;
+		*data++ = (unsigned int) entry->memdesc.size;
+		*data++ = kgsl_memdesc_get_memtype(&entry->memdesc);
 	}
 	spin_unlock(&process->mem_lock);
 	return sizeof(*header) + (num_mem * 3 * sizeof(unsigned int));
@@ -433,10 +456,21 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	snapshot = meta->snapshot;
 	obj = meta->obj;
 
+	if (obj->size > SIZE_MAX) {
+		KGSL_CORE_ERR("snapshot: GPU memory object 0x%016llX is too large to snapshot\n",
+			obj->gpuaddr);
+		return 0;
+	}
+
+	if (remain < (obj->size + sizeof(*header))) {
+		KGSL_CORE_ERR("snapshot: Not enough memory for the ib\n");
+		return 0;
+	}
 
 	src = kgsl_gpuaddr_to_vaddr(&obj->entry->memdesc, obj->gpuaddr);
 	if (src == NULL) {
-		KGSL_CORE_ERR("snapshot: Unable to map object 0x%X\n",
+		KGSL_DRV_ERR(device,
+			"snapshot: Unable to map GPU memory object 0x%016llX into the kernel\n",
 			obj->gpuaddr);
 		return 0;
 	}
@@ -463,7 +497,7 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	}
 
 	/* Write the sub-header for the section */
-	header->gpuaddr = obj->gpuaddr;
+	header->gpuaddr = (unsigned int) obj->gpuaddr;
 	/*
 	 * This loses address bits, but we can't do better until the snapshot
 	 * binary format is updated.
@@ -473,7 +507,7 @@ static size_t snapshot_ib(struct kgsl_device *device, u8 *buf,
 	header->size = obj->size >> 2;
 
 	/* Write the contents of the ib */
-	memcpy((void *)dst, (void *)src, obj->size);
+	memcpy((void *)dst, (void *)src, (size_t) obj->size);
 	/* Write the contents of the ib */
 
 	return obj->size + sizeof(*header);
@@ -583,7 +617,7 @@ static size_t snapshot_global(struct kgsl_device *device, u8 *buf,
 	}
 
 	if (memdesc->hostptr == NULL) {
-		KGSL_CORE_ERR("snapshot: no kernel mapping for global %x\n",
+		KGSL_CORE_ERR("snapshot: no kernel mapping for global object 0x%016llX\n",
 				memdesc->gpuaddr);
 		return 0;
 	}
@@ -667,13 +701,13 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * figure how often this really happens.
 	 */
 
-	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ib1base, snapshot->process)
-			&& ib1size) {
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, (uint64_t) ib1base,
+			snapshot->process) && ib1size) {
 		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
-			ib1base, ib1size);
+			(uint64_t) ib1base, ib1size);
 		KGSL_CORE_ERR(
-			"CP_IB1_BASE not found. Dumping %x dwords of the buffer.\n",
-			ib1size);
+		"CP_IB1_BASE not found in the ringbuffer.Dumping %x dwords of the buffer.\n",
+		ib1size);
 	}
 
 	/*
@@ -684,10 +718,10 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 	 * correct size.
 	 */
 
-	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, ib2base, snapshot->process)
-			&& ib2size) {
+	if (!find_object(SNAPSHOT_OBJ_TYPE_IB, (uint64_t) ib2base,
+		snapshot->process) && ib2size) {
 		push_object(SNAPSHOT_OBJ_TYPE_IB, snapshot->process,
-			ib2base, ib2size);
+			(uint64_t) ib2base, ib2size);
 	}
 
 	/*
@@ -704,4 +738,214 @@ void adreno_snapshot(struct kgsl_device *device, struct kgsl_snapshot *snapshot,
 		KGSL_CORE_ERR("GPU snapshot froze %zdKb of GPU buffers\n",
 			snapshot_frozen_objsize / 1024);
 
+}
+
+/*
+ * adreno_snapshot_cp_roq - Dump CP merciu data in snapshot
+ * @device: Device being snapshotted
+ * @remain: Bytes remaining in snapshot memory
+ * @priv: Size of merciu data in Dwords
+ */
+size_t adreno_snapshot_cp_merciu(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int i, size = *((int *)priv);
+
+	/* The MERCIU data is two dwords per entry */
+	size = size << 1;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP MERCIU DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_MERCIU;
+	header->size = size;
+
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_MERCIU_ADDR, 0x0);
+
+	for (i = 0; i < size; i++) {
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_MERCIU_DATA,
+			&data[(i * 2)]);
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_MERCIU_DATA2,
+			&data[(i * 2) + 1]);
+	}
+
+	return DEBUG_SECTION_SZ(size);
+}
+
+/*
+ * adreno_snapshot_cp_roq - Dump ROQ data in snapshot
+ * @device: Device being snapshotted
+ * @remain: Bytes remaining in snapshot memory
+ * @priv: Size of ROQ data in Dwords
+ */
+size_t adreno_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int i, size = *((int *)priv);
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_ROQ;
+	header->size = size;
+
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_ROQ_ADDR, 0x0);
+	for (i = 0; i < size; i++)
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_ROQ_DATA, &data[i]);
+
+	return DEBUG_SECTION_SZ(size);
+}
+
+/*
+ * adreno_snapshot_cp_pm4_ram() - Dump PM4 data in snapshot
+ * @device: Device being snapshotted
+ * @buf: Snapshot memory
+ * @remain: Number of bytes left in snapshot memory
+ * @priv: Unused
+ */
+size_t adreno_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int i;
+	size_t size = adreno_dev->pm4_fw_size - 1;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP PM4 RAM DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_PM4_RAM;
+	header->size = size;
+
+	/*
+	 * Read the firmware from the GPU rather than use our cache in order to
+	 * try to catch mis-programming or corruption in the hardware.  We do
+	 * use the cached version of the size, however, instead of trying to
+	 * maintain always changing hardcoded constants
+	 */
+
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_RAM_RADDR, 0x0);
+	for (i = 0; i < size; i++)
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_RAM_DATA, &data[i]);
+
+	return DEBUG_SECTION_SZ(size);
+}
+
+/*
+ * adreno_snapshot_cp_pfp_ram() - Dump the PFP data on snapshot
+ * @device: Device being snapshotted
+ * @buf: Snapshot memory
+ * @remain: Amount of butes left in snapshot memory
+ * @priv: Unused
+ */
+size_t adreno_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int i, size = adreno_dev->pfp_fw_size - 1;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP PFP RAM DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_PFP_RAM;
+	header->size = size;
+
+	/*
+	 * Read the firmware from the GPU rather than use our cache in order to
+	 * try to catch mis-programming or corruption in the hardware.  We do
+	 * use the cached version of the size, however, instead of trying to
+	 * maintain always changing hardcoded constants
+	 */
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_PFP_UCODE_ADDR, 0x0);
+	for (i = 0; i < size; i++)
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_PFP_UCODE_DATA,
+				&data[i]);
+
+	return DEBUG_SECTION_SZ(size);
+}
+
+/*
+ * adreno_snapshot_vpc_memory() - Save VPC data in snapshot
+ * @device: Device being snapshotted
+ * @buf: Snapshot memory
+ * @remain: Number of bytes left in snapshot memory
+ * @priv: Private data for VPC if any
+ */
+size_t adreno_snapshot_vpc_memory(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int vpc_mem_size = *((int *)priv);
+	size_t size = VPC_MEMORY_BANKS * vpc_mem_size;
+	int bank, addr, i = 0;
+
+	if (remain < DEBUG_SECTION_SZ(size)) {
+		SNAPSHOT_ERR_NOMEM(device, "VPC MEMORY");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_VPC_MEMORY;
+	header->size = size;
+
+	for (bank = 0; bank < VPC_MEMORY_BANKS; bank++) {
+		for (addr = 0; addr < vpc_mem_size; addr++) {
+			unsigned int val = bank | (addr << 4);
+			adreno_writereg(adreno_dev,
+				ADRENO_REG_VPC_DEBUG_RAM_SEL, val);
+			adreno_readreg(adreno_dev,
+				ADRENO_REG_VPC_DEBUG_RAM_READ, &data[i++]);
+		}
+	}
+
+	return DEBUG_SECTION_SZ(size);
+}
+
+/*
+ * adreno_snapshot_cp_meq() - Save CP MEQ data in snapshot
+ * @device: Device being snapshotted
+ * @buf: Snapshot memory
+ * @remain: Number of bytes left in snapshot memory
+ * @priv: Contains the size of MEQ data
+ */
+size_t adreno_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
+		size_t remain, void *priv)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
+	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
+	int i;
+	int cp_meq_sz = *((int *)priv);
+
+	if (remain < DEBUG_SECTION_SZ(cp_meq_sz)) {
+		SNAPSHOT_ERR_NOMEM(device, "CP MEQ DEBUG");
+		return 0;
+	}
+
+	header->type = SNAPSHOT_DEBUG_CP_MEQ;
+	header->size = cp_meq_sz;
+
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_MEQ_ADDR, 0x0);
+	for (i = 0; i < cp_meq_sz; i++)
+		adreno_readreg(adreno_dev, ADRENO_REG_CP_MEQ_DATA, &data[i]);
+
+	return DEBUG_SECTION_SZ(cp_meq_sz);
 }

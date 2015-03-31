@@ -20,6 +20,7 @@
 #include <linux/kmemleak.h>
 #include <linux/iommu.h>
 
+#include "kgsl_mmu.h"
 #include "kgsl_log.h"
 
 struct kgsl_device;
@@ -31,41 +32,53 @@ struct kgsl_process_private;
 
 int kgsl_sharedmem_page_alloc_user(struct kgsl_memdesc *memdesc,
 				struct kgsl_pagetable *pagetable,
-				size_t size);
+				uint64_t size);
 
 int kgsl_cma_alloc_coherent(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc,
-			struct kgsl_pagetable *pagetable, size_t size);
+			struct kgsl_pagetable *pagetable, uint64_t size);
 
 int kgsl_cma_alloc_secure(struct kgsl_device *device,
-			struct kgsl_memdesc *memdesc, size_t size);
+			struct kgsl_memdesc *memdesc, uint64_t size);
 
 void kgsl_sharedmem_free(struct kgsl_memdesc *memdesc);
 
 int kgsl_sharedmem_readl(const struct kgsl_memdesc *memdesc,
 			uint32_t *dst,
-			unsigned int offsetbytes);
+			uint64_t offsetbytes);
 
 int kgsl_sharedmem_writel(struct kgsl_device *device,
 			const struct kgsl_memdesc *memdesc,
-			unsigned int offsetbytes,
+			uint64_t offsetbytes,
 			uint32_t src);
+
+int kgsl_sharedmem_readq(const struct kgsl_memdesc *memdesc,
+			uint64_t *dst,
+			uint64_t offsetbytes);
+
+int kgsl_sharedmem_writeq(struct kgsl_device *device,
+			const struct kgsl_memdesc *memdesc,
+			uint64_t offsetbytes,
+			uint64_t src);
 
 int kgsl_sharedmem_set(struct kgsl_device *device,
 			const struct kgsl_memdesc *memdesc,
-			unsigned int offsetbytes, unsigned int value,
-			unsigned int sizebytes);
+			uint64_t offsetbytes, unsigned int value,
+			uint64_t sizebytes);
 
 int kgsl_cache_range_op(struct kgsl_memdesc *memdesc,
-			size_t offset, size_t size,
+			uint64_t offset, uint64_t size,
 			unsigned int op);
 
-int kgsl_process_init_sysfs(struct kgsl_device *device,
+void kgsl_process_init_sysfs(struct kgsl_device *device,
 		struct kgsl_process_private *private);
 void kgsl_process_uninit_sysfs(struct kgsl_process_private *private);
 
 int kgsl_sharedmem_init_sysfs(void);
 void kgsl_sharedmem_uninit_sysfs(void);
+
+#define MEMFLAGS(_flags, _mask, _shift) \
+	((unsigned int) (((_flags) & (_mask)) >> (_shift)))
 
 /*
  * kgsl_memdesc_get_align - Get alignment flags from a memdesc
@@ -76,7 +89,8 @@ void kgsl_sharedmem_uninit_sysfs(void);
 static inline int
 kgsl_memdesc_get_align(const struct kgsl_memdesc *memdesc)
 {
-	return (memdesc->flags & KGSL_MEMALIGN_MASK) >> KGSL_MEMALIGN_SHIFT;
+	return MEMFLAGS(memdesc->flags, KGSL_MEMALIGN_MASK,
+		KGSL_MEMALIGN_SHIFT);
 }
 
 /*
@@ -88,9 +102,16 @@ kgsl_memdesc_get_align(const struct kgsl_memdesc *memdesc)
 static inline int
 kgsl_memdesc_get_cachemode(const struct kgsl_memdesc *memdesc)
 {
-	return (memdesc->flags & KGSL_CACHEMODE_MASK) >> KGSL_CACHEMODE_SHIFT;
+	return MEMFLAGS(memdesc->flags, KGSL_CACHEMODE_MASK,
+		KGSL_CACHEMODE_SHIFT);
 }
 
+static inline unsigned int
+kgsl_memdesc_get_memtype(const struct kgsl_memdesc *memdesc)
+{
+	return MEMFLAGS(memdesc->flags, KGSL_MEMTYPE_MASK,
+		KGSL_MEMTYPE_SHIFT);
+}
 /*
  * kgsl_memdesc_set_align - Set alignment flags of a memdesc
  * @memdesc - the memdesc
@@ -109,7 +130,7 @@ kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 	return 0;
 }
 
-/*
+/**
  * kgsl_memdesc_usermem_type - return buffer type
  * @memdesc - the memdesc
  *
@@ -120,39 +141,8 @@ kgsl_memdesc_set_align(struct kgsl_memdesc *memdesc, unsigned int align)
 static inline unsigned int
 kgsl_memdesc_usermem_type(const struct kgsl_memdesc *memdesc)
 {
-	return (memdesc->flags & KGSL_MEMFLAGS_USERMEM_MASK)
-		>> KGSL_MEMFLAGS_USERMEM_SHIFT;
-}
-
-static inline unsigned int kgsl_get_sg_pa(struct scatterlist *sg)
-{
-	/*
-	 * Try sg_dma_address first to support ion carveout
-	 * regions which do not work with sg_phys().
-	 */
-	unsigned int pa = sg_dma_address(sg);
-	if (pa == 0)
-		pa = sg_phys(sg);
-	return pa;
-}
-
-static inline int
-memdesc_sg_phys(struct kgsl_memdesc *memdesc,
-		phys_addr_t physaddr, size_t size)
-{
-	memdesc->sg = kgsl_malloc(sizeof(struct scatterlist));
-	if (memdesc->sg == NULL)
-		return -ENOMEM;
-
-	if (!is_vmalloc_addr(memdesc->sg))
-		kmemleak_not_leak(memdesc->sg);
-
-	memdesc->sglen = 1;
-	sg_init_table(memdesc->sg, 1);
-	memdesc->sg[0].length = size;
-	memdesc->sg[0].offset = 0;
-	memdesc->sg[0].dma_address = physaddr;
-	return 0;
+	return MEMFLAGS(memdesc->flags, KGSL_MEMFLAGS_USERMEM_MASK,
+		KGSL_MEMFLAGS_USERMEM_SHIFT);
 }
 
 /**
@@ -165,24 +155,23 @@ memdesc_sg_phys(struct kgsl_memdesc *memdesc,
  */
 static inline int
 memdesc_sg_dma(struct kgsl_memdesc *memdesc,
-		phys_addr_t addr, size_t size)
+		phys_addr_t addr, uint64_t size)
 {
+	int ret;
 	struct page *page = phys_to_page(addr);
 
-	memdesc->sg = kgsl_malloc(sizeof(struct scatterlist));
-	if (memdesc->sg == NULL)
+	memdesc->sgt = kmalloc(sizeof(struct sg_table), GFP_KERNEL);
+	if (memdesc->sgt == NULL)
 		return -ENOMEM;
 
-	sg_set_page(memdesc->sg, page, size, 0);
+	ret = sg_alloc_table(memdesc->sgt, 1, GFP_KERNEL);
+	if (ret) {
+		kfree(memdesc->sgt);
+		memdesc->sgt = NULL;
+		return ret;
+	}
 
-	/*
-	 * Continuing a grand tradition of doing it wrong this should be the
-	 * dma_addr_t and not the phys_addr_t. But everything downstream of us
-	 * assume this is a phys_addr_t so we do this.
-	 */
-
-	sg_dma_address(memdesc->sg) = addr;
-	memdesc->sglen = 1;
+	sg_set_page(memdesc->sgt->sgl, page, (size_t) size, 0);
 	return 0;
 }
 
@@ -251,10 +240,10 @@ kgsl_memdesc_use_cpu_map(const struct kgsl_memdesc *memdesc)
  * for the guard page to be mapped so that the address spaces
  * match up.
  */
-static inline size_t
+static inline uint64_t
 kgsl_memdesc_mmapsize(const struct kgsl_memdesc *memdesc)
 {
-	size_t size = memdesc->size;
+	uint64_t size = memdesc->size;
 	if (kgsl_memdesc_has_guard_page(memdesc))
 		size += SZ_4K;
 	return size;
@@ -264,7 +253,7 @@ static inline int
 kgsl_allocate_user(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable,
-		size_t size, unsigned int flags)
+		uint64_t size, uint64_t mmapsize, uint64_t flags)
 {
 	int ret;
 
@@ -314,10 +303,12 @@ kgsl_allocate_contiguous(struct kgsl_device *device,
  * ringbuffers.
  */
 static inline int kgsl_allocate_global(struct kgsl_device *device,
-	struct kgsl_memdesc *memdesc, size_t size, unsigned int flags,
+	struct kgsl_memdesc *memdesc, uint64_t size, uint64_t flags,
 	unsigned int priv)
 {
 	int ret;
+
+	BUG_ON(size > SIZE_MAX);
 
 	if (size == 0)
 		return -EINVAL;
@@ -325,7 +316,7 @@ static inline int kgsl_allocate_global(struct kgsl_device *device,
 	memdesc->flags = flags;
 	memdesc->priv = priv;
 
-	ret = kgsl_allocate_contiguous(device, memdesc, size);
+	ret = kgsl_allocate_contiguous(device, memdesc, (size_t) size);
 
 	if (!ret) {
 		ret = kgsl_add_global_pt_entry(device, memdesc);

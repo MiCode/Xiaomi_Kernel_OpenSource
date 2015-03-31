@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +17,7 @@
 #include "kgsl_compat.h"
 
 #include "adreno.h"
+#include "adreno_compat.h"
 
 int adreno_getproperty_compat(struct kgsl_device *device,
 				enum kgsl_property_type type,
@@ -64,9 +65,14 @@ int adreno_getproperty_compat(struct kgsl_device *device,
 				/*
 				 * NOTE: with mmu enabled, gpuaddr doesn't mean
 				 * anything to mmap().
+				 * NOTE: shadowprop.gpuaddr is uint32
+				 * (because legacy) and the memstore gpuaddr is
+				 * 64 bit. Cast the memstore gpuaddr to uint32.
 				 */
-				shadowprop.gpuaddr = device->memstore.gpuaddr;
-				shadowprop.size = device->memstore.size;
+				shadowprop.gpuaddr =
+					(unsigned int) device->memstore.gpuaddr;
+				shadowprop.size =
+					(unsigned int) device->memstore.size;
 				/*
 				 * GSL needs this to be set, even if it
 				 * appears to be meaningless
@@ -144,45 +150,58 @@ int adreno_setproperty_compat(struct kgsl_device_private *dev_priv,
 	return status;
 }
 
-long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
-			      unsigned int cmd, void *data)
+static long adreno_ioctl_perfcounter_query_compat(
+		struct kgsl_device_private *dev_priv, unsigned int cmd,
+		void *data)
 {
-	struct kgsl_device *device = dev_priv->device;
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	int result = 0;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_priv->device);
+	struct kgsl_perfcounter_query_compat *query32 = data;
+	struct kgsl_perfcounter_query query;
+	long result;
 
-	switch (cmd) {
-	case IOCTL_KGSL_PERFCOUNTER_QUERY_COMPAT: {
-		struct kgsl_perfcounter_query_compat *query32 = data;
-		struct kgsl_perfcounter_query query;
-		query.groupid = query32->groupid;
-		query.countables = (unsigned int __user *)(uintptr_t)
-							query32->countables;
-		query.count = query32->count;
-		query.max_counters = query32->max_counters;
-		result = adreno_perfcounter_query_group(adreno_dev,
-			query.groupid, query.countables,
-			query.count, &query.max_counters);
-		query32->max_counters = query.max_counters;
-		break;
-	}
-	case IOCTL_KGSL_PERFCOUNTER_READ_COMPAT: {
-		struct kgsl_perfcounter_read_compat *read32 = data;
-		struct kgsl_perfcounter_read read;
-		read.reads = (struct kgsl_perfcounter_read_group __user *)
-				(uintptr_t)read32->reads;
-		read.count = read32->count;
-		result = adreno_perfcounter_read_group(adreno_dev,
-			read.reads, read.count);
-		break;
-	}
-	default:
-		KGSL_DRV_INFO(dev_priv->device,
-			"invalid ioctl code %08x\n", cmd);
-		result = -ENOIOCTLCMD;
-		break;
-	}
+	query.groupid = query32->groupid;
+	query.countables =
+		(unsigned int __user *)(uintptr_t) query32->countables;
+	query.count = query32->count;
+	query.max_counters = query32->max_counters;
+
+	result = adreno_perfcounter_query_group(adreno_dev,
+		query.groupid, query.countables,
+		query.count, &query.max_counters);
+	query32->max_counters = query.max_counters;
+
 	return result;
-
 }
 
+static long adreno_ioctl_perfcounter_read_compat(
+		struct kgsl_device_private *dev_priv, unsigned int cmd,
+		void *data)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(dev_priv->device);
+	struct kgsl_perfcounter_read_compat *read32 = data;
+	struct kgsl_perfcounter_read read;
+
+	read.reads = (struct kgsl_perfcounter_read_group __user *)
+		(uintptr_t)read32->reads;
+	read.count = read32->count;
+
+	return adreno_perfcounter_read_group(adreno_dev, read.reads,
+		read.count);
+}
+
+static struct kgsl_ioctl adreno_compat_ioctl_funcs[] = {
+	{ IOCTL_KGSL_PERFCOUNTER_GET, adreno_ioctl_perfcounter_get },
+	{ IOCTL_KGSL_PERFCOUNTER_PUT, adreno_ioctl_perfcounter_put },
+	{ IOCTL_KGSL_PERFCOUNTER_QUERY_COMPAT,
+		adreno_ioctl_perfcounter_query_compat },
+	{ IOCTL_KGSL_PERFCOUNTER_READ_COMPAT,
+		adreno_ioctl_perfcounter_read_compat },
+};
+
+long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
+			      unsigned int cmd, unsigned long arg)
+{
+	return adreno_ioctl_helper(dev_priv, cmd, arg,
+		adreno_compat_ioctl_funcs,
+		ARRAY_SIZE(adreno_compat_ioctl_funcs));
+}

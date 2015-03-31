@@ -787,7 +787,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 	 */
 	if (pwr->bus_control) {
 		out = 0;
-		while (pwr->bus_ib[out]) {
+		while (pwr->bus_ib[out] && out <= pwr->pwrlevels[0].bus_max) {
 			pwr->bus_ib[out] =
 				pwr->bus_ib[out] >> 20;
 			out++;

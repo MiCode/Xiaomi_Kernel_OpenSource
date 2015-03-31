@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -254,19 +254,6 @@ int kgsl_cmdbatch_create_compat(struct kgsl_device *device, unsigned int flags,
 long kgsl_compat_ioctl(struct file *filep, unsigned int cmd,
 			unsigned long arg);
 
-int adreno_getproperty_compat(struct kgsl_device *device,
-			enum kgsl_property_type type,
-			void __user *value,
-			size_t sizebytes);
-
-int adreno_setproperty_compat(struct kgsl_device_private *dev_priv,
-				enum kgsl_property_type type,
-				void __user *value,
-				unsigned int sizebytes);
-
-long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
-			unsigned int cmd, void *data);
-
 #else
 static inline int kgsl_cmdbatch_create_compat(struct kgsl_device *device,
 			unsigned int flags, struct kgsl_cmdbatch *cmdbatch,
@@ -278,26 +265,6 @@ static inline int kgsl_cmdbatch_create_compat(struct kgsl_device *device,
 
 static inline long kgsl_compat_ioctl(struct file *filep, unsigned int cmd,
 			unsigned long arg)
-{
-	BUG();
-}
-
-static inline int adreno_getproperty_compat(struct kgsl_device *device,
-				enum kgsl_property_type type,
-				void __user *value, size_t sizebytes)
-{
-	BUG();
-}
-
-static inline int adreno_setproperty_compat(struct kgsl_device_private
-				*dev_priv, enum kgsl_property_type type,
-				void __user *value, unsigned int sizebytes)
-{
-	BUG();
-}
-
-static inline long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
-				unsigned int cmd, void *data)
 {
 	BUG();
 }

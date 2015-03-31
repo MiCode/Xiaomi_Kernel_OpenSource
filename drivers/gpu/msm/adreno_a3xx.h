@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,12 +14,10 @@
 #define __A3XX_H
 
 unsigned int a3xx_irq_pending(struct adreno_device *adreno_dev);
-void a3xx_busy_cycles(struct adreno_device *adreno_dev,
-			struct adreno_busy_data *);
 
-int a3xx_rb_init(struct adreno_device *adreno_dev,
-			struct adreno_ringbuffer *rb);
-int a3xx_perfcounter_init(struct adreno_device *adreno_dev);
+int a3xx_microcode_read(struct adreno_device *adreno_dev);
+int a3xx_microcode_load(struct adreno_device *adreno_dev,
+				unsigned int start_type);
 int a3xx_perfcounter_enable(struct adreno_device *adreno_dev,
 	unsigned int group, unsigned int counter, unsigned int countable);
 uint64_t a3xx_perfcounter_read(struct adreno_device *adreno_dev,

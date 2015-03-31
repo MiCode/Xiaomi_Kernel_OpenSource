@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011,2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2011,2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,20 +31,19 @@ void kgsl_cffdump_init(void);
 void kgsl_cffdump_destroy(void);
 void kgsl_cffdump_open(struct kgsl_device *device);
 void kgsl_cffdump_close(struct kgsl_device *device);
-void kgsl_cffdump_memcpy(struct kgsl_device *device, unsigned int gpuaddr,
-		unsigned int *ptr, size_t sizebytes);
-void kgsl_cffdump_syncmem(struct kgsl_device *,
-	struct kgsl_memdesc *memdesc, uint physaddr, size_t sizebytes,
-	bool clean_cache);
-void kgsl_cffdump_memset(struct kgsl_device *device, uint addr,
+void kgsl_cffdump_memcpy(struct kgsl_device *device, uint64_t gpuaddr,
+		unsigned int *ptr, uint64_t sizebytes);
+void kgsl_cffdump_syncmem(struct kgsl_device *, struct kgsl_mem_entry *,
+	uint64_t offset, uint64_t sizebytes, bool clean_cache);
+void kgsl_cffdump_memset(struct kgsl_device *device, uint64_t addr,
 			unsigned char value, size_t sizebytes);
 void kgsl_cffdump_regwrite(struct kgsl_device *device, uint addr,
 	uint value);
 void kgsl_cffdump_regpoll(struct kgsl_device *device, uint addr,
 	uint value, uint mask);
 bool kgsl_cffdump_parse_ibs(struct kgsl_device_private *dev_priv,
-	const struct kgsl_memdesc *memdesc, uint gpuaddr, int sizedwords,
-	bool check_only);
+	const struct kgsl_memdesc *memdesc, uint64_t gpuaddr,
+	uint64_t sizedwords, bool check_only);
 void kgsl_cffdump_user_event(struct kgsl_device *device,
 		unsigned int cff_opcode, unsigned int op1,
 		unsigned int op2, unsigned int op3,
@@ -65,7 +64,7 @@ void kgsl_cffdump_printline(int id, uint opcode, uint op1, uint op2,
 	uint op3, uint op4, uint op5);
 
 static inline void kgsl_cffdump_write(struct kgsl_device *device,
-		unsigned int gpuaddr, unsigned int value)
+		uint64_t gpuaddr, unsigned int value)
 {
 	if (!device || !device->cff_dump_enable)
 		return;
@@ -96,26 +95,26 @@ static inline void kgsl_cffdump_close(struct kgsl_device *device)
 }
 
 static inline void kgsl_cffdump_write(struct kgsl_device *device,
-		unsigned int gpuaddr, unsigned int value)
+		uint64_t gpuaddr, unsigned int value)
 {
 	return;
 }
 
 static inline void kgsl_cffdump_memcpy(struct kgsl_device *device,
-		unsigned int gupaddr, unsigned int *ptr, size_t sizebytes)
+		uint64_t gupaddr, unsigned int *ptr, uint64_t sizebytes)
 {
 	return;
 }
 
 static inline void kgsl_cffdump_syncmem(struct kgsl_device *device,
-		struct kgsl_memdesc *memdesc, uint physaddr, size_t sizebytes,
-		bool clean_cache)
+		struct kgsl_mem_entry *entry, uint64_t offset,
+		uint64_t sizebytes, bool clean_cache)
 {
 	return;
 }
 
-static inline void kgsl_cffdump_memset(struct kgsl_device *device, uint addr,
-		unsigned char ch, size_t sizebytes)
+static inline void kgsl_cffdump_memset(struct kgsl_device *device,
+		uint64_t addr, unsigned char ch, size_t sizebytes)
 {
 	return;
 }
@@ -133,8 +132,8 @@ static inline void kgsl_cffdump_regpoll(struct kgsl_device *device, uint addr,
 }
 
 static inline bool kgsl_cffdump_parse_ibs(struct kgsl_device_private *dev_priv,
-	const struct kgsl_memdesc *memdesc, uint gpuaddr, int sizedwords,
-	bool check_only)
+	const struct kgsl_memdesc *memdesc, uint64_t gpuaddr,
+	uint64_t sizedwords, bool check_only)
 {
 	return false;
 }
