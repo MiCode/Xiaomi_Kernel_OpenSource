@@ -1447,6 +1447,9 @@ static int ov2722_probe(struct i2c_client *client,
 	struct ov2722_device *dev;
 	void *ovpdev;
 	int ret;
+#ifdef CONFIG_GMIN_INTEL_MID
+	struct acpi_device *adev;
+#endif
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev) {
@@ -1461,10 +1464,13 @@ static int ov2722_probe(struct i2c_client *client,
 
 	ovpdev = client->dev.platform_data;
 #ifdef CONFIG_GMIN_INTEL_MID
-	if (ACPI_COMPANION(&client->dev))
+	adev = ACPI_COMPANION(&client->dev);
+	if (adev) {
+		adev->power.flags.power_resources = 0;
 		ovpdev = gmin_camera_platform_data(&dev->sd,
 						   ATOMISP_INPUT_FORMAT_RAW_10,
 						   atomisp_bayer_order_grbg);
+	}
 #endif
 	ret = ov2722_s_config(&dev->sd, client->irq, ovpdev);
 	if (ret)
