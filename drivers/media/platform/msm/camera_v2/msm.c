@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -242,8 +242,10 @@ void msm_delete_stream(unsigned int session_id, unsigned int stream_id)
 	spin_lock_irqsave(&(session->stream_q.lock), flags);
 	list_del_init(&stream->list);
 	session->stream_q.len--;
+	kfree(stream);
+	stream = NULL;
 	spin_unlock_irqrestore(&(session->stream_q.lock), flags);
-	kzfree(stream);
+
 }
 
 static void msm_sd_unregister_subdev(struct video_device *vdev)
@@ -456,8 +458,12 @@ static inline int __msm_sd_close_subdevs(struct msm_sd_subdev *msm_sd,
 static inline int __msm_destroy_session_streams(void *d1, void *d2)
 {
 	struct msm_stream *stream = d1;
+	unsigned long flags;
+
 	pr_err("%s: Error: Destroyed list is not empty\n", __func__);
+	spin_lock_irqsave(&stream->stream_lock, flags);
 	INIT_LIST_HEAD(&stream->queued_list);
+	spin_unlock_irqrestore(&stream->stream_lock, flags);
 	return 0;
 }
 
