@@ -114,6 +114,7 @@
 #include "msm8952-bus.dtsi"
 #include "msm8952-pm.dtsi"
 #include "msm8952-iommu-domains.dtsi"
+#include "msm8952-mdss-pll.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -142,6 +143,14 @@
 		vdd_sr2_pll-supply = <&pm8950_l7_ao>;
 		vdd_hf_dig-supply = <&pm8950_s2_corner_ao>;
 		vdd_hf_pll-supply = <&pm8950_l7_ao>;
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1ac8300 {
+		compatible = "qcom,gcc-mdss-8952";
+		clocks = <&mdss_dsi0_pll clk_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_byte_clk_src>;
+		clock-names = "pixel_src", "byte_src";
 		#clock-cells = <1>;
 	};
 
