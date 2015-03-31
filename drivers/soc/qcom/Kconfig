@@ -584,6 +584,16 @@ config MSM_SERVICE_LOCATOR
 	  to what process domain exports the service, and which subsystem
 	  that process domain will execute in.
 
+config MSM_SERVICE_NOTIFIER
+	bool "Service Notifier"
+	depends on MSM_SERVICE_LOCATOR && MSM_SUBSYSTEM_RESTART
+	help
+	  The Service Notifier provides a library for a kernel client to
+	  register for state change notifications regarding a remote service.
+	  A remote service here refers to a process providing certain services
+	  like audio, the identifier for which is provided by the service
+	  locator.
+
 source "drivers/soc/qcom/memshare/Kconfig"
 
 endif # ARCH_MSM
