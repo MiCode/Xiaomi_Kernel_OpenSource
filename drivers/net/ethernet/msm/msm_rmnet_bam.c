@@ -226,7 +226,7 @@ static void bam_recv_notify(void *dev, struct sk_buff *skb)
 			p->stats.rx_packets, skb->len);
 
 		/* Deliver to network stack */
-		netif_rx(skb);
+		netif_rx_ni(skb);
 	} else
 		pr_err("[%s] %s: No skb received",
 			((struct net_device *)dev)->name, __func__);
