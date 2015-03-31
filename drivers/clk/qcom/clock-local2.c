@@ -263,6 +263,12 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 
 	cf = rcg->current_freq;
 
+	if (nf->src_freq != FIXED_CLK_SRC) {
+		rc = clk_set_rate(nf->src_clk, nf->src_freq);
+		if (rc)
+			return rc;
+	}
+
 	rc = __clk_pre_reparent(c, nf->src_clk, &flags);
 	if (rc)
 		return rc;
