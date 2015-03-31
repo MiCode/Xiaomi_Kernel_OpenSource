@@ -1331,6 +1331,48 @@ static const struct file_operations ufsdbg_req_stats_desc = {
 	.write		= ufsdbg_req_stats_write,
 };
 
+
+static int ufsdbg_reset_controller_show(struct seq_file *file, void *data)
+{
+	seq_puts(file, "echo 1 > /sys/kernel/debug/.../reset_controller\n");
+	seq_puts(file, "resets the UFS controller and restores its operational state\n\n");
+
+	return 0;
+}
+
+static int ufsdbg_reset_controller_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufsdbg_reset_controller_show,
+						inode->i_private);
+}
+
+static ssize_t ufsdbg_reset_controller_write(struct file *filp,
+		const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	struct ufs_hba *hba = filp->f_mapping->host->i_private;
+	unsigned long flags;
+
+	spin_lock_irqsave(hba->host->host_lock, flags);
+
+	/*
+	 * simulating a dummy error in order to "convince"
+	 * eh_work to actually reset the controller
+	 */
+	hba->saved_err |= INT_FATAL_ERRORS;
+	hba->silence_err_logs = true;
+	schedule_work(&hba->eh_work);
+
+	spin_unlock_irqrestore(hba->host->host_lock, flags);
+
+	return cnt;
+}
+
+static const struct file_operations ufsdbg_reset_controller = {
+	.open		= ufsdbg_reset_controller_open,
+	.read		= seq_read,
+	.write		= ufsdbg_reset_controller_write,
+};
+
 void ufsdbg_add_debugfs(struct ufs_hba *hba)
 {
 	char root_name[sizeof("ufshcd00")];
@@ -1460,6 +1502,17 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		dev_err(hba->dev,
 			"%s:  failed create req_stats debugfs entry\n",
 			__func__);
+		goto err;
+	}
+
+	hba->debugfs_files.reset_controller =
+		debugfs_create_file("reset_controller", S_IRUSR | S_IWUSR,
+			hba->debugfs_files.debugfs_root, hba,
+			&ufsdbg_reset_controller);
+	if (!hba->debugfs_files.reset_controller) {
+		dev_err(hba->dev,
+			"%s: failed create reset_controller debugfs entry",
+				__func__);
 		goto err;
 	}
 
