@@ -167,6 +167,7 @@ int test_iosched_add_unique_test_req(struct test_iosched *tios,
 	struct request *rq;
 	int rw_flags;
 	struct test_request *test_rq;
+	unsigned long flags;
 
 	if (!tios)
 		return -ENODEV;
@@ -230,10 +231,10 @@ int test_iosched_add_unique_test_req(struct test_iosched *tios,
 		"%s: added request %d to the test requests list, type = %d",
 		__func__, test_rq->req_id, req_unique);
 
-	spin_lock_irq(tios->req_q->queue_lock);
+	spin_lock_irqsave(tios->req_q->queue_lock, flags);
 	list_add_tail(&test_rq->queuelist, &tios->test_queue);
 	tios->test_count++;
-	spin_unlock_irq(tios->req_q->queue_lock);
+	spin_unlock_irqrestore(tios->req_q->queue_lock, flags);
 
 	return 0;
 }
@@ -408,14 +409,15 @@ int test_iosched_add_wr_rd_test_req(struct test_iosched *tios,
 	int pattern, rq_end_io_fn *end_req_io)
 {
 	struct test_request *test_rq = NULL;
+	unsigned long flags;
 
 	test_rq = test_iosched_create_test_req(tios, is_err_expcted, direction,
 		start_sec, num_bios, pattern, end_req_io);
 	if (test_rq) {
-		spin_lock_irq(tios->req_q->queue_lock);
+		spin_lock_irqsave(tios->req_q->queue_lock, flags);
 		list_add_tail(&test_rq->queuelist, &tios->test_queue);
 		tios->test_count++;
-		spin_unlock_irq(tios->req_q->queue_lock);
+		spin_unlock_irqrestore(tios->req_q->queue_lock, flags);
 		return 0;
 	}
 	return -ENODEV;
@@ -1106,6 +1108,7 @@ static int test_init_queue(struct request_queue *q, struct elevator_type *e)
 	const char *blk_dev_name;
 	int ret;
 	bool found = false;
+	unsigned long flags;
 
 	eq = elevator_alloc(q, e);
 	if (!eq)
@@ -1168,9 +1171,9 @@ static int test_init_queue(struct request_queue *q, struct elevator_type *e)
 		}
 	}
 
-	spin_lock_irq(q->queue_lock);
+	spin_lock_irqsave(q->queue_lock, flags);
 	q->elevator = eq;
-	spin_unlock_irq(q->queue_lock);
+	spin_unlock_irqrestore(q->queue_lock, flags);
 
 	return 0;
 
@@ -1209,14 +1212,16 @@ static void test_exit_queue(struct elevator_queue *e)
 void test_iosched_add_urgent_req(struct test_iosched *tios,
 	struct test_request *test_rq)
 {
+	unsigned long flags;
+
 	if (!tios)
 		return;
 
-	spin_lock_irq(&tios->lock);
+	spin_lock_irqsave(&tios->lock, flags);
 	test_rq->rq->cmd_flags |= REQ_URGENT;
 	list_add_tail(&test_rq->queuelist, &tios->urgent_queue);
 	tios->urgent_count++;
-	spin_unlock_irq(&tios->lock);
+	spin_unlock_irqrestore(&tios->lock, flags);
 }
 EXPORT_SYMBOL(test_iosched_add_urgent_req);
 
