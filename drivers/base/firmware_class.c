@@ -147,7 +147,7 @@ struct firmware_buf {
 	phys_addr_t dest_addr;
 	size_t dest_size;
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data);
-	void (*unmap_fw_mem)(void *virt, void *data);
+	void (*unmap_fw_mem)(void *virt, size_t size, void *data);
 	void *map_data;
 #ifdef CONFIG_FW_LOADER_USER_HELPER
 	bool is_paged_buf;
@@ -179,7 +179,7 @@ struct fw_desc {
 	phys_addr_t dest_addr;
 	size_t dest_size;
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data);
-	void (*unmap_fw_mem)(void *virt, void *data);
+	void (*unmap_fw_mem)(void *virt, size_t size, void *data);
 	void *map_data;
 	struct module *module;
 	void *context;
@@ -346,11 +346,11 @@ static int fw_read_file_contents(struct file *file, struct firmware_buf *fw_buf)
 	fw_buf->data = buf;
 	fw_buf->size = size;
 	if (fw_buf->dest_addr)
-		fw_buf->unmap_fw_mem(buf, fw_buf->map_data);
+		fw_buf->unmap_fw_mem(buf, fw_buf->size, fw_buf->map_data);
 	return 0;
 fail:
 	if (fw_buf->dest_addr)
-		fw_buf->unmap_fw_mem(buf, fw_buf->map_data);
+		fw_buf->unmap_fw_mem(buf, fw_buf->size, fw_buf->map_data);
 	else
 		vfree(buf);
 	return rc;
@@ -759,7 +759,7 @@ static int __firmware_data_rw(struct firmware_priv *fw_priv, char *buffer,
 		memcpy(fw_buf, buffer, count);
 
 	*offset += count;
-	buf->unmap_fw_mem(fw_buf, buf->map_data);
+	buf->unmap_fw_mem(fw_buf, count, buf->map_data);
 
 out:
 	return retval;
@@ -1406,7 +1406,7 @@ request_firmware_into_buf(const char *name, struct device *device,
 			phys_addr_t dest_addr, size_t dest_size,
 			void * (*map_fw_mem)(phys_addr_t phys, size_t size,
 						void *data),
-			void (*unmap_fw_mem)(void *virt, void *data),
+			void (*unmap_fw_mem)(void *virt, size_t sz, void *data),
 			void *map_data)
 {
 	struct fw_desc desc;
@@ -1474,7 +1474,7 @@ _request_firmware_nowait(
 	void (*cont)(const struct firmware *fw, void *context),
 	bool nocache, phys_addr_t dest_addr, size_t dest_size,
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data),
-	void (*unmap_fw_mem)(void *virt, void *data),
+	void (*unmap_fw_mem)(void *virt, size_t size, void *data),
 	void *map_data)
 {
 	struct fw_desc *desc;
@@ -1569,7 +1569,7 @@ request_firmware_nowait_into_buf(
 	void (*cont)(const struct firmware *fw, void *context),
 	phys_addr_t dest_addr, size_t dest_size,
 	void * (*map_fw_mem)(phys_addr_t phys, size_t size, void *data),
-	void (*unmap_fw_mem)(void *virt, void *data),
+	void (*unmap_fw_mem)(void *virt, size_t size, void *data),
 	void *map_data)
 {
 	return _request_firmware_nowait(module, uevent, name, device, gfp,
