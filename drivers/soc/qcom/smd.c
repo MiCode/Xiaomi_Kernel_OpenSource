@@ -1967,6 +1967,16 @@ int smd_named_open_on_edge(const char *name, uint32_t edge,
 			return -ENODEV;
 	}
 
+	if (ch->half_ch->get_fSTATE(ch->send)) {
+		/* remote side hasn't acknowledged our last state transition */
+		SMD_INFO("%s: ch %d valid, waiting for remote to ack state\n",
+				__func__, ch->n);
+		msleep(250);
+		if (ch->half_ch->get_fSTATE(ch->send))
+			SMD_INFO("%s: ch %d - no remote ack, continuing\n",
+					__func__, ch->n);
+	}
+
 	if (notify == 0)
 		notify = do_nothing_notify;
 
