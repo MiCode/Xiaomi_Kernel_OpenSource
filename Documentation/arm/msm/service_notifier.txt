@@ -1,0 +1,43 @@
+Introduction
+=============
+
+The service notifier driver facilitates a mechanism for a client
+to register for state notifications regarding a particular remote service.
+A remote service here refers to a process providing certain services like audio,
+the identifier for which is provided by the service locator. The process
+domain will typically run on a remote processor within the same SoC.
+
+Software Description
+=====================
+
+The driver provides the following two APIs:
+* service_notif_register_notifier() - Register a notifier for a service
+  On success, it returns back a handle. It takes the following arguments:
+  service_path: Individual service identifier path for which a client
+		registers for notifications.
+  instance_id: Instance id specific to a subsystem.
+  current_state: Current state of service returned by the registration
+		 process.
+  notifier block: notifier callback for service events.
+
+* service_notif_unregister_notifier() - Unregister a notifier for a service.
+  This takes the handle returned during registration and the notifier block
+  previously registered as the arguments.
+
+Types of notifications:
+=======================
+
+A client can get either a SERVICE_DOWN notification or a SERVICE_UP
+notification. A SERVICE_UP notification will be sent out when the SERVICE comes
+up and is functional while a SERVICE_DOWN notification is sent after a
+service ceases to exist. At the point a SERVICE_DOWN notification is sent out,
+all the clients should assume that the service is already dead.
+
+Interaction with SSR
+=====================
+In general, it is recommended that clients register for either service
+notifications using the service notifier or SSR notifications, but not both.
+In case it is necessary to register for both, the client can expect to get
+the SERVICE_DOWN notification before the SUBSYS_AFTER_SHUTDOWN notification.
+However, the client may receive the SUBSYS_BEFORE_SHUTDOWN notification
+either before or after the SERVICE_DOWN notification.
