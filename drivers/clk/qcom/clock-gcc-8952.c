@@ -46,6 +46,9 @@ enum {
 static void __iomem *virt_bases[N_BASES];
 #define GCC_REG_BASE(x) (void __iomem *)(virt_bases[GCC_BASE] + (x))
 
+#define CLKFLAG_WAKEUP_CYCLES		0x0
+#define CLKFLAG_SLEEP_CYCLES		0x0
+
 /* Mux source select values */
 #define xo_source_val			0
 #define xo_a_source_val			0
@@ -3383,6 +3386,13 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	clk_prepare_enable(&pnoc_keepalive_a_clk.c);
 
 	clk_prepare_enable(&xo_a_clk_src.c);
+
+	/* Configure Sleep and Wakeup cycles for GMEM clock */
+	regval = readl_relaxed(GCC_REG_BASE(OXILI_GMEM_CBCR));
+	regval ^= 0xFF0;
+	regval |= CLKFLAG_WAKEUP_CYCLES << 8;
+	regval |= CLKFLAG_SLEEP_CYCLES << 4;
+	writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
