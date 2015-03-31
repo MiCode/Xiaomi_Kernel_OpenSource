@@ -1441,8 +1441,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 		goto out;
 	}
 
-	rc = smbchg_set_high_usb_chg_current(chip, current_ma);
 out:
+	rc = smbchg_set_high_usb_chg_current(chip, current_ma);
 	pr_smb(PR_STATUS, "usb current set to %d mA\n",
 			chip->usb_max_current_ma);
 	if (rc < 0)
