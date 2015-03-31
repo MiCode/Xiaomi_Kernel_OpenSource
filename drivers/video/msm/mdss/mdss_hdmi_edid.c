@@ -15,6 +15,7 @@
 #include <linux/stat.h>
 #include <linux/slab.h>
 #include <linux/device.h>
+#include "mdss_fb.h"
 #include "mdss_hdmi_edid.h"
 
 #define DBC_START_OFFSET 4
@@ -40,8 +41,6 @@
 /* Support for first 5 EDID blocks */
 #define MAX_EDID_BLOCK_SIZE (0x80 * 5)
 
-#define MAX_EDID_READ_RETRY	5
-
 #define BUFF_SIZE_3D 128
 
 #define DTD_MAX			0x04
@@ -49,6 +48,9 @@
 #define DTD_SIZE		0x12
 #define REVISION_OFFSET		0x13
 #define EDID_REVISION_FOUR	0x04
+
+#define MAX_EDID_CLIENTS 32
+static struct hdmi_edid_ctrl *mdss_edid_clients[MAX_EDID_CLIENTS];
 
 enum data_block_types {
 	RESERVED,
@@ -91,6 +93,19 @@ struct hdmi_edid_ctrl {
 	struct hdmi_edid_init_data init_data;
 };
 
+static struct hdmi_edid_ctrl *hdmi_edid_get_ctrl(struct device *dev)
+{
+	struct hdmi_edid_ctrl *edid_ctrl;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+
+	if (fbi->node >= 0 && fbi->node < MAX_EDID_CLIENTS)
+		edid_ctrl = mdss_edid_clients[fbi->node];
+	else
+		edid_ctrl = NULL;
+
+	return edid_ctrl;
+}
+
 static ssize_t hdmi_edid_sysfs_rda_audio_data_block(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
@@ -98,8 +113,7 @@ static ssize_t hdmi_edid_sysfs_rda_audio_data_block(struct device *dev,
 	ssize_t ret;
 	char *data = buf;
 
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -139,8 +153,7 @@ static ssize_t hdmi_edid_sysfs_rda_spkr_alloc_data_block(struct device *dev,
 	ssize_t ret;
 	char *data = buf;
 
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -172,13 +185,27 @@ static ssize_t hdmi_edid_sysfs_rda_spkr_alloc_data_block(struct device *dev,
 static DEVICE_ATTR(spkr_alloc_data_block, S_IRUGO,
 	hdmi_edid_sysfs_rda_spkr_alloc_data_block, NULL);
 
+u32 hdmi_edid_get_video_modes(void *data, u32 *mode_cnt, u32 *modes)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *) data;
+
+	if (!edid_ctrl || !mode_cnt || !modes) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return -EINVAL;
+	}
+
+	modes = edid_ctrl->sink_data.disp_mode_list;
+	*mode_cnt = edid_ctrl->sink_data.num_of_elements;
+
+	return 0;
+}
+
 static ssize_t hdmi_edid_sysfs_rda_modes(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret = 0;
 	int i;
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -213,8 +240,7 @@ static ssize_t hdmi_edid_sysfs_wta_res_info(struct device *dev,
 {
 	int rc, page_id;
 	ssize_t ret = strnlen(buf, PAGE_SIZE);
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -242,8 +268,7 @@ static ssize_t hdmi_edid_sysfs_rda_res_info(struct device *dev,
 	u32 i = 0, j, page;
 	char *buf_dbg = buf;
 	struct msm_hdmi_mode_timing_info info = {0};
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 	u32 size_to_write = sizeof(info);
 
 	if (!edid_ctrl) {
@@ -308,8 +333,7 @@ static ssize_t hdmi_edid_sysfs_rda_audio_latency(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -328,8 +352,7 @@ static ssize_t hdmi_edid_sysfs_rda_video_latency(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -348,8 +371,7 @@ static ssize_t hdmi_edid_sysfs_rda_physical_address(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -367,8 +389,7 @@ static ssize_t hdmi_edid_sysfs_rda_scan_info(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
 	ssize_t ret;
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -390,8 +411,7 @@ static ssize_t hdmi_edid_sysfs_rda_3d_modes(struct device *dev,
 	int i;
 	char buff_3d[BUFF_SIZE_3D];
 
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -431,15 +451,16 @@ static DEVICE_ATTR(edid_3d_modes, S_IRUGO, hdmi_edid_sysfs_rda_3d_modes, NULL);
 static ssize_t hdmi_common_rda_edid_raw_data(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	struct hdmi_edid_ctrl *edid_ctrl =
-		hdmi_get_featuredata_from_sysfs_dev(dev, HDMI_TX_FEAT_EDID);
-	u32 size = sizeof(edid_ctrl->edid_buf) < PAGE_SIZE ?
-			sizeof(edid_ctrl->edid_buf) : PAGE_SIZE;
+	struct hdmi_edid_ctrl *edid_ctrl = hdmi_edid_get_ctrl(dev);
+	u32 size;
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
+
+	size  = sizeof(edid_ctrl->edid_buf) < PAGE_SIZE ?
+			sizeof(edid_ctrl->edid_buf) : PAGE_SIZE;
 
 	/* buf can have max size of PAGE_SIZE */
 	memcpy(buf, edid_ctrl->edid_buf, size);
@@ -465,89 +486,6 @@ static struct attribute *hdmi_edid_fs_attrs[] = {
 static struct attribute_group hdmi_edid_fs_attrs_group = {
 	.attrs = hdmi_edid_fs_attrs,
 };
-
-static int hdmi_edid_read_block(struct hdmi_edid_ctrl *edid_ctrl, int block,
-	u8 *edid_buf)
-{
-	const u8 *b = NULL;
-	u32 ndx, check_sum, print_len;
-	int block_size;
-	int i, status;
-	int retry_cnt = 0, checksum_retry = 0;
-	struct hdmi_tx_ddc_data ddc_data;
-	b = edid_buf;
-
-	if (!edid_ctrl) {
-		DEV_ERR("%s: invalid input\n", __func__);
-		return -EINVAL;
-	}
-
-read_retry:
-	block_size = 0x80;
-	status = 0;
-	do {
-		DEV_DBG("EDID: reading block(%d) with block-size=%d\n",
-			block, block_size);
-		for (i = 0; i < 0x80; i += block_size) {
-			memset(&ddc_data, 0, sizeof(ddc_data));
-			ddc_data.dev_addr    = 0xA0;
-			ddc_data.offset      = block*0x80 + i;
-			ddc_data.data_buf    = edid_buf+i;
-			ddc_data.data_len    = block_size;
-			ddc_data.request_len = block_size;
-			ddc_data.retry       = 1;
-			ddc_data.what        = "EDID";
-			ddc_data.no_align    = false;
-
-			/*Read EDID twice with 32bit alighnment too */
-			if (block < 2)
-				status = hdmi_ddc_read(
-					edid_ctrl->init_data.ddc_ctrl,
-					&ddc_data);
-			else
-				status = hdmi_ddc_read_seg(
-					edid_ctrl->init_data.ddc_ctrl,
-					&ddc_data);
-			if (status)
-				break;
-		}
-		if (retry_cnt++ >= MAX_EDID_READ_RETRY)
-			block_size /= 2;
-	} while (status && (block_size >= 16));
-
-	if (status)
-		goto error;
-
-	/* Calculate checksum */
-	check_sum = 0;
-	for (ndx = 0; ndx < 0x80; ++ndx)
-		check_sum += edid_buf[ndx];
-
-	if (check_sum & 0xFF) {
-		DEV_ERR("%s: failed CHECKSUM (read:%x, expected:%x)\n",
-			__func__, (u8)edid_buf[0x7F], (u8)check_sum);
-		for (ndx = 0; ndx < 0x100; ndx += 4)
-			DEV_DBG("EDID[%02x-%02x] %02x %02x %02x %02x\n",
-				ndx, ndx+3,
-				b[ndx+0], b[ndx+1], b[ndx+2], b[ndx+3]);
-		status = -EPROTO;
-		if (checksum_retry++ < 3) {
-			DEV_DBG("Retrying reading EDID %d time\n",
-							checksum_retry);
-			goto read_retry;
-		}
-		goto error;
-	}
-
-	print_len = 0x80;
-	for (ndx = 0; ndx < print_len; ndx += 4)
-		DEV_DBG("EDID[%02x-%02x] %02x %02x %02x %02x\n",
-			ndx, ndx+3,
-			b[ndx+0], b[ndx+1], b[ndx+2], b[ndx+3]);
-
-error:
-	return status;
-} /* hdmi_edid_read_block */
 
 #define EDID_BLK_LEN 128
 #define EDID_DTD_LEN 18
@@ -1626,7 +1564,30 @@ static void hdmi_edid_get_display_mode(struct hdmi_edid_ctrl *edid_ctrl,
 			HDMI_VFRMT_640x480p60_4_3);
 } /* hdmi_edid_get_display_mode */
 
-int hdmi_edid_read(void *input)
+u32 hdmi_edid_get_raw_data(void *input, u8 *buf, u32 size)
+{
+	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *) input;
+	u32 ret = 0;
+
+	if (!edid_ctrl || !buf) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	if (size > sizeof(edid_ctrl->edid_buf) ||
+		size > PAGE_SIZE) {
+		ret = -EINVAL;
+		goto end;
+	}
+
+	memcpy(buf, edid_ctrl->edid_buf, size);
+
+end:
+	return ret;
+}
+
+u32 hdmi_edid_parser(void *input)
 {
 	/* EDID_BLOCK_SIZE[0x80] Each page size in the EDID ROM */
 	u8 *edid_buf = NULL;
@@ -1637,11 +1598,22 @@ int hdmi_edid_read(void *input)
 	int status = 0;
 	char vendor_id[5];
 	struct hdmi_edid_ctrl *edid_ctrl = (struct hdmi_edid_ctrl *)input;
+	u32 (*hdmi_edid_read_block)(void *caller_data,
+		u8 block, u8 *edid_buf);
+	void *cdata;
 
 	if (!edid_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
 	}
+
+	if (!edid_ctrl->init_data.read_edid_block) {
+		DEV_ERR("%s: No read func def\n", __func__);
+		return -EINVAL;
+	}
+
+	hdmi_edid_read_block = edid_ctrl->init_data.read_edid_block;
+	cdata = edid_ctrl->init_data.caller_data;
 
 	edid_ctrl->page_id = MSM_HDMI_INIT_RES_PAGE;
 
@@ -1662,7 +1634,7 @@ int hdmi_edid_read(void *input)
 
 	hdmi_reset_resv_timing_info();
 
-	status = hdmi_edid_read_block(edid_ctrl, 0, edid_buf);
+	status = hdmi_edid_read_block(cdata, 0, edid_buf);
 	if (status || !hdmi_edid_check_header(edid_buf)) {
 		if (!status)
 			status = -EPROTO;
@@ -1686,7 +1658,7 @@ int hdmi_edid_read(void *input)
 			edid_ctrl->sink_mode ? "no" : "yes");
 		break;
 	case 1: /* Read block 1 */
-		status = hdmi_edid_read_block(edid_ctrl, 1, &edid_buf[0x80]);
+		status = hdmi_edid_read_block(cdata, 1, &edid_buf[0x80]);
 		if (status) {
 			DEV_ERR("%s: ddc read block(1) failed: %d\n", __func__,
 				status);
@@ -1720,7 +1692,7 @@ int hdmi_edid_read(void *input)
 	case 4:
 		for (i = 1; i <= num_of_cea_blocks; i++) {
 			status = hdmi_edid_read_block(
-				edid_ctrl, i, edid_buf + (0x80 * i));
+				cdata, i, edid_buf + (0x80 * i));
 			if (status) {
 				DEV_ERR("%s: read blk(%d) failed:%d\n",
 					__func__, i, status);
@@ -1900,10 +1872,9 @@ void hdmi_edid_deinit(void *input)
 void *hdmi_edid_init(struct hdmi_edid_init_data *init_data)
 {
 	struct hdmi_edid_ctrl *edid_ctrl = NULL;
+	u32 id;
 
-	if (!init_data || !init_data->io ||
-		!init_data->mutex || !init_data->sysfs_kobj ||
-		!init_data->ddc_ctrl) {
+	if (!init_data) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		goto error;
 	}
@@ -1914,16 +1885,34 @@ void *hdmi_edid_init(struct hdmi_edid_init_data *init_data)
 		goto error;
 	}
 
+	id = init_data->id;
+
 	edid_ctrl->init_data = *init_data;
 	edid_ctrl->sink_mode = false;
+
+	if (id >= 0 && id < MAX_EDID_CLIENTS) {
+		mdss_edid_clients[id] = edid_ctrl;
+	} else {
+		DEV_ERR("%s: invalid id %d\n", __func__, id);
+		goto error;
+	}
+
+	if (!init_data->sysfs_kobj) {
+		DEV_INFO("%s: kobj not provided\n", __func__);
+		goto end;
+	}
 
 	if (sysfs_create_group(init_data->sysfs_kobj,
 		&hdmi_edid_fs_attrs_group)) {
 		DEV_ERR("%s: EDID sysfs create failed\n", __func__);
-		kfree(edid_ctrl);
-		edid_ctrl = NULL;
+		goto error;
+	} else {
+		goto end;
 	}
 
 error:
+	kfree(edid_ctrl);
+	edid_ctrl = NULL;
+end:
 	return (void *)edid_ctrl;
 } /* hdmi_edid_deinit */
