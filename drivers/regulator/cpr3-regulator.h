@@ -108,6 +108,8 @@ struct cpr3_corner {
  * @cpr_rev_fuse:	Value read from the CPR fusing revision fuse parameter
  * @fuse_combo:		Platform specific enum value identifying the specific
  *			combination of fuse values found on a given chip
+ * @fuse_combos_supported: The number of fuse combinations supported by the
+ *			device tree configuration for this CPR thread
  * @fuse_corner_count:	Number of corners defined by fuse parameters
  * @step_volt:		Step size in microvolts between available set points
  *			of the VDD supply
@@ -147,6 +149,7 @@ struct cpr3_thread {
 	int			speed_bin_fuse;
 	int			cpr_rev_fuse;
 	int			fuse_combo;
+	int			fuse_combos_supported;
 	int			fuse_corner_count;
 	int			step_volt;
 	u32			consecutive_up;
@@ -359,6 +362,11 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl);
 int cpr3_limit_open_loop_voltages(struct cpr3_thread *thread);
 void cpr3_open_loop_voltage_as_ceiling(struct cpr3_thread *thread);
 void cpr3_print_quots(struct cpr3_thread *thread);
+int cpr3_adjust_fused_open_loop_voltages(struct cpr3_thread *thread,
+		int *fuse_volt);
+int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread, int corner_sum,
+		int combo_offset);
+int cpr3_quot_adjustment(int ro_scale, int volt_adjust);
 
 #else
 
@@ -468,6 +476,23 @@ static inline void cpr3_open_loop_voltage_as_ceiling(struct cpr3_thread *thread)
 static inline void cpr3_print_quots(struct cpr3_thread *thread)
 {
 	return;
+}
+
+static inline int cpr3_adjust_fused_open_loop_voltages(
+		struct cpr3_thread *thread, int *fuse_volt)
+{
+	return -EPERM;
+}
+
+static inline int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread,
+		int corner_sum, int combo_offset)
+{
+	return -EPERM;
+}
+
+static inline int cpr3_quot_adjustment(int ro_scale, int volt_adjust)
+{
+	return 0;
 }
 
 #endif /* CONFIG_REGULATOR_CPR3 */

@@ -401,6 +401,8 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 		return -EINVAL;
 	}
 
+	thread->fuse_combos_supported = max_fuse_combos;
+
 	combo_corners = kzalloc(sizeof(*combo_corners) * max_fuse_combos,
 				GFP_KERNEL);
 	if (!combo_corners) {
@@ -805,4 +807,144 @@ void cpr3_print_quots(struct cpr3_thread *thread)
 	}
 
 	kfree(buf);
+}
+
+/**
+ * cpr3_adjust_fused_open_loop_voltages() - adjust the fused open-loop voltages
+ *		for each fuse corner according to device tree values
+ * @thread:		Pointer to the CPR3 thread
+ * @fuse_volt:		Pointer to an array of the fused open-loop voltage
+ *			values
+ *
+ * Voltage values in fuse_volt are modified in place.
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_adjust_fused_open_loop_voltages(struct cpr3_thread *thread,
+		int *fuse_volt)
+{
+	int i, rc, prev_volt;
+	int *volt_adjust;
+
+	if (!of_find_property(thread->of_node,
+			"qcom,cpr-open-loop-voltage-fuse-adjustment", NULL)) {
+		/* No adjustment required. */
+		return 0;
+	}
+
+	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->fuse_corner_count,
+				GFP_KERNEL);
+	if (!volt_adjust) {
+		cpr3_err(thread, "memory allocation failed\n");
+		return -ENOMEM;
+	}
+
+	rc = cpr3_parse_array_property(thread,
+		"qcom,cpr-open-loop-voltage-fuse-adjustment",
+		thread->fuse_corner_count,
+		thread->fuse_combos_supported * thread->fuse_corner_count,
+		thread->fuse_combo * thread->fuse_corner_count,
+		volt_adjust);
+	if (rc) {
+		cpr3_err(thread, "could not load open-loop fused voltage adjustments, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	for (i = 0; i < thread->fuse_corner_count; i++) {
+		if (volt_adjust[i]) {
+			prev_volt = fuse_volt[i];
+			fuse_volt[i] += volt_adjust[i];
+			cpr3_info(thread, "adjusted fuse corner %d open-loop voltage: %d --> %d uV\n",
+				i, prev_volt, fuse_volt[i]);
+		}
+	}
+
+done:
+	kfree(volt_adjust);
+	return rc;
+}
+
+/**
+ * cpr3_adjust_open_loop_voltages() - adjust the open-loop voltages for each
+ *		corner according to device tree values
+ * @thread:		Pointer to the CPR3 thread
+ * @corner_sum:		Sum of the corner counts across all fuse combos
+ * @combo_offset:	Array offset for the selected fuse combo
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread, int corner_sum,
+		int combo_offset)
+{
+	int i, rc, prev_volt;
+	int *volt_adjust;
+
+	if (!of_find_property(thread->of_node,
+			"qcom,cpr-open-loop-voltage-adjustment", NULL)) {
+		/* No adjustment required. */
+		return 0;
+	}
+
+	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->corner_count,
+				GFP_KERNEL);
+	if (!volt_adjust) {
+		cpr3_err(thread, "memory allocation failed\n");
+		return -ENOMEM;
+	}
+
+	rc = cpr3_parse_array_property(thread,
+		"qcom,cpr-open-loop-voltage-adjustment",
+		thread->corner_count, corner_sum, combo_offset, volt_adjust);
+	if (rc) {
+		cpr3_err(thread, "could not load open-loop voltage adjustments, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	for (i = 0; i < thread->corner_count; i++) {
+		if (volt_adjust[i]) {
+			prev_volt = thread->corner[i].open_loop_volt;
+			thread->corner[i].open_loop_volt += volt_adjust[i];
+			cpr3_info(thread, "adjusted corner %d open-loop voltage: %d --> %d uV\n",
+				i, prev_volt, thread->corner[i].open_loop_volt);
+		}
+	}
+
+done:
+	kfree(volt_adjust);
+	return rc;
+}
+
+/**
+ * cpr3_quot_adjustment() - returns the quotient adjustment value resulting from
+ *		the specified voltage adjustment and RO scaling factor
+ * @ro_scale:		The CPR ring oscillator (RO) scaling factor with units
+ *			of QUOT/V
+ * @volt_adjust:	The amount to adjust the voltage by in units of
+ *			microvolts.  This value may be positive or negative.
+ */
+int cpr3_quot_adjustment(int ro_scale, int volt_adjust)
+{
+	unsigned long long temp;
+	int quot_adjust;
+	int sign = 1;
+
+	if (ro_scale < 0) {
+		sign = -sign;
+		ro_scale = -ro_scale;
+	}
+
+	if (volt_adjust < 0) {
+		sign = -sign;
+		volt_adjust = -volt_adjust;
+	}
+
+	temp = (unsigned long long)ro_scale * (unsigned long long)volt_adjust;
+	do_div(temp, 1000000);
+
+	quot_adjust = temp;
+	quot_adjust *= sign;
+
+	return quot_adjust;
 }

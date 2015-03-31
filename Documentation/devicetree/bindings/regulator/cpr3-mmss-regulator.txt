@@ -86,6 +86,23 @@ HMSS specific properties:
 		    grouping must contain exactly 1 list which is used
 		    regardless of the fuse combination found on a given chip.
 
+- qcom,cpr-ro-scaling-factor
+	Usage:      required if qcom,cpr-closed-loop-voltage-adjustment is
+		    specified
+	Value type: <prop-encoded-array>
+	Definition: The common definition of this property in cpr3-regulator.txt
+		    is accurate for MMSS CPR3 controllers except for this
+		    modification:
+
+		    Each tuple list must contain the number of tuples defined in
+		    the corresponding element of the qcom,cpr-corners property
+		    as opposed to the value of the qcom,cpr-fuse-corners
+		    property.
+
+Note that the qcom,cpr-closed-loop-voltage-fuse-adjustment property is not
+meaningful for MMSS CPR3 thread nodes since target quotients are not defined in
+fuses.
+
 =======
 Example
 =======
@@ -142,6 +159,17 @@ gfx_cpr: cpr3-ctrl@838000 {
 			<0 0 0 0 400 363 0  565 0  603 0 0 0 0 0 0>,
 			<0 0 0 0 669 601 0  851 0  905 0 0 0 0 0 0>,
 			<0 0 0 0 899 806 0 1084 0 1149 0 0 0 0 0 0>;
+
+		qcom,cpr-ro-scaling-factor =
+			<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>,
+			<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>,
+			<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>,
+			<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>;
+
+		qcom,cpr-open-loop-voltage-fuse-adjustment =
+			<35000 0 0 0>;
+		qcom,cpr-closed-loop-voltage-adjustment =
+			<45000 0 0 0>;
 
 		qcom,allow-voltage-interpolation;
 		qcom,cpr-scaled-open-loop-voltage-as-ceiling;

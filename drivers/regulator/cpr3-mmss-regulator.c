@@ -192,17 +192,20 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_thread *thread)
  * cpr3_mmss_parse_corner_data() - parse MMSS corner data from device tree
  *				properties of the thread's device node
  * @thread:		Pointer to the CPR3 thread
+ * @corner_sum:		Pointer which is output with the sum of the corner
+ *			counts across all fuse combos
+ * @combo_offset:	Pointer which is output with the array offset for the
+ *			selected fuse combo
  *
  * Return: 0 on success, errno on failure
  */
-static int cpr3_mmss_parse_corner_data(struct cpr3_thread *thread)
+static int cpr3_mmss_parse_corner_data(struct cpr3_thread *thread,
+			int *corner_sum, int *combo_offset)
 {
-	int corner_sum = 0;
-	int combo_offset = 0;
 	int i, rc;
 	u32 *temp;
 
-	rc = cpr3_parse_common_corner_data(thread, &corner_sum, &combo_offset);
+	rc = cpr3_parse_common_corner_data(thread, corner_sum, combo_offset);
 	if (rc) {
 		cpr3_err(thread, "error reading corner data, rc=%d\n", rc);
 		return rc;
@@ -217,8 +220,8 @@ static int cpr3_mmss_parse_corner_data(struct cpr3_thread *thread)
 
 	rc = cpr3_parse_array_property(thread, "qcom,cpr-target-quotients",
 			thread->corner_count * CPR3_RO_COUNT,
-			corner_sum * CPR3_RO_COUNT,
-			combo_offset * CPR3_RO_COUNT,
+			*corner_sum * CPR3_RO_COUNT,
+			*combo_offset * CPR3_RO_COUNT,
 			temp);
 	if (rc) {
 		cpr3_err(thread, "could not load target quotients, rc=%d\n",
@@ -236,9 +239,93 @@ done:
 }
 
 /**
+ * cpr3_mmss_adjust_target_quotients() - adjust the target quotients for each
+ *		corner according to device tree values
+ * @thread:		Pointer to the CPR3 thread
+ * @corner_sum:		Sum of the corner counts across all fuse combos
+ * @combo_offset:	Array offset for the selected fuse combo
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_mmss_adjust_target_quotients(struct cpr3_thread *thread,
+			int corner_sum, int combo_offset)
+{
+	int i, j, rc, quot_adjust;
+	int *volt_adjust, *ro_scale;
+	u32 prev_quot;
+
+	if (!of_find_property(thread->of_node,
+			"qcom,cpr-closed-loop-voltage-adjustment", NULL)) {
+		/* No adjustment required. */
+		return 0;
+	} else if (!of_find_property(thread->of_node,
+			"qcom,cpr-ro-scaling-factor", NULL)) {
+		cpr3_err(thread, "qcom,cpr-ro-scaling-factor is required for closed-loop voltage adjustment, but is missing\n");
+		return -EINVAL;
+	}
+
+	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->corner_count,
+				GFP_KERNEL);
+	ro_scale = kzalloc(sizeof(*ro_scale) * thread->corner_count
+				* CPR3_RO_COUNT, GFP_KERNEL);
+	if (!volt_adjust || !ro_scale) {
+		cpr3_err(thread, "memory allocation failed\n");
+		rc = -ENOMEM;
+		goto done;
+	}
+
+	rc = cpr3_parse_array_property(thread,
+		"qcom,cpr-closed-loop-voltage-adjustment",
+		thread->corner_count, corner_sum, combo_offset, volt_adjust);
+	if (rc) {
+		cpr3_err(thread, "could not load closed-loop voltage adjustments, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	rc = cpr3_parse_array_property(thread, "qcom,cpr-ro-scaling-factor",
+			thread->corner_count * CPR3_RO_COUNT,
+			corner_sum * CPR3_RO_COUNT,
+			combo_offset * CPR3_RO_COUNT,
+			ro_scale);
+	if (rc) {
+		cpr3_err(thread, "could not load RO scaling factors, rc=%d\n",
+			rc);
+		goto done;
+	}
+
+	for (i = 0; i < thread->corner_count; i++) {
+		for (j = 0; j < CPR3_RO_COUNT; j++) {
+			if (thread->corner[i].target_quot[j]) {
+				quot_adjust = cpr3_quot_adjustment(
+						ro_scale[i * CPR3_RO_COUNT + j],
+						volt_adjust[i]);
+				if (quot_adjust) {
+					prev_quot
+					     = thread->corner[i].target_quot[j];
+					thread->corner[i].target_quot[j]
+					     += quot_adjust;
+					cpr3_info(thread, "adjusted corner %d RO%d target quot: %u --> %u (%d uV)\n",
+					     i, j, prev_quot,
+					     thread->corner[i].target_quot[j],
+					     volt_adjust[i]);
+				}
+			}
+		}
+	}
+
+done:
+	kfree(volt_adjust);
+	kfree(ro_scale);
+	return rc;
+}
+
+/**
  * cpr3_msm8996_mmss_calculate_open_loop_voltages() - calculate the open-loop
  *		voltage for each corner of a CPR3 thread
  * @thread:		Pointer to the CPR3 thread
+ * @corner_sum:		Sum of the corner counts across all fuse combos
+ * @combo_offset:	Array offset for the selected fuse combo
  *
  * If open-loop voltage interpolation is allowed in both device tree and in
  * hardware fuses, then this function calculates the open-loop voltage for a
@@ -253,7 +340,8 @@ done:
  * Return: 0 on success, errno on failure
  */
 static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
-			struct cpr3_thread *thread)
+			struct cpr3_thread *thread, int corner_sum,
+			int combo_offset)
 {
 	struct device_node *node = thread->of_node;
 	struct cpr3_msm8996_mmss_fuses *fuse = thread->platform_fuses;
@@ -281,6 +369,13 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 			MSM8996_MMSS_VOLTAGE_FUSE_SIZE);
 		cpr3_info(thread, "fuse_corner[%d] open-loop=%7d uV\n",
 			i, fuse_volt[i]);
+	}
+
+	rc = cpr3_adjust_fused_open_loop_voltages(thread, fuse_volt);
+	if (rc) {
+		cpr3_err(thread, "fused open-loop voltage adjustment failed, rc=%d\n",
+			rc);
+		goto done;
 	}
 
 	allow_interpolation = of_property_read_bool(node,
@@ -345,6 +440,12 @@ done:
 		for (i = 0; i < thread->corner_count; i++)
 			cpr3_debug(thread, "open-loop[%2d] = %d uV\n", i,
 				thread->corner[i].open_loop_volt);
+
+		rc = cpr3_adjust_open_loop_voltages(thread, corner_sum,
+			combo_offset);
+		if (rc)
+			cpr3_err(thread, "open-loop voltage adjustment failed, rc=%d\n",
+				rc);
 	}
 
 	kfree(fuse_volt);
@@ -382,6 +483,8 @@ static void cpr3_mmss_print_settings(struct cpr3_thread *thread)
 static int cpr3_mmss_init_thread(struct cpr3_thread *thread)
 {
 	struct cpr3_msm8996_mmss_fuses *fuse;
+	int corner_sum = 0;
+	int combo_offset = 0;
 	int rc;
 
 	rc = cpr3_msm8996_mmss_read_fuse_data(thread);
@@ -406,14 +509,23 @@ static int cpr3_mmss_init_thread(struct cpr3_thread *thread)
 		return rc;
 	}
 
-	rc = cpr3_mmss_parse_corner_data(thread);
+	rc = cpr3_mmss_parse_corner_data(thread, &corner_sum, &combo_offset);
 	if (rc) {
 		cpr3_err(thread, "unable to read CPR corner data from device tree, rc=%d\n",
 			rc);
 		return rc;
 	}
 
-	rc = cpr3_msm8996_mmss_calculate_open_loop_voltages(thread);
+	rc = cpr3_mmss_adjust_target_quotients(thread, corner_sum,
+			combo_offset);
+	if (rc) {
+		cpr3_err(thread, "unable to adjust target quotients, rc=%d\n",
+			rc);
+		return rc;
+	}
+
+	rc = cpr3_msm8996_mmss_calculate_open_loop_voltages(thread, corner_sum,
+			combo_offset);
 	if (rc) {
 		cpr3_err(thread, "unable to calculate open-loop voltages, rc=%d\n",
 			rc);
