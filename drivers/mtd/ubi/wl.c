@@ -1380,10 +1380,6 @@ static int wear_leveling_worker(struct ubi_device *ubi, struct ubi_work *wrk,
 	}
 
 	/* The PEB has been successfully moved */
-	if (scrubbing)
-		ubi_msg(ubi->ubi_num,
-			"scrubbed PEB %d (LEB %d:%d), data moved to PEB %d",
-			e1->pnum, vol_id, lnum, e2->pnum);
 	ubi_free_vid_hdr(ubi, vid_hdr);
 
 	spin_lock(&ubi->wl_lock);
@@ -1874,7 +1870,6 @@ retry:
 		}
 	}
 
-	ubi_msg(ubi->ubi_num, "schedule PEB %d for scrubbing", pnum);
 	wl_tree_add(e, &ubi->scrub);
 	spin_unlock(&ubi->wl_lock);
 
