@@ -95,16 +95,24 @@ dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
 	u8 *buffer;
 	u32 accessor_type = function >> 16;
 	u8 addr = (u8)address;
+	acpi_status status;
 	struct i2c_msg msgs[2];
 
+	status = acpi_buffer_to_resource(info->connection, info->length, &ares);
 
-	acpi_buffer_to_resource(info->connection, info->length, &ares);
-	if (ares->type != ACPI_RESOURCE_TYPE_SERIAL_BUS)
+	if (ACPI_FAILURE(status))
+		return status;
+
+	if (ares->type != ACPI_RESOURCE_TYPE_SERIAL_BUS) {
+		ACPI_FREE(ares);
 		return AE_BAD_PARAMETER;
+	}
 
 	sb = &ares->data.i2c_serial_bus;
-	if (sb->type != ACPI_RESOURCE_SERIAL_TYPE_I2C)
+	if (sb->type != ACPI_RESOURCE_SERIAL_TYPE_I2C) {
+		ACPI_FREE(ares);
 		return AE_BAD_PARAMETER;
+	}
 
 	pr_debug("%s: Found I2C Resource type, addr %d\n",
 				__func__, sb->slave_address);
@@ -114,11 +122,14 @@ dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
 	pr_debug("%s: access opeation region, addr 0x%x operation %d len %d\n",
 		__func__, addr, function, length);
 
-	if (!value64)
+	if (!value64) {
+		ACPI_FREE(ares);
 		return AE_BAD_PARAMETER;
-
-	if (length <= I2C_TRAN_HDR_SIZE)
+	}
+	if (length <= I2C_TRAN_HDR_SIZE) {
+		ACPI_FREE(ares);
 		return AE_OK;
+	}
 
 	function &= ACPI_IO_MASK; 
 	if (function == ACPI_READ) {
@@ -162,6 +173,7 @@ dw_i2c_acpi_space_handler(u32 function, acpi_physical_address address,
 //
 	}
 
+	ACPI_FREE(ares);
 	return AE_OK;
 }
 
