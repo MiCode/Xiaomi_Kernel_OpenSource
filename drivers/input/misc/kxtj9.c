@@ -893,7 +893,7 @@ static int kxtj9_probe(struct i2c_client *client,
 	tj9->cdev.delay_msec = tj9->pdata.init_interval;
 	tj9->cdev.sensors_enable = kxtj9_enable_set;
 	tj9->cdev.sensors_poll_delay = kxtj9_poll_delay_set;
-	err = sensors_classdev_register(&client->dev, &tj9->cdev);
+	err = sensors_classdev_register(&tj9->input_dev->dev, &tj9->cdev);
 	if (err) {
 		dev_err(&client->dev, "class device create failed: %d\n", err);
 		goto err_power_off;

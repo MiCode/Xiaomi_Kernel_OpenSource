@@ -2029,7 +2029,7 @@ int akm8963_compass_probe(
 
 	s_akm->delay[MAG_DATA_FLAG] = sensors_cdev.delay_msec;
 
-	err = sensors_classdev_register(&i2c->dev, &s_akm->cdev);
+	err = sensors_classdev_register(&s_akm->input->dev, &s_akm->cdev);
 	if (err) {
 		dev_err(&i2c->dev, "class device create failed: %d\n", err);
 		goto remove_sysfs;

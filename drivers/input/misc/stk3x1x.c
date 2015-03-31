@@ -2453,13 +2453,15 @@ static int stk3x1x_probe(struct i2c_client *client,
 	ps_data->als_cdev = sensors_light_cdev;
 	ps_data->als_cdev.sensors_enable = stk_als_enable_set;
 	ps_data->als_cdev.sensors_poll_delay = stk_als_poll_delay_set;
-	err = sensors_classdev_register(&client->dev, &ps_data->als_cdev);
+	err = sensors_classdev_register(&ps_data->als_input_dev->dev,
+			&ps_data->als_cdev);
 	if (err)
 		goto err_power_on;
 
 	ps_data->ps_cdev = sensors_proximity_cdev;
 	ps_data->ps_cdev.sensors_enable = stk_ps_enable_set;
-	err = sensors_classdev_register(&client->dev, &ps_data->ps_cdev);
+	err = sensors_classdev_register(&ps_data->ps_input_dev->dev,
+			&ps_data->ps_cdev);
 	if (err)
 		goto err_class_sysfs;
 

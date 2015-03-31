@@ -2383,7 +2383,7 @@ static int lis3dh_acc_probe(struct i2c_client *client,
 	acc->cdev.sensors_write_cal_params = lis3dh_write_cal_params;
 	memset(&acc->cdev.cal_result, 0, sizeof(acc->cdev.cal_result));
 	acc->cdev.params = acc->calibrate_buf;
-	err = sensors_classdev_register(&client->dev, &acc->cdev);
+	err = sensors_classdev_register(&acc->input_dev->dev, &acc->cdev);
 	if (err) {
 		dev_err(&client->dev,
 			"class device create failed: %d\n", err);
