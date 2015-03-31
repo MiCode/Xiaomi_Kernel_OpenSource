@@ -12,6 +12,8 @@
  */
 
 #include "msm8952.dtsi"
+#include "msm8952-pinctrl.dtsi"
+#include "msm8952-camera-sensor-mtp.dtsi"
 
 &soc {
 	i2c@7af5000 { /* BLSP2 QUP1 */
