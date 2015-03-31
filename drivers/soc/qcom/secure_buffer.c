@@ -53,6 +53,18 @@ struct info_list {
 #define V2_CHUNK_SIZE		SZ_1M
 #define FEATURE_ID_CP 12
 
+struct dest_vm_and_perm_info {
+	u32 vm;
+	u32 perm;
+	u32 *ctx;
+	u32 ctx_size;
+};
+
+struct dest_info_list {
+	struct dest_vm_and_perm_info *dest_info;
+	u64 list_size;
+};
+
 static int secure_buffer_change_chunk(u32 chunks,
 				u32 nchunks,
 				u32 chunk_size,
@@ -184,7 +196,38 @@ int msm_unsecure_table(struct sg_table *table)
 
 }
 
-static struct info_list *get_info_list(struct sg_table *table)
+static struct dest_info_list *populate_dest_info(int *dest_vmids, int nelements,
+								int *dest_perms)
+{
+	struct dest_vm_and_perm_info *dest_info;
+	struct dest_info_list *list;
+	int i;
+
+	dest_info = kmalloc_array(nelements,
+			(sizeof(struct dest_vm_and_perm_info)),
+				GFP_KERNEL | __GFP_ZERO);
+	if (!dest_info)
+		return NULL;
+
+	for (i = 0; i < nelements; i++) {
+		dest_info[i].vm = dest_vmids[i];
+		dest_info[i].perm = dest_perms[i];
+		dest_info[i].ctx = NULL;
+		dest_info[i].ctx_size = 0;
+	}
+	list = kzalloc(sizeof(struct dest_info_list), GFP_KERNEL);
+	if (!list) {
+		kfree(dest_info);
+		return NULL;
+	}
+
+	list->dest_info = dest_info;
+	list->list_size = nelements * sizeof(struct dest_vm_and_perm_info);
+
+	return list;
+}
+
+static struct info_list *get_info_list_from_table(struct sg_table *table)
 {
 	int i;
 	struct scatterlist *sg;
@@ -218,39 +261,93 @@ static void destroy_info_list(struct info_list *info_list)
 	kfree(info_list);
 }
 
-int msm_ion_hyp_assign_call(struct sg_table *table,
-			u32 *source_vm_list, u32 source_list_size,
-			u32 *dest_vm_list, u32 dest_list_size)
+static void destroy_dest_info_list(struct dest_info_list *dest_list)
 {
-	struct info_list *info_list = NULL;
+	kfree(dest_list->dest_info);
+	kfree(dest_list);
+}
+
+int hyp_assign_table(struct sg_table *table,
+			u32 *source_vm_list, int source_nelems,
+			int *dest_vmids, int *dest_perms,
+			int dest_nelems)
+{
 	int ret;
+	struct info_list *info_list = NULL;
+	struct dest_info_list *dest_info_list = NULL;
 	struct scm_desc desc = {0};
 
-	info_list = get_info_list(table);
+	info_list = get_info_list_from_table(table);
+	if (!info_list)
+		return -ENOMEM;
+
+	dest_info_list = populate_dest_info(dest_vmids, dest_nelems,
+							dest_perms);
+	if (!dest_info_list) {
+		ret = -ENOMEM;
+		goto err1;
+	}
 
 	desc.args[0] = virt_to_phys(info_list->list_head);
 	desc.args[1] = info_list->list_size;
 	desc.args[2] = virt_to_phys(source_vm_list);
-	desc.args[3] = source_list_size;
-	desc.args[4] = virt_to_phys(dest_vm_list);
-	desc.args[5] = dest_list_size;
+	desc.args[3] = sizeof(*source_vm_list) * source_nelems;
+	desc.args[4] = virt_to_phys(dest_info_list->dest_info);
+	desc.args[5] = dest_info_list->list_size;
 	desc.args[6] = 0;
+
 	desc.arginfo = SCM_ARGS(7, SCM_RO, SCM_VAL, SCM_RO, SCM_VAL, SCM_RO,
 				SCM_VAL, SCM_VAL);
 
+	dmac_flush_range(source_vm_list, source_vm_list + source_nelems);
 	dmac_flush_range(info_list->list_head, info_list->list_head +
-			(info_list->list_size / sizeof(*info_list->list_head)));
-	dmac_flush_range(source_vm_list, source_vm_list +
-				(source_list_size / sizeof(*source_vm_list)));
-	dmac_flush_range(dest_vm_list, dest_vm_list +
-				(dest_list_size / sizeof(*dest_vm_list)));
+		(info_list->list_size / sizeof(*info_list->list_head)));
+	dmac_flush_range(dest_info_list->dest_info, dest_info_list->dest_info +
+		(dest_info_list->list_size /
+				sizeof(*dest_info_list->dest_info)));
 
 	ret = scm_call2(SCM_SIP_FNID(SCM_SVC_MP,
 			MEM_PROT_ASSIGN_ID), &desc);
 	if (ret)
 		pr_info("%s: Failed to assign memory protection, ret = %d\n",
 			__func__, ret);
+
+	destroy_dest_info_list(dest_info_list);
+
+err1:
 	destroy_info_list(info_list);
+	return ret;
+}
+
+int hyp_assign_phys(phys_addr_t addr, u64 size,
+			int *dest_vmids, int *dest_perms,
+			int dest_nelems)
+{
+	struct sg_table *table;
+	u32 source_vm;
+	int ret;
+
+	table = kzalloc(sizeof(struct sg_table), GFP_KERNEL);
+	if (!table)
+		return -ENOMEM;
+	ret = sg_alloc_table(table, 1, GFP_KERNEL);
+	if (ret)
+		goto err1;
+
+	sg_set_page(table->sgl, phys_to_page(addr), size, 0);
+
+	source_vm = VMID_HLOS;
+
+	ret = hyp_assign_table(table, &source_vm, 1, dest_vmids,
+						dest_perms, dest_nelems);
+	if (ret)
+		goto err2;
+
+	return ret;
+err2:
+	sg_free_table(table);
+err1:
+	kfree(table);
 	return ret;
 }
 
