@@ -2,6 +2,7 @@
  * Roccat Isku driver for Linux
  *
  * Copyright (c) 2011 Stefan Achatz <erazor_de@users.sourceforge.net>
+ * Copyright (C) 2015 XiaoMi, Inc.
  */
 
 /*
@@ -36,51 +37,7 @@ static void isku_profile_activated(struct isku_device *isku, uint new_profile)
 static int isku_receive(struct usb_device *usb_dev, uint command,
 		void *buf, uint size)
 {
-	return roccat_common_receive(usb_dev, command, buf, size);
-}
-
-static int isku_receive_control_status(struct usb_device *usb_dev)
-{
-	int retval;
-	struct isku_control control;
-
-	do {
-		msleep(50);
-		retval = isku_receive(usb_dev, ISKU_COMMAND_CONTROL,
-				&control, sizeof(struct isku_control));
-
-		if (retval)
-			return retval;
-
-		switch (control.value) {
-		case ISKU_CONTROL_VALUE_STATUS_OK:
-			return 0;
-		case ISKU_CONTROL_VALUE_STATUS_WAIT:
-			continue;
-		case ISKU_CONTROL_VALUE_STATUS_INVALID:
-		/* seems to be critical - replug necessary */
-		case ISKU_CONTROL_VALUE_STATUS_OVERLOAD:
-			return -EINVAL;
-		default:
-			hid_err(usb_dev, "isku_receive_control_status: "
-					"unknown response value 0x%x\n",
-					control.value);
-			return -EINVAL;
-		}
-
-	} while (1);
-}
-
-static int isku_send(struct usb_device *usb_dev, uint command,
-		void const *buf, uint size)
-{
-	int retval;
-
-	retval = roccat_common_send(usb_dev, command, buf, size);
-	if (retval)
-		return retval;
-
-	return isku_receive_control_status(usb_dev);
+	return roccat_common2_receive(usb_dev, command, buf, size);
 }
 
 static int isku_get_actual_profile(struct usb_device *usb_dev)
@@ -100,7 +57,8 @@ static int isku_set_actual_profile(struct usb_device *usb_dev, int new_profile)
 	buf.command = ISKU_COMMAND_ACTUAL_PROFILE;
 	buf.size = sizeof(struct isku_actual_profile);
 	buf.actual_profile = new_profile;
-	return isku_send(usb_dev, ISKU_COMMAND_ACTUAL_PROFILE, &buf,
+	return roccat_common2_send_with_status(usb_dev,
+			ISKU_COMMAND_ACTUAL_PROFILE, &buf,
 			sizeof(struct isku_actual_profile));
 }
 
@@ -173,14 +131,14 @@ static ssize_t isku_sysfs_read(struct file *fp, struct kobject *kobj,
 	if (off >= real_size)
 		return 0;
 
-	if (off != 0 || count != real_size)
+	if (off != 0 || count > real_size)
 		return -EINVAL;
 
 	mutex_lock(&isku->isku_lock);
-	retval = isku_receive(usb_dev, command, buf, real_size);
+	retval = isku_receive(usb_dev, command, buf, count);
 	mutex_unlock(&isku->isku_lock);
 
-	return retval ? retval : real_size;
+	return retval ? retval : count;
 }
 
 static ssize_t isku_sysfs_write(struct file *fp, struct kobject *kobj,
@@ -193,14 +151,15 @@ static ssize_t isku_sysfs_write(struct file *fp, struct kobject *kobj,
 	struct usb_device *usb_dev = interface_to_usbdev(to_usb_interface(dev));
 	int retval;
 
-	if (off != 0 || count != real_size)
+	if (off != 0 || count > real_size)
 		return -EINVAL;
 
 	mutex_lock(&isku->isku_lock);
-	retval = isku_send(usb_dev, command, (void *)buf, real_size);
+	retval = roccat_common2_send_with_status(usb_dev, command,
+			(void *)buf, count);
 	mutex_unlock(&isku->isku_lock);
 
-	return retval ? retval : real_size;
+	return retval ? retval : count;
 }
 
 #define ISKU_SYSFS_W(thingy, THINGY) \
@@ -209,7 +168,7 @@ static ssize_t isku_sysfs_write_ ## thingy(struct file *fp, struct kobject *kobj
 		loff_t off, size_t count) \
 { \
 	return isku_sysfs_write(fp, kobj, buf, off, count, \
-			sizeof(struct isku_ ## thingy), ISKU_COMMAND_ ## THINGY); \
+			ISKU_SIZE_ ## THINGY, ISKU_COMMAND_ ## THINGY); \
 }
 
 #define ISKU_SYSFS_R(thingy, THINGY) \
@@ -218,32 +177,32 @@ static ssize_t isku_sysfs_read_ ## thingy(struct file *fp, struct kobject *kobj,
 		loff_t off, size_t count) \
 { \
 	return isku_sysfs_read(fp, kobj, buf, off, count, \
-			sizeof(struct isku_ ## thingy), ISKU_COMMAND_ ## THINGY); \
+			ISKU_SIZE_ ## THINGY, ISKU_COMMAND_ ## THINGY); \
 }
 
 #define ISKU_SYSFS_RW(thingy, THINGY) \
 ISKU_SYSFS_R(thingy, THINGY) \
 ISKU_SYSFS_W(thingy, THINGY)
 
-#define ISKU_BIN_ATTR_RW(thingy) \
+#define ISKU_BIN_ATTR_RW(thingy, THINGY) \
 { \
 	.attr = { .name = #thingy, .mode = 0660 }, \
-	.size = sizeof(struct isku_ ## thingy), \
+	.size = ISKU_SIZE_ ## THINGY, \
 	.read = isku_sysfs_read_ ## thingy, \
 	.write = isku_sysfs_write_ ## thingy \
 }
 
-#define ISKU_BIN_ATTR_R(thingy) \
+#define ISKU_BIN_ATTR_R(thingy, THINGY) \
 { \
 	.attr = { .name = #thingy, .mode = 0440 }, \
-	.size = sizeof(struct isku_ ## thingy), \
+	.size = ISKU_SIZE_ ## THINGY, \
 	.read = isku_sysfs_read_ ## thingy, \
 }
 
-#define ISKU_BIN_ATTR_W(thingy) \
+#define ISKU_BIN_ATTR_W(thingy, THINGY) \
 { \
 	.attr = { .name = #thingy, .mode = 0220 }, \
-	.size = sizeof(struct isku_ ## thingy), \
+	.size = ISKU_SIZE_ ## THINGY, \
 	.write = isku_sysfs_write_ ## thingy \
 }
 
@@ -258,23 +217,27 @@ ISKU_SYSFS_RW(light, LIGHT)
 ISKU_SYSFS_RW(key_mask, KEY_MASK)
 ISKU_SYSFS_RW(last_set, LAST_SET)
 ISKU_SYSFS_W(talk, TALK)
+ISKU_SYSFS_W(talkfx, TALKFX)
 ISKU_SYSFS_R(info, INFO)
 ISKU_SYSFS_W(control, CONTROL)
+ISKU_SYSFS_W(reset, RESET)
 
 static struct bin_attribute isku_bin_attributes[] = {
-	ISKU_BIN_ATTR_RW(macro),
-	ISKU_BIN_ATTR_RW(keys_function),
-	ISKU_BIN_ATTR_RW(keys_easyzone),
-	ISKU_BIN_ATTR_RW(keys_media),
-	ISKU_BIN_ATTR_RW(keys_thumbster),
-	ISKU_BIN_ATTR_RW(keys_macro),
-	ISKU_BIN_ATTR_RW(keys_capslock),
-	ISKU_BIN_ATTR_RW(light),
-	ISKU_BIN_ATTR_RW(key_mask),
-	ISKU_BIN_ATTR_RW(last_set),
-	ISKU_BIN_ATTR_W(talk),
-	ISKU_BIN_ATTR_R(info),
-	ISKU_BIN_ATTR_W(control),
+	ISKU_BIN_ATTR_RW(macro, MACRO),
+	ISKU_BIN_ATTR_RW(keys_function, KEYS_FUNCTION),
+	ISKU_BIN_ATTR_RW(keys_easyzone, KEYS_EASYZONE),
+	ISKU_BIN_ATTR_RW(keys_media, KEYS_MEDIA),
+	ISKU_BIN_ATTR_RW(keys_thumbster, KEYS_THUMBSTER),
+	ISKU_BIN_ATTR_RW(keys_macro, KEYS_MACRO),
+	ISKU_BIN_ATTR_RW(keys_capslock, KEYS_CAPSLOCK),
+	ISKU_BIN_ATTR_RW(light, LIGHT),
+	ISKU_BIN_ATTR_RW(key_mask, KEY_MASK),
+	ISKU_BIN_ATTR_RW(last_set, LAST_SET),
+	ISKU_BIN_ATTR_W(talk, TALK),
+	ISKU_BIN_ATTR_W(talkfx, TALKFX),
+	ISKU_BIN_ATTR_R(info, INFO),
+	ISKU_BIN_ATTR_W(control, CONTROL),
+	ISKU_BIN_ATTR_W(reset, RESET),
 	__ATTR_NULL
 };
 
@@ -445,6 +408,7 @@ static int isku_raw_event(struct hid_device *hdev,
 
 static const struct hid_device_id isku_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_ROCCAT, USB_DEVICE_ID_ROCCAT_ISKU) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_ROCCAT, USB_DEVICE_ID_ROCCAT_ISKUFX) },
 	{ }
 };
 
@@ -483,5 +447,5 @@ module_init(isku_init);
 module_exit(isku_exit);
 
 MODULE_AUTHOR("Stefan Achatz");
-MODULE_DESCRIPTION("USB Roccat Isku driver");
+MODULE_DESCRIPTION("USB Roccat Isku/FX driver");
 MODULE_LICENSE("GPL v2");

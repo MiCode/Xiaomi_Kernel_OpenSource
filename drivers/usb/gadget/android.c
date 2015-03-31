@@ -4,6 +4,7 @@
  * Copyright (C) 2008 Google, Inc.
  * Author: Mike Lockwood <lockwood@android.com>
  *         Benoit Goby <benoit@android.com>
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,6 +36,8 @@
 
 #include "gadget_chips.h"
 
+//supply cdrom hook, mass_storage invke the function
+static int android_is_set_cdrom(void);
 /*
  * Kbuild is not very cooperative with respect to linking separately
  * compiled library objects into one module.  So for now we won't use
@@ -1810,6 +1813,13 @@ static int mass_storage_function_init(struct android_usb_function *f,
 		config->fsg.nluns++;
 	}
 
+	//cdrom default value set 1, it may be changed in inquiry process using android_is_set_cdrom
+	//whether cdrom or mass_storage depends on host OS
+	config->fsg.luns[0].cdrom = 1;
+	config->fsg.luns[0].ro = 1;
+	config->fsg.luns[0].removable = 1;
+	config->fsg.luns[0].nofua = 1;
+
 	common = fsg_common_init(NULL, cdev, &config->fsg);
 	if (IS_ERR(common)) {
 		kfree(config);
@@ -2711,6 +2721,18 @@ static struct usb_composite_driver android_usb_driver = {
 	.unbind		= android_usb_unbind,
 	.max_speed	= USB_SPEED_SUPER
 };
+
+static int android_is_set_cdrom(void)
+{
+	struct android_dev *dev = NULL;
+	/* Find the android dev from the list */
+	list_for_each_entry(dev, &android_dev_list, list_item) {
+		if ( dev && dev->cdev && dev->cdev->gadget &&  dev->cdev->gadget->usb_sys_state == GADGET_STATE_DONE_SET)
+			return 0;
+	}
+	//default value
+	return 1;
+}
 
 static int
 android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)

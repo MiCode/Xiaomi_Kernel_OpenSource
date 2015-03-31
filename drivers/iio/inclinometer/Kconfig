@@ -1,0 +1,17 @@
+#
+# Inclinometer sensors
+#
+menu "Inclinometer sensors"
+
+config HID_SENSOR_INCLI_3D
+	depends on HID_SENSOR_HUB
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select HID_SENSOR_IIO_COMMON
+	select HID_SENSOR_IIO_TRIGGER
+	tristate "HID Inclinometer 3D"
+	help
+	  Say yes here to build support for the HID SENSOR
+	  Inclinometer 3D.
+
+endmenu

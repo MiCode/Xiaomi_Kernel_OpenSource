@@ -11,6 +11,8 @@ menuconfig INPUT_TOUCHSCREEN
 
 if INPUT_TOUCHSCREEN
 
+source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
+
 config TOUCHSCREEN_88PM860X
 	tristate "Marvell 88PM860x touchscreen"
 	depends on MFD_88PM860X
@@ -110,17 +112,39 @@ config TOUCHSCREEN_ATMEL_MXT
 	  To compile this driver as a module, choose M here: the
 	  module will be called atmel_mxt_ts.
 
-config TOUCHSCREEN_ATMEL_MAXTOUCH_TS
-	tristate "Atmel Maxtouch Touchscreen Family"
-	depends on I2C
-	help
-	  Say Y here if you have Atmel MaXTouch Touchscreen
-	  using i2c connected to your system.
+config TOUCHSCREEN_ATMEL_640T
+        tristate "Atmel 640T I2C Touchscreen"
+        depends on I2C
+        help
+          Say Y here if you have Atmel T series I2C touchscreen,
+          such as 640T, connected to your system.
 
-	  If unsure, say N.
+          If unsure, say N.
 
-	  To compile this driver as a module, choose M here: the
-	  module will be called atmel_maxtouch_ts.
+          To compile this driver as a module, choose M here: the
+          module will be called atmel_mxt_ts.
+
+config TOUCHSCREEN_ST_FTS
+        tristate "ST FTS I2C Touchscreen"
+        depends on I2C
+        help
+          Say Y here if you have ST FTS series I2C touchscreen,
+          such as FTSLGA, connected to your system.
+
+          If unsure, say N.
+          To compile this driver as a module, choose M here: the
+          module will be called ST FTS.
+
+config TOUCHSCREEN_CYTTSP_BUTTON
+        tristate "Cypress I2C button"
+        depends on I2C
+        help
+          Say Y here if you have Cypressseries I2C button,
+          such as 3155 or 3175, connected to your system.
+
+          If unsure, say N.
+          To compile this driver as a module, choose M here: the
+          module will be called CYTTSP BUTTON.
 
 config TOUCHSCREEN_AUO_PIXCIR
 	tristate "AUO in-cell touchscreen using Pixcir ICs"
@@ -980,36 +1004,6 @@ config TOUCHSCREEN_SYNAPTICS_I2C_RMI4
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called synaptics_i2c_rmi4.
-
-config TOUCHSCREEN_SYNAPTICS_DSX_RMI4_DEV
-	tristate "Synaptics I2C touchscreen rmi device"
-	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
-	help
-	  This enables support for character device channel for Synaptics
-	  RMI4 touchscreens.
-
-	  Say Y here if you have a Synaptics DSX I2C touchscreen
-	  connected to your system.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called synaptics_dsx_rmi4_dev.
-
-config TOUCHSCREEN_SYNAPTICS_DSX_FW_UPDATE
-	tristate "Synaptics I2C touchscreen firmware update"
-	depends on TOUCHSCREEN_SYNAPTICS_I2C_RMI4
-	help
-	  This enables support for firmware update for Synaptics RMI4
-	  touchscreens.
-
-	  Say Y here if you have a Synaptics DSX I2C touchscreen
-	  connected to your system.
-
-	  If unsure, say N.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called synaptics_dsx_fw_update.
 
 config SECURE_TOUCH
 	bool "Secure Touch"

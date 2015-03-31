@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 1999-2001 Vojtech Pavlik
+ *  Copyright (C) 2015 XiaoMi, Inc.
  *
  *  USB HIDBP Mouse support
  */
@@ -92,9 +93,10 @@ static void usb_mouse_irq(struct urb *urb)
 resubmit:
 	status = usb_submit_urb (urb, GFP_ATOMIC);
 	if (status)
-		err ("can't resubmit intr, %s-%s/input0, status %d",
-				mouse->usbdev->bus->bus_name,
-				mouse->usbdev->devpath, status);
+		dev_err(&mouse->usbdev->dev,
+			"can't resubmit intr, %s-%s/input0, status %d\n",
+			mouse->usbdev->bus->bus_name,
+			mouse->usbdev->devpath, status);
 }
 
 static int usb_mouse_open(struct input_dev *dev)

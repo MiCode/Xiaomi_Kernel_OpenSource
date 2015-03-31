@@ -3,6 +3,7 @@
  *
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
  * benh@kernel.crashing.org
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -547,6 +548,50 @@ int __init of_flat_dt_match(unsigned long node, const char *const *compat)
 	return of_fdt_match(initial_boot_params, node, compat);
 }
 
+void __init early_init_dt_check_for_smem_info(unsigned long node)
+{
+	unsigned long smem_info, len;
+	__be32 *prop;
+
+	pr_debug("Looking for smem info properties... \n");
+
+	prop = of_get_flat_dt_prop(node, "smeminfo", &len);
+	if (!prop)
+		return;
+	smem_info = of_read_ulong(prop, len/4);
+	pr_debug("smem_info %lu\n", smem_info);
+}
+
+void __init early_init_dt_check_for_hw_version(unsigned long node)
+{
+	unsigned long hw_version, len;
+	__be32 *prop;
+
+	pr_debug("Looking for hw version properties... \n");
+
+	prop = of_get_flat_dt_prop(node, "hwversion", &len);
+	if (!prop)
+		return;
+	hw_version = of_read_ulong(prop, len/4);
+	early_init_dt_setup_hwversion_arch(hw_version);
+	pr_debug("hw version %lu\n", hw_version);
+}
+
+void __init early_init_dt_check_for_powerup_reason(unsigned long node)
+{
+	unsigned long pu_reason, len;
+	__be32 *prop;
+
+	pr_debug("Looking for powerup reason properties... \n");
+
+	prop = of_get_flat_dt_prop(node, "pureason", &len);
+	if (!prop)
+		return;
+	pu_reason = of_read_ulong(prop, len/4);
+	early_init_dt_setup_pureason_arch(pu_reason);
+	pr_debug("Powerup reason %lu\n", pu_reason);
+}
+
 #ifdef CONFIG_BLK_DEV_INITRD
 /**
  * early_init_dt_check_for_initrd - Decode initrd location from flat tree
@@ -696,6 +741,11 @@ int __init early_init_dt_scan_chosen(unsigned long node, const char *uname,
 
 	pr_debug("Command line is: %s\n", (char*)data);
 
+	early_init_dt_check_for_powerup_reason(node);
+
+	early_init_dt_check_for_hw_version(node);
+
+	early_init_dt_check_for_smem_info(node);
 	/* break now */
 	return 1;
 }

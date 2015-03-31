@@ -1,0 +1,306 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8974pro-ac-pm8941.dtsi"
+/include/ "msm8974-mtp.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8974Pro-AC MTP V4";
+	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
+	qcom,board-id = <8 0x400>;
+};
+
+&imx214 {
+		cam_vaf-supply = <&pm8941_l23>;
+                qcom,cam-vreg-min-voltage = <1225000 0 2850000 3000000>;
+                qcom,cam-vreg-max-voltage = <1225000 0 2850000 3000000>;
+		qcom,actuator-src = <&actuator0>;
+};
+
+&s5k3m2 {
+		cam_vdig-supply = <&pm8941_l3>;
+		cam_vana-supply = <&pm8941_l17>;
+		cam_vio-supply = <&pm8941_lvs3>;
+		cam_vaf-supply = <&pm8941_l23>;
+                qcom,cam-vreg-min-voltage = <1225000 0 2850000 3000000>;
+                qcom,cam-vreg-max-voltage = <1225000 0 2850000 3000000>;
+		qcom,actuator-src = <&actuator0>;
+};
+
+
+&soc {
+
+	 i2c@f9924000 {
+		synaptics_dsx_i2c@70 {
+			compatible = "synaptics,rmi4";
+			reg = <0x70>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <54 0x2>;
+			synaptics,id = <0>;
+			synaptics,reset-gpio = <&msmgpio 60 0x00>;
+			synaptics,irq-gpio = <&msmgpio 54 0x2>;
+			synaptics,power-gpio = <&msmgpio 48 0x00>;
+			synaptics,fw-name = "synaptics_update.fw";
+			synaptics,x-flip = <0>;
+			synaptics,y-flip = <0>;
+			synaptics,swap-axes = <0>;
+			synaptics,power-on-state = <1>;
+			synaptics,reset-on-state = <0>;
+			synaptics,irqflags = <0x2008>;
+			synaptics,panel-x = <1080>;
+			synaptics,panel-y = <1920>;
+			synaptics,max-major = <255>;
+			synaptics,max-minor = <255>;
+			synaptics,max-finger-num = <10>;
+			synaptics,power-delay-ms = <160>;
+			synaptics,reset-delay-ms = <100>;
+			synaptics,reset-active-ms = <20>;
+			synaptics,byte-delay-us = <20>;
+			synaptics,block-delay-us = <20>;
+			synaptics,key-num = <3>;
+			synaptics,key-map = <139 102 158>;
+		};
+
+		synaptics_dsx_i2c@71 {
+			compatible = "synaptics,rmi4";
+			reg = <0x71>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <54 0x2>;
+			synaptics,id = <1>;
+			synaptics,reset-gpio = <&msmgpio 60 0x00>;
+			synaptics,irq-gpio = <&msmgpio 54 0x2>;
+			synaptics,power-gpio = <&msmgpio 48 0x00>;
+			synaptics,fw-name = "synaptics_update_wintek.fw";
+			synaptics,x-flip = <0>;
+			synaptics,y-flip = <0>;
+			synaptics,swap-axes = <0>;
+			synaptics,power-on-state = <1>;
+			synaptics,reset-on-state = <0>;
+			synaptics,irqflags = <0x2008>;
+			synaptics,panel-x = <1080>;
+			synaptics,panel-y = <1920>;
+			synaptics,max-major = <255>;
+			synaptics,max-minor = <255>;
+			synaptics,max-finger-num = <10>;
+			synaptics,power-delay-ms = <160>;
+			synaptics,reset-delay-ms = <100>;
+			synaptics,reset-active-ms = <20>;
+			synaptics,byte-delay-us = <20>;
+			synaptics,block-delay-us = <20>;
+			synaptics,key-num = <3>;
+			synaptics,key-map = <139 102 158>;
+		};
+
+		atmel_mxt_ts_640t@4b {
+			compatible = "atmel,mxt-ts-640t";
+			reg = <0x4b>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <54 0x2>;
+			atmel,reset-gpio = <&msmgpio 60 0x00>;
+			atmel,irq-gpio = <&msmgpio 54 0x2008>;
+			atmel,power-gpio = <&msmgpio 48 0x00>;
+			atmel,mxt-fw-name = "mxT640T10AA.fw";
+			atmel,default-config = <1>;
+			atmel,config-array-size = <6>;
+			atmel,irqflags = <0x2008>;
+			atmel,gpio-mask = <0x1C>;
+			atmel,cfg_1 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x07>;
+				atmel,version = <0x05>;
+				atmel,build = <0x12>;
+				atmel,rev-id = <0x22>;
+				atmel,mxt-cfg-name = "mxt_640t_config_revc.fw";
+				atmel,vendor-id = <0x1C>; /* Not supported */
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <0>;
+			};
+			atmel,cfg_2 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x07>;
+				atmel,version = <0x10>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x32>;
+				atmel,mxt-cfg-name = "mxt_640t_config_revd.fw";
+				atmel,vendor-id = <0x1C>; /* Wintek, P2/P3, old ID */
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+			atmel,cfg_3 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x07>;
+				atmel,version = <0x10>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x32>;
+				atmel,mxt-cfg-name = "mxt_640t_config_revd.fw";
+				atmel,vendor-id = <0x14>; /* Wintek, MP */
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+			atmel,cfg_4 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x07>;
+				atmel,version = <0x10>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x32>;
+				atmel,mxt-cfg-name = "mxt_640t_ofilm_config.fw";
+				atmel,vendor-id = <0x18>; /* Ofilm */
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+			atmel,cfg_5 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x07>;
+				atmel,version = <0x10>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x32>;
+				atmel,mxt-cfg-name = "mxt_640t_biel_config.fw";
+				atmel,vendor-id = <0x0C>; /* Biel */
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+			atmel,cfg_6 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x07>;
+				atmel,version = <0x10>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x32>;
+				atmel,mxt-cfg-name = "mxt_640t_laibao_config.fw";
+				atmel,vendor-id = <0x00>; /* Laibao */
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <16>;
+			};
+		};
+
+		fts_ts@48 {
+			compatible = "st,fts-ts";
+			reg = <0x48>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <54 0x2008>;
+			st,x-max = <1080>;
+			st,x-min = <0>;
+			st,y-max = <1920>;
+			st,y-min = <0>;
+			st,prox-z = <140>;
+			st,z-min = <1>;
+			st,z-max = <128>;
+			st,power-gpio = <&msmgpio 48 0x00>;
+			st,reset-gpio = <&msmgpio 60 0x00>;
+			st,irq-gpio = <&msmgpio 54 0x2008>;
+			st,lcd-gpio = <&msmgpio 25 0x00>;
+			st,irqflags = <0x2008>;
+			st,key-codes = <139 102 158>;
+			st,key-num = <3>;
+			st,is-mutual-key = <1>;
+			st,touch-info = <2>;
+			st,config-array-size = <2>;
+			st,cfg_1 {
+				st,lcd-id = <0x00>;
+				st,module-id = <0x02>;
+				st,config-name = "fts_wintek_config_sharp.fw";
+				st,firmware-name = "fts_wintek_firmware_sharp.fw";
+			};
+			st,cfg_2 {
+				st,lcd-id = <0x00>;
+				st,module-id = <0x04>;
+				st,config-name = "fts_wintek_config_sharp.fw";
+				st,firmware-name = "fts_wintek_firmware_sharp.fw";
+			};
+		};
+	};
+
+	pwm_ir {
+		compatible = "pwm-ir";
+		pwm-id = <1>;
+	};
+};
+
+&pm8941_gpios {
+	gpio@d700 { /* GPIO 24 */
+		qcom,mode = <1>;         /* QPNP_PIN_MODE_DIG_OUT */
+		qcom,output-type = <0>;  /* QPNP_PIN_OUT_BUF_CMOS */
+		qcom,invert = <0>;       /* QPNP_PIN_INVERT_DISABLE */
+		qcom,out-strength = <3>; /* QPNP_PIN_OUT_STRENGTH_HIGH */
+		qcom,vin-sel = <2>;      /* QPNP_PIN_VIN2  */
+		qcom,src-sel = <3>;      /* QPNP_PIN_SEL_FUNC_2(LPG) */
+		qcom,master-en = <1>;    /* QPNP_PIN_MASTER_ENABLE */
+	};
+};
+
+&sdhc_1 {
+	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
+};

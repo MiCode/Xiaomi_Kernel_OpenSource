@@ -106,6 +106,7 @@ enum msm_sensor_power_seq_gpio_t {
 	SENSOR_GPIO_VAF,
 	SENSOR_GPIO_FL_EN,
 	SENSOR_GPIO_FL_NOW,
+	SENSOR_GPIO_IMG_EN,
 	SENSOR_GPIO_MAX,
 };
 
@@ -354,6 +355,7 @@ struct msm_sensor_info_t {
 	uint32_t sensor_mount_angle;
 	int modes_supported;
 	enum camb_position_t position;
+	uint32_t mclk;
 };
 
 struct camera_vreg_t {
@@ -378,6 +380,8 @@ struct msm_sensor_init_params {
 	enum camb_position_t position;
 	/* sensor mount angle */
 	uint32_t            sensor_mount_angle;
+	/* sensor mclk source */
+	uint32_t            mclk;
 };
 
 struct msm_camera_sensor_slave_info {
@@ -492,6 +496,7 @@ enum msm_actuator_cfg_type_t {
 	CFG_SET_DEFAULT_FOCUS,
 	CFG_MOVE_FOCUS,
 	CFG_SET_POSITION,
+	CFG_SET_CAM_MODE,
 };
 
 enum actuator_type {
@@ -605,6 +610,12 @@ struct msm_actuator_set_position_t {
 	uint16_t delay[MAX_NUMBER_OF_STEPS];
 };
 
+typedef enum{
+    ACTUATOR_CAM_MODE_CAMERA,
+    ACTUATOR_CAM_MODE_CAMCORDER,
+    ACTUATOR_CAM_MODE_MAX,
+} actuator_cam_mode_t;
+
 struct msm_actuator_cfg_data {
 	int cfgtype;
 	uint8_t is_af_supported;
@@ -614,6 +625,7 @@ struct msm_actuator_cfg_data {
 		struct msm_actuator_get_info_t get_info;
 		struct msm_actuator_set_position_t setpos;
 		enum af_camera_name cam_name;
+		actuator_cam_mode_t cam_mode;
 	} cfg;
 };
 

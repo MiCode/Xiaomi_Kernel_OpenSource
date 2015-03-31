@@ -3,6 +3,7 @@
  *
  * Copyright 2009 Benjamin Herrenschmidt, IBM Corp
  * benh@kernel.crashing.org
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -109,6 +110,9 @@ extern u64 dt_mem_next_cell(int s, __be32 **cellp);
 extern void early_init_dt_setup_initrd_arch(unsigned long start,
 					    unsigned long end);
 #endif
+extern void early_init_dt_setup_pureason_arch(unsigned long pu_reason);
+
+extern void early_init_dt_setup_hwversion_arch(unsigned long hw_version);
 
 /* Early flat tree scan hooks */
 extern int early_init_dt_scan_root(unsigned long node, const char *uname,

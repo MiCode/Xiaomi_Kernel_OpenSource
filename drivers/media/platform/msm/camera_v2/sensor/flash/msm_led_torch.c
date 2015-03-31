@@ -1,4 +1,5 @@
 /* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,9 +15,11 @@
 #define pr_fmt(fmt) "%s:%d " fmt, __func__, __LINE__
 
 #include <linux/module.h>
+#include <asm/bootinfo.h>
 #include "msm_led_flash.h"
 
 static struct led_trigger *torch_trigger;
+static struct msm_led_flash_ctrl_t *fctrl;
 
 static void msm_led_torch_brightness_set(struct led_classdev *led_cdev,
 				enum led_brightness value)
@@ -26,12 +29,23 @@ static void msm_led_torch_brightness_set(struct led_classdev *led_cdev,
 		return;
 	}
 
-	led_trigger_event(torch_trigger, value);
+	if (get_hw_version_major() == 4)
+		led_trigger_event(torch_trigger, value);
+	else /* x3 use dual led */
+		led_trigger_event(torch_trigger, value / 2);
+
+	fctrl->torch_brightness = value;
 };
 
+static enum led_brightness msm_led_torch_brightness_get(struct led_classdev *led_cdev)
+{
+	return fctrl->torch_brightness;
+}
+
 static struct led_classdev msm_torch_led = {
-	.name			= "torch-light",
+	.name			= "flashlight",
 	.brightness_set	= msm_led_torch_brightness_set,
+	.brightness_get	= msm_led_torch_brightness_get,
 	.brightness		= LED_OFF,
 };
 
@@ -39,8 +53,7 @@ int32_t msm_led_torch_create_classdev(struct platform_device *pdev,
 				void *data)
 {
 	int rc;
-	struct msm_led_flash_ctrl_t *fctrl =
-		(struct msm_led_flash_ctrl_t *)data;
+	fctrl = (struct msm_led_flash_ctrl_t *)data;
 
 	if (!fctrl || !fctrl->torch_trigger) {
 		pr_err("Invalid fctrl or torch trigger\n");

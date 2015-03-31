@@ -1,4 +1,5 @@
 /* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +19,12 @@ static struct msm_sensor_ctrl_t imx135_s_ctrl;
 
 static struct msm_sensor_power_setting imx135_power_setting[] = {
 	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_IMG_EN,
+		.config_val = GPIO_OUT_HIGH,
+		.delay = 1,
+	},
+	{
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VDIG,
 		.config_val = 0,
@@ -33,7 +40,7 @@ static struct msm_sensor_power_setting imx135_power_setting[] = {
 		.seq_type = SENSOR_VREG,
 		.seq_val = CAM_VIO,
 		.config_val = 0,
-		.delay = 0,
+		.delay = 2,
 	},
 	{
 		.seq_type = SENSOR_VREG,
@@ -51,7 +58,7 @@ static struct msm_sensor_power_setting imx135_power_setting[] = {
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_RESET,
 		.config_val = GPIO_OUT_HIGH,
-		.delay = 30,
+		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_GPIO,
@@ -63,7 +70,7 @@ static struct msm_sensor_power_setting imx135_power_setting[] = {
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_STANDBY,
 		.config_val = GPIO_OUT_HIGH,
-		.delay = 30,
+		.delay = 1,
 	},
 	{
 		.seq_type = SENSOR_CLK,
@@ -135,6 +142,104 @@ static int32_t imx135_platform_probe(struct platform_device *pdev)
 	return rc;
 }
 
+static int imx135_wait_otp_page(struct msm_sensor_ctrl_t *s_ctrl, u16 page)
+{
+        int i;
+        uint16_t byte = 0;
+
+        s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(
+		s_ctrl->sensor_i2c_client, 0x3B02, page, MSM_CAMERA_I2C_BYTE_DATA);
+        s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write(
+		s_ctrl->sensor_i2c_client, 0x3B00, 0x01, MSM_CAMERA_I2C_BYTE_DATA);
+        udelay(10);
+        for(i = 0; i < 10; i++) {
+	        s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+			s_ctrl->sensor_i2c_client, 0x3B01, &byte, MSM_CAMERA_I2C_BYTE_DATA);
+                byte &= 1;
+                if(byte == 1) break;
+                udelay(10);
+                pr_info("%s byte:%d", __func__, byte);
+        }
+        return byte;
+}
+
+uint16_t af_init_code = 0;
+static int32_t imx135_match_id(struct msm_sensor_ctrl_t *s_ctrl)
+{
+        int32_t rc = 0;
+        int32_t i = 0;
+        uint16_t chipid = 0;
+
+        rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+                        s_ctrl->sensor_i2c_client,
+                        s_ctrl->sensordata->slave_info->sensor_id_reg_addr,
+                        &chipid, MSM_CAMERA_I2C_WORD_DATA);
+        if (rc < 0) {
+                pr_err("%s: %s: read id failed\n", __func__,
+                        s_ctrl->sensordata->sensor_name);
+        }
+
+        pr_info("%s: read id: %x expected id: %x\n", __func__, chipid,
+                s_ctrl->sensordata->slave_info->sensor_id);
+
+        if (chipid != s_ctrl->sensordata->slave_info->sensor_id) {
+                pr_err("msm_sensor_match_id chip id doesnot match\n");
+                return -ENODEV;
+        }
+
+	if(af_init_code > 0)
+		return rc;
+
+        if( imx135_wait_otp_page(s_ctrl, 1) == 1) {
+		for(i = 0x3B24; i >= 0x3B04; i -= 0x10) {
+			s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+				s_ctrl->sensor_i2c_client, i, &chipid, MSM_CAMERA_I2C_WORD_DATA);
+                        if(chipid != 0) break;
+                }
+        }
+        pr_info("imx135 module vendor: 0x%04x", chipid);
+
+	// Read serial number
+	chipid = 0;
+        if( imx135_wait_otp_page(s_ctrl, 0) == 1) {
+		for(i = 0x3B24; i <= 0x3B2B; i += 1) {
+			s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+				s_ctrl->sensor_i2c_client, i, &chipid, MSM_CAMERA_I2C_BYTE_DATA);
+			pr_info("imx135 0x%02x", chipid);
+                }
+        } else
+		pr_info("wait page 0 failed");
+
+
+        // Check OTP Write OK
+	chipid = 0;
+        if( imx135_wait_otp_page(s_ctrl, 16) == 1) {
+                for(i = 0x3B05; i >= 0x3B04; i -= 0x1) {
+                        s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+                                s_ctrl->sensor_i2c_client, i, &chipid, MSM_CAMERA_I2C_BYTE_DATA);
+                        if((chipid == 0x11)||(chipid == 0xEE)) goto otp_id;
+                }
+        }
+        if( imx135_wait_otp_page(s_ctrl, 15) == 1) {
+                        s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+                                s_ctrl->sensor_i2c_client, 0x3B04, &chipid, MSM_CAMERA_I2C_BYTE_DATA);
+                        if((chipid == 0x11)||(chipid == 0xEE)) goto otp_id;
+        }
+otp_id:
+	if(chipid != 0x11) {
+		af_init_code = 150;
+		return rc;
+	}
+
+        /* read af calibration data */
+	imx135_wait_otp_page(s_ctrl, 14);
+        s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_read(
+		s_ctrl->sensor_i2c_client, 0x3B04 + 12, &af_init_code, MSM_CAMERA_I2C_WORD_DATA);
+        pr_info(" imx135 inf:%d ", af_init_code);
+
+        return rc;
+}
+
 static int __init imx135_init_module(void)
 {
 	int32_t rc = 0;
@@ -165,6 +270,7 @@ static struct msm_sensor_ctrl_t imx135_s_ctrl = {
 	.msm_sensor_mutex = &imx135_mut,
 	.sensor_v4l2_subdev_info = imx135_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(imx135_subdev_info),
+	.sensor_match_id = imx135_match_id,
 };
 
 module_init(imx135_init_module);

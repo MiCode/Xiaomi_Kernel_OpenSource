@@ -1,0 +1,489 @@
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+/include/ "msm8974pro-ac-pm8941.dtsi"
+/include/ "msm8974-mtp.dtsi"
+
+/ {
+	model = "Qualcomm MSM 8974Pro-AC MTP V5";
+	compatible = "qcom,msm8974-mtp", "qcom,msm8974", "qcom,mtp";
+	qcom,board-id = <8 0x500>;
+};
+
+&sdhc_1 {
+	qcom,pad-pull-on = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	qcom,pad-pull-off = <0x0 0x3 0x3 0x1>; /* no-pull, pull-up, pull-up, pull-down */
+	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
+};
+
+&hall_key0_mtp {
+	gpios = <&msmgpio 95 0x01>;
+};
+
+&headset_pa_ti {
+	status = "disabled";
+};
+
+&pm8941_l22 {
+	regulator-always-on;
+};
+
+&pm8941_l18 {
+	regulator-always-on;
+	qcom,init-enable = <1>;
+};
+
+&pm8941_lvs1 {
+	regulator-always-on;
+	qcom,init-enable = <1>;
+};
+
+&mdss_dsi0 {
+	incell-enabled;
+	qcom,platform-tpldo-gpio = <&msmgpio 16 0>;
+
+	vdd-supply = <&tpwdn_vreg>;
+	vddio-supply = <&pm8941_l12>;
+	vddiotp-supply = <&tpio_vreg>;
+	vdda-supply = <&pm8941_l2>;
+	vdds-supply = <&vsp_vreg>;
+	vddn-supply = <&vsn_vreg>;
+
+	qcom,platform-supply-entry1 {
+		qcom,supply-name = "vdd";
+		qcom,supply-min-voltage = <3200000>;
+		qcom,supply-max-voltage = <3200000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <0>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <0>;
+	};
+	qcom,platform-supply-entry2 {
+		qcom,supply-name = "vddio";
+		qcom,supply-min-voltage = <1800000>;
+		qcom,supply-max-voltage = <1800000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <0>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <0>;
+	};
+	qcom,platform-supply-entry3 {
+		qcom,supply-name = "vddiotp";
+		qcom,supply-min-voltage = <1800000>;
+		qcom,supply-max-voltage = <1800000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <0>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <0>;
+	};
+	qcom,platform-supply-entry4 {
+		qcom,supply-name = "vdda";
+		qcom,supply-min-voltage = <1200000>;
+		qcom,supply-max-voltage = <1200000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <0>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <0>;
+	};
+	qcom,platform-supply-entry5 {
+		qcom,supply-name = "vdds";
+		qcom,supply-min-voltage = <1200000>;
+		qcom,supply-max-voltage = <1200000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <0>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <10>;
+	};
+	qcom,platform-supply-entry6 {
+		qcom,supply-name = "vddn";
+		qcom,supply-min-voltage = <1200000>;
+		qcom,supply-max-voltage = <1200000>;
+		qcom,supply-enable-load = <100000>;
+		qcom,supply-disable-load = <100>;
+		qcom,supply-pre-on-sleep = <0>;
+		qcom,supply-post-on-sleep = <10>;
+		qcom,supply-pre-off-sleep = <0>;
+		qcom,supply-post-off-sleep = <10>;
+	};
+};
+
+&eeprom0 {
+          cam_vdig-supply = <&pm8941_l3>;
+	  cam_vana-supply = <&pm8941_l17>;
+          cam_vio-supply = <&pm8941_lvs3>;
+};
+
+&imx214 {
+		qcom,eeprom-src = <&eeprom0>;
+		cam_vaf-supply = <&pm8941_l21>;
+                qcom,cam-vreg-min-voltage = <1225000 0 2850000 2950000>;
+                qcom,cam-vreg-max-voltage = <1225000 0 2850000 2950000>;
+                qcom,csiphy-sd-index = <0>;
+                qcom,csid-sd-index = <0>;
+		qcom,actuator-src = <&actuator2>;
+                gpios = <&msmgpio 15 0>, <&msmgpio 48 0>, <&msmgpio 47 0>, <&msmgpio 45 0>, <&msmgpio 56 0>;
+                qcom,led-flash-src = <&led_flash1>;
+                qcom,sensor-mode = <0>;
+};
+
+&frcam {
+                compatible = "qcom,ov4688";
+                reg = <0x6c>;
+                qcom,slave-id = <0x6c 0x300A 0x4688>;
+                qcom,csiphy-sd-index = <2>;
+                qcom,csid-sd-index = <2>;
+                qcom,mount-angle = <270>;
+                qcom,sensor-name = "ov4688";
+                cam_vdig-supply = <&pm8941_l3>;
+                cam_vana-supply = <&pm8941_l17>;
+                cam_vio-supply = <&pm8941_lvs3>;
+                qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio";
+                qcom,cam-vreg-type = <0 0 1>;
+                qcom,cam-vreg-min-voltage = <1225000 2850000 0>;
+                qcom,cam-vreg-max-voltage = <1225000 2850000 0>;
+                qcom,cam-vreg-op-mode = <105000 80000 0>;
+                qcom,gpio-no-mux = <0>;
+                gpios = <&msmgpio 17 0>,
+                        <&msmgpio 18 0>,
+                        <&msmgpio 46 0>;
+                qcom,gpio-reset = <1>;
+                qcom,gpio-standby = <2>;
+                qcom,gpio-req-tbl-num = <0 1 2>;
+                qcom,gpio-req-tbl-flags = <1 0 0>;
+                qcom,gpio-req-tbl-label = "CAMIF_MCLK",
+                                          "CAM_RESET1",
+                                          "CAM_STANDBY";
+                qcom,gpio-set-tbl-num = <1 1 1>;
+                qcom,gpio-set-tbl-flags = <0 1 1>;
+                qcom,gpio-set-tbl-delay = <1000 1000 1000>;
+                qcom,csi-lane-assign = <0x4320>;
+                qcom,csi-lane-mask = <0x1F>;
+                qcom,sensor-position = <1>;
+                qcom,sensor-mode = <1>;
+                qcom,cci-master = <1>;
+                status = "ok";
+};
+
+&led_flash0 {
+                cell-index = <0>;
+                compatible = "qcom,camera-led-flash";
+                qcom,flash-type = <1>;
+                qcom,torch-source = <>;
+                qcom,flash-source = <>;
+};
+
+
+
+&soc {
+	i2c@f9967000 {
+		led_flash1: qcom,led-flash@67 {
+			cell-index = <0>;
+			reg = <0x67>;
+			qcom,slave-id = <0x67 0x00 0x11>;
+			compatible = "qcom,led-flash";
+			qcom,flash-name = "lm3646";
+			qcom,flash-type = <1>;
+			qcom,gpio-no-mux = <0>;
+			gpios = <&msmgpio 27 0>,
+				<&msmgpio 29 0>;
+			qcom,gpio-flash-en = <0>;
+			qcom,gpio-flash-now = <1>;
+			qcom,gpio-req-tbl-num = <0 1>;
+			qcom,gpio-req-tbl-flags = <1 0>;
+			qcom,gpio-req-tbl-label = "FLASH_EN", "FLASH_NOW";
+		};
+
+		tas2552@40 {
+			reg = <0x40>;
+			compatible = "ti,tas2552";
+			ti,enable-gpio = <&msmgpio 76 0x00>;
+		};
+	};
+
+	i2c@f9924000 {
+		synaptics_dsi_i2c@20 {
+			compatible = "synaptics,dsx,incell";
+			reg = <0x20>;
+			vdd-supply = <&tpio_vreg>;
+			avdd-supply = <&tpwdn_vreg>;
+			vddio-supply = <&pm8941_l12>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <54 0x2>;
+			synaptics,cut-off-power;
+			synaptics,pwr-reg-name = "vdd";
+			synaptics,bus-reg-name = "avdd";
+			synaptics,io-reg-name = "vddio";
+			synaptics,reset-gpio = <&msmgpio 62 0x00>;
+			synaptics,irq-gpio = <&msmgpio 54 0x2>;
+			synaptics,fw-name = "synaptics_update_incell.fw";
+			synaptics,power-on-state = <1>;
+			synaptics,reset-on-state = <0>;
+			synaptics,irq-flags = <0x2008>;
+			synaptics,panel-x = <1080>;
+			synaptics,panel-y = <1920>;
+			synaptics,max-major = <255>;
+			synaptics,max-minor = <255>;
+			synaptics,max-finger-num = <10>;
+			synaptics,power-delay-ms = <160>;
+			synaptics,reset-delay-ms = <30>;
+			synaptics,reset-active-ms = <5>;
+			synaptics,cap-button-map = <139 102 158>;
+		};
+		cyttsp_streetfighter_p2@28 {
+			compatible = "cypress,sf3155";
+			reg = <0x28>;
+			vdd-supply = <&tpio_vreg>;
+			avdd-supply = <&tpwdn_vreg>;
+			vddio-supply = <&pm8941_l12>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <65 0x2>;
+			cyttsp,cut-off-power;
+			cyttsp,irq-gpio = <&msmgpio 65 0x2>;
+			cyttsp,irqflags = <0x2>;
+			cyttsp,input-name = "cyttsp_button";
+			cyttsp,key-num = <3>;
+			cyttsp,key-codes = <139 102 158>;
+			cyttsp,touch-mode-reg = <0x00>;
+			cyttsp,button-status-reg = <0x4A>;
+			cyttsp,bootloader-addr = <0x56>;
+			cyttsp,default-config = <0>;
+			cyttsp,config-array-size = <2>;
+			cyttsp,standby-reg = <0x01>;
+			cyttsp,cfg_1 {
+				cyttsp,panel-id = <0x31>;	/* Biel */
+				cyttsp,fw-name = "cyttsp_button_no_shielding_biel.fw";
+			};
+			cyttsp,cfg_2 {
+				cyttsp,panel-id = <0x32>;	/* Lens */
+				cyttsp,fw-name = "cyttsp_button_no_shielding_lens.fw";
+			};
+		};
+		atmel_mxt_ts_640t@4c {
+			compatible = "atmel,mxt-ts-640t";
+			reg = <0x4c>;
+			vdd-supply = <&tpio_vreg>;
+			avdd-supply = <&tpwdn_vreg>;
+			vddio-supply = <&pm8941_l12>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <54 0x2>;
+			atmel,cut-off-power;
+			atmel,reset-gpio = <&msmgpio 62 0x00>;
+			atmel,irq-gpio = <&msmgpio 54 0x2008>;
+			atmel,mxt-fw-name = "mxT640T15AA.fw";
+			atmel,default-config = <0>;
+			atmel,config-array-size = <1>;
+			atmel,irqflags = <0x2008>;
+			atmel,gpio-mask = <0x1C>;
+			atmel,cfg_1 {
+				atmel,family-id = <0xA4>;
+				atmel,variant-id = <0x02>;
+				atmel,version = <0x15>;
+				atmel,build = <0xAA>;
+				atmel,rev-id = <0x32>;
+				atmel,mxt-cfg-name = "mxt_640t_x5_biel_config.fw";
+				atmel,vendor-id = <0x38>;
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <17>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+				atmel,wake-up-self-adcx = <0>;
+			};
+		};
+	};
+
+	i2c@f9923000 {
+		es9018@48 {
+			reg = <0x48>;
+			compatible = "ess,es9018";
+			dvcc-supply = <&vreg_hifi_3p3>;
+			dvdd-supply = <&vreg_hifi_1p8>;
+			avccl-supply = <&vreg_cp_5p0>;
+			avccr-supply = <&vreg_smps_5p0>;
+			ess,resetb-gpio = <&msmgpio 1 0x01>;
+			ess,mute-gpio = <&msmgpio 33 0x00>;
+			ess,switch-gpio = <&msmgpio 34 0x00>;
+		};
+	};
+
+	vreg_smps_5p0: vreg_smps_5p0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_smps_5p0";
+		startup-delay-us=<2000>;
+		gpio = <&msmgpio 13 0>;
+		enable-active-high;
+	};
+
+	vreg_cp_5p0: vreg_cp_5p0 {
+		compatible = "regulator-fixed";
+		regulator-name = "vreg_cp_5p0";
+		gpio = <&msmgpio 14 0>;
+		startup-delay-us=<4000>;
+		enable-active-high;
+	};
+
+	vreg_hifi_1p8: vreg_hifi_1p8 {
+		compatible = "regulator-fixed";
+		parent-supply = <&pm8941_l22>;
+		regulator-name = "vreg_hifi_1p8";
+		gpio = <&msmgpio 8 0>;
+		enable-active-high;
+	};
+
+	vreg_hifi_3p3: vreg_hifi_3p3 {
+		compatible = "regulator-fixed";
+		parent-supply = <&vreg_smps_5p0>;
+		regulator-name = "vreg_hifi_3p3";
+		gpio = <&msmgpio 9 0>;
+		enable-active-high;
+	};
+
+	vsp_vreg: disp_vsp_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsp";
+		gpio = <&msmgpio 85 0>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	vsn_vreg: disp_vsn_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "vsn";
+		gpio = <&msmgpio 69 0>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	tpwdn_vreg: disp_tpwdn_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "tpwdn";
+		gpio = <&msmgpio 77 0>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	tpio_vreg: disp_tpio_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "tpio";
+		gpio = <&msmgpio 68 0>;
+		enable-active-high;
+		regulator-boot-on;
+	};
+
+	i2c@f9968000 {
+		cell-index = <12>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9968000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 106 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <400000>;
+		qcom,i2c-src-freq = <19200000>;
+		qcom,scl-gpio = <&msmgpio 88 0>;
+		qcom,sda-gpio = <&msmgpio 87 0>;
+		qcom,master-id = <84>;
+
+		stm32_fwupdate@39 {
+			compatible = "st,stm32_i2c_fwu";
+			reg = <0x39>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpio-reset = <&msmgpio 31 0>;
+			gpio-boot0 = <&msmgpio 67 0>;
+			firmware-name = "st_mve_shub.bin";
+			rx-frame-max-length = <256>;
+			tx-frame-max-length = <0>; /* unlimited; */
+
+			new-i2c-dev {
+				compatible = "hid-over-i2c";
+				reg = <0x42>;
+
+				interrupt-parent = <&msmgpio>;
+				interrupts = <66 0x2>;
+
+				hid-descr-addr = <0x0001>;
+
+				wake-gpio = <&msmgpio 73 0>;
+				wake-rising-delay-min = <300>;
+				wake-rising-delay-max = <400>;
+				wake-falling-delay-min = <20>;
+				wake-falling-delay-max = <50>;
+
+				enable_i2c_limit_workaroud;
+				enable_wakeup_host;
+			};
+		};
+	};
+
+	i2c@f9925000 {
+		cell-index = <4>;
+		compatible = "qcom,i2c-qup";
+		reg = <0xf9925000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr";
+		interrupts = <0 97 0>;
+		interrupt-names = "qup_err_intr";
+		qcom,i2c-bus-freq = <400000>;
+		qcom,i2c-src-freq = <19200000>;
+		qcom,scl-gpio = <&msmgpio 11 0>;
+		qcom,sda-gpio = <&msmgpio 10 0>;
+		qcom,master-id = <86>;
+
+		cm36686@60 {
+			compatible = "cm,cm36686";
+			reg = <0x60>;
+
+			als_trans_ratio = <16>;
+			prox_default_offset = <1000>;
+			prox_thres_near = <300>;
+			prox_thres_far = <200>;
+		};
+
+		bmp280@77 {
+			compatible = "bmp,bmp280";
+			reg = <0x77>;
+		};
+	};
+
+	gpio-leds {
+		compatible = "gpio-leds";
+		switch_led {
+			label = "switch_led";
+			gpios = <&msmgpio 117 0>;
+			retain-state-suspended;
+		};
+	};
+
+};

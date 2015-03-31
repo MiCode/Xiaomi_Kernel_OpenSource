@@ -143,6 +143,10 @@ Optional properties:
 - qcom,sensor-position : should contain the mount angle of the camera sensor
     - 0 -> back camera
     - 1 -> front camera
+- qcom,sensor-mclk : should contain the mclk source of the camera sensor
+    - 0 -> mclk0
+    - 1 -> mclk1
+    - 2 -> mclk2
 - qcom,cci-master : should contain i2c master id to be used for this camera
     sensor
     - 0 -> MASTER 0

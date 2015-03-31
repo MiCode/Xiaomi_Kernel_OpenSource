@@ -2,6 +2,7 @@
  * soc-compress.c  --  ALSA SoC Compress
  *
  * Copyright (C) 2012 Intel Corp.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * Authors: Namarta Kohli <namartax.kohli@intel.com>
  *          Ramesh Babu K V <ramesh.babu@linux.intel.com>

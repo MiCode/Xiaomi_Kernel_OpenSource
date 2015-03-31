@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +29,7 @@
 #include "mdss_debug.h"
 
 static unsigned char *mdss_dsi_base;
+static bool poweron_firsttime = true;
 
 static int mdss_dsi_regulator_init(struct platform_device *pdev)
 {
@@ -62,44 +64,73 @@ static int mdss_dsi_panel_power_on(struct mdss_panel_data *pdata, int enable)
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
-	pr_debug("%s: enable=%d\n", __func__, enable);
+	pr_info("%s: enable=%d\n", __func__, enable);
 
 	if (enable) {
-		ret = msm_dss_enable_vreg(
-			ctrl_pdata->power_data.vreg_config,
-			ctrl_pdata->power_data.num_vreg, 1);
-		if (ret) {
-			pr_err("%s:Failed to enable vregs.rc=%d\n",
-				__func__, ret);
-			goto error;
+		if (!ctrl_pdata->panel_sleepwrmod || poweron_firsttime) {
+			ret = mdss_dsi_panel_pon(pdata, 1);
+			if (ret) {
+				pr_err("%s:Failed to enable panel pon.rc=%d\n",
+						__func__, ret);
+				goto error;
+			}
+
+			ret = msm_dss_enable_vreg(
+					ctrl_pdata->power_data.vreg_config,
+					ctrl_pdata->power_data.num_vreg, 1);
+			if (ret) {
+				pr_err("%s:Failed to enable vregs.rc=%d\n",
+						__func__, ret);
+				goto error;
+			}
 		}
 
-		ret = mdss_dsi_panel_reset(pdata, 1);
-		if (ret) {
-			pr_err("%s: Panel reset failed. rc=%d\n",
-					__func__, ret);
-			if (msm_dss_enable_vreg(
-			ctrl_pdata->power_data.vreg_config,
-			ctrl_pdata->power_data.num_vreg, 0))
-				pr_err("Disable vregs failed\n");
-			goto error;
+		if (pdata->panel_info.panel_power_on == 0) {
+			ret = mdss_dsi_panel_reset(pdata, 1);
+			if (ret) {
+				pr_err("%s: Panel reset failed. rc=%d\n",
+						__func__, ret);
+
+				if (msm_dss_enable_vreg(
+					ctrl_pdata->power_data.vreg_config,
+					ctrl_pdata->power_data.num_vreg, 0))
+					pr_err("Disable vregs failed\n");
+
+				if (mdss_dsi_panel_pon(pdata, 0))
+					pr_err("Disable pon failed\n");
+
+				goto error;
+			}
 		}
 	} else {
-
 		ret = mdss_dsi_panel_reset(pdata, 0);
 		if (ret) {
 			pr_err("%s: Panel reset failed. rc=%d\n",
 					__func__, ret);
 			goto error;
 		}
-		ret = msm_dss_enable_vreg(
-			ctrl_pdata->power_data.vreg_config,
-			ctrl_pdata->power_data.num_vreg, 0);
-		if (ret) {
-			pr_err("%s: Failed to disable vregs.rc=%d\n",
-				__func__, ret);
+
+		if (!ctrl_pdata->panel_sleepwrmod || poweron_firsttime) {
+			ret = msm_dss_enable_vreg(
+					ctrl_pdata->power_data.vreg_config,
+					ctrl_pdata->power_data.num_vreg, 0);
+			if (ret) {
+				pr_err("%s: Failed to disable vregs.rc=%d\n",
+						__func__, ret);
+			}
+
+			ret = mdss_dsi_panel_pon(pdata, 0);
+			if (ret) {
+				pr_err("%s: Panel poff failed. rc=%d\n",
+						__func__, ret);
+				goto error;
+			}
 		}
 	}
+
+	if (poweron_firsttime)
+		poweron_firsttime = false;
+
 error:
 	return ret;
 }
@@ -343,6 +374,8 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 	    && (panel_info->new_fps != panel_info->mipi.frame_rate))
 		panel_info->mipi.frame_rate = panel_info->new_fps;
 
+	ctrl_pdata->dsi_pipe_ready = false;
+
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -365,24 +398,34 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
-	if (pdata->panel_info.panel_power_on) {
-		pr_warn("%s:%d Panel already on.\n", __func__, __LINE__);
-		return 0;
-	}
-
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
-	pr_debug("%s+: ctrl=%p ndx=%d\n",
+	pr_info("%s+: ctrl=%p ndx=%d\n",
 				__func__, ctrl_pdata, ctrl_pdata->ndx);
 
 	pinfo = &pdata->panel_info;
 
-	ret = msm_dss_enable_vreg(ctrl_pdata->power_data.vreg_config,
+	if (pdata->panel_info.panel_power_on) {
+		pr_warn("%s:%d Panel already on.\n", __func__, __LINE__);
+		ctrl_pdata->dsi_pipe_ready = true;
+		return 0;
+	}
+
+	if (!ctrl_pdata->panel_sleepwrmod || poweron_firsttime) {
+		ret = mdss_dsi_panel_pon(pdata, 1);
+		if (ret) {
+			pr_err("%s:Failed to enable panel pon.rc=%d\n",
+					__func__, ret);
+			return ret;
+		}
+
+		ret = msm_dss_enable_vreg(ctrl_pdata->power_data.vreg_config,
 				ctrl_pdata->power_data.num_vreg, 1);
-	if (ret) {
-		pr_err("%s:Failed to enable vregs. rc=%d\n", __func__, ret);
-		return ret;
+		if (ret) {
+			pr_err("%s:Failed to enable vregs. rc=%d\n", __func__, ret);
+			return ret;
+		}
 	}
 
 	if (!pdata->panel_info.mipi.lp11_init) {
@@ -512,6 +555,11 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
 		mdss_dsi_clk_ctrl(ctrl_pdata, 0);
 
+	if (poweron_firsttime)
+		poweron_firsttime = false;
+
+	ctrl_pdata->dsi_pipe_ready = true;
+
 	pr_debug("%s-:\n", __func__);
 	return 0;
 }
@@ -522,7 +570,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	struct mipi_panel_info *mipi;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	pr_debug("%s+:\n", __func__);
+	pr_info("%s+:\n", __func__);
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -550,7 +598,7 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 		}
 	}
 
-	pr_debug("%s-:\n", __func__);
+	pr_info("%s-:\n", __func__);
 
 	return ret;
 }
@@ -561,7 +609,7 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 	struct mipi_panel_info *mipi;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
-	pr_debug("%s+:\n", __func__);
+	pr_info("%s+:\n", __func__);
 
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -589,7 +637,7 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata)
 		}
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_PANEL_INIT;
 	}
-	pr_debug("%s-:End\n", __func__);
+	pr_info("%s-:End\n", __func__);
 	return ret;
 }
 
@@ -973,6 +1021,8 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		platform_set_drvdata(pdev, ctrl_pdata);
 	}
 
+	ctrl_pdata->dsi_pipe_ready = false;
+
 	ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!ctrl_name)
 		pr_info("%s:%d, DSI Ctrl name not specified\n",
@@ -1156,6 +1206,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 {
 	struct mipi_panel_info *mipi;
 	int rc, i, len;
+	int incell_enabled = 0;
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
 	bool dynamic_fps;
@@ -1337,8 +1388,8 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
 
+	ctrl_pdata->mode_gpio = -1;
 	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
-
 		ctrl_pdata->mode_gpio = of_get_named_gpio(
 					ctrl_pdev->dev.of_node,
 					"qcom,platform-mode-gpio", 0);
@@ -1347,6 +1398,33 @@ int dsi_panel_device_register(struct device_node *pan_node,
 							__func__, __LINE__);
 	} else {
 		ctrl_pdata->mode_gpio = -EINVAL;
+	}
+
+	incell_enabled = of_property_read_bool(ctrl_pdev->dev.of_node, "incell-enabled");
+
+	if (incell_enabled) {
+		ctrl_pdata->panel_incell = true;
+
+		ctrl_pdata->tpldo_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+				"qcom,platform-tpldo-gpio", 0);
+		if (!gpio_is_valid(ctrl_pdata->tpldo_gpio))
+			pr_err("%s:%d, tpldo gpio not specified\n", __func__, __LINE__);
+
+		ctrl_pdata->tpwdn_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+				"qcom,platform-tpwdn-gpio", 0);
+		if (!gpio_is_valid(ctrl_pdata->tpwdn_gpio))
+			pr_err("%s:%d, tpwdn gpio not specified\n", __func__, __LINE__);
+
+		ctrl_pdata->vddio_gpio = of_get_named_gpio(ctrl_pdev->dev.of_node,
+				"qcom,platform-vddio-gpio", 0);
+		if (!gpio_is_valid(ctrl_pdata->vddio_gpio))
+			pr_err("%s:%d, vddio gpio not specified\n", __func__, __LINE__);
+
+	} else {
+		ctrl_pdata->panel_incell = false;
+		ctrl_pdata->tpldo_gpio = -1;
+		ctrl_pdata->tpwdn_gpio = -1;
+		ctrl_pdata->vddio_gpio = -1;
 	}
 
 	if (mdss_dsi_clk_init(ctrl_pdev, ctrl_pdata)) {

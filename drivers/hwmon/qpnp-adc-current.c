@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +33,7 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/platform_device.h>
 #include <linux/wakelock.h>
+#include <asm/bootinfo.h>
 
 /* QPNP IADC register definition */
 #define QPNP_IADC_REVISION1				0x0
@@ -1447,8 +1449,17 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 		return -EINVAL;
 	}
 	iadc->batt_id_trim_cnst_rds = res->start;
-	rc = of_property_read_u32(node, "qcom,use-default-rds-trim",
-			&iadc->rds_trim_default_type);
+
+	if (get_hw_version_major() == 3) {
+		rc = of_property_read_u32(node, "qcom,use-default-rds-trim-x3",
+				&iadc->rds_trim_default_type);
+	} else if (get_hw_version_major() == 4) {
+		rc = of_property_read_u32(node, "qcom,use-default-rds-trim-x4",
+				&iadc->rds_trim_default_type);
+	} else if (get_hw_version_major() == 5) {
+		rc = of_property_read_u32(node, "qcom,use-default-rds-trim-x5",
+				&iadc->rds_trim_default_type);
+	}
 	if (rc)
 		pr_debug("No trim workaround needed\n");
 	else {
@@ -1466,8 +1477,16 @@ static int __devinit qpnp_iadc_probe(struct spmi_device *spmi)
 
 	mutex_init(&iadc->adc->adc_lock);
 
-	rc = of_property_read_u32(node, "qcom,rsense",
-			&iadc->rsense);
+	if (get_hw_version_major() == 3) {
+		rc = of_property_read_u32(node, "qcom,rsense-x3",
+				&iadc->rsense);
+	} else if (get_hw_version_major() == 4) {
+		rc = of_property_read_u32(node, "qcom,rsense-x4",
+				&iadc->rsense);
+	} else if (get_hw_version_major() == 5) {
+		rc = of_property_read_u32(node, "qcom,rsense-x5",
+				&iadc->rsense);
+	}
 	if (rc)
 		pr_debug("Defaulting to internal rsense\n");
 	else {

@@ -140,6 +140,25 @@ fw-shipped-$(CONFIG_USB_SERIAL_XIRCOM) += keyspan_pda/xircom_pgs.fw
 fw-shipped-$(CONFIG_USB_VICAM) += vicam/firmware.fw
 fw-shipped-$(CONFIG_VIDEO_CPIA2) += cpia2/stv0672_vp4.bin
 fw-shipped-$(CONFIG_YAM) += yam/1200.bin yam/9600.bin
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_MXT) += mxt_double_diamond_config.fw \
+	mxt_wintek_diamond_config_v20.fw mxt_wintek_diamond_config_v30_sharp.fw \
+	mxt_wintek_diamond_config_v30_lg.fw mxT540SC20.fw mxT540SC30.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_ATMEL_640T) += mxt_640t_config_revc.fw \
+	mxt_640t_config_revd.fw \
+	mxt_640t_ofilm_config.fw \
+	mxt_640t_biel_config.fw \
+	mxt_640t_laibao_config.fw \
+	mxt_640t_x5_biel_config.fw \
+	mxT640T0512.fw mxT640T1022.fw mxT640T10AA.fw mxT640T15AA.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_SYNAPTICS_DSX) += synaptics_update.fw \
+	synaptics_update_wintek.fw synaptics_update_incell.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_ST_FTS) += fts_biel_config_sharp.fw \
+	fts_biel_firmware_sharp.fw fts_wintek_firmware_sharp.fw \
+	fts_wintek_config_sharp.fw
+fw-shipped-$(CONFIG_TOUCHSCREEN_CYTTSP_BUTTON) += cyttsp_button_no_shielding_biel.fw \
+	cyttsp_button_no_shielding_lens.fw
+
+fw-shipped-$(CONFIG_STM32_FW_UPDATER) += st_mve_shub.bin
 
 fw-shipped-all := $(fw-shipped-y) $(fw-shipped-m) $(fw-shipped-)
 

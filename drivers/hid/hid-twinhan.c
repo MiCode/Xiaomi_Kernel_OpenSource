@@ -4,6 +4,7 @@
  * Based on hid-gyration.c
  *
  * Copyright (c) 2009 Bruno Prémont <bonbons@linux-vserver.org>
+ * Copyright (C) 2015 XiaoMi, Inc.
  */
 
 /*
@@ -131,17 +132,6 @@ static struct hid_driver twinhan_driver = {
 	.id_table = twinhan_devices,
 	.input_mapping = twinhan_input_mapping,
 };
+module_hid_driver(twinhan_driver);
 
-static int __init twinhan_init(void)
-{
-	return hid_register_driver(&twinhan_driver);
-}
-
-static void __exit twinhan_exit(void)
-{
-	hid_unregister_driver(&twinhan_driver);
-}
-
-module_init(twinhan_init);
-module_exit(twinhan_exit);
 MODULE_LICENSE("GPL");

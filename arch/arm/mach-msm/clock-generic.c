@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,6 +17,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/gpio.h>
 
 #include <mach/clk-provider.h>
 #include <mach/clock-generic.h>
@@ -727,4 +729,119 @@ struct clk_ops clk_ops_mux_div_clk = {
 	.round_rate = mux_div_clk_round_rate,
 	.get_parent = mux_div_clk_get_parent,
 	.handoff = mux_div_clk_handoff,
+};
+
+/* ==================== GPIO controlled clock ==================== */
+
+static int gpio_clk_enable(struct clk *c)
+{
+	struct gpio_clk *clk = to_gpio_clk(c);
+	struct gpio_clk_src *src = &clk->src[clk->sel];
+
+	if (src->active_high)
+		gpio_set_value(src->enable_gpio, 1);
+	else
+		gpio_set_value(src->enable_gpio, 0);
+
+	return 0;
+}
+
+static void gpio_clk_disable(struct clk *c)
+{
+	struct gpio_clk *clk = to_gpio_clk(c);
+	struct gpio_clk_src *src = &clk->src[clk->sel];
+
+	if (src->active_high)
+		gpio_set_value(src->enable_gpio, 0);
+	else
+		gpio_set_value(src->enable_gpio, 1);
+}
+
+static enum handoff gpio_clk_handoff(struct clk *c)
+{
+	struct gpio_clk *clk = to_gpio_clk(c);
+	struct gpio_clk_src *src = clk->src;
+	size_t i;
+
+	for (i = 0; i < clk->num; i++) {
+		if (src[i].active_high) {
+			gpio_request_one(src[i].enable_gpio,
+				GPIOF_OUT_INIT_LOW, "gpio_clk");
+		} else {
+			gpio_request_one(src[i].enable_gpio,
+				GPIOF_OUT_INIT_HIGH, "gpio_clk");
+		}
+	}
+
+	return HANDOFF_DISABLED_CLK;
+}
+
+static int gpio_clk_set_rate(struct clk *c, unsigned long rate)
+{
+	struct gpio_clk *clk = to_gpio_clk(c);
+	struct gpio_clk_src *src = clk->src;
+	size_t i;
+
+	for (i = 0; i < clk->num; i++) {
+		if (rate == src[i].rate)
+			break;
+	}
+
+	if (i == clk->num)
+		return -EINVAL;
+
+	if (i != clk->sel) {
+		if (c->count)
+			gpio_clk_disable(c);
+		clk->sel = i;
+		if (c->count)
+			gpio_clk_enable(c);
+	}
+
+	return 0;
+}
+
+static unsigned long gpio_clk_get_rate(struct clk *c)
+{
+	struct gpio_clk *clk = to_gpio_clk(c);
+	struct gpio_clk_src *src = &clk->src[clk->sel];
+
+	return src->rate;
+}
+
+static long gpio_clk_list_rate(struct clk *c, unsigned n)
+{
+	struct gpio_clk *clk = to_gpio_clk(c);
+	struct gpio_clk_src *src = clk->src;
+
+	if (n < clk->num)
+		return src[n].rate;
+	else
+		return -EINVAL;
+}
+
+static long gpio_clk_round_rate(struct clk *c, unsigned long rate)
+{
+	struct gpio_clk *clk = to_gpio_clk(c);
+	struct gpio_clk_src *src = clk->src;
+	unsigned long rrate = 0;
+	size_t i;
+
+	for (i = 0; i < clk->num; i++) {
+		if (src[i].rate <= rate &&
+		    src[i].rate > rrate)
+			rrate = src[i].rate;
+	}
+
+	return rrate;
+}
+
+struct clk_ops clk_ops_gpio_clk = {
+	.enable = gpio_clk_enable,
+	.disable = gpio_clk_disable,
+	.handoff = gpio_clk_handoff,
+	.set_rate = gpio_clk_set_rate,
+	.get_rate = gpio_clk_get_rate,
+	.list_rate = gpio_clk_list_rate,
+	.round_rate = gpio_clk_round_rate,
 };

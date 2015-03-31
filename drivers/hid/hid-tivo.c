@@ -2,7 +2,7 @@
  *  HID driver for TiVo Slide Bluetooth remote
  *
  *  Copyright (c) 2011 Jarod Wilson <jarod@redhat.com>
- *  based on the hid-topseed driver, which is in turn, based on hid-cherry...
+ *  Copyright (C) 2015 XiaoMi, Inc.
  */
 
 /*
@@ -73,18 +73,7 @@ static struct hid_driver tivo_driver = {
 	.id_table = tivo_devices,
 	.input_mapping = tivo_input_mapping,
 };
+module_hid_driver(tivo_driver);
 
-static int __init tivo_init(void)
-{
-	return hid_register_driver(&tivo_driver);
-}
-
-static void __exit tivo_exit(void)
-{
-	hid_unregister_driver(&tivo_driver);
-}
-
-module_init(tivo_init);
-module_exit(tivo_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Jarod Wilson <jarod@redhat.com>");

@@ -154,4 +154,8 @@ source "drivers/bif/Kconfig"
 
 source "drivers/sensors/Kconfig"
 
+source "drivers/tspdrv/Kconfig"
+
+source "drivers/iio/Kconfig"
+
 endmenu

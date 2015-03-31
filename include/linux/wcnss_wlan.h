@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -94,6 +95,7 @@ int wcnss_set_wlan_unsafe_channel(
 int wcnss_get_wlan_unsafe_channel(
 				u16 *unsafe_ch_list, u16 buffer_size,
 				u16 *ch_count);
+void wcnss_get_nv_file(char *nv_path, int size);
 #define wcnss_wlan_get_drvdata(dev) dev_get_drvdata(dev)
 #define wcnss_wlan_set_drvdata(dev, data) dev_set_drvdata((dev), (data))
 /* WLAN driver uses these names */

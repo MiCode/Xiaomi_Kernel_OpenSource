@@ -35,6 +35,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_CX20442
 	select SND_SOC_DA7210 if I2C
 	select SND_SOC_DFBMCS320
+	select SND_SOC_ES9018 if I2C
 	select SND_SOC_JZ4740_CODEC
 	select SND_SOC_LM4857 if I2C
 	select SND_SOC_MAX98088 if I2C
@@ -54,6 +55,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_TLV320AIC32X4 if I2C
 	select SND_SOC_TLV320AIC3X if I2C
 	select SND_SOC_TPA6130A2 if I2C
+	select SND_SOC_TAS2552 if I2C
 	select SND_SOC_TLV320DAC33 if I2C
 	select SND_SOC_TWL4030 if TWL4030_CORE
 	select SND_SOC_TWL6040 if TWL6040_CORE
@@ -199,6 +201,9 @@ config SND_SOC_CS4271
 	tristate
 
 config SND_SOC_CX20442
+	tristate
+
+config SND_SOC_ES9018
 	tristate
 
 config SND_SOC_JZ4740_CODEC
@@ -450,6 +455,13 @@ config SND_SOC_MAX9877
 	tristate
 
 config SND_SOC_TPA6130A2
+	tristate "TI's TPA6130A2 headset PA support"
+	depends on I2C
+	default n
+	help
+		Enable support for TI TPA6130A2 chip
+
+config SND_SOC_TAS2552
 	tristate
 
 config SND_SOC_MSM_STUB

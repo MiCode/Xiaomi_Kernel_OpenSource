@@ -1,7 +1,7 @@
 /*
  * LIRC base driver
  *
- * by Artur Lipowski <alipowski@interia.pl>
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -313,8 +313,7 @@ int lirc_register_driver(struct lirc_driver *d)
 	/* some safety check 8-) */
 	d->name[sizeof(d->name)-1] = '\0';
 
-	bytes_in_key = BITS_TO_LONGS(d->code_length) +
-			(d->code_length % 8 ? 1 : 0);
+	bytes_in_key = (d->code_length + 7) / 8;
 	buffer_size = d->buffer_size ? d->buffer_size : BUFLEN / bytes_in_key;
 	chunk_size  = d->chunk_size  ? d->chunk_size  : bytes_in_key;
 

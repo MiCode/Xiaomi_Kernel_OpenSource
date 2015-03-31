@@ -665,6 +665,17 @@ config TI_DRV2667
 	  To compile this driver as a module, choose M here: the
 	  module will be called ti_drv2667.
 
+config STM32_FW_UPDATER
+	tristate "STM32 firmware flasher"
+	depends on I2C
+	help
+	  Say yes here if you need support for firmware updates for STM32F
+	  based peripherals. These peripherals (mainly sensor hubs) have
+	  a specific bootloader protocol that this driver supports.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called stm32fwu.
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

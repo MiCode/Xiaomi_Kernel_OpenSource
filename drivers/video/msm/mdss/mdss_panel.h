@@ -1,4 +1,5 @@
 /* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -306,10 +307,12 @@ struct mdss_panel_info {
 
 	u32 cont_splash_enabled;
 	u32 partial_update_enabled;
+	u32 dispparam_enabled;
 	struct ion_handle *splash_ihdl;
 	u32 panel_power_on;
 
 	uint32_t panel_dead;
+	uint32_t panel_paramstatus;
 
 	struct lcd_panel_info lcdc;
 	struct fbc_panel_info fbc;

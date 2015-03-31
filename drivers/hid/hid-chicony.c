@@ -7,6 +7,8 @@
  *  Copyright (c) 2006-2007 Jiri Kosina
  *  Copyright (c) 2007 Paul Walmsley
  *  Copyright (c) 2008 Jiri Slaby
+ *  Copyright (c) 1999 Andreas Gal
+ *  Copyright (C) 2015 XiaoMi, Inc.
  */
 
 /*
@@ -60,6 +62,7 @@ static int ch_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 static const struct hid_device_id ch_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_CHICONY, USB_DEVICE_ID_CHICONY_TACTICAL_PAD) },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_CHICONY, USB_DEVICE_ID_CHICONY_WIRELESS2) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_CHICONY, USB_DEVICE_ID_CHICONY_AK1D) },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, ch_devices);
@@ -69,17 +72,6 @@ static struct hid_driver ch_driver = {
 	.id_table = ch_devices,
 	.input_mapping = ch_input_mapping,
 };
+module_hid_driver(ch_driver);
 
-static int __init ch_init(void)
-{
-	return hid_register_driver(&ch_driver);
-}
-
-static void __exit ch_exit(void)
-{
-	hid_unregister_driver(&ch_driver);
-}
-
-module_init(ch_init);
-module_exit(ch_exit);
 MODULE_LICENSE("GPL");

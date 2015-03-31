@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -16,6 +16,13 @@
 
 #include <linux/types.h>
 
+#define MXT224_I2C_ADDR1        0x4A
+#define MXT224_I2C_ADDR2        0x4B
+#define MXT1386_I2C_ADDR1       0x4C
+#define MXT1386_I2C_ADDR2       0x4D
+#define MXT1386_I2C_ADDR3       0x5A
+#define MXT1386_I2C_ADDR4       0x5B
+
 /* Orient */
 #define MXT_NORMAL		0x0
 #define MXT_DIAGONAL		0x1
@@ -26,63 +33,68 @@
 #define MXT_ROTATED_180		0x6
 #define MXT_DIAGONAL_COUNTER	0x7
 
-/* MXT_TOUCH_KEYARRAY_T15 */
-#define MXT_KEYARRAY_MAX_KEYS	32
+#define CFG_NAME_SIZE		64
 
-/* Bootoader IDs */
-#define MXT_BOOTLOADER_ID_224		0x0A
-#define MXT_BOOTLOADER_ID_224E		0x06
-#define MXT_BOOTLOADER_ID_336S		0x1A
-#define MXT_BOOTLOADER_ID_1386		0x01
-#define MXT_BOOTLOADER_ID_1386E		0x10
-#define MXT_BOOTLOADER_ID_1664S		0x14
+#define MXT_KEYARRAY_MAX_KEYS		32
 
-/* Config data for a given maXTouch controller with a specific firmware */
 struct mxt_config_info {
-	const u8 *config;
-	size_t config_length;
 	u8 family_id;
 	u8 variant_id;
 	u8 version;
 	u8 build;
 	u8 bootldr_id;
+	int lcd_id;
+	u8 vendor_id;
 	/* Points to the firmware name to be upgraded to */
-	const char *fw_name;
+	const char* mxt_cfg_name;
+	int *key_codes;
+	int key_num;
+	u8 selfthr_suspend;
+	u8 selfintthr_stylus;
+	u8 selfintthr_suspend;
+	u8 t71_tchthr_pos;
+	u16 self_no_touch_threshold;
+	u8 mult_no_touch_threshold;
+	u8 self_chgtime_min;
+	u8 self_chgtime_max;
+	u8 mult_intthr_sensitive;
+	u8 mult_intthr_not_sensitive;
+	u8 atchthr_sensitive;
+	u8 mult_tchthr_sensitive;
+	u8 mult_tchthr_not_sensitive;
 };
 
 /* The platform data for the Atmel maXTouch touchscreen driver */
 struct mxt_platform_data {
-	const struct mxt_config_info *config_array;
+	struct mxt_config_info *config_array;
+	const char* mxt_fw_name;
 	size_t config_array_size;
-
-	/* touch panel's minimum and maximum coordinates */
-	u32 panel_minx;
-	u32 panel_maxx;
-	u32 panel_miny;
-	u32 panel_maxy;
-
-	/* display's minimum and maximum coordinates */
-	u32 disp_minx;
-	u32 disp_maxx;
-	u32 disp_miny;
-	u32 disp_maxy;
-
 	unsigned long irqflags;
-	bool	i2c_pull_up;
-	bool	digital_pwr_regulator;
+	int power_gpio;
 	int reset_gpio;
-	u32 reset_gpio_flags;
 	int irq_gpio;
-	u32 irq_gpio_flags;
-	int *key_codes;
-	bool need_calibration;
-	bool no_force_update;
-	bool no_lpm_support;
-	u8 bl_addr;
-
 	u8(*read_chg) (void);
-	int (*init_hw) (bool);
-	int (*power_on) (bool);
+	const char *input_name;
+	int unlock_move_threshold;
+	int moving_threshold;
+	int staying_threshold;
+	int landing_threshold;
+	int landing_edge_threshold;
+	unsigned long landing_jiffies;
+	int edge_clip;
+	u32 reset_gpio_flags;
+	u32 irq_gpio_flags;
+	u32 power_gpio_flags;
+	u8 gpio_mask;
+	u8 *linearity_reg_pos;
+	u8 *linearity_singlex;
+	u8 *linearity_dualx;
+	int linearity_para_num;
+	u8 rx_num;
+	u8 tx_num;
+	u16 ref_diff_threshold;
+	u16 ref_diff_halfline_threshold;
 };
 
 #endif /* __LINUX_ATMEL_MXT_TS_H */
+

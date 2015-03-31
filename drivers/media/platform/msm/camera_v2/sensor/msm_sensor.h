@@ -1,4 +1,5 @@
 /* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,7 +48,6 @@ struct msm_sensor_fn_t {
 	int (*sensor_config) (struct msm_sensor_ctrl_t *, void __user *);
 	int (*sensor_power_down) (struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up) (struct msm_sensor_ctrl_t *);
-	int (*sensor_match_id) (struct msm_sensor_ctrl_t *);
 };
 
 
@@ -67,6 +67,7 @@ struct msm_sensor_ctrl_t {
 	uint8_t sensor_v4l2_subdev_info_size;
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
 	struct msm_sensor_fn_t *func_tbl;
+	int (*sensor_match_id)(struct msm_sensor_ctrl_t *s_ctrl);
 	struct msm_camera_i2c_reg_setting stop_setting;
 	void *misc_regulator;
 	enum msm_sensor_state_t sensor_state;

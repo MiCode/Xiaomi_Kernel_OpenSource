@@ -5,6 +5,7 @@
  *  Copyright (c) 1999 Andreas Gal
  *  Copyright (c) 2000-2001 Vojtech Pavlik
  *  Copyright (c) 2006 Jiri Kosina
+ *  Copyright (C) 2015 XiaoMi, Inc.
  */
 
 /*
@@ -34,12 +35,9 @@
 #include <linux/input.h>
 
 /*  API provided by hid-core.c for USB HID drivers */
-int usbhid_wait_io(struct hid_device* hid);
 void usbhid_close(struct hid_device *hid);
 int usbhid_open(struct hid_device *hid);
 void usbhid_init_reports(struct hid_device *hid);
-void usbhid_submit_report
-(struct hid_device *hid, struct hid_report *report, unsigned char dir);
 int usbhid_get_power(struct hid_device *hid);
 void usbhid_put_power(struct hid_device *hid);
 struct usb_interface *usbhid_find_interface(int minor);
@@ -53,8 +51,8 @@ struct usb_interface *usbhid_find_interface(int minor);
 #define HID_CLEAR_HALT		6
 #define HID_DISCONNECTED	7
 #define HID_STARTED		8
-#define HID_REPORTED_IDLE	9
 #define HID_KEYS_PRESSED	10
+#define HID_NO_BANDWIDTH	11
 
 /*
  * USB-specific HID struct, to be pointed to

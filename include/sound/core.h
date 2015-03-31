@@ -4,6 +4,7 @@
 /*
  *  Main header file for the ALSA driver
  *  Copyright (c) 1994-2001 by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2015 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -106,6 +107,7 @@ struct snd_card {
 	char mixername[80];		/* mixer name */
 	char components[128];		/* card components delimited with
 								space */
+	int version;
 	struct module *module;		/* top-level module */
 
 	void *private_data;		/* private data for soundcard */

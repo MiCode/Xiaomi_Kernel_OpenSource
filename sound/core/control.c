@@ -1,6 +1,7 @@
 /*
  *  Routines for driver control interface
  *  Copyright (c) by Jaroslav Kysela <perex@perex.cz>
+ *  Copyright (C) 2015 XiaoMi, Inc.
  *
  *
  *   This program is free software; you can redistribute it and/or modify
@@ -684,6 +685,7 @@ static int snd_ctl_card_info(struct snd_card *card, struct snd_ctl_file * ctl,
 	down_read(&snd_ioctl_rwsem);
 	info->card = card->number;
 	strlcpy(info->id, card->id, sizeof(info->id));
+	info->pad = card->version;
 	strlcpy(info->driver, card->driver, sizeof(info->driver));
 	strlcpy(info->name, card->shortname, sizeof(info->name));
 	strlcpy(info->longname, card->longname, sizeof(info->longname));

@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+* Copyright (C) 2015 XiaoMi, Inc.
 *
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
@@ -7218,5 +7219,31 @@ struct afe_port_group_create {
 		struct afe_group_device_enable group_enable;
 	} __packed data;
 } __packed;
+
+/* Structures for AFE communication */
+struct afe_custom_opalum_set_config_t {
+	struct apr_hdr					 hdr;
+	struct afe_port_cmd_set_param_v2 param;
+	struct afe_port_param_data_v2    data;
+} __packed;
+
+struct afe_custom_opalum_get_config_t {
+	struct afe_port_cmd_get_param_v2 param;
+	struct afe_port_param_data_v2	 data;
+} __packed;
+
+struct opalum_process_enable_ctrl_t {
+	uint32_t	enable_flag; /**< Enable flag: 0 = disabled; nonzero = enabled. */
+};
+
+struct opalum_f0_calib_data_t {
+	int			f0;
+	int			ref_diff;
+};
+
+struct opalum_temp_calib_data_t {
+	int			acc;
+	int			count;
+};
 
 #endif /*_APR_AUDIO_V2_H_ */

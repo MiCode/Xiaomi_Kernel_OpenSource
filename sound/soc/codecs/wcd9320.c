@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
 #include <linux/module.h>
 #include <linux/init.h>
 #include <linux/firmware.h>
@@ -35,9 +37,15 @@
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#include <asm/bootinfo.h>
 #include "wcd9320.h"
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
+
+#ifdef CONFIG_SND_SOC_TPA6130A2
+#include "tpa6130a2.h"
+#endif
 
 #define TAIKO_MAD_SLIMBUS_TX_PORT 12
 #define TAIKO_MAD_AUDIO_FIRMWARE_PATH "wcd9320/wcd9320_mad_audio.bin"
@@ -449,6 +457,8 @@ struct taiko_priv {
 	 * end of impedance measurement
 	 */
 	struct list_head reg_save_restore;
+
+	int headset_pa_en_gpio;
 };
 
 static const u32 comp_shift[] = {
@@ -2135,6 +2145,8 @@ static const struct snd_kcontrol_new lineout4_ground_switch =
 static const struct snd_kcontrol_new aif4_mad_switch =
 	SOC_DAPM_SINGLE("Switch", TAIKO_A_CDC_CLK_OTHR_CTL, 4, 1, 0);
 
+static const struct snd_kcontrol_new aif4_vi_switch =
+	SOC_DAPM_SINGLE("Switch", TAIKO_A_SPKR_PROT_EN, 3, 1, 0);
 /* virtual port entries */
 static int slim_tx_mixer_get(struct snd_kcontrol *kcontrol,
 			     struct snd_ctl_elem_value *ucontrol)
@@ -3419,26 +3431,40 @@ static int taiko_hph_pa_event(struct snd_soc_dapm_widget *w,
 		usleep_range(pa_settle_time, pa_settle_time + 1000);
 		pr_debug("%s: sleep %d us after %s PA enable\n", __func__,
 				pa_settle_time, w->name);
+		if (taiko->headset_pa_en_gpio > 0)
+			gpio_direction_output(taiko->headset_pa_en_gpio, 1);
+		else {
+#ifdef CONFIG_SND_SOC_TPA6130A2
+		tpa6130a2_stereo_enable(codec, 1);
+#else
 		wcd9xxx_clsh_fsm(codec, &taiko->clsh_d,
 						 req_clsh_state,
 						 WCD9XXX_CLSH_REQ_ENABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
-
+#endif
+		}
 		break;
 
 	case SND_SOC_DAPM_POST_PMD:
+		if (taiko->headset_pa_en_gpio > 0)
+			gpio_direction_output(taiko->headset_pa_en_gpio, 0);
+		else {
+#ifdef CONFIG_SND_SOC_TPA6130A2
+			tpa6130a2_stereo_enable(codec, 0);
+#endif
+		}
 		usleep_range(pa_settle_time, pa_settle_time + 1000);
 		pr_debug("%s: sleep %d us after %s PA disable\n", __func__,
 				pa_settle_time, w->name);
 
 		/* Let MBHC module know PA turned off */
 		wcd9xxx_resmgr_notifier_call(&taiko->resmgr, e_post_off);
-
+#ifndef CONFIG_SND_SOC_TPA6130A2
 		wcd9xxx_clsh_fsm(codec, &taiko->clsh_d,
 						 req_clsh_state,
 						 WCD9XXX_CLSH_REQ_DISABLE,
 						 WCD9XXX_CLSH_EVENT_POST_PA);
-
+#endif
 		break;
 	}
 	return 0;
@@ -3546,7 +3572,9 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"AIF1 CAP", NULL, "AIF1_CAP Mixer"},
 	{"AIF2 CAP", NULL, "AIF2_CAP Mixer"},
 	{"AIF3 CAP", NULL, "AIF3_CAP Mixer"},
-	{"AIF4 VI", NULL, "SPK_OUT"},
+	/* VI Feedback */
+	{"AIF4 VI", NULL, "VIONOFF"},
+	{"VIONOFF", "Switch", "VIINPUT"},
 
 	/* MAD */
 	{"AIF4 MAD", NULL, "CDC_CONN"},
@@ -5208,6 +5236,15 @@ static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 		if (ret)
 			pr_err("%s error in close_slim_sch_tx %d\n",
 				__func__, ret);
+		ret = taiko_codec_enable_slim_chmask(dai, false);
+		if (ret < 0) {
+			ret = wcd9xxx_disconnect_port(core,
+						      &dai->wcd9xxx_ch_list,
+						      dai->grph);
+			pr_debug("%s: Disconnect RX port, ret = %d\n",
+				 __func__, ret);
+		}
+
 		snd_soc_update_bits(codec, TAIKO_A_CDC_CLK_TX_CLK_EN_B2_CTL,
 				0xC, 0x0);
 		/*Disable V&I sensing*/
@@ -5896,6 +5933,9 @@ static const struct snd_soc_dapm_widget taiko_dapm_widgets[] = {
 
 	SND_SOC_DAPM_MIXER("LINEOUT4_PA_MIXER", SND_SOC_NOPM, 0, 0,
 		lineout4_pa_mix, ARRAY_SIZE(lineout4_pa_mix)),
+	SND_SOC_DAPM_SWITCH("VIONOFF", SND_SOC_NOPM, 0, 0,
+			    &aif4_vi_switch),
+	SND_SOC_DAPM_INPUT("VIINPUT"),
 };
 
 static irqreturn_t taiko_slimbus_irq(int irq, void *data)
@@ -6013,6 +6053,11 @@ static int taiko_handle_pdata(struct taiko_priv *taiko)
 		rc = -EINVAL;
 		goto done;
 	}
+
+#ifndef CONFIG_MSM_UART_HS_USE_HS
+	pdata->micbias.cfilt2_mv = 1800;
+#endif
+
 	/* figure out k value */
 	k1 = wcd9xxx_resmgr_get_k_val(&taiko->resmgr, pdata->micbias.cfilt1_mv);
 	k2 = wcd9xxx_resmgr_get_k_val(&taiko->resmgr, pdata->micbias.cfilt2_mv);
@@ -7120,6 +7165,27 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 
 	snd_soc_add_codec_controls(codec, impedance_detect_controls,
 				   ARRAY_SIZE(impedance_detect_controls));
+#ifdef CONFIG_SND_SOC_TPA6130A2
+	tpa6130a2_add_controls(codec);
+#endif
+
+	if (get_hw_version_major() == 4 && get_hw_version_minor() <= 2) {
+		taiko->headset_pa_en_gpio = of_get_named_gpio(core->dev->of_node,
+				"qcom,max97220a-en-gpio", 0);
+		if (taiko->headset_pa_en_gpio < 0) {
+			pr_err("%s: Looking up %s property in node %s failed %d\n", __func__,
+				"qcom,max97220a-en-gpio", core->dev->of_node->full_name,
+				taiko->headset_pa_en_gpio);
+		} else {
+			ret = gpio_request(taiko->headset_pa_en_gpio, "max97220a_enable");
+			if (ret) {
+				pr_err("%s: Failed to request gpio %d\n", __func__,
+						taiko->headset_pa_en_gpio);
+				taiko->headset_pa_en_gpio = -1;
+			}
+		}
+	} else
+		taiko->headset_pa_en_gpio = -1;
 
 	control->num_rx_port = TAIKO_RX_MAX;
 	control->rx_chs = ptr;

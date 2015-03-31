@@ -1,0 +1,28 @@
+#
+# Orientation sensors
+#
+menu "Orientation sensors"
+
+config HID_SENSOR_ORIENTATION
+	depends on HID_SENSOR_HUB
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select HID_SENSOR_IIO_COMMON
+	select HID_SENSOR_IIO_TRIGGER
+	tristate "HID Orientation"
+	help
+	  Say yes here to build support for the HID SENSOR
+	  Orientation.
+
+config HID_SENSOR_DISTANCE
+	depends on HID_SENSOR_HUB
+	select IIO_BUFFER
+	select IIO_TRIGGERED_BUFFER
+	select HID_SENSOR_IIO_COMMON
+	select HID_SENSOR_IIO_TRIGGER
+	tristate "HID Distance"
+	help
+	  Say yes here to build support for the HID Sensor
+	  Distance.
+
+endmenu

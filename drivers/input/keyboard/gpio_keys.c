@@ -3,6 +3,7 @@
  *
  * Copyright 2005 Phil Blundell
  * Copyright 2010, 2011 David Jander <david@protonic.nl>
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,6 +30,8 @@
 #include <linux/of_platform.h>
 #include <linux/of_gpio.h>
 #include <linux/spinlock.h>
+#include <asm/bootinfo.h>
+
 
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
@@ -581,6 +584,14 @@ static int gpio_keys_get_devtree_pdata(struct device *dev,
 			pdata->nbuttons--;
 			dev_warn(dev, "Found button without gpios\n");
 			continue;
+		}
+		if (get_hw_version_major() == 3) {
+			buttons[i].desc = of_get_property(pp, "label", NULL);
+			if (strncmp(buttons[i].desc, "lid_", strlen("lid_")) == 0) {
+				pdata->nbuttons--;
+				dev_warn(dev, "No have button %s\n", buttons[i].desc);
+				continue;
+			}
 		}
 		buttons[i].gpio = of_get_gpio_flags(pp, 0, &flags);
 		buttons[i].active_low = flags & OF_GPIO_ACTIVE_LOW;

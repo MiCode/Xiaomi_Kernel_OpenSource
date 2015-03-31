@@ -1,4 +1,5 @@
 /* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2015 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,8 +25,57 @@
 		status = "ok";
 	};
 
+	qcom,mdss_dsi_sharp_fhd_video {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_lgd_fhd_video {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_jdi_fhd_cmd {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_jdi_fhd_cmd_95 {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_sharp_fhd_cmd {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_sharp_fhd_cmd_95 {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_jdi_fhd_xcmd {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+	qcom,mdss_dsi_jdi_nt_fhd_xcmd {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_sharp_fhd_xcmd {
+		status = "ok";
+		qcom,cont-splash-enabled;
+	};
+
+	qcom,mdss_dsi_rsp_fhd_xcmd {
+		status = "ok";
+		qcom,cont-splash-enabled;
+        };
+
 	qcom,mdss_dsi@fd922800 {
-		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+		qcom,dsi-pref-prim-pan = <&dsi_sharp_fhd_vid>;
 	};
 
 	qcom,mdss_mdp@fd900000 {
@@ -38,97 +88,128 @@
 	};
 
 	i2c@f9924000 {
-		synaptics@20 {
-			compatible = "synaptics,rmi4";
-			reg = <0x20>;
-			interrupt-parent = <&msmgpio>;
-			interrupts = <61 0x2008>;
-			vdd-supply = <&pm8941_l18>;
-			vcc_i2c-supply = <&pm8941_lvs1>;
-			synaptics,reset-gpio = <&msmgpio 60 0x00>;
-			synaptics,irq-gpio = <&msmgpio 61 0x2008>;
-			synaptics,display-coords = <0 0 1079 1919>;
-			synaptics,i2c-pull-up;
-			synaptics,power-down;
-			synaptics,disable-gpios;
-			synaptics,do-lockdown;
-		};
-
 		atmel_mxt_ts@4a {
 			compatible = "atmel,mxt-ts";
 			reg = <0x4a>;
 			interrupt-parent = <&msmgpio>;
-			interrupts = <61 0x2>;
-			vdd_ana-supply = <&pm8941_l18>;
-			vcc_i2c-supply = <&pm8941_lvs1>;
+			interrupts = <54 0x2>;
 			atmel,reset-gpio = <&msmgpio 60 0x00>;
-			atmel,irq-gpio = <&msmgpio 61 0x00>;
-			atmel,panel-coords = <0  0 760 1424>;
-			atmel,display-coords = <0 0 720 1280>;
-			atmel,i2c-pull-up;
-			atmel,no-force-update;
+			atmel,irq-gpio = <&msmgpio 54 0x2008>;
+			atmel,power-gpio = <&msmgpio 48 0x00>;
+			atmel,mxt-fw-name = "mxT540SC30.fw";
+			atmel,unlock-move-threshold = <90000>;
+			atmel,staying-threshold = <5>;
+			atmel,landing-threshold = <8>;
+			atmel,landing-edge-threshold = <28>;
+			atmel,landing-jiffies = <1000>;
+			atmel,edge-clip = <130>;
+			atmel,config-array-size = <4>;
+			atmel,irqflags = <0x2008>;
+			atmel,gpio-mask = <0x4>;
+			atmel,linearity-reg-pos = <11 12 17 18>;
+			atmel,linearity-singlex = <10 10 178 50>;
+			atmel,linearity-dualx = <24 244 63 51>;
+			atmel,linearity-para-num = <4>;
+			atmel,rx-num = <18>;
+			atmel,tx-num = <30>;
+			atmel,ref-diff-threshold = <400>;
+			atmel,ref-diff-halfline-threshold = <500>;
 			atmel,cfg_1 {
 				atmel,fw-name = "atmel_8974_fluid_v1_0_AA.hex";
 				atmel,family-id = <0x82>;
-				atmel,variant-id = <0x19>;
-				atmel,version = <0x10>;
-				atmel,build = <0xaa>;
-				atmel,config = [
-					/* Object 6, Instance = 0 */
-					00 00 00 00 00 00
-					/* Object 38, Instance = 0 */
-					15 01 00 03 0A 0C 00 00
-					/* Object 7, Instance = 0 */
-					20 08 32 03
-					/* Object 8, Instance = 0 */
-					0F 00 0A 0A 00 00 0A 0A 00 00
-					/* Object 9, Instance = 0 */
-					83 00 00 18 0E 00 70 46 02 01
-					00 0A 03 31 04 05 0A 0A 90 05
-					F8 02 05 F1 F1 0F 00 00 08 2D
-					12 06 00 00 00 01
-					/* Object 15, Instance = 0 */
-					00 00 00 00 00 00 00 00 00 00
-					00
-					/* Object 18, Instance = 0 */
-					00 00
-					/* Object 19, Instance = 0 */
-					00 00 00 00 00 00
-					/* Object 23, Instance = 0 */
-					00 00 00 00 00 00 00 00 00 00
-					00 00 00 00 00
-					/* Object 25, Instance = 0 */
-					00 00 00 00 00 00 00 00 00 00
-					00 00 00 00 00
-					/* Object 40, Instance = 0 */
-					00 00 00 00 00
-					/* Object 42, Instance = 0 */
-					33 1E 19 10 80 00 00 00 FF 00
-					/* Object 46, Instance = 0 */
-					00 00 10 10 00 00 03 00 00 01
-					/* Object 47, Instance = 0 */
-					08 0A 28 0A 02 0A 00 8C 00 20
-					00 00 00
-					/* Object 55, Instance = 0 */
-					00 00 00 00 00 00
-					/* Object 56, Instance = 0 */
-					00 00 00 18 05 05 05 05 05 05
-					05 05 05 05 05 05 05 05 05 05
-					05 05 05 05 05 05 05 05 00 00
-					00 00 00 00 00 00 00 00 00 00
-					00 00
-					/* Object 57, Instance = 0 */
-					00 00 00
-					/* Object 61, Instance = 0 */
-					00 00 00 00 00
-					/* Object 62, Instance = 0 */
-					01 2A 00 16 00 00 00 00 0B 01
-					02 03 04 08 00 00 08 10 18 05
-					00 0A 05 05 50 14 19 34 1A 7F
-					00 00 00 00 00 00 00 00 00 30
-					05 02 00 01 00 05 00 00 00 00
-					00 00 00 00
-					];
+				atmel,variant-id = <0x2C>;
+				atmel,version = <0x21>;
+				atmel,build = <0x00>;
+				atmel,mxt-cfg-name = "mxt_double_diamond_config.fw";
+				atmel,vendor-id = <0x00>;
+				atmel,lcd-id = <0x00>;
+				atmel,key-codes = <139 102 158>;
+				atmel,key-num = <3>;
+				atmel,selfthr-suspend = <0>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,selfintthr-suspend = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-no-touch-threshold = <0>;
+				atmel,mult-no-touch-threshold = <0>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <20>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+			};
+			atmel,cfg_2 {
+				atmel,family-id = <0x82>;
+				atmel,variant-id = <0x2C>;
+				atmel,version = <0x21>;
+				atmel,build = <0x00>;
+				atmel,mxt-cfg-name = "mxt_wintek_diamond_config_v20.fw";
+				atmel,vendor-id = <0x04>;
+				atmel,lcd-id = <0x00>;
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfthr-suspend = <0>;
+				atmel,selfintthr-stylus = <0>;
+				atmel,selfintthr-suspend = <0>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-no-touch-threshold = <0>;
+				atmel,mult-no-touch-threshold = <0>;
+				atmel,self-chgtime-min = <0>;
+				atmel,self-chgtime-max = <0>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <20>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0>;
+				atmel,mult-tchthr-not-sensitive = <0>;
+			};
+			atmel,cfg_3 {
+				atmel,family-id = <0x82>;
+				atmel,variant-id = <0x2C>;
+				atmel,version = <0x30>;
+				atmel,build = <0xAA>;
+				atmel,mxt-cfg-name = "mxt_wintek_diamond_config_v30_sharp.fw";
+				atmel,vendor-id = <0x04>;
+				atmel,lcd-id = <0x00>;
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfthr-suspend = <51>;
+				atmel,selfintthr-stylus = <12>;
+				atmel,selfintthr-suspend = <8>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-no-touch-threshold = <220>;
+				atmel,mult-no-touch-threshold = <70>;
+				atmel,self-chgtime-min = <70>;
+				atmel,self-chgtime-max = <100>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <20>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0x3C>;
+				atmel,mult-tchthr-not-sensitive = <0x20>;
+			};
+			atmel,cfg_4 {
+				atmel,family-id = <0x82>;
+				atmel,variant-id = <0x2C>;
+				atmel,version = <0x30>;
+				atmel,build = <0xAA>;
+				atmel,mxt-cfg-name = "mxt_wintek_diamond_config_v30_lg.fw";
+				atmel,vendor-id = <0x04>;
+				atmel,lcd-id = <0x01>;
+				atmel,key-codes = <158 102 139>;
+				atmel,key-num = <3>;
+				atmel,selfthr-suspend = <51>;
+				atmel,selfintthr-stylus = <12>;
+				atmel,selfintthr-suspend = <8>;
+				atmel,t71-tchthr-pos = <22>;
+				atmel,self-no-touch-threshold = <220>;
+				atmel,mult-no-touch-threshold = <70>;
+				atmel,self-chgtime-min = <70>;
+				atmel,self-chgtime-max = <100>;
+				atmel,mult-intthr-sensitive = <12>;
+				atmel,mult-intthr-not-sensitive = <20>;
+				atmel,atchthr-sensitive = <6>;
+				atmel,mult-tchthr-sensitive = <0x3C>;
+				atmel,mult-tchthr-not-sensitive = <0x20>;
 			};
 		};
 	};
@@ -166,28 +247,18 @@
 		};
 	};
 
+	i2c@f9923000 {
+		headset_pa_ti: tpa6130a2@60 {
+			reg = <0x60>;
+			compatible = "ti,tpa6130a2";
+			ti,enable-gpio = <&msmgpio 85 0x00>;
+			ti,enable-gpio-3_1 = <&msmgpio 81 0x00>;
+		};
+	};
+
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
-
-		camera_snapshot {
-			label = "camera_snapshot";
-			gpios = <&pm8941_gpios 3 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x2fe>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-		};
-
-		camera_focus {
-			label = "camera_focus";
-			gpios = <&pm8941_gpios 4 0x1>;
-			linux,input-type = <1>;
-			linux,code = <0x210>;
-			gpio-key,wakeup;
-			debounce-interval = <15>;
-		};
-
 		vol_up {
 			label = "volume_up";
 			gpios = <&pm8941_gpios 5 0x1>;
@@ -196,6 +267,24 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+		hall_key0_mtp: hall_key0 {
+			label = "lid_back";
+			gpios = <&msmgpio 80 0x01>;
+			linux,input-type = <5>;
+			linux,code = <18>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+		hall_key1 {
+			label = "lid_front";
+			gpios = <&msmgpio 92 0x01>;
+			linux,input-type = <5>;
+			linux,code = <0>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+
 	};
 
 	spi@f9923000 {
@@ -214,7 +303,6 @@
 	sound {
 		qcom,model = "msm8974-taiko-mtp-snd-card";
 		qcom,cdc-micbias2-headset-only;
-		qcom,mbhc-audio-jack-type = "6-pole-jack";
 	};
 };
 
@@ -227,14 +315,15 @@
 			linux,default-trigger = "bkl-trigger";
 			qcom,cs-out-en;
 			qcom,op-fdbck = <1>;
+			qcom,cabc-en;
 			qcom,default-state = "on";
-			qcom,max-current = <25>;
+			qcom,max-current = <23>;
 			qcom,ctrl-delay-us = <0>;
 			qcom,boost-curr-lim = <5>;
 			qcom,cp-sel = <0>;
 			qcom,switch-freq = <11>;
 			qcom,ovp-val = <2>;
-			qcom,num-strings = <3>;
+			qcom,num-strings = <2>;
 			qcom,id = <0>;
 		};
 	};
@@ -287,10 +376,8 @@
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0xffffffff>;
 	interrupt-map = <0 &intc 0 125 0
-			1 &intc 0 220 0
-			2 &msmgpio 62 0x3>;
+			1 &intc 0 220 0>;
 	interrupt-names = "core_irq", "bam_irq", "status_irq";
-	cd-gpios = <&msmgpio 62 0x1>;
 	status = "disabled";
 };
 
@@ -323,10 +410,8 @@
 	#interrupt-cells = <1>;
 	interrupt-map-mask = <0xffffffff>;
 	interrupt-map = <0 &intc 0 125 0
-			1 &intc 0 221 0
-			2 &msmgpio 62 0x3>;
+			1 &intc 0 221 0>;
 	interrupt-names = "hc_irq", "pwr_irq", "status_irq";
-	cd-gpios = <&msmgpio 62 0x1>;
 
 	vdd-supply = <&pm8941_l21>;
 	vdd-io-supply = <&pm8941_l13>;
@@ -381,8 +466,17 @@
 		qcom,rpull-up-kohm = <100>;
 		qcom,vref-batt-therm = <1800000>;
 
-		/include/ "batterydata-palladium.dtsi"
-		/include/ "batterydata-mtp-3000mah.dtsi"
+		/include/ "batterydata-BM31-SDI-2980mAh.dtsi"
+		/include/ "batterydata-BM31-SONY-2980mAh.dtsi"
+		/include/ "batterydata-BM31-LG-2980mAh.dtsi"
+		/include/ "batterydata-BM31-SDI-3020mAh.dtsi"
+		/include/ "batterydata-BM31-SDI1-3020mAh.dtsi"
+		/include/ "batterydata-BM31-SONY-3020mAh.dtsi"
+		/include/ "batterydata-BM31-LG-3020mAh.dtsi"
+		/include/ "batterydata-BM31-SDI-3080mAh.dtsi"
+		/include/ "batterydata-BM31-LG-3080mAh.dtsi"
+		/include/ "batterydata-BM31-LG-3080mAh-44V.dtsi"
+		/include/ "batterydata-BM31-SONY-3080mAh-44V.dtsi"
 	};
 };
 
@@ -398,7 +492,6 @@
 
 &pm8941_chg {
 	status = "ok";
-	qcom,charging-disabled;
 	qcom,battery-data = <&mtp_batterydata>;
 
 	qcom,chgr@1000 {
@@ -706,10 +799,16 @@
 
 &slim_msm {
 	taiko_codec {
-		qcom,cdc-micbias1-ext-cap;
-		qcom,cdc-micbias2-ext-cap;
-		qcom,cdc-micbias3-ext-cap;
+		/*qcom,cdc-micbias1-ext-cap;*/
+		/*qcom,cdc-micbias2-ext-cap;*/
 		qcom,cdc-micbias4-ext-cap;
+
+		/* If boot isn't available, vph_pwr_vreg can be used instead */
+		cdc-vdd-spkdrv-supply = <&pm8941_boost>;
+		qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
+		qcom,cdc-vdd-spkdrv-current = <1250000>;
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
 	};
 };
 

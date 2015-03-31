@@ -4,11 +4,8 @@
  *  The devices are distributed under various names and the same USB device ID
  *  can be used in many game controllers.
  *
- *
- *  0e8f:0012 "GreenAsia Inc.    USB Joystick     "
- *   - tested with MANTA Warior MM816 and SpeedLink Strike2 SL-6635.
- *
  *  Copyright (c) 2008 Lukasz Lubojanski <lukasz@lubojanski.info>
+ *  Copyright (C) 2015 XiaoMi, Inc.
  */
 
 /*
@@ -29,13 +26,11 @@
 
 #include <linux/input.h>
 #include <linux/slab.h>
-#include <linux/usb.h>
 #include <linux/hid.h>
 #include <linux/module.h>
 #include "hid-ids.h"
 
 #ifdef CONFIG_GREENASIA_FF
-#include "usbhid/usbhid.h"
 
 struct gaff_device {
 	struct hid_report *report;
@@ -63,14 +58,14 @@ static int hid_gaff_play(struct input_dev *dev, void *data,
 	gaff->report->field[0]->value[4] = left;
 	gaff->report->field[0]->value[5] = 0;
 	dbg_hid("running with 0x%02x 0x%02x", left, right);
-	usbhid_submit_report(hid, gaff->report, USB_DIR_OUT);
+	hid_hw_request(hid, gaff->report, HID_REQ_SET_REPORT);
 
 	gaff->report->field[0]->value[0] = 0xfa;
 	gaff->report->field[0]->value[1] = 0xfe;
 	gaff->report->field[0]->value[2] = 0x0;
 	gaff->report->field[0]->value[4] = 0x0;
 
-	usbhid_submit_report(hid, gaff->report, USB_DIR_OUT);
+	hid_hw_request(hid, gaff->report, HID_REQ_SET_REPORT);
 
 	return 0;
 }
@@ -122,12 +117,12 @@ static int gaff_init(struct hid_device *hid)
 	gaff->report->field[0]->value[1] = 0x00;
 	gaff->report->field[0]->value[2] = 0x00;
 	gaff->report->field[0]->value[3] = 0x00;
-	usbhid_submit_report(hid, gaff->report, USB_DIR_OUT);
+	hid_hw_request(hid, gaff->report, HID_REQ_SET_REPORT);
 
 	gaff->report->field[0]->value[0] = 0xfa;
 	gaff->report->field[0]->value[1] = 0xfe;
 
-	usbhid_submit_report(hid, gaff->report, USB_DIR_OUT);
+	hid_hw_request(hid, gaff->report, HID_REQ_SET_REPORT);
 
 	hid_info(hid, "Force Feedback for GreenAsia 0x12 devices by Lukasz Lubojanski <lukasz@lubojanski.info>\n");
 
@@ -176,17 +171,6 @@ static struct hid_driver ga_driver = {
 	.id_table = ga_devices,
 	.probe = ga_probe,
 };
+module_hid_driver(ga_driver);
 
-static int __init ga_init(void)
-{
-	return hid_register_driver(&ga_driver);
-}
-
-static void __exit ga_exit(void)
-{
-	hid_unregister_driver(&ga_driver);
-}
-
-module_init(ga_init);
-module_exit(ga_exit);
 MODULE_LICENSE("GPL");

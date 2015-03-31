@@ -5,6 +5,7 @@
  *  (This module is based on "hid-ortek".)
  *
  *  Copyright (c) 2012 Andreas Hübner
+ *  Copyright (C) 2015 XiaoMi, Inc.
  */
 
 /*
@@ -54,17 +55,6 @@ static struct hid_driver saitek_driver = {
 	.id_table = saitek_devices,
 	.report_fixup = saitek_report_fixup
 };
+module_hid_driver(saitek_driver);
 
-static int __init saitek_init(void)
-{
-	return hid_register_driver(&saitek_driver);
-}
-
-static void __exit saitek_exit(void)
-{
-	hid_unregister_driver(&saitek_driver);
-}
-
-module_init(saitek_init);
-module_exit(saitek_exit);
 MODULE_LICENSE("GPL");
