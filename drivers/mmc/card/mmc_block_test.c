@@ -1651,13 +1651,14 @@ static void new_req_free_end_io_fn(struct request *rq, int err)
 		(struct test_request *)rq->elv.priv[0];
 	struct test_iosched *tios = rq->q->elevator->elevator_data;
 	struct mmc_block_test_data *mbtd = tios->blk_dev_test_data;
+	unsigned long flags;
 
 	BUG_ON(!test_rq);
 
-	spin_lock_irq(&tios->lock);
+	spin_lock_irqsave(&tios->lock, flags);
 	list_del_init(&test_rq->queuelist);
 	tios->dispatched_count--;
-	spin_unlock_irq(&tios->lock);
+	spin_unlock_irqrestore(&tios->lock, flags);
 
 	__blk_put_request(tios->req_q, test_rq->rq);
 	test_iosched_free_test_req_data_buffer(test_rq);
@@ -1685,6 +1686,7 @@ static int run_new_req(struct test_iosched *tios)
 	unsigned int bio_num;
 	struct test_request *test_rq = NULL;
 	struct mmc_block_test_data *mbtd = tios->blk_dev_test_data;
+	unsigned long flags;
 
 	while (1) {
 		for (i = 0; i < requests_count; i++) {
@@ -1693,12 +1695,13 @@ static int run_new_req(struct test_iosched *tios)
 				READ, tios->start_sector, bio_num,
 				TEST_PATTERN_5A, new_req_free_end_io_fn);
 			if (test_rq) {
-				spin_lock_irq(tios->req_q->queue_lock);
+				spin_lock_irqsave(tios->req_q->queue_lock,
+					flags);
 				list_add_tail(&test_rq->queuelist,
 					      &tios->test_queue);
 				tios->test_count++;
-				spin_unlock_irq(
-					tios->req_q->queue_lock);
+				spin_unlock_irqrestore(tios->req_q->queue_lock,
+					flags);
 			} else {
 				pr_err("%s: failed to create read request",
 					     __func__);
@@ -1726,12 +1729,13 @@ static int run_new_req(struct test_iosched *tios)
 				READ, tios->start_sector, bio_num,
 				TEST_PATTERN_5A, new_req_free_end_io_fn);
 			if (test_rq) {
-				spin_lock_irq(tios->req_q->queue_lock);
+				spin_lock_irqsave(tios->req_q->queue_lock,
+					flags);
 				list_add_tail(&test_rq->queuelist,
 					      &tios->test_queue);
 				tios->test_count++;
-				spin_unlock_irq(
-					tios->req_q->queue_lock);
+				spin_unlock_irqrestore(tios->req_q->queue_lock,
+					flags);
 			} else {
 				pr_err("%s: failed to create read request",
 					     __func__);
@@ -2322,14 +2326,15 @@ static void long_seq_write_free_end_io_fn(struct request *rq, int err)
 		(struct test_request *)rq->elv.priv[0];
 	struct test_iosched *tios = rq->q->elevator->elevator_data;
 	struct mmc_block_test_data *mbtd = tios->blk_dev_test_data;
+	unsigned long flags;
 
 	BUG_ON(!test_rq);
 
-	spin_lock_irq(&tios->lock);
+	spin_lock_irqsave(&tios->lock, flags);
 	list_del_init(&test_rq->queuelist);
 	tios->dispatched_count--;
 	__blk_put_request(tios->req_q, test_rq->rq);
-	spin_unlock_irq(&tios->lock);
+	spin_unlock_irqrestore(&tios->lock, flags);
 
 	test_iosched_free_test_req_data_buffer(test_rq);
 	kfree(test_rq);
