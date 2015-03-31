@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -45,8 +45,8 @@
 #define MSM_IOMMU_ATTR_CACHED_WB_NWA	0x2
 #define MSM_IOMMU_ATTR_CACHED_WT	0x3
 
-static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
-				 unsigned int len);
+static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned long va,
+				 size_t len);
 
 static inline void clean_pte(u32 *start, u32 *end,
 			     int redirect)
@@ -1004,8 +1004,8 @@ static int check_range(u32 *fl_table, unsigned int va,
 	return 0;
 }
 
-static int msm_iommu_map_range(struct iommu_domain *domain, unsigned int va,
-			       struct scatterlist *sg, unsigned int len,
+static int msm_iommu_map_range(struct iommu_domain *domain, unsigned long va,
+			       struct scatterlist *sg, size_t len,
 			       int prot)
 {
 	unsigned int pa;
@@ -1154,8 +1154,8 @@ fail:
 }
 
 
-static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned int va,
-				 unsigned int len)
+static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned long va,
+				 size_t len)
 {
 	unsigned int offset = 0;
 	u32 *fl_table;

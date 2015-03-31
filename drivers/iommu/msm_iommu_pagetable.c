@@ -372,7 +372,7 @@ static inline int is_fully_aligned(unsigned int va, phys_addr_t pa, size_t len,
 static int __msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt,
 		       unsigned long va, void *cookie,
 		       struct msm_iommu_map_ops *ops,
-		       unsigned int len, int prot)
+		       size_t len, int prot)
 {
 	phys_addr_t pa;
 	unsigned int start_va = va;
@@ -525,8 +525,8 @@ fail:
 	return ret;
 }
 
-void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
-				 unsigned int len)
+void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned long va,
+				 size_t len)
 {
 	unsigned int offset = 0;
 	u32 *fl_pte;
@@ -588,7 +588,7 @@ void msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt, unsigned int va,
 }
 
 int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned long va,
-		struct scatterlist *sg, unsigned int len, int prot)
+		struct scatterlist *sg, size_t len, int prot)
 {
 	return __msm_iommu_pagetable_map_range(pt, va, sg, &sg_ops, len, prot);
 }
@@ -611,7 +611,7 @@ int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
 }
 
 phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
-					  phys_addr_t va)
+					  dma_addr_t va)
 {
 	struct msm_iommu_priv *priv = domain->priv;
 	struct msm_iommu_pt *pt = &priv->pt;

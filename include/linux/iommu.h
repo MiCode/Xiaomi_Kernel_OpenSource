@@ -100,10 +100,10 @@ struct iommu_ops {
 		   phys_addr_t paddr, size_t size, int prot);
 	size_t (*unmap)(struct iommu_domain *domain, unsigned long iova,
 		     size_t size);
-	int (*map_range)(struct iommu_domain *domain, unsigned int iova,
-		    struct scatterlist *sg, unsigned int len, int prot);
-	int (*unmap_range)(struct iommu_domain *domain, unsigned int iova,
-		      unsigned int len);
+	int (*map_range)(struct iommu_domain *domain, unsigned long iova,
+		    struct scatterlist *sg, size_t len, int prot);
+	int (*unmap_range)(struct iommu_domain *domain, unsigned long iova,
+		      size_t len);
 	size_t (*map_sg)(struct iommu_domain *domain, unsigned long iova,
 			 struct scatterlist *sg, unsigned int nents, int prot);
 	phys_addr_t (*iova_to_phys)(struct iommu_domain *domain, dma_addr_t iova);
@@ -150,10 +150,10 @@ extern int iommu_map(struct iommu_domain *domain, unsigned long iova,
 		     phys_addr_t paddr, size_t size, int prot);
 extern size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova,
 		       size_t size);
-extern int iommu_map_range(struct iommu_domain *domain, unsigned int iova,
-		    struct scatterlist *sg, unsigned int len, int prot);
-extern int iommu_unmap_range(struct iommu_domain *domain, unsigned int iova,
-		      unsigned int len);
+extern int iommu_map_range(struct iommu_domain *domain, unsigned long iova,
+		    struct scatterlist *sg, size_t len, int prot);
+extern int iommu_unmap_range(struct iommu_domain *domain, unsigned long iova,
+		      size_t len);
 extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 				struct scatterlist *sg,unsigned int nents,
 				int prot);
@@ -307,14 +307,14 @@ static inline void iommu_domain_window_disable(struct iommu_domain *domain,
 }
 
 static inline int iommu_map_range(struct iommu_domain *domain,
-				  unsigned int iova, struct scatterlist *sg,
-				  unsigned int len, int prot)
+				  unsigned long iova, struct scatterlist *sg,
+				  size_t len, int prot)
 {
 	return -ENODEV;
 }
 
 static inline int iommu_unmap_range(struct iommu_domain *domain,
-				    unsigned int iova, unsigned int len)
+				    unsigned long iova, size_t len)
 {
 	return -ENODEV;
 }

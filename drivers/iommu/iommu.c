@@ -971,8 +971,8 @@ void iommu_domain_window_disable(struct iommu_domain *domain, u32 wnd_nr)
 }
 EXPORT_SYMBOL_GPL(iommu_domain_window_disable);
 
-int iommu_map_range(struct iommu_domain *domain, unsigned int iova,
-		    struct scatterlist *sg, unsigned int len, int prot)
+int iommu_map_range(struct iommu_domain *domain, unsigned long iova,
+		    struct scatterlist *sg, size_t len, int prot)
 {
 	if (unlikely(domain->ops->map_range == NULL))
 		return -ENODEV;
@@ -983,8 +983,8 @@ int iommu_map_range(struct iommu_domain *domain, unsigned int iova,
 }
 EXPORT_SYMBOL_GPL(iommu_map_range);
 
-int iommu_unmap_range(struct iommu_domain *domain, unsigned int iova,
-		      unsigned int len)
+int iommu_unmap_range(struct iommu_domain *domain, unsigned long iova,
+		      size_t len)
 {
 	if (unlikely(domain->ops->unmap_range == NULL))
 		return -ENODEV;
