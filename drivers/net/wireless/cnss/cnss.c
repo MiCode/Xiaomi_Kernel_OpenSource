@@ -277,6 +277,11 @@ static struct cnss_data {
 	unsigned long last_activity;
 } *penv;
 
+static unsigned int pcie_link_down_panic;
+module_param(pcie_link_down_panic, uint, S_IRUSR | S_IWUSR);
+MODULE_PARM_DESC(pcie_link_down_panic,
+		"Trigger kernel panic when PCIe link down is detected");
+
 static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 {
 	int ret;
@@ -1506,6 +1511,9 @@ void cnss_pci_events_cb(struct msm_pcie_notify *notify)
 	switch (notify->event) {
 
 	case MSM_PCIE_EVENT_LINKDOWN:
+		if (pcie_link_down_panic)
+			panic("PCIe link is down!\n");
+
 		spin_lock_irqsave(&pci_link_down_lock, flags);
 		if (penv->pcie_link_down_ind) {
 			pr_debug("PCI link down recovery is in progress, ignore!\n");
@@ -1536,6 +1544,9 @@ void cnss_pci_events_cb(struct msm_pcie_notify *notify)
 void cnss_wlan_pci_link_down(void)
 {
 	unsigned long flags;
+
+	if (pcie_link_down_panic)
+		panic("PCIe link is down!\n");
 
 	spin_lock_irqsave(&pci_link_down_lock, flags);
 	if (penv->pcie_link_down_ind) {
