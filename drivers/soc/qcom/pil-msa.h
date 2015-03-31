@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,4 +43,5 @@ int pil_mss_make_proxy_votes(struct pil_desc *pil);
 void pil_mss_remove_proxy_votes(struct pil_desc *pil);
 int pil_mss_shutdown(struct pil_desc *pil);
 int pil_mss_deinit_image(struct pil_desc *pil);
+int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path);
 #endif
