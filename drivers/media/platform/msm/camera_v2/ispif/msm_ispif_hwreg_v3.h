@@ -77,7 +77,7 @@
 #define ISPIF_RST_CMD_MASK                       0xFE7F1FFF
 #define ISPIF_RST_CMD_1_MASK                     0xFC7F1FF9
 
-#define ISPIF_RST_CMD_MASK_RESTART               0x7F1FFF
+#define ISPIF_RST_CMD_MASK_RESTART               0x7F1FF9
 #define ISPIF_RST_CMD_1_MASK_RESTART             0x7F1FF9
 
 #define PIX_INTF_0_OVERFLOW_IRQ                  BIT(12)
