@@ -141,19 +141,19 @@ static unsigned int _ft_hang_intr_status_show(struct adreno_device *adreno_dev)
 	return test_bit(ADRENO_DEVICE_HANG_INTR, &adreno_dev->priv);
 }
 
-static int _sptp_pc_store(struct adreno_device *adreno_dev,
-		unsigned int val)
+static int _pwrctrl_store(struct adreno_device *adreno_dev,
+		unsigned int val, unsigned int flag)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 
-	if (val == test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag))
+	if (val == test_bit(flag, &adreno_dev->pwrctrl_flag))
 		return 0;
 
 	mutex_lock(&device->mutex);
 
-	/* Power down the GPU before changing the SP/TP state */
+	/* Power down the GPU before changing the state */
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SUSPEND);
-	change_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+	change_bit(flag, &adreno_dev->pwrctrl_flag);
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_SLUMBER);
 
 	mutex_unlock(&device->mutex);
@@ -161,9 +161,25 @@ static int _sptp_pc_store(struct adreno_device *adreno_dev,
 	return 0;
 }
 
+static int _sptp_pc_store(struct adreno_device *adreno_dev,
+		unsigned int val)
+{
+	return _pwrctrl_store(adreno_dev, val, ADRENO_SPTP_PC_CTRL);
+}
+
 static unsigned int _sptp_pc_show(struct adreno_device *adreno_dev)
 {
 	return test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
+}
+
+static int _lm_store(struct adreno_device *adreno_dev, unsigned int val)
+{
+	return _pwrctrl_store(adreno_dev, val, ADRENO_LM_CTRL);
+}
+
+static unsigned int _lm_show(struct adreno_device *adreno_dev)
+{
+	return test_bit(ADRENO_LM_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
 static ssize_t _sysfs_store_u32(struct device *dev,
@@ -256,6 +272,7 @@ static DEVICE_INT_ATTR(wake_nice, 0644, adreno_wake_nice);
 static DEVICE_INT_ATTR(wake_timeout, 0644, adreno_wake_timeout);
 
 static ADRENO_SYSFS_BOOL(sptp_pc);
+static ADRENO_SYSFS_BOOL(lm);
 
 static const struct device_attribute *_attr_list[] = {
 	&adreno_attr_ft_policy.attr,
@@ -266,6 +283,7 @@ static const struct device_attribute *_attr_list[] = {
 	&dev_attr_wake_nice.attr,
 	&dev_attr_wake_timeout.attr,
 	&adreno_attr_sptp_pc.attr,
+	&adreno_attr_lm.attr,
 	NULL,
 };
 

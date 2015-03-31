@@ -1481,6 +1481,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_mmu_off;
 
+	/* Set up LM before initializing the GPMU */
+	if (gpudev->lm_init)
+		gpudev->lm_init(adreno_dev);
+
 	/* Enable h/w power collapse feature */
 	if (gpudev->enable_pc)
 		gpudev->enable_pc(adreno_dev);
@@ -1492,6 +1496,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Enable peak power detect feature */
 	if (gpudev->enable_ppd)
 		gpudev->enable_ppd(adreno_dev);
+
+	/* Enable limits management */
+	if (gpudev->lm_enable)
+		gpudev->lm_enable(adreno_dev);
 
 	/* Start the dispatcher */
 	adreno_dispatcher_start(device);
@@ -2562,13 +2570,14 @@ static void adreno_regulator_disable(struct kgsl_device *device)
 }
 
 static void adreno_pwrlevel_change_settings(struct kgsl_device *device,
-						bool mask_throttle)
+		unsigned int prelevel, unsigned int postlevel, bool post)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	struct adreno_gpudev *gpudev  = ADRENO_GPU_DEVICE(adreno_dev);
 
 	if (gpudev->pwrlevel_change_settings)
-		gpudev->pwrlevel_change_settings(adreno_dev, mask_throttle);
+		gpudev->pwrlevel_change_settings(adreno_dev, prelevel,
+					postlevel, post);
 }
 
 static const struct kgsl_functable adreno_functable = {
