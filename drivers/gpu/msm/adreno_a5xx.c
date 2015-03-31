@@ -1329,10 +1329,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	 */
 	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL0, 0x00000001);
 
-	/* Enable AHB error reporting */
-	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
-	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
-
 	/*
 	 * Turn on hang detection for a530 v2 and beyond. This spews a
 	 * lot of useful information into the RBBM registers on a hang.
@@ -1444,7 +1440,40 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	/* Set the USE_RETENTION_FLOPS chicken bit */
 	kgsl_regwrite(device, A5XX_CP_CHICKEN_DBG, 0x02000000);
 
-	a5xx_hwcg_init(adreno_dev);
+	/* Enable ISDB mode if requested */
+	if (test_bit(ADRENO_DEVICE_ISDB_ENABLED, &adreno_dev->priv)) {
+		if (!kgsl_active_count_get(device)) {
+			/*
+			* Disable ME/PFP split timeouts when the debugger is
+			* enabled because the CP doesn't know when a shader is
+			* in active debug
+			*/
+			kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0x06FFFFFF);
+
+			/* Force the SP0/SP1 clocks on to enable ISDB */
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL_SP0, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL_SP1, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL_SP2, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL_SP3, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL2_SP0, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL2_SP1, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL2_SP2, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL2_SP3, 0x0);
+
+			/* disable HWCG */
+			kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0x0);
+			kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, 0x0);
+		} else
+			KGSL_CORE_ERR(
+				"Active count failed while turning on ISDB.");
+	} else {
+		/* if not in ISDB mode enable ME/PFP split notification */
+		kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL1, 0xA6FFFFFF);
+		/* enable HWCG */
+		a5xx_hwcg_init(adreno_dev);
+	}
+
+	kgsl_regwrite(device, A5XX_RBBM_AHB_CNTL2, 0x0000003F);
 
 	a5xx_protect_init(adreno_dev);
 }
