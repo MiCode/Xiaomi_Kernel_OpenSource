@@ -344,7 +344,6 @@ static void process_log_range_report(uint8_t *buf, uint32_t len,
 	/* Don't account for pkt_id and length */
 	read_len += header_len - (2 * sizeof(uint32_t));
 
-	mutex_lock(&log_mask.lock);
 	driver->num_equip_id[peripheral] = header->num_ranges;
 	for (i = 0; i < header->num_ranges && read_len < len; i++) {
 		log_range = (struct diag_ctrl_log_range *)ptr;
@@ -358,6 +357,7 @@ static void process_log_range_report(uint8_t *buf, uint32_t len,
 		}
 		mask_ptr = (struct diag_log_mask_t *)log_mask.ptr;
 		mask_ptr = &mask_ptr[log_range->equip_id];
+		mutex_lock(&(mask_ptr->lock));
 		mask_size = LOG_ITEMS_TO_SIZE(log_range->num_items);
 		if (mask_size < mask_ptr->range)
 			goto proceed;
@@ -366,6 +366,7 @@ static void process_log_range_report(uint8_t *buf, uint32_t len,
 		if (!temp) {
 			pr_err("diag: In %s, Unable to reallocate log mask ptr to size: %d, equip_id: %d\n",
 			       __func__, mask_size, log_range->equip_id);
+			mutex_unlock(&(mask_ptr->lock));
 			continue;
 		}
 		mask_ptr->ptr = temp;
@@ -373,8 +374,8 @@ static void process_log_range_report(uint8_t *buf, uint32_t len,
 proceed:
 		if (log_range->num_items > mask_ptr->num_items)
 			mask_ptr->num_items = log_range->num_items;
+		mutex_unlock(&(mask_ptr->lock));
 	}
-	mutex_unlock(&log_mask.lock);
 }
 
 static int update_msg_mask_tbl_entry(struct diag_msg_mask_t *mask,
@@ -429,7 +430,6 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 	/* Don't account for pkt_id and length */
 	read_len += header_len - (2 * sizeof(uint32_t));
 
-	mutex_lock(&msg_mask.lock);
 	driver->max_ssid_count[smd_info->peripheral] = header->count;
 	for (i = 0; i < header->count && read_len < len; i++) {
 		ssid_range = (struct diag_ssid_range_t *)ptr;
@@ -440,7 +440,9 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 		for (j = 0; j < driver->msg_mask_tbl_count; j++, mask_ptr++) {
 			if (mask_ptr->ssid_first != ssid_range->ssid_first)
 				continue;
+			mutex_lock(&mask_ptr->lock);
 			err = update_msg_mask_tbl_entry(mask_ptr, ssid_range);
+			mutex_unlock(&mask_ptr->lock);
 			if (err == -ENOMEM) {
 				pr_err("diag: In %s, unable to increase the msg mask table range\n",
 				       __func__);
@@ -471,7 +473,6 @@ static void process_ssid_range_report(uint8_t *buf, uint32_t len,
 		}
 		driver->msg_mask_tbl_count += 1;
 	}
-	mutex_unlock(&msg_mask.lock);
 }
 
 static void diag_build_time_mask_update(uint8_t *buf,
@@ -500,11 +501,11 @@ static void diag_build_time_mask_update(uint8_t *buf,
 	build_mask = (struct diag_msg_mask_t *)(driver->build_time_mask->ptr);
 	num_items = range->ssid_last - range->ssid_first + 1;
 
-	mutex_lock(&driver->build_time_mask->lock);
 	for (i = 0; i < driver->msg_mask_tbl_count; i++, build_mask++) {
 		if (build_mask->ssid_first != range->ssid_first)
 			continue;
 		found = 1;
+		mutex_lock(&build_mask->lock);
 		err = update_msg_mask_tbl_entry(build_mask, range);
 		if (err == -ENOMEM) {
 			pr_err("diag: In %s, unable to increase the msg build mask table range\n",
@@ -513,6 +514,7 @@ static void diag_build_time_mask_update(uint8_t *buf,
 		dest_ptr = build_mask->ptr;
 		for (j = 0; j < build_mask->range; j++, mask_ptr++, dest_ptr++)
 			*(uint32_t *)dest_ptr |= *mask_ptr;
+		mutex_unlock(&build_mask->lock);
 		break;
 	}
 
@@ -535,7 +537,7 @@ static void diag_build_time_mask_update(uint8_t *buf,
 	}
 	driver->msg_mask_tbl_count += 1;
 end:
-	mutex_unlock(&driver->build_time_mask->lock);
+	return;
 }
 
 static void process_build_mask_report(uint8_t *buf, uint32_t len,
