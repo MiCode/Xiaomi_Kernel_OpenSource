@@ -536,7 +536,13 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		qphy->phy.notify_disconnect     = qusb_phy_notify_disconnect;
 	}
 
-	qusb_phy_reset(&qphy->phy);
+	/*
+	 * QUSB PHY is required to be kept into reset to save leakage current
+	 * as it is out of reset as part of Chip reset. Hence keep QUSB PHY
+	 * into reset explicitly here. When Controller driver is probed, it
+	 * brings QUSB PHY out of reset after initializing it.
+	 */
+	clk_reset(qphy->phy_reset, CLK_RESET_ASSERT);
 	ret = usb_add_phy_dev(&qphy->phy);
 
 	return ret;
