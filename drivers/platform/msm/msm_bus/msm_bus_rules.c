@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -128,9 +128,6 @@ static bool do_compare_op(u64 op1, u64 op2, int op)
 	case OP_GE:
 		ret = GE(op1, op2);
 		break;
-	case OP_NOOP:
-		ret = true;
-		break;
 	default:
 		pr_info("Invalid OP %d", op);
 		break;
@@ -155,13 +152,13 @@ static void update_src_id_vote(struct rule_update_path_info *inp_node,
 	}
 }
 
-static u64 get_field(struct rules_def *rule, int src_id)
+static u64 get_sum_field(struct rules_def *rule)
 {
 	u64 field = 0;
 	int i;
 
 	for (i = 0; i < rule->num_src; i++) {
-		switch (rule->rule_ops.src_field) {
+		switch (rule->rule_ops.src_field[0]) {
 		case FLD_IB:
 			field += rule->src_info[i].ib;
 			break;
@@ -177,28 +174,58 @@ static u64 get_field(struct rules_def *rule, int src_id)
 	return field;
 }
 
-static bool check_rule(struct rules_def *rule,
-			struct rule_update_path_info *inp)
+static u64 get_field(struct rules_def *rule, int src_id)
+{
+	u64 field = 0;
+	int i;
+
+	for (i = 0; i < rule->num_src; i++) {
+		if (rule->src_info[i].id == src_id) {
+			switch (rule->rule_ops.src_field[i]) {
+			case FLD_IB:
+				field = rule->src_info[i].ib;
+				break;
+			case FLD_AB:
+				field = rule->src_info[i].ab;
+				break;
+			case FLD_CLK:
+				field = rule->src_info[i].clk;
+				break;
+			}
+			break;
+		}
+	}
+	return field;
+}
+
+static bool check_rule(struct rules_def *rule)
 {
 	bool ret = false;
+	u64 src_field = 0;
+	int i;
 
 	if (!rule)
 		return ret;
 
-	switch (rule->rule_ops.op) {
-	case OP_LE:
-	case OP_LT:
-	case OP_GT:
-	case OP_GE:
-	{
-		u64 src_field = get_field(rule, inp->id);
-		ret = do_compare_op(src_field, rule->rule_ops.thresh,
-							rule->rule_ops.op);
-		break;
-	}
-	default:
-		pr_err("Unsupported op %d", rule->rule_ops.op);
-		break;
+	for (i = 0; i < rule->rule_ops.num_thresh; i++) {
+		if (rule->rule_ops.op[i] > OP_GT) {
+			pr_err("Unsupported op %d", rule->rule_ops.op[i]);
+			continue;
+		}
+		if (rule->rule_ops.num_thresh > 1)
+			src_field = get_field(rule, rule->src_info[i].id);
+		else
+			src_field = get_sum_field(rule);
+
+		ret = do_compare_op(src_field, rule->rule_ops.thresh[i],
+						rule->rule_ops.op[i]);
+		if (rule->rule_ops.combo_op == OP_AND) {
+			if (!ret)
+				return ret;
+		} else if (rule->rule_ops.combo_op == OP_OR) {
+			if (ret)
+				return ret;
+		}
 	}
 	return ret;
 }
@@ -212,12 +239,12 @@ static void match_rule(struct rule_update_path_info *inp_node,
 	list_for_each_entry(rule, &node->node_rules, link) {
 		for (i = 0; i < rule->num_src; i++) {
 			if (rule->src_info[i].id == inp_node->id) {
-				if (check_rule(rule, inp_node)) {
+				if (check_rule(rule)) {
 					trace_bus_rules_matches(
-					(node->cur_rule ?
-						node->cur_rule->rule_id : -1),
-					inp_node->id, inp_node->ab,
-					inp_node->ib, inp_node->clk);
+						(node->cur_rule ?
+						 node->cur_rule->rule_id : -1),
+						inp_node->id, inp_node->ab,
+						inp_node->ib, inp_node->clk);
 					if (rule->state ==
 						RULE_STATE_NOT_APPLIED)
 						rule->state_change = true;
@@ -298,25 +325,6 @@ int msm_rules_update_path(struct list_head *input_list,
 	return ret;
 }
 
-static bool ops_equal(int op1, int op2)
-{
-	bool ret = false;
-
-	switch (op1) {
-	case OP_GT:
-	case OP_GE:
-	case OP_LT:
-	case OP_LE:
-		if (abs(op1 - op2) <= 1)
-			ret = true;
-		break;
-	default:
-		ret = (op1 == op2);
-	}
-
-	return ret;
-}
-
 static bool is_throttle_rule(int mode)
 {
 	bool ret = true;
@@ -325,6 +333,30 @@ static bool is_throttle_rule(int mode)
 		ret = false;
 
 	return ret;
+}
+
+static int64_t get_th_diff(struct rules_def *ra, struct rules_def *rb)
+{
+	int64_t th_diff = 0;
+	int num_thresh = 1;
+
+	if (!(ra && rb))
+		return -ENXIO;
+
+	num_thresh = ra->rule_ops.num_thresh;
+	if (num_thresh > 1) {
+		th_diff = ra->rule_ops.dst_bw -
+					rb->rule_ops.dst_bw;
+	} else {
+		if ((ra->rule_ops.op[0] == OP_LE) ||
+				(ra->rule_ops.op[0] == OP_LT))
+			th_diff = ra->rule_ops.thresh[0] -
+					rb->rule_ops.thresh[0];
+		else
+			th_diff = rb->rule_ops.thresh[0] -
+					ra->rule_ops.thresh[0];
+	}
+	return th_diff;
 }
 
 static int node_rules_compare(void *priv, struct list_head *a,
@@ -337,26 +369,17 @@ static int node_rules_compare(void *priv, struct list_head *a,
 
 
 	if (ra->rule_ops.mode == rb->rule_ops.mode) {
-		if (ops_equal(ra->rule_ops.op, rb->rule_ops.op)) {
-			if ((ra->rule_ops.op == OP_LT) ||
-				(ra->rule_ops.op == OP_LE)) {
-				th_diff = ra->rule_ops.thresh -
-						rb->rule_ops.thresh;
-				if (th_diff > 0)
-					ret = 1;
-				 else
-					ret = -1;
-			} else if ((ra->rule_ops.op == OP_GT) ||
-					(ra->rule_ops.op == OP_GE)) {
-				th_diff = rb->rule_ops.thresh -
-							ra->rule_ops.thresh;
-				if (th_diff > 0)
-					ret = 1;
-				 else
-					ret = -1;
-			}
-		} else
+		if ((ra->rule_ops.num_thresh == 1) &&
+			(ra->rule_ops.op[0] - rb->rule_ops.op[0]))
 			ret = ra->rule_ops.op - rb->rule_ops.op;
+		else {
+			th_diff = get_th_diff(ra, rb);
+
+			if (th_diff > 0)
+				ret = 1;
+			 else
+				ret = -1;
+		}
 	} else if (is_throttle_rule(ra->rule_ops.mode) &&
 				is_throttle_rule(rb->rule_ops.mode)) {
 		if (ra->rule_ops.mode == THROTTLE_ON)
@@ -390,7 +413,8 @@ static void print_rules(struct rule_node_info *node_it)
 	list_for_each_entry(node_rule, &node_it->node_rules, link) {
 		pr_info("\n num Rules %d  rule Id %d\n",
 				node_it->num_rules, node_rule->rule_id);
-		pr_info("Rule: src_field %d\n", node_rule->rule_ops.src_field);
+		pr_info("Rule: src_field %d\n",
+					node_rule->rule_ops.src_field[0]);
 		for (i = 0; i < node_rule->rule_ops.num_src; i++)
 			pr_info("Rule: src %d\n",
 					node_rule->rule_ops.src_id[i]);
@@ -399,8 +423,8 @@ static void print_rules(struct rule_node_info *node_it)
 						node_rule->rule_ops.dst_node[i],
 						node_rule->rule_ops.dst_bw);
 		pr_info("Rule: thresh %llu op %d mode %d State %d\n",
-					node_rule->rule_ops.thresh,
-					node_rule->rule_ops.op,
+					node_rule->rule_ops.thresh[0],
+					node_rule->rule_ops.op[0],
 					node_rule->rule_ops.mode,
 					node_rule->state);
 	}
@@ -431,25 +455,31 @@ void print_rules_buf(char *buf, int max_buf)
 				"\nNum Rules:%d ruleId %d STATE:%d change:%d\n",
 				node_it->num_rules, node_rule->rule_id,
 				node_rule->state, node_rule->state_change);
-			cnt += scnprintf(buf + cnt, max_buf - cnt,
-				"Src_field %d\n",
-				node_rule->rule_ops.src_field);
+			for (i = 0; i < node_rule->rule_ops.num_thresh; i++)
+				cnt += scnprintf(buf + cnt, max_buf - cnt,
+					"Src_field %d\n",
+					node_rule->rule_ops.src_field[i]);
 			for (i = 0; i < node_rule->rule_ops.num_src; i++)
 				cnt += scnprintf(buf + cnt, max_buf - cnt,
-					"Src %d Cur Ib %llu Ab %llu\n",
+					"Src %d Cur Ib %llu Ab %llu Clk %llu\n",
 					node_rule->rule_ops.src_id[i],
 					node_rule->src_info[i].ib,
-					node_rule->src_info[i].ab);
+					node_rule->src_info[i].ab,
+					node_rule->src_info[i].clk);
 			for (i = 0; i < node_rule->rule_ops.num_dst; i++)
 				cnt += scnprintf(buf + cnt, max_buf - cnt,
 					"Dst %d dst_bw %llu\n",
 					node_rule->rule_ops.dst_node[0],
 					node_rule->rule_ops.dst_bw);
-			cnt += scnprintf(buf + cnt, max_buf - cnt,
+			for (i = 0; i < node_rule->rule_ops.num_thresh; i++)
+				cnt += scnprintf(buf + cnt, max_buf - cnt,
 					"Thresh %llu op %d mode %d\n",
-					node_rule->rule_ops.thresh,
-					node_rule->rule_ops.op,
+					node_rule->rule_ops.thresh[i],
+					node_rule->rule_ops.op[i],
 					node_rule->rule_ops.mode);
+			scnprintf(buf+cnt, max_buf - cnt,
+					"Combo Op %d\n",
+					node_rule->rule_ops.combo_op);
 		}
 	}
 }
@@ -573,9 +603,16 @@ static int comp_rules(struct bus_rule_type *rulea, struct bus_rule_type *ruleb)
 	if (!ret && (rulea->num_dst == ruleb->num_dst))
 		ret = memcmp(rulea->dst_node, ruleb->dst_node,
 				(sizeof(int) * rulea->num_dst));
-	if (ret || (rulea->dst_bw != ruleb->dst_bw) ||
-		(rulea->op != ruleb->op) || (rulea->thresh != ruleb->thresh))
+	if (!ret && (rulea->num_thresh == ruleb->num_thresh))
+		ret = (memcmp(rulea->op, ruleb->op,
+				(sizeof(int) * rulea->num_thresh)) &&
+			memcmp(rulea->thresh, ruleb->thresh,
+				(sizeof(int) * rulea->num_thresh)) &&
+			memcmp(rulea->src_field, ruleb->src_field,
+				(sizeof(int) * rulea->num_thresh)));
+	if (ret || (rulea->dst_bw != ruleb->dst_bw))
 		ret = 1;
+
 	return ret;
 }
 
