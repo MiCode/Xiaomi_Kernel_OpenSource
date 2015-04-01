@@ -1,6 +1,6 @@
 /* Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -133,7 +133,7 @@ struct audio_aio_buffer_node {
 	struct list_head list;
 	struct msm_audio_aio_buf buf;
 	unsigned long paddr;
-	unsigned long token;
+	uint32_t token;
 	void            *kvaddr;
 	union meta_data meta_info;
 };
