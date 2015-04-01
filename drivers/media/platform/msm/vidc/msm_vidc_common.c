@@ -448,6 +448,34 @@ static void handle_sys_init_done(enum hal_command_response cmd, void *data)
 	complete(&(core->completions[index]));
 }
 
+static bool valid_active_session(struct msm_vidc_core *core,
+		struct msm_vidc_inst *inst)
+{
+	struct msm_vidc_inst *temp = NULL;
+	bool matches = false;
+
+	if (!core || !inst)
+		return false;
+
+	mutex_lock(&core->lock);
+
+	list_for_each_entry(temp, &core->instances, list) {
+		if (temp == inst) {
+			/*
+			 * Even if the instance is valid, we really shouldn't
+			 * be receiving or handling callbacks when we've deleted
+			 * our session with HFI
+			 */
+			matches = !!inst->session;
+			break;
+		}
+	}
+
+	mutex_unlock(&core->lock);
+
+	return matches;
+}
+
 static void handle_session_release_buf_done(enum hal_command_response cmd,
 	void *data)
 {
@@ -465,6 +493,11 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 	}
 
 	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
 	buffer = &response->data.buffer_info;
 	address = buffer->buffer_addr;
 
@@ -501,7 +534,7 @@ static void handle_session_release_buf_done(enum hal_command_response cmd,
 }
 
 static void handle_sys_release_res_done(
-	enum hal_command_response cmd, void *data)
+		enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_core *core;
@@ -624,53 +657,56 @@ static void handle_session_init_done(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst = NULL;
 	struct hfi_device *hdev;
+	struct vidc_hal_session_init_done *session_init_done =
+		&response->data.session_init_done;
 
-	if (response) {
-		struct vidc_hal_session_init_done *session_init_done =
-			&response->data.session_init_done;
-		inst = (struct msm_vidc_inst *)response->session_id;
-		if (!inst || !inst->core || !inst->core->device) {
-			dprintk(VIDC_ERR, "%s: invalid parameters (%p)\n",
-				__func__, inst);
-			return;
-		}
-
-		hdev = inst->core->device;
-
-		if (!response->status && session_init_done) {
-			inst->capability.width = session_init_done->width;
-			inst->capability.height = session_init_done->height;
-			inst->capability.frame_rate =
-				session_init_done->frame_rate;
-			inst->capability.scale_x = session_init_done->scale_x;
-			inst->capability.scale_y = session_init_done->scale_y;
-			inst->capability.hier_p = session_init_done->hier_p;
-			inst->capability.ltr_count =
-				session_init_done->ltr_count;
-			inst->capability.pixelprocess_capabilities =
-				call_hfi_op(hdev, get_core_capabilities,
-						hdev->hfi_device_data);
-			inst->capability.mbs_per_frame =
-				session_init_done->mbs_per_frame;
-			inst->capability.capability_set = true;
-			inst->capability.buffer_mode[CAPTURE_PORT] =
-				session_init_done->alloc_mode_out;
-			inst->capability.secure_output2_threshold =
-				session_init_done->secure_output2_threshold;
-		} else {
-			dprintk(VIDC_ERR,
-				"Session init response from FW : %#x\n",
-				response->status);
-			if (response->status == VIDC_ERR_MAX_CLIENTS)
-				msm_comm_generate_max_clients_error(inst);
-			else
-				msm_comm_generate_session_error(inst);
-		}
-		signal_session_msg_receipt(cmd, inst);
-	} else {
+	if (!response) {
 		dprintk(VIDC_ERR,
 				"Failed to get valid response for session init\n");
+		return;
 	}
+
+	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!inst || !inst->core || !inst->core->device) {
+		dprintk(VIDC_ERR, "%s: invalid parameters (%p)\n",
+				__func__, inst);
+		return;
+	} else if (!valid_active_session(get_vidc_core(
+			response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
+	hdev = inst->core->device;
+
+	if (!response->status && session_init_done) {
+		inst->capability.width = session_init_done->width;
+		inst->capability.height = session_init_done->height;
+		inst->capability.frame_rate = session_init_done->frame_rate;
+		inst->capability.scale_x = session_init_done->scale_x;
+		inst->capability.scale_y = session_init_done->scale_y;
+		inst->capability.hier_p = session_init_done->hier_p;
+		inst->capability.ltr_count = session_init_done->ltr_count;
+		inst->capability.pixelprocess_capabilities = call_hfi_op(hdev,
+				get_core_capabilities, hdev->hfi_device_data);
+		inst->capability.mbs_per_frame =
+			session_init_done->mbs_per_frame;
+		inst->capability.capability_set = true;
+		inst->capability.buffer_mode[CAPTURE_PORT] =
+			session_init_done->alloc_mode_out;
+		inst->capability.secure_output2_threshold =
+			session_init_done->secure_output2_threshold;
+	} else {
+		dprintk(VIDC_ERR,
+				"Session init response from FW : %#x\n",
+				response->status);
+		if (response->status == VIDC_ERR_MAX_CLIENTS)
+			msm_comm_generate_max_clients_error(inst);
+		else
+			msm_comm_generate_session_error(inst);
+	}
+
+	signal_session_msg_receipt(cmd, inst);
 }
 
 static void handle_event_change(enum hal_command_response cmd, void *data)
@@ -688,6 +724,12 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	}
 
 	inst = (struct msm_vidc_inst *)event_notify->session_id;
+	if (!valid_active_session(get_vidc_core(
+			event_notify->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
 	switch (event_notify->hal_event_type) {
 	case HAL_EVENT_SEQ_CHANGED_SUFFICIENT_RESOURCES:
 		event = V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT;
@@ -833,7 +875,12 @@ static void handle_session_prop_info(enum hal_command_response cmd, void *data)
 			"Failed to get valid response for prop info\n");
 		return;
 	}
+
 	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
 
 	getprop = kzalloc(sizeof(*getprop), GFP_KERNEL);
 	if (!getprop) {
@@ -861,56 +908,83 @@ static void handle_load_resource_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	if (response) {
-		inst = (struct msm_vidc_inst *)response->session_id;
-		if (response->status) {
-			dprintk(VIDC_ERR,
-				"Load resource response from FW : %#x\n",
-				response->status);
-			msm_comm_generate_session_error(inst);
-		}
-	} else
+
+	if (!response) {
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for load resource\n");
+		return;
+	}
+
+	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
+	if (response->status) {
+		dprintk(VIDC_ERR,
+				"Load resource response from FW : %#x\n",
+				response->status);
+		msm_comm_generate_session_error(inst);
+	}
 }
 
 static void handle_start_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	if (response) {
-		inst = (struct msm_vidc_inst *)response->session_id;
-		signal_session_msg_receipt(cmd, inst);
-	} else {
-		dprintk(VIDC_ERR,
-			"Failed to get valid response for start\n");
+
+	if (!response) {
+		dprintk(VIDC_ERR, "Failed to get valid response for start\n");
+		return;
 	}
+
+	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
+	signal_session_msg_receipt(cmd, inst);
 }
 
 static void handle_stop_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	if (response) {
-		inst = (struct msm_vidc_inst *)response->session_id;
-		signal_session_msg_receipt(cmd, inst);
-	} else {
-		dprintk(VIDC_ERR,
-			"Failed to get valid response for stop\n");
+
+	if (!response) {
+		dprintk(VIDC_ERR, "Failed to get valid response for stop\n");
+		return;
 	}
+
+	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
+	signal_session_msg_receipt(cmd, inst);
 }
 
 static void handle_release_res_done(enum hal_command_response cmd, void *data)
 {
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
-	if (response) {
-		inst = (struct msm_vidc_inst *)response->session_id;
-		signal_session_msg_receipt(cmd, inst);
-	} else {
+
+	if (!response) {
 		dprintk(VIDC_ERR,
 			"Failed to get valid response for release resource\n");
+		return;
 	}
+
+	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
+	signal_session_msg_receipt(cmd, inst);
 }
 void validate_output_buffers(struct msm_vidc_inst *inst)
 {
@@ -1004,24 +1078,32 @@ static void handle_session_flush(enum hal_command_response cmd, void *data)
 	struct msm_vidc_cb_cmd_done *response = data;
 	struct msm_vidc_inst *inst;
 	int rc;
-	if (response) {
-		inst = (struct msm_vidc_inst *)response->session_id;
-		if (msm_comm_get_stream_output_mode(inst) ==
+
+	if (!response) {
+		dprintk(VIDC_ERR, "Failed to get valid response for flush\n");
+		return;
+	}
+
+	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
+	if (msm_comm_get_stream_output_mode(inst) ==
 			HAL_VIDEO_DECODER_SECONDARY) {
-			validate_output_buffers(inst);
-			if (!inst->in_reconfig) {
-				rc = msm_comm_queue_output_buffers(inst);
-				if (rc) {
-					dprintk(VIDC_ERR,
+		validate_output_buffers(inst);
+		if (!inst->in_reconfig) {
+			rc = msm_comm_queue_output_buffers(inst);
+			if (rc) {
+				dprintk(VIDC_ERR,
 						"Failed to queue output buffers: %d\n",
 						rc);
-				}
 			}
 		}
-		msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
-	} else {
-		dprintk(VIDC_ERR, "Failed to get valid response for flush\n");
 	}
+
+	msm_vidc_queue_v4l2_event(inst, V4L2_EVENT_MSM_VIDC_FLUSH_DONE);
 }
 
 static void handle_session_error(enum hal_command_response cmd, void *data)
@@ -1042,6 +1124,10 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_ERR,
 				"Session (%p) not in a stable enough state to handle session error\n",
 				inst);
+		return;
+	} else if (!valid_active_session(get_vidc_core(
+			response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
 		return;
 	}
 
@@ -1192,7 +1278,7 @@ void msm_comm_session_clean(struct msm_vidc_inst *inst)
 	if (hdev && inst->session) {
 		dprintk(VIDC_DBG, "cleaning up instance: %p\n", inst);
 		rc = call_hfi_op(hdev, session_clean,
-				(void *) inst->session);
+				(void *)inst->session);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Session clean failed :%p\n", inst);
@@ -1211,6 +1297,11 @@ static void handle_session_close(enum hal_command_response cmd, void *data)
 		inst = (struct msm_vidc_inst *)response->session_id;
 		if (!inst || !inst->core || !inst->core->device) {
 			dprintk(VIDC_ERR, "%s invalid params\n", __func__);
+			return;
+		} else if (!valid_active_session(get_vidc_core(
+				response->device_id), inst)) {
+			dprintk(VIDC_WARN,
+					"Got a reponse for an inactive session\n");
 			return;
 		}
 		signal_session_msg_receipt(cmd, inst);
@@ -1269,7 +1360,12 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_ERR, "%s Invalid response from vidc_hal\n",
 			__func__);
 		return;
+	} else if (!valid_active_session(get_vidc_core(
+			response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
 	}
+
 	vb = get_vb_from_device_addr(&inst->bufq[OUTPUT_PORT],
 				response->clnt_data);
 	if (vb) {
@@ -1479,7 +1575,13 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
 	}
+
 	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
 	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
 	buffer_type = msm_comm_get_hal_output_buffer(inst);
 	if (fill_buf_done->buffer_type == buffer_type) {
@@ -1622,11 +1724,18 @@ static void handle_seq_hdr_done(enum hal_command_response cmd, void *data)
 	struct msm_vidc_inst *inst;
 	struct vb2_buffer *vb;
 	struct vidc_hal_fbd *fill_buf_done;
+
 	if (!response) {
 		dprintk(VIDC_ERR, "Invalid response from vidc_hal\n");
 		return;
 	}
+
 	inst = (struct msm_vidc_inst *)response->session_id;
+	if (!valid_active_session(get_vidc_core(response->device_id), inst)) {
+		dprintk(VIDC_WARN, "Got a reponse for an inactive session\n");
+		return;
+	}
+
 	fill_buf_done = (struct vidc_hal_fbd *)&response->output_done;
 	vb = get_vb_from_device_addr(&inst->bufq[CAPTURE_PORT],
 				fill_buf_done->packet_buffer1);
