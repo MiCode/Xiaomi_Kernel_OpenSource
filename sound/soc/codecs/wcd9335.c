@@ -345,6 +345,28 @@ struct tasha_priv {
 	int swr_clk_users;
 };
 
+int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
+{
+	tasha_cdc_mclk_enable(codec, true, false);
+
+	snd_soc_update_bits(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_CTL,
+			    0x1E, 0x02);
+	snd_soc_update_bits(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_CTL,
+			    0x01, 0x01);
+	/*
+	 * 5ms sleep required after enabling efuse control
+	 * before checking the status.
+	 */
+	usleep_range(5000, 5500);
+	if (!(snd_soc_read(codec, WCD9335_CHIP_TIER_CTRL_EFUSE_STATUS) & 0x01))
+		WARN(1, "%s: Efuse sense is not complete\n", __func__);
+
+	tasha_cdc_mclk_enable(codec, false, false);
+
+	return 0;
+}
+EXPORT_SYMBOL(tasha_enable_efuse_sensing);
+
 void *tasha_get_afe_config(struct snd_soc_codec *codec,
 			   enum afe_config_type config_type)
 {
