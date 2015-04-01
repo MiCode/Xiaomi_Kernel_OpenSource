@@ -65,6 +65,7 @@ struct ufsdbg_err_scenario {
 	u32 err_code_mask;
 	const int *err_code_arr;
 	u32 num_err_codes;
+	u32 num_err_injected;
 };
 
 /*
@@ -355,6 +356,7 @@ void ufsdbg_error_inject_dispatcher(struct ufs_hba *hba,
 
 should_fail:
 	*ret_value = opt_ret;
+	err_scen_arr[usecase].num_err_injected++;
 	pr_debug("%s: error code index [%d], error code %d (0x%x) is injected for scenario \"%s\"\n",
 		 __func__, err_code_index, *ret_value, *ret_value,
 		 err_scen_arr[usecase].name);
@@ -438,6 +440,47 @@ static const struct file_operations ufsdbg_err_code_ops = {
 	.write		= ufsdbg_err_code_write,
 };
 
+static int ufsdbg_err_inj_stats_read(struct seq_file *file, void *data)
+{
+	enum ufsdbg_err_inject_scenario err;
+
+	seq_printf(file, "%-40s %-20s\n",
+		   "Error Scenario:", "Num of Errors Injected");
+
+	for (err = 0; err < ERR_INJECT_MAX_ERR_SCENARIOS; err++) {
+		seq_printf(file, "%-40s %-20d\n",
+			err_scen_arr[err].name,
+			err_scen_arr[err].num_err_injected);
+	}
+
+	return 0;
+}
+
+static
+int ufsdbg_err_inj_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file,
+			ufsdbg_err_inj_stats_read, inode->i_private);
+}
+
+static ssize_t ufsdbg_err_inj_stats_write(struct file *file,
+				     const char __user *ubuf, size_t cnt,
+				     loff_t *ppos)
+{
+	enum ufsdbg_err_inject_scenario err;
+
+	for (err = 0; err < ERR_INJECT_MAX_ERR_SCENARIOS; err++)
+		err_scen_arr[err].num_err_injected = 0;
+
+	return cnt;
+}
+
+static const struct file_operations ufsdbg_err_inj_stats_ops = {
+	.open		= ufsdbg_err_inj_stats_open,
+	.read		= seq_read,
+	.write		= ufsdbg_err_inj_stats_write,
+};
+
 static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 {
 	struct dentry *fault_dir;
@@ -484,8 +527,21 @@ static void ufsdbg_setup_fault_injection(struct ufs_hba *hba)
 		goto fail_err_inj_codes;
 	}
 
+	hba->debugfs_files.err_inj_stats =
+		debugfs_create_file("err_inj_stats", S_IRUSR | S_IWUSR,
+				    hba->debugfs_files.debugfs_root, hba,
+				    &ufsdbg_err_inj_stats_ops);
+	if (!hba->debugfs_files.err_inj_stats) {
+		dev_err(hba->dev,
+			"%s:  failed create err_inj_stats debugfs entry\n",
+			__func__);
+		goto fail_err_inj_stats;
+	}
+
 	return;
 
+fail_err_inj_stats:
+	debugfs_remove(hba->debugfs_files.err_inj_codes);
 fail_err_inj_codes:
 	debugfs_remove(hba->debugfs_files.err_inj_scenario);
 fail_err_inj_scenario:
