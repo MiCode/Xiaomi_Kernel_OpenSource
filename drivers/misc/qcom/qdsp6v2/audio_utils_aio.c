@@ -290,7 +290,7 @@ void audio_aio_async_write_ack(struct q6audio_aio *audio, uint32_t token,
 			wake_up(&audio->write_wait);
 		}
 	} else {
-		pr_err("%s[%p]:expected=%lx ret=%x\n",
+		pr_err("%s[%p]:expected=%x ret=%x\n",
 			__func__, audio, used_buf->token, token);
 		spin_unlock_irqrestore(&audio->dsp_lock, flags);
 	}
