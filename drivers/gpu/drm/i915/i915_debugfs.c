@@ -1862,7 +1862,7 @@ static int i915_dpst_status(struct seq_file *m, void *unused)
 
 	blm_hist_ctl |= BIN_REG_FUNCTION_SELECT_IE;
 	blm_hist_ctl &= ~BIN_REGISTER_INDEX_MASK;
-	I915_WRITE(BLM_HIST_CTL, blm_hist_ctl);
+	I915_WRITE(dev_priv->dpst.reg.blm_hist_ctl, blm_hist_ctl);
 
 	seq_puts(m, "IE modification table values...");
 	for (i = 0; i < DPST_DIET_ENTRY_COUNT; i++) {
