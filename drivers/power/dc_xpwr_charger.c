@@ -474,12 +474,37 @@ static int get_charger_health(struct pmic_chrg_info *info)
 {
 	int ret, pwr_stat, chrg_stat, pwr_irq;
 	int health = POWER_SUPPLY_HEALTH_UNKNOWN;
+	int cnt = 5;
 
 	ret = pmic_chrg_reg_readb(info, DC_PS_STAT_REG);
-	if ((ret < 0) || !(ret & PS_STAT_VBUS_PRESENT))
+	if (ret < 0)
 		goto health_read_fail;
-	else
-		pwr_stat = ret;
+
+	/*
+	 * QUIRK: sometimes during screen off idle,
+	 * reading ths register would return 0x00,
+	 * This is a valid value, but we want to
+	 * make sure 0x00 is not a bogus value.
+	 * Hence, retry reading if 0x00 is returned.
+	 *
+	 * Since pwr_stat is only used to determine
+	 * if VBUS is high, so only care if online.
+	 */
+	while (info->online && (ret == 0) && (cnt--)) {
+		/* wait a bit before reading again */
+		usleep_range(1000, 2000);
+
+		dev_warn(&info->pdev->dev, "ps stat reg read 0x00, maybe bogus\n");
+
+		ret = pmic_chrg_reg_readb(info, DC_PS_STAT_REG);
+		if (ret < 0)
+			goto health_read_fail;
+	}
+
+	if (!(ret & PS_STAT_VBUS_PRESENT))
+		goto health_read_fail;
+
+	pwr_stat = ret;
 
 	ret = pmic_chrg_reg_readb(info, DC_CHRG_STAT_REG);
 	if (ret < 0)
