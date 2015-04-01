@@ -459,5 +459,6 @@
 		compatible = "qcom,mdss_rotator";
 		qcom,mdss-wb-count = <2>;
 		qcom,mdss-has-downscale;
+		qcom,mdss-has-ubwc;
 	};
 };
