@@ -244,25 +244,20 @@ struct diag_ctrl_set_wq_val {
 
 int diagfwd_cntl_init(void);
 void diagfwd_cntl_exit(void);
-void diag_read_smd_cntl_work_fn(struct work_struct *);
-void diag_notify_ctrl_update_fn(struct work_struct *work);
-void diag_clean_reg_fn(struct work_struct *work);
-void diag_cntl_smd_work_fn(struct work_struct *work);
-int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
-								int total_recd);
-int diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
-							int real_time);
+void diag_cntl_channel_open(struct diagfwd_info *p_info);
+void diag_cntl_channel_close(struct diagfwd_info *p_info);
+void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
+				 int len);
+int diag_send_real_time_update(uint8_t peripheral, int real_time);
 int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params);
 void diag_update_proc_vote(uint16_t proc, uint8_t vote, int index);
 void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index);
 void diag_real_time_work_fn(struct work_struct *work);
-int diag_send_stm_state(struct diag_smd_info *smd_info,
-				uint8_t stm_control_data);
-int diag_send_peripheral_drain_immediate(struct diag_smd_info *smd_info);
-int diag_send_buffering_tx_mode_pkt(struct diag_smd_info *smd_info,
+int diag_send_stm_state(uint8_t peripheral, uint8_t stm_control_data);
+int diag_send_peripheral_drain_immediate(uint8_t peripheral);
+int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
 				    struct diag_buffering_mode_t *params);
-int diag_send_buffering_wm_values(struct diag_smd_info *smd_info,
+int diag_send_buffering_wm_values(uint8_t peripheral,
 				  struct diag_buffering_mode_t *params);
-void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action);
 
 #endif

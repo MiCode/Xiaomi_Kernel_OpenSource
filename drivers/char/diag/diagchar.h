@@ -30,7 +30,6 @@
 #define USB_MAX_OUT_BUF 4096
 #define APPS_BUF_SIZE	4096
 #define IN_BUF_SIZE		16384
-#define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
 
 #define DIAG_MAX_REQ_SIZE	(16 * 1024)
@@ -218,7 +217,7 @@
 #endif
 
 #define DIAG_WS_DCI		0
-#define DIAG_WS_MD		1
+#define DIAG_WS_MUX		1
 
 #define DIAG_DATA_TYPE		1
 #define DIAG_CNTL_TYPE		2
@@ -363,53 +362,6 @@ struct diag_mask_info {
 	struct mutex lock;
 };
 
-struct diag_smd_info {
-	int peripheral;	/* The peripheral this smd channel communicates with */
-	int type;	/* The type of smd channel (data, control, dci) */
-	uint16_t peripheral_mask;
-
-	smd_channel_t *ch;
-	smd_channel_t *ch_save;
-
-	struct mutex smd_ch_mutex;
-
-	int in_busy_1;
-	int in_busy_2;
-	spinlock_t in_busy_lock;
-
-	unsigned char *buf_in_1;
-	unsigned char *buf_in_2;
-
-	unsigned char *buf_in_1_raw;
-	unsigned char *buf_in_2_raw;
-
-	unsigned int buf_in_1_size;
-	unsigned int buf_in_2_size;
-
-	unsigned int buf_in_1_raw_size;
-	unsigned int buf_in_2_raw_size;
-
-	int buf_in_1_ctxt;
-	int buf_in_2_ctxt;
-
-	struct workqueue_struct *wq;
-
-	struct work_struct diag_read_smd_work;
-	struct work_struct diag_notify_update_smd_work;
-	int notify_context;
-	struct work_struct diag_general_smd_work;
-	int general_context;
-	uint8_t inited;
-	uint32_t fifo_size;
-
-	/*
-	 * Function ptr for function to call to process the data that
-	 * was just read from the smd channel
-	 */
-	int (*process_smd_read_data)(struct diag_smd_info *smd_info,
-						void *buf, int num_bytes);
-};
-
 struct diag_md_proc_info {
 	int pid;
 	struct task_struct *socket_process;
@@ -439,7 +391,6 @@ struct diagchar_dev {
 	int ref_count;
 	struct mutex diagchar_mutex;
 	wait_queue_head_t wait_q;
-	wait_queue_head_t smd_wait_q;
 	struct diag_client_map *client_map;
 	int *data_ready;
 	int num_clients;
@@ -451,6 +402,13 @@ struct diagchar_dev {
 	int stm_state_requested[NUM_STM_PROCESSORS];
 	/* The current STM state */
 	int stm_state[NUM_STM_PROCESSORS];
+	uint16_t stm_peripheral;
+	struct work_struct stm_update_work;
+	uint16_t mask_update;
+	struct work_struct mask_update_work;
+	struct workqueue_struct *cntl_wq;
+	struct mutex cntl_lock;
+	/* Whether or not the peripheral supports STM */
 	/* Delayed response Variables */
 	uint16_t delayed_rsp_id;
 	struct mutex delayed_rsp_mutex;
@@ -480,12 +438,11 @@ struct diagchar_dev {
 	uint8_t rsp_buf_busy;
 	spinlock_t rsp_buf_busy_lock;
 	int rsp_buf_ctxt;
-	/* State for diag forwarding */
-	struct diag_smd_info smd_data[NUM_PERIPHERALS];
-	struct diag_smd_info smd_cntl[NUM_PERIPHERALS];
-	struct diag_smd_info smd_dci[NUM_PERIPHERALS];
-	struct diag_smd_info smd_cmd[NUM_PERIPHERALS];
-	struct diag_smd_info smd_dci_cmd[NUM_PERIPHERALS];
+	struct diagfwd_info *diagfwd_data[NUM_PERIPHERALS];
+	struct diagfwd_info *diagfwd_cntl[NUM_PERIPHERALS];
+	struct diagfwd_info *diagfwd_dci[NUM_PERIPHERALS];
+	struct diagfwd_info *diagfwd_cmd[NUM_PERIPHERALS];
+	struct diagfwd_info *diagfwd_dci_cmd[NUM_PERIPHERALS];
 	struct diag_feature_t feature[NUM_PERIPHERALS];
 	struct diag_buffering_mode_t buffering_mode[NUM_PERIPHERALS];
 	struct mutex mode_lock;
