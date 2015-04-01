@@ -112,7 +112,7 @@ struct ppp_status {
 };
 
 static struct ppp_status *ppp_stat;
-
+static bool is_blit_optimization_possible(struct blit_req_list *req, int indx);
 
 int ppp_get_bpp(uint32_t format, uint32_t fb_format)
 {
@@ -543,6 +543,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	}
 
 	for (i = 0; i < lcount; i++) {
+		/* Set Smart blit flag before BW calculation */
+		is_blit_optimization_possible(lreq, i);
 		req = &(lreq->req_list[i]);
 
 		if (req->fps > 0 && req->fps <= panel_info->mipi.frame_rate) {
