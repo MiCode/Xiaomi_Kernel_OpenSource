@@ -570,11 +570,30 @@ cur_read_fail:
 
 static int pmic_fg_get_btemp(struct pmic_fg_info *info, int *btemp)
 {
-	int ret, raw_val;
+	int ret, raw_val, cnt = 5;
 
-	ret = pmic_read_adc_val("THERMAL", "BATTEMP", &raw_val, info);
-	if (ret < 0)
-		goto btemp_read_fail;
+	/*
+	 * QUIRK: for values that span two registers, sometimes
+	 * the PMIC would incorrectly return zero for value in
+	 * second register. So if the raw battery temperature
+	 * ADC is zero, try again to get the correct value.
+	 *
+	 * Since NTC thermistor is used, value being actual zero
+	 * would mean that the battery probably should have
+	 * already exploded. ^o^
+	 * The over-temp IRQ would have already fired so
+	 * no need to worry about zero value.
+	 */
+	while (cnt--) {
+		ret = pmic_read_adc_val("THERMAL", "BATTEMP", &raw_val, info);
+		if (ret < 0)
+			goto btemp_read_fail;
+
+		if (raw_val)
+			break;
+		else
+			dev_warn(&info->pdev->dev, "bogus batt temp raw ADC value zero\n");
+	}
 
 	/*
 	 * Convert the TS pin ADC codes in to 10's of Kohms
