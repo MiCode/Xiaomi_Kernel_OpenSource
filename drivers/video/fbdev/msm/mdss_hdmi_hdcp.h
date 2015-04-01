@@ -26,6 +26,7 @@ enum hdmi_hdcp_state {
 struct hdmi_hdcp_init_data {
 	struct dss_io_data *core_io;
 	struct dss_io_data *qfprom_io;
+	struct dss_io_data *hdcp_io;
 	struct mutex *mutex;
 	struct kobject *sysfs_kobj;
 	struct workqueue_struct *workq;

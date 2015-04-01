@@ -61,8 +61,10 @@ Example:
 		compatible = "qcom,hdmi-tx";
 		reg =	<0xfd922100 0x35C>,
 			<0xfd922500 0x7C>,
-			<0xfc4b8000 0x60F0>;
-		reg-names = "core_physical", "phy_physical", "qfprom_physical";
+			<0xfc4b8000 0x60F0>,
+			<0xfe2a0000 0xFFF>;
+		reg-names = "core_physical", "phy_physical", "qfprom_physical",
+			"hdcp_physical";
 
 		hpd-gdsc-supply = <&gdsc_mdss>;
 		hpd-5v-supply = <&pm8941_mvs2>;

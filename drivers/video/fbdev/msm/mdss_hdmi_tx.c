@@ -415,6 +415,7 @@ static const char *hdmi_tx_io_name(u32 type)
 	case HDMI_TX_CORE_IO:	return "core_physical";
 	case HDMI_TX_PHY_IO:	return "phy_physical";
 	case HDMI_TX_QFPROM_IO:	return "qfprom_physical";
+	case HDMI_TX_HDCP_IO:	return "hdcp_physical";
 	default:		return NULL;
 	}
 } /* hdmi_tx_io_name */
@@ -1207,6 +1208,8 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl)
 	hdcp_init_data.core_io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
 	hdcp_init_data.qfprom_io =
 		&hdmi_ctrl->pdata.io[HDMI_TX_QFPROM_IO];
+	hdcp_init_data.hdcp_io =
+		&hdmi_ctrl->pdata.io[HDMI_TX_HDCP_IO];
 	hdcp_init_data.mutex = &hdmi_ctrl->mutex;
 	hdcp_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 	hdcp_init_data.ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
@@ -1389,9 +1392,6 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 		hdmi_tx_send_cable_notification(hdmi_ctrl, true);
 	} else {
-		hdmi_ctrl->hdcp_ops = NULL;
-		hdmi_ctrl->hdcp_feature_data = NULL;
-		hdmi_ctrl->hdcp22_present = false;
 		hdmi_tx_set_audio_switch_node(hdmi_ctrl, 0);
 		hdmi_tx_wait_for_audio_engine(hdmi_ctrl);
 

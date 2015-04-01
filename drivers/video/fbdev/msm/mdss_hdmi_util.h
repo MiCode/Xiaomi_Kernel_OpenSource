@@ -245,7 +245,7 @@
 #define QFPROM_RAW_VERSION_4             (0x000000A8)
 #define HDCP_KSV_LSB                     (0x000060D8)
 #define HDCP_KSV_MSB                     (0x000060DC)
-#define HDCP_KSV_VERSION_4               (0x00000014)
+#define HDCP_KSV_VERSION_4_OFFSET        (0x00000014)
 
 #define TOP_AND_BOTTOM		0x10
 #define FRAME_PACKING		0x20
@@ -276,6 +276,20 @@
 #define HDMI_SCDC_ERR_DET_2_L           0x54
 #define HDMI_SCDC_ERR_DET_2_H           0x55
 #define HDMI_SCDC_ERR_DET_CHECKSUM      0x56
+
+/* HDCP secure registers directly accessible to HLOS since HDMI controller
+ * version major version 4.0
+ */
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA0  (0x00000004)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA1  (0x00000008)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA7  (0x0000000C)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA8  (0x00000010)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA9  (0x00000014)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA10 (0x00000018)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA11 (0x0000001C)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_RCVPORT_DATA12 (0x00000020)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_CTRL       (0x00000024)
+#define HDCP_SEC_TZ_HV_HLOS_HDCP_SHA_DATA       (0x00000028)
 
 enum hdmi_tx_feature_type {
 	HDMI_TX_FEAT_EDID,
