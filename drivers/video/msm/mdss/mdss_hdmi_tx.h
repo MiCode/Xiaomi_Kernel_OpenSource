@@ -20,6 +20,7 @@ enum hdmi_tx_io_type {
 	HDMI_TX_CORE_IO,
 	HDMI_TX_PHY_IO,
 	HDMI_TX_QFPROM_IO,
+	HDMI_TX_HDCP_IO,
 	HDMI_TX_MAX_IO
 };
 

@@ -426,8 +426,9 @@
 		compatible = "qcom,hdmi-tx";
 
 		reg =	<0x9a0000 0x50c>,
-			<0x70000 0x6158>;
-		reg-names = "core_physical", "qfprom_physical";
+			<0x70000 0x6158>,
+			<0x9e0000 0xFFF>;
+		reg-names = "core_physical", "qfprom_physical", "hdcp_physical";
 
 		hpd-gdsc-supply = <&gdsc_mdss>;
 		hpd-mmagic-mdss-gdsc-supply = <&gdsc_mmagic_mdss>;
