@@ -1124,6 +1124,7 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 		pipe = ERR_PTR(-EBUSY);
 		goto error;
 	}
+	pipe->mixer_left = mixer;
 
 	rc = mdss_mdp_pipe_init_config(pipe, mixer, false);
 	if (rc)
