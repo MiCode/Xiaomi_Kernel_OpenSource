@@ -125,6 +125,11 @@ struct wcd_mad_audio_cal {
 	struct wcd_mad_rms_ultrasound_info ultrasound_info;
 } __packed;
 
+struct wcd9xxx_anc_header {
+	u32 reserved[3];
+	u32 num_anc_slots;
+};
+
 extern void wcd_clsh_fsm(struct snd_soc_codec *codec,
 		struct wcd_clsh_cdc_data *cdc_clsh_d,
 		u8 clsh_event, u8 req_state,
