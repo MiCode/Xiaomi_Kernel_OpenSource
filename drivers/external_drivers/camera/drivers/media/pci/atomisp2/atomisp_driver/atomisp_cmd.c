@@ -1316,11 +1316,6 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 
 		asd->streaming = ATOMISP_DEVICE_STREAMING_STOPPING;
 
-		css_pipe_id = atomisp_get_css_pipe_id(asd);
-		atomisp_css_stop(asd, css_pipe_id, true);
-
-		atomisp_acc_unload_extensions(asd);
-
 		/* stream off sensor */
 		ret = v4l2_subdev_call(
 				isp->inputs[asd->input_curr].
@@ -1329,7 +1324,13 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 			dev_warn(isp->dev,
 					"can't stop streaming on sensor!\n");
 
+		atomisp_acc_unload_extensions(asd);
+
 		atomisp_clear_css_buffer_counters(asd);
+
+		css_pipe_id = atomisp_get_css_pipe_id(asd);
+		atomisp_css_stop(asd, css_pipe_id, true);
+
 		asd->streaming = ATOMISP_DEVICE_STREAMING_DISABLED;
 
 		asd->preview_exp_id = 1;
