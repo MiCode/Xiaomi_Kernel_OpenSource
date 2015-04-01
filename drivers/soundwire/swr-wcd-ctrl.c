@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
 #include <linux/soundwire/soundwire.h>
+#include <linux/soundwire/swr-wcd.h>
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/clk.h>
@@ -109,6 +110,61 @@ enum {
 	SWR_RESERVED,
 };
 
+static int swrm_set_ch_map(struct swr_mstr_ctrl *swrm, void *data)
+{
+	struct swr_mstr_port *pinfo = (struct swr_mstr_port *)data;
+
+	swrm->mstr_port = kzalloc(sizeof(struct swr_mstr_port), GFP_KERNEL);
+	if (swrm->mstr_port == NULL)
+		return -ENOMEM;
+	swrm->mstr_port->num_port = pinfo->num_port;
+	swrm->mstr_port->port = kzalloc((pinfo->num_port * sizeof(u8)),
+					GFP_KERNEL);
+	if (!swrm->mstr_port->port)
+		return -ENOMEM;
+
+	memcpy(swrm->mstr_port->port, pinfo->port, pinfo->num_port);
+	return 0;
+}
+
+int swrm_notify(struct platform_device *pdev, u32 id, void *data)
+{
+	struct swr_mstr_ctrl *swrm;
+	int ret = 0;
+
+	if (!pdev) {
+		pr_err("%s: pdev is NULL\n", __func__);
+		return -EINVAL;
+	}
+	swrm = platform_get_drvdata(pdev);
+	if (!swrm) {
+		dev_err(&pdev->dev, "%s: swrm is NULL\n", __func__);
+		return -EINVAL;
+	}
+	switch (id) {
+	case SWR_CH_MAP:
+		if (!data) {
+			dev_err(swrm->dev, "%s: data is NULL\n", __func__);
+			ret = -EINVAL;
+		} else {
+			ret = swrm_set_ch_map(swrm, data);
+		}
+		break;
+	case SWR_DEVICE_DOWN:
+		dev_dbg(swrm->dev, "%s: swr master down called\n", __func__);
+		break;
+	case SWR_DEVICE_UP:
+		dev_dbg(swrm->dev, "%s: swr master up called\n", __func__);
+		break;
+	default:
+		dev_err(swrm->dev, "%s: swr master unknow id %d\n",
+			__func__, id);
+		break;
+	}
+	return ret;
+}
+EXPORT_SYMBOL(swrm_notify);
+
 static int swrm_get_port_config(struct swr_master *master)
 {
 	u32 ch_rate = 0;
@@ -151,6 +207,7 @@ static int swrm_get_port_config(struct swr_master *master)
 static int swrm_get_master_port(u8 *mstr_port_id, u8 slv_port_id)
 {
 	int i;
+
 	for (i = 0; i < SWR_MSTR_PORT_LEN; i++) {
 		if (mstr_ports[i] == slv_port_id) {
 			*mstr_port_id = i;
@@ -780,6 +837,10 @@ static int swrm_remove(struct platform_device *pdev)
 
 	swrm->reg_irq(swrm->handle, swr_mstr_interrupt,
 			swrm, SWR_IRQ_FREE);
+	if (swrm->mstr_port) {
+		kfree(swrm->mstr_port->port);
+		kfree(swrm->mstr_port);
+	}
 	swr_unregister_master(&swrm->master);
 	mutex_destroy(&swrm->mlock);
 	kfree(swrm);

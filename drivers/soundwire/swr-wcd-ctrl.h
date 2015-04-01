@@ -13,6 +13,7 @@
 #ifndef _SWR_WCD_CTRL_H
 #define _SWR_WCD_CTRL_H
 #include <linux/module.h>
+#include <linux/soundwire/swr-wcd.h>
 
 #define SWR_MAX_ROW		48
 #define SWR_MAX_COL		16
@@ -65,6 +66,7 @@ struct swr_mstr_ctrl {
 	int irq;
 	int num_enum_slaves;
 	int slave_status;
+	struct swr_mstr_port *mstr_port;
 };
 
 #endif /* _SWR_WCD_CTRL_H */
