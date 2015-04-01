@@ -522,14 +522,8 @@ static int wcove_bcu_probe(struct platform_device *pdev)
 		goto exit_free;
 	}
 
-	/* Unmask 1st level BCU interrupt in the mask register */
-	ret = intel_soc_pmic_clearb(MIRQLVL1_REG, (u8)MBCU);
-	if (ret) {
-		dev_err(&pdev->dev, "Unmasking of BCU failed:%d\n", ret);
-		goto exit_hwmon;
-	}
-
 	/* Register for Interrupt Handler */
+	INIT_DELAYED_WORK(&info->vwarnb_irq_work, wcove_bcu_vwarnb_irq_work);
 	ret = request_threaded_irq(info->irq, wcove_bcu_intr_handler,
 						wcove_bcu_intr_thread_handler,
 						IRQF_NO_SUSPEND,
@@ -551,10 +545,16 @@ static int wcove_bcu_probe(struct platform_device *pdev)
 	/* enable voltage and current trip points */
 	wcove_bcu_enable_trip_points(info);
 
-	INIT_DELAYED_WORK(&info->vwarnb_irq_work, wcove_bcu_vwarnb_irq_work);
-
 	/* Create debufs for the basincove bcu registers */
 	wcove_bcu_create_debugfs(info);
+
+	/* Unmask 1st level BCU interrupt in the mask register */
+	ret = intel_soc_pmic_clearb(MIRQLVL1_REG, (u8)MBCU);
+	if (ret) {
+		dev_err(&pdev->dev, "Unmasking of BCU failed:%d\n", ret);
+		goto exit_freeirq;
+	}
+
 	return 0;
 
 exit_freeirq:
