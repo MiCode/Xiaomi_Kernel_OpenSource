@@ -282,7 +282,7 @@
 		clock-names = "core_clk", "iface_clk";
 	};
 
-	msm_vidc: qcom,vidc@fdc00000 {
+	msm_vidc: qcom,vidc@c00000 {
 		compatible = "qcom,msm-vidc";
 		status = "ok";
 		reg = <0xC00000 0xff000>;
@@ -290,8 +290,8 @@
 		qcom,hfi = "venus";
 		qcom,hfi-version = "3xx";
 		qcom,reg-presets = <0x80010 0xffffffff>,
-			<0x80018 0x00001555>,
-			<0x8001C 0x00001555>;
+			<0x80018 0x00001556>,
+			<0x8001C 0x00001556>;
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
 		qcom,firmware-name = "venus";
 		qcom,load-freq-tbl =
