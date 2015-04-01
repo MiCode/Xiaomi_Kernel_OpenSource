@@ -1878,7 +1878,6 @@
 		qcom,vdd-voltage-level = <1 5 7>;
 		qcom,qusb-tune = <0xa0c393d7>;
 		phy_type = "utmi";
-		status = "disabled";
 
 		clocks = <&clock_gcc clk_gcc_rx2_usb2_clkref_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,

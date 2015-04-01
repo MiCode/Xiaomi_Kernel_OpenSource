@@ -610,10 +610,6 @@
 	};
 };
 
-&qusb_phy1 {
-	status = "disabled";
-};
-
 &usb_nop_phy {
 	status = "disabled";
 };
