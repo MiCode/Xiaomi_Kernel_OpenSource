@@ -472,6 +472,7 @@ struct debugfs_files {
 #ifdef CONFIG_UFS_FAULT_INJECTION
 	struct dentry *err_inj_codes;
 	struct dentry *err_inj_scenario;
+	struct dentry *err_inj_stats;
 	u32 err_inj_scenario_mask;
 	struct fault_attr fail_attr;
 #endif
