@@ -26,6 +26,7 @@
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
+#include <sound/q6afe-v2.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/kernel.h>
@@ -55,6 +56,16 @@ struct wsa881x_pdata {
 	bool regmap_flag;
 };
 
+static struct afe_clk_cfg mi2s_rx_clk = {
+	AFE_API_VERSION_I2S_CONFIG,
+	Q6AFE_LPASS_IBIT_CLK_1_P536_MHZ,
+	Q6AFE_LPASS_OSR_CLK_12_P288_MHZ,
+	Q6AFE_LPASS_CLK_SRC_INTERNAL,
+	Q6AFE_LPASS_CLK_ROOT_DEFAULT,
+	Q6AFE_LPASS_MODE_CLK2_VALID,
+	0,
+};
+
 enum wsa881x_status {
 	WSA881X_STATUS_PROBING,
 	WSA881X_STATUS_I2C,
@@ -65,6 +76,7 @@ struct wsa881x_pdata wsa_pdata[MAX_WSA881X_DEVICE];
 static enum wsa881x_status wsa881x_status = -1;
 
 static int wsa881x_populate_dt_pdata(struct device *dev);
+static int wsa881x_reset(struct wsa881x_pdata *pdata, bool enable);
 
 static int delay_array_msec[] = {10, 20, 30, 40, 50};
 
@@ -317,11 +329,15 @@ static int wsa881x_boost_ctrl(struct snd_soc_codec *codec, bool enable)
 {
 	pr_debug("%s: enable:%d\n", __func__, enable);
 	if (enable) {
-		snd_soc_update_bits(codec, WSA881X_CDC_ANA_CLK_CTL, 0x04, 0x04);
-		snd_soc_update_bits(codec, WSA881X_CDC_ANA_CLK_CTL, 0x03, 0x01);
-		snd_soc_update_bits(codec, WSA881X_BOOST_EN_CTL, 0x99, 0x99);
-		/* For WSA8810, start-up time is 450us as per qcrg sequence */
-		usleep_range(450, 460);
+		snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x01, 0x01);
+		snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x04, 0x04);
+		snd_soc_update_bits(codec, WSA881X_BOOST_PS_CTL, 0x80, 0x00);
+		snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1,
+							0xF0, 0xB0);
+		snd_soc_update_bits(codec, WSA881X_BOOST_ZX_CTL, 0x20, 0x00);
+		snd_soc_update_bits(codec, WSA881X_BOOST_EN_CTL, 0x80, 0x80);
+		/* For WSA8810, start-up time is 1500us as per qcrg sequence */
+		usleep_range(1500, 1510);
 	} else {
 		/* ENSURE: Class-D amp is shutdown. CLK is still on */
 		snd_soc_update_bits(codec, WSA881X_BOOST_EN_CTL, 0x80, 0x00);
@@ -379,11 +395,15 @@ static int wsa881x_rdac_ctrl(struct snd_soc_codec *codec, bool enable)
 {
 	pr_debug("%s: enable:%d\n", __func__, enable);
 	if (enable) {
-		snd_soc_update_bits(codec, WSA881X_CDC_RX_CTL, 0x80, 0x00);
+		snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x08, 0x00);
+		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN, 0x08, 0x08);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x20, 0x20);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x20, 0x00);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x40, 0x40);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x80, 0x80);
+		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_EN, 0x01, 0x01);
+		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN, 0x40, 0x40);
+		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x01, 0x01);
 	} else {
 		/* Ensure class-D amp is off */
 		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x80, 0x00);
@@ -529,13 +549,21 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		wsa881x_reset(wsa881x, true);
 		snd_soc_update_bits(codec, WSA881X_CDC_RST_CTL, 0x02, 0x02);
 		snd_soc_update_bits(codec, WSA881X_CDC_RST_CTL, 0x01, 0x01);
 		snd_soc_update_bits(codec, WSA881X_CLOCK_CONFIG, 0x01, 0x01);
+		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x02, 0x02);
+		snd_soc_update_bits(codec, WSA881X_CDC_DIG_CLK_CTL, 0x01, 0x01);
 		snd_soc_update_bits(codec, WSA881X_CDC_ANA_CLK_CTL, 0x01, 0x01);
+		snd_soc_update_bits(codec, WSA881X_BIAS_REF_CTRL, 0x0F, 0x08);
 		wsa881x_bandgap_ctrl(codec, true);
-		usleep_range(450, 460);
-		snd_soc_write(codec, WSA881X_SPKR_DRV_DBG, 0x11);
+		snd_soc_update_bits(codec, WSA881X_SPKR_BBM_CTL, 0x02, 0x02);
+		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x40, 0x40);
+		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x06, 0x06);
+		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL2, 0x04, 0x04);
+		snd_soc_update_bits(codec, WSA881X_SPKR_BIAS_INT, 0x09, 0x09);
+		snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0xF0, 0x20);
 		if (wsa881x->boost_enable)
 			wsa881x_boost_ctrl(codec, true);
 		break;
@@ -559,6 +587,7 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 		if (wsa881x->boost_enable)
 			wsa881x_boost_ctrl(codec, false);
 		wsa881x_bandgap_ctrl(codec, false);
+		wsa881x_reset(wsa881x, false);
 		break;
 	default:
 		pr_err("%s: invalid event:%d\n", __func__, event);
@@ -617,6 +646,10 @@ static const struct snd_soc_dapm_route wsa881x_audio_map[] = {
 
 static int wsa881x_probe(struct snd_soc_codec *codec)
 {
+	if (wsa881x_i2c_addr == WSA881X_I2C_SPK0_SLAVE0_ADDR)
+		wsa_pdata[0].codec = codec;
+	else if (wsa881x_i2c_addr == WSA881X_I2C_SPK1_SLAVE0_ADDR)
+		wsa_pdata[1].codec = codec;
 	return 0;
 }
 
@@ -646,13 +679,23 @@ static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
 
 static int wsa881x_reset(struct wsa881x_pdata *pdata, bool enable)
 {
-	int ret = 0;
+	int ret = 0, reg;
+
 	/*
 	 * shutdown the GPIOs WSA_EN, WSA_MCLK, regulators
 	 * and restore defaults in soc cache when shutdown.
 	 * Enable regulators, GPIOs WSA_MCLK, WSA_EN when powerup.
 	 */
 	if (enable) {
+		mi2s_rx_clk.clk_val2 =
+				Q6AFE_LPASS_OSR_CLK_12_P288_MHZ;
+		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
+					  &mi2s_rx_clk);
+		if (ret) {
+			pr_err("%s: clock failed enable %d\n",
+				__func__, ret);
+			return ret;
+		}
 		ret = msm_gpioset_activate(CLIENT_WSA_BONGO_1, "wsa_clk");
 		if (ret) {
 			pr_err("%s: gpio set cannot be activated %s\n",
@@ -665,20 +708,49 @@ static int wsa881x_reset(struct wsa881x_pdata *pdata, bool enable)
 				__func__, "wsa_reset");
 			return ret;
 		}
-	} else {
 		ret = msm_gpioset_suspend(CLIENT_WSA_BONGO_1, "wsa_reset");
+		if (ret) {
+			pr_err("%s: gpio set cannot be suspended(powerup) %s\n",
+				__func__, "wsa_reset");
+			return ret;
+		}
+		ret = msm_gpioset_activate(CLIENT_WSA_BONGO_1, "wsa_reset");
 		if (ret) {
 			pr_err("%s: gpio set cannot be activated %s\n",
 				__func__, "wsa_reset");
 			return ret;
 		}
+	} else {
+		ret = msm_gpioset_suspend(CLIENT_WSA_BONGO_1, "wsa_reset");
+		if (ret) {
+			pr_err("%s: gpio set cannot be suspended %s\n",
+				__func__, "wsa_reset");
+			return ret;
+		}
+		mi2s_rx_clk.clk_val2 =
+				Q6AFE_LPASS_OSR_CLK_DISABLE;
+		ret = afe_set_lpass_clock(AFE_PORT_ID_PRIMARY_MI2S_RX,
+					  &mi2s_rx_clk);
+		if (ret) {
+			pr_err("%s: clock failed disable %d\n",
+				__func__, ret);
+			return ret;
+		}
 		ret = msm_gpioset_suspend(CLIENT_WSA_BONGO_1, "wsa_clk");
 		if (ret) {
-			pr_err("%s: gpio set cannot be activated %s\n",
+			pr_err("%s: gpio set cannot be suspended %s\n",
 				__func__, "wsa_clk");
 			return ret;
 		}
-		/*TODO: restore defaults to cache*/
+		if (pdata->codec) {
+			/* restore defaults to cache */
+			for (reg = 0; reg < ARRAY_SIZE(wsa881x_reg_defaults);
+				reg++) {
+				if (wsa881x_reg_readable[reg])
+					snd_soc_cache_write(pdata->codec, reg,
+						wsa881x_reg_defaults[reg].def);
+			}
+		}
 	}
 	return ret;
 }
@@ -773,6 +845,7 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 		client->dev.platform_data = pdata;
 		i2c_set_clientdata(client, pdata);
 		pdata->client[WSA881X_ANALOG_SLAVE] = client;
+		wsa881x_reset(pdata, false);
 		return ret;
 	} else if (wsa881x_status == WSA881X_STATUS_PROBING) {
 		pdata = &wsa_pdata[wsa881x_index];
