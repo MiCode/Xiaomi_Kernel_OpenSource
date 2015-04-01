@@ -18,3 +18,4 @@ endif
 obj-$(CONFIG_SOC_BUS)	+=	socinfo.o
 obj-$(CONFIG_MSM_SCM)  +=      scm.o scm-boot.o
 obj-$(CONFIG_MSM_MPM_OF) += mpm-of.o
+obj-$(CONFIG_MSM_SMEM)  +=smem.o smem_debug.o

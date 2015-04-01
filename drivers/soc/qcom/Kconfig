@@ -125,4 +125,12 @@ config MSM_MPM_OF
         enables the MPM driver that supports initialization from a device
         tree
 
+config MSM_SMEM
+	depends on REMOTE_SPINLOCK_MSM
+	bool "MSM Shared Memory (SMEM)"
+	help
+	  Support for the shared memory interface between the various
+	  processors in the System on a Chip (SoC) which allows basic
+	  inter-processor communication.
+
 endif # ARCH_MSM
