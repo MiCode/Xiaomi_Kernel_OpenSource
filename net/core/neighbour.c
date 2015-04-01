@@ -1236,12 +1236,9 @@ struct neighbour *neigh_event_ns(struct neigh_table *tbl,
 {
 	struct neighbour *neigh = __neigh_lookup(tbl, saddr, dev,
 						 lladdr || !dev->addr_len);
-	if (neigh) {
+	if (neigh)
 		neigh_update(neigh, lladdr, NUD_STALE,
 			     NEIGH_UPDATE_F_OVERRIDE);
-		write_lock(&neigh->lock);
-		neigh_probe(neigh);
-	}
 	return neigh;
 }
 EXPORT_SYMBOL(neigh_event_ns);
