@@ -634,14 +634,17 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	struct android_dev *dev = ffs_function.android_dev;
 	struct functionfs_config *config = ffs_function.config;
 
+	if (dev)
+		mutex_lock(&dev->mutex);
+
 	config->data = ffs;
 	config->opened = true;
 
-	if (config->enabled) {
-		mutex_lock(&dev->mutex);
+	if (config->enabled && dev)
 		android_enable(dev);
+
+	if (dev)
 		mutex_unlock(&dev->mutex);
-	}
 
 	return 0;
 }
@@ -651,14 +654,17 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	struct android_dev *dev = ffs_function.android_dev;
 	struct functionfs_config *config = ffs_function.config;
 
-	if (config->enabled) {
+	if (dev)
 		mutex_lock(&dev->mutex);
+
+	if (config->enabled && dev)
 		android_disable(dev);
-		mutex_unlock(&dev->mutex);
-	}
 
 	config->opened = false;
 	config->data = NULL;
+
+	if (dev)
+		mutex_unlock(&dev->mutex);
 
 	usb_put_function(config->func);
 }
