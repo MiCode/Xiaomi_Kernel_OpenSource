@@ -132,6 +132,7 @@ static bool online_core;
 static bool cluster_info_probed;
 static bool cluster_info_nodes_called;
 static int *tsens_id_map;
+static int *zone_id_tsens_map;
 static DEFINE_MUTEX(vdd_rstr_mutex);
 static DEFINE_MUTEX(psm_mutex);
 static DEFINE_MUTEX(cx_mutex);
@@ -2014,13 +2015,67 @@ static int check_sensor_id(int sensor_id)
 	return ret;
 }
 
-static int create_sensor_id_map(void)
+static int zone_id_to_tsen_id(int zone_id, int *tsens_id)
 {
 	int i = 0;
 	int ret = 0;
 
-	tsens_id_map = kzalloc(sizeof(int) * max_tsens_num,
-			GFP_KERNEL);
+	for (i = 0; i < max_tsens_num; i++) {
+		if (zone_id == zone_id_tsens_map[i]) {
+			*tsens_id = tsens_id_map[i];
+			break;
+		}
+	}
+	if (i == max_tsens_num) {
+		pr_err("Invalid sensor zone id:%d\n", zone_id);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int create_sensor_zone_id_map(void)
+{
+	int i = 0;
+	int zone_id = -1;
+
+	zone_id_tsens_map = devm_kzalloc(&msm_thermal_info.pdev->dev,
+		sizeof(int) * max_tsens_num, GFP_KERNEL);
+
+	if (!zone_id_tsens_map) {
+		pr_err("Cannot allocate memory for zone_id_tsens_map\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < max_tsens_num; i++) {
+		char tsens_name[TSENS_NAME_MAX] = "";
+
+		snprintf(tsens_name, TSENS_NAME_MAX, TSENS_NAME_FORMAT,
+			tsens_id_map[i]);
+		zone_id = sensor_get_id(tsens_name);
+		if (zone_id < 0) {
+			pr_err("Error getting zone id for %s. err:%d\n",
+				tsens_name, zone_id);
+			goto fail;
+		} else {
+			zone_id_tsens_map[i] = zone_id;
+		}
+	}
+	return 0;
+
+fail:
+	devm_kfree(&msm_thermal_info.pdev->dev, zone_id_tsens_map);
+	return zone_id;
+}
+
+static int create_sensor_id_map(struct device *dev)
+{
+	int i = 0;
+	int ret = 0;
+
+	tsens_id_map = devm_kzalloc(dev,
+		sizeof(int) * max_tsens_num, GFP_KERNEL);
+
 	if (!tsens_id_map) {
 		pr_err("Cannot allocate memory for tsens_id_map\n");
 		return -ENOMEM;
@@ -2043,7 +2098,7 @@ static int create_sensor_id_map(void)
 
 	return ret;
 fail:
-	kfree(tsens_id_map);
+	devm_kfree(dev, tsens_id_map);
 	return ret;
 }
 
@@ -2366,12 +2421,20 @@ static void vdd_mx_notify(struct therm_threshold *trig_thresh)
 					trig_thresh->threshold);
 }
 
-static void msm_thermal_bite(int tsens_id, long temp)
+static void msm_thermal_bite(int zone_id, long temp)
 {
 	struct scm_desc desc;
+	int tsens_id = 0;
+	int ret = 0;
 
-	pr_err("TSENS:%d reached temperature:%ld. System reset\n",
-		tsens_id, temp);
+	ret = zone_id_to_tsen_id(zone_id, &tsens_id);
+	if (ret < 0) {
+		pr_err("Zone:%d reached temperature:%ld. Err = %d System reset\n",
+			zone_id, temp, ret);
+	} else {
+		pr_err("Tsens:%d reached temperature:%ld. System reset\n",
+			tsens_id, temp);
+	}
 	if (!is_scm_armv8()) {
 		scm_call_atomic1(SCM_SVC_BOOT, THERM_SECURE_BITE_CMD, 0);
 	} else {
@@ -2430,8 +2493,7 @@ static void therm_reset_notify(struct therm_threshold *thresh_data)
 		if (ret)
 			pr_err("Unable to read TSENS sensor:%d. err:%d\n",
 				thresh_data->sensor_id, ret);
-		msm_thermal_bite(tsens_id_map[thresh_data->sensor_id],
-					temp);
+		msm_thermal_bite(thresh_data->sensor_id, temp);
 		break;
 	case THERMAL_TRIP_CONFIGURABLE_LOW:
 		break;
@@ -4195,6 +4257,7 @@ static void interrupt_mode_init(void)
 	if (polling_enabled) {
 		pr_info("Interrupt mode init\n");
 		polling_enabled = 0;
+		create_sensor_zone_id_map();
 		disable_msm_thermal();
 		hotplug_init();
 		freq_mitigation_init();
@@ -4488,7 +4551,7 @@ int msm_thermal_pre_init(struct device *dev)
 		return ret;
 	}
 
-	if (create_sensor_id_map()) {
+	if (create_sensor_id_map(dev)) {
 		pr_err("Creating sensor id map failed\n");
 		ret = -EINVAL;
 		goto pre_init_exit;
