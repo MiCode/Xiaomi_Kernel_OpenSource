@@ -4334,14 +4334,6 @@ static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
 	return rc;
 }
 
-static int venus_hfi_get_stride_scanline(int color_fmt,
-	int width, int height, int *stride, int *scanlines) {
-	WARN_ON("API is deprecated");
-	*stride = VENUS_Y_STRIDE(color_fmt, width);
-	*scanlines = VENUS_Y_SCANLINES(color_fmt, height);
-	return 0;
-}
-
 static int venus_hfi_get_core_capabilities(void *dev)
 {
 	struct venus_hfi_device *device = dev;
@@ -4527,7 +4519,6 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->unload_fw = venus_hfi_unload_fw;
 	hdev->resurrect_fw = venus_hfi_resurrect_fw;
 	hdev->get_fw_info = venus_hfi_get_fw_info;
-	hdev->get_stride_scanline = venus_hfi_get_stride_scanline;
 	hdev->get_core_capabilities = venus_hfi_get_core_capabilities;
 	hdev->resume = venus_hfi_resume;
 	hdev->suspend = venus_hfi_suspend;

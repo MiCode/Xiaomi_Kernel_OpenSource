@@ -1401,8 +1401,6 @@ struct hfi_device {
 	void (*unload_fw)(void *dev);
 	int (*resurrect_fw)(void *dev);
 	int (*get_fw_info)(void *dev, enum fw_info info);
-	int (*get_stride_scanline)(int color_fmt, int width,
-		int height,	int *stride, int *scanlines);
 	int (*session_clean)(void *sess);
 	int (*get_core_capabilities)(void *dev);
 	int (*resume)(void *dev);
