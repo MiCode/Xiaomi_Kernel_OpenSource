@@ -13,11 +13,6 @@
 #ifndef DIAGFWD_H
 #define DIAGFWD_H
 
-#define NO_PROCESS	0
-
-#define RESET_AND_NO_QUEUE 0
-#define RESET_AND_QUEUE 1
-
 /*
  * The context applies to Diag SMD data buffers. It is used to identify the
  * buffer once these buffers are writtent to USB.
@@ -33,12 +28,8 @@
 
 int diagfwd_init(void);
 void diagfwd_exit(void);
-int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len);
 void diag_process_hdlc_pkt(void *data, unsigned len);
 void diag_process_non_hdlc_pkt(unsigned char *data, int len);
-void diag_smd_send_req(struct diag_smd_info *smd_info);
-long diagchar_ioctl(struct file *, unsigned int, unsigned long);
-int mask_request_validate(unsigned char mask_buf[]);
 int chk_config_get_id(void);
 int chk_apps_only(void);
 int chk_apps_master(void);
@@ -50,15 +41,7 @@ int diag_cmd_get_mobile_id(unsigned char *src_buf, int src_len,
 int diag_check_common_cmd(struct diag_pkt_header_t *header);
 void diag_update_userspace_clients(unsigned int type);
 void diag_update_sleeping_process(int process_id, int data_type);
-void diag_smd_notify(void *ctxt, unsigned event);
-int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
-			 int type);
-void diag_smd_buffer_init(struct diag_smd_info *smd_info);
-void diag_smd_destructor(struct diag_smd_info *smd_info);
-void diag_cmp_logging_modes_diagfwd_bridge(int old_mode, int new_mode);
 int diag_process_apps_pkt(unsigned char *buf, int len);
-void diag_reset_smd_data(int queue);
 void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type);
 int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf);
-extern struct platform_driver msm_diag_dci_driver;
 #endif

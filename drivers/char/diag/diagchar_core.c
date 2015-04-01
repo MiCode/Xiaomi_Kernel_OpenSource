@@ -19,7 +19,6 @@
 #include <linux/delay.h>
 #include <linux/uaccess.h>
 #include <linux/diagchar.h>
-#include <linux/platform_device.h>
 #include <linux/sched.h>
 #include <linux/ratelimit.h>
 #include <linux/timer.h>
@@ -40,6 +39,7 @@
 #include "diag_memorydevice.h"
 #include "diag_mux.h"
 #include "diag_ipc_logging.h"
+#include "diagfwd_peripheral.h"
 
 #include <linux/coresight-stm.h>
 #include <linux/kernel.h>
@@ -748,7 +748,6 @@ static int diag_copy_dci(char __user *buf, size_t count,
 	int exit_stat = 1;
 	uint8_t drain_again = 0;
 	struct diag_dci_buffer_t *buf_entry, *temp;
-	struct diag_smd_info *smd_info = NULL;
 
 	if (!buf || !entry || !pret)
 		return exit_stat;
@@ -787,19 +786,6 @@ drop:
 			buf_entry->data_len = 0;
 			buf_entry->in_list = 0;
 			if (buf_entry->buf_type == DCI_BUF_CMD) {
-				if (buf_entry->data_source == APPS_DATA) {
-					mutex_unlock(&buf_entry->data_mutex);
-					continue;
-				}
-				if (driver->feature[buf_entry->data_source].
-				    separate_cmd_rsp) {
-					smd_info = &driver->smd_dci_cmd[
-						buf_entry->data_source];
-				} else {
-					smd_info = &driver->smd_dci[
-						buf_entry->data_source];
-				}
-				smd_info->in_busy_1 = 0;
 				mutex_unlock(&buf_entry->data_mutex);
 				continue;
 			} else if (buf_entry->buf_type == DCI_BUF_SECONDARY) {
@@ -1005,6 +991,73 @@ static int diag_process_userspace_remote(int proc, void *buf, int len)
 }
 #endif
 
+static int mask_request_validate(unsigned char mask_buf[])
+{
+	uint8_t packet_id;
+	uint8_t subsys_id;
+	uint16_t ss_cmd;
+
+	packet_id = mask_buf[0];
+
+	if (packet_id == 0x4B) {
+		subsys_id = mask_buf[1];
+		ss_cmd = *(uint16_t *)(mask_buf + 2);
+		/* Packets with SSID which are allowed */
+		switch (subsys_id) {
+		case 0x04: /* DIAG_SUBSYS_WCDMA */
+			if ((ss_cmd == 0) || (ss_cmd == 0xF))
+				return 1;
+			break;
+		case 0x08: /* DIAG_SUBSYS_GSM */
+			if ((ss_cmd == 0) || (ss_cmd == 0x1))
+				return 1;
+			break;
+		case 0x09: /* DIAG_SUBSYS_UMTS */
+		case 0x0F: /* DIAG_SUBSYS_CM */
+			if (ss_cmd == 0)
+				return 1;
+			break;
+		case 0x0C: /* DIAG_SUBSYS_OS */
+			if ((ss_cmd == 2) || (ss_cmd == 0x100))
+				return 1; /* MPU and APU */
+			break;
+		case 0x12: /* DIAG_SUBSYS_DIAG_SERV */
+			if ((ss_cmd == 0) || (ss_cmd == 0x6) || (ss_cmd == 0x7))
+				return 1;
+			else if (ss_cmd == 0x218) /* HDLC Disabled Command*/
+				return 0;
+			break;
+		case 0x13: /* DIAG_SUBSYS_FS */
+			if ((ss_cmd == 0) || (ss_cmd == 0x1))
+				return 1;
+			break;
+		default:
+			return 0;
+			break;
+		}
+	} else {
+		switch (packet_id) {
+		case 0x00:    /* Version Number */
+		case 0x0C:    /* CDMA status packet */
+		case 0x1C:    /* Diag Version */
+		case 0x1D:    /* Time Stamp */
+		case 0x60:    /* Event Report Control */
+		case 0x63:    /* Status snapshot */
+		case 0x73:    /* Logging Configuration */
+		case 0x7C:    /* Extended build ID */
+		case 0x7D:    /* Extended Message configuration */
+		case 0x81:    /* Event get mask */
+		case 0x82:    /* Set the event mask */
+			return 1;
+			break;
+		default:
+			return 0;
+			break;
+		}
+	}
+	return 0;
+}
+
 static int diag_switch_logging(int requested_mode)
 {
 	int i;
@@ -1054,6 +1107,7 @@ static int diag_switch_logging(int requested_mode)
 	}
 
 	driver->logging_mode = new_mode;
+	diag_ws_reset(DIAG_WS_MUX);
 	err = diag_mux_switch_logging(mux_mode);
 	if (err) {
 		pr_err("diag: In %s, unable to switch mode from %d to %d\n",
@@ -1283,7 +1337,6 @@ static int diag_ioctl_set_buffering_mode(unsigned long ioarg)
 static int diag_ioctl_peripheral_drain_immediate(unsigned long ioarg)
 {
 	uint8_t peripheral;
-	struct diag_smd_info *smd_info = NULL;
 
 	if (copy_from_user(&peripheral, (void __user *)ioarg, sizeof(uint8_t)))
 		return -EFAULT;
@@ -1300,8 +1353,7 @@ static int diag_ioctl_peripheral_drain_immediate(unsigned long ioarg)
 		return -EIO;
 	}
 
-	smd_info = &driver->smd_cntl[peripheral];
-	return diag_send_peripheral_drain_immediate(smd_info);
+	return diag_send_peripheral_drain_immediate(peripheral);
 }
 
 static int diag_ioctl_dci_support(unsigned long ioarg)
@@ -2343,23 +2395,6 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 			if (exit_stat == 1)
 				goto exit;
 		}
-		for (i = 0; i < NUM_PERIPHERALS; i++) {
-			if (driver->smd_dci[i].ch) {
-				queue_work(driver->diag_dci_wq,
-				&(driver->smd_dci[i].diag_read_smd_work));
-			}
-		}
-		if (driver->supports_separate_cmdrsp) {
-			for (i = 0; i < NUM_PERIPHERALS; i++) {
-				if (!driver->feature[i].separate_cmd_rsp)
-					continue;
-				if (driver->smd_dci_cmd[i].ch) {
-					queue_work(driver->diag_dci_wq,
-						&(driver->smd_dci_cmd[i].
-							diag_read_smd_work));
-				}
-			}
-		}
 		goto exit;
 	}
 exit:
@@ -2510,7 +2545,7 @@ void diag_ws_on_read(int type, int pkt_len)
 	case DIAG_WS_DCI:
 		ws_ref = &driver->dci_ws;
 		break;
-	case DIAG_WS_MD:
+	case DIAG_WS_MUX:
 		ws_ref = &driver->md_ws;
 		break;
 	default:
@@ -2542,7 +2577,7 @@ void diag_ws_on_copy(int type)
 	case DIAG_WS_DCI:
 		ws_ref = &driver->dci_ws;
 		break;
-	case DIAG_WS_MD:
+	case DIAG_WS_MUX:
 		ws_ref = &driver->md_ws;
 		break;
 	default:
@@ -2565,7 +2600,7 @@ void diag_ws_on_copy_fail(int type)
 	case DIAG_WS_DCI:
 		ws_ref = &driver->dci_ws;
 		break;
-	case DIAG_WS_MD:
+	case DIAG_WS_MUX:
 		ws_ref = &driver->md_ws;
 		break;
 	default:
@@ -2590,7 +2625,7 @@ void diag_ws_on_copy_complete(int type)
 	case DIAG_WS_DCI:
 		ws_ref = &driver->dci_ws;
 		break;
-	case DIAG_WS_MD:
+	case DIAG_WS_MUX:
 		ws_ref = &driver->md_ws;
 		break;
 	default:
@@ -2618,7 +2653,7 @@ void diag_ws_reset(int type)
 	case DIAG_WS_DCI:
 		ws_ref = &driver->dci_ws;
 		break;
-	case DIAG_WS_MD:
+	case DIAG_WS_MUX:
 		ws_ref = &driver->md_ws;
 		break;
 	default:
@@ -2682,73 +2717,6 @@ static int diag_real_time_info_init(void)
 		return -ENOMEM;
 	INIT_WORK(&(driver->diag_real_time_work), diag_real_time_work_fn);
 	mutex_init(&driver->real_time_mutex);
-	return 0;
-}
-
-int mask_request_validate(unsigned char mask_buf[])
-{
-	uint8_t packet_id;
-	uint8_t subsys_id;
-	uint16_t ss_cmd;
-
-	packet_id = mask_buf[0];
-
-	if (packet_id == 0x4B) {
-		subsys_id = mask_buf[1];
-		ss_cmd = *(uint16_t *)(mask_buf + 2);
-		/* Packets with SSID which are allowed */
-		switch (subsys_id) {
-		case 0x04: /* DIAG_SUBSYS_WCDMA */
-			if ((ss_cmd == 0) || (ss_cmd == 0xF))
-				return 1;
-			break;
-		case 0x08: /* DIAG_SUBSYS_GSM */
-			if ((ss_cmd == 0) || (ss_cmd == 0x1))
-				return 1;
-			break;
-		case 0x09: /* DIAG_SUBSYS_UMTS */
-		case 0x0F: /* DIAG_SUBSYS_CM */
-			if (ss_cmd == 0)
-				return 1;
-			break;
-		case 0x0C: /* DIAG_SUBSYS_OS */
-			if ((ss_cmd == 2) || (ss_cmd == 0x100))
-				return 1; /* MPU and APU */
-			break;
-		case 0x12: /* DIAG_SUBSYS_DIAG_SERV */
-			if ((ss_cmd == 0) || (ss_cmd == 0x6) || (ss_cmd == 0x7))
-				return 1;
-			else if (ss_cmd == 0x218) /* HDLC Disabled Command*/
-				return 0;
-			break;
-		case 0x13: /* DIAG_SUBSYS_FS */
-			if ((ss_cmd == 0) || (ss_cmd == 0x1))
-				return 1;
-			break;
-		default:
-			return 0;
-			break;
-		}
-	} else {
-		switch (packet_id) {
-		case 0x00:    /* Version Number */
-		case 0x0C:    /* CDMA status packet */
-		case 0x1C:    /* Diag Version */
-		case 0x1D:    /* Time Stamp */
-		case 0x60:    /* Event Report Control */
-		case 0x63:    /* Status snapshot */
-		case 0x73:    /* Logging Configuration */
-		case 0x7C:    /* Extended build ID */
-		case 0x7D:    /* Extended Message configuration */
-		case 0x81:    /* Event get mask */
-		case 0x82:    /* Set the event mask */
-			return 1;
-			break;
-		default:
-			return 0;
-			break;
-		}
-	}
 	return 0;
 }
 
@@ -2842,8 +2810,8 @@ static int __init diagchar_init(void)
 	 * POOL_TYPE_MUX_APPS is for the buffers in the Diag MUX layer.
 	 * The number of buffers encompasses Diag data generated on
 	 * the Apss processor + 1 for the responses generated exclusively on
-	 * the Apps processor + data from SMD data channels (2 channels per
-	 * peripheral) + data from SMD command channels
+	 * the Apps processor + data from data channels (2 channels per
+	 * peripheral) + data from command channels
 	 */
 	diagmem_setsize(POOL_TYPE_MUX_APPS, itemsize_usb_apps,
 			poolsize_usb_apps + 1 + (NUM_PERIPHERALS * 2) +
@@ -2868,7 +2836,6 @@ static int __init diagchar_init(void)
 	mutex_init(&driver->delayed_rsp_mutex);
 	mutex_init(&apps_data_mutex);
 	init_waitqueue_head(&driver->wait_q);
-	init_waitqueue_head(&driver->smd_wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
 	INIT_WORK(&(driver->update_user_clients),
 			diag_update_user_client_work_fn);
@@ -2907,6 +2874,9 @@ static int __init diagchar_init(void)
 	ret = diagfwd_bridge_init();
 	if (ret)
 		goto fail;
+	ret = diagfwd_peripheral_init();
+	if (ret)
+		goto fail;
 	ret = diagfwd_cntl_init();
 	if (ret)
 		goto fail;
@@ -2938,6 +2908,7 @@ fail:
 	diag_debugfs_cleanup();
 	diagchar_cleanup();
 	diag_mux_exit();
+	diagfwd_peripheral_exit();
 	diagfwd_bridge_exit();
 	diagfwd_exit();
 	diagfwd_cntl_exit();
@@ -2952,6 +2923,7 @@ static void diagchar_exit(void)
 	printk(KERN_INFO "diagchar exiting ..\n");
 	diag_mempool_exit();
 	diag_mux_exit();
+	diagfwd_peripheral_exit();
 	diagfwd_exit();
 	diagfwd_cntl_exit();
 	diag_dci_exit();

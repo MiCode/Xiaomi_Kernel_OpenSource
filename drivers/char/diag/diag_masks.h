@@ -151,10 +151,10 @@ extern struct diag_mask_info msg_bt_mask;
 extern struct diag_mask_info log_mask;
 extern struct diag_mask_info event_mask;
 
-void diag_mask_update_fn(struct work_struct *work);
-int diag_process_apps_masks(unsigned char *buf, int len);
 int diag_masks_init(void);
 void diag_masks_exit(void);
+int diag_process_apps_masks(unsigned char *buf, int len);
+void diag_send_updates_peripheral(uint8_t peripheral);
 
 extern int diag_create_msg_mask_table_entry(struct diag_msg_mask_t *msg_mask,
 					    struct diag_ssid_range_t *range);

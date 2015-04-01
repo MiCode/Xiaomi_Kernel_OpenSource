@@ -119,7 +119,7 @@ void diag_md_close_all()
 			ch->ops->close(ch->ctx, DIAG_MEMORY_DEVICE_MODE);
 	}
 
-	diag_ws_reset(DIAG_WS_MD);
+	diag_ws_reset(DIAG_WS_MUX);
 }
 
 int diag_md_write(int id, unsigned char *buf, int len, int ctx)
@@ -143,7 +143,7 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 			ch->tbl[i].len = len;
 			ch->tbl[i].ctx = ctx;
 			found = 1;
-			diag_ws_on_read(DIAG_WS_MD, len);
+			diag_ws_on_read(DIAG_WS_MUX, len);
 		}
 		spin_unlock_irqrestore(&ch->tbl[i].lock, flags);
 	}
@@ -227,7 +227,7 @@ drop_data:
 			ch->ops->write_done(entry->buf, entry->len,
 					    entry->ctx,
 					    DIAG_MEMORY_DEVICE_MODE);
-			diag_ws_on_copy(DIAG_WS_MD);
+			diag_ws_on_copy(DIAG_WS_MUX);
 			spin_lock_irqsave(&entry->lock, flags);
 			entry->buf = NULL;
 			entry->len = 0;
@@ -238,7 +238,7 @@ drop_data:
 
 	*pret = ret;
 	err = copy_to_user(buf + sizeof(int), (void *)&num_data, sizeof(int));
-	diag_ws_on_copy_complete(DIAG_WS_MD);
+	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	return err;
 }
 

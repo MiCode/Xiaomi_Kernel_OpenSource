@@ -213,6 +213,7 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 	ctxt = (int)(uintptr_t)req->context;
 	if (ch->ops && ch->ops->write_done)
 		ch->ops->write_done(req->buf, req->actual, ctxt, DIAG_USB_MODE);
+	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	diagmem_free(driver, req, ch->mempool);
 	queue_work(ch->usb_wq, &(ch->read_work));
 }
@@ -313,7 +314,9 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 		diagmem_free(driver, req, usb_info->mempool);
 		return -ENODEV;
 	}
+	diag_ws_on_read(DIAG_WS_MUX, len);
 	err = usb_diag_write(usb_info->hdl, req);
+	diag_ws_on_copy(DIAG_WS_MUX);
 	if (err) {
 		pr_err_ratelimited("diag: In %s, error writing to usb channel %s, err: %d\n",
 				   __func__, usb_info->name, err);

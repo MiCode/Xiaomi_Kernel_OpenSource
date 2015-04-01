@@ -14,6 +14,7 @@
 
 #include <linux/slab.h>
 #include <linux/debugfs.h>
+#include <linux/atomic.h>
 #include "diagchar.h"
 #include "diagfwd.h"
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
@@ -25,6 +26,8 @@
 #include "diagmem.h"
 #include "diag_dci.h"
 #include "diag_usb.h"
+#include "diagfwd_peripheral.h"
+#include "diagfwd_smd.h"
 #include "diag_debugfs.h"
 
 #define DEBUG_BUF_SIZE	4096
@@ -32,6 +35,7 @@ static struct dentry *diag_dbgfs_dent;
 static int diag_dbgfs_table_index;
 static int diag_dbgfs_mempool_index;
 static int diag_dbgfs_usbinfo_index;
+static int diag_dbgfs_smdinfo_index;
 static int diag_dbgfs_hsicinfo_index;
 static int diag_dbgfs_mhiinfo_index;
 static int diag_dbgfs_bridgeinfo_index;
@@ -52,304 +56,46 @@ static ssize_t diag_dbgfs_read_status(struct file *file, char __user *ubuf,
 	}
 	buf_size = ksize(buf);
 	ret = scnprintf(buf, buf_size,
-		"modem ch: 0x%p\n"
-		"lpass ch: 0x%p\n"
-		"riva ch: 0x%p\n"
-		"sensors ch: 0x%p\n"
-		"modem dci ch: 0x%p\n"
-		"lpass dci ch: 0x%p\n"
-		"riva dci ch: 0x%p\n"
-		"sensors dci ch: 0x%p\n"
-		"modem cntl_ch: 0x%p\n"
-		"lpass cntl_ch: 0x%p\n"
-		"riva cntl_ch: 0x%p\n"
-		"sensors cntl_ch: 0x%p\n"
-		"modem cmd ch: 0x%p\n"
-		"adsp cmd ch: 0x%p\n"
-		"riva cmd ch: 0x%p\n"
-		"sensors cmd ch: 0x%p\n"
-		"modem dci cmd ch: 0x%p\n"
-		"lpass dci cmd ch: 0x%p\n"
-		"riva dci cmd ch: 0x%p\n"
-		"sensors dci cmd ch: 0x%p\n"
-		"CPU Tools id: %d\n"
-		"Apps only: %d\n"
-		"Apps master: %d\n"
+		"CPU Tools ID: %d\n"
 		"Check Polling Response: %d\n"
-		"polling_reg_flag: %d\n"
-		"uses device tree: %d\n"
-		"supports separate cmdrsp: %d\n"
-		"Modem separate cmdrsp: %d\n"
-		"LPASS separate cmdrsp: %d\n"
-		"RIVA separate cmdrsp: %d\n"
-		"SENSORS separate cmdrsp: %d\n"
-		"Modem in_busy_1: %d\n"
-		"Modem in_busy_2: %d\n"
-		"LPASS in_busy_1: %d\n"
-		"LPASS in_busy_2: %d\n"
-		"RIVA in_busy_1: %d\n"
-		"RIVA in_busy_2: %d\n"
-		"SENSORS in_busy_1: %d\n"
-		"SENSORS in_busy_2: %d\n"
-		"DCI Modem in_busy_1: %d\n"
-		"DCI LPASS in_busy_1: %d\n"
-		"DCI WCNSS in_busy_1: %d\n"
-		"DCI SENSORS in_busy_1: %d\n"
-		"Modem CMD in_busy_1: %d\n"
-		"Modem CMD in_busy_2: %d\n"
-		"DCI CMD Modem in_busy_1: %d\n"
-		"DCI CMD LPASS in_busy_1: %d\n"
-		"DCI CMD WCNSS in_busy_1: %d\n"
-		"DCI CMD SENSORS in_busy_1: %d\n"
-		"ADSP CMD in_busy_1: %d\n"
-		"ADSP CMD in_busy_2: %d\n"
-		"RIVA CMD in_busy_1: %d\n"
-		"RIVA CMD in_busy_2: %d\n"
-		"SENSORS CMD in_busy_1: %d\n"
-		"SENSORS CMD in_busy_2: %d\n"
-		"Modem supports STM: %d\n"
-		"LPASS supports STM: %d\n"
-		"RIVA supports STM: %d\n"
-		"SENSORS supports STM: %d\n"
-		"Modem STM state: %d\n"
-		"LPASS STM state: %d\n"
-		"RIVA STM state: %d\n"
-		"SENSORS STM state: %d\n"
-		"APPS STM state: %d\n"
-		"Modem STM requested state: %d\n"
-		"LPASS STM requested state: %d\n"
-		"RIVA STM requested state: %d\n"
-		"SENSORS STM requested state: %d\n"
-		"APPS STM requested state: %d\n"
-		"supports apps hdlc encoding: %d\n"
-		"Modem hdlc encoding: %d\n"
-		"Lpass hdlc encoding: %d\n"
-		"RIVA hdlc encoding: %d\n"
-		"SENSORS hdlc encoding: %d\n"
-		"Modem DATA in_buf_1_size: %d\n"
-		"Modem DATA in_buf_2_size: %d\n"
-		"ADSP DATA in_buf_1_size: %d\n"
-		"ADSP DATA in_buf_2_size: %d\n"
-		"RIVA DATA in_buf_1_size: %d\n"
-		"RIVA DATA in_buf_2_size: %d\n"
-		"SENSORS DATA in_buf_1_size: %d\n"
-		"SENSORS DATA in_buf_2_size: %d\n"
-		"Modem DATA in_buf_1_raw_size: %d\n"
-		"Modem DATA in_buf_2_raw_size: %d\n"
-		"ADSP DATA in_buf_1_raw_size: %d\n"
-		"ADSP DATA in_buf_2_raw_size: %d\n"
-		"RIVA DATA in_buf_1_raw_size: %d\n"
-		"RIVA DATA in_buf_2_raw_size: %d\n"
-		"SENSORS DATA in_buf_1_raw_size: %d\n"
-		"SENSORS DATA in_buf_2_raw_size: %d\n"
-		"Modem CMD in_buf_1_size: %d\n"
-		"Modem CMD in_buf_1_raw_size: %d\n"
-		"ADSP CMD in_buf_1_size: %d\n"
-		"ADSP CMD in_buf_1_raw_size: %d\n"
-		"RIVA CMD in_buf_1_size: %d\n"
-		"RIVA CMD in_buf_1_raw_size: %d\n"
-		"SENSORS CMD in_buf_1_size: %d\n"
-		"SENSORS CMD in_buf_1_raw_size: %d\n"
-		"Modem CNTL in_buf_1_size: %d\n"
-		"ADSP CNTL in_buf_1_size: %d\n"
-		"RIVA CNTL in_buf_1_size: %d\n"
-		"SENSORS CNTL in_buf_1_size: %d\n"
-		"Modem DCI in_buf_1_size: %d\n"
-		"Modem DCI CMD in_buf_1_size: %d\n"
-		"LPASS DCI in_buf_1_size: %d\n"
-		"LPASS DCI CMD in_buf_1_size: %d\n"
-		"WCNSS DCI in_buf_1_size: %d\n"
-		"WCNSS DCI CMD in_buf_1_size: %d\n"
-		"SENSORS DCI in_buf_1_size: %d\n"
-		"SENSORS DCI CMD in_buf_1_size: %d\n"
-		"Received Feature mask from Modem: %d\n"
-		"Received Feature mask from LPASS: %d\n"
-		"Received Feature mask from WCNSS: %d\n"
-		"Received Feature mask from SENSORS: %d\n"
-		"Mask Centralization Support on Modem: %d\n"
-		"Mask Centralization Support on LPASS: %d\n"
-		"Mask Centralization Support on WCNSS: %d\n"
-		"Mask Centralization Support on SENSORS: %d\n"
-		"Buffering Mode Support on Modem: %d\n"
-		"Buffering Mode Support on LPASS: %d\n"
-		"Buffering Mode Support on WCNSS: %d\n"
-		"Buffering Mode Support on SENSORS: %d\n"
-		"Buffering Mode on Modem: %d\n"
-		"Buffering Mode on LPASS: %d\n"
-		"Buffering Mode on WCNSS: %d\n"
-		"Buffering Mode on SENSORS: %d\n"
-		"logging_mode: %d\n"
-		"rsp_in_busy: %d\n"
-		"hdlc disabled: %d\n",
-		driver->smd_data[PERIPHERAL_MODEM].ch,
-		driver->smd_data[PERIPHERAL_LPASS].ch,
-		driver->smd_data[PERIPHERAL_WCNSS].ch,
-		driver->smd_data[PERIPHERAL_SENSORS].ch,
-		driver->smd_dci[PERIPHERAL_MODEM].ch,
-		driver->smd_dci[PERIPHERAL_LPASS].ch,
-		driver->smd_dci[PERIPHERAL_WCNSS].ch,
-		driver->smd_dci[PERIPHERAL_SENSORS].ch,
-		driver->smd_cntl[PERIPHERAL_MODEM].ch,
-		driver->smd_cntl[PERIPHERAL_LPASS].ch,
-		driver->smd_cntl[PERIPHERAL_WCNSS].ch,
-		driver->smd_cntl[PERIPHERAL_SENSORS].ch,
-		driver->smd_cmd[PERIPHERAL_MODEM].ch,
-		driver->smd_cmd[PERIPHERAL_LPASS].ch,
-		driver->smd_cmd[PERIPHERAL_WCNSS].ch,
-		driver->smd_cmd[PERIPHERAL_SENSORS].ch,
-		driver->smd_dci_cmd[PERIPHERAL_MODEM].ch,
-		driver->smd_dci_cmd[PERIPHERAL_LPASS].ch,
-		driver->smd_dci_cmd[PERIPHERAL_WCNSS].ch,
-		driver->smd_dci_cmd[PERIPHERAL_SENSORS].ch,
+		"Polling Registered: %d\n"
+		"Uses Device Tree: %d\n"
+		"Apps Supports Separate CMDRSP: %d\n"
+		"Apps Supports HDLC Encoding: %d\n"
+		"Logging Mode: %d\n"
+		"RSP Buffer is Busy: %d\n",
 		chk_config_get_id(),
-		chk_apps_only(),
-		chk_apps_master(),
 		chk_polling_response(),
 		driver->polling_reg_flag,
 		driver->use_device_tree,
 		driver->supports_separate_cmdrsp,
-		driver->feature[PERIPHERAL_MODEM].separate_cmd_rsp,
-		driver->feature[PERIPHERAL_LPASS].separate_cmd_rsp,
-		driver->feature[PERIPHERAL_WCNSS].separate_cmd_rsp,
-		driver->feature[PERIPHERAL_SENSORS].separate_cmd_rsp,
-		driver->smd_data[PERIPHERAL_MODEM].in_busy_1,
-		driver->smd_data[PERIPHERAL_MODEM].in_busy_2,
-		driver->smd_data[PERIPHERAL_LPASS].in_busy_1,
-		driver->smd_data[PERIPHERAL_LPASS].in_busy_2,
-		driver->smd_data[PERIPHERAL_WCNSS].in_busy_1,
-		driver->smd_data[PERIPHERAL_WCNSS].in_busy_2,
-		driver->smd_data[PERIPHERAL_SENSORS].in_busy_1,
-		driver->smd_data[PERIPHERAL_SENSORS].in_busy_2,
-		driver->smd_dci[PERIPHERAL_MODEM].in_busy_1,
-		driver->smd_dci[PERIPHERAL_LPASS].in_busy_1,
-		driver->smd_dci[PERIPHERAL_WCNSS].in_busy_1,
-		driver->smd_dci[PERIPHERAL_SENSORS].in_busy_1,
-		driver->smd_cmd[PERIPHERAL_MODEM].in_busy_1,
-		driver->smd_cmd[PERIPHERAL_MODEM].in_busy_2,
-		driver->smd_cmd[PERIPHERAL_LPASS].in_busy_1,
-		driver->smd_cmd[PERIPHERAL_LPASS].in_busy_2,
-		driver->smd_cmd[PERIPHERAL_WCNSS].in_busy_1,
-		driver->smd_cmd[PERIPHERAL_WCNSS].in_busy_2,
-		driver->smd_cmd[PERIPHERAL_SENSORS].in_busy_1,
-		driver->smd_cmd[PERIPHERAL_SENSORS].in_busy_2,
-		driver->smd_dci_cmd[PERIPHERAL_MODEM].in_busy_1,
-		driver->smd_dci_cmd[PERIPHERAL_LPASS].in_busy_1,
-		driver->smd_dci_cmd[PERIPHERAL_WCNSS].in_busy_1,
-		driver->smd_dci_cmd[PERIPHERAL_SENSORS].in_busy_1,
-		driver->feature[PERIPHERAL_MODEM].stm_support,
-		driver->feature[PERIPHERAL_LPASS].stm_support,
-		driver->feature[PERIPHERAL_WCNSS].stm_support,
-		driver->feature[PERIPHERAL_SENSORS].stm_support,
-		driver->stm_state[PERIPHERAL_MODEM],
-		driver->stm_state[PERIPHERAL_LPASS],
-		driver->stm_state[PERIPHERAL_WCNSS],
-		driver->stm_state[PERIPHERAL_SENSORS],
-		driver->stm_state[APPS_DATA],
-		driver->stm_state_requested[PERIPHERAL_MODEM],
-		driver->stm_state_requested[PERIPHERAL_LPASS],
-		driver->stm_state_requested[PERIPHERAL_WCNSS],
-		driver->stm_state_requested[PERIPHERAL_SENSORS],
-		driver->stm_state_requested[APPS_DATA],
 		driver->supports_apps_hdlc_encoding,
-		driver->feature[PERIPHERAL_MODEM].encode_hdlc,
-		driver->feature[PERIPHERAL_LPASS].encode_hdlc,
-		driver->feature[PERIPHERAL_WCNSS].encode_hdlc,
-		driver->feature[PERIPHERAL_SENSORS].encode_hdlc,
-		(unsigned int)driver->smd_data[PERIPHERAL_MODEM].buf_in_1_size,
-		(unsigned int)driver->smd_data[PERIPHERAL_MODEM].buf_in_2_size,
-		(unsigned int)driver->smd_data[PERIPHERAL_LPASS].buf_in_1_size,
-		(unsigned int)driver->smd_data[PERIPHERAL_LPASS].buf_in_2_size,
-		(unsigned int)driver->smd_data[PERIPHERAL_WCNSS].buf_in_1_size,
-		(unsigned int)driver->smd_data[PERIPHERAL_WCNSS].buf_in_2_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_SENSORS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_SENSORS].buf_in_2_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_MODEM].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_MODEM].buf_in_2_raw_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_LPASS].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_LPASS].buf_in_2_raw_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_WCNSS].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_WCNSS].buf_in_2_raw_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_SENSORS].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_data[PERIPHERAL_SENSORS].buf_in_2_raw_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_MODEM].buf_in_1_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_MODEM].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_LPASS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_LPASS].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_WCNSS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_WCNSS].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_SENSORS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_cmd[PERIPHERAL_SENSORS].buf_in_1_raw_size,
-		(unsigned int)
-		driver->smd_cntl[PERIPHERAL_MODEM].buf_in_1_size,
-		(unsigned int)
-		driver->smd_cntl[PERIPHERAL_LPASS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_cntl[PERIPHERAL_WCNSS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_cntl[PERIPHERAL_SENSORS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci[PERIPHERAL_MODEM].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci_cmd[PERIPHERAL_MODEM].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci[PERIPHERAL_LPASS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci_cmd[PERIPHERAL_LPASS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci[PERIPHERAL_WCNSS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci_cmd[PERIPHERAL_WCNSS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci[PERIPHERAL_SENSORS].buf_in_1_size,
-		(unsigned int)
-		driver->smd_dci_cmd[PERIPHERAL_SENSORS].buf_in_1_size,
-		driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask,
-		driver->feature[PERIPHERAL_LPASS].rcvd_feature_mask,
-		driver->feature[PERIPHERAL_WCNSS].rcvd_feature_mask,
-		driver->feature[PERIPHERAL_SENSORS].rcvd_feature_mask,
-		driver->feature[PERIPHERAL_MODEM].mask_centralization,
-		driver->feature[PERIPHERAL_LPASS].mask_centralization,
-		driver->feature[PERIPHERAL_WCNSS].mask_centralization,
-		driver->feature[PERIPHERAL_SENSORS].mask_centralization,
-		driver->feature[PERIPHERAL_MODEM].peripheral_buffering,
-		driver->feature[PERIPHERAL_LPASS].peripheral_buffering,
-		driver->feature[PERIPHERAL_WCNSS].peripheral_buffering,
-		driver->feature[PERIPHERAL_SENSORS].peripheral_buffering,
-		driver->buffering_mode[PERIPHERAL_MODEM].mode,
-		driver->buffering_mode[PERIPHERAL_LPASS].mode,
-		driver->buffering_mode[PERIPHERAL_WCNSS].mode,
-		driver->buffering_mode[PERIPHERAL_SENSORS].mode,
 		driver->logging_mode,
-		driver->rsp_buf_busy,
-		driver->hdlc_disabled);
+		driver->rsp_buf_busy);
+
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
+		ret += scnprintf(buf+ret, buf_size-ret,
+			"p: %s Feature: %02x %02x |%c%c%c%c%c%c|\n",
+			PERIPHERAL_STRING(i),
+			driver->feature[i].feature_mask[0],
+			driver->feature[i].feature_mask[1],
+			driver->feature[i].rcvd_feature_mask ? 'F':'f',
+			driver->feature[i].separate_cmd_rsp ? 'C':'c',
+			driver->feature[i].encode_hdlc ? 'H':'h',
+			driver->feature[i].peripheral_buffering ? 'B':'b',
+			driver->feature[i].mask_centralization ? 'M':'m',
+			driver->feature[i].stm_support ? 'Q':'q');
+	}
 
 #ifdef CONFIG_DIAG_OVER_USB
 	ret += scnprintf(buf+ret, buf_size-ret,
-		"usb_connected: %d\n",
+		"USB Connected: %d\n",
 		driver->usb_connected);
 #endif
 
 	for (i = 0; i < DIAG_NUM_PROC; i++) {
 		ret += scnprintf(buf+ret, buf_size-ret,
-				 "real_time proc: %d: %d\n", i,
+				 "Real Time Mode: %d: %d\n", i,
 				 driver->real_time_mode[i]);
 	}
 
@@ -479,102 +225,6 @@ static ssize_t diag_dbgfs_read_power(struct file *file, char __user *ubuf,
 		driver->diag_dev->power.wakeup->active_count,
 		driver->diag_dev->power.wakeup->relax_count);
 
-	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
-
-	kfree(buf);
-	return ret;
-}
-
-static ssize_t diag_dbgfs_read_workpending(struct file *file,
-				char __user *ubuf, size_t count, loff_t *ppos)
-{
-	char *buf;
-	int ret;
-	unsigned int buf_size;
-
-	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
-	if (!buf) {
-		pr_err("diag: %s, Error allocating memory\n", __func__);
-		return -ENOMEM;
-	}
-
-	buf_size = ksize(buf);
-	ret = scnprintf(buf, buf_size,
-		"Pending status for work_stucts:\n"
-		"diag_drain_work: %d\n"
-		"Modem data diag_read_smd_work: %d\n"
-		"LPASS data diag_read_smd_work: %d\n"
-		"RIVA data diag_read_smd_work: %d\n"
-		"SENSORS data diag_read_smd_work: %d\n"
-		"Modem cntl diag_read_smd_work: %d\n"
-		"LPASS cntl diag_read_smd_work: %d\n"
-		"RIVA cntl diag_read_smd_work: %d\n"
-		"SENSORS cntl diag_read_smd_work: %d\n"
-		"Modem dci diag_read_smd_work: %d\n"
-		"LPASS dci diag_read_smd_work: %d\n"
-		"WCNSS dci diag_read_smd_work: %d\n"
-		"SENSORS dci diag_read_smd_work: %d\n"
-		"Modem data diag_notify_update_smd_work: %d\n"
-		"LPASS data diag_notify_update_smd_work: %d\n"
-		"RIVA data diag_notify_update_smd_work: %d\n"
-		"SENSORS data diag_notify_update_smd_work: %d\n"
-		"Modem cntl diag_notify_update_smd_work: %d\n"
-		"LPASS cntl diag_notify_update_smd_work: %d\n"
-		"RIVA cntl diag_notify_update_smd_work: %d\n"
-		"SENSORS cntl diag_notify_update_smd_work: %d\n"
-		"Modem dci diag_notify_update_smd_work: %d\n"
-		"LPASS dci diag_notify_update_smd_work: %d\n"
-		"WCNSS dci diag_notify_update_smd_work: %d\n"
-		"SENSORS dci diag_notify_update_smd_work: %d\n",
-		work_pending(&(driver->diag_drain_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_MODEM].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_LPASS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_WCNSS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_SENSORS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_MODEM].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_LPASS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_WCNSS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_SENSORS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_MODEM].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_LPASS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_WCNSS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_SENSORS].
-							diag_read_smd_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_MODEM].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_LPASS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_WCNSS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_data[PERIPHERAL_SENSORS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_MODEM].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_LPASS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_WCNSS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_cntl[PERIPHERAL_SENSORS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_MODEM].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_LPASS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_WCNSS].
-						diag_notify_update_smd_work)),
-		work_pending(&(driver->smd_dci[PERIPHERAL_SENSORS].
-						diag_notify_update_smd_work)));
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, ret);
 
 	kfree(buf);
@@ -791,6 +441,110 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 			break;
 	}
 	diag_dbgfs_usbinfo_index = i+1;
+	*ppos = 0;
+	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
+
+	kfree(buf);
+	return ret;
+}
+
+static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
+				       size_t count, loff_t *ppos)
+{
+	char *buf = NULL;
+	int ret = 0;
+	int i = 0;
+	int j = 0;
+	unsigned int buf_size;
+	unsigned int bytes_remaining = 0;
+	unsigned int bytes_written = 0;
+	unsigned int bytes_in_buffer = 0;
+	struct diag_smd_info *smd_info = NULL;
+	struct diagfwd_info *fwd_ctxt = NULL;
+
+	if (diag_dbgfs_smdinfo_index >= NUM_PERIPHERALS) {
+		/* Done. Reset to prepare for future requests */
+		diag_dbgfs_smdinfo_index = 0;
+		return 0;
+	}
+
+	buf = kzalloc(sizeof(char) * DEBUG_BUF_SIZE, GFP_KERNEL);
+	if (ZERO_OR_NULL_PTR(buf)) {
+		pr_err("diag: %s, Error allocating memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	buf_size = ksize(buf);
+	bytes_remaining = buf_size;
+	for (i = 0; i < NUM_TYPES; i++) {
+		for (j = 0; j < NUM_PERIPHERALS; j++) {
+			switch (i) {
+			case TYPE_DATA:
+				smd_info = &smd_data[j];
+				break;
+			case TYPE_CNTL:
+				smd_info = &smd_cntl[j];
+				break;
+			case TYPE_DCI:
+				smd_info = &smd_dci[j];
+				break;
+			case TYPE_CMD:
+				smd_info = &smd_cmd[j];
+				break;
+			case TYPE_DCI_CMD:
+				smd_info = &smd_dci_cmd[j];
+				break;
+			default:
+				return -EINVAL;
+			}
+
+			fwd_ctxt = (struct diagfwd_info *)(smd_info->fwd_ctxt);
+
+			bytes_written = scnprintf(buf+bytes_in_buffer,
+				bytes_remaining,
+				"name\t\t:\t%s\n"
+				"hdl\t\t:\t%p\n"
+				"inited\t\t:\t%d\n"
+				"opened\t\t:\t%d\n"
+				"fifo size\t:\t%d\n"
+				"open pending\t:\t%d\n"
+				"close pending\t:\t%d\n"
+				"read pending\t:\t%d\n"
+				"buf_1 busy\t:\t%d\n"
+				"buf_2 busy\t:\t%d\n"
+				"bytes read\t:\t%lu\n"
+				"bytes written\t:\t%lu\n"
+				"fwd inited\t:\t%d\n"
+				"fwd opened\t:\t%d\n"
+				"fwd ch_open\t:\t%d\n\n",
+				smd_info->name,
+				smd_info->hdl,
+				smd_info->inited,
+				atomic_read(&smd_info->opened),
+				smd_info->fifo_size,
+				work_pending(&smd_info->open_work),
+				work_pending(&smd_info->close_work),
+				work_pending(&smd_info->read_work),
+				(fwd_ctxt && fwd_ctxt->buf_1) ?
+				atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
+				(fwd_ctxt && fwd_ctxt->buf_2) ?
+				atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
+				(fwd_ctxt) ? fwd_ctxt->read_bytes : 0,
+				(fwd_ctxt) ? fwd_ctxt->write_bytes : 0,
+				(fwd_ctxt) ? fwd_ctxt->inited : -1,
+				(fwd_ctxt) ?
+				atomic_read(&fwd_ctxt->opened) : -1,
+				(fwd_ctxt) ? fwd_ctxt->ch_open : -1);
+			bytes_in_buffer += bytes_written;
+
+			/* Check if there is room to add another table entry */
+			bytes_remaining = buf_size - bytes_in_buffer;
+
+			if (bytes_remaining < bytes_written)
+				break;
+		}
+	}
+	diag_dbgfs_smdinfo_index = i+1;
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);
 
@@ -1018,12 +772,12 @@ const struct file_operations diag_dbgfs_status_ops = {
 	.read = diag_dbgfs_read_status,
 };
 
-const struct file_operations diag_dbgfs_table_ops = {
-	.read = diag_dbgfs_read_table,
+const struct file_operations diag_dbgfs_smdinfo_ops = {
+	.read = diag_dbgfs_read_smdinfo,
 };
 
-const struct file_operations diag_dbgfs_workpending_ops = {
-	.read = diag_dbgfs_read_workpending,
+const struct file_operations diag_dbgfs_table_ops = {
+	.read = diag_dbgfs_read_table,
 };
 
 const struct file_operations diag_dbgfs_mempool_ops = {
@@ -1055,13 +809,13 @@ int diag_debugfs_init(void)
 	if (!entry)
 		goto err;
 
-	entry = debugfs_create_file("table", 0444, diag_dbgfs_dent, 0,
-				    &diag_dbgfs_table_ops);
+	entry = debugfs_create_file("smdinfo", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_smdinfo_ops);
 	if (!entry)
 		goto err;
 
-	entry = debugfs_create_file("work_pending", 0444, diag_dbgfs_dent, 0,
-				    &diag_dbgfs_workpending_ops);
+	entry = debugfs_create_file("table", 0444, diag_dbgfs_dent, 0,
+				    &diag_dbgfs_table_ops);
 	if (!entry)
 		goto err;
 
@@ -1105,6 +859,7 @@ int diag_debugfs_init(void)
 	diag_dbgfs_table_index = 0;
 	diag_dbgfs_mempool_index = 0;
 	diag_dbgfs_usbinfo_index = 0;
+	diag_dbgfs_smdinfo_index = 0;
 	diag_dbgfs_hsicinfo_index = 0;
 	diag_dbgfs_bridgeinfo_index = 0;
 	diag_dbgfs_mhiinfo_index = 0;
