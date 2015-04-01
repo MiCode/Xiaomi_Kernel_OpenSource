@@ -1,0 +1,36 @@
+Qualcomm Technologies, Inc. G-Link SSR
+
+[Root level node]
+Required properties:
+-compatible : should be "qcom,glink_ssr"
+-label : The name of this subsystem.
+-qcom,edge : The name of the edge to this subsystem.
+-qcom,notify-edges : Reference to other subsystems to notify when this
+	subsystem goes down.
+
+Optional properties:
+-qcom,xprt : The name of the transport on which to notify this subystem.
+
+Example:
+
+	glink_mpss: qcom,glink-ssr-modem {
+		compatible = "qcom,glink_ssr";
+		label = "modem";
+		qcom,edge = "mpss";
+		qcom,notify-edges = <&glink_adsp>, <&glink_wcnss>;
+		qcom,xprt = "smem";
+	};
+
+	glink_adsp: qcom,glink-ssr-adsp {
+		compatible = "qcom,glink_ssr";
+		label = "adsp";
+		qcom,edge = "adsp";
+		qcom,notify-edges = <&glink_mpss>, <&glink_wcnss>;
+	};
+
+	glink_wcnss: qcom,glink-ssr-wcnss {
+		compatible = "qcom,glink_ssr";
+		label = "wcnss";
+		qcom,edge = "wcnss";
+		qcom,notify-edges = <&glink_mpss>;
+	};
