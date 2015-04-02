@@ -878,6 +878,7 @@
 };
 
 &spi_epm {
+	status = "ok";
 	epm-adc@1 {
 		compatible = "cy,epm-adc-cy8c5568lti-114";
 		reg = <1>;
