@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -786,12 +786,12 @@ static void mdss_dsi_parse_roi_alignment(struct device_node *np,
 	data = of_find_property(np, "qcom,panel-roi-alignment", &len);
 	len /= sizeof(u32);
 	if (!data || (len != 6)) {
-		pr_debug("%s: Panel roi alignment not found", __func__);
+		pr_err("%s: Panel roi alignment not found", __func__);
 	} else {
 		int rc = of_property_read_u32_array(np,
 				"qcom,panel-roi-alignment", value, len);
 		if (rc)
-			pr_debug("%s: Error reading panel roi alignment values",
+			pr_err("%s: Error reading panel roi alignment values",
 					__func__);
 		else {
 			pinfo->xstart_pix_align = value[0];
@@ -802,7 +802,7 @@ static void mdss_dsi_parse_roi_alignment(struct device_node *np,
 			pinfo->min_height = value[5];
 		}
 
-		pr_debug("%s: ROI alignment: [%d, %d, %d, %d, %d, %d]",
+		pr_info("%s: ROI alignment: [%d, %d, %d, %d, %d, %d]",
 				__func__, pinfo->xstart_pix_align,
 				pinfo->width_pix_align, pinfo->ystart_pix_align,
 				pinfo->height_pix_align, pinfo->min_width,
