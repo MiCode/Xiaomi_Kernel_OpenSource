@@ -411,9 +411,19 @@ config SPI_RSPI
 	help
 	  SPI driver for Renesas RSPI and QSPI blocks.
 
+config SPI_QSD
+	tristate "Qualcomm MSM SPI support"
+	default n
+	depends on ARCH_MSM_SCORPION && !MSM_SMP
+	help
+	  Support for Serial Peripheral Interface for Qualcomm MSM
+
+	  This driver can also be built as a module.  If so, the module
+	  will be called spi_qsd.
+
 config SPI_QUP
 	tristate "Qualcomm SPI controller with QUP interface"
-	depends on ARCH_QCOM || (ARM && COMPILE_TEST)
+	depends on ARCH_QCOM || (ARM && COMPILE_TEST) || (ARCH_MSM && !SPI_QSD)
 	help
 	  Qualcomm Universal Peripheral (QUP) core is an AHB slave that
 	  provides a common data path (an output FIFO and an input FIFO)
