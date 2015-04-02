@@ -1694,8 +1694,20 @@ static void bq24192_irq_worker(struct work_struct *work)
 	 * disconnect, re-init completion so that setting INLIMIT would be
 	 * delayed till VBUS is detected.
 	 */
-	if (reg_status & SYSTEM_STAT_VBUS_HOST)
+	if (reg_status & SYSTEM_STAT_VBUS_HOST) {
 		complete(&chip->vbus_detect);
+
+		/* On recovering from voltage exception after VBUS
+		 * is detected and supply voltage recovered,
+		 * inlimit has to be set to proper value
+		 */
+		if (reg_status & SYSTEM_STAT_PWR_GOOD &&
+			reg_status & SYSTEM_STAT_FAST_CHRG) {
+				mutex_lock(&chip->event_lock);
+				bq24192_set_inlmt(chip, chip->inlmt);
+				mutex_unlock(&chip->event_lock);
+		}
+	}
 	/*
 	 * If chip version is BQ24297, then it can detect DCP charger
 	 * cable type also. Hence complete the VBUS detect wait if
