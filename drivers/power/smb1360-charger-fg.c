@@ -363,6 +363,7 @@ struct smb1360_chip {
 	bool				batt_full;
 	bool				resume_completed;
 	bool				irq_waiting;
+	bool				irq_disabled;
 	bool				empty_soc;
 	bool				awake_min_soc;
 	int				workaround_flags;
@@ -2321,7 +2322,10 @@ static irqreturn_t smb1360_stat_handler(int irq, void *dev_id)
 	chip->irq_waiting = true;
 	if (!chip->resume_completed) {
 		dev_dbg(chip->dev, "IRQ triggered before device-resume\n");
-		disable_irq_nosync(irq);
+		if (!chip->irq_disabled) {
+			disable_irq_nosync(irq);
+			chip->irq_disabled = true;
+		}
 		mutex_unlock(&chip->irq_complete);
 		return IRQ_HANDLED;
 	}
@@ -4635,9 +4639,10 @@ static int smb1360_resume(struct device *dev)
 	mutex_lock(&chip->irq_complete);
 	chip->resume_completed = true;
 	if (chip->irq_waiting) {
+		chip->irq_disabled = false;
+		enable_irq(client->irq);
 		mutex_unlock(&chip->irq_complete);
 		smb1360_stat_handler(client->irq, chip);
-		enable_irq(client->irq);
 	} else {
 		mutex_unlock(&chip->irq_complete);
 	}
