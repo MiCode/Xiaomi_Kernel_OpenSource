@@ -110,6 +110,7 @@ struct sdhci_host {
 
 	struct regulator *vmmc;		/* Power regulator (vmmc) */
 	struct regulator *vqmmc;	/* Signaling regulator (vccq) */
+	bool vqmmc_enabled;			/* vqmmc regulator status */
 
 	/* Internal data */
 	struct mmc_host *mmc;	/* MMC structure */

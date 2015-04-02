@@ -1313,7 +1313,7 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 		}
 	}
 
-	if (host->pwr == pwr)
+	if ((host->pwr == pwr) && (pwr != 0))
 		return -1;
 
 	host->pwr = pwr;
@@ -1501,13 +1501,20 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	unsigned long flags;
 	int vdd_bit = -1;
 	u8 ctrl;
+	int ret;
 
 	spin_lock_irqsave(&host->lock, flags);
 
 	if (host->flags & SDHCI_DEVICE_DEAD) {
 		spin_unlock_irqrestore(&host->lock, flags);
-		if (host->vmmc && ios->power_mode == MMC_POWER_OFF)
+		if (host->vmmc && ios->power_mode == MMC_POWER_OFF) {
 			mmc_regulator_set_ocr(host->mmc, host->vmmc, 0);
+			if (host->vqmmc) {
+				ret = regulator_disable(host->vqmmc);
+				if (!ret)
+					host->vqmmc_enabled = false;
+			}
+		}
 		return;
 	}
 
@@ -1566,6 +1573,17 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	if (host->vmmc && vdd_bit != -1) {
 		spin_unlock_irqrestore(&host->lock, flags);
 		mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
+		if (host->vqmmc) {
+			if (vdd_bit && !host->vqmmc_enabled) {
+				ret = regulator_enable(host->vqmmc);
+				if (!ret)
+					host->vqmmc_enabled = true;
+			} else if (!vdd_bit && host->vqmmc_enabled) {
+				ret = regulator_disable(host->vqmmc);
+				if (!ret)
+					host->vqmmc_enabled = false;
+			}
+		}
 		spin_lock_irqsave(&host->lock, flags);
 	}
 
@@ -3234,7 +3252,10 @@ int sdhci_add_host(struct sdhci_host *host)
 			pr_warn("%s: Failed to enable vqmmc regulator: %d\n",
 				mmc_hostname(mmc), ret);
 			host->vqmmc = NULL;
-		}
+		} else
+			/* Turn off vqmmc until a card has been inserted */
+			if (!regulator_disable(host->vqmmc))
+				host->vqmmc_enabled = false;
 	}
 
 	if (host->quirks2 & SDHCI_QUIRK2_NO_1_8_V)
