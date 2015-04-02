@@ -1,6 +1,31 @@
 menu "Qualcomm MSM specific device drivers"
 	depends on ARCH_MSM
 
+config MSM_BUS_SCALING
+	bool "Bus scaling driver"
+	help
+		This option enables bus scaling on MSM devices.  Bus scaling
+		allows devices to request the clocks be set to rates sufficient
+		for the active devices needs without keeping the clocks at max
+		frequency when a slower speed is sufficient.
+
+config MSM_BUSPM_DEV
+	tristate "MSM Bus Performance Monitor Kernel Module"
+	depends on MSM_BUS_SCALING
+	help
+	  This kernel module is used to mmap() hardware registers for the
+	  performance monitors, counters, etc. The module can also be used to
+	  allocate physical memory which is used by bus performance hardware to
+	  dump performance data
+
+config BUS_TOPOLOGY_ADHOC
+	bool "ad-hoc bus scaling topology"
+	help
+		This option enables a driver that can handle adhoc bus topologies.
+		Adhoc bus topology driver allows one to many connections and maintains
+		directionality of connections by explicitly listing device connections
+		thus avoiding illegal routes.
+
 config QPNP_POWER_ON
 	tristate "QPNP PMIC POWER-ON Driver"
 	depends on OF_SPMI && SPMI && MSM_QPNP_INT && INPUT
