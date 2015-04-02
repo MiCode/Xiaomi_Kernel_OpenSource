@@ -775,6 +775,8 @@ static int venus_hfi_devfreq_target(struct device *devfreq_dev,
 		goto err_unknown_device;
 	}
 
+	*freq = clamp_t(typeof(*freq), *freq, bus->range[0], bus->range[1]);
+
 	/* we expect governors to provide values in kBps form, convert to Bps */
 	ab = *freq * 1000;
 	rc = msm_bus_scale_update_bw(bus->client, ab, 0);
@@ -3517,8 +3519,8 @@ static int venus_hfi_init_bus(struct venus_hfi_device *device)
 		struct devfreq_dev_profile profile = {
 			.initial_freq = 0,
 			.polling_ms = INT_MAX,
-			.freq_table = bus->range,
-			.max_state = ARRAY_SIZE(bus->range),
+			.freq_table = NULL,
+			.max_state = 0,
 			.target = venus_hfi_devfreq_target,
 			.get_dev_status = venus_hfi_devfreq_get_status,
 			.exit = NULL,
