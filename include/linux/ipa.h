@@ -754,6 +754,7 @@ struct IpaHwBamStats_t {
 	u32 bamFifoEmpty;
 	u32 bamFifoUsageHigh;
 	u32 bamFifoUsageLow;
+	u32 bamUtilCount;
 } __packed;
 
 /**
@@ -773,6 +774,7 @@ struct IpaHwRingStats_t {
 	u32 ringEmpty;
 	u32 ringUsageHigh;
 	u32 ringUsageLow;
+	u32 RingUtilCount;
 } __packed;
 
 /**
@@ -797,6 +799,7 @@ struct IpaHwStatsWDIRxInfoData_t {
 	u32 num_bam_int_handled;
 	u32 num_db;
 	u32 num_unexpected_db;
+	u32 num_pkts_in_dis_uninit_state;
 	u32 reserved1;
 	u32 reserved2;
 } __packed;
@@ -828,6 +831,7 @@ struct IpaHwStatsWDITxInfoData_t {
 	u32 num_bam_int_handled;
 	u32 num_bam_int_in_non_runnning_state;
 	u32 num_qmb_int_handled;
+	u32 num_bam_int_handled_while_wait_for_bam;
 } __packed;
 
 /**

@@ -1088,15 +1088,18 @@ static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 			"TX ringEmpty=%u\n"
 			"TX ringUsageHigh=%u\n"
 			"TX ringUsageLow=%u\n"
+			"TX RingUtilCount=%u\n"
 			"TX bamFifoFull=%u\n"
 			"TX bamFifoEmpty=%u\n"
 			"TX bamFifoUsageHigh=%u\n"
 			"TX bamFifoUsageLow=%u\n"
+			"TX bamUtilCount=%u\n"
 			"TX num_db=%u\n"
 			"TX num_unexpected_db=%u\n"
 			"TX num_bam_int_handled=%u\n"
 			"TX num_bam_int_in_non_runnning_state=%u\n"
-			"TX num_qmb_int_handled=%u\n",
+			"TX num_qmb_int_handled=%u\n"
+			"TX num_bam_int_handled_while_wait_for_bam=%u\n",
 			stats.tx_ch_stats.num_pkts_processed,
 			stats.tx_ch_stats.copy_engine_doorbell_value,
 			stats.tx_ch_stats.num_db_fired,
@@ -1104,15 +1107,19 @@ static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 			stats.tx_ch_stats.tx_comp_ring_stats.ringEmpty,
 			stats.tx_ch_stats.tx_comp_ring_stats.ringUsageHigh,
 			stats.tx_ch_stats.tx_comp_ring_stats.ringUsageLow,
+			stats.tx_ch_stats.tx_comp_ring_stats.RingUtilCount,
 			stats.tx_ch_stats.bam_stats.bamFifoFull,
 			stats.tx_ch_stats.bam_stats.bamFifoEmpty,
 			stats.tx_ch_stats.bam_stats.bamFifoUsageHigh,
 			stats.tx_ch_stats.bam_stats.bamFifoUsageLow,
+			stats.tx_ch_stats.bam_stats.bamUtilCount,
 			stats.tx_ch_stats.num_db,
 			stats.tx_ch_stats.num_unexpected_db,
 			stats.tx_ch_stats.num_bam_int_handled,
 			stats.tx_ch_stats.num_bam_int_in_non_runnning_state,
-			stats.tx_ch_stats.num_qmb_int_handled);
+			stats.tx_ch_stats.num_qmb_int_handled,
+			stats.tx_ch_stats.
+				num_bam_int_handled_while_wait_for_bam);
 		cnt += nbytes;
 		nbytes = scnprintf(dbg_buff + cnt, IPA_MAX_MSG_LEN - cnt,
 			"RX max_outstanding_pkts=%u\n"
@@ -1122,13 +1129,16 @@ static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 			"RX ringEmpty=%u\n"
 			"RX ringUsageHigh=%u\n"
 			"RX ringUsageLow=%u\n"
+			"RX RingUtilCount=%u\n"
 			"RX bamFifoFull=%u\n"
 			"RX bamFifoEmpty=%u\n"
 			"RX bamFifoUsageHigh=%u\n"
 			"RX bamFifoUsageLow=%u\n"
+			"RX bamUtilCount=%u\n"
 			"RX num_bam_int_handled=%u\n"
 			"RX num_db=%u\n"
 			"RX num_unexpected_db=%u\n"
+			"RX num_pkts_in_dis_uninit_state=%u\n"
 			"RX reserved1=%u\n"
 			"RX reserved2=%u\n",
 			stats.rx_ch_stats.max_outstanding_pkts,
@@ -1138,13 +1148,16 @@ static ssize_t ipa_read_wdi(struct file *file, char __user *ubuf,
 			stats.rx_ch_stats.rx_ind_ring_stats.ringEmpty,
 			stats.rx_ch_stats.rx_ind_ring_stats.ringUsageHigh,
 			stats.rx_ch_stats.rx_ind_ring_stats.ringUsageLow,
+			stats.rx_ch_stats.rx_ind_ring_stats.RingUtilCount,
 			stats.rx_ch_stats.bam_stats.bamFifoFull,
 			stats.rx_ch_stats.bam_stats.bamFifoEmpty,
 			stats.rx_ch_stats.bam_stats.bamFifoUsageHigh,
 			stats.rx_ch_stats.bam_stats.bamFifoUsageLow,
+			stats.rx_ch_stats.bam_stats.bamUtilCount,
 			stats.rx_ch_stats.num_bam_int_handled,
 			stats.rx_ch_stats.num_db,
 			stats.rx_ch_stats.num_unexpected_db,
+			stats.rx_ch_stats.num_pkts_in_dis_uninit_state,
 			stats.rx_ch_stats.reserved1,
 			stats.rx_ch_stats.reserved2);
 		cnt += nbytes;

@@ -401,15 +401,18 @@ int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	TX_STATS(tx_comp_ring_stats.ringEmpty);
 	TX_STATS(tx_comp_ring_stats.ringUsageHigh);
 	TX_STATS(tx_comp_ring_stats.ringUsageLow);
+	TX_STATS(tx_comp_ring_stats.RingUtilCount);
 	TX_STATS(bam_stats.bamFifoFull);
 	TX_STATS(bam_stats.bamFifoEmpty);
 	TX_STATS(bam_stats.bamFifoUsageHigh);
 	TX_STATS(bam_stats.bamFifoUsageLow);
+	TX_STATS(bam_stats.bamUtilCount);
 	TX_STATS(num_db);
 	TX_STATS(num_unexpected_db);
 	TX_STATS(num_bam_int_handled);
 	TX_STATS(num_bam_int_in_non_runnning_state);
 	TX_STATS(num_qmb_int_handled);
+	TX_STATS(num_bam_int_handled_while_wait_for_bam);
 
 	RX_STATS(max_outstanding_pkts);
 	RX_STATS(num_pkts_processed);
@@ -418,13 +421,16 @@ int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 	RX_STATS(rx_ind_ring_stats.ringEmpty);
 	RX_STATS(rx_ind_ring_stats.ringUsageHigh);
 	RX_STATS(rx_ind_ring_stats.ringUsageLow);
+	RX_STATS(rx_ind_ring_stats.RingUtilCount);
 	RX_STATS(bam_stats.bamFifoFull);
 	RX_STATS(bam_stats.bamFifoEmpty);
 	RX_STATS(bam_stats.bamFifoUsageHigh);
 	RX_STATS(bam_stats.bamFifoUsageLow);
+	RX_STATS(bam_stats.bamUtilCount);
 	RX_STATS(num_bam_int_handled);
 	RX_STATS(num_db);
 	RX_STATS(num_unexpected_db);
+	RX_STATS(num_pkts_in_dis_uninit_state);
 	RX_STATS(reserved1);
 	RX_STATS(reserved2);
 
