@@ -141,7 +141,7 @@ int mmc_send_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
 	cmd.arg = mmc_host_is_spi(host) ? 0 : ocr;
 	cmd.flags = MMC_RSP_SPI_R1 | MMC_RSP_R3 | MMC_CMD_BCR;
 
-	for (i = 100; i; i--) {
+	for (i = 1000; i; i--) {
 		err = mmc_wait_for_cmd(host, &cmd, 0);
 		if (err)
 			break;
@@ -161,7 +161,11 @@ int mmc_send_op_cond(struct mmc_host *host, u32 ocr, u32 *rocr)
 
 		err = -ETIMEDOUT;
 
-		mmc_delay(10);
+		/* Acorrding to Spec, it is OK to poll busy
+		 * bit by ACMD41 less than 50ms intervals.
+		 * Move interval to 1ms for quick response.
+		 */
+		mmc_delay(1);
 	}
 
 	if (rocr && !mmc_host_is_spi(host))
