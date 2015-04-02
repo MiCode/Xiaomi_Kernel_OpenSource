@@ -40,7 +40,7 @@ static inline struct dma_iommu_mapping *
 arm_iommu_create_mapping(struct bus_type *bus, dma_addr_t base, size_t size,
 			int order)
 {
-	return NULL;
+	return ERR_PTR(-ENOMEM);
 }
 
 static inline void arm_iommu_release_mapping(struct dma_iommu_mapping *mapping)
