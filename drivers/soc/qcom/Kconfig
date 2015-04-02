@@ -202,4 +202,25 @@ config MSM_SMEM_LOGGING
 	  the shared memory logger at /dev/smem_log and a debugfs node
 	  named smem_log.
 
+config MSM_SMP2P
+	bool "SMSM Point-to-Point (SMP2P)"
+	depends on MSM_SMEM
+	help
+	  Provide point-to-point remote signaling support.
+	  SMP2P enables transferring 32-bit values between
+	  the local and a remote system using shared
+	  memory and interrupts. A client can open multiple
+	  32-bit values by specifying a unique string and
+	  remote processor ID.
+
+config MSM_SMP2P_TEST
+	bool "SMSM Point-to-Point Test"
+	depends on MSM_SMP2P
+	help
+	  Enables loopback and unit testing support for
+	  SMP2P. Loopback support is used by other
+	  processors to do unit testing. Unit tests
+	  are used to verify the local and remote
+	  implementations.
+
 endif # ARCH_MSM
