@@ -2457,6 +2457,24 @@
 		};
 	};
 
+	qcom,bcl {
+		compatible = "qcom,bcl";
+		qcom,bcl-enable;
+		qcom,bcl-framework-interface;
+		qcom,bcl-freq-control-list = <&CPU2 &CPU3>;
+		qcom,bcl-hotplug-list = <&CPU2 &CPU3>;
+		qcom,bcl-soc-hotplug-list = <&CPU2 &CPU3>;
+		qcom,ibat-monitor {
+			qcom,low-threshold-uamp = <3400000>;
+			qcom,high-threshold-uamp = <4200000>;
+			qcom,mitigation-freq-khz = <576000>;
+			qcom,vph-high-threshold-uv = <3500000>;
+			qcom,vph-low-threshold-uv = <3300000>;
+			qcom,soc-low-threshold = <10>;
+			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+
 	qcom_tzlog: tz-log@66bf720 {
 		compatible = "qcom,tz-log";
 		reg = <0x066bf720 0x2000>;
