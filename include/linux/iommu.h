@@ -28,6 +28,7 @@
 #define IOMMU_WRITE	(1 << 1)
 #define IOMMU_CACHE	(1 << 2) /* DMA cache coherency */
 #define IOMMU_EXEC	(1 << 3)
+#define IOMMU_PRIV	(1 << 4)
 
 struct iommu_ops;
 struct iommu_group;
