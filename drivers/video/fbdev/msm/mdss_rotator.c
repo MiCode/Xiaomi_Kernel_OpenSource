@@ -747,8 +747,14 @@ static bool mdss_rotator_verify_format(struct mdss_rot_mgr *mgr,
 
 	/* Forcing same pixel depth */
 	if (memcmp(in_fmt->bits, out_fmt->bits, sizeof(in_fmt->bits))) {
-		pr_err("Bit format does not match\n");
-		return false;
+		/* Exception is that RGB can drop alpha or add X */
+		if (in_fmt->is_yuv || out_fmt->alpha_enable ||
+			(in_fmt->bits[C2_R_Cr] != out_fmt->bits[C2_R_Cr]) ||
+			(in_fmt->bits[C0_G_Y] != out_fmt->bits[C0_G_Y]) ||
+			(in_fmt->bits[C1_B_Cb] != out_fmt->bits[C1_B_Cb])) {
+			pr_err("Bit format does not match\n");
+			return false;
+		}
 	}
 
 	/* Need to make sure that sub-sampling persists through rotation */
