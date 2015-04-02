@@ -433,6 +433,7 @@ static int __msm_map_iommu_common(
 		iommu_meta = msm_iommu_meta_create(dma_buf, table, size);
 
 		if (IS_ERR(iommu_meta)) {
+			mutex_unlock(&msm_iommu_map_mutex);
 			ret = PTR_ERR(iommu_meta);
 			goto out;
 		}
@@ -487,7 +488,7 @@ static int __msm_map_iommu_common(
 out_unlock:
 	mutex_unlock(&iommu_meta->lock);
 out:
-	if (iommu_meta)
+	if (!IS_ERR(iommu_meta))
 		msm_iommu_meta_put(iommu_meta);
 	return ret;
 
