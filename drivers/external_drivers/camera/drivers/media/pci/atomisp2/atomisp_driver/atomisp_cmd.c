@@ -1733,6 +1733,8 @@ irqreturn_t atomisp_isr_thread(int irq, void *isp_ptr)
 					&asd->params.css_param.dz_config);
 			atomisp_css_update_isp_params(asd);
 			asd->params.css_update_params_needed = false;
+			memset(&asd->params.css_param.update_flag, 0,
+			       sizeof(struct atomisp_parameters));
 			frame_done_found[asd->index] = false;
 		}
 		atomisp_setup_flash(asd);
