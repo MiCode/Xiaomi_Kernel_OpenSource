@@ -358,7 +358,7 @@
 #endif
 
 #define IPA_MEM_v2_5_RAM_APPS_V4_FLT_OFST (IPA_MEM_v2_5_RAM_MODEM_OFST + \
-	IPA_MEM_v2_5_RAM_MODEM_SIZE + IPA_MEM_CANARY_SIZE)
+	IPA_MEM_v2_5_RAM_MODEM_SIZE)
 #define IPA_MEM_v2_5_RAM_APPS_V4_FLT_SIZE 0
 
 /* filtering rule is 4B aligned */
