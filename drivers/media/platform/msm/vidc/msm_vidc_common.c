@@ -3230,6 +3230,15 @@ int msm_comm_release_output_buffers(struct msm_vidc_inst *inst)
 				"Invalid instance pointer = %p\n", inst);
 		return -EINVAL;
 	}
+	mutex_lock(&inst->outputbufs.lock);
+	if (list_empty(&inst->outputbufs.list)) {
+		dprintk(VIDC_DBG, "%s - No OUTPUT buffers allocated\n",
+			__func__);
+		mutex_unlock(&inst->outputbufs.lock);
+		return 0;
+	}
+	mutex_unlock(&inst->outputbufs.lock);
+
 	core = inst->core;
 	if (!core) {
 		dprintk(VIDC_ERR,
