@@ -467,8 +467,16 @@ int adreno_drawctxt_detach(struct kgsl_context *context)
 
 	/* deactivate context */
 	mutex_lock(&device->mutex);
-	if (rb->drawctxt_active == drawctxt)
-		adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+	if (rb->drawctxt_active == drawctxt) {
+		if (adreno_dev->cur_rb == rb) {
+			if (!kgsl_active_count_get(device)) {
+				adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+				kgsl_active_count_put(device);
+			} else
+				BUG();
+		} else
+			adreno_drawctxt_switch(adreno_dev, rb, NULL, 0);
+	}
 	mutex_unlock(&device->mutex);
 
 	spin_lock(&drawctxt->lock);
