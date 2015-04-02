@@ -303,6 +303,7 @@ enum kgsl_property_type {
 	KGSL_PROP_PWRCTRL         = 0x0000000E,
 	KGSL_PROP_PWR_CONSTRAINT  = 0x00000012,
 	KGSL_PROP_UCHE_GMEM_VADDR = 0x00000013,
+	KGSL_PROP_SP_GENERIC_MEM  = 0x00000014,
 };
 
 struct kgsl_shadowprop {
@@ -316,6 +317,11 @@ struct kgsl_version {
 	unsigned int drv_minor;
 	unsigned int dev_major;
 	unsigned int dev_minor;
+};
+
+struct kgsl_sp_generic_mem {
+	uint64_t local;
+	uint64_t pvt;
 };
 
 /* Performance counter groups */

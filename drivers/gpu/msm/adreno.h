@@ -227,6 +227,49 @@ struct adreno_gpu_core {
 	unsigned int gpmu_features;
 };
 
+/**
+ * struct adreno_device - The mothership structure for all adreno related info
+ * @dev: Reference to struct kgsl_device
+ * @priv: Holds the private flags specific to the adreno_device
+ * @chipid: Chip ID specific to the GPU
+ * @gmem_base: Base physical address of GMEM
+ * @gmem_size: GMEM size
+ * @gpucore: Pointer to the adreno_gpu_core structure
+ * @pfp_fw: Buffer which holds the pfp ucode
+ * @pfp_fw_size: Size of pfp ucode buffer
+ * @pfp_fw_version: Version of pfp ucode
+ * @pfp: Memory descriptor which holds pfp ucode buffer info
+ * @pm4_fw: Buffer which holds the pm4 ucode
+ * @pm4_fw_size: Size of pm4 ucode buffer
+ * @pm4_fw_version: Version of pm4 ucode
+ * @pm4: Memory descriptor which holds pm4 ucode buffer info
+ * @ringbuffers: Array of pointers to adreno_ringbuffers
+ * @num_ringbuffers: Number of ringbuffers for the GPU
+ * @cur_rb: Pointer to the current ringbuffer
+ * @next_rb: Ringbuffer we are switching to during preemption
+ * @prev_rb: Ringbuffer we are switching from during preemption
+ * @fast_hang_detect: Software fault detection availability
+ * @ft_policy: Defines the fault tolerance policy
+ * @long_ib_detect: Long IB detection availability
+ * @ft_pf_policy: Defines the fault policy for page faults
+ * @ocmem_hdl: Handle to the ocmem allocated buffer
+ * @profile: Container for adreno profiler information
+ * @dispatcher: Container for adreno GPU dispatcher
+ * @pwron_fixup: Command buffer to run a post-power collapse shader workaround
+ * @pwron_fixup_dwords: Number of dwords in the command buffer
+ * @input_work: Work struct for turning on the GPU after a touch event
+ * @busy_data: Struct holding GPU VBIF busy stats
+ * @ram_cycles_lo: Number of DDR clock cycles for the monitor session
+ * @perfctr_pwr_lo: Number of cycles VBIF is stalled by DDR
+ * @halt: Atomic variable to check whether the GPU is currently halted
+ * @ctx_d_debugfs: Context debugfs node
+ * @pwrctrl_flag: Flag to hold adreno specific power attributes
+ * @cmdbatch_profile_buffer: Memdesc holding the cmdbatch profiling buffer
+ * @cmdbatch_profile_index: Index to store the start/stop ticks in the profiling
+ * buffer
+ * @sp_local_gpuaddr: Base GPU virtual address for SP local memory
+ * @sp_pvt_gpuaddr: Base GPU virtual address for SP private memory
+ */
 struct adreno_device {
 	struct kgsl_device dev;    /* Must be first field in this struct */
 	unsigned long priv;
@@ -267,6 +310,8 @@ struct adreno_device {
 
 	struct kgsl_memdesc cmdbatch_profile_buffer;
 	unsigned int cmdbatch_profile_index;
+	uint64_t sp_local_gpuaddr;
+	uint64_t sp_pvt_gpuaddr;
 };
 
 /**

@@ -265,6 +265,7 @@ static int a5xx_preemption_post_ibsubmit(
  */
 static void a5xx_gpudev_init(struct adreno_device *adreno_dev)
 {
+	uint64_t addr;
 	struct adreno_gpudev *gpudev;
 
 	gpudev = ADRENO_GPU_DEVICE(adreno_dev);
@@ -274,6 +275,11 @@ static void a5xx_gpudev_init(struct adreno_device *adreno_dev)
 		gpudev->snapshot_data->sect_sizes->cp_merciu = 32;
 		gpudev->snapshot_data->sect_sizes->roq = 256;
 	}
+
+	/* Calculate SP local and private mem addresses */
+	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
+	adreno_dev->sp_local_gpuaddr = addr;
+	adreno_dev->sp_pvt_gpuaddr = addr + SZ_64K;
 }
 
 /**

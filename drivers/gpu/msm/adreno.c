@@ -1780,6 +1780,25 @@ static int adreno_getproperty(struct kgsl_device *device,
 			status = 0;
 		}
 		break;
+	case KGSL_PROP_SP_GENERIC_MEM:
+		{
+			struct kgsl_sp_generic_mem sp_mem;
+			if (sizebytes != sizeof(sp_mem)) {
+				status = -EINVAL;
+				break;
+			}
+			memset(&sp_mem, 0, sizeof(sp_mem));
+
+			sp_mem.local = adreno_dev->sp_local_gpuaddr;
+			sp_mem.pvt = adreno_dev->sp_pvt_gpuaddr;
+
+			if (copy_to_user(value, &sp_mem, sizeof(sp_mem))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
 	default:
 		status = -EINVAL;
 	}
