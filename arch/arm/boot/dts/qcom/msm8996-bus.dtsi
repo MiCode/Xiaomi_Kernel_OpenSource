@@ -1267,7 +1267,7 @@
 		slv_cnoc_mnoc_mmss_cfg: slv-cnoc-mnoc-mmss-cfg {
 			cell-id = <MSM_BUS_SLAVE_CNOC_MNOC_MMSS_CFG>;
 			label = "slv-cnoc-mnoc-mmss-cfg";
-			qcom,buswidth = <4>;
+			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_cnoc>;
