@@ -24,6 +24,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/of.h>
 #include <linux/mutex.h>
+#include <linux/delay.h>
 #include <linux/qpnp/qpnp-adc.h>
 
 /* Mask/Bit helpers */
@@ -597,28 +598,19 @@ static int smb1351_fastchg_current_set(struct smb1351_charger *chip,
 	int i, rc;
 	bool is_pre_chg = false;
 
-	if (chip->parallel_charger_present) {
-		if ((fastchg_current < SMB1351_CHG_PRE_MIN_MA) ||
-			(fastchg_current > SMB1351_CHG_FAST_MAX_MA)) {
-			pr_err("bad pre_fastchg current mA=%d asked to set\n",
-						fastchg_current);
-			return -EINVAL;
-		}
-	} else {
-		if ((fastchg_current < SMB1351_CHG_FAST_MIN_MA) ||
-			(fastchg_current > SMB1351_CHG_FAST_MAX_MA)) {
-			pr_err("bad fastchg current mA=%d asked to set\n",
-						fastchg_current);
-			return -EINVAL;
-		}
+
+	if ((fastchg_current < SMB1351_CHG_PRE_MIN_MA) ||
+		(fastchg_current > SMB1351_CHG_FAST_MAX_MA)) {
+		pr_err("bad pre_fastchg current mA=%d asked to set\n",
+					fastchg_current);
+		return -EINVAL;
 	}
 
 	/*
 	 * fast chg current could not support less than 1000mA
 	 * use pre chg to instead for the parallel charging
 	 */
-	if (chip->parallel_charger_present &&
-		(fastchg_current < SMB1351_CHG_FAST_MIN_MA)) {
+	if (fastchg_current < SMB1351_CHG_FAST_MIN_MA) {
 		is_pre_chg = true;
 		pr_debug("is_pre_chg true, current is %d\n", fastchg_current);
 	}
@@ -1170,8 +1162,8 @@ static int smb1351_set_usb_chg_current(struct smb1351_charger *chip,
 		return 0;
 	}
 
-	/* Only set suspend bit when chg present and current_ma <= 2 */
-	if (current_ma <= SUSPEND_CURRENT_MA && chip->chg_present) {
+	/* set suspend bit when urrent_ma <= 2 */
+	if (current_ma <= SUSPEND_CURRENT_MA) {
 		smb1351_usb_suspend(chip, CURRENT, true);
 		pr_debug("USB suspend\n");
 		return 0;
@@ -1571,6 +1563,67 @@ static void smb1351_chg_set_appropriate_vddmax(struct smb1351_charger *chip)
 		pr_err("Couldn't set float voltage rc = %d\n", rc);
 }
 
+static void smb1351_chg_ctrl_in_jeita(struct smb1351_charger *chip)
+{
+	union power_supply_propval ret = {0, };
+	int rc;
+
+	/* enable the iterm to prevent the reverse boost */
+	if (chip->iterm_disabled) {
+		if (chip->batt_cool || chip->batt_warm) {
+			rc = smb1351_iterm_set(chip, 100);
+			pr_debug("set the iterm due to JEITA\n");
+		} else {
+			rc = smb1351_masked_write(chip, CHG_CTRL_REG,
+						ITERM_EN_BIT, ITERM_DISABLE);
+			pr_debug("disable the iterm when exits warm/cool\n");
+		}
+		if (rc) {
+			pr_err("Couldn't set iterm rc = %d\n", rc);
+			return;
+		}
+	}
+	/*
+	* When JEITA back to normal, the charging maybe disabled due to
+	* the current termination. So re-enable the charging if the soc
+	* is less than 100 in the normal mode. A 200ms delay is requred
+	* before the disabe and enable operation.
+	*/
+	if (chip->bms_psy) {
+		rc = chip->bms_psy->get_property(chip->bms_psy,
+				POWER_SUPPLY_PROP_CAPACITY, &ret);
+		if (rc) {
+			pr_err("Couldn't read the bms capacity rc = %d\n",
+									rc);
+			return;
+		}
+		if (!chip->batt_cool && !chip->batt_warm
+				&& !chip->batt_cold && !chip->batt_hot
+				&& ret.intval < 100) {
+			rc = smb1351_charging_disable(chip, THERMAL, true);
+			if (rc) {
+				pr_err("Couldn't disable charging rc = %d\n",
+									rc);
+				return;
+			}
+			/* delay for resetting the charging */
+			msleep(200);
+			rc = smb1351_charging_disable(chip, THERMAL, false);
+			if (rc) {
+				pr_err("Couldn't enable charging rc = %d\n",
+									rc);
+				return;
+			} else {
+				chip->batt_full = false;
+				pr_debug("re-enable charging, batt_full = %d\n",
+							chip->batt_full);
+			}
+			pr_debug("batt psy changed\n");
+			power_supply_changed(&chip->batt_psy);
+		}
+	}
+}
+
 #define HYSTERESIS_DECIDEGC 20
 static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 {
@@ -1699,6 +1752,7 @@ static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		chip->batt_cool = cur->batt_cool;
 		smb1351_chg_set_appropriate_battery_current(chip);
 		smb1351_chg_set_appropriate_vddmax(chip);
+		smb1351_chg_ctrl_in_jeita(chip);
 	}
 
 	pr_debug("hot %d, cold %d, warm %d, cool %d, soft jeita supported %d, missing %d, low = %d deciDegC, high = %d deciDegC\n",
