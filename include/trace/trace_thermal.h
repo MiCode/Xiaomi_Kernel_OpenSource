@@ -259,7 +259,7 @@ DEFINE_EVENT(msm_thermal_freq_mit, thermal_post_frequency_mit,
 	TP_ARGS(cpu, max_freq, min_freq)
 );
 
-#elif defined(_BCL_HW_TRACE)
+#elif defined(_BCL_SW_TRACE) || defined(_BCL_HW_TRACE)
 
 DECLARE_EVENT_CLASS(msm_bcl_print_reading,
 
@@ -305,6 +305,7 @@ DECLARE_EVENT_CLASS(msm_bcl_print_event,
 	)
 );
 
+#ifdef _BCL_HW_TRACE
 DECLARE_EVENT_CLASS(msm_bcl_print_reg,
 
 	TP_PROTO(const char *sensor_name, unsigned int address,
@@ -373,6 +374,21 @@ DEFINE_EVENT(msm_bcl_print_event, bcl_hw_event,
 
 	TP_ARGS(event_name)
 );
+#elif defined(_BCL_SW_TRACE)
+DEFINE_EVENT(msm_bcl_print_reading, bcl_sw_mitigation,
+
+	TP_PROTO(const char *sensor_name, long intensity),
+
+	TP_ARGS(sensor_name, intensity)
+);
+
+DEFINE_EVENT(msm_bcl_print_event, bcl_sw_mitigation_event,
+
+	TP_PROTO(const char *event_name),
+
+	TP_ARGS(event_name)
+);
+#endif /* _BCL_HW_TRACE */
 #else
 DECLARE_EVENT_CLASS(tsens,
 
