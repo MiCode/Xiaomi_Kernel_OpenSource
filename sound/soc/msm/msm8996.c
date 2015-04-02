@@ -1479,7 +1479,8 @@ out_mbhc:
 	if (cdc_type == 0) {
 		tomtom_event_register(msm8996_codec_event_cb, rtd->codec);
 		tomtom_enable_qfuse_sensing(rtd->codec);
-	}
+	} else
+		tasha_enable_efuse_sensing(rtd->codec);
 
 	codec_reg_done = true;
 	return 0;
