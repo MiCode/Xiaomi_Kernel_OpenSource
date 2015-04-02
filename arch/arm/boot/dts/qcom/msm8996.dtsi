@@ -1863,7 +1863,14 @@
 		vdda18-supply = <&pm8994_l12>;
 		vdda33-supply = <&pm8994_l24>;
 		qcom,vdd-voltage-level = <1 5 7>;
-		qcom,qusb-tune = <0xa0c393d7>;
+		qcom,qusb-phy-init-seq = <0xF8 0x80
+					0x83 0x84
+					0x93 0x88
+					0xC0 0x8C
+					0x30 0x08
+					0x79 0x0C
+					0x21 0x10
+					0x14 0x9C>;
 		phy_type= "utmi";
 
 		clocks = <&clock_gcc clk_gcc_rx1_usb2_clkref_clk>,
@@ -1883,7 +1890,14 @@
 		vdda18-supply = <&pm8994_l12>;
 		vdda33-supply = <&pm8994_l24>;
 		qcom,vdd-voltage-level = <1 5 7>;
-		qcom,qusb-tune = <0xa0c393d7>;
+		qcom,qusb-phy-init-seq = <0xF8 0x80
+					0x83 0x84
+					0x93 0x88
+					0xC0 0x8C
+					0x30 0x08
+					0x79 0x0C
+					0x21 0x10
+					0x14 0x9C>;
 		phy_type = "utmi";
 
 		clocks = <&clock_gcc clk_gcc_rx2_usb2_clkref_clk>,
