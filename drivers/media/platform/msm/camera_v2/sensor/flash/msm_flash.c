@@ -650,8 +650,7 @@ static long msm_flash_subdev_ioctl(struct v4l2_subdev *sd,
 			pr_err("fctrl->func_tbl NULL\n");
 			return -EINVAL;
 		} else {
-			*(int *)argp = CFG_FLASH_RELEASE;
-			return msm_flash_config(fctrl, argp);
+			return fctrl->func_tbl->camera_flash_release(fctrl);
 		}
 	default:
 		pr_err_ratelimited("invalid cmd %d\n", cmd);
