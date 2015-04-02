@@ -1644,7 +1644,7 @@ static void arm_smmu_remove_device(struct device *dev)
 	iommu_group_remove_device(dev);
 }
 
-static const struct iommu_ops arm_smmu_ops = {
+static struct iommu_ops arm_smmu_ops = {
 	.capable	= arm_smmu_capable,
 	.domain_init	= arm_smmu_domain_init,
 	.domain_destroy	= arm_smmu_domain_destroy,
