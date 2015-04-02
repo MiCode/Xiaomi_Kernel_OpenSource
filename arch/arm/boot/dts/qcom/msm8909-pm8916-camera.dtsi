@@ -159,6 +159,6 @@
 				0xCCCC1111 0xCCCC1111 0xCCCC1111
 				0xCCCC1111 0xCCCC1111 0x00000103>;
 
-		bus-util-factor = <1229>;
+		bus-util-factor = <1024>;
 		};
 };
