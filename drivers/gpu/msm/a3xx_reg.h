@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -335,6 +335,7 @@
 #define A3XX_UCHE_PERFCOUNTER4_SELECT 0xE88
 #define A3XX_UCHE_PERFCOUNTER5_SELECT 0xE89
 #define A3XX_UCHE_CACHE_INVALIDATE0_REG 0xEA0
+#define A3XX_UCHE_CACHE_INVALIDATE1_REG 0xEA1
 #define A3XX_UCHE_CACHE_WAYS_VFD 0xEA6
 #define A3XX_SP_PERFCOUNTER0_SELECT 0xEC4
 #define A3XX_SP_PERFCOUNTER1_SELECT 0xEC5

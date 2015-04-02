@@ -1124,6 +1124,24 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
 							current_context),
 				drawctxt ? drawctxt->base.id : 0);
+
+			/* Invalidate UCHE using CPU */
+			if (adreno_is_a5xx(adreno_dev))
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_UCHE_INVALIDATE0, 0x12);
+			else if (adreno_is_a4xx(adreno_dev)) {
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_UCHE_INVALIDATE0, 0);
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_UCHE_INVALIDATE1, 0x12);
+			} else if (adreno_is_a3xx(adreno_dev)) {
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_UCHE_INVALIDATE0, 0);
+				adreno_writereg(adreno_dev,
+					ADRENO_REG_UCHE_INVALIDATE1,
+					0x90000000);
+			} else
+				BUG();
 		}
 		if (new_pt != cur_pt)
 			kgsl_sharedmem_writel(device, &rb->pagetable_desc,
