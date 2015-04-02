@@ -187,8 +187,6 @@ struct msm_mdp_interface {
 	/* called to release resources associated to the process */
 	int (*release_fnc)(struct msm_fb_data_type *mfd, bool release_all,
 				uint32_t pid);
-	void (*pend_mode_switch)(struct msm_fb_data_type *mfd,
-					bool pend_switch);
 	int (*mode_switch)(struct msm_fb_data_type *mfd,
 					u32 mode);
 	int (*mode_switch_post)(struct msm_fb_data_type *mfd,
@@ -341,6 +339,7 @@ struct msm_fb_data_type {
 	/* Following is used for dynamic mode switch */
 	enum dyn_mode_switch_state switch_state;
 	u32 switch_new_mode;
+	bool pending_switch;
 	struct mutex switch_lock;
 };
 
@@ -426,4 +425,5 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
 int mdss_fb_atomic_commit(struct fb_info *info,
 	struct mdp_layer_commit  *commit);
+u32 mdss_fb_get_mode_switch(struct msm_fb_data_type *mfd);
 #endif /* MDSS_FB_H */
