@@ -822,9 +822,6 @@ int create_pkt_cmd_session_flush(struct hfi_cmd_session_flush_packet *pkt,
 	case HAL_FLUSH_OUTPUT:
 		pkt->flush_type = HFI_FLUSH_OUTPUT;
 		break;
-	case HAL_FLUSH_OUTPUT2:
-		pkt->flush_type = HFI_FLUSH_OUTPUT2;
-		break;
 	case HAL_FLUSH_ALL:
 		pkt->flush_type = HFI_FLUSH_ALL;
 		break;
