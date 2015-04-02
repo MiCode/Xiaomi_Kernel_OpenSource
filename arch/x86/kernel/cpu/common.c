@@ -1192,6 +1192,18 @@ DEFINE_PER_CPU_ALIGNED(struct stack_canary, stack_canary);
 
 #endif	/* CONFIG_X86_64 */
 
+static int __read_mostly hw_debugger;
+
+static __init int set_hw_debugger(char *arg)
+{
+#ifdef CONFIG_KGDB
+	pr_warn("KGDB and external debugger use the same ressources !\n");
+#endif    /* CONFIG_KGDB */
+	hw_debugger = 1;
+	return 0;
+}
+early_param("hw_debugger", set_hw_debugger);
+
 /*
  * Clear all 6 debug registers:
  */
@@ -1199,6 +1211,8 @@ static void clear_all_debug_regs(void)
 {
 	int i;
 
+	if (hw_debugger)
+		return;
 	for (i = 0; i < 8; i++) {
 		/* Ignore db4, db5 */
 		if ((i == 4) || (i == 5))

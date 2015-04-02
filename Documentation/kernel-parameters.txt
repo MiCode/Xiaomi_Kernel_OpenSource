@@ -1140,6 +1140,10 @@ bytes respectively. Such letter suffixes can also be entirely omitted.
 			       If specified, z/VM IUCV HVC accepts connections
 			       from listed z/VM user IDs only.
 
+	hw_debugger [HW]
+			Tells the kernel to not clear debug registers at start-up.
+			This is useful when using JTAG debugger.
+
 	hwthread_map=	[METAG] Comma-separated list of Linux cpu id to
 			        hardware thread id mappings.
 				Format: <cpu>:<hwthread>
