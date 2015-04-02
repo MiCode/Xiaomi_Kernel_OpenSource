@@ -1949,10 +1949,11 @@ int __atomisp_streamoff(struct file *file, void *fh, enum v4l2_buf_type type)
 			v4l2_subdev_call(isp->inputs[asd->input_curr].camera,
 				video, s_stream, 0);
 		} else if (atomisp_subdev_source_pad(vdev)
-		    == ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE &&
-		    asd->params.offline_parm.num_captures == -1) {
+		    == ATOMISP_SUBDEV_PAD_SOURCE_CAPTURE) {
 			/* stop continuous still capture if needed */
-			atomisp_css_offline_capture_configure(asd, 0, 0, 0);
+			if (asd->params.offline_parm.num_captures == -1)
+				atomisp_css_offline_capture_configure(asd,
+						0, 0, 0);
 			atomisp_freq_scaling(isp, ATOMISP_DFS_MODE_AUTO, false);
 		}
 		/*
