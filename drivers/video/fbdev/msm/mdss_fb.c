@@ -2821,6 +2821,67 @@ static int mdss_fb_pan_display_ex(struct fb_info *info,
 	return ret;
 }
 
+u32 mdss_fb_get_mode_switch(struct msm_fb_data_type *mfd)
+{
+	/* If there is no attached mfd then there is no pending mode switch */
+	if (!mfd)
+		return 0;
+
+	if (mfd->pending_switch)
+		return mfd->switch_new_mode;
+
+	return 0;
+}
+
+/*
+ * __ioctl_transition_dyn_mode_state() - State machine for mode switch
+ * @mfd:	Framebuffer data structure for display
+ * @cmd:	ioctl that was called
+ * @validate:	used with atomic commit when doing validate layers
+ *
+ * This function assists with dynamic mode switch of DSI panel. States
+ * are used to make sure that panel mode switch occurs on next
+ * prepare/sync/commit (for legacy) and validate/pre_commit (for
+ * atomic commit) pairing. This state machine insure that calculation
+ * and return values (such as buffer release fences) are based on the
+ * panel mode being switching into.
+ */
+int __ioctl_transition_dyn_mode_state(struct msm_fb_data_type *mfd,
+		unsigned int cmd, int validate)
+{
+	if (cmd == MDSS_MDP_NO_UPDATE_REQUESTED)
+		return 0;
+
+	mutex_lock(&mfd->switch_lock);
+	switch (cmd) {
+	case MSMFB_BUFFER_SYNC:
+		if (mfd->switch_state == MDSS_MDP_WAIT_FOR_SYNC) {
+			mdss_fb_set_mdp_sync_pt_threshold(mfd,
+				mfd->switch_new_mode);
+			mfd->switch_state = MDSS_MDP_WAIT_FOR_COMMIT;
+		}
+		break;
+	case MSMFB_OVERLAY_PREPARE:
+		if (mfd->switch_state == MDSS_MDP_WAIT_FOR_PREP) {
+			mfd->pending_switch = true;
+			mfd->switch_state = MDSS_MDP_WAIT_FOR_SYNC;
+		}
+		break;
+	case MSMFB_ATOMIC_COMMIT:
+		if ((mfd->switch_state == MDSS_MDP_WAIT_FOR_PREP) && validate) {
+			mfd->pending_switch = true;
+			mfd->switch_state = MDSS_MDP_WAIT_FOR_SYNC;
+		} else if (mfd->switch_state == MDSS_MDP_WAIT_FOR_SYNC) {
+			mdss_fb_set_mdp_sync_pt_threshold(mfd,
+				mfd->switch_new_mode);
+			mfd->switch_state = MDSS_MDP_WAIT_FOR_COMMIT;
+		}
+		break;
+	}
+	mutex_unlock(&mfd->switch_lock);
+	return 0;
+}
+
 int mdss_fb_atomic_commit(struct fb_info *info,
 	struct mdp_layer_commit  *commit)
 {
@@ -2855,10 +2916,13 @@ int mdss_fb_atomic_commit(struct fb_info *info,
 	commit_v1 = &commit->commit_v1;
 	if (commit_v1->flags & MDP_VALIDATE_LAYER) {
 		ret = mdss_fb_wait_for_kickoff(mfd);
-		if (ret)
+		if (ret) {
 			pr_err("wait for kickoff failed\n");
-		else
+		} else {
+			__ioctl_transition_dyn_mode_state(mfd,
+				MSMFB_ATOMIC_COMMIT, 1);
 			ret = mfd->mdp.atomic_validate(mfd, commit_v1);
+		}
 		goto end;
 	} else {
 		ret = mdss_fb_pan_idle(mfd);
@@ -3001,7 +3065,7 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 		if (ret)
 			pr_err("DSI mode switch has failed");
 		else
-			mfd->mdp.pend_mode_switch(mfd, false);
+			mfd->pending_switch = false;
 	}
 	if (fb_backup->disp_commit.flags & MDP_DISPLAY_COMMIT_OVERLAY) {
 		if (mfd->mdp.kickoff_fnc)
@@ -3038,6 +3102,7 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 		mutex_lock(&mfd->switch_lock);
 		mfd->switch_state = MDSS_MDP_NO_UPDATE_REQUESTED;
 		mutex_unlock(&mfd->switch_lock);
+		mfd->panel.type = new_dsi_mode;
 		pr_debug("Dynamic mode switch completed\n");
 	}
 
@@ -3794,32 +3859,6 @@ static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
 	return ret;
 }
 
-int __ioctl_transition_dyn_mode_state(struct msm_fb_data_type *mfd,
-		unsigned int cmd)
-{
-
-	if (cmd == MDSS_MDP_NO_UPDATE_REQUESTED)
-		return 0;
-
-	mutex_lock(&mfd->switch_lock);
-	switch (cmd) {
-	case MSMFB_BUFFER_SYNC:
-		if (mfd->switch_state == MDSS_MDP_WAIT_FOR_SYNC) {
-			mdss_fb_set_mdp_sync_pt_threshold(mfd,
-				mfd->switch_new_mode);
-			mfd->switch_state = MDSS_MDP_WAIT_FOR_COMMIT;
-		}
-		break;
-	case MSMFB_OVERLAY_PREPARE:
-		if (mfd->switch_state == MDSS_MDP_WAIT_FOR_PREP) {
-			mfd->mdp.pend_mode_switch(mfd, true);
-			mfd->switch_state = MDSS_MDP_WAIT_FOR_SYNC;
-		}
-	}
-	mutex_unlock(&mfd->switch_lock);
-	return 0;
-}
-
 /*
  * mdss_fb_do_ioctl() - MDSS Framebuffer ioctl function
  * @info:	pointer to framebuffer info
@@ -3864,7 +3903,7 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 	if (ret)
 		goto exit;
 
-	__ioctl_transition_dyn_mode_state(mfd, cmd);
+	__ioctl_transition_dyn_mode_state(mfd, cmd, 0);
 
 	switch (cmd) {
 	case MSMFB_CURSOR:

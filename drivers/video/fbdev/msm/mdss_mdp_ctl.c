@@ -1197,12 +1197,11 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 
 int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_pipe **left_plist, int left_cnt,
-		struct mdss_mdp_pipe **right_plist, int right_cnt,
-		bool mode_switch)
+		struct mdss_mdp_pipe **right_plist, int right_cnt)
 {
 	struct mdss_data_type *mdata = ctl->mdata;
 	struct mdss_mdp_perf_params perf;
-	u32 bw, threshold, i;
+	u32 bw, threshold, i, mode_switch;
 	u64 bw_sum_of_intfs = 0;
 	bool is_video_mode;
 
@@ -1226,7 +1225,12 @@ int mdss_mdp_perf_bw_check(struct mdss_mdp_ctl *ctl,
 	bw = DIV_ROUND_UP_ULL(bw_sum_of_intfs, 1000);
 	pr_debug("calculated bandwidth=%uk\n", bw);
 
-	is_video_mode = mode_switch ? ctl->is_video_mode : !ctl->is_video_mode;
+	/* mfd validation happens in func */
+	mode_switch = mdss_fb_get_mode_switch(ctl->mfd);
+	if (mode_switch)
+		is_video_mode = (mode_switch == MIPI_VIDEO_PANEL);
+	else
+		is_video_mode = ctl->is_video_mode;
 	threshold = (is_video_mode ||
 		mdss_mdp_video_mode_intf_connected(ctl)) ?
 		mdata->max_bw_low : mdata->max_bw_high;
