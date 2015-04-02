@@ -3736,11 +3736,6 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		mutex_unlock(&inst->pendingq.lock);
 		rc = call_hfi_op(hdev, session_flush, inst->session,
 				HAL_FLUSH_OUTPUT);
-		if (!rc && msm_comm_get_stream_output_mode(inst) ==
-			HAL_VIDEO_DECODER_SECONDARY)
-			rc = call_hfi_op(hdev, session_flush, inst->session,
-				HAL_FLUSH_OUTPUT2);
-
 	} else {
 		msm_comm_flush_pending_dynamic_buffers(inst);
 		/*
