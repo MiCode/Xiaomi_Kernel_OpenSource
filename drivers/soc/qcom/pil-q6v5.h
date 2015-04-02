@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@ struct q6v5_data {
 	bool qdsp6v5_2_0;
 	bool qdsp6v56;
 	bool qdsp6v56_1_3;
+	bool qdsp6v56_1_5;
 	bool non_elf_image;
 	bool restart_reg_sec;
 	bool override_acc;

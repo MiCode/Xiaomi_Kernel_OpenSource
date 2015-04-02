@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #define QDSP6SS_GFMUX_CTL		0x020
 #define QDSP6SS_PWR_CTL			0x030
 #define QDSP6SS_STRAP_ACC		0x110
+#define QDSP6SS_MEM_PWR_CTL		0x0B0
 
 /* AXI Halt Register Offsets */
 #define AXI_HALTREQ			0x0
@@ -349,6 +350,27 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 			writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 			udelay(1);
 		}
+	} else if (drv->qdsp6v56_1_5) {
+		/* Deassert QDSP6 compiler memory clamp */
+		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
+		val &= ~QDSP6v55_CLAMP_QMC_MEM;
+		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+		/* Deassert memory peripheral sleep and L2 memory standby */
+		val |= (Q6SS_L2DATA_STBY_N | Q6SS_SLP_RET_N);
+		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+		/* Turn on L1, L2, ETB and JU memories 1 at a time */
+		for (i = 19; i >= 0; i--) {
+			val |= BIT(i);
+			writel_relaxed(val, drv->reg_base +
+						QDSP6SS_MEM_PWR_CTL);
+			/*
+			 * Wait for 1us for both memory peripheral and
+			 * data array to turn on.
+			 */
+			udelay(1);
+		}
 	} else {
 		/* Turn on memories. */
 		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
@@ -485,6 +507,8 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	drv->qdsp6v56_1_3 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v56-1-3");
+	drv->qdsp6v56_1_5 = of_property_read_bool(pdev->dev.of_node,
+						"qcom,qdsp6v56-1-5");
 
 	drv->non_elf_image = of_property_read_bool(pdev->dev.of_node,
 						"qcom,mba-image-is-not-elf");
