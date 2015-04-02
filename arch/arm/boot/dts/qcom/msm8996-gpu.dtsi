@@ -54,6 +54,14 @@
 		qcom,idle-timeout = <8>; //<HZ/12>
 		qcom,strtstp-sleepwake;
 
+		/* Trace bus */
+		coresight-id = <300>;
+		coresight-name = "coresight-gfx";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <4>;
+
 		/*
 		 * Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE
 		 * KGSL_CLK_RBBMTIMER | KGSL_CLK_MEM_IFACE
