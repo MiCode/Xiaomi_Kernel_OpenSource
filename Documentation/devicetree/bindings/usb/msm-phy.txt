@@ -157,6 +157,7 @@ Optional properties:
  - qcom,qusb-tune: Used to pass QUSB PHY tuning parameters. The 4 tuning parameters
    are passed in as 4 bytes packed into a single 32-bit value. The parameters control
    On-chip Rout Term, TX Output Level, RX Sensitivity and TX Pre-emphasis respectively.
+ - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
 
 Example:
 	qusb_phy: qusb@f9b39000 {

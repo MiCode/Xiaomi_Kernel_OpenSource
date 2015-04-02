@@ -73,6 +73,8 @@ struct qusb_phy {
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
 	u32			qusb_tune;
+	int			init_seq_len;
+	int			*qusb_phy_init_seq;
 
 	bool			power_enabled;
 	bool			clocks_enabled;
@@ -233,7 +235,7 @@ err_vdd:
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
-	int ret;
+	int ret, *seq = NULL, i;
 	u32 t1, t2, t3, t4;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
@@ -269,6 +271,16 @@ static int qusb_phy_init(struct usb_phy *phy)
 		writel_relaxed(t2, qphy->base + QUSB2PHY_PORT_TUNE2);
 		writel_relaxed(t3, qphy->base + QUSB2PHY_PORT_TUNE3);
 		writel_relaxed(t4, qphy->base + QUSB2PHY_PORT_TUNE4);
+	}
+
+	if (qphy->qusb_phy_init_seq) {
+		seq = qphy->qusb_phy_init_seq;
+		dev_dbg(phy->dev, "count:%d\n", qphy->init_seq_len);
+		for (i = 0; i < qphy->init_seq_len; i = i+2) {
+			dev_dbg(phy->dev, "write 0x%02x to 0x%02x\n",
+					seq[i], seq[i+1]);
+			writel_relaxed(seq[i], qphy->base + seq[i+1]);
+		}
 	}
 
 	/* ensure above writes are completed before re-enabling PHY */
@@ -450,7 +462,7 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	struct qusb_phy *qphy;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret = 0;
+	int ret = 0, size = 0;
 	const char *phy_type;
 
 	qphy = devm_kzalloc(dev, sizeof(*qphy), GFP_KERNEL);
@@ -485,6 +497,22 @@ static int qusb_phy_probe(struct platform_device *pdev)
 		return PTR_ERR(qphy->phy_reset);
 
 	of_property_read_u32(dev->of_node, "qcom,qusb-tune", &qphy->qusb_tune);
+	of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
+	if (size) {
+		qphy->qusb_phy_init_seq = devm_kzalloc(dev,
+						size, GFP_KERNEL);
+		if (qphy->qusb_phy_init_seq) {
+			qphy->init_seq_len =
+				(size / sizeof(*qphy->qusb_phy_init_seq));
+			of_property_read_u32_array(dev->of_node,
+				"qcom,qusb-phy-init-seq",
+				qphy->qusb_phy_init_seq,
+				qphy->init_seq_len);
+		} else {
+			dev_err(dev, "error allocating memory for phy_init_seq\n");
+		}
+	}
+
 	qphy->ulpi_mode = false;
 	ret = of_property_read_string(dev->of_node, "phy_type", &phy_type);
 
