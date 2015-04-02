@@ -720,9 +720,7 @@ static int smp2p_gpio_probe(struct platform_device *pdev)
 
 	return 0;
 error:
-	if (gpiochip_remove(&chip->gpio))
-		SMP2P_ERR("%s: unable to Remove GPIO '%s'\n",
-				__func__, chip->name);
+	gpiochip_remove(&chip->gpio);
 
 fail:
 	kfree(chip);
