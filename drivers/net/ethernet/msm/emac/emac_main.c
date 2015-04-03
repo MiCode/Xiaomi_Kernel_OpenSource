@@ -2713,7 +2713,7 @@ static int emac_probe(struct platform_device *pdev)
 	dma_set_max_seg_size(&pdev->dev, 65536);
 	dma_set_seg_boundary(&pdev->dev, 0xffffffff);
 
-	for (i = 0; i < EMAC_NUM_CORE_IRQ; i++) {
+	for (i = 0; i < EMAC_IRQ_CNT; i++) {
 		adpt->irq[i].idx  = i;
 		adpt->irq[i].mask = emac_irq_cmn_tbl[i].init_mask;
 	}
