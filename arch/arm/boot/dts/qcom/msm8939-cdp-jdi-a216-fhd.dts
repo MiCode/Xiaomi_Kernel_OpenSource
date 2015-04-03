@@ -54,6 +54,7 @@
 		jdi,panel-model = "ql1500";
 		jdi,pitch-type = "np";
 		jdi,afe-vendor = "rohm";
+		jdi,timeout-enable;
 	};
 };
 
