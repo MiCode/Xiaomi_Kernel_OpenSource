@@ -177,8 +177,6 @@ static void vlv_force_wake_reset(struct drm_i915_private *dev_priv)
 {
 	__raw_i915_write32(dev_priv, FORCEWAKE_VLV,
 			   _MASKED_BIT_DISABLE(0xffff));
-	__raw_i915_write32(dev_priv, FORCEWAKE_MEDIA_VLV,
-			   _MASKED_BIT_DISABLE(0xffff));
 	/* something from same cacheline, but !FORCEWAKE_VLV */
 	__raw_posting_read(dev_priv, FORCEWAKE_ACK_VLV);
 }
@@ -451,8 +449,8 @@ hsw_unclaimed_reg_check(struct drm_i915_private *dev_priv, u32 reg)
 static void
 assert_device_not_suspended(struct drm_i915_private *dev_priv)
 {
-	WARN_ONCE(HAS_RUNTIME_PM(dev_priv->dev) && dev_priv->pm.suspended,
-		  "Device suspended\n");
+	WARN(HAS_RUNTIME_PM(dev_priv->dev) && dev_priv->pm.suspended,
+	     "Device suspended\n");
 }
 
 #define REG_READ_HEADER(x) \

@@ -461,6 +461,13 @@ int cik_sdma_resume(struct radeon_device *rdev)
 {
 	int r;
 
+	/* Reset dma */
+	WREG32(SRBM_SOFT_RESET, SOFT_RESET_SDMA | SOFT_RESET_SDMA1);
+	RREG32(SRBM_SOFT_RESET);
+	udelay(50);
+	WREG32(SRBM_SOFT_RESET, 0);
+	RREG32(SRBM_SOFT_RESET);
+
 	r = cik_sdma_load_microcode(rdev);
 	if (r)
 		return r;
@@ -592,7 +599,7 @@ int cik_sdma_ring_test(struct radeon_device *rdev,
 	tmp = 0xCAFEDEAD;
 	writel(tmp, ptr);
 
-	r = radeon_ring_lock(rdev, ring, 5);
+	r = radeon_ring_lock(rdev, ring, 4);
 	if (r) {
 		DRM_ERROR("radeon: dma failed to lock ring %d (%d).\n", ring->idx, r);
 		return r;

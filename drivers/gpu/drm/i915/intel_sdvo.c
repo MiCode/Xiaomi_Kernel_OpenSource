@@ -1383,9 +1383,7 @@ static void intel_sdvo_get_config(struct intel_encoder *encoder,
 			 >> SDVO_PORT_MULTIPLY_SHIFT) + 1;
 	}
 
-	dotclock = pipe_config->port_clock;
-	if (pipe_config->pixel_multiplier)
-		dotclock /= pipe_config->pixel_multiplier;
+	dotclock = pipe_config->port_clock / pipe_config->pixel_multiplier;
 
 	if (HAS_PCH_SPLIT(dev))
 		ironlake_check_encoder_dotclock(pipe_config, dotclock);
@@ -2399,7 +2397,6 @@ intel_sdvo_connector_init(struct intel_sdvo_connector *connector,
 	connector->base.base.doublescan_allowed = 0;
 	connector->base.base.display_info.subpixel_order = SubPixelHorizontalRGB;
 	connector->base.get_hw_state = intel_sdvo_connector_get_hw_state;
-	connector->base.unregister = intel_connector_unregister;
 
 	intel_connector_attach_encoder(&connector->base, &encoder->base);
 	drm_sysfs_connector_add(&connector->base.base);

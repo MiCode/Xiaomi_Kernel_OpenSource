@@ -187,14 +187,6 @@ struct intel_connector {
 	 * and active (i.e. dpms ON state). */
 	bool (*get_hw_state)(struct intel_connector *);
 
-	/*
-	 * Removes all interfaces through which the connector is accessible
-	 * - like sysfs, debugfs entries -, so that no new operations can be
-	 * started on the connector. Also makes sure all currently pending
-	 * operations finish before returing.
-	 */
-	void (*unregister)(struct intel_connector *);
-
 	/* Panel info for eDP and LVDS */
 	struct intel_panel panel;
 
@@ -227,8 +219,7 @@ struct intel_crtc_config {
 	 * tracked with quirk flags so that fastboot and state checker can act
 	 * accordingly.
 	 */
-#define PIPE_CONFIG_QUIRK_MODE_SYNC_FLAGS	(1<<0) /* unreliable sync mode.flags */
-#define PIPE_CONFIG_QUIRK_INHERITED_MODE	(1<<1) /* mode inherited from firmware */
+#define PIPE_CONFIG_QUIRK_MODE_SYNC_FLAGS (1<<0) /* unreliable sync mode.flags */
 	unsigned long quirks;
 
 	/* User requested mode, only valid as a starting point to

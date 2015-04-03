@@ -1539,16 +1539,6 @@ static void i9xx_update_wm(struct drm_crtc *unused_crtc)
 
 	DRM_DEBUG_KMS("FIFO watermarks - A: %d, B: %d\n", planea_wm, planeb_wm);
 
-	if (IS_I915GM(dev) && enabled) {
-		struct intel_framebuffer *fb;
-
-		fb = to_intel_framebuffer(enabled->fb);
-
-		/* self-refresh seems busted with untiled */
-		if (fb->obj->tiling_mode == I915_TILING_NONE)
-			enabled = NULL;
-	}
-
 	/*
 	 * Overlay gets an aggressive default since video jitter is bad.
 	 */
@@ -5138,25 +5128,10 @@ bool intel_display_power_enabled_sw(struct drm_device *dev,
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
 	struct i915_power_domains *power_domains;
-	struct i915_power_well *power_well;
-	bool is_enabled;
-	int i;
-
-	if (dev_priv->pm.suspended)
-		return false;
 
 	power_domains = &dev_priv->power_domains;
-	is_enabled = true;
-	for_each_power_well_rev(i, power_well, BIT(domain), power_domains) {
-		if (power_well->always_on)
-			continue;
 
-		if (!power_well->count) {
-			is_enabled = false;
-			break;
-		}
-	}
-	return is_enabled;
+	return power_domains->domain_use_count[domain];
 }
 
 bool intel_display_power_enabled(struct drm_device *dev,

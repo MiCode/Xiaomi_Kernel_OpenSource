@@ -158,18 +158,16 @@ u32 r600_dpm_get_vblank_time(struct radeon_device *rdev)
 	u32 line_time_us, vblank_lines;
 	u32 vblank_time_us = 0xffffffff; /* if the displays are off, vblank time is max */
 
-	if (rdev->num_crtc && rdev->mode_info.mode_config_initialized) {
-		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-			radeon_crtc = to_radeon_crtc(crtc);
-			if (crtc->enabled && radeon_crtc->enabled && radeon_crtc->hw_mode.clock) {
-				line_time_us = (radeon_crtc->hw_mode.crtc_htotal * 1000) /
-					radeon_crtc->hw_mode.clock;
-				vblank_lines = radeon_crtc->hw_mode.crtc_vblank_end -
-					radeon_crtc->hw_mode.crtc_vdisplay +
-					(radeon_crtc->v_border * 2);
-				vblank_time_us = vblank_lines * line_time_us;
-				break;
-			}
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		radeon_crtc = to_radeon_crtc(crtc);
+		if (crtc->enabled && radeon_crtc->enabled && radeon_crtc->hw_mode.clock) {
+			line_time_us = (radeon_crtc->hw_mode.crtc_htotal * 1000) /
+				radeon_crtc->hw_mode.clock;
+			vblank_lines = radeon_crtc->hw_mode.crtc_vblank_end -
+				radeon_crtc->hw_mode.crtc_vdisplay +
+				(radeon_crtc->v_border * 2);
+			vblank_time_us = vblank_lines * line_time_us;
+			break;
 		}
 	}
 
@@ -183,15 +181,14 @@ u32 r600_dpm_get_vrefresh(struct radeon_device *rdev)
 	struct radeon_crtc *radeon_crtc;
 	u32 vrefresh = 0;
 
-	if (rdev->num_crtc && rdev->mode_info.mode_config_initialized) {
-		list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
-			radeon_crtc = to_radeon_crtc(crtc);
-			if (crtc->enabled && radeon_crtc->enabled && radeon_crtc->hw_mode.clock) {
-				vrefresh = drm_mode_vrefresh(&radeon_crtc->hw_mode);
-				break;
-			}
+	list_for_each_entry(crtc, &dev->mode_config.crtc_list, head) {
+		radeon_crtc = to_radeon_crtc(crtc);
+		if (crtc->enabled && radeon_crtc->enabled && radeon_crtc->hw_mode.clock) {
+			vrefresh = radeon_crtc->hw_mode.vrefresh;
+			break;
 		}
 	}
+
 	return vrefresh;
 }
 
@@ -1209,7 +1206,7 @@ int r600_parse_extended_power_table(struct radeon_device *rdev)
 					(mode_info->atom_context->bios + data_offset +
 					 le16_to_cpu(ext_hdr->usPowerTuneTableOffset));
 				rdev->pm.dpm.dyn_state.cac_tdp_table->maximum_power_delivery_limit =
-					le16_to_cpu(ppt->usMaximumPowerDeliveryLimit);
+					ppt->usMaximumPowerDeliveryLimit;
 				pt = &ppt->power_tune_table;
 			} else {
 				ATOM_PPLIB_POWERTUNE_Table *ppt = (ATOM_PPLIB_POWERTUNE_Table *)

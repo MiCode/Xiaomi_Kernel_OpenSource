@@ -501,7 +501,6 @@ void intel_panel_set_backlight(struct intel_connector *connector, u32 level,
 	enum pipe pipe = intel_get_pipe_from_connector(connector);
 	u32 freq;
 	unsigned long flags;
-	u64 n;
 
 	if (!panel->backlight.present || pipe == INVALID_PIPE)
 		return;
@@ -512,9 +511,10 @@ void intel_panel_set_backlight(struct intel_connector *connector, u32 level,
 
 	/* scale to hardware max, but be careful to not overflow */
 	freq = panel->backlight.max;
-	n = (u64)level * freq;
-	do_div(n, max);
-	level = n;
+	if (freq < max)
+		level = level * freq / max;
+	else
+		level = freq / max * level;
 
 	panel->backlight.level = level;
 	if (panel->backlight.device)
@@ -645,7 +645,7 @@ static void pch_enable_backlight(struct intel_connector *connector)
 
 	cpu_ctl2 = I915_READ(BLC_PWM_CPU_CTL2);
 	if (cpu_ctl2 & BLM_PWM_ENABLE) {
-		DRM_DEBUG_KMS("cpu backlight already enabled\n");
+		WARN(1, "cpu backlight already enabled\n");
 		cpu_ctl2 &= ~BLM_PWM_ENABLE;
 		I915_WRITE(BLC_PWM_CPU_CTL2, cpu_ctl2);
 	}
@@ -671,10 +671,6 @@ static void pch_enable_backlight(struct intel_connector *connector)
 	pch_ctl2 = panel->backlight.max << 16;
 	I915_WRITE(BLC_PWM_PCH_CTL2, pch_ctl2);
 
-	/* XXX: transitional */
-	if (dev_priv->quirks & QUIRK_NO_PCH_PWM_ENABLE)
-		return;
-
 	pch_ctl1 = 0;
 	if (panel->backlight.active_low_pwm)
 		pch_ctl1 |= BLM_PCH_POLARITY;
@@ -693,7 +689,7 @@ static void i9xx_enable_backlight(struct intel_connector *connector)
 
 	ctl = I915_READ(BLC_PWM_CTL);
 	if (ctl & BACKLIGHT_DUTY_CYCLE_MASK_PNV) {
-		DRM_DEBUG_KMS("backlight already enabled\n");
+		WARN(1, "backlight already enabled\n");
 		I915_WRITE(BLC_PWM_CTL, 0);
 	}
 
@@ -724,7 +720,7 @@ static void i965_enable_backlight(struct intel_connector *connector)
 
 	ctl2 = I915_READ(BLC_PWM_CTL2);
 	if (ctl2 & BLM_PWM_ENABLE) {
-		DRM_DEBUG_KMS("backlight already enabled\n");
+		WARN(1, "backlight already enabled\n");
 		ctl2 &= ~BLM_PWM_ENABLE;
 		I915_WRITE(BLC_PWM_CTL2, ctl2);
 	}
@@ -736,6 +732,9 @@ static void i965_enable_backlight(struct intel_connector *connector)
 	ctl = freq << 16;
 	I915_WRITE(BLC_PWM_CTL, ctl);
 
+	/* XXX: combine this into above write? */
+	intel_panel_actually_set_backlight(connector, panel->backlight.level);
+
 	ctl2 = BLM_PIPE(pipe);
 	if (panel->backlight.combination_mode)
 		ctl2 |= BLM_COMBINATION_MODE;
@@ -744,8 +743,6 @@ static void i965_enable_backlight(struct intel_connector *connector)
 	I915_WRITE(BLC_PWM_CTL2, ctl2);
 	POSTING_READ(BLC_PWM_CTL2);
 	I915_WRITE(BLC_PWM_CTL2, ctl2 | BLM_PWM_ENABLE);
-
-	intel_panel_actually_set_backlight(connector, panel->backlight.level);
 }
 
 static void vlv_enable_backlight(struct intel_connector *connector)
@@ -758,7 +755,7 @@ static void vlv_enable_backlight(struct intel_connector *connector)
 
 	ctl2 = I915_READ(VLV_BLC_PWM_CTL2(pipe));
 	if (ctl2 & BLM_PWM_ENABLE) {
-		DRM_DEBUG_KMS("backlight already enabled\n");
+		WARN(1, "backlight already enabled\n");
 		ctl2 &= ~BLM_PWM_ENABLE;
 		I915_WRITE(VLV_BLC_PWM_CTL2(pipe), ctl2);
 	}

@@ -447,13 +447,6 @@ static bool radeon_atom_apply_quirks(struct drm_device *dev,
 		}
 	}
 
-	/* Fujitsu D3003-S2 board lists DVI-I as DVI-I and VGA */
-	if ((dev->pdev->device == 0x9805) &&
-	    (dev->pdev->subsystem_vendor == 0x1734) &&
-	    (dev->pdev->subsystem_device == 0x11bd)) {
-		if (*connector_type == DRM_MODE_CONNECTOR_VGA)
-			return false;
-	}
 
 	return true;
 }
@@ -1962,7 +1955,7 @@ static const char *thermal_controller_names[] = {
 	"adm1032",
 	"adm1030",
 	"max6649",
-	"lm63", /* lm64 */
+	"lm64",
 	"f75375",
 	"asc7xxx",
 };
@@ -1973,7 +1966,7 @@ static const char *pp_lib_thermal_controller_names[] = {
 	"adm1032",
 	"adm1030",
 	"max6649",
-	"lm63", /* lm64 */
+	"lm64",
 	"f75375",
 	"RV6xx",
 	"RV770",
@@ -2280,31 +2273,19 @@ static void radeon_atombios_add_pplib_thermal_controller(struct radeon_device *r
 				 (controller->ucFanParameters &
 				  ATOM_PP_FANPARAMETERS_NOFAN) ? "without" : "with");
 			rdev->pm.int_thermal_type = THERMAL_TYPE_KV;
-		} else if (controller->ucType ==
-			   ATOM_PP_THERMALCONTROLLER_EXTERNAL_GPIO) {
-			DRM_INFO("External GPIO thermal controller %s fan control\n",
-				 (controller->ucFanParameters &
-				  ATOM_PP_FANPARAMETERS_NOFAN) ? "without" : "with");
-			rdev->pm.int_thermal_type = THERMAL_TYPE_EXTERNAL_GPIO;
-		} else if (controller->ucType ==
-			   ATOM_PP_THERMALCONTROLLER_ADT7473_WITH_INTERNAL) {
-			DRM_INFO("ADT7473 with internal thermal controller %s fan control\n",
-				 (controller->ucFanParameters &
-				  ATOM_PP_FANPARAMETERS_NOFAN) ? "without" : "with");
-			rdev->pm.int_thermal_type = THERMAL_TYPE_ADT7473_WITH_INTERNAL;
-		} else if (controller->ucType ==
-			   ATOM_PP_THERMALCONTROLLER_EMC2103_WITH_INTERNAL) {
-			DRM_INFO("EMC2103 with internal thermal controller %s fan control\n",
-				 (controller->ucFanParameters &
-				  ATOM_PP_FANPARAMETERS_NOFAN) ? "without" : "with");
-			rdev->pm.int_thermal_type = THERMAL_TYPE_EMC2103_WITH_INTERNAL;
+		} else if ((controller->ucType ==
+			    ATOM_PP_THERMALCONTROLLER_EXTERNAL_GPIO) ||
+			   (controller->ucType ==
+			    ATOM_PP_THERMALCONTROLLER_ADT7473_WITH_INTERNAL) ||
+			   (controller->ucType ==
+			    ATOM_PP_THERMALCONTROLLER_EMC2103_WITH_INTERNAL)) {
+			DRM_INFO("Special thermal controller config\n");
 		} else if (controller->ucType < ARRAY_SIZE(pp_lib_thermal_controller_names)) {
 			DRM_INFO("Possible %s thermal controller at 0x%02x %s fan control\n",
 				 pp_lib_thermal_controller_names[controller->ucType],
 				 controller->ucI2cAddress >> 1,
 				 (controller->ucFanParameters &
 				  ATOM_PP_FANPARAMETERS_NOFAN) ? "without" : "with");
-			rdev->pm.int_thermal_type = THERMAL_TYPE_EXTERNAL;
 			i2c_bus = radeon_lookup_i2c_gpio(rdev, controller->ucI2cLine);
 			rdev->pm.i2c_bus = radeon_i2c_lookup(rdev, &i2c_bus);
 			if (rdev->pm.i2c_bus) {
@@ -3243,42 +3224,6 @@ int radeon_atom_get_leakage_vddc_based_on_leakage_params(struct radeon_device *r
 		DRM_ERROR("Unknown table version %d, %d\n", frev, crev);
 		return -EINVAL;
 	}
-
-	return 0;
-}
-
-union get_voltage_info {
-	struct  _GET_VOLTAGE_INFO_INPUT_PARAMETER_V1_2 in;
-	struct  _GET_EVV_VOLTAGE_INFO_OUTPUT_PARAMETER_V1_2 evv_out;
-};
-
-int radeon_atom_get_voltage_evv(struct radeon_device *rdev,
-				u16 virtual_voltage_id,
-				u16 *voltage)
-{
-	int index = GetIndexIntoMasterTable(COMMAND, GetVoltageInfo);
-	u32 entry_id;
-	u32 count = rdev->pm.dpm.dyn_state.vddc_dependency_on_sclk.count;
-	union get_voltage_info args;
-
-	for (entry_id = 0; entry_id < count; entry_id++) {
-		if (rdev->pm.dpm.dyn_state.vddc_dependency_on_sclk.entries[entry_id].v ==
-		    virtual_voltage_id)
-			break;
-	}
-
-	if (entry_id >= count)
-		return -EINVAL;
-
-	args.in.ucVoltageType = VOLTAGE_TYPE_VDDC;
-	args.in.ucVoltageMode = ATOM_GET_VOLTAGE_EVV_VOLTAGE;
-	args.in.usVoltageLevel = cpu_to_le16(virtual_voltage_id);
-	args.in.ulSCLKFreq =
-		cpu_to_le32(rdev->pm.dpm.dyn_state.vddc_dependency_on_sclk.entries[entry_id].clk);
-
-	atom_execute_table(rdev->mode_info.atom_context, index, (uint32_t *)&args);
-
-	*voltage = le16_to_cpu(args.evv_out.usVoltageLevel);
 
 	return 0;
 }

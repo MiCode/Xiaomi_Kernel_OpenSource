@@ -297,12 +297,9 @@ static void ttm_pool_update_free_locked(struct ttm_page_pool *pool,
  *
  * @pool: to free the pages from
  * @free_all: If set to true will free all pages in pool
- * @use_static: Safe to use static buffer
  **/
-static int ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free,
-			      bool use_static)
+static int ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free)
 {
-	static struct page *static_buf[NUM_PAGES_TO_ALLOC];
 	unsigned long irq_flags;
 	struct page *p;
 	struct page **pages_to_free;
@@ -312,11 +309,8 @@ static int ttm_page_pool_free(struct ttm_page_pool *pool, unsigned nr_free,
 	if (NUM_PAGES_TO_ALLOC < nr_free)
 		npages_to_free = NUM_PAGES_TO_ALLOC;
 
-	if (use_static)
-		pages_to_free = static_buf;
-	else
-		pages_to_free = kmalloc(npages_to_free * sizeof(struct page *),
-					GFP_KERNEL);
+	pages_to_free = kmalloc(npages_to_free * sizeof(struct page *),
+			GFP_KERNEL);
 	if (!pages_to_free) {
 		pr_err("Failed to allocate memory for pool free operation\n");
 		return 0;
@@ -379,8 +373,7 @@ restart:
 	if (freed_pages)
 		ttm_pages_put(pages_to_free, freed_pages);
 out:
-	if (pages_to_free != static_buf)
-		kfree(pages_to_free);
+	kfree(pages_to_free);
 	return nr_free;
 }
 
@@ -389,33 +382,32 @@ out:
  *
  * XXX: (dchinner) Deadlock warning!
  *
+ * ttm_page_pool_free() does memory allocation using GFP_KERNEL.  that means
+ * this can deadlock when called a sc->gfp_mask that is not equal to
+ * GFP_KERNEL.
+ *
  * This code is crying out for a shrinker per pool....
  */
 static unsigned long
 ttm_pool_shrink_scan(struct shrinker *shrink, struct shrink_control *sc)
 {
-	static DEFINE_MUTEX(lock);
-	static unsigned start_pool;
+	static atomic_t start_pool = ATOMIC_INIT(0);
 	unsigned i;
-	unsigned pool_offset;
+	unsigned pool_offset = atomic_add_return(1, &start_pool);
 	struct ttm_page_pool *pool;
 	int shrink_pages = sc->nr_to_scan;
 	unsigned long freed = 0;
 
-	if (!mutex_trylock(&lock))
-		return SHRINK_STOP;
-	pool_offset = ++start_pool % NUM_POOLS;
+	pool_offset = pool_offset % NUM_POOLS;
 	/* select start pool in round robin fashion */
 	for (i = 0; i < NUM_POOLS; ++i) {
 		unsigned nr_free = shrink_pages;
 		if (shrink_pages == 0)
 			break;
 		pool = &_manager->pools[(i + pool_offset)%NUM_POOLS];
-		/* OK to use static buffer since global mutex is held. */
-		shrink_pages = ttm_page_pool_free(pool, nr_free, true);
+		shrink_pages = ttm_page_pool_free(pool, nr_free);
 		freed += nr_free - shrink_pages;
 	}
-	mutex_unlock(&lock);
 	return freed;
 }
 
@@ -714,7 +706,7 @@ static void ttm_put_pages(struct page **pages, unsigned npages, int flags,
 	}
 	spin_unlock_irqrestore(&pool->lock, irq_flags);
 	if (npages)
-		ttm_page_pool_free(pool, npages, false);
+		ttm_page_pool_free(pool, npages);
 }
 
 /*
@@ -853,9 +845,8 @@ void ttm_page_alloc_fini(void)
 	pr_info("Finalizing pool allocator\n");
 	ttm_pool_mm_shrink_fini(_manager);
 
-	/* OK to use static buffer since global mutex is no longer used. */
 	for (i = 0; i < NUM_POOLS; ++i)
-		ttm_page_pool_free(&_manager->pools[i], FREE_ALL_PAGES, true);
+		ttm_page_pool_free(&_manager->pools[i], FREE_ALL_PAGES);
 
 	kobject_put(&_manager->kobj);
 	_manager = NULL;

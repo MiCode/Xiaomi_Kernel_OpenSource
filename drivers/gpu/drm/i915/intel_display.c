@@ -3817,6 +3817,7 @@ static void ironlake_crtc_disable(struct drm_crtc *crtc)
 		ironlake_fdi_disable(crtc);
 
 		ironlake_disable_pch_transcoder(dev_priv, pipe);
+		intel_set_pch_fifo_underrun_reporting(dev, pipe, true);
 
 		if (HAS_PCH_CPT(dev)) {
 			/* disable TRANS_DP_CTL */
@@ -3882,6 +3883,7 @@ static void haswell_crtc_disable(struct drm_crtc *crtc)
 
 	if (intel_crtc->config.has_pch_encoder) {
 		lpt_disable_pch_transcoder(dev_priv);
+		intel_set_pch_fifo_underrun_reporting(dev, TRANSCODER_A, true);
 		intel_ddi_fdi_disable(crtc);
 	}
 
@@ -9352,22 +9354,11 @@ intel_pipe_config_compare(struct drm_device *dev,
 	PIPE_CONF_CHECK_I(pipe_src_w);
 	PIPE_CONF_CHECK_I(pipe_src_h);
 
-	/*
-	 * FIXME: BIOS likes to set up a cloned config with lvds+external
-	 * screen. Since we don't yet re-compute the pipe config when moving
-	 * just the lvds port away to another pipe the sw tracking won't match.
-	 *
-	 * Proper atomic modesets with recomputed global state will fix this.
-	 * Until then just don't check gmch state for inherited modes.
-	 */
-	if (!PIPE_CONF_QUIRK(PIPE_CONFIG_QUIRK_INHERITED_MODE)) {
-		PIPE_CONF_CHECK_I(gmch_pfit.control);
-		/* pfit ratios are autocomputed by the hw on gen4+ */
-		if (INTEL_INFO(dev)->gen < 4)
-			PIPE_CONF_CHECK_I(gmch_pfit.pgm_ratios);
-		PIPE_CONF_CHECK_I(gmch_pfit.lvds_border_bits);
-	}
-
+	PIPE_CONF_CHECK_I(gmch_pfit.control);
+	/* pfit ratios are autocomputed by the hw on gen4+ */
+	if (INTEL_INFO(dev)->gen < 4)
+		PIPE_CONF_CHECK_I(gmch_pfit.pgm_ratios);
+	PIPE_CONF_CHECK_I(gmch_pfit.lvds_border_bits);
 	PIPE_CONF_CHECK_I(pch_pfit.enabled);
 	if (current_config->pch_pfit.enabled) {
 		PIPE_CONF_CHECK_I(pch_pfit.pos);
@@ -10780,17 +10771,6 @@ static void quirk_invert_brightness(struct drm_device *dev)
 	DRM_INFO("applying inverted panel brightness quirk\n");
 }
 
-/*
- * Some machines (Dell XPS13) suffer broken backlight controls if
- * BLM_PCH_PWM_ENABLE is set.
- */
-static void quirk_no_pcm_pwm_enable(struct drm_device *dev)
-{
-	struct drm_i915_private *dev_priv = dev->dev_private;
-	dev_priv->quirks |= QUIRK_NO_PCH_PWM_ENABLE;
-	DRM_INFO("applying no-PCH_PWM_ENABLE quirk\n");
-}
-
 struct intel_quirk {
 	int device;
 	int subsystem_vendor;
@@ -10859,14 +10839,6 @@ static struct intel_quirk intel_quirks[] = {
 
 	/* Acer Aspire 4736Z */
 	{ 0x2a42, 0x1025, 0x0260, quirk_invert_brightness },
-
-	/* Acer Aspire 5336 */
-	{ 0x2a42, 0x1025, 0x048a, quirk_invert_brightness },
-
-	/* Dell XPS13 HD Sandy Bridge */
-	{ 0x0116, 0x1028, 0x052e, quirk_no_pcm_pwm_enable },
-	/* Dell XPS13 HD and XPS13 FHD Ivy Bridge */
-	{ 0x0166, 0x1028, 0x058b, quirk_no_pcm_pwm_enable },
 };
 
 static void intel_init_quirks(struct drm_device *dev)
@@ -10990,6 +10962,15 @@ void intel_modeset_init(struct drm_device *dev)
 	intel_disable_fbc(dev);
 }
 
+static void
+intel_connector_break_all_links(struct intel_connector *connector)
+{
+	connector->base.dpms = DRM_MODE_DPMS_OFF;
+	connector->base.encoder = NULL;
+	connector->encoder->connectors_active = false;
+	connector->encoder->base.crtc = NULL;
+}
+
 static void intel_enable_pipe_a(struct drm_device *dev)
 {
 	struct intel_connector *connector;
@@ -11071,17 +11052,8 @@ static void intel_sanitize_crtc(struct intel_crtc *crtc)
 			if (connector->encoder->base.crtc != &crtc->base)
 				continue;
 
-			connector->base.dpms = DRM_MODE_DPMS_OFF;
-			connector->base.encoder = NULL;
+			intel_connector_break_all_links(connector);
 		}
-		/* multiple connectors may have the same encoder:
-		 *  handle them and break crtc link separately */
-		list_for_each_entry(connector, &dev->mode_config.connector_list,
-				    base.head)
-			if (connector->encoder->base.crtc == &crtc->base) {
-				connector->encoder->base.crtc = NULL;
-				connector->encoder->connectors_active = false;
-			}
 
 		WARN_ON(crtc->active);
 		crtc->base.enabled = false;
@@ -11152,8 +11124,6 @@ static void intel_sanitize_encoder(struct intel_encoder *encoder)
 				      drm_get_encoder_name(&encoder->base));
 			encoder->disable(encoder);
 		}
-		encoder->base.crtc = NULL;
-		encoder->connectors_active = false;
 
 		/* Inconsistent output/port/pipe state happens presumably due to
 		 * a bug in one of the get_hw_state functions. Or someplace else
@@ -11164,8 +11134,8 @@ static void intel_sanitize_encoder(struct intel_encoder *encoder)
 				    base.head) {
 			if (connector->encoder != encoder)
 				continue;
-			connector->base.dpms = DRM_MODE_DPMS_OFF;
-			connector->base.encoder = NULL;
+
+			intel_connector_break_all_links(connector);
 		}
 	}
 	/* Enabled encoders without active connectors will be fixed in
@@ -11206,8 +11176,6 @@ static void intel_modeset_readout_hw_state(struct drm_device *dev)
 	list_for_each_entry(crtc, &dev->mode_config.crtc_list,
 			    base.head) {
 		memset(&crtc->config, 0, sizeof(crtc->config));
-
-		crtc->config.quirks |= PIPE_CONFIG_QUIRK_INHERITED_MODE;
 
 		crtc->active = dev_priv->display.get_pipe_config(crtc,
 								 &crtc->config);
@@ -11366,14 +11334,6 @@ void intel_modeset_gem_init(struct drm_device *dev)
 	mutex_unlock(&dev->mode_config.mutex);
 }
 
-void intel_connector_unregister(struct intel_connector *intel_connector)
-{
-	struct drm_connector *connector = &intel_connector->base;
-
-	intel_panel_destroy_backlight(connector);
-	drm_sysfs_connector_remove(connector);
-}
-
 void intel_modeset_cleanup(struct drm_device *dev)
 {
 	struct drm_i915_private *dev_priv = dev->dev_private;
@@ -11418,10 +11378,8 @@ void intel_modeset_cleanup(struct drm_device *dev)
 
 	/* destroy the backlight and sysfs files before encoders/connectors */
 	list_for_each_entry(connector, &dev->mode_config.connector_list, head) {
-		struct intel_connector *intel_connector;
-
-		intel_connector = to_intel_connector(connector);
-		intel_connector->unregister(intel_connector);
+		intel_panel_destroy_backlight(connector);
+		drm_sysfs_connector_remove(connector);
 	}
 
 	drm_mode_config_cleanup(dev);

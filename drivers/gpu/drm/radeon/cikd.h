@@ -882,15 +882,6 @@
 #       define DC_HPD6_RX_INTERRUPT                     (1 << 18)
 #define DISP_INTERRUPT_STATUS_CONTINUE6                 0x6780
 
-/* 0x6858, 0x7458, 0x10058, 0x10c58, 0x11858, 0x12458 */
-#define GRPH_INT_STATUS                                 0x6858
-#       define GRPH_PFLIP_INT_OCCURRED                  (1 << 0)
-#       define GRPH_PFLIP_INT_CLEAR                     (1 << 8)
-/* 0x685c, 0x745c, 0x1005c, 0x10c5c, 0x1185c, 0x1245c */
-#define GRPH_INT_CONTROL                                0x685c
-#       define GRPH_PFLIP_INT_MASK                      (1 << 0)
-#       define GRPH_PFLIP_INT_TYPE                      (1 << 8)
-
 #define	DAC_AUTODETECT_INT_CONTROL			0x67c8
 
 #define DC_HPD1_INT_STATUS                              0x601c
@@ -1745,12 +1736,12 @@
 #define		EOP_TC_WB_ACTION_EN                     (1 << 15) /* L2 */
 #define		EOP_TCL1_ACTION_EN                      (1 << 16)
 #define		EOP_TC_ACTION_EN                        (1 << 17) /* L2 */
-#define		EOP_TCL2_VOLATILE                       (1 << 24)
 #define		EOP_CACHE_POLICY(x)                     ((x) << 25)
                 /* 0 - LRU
 		 * 1 - Stream
 		 * 2 - Bypass
 		 */
+#define		EOP_TCL2_VOLATILE                       (1 << 27)
 #define		DATA_SEL(x)                             ((x) << 29)
                 /* 0 - discard
 		 * 1 - send low 32bit data

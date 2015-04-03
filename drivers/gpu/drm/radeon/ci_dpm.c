@@ -21,10 +21,8 @@
  *
  */
 
-#include <linux/firmware.h>
 #include "drmP.h"
 #include "radeon.h"
-#include "radeon_ucode.h"
 #include "cikd.h"
 #include "r600_dpm.h"
 #include "ci_dpm.h"
@@ -851,9 +849,6 @@ static int ci_set_thermal_temperature_range(struct radeon_device *rdev,
 	WREG32_SMC(CG_THERMAL_CTRL, tmp);
 #endif
 
-	rdev->pm.dpm.thermal.min_temp = low_temp;
-	rdev->pm.dpm.thermal.max_temp = high_temp;
-
 	return 0;
 }
 
@@ -925,18 +920,7 @@ static void ci_get_leakage_voltages(struct radeon_device *rdev)
 	pi->vddc_leakage.count = 0;
 	pi->vddci_leakage.count = 0;
 
-	if (rdev->pm.dpm.platform_caps & ATOM_PP_PLATFORM_CAP_EVV) {
-		for (i = 0; i < CISLANDS_MAX_LEAKAGE_COUNT; i++) {
-			virtual_voltage_id = ATOM_VIRTUAL_VOLTAGE_ID0 + i;
-			if (radeon_atom_get_voltage_evv(rdev, virtual_voltage_id, &vddc) != 0)
-				continue;
-			if (vddc != 0 && vddc != virtual_voltage_id) {
-				pi->vddc_leakage.actual_voltage[pi->vddc_leakage.count] = vddc;
-				pi->vddc_leakage.leakage_id[pi->vddc_leakage.count] = virtual_voltage_id;
-				pi->vddc_leakage.count++;
-			}
-		}
-	} else if (radeon_atom_get_leakage_id_from_vbios(rdev, &leakage_id) == 0) {
+	if (radeon_atom_get_leakage_id_from_vbios(rdev, &leakage_id) == 0) {
 		for (i = 0; i < CISLANDS_MAX_LEAKAGE_COUNT; i++) {
 			virtual_voltage_id = ATOM_VIRTUAL_VOLTAGE_ID0 + i;
 			if (radeon_atom_get_leakage_vddc_based_on_leakage_params(rdev, &vddc, &vddci,
@@ -1175,7 +1159,7 @@ static int ci_stop_dpm(struct radeon_device *rdev)
 	tmp &= ~GLOBAL_PWRMGT_EN;
 	WREG32_SMC(GENERAL_PWRMGT, tmp);
 
-	tmp = RREG32_SMC(SCLK_PWRMGT_CNTL);
+	tmp = RREG32(SCLK_PWRMGT_CNTL);
 	tmp &= ~DYNAMIC_PM_EN;
 	WREG32_SMC(SCLK_PWRMGT_CNTL, tmp);
 
@@ -4733,7 +4717,7 @@ void ci_dpm_disable(struct radeon_device *rdev)
 	ci_enable_spread_spectrum(rdev, false);
 	ci_enable_auto_throttle_source(rdev, RADEON_DPM_AUTO_THROTTLE_SRC_THERMAL, false);
 	ci_stop_dpm(rdev);
-	ci_enable_ds_master_switch(rdev, false);
+	ci_enable_ds_master_switch(rdev, true);
 	ci_enable_ulv(rdev, false);
 	ci_clear_vc(rdev);
 	ci_reset_to_default(rdev);
@@ -5121,12 +5105,6 @@ int ci_dpm_init(struct radeon_device *rdev)
 	pi->sclk_dpm_key_disabled = 0;
 	pi->mclk_dpm_key_disabled = 0;
 	pi->pcie_dpm_key_disabled = 0;
-
-	/* mclk dpm is unstable on some R7 260X cards with the old mc ucode */
-	if ((rdev->pdev->device == 0x6658) &&
-	    (rdev->mc_fw->size == (BONAIRE_MC_UCODE_SIZE * 4))) {
-		pi->mclk_dpm_key_disabled = 1;
-	}
 
 	pi->caps_sclk_ds = true;
 

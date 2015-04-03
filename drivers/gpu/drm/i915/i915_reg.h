@@ -320,7 +320,6 @@
 #define   PIPE_CONTROL_GLOBAL_GTT_IVB			(1<<24) /* gen7+ */
 #define   PIPE_CONTROL_CS_STALL				(1<<20)
 #define   PIPE_CONTROL_TLB_INVALIDATE			(1<<18)
-#define   PIPE_CONTROL_MEDIA_STATE_CLEAR		(1<<16)
 #define   PIPE_CONTROL_QW_WRITE				(1<<14)
 #define   PIPE_CONTROL_DEPTH_STALL			(1<<13)
 #define   PIPE_CONTROL_WRITE_FLUSH			(1<<12)
@@ -632,9 +631,6 @@
 /*
  * Instruction and interrupt control regs
  */
-#define PGTBL_CTL	0x02020
-#define   PGTBL_ADDRESS_LO_MASK	0xfffff000 /* bits [31:12] */
-#define   PGTBL_ADDRESS_HI_MASK	0x000000f0 /* bits [35:32] (gen4) */
 #define PGTBL_ER	0x02024
 #define RENDER_RING_BASE	0x02000
 #define BSD_RING_BASE		0x04000

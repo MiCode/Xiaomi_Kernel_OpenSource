@@ -35,9 +35,9 @@
 #include <linux/pm_runtime.h>
 
 #if defined(CONFIG_VGA_SWITCHEROO)
-bool radeon_has_atpx(void);
+bool radeon_is_px(void);
 #else
-static inline bool radeon_has_atpx(void) { return false; }
+static inline bool radeon_is_px(void) { return false; }
 #endif
 
 /**
@@ -107,11 +107,6 @@ int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags)
 		flags |= RADEON_IS_PCI;
 	}
 
-	if ((radeon_runtime_pm != 0) &&
-	    radeon_has_atpx() &&
-	    ((flags & RADEON_IS_IGP) == 0))
-		flags |= RADEON_IS_PX;
-
 	/* radeon_device_init should report only fatal error
 	 * like memory allocation failure or iomapping failure,
 	 * or memory manager initialization failure, it must
@@ -142,7 +137,8 @@ int radeon_driver_load_kms(struct drm_device *dev, unsigned long flags)
 				"Error during ACPI methods call\n");
 	}
 
-	if (radeon_is_px(dev)) {
+	if ((radeon_runtime_pm == 1) ||
+	    ((radeon_runtime_pm == -1) && radeon_is_px())) {
 		pm_runtime_use_autosuspend(dev->dev);
 		pm_runtime_set_autosuspend_delay(dev->dev, 5000);
 		pm_runtime_set_active(dev->dev);
@@ -254,14 +250,7 @@ static int radeon_info_ioctl(struct drm_device *dev, void *data, struct drm_file
 		}
 		break;
 	case RADEON_INFO_ACCEL_WORKING2:
-		if (rdev->family == CHIP_HAWAII) {
-			if (rdev->accel_working)
-				*value = 2;
-			else
-				*value = 0;
-		} else {
-			*value = rdev->accel_working;
-		}
+		*value = rdev->accel_working;
 		break;
 	case RADEON_INFO_TILING_CONFIG:
 		if (rdev->family >= CHIP_BONAIRE)
@@ -740,8 +729,6 @@ int radeon_get_vblank_timestamp_kms(struct drm_device *dev, int crtc,
 
 	/* Get associated drm_crtc: */
 	drmcrtc = &rdev->mode_info.crtcs[crtc]->base;
-	if (!drmcrtc)
-		return -EINVAL;
 
 	/* Helper routine in DRM core does all the work: */
 	return drm_calc_vbltimestamp_from_scanoutpos(dev, crtc, max_error,

@@ -335,20 +335,6 @@ static struct radeon_asic_ring r300_gfx_ring = {
 	.set_wptr = &r100_gfx_set_wptr,
 };
 
-static struct radeon_asic_ring rv515_gfx_ring = {
-	.ib_execute = &r100_ring_ib_execute,
-	.emit_fence = &r300_fence_ring_emit,
-	.emit_semaphore = &r100_semaphore_ring_emit,
-	.cs_parse = &r300_cs_parse,
-	.ring_start = &rv515_ring_start,
-	.ring_test = &r100_ring_test,
-	.ib_test = &r100_ib_test,
-	.is_lockup = &r100_gpu_is_lockup,
-	.get_rptr = &r100_gfx_get_rptr,
-	.get_wptr = &r100_gfx_get_wptr,
-	.set_wptr = &r100_gfx_set_wptr,
-};
-
 static struct radeon_asic r300_asic = {
 	.init = &r300_init,
 	.fini = &r300_fini,
@@ -770,7 +756,7 @@ static struct radeon_asic rv515_asic = {
 		.set_page = &rv370_pcie_gart_set_page,
 	},
 	.ring = {
-		[RADEON_RING_TYPE_GFX_INDEX] = &rv515_gfx_ring
+		[RADEON_RING_TYPE_GFX_INDEX] = &r300_gfx_ring
 	},
 	.irq = {
 		.set = &rs600_irq_set,
@@ -837,7 +823,7 @@ static struct radeon_asic r520_asic = {
 		.set_page = &rv370_pcie_gart_set_page,
 	},
 	.ring = {
-		[RADEON_RING_TYPE_GFX_INDEX] = &rv515_gfx_ring
+		[RADEON_RING_TYPE_GFX_INDEX] = &r300_gfx_ring
 	},
 	.irq = {
 		.set = &rs600_irq_set,
@@ -2048,8 +2034,8 @@ static struct radeon_asic ci_asic = {
 		.blit_ring_index = RADEON_RING_TYPE_GFX_INDEX,
 		.dma = &cik_copy_dma,
 		.dma_ring_index = R600_RING_TYPE_DMA_INDEX,
-		.copy = &cik_copy_cpdma,
-		.copy_ring_index = RADEON_RING_TYPE_GFX_INDEX,
+		.copy = &cik_copy_dma,
+		.copy_ring_index = R600_RING_TYPE_DMA_INDEX,
 	},
 	.surface = {
 		.set_reg = r600_set_surface_reg,

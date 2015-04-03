@@ -270,6 +270,8 @@ void atombios_crtc_dpms(struct drm_crtc *crtc, int mode)
 	switch (mode) {
 	case DRM_MODE_DPMS_ON:
 		radeon_crtc->enabled = true;
+		/* adjust pm to dpms changes BEFORE enabling crtcs */
+		radeon_pm_compute_clocks(rdev);
 		atombios_enable_crtc(crtc, ATOM_ENABLE);
 		if (ASIC_IS_DCE3(rdev) && !ASIC_IS_DCE6(rdev))
 			atombios_enable_crtc_memreq(crtc, ATOM_ENABLE);
@@ -287,10 +289,10 @@ void atombios_crtc_dpms(struct drm_crtc *crtc, int mode)
 			atombios_enable_crtc_memreq(crtc, ATOM_DISABLE);
 		atombios_enable_crtc(crtc, ATOM_DISABLE);
 		radeon_crtc->enabled = false;
+		/* adjust pm to dpms changes AFTER disabling crtcs */
+		radeon_pm_compute_clocks(rdev);
 		break;
 	}
-	/* adjust pm to dpms */
-	radeon_pm_compute_clocks(rdev);
 }
 
 static void
@@ -862,16 +864,14 @@ static void atombios_crtc_program_pll(struct drm_crtc *crtc,
 			args.v5.ucMiscInfo = 0; /* HDMI depth, etc. */
 			if (ss_enabled && (ss->type & ATOM_EXTERNAL_SS_MASK))
 				args.v5.ucMiscInfo |= PIXEL_CLOCK_V5_MISC_REF_DIV_SRC;
-			if (encoder_mode == ATOM_ENCODER_MODE_HDMI) {
-				switch (bpc) {
-				case 8:
-				default:
-					args.v5.ucMiscInfo |= PIXEL_CLOCK_V5_MISC_HDMI_24BPP;
-					break;
-				case 10:
-					args.v5.ucMiscInfo |= PIXEL_CLOCK_V5_MISC_HDMI_30BPP;
-					break;
-				}
+			switch (bpc) {
+			case 8:
+			default:
+				args.v5.ucMiscInfo |= PIXEL_CLOCK_V5_MISC_HDMI_24BPP;
+				break;
+			case 10:
+				args.v5.ucMiscInfo |= PIXEL_CLOCK_V5_MISC_HDMI_30BPP;
+				break;
 			}
 			args.v5.ucTransmitterID = encoder_id;
 			args.v5.ucEncoderMode = encoder_mode;
@@ -886,22 +886,20 @@ static void atombios_crtc_program_pll(struct drm_crtc *crtc,
 			args.v6.ucMiscInfo = 0; /* HDMI depth, etc. */
 			if (ss_enabled && (ss->type & ATOM_EXTERNAL_SS_MASK))
 				args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_REF_DIV_SRC;
-			if (encoder_mode == ATOM_ENCODER_MODE_HDMI) {
-				switch (bpc) {
-				case 8:
-				default:
-					args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_24BPP;
-					break;
-				case 10:
-					args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_30BPP;
-					break;
-				case 12:
-					args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_36BPP;
-					break;
-				case 16:
-					args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_48BPP;
-					break;
-				}
+			switch (bpc) {
+			case 8:
+			default:
+				args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_24BPP;
+				break;
+			case 10:
+				args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_30BPP;
+				break;
+			case 12:
+				args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_36BPP;
+				break;
+			case 16:
+				args.v6.ucMiscInfo |= PIXEL_CLOCK_V6_MISC_HDMI_48BPP;
+				break;
 			}
 			args.v6.ucTransmitterID = encoder_id;
 			args.v6.ucEncoderMode = encoder_mode;
@@ -1306,9 +1304,6 @@ static int dce4_crtc_do_set_base(struct drm_crtc *crtc,
 	       (x << 16) | y);
 	viewport_w = crtc->mode.hdisplay;
 	viewport_h = (crtc->mode.vdisplay + 1) & ~1;
-	if ((rdev->family >= CHIP_BONAIRE) &&
-	    (crtc->mode.flags & DRM_MODE_FLAG_INTERLACE))
-		viewport_h *= 2;
 	WREG32(EVERGREEN_VIEWPORT_SIZE + radeon_crtc->crtc_offset,
 	       (viewport_w << 16) | viewport_h);
 
