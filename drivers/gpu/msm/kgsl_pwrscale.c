@@ -420,6 +420,8 @@ static int popp_trans2(struct kgsl_device *device, int level)
 		/* Try a more aggressive mitigation */
 		psc->popp_level--;
 		level++;
+		/* Update the stable timestamp */
+		device->pwrscale.freq_change_time = ktime_to_ms(ktime_get());
 		break;
 	case POPP_MAX:
 	default:
