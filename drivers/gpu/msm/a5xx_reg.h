@@ -49,12 +49,12 @@
 #define A5XX_INT_ISDB_UNDER_DEBUG        31
 
 /* CP Interrupt bits */
-#define A5XX_CP_OPCODE_ERROR               1
-#define A5XX_CP_RESERVED_BIT_ERROR         2
-#define A5XX_CP_HW_FAULT_ERROR             3
-#define A5XX_CP_DMA_ERROR                  4
-#define A5XX_CP_REGISTER_PROTECTION_ERROR  5
-#define A5XX_CP_AHB_ERROR                  6
+#define A5XX_CP_OPCODE_ERROR               0
+#define A5XX_CP_RESERVED_BIT_ERROR         1
+#define A5XX_CP_HW_FAULT_ERROR             2
+#define A5XX_CP_DMA_ERROR                  3
+#define A5XX_CP_REGISTER_PROTECTION_ERROR  4
+#define A5XX_CP_AHB_ERROR                  5
 
 /* CP registers */
 #define A5XX_CP_RB_BASE                  0x800
