@@ -160,6 +160,8 @@ struct msm_vfe_camif_subsample_cfg {
 	uint32_t irq_subsample_period;
 	uint32_t irq_subsample_pattern;
 	uint32_t sof_counter_step;
+	uint32_t pixel_skip;
+	uint32_t line_skip;
 };
 
 /*
