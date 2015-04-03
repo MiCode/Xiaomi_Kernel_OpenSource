@@ -606,6 +606,20 @@ void usb_wakeup_notification(struct usb_device *hdev,
 }
 EXPORT_SYMBOL_GPL(usb_wakeup_notification);
 
+unsigned long usb_hub_port_waking_up(struct usb_device *hdev)
+{
+	struct usb_hub *hub;
+
+	if (!hdev)
+		return 0;
+
+	hub = usb_hub_to_struct_hub(hdev);
+	if (!hub)
+		return 0;
+	return *hub->wakeup_bits;
+}
+EXPORT_SYMBOL_GPL(usb_hub_port_waking_up);
+
 /* completion function, fires on port status changes and various faults */
 static void hub_irq(struct urb *urb)
 {
