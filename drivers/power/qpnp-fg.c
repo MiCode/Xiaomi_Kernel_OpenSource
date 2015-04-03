@@ -374,6 +374,7 @@ struct fg_chip {
 	bool			soc_empty;
 	bool			charge_done;
 	bool			resume_soc_lowered;
+	bool			vbat_low_irq_enabled;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -2790,11 +2791,23 @@ static void status_change_work(struct work_struct *work)
 				struct fg_chip,
 				status_change_work);
 
+	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
+			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+		if (!chip->vbat_low_irq_enabled) {
+			enable_irq(chip->batt_irq[VBATT_LOW].irq);
+			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = true;
+		}
+		if (get_prop_capacity(chip) == 100)
+			fg_configure_soc(chip);
+	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
+		if (chip->vbat_low_irq_enabled) {
+			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = false;
+		}
+	}
 	fg_cap_learning_check(chip);
-	if ((chip->status == POWER_SUPPLY_STATUS_FULL ||
-			chip->status == POWER_SUPPLY_STATUS_CHARGING)
-			&& get_prop_capacity(chip) == 100)
-		fg_configure_soc(chip);
 	schedule_work(&chip->update_esr_work);
 }
 
@@ -2976,12 +2989,29 @@ static bool is_battery_missing(struct fg_chip *chip)
 static irqreturn_t fg_vbatt_low_handler(int irq, void *_chip)
 {
 	struct fg_chip *chip = _chip;
+	int rc;
+	bool vbatt_low_sts;
 
 	if (fg_debug_mask & FG_IRQS)
 		pr_info("vbatt-low triggered\n");
 
+	if (chip->status == POWER_SUPPLY_STATUS_CHARGING) {
+		rc = fg_get_vbatt_status(chip, &vbatt_low_sts);
+		if (rc) {
+			pr_err("error in reading vbatt_status, rc:%d\n", rc);
+			goto out;
+		}
+		if (!vbatt_low_sts && chip->vbat_low_irq_enabled) {
+			if (fg_debug_mask & FG_IRQS)
+				pr_info("disabling vbatt_low irq\n");
+			disable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = false;
+		}
+	}
 	if (chip->power_supply_registered)
 		power_supply_changed(&chip->bms_psy);
+out:
 	return IRQ_HANDLED;
 }
 
@@ -3991,7 +4021,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->batt_irq[VBATT_LOW].irq, rc);
 				return rc;
 			}
-			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
+			disable_irq_nosync(chip->batt_irq[VBATT_LOW].irq);
+			chip->vbat_low_irq_enabled = false;
 			break;
 		case FG_ADC:
 			break;
