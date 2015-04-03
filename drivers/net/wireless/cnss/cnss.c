@@ -1813,7 +1813,7 @@ err_pcie_link_up:
 err_pcie_reg:
 	cnss_wlan_gpio_set(gpio_info, WLAN_EN_LOW);
 	cnss_wlan_vreg_set(vreg_info, VREG_OFF);
-	if (pdev) {
+	if (penv->pdev) {
 		pr_err("%d: Unregistering PCI device\n", __LINE__);
 		pci_unregister_driver(&cnss_wlan_pci_driver);
 		penv->pdev = NULL;
