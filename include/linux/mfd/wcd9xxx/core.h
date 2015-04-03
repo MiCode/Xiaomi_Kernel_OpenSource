@@ -208,7 +208,7 @@ enum wcd9xxx_chipid_major {
 	TAIKO_MAJOR = cpu_to_le16(0x102),
 	TAPAN_MAJOR = cpu_to_le16(0x103),
 	TOMTOM_MAJOR = cpu_to_le16(0x105),
-	TASHA_MAJOR = cpu_to_le16(0x107),
+	TASHA_MAJOR = cpu_to_le16(0x0),
 };
 
 struct wcd9xxx_codec_type {
