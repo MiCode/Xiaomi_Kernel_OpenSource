@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -154,7 +154,7 @@ void check_and_create_debugfs(void)
 
 		if (IS_ERR(root_dent)) {
 			pr_err("%s: unable to create debugfs %ld\n",
-				__func__, IS_ERR(root_dent));
+				__func__, PTR_ERR(root_dent));
 			root_dent = NULL;
 		}
 	}
