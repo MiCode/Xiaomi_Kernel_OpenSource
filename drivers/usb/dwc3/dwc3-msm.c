@@ -1547,6 +1547,7 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 {
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned long timeout;
 	u32 reg = 0;
 
@@ -1563,12 +1564,7 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 			PWR_EVNT_LPM_OUT_L2_MASK);
 
 		/* Prepare HSPHY for suspend */
-		dwc3_msm_write_reg(mdwc->base,
-			DWC3_GUSB2PHYCFG(0),
-			dwc3_msm_read_reg(mdwc->base,
-			DWC3_GUSB2PHYCFG(0)) |
-			DWC3_GUSB2PHYCFG_ENBLSLPM |
-			DWC3_GUSB2PHYCFG_SUSPHY);
+		dwc3_gadget_usb2_phy_suspend(dwc, true);
 
 		/* Wait for PHY to go into L2 */
 		timeout = jiffies + msecs_to_jiffies(5);
@@ -1951,10 +1947,7 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 	/* Disable HSPHY auto suspend */
-	dwc3_msm_write_reg(mdwc->base, DWC3_GUSB2PHYCFG(0),
-		dwc3_msm_read_reg(mdwc->base, DWC3_GUSB2PHYCFG(0)) &
-				~(DWC3_GUSB2PHYCFG_ENBLSLPM |
-					DWC3_GUSB2PHYCFG_SUSPHY));
+	dwc3_gadget_usb2_phy_suspend(dwc, false);
 
 	/* Disable wakeup capable for HS_PHY IRQ, if enabled */
 	if (mdwc->hs_phy_irq &&
