@@ -15,15 +15,24 @@
 #include <linux/module.h>
 #include <linux/soundwire/swr-wcd.h>
 
-#define SWR_MAX_ROW		48
-#define SWR_MAX_COL		16
-#define SWR_MIN_COL		2
+#define SWR_MAX_ROW		0 /* Rows = 48 */
+#define SWR_MAX_COL		7 /* Cols = 16 */
+#define SWR_MIN_COL		0 /* Cols = 2 */
 
 #define SWR_WCD_NAME	"swr-wcd"
+
+#define SWR_MSTR_PORT_LEN	8 /* Number of master ports */
 
 enum {
 	SWR_IRQ_FREE,
 	SWR_IRQ_REGISTER,
+};
+
+enum {
+	SWR_DAC_PORT,
+	SWR_COMP_PORT,
+	SWR_BOOST_PORT,
+	SWR_VISENSE_PORT,
 };
 
 struct usecase {
@@ -36,6 +45,11 @@ struct port_params {
 	u8 si;
 	u8 off1;
 	u8 off2;
+};
+
+struct swrm_mports {
+	struct list_head list;
+	u8 id;
 };
 
 struct swr_ctrl_platform_data {
@@ -67,6 +81,7 @@ struct swr_mstr_ctrl {
 	int num_enum_slaves;
 	int slave_status;
 	struct swr_mstr_port *mstr_port;
+	struct list_head mport_list;
 };
 
 #endif /* _SWR_WCD_CTRL_H */
