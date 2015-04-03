@@ -95,11 +95,11 @@
 #define A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_HI   0x83F
 #define A5XX_CP_CONTEXT_SWITCH_SMMU_INFO_LO   0x840
 #define A5XX_CP_CONTEXT_SWITCH_SMMU_INFO_HI   0x841
-#define A5XX_CP_PROTECT_STATUS           0x8A0
 #define A5XX_CP_ME_STAT_DATA             0xB14
 #define A5XX_CP_WFI_PEND_CTR             0xB15
 #define A5XX_CP_INTERRUPT_STATUS         0xB18
 #define A5XX_CP_HW_FAULT                 0xB1A
+#define A5XX_CP_PROTECT_STATUS           0xB1C
 #define A5XX_CP_IB1_BASE                 0xB1F
 #define A5XX_CP_IB1_BASE_HI              0xB20
 #define A5XX_CP_IB1_BUFSZ                0xB21
