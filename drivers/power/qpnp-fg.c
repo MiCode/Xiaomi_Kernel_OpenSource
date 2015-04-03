@@ -2413,7 +2413,7 @@ static void dump_sram(struct work_struct *work)
 #define MAXRSCHANGE_REG		0x434
 #define ESR_VALUE_OFFSET	1
 #define ESR_STRICT_VALUE	0x4120391F391F3019
-#define ESR_DEFAULT_VALUE	0x68005A6661C34A67
+#define ESR_DEFAULT_VALUE	0x58CD4A6761C34A67
 static void update_esr_value(struct work_struct *work)
 {
 	union power_supply_propval prop = {0, };
