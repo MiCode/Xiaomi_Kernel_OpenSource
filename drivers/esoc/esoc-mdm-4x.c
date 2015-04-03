@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -336,7 +336,8 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 	bool status_down = false;
 	struct mdm_ctrl *mdm = get_esoc_clink_data(esoc);
 	struct device *dev = mdm->dev;
-	bool graceful_shutdown;
+	int ret;
+	bool graceful_shutdown = false;
 
 	switch (cmd) {
 	case ESOC_PWR_ON:
@@ -351,7 +352,13 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 		mdm->ready = false;
 		mdm->trig_cnt = 0;
 		graceful_shutdown = true;
-
+		ret = sysmon_send_shutdown(&esoc->subsys);
+		if (ret) {
+			dev_err(mdm->dev, "sysmon shutdown fail, ret = %d\n",
+									ret);
+			graceful_shutdown = false;
+			goto force_poff;
+		}
 		dev_dbg(mdm->dev, "Waiting for status gpio go low\n");
 		status_down = false;
 		end_time = jiffies + msecs_to_jiffies(10000);
@@ -368,6 +375,7 @@ static int mdm_cmd_exe(enum esoc_cmd cmd, struct esoc_clink *esoc)
 			dev_dbg(dev, "shutdown successful\n");
 		else
 			dev_err(mdm->dev, "graceful poff ipc fail\n");
+force_poff:
 	case ESOC_FORCE_PWR_OFF:
 		if (!graceful_shutdown) {
 			mdm_disable_irqs(mdm);
