@@ -1305,10 +1305,8 @@ static bool wcd9335_is_readable_register(struct device *dev, unsigned int reg)
 
 	if (reg_tbl)
 		return reg_tbl[reg_offset];
-	else {
-		dev_err(dev, "%s: register table is NULL\n", __func__);
+	else
 		return false;
-	}
 }
 
 static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
