@@ -1074,8 +1074,12 @@ int q6lsm_snd_model_buf_free(struct lsm_client *client)
 			__func__, rc);
 
 	if (client->sound_model.data) {
-		msm_audio_ion_free(client->sound_model.client,
+		if (!rc)
+			msm_audio_ion_free(client->sound_model.client,
 				 client->sound_model.handle);
+		else
+			pr_err("%s: unmap failed not freeing memory\n",
+			__func__);
 		client->sound_model.client = NULL;
 		client->sound_model.handle = NULL;
 		client->sound_model.data = NULL;
