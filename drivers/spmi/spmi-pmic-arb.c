@@ -85,6 +85,7 @@ u32 pmic_arb_regs_v2[] = {
 #define PMIC_ARB_ADDR_IN_PERIPH(spmi_addr)	((spmi_addr) & 0xFF)
 #define PMIC_ARB_REG_CHNL(chnl_num)		(0x800 + 0x4 * (chnl_num))
 #define PMIC_ARB_TO_PPID(sid, pid)	((pid & 0xFF) | ((sid & 0xF) << 8))
+#define PMIC_ARB_PPID_CNT			(1 << 12)
 
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
@@ -129,10 +130,6 @@ enum pmic_arb_cmd_op_code {
 /* interrupt enable bit */
 #define SPMI_PIC_ACC_ENABLE_BIT		BIT(0)
 
-/* lookup channel num, given sid+pid. each sid points to 8bits of pids */
-#define PMIC_ARB_CHNL(pmic_arb, sid, pid) \
-			((pmic_arb)->ppid_2_chnl_tbl[(((sid) << 8) | (pid))])
-
 /*
  * spmi_pmic_arb_dbg: information used for debugging
  *
@@ -153,8 +150,9 @@ struct spmi_pmic_arb_dev;
 /*
  * spmi_pmic_arb_ver: version dependent callbacks.
  *
- * @chnl_ofst ocalc ffset per channel. Note that v1 channel is one per EE, and
+ * @chnl_ofst calc offset per channel. Note that v1 channel is one per EE, and
  *   v2 channels are one per PMIC peripheral.
+ *   err is only considered on v2 HW.
  * @fmt_cmd format formats a GENI/SPMI command.
  * @owner_acc_status calc offset to PMIC_ARB_SPMI_PIC_OWNERm_ACC_STATUSn on v1,
  *   and SPMI_PIC_OWNERm_ACC_STATUSn on v2.
@@ -169,7 +167,7 @@ struct spmi_pmic_arb_ver {
 	int (*non_data_cmd)(struct spmi_pmic_arb_dev *dev, u8 opc, u8 sid);
 	/* following functions are about phripheral rd/wr */
 	phys_addr_t	(*chnl_ofst)(struct spmi_pmic_arb_dev *dev, u8 sid,
-								u16 addr);
+			u16 addr, int *err);
 	u32		(*fmt_cmd)(u8 opc, u8 sid, u16 addr, u8 bc);
 	/* following functions calc offsets to peripheral PIC registers */
 	phys_addr_t	(*owner_acc_status)(u8 m, u8 n);
@@ -187,7 +185,9 @@ struct spmi_pmic_arb_ver {
  *     PMIC_ARB_CORE registers, then chnls, and obsrvr are set to
  *     PMIC_ARB_CORE_REGISTERS and PMIC_ARB_CORE_REGISTERS_OBS respectivly.
  * @intr base address of the SPMI interrupt control registers
- * @ppid_2_chnl_tbl lookup table f(SID, Periph-ID) -> channle num
+ * @ppid_2_chnl_tbl lookup table f(SID, Periph-ID) -> channel num
+ *      entry is only valid if corresponding bit is set in valid_ppid_bitmap.
+ * @valid_ppid_bitmap bit is set only for valid ppids.
  * @fmt_cmd formats a command to be set into PMIC_ARBq_CHNLn_CMD
  * @chnl_ofst calculates offset of the base of a channel reg space
  * @ee execution environment id
@@ -219,6 +219,7 @@ struct spmi_pmic_arb_dev {
 	u32			mapping_table[SPMI_MAPPING_TABLE_LEN];
 	const struct spmi_pmic_arb_ver *ver;
 	u8			*ppid_2_chnl_tbl;
+	unsigned long		*valid_ppid_bitmap;
 	u32			prev_prtcl_irq_stat;
 	u32			irq_acc0_init_val;
 };
@@ -226,15 +227,29 @@ struct spmi_pmic_arb_dev {
 static struct spmi_pmic_arb_dev *the_pmic_arb;
 
 static phys_addr_t pmic_arb_chnl_ofst_v1(struct spmi_pmic_arb_dev *dev,
-							u8 sid, u16 addr)
+					 u8 sid, u16 addr, int *err)
 {
+	if (err)
+		*err = 0;
 	return 0x800 + 0x80 * (dev->channel);
 }
 
 static phys_addr_t pmic_arb_chnl_ofst_v2(struct spmi_pmic_arb_dev *dev,
-							u8 sid, u16 addr)
+					 u8 sid, u16 addr, int *err)
 {
-	char chnl = PMIC_ARB_CHNL(dev, sid, PMIC_ARB_PERIPH_ID(addr));
+	u8   pid      = (addr >> 8) & 0xFF;
+	u16  ppid     = PMIC_ARB_TO_PPID(sid, pid);
+	bool is_valid = dev->valid_ppid_bitmap[BIT_WORD(ppid)] & BIT_MASK(ppid);
+	char chnl     = dev->ppid_2_chnl_tbl[ppid];
+
+	if (err)
+		*err = is_valid ? 0 : -ENXIO;
+
+	if (!is_valid)
+		dev_err(dev->dev,
+		"error access to unmapped pmic peripheral sid:0x%x addr:0x%x\n",
+			sid, addr);
+
 	return 0x1000 * (dev->ee) + 0x8000 * (chnl);
 }
 
@@ -361,9 +376,13 @@ static int pmic_arb_wait_for_done(struct spmi_pmic_arb_dev *dev,
 {
 	u32 status = 0;
 	u32 timeout = PMIC_ARB_TIMEOUT_US;
-	u32 offset = dev->ver->chnl_ofst(dev, sid, addr) + PMIC_ARB_STATUS;
+	int rc;
+	int offset = dev->ver->chnl_ofst(dev, sid, addr, &rc) + PMIC_ARB_STATUS;
 	static const char * const diag_msg_fmt =
 			"wait_for_done: %s status:0x%x sid:%d addr:0x%x\n";
+
+	if (rc < 0)
+		return rc;
 
 	while (timeout--) {
 		status = readl_relaxed(base + offset);
@@ -461,7 +480,7 @@ pmic_arb_non_data_cmd_v1(struct spmi_pmic_arb_dev *pmic_arb, u8 opc, u8 sid)
 	u32 cmd;
 	int rc;
 	/* sid and addr are don't-care for pmic_arb_chnl_ofst_v1() HW-v1  */
-	phys_addr_t chnl_ofst = pmic_arb_chnl_ofst_v1(pmic_arb, 0, 0);
+	phys_addr_t chnl_ofst = pmic_arb_chnl_ofst_v1(pmic_arb, 0, 0, NULL);
 
 	opc -= SPMI_CMD_RESET - PMIC_ARB_OP_RESET;
 
@@ -530,7 +549,10 @@ static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 	unsigned long flags;
 	u32 cmd;
 	int rc;
-	phys_addr_t chnl_ofst = pmic_arb->ver->chnl_ofst(pmic_arb, sid, addr);
+	int chnl_ofst = pmic_arb->ver->chnl_ofst(pmic_arb, sid, addr, &rc);
+
+	if (rc < 0)
+		return rc;
 
 	if (bc >= PMIC_ARB_MAX_TRANS_BYTES) {
 		dev_err(pmic_arb->dev
@@ -584,7 +606,10 @@ static int pmic_arb_write_cmd(struct spmi_controller *ctrl,
 	unsigned long flags;
 	u32 cmd;
 	int rc;
-	phys_addr_t chnl_ofst = pmic_arb->ver->chnl_ofst(pmic_arb, sid, addr);
+	int chnl_ofst = pmic_arb->ver->chnl_ofst(pmic_arb, sid, addr, &rc);
+
+	if (rc < 0)
+		return rc;
 
 	if (bc >= PMIC_ARB_MAX_TRANS_BYTES) {
 		dev_err(pmic_arb->dev
@@ -1023,17 +1048,21 @@ static struct qpnp_local_int spmi_pmic_arb_intr_cb = {
 
 static int pmic_arb_chnl_tbl_create(struct spmi_pmic_arb_dev *pmic_arb)
 {
-	u16  chnl;
-	/* size: 12bit entries = 4bit SID + 8bit periph ID */
-	u32 tbl_sz = (1 << 12);
+	u16	chnl;
+	u16	ppid;
+	u32	reg;
+	size_t	bitmap_sz = sizeof(*pmic_arb->valid_ppid_bitmap) *
+			    DIV_ROUND_UP(PMIC_ARB_PPID_CNT, BITS_PER_LONG);
 
-	pmic_arb->ppid_2_chnl_tbl = devm_kzalloc(pmic_arb->dev, tbl_sz,
-								GFP_KERNEL);
-	if (!pmic_arb->ppid_2_chnl_tbl) {
-		dev_err(pmic_arb->dev,
-			"cannot allocate pmic_arb channel table\n");
+	pmic_arb->ppid_2_chnl_tbl = devm_kzalloc(pmic_arb->dev,
+						 PMIC_ARB_PPID_CNT, GFP_KERNEL);
+	if (!pmic_arb->ppid_2_chnl_tbl)
 		return -ENOMEM;
-	}
+
+	pmic_arb->valid_ppid_bitmap = devm_kzalloc(pmic_arb->dev, bitmap_sz,
+						   GFP_KERNEL);
+	if (!pmic_arb->valid_ppid_bitmap)
+		return -ENOMEM;
 
 	/*
 	 * The PMIC_ARB_REG_CHNL registers are a table mapping channel number
@@ -1041,15 +1070,11 @@ static int pmic_arb_chnl_tbl_create(struct spmi_pmic_arb_dev *pmic_arb)
 	 * optimization of mapping SID+PID to channel number.
 	 */
 	for (chnl = 0; chnl < pmic_arb->max_peripherals; ++chnl) {
-		u32 regval = readl_relaxed(pmic_arb->base +
-						PMIC_ARB_REG_CHNL(chnl));
-		u8  sid  = (regval >> 16) & 0xF;
-		u8  pid  = (regval >> 8) & 0xFF;
+		reg  = readl_relaxed(pmic_arb->base + PMIC_ARB_REG_CHNL(chnl));
+		ppid = (reg >> 8) & 0xFFF;
 
-		if (!regval)
-			continue;
-
-		PMIC_ARB_CHNL(pmic_arb, sid, pid) = chnl;
+		pmic_arb->ppid_2_chnl_tbl[ppid] = chnl;
+		pmic_arb->valid_ppid_bitmap[BIT_WORD(ppid)] |= BIT_MASK(ppid);
 	}
 	return 0;
 }
