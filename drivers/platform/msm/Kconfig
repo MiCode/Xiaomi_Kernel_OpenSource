@@ -81,6 +81,19 @@ config SPS_SUPPORT_NDP_BAM
 	help
 	  No-Data-Path BAM is used to improve BAM performance.
 
+config IPA
+	tristate "IPA support"
+	depends on SPS && NET
+	help
+	  This driver supports the Internet Packet Accelerator (IPA) core.
+	  IPA is a programmable protocol processor HW block.
+	  It is designed to support generic HW processing of UL/DL IP packets
+	  for various use cases independent of radio technology.
+	  The driver support client connection and configuration
+	  for the IPA core.
+	  Kernel and user-space processes can call the IPA driver
+	  to configure IPA core.
+
 config I2C_MSM_PROF_DBG
 	tristate "I2C_MSM_PROF_DBG"
 	depends on ARCH_MSM && I2C_MSM_V2
