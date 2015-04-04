@@ -1458,12 +1458,19 @@ void __init early_paging_init(const struct machine_desc *mdesc,
 	pgtables_remap *lpae_pgtables_remap;
 	unsigned long pa_pgd;
 	unsigned int cr, ttbcr;
+	long long offset;
 	void *boot_data;
 
 	if (!(mdesc->init_meminfo))
 		return;
 
-	mdesc->init_meminfo();
+	offset = mdesc->init_meminfo();
+	if (offset == 0)
+		return;
+
+	/* Re-set the phys pfn offset, and the pv offset */
+	__pv_offset += offset;
+	__pv_phys_pfn_offset += PFN_DOWN(offset);
 
 	/*
 	 * Get the address of the remap function in the 1:1 identity
@@ -1514,8 +1521,19 @@ void __init early_paging_init(const struct machine_desc *mdesc,
 void __init early_paging_init(const struct machine_desc *mdesc,
 			      struct proc_info_list *procinfo)
 {
-	if (mdesc->init_meminfo)
-		mdesc->init_meminfo();
+	long long offset;
+
+	if (!mdesc->init_meminfo)
+		return;
+
+	offset = mdesc->init_meminfo();
+	if (offset == 0)
+		return;
+
+	pr_crit("Physical address space modification is only to support Keystone2.\n");
+	pr_crit("Please enable ARM_LPAE and ARM_PATCH_PHYS_VIRT support to use this\n");
+	pr_crit("feature. Your kernel may crash now, have a good day.\n");
+	add_taint(TAINT_CPU_OUT_OF_SPEC, LOCKDEP_STILL_OK);
 }
 
 #endif
