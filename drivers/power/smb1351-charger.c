@@ -1715,13 +1715,14 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 {
 	int rc;
 	u8 reg = 0;
+	union power_supply_propval prop = {0, };
 	enum power_supply_type type = POWER_SUPPLY_TYPE_UNKNOWN;
 
 	/*
 	 * If apsd is disabled, charger detection is done by
 	 * USB phy driver.
 	 */
-	if (chip->disable_apsd || status == 0) {
+	if (chip->disable_apsd) {
 		pr_debug("APSD %s, status = %d\n",
 			chip->disable_apsd ? "disabled" : "enabled", !!status);
 		return 0;
@@ -1759,16 +1760,30 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		break;
 	}
 
-	chip->chg_present = !!status;
-
-	pr_debug("APSD complete. USB type detected=%d chg_present=%d\n",
+	if (status) {
+		chip->chg_present = !!status;
+		pr_debug("APSD complete. USB type detected=%d chg_present=%d\n",
 						type, chip->chg_present);
-
-	power_supply_set_supply_type(chip->usb_psy, type);
-
-	 /* SMB is now done sampling the D+/D- lines, indicate USB driver */
-	pr_debug("updating usb_psy present=%d\n", chip->chg_present);
-	power_supply_set_present(chip->usb_psy, chip->chg_present);
+		power_supply_set_supply_type(chip->usb_psy, type);
+		/*
+		 * SMB is now done sampling the D+/D- lines,
+		 * indicate USB driver
+		 */
+		pr_debug("updating usb_psy present=%d\n", chip->chg_present);
+		power_supply_set_present(chip->usb_psy, chip->chg_present);
+	} else {
+		/* Handle SDP/CDP removal */
+		chip->usb_psy->get_property(chip->usb_psy,
+					POWER_SUPPLY_PROP_TYPE, &prop);
+		if ((prop.intval == POWER_SUPPLY_TYPE_USB) ||
+				(prop.intval == POWER_SUPPLY_TYPE_USB_CDP)) {
+			chip->chg_present = !status;
+			power_supply_set_supply_type(chip->usb_psy,
+						POWER_SUPPLY_TYPE_UNKNOWN);
+			power_supply_set_present(chip->usb_psy,
+							chip->chg_present);
+		}
+	}
 
 	return 0;
 }
@@ -1776,20 +1791,52 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 {
 	/* use this to detect USB insertion only if !apsd */
-	if (chip->disable_apsd && status == 0) {
-		chip->chg_present = true;
-		pr_debug("updating usb_psy present=%d\n", chip->chg_present);
-		power_supply_set_supply_type(chip->usb_psy,
+	union power_supply_propval prop = {0, };
+
+	if (chip->disable_apsd) {
+		/*
+		 * If APSD is disabled, src det interrupt won't trigger.
+		 * Hence use usbin_uv for removal and insertion notification
+		 */
+		if (status == 0) {
+			chip->chg_present = true;
+			pr_debug("updating usb_psy present=%d\n",
+						chip->chg_present);
+			power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_USB);
-		power_supply_set_present(chip->usb_psy, chip->chg_present);
+			power_supply_set_present(chip->usb_psy,
+						chip->chg_present);
+		} else {
+			chip->chg_present = false;
+			power_supply_set_supply_type(chip->usb_psy,
+						POWER_SUPPLY_TYPE_UNKNOWN);
+			power_supply_set_present(chip->usb_psy, chip->
+								chg_present);
+			pr_debug("updating usb_psy present=%d\n",
+							chip->chg_present);
+		}
+		return 0;
 	}
 
+	/*
+	 * If APSD active, use src det to check SDP/CDP removal and
+	 * use usbin_uv to check DCP/HVDCP removal
+	 */
 	if (status != 0) {
-		chip->chg_present = false;
-		pr_debug("updating usb_psy present=%d\n", chip->chg_present);
-		power_supply_set_supply_type(chip->usb_psy,
+		if (!chip->disable_apsd && chip->usb_psy && !chip->usb_psy->
+		get_property(chip->usb_psy, POWER_SUPPLY_PROP_TYPE, &prop)) {
+			if ((prop.intval == POWER_SUPPLY_TYPE_USB_HVDCP) ||
+				(prop.intval == POWER_SUPPLY_TYPE_USB_DCP)) {
+				/* DCP or HVDCP removed */
+				chip->chg_present = false;
+				power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
-		power_supply_set_present(chip->usb_psy, chip->chg_present);
+				power_supply_set_present(chip->usb_psy,
+							chip->chg_present);
+				pr_debug("updating usb_psy present=%d\n",
+							chip->chg_present);
+			}
+		}
 	}
 
 	pr_debug("chip->chg_present = %d\n", chip->chg_present);
