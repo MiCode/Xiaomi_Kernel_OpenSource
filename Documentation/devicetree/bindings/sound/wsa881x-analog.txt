@@ -22,6 +22,19 @@ the flavor. This can be sometimes same as qcom, pinctrl-names i.e with 2^N
 combinations or will have less incase if some combination is not supported.
 - pinctrl-# : Pinctrl states as mentioned in pinctrl-names.
 
+* wsa_intc
+
+Required properties:
+
+ - compatible :                            "qcom,wsa-irq"
+ - interrupt-controller :                  Mark this device node as an
+					   interrupt controller
+ - #interrupt-cells :                      Should be 1
+ - interrupt-parent :                      Parent interrupt controller
+ - interrupts :                            Interrupt number on the parent
+                                           interrupt controller
+ - interrupt-names :                       Name of interrupt on the parent
+                                           interrupt controller
 Example:
 
 wsa881x-i2c-codec@0e {
@@ -65,3 +78,11 @@ wsa881x-i2c-codec@0f {
 	pinctrl-2 = <&wsa_clk_on &wsa_active>;
 };
 
+wsa_intc: wsa-irq {
+	compatible = "qcom,wsa-irq";
+	interrupt-controller;
+	#interrupt-cells = <1>;
+	interrupt-parent = <&msm_gpio>;
+	interrupts = <97 0>;
+	interrupt-names = "wsa-int";
+};
