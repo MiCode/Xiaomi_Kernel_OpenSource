@@ -448,12 +448,15 @@
 			     <0 329 0>,
 			     <0 330 0>,
 			     <0 331 0>,
-			     <0 22 0>;
+			     <0 22 0>,
+			     <1 7 0>;
 		interrupt-names = "pri-dbe-irq",
 				  "sec-dbe-irq",
 				  "pri-ext-irq",
 				  "sec-ext-irq",
-				  "cci-irq";
+				  "cci-irq",
+				  "sbe-irq";
+		poll-delay-ms = <5000>;
 	};
 
 	restart@fc4ab000 {
