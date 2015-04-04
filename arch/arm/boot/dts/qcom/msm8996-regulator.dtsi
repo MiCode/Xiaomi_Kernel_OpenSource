@@ -705,6 +705,17 @@
 				<0 0 0 0 669 601 0  851 0  905 0 0 0 0 0 0>,
 				<0 0 0 0 899 806 0 1084 0 1149 0 0 0 0 0 0>;
 
+			qcom,cpr-ro-scaling-factor =
+				<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>,
+				<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>,
+				<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>,
+				<0 0 0 0 2268 2004 0 2408 0 2539 0 0 0 0 0 0>;
+
+			qcom,cpr-open-loop-voltage-fuse-adjustment =
+				<35000 0 0 0>;
+			qcom,cpr-closed-loop-voltage-adjustment =
+				<45000 0 0 0>;
+
 			qcom,allow-voltage-interpolation;
 			qcom,cpr-scaled-open-loop-voltage-as-ceiling;
 		};
