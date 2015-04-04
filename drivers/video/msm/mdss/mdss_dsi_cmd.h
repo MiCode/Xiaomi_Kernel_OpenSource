@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -58,7 +58,8 @@ struct dsi_buf {
 #define DTYPE_GEN_READ1		0x14	/* long read, 1 parameter */
 #define DTYPE_GEN_READ2		0x24	/* long read, 2 parameter */
 
-#define DTYPE_TEAR_ON		0x35	/* set tear on */
+#define DTYPE_COMPRESSION_MODE	0x07	/* compression mode */
+#define DTYPE_PPS		0x0a	/* pps */
 #define DTYPE_MAX_PKTSIZE	0x37	/* set max packet size */
 #define DTYPE_NULL_PKT		0x09	/* null packet, no data */
 #define DTYPE_BLANK_PKT		0x19	/* blankiing packet, no data */
