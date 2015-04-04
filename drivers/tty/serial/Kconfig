@@ -1096,6 +1096,7 @@ config SERIAL_MSM_HSL_CONSOLE
 	bool "MSM High speed serial legacy mode console support"
 	depends on SERIAL_MSM_HSL=y
 	select SERIAL_CORE_CONSOLE
+	select SERIAL_EARLYCON
 	default n
 
 config SERIAL_VT8500

@@ -2,7 +2,7 @@
  * drivers/serial/msm_serial.c - driver for msm7k serial device and console
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1987,6 +1987,47 @@ static void __exit msm_serial_hsl_exit(void)
 	platform_driver_unregister(&msm_hsl_platform_driver);
 	uart_unregister_driver(&msm_hsl_uart_driver);
 }
+
+#define MSM_HSL_UART_SR			0xa4
+#define MSM_HSL_UART_ISR		0xb4
+#define MSM_HSL_UART_TF			0x100
+#define MSM_HSL_UART_CR			0xa8
+#define MSM_HSL_UART_NCF_TX		0x40
+#define MSM_HSL_UART_SR_TXEMT		BIT(3)
+#define MSM_HSL_UART_ISR_TXREADY	BIT(7)
+
+static void msm_serial_hsl_early_putc(struct uart_port *port, int ch)
+{
+	while (!(readl_relaxed(port->membase + MSM_HSL_UART_SR) &
+						       MSM_HSL_UART_SR_TXEMT) &&
+	       !(readl_relaxed(port->membase + MSM_HSL_UART_ISR) &
+						     MSM_HSL_UART_ISR_TXREADY))
+		;
+
+	writel_relaxed(0x300, port->membase + MSM_HSL_UART_CR);
+	writel_relaxed(1, port->membase + MSM_HSL_UART_NCF_TX);
+	readl_relaxed(port->membase + MSM_HSL_UART_NCF_TX);
+	writel_relaxed(ch, port->membase + MSM_HSL_UART_TF);
+}
+
+static void msm_serial_hsl_early_write(struct console *con, const char *s,
+				       unsigned n)
+{
+	struct earlycon_device *dev = con->data;
+	uart_console_write(&dev->port, s, n, msm_serial_hsl_early_putc);
+}
+
+static int __init msm_hsl_earlycon_setup(struct earlycon_device *device,
+					      const char *opt)
+{
+	if (!device->port.membase)
+		return -ENODEV;
+
+	device->con->write = msm_serial_hsl_early_write;
+	return 0;
+}
+EARLYCON_DECLARE(msm_hsl_uart, msm_hsl_earlycon_setup);
+OF_EARLYCON_DECLARE(msm_hsl_uart, "qcom,msm-hsl-uart", msm_hsl_earlycon_setup);
 
 module_init(msm_serial_hsl_init);
 module_exit(msm_serial_hsl_exit);
