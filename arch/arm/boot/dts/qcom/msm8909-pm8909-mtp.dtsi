@@ -114,7 +114,8 @@
 	cdc-vdd-spkdrv-supply = <&spk_vreg>;
 	qcom,cdc-vdd-spkdrv-voltage = <5000000 5000000>;
 	qcom,cdc-vdd-spkdrv-current = <20000>;
-	qcom,cdc-on-demand-supplies = "cdc-vdd-spkdrv";
+	qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias",
+				      "cdc-vdd-spkdrv";
 };
 
 &wcnss {
