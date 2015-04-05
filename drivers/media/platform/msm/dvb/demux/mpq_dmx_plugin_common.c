@@ -1619,6 +1619,7 @@ static int mpq_sdmx_alloc_data_buf(struct mpq_feed *mpq_feed, size_t size)
 		0);
 	if (IS_ERR_OR_NULL(mpq_feed->sdmx_buf_handle)) {
 		ret = PTR_ERR(mpq_feed->sdmx_buf_handle);
+		mpq_feed->sdmx_buf_handle = NULL;
 		MPQ_DVB_ERR_PRINT(
 			"%s: FAILED to allocate sdmx buffer %d\n",
 			__func__, ret);
@@ -1681,6 +1682,7 @@ static int mpq_sdmx_init_metadata_buffer(struct mpq_demux *mpq_demux,
 		0);
 	if (IS_ERR_OR_NULL(feed->metadata_buf_handle)) {
 		ret = PTR_ERR(feed->metadata_buf_handle);
+		feed->metadata_buf_handle = NULL;
 		MPQ_DVB_ERR_PRINT(
 			"%s: FAILED to allocate metadata buffer %d\n",
 			__func__, ret);
