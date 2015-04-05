@@ -3549,6 +3549,66 @@ static const struct snd_kcontrol_new tasha_snd_controls[] = {
 		     tasha_mad_input_get, tasha_mad_input_put),
 };
 
+static int tasha_put_dec_enum(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_dapm_widget_list *wlist =
+					dapm_kcontrol_get_wlist(kcontrol);
+	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
+	struct snd_soc_codec *codec = widget->codec;
+	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
+	unsigned int val;
+	u16 mic_sel_reg;
+	u8 mic_sel;
+
+	val = ucontrol->value.enumerated.item[0];
+	if (val > e->max - 1)
+		return -EINVAL;
+
+	dev_dbg(codec->dev, "%s: wname: %s, val: 0x%x\n", __func__,
+		widget->name, val);
+
+	switch (e->reg) {
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX0_CFG1:
+		mic_sel_reg = WCD9335_CDC_TX0_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX1_CFG1:
+		mic_sel_reg = WCD9335_CDC_TX1_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX2_CFG1:
+		mic_sel_reg = WCD9335_CDC_TX2_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX3_CFG1:
+		mic_sel_reg = WCD9335_CDC_TX3_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX4_CFG0:
+		mic_sel_reg = WCD9335_CDC_TX4_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX5_CFG0:
+		mic_sel_reg = WCD9335_CDC_TX5_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX6_CFG0:
+		mic_sel_reg = WCD9335_CDC_TX6_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX7_CFG0:
+		mic_sel_reg = WCD9335_CDC_TX7_TX_PATH_CFG0;
+		break;
+	case WCD9335_CDC_TX_INP_MUX_ADC_MUX8_CFG0:
+		mic_sel_reg = WCD9335_CDC_TX8_TX_PATH_CFG0;
+		break;
+	default:
+		dev_err(codec->dev, "%s: e->reg: 0x%x not expected\n",
+			__func__, e->reg);
+		return -EINVAL;
+	}
+
+	/* ADC: 0, DMIC: 1 */
+	mic_sel = val ? 0x0 : 0x1;
+	snd_soc_update_bits(codec, mic_sel_reg, 1 << 7, mic_sel << 7);
+
+	return snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
+}
+
 static int tasha_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
@@ -4606,31 +4666,49 @@ static const struct snd_kcontrol_new rx_int7_mix2_inp_mux =
 	SOC_DAPM_ENUM("RX INT7 MIX2 INP Mux", rx_int7_sidetone_mix_chain_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux0 =
-	SOC_DAPM_ENUM("ADC MUX0 Mux", tx_adc_mux0_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX0 Mux", tx_adc_mux0_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux1 =
-	SOC_DAPM_ENUM("ADC MUX1 Mux", tx_adc_mux1_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX1 Mux", tx_adc_mux1_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux2 =
-	SOC_DAPM_ENUM("ADC MUX2 Mux", tx_adc_mux2_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX2 Mux", tx_adc_mux2_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux3 =
-	SOC_DAPM_ENUM("ADC MUX3 Mux", tx_adc_mux3_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX3 Mux", tx_adc_mux3_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux4 =
-	SOC_DAPM_ENUM("ADC MUX4 Mux", tx_adc_mux4_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX4 Mux", tx_adc_mux4_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux5 =
-	SOC_DAPM_ENUM("ADC MUX5 Mux", tx_adc_mux5_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX5 Mux", tx_adc_mux5_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux6 =
-	SOC_DAPM_ENUM("ADC MUX6 Mux", tx_adc_mux6_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX6 Mux", tx_adc_mux6_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux7 =
-	SOC_DAPM_ENUM("ADC MUX7 Mux", tx_adc_mux7_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX7 Mux", tx_adc_mux7_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_adc_mux8 =
-	SOC_DAPM_ENUM("ADC MUX8 Mux", tx_adc_mux8_chain_enum);
+	SOC_DAPM_ENUM_EXT("ADC MUX8 Mux", tx_adc_mux8_chain_enum,
+			  snd_soc_dapm_get_enum_double,
+			  tasha_put_dec_enum);
 
 static const struct snd_kcontrol_new tx_dmic_mux0 =
 	SOC_DAPM_ENUM("DMIC MUX0 Mux", tx_dmic_mux0_enum);
