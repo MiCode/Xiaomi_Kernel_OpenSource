@@ -134,8 +134,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x86000000>;
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -149,8 +148,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x1>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x86000000>;
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_0>;
 		};
@@ -159,8 +157,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x2>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x86000000>;
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_0>;
 		};
@@ -169,8 +166,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x3>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x86000000>;
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_0>;
 		};
@@ -179,8 +175,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x100>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x86000000>;
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc4>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
@@ -194,8 +189,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x101>;
-			cpu-release-addr = <0x0 0x86000000>;
-			enable-method = "spin-table";
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc5>;
 			next-level-cache = <&L2_1>;
 		};
@@ -204,8 +198,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x102>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x86000000>;
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc6>;
 			next-level-cache = <&L2_1>;
 		};
@@ -214,8 +207,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x103>;
-			enable-method = "spin-table";
-			cpu-release-addr = <0x0 0x86000000>;
+			enable-method = "qcom,arm-cortex-acc";
 			qcom,acc = <&acc7>;
 			next-level-cache = <&L2_1>;
 		};
@@ -243,44 +235,44 @@
 		reg = <0x0b011000 0x1000>;
 	};
 
-	acc0:clock-controller@b088000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b088000 0x1000>;
-	};
-
-	acc1:clock-controller@b098000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b098000 0x1000>;
-	};
-
-	acc2:clock-controller@b0a8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b0a8000 0x1000>;
-	};
-
-	acc3:clock-controller@b0b8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b0b8000 0x1000>;
-	};
-
-	acc4:clock-controller@b188000 {
+	acc0:clock-controller@b188000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b188000 0x1000>;
 	};
 
-	acc5:clock-controller@b198000 {
+	acc1:clock-controller@b198000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b198000 0x1000>;
 	};
 
-	acc6:clock-controller@b1a8000 {
+	acc2:clock-controller@b1a8000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b1a8000 0x1000>;
 	};
 
-	acc7:clock-controller@b1b8000 {
+	acc3:clock-controller@b1b8000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b1b8000 0x1000>;
+	};
+
+	acc4:clock-controller@b088000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b088000 0x1000>;
+	};
+
+	acc5:clock-controller@b098000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b098000 0x1000>;
+	};
+
+	acc6:clock-controller@b0a8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0a8000 0x1000>;
+	};
+
+	acc7:clock-controller@b0b8000 {
+		compatible = "qcom,arm-cortex-acc";
+		reg = <0x0b0b8000 0x1000>;
 	};
 
 	intc: interrupt-controller@b000000 {
