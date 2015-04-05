@@ -339,6 +339,12 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 };
 
+&dsi_dual_nt35597_video_0 {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
 &dsi_dual_jdi_cmd_0 {
 	pwms = <&pmi8994_pwm_4 0 0>;
 	pwm-names = "backlight";
