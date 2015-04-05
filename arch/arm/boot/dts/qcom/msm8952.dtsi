@@ -1221,6 +1221,10 @@
 		qcom,master-id = <86>;
 	};
 
+	qcom,msm-ssc-sensors {
+		compatible = "qcom,msm-ssc-sensors";
+	};
+
 	qcom_rng: qrng@22000 {
 		compatible = "qcom,msm-rng";
 		reg = <0x22000 0x140>;
