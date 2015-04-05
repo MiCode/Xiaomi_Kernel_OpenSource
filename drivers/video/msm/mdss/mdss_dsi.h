@@ -387,6 +387,7 @@ struct mdss_dsi_ctrl_pdata {
 	int clk_lane_cnt;
 	bool dmap_iommu_map;
 	bool dsi_irq_line;
+	bool dcs_cmd_insert;
 	atomic_t te_irq_ready;
 
 	bool cmd_sync_wait_broadcast;
