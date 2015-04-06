@@ -697,8 +697,8 @@ static void a4xx_start(struct adreno_device *adreno_dev)
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_DELAY_HLSQ, val);
 	}
 
-	/* A430 offers a bigger chunk of CP_STATE_DEBUG registers */
-	if (adreno_is_a430(adreno_dev))
+	/* A430 and derivatives offers bigger chunk of CP_STATE_DEBUG regs */
+	if (!adreno_is_a420(adreno_dev))
 		a4xx_snap_sizes.cp_pfp = 0x34;
 
 	a4xx_protect_init(adreno_dev);
