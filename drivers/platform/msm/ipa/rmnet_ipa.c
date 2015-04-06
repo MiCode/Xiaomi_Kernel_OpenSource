@@ -25,6 +25,7 @@
 #include <linux/of_device.h>
 #include <linux/string.h>
 #include <linux/skbuff.h>
+#include <linux/version.h>
 #include <linux/workqueue.h>
 #include <net/pkt_sched.h>
 #include <soc/qcom/subsystem_restart.h>
@@ -880,13 +881,17 @@ int wwan_update_mux_channel_prop(void)
 	return ret;
 }
 
+#ifdef INIT_COMPLETION
+#define reinit_completion(x) INIT_COMPLETION(*(x))
+#endif /* INIT_COMPLETION */
+
 static int __ipa_wwan_open(struct net_device *dev)
 {
 	struct wwan_private *wwan_ptr = netdev_priv(dev);
 
 	IPAWANDBG("[%s] __wwan_open()\n", dev->name);
 	if (wwan_ptr->device_status != WWAN_DEVICE_ACTIVE)
-		INIT_COMPLETION(wwan_ptr->resource_granted_completion);
+		reinit_completion(&wwan_ptr->resource_granted_completion);
 	wwan_ptr->device_status = WWAN_DEVICE_ACTIVE;
 	return 0;
 }
@@ -921,7 +926,7 @@ static int __ipa_wwan_close(struct net_device *dev)
 		wwan_ptr->device_status = WWAN_DEVICE_INACTIVE;
 		/* do not close wwan port once up,  this causes
 			remote side to hang if tried to open again */
-		INIT_COMPLETION(wwan_ptr->resource_granted_completion);
+		reinit_completion(&wwan_ptr->resource_granted_completion);
 		rc = ipa_deregister_intf(dev->name);
 		if (rc) {
 			IPAWANERR("[%s]: ipa_deregister_intf failed %d\n",
@@ -1834,7 +1839,11 @@ static int ipa_wwan_probe(struct platform_device *pdev)
 
 	/* initialize wan-driver netdev */
 	dev = alloc_netdev(sizeof(struct wwan_private),
-			   IPA_WWAN_DEV_NAME, NET_NAME_UNKNOWN, ipa_wwan_setup);
+			   IPA_WWAN_DEV_NAME,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0))
+			   NET_NAME_UNKNOWN,
+#endif
+			   ipa_wwan_setup);
 	if (!dev) {
 		IPAWANERR("no memory for netdev\n");
 		ret = -ENOMEM;
