@@ -350,6 +350,7 @@ header-y += reiserfs_xattr.h
 header-y += resource.h
 header-y += rfkill.h
 header-y += rmnet_data.h
+header-y += rmnet_ipa_fd_ioctl.h
 header-y += romfs_fs.h
 header-y += rose.h
 header-y += route.h

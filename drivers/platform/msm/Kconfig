@@ -94,6 +94,15 @@ config IPA
 	  Kernel and user-space processes can call the IPA driver
 	  to configure IPA core.
 
+config RMNET_IPA
+	tristate "IPA RMNET WWAN Network Device"
+	depends on IPA && MSM_QMI_INTERFACE
+	help
+	  This WWAN Network Driver implements network stack class device.
+	  It supports Embedded data transfer from A7 to Q6. Configures IPA HW
+	  for RmNet Data Driver and also exchange of QMI messages between
+	  A7 and Q6 IPA-driver.
+
 config I2C_MSM_PROF_DBG
 	tristate "I2C_MSM_PROF_DBG"
 	depends on ARCH_MSM && I2C_MSM_V2
