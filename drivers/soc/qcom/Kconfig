@@ -263,4 +263,14 @@ config MSM_IPC_ROUTER_MHI_XPRT
 	  registers the transport with IPC Router and enable message
 	  exchange.
 
+config MSM_IPC_ROUTER_GLINK_XPRT
+	depends on MSM_GLINK
+	depends on IPC_ROUTER
+	bool "MSM GLINK XPRT Layer"
+	help
+	  GLINK Transport Layer that enables IPC Router communication within
+	  a System-on-Chip(SoC). When the GLINK channels become available,
+	  this layer registers a transport with IPC Router and enable
+	  message exchange.
+
 endif # ARCH_MSM
