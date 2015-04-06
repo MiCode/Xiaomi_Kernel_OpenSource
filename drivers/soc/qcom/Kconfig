@@ -233,4 +233,14 @@ config MSM_QMI_INTERFACE
 	  to perform QMI message marshaling and transport them over IPC
 	  Router.
 
+config MSM_IPC_ROUTER_SMD_XPRT
+	depends on MSM_SMD
+	depends on IPC_ROUTER
+	bool "MSM SMD XPRT Layer"
+	help
+	  SMD Transport Layer that enables IPC Router communication within
+	  a System-on-Chip(SoC). When the SMD channels become available,
+	  this layer registers a transport with IPC Router and enable
+	  message exchange.
+
 endif # ARCH_MSM
