@@ -3,7 +3,7 @@
  *
  * Copyright (C) 2010 Samsung Electronics Co.Ltd
  * Author: Joonyoung Shim <jy0922.shim@samsung.com>
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute  it and/or modify it
  * under  the terms of  the GNU General  Public License as published by the
@@ -3587,7 +3587,7 @@ static int mxt_probe(struct i2c_client *client,
 	if (error)
 		goto err_configure_gpio;
 
-	if (pdata->create_vkeys) {
+	if (pdata->create_vkeys && client->dev.of_node) {
 		np = client->dev.of_node;
 		for_each_child_of_node(np, child) {
 			if (!mxt_check_child_node_and_create_vkeys(data,
