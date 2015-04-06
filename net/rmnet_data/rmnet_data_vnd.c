@@ -585,6 +585,7 @@ int rmnet_vnd_create_dev(int id, struct net_device **new_device,
 
 	dev = alloc_netdev(sizeof(struct rmnet_vnd_private_s),
 			   dev_prefix,
+			   NET_NAME_ENUM,
 			   rmnet_vnd_setup);
 	if (!dev) {
 		LOGE("Failed to to allocate netdev for id %d", id);
