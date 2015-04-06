@@ -196,7 +196,6 @@ static int msm_csiphy_2phase_lane_config(
 	uint32_t val = 0, lane_enable = 0, clk_lane, mask = 1;
 	uint16_t lane_mask = 0, i = 0, offset;
 	void __iomem *csiphybase;
-	uint32_t arr[4] = {0xD4, 0xCA, 0xCA, 0xCA};
 
 	csiphybase = csiphy_dev->base;
 	lane_mask = csiphy_params->lane_mask & 0x1f;
@@ -259,11 +258,7 @@ static int msm_csiphy_2phase_lane_config(
 		msm_camera_io_w(0xb8, csiphybase +
 			csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_2ph_lnn_ctrl15_addr + offset);
-		/* Understand why different delays*/
-		msm_camera_io_w(arr[i], csiphybase +
-			csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-			mipi_csiphy_2ph_lnn_cfg1_addr + offset);
-		msm_camera_io_w(0x18, csiphybase +
+		msm_camera_io_w(0x8, csiphybase +
 			csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_2ph_lnn_cfg2_addr + offset);
 
@@ -276,9 +271,9 @@ static int msm_csiphy_2phase_lane_config(
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 				mipi_csiphy_2ph_lnn_cfg4_addr + offset);
 		} else {
-			msm_camera_io_w(0x60, csiphybase +
+			msm_camera_io_w(0xCF, csiphybase +
 				csiphy_dev->ctrl_reg->csiphy_3ph_reg.
-				mipi_csiphy_2ph_lnn_test_force + offset);
+				mipi_csiphy_2ph_lnn_cfg1_addr + offset);
 		}
 		msm_camera_io_w(0x52, csiphybase +
 			csiphy_dev->ctrl_reg->csiphy_3ph_reg.
@@ -286,7 +281,7 @@ static int msm_csiphy_2phase_lane_config(
 		msm_camera_io_w(0x1, csiphybase +
 			csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_2ph_lnn_cfg9_addr + offset);
-		msm_camera_io_w(0x7, csiphybase +
+		msm_camera_io_w(0xA, csiphybase +
 			csiphy_dev->ctrl_reg->csiphy_3ph_reg.
 			mipi_csiphy_2ph_lnn_test_imp_addr + offset);
 		mask <<= 1;
