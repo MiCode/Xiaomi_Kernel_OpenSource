@@ -242,6 +242,12 @@ static enum hal_uncompressed_format get_hal_uncompressed(int fourcc)
 	case V4L2_PIX_FMT_NV12_TP10_UBWC:
 		format = HAL_COLOR_FORMAT_NV12_TP10_UBWC;
 		break;
+	case V4L2_PIX_FMT_RGB32:
+		format = HAL_COLOR_FORMAT_RGBA8888;
+		break;
+	case V4L2_PIX_FMT_RGBA8888_UBWC:
+		format = HAL_COLOR_FORMAT_RGBA8888_UBWC;
+		break;
 	default:
 		format = HAL_UNUSED_COLOR;
 		break;

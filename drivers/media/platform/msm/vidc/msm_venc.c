@@ -1078,6 +1078,16 @@ static u32 get_frame_size_nv12_ubwc(int plane, u32 height, u32 width)
 	return VENUS_BUFFER_SIZE(COLOR_FMT_NV12_UBWC, width, height);
 }
 
+static u32 get_frame_size_rgba(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_RGBA8888, width, height);
+}
+
+static u32 get_frame_size_rgba_ubwc(int plane, u32 height, u32 width)
+{
+	return VENUS_BUFFER_SIZE(COLOR_FMT_RGBA8888_UBWC, width, height);
+}
+
 static u32 get_frame_size_nv21(int plane, u32 height, u32 width)
 {
 	return VENUS_BUFFER_SIZE(COLOR_FMT_NV21, width, height);
@@ -1104,6 +1114,22 @@ static struct msm_vidc_format venc_formats[] = {
 		.fourcc = V4L2_PIX_FMT_NV12_UBWC,
 		.num_planes = 1,
 		.get_frame_size = get_frame_size_nv12_ubwc,
+		.type = OUTPUT_PORT,
+	},
+	{
+		.name = "RGBA 8:8:8:8",
+		.description = "RGBA 8:8:8:8",
+		.fourcc = V4L2_PIX_FMT_RGB32,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_rgba,
+		.type = OUTPUT_PORT,
+	},
+	{
+		.name = "UBWC RGBA 8:8:8:8",
+		.description = "UBWC RGBA 8:8:8:8",
+		.fourcc = V4L2_PIX_FMT_RGBA8888_UBWC,
+		.num_planes = 1,
+		.get_frame_size = get_frame_size_rgba_ubwc,
 		.type = OUTPUT_PORT,
 	},
 	{
@@ -2902,7 +2928,7 @@ int msm_venc_inst_init(struct msm_vidc_inst *inst)
 		dprintk(VIDC_ERR, "Invalid input = %p\n", inst);
 		return -EINVAL;
 	}
-	inst->fmts[CAPTURE_PORT] = &venc_formats[2];
+	inst->fmts[CAPTURE_PORT] = &venc_formats[4];
 	inst->fmts[OUTPUT_PORT] = &venc_formats[0];
 	inst->prop.height[CAPTURE_PORT] = DEFAULT_HEIGHT;
 	inst->prop.width[CAPTURE_PORT] = DEFAULT_WIDTH;
