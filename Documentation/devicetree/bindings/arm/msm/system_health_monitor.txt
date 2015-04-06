@@ -1,0 +1,35 @@
+System Health Monitor
+
+[Root level node]
+Required properties:
+-compatible: should be "qcom,system-health-monitor"
+
+[Second level nodes]
+Information about subsystems that are monitored by System Health Monitor.
+Subsystems include modem, adsp, wcnss, external MDM(esoc).
+Required properties:
+-qcom,subsys-name: Name as identified by a subsystem
+-qcom,ssrestart-string:	String used by subsystem restart to identify
+			the subsystem
+
+Example:
+	qcom,system-health-monitor {
+		compatible = "qcom,system-health-monitor";
+
+		qcom,modem {
+			qcom,subsys-name = "msm_mpss";
+			qcom,ssrestart-string = "modem";
+		};
+		qcom,adsp {
+			qcom,subsys-name = "msm_adsp";
+			qcom,ssrestart-string = "adsp";
+		};
+		qcom,wcnss {
+			qcom,subsys-name = "msm_wcnss";
+			qcom,ssrestart-string = "wcnss";
+		};
+		qcom,esoc {
+			qcom,subsystem-name = "mdm";
+			qcom,ssrestart-string = "esoc";
+		};
+	};
