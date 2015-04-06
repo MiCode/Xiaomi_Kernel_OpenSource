@@ -13,7 +13,7 @@
 
 &soc {
 	gdsc_mmagic_bimc: qcom,gdsc@8c529c {
-		compatible = "qcom,gdsc";
+		compatible = "regulator-fixed";
 		regulator-name = "gdsc_mmagic_bimc";
 		reg = <0x8c529c 0x4>;
 		status = "disabled";

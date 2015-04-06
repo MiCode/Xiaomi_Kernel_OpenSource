@@ -83,6 +83,8 @@
 #define clk_aggre1_noc_a_clk		0xc12e4220
 #define clk_aggre2_noc_clk		0xaa681404
 #define clk_aggre2_noc_a_clk		0xcab67089
+#define clk_mmssnoc_axi_clk		0xdb4b31e6
+#define clk_mmssnoc_axi_a_clk		0xd4970614
 
 #define clk_gpll0			0x1ebe3bc4
 #define clk_gpll0_ao			0xa1368304
@@ -300,7 +302,6 @@
 #define clk_mmpll3			0x18c76899
 #define clk_mmpll3_out_main		0x6eb6328f
 #define clk_ahb_clk_src			0x86f49203
-#define clk_axi_clk_src			0x6617efab
 #define clk_mmpll2			0x1190e4d8
 #define clk_mmpll2_out_main		0x1e9e24a8
 #define clk_mmpll8			0xd06ad45e
@@ -421,7 +422,6 @@
 #define clk_mdss_vsync_clk		0x42a022d3
 #define clk_mmss_misc_ahb_clk		0xea30b0e7
 #define clk_mmss_misc_cxo_clk		0xe620cd80
-#define clk_mmagic_bimc_axi_clk		0xfc9d49d8
 #define clk_mmagic_bimc_noc_cfg_ahb_clk 0x12d5ba72
 #define clk_mmagic_camss_axi_clk	0xa8b1c16b
 #define clk_mmagic_camss_noc_cfg_ahb_clk 0x5182c819
@@ -431,8 +431,6 @@
 #define clk_mmagic_video_axi_clk	0x7b9219c3
 #define clk_mmagic_video_noc_cfg_ahb_clk 0x5124d256
 #define clk_mmss_mmagic_ahb_clk		0x3d15f2b0
-#define clk_mmss_mmagic_axi_clk		0x91ae9b77
-#define clk_mmss_s0_axi_clk		0xcbd7b001
 #define clk_mmss_mmagic_maxi_clk	0xbdaf5af7
 #define clk_mmss_rbcpr_ahb_clk		0x623ba55f
 #define clk_mmss_rbcpr_clk		0x69a23a6f

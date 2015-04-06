@@ -3680,17 +3680,26 @@
 };
 
 &gdsc_mmagic_video {
-	parent-supply = <&gdsc_mmagic_bimc>;
+	clock-names = "core_root_clk";
+	/* RPM enables the mmagic bimc GDSC when this clk node is voted for. */
+	clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
+	qcom,enable-root-clk;
 	status = "ok";
 };
 
 &gdsc_mmagic_mdss {
-	parent-supply = <&gdsc_mmagic_bimc>;
+	clock-names = "core_root_clk";
+	/* RPM enables the mmagic bimc GDSC when this clk node is voted for. */
+	clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
+	qcom,enable-root-clk;
 	status = "ok";
 };
 
 &gdsc_mmagic_camss {
-	parent-supply = <&gdsc_mmagic_bimc>;
+	clock-names = "core_root_clk";
+	/* RPM enables the mmagic bimc GDSC when this clk node is voted for. */
+	clocks = <&clock_gcc clk_mmssnoc_axi_clk>;
+	qcom,enable-root-clk;
 	status = "ok";
 };
 

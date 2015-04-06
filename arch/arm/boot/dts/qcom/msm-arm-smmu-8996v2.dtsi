@@ -85,11 +85,11 @@
 		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
 		<&clock_mmss clk_smmu_jpeg_ahb_clk>,
 		<&clock_mmss clk_smmu_jpeg_axi_clk>,
-		<&clock_mmss clk_mmagic_bimc_axi_clk>,
+		<&clock_gcc clk_mmssnoc_axi_clk>,
 		<&clock_mmss clk_mmagic_camss_axi_clk>;
 	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
 		"jpeg_ahb_clk", "jpeg_axi_clk",
-		"mmagic_bimc_axi_clk", "mmagic_camss_axi_clk";
+		"mmssnoc_axi_clk", "mmagic_camss_axi_clk";
 	#clock-cells = <1>;
 };
 
@@ -106,11 +106,11 @@
 		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
 		<&clock_mmss clk_smmu_vfe_ahb_clk>,
 		<&clock_mmss clk_smmu_vfe_axi_clk>,
-		<&clock_mmss clk_mmagic_bimc_axi_clk>,
+		<&clock_gcc clk_mmssnoc_axi_clk>,
 		<&clock_mmss clk_mmagic_camss_axi_clk>;
 	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
 		"vfe_ahb_clk", "vfe_axi_clk",
-		"mmagic_bimc_axi_clk", "mmagic_camss_axi_clk";
+		"mmssnoc_axi_clk", "mmagic_camss_axi_clk";
 	#clock-cells = <1>;
 };
 
@@ -127,11 +127,11 @@
 		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
 		<&clock_mmss clk_smmu_cpp_ahb_clk>,
 		<&clock_mmss clk_smmu_cpp_axi_clk>,
-		<&clock_mmss clk_mmagic_bimc_axi_clk>,
+		<&clock_gcc clk_mmssnoc_axi_clk>,
 		<&clock_mmss clk_mmagic_camss_axi_clk>;
 	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
 		"cpp_ahb_clk", "cpp_axi_clk",
-		"mmagic_bimc_axi_clk", "mmagic_camss_axi_clk";
+		"mmssnoc_axi_clk", "mmagic_camss_axi_clk";
 	#clock-cells = <1>;
 };
 
@@ -148,11 +148,11 @@
 		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
 		<&clock_mmss clk_smmu_video_ahb_clk>,
 		<&clock_mmss clk_smmu_video_axi_clk>,
-		<&clock_mmss clk_mmagic_bimc_axi_clk>,
+		<&clock_gcc clk_mmssnoc_axi_clk>,
 		<&clock_mmss clk_mmagic_video_axi_clk>;
 	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
 		"video_ahb_clk", "video_axi_clk",
-		"mmagic_bimc_axi_clk", "mmagic_video_axi_clk";
+		"mmssnoc_axi_clk", "mmagic_video_axi_clk";
 	#clock-cells = <1>;
 };
 
@@ -169,11 +169,11 @@
 		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
 		<&clock_mmss clk_smmu_mdp_ahb_clk>,
 		<&clock_mmss clk_smmu_mdp_axi_clk>,
-		<&clock_mmss clk_mmagic_bimc_axi_clk>,
+		<&clock_gcc clk_mmssnoc_axi_clk>,
 		<&clock_mmss clk_mmagic_mdss_axi_clk>;
 	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
 		"mdp_ahb_clk", "mdp_axi_clk",
-		"mmagic_bimc_axi_clk", "mmagic_mdss_axi_clk";
+		"mmssnoc_axi_clk", "mmagic_mdss_axi_clk";
 	#clock-cells = <1>;
 };
 
@@ -188,11 +188,11 @@
 		<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
 		<&clock_mmss clk_smmu_rot_ahb_clk>,
 		<&clock_mmss clk_smmu_rot_axi_clk>,
-		<&clock_mmss clk_mmagic_bimc_axi_clk>,
+		<&clock_gcc clk_mmssnoc_axi_clk>,
 		<&clock_mmss clk_mmagic_mdss_axi_clk>;
 	clock-names = "mmagic_ahb_clk", "mmagic_cfg_ahb_clk",
 		"rot_ahb_clk", "rot_axi_clk",
-		"mmagic_bimc_axi_clk", "mmagic_mdss_axi_clk";
+		"mmssnoc_axi_clk", "mmagic_mdss_axi_clk";
 	#clock-cells = <1>;
 };
 &kgsl_smmu {

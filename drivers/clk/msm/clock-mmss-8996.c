@@ -219,40 +219,6 @@ static struct rcg_clk ahb_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_axi_clk_src[] = {
-	F_MM(  75000000,  mmsscc_gpll0_div,    4,    0,     0),
-	F_MM( 171430000,      mmsscc_gpll0,  3.5,    0,     0),
-	F_MM( 200000000,      mmsscc_gpll0,    3,    0,     0),
-	F_MM( 320000000,   mmpll0_out_main,  2.5,    0,     0),
-	F_MM( 370000000,   mmpll1_out_main,    2,    0,     0),
-	F_END
-};
-
-static struct clk_freq_tbl ftbl_axi_clk_src_v2[] = {
-	F_MM(  75000000, mmsscc_gpll0_div,    4,    0,     0),
-	F_MM( 100000000,     mmsscc_gpll0,    6,    0,     0),
-	F_MM( 200000000,     mmsscc_gpll0,    3,    0,     0),
-	F_MM( 320000000,  mmpll0_out_main,  2.5,    0,     0),
-	F_MM( 400000000,  mmpll0_out_main,    2,    0,     0),
-	F_END
-};
-
-static struct rcg_clk axi_clk_src = {
-	.cmd_rcgr_reg = MMSS_AXI_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_axi_clk_src,
-	.current_freq = &rcg_dummy_freq,
-	.non_local_children = true,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "axi_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP4(LOWER, 75000000, LOW, 171430000,
-					NOMINAL, 320000000, HIGH, 370000000),
-		CLK_INIT(axi_clk_src.c),
-	},
-};
-
 static struct alpha_pll_clk mmpll2 = {
 	.masks = &pll_masks_p,
 	.base = &virt_base,
@@ -1647,7 +1613,6 @@ static struct branch_clk camss_cpp_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "camss_cpp_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(camss_cpp_axi_clk.c),
 	},
@@ -2038,7 +2003,6 @@ static struct branch_clk camss_jpeg_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "camss_jpeg_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(camss_jpeg_axi_clk.c),
 	},
@@ -2180,7 +2144,6 @@ static struct branch_clk camss_vfe_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "camss_vfe_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(camss_vfe_axi_clk.c),
 	},
@@ -2373,7 +2336,6 @@ static struct branch_clk mdss_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mdss_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mdss_axi_clk.c),
 	},
@@ -2539,18 +2501,6 @@ static struct branch_clk mmss_misc_cxo_clk = {
 	},
 };
 
-static struct branch_clk mmagic_bimc_axi_clk = {
-	.cbcr_reg = MMSS_MMAGIC_BIMC_AXI_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "mmagic_bimc_axi_clk",
-		.parent = &axi_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmagic_bimc_axi_clk.c),
-	},
-};
-
 static struct branch_clk mmagic_bimc_noc_cfg_ahb_clk = {
 	.cbcr_reg = MMSS_MMAGIC_BIMC_NOC_CFG_AHB_CBCR,
 	.has_sibling = 1,
@@ -2568,7 +2518,6 @@ static struct branch_clk mmagic_camss_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mmagic_camss_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmagic_camss_axi_clk.c),
 	},
@@ -2606,7 +2555,6 @@ static struct branch_clk mmagic_mdss_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mmagic_mdss_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmagic_mdss_axi_clk.c),
 	},
@@ -2629,7 +2577,6 @@ static struct branch_clk mmagic_video_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mmagic_video_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmagic_video_axi_clk.c),
 	},
@@ -2643,31 +2590,6 @@ static struct branch_clk mmagic_video_noc_cfg_ahb_clk = {
 		.dbg_name = "mmagic_video_noc_cfg_ahb_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(mmagic_video_noc_cfg_ahb_clk.c),
-	},
-};
-
-static struct branch_clk mmss_mmagic_axi_clk = {
-	.cbcr_reg = MMSS_MMSS_MMAGIC_AXI_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "mmss_mmagic_axi_clk",
-		.parent = &axi_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(mmss_mmagic_axi_clk.c),
-	},
-};
-
-static struct branch_clk mmss_s0_axi_clk = {
-	.cbcr_reg = MMSS_MMSS_S0_AXI_CBCR,
-	.has_sibling = 0,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "mmss_s0_axi_clk",
-		.parent = &axi_clk_src.c,
-		.ops = &clk_ops_branch,
-		.depends = &mmss_mmagic_axi_clk.c,
-		CLK_INIT(mmss_s0_axi_clk.c),
 	},
 };
 
@@ -2731,7 +2653,6 @@ static struct branch_clk smmu_cpp_axi_clk = {
 	.no_halt_check_on_disable = true,
 	.c = {
 		.dbg_name = "smmu_cpp_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(smmu_cpp_axi_clk.c),
 	},
@@ -2760,7 +2681,6 @@ static struct branch_clk smmu_jpeg_axi_clk = {
 	.no_halt_check_on_disable = true,
 	.c = {
 		.dbg_name = "smmu_jpeg_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(smmu_jpeg_axi_clk.c),
 	},
@@ -2789,7 +2709,6 @@ static struct branch_clk smmu_mdp_axi_clk = {
 	.no_halt_check_on_disable = true,
 	.c = {
 		.dbg_name = "smmu_mdp_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(smmu_mdp_axi_clk.c),
 	},
@@ -2818,7 +2737,6 @@ static struct branch_clk smmu_rot_axi_clk = {
 	.no_halt_check_on_disable = true,
 	.c = {
 		.dbg_name = "smmu_rot_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(smmu_rot_axi_clk.c),
 	},
@@ -2847,7 +2765,6 @@ static struct branch_clk smmu_vfe_axi_clk = {
 	.no_halt_check_on_disable = true,
 	.c = {
 		.dbg_name = "smmu_vfe_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(smmu_vfe_axi_clk.c),
 	},
@@ -2876,7 +2793,6 @@ static struct branch_clk smmu_video_axi_clk = {
 	.no_halt_check_on_disable = true,
 	.c = {
 		.dbg_name = "smmu_video_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(smmu_video_axi_clk.c),
 	},
@@ -2901,7 +2817,6 @@ static struct branch_clk video_axi_clk = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "video_axi_clk",
-		.parent = &axi_clk_src.c,
 		.ops = &clk_ops_branch,
 		CLK_INIT(video_axi_clk.c),
 	},
@@ -2991,8 +2906,6 @@ static struct mux_clk mmss_gcc_dbg_clk = {
 	MUX_SRC_LIST(
 		{ &mmss_mmagic_ahb_clk.c, 0x0001 },
 		{ &mmss_misc_ahb_clk.c, 0x0003 },
-		{ &mmss_mmagic_axi_clk.c, 0x0004 },
-		{ &mmss_s0_axi_clk.c, 0x0005 },
 		{ &vmem_maxi_clk.c, 0x0009 },
 		{ &vmem_ahb_clk.c, 0x000a },
 		{ &video_core_clk.c, 0x000e },
@@ -3094,7 +3007,6 @@ static struct mux_clk mmss_gcc_dbg_clk = {
 		{ &smmu_video_ahb_clk.c, 0x00a0 },
 		{ &smmu_video_axi_clk.c, 0x00a1 },
 		{ &mmagic_video_axi_clk.c, 0x00a2 },
-		{ &mmagic_bimc_axi_clk.c, 0x00a3 },
 		{ &mmagic_camss_noc_cfg_ahb_clk.c, 0x00ad },
 		{ &mmagic_mdss_noc_cfg_ahb_clk.c, 0x00ae },
 		{ &mmagic_video_noc_cfg_ahb_clk.c, 0x00af },
@@ -3121,7 +3033,6 @@ static struct clk_lookup msm_clocks_mmss_8996[] = {
 	CLK_LIST(mmpll3),
 	CLK_LIST(mmpll3_out_main),
 	CLK_LIST(ahb_clk_src),
-	CLK_LIST(axi_clk_src),
 	CLK_LIST(mmpll2),
 	CLK_LIST(mmpll2_out_main),
 	CLK_LIST(mmpll8),
@@ -3247,7 +3158,6 @@ static struct clk_lookup msm_clocks_mmss_8996[] = {
 	CLK_LIST(mdss_vsync_clk),
 	CLK_LIST(mmss_misc_ahb_clk),
 	CLK_LIST(mmss_misc_cxo_clk),
-	CLK_LIST(mmagic_bimc_axi_clk),
 	CLK_LIST(mmagic_bimc_noc_cfg_ahb_clk),
 	CLK_LIST(mmagic_camss_axi_clk),
 	CLK_LIST(mmagic_camss_noc_cfg_ahb_clk),
@@ -3257,8 +3167,6 @@ static struct clk_lookup msm_clocks_mmss_8996[] = {
 	CLK_LIST(mmagic_video_axi_clk),
 	CLK_LIST(mmagic_video_noc_cfg_ahb_clk),
 	CLK_LIST(mmss_mmagic_ahb_clk),
-	CLK_LIST(mmss_mmagic_axi_clk),
-	CLK_LIST(mmss_s0_axi_clk),
 	CLK_LIST(mmss_mmagic_maxi_clk),
 	CLK_LIST(mmss_rbcpr_ahb_clk),
 	CLK_LIST(mmss_rbcpr_clk),
@@ -3365,8 +3273,6 @@ static void msm_mmsscc_8996_v2_fixup(void)
 	mdp_clk_src.c.fmax[VDD_DIG_NOMINAL] = 330000000;
 	mdp_clk_src.c.fmax[VDD_DIG_HIGH] = 412500000;
 
-	axi_clk_src.freq_tbl = ftbl_axi_clk_src_v2;
-	axi_clk_src.c.fmax[VDD_DIG_HIGH] = 405000000;
 	maxi_clk_src.freq_tbl = ftbl_maxi_clk_src_v2;
 	maxi_clk_src.c.fmax[VDD_DIG_HIGH] = 405000000;
 
