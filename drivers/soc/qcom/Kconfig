@@ -223,4 +223,14 @@ config MSM_SMP2P_TEST
 	  are used to verify the local and remote
 	  implementations.
 
+config MSM_QMI_INTERFACE
+	depends on IPC_ROUTER
+	depends on QMI_ENCDEC
+	bool "MSM QMI Interface Library"
+	help
+	  Library to send and receive QMI messages over IPC Router.
+	  This library provides interface functions to the kernel drivers
+	  to perform QMI message marshaling and transport them over IPC
+	  Router.
+
 endif # ARCH_MSM
