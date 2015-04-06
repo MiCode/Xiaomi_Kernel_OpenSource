@@ -1881,10 +1881,6 @@ static int _wake(struct kgsl_device *device)
 		mod_timer(&device->idle_timer, jiffies +
 				device->pwrctrl.interval_timeout);
 		break;
-	case KGSL_STATE_INIT:
-		kgsl_pwrctrl_set_state(device, KGSL_STATE_ACTIVE);
-		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
-		break;
 	default:
 		KGSL_PWR_WARN(device, "unhandled state %s\n",
 				kgsl_pwrstate_to_str(device->state));
@@ -2036,8 +2032,9 @@ _slumber(struct kgsl_device *device)
 		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
 		break;
 	case KGSL_STATE_AWARE:
-		KGSL_PWR_WARN(device,
-			"transition AWARE -> SLUMBER is not permitted\n");
+		kgsl_pwrctrl_disable(device);
+		kgsl_pwrctrl_set_state(device, KGSL_STATE_SLUMBER);
+		break;
 	default:
 		kgsl_pwrctrl_request_state(device, KGSL_STATE_NONE);
 		break;
@@ -2056,7 +2053,8 @@ int _suspend(struct kgsl_device *device)
 {
 	int ret = 0;
 
-	if (KGSL_STATE_NONE == device->state)
+	if ((KGSL_STATE_NONE == device->state) ||
+			(KGSL_STATE_INIT == device->state))
 		return ret;
 
 	/* drain to prevent from more commands being submitted */
