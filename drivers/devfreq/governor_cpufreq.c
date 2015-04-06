@@ -15,6 +15,7 @@
 
 #include <linux/devfreq.h>
 #include <linux/cpu.h>
+#include <linux/cpufreq.h>
 #include <linux/cpumask.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
