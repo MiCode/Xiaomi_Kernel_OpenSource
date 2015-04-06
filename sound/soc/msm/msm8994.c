@@ -377,7 +377,7 @@ static int msm8994_liquid_dock_notify_handler(struct notifier_block *this,
 		if (ret < 0) {
 			pr_err("%s: Request Irq Failed err = %d\n",
 				__func__, ret);
-			goto fail_dock_gpio;
+			goto fail_gpio_irq;
 		}
 
 		switch_set_state(&msm8994_liquid_dock_dev->audio_sdev,
@@ -395,9 +395,11 @@ static int msm8994_liquid_dock_notify_handler(struct notifier_block *this,
 	}
 	return NOTIFY_OK;
 
-fail_dock_gpio:
-	gpio_free(msm8994_liquid_dock_dev->plug_gpio);
+fail_gpio_irq:
+	if (msm8994_liquid_dock_dev->plug_gpio)
+		gpio_free(msm8994_liquid_dock_dev->plug_gpio);
 
+fail_dock_gpio:
 	return NOTIFY_DONE;
 }
 
