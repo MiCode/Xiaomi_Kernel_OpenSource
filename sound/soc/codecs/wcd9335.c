@@ -2018,6 +2018,37 @@ static int tasha_codec_ear_dac_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int tasha_codec_spk_boost_event(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol,
+				int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	u16 boost_path_ctl, boost_path_cfg1;
+
+	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
+
+	if (!strcmp(w->name, "RX INT7 CHAIN")) {
+		boost_path_ctl = WCD9335_CDC_BOOST0_BOOST_PATH_CTL;
+		boost_path_cfg1 = WCD9335_CDC_RX7_RX_PATH_CFG1;
+	} else if (!strcmp(w->name, "RX INT8 CHAIN")) {
+		boost_path_ctl = WCD9335_CDC_BOOST1_BOOST_PATH_CTL;
+		boost_path_cfg1 = WCD9335_CDC_RX8_RX_PATH_CFG1;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		snd_soc_update_bits(codec, boost_path_ctl, 0x10, 0x10);
+		snd_soc_update_bits(codec, boost_path_cfg1, 0x01, 0x01);
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		snd_soc_update_bits(codec, boost_path_cfg1, 0x01, 0x00);
+		snd_soc_update_bits(codec, boost_path_ctl, 0x10, 0x00);
+		break;
+	};
+
+	return 0;
+}
+
 static u16 tasha_interp_get_primary_reg(u16 reg, u16 *ind)
 {
 	u16 prim_int_reg;
@@ -5618,8 +5649,12 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX INT5 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT6 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT7 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT8 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER_E("RX INT7 CHAIN", SND_SOC_NOPM, 0, 0,
+			NULL, 0, tasha_codec_spk_boost_event,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MIXER_E("RX INT8 CHAIN", SND_SOC_NOPM, 0, 0,
+			NULL, 0, tasha_codec_spk_boost_event,
+			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("RX INT0 MIX2 INP", SND_SOC_NOPM, 0, 0,
 		&rx_int0_mix2_inp_mux),
@@ -6783,6 +6818,8 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CDC_RX6_RX_PATH_SEC0, 0xF8, 0xF8},
 	{WCD9335_RX_OCP_COUNT, 0xFF, 0xFF},
 	{WCD9335_HPH_OCP_CTL, 0xF0, 0x70},
+	{WCD9335_CDC_BOOST0_BOOST_CTL, 0x70, 0x40},
+	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x70, 0x40},
 };
 
 static void tasha_codec_init_reg(struct snd_soc_codec *codec)
