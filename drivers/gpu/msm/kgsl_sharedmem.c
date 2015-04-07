@@ -623,7 +623,7 @@ _kgsl_sharedmem_page_alloc(struct kgsl_memdesc *memdesc,
 	 * larger however to accomodate hardware quirks
 	 */
 
-	if (ilog2(align) < page_size)
+	if (align < ilog2(page_size))
 		kgsl_memdesc_set_align(memdesc, ilog2(page_size));
 
 	if (size > SIZE_MAX)
