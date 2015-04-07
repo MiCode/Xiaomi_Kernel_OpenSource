@@ -2660,6 +2660,10 @@ static int usbin_ov_handler(struct smb135x_chg *chip, u8 rt_stat)
 		/* USB removed */
 		chip->usb_present = usb_present;
 		handle_usb_removal(chip);
+	} else if (!chip->usb_present && usb_present) {
+		/* USB inserted */
+		chip->usb_present = usb_present;
+		handle_usb_insertion(chip);
 	}
 
 	if (chip->usb_psy) {
