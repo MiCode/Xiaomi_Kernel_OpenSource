@@ -2909,6 +2909,7 @@
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <1>;
 		qcom,ce-device = <0>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -2936,6 +2937,7 @@
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <2>;
 		qcom,ce-device = <0>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -2963,6 +2965,7 @@
 		qcom,bam-pipe-pair = <0>;
 		qcom,ce-hw-instance = <1>;
 		qcom,ce-device = <1>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -2990,6 +2993,7 @@
 		qcom,bam-pipe-pair = <0>;
 		qcom,ce-hw-instance = <2>;
 		qcom,ce-device = <1>;
+		qcom,clk-mgmt-sus-res;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
