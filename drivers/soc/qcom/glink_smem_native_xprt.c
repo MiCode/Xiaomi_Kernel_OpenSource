@@ -871,6 +871,7 @@ static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 								rcid,
 								name,
 								SMEM_XPRT_ID);
+			kfree(name);
 			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case CLOSE_CMD:
