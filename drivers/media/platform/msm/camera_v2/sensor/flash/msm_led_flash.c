@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,8 +40,7 @@ static long msm_led_flash_subdev_ioctl(struct v4l2_subdev *sd,
 	case VIDIOC_MSM_FLASH_LED_DATA_CFG:
 		return fctrl->func_tbl->flash_led_config(fctrl, argp);
 	case MSM_SD_SHUTDOWN:
-		*(int *)argp = MSM_CAMERA_LED_RELEASE;
-		return fctrl->func_tbl->flash_led_config(fctrl, argp);
+		return fctrl->func_tbl->flash_led_release(fctrl);
 	default:
 		pr_err_ratelimited("invalid cmd %d\n", cmd);
 		return -ENOIOCTLCMD;
