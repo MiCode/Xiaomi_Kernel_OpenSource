@@ -176,6 +176,7 @@ struct msm_vfe_camif_cfg {
 	uint32_t last_line;
 	uint32_t epoch_line0;
 	uint32_t epoch_line1;
+	uint32_t is_split;
 	enum msm_vfe_camif_input camif_input;
 	struct msm_vfe_camif_subsample_cfg subsample_cfg;
 };

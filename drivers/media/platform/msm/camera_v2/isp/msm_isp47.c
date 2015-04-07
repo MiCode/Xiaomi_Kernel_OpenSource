@@ -1117,6 +1117,8 @@ static void msm_vfe47_cfg_camif(struct vfe_device *vfe_dev,
 	else
 		bus_sub_en = 0;
 
+	vfe_dev->dual_vfe_enable = camif_cfg->is_split;
+
 	msm_camera_io_w(pix_cfg->input_mux << 5 | pix_cfg->pixel_pattern,
 		vfe_dev->vfe_base + 0x50);
 
@@ -2112,6 +2114,7 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 	.num_iommu_ctx = 1,
 	.num_iommu_secure_ctx = 0,
 	.vfe_clk_idx = VFE47_SRC_CLK_DTSI_IDX,
+	.runtime_axi_update = 1,
 	.vfe_ops = {
 		.irq_ops = {
 			.read_irq_status = msm_vfe47_read_irq_status,

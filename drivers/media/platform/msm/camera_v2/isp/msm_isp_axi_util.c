@@ -2038,7 +2038,10 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 					update_info->plane_cfg[j];
 			}
 			stream_info->output_format = update_info->output_format;
-			if (stream_info->state == ACTIVE) {
+			if ((stream_info->state == ACTIVE) &&
+				((vfe_dev->hw_info->runtime_axi_update == 0) ||
+				(vfe_dev->dual_vfe_enable == 1)))  {
+				spin_lock_irqsave(&stream_info->lock, flags);
 				stream_info->state = PAUSE_PENDING;
 				msm_isp_axi_stream_enable_cfg(
 					vfe_dev, stream_info);
@@ -2047,12 +2050,27 @@ int msm_isp_update_axi_stream(struct vfe_device *vfe_dev, void *arg)
 					axi_cfg_update[SRC_TO_INTF(
 					stream_info->stream_src)],
 					UPDATE_REQUESTED);
+				spin_unlock_irqrestore(&stream_info->lock,
+					flags);
 			} else {
-				for (j = 0; j < stream_info->num_planes; j++)
+				for (j = 0; j < stream_info->num_planes; j++) {
 					vfe_dev->hw_info->vfe_ops.axi_ops.
 					cfg_wm_reg(vfe_dev, stream_info, j);
-				stream_info->runtime_output_format =
-					stream_info->output_format;
+				}
+
+				spin_lock_irqsave(&stream_info->lock, flags);
+				if (stream_info->state != ACTIVE) {
+					stream_info->runtime_output_format =
+						stream_info->output_format;
+				} else {
+					stream_info->state = RESUMING;
+					atomic_set(&axi_data->
+						axi_cfg_update[SRC_TO_INTF(
+						stream_info->stream_src)],
+						APPLYING_UPDATE_RESUME);
+				}
+				spin_unlock_irqrestore(&stream_info->lock,
+					flags);
 			}
 			break;
 		}

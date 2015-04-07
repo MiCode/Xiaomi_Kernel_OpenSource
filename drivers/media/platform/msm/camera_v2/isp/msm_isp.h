@@ -245,6 +245,7 @@ struct msm_vfe_hardware_info {
 	/* secure iommu ctx nums */
 	int num_iommu_secure_ctx;
 	int vfe_clk_idx;
+	int runtime_axi_update;
 	struct msm_vfe_ops vfe_ops;
 	struct msm_vfe_axi_hardware_info *axi_hw_info;
 	struct msm_vfe_stats_hardware_info *stats_hw_info;
@@ -599,6 +600,7 @@ struct vfe_device {
 		tasklet_queue_cmd[MSM_VFE_TASKLETQ_SIZE];
 
 	uint32_t vfe_hw_version;
+	uint32_t dual_vfe_enable;
 	struct msm_vfe_hardware_info *hw_info;
 	struct msm_vfe_axi_shared_data axi_data;
 	struct msm_vfe_stats_shared_data stats_data;
