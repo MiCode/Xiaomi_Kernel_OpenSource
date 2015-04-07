@@ -1519,13 +1519,16 @@ static void btusb_disconnect(struct usb_interface *intf)
 	if (!data)
 		return;
 
+	/* clear flags so that no more URBs can be submitted */
+	hdev = data->hdev;
+	clear_bit(HCI_RUNNING, &hdev->flags);
+
 	/* kill all the anchored urbs on USB disconnect */
 	usb_kill_anchored_urbs(&data->intr_anchor);
 	usb_kill_anchored_urbs(&data->bulk_anchor);
 	usb_kill_anchored_urbs(&data->isoc_anchor);
 	usb_kill_anchored_urbs(&data->tx_anchor);
 
-	hdev = data->hdev;
 	usb_set_intfdata(data->intf, NULL);
 
 	if (data->isoc)
@@ -1575,13 +1578,14 @@ static void play_deferred(struct btusb_data *data)
 	int err;
 
 	while ((urb = usb_get_from_anchor(&data->deferred))) {
+		usb_unanchor_urb(urb);
+		usb_anchor_urb(urb, &data->tx_anchor);
 		err = usb_submit_urb(urb, GFP_ATOMIC);
 		if (err < 0)
 			break;
 
 		data->tx_in_flight++;
 	}
-	usb_scuttle_anchored_urbs(&data->deferred);
 }
 
 static int btusb_resume(struct usb_interface *intf)
