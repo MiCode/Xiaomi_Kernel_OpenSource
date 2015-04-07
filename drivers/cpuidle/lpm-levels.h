@@ -15,6 +15,8 @@
 
 #define NR_LPM_LEVELS 8
 
+extern bool use_psci;
+
 struct lpm_lookup_table {
 	uint32_t modes;
 	const char *mode_name;
@@ -32,11 +34,15 @@ struct lpm_cpu_level {
 	enum msm_pm_sleep_mode mode;
 	bool use_bc_timer;
 	struct power_params pwr;
+	unsigned int psci_id;
+	bool is_reset;
 };
 
 struct lpm_cpu {
 	struct lpm_cpu_level levels[NR_LPM_LEVELS];
 	int nlevels;
+	unsigned int psci_mode_shift;
+	unsigned int psci_mode_mask;
 	struct lpm_cluster *parent;
 };
 
@@ -59,6 +65,8 @@ struct lpm_cluster_level {
 	bool sync_level;
 	bool last_core_only;
 	struct lpm_level_avail available;
+	unsigned int psci_id;
+	bool is_reset;
 };
 
 struct low_power_ops {
@@ -88,6 +96,8 @@ struct lpm_cluster {
 	struct cpumask num_childs_in_sync;
 	struct lpm_cluster *parent;
 	struct lpm_stats *stats;
+	unsigned int psci_mode_shift;
+	unsigned int psci_mode_mask;
 	bool no_saw_devices;
 };
 

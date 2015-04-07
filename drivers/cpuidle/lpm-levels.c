@@ -42,6 +42,7 @@
 #include <asm/cputype.h>
 #include <asm/arch_timer.h>
 #include <asm/cacheflush.h>
+#include <asm/suspend.h>
 #include "lpm-levels.h"
 #include "lpm-workarounds.h"
 #include <trace/events/power.h>
@@ -50,6 +51,8 @@
 
 #define SCLK_HZ (32768)
 #define SCM_HANDOFF_LOCK_ID "S:7"
+#define PSCI_POWER_STATE(reset) (reset << 30)
+#define PSCI_AFFINITY_LEVEL(lvl) ((lvl & 0x3) << 24)
 static remote_spinlock_t scm_handoff_lock;
 
 enum {
@@ -83,11 +86,12 @@ static struct hrtimer lpm_hrtimer;
 static struct lpm_debug *lpm_debug;
 static phys_addr_t lpm_debug_phys;
 static const int num_dbg_elements = 0x100;
-
 static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 				unsigned long action, void *hcpu);
 
 static void cluster_unprepare(struct lpm_cluster *cluster,
+		const struct cpumask *cpu, int child_idx, bool from_idle);
+static void cluster_prepare(struct lpm_cluster *cluster,
 		const struct cpumask *cpu, int child_idx, bool from_idle);
 
 static struct notifier_block __refdata lpm_cpu_nblk = {
@@ -160,13 +164,17 @@ static int lpm_cpu_callback(struct notifier_block *cpu_nb,
 	struct lpm_cluster *cluster = per_cpu(cpu_cluster, (unsigned int) cpu);
 
 	switch (action & ~CPU_TASKS_FROZEN) {
+	case CPU_DYING:
+		cluster_prepare(cluster, get_cpu_mask((unsigned int) cpu),
+					NR_LPM_LEVELS, false);
+		break;
 	case CPU_STARTING:
 		cluster_unprepare(cluster, get_cpu_mask((unsigned int) cpu),
-				NR_LPM_LEVELS, false);
+					NR_LPM_LEVELS, false);
 		break;
 	case CPU_ONLINE:
 		smp_call_function_single(cpu, setup_broadcast_timer,
-				(void *)true, 1);
+					(void *)true, 1);
 		break;
 	default:
 		break;
@@ -249,6 +257,16 @@ int set_system_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
 	return msm_spm_config_low_power_mode(ops->spm, mode, notify_rpm);
 }
 
+static int set_device_mode(struct low_power_ops *ops, int mode, bool notify_rpm)
+{
+	if (use_psci)
+		return 0;
+	else if (ops && ops->set_mode)
+		return ops->set_mode(ops, mode, notify_rpm);
+	else
+		return -EINVAL;
+}
+
 static int cpu_power_select(struct cpuidle_device *dev,
 		struct lpm_cpu *cpu, int *index)
 {
@@ -287,7 +305,7 @@ static int cpu_power_select(struct cpuidle_device *dev,
 		enum msm_pm_sleep_mode mode = level->mode;
 		bool allow;
 
-		allow = lpm_cpu_mode_allow(dev->cpu, mode, true);
+		allow = lpm_cpu_mode_allow(dev->cpu, i, true);
 
 		if (!allow)
 			continue;
@@ -486,7 +504,7 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 	}
 
 	for (i = 0; i < cluster->ndevices; i++) {
-		ret = cluster->lpm_dev[i].set_mode(&cluster->lpm_dev[i],
+		ret = set_device_mode(&cluster->lpm_dev[i],
 				level->mode[i],
 				level->notify_rpm);
 
@@ -496,8 +514,10 @@ static int cluster_configure(struct lpm_cluster *cluster, int idx,
 		/*
 		 * Notify that the cluster is entering a low power mode
 		 */
-		if (level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE)
+		if ((level->mode[i] == MSM_SPM_MODE_POWER_COLLAPSE) ||
+				level->is_reset) {
 			cpu_cluster_pm_enter(cluster->aff_level);
+		}
 	}
 	if (level->notify_rpm) {
 		struct cpumask nextcpu, *cpumask;
@@ -523,7 +543,7 @@ failed_set_mode:
 	for (i = 0; i < cluster->ndevices; i++) {
 		int rc = 0;
 		level = &cluster->levels[cluster->default_level];
-		rc = cluster->lpm_dev[i].set_mode(&cluster->lpm_dev[i],
+		rc = set_device_mode(&cluster->lpm_dev[i],
 				level->mode[i],
 				level->notify_rpm);
 		BUG_ON(rc);
@@ -639,15 +659,17 @@ static void cluster_unprepare(struct lpm_cluster *cluster,
 
 	for (i = 0; i < cluster->ndevices; i++) {
 		level = &cluster->levels[cluster->default_level];
-		ret = cluster->lpm_dev[i].set_mode(&cluster->lpm_dev[i],
+		ret = set_device_mode(&cluster->lpm_dev[i],
 				level->mode[i],
 				level->notify_rpm);
 
 		BUG_ON(ret);
 
-		if (cluster->levels[last_level].mode[i] ==
-				MSM_SPM_MODE_POWER_COLLAPSE)
+		if ((cluster->levels[last_level].mode[i] ==
+				MSM_SPM_MODE_POWER_COLLAPSE) ||
+				cluster->levels[last_level].is_reset) {
 			cpu_cluster_pm_exit(cluster->aff_level);
+		}
 	}
 unlock_return:
 	spin_unlock(&cluster->sync_lock);
@@ -677,7 +699,8 @@ static inline void cpu_prepare(struct lpm_cluster *cluster, int cpu_index,
 
 	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
 		|| (cpu_level->mode ==
-			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)))
+			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)
+			|| (cpu_level->is_reset)))
 		cpu_pm_enter();
 }
 
@@ -693,9 +716,64 @@ static inline void cpu_unprepare(struct lpm_cluster *cluster, int cpu_index,
 
 	if (from_idle && ((cpu_level->mode == MSM_PM_SLEEP_MODE_POWER_COLLAPSE)
 		|| (cpu_level->mode ==
-			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)))
+			MSM_PM_SLEEP_MODE_POWER_COLLAPSE_STANDALONE)
+		|| cpu_level->is_reset))
 		cpu_pm_exit();
 }
+
+int get_cluster_id(struct lpm_cluster *cluster, int *aff_lvl)
+{
+	int state_id = 0;
+
+	if (!cluster)
+		return 0;
+
+	spin_lock(&cluster->sync_lock);
+
+	if (!cpumask_equal(&cluster->num_childs_in_sync,
+				&cluster->child_cpus))
+		goto unlock_and_return;
+
+	state_id |= get_cluster_id(cluster->parent, aff_lvl);
+
+	if (cluster->last_level != cluster->default_level) {
+		struct lpm_cluster_level *level
+			= &cluster->levels[cluster->last_level];
+
+		state_id |= (level->psci_id & cluster->psci_mode_mask)
+					<< cluster->psci_mode_shift;
+		(*aff_lvl)++;
+	}
+unlock_and_return:
+	spin_unlock(&cluster->sync_lock);
+	return state_id;
+}
+
+#if !defined(CONFIG_CPU_V7)
+bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
+{
+	int affinity_level = 0;
+	int state_id = get_cluster_id(cluster, &affinity_level);
+	int power_state = PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
+
+	affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
+	if (!idx) {
+		wfi();
+		return 1;
+	} else {
+		state_id |= (power_state | affinity_level
+			| cluster->cpu->levels[idx].psci_id);
+	}
+
+	return !cpu_suspend(state_id);
+}
+#else
+bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
+{
+	WARN_ONCE(true, "PSCI cpu_suspend ops not supported on V7\n");
+	return false;
+}
+#endif
 
 static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 		struct cpuidle_driver *drv, int index)
@@ -731,8 +809,12 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	if (idx > 0)
 		update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed, 0xdeaffeed,
 					true);
-	success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
-						true);
+	if (!use_psci)
+		success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
+				true);
+	else
+		success = psci_enter_sleep(cluster, idx, true);
+
 	if (idx > 0)
 		update_debug_pc_event(CPU_EXIT, idx, success, 0xdeaffeed,
 					true);
@@ -937,9 +1019,8 @@ static int lpm_suspend_enter(suspend_state_t state)
 	int idx;
 
 	for (idx = lpm_cpu->nlevels - 1; idx >= 0; idx--) {
-		struct lpm_cpu_level *level = &lpm_cpu->levels[idx];
 
-		if (lpm_cpu_mode_allow(cpu, level->mode, false))
+		if (lpm_cpu_mode_allow(cpu, idx, false))
 			break;
 	}
 	if (idx < 0) {
@@ -951,7 +1032,11 @@ static int lpm_suspend_enter(suspend_state_t state)
 	if (idx > 0)
 		update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed,
 					0xdeaffeed, false);
-	msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode, false);
+	if (!use_psci)
+		msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode, false);
+	else
+		psci_enter_sleep(cluster, idx, true);
+
 	if (idx > 0)
 		update_debug_pc_event(CPU_EXIT, idx, true, 0xdeaffeed,
 					false);
@@ -1111,7 +1196,6 @@ unlock_and_return:
 	trace_pre_pc_cb(retflag);
 	remote_spin_lock_rlock_id(&scm_handoff_lock,
 				  REMOTE_SPINLOCK_TID_START + cpu);
-
 	spin_unlock(&cluster->sync_lock);
 	return retflag;
 }
