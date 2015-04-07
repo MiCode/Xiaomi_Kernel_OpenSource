@@ -308,6 +308,58 @@ static void psci_sys_poweroff(void)
  * PSCI Function IDs for v0.2+ are well defined so use
  * standard values.
  */
+static int __init psci_1_0_init(struct device_node *np)
+{
+	int err, ver;
+
+	err = get_set_conduit_method(np);
+
+	if (err)
+		goto out_put_node;
+
+	ver = psci_get_version();
+
+	if (ver == PSCI_RET_NOT_SUPPORTED) {
+		/* PSCI v1.0 mandates implementation of PSCI_ID_VERSION. */
+		pr_err("PSCI firmware does not comply with the v1.0 spec.\n");
+		err = -EOPNOTSUPP;
+		goto out_put_node;
+	} else {
+		pr_info("PSCIv%d.%d detected in firmware.\n",
+				PSCI_VERSION_MAJOR(ver),
+				PSCI_VERSION_MINOR(ver));
+		if (PSCI_VERSION_MAJOR(ver) != 1) {
+			err = -EINVAL;
+			pr_err("Conflicting PSCI version detected.\n");
+			goto out_put_node;
+		}
+	}
+
+	pr_info("Using standard PSCI v0.2 function IDs\n");
+	psci_function_id[PSCI_FN_CPU_SUSPEND] = PSCI_0_2_FN64_CPU_SUSPEND;
+	psci_ops.cpu_suspend = psci_cpu_suspend;
+
+	psci_function_id[PSCI_FN_CPU_OFF] = PSCI_0_2_FN_CPU_OFF;
+	psci_ops.cpu_off = psci_cpu_off;
+
+	psci_function_id[PSCI_FN_CPU_ON] = PSCI_0_2_FN64_CPU_ON;
+	psci_ops.cpu_on = psci_cpu_on;
+
+	psci_function_id[PSCI_FN_MIGRATE] = PSCI_0_2_FN64_MIGRATE;
+	psci_ops.migrate = psci_migrate;
+
+	psci_function_id[PSCI_FN_AFFINITY_INFO] = PSCI_0_2_FN64_AFFINITY_INFO;
+	psci_ops.affinity_info = psci_affinity_info;
+
+	psci_function_id[PSCI_FN_MIGRATE_INFO_TYPE] =
+		PSCI_0_2_FN_MIGRATE_INFO_TYPE;
+	psci_ops.migrate_info_type = psci_migrate_info_type;
+
+out_put_node:
+	of_node_put(np);
+	return err;
+}
+
 static int __init psci_0_2_init(struct device_node *np)
 {
 	int err, ver;
@@ -409,6 +461,7 @@ out_put_node:
 static const struct of_device_id psci_of_match[] __initconst = {
 	{ .compatible = "arm,psci",	.data = psci_0_1_init},
 	{ .compatible = "arm,psci-0.2",	.data = psci_0_2_init},
+	{ .compatible = "arm,psci-1.0", .data = psci_1_0_init},
 	{},
 };
 
