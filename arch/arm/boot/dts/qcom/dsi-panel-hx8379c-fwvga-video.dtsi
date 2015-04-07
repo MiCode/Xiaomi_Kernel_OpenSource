@@ -41,10 +41,12 @@
 		qcom,mdss-dsi-color-order = <0>;
 		qcom,mdss-dsi-underflow-color = <0xff>;
 		qcom,mdss-dsi-border-color = <0>;
+		qcom,ulps-enabled;
 		qcom,mdss-dsi-on-command = [39 01 00 00 00 00 04 B9 FF 83 79
 				39 01 00 00 00 00 11 B1 44 1C 1C 31 31 50 D0 EE 54 80 38 38 F8 32 22 22
-				39 01 00 00 00 00 0A B2 80 FE 0B 04 00 50 11 42 1D
+				39 01 00 00 00 00 0A B2 80 FE 0B 04 00 50 11 42 15
 				39 01 00 00 00 00 0B B4 69 6A 69 6A 69 6A 22 70 23 70
+				39 01 00 00 00 00 0B BA 41 83 A8 4D B2 24 00 00 50 90
 				39 01 00 00 00 00 05 C7 00 00 00 C0
 				39 01 00 00 00 00 02 CC 02
 				39 01 00 00 00 00 02 D2 77
