@@ -51,7 +51,7 @@ struct dwc3_otg {
 	struct dwc3_ext_xceiv	*ext_xceiv;
 #define ID		 0
 #define B_SESS_VLD	 1
-#define DWC3_OTG_SUSPEND 2
+#define B_SUSPEND	2
 	unsigned long inputs;
 	struct power_supply	*psy;
 	struct completion	dwc3_xcvr_vbus_init;
@@ -108,6 +108,7 @@ enum dwc3_id_state {
 struct dwc3_ext_xceiv {
 	enum dwc3_id_state	id;
 	bool			bsv;
+	bool			suspend;
 
 	/* to notify OTG about LPM exit event, provided by OTG */
 	void	(*notify_ext_events)(struct usb_otg *otg);

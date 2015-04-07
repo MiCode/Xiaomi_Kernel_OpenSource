@@ -234,36 +234,6 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 }
 
 /**
- * dwc3_otg_set_suspend -  Set or clear OTG suspend bit and schedule OTG state machine
- * work.
- *
- * @phy: Pointer to the phy structure.
- * @suspend: 1 - Ask OTG state machine to issue low power mode entry.
- *                 0 - Cancel low-power mode entry request.
- * Returns 0 on success otherwise negative errno.
- */
-static int dwc3_otg_set_suspend(struct usb_phy *phy, int suspend)
-{
-	const unsigned int lpm_after_suspend_delay = 500;
-
-	struct dwc3_otg *dotg = container_of(phy->otg, struct dwc3_otg, otg);
-
-	if (!dotg->dwc->enable_bus_suspend)
-		return 0;
-
-	if (suspend) {
-		set_bit(DWC3_OTG_SUSPEND, &dotg->inputs);
-		queue_delayed_work(system_nrt_wq,
-			&dotg->sm_work,
-			msecs_to_jiffies(lpm_after_suspend_delay));
-	} else {
-		clear_bit(DWC3_OTG_SUSPEND, &dotg->inputs);
-	}
-
-	return 0;
-}
-
-/**
  * dwc3_ext_chg_det_done - callback to handle charger detection completion
  * @otg: Pointer to the otg transceiver structure
  * @charger: Pointer to the external charger structure
@@ -335,6 +305,14 @@ static void dwc3_ext_event_notify(struct usb_otg *otg)
 	} else {
 		dev_dbg(phy->dev, "XCVR: BSV clear\n");
 		clear_bit(B_SESS_VLD, &dotg->inputs);
+	}
+
+	if (ext_xceiv->suspend) {
+		dev_dbg(phy->dev, "XCVR: SUSP set\n");
+		set_bit(B_SUSPEND, &dotg->inputs);
+	} else {
+		dev_dbg(phy->dev, "XCVR: SUSP clear\n");
+		clear_bit(B_SUSPEND, &dotg->inputs);
 	}
 
 	if (!init) {
@@ -556,10 +534,10 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					/* fall through */
 				case DWC3_SDP_CHARGER:
 					/*
-					 * increment pm usage count upon cable
-					 * connect, counter is decremented in
-					 * OTG_STATE_B_PERIPHERAL state in cable
-					 * unplug or in bus suspend.
+					 * Increment pm usage count upon cable
+					 * connect. Count is decremented in
+					 * OTG_STATE_B_PERIPHERAL state on cable
+					 * disconnect or in bus suspend.
 					 */
 					pm_runtime_get_sync(phy->dev);
 					dbg_event(0xFF, "CHG gsync",
@@ -598,15 +576,15 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				}
 			} else {
 				/*
-				 * no charger registered, assuming SDP
+				 * No charger registered, assuming SDP
 				 * and start peripheral
 				 */
 				phy->state = OTG_STATE_B_PERIPHERAL;
 				/*
-				 * increment pm usage count upon cable connect
-				 * counter is decremented in
-				 * OTG_STATE_B_PERIPHERAL state in cable unplug
-				 * or in bus suspend.
+				 * Increment pm usage count upon cable connect.
+				 * Count is decremented in
+				 * OTG_STATE_B_PERIPHERAL state on cable
+				 * disconnect or in bus suspend.
 				 */
 				pm_runtime_get_sync(phy->dev);
 				dbg_event(0xFF,
@@ -643,11 +621,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		if (!test_bit(B_SESS_VLD, &dotg->inputs) ||
 				!test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "!id || !bsv\n");
-			dwc3_otg_start_peripheral(&dotg->otg, 0);
 			phy->state = OTG_STATE_B_IDLE;
+			dwc3_otg_start_peripheral(&dotg->otg, 0);
 			/*
-			 * decrement pm usage count upon cable unplug
-			 * which was incremented upon cable plugin in
+			 * Decrement pm usage count upon cable disconnect
+			 * which was incremented upon cable connect in
 			 * OTG_STATE_B_IDLE state
 			 */
 			pm_runtime_put_sync(phy->dev);
@@ -656,10 +634,40 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			if (charger)
 				charger->chg_type = DWC3_INVALID_CHARGER;
 			work = 1;
-		} else if (test_bit(DWC3_OTG_SUSPEND, &dotg->inputs) &&
+		} else if (test_bit(B_SUSPEND, &dotg->inputs) &&
 			test_bit(B_SESS_VLD, &dotg->inputs)) {
-			pm_runtime_put_sync(phy->dev);
-			dbg_event(0xFF, "SUSP psync",
+			dev_dbg(phy->dev, "BPER bsv && susp\n");
+			phy->state = OTG_STATE_B_SUSPEND;
+			/*
+			 * Decrement pm usage count upon bus suspend.
+			 * Count was incremented either upon cable
+			 * connect in OTG_STATE_B_IDLE or host
+			 * initiated resume after bus suspend in
+			 * OTG_STATE_B_SUSPEND state
+			 */
+			pm_runtime_mark_last_busy(phy->dev);
+			pm_runtime_put_autosuspend(phy->dev);
+			dbg_event(0xFF, "SUSP put",
+				atomic_read(&phy->dev->power.usage_count));
+		}
+		break;
+
+	case OTG_STATE_B_SUSPEND:
+		if (!test_bit(B_SESS_VLD, &dotg->inputs)) {
+			dev_dbg(phy->dev, "BSUSP: !bsv\n");
+			phy->state = OTG_STATE_B_IDLE;
+			dwc3_otg_start_peripheral(&dotg->otg, 0);
+		} else if (!test_bit(B_SUSPEND, &dotg->inputs)) {
+			dev_dbg(phy->dev, "BSUSP !susp\n");
+			phy->state = OTG_STATE_B_PERIPHERAL;
+			/*
+			 * Increment pm usage count upon host
+			 * initiated resume. Count was decremented
+			 * upon bus suspend in
+			 * OTG_STATE_B_PERIPHERAL state.
+			 */
+			pm_runtime_get_sync(phy->dev);
+			dbg_event(0xFF, "SUSP gsync",
 				atomic_read(&phy->dev->power.usage_count));
 		}
 		break;
@@ -755,7 +763,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->otg.phy->dev = dwc->dev;
 	dotg->otg.phy->set_power = dwc3_otg_set_power;
 	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
-	dotg->otg.phy->set_suspend = dwc3_otg_set_suspend;
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
 	dotg->regs = dwc->regs;
 
