@@ -44,7 +44,6 @@
 	(VFE47_WM_BASE(wm) + 0x4 * (1 + ((~(ping_pong >> wm) & 0x1) * 2)))
 #define SHIFT_BF_SCALE_BIT 1
 #define VFE47_NUM_STATS_COMP 2
-#define VFE47_VBIF_CLK_OFFSET 0x4
 
 /*composite mask order*/
 #define STATS_COMP_IDX_HDR_BE    0
@@ -166,7 +165,6 @@ static int32_t msm_vfe47_init_dt_parms(struct vfe_device *vfe_dev,
 static int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 {
 	int rc = -1;
-	uint32_t val = 0;
 
 	rc = msm_isp_init_bandwidth_mgr(ISP_VFE0 + vfe_dev->pdev->id);
 	if (rc < 0) {
@@ -269,9 +267,6 @@ static int msm_vfe47_init_hardware(struct vfe_device *vfe_dev)
 		pr_err("%s: vfe ioremap failed\n", __func__);
 		goto vbif_remap_failed;
 	}
-	val = msm_camera_io_r(vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
-	val |= 0x1;
-	msm_camera_io_w(val, vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
 
 	rc = request_irq(vfe_dev->vfe_irq->start, msm_isp_process_irq,
 		IRQF_TRIGGER_RISING, "vfe", vfe_dev);
@@ -315,12 +310,8 @@ bus_scale_register_failed:
 
 static void msm_vfe47_release_hardware(struct vfe_device *vfe_dev)
 {
-	uint32_t val = 0;
 	free_irq(vfe_dev->vfe_irq->start, vfe_dev);
 	tasklet_kill(&vfe_dev->vfe_tasklet);
-	val = msm_camera_io_r(vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
-	val &= ~(0x1);
-	msm_camera_io_w(val, vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
 	iounmap(vfe_dev->vfe_vbif_base);
 	vfe_dev->vfe_vbif_base = NULL;
 	iounmap(vfe_dev->vfe_base);
