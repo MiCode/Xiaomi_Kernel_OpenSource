@@ -40,6 +40,11 @@
 		spi0 = &spi_0;
 	};
 
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+	};
+
 	cpus {
 		#address-cells = <2>;
 		#size-cells = <0>;
@@ -48,8 +53,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x0>;
-			enable-method = "qcom,msm8996-acc";
 			qcom,limits-info = <&mitigation_profile0>;
+			enable-method = "psci";
 			qcom,cpuss-pm = <&cpuss_pm>;
 			qcom,cpuss-csr = <&cpuss_csr>;
 			qcom,acc = <&acc0>;
@@ -68,8 +73,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x1>;
-			enable-method = "qcom,msm8996-acc";
 			qcom,limits-info = <&mitigation_profile1>;
+			enable-method = "psci";
 			qcom,acc = <&acc1>;
 			qcom,sleep-status = <&cpu1_slp_sts>;
 			qcom,ea = <&ea1>;
@@ -80,8 +85,8 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x100>;
-			enable-method = "qcom,msm8996-acc";
 			qcom,limits-info = <&mitigation_profile2>;
+			enable-method = "psci";
 			qcom,acc = <&acc2>;
 			qcom,sleep-status = <&cpu2_slp_sts>;
 			qcom,ea = <&ea2>;
@@ -97,7 +102,7 @@
 			device_type = "cpu";
 			compatible = "qcom,kryo";
 			reg = <0x0 0x101>;
-			enable-method = "qcom,msm8996-acc";
+			enable-method = "psci";
 			qcom,sleep-status = <&cpu3_slp_sts>;
 			qcom,limits-info = <&mitigation_profile3>;
 			qcom,acc = <&acc3>;
