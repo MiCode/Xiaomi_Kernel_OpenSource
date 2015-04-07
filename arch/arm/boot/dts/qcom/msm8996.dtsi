@@ -32,6 +32,9 @@
 		smd11 = &smdtty_data11;
 		smd21 = &smdtty_data21;
 		smd36 = &smdtty_loopback;
+		pci-domain0 = &pcie0;
+		pci-domain1 = &pcie1;
+		pci-domain2 = &pcie2;
 		i2c7 = &i2c_7;
 		i2c12 = &i2c_12;
 		spi0 = &spi_0;
