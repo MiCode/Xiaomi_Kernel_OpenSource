@@ -7600,7 +7600,7 @@ static int bma2x2_register_smd(struct bma2x2_data *bma2x2, bool enable)
 
 	bma2x2->smd_cdev = smd_cdev;
 	bma2x2->smd_cdev.sensors_enable = bma2x2_smd_cdev_enable;
-	err = sensors_classdev_register(&bma2x2->bma2x2_client->dev,
+	err = sensors_classdev_register(&bma2x2->smd_input->dev,
 			&bma2x2->smd_cdev);
 	if (err)
 		dev_err(&bma2x2->bma2x2_client->dev,
@@ -8587,7 +8587,7 @@ static int bma2x2_probe(struct i2c_client *client,
 		data->cdev.fifo_max_event_count = MAX_FIFO_F_LEVEL;
 		data->cdev.fifo_reserved_event_count = MAX_FIFO_F_LEVEL;
 	}
-	err = sensors_classdev_register(&client->dev, &data->cdev);
+	err = sensors_classdev_register(&data->input->dev, &data->cdev);
 	if (err) {
 		dev_err(&client->dev, "Create class device file failed!\n");
 		err = -EINVAL;

@@ -1989,7 +1989,7 @@ static int ltr553_probe(struct i2c_client *client,
 	ltr->als_cdev.sensors_enable = ltr553_cdev_enable_als;
 	ltr->als_cdev.sensors_poll_delay = ltr553_cdev_set_als_delay;
 	ltr->als_cdev.sensors_flush = ltr553_cdev_als_flush;
-	res = sensors_classdev_register(&client->dev, &ltr->als_cdev);
+	res = sensors_classdev_register(&ltr->input_light->dev, &ltr->als_cdev);
 	if (res) {
 		dev_err(&client->dev, "sensors class register failed.\n");
 		goto err_register_als_cdev;
@@ -2002,7 +2002,8 @@ static int ltr553_probe(struct i2c_client *client,
 	ltr->ps_cdev.sensors_calibrate = ltr553_cdev_ps_calibrate;
 	ltr->ps_cdev.sensors_write_cal_params = ltr553_cdev_ps_write_cal;
 	ltr->ps_cdev.params = ltr->calibrate_buf;
-	res = sensors_classdev_register(&client->dev, &ltr->ps_cdev);
+	res = sensors_classdev_register(&ltr->input_proximity->dev,
+			&ltr->ps_cdev);
 	if (res) {
 		dev_err(&client->dev, "sensors class register failed.\n");
 		goto err_register_ps_cdev;

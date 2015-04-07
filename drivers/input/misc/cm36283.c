@@ -3,7 +3,7 @@
  * Copyright (C) 2012 Capella Microsystems Inc.
  * Author: Frank Hsieh <pengyueh@gmail.com>
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1725,11 +1725,12 @@ static int cm36283_probe(struct i2c_client *client,
 	lpi->ps_cdev.sensors_poll_delay = ps_poll_delay_set;
 	lpi->ps_cdev.min_delay = CM36283_PS_MIN_POLL_DELAY * 1000;
 
-	ret = sensors_classdev_register(&client->dev, &lpi->als_cdev);
+	ret = sensors_classdev_register(&lpi->ls_input_dev->dev,
+			&lpi->als_cdev);
 	if (ret)
 		goto err_proximity_sysfs_cleanup;
 
-	ret = sensors_classdev_register(&client->dev, &lpi->ps_cdev);
+	ret = sensors_classdev_register(&lpi->ps_input_dev->dev, &lpi->ps_cdev);
 	if (ret)
 		goto err_create_class_sysfs;
 
