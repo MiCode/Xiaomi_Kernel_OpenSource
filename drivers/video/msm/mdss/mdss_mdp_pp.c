@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2002,12 +2002,15 @@ void mdss_mdp_pp_term(struct device *dev)
 }
 int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 {
-	if (!mfd) {
-		pr_err("Invalid mfd.\n");
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if ((!mfd) || (!mdata)) {
+		pr_err("Invalid mfd or mdata.\n");
 		return -EPERM;
 	}
 
-	mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
+	if (mdata->nad_cfgs)
+		mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
 	return 0;
 }
 
