@@ -242,6 +242,9 @@ struct cpr_regulator {
 	int			vdd_mx_vmin;
 	int			*vdd_mx_corner_map;
 
+	struct regulator	*rpm_apc_vreg;
+	int			*rpm_apc_corner_map;
+
 	/* mem-acc regulator */
 	struct regulator	*mem_acc_vreg;
 
@@ -699,16 +702,27 @@ static int cpr_scale_voltage(struct cpr_regulator *cpr_vreg, int corner,
 {
 	int rc = 0, vdd_mx_vmin = 0;
 	int fuse_corner = cpr_vreg->corner_map[corner];
+	int apc_corner;
 
 	/* Determine the vdd_mx voltage */
 	if (dir != NO_CHANGE && cpr_vreg->vdd_mx != NULL)
 		vdd_mx_vmin = cpr_mx_get(cpr_vreg, corner, new_apc_volt);
 
-	if (cpr_vreg->mem_acc_vreg && dir == DOWN)
-		rc = regulator_set_voltage(cpr_vreg->mem_acc_vreg,
+	if (dir == DOWN) {
+		if (!rc && cpr_vreg->mem_acc_vreg)
+			rc = regulator_set_voltage(cpr_vreg->mem_acc_vreg,
 					fuse_corner, fuse_corner);
+		if (!rc && cpr_vreg->rpm_apc_vreg) {
+			apc_corner = cpr_vreg->rpm_apc_corner_map[corner];
+			rc = regulator_set_voltage(cpr_vreg->rpm_apc_vreg,
+						apc_corner, apc_corner);
+			if (rc)
+				cpr_err(cpr_vreg, "apc_corner voting failed rc=%d\n",
+						rc);
+		}
+	}
 
-	if (vdd_mx_vmin && dir == UP) {
+	if (!rc && vdd_mx_vmin && dir == UP) {
 		if (vdd_mx_vmin != cpr_vreg->vdd_mx_vmin)
 			rc = cpr_mx_set(cpr_vreg, corner, vdd_mx_vmin);
 	}
@@ -716,9 +730,19 @@ static int cpr_scale_voltage(struct cpr_regulator *cpr_vreg, int corner,
 	if (!rc)
 		rc = cpr_apc_set(cpr_vreg, new_apc_volt);
 
-	if (!rc && cpr_vreg->mem_acc_vreg && dir == UP)
-		rc = regulator_set_voltage(cpr_vreg->mem_acc_vreg,
+	if (dir == UP) {
+		if (!rc && cpr_vreg->mem_acc_vreg)
+			rc = regulator_set_voltage(cpr_vreg->mem_acc_vreg,
 					fuse_corner, fuse_corner);
+		if (!rc && cpr_vreg->rpm_apc_vreg) {
+			apc_corner = cpr_vreg->rpm_apc_corner_map[corner];
+			rc = regulator_set_voltage(cpr_vreg->rpm_apc_vreg,
+						apc_corner, apc_corner);
+			if (rc)
+				cpr_err(cpr_vreg, "apc_corner voting failed rc=%d\n",
+						rc);
+		}
+	}
 
 	if (!rc && vdd_mx_vmin && dir == DOWN) {
 		if (vdd_mx_vmin != cpr_vreg->vdd_mx_vmin)
@@ -3979,6 +4003,53 @@ static int cpr_init_per_cpu_adjustments(struct cpr_regulator *cpr_vreg,
 	return rc;
 }
 
+static int cpr_rpm_apc_init(struct platform_device *pdev,
+			       struct cpr_regulator *cpr_vreg)
+{
+	int rc, len = 0;
+	struct device_node *of_node = pdev->dev.of_node;
+
+	if (!of_find_property(of_node, "rpm-apc-supply", NULL))
+		return 0;
+
+	cpr_vreg->rpm_apc_vreg = devm_regulator_get(&pdev->dev, "rpm-apc");
+	if (IS_ERR_OR_NULL(cpr_vreg->rpm_apc_vreg)) {
+		rc = PTR_RET(cpr_vreg->rpm_apc_vreg);
+		if (rc != -EPROBE_DEFER)
+			cpr_err(cpr_vreg, "devm_regulator_get: rpm-apc: rc=%d\n",
+					rc);
+		return rc;
+	}
+
+	if (!of_find_property(of_node, "qcom,rpm-apc-corner-map", &len)) {
+		cpr_err(cpr_vreg,
+			"qcom,rpm-apc-corner-map missing:\n");
+		return -EINVAL;
+	}
+	if (len != cpr_vreg->num_corners * sizeof(u32)) {
+		cpr_err(cpr_vreg,
+			"qcom,rpm-apc-corner-map length=%d is invalid: required:%d\n",
+			len, cpr_vreg->num_corners);
+		return -EINVAL;
+	}
+
+	cpr_vreg->rpm_apc_corner_map = devm_kzalloc(&pdev->dev,
+		(cpr_vreg->num_corners + 1) *
+		sizeof(*cpr_vreg->rpm_apc_corner_map), GFP_KERNEL);
+	if (!cpr_vreg->rpm_apc_corner_map) {
+		cpr_err(cpr_vreg, "Can't allocate memory for cpr_vreg->rpm_apc_corner_map\n");
+			return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(of_node, "qcom,rpm-apc-corner-map",
+		&cpr_vreg->rpm_apc_corner_map[1], cpr_vreg->num_corners);
+	if (rc)
+		cpr_err(cpr_vreg, "read qcom,rpm-apc-corner-map failed, rc = %d\n",
+				rc);
+
+	return rc;
+}
+
 static int cpr_init_cpr(struct platform_device *pdev,
 			       struct cpr_regulator *cpr_vreg)
 {
@@ -4776,6 +4847,13 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 	if (rc) {
 		cpr_err(cpr_vreg, "Initialize CPR failed: rc=%d\n", rc);
 		goto err_out;
+	}
+
+	rc = cpr_rpm_apc_init(pdev, cpr_vreg);
+	if (rc) {
+		cpr_err(cpr_vreg, "Initialize RPM APC regulator failed rc=%d\n",
+			rc);
+		return rc;
 	}
 
 	/* Load per-online CPU adjustment data */
