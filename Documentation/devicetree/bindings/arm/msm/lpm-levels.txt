@@ -24,7 +24,7 @@ Required properties:
 	- qcom,spm-device-names: List of  SPM device names which control the
 	low power modes for this driver. The lpm driver uses the device name
 	to obtain a handle to the SPM driver that controls the cluster's low
-	power mode.
+	power mode. This is only required if "qcom,use-psci" is not defined.
 	- qcom,default-level: The default low power level that a cluster is
 	programmed. The SPM of the corresponding device is configured at this
 	low power mode by default.
@@ -73,6 +73,18 @@ Required properties:
 	there is 1 online core.
 	- qcom,disable-dynamic-int-routing: When set disables the dynamic
 	routing of rpm-smd and mpm interrupts to next wake up core.
+	- qcom,use-psci: This boolean property allows the LPM modules to
+	terminate in PSCI to configure SPM for low power modes.
+	- qcom,psci-mode-shift: The property is used to determine with bit
+	location of the cluster mode in the composite state ID used to define
+	cluster low power modes in PSCI v1.0. Required only if qcom,use-psci
+	is defined at the lpm-levels root node.
+	- qcom,psci-mode-mask: The property is used to determine with bit
+	mask of the cluster mode in the composite state ID used to define
+	cluster low power modes in PSCI v1.0. Required only if qcom,use-psci
+	is defined at the lpm-levels root node.
+	- qcom,psci-mode: ID to be passed into the PSCI firmware. Required
+	only if qcom,use-psci is defined at the lpm-levels root node.
 
 [Node bindings for qcom,pm-cpu]
 qcom,pm-cpu contains the low power modes that a cpu could enter. Currently it
@@ -100,6 +112,15 @@ qcom,pm-cpu-levels.
 	power collapse and the cpu relies on Broadcast timer for scheduled
 	wakeups. Required only for states where the CPUs internal timer state
 	is lost.
+	- qcom,cpu-is-reset: This boolean property map to "power state" bit in
+	PSCI state_id configuration. This property will tell whether CPU get
+	reset for a particular LPM are not.
+
+ Optional properties:
+	- qcom,psci-mode-shift: Same as cluster level fields.
+	- qcom,psci-mode-mask: Same as cluster level fields.
+	- qcom,psci-cpu-mode: ID to be passed into PSCI firmware.
+	- qcom,cpu-is-reset: Whether CPU get reset are not.
 
 [Example dts]
 
