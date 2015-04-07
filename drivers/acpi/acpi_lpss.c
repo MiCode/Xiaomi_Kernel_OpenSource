@@ -41,6 +41,8 @@ ACPI_MODULE_NAME("acpi_lpss");
 
 #define LPSS_PRV_REG_COUNT		9
 
+#define INTEL_ATOM_CHT 0x4c
+
 struct lpss_shared_clock {
 	const char *name;
 	unsigned long rate;
@@ -481,7 +483,8 @@ static void acpi_lpss_restore_ctx(struct device *dev)
 	 * expects 10ms delay before the device can be accessed after D3 to D0
 	 * transition.
 	 */
-	msleep(10);
+	if (!(boot_cpu_data.x86_model == INTEL_ATOM_CHT))
+		msleep(10);
 
 	for (i = 0; i < LPSS_PRV_REG_COUNT; i++) {
 		unsigned long offset = i * sizeof(u32);
