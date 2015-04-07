@@ -263,17 +263,6 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 		return;
 	}
 
-	if (gr && (port->gtype == USB_GADGET_RMNET)) {
-		g_rmnet = (struct grmnet *)gr;
-		g_rmnet->disconnect(g_rmnet);
-	} else if (gr && (port->gtype == USB_GADGET_DPL)) {
-		g_dpl = (struct gqdss *)gr;
-	} else {
-		pr_err("%s(): unrecognized gadget type(%d).\n",
-					__func__, port->gtype);
-		return;
-	}
-
 	atomic_set(&port->connected, 0);
 	atomic_set(&port->line_state, 0);
 	spin_lock_irqsave(&port->lock, flags);
@@ -283,14 +272,17 @@ void gqti_ctrl_disconnect(void *gr, u8 port_num)
 	port->ipa_cons_idx = -1;
 	port->port_usb = NULL;
 
-	if (g_rmnet) {
+	if (gr && port->gtype == USB_GADGET_RMNET) {
+		g_rmnet = (struct grmnet *)gr;
 		g_rmnet->send_encap_cmd = NULL;
 		g_rmnet->notify_modem = NULL;
-	}
-
-	if (g_dpl) {
+	} else if (gr && port->gtype == USB_GADGET_DPL) {
+		g_dpl = (struct gqdss *)gr;
 		g_dpl->send_encap_cmd = NULL;
 		g_dpl->notify_modem = NULL;
+	} else {
+		pr_err("%s(): unrecognized gadget type(%d).\n",
+					__func__, port->gtype);
 	}
 
 	while (!list_empty(&port->cpkt_req_q)) {
