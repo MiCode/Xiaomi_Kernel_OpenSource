@@ -36,6 +36,8 @@ int msm_spm_turn_on_cpu_rail(struct device_node *l2ccc_node,
 struct msm_spm_device *msm_spm_get_device_by_name(const char *name);
 int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
 		unsigned int mode, bool notify_rpm);
+int msm_spm_config_low_power_mode_addr(struct msm_spm_device *dev,
+		unsigned int mode, bool notify_rpm);
 int msm_spm_device_init(void);
 bool msm_spm_is_mode_avail(unsigned int mode);
 void msm_spm_dump_regs(unsigned int cpu);
@@ -100,6 +102,13 @@ int msm_spm_config_low_power_mode(struct msm_spm_device *dev,
 {
 	return -ENODEV;
 }
+
+int msm_spm_config_low_power_mode_addr(struct msm_spm_device *dev,
+		unsigned int mode, bool notify_rpm)
+{
+	return -ENODEV;
+}
+
 struct msm_spm_device *msm_spm_get_device_by_name(const char *name)
 {
 	return NULL;
