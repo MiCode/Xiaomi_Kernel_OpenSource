@@ -20,7 +20,11 @@
 DEFINE_MSM_MUTEX(msm_actuator_mutex);
 
 #undef CDBG
+#ifdef MSM_ACTUATOR_DEBUG
+#define CDBG(fmt, args...) pr_err(fmt, ##args)
+#else
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#endif
 
 #define PARK_LENS_LONG_STEP 7
 #define PARK_LENS_MID_STEP 5
@@ -535,7 +539,7 @@ static int32_t msm_actuator_move_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t rc = 0;
-	struct damping_params_t ringing_params_kernel;
+	struct damping_params_t *ringing_params_kernel = NULL;
 	int8_t sign_dir = move_params->sign_dir;
 	uint16_t step_boundary = 0;
 	uint16_t target_step_pos = 0;
@@ -550,14 +554,6 @@ static int32_t msm_actuator_move_focus(
 		pr_err("Step Position Table is NULL");
 		return -EFAULT;
 	}
-
-	if (copy_from_user(&ringing_params_kernel,
-		&(move_params->ringing_params[a_ctrl->curr_region_index]),
-		sizeof(struct damping_params_t))) {
-		pr_err("copy_from_user failed\n");
-		return -EFAULT;
-	}
-
 
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
@@ -578,6 +574,29 @@ static int32_t msm_actuator_move_focus(
 		dest_step_pos);
 		return -EFAULT;
 	}
+	if ((a_ctrl->region_size <= 0) ||
+		(a_ctrl->region_size > MAX_ACTUATOR_REGION) ||
+		(!move_params->ringing_params)) {
+		pr_err("Invalid-region size = %d, ringing_params = %p\n",
+		a_ctrl->region_size, move_params->ringing_params);
+		return -EFAULT;
+	}
+	/* Allocate memory for damping parameters of all regions */
+	ringing_params_kernel = kmalloc(
+		sizeof(struct damping_params_t)*(a_ctrl->region_size),
+		GFP_KERNEL);
+	if (!ringing_params_kernel) {
+		pr_err("kmalloc for damping parameters failed\n");
+		return -ENOMEM;
+	}
+	if (copy_from_user(ringing_params_kernel,
+		&(move_params->ringing_params[0]),
+		(sizeof(struct damping_params_t))*(a_ctrl->region_size))) {
+		pr_err("copy_from_user failed\n");
+		/* Free the allocated memory for damping parameters */
+		kfree(ringing_params_kernel);
+		return -EFAULT;
+	}
 	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
 	a_ctrl->i2c_tbl_index = 0;
 	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
@@ -595,7 +614,8 @@ static int32_t msm_actuator_move_focus(
 				a_ctrl->step_position_table[target_step_pos];
 			a_ctrl->func_tbl->actuator_write_focus(a_ctrl,
 					curr_lens_pos,
-					&ringing_params_kernel,
+					&ringing_params_kernel
+					[a_ctrl->curr_region_index],
 					sign_dir,
 					target_lens_pos);
 			curr_lens_pos = target_lens_pos;
@@ -606,7 +626,8 @@ static int32_t msm_actuator_move_focus(
 				a_ctrl->step_position_table[target_step_pos];
 			a_ctrl->func_tbl->actuator_write_focus(a_ctrl,
 					curr_lens_pos,
-					&ringing_params_kernel,
+					&ringing_params_kernel
+					[a_ctrl->curr_region_index],
 					sign_dir,
 					target_lens_pos);
 			curr_lens_pos = target_lens_pos;
@@ -615,6 +636,8 @@ static int32_t msm_actuator_move_focus(
 		}
 		a_ctrl->curr_step_pos = target_step_pos;
 	}
+	/* Free the memory allocated for damping parameters */
+	kfree(ringing_params_kernel);
 
 	move_params->curr_lens_pos = curr_lens_pos;
 	reg_setting.reg_setting = a_ctrl->i2c_reg_tbl;
@@ -637,7 +660,7 @@ static int32_t msm_actuator_bivcm_move_focus(
 	struct msm_actuator_move_params_t *move_params)
 {
 	int32_t rc = 0;
-	struct damping_params_t ringing_params_kernel;
+	struct damping_params_t *ringing_params_kernel = NULL;
 	int8_t sign_dir = move_params->sign_dir;
 	uint16_t step_boundary = 0;
 	uint16_t target_step_pos = 0;
@@ -646,14 +669,6 @@ static int32_t msm_actuator_bivcm_move_focus(
 	uint16_t curr_lens_pos = 0;
 	int dir = move_params->dir;
 	int32_t num_steps = move_params->num_steps;
-
-	if (copy_from_user(&ringing_params_kernel,
-		&(move_params->ringing_params[a_ctrl->curr_region_index]),
-		sizeof(struct damping_params_t))) {
-		pr_err("copy_from_user failed\n");
-		return -EFAULT;
-	}
-
 
 	CDBG("called, dir %d, num_steps %d\n", dir, num_steps);
 
@@ -674,6 +689,29 @@ static int32_t msm_actuator_bivcm_move_focus(
 		dest_step_pos);
 		return -EFAULT;
 	}
+	if ((a_ctrl->region_size <= 0) ||
+		(a_ctrl->region_size > MAX_ACTUATOR_REGION) ||
+		(!move_params->ringing_params)) {
+		pr_err("Invalid-region size = %d, ringing_params = %p\n",
+		a_ctrl->region_size, move_params->ringing_params);
+		return -EFAULT;
+	}
+	/* Allocate memory for damping parameters of all regions */
+	ringing_params_kernel = kmalloc(
+		sizeof(struct damping_params_t)*(a_ctrl->region_size),
+		GFP_KERNEL);
+	if (!ringing_params_kernel) {
+		pr_err("kmalloc for damping parameters failed\n");
+		return -EFAULT;
+	}
+	if (copy_from_user(ringing_params_kernel,
+		&(move_params->ringing_params[0]),
+		(sizeof(struct damping_params_t))*(a_ctrl->region_size))) {
+		pr_err("copy_from_user failed\n");
+		/* Free the allocated memory for damping parameters */
+		kfree(ringing_params_kernel);
+		return -ENOMEM;
+	}
 	curr_lens_pos = a_ctrl->step_position_table[a_ctrl->curr_step_pos];
 	a_ctrl->i2c_tbl_index = 0;
 	CDBG("curr_step_pos =%d dest_step_pos =%d curr_lens_pos=%d\n",
@@ -691,7 +729,8 @@ static int32_t msm_actuator_bivcm_move_focus(
 				a_ctrl->step_position_table[target_step_pos];
 			rc = msm_actuator_bivcm_write_focus(a_ctrl,
 				curr_lens_pos,
-				&ringing_params_kernel,
+				&ringing_params_kernel
+				[a_ctrl->curr_region_index],
 				sign_dir,
 				target_lens_pos);
 			if (rc < 0)
@@ -703,7 +742,8 @@ static int32_t msm_actuator_bivcm_move_focus(
 				a_ctrl->step_position_table[target_step_pos];
 			rc = msm_actuator_bivcm_write_focus(a_ctrl,
 				curr_lens_pos,
-				&ringing_params_kernel,
+				&ringing_params_kernel
+				[a_ctrl->curr_region_index],
 				sign_dir,
 				target_lens_pos);
 			if (rc < 0)
@@ -714,6 +754,8 @@ static int32_t msm_actuator_bivcm_move_focus(
 		}
 		a_ctrl->curr_step_pos = target_step_pos;
 	}
+	/* Free the memory allocated for damping parameters */
+	kfree(ringing_params_kernel);
 
 	move_params->curr_lens_pos = curr_lens_pos;
 	a_ctrl->i2c_tbl_index = 0;
