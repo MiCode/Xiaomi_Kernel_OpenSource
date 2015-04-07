@@ -3814,9 +3814,13 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			PERF_SW_COMMIT_STATE, PERF_STATUS_BUSY);
 	}
 
-	if (sctl && mdata->has_src_split)
-		sctl->mixer_left->src_split_req =
-			(ctl->valid_roi == sctl->valid_roi);
+	if (mdata->has_src_split) {
+		if (sctl)
+			sctl->mixer_left->src_split_req =
+				(ctl->valid_roi == sctl->valid_roi);
+		else if (ctl->mixer_right) /* single ctl, dual LM */
+			ctl->mixer_right->src_split_req = ctl->valid_roi;
+	}
 
 	if (is_bw_released || ctl->force_screen_state ||
 		(ctl->mixer_left && ctl->mixer_left->params_changed) ||
