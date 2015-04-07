@@ -172,6 +172,7 @@ static int dw_dma_exit(struct uart_hsu_port *up)
 	dev_dbg_ratelimited(up->port.dev, "dma channels released\n");
 
 	up->dma_inited = 0;
+	kfree(dw_dma);
 	up->dma_priv = NULL;
 	return 0;
 }
