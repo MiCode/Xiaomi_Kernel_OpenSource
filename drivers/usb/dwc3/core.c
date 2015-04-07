@@ -865,6 +865,10 @@ static int dwc3_probe(struct platform_device *pdev)
 			dwc->hird_thresh = (u8) hird_thresh;
 		else
 			dwc->hird_thresh = DWC3_DCTL_HIRD_THRES_DEFAULT;
+		if (dwc->enable_bus_suspend) {
+			pm_runtime_set_autosuspend_delay(dev, 500);
+			pm_runtime_use_autosuspend(dev);
+		}
 	} else if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
 

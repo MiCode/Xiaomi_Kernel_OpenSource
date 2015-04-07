@@ -724,6 +724,7 @@ struct dwc3_scratchpad_array {
 #define DWC3_CORE_PM_RESUME_EVENT			6
 #define DWC3_CONTROLLER_POST_INITIALIZATION_EVENT	7
 #define DWC3_CONTROLLER_CONNDONE_EVENT			8
+#define DWC3_CONTROLLER_NOTIFY_OTG_EVENT		9
 
 #define MAX_INTR_STATS					10
 /**
@@ -917,7 +918,6 @@ struct dwc3 {
 	unsigned		err_evt_seen:1;
 	unsigned		usb3_u1u2_disable:1;
 	unsigned		enable_bus_suspend:1;
-	unsigned		disable_during_lpm:1;
 
 	struct dwc3_gadget_events	dbg_gadget_events;
 
@@ -925,6 +925,7 @@ struct dwc3 {
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
 	bool			tx_fifo_reduced;
+	bool			b_suspend;
 
 	/* IRQ timing statistics */
 	int			irq;

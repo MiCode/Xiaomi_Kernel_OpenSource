@@ -34,6 +34,7 @@ const char *usb_otg_state_string(enum usb_otg_state state)
 		[OTG_STATE_B_PERIPHERAL] = "b_peripheral",
 		[OTG_STATE_B_WAIT_ACON] = "b_wait_acon",
 		[OTG_STATE_B_HOST] = "b_host",
+		[OTG_STATE_B_SUSPEND] = "b_suspend",
 	};
 
 	if (state < 0 || state >= ARRAY_SIZE(names))
