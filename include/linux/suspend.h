@@ -9,6 +9,7 @@
 #include <linux/freezer.h>
 #include <asm/errno.h>
 
+extern void (*sc_dev_state)(void *);
 #ifdef CONFIG_VT
 extern void pm_set_vt_switch(int);
 #else

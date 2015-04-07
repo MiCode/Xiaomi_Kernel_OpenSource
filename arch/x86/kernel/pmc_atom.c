@@ -278,6 +278,9 @@ static int pm_suspend_exit_event(void)
 			pr_err("Post Suspend: PMC_S0I3_TMR register read returned negative value\n");
 		} else {
 			legacy_suspend.tmr_after_susp = tmr;
+			pr_info("Sleep residency in the last suspend cycle = %llu ms",
+			legacy_suspend.tmr_after_susp -
+			legacy_suspend.tmr_before_susp);
 			/* Compute the time spent in suspend */
 			legacy_suspend.residency +=
 			 (legacy_suspend.tmr_after_susp -
@@ -305,23 +308,27 @@ static struct notifier_block pm_event_notifier = {
 };
 #endif /* CONFIG_PM_SLEEP */
 
-#ifdef CONFIG_DEBUG_FS
-static int pmc_dev_state_show(struct seq_file *s, void *unused)
+
+static void pmc_dev_state(void *seq_file)
 {
-	struct pmc_dev *pmc = s->private;
+	struct pmc_dev *pmc;
+	struct seq_file *s = (struct seq_file *)seq_file;
 	u32 func_dis, func_dis_2, func_dis_index;
 	u32 d3_sts_0, d3_sts_1, d3_sts_index;
 	int dev_index, reg_index;
+
+	if (s)
+		pmc = s->private;
+	else
+		pmc = &pmc_device;
 
 	func_dis = pmc_reg_read(pmc, PMC_FUNC_DIS);
 	func_dis_2 = pmc_reg_read(pmc, PMC_FUNC_DIS_2);
 	d3_sts_0 = pmc_reg_read(pmc, PMC_D3_STS_0);
 	d3_sts_1 = pmc_reg_read(pmc, PMC_D3_STS_1);
 
-
 	for (dev_index = 0; dev_index < dev_num; dev_index++) {
 		reg_index = dev_index / PMC_REG_BIT_WIDTH;
-
 
 		if (reg_index) {
 			func_dis_index =
@@ -333,13 +340,29 @@ static int pmc_dev_state_show(struct seq_file *s, void *unused)
 			d3_sts_index = d3_sts_0;
 		}
 
-		seq_printf(s, "Dev: %-32s\tState: %s [%s]\n",
+		if ((pm_suspend_debug) && (s == NULL)) {
+			if (!(dev_map[dev_index].d3_sts_bit & d3_sts_index) &&
+				!func_dis_index)
+				pr_info("%s in SC is in D0 prior to sleep\n",
+					dev_map[dev_index].name);
+
+		} else {
+			seq_printf(s, "Dev: %-32s\tState: %s [%s]\n",
 			dev_map[dev_index].name,
 			func_dis_index ?
 			"Disabled" : "Enabled ",
 			dev_map[dev_index].d3_sts_bit & d3_sts_index ?
 			"D3" : "D0");
+		}
 	}
+	return;
+}
+
+#ifdef CONFIG_DEBUG_FS
+
+static int pmc_dev_state_show(struct seq_file *s, void *unused)
+{
+	pmc_dev_state(s);
 	return 0;
 }
 
@@ -622,6 +645,8 @@ static int pmc_setup_dev(struct pci_dev *pdev)
 		iounmap(pmc->regmap);
 		return ret;
 	}
+
+	sc_dev_state = pmc_dev_state;
 #endif /* CONFIG_DEBUG_FS */
 	return 0;
 }
