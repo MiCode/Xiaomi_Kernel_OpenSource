@@ -464,6 +464,8 @@ void diag_record_stats(int type, int flag)
 		pkt_stats = &driver->log_stats;
 		break;
 	case DATA_TYPE_RESPONSE:
+		if (flag != PKT_DROP)
+			return;
 		pr_err_ratelimited("diag: In %s, dropping response. This shouldn't happen\n",
 				   __func__);
 		return;
