@@ -99,7 +99,7 @@
 		clocks = <&clock_mmss clk_mdss_ahb_clk>,
 			 <&clock_mmss clk_mdss_axi_clk>,
 			 <&clock_mmss clk_mdp_clk_src>,
-			 <&clock_mmss clk_mdss_mdp_clk>,
+			 <&clock_mmss clk_mdss_mdp_vote_clk>,
 			 <&clock_mmss clk_mdss_vsync_clk>,
 			 <&clock_mmss clk_mmagic_mdss_axi_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
@@ -272,7 +272,7 @@
 
 		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
-		clocks = <&clock_mmss clk_mdss_mdp_clk>,
+		clocks = <&clock_mmss clk_mdss_mdp_vote_clk>,
                          <&clock_mmss clk_mdss_ahb_clk>,
 			 <&clock_mmss clk_mmss_misc_ahb_clk>,
                          <&clock_mmss clk_mdss_axi_clk>,
@@ -372,7 +372,7 @@
 		qcom,mdss-mdp = <&mdss_mdp>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 
-		clocks = <&clock_mmss clk_mdss_mdp_clk>,
+		clocks = <&clock_mmss clk_mdss_mdp_vote_clk>,
                          <&clock_mmss clk_mdss_ahb_clk>,
 			 <&clock_mmss clk_mmss_misc_ahb_clk>,
                          <&clock_mmss clk_mdss_axi_clk>,
@@ -480,7 +480,7 @@
 		qcom,enable-load = <0>;
 		qcom,disable-load = <0>;
 
-		clocks = <&clock_mmss clk_mdss_mdp_clk>,
+		clocks = <&clock_mmss clk_mdss_mdp_vote_clk>,
 			 <&clock_mmss clk_mdss_ahb_clk>,
 			 <&clock_mmss clk_mdss_hdmi_clk>,
 			 <&clock_mmss clk_mdss_hdmi_ahb_clk>,
@@ -501,5 +501,22 @@
 		qcom,mdss-wb-count = <2>;
 		qcom,mdss-has-downscale;
 		qcom,mdss-has-ubwc;
+		/* Bus Scale Settings */
+		qcom,msm-bus,name = "mdss_rotator";
+		qcom,msm-bus,num-cases = <3>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+			<25 512 0 0>,
+			<25 512 0 6400000>,
+			<25 512 0 6400000>;
+
+		rot-vdd-supply = <&gdsc_mdss>;
+		rot-mmagic-mdss-gdsc-supply = <&gdsc_mmagic_mdss>;
+
+		qcom,supply-names = "rot-vdd", "rot-mmagic-mdss-gdsc";
+
+		clocks = <&clock_mmss clk_mmss_misc_ahb_clk>,
+			<&clock_mmss clk_mdss_rotator_vote_clk>;
+		clock-names = "iface_clk", "rot_core_clk";
 	};
 };

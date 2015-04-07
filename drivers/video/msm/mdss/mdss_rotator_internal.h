@@ -25,6 +25,13 @@
 #include  "mdss_mdp.h"
 
 struct mdss_rot_entry;
+struct mdss_rot_perf;
+
+enum mdss_rotator_clk_type {
+	MDSS_CLK_ROTATOR_AHB,
+	MDSS_CLK_ROTATOR_CORE,
+	MDSS_CLK_ROTATOR_END_IDX,
+};
 
 /*
  * placeholder for performance profiling
@@ -92,14 +99,20 @@ struct mdss_rot_entry {
 
 	struct mdss_rot_entry_cb_intf intf;
 	void *intf_data;
+
+	struct mdss_rot_perf *perf;
+	bool work_assigned; /* Used when cleaning up work_distribution */
 };
 
 struct mdss_rot_perf {
 	struct list_head list;
 	struct mdp_rotation_config config;
-	u32 clk_rate;
+	unsigned long clk_rate;
 	u64 bw;
-	int wb_idx;
+	bool waiting_for_completion;
+	struct completion stop_comp;
+	atomic_t *work_distribution;
+	int last_wb_idx; /* last known wb index, used when above count is 0 */
 };
 
 struct mdss_rot_file_private {
@@ -110,6 +123,13 @@ struct mdss_rot_file_private {
 
 	struct mutex perf_lock;
 	struct list_head perf_list;
+};
+
+struct mdss_rot_bus_data_type {
+	struct msm_bus_scale_pdata *bus_scale_pdata;
+	u32 bus_hdl;
+	u32 curr_bw_uc_idx;
+	u64 curr_quota_val;
 };
 
 struct mdss_rot_mgr {
@@ -139,6 +159,18 @@ struct mdss_rot_mgr {
 	 * and resource clean up during suspend
 	 */
 	struct list_head file_list;
+
+	struct mutex bus_lock;
+	struct mdss_rot_bus_data_type data_bus;
+	struct mdss_rot_bus_data_type reg_bus;
+
+	/* Module power is only used for regulator management */
+	struct dss_module_power module_power;
+	bool regulator_enable;
+
+	struct mutex clk_lock;
+	int res_ref_cnt;
+	struct clk *rot_clk[MDSS_CLK_ROTATOR_END_IDX];
 
 	bool has_downscale;
 	bool has_ubwc;
