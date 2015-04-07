@@ -20,6 +20,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 #include <linux/io.h>
+#include <linux/suspend.h>
 
 #include <asm/cpu_device_id.h>
 #include <asm/intel_mid_pcihelpers.h>
@@ -55,7 +56,6 @@ struct nc_device nc_devices_vlv[] = {
 	{ "DISPLAY", PWRGT_STATUS,  DISPLAY_POS },
 	{ "VED", VED_SS_PM0, SSS_SHIFT},
 	{ "ISP", ISP_SS_PM0, SSS_SHIFT},
-	{ "MIO", MIO_SS_PM, SSS_SHIFT},
 };
 
 struct nc_device nc_devices_cht[] = {
@@ -64,9 +64,8 @@ struct nc_device nc_devices_cht[] = {
 	{ "DSP", DSP_SSS_CHT,  DSP_SSS_POS_CHT },
 	{ "VED", VED_SS_PM0, SSS_SHIFT},
 	{ "ISP", ISP_SS_PM0, SSS_SHIFT},
-	{ "MIO", MIO_SS_PM, SSS_SHIFT},
 };
-#define NC_NUM_DEVICES 6
+#define NC_NUM_DEVICES 5
 
 #define ICPU(model, cpu) \
 	{ X86_VENDOR_INTEL, 6, model, X86_FEATURE_MWAIT, (unsigned long)&cpu }
@@ -96,7 +95,7 @@ static const struct x86_cpu_id intel_pmc_cpu_ids[] = {
 	{}
 };
 
-static int nc_dev_state_show(struct seq_file *seq_file, void *unused)
+static void nc_dev_state_list(void *seq_file)
 {
 	struct seq_file *s = (struct seq_file *)seq_file;
 	u32 nc_pwr_sts, nc_reg, nc_val;
@@ -106,23 +105,36 @@ static int nc_dev_state_show(struct seq_file *seq_file, void *unused)
 
 	id = x86_match_cpu(intel_pmc_cpu_ids);
 	if (!id)
-		return -ENODEV;
+		return;
 	icpu = (const struct pmc_config *)id->driver_data;
 
 	if (!icpu->nc_table)
-		return -ENODEV;
+		return;
 	nc_dev = icpu->nc_table;
 	dev_num = icpu->num_nc;
 
-	seq_puts(s, "\n\nNORTH COMPLEX DEVICES :\n");
+	if (s)
+		seq_puts(s, "\n\nNORTH COMPLEX DEVICES :\n");
 	for (dev_index = 0; dev_index < dev_num; dev_index++) {
 		nc_reg = nc_dev[dev_index].reg;
 		nc_pwr_sts = intel_mid_msgbus_read32(PUNIT_PORT, nc_reg);
 		nc_pwr_sts >>= nc_dev[dev_index].sss_pos;
 		nc_val = nc_pwr_sts & PMC_D0I3_MASK;
-		seq_printf(s, "%9s : %s\n", nc_dev[dev_index].name,
+
+		if ((pm_suspend_debug) && (s == NULL)) {
+			if (!nc_val)
+				pr_info("%s in NC is in D0 prior to suspend\n",
+				nc_dev[dev_index].name);
+		} else
+			seq_printf(s, "%9s : %s\n", nc_dev[dev_index].name,
 				dstates[nc_val]);
 	}
+	return;
+}
+
+static int nc_dev_state_show(struct seq_file *s, void *unused)
+{
+	nc_dev_state_list(s);
 	return 0;
 }
 
@@ -167,9 +179,12 @@ static void nc_dbgfs_unregister(void)
 
 static int __init nc_dev_state_module_init(void)
 {
+#ifdef CONFIG_DEBUG_FS
 	int ret = nc_dbgfs_register();
 	if (ret < 0)
 		return ret;
+	nc_dev_state = nc_dev_state_list;
+#endif /* CONFIG_DEBUG_FS */
 	return 0;
 }
 
