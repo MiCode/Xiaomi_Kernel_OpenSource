@@ -1997,8 +1997,9 @@ static void qmi_svc_event_worker(struct work_struct *work)
 static void qmi_svc_event_notify(unsigned event, void *data,
 				size_t odata_len, void *priv)
 {
-	if (event == IPC_ROUTER_CTRL_CMD_NEW_SERVER ||
-			event == IPC_ROUTER_CTRL_CMD_REMOVE_SERVER)
+	if (event == IPC_ROUTER_CTRL_CMD_NEW_SERVER
+		|| event == IPC_ROUTER_CTRL_CMD_REMOVE_CLIENT
+		|| event == IPC_ROUTER_CTRL_CMD_REMOVE_SERVER)
 		queue_work(qmi_svc_event_notifier_wq, &qmi_svc_event_work);
 }
 
