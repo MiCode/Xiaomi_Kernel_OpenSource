@@ -1455,20 +1455,6 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	/* initialize the mclk */
-	ret = msm8952_prepare_codec_mclk(card);
-	if (ret) {
-		dev_err(&pdev->dev, "prepare_codec_mclk failed, err:%d\n",
-			ret);
-		goto err;
-	}
-	codec_clk = clk_get(&pdev->dev, "osr_clk");
-	if (IS_ERR(codec_clk)) {
-		pr_err("%s: error clk_get %lu\n",
-			__func__, PTR_ERR(codec_clk));
-		goto err;
-	}
-
 	pdev->id = 0;
 
 	INIT_DELAYED_WORK(&pdata->hs_detect_dwork, hs_detect_work);
@@ -1483,6 +1469,20 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	card->dev = &pdev->dev;
 	platform_set_drvdata(pdev, card);
 	snd_soc_card_set_drvdata(card, pdata);
+
+	/* initialize the mclk */
+	ret = msm8952_prepare_codec_mclk(card);
+	if (ret) {
+		dev_err(&pdev->dev, "prepare_codec_mclk failed, err:%d\n",
+			ret);
+		goto err;
+	}
+	codec_clk = clk_get(&pdev->dev, "osr_clk");
+	if (IS_ERR(codec_clk)) {
+		pr_err("%s: error clk_get %lu\n",
+			__func__, PTR_ERR(codec_clk));
+		goto err;
+	}
 
 	wcd9xxx_mbhc_cfg.gpio_level_insert = of_property_read_bool(
 						pdev->dev.of_node,
