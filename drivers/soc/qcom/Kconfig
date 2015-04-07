@@ -284,4 +284,13 @@ config MSM_SYSTEM_HEALTH_MONITOR
 	  health check. If any failures are detected during the health-check,
 	  then a subsystem restart will be triggered for the failed subsystem.
 
+config MSM_GLINK_PKT
+	bool "Enable device interface for GLINK packet channels"
+	depends on MSM_GLINK
+	help
+	  G-link packet driver provides the interface for the userspace
+	  clients to communicate over G-Link via deivce nodes.
+	  This enable the usersapce clients to read and write to
+	  some glink packets channel.
+
 endif # ARCH_MSM

@@ -1,0 +1,31 @@
+Qualcomm Technologies, Inc. G-Link Packet Driver (glinkpkt)
+
+[Root level node]
+Required properties:
+-compatible : should be "qcom,glinkpkt"
+
+[Second level nodes]
+qcom,glinkpkt-channel-names
+Required properties:
+-qcom,glinkpkt-transport : the glinkpkt transport layer
+-qcom,glinkpkt-edge : the remote subsystem name
+-qcom,glinkpkt-ch-name : the glink channel name
+
+Example:
+
+	qcom,glinkpkt {
+		compatible = "qcom,glinkpkt";
+
+		qcom,glinkpkt-glink1 {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "glink1";
+		};
+
+		qcom,glinkpkt-loopback {
+			qcom,glinkpkt-transport = "smem";
+			qcom,glinkpkt-edge = "mpss";
+			qcom,glinkpkt-ch-name = "glink_pkt_loopback";
+		};
+	};
+
