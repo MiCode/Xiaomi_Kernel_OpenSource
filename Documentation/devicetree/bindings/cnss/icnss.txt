@@ -1,0 +1,32 @@
+* Qualcomm Technologies Inc Q6 Integrated connectivity Platform Driver
+
+This platform driver adds support for the Integrated WLAN that runs
+on Q6 based platforms. WLAN FW on these architecture runs on Q6. This
+platform driver communicates with WLAN FW over QMI, WLAN on/off messages
+to FW are communicated thru this interface. This driver also listens to
+WLAN PD restart notifications.
+
+Required properties:
+  - compatible: "qcom,icnss"
+  - qcom,ce-irq-tbl: Copy engine interrupt table
+
+Optional properties:
+
+Example:
+
+    qcom,icnss {
+        compatible = "qcom,icnss";
+        qcom,ce-irq-tbl =
+			<  120  /* CE0 */ >,
+			<  121  /* CE1 */ >,
+			<  122  /* CE2 */ >,
+			<  123  /* CE3 */ >,
+			<  124  /* CE4 */ >,
+			<  125  /* CE5 */ >,
+			<  126  /* CE6 */ >,
+			<  127  /* CE7 */ >,
+			<  128  /* CE8 */ >,
+			<  129  /* CE9 */ >,
+			<  130  /* CE10 */ >,
+			<  131  /* CE11 */ >;
+    };
