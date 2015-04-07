@@ -71,7 +71,7 @@ static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_THUMBNAIL);
 }
 
-static int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
+int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
 {
 	int rc = 0;
 	struct v4l2_control ctrl = {
