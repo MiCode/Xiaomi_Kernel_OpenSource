@@ -3,6 +3,9 @@
 
 #include <linux/types.h>
 
+#define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12	0x2
+#define MSM_VIDC_HAL_INTERLACE_COLOR_FORMAT_NV12_UBWC	0x8002
+
 struct msm_vidc_extradata_header {
 	unsigned int size;
 	unsigned int:32; /** Keeping binary compatibility */
@@ -13,6 +16,7 @@ struct msm_vidc_extradata_header {
 };
 struct msm_vidc_interlace_payload {
 	unsigned int format;
+	unsigned int color_format;
 };
 struct msm_vidc_framerate_payload {
 	unsigned int frame_rate;
