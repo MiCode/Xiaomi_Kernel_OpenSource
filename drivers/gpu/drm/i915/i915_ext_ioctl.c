@@ -101,18 +101,19 @@ int i915_extended_ioctl(struct drm_device *dev, void *data,
 				goto err_i1;
 			}
 		}
-		if (asize > usize)
-			memset(kdata + usize, 0, asize - usize);
-	}
 
-	if (cmd & IOC_IN) {
-		if (copy_from_user(kdata, arg, usize) != 0) {
-			DRM_ERROR("copy in failed\n");
-			retcode = -EFAULT;
-			goto err_i1;
+		if (cmd & IOC_IN) {
+			if (copy_from_user(kdata, arg, usize) != 0) {
+				DRM_ERROR("copy in failed\n");
+				retcode = -EFAULT;
+				goto err_i1;
+			}
+		} else {
+			memset(kdata, 0, usize);
+			if (asize > usize)
+				memset(kdata + usize, 0, asize - usize);
 		}
-	} else
-		memset(kdata, 0, usize);
+	}
 
 	if (ioctl->flags & DRM_UNLOCKED) {
 		retcode = func(dev, kdata, file_priv);
