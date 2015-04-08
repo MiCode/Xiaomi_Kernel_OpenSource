@@ -85,6 +85,7 @@ unsigned long long read_shim_data(struct intel_sst_drv *sst, int addr)
 		break;
 	case SST_MRFLD_PCI_ID:
 	case SST_BYT_PCI_ID:
+	case SST_CHT_PCI_ID:
 		val = sst_shim_read64(sst->shim, addr);
 		break;
 	}
@@ -439,12 +440,26 @@ void sst_do_recovery_mrfld(struct intel_sst_drv *sst)
 	usleep_range(10000, 12000);
 }
 
+#define DUMP_SRAM_CHECKPOINT_DWORDS		640
 void sst_do_recovery(struct intel_sst_drv *sst)
 {
 	pr_err("Audio: Intel SST engine encountered an unrecoverable error\n");
+	pr_err("Audio: Dumping LPE firmware debug info...\n");
 
 	dump_stack();
+	pr_err("Audio: Dumping  lpe shim registers...\n");
 	dump_sst_shim(sst);
+
+	/* dump mailbox and sram */
+	pr_err("Audio: Dumping Mailbox IA to LPE...\n");
+	dump_buffer_fromio(sst->ipc_mailbox, NUM_DWORDS);
+	pr_err("Audio: Dumping Mailbox LPE to IA...\n");
+	dump_buffer_fromio((sst->ipc_mailbox + sst->mailbox_recv_offset),
+				NUM_DWORDS);
+	pr_err("Audio: Dumping SRAM CHECKPOINT...\n");
+	dump_buffer_fromio((sst->mailbox +
+			sst->pdata->debugfs_data->checkpoint_offset),
+			DUMP_SRAM_CHECKPOINT_DWORDS);
 
 	if (sst->sst_state == SST_FW_RUNNING &&
 		sst_drv_ctx->pci_id == SST_CLV_PCI_ID)
