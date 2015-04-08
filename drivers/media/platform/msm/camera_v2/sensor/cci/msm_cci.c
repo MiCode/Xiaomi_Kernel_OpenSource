@@ -45,6 +45,9 @@
 #define CCI_I2C_MAX_WRITE 8192
 
 #define PRIORITY_QUEUE (QUEUE_0)
+#define SYNC_QUEUE (QUEUE_1)
+
+
 static struct v4l2_subdev *g_cci_subdev;
 
 static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_CASES][CCI_NUM_CLK_MAX];
@@ -322,7 +325,6 @@ static int32_t msm_cci_calc_cmd_len(struct cci_device *cci_dev,
 		len = data_len + addr_len;
 		pack_max_len = size < (cci_dev->payload_size-len) ?
 			size : (cci_dev->payload_size-len);
-
 		for (i = 0; i < pack_max_len;) {
 			if (cmd->delay)
 				break;
@@ -488,7 +490,8 @@ static int32_t msm_cci_get_queue_free_size(struct cci_device *cci_dev,
 }
 
 static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
-	struct msm_camera_cci_ctrl *c_ctrl, enum cci_i2c_queue_t queue)
+	struct msm_camera_cci_ctrl *c_ctrl, enum cci_i2c_queue_t queue,
+	enum cci_i2c_sync sync_en)
 {
 	uint16_t i = 0, j = 0, k = 0, h = 0, len = 0;
 	int32_t rc = 0, free_size = 0, en_seq_write = 0;
@@ -528,23 +531,37 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 		pr_err("%s failed line %d\n", __func__, __LINE__);
 		return -EINVAL;
 	}
+	reg_offset = master * 0x200 + queue * 0x100;
+
+	msm_camera_io_w_mb(cci_dev->cci_wait_sync_cfg.cid,
+		cci_dev->base + CCI_SET_CID_SYNC_TIMER_ADDR +
+		cci_dev->cci_wait_sync_cfg.csid *
+		CCI_SET_CID_SYNC_TIMER_OFFSET);
 
 	val = CCI_I2C_SET_PARAM_CMD | c_ctrl->cci_info->sid << 4 |
 		c_ctrl->cci_info->retries << 16 |
 		c_ctrl->cci_info->id_map << 18;
 
-	CDBG("%s:%d CCI_I2C_SET_PARAM_CMD\n", __func__, __LINE__);
-	rc = msm_cci_write_i2c_queue(cci_dev, val, master, queue);
-	if (rc < 0) {
-		pr_err("%s failed line %d\n", __func__, __LINE__);
-		return -EINVAL;
-	}
+	CDBG("%s CCI_I2C_M0_Q0_LOAD_DATA_ADDR:val 0x%x:0x%x\n",
+		__func__, CCI_I2C_M0_Q0_LOAD_DATA_ADDR +
+		reg_offset, val);
+	msm_camera_io_w_mb(val, cci_dev->base + CCI_I2C_M0_Q0_LOAD_DATA_ADDR +
+		reg_offset);
+
 	atomic_set(&cci_dev->cci_master_info[master].q_free[queue], 0);
 
 	max_queue_size = cci_dev->cci_i2c_queue_info[master][queue].
 			max_queue_size;
 	reg_addr = i2c_cmd->reg_addr;
-	reg_offset = master * 0x200 + queue * 0x100;
+
+	if (sync_en == MSM_SYNC_ENABLE && cci_dev->valid_sync &&
+		cmd_size < max_queue_size) {
+		val = CCI_I2C_WAIT_SYNC_CMD |
+			((cci_dev->cci_wait_sync_cfg.line) << 4);
+		msm_camera_io_w_mb(val,
+			cci_dev->base + CCI_I2C_M0_Q0_LOAD_DATA_ADDR +
+			reg_offset);
+	}
 
 	rc = msm_cci_lock_queue(cci_dev, master, queue, 1);
 	if (rc < 0) {
@@ -593,7 +610,9 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 		*			the incremented address for a
 		*			new packet */
 		if (c_ctrl->cmd == MSM_CCI_I2C_WRITE ||
-			c_ctrl->cmd == MSM_CCI_I2C_WRITE_ASYNC)
+			c_ctrl->cmd == MSM_CCI_I2C_WRITE_ASYNC ||
+			c_ctrl->cmd == MSM_CCI_I2C_WRITE_SYNC ||
+			c_ctrl->cmd == MSM_CCI_I2C_WRITE_SYNC_BLOCK)
 			reg_addr = i2c_cmd->reg_addr;
 
 		if (en_seq_write == 0) {
@@ -654,6 +673,7 @@ static int32_t msm_cci_data_queue(struct cci_device *cci_dev,
 			msm_camera_io_w_mb(read_val, cci_dev->base +
 				CCI_I2C_M0_Q0_EXEC_WORD_CNT_ADDR + reg_offset);
 		}
+
 		if ((delay > 0) && (delay < CCI_MAX_DELAY) &&
 			en_seq_write == 0) {
 			cmd = (uint32_t)((delay * cci_dev->cycles_per_us) /
@@ -899,7 +919,8 @@ ERROR:
 }
 
 static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
-	struct msm_camera_cci_ctrl *c_ctrl, enum cci_i2c_queue_t queue)
+	struct msm_camera_cci_ctrl *c_ctrl, enum cci_i2c_queue_t queue,
+	enum cci_i2c_sync sync_en)
 {
 	int32_t rc = 0;
 	struct cci_device *cci_dev;
@@ -915,7 +936,6 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 	CDBG("%s set param sid 0x%x retries %d id_map %d\n", __func__,
 		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
 		c_ctrl->cci_info->id_map);
-	mutex_lock(&cci_dev->cci_master_info[master].mutex_q[queue]);
 
 	/*
 	 * Call validate queue to make sure queue is empty before starting.
@@ -935,14 +955,13 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 			__LINE__);
 		goto ERROR;
 	}
-	rc = msm_cci_data_queue(cci_dev, c_ctrl, queue);
+	rc = msm_cci_data_queue(cci_dev, c_ctrl, queue, sync_en);
 	if (rc < 0) {
 		CDBG("%s failed line %d\n", __func__, __LINE__);
 		goto ERROR;
 	}
 
 ERROR:
-	mutex_unlock(&cci_dev->cci_master_info[master].mutex_q[queue]);
 	return rc;
 }
 
@@ -963,7 +982,7 @@ static void msm_cci_write_async_helper(struct work_struct *work)
 
 	mutex_lock(&cci_master_info->mutex_q[write_async->queue]);
 	rc = msm_cci_i2c_write(&cci_dev->msm_sd.sd,
-		&write_async->c_ctrl, write_async->queue);
+		&write_async->c_ctrl, write_async->queue, write_async->sync_en);
 	mutex_unlock(&cci_master_info->mutex_q[write_async->queue]);
 	if (rc < 0)
 		pr_err("%s: %d failed\n", __func__, __LINE__);
@@ -975,7 +994,8 @@ static void msm_cci_write_async_helper(struct work_struct *work)
 }
 
 static int32_t msm_cci_i2c_write_async(struct v4l2_subdev *sd,
-	struct msm_camera_cci_ctrl *c_ctrl, enum cci_i2c_queue_t queue)
+	struct msm_camera_cci_ctrl *c_ctrl, enum cci_i2c_queue_t queue,
+	enum cci_i2c_sync sync_en)
 {
 	struct cci_write_async *write_async;
 	struct cci_device *cci_dev;
@@ -996,6 +1016,7 @@ static int32_t msm_cci_i2c_write_async(struct v4l2_subdev *sd,
 	write_async->cci_dev = cci_dev;
 	write_async->c_ctrl = *c_ctrl;
 	write_async->queue = queue;
+	write_async->sync_en = sync_en;
 
 	cci_i2c_write_cfg = &c_ctrl->cfg.cci_i2c_write_cfg;
 	cci_i2c_write_cfg_w = &write_async->c_ctrl.cfg.cci_i2c_write_cfg;
@@ -1112,6 +1133,25 @@ static struct msm_cam_clk_info *msm_cci_get_clk(struct cci_device *cci_dev,
 	}
 
 	return NULL;
+}
+
+static int32_t msm_cci_i2c_set_sync_prms(struct v4l2_subdev *sd,
+	struct msm_camera_cci_ctrl *c_ctrl)
+{
+	int32_t rc = 0;
+	struct cci_device *cci_dev;
+
+	cci_dev = v4l2_get_subdevdata(sd);
+	if (!cci_dev || !c_ctrl) {
+		pr_err("%s:%d failed: invalid params %p %p\n", __func__,
+			__LINE__, cci_dev, c_ctrl);
+		rc = -EINVAL;
+		return rc;
+	}
+	cci_dev->cci_wait_sync_cfg = c_ctrl->cfg.cci_wait_sync_cfg;
+	cci_dev->valid_sync = cci_dev->cci_wait_sync_cfg.csid < 0 ? 0 : 1;
+
+	return rc;
 }
 
 static int32_t msm_cci_init(struct v4l2_subdev *sd,
@@ -1336,6 +1376,62 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	return 0;
 }
 
+static int32_t msm_cci_write(struct v4l2_subdev *sd,
+	struct msm_camera_cci_ctrl *c_ctrl)
+{
+	int32_t rc = 0;
+	struct cci_device *cci_dev;
+	enum cci_i2c_master_t master;
+	struct msm_camera_cci_master_info *cci_master_info;
+	uint32_t i;
+
+	cci_dev = v4l2_get_subdevdata(sd);
+	if (!cci_dev || !c_ctrl) {
+		pr_err("%s:%d failed: invalid params %p %p\n", __func__,
+			__LINE__, cci_dev, c_ctrl);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	master = c_ctrl->cci_info->cci_i2c_master;
+	cci_master_info = &cci_dev->cci_master_info[master];
+
+	switch (c_ctrl->cmd) {
+	case MSM_CCI_I2C_WRITE_SYNC_BLOCK:
+		mutex_lock(&cci_master_info->mutex_q[SYNC_QUEUE]);
+		rc = msm_cci_i2c_write(sd, c_ctrl,
+			SYNC_QUEUE, MSM_SYNC_ENABLE);
+		mutex_unlock(&cci_master_info->mutex_q[SYNC_QUEUE]);
+		break;
+	case MSM_CCI_I2C_WRITE_SYNC:
+		rc = msm_cci_i2c_write_async(sd, c_ctrl,
+			SYNC_QUEUE, MSM_SYNC_ENABLE);
+		break;
+	case MSM_CCI_I2C_WRITE:
+	case MSM_CCI_I2C_WRITE_SEQ:
+		for (i = 0; i < NUM_QUEUES; i++) {
+			if (mutex_trylock(&cci_master_info->mutex_q[i])) {
+				rc = msm_cci_i2c_write(sd, c_ctrl, i,
+					MSM_SYNC_DISABLE);
+				mutex_unlock(&cci_master_info->mutex_q[i]);
+				return rc;
+			}
+		}
+		mutex_lock(&cci_master_info->mutex_q[PRIORITY_QUEUE]);
+		rc = msm_cci_i2c_write(sd, c_ctrl,
+			PRIORITY_QUEUE, MSM_SYNC_DISABLE);
+		mutex_unlock(&cci_master_info->mutex_q[PRIORITY_QUEUE]);
+		break;
+	case MSM_CCI_I2C_WRITE_ASYNC:
+		rc = msm_cci_i2c_write_async(sd, c_ctrl,
+			PRIORITY_QUEUE, MSM_SYNC_DISABLE);
+		break;
+	default:
+		rc = -ENOIOCTLCMD;
+	}
+	return rc;
+}
+
 static int32_t msm_cci_config(struct v4l2_subdev *sd,
 	struct msm_camera_cci_ctrl *cci_ctrl)
 {
@@ -1354,13 +1450,17 @@ static int32_t msm_cci_config(struct v4l2_subdev *sd,
 		break;
 	case MSM_CCI_I2C_WRITE:
 	case MSM_CCI_I2C_WRITE_SEQ:
-		rc = msm_cci_i2c_write(sd, cci_ctrl, QUEUE_0);
-		break;
+	case MSM_CCI_I2C_WRITE_SYNC:
 	case MSM_CCI_I2C_WRITE_ASYNC:
-		rc = msm_cci_i2c_write_async(sd, cci_ctrl, QUEUE_1);
+	case MSM_CCI_I2C_WRITE_SYNC_BLOCK:
+		rc = msm_cci_write(sd, cci_ctrl);
 		break;
 	case MSM_CCI_GPIO_WRITE:
 		break;
+	case MSM_CCI_SET_SYNC_CID:
+		rc = msm_cci_i2c_set_sync_prms(sd, cci_ctrl);
+		break;
+
 	default:
 		rc = -ENOIOCTLCMD;
 	}

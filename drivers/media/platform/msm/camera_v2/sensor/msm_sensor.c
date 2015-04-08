@@ -730,6 +730,8 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			cdata->cfg.sensor_init_params.sensor_mount_angle);
 		break;
 	case CFG_WRITE_I2C_ARRAY:
+	case CFG_WRITE_I2C_ARRAY_SYNC:
+	case CFG_WRITE_I2C_ARRAY_SYNC_BLOCK:
 	case CFG_WRITE_I2C_ARRAY_ASYNC: {
 		struct msm_camera_i2c_reg_setting32 conf_array32;
 		struct msm_camera_i2c_reg_setting conf_array;
@@ -789,9 +791,18 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 				i2c_write_table(s_ctrl->sensor_i2c_client,
 				&conf_array);
-		else
+		else if (CFG_WRITE_I2C_ARRAY_ASYNC == cdata->cfgtype)
 			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 				i2c_write_table_async(s_ctrl->sensor_i2c_client,
+				&conf_array);
+		else if (CFG_WRITE_I2C_ARRAY_SYNC_BLOCK == cdata->cfgtype)
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table_sync_block(
+				s_ctrl->sensor_i2c_client,
+				&conf_array);
+		else
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table_sync(s_ctrl->sensor_i2c_client,
 				&conf_array);
 
 		kfree(reg_setting);
@@ -1016,6 +1027,40 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 		break;
 	}
 
+	case CFG_SET_I2C_SYNC_PARAM: {
+		struct msm_camera_cci_ctrl cci_ctrl;
+
+		s_ctrl->sensor_i2c_client->cci_client->cid =
+			cdata->cfg.sensor_i2c_sync_params.cid;
+		s_ctrl->sensor_i2c_client->cci_client->id_map =
+			cdata->cfg.sensor_i2c_sync_params.csid;
+
+		CDBG("I2C_SYNC_PARAM CID:%d, line:%d delay:%d, cdid:%d\n",
+			s_ctrl->sensor_i2c_client->cci_client->cid,
+			cdata->cfg.sensor_i2c_sync_params.line,
+			cdata->cfg.sensor_i2c_sync_params.delay,
+			cdata->cfg.sensor_i2c_sync_params.csid);
+
+		cci_ctrl.cmd = MSM_CCI_SET_SYNC_CID;
+		cci_ctrl.cfg.cci_wait_sync_cfg.line =
+			cdata->cfg.sensor_i2c_sync_params.line;
+		cci_ctrl.cfg.cci_wait_sync_cfg.delay =
+			cdata->cfg.sensor_i2c_sync_params.delay;
+		cci_ctrl.cfg.cci_wait_sync_cfg.cid =
+			cdata->cfg.sensor_i2c_sync_params.cid;
+		cci_ctrl.cfg.cci_wait_sync_cfg.csid =
+			cdata->cfg.sensor_i2c_sync_params.csid;
+		rc = v4l2_subdev_call(s_ctrl->sensor_i2c_client->
+				cci_client->cci_subdev,
+				core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
+		if (rc < 0) {
+			pr_err("%s: line %d rc = %d\n", __func__, __LINE__, rc);
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
+
 	default:
 		rc = -EFAULT;
 		break;
@@ -1087,6 +1132,8 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		break;
 
 	case CFG_WRITE_I2C_ARRAY:
+	case CFG_WRITE_I2C_ARRAY_SYNC:
+	case CFG_WRITE_I2C_ARRAY_SYNC_BLOCK:
 	case CFG_WRITE_I2C_ARRAY_ASYNC: {
 		struct msm_camera_i2c_reg_setting conf_array;
 		struct msm_camera_i2c_reg_array *reg_setting = NULL;
@@ -1137,10 +1184,20 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 				i2c_write_table(s_ctrl->sensor_i2c_client,
 					&conf_array);
-		else
+		else if (CFG_WRITE_I2C_ARRAY_ASYNC == cdata->cfgtype)
 			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
 				i2c_write_table_async(s_ctrl->sensor_i2c_client,
 					&conf_array);
+		else if (CFG_WRITE_I2C_ARRAY_SYNC_BLOCK == cdata->cfgtype)
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table_sync_block(
+					s_ctrl->sensor_i2c_client,
+					&conf_array);
+		else
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table_sync(s_ctrl->sensor_i2c_client,
+					&conf_array);
+
 		kfree(reg_setting);
 		break;
 	}
@@ -1432,6 +1489,41 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		}
 		break;
 	}
+
+	case CFG_SET_I2C_SYNC_PARAM: {
+		struct msm_camera_cci_ctrl cci_ctrl;
+
+		s_ctrl->sensor_i2c_client->cci_client->cid =
+			cdata->cfg.sensor_i2c_sync_params.cid;
+		s_ctrl->sensor_i2c_client->cci_client->id_map =
+			cdata->cfg.sensor_i2c_sync_params.csid;
+
+		CDBG("I2C_SYNC_PARAM CID:%d, line:%d delay:%d, cdid:%d\n",
+			s_ctrl->sensor_i2c_client->cci_client->cid,
+			cdata->cfg.sensor_i2c_sync_params.line,
+			cdata->cfg.sensor_i2c_sync_params.delay,
+			cdata->cfg.sensor_i2c_sync_params.csid);
+
+		cci_ctrl.cmd = MSM_CCI_SET_SYNC_CID;
+		cci_ctrl.cfg.cci_wait_sync_cfg.line =
+			cdata->cfg.sensor_i2c_sync_params.line;
+		cci_ctrl.cfg.cci_wait_sync_cfg.delay =
+			cdata->cfg.sensor_i2c_sync_params.delay;
+		cci_ctrl.cfg.cci_wait_sync_cfg.cid =
+			cdata->cfg.sensor_i2c_sync_params.cid;
+		cci_ctrl.cfg.cci_wait_sync_cfg.csid =
+			cdata->cfg.sensor_i2c_sync_params.csid;
+		rc = v4l2_subdev_call(s_ctrl->sensor_i2c_client->
+				cci_client->cci_subdev,
+				core, ioctl, VIDIOC_MSM_CCI_CFG, &cci_ctrl);
+		if (rc < 0) {
+			pr_err("%s: line %d rc = %d\n", __func__, __LINE__, rc);
+			rc = -EFAULT;
+			break;
+		}
+		break;
+	}
+
 	default:
 		rc = -EFAULT;
 		break;
@@ -1516,6 +1608,8 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 	.i2c_util = msm_sensor_cci_i2c_util,
 	.i2c_write_conf_tbl = msm_camera_cci_i2c_write_conf_tbl,
 	.i2c_write_table_async = msm_camera_cci_i2c_write_table_async,
+	.i2c_write_table_sync = msm_camera_cci_i2c_write_table_sync,
+	.i2c_write_table_sync_block = msm_camera_cci_i2c_write_table_sync_block,
 
 };
 
@@ -1529,6 +1623,8 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 		msm_camera_qup_i2c_write_table_w_microdelay,
 	.i2c_write_conf_tbl = msm_camera_qup_i2c_write_conf_tbl,
 	.i2c_write_table_async = msm_camera_qup_i2c_write_table,
+	.i2c_write_table_sync = msm_camera_qup_i2c_write_table,
+	.i2c_write_table_sync_block = msm_camera_qup_i2c_write_table,
 };
 
 int32_t msm_sensor_platform_probe(struct platform_device *pdev,
@@ -1564,6 +1660,7 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev,
 	cci_client->cci_i2c_master = s_ctrl->cci_i2c_master;
 	cci_client->sid =
 		s_ctrl->sensordata->slave_info->sensor_slave_addr >> 1;
+	cci_client->cid = 0;
 	cci_client->retries = 3;
 	cci_client->id_map = 0;
 	if (!s_ctrl->func_tbl)

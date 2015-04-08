@@ -38,6 +38,11 @@
 #define MSM_CCI_WRITE_DATA_PAYLOAD_SIZE_11 11
 #define BURST_MIN_FREE_SIZE 8
 
+enum cci_i2c_sync {
+	MSM_SYNC_DISABLE,
+	MSM_SYNC_ENABLE,
+};
+
 enum cci_i2c_queue_t {
 	QUEUE_0,
 	QUEUE_1,
@@ -67,9 +72,13 @@ enum msm_cci_cmd_type {
 	MSM_CCI_I2C_WRITE_SEQ,
 	MSM_CCI_I2C_WRITE_ASYNC,
 	MSM_CCI_GPIO_WRITE,
+	MSM_CCI_I2C_WRITE_SYNC,
+	MSM_CCI_I2C_WRITE_SYNC_BLOCK,
 };
 
 struct msm_camera_cci_wait_sync_cfg {
+	uint16_t cid;
+	int16_t csid;
 	uint16_t line;
 	uint16_t delay;
 };
@@ -169,6 +178,8 @@ struct cci_device {
 	uint8_t payload_size;
 	uint8_t support_seq_write;
 	struct workqueue_struct *write_wq[MASTER_MAX];
+	struct msm_camera_cci_wait_sync_cfg cci_wait_sync_cfg;
+	uint8_t valid_sync;
 };
 
 enum msm_cci_i2c_cmd_type {
@@ -209,6 +220,7 @@ struct cci_write_async {
 	struct msm_camera_cci_ctrl c_ctrl;
 	enum cci_i2c_queue_t queue;
 	struct work_struct work;
+	enum cci_i2c_sync sync_en;
 };
 
 #ifdef CONFIG_MSM_CCI

@@ -57,6 +57,10 @@ struct msm_camera_i2c_fn_t {
 		enum msm_camera_i2c_data_type data_type);
 	int32_t (*i2c_write_table_async)(struct msm_camera_i2c_client *,
 		struct msm_camera_i2c_reg_setting *);
+	int32_t (*i2c_write_table_sync)(struct msm_camera_i2c_client *,
+		struct msm_camera_i2c_reg_setting *);
+	int32_t (*i2c_write_table_sync_block)(struct msm_camera_i2c_client *,
+		struct msm_camera_i2c_reg_setting *);
 };
 
 int32_t msm_camera_cci_i2c_read(struct msm_camera_i2c_client *client,
@@ -78,6 +82,14 @@ int32_t msm_camera_cci_i2c_write_table(
 	struct msm_camera_i2c_reg_setting *write_setting);
 
 int32_t msm_camera_cci_i2c_write_table_async(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_setting *write_setting);
+
+int32_t msm_camera_cci_i2c_write_table_sync(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_setting *write_setting);
+
+int32_t msm_camera_cci_i2c_write_table_sync_block(
 	struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_setting *write_setting);
 

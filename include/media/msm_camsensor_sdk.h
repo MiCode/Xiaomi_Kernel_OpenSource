@@ -194,6 +194,14 @@ struct msm_sensor_power_setting_array {
 	unsigned short size_down;
 };
 
+
+struct msm_sensor_i2c_sync_params {
+	unsigned int cid;
+	int csid;
+	unsigned short line;
+	unsigned short delay;
+};
+
 struct msm_sensor_init_params {
 	/* mask of modes supported: 2D, 3D */
 	int                 modes_supported;

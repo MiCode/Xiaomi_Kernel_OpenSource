@@ -235,6 +235,7 @@ struct sensorb_cfg_data {
 		struct msm_sensor_info_t      sensor_info;
 		struct msm_sensor_init_params sensor_init_params;
 		void                         *setting;
+		struct msm_sensor_i2c_sync_params sensor_i2c_sync_params;
 	} cfg;
 };
 
@@ -417,7 +418,10 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_AUTOFOCUS,
 	CFG_CANCEL_AUTOFOCUS,
 	CFG_SET_STREAM_TYPE,
+	CFG_SET_I2C_SYNC_PARAM,
 	CFG_WRITE_I2C_ARRAY_ASYNC,
+	CFG_WRITE_I2C_ARRAY_SYNC,
+	CFG_WRITE_I2C_ARRAY_SYNC_BLOCK,
 };
 
 enum msm_actuator_cfg_type_t {
@@ -724,6 +728,7 @@ struct sensorb_cfg_data32 {
 		struct msm_sensor_info_t      sensor_info;
 		struct msm_sensor_init_params sensor_init_params;
 		compat_uptr_t                 setting;
+		struct msm_sensor_i2c_sync_params sensor_i2c_sync_params;
 	} cfg;
 };
 
