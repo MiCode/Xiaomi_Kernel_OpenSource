@@ -26,6 +26,7 @@
 
 #define DT_CMD_HDR 6
 #define MIN_REFRESH_RATE 30
+#define DEFAULT_MDP_TRANSFER_TIME 14000
 
 #define CEIL(x, y)		(((x) + ((y)-1)) / (y))
 
@@ -2021,9 +2022,14 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-framerate", &tmp);
 	pinfo->mipi.frame_rate = (!rc ? tmp : 60);
+
 	pinfo->clk_rate = 0;
 	of_property_read_u64(np, "qcom,mdss-dsi-panel-clockrate",
 		&pinfo->clk_rate);
+
+	rc = of_property_read_u32(np, "qcom,mdss-mdp-transfer-time-us", &tmp);
+	pinfo->mdp_transfer_time_us = (!rc ? tmp : DEFAULT_MDP_TRANSFER_TIME);
+
 	data = of_get_property(np, "qcom,mdss-dsi-panel-timings", &len);
 	if ((!data) || (len != 12)) {
 		pr_err("%s:%d, Unable to read Phy timing settings",

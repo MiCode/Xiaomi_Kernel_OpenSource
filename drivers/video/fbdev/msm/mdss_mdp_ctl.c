@@ -903,14 +903,14 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 						&mixer->ctl->dst_comp_ratio);
 
 		} else if (pinfo->type == MIPI_CMD_PANEL) {
-			/* for cmd mode, run as fast as the link allows us */
-			u32 dsi_pclk_rate = pinfo->mipi.dsi_pclk_rate;
+			u32 dsi_transfer_rate = mixer->width * v_total;
 
-			if (is_pingpong_split(mixer->ctl->mfd))
-				dsi_pclk_rate *= 2;
+			/* adjust transfer time from micro seconds */
+			dsi_transfer_rate = mult_frac(dsi_transfer_rate,
+				1000000, pinfo->mdp_transfer_time_us);
 
-			if (dsi_pclk_rate > perf->mdp_clk_rate)
-				perf->mdp_clk_rate = dsi_pclk_rate;
+			if (dsi_transfer_rate > perf->mdp_clk_rate)
+				perf->mdp_clk_rate = dsi_transfer_rate;
 		}
 	}
 
