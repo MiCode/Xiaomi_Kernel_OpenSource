@@ -510,7 +510,7 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	/* Set the PMC Register - to support PME in D0, D3hot and D3cold */
 	ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR, 0,
-						BIT(4)|BIT(3)|BIT(0));
+						BIT(31)|BIT(30)|BIT(27));
 
 	/* Set the Endpoint L0s Acceptable Latency to 1us (max) */
 	ep_pcie_write_reg_field(dev->dm_core, PCIE20_DEVICE_CAPABILITIES,
