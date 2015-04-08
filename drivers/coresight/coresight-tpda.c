@@ -436,6 +436,11 @@ static ssize_t tpda_show_global_flush_req(struct device *dev,
 
 	mutex_lock(&drvdata->lock);
 
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
+
 	TPDA_UNLOCK(drvdata);
 	val = tpda_readl(drvdata, TPDA_CR);
 	TPDA_LOCK(drvdata);
@@ -484,6 +489,11 @@ static ssize_t tpda_show_port_flush_req(struct device *dev,
 	unsigned long val;
 
 	mutex_lock(&drvdata->lock);
+
+	if (!drvdata->enable) {
+		mutex_unlock(&drvdata->lock);
+		return -EPERM;
+	}
 
 	TPDA_UNLOCK(drvdata);
 	val = tpda_readl(drvdata, TPDA_FLUSH_CR);
