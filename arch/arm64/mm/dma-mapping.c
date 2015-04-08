@@ -294,16 +294,20 @@ static void *arm64_swiotlb_alloc_noncoherent(struct device *dev, size_t size,
 			/* remove any dirty cache lines on the kernel alias */
 			__dma_flush_range(ptr, ptr + size);
 
-		map = kmalloc(sizeof(struct page *) << order, flags & ~GFP_DMA);
-		if (!map)
-			goto no_map;
+		map = kmalloc(sizeof(struct page *) << order,
+			      (flags & ~GFP_DMA) | __GFP_NOWARN);
+		if (!map) {
+			map = vmalloc(sizeof(struct page *) << order);
+			if (!map)
+				goto no_map;
+		}
 
 		/* create a coherent mapping */
 		page = virt_to_page(ptr);
 		for (i = 0; i < (size >> PAGE_SHIFT); i++)
 			map[i] = page + i;
 		coherent_ptr = vmap(map, size >> PAGE_SHIFT, VM_MAP, prot);
-		kfree(map);
+		kvfree(map);
 		if (!coherent_ptr)
 			goto no_map;
 	}
