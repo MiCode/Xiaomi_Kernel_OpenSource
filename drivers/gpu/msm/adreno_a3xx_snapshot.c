@@ -16,7 +16,75 @@
 #include "adreno.h"
 #include "kgsl_snapshot.h"
 #include "a3xx_reg.h"
-#include "adreno_a3xx_snapshot.h"
+#include "adreno_snapshot.h"
+
+/*
+ * Set of registers to dump for A3XX on snapshot.
+ * Registers in pairs - first value is the start offset, second
+ * is the stop offset (inclusive)
+ */
+
+static const unsigned int a3xx_registers[] = {
+	0x0000, 0x0002, 0x0010, 0x0012, 0x0018, 0x0018, 0x0020, 0x0027,
+	0x0029, 0x002b, 0x002e, 0x0033, 0x0040, 0x0042, 0x0050, 0x005c,
+	0x0060, 0x006c, 0x0080, 0x0082, 0x0084, 0x0088, 0x0090, 0x00e5,
+	0x00ea, 0x00ed, 0x0100, 0x0100, 0x0110, 0x0123, 0x01c0, 0x01c1,
+	0x01c3, 0x01c5, 0x01c7, 0x01c7, 0x01d5, 0x01d9, 0x01dc, 0x01dd,
+	0x01ea, 0x01ea, 0x01ee, 0x01f1, 0x01f5, 0x01f6, 0x01f8, 0x01f9,
+	0x01fc, 0x01ff,
+	0x0440, 0x0440, 0x0443, 0x0443, 0x0445, 0x0445, 0x044d, 0x044f,
+	0x0452, 0x0452, 0x0454, 0x046f, 0x047c, 0x047c, 0x047f, 0x047f,
+	0x0578, 0x057f, 0x0600, 0x0602, 0x0605, 0x0607, 0x060a, 0x060e,
+	0x0612, 0x0614, 0x0c01, 0x0c02, 0x0c06, 0x0c1d, 0x0c3d, 0x0c3f,
+	0x0c48, 0x0c4b, 0x0c80, 0x0c80, 0x0c88, 0x0c8b, 0x0ca0, 0x0cb7,
+	0x0cc0, 0x0cc1, 0x0cc6, 0x0cc7, 0x0ce4, 0x0ce5,
+	0x0e41, 0x0e45, 0x0e64, 0x0e65,
+	0x0e80, 0x0e82, 0x0e84, 0x0e89, 0x0ea0, 0x0ea1, 0x0ea4, 0x0ea7,
+	0x0ec4, 0x0ecb, 0x0ee0, 0x0ee0, 0x0f00, 0x0f01, 0x0f03, 0x0f09,
+	0x2040, 0x2040, 0x2044, 0x2044, 0x2048, 0x204d, 0x2068, 0x2069,
+	0x206c, 0x206d, 0x2070, 0x2070, 0x2072, 0x2072, 0x2074, 0x2075,
+	0x2079, 0x207a, 0x20c0, 0x20d3, 0x20e4, 0x20ef, 0x2100, 0x2109,
+	0x210c, 0x210c, 0x210e, 0x210e, 0x2110, 0x2111, 0x2114, 0x2115,
+	0x21e4, 0x21e4, 0x21ea, 0x21ea, 0x21ec, 0x21ed, 0x21f0, 0x21f0,
+	0x2240, 0x227e,
+	0x2280, 0x228b, 0x22c0, 0x22c0, 0x22c4, 0x22ce, 0x22d0, 0x22d8,
+	0x22df, 0x22e6, 0x22e8, 0x22e9, 0x22ec, 0x22ec, 0x22f0, 0x22f7,
+	0x22ff, 0x22ff, 0x2340, 0x2343,
+	0x2440, 0x2440, 0x2444, 0x2444, 0x2448, 0x244d,
+	0x2468, 0x2469, 0x246c, 0x246d, 0x2470, 0x2470, 0x2472, 0x2472,
+	0x2474, 0x2475, 0x2479, 0x247a, 0x24c0, 0x24d3, 0x24e4, 0x24ef,
+	0x2500, 0x2509, 0x250c, 0x250c, 0x250e, 0x250e, 0x2510, 0x2511,
+	0x2514, 0x2515, 0x25e4, 0x25e4, 0x25ea, 0x25ea, 0x25ec, 0x25ed,
+	0x25f0, 0x25f0,
+	0x2640, 0x267e, 0x2680, 0x268b, 0x26c0, 0x26c0, 0x26c4, 0x26ce,
+	0x26d0, 0x26d8, 0x26df, 0x26e6, 0x26e8, 0x26e9, 0x26ec, 0x26ec,
+	0x26f0, 0x26f7, 0x26ff, 0x26ff, 0x2740, 0x2743,
+	0x300C, 0x300E, 0x301C, 0x301D,
+	0x302A, 0x302A, 0x302C, 0x302D, 0x3030, 0x3031, 0x3034, 0x3036,
+	0x303C, 0x303C, 0x305E, 0x305F,
+};
+
+static const unsigned int a3xx_registers_count = ARRAY_SIZE(a3xx_registers) / 2;
+
+/* Removed the following HLSQ register ranges from being read during
+ * fault tolerance since reading the registers may cause the device to hang:
+ */
+static const unsigned int a3xx_hlsq_registers[] = {
+	0x0e00, 0x0e05, 0x0e0c, 0x0e0c, 0x0e22, 0x0e23,
+	0x2200, 0x2212, 0x2214, 0x2217, 0x221a, 0x221a,
+	0x2600, 0x2612, 0x2614, 0x2617, 0x261a, 0x261a,
+};
+
+static const unsigned int a3xx_hlsq_registers_count =
+			ARRAY_SIZE(a3xx_hlsq_registers) / 2;
+
+/* The set of additional registers to be dumped for A330 */
+
+static const unsigned int a330_registers[] = {
+	0x1d0, 0x1d0, 0x1d4, 0x1d4, 0x453, 0x453,
+};
+
+static const unsigned int a330_registers_count = ARRAY_SIZE(a330_registers) / 2;
 
 /* Shader memory size in words */
 #define SHADER_MEMORY_SIZE 0x4000
@@ -83,230 +151,6 @@ static size_t a3xx_snapshot_shader_memory(struct kgsl_device *device,
 
 
 	return DEBUG_SECTION_SZ(shader_read_len);
-}
-
-#define VPC_MEMORY_BANKS 4
-
-/*
- * a3xx_snapshot_vpc_memory() - Save VPC data in snapshot
- * @device: Device being snapshotted
- * @buf: Snapshot memory
- * @remain: Number of bytes left in snapshot memory
- * @priv: Private data for VPC if any
- *
- * Called for both A3XX and A4XX
- */
-size_t a3xx_snapshot_vpc_memory(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int vpc_mem_size = *((int *)priv);
-	size_t size = VPC_MEMORY_BANKS * vpc_mem_size;
-	int bank, addr, i = 0;
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
-		SNAPSHOT_ERR_NOMEM(device, "VPC MEMORY");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_VPC_MEMORY;
-	header->size = size;
-
-	for (bank = 0; bank < VPC_MEMORY_BANKS; bank++) {
-		for (addr = 0; addr < vpc_mem_size; addr++) {
-			unsigned int val = bank | (addr << 4);
-			adreno_writereg(adreno_dev,
-				ADRENO_REG_VPC_DEBUG_RAM_SEL, val);
-			adreno_readreg(adreno_dev,
-				ADRENO_REG_VPC_DEBUG_RAM_READ, &data[i++]);
-		}
-	}
-
-	return DEBUG_SECTION_SZ(size);
-}
-
-/*
- * a3xx_snapshot_cp_meq() - Save CP MEQ data in snapshot
- * @device: Device being snapshotted
- * @buf: Snapshot memory
- * @remain: Number of bytes left in snapshot memory
- * @priv: Contains the size of MEQ data
- *
- * Called for both A3XX and A4XX
- */
-size_t a3xx_snapshot_cp_meq(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i;
-	int cp_meq_sz = *((int *)priv);
-
-	if (remain < DEBUG_SECTION_SZ(cp_meq_sz)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP MEQ DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_MEQ;
-	header->size = cp_meq_sz;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_MEQ_ADDR, 0x0);
-	for (i = 0; i < cp_meq_sz; i++)
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_MEQ_DATA, &data[i]);
-
-	return DEBUG_SECTION_SZ(cp_meq_sz);
-}
-
-/*
- * a3xx_snapshot_cp_pm4_ram() - Dump PM4 data in snapshot
- * @device: Device being snapshotted
- * @buf: Snapshot memory
- * @remain: Number of bytes left in snapshot memory
- * @priv: Unused
- *
- * Called for both a3xx and a4xx
- */
-size_t a3xx_snapshot_cp_pm4_ram(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i;
-	size_t size = adreno_dev->pm4_fw_size - 1;
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP PM4 RAM DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_PM4_RAM;
-	header->size = size;
-
-	/*
-	 * Read the firmware from the GPU rather than use our cache in order to
-	 * try to catch mis-programming or corruption in the hardware.  We do
-	 * use the cached version of the size, however, instead of trying to
-	 * maintain always changing hardcoded constants
-	 */
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_RAM_RADDR, 0x0);
-	for (i = 0; i < size; i++)
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_ME_RAM_DATA, &data[i]);
-
-	return DEBUG_SECTION_SZ(size);
-}
-
-/*
- * a3xx_snapshot_cp_pfp_ram() - Dump the PFP data on snapshot
- * @device: Device being snapshotted
- * @buf: Snapshot memory
- * @remain: Amount of butes left in snapshot memory
- * @priv: Unused
- *
- * Called for both A3xx and A4xx snapshots
- */
-size_t a3xx_snapshot_cp_pfp_ram(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i, size = adreno_dev->pfp_fw_size - 1;
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP PFP RAM DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_PFP_RAM;
-	header->size = size;
-
-	/*
-	 * Read the firmware from the GPU rather than use our cache in order to
-	 * try to catch mis-programming or corruption in the hardware.  We do
-	 * use the cached version of the size, however, instead of trying to
-	 * maintain always changing hardcoded constants
-	 */
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_PFP_UCODE_ADDR, 0x0);
-	for (i = 0; i < size; i++)
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_PFP_UCODE_DATA,
-				&data[i]);
-
-	return DEBUG_SECTION_SZ(size);
-}
-
-/*
- * a3xx_snapshot_cp_roq - Dumop ROQ data in snapshot
- * @device: Device being snapshotted
- * @remain: Bytes remaining in snapshot memory
- * @priv: Size of ROQ data in Dwords
- *
- * Called for both a3xx and a4xx
- */
-size_t a3xx_snapshot_cp_roq(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i, size = *((int *)priv);
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP ROQ DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_ROQ;
-	header->size = size;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_ROQ_ADDR, 0x0);
-	for (i = 0; i < size; i++)
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_ROQ_DATA, &data[i]);
-
-	return DEBUG_SECTION_SZ(size);
-}
-
-/*
- * a3xx_snapshot_cp_roq - Dumop CP merciu data in snapshot
- * @device: Device being snapshotted
- * @remain: Bytes remaining in snapshot memory
- * @priv: Size of merciu data in Dwords
- *
- * Called for both a3xx and a4xx
- */
-size_t a330_snapshot_cp_merciu(struct kgsl_device *device, u8 *buf,
-		size_t remain, void *priv)
-{
-	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
-	struct kgsl_snapshot_debug *header = (struct kgsl_snapshot_debug *)buf;
-	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
-	int i, size = *((int *)priv);
-
-	/* The MERCIU data is two dwords per entry */
-	size = size << 1;
-
-	if (remain < DEBUG_SECTION_SZ(size)) {
-		SNAPSHOT_ERR_NOMEM(device, "CP MERCIU DEBUG");
-		return 0;
-	}
-
-	header->type = SNAPSHOT_DEBUG_CP_MERCIU;
-	header->size = size;
-
-	adreno_writereg(adreno_dev, ADRENO_REG_CP_MERCIU_ADDR, 0x0);
-
-	for (i = 0; i < size; i++) {
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_MERCIU_DATA,
-			&data[(i * 2)]);
-		adreno_readreg(adreno_dev, ADRENO_REG_CP_MERCIU_DATA2,
-			&data[(i * 2) + 1]);
-	}
-
-	return DEBUG_SECTION_SZ(size);
 }
 
 static size_t a3xx_snapshot_debugbus_block(struct kgsl_device *device,
@@ -485,7 +329,7 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 	adreno_writereg(adreno_dev, ADRENO_REG_RBBM_CLOCK_CTL, 0x00);
 
 	/* Store relevant registers in list to snapshot */
-	_snapshot_a3xx_regs(regs, &list, a3xx_registers,
+	adreno_snapshot_regs(regs, &list, a3xx_registers,
 			a3xx_registers_count, 1);
 	_snapshot_hlsq_regs(regs, &list, adreno_dev);
 	if (adreno_is_a330(adreno_dev) || adreno_is_a305b(adreno_dev))
@@ -497,7 +341,7 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 
 	kgsl_snapshot_indexed_registers(device, snapshot,
 		A3XX_CP_STATE_DEBUG_INDEX, A3XX_CP_STATE_DEBUG_DATA,
-		0x0, snap_data->sect_sizes->cp_state_deb);
+		0x0, snap_data->sect_sizes->cp_pfp);
 
 	/* CP_ME indexed registers */
 	kgsl_snapshot_indexed_registers(device, snapshot,
@@ -505,12 +349,12 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 
 	/* VPC memory */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, a3xx_snapshot_vpc_memory,
+		snapshot, adreno_snapshot_vpc_memory,
 		&snap_data->sect_sizes->vpc_mem);
 
 	/* CP MEQ */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG, snapshot,
-		a3xx_snapshot_cp_meq, &snap_data->sect_sizes->cp_meq);
+		adreno_snapshot_cp_meq, &snap_data->sect_sizes->cp_meq);
 
 	/* Shader working/shadow memory */
 	 kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
@@ -535,18 +379,18 @@ void a3xx_snapshot(struct adreno_device *adreno_dev,
 	adreno_writereg(adreno_dev, ADRENO_REG_CP_ME_CNTL, reg);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, a3xx_snapshot_cp_pfp_ram, NULL);
+		snapshot, adreno_snapshot_cp_pfp_ram, NULL);
 
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, a3xx_snapshot_cp_pm4_ram, NULL);
+		snapshot, adreno_snapshot_cp_pm4_ram, NULL);
 
 	/* CP ROQ */
 	kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-		snapshot, a3xx_snapshot_cp_roq, &snap_data->sect_sizes->roq);
+		snapshot, adreno_snapshot_cp_roq, &snap_data->sect_sizes->roq);
 
 	if (snap_data->sect_sizes->cp_merciu) {
 		kgsl_snapshot_add_section(device, KGSL_SNAPSHOT_SECTION_DEBUG,
-			snapshot, a330_snapshot_cp_merciu,
+			snapshot, adreno_snapshot_cp_merciu,
 			&snap_data->sect_sizes->cp_merciu);
 	}
 

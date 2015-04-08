@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -577,15 +577,6 @@
 #define A3XX_VBIF2_PERF_CNT_HIGH2 0x30e2
 #define A3XX_VBIF2_PERF_CNT_HIGH3 0x30e3
 
-#define A3XX_VBIF2_PERF_CNT_SEL_MASK 0x7F
-
-/* offset of clear register from select register */
-#define A3XX_VBIF2_PERF_CLR_REG_SEL_OFF 8
-/* offset of enable register from select register */
-#define A3XX_VBIF2_PERF_EN_REG_SEL_OFF 16
-/* offset of high counter from low counter value */
-#define A3XX_VBIF2_PERF_HIGH_REG_LOW_OFF 8
-
 #define A3XX_VBIF2_PERF_PWR_CNT_EN0 0x3100
 #define A3XX_VBIF2_PERF_PWR_CNT_EN1 0x3101
 #define A3XX_VBIF2_PERF_PWR_CNT_EN2 0x3102
@@ -599,22 +590,8 @@
 #define A3XX_VBIF2_PERF_PWR_CNT_HIGH1 0x3119
 #define A3XX_VBIF2_PERF_PWR_CNT_HIGH2 0x311a
 
-/* offset of clear register from the enable register */
-#define A3XX_VBIF2_PERF_PWR_CLR_REG_EN_OFF 8
-/* offset of high counter from low counter value */
-#define A3XX_VBIF2_PERF_PWR_HIGH_REG_LOW_OFF 8
-
 #define A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL0 0x3800
 #define A3XX_VBIF_DDR_OUTPUT_RECOVERABLE_HALT_CTRL1 0x3801
-
-/* Bit flags for RBBM_CTL */
-#define RBBM_RBBM_CTL_RESET_PWR_CTR0	0x00000001
-#define RBBM_RBBM_CTL_RESET_PWR_CTR1	0x00000002
-#define RBBM_RBBM_CTL_ENABLE_PWR_CTR0	0x00010000
-#define RBBM_RBBM_CTL_ENABLE_PWR_CTR1	0x00020000
-
-/* Bit flag for RBMM_PERFCTR_CTL */
-#define RBBM_PERFCTR_CTL_ENABLE		0x00000001
 
 /* Various flags used by the context switch code */
 
@@ -900,19 +877,6 @@
 
 /* COUNTABLE FOR TSE PERFCOUNTER */
 #define TSE_INPUT_PRIM_NUM             0x0
-
-/* VBIF PERFCOUNTER ENA/CLR values */
-#define VBIF_PERF_CNT_0		0x00000001
-#define VBIF_PERF_CNT_1		0x00000002
-#define VBIF_PERF_PWR_CNT_0	0x00000004
-#define VBIF_PERF_PWR_CNT_1	0x00000008
-#define VBIF_PERF_PWR_CNT_2	0x00000010
-
-/* VBIF PERFCOUNTER SEL values */
-#define VBIF_PERF_CNT_0_SEL 0
-#define VBIF_PERF_CNT_0_SEL_MASK 0x7f
-#define VBIF_PERF_CNT_1_SEL 8
-#define VBIF_PERF_CNT_1_SEL_MASK 0x7f00
 
 /* VBIF countables */
 #define VBIF_AXI_TOTAL_BEATS 85

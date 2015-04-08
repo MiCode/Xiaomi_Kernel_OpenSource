@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,10 +37,6 @@
 
 /* Timestamp window used to detect rollovers (half of integer range) */
 #define KGSL_TIMESTAMP_WINDOW 0x80000000
-
-/*cache coherency ops */
-#define DRM_KGSL_GEM_CACHE_OP_TO_DEV	0x0001
-#define DRM_KGSL_GEM_CACHE_OP_FROM_DEV	0x0002
 
 /* The SVM upper bound is the same as the TASK_SIZE in arm32 */
 #define KGSL_SVM_UPPER_BOUND (0xC0000000 - SZ_16M)
@@ -83,16 +79,16 @@ struct kgsl_driver {
 	struct mutex devlock;
 
 	struct {
-		unsigned int vmalloc;
-		unsigned int vmalloc_max;
-		unsigned int page_alloc;
-		unsigned int page_alloc_max;
-		unsigned int coherent;
-		unsigned int coherent_max;
-		unsigned int secure;
-		unsigned int secure_max;
-		unsigned int mapped;
-		unsigned int mapped_max;
+		uint64_t vmalloc;
+		uint64_t vmalloc_max;
+		uint64_t page_alloc;
+		uint64_t page_alloc_max;
+		uint64_t coherent;
+		uint64_t coherent_max;
+		uint64_t secure;
+		uint64_t secure_max;
+		uint64_t mapped;
+		uint64_t mapped_max;
 	} stats;
 	unsigned int full_cache_threshold;
 };
@@ -120,33 +116,45 @@ struct kgsl_memdesc_ops {
 #define KGSL_MEMDESC_FROZEN BIT(2)
 /* The memdesc is mapped into a pagetable */
 #define KGSL_MEMDESC_MAPPED BIT(3)
-/* Indicates gpuaddr is assigned via gen pool */
-#define KGSL_MEMDESC_GENPOOL_ALLOC BIT(4)
 /* The memdesc is secured for content protection */
-#define KGSL_MEMDESC_SECURE BIT(5)
-/* Indicates gpuaddr is assigned via bimap */
-#define KGSL_MEMDESC_BITMAP_ALLOC BIT(6)
+#define KGSL_MEMDESC_SECURE BIT(4)
 /* The memdesc is private for use during pagetable switch only */
-#define KGSL_MEMDESC_PRIVATE BIT(7)
+#define KGSL_MEMDESC_PRIVATE BIT(5)
 /* Memory is accessible in privileged mode */
-#define KGSL_MEMDESC_PRIVILEGED BIT(8)
+#define KGSL_MEMDESC_PRIVILEGED BIT(6)
 /* The memdesc is TZ locked content protection */
-#define KGSL_MEMDESC_TZ_LOCKED BIT(9)
+#define KGSL_MEMDESC_TZ_LOCKED BIT(7)
 
-/* shared memory allocation */
+/**
+ * struct kgsl_memdesc - GPU memory object descriptor
+ * @pagetable: Pointer to the pagetable that the object is mapped in
+ * @hostptr: Kernel virtual address
+ * @hostptr_count: Number of threads using hostptr
+ * @useraddr: User virtual address (if applicable)
+ * @gpuaddr: GPU virtual address
+ * @physaddr: Physical address of the memory object
+ * @size: Size of the memory object
+ * @mmapsize: Total size of the object in VM (including guard)
+ * @priv: Internal flags and settings
+ * @sgt: Scatter gather table for allocated pages
+ * @ops: Function hooks for the memdesc memory type
+ * @flags: Flags set from userspace
+ * @dev: Pointer to the struct device that owns this memory
+ * @memmap: bitmap of pages for mmapsize
+ * @memmap_len: Number of bits for memmap
+ */
 struct kgsl_memdesc {
 	struct kgsl_pagetable *pagetable;
-	void *hostptr; /* kernel virtual address */
-	unsigned int hostptr_count; /* number of threads using hostptr */
-	unsigned long useraddr; /* userspace address */
-	unsigned int gpuaddr;
+	void *hostptr;
+	unsigned int hostptr_count;
+	unsigned long useraddr;
+	uint64_t gpuaddr;
 	phys_addr_t physaddr;
-	size_t size;
-	unsigned int priv; /* Internal flags and settings */
-	struct scatterlist *sg;
-	unsigned int sglen; /* Active entries in the sglist */
+	uint64_t size;
+	unsigned int priv;
+	struct sg_table *sgt;
 	struct kgsl_memdesc_ops *ops;
-	unsigned int flags; /* Flags set from userspace */
+	uint64_t flags;
 	struct device *dev;
 	struct dma_attrs attrs;
 };
@@ -157,8 +165,6 @@ struct kgsl_memdesc {
  * added to the enum values.
  */
 #define KGSL_MEM_ENTRY_KERNEL 0
-#define KGSL_MEM_ENTRY_PMEM (KGSL_USER_MEM_TYPE_PMEM + 1)
-#define KGSL_MEM_ENTRY_ASHMEM (KGSL_USER_MEM_TYPE_ASHMEM + 1)
 #define KGSL_MEM_ENTRY_USER (KGSL_USER_MEM_TYPE_ADDR + 1)
 #define KGSL_MEM_ENTRY_ION (KGSL_USER_MEM_TYPE_ION + 1)
 #define KGSL_MEM_ENTRY_MAX (KGSL_USER_MEM_TYPE_MAX + 1)
@@ -166,8 +172,6 @@ struct kgsl_memdesc {
 /* symbolic table for trace and debugfs */
 #define KGSL_MEM_TYPES \
 	{ KGSL_MEM_ENTRY_KERNEL, "gpumem" }, \
-	{ KGSL_MEM_ENTRY_PMEM, "pmem" }, \
-	{ KGSL_MEM_ENTRY_ASHMEM, "ashmem" }, \
 	{ KGSL_MEM_ENTRY_USER, "usermem" }, \
 	{ KGSL_MEM_ENTRY_ION, "ion" }
 
@@ -297,6 +301,12 @@ long kgsl_ioctl_cff_user_event(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 long kgsl_ioctl_timestamp_event(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
+long kgsl_ioctl_cff_sync_gpuobj(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_gpuobj_alloc(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
+long kgsl_ioctl_gpuobj_free(struct kgsl_device_private *dev_priv,
+					unsigned int cmd, void *data);
 
 int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
 			struct kgsl_ibdesc *ibdesc);
@@ -308,32 +318,18 @@ int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 void kgsl_mem_entry_destroy(struct kref *kref);
 
 struct kgsl_mem_entry *kgsl_sharedmem_find_region(
-	struct kgsl_process_private *private, unsigned int gpuaddr,
-	size_t size);
+	struct kgsl_process_private *private, uint64_t gpuaddr,
+	uint64_t size);
 
-void kgsl_get_memory_usage(char *str, size_t len, unsigned int memflags);
+void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 
 extern const struct dev_pm_ops kgsl_pm_ops;
 
 int kgsl_suspend_driver(struct platform_device *pdev, pm_message_t state);
 int kgsl_resume_driver(struct platform_device *pdev);
 
-#ifdef CONFIG_MSM_KGSL_DRM
-extern int kgsl_drm_init(struct platform_device *dev);
-extern void kgsl_drm_exit(void);
-#else
-static inline int kgsl_drm_init(struct platform_device *dev)
-{
-	return 0;
-}
-
-static inline void kgsl_drm_exit(void)
-{
-}
-#endif
-
 static inline int kgsl_gpuaddr_in_memdesc(const struct kgsl_memdesc *memdesc,
-				unsigned int gpuaddr, size_t size)
+				uint64_t gpuaddr, uint64_t size)
 {
 	/* set a minimum size to search for */
 	if (!size)
@@ -365,7 +361,7 @@ static inline void kgsl_memdesc_unmap(struct kgsl_memdesc *memdesc)
 }
 
 static inline void *kgsl_gpuaddr_to_vaddr(struct kgsl_memdesc *memdesc,
-					     unsigned int gpuaddr)
+					     uint64_t gpuaddr)
 {
 	void *hostptr = NULL;
 
@@ -418,9 +414,8 @@ kgsl_mem_entry_put(struct kgsl_mem_entry *entry)
  * Function returns true if the 2 given address ranges overlap
  * else false
  */
-static inline bool kgsl_addr_range_overlap(unsigned int gpuaddr1,
-		unsigned int size1,
-		unsigned int gpuaddr2, unsigned int size2)
+static inline bool kgsl_addr_range_overlap(uint64_t gpuaddr1,
+		uint64_t size1, uint64_t gpuaddr2, uint64_t size2)
 {
 	if ((size1 > (UINT_MAX - gpuaddr1)) || (size2 > (UINT_MAX - gpuaddr2)))
 		return false;
