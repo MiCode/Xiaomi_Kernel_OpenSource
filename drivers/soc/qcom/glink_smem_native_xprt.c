@@ -144,6 +144,10 @@ struct channel_desc {
  * @use_ref:			Active uses of this transport use this to grab
  *				a reference.  Used for ssr synchronization.
  * @in_ssr:			Signals if this transport is in ssr.
+ * @rx_lock:			Used to serialize concurrent instances of rx
+ *				processing.
+ * @deferred_cmds:		List of deferred commands that need to be
+ *				processed in process context.
  */
 struct edge_info {
 	struct glink_transport_if xprt_if;
@@ -171,6 +175,27 @@ struct edge_info {
 	struct task_struct *task;
 	struct srcu_struct use_ref;
 	bool in_ssr;
+	spinlock_t rx_lock;
+	struct list_head deferred_cmds;
+};
+
+/**
+ * struct deferred_cmd - description of a command to be processed later
+ * @list_node:	Used to put this command on a list in the edge.
+ * @id:		ID of the command.
+ * @param1:	Parameter one of the command.
+ * @param2:	Parameter two of the command.
+ * @data:	Extra data associated with the command, if applicable.
+ *
+ * This structure stores the relevant information of a command that was removed
+ * from the fifo but needs to be processed at a later time.
+ */
+struct deferred_cmd {
+	struct list_head list_node;
+	uint16_t id;
+	uint16_t param1;
+	uint32_t param2;
+	void *data;
 };
 
 static uint32_t negotiate_features_v1(struct glink_transport_if *if_ptr,
@@ -570,39 +595,6 @@ static int fifo_tx(struct edge_info *einfo, const void *data, int len)
 }
 
 /**
- * process_remote_open() - process an open command from the remote side
- * @einfo:	The edge where the command was received on.
- * @rcid:	The remote channel id associated with this open command.
- * @name_len:	The length of the channel name in the open command.
- */
-static void process_remote_open(struct edge_info *einfo, uint16_t rcid,
-				uint32_t name_len)
-{
-	uint32_t len;
-	char *name;
-	char trash[FIFO_ALIGNMENT];
-
-	len = ALIGN(name_len, FIFO_ALIGNMENT);
-	name = kmalloc(len, GFP_KERNEL);
-	if (!name) {
-		pr_err("No memory available to rx ch open cmd name.  Discarding cmd.\n");
-		while (len) {
-			fifo_read(einfo, trash, FIFO_ALIGNMENT);
-			len -= FIFO_ALIGNMENT;
-		}
-		return;
-	}
-
-	fifo_read(einfo, name, len);
-
-	einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
-						&einfo->xprt_if,
-						rcid,
-						name,
-						SMEM_XPRT_ID);
-}
-
-/**
  * process_rx_data() - process received data from an edge
  * @einfo:	The edge the data was received on.
  * @rcid:	The remote channel id associated with the data.
@@ -631,7 +623,7 @@ static void process_rx_data(struct edge_info *einfo, uint32_t rcid,
 		err = true;
 	} else if (intent->data == NULL) {
 		if (einfo->intentless) {
-			intent->data = kmalloc(cmd.frag_size, GFP_KERNEL);
+			intent->data = kmalloc(cmd.frag_size, GFP_ATOMIC);
 			if (!intent->data)
 				err = true;
 			else
@@ -691,14 +683,44 @@ static void process_rx_data(struct edge_info *einfo, uint32_t rcid,
 }
 
 /**
- * rx_worker() - worker function to process received commands
- * @work:	kwork associated with the edge to process commands on.
+ * queue_cmd() - queue a deferred command for later processing
+ * @einfo:	Edge to queue commands on.
+ * @cmd:	Command to queue.
+ * @data:	Command specific data to queue with the command.
  *
- * Assumes that only one instance of this function will be operating on any
- * particular edge at any point in time to eliminate the need for locking read
- * operations.
+ * Return: True if queuing was successful, false otherwise.
  */
-static void rx_worker(struct kthread_work *work)
+static bool queue_cmd(struct edge_info *einfo, void *cmd, void *data)
+{
+	struct command {
+		uint16_t id;
+		uint16_t param1;
+		uint32_t param2;
+	};
+	struct command *_cmd = cmd;
+	struct deferred_cmd *d_cmd;
+
+	d_cmd = kmalloc(sizeof(*d_cmd), GFP_ATOMIC);
+	if (!d_cmd) {
+		GLINK_ERR("%s: Discarding cmd %d\n", __func__, _cmd->id);
+		return false;
+	}
+	d_cmd->id = _cmd->id;
+	d_cmd->param1 = _cmd->param1;
+	d_cmd->param2 = _cmd->param2;
+	d_cmd->data = data;
+	list_add_tail(&d_cmd->list_node, &einfo->deferred_cmds);
+	queue_kthread_work(&einfo->kworker, &einfo->kwork);
+	return true;
+}
+
+/**
+ * __rx_worker() - process received commands on a specific edge
+ * @einfo:	Edge to process commands on.
+ * @atomic_ctx:	Indicates if the caller is in atomic context and requires any
+ *		non-atomic operations to be deferred.
+ */
+static void __rx_worker(struct edge_info *einfo, bool atomic_ctx)
 {
 	struct command {
 		uint16_t id;
@@ -711,14 +733,19 @@ static void rx_worker(struct kthread_work *work)
 	};
 	struct command cmd;
 	struct intent_desc intent;
-	struct edge_info *einfo;
+	struct intent_desc *intents;
 	int i;
 	bool granted;
 	unsigned long flags;
 	bool trigger_wakeup = false;
 	int rcu_id;
-
-	einfo = container_of(work, struct edge_info, kwork);
+	uint16_t rcid;
+	uint32_t name_len;
+	uint32_t len;
+	char *name;
+	char trash[FIFO_ALIGNMENT];
+	struct deferred_cmd *d_cmd;
+	void *cmd_data;
 
 	rcu_id = srcu_read_lock(&einfo->use_ref);
 
@@ -739,7 +766,7 @@ static void rx_worker(struct kthread_work *work)
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return;
 	}
-	if (fifo_write_avail(einfo)) {
+	if (!atomic_ctx && fifo_write_avail(einfo)) {
 		if (einfo->tx_resume_needed) {
 			einfo->tx_resume_needed = false;
 			einfo->xprt_if.glink_core_if_ptr->tx_resume(
@@ -756,64 +783,229 @@ static void rx_worker(struct kthread_work *work)
 	}
 
 
-	while (fifo_read_avail(einfo)) {
+	/*
+	 * Access to the fifo needs to be synchronized, however only the calls
+	 * into the core from process_rx_data() are compatible with an atomic
+	 * processing context.  For everything else, we need to do all the fifo
+	 * processing, then unlock the lock for the call into the core.  Data
+	 * in the fifo is allowed to be processed immediately instead of being
+	 * ordered with the commands because the channel open process prevents
+	 * intents from being queued (which prevents data from being sent) until
+	 * all the channel open commands are processed by the core, thus
+	 * eliminating a race.
+	 */
+	spin_lock_irqsave(&einfo->rx_lock, flags);
+	while (fifo_read_avail(einfo) ||
+			(!atomic_ctx && !list_empty(&einfo->deferred_cmds))) {
 		if (einfo->in_ssr)
 			break;
-		fifo_read(einfo, &cmd, sizeof(cmd));
+
+		if (!atomic_ctx && !list_empty(&einfo->deferred_cmds)) {
+			d_cmd = list_first_entry(&einfo->deferred_cmds,
+						struct deferred_cmd, list_node);
+			list_del(&d_cmd->list_node);
+			cmd.id = d_cmd->id;
+			cmd.param1 = d_cmd->param1;
+			cmd.param2 = d_cmd->param2;
+			cmd_data = d_cmd->data;
+			kfree(d_cmd);
+		} else {
+			fifo_read(einfo, &cmd, sizeof(cmd));
+			cmd_data = NULL;
+		}
+
 		switch (cmd.id) {
 		case VERSION_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_version(
 								&einfo->xprt_if,
 								cmd.param1,
 								cmd.param2);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case VERSION_ACK_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_version_ack(
 								&einfo->xprt_if,
 								cmd.param1,
 								cmd.param2);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case OPEN_CMD:
-			process_remote_open(einfo, cmd.param1, cmd.param2);
+			rcid = cmd.param1;
+			name_len = cmd.param2;
+
+			if (cmd_data) {
+				name = cmd_data;
+			} else {
+				len = ALIGN(name_len, FIFO_ALIGNMENT);
+				name = kmalloc(len, GFP_ATOMIC);
+				if (!name) {
+					pr_err("No memory available to rx ch open cmd name.  Discarding cmd.\n");
+					while (len) {
+						fifo_read(einfo, trash,
+								FIFO_ALIGNMENT);
+						len -= FIFO_ALIGNMENT;
+					}
+					break;
+				}
+				fifo_read(einfo, name, len);
+			}
+			if (atomic_ctx) {
+				if (!queue_cmd(einfo, &cmd, name))
+					kfree(name);
+				break;
+			}
+
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
+			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_open(
+								&einfo->xprt_if,
+								rcid,
+								name,
+								SMEM_XPRT_ID);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case CLOSE_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->
 							rx_cmd_ch_remote_close(
 								&einfo->xprt_if,
 								cmd.param1);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case OPEN_ACK_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_open_ack(
 								&einfo->xprt_if,
 								cmd.param1,
 								SMEM_XPRT_ID);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case RX_INTENT_CMD:
-			for (i = 0; i < cmd.param2; ++i) {
-				fifo_read(einfo, &intent, sizeof(intent));
+			/*
+			 * One intent listed with this command.  This is the
+			 * expected case and can be optimized over the general
+			 * case of an array of intents.
+			 */
+			if (cmd.param2 == 1) {
+				if (cmd_data) {
+					intent.id = ((struct intent_desc *)
+								cmd_data)->id;
+					intent.size = ((struct intent_desc *)
+								cmd_data)->size;
+					kfree(cmd_data);
+				} else {
+					fifo_read(einfo, &intent,
+								sizeof(intent));
+				}
+				if (atomic_ctx) {
+					cmd_data = kmalloc(sizeof(intent),
+								GFP_ATOMIC);
+					if (!cmd_data) {
+						pr_err("%s: dropping cmd %d\n",
+								__func__,
+								cmd.id);
+						break;
+					}
+					((struct intent_desc *)cmd_data)->id =
+								intent.id;
+					((struct intent_desc *)cmd_data)->size =
+								intent.size;
+					if (!queue_cmd(einfo, &cmd, cmd_data))
+						kfree(cmd_data);
+					break;
+				}
+				spin_unlock_irqrestore(&einfo->rx_lock, flags);
 				einfo->xprt_if.glink_core_if_ptr->
 						rx_cmd_remote_rx_intent_put(
 								&einfo->xprt_if,
 								cmd.param1,
 								intent.id,
 								intent.size);
+				spin_lock_irqsave(&einfo->rx_lock, flags);
+				break;
 			}
+
+			/* Array of intents to process */
+			if (cmd_data) {
+				intents = cmd_data;
+			} else {
+				intents = kmalloc(sizeof(*intents) * cmd.param2,
+								GFP_ATOMIC);
+				if (!intents) {
+					for (i = 0; i < cmd.param2; ++i)
+						fifo_read(einfo, &intent,
+								sizeof(intent));
+					break;
+				}
+				fifo_read(einfo, intents,
+					sizeof(*intents) * cmd.param2);
+			}
+			if (atomic_ctx) {
+				if (!queue_cmd(einfo, &cmd, intents))
+					kfree(intents);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
+			for (i = 0; i < cmd.param2; ++i) {
+				einfo->xprt_if.glink_core_if_ptr->
+					rx_cmd_remote_rx_intent_put(
+							&einfo->xprt_if,
+							cmd.param1,
+							intents[i].id,
+							intents[i].size);
+			}
+			kfree(intents);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case RX_DONE_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_tx_done(
 								&einfo->xprt_if,
 								cmd.param1,
 								cmd.param2,
 								false);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case RX_INTENT_REQ_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->
 						rx_cmd_remote_rx_intent_req(
 								&einfo->xprt_if,
 								cmd.param1,
 								cmd.param2);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case RX_INTENT_REQ_ACK_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			granted = false;
 			if (cmd.param2 == 1)
 				granted = true;
@@ -822,38 +1014,70 @@ static void rx_worker(struct kthread_work *work)
 								&einfo->xprt_if,
 								cmd.param1,
 								granted);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case TX_DATA_CMD:
 		case TX_DATA_CONT_CMD:
 			process_rx_data(einfo, cmd.param1, cmd.param2);
 			break;
 		case CLOSE_ACK_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
 								&einfo->xprt_if,
 								cmd.param1);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case READ_NOTIF_CMD:
 			send_irq(einfo);
 			break;
 		case SIGNALS_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_remote_sigs(
 								&einfo->xprt_if,
 								cmd.param1,
 								cmd.param2);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		case RX_DONE_W_REUSE_CMD:
+			if (atomic_ctx) {
+				queue_cmd(einfo, &cmd, NULL);
+				break;
+			}
+			spin_unlock_irqrestore(&einfo->rx_lock, flags);
 			einfo->xprt_if.glink_core_if_ptr->rx_cmd_tx_done(
 								&einfo->xprt_if,
 								cmd.param1,
 								cmd.param2,
 								true);
+			spin_lock_irqsave(&einfo->rx_lock, flags);
 			break;
 		default:
 			pr_err("Unrecognized command: %d\n", cmd.id);
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&einfo->rx_lock, flags);
 	srcu_read_unlock(&einfo->use_ref, rcu_id);
+}
+
+/**
+ * rx_worker() - worker function to process received commands
+ * @work:	kwork associated with the edge to process commands on.
+ */
+static void rx_worker(struct kthread_work *work)
+{
+	struct edge_info *einfo;
+
+	einfo = container_of(work, struct edge_info, kwork);
+	__rx_worker(einfo, false);
 }
 
 irqreturn_t irq_handler(int irq, void *priv)
@@ -1133,6 +1357,7 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 static int ssr(struct glink_transport_if *if_ptr)
 {
 	struct edge_info *einfo;
+	struct deferred_cmd *cmd;
 
 	einfo = container_of(if_ptr, struct edge_info, xprt_if);
 
@@ -1142,6 +1367,14 @@ static int ssr(struct glink_transport_if *if_ptr)
 	wake_up_all(&einfo->tx_blocked_queue);
 
 	synchronize_srcu(&einfo->use_ref);
+
+	while (!list_empty(&einfo->deferred_cmds)) {
+		cmd = list_first_entry(&einfo->deferred_cmds,
+						struct deferred_cmd, list_node);
+		list_del(&cmd->list_node);
+		kfree(cmd->data);
+		kfree(cmd);
+	}
 
 	einfo->tx_resume_needed = false;
 	einfo->tx_blocked_signal_sent = false;
@@ -1466,7 +1699,7 @@ static int poll(struct glink_transport_if *if_ptr, uint32_t lcid)
 	}
 
 	if (fifo_read_avail(einfo)) {
-		queue_kthread_work(&einfo->kworker, &einfo->kwork);
+		__rx_worker(einfo, true);
 		srcu_read_unlock(&einfo->use_ref, rcu_id);
 		return 1;
 	}
@@ -1778,6 +2011,8 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 	einfo->read_from_fifo = read_from_fifo;
 	einfo->write_to_fifo = write_to_fifo;
 	init_srcu_struct(&einfo->use_ref);
+	spin_lock_init(&einfo->rx_lock);
+	INIT_LIST_HEAD(&einfo->deferred_cmds);
 
 	mutex_lock(&probe_lock);
 	if (edge_infos[einfo->remote_proc_id]) {
@@ -1955,6 +2190,8 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 	einfo->read_from_fifo = memcpy32_fromio;
 	einfo->write_to_fifo = memcpy32_toio;
 	init_srcu_struct(&einfo->use_ref);
+	spin_lock_init(&einfo->rx_lock);
+	INIT_LIST_HEAD(&einfo->deferred_cmds);
 
 	mutex_lock(&probe_lock);
 	if (edge_infos[einfo->remote_proc_id]) {
