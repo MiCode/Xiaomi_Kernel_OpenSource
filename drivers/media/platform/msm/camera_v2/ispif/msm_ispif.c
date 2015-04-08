@@ -60,8 +60,8 @@ static void msm_ispif_io_dump_reg(struct ispif_device *ispif)
 static inline int msm_ispif_is_intf_valid(uint32_t csid_version,
 	uint8_t intf_type)
 {
-        return ((csid_version <= CSID_VERSION_V22 && intf_type != VFE0) ||
-                (intf_type >= VFE_MAX)) ? false : true;
+	return ((csid_version <= CSID_VERSION_V22 && intf_type != VFE0) ||
+		(intf_type >= VFE_MAX)) ? false : true;
 }
 
 static struct msm_cam_clk_info ispif_8626_reset_clk_info[] = {
@@ -127,7 +127,7 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		rc = msm_cam_clk_enable(&ispif->pdev->dev,
 			ispif_8626_reset_clk_info, reset_clk1,
 			ARRAY_SIZE(ispif_8626_reset_clk_info), 1);
-		if (rc < 0){
+		if (rc < 0) {
 			pr_err("%s: cannot enable clock, error = %d",
 				__func__, rc);
 		} else {
@@ -159,12 +159,13 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		rc = msm_cam_clk_enable(&ispif->pdev->dev,
 			ispif_8974_reset_clk_info, reset_clk,
 			ARRAY_SIZE(ispif_8974_reset_clk_info), 0);
-		if (rc < 0){
+		if (rc < 0) {
 			rc = msm_cam_clk_enable(&ispif->pdev->dev,
 				ispif_8626_reset_clk_info, reset_clk1,
 				ARRAY_SIZE(ispif_8626_reset_clk_info), 0);
 			if (rc < 0)
-				pr_err("%s: VFE0 reset wait timeout\n", __func__);
+				pr_err("%s: VFE0 reset wait timeout\n",
+					 __func__);
 		}
 		return -ETIMEDOUT;
 	}
@@ -183,7 +184,7 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		}
 	}
 
-	if (ispif->clk_idx == 1){
+	if (ispif->clk_idx == 1) {
 		rc = msm_cam_clk_enable(&ispif->pdev->dev,
 			ispif_8974_reset_clk_info, reset_clk,
 			ARRAY_SIZE(ispif_8974_reset_clk_info), 0);
@@ -193,13 +194,13 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		}
 	}
 
-	if (ispif->clk_idx == 2){
-        	rc = msm_cam_clk_enable(&ispif->pdev->dev,
+	if (ispif->clk_idx == 2) {
+		rc = msm_cam_clk_enable(&ispif->pdev->dev,
 			ispif_8626_reset_clk_info, reset_clk1,
 			ARRAY_SIZE(ispif_8626_reset_clk_info), 0);
-        	if (rc < 0) {
-			pr_err("%s: cannot disable clock, error = %d",
-				__func__, rc);
+			if (rc < 0) {
+				pr_err("%s: cannot disable clock, error = %d",
+					__func__, rc);
 		}
 	}
 
@@ -946,7 +947,8 @@ static int msm_ispif_set_vfe_info(struct ispif_device *ispif,
 	struct msm_ispif_vfe_info *vfe_info)
 {
 	memcpy(&ispif->vfe_info, vfe_info, sizeof(struct msm_ispif_vfe_info));
-
+	if (ispif->vfe_info.num_vfe > ispif->hw_num_isps)
+		return -EINVAL;
 	return 0;
 }
 
