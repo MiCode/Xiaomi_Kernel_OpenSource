@@ -253,6 +253,20 @@ Optional properties:
 					60 = 60 frames per second (default)
 - qcom,mdss-dsi-panel-clockrate:	A 64 bit value specifies the panel clock speed in Hz.
 					0 = default value.
+- qcom,mdss-mdp-transfer-time-us:	Specifies the dsi transfer time for command mode
+					panels in microseconds. Driver uses this number to adjust
+					the clock rate according to the expected transfer time.
+					Increasing this value would slow down the mdp processing
+					and can result in slower performance.
+					Decreasing this value can speed up the mdp processing,
+					but this can also impact power consumption.
+					As a rule this time should not be higher than the time
+					that would be expected with the processing at the
+					dsi link rate since anyways this would be the maximum
+					transfer time that could be achieved.
+					If ping pong split enabled, this time should not be higher
+					than two times the dsi link rate time.
+					14000 = default value.
 - qcom,mdss-dsi-on-command-state:	String that specifies the ctrl state for sending ON commands.
 					"dsi_lp_mode" = DSI low power mode (default)
 					"dsi_hs_mode" = DSI high speed mode
@@ -489,6 +503,7 @@ Example:
 		qcom,mdss-dsi-dma-trigger = <0>;
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-panel-clockrate = <424000000>;
+		qcom,mdss-mdp-transfer-time-us = <12500>;
 		qcom,mdss-dsi-panel-timings = [7d 25 1d 00 37 33
 					22 27 1e 03 04 00];
                 qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
