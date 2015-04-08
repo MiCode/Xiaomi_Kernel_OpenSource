@@ -283,6 +283,22 @@ config MSM_SMP2P_TEST
 	  are used to verify the local and remote
 	  implementations.
 
+config MSM_SPM
+	bool "Driver support for SPM Version 2"
+	help
+	  Enables the support for Version 2 of the SPM driver. SPM hardware is
+	  used to manage the processor power during sleep. The driver allows
+	  configuring SPM to allow different low power modes for both core and
+	  L2.
+
+config MSM_L2_SPM
+	bool "SPM support for L2 cache"
+	help
+	  Enable SPM driver support for L2 cache. Some MSM chipsets allow
+	  control of L2 cache low power mode with a Subsystem Power manager.
+	  Enabling this driver allows configuring L2 SPM for low power modes
+	  on supported chipsets
+
 config MSM_QMI_INTERFACE
 	depends on IPC_ROUTER
 	depends on QMI_ENCDEC
@@ -302,6 +318,14 @@ config MSM_IPC_ROUTER_SMD_XPRT
 	  a System-on-Chip(SoC). When the SMD channels become available,
 	  this layer registers a transport with IPC Router and enable
 	  message exchange.
+
+config MSM_EVENT_TIMER
+	bool "Event timer"
+	help
+	  This option enables a modules that manages a list of event timers that
+	  need to be monitored by the PM. The enables the PM code to monitor
+	  events that require the core to be awake and ready to handle the
+	  event.
 
 config MSM_IPC_ROUTER_HSIC_XPRT
 	depends on USB_QCOM_IPC_BRIDGE

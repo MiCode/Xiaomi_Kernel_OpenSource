@@ -709,7 +709,7 @@ static int msm_mpm_dev_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	dev->mpm_request_reg_base = devm_request_and_ioremap(&pdev->dev, res);
+	dev->mpm_request_reg_base = devm_ioremap_resource(&pdev->dev, res);
 
 	if (!dev->mpm_request_reg_base) {
 		pr_err("%s(): Unable to iomap\n", __func__);

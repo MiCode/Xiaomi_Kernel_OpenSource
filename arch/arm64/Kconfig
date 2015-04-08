@@ -203,6 +203,7 @@ config ARCH_MSM
 	select MSM_IRQ
 	select PINCTRL
 	select SOC_BUS
+	select PM_OPP
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_DEVBW
 	select MSM_BIMC_BWMON

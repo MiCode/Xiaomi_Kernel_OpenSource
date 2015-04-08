@@ -1,0 +1,24 @@
+* MSM Sleep status
+
+MSM Sleep status device is used to check the power collapsed status of a
+offlined core. The core that initiates the hotplug would wait on the
+sleep status device before CPU_DEAD notifications are sent out. Some hardware
+devices require that the offlined core is power collapsed before turning off
+the resources that are used by the offlined core.
+
+The required properties of sleep status device are:
+
+- compatible: qcom,cpu-sleep-status
+- reg: physical address of the sleep status register for Core 0
+- qcom,cpu-alias-addr - On MSM chipset, the each cores registers are at a
+	fixed offset each other.
+- qcom,cpu-sleep-status-mask - The bit mask within the status register that
+	indicates the Core's sleep state.
+
+Example:
+	qcom,cpu-sleep-status@f9088008 {
+		compatible = "qcom,cpu-sleep-status";
+		reg = <0xf9088008 0x4>;
+		qcom,cpu-alias-addr = <0x10000>;
+		qcom,sleep-status-mask= <0x80000>;
+	};
