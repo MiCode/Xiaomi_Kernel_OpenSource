@@ -645,7 +645,7 @@ void mdss_mdp_set_clk_rate(unsigned long rate)
 {
 	struct mdss_data_type *mdata = mdss_res;
 	unsigned long clk_rate;
-	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_SRC);
+	struct clk *clk = mdss_mdp_get_clk(MDSS_CLK_MDP_CORE);
 	unsigned long min_clk_rate;
 
 	min_clk_rate = max(rate, mdata->perf_tune.min_mdp_clk);
@@ -970,8 +970,6 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 
 	if (mdss_mdp_irq_clk_register(mdata, "bus_clk", MDSS_CLK_AXI) ||
 	    mdss_mdp_irq_clk_register(mdata, "iface_clk", MDSS_CLK_AHB) ||
-	    mdss_mdp_irq_clk_register(mdata, "core_clk_src",
-				      MDSS_CLK_MDP_SRC) ||
 	    mdss_mdp_irq_clk_register(mdata, "core_clk",
 				      MDSS_CLK_MDP_CORE))
 		return -EINVAL;
@@ -987,7 +985,8 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 
 	/* Setting the default clock rate to the max supported.*/
 	mdss_mdp_set_clk_rate(mdata->max_mdp_clk_rate);
-	pr_debug("mdp clk rate=%ld\n", mdss_mdp_get_clk_rate(MDSS_CLK_MDP_SRC));
+	pr_debug("mdp clk rate=%ld\n",
+		mdss_mdp_get_clk_rate(MDSS_CLK_MDP_CORE));
 
 	return 0;
 }
