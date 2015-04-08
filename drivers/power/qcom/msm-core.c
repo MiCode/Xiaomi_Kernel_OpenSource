@@ -119,6 +119,9 @@ module_param_named(disabled, disabled, int,
 		S_IRUGO | S_IWUSR | S_IWGRP);
 static bool in_suspend;
 static bool activate_power_table;
+static int max_throttling_temp = 80; /* in C */
+module_param_named(throttling_temp, max_throttling_temp, int,
+		S_IRUGO | S_IWUSR | S_IWGRP);
 
 /*
  * Cannot be called from an interrupt context
