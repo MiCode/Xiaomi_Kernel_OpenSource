@@ -77,13 +77,9 @@ struct msm_fd_format {
 /*
  * struct msm_fd_mem_pool - Structure contain FD memory pool information.
  * @fd_device: Pointer to fd device.
- * @client: Pointer to ion client.
- * @domain_num: Domain number associated with FD hw.
  */
 struct msm_fd_mem_pool {
 	struct msm_fd_device *fd_device;
-	struct ion_client *client;
-	int domain_num;
 };
 
 /*
@@ -201,10 +197,8 @@ enum msm_fd_mem_resources {
  * @bus_paths: Pointer to bus paths array.
  * @bus_scale_data: Memory access bus scale data.
  * @bus_client: Memory access bus client.
- * @iommu_domain: Pointer to FD device iommu domain handler.
- * @iommu_domain_num: FD device iommu domain number.
  * @iommu_attached_cnt: Iommu attached devices reference count.
- * @iommu_dev: Pointer to Ion iommu device.
+ * @iommu_hdl: reference for iommu context.
  * @dev: Pointer to device struct.
  * @v4l2_dev: V4l2 device.
  * @video: Video device.
@@ -237,11 +231,9 @@ struct msm_fd_device {
 	struct msm_bus_scale_pdata bus_scale_data;
 	uint32_t bus_client;
 
-	struct iommu_domain *iommu_domain;
-	int iommu_domain_num;
 	unsigned int iommu_attached_cnt;
 
-	struct device *iommu_dev;
+	int iommu_hdl;
 	struct device *dev;
 	struct v4l2_device v4l2_dev;
 	struct video_device video;

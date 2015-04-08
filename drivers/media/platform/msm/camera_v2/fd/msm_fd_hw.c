@@ -28,6 +28,7 @@
 #include "msm_fd_dev.h"
 #include "msm_fd_hw.h"
 #include "msm_fd_regs.h"
+#include "cam_smmu_api.h"
 
 /* After which revision misc irq for engine is needed */
 #define MSM_FD_MISC_IRQ_FROM_REV 0x10010000
@@ -40,19 +41,7 @@
 /* Face detection halt timeout in ms */
 #define MSM_FD_HALT_TIMEOUT_MS 100
 
-/* Fd iommu partition definition */
-static struct msm_iova_partition msm_fd_fw_partition = {
-	.start = SZ_128K,
-	.size = SZ_2G - SZ_128K,
-};
-
-/* Fd iommu domain definition */
-static struct msm_iova_layout msm_fd_fw_layout = {
-	.partitions = &msm_fd_fw_partition,
-	.npartitions = 1,
-	.client_name = "fd_iommu",
-	.domain_flags = 0,
-};
+#define MSM_FD_SMMU_CB_NAME "camera_fd"
 
 /*
  * msm_fd_hw_read_reg - Fd read from register.
@@ -733,59 +722,6 @@ int msm_fd_hw_get_mem_resources(struct platform_device *pdev,
 }
 
 /*
- * msm_fd_hw_get_iommu - Get fd iommu.
- * @fd: Pointer to fd device.
- *
- * Registers and get fd iommu domain.
- */
-int msm_fd_hw_get_iommu(struct msm_fd_device *fd)
-{
-	int ret;
-
-	fd->iommu_domain_num = msm_register_domain(&msm_fd_fw_layout);
-	if (fd->iommu_domain_num < 0) {
-		dev_err(fd->dev, "Can not register iommu domain\n");
-		ret = -ENODEV;
-		goto error;
-	}
-
-	fd->iommu_domain = msm_get_iommu_domain(fd->iommu_domain_num);
-	if (!fd->iommu_domain) {
-		dev_err(fd->dev, "Can not get iommu domain\n");
-		ret = -ENODEV;
-		goto error;
-	}
-
-	fd->iommu_dev = msm_iommu_get_ctx("camera_fd");
-	if (IS_ERR(fd->iommu_dev)) {
-		dev_err(fd->dev, "Can not get iommu device\n");
-		ret = -EPROBE_DEFER;
-		goto error_iommu_get_dev;
-	}
-
-	return 0;
-
-error_iommu_get_dev:
-	msm_unregister_domain(fd->iommu_domain);
-	fd->iommu_domain = NULL;
-	fd->iommu_domain_num = -1;
-error:
-	return ret;
-}
-
-/*
- * msm_fd_hw_get_iommu - Put fd iommu.
- * @fd: Pointer to fd device.
- *
- * Unregisters fd iommu domain.
- */
-void msm_fd_hw_put_iommu(struct msm_fd_device *fd)
-{
-	msm_unregister_domain(fd->iommu_domain);
-	fd->iommu_domain = NULL;
-}
-
-/*
  * msm_fd_hw_get_clocks - Get fd clocks.
  * @fd: Pointer to fd device.
  *
@@ -1167,10 +1103,16 @@ static int msm_fd_hw_attach_iommu(struct msm_fd_device *fd)
 	}
 
 	if (fd->iommu_attached_cnt == 0) {
-		ret = iommu_attach_device(fd->iommu_domain, fd->iommu_dev);
+		ret = cam_smmu_get_handle(MSM_FD_SMMU_CB_NAME, &fd->iommu_hdl);
 		if (ret < 0) {
-			dev_err(fd->dev, "Can not attach iommu domain\n");
+			dev_err(fd->dev, "get handle failed\n");
+			ret = -ENOMEM;
 			goto error;
+		}
+		ret = cam_smmu_ops(fd->iommu_hdl, CAM_SMMU_ATTACH);
+		if (ret < 0) {
+			dev_err(fd->dev, "Can not attach iommu domain.\n");
+			goto error_attach;
 		}
 	}
 	fd->iommu_attached_cnt++;
@@ -1178,6 +1120,8 @@ static int msm_fd_hw_attach_iommu(struct msm_fd_device *fd)
 
 	return 0;
 
+error_attach:
+	cam_smmu_destroy_handle(fd->iommu_hdl);
 error:
 	mutex_unlock(&fd->lock);
 	return ret;
@@ -1198,10 +1142,10 @@ static void msm_fd_hw_detach_iommu(struct msm_fd_device *fd)
 		mutex_unlock(&fd->lock);
 		return;
 	}
-
-	if (--fd->iommu_attached_cnt == 0)
-		iommu_detach_device(fd->iommu_domain, fd->iommu_dev);
-
+	if (--fd->iommu_attached_cnt == 0) {
+		cam_smmu_ops(fd->iommu_hdl, CAM_SMMU_DETACH);
+		cam_smmu_destroy_handle(fd->iommu_hdl);
+	}
 	mutex_unlock(&fd->lock);
 }
 
@@ -1223,28 +1167,18 @@ int msm_fd_hw_map_buffer(struct msm_fd_mem_pool *pool, int fd,
 
 	ret = msm_fd_hw_attach_iommu(pool->fd_device);
 	if (ret < 0)
-		goto error;
+		return -ENOMEM;
 
 	buf->pool = pool;
 	buf->fd = fd;
-
-	buf->handle = ion_import_dma_buf(pool->client, buf->fd);
-	if (IS_ERR_OR_NULL(buf->handle))
-		goto error_import_dma;
-
-	ret = ion_map_iommu(pool->client, buf->handle, pool->domain_num,
-		0, SZ_4K, 0, &buf->addr, &buf->size, 0, 0);
-	if (ret < 0)
-		goto error_map_iommu;
-
+	ret = cam_smmu_get_phy_addr(pool->fd_device->iommu_hdl,
+			buf->fd, CAM_SMMU_MAP_RW,
+			&buf->addr, &buf->size);
+	if (ret < 0) {
+		pr_err("Error: cannot get phy addr\n");
+		return -ENOMEM;
+	}
 	return buf->size;
-
-error_map_iommu:
-	ion_free(pool->client, buf->handle);
-error_import_dma:
-	msm_fd_hw_detach_iommu(pool->fd_device);
-error:
-	return -ENOMEM;
 }
 
 /*
@@ -1254,17 +1188,13 @@ error:
 void msm_fd_hw_unmap_buffer(struct msm_fd_buf_handle *buf)
 {
 	if (buf->size) {
-		ion_unmap_iommu(buf->pool->client, buf->handle,
-			buf->pool->domain_num, 0);
+		cam_smmu_put_phy_addr(buf->pool->fd_device->iommu_hdl,
+		buf->fd);
 		msm_fd_hw_detach_iommu(buf->pool->fd_device);
 	}
 
-	if (!IS_ERR_OR_NULL(buf->handle))
-		ion_free(buf->pool->client, buf->handle);
-
 	buf->fd = -1;
 	buf->pool = NULL;
-	buf->handle = NULL;
 }
 
 /*
