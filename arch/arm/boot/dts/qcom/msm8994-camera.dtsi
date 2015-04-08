@@ -282,6 +282,51 @@
 		qcom,clock-rates = <0 0 320000000 0 0 0 0>;
 	};
 
+	qcom,cam_smmu {
+		compatible = "qcom,msm-cam-smmu";
+		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&vfe_iommu 0>,
+					<&vfe_iommu 1>;
+			label = "vfe";
+		};
+
+		msm_cam_smmu_cb2: msm_cam_smmu_cb2 {
+			compatible = "qcom,qsmmu-cam-cb";
+			label = "vfe_secure";
+			qcom,secure-context;
+		};
+
+		msm_cam_smmu_cb3: msm_cam_smmu_cb3 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&cpp_iommu 2>;
+			label = "cpp_0";
+		};
+
+		msm_cam_smmu_cb4: msm_cam_smmu_cb4 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&fd_iommu 0>;
+			label = "camera_fd";
+		};
+
+		msm_cam_smmu_cb5: msm_cam_smmu_cb5 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&jpeg_iommu 0>;
+			label = "jpeg_enc0";
+		};
+
+		msm_cam_smmu_cb6: msm_cam_smmu_cb6 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&jpeg_iommu 1>;
+			label = "jpeg_enc1";
+		};
+
+		msm_cam_smmu_cb7: msm_cam_smmu_cb7 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&jpeg_iommu 2>;
+			label = "jpeg_dec";
+		};
+	};
 
 	qcom,jpeg@fda1c000 {
 		cell-index = <0>;

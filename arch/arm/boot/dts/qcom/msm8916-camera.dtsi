@@ -180,7 +180,34 @@
 				0xAAA5AAA5 0x0001AAA5>;
 		max-clk-nominal = <320000000>;
 		max-clk-turbo = <465000000>;
+	};
+
+	qcom,cam_smmu {
+		compatible = "qcom,msm-cam-smmu";
+		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&apps_iommu 0x400>;
+			label = "vfe";
 		};
+
+		msm_cam_smmu_cb2: msm_cam_smmu_cb2 {
+			compatible = "qcom,qsmmu-cam-cb";
+			label = "vfe_secure";
+			qcom,secure-context;
+		};
+
+		msm_cam_smmu_cb3: msm_cam_smmu_cb3 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&apps_iommu 0x402>;
+			label = "cpp";
+		};
+
+		msm_cam_smmu_cb4: msm_cam_smmu_cb4 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&apps_iommu 0x2000>;
+			label = "jpeg_enc0";
+		};
+	};
 
 	qcom,jpeg@1b1c000 {
 		cell-index = <0>;
