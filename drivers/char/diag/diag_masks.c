@@ -375,6 +375,9 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 	if (driver->supports_apps_hdlc_encoding)
 		DIAG_SET_FEATURE_MASK(F_DIAG_APPS_HDLC_ENCODE);
 	DIAG_SET_FEATURE_MASK(F_DIAG_MASK_CENTRALIZATION);
+	if (driver->supports_sockets)
+		DIAG_SET_FEATURE_MASK(F_DIAG_SOCKETS_ENABLED);
+
 	memcpy(buf + header_size, &feature_bytes, FEATURE_MASK_LEN);
 	total_len = header_size + FEATURE_MASK_LEN;
 

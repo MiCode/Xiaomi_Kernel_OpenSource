@@ -108,6 +108,17 @@ static void enable_stm_feature(uint8_t peripheral)
 	queue_work(driver->cntl_wq, &(driver->stm_update_work));
 }
 
+static void enable_socket_feature(uint8_t peripheral)
+{
+	if (peripheral >= NUM_PERIPHERALS)
+		return;
+
+	if (driver->supports_sockets)
+		driver->feature[peripheral].sockets_enabled = 1;
+	else
+		driver->feature[peripheral].sockets_enabled = 0;
+}
+
 static void process_hdlc_encoding_feature(uint8_t peripheral)
 {
 	if (peripheral >= NUM_PERIPHERALS)
@@ -213,6 +224,34 @@ static void process_command_registration(uint8_t *buf, uint32_t len,
 	}
 }
 
+static void diag_close_transport_work_fn(struct work_struct *work)
+{
+	uint8_t transport;
+	uint8_t peripheral;
+
+	mutex_lock(&driver->cntl_lock);
+	for (peripheral = 0; peripheral <= NUM_PERIPHERALS; peripheral++) {
+		if (!(driver->close_transport & PERIPHERAL_MASK(peripheral)))
+			continue;
+		driver->close_transport ^= PERIPHERAL_MASK(peripheral);
+		transport = driver->feature[peripheral].sockets_enabled ?
+					TRANSPORT_SMD : TRANSPORT_SOCKET;
+		diagfwd_close_transport(transport, peripheral);
+	}
+	mutex_unlock(&driver->cntl_lock);
+}
+
+static void process_socket_feature(uint8_t peripheral)
+{
+	if (peripheral >= NUM_PERIPHERALS)
+		return;
+
+	mutex_lock(&driver->cntl_lock);
+	driver->close_transport |= PERIPHERAL_MASK(peripheral);
+	queue_work(driver->cntl_wq, &driver->close_transport_work);
+	mutex_unlock(&driver->cntl_lock);
+}
+
 static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 					  uint8_t peripheral)
 {
@@ -262,7 +301,11 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 			driver->feature[peripheral].mask_centralization = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_PERIPHERAL_BUFFERING))
 			driver->feature[peripheral].peripheral_buffering = 1;
+		if (FEATURE_SUPPORTED(F_DIAG_SOCKETS_ENABLED))
+			enable_socket_feature(peripheral);
 	}
+
+	process_socket_feature(peripheral);
 }
 
 static void process_last_event_report(uint8_t *buf, uint32_t len,
@@ -1158,9 +1201,12 @@ int diagfwd_cntl_init(void)
 	driver->polling_reg_flag = 0;
 	driver->log_on_demand_support = 1;
 	driver->stm_peripheral = 0;
+	driver->close_transport = 0;
 	mutex_init(&driver->cntl_lock);
 	INIT_WORK(&(driver->stm_update_work), diag_stm_update_work_fn);
 	INIT_WORK(&(driver->mask_update_work), diag_mask_update_work_fn);
+	INIT_WORK(&(driver->close_transport_work),
+		  diag_close_transport_work_fn);
 
 	driver->cntl_wq = create_singlethread_workqueue("diag_cntl_wq");
 	if (!driver->cntl_wq)

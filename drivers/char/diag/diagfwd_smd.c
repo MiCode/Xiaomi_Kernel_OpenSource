@@ -435,7 +435,7 @@ int diag_smd_init(void)
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		smd_info = &smd_cntl[peripheral];
 		__diag_smd_init(smd_info);
-		diagfwd_cntl_register(smd_info->peripheral,
+		diagfwd_cntl_register(TRANSPORT_SMD, smd_info->peripheral,
 				      (void *)smd_info, &smd_ops,
 				      &smd_info->fwd_ctxt);
 		smd_info->inited = 1;
@@ -453,9 +453,6 @@ int diag_smd_init(void)
 	platform_driver_register(&diag_smd_dci_driver);
 	platform_driver_register(&diag_smd_dci_cmd_driver);
 
-	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++)
-		diag_smd_init_peripheral(peripheral);
-
 	return 0;
 }
 
@@ -468,7 +465,7 @@ static void smd_late_init(struct diag_smd_info *smd_info)
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s entering\n",
 		 smd_info->name);
 
-	diagfwd_register(smd_info->peripheral, smd_info->type,
+	diagfwd_register(TRANSPORT_SMD, smd_info->peripheral, smd_info->type,
 			 (void *)smd_info, &smd_ops, &smd_info->fwd_ctxt);
 	fwd_info = smd_info->fwd_ctxt;
 	smd_info->inited = 1;
