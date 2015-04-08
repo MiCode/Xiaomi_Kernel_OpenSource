@@ -53,6 +53,7 @@
 			qcom,cpuss-csr = <&cpuss_csr>;
 			qcom,acc = <&acc0>;
 			qcom,sleep-status = <&cpu0_slp_sts>;
+			qcom,ea = <&ea0>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -69,6 +70,7 @@
 			enable-method = "qcom,msm8996-acc";
 			qcom,acc = <&acc1>;
 			qcom,sleep-status = <&cpu1_slp_sts>;
+			qcom,ea = <&ea1>;
 			next-level-cache = <&L2_0>;
 		};
 
@@ -79,6 +81,7 @@
 			enable-method = "qcom,msm8996-acc";
 			qcom,acc = <&acc2>;
 			qcom,sleep-status = <&cpu2_slp_sts>;
+			qcom,ea = <&ea2>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -94,6 +97,7 @@
 			enable-method = "qcom,msm8996-acc";
 			qcom,sleep-status = <&cpu3_slp_sts>;
 			qcom,acc = <&acc3>;
+			qcom,ea = <&ea3>;
 			next-level-cache = <&L2_1>;
 		};
 
@@ -2687,6 +2691,30 @@
 			qcom,vph-low-threshold-uv = <3300000>;
 			qcom,soc-low-threshold = <10>;
 			qcom,thermal-handle = <&msm_thermal_freq>;
+		};
+	};
+
+	qcom,msm-core@70000 {
+		compatible = "qcom,apss-core-ea";
+		reg = <0x70000 0x1000>;
+		qcom,low-hyst-temp = <10>;
+		qcom,high-hyst-temp = <5>;
+		qcom,polling-interval = <50>;
+
+		ea0: ea0 {
+			sensor = <&sensor_information4>;
+		};
+
+		ea1: ea1 {
+			sensor = <&sensor_information6>;
+		};
+
+		ea2: ea2 {
+			sensor = <&sensor_information9>;
+		};
+
+		ea3: ea3 {
+			sensor = <&sensor_information11>;
 		};
 	};
 
