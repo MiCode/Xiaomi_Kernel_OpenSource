@@ -376,6 +376,7 @@ struct diag_feature_t {
 	uint8_t peripheral_buffering;
 	uint8_t mask_centralization;
 	uint8_t stm_support;
+	uint8_t sockets_enabled;
 };
 
 struct diagchar_dev {
@@ -398,6 +399,7 @@ struct diagchar_dev {
 	int use_device_tree;
 	int supports_separate_cmdrsp;
 	int supports_apps_hdlc_encoding;
+	int supports_sockets;
 	/* The state requested in the STM command */
 	int stm_state_requested[NUM_STM_PROCESSORS];
 	/* The current STM state */
@@ -406,6 +408,8 @@ struct diagchar_dev {
 	struct work_struct stm_update_work;
 	uint16_t mask_update;
 	struct work_struct mask_update_work;
+	uint16_t close_transport;
+	struct work_struct close_transport_work;
 	struct workqueue_struct *cntl_wq;
 	struct mutex cntl_lock;
 	/* Whether or not the peripheral supports STM */
