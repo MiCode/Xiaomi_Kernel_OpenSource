@@ -2637,7 +2637,7 @@ int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 	struct regulator *vreg;
 	struct msm_pcie_vreg_info_t *info;
 
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	for (i = 0; i < MSM_PCIE_MAX_VREG; i++) {
 		info = &dev->vreg[i];
@@ -2685,6 +2685,8 @@ int msm_pcie_vreg_init(struct msm_pcie_dev_t *dev)
 				regulator_disable(hdl);
 		}
 
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
+
 	return rc;
 }
 
@@ -2692,7 +2694,7 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 {
 	int i;
 
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	for (i = MSM_PCIE_MAX_VREG - 1; i >= 0; i--) {
 		if (dev->vreg[i].hdl) {
@@ -2701,6 +2703,8 @@ static void msm_pcie_vreg_deinit(struct msm_pcie_dev_t *dev)
 			regulator_disable(dev->vreg[i].hdl);
 		}
 	}
+
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
 
 static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
@@ -2708,7 +2712,7 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 	int i, rc = 0;
 	struct msm_pcie_clk_info_t *info;
 
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	rc = regulator_enable(dev->gdsc);
 
@@ -2729,6 +2733,7 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		}
 	}
 
+	PCIE_DBG(dev, "PCIe: requesting bus vote for RC%d\n", dev->rc_idx);
 	if (dev->bus_client) {
 		rc = msm_bus_scale_client_update_request(dev->bus_client, 1);
 		if (rc) {
@@ -2791,6 +2796,8 @@ static int msm_pcie_clk_init(struct msm_pcie_dev_t *dev)
 		regulator_disable(dev->gdsc);
 	}
 
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
+
 	return rc;
 }
 
@@ -2799,13 +2806,16 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 	int i;
 	int rc;
 
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++)
 		if (dev->clk[i].hdl)
 			clk_disable_unprepare(dev->clk[i].hdl);
 
 	if (dev->bus_client) {
+		PCIE_DBG(dev, "PCIe: removing bus vote for RC%d\n",
+			dev->rc_idx);
+
 		rc = msm_bus_scale_client_update_request(dev->bus_client, 0);
 		if (rc)
 			PCIE_ERR(dev,
@@ -2821,6 +2831,8 @@ static void msm_pcie_clk_deinit(struct msm_pcie_dev_t *dev)
 		regulator_disable(dev->gdsc_smmu);
 
 	regulator_disable(dev->gdsc);
+
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
 
 static int msm_pcie_pipe_clk_init(struct msm_pcie_dev_t *dev)
@@ -2828,7 +2840,7 @@ static int msm_pcie_pipe_clk_init(struct msm_pcie_dev_t *dev)
 	int i, rc = 0;
 	struct msm_pcie_clk_info_t *info;
 
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++) {
 		info = &dev->pipeclk[i];
@@ -2870,6 +2882,8 @@ static int msm_pcie_pipe_clk_init(struct msm_pcie_dev_t *dev)
 				clk_disable_unprepare(dev->pipeclk[i].hdl);
 	}
 
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
+
 	return rc;
 }
 
@@ -2877,12 +2891,14 @@ static void msm_pcie_pipe_clk_deinit(struct msm_pcie_dev_t *dev)
 {
 	int i;
 
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	for (i = 0; i < MSM_PCIE_MAX_PIPE_CLK; i++)
 		if (dev->pipeclk[i].hdl)
 			clk_disable_unprepare(
 				dev->pipeclk[i].hdl);
+
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
 
 static void msm_pcie_iatu_config_all_ep(struct msm_pcie_dev_t *dev)
@@ -3170,6 +3186,8 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	const __be32 *prop;
 	u32 *clkfreq = NULL;
 
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
+
 	cnt = of_property_count_strings((&pdev->dev)->of_node,
 			"clock-names");
 	if (cnt > 0) {
@@ -3190,8 +3208,6 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 			goto out;
 		}
 	}
-
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
 	for (i = 0; i < MSM_PCIE_MAX_VREG; i++) {
 		vreg_info = &dev->vreg[i];
@@ -3430,6 +3446,9 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 
 out:
 	kfree(clkfreq);
+
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
+
 	return ret;
 }
 
@@ -3451,7 +3470,7 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	long int retries = 0;
 	int link_check_count = 0;
 
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	mutex_lock(&dev->setup_lock);
 
@@ -3635,12 +3654,14 @@ clk_fail:
 out:
 	mutex_unlock(&dev->setup_lock);
 
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
+
 	return ret;
 }
 
 void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 {
-	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
+	PCIE_DBG(dev, "RC%d: entry\n", dev->rc_idx);
 
 	mutex_lock(&dev->setup_lock);
 
@@ -3688,6 +3709,8 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 		msm_pcie_pipe_clk_deinit(dev);
 
 	mutex_unlock(&dev->setup_lock);
+
+	PCIE_DBG(dev, "RC%d: exit\n", dev->rc_idx);
 }
 
 static void msm_pcie_config_ep_aer(struct msm_pcie_dev_t *dev,
@@ -5213,11 +5236,11 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 	unsigned long irqsave_flags;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
 
+	PCIE_DBG(pcie_dev, "RC%d: entry\n", pcie_dev->rc_idx);
+
 	spin_lock_irqsave(&pcie_dev->aer_lock, irqsave_flags);
 	pcie_dev->suspending = true;
 	spin_unlock_irqrestore(&pcie_dev->aer_lock, irqsave_flags);
-
-	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
 
 	if (!pcie_dev->power_on) {
 		PCIE_DBG(pcie_dev,
@@ -5270,6 +5293,8 @@ static int msm_pcie_pm_suspend(struct pci_dev *dev,
 		pinctrl_select_state(pcie_dev->pinctrl,
 					pcie_dev->pins_sleep);
 
+	PCIE_DBG(pcie_dev, "RC%d: exit\n", pcie_dev->rc_idx);
+
 	return ret;
 }
 
@@ -5315,7 +5340,7 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 	int ret;
 	struct msm_pcie_dev_t *pcie_dev = PCIE_BUS_PRIV_DATA(dev);
 
-	PCIE_DBG(pcie_dev, "RC%d\n", pcie_dev->rc_idx);
+	PCIE_DBG(pcie_dev, "RC%d: entry\n", pcie_dev->rc_idx);
 
 	if (pcie_dev->use_pinctrl && pcie_dev->pins_default)
 		pinctrl_select_state(pcie_dev->pinctrl,
@@ -5340,14 +5365,33 @@ static int msm_pcie_pm_resume(struct pci_dev *dev,
 			 dev->bus->number, dev->bus->primary);
 
 		if (!(options & MSM_PCIE_CONFIG_NO_CFG_RESTORE)) {
+			PCIE_DBG(pcie_dev,
+				"RC%d: entry of PCI framework restore state\n",
+				pcie_dev->rc_idx);
+
 			pci_load_and_free_saved_state(dev,
 					&pcie_dev->saved_state);
 			pci_restore_state(dev);
+
+			PCIE_DBG(pcie_dev,
+				"RC%d: exit of PCI framework restore state\n",
+				pcie_dev->rc_idx);
 		}
 	}
 
-	if (pcie_dev->bridge_found)
+	if (pcie_dev->bridge_found) {
+		PCIE_DBG(pcie_dev,
+			"RC%d: entry of PCIe recover config\n",
+			pcie_dev->rc_idx);
+
 		msm_pcie_recover_config(dev);
+
+		PCIE_DBG(pcie_dev,
+			"RC%d: exit of PCIe recover config\n",
+			pcie_dev->rc_idx);
+	}
+
+	PCIE_DBG(pcie_dev, "RC%d: exit\n", pcie_dev->rc_idx);
 
 	return ret;
 }
