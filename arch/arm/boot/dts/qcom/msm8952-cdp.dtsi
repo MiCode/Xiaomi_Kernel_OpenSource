@@ -75,6 +75,21 @@
 			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
+
+		home {
+			label = "home";
+			gpios = <&msm_gpio 88 0x1>;
+			linux,input-type = <1>;
+			linux,code = <102>;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&tlmm_pinmux {
+	tlmm_gpio_key {
+		qcom,pins = <&gp 85>, <&gp 86>, <&gp 87>, <&gp 88>;
+		qcom,num-grp-pins = <4>;
 	};
 };
 
