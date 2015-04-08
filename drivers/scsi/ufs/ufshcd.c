@@ -91,7 +91,8 @@ static void ufshcd_update_tag_stats(struct ufs_hba *hba, int tag)
 
 	WARN_ON(hba->ufs_stats.q_depth > hba->nutrs);
 	rq_type = ufshcd_tag_req_type(rq);
-	tag_stats[hba->ufs_stats.q_depth++][rq_type]++;
+	if (!(rq_type < 0 || rq_type > TS_NUM_STATS))
+		tag_stats[hba->ufs_stats.q_depth++][rq_type]++;
 }
 
 static void ufshcd_update_tag_stats_completion(struct ufs_hba *hba,
