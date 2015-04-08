@@ -349,6 +349,9 @@ static DEFINE_IDA(subsys_ida);
 static int enable_ramdumps;
 module_param(enable_ramdumps, int, S_IRUGO | S_IWUSR);
 
+static int enable_mini_ramdumps;
+module_param(enable_mini_ramdumps, int, S_IRUGO | S_IWUSR);
+
 struct workqueue_struct *ssr_wq;
 static struct class *char_class;
 
@@ -511,6 +514,7 @@ static void notify_each_subsys_device(struct subsys_device **list,
 
 		notif_data.crashed = subsys_get_crash_status(dev);
 		notif_data.enable_ramdump = is_ramdump_enabled(dev);
+		notif_data.enable_mini_ramdumps = enable_mini_ramdumps;
 		notif_data.no_auth = dev->desc->no_auth;
 		notif_data.pdev = pdev;
 
