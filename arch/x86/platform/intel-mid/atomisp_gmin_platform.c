@@ -186,9 +186,18 @@ int atomisp_register_i2c_module(struct v4l2_subdev *subdev,
 	struct i2c_board_info *bi;
 	struct gmin_subdev *gs;
         struct i2c_client *client = v4l2_get_subdevdata(subdev);
+	struct acpi_device *adev;
 
 	dev_info(&client->dev, "register atomisp i2c module type %d\n", type);
 
+	/* The windows driver model (and thus most BIOSes by default)
+	 * uses ACPI runtime power management for camera devices, but
+	 * we don't.  Disable it, or else the rails will be needlessly
+	 * tickled during suspend/resume.  This has caused power and
+	 * performance issues on multiple devices. */
+	adev = ACPI_COMPANION(&client->dev);
+	if (adev)
+		adev->power.flags.power_resources = 0;
 
 	for (i=0; i < MAX_SUBDEVS; i++)
 		if (!pdata.subdevs[i].type)
