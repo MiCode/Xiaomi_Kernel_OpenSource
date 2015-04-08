@@ -857,11 +857,8 @@ static int power_ctrl(struct v4l2_subdev *sd, bool flag)
 
        /* Timings and sequencing from original CTS gc2155 driver */
        if (flag) {
-               ret |= dev->platform_data->v1p8_ctrl(sd, 0);
-               ret |= dev->platform_data->v2p8_ctrl(sd, 0);
-	       mdelay(50);
-
                ret |= dev->platform_data->v1p8_ctrl(sd, 1);
+	       msleep(10);
                ret |= dev->platform_data->v2p8_ctrl(sd, 1);
 	       msleep(10);
        }
@@ -892,12 +889,10 @@ static int gpio_ctrl(struct v4l2_subdev *sd, bool flag)
 		ret |= dev->platform_data->gpio1_ctrl(sd, 0);
 		usleep_range(10000, 15000);
 		ret |= dev->platform_data->gpio0_ctrl(sd, 1);
-		usleep_range(10000, 15000);
 	} else {
 		ret = dev->platform_data->gpio1_ctrl(sd, 1);
 		usleep_range(10000, 15000);
 		ret |= dev->platform_data->gpio0_ctrl(sd, 0);
-		usleep_range(10000, 15000);
 	}
 
 	return ret;
@@ -922,30 +917,30 @@ static int power_up(struct v4l2_subdev *sd)
 	if (ret)
 		goto fail_power;
 
+	usleep_range(10000, 15000);
+
 	/* flis clock control */
 	ret = dev->platform_data->flisclk_ctrl(sd, 1);
 	if (ret)
 		goto fail_clk;
 
-	msleep(2);
+	usleep_range(2000, 3000);
 
 	/* gpio ctrl */
 	ret = gpio_ctrl(sd, 1);
-	if (ret) {
-		ret = gpio_ctrl(sd, 1);
-		if (ret)
-			goto fail_gpio;
-	}
+	if (ret)
+		goto fail_gpio;
+
+	usleep_range(10000, 15000);
 
 	return 0;
 
 fail_gpio:
-	power_ctrl(sd, 0);
-fail_power:
 	dev->platform_data->flisclk_ctrl(sd, 0);
 fail_clk:
+	power_ctrl(sd, 0);
+fail_power:
 	dev_err(&client->dev, "sensor power-up failed\n");
-
 	return ret;
 }
 
