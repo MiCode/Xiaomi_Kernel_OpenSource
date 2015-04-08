@@ -631,18 +631,9 @@ static int register_smmu_master(struct arm_smmu_device *smmu,
 	master->of_node			= entry->node;
 	master->cfg.num_streamids	= entry->num_sids;
 
-	for (i = 0; i < master->cfg.num_streamids; ++i) {
-		u16 streamid = entry->streamids[i];
+	for (i = 0; i < master->cfg.num_streamids; ++i)
+		master->cfg.streamids[i] = entry->streamids[i];
 
-		if (!(smmu->features & ARM_SMMU_FEAT_STREAM_MATCH) &&
-		     (streamid >= smmu->num_mapping_groups)) {
-			dev_err(dev,
-				"stream ID for master device %s greater than maximum allowed (%d)\n",
-				entry->node->name, smmu->num_mapping_groups);
-			return -ERANGE;
-		}
-		master->cfg.streamids[i] = streamid;
-	}
 	return insert_smmu_master(smmu, master);
 }
 
