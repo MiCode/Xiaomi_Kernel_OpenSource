@@ -2688,7 +2688,7 @@ static int qce_sps_get_bam(struct qce_device *pce_dev)
 	else
 		bam.manage = SPS_BAM_MGR_LOCAL;
 
-	bam.ee = 1;
+	bam.ee = pce_dev->ce_sps.bam_ee;
 
 	pr_debug("bam physical base=0x%lx\n", (uintptr_t)bam.phys_addr);
 	pr_debug("bam virtual base=0x%p\n", bam.virt_addr);
@@ -5178,6 +5178,12 @@ static int __qce_get_device_tree_data(struct platform_device *pdev,
 				&pce_dev->ce_sps.ce_hw_instance)) {
 		pr_err("Fail to get CE hw instance information.\n");
 		return -EINVAL;
+	}
+	if (of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,bam-ee",
+				&pce_dev->ce_sps.bam_ee)) {
+		pr_info("BAM Apps EE is not defined, setting to default 1\n");
+		pce_dev->ce_sps.bam_ee = 1;
 	}
 	if (of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,ce-opp-freq",

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,6 +179,7 @@ struct ce_sps_data {
 	struct scatterlist		*dst;
 	uint32_t			ce_device;
 	uint32_t			ce_hw_instance;
+	uint32_t			bam_ee;
 	unsigned int			pipe_pair_index;
 	unsigned int			src_pipe_index;
 	unsigned int			dest_pipe_index;

@@ -26,6 +26,7 @@ Optional properties:
   - qcom,use-sw-aes-ccm-algo : optional, indicates if use SW aes-ccm algorithm.
   - qcom,clk-mgmt-sus-res : optional, indicate if the ce clocks need to be disabled/enabled in suspend/resume function.
   - qcom,support-core-clk-only : optional, indicates if the HW supports single crypto core clk.
+  - qcom,bsm-ee : optional, indicate the BAM EE value, changes from target to target.Default value is 1 if not specified.
 
 Example:
 
