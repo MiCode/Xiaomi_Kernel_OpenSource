@@ -19,7 +19,7 @@ config REGMAP_SPI
 
 config REGMAP_SPMI
 	tristate
-	depends on SPMI
+	depends on SPMI || MSM_SPMI
 
 config REGMAP_MMIO
 	tristate

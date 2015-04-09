@@ -28,7 +28,7 @@ config BUS_TOPOLOGY_ADHOC
 
 config QPNP_POWER_ON
 	tristate "QPNP PMIC POWER-ON Driver"
-	depends on OF_SPMI && SPMI && MSM_QPNP_INT && INPUT
+	depends on OF_SPMI && (SPMI || MSM_SPMI) && MSM_QPNP_INT && INPUT
 	help
 	  This driver supports the power-on functionality on Qualcomm
 	  PNP PMIC. It currently supports reporting the change in status of
@@ -36,7 +36,7 @@ config QPNP_POWER_ON
 
 config QPNP_REVID
 	tristate "QPNP Revision ID Peripheral"
-	depends on SPMI
+	depends on SPMI || MSM_SPMI
 	help
 	  Say 'y' here to include support for the Qualcomm QPNP REVID
 	  peripheral. REVID prints out the PMIC type and revision numbers
@@ -45,7 +45,7 @@ config QPNP_REVID
 
 config QPNP_COINCELL
 	tristate "Qualcomm QPNP coincell charger support"
-	depends on SPMI && OF_SPMI
+	depends on (SPMI || MSM_SPMI) && OF_SPMI
 	help
 	  This driver supports the QPNP coincell peripheral found inside of
 	  Qualcomm QPNP PMIC devices.  The coincell charger provides a means to
@@ -91,5 +91,7 @@ config I2C_MSM_PROF_DBG
 	  information as needed at run time using debugfs.
 
 	  This module can also be dynamically linked as a shared kernel object.
+
+source "drivers/platform/msm/spmi/Kconfig"
 
 endmenu

@@ -1404,7 +1404,7 @@ config RTC_DRV_MOXART
 
 config RTC_DRV_QPNP
 	tristate "Qualcomm QPNP PMIC RTC"
-	depends on SPMI && OF_SPMI && MSM_QPNP_INT
+	depends on (SPMI || MSM_SPMI) && OF_SPMI && MSM_QPNP_INT
 	help
 	  Say Y here if you want to support the Qualcomm QPNP PMIC RTC.
 

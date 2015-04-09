@@ -12,6 +12,10 @@
 #ifndef _LINUX_SPMI_H
 #define _LINUX_SPMI_H
 
+#ifdef CONFIG_MSM_SPMI
+#include <linux/msm_spmi.h>
+#else
+
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/mod_devicetable.h>
@@ -188,4 +192,5 @@ int spmi_command_sleep(struct spmi_device *sdev);
 int spmi_command_wakeup(struct spmi_device *sdev);
 int spmi_command_shutdown(struct spmi_device *sdev);
 
+#endif /* CONFIG_MSM_SPMI */
 #endif

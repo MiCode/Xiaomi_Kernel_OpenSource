@@ -571,7 +571,7 @@ config MFD_SPMI_PMIC
 	tristate "Qualcomm SPMI PMICs"
 	depends on ARCH_QCOM || COMPILE_TEST
 	depends on OF
-	depends on SPMI
+	depends on SPMI || MSM_SPMI
 	select REGMAP_SPMI
 	help
 	  This enables support for the Qualcomm SPMI PMICs.

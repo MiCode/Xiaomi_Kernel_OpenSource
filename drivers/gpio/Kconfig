@@ -267,7 +267,7 @@ config GPIO_PXA
 	  Say yes here to support the PXA GPIO device
 
 config GPIO_QPNP_PIN
-	depends on SPMI
+	depends on SPMI || MSM_SPMI
 	depends on OF_SPMI
 	depends on MSM_QPNP_INT
 	tristate "Qualcomm QPNP gpio support"

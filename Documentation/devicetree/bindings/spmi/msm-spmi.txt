@@ -1,0 +1,177 @@
+* SPMI
+
+The SPMI Device Tree support interprets up to three levels of Device Tree
+topology. The first level is required and specifies only a slave address.
+The second level is optional and allows for the specification of different
+device nodes within the same 16-bit address space underneath a particular
+SPMI slave ID. Within the second level, any number of address ranges can be
+associated with a particular device within that 16-bit range. An additional
+flag allows for the possiblity to specify that all device nodes should
+have their resources dedicated to only one spmi_device. This flag can
+be specified at the second level, or an optional third level. By default
+without this flag, one spmi_device is created for each device_node.
+
+[Root Node]
+
+Recommended properties :
+ - interrupt-controller : Used to specify the root node as the
+   interrupt controller for SPMI devices.
+ - #interrupt-cells : The number of cells used to express one interrupt.
+
+Notes :
+ - It is considered an error to include either spmi-container-dev or
+ spmi-slave-dev in the Root Node.
+
+[First Level Nodes]
+
+Required properites :
+
+ - reg: SPMI Slave ID (0-15) with no size cell.
+ - compatible : "qcom," prefixed string to match against the driver.
+
+Recommended properties :
+
+ - interrupts : <a b c> where a is the slave ID, b is the peripheral ID,
+   c is the device interrupt number (0-7). Each device supports any arbitrary
+   number of interrupts.
+ - interrupt-parent : the phandle for the interrupt controller that
+   services interrupts for this device.
+ - reg-names : a list of strings that map in order to the list of addresses
+   specified above in the 'reg' property.
+ - interrupt-names : a list of strings that map in order to the list of
+   interrupts specified in the 'interrupts' property.
+
+[Second Level Nodes]
+
+Required properties :
+ - spmi-slave-container: Used by the parser to understand that this is the
+   second level of the tree that includes device nodes associated with the
+   same slave_id.
+ - reg: <a b> where a is < 65536 and b is a size. Each device supports an
+   arbitrary number of address ranges.
+ - compatible : "qcom," prefixed string to match against the driver.
+
+Recommended properties :
+
+ - interrupts : <a b c> where a is the slave ID, b is the peripheral ID,
+   c is the device interrupt number (0-7). Each device supports any arbitrary
+   number of interrupts.
+ - interrupt-parent : the phandle for the interrupt controller that
+   services interrupts for this device.
+
+Optional properties :
+
+ - spmi-dev-container: This specifies that all the device nodes specified for
+   this slave_id should have their resources coalesced into only one
+   spmi_device.
+ - reg-names : a list of strings that map in order to the list of addresses
+   specified above in the 'reg' property.
+ - interrupt-names : a list of strings that map in order to the list of
+   interrupts specified in the 'interrupts' property.
+
+[Third Level Nodes]
+
+Required properties :
+
+  - spmi-dev-container: This specifies that all the device nodes specified for
+   this slave_id should have their resources coalesced into only one
+   spmi_device.
+  - reg: <a b> where a is < 65536 and b is a size. Each device supports an
+   arbitrary number of address ranges.
+  - compatible : "qcom," prefixed string to match against the driver.
+
+Recommended properties :
+
+ - interrupts : <a b c> where a is the slave ID, b is the peripheral ID,
+   c is the device interrupt number (0-7). Each device supports any arbitrary
+   number of interrupts.
+ - interrupt-parent : the phandle for the interrupt controller that
+   services interrupts for this device.
+ - reg-names : a list of strings that map in order to the list of addresses
+   specified above in the 'reg' property.
+ - interrupt-names : a list of strings that map in order to the list of
+   interrupts specified in the 'interrupts' property.
+ - label: A single name that names the device. This name can be looked up
+   with spmi_get_node_byname(). This is mostly useful in spmi-dev-container
+   configurations where multiple device_nodes are associated with one spmi
+   device.
+Notes :
+ - It is considered an error to include spmi-slave-dev at this level.
+
+[Example]
+
+/ {
+	qpnp: qcom,spmi@fc4c0000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		interrupt-controller;
+		#interrupt-cells = <3>;
+
+		testint@f {
+			interrupt-parent = <&qpnp>;
+			compatible = "qcom,qpnp-testint";
+			reg = <0xf>;
+			interrupts = <0x3 0x15 0x0 0x3 0x15 0x02 0x1 0x47 0x0>;
+			interrupt-names = "testint_0", "testint_1", "testint_err";
+		};
+
+		pm8941@0 {
+			spmi-slave-container;
+			reg = <0x0>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+
+			pm8941_gpios: gpios {
+				spmi-dev-container;
+				compatible = "qcom,qpnp-pin";
+				gpio-controller;
+				#gpio-cells = <1>;
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				pm8941_gpio1@0xc000 {
+					compatible = "qcom,qpnp-pin";
+					reg = <0xc000 0x100>;
+					qcom,qpnp_gpio = <1>;
+					interrupt-parent = <&qpnp>;
+					interrupts = <0x3 0x15 0x02 0x1 0x47 0x0>;
+					label = "foo-dev";
+				};
+
+				pm8941_gpio2@0xc100 {
+					compatible = "qcom,qpnp-pin";
+					reg = <0xc100 0x100>;
+					qcom,qpnp_gpio = <2>;
+					interrupt-parent = <&qpnp>;
+					interrupts = <0x3 0x15 0x0>;
+				};
+			};
+
+			testgpio@0x1000 {
+				compatible = "qcom,qpnp-testgpio";
+				reg = <0x1000 0x1000 0x2000 0x1000>;
+				reg-names = "foo", "bar";
+				qpnp-gpios = <&pm8941_gpios 0x0>;
+			};
+		};
+		pm8841@2 {
+			spmi-slave-container;
+			reg = <0x2>;
+			#address-cells = <1>;
+			#size-cells = <1>;
+			spmi-dev-container;
+			compatible = "qcom,qpnp-pin";
+
+			pm8841_gpio1@0xc000 {
+				reg = <0xc000 0x100>;
+				qcom,qpnp_gpio = <1>;
+			};
+
+			pm8841_gpio2@0xc100 {
+				reg = <0xc100 0x100>;
+				qcom,qpnp_gpio = <2>;
+			};
+		};
+
+	};
+};

@@ -3,6 +3,7 @@
 #
 
 obj-$(CONFIG_MSM_BUS_SCALING) += msm_bus/
+obj-$(CONFIG_MSM_SPMI) += spmi/
 obj-$(CONFIG_QPNP_POWER_ON) += qpnp-power-on.o
 obj-$(CONFIG_QPNP_REVID) += qpnp-revid.o
 obj-$(CONFIG_QPNP_COINCELL) += qpnp-coincell.o

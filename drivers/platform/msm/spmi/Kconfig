@@ -1,0 +1,30 @@
+#
+# SPMI driver configuration
+#
+menuconfig MSM_SPMI
+	bool "SPMI support"
+	help
+	  SPMI (System Power Management Interface) is a two-wire
+	  serial interface between baseband and application processors
+	  and Power Management Integrated Circuits (PMIC).
+
+if MSM_SPMI
+config MSM_SPMI_PMIC_ARB
+	tristate "Qualcomm MSM SPMI Controller (PMIC Arbiter)"
+	help
+	  If you say yes to this option, support will be included for the
+	  built-in SPMI PMIC Arbiter interface on Qualcomm MSM family
+	  processors.
+
+	  This is required for communicating with Qualcomm PMICs and
+	  other devices that have the SPMI interface.
+
+config MSM_QPNP_INT
+	depends on SPARSE_IRQ
+	depends on MSM_SPMI
+	depends on OF_SPMI
+	bool "MSM QPNP INT"
+	help
+	  Say 'y' here to include support for the Qualcomm QPNP interrupt
+	  support. QPNP is a SPMI based PMIC implementation.
+endif
