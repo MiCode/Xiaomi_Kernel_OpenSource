@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,12 @@
 enum wcd9xxx_slim_slave_addr_type {
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA,
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO,
+};
+
+enum codec_variant {
+	WCD9XXX,
+	WCD9330,
+	WCD9335,
 };
 
 enum {
@@ -115,11 +121,49 @@ enum {
 };
 
 enum {
+	/* INTR_REG 0 */
+	WCD9335_IRQ_FLL_LOCK_LOSS = 1,
+	WCD9335_IRQ_HPH_PA_OCPL_FAULT,
+	WCD9335_IRQ_HPH_PA_OCPR_FAULT,
+	WCD9335_IRQ_EAR_PA_OCP_FAULT,
+	WCD9335_IRQ_HPH_PA_CNPL_COMPLETE,
+	WCD9335_IRQ_HPH_PA_CNPR_COMPLETE,
+	WCD9335_IRQ_EAR_PA_CNP_COMPLETE,
+	/* INTR_REG 1 */
+	WCD9335_IRQ_MBHC_SW_DET,
+	WCD9335_IRQ_MBHC_ELECT_INS_REM_DET,
+	WCD9335_IRQ_MBHC_BUTTON_PRESS_DET,
+	WCD9335_IRQ_MBHC_ELECT_INS_REM_LEG_DET,
+	WCD9335_IRQ_RESERVED_0,
+	WCD9335_IRQ_RESERVED_1,
+	WCD9335_IRQ_RESERVED_2,
+	/* INTR_REG 2 */
+	WCD9335_IRQ_LINE_PA1_CNP_COMPLETE,
+	WCD9335_IRQ_LINE_PA2_CNP_COMPLETE,
+	WCD9335_IRQ_LINE_PA3_CNP_COMPLETE,
+	WCD9335_IRQ_LINE_PA4_CNP_COMPLETE,
+	WCD9335_IRQ_SOUNDWIRE,
+	WCD9335_IRQ_VDD_DIG_RAMP_COMPLETE,
+	WCD9335_IRQ_RCO_ERROR,
+	WCD9335_IRQ_SVA_ERROR,
+	/* INTR_REG 3 */
+	WCD9335_IRQ_MAD_AUDIO,
+	WCD9335_IRQ_MAD_BEACON,
+	WCD9335_IRQ_MAD_ULTRASOUND,
+	WCD9335_IRQ_VBAT_ATTACK,
+	WCD9335_IRQ_VBAT_RESTORE,
+	WCD9335_IRQ_SVA_OUTBOX1,
+	WCD9335_IRQ_SVA_OUTBOX2,
+	WCD9335_NUM_IRQS,
+};
+
+enum {
 	TABLA_NUM_IRQS = WCD9310_NUM_IRQS,
 	SITAR_NUM_IRQS = WCD9310_NUM_IRQS,
 	TAIKO_NUM_IRQS = WCD9XXX_NUM_IRQS,
 	TAPAN_NUM_IRQS = WCD9306_NUM_IRQS,
 	TOMTOM_NUM_IRQS = WCD9330_NUM_IRQS,
+	TASHA_NUM_IRQS = WCD9335_NUM_IRQS,
 };
 
 /*
@@ -167,6 +211,7 @@ enum wcd9xxx_chipid_major {
 	TAIKO_MAJOR = cpu_to_le16(0x102),
 	TAPAN_MAJOR = cpu_to_le16(0x103),
 	TOMTOM_MAJOR = cpu_to_le16(0x105),
+	TASHA_MAJOR = cpu_to_le16(0x107),
 };
 
 struct wcd9xxx_codec_type {
@@ -214,8 +259,13 @@ struct wcd9xxx {
 	struct wcd9xxx_ch *rx_chs;
 	struct wcd9xxx_ch *tx_chs;
 	u32 mclk_rate;
+	enum codec_variant type;
+	bool using_regmap;
+	struct regmap *regmap;
 
 	const struct wcd9xxx_codec_type *codec_type;
+	bool prev_pg_valid;
+	u8 prev_pg;
 };
 
 int wcd9xxx_interface_reg_read(struct wcd9xxx *wcd9xxx, unsigned short reg);

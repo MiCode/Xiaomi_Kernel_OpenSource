@@ -15,9 +15,11 @@
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include <sound/q6afe-v2.h>
-#include <linux/mfd/wcd9xxx/pdata.h>
 #include "wcd-mbhc-v2.h"
 #include "wcdcal-hwdep.h"
+
+#define MICBIAS_EXT_BYP_CAP 0x00
+#define MICBIAS_NO_EXT_BYP_CAP 0x01
 
 #define MSM8X16_WCD_NUM_REGISTERS	0x6FF
 #define MSM8X16_WCD_MAX_REGISTER	(MSM8X16_WCD_NUM_REGISTERS-1)
@@ -61,6 +63,36 @@ enum codec_versions {
 	CONGA,
 	CAJON,
 	UNSUPPORTED,
+};
+
+/* Each micbias can be assigned to one of three cfilters
+ * Vbatt_min >= .15V + ldoh_v
+ * ldoh_v >= .15v + cfiltx_mv
+ * If ldoh_v = 1.95 160 mv < cfiltx_mv < 1800 mv
+ * If ldoh_v = 2.35 200 mv < cfiltx_mv < 2200 mv
+ * If ldoh_v = 2.75 240 mv < cfiltx_mv < 2600 mv
+ * If ldoh_v = 2.85 250 mv < cfiltx_mv < 2700 mv
+ */
+
+struct wcd9xxx_micbias_setting {
+	u8 ldoh_v;
+	u32 cfilt1_mv; /* in mv */
+	u32 cfilt2_mv; /* in mv */
+	u32 cfilt3_mv; /* in mv */
+	/* Different WCD9xxx series codecs may not
+	 * have 4 mic biases. If a codec has fewer
+	 * mic biases, some of these properties will
+	 * not be used.
+	 */
+	u8 bias1_cfilt_sel;
+	u8 bias2_cfilt_sel;
+	u8 bias3_cfilt_sel;
+	u8 bias4_cfilt_sel;
+	u8 bias1_cap_mode;
+	u8 bias2_cap_mode;
+	u8 bias3_cap_mode;
+	u8 bias4_cap_mode;
+	bool bias2_is_headset_only;
 };
 
 enum msm8x16_wcd_pid_current {

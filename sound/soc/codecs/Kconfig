@@ -370,9 +370,13 @@ config SND_SOC_WCD9330
 config SND_SOC_WSA881X
         tristate
 
+config SND_SOC_WCD9335
+        tristate
+
 config SND_SOC_WCD9XXX
 	tristate
 	default y if SND_SOC_WCD9320=y || SND_SOC_WCD9306=y || SND_SOC_WCD9330=y
+	default y if SND_SOC_WCD9335=y
 
 config SND_SOC_MSM8X10_WCD
 	tristate

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,7 +16,11 @@
 #include <sound/jack.h>
 #include "wcd9xxx-mbhc.h"
 #include "wcd9xxx-resmgr.h"
-#include <linux/mfd/wcd9xxx/pdata.h>
+
+#define MICBIAS_EXT_BYP_CAP 0x00
+#define MICBIAS_NO_EXT_BYP_CAP 0x01
+
+#define WCD9XXX_LDOH_3P0_V 0x3
 
 #define MSM8X10_WCD_NUM_REGISTERS	0x600
 #define MSM8X10_WCD_MAX_REGISTER	(MSM8X10_WCD_NUM_REGISTERS-1)
@@ -59,6 +63,36 @@ struct msm8x10_wcd_reg_mask_val {
 	u16	reg;
 	u8	mask;
 	u8	val;
+};
+
+/* Each micbias can be assigned to one of three cfilters
+ * Vbatt_min >= .15V + ldoh_v
+ * ldoh_v >= .15v + cfiltx_mv
+ * If ldoh_v = 1.95 160 mv < cfiltx_mv < 1800 mv
+ * If ldoh_v = 2.35 200 mv < cfiltx_mv < 2200 mv
+ * If ldoh_v = 2.75 240 mv < cfiltx_mv < 2600 mv
+ * If ldoh_v = 2.85 250 mv < cfiltx_mv < 2700 mv
+ */
+
+struct wcd9xxx_micbias_setting {
+	u8 ldoh_v;
+	u32 cfilt1_mv; /* in mv */
+	u32 cfilt2_mv; /* in mv */
+	u32 cfilt3_mv; /* in mv */
+	/* Different WCD9xxx series codecs may not
+	 * have 4 mic biases. If a codec has fewer
+	 * mic biases, some of these properties will
+	 * not be used.
+	 */
+	u8 bias1_cfilt_sel;
+	u8 bias2_cfilt_sel;
+	u8 bias3_cfilt_sel;
+	u8 bias4_cfilt_sel;
+	u8 bias1_cap_mode;
+	u8 bias2_cap_mode;
+	u8 bias3_cap_mode;
+	u8 bias4_cap_mode;
+	bool bias2_is_headset_only;
 };
 
 enum msm8x10_wcd_mbhc_analog_pwr_cfg {

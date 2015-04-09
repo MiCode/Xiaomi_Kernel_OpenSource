@@ -1163,6 +1163,17 @@ config WCD9330_CODEC
 	  The WCD9330 codec support either I2C/I2S or Slimbus for
 	  control and data exchnage with master processor.
 
+config WCD9335_CODEC
+	tristate "WCD9335 Codec"
+	depends on SLIMBUS
+	select MFD_CORE
+	help
+	  Enables the WCD9xxx codec core driver. The core driver provides
+	  read/write capability to registers which are part of the
+	  WCD9335 core and gives the ability to use the WCD9335 codec.
+	  The WCD9335 codec support either I2C/I2S or Slimbus for
+	  control and data exchnage with master processor.
+
 endmenu
 endif
 
