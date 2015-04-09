@@ -767,6 +767,7 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 				__func__, devp->open_cfg.transport,
 				devp->open_cfg.edge, devp->open_cfg.name);
 			ret = -ENODEV;
+			devp->handle = NULL;
 			goto error;
 		}
 
