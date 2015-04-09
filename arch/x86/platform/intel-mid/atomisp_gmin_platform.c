@@ -28,7 +28,6 @@ EXPORT_SYMBOL(spid);
 #define DEVNAME_PMIC_AXP "INT33F4:00"
 #define DEVNAME_PMIC_TI  "INT33F5:00"
 #define DEVNAME_PMIC_CRYSTALCOVE "INT33FD:00"
-#define DEVNAME_PMIC_WHISKEYCOVE "INT34D3:00:6e"
 
 /* Should be defined in vlv2_plat_clock API, isn't: */
 #define VLV2_CLK_PLL_19P2MHZ 1
@@ -98,7 +97,7 @@ struct gmin_subdev {
 static struct gmin_subdev gmin_subdevs[MAX_SUBDEVS];
 
 static enum { PMIC_UNSET = 0, PMIC_REGULATOR, PMIC_AXP, PMIC_TI ,
-	PMIC_CRYSTALCOVE, PMIC_WHISKEYCOVE} pmic_id;
+	PMIC_CRYSTALCOVE } pmic_id;
 
 /* The atomisp uses type==0 for the end-of-list marker, so leave space. */
 static struct intel_v4l2_subdev_table pdata_subdevs[MAX_SUBDEVS+1];
@@ -337,8 +336,6 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 			pmic_id = PMIC_TI;
 		else if (i2c_dev_exists(DEVNAME_PMIC_CRYSTALCOVE))
 			pmic_id = PMIC_CRYSTALCOVE;
-		else if (i2c_dev_exists(DEVNAME_PMIC_WHISKEYCOVE))
-			pmic_id = PMIC_WHISKEYCOVE;
 		else
 			pmic_id = PMIC_REGULATOR;
 	}
@@ -396,8 +393,8 @@ static struct gmin_subdev *gmin_subdev_add(struct v4l2_subdev *subdev)
 	}
 
 	if (pmic_id == PMIC_REGULATOR) {
-		gmin_subdevs[i].v1p8_reg = regulator_get(dev, "v1p8sx");
-		gmin_subdevs[i].v2p8_reg = regulator_get(dev, "v2p85sx");
+		gmin_subdevs[i].v1p8_reg = regulator_get(dev, "V1P8SX");
+		gmin_subdevs[i].v2p8_reg = regulator_get(dev, "V2P8SX");
 
 		/* Note: ideally we would initialize v[12]p8_on to the
 		 * output of regulator_is_enabled(), but sadly that
@@ -564,15 +561,6 @@ int gmin_v1p8_ctrl(struct v4l2_subdev *subdev, int on)
 								CRYSTAL_OFF);
 	}
 
-	if (pmic_id == PMIC_WHISKEYCOVE) {
-		int val = intel_soc_pmic_readb(WCOVE_V1P8SX_CTRL);
-		if (on)
-			return intel_soc_pmic_writeb(WCOVE_V1P8SX_CTRL,
-				(val & ~WCOVE_CTRL_MASK) | WCOVE_CTRL_ENABLE);
-		else
-			return intel_soc_pmic_writeb(WCOVE_V1P8SX_CTRL,
-				(val & ~WCOVE_CTRL_MASK) | WCOVE_CTRL_DISABLE);
-	}
 	return -EINVAL;
 }
 
@@ -627,16 +615,6 @@ int gmin_v2p8_ctrl(struct v4l2_subdev *subdev, int on)
 			return intel_soc_pmic_writeb(CRYSTAL_2P8V_REG, CRYSTAL_ON);
 		else
 			return intel_soc_pmic_writeb(CRYSTAL_2P8V_REG, CRYSTAL_OFF);
-	}
-
-	if (pmic_id == PMIC_WHISKEYCOVE) {
-		int val = intel_soc_pmic_readb(WCOVE_V2P8SX_CTRL);
-		if (on)
-			return intel_soc_pmic_writeb(WCOVE_V2P8SX_CTRL,
-				(val & ~WCOVE_CTRL_MASK) | WCOVE_CTRL_ENABLE);
-		else
-			return intel_soc_pmic_writeb(WCOVE_V2P8SX_CTRL,
-				(val & ~WCOVE_CTRL_MASK) | WCOVE_CTRL_DISABLE);
 	}
 
 	return -EINVAL;
