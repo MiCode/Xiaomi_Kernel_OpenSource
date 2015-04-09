@@ -302,7 +302,7 @@
 		sdc2_cd_off: sdc2_cd_off {
 			sdc2_cd_pin {
 				pins = "gpio95";
-				bias-disable;		/* disable */
+				bias-pull-up;		/* pull up */
 				drive-strength = <2>;	/* 2 MA */
 			};
 		};
