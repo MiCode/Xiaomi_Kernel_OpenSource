@@ -87,12 +87,8 @@
 
 #define DC_XPWR_CHARGE_CUR_DCP		2000
 #define DC_XPWR_CHARGE_CUR_CDP		1500
-/*
- * HACK: USB2 SDP connection supposes to start in 100ma and raise up to 500ma
- * after enumeration. We are still defining a clean standard interface for it.
- * In meanwhile, we'll go to 500ma right away.
- */
-#define DC_XPWR_CHARGE_CUR_SDP		500
+#define DC_XPWR_CHARGE_CUR_SDP_500	500
+#define DC_XPWR_CHARGE_CUR_SDP_100	100
 
 #define DC_PWRSRC_INTR_NUM		4
 #define PWRSRC_DRV_NAME			"dollar_cove_pwrsrc"
@@ -250,7 +246,10 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 		info->is_sdp = true;
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		cable_props.ma = DC_XPWR_CHARGE_CUR_SDP;
+		if (info->pdata->chrg_usb_compliance)
+			cable_props.ma = DC_XPWR_CHARGE_CUR_SDP_100;
+		else
+			cable_props.ma = DC_XPWR_CHARGE_CUR_SDP_500;
 	} else if (chrg_type == DET_STAT_CDP) {
 		dev_dbg(&info->pdev->dev,
 				"CDP cable connecetd\n");
@@ -359,20 +358,14 @@ static int dc_pwrsrc_handle_otg_notification(struct notifier_block *nb,
 {
 	struct dc_pwrsrc_info *info =
 	    container_of(nb, struct dc_pwrsrc_info, id_nb);
-	struct power_supply_cable_props cable_props;
 	int *val = (int *)param;
-
-	if ((event != USB_EVENT_ID) &&
-		(event != USB_EVENT_NONE) &&
-		(event != USB_EVENT_ENUMERATED))
-		return NOTIFY_DONE;
-
-	if ((event == USB_EVENT_ENUMERATED) && !param)
-		return NOTIFY_DONE;
 
 	dev_info(&info->pdev->dev,
 		"[OTG notification]evt:%lu val:%d\n", event,
 				val ? *val : -1);
+	if ((event != USB_EVENT_ID) &&
+		(event != USB_EVENT_NONE))
+		return NOTIFY_DONE;
 
 	switch (event) {
 	case USB_EVENT_ID:
@@ -384,30 +377,6 @@ static int dc_pwrsrc_handle_otg_notification(struct notifier_block *nb,
 		break;
 	case USB_EVENT_NONE:
 		info->id_short = false;
-		break;
-	case USB_EVENT_ENUMERATED:
-		/*
-		 * ignore cable plug/unplug events as SMSC
-		 * had already send those event notifications.
-		 * Also only handle notifications for SDP case.
-		 */
-		if (!*val || !info->is_sdp ||
-			(*val == DC_XPWR_CHARGE_CUR_SDP))
-			break;
-		/*
-		 * if current limit is < 100mA
-		 * treat it as suspend event.
-		 */
-		if (*val < DC_XPWR_CHARGE_CUR_SDP)
-			cable_props.chrg_evt =
-					POWER_SUPPLY_CHARGER_EVENT_SUSPEND;
-		else
-			cable_props.chrg_evt =
-					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
-		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_SDP;
-		cable_props.ma = *val;
-		atomic_notifier_call_chain(&power_supply_notifier,
-					PSY_CABLE_EVENT, &cable_props);
 		break;
 	default:
 		dev_warn(&info->pdev->dev, "invalid OTG event\n");

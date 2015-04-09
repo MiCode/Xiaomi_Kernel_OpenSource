@@ -6,6 +6,7 @@ struct dc_xpwr_pwrsrc_pdata {
 	bool	en_chrg_det;
 	/* Gpio based mux to switch D+/D- line between pmic and soc */
 	struct gpio_desc *gpio_mux_cntl;
+	bool chrg_usb_compliance;
 };
 
 #ifdef CONFIG_INTEL_SOC_PMIC

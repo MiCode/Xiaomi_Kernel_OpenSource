@@ -37,6 +37,7 @@
 
 #define GPIO_USB_MUX_INDEX	1
 #define GPIO_OTG_VBUS_INDEX	2
+#define FPO0_USB_COMP_OFFSET	0x01
 
 enum {
 	VBUS_FALLING_IRQ = 2,
@@ -507,6 +508,20 @@ dc_xpwr_get_acpi_cdata(struct dollarcove_fg_pdata *pdata)
 
 	return 0;
 }
+
+static bool dc_xpwr_get_acpi_usb_compliance(void)
+{
+	struct em_config_oem1_data em_config;
+
+	/*
+	 * On error return true to keep usb compliance and charge
+	*  with 100mA until enumerated.
+	*/
+	if (em_config_get_oem1_data(&em_config) < 0)
+		return true;
+	/* 0 - usb compliance, 1 - no usb compliance */
+	return !(em_config.fpo_0 & FPO0_USB_COMP_OFFSET);
+}
 #endif /* CONFIG_ACPI */
 
 static void dc_xpwr_get_fg_config_data(struct dollarcove_fg_pdata *pdata)
@@ -552,6 +567,14 @@ static void dc_xpwr_get_fg_config_data(struct dollarcove_fg_pdata *pdata)
 	return;
 }
 
+static bool dc_xpwr_is_usb_compliance_charging(void)
+{
+	bool compliance = true;
+#ifdef CONFIG_ACPI
+	compliance = dc_xpwr_get_acpi_usb_compliance();
+#endif /* CONFIG_ACPI */
+	return compliance;
+}
 static void dc_xpwr_fg_pdata(void)
 {
 	static struct dollarcove_fg_pdata pdata;
@@ -613,6 +636,7 @@ static void dc_xpwr_pwrsrc_pdata(void)
 	else
 		gpiod_put(pdata.gpio_mux_cntl);
 
+	pdata.chrg_usb_compliance = dc_xpwr_is_usb_compliance_charging();
 	intel_soc_pmic_set_pdata("dollar_cove_pwrsrc",
 				 (void *)&pdata, sizeof(pdata), 0);
 }
