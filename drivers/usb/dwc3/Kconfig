@@ -97,6 +97,15 @@ config USB_DWC3_QCOM
 	  Recent Qualcomm SoCs ship with one DesignWare Core USB3 IP inside,
 	  say 'Y' or 'M' if you have one such device.
 
+config USB_DWC3_MSM
+	tristate "DesignWare USB3.0 (DRD) Controller for MSM"
+	depends on ARCH_MSM
+	default USB_DWC3
+	help
+	  Support for DWC3 USB IPs found on Qualcomm MSM/APQ chipset series,
+	  including host, device and dual-role modes of operation.
+	  Say 'Y' or 'M' here if you have one such device
+
 comment "Debugging features"
 
 config USB_DWC3_DEBUG

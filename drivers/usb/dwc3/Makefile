@@ -3,6 +3,7 @@ CFLAGS_trace.o				:= -I$(src)
 
 ccflags-$(CONFIG_USB_DWC3_DEBUG)	:= -DDEBUG
 ccflags-$(CONFIG_USB_DWC3_VERBOSE)	+= -DVERBOSE_DEBUG
+ccflags-y += -Idrivers/usb/host
 
 obj-$(CONFIG_USB_DWC3)			+= dwc3.o
 
@@ -15,6 +16,8 @@ endif
 ifneq ($(filter y,$(CONFIG_USB_DWC3_GADGET) $(CONFIG_USB_DWC3_DUAL_ROLE)),)
 	dwc3-y				+= gadget.o ep0.o
 endif
+
+dwc3-y					+= dwc3_otg.o
 
 ifneq ($(CONFIG_DEBUG_FS),)
 	dwc3-y				+= debugfs.o
@@ -37,4 +40,5 @@ obj-$(CONFIG_USB_DWC3_EXYNOS)		+= dwc3-exynos.o
 obj-$(CONFIG_USB_DWC3_PCI)		+= dwc3-pci.o
 obj-$(CONFIG_USB_DWC3_KEYSTONE)		+= dwc3-keystone.o
 obj-$(CONFIG_USB_DWC3_QCOM)		+= dwc3-qcom.o
+obj-$(CONFIG_USB_DWC3_MSM)		+= dbm-1_4.o dbm-1_5.o dwc3-msm.o dbm.o
 obj-$(CONFIG_USB_DWC3_ST)		+= dwc3-st.o

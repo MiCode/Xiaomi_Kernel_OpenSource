@@ -1,0 +1,97 @@
+MSM SuperSpeed USB3.0 SoC controller
+
+Required properties :
+- compatible : should be "qcom,dwc-usb3-msm"
+- reg : offset and length of the register set in the memory map
+	offset and length of the TCSR register for routing USB
+	signals to either picoPHY0 or picoPHY1.
+- interrupts: IRQ lines used by this controller
+- <supply-name>-supply: phandle to the regulator device tree node
+  Required "supply-name" examples are:
+	"vbus_dwc3" : vbus supply for host mode when DWC3 operating as DRD.
+	This can be left as optional if "host-only-mode" is selected in the
+	'dwc3' sub node for "DWC3-USB3 Core device".
+
+Optional properties :
+- Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
+  below optional properties:
+    - qcom,msm_bus,name
+    - qcom,msm_bus,num_cases
+    - qcom,msm_bus,num_paths
+    - qcom,msm_bus,vectors
+- interrupt-names : Optional interrupt resource entries are:
+    "hs_phy_irq" : Interrupt from HSPHY for asynchronous events in LPM.
+	This is not used if wakeup events are received externally (e.g. PMIC)
+    "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
+    "pwr_event_irq" : Interrupt to controller for asynchronous events in LPM.
+	Used for SS-USB power events. This is not used if wakeup events are
+	received externally (e.g. PMIC)
+- qcom,charging-disabled: If present then battery charging using USB
+  is disabled.
+- qcom,skip-charger-detection: If present then charger detection using BC1.2
+  is not supported and attached host should always be assumed as SDP.
+- USB3_GDSC-supply : phandle to the globally distributed switch controller
+  regulator node to the USB controller.
+- qcom,dwc_usb3-adc_tm: Corresponding ADC_TM device's phandle to set recurring
+		measurements on USB_ID channel when using ADC and receive
+		notifications for set thresholds.
+- qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
+		TX fifo allocation in bytes
+- qcom,dwc-usb3-msm-qdss-tx-fifo-size: If present, represent RAM size available
+		for TX fifo allocation in QDSS composition
+- qcom,restore-sec-cfg-for-scm-dev-id: If present then device id value is
+  passed to secure channel manager(scm) driver. scm driver uses this device
+  id to restore USB controller related security configuration after coming
+  out of the controller power collapse.
+- qcom,utmi-clk-rate: Indicates refclk frequency (in Hz) to the core. If not
+  specified, default of 19.2MHz is assumed.
+- qcom,no-suspend-resume: If present, the device will not perform any activity
+		during suspend/resume
+- qcom,usb-dbm : phandle for the DBM device
+- qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
+	This will be used to get value of usb power supply's VOLTAGE_NOW property,
+- qcom,power-collapse-on-cable-disconnect: If present, USB core will perform
+	power collapse when cable is disconencted.
+- qcom,por-after-power-collapse: If present, a partial POR sequence will be performed
+  when recovering from power collapse.
+- qcom,lpm-to-suspend-delay-ms: Indicates timeout (in milliseconds) to release wakeup source
+  after USB is kept into LPM.
+- qcom,vbus-present: Indicates that there is no VBUS indication from PMIC. Assume VBUS is
+  present if this property is defined.
+Sub nodes:
+- Sub node for "DWC3- USB3 controller".
+  This sub node is required property for device node. The properties of this subnode
+  are specified in dwc3.txt.
+
+Example MSM USB3.0 controller device node :
+	usb@f9200000 {
+		compatible = "qcom,dwc-usb3-msm";
+		reg = <0xf9200000 0xfc000>,
+		      <0xfd4ab000 0x4>;
+		interrupts = <0 133 0>;
+		interrupt-names = "hs_phy_irq";
+		vbus_dwc3-supply = <&pm8941_mvs1>;
+		USB3_GDSC-supply = <&gdsc_usb30>;
+		qcom,dwc-usb3-msm-dbm-eps = <4>
+		qcom,dwc_usb3-adc_tm = <&pm8941_adc_tm>;
+		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
+		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <16384>;
+		qcom,usb-dbm = <&dbm_1p4>;
+		qcom,usbin-vadc = <&pm8941_vadc>;
+		qcom,lpm-to-suspend-delay-ms = <2>;
+		qcom,vbus-present;
+
+		qcom,msm_bus,name = "usb3";
+		qcom,msm_bus,num_cases = <2>;
+		qcom,msm_bus,num_paths = <1>;
+		qcom,msm_bus,vectors =
+				<61 512 0 0>,
+				<61 512 240000000 960000000>;
+		dwc3@f9200000 {
+			compatible = "synopsys,dwc3";
+			reg = <0xf9200000 0xfc000>;
+			interrupts = <0 131 0>, <0 179 0>;
+			interrupt-names = "irq", "otg_irq";
+			tx-fifo-resize;
+		};
+	};
