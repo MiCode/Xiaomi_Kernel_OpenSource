@@ -2290,6 +2290,9 @@ static int __q6asm_open_write(struct audio_client *ac, uint32_t format,
 	case FORMAT_FLAC:
 		open.dec_fmt_id = ASM_MEDIA_FMT_FLAC;
 		break;
+	case FORMAT_ALAC:
+		open.dec_fmt_id = ASM_MEDIA_FMT_ALAC;
+		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n", __func__, format);
 		goto fail_cmd;
@@ -2418,6 +2421,9 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 	case FORMAT_MP3:
 		open.dec_fmt_id = ASM_MEDIA_FMT_MP3;
 		break;
+	case FORMAT_ALAC:
+		open.dec_fmt_id = ASM_MEDIA_FMT_ALAC;
+		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n",
 				__func__, wr_format);
@@ -2443,6 +2449,9 @@ static int __q6asm_open_read_write(struct audio_client *ac, uint32_t rd_format,
 		break;
 	case FORMAT_AMRWB:
 		open.enc_cfg_id = ASM_MEDIA_FMT_AMRWB_FS;
+		break;
+	case FORMAT_ALAC:
+		open.enc_cfg_id = ASM_MEDIA_FMT_ALAC;
 		break;
 	default:
 		pr_err("%s: Invalid format 0x%x\n",
@@ -3674,6 +3683,53 @@ int q6asm_stream_media_format_block_flac(struct audio_client *ac,
 	fmt.min_frame_size = cfg->min_frame_size;
 	fmt.max_frame_size = cfg->max_frame_size;
 	fmt.sample_size = cfg->sample_size;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
+	if (rc < 0) {
+		pr_err("%s :Comamnd media format update failed %d\n",
+				__func__, rc);
+		goto fail_cmd;
+	}
+	rc = wait_event_timeout(ac->cmd_wait,
+				(atomic_read(&ac->cmd_state) == 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s :timeout. waited for FORMAT_UPDATE\n", __func__);
+		rc = -ETIMEDOUT;
+		goto fail_cmd;
+	}
+	return 0;
+fail_cmd:
+	return rc;
+}
+
+int q6asm_media_format_block_alac(struct audio_client *ac,
+				struct asm_alac_cfg *cfg)
+{
+	struct asm_alac_fmt_blk_v2 fmt;
+	int rc = 0;
+
+	pr_debug("%s :session[%d]rate[%d]ch[%d]\n", __func__,
+		ac->session, cfg->sample_rate, cfg->num_channels);
+
+	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+	atomic_set(&ac->cmd_state, 1);
+
+	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
+	fmt.fmtblk.fmt_blk_size = sizeof(fmt) - sizeof(fmt.hdr) -
+						sizeof(fmt.fmtblk);
+
+	fmt.frame_length = cfg->frame_length;
+	fmt.compatible_version = cfg->compatible_version;
+	fmt.bit_depth = cfg->bit_depth;
+	fmt.pb = cfg->pb;
+	fmt.mb = cfg->mb;
+	fmt.kb = cfg->kb;
+	fmt.num_channels = cfg->num_channels;
+	fmt.max_run = cfg->max_run;
+	fmt.max_frame_bytes = cfg->max_frame_bytes;
+	fmt.avg_bit_rate = cfg->avg_bit_rate;
+	fmt.sample_rate = cfg->sample_rate;
+	fmt.channel_layout_tag = cfg->channel_layout_tag;
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &fmt);
 	if (rc < 0) {
