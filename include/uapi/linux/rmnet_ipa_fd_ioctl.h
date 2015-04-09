@@ -24,6 +24,32 @@
 #define WAN_IOCTL_ADD_FLT_RULE		0
 #define WAN_IOCTL_ADD_FLT_INDEX		1
 #define WAN_IOCTL_VOTE_FOR_BW_MBPS	2
+#define WAN_IOCTL_POLL_TETHERING_STATS  3
+#define WAN_IOCTL_SET_DATA_QUOTA        4
+
+/* User space may not have this defined. */
+#ifndef IFNAMSIZ
+#define IFNAMSIZ 16
+#endif
+
+struct wan_ioctl_poll_tethering_stats {
+	/* Polling interval in seconds */
+	uint64_t polling_interval_secs;
+
+	/* Indicate whether to reset the stats (use 1) or not */
+	uint8_t reset_stats;
+};
+
+struct wan_ioctl_set_data_quota {
+	/* Name of the interface on which to set the quota */
+	char interface_name[IFNAMSIZ];
+
+	/* Quota (in Mbytes) for the above interface */
+	uint64_t quota_mbytes;
+
+	/* Indicate whether to set the quota (use 1) or unset the quota */
+	uint8_t set_quota;
+};
 
 #define WAN_IOC_ADD_FLT_RULE _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ADD_FLT_RULE, \
@@ -36,5 +62,13 @@
 #define WAN_IOC_VOTE_FOR_BW_MBPS _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_VOTE_FOR_BW_MBPS, \
 		uint32_t *)
+
+#define WAN_IOC_POLL_TETHERING_STATS _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_POLL_TETHERING_STATS, \
+		struct wan_ioctl_poll_tethering_stats *)
+
+#define WAN_IOC_SET_DATA_QUOTA _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_SET_DATA_QUOTA, \
+		struct wan_ioctl_set_data_quota *)
 
 #endif /* _RMNET_IPA_FD_IOCTL_H */
