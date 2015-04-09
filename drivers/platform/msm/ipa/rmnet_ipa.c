@@ -30,6 +30,7 @@
 #include <soc/qcom/subsystem_restart.h>
 #include <soc/qcom/subsystem_notif.h>
 #include "ipa_qmi_service.h"
+#include <linux/rmnet_ipa_fd_ioctl.h>
 
 #define WWAN_METADATA_SHFT 24
 #define WWAN_METADATA_MASK 0xFF000000
@@ -44,6 +45,10 @@
 
 #define IPA_WWAN_DEV_NAME "rmnet_ipa%d"
 #define IPA_WWAN_DEVICE_COUNT (1)
+
+#define INVALID_MUX_ID 0xFF
+#define IPA_QUOTA_REACH_ALERT_MAX_SIZE 64
+#define IPA_QUOTA_REACH_IF_NAME_MAX_SIZE 64
 
 static struct net_device *ipa_netdevs[IPA_WWAN_DEVICE_COUNT];
 static struct ipa_sys_connect_params apps_to_ipa_ep_cfg, ipa_to_apps_ep_cfg;
@@ -62,6 +67,10 @@ static int wwan_del_ul_flt_rule_to_ipa(void);
 
 static void wake_tx_queue(struct work_struct *work);
 static DECLARE_WORK(ipa_tx_wakequeue_work, wake_tx_queue);
+
+static void tethering_stats_poll_queue(struct work_struct *work);
+static DECLARE_DELAYED_WORK(ipa_tether_stats_poll_wakequeue_work,
+			    tethering_stats_poll_queue);
 
 enum wwan_device_status {
 	WWAN_DEVICE_INACTIVE = 0,
@@ -671,6 +680,16 @@ static int find_mux_channel_index(uint32_t mux_id)
 	return MAX_NUM_OF_MUX_CHANNEL;
 }
 
+static int find_vchannel_name_index(const char *vchannel_name)
+{
+	int i;
+
+	for (i = 0; i < MAX_NUM_OF_MUX_CHANNEL; i++) {
+		if (0 == strcmp(mux_channel[i].vchannel_name, vchannel_name))
+			return i;
+	}
+	return MAX_NUM_OF_MUX_CHANNEL;
+}
 
 static int wwan_register_to_ipa(int index)
 {
@@ -1909,6 +1928,7 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 		IPAWANERR("Error deleting resource %d, ret=%d\n",
 		IPA_RM_RESOURCE_WWAN_0_PROD, ret);
 	cancel_work_sync(&ipa_tx_wakequeue_work);
+	cancel_delayed_work_sync(&ipa_tether_stats_poll_wakequeue_work);
 	free_netdev(ipa_netdevs[0]);
 	ipa_netdevs[0] = NULL;
 	/* No need to remove wwan_ioctl during SSR */
@@ -1983,6 +2003,12 @@ static int rmnet_ipa_ap_resume(struct device *dev)
 	return 0;
 }
 
+static void ipa_stop_polling_stats(void)
+{
+	cancel_delayed_work(&ipa_tether_stats_poll_wakequeue_work);
+	ipa_rmnet_ctx.polling_interval = 0;
+}
+
 static const struct of_device_id rmnet_ipa_dt_match[] = {
 	{.compatible = "qcom,rmnet-ipa"},
 	{},
@@ -2015,6 +2041,7 @@ static int ssr_notifier_cb(struct notifier_block *this,
 			ipa_q6_cleanup();
 			ipa_qmi_stop_workqueues();
 			wan_ioctl_stop_qmi_messages();
+			ipa_stop_polling_stats();
 			atomic_set(&is_ssr, 1);
 			if (atomic_read(&is_initialized))
 				platform_driver_unregister(&rmnet_ipa_driver);
@@ -2037,6 +2064,281 @@ static int ssr_notifier_cb(struct notifier_block *this,
 		}
 	}
 	return NOTIFY_DONE;
+}
+
+/**
+ * rmnet_ipa_free_msg() - Free the msg sent to user space via ipa_send_msg
+ * @buff: pointer to buffer containing the message
+ * @len: message len
+ * @type: message type
+ *
+ * This function is invoked when ipa_send_msg is complete (Provided as a
+ * free function pointer along with the message).
+ */
+static void rmnet_ipa_free_msg(void *buff, u32 len, u32 type)
+{
+	if (!buff) {
+		IPAWANERR("Null buffer\n");
+		return;
+	}
+
+	if (type != IPA_TETHERING_STATS_UPDATE_STATS &&
+		type != IPA_TETHERING_STATS_UPDATE_NETWORK_STATS) {
+			IPAWANERR("Wrong type given. buff %p type %d\n",
+				  buff, type);
+	}
+	kfree(buff);
+}
+
+/**
+ * rmnet_ipa_get_stats_and_update() - Gets pipe stats from Modem
+ *
+ * This function queries the IPA Modem driver for the pipe stats
+ * via QMI, and updates the user space IPA entity.
+ */
+static void rmnet_ipa_get_stats_and_update(void)
+{
+	struct ipa_get_data_stats_req_msg_v01 req;
+	struct ipa_get_data_stats_resp_msg_v01 *resp;
+	struct ipa_msg_meta msg_meta;
+	int rc;
+
+	resp = kzalloc(sizeof(struct ipa_get_data_stats_resp_msg_v01),
+		       GFP_KERNEL);
+	if (!resp) {
+		IPAWANERR("Can't allocate memory for stats message\n");
+		return;
+	}
+
+	memset(&req, 0, sizeof(struct ipa_get_data_stats_req_msg_v01));
+	memset(resp, 0, sizeof(struct ipa_get_data_stats_resp_msg_v01));
+
+	req.ipa_stats_type = QMI_IPA_STATS_TYPE_PIPE_V01;
+
+	rc = ipa_qmi_get_data_stats(&req, resp);
+
+	if (!rc) {
+		memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+		msg_meta.msg_type = IPA_TETHERING_STATS_UPDATE_STATS;
+		msg_meta.msg_len =
+			sizeof(struct ipa_get_data_stats_resp_msg_v01);
+		rc = ipa_send_msg(&msg_meta, resp, rmnet_ipa_free_msg);
+		if (rc) {
+			IPAWANERR("ipa_send_msg failed: %d\n", rc);
+			kfree(resp);
+			return;
+		}
+	}
+}
+
+/**
+ * tethering_stats_poll_queue() - Stats polling function
+ * @work - Work entry
+ *
+ * This function is scheduled periodically (per the interval) in
+ * order to poll the IPA Modem driver for the pipe stats.
+ */
+static void tethering_stats_poll_queue(struct work_struct *work)
+{
+	rmnet_ipa_get_stats_and_update();
+
+	schedule_delayed_work(&ipa_tether_stats_poll_wakequeue_work,
+			msecs_to_jiffies(ipa_rmnet_ctx.polling_interval*1000));
+}
+
+/**
+ * rmnet_ipa_get_network_stats_and_update() - Get network stats from IPA Modem
+ *
+ * This function retrieves the data usage (used quota) from the IPA Modem driver
+ * via QMI, and updates IPA user space entity.
+ */
+static void rmnet_ipa_get_network_stats_and_update(void)
+{
+	struct ipa_get_apn_data_stats_req_msg_v01 req;
+	struct ipa_get_apn_data_stats_resp_msg_v01 *resp;
+	struct ipa_msg_meta msg_meta;
+	int rc;
+
+	resp = kzalloc(sizeof(struct ipa_get_apn_data_stats_resp_msg_v01),
+		       GFP_KERNEL);
+	if (!resp) {
+		IPAWANERR("Can't allocate memory for network stats message\n");
+		return;
+	}
+
+	memset(&req, 0, sizeof(struct ipa_get_apn_data_stats_req_msg_v01));
+	memset(resp, 0, sizeof(struct ipa_get_apn_data_stats_resp_msg_v01));
+
+	req.mux_id_list_valid = true;
+	req.mux_id_list_len = 1;
+	req.mux_id_list[0] = ipa_rmnet_ctx.metered_mux_id;
+
+	IPAWANERR("ipa_get_apn_data_stats_req received,mux_id_list_valid (%d)\n",
+		req.mux_id_list_valid);
+	IPAWANERR("mux_id_list_len (%d)\n", req.mux_id_list_len);
+	IPAWANERR("mux_id (%d)\n", req.mux_id_list[0]);
+
+	rc = ipa_qmi_get_network_stats(&req, resp);
+
+	IPAWANDBG("ipa_qmi_get_network_stats,apn_data_stats_list_valid (%d)\n",
+		resp->apn_data_stats_list_valid);
+	IPAWANDBG("apn_data_stats_list_len (%d)\n", resp->apn_data_stats_list_len);
+	IPAWANDBG("mux_id (%d)\n", resp->apn_data_stats_list[0].mux_id);
+	IPAWANDBG("num_ul_packets (%lu)\n",
+		(long unsigned int) resp->apn_data_stats_list[0].num_ul_packets);
+	IPAWANDBG("num_ul_bytes (%lu)\n",
+		(long unsigned int) resp->apn_data_stats_list[0].num_ul_bytes);
+	IPAWANDBG("num_dl_packets (%lu)\n",
+		(long unsigned int) resp->apn_data_stats_list[0].num_dl_packets);
+	IPAWANDBG("num_dl_bytes (%lu)\n",
+		(long unsigned int) resp->apn_data_stats_list[0].num_dl_bytes);
+
+
+	if (!rc) {
+		memset(&msg_meta, 0, sizeof(struct ipa_msg_meta));
+		msg_meta.msg_type = IPA_TETHERING_STATS_UPDATE_NETWORK_STATS;
+		msg_meta.msg_len =
+			sizeof(struct ipa_get_apn_data_stats_resp_msg_v01);
+		rc = ipa_send_msg(&msg_meta, resp, rmnet_ipa_free_msg);
+		if (rc) {
+			IPAWANERR("ipa_send_msg failed: %d\n", rc);
+			kfree(resp);
+			return;
+		}
+	}
+}
+
+/**
+ * rmnet_ipa_poll_tethering_stats() - Tethering stats polling IOCTL handler
+ * @data - IOCTL data
+ *
+ * This function handles WAN_IOC_POLL_TETHERING_STATS.
+ * In case polling interval received is 0, polling will stop
+ * (If there's a polling in progress, it will allow it to finish), and then will
+ * fetch network stats, and update the IPA user space.
+ *
+ * Return codes:
+ * 0: Success
+ */
+int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data)
+{
+	IPAWANERR("entry polling_interval_secs (%lu)\n",
+		(unsigned long int) data->polling_interval_secs);
+
+	ipa_rmnet_ctx.polling_interval = data->polling_interval_secs;
+
+	cancel_delayed_work_sync(&ipa_tether_stats_poll_wakequeue_work);
+
+	if (0 == ipa_rmnet_ctx.polling_interval) {
+		ipa_qmi_stop_data_qouta();
+		rmnet_ipa_get_network_stats_and_update();
+		rmnet_ipa_get_stats_and_update();
+		return 0;
+	}
+
+	schedule_delayed_work(&ipa_tether_stats_poll_wakequeue_work, 0);
+	return 0;
+}
+
+/**
+ * rmnet_ipa_set_data_quota() - Data quota setting IOCTL handler
+ * @data - IOCTL data
+ *
+ * This function handles WAN_IOC_SET_DATA_QUOTA.
+ * It translates the given inteface name to the Modem MUX ID and
+ * sends the request of the quota to the IPA Modem driver via QMI.
+ *
+ * Return codes:
+ * 0: Success
+ * -EFAULT: Invalid interface name provided
+ * other: See ipa_qmi_set_data_quota
+ */
+int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data)
+{
+	u32 mux_id;
+	int index;
+	struct ipa_set_data_usage_quota_req_msg_v01 req;
+
+	index = find_vchannel_name_index(data->interface_name);
+
+	if (index == MAX_NUM_OF_MUX_CHANNEL) {
+		IPAWANERR("%s is an invalid iface name\n",
+			  data->interface_name);
+		return -EFAULT;
+	}
+
+	mux_id = mux_channel[index].mux_id;
+
+	ipa_rmnet_ctx.metered_mux_id = mux_id;
+
+	memset(&req, 0, sizeof(struct ipa_set_data_usage_quota_req_msg_v01));
+	req.apn_quota_list_valid = true;
+	req.apn_quota_list_len = 1;
+	req.apn_quota_list[0].mux_id = mux_id;
+	req.apn_quota_list[0].num_Mbytes = data->quota_mbytes;
+	IPAWANERR("get %s iface name mux_id (%d) quota (%lu)\n",
+			  data->interface_name, mux_id, (unsigned long int) data->quota_mbytes);
+
+	return ipa_qmi_set_data_quota(&req);
+}
+
+/**
+ * ipa_broadcast_quota_reach_ind() - Send Netlink broadcast on Quota
+ * @mux_id - The MUX ID on which the quota has been reached
+ *
+ * This function broadcasts a Netlink event using the kobject of the
+ * rmnet_ipa interface in order to alert the user space that the quota
+ * on the specific interface which matches the mux_id has been reached.
+ *
+ */
+void ipa_broadcast_quota_reach_ind(u32 mux_id)
+{
+	char alert_msg[IPA_QUOTA_REACH_ALERT_MAX_SIZE];
+	char iface_name[IPA_QUOTA_REACH_IF_NAME_MAX_SIZE];
+	char *envp[] = { alert_msg, iface_name, NULL };
+	int res;
+	int index;
+
+	index = find_mux_channel_index(mux_id);
+
+	if (index == MAX_NUM_OF_MUX_CHANNEL) {
+		IPAWANERR("%u is an mux ID\n", mux_id);
+		return;
+	}
+
+	res = snprintf(alert_msg, IPA_QUOTA_REACH_ALERT_MAX_SIZE,
+		       "ALERT_NAME=%s", "quotaReachedAlert");
+	if (IPA_QUOTA_REACH_ALERT_MAX_SIZE <= res) {
+		IPAWANERR("message too long (%d)", res);
+		return;
+	}
+
+	res = snprintf(iface_name, IPA_QUOTA_REACH_IF_NAME_MAX_SIZE,
+		       "INTERFACE=%s", mux_channel[index].vchannel_name);
+	if (IPA_QUOTA_REACH_IF_NAME_MAX_SIZE <= res) {
+		IPAWANERR("message too long (%d)", res);
+		return;
+	}
+
+	IPAWANERR("putting nlmsg: <%s> <%s>\n", alert_msg, iface_name);
+	kobject_uevent_env(&(ipa_netdevs[0]->dev.kobj), KOBJ_CHANGE, envp);
+	return;
+}
+
+/**
+ * ipa_q6_handshake_complete() - Perform operations once Q6 is up
+ * @ssr_bootup - Indicates whether this is a cold boot-up or post-SSR.
+ *
+ * This function is invoked once the handshake between the IPA AP driver
+ * and IPA Q6 driver is complete. At this point, it is possible to perform
+ * operations which can't be performed until IPA Q6 driver is up.
+ *
+ */
+void ipa_q6_handshake_complete(bool ssr_bootup)
+{
+	/* It is required to recover the network stats after SSR recovery */
+	if (ssr_bootup)
+		rmnet_ipa_get_network_stats_and_update();
 }
 
 static int __init ipa_wwan_init(void)

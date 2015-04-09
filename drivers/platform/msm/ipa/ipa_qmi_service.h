@@ -18,6 +18,7 @@
 #include <uapi/linux/msm_rmnet.h>
 #include <soc/qcom/msm_qmi_interface.h>
 #include "ipa_i.h"
+#include <linux/rmnet_ipa_fd_ioctl.h>
 
 /**
  * name of the DL wwan default routing tables for v4 and v6
@@ -85,6 +86,18 @@ void wan_ioctl_deinit(void);
 
 void ipa_qmi_stop_workqueues(void);
 
+int rmnet_ipa_poll_tethering_stats(struct wan_ioctl_poll_tethering_stats *data);
+int rmnet_ipa_set_data_quota(struct wan_ioctl_set_data_quota *data);
+void ipa_broadcast_quota_reach_ind(uint32_t mux_id);
+
+int ipa_qmi_get_data_stats(struct ipa_get_data_stats_req_msg_v01 *req,
+	struct ipa_get_data_stats_resp_msg_v01 *resp);
+int ipa_qmi_get_network_stats(struct ipa_get_apn_data_stats_req_msg_v01 *req,
+	struct ipa_get_apn_data_stats_resp_msg_v01 *resp);
+int ipa_qmi_set_data_quota(struct ipa_set_data_usage_quota_req_msg_v01 *req);
+int ipa_qmi_stop_data_qouta(void);
+void ipa_q6_handshake_complete(bool);
+
 extern struct elem_info ipa_init_modem_driver_req_msg_data_v01_ei[];
 extern struct elem_info ipa_init_modem_driver_resp_msg_data_v01_ei[];
 extern struct elem_info ipa_indication_reg_req_msg_data_v01_ei[];
@@ -113,10 +126,15 @@ extern struct elem_info ipa_stop_data_usage_quota_resp_msg_data_v01_ei[];
 /**
  * struct ipa_rmnet_context - IPA rmnet context
  * @ipa_rmnet_ssr: support modem SSR
+ * @polling_interval: Requested interval for polling tethered statistics
+ * @metered_mux_id: The mux ID on which quota has been set
  */
 struct ipa_rmnet_context {
 	bool ipa_rmnet_ssr;
+	u64 polling_interval;
+	uint32_t metered_mux_id;
 };
 
 extern struct ipa_rmnet_context ipa_rmnet_ctx;
-#endif /* IPA_QMI_SERVICE_H */
+#endif /* IPA_QMI_SERVICE_H
+ */

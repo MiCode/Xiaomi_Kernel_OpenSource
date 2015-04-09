@@ -29,6 +29,12 @@
 #define WAN_IOC_ADD_FLT_RULE_INDEX32 _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ADD_FLT_INDEX, \
 		compat_uptr_t)
+#define WAN_IOC_POLL_TETHERING_STATS32 _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_POLL_TETHERING_STATS, \
+		compat_uptr_t)
+#define WAN_IOC_SET_DATA_QUOTA32 _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_SET_DATA_QUOTA, \
+		compat_uptr_t)
 #endif
 
 static unsigned int dev_num = 1;
@@ -78,7 +84,7 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		break;
 
 	case WAN_IOC_ADD_FLT_RULE_INDEX:
-	    IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE_INDEX :>>>\n",
+		IPAWANDBG("device %s got WAN_IOC_ADD_FLT_RULE_INDEX :>>>\n",
 		DRIVER_NAME);
 		pyld_sz = sizeof(struct ipa_fltr_installed_notif_req_msg_v01);
 		param = kzalloc(pyld_sz, GFP_KERNEL);
@@ -101,6 +107,61 @@ static long wan_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			break;
 		}
 		break;
+
+	case WAN_IOC_POLL_TETHERING_STATS:
+		IPAWANERR("device %s got WAN_IOCTL_POLL_TETHERING_STATS :>>>\n",
+			  DRIVER_NAME);
+		pyld_sz = sizeof(struct wan_ioctl_poll_tethering_stats);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+
+		if (rmnet_ipa_poll_tethering_stats(
+		(struct wan_ioctl_poll_tethering_stats *)param)) {
+			IPAWANERR("WAN_IOCTL_POLL_TETHERING_STATS failed\n");
+			retval = -EFAULT;
+			break;
+		}
+
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
+	case WAN_IOC_SET_DATA_QUOTA:
+		IPAWANERR("device %s got WAN_IOCTL_SET_DATA_QUOTA :>>>\n",
+			  DRIVER_NAME);
+		pyld_sz = sizeof(struct wan_ioctl_set_data_quota);
+		param = kzalloc(pyld_sz, GFP_KERNEL);
+		if (!param) {
+			retval = -ENOMEM;
+			break;
+		}
+		if (copy_from_user(param, (u8 *)arg, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+
+		if (rmnet_ipa_set_data_quota(
+		(struct wan_ioctl_set_data_quota *)param)) {
+			IPAWANERR("WAN_IOC_SET_DATA_QUOTA failed\n");
+			retval = -EFAULT;
+			break;
+		}
+
+		if (copy_to_user((u8 *)arg, param, pyld_sz)) {
+			retval = -EFAULT;
+			break;
+		}
+		break;
+
 	default:
 		retval = -ENOTTY;
 	}
@@ -117,6 +178,12 @@ long compat_wan_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		break;
 	case WAN_IOC_ADD_FLT_RULE_INDEX32:
 		cmd = WAN_IOC_ADD_FLT_RULE_INDEX;
+		break;
+	case WAN_IOC_POLL_TETHERING_STATS32:
+		cmd = WAN_IOC_POLL_TETHERING_STATS;
+		break;
+	case WAN_IOC_SET_DATA_QUOTA32:
+		cmd = WAN_IOC_SET_DATA_QUOTA;
 		break;
 	default:
 		return -ENOIOCTLCMD;
