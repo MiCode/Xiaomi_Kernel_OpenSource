@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -366,6 +366,15 @@ static long audio_effects_set_pp_param(struct q6audio_effects *effects,
 			msm_audio_effects_bass_boost_handler(
 				effects->ac,
 				&(effects->audio_effects.bass_boost),
+				(long *)&values[1]);
+		break;
+	case PBE_MODULE:
+		pr_debug("%s: PBE_MODULE\n", __func__);
+		if (msm_audio_effects_is_effmodule_supp_in_top(
+			effects_module, effects->ac->topology))
+			msm_audio_effects_pbe_handler(
+				effects->ac,
+				&(effects->audio_effects.pbe),
 				(long *)&values[1]);
 		break;
 	case EQ_MODULE:
