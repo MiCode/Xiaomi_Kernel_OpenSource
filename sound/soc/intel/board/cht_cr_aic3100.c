@@ -99,7 +99,7 @@ static inline void cht_set_mic_bias(struct snd_soc_codec *codec, bool enable)
 	if (enable)
 		cht_force_enable_pin(codec, "micbias", true);
 	else
-		cht_force_enable_pin(codec, "micbias", true);
+		cht_force_enable_pin(codec, "micbias", false);
 	snd_soc_dapm_sync(&codec->dapm);
 }
 
@@ -717,7 +717,6 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 		return ret;
 	}
 
-	cht_set_mic_bias(codec, true);
 	ret = snd_soc_dapm_sync(&card->dapm);
 	if (ret) {
 		pr_err("unable to sync dapm\n");
