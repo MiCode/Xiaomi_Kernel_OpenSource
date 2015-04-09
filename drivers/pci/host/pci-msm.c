@@ -238,6 +238,7 @@
 #define MAX_DEVICE_NUM 20
 #define PCIE_TLP_RD_SIZE 0x5
 #define PCIE_MSI_NR_IRQS 256
+#define MSM_PCIE_MAX_MSI 32
 #define MAX_MSG_LEN 80
 #define PCIE_LOG_PAGES (50)
 #define PCIE_CONF_SPACE_DW			1024
@@ -431,6 +432,7 @@ struct msm_pcie_dev_t {
 	struct msm_pcie_clk_info_t   pipeclk[MSM_PCIE_MAX_PIPE_CLK];
 	struct msm_pcie_res_info_t   res[MSM_PCIE_MAX_RES];
 	struct msm_pcie_irq_info_t   irq[MSM_PCIE_MAX_IRQ];
+	struct msm_pcie_irq_info_t	msi[MSM_PCIE_MAX_MSI];
 
 	void __iomem		     *parf;
 	void __iomem		     *phy;
@@ -657,6 +659,18 @@ static const struct msm_pcie_irq_info_t msm_pcie_irq_info[MSM_PCIE_MAX_IRQ] = {
 	{"int_pls_link_up",	0},
 	{"int_pls_link_down",	0},
 	{"int_bridge_flush_n",	0}
+};
+
+/* MSIs */
+static const struct msm_pcie_irq_info_t msm_pcie_msi_info[MSM_PCIE_MAX_MSI] = {
+	{"msi_0", 0}, {"msi_1", 0}, {"msi_2", 0}, {"msi_3", 0},
+	{"msi_4", 0}, {"msi_5", 0}, {"msi_6", 0}, {"msi_7", 0},
+	{"msi_8", 0}, {"msi_9", 0}, {"msi_10", 0}, {"msi_11", 0},
+	{"msi_12", 0}, {"msi_13", 0}, {"msi_14", 0}, {"msi_15", 0},
+	{"msi_16", 0}, {"msi_17", 0}, {"msi_18", 0}, {"msi_19", 0},
+	{"msi_20", 0}, {"msi_21", 0}, {"msi_22", 0}, {"msi_23", 0},
+	{"msi_24", 0}, {"msi_25", 0}, {"msi_26", 0}, {"msi_27", 0},
+	{"msi_28", 0}, {"msi_29", 0}, {"msi_30", 0}, {"msi_31", 0}
 };
 
 static inline void msm_pcie_write_reg(void *base, u32 offset, u32 value)
@@ -3151,6 +3165,7 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 	struct resource *res;
 	struct msm_pcie_res_info_t *res_info;
 	struct msm_pcie_irq_info_t *irq_info;
+	struct msm_pcie_irq_info_t *msi_info;
 	char prop_name[MAX_PROP_SIZE];
 	const __be32 *prop;
 	u32 *clkfreq = NULL;
@@ -3373,6 +3388,29 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 			irq_info->num = res->start;
 			PCIE_DBG(dev, "IRQ # for %s is %d.\n", irq_info->name,
 					irq_info->num);
+		}
+	}
+
+	for (i = 0; i < MSM_PCIE_MAX_MSI; i++) {
+		msi_info = &dev->msi[i];
+
+		res = platform_get_resource_byname(pdev, IORESOURCE_IRQ,
+							   msi_info->name);
+
+		if (!res) {
+			int j;
+			for (j = 0; j < MSM_PCIE_MAX_RES; j++) {
+				iounmap(dev->res[j].base);
+				dev->res[j].base = NULL;
+			}
+			PCIE_ERR(dev, "PCIe: RC%d can't find IRQ # for %s.\n",
+				dev->rc_idx, msi_info->name);
+			ret = -ENODEV;
+			goto out;
+		} else {
+			msi_info->num = res->start;
+			PCIE_DBG(dev, "IRQ # for %s is %d.\n", msi_info->name,
+					msi_info->num);
 		}
 	}
 
@@ -4286,7 +4324,7 @@ static irqreturn_t handle_msi_irq(int irq, void *data)
 
 void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 {
-	int pos;
+	int pos, i;
 	struct msm_pcie_dev_t *dev;
 
 	if (pcie_dev)
@@ -4301,7 +4339,18 @@ void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 
 	if (dev->msi_gicm_addr) {
 		PCIE_DBG(dev, "destroy QGIC based irq %d\n", irq);
-		pos = irq - dev->msi_gicm_base;
+
+		for (i = 0; i < MSM_PCIE_MAX_MSI; i++)
+			if (irq == dev->msi[i].num)
+				break;
+		if (i == MSM_PCIE_MAX_MSI) {
+			PCIE_ERR(dev,
+				"Could not find irq: %d in RC%d MSI table\n",
+				irq, dev->rc_idx);
+			return;
+		} else {
+			pos = i;
+		}
 	} else {
 		PCIE_DBG(dev, "destroy default MSI irq %d\n", irq);
 		pos = irq - irq_find_mapping(dev->irq_domain, 0);
@@ -4434,7 +4483,14 @@ again:
 	else
 		PCIE_DBG(dev, "test_and_set_bit is successful pos=%d\n", pos);
 
-	irq = dev->msi_gicm_base + pos;
+	if (pos >= MSM_PCIE_MAX_MSI) {
+		PCIE_ERR(dev,
+			"PCIe: RC%d: pos %d is not less than %d\n",
+			dev->rc_idx, pos, MSM_PCIE_MAX_MSI);
+		return MSM_PCIE_ERROR;
+	}
+
+	irq = dev->msi[pos].num;
 	if (!irq) {
 		PCIE_ERR(dev, "PCIe: RC%d failed to create QGIC MSI IRQ.\n",
 			dev->rc_idx);
@@ -4470,7 +4526,7 @@ static int arch_setup_msi_irq_qgic(struct pci_dev *pdev,
 	irq_set_msi_desc(firstirq, desc);
 	msg.address_hi = 0;
 	msg.address_lo = dev->msi_gicm_addr;
-	msg.data = firstirq;
+	msg.data = dev->msi_gicm_base;
 	write_msi_msg(firstirq, &msg);
 
 	return 0;
@@ -4900,6 +4956,8 @@ static int msm_pcie_probe(struct platform_device *pdev)
 				sizeof(msm_pcie_res_info));
 	memcpy(msm_pcie_dev[rc_idx].irq, msm_pcie_irq_info,
 				sizeof(msm_pcie_irq_info));
+	memcpy(msm_pcie_dev[rc_idx].msi, msm_pcie_msi_info,
+				sizeof(msm_pcie_msi_info));
 	msm_pcie_dev[rc_idx].shadow_en = true;
 	for (i = 0; i < PCIE_CONF_SPACE_DW; i++)
 		msm_pcie_dev[rc_idx].rc_shadow[i] = PCIE_CLEAR;
