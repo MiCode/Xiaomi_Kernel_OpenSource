@@ -146,6 +146,7 @@ struct mdss_intf_recovery {
  * @MDSS_EVENT_UNBLANK:		Sent before first frame update from MDP is
  *				sent to panel.
  * @MDSS_EVENT_PANEL_ON:	After first frame update from MDP.
+ * @MDSS_EVENT_POST_PANEL_ON	send 2nd phase panel on commands to panel
  * @MDSS_EVENT_BLANK:		MDP has no contents to display only blank screen
  *				is shown in panel. Sent before panel off.
  * @MDSS_EVENT_PANEL_OFF:	MDP has suspended frame updates, panel should be
@@ -199,6 +200,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_LINK_READY,
 	MDSS_EVENT_UNBLANK,
 	MDSS_EVENT_PANEL_ON,
+	MDSS_EVENT_POST_PANEL_ON,
 	MDSS_EVENT_BLANK,
 	MDSS_EVENT_PANEL_OFF,
 	MDSS_EVENT_CLOSE,
