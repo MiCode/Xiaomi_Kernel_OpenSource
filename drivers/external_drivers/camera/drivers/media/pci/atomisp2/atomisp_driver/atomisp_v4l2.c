@@ -443,6 +443,14 @@ int atomisp_mrfld_power_up(struct atomisp_device *isp)
 	if (IS_CHT)
 		punit_ddr_dvfs_enable(false);
 
+	/*
+	 * FIXME:WA for ECS28A, with this sleep, CTS
+	 * android.hardware.camera2.cts.CameraDeviceTest#testCameraDeviceAbort
+	 * PASS, no impact on other platforms
+	*/
+	if (IS_BYT)
+		msleep(10);
+
 	/* writing 0x0 to ISPSSPM0 bit[1:0] to power off the IUNIT */
 	reg_value = intel_mid_msgbus_read32(PUNIT_PORT, MRFLD_ISPSSPM0);
 	reg_value &= ~MRFLD_ISPSSPM0_ISPSSC_MASK;
