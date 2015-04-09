@@ -5937,9 +5937,10 @@ static int msm_otg_probe(struct platform_device *pdev)
 				goto remove_phy;
 			}
 		} else {
-			ret = -ENODEV;
-			dev_err(&pdev->dev, "ID IRQ doesn't exist\n");
-			goto remove_phy;
+			/* PMIC does USB ID detection and notifies through
+			 * USB_OTG property of USB powersupply.
+			 */
+			dev_dbg(&pdev->dev, "PMIC does ID detection\n");
 		}
 	}
 
