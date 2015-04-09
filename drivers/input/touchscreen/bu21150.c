@@ -52,7 +52,8 @@
 #define GPIO_HIGH (1)
 #define WAITQ_WAIT   (0)
 #define WAITQ_WAKEUP (1)
-#define TIMEOUT_SCALE       (20)
+#define TIMEOUT_SCALE       (50)
+#define ESD_TEST_TIMER_MS	(10000)
 #define BU21150_MIN_VOLTAGE_UV	2700000
 #define BU21150_MAX_VOLTAGE_UV	3300000
 #define BU21150_VDD_DIG_VOLTAGE_UV	1800000
@@ -225,6 +226,19 @@ static ssize_t bu21150_wake_up_enable_show(struct kobject *kobj,
 	return snprintf(buf, PAGE_SIZE, "%u", ts->wake_up);
 }
 
+static ssize_t bu21150_trigger_esd_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf, size_t count)
+{
+	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
+
+	disable_irq(ts->client->irq);
+	msleep(ESD_TEST_TIMER_MS);
+	enable_irq(ts->client->irq);
+
+	return count;
+}
+
+
 static ssize_t bu21150_hallib_name_show(struct kobject *kobj,
 			struct kobj_attribute *attr, char *buf)
 {
@@ -278,6 +292,10 @@ static struct kobj_attribute bu21150_prop_attrs[] = {
 	__ATTR(wake_up_enable, (S_IRUGO | S_IWUSR | S_IWGRP),
 					bu21150_wake_up_enable_show,
 					bu21150_wake_up_enable_store),
+	__ATTR(trigger_esd, (S_IRUGO | S_IWUSR | S_IWGRP),
+					NULL,
+					bu21150_trigger_esd_store),
+
 };
 
 static const struct of_device_id g_bu21150_psoc_match_table[] = {
@@ -968,6 +986,9 @@ static int bu21150_fb_suspend(struct device *dev)
 
 	bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
 
+	ts->timeout_enb = 0;
+	get_frame_timer_delete();
+
 	ts->unblock_flag = 1;
 	/* wake up */
 	wake_up_frame_waitq(ts);
@@ -1033,6 +1054,10 @@ static int bu21150_fb_resume(struct device *dev)
 		}
 	}
 	bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
+
+	ts->timeout_enb = 0;
+	get_frame_timer_delete();
+
 	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
 
 	ts->suspended = false;
@@ -1408,6 +1433,8 @@ static long bu21150_ioctl_unblock(void)
 	/* wake up */
 	wake_up_frame_waitq(ts);
 
+	ts->frame_waitq_flag = WAITQ_WAIT;
+
 	return 0;
 }
 
@@ -1416,6 +1443,8 @@ static long bu21150_ioctl_unblock_release(void)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 
 	ts->force_unblock_flag = 0;
+
+	ts->frame_waitq_flag = WAITQ_WAIT;
 
 	return 0;
 }
