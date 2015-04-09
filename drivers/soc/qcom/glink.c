@@ -3448,24 +3448,12 @@ static bool ch_migrate(struct channel_ctx *l_ctx, struct channel_ctx *r_ctx)
 		spin_unlock_irqrestore(&xprt->xprt_ctx_lock_lhb1, flags);
 		rwref_write_put(&xprt->xprt_state_lhb0);
 	} else {
-		spin_lock_irqsave(&r_ctx->transport_ptr->xprt_ctx_lock_lhb1,
-									flags);
-		list_del_init(&r_ctx->port_list_node);
-		spin_unlock_irqrestore(
-			&r_ctx->transport_ptr->xprt_ctx_lock_lhb1, flags);
 		l_ctx->lcid = r_ctx->lcid;
 		l_ctx->rcid = r_ctx->rcid;
 		l_ctx->remote_opened = r_ctx->remote_opened;
 		l_ctx->remote_xprt_req = r_ctx->remote_xprt_req;
 		l_ctx->remote_xprt_resp = r_ctx->remote_xprt_resp;
-
-		/*
-		 * TODO fixme.  This leaks memory as letting the ref count hit
-		 * zero will trigger an automatic cleanup which will do the
-		 * wrong thing since the lcid gets reused here.  Also debugfs
-		 * might have a reference to this ctx
-		 */
-		rwref_get(&r_ctx->ch_state_lhc0);
+		glink_delete_ch_from_list(r_ctx, false);
 
 		spin_lock_irqsave(&xprt->xprt_ctx_lock_lhb1, flags);
 		list_add_tail(&l_ctx->port_list_node, &xprt->channels);

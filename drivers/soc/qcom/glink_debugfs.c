@@ -54,10 +54,12 @@ static const char * const xprt_st_string[] = {
 	[GLINK_XPRT_FAILED] = "FAILED"
 };
 
+#define GLINK_DBGFS_NAME_SIZE (2 * GLINK_NAME_SIZE + 1)
+
 struct glink_dbgfs_dent {
 	struct list_head list_node;
-	char par_name[GLINK_NAME_SIZE];
-	char self_name[GLINK_NAME_SIZE];
+	char par_name[GLINK_DBGFS_NAME_SIZE];
+	char self_name[GLINK_DBGFS_NAME_SIZE];
 	struct dentry *parent;
 	struct dentry *self;
 	spinlock_t file_list_lock_lhb0;
@@ -312,9 +314,20 @@ void glink_debugfs_remove_channel(struct channel_ctx *ch_ctx,
 
 	struct glink_dbgfs ch_rm_dbgfs;
 	char *edge_name;
+	char curr_dir_name[GLINK_DBGFS_NAME_SIZE];
+	char *xprt_name;
+
 	ch_rm_dbgfs.curr_name = glink_get_ch_name(ch_ctx);
 	edge_name = glink_get_xprt_edge_name(xprt_ctx);
-	ch_rm_dbgfs.par_name = edge_name;
+	xprt_name = glink_get_xprt_name(xprt_ctx);
+	if (!xprt_name || !edge_name) {
+		GLINK_ERR("%s: Invalid xprt_name  or edge_name for ch '%s'\n",
+				__func__, ch_rm_dbgfs.curr_name);
+		return;
+	}
+	snprintf(curr_dir_name, sizeof(curr_dir_name), "%s_%s",
+					edge_name, xprt_name);
+	ch_rm_dbgfs.par_name = curr_dir_name;
 	glink_debugfs_remove_recur(&ch_rm_dbgfs);
 }
 EXPORT_SYMBOL(glink_debugfs_remove_channel);
@@ -334,6 +347,8 @@ void glink_debugfs_add_channel(struct channel_ctx *ch_ctx,
 	struct glink_dbgfs ch_dbgfs;
 	char *ch_name;
 	char *edge_name;
+	char *xprt_name;
+	char curr_dir_name[GLINK_DBGFS_NAME_SIZE];
 
 	if (ch_ctx == NULL) {
 		GLINK_ERR("%s: Channel Context is NULL\n", __func__);
@@ -342,13 +357,16 @@ void glink_debugfs_add_channel(struct channel_ctx *ch_ctx,
 
 	ch_name = glink_get_ch_name(ch_ctx);
 	edge_name =  glink_get_xprt_edge_name(xprt_ctx);
-	if (edge_name == NULL) {
-		GLINK_ERR("%s: Invalid edge_name for ch '%s'\n", __func__,
-				ch_name);
+	xprt_name =  glink_get_xprt_name(xprt_ctx);
+	if (!xprt_name || !edge_name) {
+		GLINK_ERR("%s: Invalid xprt_name  or edge_name for ch '%s'\n",
+				__func__, ch_name);
 		return;
 	}
+	snprintf(curr_dir_name, sizeof(curr_dir_name), "%s_%s",
+					edge_name, xprt_name);
 
-	ch_dbgfs.curr_name = edge_name;
+	ch_dbgfs.curr_name = curr_dir_name;
 	ch_dbgfs.par_name = "channel";
 	ch_dbgfs.b_dir_create = true;
 	glink_debugfs_create(ch_name, NULL, &ch_dbgfs, NULL, false);
@@ -376,6 +394,7 @@ void glink_debugfs_add_xprt(struct glink_core_xprt_ctx *xprt_ctx)
 	struct glink_dbgfs xprt_dbgfs;
 	char *xprt_name;
 	char *edge_name;
+	char curr_dir_name[GLINK_DBGFS_NAME_SIZE];
 
 	if (xprt_ctx == NULL)
 		GLINK_ERR("%s: Transport Context is NULL\n", __func__);
@@ -389,8 +408,10 @@ void glink_debugfs_add_xprt(struct glink_core_xprt_ctx *xprt_ctx)
 	xprt_dbgfs.curr_name = "xprt";
 	xprt_dbgfs.b_dir_create = true;
 	glink_debugfs_create(xprt_name, NULL, &xprt_dbgfs, NULL, false);
+	snprintf(curr_dir_name, sizeof(curr_dir_name), "%s_%s",
+					edge_name, xprt_name);
 	xprt_dbgfs.curr_name = "channel";
-	glink_debugfs_create(edge_name, NULL, &xprt_dbgfs, NULL, false);
+	glink_debugfs_create(curr_dir_name, NULL, &xprt_dbgfs, NULL, false);
 }
 EXPORT_SYMBOL(glink_debugfs_add_xprt);
 
@@ -536,9 +557,9 @@ void glink_dfs_update_list(struct dentry *curr_dent, struct dentry *parent,
 			dbgfs_dent_s->parent = parent;
 			dbgfs_dent_s->self = curr_dent;
 			strlcpy(dbgfs_dent_s->self_name,
-				curr, GLINK_NAME_SIZE);
+				curr, GLINK_DBGFS_NAME_SIZE);
 			strlcpy(dbgfs_dent_s->par_name, par_dir,
-					GLINK_NAME_SIZE);
+					GLINK_DBGFS_NAME_SIZE);
 			mutex_lock(&dent_list_lock_lha0);
 			list_add_tail(&dbgfs_dent_s->list_node, &dent_list);
 			mutex_unlock(&dent_list_lock_lha0);
