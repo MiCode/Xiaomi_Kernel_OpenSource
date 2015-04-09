@@ -3416,10 +3416,17 @@ static int ep_dequeue(struct usb_ep *ep, struct usb_request *req)
 	struct ci13xxx_ep  *mEp  = container_of(ep,  struct ci13xxx_ep, ep);
 	struct ci13xxx_ep *mEpTemp = mEp;
 	struct ci13xxx_req *mReq = container_of(req, struct ci13xxx_req, req);
+	struct ci13xxx *udc = _udc;
 	unsigned long flags;
 
 	trace("%p, %p", ep, req);
 
+	if (udc->udc_driver->in_lpm && udc->udc_driver->in_lpm(udc)) {
+		dev_err(udc->transceiver->dev,
+				"%s: Unable to dequeue while in LPM\n",
+				__func__);
+		return -EAGAIN;
+	}
 	spin_lock_irqsave(mEp->lock, flags);
 	/*
 	 * Only ep0 IN is exposed to composite.  When a req is dequeued
