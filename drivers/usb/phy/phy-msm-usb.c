@@ -4690,6 +4690,9 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = otg_get_prop_usbin_voltage_now(motg);
 		break;
+	case POWER_SUPPLY_PROP_USB_OTG:
+		val->intval = !motg->id_state;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -4804,6 +4807,7 @@ static int otg_power_property_is_writeable_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_ALLOW_DETECTION:
+	case POWER_SUPPLY_PROP_USB_OTG:
 		return 1;
 	default:
 		break;
@@ -4826,6 +4830,7 @@ static enum power_supply_property otg_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_ALLOW_DETECTION,
+	POWER_SUPPLY_PROP_USB_OTG,
 };
 
 const struct file_operations msm_otg_bus_fops = {
