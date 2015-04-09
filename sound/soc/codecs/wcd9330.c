@@ -7803,8 +7803,10 @@ int tomtom_hs_detect(struct snd_soc_codec *codec,
 		snd_soc_update_bits(codec, TOMTOM_A_MICB_CFILT_2_CTL, 0x01,
 				    0x00);
 		tomtom->mbhc.mbhc_cfg = NULL;
+		tomtom->mbhc_started = false;
 		rc = 0;
 	}
+	wcd9xxx_clsh_post_init(&tomtom->clsh_d, tomtom->mbhc_started);
 	return rc;
 }
 EXPORT_SYMBOL(tomtom_hs_detect);

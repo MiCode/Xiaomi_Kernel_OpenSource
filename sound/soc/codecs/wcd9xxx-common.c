@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -657,16 +657,29 @@ static void wcd9xxx_clsh_comp_req(struct snd_soc_codec *codec,
 			return;
 		}
 
-		if (on)
-			wcd9xxx_resmgr_add_cond_update_bits(clsh_d->resmgr,
+		if (on) {
+			if (clsh_d->mbhc_started)
+				wcd9xxx_resmgr_add_cond_update_bits(
+						  clsh_d->resmgr,
 						  WCD9XXX_COND_HPH,
 						  WCD9XXX_A_CDC_CLSH_B1_CTL,
 						  shift, false);
-		else
-			wcd9xxx_resmgr_rm_cond_update_bits(clsh_d->resmgr,
+			else
+				snd_soc_update_bits(codec,
+						    WCD9XXX_A_CDC_CLSH_B1_CTL,
+						    1 << shift, 1 << shift);
+		} else {
+			if (clsh_d->mbhc_started)
+				wcd9xxx_resmgr_rm_cond_update_bits(
+						  clsh_d->resmgr,
 						  WCD9XXX_COND_HPH,
 						  WCD9XXX_A_CDC_CLSH_B1_CTL,
 						  shift, false);
+			else
+				snd_soc_update_bits(codec,
+						    WCD9XXX_A_CDC_CLSH_B1_CTL,
+						    1 << shift, 0 << shift);
+		}
 	}
 }
 
@@ -1425,6 +1438,19 @@ void wcd9xxx_clsh_fsm(struct snd_soc_codec *codec,
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_clsh_fsm);
 
+
+void wcd9xxx_clsh_post_init(struct wcd9xxx_clsh_cdc_data *clsh,
+			    bool is_mbhc_started)
+{
+	if (!clsh) {
+		pr_err("%s: Class-H memory is NULL\n", __func__);
+		return;
+	}
+
+	clsh->mbhc_started = is_mbhc_started;
+}
+EXPORT_SYMBOL(wcd9xxx_clsh_post_init);
+
 void wcd9xxx_clsh_init(struct wcd9xxx_clsh_cdc_data *clsh,
 		       struct wcd9xxx_resmgr *resmgr)
 {
@@ -1461,6 +1487,7 @@ void wcd9xxx_clsh_init(struct wcd9xxx_clsh_cdc_data *clsh,
 	clsh_state_fp[WCD9XXX_CLSH_STATE_HPH_ST_EAR_LO] =
 						wcd9xxx_clsh_state_hph_ear_lo;
 
+	clsh->mbhc_started = true;
 }
 EXPORT_SYMBOL_GPL(wcd9xxx_clsh_init);
 
