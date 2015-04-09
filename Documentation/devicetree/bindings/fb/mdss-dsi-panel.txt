@@ -61,6 +61,8 @@ Required properties:
 						 transmitted
 					byte 5, 6: 16 bits length in network byte order
 					byte 7 and beyond: number byte of payload
+- qcom,mdss-dsi-post-panel-on-command:	same as "qcom,mdss-dsi-on-command" except commands are
+					sent after displaying an image.
 
 Note, if a short DCS packet(i.e packet with Byte 0:dcs data type as 05) mentioned in
 qcom,mdss-dsi-on-command/qcom,mdss-dsi-off-command stream fails to transmit,
