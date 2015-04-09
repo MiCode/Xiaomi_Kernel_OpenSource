@@ -1282,9 +1282,7 @@ static inline u64 scale_exec_time(u64 delta, struct rq *rq)
 	unsigned int cur_freq = rq->cur_freq;
 	int sf;
 
-	if (unlikely(cur_freq > max_possible_freq ||
-		     (cur_freq == rq->max_freq &&
-		      rq->max_freq < rq->max_possible_freq)))
+	if (unlikely(cur_freq > max_possible_freq))
 		cur_freq = rq->max_possible_freq;
 
 	/* round up div64 */
