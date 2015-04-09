@@ -773,7 +773,7 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu)
 		} else {
 			KGSL_CORE_ERR("dt: IOMMU context %s is invalid\n",
 				data->iommu_ctxs[i].iommu_ctx_name);
-			ret = -EINVAL;
+			return -EINVAL;
 		}
 
 		/* Add ctx name here */
@@ -825,8 +825,7 @@ static int _iommu_set_register_map(struct kgsl_mmu *mmu)
 	if (!data->physstart || !data->physend) {
 		KGSL_CORE_ERR("The register range for IOMMU unit not"
 				" specified\n");
-		ret = -EINVAL;
-		goto err;
+		return -EINVAL;
 	}
 	/* this mapping is only for use during pagetable switch */
 	iommu_unit = &iommu->iommu_unit;
