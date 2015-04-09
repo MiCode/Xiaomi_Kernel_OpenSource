@@ -1317,6 +1317,44 @@ static struct usb_gadget_string_container *copy_gadget_strings(
 	return uc;
 }
 
+static struct usb_gadget_string_container *find_gadget_strings(
+		struct usb_composite_dev *cdev,
+		struct usb_gadget_strings **sp, unsigned n_strings)
+{
+	struct usb_gadget_string_container *uc;
+
+	list_for_each_entry(uc, &cdev->gstrings, list) {
+		struct usb_gadget_strings **org_gs;
+		struct usb_string *org_s, *s;
+		int i;
+
+		org_gs = get_containers_gs(uc);
+
+		/*
+		 * only check the first language since it's not likely that a
+		 * set of strings matches one language but not others
+		 */
+		if (sp[0]->language != org_gs[0]->language)
+			continue;
+
+		org_s = org_gs[0]->strings;
+		s = sp[0]->strings;
+
+		for (i = 0; i < n_strings; i++) {
+			if ((s->s != org_s->s) && !(!s->s && *org_s->s == '\0'))
+				break;
+
+			org_s++;
+			s++;
+		}
+
+		if (i == n_strings)
+			return uc;
+	}
+
+	return NULL;
+}
+
 /**
  * usb_gstrings_attach() - attach gadget strings to a cdev and assign ids
  * @cdev: the device whose string descriptor IDs are being allocated
@@ -1348,6 +1386,13 @@ struct usb_string *usb_gstrings_attach(struct usb_composite_dev *cdev,
 
 	if (!n_gstrings)
 		return ERR_PTR(-EINVAL);
+
+	/* check if same strings added to cdev already, if so just reuse them */
+	uc = find_gadget_strings(cdev, sp, n_strings);
+	if (uc) {
+		n_gs = get_containers_gs(uc);
+		return n_gs[0]->strings;
+	}
 
 	uc = copy_gadget_strings(sp, n_gstrings, n_strings);
 	if (IS_ERR(uc))
