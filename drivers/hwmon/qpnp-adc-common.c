@@ -839,6 +839,35 @@ static int32_t qpnp_adc_map_temp_voltage(const struct qpnp_vadc_map_pt *pts,
 	return 0;
 }
 
+static int64_t qpnp_adc_scale_absolute_calib(int32_t adc_code,
+		const struct qpnp_adc_properties *adc_properties,
+		const struct qpnp_vadc_chan_properties *chan_properties)
+{
+	int64_t adc_voltage = 0;
+	bool negative_offset = 0;
+
+	if (!chan_properties || !chan_properties->offset_gain_numerator ||
+		!chan_properties->offset_gain_denominator || !adc_properties)
+		return -EINVAL;
+
+	adc_voltage = (adc_code -
+		chan_properties->adc_graph[CALIB_ABSOLUTE].adc_gnd)
+		* chan_properties->adc_graph[chan_properties->calib_type].dx;
+	if (adc_voltage < 0) {
+		negative_offset = 1;
+		adc_voltage = -adc_voltage;
+	}
+	do_div(adc_voltage,
+		chan_properties->adc_graph[CALIB_ABSOLUTE].dy);
+
+	if (negative_offset)
+		adc_voltage = -adc_voltage;
+	adc_voltage +=
+		chan_properties->adc_graph[CALIB_ABSOLUTE].dx;
+
+	return adc_voltage;
+}
+
 static int64_t qpnp_adc_scale_ratiometric_calib(int32_t adc_code,
 		const struct qpnp_adc_properties *adc_properties,
 		const struct qpnp_vadc_chan_properties *chan_properties)
@@ -979,9 +1008,14 @@ int32_t qpnp_adc_tdkntcg_therm(struct qpnp_vadc_chip *chip,
 		|| !adc_chan_result)
 		return -EINVAL;
 
-	xo_thm = qpnp_adc_scale_ratiometric_calib(adc_code,
+	if (chan_properties->calib_type == CALIB_ABSOLUTE) {
+		xo_thm = qpnp_adc_scale_absolute_calib(adc_code,
 			adc_properties, chan_properties);
-
+		do_div(xo_thm , 1000);
+	} else {
+		xo_thm = qpnp_adc_scale_ratiometric_calib(adc_code,
+			adc_properties, chan_properties);
+	}
 	qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
 		ARRAY_SIZE(adcmap_100k_104ef_104fb),
 		xo_thm, &adc_chan_result->physical);
@@ -1215,8 +1249,14 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 {
 	int64_t therm_voltage = 0;
 
-	therm_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
+	if (chan_properties->calib_type == CALIB_ABSOLUTE) {
+		therm_voltage = qpnp_adc_scale_absolute_calib(adc_code,
 			adc_properties, chan_properties);
+		do_div(therm_voltage , 1000);
+	} else {
+		therm_voltage = qpnp_adc_scale_ratiometric_calib(adc_code,
+			adc_properties, chan_properties);
+	}
 
 	qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
 		ARRAY_SIZE(adcmap_100k_104ef_104fb),
