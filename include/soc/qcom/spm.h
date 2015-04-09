@@ -25,6 +25,9 @@ enum {
 struct msm_spm_device;
 struct device_node;
 
+#define spm_raw_write(v, a)	({ __raw_writel(v, a); __raw_readl(a); })
+#define spm_write_relaxed(v, c)	({ writel_relaxed(v, c); readl_relaxed(c); })
+
 #if defined(CONFIG_MSM_SPM)
 
 int msm_spm_set_low_power_mode(unsigned int mode, bool notify_rpm);
