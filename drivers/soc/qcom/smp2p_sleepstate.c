@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -34,13 +34,11 @@ static int sleepstate_pm_notifier(struct notifier_block *nb,
 {
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID,
-						SMP2P_GPIO_NO_INT | 0);
+		gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 0);
 		break;
 
 	case PM_POST_SUSPEND:
-		gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID,
-						SMP2P_GPIO_NO_INT | 1);
+		gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 1);
 		break;
 	}
 	return NOTIFY_DONE;
@@ -65,8 +63,7 @@ static int smp2p_sleepstate_probe(struct platform_device *pdev)
 	}
 
 
-	gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID,
-					SMP2P_GPIO_NO_INT | 1);
+	gpio_set_value(slst_gpio_base_id + PROC_AWAKE_ID, 1);
 
 	ret = register_pm_notifier(&sleepstate_pm_nb);
 	if (ret)
