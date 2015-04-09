@@ -39,7 +39,10 @@ Require properties to define per core characteristics:
 - sensor:  Sensor phandle to map a particular sensor to the core.
                 If this property is not present, then the core is assumed
                 to be at 40C for all the power estimations. No sensor
-                threshold is set.
+                threshold is set. This phandle's compatible property is
+                "qcom,sensor-information". This driver relies on the
+                sensor-type and scaling-factor information provided in this
+                phandle.
 
 Example
 

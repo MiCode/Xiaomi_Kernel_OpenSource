@@ -50,6 +50,7 @@
 #define MAX_CORES_PER_CLUSTER 4
 #define MAX_NUM_OF_CLUSTERS 2
 #define NUM_OF_CORNERS 10
+#define DEFAULT_SCALING_FACTOR 1
 
 #define ALLOCATE_2D_ARRAY(type)\
 static type **allocate_2d_array_##type(int idx)\
@@ -108,6 +109,7 @@ static struct platform_device *msm_core_pdev;
 static struct cpu_activity_info activity[NR_CPUS];
 DEFINE_PER_CPU(struct cpu_pstate_pwr *, ptable);
 static struct cpu_pwr_stats cpu_stats[NR_CPUS];
+static uint32_t scaling_factor;
 ALLOCATE_2D_ARRAY(uint32_t);
 
 static int poll_ms;
@@ -158,15 +160,17 @@ static void set_threshold(struct cpu_activity_info *cpu_node)
 	sensor_activate_trip(cpu_node->sensor_id,
 			&cpu_node->low_threshold, false);
 
-	cpu_node->hi_threshold.temp = cpu_node->temp + high_hyst_temp;
-	cpu_node->low_threshold.temp = cpu_node->temp - low_hyst_temp;
+	cpu_node->hi_threshold.temp = (cpu_node->temp + high_hyst_temp) *
+					scaling_factor;
+	cpu_node->low_threshold.temp = (cpu_node->temp - low_hyst_temp) *
+					scaling_factor;
 
 	/*
 	 * Set the threshold only if we are below the hotplug limit
 	 * Adding more work at this high temperature range, seems to
 	 * fail hotplug notifications.
 	 */
-	if (cpu_node->hi_threshold.temp < CPU_HOTPLUG_LIMIT)
+	if (cpu_node->hi_threshold.temp < (CPU_HOTPLUG_LIMIT * scaling_factor))
 		set_and_activate_threshold(cpu_node->sensor_id,
 			&cpu_node->hi_threshold);
 
@@ -224,6 +228,7 @@ void trigger_cpu_pwr_stats_calc(void)
 	int cpu;
 	static long prev_temp[NR_CPUS];
 	struct cpu_activity_info *cpu_node;
+	long temp;
 
 	if (disabled)
 		return;
@@ -236,7 +241,10 @@ void trigger_cpu_pwr_stats_calc(void)
 			continue;
 
 		if (cpu_node->temp == prev_temp[cpu])
-			sensor_get_temp(cpu_node->sensor_id, &cpu_node->temp);
+			sensor_get_temp(cpu_node->sensor_id, &temp);
+
+		cpu_node->temp = temp / scaling_factor;
+
 		prev_temp[cpu] = cpu_node->temp;
 
 		/*
@@ -315,8 +323,10 @@ static __ref int do_sampling(void *data)
 				prev_temp[cpu] = cpu_node->temp;
 				set_threshold(cpu_node);
 				trace_temp_threshold(cpu, cpu_node->temp,
-					cpu_node->hi_threshold.temp,
-					cpu_node->low_threshold.temp);
+					cpu_node->hi_threshold.temp /
+					scaling_factor,
+					cpu_node->low_threshold.temp /
+					scaling_factor);
 			}
 		}
 		if (!poll_ms)
@@ -356,7 +366,8 @@ static int update_userspace_power(struct sched_params __user *argp)
 	int mpidr = (argp->cluster << 8);
 	int cpumask = argp->cpumask;
 
-	pr_debug("cpumask %d, cluster: %d\n", argp->cpumask, argp->cluster);
+	pr_debug("%s: cpumask %d, cluster: %d\n", __func__, argp->cpumask,
+					argp->cluster);
 	for (i = 0; i < MAX_CORES_PER_CLUSTER; i++, cpumask >>= 1) {
 		if (!(cpumask & 0x01))
 			continue;
@@ -666,6 +677,7 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 	struct device_node *phandle;
 	const char *sensor_type = NULL;
 	struct cpu_activity_info *cpu_node = &activity[cpu];
+	long temp;
 
 	if (!node)
 		return -ENODEV;
@@ -697,17 +709,27 @@ static int msm_core_tsens_init(struct device_node *node, int cpu)
 	if (cpu_node->sensor_id < 0)
 		return cpu_node->sensor_id;
 
-	ret = sensor_get_temp(cpu_node->sensor_id, &cpu_node->temp);
+	key = "qcom,scaling-factor";
+	ret = of_property_read_u32(phandle, key,
+				&scaling_factor);
+	if (ret) {
+		pr_info("%s: Cannot read tsens scaling factor\n", __func__);
+		scaling_factor = DEFAULT_SCALING_FACTOR;
+	}
+
+	ret = sensor_get_temp(cpu_node->sensor_id, &temp);
 	if (ret)
 		return ret;
 
+	cpu_node->temp = temp / scaling_factor;
+
 	init_sens_threshold(&cpu_node->hi_threshold,
 			THERMAL_TRIP_CONFIGURABLE_HI,
-			cpu_node->temp + high_hyst_temp,
+			(cpu_node->temp + high_hyst_temp) * scaling_factor,
 			(void *)cpu_node);
 	init_sens_threshold(&cpu_node->low_threshold,
 			THERMAL_TRIP_CONFIGURABLE_LOW,
-			cpu_node->temp - low_hyst_temp,
+			(cpu_node->temp - low_hyst_temp) * scaling_factor,
 			(void *)cpu_node);
 
 	return ret;
