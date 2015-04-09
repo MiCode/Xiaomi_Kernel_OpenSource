@@ -587,7 +587,7 @@ release:
 	if (term == DSI_MDP_TERM) {
 		spin_lock_irqsave(&ctrl->mdp_lock, flags);
 		ctrl->mdp_busy = false;
-		complete(&ctrl->mdp_comp);
+		complete_all(&ctrl->mdp_comp);
 		spin_unlock_irqrestore(&ctrl->mdp_lock, flags);
 	}
 	pr_debug("%s: ndx=%d, cnt=%d\n", __func__,
@@ -2006,10 +2006,10 @@ int mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	unsigned long flags;
 	int need_wait = 0;
-	int rc = 0;
+	int rc = 1;
 
-	pr_debug("%s: start pid=%d\n",
-				__func__, current->pid);
+	pr_debug("%s: %d start busy=%d pid=%d\n", __func__,
+			ctrl->ndx, ctrl->mdp_busy, current->pid);
 
 	MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, current->pid, XLOG_FUNC_ENTRY);
 	spin_lock_irqsave(&ctrl->mdp_lock, flags);
@@ -2019,19 +2019,23 @@ int mdss_dsi_cmd_mdp_busy(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	if (need_wait) {
 		/* wait until DMA finishes the current job */
-		pr_debug("%s: pending pid=%d\n",
-				__func__, current->pid);
-		if (!wait_for_completion_timeout(&ctrl->mdp_comp,
-					msecs_to_jiffies(DMA_TX_TIMEOUT))) {
+		rc = wait_for_completion_timeout(&ctrl->mdp_comp,
+					msecs_to_jiffies(DMA_TX_TIMEOUT));
+		spin_lock_irqsave(&ctrl->mdp_lock, flags);
+		if (!ctrl->mdp_busy)
+			rc = 1;
+		spin_unlock_irqrestore(&ctrl->mdp_lock, flags);
+		if (!rc) {
 			pr_err("%s: timeout error\n", __func__);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
 				"dsi1_ctrl", "dsi1_phy", "panic");
-			rc = -ETIMEDOUT;
 		}
 	}
-	pr_debug("%s: done pid=%d\n", __func__, current->pid);
+
+	pr_debug("%s: %d done pid=%d\n", __func__, ctrl->ndx, current->pid);
 	MDSS_XLOG(ctrl->ndx, ctrl->mdp_busy, current->pid, XLOG_FUNC_EXIT);
-	return rc;
+
+	return !rc ? -ETIMEDOUT : 0;
 }
 
 int mdss_dsi_cmdlist_tx(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -2344,7 +2348,7 @@ static int dsi_event_thread(void *data)
 			spin_lock_irqsave(&ctrl->mdp_lock, flag);
 			ctrl->mdp_busy = false;
 			mdss_dsi_disable_irq_nosync(ctrl, DSI_MDP_TERM);
-			complete(&ctrl->mdp_comp);
+			complete_all(&ctrl->mdp_comp);
 			spin_unlock_irqrestore(&ctrl->mdp_lock, flag);
 
 			/* enable dsi error interrupt */
@@ -2567,7 +2571,7 @@ irqreturn_t mdss_dsi_isr(int irq, void *ptr)
 							DSI_MDP_TERM);
 		} else {
 			ctrl->mdp_busy = false;
-			complete(&ctrl->mdp_comp);
+			complete_all(&ctrl->mdp_comp);
 		}
 		spin_unlock(&ctrl->mdp_lock);
 	}
