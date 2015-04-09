@@ -18,6 +18,7 @@
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
 #include "dsi-panel-nt35597-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-wqxga-cmd.dtsi"
+#include "dsi-panel-jdi-1080p-video.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
@@ -74,6 +75,13 @@
 };
 
 &dsi_sharp_1080_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,cont-splash-enabled;
+};
+
+&dsi_jdi_1080_vid {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
