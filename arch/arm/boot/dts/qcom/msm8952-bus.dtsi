@@ -29,7 +29,7 @@
 			qcom,fab-dev;
 			qcom,base-name = "bimc-base";
 			qcom,bus-type = <2>;
-			qcom,bypass-qos-prg;
+			qcom,util-fact = <154>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_bimc_msmbus_clk>,
 				<&clock_gcc  clk_bimc_msmbus_a_clk>;
@@ -47,7 +47,6 @@
 			label = "fab-pcnoc";
 			qcom,fab-dev;
 			qcom,base-name = "pcnoc-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-delta = <0x1000>;
 			qcom,bus-type = <1>;
@@ -68,7 +67,6 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
@@ -89,10 +87,10 @@
 			label = "fab-snoc-mm";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-mm-base";
-			qcom,bypass-qos-prg;
 			qcom,base-offset = <0x7000>;
 			qcom,qos-off = <0x1000>;
 			qcom,bus-type = <1>;
+			qcom,util-fact = <154>;
 			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_gcc  clk_sysmmnoc_msmbus_clk>,
 				<&clock_gcc  clk_sysmmnoc_msmbus_a_clk>;
@@ -538,8 +536,10 @@
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
 			qcom,qport = <14>;
-			qcom,qos-mode = "bypass";
+			qcom,qos-mode = "fixed";
 			qcom,connections = <&snoc_int_0 &slv_snoc_bimc_1>;
+			qcom,prio1 = <0>;
+			qcom,prio0 = <0>;
 			qcom,bus-dev = <&fab_snoc>;
 			//clock-names = "bus_qos_clocks";
 			//clocks =  <&gcc_snoc_ipa_clk>;
