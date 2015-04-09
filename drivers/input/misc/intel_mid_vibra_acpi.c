@@ -43,6 +43,8 @@
 
 #define CRYSTALCOVE_PMIC_VIBRA_MAX_BASEUNIT	0x7F
 
+#define CRYSTALCOVE_PMIC_ID_ADDR 		0x6E00
+#define CRYSTALCOVE_PMIC 			0x1F
 /* for CHT CR SOC controlled vibra */
 #define PERIOD_NS   40000
 #define DUTY_NS_ON  20000     /* 50 % */
@@ -161,6 +163,7 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 	struct gpio_desc *gpio_en;
 	int ret;
 	const char *board_name;
+	u8 pmic_id;
 
 	ret = acpi_bus_get_device(handle, &device);
 	if (ret) {
@@ -176,6 +179,17 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	board_name = dmi_get_system_info(DMI_BOARD_NAME);
+	if (strncmp(board_name, "Cherry Trail Tablet", DMI_STRING_MAX) == 0) {
+		pmic_id = intel_soc_pmic_readb(CRYSTALCOVE_PMIC_ID_ADDR);
+		if (pmic_id < 0)
+			pr_err("Error reading PMIC ID register\n");
+		else
+			pr_debug("PMIC-ID: %x\n", pmic_id);
+
+		if (pmic_id != CRYSTALCOVE_PMIC) {
+			vibra_pwm_configure(info, false);
+		}
+	}
 
 	if (data->use_gpio_en) {
 		if (data->gpio_en < 0) {
