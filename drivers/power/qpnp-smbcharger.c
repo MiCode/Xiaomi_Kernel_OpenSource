@@ -31,6 +31,7 @@
 #include <linux/printk.h>
 #include <linux/ratelimit.h>
 #include <linux/debugfs.h>
+#include <linux/leds.h>
 #include <linux/rtc.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/batterydata-lib.h>
@@ -117,6 +118,8 @@ struct smbchg_chip {
 	bool				chg_inhibit_en;
 	bool				chg_inhibit_source_fg;
 	bool				low_volt_dcin;
+	bool				cfg_chg_led_support;
+	bool				cfg_chg_led_sw_ctrl;
 	bool				vbat_above_headroom;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
@@ -229,6 +232,8 @@ struct smbchg_chip {
 	struct work_struct		rerun_apsd_work;
 	bool				apsd_rerun;
 	bool				apsd_rerun_ignore_uv_irq;
+
+	struct led_classdev		led_cdev;
 };
 
 enum qpnp_schg {
@@ -3453,6 +3458,157 @@ static void smbchg_regulator_deinit(struct smbchg_chip *chip)
 		regulator_unregister(chip->ext_otg_vreg.rdev);
 }
 
+#define CMD_CHG_LED_REG		0x43
+#define CHG_LED_CTRL_BIT		BIT(0)
+#define LED_SW_CTRL_BIT		0x1
+#define LED_CHG_CTRL_BIT		0x0
+#define CHG_LED_ON		0x03
+#define CHG_LED_OFF		0x00
+#define LED_BLINKING_PATTERN1		0x01
+#define LED_BLINKING_PATTERN2		0x02
+#define LED_BLINKING_CFG_MASK		SMB_MASK(2, 1)
+#define CHG_LED_SHIFT		1
+static int smbchg_chg_led_controls(struct smbchg_chip *chip)
+{
+	u8 reg;
+	int rc;
+
+	if (chip->cfg_chg_led_sw_ctrl)
+		reg = LED_SW_CTRL_BIT;
+	else
+		reg = LED_CHG_CTRL_BIT;
+
+	rc = smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_LED_REG,
+			CHG_LED_CTRL_BIT, reg);
+	if (rc < 0)
+		dev_err(chip->dev,
+				"Couldn't write LED_CTRL_BIT rc=%d\n", rc);
+	return rc;
+}
+
+static void smbchg_chg_led_brightness_set(struct led_classdev *cdev,
+		enum led_brightness value)
+{
+	struct smbchg_chip *chip = container_of(cdev,
+			struct smbchg_chip, led_cdev);
+	u8 reg;
+	int rc;
+
+	reg = (value > LED_OFF) ? CHG_LED_ON << CHG_LED_SHIFT :
+		CHG_LED_OFF << CHG_LED_SHIFT;
+
+	pr_smb(PR_STATUS,
+			"set the charger led brightness to value=%d\n",
+			value);
+	rc = smbchg_sec_masked_write(chip,
+			chip->bat_if_base + CMD_CHG_LED_REG,
+			LED_BLINKING_CFG_MASK, reg);
+	if (rc)
+		dev_err(chip->dev, "Couldn't write CHG_LED rc=%d\n",
+				rc);
+}
+
+static enum
+led_brightness smbchg_chg_led_brightness_get(struct led_classdev *cdev)
+{
+	struct smbchg_chip *chip = container_of(cdev,
+			struct smbchg_chip, led_cdev);
+	u8 reg_val, chg_led_sts;
+	int rc;
+
+	rc = smbchg_read(chip, &reg_val, chip->bat_if_base + CMD_CHG_LED_REG,
+			1);
+	if (rc < 0) {
+		dev_err(chip->dev,
+				"Couldn't read CHG_LED_REG sts rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	chg_led_sts = (reg_val & LED_BLINKING_CFG_MASK) >> CHG_LED_SHIFT;
+
+	pr_smb(PR_STATUS, "chg_led_sts = %02x\n", chg_led_sts);
+
+	return (chg_led_sts == CHG_LED_OFF) ? LED_OFF : LED_FULL;
+}
+
+static void smbchg_chg_led_blink_set(struct smbchg_chip *chip,
+		unsigned long blinking)
+{
+	u8 reg;
+	int rc;
+
+	if (blinking == 0)
+		reg = CHG_LED_OFF << CHG_LED_SHIFT;
+	else if (blinking == 1)
+		reg = LED_BLINKING_PATTERN1 << CHG_LED_SHIFT;
+	else if (blinking == 2)
+		reg = LED_BLINKING_PATTERN2 << CHG_LED_SHIFT;
+	else
+		reg = LED_BLINKING_PATTERN1 << CHG_LED_SHIFT;
+
+	rc = smbchg_sec_masked_write(chip,
+			chip->bat_if_base + CMD_CHG_LED_REG,
+			LED_BLINKING_CFG_MASK, reg);
+	if (rc)
+		dev_err(chip->dev, "Couldn't write CHG_LED rc=%d\n",
+				rc);
+}
+
+static ssize_t smbchg_chg_led_blink_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t len)
+{
+	struct led_classdev *cdev = dev_get_drvdata(dev);
+	struct smbchg_chip *chip = container_of(cdev, struct smbchg_chip,
+			led_cdev);
+	unsigned long blinking;
+	ssize_t rc = -EINVAL;
+
+	rc = kstrtoul(buf, 10, &blinking);
+	if (rc)
+		return rc;
+
+	smbchg_chg_led_blink_set(chip, blinking);
+
+	return len;
+}
+
+static DEVICE_ATTR(blink, 0664, NULL, smbchg_chg_led_blink_store);
+
+static struct attribute *led_blink_attributes[] = {
+	&dev_attr_blink.attr,
+	NULL,
+};
+
+static struct attribute_group smbchg_led_attr_group = {
+	.attrs = led_blink_attributes
+};
+
+static int smbchg_register_chg_led(struct smbchg_chip *chip)
+{
+	int rc;
+
+	chip->led_cdev.name = "red";
+	chip->led_cdev.brightness_set = smbchg_chg_led_brightness_set;
+	chip->led_cdev.brightness_get = smbchg_chg_led_brightness_get;
+
+	rc = led_classdev_register(chip->dev, &chip->led_cdev);
+	if (rc) {
+		dev_err(chip->dev, "unable to register charger led, rc=%d\n",
+				rc);
+		return rc;
+	}
+
+	rc = sysfs_create_group(&chip->led_cdev.dev->kobj,
+			&smbchg_led_attr_group);
+	if (rc) {
+		dev_err(chip->dev, "led sysfs rc: %d\n", rc);
+		return rc;
+	}
+
+	return rc;
+}
+
 static int vf_adjust_low_threshold = 5;
 module_param(vf_adjust_low_threshold, int, 0644);
 
@@ -5208,6 +5364,12 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	if (rc)
 		chip->battery_psy_name = "battery";
 
+	/* Get the charger led support property */
+	chip->cfg_chg_led_sw_ctrl =
+		of_property_read_bool(node, "qcom,chg-led-sw-controls");
+	chip->cfg_chg_led_support =
+		of_property_read_bool(node, "qcom,chg-led-support");
+
 	if (of_find_property(node, "qcom,thermal-mitigation",
 					&chip->thermal_levels)) {
 		chip->thermal_mitigation = devm_kzalloc(chip->dev,
@@ -5720,10 +5882,29 @@ static int smbchg_probe(struct spmi_device *spmi)
 	}
 	chip->psy_registered = true;
 
+	if (chip->cfg_chg_led_support &&
+			chip->schg_version == QPNP_SCHG_LITE) {
+		rc = smbchg_register_chg_led(chip);
+		if (rc) {
+			dev_err(chip->dev,
+					"Unable to register charger led: %d\n",
+					rc);
+			goto unregister_dc_psy;
+		}
+
+		rc = smbchg_chg_led_controls(chip);
+		if (rc) {
+			dev_err(chip->dev,
+					"Failed to set charger led controld bit: %d\n",
+					rc);
+			goto unregister_led_class;
+		}
+	}
+
 	rc = smbchg_request_irqs(chip);
 	if (rc < 0) {
 		dev_err(&spmi->dev, "Unable to request irqs rc = %d\n", rc);
-		goto unregister_dc_psy;
+		goto unregister_led_class;
 	}
 
 	power_supply_set_present(chip->usb_psy, chip->usb_present);
@@ -5739,6 +5920,9 @@ static int smbchg_probe(struct spmi_device *spmi)
 			chip->dc_present, chip->usb_present);
 	return 0;
 
+unregister_led_class:
+	if (chip->cfg_chg_led_support && chip->schg_version == QPNP_SCHG_LITE)
+		led_classdev_unregister(&chip->led_cdev);
 unregister_dc_psy:
 	power_supply_unregister(&chip->dc_psy);
 unregister_batt_psy:

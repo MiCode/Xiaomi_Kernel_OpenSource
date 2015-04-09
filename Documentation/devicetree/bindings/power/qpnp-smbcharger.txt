@@ -249,6 +249,9 @@ Optional Properties:
 - qcom,battery-data			Points to the phandle of node which
 					contains the battery-profiles supported
 					by the charger/FG.
+- qcom,chg-led-support		A bool property to support the charger led feature.
+- qcom,chg-led-sw-controls		A bool property to allow the software to control
+					the charger led without a valid charger.
 
 Example:
 	qcom,qpnp-smbcharger {
