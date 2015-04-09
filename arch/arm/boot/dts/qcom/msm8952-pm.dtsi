@@ -188,7 +188,7 @@
 		qcom,saw2-spm-ctl = <0xe>;
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3
 				&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,saw2-pmic-data0 = <0x05030080>;
+		qcom,saw2-pmic-data0 = <0x07030080>;
 		qcom,saw2-pmic-data1 = <0x00030000>;
 		qcom,saw2-pmic-data4 = <0x00010080>;
 		qcom,saw2-pmic-data5 = <0x00010000>;
@@ -232,7 +232,7 @@
 				qcom,ss-power = <560>;
 				qcom,energy-overhead = <1135000>;
 				qcom,time-overhead = <1800>;
-				qcom,min-child-idx = <1>;
+				qcom,min-child-idx = <2>;
 			};
 
 			qcom,pm-cluster-level@2{
@@ -243,7 +243,7 @@
 				qcom,ss-power = <530>;
 				qcom,energy-overhead = <2470000>;
 				qcom,time-overhead = <3700>;
-				qcom,min-child-idx = <1>;
+				qcom,min-child-idx = <2>;
 				qcom,notify-rpm;
 			};
 
@@ -274,7 +274,7 @@
 					qcom,ss-power = <583>;
 					qcom,energy-overhead = <650000>;
 					qcom,time-overhead = <1000>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 				};
 
 				qcom,pm-cluster-level@2{
@@ -350,7 +350,7 @@
 					qcom,ss-power = <583>;
 					qcom,energy-overhead = <650000>;
 					qcom,time-overhead = <900>;
-					qcom,min-child-idx = <1>;
+					qcom,min-child-idx = <2>;
 				};
 
 
