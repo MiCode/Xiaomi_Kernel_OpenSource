@@ -1345,6 +1345,7 @@ static enum power_supply_property smb1351_parallel_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CONSTANT_CHARGE_CURRENT_MAX,
 };
 
@@ -1467,6 +1468,16 @@ static int smb1351_parallel_set_property(struct power_supply *psy,
 						chip->usb_psy_ma);
 		}
 		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		if (chip->parallel_charger_present &&
+			(chip->vfloat_mv != val->intval)) {
+			rc = smb1351_float_voltage_set(chip, val->intval);
+			if (!rc)
+				chip->vfloat_mv = val->intval;
+		} else {
+			chip->vfloat_mv = val->intval;
+		}
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1500,6 +1511,9 @@ static int smb1351_parallel_get_property(struct power_supply *psy,
 			val->intval = chip->usb_psy_ma * 1000;
 		else
 			val->intval = 0;
+		break;
+	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
+		val->intval = chip->vfloat_mv;
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = chip->parallel_charger_present;
