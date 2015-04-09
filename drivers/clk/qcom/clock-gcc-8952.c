@@ -1347,7 +1347,7 @@ static struct rcg_clk pdm2_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_gcc_sdcc1_2_apps_clk[] = {
+static struct clk_freq_tbl ftbl_gcc_sdcc1_apps_clk[] = {
 	F( 144000,	xo,	16,	3,	25),
 	F( 400000,	xo,	12,	1,	4),
 	F( 20000000,	gpll0,	10,	1,	4),
@@ -1364,7 +1364,7 @@ static struct clk_freq_tbl ftbl_gcc_sdcc1_2_apps_clk[] = {
 static struct rcg_clk sdcc1_apps_clk_src = {
 	.cmd_rcgr_reg =  SDCC1_APPS_CMD_RCGR,
 	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_gcc_sdcc1_2_apps_clk,
+	.freq_tbl = ftbl_gcc_sdcc1_apps_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
@@ -1375,10 +1375,22 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_gcc_sdcc2_apps_clk[] = {
+	F( 144000,	xo,	16,	3,	25),
+	F( 400000,	xo,	12,	1,	4),
+	F( 20000000,	gpll0,	10,	1,	4),
+	F( 25000000,	gpll0,	16,	1,	2),
+	F( 50000000,	gpll0,	16,	0,	0),
+	F( 100000000,	gpll0,	8,	0,	0),
+	F( 177770000,	gpll0,	4.5,	0,	0),
+	F( 200000000,	gpll0,	4,	0,	0),
+	F_END
+};
+
 static struct rcg_clk sdcc2_apps_clk_src = {
 	.cmd_rcgr_reg =  SDCC2_APPS_CMD_RCGR,
 	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_gcc_sdcc1_2_apps_clk,
+	.freq_tbl = ftbl_gcc_sdcc2_apps_clk,
 	.current_freq = &rcg_dummy_freq,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
