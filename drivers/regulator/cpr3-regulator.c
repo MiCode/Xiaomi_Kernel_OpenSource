@@ -874,6 +874,30 @@ static int cpr3_regulator_list_voltage(struct regulator_dev *rdev,
 }
 
 /**
+ * cpr3_regulator_list_corner_voltage() - return the ceiling voltage mapped to
+ *			the specified voltage corner
+ * @rdev:		Regulator device pointer for the cpr3-regulator
+ * @corner:		Voltage corner
+ *
+ * This function is passed as a callback function into the regulator ops that
+ * are registered for each cpr3-regulator device.
+ *
+ * Return: voltage value in microvolts or -EINVAL if the corner is out of range
+ */
+static int cpr3_regulator_list_corner_voltage(struct regulator_dev *rdev,
+		int corner)
+{
+	struct cpr3_thread *thread = rdev_get_drvdata(rdev);
+
+	corner -= CPR3_CORNER_OFFSET;
+
+	if (corner >= 0 && corner < thread->corner_count)
+		return thread->corner[corner].ceiling_volt;
+	else
+		return -EINVAL;
+}
+
+/**
  * cpr3_regulator_is_enabled() - return the enable state of the CPR3 thread
  * @rdev:		Regulator device pointer for the cpr3-regulator
  *
@@ -973,12 +997,13 @@ done:
 }
 
 static struct regulator_ops cpr3_regulator_ops = {
-	.enable		= cpr3_regulator_enable,
-	.disable	= cpr3_regulator_disable,
-	.is_enabled	= cpr3_regulator_is_enabled,
-	.set_voltage	= cpr3_regulator_set_voltage,
-	.get_voltage	= cpr3_regulator_get_voltage,
-	.list_voltage	= cpr3_regulator_list_voltage,
+	.enable			= cpr3_regulator_enable,
+	.disable		= cpr3_regulator_disable,
+	.is_enabled		= cpr3_regulator_is_enabled,
+	.set_voltage		= cpr3_regulator_set_voltage,
+	.get_voltage		= cpr3_regulator_get_voltage,
+	.list_voltage		= cpr3_regulator_list_voltage,
+	.list_corner_voltage	= cpr3_regulator_list_corner_voltage,
 };
 
 /**
