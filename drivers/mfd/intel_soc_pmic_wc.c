@@ -37,6 +37,16 @@
 #include <asm/intel_em_config.h>
 #include "./intel_soc_pmic_core.h"
 #include <linux/regulator/intel_whiskey_cove_pmic.h>
+#include <linux/init.h>
+#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
+#include <linux/lnw_gpio.h>
+#include <linux/regulator/machine.h>
+#include <linux/regulator/fixed.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/gpio-regulator.h>
+#include <linux/platform_device.h>
+
 
 #define WHISKEY_COVE_IRQ_NUM	17
 
@@ -419,6 +429,18 @@ static struct mfd_cell whiskey_cove_dev[] = {
 		.resources = NULL,
 	},
 	{
+		.name = "wcove_regulator",
+		.id = WCOVE_ID_V1P8SX + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
+		.name = "wcove_regulator",
+		.id = WCOVE_ID_V2P8SX + 1,
+		.num_resources = 0,
+		.resources = NULL,
+	},
+	{
 		.name = "whiskey_cove_region",
 	},
 	{NULL, },
@@ -517,6 +539,78 @@ static struct pmic_gpio_data whiskey_cove_gpio_data = {
 	.num_gpio = 10,
 	.num_vgpio = 0x5e,
 };
+
+static struct regulator_consumer_supply v1p8sx_consumer[] = {
+	REGULATOR_SUPPLY("v1p8sx", "INT33BE:00"),
+	REGULATOR_SUPPLY("v1p8sx", "INT33FB:00"),
+};
+
+static struct regulator_consumer_supply v2p8sx_consumer[] = {
+	REGULATOR_SUPPLY("v2p8sx", "INT33BE:00"),
+	REGULATOR_SUPPLY("v2p8sx", "INT33FB:00"),
+};
+
+/* v1p8sx regulator */
+static struct regulator_init_data v1p8sx_data = {
+	.constraints = {
+		.min_uV = 1620000,
+		.max_uV = 1980000,
+		.valid_ops_mask		= REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(v1p8sx_consumer),
+	.consumer_supplies	= v1p8sx_consumer,
+};
+
+/* v2p8sx regulator */
+static struct regulator_init_data v2p8sx_data = {
+	.constraints = {
+		.min_uV			= 2565000,
+		.max_uV			= 3300000,
+		.valid_ops_mask		= REGULATOR_CHANGE_VOLTAGE |
+					REGULATOR_CHANGE_STATUS,
+		.valid_modes_mask	= REGULATOR_MODE_NORMAL,
+	},
+	.num_consumer_supplies	= ARRAY_SIZE(v2p8sx_consumer),
+	.consumer_supplies	= v2p8sx_consumer,
+};
+
+
+/*************************************************************
+*
+* WCOVE Camera related regulator
+*
+*************************************************************/
+static struct regulator_init_data wcove_v1p8sx_data;
+static struct regulator_init_data wcove_v2p8sx_data;
+
+static struct wcove_regulator_info wcove_v1p8sx_info = {
+	.init_data = &wcove_v1p8sx_data,
+};
+
+static struct wcove_regulator_info wcove_v2p8sx_info = {
+	.init_data = &wcove_v2p8sx_data,
+};
+
+static void wc_set_v1p8_pdata(void)
+{
+	memcpy((void *)&wcove_v1p8sx_data, (void *)&v1p8sx_data,
+			sizeof(struct regulator_init_data));
+
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_v1p8sx_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_V1P8SX + 1);
+
+}
+
+static void wc_set_v2p8_pdata(void)
+{
+	memcpy((void *)&wcove_v2p8sx_data, (void *)&v2p8sx_data,
+			sizeof(struct regulator_init_data));
+
+	/* register camera regulator for whiskey cove PMIC */
+	intel_soc_pmic_set_pdata("wcove_regulator", &wcove_v2p8sx_info,
+		sizeof(struct wcove_regulator_info), WCOVE_ID_V2P8SX + 1);
+}
 
 static void wc_set_gpio_pdata(void)
 {
@@ -649,6 +743,8 @@ static int whiskey_cove_init(void)
 	wcove_set_bcu_pdata();
 	wc_set_adc_pdata();
 	wc_set_gpio_pdata();
+	wc_set_v1p8_pdata();
+	wc_set_v2p8_pdata();
 	wcove_init_done = true;
 
 	return 0;
