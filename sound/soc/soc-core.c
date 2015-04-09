@@ -4304,6 +4304,17 @@ static int snd_soc_codec_set_bias_level(struct snd_soc_dapm_context *dapm,
 }
 
 /**
+ * snd_soc_card_change_online_state - Mark if soc card is online/offline
+ *
+ * @soc_card : soc_card to mark
+ */
+void snd_soc_card_change_online_state(struct snd_soc_card *soc_card, int online)
+{
+	snd_card_change_online_state(soc_card->snd_card, online);
+}
+EXPORT_SYMBOL(snd_soc_card_change_online_state);
+
+/**
  * snd_soc_register_codec - Register a codec with the ASoC core
  *
  * @codec: codec to register
