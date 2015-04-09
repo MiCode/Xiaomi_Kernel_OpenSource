@@ -2033,13 +2033,26 @@ static int clamp_soc_based_on_voltage(struct qpnp_bms_chip *chip, int soc)
 	}
 }
 
+static void battery_voltage_check(struct qpnp_bms_chip *chip)
+{
+	int rc, vbat_uv = 0;
+
+	rc = get_battery_voltage(chip, &vbat_uv);
+	if (rc < 0) {
+		pr_err("Failed to read battery-voltage rc=%d\n", rc);
+	} else {
+		very_low_voltage_check(chip, vbat_uv);
+		cv_voltage_check(chip, vbat_uv);
+	}
+}
+
 #define UI_SOC_CATCHUP_TIME	(60)
 static void monitor_soc_work(struct work_struct *work)
 {
 	struct qpnp_bms_chip *chip = container_of(work,
 				struct qpnp_bms_chip,
 				monitor_soc_work.work);
-	int rc, vbat_uv = 0, new_soc = 0, batt_temp;
+	int rc, new_soc = 0, batt_temp;
 
 	bms_stay_awake(&chip->vbms_soc_wake_source);
 
@@ -2055,13 +2068,7 @@ static void monitor_soc_work(struct work_struct *work)
 		chip->last_soc = -EINVAL;
 		new_soc = 100;
 	} else {
-		rc = get_battery_voltage(chip, &vbat_uv);
-		if (rc < 0) {
-			pr_err("Failed to read battery-voltage rc=%d\n", rc);
-		} else {
-			very_low_voltage_check(chip, vbat_uv);
-			cv_voltage_check(chip, vbat_uv);
-		}
+		battery_voltage_check(chip);
 
 		if (chip->dt.cfg_use_voltage_soc) {
 			calculate_soc_from_voltage(chip);
@@ -2465,9 +2472,9 @@ static void qpnp_vm_bms_ext_power_changed(struct power_supply *psy)
 	battery_status_check(chip);
 	battery_insertion_check(chip);
 
-	/* Re-schedule monitor_soc_work */
-	cancel_delayed_work_sync(&chip->monitor_soc_work);
-	schedule_delayed_work(&chip->monitor_soc_work, 0);
+	mutex_lock(&chip->last_soc_mutex);
+	battery_voltage_check(chip);
+	mutex_unlock(&chip->last_soc_mutex);
 
 	if (chip->reported_soc_in_use)
 		reported_soc_check_status(chip);
