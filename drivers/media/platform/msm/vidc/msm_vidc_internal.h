@@ -199,8 +199,6 @@ struct dcvs_stats {
 	bool is_clock_scaled;
 	int etb_counter;
 	bool is_power_save_mode;
-	bool is_output_buff_added;
-	bool is_input_buff_added;
 	bool is_additional_buff_added;
 };
 

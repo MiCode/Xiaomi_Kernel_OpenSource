@@ -1241,11 +1241,11 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		new_buf_count.buffer_type = HAL_BUFFER_OUTPUT;
 		new_buf_count.buffer_count_actual = *num_buffers;
 		new_buf_count.buffer_count_actual +=
-				msm_dcvs_get_extra_buff_count(inst, false);
+				msm_dcvs_get_extra_buff_count(inst);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 			property_id, &new_buf_count);
 		if (!rc)
-			msm_dcvs_set_buff_req_handled(inst, false);
+			msm_dcvs_set_buff_req_handled(inst);
 
 		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
@@ -1266,12 +1266,10 @@ static int msm_venc_queue_setup(struct vb2_queue *q,
 		if (extradata == V4L2_MPEG_VIDC_EXTRADATA_INPUT_CROP)
 			*num_planes = *num_planes + 1;
 		inst->fmts[OUTPUT_PORT]->num_planes = *num_planes;
-		new_buf_count.buffer_count_actual +=
-			msm_dcvs_get_extra_buff_count(inst, true);
 		rc = call_hfi_op(hdev, session_set_property, inst->session,
 					property_id, &new_buf_count);
-		if (!rc)
-			msm_dcvs_set_buff_req_handled(inst, true);
+		if (rc)
+			dprintk(VIDC_ERR, "failed to set count to fw\n");
 
 		dprintk(VIDC_DBG, "size = %d, alignment = %d, count = %d\n",
 				inst->buff_req.buffer[0].buffer_size,
