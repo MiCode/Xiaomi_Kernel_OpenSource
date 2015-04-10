@@ -435,8 +435,9 @@ static const struct file_operations hsu_dump_ops = {
 	.llseek		= default_llseek,
 };
 
-static int hsu_debugfs_init(struct hsu_port *hsu)
+static int hsu_debugfs_add(struct hsu_port *hsu)
 {
+	struct hsu_dma_chan *dchan;
 	int i;
 	char name[32];
 
@@ -444,16 +445,19 @@ static int hsu_debugfs_init(struct hsu_port *hsu)
 	if (!hsu->debugfs)
 		return -ENOMEM;
 
-	for (i = 0; i < 3; i++) {
+	for (i = 0; i < hsu->port_num; i++) {
 		snprintf(name, sizeof(name), "port_%d_regs", i);
 		debugfs_create_file(name, S_IRUSR,
 			hsu->debugfs, (void *)(&hsu->port[i]), &port_regs_ops);
 	}
 
 	for (i = 0; i < 6; i++) {
+		dchan = &hsu->chans[i];
+		if (!dchan->uport)
+			break;
 		snprintf(name, sizeof(name), "dma_chan_%d_regs", i);
 		debugfs_create_file(name, S_IRUSR,
-			hsu->debugfs, (void *)&hsu->chans[i], &dma_regs_ops);
+			hsu->debugfs, (void *)dchan, &dma_regs_ops);
 	}
 
 	snprintf(name, sizeof(name), "dump_status");
@@ -468,15 +472,18 @@ static void hsu_debugfs_remove(struct hsu_port *hsu)
 	debugfs_remove_recursive(hsu->debugfs);
 }
 
-#else
-static inline int hsu_debugfs_init(struct hsu_port *hsu)
+static int __init hsu_debugfs_init(void)
 {
-	return 0;
+	return hsu_debugfs_add(phsu);
 }
 
-static inline void hsu_debugfs_remove(struct hsu_port *hsu)
+static void __exit hsu_debugfs_exit(void)
 {
+	hsu_debugfs_remove(phsu);
 }
+
+late_initcall(hsu_debugfs_init);
+module_exit(hsu_debugfs_exit);
 #endif /* CONFIG_DEBUG_FS */
 
 static void serial_hsu_enable_ms(struct uart_port *port)
@@ -1983,13 +1990,13 @@ static int __init hsu_init(void)
 		return ret;
 
 	spin_lock_init(&phsu->dma_lock);
-	return hsu_debugfs_init(phsu);
+
+	return ret;
 }
 
 static void __exit hsu_exit(void)
 {
 	uart_unregister_driver(&serial_hsu_reg);
-	hsu_debugfs_remove(phsu);
 }
 
 module_init(hsu_init);
