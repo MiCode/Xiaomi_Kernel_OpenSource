@@ -2441,7 +2441,6 @@ static int dpcm_fe_dai_open(struct snd_pcm_substream *fe_substream)
 		mutex_unlock(&fe->card->mutex);
 		return ret;
 	} else if (ret == 0) {
-		dpcm_path_put(&list);
 		dev_dbg(fe->dev, "ASoC: %s no valid %s route\n",
 			fe->dai_link->name, stream ? "capture" : "playback");
 	}
