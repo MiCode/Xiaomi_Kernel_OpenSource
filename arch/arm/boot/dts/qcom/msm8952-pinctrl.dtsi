@@ -143,10 +143,23 @@
 			qcom,num-pins = <7>;
 			/*
 			 * Order of pins:
-			 * SDC1: CLK -> 0, CMD -> 1, DATA -> 2
+			 * SDC1: CLK -> 0, CMD -> 1, DATA -> 2, RCLK -> 3
 			 * SDC2: CLK -> 4, CMD -> 5, DATA -> 6
 			 */
 			#qcom,pin-cells = <1>;
+		};
+
+		pmx_sdc1_rclk {
+			qcom,pins = <&sdc 3>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-rclk";
+			sdc1_rclk_on: rclk_on {
+				bias-pull-down; /* pull down */
+			};
+
+			sdc1_rclk_off: rclk_off {
+				bias-pull-down; /* pull down */
+			};
 		};
 
 		pmx_sdc1_clk {
