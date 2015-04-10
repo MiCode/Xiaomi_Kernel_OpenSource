@@ -191,12 +191,16 @@ struct flash_led_platform_data {
 struct qpnp_flash_led {
 	struct spmi_device		*spmi_dev;
 	struct flash_led_platform_data	*pdata;
+	struct pinctrl			*pinctrl;
+	struct pinctrl_state		*gpio_state_active;
+	struct pinctrl_state		*gpio_state_suspend;
 	struct flash_node_data		*flash_node;
 	struct power_supply		*battery_psy;
 	struct mutex			flash_led_lock;
 	int				num_leds;
 	u16				base;
 	u8				peripheral_type;
+	bool				gpio_enabled;
 };
 
 static u8 qpnp_flash_led_ctrl_dbg_regs[] = {
@@ -538,6 +542,17 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			return -EINVAL;
 		}
 
+		if (led->pinctrl) {
+			rc = pinctrl_select_state(led->pinctrl,
+						led->gpio_state_suspend);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+						"failed to disable GPIO\n");
+				return -EINVAL;
+			}
+			led->gpio_enabled = false;
+		}
+
 		if (led->battery_psy) {
 			psy_prop.intval = false;
 			rc = led->battery_psy->set_property(led->battery_psy,
@@ -607,6 +622,17 @@ static void qpnp_flash_led_work(struct work_struct *work)
 				"Boost regulator enablement failed\n");
 			goto error_regulator_enable;
 		}
+	}
+
+	if (!led->gpio_enabled && led->pinctrl) {
+		rc = pinctrl_select_state(led->pinctrl,
+						led->gpio_state_active);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+						"failed to enable GPIO\n");
+			goto error_enable_gpio;
+		}
+		led->gpio_enabled = true;
 	}
 
 	if (flash_node->type == TORCH) {
@@ -777,13 +803,13 @@ turn_off:
 
 	usleep(FLASH_RAMP_DN_DELAY_US);
 
+exit_flash_led_work:
 	rc = qpnp_flash_led_module_disable(led, flash_node);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "Module disable failed\n");
 		goto exit_flash_led_work;
 	}
-
-exit_flash_led_work:
+error_enable_gpio:
 	if (flash_node->boost_regulator && flash_node->flash_on) {
 		regulator_disable(flash_node->boost_regulator);
 error_regulator_enable:
@@ -1285,6 +1311,29 @@ static int qpnp_flash_led_parse_common_dt(
 
 	led->pdata->power_detect_en = of_property_read_bool(node,
 						"qcom,power-detect-enabled");
+
+	led->pinctrl = devm_pinctrl_get(&led->spmi_dev->dev);
+	if (IS_ERR_OR_NULL(led->pinctrl)) {
+		dev_err(&led->spmi_dev->dev,
+					"Unable to acquire pinctrl\n");
+		return 0;
+	} else {
+		led->gpio_state_active =
+			pinctrl_lookup_state(led->pinctrl, "flash_led_enable");
+		if (IS_ERR_OR_NULL(led->gpio_state_active)) {
+			dev_err(&led->spmi_dev->dev,
+					"Can not get LED active state\n");
+			return PTR_ERR(led->gpio_state_active);
+		}
+		led->gpio_state_suspend =
+			pinctrl_lookup_state(led->pinctrl,
+							"flash_led_disable");
+		if (IS_ERR_OR_NULL(led->gpio_state_active)) {
+			dev_err(&led->spmi_dev->dev,
+					"Can not get LED active state\n");
+			return PTR_ERR(led->gpio_state_active);
+		}
+	}
 
 	return 0;
 }
