@@ -21,7 +21,6 @@
 #include <linux/iommu.h>
 #include <linux/iopoll.h>
 #include <linux/of.h>
-#include <linux/qcom_iommu.h>
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/workqueue.h>

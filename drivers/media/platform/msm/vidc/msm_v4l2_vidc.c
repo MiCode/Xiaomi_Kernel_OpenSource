@@ -17,10 +17,8 @@
 #include <linux/ioctl.h>
 #include <linux/list.h>
 #include <linux/module.h>
-#include <linux/msm_iommu_domains.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
-#include <linux/qcom_iommu.h>
 #include <linux/slab.h>
 #include <linux/types.h>
 #include <linux/version.h>

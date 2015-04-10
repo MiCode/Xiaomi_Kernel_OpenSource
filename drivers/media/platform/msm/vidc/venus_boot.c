@@ -14,6 +14,7 @@
 
 #include <asm/dma-iommu.h>
 #include <asm/page.h>
+#include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/err.h>
@@ -22,10 +23,8 @@
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/msm_iommu_domains.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <linux/qcom_iommu.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sizes.h>
 #include <linux/slab.h>

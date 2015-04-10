@@ -18,7 +18,6 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
-#include <linux/msm_iommu_domains.h>
 #include <soc/qcom/ocmem.h>
 #include "vmem/vmem.h"
 #include "vidc_hfi_api.h"
