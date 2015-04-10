@@ -34,6 +34,7 @@
 
 #define FIRMWARE_SIZE			0X00A00000
 #define REG_ADDR_OFFSET_BITMASK	0x000FFFFF
+#define VENUS_VERSION_LENGTH 128
 
 /*Workaround for simulator */
 #define HFI_SIM_FW_BIAS		0x0
@@ -3768,37 +3769,42 @@ exit:
 	return rc;
 }
 
-static int venus_hfi_get_fw_info(void *dev, enum fw_info info)
+static int venus_hfi_get_fw_info(void *dev, struct hal_fw_info *fw_info)
 {
-	int rc = 0;
+	int rc = 0, i = 0, j = 0;
 	struct venus_hfi_device *device = dev;
+	u32 smem_block_size = 0;
+	u8 *smem_table_ptr;
+	char version[VENUS_VERSION_LENGTH];
+	const u32 version_string_size = VENUS_VERSION_LENGTH;
+	const u32 smem_image_index_venus = 14 * 128;
 
-	if (!device) {
-		dprintk(VIDC_ERR, "%s Invalid paramter: %p\n",
-			__func__, device);
+
+	if (!device|| !fw_info) {
+		dprintk(VIDC_ERR,
+			 "%s Invalid paramter: device = %p fw_info = %p\n",
+			__func__, device, fw_info);
 		return -EINVAL;
 	}
+	smem_table_ptr = smem_get_entry(SMEM_IMAGE_VERSION_TABLE,
+			&smem_block_size);
+	if (smem_table_ptr &&
+			((smem_image_index_venus +
+			  version_string_size) <= smem_block_size))
+		memcpy(version,
+			smem_table_ptr + smem_image_index_venus,
+			version_string_size);
 
-	switch (info) {
-	case FW_BASE_ADDRESS:
-		rc = device->base_addr;
-		break;
+	while (version[i++] != 'V' && i < version_string_size)
+		;
 
-	case FW_REGISTER_BASE:
-		rc = device->register_base;
-		break;
+	for (i--; i < version_string_size && j < version_string_size; i++)
+		fw_info->version[j++] = version[i];
+	fw_info->version[version_string_size - 1] = '\0';
+	dprintk(VIDC_DBG, "F/W version retrieved : %s\n", fw_info->version);
 
-	case FW_REGISTER_SIZE:
-		rc = device->register_size;
-		break;
-
-	case FW_IRQ:
-		rc = device->irq;
-		break;
-
-	default:
-		dprintk(VIDC_ERR, "Invalid fw info requested");
-	}
+	fw_info->register_base = (u32)device->res->register_base;
+	fw_info->irq = device->hal_data->irq;
 	return rc;
 }
 
