@@ -897,7 +897,7 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			} else {
 				memcpy(user, prtd->event_status, size);
 				if (prtd->lsm_client->lab_enable
-					&& atomic_read(&prtd->read_abort)
+					&& !prtd->lsm_client->lab_started
 					&& prtd->event_status->status ==
 					LSM_VOICE_WAKEUP_STATUS_DETECTED) {
 					atomic_set(&prtd->read_abort, 0);
@@ -932,19 +932,6 @@ static int msm_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		dev_dbg(rtd->dev, "%s: Starting LSM client session\n",
 			__func__);
 		if (!prtd->lsm_client->started) {
-			if (prtd->lsm_client->lab_enable &&
-				!prtd->lsm_client->lab_started) {
-				atomic_set(&prtd->read_abort, 0);
-				/* Push the first period buffer */
-				ret = msm_lsm_queue_lab_buffer(prtd, 0);
-				if (ret) {
-					dev_err(rtd->dev,
-						"%s: failed to queue buffers for LAB read %d\n",
-						__func__, ret);
-					break;
-				}
-				prtd->lsm_client->lab_started = true;
-			}
 			ret = q6lsm_start(prtd->lsm_client, true);
 			if (!ret) {
 				prtd->lsm_client->started = true;
