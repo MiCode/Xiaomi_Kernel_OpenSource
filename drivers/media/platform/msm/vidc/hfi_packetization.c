@@ -13,7 +13,6 @@
 #include <linux/errno.h>
 #include <linux/log2.h>
 #include <linux/hash.h>
-#include <soc/qcom/ocmem.h>
 #include "hfi_packetization.h"
 #include "msm_vidc_debug.h"
 

@@ -18,7 +18,6 @@
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
 #include <linux/spinlock.h>
-#include <soc/qcom/ocmem.h>
 #include "vmem/vmem.h"
 #include "vidc_hfi_api.h"
 #include "vidc_hfi_helper.h"
@@ -205,16 +204,9 @@ struct hal_data {
 	u32 register_size;
 };
 
-struct on_chip_mem {
-	struct ocmem_buf *buf;
-	struct notifier_block vidc_ocmem_nb;
-	void *handle;
-};
-
 struct imem {
 	enum imem_type type;
 	union {
-		struct on_chip_mem ocmem;
 		phys_addr_t vmem;
 	};
 };
