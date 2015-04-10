@@ -459,11 +459,16 @@ out:
 long mdm_ctrl_dev_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	unsigned int minor = iminor(file_inode(filep));
-	struct mdm_info *mdm = &mdm_drv->mdm[minor];
+	struct mdm_info *mdm;
 	long ret = 0;
 	unsigned int mdm_state;
 	unsigned int param;
 	struct mdm_ctrl_cfg cfg;
+
+	if (!mdm_drv)
+		return -ENODEV;
+
+	mdm = &mdm_drv->mdm[minor];
 
 	pr_info(DRVNAME ": ioctl request 0x%x received on %d\n", cmd, minor);
 
@@ -706,7 +711,7 @@ static unsigned int mdm_ctrl_dev_poll(struct file *filep,
 				      struct poll_table_struct *pt)
 {
 	unsigned int minor = iminor(file_inode(filep));
-	struct mdm_info *mdm = &mdm_drv->mdm[minor];
+	struct mdm_info *mdm;
 	unsigned int ret = 0;
 
 	if (!mdm_drv)
@@ -722,7 +727,7 @@ static unsigned int mdm_ctrl_dev_poll(struct file *filep,
 
 	/* State notify */
 	if (mdm->polled_state_reached ||
-	    (mdm_ctrl_get_state(mdm) & mdm->polled_states)) {
+		(mdm_ctrl_get_state(mdm) & mdm->polled_states)) {
 
 		mdm->polled_state_reached = false;
 		ret |= POLLHUP | POLLRDNORM;
@@ -949,7 +954,6 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 
 	for (i = 0; i < driver_data->nb_mdms; i++) {
 		struct mdm_info *mdm = &driver_data->mdm[i];
-
 		if (mdm->is_mdm_ctrl_disabled)
 			continue;
 		/*
@@ -997,12 +1001,6 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 		kfree(mdm->pdata->pmic_data);
 	}
 
-	/* Unregister the device */
-	device_destroy(mdm_drv->class, mdm_drv->tdev);
-	class_destroy(mdm_drv->class);
-	cdev_del(&mdm_drv->cdev);
-	unregister_chrdev_region(mdm_drv->tdev, 1);
-
 	/* Free the driver context */
 	mdm_ctrl_put_device_info(driver_data, pdev);
 	kfree(driver_data->mdm);
@@ -1037,6 +1035,7 @@ MODULE_DEVICE_TABLE(platform, mdm_ctrl_id_table);
 static struct platform_driver mcd_driver = {
 	.probe = mdm_ctrl_module_probe,
 	.remove = mdm_ctrl_module_remove,
+	.shutdown = mdm_ctrl_module_shutdown,
 	.driver = {
 		   .name = DRVNAME,
 		   .owner = THIS_MODULE,
