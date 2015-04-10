@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,8 +21,6 @@
 #define DCVS_ENC_LOW_THR 4
 /* High threshold for encoder dcvs */
 #define DCVS_ENC_HIGH_THR 9
-/* extra i/p buffers in case of encoder dcvs */
-#define DCVS_ENC_EXTRA_INPUT_BUFFERS 2
 /* extra o/p buffers in case of encoder dcvs */
 #define DCVS_ENC_EXTRA_OUTPUT_BUFFERS 2
 /* Default threshold to reduce the core frequency */
@@ -41,10 +39,8 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst);
 bool msm_dcvs_enc_check(struct msm_vidc_inst *inst);
 void msm_dcvs_monitor_buffer(struct msm_vidc_inst *inst);
 void msm_dcvs_check_and_scale_clocks(struct msm_vidc_inst *inst, bool is_etb);
-int  msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst,
-		bool is_input_buff);
-void msm_dcvs_set_buff_req_handled(struct msm_vidc_inst *inst,
-		bool is_input_buff);
+int  msm_dcvs_get_extra_buff_count(struct msm_vidc_inst *inst);
+void msm_dcvs_set_buff_req_handled(struct msm_vidc_inst *inst);
 void msm_dcvs_enc_set_power_save_mode(struct msm_vidc_inst *inst,
 		bool is_power_save_mode);
 #endif
