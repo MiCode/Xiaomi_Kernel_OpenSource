@@ -3462,7 +3462,7 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 			 struct mdss_mdp_mixer *mixer, int params_changed)
 {
 	struct mdss_mdp_ctl *ctl;
-	int i, j;
+	int i, j, k;
 	u32 mpq_num;
 
 	if (!pipe)
@@ -3492,9 +3492,9 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 			/*
 			 * 1. If pipe is on the right side of the blending
 			 *    stage, on either left LM or right LM but it is not
-			 *    crossing LM boundry then left_blend index is used.
+			 *    crossing LM boundry then right_blend ndx is used.
 			 * 2. If pipe is on the right side of the blending
-			 *    stage, on left LM and it is crossing LM boundry
+			 *    stage on left LM and it is crossing LM boundry
 			 *    then for left LM it is placed into right_blend
 			 *    index but for right LM it still placed into
 			 *    left_blend index.
@@ -3503,10 +3503,17 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 			    (pipe->src_split_req && !mixer->is_right_mixer)))
 				j++;
 
+			/* First clear all blend containers for current stage */
+			for (k = 0; k < MAX_PIPES_PER_STAGE; k++) {
+				u32 ndx = (i * MAX_PIPES_PER_STAGE) + k;
+
+				if (mixer->stage_pipe[ndx] == pipe)
+					mixer->stage_pipe[ndx] = NULL;
+			}
+
+			/* then stage actual pipe on specific blend container */
 			if (i == pipe->mixer_stage)
 				mixer->stage_pipe[j] = pipe;
-			else if (mixer->stage_pipe[j] == pipe)
-				mixer->stage_pipe[j] = NULL;
 		}
 	}
 
