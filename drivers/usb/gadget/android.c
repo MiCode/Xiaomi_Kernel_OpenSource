@@ -1487,8 +1487,10 @@ static int android_bind_config(struct usb_configuration *c)
 	struct android_dev *dev = _android_dev;
 	int ret = 0;
 
-	if (gadget_is_otg(c->cdev->gadget))
+	if (gadget_is_otg(c->cdev->gadget)) {
 		c->descriptors = otg_desc;
+		c->cdev->otg_desc = &otg_descriptor;
+	}
 
 	ret = android_bind_enabled_functions(dev, c);
 	if (ret)
@@ -1549,9 +1551,6 @@ static int android_bind(struct usb_composite_dev *cdev)
 	strings_dev[STRING_SERIAL_IDX].id = id;
 	device_desc.iSerialNumber = id;
 	dev->reset_string_id = id;
-
-	if (gadget_is_otg(gadget))
-		cdev->otg_desc = &otg_descriptor;
 
 	usb_gadget_set_selfpowered(gadget);
 	dev->cdev = cdev;
