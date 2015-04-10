@@ -235,6 +235,7 @@ module_param_named(
 );
 
 static int fg_sense_type = -EINVAL;
+static int fg_restart;
 
 static int fg_est_dump;
 module_param_named(
@@ -365,6 +366,7 @@ struct fg_chip {
 	struct power_supply	bms_psy;
 	struct mutex		rw_lock;
 	struct mutex		cyc_ctr_lock;
+	struct mutex		sysfs_restart_lock;
 	struct work_struct	batt_profile_init;
 	struct work_struct	dump_sram;
 	struct work_struct	status_change_work;
@@ -373,6 +375,7 @@ struct fg_chip {
 	struct work_struct	update_esr_work;
 	struct work_struct	set_resume_soc_work;
 	struct work_struct	rslow_comp_work;
+	struct work_struct	sysfs_restart_work;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
@@ -3567,22 +3570,171 @@ static void update_cc_cv_setpoint(struct fg_chip *chip)
 			tmp[0], tmp[1], CC_CV_SETPOINT_REG);
 }
 
-#define V_PREDICTED_ADDR		0x540
-#define V_CURRENT_PREDICTED_OFFSET	0
-#define LOW_LATENCY	BIT(6)
-#define PROFILE_LOAD_TIMEOUT_MS		5000
+#define LOW_LATENCY			BIT(6)
 #define BATT_PROFILE_OFFSET		0x4C0
 #define PROFILE_INTEGRITY_REG		0x53C
 #define PROFILE_INTEGRITY_BIT		BIT(0)
 #define FIRST_EST_DONE_BIT		BIT(5)
 #define MAX_TRIES_FIRST_EST		3
 #define FIRST_EST_WAIT_MS		2000
+static int fg_do_restart(struct fg_chip *chip, bool write_profile)
+{
+	int rc;
+	int tries = 0;
+	u8 reg = 0;
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("restarting fuel gauge...\n");
+	/*
+	 * release the sram access and configure the correct settings
+	 * before re-requesting access.
+	 */
+	mutex_lock(&chip->rw_lock);
+	fg_release_access(chip);
+
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
+			NO_OTP_PROF_RELOAD, 0, 1);
+	if (rc) {
+		pr_err("failed to set no otp reload bit\n");
+		goto unlock_and_fail;
+	}
+
+	/* unset the restart bits so the fg doesn't continuously restart */
+	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
+	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
+			reg, 0, 1);
+	if (rc) {
+		pr_err("failed to unset fg restart: %d\n", rc);
+		goto unlock_and_fail;
+	}
+
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip),
+			LOW_LATENCY, LOW_LATENCY, 1);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		goto unlock_and_fail;
+	}
+	mutex_unlock(&chip->rw_lock);
+
+	/* read once to get a fg cycle in */
+	rc = fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 0);
+	if (rc) {
+		pr_err("failed to read profile integrity rc=%d\n", rc);
+		goto fail;
+	}
+
+	/*
+	 * If this is not the first time a profile has been loaded, sleep for
+	 * 3 seconds to make sure the NO_OTP_RELOAD is cleared in memory
+	 */
+	if (chip->first_profile_loaded)
+		msleep(3000);
+
+	mutex_lock(&chip->rw_lock);
+	fg_release_access(chip);
+	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), LOW_LATENCY, 0, 1);
+	if (rc) {
+		pr_err("failed to set low latency access bit\n");
+		goto unlock_and_fail;
+	}
+
+	atomic_add_return(1, &chip->memif_user_cnt);
+	mutex_unlock(&chip->rw_lock);
+
+	if (write_profile) {
+		/* write the battery profile */
+		rc = fg_mem_write(chip, chip->batt_profile, BATT_PROFILE_OFFSET,
+				chip->batt_profile_len, 0, 1);
+		if (rc) {
+			pr_err("failed to write profile rc=%d\n", rc);
+			goto sub_and_fail;
+		}
+		/* write the integrity bits and release access */
+		rc = fg_mem_masked_write(chip, PROFILE_INTEGRITY_REG,
+				PROFILE_INTEGRITY_BIT,
+				PROFILE_INTEGRITY_BIT, 0);
+		if (rc) {
+			pr_err("failed to write profile rc=%d\n", rc);
+			goto sub_and_fail;
+		}
+	}
+
+	/* decrement the user count so that memory access can be released */
+	fg_release_access_if_necessary(chip);
+	/*
+	 * set the restart bits so that the next fg cycle will not reload
+	 * the profile
+	 */
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
+			NO_OTP_PROF_RELOAD, NO_OTP_PROF_RELOAD, 1);
+	if (rc) {
+		pr_err("failed to set no otp reload bit\n");
+		goto fail;
+	}
+
+	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
+	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
+			reg, reg, 1);
+	if (rc) {
+		pr_err("failed to set fg restart: %d\n", rc);
+		goto fail;
+	}
+
+	/* wait for the first estimate to complete */
+	for (tries = 0; tries < MAX_TRIES_FIRST_EST; tries++) {
+		msleep(FIRST_EST_WAIT_MS);
+
+		rc = fg_read(chip, &reg, INT_RT_STS(chip->soc_base), 1);
+		if (rc) {
+			pr_err("spmi read failed: addr=%03X, rc=%d\n",
+					INT_RT_STS(chip->soc_base), rc);
+		}
+		if (reg & FIRST_EST_DONE_BIT)
+			break;
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("waiting for est, tries = %d\n", tries);
+	}
+	if ((reg & FIRST_EST_DONE_BIT) == 0)
+		pr_err("Battery profile reloading failed, no first estimate\n");
+
+	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
+			NO_OTP_PROF_RELOAD, 0, 1);
+	if (rc) {
+		pr_err("failed to set no otp reload bit\n");
+		goto fail;
+	}
+	/* unset the restart bits so the fg doesn't continuously restart */
+	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
+	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
+			reg, 0, 1);
+	if (rc) {
+		pr_err("failed to unset fg restart: %d\n", rc);
+		goto fail;
+	}
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("done!\n");
+	return 0;
+
+unlock_and_fail:
+	mutex_unlock(&chip->rw_lock);
+	goto fail;
+sub_and_fail:
+	fg_release_access_if_necessary(chip);
+	goto fail;
+fail:
+	return -EINVAL;
+}
+
+#define V_PREDICTED_ADDR		0x540
+#define V_CURRENT_PREDICTED_OFFSET	0
+#define PROFILE_LOAD_TIMEOUT_MS		5000
 #define FG_PROFILE_LEN			128
 #define PROFILE_COMPARE_LEN		32
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
-	int len, tries;
+	int len;
 	struct device_node *node = chip->spmi->dev.of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data, *batt_type_str, *old_batt_type;
@@ -3746,131 +3898,12 @@ wait:
 				DUMP_PREFIX_NONE, 16, 1, chip->batt_profile,
 				chip->batt_profile_len, false);
 
-	/*
-	 * release the sram access and configure the correct settings
-	 * before re-requesting access.
-	 */
-	mutex_lock(&chip->rw_lock);
-	fg_release_access(chip);
-
-	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
-			NO_OTP_PROF_RELOAD, 0, 1);
+	rc = fg_do_restart(chip, true);
 	if (rc) {
-		pr_err("failed to set no otp reload bit\n");
-		goto unlock_and_fail;
-	}
-
-	/* unset the restart bits so the fg doesn't continuously restart */
-	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
-	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
-			reg, 0, 1);
-	if (rc) {
-		pr_err("failed to unset fg restart: %d\n", rc);
-		goto unlock_and_fail;
-	}
-
-	rc = fg_masked_write(chip, MEM_INTF_CFG(chip),
-			LOW_LATENCY, LOW_LATENCY, 1);
-	if (rc) {
-		pr_err("failed to set low latency access bit\n");
-		goto unlock_and_fail;
-	}
-	mutex_unlock(&chip->rw_lock);
-
-	/* read once to get a fg cycle in */
-	rc = fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 0);
-	if (rc) {
-		pr_err("failed to read profile integrity rc=%d\n", rc);
+		pr_err("restart failed: %d\n", rc);
 		goto fail;
 	}
 
-	/*
-	 * If this is not the first time a profile has been loaded, sleep for
-	 * 3 seconds to make sure the NO_OTP_RELOAD is cleared in memory
-	 */
-	if (chip->first_profile_loaded)
-		msleep(3000);
-
-	mutex_lock(&chip->rw_lock);
-	fg_release_access(chip);
-	rc = fg_masked_write(chip, MEM_INTF_CFG(chip), LOW_LATENCY, 0, 1);
-	if (rc) {
-		pr_err("failed to set low latency access bit\n");
-		goto unlock_and_fail;
-	}
-
-	atomic_add_return(1, &chip->memif_user_cnt);
-	mutex_unlock(&chip->rw_lock);
-
-	/* write the battery profile */
-	rc = fg_mem_write(chip, chip->batt_profile, BATT_PROFILE_OFFSET,
-			chip->batt_profile_len, 0, 1);
-	if (rc) {
-		pr_err("failed to write profile rc=%d\n", rc);
-		goto sub_and_fail;
-	}
-
-	/* write the integrity bits and release access */
-	rc = fg_mem_masked_write(chip, PROFILE_INTEGRITY_REG,
-			PROFILE_INTEGRITY_BIT, PROFILE_INTEGRITY_BIT, 0);
-	if (rc) {
-		pr_err("failed to write profile rc=%d\n", rc);
-		goto sub_and_fail;
-	}
-
-	/* decrement the user count so that memory access can be released */
-	fg_release_access_if_necessary(chip);
-	/*
-	 * set the restart bits so that the next fg cycle will reload
-	 * the profile
-	 */
-	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
-			NO_OTP_PROF_RELOAD, NO_OTP_PROF_RELOAD, 1);
-	if (rc) {
-		pr_err("failed to set no otp reload bit\n");
-		goto fail;
-	}
-
-	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
-	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
-			reg, reg, 1);
-	if (rc) {
-		pr_err("failed to set fg restart: %d\n", rc);
-		goto fail;
-	}
-
-	/* wait for the first estimate to complete */
-	for (tries = 0; tries < MAX_TRIES_FIRST_EST; tries++) {
-		msleep(FIRST_EST_WAIT_MS);
-
-		rc = fg_read(chip, &reg, INT_RT_STS(chip->soc_base), 1);
-		if (rc) {
-			pr_err("spmi read failed: addr=%03X, rc=%d\n",
-					INT_RT_STS(chip->soc_base), rc);
-		}
-		if (reg & FIRST_EST_DONE_BIT)
-			break;
-		else
-			if (fg_debug_mask & FG_STATUS)
-				pr_info("waiting for est, tries = %d\n", tries);
-	}
-	if ((reg & FIRST_EST_DONE_BIT) == 0)
-		pr_err("Battery profile reloading failed, no first estimate\n");
-
-	rc = fg_masked_write(chip, chip->soc_base + SOC_BOOT_MOD,
-			NO_OTP_PROF_RELOAD, 0, 1);
-	if (rc) {
-		pr_err("failed to set no otp reload bit\n");
-		goto fail;
-	}
-	/* unset the restart bits so the fg doesn't continuously restart */
-	reg = REDO_FIRST_ESTIMATE | RESTART_GO;
-	rc = fg_masked_write(chip, chip->soc_base + SOC_RESTART,
-			reg, 0, 1);
-	if (rc) {
-		pr_err("failed to unset fg restart: %d\n", rc);
-		goto fail;
-	}
 done:
 	if (fg_batt_type)
 		chip->batt_type = fg_batt_type;
@@ -3892,12 +3925,6 @@ done:
 		power_supply_changed(&chip->bms_psy);
 	fg_relax(&chip->profile_wakeup_source);
 	return rc;
-unlock_and_fail:
-	mutex_unlock(&chip->rw_lock);
-	goto fail;
-sub_and_fail:
-	fg_release_access_if_necessary(chip);
-	goto fail;
 fail:
 	chip->batt_type = old_batt_type;
 	if (chip->power_supply_registered)
@@ -3931,6 +3958,21 @@ static void batt_profile_init(struct work_struct *work)
 
 	if (fg_batt_profile_init(chip))
 		pr_err("failed to initialize profile\n");
+}
+
+static void sysfs_restart_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				sysfs_restart_work);
+	int rc;
+
+	rc = fg_do_restart(chip, false);
+	if (rc)
+		pr_err("fg restart failed: %d\n", rc);
+	mutex_lock(&chip->sysfs_restart_lock);
+	fg_restart = 0;
+	mutex_unlock(&chip->sysfs_restart_lock);
 }
 
 static void update_bcl_thresholds(struct fg_chip *chip)
@@ -4346,9 +4388,13 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->status_change_work);
 	cancel_work_sync(&chip->cycle_count_work);
 	cancel_work_sync(&chip->update_esr_work);
+	cancel_work_sync(&chip->sysfs_restart_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
+	mutex_destroy(&chip->cyc_ctr_lock);
+	mutex_destroy(&chip->learning_data.learning_lock);
+	mutex_destroy(&chip->sysfs_restart_lock);
 	wakeup_source_trash(&chip->resume_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
@@ -5131,6 +5177,7 @@ static int fg_probe(struct spmi_device *spmi)
 	mutex_init(&chip->cyc_ctr_lock);
 	mutex_init(&chip->learning_data.learning_lock);
 	mutex_init(&chip->rslow_comp.lock);
+	mutex_init(&chip->sysfs_restart_lock);
 	INIT_DELAYED_WORK(&chip->update_jeita_setting, update_jeita_setting);
 	INIT_DELAYED_WORK(&chip->update_sram_data, update_sram_data_work);
 	INIT_DELAYED_WORK(&chip->update_temp_work, update_temp_data);
@@ -5144,6 +5191,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->battery_age_work, battery_age_work);
 	INIT_WORK(&chip->update_esr_work, update_esr_value);
 	INIT_WORK(&chip->set_resume_soc_work, set_resume_soc_work);
+	INIT_WORK(&chip->sysfs_restart_work, sysfs_restart_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -5316,11 +5364,13 @@ cancel_work:
 	cancel_work_sync(&chip->cycle_count_work);
 	cancel_work_sync(&chip->update_esr_work);
 	cancel_work_sync(&chip->rslow_comp_work);
+	cancel_work_sync(&chip->sysfs_restart_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
 	mutex_destroy(&chip->cyc_ctr_lock);
 	mutex_destroy(&chip->learning_data.learning_lock);
+	mutex_destroy(&chip->sysfs_restart_lock);
 	wakeup_source_trash(&chip->resume_soc_wakeup_source.source);
 	wakeup_source_trash(&chip->empty_check_wakeup_source.source);
 	wakeup_source_trash(&chip->memif_wakeup_source.source);
@@ -5427,6 +5477,40 @@ static struct kernel_param_ops fg_sense_type_ops = {
 };
 
 module_param_cb(sense_type, &fg_sense_type_ops, &fg_sense_type, 0644);
+
+static int fg_restart_set(const char *val, const struct kernel_param *kp)
+{
+	struct power_supply *bms_psy;
+	struct fg_chip *chip;
+
+	bms_psy = power_supply_get_by_name("bms");
+	if (!bms_psy) {
+		pr_err("bms psy not found\n");
+		return 0;
+	}
+	chip = container_of(bms_psy, struct fg_chip, bms_psy);
+
+	mutex_lock(&chip->sysfs_restart_lock);
+	if (fg_restart != 0) {
+		mutex_unlock(&chip->sysfs_restart_lock);
+		return 0;
+	}
+	fg_restart = 1;
+	mutex_unlock(&chip->sysfs_restart_lock);
+
+	if (fg_debug_mask & FG_STATUS)
+		pr_info("fuel gauge restart initiated from sysfs...\n");
+
+	schedule_work(&chip->sysfs_restart_work);
+	return 0;
+}
+
+static struct kernel_param_ops fg_restart_ops = {
+	.set = fg_restart_set,
+	.get = param_get_int,
+};
+
+module_param_cb(restart, &fg_restart_ops, &fg_restart, 0644);
 
 static struct spmi_driver fg_driver = {
 	.driver		= {
