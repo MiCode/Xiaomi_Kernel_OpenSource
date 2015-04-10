@@ -397,6 +397,8 @@
 
 #define LPIO_PWM_ENABLE_MASK		0x80000000
 
+#define FLIS_RCOMP_IOSFSB_REG4		0x04
+
 struct intel_dsi_device {
 	unsigned int panel_id;
 	const char *name;

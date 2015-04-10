@@ -194,9 +194,10 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 	DRM_DEBUG_KMS("\n");
 
 	mutex_lock(&dev_priv->dpio_lock);
-	/* program rcomp for compliance, reduce from 50 ohms to 45 ohms
-	 * needed everytime after power gate */
-	vlv_flisdsi_write(dev_priv, 0x04, 0x0004);
+
+	val = vlv_flisdsi_read(dev_priv, FLIS_RCOMP_IOSFSB_REG4);
+	val &= ~(0x0f);
+	vlv_flisdsi_write(dev_priv, FLIS_RCOMP_IOSFSB_REG4, val);
 	mutex_unlock(&dev_priv->dpio_lock);
 
 	/* bandgap reset is needed after everytime we do power gate */
