@@ -429,8 +429,8 @@ enum {
 #define WCD9335_ANA_RCO                                  0x0603
 #define WCD9335_ANA_BUCK_VOUT_A                          0x0604
 #define WCD9335_ANA_BUCK_VOUT_D                          0x0605
-#define WCD9335_ANA_BUCK_RAMP_CAL_CTL                    0x0606
-#define WCD9335_ANA_BUCK_RAMP_CAL_STATUS                 0x0607
+#define WCD9335_ANA_BUCK_CTL                             0x0606
+#define WCD9335_ANA_BUCK_STATUS                          0x0607
 #define WCD9335_ANA_RX_SUPPLIES                          0x0608
 #define WCD9335_ANA_HPH                                  0x0609
 #define WCD9335_ANA_EAR                                  0x060a
@@ -581,8 +581,8 @@ enum {
 #define WCD9335_CLASSH_CTRL_CCL_4                        0x069f
 #define WCD9335_CLASSH_CTRL_CCL_5                        0x06a0
 #define WCD9335_CLASSH_BUCK_TMUX_A_D                     0x06a1
-#define WCD9335_CLASSH_TBD_1                             0x06a2
-#define WCD9335_CLASSH_TBD_2                             0x06a3
+#define WCD9335_CLASSH_BUCK_SW_DRV_CNTL                  0x06a2
+#define WCD9335_CLASSH_SPARE                             0x06a3
 #define WCD9335_FLYBACK_EN                               0x06a4
 #define WCD9335_FLYBACK_VNEG_CTRL_1                      0x06a5
 #define WCD9335_FLYBACK_VNEG_CTRL_2                      0x06a6
@@ -639,6 +639,7 @@ enum {
 #define WCD9335_HPH_RDAC_CLK_CTL1                        0x06d9
 #define WCD9335_HPH_RDAC_CLK_CTL2                        0x06da
 #define WCD9335_HPH_RDAC_LDO_CTL                         0x06db
+#define WCD9335_HPH_RDAC_CHOP_CLK_LP_CTL                 0x06dc
 #define WCD9335_HPH_REFBUFF_UHQA_CTL                     0x06dd
 #define WCD9335_HPH_REFBUFF_LP_CTL                       0x06de
 #define WCD9335_HPH_L_DAC_CTL                            0x06df
