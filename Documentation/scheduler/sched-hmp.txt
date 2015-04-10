@@ -565,6 +565,24 @@ both tasks and CPUs to aid in the placement of tasks.
   whose upmigrate_discourage flag is set) will never be classified as big tasks
   despite their high demand.
 
+  As the load scale factor is calculated against current fmax, it gets boosted
+  when a lower capacity CPU is restricted to run at lower fmax. The task
+  demand is inflated in this scenario and the task upmigrates early to the
+  maximum capacity CPU. Hence this threshold is auto-adjusted by a factor
+  equal to max_possible_frequency/current_frequency of a lower capacity CPU.
+  This adjustment happens only when the lower capacity CPU frequency is
+  restricted. The same adjustment is applied to the downmigrate threshold
+  as well.
+
+  When the frequency restriction is relaxed, the previous values are restored.
+  sched_up_down_migrate_auto_update macro defined in kernel/sched/core.c
+  controls this auto-adjustment behavior and it is enabled by default.
+
+  If the adjusted upmigrate threshold exceeds the window size, it is clipped to
+  the window size. If the adjusted downmigrate threshold decreases the difference
+  between the upmigrate and downmigrate, it is clipped to a value such that the
+  difference between the modified and the original thresholds is same.
+
 - mostly_idle
 
   The "mostly_idle" classification applies to CPUs. This
