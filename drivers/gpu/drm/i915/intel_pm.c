@@ -1730,6 +1730,8 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 				struct drm_crtc *crtc, bool enable)
 {
 	unsigned int val = 0;
+	struct intel_crtc_config *config =
+				&((to_intel_crtc(crtc))->config);
 
 	if (!IS_VALLEYVIEW(dev_priv->dev))
 		return;
@@ -1737,9 +1739,16 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 	if (enable) {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
 			val = 0x0;
-			mutex_lock(&dev_priv->rps.hw_lock);
-			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-			mutex_unlock(&dev_priv->rps.hw_lock);
+			/*
+			 * cannot enable ddr dvfs if
+			 * resolution greater than 19x12
+			 */
+			if ((config->pipe_src_w * config->pipe_src_h)
+					<= (1920 * 1200)) {
+				mutex_lock(&dev_priv->rps.hw_lock);
+				vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+				mutex_unlock(&dev_priv->rps.hw_lock);
+			}
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
@@ -1751,10 +1760,18 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 		dev_priv->maxfifo_enabled = true;
 	} else {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
-			val = CHV_FORCE_DDR_HIGH_FREQ |	CHV_DDR_DVFS_DOORBELL;
-			mutex_lock(&dev_priv->rps.hw_lock);
-			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-			mutex_unlock(&dev_priv->rps.hw_lock);
+			/*
+			 * cannot enable ddr dvfs if
+			 * resolution is greater than 19x12
+			 */
+			if ((config->pipe_src_w * config->pipe_src_h)
+					<= (1920 * 1200)) {
+				val = CHV_FORCE_DDR_HIGH_FREQ |
+						CHV_DDR_DVFS_DOORBELL;
+				mutex_lock(&dev_priv->rps.hw_lock);
+				vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
+				mutex_unlock(&dev_priv->rps.hw_lock);
+			}
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
