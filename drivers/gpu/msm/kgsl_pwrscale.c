@@ -838,7 +838,6 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 				sizeof(struct kgsl_pwr_event), GFP_KERNEL);
 		pwrscale->history[i].type = i;
 	}
-	set_bit(POPP_ON, &pwrscale->popp_state);
 
 	return 0;
 }
