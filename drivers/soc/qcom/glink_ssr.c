@@ -263,6 +263,8 @@ void close_ch_worker(struct work_struct *work)
 	glink_close(close_work->handle);
 
 	ss_info = get_info_for_edge(close_work->edge);
+	BUG_ON(!ss_info);
+
 	spin_lock_irqsave(&ss_info->link_up_lock, flags);
 	ss_info->link_up = false;
 	spin_unlock_irqrestore(&ss_info->link_up_lock, flags);
