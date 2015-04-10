@@ -1260,6 +1260,7 @@ int atomisp_css_start(struct atomisp_sub_device *asd,
 			enum atomisp_css_pipe_id pipe_id, bool in_reset)
 {
 	struct atomisp_device *isp = asd->isp;
+	bool sp_is_started = false;
 	int ret = 0, i = 0;
 	if (in_reset) {
 		if (__destroy_streams(asd, true))
@@ -1318,6 +1319,8 @@ int atomisp_css_start(struct atomisp_sub_device *asd,
 			dev_err(isp->dev, "start sp error.\n");
 			ret = -EINVAL;
 			goto start_err;
+		} else {
+			sp_is_started = true;
 		}
 	}
 
@@ -1348,7 +1351,7 @@ stream_err:
 	/*
 	 * SP can not be stop if other streams are in use
 	 */
-	if (atomisp_streaming_count(isp) == 0)
+	if ((atomisp_streaming_count(isp) == 0) && sp_is_started)
 		ia_css_stop_sp();
 
 	return ret;
