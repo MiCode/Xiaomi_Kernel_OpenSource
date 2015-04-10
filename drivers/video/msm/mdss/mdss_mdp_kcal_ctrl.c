@@ -477,7 +477,7 @@ static DEVICE_ATTR(kcal_enable, S_IWUSR | S_IRUGO, kcal_enable_show,
 	kcal_enable_store);
 static DEVICE_ATTR(kcal_invert, S_IWUSR | S_IRUGO, kcal_invert_show,
 	kcal_invert_store);
-static DEVICE_ATTR(kcal_sat, S_IWUSR | S_IRUGO,	kcal_sat_show, kcal_sat_store);
+static DEVICE_ATTR(kcal_sat, S_IWUSR | S_IRUGO, kcal_sat_show, kcal_sat_store);
 static DEVICE_ATTR(kcal_hue, S_IWUSR | S_IRUGO, kcal_hue_show, kcal_hue_store);
 static DEVICE_ATTR(kcal_val, S_IWUSR | S_IRUGO, kcal_val_show, kcal_val_store);
 static DEVICE_ATTR(kcal_cont, S_IWUSR | S_IRUGO, kcal_cont_show,
@@ -571,5 +571,3 @@ static void __exit kcal_ctrl_exit(void)
 
 late_initcall(kcal_ctrl_init);
 module_exit(kcal_ctrl_exit);
-
-MODULE_DESCRIPTION("MDSS-MDP5 KCAL Driver");
