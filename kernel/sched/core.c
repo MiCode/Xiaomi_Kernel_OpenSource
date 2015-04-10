@@ -2408,6 +2408,27 @@ static int compute_load_scale_factor(int cpu)
 	return load_scale;
 }
 
+#define sched_up_down_migrate_auto_update 1
+static void check_for_up_down_migrate_update(const struct cpumask *cpus)
+{
+	int i = cpumask_first(cpus);
+	struct rq *rq = cpu_rq(i);
+
+	if (!sched_up_down_migrate_auto_update)
+		return;
+
+	if (rq->max_possible_capacity == max_possible_capacity)
+		return;
+
+	if (rq->max_possible_freq == rq->max_freq)
+		up_down_migrate_scale_factor = 1024;
+	else
+		up_down_migrate_scale_factor = (1024 * rq->max_possible_freq)/
+					rq->max_freq;
+
+	update_up_down_migrate();
+}
+
 static int cpufreq_notifier_policy(struct notifier_block *nb,
 		unsigned long val, void *data)
 {
@@ -2510,6 +2531,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	}
 
 	__update_min_max_capacity();
+	check_for_up_down_migrate_update(policy->related_cpus);
 	post_big_small_task_count_change(cpu_possible_mask);
 
 	return 0;
