@@ -18,6 +18,8 @@
 #include <linux/platform_device.h>
 #include <linux/clk/msm-clk-provider.h>
 #include <linux/clk/msm-clock-generic.h>
+#include <linux/of_platform.h>
+#include <linux/pm_opp.h>
 
 #include <soc/qcom/clock-alpha-pll.h>
 #include <soc/qcom/clock-pll.h>
@@ -3478,6 +3480,86 @@ static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
 	return 0;
 }
 
+static int is_v2_gpu;
+static void print_opp_table(struct device *dev)
+{
+	struct clk *gpu_clk = &gfx3d_clk_src.c;
+	struct dev_pm_opp *opp;
+	int i;
+
+	if (is_v2_gpu)
+		gpu_clk = &gfx3d_clk_src_v2.c;
+
+	pr_info("OPP table for GPU core clock:\n");
+	for (i = 1; i < gpu_clk->num_fmax; i++) {
+		if (!gpu_clk->fmax[i])
+			continue;
+		opp = dev_pm_opp_find_freq_exact(dev, gpu_clk->fmax[i], true);
+		pr_info("clock-gpu: OPP voltage for %lu Hz: %ld uV\n",
+			gpu_clk->fmax[i], dev_pm_opp_get_voltage(opp));
+	}
+}
+
+static void populate_gpu_opp_table(struct platform_device *pdev)
+{
+	struct device_node *of = pdev->dev.of_node;
+	struct platform_device *gpu_dev;
+	struct device_node *gpu_node;
+	struct clk *gpu_clk = &gfx3d_clk_src.c;
+	struct clk_vdd_class *vdd = gpu_clk->vdd_class;
+	int i, ret, uv, corner;
+	unsigned long rate = 0;
+
+	if (is_v2_gpu) {
+		gpu_clk = &gfx3d_clk_src_v2.c;
+		vdd = gpu_clk->vdd_class;
+	}
+
+	gpu_node = of_parse_phandle(of, "gpu_handle", 0);
+	if (!gpu_node) {
+		pr_err("clock-gpu: %s: Unable to get device_node pointer for GPU\n",
+							__func__);
+		return;
+	}
+
+	gpu_dev = of_find_device_by_node(gpu_node);
+	if (!gpu_dev) {
+		pr_err("clock-gpu: %s: Unable to find platform_device node for GPU\n",
+							__func__);
+		return;
+	}
+
+	for (i = 0; i < gpu_clk->num_fmax; i++) {
+		if (!gpu_clk->fmax[i])
+			continue;
+
+		ret = clk_round_rate(gpu_clk, gpu_clk->fmax[i]);
+		if (ret < 0) {
+			pr_warn("clock-gpu: %s: round_rate failed at %lu - err: %d\n",
+							__func__, rate, ret);
+			return;
+		}
+		rate = ret;
+		corner = vdd->vdd_uv[2 * i];
+		uv = regulator_list_corner_voltage(vdd_gfx.regulator[0],
+								corner);
+		if (uv < 0) {
+			pr_warn("clock-gpu: %s: no uv for corner %d - err: %d\n",
+							__func__, corner, uv);
+			return;
+		}
+
+		ret = dev_pm_opp_add(&gpu_dev->dev, rate, uv);
+		if (ret) {
+			pr_warn("clock-gpu: %s: couldn't add OPP for %lu - err: %d\n",
+							__func__, rate, ret);
+			return;
+		}
+	}
+
+	print_opp_table(&gpu_dev->dev);
+}
+
 static struct platform_driver msm_clock_gpu_driver;
 
 int msm_mmsscc_8996_probe(struct platform_device *pdev)
@@ -3694,8 +3776,9 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 		return PTR_ERR(reg);
 	}
 
-	if (!of_device_is_compatible(pdev->dev.of_node,
-						"qcom,gpucc-8996-v2")) {
+	is_v2_gpu = of_device_is_compatible(pdev->dev.of_node,
+						"qcom,gpucc-8996-v2");
+	if (!is_v2_gpu) {
 		rc = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
 					"qcom,gfxfreq-corner-v0");
 		if (rc) {
@@ -3726,6 +3809,7 @@ int msm_gpucc_8996_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Registered GPU clocks.\n");
 
+	populate_gpu_opp_table(pdev);
 	return 0;
 }
 
