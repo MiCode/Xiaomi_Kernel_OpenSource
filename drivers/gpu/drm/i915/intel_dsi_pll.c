@@ -326,13 +326,15 @@ void vlv_enable_dsi_pll(struct intel_encoder *encoder)
 	tmp |= DSI_PLL_VCO_EN;
 	vlv_cck_write(dev_priv, CCK_REG_DSI_PLL_CONTROL, tmp);
 
+	if (wait_for(vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL) &
+							0x1, 20)) {
+		mutex_unlock(&dev_priv->dpio_lock);
+		DRM_ERROR("DSI PLL lock failed\n");
+		return;
+	}
 	mutex_unlock(&dev_priv->dpio_lock);
 
-	tmp = vlv_cck_read(dev_priv, CCK_REG_DSI_PLL_CONTROL);
-	if (tmp & 0x1)
-		DRM_DEBUG_KMS("DSI PLL Locked\n");
-	else
-		DRM_DEBUG_KMS("DSI PLL lock failed\n");
+	DRM_DEBUG_KMS("DSI PLL Locked\n");
 }
 
 void vlv_disable_dsi_pll(struct intel_encoder *encoder)
