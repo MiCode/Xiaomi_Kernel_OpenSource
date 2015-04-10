@@ -361,6 +361,8 @@ static void *platform_get_batt_charge_profile(void)
 
 static void platform_init_chrg_params(struct dollarcove_chrg_pdata *pdata)
 {
+	struct ps_pse_mod_prof *prof;
+	int i;
 	pdata->throttle_states = dc_chrg_throttle_states;
 	pdata->supplied_to = dc_chrg_supplied_to;
 	pdata->num_throttle_states = ARRAY_SIZE(dc_chrg_throttle_states);
@@ -368,6 +370,32 @@ static void platform_init_chrg_params(struct dollarcove_chrg_pdata *pdata)
 	pdata->supported_cables = POWER_SUPPLY_CHARGER_TYPE_USB;
 	pdata->chg_profile = (struct ps_batt_chg_prof *)
 			platform_get_batt_charge_profile();
+	/* Initialize the default parameters */
+	pdata->def_cc = 500;
+	pdata->def_cv = 4350;
+	pdata->def_ilim = 900;
+	pdata->def_iterm = 300;
+	pdata->def_max_temp = 55;
+	pdata->def_min_temp = 0;
+
+	/* Initialize with default values if no charge profile */
+	if (!pdata->chg_profile) {
+		pdata->max_cc = 2000;
+		pdata->max_cv = 4350;
+		return;
+	}
+	prof = (struct ps_pse_mod_prof *)pdata->chg_profile->batt_prof;
+	/* Read max parameters from charge profile */
+	for (i = 0; i < prof->temp_mon_ranges; i++) {
+		if (prof->temp_mon_range[i].full_chrg_vol > pdata->max_cv)
+			pdata->max_cv = prof->temp_mon_range[i].full_chrg_vol;
+		if (prof->temp_mon_range[i].full_chrg_cur > pdata->max_cc)
+			pdata->max_cc = prof->temp_mon_range[i].full_chrg_cur;
+	}
+	if (pdata->def_cc > pdata->max_cc)
+		pdata->def_cc = pdata->max_cc;
+	if (pdata->def_cv > pdata->max_cv)
+		pdata->def_cv = pdata->max_cv;
 }
 
 static void platform_set_battery_data(struct dollarcove_fg_pdata *pdata,
@@ -413,14 +441,6 @@ static void dc_xpwr_chrg_pdata(void)
 	static struct dollarcove_chrg_pdata pdata;
 	struct gpio_desc *gpio_desc;
 
-	pdata.max_cc = 2000;
-	pdata.max_cv = 4350;
-	pdata.def_cc = 500;
-	pdata.def_cv = 4350;
-	pdata.def_ilim = 900;
-	pdata.def_iterm = 300;
-	pdata.def_max_temp = 55;
-	pdata.def_min_temp = 0;
 
 	gpio_desc = devm_gpiod_get_index(dollar_cove_pmic.dev,
 			"pmic_res", GPIO_OTG_VBUS_INDEX);
@@ -432,7 +452,6 @@ static void dc_xpwr_chrg_pdata(void)
 	}
 
 	platform_init_chrg_params(&pdata);
-
 	intel_soc_pmic_set_pdata("dollar_cove_charger",
 				(void *)&pdata, sizeof(pdata), 0);
 }
