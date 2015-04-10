@@ -1646,10 +1646,6 @@ int _ipa_init_sram_v2_5(void)
 {
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd = { 0 };
-	struct ipa_desc desc = { 0 };
-	struct ipa_mem_buffer mem;
-	int rc = 0;
 
 	phys_addr = ipa_ctx->ipa_wrapper_base +
 			ipa_ctx->ctrl->ipa_reg_base_ofst +
@@ -1680,30 +1676,7 @@ int _ipa_init_sram_v2_5(void)
 
 	iounmap(ipa_sram_mmio);
 
-	mem.size = IPA_STATUS_CLEAR_SIZE;
-	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
-		GFP_KERNEL);
-	if (!mem.base) {
-		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
-		return -ENOMEM;
-	}
-	memset(mem.base, 0, mem.size);
-
-	cmd.size = mem.size;
-	cmd.system_addr = mem.phys_base;
-	cmd.local_addr = IPA_STATUS_CLEAR_OFST;
-	desc.opcode = IPA_DMA_SHARED_MEM;
-	desc.pyld = &cmd;
-	desc.len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
-	desc.type = IPA_IMM_CMD_DESC;
-
-	if (ipa_send_cmd(1, &desc)) {
-		IPAERR("fail to send immediate command\n");
-		rc = -EFAULT;
-	}
-
-	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
-	return rc;
+	return 0;
 }
 
 static inline void ipa_sram_set_canary(u32 *sram_mmio, int offset)
@@ -1716,10 +1689,6 @@ int _ipa_init_sram_v2_6L(void)
 {
 	u32 *ipa_sram_mmio;
 	unsigned long phys_addr;
-	struct ipa_hw_imm_cmd_dma_shared_mem cmd = { 0 };
-	struct ipa_desc desc = { 0 };
-	struct ipa_mem_buffer mem;
-	int rc = 0;
 
 	phys_addr = ipa_ctx->ipa_wrapper_base +
 		ipa_ctx->ctrl->ipa_reg_base_ofst +
@@ -1750,30 +1719,7 @@ int _ipa_init_sram_v2_6L(void)
 
 	iounmap(ipa_sram_mmio);
 
-	mem.size = IPA_STATUS_CLEAR_SIZE;
-	mem.base = dma_alloc_coherent(ipa_ctx->pdev, mem.size, &mem.phys_base,
-		GFP_KERNEL);
-	if (!mem.base) {
-		IPAERR("fail to alloc DMA buff of size %d\n", mem.size);
-		return -ENOMEM;
-	}
-	memset(mem.base, 0, mem.size);
-
-	cmd.size = mem.size;
-	cmd.system_addr = mem.phys_base;
-	cmd.local_addr = IPA_STATUS_CLEAR_OFST;
-	desc.opcode = IPA_DMA_SHARED_MEM;
-	desc.pyld = &cmd;
-	desc.len = sizeof(struct ipa_hw_imm_cmd_dma_shared_mem);
-	desc.type = IPA_IMM_CMD_DESC;
-
-	if (ipa_send_cmd(1, &desc)) {
-		IPAERR("fail to send immediate command\n");
-		rc = -EFAULT;
-	}
-
-	dma_free_coherent(ipa_ctx->pdev, mem.size, mem.base, mem.phys_base);
-	return rc;
+	return 0;
 }
 
 int _ipa_init_hdr_v2(void)
