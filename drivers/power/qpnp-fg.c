@@ -3577,6 +3577,8 @@ static void update_cc_cv_setpoint(struct fg_chip *chip)
 #define FIRST_EST_DONE_BIT		BIT(5)
 #define MAX_TRIES_FIRST_EST		3
 #define FIRST_EST_WAIT_MS		2000
+#define FG_PROFILE_LEN			128
+#define PROFILE_COMPARE_LEN		32
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
@@ -3584,7 +3586,7 @@ static int fg_batt_profile_init(struct fg_chip *chip)
 	struct device_node *node = chip->spmi->dev.of_node;
 	struct device_node *batt_node, *profile_node;
 	const char *data, *batt_type_str, *old_batt_type;
-	bool tried_again = false, vbat_in_range;
+	bool tried_again = false, vbat_in_range, profiles_same;
 	u8 reg = 0;
 
 wait:
@@ -3661,6 +3663,12 @@ wait:
 		goto no_profile;
 	}
 
+	if (len != FG_PROFILE_LEN) {
+		pr_err("battery profile incorrect size: %d\n", len);
+		rc = -EINVAL;
+		goto fail;
+	}
+
 	rc = of_property_read_string(profile_node, "qcom,battery-type",
 					&batt_type_str);
 	if (rc) {
@@ -3695,11 +3703,13 @@ wait:
 	vbat_in_range = abs(fg_data[FG_DATA_VOLTAGE].value
 				- fg_data[FG_DATA_CPRED_VOLTAGE].value)
 				< settings[FG_MEM_VBAT_EST_DIFF].value * 1000;
+	profiles_same = memcmp(chip->batt_profile, data,
+					PROFILE_COMPARE_LEN) == 0;
 	if (reg & PROFILE_INTEGRITY_BIT)
 		fg_cap_learning_load_data(chip);
 	if ((reg & PROFILE_INTEGRITY_BIT) && vbat_in_range
 			&& !fg_is_batt_empty(chip)
-			&& memcmp(chip->batt_profile, data, len - 4) == 0) {
+			&& profiles_same) {
 		if (fg_debug_mask & FG_STATUS)
 			pr_info("Battery profiles same, using default\n");
 		if (fg_est_dump)
@@ -3714,6 +3724,8 @@ wait:
 				fg_data[FG_DATA_VOLTAGE].value);
 	if ((fg_debug_mask & FG_STATUS) && fg_is_batt_empty(chip))
 		pr_info("battery empty\n");
+	if ((fg_debug_mask & FG_STATUS) && !profiles_same)
+		pr_info("profiles differ\n");
 	if (fg_debug_mask & FG_STATUS) {
 		pr_info("Using new profile\n");
 		print_hex_dump(KERN_INFO, "FG: loaded profile: ",
