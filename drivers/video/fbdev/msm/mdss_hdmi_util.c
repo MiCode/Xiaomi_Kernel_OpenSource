@@ -297,7 +297,7 @@ int hdmi_get_supported_mode(struct msm_hdmi_mode_timing_info *info,
 {
 	int ret;
 
-	if (!info || !ds_data)
+	if (!info)
 		return -EINVAL;
 
 	if (mode >= HDMI_VFRMT_MAX)
