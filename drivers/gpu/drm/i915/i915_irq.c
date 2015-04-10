@@ -3590,6 +3590,19 @@ void i915_hangcheck_sample(struct work_struct *work)
 		      (long int) i915_gem_request_get_seqno(last_req),
 		      (idle ? "true" : "false"));
 
+	/*
+	 * ACTHD breaks in some instances by constantly changing even when
+	 * there is no reason for doing so. The underlying reason for this is
+	 * still pending investigation. This behaviour breaks the TDR hang
+	 * detection since it interprets the constantly changing ACTHD as a
+	 * liveliness indication even when there is a hang. To work around this
+	 * problem we disable the ACTHD check until we have investigated why
+	 * this is happening. The hang detection algorithm does not rely on
+	 * ACTHD entirely and will work just as well in the vast majority of
+	 * cases even without checking ACTHD.
+	 */
+	acthd = 0;
+
 	/* Check both head and active head.
 	* Neither is enough on its own - acthd can be pointing within the
 	* batch buffer so is more likely to be moving, but the same
