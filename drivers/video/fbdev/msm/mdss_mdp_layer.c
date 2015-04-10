@@ -401,11 +401,9 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pipe->horz_deci = layer->horz_deci;
 	pipe->vert_deci = layer->vert_deci;
 	pipe->bg_color = layer->bg_color;
-	pipe->mixer_stage = layer->z_order;
 	pipe->alpha = layer->alpha;
 	pipe->transp = layer->transp_mask;
 	pipe->blend_op = layer->blend_op;
-	pipe->src_split_req = false;
 
 	flags = pipe->flags;
 	if (is_single_layer)
@@ -460,6 +458,8 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 			pipe->src_split_req = false;
 		}
 	}
+
+	pipe->mixer_stage = layer->z_order;
 
 	if (mfd->panel_orientation & MDP_FLIP_LR)
 		pipe->dst.x = pipe->mixer_left->width - pipe->dst.x -
