@@ -44,20 +44,20 @@
 #define CRYSTALCOVE_PMIC_VIBRA_MAX_BASEUNIT	0x7F
 
 /* for CHT CR SOC controlled vibra */
-#define SE_BASE_ADDRESS 0xFED98000
-#define CFG0_ADDR 0x4408
-#define CFG1_ADDR 0x440C
-#define PERIOD_NS 2000
-#define DUTY_NS_OFF 1000   /* 50 % */
-#define DUTY_NS_ON 500     /* 25 % */
+#define PERIOD_NS   40000
+#define DUTY_NS_ON  20000     /* 50 % */
+
+#define VIBRA_EN_INDEX 0
 
 struct mid_vibra_pdata vibra_pdata = {
 	.time_divisor	= 0x7f, /* for 50% duty cycle */
 	.base_unit	= 0x0,
 	.gpio_pwm	= -1,
 	.name		= "VIBR22A8",
-	.use_gpio_en    = false,
-		/* CHT vibra doesnt use gpio enable control */
+	.use_gpio_en    = true,
+		/* WA: CHT Due to issue CHV 4800410 PWM pin remains high
+		sometimes after disabling PWMCTRL
+		Use PWM1 in GPIO mode instead */
 };
 
 static int vibra_pwm_configure(struct vibra_info *info, bool enable)
@@ -78,12 +78,30 @@ static int vibra_pwm_configure(struct vibra_info *info, bool enable)
 	}
 
 	if (enable) {
-		pr_info("%s: Config and enable vibra  devi\n", __func__);
+		pr_debug("%s: Config and enable vibra  devi\n", __func__);
 		chip->ops->config(chip,  pwm,  DUTY_NS_ON,  PERIOD_NS);
 		chip->ops->enable(chip,  pwm);
 	} else {
-		pr_info("%s: disable  vibra device\n", __func__);
+		pr_debug("%s: disable  vibra device\n", __func__);
 		chip->ops->disable(chip,  pwm);
+	}
+	return 0;
+}
+
+
+static int vibra_gpio_configure(struct vibra_info *info, bool enable)
+{
+	struct gpio_desc *gpio_en;
+	gpio_en = gpio_to_desc(info->gpio_en);
+	if (IS_ERR_OR_NULL(gpio_en))
+		return -ENODEV;
+
+	if (enable) {
+		pr_debug("%s: Turn vibra gpio ON\n", __func__);
+		gpiod_set_value(gpio_en, 1);
+	} else {
+		pr_debug("%s: Turn vibra gpio OFF\n", __func__);
+		gpiod_set_value(gpio_en, 0);
 	}
 	return 0;
 }
@@ -140,6 +158,7 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 	struct acpi_device *device;
 	const char *hid;
 	struct mid_vibra_pdata *data;
+	struct gpio_desc *gpio_en;
 	int ret;
 	const char *board_name;
 
@@ -157,13 +176,6 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	board_name = dmi_get_system_info(DMI_BOARD_NAME);
-	if (strcmp(board_name, "Cherry Trail CR") == 0) {
-		pr_info("Cherry Trail CR: intel_mid_plat_vibra_probe\n");
-		/* make sure that the pad is set to native mode */
-		void __iomem *cfg = ioremap_nocache(SE_BASE_ADDRESS, 0x8000);
-		iowrite32(0x10000, cfg + CFG0_ADDR);
-		iounmap(cfg);
-	}
 
 	if (data->use_gpio_en) {
 		if (data->gpio_en < 0) {
@@ -177,28 +189,41 @@ int intel_mid_plat_vibra_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	if (strcmp(board_name, "Cherry Trail CR") == 0) {
-		info->pwm_configure = vibra_pwm_configure;
-		/* WA: Until BIOS set 50% duty cycle on boot */
-		vibra_pwm_configure(info, false);
+		info->pwm_configure = vibra_gpio_configure;
 	} else {
 		info->pwm_configure = vibra_pmic_pwm_configure;
 		info->max_base_unit = CRYSTALCOVE_PMIC_VIBRA_MAX_BASEUNIT;
 		info->max_duty_cycle = INTEL_VIBRA_MAX_TIMEDIVISOR;
 	}
 	if (data->use_gpio_en) {
-		pr_debug("%s: using gpio_en: %d", __func__, info->gpio_en);
-		ret = gpio_request_one(info->gpio_en, GPIOF_DIR_OUT,
-				"VIBRA ENABLE");
-		if (ret != 0) {
-			pr_err("gpio_request(%d) fails:%d\n",
-					info->gpio_en, ret);
-			return ret;
+		gpio_en = devm_gpiod_get_index(dev, "VIBRA EN", VIBRA_EN_INDEX);
+		if (IS_ERR_OR_NULL(gpio_en)) {
+			pr_debug("%s: using gpio_en : %d (legacy)",
+					__func__, info->gpio_en);
+			ret = gpio_request_one(info->gpio_en, GPIOF_DIR_OUT,
+					"VIBRA ENABLE");
+			if (ret != 0) {
+				pr_err("gpio_request(%d) fails:%d\n",
+						info->gpio_en, ret);
+				return ret;
+			}
+		} else {
+			info->gpio_en = desc_to_gpio(gpio_en);
+			pr_debug("%s: using gpio_en : %d",
+					__func__, info->gpio_en);
+			ret = gpiod_direction_output(gpio_en, 0);
+			if (ret < 0) {
+				dev_err(dev, "Failed to set OUT direction for vibra_en\n");
+				return ret;
+			}
 		}
 		/* Re configure the PWM EN GPIO to have drive type as CMOS
 		 * and pull disable
 		 */
-		intel_soc_pmic_writeb(CRYSTALCOVE_PMIC_PWM_EN_GPIO_REG,
-				CRYSTALCOVE_PMIC_PWM_EN_GPIO_VALUE);
+		if (strncmp(board_name, "Cherry Trail CR", DMI_STRING_MAX)) {
+			intel_soc_pmic_writeb(CRYSTALCOVE_PMIC_PWM_EN_GPIO_REG,
+					CRYSTALCOVE_PMIC_PWM_EN_GPIO_VALUE);
+		}
 	}
 
 	ret = sysfs_create_group(&dev->kobj, info->vibra_attr_group);
