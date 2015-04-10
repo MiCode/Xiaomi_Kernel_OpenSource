@@ -977,7 +977,7 @@
 		};
 
 		slv_imem:slv-imem {
-			cell-id = <MSM_BUS_SLAVE_SYSTEM_IMEM>;
+			cell-id = <MSM_BUS_SLAVE_OCIMEM>;
 			label = "slv-imem";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
