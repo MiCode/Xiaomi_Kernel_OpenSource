@@ -435,7 +435,7 @@ static int __init msm_cpufreq_probe(struct platform_device *pdev)
 			if (!IS_ERR(ftbl)) {
 				dev_warn(dev, "Conflicting tables for CPU%d\n",
 					 cpu);
-				kfree(ftbl);
+				devm_kfree(dev, ftbl);
 			}
 			ftbl = per_cpu(freq_table, cpu - 1);
 		}
