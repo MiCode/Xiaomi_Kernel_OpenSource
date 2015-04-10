@@ -14,6 +14,7 @@
 #include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi0-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dualmipi1-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-dsc-wqxga-video.dtsi"
 #include "dsi-panel-jdi-dualmipi0-video.dtsi"
 #include "dsi-panel-jdi-dualmipi1-video.dtsi"
 #include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
@@ -86,4 +87,12 @@
 		23 1f 06 08 04 03 04 a0
 		23 1f 06 08 04 03 04 a0
 		23 2d 05 08 04 03 04 a0];
+};
+
+&dsi_nt35597_dsc_video {
+	qcom,mdss-dsi-panel-timings-8996 = [07 04 04 06 03 03 04 a0
+		07 04 04 06 03 03 04 a0
+		07 04 04 06 03 03 04 a0
+		07 04 04 06 03 03 04 a0
+		07 0e 04 05 03 13 04 a0];
 };
