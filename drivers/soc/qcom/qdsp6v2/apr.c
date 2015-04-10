@@ -955,6 +955,7 @@ static int apr_probe(struct platform_device *pdev)
 {
 	int i, j, k, ret;
 	const char *dsp_type = NULL;
+
 	ret = of_property_read_string(pdev->dev.of_node,
 		"qcom,apr-dest-type",
 		&dsp_type);
@@ -1033,7 +1034,7 @@ static struct platform_driver apr_driver = {
 	.probe = apr_probe,
 	.remove = apr_remove,
 	.driver = {
-		.name = "apr",
+		.name = "adsp_audio",
 		.owner = THIS_MODULE,
 		.of_match_table = apr_machine_of_match,
 	}

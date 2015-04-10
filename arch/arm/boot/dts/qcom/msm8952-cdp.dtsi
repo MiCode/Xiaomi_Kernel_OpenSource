@@ -106,17 +106,17 @@
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <0>;
 		qcom,msm-mbhc-gnd-swh = <0>;
-		qcom,msm-hs-micbias-type = "internal";
+		qcom,msm-hs-micbias-type = "external";
 		qcom,msm-micbias1-ext-cap;
 		qcom,audio-routing =
 			"RX_BIAS", "MCLK",
 			"SPK_RX_BIAS", "MCLK",
 			"INT_LDO_H", "MCLK",
 			"MIC BIAS External", "Handset Mic",
-			"MIC BIAS Internal2", "Headset Mic",
+			"MIC BIAS External2", "Headset Mic",
 			"MIC BIAS External", "Secondary Mic",
 			"AMIC1", "MIC BIAS External",
-			"AMIC2", "MIC BIAS Internal2",
+			"AMIC2", "MIC BIAS External2",
 			"AMIC3", "MIC BIAS External",
 			"SpkrMono WSA_IN", "WSA_SPK OUT";
 		qcom,msm-gpios =
