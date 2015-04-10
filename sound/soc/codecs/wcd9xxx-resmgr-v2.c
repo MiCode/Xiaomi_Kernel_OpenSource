@@ -72,6 +72,11 @@ int wcd_resmgr_enable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
 						 0x80, 0x80);
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_BIAS,
 						 0x40, 0x40);
+		/*
+		 * 1ms delay is required after pre-charge is enabled
+		 * as per HW requirement
+		 */
+		usleep_range(1000, 1100);
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_BIAS,
 						 0x40, 0x00);
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_BIAS,
