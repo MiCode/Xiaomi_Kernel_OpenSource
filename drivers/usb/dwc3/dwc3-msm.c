@@ -34,13 +34,11 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
-#include <linux/qpnp-misc.h>
 #include <linux/usb/msm_hsusb.h>
 #include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_wakeup.h>
 #include <linux/power_supply.h>
-#include <linux/qpnp/qpnp-adc.h>
 #include <linux/cdev.h>
 #include <linux/completion.h>
 #include <linux/clk/msm-clk.h>
@@ -58,19 +56,6 @@
 static int cpu_to_affin;
 module_param(cpu_to_affin, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(cpu_to_affin, "affin usb irq to this cpu");
-
-/* ADC threshold values */
-static int adc_low_threshold = 700;
-module_param(adc_low_threshold, int, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(adc_low_threshold, "ADC ID Low voltage threshold");
-
-static int adc_high_threshold = 950;
-module_param(adc_high_threshold, int, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(adc_high_threshold, "ADC ID High voltage threshold");
-
-static int adc_meas_interval = ADC_MEAS1_INTERVAL_1S;
-module_param(adc_meas_interval, int, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(adc_meas_interval, "ADC ID polling period");
 
 static int override_phy_init;
 module_param(override_phy_init, int, S_IRUGO|S_IWUSR);
@@ -182,11 +167,6 @@ struct dwc3_msm {
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
 	struct work_struct	id_work;
-	struct qpnp_adc_tm_btm_param	adc_param;
-	struct qpnp_adc_tm_chip *adc_tm_dev;
-	struct delayed_work	init_adc_work;
-	bool			id_adc_detect;
-	struct qpnp_vadc_chip	*vadc_dev;
 	u8			dcd_retries;
 	u32			bus_perf_client;
 	struct msm_bus_scale_pdata	*bus_scale_table;
@@ -2195,27 +2175,6 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int
-get_prop_usbin_voltage_now(struct dwc3_msm *mdwc)
-{
-	int rc = 0;
-	struct qpnp_vadc_result results;
-
-	if (IS_ERR_OR_NULL(mdwc->vadc_dev)) {
-		mdwc->vadc_dev = qpnp_get_vadc(mdwc->dev, "usbin");
-		if (IS_ERR(mdwc->vadc_dev))
-			return PTR_ERR(mdwc->vadc_dev);
-	}
-
-	rc = qpnp_vadc_read(mdwc->vadc_dev, USBIN, &results);
-	if (rc) {
-		pr_err("Unable to read usbin rc=%d\n", rc);
-		return 0;
-	} else {
-		return results.physical;
-	}
-}
-
 static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
@@ -2240,9 +2199,6 @@ static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		val->intval = psy->type;
-		break;
-	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
-		val->intval = get_prop_usbin_voltage_now(mdwc);
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = mdwc->health_status;
@@ -2409,12 +2365,9 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_CURRENT_MAX,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_SCOPE,
-	POWER_SUPPLY_PROP_VOLTAGE_NOW,
 	POWER_SUPPLY_PROP_HEALTH,
 	POWER_SUPPLY_PROP_USB_OTG,
 };
-
-static void dwc3_init_adc_work(struct work_struct *w);
 
 static void dwc3_ext_notify_online(void *ctx, int on)
 {
@@ -2518,103 +2471,6 @@ static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
 
 	return NOTIFY_OK;
 }
-
-static void dwc3_adc_notification(enum qpnp_tm_state state, void *ctx)
-{
-	struct dwc3_msm *mdwc = ctx;
-
-	if (state >= ADC_TM_STATE_NUM) {
-		pr_err("%s: invalid notification %d\n", __func__, state);
-		return;
-	}
-
-	dev_dbg(mdwc->dev, "%s: state = %s\n", __func__,
-			state == ADC_TM_HIGH_STATE ? "high" : "low");
-
-	/* save ID state, but don't necessarily notify OTG */
-	if (state == ADC_TM_HIGH_STATE) {
-		mdwc->id_state = DWC3_ID_FLOAT;
-		mdwc->adc_param.state_request = ADC_TM_LOW_THR_ENABLE;
-	} else {
-		mdwc->id_state = DWC3_ID_GROUND;
-		mdwc->adc_param.state_request = ADC_TM_HIGH_THR_ENABLE;
-	}
-
-	dwc3_id_work(&mdwc->id_work);
-
-	/* re-arm ADC interrupt */
-	qpnp_adc_tm_usbid_configure(mdwc->adc_tm_dev, &mdwc->adc_param);
-}
-
-static void dwc3_init_adc_work(struct work_struct *w)
-{
-	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
-							init_adc_work.work);
-	int ret;
-
-	mdwc->adc_tm_dev = qpnp_get_adc_tm(mdwc->dev, "dwc_usb3-adc_tm");
-	if (IS_ERR(mdwc->adc_tm_dev)) {
-		if (PTR_ERR(mdwc->adc_tm_dev) == -EPROBE_DEFER)
-			queue_delayed_work(system_nrt_wq, to_delayed_work(w),
-					msecs_to_jiffies(100));
-		else
-			mdwc->adc_tm_dev = NULL;
-
-		return;
-	}
-
-	mdwc->adc_param.low_thr = adc_low_threshold;
-	mdwc->adc_param.high_thr = adc_high_threshold;
-	mdwc->adc_param.timer_interval = adc_meas_interval;
-	mdwc->adc_param.state_request = ADC_TM_HIGH_LOW_THR_ENABLE;
-	mdwc->adc_param.btm_ctx = mdwc;
-	mdwc->adc_param.threshold_notification = dwc3_adc_notification;
-
-	ret = qpnp_adc_tm_usbid_configure(mdwc->adc_tm_dev, &mdwc->adc_param);
-	if (ret) {
-		dev_err(mdwc->dev, "%s: request ADC error %d\n", __func__, ret);
-		return;
-	}
-
-	mdwc->id_adc_detect = true;
-}
-
-static ssize_t adc_enable_show(struct device *dev,
-			       struct device_attribute *attr, char *buf)
-{
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-
-	if (!mdwc)
-		return -EINVAL;
-
-	return snprintf(buf, PAGE_SIZE, "%s\n", mdwc->id_adc_detect ?
-						"enabled" : "disabled");
-}
-
-static ssize_t adc_enable_store(struct device *dev,
-		struct device_attribute *attr, const char
-		*buf, size_t size)
-{
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-
-	if (!mdwc)
-		return -EINVAL;
-
-	if (!strnicmp(buf, "enable", 6)) {
-		if (!mdwc->id_adc_detect)
-			dwc3_init_adc_work(&mdwc->init_adc_work.work);
-		return size;
-	} else if (!strnicmp(buf, "disable", 7)) {
-		qpnp_adc_tm_usbid_end(mdwc->adc_tm_dev);
-		mdwc->id_adc_detect = false;
-		return size;
-	}
-
-	return -EINVAL;
-}
-
-static DEVICE_ATTR(adc_enable, S_IRUGO | S_IWUSR, adc_enable_show,
-		adc_enable_store);
 
 static int dwc3_msm_ext_chg_open(struct inode *inode, struct file *file)
 {
@@ -2835,7 +2691,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&mdwc->usb_block_reset_work, dwc3_block_reset_usb_work);
 	INIT_WORK(&mdwc->id_work, dwc3_id_work);
-	INIT_DELAYED_WORK(&mdwc->init_adc_work, dwc3_init_adc_work);
 	init_completion(&mdwc->ext_chg_wait);
 
 	ret = dwc3_msm_config_gdsc(mdwc, 1);
@@ -3033,34 +2888,17 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->pmic_id_irq = platform_get_irq_byname(pdev, "pmic_id_irq");
 	if (mdwc->pmic_id_irq > 0) {
-		/* check if PMIC ID IRQ is supported */
-		ret = qpnp_misc_irqs_available(&pdev->dev);
-
-		if (ret == -EPROBE_DEFER) {
-			/* qpnp hasn't probed yet; defer dwc probe */
+		ret = devm_request_irq(&pdev->dev,
+				       mdwc->pmic_id_irq,
+				       dwc3_pmic_id_irq,
+				       IRQF_TRIGGER_RISING |
+				       IRQF_TRIGGER_FALLING,
+				       "dwc3_msm_pmic_id",
+				       mdwc);
+		if (ret) {
+			dev_err(&pdev->dev, "irqreq IDINT failed\n");
 			goto disable_ref_clk;
-		} else if (ret == 0) {
-			mdwc->pmic_id_irq = 0;
-		} else {
-			ret = devm_request_irq(&pdev->dev,
-					       mdwc->pmic_id_irq,
-					       dwc3_pmic_id_irq,
-					       IRQF_TRIGGER_RISING |
-					       IRQF_TRIGGER_FALLING,
-					       "dwc3_msm_pmic_id",
-					       mdwc);
-			if (ret) {
-				dev_err(&pdev->dev, "irqreq IDINT failed\n");
-				goto disable_ref_clk;
-			}
 		}
-	}
-
-	if (mdwc->pmic_id_irq <= 0) {
-		/* If no PMIC ID IRQ, use ADC for ID pin detection */
-		queue_work(system_nrt_wq, &mdwc->init_adc_work.work);
-		device_create_file(&pdev->dev, &dev_attr_adc_enable);
-		mdwc->pmic_id_irq = 0;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
@@ -3397,8 +3235,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		unregister_chrdev_region(mdwc->ext_chg_dev, 1);
 	}
 
-	if (mdwc->id_adc_detect)
-		qpnp_adc_tm_usbid_end(mdwc->adc_tm_dev);
 	if (dwc3_debugfs_root)
 		debugfs_remove_recursive(dwc3_debugfs_root);
 	if (mdwc->otg_xceiv)
