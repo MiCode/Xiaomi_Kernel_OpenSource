@@ -921,16 +921,26 @@ static unsigned int __add_curr_ctxt_cmds(struct adreno_ringbuffer *rb,
 			current_context));
 	*cmds++ = (drawctxt ? drawctxt->base.id : 0);
 
-	/* Flush the UCHE for new context */
-	*cmds++ = cp_register(adreno_dev,
+	/* Invalidate UCHE for new context */
+	if (adreno_is_a5xx(adreno_dev)) {
+		*cmds++ = cp_register(adreno_dev,
+			adreno_getreg(adreno_dev,
+		ADRENO_REG_UCHE_INVALIDATE0), 1);
+		*cmds++ = 0x12;
+	} else if (adreno_is_a4xx(adreno_dev)) {
+		*cmds++ = cp_register(adreno_dev,
 			adreno_getreg(adreno_dev,
 			ADRENO_REG_UCHE_INVALIDATE0), 2);
-	*cmds++ = 0;
-
-	if (adreno_is_a3xx(adreno_dev))
-		*cmds++ = 0x90000000;
-	else
+		*cmds++ = 0;
 		*cmds++ = 0x12;
+	} else if (adreno_is_a3xx(adreno_dev)) {
+		*cmds++ = cp_register(adreno_dev,
+			adreno_getreg(adreno_dev,
+			ADRENO_REG_UCHE_INVALIDATE0), 2);
+		*cmds++ = 0;
+		*cmds++ = 0x90000000;
+	} else
+		BUG();
 
 	return cmds - cmds_orig;
 }
