@@ -501,7 +501,7 @@ static int rt5670_readable_register(
 int rt5670_headset_detect(struct snd_soc_codec *codec, int jack_insert)
 {
 	int val;
-	int i = 0, sleep_time[5] = {10, 5, 5, 5, 5};
+	int i = 0, sleep_time[5] = {100, 5, 5, 5, 5};
 	struct rt5670_priv *rt5670 = snd_soc_codec_get_drvdata(codec);
 
 	if (jack_insert) {

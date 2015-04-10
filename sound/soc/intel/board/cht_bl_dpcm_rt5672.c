@@ -42,13 +42,13 @@
 #define CHT_PLAT_CLK_3_HZ	19200000
 
 #define CHT_INTR_DEBOUNCE               0
-#define CHT_HS_INSERT_DET_DELAY         500
+#define CHT_HS_INSERT_DET_DELAY         400
 #define CHT_HS_REMOVE_DET_DELAY         500
 #define CHT_BUTTON_DET_DELAY            100
 #define CHT_HS_DET_POLL_INTRVL          100
 #define CHT_BUTTON_EN_DELAY             1500
 
-#define CHT_HS_DET_RETRY_COUNT          6
+#define CHT_HS_DET_RETRY_COUNT          1
 
 struct cht_mc_private {
 	struct snd_soc_jack jack;
