@@ -212,13 +212,15 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 		val |= pipe ? DELAY_180_PHASE_SHIFT_MIPIC :
 				DELAY_180_PHASE_SHIFT_MIPIA;
 
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_ENTER);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder,
+			DEVICE_READY | ULPS_STATE_ENTER);
 
 	/* wait for LP state to go 00 */
 	usleep_range(2500, 3000);
 	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
-	intel_dsi_write_dev_rdy_on_A_and_C(encoder, ULPS_STATE_EXIT);
+	intel_dsi_write_dev_rdy_on_A_and_C(encoder,
+			DEVICE_READY | ULPS_STATE_EXIT);
 
 	/* wait for LP state to goto 11 */
 	usleep_range(2500, 3000);
