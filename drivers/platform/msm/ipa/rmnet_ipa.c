@@ -45,6 +45,8 @@
 #define IPA_WWAN_DEV_NAME "rmnet_ipa%d"
 #define IPA_WWAN_DEVICE_COUNT (1)
 
+#define IPA_WWAN_RX_SOFTIRQ_THRESH 16
+
 static struct net_device *ipa_netdevs[IPA_WWAN_DEVICE_COUNT];
 static struct ipa_sys_connect_params apps_to_ipa_ep_cfg, ipa_to_apps_ep_cfg;
 static u32 qmap_hdr_hdl, dflt_v4_wan_rt_hdl, dflt_v6_wan_rt_hdl;
@@ -1100,7 +1102,11 @@ static void apps_ipa_packet_receive_notify(void *priv,
 	skb->dev = ipa_netdevs[0];
 	skb->protocol = htons(ETH_P_MAP);
 
-	result = netif_rx_ni(skb);
+	if (dev->stats.rx_packets % IPA_WWAN_RX_SOFTIRQ_THRESH == 0)
+		result = netif_rx_ni(skb);
+	else
+		result = netif_rx(skb);
+
 	if (result)	{
 		pr_err_ratelimited(DEV_NAME " %s:%d fail on netif_rx_ni\n",
 				__func__, __LINE__);
