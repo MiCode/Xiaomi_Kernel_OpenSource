@@ -16,6 +16,8 @@ Optional properties:
  - tx-fifo-resize: determines if the FIFO *has* to be reallocated.
  - snps,nominal-elastic-buffer: When set, the nominal elastic buffer setting
 	is used. By default, the half-full setting is used.
+ - snps,bus-suspend-enable: If present then controller supports low power mode
+	during bus suspend.
 
 This is usually a subnode to DWC3 glue to which it is connected.
 

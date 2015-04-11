@@ -837,6 +837,8 @@ static int dwc3_probe(struct platform_device *pdev)
 		dwc->dr_mode = of_usb_get_dr_mode(node);
 		dwc->nominal_elastic_buffer = of_property_read_bool(node,
 				"snps,nominal-elastic-buffer");
+		dwc->enable_bus_suspend = of_property_read_bool(node,
+						"snps,bus-suspend-enable");
 	} else if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
 

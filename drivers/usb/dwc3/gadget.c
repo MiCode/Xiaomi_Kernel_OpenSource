@@ -1176,8 +1176,23 @@ static int dwc3_gadget_ep_queue(struct usb_ep *ep, struct usb_request *request,
 	struct dwc3			*dwc = dep->dwc;
 
 	unsigned long			flags;
-
+	enum dwc3_link_state		link_state;
 	int				ret;
+	bool wakeup = false;
+
+	if (atomic_read(&dwc->in_lpm)) {
+		wakeup = true;
+	} else {
+		link_state = dwc3_get_link_state(dwc);
+		if (link_state == DWC3_LINK_STATE_RX_DET ||
+			link_state == DWC3_LINK_STATE_U3)
+			wakeup = true;
+	}
+
+	if (wakeup) {
+		dwc3_gadget_wakeup(&dwc->gadget);
+		return -EAGAIN;
+	}
 
 	spin_lock_irqsave(&dwc->lock, flags);
 	if (!dep->endpoint.desc) {
@@ -1208,6 +1223,11 @@ static int dwc3_gadget_ep_dequeue(struct usb_ep *ep,
 
 	unsigned long			flags;
 	int				ret = 0;
+
+	if (atomic_read(&dwc->in_lpm)) {
+		dev_err(dwc->dev, "Unable to dequeue while in LPM\n");
+		return -EAGAIN;
+	}
 
 	trace_dwc3_ep_dequeue(req);
 
@@ -2371,6 +2391,10 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 {
 	int			reg;
 
+	/* Clear OTG suspend state */
+	if (dwc->enable_bus_suspend)
+		usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
+
 	reg = dwc3_readl(dwc->regs, DWC3_DCTL);
 	reg &= ~DWC3_DCTL_INITU1ENA;
 	dwc3_writel(dwc->regs, DWC3_DCTL, reg);
@@ -2421,6 +2445,10 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 		if (dwc->setup_packet_pending)
 			dwc3_gadget_disconnect_interrupt(dwc);
 	}
+
+	/* Clear OTG suspend state */
+	if (dwc->enable_bus_suspend)
+		usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
 
 	dbg_event(0xFF, "BUS RST", 0);
 	/* after reset -> Default State */
@@ -2565,6 +2593,8 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		return;
 	}
 
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_CONNDONE_EVENT);
+
 	/*
 	 * Configure PHY via GUSB3PIPECTLn if required.
 	 *
@@ -2576,10 +2606,12 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 
 static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc)
 {
-	/*
-	 * TODO take core out of low power mode when that's
-	 * implemented.
-	 */
+	dbg_event(0xFF, "WAKEUP", 0);
+
+	/* Clear OTG suspend state */
+	if (dwc->enable_bus_suspend)
+		usb_phy_set_suspend(dwc->dotg->otg.phy, 0);
+
 	dwc3_resume_gadget(dwc);
 }
 
@@ -2711,8 +2743,21 @@ static void dwc3_gadget_suspend_interrupt(struct dwc3 *dwc,
 {
 	enum dwc3_link_state    next = evtinfo & DWC3_LINK_STATE_MASK;
 
-	if (next == DWC3_LINK_STATE_U3)
+	dev_dbg(dwc->dev, "%s Entry\n", __func__);
+
+	if (next == DWC3_LINK_STATE_U3) {
 		dwc3_suspend_gadget(dwc);
+		if (dwc->enable_bus_suspend) {
+			/*
+			 * Set OTG suspend state and schedule OTG state machine
+			 * work
+			 */
+			dev_dbg(dwc->dev, "%s: Triggering OTG suspend\n",
+				__func__);
+
+			usb_phy_set_suspend(dwc->dotg->otg.phy, 1);
+		}
+	}
 
 	dwc->link_state = next;
 	dev_vdbg(dwc->dev, "%s link %d\n", __func__, dwc->link_state);
@@ -2783,7 +2828,11 @@ static void dwc3_gadget_interrupt(struct dwc3 *dwc,
 			dev_vdbg(dwc->dev, "U3/L1-L2 Suspend Event\n");
 			dbg_event(0xFF, "SUSP Evt", 0);
 			dwc->dbg_gadget_events.suspend++;
-			dwc3_gadget_suspend_interrupt(dwc, event->event_info);
+
+			/* ignore if usb cable is not connected */
+			if (dwc->vbus_active)
+				dwc3_gadget_suspend_interrupt(dwc,
+							event->event_info);
 		}
 		break;
 	case DWC3_DEVICE_EVENT_SOF:
