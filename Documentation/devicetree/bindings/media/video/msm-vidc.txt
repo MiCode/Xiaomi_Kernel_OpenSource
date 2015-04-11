@@ -6,9 +6,6 @@ Venus
 Required properties:
 - compatible : one of:
 	- "qcom,msm-vidc"
-- qcom,hfi : supported Host-Firmware Interface, one of:
-	- "venus"
-	- "q6"
 - qcom,max-hw-load: The maximum load the hardware can support expressed in units
   of macroblocks per second. The load is a reflection of hardware capability
   rather than a performance guarantee. Performance is guaranteed only up to
@@ -156,7 +153,6 @@ Example:
 			<36000 133330000 0x0c000000>, /* HEVC VGA 30 fps  */
 			<36000 133330000 0x01000414>; /* Legacy encoder VGA 30 fps   */
 		qcom,imem-size = <4096>;
-		qcom,hfi = "venus";
 		qcom,firmware-name = "venus";
 		qcom,hfi-version = "3xx";
 		qcom,reg-presets = <0x80004 0x1>,

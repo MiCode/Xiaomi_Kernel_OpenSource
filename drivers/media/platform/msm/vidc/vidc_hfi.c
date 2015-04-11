@@ -14,7 +14,6 @@
 #include "msm_vidc_debug.h"
 #include "vidc_hfi_api.h"
 #include "venus_hfi.h"
-#include "q6_hfi.h"
 
 void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
 			struct msm_vidc_platform_resources *res,
@@ -33,11 +32,6 @@ void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
 	case VIDC_HFI_VENUS:
 		rc = venus_hfi_initialize(hdev, device_id, res, callback);
 		break;
-
-	case VIDC_HFI_Q6:
-		rc = q6_hfi_initialize(hdev, device_id, res, callback);
-		break;
-
 	default:
 		dprintk(VIDC_ERR, "Unsupported host-firmware interface\n");
 		goto err_hfi_init;
@@ -69,14 +63,10 @@ void vidc_hfi_deinitialize(enum msm_vidc_hfi_type hfi_type,
 	case VIDC_HFI_VENUS:
 		venus_hfi_delete_device(hdev->hfi_device_data);
 		break;
-
-	case VIDC_HFI_Q6:
-		q6_hfi_delete_device(hdev->hfi_device_data);
-		break;
-
 	default:
 		dprintk(VIDC_ERR, "Unsupported host-firmware interface\n");
 	}
+
 	kfree(hdev);
 }
 

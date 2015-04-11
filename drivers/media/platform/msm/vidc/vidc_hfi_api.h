@@ -1277,7 +1277,6 @@ struct vidc_hal_session_init_done {
 
 enum msm_vidc_hfi_type {
 	VIDC_HFI_VENUS,
-	VIDC_HFI_Q6,
 };
 
 enum fw_info {

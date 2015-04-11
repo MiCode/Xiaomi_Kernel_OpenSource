@@ -62,32 +62,6 @@ static inline enum imem_type read_imem_type(struct platform_device *pdev)
 
 }
 
-int read_hfi_type(struct platform_device *pdev)
-{
-	struct device_node *np = pdev->dev.of_node;
-	int rc = 0;
-	const char *hfi_name = NULL;
-
-	if (np) {
-		rc = of_property_read_string(np, "qcom,hfi", &hfi_name);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to read hfi from device tree\n");
-			goto err_hfi_read;
-		}
-		if (!strcasecmp(hfi_name, "venus"))
-			rc = VIDC_HFI_VENUS;
-		else if (!strcasecmp(hfi_name, "q6"))
-			rc = VIDC_HFI_Q6;
-		else
-			rc = -EINVAL;
-	} else
-		rc = VIDC_HFI_Q6;
-
-err_hfi_read:
-	return rc;
-}
-
 static inline void msm_vidc_free_freq_table(
 		struct msm_vidc_platform_resources *res)
 {
@@ -531,8 +505,6 @@ static int msm_vidc_load_clock_table(
 	num_clocks = of_property_count_strings(pdev->dev.of_node,
 				"clock-names");
 	if (num_clocks <= 0) {
-		/* Devices such as Q6 might not have any control over clocks
-		 * hence have none specified, which is ok. */
 		dprintk(VIDC_DBG, "No clocks found\n");
 		clocks->count = 0;
 		rc = 0;

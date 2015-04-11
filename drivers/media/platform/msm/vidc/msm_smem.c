@@ -16,7 +16,6 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-direction.h>
 #include <linux/iommu.h>
-#include <linux/msm_iommu_domains.h>
 #include <linux/msm_ion.h>
 #include <linux/slab.h>
 #include <linux/types.h>

@@ -299,12 +299,8 @@ static int read_platform_resources(struct msm_vidc_core *core,
 			__func__, core, pdev);
 		return -EINVAL;
 	}
-	core->hfi_type = read_hfi_type(pdev);
-	if (core->hfi_type < 0) {
-		dprintk(VIDC_ERR, "Failed to identify core type\n");
-		return core->hfi_type;
-	}
 
+	core->hfi_type = VIDC_HFI_VENUS;
 	core->resources.pdev = pdev;
 	if (pdev->dev.of_node) {
 		/* Target supports DT, parse from it */
@@ -348,15 +344,9 @@ static ssize_t msm_vidc_link_name_show(struct device *dev,
 	struct msm_vidc_core *core = dev_get_drvdata(dev);
 	if (core)
 		if (dev == &core->vdev[MSM_VIDC_DECODER].vdev.dev)
-			if (core->hfi_type == VIDC_HFI_Q6)
-				return snprintf(buf, PAGE_SIZE, "q6_dec");
-			else
-				return snprintf(buf, PAGE_SIZE, "venus_dec");
+			return snprintf(buf, PAGE_SIZE, "venus_dec");
 		else if (dev == &core->vdev[MSM_VIDC_ENCODER].vdev.dev)
-			if (core->hfi_type == VIDC_HFI_Q6)
-				return snprintf(buf, PAGE_SIZE, "q6_enc");
-			else
-				return snprintf(buf, PAGE_SIZE, "venus_enc");
+			return snprintf(buf, PAGE_SIZE, "venus_enc");
 		else
 			return 0;
 	else
@@ -522,13 +512,8 @@ static int msm_vidc_probe_vidc_device(struct platform_device *pdev)
 				"Failed to create attributes\n");
 		goto err_core_init;
 	}
-	if (core->hfi_type == VIDC_HFI_Q6) {
-		dprintk(VIDC_DBG, "Q6 hfi device probe called\n");
-		nr += MSM_VIDC_MAX_DEVICES;
-		core->id = MSM_VIDC_CORE_Q6;
-	} else {
-		core->id = MSM_VIDC_CORE_VENUS;
-	}
+
+	core->id = MSM_VIDC_CORE_VENUS;
 
 	rc = v4l2_device_register(&pdev->dev, &core->v4l2_dev);
 	if (rc) {
