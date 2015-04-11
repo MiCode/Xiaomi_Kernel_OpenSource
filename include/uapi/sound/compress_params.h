@@ -339,14 +339,8 @@ struct snd_enc_generic {
 	__s32 reserved[15];
 } __attribute__((packed, aligned(4)));
 
-struct snd_dec_dts {
-	__u32 modelIdLength;
-	__u8 *modelId;
-} __attribute__((packed, aligned(4)));
-
 struct snd_dec_ddp {
 	__u32 params_length;
-	__u8 *params;
 	__u32 params_id[18];
 	__u32 params_value[18];
 } __attribute__((packed, aligned(4)));
@@ -365,7 +359,6 @@ union snd_codec_options {
 	struct snd_enc_real real;
 	struct snd_enc_flac flac;
 	struct snd_enc_generic generic;
-	struct snd_dec_dts dts;
 	struct snd_dec_ddp ddp;
 	struct snd_dec_flac flac_dec;
 } __attribute__((packed, aligned(4)));
