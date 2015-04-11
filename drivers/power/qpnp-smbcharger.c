@@ -2455,7 +2455,7 @@ static int smbchg_calc_max_flash_current(struct smbchg_chip *chip)
 	}
 	/* Calculate the input voltage of the flash module. */
 	vin_flash_uv = max((chip->vled_max_uv + 500000LL),
-				(vph_flash_uv * 1200 / 1000));
+				div64_s64((vph_flash_uv * 1200), 1000));
 	/* Calculate the available power for the flash module. */
 	avail_flash_power_fw = BUCK_EFFICIENCY * vph_flash_uv * ibat_flash_ua;
 	/*
