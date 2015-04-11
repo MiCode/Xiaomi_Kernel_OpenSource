@@ -88,7 +88,11 @@
 #define SND_AUDIOCODEC_PASS_THROUGH          ((__u32) 0x00000011)
 #define SND_AUDIOCODEC_MP2                   ((__u32) 0x00000012)
 #define SND_AUDIOCODEC_DTS_LBR_PASS_THROUGH  ((__u32) 0x00000013)
-#define SND_AUDIOCODEC_EAC3                  ((__u32) 0x00000014)
+#define SND_AUDIOCODEC_AC3                   ((__u32) 0x00000014)
+#define SND_AUDIOCODEC_AC3_PASS_THROUGH      ((__u32) 0x00000015)
+#define SND_AUDIOCODEC_WMA_PRO               ((__u32) 0x00000016)
+#define SND_AUDIOCODEC_DTS             	     ((__u32) 0x00000017)
+#define SND_AUDIOCODEC_EAC3                  ((__u32) 0x00000018)
 #define SND_AUDIOCODEC_MAX                   SND_AUDIOCODEC_EAC3
 
 /*

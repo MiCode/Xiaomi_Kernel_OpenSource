@@ -70,6 +70,7 @@ struct snd_compr_tstamp {
 	__u32 pcm_frames;
 	__u32 pcm_io_frames;
 	__u32 sampling_rate;
+	uint64_t timestamp;
 } __attribute__((packed, aligned(4)));
 
 /**
