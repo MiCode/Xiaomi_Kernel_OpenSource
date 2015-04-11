@@ -167,6 +167,6 @@
 		qcom,mdss-tear-check-sync-threshold-continue = <0x4>;
 		qcom,mdss-tear-check-start-pos = <0x18>;
 		qcom,partial-update-enabled;
-		qcom,panel-roi-alignment = <16 16 16 16 0 0>;
+		qcom,panel-roi-alignment = <32 32 32 32 0 0>;
 	};
 };
