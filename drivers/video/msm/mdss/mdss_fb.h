@@ -304,7 +304,7 @@ static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
 		if (mfd->no_update.timer.function)
 			del_timer(&(mfd->no_update.timer));
 
-		mfd->no_update.timer.expires = jiffies + (2 * HZ);
+		mfd->no_update.timer.expires = jiffies + ((1 * HZ) / 10);
 		add_timer(&mfd->no_update.timer);
 		mutex_unlock(&mfd->no_update.lock);
 	}
