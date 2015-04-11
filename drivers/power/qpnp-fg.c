@@ -1808,7 +1808,8 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 				fg_data[i].value = reg[0];
 			break;
 		case FG_DATA_BATT_SOC:
-			fg_data[i].value = temp * 10000 / FULL_PERCENT_3B;
+			fg_data[i].value = div64_s64((temp * 10000),
+							FULL_PERCENT_3B);
 			break;
 		case FG_DATA_CC_CHARGE:
 			temp = twos_compliment_extend(temp, fg_data[i].len);
@@ -2613,7 +2614,7 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 	int16_t cc_mah;
 	int rc;
 
-	cc_mah = chip->learning_data.learned_cc_uah / 1000;
+	cc_mah = div64_s64(chip->learning_data.learned_cc_uah, 1000);
 
 	rc = fg_mem_write(chip, (u8 *)&cc_mah, FG_AGING_STORAGE_REG, 2, 0, 0);
 	if (rc)
@@ -2626,13 +2627,15 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 
 static void fg_cap_learning_post_process(struct fg_chip *chip)
 {
-	int max_inc_val, min_dec_val;
-	int64_t old_cap;
+	int64_t max_inc_val, min_dec_val, old_cap;
 
 	max_inc_val = chip->learning_data.learned_cc_uah
-			* (1000 + chip->learning_data.max_increment) / 1000;
+			* (1000 + chip->learning_data.max_increment);
+	do_div(max_inc_val, 1000);
+
 	min_dec_val = chip->learning_data.learned_cc_uah
-			* (1000 - chip->learning_data.max_decrement) / 1000;
+			* (1000 - chip->learning_data.max_decrement);
+	do_div(min_dec_val, 1000);
 
 	old_cap = chip->learning_data.learned_cc_uah;
 	if (chip->learning_data.cc_uah > max_inc_val)
@@ -2699,8 +2702,9 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 		}
 
 		/* set the coulomb counter to a percentage of the capacity */
-		chip->learning_data.cc_uah = (chip->learning_data.learned_cc_uah
-			* battery_soc) / FULL_PERCENT_3B;
+		chip->learning_data.cc_uah = div64_s64(
+			(chip->learning_data.learned_cc_uah * battery_soc),
+				FULL_PERCENT_3B);
 
 		rc = fg_mem_masked_write(chip, CBITS_INPUT_FILTER_REG,
 				IBATTF_TAU_MASK, IBATTF_TAU_99_S, 0);
