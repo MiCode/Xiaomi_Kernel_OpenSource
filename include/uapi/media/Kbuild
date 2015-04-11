@@ -1,1 +1,2 @@
 header-y += msm_vidc.h
+header-y += msm_media_info.h
