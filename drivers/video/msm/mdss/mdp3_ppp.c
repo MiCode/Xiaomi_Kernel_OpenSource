@@ -114,6 +114,13 @@ struct ppp_status {
 static struct ppp_status *ppp_stat;
 static bool is_blit_optimization_possible(struct blit_req_list *req, int indx);
 
+static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
+{
+	u64 result = (val * (u64)numer);
+	do_div(result, denom);
+	return result;
+}
+
 int ppp_get_bpp(uint32_t format, uint32_t fb_format)
 {
 	int bpp = -EINVAL;
@@ -441,7 +448,7 @@ u32 mdp3_clk_calc(struct msm_fb_data_type *mfd,
 {
 	int i, lcount = 0;
 	struct mdp_blit_req *req;
-	u32 mdp_clk_rate = 0;
+	u64 mdp_clk_rate = 0;
 	u32 scale_x = 0, scale_y = 0, scale = 0;
 	u32 blend_l, csc_l;
 
@@ -480,8 +487,9 @@ u32 mdp3_clk_calc(struct msm_fb_data_type *mfd,
 		mdp_clk_rate += (req->src_rect.w * req->src_rect.h *
 							scale / 100) * fps;
 	}
-	mdp_clk_rate = (CLK_FUDGE_NUM * mdp_clk_rate) / CLK_FUDGE_DEN;
-	pr_debug("mdp_clk_rate for ppp = %d\n", mdp_clk_rate);
+	mdp_clk_rate += (ppp_res.solid_fill_pixel * fps);
+	mdp_clk_rate = fudge_factor(mdp_clk_rate, CLK_FUDGE_NUM, CLK_FUDGE_DEN);
+	pr_debug("mdp_clk_rate for ppp = %llu\n", mdp_clk_rate);
 
 	if (mdp_clk_rate < MDP_CORE_CLK_RATE_SVS)
 		mdp_clk_rate = MDP_CORE_CLK_RATE_SVS;
@@ -537,7 +545,11 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 		return 0;
 	}
 	if (lreq->req_list[0].flags & MDP_SOLID_FILL) {
-		/* Do not update BW for solid fill */
+		req = &(lreq->req_list[0]);
+		mdp3_get_bpp_info(req->dst.format, &bpp);
+		ppp_res.solid_fill_pixel = req->dst_rect.w * req->dst_rect.h;
+		ppp_res.solid_fill_byte = req->dst_rect.w * req->dst_rect.h *
+						bpp.bpp_num / bpp.bpp_den;
 		ATRACE_END(__func__);
 		return 0;
 	}
@@ -603,14 +615,16 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 
 	if (fps == 0)
 		fps = panel_info->mipi.frame_rate;
+
+	honest_ppp_ab += ppp_res.solid_fill_byte;
 	honest_ppp_ab = honest_ppp_ab * fps;
 
 	if (honest_ppp_ab != ppp_res.next_ab) {
-		pr_debug("bandwidth vote update for ppp: ab = %llx\n",
-								honest_ppp_ab);
 		ppp_res.next_ab = honest_ppp_ab;
 		ppp_res.next_ib = honest_ppp_ab;
 		ppp_stat->bw_update = true;
+		pr_debug("solid fill ab = %llx, total ab = %llx (%d fps)\n",
+			(ppp_res.solid_fill_byte * fps), honest_ppp_ab, fps);
 		ATRACE_INT("mdp3_ppp_bus_quota", honest_ppp_ab);
 	}
 	ppp_res.clk_rate = mdp3_clk_calc(mfd, lreq, fps);
@@ -679,6 +693,11 @@ void mdp3_start_ppp(struct ppp_blit_op *blit_op)
 		pr_debug("Skip mdp3_ppp_kickoff\n");
 	else
 		mdp3_ppp_kickoff();
+
+	if (!(blit_op->solid_fill)) {
+		ppp_res.solid_fill_pixel = 0;
+		ppp_res.solid_fill_byte = 0;
+	}
 }
 
 static int solid_fill_workaround(struct mdp_blit_req *req,
