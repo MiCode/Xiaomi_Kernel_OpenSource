@@ -35,7 +35,6 @@
 #include <linux/usb/gadget.h>
 #include <linux/usb/of.h>
 #include <linux/usb/msm_hsusb.h>
-#include <linux/usb/msm_ext_chg.h>
 #include <linux/regulator/consumer.h>
 #include <linux/pm_wakeup.h>
 #include <linux/power_supply.h>
@@ -192,13 +191,6 @@ struct dwc3_msm {
 			(MDWC3_PHY_REF_CLK_OFF | MDWC3_CORECLK_OFF)
 
 	u32 qscratch_ctl_val;
-	dev_t ext_chg_dev;
-	struct cdev ext_chg_cdev;
-	struct class *ext_chg_class;
-	struct device *ext_chg_device;
-	bool ext_chg_opened;
-	bool ext_chg_active;
-	struct completion ext_chg_wait;
 	unsigned int scm_dev_id;
 	bool suspend_resume_no_support;
 
@@ -1431,14 +1423,9 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 	case USB_CHG_STATE_DETECTED:
 		dwc3_chg_block_reset(mdwc);
 		/* Enable VDP_SRC */
-		if (mdwc->charger.chg_type == DWC3_DCP_CHARGER) {
+		if (mdwc->charger.chg_type == DWC3_DCP_CHARGER)
 			dwc3_msm_write_readback(mdwc->base,
 					CHARGING_DET_CTRL_REG, 0x1F, 0x10);
-			if (mdwc->ext_chg_opened) {
-				init_completion(&mdwc->ext_chg_wait);
-				mdwc->ext_chg_active = true;
-			}
-		}
 		dev_dbg(mdwc->dev, "chg_type = %s\n",
 			chg_to_string(mdwc->charger.chg_type));
 		mdwc->charger.notify_detection_complete(mdwc->otg_xceiv->otg,
@@ -1902,29 +1889,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	return 0;
 }
 
-static void dwc3_wait_for_ext_chg_done(struct dwc3_msm *mdwc)
-{
-	unsigned long t;
-
-	/*
-	 * Defer next cable connect event till external charger
-	 * detection is completed.
-	 */
-
-	if (mdwc->ext_chg_active && (mdwc->ext_xceiv.bsv ||
-				!mdwc->ext_xceiv.id)) {
-
-		dev_dbg(mdwc->dev, "before ext chg wait\n");
-
-		t = wait_for_completion_timeout(&mdwc->ext_chg_wait,
-				msecs_to_jiffies(3000));
-		if (!t)
-			dev_err(mdwc->dev, "ext chg wait timeout\n");
-		else
-			dev_dbg(mdwc->dev, "ext chg wait done\n");
-	}
-}
-
 static void dwc3_resume_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
@@ -1935,11 +1899,9 @@ static void dwc3_resume_work(struct work_struct *w)
 	/* handle any event that was queued while work was already running */
 	if (!atomic_read(&dwc->in_lpm)) {
 		dev_dbg(mdwc->dev, "%s: notifying xceiv event\n", __func__);
-		if (mdwc->otg_xceiv) {
-			dwc3_wait_for_ext_chg_done(mdwc);
+		if (mdwc->otg_xceiv)
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
-		}
 		return;
 	}
 
@@ -1959,11 +1921,9 @@ static void dwc3_resume_work(struct work_struct *w)
 
 		dbg_event(0xFF, "ReWr Else", mdwc->otg_xceiv ? 1 : 0);
 		pm_runtime_put_noidle(mdwc->dev);
-		if (mdwc->otg_xceiv) {
-			dwc3_wait_for_ext_chg_done(mdwc);
+		if (mdwc->otg_xceiv)
 			mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg,
 							DWC3_EVENT_XCEIV_STATE);
-		}
 	}
 }
 
@@ -2472,192 +2432,6 @@ static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static int dwc3_msm_ext_chg_open(struct inode *inode, struct file *file)
-{
-	struct dwc3_msm *mdwc =
-		container_of(inode->i_cdev, struct dwc3_msm, ext_chg_cdev);
-
-	pr_debug("dwc3-msm ext chg open\n");
-	file->private_data = mdwc;
-	mdwc->ext_chg_opened = true;
-
-	return 0;
-}
-
-static long
-dwc3_msm_ext_chg_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
-{
-	struct dwc3_msm *mdwc = file->private_data;
-	struct msm_usb_chg_info info = {0};
-	int ret = 0, val;
-
-	switch (cmd) {
-	case MSM_USB_EXT_CHG_INFO:
-		info.chg_block_type = USB_CHG_BLOCK_QSCRATCH;
-		info.page_offset = (mdwc->io_res->start +
-				QSCRATCH_REG_OFFSET) & ~PAGE_MASK;
-		/*
-		 * The charger block register address space is only
-		 * 512 bytes.  But mmap() works on PAGE granularity.
-		 */
-		info.length = PAGE_SIZE;
-
-		if (copy_to_user((void __user *)arg, &info, sizeof(info))) {
-			pr_err("%s: copy to user failed\n\n", __func__);
-			ret = -EFAULT;
-		}
-		break;
-	case MSM_USB_EXT_CHG_BLOCK_LPM:
-		if (get_user(val, (int __user *)arg)) {
-			pr_err("%s: get_user failed\n\n", __func__);
-			ret = -EFAULT;
-			break;
-		}
-		pr_debug("%s: LPM block request %d\n", __func__, val);
-		if (val) { /* block LPM */
-			if (mdwc->charger.chg_type == DWC3_DCP_CHARGER) {
-				dbg_event(0xFF, "CHGioct gsyn", 0);
-				pm_runtime_get_sync(mdwc->dev);
-			} else {
-				mdwc->ext_chg_active = false;
-				complete(&mdwc->ext_chg_wait);
-				ret = -ENODEV;
-			}
-		} else {
-			mdwc->ext_chg_active = false;
-			complete(&mdwc->ext_chg_wait);
-			dbg_event(0xFF, "CHGioct put", 0);
-			pm_runtime_put(mdwc->dev);
-		}
-		break;
-	case MSM_USB_EXT_CHG_VOLTAGE_INFO:
-		if (get_user(val, (int __user *)arg)) {
-			pr_err("%s: get_user failed\n\n", __func__);
-			ret = -EFAULT;
-			break;
-		}
-
-		if (val == USB_REQUEST_5V)
-			pr_debug("%s:voting 5V voltage request\n", __func__);
-		else if (val == USB_REQUEST_9V)
-			pr_debug("%s:voting 9V voltage request\n", __func__);
-		break;
-	case MSM_USB_EXT_CHG_RESULT:
-		if (get_user(val, (int __user *)arg)) {
-			pr_err("%s: get_user failed\n\n", __func__);
-			ret = -EFAULT;
-			break;
-		}
-
-		if (!val)
-			pr_debug("%s:voltage request successful\n", __func__);
-		else
-			pr_debug("%s:voltage request failed\n", __func__);
-		break;
-	case MSM_USB_EXT_CHG_TYPE:
-		if (get_user(val, (int __user *)arg)) {
-			pr_err("%s: get_user failed\n\n", __func__);
-			ret = -EFAULT;
-			break;
-		}
-
-		if (val)
-			pr_debug("%s:charger is external charger\n", __func__);
-		else
-			pr_debug("%s:charger is not ext charger\n", __func__);
-		break;
-	default:
-		ret = -EINVAL;
-	}
-
-	return ret;
-}
-
-static int dwc3_msm_ext_chg_mmap(struct file *file, struct vm_area_struct *vma)
-{
-	struct dwc3_msm *mdwc = file->private_data;
-	unsigned long vsize = vma->vm_end - vma->vm_start;
-	int ret;
-
-	if (vma->vm_pgoff != 0 || vsize > PAGE_SIZE)
-		return -EINVAL;
-
-	vma->vm_pgoff = __phys_to_pfn(mdwc->io_res->start +
-				QSCRATCH_REG_OFFSET);
-	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
-
-	ret = io_remap_pfn_range(vma, vma->vm_start, vma->vm_pgoff,
-				 vsize, vma->vm_page_prot);
-	if (ret < 0)
-		pr_err("%s: failed with return val %d\n", __func__, ret);
-
-	return ret;
-}
-
-static int dwc3_msm_ext_chg_release(struct inode *inode, struct file *file)
-{
-	struct dwc3_msm *mdwc = file->private_data;
-
-	pr_debug("dwc3-msm ext chg release\n");
-
-	mdwc->ext_chg_opened = false;
-
-	return 0;
-}
-
-static const struct file_operations dwc3_msm_ext_chg_fops = {
-	.owner = THIS_MODULE,
-	.open = dwc3_msm_ext_chg_open,
-	.unlocked_ioctl = dwc3_msm_ext_chg_ioctl,
-	.mmap = dwc3_msm_ext_chg_mmap,
-	.release = dwc3_msm_ext_chg_release,
-};
-
-static int dwc3_msm_setup_cdev(struct dwc3_msm *mdwc)
-{
-	int ret;
-
-	ret = alloc_chrdev_region(&mdwc->ext_chg_dev, 0, 1, "usb_ext_chg");
-	if (ret < 0) {
-		pr_err("Fail to allocate usb ext char dev region\n");
-		return ret;
-	}
-	mdwc->ext_chg_class = class_create(THIS_MODULE, "dwc_ext_chg");
-	if (ret < 0) {
-		pr_err("Fail to create usb ext chg class\n");
-		goto unreg_chrdev;
-	}
-	cdev_init(&mdwc->ext_chg_cdev, &dwc3_msm_ext_chg_fops);
-	mdwc->ext_chg_cdev.owner = THIS_MODULE;
-
-	ret = cdev_add(&mdwc->ext_chg_cdev, mdwc->ext_chg_dev, 1);
-	if (ret < 0) {
-		pr_err("Fail to add usb ext chg cdev\n");
-		goto destroy_class;
-	}
-	mdwc->ext_chg_device = device_create(mdwc->ext_chg_class,
-					NULL, mdwc->ext_chg_dev, NULL,
-					"usb_ext_chg");
-	if (IS_ERR(mdwc->ext_chg_device)) {
-		pr_err("Fail to create usb ext chg device\n");
-		ret = PTR_ERR(mdwc->ext_chg_device);
-		mdwc->ext_chg_device = NULL;
-		goto del_cdev;
-	}
-
-	pr_debug("dwc3 msm ext chg cdev setup success\n");
-	return 0;
-
-del_cdev:
-	cdev_del(&mdwc->ext_chg_cdev);
-destroy_class:
-	class_destroy(mdwc->ext_chg_class);
-unreg_chrdev:
-	unregister_chrdev_region(mdwc->ext_chg_dev, 1);
-
-	return ret;
-}
-
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -2691,7 +2465,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&mdwc->usb_block_reset_work, dwc3_block_reset_usb_work);
 	INIT_WORK(&mdwc->id_work, dwc3_id_work);
-	init_completion(&mdwc->ext_chg_wait);
 
 	ret = dwc3_msm_config_gdsc(mdwc, 1);
 	if (ret) {
@@ -3117,12 +2890,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		dev_dbg(&pdev->dev, "DWC3 running in device-only mode\n");
 	}
 
-	if (mdwc->charger.start_detection) {
-		ret = dwc3_msm_setup_cdev(mdwc);
-		if (ret)
-			dev_err(&pdev->dev, "Fail to setup dwc3 setup cdev\n");
-	}
-
 	mdwc->irq_to_affin = platform_get_irq(mdwc->dwc3, 0);
 	mdwc->dwc3_cpu_notifier.notifier_call = dwc3_cpu_notifier_cb;
 
@@ -3228,13 +2995,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		clk_prepare_enable(mdwc->xo_clk);
 	}
 
-	if (mdwc->ext_chg_device) {
-		device_destroy(mdwc->ext_chg_class, mdwc->ext_chg_dev);
-		cdev_del(&mdwc->ext_chg_cdev);
-		class_destroy(mdwc->ext_chg_class);
-		unregister_chrdev_region(mdwc->ext_chg_dev, 1);
-	}
-
 	if (dwc3_debugfs_root)
 		debugfs_remove_recursive(dwc3_debugfs_root);
 	if (mdwc->otg_xceiv)
@@ -3338,32 +3098,6 @@ static int dwc3_msm_pm_resume(struct device *dev)
 #endif
 
 #ifdef CONFIG_PM_RUNTIME
-static int dwc3_msm_runtime_idle(struct device *dev)
-{
-	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
-
-	dev_dbg(dev, "DWC3-msm runtime idle\n");
-
-	if (mdwc->ext_chg_active) {
-		dev_dbg(dev, "Deferring LPM\n");
-		/*
-		 * Charger detection may happen in user space.
-		 * Delay entering LPM by 3 sec.  Otherwise we
-		 * have to exit LPM when user space begins
-		 * charger detection.
-		 *
-		 * This timer will be canceled when user space
-		 * votes against LPM by incrementing PM usage
-		 * counter.  We enter low power mode when
-		 * PM usage counter is decremented.
-		 */
-		pm_schedule_suspend(dev, 3000);
-		return -EAGAIN;
-	}
-
-	return 0;
-}
-
 static int dwc3_msm_runtime_suspend(struct device *dev)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dev);
@@ -3388,7 +3122,7 @@ static int dwc3_msm_runtime_resume(struct device *dev)
 static const struct dev_pm_ops dwc3_msm_dev_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dwc3_msm_pm_suspend, dwc3_msm_pm_resume)
 	SET_RUNTIME_PM_OPS(dwc3_msm_runtime_suspend, dwc3_msm_runtime_resume,
-				dwc3_msm_runtime_idle)
+				NULL)
 };
 
 static const struct of_device_id of_dwc3_matach[] = {
