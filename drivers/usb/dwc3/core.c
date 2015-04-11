@@ -644,6 +644,11 @@ static int dwc3_probe(struct platform_device *pdev)
 	dwc->enable_bus_suspend = of_property_read_bool(node,
 						"snps,bus-suspend-enable");
 
+	if (dwc->enable_bus_suspend) {
+		pm_runtime_set_autosuspend_delay(dev, 500);
+		pm_runtime_use_autosuspend(dev);
+	}
+
 	if (node) {
 		dwc->usb2_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 0);
 		dwc->usb3_phy = devm_usb_get_phy_by_phandle(dev, "usb-phy", 1);
