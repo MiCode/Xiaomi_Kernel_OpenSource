@@ -46,6 +46,8 @@
  * buffer
  * @submit_ticks: Variable to hold ticks at the time of cmdbatch submit.
  * @global_ts: The ringbuffer timestamp corresponding to this cmdbatch
+ * @timeout_jiffies: For a syncpoint cmdbatch the jiffies at which the
+ * timer will expire
  * This structure defines an atomic batch of command buffers issued from
  * userspace.
  */
@@ -70,6 +72,7 @@ struct kgsl_cmdbatch {
 	unsigned int profile_index;
 	uint64_t submit_ticks;
 	unsigned int global_ts;
+	unsigned long timeout_jiffies;
 };
 
 /**
