@@ -782,7 +782,7 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		if (pipe->priority <= left_blend_pipe->priority) {
 			pr_err("priority limitation. left:%d right%d\n",
 				left_blend_pipe->priority, pipe->priority);
-			ret = -EPERM;
+			ret = -EBADSLT;
 			goto exit_fail;
 		} else {
 			pr_debug("pipe%d is a right_pipe\n", pipe->num);
