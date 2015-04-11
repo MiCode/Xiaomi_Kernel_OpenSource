@@ -56,7 +56,7 @@ static void __iomem *virt_bases[N_BASES];
 					     * usb_fs_system_clk_src */
 #define gpll4_source_val		2   /* sdcc1_apss_clk_src */
 #define gpll6_source_val		2   /* mclk0_2_clk_src */
-#define gpll6_out_aux_source_val	3   /* gfx3d_clk_src */
+#define gpll6_aux_source_val		3   /* gfx3d_clk_src */
 #define gpll6_out_main_source_val	1   /* usb_fs_ic_clk_src */
 #define dsi0_phypll_source_val		1   /* byte0_clk & pclk0_clk */
 
@@ -420,7 +420,7 @@ static struct pll_vote_clk gpll6_clk_src = {
 	},
 };
 
-DEFINE_EXT_CLK(gpll6_out_aux_clk_src, &gpll6_clk_src.c);
+DEFINE_EXT_CLK(gpll6_aux_clk_src, &gpll6_clk_src.c);
 DEFINE_EXT_CLK(gpll6_out_main_clk_src, &gpll6_clk_src.c);
 
 static struct alpha_pll_masks pll_masks_p = {
@@ -634,19 +634,19 @@ static struct rcg_clk vfe1_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk[] = {
-	F_SLEW( 19200000,  FIXED_CLK_SRC,	xo,	1,	0,	0),
-	F_SLEW( 50000000,  FIXED_CLK_SRC,	gpll0,	16,	0,	0),
-	F_SLEW( 80000000,  FIXED_CLK_SRC,	gpll0,	10,	0,	0),
-	F_SLEW( 100000000, FIXED_CLK_SRC,	gpll0,	8,	0,	0),
-	F_SLEW( 160000000, FIXED_CLK_SRC,	gpll0,	5,	0,	0),
-	F_SLEW( 200000000, FIXED_CLK_SRC,	gpll0,	4,	0,	0),
-	F_SLEW( 228570000, FIXED_CLK_SRC,	gpll0,	3.5,	0,	0),
-	F_SLEW( 240000000, FIXED_CLK_SRC,	gpll6,	4.5,	0,	0),
-	F_SLEW( 266670000, FIXED_CLK_SRC,	gpll0,	3,	0,	0),
-	F_SLEW( 400000000, FIXED_CLK_SRC,	gpll0,	2,	0,	0),
-	F_SLEW( 465000000, 930000000,		gpll3,	1,	0,	0),
-	F_SLEW( 500000000, 1000000000,		gpll3,	1,	0,	0),
-	F_SLEW( 550000000, 1100000000,		gpll3,	1,	0,	0),
+	F_SLEW( 19200000,  FIXED_CLK_SRC, xo,		1,	0,	0),
+	F_SLEW( 50000000,  FIXED_CLK_SRC, gpll0,	16,	0,	0),
+	F_SLEW( 80000000,  FIXED_CLK_SRC, gpll0,	10,	0,	0),
+	F_SLEW( 100000000, FIXED_CLK_SRC, gpll0,	8,	0,	0),
+	F_SLEW( 160000000, FIXED_CLK_SRC, gpll0,	5,	0,	0),
+	F_SLEW( 200000000, FIXED_CLK_SRC, gpll0,	4,	0,	0),
+	F_SLEW( 228570000, FIXED_CLK_SRC, gpll0,	3.5,	0,	0),
+	F_SLEW( 240000000, FIXED_CLK_SRC, gpll6_aux,	4.5,	0,	0),
+	F_SLEW( 266670000, FIXED_CLK_SRC, gpll0,	3,	0,	0),
+	F_SLEW( 400000000, FIXED_CLK_SRC, gpll0,	2,	0,	0),
+	F_SLEW( 465000000, 930000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 500000000, 1000000000,	  gpll3,	1,	0,	0),
+	F_SLEW( 550000000, 1100000000,	  gpll3,	1,	0,	0),
 	F_END
 };
 
