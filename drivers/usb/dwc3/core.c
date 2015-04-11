@@ -1034,6 +1034,13 @@ static int dwc3_probe(struct platform_device *pdev)
 				"snps,usb3-u1u2-disable");
 	dwc->disable_clk_gating = device_property_read_bool(dev,
 				"snps,disable-clk-gating");
+	dwc->enable_bus_suspend = device_property_read_bool(dev,
+				"snps,bus-suspend-enable");
+	if (dwc->enable_bus_suspend) {
+		pm_runtime_set_autosuspend_delay(dev, 500);
+		pm_runtime_use_autosuspend(dev);
+	}
+
 	if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
 		dwc->has_lpm_erratum = pdata->has_lpm_erratum;
