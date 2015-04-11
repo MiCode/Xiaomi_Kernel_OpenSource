@@ -1632,9 +1632,10 @@ int ep_pcie_core_trigger_msi(u32 idx)
 	data = readl_relaxed(ep_pcie_dev.dm_core + PCIE20_MSI_DATA);
 
 	if (addr && data) {
+		ep_pcie_dev.msi_counter++;
 		EP_PCIE_DUMP(&ep_pcie_dev,
 			"PCIe V%d: No. %ld MSI fired for IRQ %d; index from client:%d\n",
-			ep_pcie_dev.rev, ep_pcie_dev.msi_counter++,
+			ep_pcie_dev.rev, ep_pcie_dev.msi_counter,
 			data + idx, idx);
 		ep_pcie_write_reg(ep_pcie_dev.msi, addr & 0xfff, data + idx);
 		return 0;
@@ -1656,9 +1657,10 @@ int ep_pcie_core_wakeup_host(void)
 			dev->rev);
 		return EP_PCIE_ERROR;
 	} else {
+		dev->wake_counter++;
 		EP_PCIE_DBG(dev,
 			"PCIe V%d: No. %ld to assert PCIe WAKE#; perst is %s de-asserted; D3hot is %s received.\n",
-			dev->rev, ++dev->wake_counter,
+			dev->rev, dev->wake_counter,
 			dev->perst_deast ? "" : "not",
 			dev->l23_ready ? "" : "not");
 		gpio_set_value(dev->gpio[EP_PCIE_GPIO_WAKE].num,
