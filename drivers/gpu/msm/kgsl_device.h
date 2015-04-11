@@ -241,6 +241,8 @@ struct kgsl_memobj_node {
  * @profile_index: Index to store the start/stop ticks in the kernel profiling
  * buffer
  * @submit_ticks: Variable to hold ticks at the time of cmdbatch submit.
+ * @timeout_jiffies: For a syncpoint cmdbatch the jiffies at which the
+ * timer will expire
  * This structure defines an atomic batch of command buffers issued from
  * userspace.
  */
@@ -264,6 +266,7 @@ struct kgsl_cmdbatch {
 	unsigned long profiling_buffer_gpuaddr;
 	unsigned int profile_index;
 	uint64_t submit_ticks;
+	unsigned long timeout_jiffies;
 };
 
 /**
