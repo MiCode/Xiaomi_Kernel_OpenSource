@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/module.h>
 #include "governor.h"
 #include "fixedpoint.h"
 #include "msm_vidc_internal.h"
