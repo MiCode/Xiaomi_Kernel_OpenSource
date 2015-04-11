@@ -245,6 +245,8 @@ struct kgsl_memobj_node {
  * @submit_ticks: Variable to hold ticks at the time of cmdbatch submit.
  * This structure defines an atomic batch of command buffers issued from
  * userspace.
+ * @timeout_jiffies: For a syncpoint cmdbatch the jiffies at which the
+ * timer will expire
  */
 struct kgsl_cmdbatch {
 	struct kgsl_device *device;
@@ -266,6 +268,8 @@ struct kgsl_cmdbatch {
 	unsigned long profiling_buffer_gpuaddr;
 	unsigned int profile_index;
 	uint64_t submit_ticks;
+	unsigned int global_ts;
+	unsigned long timeout_jiffies;
 };
 
 /**
