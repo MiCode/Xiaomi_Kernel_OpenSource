@@ -36,6 +36,11 @@
 #include "u_bam_data.h"
 #include <linux/rndis_ipa.h>
 
+unsigned int rndis_dl_max_xfer_size = 9216;
+module_param(rndis_dl_max_xfer_size, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rndis_dl_max_xfer_size,
+		"Max size of bus transfer to host");
+
 /*
  * This function is an RNDIS Ethernet port -- a Microsoft protocol that's
  * been promoted instead of the standard CDC Ethernet.  The published RNDIS
@@ -548,7 +553,21 @@ static void rndis_qc_command_complete(struct usb_ep *ep,
 	if (buf->MessageType == RNDIS_MSG_INIT) {
 		ul_max_xfer_size = rndis_get_ul_max_xfer_size(rndis->config);
 		u_bam_data_set_ul_max_xfer_size(ul_max_xfer_size);
-		dl_max_xfer_size = rndis_get_dl_max_xfer_size(rndis->config);
+		/*
+		 * For consistent data throughput from IPA, it is required to
+		 * fine tune aggregation byte limit as 7KB. RNDIS IPA driver
+		 * use provided this value to calculate aggregation byte limit
+		 * and program IPA hardware for aggregation.
+		 * Host provides 8KB or 16KB as Max Transfer size, hence select
+		 * minimum out of host provided value and optimum transfer size
+		 * to get 7KB as aggregation byte limit.
+		 */
+		if (rndis_dl_max_xfer_size)
+			dl_max_xfer_size = min_t(u32, rndis_dl_max_xfer_size,
+				rndis_get_dl_max_xfer_size(rndis->config));
+		else
+			dl_max_xfer_size =
+				rndis_get_dl_max_xfer_size(rndis->config);
 		u_bam_data_set_dl_max_xfer_size(dl_max_xfer_size);
 	}
 }
