@@ -571,13 +571,14 @@
 		compatible = "qcom,ipa";
 		reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
 		reg-names = "ipa-base", "bam-base";
-		interrupts = <0 228 0>, <0 230 0>;
+		interrupts = <0 228 0>,
+		             <0 231 0>;
 		interrupt-names = "ipa-irq", "bam-irq";
 		qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
 		qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
 		clock-names = "core_clk";
 		clocks = <&clock_gcc clk_ipa_clk>;
-		qcom,ee = <0>;
+		qcom,ee = <2>;
 	};
 
 	qcom,rmnet-ipa {
