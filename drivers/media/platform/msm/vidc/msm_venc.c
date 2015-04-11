@@ -1474,14 +1474,14 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 	return rc;
 }
 
-static int msm_venc_stop_streaming(struct vb2_queue *q)
+static void msm_venc_stop_streaming(struct vb2_queue *q)
 {
 	struct msm_vidc_inst *inst;
 	int rc = 0;
 	if (!q || !q->drv_priv) {
 		dprintk(VIDC_ERR, "Invalid input, q = %p\n", q);
-		return -EINVAL;
 	}
+
 	inst = q->drv_priv;
 	dprintk(VIDC_DBG, "Streamoff called on: %d capability\n", q->type);
 	switch (q->type) {
@@ -1502,7 +1502,6 @@ static int msm_venc_stop_streaming(struct vb2_queue *q)
 		dprintk(VIDC_ERR,
 			"Failed to move inst: %p, cap = %d to state: %d\n",
 			inst, q->type, MSM_VIDC_CLOSE_DONE);
-	return rc;
 }
 
 static void msm_venc_buf_queue(struct vb2_buffer *vb)
