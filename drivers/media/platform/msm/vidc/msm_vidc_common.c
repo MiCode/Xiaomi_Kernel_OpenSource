@@ -2159,7 +2159,7 @@ static int msm_comm_session_abort(struct msm_vidc_inst *inst)
 	} else {
 		rc = 0;
 	}
-
+	msm_comm_session_clean(inst);
 	return rc;
 }
 
