@@ -772,6 +772,12 @@ static int msm_mi2s_snd_startup(struct snd_pcm_substream *substream)
 		iowrite32(val, pdata->vaddr_gpio_mux_spkr_ctl);
 	}
 
+	if (pdata->vaddr_gpio_mux_mic_ctl) {
+		val = ioread32(pdata->vaddr_gpio_mux_mic_ctl);
+		val = val | 0x00200000;
+		iowrite32(val, pdata->vaddr_gpio_mux_mic_ctl);
+	}
+
 	ret = mi2s_clk_ctl(substream, true);
 	if (ret < 0) {
 		pr_err("%s: failed to enable sclk %d\n",
