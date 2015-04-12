@@ -176,6 +176,7 @@ enum vdd_mx_vmin_method {
 	VDD_MX_VMIN_APC_CORNER_CEILING,
 	VDD_MX_VMIN_APC_SLOW_CORNER_CEILING,
 	VDD_MX_VMIN_MX_VMAX,
+	VDD_MX_VMIN_APC_FUSE_CORNER_MAP,
 	VDD_MX_VMIN_APC_CORNER_MAP,
 };
 
@@ -659,8 +660,11 @@ static int cpr_mx_get(struct cpr_regulator *cpr_vreg, int corner, int apc_volt)
 	case VDD_MX_VMIN_MX_VMAX:
 		vdd_mx = cpr_vreg->vdd_mx_vmax;
 		break;
-	case VDD_MX_VMIN_APC_CORNER_MAP:
+	case VDD_MX_VMIN_APC_FUSE_CORNER_MAP:
 		vdd_mx = cpr_vreg->vdd_mx_corner_map[fuse_corner];
+		break;
+	case VDD_MX_VMIN_APC_CORNER_MAP:
+		vdd_mx = cpr_vreg->vdd_mx_corner_map[corner];
 		break;
 	default:
 		vdd_mx = 0;
@@ -1541,6 +1545,83 @@ static int cpr_pvs_single_bin_init(struct device_node *of_node,
 	return 0;
 }
 
+/*
+ * The function reads VDD_MX dependency parameters from device node.
+ * Select the qcom,vdd-mx-corner-map length equal to either num_fuse_corners
+ * or num_corners based on selected vdd-mx-vmin-method.
+ */
+static int cpr_parse_vdd_mx_parameters(struct platform_device *pdev,
+					struct cpr_regulator *cpr_vreg)
+{
+	struct device_node *of_node = pdev->dev.of_node;
+	u32 corner_map_len;
+	int rc, len, size;
+
+	rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmax",
+				&cpr_vreg->vdd_mx_vmax);
+	if (rc < 0) {
+		cpr_err(cpr_vreg, "vdd-mx-vmax missing: rc=%d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmin-method",
+			 &cpr_vreg->vdd_mx_vmin_method);
+	if (rc < 0) {
+		cpr_err(cpr_vreg, "vdd-mx-vmin-method missing: rc=%d\n",
+			rc);
+		return rc;
+	}
+	if (cpr_vreg->vdd_mx_vmin_method > VDD_MX_VMIN_APC_CORNER_MAP) {
+		cpr_err(cpr_vreg, "Invalid vdd-mx-vmin-method(%d)\n",
+			cpr_vreg->vdd_mx_vmin_method);
+		return -EINVAL;
+	}
+
+	switch (cpr_vreg->vdd_mx_vmin_method) {
+	case VDD_MX_VMIN_APC_FUSE_CORNER_MAP:
+		corner_map_len = cpr_vreg->num_fuse_corners;
+		break;
+	case VDD_MX_VMIN_APC_CORNER_MAP:
+		corner_map_len = cpr_vreg->num_corners;
+		break;
+	default:
+		cpr_vreg->vdd_mx_corner_map = NULL;
+		return 0;
+	}
+
+	if (!of_find_property(of_node, "qcom,vdd-mx-corner-map", &len)) {
+		cpr_err(cpr_vreg, "qcom,vdd-mx-corner-map missing");
+		return -EINVAL;
+	}
+
+	size = len / sizeof(u32);
+	if (size != corner_map_len) {
+		cpr_err(cpr_vreg,
+			"qcom,vdd-mx-corner-map length=%d is invalid: required:%u\n",
+			size, corner_map_len);
+		return -EINVAL;
+	}
+
+	cpr_vreg->vdd_mx_corner_map = devm_kzalloc(&pdev->dev,
+		(corner_map_len + 1) * sizeof(*cpr_vreg->vdd_mx_corner_map),
+			GFP_KERNEL);
+	if (!cpr_vreg->vdd_mx_corner_map) {
+		cpr_err(cpr_vreg,
+			"Can't allocate memory for cpr_vreg->vdd_mx_corner_map\n");
+		return -ENOMEM;
+	}
+
+	rc = of_property_read_u32_array(of_node,
+				"qcom,vdd-mx-corner-map",
+				&cpr_vreg->vdd_mx_corner_map[1],
+				corner_map_len);
+	if (rc)
+		cpr_err(cpr_vreg,
+			"read qcom,vdd-mx-corner-map failed, rc = %d\n", rc);
+
+	return rc;
+}
+
 #define MAX_CHARS_PER_INT	10
 
 /*
@@ -1699,41 +1780,6 @@ static int cpr_apc_init(struct platform_device *pdev,
 					rc);
 			return rc;
 		}
-	}
-
-	/* Parse dependency parameters */
-	if (cpr_vreg->vdd_mx) {
-		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmax",
-				 &cpr_vreg->vdd_mx_vmax);
-		if (rc < 0) {
-			cpr_err(cpr_vreg, "vdd-mx-vmax missing: rc=%d\n", rc);
-			return rc;
-		}
-
-		rc = of_property_read_u32(of_node, "qcom,vdd-mx-vmin-method",
-				 &cpr_vreg->vdd_mx_vmin_method);
-		if (rc < 0) {
-			cpr_err(cpr_vreg, "vdd-mx-vmin-method missing: rc=%d\n",
-				rc);
-			return rc;
-		}
-		if (cpr_vreg->vdd_mx_vmin_method > VDD_MX_VMIN_APC_CORNER_MAP) {
-			cpr_err(cpr_vreg, "Invalid vdd-mx-vmin-method(%d)\n",
-				cpr_vreg->vdd_mx_vmin_method);
-			return -EINVAL;
-		}
-
-		rc = of_property_read_u32_array(of_node,
-					"qcom,vdd-mx-corner-map",
-					&cpr_vreg->vdd_mx_corner_map[1],
-					cpr_vreg->num_fuse_corners);
-		if (rc && cpr_vreg->vdd_mx_vmin_method ==
-			VDD_MX_VMIN_APC_CORNER_MAP) {
-			cpr_err(cpr_vreg,
-				"qcom,vdd-mx-corner-map missing: rc=%d\n", rc);
-			return rc;
-		}
-
 	}
 
 	return 0;
@@ -4258,8 +4304,6 @@ static int cpr_fuse_corner_array_alloc(struct device *dev,
 
 	cpr_vreg->pvs_corner_v = devm_kzalloc(dev,
 			len * sizeof(*cpr_vreg->pvs_corner_v), GFP_KERNEL);
-	cpr_vreg->vdd_mx_corner_map = devm_kzalloc(dev,
-			len * sizeof(*cpr_vreg->vdd_mx_corner_map), GFP_KERNEL);
 	cpr_vreg->cpr_fuse_target_quot = devm_kzalloc(dev,
 		len * sizeof(*cpr_vreg->cpr_fuse_target_quot), GFP_KERNEL);
 	cpr_vreg->cpr_fuse_ro_sel = devm_kzalloc(dev,
@@ -4274,7 +4318,6 @@ static int cpr_fuse_corner_array_alloc(struct device *dev,
 	if (cpr_vreg->pvs_corner_v == NULL || cpr_vreg->cpr_fuse_ro_sel == NULL
 	    || cpr_vreg->fuse_ceiling_volt == NULL
 	    || cpr_vreg->fuse_floor_volt == NULL
-	    || cpr_vreg->vdd_mx_corner_map == NULL
 	    || cpr_vreg->cpr_fuse_target_quot == NULL
 	    || cpr_vreg->step_quotient == NULL) {
 		cpr_err(cpr_vreg, "Could not allocate memory for CPR arrays\n");
@@ -4741,6 +4784,16 @@ static int cpr_regulator_probe(struct platform_device *pdev)
 		cpr_err(cpr_vreg, "cpr_init_per_cpu_adjustments failed: rc=%d\n",
 			rc);
 		goto err_out;
+	}
+
+	/* Parse dependency parameters */
+	if (cpr_vreg->vdd_mx) {
+		rc = cpr_parse_vdd_mx_parameters(pdev, cpr_vreg);
+		if (rc) {
+			cpr_err(cpr_vreg, "parsing vdd_mx parameters failed: rc=%d\n",
+				rc);
+			goto err_out;
+		}
 	}
 
 	cpr_efuse_free(cpr_vreg);
