@@ -1867,8 +1867,6 @@ void handle_cmd_response(enum hal_command_response cmd, void *data)
 		handle_seq_hdr_done(cmd, data);
 		break;
 	case HAL_SYS_WATCHDOG_TIMEOUT:
-		handle_sys_error(cmd, data);
-		break;
 	case HAL_SYS_ERROR:
 		handle_sys_error(cmd, data);
 		break;

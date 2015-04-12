@@ -3256,6 +3256,15 @@ static int __check_core_registered(struct hal_device_data core,
 	return -EINVAL;
 }
 
+static void __process_fatal_error(
+		struct venus_hfi_device *device)
+{
+	struct msm_vidc_cb_cmd_done cmd_done = {0};
+
+	cmd_done.device_id = device->device_id;
+	device->callback(HAL_SYS_ERROR, &cmd_done);
+}
+
 static int __prepare_pc(struct venus_hfi_device *device)
 {
 	int rc = 0;
@@ -3334,9 +3343,11 @@ static void venus_hfi_pm_handler(struct work_struct *work)
 	rc = __prepare_pc(device);
 	if (rc) {
 		dprintk(VIDC_ERR, "Failed to prepare for PC %d\n", rc);
-		goto err_prepare_pc;
+		__alloc_set_imem(device);
+		mutex_unlock(&device->lock);
+		__process_fatal_error(device);
+		return;
 	}
-
 
 	if (device->last_packet_type != HFI_CMD_SYS_PC_PREP) {
 		dprintk(VIDC_DBG,
@@ -3385,8 +3396,7 @@ skip_power_off:
 	dprintk(VIDC_WARN, "Power off skipped (last pkt %#x, status: %#x)\n",
 		device->last_packet_type, ctrl_status);
 
-err_prepare_pc:
-	__alloc_imem(device, device->res->imem_size);
+	__alloc_set_imem(device);
 err_unset_imem:
 	mutex_unlock(&device->lock);
 	return;
@@ -3508,6 +3518,7 @@ static struct msm_vidc_cb_info *__response_handler(
 
 		dprintk(VIDC_ERR, "Received watchdog timeout\n");
 		packets[packet_count++] = info;
+		goto exit;
 	}
 
 	/* Bleed the msg queue dry of packets */
@@ -3615,6 +3626,7 @@ static struct msm_vidc_cb_info *__response_handler(
 		}
 	}
 
+exit:
 	__flush_debug_queue(device, raw_packet);
 
 	kfree(raw_packet);
@@ -4349,7 +4361,8 @@ static void __unload_fw(struct venus_hfi_device *device)
 
 	flush_workqueue(device->vidc_workq);
 	cancel_delayed_work(&venus_hfi_pm_work);
-	flush_workqueue(device->venus_pm_workq);
+	if (device->state != VENUS_STATE_DEINIT)
+		flush_workqueue(device->venus_pm_workq);
 	subsystem_put(device->resources.fw.cookie);
 	__interface_queues_release(device);
 
