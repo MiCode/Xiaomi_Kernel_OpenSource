@@ -2088,8 +2088,8 @@
 
 &gdsc_cpp {
 	clock-names = "core_clk", "bus_clk";
-	clocks = <&clock_gcc clk_gcc_camss_cpp_clk>;
-	clocks = <&clock_gcc clk_gcc_camss_cpp_axi_clk>;
+	clocks = <&clock_gcc clk_gcc_camss_cpp_clk>,
+		 <&clock_gcc clk_gcc_camss_cpp_axi_clk>;
 	status = "okay";
 };
 
