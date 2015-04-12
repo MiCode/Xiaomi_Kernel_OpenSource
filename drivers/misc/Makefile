@@ -62,3 +62,4 @@ obj-$(CONFIG_VLV2_PLAT_CLK)     += vlv2_plat_clock.o
 obj-$(CONFIG_DGNSS)             += dgnss/
 obj-$(CONFIG_PWM)               += pwm/
 obj-$(CONFIG_MONZA_X)           += monza_x.o
+obj-$(CONFIG_PI3USB30532_MUX)	+= pi3usb30532_mux.o

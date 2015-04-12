@@ -533,6 +533,17 @@ config MONZA_X
           it can be accessed by i2c interface and UHF Gen2 RFID protocol,
           this driver provide access interface via sysfs for userland.
 
+config PI3USB30532_MUX
+	tristate "PI3USB30532 mux for selecting configuration"
+	depends on I2C
+	---help---
+	  This is usb mux driver which enables swiching the mulitiple
+	  configurations based on the selction. This is for various channels
+	  switching for typec connectors. The swiching includes the setting of
+	  orientation, selecting lanes, etc.
+
+	  Say Y here to enable support for pi2usb3052 mux
+
 source "drivers/misc/pwm/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
