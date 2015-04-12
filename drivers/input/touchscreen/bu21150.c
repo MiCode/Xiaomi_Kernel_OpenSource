@@ -36,6 +36,7 @@
 #include <linux/timer.h>
 #include <linux/notifier.h>
 #include <linux/fb.h>
+#include <linux/msm_mdp.h>
 
 /* define */
 #define DEVICE_NAME   "jdi-bu21150"
@@ -1077,10 +1078,11 @@ static int fb_notifier_callback(struct notifier_block *self,
 {
 	struct fb_event *evdata = data;
 	int *blank;
+	bool cont_splash = msm_fb_get_cont_splash();
 	struct bu21150_data *ts =
 			container_of(self, struct bu21150_data, fb_notif);
 
-	if (evdata && evdata->data && ts && ts->client) {
+	if (evdata && evdata->data && ts && ts->client && !cont_splash) {
 		blank = evdata->data;
 		if (event == FB_EARLY_EVENT_BLANK) {
 			if (*blank == FB_BLANK_UNBLANK) {
