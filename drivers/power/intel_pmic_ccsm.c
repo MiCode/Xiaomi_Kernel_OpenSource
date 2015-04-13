@@ -417,6 +417,39 @@ static const struct file_operations pmic_chrgr_reg_fops = {
 	.release = single_release
 };
 
+static int pmic_ccsm_suspend(struct device *dev)
+{
+	int ret;
+
+	/* Disable CHGDIS pin */
+	ret = intel_soc_pmic_update(chc.reg_map->pmic_chgdisctrl,
+			CHGDISFN_DIS_CCSM_VAL, CHGDISFN_CCSM_MASK);
+	if (ret)
+		dev_warn(chc.dev, "Error writing to register: %x\n",
+			chc.reg_map->pmic_chgdisctrl);
+
+	return ret;
+}
+
+static int pmic_ccsm_resume(struct device *dev)
+{
+	int ret;
+
+	/* Enable CHGDIS pin */
+	ret = intel_soc_pmic_update(chc.reg_map->pmic_chgdisctrl,
+			CHGDISFN_EN_CCSM_VAL, CHGDISFN_CCSM_MASK);
+	if (ret)
+		dev_warn(chc.dev, "Error writing to register: %x\n",
+			chc.reg_map->pmic_chgdisctrl);
+
+	return ret;
+}
+
+const struct dev_pm_ops pmic_ccsm_pm = {
+	.suspend_late = pmic_ccsm_suspend,
+	.resume_early = pmic_ccsm_resume,
+};
+
 static const struct file_operations pmic_chrgr_tt_reg_fops = {
 	.open = pmic_chrgr_tt_reg_open,
 	.read = seq_read,
@@ -1804,6 +1837,7 @@ static struct platform_driver intel_pmic_ccsm_driver = {
 	.driver = {
 		   .name = DRIVER_NAME,
 		   .owner = THIS_MODULE,
+		   .pm = &pmic_ccsm_pm,
 		   },
 	.probe = pmic_chrgr_probe,
 	.remove = pmic_chrgr_remove,

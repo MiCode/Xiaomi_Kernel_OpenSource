@@ -243,6 +243,10 @@
 #define MPWRSRCIRQ_CCSM_MASK		0x9F
 #define MPWRSRCIRQ_CCSM_VAL		0x84
 
+#define CHGDISFN_EN_CCSM_VAL		0x50
+#define CHGDISFN_DIS_CCSM_VAL		0x11
+#define CHGDISFN_CCSM_MASK		0x51
+
 /*Interrupt registers*/
 #define BATT_CHR_BATTDET_MASK	(1 << 2)
 /*Status registers*/

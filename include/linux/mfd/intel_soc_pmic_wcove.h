@@ -37,6 +37,7 @@ extern struct i2c_adapter *wcove_pmic_i2c_adapter;
 #define WC_CHGRCTRL1_ADDR	0x5E17
 #define WC_CHGRCTRL2_ADDR	0x5E18
 #define WC_CHGRSTATUS_ADDR	0x5E19
+#define WC_CHGDISCTRL_ADDR	0x5E2F
 #define WC_THRMBATZONE_ADDR	0x4F22
 
 #define WC_THRMIRQ1_ADDR	0x6E05

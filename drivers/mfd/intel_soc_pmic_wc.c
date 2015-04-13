@@ -187,6 +187,7 @@ static struct pmic_regs pmic_wcove_regmap = {
 	.pmic_mchgrirq1 = WC_MPWRSRC_ADDR,
 	.pmic_chgrctrl0 = WC_CHGRCTRL0_ADDR,
 	.pmic_chgrctrl1 = WC_CHGRCTRL1_ADDR,
+	.pmic_chgdisctrl = WC_CHGDISCTRL_ADDR,
 	.pmic_lowbattdet0 = WC_LOWBATTDET0_ADDR,
 	.pmic_lowbattdet1 = WC_LOWBATTDET1_ADDR,
 	.pmic_battdetctrl = WC_BATTDETCTRL_ADDR,

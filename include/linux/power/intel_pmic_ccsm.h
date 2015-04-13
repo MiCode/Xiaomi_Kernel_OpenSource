@@ -18,6 +18,7 @@ struct pmic_regs {
 	u16 pmic_mchgrirq1;
 	u16 pmic_chgrctrl0;
 	u16 pmic_chgrctrl1;
+	u16 pmic_chgdisctrl;
 	u16 pmic_lowbattdet0;
 	u16 pmic_lowbattdet1;
 	u16 pmic_battdetctrl;
