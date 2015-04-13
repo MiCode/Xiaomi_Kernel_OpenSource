@@ -32,6 +32,7 @@
 #include <asm/cacheflush.h>
 #include <asm/sizes.h>
 
+#include "msm_iommu_pagetable.h"
 #include "msm_iommu_perfmon.h"
 #include "msm_iommu_hw-v1.h"
 #include "msm_iommu_priv.h"
@@ -249,6 +250,25 @@ static int msm_iommu_reg_dump_to_regs(
 	return ret;
 }
 
+static void print_iova_to_phys(struct msm_iommu_ctx_drvdata *ctx_drvdata,
+		struct msm_iommu_context_reg ctx_regs[MAX_DUMP_REGS])
+{
+	phys_addr_t pagetable_phys;
+	u64 faulty_iova = 0;
+
+	if (ctx_drvdata->attached_domain &&
+			!ctx_drvdata->secure_context) {
+		faulty_iova = COMBINE_DUMP_REG(
+				ctx_regs[DUMP_REG_FAR1].val,
+				ctx_regs[DUMP_REG_FAR0].val);
+		pagetable_phys = msm_iommu_iova_to_phys_soft(
+					ctx_drvdata->attached_domain,
+					faulty_iova);
+		pr_err("Page table in DDR shows PA = %lx\n",
+					(unsigned long) pagetable_phys);
+	}
+}
+
 irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 {
 	struct platform_device *pdev = dev_id;
@@ -329,6 +349,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 					ctx_drvdata->num);
 				pr_err("Interesting registers:\n");
 				print_ctx_regs(ctx_regs);
+				print_iova_to_phys(ctx_drvdata, ctx_regs);
 			}
 		} else {
 			ret = IRQ_NONE;
