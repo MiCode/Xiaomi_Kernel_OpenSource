@@ -2711,6 +2711,7 @@
 			interrupt-parent = <&intc>;
 			interrupts = <0 131 0>;
 			tx-fifo-resize;
+			snps,usb3-u1u2-disable;
 			usb-phy = <&hsphy0>, <&ssphy0>;
 		};
 	};
