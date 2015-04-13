@@ -1062,21 +1062,50 @@
 			};
 		};
 
-		cam_sensor_flash {
-			/* FLSH_RESET,FLASH_EN,FLASH_NOW */
-			qcom,pins = <&gp 36>, <&gp 31>,<&gp 32> ;
-			qcom,num-grp-pins = <3>;
+		cam_flash_en_active {
+			/* FLASH ENABLE */
+			qcom,pins = <&gp 31>;
+			qcom,num-grp-pins = <1>;
 			qcom,pin-func = <0>;
-			label = "cam_sensor_flash";
+			label = "cam_flash_en_active";
 			/* active state */
-			cam_sensor_flash_default: default {
+			cam_flash_en_active: cam_flash_en_active {
 				drive-strength = <2>; /* 2 MA */
-				bias-disable = <0>; /* No PULL */
+				bias-disable; /* No PULL */
 			};
-			/*suspended state */
-			cam_sensor_flash_sleep: sleep {
+		};
+
+		cam_flash_en_suspend {
+			/* FLASH ENABLE */
+			qcom,pins = <&gp 31>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_flash_en_suspend";
+			/* suspend state */
+			cam_flash_en_suspend: cam_flash_en_suspend {
+				 drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* PULL DOWN */
+			};
+		};
+
+		cam_flash_now_active {
+			qcom,pins = <&gp 32>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cam_flash_now_active";
+			/* active state */
+			cam_flash_now_active: cam_flash_now_active {
 				drive-strength = <2>; /* 2 MA */
-				bias-pull-down = <0>; /* PULL DOWN */
+				 bias-disable; /* No PULL */
+			};
+		};
+
+		cam_flash_now_suspend {
+			qcom,pins = <&gp 32>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_flash_now_suspend";
+			cam_flash_now_suspend: cam_flash_now_suspend {
+				 drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* PULL DOWN */
 			};
 		};
 
