@@ -4,6 +4,7 @@ Required properties:
 - compatible: "qcom,msm8996-pinctrl"
 	      "qcom,mdm9640-pinctrl"
 	      "qcom,mdmfermium-pinctrl"
+	       "qcom,mdmcalifornium-pinctrl"
 - reg: Should be the base address and length of the TLMM block.
 - interrupts: Should be the parent IRQ of the TLMM block.
 - interrupt-controller: Marks the device node as an interrupt controller.
