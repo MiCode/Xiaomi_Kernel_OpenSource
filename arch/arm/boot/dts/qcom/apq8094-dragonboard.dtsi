@@ -94,11 +94,19 @@
 		};
 	};
 
-	pmx_pri_mi2s {
+	pmx_pri_mi2s_sleep {
 		qcom,pins = <&gp 58>, <&gp 59>;
 	};
 
-	pmx_pri_mi2s_sd0 {
+	pmx_pri_mi2s_active {
+		qcom,pins = <&gp 58>, <&gp 59>;
+	};
+
+	pmx_pri_mi2s_sd0_sleep {
+		qcom,pins = <&gp 60>;
+	};
+
+	pmx_pri_mi2s_sd0_active {
 		qcom,pins = <&gp 60>;
 	};
 };
