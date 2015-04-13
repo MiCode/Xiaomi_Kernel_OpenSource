@@ -407,7 +407,7 @@ static inline void hdmi_tx_send_cable_notification(
 		return;
 	}
 
-	if (!hdmi_ctrl->pdata.primary && (hdmi_ctrl->sdev.state != val))
+	if (hdmi_ctrl->sdev.state != val)
 		switch_set_state(&hdmi_ctrl->sdev, val);
 
 	/* Notify all registered modules of cable connection status */
@@ -2675,7 +2675,6 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 
 static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 {
-	u32 timeout;
 	int rc = 0;
 	struct dss_io_data *io = NULL;
 	struct hdmi_tx_ctrl *hdmi_ctrl =
@@ -2695,16 +2694,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		DEV_ERR("%s: HDMI on is not possible w/o cable detection.\n",
 			__func__);
 		return -EPERM;
-	}
-
-	if (hdmi_ctrl->pdata.primary) {
-		timeout = wait_for_completion_timeout(
-			&hdmi_ctrl->hpd_done, HZ);
-		if (!timeout) {
-			DEV_ERR("%s: cable connection hasn't happened yet\n",
-				__func__);
-			return -ETIMEDOUT;
-		}
 	}
 
 	rc = hdmi_tx_set_video_fmt(hdmi_ctrl, &panel_data->panel_info);
@@ -2727,11 +2716,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 	mutex_lock(&hdmi_ctrl->power_mutex);
 	hdmi_ctrl->panel_power_on = true;
 	mutex_unlock(&hdmi_ctrl->power_mutex);
-
-	if (hdmi_ctrl->pdata.primary) {
-		if (hdmi_tx_enable_power(hdmi_ctrl, HDMI_TX_DDC_PM, true))
-			DEV_ERR("%s: Failed to enable ddc power\n", __func__);
-	}
 
 	hdmi_cec_config(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
