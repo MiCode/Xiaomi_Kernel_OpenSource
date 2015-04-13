@@ -122,18 +122,6 @@ struct queue_rx_intent_work {
 	struct work_struct work;
 };
 
-/**
- * glink_pkt_mmap_info - stucture to use for mmap callback
- * @handle:	Opaque Channel handle returned by G-Link.
- * @buf:	Pointer to the mmaped address.
- * @backup_buf:	Pointer to backup buffer.
- */
-struct glink_pkt_mmap_info {
-	void *handle;
-	void *buf;
-	void *backup_buf;
-};
-
 static DEFINE_MUTEX(glink_pkt_dev_lock_lha1);
 static LIST_HEAD(glink_pkt_dev_list);
 static DEFINE_MUTEX(glink_pkt_driver_lock_lha1);
@@ -648,103 +636,6 @@ static unsigned int glink_pkt_poll(struct file *file, poll_table *wait)
 	return mask;
 }
 
-
-static void glink_pkt_vm_open(struct vm_area_struct *vma)
-{
-	GLINK_PKT_INFO("%s [vma=%08lx-%08lx]\n",
-			__func__, vma->vm_start, vma->vm_end);
-}
-
-static void glink_pkt_vm_close(struct vm_area_struct *vma)
-{
-	struct glink_pkt_mmap_info *info = vma->vm_private_data;
-
-	GLINK_PKT_INFO("%s [vma=%08lx-%08lx]\n",
-			__func__, vma->vm_start, vma->vm_end);
-	kfree(info->backup_buf);
-	glink_rx_done(info->handle, info->buf, false);
-	kfree(info);
-}
-
-static struct vm_operations_struct glink_pkt_vm_ops = {
-	.open	= glink_pkt_vm_open,
-	.close	= glink_pkt_vm_close,
-};
-
-/**
- * glink_pkt_mmap() - mmap() syscall for the glink_pkt device
- * file:	Pointer to the file structure.
- * wvma:	Pointer to the virtual memory structure.
- *
- * This function is used to mmap on the glink pkt device when
- * userspace client do a mmap() system call. All input arguments are
- * validated by the virtual file system before calling this function.
- */
-static int glink_pkt_mmap(struct file *file, struct vm_area_struct *vma)
-{
-	struct glink_pkt_dev *devp;
-	struct glink_pkt_mmap_info *info;
-	struct glink_rx_pkt *pkt = NULL;
-	unsigned long pfn;
-	unsigned long size;
-	void *data = NULL;
-
-	devp = file->private_data;
-	if (!devp || !devp->handle) {
-		GLINK_PKT_ERR("%s: Invalid device handle\n", __func__);
-		return -EINVAL;
-	}
-	if (vma->vm_end < vma->vm_start) {
-		GLINK_PKT_ERR("%s: Invalid Memory range\n", __func__);
-		return -EFAULT;
-	}
-
-	GLINK_PKT_INFO("%s: on glink_pkt_dev id[%d]\n", __func__, devp->i);
-
-	if (list_empty(&devp->pkt_list)) {
-		GLINK_PKT_ERR("%s: No Rx data on id[%d]\n", __func__, devp->i);
-		return -EAGAIN; /* No DATA */
-	}
-
-	info = kzalloc(sizeof(struct glink_pkt_mmap_info *), GFP_KERNEL);
-	if (!info) {
-		GLINK_PKT_ERR("%s: INFO Memory allocation failed\n", __func__);
-		return -ENOMEM;
-	}
-	info->handle = devp->handle;
-
-	pkt = list_first_entry(&devp->pkt_list, struct glink_rx_pkt, list);
-	data = (void *)pkt->data;
-	info->buf = (void *)pkt->data;
-
-	if ((pkt->size < PAGE_SIZE) && ((unsigned long)data & ~PAGE_MASK)) {
-		data = kzalloc(PAGE_SIZE, GFP_KERNEL);
-		if (!data) {
-			GLINK_PKT_ERR("%s: data Memory allocation failed\n",
-					__func__);
-			return -ENOMEM;
-		}
-		GLINK_PKT_INFO("%s Reallocate to page-align for size[%zu]\n",
-					__func__, pkt->size);
-		memcpy(data, pkt->data, pkt->size);
-		info->backup_buf = (void *)data;
-	}
-
-	pfn = virt_to_phys((void *)((unsigned long)data)) >> PAGE_SHIFT;
-	size = vma->vm_end - vma->vm_start;
-	vma->vm_private_data = (void *) info;
-	vma->vm_ops = &glink_pkt_vm_ops;
-	if (remap_pfn_range(vma, vma->vm_start, pfn,
-			size, vma->vm_page_prot)) {
-		GLINK_PKT_ERR("%s: Remap failed\n", __func__);
-		return -EAGAIN;
-	}
-
-	list_del(&pkt->list);
-	kfree(pkt);
-	return 0;
-}
-
 /**
  * glink_pkt_tiocmset() - set the signals for glink_pkt device
  * devp:	Pointer to the glink_pkt device structure.
@@ -965,7 +856,6 @@ static const struct file_operations glink_pkt_fops = {
 	.read = glink_pkt_read,
 	.write = glink_pkt_write,
 	.poll = glink_pkt_poll,
-	.mmap = glink_pkt_mmap,
 	.unlocked_ioctl = glink_pkt_ioctl,
 	.compat_ioctl = glink_pkt_ioctl,
 };
