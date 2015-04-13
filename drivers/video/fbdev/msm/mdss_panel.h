@@ -406,8 +406,9 @@ struct lcd_panel_info {
 	/* Pad height */
 	u32 yres_pad;
 	u32 frame_rate;
+	u32 h_polarity;
+	u32 v_polarity;
 };
-
 
 /* DSI PHY configuration */
 struct mdss_dsi_phy_ctrl {
