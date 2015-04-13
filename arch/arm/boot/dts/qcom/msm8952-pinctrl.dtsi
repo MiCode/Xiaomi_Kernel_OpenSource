@@ -1201,6 +1201,30 @@
 			};
 		};
 
+		flash_led_enable {
+			qcom,pins = <&gp 128>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "flash_led_enable";
+
+			flash_led_enable: flash_led_enable {
+				drive-strength = <16>;
+				output-high;
+			};
+		};
+
+		flash_led_disable {
+			qcom,pins = <&gp 128>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "flash_led_disable";
+
+			flash_led_disable: flash_led_disable {
+				drive-strength = <2>;
+				output-low;
+			};
+		};
+
 		pmx_i2c_8 {
 			/* CLK, DATA */
 			qcom,pins = <&gp 98>, <&gp 99>;
