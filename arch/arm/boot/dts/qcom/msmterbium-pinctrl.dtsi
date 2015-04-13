@@ -224,5 +224,23 @@
 				bias-disable = <0>; /* No PULL */
                         };
                 };
+
+		pmx_i2c_4 {
+			/* CLK, DATA */
+			qcom,pins = <&gp 14>, <&gp 15>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "pmx_i2c_4";
+			/* active state */
+			i2c_4_active: i2c_4_active {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+                        /* suspended state */
+                        i2c_4_sleep: i2c_4_sleep {
+                                drive-strength = <2>; /* 2 MA */
+                                bias-disable = <0>; /* No PULL */
+                        };
+                };
 	};
 };
