@@ -1181,14 +1181,9 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 				& ~PIPE_UTMI_CLK_DIS);
 		}
 
-		/* Re-initialize SSPHY after reset */
-		usb_phy_set_params(mdwc->ss_phy);
 		dwc3_msm_update_ref_clk(mdwc);
 		dwc3_msm_restore_sec_config(mdwc->scm_dev_id);
 		dwc->tx_fifo_size = mdwc->tx_fifo_size;
-		break;
-	case DWC3_CONTROLLER_POST_INITIALIZATION_EVENT:
-		usb_phy_post_init(mdwc->ss_phy);
 		break;
 	case DWC3_CONTROLLER_CONNDONE_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_CONNDONE_EVENT received\n");
