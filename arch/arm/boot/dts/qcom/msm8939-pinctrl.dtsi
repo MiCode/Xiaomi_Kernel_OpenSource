@@ -644,7 +644,7 @@
 			label = "mpu6050-irq";
 			mpu6050_default: mpu6050_default {
 				drive-strength = <6>;
-				bias-pull-down;
+				bias-pull-up;
 			};
 			mpu6050_sleep: mpu6050_sleep {
 				drive-strength = <2>;
