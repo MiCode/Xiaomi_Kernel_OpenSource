@@ -184,6 +184,7 @@ struct adreno_busy_data {
  * @features: Common adreno features supported by this core
  * @pm4fw_name: Filename for th PM4 firmware
  * @pfpfw_name: Filename for the PFP firmware
+ * @zap_name: Filename for the Zap Shader ucode
  * @gpudev: Pointer to the GPU family specific functions for this core
  * @gmem_size: Amount of binning memory (GMEM/OCMEM) to reserve for the core
  * @pm4_jt_idx: Index of the jump table in the PM4 microcode
@@ -208,6 +209,7 @@ struct adreno_gpu_core {
 	unsigned long features;
 	const char *pm4fw_name;
 	const char *pfpfw_name;
+	const char *zap_name;
 	struct adreno_gpudev *gpudev;
 	size_t gmem_size;
 	unsigned int pm4_jt_idx;
