@@ -36,23 +36,23 @@
 			label = "gfx3d_user";
 		};
 
-		gfx3d_priv: qcom,iommu-ctx@1f09000 {
+		gfx3d_secure: qcom,iommu-ctx@1f09000 {
 			compatible = "qcom,msm-smmu-v2-ctx";
 			reg = <0x1f09000 0x1000>;
-			interrupts = <0 241 0>;
-			qcom,iommu-ctx-sids = <0x1>;
-			qcom,iommu-sid-mask = <0x400>;
-			label = "gfx3d_priv";
-		};
-
-		gfx3d_secure: qcom,iommu-ctx@1f0b000 {
-			compatible = "qcom,msm-smmu-v2-ctx";
-			reg = <0x1f0b000 0x1000>;
 			qcom,secure-context;
-			interrupts = <0 245 0>, <0 245 0>;
+			interrupts = <0 241 0>, <0 241 0>;
 			qcom,iommu-ctx-sids = <0x2>;
 			qcom,iommu-sid-mask = <0x401>;
 			label = "gfx3d_secure";
+		};
+
+		gfx3d_priv: qcom,iommu-ctx@1f0a000 {
+			compatible = "qcom,msm-smmu-v2-ctx";
+			reg = <0x1f0a000 0x1000>;
+			interrupts = <0 242 0>;
+			qcom,iommu-ctx-sids = <0x1>;
+			qcom,iommu-sid-mask = <0x400>;
+			label = "gfx3d_priv";
 		};
 	};
 
