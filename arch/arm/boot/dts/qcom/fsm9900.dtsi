@@ -1958,6 +1958,28 @@
 		qcom,hw-settle-time = <2>;
 		qcom,fast-avg-setup = <0>;
 	};
+
+	chan@e {
+		label = "pa_gnd_ref";
+		reg = <0x0e>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <11>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
+
+	chan@f {
+		label = "pa_vdd_ref";
+		reg = <0x0f>;
+		qcom,decimation = <0>;
+		qcom,pre-div-channel-scaling = <0>;
+		qcom,calibration-type = "ratiometric";
+		qcom,scale-function = <11>;
+		qcom,hw-settle-time = <2>;
+		qcom,fast-avg-setup = <0>;
+	};
 };
 
 &pma8084_adc_tm {
