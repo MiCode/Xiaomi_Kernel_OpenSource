@@ -1,0 +1,60 @@
+* Qualcomm MSM VPU
+
+VPU (Video Processing Unit) applies high quality video post-processing
+functions like noise reduction, deinterlacing, scaling, etc in real-time
+on streaming video.
+
+
+Required properties:
+- compatible:
+    - "qcom,vpu"
+- reg: Specify offset and length of the device register sets.
+- reg-names: Names corresponding to the defined register sets.
+    - "vpu_csr": CSR registers
+    - "vpu_smem": Shared memory
+    - "vpu_vbif": VBIF registers (optional)
+- interrupts: Specify the vpu interrupts.
+- interrupt-names: Names corresponding to the defined interrupts list.
+    - "vpu_wdog": Watchdog interrupt
+    - "vpu_hfi": Firmware to Host interrupt
+- clock-names: Array of clocks that the driver requires for the device.
+  The names here correspond to the clock names used in clk_get(<name>).
+- qcom,bus-load-vector-tbl: Vectors of <load, ab, ib>. The (ab,ib) pairs are
+  ddr bus bandwidths to be requested at corresponding video processing load.
+  Vectors should be in ascending order of load, and their number is variable.
+- vdd-supply: regulator that supplies the vpu.
+
+Optional properties:
+- qcom,enabled-iommu-maps: List of IOMMU maps to be enabled, defined by name.
+  If this property is not defined or invalid, then device assumes contiguous
+  buffers. Valid iommu names are:
+    - "vpu_nonsecure": IOMMU for accessing non-secure video buffers.
+    - "vpu_secure":    IOMMU for accessing secure video buffers.
+    - "vpu_firmware":  IOMMU for loading firmware image.
+- qcom,vbif-reg-presets: List of offset-value pairs for VBIF registers to be
+  programmed. The offsets are from the base register specified in 'vpu_vbif'.
+  This is used to program default register values for QoS settings, etc.
+
+Example:
+	qcom,vpu@fdc00000 {
+		compatible = "qcom,vpu";
+		reg = <0xfdc00000 0xff000>,
+			<0xbfe00000 0x100000>;
+		reg-names = "vpu_csr", "vpu_smem";
+		interrupts = <0 44 0>, <0 45 0>;
+		interrupt-names = "vpu_wdog", "vpu_hfi";
+		clock-names = "core_clk", "bus_clock", "iface_clk";
+		qcom,maple-clk-load-freq-tbl = <100000 50000000>,
+			<500000 400000000>;
+		qcom,vdp-clk-load-freq-tbl = <200000 100000000>,
+			<400000 320000000>;
+		qcom,bus-clk-load-freq-tbl = <100000 40000000>,
+			<200000 80000000>;
+		qcom,bus-load-vector-tbl = <0 0 0>,
+			<489600 536000 1600000>,
+			<979200 2024000 1600000>;
+		qcom,enabled-iommu-maps = "vpu_nonsecure", "vpu_secure";
+		qcom,vbif-reg-presets = <0xb0138 0x43ff>,
+			<0xb0178 0xff12350e>;
+		vdd-supply = <&gdsc_vpu>;
+	};

@@ -1,0 +1,41 @@
+* Qualcomm MSM ISPIF
+
+Required properties:
+- cell-index: ispif hardware core index
+- compatible :
+    - "qcom,ispif"
+    - "qcom,ispif-v3.0"
+- reg : offset and length of the register set for the device
+    for the ispif operating in compatible mode.
+- reg-names : should specify relevant names to each reg property defined.
+- interrupts : should contain the ispif interrupt.
+- interrupt-names : should specify relevant names to each interrupts
+  property defined.
+
+Optional properties:
+- qcom,num-isps: The number of ISPs the ISPIF module is connected to. If not set
+  the default value used is 1
+
+Example:
+
+   qcom,ispif@fda0a000 {
+       cell-index = <0>;
+       compatible = "qcom,ispif";
+       reg = <0xfda0a000 0x300>;
+       reg-names = "ispif";
+       interrupts = <0 55 0>;
+       interrupt-names = "ispif";
+   };
+
+or
+
+   qcom,ispif@fda0a000 {
+       cell-index = <0>;
+       compatible = "qcom,ispif-v3.0", "qcom,ispif";
+       reg = <0xfda0a000 0x300>;
+       reg-names = "ispif";
+       interrupts = <0 55 0>;
+       interrupt-names = "ispif";
+       qcom,num-isps = <2>
+   };
+
