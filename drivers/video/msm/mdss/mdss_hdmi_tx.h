@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +56,7 @@ struct hdmi_tx_ctrl {
 
 	struct mutex mutex;
 	struct mutex lut_lock;
+	struct mutex power_mutex;
 	struct mutex cable_notify_mutex;
 	struct list_head cable_notify_handlers;
 	struct kobject *kobj;
@@ -77,10 +78,11 @@ struct hdmi_tx_ctrl {
 	u8  timing_gen_on;
 	u32 mhl_max_pclk;
 	u8  mhl_hpd_on;
-	struct completion hpd_done;
+
+	struct completion hpd_int_done;
+	struct completion hpd_off_done;
 	struct work_struct hpd_int_work;
 
-	struct work_struct power_off_work;
 	struct work_struct cable_notify_work;
 
 	bool hdcp_feature_on;
