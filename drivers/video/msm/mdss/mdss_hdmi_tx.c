@@ -103,7 +103,9 @@ enum msm_hdmi_supported_audio_sample_rates {
 enum hdmi_tx_hpd_states {
 	HPD_OFF,
 	HPD_ON,
-	HPD_ON_CONDITIONAL_MTP
+	HPD_ON_CONDITIONAL_MTP,
+	HPD_DISABLE,
+	HPD_ENABLE
 };
 
 /* parameters for clock regeneration */
@@ -577,6 +579,10 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 
 	switch (hpd) {
 	case HPD_OFF:
+	case HPD_DISABLE:
+		if (hpd == HPD_DISABLE)
+			hdmi_ctrl->hpd_disabled = true;
+
 		if (!hdmi_ctrl->hpd_feature_on) {
 			DEV_DBG("%s: HPD is already off\n", __func__);
 			return ret;
@@ -594,6 +600,12 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 			hdmi_ctrl->sdev.state);
 		break;
 	case HPD_ON:
+		if (hdmi_ctrl->hpd_disabled == true) {
+			DEV_ERR("%s: hpd is disabled, state %d not allowed\n",
+				__func__, hpd);
+			return ret;
+		}
+
 		if (hdmi_ctrl->pdata.cond_power_on) {
 			DEV_ERR("%s: hpd state %d not allowed w/ cond. hpd\n",
 				__func__, hpd);
@@ -608,6 +620,12 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
 		break;
 	case HPD_ON_CONDITIONAL_MTP:
+		if (hdmi_ctrl->hpd_disabled == true) {
+			DEV_ERR("%s: hpd is disabled, state %d not allowed\n",
+				__func__, hpd);
+			return ret;
+		}
+
 		if (!hdmi_ctrl->pdata.cond_power_on) {
 			DEV_ERR("%s: hpd state %d not allowed w/o cond. hpd\n",
 				__func__, hpd);
@@ -618,6 +636,11 @@ static ssize_t hdmi_tx_sysfs_wta_hpd(struct device *dev,
 			DEV_DBG("%s: HPD is already on\n", __func__);
 			return ret;
 		}
+
+		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
+		break;
+	case HPD_ENABLE:
+		hdmi_ctrl->hpd_disabled = false;
 
 		rc = hdmi_tx_sysfs_enable_hpd(hdmi_ctrl, true);
 		break;
