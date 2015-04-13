@@ -300,6 +300,8 @@
 			<&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ahb_clk>;
 		qcom,clock-rates = <320000000 0 0 0 0>;
+		vbif-reg-settings = <0x4 0x1>;
+		qos-reg-settings = <0x28 0x00000008>;
 	};
 
 	qcom,jpeg@fda20000 {
@@ -318,6 +320,8 @@
 		       <&clock_mmss clk_camss_top_ahb_clk>,
 		       <&clock_mmss clk_camss_ahb_clk>;
 		qcom,clock-rates = <320000000 0 0 0 0>;
+		vbif-reg-settings = <0x4 0x1>;
+		qos-reg-settings = <0x28 0x00000008>;
 	};
 
 	qcom,jpeg@fda24000 {
@@ -336,6 +340,8 @@
 		       <&clock_mmss clk_camss_top_ahb_clk>,
 		       <&clock_mmss clk_camss_ahb_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0>;
+		vbif-reg-settings = <0x4 0x1>;
+		qos-reg-settings = <0x28 0x00000008>;
 	};
 
 	qcom,jpeg@fdaa0000 {
@@ -354,6 +360,7 @@
 			<&clock_mmss clk_camss_top_ahb_clk>,
 			<&clock_mmss clk_camss_ahb_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0>;
+		vbif-reg-settings = <0x4 0x1>;
 	};
 
 
