@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -199,6 +199,61 @@ static void set_vbif_params(struct msm_jpeg_device *pgmn_dev,
 
 }
 
+static int32_t msm_jpeg_set_init_dt_parms(struct msm_jpeg_device *pgmn_dev,
+				const char *dt_prop_name,
+				void *base)
+{
+	struct device_node *of_node;
+	int32_t i = 0 , rc = 0;
+	uint32_t *dt_reg_settings = NULL;
+	uint32_t dt_count = 0;
+
+	of_node = pgmn_dev->pdev->dev.of_node;
+	JPEG_DBG("%s:%d E\n", __func__, __LINE__);
+
+	if (!of_get_property(of_node, dt_prop_name,
+				&dt_count)) {
+		JPEG_PR_ERR("%s: Error property does not exist\n",
+				__func__);
+		return -ENOENT;
+	}
+	if (dt_count % 8) {
+		JPEG_PR_ERR("%s: Error invalid entries\n",
+				__func__);
+		return -EINVAL;
+	}
+	dt_count /= 4;
+	if (dt_count != 0) {
+		dt_reg_settings = kzalloc(sizeof(uint32_t) * dt_count,
+			GFP_KERNEL);
+		if (!dt_reg_settings) {
+			JPEG_PR_ERR("%s:%d No memory\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		rc = of_property_read_u32_array(of_node,
+				dt_prop_name,
+				dt_reg_settings,
+				dt_count);
+		if (rc < 0) {
+			JPEG_PR_ERR("%s: No reg info\n",
+				__func__);
+			kfree(dt_reg_settings);
+			return -EINVAL;
+		}
+		for (i = 0; i < dt_count; i = i + 2) {
+			JPEG_DBG("%s:%d] %p %08x\n",
+					__func__, __LINE__,
+					base + dt_reg_settings[i],
+					dt_reg_settings[i + 1]);
+			writel_relaxed(dt_reg_settings[i + 1],
+					base + dt_reg_settings[i]);
+		}
+		kfree(dt_reg_settings);
+	}
+	return 0;
+}
+
 static struct msm_bus_vectors msm_jpeg_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_JPEG,
@@ -378,7 +433,24 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	if (rc < 0)
 		goto fail_iommu;
 
-	set_vbif_params(pgmn_dev, pgmn_dev->jpeg_vbif);
+	rc = msm_jpeg_set_init_dt_parms(pgmn_dev, "vbif-reg-settings",
+					pgmn_dev->jpeg_vbif);
+	if (rc == -ENOENT) {
+		JPEG_DBG("%s: No vbif-reg-settings property\n", __func__);
+		set_vbif_params(pgmn_dev, pgmn_dev->jpeg_vbif);
+	} else if (rc < 0) {
+		JPEG_PR_ERR("%s: vbif params set fail\n", __func__);
+		goto fail_vbif;
+	}
+
+	rc = msm_jpeg_set_init_dt_parms(pgmn_dev, "qos-reg-settings",
+					jpeg_base);
+	if (rc == -ENOENT) {
+		JPEG_DBG("%s: No qos-reg-settings property\n", __func__);
+	} else if (rc < 0) {
+		JPEG_PR_ERR("%s: qos params set fail\n", __func__);
+		goto fail_qos;
+	}
 
 	rc = request_irq(jpeg_irq, handler, IRQF_TRIGGER_RISING,
 		dev_name(&pdev->dev), context);
@@ -404,7 +476,7 @@ fail_request_irq:
 fail_iommu:
 	iounmap(pgmn_dev->jpeg_vbif);
 
-
+fail_qos:
 fail_vbif:
 	msm_cam_clk_enable(&pgmn_dev->pdev->dev, pgmn_dev->jpeg_clk_info,
 	pgmn_dev->jpeg_clk, pgmn_dev->num_clk, 0);

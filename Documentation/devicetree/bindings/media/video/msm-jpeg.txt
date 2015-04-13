@@ -16,6 +16,10 @@ Required properties:
 - qcom, clock-rates: rates of the required clocks.
 - vdd-supply: phandle to GDSC regulator controlling JPEG core.
 
+Optional properties:
+- vbif-reg-settings: relative address offsets and value pairs for VBIF registers.
+- qos-reg-settings: relative address offsets and value pairs for QoS registers.
+
 Example:
 
    qcom,jpeg@0xfda20000 {
@@ -35,6 +39,10 @@ Example:
        qcom,clock-rates = <266670000 0 0 0 0>;
 
        vdd-supply = <&gdsc_jpeg>;
+       vbif-reg-settings = <0x4 0x1>,
+                           <0xB0 0x00100010>,
+                           <0xC0 0x10001000>;
+       qos-reg-settings = <0x28 0x00000008>;
    };
 
    qcom,jpeg@fdaa0000 {
@@ -54,5 +62,7 @@ Example:
                <&clock_mmss clk_camss_top_ahb_clk>,
                <&clock_mmss clk_camss_ahb_clk>;
        qcom,clock-rates = <266670000 0 0 0 0>;
-
+       vbif-reg-settings = <0x4 0x1>,
+                           <0xB0 0x00100010>,
+                           <0xC0 0x10001000>;
    };
