@@ -8536,7 +8536,7 @@ static int ufshcd_devfreq_target(struct device *dev,
 	struct ufs_hba *hba = dev_get_drvdata(dev);
 	unsigned long irq_flags;
 	ktime_t start;
-	bool scale_up;
+	bool scale_up, release_clk_hold = false;
 
 	if (!ufshcd_is_clkscaling_supported(hba))
 		return -EINVAL;
@@ -8550,13 +8550,44 @@ static int ufshcd_devfreq_target(struct device *dev,
 	if (!ufshcd_is_devfreq_scaling_required(hba, scale_up))
 		return 0; /* no state change required */
 
+	spin_lock_irqsave(hba->host->host_lock, irq_flags);
+	if (ufshcd_eh_in_progress(hba)) {
+		spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
+		return 0;
+	}
+
+	if (ufshcd_is_clkgating_allowed(hba) &&
+	    (hba->clk_gating.state != CLKS_ON)) {
+		if (cancel_delayed_work(&hba->clk_gating.gate_work)) {
+			/* hold the vote until the scaling work is completed */
+			hba->clk_gating.active_reqs++;
+			release_clk_hold = true;
+			hba->clk_gating.state = CLKS_ON;
+			trace_ufshcd_clk_gating(dev_name(hba->dev),
+				ufschd_clk_gating_state_to_string(
+					hba->clk_gating.state));
+		} else {
+			/*
+			 * Clock gating work seems to be running in parallel
+			 * hence skip scaling work to avoid deadlock between
+			 * current scaling work and gating work.
+			 */
+			spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
+			return 0;
+		}
+	}
+	spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
+
 	start = ktime_get();
 
 	ret = ufshcd_devfreq_scale(hba, scale_up);
 
-	/* suspend PM QoS voting when scaled down and vise versa */
 	spin_lock_irqsave(hba->host->host_lock, irq_flags);
+	/* suspend PM QoS voting when scaled down and vise versa */
 	hba->pm_qos.is_suspended = !scale_up;
+
+	if (release_clk_hold)
+		__ufshcd_release(hba, false);
 	spin_unlock_irqrestore(hba->host->host_lock, irq_flags);
 
 	trace_ufshcd_profile_clk_scaling(dev_name(hba->dev),
