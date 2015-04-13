@@ -1,0 +1,79 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	tlmm_pinmux: pinctrl@1000000 {
+		compatible = "qcom,msm-tlmm-mdm9640", "qcom,msm-tlmm-8916";
+		reg = <0x1000000 0x300000>;
+		interrupts = <0 208 0>;
+
+		/* General purpose pins */
+		gp: gp {
+			qcom,num-pins = <100>;
+			#qcom,pin-cells = <1>;
+			msm_gpio: msm_gpio {
+				compatible = "qcom,msm-tlmm-gp";
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				num_irqs = <100>;
+			};
+		};
+
+		pmx-uart2console {
+			qcom,pins = <&gp 4>, <&gp 5>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "uart2-console";
+
+			uart2_console_active: uart2-console {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pmx-uart3console {
+			qcom,pins = <&gp 8>, <&gp 9>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "uart3-console";
+
+			uart3_console_active: uart3-console {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		blsp1_uart2_active {
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <2>;
+		        label = "blsp1_uart2_active";
+			hsuart_active: default {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_sleep {
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <0>;
+		        label = "blsp1_uart2_sleep";
+			hsuart_sleep: sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+	};
+};
