@@ -538,15 +538,16 @@ static int mdss_mdp_get_ubwc_plane_size(struct mdss_mdp_format_params *fmt,
 			ALIGN(DIV_ROUND_UP(height / 2, 8), 16), 4096);
 
 	} else if (fmt->format == MDP_RGBA_8888_UBWC ||
+		fmt->format == MDP_RGBX_8888_UBWC ||
 		fmt->format == MDP_RGB_565_UBWC) {
 		uint32_t stride_alignment, bpp, aligned_bitstream_width;
 
-		if (fmt->format == MDP_RGBA_8888_UBWC) {
-			stride_alignment = 64;
-			bpp = 4;
-		} else {
+		if (fmt->format == MDP_RGB_565_UBWC) {
 			stride_alignment = 128;
 			bpp = 2;
+		} else {
+			stride_alignment = 64;
+			bpp = 4;
 		}
 		ps->num_planes = 2;
 

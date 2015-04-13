@@ -178,18 +178,32 @@ enum {
  * that the size of the factors tables are multiple of the ubwc_map
  * table and throw an error if a mismatch is found.
  */
-#define UBWC_TOTAL_FORMATS 3
+#define UBWC_TOTAL_FORMATS 4
 
 static struct mdss_fudge_factor ubwc_rt_factors[][UBWC_TOTAL_FORMATS] = {
-	/* RGB_565_UBWC	| RGBA_8888_UBWC | YUV_H2V2_UBWC */
-	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* 8996 v0 */
-	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* 8996 v1,v2 */
+	/* 8996 v1*/
+	{{1, 1} ,       /* RGB_565_UBWC   */
+	 {126, 100} ,   /* RGBA_8888_UBWC */
+	 {126, 100} ,   /* RGBX_8888_UBWC */
+	 {123, 100} } , /* YUV_H2V2_UBWC  */
+	/* 8996 v2/v3 */
+	{{1, 1} ,       /* RGB_565_UBWC   */
+	 {126, 100} ,   /* RGBA_8888_UBWC */
+	 {126, 100} ,   /* RGBX_8888_UBWC */
+	 {123, 100} },  /* YUV_H2V2_UBWC  */
 };
 
 static struct mdss_fudge_factor ubwc_nrt_factors[][UBWC_TOTAL_FORMATS] = {
-	/* RGB_565_UBWC	| RGBA_8888_UBWC | YUV_H2V2_UBWC */
-	{{1, 1} ,	 {146, 100} ,	 {1,   1} } ,	/* 8996 v0 */
-	{{1, 1} ,	 {146, 100} ,	 {128, 100} } ,	/* 8996 v1,v2 */
+	/* 8996 v1*/
+	{{1, 1} ,       /* RGB_565_UBWC   */
+	 {146, 100} ,   /* RGBA_8888_UBWC */
+	 {146, 100} ,   /* RGBX_8888_UBWC */
+	 {1, 1} } ,     /* YUV_H2V2_UBWC  */
+	/* 8996 v2/v3 */
+	{{1, 1} ,       /* RGB_565_UBWC   */
+	 {146, 100} ,   /* RGBA_8888_UBWC */
+	 {146, 100} ,   /* RGBX_8888_UBWC */
+	 {128, 100} } , /* YUV_H2V2_UBWC  */
 };
 
 /*
@@ -209,6 +223,13 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBA_8888_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 1,
+			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		.comp_ratio_rt = {1, 1},
+		.comp_ratio_nrt = {1, 1},
+	},
+	{
+		.mdp_format = FMT_RGB_8888(MDP_RGBX_8888_UBWC,
+			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 0,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
 		.comp_ratio_rt = {1, 1},
 		.comp_ratio_nrt = {1, 1},
