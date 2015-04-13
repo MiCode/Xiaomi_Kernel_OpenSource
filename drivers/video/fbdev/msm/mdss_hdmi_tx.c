@@ -375,9 +375,11 @@ static void hdmi_tx_audio_setup(struct hdmi_tx_ctrl *hdmi_ctrl)
 	}
 }
 
-static inline u32 hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
+static inline bool hdmi_tx_is_dvi_mode(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
-	return hdmi_edid_is_dvi_mode(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID));
+	return (hdmi_edid_get_sink_mode(
+		hdmi_tx_get_fd(HDMI_TX_FEAT_EDID),
+		hdmi_ctrl->vic) == SINK_MODE_DVI);
 } /* hdmi_tx_is_dvi_mode */
 
 static inline bool hdmi_tx_is_panel_on(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -2133,6 +2135,8 @@ static int hdmi_tx_init_panel_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 	pinfo->lcdc.v_front_porch = timing.front_porch_v;
 	pinfo->lcdc.v_pulse_width = timing.pulse_width_v;
 	pinfo->lcdc.frame_rate = timing.refresh_rate;
+	pinfo->lcdc.h_polarity = timing.active_low_h;
+	pinfo->lcdc.v_polarity = timing.active_low_v;
 
 	pinfo->type = DTV_PANEL;
 	pinfo->pdest = DISPLAY_3;
@@ -2439,7 +2443,8 @@ static void hdmi_tx_set_mode(struct hdmi_tx_ctrl *hdmi_ctrl, u32 power_on)
 			hdmi_ctrl_reg |= BIT(2);
 
 		/* Set transmission mode to DVI based in EDID info */
-		if (hdmi_edid_is_dvi_mode(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID)))
+		if (hdmi_edid_get_sink_mode(hdmi_tx_get_fd(HDMI_TX_FEAT_EDID),
+			hdmi_ctrl->vic) == SINK_MODE_DVI)
 			hdmi_ctrl_reg &= ~BIT(1); /* DVI mode */
 
 		/*
@@ -2898,7 +2903,6 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 {
 	int rc = 0;
 	struct hdmi_tx_ctrl *hdmi_ctrl = platform_get_drvdata(pdev);
-	u32 is_mode_dvi;
 
 	if (!hdmi_ctrl || !params) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -2907,9 +2911,8 @@ static int hdmi_tx_audio_info_setup(struct platform_device *pdev,
 
 	mutex_lock(&hdmi_ctrl->tx_lock);
 
-	is_mode_dvi = hdmi_tx_is_dvi_mode(hdmi_ctrl);
-
-	if (!is_mode_dvi && hdmi_tx_is_panel_on(hdmi_ctrl)) {
+	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl) &&
+		hdmi_tx_is_panel_on(hdmi_ctrl)) {
 		memcpy(&hdmi_ctrl->audio_params, params,
 			sizeof(struct msm_ext_disp_audio_setup_params));
 
