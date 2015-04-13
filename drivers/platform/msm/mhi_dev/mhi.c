@@ -1771,6 +1771,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	mhi->event_reg.events = EP_PCIE_EVENT_PM_D3_HOT |
 			EP_PCIE_EVENT_PM_D3_COLD |
+			EP_PCIE_EVENT_PM_D0 |
 			EP_PCIE_EVENT_PM_RST_DEAST |
 			EP_PCIE_EVENT_LINKDOWN;
 	mhi->event_reg.user = mhi;
