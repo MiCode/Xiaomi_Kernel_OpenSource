@@ -1208,6 +1208,8 @@ void *msm_vidc_open(int core_id, int session_type)
 	INIT_MSM_VIDC_LIST(&inst->outputbufs);
 	INIT_MSM_VIDC_LIST(&inst->registeredbufs);
 
+	kref_init(&inst->kref);
+
 	inst->session_type = session_type;
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
@@ -1329,9 +1331,8 @@ static void cleanup_instance(struct msm_vidc_inst *inst)
 	}
 }
 
-int msm_vidc_close(void *instance)
+int msm_vidc_destroy(struct msm_vidc_inst *inst)
 {
-	struct msm_vidc_inst *inst = instance;
 	struct msm_vidc_inst *temp, *inst_dummy;
 	struct msm_vidc_core *core;
 	struct buffer_info *bi, *dummy;
@@ -1394,6 +1395,25 @@ int msm_vidc_close(void *instance)
 			VIDC_MSG_PRIO2STRING(VIDC_INFO), inst);
 	kfree(inst);
 
+	return 0;
+}
+
+int msm_vidc_close(void *instance)
+{
+	void close_helper(struct kref *kref)
+	{
+		struct msm_vidc_inst *inst = container_of(kref,
+				struct msm_vidc_inst, kref);
+
+		msm_vidc_destroy(inst);
+	}
+
+	struct msm_vidc_inst *inst = instance;
+
+	if (!inst)
+		return -EINVAL;
+
+	kref_put(&inst->kref, close_helper);
 	return 0;
 }
 EXPORT_SYMBOL(msm_vidc_close);
