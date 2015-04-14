@@ -620,6 +620,12 @@ Optional properties:
 - qcom,cpr-skip-voltage-change-during-suspend: Boolean property which indicates that the CPR voltage
 				should not be adjusted based upon the number of online cores while
 				entering or exiting system suspend.
+- rpm-apc-supply:		Regulator to notify RPM of the APC operating
+				corner
+- qcom,rpm-apc-corner-map:	Array of integers which define the mapping of
+				the RPM corner to the corresponding APC virtual
+				corner. This property must be defined if
+				'rpm-apc-supply' is present.
 
 Example:
 	apc_vreg_corner: regulator@f9018000 {
@@ -692,6 +698,9 @@ Example:
 		qcom,cpr-gcnt-time = <1>;
 		qcom,cpr-clamp-timer-interval = <1>;
 		qcom,cpr-apc-volt-step = <5000>;
+
+		rpm-apc-supply = <&rpm_apc_vreg>;
+		qcom,rpm-apc-corner-map = <4 4 5 5 7 7 7 7 7 7 7 7>;
 
 		qcom,cpr-fuse-row = <138 1>;
 		qcom,cpr-fuse-bp-cpr-disable = <36>;
