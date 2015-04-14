@@ -158,7 +158,7 @@ static int msm_cpufreq_init(struct cpufreq_policy *policy)
 	pr_debug("cpufreq: cpu%d init at %d switching to %d\n",
 			policy->cpu, cur_freq, table[index].frequency);
 	policy->cur = table[index].frequency;
-	cpufreq_frequency_table_get_attr(table, policy->cpu);
+	policy->freq_table = table;
 
 	return 0;
 }
