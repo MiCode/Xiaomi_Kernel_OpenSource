@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,7 +24,7 @@
 
 #define CNSS_MAX_FILE_NAME	  20
 
-#define MAX_FIRMWARE_SIZE (512 * 1024)
+#define MAX_FIRMWARE_SIZE (1 * 1024 * 1024)
 
 enum cnss_bus_width_type {
 	CNSS_BUS_WIDTH_NONE,
