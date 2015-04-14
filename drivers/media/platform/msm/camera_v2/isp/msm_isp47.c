@@ -1212,6 +1212,28 @@ static void msm_vfe47_cfg_input_mux(struct vfe_device *vfe_dev,
 	return;
 }
 
+static void msm_vfe47_configure_hvx(struct vfe_device *vfe_dev,
+	uint8_t is_stream_on)
+{
+	uint32_t val;
+	if (is_stream_on == 1) {
+		/* Enable HVX */
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
+		val |= (1 << 3);
+		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
+		val &= 0xFF7FFFFF;
+		if (vfe_dev->hvx_cmd == HVX_ROUND_TRIP)
+			val |= (1 << 23);
+		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
+	} else {
+		/* Disable HVX */
+		val = msm_camera_io_r(vfe_dev->vfe_base + 0x50);
+		val &= 0xFFFFFFF7;
+		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x50);
+		vfe_dev->hvx_cmd = HVX_DISABLE;
+	}
+}
+
 static void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 	enum msm_isp_camif_update_state update_state)
 {
@@ -1226,6 +1248,10 @@ static void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x5C);
 		val |= 0xF5;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x5C);
+
+		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
+			(vfe_dev->hvx_cmd <= HVX_ROUND_TRIP))
+			msm_vfe47_configure_hvx(vfe_dev, 1);
 
 		bus_en =
 			((vfe_dev->axi_data.
@@ -1250,11 +1276,21 @@ static void msm_vfe47_update_camif_state(struct vfe_device *vfe_dev,
 		/* testgen OFF*/
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
 			msm_camera_io_w(1 << 1, vfe_dev->vfe_base + 0xC58);
+
+		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
+			(vfe_dev->hvx_cmd <= HVX_ROUND_TRIP))
+			msm_vfe47_configure_hvx(vfe_dev, 0);
+
 	} else if (update_state == DISABLE_CAMIF_IMMEDIATELY) {
 		msm_camera_io_w_mb(0x6, vfe_dev->vfe_base + 0x478);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].active = 0;
 		if (vfe_dev->axi_data.src_info[VFE_PIX_0].input_mux == TESTGEN)
 			msm_camera_io_w(1 << 1, vfe_dev->vfe_base + 0xC58);
+
+		if ((vfe_dev->hvx_cmd > HVX_DISABLE) &&
+			(vfe_dev->hvx_cmd <= HVX_ROUND_TRIP))
+			msm_vfe47_configure_hvx(vfe_dev, 0);
+
 	}
 }
 
