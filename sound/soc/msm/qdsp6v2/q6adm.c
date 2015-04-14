@@ -230,7 +230,7 @@ static int adm_get_next_available_copp(int port_idx)
 }
 
 int adm_dts_eagle_set(int port_id, int copp_idx, int param_id,
-		      void *data, int size)
+		      void *data, uint32_t size)
 {
 	struct adm_cmd_set_pp_params_v5	admp;
 	int p_idx, ret = 0, *update_params_value;
@@ -303,10 +303,11 @@ fail_cmd:
 }
 
 int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
-		      void *data, int size)
+		      void *data, uint32_t size)
 {
 	struct adm_cmd_get_pp_params_v5	*admp = NULL;
-	int p_idx, sz, ret = 0, orig_size = size;
+	int p_idx, sz, ret = 0;
+	uint32_t orig_size = size;
 
 	pr_debug("DTS_EAGLE_ADM - %s: port id %i, copp idx %i, param id 0x%X\n",
 		 __func__, port_id, copp_idx, param_id);
@@ -319,8 +320,8 @@ int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
 		return -EINVAL;
 	}
 
-	if (size <= 0 || !data) {
-		pr_err("DTS_EAGLE_ADM - %s: invalid size %i or pointer %p.\n",
+	if ((size == 0) || !data) {
+		pr_err("DTS_EAGLE_ADM - %s: invalid size %u or pointer %p.\n",
 			__func__, size, data);
 		return -EINVAL;
 	}
