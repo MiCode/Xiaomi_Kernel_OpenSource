@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +42,9 @@ struct diag_usb_info {
 	int id;
 	int ctxt;
 	char name[DIAG_USB_NAME_SZ];
-	int connected;
+	atomic_t connected;
+	atomic_t diag_state;
+	atomic_t read_pending;
 	int enabled;
 	int mempool;
 	unsigned long read_cnt;
@@ -50,7 +52,6 @@ struct diag_usb_info {
 	spinlock_t lock;
 	struct usb_diag_ch *hdl;
 	struct diag_mux_ops *ops;
-	int read_pending;
 	unsigned char *read_buf;
 	struct diag_request *read_ptr;
 	struct work_struct read_work;

@@ -735,6 +735,7 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 			"name: %s\n"
 			"hdl: %p\n"
 			"connected: %d\n"
+			"diag state: %d\n"
 			"enabled: %d\n"
 			"mempool: %s\n"
 			"read pending: %d\n"
@@ -747,10 +748,11 @@ static ssize_t diag_dbgfs_read_usbinfo(struct file *file, char __user *ubuf,
 			usb_info->id,
 			usb_info->name,
 			usb_info->hdl,
-			usb_info->connected,
+			atomic_read(&usb_info->connected),
+			atomic_read(&usb_info->diag_state),
 			usb_info->enabled,
 			DIAG_MEMPOOL_GET_NAME(usb_info->mempool),
-			usb_info->read_pending,
+			atomic_read(&usb_info->read_pending),
 			usb_info->read_cnt,
 			usb_info->write_cnt,
 			work_pending(&usb_info->read_work),
