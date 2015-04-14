@@ -277,6 +277,7 @@ struct msm_slim_ctrl {
 	int			ipc_log_mask;
 	bool			sysfs_created;
 	void			*ipc_slimbus_log;
+	void (*rx_slim)(struct msm_slim_ctrl *dev, u8 *buf);
 };
 
 struct msm_sat_chan {
@@ -387,8 +388,7 @@ int msm_slim_sps_init(struct msm_slim_ctrl *dev, struct resource *bam_mem,
 void msm_slim_sps_exit(struct msm_slim_ctrl *dev, bool dereg);
 
 int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
-				struct msm_slim_endp *endpoint,
-				struct completion *notify);
+				struct msm_slim_endp *endpoint);
 void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
 					struct msm_slim_endp *endpoint,
 					enum msm_slim_msgq *msgq_flag);
