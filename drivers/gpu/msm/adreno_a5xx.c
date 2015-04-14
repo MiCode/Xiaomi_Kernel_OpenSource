@@ -326,7 +326,6 @@ static void a5xx_protect_init(struct adreno_device *adreno_dev)
 	adreno_set_protected_registers(adreno_dev, &index, 0xE70, 4);
 
 	/* UCHE registers */
-	adreno_set_protected_registers(adreno_dev, &index, 0xE82, 1);
 	adreno_set_protected_registers(adreno_dev, &index, 0xE87, 4);
 
 	/* SMMU registers */
@@ -997,9 +996,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_UCHE_TRAP_BASE_HI, 0x0001ffff);
 	kgsl_regwrite(device, A5XX_UCHE_WRITE_THRU_BASE_LO, 0xffff0000);
 	kgsl_regwrite(device, A5XX_UCHE_WRITE_THRU_BASE_HI, 0x0001ffff);
-
-	/* Enable flush of shared cachelines for each timer trigger of 10ms */
-	kgsl_regwrite(device, A5XX_UCHE_SVM_CNTL, (1 << 16) | 0x2EE00);
 
 	/* Program the GMEM VA range for the UCHE path */
 	kgsl_regwrite(device, A5XX_UCHE_GMEM_RANGE_MIN_LO,
