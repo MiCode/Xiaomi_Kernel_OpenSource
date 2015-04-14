@@ -1605,7 +1605,7 @@
 		reg-names = "wdt-base";
 		interrupts = <0 28 0>, <0 29 0>;
 		qcom,bark-time = <11000>;
-		qcom,pet-time = <5000>;
+		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
 	};
 
