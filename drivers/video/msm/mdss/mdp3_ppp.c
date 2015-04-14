@@ -45,6 +45,9 @@
 #define CLK_FUDGE_NUM		12
 #define CLK_FUDGE_DEN		10
 
+#define YUV_BW_FUDGE_NUM	20
+#define YUV_BW_FUDGE_DEN	10
+
 struct ppp_resource ppp_res;
 
 static const bool valid_fmt[MDP_IMGTYPE_LIMIT] = {
@@ -529,7 +532,7 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	int i, lcount = 0;
 	struct mdp_blit_req *req;
 	struct bpp_info bpp;
-	u32 src_read_bw = 0;
+	u64 src_read_bw = 0;
 	u32 bg_read_bw = 0;
 	u32 dst_write_bw = 0;
 	u64 honest_ppp_ab = 0;
@@ -587,7 +590,11 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 						bpp.bpp_num / bpp.bpp_den;
 			src_read_bw = mdp3_adjust_scale_factor(req,
 						src_read_bw, bpp.bpp_pln);
-
+			if (!(check_if_rgb(req->src.format))) {
+				src_read_bw = src_read_bw * YUV_BW_FUDGE_NUM;
+				src_read_bw = do_div(src_read_bw,
+						YUV_BW_FUDGE_DEN);
+			}
 			mdp3_get_bpp_info(req->dst.format, &bpp);
 
 			if (smart_blit_fg_indx == i) {
