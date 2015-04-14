@@ -704,10 +704,21 @@
 		coresight-child-ports = <5>;
 	};
 
+	audio_etm0 {
+		compatible = "qcom,coresight-audio-etm";
+
+		coresight-id = <42>;
+		coresight-name = "coresight-audio-etm0";
+		coresight-nr-inports = <0>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_in0>;
+		coresight-child-ports = <2>;
+	};
+
 	modem_etm0 {
 		compatible = "qcom,coresight-modem-etm";
 
-		coresight-id = <42>;
+		coresight-id = <43>;
 		coresight-name = "coresight-modem-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -718,7 +729,7 @@
 	modem_etm1 {
 		compatible = "qcom,coresight-modem-etm";
 
-		coresight-id = <43>;
+		coresight-id = <44>;
 		coresight-name = "coresight-modem-etm1";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -735,7 +746,7 @@
 		      <0x7885010 0x4>;
 		reg-names = "wrapper-mux", "wrapper-lockaccess", "usbbam-mux",
 		            "blsp-mux";
-		coresight-id = <44>;
+		coresight-id = <45>;
 		coresight-name = "coresight-hwevent";
 		coresight-nr-inports = <0>;
 
@@ -749,7 +760,7 @@
 		reg = <0x5e01c 0x8>;
 		reg-names = "fuse-base";
 
-		coresight-id = <45>;
+		coresight-id = <46>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
@@ -759,7 +770,7 @@
 		reg = <0x1941000 0x4>;
 		reg-names = "qpdi-base";
 
-		coresight-id = <46>;
+		coresight-id = <47>;
 		coresight-name = "coresight-qpdi";
 		coresight-nr-inports = <0>;
 
@@ -777,7 +788,7 @@
 		reg = <0x86d000 0x1000>;
 		reg-names = "dbgui-base";
 
-		coresight-id = <47>;
+		coresight-id = <48>;
 		coresight-name = "coresight-dbgui";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
