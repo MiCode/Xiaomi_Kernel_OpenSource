@@ -949,6 +949,7 @@ static void	ipc_tx_callback(void *prm)
 	struct heci_device	*dev = (cl ? cl->dev : NULL);
 	struct heci_msg_hdr	heci_hdr;
 	unsigned long	flags, tx_flags, tx_free_flags;
+	unsigned char	*pmsg;
 
 	dev->print_log(dev, KERN_ALERT "%s() +++\n", __func__);
 	if (!dev)
@@ -964,12 +965,15 @@ static void	ipc_tx_callback(void *prm)
 	dev->print_log(dev, KERN_ALERT "%s() TX list is not empty, sending\n", __func__);
 
 	/* Last call check for fc credits */
-	if (cl->heci_flow_ctrl_creds != 1) {
+	if (cl->heci_flow_ctrl_creds != 1 && !cl->sending) {
 		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 		return;
 	}
 
-	--cl->heci_flow_ctrl_creds;
+	if (!cl->sending) {
+		--cl->heci_flow_ctrl_creds;
+		cl->sending = 1;
+	}
 
 	cl_msg = list_entry(cl->tx_list.list.next, struct heci_cl_tx_ring, list);
 	rem = cl_msg->send_buf.size - cl->tx_offs;
@@ -977,26 +981,27 @@ static void	ipc_tx_callback(void *prm)
 	heci_hdr.host_addr = cl->host_client_id;
 	heci_hdr.me_addr = cl->me_client_id;
 	heci_hdr.reserved = 0;
+	pmsg = cl_msg->send_buf.data + cl->tx_offs;
 
 	if (rem <= dev->mtu) {
-		dev->print_log(dev, KERN_ALERT "%s() message complete\n", __func__);
 		heci_hdr.length = rem;
 		heci_hdr.msg_complete = 1;
+		cl->sending = 0;
 		list_del_init(&cl_msg->list);	/* Must be before write */
 		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
-		heci_write_message(dev, &heci_hdr, cl_msg->send_buf.data);	/* Submit to IPC queue with no callback */
+		/* Submit to IPC queue with no callback */
+		heci_write_message(dev, &heci_hdr, pmsg);
 		spin_lock_irqsave(&cl->tx_free_list_spinlock, tx_free_flags);
 		list_add_tail(&cl_msg->list, &cl->tx_free_list.list);
 		spin_unlock_irqrestore(&cl->tx_free_list_spinlock,
 			tx_free_flags);
 	} else {
 		/* FIXME: Send IPC fragment */
-		dev->print_log(dev, KERN_ALERT "%s() message fragmented, sending fragment\n", __func__);
+		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
 		cl->tx_offs += dev->mtu;
 		heci_hdr.length = dev->mtu;
 		heci_hdr.msg_complete = 0;
-		dev->ops->write_ex(dev, &heci_hdr, cl_msg->send_buf.data, ipc_tx_callback, cl);
-		spin_unlock_irqrestore(&cl->tx_list_spinlock, tx_flags);
+		dev->ops->write_ex(dev, &heci_hdr, pmsg, ipc_tx_callback, cl);
 	}
 }
 

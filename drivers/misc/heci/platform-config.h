@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"imin-0159-sync-send-ipc-fc"
+#define	BUILD_ID	"imin-0170-sync-send-ipc-fc-send-frag-rc-fix"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG

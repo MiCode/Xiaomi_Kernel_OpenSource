@@ -317,11 +317,13 @@ int write_ipc_from_queue(struct heci_device *dev)
 	ISH_DBG_PRINT(KERN_ALERT "%s(): in msg. registers: %08X ! %08X %08X %08X %08X... hostcomm reg: %08X\n", __func__, ish_reg_read(dev, IPC_REG_HOST2ISH_DRBL), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+4), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+8), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+0xC), ish_reg_read(dev, IPC_REG_HOST_COMM));
 	g_ish_print_log(KERN_ALERT "%s(): in msg. registers: %08X ! %08X %08X %08X %08X... hostcomm reg: %08X\n", __func__, ish_reg_read(dev, IPC_REG_HOST2ISH_DRBL), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+4), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+8), ish_reg_read(dev, IPC_REG_HOST2ISH_MSG+0xC), ish_reg_read(dev, IPC_REG_HOST_COMM));
 
-	if (ipc_link->ipc_send_compl)
-		ipc_link->ipc_send_compl(ipc_link->ipc_send_compl_prm);
 	list_del_init(&ipc_link->link);
 	list_add_tail(&ipc_link->link, &dev->wr_free_list_head.link);
 	spin_unlock_irqrestore(&dev->wr_processing_spinlock, flags);
+
+	if (ipc_link->ipc_send_compl)
+		ipc_link->ipc_send_compl(ipc_link->ipc_send_compl_prm);
+
 	ISH_DBG_PRINT(KERN_ALERT "%s(): --- written %lu bytes [%08X ! %08X %08X %08X %08X...]\n", __func__, length, *(u32 *)ipc_link->inline_data, r_buf[0], r_buf[1], r_buf[2], r_buf[3]);
 	g_ish_print_log(KERN_ALERT "%s(): --- written %lu bytes [%08X ! %08X %08X %08X %08X...]\n", __func__, length, *(u32 *)ipc_link->inline_data, r_buf[0], r_buf[1], r_buf[2], r_buf[3]);
 	return 0;
