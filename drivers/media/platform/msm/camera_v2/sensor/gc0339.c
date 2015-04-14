@@ -514,9 +514,15 @@ int32_t gc0339_config(struct msm_sensor_ctrl_t *s_ctrl,
 		}
 
 		if (conf_array.addr_type == MSM_CAMERA_I2C_WORD_ADDR
-			|| conf_array.data_type == MSM_CAMERA_I2C_WORD_DATA
-			|| !conf_array.size)
+			|| conf_array.data_type == MSM_CAMERA_I2C_WORD_DATA)
 			break;
+
+		if ((!conf_array.size) ||
+			(conf_array.size > I2C_SEQ_REG_DATA_MAX)) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
 
 		reg_setting = kzalloc(conf_array.size *
 			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
@@ -547,6 +553,13 @@ int32_t gc0339_config(struct msm_sensor_ctrl_t *s_ctrl,
 		if (copy_from_user(&conf_array,
 			(void *)cdata->cfg.setting,
 			sizeof(struct msm_camera_i2c_seq_reg_setting))) {
+			pr_err("%s:%d failed\n", __func__, __LINE__);
+			rc = -EFAULT;
+			break;
+		}
+
+		if ((!conf_array.size) ||
+			(conf_array.size > I2C_SEQ_REG_DATA_MAX)) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
