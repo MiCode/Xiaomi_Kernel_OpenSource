@@ -144,6 +144,7 @@ enum mdss_hw_quirk {
 
 enum mdss_hw_capabilities {
 	MDSS_CAPS_YUV_CONFIG,
+	MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
 	MDSS_CAPS_MAX,
 };
 

@@ -881,6 +881,9 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 {
 	int ret, scm_ret = 0;
 
+	if (test_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED, mdata->mdss_caps_map))
+		return;
+
 	pr_debug("restoring mdss secure config\n");
 
 	mdss_enable_bus_vote(VOTE_INDEX_19_MHZ);
@@ -1064,6 +1067,8 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map);
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
+		set_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
+			mdata->mdss_caps_map);
 		break;
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
