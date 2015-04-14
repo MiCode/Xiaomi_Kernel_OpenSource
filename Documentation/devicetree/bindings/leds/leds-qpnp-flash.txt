@@ -1,0 +1,124 @@
+Qualcomm Technologies PNP Flash LED
+
+QPNP (Qualcomm Technologies Plug N Play) Flash LED (Light
+Emitting Diode) driver is used to provide illumination to
+camera sensor when background light is dim to capture good
+picture. It can also be used for flashlight/torch application.
+It is part of PMIC on Qualcomm Technologies reference platforms.
+The PMIC is connected to the host processor via SPMI bus.
+
+Required properties:
+- compatible		: should be "qcom,qpnp-flash-led"
+- reg			: base address and size for flash LED modules
+
+Optional properties:
+- qcom,headroom		: headroom to use. Values should be 250, 300,
+			  400 and 500 in mV.
+- qcom,startup-dly	: delay before flashing after flash executed.
+			  Values should 10, 32, 64, and 128 in us.
+- qcom,clamp-curr	: current to clamp at when voltage droop happens.
+			  Values are in integer from 0 to 1000 inclusive,
+			  indicating 0 to 1000 mA.
+- qcom,self-check-enabled : boolean type. self fault check enablement
+- qcom,thermal-derate-enabled : boolean type. derate enablement when module
+				temperature reaches threshold
+- qcom,thermal-derate-threshold : thermal threshold for derate. Values
+				should be 80, 90, 100, 110, 120, 130 in C.
+- qcom,thermal-derate-rate	: derate rate when module temperature
+				reaches threshold. Values should be
+				"1_PERCENT", "1P25_PERCENT", "2_PERCENT",
+				"2P5_PERCENT", "5_PERCENT" in string.
+- qcom,current-ramp-enabled	: boolean type. stepped current ramp enablement
+- qcom,ramp-up-step		: current ramp up rate. Values should be
+				  "0P2US", "0P4US", "0P8US", "1P6US", "3P3US",
+				  "6P7US", "13P5US", "27US".
+- qcom,ramp-dn-step		: current ramp down rate. Values should be
+				  "0P2US", "0P4US", "0P8US", "1P6US", "3P3US",
+				  "6P7US", "13P5US", "27US".
+- qcom,vph-pwr-droop-enabled	: boolean type. VPH power droop enablement. Enablement
+				  allows current clamp when phone power drops below
+				  pre-determined threshold
+- qcom,vph-pwr-droop-threshold	: VPH power threshold for module to clamp current.
+				  Values are 2500 - 3200 in mV with 100 mV steps.
+- qcom,vph-pwr-droop-debounce-time : debounce time for module to confirm a voltage
+				     droop is happening. Values are 0, 10, 32, 64
+				     in us.
+- qcom,pmic-charger-support	: Boolean type. This tells if flash utilizes charger boost
+				  support
+- qcom,headroom-sense-ch0-enabled: Boolean type. This configures headroom sensing enablement
+				   for LED channel 0
+- qcom,headroom-sense-ch1-enabled: Boolean type. This configures headroom sensing enablement
+				   for LED channel 1
+- qcom,power-detect-enabled	: Boolean type. This enables driver to get maximum flash LED
+				  current at current battery level to avoid intensity clamp
+				  when battery voltage is low
+
+Required properties inside child node. Chile node contains settings for each individual LED:
+- label			: type of led that will be used, either "flash" or "torch".
+- qcom,led-name		: name of the LED. Accepted values are "led:flash_0",
+			  "led:flash_1", "led:torch_0", "led:torch_1"
+- qcom,default-led-trigger	: trigger for the camera flash and torch. Accepted values are
+				"flash0_trigger", "flash1_trigger", "torch0_trigger", torch1_trigger"
+- qcom,id		: enumerated ID for each physical LED. Accepted values are "0",
+			  "1", etc..
+- qcom,max-current	: maximum current allowed on this LED. Valid values should be
+			  integer from 0 to 1000 inclusive, indicating 0 to 1000 mA.
+
+Optional properties inside child node:
+- qcom,current		: default current intensity for LED. Accepted values should be
+			  integer from 0 t 1000 inclusive, indicating 0 to 1000 mA.
+- boost-supply		: flash LED boost power source for flash LED
+- boost-voltage-max	: maximum voltage for flash LED boost regulator in uV. This attribute is
+			: required if boost-supply is defined.
+- qcom,duration		: duration for flash LED. When duration time expires, hardware
+			  will turn off flash LED. Values should be from 10 ms to 1280 ms
+			  with 10 ms incremental step. Not applicable to torch.
+
+Example:
+	qcom,leds@d300 {
+		compatible = "qcom,qpnp-flash-led";
+		status = "okay";
+		reg = <0xd300 0x100>;
+		label = "flash";
+		qcom,headroom = <500>;
+		qcom,startup-dly = <128>;
+		qcom,clamp-curr = <200>;
+		qcom,pmic-charger-support;
+		qcom,self-check-enabled;
+		qcom,thermal-derate-enabled;
+		qcom,thermal-derate-threshold = <80>;
+		qcom,thermal-derate-rate = "4_PERCENT";
+		qcom,current-ramp-enabled;
+		qcom,ramp_up_step = "27US";
+		qcom,ramp_dn_step = "27US";
+		qcom,vph-pwr-droop-enabled;
+		qcom,vph-pwr-droop-threshold = <3200>;
+		qcom,vph-pwr-droop-debounce-time = <10>;
+		qcom,headroom-sense-ch0-enabled;
+		qcom,headroom-sense-ch1-enabled;
+
+		pm8226_flash0: qcom,flash_0 {
+			label = "flash";
+			qcom,led-name = "led:flash_0";
+			qcom,default-led-trigger =
+					"flash0_trigger";
+			qcom,max-current = <1000>;
+			qcom,duration = <1280>;
+			qcom,id = <0>;
+			qcom,current = <625>;
+			boost-supply = <&pm8226_chg_boost>;
+		};
+
+		pm8226_torch: qcom,torch_0 {
+			label = "torch";
+			qcom,led-name = "led:torch_0";
+			qcom,default-led-trigger =
+					"torch0_trigger";
+			boost-supply = <&pm8226_chg_boost>;
+			qcom,max-current = <200>;
+			qcom,id = <0>;
+			qcom,current = <120>;
+			boost-voltage-max = <3600000>;
+		};
+	};
+

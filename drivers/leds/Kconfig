@@ -487,6 +487,36 @@ config LEDS_BLINKM
 	  This option enables support for the BlinkM RGB LED connected
 	  through I2C. Say Y to enable support for the BlinkM LED.
 
+config LEDS_QPNP
+	tristate "Support for QPNP LEDs"
+	depends on LEDS_CLASS && MSM_SPMI && OF_SPMI
+	help
+	  This driver supports the leds functionality of Qualcomm PNP PMIC.  It
+	  includes RGB Leds, WLED and Flash Led.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called leds-qpnp.
+
+config LEDS_QPNP_FLASH
+	tristate "Support for QPNP Flash LEDs"
+	depends on LEDS_CLASS && MSM_SPMI && OF_SPMI
+	help
+	  This driver supports the leds functionality of Qualcomm Technologies
+	  PNP PMIC.  It includes Flash Led.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called leds-qpnp-flash.
+
+config LEDS_QPNP_WLED
+	tristate "Support for QPNP WLED"
+	depends on LEDS_CLASS && MSM_SPMI && OF_SPMI
+	help
+	  This driver supports the WLED (White LED) functionality of
+	  Qualcomm Technologies PNP PMIC. WLED is used for display backlight.
+
+	  To compile this driver as a module, choose M here: the module will
+	  be called leds-qpnp-wled.
+
 config LEDS_SYSCON
 	bool "LED support for LEDs on system controllers"
 	depends on LEDS_CLASS=y
