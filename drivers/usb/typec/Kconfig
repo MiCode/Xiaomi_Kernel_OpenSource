@@ -6,3 +6,12 @@ config USB_TYPEC_CORE
 	  for USB controller based on the USB phy IP Core and detection
 	  available based on cc pull-up, pull-down or floating.
 
+config USB_TYPEC_PHY_FUSB300
+	depends on USB_TYPEC_CORE
+	tristate "Support FUSB300 Type-C Phy"
+	help
+	  Say Y or M here if your system has a Dual Role SuperSpeed
+	  USB controller based on the DesignWare FUSB300/FUSB302 IP Core.
+
+	  If you choose to build this driver is a dynamically linked
+	  module, the module will be called  phy-fusb300.ko.
