@@ -1308,16 +1308,17 @@ static int msm_cpp_notify_frame_done(struct cpp_device *cpp_dev,
 	if (frame_qcmd) {
 		processed_frame = frame_qcmd->command;
 		do_gettimeofday(&(processed_frame->out_time));
-		kfree(frame_qcmd);
 		event_qcmd = kzalloc(sizeof(struct msm_queue_cmd), GFP_ATOMIC);
 		if (!event_qcmd) {
 			pr_err("Insufficient memory\n");
+			kfree(frame_qcmd);
 			return -ENOMEM;
 		}
 		atomic_set(&event_qcmd->on_heap, 1);
 		event_qcmd->command = processed_frame;
 		CPP_DBG("fid %d\n", processed_frame->frame_id);
 		msm_enqueue(&cpp_dev->eventData_q, &event_qcmd->list_eventdata);
+		kfree(frame_qcmd);
 
 		if (!processed_frame->output_buffer_info[0].processed_divert &&
 			!processed_frame->output_buffer_info[0].native_buff) {
