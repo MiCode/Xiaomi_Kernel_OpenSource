@@ -170,6 +170,37 @@ config MSM_RPM_SMD
 	  the MSM_MPM config that programs the MPM module to monitor interrupts
 	  during sleep modes.
 
+config MSM_RPM_RBCPR_STATS_V2_LOG
+	tristate "MSM Resource Power Manager RPBCPR Stat Driver"
+	depends on DEBUG_FS
+	help
+	  This option enables v2 of the rpmrbcpr_stats driver which reads RPM
+	  memory for statistics pertaining to RPM's RBCPR(Rapid Bridge Core
+	  Power Reduction) driver. The drivers outputs the message via a
+	  debugfs node.
+
+config MSM_RPM_LOG
+	tristate "MSM Resource Power Manager Log Driver"
+	depends on DEBUG_FS
+	depends on MSM_RPM_SMD
+	default n
+	help
+          This option enables a driver which can read from a circular buffer
+          of messages produced by the RPM. These messages provide diagnostic
+          information about RPM operation. The driver outputs the messages
+          via a debugfs node.
+
+config MSM_RPM_STATS_LOG
+        tristate "MSM Resource Power Manager Stat Driver"
+        depends on DEBUG_FS
+        depends on MSM_RPM_SMD
+        default n
+          help
+          This option enables a driver which reads RPM messages from a shared
+          memory location. These messages provide statistical information about
+          the low power modes that RPM enters. The drivers outputs the message
+          via a debugfs node.
+
 config MSM_SCM
        bool "Secure Channel Manager (SCM) support"
        default n
