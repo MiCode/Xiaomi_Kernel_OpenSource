@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,8 +131,7 @@ static inline int _create_ib_ref(struct adreno_device *adreno_dev,
 {
 	unsigned int *start = cmd;
 
-	*cmd++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFD,
-				  (memdesc->gpuaddr + off), 1);
+	*cmd++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFD, 2, 1);
 	cmd += cp_gpuaddr(adreno_dev, cmd, (memdesc->gpuaddr + off));
 	*cmd++ = cnt;
 
