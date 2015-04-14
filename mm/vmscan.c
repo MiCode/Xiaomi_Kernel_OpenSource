@@ -1101,6 +1101,13 @@ free_it:
 		 * appear not as the counts should be low
 		 */
 		list_add(&page->lru, &free_pages);
+		/*
+		 * If pagelist are from multiple zones, we should decrease
+		 * NR_ISOLATED_ANON + x on freed pages in here.
+		 */
+		if (!zone)
+			dec_zone_page_state(page, NR_ISOLATED_ANON +
+					page_is_file_cache(page));
 		continue;
 
 cull_mlocked:
@@ -1168,28 +1175,6 @@ unsigned long reclaim_clean_pages_from_list(struct zone *zone,
 }
 
 #ifdef CONFIG_PROCESS_RECLAIM
-static unsigned long shrink_page(struct page *page,
-					struct zone *zone,
-					struct scan_control *sc,
-					enum ttu_flags ttu_flags,
-					unsigned long *ret_nr_dirty,
-					unsigned long *ret_nr_writeback,
-					bool force_reclaim,
-					struct list_head *ret_pages)
-{
-	int reclaimed;
-	LIST_HEAD(page_list);
-	list_add(&page->lru, &page_list);
-
-	reclaimed = shrink_page_list(&page_list, zone, sc, ttu_flags,
-				ret_nr_dirty, ret_nr_writeback,
-				force_reclaim);
-	if (!reclaimed)
-		list_splice(&page_list, ret_pages);
-
-	return reclaimed;
-}
-
 unsigned long reclaim_pages_from_list(struct list_head *page_list)
 {
 	struct scan_control sc = {
@@ -1200,23 +1185,19 @@ unsigned long reclaim_pages_from_list(struct list_head *page_list)
 		.may_swap = 1,
 	};
 
-	LIST_HEAD(ret_pages);
+	unsigned long nr_reclaimed;
 	struct page *page;
 	unsigned long dummy1, dummy2, dummy3, dummy4, dummy5;
-	unsigned long nr_reclaimed = 0;
+
+	list_for_each_entry(page, page_list, lru)
+		ClearPageActive(page);
+
+	nr_reclaimed = shrink_page_list(page_list, NULL, &sc,
+			TTU_UNMAP|TTU_IGNORE_ACCESS,
+			&dummy1, &dummy2, &dummy3, &dummy4, &dummy5, true);
 
 	while (!list_empty(page_list)) {
 		page = lru_to_page(page_list);
-		list_del(&page->lru);
-
-		ClearPageActive(page);
-		nr_reclaimed += shrink_page(page, page_zone(page), &sc,
-			TTU_UNMAP|TTU_IGNORE_ACCESS,
-			&dummy1, &dummy2, &dummy3, &dummy4, &dummy5, true);
-	}
-
-	while (!list_empty(&ret_pages)) {
-		page = lru_to_page(&ret_pages);
 		list_del(&page->lru);
 		dec_zone_page_state(page, NR_ISOLATED_ANON +
 				page_is_file_cache(page));
