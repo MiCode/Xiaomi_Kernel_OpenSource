@@ -219,6 +219,13 @@ config MSM_HVC
 	  Partner/Manufacturer function identifier subrange but supports other
 	  service call subranges as well.
 
+config QCOM_DCC
+	bool "QCOM Data Capture and Compare enigne support"
+	help
+	  This option enables driver for Data Capture and Compare engine. DCC
+	  driver provides interface to configure DCC block and read back
+	  captured data from DCC's internal SRAM.
+
 config MSM_IPC_ROUTER_SMD_XPRT
 	depends on MSM_SMD
 	depends on IPC_ROUTER
