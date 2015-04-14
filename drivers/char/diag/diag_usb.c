@@ -34,7 +34,6 @@ struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV] = {
 	{
 		.id = DIAG_USB_LOCAL,
 		.name = DIAG_LEGACY,
-		.connected = 0,
 		.enabled = 0,
 		.mempool = POOL_TYPE_MUX_APPS,
 		.hdl = NULL,
@@ -44,13 +43,11 @@ struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV] = {
 		.usb_wq = NULL,
 		.read_cnt = 0,
 		.write_cnt = 0,
-		.read_pending = 0,
 	},
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	{
 		.id = DIAG_USB_MDM,
 		.name = DIAG_MDM,
-		.connected = 0,
 		.enabled = 0,
 		.mempool = POOL_TYPE_MDM_MUX,
 		.hdl = NULL,
@@ -60,12 +57,10 @@ struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV] = {
 		.usb_wq = NULL,
 		.read_cnt = 0,
 		.write_cnt = 0,
-		.read_pending = 0,
 	},
 	{
 		.id = DIAG_USB_MDM2,
 		.name = DIAG_MDM2,
-		.connected = 0,
 		.enabled = 0,
 		.mempool = POOL_TYPE_MDM2_MUX,
 		.hdl = NULL,
@@ -75,12 +70,10 @@ struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV] = {
 		.usb_wq = NULL,
 		.read_cnt = 0,
 		.write_cnt = 0,
-		.read_pending = 0,
 	},
 	{
 		.id = DIAG_USB_QSC,
 		.name = DIAG_QSC,
-		.connected = 0,
 		.enabled = 0,
 		.mempool = POOL_TYPE_QSC_MUX,
 		.hdl = NULL,
@@ -90,7 +83,6 @@ struct diag_usb_info diag_usb[NUM_DIAG_USB_DEV] = {
 		.usb_wq = NULL,
 		.read_cnt = 0,
 		.write_cnt = 0,
-		.read_pending = 0,
 	}
 #endif
 };
@@ -105,7 +97,7 @@ static void usb_connect(struct diag_usb_info *ch)
 	int num_write = 0;
 	int num_read = 1; /* Only one read buffer for any USB channel */
 
-	if (!ch || !ch->connected)
+	if (!ch || !atomic_read(&ch->connected))
 		return;
 
 	num_write = diag_mempools[ch->mempool].poolsize;
@@ -149,6 +141,7 @@ static void usb_disconnect_work_fn(struct work_struct *work)
 
 static void usb_read_work_fn(struct work_struct *work)
 {
+	int err = 0;
 	unsigned long flags;
 	struct diag_request *req = NULL;
 	struct diag_usb_info *ch = container_of(work, struct diag_usb_info,
@@ -156,20 +149,29 @@ static void usb_read_work_fn(struct work_struct *work)
 	if (!ch)
 		return;
 
-	if (!ch->connected || !ch->enabled || ch->read_pending) {
-		pr_debug_ratelimited("diag: Discarding USB read, ch: %s connected: %d, enabled: %d, pending: %d\n",
-				     ch->name, ch->connected, ch->enabled,
-				     ch->read_pending);
+	if (!atomic_read(&ch->connected) || !ch->enabled ||
+	    atomic_read(&ch->read_pending) || !atomic_read(&ch->diag_state)) {
+		pr_debug_ratelimited("diag: Discarding USB read, ch: %s e: %d, c: %d, p: %d, d: %d\n",
+				     ch->name, ch->enabled,
+				     atomic_read(&ch->connected),
+				     atomic_read(&ch->read_pending),
+				     atomic_read(&ch->diag_state));
 		return;
 	}
 
 	spin_lock_irqsave(&ch->lock, flags);
 	req = ch->read_ptr;
 	if (req) {
-		ch->read_pending = 1;
+		atomic_set(&ch->read_pending, 1);
 		req->buf = ch->read_buf;
 		req->length = USB_MAX_OUT_BUF;
-		usb_diag_read(ch->hdl, req);
+		err = usb_diag_read(ch->hdl, req);
+		if (err) {
+			pr_debug("diag: In %s, error in reading from USB %s, err: %d\n",
+				 __func__, ch->name, err);
+			atomic_set(&ch->read_pending, 0);
+			queue_work(ch->usb_wq, &(ch->read_work));
+		}
 	} else {
 		pr_err_ratelimited("diag: In %s invalid read req\n", __func__);
 	}
@@ -188,7 +190,8 @@ static void usb_read_done_work_fn(struct work_struct *work)
 	 * USB is disconnected/Disabled before the previous read completed.
 	 * Discard the packet and don't do any further processing.
 	 */
-	if (!ch->connected || !ch->enabled)
+	if (!atomic_read(&ch->connected) || !ch->enabled ||
+	    !atomic_read(&ch->diag_state))
 		return;
 
 	req = ch->read_ptr;
@@ -229,7 +232,7 @@ static void diag_usb_notifier(void *priv, unsigned event,
 	switch (event) {
 	case USB_DIAG_CONNECT:
 		spin_lock_irqsave(&usb_info->lock, flags);
-		usb_info->connected = 1;
+		atomic_set(&usb_info->connected, 1);
 		spin_unlock_irqrestore(&usb_info->lock, flags);
 		pr_info("diag: USB channel %s connected\n", usb_info->name);
 		queue_work(usb_info->usb_wq,
@@ -237,7 +240,7 @@ static void diag_usb_notifier(void *priv, unsigned event,
 		break;
 	case USB_DIAG_DISCONNECT:
 		spin_lock_irqsave(&usb_info->lock, flags);
-		usb_info->connected = 0;
+		atomic_set(&usb_info->connected, 0);
 		spin_unlock_irqrestore(&usb_info->lock, flags);
 		pr_info("diag: USB channel %s disconnected\n", usb_info->name);
 		queue_work(usb_info->usb_wq,
@@ -246,7 +249,7 @@ static void diag_usb_notifier(void *priv, unsigned event,
 	case USB_DIAG_READ_DONE:
 		spin_lock_irqsave(&usb_info->lock, flags);
 		usb_info->read_ptr = d_req;
-		usb_info->read_pending = 0;
+		atomic_set(&usb_info->read_pending, 0);
 		spin_unlock_irqrestore(&usb_info->lock, flags);
 		queue_work(usb_info->usb_wq,
 			   &usb_info->read_done_work);
@@ -303,7 +306,8 @@ int diag_usb_write(int id, unsigned char *buf, int len, int ctxt)
 	req->length = len;
 	req->context = (void *)(uintptr_t)ctxt;
 
-	if (!usb_info->hdl || !usb_info->connected) {
+	if (!usb_info->hdl || !atomic_read(&usb_info->connected) ||
+	    !atomic_read(&usb_info->diag_state)) {
 		pr_debug_ratelimited("diag: USB ch %s is not connected\n",
 				     usb_info->name);
 		diagmem_free(driver, req, usb_info->mempool);
@@ -333,6 +337,7 @@ void diag_usb_connect_all(void)
 		usb_info = &diag_usb[i];
 		if (!usb_info->enabled)
 			continue;
+		atomic_set(&usb_info->diag_state, 1);
 		usb_connect(usb_info);
 	}
 }
@@ -351,6 +356,7 @@ void diag_usb_disconnect_all(void)
 		usb_info = &diag_usb[i];
 		if (!usb_info->enabled)
 			continue;
+		atomic_set(&usb_info->diag_state, 0);
 		usb_disconnect(usb_info);
 	}
 }
@@ -380,6 +386,14 @@ int diag_usb_register(int id, int ctxt, struct diag_mux_ops *ops)
 	ch->read_ptr = kzalloc(sizeof(struct diag_request), GFP_KERNEL);
 	if (!ch->read_ptr)
 		goto err;
+	atomic_set(&ch->connected, 0);
+	atomic_set(&ch->read_pending, 0);
+	/*
+	 * This function is called when the mux registers with Diag-USB.
+	 * The registration happens during boot up and Diag always starts
+	 * in USB mode. Set the state to 1.
+	 */
+	atomic_set(&ch->diag_state, 1);
 	diagmem_init(driver, ch->mempool);
 	INIT_WORK(&(ch->read_work), usb_read_work_fn);
 	INIT_WORK(&(ch->read_done_work), usb_read_done_work_fn);
@@ -419,12 +433,13 @@ void diag_usb_exit(int id)
 
 	ch = &diag_usb[id];
 	ch->ops = NULL;
-	ch->connected = 0;
+	atomic_set(&ch->connected, 0);
+	atomic_set(&ch->read_pending, 0);
+	atomic_set(&ch->diag_state, 0);
 	ch->enabled = 0;
 	ch->ctxt = 0;
 	ch->read_cnt = 0;
 	ch->write_cnt = 0;
-	ch->read_pending = 0;
 	diagmem_exit(driver, ch->mempool);
 	ch->mempool = 0;
 	if (ch->hdl) {
