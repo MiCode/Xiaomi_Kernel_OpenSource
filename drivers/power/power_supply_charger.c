@@ -645,7 +645,7 @@ static int trigger_algo(struct power_supply *psy)
 	struct batt_props bat_prop;
 	struct charging_algo *algo;
 	struct ps_batt_chg_prof chrg_profile;
-	int cnt;
+	int cnt, ret;
 
 	if (psy->type != POWER_SUPPLY_TYPE_BATTERY)
 		return 0;
@@ -656,7 +656,12 @@ static int trigger_algo(struct power_supply *psy)
 	}
 
 
-	get_bat_prop_cache(psy, &bat_prop);
+	ret = get_bat_prop_cache(psy, &bat_prop);
+	if (ret) {
+		pr_err("%s:Error in getting the battery property of %s!!\n",
+							__func__, psy->name);
+		return ret;
+	}
 
 	algo = power_supply_get_charging_algo(psy, &chrg_profile);
 	if (!algo) {
