@@ -2406,6 +2406,7 @@ int atomisp_css_stop(struct atomisp_sub_device *asd,
 	atomisp_flush_params_queue(&asd->video_out_vf);
 	atomisp_flush_params_queue(&asd->video_out_preview);
 	atomisp_flush_params_queue(&asd->video_out_video_capture);
+	memset(&asd->params.css_param, 0, sizeof(asd->params.css_param));
 	return 0;
 }
 
