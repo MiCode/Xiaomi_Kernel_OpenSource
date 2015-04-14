@@ -142,6 +142,7 @@ struct msm_hsphy {
 	bool			sleep_clk_reset;
 
 	struct regulator	*vdd;
+	struct regulator	*vddcx;
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
@@ -169,6 +170,10 @@ static int msm_hsusb_config_vdd(struct msm_hsphy *phy, int high)
 		dev_err(phy->phy.dev, "unable to set voltage for hsusb vdd\n");
 		return ret;
 	}
+
+	if (phy->vddcx)
+		regulator_set_voltage(phy->vddcx, phy->vdd_levels[min],
+					phy->vdd_levels[2]);
 
 	dev_dbg(phy->phy.dev, "%s: min_vol:%d max_vol:%d\n", __func__,
 		phy->vdd_levels[min], phy->vdd_levels[2]);
@@ -796,6 +801,15 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 		goto err_ret;
 	}
 
+	if (of_get_property(dev->of_node, "vddcx-supply", NULL)) {
+		phy->vddcx = devm_regulator_get(dev, "vddcx");
+		if (IS_ERR(phy->vddcx)) {
+			dev_err(dev, "unable to get vddcx supply\n");
+			ret = PTR_ERR(phy->vddcx);
+			goto err_ret;
+		}
+	}
+
 	phy->vdda33 = devm_regulator_get(dev, "vdda33");
 	if (IS_ERR(phy->vdda33)) {
 		dev_err(dev, "unable to get vdda33 supply\n");
@@ -820,6 +834,13 @@ static int msm_hsphy_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "unable to enable the hsusb vdd_dig\n");
 		goto unconfig_hs_vdd;
+	}
+	if (phy->vddcx) {
+		ret = regulator_enable(phy->vddcx);
+		if (ret) {
+			dev_err(dev, "unable to enable vddcx\n");
+			goto unconfig_hs_vdd;
+		}
 	}
 
 	ret = msm_hsusb_ldo_enable(phy, 1);
@@ -894,6 +915,8 @@ disable_clk:
 disable_hs_ldo:
 	msm_hsusb_ldo_enable(phy, 0);
 disable_hs_vdd:
+	if (phy->vddcx)
+		regulator_disable(phy->vddcx);
 	regulator_disable(phy->vdd);
 unconfig_hs_vdd:
 	msm_hsusb_config_vdd(phy, 0);
@@ -915,6 +938,8 @@ static int msm_hsphy_remove(struct platform_device *pdev)
 	if (phy->vdda_force_on)
 		msm_hsusb_ldo_enable(phy, 0);
 	msm_hsusb_ldo_enable(phy, 0);
+	if (phy->vddcx)
+		regulator_disable(phy->vddcx);
 	regulator_disable(phy->vdd);
 	msm_hsusb_config_vdd(phy, 0);
 	if (!phy->suspended)

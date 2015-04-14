@@ -25,7 +25,7 @@ Optional properties:
 		    offer additional control apart from the QSCRATCH registers.
 		    These handle functions such as controlling the internal
 		    reference clock buffer and powering on/off the entire PHY.
-
+ - vddcx-supply: phandle to VDDCX regulator powering digital circuitry
  - qcom,hsphy-init: Init value used to override HSPHY parameters into
    QSCRATCH register. This 32-bit value represents parameters as follows:
 		bits 0-5   PARAMETER_OVERRIDE_A
