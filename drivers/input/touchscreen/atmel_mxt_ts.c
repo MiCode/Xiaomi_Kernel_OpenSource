@@ -3894,7 +3894,7 @@ err_free_irq:
 	free_irq(client->irq, data);
 err_free_mem:
 	if (data->alloc_pdata) {
-		kfree(data->pdata);
+		devm_kfree(&client->dev, data->pdata);
 		kfree(data->fw_name);
 		kfree(data->cfg_name);
 	}
@@ -3930,7 +3930,7 @@ static int mxt_remove(struct i2c_client *client)
 	regulator_put(data->reg_vdd);
 	mxt_free_object_table(data);
 	if (data->alloc_pdata) {
-		kfree(data->pdata);
+		devm_kfree(&client->dev, data->pdata);
 		kfree(data->fw_name);
 		kfree(data->cfg_name);
 	}
