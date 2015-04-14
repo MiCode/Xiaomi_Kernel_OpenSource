@@ -545,6 +545,7 @@ static u8 *mipi_exec_spi(struct intel_dsi *intel_dsi, u8 *data)
 
 static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 {
+	struct drm_device *dev = intel_dsi->base.base.dev;
 	u32 register_address, register_data;
 	int data_mask, tmp;
 	int ret;
@@ -553,14 +554,28 @@ static u8 *mipi_exec_pmic(struct intel_dsi *intel_dsi, u8 *data)
 	 * First 3 bytes are not relevant for Linux.
 	 * Skipping the data field by 3 bytes to get
 	 * the PMIC register Address.
+	 * For CHT-CR, Xpower PMIC is POR for Android
+	 * but GOP supports a different PMIC for windows.
+	 * So, hardcoding the PMIC register and values for now
+	 * until GOP supports XPower PMIC.
 	 */
-	data += 3;
-	register_address = *((u32 *)data);
-	data += 4;
-	register_data = *((u32 *)data);
-	data += 4;
-	data_mask = *((u32 *)data);
-	data += 4;
+	if (IS_CHERRYVIEW(dev) && dev->pdev->revision == CHT_CR_REVISION) {
+		data += 7;
+		register_address = XPOWER_PMIC_PANEL_POWER_CTRL_REG;
+		register_data = *((u32 *)data);
+		data_mask = XPOWER_PMIC_PANEL_POWER_CTRL_DATAMASK;
+		if (register_data != 0)
+			register_data = XPOWER_PMIC_PANEL_POWER_ON_DATA;
+		data += 8;
+	} else {
+		data += 3;
+		register_address = *((u32 *)data);
+		data += 4;
+		register_data = *((u32 *)data);
+		data += 4;
+		data_mask = *((u32 *)data);
+		data += 4;
+	}
 
 	tmp = intel_soc_pmic_readb(register_address);
 	if (tmp < 0) {

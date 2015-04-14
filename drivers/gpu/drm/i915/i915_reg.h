@@ -1797,6 +1797,11 @@ enum punit_power_well {
 #define   FBC_REND_NUKE		(1<<2)
 #define   FBC_REND_CACHE_CLEAN	(1<<1)
 
+/* PMIC Registers */
+#define XPOWER_PMIC_PANEL_POWER_CTRL_REG 0x12
+#define XPOWER_PMIC_PANEL_POWER_CTRL_DATAMASK (1 << 6)
+#define XPOWER_PMIC_PANEL_POWER_ON_DATA (1 << 6)
+
 /*
  * GPIO regs
  */
@@ -7085,5 +7090,8 @@ enum punit_power_well {
 #define GEN8_OA_CTX_CONTROL 0x2360
 
 #define GEN8_RC6_WA_BB	    0x2058
+
+/* CHT_CR Related */
+#define CHT_CR_REVISION 0x22
 
 #endif /* _I915_REG_H_ */
