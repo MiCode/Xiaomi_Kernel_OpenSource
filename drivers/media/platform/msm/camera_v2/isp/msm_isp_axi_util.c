@@ -1586,6 +1586,12 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM)
 		return -EINVAL;
 
+	if (camif_update == ENABLE_CAMIF) {
+		atomic_set(&vfe_dev->error_info.overflow_state,
+				NO_OVERFLOW);
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;
+	}
+
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i]) >=
 			MAX_NUM_STREAM) {
@@ -1638,9 +1644,6 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 	msm_isp_update_camif_output_count(vfe_dev, stream_cfg_cmd);
 
 	if (camif_update == ENABLE_CAMIF) {
-		atomic_set(&vfe_dev->error_info.overflow_state,
-				NO_OVERFLOW);
-		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;
 		vfe_dev->hw_info->vfe_ops.core_ops.
 			update_camif_state(vfe_dev, camif_update);
 	}
