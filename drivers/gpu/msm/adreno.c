@@ -2400,8 +2400,9 @@ static int adreno_readtimestamp(struct kgsl_device *device,
 {
 	int status = 0;
 	struct kgsl_context *context = priv;
+	unsigned int id = KGSL_CONTEXT_ID(context);
 
-	BUG_ON(NULL == context || context->id >= KGSL_MEMSTORE_MAX);
+	BUG_ON(NULL == context || id >= KGSL_MEMSTORE_MAX);
 	/*
 	 * If user passed in a NULL pointer for timestamp, return without
 	 * doing anything.
@@ -2410,7 +2411,7 @@ static int adreno_readtimestamp(struct kgsl_device *device,
 		return status;
 
 	if (KGSL_TIMESTAMP_QUEUED == type)
-		*timestamp = adreno_drawctxt_timestamp(context);
+		*timestamp = adreno_context_timestamp(context);
 	else
 		status = __adreno_readtimestamp(device,
 				context->id, type, timestamp);
