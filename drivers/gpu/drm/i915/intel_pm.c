@@ -8130,7 +8130,7 @@ int vlv_freq_opcode(struct drm_i915_private *dev_priv, int val)
 void program_pfi_credits(struct drm_i915_private *dev_priv, bool flag)
 {
 	int cd_clk, cz_clk;
-	int val = VGA_FAST_MODE_DISABLE | FORCE_CREDIT_RESEND;
+	int val = VGA_FAST_MODE_DISABLE;
 
 	if (!flag) {
 		I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE);
@@ -8144,19 +8144,23 @@ void program_pfi_credits(struct drm_i915_private *dev_priv, bool flag)
 			val |= PFI_CREDITS_63;
 		else if (IS_VALLEYVIEW(dev_priv->dev))
 			val |= PFI_CREDITS_15;
-		/* Disable before enabling */
-		I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE);
+
 		I915_WRITE(GCI_CONTROL, val);
 	} else {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
 			val |= PFI_CREDITS_12;
-
-			/* Disable before enabling */
-			I915_WRITE(GCI_CONTROL, VGA_FAST_MODE_DISABLE);
 			I915_WRITE(GCI_CONTROL, val);
-		} else
+		} else {
 			DRM_ERROR("cd clk < cz clk");
+			return;
+		}
 	}
+
+	val |= FORCE_CREDIT_RESEND;
+	I915_WRITE(GCI_CONTROL, val);
+
+	if (wait_for((I915_READ(GCI_CONTROL) & FORCE_CREDIT_RESEND) == 0, 100))
+		DRM_ERROR("timeout waiting for PFI credit programming\n");
 }
 
 /*
