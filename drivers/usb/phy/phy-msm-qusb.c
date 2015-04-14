@@ -44,6 +44,13 @@
 #define QUSB2PHY_PORT_TUNE3             0x88
 #define QUSB2PHY_PORT_TUNE4             0x8C
 
+/* In case Efuse register shows zero, use this value */
+#define TUNE2_DEFAULT_HIGH_NIBBLE	0x8
+#define TUNE2_DEFAULT_LOW_NIBBLE	0x3
+
+/* Get TUNE2's high nibble value read from efuse */
+#define TUNE2_HIGH_NIBBLE_VAL(val, pos, mask)	((val >> pos) & mask)
+
 #define QUSB2PHY_PORT_INTR_CTRL         0xBC
 #define CHG_DET_INTR_EN                 BIT(4)
 #define DMSE_INTR_HIGH_SEL              BIT(3)
@@ -82,6 +89,7 @@ struct qusb_phy {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*qscratch_base;
+	void __iomem		*tune2_efuse_reg;
 
 	struct clk		*ref_clk;
 	struct clk		*cfg_ahb_clk;
@@ -92,6 +100,10 @@ struct qusb_phy {
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
 	u32			qusb_tune;
+
+	u32			tune2_val;
+	int			tune2_efuse_bit_pos;
+	int			tune2_efuse_num_of_bits;
 
 	bool			power_enabled;
 	bool			clocks_enabled;
@@ -250,6 +262,42 @@ err_vdd:
 	return ret;
 }
 
+static void qusb_phy_get_tune2_param(struct qusb_phy *qphy)
+{
+	u8 num_of_bits;
+	u32 bit_mask = 1;
+
+	pr_debug("%s(): num_of_bits:%d bit_pos:%d\n", __func__,
+				qphy->tune2_efuse_num_of_bits,
+				qphy->tune2_efuse_bit_pos);
+
+	/* get bit mask based on number of bits to use with efuse reg */
+	if (qphy->tune2_efuse_num_of_bits) {
+		num_of_bits = qphy->tune2_efuse_num_of_bits;
+		bit_mask = (bit_mask << num_of_bits) - 1;
+	}
+
+	/*
+	 * Read EFUSE register having TUNE2 parameter's high nibble.
+	 * If efuse register shows value as 0x0, then use default value
+	 * as 0x8 as high nibble. Otherwise use efuse register based
+	 * value for this purpose.
+	 */
+	qphy->tune2_val = readl_relaxed(qphy->tune2_efuse_reg);
+	pr_debug("%s(): bit_mask:%d efuse based tune2 value:%d\n",
+				__func__, bit_mask, qphy->tune2_val);
+
+	qphy->tune2_val = TUNE2_HIGH_NIBBLE_VAL(qphy->tune2_val,
+				qphy->tune2_efuse_bit_pos, bit_mask);
+
+	if (!qphy->tune2_val)
+		qphy->tune2_val = TUNE2_DEFAULT_HIGH_NIBBLE;
+
+	/* Get TUNE2 byte value using high and low nibble value */
+	qphy->tune2_val = ((qphy->tune2_val << 0x4) |
+					TUNE2_DEFAULT_LOW_NIBBLE);
+}
+
 static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
@@ -317,6 +365,22 @@ static int qusb_phy_init(struct usb_phy *phy)
 			writel_relaxed(t4, qphy->base + QUSB2PHY_PORT_TUNE4);
 
 		}
+
+		/*
+		 * Check for EFUSE value only if tune2_efuse_reg is available
+		 * and try to read EFUSE value only once i.e. not every USB
+		 * cable connect case.
+		 */
+		if (qphy->tune2_efuse_reg) {
+			if (!qphy->tune2_val)
+				qusb_phy_get_tune2_param(qphy);
+
+			pr_debug("%s(): Programming TUNE2 parameter as:%x\n",
+						__func__, qphy->tune2_val);
+			writel_relaxed(qphy->tune2_val,
+					qphy->base + QUSB2PHY_PORT_TUNE2);
+		}
+
 		/* ensure above writes are completed before re-enabling PHY */
 		wmb();
 
@@ -532,6 +596,29 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	qphy->qscratch_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(qphy->qscratch_base))
 		qphy->qscratch_base = NULL;
+
+	qphy->tune2_efuse_reg = NULL;
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+							"tune2_efuse_addr");
+	if (res) {
+		qphy->tune2_efuse_reg = devm_ioremap_nocache(dev, res->start,
+							resource_size(res));
+		if (!IS_ERR_OR_NULL(qphy->tune2_efuse_reg)) {
+			ret = of_property_read_u32(dev->of_node,
+					"qcom,tune2-efuse-bit-pos",
+					&qphy->tune2_efuse_bit_pos);
+			if (!ret) {
+				ret = of_property_read_u32(dev->of_node,
+						"qcom,tune2-efuse-num-bits",
+						&qphy->tune2_efuse_num_of_bits);
+			}
+
+			if (ret) {
+				dev_err(dev, "DT Value for tune2 efuse is invalid.\n");
+				return -EINVAL;
+			}
+		}
+	}
 
 	qphy->ref_clk = devm_clk_get(dev, "ref_clk");
 	if (IS_ERR(qphy->ref_clk))
