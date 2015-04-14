@@ -195,14 +195,9 @@ EXPORT_SYMBOL_GPL(snd_soc_component_test_bits);
 
 unsigned int snd_soc_read(struct snd_soc_codec *codec, unsigned int reg)
 {
-	struct snd_card *snd_card = codec->component.card->snd_card;
 	unsigned int val;
 	int ret;
 
-	if (unlikely(!snd_card_is_online_state(snd_card))) {
-		dev_err(codec->dev, "read 0x%02x while offline\n", reg);
-		return -ENODEV;
-	}
 	ret = snd_soc_component_read(&codec->component, reg, &val);
 	if (ret < 0)
 		return -1;
@@ -214,12 +209,6 @@ EXPORT_SYMBOL_GPL(snd_soc_read);
 int snd_soc_write(struct snd_soc_codec *codec, unsigned int reg,
 	unsigned int val)
 {
-	struct snd_card *snd_card = codec->component.card->snd_card;
-
-	if (unlikely(!snd_card_is_online_state(snd_card))) {
-		dev_err(codec->dev, "write 0x%02x while offline\n", reg);
-		return -ENODEV;
-	}
 	return snd_soc_component_write(&codec->component, reg, val);
 }
 EXPORT_SYMBOL_GPL(snd_soc_write);
