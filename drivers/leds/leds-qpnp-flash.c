@@ -1316,13 +1316,16 @@ static int qpnp_flash_led_parse_common_dt(
 	if (IS_ERR_OR_NULL(led->pinctrl)) {
 		dev_err(&led->spmi_dev->dev,
 					"Unable to acquire pinctrl\n");
+		led->pinctrl = NULL;
 		return 0;
 	} else {
 		led->gpio_state_active =
 			pinctrl_lookup_state(led->pinctrl, "flash_led_enable");
 		if (IS_ERR_OR_NULL(led->gpio_state_active)) {
 			dev_err(&led->spmi_dev->dev,
-					"Can not get LED active state\n");
+					"Can not lookup LED active state\n");
+			devm_pinctrl_put(led->pinctrl);
+			led->pinctrl = NULL;
 			return PTR_ERR(led->gpio_state_active);
 		}
 		led->gpio_state_suspend =
@@ -1330,7 +1333,9 @@ static int qpnp_flash_led_parse_common_dt(
 							"flash_led_disable");
 		if (IS_ERR_OR_NULL(led->gpio_state_active)) {
 			dev_err(&led->spmi_dev->dev,
-					"Can not get LED active state\n");
+					"Can not lookup LED disable state\n");
+			devm_pinctrl_put(led->pinctrl);
+			led->pinctrl = NULL;
 			return PTR_ERR(led->gpio_state_active);
 		}
 	}
