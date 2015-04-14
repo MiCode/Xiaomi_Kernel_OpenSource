@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -30,6 +30,7 @@
 #define QDSP6SS_RESET			0x014
 #define QDSP6SS_GFMUX_CTL		0x020
 #define QDSP6SS_PWR_CTL			0x030
+#define QDSP6SS_MEM_CTL                 0x0B0
 #define QDSP6SS_STRAP_ACC		0x110
 
 /* AXI Halt Register Offsets */
@@ -349,6 +350,21 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 			writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 			udelay(1);
 		}
+	} else if (drv->qdsp6v56_1_8) {
+		/* Deassert memory peripheral sleep and L2 memory standby */
+		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
+		val |= (Q6SS_L2DATA_STBY_N | Q6SS_SLP_RET_N);
+		writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
+
+		/*
+		 * Enable memories, turn on memory footswitch/head switch
+		 * one bank at a time to avoid in-rush current
+		 */
+		for (i = 19; i >= 0; i--) {
+			val |= BIT(i);
+			writel_relaxed(val, drv->reg_base + QDSP6SS_MEM_CTL);
+			udelay(1);
+		}
 	} else {
 		/* Turn on memories. */
 		val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
@@ -485,6 +501,9 @@ struct q6v5_data *pil_q6v5_init(struct platform_device *pdev)
 
 	drv->qdsp6v56_1_3 = of_property_read_bool(pdev->dev.of_node,
 						"qcom,qdsp6v56-1-3");
+
+	drv->qdsp6v56_1_8 = of_property_read_bool(pdev->dev.of_node,
+						"qcom,qdsp6v56-1-8");
 
 	drv->non_elf_image = of_property_read_bool(pdev->dev.of_node,
 						"qcom,mba-image-is-not-elf");
