@@ -204,8 +204,9 @@ int msm_ispif_get_clk_info(struct ispif_device *ispif_dev,
 	struct msm_cam_clk_info *clk_info)
 {
 	uint32_t count, num_ahb_clk = 0;
-	const char *rate = NULL;
 	int i, rc;
+	uint32_t rates[ISPIF_CLK_INFO_MAX];
+	const char *clk_ctl = NULL;
 
 	struct device_node *of_node;
 	of_node = pdev->dev.of_node;
@@ -224,6 +225,13 @@ int msm_ispif_get_clk_info(struct ispif_device *ispif_dev,
 		return -EINVAL;
 	}
 
+	rc = of_property_read_u32_array(of_node, "qcom,clock-rates",
+		rates, count);
+	if (rc < 0) {
+		pr_err("%s failed %d\n", __func__, __LINE__);
+		return rc;
+	}
+
 	for (i = 0; i < count; i++) {
 		rc = of_property_read_string_index(of_node, "clock-names",
 				i, &(clk_info[i].clk_name));
@@ -233,23 +241,29 @@ int msm_ispif_get_clk_info(struct ispif_device *ispif_dev,
 			return rc;
 		}
 
-		rc = of_property_read_string_index(of_node, "qcom,clock-rates",
-			i, &rate);
-		CDBG("clock-names[%d] = %s, clk_rate = %s\n",
-			i, clk_info[i].clk_name, rate);
+		rc = of_property_read_string_index(of_node,
+			"qcom,clock-control", i, &clk_ctl);
 		if (rc < 0) {
-			pr_err("%s reading clock-rate failed index %d\n",
+			pr_err("%s reading clock-control failed index %d\n",
 				__func__, i);
 			return rc;
 		}
 
-		if (!strcmp(rate, "-1") || !strcmp(rate, "0"))
+		if (!strcmp(clk_ctl, "NO_SET_RATE"))
 			clk_info[i].clk_rate = NO_SET_RATE;
-		else if (!strcmp(rate, "-2"))
+		else if (!strcmp(clk_ctl, "INIT_RATE"))
 			clk_info[i].clk_rate = INIT_RATE;
-		else
-			rc = kstrtol(rate, 10, &clk_info[i].clk_rate);
+		else if (!strcmp(clk_ctl, "SET_RATE"))
+			clk_info[i].clk_rate = rates[i];
+		else {
+			pr_err("%s: error: clock control has invalid value\n",
+				 __func__);
+			return -EBUSY;
+		}
 
+		CDBG("%s: clock-name= %s, clk_rate = %ld clock-control = %s\n",
+			__func__, clk_info[i].clk_name, clk_info[i].clk_rate,
+			clk_ctl);
 		if (strnstr(clk_info[i].clk_name, "ahb",
 			strlen(clk_info[i].clk_name))) {
 			ahb_clk_info[num_ahb_clk].clk_name =
