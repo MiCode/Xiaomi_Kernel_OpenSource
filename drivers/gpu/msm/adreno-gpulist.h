@@ -24,6 +24,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.pfpfw_name = "a300_pfp.fw",
 		.gpudev = &adreno_a3xx_gpudev,
 		.gmem_size = SZ_128K,
+		.busy_mask = 0x7FFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A304,
@@ -35,6 +36,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.pfpfw_name = "a300_pfp.fw",
 		.gpudev = &adreno_a3xx_gpudev,
 		.gmem_size = (SZ_64K + SZ_32K),
+		.busy_mask = 0x7FFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A405,
@@ -47,6 +49,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.pfpfw_name = "a420_pfp.fw",
 		.gpudev = &adreno_a4xx_gpudev,
 		.gmem_size = SZ_256K,
+		.busy_mask = 0x7FFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A420,
@@ -67,6 +70,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.pm4_bstrp_size = 0x06,
 		.pfp_bstrp_size = 0x28,
 		.pfp_bstrp_ver = 0x4ff083,
+		.busy_mask = 0x7FFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A430,
@@ -91,6 +95,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.shader_offset = 0x20000,
 		.shader_size = 0x10000,
 		.num_protected_regs = 0x18,
+		.busy_mask = 0x7FFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A418,
@@ -114,6 +119,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.shader_offset = 0x20000, /* SP and TP addresses */
 		.shader_size = 0x10000,
 		.num_protected_regs = 0x18,
+		.busy_mask = 0x7FFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A530,
@@ -126,6 +132,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpudev = &adreno_a5xx_gpudev,
 		.gmem_size = SZ_1M,
 		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A530,
@@ -142,6 +149,7 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpmufw_name = "gpmu_microcode.fw2",
 		.gpmu_major = 1,
 		.gpmu_minor = 0,
+		.busy_mask = 0xFFFFFFFE,
 	},
 	{
 		.gpurev = ADRENO_REV_A510,
@@ -154,5 +162,6 @@ static const struct adreno_gpu_core adreno_gpulist[] = {
 		.gpudev = &adreno_a5xx_gpudev,
 		.gmem_size = SZ_256K,
 		.num_protected_regs = 0x20,
+		.busy_mask = 0xFFFFFFFE,
 	},
 };

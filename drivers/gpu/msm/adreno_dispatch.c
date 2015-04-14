@@ -195,6 +195,7 @@ static void fault_detect_read(struct kgsl_device *device)
 static inline bool _isidle(struct kgsl_device *device)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
 	unsigned int reg_rbbm_status;
 
 	if (!kgsl_state_is_awake(device))
@@ -203,7 +204,7 @@ static inline bool _isidle(struct kgsl_device *device)
 	/* only check rbbm status to determine if GPU is idle */
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS, &reg_rbbm_status);
 
-	if (reg_rbbm_status & ADRENO_RBBM_STATUS_BUSY_MASK)
+	if (reg_rbbm_status & gpucore->busy_mask)
 		return false;
 
 ret:

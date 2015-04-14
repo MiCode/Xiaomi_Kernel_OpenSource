@@ -1968,12 +1968,13 @@ inline unsigned int adreno_irq_pending(struct adreno_device *adreno_dev)
  */
 bool adreno_hw_isidle(struct adreno_device *adreno_dev)
 {
+	const struct adreno_gpu_core *gpucore = adreno_dev->gpucore;
 	unsigned int reg_rbbm_status;
 
 	adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS,
 		&reg_rbbm_status);
 
-	if (reg_rbbm_status & ADRENO_RBBM_STATUS_BUSY_MASK)
+	if (reg_rbbm_status & gpucore->busy_mask)
 		return false;
 
 	/* Don't consider ourselves idle if there is an IRQ pending */
