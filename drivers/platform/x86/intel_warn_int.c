@@ -41,6 +41,11 @@ static u32 warn_irq_handler(acpi_handle gpe_device, u32 gpe, void *context)
 	pr_warn("[SHTDWN] %s, WATCHDOG TIMEOUT HANDLER!\n", __func__);
 
 	trigger_all_cpu_backtrace();
+
+	/* Let the tco watchdog reboot the platform */
+	if (panic_timeout)
+		panic_timeout = 0;
+
 	panic("Kernel Watchdog");
 
 	/* This code should not be reached */
