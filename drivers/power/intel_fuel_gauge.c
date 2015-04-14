@@ -212,11 +212,18 @@ static void intel_fg_worker(struct work_struct *work)
 				struct intel_fg_info, fg_worker);
 	struct fg_algo_ip_params ip;
 	struct fg_algo_op_params op;
-	int ret;
+	int ret, sched_time;
 
 	memset(&op, 0, sizeof(struct fg_algo_op_params));
 
 	mutex_lock(&fg_info->lock);
+
+	/* Blocking wait call if PMIC supports CCTICK IRQ */
+	if (fg_info->input->wait_for_cc) {
+		fg_info->input->wait_for_cc();
+		sched_time = 1;
+	} else
+		sched_time = 30;
 
 	ret = fg_info->input->get_delta_q(&ip.delta_q);
 	if (ret)
@@ -248,6 +255,44 @@ static void intel_fg_worker(struct work_struct *work)
 	if (ret)
 		dev_err(fg_info->dev, "Error while getting Current Average\n");
 
+	if (fg_info->input->get_up_cc) {
+		ret = fg_info->input->get_up_cc(&ip.up_cc);
+		if (ret)
+			dev_err(fg_info->dev, "Error while reading UP CC");
+	}
+	if (fg_info->input->get_down_cc) {
+		ret = fg_info->input->get_down_cc(&ip.down_cc);
+		if (ret)
+			dev_err(fg_info->dev, "Error while reading DOWN CC");
+	}
+	if (fg_info->input->get_acc_err) {
+		ret = fg_info->input->get_acc_err(&ip.acc_err);
+		if (ret)
+			dev_err(fg_info->dev,
+					"Error while reading Accumulated Err");
+	}
+	if (fg_info->input->get_delta_thr) {
+		ret = fg_info->input->get_delta_thr(&ip.delta_thr);
+		if (ret)
+			dev_err(fg_info->dev,
+				"Error while reading Delta Threshold");
+	}
+	if (fg_info->input->get_long_avg) {
+		ret = fg_info->input->get_long_avg(&ip.up_cc);
+		if (ret)
+			dev_err(fg_info->dev, "Error while reading UP CC");
+	}
+	if (fg_info->input->get_long_avg_ocv) {
+		ret = fg_info->input->get_long_avg(&ip.long_avg_at_ocv);
+		if (ret)
+			dev_err(fg_info->dev, "Error while reading UP CC");
+	}
+	if (fg_info->input->get_long_avg) {
+		ret = fg_info->input->get_long_avg(&ip.ocv_accuracy);
+		if (ret)
+			dev_err(fg_info->dev, "Error while reading UP CC");
+	}
+
 	mutex_unlock(&fg_info->lock);
 	if (fg_info->algo) {
 		ret = fg_info->algo->fg_algo_process(&ip, &op);
@@ -275,6 +320,23 @@ static void intel_fg_worker(struct work_struct *work)
 		fg_info->batt_params.charge_now = op.nac;
 		fg_info->batt_params.charge_full = op.fcc;
 	}
+	/* CHeck the Algo Output and pass it to input driver */
+	if (op.reset_acc_err.is_set) {
+		fg_info->input->reset_acc_err(op.reset_acc_err.val);
+		op.reset_acc_err.is_set = false;
+	}
+
+	if (op.set_delta_thr.is_set) {
+		fg_info->input->set_delta_thr(op.set_delta_thr.val);
+		op.set_delta_thr.is_set = false;
+	}
+
+	if (op.clr_latched_ibat_avg.is_set) {
+		fg_info->input->clr_latched_ibat_avg(
+				op.clr_latched_ibat_avg.val);
+		op.clr_latched_ibat_avg.is_set = false;
+	}
+
 	fg_info->batt_params.vbatt_now = ip.vbatt;
 	fg_info->batt_params.v_ocv_now =
 		intel_fg_apply_volt_smooth(ip.vocv, ip.vbatt, ip.ibatt, op.soc);
@@ -293,7 +355,7 @@ static void intel_fg_worker(struct work_struct *work)
 	power_supply_changed(&fg_info->psy);
 	if (fg_info->wake_ui.wake_enable)
 		intel_fg_check_low_batt_event(fg_info);
-	schedule_delayed_work(&fg_info->fg_worker, 30 * HZ);
+	schedule_delayed_work(&fg_info->fg_worker, sched_time * HZ);
 }
 
 static int intel_fg_battery_health(struct intel_fg_info *info)
@@ -495,6 +557,7 @@ int intel_fg_register_input(struct intel_fg_input *input)
 	mutex_lock(&info_ptr->lock);
 
 	info_ptr->input = input;
+
 	/* init fuel gauge lib's or algo's */
 	if (info_ptr->algo || info_ptr->algo_sec)
 		intel_fuel_gauge_algo_init(info_ptr);
@@ -606,7 +669,6 @@ static int intel_fuel_gauge_probe(struct platform_device *pdev)
 {
 	struct intel_fg_info *fg_info;
 	struct em_config_oem0_data oem0_data;
-	int ret = 0;
 
 	fg_info = devm_kzalloc(&pdev->dev, sizeof(*fg_info), GFP_KERNEL);
 	if (!fg_info) {

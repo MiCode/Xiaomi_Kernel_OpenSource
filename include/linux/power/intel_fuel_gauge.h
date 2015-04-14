@@ -27,6 +27,11 @@
 #include <linux/mutex.h>
 #include <linux/power/battery_id.h>
 
+struct set_cc_val {
+	bool is_set;
+	int val;
+};
+
 struct fg_algo_ip_params {
 	int vbatt;
 	int vavg;
@@ -35,6 +40,15 @@ struct fg_algo_ip_params {
 	int iavg;
 	int bat_temp;
 	int delta_q;
+
+	/* Coulomb Counter I/P Params */
+	int up_cc;
+	int down_cc;
+	int acc_err;
+	int delta_thr;
+	int long_avg;
+	int long_avg_at_ocv;
+	int ocv_accuracy;
 };
 
 struct fg_algo_op_params {
@@ -43,6 +57,15 @@ struct fg_algo_op_params {
 	int fcc;
 	int cycle_count;
 	bool calib_cc;
+
+	/* Coulomb Counter O/P Params */
+	int acc_err;
+	int delta_thr;
+	int ibat_avg_at_ocv;
+
+	struct set_cc_val reset_acc_err;
+	struct set_cc_val set_delta_thr;
+	struct set_cc_val clr_latched_ibat_avg;
 };
 
 struct fg_batt_params {
@@ -61,6 +84,15 @@ struct fg_batt_params {
 	bool boot_flag;
 	bool is_valid_battery;
 	char battid[BATTID_STR_LEN + 1];
+
+	/* Coulomb Counter initial params */
+	int up_cc;
+	int down_cc;
+	int acc_err;
+	int delta_thr;
+	int long_avg;
+	int long_avg_ocv;
+	int ocv_accuracy;
 };
 
 struct fg_algo_params {
@@ -85,6 +117,20 @@ struct intel_fg_input {
 	int (*get_i_avg)(int *i_avg);
 	int (*get_delta_q)(int *delta_q);
 	int (*calibrate_cc)(void);
+
+	/* Coulomb Counter APIs */
+	bool (*wait_for_cc)(void);
+	int (*get_up_cc)(int *up_cc);
+	int (*get_down_cc)(int *down_cc);
+	int (*get_acc_err)(int *acc_err);
+	int (*get_delta_thr)(int *delta_thr);
+	int (*get_long_avg)(int *long_avg);
+	int (*get_long_avg_ocv)(int *long_avg_ocv);
+	int (*get_ocv_accuracy)(int *ocv_acuracy);
+
+	int (*reset_acc_err)(int acc_err);
+	int (*set_delta_thr)(int delta_thr);
+	int (*clr_latched_ibat_avg)(int ibat_avg_at_ocv);
 };
 
 enum intel_fg_algo_type {

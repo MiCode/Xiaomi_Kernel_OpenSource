@@ -53,6 +53,20 @@ struct fg_iface_info {
 	int fcc;
 	int cycle_count;
 	int calib_cc;
+
+	/* Coulomb Counter params */
+	int up_cc;
+	int down_cc;
+	int acc_err;
+	int delta_thr;
+	int long_avg;
+	int long_avg_at_ocv;
+	int ocv_accuracy;
+
+	struct set_cc_val reset_acc_err;
+	struct set_cc_val set_delta_thr;
+	struct set_cc_val clr_latched_ibat_avg;
+
 	wait_queue_head_t wait;
 	bool uevent_ack;
 	bool suspended;
@@ -66,99 +80,108 @@ static struct fg_iface_info *info_ptr;
 static ssize_t fg_iface_get_volt_now(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->vbatt);
+	val = info_ptr->vbatt;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_volt_ocv(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->vocv);
+	val = info_ptr->vocv;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_volt_boot(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->vbatt_boot);
+	val = info_ptr->vbatt_boot;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_ibat_boot(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->ibat_boot);
+	val = info_ptr->ibat_boot;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_cur_now(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->ibatt);
+	val = info_ptr->ibatt;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_cur_avg(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->iavg);
+	val = info_ptr->iavg;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_batt_temp(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->bat_temp);
+	val = info_ptr->bat_temp;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_delta_q(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->delta_q);
+	val = info_ptr->delta_q;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
 static ssize_t fg_iface_get_capacity(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->soc);
+	val = info_ptr->soc;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
@@ -180,11 +203,12 @@ static ssize_t fg_iface_set_capacity(struct device *dev,
 static ssize_t fg_iface_get_nac(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->nac);
+	val = info_ptr->nac;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
@@ -206,11 +230,12 @@ static ssize_t fg_iface_set_nac(struct device *dev,
 static ssize_t fg_iface_get_fcc(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->fcc);
+	val = info_ptr->fcc;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
@@ -232,11 +257,12 @@ static ssize_t fg_iface_set_fcc(struct device *dev,
 static ssize_t fg_iface_get_cyc_cnt(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->cycle_count);
+	val = info_ptr->cycle_count;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
@@ -259,11 +285,12 @@ static ssize_t fg_iface_set_cyc_cnt(struct device *dev,
 static ssize_t fg_iface_get_cc_calib(struct device *dev,
 			struct device_attribute *attr, char *buf)
 {
-	int ret;
+	int ret, val;
 
 	mutex_lock(&info_ptr->lock);
-	ret = sprintf(buf, "%d\n", info_ptr->calib_cc);
+	val = info_ptr->calib_cc;
 	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
 	return ret;
 }
 
@@ -284,6 +311,141 @@ static ssize_t fg_iface_set_cc_calib(struct device *dev,
 	return count;
 }
 
+/* Coulomb Counter input attribute APIs */
+
+static ssize_t fg_iface_get_up_cc(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret, val;
+
+	mutex_lock(&info_ptr->lock);
+	val = info_ptr->up_cc;
+	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
+}
+
+static ssize_t fg_iface_get_down_cc(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret, val;
+
+	mutex_lock(&info_ptr->lock);
+	val = info_ptr->down_cc;
+	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
+}
+
+static ssize_t fg_iface_get_acc_err(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret, val;
+
+	mutex_lock(&info_ptr->lock);
+	val = info_ptr->acc_err;
+	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
+}
+
+static ssize_t fg_iface_get_delta_thr(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret, val;
+
+	mutex_lock(&info_ptr->lock);
+	val = info_ptr->delta_thr;
+	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
+}
+
+static ssize_t fg_iface_get_long_avg(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret, val;
+
+	mutex_lock(&info_ptr->lock);
+	val = info_ptr->long_avg;
+	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
+}
+
+static ssize_t fg_iface_get_long_avg_ocv(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret, val;
+
+	mutex_lock(&info_ptr->lock);
+	val = info_ptr->long_avg_at_ocv;
+	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
+}
+
+static ssize_t fg_iface_get_ocv_accuracy(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	int ret, val;
+
+	mutex_lock(&info_ptr->lock);
+	val = info_ptr->ocv_accuracy;
+	mutex_unlock(&info_ptr->lock);
+	ret = sprintf(buf, "%d\n", val);
+	return ret;
+}
+
+/* Coulomb Counter Output attributes */
+
+static ssize_t fg_iface_set_delta_thr(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	long val;
+
+	if (kstrtol(buf, 10, &val) < 0)
+		return -EINVAL;
+
+	mutex_lock(&info_ptr->lock);
+	info_ptr->set_delta_thr.val = val;
+	info_ptr->set_delta_thr.is_set = true;
+	mutex_unlock(&info_ptr->lock);
+	return count;
+}
+
+static ssize_t fg_iface_reset_acc_err(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	long val;
+
+	if (kstrtol(buf, 10, &val) < 0)
+		return -EINVAL;
+
+	mutex_lock(&info_ptr->lock);
+	info_ptr->reset_acc_err.val = val;
+	info_ptr->reset_acc_err.is_set = true;
+	mutex_unlock(&info_ptr->lock);
+	return count;
+}
+
+static ssize_t fg_iface_clr_latched_ibat_avg(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	long val;
+
+	if (kstrtol(buf, 10, &val) < 0)
+		return -EINVAL;
+
+	mutex_lock(&info_ptr->lock);
+	info_ptr->clr_latched_ibat_avg.val = val;
+	info_ptr->clr_latched_ibat_avg.is_set = true;
+	mutex_unlock(&info_ptr->lock);
+	return count;
+}
 
 static DEVICE_ATTR(volt_now, S_IRUGO,
 			fg_iface_get_volt_now, NULL);
@@ -302,6 +464,7 @@ static DEVICE_ATTR(batt_temp, S_IRUGO,
 static DEVICE_ATTR(delta_q, S_IRUGO,
 			fg_iface_get_delta_q, NULL);
 
+
 static DEVICE_ATTR(capacity, S_IWUSR | S_IRUGO,
 		fg_iface_get_capacity, fg_iface_set_capacity);
 static DEVICE_ATTR(nac, S_IWUSR | S_IRUGO,
@@ -312,6 +475,29 @@ static DEVICE_ATTR(cyc_cnt, S_IWUSR | S_IRUGO,
 		fg_iface_get_cyc_cnt, fg_iface_set_cyc_cnt);
 static DEVICE_ATTR(cc_calib, S_IWUSR | S_IRUGO,
 		fg_iface_get_cc_calib, fg_iface_set_cc_calib);
+
+
+/* Coulomb Counter Read-only attribute */
+static DEVICE_ATTR(up_cc, S_IRUGO,
+			fg_iface_get_up_cc, NULL);
+static DEVICE_ATTR(down_cc, S_IRUGO,
+			fg_iface_get_down_cc, NULL);
+static DEVICE_ATTR(long_avg, S_IRUGO,
+			fg_iface_get_long_avg, NULL);
+static DEVICE_ATTR(long_avg_ocv, S_IRUGO,
+			fg_iface_get_long_avg_ocv, NULL);
+static DEVICE_ATTR(ocv_accuracy, S_IRUGO,
+			fg_iface_get_ocv_accuracy, NULL);
+static DEVICE_ATTR(acc_err, S_IRUGO,
+			fg_iface_get_acc_err, NULL);
+
+/* Coulomb Counter Read/Write attributes */
+static DEVICE_ATTR(reset_acc_err, S_IWUSR | S_IRUGO,
+		NULL, fg_iface_reset_acc_err);
+static DEVICE_ATTR(delta_thr, S_IWUSR | S_IRUGO,
+		fg_iface_get_delta_thr, fg_iface_set_delta_thr);
+static DEVICE_ATTR(clr_latched_ibat_avg, S_IWUSR | S_IRUGO,
+		NULL, fg_iface_clr_latched_ibat_avg);
 
 static struct attribute *fg_iface_sysfs_attributes[] = {
 	&dev_attr_volt_now.attr,
@@ -327,6 +513,17 @@ static struct attribute *fg_iface_sysfs_attributes[] = {
 	&dev_attr_fcc.attr,
 	&dev_attr_cyc_cnt.attr,
 	&dev_attr_cc_calib.attr,
+	/* Coulomb Counter attributes */
+	&dev_attr_up_cc.attr,
+	&dev_attr_down_cc.attr,
+	&dev_attr_long_avg.attr,
+	&dev_attr_long_avg_ocv.attr,
+	&dev_attr_ocv_accuracy.attr,
+	&dev_attr_acc_err.attr,
+
+	&dev_attr_reset_acc_err.attr,
+	&dev_attr_delta_thr.attr,
+	&dev_attr_clr_latched_ibat_avg.attr,
 	NULL,
 };
 
@@ -379,7 +576,16 @@ static int intel_fg_iface_algo_process(struct fg_algo_ip_params *ip,
 	info_ptr->bat_temp = ip->bat_temp;
 	info_ptr->delta_q = ip->delta_q;
 
-	/* TODO: Add user space event generation mechanism */
+	/* Coulomb Counter I/P params assignment */
+	info_ptr->up_cc = ip->up_cc;
+	info_ptr->down_cc = ip->down_cc;
+	info_ptr->acc_err = ip->acc_err;
+	info_ptr->delta_thr = ip->delta_thr;
+	info_ptr->long_avg = ip->long_avg;
+	info_ptr->long_avg_at_ocv = ip->long_avg_at_ocv;
+	info_ptr->ocv_accuracy = ip->ocv_accuracy;
+
+	/* Add user space event generation mechanism */
 	dev_dbg(&info_ptr->pdev->dev, "Sending uevent from intel_fg_uiface\n");
 
 	if (!IS_ERR_OR_NULL(info_ptr->intel_fg_misc_device.this_device))
@@ -414,6 +620,21 @@ static int intel_fg_iface_algo_process(struct fg_algo_ip_params *ip,
 	op->fcc = info_ptr->fcc;
 	op->cycle_count = info_ptr->cycle_count;
 	op->calib_cc = info_ptr->calib_cc;
+
+	/* Coulomb Counter O/P params assignment */
+	op->set_delta_thr.val = info_ptr->set_delta_thr.val;
+	op->set_delta_thr.is_set = info_ptr->set_delta_thr.is_set;
+
+	op->reset_acc_err.val =
+				info_ptr->reset_acc_err.val;
+	op->reset_acc_err.is_set =
+				info_ptr->reset_acc_err.is_set;
+
+	op->clr_latched_ibat_avg.val =
+				info_ptr->clr_latched_ibat_avg.val;
+	op->clr_latched_ibat_avg.is_set =
+				info_ptr->clr_latched_ibat_avg.is_set;
+
 	mutex_unlock(&info_ptr->lock);
 
 	return 0;
@@ -429,6 +650,16 @@ static int intel_fg_iface_algo_init(struct fg_batt_params *bat_params)
 	info_ptr->ibatt = bat_params->i_batt_now;
 	info_ptr->iavg = bat_params->i_batt_avg;
 	info_ptr->bat_temp = bat_params->batt_temp_now;
+
+	/* Coulomb Counter params initialization */
+	info_ptr->up_cc = bat_params->up_cc;
+	info_ptr->down_cc = bat_params->down_cc;
+	info_ptr->delta_thr = bat_params->delta_thr;
+	info_ptr->acc_err = bat_params->acc_err;
+	info_ptr->long_avg = bat_params->long_avg;
+	info_ptr->long_avg_at_ocv = bat_params->long_avg_ocv;
+	info_ptr->ocv_accuracy = bat_params->ocv_accuracy;
+
 	mutex_unlock(&info_ptr->lock);
 
 	fg_iface_sysfs_init(info_ptr);
