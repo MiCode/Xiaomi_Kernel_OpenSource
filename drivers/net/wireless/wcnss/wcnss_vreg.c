@@ -166,10 +166,26 @@ int validate_iris_chip_id(u32 reg)
 	}
 }
 
+void  wcnss_iris_reset(u32 reg, void __iomem *pmu_conf_reg)
+{
+	/* Reset IRIS */
+	reg |= WCNSS_PMU_CFG_IRIS_RESET;
+	writel_relaxed(reg, pmu_conf_reg);
+
+	/* Wait for PMU_CFG.iris_reg_reset_sts */
+	while (readl_relaxed(pmu_conf_reg) &
+			WCNSS_PMU_CFG_IRIS_RESET_STS)
+		cpu_relax();
+
+	/* Reset iris reset bit */
+	reg &= ~WCNSS_PMU_CFG_IRIS_RESET;
+	writel_relaxed(reg, pmu_conf_reg);
+}
+
 static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 			int *iris_xo_set)
 {
-	u32 reg = 0;
+	u32 reg = 0, i = 0;
 	u32 iris_reg = WCNSS_INVALID_IRIS_REG;
 	int rc = 0;
 	int size = 0;
@@ -243,35 +259,44 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 			iris_reg = readl_relaxed(iris_read_reg);
 		}
 
+		wcnss_iris_reset(reg, pmu_conf_reg);
+
 		if (iris_reg != WCNSS_INVALID_IRIS_REG) {
 			iris_reg &= 0xffff;
 			iris_reg |= PRONTO_IRIS_REG_CHIP_ID;
 			writel_relaxed(iris_reg, iris_read_reg);
+			do {
+				/* Iris read */
+				reg = readl_relaxed(pmu_conf_reg);
+				reg |= WCNSS_PMU_CFG_IRIS_XO_READ;
+				writel_relaxed(reg, pmu_conf_reg);
 
-			/* Iris read */
-			reg = readl_relaxed(pmu_conf_reg);
-			reg |= WCNSS_PMU_CFG_IRIS_XO_READ;
-			writel_relaxed(reg, pmu_conf_reg);
+				/* Wait for PMU_CFG.iris_reg_read_sts */
+				while (readl_relaxed(pmu_conf_reg) &
+						WCNSS_PMU_CFG_IRIS_XO_READ_STS)
+					cpu_relax();
 
-			/* Wait for PMU_CFG.iris_reg_read_sts */
-			while (readl_relaxed(pmu_conf_reg) &
-					WCNSS_PMU_CFG_IRIS_XO_READ_STS)
-				cpu_relax();
+				iris_reg = readl_relaxed(iris_read_reg);
+				pr_info("wcnss: IRIS Reg: %08x\n", iris_reg);
 
-			iris_reg = readl_relaxed(iris_read_reg);
-			pr_info("wcnss: IRIS Reg: %08x\n", iris_reg);
-
-			if (validate_iris_chip_id(iris_reg)) {
-				pr_info("wcnss: IRIS Card absent/invalid\n");
-				auto_detect = WCNSS_XO_INVALID;
-				/* Reset iris read bit */
+				if (validate_iris_chip_id(iris_reg) && i >= 4) {
+					pr_info("wcnss: IRIS Card absent/invalid\n");
+					auto_detect = WCNSS_XO_INVALID;
+					/* Reset iris read bit */
+					reg &= ~WCNSS_PMU_CFG_IRIS_XO_READ;
+					/* Clear XO_MODE[b2:b1] bits.
+					 * Clear implies 19.2 MHz TCXO
+					 */
+					reg &= ~(WCNSS_PMU_CFG_IRIS_XO_MODE);
+					goto xo_configure;
+				} else if (!validate_iris_chip_id(iris_reg)) {
+					pr_debug("wcnss: IRIS Card is present\n");
+					break;
+				}
 				reg &= ~WCNSS_PMU_CFG_IRIS_XO_READ;
-				/* Clear XO_MODE[b2:b1] bits.
-				   Clear implies 19.2 MHz TCXO
-				 */
-				reg &= ~(WCNSS_PMU_CFG_IRIS_XO_MODE);
-				goto xo_configure;
-			}
+				writel_relaxed(reg, pmu_conf_reg);
+				wcnss_iris_reset(reg, pmu_conf_reg);
+			} while (i++ < 5);
 			auto_detect = xo_auto_detect(iris_reg);
 
 			/* Reset iris read bit */
@@ -297,18 +322,7 @@ static int configure_iris_xo(struct device *dev, bool use_48mhz_xo, int on,
 xo_configure:
 		writel_relaxed(reg, pmu_conf_reg);
 
-		/* Reset IRIS */
-		reg |= WCNSS_PMU_CFG_IRIS_RESET;
-		writel_relaxed(reg, pmu_conf_reg);
-
-		/* Wait for PMU_CFG.iris_reg_reset_sts */
-		while (readl_relaxed(pmu_conf_reg) &
-				WCNSS_PMU_CFG_IRIS_RESET_STS)
-			cpu_relax();
-
-		/* Reset iris reset bit */
-		reg &= ~WCNSS_PMU_CFG_IRIS_RESET;
-		writel_relaxed(reg, pmu_conf_reg);
+		wcnss_iris_reset(reg, pmu_conf_reg);
 
 		/* Start IRIS XO configuration */
 		reg |= WCNSS_PMU_CFG_IRIS_XO_CFG;
