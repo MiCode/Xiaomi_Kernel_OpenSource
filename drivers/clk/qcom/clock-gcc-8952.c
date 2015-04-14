@@ -2283,14 +2283,15 @@ static struct local_vote_clk gcc_crypto_clk = {
 	},
 };
 
-static struct branch_clk gcc_oxili_gmem_clk = {
-	.cbcr_reg = OXILI_GMEM_CBCR,
-	.has_sibling = 1,
+static struct gate_clk gcc_oxili_gmem_clk = {
+	.en_reg = OXILI_GMEM_CBCR,
+	.en_mask = BIT(0),
+	.delay_us = 50,
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_oxili_gmem_clk",
 		.parent = &gfx3d_clk_src.c,
-		.ops = &clk_ops_branch,
+		.ops = &clk_ops_gate,
 		CLK_INIT(gcc_oxili_gmem_clk.c),
 	},
 };
