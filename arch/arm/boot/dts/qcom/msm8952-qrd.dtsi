@@ -94,3 +94,7 @@
 
 	status = "ok";
 };
+
+&android_usb {
+        qcom,android-usb-cdrom;
+};
