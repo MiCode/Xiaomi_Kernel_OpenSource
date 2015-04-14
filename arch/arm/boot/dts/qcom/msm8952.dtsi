@@ -1086,7 +1086,6 @@
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
 		rpm-channel-type = <15>; /* SMD_APPS_RPM */
-		rpm-standalone; /* TODO: remove this after bring up */
 	};
 
 	sdhc_1: sdhci@7824000 {
