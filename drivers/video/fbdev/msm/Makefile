@@ -1,5 +1,5 @@
 ifeq ($(CONFIG_FB_MSM_MDSS_COMMON),y)
-obj-y += mdss/
+obj-y += ../../msm/
 else
 obj-y := msm_fb.o
 
