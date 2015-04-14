@@ -624,7 +624,7 @@ static int msm_afe_hw_params(struct snd_pcm_substream *substream,
 
 	memset(dma_buf->area, 0,  params_buffer_bytes(params));
 
-	prtd->dma_addr = (u32) dma_buf->addr;
+	prtd->dma_addr = (phys_addr_t) dma_buf->addr;
 
 	mutex_unlock(&prtd->lock);
 

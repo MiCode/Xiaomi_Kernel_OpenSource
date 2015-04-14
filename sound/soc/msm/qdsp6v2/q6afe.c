@@ -3264,7 +3264,8 @@ int afe_unregister_get_events(u16 port_id)
 	return ret;
 }
 
-int afe_rt_proxy_port_write(u32 buf_addr_p, u32 mem_map_handle, int bytes)
+int afe_rt_proxy_port_write(phys_addr_t buf_addr_p,
+		u32 mem_map_handle, int bytes)
 {
 	int ret = 0;
 	struct afe_port_data_cmd_rt_proxy_port_write_v2 afecmd_wr;
@@ -3274,8 +3275,8 @@ int afe_rt_proxy_port_write(u32 buf_addr_p, u32 mem_map_handle, int bytes)
 		ret = -ENODEV;
 		return ret;
 	}
-	pr_debug("%s: buf_addr_p = 0x%x bytes = %d\n", __func__,
-						buf_addr_p, bytes);
+	pr_debug("%s: buf_addr_p = 0x%pa bytes = %d\n", __func__,
+						&buf_addr_p, bytes);
 
 	afecmd_wr.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
@@ -3299,7 +3300,8 @@ int afe_rt_proxy_port_write(u32 buf_addr_p, u32 mem_map_handle, int bytes)
 
 }
 
-int afe_rt_proxy_port_read(u32 buf_addr_p, u32 mem_map_handle, int bytes)
+int afe_rt_proxy_port_read(phys_addr_t buf_addr_p,
+		u32 mem_map_handle, int bytes)
 {
 	int ret = 0;
 	struct afe_port_data_cmd_rt_proxy_port_read_v2 afecmd_rd;
@@ -3309,8 +3311,8 @@ int afe_rt_proxy_port_read(u32 buf_addr_p, u32 mem_map_handle, int bytes)
 		ret = -ENODEV;
 		return ret;
 	}
-	pr_debug("%s: buf_addr_p = 0x%x bytes = %d\n", __func__,
-						buf_addr_p, bytes);
+	pr_debug("%s: buf_addr_p = 0x%pa bytes = %d\n", __func__,
+						&buf_addr_p, bytes);
 
 	afecmd_rd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
 				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
