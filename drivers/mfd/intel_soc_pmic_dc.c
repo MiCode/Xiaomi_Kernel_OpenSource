@@ -669,6 +669,23 @@ static int dollar_cove_init(void)
 	dc_xpwr_fg_pdata();
 	dc_set_gpio_pdata();
 
+	/* WA for Vboot, xpower rail 1P05 is set to default 1.0,
+	but in CHT_CR_RVP it must set to 1.05V */
+	{
+		pr_err("Dollar Cove: WA set rail 1P05 to 1.05V\n");
+		/* set BUCK3 to 1.05v */
+		intel_soc_pmic_writeb(0x25, 0xAD);
+		/* Enable OTP overwrite */
+		intel_soc_pmic_writeb(0xF4, 0x06);
+		intel_soc_pmic_writeb(0xF2, 0x84);
+		/* Enable access to OTP register space */
+		intel_soc_pmic_writeb(0xFF, 0x01);
+		/* program to change BUCK3 Vboot to 1.05V */
+		intel_soc_pmic_writeb(0x09, 0x2D);
+		/* Disable access to OTP register space */
+		intel_soc_pmic_writeb(0xFF, 0x00);
+	}
+
 	return 0;
 }
 
