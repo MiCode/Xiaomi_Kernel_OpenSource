@@ -218,6 +218,12 @@ static void intel_dsi_device_ready(struct intel_encoder *encoder)
 
 	/* wait for LP state to go 00 */
 	usleep_range(2500, 3000);
+
+	val = vlv_flisdsi_read(dev_priv, FLIS_DSI_TXCNTRL);
+	vlv_flisdsi_write(dev_priv, FLIS_DSI_TXCNTRL,
+				val & ~(BIT_FILS_DSI_TXCNTRL_HS_IO_SEL));
+
+
 	I915_WRITE(MIPI_PORT_CTRL(0), val | LP_OUTPUT_HOLD);
 	usleep_range(1000, 1500);
 	intel_dsi_write_dev_rdy_on_A_and_C(encoder,
@@ -604,6 +610,10 @@ static void intel_dsi_clear_device_ready(struct intel_encoder *encoder)
 
 	/* wait for dsi controller to be off */
 	usleep_range(2000, 2500);
+
+	val = vlv_flisdsi_read(dev_priv, FLIS_DSI_TXCNTRL);
+	vlv_flisdsi_write(dev_priv, FLIS_DSI_TXCNTRL,
+				val | BIT_FILS_DSI_TXCNTRL_HS_IO_SEL);
 
 	vlv_disable_dsi_pll(encoder);
 }

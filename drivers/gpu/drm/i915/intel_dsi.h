@@ -398,6 +398,8 @@
 #define LPIO_PWM_ENABLE_MASK		0x80000000
 
 #define FLIS_RCOMP_IOSFSB_REG4		0x04
+#define FLIS_DSI_TXCNTRL		0x15
+#define BIT_FILS_DSI_TXCNTRL_HS_IO_SEL	(1 << 0)
 
 struct intel_dsi_device {
 	unsigned int panel_id;
