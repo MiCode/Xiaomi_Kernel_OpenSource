@@ -2905,6 +2905,9 @@ static int do_psm(void)
 	int i = 0;
 	int auto_cnt = 0;
 
+	if (!psm_enabled)
+		return ret;
+
 	mutex_lock(&psm_mutex);
 	for (i = 0; i < max_tsens_num; i++) {
 		ret = therm_get_temp(tsens_id_map[i], THERM_TSENS_ID, &temp);
