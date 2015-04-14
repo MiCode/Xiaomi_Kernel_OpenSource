@@ -1681,7 +1681,13 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	}
 
 	p->ravg.sum = 0;
-	if (p->on_rq)
+
+	/*
+	 * A throttled deadline sched class task gets dequeued without
+	 * changing p->on_rq. Since the dequeue decrements hmp stats
+	 * avoid decrementing it here again.
+	 */
+	if (p->on_rq && (!task_has_dl_policy(p) || !p->dl.dl_throttled))
 		p->sched_class->dec_hmp_sched_stats(rq, p);
 
 	avg = div64_u64(sum, sched_ravg_hist_size);
@@ -1697,7 +1703,7 @@ static void update_history(struct rq *rq, struct task_struct *p,
 
 	p->ravg.demand = demand;
 
-	if (p->on_rq)
+	if (p->on_rq && (!task_has_dl_policy(p) || !p->dl.dl_throttled))
 		p->sched_class->inc_hmp_sched_stats(rq, p);
 
 done:

@@ -717,6 +717,30 @@ static inline void dec_dl_deadline(struct dl_rq *dl_rq, u64 deadline) {}
 
 #endif /* CONFIG_SMP */
 
+#ifdef CONFIG_SCHED_HMP
+
+static void
+inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
+{
+	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+static void
+dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p)
+{
+	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
+}
+
+#else	/* CONFIG_SCHED_HMP */
+
+static inline void
+inc_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
+
+static inline void
+dec_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p) { }
+
+#endif	/* CONFIG_SCHED_HMP */
+
 static inline
 void inc_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 {
@@ -726,6 +750,7 @@ void inc_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_prio(prio));
 	dl_rq->dl_nr_running++;
 	inc_nr_running(rq_of_dl_rq(dl_rq));
+	inc_hmp_sched_stats_dl(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
 
 	inc_dl_deadline(dl_rq, deadline);
 	inc_dl_migration(dl_se, dl_rq);
@@ -740,6 +765,7 @@ void dec_dl_tasks(struct sched_dl_entity *dl_se, struct dl_rq *dl_rq)
 	WARN_ON(!dl_rq->dl_nr_running);
 	dl_rq->dl_nr_running--;
 	dec_nr_running(rq_of_dl_rq(dl_rq));
+	dec_hmp_sched_stats_dl(rq_of_dl_rq(dl_rq), dl_task_of(dl_se));
 
 	dec_dl_deadline(dl_rq, dl_se->deadline);
 	dec_dl_migration(dl_se, dl_rq);
@@ -1645,4 +1671,9 @@ const struct sched_class dl_sched_class = {
 	.prio_changed           = prio_changed_dl,
 	.switched_from		= switched_from_dl,
 	.switched_to		= switched_to_dl,
+
+#ifdef CONFIG_SCHED_HMP
+	.inc_hmp_sched_stats	= inc_hmp_sched_stats_dl,
+	.dec_hmp_sched_stats	= dec_hmp_sched_stats_dl,
+#endif
 };
