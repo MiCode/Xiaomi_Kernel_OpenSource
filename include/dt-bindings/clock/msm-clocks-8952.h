@@ -276,6 +276,8 @@
 #define clk_rf_clk2_a_pin			0x2d75eb4d
 #define clk_div_clk1				0xaa1157a6
 #define clk_div_clk1_a				0x6b943d68
+#define clk_div_clk2				0xd454019f
+#define clk_div_clk2_a				0x4bd7bfa8
 #define clk_ln_bb_clk				0x3ab0b36d
 #define clk_ln_bb_a_clk				0xc7257ea8
 
