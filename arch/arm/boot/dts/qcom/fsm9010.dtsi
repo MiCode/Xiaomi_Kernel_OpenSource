@@ -190,8 +190,9 @@
 
 	clock_debug: qcom,cc-debug@fc400000 {
 		compatible = "qcom,cc-debug-fsm9010";
-		reg = <0xfc400000 0x4000>;
-		reg-names = "cc_base";
+		reg = <0xfc400000 0x4000>,
+			<0xf9011000 0x1000>;
+		reg-names = "cc_base","meas";
 		#clock-cells = <1>;
 	};
 
