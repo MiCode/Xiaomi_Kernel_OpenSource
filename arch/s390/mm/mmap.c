@@ -177,21 +177,6 @@ arch_get_unmapped_area_topdown(struct file *filp, const unsigned long addr0,
 	return addr;
 }
 
-unsigned long randomize_et_dyn(void)
-{
-	unsigned long base;
-
-	base = STACK_TOP / 3 * 2;
-	if (!is_32bit_task())
-		/* Align to 4GB */
-		base &= ~((1UL << 32) - 1);
-
-	if (current->flags & PF_RANDOMIZE)
-		base += arch_mmap_rnd();
-
-	return base;
-}
-
 #ifndef CONFIG_64BIT
 
 /*
