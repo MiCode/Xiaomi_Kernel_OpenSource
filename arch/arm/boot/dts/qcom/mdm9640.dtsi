@@ -325,7 +325,7 @@
 		qcom,src-dst-ports = <1 512>;
 		qcom,active-only;
 		qcom,bw-tbl =
-			< 1541 /* 202 MHz */ >,
+			< 916  /* 120 MHz */ >,
 			< 3082 /* 404 MHz */ >,
 			< 3952 /* 518 MHz */ >;
 	};
@@ -334,7 +334,7 @@
 		cpubw-cpufreq {
 			target-dev = <&cpubw>;
 			cpu-to-dev-map =
-				<  600000 1541 >,
+				<  600000 916 >,
 				<  787200 3082 >,
 				< 1190400 3952 >;
 		};
