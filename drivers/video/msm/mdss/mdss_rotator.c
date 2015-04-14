@@ -1124,10 +1124,6 @@ static u32 mdss_rotator_translate_flags(u32 input)
 		output |= MDP_FLIP_UD;
 	if (input & MDP_ROTATION_90)
 		output |= MDP_ROT_90;
-	if (input & MDP_ROTATION_180)
-		output |= MDP_ROT_180;
-	if (input & MDP_ROTATION_270)
-		output |= MDP_ROT_270;
 	if (input & MDP_ROTATION_SECURE)
 		output |= MDP_SECURE_OVERLAY_SESSION;
 	if (input & MDP_ROTATION_BWC_EN)
