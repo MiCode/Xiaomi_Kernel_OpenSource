@@ -262,6 +262,7 @@ struct msm_camera_csid_params {
 	unsigned char phy_sel;
 	unsigned int csi_clk;
 	struct msm_camera_csid_lut_params lut_params;
+	unsigned char csi_3p_sel;
 };
 
 struct msm_camera_csid_testmode_parms {
@@ -279,6 +280,7 @@ struct msm_camera_csiphy_params {
 	unsigned char combo_mode;
 	unsigned char csid_core;
 	unsigned int csiphy_clk;
+	unsigned char csi_3phase;
 };
 
 struct msm_camera_i2c_seq_reg_array {
