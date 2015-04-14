@@ -956,7 +956,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	else
 		mdata->regulator_notif_register = true;
 
-	mdata->vdd_cx = devm_regulator_get(&mdata->pdev->dev,
+	mdata->vdd_cx = devm_regulator_get_optional(&mdata->pdev->dev,
 				"vdd-cx");
 	if (IS_ERR_OR_NULL(mdata->vdd_cx)) {
 		pr_debug("unable to get CX reg. rc=%d\n",
