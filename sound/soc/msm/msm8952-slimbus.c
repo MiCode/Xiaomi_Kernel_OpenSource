@@ -56,6 +56,8 @@
 #define ADSP_STATE_READY_TIMEOUT_MS 50
 #define HS_STARTWORK_TIMEOUT        4000
 
+#define Q6AFE_LPASS_OSR_CLK_9_P600_MHZ	0x927C00
+
 static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_slim_0_rx_ch = 1;
@@ -316,12 +318,6 @@ static int msm8952_enable_codec_mclk(struct snd_soc_codec *codec, int enable,
 
 	mutex_lock(&pdata->cdc_mclk_mutex);
 	if (enable) {
-		if (!codec_clk) {
-			dev_err(codec->dev, "%s: did not get codec MCLK\n",
-				__func__);
-			ret = -EINVAL;
-			goto exit;
-		}
 		clk_users++;
 		if (clk_users != 1)
 			goto exit;

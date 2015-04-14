@@ -1938,6 +1938,11 @@
 			qcom,msm-dai-q6-dev-id = <16393>;
 		};
 
+		sb_5_tx: qcom,msm-dai-q6-sb-5-tx {
+			compatible = "qcom,msm-dai-q6-dev";
+			qcom,msm-dai-q6-dev-id = <16395>;
+		};
+
 		bt_sco_rx: qcom,msm-dai-q6-bt-sco-rx {
 			compatible = "qcom,msm-dai-q6-dev";
 			qcom,msm-dai-q6-dev-id = <12288>;
