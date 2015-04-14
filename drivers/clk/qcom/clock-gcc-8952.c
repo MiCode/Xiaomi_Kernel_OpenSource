@@ -349,7 +349,7 @@ static struct pll_clk a53ss_c1_pll = {
 	},
 	.base = &virt_bases[APCS_C1_PLL_BASE],
 	.c = {
-		.parent = &xo_clk_src.c,
+		.parent = &xo_a_clk_src.c,
 		.dbg_name = "a53ss_c1_pll",
 		.ops = &clk_ops_sr2_pll,
 		.vdd_class = &vdd_hf_pll,
