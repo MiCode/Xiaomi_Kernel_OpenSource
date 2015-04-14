@@ -2008,7 +2008,6 @@ void mdp3_free(struct msm_fb_data_type *mfd)
 
 	mfd->fbi->screen_base = NULL;
 	mfd->fbi->fix.smem_start = 0;
-	mfd->fbi->fix.smem_len = 0;
 	mfd->iova = 0;
 }
 
