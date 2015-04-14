@@ -395,7 +395,8 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 }
 
 static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
-	uint32_t bufq_handle, struct msm_isp_buffer **buf_info)
+	uint32_t bufq_handle, struct msm_isp_buffer **buf_info,
+	uint32_t *buf_cnt)
 {
 	int rc = -1;
 	unsigned long flags;
@@ -416,6 +417,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	}
 
 	*buf_info = NULL;
+	*buf_cnt = 0;
 	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	if (bufq->buf_type == ISP_SHARE_BUF) {
 		list_for_each_entry(temp_buf_info,
@@ -423,6 +425,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 			if (!temp_buf_info->buf_used[id]) {
 				temp_buf_info->buf_used[id] = 1;
 				temp_buf_info->buf_get_count++;
+				*buf_cnt = temp_buf_info->buf_get_count;
 				if (temp_buf_info->buf_get_count ==
 					bufq->buf_client_count)
 					list_del(

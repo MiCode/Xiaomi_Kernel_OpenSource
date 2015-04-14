@@ -528,6 +528,7 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 	if ((pix_cfg->hvx_cmd > HVX_DISABLE) &&
 		(pix_cfg->hvx_cmd <= HVX_ROUND_TRIP))
 		vfe_dev->hvx_cmd = pix_cfg->hvx_cmd;
+	vfe_dev->is_split = input_cfg->d.pix_cfg.is_split;
 
 	vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock =
 		input_cfg->input_pix_clk;
@@ -1678,9 +1679,6 @@ static void msm_isp_process_overflow_irq(
 			return;
 		}
 
-		ISP_DBG("%s: Bus overflow detected: 0x%x, start recovery!\n",
-				__func__, overflow_mask);
-
 		halt_cmd.overflow_detected = 1;
 		halt_cmd.stop_camif = 1;
 		halt_cmd.blocking_halt = 0;
@@ -2021,6 +2019,7 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		msm_isp_end_avtimer();
 		vfe_dev->vt_enable = 0;
 	}
+	vfe_dev->is_split = 0;
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
 	return 0;
