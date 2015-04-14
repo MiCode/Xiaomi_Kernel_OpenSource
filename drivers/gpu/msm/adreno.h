@@ -33,8 +33,6 @@
 #define DEVICE_3D_NAME "kgsl-3d"
 #define DEVICE_3D0_NAME "kgsl-3d0"
 
-#define ADRENO_RBBM_STATUS_BUSY_MASK	~0x80000001
-
 #define ADRENO_PRIORITY_MAX_RB_LEVELS	4
 
 /* ADRENO_DEVICE - Given a kgsl_device return the adreno device struct */
@@ -211,6 +209,7 @@ struct adreno_busy_data {
  * @regfw_name: Filename for the register sequence firmware
  * @gpmu_tsens: ID for the temporature sensor used by the GPMU
  * @max_power: Max possible power draw of a core, units elephant tail hairs
+ * @busy_mask: mask to check if GPU is busy in RBBM_STATUS
  */
 struct adreno_gpu_core {
 	enum adreno_gpurev gpurev;
@@ -239,6 +238,7 @@ struct adreno_gpu_core {
 	const char *regfw_name;
 	unsigned int gpmu_tsens;
 	unsigned int max_power;
+	unsigned int busy_mask;
 };
 
 /**
