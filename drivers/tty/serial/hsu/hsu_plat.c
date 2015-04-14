@@ -46,7 +46,7 @@ static irqreturn_t wakeup_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-int cht_hw_set_rts(struct uart_hsu_port *up, int value)
+static int cht_hw_set_rts(struct uart_hsu_port *up, int value)
 {
 	struct hsu_port_pin_cfg *pin_cfg = &up->port_cfg->pin_cfg;
 	struct gpio_desc *gpio;
@@ -77,7 +77,7 @@ int cht_hw_set_rts(struct uart_hsu_port *up, int value)
 	return 0;
 }
 
-int cht_hsu_hw_suspend(struct uart_hsu_port *up)
+static int cht_hsu_hw_suspend(struct uart_hsu_port *up)
 {
 	struct hsu_port_pin_cfg *pin_cfg = &up->port_cfg->pin_cfg;
 	struct gpio_desc *gpio;
@@ -126,7 +126,7 @@ int cht_hsu_hw_suspend(struct uart_hsu_port *up)
 	return 0;
 }
 
-int cht_hsu_hw_resume(struct uart_hsu_port *up)
+static int cht_hsu_hw_resume(struct uart_hsu_port *up)
 {
 	struct hsu_port_pin_cfg *pin_cfg = &up->port_cfg->pin_cfg;
 
@@ -156,7 +156,7 @@ int cht_hsu_hw_resume(struct uart_hsu_port *up)
 	return 0;
 }
 
-void cht_hsu_reset(void __iomem *addr)
+static void cht_hsu_reset(void __iomem *addr)
 {
 	writel(0, addr + CHT_HSU_RESET);
 	writel(3, addr + CHT_HSU_RESET);
@@ -165,7 +165,7 @@ void cht_hsu_reset(void __iomem *addr)
 	writel(2, addr + CHT_HSU_OVF_IRQ);
 }
 
-void cht_hsu_set_clk(unsigned int m, unsigned int n,
+static void cht_hsu_set_clk(unsigned int m, unsigned int n,
 				void __iomem *addr)
 {
 	unsigned int param, update_bit;
@@ -203,7 +203,7 @@ static void hsu_serial_setup(struct uart_hsu_port *up)
 	p->set_termios = hsu_set_termios;
 }
 
-unsigned int cht_hsu_get_uartclk(struct uart_hsu_port *up)
+static unsigned int cht_hsu_get_uartclk(struct uart_hsu_port *up)
 {
 	struct clk *clk;
 	unsigned int uartclk = 0;
