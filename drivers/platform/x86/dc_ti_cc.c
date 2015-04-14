@@ -692,6 +692,17 @@ static int dc_ti_cc_calibrate(void)
 	return 0;
 }
 
+static int unsupported_read(int *val)
+{
+	*val = 0;
+	return *val;
+}
+
+static int unsupported_write(int val)
+{
+	return 0;
+}
+
 static struct intel_fg_input fg_input = {
 	.get_batt_params = &dc_ti_cc_get_batt_params,
 	.get_v_ocv = &dc_ti_cc_get_vocv,
@@ -701,6 +712,17 @@ static struct intel_fg_input fg_input = {
 	.get_i_avg = &dc_ti_cc_get_iavg,
 	.get_delta_q = &dc_ti_cc_get_deltaq,
 	.calibrate_cc = &dc_ti_cc_calibrate,
+
+	.get_up_cc = &unsupported_read,
+	.get_down_cc = &unsupported_read,
+	.get_acc_err = &unsupported_read,
+	.get_delta_thr = &unsupported_read,
+	.get_long_avg = &unsupported_read,
+	.get_long_avg_ocv = &unsupported_read,
+	.get_ocv_accuracy = &unsupported_read,
+	.reset_acc_err = &unsupported_write,
+	.set_delta_thr = &unsupported_write,
+	.clr_latched_ibat_avg = &unsupported_write,
 };
 
 static void dc_ti_update_boot_ocv(struct dc_ti_cc_info *info)
