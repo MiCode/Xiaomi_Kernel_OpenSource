@@ -939,8 +939,12 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 			iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V2_A530;
 		} else {
 			iommu->iommu_reg_list = kgsl_iommuv1_reg;
-			iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2;
 			iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_AHB_OFFSET_V2;
+			if (adreno_is_a405v2(adreno_dev))
+				iommu->ctx_offset =
+					KGSL_IOMMU_CTX_OFFSET_A405V2;
+			else
+				iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V2;
 		}
 	}  else {
 		iommu->iommu_reg_list = kgsl_iommuv1_reg;

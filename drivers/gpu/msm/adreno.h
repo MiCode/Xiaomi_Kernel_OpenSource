@@ -824,6 +824,12 @@ static inline int adreno_is_a405(struct adreno_device *adreno_dev)
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A405);
 }
 
+static inline int adreno_is_a405v2(struct adreno_device *adreno_dev)
+{
+	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A405) &&
+		(ADRENO_CHIPID_PATCH(adreno_dev->chipid) == 0x10);
+}
+
 static inline int adreno_is_a420(struct adreno_device *adreno_dev)
 {
 	return (ADRENO_GPUREV(adreno_dev) == ADRENO_REV_A420);
