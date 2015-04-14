@@ -1756,6 +1756,8 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	if (axi_data->num_active_stream == 0) {
 		/*Configure UB*/
 		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_ub(vfe_dev);
+		/* Reset hvx state */
+		vfe_dev->hvx_cmd = HVX_DISABLE;
 	}
 	camif_update = msm_isp_get_camif_update_state(vfe_dev, stream_cfg_cmd);
 

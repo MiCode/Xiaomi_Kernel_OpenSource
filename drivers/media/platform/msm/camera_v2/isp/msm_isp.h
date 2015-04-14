@@ -617,6 +617,7 @@ struct vfe_device {
 	struct msm_isp_ub_info *ub_info;
 	uint32_t vfe_ub_policy;
 	uint8_t reset_pending;
+	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
 };
 
 #endif

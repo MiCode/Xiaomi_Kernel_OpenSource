@@ -202,6 +202,12 @@ enum msm_vfe_stats_composite_group {
 	STATS_COMPOSITE_GRP_MAX,
 };
 
+enum msm_vfe_hvx_streaming_cmd {
+	HVX_DISABLE,
+	HVX_ONE_WAY,
+	HVX_ROUND_TRIP
+};
+
 struct msm_vfe_pix_cfg {
 	struct msm_vfe_camif_cfg camif_cfg;
 	struct msm_vfe_testgen_cfg testgen_cfg;
@@ -209,6 +215,7 @@ struct msm_vfe_pix_cfg {
 	enum msm_vfe_inputmux input_mux;
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
 	uint32_t input_format;
+	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
 };
 
 struct msm_vfe_rdi_cfg {
