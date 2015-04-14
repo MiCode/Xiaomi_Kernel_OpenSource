@@ -222,8 +222,8 @@ static ssize_t panel_debug_base_reg_read(struct file *file,
 			 "%s%02x", " 0x", rx_buf[i]);
 	}
 
-	pr_debug("%s:lx =%d,panel_reg_buf= %s,data[%d]=%x\n",
-		__func__, lx, panel_reg_buf, i, rx_buf[i]);
+	pr_debug("lx =%d,panel_reg_buf= %s,data[%d]=%x\n",
+		lx, panel_reg_buf, i, rx_buf[i]);
 
 	len = snprintf(to_user_buf, sizeof(to_user_buf), "0x%02zx:%s\n",
 		dbg->off, panel_reg_buf);
@@ -584,8 +584,8 @@ static void parse_dump_range_name(struct device_node *node,
 		rc = of_property_read_string_index(node,
 			name_prop, index, &st);
 		if (rc) {
-			pr_err("%s: error reading name. index=%d, rc=%d\n",
-				__func__, index, rc);
+			pr_err("error reading name. index=%d, rc=%d\n",
+				index, rc);
 			goto error;
 		}
 		snprintf(range_name, range_size, "%s", st);
@@ -635,8 +635,7 @@ void mdss_debug_register_dump_range(struct platform_device *pdev,
 	total_dump_names = of_property_count_strings(pdev->dev.of_node,
 		name_prop);
 	if (total_dump_names < 0) {
-		pr_warn("%s: dump names not found. rc=%d\n", __func__,
-			total_dump_names);
+		pr_warn("dump names not found. rc=%d\n", total_dump_names);
 		total_dump_names = 0;
 	}
 
@@ -1200,8 +1199,8 @@ int mdss_misr_set(struct mdss_data_type *mdata,
 	if (req->block_id == DISPLAY_MISR_MDP) {
 		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_DEFAULT);
 		if (!mixer) {
-			pr_err("%s: failed to get default mixer, Block=%d\n",
-				__func__, req->block_id);
+			pr_err("failed to get default mixer, Block=%d\n",
+				req->block_id);
 			return -EINVAL;
 		}
 		mixer_num = mixer->num;
