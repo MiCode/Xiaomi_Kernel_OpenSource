@@ -406,18 +406,6 @@ static struct mfd_cell whiskey_cove_dev[] = {
 		.resources = gpio_resources,
 	},
 	{
-		.name = "sw_fuel_gauge",
-		.id = 0,
-		.num_resources = 0,
-		.resources = NULL,
-	},
-	{
-		.name = "sw_fuel_gauge_ha",
-		.id = 0,
-		.num_resources = 0,
-		.resources = NULL,
-	},
-	{
 		.name = "wcove_regulator",
 		.id = WCOVE_ID_V3P3SD + 1,
 		.num_resources = 0,
