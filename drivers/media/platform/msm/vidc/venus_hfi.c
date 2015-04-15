@@ -961,17 +961,21 @@ static int venus_hfi_vote_active_buses(void *dev,
 					aggregate_load_table[j].bus->
 						sessions_supported,
 					data[i].session);
+			/*
+			* Check for ocmem specifically as there is no
+			* separate low-power ocmem table available for
+			* aggregating ocmem load during low power mode.
+			*/
+			 if (!strnstr(aggregate_load_table[j].bus->pdata->name,
+				"ocmem", strlen(aggregate_load_table[j].
+				bus->pdata->name))) {
+				 matches &= aggregate_load_table[j].
+					bus->low_power == data[i].low_power;
+			 }
 
-			/* Check the session and low_power mode matches*/
-			  matches &= aggregate_load_table[j].bus->low_power ==
-				 data[i].low_power;
 			if (matches) {
 				aggregate_load_table[j].load +=
 					data[i].load;
-				if (data[i].low_power) {
-					aggregate_load_table[3].load +=
-					data[i].load;
-				}
 			}
 		}
 	}
