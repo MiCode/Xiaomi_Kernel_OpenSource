@@ -1797,17 +1797,20 @@ static int atomisp_streamon(struct file *file, void *fh,
 	}
 
 	if (asd->params.css_update_params_needed) {
+		atomisp_apply_css_parameters(asd, &asd->params.css_param);
+		if (asd->params.css_param.update_flag.dz_config)
+			atomisp_css_set_dz_config(asd,
+				&asd->params.css_param.dz_config);
 		atomisp_css_update_isp_params(asd);
 		asd->params.css_update_params_needed = false;
+		memset(&asd->params.css_param.update_flag, 0,
+		       sizeof(struct atomisp_parameters));
 	}
 
 	ret = atomisp_css_start(asd, css_pipe_id, false);
 	if (ret)
 		goto out;
 
-
-	/* Make sure that update_isp_params is called at least once.*/
-	asd->params.css_update_params_needed = true;
 	asd->streaming = ATOMISP_DEVICE_STREAMING_ENABLED;
 	atomic_set(&asd->sof_count, -1);
 	atomic_set(&asd->sequence, -1);
