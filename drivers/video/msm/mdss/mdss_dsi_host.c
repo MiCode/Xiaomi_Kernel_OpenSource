@@ -1027,11 +1027,45 @@ int mdss_dsi_reg_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	return ret;
 }
 
+static void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
+				struct dsc_desc *dsc)
+{
+	u32 data;
+
+	if (ctrl->panel_mode == DSI_VIDEO_MODE) {
+		MIPI_OUTP((ctrl->ctrl_base) +
+			MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL2, 0);
+		data = dsc->bytes_per_pkt << 16;
+		data |= (0x0b << 8);	/*  dtype of compressed image */
+		data |= (dsc->pkt_per_line - 1) << 6;
+		data |= dsc->eol_byte_num << 4;
+		data |= 1;	/* enable */
+		MIPI_OUTP((ctrl->ctrl_base) +
+			MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL, data);
+	} else {
+		/* strem 0 */
+		MIPI_OUTP((ctrl->ctrl_base) +
+			MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL3, 0);
+
+		MIPI_OUTP((ctrl->ctrl_base) +
+			MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL2,
+						dsc->bytes_per_pkt);
+
+		data = 0x0b << 8;
+		data |= (dsc->pkt_per_line - 1) << 6;
+		data |= dsc->eol_byte_num << 4;
+		data |= 1;	/* enable */
+		MIPI_OUTP((ctrl->ctrl_base) +
+			MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL, data);
+	}
+}
+
 static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 {
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
+	struct dsc_desc *dsc = NULL;
 	u32 clk_rate;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, dst_bpp;
@@ -1043,6 +1077,8 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 				panel_data);
 
 	pinfo = &pdata->panel_info;
+	if (pinfo->compression_mode == COMPRESSION_DSC)
+		dsc = &pinfo->dsc;
 
 	clk_rate = pdata->panel_info.clk_rate;
 	clk_rate = min(clk_rate, pdata->panel_info.clk_max);
@@ -1059,6 +1095,9 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	width = mult_frac(pdata->panel_info.xres, dst_bpp,
 			pdata->panel_info.bpp);
 	height = pdata->panel_info.yres;
+
+	if (dsc)	/* compressed */
+		width = dsc->pclk_per_line;
 
 	if (pdata->panel_info.type == MIPI_VIDEO_PANEL) {
 		dummy_xres = mult_frac((pdata->panel_info.lcdc.border_left +
@@ -1122,6 +1161,9 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, stream_total);
 		MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, stream_total);
 	}
+
+	if (dsc)	/* compressed */
+		mdss_dsi_dsc_config(ctrl_pdata, dsc);
 }
 
 void mdss_dsi_ctrl_setup(struct mdss_dsi_ctrl_pdata *ctrl)
