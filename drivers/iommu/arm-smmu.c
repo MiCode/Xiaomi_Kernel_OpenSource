@@ -406,6 +406,7 @@ enum arm_smmu_domain_stage {
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct io_pgtable_ops		*pgtbl_ops;
+	struct io_pgtable_cfg		pgtbl_cfg;
 	spinlock_t			pgtbl_lock;
 	struct arm_smmu_cfg		cfg;
 	enum arm_smmu_domain_stage	stage;
@@ -1093,7 +1094,6 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	int irq, start, ret = 0;
 	unsigned long ias, oas;
 	struct io_pgtable_ops *pgtbl_ops;
-	struct io_pgtable_cfg pgtbl_cfg;
 	enum io_pgtable_fmt fmt;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
@@ -1168,7 +1168,7 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 		cfg->irptndx = cfg->cbndx;
 	}
 
-	pgtbl_cfg = (struct io_pgtable_cfg) {
+	smmu_domain->pgtbl_cfg = (struct io_pgtable_cfg) {
 		.pgsize_bitmap	= arm_smmu_ops.pgsize_bitmap,
 		.ias		= ias,
 		.oas		= oas,
@@ -1176,17 +1176,18 @@ static int arm_smmu_init_domain_context(struct iommu_domain *domain,
 	};
 
 	smmu_domain->smmu = smmu;
-	pgtbl_ops = alloc_io_pgtable_ops(fmt, &pgtbl_cfg, smmu_domain);
+	pgtbl_ops = alloc_io_pgtable_ops(fmt, &smmu_domain->pgtbl_cfg,
+					 smmu_domain);
 	if (!pgtbl_ops) {
 		ret = -ENOMEM;
 		goto out_clear_smmu;
 	}
 
 	/* Update our support page sizes to reflect the page table format */
-	arm_smmu_ops.pgsize_bitmap = pgtbl_cfg.pgsize_bitmap;
+	arm_smmu_ops.pgsize_bitmap = smmu_domain->pgtbl_cfg.pgsize_bitmap;
 
 	/* Initialise the context bank with our page table cfg */
-	arm_smmu_init_context_bank(smmu_domain, &pgtbl_cfg);
+	arm_smmu_init_context_bank(smmu_domain, &smmu_domain->pgtbl_cfg);
 
 	/*
 	 * Request context fault interrupt. Do this last to avoid the
