@@ -249,7 +249,7 @@ int wcd9xxx_cfg_slim_sch_rx(struct wcd9xxx *wcd9xxx,
 	prop.prot = SLIM_AUTO_ISO;
 	if (rate == 44100) {
 		prop.baser = SLIM_RATE_11025HZ;
-		prop.ratem = 4 * (rate/11025);
+		prop.ratem = (rate/11025);
 	} else {
 		prop.baser = SLIM_RATE_4000HZ;
 		prop.ratem = (rate/4000);
