@@ -1313,6 +1313,27 @@ static int update_output_buffer_size(struct msm_vidc_inst *inst,
 		}
 	}
 
+	/*
+	 * Set min buffer size for DPB buffers as well.
+	 * Firmware mandates setting of minimum buffer size
+	 * and actual buffer count for both OUTPUT and OUTPUT2.
+	 * Hence we are setting back the same buffer size
+	 * information back to firmware.
+	 */
+	if (msm_comm_get_stream_output_mode(inst) ==
+		HAL_VIDEO_DECODER_SECONDARY) {
+		bufreq = get_buff_req_buffer(inst, HAL_BUFFER_OUTPUT);
+		if (!bufreq) {
+			rc = -EINVAL;
+			goto exit;
+		}
+
+		rc = set_buffer_size(inst, bufreq->buffer_size,
+			HAL_BUFFER_OUTPUT);
+		if (rc)
+			goto exit;
+	}
+
 	/* Query buffer requirements from firmware */
 	rc = msm_comm_try_get_bufreqs(inst);
 	if (rc)
@@ -1579,6 +1600,26 @@ int msm_vdec_enum_fmt(struct msm_vidc_inst *inst, struct v4l2_fmtdesc *f)
 	return rc;
 }
 
+static int set_actual_buffer_count(struct msm_vidc_inst *inst,
+			int count, enum hal_buffer type)
+{
+	int rc = 0;
+	struct hfi_device *hdev;
+	struct hal_buffer_count_actual buf_count;
+
+	hdev = inst->core->device;
+
+	buf_count.buffer_type = type;
+	buf_count.buffer_count_actual = count;
+	rc = call_hfi_op(hdev, session_set_property,
+		inst->session, HAL_PARAM_BUFFER_COUNT_ACTUAL, &buf_count);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to set actual buffer count %d for buffer type %d\n",
+			count, type);
+	return rc;
+}
+
 static int msm_vdec_queue_setup(struct vb2_queue *q,
 				const struct v4l2_format *fmt,
 				unsigned int *num_buffers,
@@ -1589,9 +1630,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 	struct msm_vidc_inst *inst;
 	struct hal_buffer_requirements *bufreq;
 	int extra_idx = 0;
-	struct hfi_device *hdev;
-	struct hal_buffer_count_actual new_buf_count;
-	enum hal_property property_id;
 
 	if (!q || !num_buffers || !num_planes
 		|| !sizes || !q->drv_priv) {
@@ -1606,8 +1644,6 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		return -EINVAL;
 	}
 
-	hdev = inst->core->device;
-
 	switch (q->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
 		*num_planes = inst->fmts[OUTPUT_PORT]->num_planes;
@@ -1618,16 +1654,8 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 			sizes[i] = get_frame_size(inst,
 					inst->fmts[OUTPUT_PORT], q->type, i);
 		}
-		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
-		new_buf_count.buffer_type = HAL_BUFFER_INPUT;
-		new_buf_count.buffer_count_actual = *num_buffers;
-		rc = call_hfi_op(hdev, session_set_property,
-				inst->session, property_id, &new_buf_count);
-		if (rc) {
-			dprintk(VIDC_WARN,
-				"Failed to set new buffer count(%d) on FW, err: %d\n",
-				new_buf_count.buffer_count_actual, rc);
-		}
+		rc = set_actual_buffer_count(inst, *num_buffers,
+			HAL_BUFFER_INPUT);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
 		dprintk(VIDC_DBG, "Getting bufreqs on capture plane\n");
@@ -1655,14 +1683,12 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		}
 
 		*num_buffers = max(*num_buffers, bufreq->buffer_count_min);
-		property_id = HAL_PARAM_BUFFER_COUNT_ACTUAL;
-		new_buf_count.buffer_type =
-			msm_comm_get_hal_output_buffer(inst);
-		new_buf_count.buffer_count_actual = *num_buffers;
 		dprintk(VIDC_DBG, "Set actual output buffer count: %d\n",
 				*num_buffers);
-		rc = call_hfi_op(hdev, session_set_property,
-			inst->session, property_id, &new_buf_count);
+		rc = set_actual_buffer_count(inst, *num_buffers,
+					msm_comm_get_hal_output_buffer(inst));
+		if (rc)
+			break;
 
 		if (*num_buffers != bufreq->buffer_count_actual) {
 			rc = msm_comm_try_get_bufreqs(inst);
@@ -1677,6 +1703,30 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 				inst->buff_req.buffer[1].buffer_size,
 				inst->buff_req.buffer[1].buffer_alignment);
 		sizes[0] = bufreq->buffer_size;
+
+		/*
+		 * Set actual buffer count to firmware for DPB buffers.
+		 * Firmware mandates setting of minimum buffer size
+		 * and actual buffer count for both OUTPUT and OUTPUT2.
+		 * Hence we are setting back the same buffer size
+		 * information back to firmware.
+		 */
+		if (msm_comm_get_stream_output_mode(inst) ==
+			HAL_VIDEO_DECODER_SECONDARY) {
+			bufreq = get_buff_req_buffer(inst,
+					HAL_BUFFER_OUTPUT);
+			if (!bufreq) {
+				rc = -EINVAL;
+				break;
+			}
+
+			rc = set_actual_buffer_count(inst,
+				bufreq->buffer_count_actual,
+				HAL_BUFFER_OUTPUT);
+			if (rc)
+				break;
+		}
+
 		extra_idx =
 			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
