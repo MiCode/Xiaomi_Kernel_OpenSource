@@ -264,7 +264,7 @@ static int wsa881x_enable_swr_dac_port(struct snd_soc_dapm_widget *w,
 	u32 ch_rate[WSA881X_MAX_SWR_PORTS];
 	u8 num_port = 0;
 
-	dev_err(codec->dev, "%s: event %d name %s\n", __func__,
+	dev_dbg(codec->dev, "%s: event %d name %s\n", __func__,
 		event, w->name);
 	if (wsa881x == NULL)
 		return -EINVAL;
@@ -276,14 +276,14 @@ static int wsa881x_enable_swr_dac_port(struct snd_soc_dapm_widget *w,
 				&ch_mask[num_port], &ch_rate[num_port]);
 		++num_port;
 
-		if (wsa881x->boost_enable) {
-			wsa881x_set_port(codec, SWR_BOOST_PORT,
+		if (wsa881x->comp_enable) {
+			wsa881x_set_port(codec, SWR_COMP_PORT,
 					&port_id[num_port], &num_ch[num_port],
 					&ch_mask[num_port], &ch_rate[num_port]);
 			++num_port;
 		}
-		if (wsa881x->comp_enable) {
-			wsa881x_set_port(codec, SWR_COMP_PORT,
+		if (wsa881x->boost_enable) {
+			wsa881x_set_port(codec, SWR_BOOST_PORT,
 					&port_id[num_port], &num_ch[num_port],
 					&ch_mask[num_port], &ch_rate[num_port]);
 			++num_port;
@@ -304,14 +304,14 @@ static int wsa881x_enable_swr_dac_port(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_POST_PMD:
 		port_id[num_port] = wsa881x->port[SWR_DAC_PORT].port_id;
 		++num_port;
-		if (wsa881x->boost_enable) {
-			port_id[num_port] =
-				wsa881x->port[SWR_BOOST_PORT].port_id;
-			++num_port;
-		}
 		if (wsa881x->comp_enable) {
 			port_id[num_port] =
 				wsa881x->port[SWR_COMP_PORT].port_id;
+			++num_port;
+		}
+		if (wsa881x->boost_enable) {
+			port_id[num_port] =
+				wsa881x->port[SWR_BOOST_PORT].port_id;
 			++num_port;
 		}
 		if (wsa881x->visense_enable) {
@@ -357,6 +357,7 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 	}
 	return 0;
 }
+
 static int wsa881x_ramp_pa_gain(struct snd_soc_codec *codec,
 				int min_gain, int max_gain, int udelay)
 {
@@ -378,12 +379,11 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
-	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
 
+	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN, 0x08, 0x08);
-		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_EN, 0x01, 0x01);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN, 0xF0, 0x40);
 		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x01, 0x01);
 		snd_soc_update_bits(codec, WSA881X_ADC_EN_DET_TEST_I,
@@ -410,7 +410,7 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 		 * HW requirement.
 		 */
 		usleep_range(1000, 1010);
-		wsa881x_ramp_pa_gain(codec, G_13P5DB, G_18DB, 1000);
+		wsa881x_ramp_pa_gain(codec, G_12DB, G_13P5DB, 1000);
 		snd_soc_update_bits(codec, WSA881X_ADC_SEL_IBIAS, 0x70, 0x40);
 		if (wsa881x->visense_enable) {
 			wsa881x_visense_txfe_ctrl(codec, ENABLE,
@@ -486,8 +486,6 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, WSA881X_CDC_RST_CTL, 0x02, 0x02);
 	/* Bring out of digital reset */
 	snd_soc_update_bits(codec, WSA881X_CDC_RST_CTL, 0x01, 0x01);
-	/* Set the clock config to 9.6MHz*/
-	snd_soc_update_bits(codec, WSA881X_CLOCK_CONFIG, 0x07, 0x01);
 	/* Set DAC polarity to Rising */
 	snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x02, 0x02);
 	/* set Bias Ref ctrl to 1.225V */
@@ -503,7 +501,6 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, WSA881X_BOOST_PS_CTL, 0x80, 0x00);
 	snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1, 0xF0, 0xB0);
 	snd_soc_update_bits(codec, WSA881X_BOOST_ZX_CTL, 0x20, 0x00);
-	snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x08, 0x00);
 }
 
 static int wsa881x_probe(struct snd_soc_codec *codec)
@@ -517,8 +514,14 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 		return -EINVAL;
 
 	dev = wsa881x->swr_slave;
+	/*
+	 * Add 5msec delay to provide sufficient time for
+	 * soundwire auto enumeration of slave devices as
+	 * as per HW requirement.
+	 */
+	usleep_range(5000, 5010);
 	ret = swr_get_logical_dev_num(dev, dev->addr, &devnum);
-	if (!ret) {
+	if (ret) {
 		dev_err(codec->dev, "%s failed to get devnum, err:%d\n",
 			__func__, ret);
 		return ret;
