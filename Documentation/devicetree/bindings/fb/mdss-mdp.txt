@@ -455,6 +455,12 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				register "mdp_phys" define in reg property. The
 				number of cdm offsets should reflect the number
 				of cdm blocks present in hardware.
+- qcom,mdss-dsc-off:            Array of offset addresses for the available
+				display stream compression module block.
+				These offsets will be calculated from
+				register "mdp_phys" define in reg property. The
+				number of dsc offsets should reflect the number
+				of dsc blocks present in hardware.
 - qcom,max-pipe-width:		This value specifies the maximum MDP SSPP width
 				the device supports. If not specified, a default value
 				of 2048 will be applied.
@@ -611,6 +617,7 @@ Example:
 					  0x00002600>;
 		qcom,mdss-pipe-dma-off = <0x00002A00 0x00002E00>;
 		qcom,mdss-pipe-cursor-off = <0x00035000 0x00037000>;
+		qcom,mdss-dsc-off = <0x00081000 0x00081400>;
 		qcom,mdss-pipe-vig-fetch-id = <1 4 7>;
 		qcom,mdss-pipe-rgb-fetch-id = <16 17 18>;
 		qcom,mdss-pipe-dma-fetch-id = <10 13>;

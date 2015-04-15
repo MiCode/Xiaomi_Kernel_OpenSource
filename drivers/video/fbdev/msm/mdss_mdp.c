@@ -152,6 +152,7 @@ static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_cdm(struct platform_device *pdev);
+static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev);
 
 /**
  * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
@@ -1789,6 +1790,10 @@ static int mdss_mdp_parse_dt(struct platform_device *pdev)
 	if (rc)
 		pr_debug("CDM offset not found in device tree\n");
 
+	rc = mdss_mdp_parse_dt_dsc(pdev);
+	if (rc)
+		pr_debug("DSC offset not found in device tree\n");
+
 	/* Parse the mdp specific register base offset*/
 	rc = of_property_read_u32(pdev->dev.of_node,
 		"qcom,mdss-mdp-reg-offset", &data);
@@ -2397,6 +2402,72 @@ fail:
 	kfree(cdm_offsets);
 	if (rc)
 		mdata->ncdm = 0;
+end:
+	return rc;
+}
+
+static int mdss_mdp_dsc_addr_setup(struct mdss_data_type *mdata,
+				   u32 *dsc_offsets, u32 len)
+{
+	struct mdss_mdp_dsc *head;
+	u32 i = 0;
+
+	head = devm_kzalloc(&mdata->pdev->dev, sizeof(struct mdss_mdp_dsc) *
+				len, GFP_KERNEL);
+	if (!head) {
+		pr_err("no memory for DSC info\n");
+		return -ENOMEM;
+	}
+
+	for (i = 0; i < len; i++) {
+		head[i].num = i;
+		head[i].base = (mdata->mdss_io.base) + dsc_offsets[i];
+		pr_debug("dsc off (%d) = %p\n", i, head[i].base);
+	}
+
+	mdata->dsc_off = head;
+	return 0;
+}
+
+static int mdss_mdp_parse_dt_dsc(struct platform_device *pdev)
+{
+	int rc = 0;
+	u32 *dsc_offsets = NULL;
+	struct mdss_data_type *mdata = platform_get_drvdata(pdev);
+
+	mdata->ndsc = mdss_mdp_parse_dt_prop_len(pdev, "qcom,mdss-dsc-off");
+	if (!mdata->ndsc) {
+		rc = 0;
+		pr_debug("No DSC offsets present in DT\n");
+		goto end;
+	}
+	pr_debug("dsc len == %d\n", mdata->ndsc);
+
+	dsc_offsets = kzalloc(sizeof(u32) * mdata->ndsc, GFP_KERNEL);
+	if (!dsc_offsets) {
+		pr_err("no more memory for dsc offsets\n");
+		rc = -ENOMEM;
+		mdata->ndsc = 0;
+		goto end;
+	}
+
+	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-dsc-off", dsc_offsets,
+				       mdata->ndsc);
+	if (rc) {
+		pr_err("device tree err: failed to get cdm offsets\n");
+		goto fail;
+	}
+
+	rc = mdss_mdp_dsc_addr_setup(mdata, dsc_offsets, mdata->ndsc);
+	if (rc) {
+		pr_err("%s: DSC address setup failed\n", __func__);
+		goto fail;
+	}
+
+fail:
+	kfree(dsc_offsets);
+	if (rc)
+		mdata->ndsc = 0;
 end:
 	return rc;
 }

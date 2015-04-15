@@ -108,6 +108,11 @@ struct mdss_mdp_ppb {
 	u32 cfg_off;
 };
 
+struct mdss_mdp_dsc {
+	u32 num;
+	char __iomem *base;
+};
+
 enum mdss_hw_index {
 	MDSS_HW_MDP,
 	MDSS_HW_DSI0 = 1,
@@ -385,6 +390,9 @@ struct mdss_data_type {
 	struct mdss_mdp_cdm *cdm_off;
 	u32 ncdm;
 	struct mutex cdm_lock;
+
+	struct mdss_mdp_dsc *dsc_off;
+	u32 ndsc;
 
 	struct mutex mdp_bus_lock;
 	u32 bus_ref_cnt;
