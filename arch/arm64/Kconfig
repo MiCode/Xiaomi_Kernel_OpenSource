@@ -204,6 +204,7 @@ config ARCH_MSM
 	select PINCTRL
 	select SOC_BUS
 	select PM_OPP
+	select PCI
 	select PM_DEVFREQ
 	select MSM_DEVFREQ_DEVBW
 	select MSM_BIMC_BWMON
