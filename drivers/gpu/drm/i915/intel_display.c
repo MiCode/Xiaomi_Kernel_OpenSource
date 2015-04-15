@@ -2251,8 +2251,7 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 	struct drm_device *dev = dev_priv->dev;
 	struct intel_crtc *intel_crtc =
 		to_intel_crtc(dev_priv->pipe_to_crtc_mapping[pipe]);
-	int reg;
-	u32 val;
+	struct drm_crtc *crtc = &intel_crtc->base;
 
 	/* If the pipe isn't enabled, we can't pump pixels and may hang */
 	assert_pipe_enabled(dev_priv, pipe);
@@ -2262,13 +2261,8 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 
 	intel_crtc->primary_enabled = true;
 	dev_priv->pipe_plane_stat |= VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
-
-	reg = DSPCNTR(plane);
-	val = I915_READ(reg);
-	WARN_ON(val & DISPLAY_PLANE_ENABLE);
-
-	I915_WRITE(reg, val | DISPLAY_PLANE_ENABLE);
-	intel_flush_primary_plane(dev_priv, plane);
+	dev_priv->display.update_primary_plane(crtc, crtc->primary->fb,
+					       crtc->x, crtc->y);
 
 	/*
 	 * BDW signals flip done immediately if the plane
@@ -2665,7 +2659,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	bool rotate = false;
 	bool alpha_changed = false;
 	u32 dspcntr;
-	u32 reg;
+	u32 reg = DSPCNTR(plane);
 	u32 mask;
 	int pixel_size;
 	int plane_ddl, plane_prec_multi;
@@ -2676,7 +2670,6 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 
 	pixel_size = drm_format_plane_cpp(fb->pixel_format, 0);
 
-	reg = DSPCNTR(plane);
 	/*
 	 * In case of atomic update, primary enable/disable is already cached as
 	 * part of sprite flip, make use of that over here
@@ -2686,12 +2679,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 		intel_crtc->pri_update = false;
 	} else {
 		dspcntr = I915_READ(reg);
-		/*
-		 * Flag set during psr_exit in intel_dp.c, to
-		 * enable the primary plane after PSR exit.
-		 */
-		if (atomic_read(&dev_priv->psr.update_pending))
-			dspcntr |= DISPLAY_PLANE_ENABLE;
+		dspcntr |= DISPLAY_PLANE_ENABLE;
 	}
 
 	/*
@@ -5369,9 +5357,6 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 		   (intel_crtc->config.pipe_src_w - 1));
 
 	i9xx_set_pipeconf(intel_crtc);
-
-	dev_priv->display.update_primary_plane(crtc, crtc->primary->fb,
-					       crtc->x, crtc->y);
 
 	intel_crtc->active = true;
 
