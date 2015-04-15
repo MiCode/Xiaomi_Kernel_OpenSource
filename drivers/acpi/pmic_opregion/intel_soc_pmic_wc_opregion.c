@@ -250,8 +250,31 @@ static struct pmic_dptf_table dptf_table[] = {
 	{
 		.address = 0x40,
 		.reg = 0x4F34
-	}	/* AX50 -> PMIC_THRMALRT0_L */
-	/* TODO - Add policy enable opregion - reg mapping */
+	},	/* AX50 -> PMIC_THRMALRT0_L */
+	{
+		.address = 0x48,
+		.reg = 0x4F6A00
+	},	/* PEN0 -> THRMALER3PAEN Bit 00 for SYS0 */
+	{
+		.address = 0x4C,
+		.reg = 0x4F6A01
+	},	/* PEN1 -> THRMALER3PAEN Bit 01 for SYS1 */
+	{
+		.address = 0x50,
+		.reg = 0x4F6A02
+	},	/* PEN2 -> THRMALER3PAEN Bit 02 for SYS2 */
+	{
+		.address = 0x54,
+		.reg = 0x4F6A04
+	},	/* PEN3 -> THRMALER3PAEN Bit 03 for Bat 0 */
+	{
+		.address = 0x58,
+		.reg = 0x4F6A05
+	},	/* PEN4 -> THRMALER3PAEN Bit 04 for Bat 1*/
+	{
+		.address = 0x5C,
+		.reg = 0x4F6A03
+	}	/* PEN5 -> THRMALER3PAEN Bit 03 for PMIC */
 };
 
 static int intel_wc_pmic_get_power(struct pmic_pwr_reg *preg, u64 *value)
@@ -340,11 +363,26 @@ static int intel_wc_pmic_get_raw_temp(int reg)
 }
 
 static int
-intel_wc_pmic_update_aux(int reg, int raw)
+intel_wc_pmic_update_aux(int reg, int resi_val)
 {
 	int ret;
+	u16 raw;
+	u32 bsr_num;
+	u16 count = 0;
+	u16 thrsh = 0;
+	u8 cursel = 0;
 
-	ret = intel_soc_pmic_update(reg - 1, raw >> 8, 0x3);
+	bsr_num = resi_val;
+	bsr_num /= (1 << 5);
+
+	count = fls(bsr_num) - 1;
+
+	cursel = clamp_t(s8, (count-7), 0, 7);
+	thrsh = resi_val / (1 << (4+cursel));
+
+	raw = ((cursel << 9) | thrsh);
+
+	ret = intel_soc_pmic_update((reg - 1), (raw >> 8), 0x0F);
 	if (ret < 0) {
 		dev_err(intel_soc_pmic_dev(), "update reg 0x%x failed, 0x%x\n",
 			reg, ret);
@@ -363,11 +401,47 @@ intel_wc_pmic_update_aux(int reg, int raw)
 static int
 intel_wc_pmic_get_policy(int reg, u64 *value)
 {
+	int pmic_reg = ((reg >> 8) & 0xFFFF);
+	int ret;
+	u8 bit;
+	u8 mask;
+
+	bit = (u8)(reg & 0xFF);
+	mask = (1 << bit);
+
+	dev_dbg(intel_soc_pmic_dev(), "reading reg:%x bit:%x\n", pmic_reg, bit);
+
+	ret = intel_soc_pmic_readb(pmic_reg);
+	if (ret < 0) {
+		dev_err(intel_soc_pmic_dev(), "Error reading reg %x\n",
+			pmic_reg);
+		return -EIO;
+	}
+
+	*value = ((ret & mask) >> bit);
 	return 0;
 }
 
 static int intel_wc_pmic_update_policy(int reg, int enable)
 {
+	int pmic_reg = ((reg >> 8) & 0xFFFF);
+	int ret;
+	u8 bit;
+	u8 mask;
+
+	bit = (u8)(reg & 0xFF);
+	mask = (1 << bit);
+
+	dev_dbg(intel_soc_pmic_dev(), "updating reg:%x bit:%x value:%x\n",
+		pmic_reg, bit, enable);
+	ret = intel_soc_pmic_update(pmic_reg, enable, mask);
+	if (ret < 0) {
+		dev_err(intel_soc_pmic_dev(),
+			"Error updating reg:%x bit:%d enable:%x\n",
+			pmic_reg, bit, enable);
+		return -EIO;
+	}
+
 	return 0;
 }
 
