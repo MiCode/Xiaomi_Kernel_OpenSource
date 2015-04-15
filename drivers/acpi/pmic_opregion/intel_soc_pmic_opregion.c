@@ -237,7 +237,7 @@ static acpi_status pmic_dptf_pen(struct intel_soc_pmic_opregion *opregion,
 	if (function == ACPI_READ)
 		return d->get_policy(reg, value) ? AE_ERROR : AE_OK;
 
-	if (*value != 0 || *value != 1)
+	if ((*value != 0) && (*value != 1))
 		return AE_BAD_PARAMETER;
 
 	return d->update_policy(reg, *value) ? AE_ERROR : AE_OK;
