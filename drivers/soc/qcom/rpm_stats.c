@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,8 @@
 #include <asm/arch_timer.h>
 #include "rpm_stats.h"
 
+#define GET_PDATA_OF_ATTR(attr) \
+	(container_of(attr, struct msm_rpmstats_kobj_attr, ka)->pd)
 
 enum {
 	ID_COUNTER,
@@ -66,6 +68,11 @@ struct msm_rpm_stats_data_v2 {
 	u64 accumulated;
 	u32 client_votes;
 	u32 reserved[3];
+};
+
+struct msm_rpmstats_kobj_attr {
+	struct kobj_attribute ka;
+	struct msm_rpmstats_platform_data *pd;
 };
 
 static struct dentry *heap_dent;
@@ -350,6 +357,93 @@ static const struct file_operations msm_rpmheap_fops = {
 	.llseek   = no_llseek,
 };
 
+static ssize_t rpmstats_show(struct kobject *kobj,
+			struct kobj_attribute *attr, char *buf)
+{
+	struct msm_rpmstats_private_data *prvdata = NULL;
+	struct msm_rpmstats_platform_data *pdata = NULL;
+
+	pdata = GET_PDATA_OF_ATTR(attr);
+
+	prvdata =
+		kmalloc(sizeof(*prvdata), GFP_KERNEL);
+	if (!prvdata)
+		return -ENOMEM;
+
+	prvdata->reg_base = ioremap_nocache(pdata->phys_addr_base,
+					pdata->phys_size);
+	if (!prvdata->reg_base) {
+		kfree(prvdata);
+		pr_err("%s: ERROR could not ioremap start=%pa, len=%u\n",
+			__func__, &pdata->phys_addr_base,
+			pdata->phys_size);
+		return -EBUSY;
+	}
+
+	prvdata->read_idx = prvdata->num_records =  prvdata->len = 0;
+	prvdata->platform_data = pdata;
+	if (pdata->version == 2)
+		prvdata->num_records = 2;
+
+	if (prvdata->platform_data->version == 1) {
+		if (!prvdata->num_records)
+			prvdata->num_records =
+				readl_relaxed(prvdata->reg_base);
+	}
+
+	if (prvdata->read_idx < prvdata->num_records) {
+		if (prvdata->platform_data->version == 1)
+			prvdata->len = msm_rpmstats_copy_stats(prvdata);
+		else if (prvdata->platform_data->version == 2)
+			prvdata->len = msm_rpmstats_copy_stats_v2(
+					prvdata);
+	}
+
+	return snprintf(buf, prvdata->len, prvdata->buf);
+}
+
+static int msm_rpmstats_create_sysfs(struct msm_rpmstats_platform_data *pd)
+{
+	struct kobject *module_kobj = NULL;
+	struct kobject *rpmstats_kobj = NULL;
+	struct msm_rpmstats_kobj_attr *rpms_ka = NULL;
+	int ret = 0;
+
+	module_kobj = kset_find_obj(module_kset, KBUILD_MODNAME);
+	if (!module_kobj) {
+		pr_err("%s: Cannot find module_kset\n", __func__);
+		return -ENODEV;
+	}
+
+	rpmstats_kobj = kobject_create_and_add("rpmstats", module_kobj);
+	if (!rpmstats_kobj) {
+		pr_err("%s: Cannot create rpmstats kobject\n", __func__);
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	rpms_ka = kzalloc(sizeof(*rpms_ka), GFP_KERNEL);
+	if (!rpms_ka) {
+		pr_err("%s: Cannot allocate mem for rpmstats kobj attr\n",
+			__func__);
+		kobject_put(rpmstats_kobj);
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	sysfs_attr_init(&rpms_ka->ka.attr);
+	rpms_ka->pd = pd;
+	rpms_ka->ka.attr.mode = 0444;
+	rpms_ka->ka.attr.name = "stats";
+	rpms_ka->ka.show = rpmstats_show;
+	rpms_ka->ka.store = NULL;
+
+	ret = sysfs_create_file(rpmstats_kobj, &rpms_ka->ka.attr);
+
+fail:
+	return ret;
+}
+
 static int msm_rpmstats_probe(struct platform_device *pdev)
 {
 	struct dentry *dent = NULL;
@@ -430,6 +524,8 @@ static int msm_rpmstats_probe(struct platform_device *pdev)
 		}
 		pdata->heap_phys_addrbase = res->start;
 	}
+
+	msm_rpmstats_create_sysfs(pdata);
 
 	platform_set_drvdata(pdev, dent);
 	return 0;
