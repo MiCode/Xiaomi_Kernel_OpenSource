@@ -858,7 +858,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	bool fatal_asf;
 	phys_addr_t phys_soft;
 
-	mutex_lock(&smmu_domain->lock);
+	mutex_lock(&smmu_domain->init_mutex);
 	smmu = smmu_domain->smmu;
 	if (!smmu) {
 		pr_err("took a fault on a detached domain (%p)\n", domain);
@@ -874,7 +874,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 
 	if (!(fsr & FSR_FAULT)) {
 		arm_smmu_disable_clocks(smmu);
-		mutex_unlock(&smmu_domain->lock);
+		mutex_unlock(&smmu_domain->init_mutex);
 		return IRQ_NONE;
 	}
 
@@ -934,7 +934,7 @@ static irqreturn_t arm_smmu_context_fault(int irq, void *dev)
 	}
 
 	arm_smmu_disable_clocks(smmu);
-	mutex_unlock(&smmu_domain->lock);
+	mutex_unlock(&smmu_domain->init_mutex);
 
 	return ret;
 }
@@ -1418,11 +1418,11 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_master_cfg *cfg;
 
-	mutex_lock(&smmu_domain->lock);
+	mutex_lock(&smmu_domain->init_mutex);
 	smmu = find_smmu_for_device(dev);
 	if (!smmu) {
 		dev_err(dev, "cannot attach to SMMU, is it on the same bus?\n");
-		mutex_unlock(&smmu_domain->lock);
+		mutex_unlock(&smmu_domain->init_mutex);
 		return -ENXIO;
 	}
 
@@ -1480,12 +1480,12 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	if (!ret)
 		dev->archdata.iommu = domain;
 	arm_smmu_disable_clocks(smmu);
-	mutex_unlock(&smmu_domain->lock);
+	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 
 err_disable_clocks:
 	arm_smmu_disable_clocks(smmu);
-	mutex_unlock(&smmu_domain->lock);
+	mutex_unlock(&smmu_domain->init_mutex);
 	mutex_lock(&smmu->attach_lock);
 	if (!--smmu->attach_count &&
 		(!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE)))
@@ -1511,17 +1511,17 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_master_cfg *cfg;
 	struct arm_smmu_device *smmu;
 
-	mutex_lock(&smmu_domain->lock);
+	mutex_lock(&smmu_domain->init_mutex);
 	smmu = smmu_domain->smmu;
 	if (!smmu) {
 		dev_err(dev, "Domain already detached!\n");
-		mutex_unlock(&smmu_domain->lock);
+		mutex_unlock(&smmu_domain->init_mutex);
 		return;
 	}
 
 	cfg = find_smmu_master_cfg(dev);
 	if (!cfg) {
-		mutex_unlock(&smmu_domain->lock);
+		mutex_unlock(&smmu_domain->init_mutex);
 		return;
 	}
 
@@ -1532,7 +1532,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 	if (!--smmu->attach_count)
 		arm_smmu_power_off(smmu);
 	mutex_unlock(&smmu->attach_lock);
-	mutex_unlock(&smmu_domain->lock);
+	mutex_unlock(&smmu_domain->init_mutex);
 }
 
 static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
@@ -1718,18 +1718,15 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		struct arm_smmu_device *smmu;
 		int htw_disable = *((int *)data);
 
-		mutex_lock(&smmu_domain->lock);
 		smmu = smmu_domain->smmu;
 
 		if (smmu && !(smmu->features & ARM_SMMU_FEAT_COHERENT_WALK)
 			&& !htw_disable) {
-			mutex_unlock(&smmu_domain->lock);
 			dev_err(smmu->dev,
 				"Can't enable coherent htw on this domain: this SMMU doesn't support it\n");
 			ret = -EINVAL;
 			goto out_unlock;
 		}
-		mutex_unlock(&smmu_domain->lock);
 
 		if (htw_disable)
 			smmu_domain->attributes |=
