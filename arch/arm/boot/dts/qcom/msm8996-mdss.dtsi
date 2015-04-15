@@ -38,6 +38,7 @@
 		qcom,mdss-clk-factor = <105 100>;	/* 1.05 times */
 
 		qcom,max-mixer-width = <2560>;
+		qcom,max-pipe-width = <2560>;
 
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <1 2 2 2>;
