@@ -381,8 +381,8 @@ int swr_get_logical_dev_num(struct swr_device *dev, u64 dev_id,
 	}
 	mutex_lock(&master->mlock);
 	ret = master->get_logical_dev_num(master, dev_id, dev_num);
-	if (!ret) {
-		pr_err("%s: Error %d to get logical addr for device %llu\n",
+	if (ret) {
+		pr_err("%s: Error %d to get logical addr for device %llx\n",
 			__func__, ret, dev_id);
 	}
 	mutex_unlock(&master->mlock);
