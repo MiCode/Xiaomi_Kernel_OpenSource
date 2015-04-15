@@ -399,10 +399,10 @@ int q6asm_set_volume(struct audio_client *ac, int volume);
 /* Send Volume Command */
 int q6asm_set_volume_v2(struct audio_client *ac, int volume, int instance);
 
-int q6asm_dts_eagle_set(struct audio_client *ac, int param_id, int size,
+int q6asm_dts_eagle_set(struct audio_client *ac, int param_id, uint32_t size,
 			void *data);
 int q6asm_dts_eagle_get(struct audio_client *ac, int param_id,
-			int size, void *data);
+			uint32_t size, void *data);
 /* Set SoftPause Params */
 int q6asm_set_softpause(struct audio_client *ac,
 			struct asm_softpause_params *param);
