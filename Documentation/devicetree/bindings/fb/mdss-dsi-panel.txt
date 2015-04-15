@@ -398,6 +398,25 @@ Optional properties:
 - qcom,panel-ack-disabled: A boolean property to indicate, whether we need to wait for any ACK from the panel
 			   for any commands that we send.
 - qcom,mdss-dsi-force-clock-lane-hs:	Boolean to force dsi clock lanes to HS mode always.
+- qcom,mdss-dsi-compression:		Select compression mode for panel.
+					"fbc" - frame buffer compression
+					"dsc" - display stream compression.
+- qcom,mdss-dsc-slice-height:		An integer value indicates the dsc slice height.
+- qcom,mdss-dsc-slice-width:		An integer value indicates the dsc slice width.
+- qcom,mdss-dsc-slice-per-pkt:		An integer value indicates the slice per dsi packet.
+- qcom,mdss-dsc-bit-per-component: 	An integer value indicates the bits per component before compression.
+- qcom,mdss-dsc-bit-per-pixel:		An integer value indicates the bits per pixel after compression.
+- qcom,mdss-dsc-block-prediction-enable: A boolean value to enable/disable the block prediction at decoder.
+- qcom,mdss-dsc-ich-reset-value: 	An integer value defines the Indexed Color History reset value.
+- qcom,mdss-dsc-ich-reset-override:	An integer value defines the Indexed Color History for each line in
+					slice.
+- qcom,mdss-dsc-data-path-mode:		Select the dsc data path mode.
+					"1p1d" - Single panel and single DSI
+					"merge-1p2d" - Merge two DSI output to single panel
+					"split-1p2d" - This is fb split mode which have two encoder work
+					in tandem to compress large image.
+- qcom,mdss-dsc-config-by-manufacture-cmd: A boolean to indicates panel use manufacture command to setup pps
+					instead of standard dcs type 0x0A.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -539,5 +558,16 @@ Example:
 						<128 240 64>;
 		qcom,mdss-dsi-panel-orientation = "180"
 		qcom,mdss-dsi-force-clock-lane-hs;
+		qcom,mdss-dsi-compression = "dsc";
+		qcom,mdss-dsc-slice-height = <16>;
+		qcom,mdss-dsc-slice-width = <720>;
+		qcom,mdss-dsc-slice-per-pkt = <2>;
+		qcom,mdss-dsc-bit-per-component = <8>;
+		qcom,mdss-dsc-bit-per-pixel = <8>;
+		qcom,mdss-dsc-block-prediction-enable;
+		qcom,mdss-dsc-ich-reset-value = <0>;
+		qcom,mdss-dsc-ich-reset-override = <0>;
+		qcom,mdss-dsc-data-path-mode = "1p1d";
+		qcom,mdss-dsc-config-by-manufacture-cmd;
 	};
 };

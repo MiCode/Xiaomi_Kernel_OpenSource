@@ -288,6 +288,12 @@ enum {
 #define DSI_EV_STOP_HS_CLK_LANE		0x40000000
 #define DSI_EV_MDP_BUSY_RELEASE		0x80000000
 
+#define MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL	0x02a0
+#define MDSS_DSI_VIDEO_COMPRESSION_MODE_CTRL2	0x02a4
+#define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL	0x02a8
+#define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL2	0x02ac
+#define MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL3	0x02b0
+
 struct mdss_dsi_ctrl_pdata {
 	int ndx;	/* panel_num */
 	int (*on) (struct mdss_panel_data *pdata);
@@ -343,6 +349,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool dmap_iommu_map;
 	bool panel_bias_vreg;
 	bool dsi_irq_line;
+	bool dcs_cmd_insert;
 	atomic_t te_irq_ready;
 
 	bool cmd_clk_ln_recovery_en;
