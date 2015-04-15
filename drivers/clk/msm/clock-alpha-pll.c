@@ -332,6 +332,9 @@ static long alpha_pll_round_rate(struct clk *c, unsigned long rate)
 	u64 a_val;
 	int i;
 
+	if (pll->no_prepared_reconfig && c->prepare_count)
+		return -EINVAL;
+
 	freq_hz = round_rate_up(pll, rate, &l_val, &a_val);
 	ret = find_vco(pll, freq_hz);
 	if (!IS_ERR_VALUE(ret))
