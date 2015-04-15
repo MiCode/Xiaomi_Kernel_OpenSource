@@ -1188,6 +1188,13 @@ int xhci_bus_suspend(struct usb_hcd *hcd)
 		}
 	}
 
+	if (bus_state->port_remote_wakeup) {
+		spin_unlock_irqrestore(&xhci->lock, flags);
+		xhci_dbg(xhci,
+			"suspend failed as a SS port is resuming in phase 1\n");
+		return -EBUSY;
+	}
+
 	port_index = max_ports;
 	bus_state->bus_suspended = 0;
 	while (port_index--) {
