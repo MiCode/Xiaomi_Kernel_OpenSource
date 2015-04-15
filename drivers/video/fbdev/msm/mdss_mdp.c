@@ -2183,7 +2183,7 @@ static int mdss_mdp_parse_dt_pipe(struct platform_device *pdev)
 
 	if (mdata->ncursor_pipes) {
 		mdata->cursor_pipes = devm_kzalloc(&mdata->pdev->dev,
-			sizeof(struct mdss_mdp_pipe) * mdata->nvig_pipes,
+			sizeof(struct mdss_mdp_pipe) * mdata->ncursor_pipes,
 			GFP_KERNEL);
 
 		if (!mdata->cursor_pipes) {
