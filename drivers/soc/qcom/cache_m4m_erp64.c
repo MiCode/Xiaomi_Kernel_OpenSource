@@ -498,9 +498,9 @@ static int msm_cache_erp_probe(struct platform_device *pdev)
 	cpu_pm_register_notifier(&cache_erp_cpu_pm_notifier);
 
 	/* Perform L1/L2 cache error detection init on online cpus */
-	smp_call_function(msm_cache_erp_irq_init, NULL, 1);
+	on_each_cpu(msm_cache_erp_irq_init, NULL, 1);
 	/* Enable irqs */
-	smp_call_function(enable_erp_irq_callback, NULL, 1);
+	on_each_cpu(enable_erp_irq_callback, NULL, 1);
 	put_online_cpus();
 
 	/* L2 erp irq per cluster */
