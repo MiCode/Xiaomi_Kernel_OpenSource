@@ -348,7 +348,7 @@ static void pll_8996_dec_frac_calc(struct dsi_pll_db *pdb,
 				vco_clk_rate, fref);
 
 	dec_start_multiple = div_s64(vco_clk_rate * multiplier, fref);
-	div_s64_rem(vco_clk_rate * multiplier, fref, &div_frac_start);
+	div_s64_rem(dec_start_multiple, multiplier, &div_frac_start);
 
 	dec_start = div_s64(dec_start_multiple, multiplier);
 
@@ -535,7 +535,7 @@ static void pll_db_commit_8996(void __iomem *pll_base,
 	data &= 0x0ff;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_DIV_FRAC_START2, data);
 	data = (pout->div_frac_start >> 16);
-	data &= 0x0ff;
+	data &= 0x0f;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_DIV_FRAC_START3, data);
 
 	data = pout->plllock_cmp;
@@ -652,7 +652,7 @@ unsigned long pll_vco_get_rate_8996(struct clk *c)
 	pr_debug("dec_start = 0x%x\n", dec_start);
 
 	div_frac_start = (MDSS_PLL_REG_R(pll->pll_base,
-			DSIPHY_PLL_DIV_FRAC_START3) & 0x0ff) << 16;
+			DSIPHY_PLL_DIV_FRAC_START3) & 0x0f) << 16;
 	div_frac_start |= (MDSS_PLL_REG_R(pll->pll_base,
 			DSIPHY_PLL_DIV_FRAC_START2) & 0x0ff) << 8;
 	div_frac_start |= MDSS_PLL_REG_R(pll->pll_base,
