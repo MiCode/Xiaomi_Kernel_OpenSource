@@ -500,7 +500,7 @@ static struct rcg_clk camss_top_ahb_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_gcc_apss_ahb_clk[] = {
-	F( 19200000,	xo,	1,	0,	0),
+	F( 19200000,	xo_a,	1,	0,	0),
 	F( 50000000,	gpll0,	16,	0,	0),
 	F( 100000000,	gpll0,	8,	0,	0),
 	F( 133330000,	gpll0,	6,	0,	0),
