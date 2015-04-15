@@ -2148,6 +2148,177 @@ static inline int mdss_mdp_set_split_ctl(struct mdss_mdp_ctl *ctl,
 	return 0;
 }
 
+static int mdss_mdp_ctl_dsc_enable(int enable,
+			struct mdss_mdp_mixer *mixer,
+			struct mdss_panel_info *pinfo)
+{
+	struct mdss_mdp_ctl *ctl;
+	struct dsc_desc *dsc;
+	u32 data;
+	u32 *lp;
+	char *cp;
+	int i, bpp, lsb;
+	char __iomem *offset, *off;
+
+	if (pinfo->compression_mode != COMPRESSION_DSC)
+		return -EINVAL;
+
+	if (mixer->num != MDSS_MDP_INTF_LAYERMIXER0 &&
+			mixer->num != MDSS_MDP_INTF_LAYERMIXER1) {
+		pr_err("Mixer=%d doesn't support DSC.\n", mixer->num);
+		return -EINVAL;
+	}
+
+	if (enable == 0) {
+		mdss_mdp_pingpong_write(mixer->pingpong_base,
+				MDSS_MDP_REG_PP_DSC_MODE, 0);
+		return 0;
+	}
+
+	ctl = mixer->ctl;
+
+	/* dce0_sel->pp0, dce1_sel->pp1 */
+	writel_relaxed(0x0, ctl->mdata->mdp_base +
+				MDSS_MDP_REG_DCE_SEL);
+
+	/* dsc enable */
+	mdss_mdp_pingpong_write(mixer->pingpong_base,
+			MDSS_MDP_REG_PP_DSC_MODE, 1);
+
+	data = mdss_mdp_pingpong_read(mixer->pingpong_base,
+			MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP);
+	data |= BIT(18);	/* endian flip */
+	mdss_mdp_pingpong_write(mixer->pingpong_base,
+		MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP, data);
+
+	offset = ctl->mdata->mdp_base;
+	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0)
+		offset += MDSS_MDP_DSC_0_OFFSET;
+	else
+		offset += MDSS_MDP_DSC_1_OFFSET;
+
+	dsc = &pinfo->dsc;
+	if (pinfo->type == MIPI_VIDEO_PANEL)
+		data = BIT(2);	/* vieo mode */
+
+	if (dsc->data_path_model == DSC_PATH_MERGE_1P1D)
+		data |= (BIT(0) | BIT(1));
+	else if (dsc->data_path_model == DSC_PATH_SPLIT_1P2D)
+		data |= BIT(0);
+
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_COMMON_MODE);
+
+	data = dsc->ich_reset_value | dsc->ich_reset_override;
+	data <<= 28;
+	data |= (dsc->initial_lines << 20);
+	data |= ((dsc->slice_last_group_size - 1) << 18);
+	/* bpp is 6.4 format, 4 LSBs bits are for fractional part */
+	lsb = dsc->bpp % 4;
+	bpp = dsc->bpp / 4;
+	bpp *= 4;	/* either 8 or 12 */
+	bpp <<= 4;
+	bpp |= lsb;
+	data |= (bpp << 8);
+	data |= (dsc->block_pred_enable << 7);
+	data |= (dsc->line_buf_depth << 3);
+	data |= (dsc->enable_422 << 2);
+	data |= (dsc->convert_rgb << 1);
+	data |= dsc->input_10_bits;
+
+	pr_debug("%d %d %d %d %d %d %d %d %d %d, data=%x\n",
+		dsc->ich_reset_value, dsc->ich_reset_override,
+		dsc->initial_lines , dsc->slice_last_group_size,
+		dsc->bpp, dsc->block_pred_enable, dsc->line_buf_depth,
+		dsc->enable_422, dsc->convert_rgb, dsc->input_10_bits, data);
+
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_ENC);
+
+	data = dsc->pic_width << 16;
+	data |= dsc->pic_height;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_PICTURE);
+
+	data = dsc->slice_width << 16;
+	data |= dsc->slice_height;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_SLICE);
+
+	data = dsc->chunk_size << 16;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_CHUNK_SIZE);
+
+	pr_debug("pic_w=%d pic_h=%d, slice_h=%d slice_w=%d, chunk=%d\n",
+			dsc->pic_width, dsc->pic_height,
+			dsc->slice_width, dsc->slice_height, dsc->chunk_size);
+
+	data = dsc->initial_dec_delay << 16;
+	data |= dsc->initial_xmit_delay;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_DELAY);
+
+	data = dsc->initial_scale_value;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_SCALE_INITIAL);
+
+	data = dsc->scale_decrement_interval;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_SCALE_DEC_INTERVAL);
+
+	data = dsc->scale_increment_interval;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_SCALE_INC_INTERVAL);
+
+	data = dsc->first_line_bpg_offset;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_FIRST_LINE_BPG_OFFSET);
+
+	data = dsc->nfl_bpg_offset << 16;
+	data |= dsc->slice_bpg_offset;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_BPG_OFFSET);
+
+	data = dsc->initial_offset << 16;
+	data |= dsc->final_offset;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_DSC_OFFSET);
+
+	data = dsc->det_thresh_flatness << 10;
+	data |= dsc->max_qp_flatness << 5;
+	data |= dsc->min_qp_flatness;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_FLATNESS);
+	writel_relaxed(0x983, offset + MDSS_MDP_REG_DSC_FLATNESS);
+
+	data = dsc->rc_model_size;	/* rate_buffer_size */
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_RC_MODEL_SIZE);
+
+	data = dsc->tgt_offset_lo << 18;
+	data |= dsc->tgt_offset_hi << 14;
+	data |= dsc->quant_incr_limit1 << 9;
+	data |= dsc->quant_incr_limit0 << 4;
+	data |= dsc->edge_factor;
+	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_RC);
+
+	lp = dsc->buf_thresh;
+	off = offset + MDSS_MDP_REG_DSC_RC_BUF_THRESH;
+	for (i = 0; i < 14; i++) {
+		writel_relaxed(*lp++, off);
+		off += 4;
+	}
+
+	cp = dsc->range_min_qp;
+	off = offset + MDSS_MDP_REG_DSC_RANGE_MIN_QP;
+	for (i = 0; i < 15; i++) {
+		writel_relaxed(*cp++, off);
+		off += 4;
+	}
+
+	cp = dsc->range_max_qp;
+	off = offset + MDSS_MDP_REG_DSC_RANGE_MAX_QP;
+	for (i = 0; i < 15; i++) {
+		writel_relaxed(*cp++, off);
+		off += 4;
+	}
+
+	cp = dsc->range_bpg_offset;
+	off = offset + MDSS_MDP_REG_DSC_RANGE_BPG_OFFSET;
+	for (i = 0; i < 15; i++) {
+		writel_relaxed(*cp++, off);
+		off += 4;
+	}
+
+	return 0;
+}
+
 static int mdss_mdp_ctl_fbc_enable(int enable,
 		struct mdss_mdp_mixer *mixer, struct mdss_panel_info *pdata)
 {
@@ -2778,7 +2949,12 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 		outsize = (mixer->height << 16) | mixer->width;
 		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
-		if (ctl->panel_data->panel_info.fbc.enabled) {
+		if (ctl->panel_data->panel_info.compression_mode ==
+						COMPRESSION_DSC) {
+			ret = mdss_mdp_ctl_dsc_enable(1, ctl->mixer_left,
+					&ctl->panel_data->panel_info);
+		} else if (ctl->panel_data->panel_info.compression_mode ==
+						COMPRESSION_FBC) {
 			ret = mdss_mdp_ctl_fbc_enable(1, ctl->mixer_left,
 					&ctl->panel_data->panel_info);
 		}
