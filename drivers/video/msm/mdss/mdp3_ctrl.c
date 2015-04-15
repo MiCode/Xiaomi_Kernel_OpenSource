@@ -711,9 +711,14 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 
 	panel = mdp3_session->panel;
 	/* make sure DSI host is initialized properly */
-	if (panel && mdp3_session->in_splash_screen)
-		panel->event_handler(panel,
+	if (panel && mdp3_session->in_splash_screen) {
+		rc = panel->event_handler(panel,
 				MDSS_EVENT_LINK_READY, NULL);
+		rc |= panel->event_handler(panel,
+				MDSS_EVENT_UNBLANK, NULL);
+		rc |= panel->event_handler(panel,
+				MDSS_EVENT_PANEL_ON, NULL);
+	}
 
 	if (mdp3_session->status) {
 		pr_debug("fb%d is on already", mfd->index);
