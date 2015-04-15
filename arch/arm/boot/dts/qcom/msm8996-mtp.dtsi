@@ -368,6 +368,7 @@
 		qcom,src-sel = <0>;		/* Constant */
 		qcom,master-en = <1>;		/* Enable GPIO */
 		qcom,invert = <0>;
+		status = "okay";
 	};
 };
 
