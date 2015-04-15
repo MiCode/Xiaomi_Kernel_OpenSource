@@ -51,11 +51,22 @@ static const char *default_compressor = "lzo";
 /* Module params (documentation at end) */
 static unsigned int num_devices = 1;
 
+static inline void deprecated_attr_warn(const char *name)
+{
+	pr_warn_once("%d (%s) Attribute %s (and others) will be removed. %s\n",
+			task_pid_nr(current),
+			current->comm,
+			name,
+			"See zram documentation.");
+}
+
 #define ZRAM_ATTR_RO(name)						\
 static ssize_t zram_attr_##name##_show(struct device *d,		\
 				struct device_attribute *attr, char *b)	\
 {									\
 	struct zram *zram = dev_to_zram(d);				\
+									\
+	deprecated_attr_warn(__stringify(name));			\
 	return scnprintf(b, PAGE_SIZE, "%llu\n",			\
 		(u64)atomic64_read(&zram->stats.name));			\
 }									\
@@ -158,6 +169,7 @@ static ssize_t orig_data_size_show(struct device *dev,
 {
 	struct zram *zram = dev_to_zram(dev);
 
+	deprecated_attr_warn("orig_data_size");
 	return scnprintf(buf, PAGE_SIZE, "%llu\n",
 		(u64)(atomic64_read(&zram->stats.pages_stored)) << PAGE_SHIFT);
 }
@@ -168,6 +180,7 @@ static ssize_t mem_used_total_show(struct device *dev,
 	u64 val = 0;
 	struct zram *zram = dev_to_zram(dev);
 
+	deprecated_attr_warn("mem_used_total");
 	down_read(&zram->init_lock);
 	if (init_done(zram)) {
 		struct zram_meta *meta = zram->meta;
@@ -197,6 +210,7 @@ static ssize_t mem_limit_show(struct device *dev,
 	u64 val;
 	struct zram *zram = dev_to_zram(dev);
 
+	deprecated_attr_warn("mem_limit");
 	down_read(&zram->init_lock);
 	val = zram->limit_pages;
 	up_read(&zram->init_lock);
@@ -228,6 +242,7 @@ static ssize_t mem_used_max_show(struct device *dev,
 	u64 val = 0;
 	struct zram *zram = dev_to_zram(dev);
 
+	deprecated_attr_warn("mem_used_max");
 	down_read(&zram->init_lock);
 	if (init_done(zram))
 		val = atomic_long_read(&zram->stats.max_used_pages);
