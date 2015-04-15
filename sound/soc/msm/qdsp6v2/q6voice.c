@@ -2875,9 +2875,9 @@ static int voice_map_memory_physical_cmd(struct voice_data *v,
 	/* Store next table descriptor's size */
 	memtable[2] = 0;
 
-	/* Store shared mem add */
-	memtable[3] = phys;
-	memtable[4] = 0;
+	/* Store shared mem adddress (64 bit) */
+	memtable[3] = lower_32_bits(phys);
+	memtable[4] = upper_32_bits(phys);
 
 	/* Store shared memory size */
 	memtable[5] = size;
@@ -2906,9 +2906,9 @@ static int voice_map_memory_physical_cmd(struct voice_data *v,
 	pr_debug("%s: next table desc: add: %lld, size: %d\n",
 		 __func__, *((uint64_t *) memtable),
 		 *(((uint32_t *) memtable) + 2));
-	pr_debug("%s: phy add of of mem being mapped 0x%x, size: %d\n",
+	pr_debug("%s: phy add of of mem being mapped LSW:0x%x, MSW:0x%x size: %d\n",
 		 __func__, *(((uint32_t *) memtable) + 3),
-		 *(((uint32_t *) memtable) + 5));
+		*(((uint32_t *) memtable) + 4), *(((uint32_t *) memtable) + 5));
 
 	v->mvm_state = CMD_STATUS_FAIL;
 	ret = apr_send_pkt(common.apr_q6_mvm, (uint32_t *) &mvm_map_phys_cmd);
@@ -3972,9 +3972,9 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	packet_exchange_config_pkt.hdr.opcode =
 			 VSS_ISTREAM_CMD_SET_OOB_PACKET_EXCHANGE_CONFIG;
 	packet_exchange_config_pkt.mem_handle = v->shmem_info.mem_handle;
-	packet_exchange_config_pkt.dec_buf_addr = (uint32_t)dec_buf;
+	packet_exchange_config_pkt.dec_buf_addr = (phys_addr_t)dec_buf;
 	packet_exchange_config_pkt.dec_buf_size = 4096;
-	packet_exchange_config_pkt.enc_buf_addr = (uint32_t)enc_buf;
+	packet_exchange_config_pkt.enc_buf_addr = (phys_addr_t)enc_buf;
 	packet_exchange_config_pkt.enc_buf_size = 4096;
 
 	pr_debug("%s: dec buf: add %pa, size %d, enc buf: add %pa, size %d\n",
