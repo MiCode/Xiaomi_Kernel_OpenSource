@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,6 +52,7 @@ struct devfreq_node {
 };
 static LIST_HEAD(devfreq_list);
 static DEFINE_MUTEX(state_lock);
+static DEFINE_MUTEX(cpufreq_reg_lock);
 
 #define show_attr(name) \
 static ssize_t show_##name(struct device *dev,				\
@@ -237,7 +238,7 @@ static int register_cpufreq(void)
 	unsigned int cpu;
 	struct cpufreq_policy *policy;
 
-	mutex_lock(&state_lock);
+	mutex_lock(&cpufreq_reg_lock);
 
 	if (cpufreq_cnt)
 		goto out;
@@ -268,7 +269,7 @@ static int register_cpufreq(void)
 out:
 	if (!ret)
 		cpufreq_cnt++;
-	mutex_unlock(&state_lock);
+	mutex_unlock(&cpufreq_reg_lock);
 	return ret;
 }
 
@@ -277,7 +278,7 @@ static int unregister_cpufreq(void)
 	int ret = 0;
 	int cpu;
 
-	mutex_lock(&state_lock);
+	mutex_lock(&cpufreq_reg_lock);
 
 	if (cpufreq_cnt > 1)
 		goto out;
@@ -297,7 +298,7 @@ static int unregister_cpufreq(void)
 
 out:
 	cpufreq_cnt--;
-	mutex_unlock(&state_lock);
+	mutex_unlock(&cpufreq_reg_lock);
 	return ret;
 }
 
