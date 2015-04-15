@@ -1433,8 +1433,6 @@ static long bu21150_ioctl_unblock(void)
 	/* wake up */
 	wake_up_frame_waitq(ts);
 
-	ts->frame_waitq_flag = WAITQ_WAIT;
-
 	return 0;
 }
 
