@@ -49,7 +49,7 @@
 			qcom,pins = <&gp 70>, <&gp 71>, <&gp 72>;
 			qcom,num-grp-pins = <3>;
 			qcom,pin-func = <2>;
-			label = "cdc-pdm-lines";
+			label = "cdc-pdm-2-lines";
 			cdc_pdm_lines_2_act: pdm_lines_2_on {
 				drive-strength = <8>;
 			};
