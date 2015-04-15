@@ -292,6 +292,20 @@
 	};
 };
 
+/* SPM controlled regulators */
+&spmi_bus {
+	qcom,pm8950@1 {
+		/* PM8950 S5 + S6 = VDD_APC supply */
+		pm8950_s5: spm-regulator@2000 {
+			compatible = "qcom,spm-regulator";
+			reg = <0x2000 0x100>;
+			regulator-name = "pm8950_s5";
+			regulator-min-microvolt = <1050000>;
+			regulator-max-microvolt = <1350000>;
+		};
+	};
+};
+
 &pmi8950_charger {
 	smbcharger_charger_otg: qcom,smbcharger-boost-otg {
 		regulator-name = "smbcharger_charger_otg";
