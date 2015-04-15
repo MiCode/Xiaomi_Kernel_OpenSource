@@ -4105,8 +4105,6 @@ int ufshcd_change_power_mode(struct ufs_hba *hba,
 			sizeof(struct ufs_pa_layer_attr));
 	}
 
-	ufshcd_print_pwr_info(hba);
-
 	return ret;
 }
 
@@ -4128,6 +4126,8 @@ static int ufshcd_config_pwr_mode(struct ufs_hba *hba,
 		memcpy(&final_params, desired_pwr_mode, sizeof(final_params));
 
 	ret = ufshcd_change_power_mode(hba, &final_params);
+	if (!ret)
+		ufshcd_print_pwr_info(hba);
 
 	return ret;
 }
