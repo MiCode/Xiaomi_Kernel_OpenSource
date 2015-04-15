@@ -322,7 +322,7 @@ fw_req_fail:
  */
 static int wcd_cpe_enable_cpe_clks(struct wcd_cpe_core *core, bool enable)
 {
-	int ret = 0;
+	int ret, ret1;
 
 	if (!core || !core->cpe_cdc_cb ||
 	    !core->cpe_cdc_cb->cpe_clk_en) {
@@ -343,11 +343,22 @@ static int wcd_cpe_enable_cpe_clks(struct wcd_cpe_core *core, bool enable)
 		dev_err(core->dev,
 			"%s: cpe_clk_en() failed, err = %d\n",
 			__func__, ret);
-		return ret;
+		goto cpe_clk_fail;
 	}
 
 	return 0;
 
+cpe_clk_fail:
+	/* Release the codec clk if CPE clk enable failed */
+	if (enable) {
+		ret1 = core->cpe_cdc_cb->cdc_clk_en(core->codec, !enable);
+		if (ret1)
+			dev_err(core->dev,
+				"%s: Fail to release codec clk, err = %d\n",
+				__func__, ret1);
+	}
+
+	return ret;
 }
 
 /*
@@ -727,7 +738,14 @@ static int wcd_cpe_enable(struct wcd_cpe_core *core,
 			goto fail_boot;
 		}
 
-		wcd_cpe_enable_cpe_clks(core, true);
+		ret = wcd_cpe_enable_cpe_clks(core, true);
+		if (IS_ERR_VALUE(ret)) {
+			dev_err(core->dev,
+				"%s: CPE clk enable failed, err = %d\n",
+				__func__, ret);
+			goto fail_boot;
+		}
+
 		ret = cpe_svc_boot(core->cpe_handle,
 				   core->cpe_debug_mode);
 		if (IS_ERR_VALUE(ret)) {
