@@ -5970,7 +5970,7 @@ static int ufshcd_host_reset_and_restore(struct ufs_hba *hba)
 		goto out;
 	}
 
-	if (hba->vops && hba->vops->crypto_engine_reset) {
+	if (!err && hba->vops && hba->vops->crypto_engine_reset) {
 		err = hba->vops->crypto_engine_reset(hba);
 		if (err) {
 			dev_err(hba->dev,
