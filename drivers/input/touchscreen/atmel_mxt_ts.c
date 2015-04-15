@@ -3788,8 +3788,10 @@ static int mxt_probe(struct i2c_client *client,
 
 			/* wait it gets out of reset */
 			msleep(MXT_RESET_TIME);
-		} else
+		} else {
+			pdata->gpio_reset = -1;
 			dev_err(&client->dev, "Failed to get gpio reset\n");
+		}
 
 		gpio = devm_gpiod_get_index(&client->dev,
 						"atml_gpio_switch", 1);
@@ -3797,16 +3799,20 @@ static int mxt_probe(struct i2c_client *client,
 			pdata->gpio_switch = desc_to_gpio(gpio);
 			gpio_export(pdata->gpio_switch, 0);
 			gpio_direction_output(pdata->gpio_switch, 1);
-		} else
+		} else {
+			pdata->gpio_switch = -1;
 			dev_err(&client->dev, "Failed to get gpio switch\n");
+		}
 
 		gpio = devm_gpiod_get_index(&client->dev, "atml_gpio_int", 2);
 		if (!IS_ERR(gpio)) {
 			pdata->gpio_int = desc_to_gpio(gpio);
 			client->irq =
 				gpiod_to_irq(gpio_to_desc(pdata->gpio_int));
-		} else
+		} else {
+			pdata->gpio_int = -1;
 			dev_err(&client->dev, "Failed to get gpio interrupt\n");
+		}
 
 		pdata->regulator_dis = 1;
 		pdata->input_name = "atmel_mxt_ts";
