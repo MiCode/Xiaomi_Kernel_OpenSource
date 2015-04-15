@@ -2307,7 +2307,17 @@ void ipa_lan_rx_cb(void *priv, enum ipa_dp_evt_type evt, unsigned long data)
 				IPA_LAN_RX_HEADER_LENGTH);
 	else
 		skb_pull(rx_skb, IPA_PKT_STATUS_SIZE);
-	*(u8 *)rx_skb->cb = (metadata >> 16) & 0xFF;
+
+	/* Metadata Info
+	   ------------------------------------------
+	   |   3     |   2     |    1        |  0   |
+	   | fw_desc | vdev_id | qmap mux id | Resv |
+	   ------------------------------------------
+	 */
+	*(u16 *)rx_skb->cb = ((metadata >> 16) & 0xFFFF);
+	IPADBG("meta_data: 0x%x cb: 0x%x\n",
+			metadata, *(u32 *)rx_skb->cb);
+
 	ep->client_notify(ep->priv, IPA_RECEIVE, (unsigned long)(rx_skb));
 }
 
