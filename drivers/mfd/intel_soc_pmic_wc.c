@@ -72,6 +72,10 @@
 #define MTHRMIRQ3	0xDA
 #define MCHGRIRQ	0x17
 
+#define STHRMIRQ0	0x4F19
+#define STHRMIRQ1	0x4F1A
+#define STHRMIRQ2	0x4F1B
+
 #define FPO0_USB_COMP_OFFSET 0x01
 
 static bool wcove_init_done;
@@ -523,11 +527,104 @@ struct intel_pmic_irqregmap whiskey_cove_irqregmap[] = {
 	},
 };
 
+static struct trip_config_map str0_trip_config[] = {
+	{
+		.irq_reg = THRM0IRQ,
+		.irq_mask = 0x01,
+		.irq_en = MTHRMIRQ0,
+		.irq_en_mask = 0x01,
+		.evt_stat = STHRMIRQ0,
+		.evt_mask = 0x01,
+		.trip_num = 0
+	},
+	{
+		.irq_reg = THRM0IRQ,
+		.irq_mask = 0x10,
+		.irq_en = MTHRMIRQ0,
+		.irq_en_mask = 0x10,
+		.evt_stat = STHRMIRQ0,
+		.evt_mask = 0x10,
+		.trip_num = 1
+	}
+};
+
+static struct trip_config_map str1_trip_config[] = {
+	{
+		.irq_reg = THRM0IRQ,
+		.irq_mask = 0x02,
+		.irq_en = MTHRMIRQ0,
+		.irq_en_mask = 0x02,
+		.evt_stat = STHRMIRQ0,
+		.evt_mask = 0x02,
+		.trip_num = 0
+	},
+	{
+		.irq_reg = THRM0IRQ,
+		.irq_mask = 0x20,
+		.irq_en = MTHRMIRQ0,
+		.irq_en_mask = 0x20,
+		.evt_stat = STHRMIRQ0,
+		.evt_mask = 0x20,
+		.trip_num = 1
+	},
+};
+
+static struct trip_config_map str2_trip_config[] = {
+	{
+		.irq_reg = THRM0IRQ,
+		.irq_mask = 0x04,
+		.irq_en = MTHRMIRQ0,
+		.irq_en_mask = 0x04,
+		.evt_stat = STHRMIRQ0,
+		.evt_mask = 0x04,
+		.trip_num = 0
+	},
+	{
+		.irq_reg = THRM0IRQ,
+		.irq_mask = 0x40,
+		.irq_en = MTHRMIRQ0,
+		.irq_en_mask = 0x40,
+		.evt_stat = STHRMIRQ0,
+		.evt_mask = 0x40,
+		.trip_num = 1
+	},
+};
+
+static struct thermal_irq_map wc_thermal_irq_map[] = {
+	{
+		.handle = "STR0",
+		.trip_config = str0_trip_config,
+		.num_trips = ARRAY_SIZE(str0_trip_config),
+	},
+	{
+		.handle = "STR1",
+		.trip_config = str1_trip_config,
+		.num_trips = ARRAY_SIZE(str1_trip_config),
+	},
+	{
+		.handle = "STR2",
+		.trip_config = str2_trip_config,
+		.num_trips = ARRAY_SIZE(str2_trip_config),
+	},
+};
+
 static struct pmic_gpio_data whiskey_cove_gpio_data = {
 	.type = WHISKEY_COVE,
 	.num_gpio = 10,
 	.num_vgpio = 0x5e,
 };
+
+static struct pmic_thermal_data whiskey_cove_thermal_data = {
+	.maps = wc_thermal_irq_map,
+	.num_maps = ARRAY_SIZE(wc_thermal_irq_map),
+};
+
+static void wc_set_thermal_pdata(void)
+{
+	intel_soc_pmic_set_pdata("whiskey_cove_thermal",
+				(void *)&whiskey_cove_thermal_data,
+				sizeof(whiskey_cove_thermal_data), 0);
+}
 
 static struct regulator_consumer_supply v1p8sx_consumer[] = {
 	REGULATOR_SUPPLY("v1p8sx", "INT33BE:00"),
@@ -734,6 +831,7 @@ static int whiskey_cove_init(void)
 	wc_set_gpio_pdata();
 	wc_set_v1p8_pdata();
 	wc_set_v2p8_pdata();
+	wc_set_thermal_pdata();
 	wcove_init_done = true;
 
 	return 0;
