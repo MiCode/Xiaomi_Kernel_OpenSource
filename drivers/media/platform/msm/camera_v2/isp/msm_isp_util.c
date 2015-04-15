@@ -543,6 +543,13 @@ int msm_isp_cfg_pix(struct vfe_device *vfe_dev,
 		return rc;
 	}
 
+	/*
+	 * Fill pixel_clock into input_pix_clk so that user space
+	 * can use rounded clk rate
+	 */
+	input_cfg->input_pix_clk =
+		vfe_dev->axi_data.src_info[VFE_PIX_0].pixel_clock;
+
 	ISP_DBG("%s: input mux is %d CAMIF %d io_format 0x%x\n", __func__,
 		input_cfg->d.pix_cfg.input_mux, CAMIF,
 		input_cfg->d.pix_cfg.input_format);
