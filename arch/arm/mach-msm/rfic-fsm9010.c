@@ -93,11 +93,21 @@
 #define RF_MAX_WF_SIZE  0xA00000
 #define RF_MAX_I2C_SIZE  8192
 
+#define GPIO_DIR_SHIFT	9
+#define GPIO_DRV_SHIFT	6
+#define GPIO_FUNC_SHIFT	2
+#define GPIO_OFFSET	0x1000
+#define GPIO_MAX_FIELD	0x10
+#define GPIO_MAX_DIR    1
+#define GPIO_MAX_DRV    8
+#define GPIO_MAX_PULL   3
+
 uint16_t slave_address = 0x52;
 uint8_t rfbid = 0x33;
 static void __iomem *grfc_base;
 static void __iomem *pdm_base;
 static void __iomem *wf_base;
+static void __iomem *gpio_base;
 /*
  * Device private information per device node
  */
@@ -314,11 +324,10 @@ static long ftr_ioctl(struct file *file,
 	}
 	case RFIC_IOCTL_GPIO_SETTING: {
 		struct rfic_gpio_param param;
-		struct msm_gpiomux_config rf_config[MSM_MAX_GPIO];
-		struct gpiomux_setting rf_setting[MSM_MAX_GPIO];
 		struct gpio_alt_config *alt_config;
 		int gp_size, i;
 		void *pGP;
+		int value;
 
 		if (pdfi->ftrid != 0)
 			return -EINVAL;
@@ -346,19 +355,25 @@ static long ftr_ioctl(struct file *file,
 		}
 
 		alt_config = (struct gpio_alt_config *)pGP;
+
+		if ((alt_config->dir > GPIO_MAX_DIR) ||
+			(alt_config->drv > GPIO_MAX_DRV) ||
+			(alt_config->func > GPIO_MAX_FIELD) ||
+			(alt_config->pull > GPIO_MAX_PULL)) {
+			pr_err("%s: Field vaules incorrect!\n", __func__);
+			kfree(pGP);
+			return -EFAULT;
+		}
+
 		for (i = 0; i < param.num; i++) {
-			rf_config[i].gpio = (unsigned)alt_config->gpio;
-			rf_setting[i].func = alt_config->func;
-			rf_setting[i].drv = alt_config->drv;
-			rf_setting[i].pull = alt_config->pull;
-			rf_setting[i].dir = alt_config->dir;
-			rf_config[i].settings[GPIOMUX_ACTIVE] =
-				&rf_setting[i];
-			rf_config[i].settings[GPIOMUX_SUSPENDED] =
-				&rf_setting[i];
+			value = (alt_config->dir << GPIO_DIR_SHIFT) |
+				(alt_config->drv << GPIO_DRV_SHIFT) |
+				(alt_config->func << GPIO_FUNC_SHIFT) |
+				(alt_config->pull);
+			__raw_writel(value, (gpio_base + GPIO_OFFSET +
+					(alt_config->gpio * GPIO_MAX_FIELD)));
 			alt_config++;
 		}
-		msm_gpiomux_install(rf_config, param.num);
 		kfree(pGP);
 		break;
 	}
@@ -630,6 +645,13 @@ static int ftr_probe(struct platform_device *pdev)
 		if (IS_ERR(pdm_base)) {
 			mutex_unlock(&rficlock);
 			return PTR_ERR(pdm_base);
+		}
+
+		mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 3);
+		gpio_base = devm_ioremap_resource(&pdev->dev, mem_res);
+		if (IS_ERR(gpio_base)) {
+			mutex_unlock(&rficlock);
+			return PTR_ERR(gpio_base);
 		}
 
 		ret = device_create_file(&pdev->dev, &dev_attr_rfboard_id);
