@@ -359,7 +359,7 @@ static int bcl_access_monitor_enable(bool enable)
 					? "Voltage Monitor to Inactive"
 					: "Current Monitor to Inactive",
 					0);
-				disable_irq(perph_data->irq_num);
+				disable_irq_nosync(perph_data->irq_num);
 				/* Fall through to clear the poll work */
 			case BCL_PARAM_INACTIVE:
 			case BCL_PARAM_POLLING:
