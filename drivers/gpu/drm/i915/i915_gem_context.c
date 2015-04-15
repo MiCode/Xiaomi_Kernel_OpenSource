@@ -154,14 +154,11 @@ void i915_gem_context_free(struct kref *ctx_ref)
 
 		ring = ringbuf->ring;
 
-		i915_sync_timeline_advance(ctx, ring, 0);
 		i915_sync_timeline_destroy(ctx, ring);
 	}
 
-	if (ctx->legacy_hw_ctx.sync_timeline) {
-		i915_sync_timeline_advance(ctx, NULL, 0);
+	if (ctx->legacy_hw_ctx.sync_timeline)
 		i915_sync_timeline_destroy(ctx, NULL);
-	}
 
 	if (i915.enable_execlists)
 		intel_lr_context_free(ctx);
