@@ -81,6 +81,7 @@ Required properties:
 			5 : Scaling to perform reverse calibration for absolute voltage from uV
 			    to raw ADC code.
 			6 : Scaling to convert qrd skuh battery decidegC to raw ADC code.
+			7 : Scaling to convert qrd skue battery decidegC to raw ADC code.
 - qcom,hw-settle-time : Settling period for the channel before ADC read.
 			Select from the following unsigned int.
 			0 : 0us
