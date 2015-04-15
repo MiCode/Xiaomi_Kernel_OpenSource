@@ -68,8 +68,11 @@ static irqreturn_t pmic_thermal_irq_handler(int irq, void *data)
 				trip = td->maps[i].trip_config[j].trip_num;
 				tzd = thermal_zone_get_zone_by_name(
 						td->maps[i].handle);
-				if (!IS_ERR(tzd))
+				if (!IS_ERR(tzd)) {
+					tzd->crossed_trip = trip;
+					tzd->event = event ? 1 : 0;
 					thermal_zone_device_update(tzd);
+				}
 			}
 		}
 	}

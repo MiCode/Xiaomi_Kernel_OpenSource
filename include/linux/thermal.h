@@ -184,6 +184,8 @@ struct thermal_zone_device {
 	struct mutex lock; /* protect thermal_instances list */
 	struct list_head node;
 	struct delayed_work poll_queue;
+	int crossed_trip;
+	int event;
 };
 
 /* Structure that holds thermal governor information */

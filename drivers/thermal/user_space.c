@@ -23,6 +23,7 @@
  */
 
 #include <linux/thermal.h>
+#include <linux/slab.h>
 
 #include "thermal_core.h"
 
@@ -34,9 +35,25 @@
  */
 static int notify_user_space(struct thermal_zone_device *tz, int trip)
 {
+	char *thrm_event[5];
+
 	mutex_lock(&tz->lock);
-	kobject_uevent(&tz->device.kobj, KOBJ_CHANGE);
+	if (trip == tz->crossed_trip) {
+		thrm_event[0] = kasprintf(GFP_KERNEL, "NAME=%s", tz->type);
+		thrm_event[1] = kasprintf(GFP_KERNEL, "TEMP=%d",
+				tz->temperature);
+		thrm_event[2] = kasprintf(GFP_KERNEL, "TRIP=%d",
+				tz->crossed_trip);
+		thrm_event[3] = kasprintf(GFP_KERNEL, "EVENT=%d", tz->event);
+		thrm_event[4] = NULL;
+		kobject_uevent_env(&tz->device.kobj, KOBJ_CHANGE, thrm_event);
+		kfree(thrm_event[0]);
+		kfree(thrm_event[1]);
+		kfree(thrm_event[2]);
+		kfree(thrm_event[3]);
+	}
 	mutex_unlock(&tz->lock);
+
 	return 0;
 }
 
