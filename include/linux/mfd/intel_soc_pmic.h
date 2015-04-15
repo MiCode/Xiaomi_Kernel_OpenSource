@@ -58,6 +58,27 @@
 #define WHISKEY_COVE 0x1
 #define DOLLAR_COVE 0x2
 
+struct trip_config_map {
+	u16 irq_reg;
+	u16 irq_en;
+	u16 evt_stat;
+	u8 irq_mask;
+	u8 irq_en_mask;
+	u8 evt_mask;
+	u8 trip_num;
+};
+
+struct thermal_irq_map {
+	char handle[20];
+	int num_trips;
+	struct trip_config_map *trip_config;
+};
+
+struct pmic_thermal_data {
+	struct thermal_irq_map *maps;
+	int num_maps;
+};
+
 struct pmic_gpio_data {
 	int type;
 	int num_gpio;

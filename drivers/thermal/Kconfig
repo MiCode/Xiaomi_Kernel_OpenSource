@@ -230,6 +230,13 @@ config INTEL_THERMAL
 	  They are exposed for the OS to use via an INT3400 ACPI device object
 	  as the master, and INT3401~INT340B ACPI device objects as the slaves.
 
+config INTEL_PMIC_THERMAL
+	tristate "PMIC thermal driver"
+	depends on X86 && INTEL_SOC_PMIC
+	help
+	  Select this if the PMIC controls the ADC channels for system temperature
+	  measurements and alerts.
+
 menu "Texas Instruments thermal drivers"
 source "drivers/thermal/ti-soc-thermal/Kconfig"
 endmenu
