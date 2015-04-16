@@ -1052,16 +1052,16 @@
 				#address-cells = <2>;
 				#size-cells = <0>;
 
-				wsa881x@32000 {
+				wsa881x@20170212 {
 					compatible = "qcom,wsa881x";
-					reg = <0x00 0x032000>;
-					qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
+					reg = <0x00 0x20170212>;
+					qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
 				};
 
-				wsa881x@42000 {
+				wsa881x@20170211 {
 					compatible = "qcom,wsa881x";
-					reg = <0x00 0x042000>;
-					qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
+					reg = <0x00 0x20170211>;
+					qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
 				};
 			};
 		};
