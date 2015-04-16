@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -47,7 +47,7 @@ static ssize_t bhi_write(struct file *file,
 	if (count > BHI_MAX_IMAGE_SIZE)
 		return -ENOMEM;
 
-	wait_event_interruptible(*mhi_dev_ctxt->bhi_event,
+	wait_event_interruptible(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
 			mhi_dev_ctxt->mhi_state == MHI_STATE_BHI);
 
 	mhi_log(MHI_MSG_INFO, "Entered. User Image size 0x%x\n", count);

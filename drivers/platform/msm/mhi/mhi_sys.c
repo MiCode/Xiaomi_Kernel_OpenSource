@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,22 +18,13 @@
 
 #include "mhi_sys.h"
 
-enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_CRITICAL;
-enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_INFO;
+enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_INFO;
+enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
 enum MHI_DEBUG_CLASS mhi_msg_class = MHI_DBG_DATA | MHI_DBG_POWER;
-
-enum MHI_DEBUG_LEVEL mhi_xfer_db_interval;
-module_param(mhi_xfer_db_interval, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(mhi_xfer_db_interval, "mhi xfer doorbell interval");
-enum MHI_DEBUG_LEVEL tx_mhi_intmodt = 10;
-module_param(tx_mhi_intmodt, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(tx_mhi_intmodt, "xfer interrupt modulation");
-enum MHI_DEBUG_LEVEL rx_mhi_intmodt = 6;
-module_param(rx_mhi_intmodt, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(rx_mhi_intmodt, "rcver interrupt modulation");
 
 module_param(mhi_msg_lvl , uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_msg_lvl, "dbg lvl");
+
 module_param(mhi_ipc_log_lvl, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(mhi_ipc_log_lvl, "dbg lvl");
 
@@ -73,7 +64,7 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 		"chan:",
 		(unsigned int)*offp,
 		"pkts from dev:",
-		mhi_dev_ctxt->mhi_chan_cntr[*offp].pkts_xferd,
+		mhi_dev_ctxt->counters.chan_pkts_xferd[*offp],
 		"state:",
 		chan_ctxt->mhi_chan_state,
 		"p_base:",
@@ -122,10 +113,10 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 		&mhi_devices.device_list[0].mhi_ctxt;
 	if (NULL == mhi_dev_ctxt)
 		return -EIO;
-	*offp = (u32)(*offp) % EVENT_RINGS_ALLOCATED;
+	*offp = (u32)(*offp) % NR_EV_RINGS;
 	event_ring_index = mhi_dev_ctxt->alloced_ev_rings[*offp];
 	ev_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[event_ring_index];
-	if (*offp == (EVENT_RINGS_ALLOCATED - 1))
+	if (*offp == (NR_EV_RINGS - 1))
 		msleep(1000);
 
 	get_element_index(&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index],
@@ -153,7 +144,7 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 		"MSI Vector",
 		ev_ctxt->mhi_msi_vector,
 		"MSI RX Count",
-		mhi_dev_ctxt->msi_counter[*offp],
+		mhi_dev_ctxt->counters.msi_counter[*offp],
 		"p_base:",
 		ev_ctxt->mhi_event_ring_base_addr,
 		"p_rp:",
