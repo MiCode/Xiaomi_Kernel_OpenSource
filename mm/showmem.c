@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -10,21 +10,21 @@
 #include <linux/init.h>
 #include <linux/show_mem_notifier.h>
 
-static BLOCKING_NOTIFIER_HEAD(show_mem_notifier);
+static ATOMIC_NOTIFIER_HEAD(show_mem_notifier);
 
 int show_mem_notifier_register(struct notifier_block *nb)
 {
-	return blocking_notifier_chain_register(&show_mem_notifier, nb);
+	return atomic_notifier_chain_register(&show_mem_notifier, nb);
 }
 
 int show_mem_notifier_unregister(struct notifier_block *nb)
 {
-	return blocking_notifier_chain_unregister(&show_mem_notifier, nb);
+	return  atomic_notifier_chain_unregister(&show_mem_notifier, nb);
 }
 
 void show_mem_call_notifiers(void)
 {
-	blocking_notifier_call_chain(&show_mem_notifier, 0, NULL);
+	atomic_notifier_call_chain(&show_mem_notifier, 0, NULL);
 }
 
 static int show_mem_notifier_get(void *dat, u64 *val)
