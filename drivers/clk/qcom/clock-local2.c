@@ -55,6 +55,7 @@ struct clk_freq_tbl rcg_dummy_freq = F_END;
 #define RST_REG(x)	(*(x)->base + (x)->reset_reg)
 #define VOTE_REG(x)	(*(x)->base + (x)->vote_reg)
 #define GATE_EN_REG(x)	(*(x)->base + (x)->en_reg)
+#define MUX_REG(x)	(*(x)->base + (x)->offset)
 
 /*
  * Important clock bit positions and masks
@@ -871,12 +872,17 @@ static u32 run_measurement(unsigned ticks, void __iomem *ctl_reg,
 unsigned long measure_get_rate(struct clk *c)
 {
 	unsigned long flags;
-	u32 gcc_xo4_reg;
+	u32 gcc_xo4_reg, regval;
 	u64 raw_count_short, raw_count_full;
 	unsigned ret;
 	u32 sample_ticks = 0x10000;
 	u32 multiplier = 0x1;
 	struct measure_clk_data *data = to_mux_clk(c)->priv;
+
+	regval = readl_relaxed(MUX_REG(to_mux_clk(c)));
+	/* clear post divider bits */
+	regval &= ~BM(15, 12);
+	writel_relaxed(regval, MUX_REG(to_mux_clk(c)));
 
 	ret = clk_prepare_enable(data->cxo);
 	if (ret) {
@@ -1420,10 +1426,10 @@ static int mux_reg_set_mux_sel(struct mux_clk *clk, int sel)
 	unsigned long flags;
 
 	spin_lock_irqsave(&mux_reg_lock, flags);
-	regval = readl_relaxed(*clk->base + clk->offset);
+	regval = readl_relaxed(MUX_REG(clk));
 	regval &= ~(clk->mask << clk->shift);
 	regval |= (sel & clk->mask) << clk->shift;
-	writel_relaxed(regval, *clk->base + clk->offset);
+	writel_relaxed(regval, MUX_REG(clk));
 	/* Ensure switch request goes through before returning */
 	mb();
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
@@ -1433,13 +1439,13 @@ static int mux_reg_set_mux_sel(struct mux_clk *clk, int sel)
 
 static int mux_reg_get_mux_sel(struct mux_clk *clk)
 {
-	u32 regval = readl_relaxed(*clk->base + clk->offset);
+	u32 regval = readl_relaxed(MUX_REG(clk));
 	return (regval >> clk->shift) & clk->mask;
 }
 
 static bool mux_reg_is_enabled(struct mux_clk *clk)
 {
-	u32 regval = readl_relaxed(*clk->base + clk->offset);
+	u32 regval = readl_relaxed(MUX_REG(clk));
 	return !!(regval & clk->en_mask);
 }
 
