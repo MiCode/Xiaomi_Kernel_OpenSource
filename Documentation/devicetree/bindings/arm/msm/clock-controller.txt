@@ -49,6 +49,8 @@ Required properties:
 			"qcom,gpucc-8996"
 			"qcom,gpucc-8996-v2"
 			"qcom,gpucc-8996-v3"
+			"qcom,gcc-californium"
+			"qcom,cc-debug-californium"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
