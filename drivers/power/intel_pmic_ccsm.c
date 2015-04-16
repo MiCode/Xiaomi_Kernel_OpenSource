@@ -1615,6 +1615,35 @@ static inline int register_cooling_device(struct pmic_chrgr_drv_context *chc)
 }
 
 
+/* WA for setting BAT0 alert temp threshold for WC PMIC */
+#define BAT0ALRT0H_REG_WC	0x4F2F
+#define BAT0ALRT0L_REG_WC	0x4F30
+#define BATT_CRIT_TEMP_WC	60
+
+static void pmic_set_battery_alerts(void)
+{
+	int ret;
+	u32 adc_val;
+	u16 reg_val;
+	u8 alrt_h, alrt_l;
+
+	if (chc.pmic_model == INTEL_PMIC_WCOVE) {
+		adc_val = temp_to_raw(chc.pdata->adc_tbl,
+				chc.pdata->max_tbl_row_cnt,
+				BATT_CRIT_TEMP_WC);
+		reg_val = get_tempzone_val(adc_val, BATT_CRIT_TEMP_WC);
+		alrt_l = (u8)reg_val;
+		alrt_h = (u8)(reg_val >> 8);
+
+		ret = pmic_write_reg(BAT0ALRT0H_REG_WC, alrt_h);
+		if (ret)
+			return;
+		ret = pmic_write_reg(BAT0ALRT0L_REG_WC, alrt_l);
+		if (ret)
+			return;
+	}
+}
+
 /**
  * pmic_charger_probe - PMIC charger probe function
  * @pdev: pmic platform device structure
@@ -1772,6 +1801,9 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 			"Register cooling device Failed (%d)\n", ret);
 		goto cdev_reg_fail;
 	}
+
+	/* WA for setting BAT0 alert temp threshold for WC PMIC */
+	pmic_set_battery_alerts();
 
 	return 0;
 
