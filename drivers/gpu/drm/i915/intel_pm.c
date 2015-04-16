@@ -1595,6 +1595,8 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 	u32 dsparb = 0;
 	u32 dsparb_h = 0;
+	u32 dsparb3 = DSPARB_50_25_25;
+	u32 dsparb2 = DSPARB2_50_25_25;
 	u32 pa = 0, sa = 0, sb = 0;
 	int fifo_size = 0;
 
@@ -1706,8 +1708,8 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 
 		break;
 	case PIPE_C:
-		I915_WRITE_BITS(DSPARB3, dsparb, DSPARB3_PIPEC_MASK);
-		I915_WRITE_BITS(DSPARB2, (dsparb_h << DSPARB2_PIPEC_SHIFT),
+		I915_WRITE_BITS(DSPARB3, dsparb3, DSPARB3_PIPEC_MASK);
+		I915_WRITE_BITS(DSPARB2, (dsparb2 << DSPARB2_PIPEC_SHIFT),
 						DSPARB2_PIPEC_MASK);
 		/* update wm */
 		I915_WRITE_BITS(DSPFW9, (pa << VLV_FW_PIPEC_PC_SHIFT),
