@@ -3201,7 +3201,7 @@ static int tasha_int_dem_inp_mux_put(struct snd_kcontrol *kcontrol,
 	unsigned short look_ahead_dly_reg;
 
 	val = ucontrol->value.enumerated.item[0];
-	if (val > e->max - 1)
+	if (val >= e->items)
 		return -EINVAL;
 
 	dev_dbg(codec->dev, "%s: wname: %s, val: 0x%x\n", __func__,

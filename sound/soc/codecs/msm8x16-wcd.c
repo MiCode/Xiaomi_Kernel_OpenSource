@@ -2018,7 +2018,7 @@ static int msm8x16_wcd_put_dec_enum(struct snd_kcontrol *kcontrol,
 	u8 adc_dmic_sel = 0x0;
 	int ret = 0;
 
-	if (ucontrol->value.enumerated.item[0] > e->max - 1) {
+	if (ucontrol->value.enumerated.item[0] > >= e->items) {
 		dev_err(codec->dev, "%s: Invalid enum value: %d\n",
 			__func__, ucontrol->value.enumerated.item[0]);
 		return -EINVAL;

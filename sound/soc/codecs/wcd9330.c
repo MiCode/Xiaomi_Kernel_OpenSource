@@ -2277,7 +2277,7 @@ static int wcd9330_put_dec_enum(struct snd_kcontrol *kcontrol,
 	int ret = 0;
 	char *dec;
 
-	if (ucontrol->value.enumerated.item[0] > e->max - 1)
+	if (ucontrol->value.enumerated.item[0] >= e->items)
 		return -EINVAL;
 
 	dec_mux = ucontrol->value.enumerated.item[0];
