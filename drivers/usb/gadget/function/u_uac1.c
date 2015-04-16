@@ -128,17 +128,20 @@ static int playback_prepare_params(struct gaudio_snd_dev *snd)
 	unsigned long period_size;
 	unsigned long buffer_size;
 	snd_pcm_sframes_t result;
+	struct gaudio *card = container_of(snd, struct gaudio, playback);
+	struct f_uac1_opts *opts =
+		container_of(card->func.fi, struct f_uac1_opts, func_inst);
 
        /*
 	* SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	* SNDRV_PCM_FORMAT_S16_LE
-	* CHANNELS: 2
-	* RATE: 8000
+	* CHANNELS: 1
+	* RATE: 16K default, user configurable
 	*/
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
-	snd->channels = 2;
-	snd->rate = 8000;
+	snd->channels = 1;
+	snd->rate = opts->sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
@@ -222,17 +225,20 @@ static int capture_prepare_params(struct gaudio_snd_dev *snd)
 	unsigned long period_size;
 	unsigned long buffer_size;
 	snd_pcm_sframes_t result = 0;
+	struct gaudio *card = container_of(snd, struct gaudio, capture);
+	struct f_uac1_opts *opts =
+		container_of(card->func.fi, struct f_uac1_opts, func_inst);
 
 	/*
 	 * SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	 * SNDRV_PCM_FORMAT_S16_LE
 	 * CHANNELS: 1
-	 * RATE: 8000
+	 * RATE: 16K default, user configurable
 	 */
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
 	snd->channels = 1;
-	snd->rate = 8000;
+	snd->rate = opts->sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params) {
@@ -318,17 +324,20 @@ static int capture_prepare_params(struct gaudio_snd_dev *snd)
 static int playback_default_hw_params(struct gaudio_snd_dev *snd)
 {
 	struct snd_pcm_hw_params *params;
+	struct gaudio *card = container_of(snd, struct gaudio, playback);
+	struct f_uac1_opts *opts =
+		container_of(card->func.fi, struct f_uac1_opts, func_inst);
 
        /*
 	* SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	* SNDRV_PCM_FORMAT_S16_LE
-	* CHANNELS: 2
-	* RATE: 8000
+	* CHANNELS: 1
+	* RATE: 16K default, user configurable
 	*/
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
-	snd->channels = 2;
-	snd->rate = 8000;
+	snd->channels = 1;
+	snd->rate = opts->sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
@@ -362,17 +371,20 @@ static int playback_default_hw_params(struct gaudio_snd_dev *snd)
 static int capture_default_hw_params(struct gaudio_snd_dev *snd)
 {
 	struct snd_pcm_hw_params *params;
+	struct gaudio *card = container_of(snd, struct gaudio, capture);
+	struct f_uac1_opts *opts =
+		container_of(card->func.fi, struct f_uac1_opts, func_inst);
 
 	/*
 	 * SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	 * SNDRV_PCM_FORMAT_S16_LE
 	 * CHANNELS: 1
-	 * RATE: 8000
+	 * RATE: 16K default, user configurable
 	 */
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
 	snd->channels = 1;
-	snd->rate = 8000;
+	snd->rate = opts->sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)

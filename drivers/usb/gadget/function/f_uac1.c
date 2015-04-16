@@ -1138,10 +1138,14 @@ static void f_audio_build_desc(struct f_audio *audio)
 	rate = u_audio_get_playback_rate(card);
 	sam_freq = speaker_as_type_i_desc.tSamFreq[0];
 	memcpy(sam_freq, &rate, 3);
+	/* Update maxP as per sample rate, bInterval assumed as 1msec */
+	speaker_as_ep_out_desc.wMaxPacketSize = (rate / 1000) * 2;
 
 	rate = u_audio_get_capture_rate(card);
 	sam_freq = microphone_as_type_i_desc.tSamFreq[0];
 	memcpy(sam_freq, &rate, 3);
+	/* Update maxP as per sample rate, bInterval assumed as 1msec */
+	microphone_as_ep_in_desc.wMaxPacketSize = (rate / 1000) * 2;
 
 	/* Todo: Set Sample bits and other parameters */
 
@@ -1388,6 +1392,7 @@ UAC1_INT_ATTRIBUTE(req_capture_count);
 UAC1_INT_ATTRIBUTE(audio_playback_buf_size);
 UAC1_INT_ATTRIBUTE(audio_capture_buf_size);
 UAC1_INT_ATTRIBUTE(audio_playback_realtime);
+UAC1_INT_ATTRIBUTE(sample_rate);
 
 #define UAC1_STR_ATTRIBUTE(name)					\
 static ssize_t f_uac1_opts_##name##_show(struct f_uac1_opts *opts,	\
@@ -1445,6 +1450,7 @@ static struct configfs_attribute *f_uac1_attrs[] = {
 	&f_uac1_opts_audio_playback_buf_size.attr,
 	&f_uac1_opts_audio_capture_buf_size.attr,
 	&f_uac1_opts_audio_playback_realtime.attr,
+	&f_uac1_opts_sample_rate.attr,
 	&f_uac1_opts_fn_play.attr,
 	&f_uac1_opts_fn_cap.attr,
 	&f_uac1_opts_fn_cntl.attr,
@@ -1493,6 +1499,7 @@ static struct usb_function_instance *f_audio_alloc_inst(void)
 	opts->audio_playback_buf_size = UAC1_AUDIO_PLAYBACK_BUF_SIZE;
 	opts->audio_capture_buf_size = UAC1_AUDIO_CAPTURE_BUF_SIZE;
 	opts->audio_playback_realtime = 1;
+	opts->sample_rate = UAC1_SAMPLE_RATE;
 	opts->fn_play = FILE_PCM_PLAYBACK;
 	opts->fn_cap = FILE_PCM_CAPTURE;
 	opts->fn_cntl = FILE_CONTROL;
