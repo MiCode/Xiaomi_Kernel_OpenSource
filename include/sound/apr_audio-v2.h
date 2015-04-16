@@ -863,6 +863,11 @@ struct adm_cmd_connect_afe_port_v5 {
 #define AFE_PORT_ID_SECONDARY_MI2S_RX_SD1	0x1010
 #define AFE_PORT_ID_QUINARY_MI2S_RX         0x1016
 #define AFE_PORT_ID_QUINARY_MI2S_TX         0x1017
+/* ID of the senary MI2S Rx port. */
+#define AFE_PORT_ID_SENARY_MI2S_RX		0x1018
+/* ID of the senary MI2S Tx port. */
+#define AFE_PORT_ID_SENARY_MI2S_TX		0x1019
+
 #define AFE_PORT_ID_SPDIF_RX                0x5000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_RX   0x2000
 #define  AFE_PORT_ID_RT_PROXY_PORT_001_TX   0x2001

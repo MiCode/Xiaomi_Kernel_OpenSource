@@ -27,6 +27,7 @@
 #define MSM_QUAT_MI2S  3
 #define MSM_SEC_MI2S_SD1  4
 #define MSM_QUIN_MI2S  5
+#define MSM_SENARY_MI2S  6
 
 struct msm_dai_auxpcm_config {
 	u16 mode;
