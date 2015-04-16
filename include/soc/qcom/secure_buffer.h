@@ -23,6 +23,7 @@
 #define VMID_CP_NON_PIXEL 0xB
 #define VMID_CP_CAMERA 0xD
 #define VMID_HLOS_FREE 0xE
+#define VMID_MSS_MSA 0xF
 #define VMID_MSS_NONMSA 0x10
 #define VMID_CP_SEC_DISPLAY 0x11
 #define VMID_CP_APP 0x12
