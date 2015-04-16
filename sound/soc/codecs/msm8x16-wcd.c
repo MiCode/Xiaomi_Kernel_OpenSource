@@ -209,6 +209,7 @@ static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
 		bool enable);
 static void msm8x16_wcd_configure_cap(struct snd_soc_codec *codec,
 		bool micbias1, bool micbias2);
+static void msm8x16_skip_imped_detect(struct snd_soc_codec *codec);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
@@ -276,6 +277,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.set_auto_zeroing = msm8x16_wcd_set_auto_zeroing,
 	.get_hwdep_fw_cal = msm8x16_wcd_get_hwdep_fw_cal,
 	.set_cap_mode = msm8x16_wcd_configure_cap,
+	.skip_imped_detect = msm8x16_skip_imped_detect,
 };
 
 static const uint32_t wcd_imped_val[] = {4, 8, 12, 16,
@@ -2452,6 +2454,18 @@ static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
 	} else {
 		pr_debug("%s: Auto Zeroing is not required from CONGA\n",
 				__func__);
+	}
+}
+
+static void msm8x16_skip_imped_detect(struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd;
+
+	if (codec != NULL) {
+		msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+		msm8x16_wcd->mbhc.skip_imped_detection = true;
+	} else {
+		pr_debug("%s: Codec pointer is NULL\n", __func__);
 	}
 }
 
