@@ -2024,6 +2024,7 @@ static int smb135x_chg_otg_enable(struct smb135x_chg *chip)
 	int rc = 0;
 	int restart_count = 0;
 	struct timeval time_a, time_b, time_c, time_d;
+	u8 reg;
 
 	if (chip->revision == REV_2) {
 		/*
@@ -2101,6 +2102,21 @@ restart_from_disable:
 			goto restart_from_disable;
 		}
 	} else {
+		rc = smb135x_read(chip, CMD_CHG_REG, &reg);
+		if (rc < 0) {
+			dev_err(chip->dev, "Couldn't read cmd reg rc=%d\n",
+					rc);
+			return rc;
+		}
+		if (reg & OTG_EN) {
+			/* if it is set, disable it before re-enabling it */
+			rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, 0);
+			if (rc < 0) {
+				dev_err(chip->dev, "Couldn't disable OTG mode rc=%d\n",
+						rc);
+				return rc;
+			}
+		}
 		rc = smb135x_masked_write(chip, CMD_CHG_REG, OTG_EN, OTG_EN);
 		if (rc < 0) {
 			dev_err(chip->dev, "Couldn't enable OTG mode rc=%d\n",
