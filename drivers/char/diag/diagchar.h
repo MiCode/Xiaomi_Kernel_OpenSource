@@ -41,7 +41,6 @@
  * (1 byte)
  */
 #define DIAG_MAX_HDLC_BUF_SIZE	((DIAG_MAX_REQ_SIZE * 2) + 3)
-#define HDLC_OUT_BUF_SIZE	(driver->itemsize_hdlc)
 
 /* The header of callback data type has remote processor token (of type int) */
 #define CALLBACK_HDR_SIZE	(sizeof(int))

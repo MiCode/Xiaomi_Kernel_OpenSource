@@ -904,7 +904,7 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 	}
 
 	if (hdlc_flag) {
-		if (HDLC_OUT_BUF_SIZE < len) {
+		if (DIAG_MAX_HDLC_BUF_SIZE < len) {
 			pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
 			       len);
 			return -EBADMSG;
@@ -919,7 +919,7 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 	 * Add 3 bytes for CRC bytes (2 bytes) and delimiter (1 byte)
 	 */
 	max_len = (2 * len) + 3;
-	if (HDLC_OUT_BUF_SIZE < max_len) {
+	if (DIAG_MAX_HDLC_BUF_SIZE < max_len) {
 		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
 		       max_len);
 		return -EBADMSG;
