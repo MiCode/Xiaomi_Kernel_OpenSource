@@ -559,6 +559,10 @@ static void a4xx_enable_hwcg(struct kgsl_device *device)
 	else
 		kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL, 0xAAAAAAAA);
 	kgsl_regwrite(device, A4XX_RBBM_CLOCK_CTL2, 0);
+
+	/* Disable dynamic gmem clock gating for A405 */
+	if (adreno_is_a405(adreno_dev))
+		kgsl_regwrite(device, A4XX_RBBM_GPR0_CTL, 0x000000C0);
 }
 
 /**
