@@ -761,6 +761,8 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *base;
 
+	arm_smmu_enable_clocks(smmu);
+
 	if (stage1) {
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		writel_relaxed(ARM_SMMU_CB_ASID(cfg),
@@ -772,6 +774,7 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	}
 
 	__arm_smmu_tlb_sync(smmu);
+	arm_smmu_disable_clocks(smmu);
 }
 
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
@@ -782,6 +785,8 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *reg;
+
+	arm_smmu_enable_clocks(smmu);
 
 	if (stage1) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
@@ -809,6 +814,8 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 		reg = ARM_SMMU_GR0(smmu) + ARM_SMMU_GR0_TLBIVMID;
 		writel_relaxed(ARM_SMMU_CB_VMID(cfg), reg);
 	}
+
+	arm_smmu_disable_clocks(smmu);
 }
 
 static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
