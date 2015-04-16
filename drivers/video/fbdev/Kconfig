@@ -2332,9 +2332,6 @@ config FB_PRE_INIT_FB
 config FB_MSM
 	tristate "MSM Framebuffer support"
 	depends on FB && ARCH_QCOM
-	select FB_BACKLIGHT if FB_MSM_BACKLIGHT
-	select NEW_LEDS
-	select LEDS_CLASS
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
