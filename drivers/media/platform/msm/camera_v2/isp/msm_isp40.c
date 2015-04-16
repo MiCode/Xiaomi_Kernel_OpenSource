@@ -92,7 +92,7 @@ static uint8_t stats_pingpong_offset_map[] = {
 #define VFE40_BUS_BDG_QOS_CFG_6     0x000002DC
 #define VFE40_BUS_BDG_QOS_CFG_7     0x000002E0
 
-#define VFE40_CLK_IDX 1
+#define VFE40_CLK_IDX 2
 static struct msm_cam_clk_info msm_vfe40_clk_info[VFE_CLK_INFO_MAX];
 
 static int32_t msm_vfe40_init_qos_parms(struct vfe_device *vfe_dev,
