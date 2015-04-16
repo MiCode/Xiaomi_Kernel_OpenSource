@@ -32,9 +32,6 @@
 #include <sound/tlv.h>
 #include "wsa881x.h"
 
-#define WSA881X_ADDR_BITS	16
-#define WSA881X_DATA_BITS	8
-
 enum {
 	DISABLE = 0,
 	ENABLE,
@@ -460,13 +457,7 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 	dev->dev_num = devnum;
-	codec->control_data = wsa881x->regmap;
-	ret = snd_soc_codec_set_cache_io(codec, WSA881X_ADDR_BITS,
-					WSA881X_DATA_BITS, SND_SOC_REGMAP);
-	if (ret != 0) {
-		dev_err(codec->dev, "%s: failed to set cache_io %d\n",
-			__func__, ret);
-	}
+
 	return ret;
 }
 
