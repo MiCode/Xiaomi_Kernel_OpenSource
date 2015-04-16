@@ -3942,6 +3942,9 @@ static int mxt_suspend(struct device *dev)
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
 
+	if (!data->initialized)
+		return -EINVAL;
+
 	mutex_lock(&input_dev->mutex);
 
 	if (data->suspended)
@@ -3967,6 +3970,9 @@ static int mxt_resume(struct device *dev)
 	struct mxt_data *data = i2c_get_clientdata(client);
 	struct input_dev *input_dev = data->input_dev;
 	int ret;
+
+	if (!data->initialized)
+		return -EINVAL;
 
 	mutex_lock(&input_dev->mutex);
 
