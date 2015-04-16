@@ -163,6 +163,33 @@ static bool is_usb_host_mode(struct extcon_dev *evdev)
 	return !!evdev->state;
 }
 
+static void check_usb_otg_bootup(struct dc_pwrsrc_info *info)
+{
+	int ret;
+
+	mutex_lock(&info->lock);
+
+	if (info->cable_obj.edev)
+		info->usb_host = is_usb_host_mode(info->cable_obj.edev);
+
+	if (info->usb_host) {
+		/* Drive the charger Hi-Z mode */
+		ret = bq24192_vbus_enable();
+		if (ret)
+			dev_warn(&info->pdev->dev,
+				"Err in VBUS enable %d", ret);
+
+		/* Set USB MUX to SoC Mode */
+		ret = bq24192_set_usb_port(info->usb_host);
+		if (ret)
+			dev_warn(&info->pdev->dev,
+				"Err in switch USB enable %d", ret);
+	}
+
+	mutex_unlock(&info->lock);
+
+	return;
+}
 static void extcon_event_worker(struct work_struct *work)
 {
 	struct dc_pwrsrc_info *info =
@@ -256,7 +283,7 @@ static int dc_ti_pwrsrc_probe(struct platform_device *pdev)
 	/* Unmask VBUS interrupt */
 	intel_soc_pmic_clearb(DC_PS_IRQ_MASK_REG, IRQ_MASK_VBUS);
 	/* Handle Host OTG device connections */
-	extcon_event_worker(&info->dc_pwrsrc_wrk.work);
+	check_usb_otg_bootup(info);
 	return 0;
 
 intr_reg_failed:

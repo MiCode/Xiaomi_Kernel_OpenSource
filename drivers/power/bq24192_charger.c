@@ -1020,6 +1020,9 @@ i2c_write_fail:
 
 int bq24192_vbus_enable(void)
 {
+	if (!bq24192_client)
+		return -EAGAIN;
+
 	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
 	return bq24192_turn_otg_vbus(chip, true);
 }
@@ -1027,6 +1030,9 @@ EXPORT_SYMBOL(bq24192_vbus_enable);
 
 int bq24192_vbus_disable(void)
 {
+	if (!bq24192_client)
+		return -EAGAIN;
+
 	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
 	return bq24192_turn_otg_vbus(chip, false);
 }
@@ -1034,6 +1040,9 @@ EXPORT_SYMBOL(bq24192_vbus_disable);
 
 int bq24192_set_usb_port(int port_mode)
 {
+	if (!bq24192_client)
+		return -EAGAIN;
+
 	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
 	if ((chip->chip_type == BQ24297) &&
 			chip->switch_io)
