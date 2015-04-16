@@ -1545,7 +1545,7 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	if (!params) {
 		dev_err(codec->dev,
 			"%s: No params supplied for codec %s\n",
-			__func__, codec->name);
+			__func__, codec->component.name);
 		return NULL;
 	}
 
@@ -1553,7 +1553,7 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	    !params->cdc_cb) {
 		dev_err(codec->dev,
 			"%s: Invalid params for codec %s\n",
-			__func__, codec->name);
+			__func__, codec->component.name);
 		return NULL;
 	}
 

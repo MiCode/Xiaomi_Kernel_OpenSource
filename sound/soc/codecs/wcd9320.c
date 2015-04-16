@@ -5417,7 +5417,8 @@ static int taiko_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 
 	pr_debug("%s: event called! codec name %s num_dai %d\n"
 		"stream name %s event %d\n",
-		__func__, w->codec->name, w->codec->num_dai, w->sname, event);
+		__func__, w->codec->component.name,
+		w->codec->num_dai, w->sname, event);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (taiko_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
@@ -5474,7 +5475,8 @@ static int taiko_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 	core = dev_get_drvdata(codec->dev->parent);
 
 	pr_debug("%s: event called! codec name %s num_dai %d stream name %s\n",
-		__func__, w->codec->name, w->codec->num_dai, w->sname);
+		__func__, w->codec->component.name,
+		w->codec->num_dai, w->sname);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (taiko_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
@@ -5546,7 +5548,8 @@ static int taiko_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	core = dev_get_drvdata(codec->dev->parent);
 
 	pr_debug("%s: event called! codec name %s num_dai %d stream name %s\n",
-		__func__, w->codec->name, w->codec->num_dai, w->sname);
+		__func__, w->codec->component.name,
+		w->codec->num_dai, w->sname);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (taiko_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
