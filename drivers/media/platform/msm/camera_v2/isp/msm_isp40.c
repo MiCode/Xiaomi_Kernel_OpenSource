@@ -1034,8 +1034,8 @@ static void msm_vfe40_cfg_camif(struct vfe_device *vfe_dev,
 		msm_camera_io_w(val, vfe_dev->vfe_base + 0x2F8);
 		subsample_cfg->pixel_skip &= 0x0000FFFF;
 		subsample_cfg->line_skip  &= 0x0000FFFF;
-		msm_camera_io_w((subsample_cfg->pixel_skip << 16) |
-			subsample_cfg->line_skip, vfe_dev->vfe_base + 0x30C);
+		msm_camera_io_w((subsample_cfg->line_skip << 16) |
+			subsample_cfg->pixel_skip, vfe_dev->vfe_base + 0x30C);
 		break;
 	case TESTGEN:
 		val = 0x01;
