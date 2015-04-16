@@ -190,18 +190,11 @@ static int bluetooth_power(int on)
 	BT_PWR_DBG("on: %d", on);
 
 	if (on) {
-		if (bt_power_pdata->bt_vdd_core) {
-			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_core);
-			if (rc < 0) {
-				BT_PWR_ERR("bt_power vddcore config failed");
-				goto out;
-			}
-		}
 		if (bt_power_pdata->bt_vdd_io) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_io);
 			if (rc < 0) {
 				BT_PWR_ERR("bt_power vddio config failed");
-				goto vdd_io_fail;
+				goto out;
 			}
 		}
 		if (bt_power_pdata->bt_vdd_xtal) {
@@ -211,6 +204,14 @@ static int bluetooth_power(int on)
 				goto vdd_xtal_fail;
 			}
 		}
+		if (bt_power_pdata->bt_vdd_core) {
+			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_core);
+			if (rc < 0) {
+				BT_PWR_ERR("bt_power vddcore config failed");
+				goto vdd_core_fail;
+			}
+		}
+
 		if (bt_power_pdata->bt_vdd_pa) {
 			rc = bt_configure_vreg(bt_power_pdata->bt_vdd_pa);
 			if (rc < 0) {
@@ -250,11 +251,11 @@ chip_pwd_fail:
 vdd_ldo_fail:
 		bt_vreg_disable(bt_power_pdata->bt_vdd_pa);
 vdd_pa_fail:
+		bt_vreg_disable(bt_power_pdata->bt_vdd_core);
+vdd_core_fail:
 		bt_vreg_disable(bt_power_pdata->bt_vdd_xtal);
 vdd_xtal_fail:
 		bt_vreg_disable(bt_power_pdata->bt_vdd_io);
-vdd_io_fail:
-		bt_vreg_disable(bt_power_pdata->bt_vdd_core);
 	}
 out:
 	return rc;
