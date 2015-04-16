@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,21 +17,21 @@
 #include <linux/fs.h>
 #include <linux/init.h>
 
-BLOCKING_NOTIFIER_HEAD(show_mem_notifier);
+ATOMIC_NOTIFIER_HEAD(show_mem_notifier);
 
 int show_mem_notifier_register(struct notifier_block *nb)
 {
-	return blocking_notifier_chain_register(&show_mem_notifier, nb);
+	return atomic_notifier_chain_register(&show_mem_notifier, nb);
 }
 
 int show_mem_notifier_unregister(struct notifier_block *nb)
 {
-	return blocking_notifier_chain_unregister(&show_mem_notifier, nb);
+	return  atomic_notifier_chain_unregister(&show_mem_notifier, nb);
 }
 
 void show_mem_call_notifiers(void)
 {
-	blocking_notifier_call_chain(&show_mem_notifier, 0, NULL);
+	atomic_notifier_call_chain(&show_mem_notifier, 0, NULL);
 }
 
 static int show_mem_notifier_get(void *dat, u64 *val)
