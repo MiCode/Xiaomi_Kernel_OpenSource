@@ -5620,18 +5620,15 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	struct wcd9xxx *control;
 	struct tasha_priv *tasha;
 	struct wcd9xxx_pdata *pdata;
-	int addr_bits = 16, data_bits = 8;
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 	int i, ret;
 	void *ptr = NULL;
 
 	control = dev_get_drvdata(codec->dev->parent);
-	codec->control_data = control->regmap;
 
 	dev_info(codec->dev, "%s()\n", __func__);
 	tasha = snd_soc_codec_get_drvdata(codec);
-	snd_soc_codec_set_cache_io(codec, addr_bits, data_bits,
-					     SND_SOC_REGMAP);
+
 	/* Resource Manager post Init */
 	ret = wcd_resmgr_post_init(tasha->resmgr, codec);
 	if (ret) {
