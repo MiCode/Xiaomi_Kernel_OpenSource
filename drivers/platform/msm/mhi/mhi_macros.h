@@ -33,7 +33,7 @@
 
 #define MAX_NR_MSI 4
 
-#define EVENT_RINGS_ALLOCATED 3
+#define NR_EV_RINGS 3
 #define PRIMARY_EVENT_RING 0
 #define IPA_OUT_EV_RING 1
 #define IPA_IN_EV_RING 2

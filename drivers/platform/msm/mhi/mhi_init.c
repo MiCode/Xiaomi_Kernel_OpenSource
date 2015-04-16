@@ -26,9 +26,6 @@ static enum MHI_STATUS mhi_create_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 	if (NULL == mhi_dev_ctxt)
 		return MHI_STATUS_ALLOC_ERROR;
 	mhi_dev_ctxt->mhi_state = MHI_STATE_RESET;
-	mhi_dev_ctxt->nr_of_cc = MHI_MAX_CHANNELS;
-	mhi_dev_ctxt->nr_of_ec = EVENT_RINGS_ALLOCATED;
-	mhi_dev_ctxt->nr_of_cmdc = NR_OF_CMD_RINGS;
 
 	mhi_dev_ctxt->alloced_ev_rings[PRIMARY_EVENT_RING] = 0;
 	mhi_dev_ctxt->alloced_ev_rings[IPA_OUT_EV_RING] = IPA_OUT_EV_RING;
@@ -44,7 +41,7 @@ static enum MHI_STATUS mhi_create_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt)
 			mhi_dev_ctxt->ev_ring_props[IPA_IN_EV_RING],
 			MHI_EVENT_POLLING_DISABLED);
 
-	for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i) {
+	for (i = 0; i < NR_EV_RINGS; ++i) {
 		MHI_SET_EVENT_RING_INFO(EVENT_RING_MSI_VEC,
 				mhi_dev_ctxt->ev_ring_props[i],
 				i);
@@ -63,9 +60,9 @@ enum MHI_STATUS mhi_clean_init_stage(struct mhi_device_ctxt *mhi_dev_ctxt,
 		mhi_freememregion(mhi_dev_ctxt->mhi_ctrl_seg_info);
 	case MHI_INIT_ERROR_STAGE_THREAD_QUEUES:
 	case MHI_INIT_ERROR_STAGE_THREADS:
-		kfree(mhi_dev_ctxt->event_handle);
-		kfree(mhi_dev_ctxt->state_change_event_handle);
-		kfree(mhi_dev_ctxt->M0_event);
+		kfree(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
+		kfree(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
+		kfree(mhi_dev_ctxt->mhi_ev_wq.m0_event);
 	case MHI_INIT_ERROR_STAGE_EVENTS:
 		kfree(mhi_dev_ctxt->mhi_ctrl_seg_info);
 	case MHI_INIT_ERROR_STAGE_MEM_ZONES:
@@ -87,7 +84,7 @@ static enum MHI_STATUS mhi_init_sync(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 i = 0;
 
 	mhi_dev_ctxt->mhi_ev_spinlock_list = kmalloc(sizeof(spinlock_t) *
-							MHI_MAX_CHANNELS,
+							NR_EV_RINGS,
 							GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->mhi_ev_spinlock_list)
 		goto ev_mutex_free;
@@ -104,18 +101,18 @@ static enum MHI_STATUS mhi_init_sync(struct mhi_device_ctxt *mhi_dev_ctxt)
 						MHI_MAX_CHANNELS, GFP_KERNEL);
 	if (NULL == mhi_dev_ctxt->db_write_lock)
 		goto db_write_lock_free;
-	for (i = 0; i < mhi_dev_ctxt->nr_of_cc; ++i)
-		mutex_init(&mhi_dev_ctxt->mhi_chan_mutex[i]);
 	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
+		mutex_init(&mhi_dev_ctxt->mhi_chan_mutex[i]);
+	for (i = 0; i < NR_EV_RINGS; ++i)
 		spin_lock_init(&mhi_dev_ctxt->mhi_ev_spinlock_list[i]);
-	for (i = 0; i < mhi_dev_ctxt->nr_of_cmdc; ++i)
+	for (i = 0; i < NR_OF_CMD_RINGS; ++i)
 		mutex_init(&mhi_dev_ctxt->mhi_cmd_mutex_list[i]);
 	for (i = 0; i < MHI_MAX_CHANNELS; ++i)
 		spin_lock_init(&mhi_dev_ctxt->db_write_lock[i]);
 	rwlock_init(&mhi_dev_ctxt->xfer_lock);
 	mutex_init(&mhi_dev_ctxt->mhi_link_state);
 	mutex_init(&mhi_dev_ctxt->pm_lock);
-	atomic_set(&mhi_dev_ctxt->m2_transition, 0);
+	atomic_set(&mhi_dev_ctxt->flags.m2_transition, 0);
 	return MHI_STATUS_SUCCESS;
 
 db_write_lock_free:
@@ -142,65 +139,59 @@ static enum MHI_STATUS mhi_init_ctrl_zone(struct mhi_pcie_dev_info *dev_info,
 static enum MHI_STATUS mhi_init_events(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 
-	mhi_dev_ctxt->event_handle = kmalloc(sizeof(wait_queue_head_t),
+	mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq = kmalloc(
+						sizeof(wait_queue_head_t),
 						GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->event_handle) {
+	if (NULL == mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
 		return MHI_STATUS_ERROR;
 	}
-	mhi_dev_ctxt->state_change_event_handle =
+	mhi_dev_ctxt->mhi_ev_wq.state_change_event =
 				kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->state_change_event_handle) {
+	if (NULL == mhi_dev_ctxt->mhi_ev_wq.state_change_event) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
 		goto error_event_handle_alloc;
 	}
 	/* Initialize the event which signals M0 */
-	mhi_dev_ctxt->M0_event = kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->M0_event) {
+	mhi_dev_ctxt->mhi_ev_wq.m0_event = kmalloc(sizeof(wait_queue_head_t),
+								GFP_KERNEL);
+	if (NULL == mhi_dev_ctxt->mhi_ev_wq.m0_event) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
 		goto error_state_change_event_handle;
 	}
 	/* Initialize the event which signals M0 */
-	mhi_dev_ctxt->M3_event = kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->M3_event) {
+	mhi_dev_ctxt->mhi_ev_wq.m3_event = kmalloc(sizeof(wait_queue_head_t),
+								GFP_KERNEL);
+	if (NULL == mhi_dev_ctxt->mhi_ev_wq.m3_event) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
-		goto error_M0_event;
+		goto error_m0_event;
 	}
 	/* Initialize the event which signals M0 */
-	mhi_dev_ctxt->bhi_event = kmalloc(sizeof(wait_queue_head_t),
+	mhi_dev_ctxt->mhi_ev_wq.bhi_event = kmalloc(sizeof(wait_queue_head_t),
 								GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->bhi_event) {
+	if (NULL == mhi_dev_ctxt->mhi_ev_wq.bhi_event) {
 		mhi_log(MHI_MSG_ERROR, "Failed to init event");
 		goto error_bhi_event;
 	}
-	mhi_dev_ctxt->chan_start_complete =
-				kmalloc(sizeof(wait_queue_head_t), GFP_KERNEL);
-	if (NULL == mhi_dev_ctxt->chan_start_complete) {
-		mhi_log(MHI_MSG_ERROR, "Failed to init event");
-		goto error_chan_complete;
-	}
 	/* Initialize the event which starts the event parsing thread */
-	init_waitqueue_head(mhi_dev_ctxt->event_handle);
+	init_waitqueue_head(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
 	/* Initialize the event which starts the state change thread */
-	init_waitqueue_head(mhi_dev_ctxt->state_change_event_handle);
+	init_waitqueue_head(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
 	/* Initialize the event which triggers clients waiting to send */
-	init_waitqueue_head(mhi_dev_ctxt->M0_event);
+	init_waitqueue_head(mhi_dev_ctxt->mhi_ev_wq.m0_event);
 	/* Initialize the event which triggers D3hot */
-	init_waitqueue_head(mhi_dev_ctxt->M3_event);
-	init_waitqueue_head(mhi_dev_ctxt->bhi_event);
-	init_waitqueue_head(mhi_dev_ctxt->chan_start_complete);
+	init_waitqueue_head(mhi_dev_ctxt->mhi_ev_wq.m3_event);
+	init_waitqueue_head(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
 
 	return MHI_STATUS_SUCCESS;
-error_chan_complete:
-	kfree(mhi_dev_ctxt->bhi_event);
 error_bhi_event:
-	kfree(mhi_dev_ctxt->M3_event);
-error_M0_event:
-	kfree(mhi_dev_ctxt->M0_event);
+	kfree(mhi_dev_ctxt->mhi_ev_wq.m3_event);
+error_m0_event:
+	kfree(mhi_dev_ctxt->mhi_ev_wq.m0_event);
 error_state_change_event_handle:
-	kfree(mhi_dev_ctxt->state_change_event_handle);
+	kfree(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
 error_event_handle_alloc:
-	kfree(mhi_dev_ctxt->event_handle);
+	kfree(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
 	return MHI_STATUS_ERROR;
 }
 
@@ -261,7 +252,7 @@ static enum MHI_STATUS mhi_init_device_ctrl(struct mhi_device_ctxt
 	}
 	ctrl_seg_size += align_len - (ctrl_seg_size % align_len);
 
-	for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i)
+	for (i = 0; i < NR_EV_RINGS; ++i)
 		ctrl_seg_size += sizeof(union mhi_event_pkt)*
 					(EV_EL_PER_RING + ELEMENT_GAP);
 
@@ -297,7 +288,7 @@ static enum MHI_STATUS mhi_init_device_ctrl(struct mhi_device_ctxt
 	}
 
 	ctrl_seg_offset += align_len - (ctrl_seg_offset % align_len);
-	for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i) {
+	for (i = 0; i < NR_EV_RINGS; ++i) {
 		mhi_dev_ctxt->mhi_ctrl_seg->ev_trb_list[i] =
 			(union mhi_event_pkt *)ctrl_seg_offset;
 		ctrl_seg_offset += sizeof(union mhi_event_pkt) *
@@ -391,7 +382,7 @@ static enum MHI_STATUS mhi_init_contexts(struct mhi_device_ctxt *mhi_dev_ctxt)
 	u32 intmod_t = 0;
 	uintptr_t ev_ring_addr;
 
-	for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i) {
+	for (i = 0; i < NR_EV_RINGS; ++i) {
 		MHI_GET_EVENT_RING_INFO(EVENT_RING_MSI_VEC,
 					mhi_dev_ctxt->ev_ring_props[i],
 					msi_vec);
@@ -448,7 +439,7 @@ static enum MHI_STATUS mhi_init_contexts(struct mhi_device_ctxt *mhi_dev_ctxt)
 				(uintptr_t)trb_list,
 				MAX_NR_TRBS_PER_HARD_CHAN,
 				(i % 2) ? MHI_IN : MHI_OUT,
-				EVENT_RINGS_ALLOCATED - (MHI_MAX_CHANNELS - i),
+				NR_EV_RINGS - (MHI_MAX_CHANNELS - i),
 				&mhi_dev_ctxt->mhi_local_chan_ctxt[i]);
 		}
 	}
@@ -591,8 +582,9 @@ enum MHI_STATUS mhi_init_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 	spin_lock_irqsave(lock, flags);
 
-	mhi_log(MHI_MSG_INFO, "mmio_addr = 0x%p, mmio_len = 0x%llx\n",
-			mhi_dev_ctxt->mmio_addr, mhi_dev_ctxt->mmio_len);
+	mhi_log(MHI_MSG_INFO, "mmio_info.mmio_addr = 0x%p, mmio_len = 0x%llx\n",
+			mhi_dev_ctxt->mmio_info.mmio_addr,
+			mhi_dev_ctxt->mmio_info.mmio_len);
 	mhi_log(MHI_MSG_INFO,
 			"Initializing event ring %d\n", event_ring_index);
 

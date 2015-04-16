@@ -89,7 +89,7 @@ int mhi_pci_resume(struct pci_dev *pcie_dev)
 	r = mhi_initiate_m0(mhi_dev_ctxt);
 	if (r)
 		goto exit;
-	r = wait_event_interruptible_timeout(*mhi_dev_ctxt->M0_event,
+	r = wait_event_interruptible_timeout(*mhi_dev_ctxt->mhi_ev_wq.m0_event,
 			mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
 			mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
 			msecs_to_jiffies(MHI_MAX_SUSPEND_TIMEOUT));
