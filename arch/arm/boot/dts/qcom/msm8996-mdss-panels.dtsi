@@ -42,6 +42,8 @@
 			22 1e 06 08 04 03 04 a0
 			22 1e 06 08 04 03 04 a0
 			22 2c 05 08 04 03 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
 };
 
 &dsi_dual_jdi_cmd_1 {
@@ -50,6 +52,8 @@
 			22 1e 06 08 04 03 04 a0
 			22 1e 06 08 04 03 04 a0
 			22 2c 05 08 04 03 04 a0];
+	qcom,esd-check-enabled;
+	qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
 };
 
 &dsi_dual_jdi_video_0 {
