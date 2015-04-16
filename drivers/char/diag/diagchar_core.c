@@ -219,6 +219,11 @@ static void diag_drain_apps_data(struct diag_apps_data_t *data)
 	data->len = 0;
 }
 
+void diag_update_user_client_work_fn(struct work_struct *work)
+{
+	diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
+}
+
 void diag_drain_work_fn(struct work_struct *work)
 {
 	timer_in_progress = 0;
@@ -1317,6 +1322,22 @@ static int diag_ioctl_dci_support(unsigned long ioarg)
 	return result;
 }
 
+static int diag_ioctl_hdlc_toggle(unsigned long ioarg)
+{
+	uint8_t hdlc_support;
+
+	if (copy_from_user(&hdlc_support, (void __user *)ioarg,
+				sizeof(uint8_t)))
+		return -EFAULT;
+
+	mutex_lock(&driver->hdlc_disable_mutex);
+	driver->hdlc_disabled = hdlc_support;
+	mutex_unlock(&driver->hdlc_disable_mutex);
+	diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
+
+	return 0;
+}
+
 static int diag_ioctl_register_callback(unsigned long ioarg)
 {
 	struct diag_callback_reg_t reg;
@@ -1520,6 +1541,9 @@ long diagchar_compat_ioctl(struct file *filp,
 	case DIAG_IOCTL_REGISTER_CALLBACK:
 		result = diag_ioctl_register_callback(ioarg);
 		break;
+	case DIAG_IOCTL_HDLC_TOGGLE:
+		result = diag_ioctl_hdlc_toggle(ioarg);
+		break;
 	}
 	return result;
 }
@@ -1614,6 +1638,9 @@ long diagchar_ioctl(struct file *filp,
 		break;
 	case DIAG_IOCTL_REGISTER_CALLBACK:
 		result = diag_ioctl_register_callback(ioarg);
+		break;
+	case DIAG_IOCTL_HDLC_TOGGLE:
+		result = diag_ioctl_hdlc_toggle(ioarg);
 		break;
 	}
 	return result;
@@ -2198,6 +2225,15 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		/* In case, the thread wakes up and the logging mode is
 		not memory device any more, the condition needs to be cleared */
 		driver->data_ready[index] ^= USER_SPACE_DATA_TYPE;
+	}
+
+	if (driver->data_ready[index] & HDLC_SUPPORT_TYPE) {
+		data_type = driver->data_ready[index] & HDLC_SUPPORT_TYPE;
+		driver->data_ready[index] ^= HDLC_SUPPORT_TYPE;
+		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(int));
+		COPY_USER_SPACE_OR_EXIT(buf+4, driver->hdlc_disabled,
+					sizeof(uint8_t));
+		goto exit;
 	}
 
 	if (driver->data_ready[index] & DEINIT_TYPE) {
@@ -2832,6 +2868,8 @@ static int __init diagchar_init(void)
 	init_waitqueue_head(&driver->wait_q);
 	init_waitqueue_head(&driver->smd_wait_q);
 	INIT_WORK(&(driver->diag_drain_work), diag_drain_work_fn);
+	INIT_WORK(&(driver->update_user_clients),
+			diag_update_user_client_work_fn);
 	diag_ws_init();
 	diag_stats_init();
 	diag_debug_init();

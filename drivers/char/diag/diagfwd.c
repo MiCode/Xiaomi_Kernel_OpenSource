@@ -1451,6 +1451,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		pr_debug("diag: In %s, disabling HDLC encoding\n",
 		       __func__);
 		driver->hdlc_disabled = 1;
+		diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
 		mutex_unlock(&driver->hdlc_disable_mutex);
 		return 0;
 	}
@@ -1696,11 +1697,15 @@ static void hdlc_reset_timer_start(void)
 
 static void hdlc_reset_timer_func(unsigned long data)
 {
-	/* ALRK To Do */
-	pr_err("diag: In %s, re-enabling HDLC encoding\n",
+
+	pr_debug("diag: In %s, re-enabling HDLC encoding\n",
 		       __func__);
-	if (hdlc_reset)
+	if (hdlc_reset) {
 		driver->hdlc_disabled = 0;
+		queue_work(driver->diag_wq,
+			&(driver->update_user_clients));
+	}
+	hdlc_timer_in_progress = 0;
 }
 
 static void diag_hdlc_start_recovery(unsigned char *buf, int len)
@@ -1727,7 +1732,10 @@ static void diag_hdlc_start_recovery(unsigned char *buf, int len)
 			bad_byte_counter = 0;
 			pr_err("diag: In %s, re-enabling HDLC encoding\n",
 					__func__);
+			mutex_lock(&driver->hdlc_disable_mutex);
 			driver->hdlc_disabled = 0;
+			mutex_unlock(&driver->hdlc_disable_mutex);
+			diag_update_userspace_clients(HDLC_SUPPORT_TYPE);
 			return;
 		}
 	}

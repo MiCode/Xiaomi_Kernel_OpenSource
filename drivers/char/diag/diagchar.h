@@ -518,6 +518,7 @@ struct diagchar_dev {
 #endif
 	struct workqueue_struct *diag_wq;
 	struct work_struct diag_drain_work;
+	struct work_struct update_user_clients;
 	struct workqueue_struct *diag_cntl_wq;
 	uint8_t log_on_demand_support;
 	uint8_t *apps_req_buf;
