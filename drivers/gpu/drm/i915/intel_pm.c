@@ -1633,11 +1633,14 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 		fifo_size = (32 * 1024 * 50) / 100;
 		pa = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.pa);
+		pa = 0x0f;
 		fifo_size = (32 * 1024 * 25) / 100;
 		sa = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.sa);
+		sa = 0x04;
 		sb = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.sb);
+		sb = 0x04;
 
 	} else if (hweight32(plane_stat) == 2) {
 		/* 2 planes, enable fifo allocation 50:50 */
