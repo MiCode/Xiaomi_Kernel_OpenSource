@@ -28,7 +28,8 @@ irqreturn_t mhi_msi_handlr(int irq_number, void *dev_id)
 		mhi_log(MHI_MSG_ERROR, "Failed to get a proper context\n");
 		return IRQ_HANDLED;
 	}
-	mhi_dev_ctxt->msi_counter[IRQ_TO_MSI(mhi_dev_ctxt, irq_number)]++;
+	mhi_dev_ctxt->counters.msi_counter[
+			IRQ_TO_MSI(mhi_dev_ctxt, irq_number)]++;
 	mhi_log(MHI_MSG_VERBOSE,
 		"Got MSI 0x%x\n", IRQ_TO_MSI(mhi_dev_ctxt, irq_number));
 	trace_mhi_msi(IRQ_TO_MSI(mhi_dev_ctxt, irq_number));
@@ -36,7 +37,7 @@ irqreturn_t mhi_msi_handlr(int irq_number, void *dev_id)
 	case 0:
 	case 1:
 		atomic_inc(&mhi_dev_ctxt->flags.events_pending);
-		wake_up_interruptible(mhi_dev_ctxt->event_handle);
+		wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
 		break;
 	case 2:
 		client_index = MHI_CLIENT_IP_HW_0_IN;
@@ -182,13 +183,14 @@ int parse_event_thread(void *ctxt)
 	/* Go through all event rings */
 	for (;;) {
 		ret_val =
-			wait_event_interruptible(*mhi_dev_ctxt->event_handle,
+			wait_event_interruptible(
+				*mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq,
 				((atomic_read(
 				&mhi_dev_ctxt->flags.events_pending) > 0) &&
 					!mhi_dev_ctxt->flags.stop_threads) ||
 				mhi_dev_ctxt->flags.kill_threads ||
 				(mhi_dev_ctxt->flags.stop_threads &&
-				!mhi_dev_ctxt->ev_thread_stopped));
+				!mhi_dev_ctxt->flags.ev_thread_stopped));
 
 		switch (ret_val) {
 		case -ERESTARTSYS:
@@ -201,15 +203,15 @@ int parse_event_thread(void *ctxt)
 				return 0;
 			}
 			if (mhi_dev_ctxt->flags.stop_threads) {
-				mhi_dev_ctxt->ev_thread_stopped = 1;
+				mhi_dev_ctxt->flags.ev_thread_stopped = 1;
 				continue;
 			}
 			break;
 		}
-		mhi_dev_ctxt->ev_thread_stopped = 0;
+		mhi_dev_ctxt->flags.ev_thread_stopped = 0;
 		atomic_dec(&mhi_dev_ctxt->flags.events_pending);
 
-		for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i) {
+		for (i = 0; i < NR_EV_RINGS; ++i) {
 			MHI_GET_EVENT_RING_INFO(EVENT_RING_POLLING,
 					mhi_dev_ctxt->ev_ring_props[i],
 					ev_poll_en)

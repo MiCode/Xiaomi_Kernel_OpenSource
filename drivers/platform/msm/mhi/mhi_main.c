@@ -46,11 +46,11 @@ static void mhi_update_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 			    u64 val)
 {
 	wmb();
-	if (mhi_dev_ctxt->channel_db_addr == io_addr) {
+	if (mhi_dev_ctxt->mmio_info.chan_db_addr == io_addr) {
 		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan].
 				mhi_trb_write_ptr = val;
-	} else if (mhi_dev_ctxt->event_db_addr == io_addr) {
-		if (chan < EVENT_RINGS_ALLOCATED)
+	} else if (mhi_dev_ctxt->mmio_info.event_db_addr == io_addr) {
+		if (chan < NR_EV_RINGS)
 			mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[chan].
 				mhi_event_write_ptr = val;
 		else
@@ -395,7 +395,7 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 		&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index];
 	db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)event_ctxt->wp);
-	mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->event_db_addr,
+	mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->mmio_info.event_db_addr,
 					event_ring_index, db_value);
 }
 
@@ -471,28 +471,22 @@ enum MHI_STATUS mhi_add_elements_to_event_rings(
 void mhi_update_chan_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 					  u32 chan)
 {
-	u64 db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-		(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
+	struct mhi_ring *chan_ctxt;
+	u64 db_value;
+
+	chan_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
+	db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
+					(uintptr_t)chan_ctxt->wp);
 	mhi_dev_ctxt->mhi_chan_db_order[chan]++;
-	if (IS_HARDWARE_CHANNEL(chan) && (chan % 2)) {
-		if (unlikely(mhi_xfer_db_interval != 0)) {
-			if ((mhi_dev_ctxt->
-				mhi_chan_cntr[chan].pkts_xferd %
-					mhi_xfer_db_interval) == 0)
-				mhi_process_db(mhi_dev_ctxt,
-					mhi_dev_ctxt->channel_db_addr,
-						chan, db_value);
-		} else {
-			if ((mhi_dev_ctxt->
-				mhi_chan_cntr[chan].pkts_xferd %
+	if (IS_HARDWARE_CHANNEL(chan) && chan_ctxt->dir == MHI_IN) {
+		if ((mhi_dev_ctxt->counters.chan_pkts_xferd[chan] %
 					MHI_XFER_DB_INTERVAL) == 0)
-				mhi_process_db(mhi_dev_ctxt,
-					mhi_dev_ctxt->channel_db_addr,
-						chan, db_value);
-		}
+			mhi_process_db(mhi_dev_ctxt,
+				mhi_dev_ctxt->mmio_info.chan_db_addr,
+					chan, db_value);
 	} else {
 		mhi_process_db(mhi_dev_ctxt,
-				mhi_dev_ctxt->channel_db_addr,
+				mhi_dev_ctxt->mmio_info.chan_db_addr,
 				chan, db_value);
 	}
 }
@@ -502,14 +496,14 @@ enum MHI_STATUS mhi_check_m2_transition(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_log(MHI_MSG_VERBOSE, "state = %d\n", mhi_dev_ctxt->mhi_state);
 	if (mhi_dev_ctxt->mhi_state == MHI_STATE_M2) {
 		mhi_log(MHI_MSG_INFO, "M2 Transition flag value = %d\n",
-			(atomic_read(&mhi_dev_ctxt->m2_transition)));
-		if ((atomic_read(&mhi_dev_ctxt->m2_transition)) == 0) {
+			(atomic_read(&mhi_dev_ctxt->flags.m2_transition)));
+		if ((atomic_read(&mhi_dev_ctxt->flags.m2_transition)) == 0) {
 			if (mhi_dev_ctxt->flags.link_up) {
 				mhi_assert_device_wake(mhi_dev_ctxt);
 				ret_val = MHI_STATUS_CHAN_NOT_READY;
 			}
 		} else{
-			mhi_log(MHI_MSG_INFO, "m2_transition flag is set\n");
+			mhi_log(MHI_MSG_INFO, "M2 transition flag is set\n");
 			ret_val = MHI_STATUS_CHAN_NOT_READY;
 		}
 	} else {
@@ -531,12 +525,6 @@ static inline enum MHI_STATUS mhi_queue_tre(struct mhi_device_ctxt
 	chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[chan];
 	mhi_dev_ctxt->counters.m1_m0++;
 	mhi_log(MHI_MSG_VERBOSE, "Entered");
-	if (chan % 2 == 0) {
-		atomic_inc(&mhi_dev_ctxt->counters.outbound_acks);
-		mhi_log(MHI_MSG_VERBOSE,
-			"Queued outbound pkt. Pending Acks %d\n",
-		atomic_read(&mhi_dev_ctxt->counters.outbound_acks));
-	}
 	ret_val = mhi_check_m2_transition(mhi_dev_ctxt);
 	if (likely(((ret_val == MHI_STATUS_SUCCESS) &&
 	    (((mhi_dev_ctxt->mhi_state == MHI_STATE_M0) ||
@@ -559,8 +547,9 @@ static inline enum MHI_STATUS mhi_queue_tre(struct mhi_device_ctxt
 			   mhi_dev_ctxt->mhi_ctrl_seg_info,
 			   (uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt->wp);
 			mhi_dev_ctxt->cmd_ring_order++;
-			mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
-				       0, db_value);
+			mhi_process_db(mhi_dev_ctxt,
+				mhi_dev_ctxt->mmio_info.cmd_db_addr,
+				0, db_value);
 		} else {
 			mhi_log(MHI_MSG_VERBOSE,
 			"Wrong type of packet = %d\n", type);
@@ -912,7 +901,7 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 			MHI_TRB_GET_INFO(TX_TRB_IEOT, local_trb_loc, ieot_flag);
 			phy_buf_loc = local_trb_loc->data_tx_pkt.buffer_ptr;
 			trb_data_loc = (dma_addr_t)phy_buf_loc;
-			if (chan % 2)
+			if (local_chan_ctxt->dir == MHI_IN)
 				xfer_len = MHI_EV_READ_LEN(EV_LEN, event);
 			else
 				xfer_len = MHI_TX_TRB_GET_LEN(TX_TRB_LEN,
@@ -930,14 +919,14 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 				result->bytes_xferd = xfer_len;
 				result->user_data = client_handle->user_data;
 			}
-			if (chan % 2) {
+			if (local_chan_ctxt->dir == MHI_IN) {
 				parse_inbound(mhi_dev_ctxt, chan,
 						local_ev_trb_loc, xfer_len);
 			} else {
 				parse_outbound(mhi_dev_ctxt, chan,
 						local_ev_trb_loc, xfer_len);
 			}
-			mhi_dev_ctxt->mhi_chan_cntr[chan].pkts_xferd++;
+			mhi_dev_ctxt->counters.chan_pkts_xferd[chan]++;
 			if (local_trb_loc ==
 				(union mhi_xfer_pkt *)local_chan_ctxt->rp) {
 				mhi_log(MHI_MSG_CRITICAL,
@@ -958,9 +947,9 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 	{
 		struct mhi_ring *chan_ctxt = NULL;
 		u64 db_value = 0;
-		mhi_dev_ctxt->uldl_enabled = 1;
+		mhi_dev_ctxt->flags.uldl_enabled = 1;
 		chan = MHI_EV_READ_CHID(EV_CHID, event);
-		mhi_dev_ctxt->db_mode[chan] = 1;
+		mhi_dev_ctxt->flags.db_mode[chan] = 1;
 		chan_ctxt =
 			&mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
 		mhi_log(MHI_MSG_INFO, "DB_MODE/OOB Detected chan %d.\n", chan);
@@ -968,7 +957,7 @@ enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 			db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 						(uintptr_t)chan_ctxt->wp);
 			mhi_process_db(mhi_dev_ctxt,
-				     mhi_dev_ctxt->channel_db_addr, chan,
+				     mhi_dev_ctxt->mmio_info.chan_db_addr, chan,
 				     db_value);
 		}
 		client_handle = mhi_dev_ctxt->client_handle_list[chan];
@@ -996,13 +985,8 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 	void *removed_element = NULL;
 	void *added_element = NULL;
 
-	if (NULL == mhi_dev_ctxt || NULL == ring ||
-		ring_type > (MHI_RING_TYPE_MAX - 1) ||
-		ring_index > (MHI_MAX_CHANNELS - 1)) {
-		mhi_log(MHI_MSG_ERROR, "Bad input params\n");
-		return ret_val;
-	}
 	ret_val = ctxt_del_element(ring, &removed_element);
+
 	if (MHI_STATUS_SUCCESS != ret_val) {
 		mhi_log(MHI_MSG_ERROR, "Could not remove element from ring\n");
 		return MHI_STATUS_ERROR;
@@ -1024,17 +1008,22 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 	} else if (MHI_RING_TYPE_EVENT_RING == ring_type &&
 		   mhi_dev_ctxt->counters.m0_m3 > 0 &&
 		   IS_HARDWARE_CHANNEL(ring_index)) {
-		spinlock_t *lock = NULL;
-		unsigned long flags = 0;
+		spinlock_t *lock;
+		unsigned long flags;
+
+		if (ring_index >= NR_EV_RINGS)
+			return MHI_STATUS_ERROR;
+
 		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[ring_index];
 		spin_lock_irqsave(lock, flags);
 		db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 					(uintptr_t)ring->wp);
 		mhi_update_ctxt(mhi_dev_ctxt,
-				mhi_dev_ctxt->event_db_addr,
+				mhi_dev_ctxt->mmio_info.event_db_addr,
 				ring_index, db_value);
+
 		mhi_dev_ctxt->mhi_ev_db_order[ring_index] = 1;
-		mhi_dev_ctxt->ev_counter[ring_index]++;
+		mhi_dev_ctxt->counters.ev_counter[ring_index]++;
 		spin_unlock_irqrestore(lock, flags);
 	}
 	atomic_inc(&mhi_dev_ctxt->flags.data_pending);
@@ -1051,8 +1040,9 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 				mhi_cmd_mutex_list[PRIMARY_CMD_RING];
 			mutex_lock(cmd_mutex);
 			mhi_dev_ctxt->cmd_ring_order = 1;
-			mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
-					ring_index, db_value);
+			mhi_process_db(mhi_dev_ctxt,
+				mhi_dev_ctxt->mmio_info.cmd_db_addr,
+				ring_index, db_value);
 			mutex_unlock(cmd_mutex);
 			break;
 		}
@@ -1063,14 +1053,14 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 			lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[ring_index];
 			spin_lock_irqsave(lock, flags);
 			mhi_dev_ctxt->mhi_ev_db_order[ring_index] = 1;
-			if ((mhi_dev_ctxt->ev_counter[ring_index] %
+			if ((mhi_dev_ctxt->counters.ev_counter[ring_index] %
 						MHI_EV_DB_INTERVAL) == 0) {
 				db_value = mhi_v2p_addr(
 						mhi_dev_ctxt->mhi_ctrl_seg_info,
 						(uintptr_t)ring->wp);
 				mhi_process_db(mhi_dev_ctxt,
-						mhi_dev_ctxt->event_db_addr,
-						ring_index, db_value);
+					mhi_dev_ctxt->mmio_info.event_db_addr,
+					ring_index, db_value);
 			}
 			spin_unlock_irqrestore(lock, flags);
 			break;
@@ -1083,7 +1073,7 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 				flags);
 			mhi_dev_ctxt->mhi_chan_db_order[ring_index] = 1;
 			mhi_process_db(mhi_dev_ctxt,
-					mhi_dev_ctxt->channel_db_addr,
+					mhi_dev_ctxt->mmio_info.chan_db_addr,
 					ring_index, db_value);
 			spin_unlock_irqrestore(
 				&mhi_dev_ctxt->db_write_lock[ring_index],
@@ -1149,7 +1139,7 @@ static enum MHI_STATUS reset_chan_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 	 * they will never be acked after a channel reset.
 	 */
 	ring = &mhi_dev_ctxt->mhi_local_chan_ctxt[chan];
-	if (chan % 2 == 0)
+	if (ring->dir == MHI_OUT)
 		get_nr_enclosed_el(ring, ring->rp, ring->wp, &pending_el);
 
 	mhi_log(MHI_MSG_INFO, "Decrementing chan %d out acks by %d.\n",
@@ -1235,8 +1225,6 @@ enum MHI_STATUS parse_cmd_event(struct mhi_device_ctxt *mhi_dev_ctxt,
 								cmd_pkt))
 				mhi_log(MHI_MSG_INFO,
 					"Failed to process reset cmd\n");
-			wake_up_interruptible(
-				mhi_dev_ctxt->chan_start_complete);
 			break;
 		default:
 			mhi_log(MHI_MSG_INFO,
@@ -1324,8 +1312,8 @@ enum MHI_STATUS validate_ring_el_addr(struct mhi_ring *ring, uintptr_t addr)
 enum MHI_STATUS mhi_wait_for_mdm(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 j = 0;
-	while (readl_relaxed((void *)(mhi_dev_ctxt->mmio_addr +
-					     MHIREGLEN)) == 0xFFFFFFFF
+	while (mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr, MHIREGLEN)
+			== 0xFFFFFFFF
 			&& j <= MHI_MAX_LINK_RETRIES) {
 		mhi_log(MHI_MSG_CRITICAL,
 				"Could not access MDM retry %d\n", j);
@@ -1361,13 +1349,13 @@ int mhi_get_epid(struct mhi_client_handle *client_handle)
 
 int mhi_assert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
-	if ((mhi_dev_ctxt->channel_db_addr) &&
+	if ((mhi_dev_ctxt->mmio_info.chan_db_addr) &&
 	       (mhi_dev_ctxt->flags.link_up)) {
 			mhi_log(MHI_MSG_VERBOSE, "LPM %d\n",
 				mhi_dev_ctxt->enable_lpm);
 			atomic_set(&mhi_dev_ctxt->flags.device_wake, 1);
 			mhi_write_db(mhi_dev_ctxt,
-				     mhi_dev_ctxt->channel_db_addr,
+				     mhi_dev_ctxt->mmio_info.chan_db_addr,
 				     MHI_DEV_WAKE_DB, 1);
 			mhi_dev_ctxt->device_wake_asserted = 1;
 	} else {
@@ -1380,11 +1368,11 @@ inline int mhi_deassert_device_wake(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	if ((mhi_dev_ctxt->enable_lpm) &&
 	    (atomic_read(&mhi_dev_ctxt->flags.device_wake)) &&
-	    (mhi_dev_ctxt->channel_db_addr != NULL) &&
+	    (mhi_dev_ctxt->mmio_info.chan_db_addr != NULL) &&
 	    (mhi_dev_ctxt->flags.link_up)) {
 		mhi_log(MHI_MSG_VERBOSE, "LPM %d\n", mhi_dev_ctxt->enable_lpm);
 		atomic_set(&mhi_dev_ctxt->flags.device_wake, 0);
-		mhi_write_db(mhi_dev_ctxt, mhi_dev_ctxt->channel_db_addr,
+		mhi_write_db(mhi_dev_ctxt, mhi_dev_ctxt->mmio_info.chan_db_addr,
 				MHI_DEV_WAKE_DB, 0);
 		mhi_dev_ctxt->device_wake_asserted = 0;
 	} else {
@@ -1436,24 +1424,24 @@ void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 	mhi_update_ctxt(mhi_dev_ctxt, io_addr, chan, val);
 
 	/* Channel Doorbell and Polling Mode Disabled or Software Channel*/
-	if (io_addr == mhi_dev_ctxt->channel_db_addr) {
+	if (io_addr == mhi_dev_ctxt->mmio_info.chan_db_addr) {
 		if (!(IS_HARDWARE_CHANNEL(chan) &&
-		    mhi_dev_ctxt->uldl_enabled &&
-		    !mhi_dev_ctxt->db_mode[chan])) {
+		    mhi_dev_ctxt->flags.uldl_enabled &&
+		    !mhi_dev_ctxt->flags.db_mode[chan])) {
 			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
-			mhi_dev_ctxt->db_mode[chan] = 0;
+			mhi_dev_ctxt->flags.db_mode[chan] = 0;
 		}
 	/* Event Doorbell and Polling mode Disabled */
-	} else if (io_addr == mhi_dev_ctxt->event_db_addr) {
+	} else if (io_addr == mhi_dev_ctxt->mmio_info.event_db_addr) {
 		/* Only ring for software channel */
 		if (IS_SOFTWARE_CHANNEL(chan) ||
-		    !mhi_dev_ctxt->uldl_enabled) {
+		    !mhi_dev_ctxt->flags.uldl_enabled) {
 			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
-			mhi_dev_ctxt->db_mode[chan] = 0;
+			mhi_dev_ctxt->flags.db_mode[chan] = 0;
 		}
 	} else {
 		mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
-		mhi_dev_ctxt->db_mode[chan] = 0;
+		mhi_dev_ctxt->flags.db_mode[chan] = 0;
 	}
 }
 
