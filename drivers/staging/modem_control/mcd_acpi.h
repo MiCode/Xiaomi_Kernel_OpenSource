@@ -13,3 +13,4 @@
 
 /* Retrieve modem parameters on ACPI framework */
 int get_modem_acpi_data(struct platform_device *pdev);
+void put_modem_acpi_data(struct platform_device *pdev);

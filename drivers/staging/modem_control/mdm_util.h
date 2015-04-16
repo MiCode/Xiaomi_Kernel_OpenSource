@@ -135,6 +135,8 @@ inline int mdm_ctrl_get_state(struct mdm_info *mdm);
 
 int mdm_ctrl_get_device_info(struct mdm_ctrl *drv,
 		struct platform_device *pdev);
+void mdm_ctrl_put_device_info(struct mdm_ctrl *drv,
+		struct platform_device *pdev);
 int mdm_ctrl_get_modem_data(struct mdm_ctrl *drv, int minor);
 
 void mdm_ctrl_set_mdm_cpu(struct mdm_info *mdm);

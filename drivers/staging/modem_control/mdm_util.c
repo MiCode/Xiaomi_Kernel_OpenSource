@@ -243,6 +243,17 @@ struct mcd_base_info *modem_ctrl_get_dev_data(struct platform_device *pdev)
 }
 
 /**
+ *  modem_ctrl_put_dev_data - Release ACPI data.
+ *  @pdev: Reference to platform device data
+ *
+ *  Release the data used for ACPI data storage.
+ */
+void modem_ctrl_put_dev_data(struct platform_device *pdev)
+{
+	put_modem_acpi_data(pdev);
+}
+
+/**
  *  mdm_ctrl_get_device_info - Create platform and modem data.
  *  @drv: Reference to the driver structure
  *  @pdev: Reference to platform device data
@@ -259,6 +270,23 @@ int mdm_ctrl_get_device_info(struct mdm_ctrl *drv,
 		ret = -1;
 
 	return ret;
+}
+
+/**
+ *  mdm_ctrl_put_device_info - Release platform and modem data.
+ *  @drv: Reference to the driver structure
+ *  @pdev: Reference to platform device data
+ *
+ *  Platform are build from ACPI table data.
+ */
+void mdm_ctrl_put_device_info(struct mdm_ctrl *drv,
+			      struct platform_device *pdev)
+{
+	if (!drv->all_pdata)
+		return;
+	modem_ctrl_put_dev_data(pdev);
+	kfree(drv->all_pdata);
+	drv->all_pdata = NULL;
 }
 
 /**

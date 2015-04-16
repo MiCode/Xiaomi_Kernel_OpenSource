@@ -309,7 +309,12 @@ static int get_hangup_reasons(struct mdm_info *mdm)
 static int mdm_ctrl_dev_open(struct inode *inode, struct file *filep)
 {
 	unsigned int minor = iminor(inode);
-	struct mdm_info *mdm = &mdm_drv->mdm[minor];
+	struct mdm_info *mdm;
+
+	if (!mdm_drv)
+		return -ENODEV;
+
+	mdm = &mdm_drv->mdm[minor];
 
 	mutex_lock(&mdm->lock);
 	/* Only ONE instance of this device can be opened */
@@ -334,7 +339,12 @@ static int mdm_ctrl_dev_open(struct inode *inode, struct file *filep)
 static int mdm_ctrl_dev_close(struct inode *inode, struct file *filep)
 {
 	unsigned int minor = iminor(inode);
-	struct mdm_info *mdm = &mdm_drv->mdm[minor];
+	struct mdm_info *mdm;
+
+	if (!mdm_drv)
+		return -ENODEV;
+
+	mdm = &mdm_drv->mdm[minor];
 
 	/* Set the open flag */
 	mutex_lock(&mdm->lock);
@@ -699,8 +709,16 @@ static unsigned int mdm_ctrl_dev_poll(struct file *filep,
 	struct mdm_info *mdm = &mdm_drv->mdm[minor];
 	unsigned int ret = 0;
 
+	if (!mdm_drv)
+		return -ENODEV;
+
+	mdm = &mdm_drv->mdm[minor];
+
 	/* Wait event change */
 	poll_wait(filep, &mdm->wait_wq, pt);
+
+	if (!mdm_drv)
+		return -ENODEV;
 
 	/* State notify */
 	if (mdm->polled_state_reached ||
@@ -792,7 +810,7 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
 			MDM_BOOT_DEVNAME);
 	if (ret) {
 		pr_err(DRVNAME ": alloc_chrdev_region failed (err: %d)\n", ret);
-		goto free_drv;
+		goto put_device_info;
 	}
 
 	new_drv->major = MAJOR(new_drv->tdev);
@@ -897,8 +915,10 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
  unreg_reg:
 	unregister_chrdev_region(new_drv->tdev, 1);
 
+ put_device_info:
+	mdm_ctrl_put_device_info(new_drv, pdev);
+
  free_drv:
-	kfree(new_drv->all_pdata);
 	kfree(new_drv);
 
  out:
@@ -907,37 +927,74 @@ static int mdm_ctrl_module_probe(struct platform_device *pdev)
 }
 
 /**
- *  mdm_ctrl_module_exit - Frees the resources taken by the control driver
+ *  mdm_ctrl_module_remove - Frees the resources taken by the control driver
  */
 static int mdm_ctrl_module_remove(struct platform_device *pdev)
 {
 	int i = 0;
+	int irq_to_be_freed = INVALID_GPIO;
+	struct mdm_ctrl *driver_data;
 
 	if (!mdm_drv)
 		return 0;
 
-	for (i = 0; i < mdm_drv->nb_mdms; i++) {
-		struct mdm_info *mdm = &mdm_drv->mdm[i];
+	driver_data = mdm_drv;
+	mdm_drv = NULL;
+
+	/* Unregister the device */
+	device_destroy(driver_data->class, driver_data->tdev);
+	class_destroy(driver_data->class);
+	cdev_del(&driver_data->cdev);
+	unregister_chrdev_region(driver_data->tdev, 1);
+
+	for (i = 0; i < driver_data->nb_mdms; i++) {
+		struct mdm_info *mdm = &driver_data->mdm[i];
 
 		if (mdm->is_mdm_ctrl_disabled)
 			continue;
+		/*
+		 * Free the irqs that will not be used anymore
+		 * Core dump IRQ first
+		 */
+		if (mdm->pdata->cpu.get_irq_cdump) {
+			irq_to_be_freed =
+				mdm->pdata->cpu.get_irq_cdump(
+					mdm->pdata->cpu_data);
+			if (irq_to_be_freed != INVALID_GPIO) {
+				disable_irq_nosync(irq_to_be_freed);
+				free_irq(irq_to_be_freed, mdm);
+			}
+		}
+		/*
+		 * Then modem reset
+		 */
+		if (mdm->pdata->cpu.get_irq_rst) {
+			irq_to_be_freed =
+				mdm->pdata->cpu.get_irq_rst(
+					mdm->pdata->cpu_data);
+			if (irq_to_be_freed != INVALID_GPIO) {
+				disable_irq_nosync(irq_to_be_freed);
+				free_irq(irq_to_be_freed, mdm);
+			}
+		}
+
+		/*
+		 * swith off the modem
+		 */
+		if (mdm_ctrl_get_state(mdm) != MDM_CTRL_STATE_OFF)
+			mdm_ctrl_power_off(mdm);
 
 		mdm_cleanup(mdm);
 
-		if (mdm->pdata->cpu.get_irq_cdump(mdm->pdata->cpu_data) > 0)
-			free_irq(mdm->pdata->cpu.
-				 get_irq_cdump(mdm->pdata->cpu_data), NULL);
-		if (mdm->pdata->cpu.get_irq_rst(mdm->pdata->cpu_data) > 0)
-			free_irq(mdm->pdata->cpu.
-				 get_irq_rst(mdm->pdata->cpu_data), NULL);
-
-		mdm->pdata->mdm.cleanup(mdm->pdata->modem_data);
-		mdm->pdata->cpu.cleanup(mdm->pdata->cpu_data);
-		mdm->pdata->pmic.cleanup(mdm->pdata->pmic_data);
+		if (mdm->pdata->mdm.cleanup)
+			mdm->pdata->mdm.cleanup(mdm->pdata->modem_data);
+		if (mdm->pdata->cpu.cleanup)
+			mdm->pdata->cpu.cleanup(mdm->pdata->cpu_data);
+		if (mdm->pdata->pmic.cleanup)
+			mdm->pdata->pmic.cleanup(mdm->pdata->pmic_data);
 
 		kfree(mdm->pdata->cpu_data);
 		kfree(mdm->pdata->pmic_data);
-		kfree(mdm->pdata);
 	}
 
 	/* Unregister the device */
@@ -947,13 +1004,18 @@ static int mdm_ctrl_module_remove(struct platform_device *pdev)
 	unregister_chrdev_region(mdm_drv->tdev, 1);
 
 	/* Free the driver context */
-	kfree(mdm_drv->all_pdata);
-	kfree(mdm_drv->mdm);
-	kfree(mdm_drv);
-
-	mdm_drv = NULL;
+	mdm_ctrl_put_device_info(driver_data, pdev);
+	kfree(driver_data->mdm);
+	kfree(driver_data);
 
 	return 0;
+}
+
+static void mdm_ctrl_module_shutdown(struct platform_device *pdev)
+{
+	mdm_ctrl_module_remove(pdev);
+
+	return;
 }
 
 /* FOR ACPI HANDLING */

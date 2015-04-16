@@ -97,6 +97,14 @@ static struct attribute_group mdm_attr_group = {
 static struct kobject *telephony_kobj;
 static int nb_mdms;
 
+int remove_sysfs_telephony_entry(void *pdata)
+{
+	sysfs_remove_group(telephony_kobj, &mdm_attr_group);
+
+	kobject_put(telephony_kobj);
+
+	return 0;
+}
 
 int create_sysfs_telephony_entry(void *pdata)
 {
@@ -412,6 +420,17 @@ int get_modem_acpi_data(struct platform_device *pdev)
 
 	return ret;
 }
+
+void put_modem_acpi_data(struct platform_device *pdev)
+{
+	struct mcd_base_info *info = pdev->dev.platform_data;
+
+	if (!info)
+		return;
+
+	remove_sysfs_telephony_entry(info);
+}
+
 
 int get_nb_mdms(void)
 {
