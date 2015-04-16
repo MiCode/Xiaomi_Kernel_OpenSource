@@ -1295,6 +1295,8 @@
 
 		qcom,ep-wakeirq;
 
+		linux,pci-domain = <0>;
+
 		qcom,msm-bus,name = "pcie0";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1386,6 +1388,8 @@
 
 		qcom,ep-latency = <10>;
 
+		linux,pci-domain = <1>;
+
 		qcom,msm-bus,name = "pcie1";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1476,6 +1480,8 @@
 		qcom,common-phy;
 
 		qcom,ep-latency = <10>;
+
+		linux,pci-domain = <2>;
 
 		qcom,msm-bus,name = "pcie2";
 		qcom,msm-bus,num-cases = <2>;
