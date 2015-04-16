@@ -1597,7 +1597,7 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 	u32 dsparb_h = 0;
 	u32 dsparb3 = DSPARB_50_25_25;
 	u32 dsparb2 = DSPARB2_50_25_25;
-	u32 pa = 0, sa = 0, sb = 0;
+	u32 pa = 0, sa = 0, sb = 0, sr = 0;
 	int fifo_size = 0;
 
 	if (hweight32(plane_stat) == 1) {
@@ -1617,6 +1617,13 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 		else
 			sb = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.sb);
+		/* update sr wm */
+		if (single_pipe_enabled(pipe_stat) &&
+				!(pipe_stat & PIPE_ENABLE(2))) {
+			fifo_size = 96 * 1024;
+			sr = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sr);
+		}
 	} else if (hweight32(plane_stat) == 3) {
 		/* all 3 planes enabled, fifo allocation 50:25:25 */
 		dsparb |= DSPARB_50_25_25;
@@ -1670,6 +1677,13 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 		pa = 0;
 		sa = 0;
 		sb = 0;
+	}
+
+	if (sr) {
+		I915_WRITE_BITS(DSPFW1, (sr << 23), VLV_FW_SR_MASK);
+		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+						~(VLV_DSPHOWM_SR_MASK)) |
+					((sr >> 9) << 24));
 	}
 
 	switch (pipe) {
@@ -1778,6 +1792,10 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 			vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val & ~(CHV_PW_MAXFIFO_MASK)));
 			mutex_unlock(&dev_priv->rps.hw_lock);
+			/* update sr wm to 0 */
+			I915_WRITE_BITS(DSPFW1, 0, 0xff800000);
+			I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+							~(0x3000000)));
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = false;

@@ -426,6 +426,7 @@ struct vlv_wm_level {
 	u32 pa;
 	u32 sa;
 	u32 sb;
+	u32 sr;
 };
 
 struct intel_crtc {

@@ -680,6 +680,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		intel_crtc->vlv_wm.sb = vlv_calculate_wm(intel_crtc,
 							pixel_size);
 
+	intel_crtc->vlv_wm.sr = vlv_calculate_wm(intel_crtc,
+							pixel_size);
 	intel_plane->reg.surf = I915_READ(SPSURF(pipe, plane));
 
 	if (intel_plane->rrb2_enable)

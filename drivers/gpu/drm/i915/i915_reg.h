@@ -4311,6 +4311,8 @@ enum punit_power_well {
 #define VLV_FW_PIPEB_WM1_MASK1	0xff00
 #define VLV_FW_PIPEB_WM1_MASK2	0xff000000
 
+#define VLV_FW_SR_MASK		0xff800000
+#define VLV_DSPHOWM_SR_MASK	0x3000000
 /* drain latency register values*/
 #define VLV_DDL(pipe)	_PIPE(pipe, VLV_DDL1, VLV_DDL2)
 #define DRAIN_LATENCY_PRECISION_64	64

@@ -2832,6 +2832,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	mask = 0x000000ff;
 	vlv_calculate_ddl(crtc, pixel_size, &plane_prec_multi, &plane_ddl);
 	intel_crtc->vlv_wm.pa = vlv_calculate_wm(intel_crtc, pixel_size);
+	intel_crtc->vlv_wm.sr = vlv_calculate_wm(intel_crtc, pixel_size);
 	plane_ddl = plane_prec_multi | (plane_ddl);
 
 	intel_crtc->reg_ddl.plane_ddl = plane_ddl;
