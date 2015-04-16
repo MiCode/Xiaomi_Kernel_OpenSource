@@ -2762,8 +2762,12 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 	case ATOMISP_IOC_G_DVS2_BQ_RESOLUTIONS:
 		err = atomisp_get_dvs2_bq_resolutions(asd, arg);
 		break;
+
 	case ATOMISP_IOC_S_DIS_COEFS:
-		err = atomisp_set_dis_coefs(asd, arg);
+		err = atomisp_css_cp_dvs2_coefs(asd, arg,
+				&asd->params.css_param, true);
+		if (!err && arg)
+			asd->params.css_update_params_needed = true;
 		break;
 
 	case ATOMISP_IOC_S_DIS_VECTOR:
