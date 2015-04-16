@@ -2769,12 +2769,8 @@ static long atomisp_vidioc_default(struct file *file, void *fh,
 	case ATOMISP_IOC_S_DIS_VECTOR:
 		err = atomisp_cp_dvs_6axis_config(asd, arg,
 				&asd->params.css_param, true);
-		if (!err && arg) {
-			asd->params.css_param.update_flag.dvs_6axis_config =
-				(struct atomisp_dvs_6axis_config *)
-				asd->params.css_param.dvs_6axis;
+		if (!err && arg)
 			asd->params.css_update_params_needed = true;
-		}
 		break;
 
 	case ATOMISP_IOC_G_ISP_PARM:
