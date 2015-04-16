@@ -301,11 +301,6 @@ static struct resource pmic_ccsm_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	},
 	{
-		.start = BATALRT_IRQ,
-		.end   = BATALRT_IRQ,
-		.flags = IORESOURCE_IRQ,
-	},
-	{
 		.start = CTYPE_IRQ,
 		.end   = CTYPE_IRQ,
 		.flags = IORESOURCE_IRQ,
@@ -353,6 +348,11 @@ static struct resource thermal_resources[] = {
 	{
 		.start = THRM3_IRQ,
 		.end   = THRM3_IRQ,
+		.flags = IORESOURCE_IRQ,
+	},
+	{
+		.start = BATALRT_IRQ,
+		.end   = BATALRT_IRQ,
 		.flags = IORESOURCE_IRQ,
 	},
 };
@@ -590,6 +590,18 @@ static struct trip_config_map str2_trip_config[] = {
 	},
 };
 
+static struct trip_config_map str3_trip_config[] = {
+	{
+		.irq_reg = THRM2IRQ,
+		.irq_mask = 0x01,
+		.irq_en = MTHRMIRQ2,
+		.irq_en_mask = 0x01,
+		.evt_stat = STHRMIRQ2,
+		.evt_mask = 0x10,
+		.trip_num = 1
+	},
+};
+
 static struct thermal_irq_map wc_thermal_irq_map[] = {
 	{
 		.handle = "STR0",
@@ -605,6 +617,11 @@ static struct thermal_irq_map wc_thermal_irq_map[] = {
 		.handle = "STR2",
 		.trip_config = str2_trip_config,
 		.num_trips = ARRAY_SIZE(str2_trip_config),
+	},
+	{
+		.handle = "STR3",
+		.trip_config = str3_trip_config,
+		.num_trips = ARRAY_SIZE(str3_trip_config),
 	},
 };
 
