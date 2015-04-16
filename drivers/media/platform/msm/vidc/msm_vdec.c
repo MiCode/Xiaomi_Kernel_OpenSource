@@ -596,6 +596,15 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.qmenu = mpeg_vidc_video_entropy_mode,
 		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
 	},
+	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY,
+		.name = "Session Priority",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_ENABLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
+		.step = 1,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
@@ -2534,6 +2543,14 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_VIDC_QBUF_MODE:
 		property_id = HAL_PARAM_SYNC_BASED_INTERRUPT;
 		hal_property.enable = ctrl->val == V4L2_VIDC_QBUF_BATCHED;
+		pdata = &hal_property;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
+		property_id = HAL_CONFIG_REALTIME;
+		/* firmware has inverted values for realtime and
+		 * non-realtime priority
+		 */
+		hal_property.enable = !(ctrl->val);
 		pdata = &hal_property;
 		break;
 	default:

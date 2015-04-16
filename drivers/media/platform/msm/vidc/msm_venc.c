@@ -1131,6 +1131,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 		.qmenu = NULL,
 	},
 	{
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY,
+		.name = "Session Priority",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_ENABLE,
+		.maximum = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
+		.default_value = V4L2_MPEG_VIDC_VIDEO_PRIORITY_REALTIME_DISABLE,
+		.step = 1,
+	},
+	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI,
 		.name = "VQZIP SEI",
 		.type = V4L2_CTRL_TYPE_BOOLEAN,
@@ -2886,6 +2895,14 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VQZIP_SEI:
 		property_id = HAL_PARAM_VENC_VQZIP_SEI;
 		enable.enable = ctrl->val;
+		pdata = &enable;
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_PRIORITY:
+		property_id = HAL_CONFIG_REALTIME;
+		/* firmware has inverted values for realtime and
+		 * non-realtime priority
+		 */
+		enable.enable = !(ctrl->val);
 		pdata = &enable;
 		break;
 	default:

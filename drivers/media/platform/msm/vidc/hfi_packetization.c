@@ -1021,8 +1021,8 @@ int create_pkt_cmd_session_set_property(
 	case HAL_CONFIG_REALTIME:
 	{
 		create_pkt_enable(pkt->rg_property_data,
-				HFI_PROPERTY_CONFIG_REALTIME,
-				((struct hal_enable *)pdata)->enable);
+			HFI_PROPERTY_CONFIG_REALTIME,
+			(((struct hfi_enable *) pdata)->enable));
 		pkt->size += sizeof(u32) * 2;
 		break;
 	}
