@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -307,8 +307,20 @@ static long epm_adc_ioctl(struct file *file, unsigned int cmd,
 	return 0;
 }
 
+#ifdef CONFIG_COMPAT
+static long epm_adc_compat_ioctl_process(struct file *filep,
+				   unsigned int cmd, unsigned long arg)
+{
+	arg = (unsigned long)compat_ptr(arg);
+	return epm_adc_ioctl(filep, cmd, arg);
+}
+#endif	/* CONFIG_COMPAT */
+
 const struct file_operations epm_adc_fops = {
 	.unlocked_ioctl = epm_adc_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = epm_adc_compat_ioctl_process,
+#endif  /* CONFIG_COMPAT */
 };
 
 static int get_device_tree_data(struct spi_device *spi)
