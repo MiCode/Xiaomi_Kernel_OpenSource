@@ -80,6 +80,7 @@
 		qcom,mdss-has-decimation;
 		qcom,mdss-traffic-shaper-enabled;
 		qcom,mdss-no-hist-vote;
+		qcom,mdss-needs-iommu-bw-vote;
 
 		clocks = <&clock_gcc clk_gcc_mdss_ahb_clk>,
 			 <&clock_gcc clk_gcc_mdss_axi_clk>,
