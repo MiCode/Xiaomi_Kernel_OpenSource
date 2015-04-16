@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -179,9 +179,9 @@ void kgsl_cp_intrcallback(struct kgsl_device *device);
 unsigned int *adreno_ringbuffer_allocspace(struct adreno_ringbuffer *rb,
 						unsigned int numcmds);
 
-void adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
+int adreno_ringbuffer_read_pfp_ucode(struct kgsl_device *device);
 
-void adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
+int adreno_ringbuffer_read_pm4_ucode(struct kgsl_device *device);
 
 void adreno_ringbuffer_mmu_disable_clk_on_ts(struct kgsl_device *device,
 			struct adreno_ringbuffer *rb, unsigned int ts,

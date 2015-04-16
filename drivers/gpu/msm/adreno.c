@@ -965,6 +965,20 @@ static int adreno_init(struct kgsl_device *device)
 	int i;
 	int ret;
 
+	/*
+	 * If the microcode read fails then either the usermodehelper wasn't
+	 * available or there was a corruption problem - in either case fail the
+	 * open and force the user to try again
+	 */
+
+	ret = adreno_ringbuffer_read_pm4_ucode(device);
+	if (ret)
+		return ret;
+
+	ret = adreno_ringbuffer_read_pfp_ucode(device);
+	if (ret)
+		return ret;
+
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	/*
 	 * initialization only needs to be done once initially until
@@ -980,9 +994,6 @@ static int adreno_init(struct kgsl_device *device)
 
 	/* Initialize coresight for the target */
 	adreno_coresight_init(adreno_dev);
-
-	adreno_ringbuffer_read_pm4_ucode(device);
-	adreno_ringbuffer_read_pfp_ucode(device);
 
 	kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
 	/*
