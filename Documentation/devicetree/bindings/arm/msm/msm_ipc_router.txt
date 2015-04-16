@@ -1,0 +1,11 @@
+Qualcomm IPC Router
+
+Required properties:
+-compatible:	should be "qcom,ipc_router"
+-qcom,node-id:	unique ID to identify the node in network
+
+Example:
+	qcom,ipc_router {
+		compatible = "qcom,ipc_router";
+		qcom,node-id = <1>;
+	};
