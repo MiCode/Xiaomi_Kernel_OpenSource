@@ -71,6 +71,8 @@ Optional Properties:
   - qcom,common-phy: There is a common phy for all the Root Complexes.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
+  - linux,pci-domain: For details of pci-domains properties, please refer to:
+    "Documentation/devicetree/bindings/pci/pci.txt"
   - qcom,tlp-rd-size: The max TLP read size (Calculation: 128 times 2 to the
     tlp-rd-size power).
   - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for

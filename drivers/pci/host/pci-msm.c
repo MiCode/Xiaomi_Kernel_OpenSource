@@ -22,6 +22,7 @@
 #include <linux/gpio.h>
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
+#include <linux/of_pci.h>
 #include <linux/pci.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
@@ -3820,29 +3821,39 @@ int msm_pcie_enumerate(u32 rc_idx)
 		/* kick start ARM PCI configuration framework */
 		if (!ret) {
 			struct pci_dev *pcidev = NULL;
-			struct pci_host_bridge *bridge;
-			resource_size_t lastbus;
 			bool found = false;
+			struct pci_bus *bus;
+			resource_size_t iobase = 0;
 			u32 ids = readl_relaxed(msm_pcie_dev[rc_idx].dm_core);
 			u32 vendor_id = ids & 0xffff;
 			u32 device_id = (ids & 0xffff0000) >> 16;
+			LIST_HEAD(res);
 
 			PCIE_DBG(dev, "vendor-id:0x%x device_id:0x%x\n",
 					vendor_id, device_id);
 
-			bridge = of_create_pci_host_bridge(&dev->pdev->dev,
-							&msm_pcie_ops,
-							dev);
+			ret = of_pci_get_host_bridge_resources(
+						dev->pdev->dev.of_node,
+						0, 0xff, &res, &iobase);
+			if (ret) {
+				PCIE_ERR(dev,
+					"PCIe: failed to get host bridge resources for RC%d: %d\n",
+					dev->rc_idx, ret);
 
-			if (IS_ERR_OR_NULL(bridge))
-				return PTR_ERR(bridge);
+				return ret;
+			}
 
-			pci_add_flags(PCI_ENABLE_PROC_DOMAINS);
-			pci_add_flags(PCI_REASSIGN_ALL_BUS |
-					PCI_REASSIGN_ALL_RSRC);
+			bus = pci_create_root_bus(&dev->pdev->dev, 0,
+						&msm_pcie_ops, dev, &res);
+			if (!bus) {
+				PCIE_ERR(dev,
+					"PCIe: failed to create root bus for RC%d\n",
+					dev->rc_idx);
 
-			lastbus = pci_rescan_bus(bridge->bus);
-			pci_bus_update_busn_res_end(bridge->bus, lastbus);
+				return -ENOMEM;
+			}
+
+			pci_rescan_bus(bus);
 
 			dev->enumerated = true;
 
@@ -4299,7 +4310,7 @@ void msm_pcie_destroy_irq(unsigned int irq, struct msm_pcie_dev_t *pcie_dev)
 	PCIE_DBG(dev, "RC%d\n", dev->rc_idx);
 
 	if (!dev->msi_gicm_addr)
-		dynamic_irq_cleanup(irq);
+		irq_dispose_mapping(irq);
 
 	PCIE_DBG(dev, "Before clear_bit pos:%d msi_irq_in_use:%ld\n",
 		pos, *dev->msi_irq_in_use);
