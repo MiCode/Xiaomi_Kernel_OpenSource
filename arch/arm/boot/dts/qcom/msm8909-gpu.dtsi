@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 	};
 
 	qcom,gpu-bwmon@410000 {
-		compatible = "qcom,bimc-bwmon2";
+		compatible = "qcom,bimc-bwmon";
 		reg = <0x00410000 0x300>, <0x00401000 0x200>;
 		reg-names = "base", "global_base";
 		interrupts = <0 183 4>;
