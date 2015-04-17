@@ -6228,7 +6228,7 @@ static int tomtom_codec_enable_slimrx(struct snd_soc_dapm_widget *w,
 	pr_debug("%s: event called! codec name %s num_dai %d\n"
 		"stream name %s event %d\n",
 		__func__, w->codec->component.name,
-		w->codec->num_dai, w->sname, event);
+		w->codec->component.num_dai, w->sname, event);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (tomtom_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
@@ -6286,7 +6286,7 @@ static int tomtom_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 
 	pr_debug("%s: event called! codec name %s num_dai %d stream name %s\n",
 		__func__, w->codec->component.name,
-		w->codec->num_dai, w->sname);
+		w->codec->component.num_dai, w->sname);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (tomtom_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
@@ -6405,7 +6405,7 @@ static int tomtom_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 
 	pr_debug("%s: event called! codec name %s num_dai %d stream name %s\n",
 		__func__, w->codec->component.name,
-		w->codec->num_dai, w->sname);
+		w->codec->component.num_dai, w->sname);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (tomtom_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS)
