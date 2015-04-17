@@ -633,6 +633,9 @@ struct ufshcd_pm_qos {
  * @pwr_info: holds current power mode
  * @max_pwr_info: keeps the device max valid pwm
  * @hibern8_on_idle: UFS Hibern8 on idle related data
+ * @urgent_bkops_lvl: keeps track of urgent bkops level for device
+ * @is_urgent_bkops_lvl_checked: keeps track if the urgent bkops level for
+ *  device is known or not.
  */
 struct ufs_hba {
 	void __iomem *mmio_base;
@@ -824,6 +827,9 @@ struct ufs_hba {
 	struct devfreq *devfreq;
 	struct ufs_clk_scaling clk_scaling;
 	bool is_sys_suspended;
+
+	enum bkops_status urgent_bkops_lvl;
+	bool is_urgent_bkops_lvl_checked;
 };
 
 /* Returns true if clocks can be gated. Otherwise false */
