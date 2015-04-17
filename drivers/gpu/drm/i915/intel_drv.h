@@ -77,6 +77,10 @@
 #define VLV_PLANE_STATS(x, pipe) (((x & ~(0xF << (((sizeof(int)) * 8) - 4))) \
 					>> (4 * pipe)) & (0xf))
 
+#define NIBBLE	4
+#define PIPE_ENABLE(pipe)	(1 << (pipe + ((sizeof(int) * BITS_PER_BYTE) \
+								- NIBBLE)))
+
 /*
  * Display related stuff
  */
@@ -418,6 +422,12 @@ struct intel_ddl_reg {
 	u32 spriteb_ddl_mask;
 };
 
+struct vlv_wm_level {
+	u32 pa;
+	u32 sa;
+	u32 sb;
+};
+
 struct intel_crtc {
 	struct drm_crtc base;
 	enum pipe pipe;
@@ -486,6 +496,9 @@ struct intel_crtc {
 	bool	pfit_en_status;
 	struct intel_disp_reg reg;
 	struct intel_ddl_reg reg_ddl;
+
+	/* per-pipe wm level */
+	struct vlv_wm_level vlv_wm;
 
 	/* per-pipe watermark state */
 	struct {
@@ -1171,6 +1184,7 @@ bool i915_is_device_suspended(struct drm_device *drm_dev);
 
 void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 				struct drm_crtc *crtc, bool enable);
+u32 vlv_calculate_wm(struct intel_crtc *crtc, int pixel_size);
 
 /* intel_sdvo.c */
 bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob);

@@ -4182,11 +4182,14 @@ enum punit_power_well {
 
 #define	DSPARB	(dev_priv->info.display_mmio_offset + 0x70030)
 #define DSPARB_PIPEA_MASK	0xffff
-#define DSPARB_PIPEB_MASK	(0xffff << 16)
+#define DSPARB_PIPEB_SHIFT	16
+#define DSPARB_PIPEB_MASK	(0xffff << DSPARB_PIPEB_SHIFT)
 #define	DSPARB2	(dev_priv->info.display_mmio_offset + 0x70060)
 #define DSPARB2_PIPEA_MASK	0xff
-#define DSPARB2_PIPEB_MASK	(0xff << 8)
-#define DSPARB2_PIPEC_MASK	(0xff << 16)
+#define DSPARB2_PIPEB_SHIFT	8
+#define DSPARB2_PIPEB_MASK	(0xff << DSPARB2_PIPEB_SHIFT)
+#define DSPARB2_PIPEC_SHIFT	16
+#define DSPARB2_PIPEC_MASK	(0xff << DSPARB2_PIPEC_SHIFT)
 #define	DSPARB3	(dev_priv->info.display_mmio_offset + 0x7006c)
 #define DSPARB3_PIPEC_MASK	0xffff
 
@@ -4276,6 +4279,37 @@ enum punit_power_well {
 #define   DSPFW8_SPRITEF1_SHIFT	24
 #define DSPFW9			(dev_priv->info.display_mmio_offset + 0x7007C)
 #define VLV_DSPFW9_DEF_WM	0x40f0004
+
+#define VLV_FW_PIPEA_PA_MASK	0xff
+#define VLV_FW_PIPEA_SA_MASK	0xff
+#define VLV_FW_PIPEA_SB_MASK	0xff0000
+#define VLV_FW_PIPEA_SB_SHIFT	16
+#define VLV_DSPHOWM_PIPEA_MASK	0x111
+#define VLV_DSPHOWM_PIPEA_SA_SHIFT	4
+#define VLV_DSPHOWM_PIPEA_SB_SHIFT	8
+
+#define VLV_FW_PIPEB_PB_MASK	0xff00
+#define VLV_FW_PIPEB_PB_SHIFT	8
+#define VLV_FW_PIPEB_SC_MASK	0xff
+#define VLV_FW_PIPEB_SD_MASK	0xff0000
+#define VLV_FW_PIPEB_SD_SHIFT	16
+#define VLV_DSPHOWM_PIPEB_MASK	0x111000
+#define VLV_DSPHOWM_PIPEB_PB_SHIFT	12
+#define VLV_DSPHOWM_PIPEB_SC_SHIFT	16
+#define VLV_DSPHOWM_PIPEB_SD_SHIFT	20
+
+#define VLV_FW_PIPEC_PC_MASK	0xff0000
+#define VLV_FW_PIPEC_PC_SHIFT	16
+#define VLV_FW_PIPEC_SE_MASK	0xff
+#define VLV_FW_PIPEC_SF_MASK	0xff0000
+#define VLV_FW_PIPEC_SF_SHIFT	16
+#define VLV_DSPHOWM_PIPEC_MASK	0xe00000
+#define VLV_DSPHOWM_PIPEC_PC_SHIFT	21
+#define VLV_DSPHOWM_PIPEC_SE_SHIFT	22
+#define VLV_DSPHOWM_PIPEC_SF_SHIFT	23
+
+#define VLV_FW_PIPEB_WM1_MASK1	0xff00
+#define VLV_FW_PIPEB_WM1_MASK2	0xff000000
 
 /* drain latency register values*/
 #define VLV_DDL(pipe)	_PIPE(pipe, VLV_DDL1, VLV_DDL2)

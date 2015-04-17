@@ -3171,6 +3171,8 @@ extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 extern int intel_enable_rc6(const struct drm_device *dev);
 extern void valleyview_update_wm_pm5(struct intel_crtc *crtc);
+extern void vlv_update_dsparb(struct intel_crtc *crtc);
+void vlv_update_watermarks(struct drm_i915_private *dev_priv);
 
 extern bool i915_semaphore_is_enabled(struct drm_device *dev);
 int i915_reg_read_ioctl(struct drm_device *dev, void *data,

@@ -47,10 +47,6 @@
 
 #define DIV_ROUND_CLOSEST_ULL(ll, d)	\
 	({ unsigned long long _tmp = (ll)+(d)/2; do_div(_tmp, d); _tmp; })
-#define NIBBLE	4
-#define PIPE_ENABLE(pipe)	(1 << (pipe + ((sizeof(int) * BITS_PER_BYTE) \
-								- NIBBLE)))
-
 
 void intel_save_clr_mgr_status(struct drm_device *dev);
 bool intel_restore_clr_mgr_status(struct drm_device *dev);
@@ -2544,7 +2540,7 @@ static void intel_find_plane_obj(struct intel_crtc *intel_crtc,
 	}
 }
 
-static void vlv_update_watermarks(struct drm_i915_private *dev_priv)
+void vlv_update_watermarks(struct drm_i915_private *dev_priv)
 {
 	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
 	I915_WRITE(DSPFW1,
@@ -2835,6 +2831,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	 */
 	mask = 0x000000ff;
 	vlv_calculate_ddl(crtc, pixel_size, &plane_prec_multi, &plane_ddl);
+	intel_crtc->vlv_wm.pa = vlv_calculate_wm(intel_crtc, pixel_size);
 	plane_ddl = plane_prec_multi | (plane_ddl);
 
 	intel_crtc->reg_ddl.plane_ddl = plane_ddl;
@@ -11088,6 +11085,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	int plane_cnt = 0;
 	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
 	int plane_stat;
+	int prev_plane_stat;
 	int pipe = intel_crtc->pipe;
 	disp->errored = 0;
 	disp->presented = 0;
@@ -11132,7 +11130,12 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	/* Calculation for Flips */
 	ret = intel_set_disp_calc_flip(disp, dev, file_priv, intel_crtc);
 
+	prev_plane_stat = VLV_PLANE_STATS(dev_priv->prev_pipe_plane_stat, pipe);
 	plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
+
+	if (hweight32(prev_plane_stat) <=  hweight32(plane_stat))
+		valleyview_update_wm_pm5(intel_crtc);
+
 	/* Check if we need to a vblank, if so wait for vblank */
 	if (intel_dsi_is_enc_on_crtc_cmd_mode(crtc)) {
 		/*
@@ -11159,7 +11162,7 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	ret = intel_set_disp_commit_regs(disp, dev, intel_crtc);
 
 	if (IS_CHERRYVIEW(dev))
-		valleyview_update_wm_pm5(intel_crtc);
+		vlv_update_dsparb(intel_crtc);
 
 	/* Enable maxfifo if needed */
 	if (!dev_priv->maxfifo_enabled && single_pipe_enabled(pipe_stat)

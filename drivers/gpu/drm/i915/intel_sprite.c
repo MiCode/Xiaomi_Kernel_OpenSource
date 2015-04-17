@@ -672,6 +672,14 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	if ((sprite_ddl & mask) != (I915_READ(VLV_DDL(pipe)) & mask))
 		I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 
+	/* calculate  watermark */
+	if (intel_plane->plane == 0)
+		intel_crtc->vlv_wm.sa = vlv_calculate_wm(intel_crtc,
+							pixel_size);
+	else
+		intel_crtc->vlv_wm.sb = vlv_calculate_wm(intel_crtc,
+							pixel_size);
+
 	intel_plane->reg.surf = I915_READ(SPSURF(pipe, plane));
 
 	if (intel_plane->rrb2_enable)

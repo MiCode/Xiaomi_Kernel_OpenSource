@@ -1542,6 +1542,188 @@ bool vlv_calculate_ddl(struct drm_crtc *crtc,
 	return true;
 }
 
+u32 vlv_calculate_wm(struct intel_crtc *crtc, int pixel_size)
+{
+	struct drm_device *dev = crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	const struct drm_display_mode *adjusted_mode;
+	int pipe = crtc->pipe;
+	int plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
+	u32 line_time = 0, buffer_wm = 0;
+	int latency;
+	int hdisplay, htotal, clock;
+
+	adjusted_mode = &crtc->config.adjusted_mode;
+	htotal = adjusted_mode->crtc_htotal;
+	hdisplay = crtc->config.pipe_src_w;
+	clock = crtc->config.adjusted_mode.crtc_clock;
+
+	if (single_plane_enabled(plane_stat)
+			&& !(pipe_stat & PIPE_ENABLE(PIPE_C)))
+		latency = 33000;
+	else
+		latency = 20000;
+
+	if (clock)
+		line_time = (htotal * 1000) / clock;
+	if (line_time)
+		buffer_wm = ((latency / line_time / 1000) + 1) *
+						hdisplay * pixel_size;
+
+	return buffer_wm;
+}
+
+static u32 vlv_update_wm_val(int fifo_size, int wm_level)
+{
+	int wm_val;
+
+	if (fifo_size/64 > wm_level/64)
+		wm_val = fifo_size/64 - wm_level/64;
+	else
+		wm_val = 0;
+
+	return wm_val;
+}
+
+void vlv_update_dsparb(struct intel_crtc *intel_crtc)
+{
+	struct drm_device *dev = intel_crtc->base.dev;
+	struct drm_i915_private *dev_priv = dev->dev_private;
+	int pipe = intel_crtc->pipe;
+	int plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
+	u32 dsparb = 0;
+	u32 dsparb_h = 0;
+	u32 pa = 0, sa = 0, sb = 0;
+	int fifo_size = 0;
+
+	if (hweight32(plane_stat) == 1) {
+		/* Allocate the entire fifo to the plane that is enabled */
+		dsparb |=  (0xFFFF << ((ffs(plane_stat) - 1) * 8));
+		dsparb_h |= (0x11 << ((ffs(plane_stat) - 1) * 4));
+
+		fifo_size = 32 * 1024;
+
+		/* recollect the wm values */
+		if (plane_stat == 0x1)
+			pa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.pa);
+		else if (plane_stat == 0x2)
+			sa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sa);
+		else
+			sb = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sb);
+	} else if (hweight32(plane_stat) == 3) {
+		/* all 3 planes enabled, fifo allocation 50:25:25 */
+		dsparb |= DSPARB_50_25_25;
+		dsparb_h |= DSPARB2_50_25_25;
+
+		/* recollect the wm values */
+		fifo_size = (32 * 1024 * 50) / 100;
+		pa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.pa);
+		fifo_size = (32 * 1024 * 25) / 100;
+		sa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sa);
+		sb = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sb);
+
+	} else if (hweight32(plane_stat) == 2) {
+		/* 2 planes, enable fifo allocation 50:50 */
+		fifo_size = (32 * 1024 * 50) / 100;
+		if ((plane_stat & PRI_SA) == PRI_SA) {
+			dsparb |= DSPARB_PRI50_SA50;
+			dsparb_h |= DSPARB2_PRI50_SA50;
+
+			pa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.pa);
+			sa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sa);
+
+		} else if ((plane_stat & PRI_SB) == PRI_SB) {
+			dsparb |= DSPARB_PRI50_SB50;
+			dsparb_h |= DSPARB2_PRI50_SB50;
+
+			pa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.pa);
+			sb = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sb);
+		} else {
+			dsparb |= DSPARB_SA50_SB50;
+			dsparb_h |= DSPARB2_SA50_SB50;
+
+			sa = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sa);
+			sb = vlv_update_wm_val(fifo_size,
+					intel_crtc->vlv_wm.sb);
+		}
+	} else {
+		DRM_ERROR("Invalid pipe\n");
+	}
+
+	if (!single_pipe_enabled(pipe_stat) ||
+				(pipe_stat & PIPE_ENABLE(PIPE_C))) {
+		pa = 0;
+		sa = 0;
+		sb = 0;
+	}
+
+	switch (pipe) {
+	case PIPE_A:
+		I915_WRITE_BITS(DSPARB, dsparb, DSPARB_PIPEA_MASK);
+		I915_WRITE_BITS(DSPARB2, dsparb_h, DSPARB2_PIPEA_MASK);
+
+		/* update wm */
+		I915_WRITE_BITS(DSPFW1, pa, VLV_FW_PIPEA_PA_MASK);
+		I915_WRITE_BITS(DSPFW2, sa, VLV_FW_PIPEA_SA_MASK);
+		I915_WRITE_BITS(DSPFW2, (sb << VLV_FW_PIPEA_SB_SHIFT),
+							VLV_FW_PIPEA_SB_MASK);
+		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+						~(VLV_DSPHOWM_PIPEA_MASK)) |
+						(((pa >> 8) | ((sa >> 8) <<
+						VLV_DSPHOWM_PIPEA_SA_SHIFT) |
+						((sb >> 8) <<
+						VLV_DSPHOWM_PIPEA_SB_SHIFT))));
+		break;
+	case PIPE_B:
+		I915_WRITE_BITS(DSPARB, (dsparb << DSPARB_PIPEB_SHIFT),
+						DSPARB_PIPEB_MASK);
+		I915_WRITE_BITS(DSPARB2, (dsparb_h << DSPARB2_PIPEB_SHIFT),
+						DSPARB2_PIPEB_MASK);
+		/* update wm */
+		I915_WRITE_BITS(DSPFW1, (pa << VLV_FW_PIPEB_PB_SHIFT),
+							VLV_FW_PIPEB_PB_MASK);
+		I915_WRITE_BITS(DSPFW7, sa, VLV_FW_PIPEB_SC_MASK);
+		I915_WRITE_BITS(DSPFW7, (sb << VLV_FW_PIPEB_SD_SHIFT),
+							VLV_FW_PIPEB_SD_MASK);
+		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+					~(VLV_DSPHOWM_PIPEB_MASK)) |
+				((((pa >> 8) << VLV_DSPHOWM_PIPEB_PB_SHIFT) |
+				((sa >> 8) << VLV_DSPHOWM_PIPEB_SC_SHIFT) |
+				((sb >> 8) << VLV_DSPHOWM_PIPEB_SD_SHIFT))));
+
+		break;
+	case PIPE_C:
+		I915_WRITE_BITS(DSPARB3, dsparb, DSPARB3_PIPEC_MASK);
+		I915_WRITE_BITS(DSPARB2, (dsparb_h << DSPARB2_PIPEC_SHIFT),
+						DSPARB2_PIPEC_MASK);
+		/* update wm */
+		I915_WRITE_BITS(DSPFW9, (pa << VLV_FW_PIPEC_PC_SHIFT),
+							VLV_FW_PIPEC_PC_MASK);
+		I915_WRITE_BITS(DSPFW8, sa, VLV_FW_PIPEC_SE_MASK);
+		I915_WRITE_BITS(DSPFW8, (sb << VLV_FW_PIPEC_SF_SHIFT),
+							VLV_FW_PIPEC_SF_MASK);
+		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+						~(VLV_DSPHOWM_PIPEC_MASK)) |
+				((((pa >> 8) << VLV_DSPHOWM_PIPEC_PC_SHIFT) |
+				((sa >> 8) << VLV_DSPHOWM_PIPEC_SE_SHIFT) |
+				((sb >> 8) << VLV_DSPHOWM_PIPEC_SF_SHIFT))));
+		break;
+	}
+}
+
 void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 				struct drm_crtc *crtc, bool enable)
 {
@@ -1571,7 +1753,6 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv,
 			mutex_lock(&dev_priv->rps.hw_lock);
 			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
 			mutex_unlock(&dev_priv->rps.hw_lock);
-			valleyview_update_wm_pm5(to_intel_crtc(crtc));
 			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
@@ -1588,44 +1769,76 @@ void valleyview_update_wm_pm5(struct intel_crtc *crtc)
 {
 	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
+	int pipe = crtc->pipe;
+	int plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
+	int prev_plane_stat = VLV_PLANE_STATS(dev_priv->prev_pipe_plane_stat,
+								pipe);
+	int sa, sb, pa, dsparb, dsparb_h;
 
-	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);
-	I915_WRITE(DSPARB2, DSPARB2_VLV_DEFAULT);
-	I915_WRITE(DSPARB3, DSPARB3_VLV_DEFAULT);
+	if (prev_plane_stat == plane_stat)
+		return;
 
-	I915_WRITE(DSPFW1,
-		   (DSPFW_SR_VAL << DSPFW_SR_SHIFT) |
-		   (DSPFW_CURSORB_VAL << DSPFW_CURSORB_SHIFT) |
-		   (DSPFW_PLANEB_VAL << DSPFW_PLANEB_SHIFT) |
-		   DSPFW_PLANEA_VAL);
-	I915_WRITE(DSPFW2,
-		   (DSPFW2_RESERVED) |
-		   (DSPFW_CURSORA_VAL << DSPFW_CURSORA_SHIFT) |
-		   DSPFW_PLANEC_VAL);
-	I915_WRITE(DSPFW3,
-		   (I915_READ(DSPFW3) & ~DSPFW_CURSOR_SR_MASK) |
-		   (DSPFW3_VLV));
-	I915_WRITE(DSPFW5, (DSPFW5_DISPLAYB_VAL << DSPFW5_DISPLAYB_SHIFT) |
-			(DSPFW5_DISPLAYA_VAL << DSPFW5_DISPLAYA_SHIFT) |
-			(DSPFW5_CURSORB_VAL << DSPFW5_CURSORB_SHIFT) |
-			DSPFW5_CURSORSR_VAL);
-	I915_WRITE(DSPFW6, DSPFW6_DISPLAYSR_VAL);
+	/* intermediate watermarks*/
+	pa = 0;
+	sa = 0;
+	sb = 0;
+	dsparb = DSPARB_50_25_25;
+	dsparb_h = DSPARB2_50_25_25;
 
-	/* updating the sprite watermark*/
-	I915_WRITE(DSPFW4, (DSPFW4_SPRITEB_VAL << DSPFW4_SPRITEB_SHIFT) |
-			(DSPFW4_CURSORA_VAL << DSPFW4_CURSORA_SHIFT) |
-			DSPFW4_SPRITEA_VAL);
-	I915_WRITE(DSPFW7, (DSPFW7_SPRITED1_VAL << DSPFW7_SPRITED1_SHIFT) |
-			(DSPFW7_SPRITED_VAL << DSPFW7_SPRITED_SHIFT) |
-			(DSPFW7_SPRITEC1_VAL << DSPFW7_SPRITEC1_SHIFT) |
-			DSPFW7_SPRITEC_VAL);
-	I915_WRITE(DSPFW8, (DSPFW8_SPRITEF1_VAL << DSPFW8_SPRITEF1_SHIFT) |
-			(DSPFW8_SPRITEF_VAL << DSPFW8_SPRITEF_SHIFT) |
-			(DSPFW8_SPRITEE1_VAL << DSPFW8_SPRITEE1_SHIFT) |
-			DSPFW8_SPRITEE_VAL);
-	I915_WRITE(DSPFW9, (I915_READ(DSPFW9) | VLV_DSPFW9_DEF_WM));
-	I915_WRITE(DSPHOWM, 0);
-	I915_WRITE(DSPHOWM1, 0);
+	switch (pipe) {
+	case PIPE_A:
+		I915_WRITE_BITS(DSPARB, dsparb, DSPARB_PIPEA_MASK);
+		I915_WRITE_BITS(DSPARB2, dsparb_h, DSPARB2_PIPEA_MASK);
+
+		/* update wm*/
+		I915_WRITE_BITS(DSPFW1, pa, VLV_FW_PIPEA_PA_MASK);
+		I915_WRITE_BITS(DSPFW2, sa, VLV_FW_PIPEA_SA_MASK);
+		I915_WRITE_BITS(DSPFW2, (sb << VLV_FW_PIPEA_SB_SHIFT),
+							VLV_FW_PIPEA_SB_MASK);
+		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+						~(VLV_DSPHOWM_PIPEA_MASK)) |
+						(((pa >> 8) | ((sa >> 8) <<
+						VLV_DSPHOWM_PIPEA_SA_SHIFT) |
+						((sb >> 8) <<
+						VLV_DSPHOWM_PIPEA_SB_SHIFT))));
+		break;
+	case PIPE_B:
+		I915_WRITE_BITS(DSPARB, (dsparb << DSPARB_PIPEB_SHIFT),
+						DSPARB_PIPEB_MASK);
+		I915_WRITE_BITS(DSPARB2, (dsparb_h << DSPARB2_PIPEB_SHIFT),
+						DSPARB2_PIPEB_MASK);
+		/* update wm*/
+		I915_WRITE_BITS(DSPFW1, (pa << VLV_FW_PIPEB_PB_SHIFT),
+							VLV_FW_PIPEB_PB_MASK);
+		I915_WRITE_BITS(DSPFW7, sa, VLV_FW_PIPEB_SC_MASK);
+		I915_WRITE_BITS(DSPFW7, (sb << VLV_FW_PIPEB_SD_SHIFT),
+							VLV_FW_PIPEB_SD_MASK);
+		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+					~(VLV_DSPHOWM_PIPEB_MASK)) |
+				((((pa >> 8) << VLV_DSPHOWM_PIPEB_PB_SHIFT) |
+				((sa >> 8) << VLV_DSPHOWM_PIPEB_SC_SHIFT) |
+				((sb >> 8) << VLV_DSPHOWM_PIPEB_SD_SHIFT))));
+
+		break;
+	case PIPE_C:
+		I915_WRITE_BITS(DSPARB3, dsparb, DSPARB3_PIPEC_MASK);
+		I915_WRITE_BITS(DSPARB2, (dsparb_h << DSPARB2_PIPEC_SHIFT),
+						DSPARB2_PIPEC_MASK);
+		/* update wm*/
+		I915_WRITE_BITS(DSPFW9, (pa << VLV_FW_PIPEC_PC_SHIFT),
+							VLV_FW_PIPEC_PC_MASK);
+		I915_WRITE_BITS(DSPFW8, sa, VLV_FW_PIPEC_SE_MASK);
+		I915_WRITE_BITS(DSPFW8, (sb << VLV_FW_PIPEC_SF_SHIFT),
+							VLV_FW_PIPEC_SF_MASK);
+		I915_WRITE(DSPHOWM, (I915_READ(DSPHOWM) &
+						~(VLV_DSPHOWM_PIPEC_MASK)) |
+				((((pa >> 8) << VLV_DSPHOWM_PIPEC_PC_SHIFT) |
+				((sa >> 8) << VLV_DSPHOWM_PIPEC_SE_SHIFT) |
+				((sb >> 8) << VLV_DSPHOWM_PIPEC_SF_SHIFT))));
+		break;
+	default:
+		DRM_ERROR("invalid pipe\n");
+	}
 }
 
 static void valleyview_update_wm(struct drm_crtc *crtc)
