@@ -621,7 +621,7 @@ static int taiko_put_anc_func(struct snd_kcontrol *kcontrol,
 	struct taiko_priv *taiko = snd_soc_codec_get_drvdata(codec);
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
-	mutex_lock(&dapm->codec->mutex);
+	mutex_lock(&codec->mutex);
 	taiko->anc_func = (!ucontrol->value.integer.value[0] ? false : true);
 
 	dev_dbg(codec->dev, "%s: anc_func %x", __func__, taiko->anc_func);
@@ -649,7 +649,7 @@ static int taiko_put_anc_func(struct snd_kcontrol *kcontrol,
 		snd_soc_dapm_enable_pin(dapm, "EAR PA");
 		snd_soc_dapm_enable_pin(dapm, "EAR");
 	}
-	mutex_unlock(&dapm->codec->mutex);
+	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_sync(dapm);
 	return 0;
 }
@@ -7529,13 +7529,13 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	}
 
 	atomic_set(&kp_taiko_priv, (unsigned long)taiko);
-	mutex_lock(&dapm->codec->mutex);
+	mutex_lock(&codec->mutex);
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHL");
 	snd_soc_dapm_disable_pin(dapm, "ANC HPHR");
 	snd_soc_dapm_disable_pin(dapm, "ANC HEADPHONE");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR PA");
 	snd_soc_dapm_disable_pin(dapm, "ANC EAR");
-	mutex_unlock(&dapm->codec->mutex);
+	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_sync(dapm);
 
 	codec->ignore_pmdown_time = 1;
