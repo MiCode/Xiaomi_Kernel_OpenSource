@@ -234,6 +234,7 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 	const struct snd_kcontrol_new *kcontrol;
 	int rc = 0;
 	struct snd_soc_dapm_route intercon;
+	struct snd_soc_dapm_context *dapm;
 
 	if (!dai) {
 		pr_err("%s: dai not found\n", __func__);
@@ -261,6 +262,7 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 	rc = snd_ctl_add(dai->card->snd_card,
 					 snd_ctl_new1(kcontrol, dai_data));
 
+	dapm = snd_soc_component_get_dapm(dai->component);
 	memset(&intercon, 0 , sizeof(intercon));
 	if (!rc && dai && dai->driver) {
 		if (dai->driver->playback.stream_name &&
@@ -271,7 +273,7 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 			intercon.sink = dai->driver->playback.stream_name;
 			dev_dbg(dai->dev, "%s src %s sink %s\n",
 				   __func__, intercon.source, intercon.sink);
-			snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+			snd_soc_dapm_add_routes(dapm, &intercon, 1);
 		}
 		if (dai->driver->capture.stream_name &&
 		   dai->driver->capture.aif_name) {
@@ -281,7 +283,7 @@ static int msm_dai_q6_hdmi_dai_probe(struct snd_soc_dai *dai)
 			intercon.source = dai->driver->capture.stream_name;
 			dev_dbg(dai->dev, "%s src %s sink %s\n",
 				   __func__, intercon.source, intercon.sink);
-			snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+			snd_soc_dapm_add_routes(dapm, &intercon, 1);
 		}
 	}
 	return rc;

@@ -46,11 +46,13 @@ static struct snd_soc_dai_ops msm_dai_stub_ops = {
 static int msm_dai_stub_add_route(struct snd_soc_dai *dai)
 {
 	struct snd_soc_dapm_route intercon;
+	struct snd_soc_dapm_context *dapm;
 
 	if (!dai || !dai->driver) {
 		pr_err("%s Invalid params\n", __func__);
 		return -EINVAL;
 	}
+	dapm = snd_soc_component_get_dapm(dai->component);
 	memset(&intercon, 0 , sizeof(intercon));
 	if (dai->driver->playback.stream_name &&
 		dai->driver->playback.aif_name) {
@@ -60,7 +62,7 @@ static int msm_dai_stub_add_route(struct snd_soc_dai *dai)
 		intercon.sink = dai->driver->playback.stream_name;
 		dev_dbg(dai->dev, "%s src %s sink %s\n",
 			__func__, intercon.source, intercon.sink);
-		snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+		snd_soc_dapm_add_routes(dapm, &intercon, 1);
 	}
 	if (dai->driver->capture.stream_name &&
 		dai->driver->capture.aif_name) {
@@ -70,7 +72,7 @@ static int msm_dai_stub_add_route(struct snd_soc_dai *dai)
 		intercon.source = dai->driver->capture.stream_name;
 		dev_dbg(dai->dev, "%s src %s sink %s\n",
 			__func__, intercon.source, intercon.sink);
-		snd_soc_dapm_add_routes(&dai->dapm, &intercon, 1);
+		snd_soc_dapm_add_routes(dapm, &intercon, 1);
 	}
 	return 0;
 }
