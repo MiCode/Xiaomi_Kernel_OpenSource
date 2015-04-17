@@ -154,15 +154,22 @@ static ssize_t soc_codec_reg_show(struct snd_soc_codec *codec, char *buf,
 		step = codec->driver->reg_cache_step;
 
 	for (i = 0; i < codec->driver->reg_cache_size; i += step) {
-		/* only support larger than PAGE_SIZE bytes debugfs
-		 * entries for the default case */
-		if (p >= pos) {
-			if (total + len >= count - 1)
-				break;
-			format_register_str(codec, i, buf + total, len);
-			total += len;
+		if (!snd_soc_codec_readable_register(codec, i))
+			continue;
+		if (codec->driver->display_register) {
+			count += codec->driver->display_register(codec, buf + count,
+							 PAGE_SIZE - count, i);
+		} else {
+			/* only support larger than PAGE_SIZE bytes debugfs
+			 * entries for the default case */
+			if (p >= pos) {
+				if (total + len >= count - 1)
+					break;
+				format_register_str(codec, i, buf + total, len);
+				total += len;
+			}
+			p += len;
 		}
-		p += len;
 	}
 
 	total = min(total, count - 1);
@@ -1947,6 +1954,60 @@ static struct platform_driver soc_driver = {
 	.probe		= soc_probe,
 	.remove		= soc_remove,
 };
+
+/**
+ * snd_soc_codec_volatile_register: Report if a register is volatile.
+ *
+ * @codec: CODEC to query.
+ * @reg: Register to query.
+ *
+ * Boolean function indiciating if a CODEC register is volatile.
+ */
+int snd_soc_codec_volatile_register(struct snd_soc_codec *codec,
+				    unsigned int reg)
+{
+	if (codec->volatile_register)
+		return codec->volatile_register(codec, reg);
+	else
+		return 0;
+}
+EXPORT_SYMBOL_GPL(snd_soc_codec_volatile_register);
+
+/**
+ * snd_soc_codec_readable_register: Report if a register is readable.
+ *
+ * @codec: CODEC to query.
+ * @reg: Register to query.
+ *
+ * Boolean function indicating if a CODEC register is readable.
+ */
+int snd_soc_codec_readable_register(struct snd_soc_codec *codec,
+				    unsigned int reg)
+{
+	if (codec->readable_register)
+		return codec->readable_register(codec, reg);
+	else
+		return 1;
+}
+EXPORT_SYMBOL_GPL(snd_soc_codec_readable_register);
+
+/**
+ * snd_soc_codec_writable_register: Report if a register is writable.
+ *
+ * @codec: CODEC to query.
+ * @reg: Register to query.
+ *
+ * Boolean function indicating if a CODEC register is writable.
+ */
+int snd_soc_codec_writable_register(struct snd_soc_codec *codec,
+				    unsigned int reg)
+{
+	if (codec->writable_register)
+		return codec->writable_register(codec, reg);
+	else
+		return 1;
+}
+EXPORT_SYMBOL_GPL(snd_soc_codec_writable_register);
 
 /**
  * snd_soc_new_ac97_codec - initailise AC97 device
@@ -4366,6 +4427,9 @@ int snd_soc_register_codec(struct device *dev,
 		codec->component.write = snd_soc_codec_drv_write;
 	if (codec_drv->read)
 		codec->component.read = snd_soc_codec_drv_read;
+	codec->volatile_register = codec_drv->volatile_register;
+	codec->readable_register = codec_drv->readable_register;
+	codec->writable_register = codec_drv->writable_register;
 	codec->component.ignore_pmdown_time = codec_drv->ignore_pmdown_time;
 	codec->dapm.idle_bias_off = codec_drv->idle_bias_off;
 	codec->dapm.suspend_bias_off = codec_drv->suspend_bias_off;
