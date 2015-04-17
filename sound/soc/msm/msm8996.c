@@ -287,7 +287,7 @@ static void msm8996_ext_control(struct snd_soc_codec *codec)
 {
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
-	mutex_lock(&dapm->codec->mutex);
+	mutex_lock(&codec->mutex);
 	pr_debug("%s: msm8996_spk_control = %d", __func__,
 		 msm8996_spk_control);
 	if (msm8996_spk_control == MSM8996_SPK_ON) {
@@ -297,7 +297,7 @@ static void msm8996_ext_control(struct snd_soc_codec *codec)
 		snd_soc_dapm_disable_pin(dapm, "Lineout_1 amp");
 		snd_soc_dapm_disable_pin(dapm, "Lineout_2 amp");
 	}
-	mutex_unlock(&dapm->codec->mutex);
+	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_sync(dapm);
 }
 
