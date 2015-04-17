@@ -2006,7 +2006,7 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 
 static bool apq8084_swap_gnd_mic(struct snd_soc_codec *codec)
 {
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = codec->component.card;
 	struct apq8084_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int value = gpio_get_value_cansleep(pdata->us_euro_gpio);
 
