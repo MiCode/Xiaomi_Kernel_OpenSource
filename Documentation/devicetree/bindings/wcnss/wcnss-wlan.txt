@@ -1,0 +1,93 @@
+* Qualcomm WCNSS Platform Driver
+
+WCNSS driver is the platform driver. It is used for performing the cold
+boot-up of the wireless device. It is responsible for adjusting
+the necessary I/O rails and enabling appropriate gpios for wireless
+connectivity subsystem.
+
+Required properties:
+- compatible: "wcnss_wlan"
+- reg: physical address and length of the register set for the device.
+- reg-names: "wcnss_mmio", "wcnss_fiq", "pronto_phy_base", "riva_phy_base",
+             "riva_ccu_base", "pronto_a2xb_base", "pronto_ccpu_base",
+             "pronto_saw2_base", "wlan_tx_phy_aborts","wlan_brdg_err_source",
+             "wlan_tx_status", "alarms_txctl", "alarms_tactl",
+             "pronto_mcu_base".
+- interupts: Pronto to Apps interrupts for tx done and rx pending.
+- qcom,pronto-vddmx-supply: regulator to supply pronto pll.
+- qcom,pronto-vddcx-supply: voltage corner regulator to supply WLAN/BT/FM
+                            digital module.
+- qcom,pronto-vddpx-supply: regulator to supply WLAN DAC.
+- qcom,iris-vddxo-supply  : regulator to supply RF XO.
+- qcom,iris-vddrfa-supply : regulator to supply RFA digital.
+- qcom,iris-vddpa-supply  : regulator to supply RF PA.
+- qcom,iris-vdddig-supply : regulator to supply RF digital(BT/FM).
+- gpios: gpio numbers to configure 5-wire interface of WLAN connectivity
+- qcom,has-48mhz-xo: boolean flag to determine the usage of 24MHz XO from RF
+- qcom,has-pronto-hw: boolean flag to determine the revId of the WLAN subsystem
+- qcom,wcnss-adc_tm: ADC handle for vbatt notification APIs.
+- pinctrl-<n> : Pinctrl states as described in bindings/pinctrl/pinctrl-bindings.txt
+- pinctrl-names : Names corresponding to the numbered pinctrl states
+- clocks: from common clock binding: handle to xo and rf_clk clocks.
+- clock-names: Names of all the clocks that are accessed by the subsystem
+
+Optional properties:
+- qcom,has-autodetect-xo: boolean flag to determine whether Iris XO auto detect
+should be performed during boot up.
+- qcom,wlan-rx-buff-count: WLAN RX buffer count is a configurable value,
+using a smaller count for this buffer will reduce the memory usage.
+- qcom,is-pronto-vt: boolean flag to determine the pronto hardware version
+in use. subsequently Pronto and IRIS voltage regulator range is configured
+according to the ponto HW version
+- qcom,is-pronto-v3: boolean flag to determine the pronto hardware version
+in use. subsequently correct workqueue will be used by DXE engine to push frames
+in TX data path and correct voting to RPM will be decided for booting.
+- qcom,wcnss-pm : <Core rail LDO#, PA rail LDO#, XO settling time,
+		   RPM power collapse enabled, standalone power collapse enabled>
+	Power manager related parameter for LDO configuration.
+	11     -  WCN CORE rail LDO number
+	21     -  WCN PA rail LDO number
+	1200   -  WCN XO settling time (usec)
+	1      -  WCN RPM power collapse enabled
+	1      -  WCN standalone power collapse enabled
+	6      -  GPIO strength value
+
+
+Example:
+
+    qcom,wcnss-wlan@fb000000 {
+        compatible = "qcom,wcnss_wlan";
+        reg = <0xfb000000 0x280000>,
+              <0xf9011008 0x04>;
+        reg-names = "wcnss_mmio", "wcnss_fiq";
+        interrupts = <0 145 0 0 146 0>;
+        interrupt-names = "wcnss_wlantx_irq", "wcnss_wlanrx_irq";
+
+        qcom,pronto-vddmx-supply = <&pm8841_s1>;
+        qcom,pronto-vddcx-supply = <&pm8841_s2_corner>;
+        qcom,pronto-vddpx-supply = <&pm8941_s3>;
+        qcom,iris-vddxo-supply = <&pm8941_l6>;
+        qcom,iris-vddrfa-supply = <&pm8941_l11>;
+        qcom,iris-vddpa-supply = <&pm8941_l19>;
+        qcom,iris-vdddig-supply = <&pm8941_l3>;
+
+        gpios = <&msmgpio 36 0>, <&msmgpio 37 0>, <&msmgpio 38 0>,
+                <&msmgpio 39 0>, <&msmgpio 40 0>;
+        qcom,has-48mhz-xo;
+        qcom,is-pronto-vt;
+        qcom,wlan-rx-buff-count = <512>;
+        qcom,has-pronto-hw;
+        qcom,wcnss-adc_tm = <&pm8226_adc_tm>;
+
+        pinctrl-names = "wcnss_default", "wcnss_sleep";
+        pinctrl-0 = <&wcnss_default>;
+        pinctrl-1 = <&wcnss_sleep>;
+        pinctrl-2 = <&wcnss_gpio_default>;
+
+        clocks = <&clock_rpm clk_xo_wlan_clk>,
+                   <&clock_rpm clk_rf_clk2>,
+                   <&clock_debug clk_gcc_debug_mux>,
+                   <&clock_gcc clk_wcnss_m_clk>;
+        clock-names = "xo", "rf_clk", "measure", "wcnss_debug";
+	qcom,wcnss-pm = <11 21 1200 1 1 6>;
+    };

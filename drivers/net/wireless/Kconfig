@@ -270,6 +270,36 @@ config WIFI_CONTROL_FUNC
 	help
 	  Enables Power/Reset/Carddetect function abstraction
 
+config WCNSS_CORE
+	tristate "Qualcomm WCNSS CORE driver"
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	select WEXT_CORE
+	select WEXT_SPY
+	---help---
+	  Core driver for the Qualcomm WCNSS triple play connectivity subsystem
+
+config WCNSS_CORE_PRONTO
+	tristate "Qualcomm WCNSS Pronto Support"
+	depends on WCNSS_CORE
+	---help---
+	  Pronto Support for the Qualcomm WCNSS triple play connectivity subsystem
+
+config WCNSS_MEM_PRE_ALLOC
+	tristate "WCNSS pre-alloc memory support"
+	---help---
+	  Pre-allocate memory for the WLAN driver module
+
+config WCNSS_REGISTER_DUMP_ON_BITE
+	bool "Enable/disable WCNSS register dump when there is a WCNSS bite"
+	depends on WCNSS_CORE_PRONTO
+	---help---
+	  When Apps recieves a WDOG bite from WCNSS, collecting a register dump
+	  of WCNSS is helpful to root cause the failure. WCNSS may not be
+	  properly clocked in some WCNSS bite cases, and that may cause unclocked
+	  register access failures. So this feature is to enable/disable the
+	  register dump on WCNSS WDOG bite.
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
