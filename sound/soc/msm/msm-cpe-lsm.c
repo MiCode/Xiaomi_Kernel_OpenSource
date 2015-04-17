@@ -1806,7 +1806,8 @@ static int msm_asoc_cpe_lsm_probe(struct snd_soc_platform *platform)
 		rtd = &card->rtd[i];
 		if (!rtd->platform)
 			continue;
-		if (!strcmp(rtd->platform->name, platform->name)) {
+		if (!strcmp(rtd->platform->component.name,
+			    platform->component.name)) {
 			found_runtime = true;
 			break;
 		}
