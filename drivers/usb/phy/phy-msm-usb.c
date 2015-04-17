@@ -6039,6 +6039,8 @@ static int msm_otg_probe(struct platform_device *pdev)
 	register_pm_notifier(&motg->pm_notify);
 	msm_otg_dbg_log_event(phy, "OTG PROBE", motg->caps, motg->lpm_flags);
 
+	msm_bam_set_usb_dev(&pdev->dev);
+
 	return 0;
 
 remove_cdev:
