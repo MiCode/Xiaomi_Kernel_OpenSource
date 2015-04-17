@@ -1437,10 +1437,73 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	return 0;
 }
 
+/**
+ * mdss_fb_release_file_entry() - Releases file node entry from list
+ * @info:	Frame buffer info
+ * @pinfo:	Process list node in which file node entry is going to
+ *		be removed
+ * @release_all: Releases all file node entries from list if this parameter
+ *		is true
+ *
+ * This function is called to remove the file node entry/entries from main
+ * list. It also helps to find the process id if fb_open and fb_close
+ * callers are different.
+ */
+static struct mdss_fb_proc_info *mdss_fb_release_file_entry(
+		struct fb_info *info,
+		struct mdss_fb_proc_info *pinfo, bool release_all)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct mdss_fb_file_info *file_info = NULL, *temp_file_info = NULL;
+	struct mdss_fb_proc_info *proc_info = NULL, *temp_proc_info = NULL;
+	struct file *file = info->file;
+	bool node_found = false;
+
+	if (!pinfo && release_all) {
+		pr_err("process node not provided for release all case\n");
+		goto end;
+	}
+
+	if (pinfo) {
+		proc_info = pinfo;
+		list_for_each_entry_safe(file_info, temp_file_info,
+						&pinfo->file_list, list) {
+			if (!release_all && file_info->file != file)
+				continue;
+
+			list_del(&file_info->list);
+			kfree(file_info);
+
+			node_found = true;
+
+			if (!release_all)
+				break;
+		}
+	}
+
+	if (!node_found) {
+		list_for_each_entry_safe(proc_info, temp_proc_info,
+						&mfd->proc_list, list) {
+			list_for_each_entry_safe(file_info, temp_file_info,
+						&proc_info->file_list, list) {
+				if (file_info->file == file) {
+					list_del(&file_info->list);
+					kfree(file_info);
+					goto end;
+				}
+			}
+		}
+	}
+
+end:
+	return proc_info;
+}
+
 static int mdss_fb_open(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdss_fb_proc_info *pinfo = NULL;
+	struct mdss_fb_file_info *file_info = NULL;
 	int result;
 	int pid = current->tgid;
 	struct task_struct *task = current->group_leader;
@@ -1449,6 +1512,12 @@ static int mdss_fb_open(struct fb_info *info, int user)
 		pr_err("Shutdown pending. Aborting operation. Request from pid:%d name=%s\n",
 				pid, task->comm);
 		return -EPERM;
+	}
+
+	file_info = kmalloc(sizeof(*file_info), GFP_KERNEL);
+	if (!file_info) {
+		pr_err("unable to alloc file info\n");
+		return -ENOMEM;
 	}
 
 	list_for_each_entry(pinfo, &mfd->proc_list, list) {
@@ -1460,13 +1529,18 @@ static int mdss_fb_open(struct fb_info *info, int user)
 		pinfo = kmalloc(sizeof(*pinfo), GFP_KERNEL);
 		if (!pinfo) {
 			pr_err("unable to alloc process info\n");
+			kfree(file_info);
 			return -ENOMEM;
 		}
 		pinfo->pid = pid;
 		pinfo->ref_cnt = 0;
 		list_add(&pinfo->list, &mfd->proc_list);
+		INIT_LIST_HEAD(&pinfo->file_list);
 		pr_debug("new process entry pid=%d\n", pinfo->pid);
 	}
+
+	file_info->file = info->file;
+	list_add(&file_info->list, &pinfo->file_list);
 
 	result = pm_runtime_get_sync(info->dev);
 
@@ -1506,13 +1580,15 @@ blank_error:
 	mfd->disp_thread = NULL;
 
 thread_error:
+	pm_runtime_put(info->dev);
+
+pm_error:
 	if (pinfo && !pinfo->ref_cnt) {
 		list_del(&pinfo->list);
 		kfree(pinfo);
 	}
-	pm_runtime_put(info->dev);
-
-pm_error:
+	list_del(&file_info->list);
+	kfree(file_info);
 	return result;
 }
 
@@ -1520,6 +1596,7 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdss_fb_proc_info *pinfo = NULL, *temp_pinfo = NULL;
+	struct mdss_fb_proc_info *proc_info = NULL;
 	int ret = 0;
 	int pid = current->tgid;
 	bool unknown_pid = true, release_needed = false;
@@ -1550,6 +1627,18 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 		pr_debug("found process %s pid=%d mfd->ref=%d pinfo->ref=%d\n",
 			task->comm, mfd->ref_cnt, pinfo->pid, pinfo->ref_cnt);
 
+		proc_info = mdss_fb_release_file_entry(info, pinfo,
+								release_all);
+		/*
+		 * if fb_release is called from different known process then
+		 * release the ref_count of original proc_info instead of
+		 * current process.
+		 */
+		if (!release_all && proc_info && proc_info != pinfo) {
+			pr_info("fb_release called from different process for current file node\n");
+			pinfo = proc_info;
+		}
+
 		do {
 			if (mfd->ref_cnt < pinfo->ref_cnt)
 				pr_warn("WARN:mfd->ref=%d < pinfo->ref=%d\n",
@@ -1576,6 +1665,23 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 			break;
 	}
 
+	if (unknown_pid) {
+		pinfo = mdss_fb_release_file_entry(info, NULL, false);
+		if (pinfo) {
+			mfd->ref_cnt--;
+			pinfo->ref_cnt--;
+			pm_runtime_put(info->dev);
+			if (!pinfo->ref_cnt) {
+				list_del(&pinfo->list);
+				kfree(pinfo);
+				release_needed = true;
+			}
+		} else {
+			WARN("unknown caller:: process %s mfd->ref=%d\n",
+				task->comm, mfd->ref_cnt);
+		}
+	}
+
 	if (release_needed) {
 		pr_debug("known process %s pid=%d mfd->ref=%d\n",
 			task->comm, pid, mfd->ref_cnt);
@@ -1586,19 +1692,8 @@ static int mdss_fb_release_all(struct fb_info *info, bool release_all)
 				pr_err("error releasing fb%d pid=%d\n",
 					mfd->index, pid);
 		}
-	} else if (unknown_pid || release_all) {
-		pr_warn("unknown process %s pid=%d mfd->ref=%d\n",
-			task->comm, pid, mfd->ref_cnt);
-
-		if (mfd->ref_cnt)
-			mfd->ref_cnt--;
-
-		if (mfd->mdp.release_fnc) {
-			ret = mfd->mdp.release_fnc(mfd, true);
-			if (ret)
-				pr_err("error fb%d release process %s pid=%d\n",
-					mfd->index, task->comm, pid);
-		}
+	} else if (release_all && mfd->ref_cnt) {
+		pr_err("reference count mismatch with proc list entries\n");
 	}
 
 	if (!mfd->ref_cnt) {
