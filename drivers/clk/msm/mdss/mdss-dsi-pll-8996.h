@@ -10,8 +10,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef MDSS_DSI_PLL_THULIUM_H
-#define MDSS_DSI_PLL_THULIUM_H
+#ifndef MDSS_DSI_PLL_8996_H
+#define MDSS_DSI_PLL_8996_H
 
 #define DSIPHY_CMN_CLK_CFG0		0x0010
 #define DSIPHY_CMN_CLK_CFG1		0x0014
@@ -144,19 +144,19 @@ struct dsi_pll_db {
 	struct dsi_pll_output out;
 };
 
-int pll_vco_set_rate_thulium(struct clk *c, unsigned long rate);
-long pll_vco_round_rate_thulium(struct clk *c, unsigned long rate);
-enum handoff pll_vco_handoff_thulium(struct clk *c);
-int pll_vco_prepare_thulium(struct clk *c);
-void pll_vco_unprepare_thulium(struct clk *c);
-int set_mdss_byte_mux_sel_thulium(struct mux_clk *clk, int sel);
-int get_mdss_byte_mux_sel_thulium(struct mux_clk *clk);
-int set_mdss_pixel_mux_sel_thulium(struct mux_clk *clk, int sel);
-int get_mdss_pixel_mux_sel_thulium(struct mux_clk *clk);
+int pll_vco_set_rate_8996(struct clk *c, unsigned long rate);
+long pll_vco_round_rate_8996(struct clk *c, unsigned long rate);
+enum handoff pll_vco_handoff_8996(struct clk *c);
+int pll_vco_prepare_8996(struct clk *c);
+void pll_vco_unprepare_8996(struct clk *c);
+int set_mdss_byte_mux_sel_8996(struct mux_clk *clk, int sel);
+int get_mdss_byte_mux_sel_8996(struct mux_clk *clk);
+int set_mdss_pixel_mux_sel_8996(struct mux_clk *clk, int sel);
+int get_mdss_pixel_mux_sel_8996(struct mux_clk *clk);
 int post_n1_div_set_div(struct div_clk *clk, int div);
 int post_n1_div_get_div(struct div_clk *clk);
 int n2_div_set_div(struct div_clk *clk, int div);
 int n2_div_get_div(struct div_clk *clk);
-int dsi_pll_enable_seq_thulium(struct mdss_pll_resources *pll);
+int dsi_pll_enable_seq_8996(struct mdss_pll_resources *pll);
 
-#endif  /* MDSS_DSI_PLL_THULIUM_H */
+#endif  /* MDSS_DSI_PLL_8996_H */
