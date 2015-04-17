@@ -5708,7 +5708,7 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 	snd_soc_dapm_add_routes(&platform->dapm, intercon,
 		ARRAY_SIZE(intercon));
 
-	snd_soc_dapm_new_widgets(platform->dapm.card);
+	snd_soc_dapm_new_widgets(platform->component.dapm.card);
 
 	snd_soc_add_platform_controls(platform, lsm_function,
 				      ARRAY_SIZE(lsm_function));
