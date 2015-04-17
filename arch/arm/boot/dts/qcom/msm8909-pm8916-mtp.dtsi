@@ -68,7 +68,6 @@
 
 &i2c_3 {
 	qcom,actuator@0 {
-		status = "disabled";
 		cam_vaf-supply = <&pm8916_l8>;
 	};
 
