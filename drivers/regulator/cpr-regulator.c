@@ -2998,7 +2998,6 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 				< cpr_vreg->cpr_fuse_target_quot[i - 1]) {
 			cpr_vreg->cpr_fuse_disable = true;
 			cpr_err(cpr_vreg, "invalid quotient values; permanently disabling CPR\n");
-			goto error;
 		}
 	}
 
