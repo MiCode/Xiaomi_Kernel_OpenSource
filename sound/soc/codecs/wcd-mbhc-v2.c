@@ -136,7 +136,7 @@ static void wcd_program_hs_vref(const struct wcd_mbhc *mbhc)
 {
 	struct wcd_mbhc_plug_type_cfg *plug_type_cfg;
 	struct snd_soc_codec *codec = mbhc->codec;
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = codec->component.card;
 	u32 reg_val;
 
 	plug_type_cfg = WCD_MBHC_CAL_PLUG_TYPE_PTR(mbhc->mbhc_cfg->calibration);
@@ -151,7 +151,7 @@ static void wcd_program_btn_threshold(const struct wcd_mbhc *mbhc, bool micbias)
 {
 	struct wcd_mbhc_btn_detect_cfg *btn_det;
 	struct snd_soc_codec *codec = mbhc->codec;
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = codec->component.card;
 	u16 i;
 	u32 course, fine, reg_val;
 	u16 reg_addr = MSM8X16_WCD_A_ANALOG_MBHC_BTN0_ZDETL_CTL;
@@ -2018,7 +2018,7 @@ int wcd_mbhc_init(struct wcd_mbhc *mbhc, struct snd_soc_codec *codec,
 	int ret = 0;
 	int hph_swh = 0;
 	int gnd_swh = 0;
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = codec->component.card;
 	const char *hph_switch = "qcom,msm-mbhc-hphl-swh";
 	const char *gnd_switch = "qcom,msm-mbhc-gnd-swh";
 

@@ -1358,7 +1358,7 @@ static int tomtom_mad_input_put(struct snd_kcontrol *kcontrol,
 	u8 tomtom_mad_input;
 	u16 micb_int_reg, micb_4_int_reg;
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = codec->component.card;
 	char mad_amic_input_widget[6];
 	u32 adc;
 	const char *mad_input_widget;
@@ -7860,7 +7860,7 @@ static int tomtom_device_down(struct wcd9xxx *wcd9xxx)
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	priv = snd_soc_codec_get_drvdata(codec);
 	wcd_cpe_ssr_event(priv->cpe_core, WCD_CPE_BUS_DOWN_EVENT);
-	snd_soc_card_change_online_state(codec->card, 0);
+	snd_soc_card_change_online_state(codec->component.card, 0);
 	set_bit(BUS_DOWN, &priv->status_mask);
 
 	return 0;
@@ -8404,7 +8404,7 @@ static int tomtom_post_reset_cb(struct wcd9xxx *wcd9xxx)
 	codec = (struct snd_soc_codec *)(wcd9xxx->ssr_priv);
 	tomtom = snd_soc_codec_get_drvdata(codec);
 
-	snd_soc_card_change_online_state(codec->card, 1);
+	snd_soc_card_change_online_state(codec->component.card, 1);
 	clear_bit(BUS_DOWN, &tomtom->status_mask);
 
 	mutex_lock(&codec->mutex);
