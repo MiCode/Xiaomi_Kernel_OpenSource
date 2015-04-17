@@ -540,8 +540,11 @@ static int a5xx_gpmu_ucode_load(struct adreno_device *adreno_dev)
 	if (gpucore->gpmufw_name == NULL)
 		return -EINVAL;
 	result = request_firmware(&fw, gpucore->gpmufw_name, device->dev);
-	if (result)
+	if (result) {
+		KGSL_CORE_ERR("request_firmware (%s) failed: %d\n",
+				gpucore->gpmufw_name, result);
 		return result;
+	}
 
 	/* Read header block and verify versioning first */
 	header = (uint32_t *)fw->data;
