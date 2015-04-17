@@ -52,6 +52,8 @@
 #define USB_ETH_RNDIS y
 #include "f_rndis.c"
 #include "rndis.c"
+#include "f_mbim.c"
+#include "u_bam_data.c"
 #include "u_ether.c"
 #include "f_mass_storage.h"
 
@@ -919,6 +921,107 @@ static struct android_usb_function rmnet_function = {
 	.attributes	= rmnet_function_attributes,
 };
 
+/* MBIM - used with BAM */
+#define MAX_MBIM_INSTANCES 1
+
+static int mbim_function_init(struct android_usb_function *f,
+					 struct usb_composite_dev *cdev)
+{
+	return mbim_init(MAX_MBIM_INSTANCES);
+}
+
+static void mbim_function_cleanup(struct android_usb_function *f)
+{
+	fmbim_cleanup();
+}
+
+
+/* mbim transport string */
+static char mbim_transports[MAX_XPORT_STR_LEN];
+
+static int mbim_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	char *trans;
+
+	pr_debug("%s: mbim transport is %s", __func__, mbim_transports);
+	trans = strim(mbim_transports);
+	return mbim_bind_config(c, 0, trans);
+}
+
+static void mbim_function_unbind_config(struct android_usb_function *f,
+						struct usb_configuration *c)
+{
+	char *trans = strim(mbim_transports);
+
+	if (strcmp("BAM2BAM_IPA", trans))
+		bam_data_flush_workqueue();
+}
+
+static int mbim_function_ctrlrequest(struct android_usb_function *f,
+					struct usb_composite_dev *cdev,
+					const struct usb_ctrlrequest *c)
+{
+	return mbim_ctrlrequest(cdev, c);
+}
+
+static ssize_t mbim_transports_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", mbim_transports);
+}
+
+static ssize_t mbim_transports_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	strlcpy(mbim_transports, buf, sizeof(mbim_transports));
+	return size;
+}
+
+static DEVICE_ATTR(mbim_transports, S_IRUGO | S_IWUSR, mbim_transports_show,
+				mbim_transports_store);
+
+static ssize_t wMTU_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", ext_mbb_desc.wMTU);
+}
+
+static ssize_t wMTU_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int value;
+	if (sscanf(buf, "%d", &value) == 1) {
+		if (value < 0 || value > USHRT_MAX)
+			pr_err("illegal MTU %d, enter unsigned 16 bits\n",
+				value);
+		else
+			ext_mbb_desc.wMTU = cpu_to_le16(value);
+		return size;
+	}
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(wMTU, S_IRUGO | S_IWUSR, wMTU_show,
+				wMTU_store);
+
+static struct device_attribute *mbim_function_attributes[] = {
+	&dev_attr_mbim_transports,
+	&dev_attr_wMTU,
+	NULL
+};
+
+static struct android_usb_function mbim_function = {
+	.name		= "usb_mbim",
+	.cleanup	= mbim_function_cleanup,
+	.bind_config	= mbim_function_bind_config,
+	.unbind_config	= mbim_function_unbind_config,
+	.init		= mbim_function_init,
+	.ctrlrequest	= mbim_function_ctrlrequest,
+	.attributes	= mbim_function_attributes,
+};
+
+
 /* DIAG */
 static char diag_clients[32];	    /*enabled DIAG clients- "diag[,diag_mdm]" */
 static ssize_t clients_store(
@@ -1687,6 +1790,7 @@ static struct android_usb_function audio_source_function = {
 
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
+	&mbim_function,
 	&rmnet_function,
 	&diag_function,
 	&qdss_function,
