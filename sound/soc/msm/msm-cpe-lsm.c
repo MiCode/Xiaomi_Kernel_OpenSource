@@ -1793,13 +1793,13 @@ static int msm_asoc_cpe_lsm_probe(struct snd_soc_platform *platform)
 	bool found_runtime = false;
 	int i;
 
-	if (!platform || !platform->card) {
+	if (!platform || !platform->component.card) {
 		pr_err("%s: Invalid platform or card\n",
 			__func__);
 		return -EINVAL;
 	}
 
-	card = platform->card;
+	card = platform->component.card;
 
 	/* Match platform to codec */
 	for (i = 0; i < card->num_links; i++) {
