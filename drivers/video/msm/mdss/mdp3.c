@@ -730,11 +730,9 @@ int mdp3_iommu_attach(int context)
 	if (context >= MDP3_IOMMU_CTX_MAX)
 		return -EINVAL;
 
-	mutex_lock(&mdp3_res->iommu_lock);
 	context_map = mdp3_res->iommu_contexts + context;
 	if (context_map->attached) {
 		pr_warn("mdp iommu already attached\n");
-		mutex_unlock(&mdp3_res->iommu_lock);
 		return 0;
 	}
 
@@ -747,7 +745,6 @@ int mdp3_iommu_attach(int context)
 	}
 
 	context_map->attached = true;
-	mutex_unlock(&mdp3_res->iommu_lock);
 	return 0;
 }
 
@@ -760,11 +757,9 @@ int mdp3_iommu_dettach(int context)
 		context >= MDP3_IOMMU_CTX_MAX)
 		return -EINVAL;
 
-	mutex_lock(&mdp3_res->iommu_lock);
 	context_map = mdp3_res->iommu_contexts + context;
 	if (!context_map->attached) {
 		pr_warn("mdp iommu not attached\n");
-		mutex_unlock(&mdp3_res->iommu_lock);
 		return 0;
 	}
 
@@ -772,7 +767,6 @@ int mdp3_iommu_dettach(int context)
 	iommu_detach_device(domain_map->domain, context_map->ctx);
 	context_map->attached = false;
 
-	mutex_unlock(&mdp3_res->iommu_lock);
 	return 0;
 }
 
@@ -1031,10 +1025,16 @@ static int mdp3_res_init(void)
 static void mdp3_res_deinit(void)
 {
 	struct mdss_hw *mdp3_hw;
+	int i;
 
 	mdp3_hw = &mdp3_res->mdp3_hw;
 	mdp3_bus_scale_unregister();
-	mdp3_iommu_dettach(MDP3_IOMMU_CTX_MDP_0);
+
+	mutex_lock(&mdp3_res->iommu_lock);
+	for (i = 0; i < MDP3_IOMMU_CTX_MAX; i++)
+		mdp3_iommu_dettach(i);
+	mutex_unlock(&mdp3_res->iommu_lock);
+
 	mdp3_iommu_deinit();
 
 	if (!IS_ERR_OR_NULL(mdp3_res->ion_client))
@@ -1777,6 +1777,7 @@ int mdp3_iommu_enable(int client)
 {
 	int i, rc = 0, ref_cnt = 0;
 
+	mutex_lock(&mdp3_res->iommu_lock);
 	for (i = 0; i < MDP3_CLIENT_MAX; i++)
 		ref_cnt += mdp3_res->iommu_ref_cnt[i];
 
@@ -1794,6 +1795,7 @@ int mdp3_iommu_enable(int client)
 
 	if (!rc)
 		mdp3_res->iommu_ref_cnt[client]++;
+	mutex_unlock(&mdp3_res->iommu_lock);
 
 	pr_debug("client :%d client_ref_cnt: %d total_ref_cnt: %d\n",
 		client, mdp3_res->iommu_ref_cnt[client], ref_cnt);
@@ -1804,6 +1806,7 @@ int mdp3_iommu_disable(int client)
 {
 	int i, rc = 0, ref_cnt = 0;
 
+	mutex_lock(&mdp3_res->iommu_lock);
 	if (mdp3_res->iommu_ref_cnt[client]) {
 		mdp3_res->iommu_ref_cnt[client]--;
 
@@ -1820,6 +1823,7 @@ int mdp3_iommu_disable(int client)
 	} else {
 		pr_err("iommu ref count unbalanced for client %d\n", client);
 	}
+	mutex_unlock(&mdp3_res->iommu_lock);
 
 	return rc;
 }
