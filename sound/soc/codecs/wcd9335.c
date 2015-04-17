@@ -2024,21 +2024,29 @@ static int tasha_codec_spk_boost_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	u16 boost_path_ctl, boost_path_cfg1;
+	u16 reg, reg_mix;
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
 	if (!strcmp(w->name, "RX INT7 CHAIN")) {
 		boost_path_ctl = WCD9335_CDC_BOOST0_BOOST_PATH_CTL;
 		boost_path_cfg1 = WCD9335_CDC_RX7_RX_PATH_CFG1;
+		reg = WCD9335_CDC_RX7_RX_PATH_CTL;
+		reg_mix = WCD9335_CDC_RX7_RX_PATH_MIX_CTL;
 	} else if (!strcmp(w->name, "RX INT8 CHAIN")) {
 		boost_path_ctl = WCD9335_CDC_BOOST1_BOOST_PATH_CTL;
 		boost_path_cfg1 = WCD9335_CDC_RX8_RX_PATH_CFG1;
+		reg = WCD9335_CDC_RX8_RX_PATH_CTL;
+		reg_mix = WCD9335_CDC_RX8_RX_PATH_MIX_CTL;
 	}
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		snd_soc_update_bits(codec, boost_path_ctl, 0x10, 0x10);
 		snd_soc_update_bits(codec, boost_path_cfg1, 0x01, 0x01);
+		snd_soc_update_bits(codec, reg, 0x10, 0x00);
+		if ((snd_soc_read(codec, reg_mix)) & 0x10)
+			snd_soc_update_bits(codec, reg_mix, 0x10, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		snd_soc_update_bits(codec, boost_path_cfg1, 0x01, 0x00);
