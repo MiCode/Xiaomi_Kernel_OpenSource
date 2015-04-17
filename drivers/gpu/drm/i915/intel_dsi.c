@@ -448,6 +448,21 @@ static void intel_dsi_pre_enable(struct intel_encoder *encoder)
 
 	do {
 		I915_WRITE(MIPI_DEVICE_READY(pipe), 0x0);
+		if (intel_dsi->dual_link)
+			pipe = PIPE_B;
+	} while (--count > 0);
+
+	tmp = vlv_flisdsi_read(dev_priv, FLIS_RCOMP_IOSFSB_REG3);
+	tmp = tmp | ((1 << 31) | (4 << 28));
+	vlv_flisdsi_write(dev_priv, FLIS_RCOMP_IOSFSB_REG3, tmp);
+
+	if (intel_dsi->dual_link) {
+		pipe = PIPE_A;
+		count = 2;
+	} else
+		count = 1;
+
+	do {
 		val = intel_dsi->lane_count << DATA_LANES_PRG_REG_SHIFT;
 		val |= intel_dsi->channel << VID_MODE_CHANNEL_NUMBER_SHIFT;
 		val |= intel_dsi->pixel_format;
