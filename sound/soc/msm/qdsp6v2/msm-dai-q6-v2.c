@@ -810,7 +810,7 @@ static int msm_dai_q6_spdif_dai_probe(struct snd_soc_dai *dai)
 				AFE_PORT_ID_SPDIF_RX);
 		rc = -ENOMEM;
 	} else
-		rc = dev_set_drvdata(dai->dev, dai_data);
+		dev_set_drvdata(dai->dev, dai_data);
 
 	kcontrol = &spdif_config_controls[1];
 	dapm = snd_soc_component_get_dapm(dai->component);
