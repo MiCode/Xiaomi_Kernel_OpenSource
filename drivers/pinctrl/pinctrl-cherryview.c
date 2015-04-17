@@ -1308,6 +1308,20 @@ static void chv_irq_init_hw(struct chv_gpio *cg)
 
 	reg = chv_gpio_reg(&cg->chip, 0, CV_INT_STAT_REG);
 	chv_writel(0xffff, reg);
+
+	/*workaround, make sw-17 nad sw-91 select different interrupt line.
+	* set sw-91 interrupt line to 2 to avoid the conflict*/
+	if (cg->chip.ngpio == 98) {
+		u32 val;
+		void __iomem *ctrl0_reg =
+			chv_gpio_reg(&cg->chip, 91, CV_PADCTRL0_REG);
+
+		val = chv_readl(ctrl0_reg) & (~CV_INT_SEL_MASK);
+		val |= (2 << 28);
+		chv_writel(val, ctrl0_reg);
+
+		pr_err("workaround to set SW-91 itnerrupt line as 2\n");
+	}
 }
 
 
