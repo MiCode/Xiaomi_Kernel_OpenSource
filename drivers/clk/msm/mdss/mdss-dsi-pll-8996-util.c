@@ -20,27 +20,27 @@
 
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
-#include "mdss-dsi-pll-thulium.h"
+#include "mdss-dsi-pll-8996.h"
 
 #define DSI_PLL_POLL_MAX_READS                  15
 #define DSI_PLL_POLL_TIMEOUT_US                 1000
 
-int set_mdss_byte_mux_sel_thulium(struct mux_clk *clk, int sel)
+int set_mdss_byte_mux_sel_8996(struct mux_clk *clk, int sel)
 {
 	return 0;
 }
 
-int get_mdss_byte_mux_sel_thulium(struct mux_clk *clk)
+int get_mdss_byte_mux_sel_8996(struct mux_clk *clk)
 {
 	return 0;
 }
 
-int set_mdss_pixel_mux_sel_thulium(struct mux_clk *clk, int sel)
+int set_mdss_pixel_mux_sel_8996(struct mux_clk *clk, int sel)
 {
 	return 0;
 }
 
-int get_mdss_pixel_mux_sel_thulium(struct mux_clk *clk)
+int get_mdss_pixel_mux_sel_8996(struct mux_clk *clk)
 {
 	return 0;
 }
@@ -70,7 +70,7 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	pr_debug("div=%d postdiv=%x n1div=%x\n",
 			div, pout->pll_postdiv, pout->pll_n1div);
 
-	/* registers commited at pll_db_commit_thulium() */
+	/* registers commited at pll_db_commit_8996() */
 
 	return 0;
 }
@@ -165,7 +165,7 @@ int n2_div_get_div(struct div_clk *clk)
 	return n2div;
 }
 
-static bool pll_is_pll_locked_thulium(struct mdss_pll_resources *pll)
+static bool pll_is_pll_locked_8996(struct mdss_pll_resources *pll)
 {
 	u32 status;
 	bool pll_locked;
@@ -194,21 +194,21 @@ static bool pll_is_pll_locked_thulium(struct mdss_pll_resources *pll)
 	return pll_locked;
 }
 
-static void dsi_pll_start_thulium(void __iomem *pll_base)
+static void dsi_pll_start_8996(void __iomem *pll_base)
 {
 	pr_debug("start PLL at base=%p\n", pll_base);
 
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_PLL_CNTRL, 1);
 }
 
-static void dsi_pll_stop_thulium(void __iomem *pll_base)
+static void dsi_pll_stop_8996(void __iomem *pll_base)
 {
 	pr_debug("stop PLL at base=%p\n", pll_base);
 
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_PLL_CNTRL, 0);
 }
 
-int dsi_pll_enable_seq_thulium(struct mdss_pll_resources *pll)
+int dsi_pll_enable_seq_8996(struct mdss_pll_resources *pll)
 {
 	int rc = 0;
 
@@ -217,14 +217,14 @@ int dsi_pll_enable_seq_thulium(struct mdss_pll_resources *pll)
 		return -EINVAL;
 	}
 
-	dsi_pll_start_thulium(pll->pll_base);
+	dsi_pll_start_8996(pll->pll_base);
 
 	/*
 	 * both DSIPHY_PLL_CLKBUFLR_EN and DSIPHY_CMN_GLBL_TEST_CTRL
-	 * enabled at mdss_dsi_thulium_phy_config()
+	 * enabled at mdss_dsi_8996_phy_config()
 	 */
 
-	if (!pll_is_pll_locked_thulium(pll)) {
+	if (!pll_is_pll_locked_8996(pll)) {
 		pr_err("DSI PLL lock failed\n");
 		rc = -EINVAL;
 		goto init_lock_err;
@@ -280,7 +280,7 @@ static void dsi_pll_disable(struct clk *c)
 
 	pll->handoff_resources = false;
 
-	dsi_pll_stop_thulium(pll->pll_base);
+	dsi_pll_stop_8996(pll->pll_base);
 
 	/* stop pll output */
 	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_PLL_CLKBUFLR_EN, 0);
@@ -296,7 +296,7 @@ static void dsi_pll_disable(struct clk *c)
 	return;
 }
 
-static void mdss_dsi_pll_thulium_input_init(struct dsi_pll_db *pdb)
+static void mdss_dsi_pll_8996_input_init(struct dsi_pll_db *pdb)
 {
 	pdb->in.fref = 19200000;	/* 19.2 Mhz*/
 	pdb->in.fdata = 0;		/* bit clock rate */
@@ -335,7 +335,7 @@ static void mdss_dsi_pll_thulium_input_init(struct dsi_pll_db *pdb)
 	pdb->in.pll_r3ctrl = 1;		/* 1 */
 }
 
-static void pll_thulium_dec_frac_calc(struct dsi_pll_db *pdb,
+static void pll_8996_dec_frac_calc(struct dsi_pll_db *pdb,
 			 s64 vco_clk_rate, s64 fref)
 {
 	struct dsi_pll_input *pin = &pdb->in;
@@ -374,7 +374,7 @@ static void pll_thulium_dec_frac_calc(struct dsi_pll_db *pdb,
 	pout->cmn_ldo_cntrl = 0x1c;
 }
 
-static u32 pll_thulium_kvco_slop(u32 vrate)
+static u32 pll_8996_kvco_slop(u32 vrate)
 {
 	u32 slop = 0;
 
@@ -388,7 +388,7 @@ static u32 pll_thulium_kvco_slop(u32 vrate)
 	return slop;
 }
 
-static void pll_thulium_calc_vco_count(struct dsi_pll_db *pdb,
+static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 			 s64 vco_clk_rate, s64 fref)
 {
 	struct dsi_pll_input *pin = &pdb->in;
@@ -413,7 +413,7 @@ static void pll_thulium_calc_vco_count(struct dsi_pll_db *pdb,
 	data -= 1;
 	pout->pll_kvco_div_ref = data;
 
-	cnt = pll_thulium_kvco_slop(vco_clk_rate);
+	cnt = pll_8996_kvco_slop(vco_clk_rate);
 	cnt *= 2;
 	cnt /= 100;
 	cnt *= pin->kvco_measure_time;
@@ -494,7 +494,7 @@ static void pll_db_commit_common(void __iomem *pll_base,
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PLL_CRCTRL, data);
 }
 
-static void pll_db_commit_thulium(void __iomem *pll_base,
+static void pll_db_commit_8996(void __iomem *pll_base,
 					struct dsi_pll_db *pdb)
 {
 	struct dsi_pll_input *pin = &pdb->in;
@@ -581,7 +581,7 @@ static void pll_db_commit_thulium(void __iomem *pll_base,
 	wmb();	/* make sure register committed */
 }
 
-int pll_vco_set_rate_thulium(struct clk *c, unsigned long rate)
+int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 {
 	int rc;
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
@@ -606,28 +606,28 @@ int pll_vco_set_rate_thulium(struct clk *c, unsigned long rate)
 	pll->vco_current_rate = rate;
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
 
-	mdss_dsi_pll_thulium_input_init(pdb);
+	mdss_dsi_pll_8996_input_init(pdb);
 
-	pll_thulium_dec_frac_calc(pdb, pll->vco_current_rate,
+	pll_8996_dec_frac_calc(pdb, pll->vco_current_rate,
 					pll->vco_ref_clk_rate);
 
-	pll_thulium_calc_vco_count(pdb, pll->vco_current_rate,
+	pll_8996_calc_vco_count(pdb, pll->vco_current_rate,
 					pll->vco_ref_clk_rate);
 
 	/* commit slave if split display is enabled */
 	slave = pll->slave;
 	if (slave)
-		pll_db_commit_thulium(slave->pll_base, pdb);
+		pll_db_commit_8996(slave->pll_base, pdb);
 
 	/* commit master itself */
-	pll_db_commit_thulium(pll->pll_base, pdb);
+	pll_db_commit_8996(pll->pll_base, pdb);
 
 	mdss_pll_resource_enable(pll, false);
 
 	return rc;
 }
 
-unsigned long pll_vco_get_rate_thulium(struct clk *c)
+unsigned long pll_vco_get_rate_8996(struct clk *c)
 {
 	u64 vco_rate, multiplier = (1 << 20);
 	s32 div_frac_start;
@@ -669,7 +669,7 @@ unsigned long pll_vco_get_rate_thulium(struct clk *c)
 	return (unsigned long)vco_rate;
 }
 
-long pll_vco_round_rate_thulium(struct clk *c, unsigned long rate)
+long pll_vco_round_rate_8996(struct clk *c, unsigned long rate)
 {
 	unsigned long rrate = rate;
 	u32 div;
@@ -690,7 +690,7 @@ long pll_vco_round_rate_thulium(struct clk *c, unsigned long rate)
 	return rrate;
 }
 
-enum handoff pll_vco_handoff_thulium(struct clk *c)
+enum handoff pll_vco_handoff_8996(struct clk *c)
 {
 	int rc;
 	enum handoff ret = HANDOFF_DISABLED_CLK;
@@ -706,10 +706,10 @@ enum handoff pll_vco_handoff_thulium(struct clk *c)
 		return ret;
 	}
 
-	if (pll_is_pll_locked_thulium(pll)) {
+	if (pll_is_pll_locked_8996(pll)) {
 		pll->handoff_resources = true;
 		pll->pll_on = true;
-		c->rate = pll_vco_get_rate_thulium(c);
+		c->rate = pll_vco_get_rate_8996(c);
 		ret = HANDOFF_ENABLED_CLK;
 	} else {
 		mdss_pll_resource_enable(pll, false);
@@ -718,7 +718,7 @@ enum handoff pll_vco_handoff_thulium(struct clk *c)
 	return ret;
 }
 
-int pll_vco_prepare_thulium(struct clk *c)
+int pll_vco_prepare_8996(struct clk *c)
 {
 	int rc = 0;
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
@@ -744,7 +744,7 @@ error:
 	return rc;
 }
 
-void pll_vco_unprepare_thulium(struct clk *c)
+void pll_vco_unprepare_8996(struct clk *c)
 {
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
 	struct mdss_pll_resources *pll = vco->priv;

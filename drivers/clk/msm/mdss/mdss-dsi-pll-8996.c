@@ -20,11 +20,11 @@
 #include <linux/clk/msm-clk.h>
 #include <linux/workqueue.h>
 #include <linux/clk/msm-clock-generic.h>
-#include <dt-bindings/clock/msm-clocks-thulium.h>
+#include <dt-bindings/clock/msm-clocks-8996.h>
 
 #include "mdss-pll.h"
 #include "mdss-dsi-pll.h"
-#include "mdss-dsi-pll-thulium.h"
+#include "mdss-dsi-pll-8996.h"
 
 #define VCO_DELAY_USEC		1
 
@@ -38,11 +38,11 @@ static struct clk_ops clk_ops_gen_mux_dsi;
 
 /* Op structures */
 static struct clk_ops clk_ops_dsi_vco = {
-	.set_rate = pll_vco_set_rate_thulium,
-	.round_rate = pll_vco_round_rate_thulium,
-	.handoff = pll_vco_handoff_thulium,
-	.prepare = pll_vco_prepare_thulium,
-	.unprepare = pll_vco_unprepare_thulium,
+	.set_rate = pll_vco_set_rate_8996,
+	.round_rate = pll_vco_round_rate_8996,
+	.handoff = pll_vco_handoff_8996,
+	.prepare = pll_vco_prepare_8996,
+	.unprepare = pll_vco_unprepare_8996,
 };
 
 static struct clk_div_ops post_n1_div_ops = {
@@ -56,13 +56,13 @@ static struct clk_div_ops n2_div_ops = {	/* hr_oclk3 */
 };
 
 static struct clk_mux_ops mdss_byte_mux_ops = {
-	.set_mux_sel = set_mdss_byte_mux_sel_thulium,
-	.get_mux_sel = get_mdss_byte_mux_sel_thulium,
+	.set_mux_sel = set_mdss_byte_mux_sel_8996,
+	.get_mux_sel = get_mdss_byte_mux_sel_8996,
 };
 
 static struct clk_mux_ops mdss_pixel_mux_ops = {
-	.set_mux_sel = set_mdss_pixel_mux_sel_thulium,
-	.get_mux_sel = get_mdss_pixel_mux_sel_thulium,
+	.set_mux_sel = set_mdss_pixel_mux_sel_8996,
+	.get_mux_sel = get_mdss_pixel_mux_sel_8996,
 };
 
 static struct dsi_pll_vco_clk dsi_vco_clk = {
@@ -70,9 +70,9 @@ static struct dsi_pll_vco_clk dsi_vco_clk = {
 	.min_rate = 1300000000,
 	.max_rate = 2600000000,
 	.pll_en_seq_cnt = 1,
-	.pll_enable_seqs[0] = dsi_pll_enable_seq_thulium,
+	.pll_enable_seqs[0] = dsi_pll_enable_seq_8996,
 	.c = {
-		.dbg_name = "dsi_vco_clk_thulium",
+		.dbg_name = "dsi_vco_clk_8996",
 		.ops = &clk_ops_dsi_vco,
 		CLK_INIT(dsi_vco_clk.c),
 	},
@@ -165,7 +165,7 @@ static struct mux_clk mdss_byte_clk_mux = {
 	}
 };
 
-static struct clk_lookup mdss_dsi_pllcc_thulium[] = {
+static struct clk_lookup mdss_dsi_pllcc_8996[] = {
 	CLK_LIST(mdss_byte_clk_mux),
 	CLK_LIST(byte_clk_src),
 	CLK_LIST(mdss_pixel_clk_mux),
@@ -175,7 +175,7 @@ static struct clk_lookup mdss_dsi_pllcc_thulium[] = {
 	CLK_LIST(dsi_vco_clk),
 };
 
-int dsi_pll_clock_register_thulium(struct platform_device *pdev,
+int dsi_pll_clock_register_8996(struct platform_device *pdev,
 				struct mdss_pll_resources *pll_res)
 {
 	int rc;
@@ -237,10 +237,10 @@ int dsi_pll_clock_register_thulium(struct platform_device *pdev,
 	clk_ops_gen_mux_dsi.round_rate = parent_round_rate;
 	clk_ops_gen_mux_dsi.set_rate = parent_set_rate;
 
-	if (pll_res->target_id == MDSS_PLL_TARGET_THULIUM) {
+	if (pll_res->target_id == MDSS_PLL_TARGET_8996) {
 		rc = of_msm_clock_register(pdev->dev.of_node,
-				mdss_dsi_pllcc_thulium,
-				ARRAY_SIZE(mdss_dsi_pllcc_thulium));
+				mdss_dsi_pllcc_8996,
+				ARRAY_SIZE(mdss_dsi_pllcc_8996));
 		if (rc) {
 			pr_err("Clock register failed\n");
 			rc = -EPROBE_DEFER;
