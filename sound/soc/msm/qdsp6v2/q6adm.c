@@ -37,6 +37,12 @@
 #define ULL_SUPPORTED_BITS_PER_SAMPLE 16
 #define ULL_SUPPORTED_SAMPLE_RATE 48000
 
+/* ENUM for adm_status */
+enum adm_cal_status {
+	ADM_STATUS_CALIBRATION_REQUIRED = 0,
+	ADM_STATUS_MAX,
+};
+
 struct adm_copp {
 
 	atomic_t id[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
@@ -52,6 +58,7 @@ struct adm_copp {
 	wait_queue_head_t adm_delay_wait[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	atomic_t adm_delay_stat[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 	uint32_t adm_delay[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
+	enum adm_cal_status adm_status[AFE_MAX_PORTS][MAX_COPPS_PER_PORT];
 };
 
 struct source_tracking_data {
@@ -1168,6 +1175,8 @@ static int32_t adm_callback(struct apr_client_data *data, void *priv)
 					    &this_adm.copp.app_type[i][j], 0);
 					atomic_set(
 					   &this_adm.copp.acdb_id[i][j], 0);
+					this_adm.copp.adm_status[i][j] =
+						ADM_STATUS_CALIBRATION_REQUIRED;
 				}
 			}
 			this_adm.apr = NULL;
@@ -1921,7 +1930,7 @@ static int get_cal_path(int path)
 static void send_adm_cal(int port_id, int copp_idx, int path, int perf_mode,
 			 int app_type, int acdb_id, int sample_rate)
 {
-	pr_debug("%s:\n", __func__);
+	pr_debug("%s: port id 0x%x copp_idx %d\n", __func__, port_id, copp_idx);
 
 	send_adm_cal_type(ADM_AUDPROC_CAL, path, port_id, copp_idx, perf_mode,
 			  app_type, acdb_id, sample_rate);
@@ -2155,6 +2164,8 @@ int adm_open(int port_id, int path, int rate, int channel_mode, int topology,
 				   app_type);
 			atomic_set(&this_adm.copp.acdb_id[port_idx][copp_idx],
 				   acdb_id);
+			set_bit(ADM_STATUS_CALIBRATION_REQUIRED,
+			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
 			if (path != ADM_PATH_COMPRESSED_RX)
 				send_adm_custom_topology();
 		}
@@ -2375,11 +2386,23 @@ int adm_matrix_map(int path, struct route_payload payload_map, int perf_mode)
 					    payload_map.session_id,
 					    payload_map.app_type,
 					    payload_map.acdb_dev_id);
+
+			if (!test_bit(ADM_STATUS_CALIBRATION_REQUIRED,
+				(void *)&this_adm.copp.adm_status[port_idx]
+								[copp_idx])) {
+				pr_debug("%s: adm copp[0x%x][%d] already sent",
+						__func__, port_idx, copp_idx);
+				continue;
+			}
 			send_adm_cal(payload_map.port_id[i], copp_idx,
 				     get_cal_path(path), perf_mode,
 				     payload_map.app_type,
 				     payload_map.acdb_dev_id,
 				     payload_map.sample_rate);
+			/* ADM COPP calibration is already sent */
+			clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
+				(void *)&this_adm.copp.
+				adm_status[port_idx][copp_idx]);
 			pr_debug("%s: copp_id: %d\n", __func__,
 				 atomic_read(&this_adm.copp.id[port_idx]
 							      [copp_idx]));
@@ -2508,6 +2531,9 @@ int adm_close(int port_id, int perf_mode, int copp_idx)
 		atomic_set(&this_adm.copp.rate[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.bit_width[port_idx][copp_idx], 0);
 		atomic_set(&this_adm.copp.app_type[port_idx][copp_idx], 0);
+
+		clear_bit(ADM_STATUS_CALIBRATION_REQUIRED,
+			(void *)&this_adm.copp.adm_status[port_idx][copp_idx]);
 
 		ret = apr_send_pkt(this_adm.apr, (uint32_t *)&close);
 		if (ret < 0) {
@@ -3845,6 +3871,8 @@ static int __init adm_init(void)
 				&this_adm.copp.adm_delay_wait[i][j]);
 			atomic_set(&this_adm.copp.topology[i][j], 0);
 			this_adm.copp.adm_delay[i][j] = 0;
+			this_adm.copp.adm_status[i][j] =
+				ADM_STATUS_CALIBRATION_REQUIRED;
 		}
 	}
 
