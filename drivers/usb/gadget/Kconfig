@@ -413,6 +413,7 @@ config USB_CONFIGFS_UEVENT
 config USB_G_ANDROID
 	boolean "Android Composite Gadget"
 	select USB_F_ACM
+	select USB_F_AUDIO_SRC
 	select USB_LIBCOMPOSITE
 	select USB_F_FS
 	select USB_U_SERIAL

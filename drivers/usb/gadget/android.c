@@ -31,7 +31,6 @@
 #include "gadget_chips.h"
 
 #include "u_fs.h"
-#include "f_audio_source.c"
 #include "f_mass_storage.c"
 #include "f_mtp.c"
 #include "f_accessory.c"
@@ -847,6 +846,7 @@ static struct android_usb_function mass_storage_function = {
 	.init		= mass_storage_function_init,
 	.cleanup	= mass_storage_function_cleanup,
 	.bind_config	= mass_storage_function_bind_config,
+	.unbind_config	= mass_storage_function_unbind_config,
 	.attributes	= mass_storage_function_attributes,
 };
 
@@ -883,58 +883,60 @@ static struct android_usb_function accessory_function = {
 	.ctrlrequest	= accessory_function_ctrlrequest,
 };
 
+struct audio_source_function_config {
+	struct usb_function *f_aud;
+	struct usb_function_instance *f_aud_inst;
+};
+
 static int audio_source_function_init(struct android_usb_function *f,
 			struct usb_composite_dev *cdev)
 {
-	struct audio_source_config *config;
+	struct audio_source_function_config *config;
 
-	config = kzalloc(sizeof(struct audio_source_config), GFP_KERNEL);
+	config = kzalloc(sizeof(*config), GFP_KERNEL);
 	if (!config)
 		return -ENOMEM;
-	config->card = -1;
-	config->device = -1;
+
+	config->f_aud_inst = usb_get_function_instance("audio_source");
+	if (IS_ERR(config->f_aud_inst))
+		return PTR_ERR(config->f_aud_inst);
+
+	config->f_aud = usb_get_function(config->f_aud_inst);
+	if (IS_ERR(config->f_aud)) {
+		usb_put_function_instance(config->f_aud_inst);
+		return PTR_ERR(config->f_aud);
+	}
+
 	f->config = config;
 	return 0;
 }
 
 static void audio_source_function_cleanup(struct android_usb_function *f)
 {
+	struct audio_source_function_config *config = f->config;
+
+	usb_put_function(config->f_aud);
+	usb_put_function_instance(config->f_aud_inst);
+
 	kfree(f->config);
+	f->config = NULL;
 }
 
 static int audio_source_function_bind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
-	struct audio_source_config *config = f->config;
+	struct audio_source_function_config *config = f->config;
 
-	return audio_source_bind_config(c, config);
+	return usb_add_function(c, config->f_aud);
 }
 
 static void audio_source_function_unbind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
-	struct audio_source_config *config = f->config;
+	struct audio_source_function_config *config = f->config;
 
-	config->card = -1;
-	config->device = -1;
+	usb_remove_function(c, config->f_aud);
 }
-
-static ssize_t audio_source_pcm_show(struct device *dev,
-		struct device_attribute *attr, char *buf)
-{
-	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct audio_source_config *config = f->config;
-
-	/* print PCM card and device numbers */
-	return sprintf(buf, "%d %d\n", config->card, config->device);
-}
-
-static DEVICE_ATTR(pcm, S_IRUGO, audio_source_pcm_show, NULL);
-
-static struct device_attribute *audio_source_function_attributes[] = {
-	&dev_attr_pcm,
-	NULL
-};
 
 static struct android_usb_function audio_source_function = {
 	.name		= "audio_source",
@@ -942,7 +944,6 @@ static struct android_usb_function audio_source_function = {
 	.cleanup	= audio_source_function_cleanup,
 	.bind_config	= audio_source_function_bind_config,
 	.unbind_config	= audio_source_function_unbind_config,
-	.attributes	= audio_source_function_attributes,
 };
 
 static struct android_usb_function *supported_functions[] = {
@@ -957,6 +958,31 @@ static struct android_usb_function *supported_functions[] = {
 	NULL
 };
 
+
+/*
+ * HACK: this is an override for the same named function in configfs.c
+ * which is only available if CONFIGFS_UEVENT is defined, apparently when
+ * the Android gadget is implemented with ConfigFS instead of this file.
+ *
+ * The audio_source function driver seems to need this routine in order to
+ * retrieve a pointer to the function device instance under the android_device
+ * parent which we can retrieve from the android_usb_function structure here.
+ */
+struct device *create_function_device(char *name)
+{
+	struct android_dev *dev;
+	struct android_usb_function **functions;
+	struct android_usb_function *f;
+
+	dev = list_entry(android_dev_list.prev, struct android_dev, list_item);
+	functions = dev->functions;
+
+	while ((f = *functions++))
+		if (!strcmp(name, f->dev_name))
+			return f->dev;
+
+	return ERR_PTR(-EINVAL);
+}
 
 static int android_init_functions(struct android_usb_function **functions,
 				  struct usb_composite_dev *cdev)
