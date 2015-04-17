@@ -2277,15 +2277,44 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 				pipe->scale.num_ext_pxls_btm[i] -= 1;
 		}
 
-		pipe->scale.left_rpt[i] = pipe->scale.num_ext_pxls_left[i];
-		pipe->scale.right_rpt[i] = pipe->scale.num_ext_pxls_right[i];
-		pipe->scale.top_rpt[i] = pipe->scale.num_ext_pxls_top[i];
-		pipe->scale.btm_rpt[i] = pipe->scale.num_ext_pxls_btm[i];
-		pr_debug("plane=%d, left=%d, right=%d, top=%d, btm=%d\n",
+		if (pipe->scale.num_ext_pxls_left[i] >= 0)
+			pipe->scale.left_rpt[i] =
+				pipe->scale.num_ext_pxls_left[i];
+		else
+			pipe->scale.left_ftch[i] =
+				pipe->scale.num_ext_pxls_left[i];
+
+		if (pipe->scale.num_ext_pxls_right[i] >= 0)
+			pipe->scale.right_rpt[i] =
+				pipe->scale.num_ext_pxls_right[i];
+		else
+			pipe->scale.right_ftch[i] =
+				pipe->scale.num_ext_pxls_right[i];
+
+		if (pipe->scale.num_ext_pxls_top[i] >= 0)
+			pipe->scale.top_rpt[i] =
+				pipe->scale.num_ext_pxls_top[i];
+		else
+			pipe->scale.top_ftch[i] =
+				pipe->scale.num_ext_pxls_top[i];
+
+		if (pipe->scale.num_ext_pxls_btm[i] >= 0)
+			pipe->scale.btm_rpt[i] =
+				pipe->scale.num_ext_pxls_btm[i];
+		else
+			pipe->scale.btm_ftch[i] =
+				pipe->scale.num_ext_pxls_btm[i];
+
+		pr_debug("plane repeat=%d, left=%d, right=%d, top=%d, btm=%d\n",
 				i, pipe->scale.left_rpt[i],
 				pipe->scale.right_rpt[i],
 				pipe->scale.top_rpt[i],
 				pipe->scale.btm_rpt[i]);
+		pr_debug("plane overfetch=%d, left=%d, right=%d, top=%d, btm=%d\n",
+				i, pipe->scale.left_ftch[i],
+				pipe->scale.right_ftch[i],
+				pipe->scale.top_ftch[i],
+				pipe->scale.btm_ftch[i]);
 	}
 
 	pipe->scale.enable_pxl_ext = 1;
