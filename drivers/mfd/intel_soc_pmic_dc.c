@@ -668,7 +668,7 @@ static int dollar_cove_init(void)
 
 struct intel_soc_pmic dollar_cove_pmic = {
 	.label		= "dollar cove",
-	.irq_flags	= IRQF_TRIGGER_FALLING | IRQF_ONESHOT
+	.irq_flags	= IRQF_TRIGGER_LOW | IRQF_ONESHOT
 				| IRQF_NO_SUSPEND,
 	.init		= dollar_cove_init,
 	.cell_dev       = dollar_cove_dev,
