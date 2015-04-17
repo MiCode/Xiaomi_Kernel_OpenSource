@@ -300,6 +300,50 @@ config WCNSS_REGISTER_DUMP_ON_BITE
 	  register access failures. So this feature is to enable/disable the
 	  register dump on WCNSS WDOG bite.
 
+config CNSS
+	tristate "CNSS driver for PCIe wifi module"
+	depends on PCI
+	depends on PCI_MSI
+	select CRYPTO
+	select CRYPTO_HASH
+	select CRYPTO_BLKCIPHER
+	---help---
+	  This module adds support for the CNSS connectivity subsystem used
+	  for wifi devices based on the QCA AR6320 chipset running over PCIe.
+	  This driver also adds support to integrate PCIe WLAN module to subsystem
+	  restart framework.
+
+config CLD_LL_CORE
+	tristate "Qualcomm core WLAN driver for QCA6174 chipset"
+	select NL80211_TESTMODE
+	select WEXT_CORE
+	select WEXT_PRIV
+	select WEXT_SPY
+	select WIRELESS_EXT
+	---help---
+	  This section contains the necessary modules needed to enable the
+	  core WLAN driver for Qualcomm QCA6174 chipset.
+	  Select Y to compile the driver in order to have WLAN functionality
+	  support.
+
+config CNSS_SECURE_FW
+	bool "Enable/Disable Memory Allocation for Secure Firmware Feature"
+	depends on CNSS
+	---help---
+	  CLD Driver can use this for holding local copy of firmware
+	  binaries which is used for sha crypto computation.
+	  The Memory Allocation is done only if this Config Parameter is
+	  enabled
+
+config CNSS_MAC_BUG
+	bool "Enable/disable 0-4K memory initialization for QCA6174"
+	depends on CNSS
+	---help---
+	  If enabled, 0-4K memory is reserved for QCA6174 to address a MAC HW bug.
+	  MAC would do an invalid pointer fetch based on the data, that was read
+	  from 0 to 4K. So fill it with zero's; to an address for which PCIe root
+	  complex would honor the read without any errors.
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
