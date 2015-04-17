@@ -939,13 +939,11 @@ static enum MHI_STATUS uci_init_client_attributes(struct mhi_uci_ctxt_t
 
 static int process_mhi_disabled_notif_sync(struct uci_client *uci_handle)
 {
-	int i = 0;
-
 	uci_log(UCI_DBG_INFO, "Entered.\n");
 	if (uci_handle->mhi_status != -ENETRESET) {
 		uci_log(UCI_DBG_CRITICAL,
 		"Setting reset for chan %d.\n",
-		i * 2);
+		uci_handle->out_chan);
 		uci_handle->pkt_size = 0;
 		uci_handle->pkt_loc = NULL;
 		uci_handle->mhi_status = -ENETRESET;
@@ -958,7 +956,7 @@ static int process_mhi_disabled_notif_sync(struct uci_client *uci_handle)
 	} else {
 		uci_log(UCI_DBG_CRITICAL,
 			"Chan %d state already reset.\n",
-			i*2);
+			uci_handle->out_chan);
 	}
 	uci_log(UCI_DBG_INFO, "Exited.\n");
 	return 0;
