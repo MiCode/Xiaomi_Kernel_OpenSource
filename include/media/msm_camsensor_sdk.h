@@ -52,6 +52,7 @@ enum i2c_freq_mode_t {
 enum camb_position_t {
 	BACK_CAMERA_B,
 	FRONT_CAMERA_B,
+	AUX_CAMERA_B = 0x100,
 	INVALID_CAMERA_B,
 };
 
