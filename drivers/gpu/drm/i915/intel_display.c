@@ -5252,11 +5252,11 @@ static int valleyview_calc_cdclk(struct drm_i915_private *dev_priv,
 	 *   200MHz
 	 *   267MHz
 	 *   320MHz
-	 *   400MHz
+	 *   400MHz -- Not supported in CHV
 	 * So we check to see whether we're above 90% of the lower bin and
 	 * adjust if needed.
 	 */
-	if (max_pixclk > 288000)
+	if (max_pixclk > 288000 && !IS_CHERRYVIEW(dev_priv->dev))
 		new_cdclk = 400;
 	else if (max_pixclk > 240000)
 		new_cdclk = 320;
