@@ -1117,23 +1117,23 @@ static int msm8996_wsa881x_init(struct snd_soc_dapm_context *dapm)
 	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
 	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
 
-	if (!dapm->codec->name) {
+	if (!dapm->codec->component.name) {
 		pr_err("%s codec_name is NULL\n", __func__);
 		return -EINVAL;
 	}
 	dev_dbg(dapm->codec->dev, "%s codec_name: %s\n", __func__,
-		dapm->codec->name);
-	if (!strcmp(dapm->codec->name, "wsa881x.32000")) {
+		dapm->codec->component.name);
+	if (!strcmp(dapm->codec->component.name, "wsa881x.32000")) {
 		wsa881x_set_channel_map(dapm->codec, &spkleft_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
-	} else if (!strcmp(dapm->codec->name, "wsa881x.42000")) {
+	} else if (!strcmp(dapm->codec->component.name, "wsa881x.42000")) {
 		wsa881x_set_channel_map(dapm->codec, &spkright_ports[0],
 				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
 				&ch_rate[0]);
 	} else {
 		dev_err(dapm->codec->dev, "%s: wrong codec name %s\n", __func__,
-			dapm->codec->name);
+			dapm->codec->component.name);
 		return -EINVAL;
 	}
 	return 0;
