@@ -163,7 +163,7 @@ static int _sptp_pc_store(struct adreno_device *adreno_dev,
 
 static unsigned int _sptp_pc_show(struct adreno_device *adreno_dev)
 {
-	return test_bit(ADRENO_PPD_CTRL, &adreno_dev->pwrctrl_flag);
+	return test_bit(ADRENO_SPTP_PC_CTRL, &adreno_dev->pwrctrl_flag);
 }
 
 static ssize_t _sysfs_store_u32(struct device *dev,
