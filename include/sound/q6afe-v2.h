@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -171,8 +171,10 @@ int afe_register_get_events(u16 port_id,
 		uint32_t token, uint32_t *payload, void *priv),
 		void *private_data);
 int afe_unregister_get_events(u16 port_id);
-int afe_rt_proxy_port_write(u32 buf_addr_p, u32 mem_map_handle, int bytes);
-int afe_rt_proxy_port_read(u32 buf_addr_p, u32 mem_map_handle, int bytes);
+int afe_rt_proxy_port_write(phys_addr_t buf_addr_p,
+			u32 mem_map_handle, int bytes);
+int afe_rt_proxy_port_read(phys_addr_t buf_addr_p,
+			u32 mem_map_handle, int bytes);
 int afe_port_start(u16 port_id, union afe_port_config *afe_config,
 	u32 rate);
 int afe_spk_prot_feed_back_cfg(int src_port, int dst_port,
