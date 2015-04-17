@@ -485,6 +485,7 @@ struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct arm_smmu_cfg		cfg;
 	struct mutex			lock;
+	spinlock_t			pt_lock;
 	u32				attributes;
 	int				secure_vmid;
 };
@@ -979,12 +980,9 @@ static irqreturn_t arm_smmu_global_fault(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
-/* smmu_domain->lock must be held across any calls to this function */
 static void arm_smmu_flush_pgtable(struct arm_smmu_domain *smmu_domain,
 				   void *addr, size_t size)
 {
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	unsigned long offset = (unsigned long)addr & ~PAGE_MASK;
 	int coherent_htw_disable = smmu_domain->attributes &
 		(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 
@@ -999,20 +997,7 @@ static void arm_smmu_flush_pgtable(struct arm_smmu_domain *smmu_domain,
 		 * recursion here as the SMMU table walker will not be wired
 		 * through another SMMU.
 		 */
-		if (smmu) {
-			dma_addr_t handle =
-				dma_map_page(smmu->dev, virt_to_page(addr),
-					offset, size, DMA_TO_DEVICE);
-			if (handle == DMA_ERROR_CODE)
-				dev_err(smmu->dev,
-					"Couldn't flush page tables at %p!\n",
-					addr);
-			else
-				dma_unmap_page(smmu->dev, handle, size,
-					DMA_TO_DEVICE);
-		} else {
-			dmac_clean_range(addr, addr + size);
-		}
+		dmac_clean_range(addr, addr + size);
 	}
 }
 
@@ -1290,6 +1275,7 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 	smmu_domain->secure_vmid = VMID_INVAL;
 
 	mutex_init(&smmu_domain->lock);
+	spin_lock_init(&smmu_domain->pt_lock);
 	domain->priv = smmu_domain;
 	return 0;
 
@@ -1866,6 +1852,7 @@ static int arm_smmu_handle_mapping(struct arm_smmu_domain *smmu_domain,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	struct arm_smmu_cfg *cfg = &smmu_domain->cfg;
 	pgd_t *pgd = cfg->pgd;
+	unsigned long flags;
 
 	/* some extra sanity checks for attached domains */
 	if (smmu) {
@@ -1893,6 +1880,7 @@ static int arm_smmu_handle_mapping(struct arm_smmu_domain *smmu_domain,
 	if (size & ~PAGE_MASK)
 		return -EINVAL;
 
+	spin_lock_irqsave(&smmu_domain->pt_lock, flags);
 	pgd += pgd_index(iova);
 	end = iova + size;
 	do {
@@ -1901,36 +1889,26 @@ static int arm_smmu_handle_mapping(struct arm_smmu_domain *smmu_domain,
 		ret = arm_smmu_alloc_init_pud(smmu_domain, pgd, iova, next,
 					      paddr, prot, stage);
 		if (ret)
-			return ret;
+			goto out_unlock;
 
 		paddr += next - iova;
 		iova = next;
 	} while (pgd++, iova != end);
 
+out_unlock:
+	spin_unlock_irqrestore(&smmu_domain->pt_lock, flags);
 	return ret;
 }
 
 static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 			phys_addr_t paddr, size_t size, int prot)
 {
-	int ret;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 
 	if (!smmu_domain)
 		return -ENODEV;
 
-	mutex_lock(&smmu_domain->lock);
-	ret = arm_smmu_handle_mapping(smmu_domain, iova, paddr, size, prot);
-
-	if (!ret && smmu_domain->smmu &&
-		(smmu_domain->smmu->options & ARM_SMMU_OPT_INVALIDATE_ON_MAP)) {
-		arm_smmu_enable_clocks(smmu_domain->smmu);
-		arm_smmu_tlb_inv_context(smmu_domain);
-		arm_smmu_disable_clocks(smmu_domain->smmu);
-	}
-	mutex_unlock(&smmu_domain->lock);
-
-	return ret;
+	return arm_smmu_handle_mapping(smmu_domain, iova, paddr, size, prot);
 }
 
 static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
@@ -1939,8 +1917,9 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	int ret;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 
-	mutex_lock(&smmu_domain->lock);
 	ret = arm_smmu_handle_mapping(smmu_domain, iova, 0, size, 0);
+
+	mutex_lock(&smmu_domain->lock);
 	if (smmu_domain->smmu) {
 		arm_smmu_enable_clocks(smmu_domain->smmu);
 		arm_smmu_tlb_inv_context(smmu_domain);
