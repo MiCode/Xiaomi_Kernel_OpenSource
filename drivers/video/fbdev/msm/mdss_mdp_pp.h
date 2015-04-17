@@ -160,15 +160,7 @@ struct mdss_pp_res_type {
 	void *pp_data_res;
 };
 
-#ifdef CONFIG_ARCH_MSMTHULIUM
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
-#else
-static inline void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)
-{
-	memset(ops, 0, sizeof(struct mdp_pp_driver_ops));
-	return NULL;
-}
-#endif
 
 static inline void pp_sts_set_split_bits(u32 *sts, u32 bits)
 {

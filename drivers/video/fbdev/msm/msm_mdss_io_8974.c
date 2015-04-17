@@ -40,9 +40,9 @@
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
 
-/* thulium */
-#define DATALANE_OFFSET_FROM_BASE_THULIUM	0x100
-#define DATALANE_SIZE_THULIUM			0x80
+/* 8996 */
+#define DATALANE_OFFSET_FROM_BASE_8996	0x100
+#define DATALANE_SIZE_8996			0x80
 
 #define DSIPHY_CMN_GLBL_TEST_CTRL		0x0018
 #define DSIPHY_CMN_CTRL_0			0x001c
@@ -400,7 +400,7 @@ static void mdss_dsi_20nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + MDSS_DSI_DSIPHY_CTRL_0, 0x7f);
 }
 
-static void mdss_dsi_thulium_pll_source_standalone(
+static void mdss_dsi_8996_pll_source_standalone(
 				struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 data;
@@ -415,7 +415,7 @@ static void mdss_dsi_thulium_pll_source_standalone(
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
 }
 
-static void mdss_dsi_thulium_pll_source_from_right(
+static void mdss_dsi_8996_pll_source_from_right(
 				struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 data;
@@ -433,7 +433,7 @@ static void mdss_dsi_thulium_pll_source_from_right(
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_PLL_PLL_BANDGAP, 0x3);
 }
 
-static void mdss_dsi_thulium_pll_source_from_left(
+static void mdss_dsi_8996_pll_source_from_left(
 				struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 data;
@@ -448,7 +448,7 @@ static void mdss_dsi_thulium_pll_source_from_left(
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
 }
 
-static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
+static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_dsi_phy_ctrl *pd;
 	int j, off, ln, cnt, ln_off;
@@ -484,8 +484,8 @@ static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		 * data lane size: 0x80
 		 */
 		base = ctrl->phy_io.base +
-				DATALANE_OFFSET_FROM_BASE_THULIUM;
-		base += (ln * DATALANE_SIZE_THULIUM); /* lane base */
+				DATALANE_OFFSET_FROM_BASE_8996;
+		base += (ln * DATALANE_SIZE_8996); /* lane base */
 
 		/* lane cfg, 4 * 5 */
 		cnt = 4;
@@ -503,7 +503,7 @@ static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		/* phy timing, 8 * 5 */
 		cnt = 8;
 		ln_off = cnt * ln;
-		ip = &pd->timing_thulium[ln_off];
+		ip = &pd->timing_8996[ln_off];
 		off = 0x18;
 		for (j = 0; j < cnt; j++, off += 4)
 			MIPI_OUTP(base + off, *ip++);
@@ -534,11 +534,11 @@ static void mdss_dsi_thulium_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	if (mdss_dsi_split_display_enabled()) {
 		if (mdss_dsi_is_left_ctrl(ctrl))
-			mdss_dsi_thulium_pll_source_from_left(ctrl);
+			mdss_dsi_8996_pll_source_from_left(ctrl);
 		else
-			mdss_dsi_thulium_pll_source_from_right(ctrl);
+			mdss_dsi_8996_pll_source_from_right(ctrl);
 	} else {
-		mdss_dsi_thulium_pll_source_standalone(ctrl);
+		mdss_dsi_8996_pll_source_standalone(ctrl);
 	}
 
 	wmb(); /* make sure registers committed */
@@ -556,14 +556,14 @@ static void mdss_dsi_20nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	mdss_dsi_20nm_phy_config(ctrl_pdata);
 }
 
-static void mdss_dsi_thulium_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+static void mdss_dsi_8996_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	if (!ctrl_pdata) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
 
-	mdss_dsi_thulium_phy_config(ctrl_pdata);
+	mdss_dsi_8996_phy_config(ctrl_pdata);
 }
 
 static void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -575,7 +575,7 @@ static void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	switch (ctrl->hw_rev) {
 	case MDSS_DSI_HW_REV_104:
-		mdss_dsi_thulium_phy_init(ctrl);
+		mdss_dsi_8996_phy_init(ctrl);
 		break;
 	case MDSS_DSI_HW_REV_103:
 		mdss_dsi_20nm_phy_init(ctrl);
