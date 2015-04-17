@@ -8841,7 +8841,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_sync(dapm);
 
-	codec->ignore_pmdown_time = 1;
+	codec->component.ignore_pmdown_time = 1;
 	ret = tomtom_cpe_initialize(codec);
 	if (ret) {
 		dev_info(codec->dev,

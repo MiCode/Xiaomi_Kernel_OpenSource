@@ -7538,7 +7538,7 @@ static int taiko_codec_probe(struct snd_soc_codec *codec)
 	mutex_unlock(&codec->mutex);
 	snd_soc_dapm_sync(dapm);
 
-	codec->ignore_pmdown_time = 1;
+	codec->component.ignore_pmdown_time = 1;
 	return ret;
 
 err_irq:
