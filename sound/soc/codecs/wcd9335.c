@@ -2358,6 +2358,48 @@ static int tasha_codec_enable_spline_resampler(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int tasha_codec_sidetone_en(struct snd_soc_dapm_widget *w,
+				   struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	u16 prim_reg;
+
+	dev_dbg(codec->dev, "%s %d %s\n", __func__, event, w->name);
+
+	if (!strcmp(w->name, "RX INT0 MIX2 INP"))
+		prim_reg = WCD9335_CDC_RX0_RX_PATH_CTL;
+	else if (!strcmp(w->name, "RX INT1 MIX2 INP"))
+		prim_reg = WCD9335_CDC_RX1_RX_PATH_CTL;
+	else if (!strcmp(w->name, "RX INT2 MIX2 INP"))
+		prim_reg = WCD9335_CDC_RX2_RX_PATH_CTL;
+	else if (!strcmp(w->name, "RX INT3 MIX2 INP"))
+		prim_reg = WCD9335_CDC_RX3_RX_PATH_CTL;
+	else if (!strcmp(w->name, "RX INT4 MIX2 INP"))
+		prim_reg = WCD9335_CDC_RX4_RX_PATH_CTL;
+	else if (!strcmp(w->name, "RX INT7 MIX2 INP"))
+		prim_reg = WCD9335_CDC_RX7_RX_PATH_CTL;
+	else {
+		dev_err(codec->dev, "%s: unknown widget: %s\n", __func__,
+			w->name);
+		return -EINVAL;
+	}
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+	case SND_SOC_DAPM_POST_PMD:
+		/*
+		 * sidetone path enablement requires primary (main)
+		 * path to be enabled. Vote for main path clock
+		 */
+		tasha_codec_enable_prim_interpolator(codec, prim_reg, event);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
 static int tasha_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -5782,19 +5824,24 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER_E("RX INT8 CHAIN", SND_SOC_NOPM, 0, 0,
 			NULL, 0, tasha_codec_spk_boost_event,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
-	SND_SOC_DAPM_MUX("RX INT0 MIX2 INP", SND_SOC_NOPM, 0, 0,
-		&rx_int0_mix2_inp_mux),
-	SND_SOC_DAPM_MUX("RX INT1 MIX2 INP", SND_SOC_NOPM, 0, 0,
-		&rx_int1_mix2_inp_mux),
-	SND_SOC_DAPM_MUX("RX INT2 MIX2 INP", SND_SOC_NOPM, 0, 0,
-		&rx_int2_mix2_inp_mux),
-	SND_SOC_DAPM_MUX("RX INT3 MIX2 INP", SND_SOC_NOPM, 0, 0,
-		&rx_int3_mix2_inp_mux),
-	SND_SOC_DAPM_MUX("RX INT4 MIX2 INP", SND_SOC_NOPM, 0, 0,
-		&rx_int4_mix2_inp_mux),
-	SND_SOC_DAPM_MUX("RX INT7 MIX2 INP", SND_SOC_NOPM, 0, 0,
-		&rx_int7_mix2_inp_mux),
+	SND_SOC_DAPM_MUX_E("RX INT0 MIX2 INP", WCD9335_CDC_RX0_RX_PATH_CFG1, 4,
+			   0, &rx_int0_mix2_inp_mux, tasha_codec_sidetone_en,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT1 MIX2 INP", WCD9335_CDC_RX1_RX_PATH_CFG1, 4,
+			   0, &rx_int1_mix2_inp_mux, tasha_codec_sidetone_en,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT2 MIX2 INP", WCD9335_CDC_RX2_RX_PATH_CFG1, 4,
+			   0, &rx_int2_mix2_inp_mux, tasha_codec_sidetone_en,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT3 MIX2 INP", WCD9335_CDC_RX3_RX_PATH_CFG1, 4,
+			   0, &rx_int3_mix2_inp_mux, tasha_codec_sidetone_en,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT4 MIX2 INP", WCD9335_CDC_RX4_RX_PATH_CFG1, 4,
+			   0, &rx_int4_mix2_inp_mux, tasha_codec_sidetone_en,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("RX INT7 MIX2 INP", WCD9335_CDC_RX7_RX_PATH_CFG1, 4,
+			   0, &rx_int7_mix2_inp_mux, tasha_codec_sidetone_en,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
 	SND_SOC_DAPM_MUX("SLIM TX0 MUX", SND_SOC_NOPM, TASHA_TX0, 0,
 		&sb_tx0_mux),
