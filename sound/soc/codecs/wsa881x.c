@@ -496,8 +496,6 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL2, 0x07, 0x04);
 	snd_soc_update_bits(codec, WSA881X_SPKR_BIAS_INT, 0x0F, 0x0F);
 	snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0xF0, 0x20);
-	snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x03, 0x01);
-	snd_soc_update_bits(codec, WSA881X_ANA_CTL, 0x04, 0x04);
 	snd_soc_update_bits(codec, WSA881X_BOOST_PS_CTL, 0x80, 0x00);
 	snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1, 0xF0, 0xB0);
 	snd_soc_update_bits(codec, WSA881X_BOOST_ZX_CTL, 0x20, 0x00);
