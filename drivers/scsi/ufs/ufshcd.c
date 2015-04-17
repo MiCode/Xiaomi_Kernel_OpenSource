@@ -7172,6 +7172,9 @@ static int ufshcd_probe_hba(struct ufs_hba *hba)
 
 	/* Debug counters initialization */
 	ufshcd_clear_dbg_ufs_stats(hba);
+	/* set the default level for urgent bkops */
+	hba->urgent_bkops_lvl = BKOPS_STATUS_PERF_IMPACT;
+	hba->is_urgent_bkops_lvl_checked = false;
 
 	/* UniPro link is active now */
 	ufshcd_set_link_active(hba);
