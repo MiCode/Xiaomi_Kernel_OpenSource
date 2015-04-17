@@ -160,7 +160,7 @@ struct mdss_pp_res_type {
 	void *pp_data_res;
 };
 
-#ifdef CONFIG_ARCH_MSMTHULIUM
+#ifdef CONFIG_ARCH_MSM8996
 void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops);
 #else
 static inline void *pp_get_driver_ops(struct mdp_pp_driver_ops *ops)

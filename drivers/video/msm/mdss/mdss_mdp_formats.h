@@ -174,14 +174,14 @@ enum {
 
 static struct mdss_fudge_factor ubwc_rt_factors[][UBWC_TOTAL_FORMATS] = {
 	/* RGB_565_UBWC	| RGBA_8888_UBWC | YUV_H2V2_UBWC */
-	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* Thulium v0 */
-	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* Thulium v1,v2 */
+	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* 8996 v0 */
+	{{1, 1} ,	 {126, 100} ,	  {123, 100} } , /* 8996 v1,v2 */
 };
 
 static struct mdss_fudge_factor ubwc_nrt_factors[][UBWC_TOTAL_FORMATS] = {
 	/* RGB_565_UBWC	| RGBA_8888_UBWC | YUV_H2V2_UBWC */
-	{{1, 1} ,	 {146, 100} ,	 {1,   1} } ,	/* Thulium v0 */
-	{{1, 1} ,	 {146, 100} ,	 {128, 100} } ,	/* Thulium v1,v2 */
+	{{1, 1} ,	 {146, 100} ,	 {1,   1} } ,	/* 8996 v0 */
+	{{1, 1} ,	 {146, 100} ,	 {128, 100} } ,	/* 8996 v1,v2 */
 };
 
 /*

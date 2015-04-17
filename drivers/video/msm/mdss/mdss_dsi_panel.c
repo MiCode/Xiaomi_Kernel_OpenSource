@@ -1695,13 +1695,13 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	for (i = 0; i < len; i++)
 		pinfo->mipi.dsi_phy_db.timing[i] = data[i];
 
-	data = of_get_property(np, "qcom,mdss-dsi-panel-timings-thulium", &len);
+	data = of_get_property(np, "qcom,mdss-dsi-panel-timings-8996", &len);
 	if ((!data) || (len != 40)) {
-		pr_debug("%s:%d, Unable to read thulium Phy lane timing settings",
+		pr_debug("%s:%d, Unable to read 8996 Phy lane timing settings",
 		       __func__, __LINE__);
 	} else {
 		for (i = 0; i < len; i++)
-			pinfo->mipi.dsi_phy_db.timing_thulium[i] = data[i];
+			pinfo->mipi.dsi_phy_db.timing_8996[i] = data[i];
 	}
 
 	pinfo->mipi.lp11_init = of_property_read_bool(np,
