@@ -801,7 +801,7 @@
 			<  25000000   12    0    1     2 &gpll0_out_main>,
 			<  50000000   12    0    0     0 &gpll0_out_main>,
 			< 100000000    6    0    0     0 &gpll0_out_main>,
-			< 200000000    3    0    0     0 &gpll0_out_main>,
+			< 171430000    3   50    0     0 &gpll0_out_main>,
 			<>;
 	};
 
