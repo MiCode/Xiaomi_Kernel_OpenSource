@@ -228,13 +228,13 @@
 			"csi3_pix_clk", "csi3_rdi_clk",
 			"vfe0_clk_src", "camss_vfe_vfe0_clk", "camss_csi_vfe0_clk",
 			"vfe1_clk_src", "camss_vfe_vfe1_clk", "camss_csi_vfe1_clk";
-		qcom,clock-rates = <0
-			240000000 0 0 0
-			240000000 0 0 0
-			240000000 0 0 0
-			240000000 0 0 0
-			320000000 0 0
-			320000000 0 0>;
+		qcom,clock-rates = "0",
+			"240000000", "0", "0", "0",
+			"240000000", "0", "0", "0",
+			"240000000", "0", "0", "0",
+			"240000000", "0", "0", "0",
+			"-2", "0", "0",
+			"-2", "0", "0";
 	};
 
 	vfe0: qcom,vfe@fda10000 {
