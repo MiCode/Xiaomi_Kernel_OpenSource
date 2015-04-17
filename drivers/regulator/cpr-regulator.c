@@ -2101,8 +2101,8 @@ static int cpr_get_fuse_quot_offset(struct cpr_regulator *cpr_vreg,
 {
 	struct device *dev = &pdev->dev;
 	struct property *prop;
-	u32 *fuse_sel, *tmp;
-	int rc = 0, i, size;
+	u32 *fuse_sel, *tmp, *offset_multiplier = NULL;
+	int rc = 0, i, size, len;
 	char *quot_offset_str;
 
 	quot_offset_str = cpr_vreg->cpr_fuse_redundant
@@ -2138,7 +2138,7 @@ static int cpr_get_fuse_quot_offset(struct cpr_regulator *cpr_vreg,
 	}
 
 	cpr_vreg->fuse_quot_offset = devm_kzalloc(dev,
-			sizeof(u32) * (cpr_vreg->num_corners + 1),
+			sizeof(u32) * (cpr_vreg->num_fuse_corners + 1),
 			GFP_KERNEL);
 	if (!cpr_vreg->fuse_quot_offset) {
 		cpr_err(cpr_vreg, "Can't allocate memory for cpr_vreg->fuse_quot_offset\n");
@@ -2146,17 +2146,51 @@ static int cpr_get_fuse_quot_offset(struct cpr_regulator *cpr_vreg,
 		return -ENOMEM;
 	}
 
+	if (!of_find_property(dev->of_node,
+				"qcom,cpr-fuse-quot-offset-scale", &len)) {
+		cpr_debug(cpr_vreg, "qcom,cpr-fuse-quot-offset-scale not present\n");
+	} else {
+		if (len != cpr_vreg->num_fuse_corners * sizeof(u32)) {
+			cpr_err(cpr_vreg, "the size of qcom,cpr-fuse-quot-offset-scale is invalid\n");
+			kfree(fuse_sel);
+			return -EINVAL;
+		}
+
+		offset_multiplier = kzalloc(sizeof(*offset_multiplier)
+					* (cpr_vreg->num_fuse_corners + 1),
+					GFP_KERNEL);
+		if (!offset_multiplier) {
+			cpr_err(cpr_vreg, "memory alloc failed.\n");
+			kfree(fuse_sel);
+			return -ENOMEM;
+		}
+
+		rc = of_property_read_u32_array(dev->of_node,
+						"qcom,cpr-fuse-quot-offset-scale",
+						&offset_multiplier[1],
+						cpr_vreg->num_fuse_corners);
+		if (rc < 0) {
+			cpr_err(cpr_vreg, "read qcom,cpr-fuse-quot-offset-scale failed, rc = %d\n",
+				rc);
+			kfree(fuse_sel);
+			goto out;
+		}
+	}
+
 	tmp = fuse_sel;
 	for (i = CPR_FUSE_CORNER_MIN; i <= cpr_vreg->num_fuse_corners; i++) {
 		cpr_vreg->fuse_quot_offset[i] = cpr_read_efuse_param(cpr_vreg,
 					fuse_sel[0], fuse_sel[1], fuse_sel[2],
 					fuse_sel[3]);
-		cpr_vreg->fuse_quot_offset[i] *= quot_scale[i].multiplier;
+		if (offset_multiplier)
+			cpr_vreg->fuse_quot_offset[i] *= offset_multiplier[i];
 		fuse_sel += 4;
 	}
 
 	rc = cpr_adjust_target_quot_offsets(pdev, cpr_vreg);
 	kfree(tmp);
+out:
+	kfree(offset_multiplier);
 	return rc;
 }
 

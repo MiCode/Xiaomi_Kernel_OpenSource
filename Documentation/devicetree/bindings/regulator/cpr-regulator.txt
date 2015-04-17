@@ -582,9 +582,8 @@ Optional properties:
 - qcom,cpr-fuse-quot-offset:	Array of quadruples in which each quadruple specifies a fuse location to
 				read in order to get the quotient offset for a fuse corner. The fuse values
 				are encoded as the difference between quotients of that fuse corner and its
-				adjacent lower fuse corner divided by an unpacking multiplier.
-				At present, the multiplier is assumed to be same as that of the value defined
-				under qcom,cpr-fuse-target-quot-scale.
+				adjacent lower fuse corner divided by an unpacking multiplier value defined
+				under qcom,cpr-fuse-quot-offset-scale property.
 				The 4 elements in one quadruple are:
 				[0]: => the fuse row number of the bits
 				[1]: => LSB bit position of the bits
@@ -594,6 +593,10 @@ Optional properties:
 				fuse corner.
 				Quotient offset read from the fuse locations above can be overridden with
 				the property qcom,cpr-quot-adjust-scaling-factor-max.
+- qcom,cpr-fuse-quot-offset-scale:	Array of integer values which defines the multipliers to decode the quotient offsets
+				of each fuse corner. The elements in the array are ordered from the lowest voltage fuse corner
+				to the highest voltage fuse corner. If this property is not present, then all target quotient
+				parameters are assumed to have a multiplier of 1 (i.e. no decoding needed).
 - qcom,cpr-redun-fuse-quot-offset: Array of quadruples in which each quadruple specifies a fuse location to
 				read in order to get the redundant quotient offset for a fuse corner. This
 				property is the same as qcom,cpr-fuse-quot-offset except that it is only
@@ -851,4 +854,5 @@ Example:
 		qcom,fuse-remap-source =
 				<140 7 3 0>,
 				<138 45 5 0>;
+		qcom,cpr-fuse-quot-offset-scale = <5 5 5>;
 	};
