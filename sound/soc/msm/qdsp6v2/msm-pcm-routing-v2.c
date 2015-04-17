@@ -5685,21 +5685,6 @@ static struct snd_pcm_ops msm_routing_pcm_ops = {
 	.prepare        = msm_pcm_routing_prepare,
 };
 
-static unsigned int msm_routing_read(struct snd_soc_platform *platform,
-				unsigned int reg)
-{
-	dev_dbg(platform->dev, "reg %x\n", reg);
-	return 0;
-}
-
-/* Not used but frame seems to require it */
-static int msm_routing_write(struct snd_soc_platform *platform,
-	unsigned int reg, unsigned int val)
-{
-	dev_dbg(platform->dev, "reg %x val %x\n", reg, val);
-	return 0;
-}
-
 /* Not used but frame seems to require it */
 static int msm_routing_probe(struct snd_soc_platform *platform)
 {
@@ -5758,8 +5743,6 @@ void msm_routing_pcm_free(struct snd_pcm *pcm)
 static struct snd_soc_platform_driver msm_soc_routing_platform = {
 	.ops		= &msm_routing_pcm_ops,
 	.probe		= msm_routing_probe,
-	.read		= msm_routing_read,
-	.write		= msm_routing_write,
 	.pcm_new	= msm_routing_pcm_new,
 	.pcm_free	= msm_routing_pcm_free,
 };
