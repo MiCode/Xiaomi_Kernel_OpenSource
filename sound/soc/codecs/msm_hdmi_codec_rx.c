@@ -246,7 +246,7 @@ static int msm_hdmi_audio_codec_rx_probe(struct snd_soc_codec *codec)
 	dev_set_drvdata(codec->dev, codec_data);
 
 	dev_dbg(codec->dev, "%s(): registerd %s with HDMI core\n",
-		__func__, codec->name);
+		__func__, codec->component.name);
 
 	return 0;
 }
