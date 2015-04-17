@@ -160,32 +160,6 @@ void xhci_intel_ssic_port_unused(struct xhci_hcd *xhci, bool unused)
 	xhci_dbg(xhci, "ssic port - %s\n", unused ? "unused" : "used");
 
 	ext_start = XHCI_HCC_EXT_CAPS(readl(&xhci->cap_regs->hcc_params));
-	ext_offset = xhci_find_ext_cap_by_id(&xhci->cap_regs->hc_capbase,
-			ext_start << 2, XHCI_EXT_CAPS_INTEL_SSIC);
-
-	if (ext_offset) {
-		reg = &xhci->cap_regs->hc_capbase +
-				((ext_offset + SSIC_PORT_CFG2) >> 2);
-		for (i = 0; i < SSIC_PORT_NUM; i++) {
-			data = readl(reg);
-			data &= ~PROG_DONE;
-			writel(data, reg);
-
-			data = readl(reg);
-			if (unused)
-				data |= SSIC_PORT_UNUSED;
-			else
-				data &= ~SSIC_PORT_UNUSED;
-			writel(data, reg);
-
-			data = readl(reg);
-			data |= PROG_DONE;
-			writel(data, reg);
-
-			reg += SSIC_PORT_CFG2_OFFSET;
-		}
-	} else
-		xhci_err(xhci, "intel ssic ext caps not found\n");
 
 	/* WORKAROUND: Register Bank Valid bit is lost after controller enters
 	 * D3, need to set it back, otherwise SSIC RRAP commands can't be sent
@@ -209,6 +183,36 @@ void xhci_intel_ssic_port_unused(struct xhci_hcd *xhci, bool unused)
 
 			reg += SSIC_ACCESS_CTRL_OFFSET;
 		}
+
+		/* Setting SSIC ports to "used" will be done by xHCI
+		 * Save & Restore, so return here.
+		 */
+		return;
 	}
+
+	ext_offset = xhci_find_ext_cap_by_id(&xhci->cap_regs->hc_capbase,
+			ext_start << 2, XHCI_EXT_CAPS_INTEL_SSIC);
+
+	if (ext_offset) {
+		reg = &xhci->cap_regs->hc_capbase +
+				((ext_offset + SSIC_PORT_CFG2) >> 2);
+		for (i = 0; i < SSIC_PORT_NUM; i++) {
+			data = readl(reg);
+			data &= ~PROG_DONE;
+			writel(data, reg);
+
+			data = readl(reg);
+			data |= SSIC_PORT_UNUSED;
+			writel(data, reg);
+
+			data = readl(reg);
+			data |= PROG_DONE;
+			writel(data, reg);
+
+			reg += SSIC_PORT_CFG2_OFFSET;
+		}
+	} else
+		xhci_err(xhci, "intel ssic ext caps not found\n");
+
 }
 EXPORT_SYMBOL_GPL(xhci_intel_ssic_port_unused);
