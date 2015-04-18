@@ -908,6 +908,7 @@ enum handoff pll_20nm_vco_handoff(struct clk *c)
 		ret = HANDOFF_ENABLED_CLK;
 		dsi_pll_res->vco_locking_rate = c->rate;
 		dsi_pll_res->is_init_locked = true;
+		pll_20nm_vco_set_rate(vco, c->rate);
 		pll_20nm_cache_trim_codes(dsi_pll_res);
 		pr_debug("handoff vco_locking_rate=0x%llu\n",
 			dsi_pll_res->vco_locking_rate);
