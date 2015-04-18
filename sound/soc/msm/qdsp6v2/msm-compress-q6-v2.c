@@ -2590,6 +2590,38 @@ end:
 	return rc;
 }
 
+static int msm_compr_gapless_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
+		snd_soc_platform_get_drvdata(platform);
+	pdata->use_dsp_gapless_mode =  ucontrol->value.integer.value[0];
+	pr_debug("%s: value: %ld\n", __func__,
+		ucontrol->value.integer.value[0]);
+
+	return 0;
+}
+
+static int msm_compr_gapless_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
+	struct msm_compr_pdata *pdata =
+		snd_soc_platform_get_drvdata(platform);
+	pr_debug("%s:gapless mode %d\n", __func__, pdata->use_dsp_gapless_mode);
+	ucontrol->value.integer.value[0] = pdata->use_dsp_gapless_mode;
+
+	return 0;
+}
+
+static const struct snd_kcontrol_new msm_compr_gapless_controls[] = {
+	SOC_SINGLE_EXT("Compress Gapless Playback",
+			0, 0, 1, 0,
+			msm_compr_gapless_get,
+			msm_compr_gapless_put),
+};
+
 static int msm_compr_probe(struct snd_soc_platform *platform)
 {
 	struct msm_compr_pdata *pdata;
@@ -2613,6 +2645,9 @@ static int msm_compr_probe(struct snd_soc_platform *platform)
 		pdata->cstream[i] = NULL;
 		pdata->ch_map[i] = NULL;
 	}
+
+	snd_soc_add_platform_controls(platform, msm_compr_gapless_controls,
+				      ARRAY_SIZE(msm_compr_gapless_controls));
 
 	/*
 	 * use_dsp_gapless_mode part of platform data(pdata) is updated from HAL
@@ -2819,38 +2854,6 @@ static int msm_compr_add_query_audio_effect_control(
 	kfree(mixer_str);
 	return 0;
 }
-
-static int msm_compr_gapless_put(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
-	struct msm_compr_pdata *pdata = (struct msm_compr_pdata *)
-		snd_soc_platform_get_drvdata(platform);
-	pdata->use_dsp_gapless_mode =  ucontrol->value.integer.value[0];
-	pr_debug("%s: value: %ld\n", __func__,
-		ucontrol->value.integer.value[0]);
-
-	return 0;
-}
-
-static int msm_compr_gapless_get(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_platform *platform = snd_kcontrol_chip(kcontrol);
-	struct msm_compr_pdata *pdata =
-		snd_soc_platform_get_drvdata(platform);
-	pr_debug("%s:gapless mode %d\n", __func__, pdata->use_dsp_gapless_mode);
-	ucontrol->value.integer.value[0] = pdata->use_dsp_gapless_mode;
-
-	return 0;
-}
-
-static const struct snd_kcontrol_new msm_compr_gapless_controls[] = {
-	SOC_SINGLE_EXT("Compress Gapless Playback",
-			0, 0, 1, 0,
-			msm_compr_gapless_get,
-			msm_compr_gapless_put),
-};
 
 static int msm_compr_add_dec_runtime_params_control(
 						struct snd_soc_pcm_runtime *rtd)
@@ -3061,9 +3064,6 @@ static struct snd_soc_platform_driver msm_soc_platform = {
 	.probe		= msm_compr_probe,
 	.compr_ops	= &msm_compr_ops,
 	.pcm_new	= msm_compr_new,
-	.controls       = msm_compr_gapless_controls,
-	.num_controls   = ARRAY_SIZE(msm_compr_gapless_controls),
-
 };
 
 static int msm_compr_dev_probe(struct platform_device *pdev)
