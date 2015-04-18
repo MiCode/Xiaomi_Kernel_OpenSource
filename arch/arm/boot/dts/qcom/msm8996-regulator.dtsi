@@ -576,6 +576,7 @@
 
 		qcom,cpr-enable;
 		qcom,cpr-hw-closed-loop;
+		qcom,cpr-clock-throttling = <0x20>;
 
 		apc0_vreg: regulator@0 {
 			qcom,cpr-thread-id = <0>;
