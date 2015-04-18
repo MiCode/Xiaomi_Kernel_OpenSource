@@ -11,6 +11,34 @@ config QCOM_GSBI
 
 if ARCH_MSM
 
+config MSM_QDSP6_APRV2
+        bool "Audio QDSP6 APRv2 support"
+        depends on MSM_SMD
+        help
+          Enable APRv2 IPC protocol support between
+          application processor and QDSP6. APR is
+          used by audio driver to configure QDSP6's
+          ASM, ADM and AFE.
+
+config MSM_QDSP6_APRV3
+	bool "Audio QDSP6 APRv3 support"
+	depends on MSM_SMD
+	help
+	  Enable APRv3 IPC protocol support between
+	  application processor and QDSP6. APR is
+	  used by audio driver to configure QDSP6v2's
+	  ASM, ADM and AFE.
+
+config MSM_ADSP_LOADER
+	tristate "ADSP loader support"
+	select SND_SOC_MSM_APRV2_INTF
+	depends on MSM_QDSP6_APRV2 || MSM_QDSP6_APRV3
+	help
+	  Enable ADSP image loader.
+	  The ADSP loader brings ADSP out of reset
+	  for the platforms that use APRv2.
+	  Say M if you want to enable this module.
+
 config MSM_MEMORY_DUMP
 	bool "MSM Memory Dump Support"
 	help
