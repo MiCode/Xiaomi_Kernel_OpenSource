@@ -446,7 +446,7 @@ int afe_q6_interface_prepare(void)
 			0xFFFFFFFF, &this_afe);
 		if (this_afe.apr == NULL) {
 			pr_err("%s: Unable to register AFE\n", __func__);
-			ret = -ENODEV;
+			return -ENODEV;
 		}
 		rtac_set_afe_handle(this_afe.apr);
 	}
