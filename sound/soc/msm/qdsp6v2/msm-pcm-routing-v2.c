@@ -3893,7 +3893,7 @@ static int spkr_prot_put_vi_lch_port(struct snd_kcontrol *kcontrol,
 		   ucontrol->value.enumerated.item[0]);
 	mutex_lock(&routing_lock);
 	item = ucontrol->value.enumerated.item[0];
-	if (item < e->max) {
+	if (item < e->items) {
 		pr_debug("%s RX DAI ID %d TX DAI id %d\n",
 			__func__, e->shift_l , e->values[item]);
 		if (e->shift_l < MSM_BACKEND_DAI_MAX &&
@@ -3929,7 +3929,7 @@ static int spkr_prot_put_vi_rch_port(struct snd_kcontrol *kcontrol,
 			ucontrol->value.enumerated.item[0]);
 	mutex_lock(&routing_lock);
 	item = ucontrol->value.enumerated.item[0];
-	if (item < e->max) {
+	if (item < e->items) {
 		pr_debug("%s RX DAI ID %d TX DAI id %d\n",
 				__func__, e->shift_l , e->values[item]);
 		if (e->shift_l < MSM_BACKEND_DAI_MAX &&
@@ -5688,9 +5688,9 @@ static struct snd_pcm_ops msm_routing_pcm_ops = {
 /* Not used but frame seems to require it */
 static int msm_routing_probe(struct snd_soc_platform *platform)
 {
-	snd_soc_dapm_new_controls(&platform->dapm, msm_qdsp6_widgets,
+	snd_soc_dapm_new_controls(&platform->component.dapm, msm_qdsp6_widgets,
 			   ARRAY_SIZE(msm_qdsp6_widgets));
-	snd_soc_dapm_add_routes(&platform->dapm, intercon,
+	snd_soc_dapm_add_routes(&platform->component.dapm, intercon,
 		ARRAY_SIZE(intercon));
 
 	snd_soc_dapm_new_widgets(platform->component.dapm.card);
