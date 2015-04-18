@@ -24,6 +24,8 @@
 #include <linux/clk.h>
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
+#include <linux/debugfs.h>
+#include <linux/uaccess.h>
 #include "swrm_registers.h"
 #include "swr-wcd-ctrl.h"
 
@@ -143,6 +145,157 @@ enum {
 	SWR_ATTACHED_OK,
 	SWR_ALERT,
 	SWR_RESERVED,
+};
+
+#define SWR_MSTR_MAX_REG_ADDR	0x1740
+#define SWR_MSTR_START_REG_ADDR	0x00
+#define SWR_MSTR_MAX_BUF_LEN     20
+#define BYTES_PER_LINE          12
+#define SWR_MSTR_RD_BUF_LEN      8
+#define SWR_MSTR_WR_BUF_LEN      32
+
+static struct swr_mstr_ctrl *dbgswrm;
+static struct dentry *debugfs_swrm_dent;
+static struct dentry *debugfs_peek;
+static struct dentry *debugfs_poke;
+static struct dentry *debugfs_reg_dump;
+static unsigned int read_data;
+
+static int swrm_debug_open(struct inode *inode, struct file *file)
+{
+	file->private_data = inode->i_private;
+	return 0;
+}
+
+static int get_parameters(char *buf, u32 *param1, int num_of_par)
+{
+	char *token;
+	int base, cnt;
+
+	token = strsep(&buf, " ");
+	for (cnt = 0; cnt < num_of_par; cnt++) {
+		if (token) {
+			if ((token[1] == 'x') || (token[1] == 'X'))
+				base = 16;
+			else
+				base = 10;
+
+			if (kstrtou32(token, base, &param1[cnt]) != 0)
+				return -EINVAL;
+
+			token = strsep(&buf, " ");
+		} else
+			return -EINVAL;
+	}
+	return 0;
+}
+
+static ssize_t swrm_reg_show(char __user *ubuf, size_t count,
+					  loff_t *ppos)
+{
+	int i, reg_val, len;
+	ssize_t total = 0;
+	char tmp_buf[SWR_MSTR_MAX_BUF_LEN];
+
+	if (!ubuf || !ppos)
+		return 0;
+
+	for (i = (((int) *ppos / BYTES_PER_LINE) + SWR_MSTR_START_REG_ADDR);
+		i <= SWR_MSTR_MAX_REG_ADDR; i += 4) {
+		reg_val = dbgswrm->read(dbgswrm->handle, i);
+		len = snprintf(tmp_buf, 25, "0x%.3x: 0x%.2x\n", i, reg_val);
+		if ((total + len) >= count - 1)
+			break;
+		if (copy_to_user((ubuf + total), tmp_buf, len)) {
+			pr_err("%s: fail to copy reg dump\n", __func__);
+			total = -EFAULT;
+			goto copy_err;
+		}
+		*ppos += len;
+		total += len;
+	}
+
+copy_err:
+	return total;
+}
+
+static ssize_t swrm_debug_read(struct file *file, char __user *ubuf,
+				size_t count, loff_t *ppos)
+{
+	char lbuf[SWR_MSTR_RD_BUF_LEN];
+	char *access_str;
+	ssize_t ret_cnt;
+
+	if (!count || !file || !ppos || !ubuf)
+		return -EINVAL;
+
+	access_str = file->private_data;
+	if (*ppos < 0)
+		return -EINVAL;
+
+	if (!strcmp(access_str, "swrm_peek")) {
+		snprintf(lbuf, sizeof(lbuf), "0x%x\n", read_data);
+		ret_cnt = simple_read_from_buffer(ubuf, count, ppos, lbuf,
+					       strnlen(lbuf, 7));
+	} else if (!strcmp(access_str, "swrm_reg_dump")) {
+		ret_cnt = swrm_reg_show(ubuf, count, ppos);
+	} else {
+		pr_err("%s: %s not permitted to read\n", __func__, access_str);
+		ret_cnt = -EPERM;
+	}
+	return ret_cnt;
+}
+
+static ssize_t swrm_debug_write(struct file *filp,
+	const char __user *ubuf, size_t cnt, loff_t *ppos)
+{
+	char lbuf[SWR_MSTR_WR_BUF_LEN];
+	int rc;
+	u32 param[5];
+	char *access_str;
+
+	if (!filp || !ppos || !ubuf)
+		return -EINVAL;
+
+	access_str = filp->private_data;
+	if (cnt > sizeof(lbuf) - 1)
+		return -EINVAL;
+
+	rc = copy_from_user(lbuf, ubuf, cnt);
+	if (rc)
+		return -EFAULT;
+
+	lbuf[cnt] = '\0';
+	if (!strcmp(access_str, "swrm_poke")) {
+		/* write */
+		rc = get_parameters(lbuf, param, 2);
+		if ((param[0] <= SWR_MSTR_MAX_REG_ADDR) &&
+			(param[1] <= 0xFFFFFFFF) &&
+			(rc == 0))
+			rc = dbgswrm->write(dbgswrm->handle, param[0],
+					    param[1]);
+		else
+			rc = -EINVAL;
+	} else if (!strcmp(access_str, "swrm_peek")) {
+		/* read */
+		rc = get_parameters(lbuf, param, 1);
+		if ((param[0] <= SWR_MSTR_MAX_REG_ADDR) && (rc == 0))
+			read_data = dbgswrm->read(dbgswrm->handle, param[0]);
+		else
+			rc = -EINVAL;
+	}
+	if (rc == 0)
+		rc = cnt;
+	else
+		pr_err("%s: rc = %d\n", __func__, rc);
+
+	return rc;
+}
+
+static const struct file_operations swrm_debug_ops = {
+	.open = swrm_debug_open,
+	.write = swrm_debug_write,
+	.read = swrm_debug_read,
 };
 
 static int swrm_set_ch_map(struct swr_mstr_ctrl *swrm, void *data)
@@ -893,6 +1046,23 @@ static int swrm_probe(struct platform_device *pdev)
 		goto err_mstr_fail;
 	}
 	mutex_unlock(&swrm->mlock);
+
+	dbgswrm = swrm;
+	debugfs_swrm_dent = debugfs_create_dir(dev_name(&pdev->dev), 0);
+	if (!IS_ERR(debugfs_swrm_dent)) {
+		debugfs_peek = debugfs_create_file("swrm_peek",
+				S_IFREG | S_IRUGO, debugfs_swrm_dent,
+				(void *) "swrm_peek", &swrm_debug_ops);
+
+		debugfs_poke = debugfs_create_file("swrm_poke",
+				S_IFREG | S_IRUGO, debugfs_swrm_dent,
+				(void *) "swrm_poke", &swrm_debug_ops);
+
+		debugfs_reg_dump = debugfs_create_file("swrm_reg_dump",
+				   S_IFREG | S_IRUGO, debugfs_swrm_dent,
+				   (void *) "swrm_reg_dump",
+				   &swrm_debug_ops);
+	}
 
 	return 0;
 err_mstr_fail:
