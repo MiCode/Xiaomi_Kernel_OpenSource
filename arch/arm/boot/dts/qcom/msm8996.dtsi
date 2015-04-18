@@ -2130,12 +2130,11 @@
 		clocks = <&clock_mmss clk_video_core_clk>,
 			<&clock_mmss clk_video_ahb_clk>,
 			<&clock_mmss clk_video_axi_clk>,
-			<&clock_mmss clk_video_maxi_clk>,
-			<&clock_mmss clk_vmem_maxi_clk>;
+			<&clock_mmss clk_video_maxi_clk>;
 		clock-names = "core_clk", "iface_clk",
-				"bus_clk", "maxi_clk", "vmem_maxi";
+				"bus_clk", "maxi_clk";
 		qcom,proxy-clock-names = "core_clk", "iface_clk",
-				"bus_clk", "maxi_clk", "vmem_maxi";
+				"bus_clk", "maxi_clk";
 
 		qcom,msm-bus,name = "pil-venus";
 		qcom,msm-bus,num-cases = <2>;
