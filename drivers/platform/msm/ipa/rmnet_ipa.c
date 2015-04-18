@@ -59,6 +59,7 @@ static atomic_t is_initialized;
 static atomic_t is_ssr;
 
 u32 apps_to_ipa_hdl, ipa_to_apps_hdl; /* get handler from ipa */
+static struct mutex ipa_to_apps_pipe_handle_guard;
 static int wwan_add_ul_flt_rule_to_ipa(void);
 static int wwan_del_ul_flt_rule_to_ipa(void);
 static void ipa_wwan_msg_free_cb(void*, u32, u32);
@@ -1432,8 +1433,16 @@ static int ipa_wwan_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
 			ipa_to_apps_ep_cfg.desc_fifo_sz = IPA_SYS_DESC_FIFO_SZ;
 			ipa_to_apps_ep_cfg.priv = dev;
 
+			mutex_lock(&ipa_to_apps_pipe_handle_guard);
+			if (atomic_read(&is_ssr)) {
+				IPAWANDBG("In SSR sequence/recovery\n");
+				mutex_unlock(&ipa_to_apps_pipe_handle_guard);
+				rc = -EFAULT;
+				break;
+			}
 			rc = ipa_setup_sys_pipe(
 				&ipa_to_apps_ep_cfg, &ipa_to_apps_hdl);
+			mutex_unlock(&ipa_to_apps_pipe_handle_guard);
 			if (rc)
 				IPAWANERR("failed to configure ingress\n");
 			break;
@@ -1971,11 +1980,13 @@ static int ipa_wwan_remove(struct platform_device *pdev)
 	int ret;
 
 	pr_info("rmnet_ipa started deinitialization\n");
+	mutex_lock(&ipa_to_apps_pipe_handle_guard);
 	ret = ipa_teardown_sys_pipe(ipa_to_apps_hdl);
 	if (ret < 0)
 		IPAWANERR("Failed to teardown IPA->APPS pipe\n");
 	else
 		ipa_to_apps_hdl = -1;
+	mutex_unlock(&ipa_to_apps_pipe_handle_guard);
 	unregister_netdev(ipa_netdevs[0]);
 	ret = ipa_rm_delete_dependency(IPA_RM_RESOURCE_WWAN_0_PROD,
 		IPA_RM_RESOURCE_Q6_CONS);
@@ -2132,6 +2143,7 @@ static int __init ipa_wwan_init(void)
 	atomic_set(&is_initialized, 0);
 	atomic_set(&is_ssr, 0);
 
+	mutex_init(&ipa_to_apps_pipe_handle_guard);
 	/* Register for Modem SSR */
 	subsys = subsys_notif_register_notifier(SUBSYS_MODEM, &ssr_notifier);
 	if (!IS_ERR(subsys))
@@ -2142,6 +2154,7 @@ static int __init ipa_wwan_init(void)
 
 static void __exit ipa_wwan_cleanup(void)
 {
+	mutex_destroy(&ipa_to_apps_pipe_handle_guard);
 	platform_driver_unregister(&rmnet_ipa_driver);
 }
 
