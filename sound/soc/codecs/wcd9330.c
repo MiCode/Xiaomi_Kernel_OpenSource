@@ -742,7 +742,7 @@ static int tomtom_update_uhqa_mode(struct snd_soc_codec *codec, int path)
 static int tomtom_get_anc_slot(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	ucontrol->value.integer.value[0] = tomtom->anc_slot;
 	return 0;
@@ -751,7 +751,7 @@ static int tomtom_get_anc_slot(struct snd_kcontrol *kcontrol,
 static int tomtom_put_anc_slot(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	tomtom->anc_slot = ucontrol->value.integer.value[0];
 	return 0;
@@ -760,7 +760,7 @@ static int tomtom_put_anc_slot(struct snd_kcontrol *kcontrol,
 static int tomtom_get_anc_func(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 
 	ucontrol->value.integer.value[0] = (tomtom->anc_func == true ? 1 : 0);
@@ -770,7 +770,7 @@ static int tomtom_get_anc_func(struct snd_kcontrol *kcontrol,
 static int tomtom_put_anc_func(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	struct snd_soc_dapm_context *dapm = &codec->dapm;
 
@@ -811,7 +811,7 @@ static int tomtom_get_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -831,7 +831,7 @@ static int tomtom_put_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -895,7 +895,7 @@ static int tomtom_get_iir_band_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -956,7 +956,7 @@ static int tomtom_put_iir_band_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -1001,7 +1001,7 @@ static int tomtom_get_compander(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int comp = ((struct soc_multi_mixer_control *)
 		    kcontrol->private_value)->shift;
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
@@ -1013,7 +1013,7 @@ static int tomtom_get_compander(struct snd_kcontrol *kcontrol,
 static int tomtom_set_compander(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	int comp = ((struct soc_multi_mixer_control *)
 		    kcontrol->private_value)->shift;
@@ -1338,7 +1338,7 @@ static int tomtom_mad_input_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	u8 tomtom_mad_input;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 
 	tomtom_mad_input = snd_soc_read(codec, TOMTOM_A_CDC_MAD_INP_SEL);
 
@@ -1357,7 +1357,7 @@ static int tomtom_mad_input_put(struct snd_kcontrol *kcontrol,
 {
 	u8 tomtom_mad_input;
 	u16 micb_int_reg, micb_4_int_reg;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct snd_soc_card *card = codec->component.card;
 	char mad_amic_input_widget[6];
 	u32 adc;
@@ -1715,7 +1715,7 @@ static int tomtom_pa_gain_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	u8 ear_pa_gain;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 
 	ear_pa_gain = snd_soc_read(codec, TOMTOM_A_RX_EAR_GAIN);
 
@@ -1732,7 +1732,7 @@ static int tomtom_pa_gain_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	u8 ear_pa_gain;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 
 	pr_debug("%s: ucontrol->value.integer.value[0]  = %ld\n", __func__,
 			ucontrol->value.integer.value[0]);
@@ -1796,7 +1796,7 @@ static int tomtom_hph_impedance_get(struct snd_kcontrol *kcontrol,
 	uint32_t zl, zr;
 	bool hphr;
 	struct soc_multi_mixer_control *mc;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
 
 	mc = (struct soc_multi_mixer_control *)(kcontrol->private_value);
@@ -1819,7 +1819,7 @@ static const struct snd_kcontrol_new impedance_detect_controls[] = {
 static int tomtom_get_hph_type(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
 	struct wcd9xxx_mbhc *mbhc;
 

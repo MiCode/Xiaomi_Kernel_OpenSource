@@ -366,7 +366,7 @@ static int tasha_get_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -710,7 +710,7 @@ static int tasha_put_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -779,7 +779,7 @@ static int tasha_get_iir_band_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -1014,7 +1014,7 @@ static int tasha_put_iir_band_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int iir_idx = ((struct soc_multi_mixer_control *)
 					kcontrol->private_value)->reg;
 	int band_idx = ((struct soc_multi_mixer_control *)
@@ -1059,7 +1059,7 @@ static int tasha_get_compander(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
 
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	int comp = ((struct soc_multi_mixer_control *)
 		    kcontrol->private_value)->shift;
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
@@ -1071,7 +1071,7 @@ static int tasha_get_compander(struct snd_kcontrol *kcontrol,
 static int tasha_set_compander(struct snd_kcontrol *kcontrol,
 			       struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	int comp = ((struct soc_multi_mixer_control *)
 		    kcontrol->private_value)->shift;
@@ -3008,7 +3008,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 static int tasha_rx_hph_mode_get(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 
 	ucontrol->value.integer.value[0] = tasha->hph_mode;
@@ -3018,7 +3018,7 @@ static int tasha_rx_hph_mode_get(struct snd_kcontrol *kcontrol,
 static int tasha_rx_hph_mode_put(struct snd_kcontrol *kcontrol,
 				 struct snd_ctl_elem_value *ucontrol)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	u32 mode_val;
 
@@ -3227,7 +3227,7 @@ static int tasha_ear_pa_gain_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	u8 ear_pa_gain;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 
 	ear_pa_gain = snd_soc_read(codec, WCD9335_ANA_EAR);
 
@@ -3245,7 +3245,7 @@ static int tasha_ear_pa_gain_put(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol)
 {
 	u8 ear_pa_gain;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 
 	dev_dbg(codec->dev, "%s: ucontrol->value.integer.value[0]  = %ld\n",
 			__func__, ucontrol->value.integer.value[0]);
