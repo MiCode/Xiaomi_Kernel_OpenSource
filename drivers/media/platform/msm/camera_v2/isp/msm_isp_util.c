@@ -1582,28 +1582,28 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 {
 	struct msm_isp_event_data error_event;
 	struct msm_vfe_axi_halt_cmd halt_cmd;
+	uint32_t i;
 
 	memset(&halt_cmd, 0, sizeof(struct msm_vfe_axi_halt_cmd));
 	halt_cmd.stop_camif = 1;
 	halt_cmd.overflow_detected = 0;
+	halt_cmd.blocking_halt = 0;
+
+	msm_isp_axi_halt(vfe_dev, &halt_cmd);
+
+	for (i = 0; i < MAX_NUM_STREAM; i++)
+		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
 
 	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
 		__LINE__, vfe_dev, vfe_dev->pdev->id);
-	msm_isp_axi_disable_all_wm(vfe_dev);
-	msm_isp_stats_disable(vfe_dev);
-	/* VFE_SRC_MAX will call reg update on all stream src */
-	vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
-		VFE_SRC_MAX);
+
 	error_event.frame_id =
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
 	msm_isp_print_ping_pong_address(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
 
-	msm_isp_axi_halt(vfe_dev, &halt_cmd);
-
-	msm_isp_send_event(vfe_dev,
-					ISP_EVENT_IOMMU_P_FAULT, &error_event);
+	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }
 
 void msm_isp_process_error_info(struct vfe_device *vfe_dev)

@@ -1611,7 +1611,8 @@ int msm_isp_axi_halt(struct vfe_device *vfe_dev,
 			OVERFLOW_DETECTED);
 	}
 
-	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
+	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev,
+		halt_cmd->blocking_halt);
 
 	if (halt_cmd->stop_camif) {
 		vfe_dev->hw_info->vfe_ops.core_ops.
@@ -1842,7 +1843,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	int ext_read =
 		(axi_data->src_info[VFE_PIX_0].input_mux == EXTERNAL_READ);
-	uint32_t src_mask = 0;
+	uint32_t src_mask = 0, intf;
 
 	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM ||
 		stream_cfg_cmd->num_streams == 0)
@@ -1885,13 +1886,17 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				(!ext_read))
 				wait_for_complete_for_this_stream = 1;
 		}
-		if (!wait_for_complete_for_this_stream) {
+
+		intf = SRC_TO_INTF(stream_info->stream_src);
+		if (!wait_for_complete_for_this_stream ||
+			stream_info->state == INACTIVE ||
+			!vfe_dev->axi_data.src_info[intf].active) {
 			msm_isp_axi_stream_enable_cfg(vfe_dev, stream_info);
 			stream_info->state = INACTIVE;
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 				SRC_TO_INTF(stream_info->stream_src));
 		} else
-			src_mask |= (1 << SRC_TO_INTF(stream_info->stream_src));
+			src_mask |= (1 << intf);
 
 	}
 

@@ -332,6 +332,7 @@ struct msm_vfe_axi_stream_cfg_update_info {
 struct msm_vfe_axi_halt_cmd {
 	uint32_t stop_camif;
 	uint32_t overflow_detected;
+	uint32_t blocking_halt;
 };
 
 struct msm_vfe_axi_reset_cmd {
