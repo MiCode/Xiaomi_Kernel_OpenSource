@@ -359,6 +359,8 @@ struct wcd_mbhc {
 	struct wcd_mbhc_register *wcd_mbhc_regs;
 	struct mutex hphl_pa_lock;
 	struct mutex hphr_pa_lock;
+
+	struct completion btn_press_compl;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \
