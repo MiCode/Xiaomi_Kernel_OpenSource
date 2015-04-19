@@ -77,22 +77,10 @@ int cpuidle_enter_state(struct cpuidle_device *dev, struct cpuidle_driver *drv,
 	int entered_state;
 
 	struct cpuidle_state *target_state = &drv->states[index];
-	ktime_t time_start, time_end;
-	s64 diff;
-
-	time_start = ktime_get();
 
 	entered_state = target_state->enter(dev, drv, index);
 
-	time_end = ktime_get();
-
 	local_irq_enable();
-
-	diff = ktime_to_us(ktime_sub(time_end, time_start));
-	if (diff > INT_MAX)
-		diff = INT_MAX;
-
-	dev->last_residency = (int) diff;
 
 	if (entered_state >= 0) {
 		/* Update cpuidle counters */
