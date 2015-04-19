@@ -24,6 +24,8 @@
 #include <linux/kernel.h>
 #include <linux/input.h>
 #include <linux/firmware.h>
+#include <linux/completion.h>
+#include <glink_private.h>
 #include <sound/soc.h>
 #include <sound/jack.h>
 #include "wcd-mbhc-v2.h"
@@ -46,6 +48,8 @@
 #define FW_READ_ATTEMPTS 15
 #define FW_READ_TIMEOUT 4000000
 #define FAKE_REM_RETRY_ATTEMPTS 3
+
+#define WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS  50
 
 static int det_extn_cable_en;
 module_param(det_extn_cable_en, int,
@@ -796,7 +800,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	struct snd_soc_codec *codec;
 	enum wcd_mbhc_plug_type plug_type = MBHC_PLUG_TYPE_INVALID;
 	unsigned long timeout;
-	u16 hs_comp_res, hphl_sch, mic_sch;
+	u16 hs_comp_res, hphl_sch, mic_sch, btn_result;
 	bool wrk_complete = false;
 	int pt_gnd_mic_swap_cnt = 0;
 	int no_gnd_mic_swap_cnt = 0;
@@ -804,6 +808,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool micbias2 = false;
 	bool micbias1 = false;
 	int ret = 0;
+	int rc;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -819,6 +824,48 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	 */
 
 	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
+
+
+	if (mbhc->current_plug == MBHC_PLUG_TYPE_GND_MIC_SWAP)
+		goto correct_plug_type;
+
+	/* Enable HW FSM */
+	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
+	/*
+	 * Check for any button press interrupts before starting 3-sec
+	 * loop.
+	 */
+	rc = wait_for_completion_timeout(&mbhc->btn_press_compl,
+			msecs_to_jiffies(WCD_MBHC_BTN_PRESS_COMPL_TIMEOUT_MS));
+
+	WCD_MBHC_REG_READ(WCD_MBHC_BTN_RESULT, btn_result);
+	WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
+
+	if (!rc) {
+		pr_debug("%s No btn press interrupt\n", __func__);
+		if (!btn_result && !hs_comp_res)
+			plug_type = MBHC_PLUG_TYPE_HEADSET;
+		else if (!btn_result && hs_comp_res)
+			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
+		else
+			plug_type = MBHC_PLUG_TYPE_INVALID;
+	} else {
+		if (!btn_result && !hs_comp_res)
+			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
+		else
+			plug_type = MBHC_PLUG_TYPE_INVALID;
+	}
+
+	pr_debug("%s: Valid plug found, plug type is %d\n",
+			 __func__, plug_type);
+	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
+	    plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
+		WCD_MBHC_RSC_LOCK(mbhc);
+		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
+		WCD_MBHC_RSC_UNLOCK(mbhc);
+	}
+
+correct_plug_type:
 
 	timeout = jiffies + msecs_to_jiffies(HS_DETECT_PLUG_TIME_MS);
 	while (!time_after(jiffies, timeout)) {
@@ -990,11 +1037,7 @@ exit:
 static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
-	long timeout = msecs_to_jiffies(50);   /* 50ms */
 	enum wcd_mbhc_plug_type plug_type;
-	int timeout_result;
-	u8 btn_result;
-	u8 hs_comp_res;
 	bool micbias1 = false;
 	int cross_conn;
 	int try = 0;
@@ -1012,82 +1055,24 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		mbhc->mbhc_cb->mbhc_micbias_control(codec, MICB_PULLUP_ENABLE);
 	else
 		wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
-	/* Enable HW FSM */
-	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
-	/*
-	 * Wait for 50msec for FSM to complete its task.
-	 * wakeup if btn pres intr occurs
-	 */
-	mbhc->is_btn_press = false;
-	WCD_MBHC_RSC_UNLOCK(mbhc);
-	timeout_result = wait_event_interruptible_timeout(mbhc->wait_btn_press,
-							  mbhc->is_btn_press,
-							  timeout);
 
-	WCD_MBHC_RSC_LOCK(mbhc);
-	WCD_MBHC_REG_READ(WCD_MBHC_BTN_RESULT, btn_result);
-	WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
+	do {
+		cross_conn = wcd_check_cross_conn(mbhc);
+		try++;
+	} while (try < GND_MIC_SWAP_THRESHOLD);
 
-	if (!timeout_result) {
-		pr_debug("%s No btn press interrupt\n", __func__);
-		/*
-		 * Check if there is any cross connection,
-		 * Micbias and schmitt trigger (HPHL-HPHR)
-		 * needs to be enabled.
-		 */
-		pr_debug("%s: btn_result %x, hs_comp_res %x\n", __func__,
-						btn_result, hs_comp_res);
-		if (!hs_comp_res) {
-			/*
-			 * Cross connection result is not reliable
-			 * so do check for it for 4 times to conclude
-			 * cross connection occured or not.
-			 */
-			do {
-				cross_conn = wcd_check_cross_conn(mbhc);
-				try++;
-			} while (try < GND_MIC_SWAP_THRESHOLD);
-			if (cross_conn > 0) {
-				pr_debug("%s: cross con found, start polling\n",
-					 __func__);
-				plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
-				goto exit;
-			}
-		}
-
-		/*
-		 * Read back btn_result and hs_comp_result value
-		 * again to re-confirm
-		 */
-		WCD_MBHC_REG_READ(WCD_MBHC_BTN_RESULT, btn_result);
-		WCD_MBHC_REG_READ(WCD_MBHC_HS_COMP_RESULT, hs_comp_res);
-
-		if (!btn_result && !hs_comp_res)
-			plug_type = MBHC_PLUG_TYPE_HEADSET;
-		else if (!btn_result && hs_comp_res)
-			plug_type = MBHC_PLUG_TYPE_HIGH_HPH;
-		else {
-			plug_type = MBHC_PLUG_TYPE_INVALID;
-			goto exit;
-		}
-	} else {
-		if (!btn_result && !hs_comp_res)
-			plug_type = MBHC_PLUG_TYPE_HEADPHONE;
-		else {
-			plug_type = MBHC_PLUG_TYPE_INVALID;
-			goto exit;
-		}
-	}
-exit:
-	pr_debug("%s: Valid plug found, plug type is %d\n",
+	if (cross_conn > 0) {
+		pr_debug("%s: cross con found, start polling\n",
+			 __func__);
+		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
+		mbhc->current_plug = plug_type;
+		pr_debug("%s: Plug found, plug type is %d\n",
 			 __func__, plug_type);
-	if (plug_type == MBHC_PLUG_TYPE_HEADSET ||
-			plug_type == MBHC_PLUG_TYPE_HEADPHONE) {
-		wcd_mbhc_find_plug_and_report(mbhc, plug_type);
-		wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
-	} else {
-		wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 	}
+
+	/* Re-initialize button press completion object */
+	reinit_completion(&mbhc->btn_press_compl);
+	wcd_schedule_hs_detect_plug(mbhc, &mbhc->correct_plug_swch);
 	pr_debug("%s: leave\n", __func__);
 }
 
@@ -1119,8 +1104,10 @@ static void wcd_mbhc_swch_irq_handler(struct wcd_mbhc *mbhc)
 	 * pull up current, in which case this callback function
 	 * will not be defined.
 	 */
-	if (mbhc->mbhc_cb->hph_pull_up_control)
-		mbhc->mbhc_cb->hph_pull_up_control(codec, REMOVE);
+	if (mbhc->mbhc_cb->hph_pull_up_control) {
+		mbhc->mbhc_cb->hph_pull_up_control(codec,
+				(detection_type ? REMOVE : INSERT));
+	}
 
 	pr_debug("%s: mbhc->current_plug: %d detection_type: %d\n", __func__,
 			mbhc->current_plug, detection_type);
@@ -1522,10 +1509,10 @@ irqreturn_t wcd_mbhc_btn_press_handler(int irq, void *data)
 	unsigned long msec_val;
 
 	pr_debug("%s: enter\n", __func__);
+	complete(&mbhc->btn_press_compl);
 	WCD_MBHC_RSC_LOCK(mbhc);
 	/* send event to sw intr handler*/
 	mbhc->is_btn_press = true;
-	wake_up_interruptible(&mbhc->wait_btn_press);
 	wcd_cancel_btn_work(mbhc);
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low ", __func__);
@@ -1715,6 +1702,9 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	wcd_program_btn_threshold(mbhc, false);
 
 	INIT_WORK(&mbhc->correct_plug_swch, wcd_correct_swch_plug);
+
+	init_completion(&mbhc->btn_press_compl);
+
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 	pr_debug("%s: leave\n", __func__);
 	return ret;
