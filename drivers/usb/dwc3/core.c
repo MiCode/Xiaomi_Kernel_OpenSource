@@ -582,15 +582,24 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		break;
 	case USB_DR_MODE_OTG:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
+		ret = dwc3_otg_init(dwc);
+		if (ret) {
+			dev_err(dev, "failed to initialize otg\n");
+			return ret;
+		}
+
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");
+			dwc3_otg_exit(dwc);
 			return ret;
 		}
 
 		ret = dwc3_gadget_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize gadget\n");
+			dwc3_host_exit(dwc);
+			dwc3_otg_exit(dwc);
 			return ret;
 		}
 		break;
@@ -612,13 +621,21 @@ static void dwc3_core_exit_mode(struct dwc3 *dwc)
 		dwc3_host_exit(dwc);
 		break;
 	case USB_DR_MODE_OTG:
-		dwc3_host_exit(dwc);
 		dwc3_gadget_exit(dwc);
+		dwc3_host_exit(dwc);
+		dwc3_otg_exit(dwc);
 		break;
 	default:
 		/* do nothing */
 		break;
 	}
+}
+
+/* XHCI reset, resets other CORE registers as well, re-init those */
+void dwc3_post_host_reset_core_init(struct dwc3 *dwc)
+{
+	dwc3_core_init(dwc);
+	dwc3_gadget_restart(dwc);
 }
 
 #define DWC3_ALIGN_MASK		(16 - 1)
@@ -712,17 +729,19 @@ static int dwc3_probe(struct platform_device *pdev)
 	dev->dma_parms	= dev->parent->dma_parms;
 	dma_set_coherent_mask(dev, dev->parent->coherent_dma_mask);
 
+	pm_runtime_no_callbacks(dev);
+	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
-	pm_runtime_get_sync(dev);
-	pm_runtime_forbid(dev);
 
 	dwc3_cache_hwparams(dwc);
 
-	ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
-	if (ret) {
-		dev_err(dwc->dev, "failed to allocate event buffers\n");
-		ret = -ENOMEM;
-		goto err0;
+	if (!dwc->ev_buffs) {
+		ret = dwc3_alloc_event_buffers(dwc, DWC3_EVENT_BUFFERS_SIZE);
+		if (ret) {
+			dev_err(dwc->dev, "failed to allocate event buffers\n");
+			ret = -ENOMEM;
+			goto err0;
+		}
 	}
 
 	if (IS_ENABLED(CONFIG_USB_DWC3_HOST))
@@ -765,8 +784,6 @@ static int dwc3_probe(struct platform_device *pdev)
 		goto err3;
 	}
 
-	pm_runtime_allow(dev);
-
 	return 0;
 
 err3:
@@ -808,7 +825,6 @@ static int dwc3_remove(struct platform_device *pdev)
 
 	dwc3_core_exit(dwc);
 
-	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;

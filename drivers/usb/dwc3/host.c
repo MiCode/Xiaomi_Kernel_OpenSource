@@ -60,10 +60,13 @@ int dwc3_host_init(struct dwc3 *dwc)
 		goto err1;
 	}
 
-	ret = platform_device_add(xhci);
-	if (ret) {
-		dev_err(dwc->dev, "failed to register xHCI device\n");
-		goto err1;
+	/* Add XHCI device if !OTG, otherwise OTG takes care of this */
+	if (!dwc->dotg) {
+		ret = platform_device_add(xhci);
+		if (ret) {
+			dev_err(dwc->dev, "failed to register xHCI device\n");
+			goto err1;
+		}
 	}
 
 	return 0;
@@ -77,5 +80,6 @@ err0:
 
 void dwc3_host_exit(struct dwc3 *dwc)
 {
-	platform_device_unregister(dwc->xhci);
+	if (!dwc->dotg)
+		platform_device_unregister(dwc->xhci);
 }

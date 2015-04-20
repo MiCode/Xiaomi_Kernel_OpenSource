@@ -16,8 +16,10 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 #include <linux/slab.h>
 #include <linux/usb/xhci_pdriver.h>
+#include <linux/dma-mapping.h>
 
 #include "xhci.h"
 #include "xhci-mvebu.h"
@@ -109,6 +111,7 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (!hcd)
 		return -ENOMEM;
 
+	hcd_to_bus(hcd)->skip_resume = true;
 	hcd->rsrc_start = res->start;
 	hcd->rsrc_len = resource_size(res);
 
@@ -128,6 +131,13 @@ static int xhci_plat_probe(struct platform_device *pdev)
 		if (ret)
 			goto put_hcd;
 	}
+
+	if (pdev->dev.parent)
+		pm_runtime_resume(pdev->dev.parent);
+
+	pm_runtime_set_active(&pdev->dev);
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_get_sync(&pdev->dev);
 
 	ret = usb_add_hcd(hcd, irq, IRQF_SHARED);
 	if (ret)
@@ -149,6 +159,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if ((node && of_property_read_bool(node, "usb3-lpm-capable")) ||
 			(pdata && pdata->usb3_lpm_capable))
 		xhci->quirks |= XHCI_LPM_SUPPORT;
+
+	hcd_to_bus(xhci->shared_hcd)->skip_resume = true;
 	/*
 	 * Set the xHCI pointer before xhci_plat_setup() (aka hcd_driver.reset)
 	 * is called by usb_add_hcd().
@@ -161,6 +173,8 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	ret = usb_add_hcd(xhci->shared_hcd, irq, IRQF_SHARED);
 	if (ret)
 		goto put_usb3_hcd;
+
+	pm_runtime_put(&pdev->dev);
 
 	return 0;
 
@@ -185,6 +199,8 @@ static int xhci_plat_remove(struct platform_device *dev)
 	struct usb_hcd	*hcd = platform_get_drvdata(dev);
 	struct xhci_hcd	*xhci = hcd_to_xhci(hcd);
 	struct clk *clk = xhci->clk;
+
+	pm_runtime_disable(&dev->dev);
 
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_put_hcd(xhci->shared_hcd);
@@ -223,8 +239,38 @@ static int xhci_plat_resume(struct device *dev)
 	return xhci_resume(xhci, 0);
 }
 
+#ifdef CONFIG_PM_RUNTIME
+static int xhci_plat_runtime_suspend(struct device *dev)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	if (!xhci)
+		return 0;
+
+	dev_dbg(dev, "xhci-plat runtime suspend\n");
+
+	return xhci_suspend(xhci, true);
+}
+
+static int xhci_plat_runtime_resume(struct device *dev)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(dev);
+	struct xhci_hcd *xhci = hcd_to_xhci(hcd);
+
+	if (!xhci)
+		return 0;
+
+	dev_dbg(dev, "xhci-plat runtime resume\n");
+
+	return xhci_resume(xhci, false);
+}
+#endif
+
 static const struct dev_pm_ops xhci_plat_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(xhci_plat_suspend, xhci_plat_resume)
+	SET_RUNTIME_PM_OPS(xhci_plat_runtime_suspend, xhci_plat_runtime_resume,
+			   NULL)
 };
 #define DEV_PM_OPS	(&xhci_plat_pm_ops)
 #else
