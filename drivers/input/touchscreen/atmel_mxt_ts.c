@@ -185,7 +185,7 @@ struct t9_range {
 
 /* Delay times */
 #define MXT_BACKUP_TIME		50	/* msec */
-#define MXT_RESET_TIME		200	/* msec */
+#define MXT_RESET_TIME		100	/* msec */
 #define MXT_RESET_TIMEOUT	3000	/* msec */
 #define MXT_CRC_TIMEOUT		1000	/* msec */
 #define MXT_FW_RESET_TIME	3000	/* msec */
@@ -2672,6 +2672,15 @@ static void mxt_fw_cb(const struct firmware *fw, void *ctx)
 	int error;
 	struct mxt_data *data = (struct mxt_data *)ctx;
 
+	/*reset chip in case of I2C mode pin is configured
+	* after power on touch chip without keep reset active
+	*/
+	gpiod_direction_output(gpio_to_desc(data->pdata->gpio_reset), 0);
+	ndelay(100);
+	gpiod_direction_output(gpio_to_desc(data->pdata->gpio_reset), 1);
+	/* wait it gets out of reset */
+	msleep(MXT_RESET_TIME);
+
 	if (fw) {
 		error = mxt_check_firmware(data, fw);
 		if (error) {
@@ -3775,20 +3784,9 @@ static int mxt_probe(struct i2c_client *client,
 		pdata->irqflags = IRQF_TRIGGER_LOW;
 
 		gpio = devm_gpiod_get_index(&client->dev, "atml_gpio_rst", 0);
-		if (!IS_ERR(gpio)) {
+		if (!IS_ERR(gpio))
 			pdata->gpio_reset = desc_to_gpio(gpio);
-			/*reset chip in case of I2C mode pin is configured
-			* after power on touch chip without keep reset active
-			*/
-			gpiod_direction_output(gpio_to_desc(pdata->gpio_reset),
-						0);
-			ndelay(100);
-			gpiod_direction_output(gpio_to_desc(pdata->gpio_reset),
-						1);
-
-			/* wait it gets out of reset */
-			msleep(MXT_RESET_TIME);
-		} else {
+		else {
 			pdata->gpio_reset = -1;
 			dev_err(&client->dev, "Failed to get gpio reset\n");
 		}
