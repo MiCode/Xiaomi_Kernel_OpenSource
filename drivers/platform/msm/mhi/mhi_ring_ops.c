@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,10 +109,14 @@ enum MHI_STATUS delete_element(struct mhi_ring *ring, void **rp,
 
 int mhi_get_free_desc(struct mhi_client_handle *client_handle)
 {
-	u32 chan = client_handle->chan;
-	struct mhi_device_ctxt *ctxt = client_handle->mhi_dev_ctxt;
-	if (NULL == client_handle || MHI_HANDLE_MAGIC != client_handle->magic)
+	u32 chan;
+	struct mhi_device_ctxt *ctxt;
+	if (!client_handle || MHI_HANDLE_MAGIC != client_handle->magic ||
+	    !client_handle->mhi_dev_ctxt)
 		return -EINVAL;
+	ctxt = client_handle->mhi_dev_ctxt;
+	chan = client_handle->chan_info.chan_nr;
+
 	return get_nr_avail_ring_elements(&ctxt->mhi_local_chan_ctxt[chan]);
 }
 EXPORT_SYMBOL(mhi_get_free_desc);

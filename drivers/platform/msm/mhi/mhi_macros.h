@@ -30,13 +30,7 @@
 #define MHI_MAX_SUSPEND_TIMEOUT 5000
 #define MHI_MAX_CMD_TIMEOUT 500
 #define MHI_RPM_AUTOSUSPEND_TMR_VAL_MS 1000
-
-#define MAX_NR_MSI 4
-
-#define NR_EV_RINGS 3
-#define PRIMARY_EVENT_RING 0
-#define IPA_OUT_EV_RING 1
-#define IPA_IN_EV_RING 2
+#define MAX_BUF_SIZE 32
 
 #define PRIMARY_CMD_RING 0
 #define MHI_WORK_Q_MAX_SIZE 128
@@ -212,31 +206,6 @@
 #define HIGH_WORD(_x) ((u32)((((u64)(_x)) >> 32) & 0xFFFFFFFF))
 #define LOW_WORD(_x) ((u32)(((u64)(_x)) & 0xFFFFFFFF))
 
-#define EVENT_RING_MSI_VEC
-#define MHI_EVENT_RING_MSI_VEC__MASK (0xf)
-#define MHI_EVENT_RING_MSI_VEC__SHIFT (2)
-#define EVENT_RING_POLLING
-#define MHI_EVENT_RING_POLLING__MASK (0x1)
-#define MHI_EVENT_RING_POLLING__SHIFT (0)
-#define EVENT_RING_STATE_FIELD
-#define MHI_EVENT_RING_STATE_FIELD__MASK (0x1)
-#define MHI_EVENT_RING_STATE_FIELD__SHIFT (1)
-
-#define MHI_SET_EVENT_RING_INFO(_FIELD, _PKT, _VAL) \
-{ \
-	u32 new_val = (_PKT); \
-	new_val &= (~((MHI_##_FIELD ## __MASK) << MHI_##_FIELD ## __SHIFT));\
-	new_val |= _VAL << MHI_##_FIELD ## __SHIFT; \
-	(_PKT) = new_val; \
-};
-
-#define MHI_GET_EVENT_RING_INFO(_FIELD, _PKT, _DEST) \
-{ \
-	_DEST = (_PKT); \
-	_DEST &= (((MHI_##_FIELD ## __MASK) << MHI_##_FIELD ## __SHIFT));\
-	_DEST >>= MHI_##_FIELD ## __SHIFT; \
-};
-
 #define EVENT_CTXT_INTMODT
 #define MHI_EVENT_CTXT_INTMODT__MASK (0xFFFF)
 #define MHI_EVENT_CTXT_INTMODT__SHIFT (16)
@@ -258,4 +227,31 @@
 		_val &= (u32)(_mask); \
 		_val >>= (u32)(_shift); \
 	} while (0)
+
+#define CHAN_BRINGUP_STAGE
+#define MHI_CHAN_BRINGUP_STAGE__MASK (3)
+#define MHI_CHAN_BRINGUP_STAGE__SHIFT (0)
+
+#define CHAN_DIR
+#define MHI_CHAN_DIR__MASK (3)
+#define MHI_CHAN_DIR__SHIFT (4)
+
+#define CHAN_TYPE
+#define MHI_CHAN_TYPE__MASK (3)
+#define MHI_CHAN_TYPE__SHIFT (6)
+
+#define GET_CHAN_PROPS(_FIELD, _VAL) \
+	(((_VAL) >> MHI_##_FIELD ## __SHIFT) & MHI_##_FIELD ## __MASK)
+
+#define EV_TYPE
+#define MHI_EV_TYPE__MASK (3)
+#define MHI_EV_TYPE__SHIFT (3)
+
+#define EV_MANAGED
+#define MHI_EV_MANAGED__MASK (3)
+#define MHI_EV_MANAGED__SHIFT (0)
+
+#define GET_EV_PROPS(_FIELD, _VAL) \
+	(((_VAL) >> MHI_##_FIELD ## __SHIFT) & MHI_##_FIELD ## __MASK)
+
 #endif

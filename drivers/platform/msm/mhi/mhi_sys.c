@@ -18,8 +18,9 @@
 
 #include "mhi_sys.h"
 
-enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_INFO;
-enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
+enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_ERROR;
+enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_INFO;
+
 enum MHI_DEBUG_CLASS mhi_msg_class = MHI_DBG_DATA | MHI_DBG_POWER;
 
 module_param(mhi_msg_lvl , uint, S_IRUGO | S_IWUSR);
@@ -40,23 +41,37 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 		&mhi_devices.device_list[0].mhi_ctxt;
 	uintptr_t v_wp_index;
 	uintptr_t v_rp_index;
+	int valid_chan = 0;
+	struct mhi_chan_ctxt *cc_list;
+	struct mhi_client_handle *client_handle;
+
 	if (NULL == mhi_dev_ctxt)
 		return -EIO;
+	cc_list = mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list;
 	*offp = (u32)(*offp) % MHI_MAX_CHANNELS;
-	if (*offp == (MHI_MAX_CHANNELS - 1))
-		msleep(1000);
-	while (!VALID_CHAN_NR(*offp)) {
-		*offp += 1;
-		*offp = (u32)(*offp) % MHI_MAX_CHANNELS;
+
+	while (!valid_chan) {
+		client_handle = mhi_dev_ctxt->client_handle_list[*offp];
+		if (*offp == (MHI_MAX_CHANNELS - 1))
+			msleep(1000);
+		if (!VALID_CHAN_NR(*offp) ||
+		    !cc_list[*offp].mhi_trb_ring_base_addr ||
+		    !client_handle) {
+			*offp += 1;
+			*offp = (u32)(*offp) % MHI_MAX_CHANNELS;
+			continue;
+		}
+		valid_chan = 1;
 	}
 
+	chan_ctxt = &cc_list[*offp];
 	get_element_index(&mhi_dev_ctxt->mhi_local_chan_ctxt[*offp],
 			mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].rp,
 			&v_rp_index);
 	get_element_index(&mhi_dev_ctxt->mhi_local_chan_ctxt[*offp],
 			mhi_dev_ctxt->mhi_local_chan_ctxt[*offp].wp,
 			&v_wp_index);
-	chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[*offp];
+
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
 		MHI_LOG_SIZE,
@@ -83,7 +98,7 @@ static ssize_t mhi_dbgfs_chan_read(struct file *fp, char __user *buf,
 		get_nr_avail_ring_elements(
 		&mhi_dev_ctxt->mhi_local_chan_ctxt[*offp]),
 		"/",
-		mhi_get_chan_max_buffers(*offp));
+		client_handle->chan_info.max_desc);
 
 	*offp += 1;
 
@@ -113,10 +128,10 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 		&mhi_devices.device_list[0].mhi_ctxt;
 	if (NULL == mhi_dev_ctxt)
 		return -EIO;
-	*offp = (u32)(*offp) % NR_EV_RINGS;
-	event_ring_index = mhi_dev_ctxt->alloced_ev_rings[*offp];
+	*offp = (u32)(*offp) % mhi_dev_ctxt->mmio_info.nr_event_rings;
+	event_ring_index = *offp;
 	ev_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[event_ring_index];
-	if (*offp == (NR_EV_RINGS - 1))
+	if (*offp == (mhi_dev_ctxt->mmio_info.nr_event_rings - 1))
 		msleep(1000);
 
 	get_element_index(&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index],
@@ -129,14 +144,13 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 			mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index].wp,
 			&v_wp_index);
 	get_element_index(&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index],
-			(void *)mhi_p2v_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-					ev_ctxt->mhi_event_read_ptr),
+			(void *)dma_to_virt(NULL, ev_ctxt->mhi_event_read_ptr),
 			&device_p_rp_index);
 
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
 		MHI_LOG_SIZE,
-		"%s 0x%08x %s %02x %s 0x%08x %s 0x%08x %s 0x%llx %s %llx %s %lu %s %p %s %p %s %lu %s %p %s %lu\n",
+		"%s 0x%d %s %02x %s 0x%08x %s 0x%08x %s 0x%llx %s %llx %s %lu %s %p %s %p %s %lu %s %p %s %lu\n",
 		"Event Context ",
 		(unsigned int)event_ring_index,
 		"Intmod_T",
@@ -242,16 +256,6 @@ static const struct file_operations mhi_dbgfs_state_fops = {
 	.write = NULL,
 };
 
-uintptr_t mhi_p2v_addr(struct mhi_meminfo *meminfo, phys_addr_t pa)
-{
-	return meminfo->va_aligned + (pa - meminfo->pa_aligned);
-}
-
-phys_addr_t mhi_v2p_addr(struct mhi_meminfo *meminfo, uintptr_t va)
-{
-	return meminfo->pa_aligned + (va - meminfo->va_aligned);
-}
-
 inline void *mhi_get_virt_addr(struct mhi_meminfo *meminfo)
 {
 	return (void *)meminfo->va_aligned;
@@ -264,7 +268,8 @@ inline u64 mhi_get_memregion_len(struct mhi_meminfo *meminfo)
 
 enum MHI_STATUS mhi_mallocmemregion(struct mhi_meminfo *meminfo, size_t size)
 {
-	meminfo->va_unaligned = (uintptr_t)dma_alloc_coherent(NULL,
+	meminfo->va_unaligned = (uintptr_t)dma_alloc_coherent(
+				meminfo->dev,
 				size,
 				(dma_addr_t *)&(meminfo->pa_unaligned),
 				GFP_KERNEL);
