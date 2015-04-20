@@ -15,7 +15,6 @@
 
 #include "msm8929.dtsi"
 #include "msm8939-cdp.dtsi"
-#include "msm8939-regulator.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8929 JDI CDP";
