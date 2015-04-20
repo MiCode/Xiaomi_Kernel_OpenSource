@@ -221,6 +221,9 @@ static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
 	if (!dev->initialized)
 		return -ENXIO;
 
+	if (!dev->num_modes)
+		return 0;
+
 	if ((mode == MSM_SPM_MODE_POWER_COLLAPSE)
 			|| (mode == MSM_SPM_MODE_GDHS))
 		pc_mode = true;
@@ -264,7 +267,6 @@ static int msm_spm_dev_init(struct msm_spm_device *dev,
 	if (!dev->modes)
 		goto spm_failed_malloc;
 
-	dev->reg_data.ver_reg = data->ver_reg;
 	ret = msm_spm_drv_init(&dev->reg_data, data);
 
 	if (ret)
@@ -283,7 +285,9 @@ static int msm_spm_dev_init(struct msm_spm_device *dev,
 
 		dev->modes[i].mode = data->modes[i].mode;
 	}
-	msm_spm_drv_flush_seq_entry(&dev->reg_data);
+
+	msm_spm_drv_reinit(&dev->reg_data, dev->num_modes ? true : false);
+
 	dev->initialized = true;
 
 	return 0;
@@ -346,7 +350,8 @@ void msm_spm_reinit(void)
 {
 	unsigned int cpu;
 	for_each_possible_cpu(cpu)
-		msm_spm_drv_reinit(&per_cpu(msm_cpu_spm_device.reg_data, cpu));
+		msm_spm_drv_reinit(
+			&per_cpu(msm_cpu_spm_device.reg_data, cpu), true);
 }
 EXPORT_SYMBOL(msm_spm_reinit);
 
@@ -691,11 +696,14 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		}
 	}
 
+	msm_spm_drv_reg_init(&dev->reg_data, &spm_data);
+
 	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {
 		ret = of_property_read_u32(node, spm_of_data[i].key, &val);
 		if (ret)
 			continue;
-		spm_data.reg_init_values[spm_of_data[i].id] = val;
+		msm_spm_drv_upd_reg_shadow(&dev->reg_data, spm_of_data[i].id,
+				val);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(mode_of_data); i++) {
@@ -704,9 +712,11 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 			(uint8_t *)of_get_property(node, key, &len);
 		if (!modes[mode_count].cmd)
 			continue;
+
 		modes[mode_count].mode = mode_of_data[i].id;
 		pr_debug("%s(): dev: %s cmd:%s, mode:%d\n", __func__,
 				dev->name, key, modes[mode_count].mode);
+
 		mode_count++;
 	}
 
@@ -718,12 +728,15 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 
 	ret = msm_spm_dev_init(dev, &spm_data);
 	if (ret)
-		goto fail;
+		pr_err("SPM modes programming is not available from HLOS\n");
 
 	platform_set_drvdata(pdev, dev);
 
 	for_each_cpu(cpu, &dev->mask)
 		per_cpu(cpu_vctl_device, cpu) = dev;
+
+	if (!spm_data.num_modes)
+		return 0;
 
 	cpu = get_cpu_id(pdev->dev.of_node);
 
@@ -747,7 +760,6 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 		*/
 		msm_spm_config_q2s(dev, MSM_SPM_MODE_POWER_COLLAPSE);
 	put_online_cpus();
-
 	return ret;
 
 fail:
