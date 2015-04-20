@@ -40,14 +40,16 @@
 #include <drm/drm_dp_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <linux/dma_remapping.h>
+#include <linux/bitops.h>
 #include "intel_clrmgr.h"
 #include "intel_dsi.h"
 #include "i915_scheduler.h"
 
 #define DIV_ROUND_CLOSEST_ULL(ll, d)	\
 	({ unsigned long long _tmp = (ll)+(d)/2; do_div(_tmp, d); _tmp; })
-
-#define PIPE_ENABLE(pipe)	(1 << (pipe+12))
+#define NIBBLE	4
+#define PIPE_ENABLE(pipe)	(1 << (pipe + ((sizeof(int) * BITS_PER_BYTE) \
+								- NIBBLE)))
 
 
 void intel_save_clr_mgr_status(struct drm_device *dev);
@@ -2263,8 +2265,7 @@ static void intel_enable_primary_hw_plane(struct drm_i915_private *dev_priv,
 		return;
 
 	intel_crtc->primary_enabled = true;
-
-	dev_priv->plane_stat |= VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
+	dev_priv->pipe_plane_stat |= VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
 
 	reg = DSPCNTR(plane);
 	val = I915_READ(reg);
@@ -2304,7 +2305,7 @@ static void intel_disable_primary_hw_plane(struct drm_i915_private *dev_priv,
 	intel_crtc->primary_enabled = false;
 
 	/* update the flags for the planes enabled/disabled */
-	dev_priv->plane_stat &=
+	dev_priv->pipe_plane_stat &=
 			~VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
 
 	reg = DSPCNTR(plane);
@@ -2822,8 +2823,7 @@ static void i9xx_update_primary_plane(struct drm_crtc *crtc,
 	/* When in maxfifo dspcntr cannot be changed */
 	if (dspcntr != I915_READ(DSPCNTR(pipe)) && dev_priv->maxfifo_enabled
 			&& dev_priv->atomic_update) {
-		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = false;
+		intel_update_maxfifo(dev_priv, crtc, false);
 		dev_priv->wait_vbl = true;
 		dev_priv->vblcount =
 			atomic_read(&dev->vblank[intel_crtc->pipe].count);
@@ -5377,8 +5377,8 @@ static void valleyview_crtc_enable(struct drm_crtc *crtc)
 
 	intel_crtc->active = true;
 
-	dev_priv->plane_stat = dev_priv->plane_stat |
-		PIPE_ENABLE(intel_crtc->pipe);
+	dev_priv->pipe_plane_stat |= PIPE_ENABLE(intel_crtc->pipe);
+
 	intel_set_cpu_fifo_underrun_reporting(dev, pipe, true);
 
 	for_each_encoder_on_crtc(dev, crtc, encoder)
@@ -5657,8 +5657,7 @@ static void i9xx_crtc_disable(struct drm_crtc *crtc)
 		intel_wait_for_vblank(dev, pipe);
 
 	intel_disable_pipe(dev_priv, pipe);
-	dev_priv->plane_stat = dev_priv->plane_stat &
-		(~PIPE_ENABLE(intel_crtc->pipe));
+	dev_priv->pipe_plane_stat &= ~PIPE_ENABLE(intel_crtc->pipe);
 
 	i9xx_pfit_disable(intel_crtc);
 
@@ -11087,7 +11086,9 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	struct intel_crtc *intel_crtc = to_intel_crtc(crtc);
 	int i, ret = 0;
 	int plane_cnt = 0;
-	u32 val = 0;
+	int pipe_stat = VLV_PIPE_STATS(dev_priv->pipe_plane_stat);
+	int plane_stat;
+	int pipe = intel_crtc->pipe;
 	disp->errored = 0;
 	disp->presented = 0;
 
@@ -11117,32 +11118,21 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 			plane_cnt++;
 	}
 
-	/* Disable maxfifo and ddrdvfs if multiple planes are enabled */
-	if (((plane_cnt > 1) || ((dev_priv->plane_stat & PIPE_C_ENABLE_MASK)
-				== PIPE_C_ENABLE_MASK))
-		&& dev_priv->maxfifo_enabled) {
-		if (IS_CHERRYVIEW(dev_priv->dev)) {
-			mutex_lock(&dev_priv->rps.hw_lock);
-			val = CHV_FORCE_DDR_HIGH_FREQ | CHV_DDR_DVFS_DOORBELL;
-			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-			intel_wait_for_vblank(dev, intel_crtc->pipe);
-			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-			val = vlv_punit_read(dev_priv, CHV_DPASSC);
-			vlv_punit_write(dev_priv, CHV_DPASSC,
-				(val | CHV_PW_MAXFIFO_MASK));
-			mutex_unlock(&dev_priv->rps.hw_lock);
-			intel_wait_for_vblank(dev, intel_crtc->pipe);
-		}
-
-		dev_priv->maxfifo_enabled = false;
+	/* Disable maxfifo when moving from single plane to multiple plane */
+	if (dev_priv->maxfifo_enabled && ((plane_cnt > 1) ||
+				!single_pipe_enabled(pipe_stat) ||
+				(pipe_stat & PIPE_ENABLE(PIPE_C)))) {
+		intel_update_maxfifo(dev_priv, crtc, false);
 		dev_priv->wait_vbl = true;
 		dev_priv->vblcount =
-		atomic_read(&dev->vblank[intel_crtc->pipe].count);
+			atomic_read(&dev->vblank[intel_crtc->pipe].count);
 	}
+
 
 	/* Calculation for Flips */
 	ret = intel_set_disp_calc_flip(disp, dev, file_priv, intel_crtc);
 
+	plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
 	/* Check if we need to a vblank, if so wait for vblank */
 	if (intel_dsi_is_enc_on_crtc_cmd_mode(crtc)) {
 		/*
@@ -11168,12 +11158,17 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	/* Commit to registers */
 	ret = intel_set_disp_commit_regs(disp, dev, intel_crtc);
 
-	/* PM5 requires that we update the watermarks straight way */
 	if (IS_CHERRYVIEW(dev))
-		valleyview_update_wm_pm5(crtc);
+		valleyview_update_wm_pm5(intel_crtc);
 
 	/* Enable maxfifo if needed */
-	intel_update_maxfifo(dev_priv, intel_crtc->pipe, plane_cnt);
+	if (!dev_priv->maxfifo_enabled && single_pipe_enabled(pipe_stat)
+				&& single_plane_enabled(plane_stat)
+				&& !(pipe_stat & PIPE_ENABLE(PIPE_C)))
+		intel_update_maxfifo(dev_priv, crtc, true);
+
+	dev_priv->prev_pipe_plane_stat = dev_priv->pipe_plane_stat;
+
 	dev_priv->atomic_update = false;
 
 	intel_runtime_pm_put(dev_priv);
@@ -12259,11 +12254,8 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 		if (dev_priv->display.modeset_global_resources)
 			dev_priv->display.modeset_global_resources(dev);
 	}
-
 	/* DO it only once */
 	if (IS_VALLEYVIEW(dev) && dev_priv->is_first_modeset) {
-		valleyview_update_wm_pm5(crtc);
-
 		/* This will drop reference taken in i915_driver_load */
 		intel_runtime_pm_put(dev_priv);
 		dev_priv->is_first_modeset = false;
@@ -12327,6 +12319,11 @@ static int __intel_set_mode(struct drm_crtc *crtc,
 			dev_priv->display.crtc_enable(&intel_crtc->base);
 		}
 	}
+
+	/* DO it only once */
+	if (IS_VALLEYVIEW(dev))
+		if (dev_priv->is_first_modeset)
+			valleyview_update_wm_pm5(intel_crtc);
 
 	/* FIXME: add subpixel order */
 done:

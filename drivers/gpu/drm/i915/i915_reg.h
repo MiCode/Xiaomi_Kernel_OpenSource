@@ -4181,8 +4181,14 @@ enum punit_power_well {
 #define PIPE_C_ENABLE_MASK	0x4000
 
 #define	DSPARB	(dev_priv->info.display_mmio_offset + 0x70030)
+#define DSPARB_PIPEA_MASK	0xffff
+#define DSPARB_PIPEB_MASK	(0xffff << 16)
 #define	DSPARB2	(dev_priv->info.display_mmio_offset + 0x70060)
+#define DSPARB2_PIPEA_MASK	0xff
+#define DSPARB2_PIPEB_MASK	(0xff << 8)
+#define DSPARB2_PIPEC_MASK	(0xff << 16)
 #define	DSPARB3	(dev_priv->info.display_mmio_offset + 0x7006c)
+#define DSPARB3_PIPEC_MASK	0xffff
 
 #define	DSPARB_VLV_DEFAULT	0x80008000
 #define	DSPARB_CSTART_MASK	(0x7f << 7)
@@ -4193,6 +4199,14 @@ enum punit_power_well {
 #define	DSPARB_AEND_SHIFT	0
 #define	DSPARB2_VLV_DEFAULT	0x00111111
 #define	DSPARB3_VLV_DEFAULT	0x80008000
+#define DSPARB_50_25_25		0x8000
+#define DSPARB2_50_25_25	0x11
+#define DSPARB_PRI50_SA50	0xff00
+#define DSPARB2_PRI50_SA50	0x11
+#define DSPARB_PRI50_SB50	0x0000
+#define DSPARB2_PRI50_SB50	0x11
+#define DSPARB_SA50_SB50	0x0000
+#define DSPARB2_SA50_SB50	0x10
 
 #define DSPFW1			(dev_priv->info.display_mmio_offset + 0x70034)
 #define   DSPFW_SR_SHIFT	23

@@ -70,6 +70,12 @@
 
 #define KHz(x) (1000 * (x))
 #define MHz(x) KHz(1000 * (x))
+#define single_plane_enabled(mask) is_power_of_2(mask)
+#define single_pipe_enabled(mask) is_power_of_2(mask)
+#define VLV_PIPE_STATS(x) (x & (0xF << (((sizeof(int)) * 8) - \
+					VLV_PLANES_PER_PIPE)))
+#define VLV_PLANE_STATS(x, pipe) (((x & ~(0xF << (((sizeof(int)) * 8) - 4))) \
+					>> (4 * pipe)) & (0xf))
 
 /*
  * Display related stuff
@@ -1163,6 +1169,9 @@ extern void vlv_modify_rc6_promotion_timer(struct drm_i915_private *dev_priv,
 					    bool media_active);
 bool i915_is_device_suspended(struct drm_device *drm_dev);
 
+void intel_update_maxfifo(struct drm_i915_private *dev_priv,
+				struct drm_crtc *crtc, bool enable);
+
 /* intel_sdvo.c */
 bool intel_sdvo_init(struct drm_device *dev, uint32_t sdvo_reg, bool is_sdvob);
 
@@ -1188,8 +1197,6 @@ bool is_sprite_enabled(struct drm_i915_private *dev_priv,
 			enum pipe pipe, enum plane plane);
 bool is_cursor_enabled(struct drm_i915_private *dev_priv,
 			enum pipe pipe);
-void intel_update_maxfifo(struct drm_i915_private *dev_priv,
-			  enum pipe pipe, int count);
 
 extern void intel_unpin_work_fn(struct work_struct *__work);
 extern void intel_unpin_sprite_work_fn(struct work_struct *__work);

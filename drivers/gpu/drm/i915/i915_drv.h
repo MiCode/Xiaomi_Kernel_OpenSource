@@ -47,6 +47,7 @@
 #include <linux/intel-iommu.h>
 #include <linux/kref.h>
 #include <linux/pm_qos.h>
+#include <linux/bitops.h>
 #ifdef CONFIG_SUPPORT_LPDMA_HDMI_AUDIO
 	#include "hdmi_audio_if.h"
 #endif
@@ -1750,7 +1751,8 @@ struct drm_i915_private {
 	bool last_media_active_state;
 
 	/* Indicates currently enabled planes */
-	unsigned int plane_stat;
+	unsigned int pipe_plane_stat;
+	unsigned int prev_pipe_plane_stat;
 
 	/* PCH chipset type */
 	enum intel_pch pch_type;
@@ -3168,7 +3170,7 @@ extern void valleyview_set_rps(struct drm_device *dev, u8 val);
 extern void intel_detect_pch(struct drm_device *dev);
 extern int intel_trans_dp_port_sel(struct drm_crtc *crtc);
 extern int intel_enable_rc6(const struct drm_device *dev);
-extern void valleyview_update_wm_pm5(struct drm_crtc *crtc);
+extern void valleyview_update_wm_pm5(struct intel_crtc *crtc);
 
 extern bool i915_semaphore_is_enabled(struct drm_device *dev);
 int i915_reg_read_ioctl(struct drm_device *dev, void *data,

@@ -74,6 +74,10 @@ static const struct file_operations rpm_file_ops = {
 #define INTEL_RC6p_ENABLE			(1<<1)
 #define INTEL_RC6pp_ENABLE			(1<<2)
 
+#define PRI_SA	0x3
+#define PRI_SB	0x5
+#define SA_SB	0x6
+
 /* FBC, or Frame Buffer Compression, is a technique employed to compress the
  * framebuffer contents in-memory, aiming at reducing the required bandwidth
  * during in-memory transfers and, therefore, reduce the power packet.
@@ -1538,38 +1542,22 @@ bool vlv_calculate_ddl(struct drm_crtc *crtc,
 	return true;
 }
 
-#define single_plane_enabled(mask) is_power_of_2(mask)
-
-void intel_update_maxfifo(struct drm_i915_private *dev_priv, enum pipe pipe,
-			  int plane_cnt)
+void intel_update_maxfifo(struct drm_i915_private *dev_priv,
+				struct drm_crtc *crtc, bool enable)
 {
 	unsigned int val = 0;
-	struct drm_device *dev = dev_priv->dev;
-
 
 	if (!IS_VALLEYVIEW(dev_priv->dev))
 		return;
 
-	/*
-	 * Maxfifo is not supported for PIPEC single plane
-	 * Hence having a check while enabling maxfifo
-	 * No need of a check on pipec in disable path
-	 * as it is doens't get enabled. In this function
-	 * we also enable ddrdvfs in case of single plane
-	 * enabled.
-	 */
-	if (single_plane_enabled(dev_priv->plane_stat
-			& (PIPE_A_PLANES_MASK | PIPE_B_PLANES_MASK))
-		&& !(dev_priv->plane_stat & PIPE_C_MASK)
-		&& (single_plane_enabled(dev_priv->plane_stat
-			& PIPE_ENABLE_MASK))
-		&& !dev_priv->maxfifo_enabled) {
+	if (enable) {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
+			val = 0x0;
 			mutex_lock(&dev_priv->rps.hw_lock);
-			val = CHV_FORCE_DDR_LOW_FREQ | CHV_DDR_DVFS_DOORBELL;
 			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-			intel_wait_for_vblank(dev, pipe);
+			mutex_unlock(&dev_priv->rps.hw_lock);
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
+			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val | CHV_PW_MAXFIFO_MASK));
@@ -1577,32 +1565,28 @@ void intel_update_maxfifo(struct drm_i915_private *dev_priv, enum pipe pipe,
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = true;
-	} else if (dev_priv->maxfifo_enabled
-			&& (!single_plane_enabled(dev_priv->plane_stat
-				& (PIPE_A_PLANES_MASK | PIPE_B_PLANES_MASK
-					| PIPE_C_PLANES_MASK)))
-			&& (!single_plane_enabled(dev_priv->plane_stat
-				& PIPE_ENABLE_MASK))) {
+	} else {
 		if (IS_CHERRYVIEW(dev_priv->dev)) {
-			mutex_lock(&dev_priv->rps.hw_lock);
 			val = CHV_FORCE_DDR_HIGH_FREQ |	CHV_DDR_DVFS_DOORBELL;
+			mutex_lock(&dev_priv->rps.hw_lock);
 			vlv_punit_write(dev_priv, CHV_DDR_DVFS, val);
-			intel_wait_for_vblank(dev, pipe);
+			mutex_unlock(&dev_priv->rps.hw_lock);
+			valleyview_update_wm_pm5(to_intel_crtc(crtc));
+			mutex_lock(&dev_priv->rps.hw_lock);
 			val = vlv_punit_read(dev_priv, CHV_DPASSC);
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 			vlv_punit_write(dev_priv, CHV_DPASSC,
 					(val & ~(CHV_PW_MAXFIFO_MASK)));
 			mutex_unlock(&dev_priv->rps.hw_lock);
-			intel_wait_for_vblank(dev, pipe);
 		} else
 			I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
 		dev_priv->maxfifo_enabled = false;
 	}
 }
 
-void valleyview_update_wm_pm5(struct drm_crtc *crtc)
+void valleyview_update_wm_pm5(struct intel_crtc *crtc)
 {
-	struct drm_device *dev = crtc->dev;
+	struct drm_device *dev = crtc->base.dev;
 	struct drm_i915_private *dev_priv = dev->dev_private;
 
 	I915_WRITE(DSPARB, DSPARB_VLV_DEFAULT);

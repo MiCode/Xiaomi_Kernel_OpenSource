@@ -159,7 +159,7 @@ static void intel_update_primary_plane(struct drm_plane *dplane,
 		if (!dev_priv->atomic_update)
 			I915_WRITE(dspreg,
 				I915_READ(dspreg) | DISPLAY_PLANE_ENABLE);
-		dev_priv->plane_stat |=
+		dev_priv->pipe_plane_stat |=
 				VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
 	}
 	else {
@@ -177,7 +177,7 @@ static void intel_update_primary_plane(struct drm_plane *dplane,
 
 			intel_dsi_send_fb_on_crtc(&intel_crtc->base);
 		}
-		dev_priv->plane_stat &=
+		dev_priv->pipe_plane_stat &=
 				~VLV_UPDATEPLANE_STAT_PRIM_PER_PIPE(pipe);
 		I915_WRITE_BITS(VLV_DDL(pipe), 0x00, mask);
 	}
@@ -358,8 +358,7 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 	/* Clear the older Z-order */
 	val = I915_READ(SPCNTR(pipe, 0));
 	if (dev_priv->maxfifo_enabled && !(val & SPRITE_ZORDER_ENABLE)) {
-		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = false;
+		intel_update_maxfifo(dev_priv, obj_to_crtc(obj), false);
 		intel_wait_for_vblank(dev, pipe);
 	}
 	val &= ~(SPRITE_FORCE_BOTTOM | SPRITE_ZORDER_ENABLE);
@@ -367,8 +366,7 @@ int i915_set_plane_zorder(struct drm_device *dev, void *data,
 
 	val = I915_READ(SPCNTR(pipe, 1));
 	if (dev_priv->maxfifo_enabled && !(val & SPRITE_ZORDER_ENABLE)) {
-		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = false;
+		intel_update_maxfifo(dev_priv, obj_to_crtc(obj), false);
 		intel_wait_for_vblank(dev, pipe);
 	}
 	val &= ~(SPRITE_FORCE_BOTTOM | SPRITE_ZORDER_ENABLE);
@@ -643,8 +641,7 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 	if (sprctl != I915_READ(SPCNTR(pipe, plane)) &&
 				dev_priv->maxfifo_enabled &&
 				dev_priv->atomic_update) {
-		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = false;
+		intel_update_maxfifo(dev_priv, crtc, false);
 		dev_priv->wait_vbl = true;
 		dev_priv->vblcount =
 			atomic_read(&dev->vblank[intel_crtc->pipe].count);
@@ -693,7 +690,8 @@ vlv_update_plane(struct drm_plane *dplane, struct drm_crtc *crtc,
 		intel_dsi_send_fb_on_crtc(crtc);
 	}
 
-	dev_priv->plane_stat |= VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane);
+	dev_priv->pipe_plane_stat |=
+			VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane);
 
 	if (!dev_priv->atomic_update)
 		intel_flush_primary_plane(dev_priv, intel_crtc->plane);
@@ -730,7 +728,7 @@ vlv_disable_plane(struct drm_plane *dplane, struct drm_crtc *crtc)
 		intel_update_primary_plane(dplane, intel_crtc);
 	}
 
-	dev_priv->plane_stat &=
+	dev_priv->pipe_plane_stat &=
 			~VLV_UPDATEPLANE_STAT_SP_PER_PIPE(pipe, plane);
 
 	intel_plane->reg.cntr = I915_READ(SPCNTR(pipe, plane)) & ~SP_ENABLE;
@@ -1843,8 +1841,7 @@ intel_disable_plane(struct drm_plane *plane)
 	INIT_WORK(&intel_plane_wq->work, intel_disable_plane_unpin_work_fn);
 
 	if (dev_priv->maxfifo_enabled) {
-		I915_WRITE(FW_BLC_SELF_VLV, ~FW_CSPWRDWNEN);
-		dev_priv->maxfifo_enabled = false;
+		intel_update_maxfifo(dev_priv, plane->crtc, false);
 	}
 
 	if (intel_crtc->active) {
