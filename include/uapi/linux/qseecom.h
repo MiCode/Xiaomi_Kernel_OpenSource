@@ -84,12 +84,14 @@ struct qseecom_send_resp_req {
  * @img_len - Length of the .mdt + .b00 +..+.bxx images files in bytes
  * @ion_fd - Ion file descriptor used when allocating memory.
  * @img_name - Name of the image.
+ * @app_arch - Architecture of the image, i.e. 32bit or 64bit app
 */
 struct qseecom_load_img_req {
 	uint32_t mdt_len; /* in */
 	uint32_t img_len; /* in */
 	int32_t  ifd_data_fd; /* in */
 	char	 img_name[MAX_APP_NAME_SIZE]; /* in */
+	uint32_t app_arch; /* in */
 	int app_id; /* out*/
 };
 
@@ -219,6 +221,19 @@ struct qseecom_qteec_modfd_req {
 	uint32_t    resp_len;
 	struct qseecom_ion_fd_info ifd_data[MAX_ION_FD];
 };
+
+struct qseecom_sg_entry {
+	uint32_t phys_addr;
+	uint32_t len;
+};
+
+struct qseecom_sg_entry_64bit {
+	uint64_t phys_addr;
+	uint32_t len;
+};
+
+#define SG_ENTRY_SZ		sizeof(struct qseecom_sg_entry)
+#define SG_ENTRY_SZ_64BIT	sizeof(struct qseecom_sg_entry_64bit)
 
 struct file;
 
