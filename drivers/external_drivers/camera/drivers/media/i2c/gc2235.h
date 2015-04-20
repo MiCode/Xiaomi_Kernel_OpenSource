@@ -304,7 +304,7 @@ static struct gc2235_reg const gc2235_1296_736_30fps[] = {
 	{ GC2235_8BIT, 0x8c, 0x02 },
 
 	{ GC2235_8BIT, 0x07, 0x01 }, /* VBI */
-	{ GC2235_8BIT, 0x08, 0x48 },
+	{ GC2235_8BIT, 0x08, 0x44 },
 	{ GC2235_8BIT, 0x09, 0x00 }, /* row start */
 	{ GC2235_8BIT, 0x0a, 0xf0 },
 	{ GC2235_8BIT, 0x0b, 0x00 }, /* col start */
@@ -312,15 +312,15 @@ static struct gc2235_reg const gc2235_1296_736_30fps[] = {
 	{ GC2235_8BIT, 0x0d, 0x02 }, /* win height 736 */
 	{ GC2235_8BIT, 0x0e, 0xf0 },
 	{ GC2235_8BIT, 0x0f, 0x05 }, /* win width: 1296 */
-	{ GC2235_8BIT, 0x10, 0x10 },
+	{ GC2235_8BIT, 0x10, 0x20 },
 
 	{ GC2235_8BIT, 0x90, 0x01 },
-	{ GC2235_8BIT, 0x92, 0x02 },
-	{ GC2235_8BIT, 0x94, 0x06 },
+	{ GC2235_8BIT, 0x92, 0x08 },
+	{ GC2235_8BIT, 0x94, 0x08 },
 	{ GC2235_8BIT, 0x95, 0x02 }, /* crop win height 736 */
-	{ GC2235_8BIT, 0x96, 0xd0 },
+	{ GC2235_8BIT, 0x96, 0xe0 },
 	{ GC2235_8BIT, 0x97, 0x05 }, /* crop win width 1296 */
-	{ GC2235_8BIT, 0x98, 0x00 },
+	{ GC2235_8BIT, 0x98, 0x10 },
 	/* mimi init */
 	{ GC2235_8BIT, 0xfe, 0x03 }, /* switch to P3 */
 	{ GC2235_8BIT, 0x01, 0x07 },
@@ -329,7 +329,7 @@ static struct gc2235_reg const gc2235_1296_736_30fps[] = {
 	{ GC2235_8BIT, 0x06, 0x80 },
 	{ GC2235_8BIT, 0x11, 0x2b },
 	/* set mipi buffer */
-	{ GC2235_8BIT, 0x12, 0x40 }, /* val_low = (width * 10 / 8) & 0xFF */
+	{ GC2235_8BIT, 0x12, 0x54 }, /* val_low = (width * 10 / 8) & 0xFF */
 	{ GC2235_8BIT, 0x13, 0x06 }, /* val_high = (width * 10 / 8) >> 8 */
 
 	{ GC2235_8BIT, 0x15, 0x12 }, /* DPHY mode*/
