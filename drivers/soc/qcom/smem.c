@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -167,6 +167,7 @@ static struct restart_notifier_block restart_notifiers[] = {
 	{SMEM_DSPS, "dsps", .nb.notifier_call = restart_notifier_cb},
 	{SMEM_MODEM, "gss", .nb.notifier_call = restart_notifier_cb},
 	{SMEM_Q6, "adsp", .nb.notifier_call = restart_notifier_cb},
+	{SMEM_DSPS, "slpi", .nb.notifier_call = restart_notifier_cb},
 };
 
 static int init_smem_remote_spinlock(void);
