@@ -174,6 +174,7 @@
 			qcom,set = <2>;
 			regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,init-voltage-level = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
 			qcom,use-voltage-level;
 		};
 	};
