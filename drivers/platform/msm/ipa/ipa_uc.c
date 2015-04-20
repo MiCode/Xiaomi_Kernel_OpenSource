@@ -182,6 +182,33 @@ union IpaHwUpdateFlagsCmdData_t {
 
 struct ipa_uc_hdlrs uc_hdlrs[IPA_HW_NUM_FEATURES] = { { 0 } };
 
+static inline const char *ipa_hw_error_str(enum ipa_hw_errors err_type)
+{
+	const char *str;
+
+	switch (err_type) {
+	case IPA_HW_ERROR_NONE:
+		str = "IPA_HW_ERROR_NONE";
+		break;
+	case IPA_HW_INVALID_DOORBELL_ERROR:
+		str = "IPA_HW_INVALID_DOORBELL_ERROR";
+		break;
+	case IPA_HW_FATAL_SYSTEM_ERROR:
+		str = "IPA_HW_FATAL_SYSTEM_ERROR";
+		break;
+	case IPA_HW_INVALID_OPCODE:
+		str = "IPA_HW_INVALID_OPCODE";
+		break;
+	case IPA_HW_ZIP_ENGINE_ERROR:
+		str = "IPA_HW_ZIP_ENGINE_ERROR";
+		break;
+	default:
+		str = "INVALID ipa_hw_errors type";
+	}
+
+	return str;
+}
+
 static void ipa_log_evt_hdlr(void)
 {
 	int i;
@@ -282,7 +309,6 @@ static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 		ipa_dec_client_disable_clks();
 		return;
 	}
-
 	/* Feature specific handling */
 	if (uc_hdlrs[feature].ipa_uc_event_hdlr)
 		uc_hdlrs[feature].ipa_uc_event_hdlr
@@ -292,7 +318,10 @@ static void ipa_uc_event_handler(enum ipa_irq_type interrupt,
 	if (ipa_ctx->uc_ctx.uc_sram_mmio->eventOp ==
 	    IPA_HW_2_CPU_EVENT_ERROR) {
 		evt.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->eventParams;
-		IPADBG("uC evt errorType=%u\n", evt.params.errorType);
+		IPAERR("uC Error, evt errorType = %s\n",
+			ipa_hw_error_str(evt.params.errorType));
+		ipa_ctx->uc_ctx.uc_failed = true;
+		ipa_ctx->uc_ctx.uc_error_type = evt.params.errorType;
 		if (evt.params.errorType == IPA_HW_ZIP_ENGINE_ERROR) {
 			IPAERR("IPA has encountered a ZIP engine error\n");
 			ipa_ctx->uc_ctx.uc_zip_error = true;
@@ -548,6 +577,11 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 
 		if (index == IPA_UC_POLL_MAX_RETRY) {
 			IPAERR("uC max polling retries reached\n");
+			if (ipa_ctx->uc_ctx.uc_failed) {
+				IPAERR("uC reported on Error, errorType = %s\n",
+					ipa_hw_error_str(ipa_ctx->
+					uc_ctx.uc_error_type));
+			}
 			mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 			BUG();
 			return -EFAULT;
@@ -556,6 +590,11 @@ int ipa_uc_send_cmd(u32 cmd, u32 opcode, u32 expected_status,
 		if (wait_for_completion_timeout(&ipa_ctx->uc_ctx.uc_completion,
 			timeout_jiffies) == 0) {
 			IPAERR("uC timed out\n");
+			if (ipa_ctx->uc_ctx.uc_failed) {
+				IPAERR("uC reported on Error, errorType = %s\n",
+					ipa_hw_error_str(ipa_ctx->
+					uc_ctx.uc_error_type));
+			}
 			mutex_unlock(&ipa_ctx->uc_ctx.uc_lock);
 			BUG();
 			return -EFAULT;

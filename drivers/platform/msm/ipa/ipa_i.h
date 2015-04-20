@@ -991,6 +991,7 @@ union IpaHwMhiDlUlSyncCmdData_t {
  * @pending_cmd: The last command sent waiting to be ACKed
  * @uc_status: The last status provided by the uC
  * @uc_zip_error: uC has notified the APPS upon a ZIP engine error
+ * @uc_error_type: error type from uC error event
  */
 struct ipa_uc_ctx {
 	bool uc_inited;
@@ -1004,6 +1005,7 @@ struct ipa_uc_ctx {
 	u32 pending_cmd;
 	u32 uc_status;
 	bool uc_zip_error;
+	u32 uc_error_type;
 };
 
 /**
