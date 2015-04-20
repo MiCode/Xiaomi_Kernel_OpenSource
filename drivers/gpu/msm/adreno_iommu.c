@@ -33,24 +33,61 @@ static inline int _adreno_iommu_add_idle_cmds(struct adreno_device *adreno_dev,
 	return cmds - start;
 }
 
-/**
- * _adreno_iommu_use_cpu_path() - Use CPU instead of the GPU to manage the mmu?
+/*
+ * _invalidate_uche_cpu() - Invalidate UCHE using CPU
  * @adreno_dev: the device
- *
- * In many cases it is preferable to poke the iommu directly rather
- * than using the GPU command stream. If we are idle or trying to go to a low
- * power state, using the command stream will be slower and asynchronous, which
- * needlessly complicates the power state transitions. Additionally,
- * the hardware simulators do not support command stream MMU operations so
- * the command stream can never be used if we are capturing CFF data.
- *
  */
-static inline bool _adreno_iommu_use_cpu_path(struct adreno_device *adreno_dev)
+static void _invalidate_uche_cpu(struct adreno_device *adreno_dev)
 {
-	return adreno_isidle(&adreno_dev->dev) ||
-		KGSL_STATE_ACTIVE != adreno_dev->dev.state ||
-		atomic_read(&adreno_dev->dev.active_cnt) == 0 ||
-		adreno_dev->dev.cff_dump_enable;
+	/* Invalidate UCHE using CPU */
+	if (adreno_is_a5xx(adreno_dev))
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_UCHE_INVALIDATE0, 0x12);
+	else if (adreno_is_a4xx(adreno_dev)) {
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_UCHE_INVALIDATE0, 0);
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_UCHE_INVALIDATE1, 0x12);
+	} else if (adreno_is_a3xx(adreno_dev)) {
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_UCHE_INVALIDATE0, 0);
+		adreno_writereg(adreno_dev,
+			ADRENO_REG_UCHE_INVALIDATE1,
+			0x90000000);
+	} else {
+		BUG();
+	}
+}
+
+/*
+ * _ctx_switch_use_cpu_path() - Decide whether to use cpu path
+ * @adreno_dev: the device
+ * @new_pt: pagetable to switch
+ * @rb: ringbuffer for ctx switch
+ *
+ * If we are idle and switching to default pagetable it is
+ * preferable to poke the iommu directly rather than using the
+ * GPU command stream.
+ */
+static bool _ctx_switch_use_cpu_path(
+				struct adreno_device *adreno_dev,
+				struct kgsl_pagetable *new_pt,
+				struct adreno_ringbuffer *rb)
+{
+	/*
+	 * If rb is current, we can use cpu path when GPU is
+	 * idle and we are switching to default pt.
+	 * If rb is not current, we can use cpu path when rb has no
+	 * pending commands (rptr = wptr) and we are switching to default pt.
+	 */
+	if (adreno_dev->cur_rb == rb)
+		return adreno_isidle(&adreno_dev->dev) &&
+			(new_pt == adreno_dev->dev.mmu.defaultpagetable);
+	else if ((rb->wptr == rb->rptr) &&
+			(new_pt == adreno_dev->dev.mmu.defaultpagetable))
+		return true;
+
+	return false;
 }
 
 /**
@@ -945,6 +982,31 @@ static unsigned int __add_curr_ctxt_cmds(struct adreno_ringbuffer *rb,
 	return cmds - cmds_orig;
 }
 
+/*
+ * _set_ctxt_cpu() - Set the current context in memstore
+ * @rb: The ringbuffer memstore to set curr context
+ * @drawctxt: The context whose id is being set in memstore
+ */
+static void _set_ctxt_cpu(struct adreno_ringbuffer *rb,
+			struct adreno_context *drawctxt)
+{
+	struct kgsl_device *device = rb->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	if (rb == adreno_dev->cur_rb) {
+		_invalidate_uche_cpu(adreno_dev);
+		/* Update global memstore with current context */
+		kgsl_sharedmem_writel(device, &device->memstore,
+			KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
+						current_context),
+			drawctxt ? drawctxt->base.id : 0);
+	}
+	/* Update rb memstore with current context */
+	kgsl_sharedmem_writel(device, &device->memstore,
+		KGSL_MEMSTORE_RB_OFFSET(rb, current_context),
+		drawctxt ? drawctxt->base.id : 0);
+}
+
 /**
  * _set_ctxt_gpu() - Add commands to set the current context in memstore
  * @rb: The ringbuffer in which commands to set memstore are added
@@ -964,15 +1026,47 @@ static int _set_ctxt_gpu(struct adreno_ringbuffer *rb,
 }
 
 /**
- * _set_pagetable_ctxt_gpu() - Use GPU to switch the pagetable and set
- * current context
- * @rb: The ringbuffer in which commands to switch pagetable are to be submitted
+ * _set_pagetable_cpu() - Use CPU to switch the pagetable
+ * @rb: The rb for which pagetable needs to be switched
  * @new_pt: The pagetable to switch to
- * @drawctxt: The context whose pagetable is being switched to
  */
-int _set_pagetable_ctxt_gpu(struct adreno_ringbuffer *rb,
-			struct kgsl_pagetable *new_pt,
-			struct adreno_context *drawctxt)
+int _set_pagetable_cpu(struct adreno_ringbuffer *rb,
+			struct kgsl_pagetable *new_pt)
+{
+	struct kgsl_device *device = rb->device;
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	int result;
+
+	/* update TTBR0 only if we are updating current RB */
+	if (adreno_dev->cur_rb == rb) {
+		result = kgsl_mmu_set_pt(&device->mmu, new_pt);
+		if (result)
+			return result;
+		/* write the new pt set to memory var */
+		kgsl_sharedmem_writel(device,
+			&adreno_dev->ringbuffers[0].pagetable_desc,
+			offsetof(
+			struct adreno_ringbuffer_pagetable_info,
+			current_global_ptname), new_pt->name);
+	}
+
+	/* Update the RB pagetable here */
+	kgsl_sharedmem_writel(device, &rb->pagetable_desc,
+		offsetof(
+		struct adreno_ringbuffer_pagetable_info,
+		current_rb_ptname), new_pt->name);
+
+	return 0;
+}
+
+/**
+ * _set_pagetable_gpu() - Use GPU to switch the pagetable
+ * @rb: The rb in which commands to switch pagetable are to be
+ *    submitted
+ * @new_pt: The pagetable to switch to
+ */
+int _set_pagetable_gpu(struct adreno_ringbuffer *rb,
+			struct kgsl_pagetable *new_pt)
 {
 	unsigned int *link = NULL, *cmds;
 	struct kgsl_device *device = rb->device;
@@ -1000,8 +1094,6 @@ int _set_pagetable_ctxt_gpu(struct adreno_ringbuffer *rb,
 
 	if (adreno_is_a4xx(adreno_dev))
 		cmds += adreno_iommu_set_apriv(adreno_dev, cmds, 0);
-
-	cmds += __add_curr_ctxt_cmds(rb, cmds, drawctxt);
 
 	if ((unsigned int) (cmds - link) > (PAGE_SIZE / sizeof(unsigned int))) {
 		KGSL_DRV_ERR(device, "Temp command buffer overflow\n");
@@ -1093,71 +1185,30 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 	if (rb->drawctxt_active)
 		cur_pt = rb->drawctxt_active->base.proc_priv->pagetable;
 
-	/*
-	 * For current rb cpu path can be used if device state is null or
-	 * for non current rb if we are switching to default then all that
-	 * we need to do is set the rb's current pagetable register to
-	 * point to the default one
-	 */
-	if (adreno_dev->cur_rb == rb) {
-		if (_adreno_iommu_use_cpu_path(adreno_dev))
-			cpu_path = 1;
-	} else if ((rb->wptr == rb->rptr &&
-			new_pt == device->mmu.defaultpagetable)) {
-		cpu_path = 1;
-	}
-	if (cpu_path) {
-		if (rb == adreno_dev->cur_rb) {
-			if (new_pt != cur_pt) {
-				result = kgsl_mmu_set_pt(&device->mmu, new_pt);
-				if (result)
-					return result;
-				/* write the new pt set to memory var */
-				kgsl_sharedmem_writel(device,
-				&adreno_dev->ringbuffers[0].pagetable_desc,
-					offsetof(
-					struct adreno_ringbuffer_pagetable_info,
-					current_global_ptname),
-					new_pt->name);
-			}
-			kgsl_sharedmem_writel(device, &device->memstore,
-				KGSL_MEMSTORE_OFFSET(KGSL_MEMSTORE_GLOBAL,
-							current_context),
-				drawctxt ? drawctxt->base.id : 0);
+	cpu_path = _ctx_switch_use_cpu_path(adreno_dev, new_pt, rb);
 
-			/* Invalidate UCHE using CPU */
-			if (adreno_is_a5xx(adreno_dev))
-				adreno_writereg(adreno_dev,
-					ADRENO_REG_UCHE_INVALIDATE0, 0x12);
-			else if (adreno_is_a4xx(adreno_dev)) {
-				adreno_writereg(adreno_dev,
-					ADRENO_REG_UCHE_INVALIDATE0, 0);
-				adreno_writereg(adreno_dev,
-					ADRENO_REG_UCHE_INVALIDATE1, 0x12);
-			} else if (adreno_is_a3xx(adreno_dev)) {
-				adreno_writereg(adreno_dev,
-					ADRENO_REG_UCHE_INVALIDATE0, 0);
-				adreno_writereg(adreno_dev,
-					ADRENO_REG_UCHE_INVALIDATE1,
-					0x90000000);
-			} else
-				BUG();
-		}
-		if (new_pt != cur_pt)
-			kgsl_sharedmem_writel(device, &rb->pagetable_desc,
-			offsetof(struct adreno_ringbuffer_pagetable_info,
-			current_rb_ptname),
-			new_pt->name);
-
-		kgsl_sharedmem_writel(device, &device->memstore,
-				KGSL_MEMSTORE_RB_OFFSET(rb, current_context),
-				drawctxt ? drawctxt->base.id : 0);
-	} else {
-		if (new_pt != cur_pt)
-			result = _set_pagetable_ctxt_gpu(rb, new_pt, drawctxt);
+	/* Pagetable switch */
+	if (new_pt != cur_pt) {
+		if (cpu_path)
+			result = _set_pagetable_cpu(rb, new_pt);
 		else
-			result = _set_ctxt_gpu(rb, drawctxt);
+			result = _set_pagetable_gpu(rb, new_pt);
 	}
+
+	if (result) {
+		KGSL_DRV_ERR(device, "Error switching pagetable %d\n", result);
+		return result;
+	}
+
+	/* Context switch */
+	if (cpu_path)
+		_set_ctxt_cpu(rb, drawctxt);
+	else
+		result = _set_ctxt_gpu(rb, drawctxt);
+
+	if (result)
+		KGSL_DRV_ERR(device, "Error switching context %d\n", result);
+
 	return result;
 }
 /**
