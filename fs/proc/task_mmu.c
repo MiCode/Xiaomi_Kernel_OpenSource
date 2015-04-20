@@ -1034,7 +1034,7 @@ static int pagemap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 	struct vm_area_struct *vma;
 	struct pagemapread *pm = walk->private;
 	spinlock_t *ptl;
-	pte_t *pte;
+	pte_t *pte, *orig_pte;
 	int err = 0;
 
 	/* find the first VMA at or above 'addr' */
@@ -1095,15 +1095,19 @@ static int pagemap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 		BUG_ON(is_vm_hugetlb_page(vma));
 
 		/* Addresses in the VMA. */
-		for (; addr < min(end, vma->vm_end); addr += PAGE_SIZE) {
+		orig_pte = pte = pte_offset_map_lock(walk->mm, pmd, addr, &ptl);
+		for (; addr < min(end, vma->vm_end); pte++, addr += PAGE_SIZE) {
 			pagemap_entry_t pme;
-			pte = pte_offset_map(pmd, addr);
+
 			pte_to_pagemap_entry(&pme, pm, vma, addr, *pte);
-			pte_unmap(pte);
 			err = add_to_pagemap(addr, &pme, pm);
 			if (err)
-				return err;
+				break;
 		}
+		pte_unmap_unlock(orig_pte, ptl);
+
+		if (err)
+			return err;
 
 		if (addr == end)
 			break;
@@ -1287,6 +1291,9 @@ out:
 
 static int pagemap_open(struct inode *inode, struct file *file)
 {
+	/* do not disclose physical addresses: attack vector */
+	if (!capable(CAP_SYS_ADMIN))
+		return -EPERM;
 	pr_warn_once("Bits 55-60 of /proc/PID/pagemap entries are about "
 			"to stop being page-shift some time soon. See the "
 			"linux/Documentation/vm/pagemap.txt for details.\n");

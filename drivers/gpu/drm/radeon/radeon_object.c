@@ -151,19 +151,6 @@ void radeon_ttm_placement_from_domain(struct radeon_bo *rbo, u32 domain)
 		else
 			rbo->placements[i].lpfn = 0;
 	}
-
-	/*
-	 * Use two-ended allocation depending on the buffer size to
-	 * improve fragmentation quality.
-	 * 512kb was measured as the most optimal number.
-	 */
-	if (!((rbo->flags & RADEON_GEM_CPU_ACCESS) &&
-	      (rbo->placements[i].flags & TTM_PL_FLAG_VRAM)) &&
-	    rbo->tbo.mem.size > 512 * 1024) {
-		for (i = 0; i < c; i++) {
-			rbo->placements[i].flags |= TTM_PL_FLAG_TOPDOWN;
-		}
-	}
 }
 
 int radeon_bo_create(struct radeon_device *rdev,
@@ -217,6 +204,18 @@ int radeon_bo_create(struct radeon_device *rdev,
 	/* XXX: Write-combined CPU mappings of GTT seem broken on 32-bit
 	 * See https://bugs.freedesktop.org/show_bug.cgi?id=84627
 	 */
+	bo->flags &= ~RADEON_GEM_GTT_WC;
+#elif defined(CONFIG_X86) && !defined(CONFIG_X86_PAT)
+	/* Don't try to enable write-combining when it can't work, or things
+	 * may be slow
+	 * See https://bugs.freedesktop.org/show_bug.cgi?id=88758
+	 */
+
+#warning Please enable CONFIG_MTRR and CONFIG_X86_PAT for better performance \
+	 thanks to write-combining
+
+	DRM_INFO_ONCE("Please enable CONFIG_MTRR and CONFIG_X86_PAT for "
+		      "better performance thanks to write-combining\n");
 	bo->flags &= ~RADEON_GEM_GTT_WC;
 #endif
 
