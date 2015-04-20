@@ -1453,6 +1453,8 @@
 		qcom,hlos-num-ce-hw-instances = <1>;
 		qcom,hlos-ce-hw-instance = <0>;
 		qcom,qsee-ce-hw-instance = <0>;
+		qcom,disk-encrypt-pipe-pair = <2>;
+		qcom,support-fde;
 		qcom,msm-bus,name = "qseecom-noc";
 		qcom,msm-bus,num-cases = <4>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1465,9 +1467,15 @@
 		clocks = <&clock_gcc clk_crypto_clk_src>,
 			 <&clock_gcc clk_gcc_crypto_clk>,
 			 <&clock_gcc clk_gcc_crypto_ahb_clk>,
-			 <&clock_gcc clk_gcc_crypto_axi_clk>;
+			 <&clock_gcc clk_gcc_crypto_axi_clk>,
+			 <&clock_gcc clk_sdcc1_ice_core_clk_src>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
 		clock-names = "core_clk_src", "core_clk",
-				"iface_clk", "bus_clk";
+				"iface_clk", "bus_clk",
+				"sdcc_core_clk_src", "sdcc_core_clk",
+				"sdcc_bus_clk", "sdcc_iface_clk";
 		qcom,ce-opp-freq = <100000000>;
 	};
 
