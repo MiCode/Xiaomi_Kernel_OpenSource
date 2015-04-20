@@ -6948,6 +6948,8 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CDC_BOOST0_BOOST_CTL, 0x70, 0x40},
 	{WCD9335_CDC_BOOST1_BOOST_CTL, 0x70, 0x40},
 	{WCD9335_CPE_SS_CPAR_CFG, 0xFF, 0x00},
+	{WCD9335_CDC_RX7_RX_PATH_CFG1, 0x08, 0x08},
+	{WCD9335_CDC_RX8_RX_PATH_CFG1, 0x08, 0x08},
 };
 
 static void tasha_codec_init_reg(struct snd_soc_codec *codec)
