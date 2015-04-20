@@ -1077,6 +1077,8 @@ panel_power_ctrl:
 	    && (panel_info->new_fps != panel_info->mipi.frame_rate))
 		panel_info->mipi.frame_rate = panel_info->new_fps;
 
+	/* Initialize Max Packet size for DCS reads */
+	ctrl_pdata->cur_max_pkt_size = 0;
 end:
 	mutex_unlock(&ctrl_pdata->mutex);
 	pr_debug("%s-:\n", __func__);
