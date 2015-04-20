@@ -96,7 +96,9 @@ struct msm_spm_driver_data {
 
 int msm_spm_drv_init(struct msm_spm_driver_data *dev,
 		struct msm_spm_platform_data *data);
-void msm_spm_drv_reinit(struct msm_spm_driver_data *dev);
+int msm_spm_drv_reg_init(struct msm_spm_driver_data *dev,
+		struct msm_spm_platform_data *data);
+void msm_spm_drv_reinit(struct msm_spm_driver_data *dev, bool seq);
 int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
 		uint32_t ctl);
 int msm_spm_drv_set_vdd(struct msm_spm_driver_data *dev,
@@ -126,5 +128,6 @@ int msm_spm_drv_avs_clear_irq(struct msm_spm_driver_data *dev,
 
 void msm_spm_reinit(void);
 int msm_spm_init(struct msm_spm_platform_data *data, int nr_devs);
-
+void msm_spm_drv_upd_reg_shadow(struct msm_spm_driver_data *dev, int id,
+		int val);
 #endif
