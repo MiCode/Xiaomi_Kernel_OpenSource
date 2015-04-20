@@ -19,6 +19,7 @@
 #include "msm_isp_axi_util.h"
 #include "msm_isp_stats_util.h"
 #include "msm_camera_io_util.h"
+#include "cam_smmu_api.h"
 
 #define MAX_ISP_V4l2_EVENTS 100
 static DEFINE_MUTEX(bandwidth_mgr_mutex);
@@ -1849,6 +1850,36 @@ int msm_isp_set_src_state(struct vfe_device *vfe_dev, void *arg)
 	return 0;
 }
 
+static int msm_vfe_iommu_fault_handler(struct iommu_domain *domain,
+	struct device *dev, unsigned long iova, int flags, void *token)
+{
+	struct vfe_device *vfe_dev = NULL;
+	int rc = -ENOSYS;
+
+	if (token) {
+		vfe_dev = (struct vfe_device *)token;
+		if (!vfe_dev->buf_mgr || !vfe_dev->buf_mgr->ops) {
+			pr_err("%s:%d] buf_mgr %p\n", __func__,
+				__LINE__, vfe_dev->buf_mgr);
+			goto end;
+		}
+		if (!vfe_dev->buf_mgr->pagefault_debug) {
+			vfe_dev->buf_mgr->pagefault_debug = 1;
+			msm_isp_enqueue_tasklet_cmd(vfe_dev, 0, 0, 1);
+		} else {
+			/* Page fault previously handled, avoid flooding logs*/
+			rc = 0;
+			goto end;
+		}
+	} else {
+		ISP_DBG("%s:%d] no token received: %p\n",
+			__func__, __LINE__, token);
+		goto end;
+	}
+end:
+	return rc;
+}
+
 int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct vfe_device *vfe_dev = v4l2_get_subdevdata(sd);
@@ -1917,6 +1948,14 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;
 	vfe_dev->buf_mgr->pagefault_debug = 0;
+	if (vfe_dev->buf_mgr->secure_enable == NON_SECURE_MODE)
+		cam_smmu_reg_client_page_fault_handler(
+				vfe_dev->buf_mgr->ns_iommu_hdl,
+				msm_vfe_iommu_fault_handler, vfe_dev);
+	else
+		cam_smmu_reg_client_page_fault_handler(
+				vfe_dev->buf_mgr->sec_iommu_hdl,
+				msm_vfe_iommu_fault_handler, vfe_dev);
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
 	return 0;

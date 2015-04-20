@@ -103,4 +103,15 @@ int cam_smmu_get_num_of_clients(void);
  * @return Index of SMMU client. Nagative in case of error.
  */
 int cam_smmu_find_index_by_handle(int hdl);
+
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @param client_page_fault_handler: It is triggered in IOMMU page fault
+ * @param token: It is input param when trigger page fault handler
+ */
+void cam_smmu_reg_client_page_fault_handler(int handle,
+		int (*client_page_fault_handler)(struct iommu_domain *,
+		struct device *, unsigned long,
+		int, void*), void *token);
+
 #endif /* _CAM_SMMU_API_H_ */
