@@ -64,6 +64,10 @@ struct mdss_mdp_video_ctx {
 	struct completion vsync_comp;
 	int wait_pending;
 
+	u32 default_fps;
+	u32 saved_vtotal;
+	u32 saved_vfporch;
+
 	atomic_t vsync_ref;
 	spinlock_t vsync_lock;
 	spinlock_t dfps_lock;
@@ -754,7 +758,6 @@ static int mdss_mdp_video_hfp_fps_update(struct mdss_mdp_video_ctx *ctx,
 static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_video_ctx *ctx,
 				 struct mdss_panel_data *pdata, int new_fps)
 {
-	int curr_fps;
 	int add_v_lines = 0;
 	u32 current_vsync_period_f0, new_vsync_period_f0;
 	int vsync_period, hsync_period;
@@ -762,11 +765,17 @@ static int mdss_mdp_video_vfp_fps_update(struct mdss_mdp_video_ctx *ctx,
 
 	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
 	hsync_period = mdss_panel_get_htotal(&pdata->panel_info, true);
-	curr_fps = mdss_panel_get_framerate(&pdata->panel_info);
 
-	diff = curr_fps - new_fps;
-	add_v_lines = mult_frac(vsync_period, diff, new_fps);
-	pdata->panel_info.lcdc.v_front_porch += add_v_lines;
+	if (!ctx->default_fps) {
+		ctx->default_fps = mdss_panel_get_framerate(&pdata->panel_info);
+		ctx->saved_vtotal = vsync_period;
+		ctx->saved_vfporch = pdata->panel_info.lcdc.v_front_porch;
+	}
+
+	diff = ctx->default_fps - new_fps;
+	add_v_lines = mult_frac(ctx->saved_vtotal, diff, new_fps);
+	pdata->panel_info.lcdc.v_front_porch = ctx->saved_vfporch +
+			add_v_lines;
 
 	vsync_period = mdss_panel_get_vtotal(&pdata->panel_info);
 	current_vsync_period_f0 = mdp_video_read(ctx,
