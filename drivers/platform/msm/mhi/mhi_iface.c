@@ -62,8 +62,10 @@ static void mhi_msm_fixup(struct pci_dev *pcie_device)
 int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 {
 	int ret_val = 0;
-	u32 i = 0;
+	u32 i = 0, j = 0;
 	u32 retry_count = 0;
+	u32 msi_number = 32;
+	struct mhi_device_ctxt *mhi_dev_ctxt = NULL;
 	struct pci_dev *pcie_device = NULL;
 
 	if (NULL == mhi_pcie_dev)
@@ -109,29 +111,37 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 	}
 
 	device_disable_async_suspend(&pcie_device->dev);
-	ret_val = pci_enable_msi_block(pcie_device, MAX_NR_MSI + 1);
+	ret_val = pci_enable_msi_block(pcie_device, msi_number);
 	if (0 != ret_val) {
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to enable MSIs for pcie dev ret_val %d.\n",
 			ret_val);
 		goto msi_config_err;
 	}
-	for (i = 0; i < MAX_NR_MSI; ++i) {
-		ret_val = request_irq(pcie_device->irq + i,
-					mhi_msi_handlr,
-					IRQF_NO_SUSPEND,
-					"mhi_drv",
-					(void *)&pcie_device->dev);
+	mhi_dev_ctxt = &mhi_pcie_dev->mhi_ctxt;
+
+	for (j = 0; j < mhi_dev_ctxt->mmio_info.nr_event_rings; j++) {
+		mhi_log(MHI_MSG_VERBOSE,
+				"MSI_number = %d, event ring number = %d\n",
+				mhi_dev_ctxt->ev_ring_props[j].msi_vec, j);
+
+		ret_val = request_irq(pcie_device->irq +
+				mhi_dev_ctxt->ev_ring_props[j].msi_vec,
+				mhi_dev_ctxt->ev_ring_props[j].mhi_handler_ptr,
+				IRQF_NO_SUSPEND,
+				"mhi_drv",
+				(void *)&pcie_device->dev);
 		if (ret_val) {
 			mhi_log(MHI_MSG_ERROR,
-				"Failed to register handler for MSI.\n");
+			   "Failed to register handler for MSI ret_val = %d\n",
+			   ret_val);
 			goto msi_config_err;
 		}
 	}
 	mhi_pcie_dev->core.irq_base = pcie_device->irq;
 	mhi_log(MHI_MSG_VERBOSE,
 		"Setting IRQ Base to 0x%x\n", mhi_pcie_dev->core.irq_base);
-	mhi_pcie_dev->core.max_nr_msis = MAX_NR_MSI;
+	mhi_pcie_dev->core.max_nr_msis = msi_number;
 	do  {
 		ret_val = mhi_init_gpios(mhi_pcie_dev);
 		switch (ret_val) {
