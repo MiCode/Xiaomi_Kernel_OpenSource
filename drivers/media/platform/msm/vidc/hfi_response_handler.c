@@ -347,9 +347,6 @@ static void hfi_process_sys_init_done(
 				break;
 			}
 			default:
-				dprintk(VIDC_ERR,
-						"hal_process_sys_init_done: bad_prop_id\n");
-				status = VIDC_ERR_BAD_PARAM;
 				break;
 			}
 			if (!status) {
