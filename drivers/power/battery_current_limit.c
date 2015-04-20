@@ -502,17 +502,17 @@ static void bcl_iavail_work(struct work_struct *work)
 
 static void bcl_ibat_notify(enum bcl_threshold_state thresh_type)
 {
+	bcl_ibat_state = thresh_type;
 	if (bcl_hotplug_enabled)
 		queue_work(gbcl->bcl_hotplug_wq, &bcl_hotplug_work);
-	bcl_ibat_state = thresh_type;
 	update_cpu_freq();
 }
 
 static void bcl_vph_notify(enum bcl_threshold_state thresh_type)
 {
+	bcl_vph_state = thresh_type;
 	if (bcl_hotplug_enabled)
 		queue_work(gbcl->bcl_hotplug_wq, &bcl_hotplug_work);
-	bcl_vph_state = thresh_type;
 	update_cpu_freq();
 }
 
