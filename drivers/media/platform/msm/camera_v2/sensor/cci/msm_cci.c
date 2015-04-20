@@ -323,6 +323,8 @@ static int32_t msm_cci_calc_cmd_len(struct cci_device *cci_dev,
 			size : (cci_dev->payload_size-len);
 
 		for (i = 0; i < pack_max_len;) {
+			if (cmd->delay)
+				break;
 			if (cmd->reg_addr + 1 ==
 				(cmd+1)->reg_addr) {
 				len += data_len;
@@ -385,7 +387,7 @@ static void msm_cci_process_half_q(struct cci_device *cci_dev,
 	enum cci_i2c_queue_t queue)
 {
 	uint32_t reg_val = 1 << ((master * 2) + queue);
-	if (0 == atomic_read(&cci_dev->cci_master_info->q_free[queue])) {
+	if (0 == atomic_read(&cci_dev->cci_master_info[master].q_free[queue])) {
 		msm_cci_load_report_cmd(cci_dev, master, queue);
 		atomic_set(&cci_dev->cci_master_info[master].q_free[queue], 1);
 		msm_camera_io_w_mb(reg_val, cci_dev->base +
@@ -398,10 +400,16 @@ static int32_t msm_cci_process_full_q(struct cci_device *cci_dev,
 	enum cci_i2c_queue_t queue)
 {
 	int32_t rc = 0;
-	if (1 == atomic_read(&cci_dev->cci_master_info->q_free[queue])) {
+	if (1 == atomic_read(&cci_dev->cci_master_info[master].q_free[queue])) {
 		atomic_set(&cci_dev->cci_master_info[master].
-						done_pending[queue], 1);
+			done_pending[queue], 1);
 		rc = msm_cci_wait(cci_dev, master, queue);
+		if (rc < 0) {
+			pr_err("%s: %d failed rc %d\n", __func__, __LINE__, rc);
+			return rc;
+		}
+	} else {
+		rc = msm_cci_wait_report_cmd(cci_dev, master, queue);
 		if (rc < 0) {
 			pr_err("%s: %d failed rc %d\n", __func__, __LINE__, rc);
 			return rc;
@@ -429,7 +437,7 @@ static int32_t msm_cci_transfer_end(struct cci_device *cci_dev,
 {
 	int32_t rc = 0;
 
-	if (0 == atomic_read(&cci_dev->cci_master_info->q_free[queue])) {
+	if (0 == atomic_read(&cci_dev->cci_master_info[master].q_free[queue])) {
 		rc = msm_cci_lock_queue(cci_dev, master, queue, 0);
 		if (rc < 0) {
 			pr_err("%s failed line %d\n", __func__, __LINE__);
