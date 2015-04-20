@@ -10,4 +10,5 @@ obj-y += mhi_sys.o
 obj-y += mhi_bhi.o
 obj-y += mhi_pm.o
 obj-y += mhi_ssr.o
+obj-y += mhi_event.o
 CFLAGS_mhi_iface.o := -I$(src)

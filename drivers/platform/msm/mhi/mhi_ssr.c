@@ -145,10 +145,10 @@ void mhi_notify_client(struct mhi_client_handle *client_handle,
 	if (NULL != client_handle &&
 	    NULL != client_handle->client_info.mhi_client_cb) {
 		result.user_data = client_handle->user_data;
-		cb_info.chan = client_handle->chan;
+		cb_info.chan = client_handle->chan_info.chan_nr;
 		cb_info.result = &result;
 		mhi_log(MHI_MSG_INFO, "Calling back for chan %d, reason %d\n",
-				client_handle->chan, reason);
+					cb_info.chan, reason);
 		client_handle->client_info.mhi_client_cb(&cb_info);
 	}
 }

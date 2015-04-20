@@ -26,8 +26,8 @@ static void conditional_chan_db_write(
 	mhi_dev_ctxt->mhi_chan_db_order[chan] = 0;
 	spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan], flags);
 	if (0 == mhi_dev_ctxt->mhi_chan_db_order[chan]) {
-		db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-			(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
+		db_value = virt_to_dma(NULL,
+				mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
 		mhi_process_db(mhi_dev_ctxt,
 			       mhi_dev_ctxt->mmio_info.chan_db_addr,
 			       chan, db_value);
@@ -66,10 +66,8 @@ static void ring_all_cmd_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_dev_ctxt->cmd_ring_order = 0;
 	mutex_lock(cmd_mutex);
 	local_ctxt = &mhi_dev_ctxt->mhi_local_cmd_ctxt[PRIMARY_CMD_RING];
-	rp = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-				(uintptr_t)local_ctxt->rp);
-	db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[0].wp);
+	rp = virt_to_dma(NULL, local_ctxt->rp);
+	db_value = virt_to_dma(NULL, mhi_dev_ctxt->mhi_local_cmd_ctxt[0].wp);
 	if (0 == mhi_dev_ctxt->cmd_ring_order && rp != db_value)
 		mhi_process_db(mhi_dev_ctxt,
 			       mhi_dev_ctxt->mmio_info.cmd_db_addr,
@@ -82,30 +80,25 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 i;
 	u64 db_value = 0;
-	u32 event_ring_index;
 	struct mhi_event_ctxt *event_ctxt = NULL;
 	struct mhi_control_seg *mhi_ctrl = NULL;
 	spinlock_t *lock = NULL;
 	unsigned long flags;
 	mhi_ctrl = mhi_dev_ctxt->mhi_ctrl_seg;
 
-	for (i = 0; i < NR_EV_RINGS; ++i) {
-		event_ring_index = mhi_dev_ctxt->alloced_ev_rings[i];
-		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[event_ring_index];
-		mhi_dev_ctxt->mhi_ev_db_order[event_ring_index] = 0;
-
+	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i) {
+		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[i];
+		mhi_dev_ctxt->mhi_ev_db_order[i] = 0;
 		spin_lock_irqsave(lock, flags);
-		event_ctxt = &mhi_ctrl->mhi_ec_list[event_ring_index];
-		db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-			(uintptr_t)mhi_dev_ctxt->
-			mhi_local_event_ctxt[event_ring_index].wp);
-
-		if (0 == mhi_dev_ctxt->mhi_ev_db_order[event_ring_index]) {
+		event_ctxt = &mhi_ctrl->mhi_ec_list[i];
+		db_value = virt_to_dma(NULL,
+				mhi_dev_ctxt->mhi_local_event_ctxt[i].wp);
+		if (0 == mhi_dev_ctxt->mhi_ev_db_order[i]) {
 			mhi_process_db(mhi_dev_ctxt,
 				       mhi_dev_ctxt->mmio_info.event_db_addr,
-				       event_ring_index, db_value);
+				       i, db_value);
 		}
-		mhi_dev_ctxt->mhi_ev_db_order[event_ring_index] = 0;
+		mhi_dev_ctxt->mhi_ev_db_order[i] = 0;
 		spin_unlock_irqrestore(lock, flags);
 	}
 }
@@ -401,43 +394,11 @@ static void mhi_reset_chan_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 	local_chan_ctxt->ack_rp = local_chan_ctxt->base;
 }
 
-static void mhi_reset_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
-				int index)
-{
-	struct mhi_event_ctxt *ev_ctxt;
-	struct mhi_ring *local_ev_ctxt;
-	mhi_log(MHI_MSG_VERBOSE, "Resetting event index %d\n", index);
-	ev_ctxt =
-	    &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[index];
-	local_ev_ctxt =
-	    &mhi_dev_ctxt->mhi_local_event_ctxt[index];
-	ev_ctxt->mhi_event_read_ptr = ev_ctxt->mhi_event_ring_base_addr;
-	ev_ctxt->mhi_event_write_ptr = ev_ctxt->mhi_event_ring_base_addr;
-	local_ev_ctxt->rp = local_ev_ctxt->base;
-	local_ev_ctxt->wp = local_ev_ctxt->base;
-}
-
-static enum MHI_STATUS mhi_set_state_of_all_channels(
-			struct mhi_device_ctxt *mhi_dev_ctxt,
-			enum MHI_CHAN_STATE new_state)
-{
-	u32 i = 0;
-	struct mhi_chan_ctxt *chan_ctxt = NULL;
-	if (new_state >= MHI_CHAN_STATE_LIMIT)
-		return MHI_STATUS_ERROR;
-	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
-		chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[i];
-		chan_ctxt->mhi_chan_state = new_state;
-	}
-	return MHI_STATUS_SUCCESS;
-}
-
 static enum MHI_STATUS process_reset_transition(
 			struct mhi_device_ctxt *mhi_dev_ctxt,
 			enum STATE_TRANSITION cur_work_item)
 {
 	u32 i = 0;
-	u32 ev_ring_index;
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 	unsigned long flags = 0;
 
@@ -448,8 +409,6 @@ static enum MHI_STATUS process_reset_transition(
 	mhi_dev_ctxt->counters.mhi_reset_cntr++;
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_PBL;
 	ret_val = mhi_test_for_device_reset(mhi_dev_ctxt);
-	ret_val = mhi_set_state_of_all_channels(mhi_dev_ctxt,
-			MHI_CHAN_STATE_DISABLED);
 	ret_val = mhi_test_for_device_ready(mhi_dev_ctxt);
 	switch (ret_val) {
 	case MHI_STATUS_SUCCESS:
@@ -477,13 +436,12 @@ static enum MHI_STATUS process_reset_transition(
 				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].base;
 		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cmd_ctxt_list[i].
 						mhi_cmd_ring_read_ptr =
-				mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
-			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp);
+				virt_to_dma(NULL,
+				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp);
 	}
-	for (i = 0; i < NR_EV_RINGS; ++i) {
-		ev_ring_index = mhi_dev_ctxt->alloced_ev_rings[i];
-		mhi_reset_ev_ctxt(mhi_dev_ctxt, ev_ring_index);
-	}
+	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i)
+		mhi_reset_ev_ctxt(mhi_dev_ctxt, i);
+
 	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
 		if (VALID_CHAN_NR(i))
 			mhi_reset_chan_ctxt(mhi_dev_ctxt, i);
@@ -518,15 +476,17 @@ static enum MHI_STATUS process_syserr_transition(
 enum MHI_STATUS start_chan_sync(struct mhi_client_handle *client_handle)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int chan = client_handle->chan_info.chan_nr;
 	int r = 0;
+
 	init_completion(&client_handle->chan_open_complete);
 	ret_val = mhi_send_cmd(client_handle->mhi_dev_ctxt,
 			       MHI_COMMAND_START_CHAN,
-			       client_handle->chan);
+			       chan);
 	if (ret_val != MHI_STATUS_SUCCESS) {
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to send start command for chan %d ret %d\n",
-			MHI_CLIENT_SAHARA_OUT, ret_val);
+			chan, ret_val);
 		return ret_val;
 	}
 	r = wait_for_completion_timeout(
@@ -534,8 +494,8 @@ enum MHI_STATUS start_chan_sync(struct mhi_client_handle *client_handle)
 			msecs_to_jiffies(MHI_MAX_CMD_TIMEOUT));
 	if (!r) {
 		mhi_log(MHI_MSG_ERROR,
-				"Failed to start chan %d ret %d\n",
-				client_handle->chan, r);
+			   "Timed out waiting for chan %d start completion\n",
+			    chan);
 		ret_val = MHI_STATUS_ERROR;
 	}
 	return ret_val;
@@ -547,41 +507,24 @@ static void enable_clients(struct mhi_device_ctxt *mhi_dev_ctxt,
 	struct mhi_client_handle *client_handle = NULL;
 	struct mhi_cb_info cb_info;
 	int i;
+	struct mhi_chan_info chan_info;
+	int r;
 
 	cb_info.cb_reason = MHI_CB_MHI_ENABLED;
-	switch (exec_env) {
-	case MHI_EXEC_ENV_SBL:
-		mhi_log(MHI_MSG_INFO, "Enabling SBL clients.\n");
 
-		client_handle =
-			mhi_dev_ctxt->client_handle_list[MHI_CLIENT_SAHARA_OUT];
-
-		mhi_notify_client(client_handle, MHI_CB_MHI_ENABLED);
-
-		client_handle =
-			mhi_dev_ctxt->client_handle_list[MHI_CLIENT_SAHARA_IN];
-
-		mhi_notify_client(client_handle, MHI_CB_MHI_ENABLED);
-		break;
-	case MHI_EXEC_ENV_AMSS:
-		mhi_log(MHI_MSG_INFO, "Enabling AMSS clients\n");
-		for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
-			if (VALID_CHAN_NR(i) &&
-			    i != MHI_CLIENT_SAHARA_OUT  &&
-			    i != MHI_CLIENT_SAHARA_IN) {
-				client_handle =
-					mhi_dev_ctxt->client_handle_list[i];
-				mhi_notify_client(client_handle,
-						  MHI_CB_MHI_ENABLED);
-				mhi_deassert_device_wake(mhi_dev_ctxt);
-				}
-			}
-		break;
-	default:
-		mhi_log(MHI_MSG_ERROR,
-			"Unrecognized exec_env %d\n", exec_env);
-	break;
+	mhi_log(MHI_MSG_INFO, "Enabling Clients, exec env %d.\n", exec_env);
+	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
+		if (!VALID_CHAN_NR(i))
+			continue;
+		client_handle = mhi_dev_ctxt->client_handle_list[i];
+		r = get_chan_props(mhi_dev_ctxt, i, &chan_info);
+		if (!r && client_handle &&
+		    exec_env == GET_CHAN_PROPS(CHAN_BRINGUP_STAGE,
+						chan_info.flags))
+			mhi_notify_client(client_handle, MHI_CB_MHI_ENABLED);
 	}
+	if (exec_env == MHI_EXEC_ENV_AMSS)
+		mhi_deassert_device_wake(mhi_dev_ctxt);
 	mhi_log(MHI_MSG_INFO, "Done.\n");
 }
 

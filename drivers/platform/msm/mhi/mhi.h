@@ -168,6 +168,7 @@ enum MHI_PKT_TYPE {
 	MHI_PKT_TYPE_RESET_CHAN_CMD = 0x10,
 	MHI_PKT_TYPE_STOP_CHAN_CMD = 0x11,
 	MHI_PKT_TYPE_START_CHAN_CMD = 0x12,
+	MHI_PKT_TYPE_RESET_CHAN_DEFER_CMD = 0x1F,
 	MHI_PKT_TYPE_STATE_CHANGE_EVENT = 0x20,
 	MHI_PKT_TYPE_CMD_COMPLETION_EVENT = 0x21,
 	MHI_PKT_TYPE_TX_EVENT = 0x22,
@@ -315,28 +316,40 @@ enum MHI_EXEC_ENV {
 	MHI_EXEC_ENV_reserved = 0x80000000
 };
 
+struct mhi_chan_info {
+	u32 chan_nr;
+	u32 max_desc;
+	u32 ev_ring;
+	u32 flags;
+};
+
 struct mhi_client_handle {
+	struct mhi_chan_info chan_info;
 	struct mhi_device_ctxt *mhi_dev_ctxt;
 	struct mhi_client_info_t client_info;
 	struct completion chan_reset_complete;
 	struct completion chan_open_complete;
 	void *user_data;
-	u32 chan;
 	struct mhi_result result;
 	u32 device_index;
-	u32 event_ring_index;
 	u32 msi_vec;
-	u32 cb_mod;
 	u32 intmod_t;
 	u32 pkt_count;
 	int magic;
 	int chan_status;
+	int event_ring_index;
 };
 
 enum MHI_EVENT_POLLING {
 	MHI_EVENT_POLLING_DISABLED = 0x0,
 	MHI_EVENT_POLLING_ENABLED = 0x1,
 	MHI_EVENT_POLLING_reserved = 0x80000000
+};
+
+enum MHI_TYPE_EVENT_RING {
+	MHI_ER_DATA_TYPE = 0x1,
+	MHI_ER_CTRL_TYPE = 0x2,
+	MHI_ER_TYPE_RESERVED = 0x80000000
 };
 
 struct mhi_state_work_queue {
@@ -347,12 +360,10 @@ struct mhi_state_work_queue {
 };
 
 struct mhi_control_seg {
-	union mhi_xfer_pkt *xfer_trb_list[MHI_MAX_CHANNELS];
-	union mhi_event_pkt *ev_trb_list[NR_EV_RINGS];
 	union mhi_cmd_pkt cmd_trb_list[NR_OF_CMD_RINGS][CMD_EL_PER_RING + 1];
 	struct mhi_cmd_ctxt mhi_cmd_ctxt_list[NR_OF_CMD_RINGS];
 	struct mhi_chan_ctxt mhi_cc_list[MHI_MAX_CHANNELS];
-	struct mhi_event_ctxt mhi_ec_list[NR_EV_RINGS];
+	struct mhi_event_ctxt *mhi_ec_list;
 	u32 padding;
 };
 
@@ -371,8 +382,8 @@ struct mhi_counters {
 	u32 msi_disable_cntr;
 	u32 msi_enable_cntr;
 	u32 nr_irq_migrations;
-	u32 msi_counter[NR_EV_RINGS];
-	u32 ev_counter[NR_EV_RINGS];
+	u32 *msi_counter;
+	u32 *ev_counter;
 	atomic_t outbound_acks;
 	u32 chan_pkts_xferd[MHI_MAX_CHANNELS];
 };
@@ -412,6 +423,9 @@ struct dev_mmio_info {
 	void __iomem *event_db_addr;
 	void __iomem *cmd_db_addr;
 	u64 mmio_len;
+	u32 nr_event_rings;
+	dma_addr_t dma_ev_ctxt; /* Bus address of ECABAP*/
+	void *dma_ev_rings;
 };
 
 struct mhi_device_ctxt {
@@ -424,7 +438,7 @@ struct mhi_device_ctxt {
 	struct mhi_meminfo *mhi_ctrl_seg_info;
 
 	struct mhi_ring mhi_local_chan_ctxt[MHI_MAX_CHANNELS];
-	struct mhi_ring mhi_local_event_ctxt[NR_EV_RINGS];
+	struct mhi_ring *mhi_local_event_ctxt;
 	struct mhi_ring mhi_local_cmd_ctxt[NR_OF_CMD_RINGS];
 
 	struct mutex *mhi_chan_mutex;
@@ -432,6 +446,7 @@ struct mhi_device_ctxt {
 	spinlock_t *mhi_ev_spinlock_list;
 	struct mutex *mhi_cmd_mutex_list;
 	struct mhi_client_handle *client_handle_list[MHI_MAX_CHANNELS];
+	struct mhi_event_ring_cfg *ev_ring_props;
 	struct task_struct *event_thread_handle;
 	struct task_struct *st_thread_handle;
 	struct mhi_wait_queues mhi_ev_wq;
@@ -445,9 +460,6 @@ struct mhi_device_ctxt {
 	enum MHI_CMD_STATUS mhi_chan_pend_cmd_ack[MHI_MAX_CHANNELS];
 
 	u32 cmd_ring_order;
-	u32 alloced_ev_rings[NR_EV_RINGS];
-	u32 ev_ring_props[NR_EV_RINGS];
-
 	struct mhi_counters counters;
 	struct mhi_flags flags;
 
@@ -477,7 +489,6 @@ struct mhi_device_ctxt {
 
 struct mhi_pcie_dev_info {
 	struct pcie_core_info core;
-	atomic_t ref_count;
 	struct mhi_device_ctxt mhi_ctxt;
 	struct msm_pcie_register_event mhi_pci_link_event;
 	struct pci_dev *pcie_device;
@@ -493,6 +504,16 @@ struct mhi_pcie_devices {
 	s32 nr_of_devices;
 };
 
+struct mhi_event_ring_cfg {
+	u32 nr_desc;
+	u32 msi_vec;
+	u32 intmod;
+	u32 flags;
+	enum MHI_EVENT_RING_STATE state;
+	irqreturn_t (*mhi_handler_ptr)(int , void *);
+};
+
+irqreturn_t mhi_msi_ipa_handlr(int irq_number, void *dev_id);
 enum MHI_STATUS mhi_reset_all_thread_queues(
 					struct mhi_device_ctxt *mhi_dev_ctxt);
 enum MHI_STATUS mhi_add_elements_to_event_rings(
@@ -504,7 +525,7 @@ enum MHI_STATUS get_nr_enclosed_el(struct mhi_ring *ring, void *loc_1,
 enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt);
 enum MHI_STATUS mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
 				struct mhi_device_ctxt *mhi_dev_ctxt);
-enum MHI_STATUS mhi_init_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
+enum MHI_STATUS mhi_init_local_event_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		u32 nr_ev_el, u32 event_ring_index);
 /*Mhi Initialization functions */
 enum MHI_STATUS mhi_clean_init_stage(struct mhi_device_ctxt *mhi_dev_ctxt,
@@ -516,12 +537,16 @@ enum MHI_STATUS mhi_queue_tx_pkt(struct mhi_device_ctxt *mhi_dev_ctxt,
 				void *payload,
 				size_t payload_size);
 enum MHI_STATUS mhi_init_chan_ctxt(struct mhi_chan_ctxt *cc_list,
-		uintptr_t trb_list_phy,
-		uintptr_t trb_list_virt,
-		u64 el_per_ring,
-		enum MHI_CHAN_TYPE chan_type,
-		u32 event_ring,
-		struct mhi_ring *ring);
+				   uintptr_t trb_list_phy,
+				   uintptr_t trb_list_virt,
+				   u64 el_per_ring,
+				   enum MHI_CHAN_TYPE chan_type,
+				   u32 event_ring,
+				   struct mhi_ring *ring,
+				   enum MHI_CHAN_STATE chan_state);
+int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt);
+int mhi_get_event_ring_for_channel(struct mhi_device_ctxt *mhi_dev_ctxt,
+					      u32 chan);
 enum MHI_STATUS delete_element(struct mhi_ring *ring, void **rp,
 			 void **wp, void **assigned_addr);
 enum MHI_STATUS ctxt_add_element(struct mhi_ring *ring, void **assigned_addr);
@@ -532,6 +557,8 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 	struct mhi_ring *ring, enum MHI_RING_TYPE ring_type, u32 ring_index);
 enum MHI_STATUS parse_xfer_event(struct mhi_device_ctxt *ctxt,
 					union mhi_event_pkt *event);
+enum MHI_EVENT_CCS get_cmd_pkt(union mhi_event_pkt *ev_pkt,
+			       union mhi_cmd_pkt **cmd_pkt);
 enum MHI_STATUS parse_cmd_event(struct mhi_device_ctxt *ctxt,
 					union mhi_event_pkt *event);
 int parse_event_thread(void *ctxt);
@@ -587,7 +614,15 @@ u32 mhi_reg_read_field(void __iomem *io_addr, uintptr_t io_offset,
 			 u32 mask, u32 shift);
 void mhi_exit_m2(struct mhi_device_ctxt *mhi_dev_ctxt);
 int mhi_runtime_suspend(struct device *dev);
+int get_chan_props(struct mhi_device_ctxt *mhi_dev_ctxt, int chan,
+		   struct mhi_chan_info *chan_info);
 int mhi_runtime_resume(struct device *dev);
 enum MHI_STATUS mhi_trigger_reset(struct mhi_device_ctxt *mhi_dev_ctxt);
+int init_ev_rings(struct mhi_device_ctxt *mhi_dev_ctxt,
+		  enum MHI_TYPE_EVENT_RING type);
+void mhi_reset_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
+				int index);
+int init_event_ctxt_array(struct mhi_device_ctxt *mhi_dev_ctxt);
+int create_ev_rings(struct mhi_device_ctxt *mhi_dev_ctxt);
 
 #endif
