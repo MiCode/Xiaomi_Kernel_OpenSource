@@ -364,9 +364,6 @@ static int hfi_process_sys_init_done(u32 device_id,
 				break;
 			}
 			default:
-				dprintk(VIDC_ERR,
-						"hal_process_sys_init_done: bad_prop_id\n");
-				status = VIDC_ERR_BAD_PARAM;
 				break;
 			}
 			if (!status) {
