@@ -43,10 +43,12 @@ struct msm_spm_device {
 	uint32_t cpu_vdd;
 	struct cpumask mask;
 	void __iomem *q2s_reg;
+	void __iomem *c1_fsm_ctl_reg;
 	bool qchannel_ignore;
 	bool allow_rpm_hs;
 	bool use_spm_clk_gating;
 	bool use_qchannel_for_wfi;
+	bool use_c1_exit_fsm_for_wfi;
 };
 
 struct msm_spm_vdd_info {
@@ -152,10 +154,23 @@ unsigned int msm_spm_get_vdd(unsigned int cpu)
 }
 EXPORT_SYMBOL(msm_spm_get_vdd);
 
+static void msm_config_c1_exit_fsm(struct msm_spm_device *dev, bool disable)
+{
+	uint32_t val = 0;
+
+	val = __raw_readl(dev->c1_fsm_ctl_reg);
+	if (disable)
+		val |= 0x1;
+	else
+		val &= ~0x1;
+	__raw_writel(val, dev->c1_fsm_ctl_reg);
+}
+
 static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 {
 	uint32_t spm_legacy_mode = 0;
 	uint32_t qchannel_ignore = 0;
+	uint32_t c1_stagger_disable = 1;
 	uint32_t val = 0;
 
 	if (!dev->q2s_reg)
@@ -166,6 +181,7 @@ static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 	case MSM_SPM_MODE_CLOCK_GATING:
 		qchannel_ignore = !dev->use_qchannel_for_wfi;
 		spm_legacy_mode = 0;
+		c1_stagger_disable = !dev->use_c1_exit_fsm_for_wfi;
 		break;
 	case MSM_SPM_MODE_RETENTION:
 		qchannel_ignore = 0;
@@ -189,6 +205,9 @@ static void msm_spm_config_q2s(struct msm_spm_device *dev, unsigned int mode)
 	} else {
 		spm_raw_write(val, dev->q2s_reg);
 	}
+
+	if (dev->use_c1_exit_fsm_for_wfi)
+		msm_config_c1_exit_fsm(dev, c1_stagger_disable);
 }
 
 static int msm_spm_dev_set_low_power_mode(struct msm_spm_device *dev,
@@ -651,6 +670,25 @@ static int msm_spm_dev_probe(struct platform_device *pdev)
 
 	key = "qcom,use-qchannel-for-wfi";
 	dev->use_qchannel_for_wfi = of_property_read_bool(node, key);
+
+	key = "qcom,use-c1-exit-fsm-for-wfi";
+	dev->use_c1_exit_fsm_for_wfi = of_property_read_bool(node, key);
+
+	if (dev->use_c1_exit_fsm_for_wfi) {
+		/* QCHANNEL STANDBY FSM CTL register */
+		res = platform_get_resource(pdev, IORESOURCE_MEM, 2);
+		if (res) {
+			dev->c1_fsm_ctl_reg = devm_ioremap(&pdev->dev,
+						res->start,
+						resource_size(res));
+			if (!dev->c1_fsm_ctl_reg) {
+				pr_err("%s(): Unable to map C1 FSM register\n",
+					__func__);
+				ret = -EADDRNOTAVAIL;
+				goto fail;
+			}
+		}
+	}
 
 	for (i = 0; i < ARRAY_SIZE(spm_of_data); i++) {
 		ret = of_property_read_u32(node, spm_of_data[i].key, &val);
