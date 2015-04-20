@@ -3121,7 +3121,7 @@
 
 	glink_dsps: qcom,glink-ssr-dsps {
 		compatible = "qcom,glink_ssr";
-		label = "dsps";
+		label = "slpi";
 		qcom,edge = "dsps";
 		qcom,notify-edges = <&glink_mpss>, <&glink_lpass>, <&glink_rpm>;
 		qcom,xprt = "smem";
