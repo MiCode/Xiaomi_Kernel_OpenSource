@@ -61,6 +61,7 @@
 #define BU21150_PIN_ENABLE_DELAY_US		1000
 #define BU21150_PINCTRL_VALID_STATE_CNT		2
 
+#define AFE_SCAN_DEFAULT			0x00
 #define AFE_SCAN_SELF_CAP			0x01
 #define AFE_SCAN_MUTUAL_CAP			0x02
 #define AFE_SCAN_GESTURE_SELF_CAP		0x04
@@ -137,6 +138,7 @@ struct bu21150_data {
 	bool suspended;
 	u8 unblock_flag;
 	u8 force_unblock_flag;
+	bool lcd_on;
 };
 
 struct ser_req {
@@ -1075,17 +1077,29 @@ static int fb_notifier_callback(struct notifier_block *self,
 {
 	struct fb_event *evdata = data;
 	int *blank;
-	struct bu21150_data *bu21150_dev_data =
+	struct bu21150_data *ts =
 			container_of(self, struct bu21150_data, fb_notif);
 
-	if (evdata && evdata->data && bu21150_dev_data &&
-						bu21150_dev_data->client) {
+	if (evdata && evdata->data && ts && ts->client) {
 		blank = evdata->data;
-		if (event == FB_EARLY_EVENT_BLANK && *blank == FB_BLANK_UNBLANK)
-			bu21150_fb_resume(&bu21150_dev_data->client->dev);
-		else if (event == FB_EVENT_BLANK && *blank ==
-							FB_BLANK_POWERDOWN)
-			bu21150_fb_suspend(&bu21150_dev_data->client->dev);
+		if (event == FB_EARLY_EVENT_BLANK) {
+			if (*blank == FB_BLANK_UNBLANK) {
+				ts->lcd_on = true;
+				bu21150_fb_resume(&ts->client->dev);
+			} else if (*blank == FB_BLANK_POWERDOWN) {
+				ts->lcd_on = false;
+			}
+		} else if (event == FB_R_EARLY_EVENT_BLANK) {
+			if (*blank == FB_BLANK_UNBLANK) {
+				ts->lcd_on = false;
+				bu21150_fb_resume(&ts->client->dev);
+			} else if (*blank == FB_BLANK_POWERDOWN) {
+				ts->lcd_on = true;
+			}
+		} else if (event == FB_EVENT_BLANK && *blank ==
+							FB_BLANK_POWERDOWN) {
+			bu21150_fb_suspend(&ts->client->dev);
+		}
 	}
 
 	return 0;
@@ -1400,6 +1414,10 @@ static long bu21150_ioctl_spi_write(unsigned long arg)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	void __user *argp = (void __user *)arg;
 	struct bu21150_ioctl_spi_data data;
+	unsigned int afe_active_mode = AFE_SCAN_SELF_CAP | AFE_SCAN_MUTUAL_CAP;
+	unsigned int afe_gesture_mode = AFE_SCAN_GESTURE_SELF_CAP |
+						AFE_SCAN_GESTURE_MUTUAL_CAP;
+	bool valid_op;
 
 	if (arg == 0) {
 		pr_err("%s: arg == 0.\n", __func__);
@@ -1410,6 +1428,15 @@ static long bu21150_ioctl_spi_write(unsigned long arg)
 		pr_err("%s: Failed to copy_from_user().\n", __func__);
 		return -EFAULT;
 	}
+
+	valid_op = (data.next_mode == AFE_SCAN_DEFAULT) ||
+			((data.next_mode & afe_active_mode) && ts->lcd_on) ||
+			((data.next_mode & afe_gesture_mode) && !ts->lcd_on);
+	if (!valid_op) {
+		pr_err("%s: AFE scan mode and LCD state conflict\n", __func__);
+		return -EINVAL;
+	}
+
 	if (data.buf == 0 || data.count == 0 ||
 		MAX_FRAME_SIZE < data.count) {
 		pr_err("%s: data.buf == 0 ...\n", __func__);
