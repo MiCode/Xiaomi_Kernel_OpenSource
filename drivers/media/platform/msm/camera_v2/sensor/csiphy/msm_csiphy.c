@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -626,6 +626,9 @@ static int msm_csiphy_release(struct csiphy_device *csiphy_dev, void *arg)
 	msm_camera_io_w(0x0, csiphy_dev->base +
 		csiphy_dev->ctrl_reg->csiphy_reg.mipi_csiphy_glbl_pwr_cfg_addr);
 
+	if (csiphy_dev->csiphy_sof_freeze == 1)
+		disable_irq(csiphy_dev->irq->start);
+
 	if (csiphy_dev->hw_dts_version <= CSIPHY_VERSION_V22) {
 		msm_cam_clk_enable(&csiphy_dev->pdev->dev,
 			csiphy_clk_info, csiphy_dev->csiphy_clk,
@@ -677,8 +680,6 @@ static int32_t msm_csiphy_cmd(struct csiphy_device *csiphy_dev, void *arg)
 			rc = -EFAULT;
 			break;
 		}
-		if (csiphy_dev->csiphy_sof_freeze == 1)
-			disable_irq(csiphy_dev->irq->start);
 		rc = msm_csiphy_release(csiphy_dev, &csi_lane_params);
 		break;
 	default:
