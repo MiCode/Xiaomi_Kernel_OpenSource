@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -517,6 +517,8 @@ static int vfe_probe(struct platform_device *pdev)
 	tasklet_init(&vfe_dev->vfe_tasklet,
 		msm_isp_do_tasklet, (unsigned long)vfe_dev);
 
+	/* init hardware will enable it back */
+	tasklet_disable(&vfe_dev->vfe_tasklet);
 	v4l2_subdev_init(&vfe_dev->subdev.sd, vfe_dev->hw_info->subdev_ops);
 	vfe_dev->subdev.sd.internal_ops =
 		vfe_dev->hw_info->subdev_internal_ops;
