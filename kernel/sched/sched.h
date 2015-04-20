@@ -340,6 +340,32 @@ struct hmp_sched_stats {
 	u64 cumulative_runnable_avg;
 };
 
+struct sched_cluster {
+	struct list_head list;
+	struct cpumask cpus;
+	int id;
+	int max_power_cost;
+	int max_possible_capacity;
+	int capacity;
+	int efficiency; /* Differentiate cpus with different IPC capability */
+	int load_scale_factor;
+	/*
+	 * max_freq = user or thermal defined maximum
+	 * max_possible_freq = maximum supported by hardware
+	 */
+	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
+	bool freq_init_done;
+	int dstate, dstate_wakeup_latency, dstate_wakeup_energy;
+	unsigned int static_cluster_pwr_cost;
+};
+
+extern unsigned long all_cluster_ids[];
+
+static inline int cluster_first_cpu(struct sched_cluster *cluster)
+{
+	return cpumask_first(&cluster->cpus);
+}
+
 #endif
 
 /* CFS-related fields in a runqueue */
@@ -632,26 +658,16 @@ struct rq {
 	u64 idle_stamp;
 	u64 avg_idle;
 	int cstate, wakeup_latency, wakeup_energy;
-	int dstate, dstate_wakeup_latency, dstate_wakeup_energy;
 
 	/* This is used to determine avg_idle's max value */
 	u64 max_idle_balance_cost;
 #endif
 
 #ifdef CONFIG_SCHED_HMP
-	/*
-	 * max_freq = user or thermal defined maximum
-	 * max_possible_freq = maximum supported by hardware
-	 */
-	unsigned int cur_freq, max_freq, min_freq, max_possible_freq;
+	struct sched_cluster *cluster;
 	struct cpumask freq_domain_cpumask;
-
 	struct hmp_sched_stats hmp_stats;
 
-	int efficiency; /* Differentiate cpus with different IPC capability */
-	int load_scale_factor;
-	int capacity;
-	int max_possible_capacity;
 	u64 window_start;
 	unsigned long hmp_flags;
 
@@ -659,7 +675,6 @@ struct rq {
 	u64 avg_irqload;
 	u64 irqload_ts;
 	unsigned int static_cpu_pwr_cost;
-	unsigned int static_cluster_pwr_cost;
 	struct task_struct *ed_task;
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
@@ -879,13 +894,6 @@ static inline unsigned int group_first_cpu(struct sched_group *group)
 
 extern int group_balance_cpu(struct sched_group *sg);
 
-/*
- * Returns the rq capacity of any rq in a group. This does not play
- * well with groups where rq capacity can change independently.
- */
-#define group_rq_capacity(group) capacity(cpu_rq(group_first_cpu(group)))
-#define group_rq_mpc(group) max_poss_capacity(cpu_rq(group_first_cpu(group)))
-
 #else
 
 static inline void sched_ttwu_pending(void) { }
@@ -919,9 +927,6 @@ extern unsigned int max_capacity;
 extern unsigned int min_capacity;
 extern unsigned int max_load_scale_factor;
 extern unsigned int max_possible_capacity;
-extern cpumask_t mpc_mask;
-extern unsigned long capacity_scale_cpu_efficiency(int cpu);
-extern unsigned long capacity_scale_cpu_freq(int cpu);
 extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
@@ -936,6 +941,51 @@ unsigned int cpu_temp(int cpu);
 extern unsigned int nr_eligible_big_tasks(int cpu);
 extern void update_up_down_migrate(void);
 
+static inline int cpu_capacity(int cpu)
+{
+	return cpu_rq(cpu)->cluster->capacity;
+}
+
+static inline int cpu_max_possible_capacity(int cpu)
+{
+	return cpu_rq(cpu)->cluster->max_possible_capacity;
+}
+
+static inline int cpu_load_scale_factor(int cpu)
+{
+	return cpu_rq(cpu)->cluster->load_scale_factor;
+}
+
+static inline int cpu_efficiency(int cpu)
+{
+	return cpu_rq(cpu)->cluster->efficiency;
+}
+
+static inline unsigned int cpu_cur_freq(int cpu)
+{
+	return cpu_rq(cpu)->cluster->cur_freq;
+}
+
+static inline unsigned int cpu_min_freq(int cpu)
+{
+	return cpu_rq(cpu)->cluster->min_freq;
+}
+
+static inline unsigned int cpu_max_freq(int cpu)
+{
+	return cpu_rq(cpu)->cluster->max_freq;
+}
+
+static inline unsigned int cpu_max_possible_freq(int cpu)
+{
+	return cpu_rq(cpu)->cluster->max_possible_freq;
+}
+
+static inline int same_cluster(int src_cpu, int dst_cpu)
+{
+	return cpu_rq(src_cpu)->cluster == cpu_rq(dst_cpu)->cluster;
+}
+
 /*
  * 'load' is in reference to "best cpu" at its best frequency.
  * Scale that in reference to a given cpu, accounting for how bad it is
@@ -943,23 +993,14 @@ extern void update_up_down_migrate(void);
  */
 static inline u64 scale_load_to_cpu(u64 task_load, int cpu)
 {
-	struct rq *rq = cpu_rq(cpu);
+	u64 lsf = cpu_load_scale_factor(cpu);
 
-	if (rq->load_scale_factor != 1024) {
-		task_load *= (u64)rq->load_scale_factor;
+	if (lsf != 1024) {
+		task_load *= lsf;
 		task_load /= 1024;
 	}
 
 	return task_load;
-}
-
-static inline int capacity(struct rq *rq)
-{
-	return rq->capacity;
-}
-static inline int max_poss_capacity(struct rq *rq)
-{
-	return rq->max_possible_capacity;
 }
 
 static inline unsigned int task_load(struct task_struct *p)
@@ -1061,16 +1102,12 @@ static inline unsigned int nr_eligible_big_tasks(int cpu)
 
 static inline int pct_task_load(struct task_struct *p) { return 0; }
 
-static inline int capacity(struct rq *rq)
+static inline int cpu_capacity(int cpu)
 {
 	return SCHED_LOAD_SCALE;
 }
 
-static inline int max_poss_capacity(struct rq *rq)
-{
-	return SCHED_LOAD_SCALE;
-}
-
+static inline int same_cluster(int src_cpu, int dst_cpu) { return 1; }
 
 static inline void inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 		 struct task_struct *p)
@@ -1082,16 +1119,6 @@ static inline void dec_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 {
 }
 
-static inline unsigned long capacity_scale_cpu_efficiency(int cpu)
-{
-	return SCHED_LOAD_SCALE;
-}
-
-static inline unsigned long capacity_scale_cpu_freq(int cpu)
-{
-	return SCHED_LOAD_SCALE;
-}
-
 static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock)
 {
@@ -1100,6 +1127,12 @@ static inline void sched_account_irqtime(int cpu, struct task_struct *curr,
 static inline int sched_cpu_high_irqload(int cpu) { return 0; }
 
 #endif	/* CONFIG_SCHED_HMP */
+
+/*
+ * Returns the rq capacity of any rq in a group. This does not play
+ * well with groups where rq capacity can change independently.
+ */
+#define group_rq_capacity(group) cpu_capacity(group_first_cpu(group))
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
 extern void check_for_freq_change(struct rq *rq);
