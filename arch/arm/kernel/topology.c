@@ -490,6 +490,9 @@ void __init init_cpu_topology(void)
 		set_capacity_scale(cpu, SCHED_CAPACITY_SCALE);
 	}
 
+	for_each_possible_cpu(cpu)
+		update_siblings_masks(cpu);
+
 	/* Set scheduler topology descriptor */
 	set_sched_topology(arm_topology);
 }

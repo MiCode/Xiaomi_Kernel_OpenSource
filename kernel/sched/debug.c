@@ -318,14 +318,14 @@ do {									\
 	P(cpu_capacity);
 #endif
 #ifdef CONFIG_SCHED_HMP
-	P(load_scale_factor);
-	P(capacity);
-	P(max_possible_capacity);
-	P(efficiency);
-	P(cur_freq);
-	P(max_freq);
 	P(static_cpu_pwr_cost);
-	P(static_cluster_pwr_cost);
+	P(cluster->static_cluster_pwr_cost);
+	P(cluster->load_scale_factor);
+	P(cluster->capacity);
+	P(cluster->max_possible_capacity);
+	P(cluster->efficiency);
+	P(cluster->cur_freq);
+	P(cluster->max_freq);
 #endif
 #ifdef CONFIG_SCHED_HMP
 	P(hmp_stats.nr_big_tasks);
