@@ -46,6 +46,7 @@
  *				transport is currently running
  * @remote_version_idx:		remote version index into @versions this
  *				transport is currently running
+ * @l_features:			Features negotiated by the local side
  * @capabilities:		Capabilities of underlying transport
  * @ops:			transport defined implementation of common
  *				operations
@@ -79,6 +80,7 @@ struct glink_core_xprt_ctx {
 	size_t versions_entries;
 	uint32_t local_version_idx;
 	uint32_t remote_version_idx;
+	uint32_t l_features;
 	uint32_t capabilities;
 	struct glink_transport_if *ops;
 	enum transport_state_e local_state;
@@ -2792,6 +2794,8 @@ int glink_core_register_transport(struct glink_transport_if *if_ptr,
 	xprt_ptr->versions_entries = cfg->versions_entries;
 	xprt_ptr->local_version_idx = cfg->versions_entries - 1;
 	xprt_ptr->remote_version_idx = cfg->versions_entries - 1;
+	xprt_ptr->l_features =
+			cfg->versions[cfg->versions_entries - 1].features;
 	if (!if_ptr->poll)
 		if_ptr->poll = dummy_poll;
 	if (!if_ptr->mask_rx_irq)
@@ -2876,6 +2880,8 @@ static void glink_core_link_up(struct glink_transport_if *if_ptr)
 	/* start local negotiation */
 	xprt_ptr->local_state = GLINK_XPRT_NEGOTIATING;
 	xprt_ptr->local_version_idx = xprt_ptr->versions_entries - 1;
+	xprt_ptr->l_features =
+		xprt_ptr->versions[xprt_ptr->local_version_idx].features;
 	if_ptr->tx_cmd_version(if_ptr,
 		    xprt_ptr->versions[xprt_ptr->local_version_idx].version,
 		    xprt_ptr->versions[xprt_ptr->local_version_idx].features);
@@ -2896,6 +2902,8 @@ static void glink_core_link_down(struct glink_transport_if *if_ptr)
 	xprt_ptr->local_state = GLINK_XPRT_DOWN;
 	xprt_ptr->local_version_idx = xprt_ptr->versions_entries - 1;
 	xprt_ptr->remote_version_idx = xprt_ptr->versions_entries - 1;
+	xprt_ptr->l_features =
+		xprt_ptr->versions[xprt_ptr->local_version_idx].features;
 	xprt_ptr->remote_neg_completed = false;
 	rwref_write_put(&xprt_ptr->xprt_state_lhb0);
 	GLINK_DBG_XPRT(xprt_ptr,
@@ -3050,7 +3058,7 @@ static void glink_core_rx_cmd_version(struct glink_transport_if *if_ptr,
 	struct glink_core_xprt_ctx *xprt_ptr = if_ptr->glink_core_priv;
 	const struct glink_core_version *versions = xprt_ptr->versions;
 	bool neg_complete = false;
-	uint32_t l_version, l_features;
+	uint32_t l_version;
 
 	if (xprt_is_fully_opened(xprt_ptr)) {
 		GLINK_ERR_XPRT(xprt_ptr,
@@ -3059,11 +3067,10 @@ static void glink_core_rx_cmd_version(struct glink_transport_if *if_ptr,
 	}
 
 	l_version = versions[xprt_ptr->remote_version_idx].version;
-	l_features = versions[xprt_ptr->remote_version_idx].features;
 
 	GLINK_INFO_XPRT(xprt_ptr,
 		"%s: [local]%x:%08x [remote]%x:%08x\n", __func__,
-		l_version, l_features, r_version, r_features);
+		l_version, xprt_ptr->l_features, r_version, r_features);
 
 	if (l_version > r_version) {
 		/* Find matching version */
@@ -3076,7 +3083,7 @@ static void glink_core_rx_cmd_version(struct glink_transport_if *if_ptr,
 					"%s: Transport negotiation failed\n",
 					__func__);
 				l_version = 0;
-				l_features = 0;
+				xprt_ptr->l_features = 0;
 				break;
 			}
 			--xprt_ptr->remote_version_idx;
@@ -3085,7 +3092,8 @@ static void glink_core_rx_cmd_version(struct glink_transport_if *if_ptr,
 			if (versions[rver_idx].version <= r_version) {
 				/* found a potential match */
 				l_version = versions[rver_idx].version;
-				l_features = versions[rver_idx].features;
+				xprt_ptr->l_features =
+					versions[rver_idx].features;
 				break;
 			}
 		}
@@ -3095,29 +3103,30 @@ static void glink_core_rx_cmd_version(struct glink_transport_if *if_ptr,
 		GLINK_INFO_XPRT(xprt_ptr,
 			"%s: Remote and local version are matched %x:%08x\n",
 			__func__, r_version, r_features);
-		if (l_features != r_features) {
+		if (xprt_ptr->l_features != r_features) {
 			uint32_t rver_idx = xprt_ptr->remote_version_idx;
 
-			l_features = versions[rver_idx]
-					.negotiate_features(if_ptr,
+			xprt_ptr->l_features = versions[rver_idx]
+						.negotiate_features(if_ptr,
 					&xprt_ptr->versions[rver_idx],
 					r_features);
 			GLINK_INFO_XPRT(xprt_ptr,
 				"%s: negotiate features %x:%08x\n",
-				__func__, l_version, l_features);
+				__func__, l_version, xprt_ptr->l_features);
 		}
 		neg_complete = true;
 	}
-	if_ptr->tx_cmd_version_ack(if_ptr, l_version, l_features);
+	if_ptr->tx_cmd_version_ack(if_ptr, l_version, xprt_ptr->l_features);
 
 	if (neg_complete) {
 		GLINK_INFO_XPRT(xprt_ptr,
 			"%s: Remote negotiation complete %x:%08x\n", __func__,
-			l_version, l_features);
+			l_version, xprt_ptr->l_features);
 
 		if (xprt_ptr->local_state == GLINK_XPRT_OPENED) {
 			xprt_ptr->capabilities = if_ptr->set_version(if_ptr,
-							l_version, l_features);
+							l_version,
+							xprt_ptr->l_features);
 		}
 		if_ptr->glink_core_priv->remote_neg_completed = true;
 		if (xprt_is_fully_opened(xprt_ptr))
@@ -3142,7 +3151,7 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 {
 	struct glink_core_xprt_ctx *xprt_ptr = if_ptr->glink_core_priv;
 	const struct glink_core_version *versions = xprt_ptr->versions;
-	uint32_t l_version, l_features;
+	uint32_t l_version;
 	bool neg_complete = false;
 
 	if (xprt_is_fully_opened(xprt_ptr)) {
@@ -3152,11 +3161,10 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 	}
 
 	l_version = versions[xprt_ptr->local_version_idx].version;
-	l_features = versions[xprt_ptr->local_version_idx].features;
 
 	GLINK_INFO_XPRT(xprt_ptr,
 		"%s: [local]%x:%08x [remote]%x:%08x\n", __func__,
-		 l_version, l_features, r_version, r_features);
+		 l_version, xprt_ptr->l_features, r_version, r_features);
 
 	if (l_version > r_version) {
 		/* find matching version */
@@ -3170,7 +3178,7 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 					"%s: Transport negotiation failed\n",
 					__func__);
 				l_version = 0;
-				l_features = 0;
+				xprt_ptr->l_features = 0;
 				break;
 			}
 			--xprt_ptr->local_version_idx;
@@ -3179,21 +3187,23 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 			if (versions[lver_idx].version <= r_version) {
 				/* found a potential match */
 				l_version = versions[lver_idx].version;
-				l_features = versions[lver_idx].features;
+				xprt_ptr->l_features =
+					versions[lver_idx].features;
 				break;
 			}
 		}
 	} else if (l_version == r_version) {
-		if (l_features != r_features) {
+		if (xprt_ptr->l_features != r_features) {
 			/* version matches, negotiate features */
 			uint32_t lver_idx = xprt_ptr->local_version_idx;
 
-			l_features = versions[lver_idx].negotiate_features(
-					if_ptr, &versions[lver_idx],
-					r_features);
+			xprt_ptr->l_features = versions[lver_idx]
+						.negotiate_features(if_ptr,
+							&versions[lver_idx],
+							r_features);
 			GLINK_INFO_XPRT(xprt_ptr,
 				"%s: negotiation features %x:%08x\n",
-				__func__, l_version, l_features);
+				__func__, l_version, xprt_ptr->l_features);
 		} else {
 			neg_complete = true;
 		}
@@ -3207,22 +3217,23 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 		 */
 		GLINK_ERR_XPRT(xprt_ptr,
 			"%s: [local]%x:%08x [remote]%x:%08x neg failure\n",
-			__func__, l_version, l_features, r_version,
+			__func__, l_version, xprt_ptr->l_features, r_version,
 			r_features);
 		xprt_ptr->local_state = GLINK_XPRT_FAILED;
 		l_version = 0;
-		l_features = 0;
+		xprt_ptr->l_features = 0;
 	}
 
 	if (neg_complete) {
 		/* negotiation complete */
 		GLINK_INFO_XPRT(xprt_ptr,
 			"%s: Local negotiation complete %x:%08x\n",
-			__func__, l_version, l_features);
+			__func__, l_version, xprt_ptr->l_features);
 
 		if (xprt_ptr->remote_neg_completed) {
 			xprt_ptr->capabilities = if_ptr->set_version(if_ptr,
-							l_version, l_features);
+							l_version,
+							xprt_ptr->l_features);
 		}
 
 		xprt_ptr->local_state = GLINK_XPRT_OPENED;
@@ -3230,7 +3241,7 @@ static void glink_core_rx_cmd_version_ack(struct glink_transport_if *if_ptr,
 			check_link_notifier_and_notify(xprt_ptr,
 						       GLINK_LINK_STATE_UP);
 	} else {
-		if_ptr->tx_cmd_version(if_ptr, l_version, l_features);
+		if_ptr->tx_cmd_version(if_ptr, l_version, xprt_ptr->l_features);
 	}
 }
 
