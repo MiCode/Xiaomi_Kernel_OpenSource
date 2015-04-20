@@ -1,0 +1,42 @@
+config MSM_KGSL
+	tristate "MSM 3D Graphics driver"
+	default n
+	depends on ARCH_MSM && !ARCH_MSM7X00A && !ARCH_MSM7X25
+	select GENERIC_ALLOCATOR
+	select FW_LOADER
+	select PM_DEVFREQ
+	select DEVFREQ_GOV_SIMPLE_ONDEMAND
+	select DEVFREQ_GOV_PERFORMANCE
+	select DEVFREQ_GOV_MSM_ADRENO_TZ
+	select DEVFREQ_GOV_MSM_GPUBW_MON
+	select ONESHOT_SYNC if SYNC
+	---help---
+	  3D graphics driver. Required to use hardware accelerated
+	  OpenGL ES 2.0 and 1.1.
+
+config MSM_KGSL_CFF_DUMP
+	bool "Enable KGSL Common File Format (CFF) Dump Feature [Use with caution]"
+	default n
+	depends on MSM_KGSL
+	select RELAY
+	---help---
+	  This is an analysis and diagnostic feature only, and should only be
+	  turned on during KGSL GPU diagnostics and will slow down the KGSL
+	  performance sigificantly, hence *do not use in production builds*.
+	  When enabled, CFF Dump is on at boot. It can be turned off at runtime
+	  via 'echo 0 > /d/kgsl/cff_dump'.  The log can be captured via
+	  /d/kgsl-cff/cpu[0|1].
+
+config MSM_KGSL_CFF_DUMP_NO_CONTEXT_MEM_DUMP
+	bool "When selected will disable KGSL CFF Dump for context switches"
+	default n
+	depends on MSM_KGSL_CFF_DUMP
+	---help---
+	  Dumping all the memory for every context switch can produce quite
+	  huge log files, to reduce this, turn this feature on.
+
+config MSM_ADRENO_DEFAULT_GOVERNOR
+	string "devfreq governor for the adreno core"
+	default "msm-adreno-tz" if DEVFREQ_GOV_MSM_ADRENO_TZ
+	default "simple_ondemand"
+	depends on MSM_KGSL

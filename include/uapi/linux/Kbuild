@@ -270,6 +270,7 @@ header-y += msm_dsps.h
 header-y += msm_ion.h
 header-y += msm_ipa.h
 header-y += msm_ipc.h
+header-y += msm_kgsl.h
 header-y += msm_mdp.h
 header-y += msm_mdp_ext.h
 header-y += msm_rmnet.h
