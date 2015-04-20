@@ -3023,6 +3023,7 @@ static struct restart_notifier_block restart_notifiers[] = {
 	{SMD_DSPS, "dsps", .nb.notifier_call = restart_notifier_cb},
 	{SMD_MODEM, "gss", .nb.notifier_call = restart_notifier_cb},
 	{SMD_Q6, "adsp", .nb.notifier_call = restart_notifier_cb},
+	{SMD_DSPS, "slpi", .nb.notifier_call = restart_notifier_cb},
 };
 
 static int restart_notifier_cb(struct notifier_block *this,
