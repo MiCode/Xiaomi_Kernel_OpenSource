@@ -103,8 +103,17 @@ static void free_pages_to_dynamic_pool(void *pool,
 		ret = set_pages_wb(page_obj->page, 1);
 		if (ret)
 			dev_err(atomisp_dev, "set page to WB err ...\n");
-		__free_pages(page_obj->page, 0);
-		hmm_mem_stat.sys_size--;
+		/*
+		W/A: set_pages_wb seldom return value = -EFAULT
+		indicate that address of page is not in valid
+		range(0xffff880000000000~0xffffc7ffffffffff)
+		then, _free_pages would panic; Do not know why page
+		address be valid, it maybe memory corruption by lowmemory
+		*/
+		if (-EFAULT != ret) {
+			__free_pages(page_obj->page, 0);
+			hmm_mem_stat.sys_size--;
+		}
 		return;
 	}
 #ifdef USE_KMEM_CACHE
@@ -120,9 +129,10 @@ static void free_pages_to_dynamic_pool(void *pool,
 		ret = set_pages_wb(page_obj->page, 1);
 		if (ret)
 			dev_err(atomisp_dev, "set page to WB err ...\n");
-		__free_pages(page_obj->page, 0);
-		hmm_mem_stat.sys_size--;
-
+		if (-EFAULT != ret) {
+			__free_pages(page_obj->page, 0);
+			hmm_mem_stat.sys_size--;
+		}
 		return;
 	}
 
@@ -201,10 +211,11 @@ static void hmm_dynamic_pool_exit(void **pool)
 		ret = set_pages_wb(hmm_page->page, 1);
 		if (ret)
 			dev_err(atomisp_dev, "set page to WB err...\n");
-		__free_pages(hmm_page->page, 0);
-		hmm_mem_stat.dyc_size--;
-		hmm_mem_stat.sys_size--;
-
+		if (-EFAULT != ret) {
+			__free_pages(hmm_page->page, 0);
+			hmm_mem_stat.dyc_size--;
+			hmm_mem_stat.sys_size--;
+		}
 #ifdef USE_KMEM_CACHE
 		kmem_cache_free(dypool_info->pgptr_cache, hmm_page);
 #else

@@ -221,7 +221,15 @@ static void hmm_reserved_pool_exit(void **pool)
 		ret = set_pages_wb(repool_info->pages[i], 1);
 		if (ret)
 			dev_err(atomisp_dev, "set page to WB err...\n");
-		__free_pages(repool_info->pages[i], 0);
+		/*
+		W/A: set_pages_wb seldom return value = -EFAULT
+		indicate that address of page is not in valid
+		range(0xffff880000000000~0xffffc7ffffffffff)
+		then, _free_pages would panic; Do not know why
+		page address be valid, it maybe memory corruption by lowmemory
+		*/
+		if (-EFAULT != ret)
+			__free_pages(repool_info->pages[i], 0);
 	}
 
 	atomisp_kernel_free(repool_info->pages);
