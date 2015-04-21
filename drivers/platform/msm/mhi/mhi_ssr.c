@@ -50,28 +50,20 @@ static int mhi_ssr_notify_cb(struct notifier_block *nb,
 	case SUBSYS_BEFORE_SHUTDOWN:
 		mhi_log(MHI_MSG_INFO,
 			"Received Subsystem event BEFORE_SHUTDOWN\n");
-		mhi_notify_clients(mhi_dev_ctxt, MHI_CB_MHI_DISABLED);
-		atomic_set(&mhi_dev_ctxt->flags.pending_ssr, 1);
+		mhi_log(MHI_MSG_INFO,
+			"Not notifying clients\n");
 		break;
 	case SUBSYS_AFTER_SHUTDOWN:
 		mhi_log(MHI_MSG_INFO,
 			"Received Subsystem event AFTER_SHUTDOWN\n");
-		ret_val = mhi_init_state_transition(mhi_dev_ctxt,
-				STATE_TRANSITION_LINK_DOWN);
-		if (MHI_STATUS_SUCCESS != ret_val) {
-			mhi_log(MHI_MSG_CRITICAL,
-				"Failed to init state transition, to %d\n",
-				STATE_TRANSITION_LINK_DOWN);
-		}
+		mhi_log(MHI_MSG_INFO,
+			"Not notifying clients\n");
 		break;
 	case SUBSYS_RAMDUMP_NOTIFICATION:
 		mhi_log(MHI_MSG_INFO,
 			"Received Subsystem event RAMDUMP\n");
-		ret_val = init_mhi_base_state(mhi_dev_ctxt);
-		if (MHI_STATUS_SUCCESS != ret_val)
-			mhi_log(MHI_MSG_CRITICAL,
-				"Failed to transition to base state %d.\n",
-				ret_val);
+		mhi_log(MHI_MSG_INFO,
+			"Not notifying clients\n");
 		break;
 	default:
 		mhi_log(MHI_MSG_INFO,
