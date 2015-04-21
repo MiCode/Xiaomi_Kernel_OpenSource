@@ -226,6 +226,12 @@ Optional Properties:
 				AICL deglitch configuration dynamically. This needs
 				to be set if the DCIN supply is going to be less
 				than or equal to 5V.
+- qcom,force-aicl-rerun:	A boolean property which upon set will enable the
+				AICL rerun by default along with the deglitch time
+				configured to long interval (20 ms). Also, specifying
+				this property will not adjust the AICL deglitch time
+				dynamically for handling the battery over-voltage
+				oscillations when the charger is headroom limited.
 - qcom,ibat-ocp-threshold-ua	Maximum current before the battery will trigger
 				overcurrent protection. Use the recommended
 				battery pack value minus some margin.
