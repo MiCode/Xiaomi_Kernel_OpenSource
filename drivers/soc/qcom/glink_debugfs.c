@@ -474,17 +474,17 @@ static void glink_dfs_create_xprt_list(struct seq_file *s)
 	int count = 0;
 	/*
 	* formatted, human readable channel state output, ie:
-	* XPRT_NAME|REMOTE    |STATE|FEATURES|VERSION|
+	* XPRT_NAME|REMOTE    |STATE|VERSION |FEATURES|
 	* ---------------------------------------------
-	* smd_trans|lpass     |2    |0       |1      |
-	* smem     |mpss      |0    |0       |0      |
+	* smd_trans|lpass     |2    |0       |1       |
+	* smem     |mpss      |0    |0       |0       |
 	*/
 	seq_printf(s, "%-20s|%-20s|%-6s|%-8s|%-8s|\n",
 							"XPRT_NAME",
 							"REMOTE",
 							"STATE",
-							"FEATURES",
-							"VERSION");
+							"VERSION",
+							"FEATURES");
 	seq_puts(s,
 		"-------------------------------------------------------------------------------\n");
 	glink_xprt_ctx_iterator_init(&xprt_iter);
