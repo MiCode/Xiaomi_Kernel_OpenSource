@@ -57,35 +57,53 @@ void dwc3_set_mode(struct dwc3 *dwc, u32 mode)
 	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
 	reg &= ~(DWC3_GCTL_PRTCAPDIR(DWC3_GCTL_PRTCAP_OTG));
 	reg |= DWC3_GCTL_PRTCAPDIR(mode);
+	/*
+	 * Set this bit so that device attempts three more times at SS, even
+	 * if it failed previously to operate in SS mode.
+	 */
+	reg |= DWC3_GCTL_U2RSTECN;
+	if (mode == DWC3_GCTL_PRTCAP_HOST) {
+		/*
+		 * Allow ITP generated off of ref clk based counter instead
+		 * of UTMI/ULPI clk based counter, when superspeed only is
+		 * active so that UTMI/ULPI PHY can be suspened.
+		 */
+		reg |= DWC3_GCTL_SOFITPSYNC;
+		reg &= ~(DWC3_GCTL_PWRDNSCALEMASK);
+		reg |= DWC3_GCTL_PWRDNSCALE(2);
+	} else if (mode == DWC3_GCTL_PRTCAP_DEVICE) {
+		reg &= ~(DWC3_GCTL_PWRDNSCALEMASK);
+		reg |= DWC3_GCTL_PWRDNSCALE(2);
+		reg &= ~(DWC3_GCTL_SOFITPSYNC);
+	}
+	reg |= DWC3_GCTL_U2EXIT_LFPS;
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 }
 
 /**
- * dwc3_core_soft_reset - Issues core soft reset and PHY reset
+ * Peforms initialization of HS and SS PHYs.
+ * If used as a part of POR or init sequence it is recommended
+ * that we should perform hard reset of the PHYs prior to invoking
+ * this function.
  * @dwc: pointer to our context structure
- */
-static int dwc3_core_soft_reset(struct dwc3 *dwc)
+*/
+static int dwc3_init_usb_phys(struct dwc3 *dwc)
 {
-	u32		reg;
 	int		ret;
 
-	/* Before Resetting PHY, put Core in Reset */
-	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
-	reg |= DWC3_GCTL_CORESOFTRESET;
-	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
-
-	/* Assert USB3 PHY reset */
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-	reg |= DWC3_GUSB3PIPECTL_PHYSOFTRST;
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
-
-	/* Assert USB2 PHY reset */
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
-	reg |= DWC3_GUSB2PHYCFG_PHYSOFTRST;
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
-
-	usb_phy_init(dwc->usb2_phy);
-	usb_phy_init(dwc->usb3_phy);
+	/* Bring up PHYs */
+	ret = usb_phy_init(dwc->usb2_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb2_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
+	ret = usb_phy_init(dwc->usb3_phy);
+	if (ret) {
+		pr_err("%s: usb_phy_init(dwc->usb3_phy) returned %d\n",
+				__func__, ret);
+		return ret;
+	}
 	ret = phy_init(dwc->usb2_generic_phy);
 	if (ret < 0)
 		return ret;
@@ -95,24 +113,33 @@ static int dwc3_core_soft_reset(struct dwc3 *dwc)
 		phy_exit(dwc->usb2_generic_phy);
 		return ret;
 	}
-	mdelay(100);
 
-	/* Clear USB3 PHY reset */
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB3PIPECTL(0));
-	reg &= ~DWC3_GUSB3PIPECTL_PHYSOFTRST;
-	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
+	return 0;
+}
 
-	/* Clear USB2 PHY reset */
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
-	reg &= ~DWC3_GUSB2PHYCFG_PHYSOFTRST;
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
+/**
+ * dwc3_core_reset - Issues core soft reset and PHY reset
+ * @dwc: pointer to our context structure
+ */
+static int dwc3_core_reset(struct dwc3 *dwc)
+{
+	int		ret;
 
-	mdelay(100);
+	/* Reset PHYs */
+	usb_phy_reset(dwc->usb2_phy);
+	usb_phy_reset(dwc->usb3_phy);
 
-	/* After PHYs are stable we can take Core out of reset state */
-	reg = dwc3_readl(dwc->regs, DWC3_GCTL);
-	reg &= ~DWC3_GCTL_CORESOFTRESET;
-	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
+	/* Initialize PHYs */
+	ret = dwc3_init_usb_phys(dwc);
+	if (ret) {
+		pr_err("%s: dwc3_init_phys returned %d\n",
+				__func__, ret);
+		return ret;
+	}
+
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_RESET_EVENT);
+
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_POST_RESET_EVENT);
 
 	return 0;
 }
@@ -529,7 +556,7 @@ static int dwc3_phy_setup(struct dwc3 *dwc)
  *
  * Returns 0 on success otherwise negative errno.
  */
-static int dwc3_core_init(struct dwc3 *dwc)
+int dwc3_core_init(struct dwc3 *dwc)
 {
 	u32			hwparams4 = dwc->hwparams.hwparams4;
 	u32			reg;
@@ -563,12 +590,12 @@ static int dwc3_core_init(struct dwc3 *dwc)
 			dwc->maximum_speed = USB_SPEED_HIGH;
 	}
 
-	/* issue device SoftReset too */
-	ret = dwc3_soft_reset(dwc);
+	ret = dwc3_core_reset(dwc);
 	if (ret)
 		goto err0;
 
-	ret = dwc3_core_soft_reset(dwc);
+	/* issue device SoftReset too */
+	ret = dwc3_soft_reset(dwc);
 	if (ret)
 		goto err0;
 
