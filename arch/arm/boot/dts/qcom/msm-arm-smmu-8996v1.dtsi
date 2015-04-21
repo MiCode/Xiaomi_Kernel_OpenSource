@@ -11,6 +11,7 @@
  */
 
 #include "msm-arm-smmu.dtsi"
+#include "msm-arm-smmu-impl-defs-8996v1.dtsi"
 
 &jpeg_smmu {
 	status = "ok";

@@ -99,5 +99,3 @@
 		#iommu-cells = <1>;
 	};
 };
-
-#include "msm-arm-smmu-impl-defs.dtsi"
