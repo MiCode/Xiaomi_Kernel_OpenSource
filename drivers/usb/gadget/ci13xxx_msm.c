@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,6 +398,11 @@ static int ci13xxx_msm_probe(struct platform_device *pdev)
 		if (pdata->enable_ahb2ahb_bypass)
 			ci13xxx_msm_udc_driver.flags |=
 				CI13XXX_ENABLE_AHB2AHB_BYPASS;
+
+		/* Clear disable streaming flag if is requested. */
+		if (pdata->enable_streaming)
+			ci13xxx_msm_udc_driver.flags &=
+						~CI13XXX_DISABLE_STREAMING;
 	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);

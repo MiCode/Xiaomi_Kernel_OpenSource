@@ -399,17 +399,18 @@ static int hw_device_state(u32 dma)
 			pr_debug("%s(): streaming mode is enabled. USBMODE:%x\n",
 				 __func__, hw_cread(CAP_USBMODE, ~0));
 
-			/* In streaming mode, allowed to increase USB system
-			 * clock upto 133MHz. But, going to 133MHz require
-			 * system to run at turbo. Hence setting up optimum
-			 * frequency 100MHZ, that operates in nominal mode.
-			 * If HW fix for prime failure bug is enabled, then
-			 * system clock will be running >= 100Mhz and hence
-			 * in this case, it is not required to change system
-			 * clock rate.
+			/* If streaming mode is enabled by default, system clock
+			 * runs at max nominal clock rate. If not, it runs at
+			 * lower freq (< max nominal clock rate). Streaming
+			 * enabled will be set by composite layer to enable
+			 * streaming depending on functions. In this case, bump
+			 * up system clock to max nominal system clock rate from
+			 * default value for better performance.
 			 */
-			if (udc->system_clk && !udc->enable_epprime_fix) {
-				ret = clk_set_rate(udc->system_clk, 100000000);
+			if (udc->system_clk && (udc->udc_driver->flags &
+				CI13XXX_DISABLE_STREAMING)) {
+				ret = clk_set_rate(udc->system_clk,
+					udc->max_nominal_system_clk_rate);
 				if (ret)
 					pr_err("fail to set system_clk: %d\n",
 						ret);
@@ -418,17 +419,6 @@ static int hw_device_state(u32 dma)
 			hw_cwrite(CAP_USBMODE, USBMODE_SDIS, USBMODE_SDIS);
 			pr_debug("%s(): streaming mode is disabled. USBMODE:%x\n",
 				__func__, hw_cread(CAP_USBMODE, ~0));
-
-			/* In non-stream mode, due to HW limitation cannot go
-			 * beyond 80MHz, otherwise, may see EP prime failures.
-			 */
-			if (udc->system_clk && !udc->enable_epprime_fix) {
-				ret = clk_set_rate(udc->system_clk, 80000000);
-				if (ret)
-					pr_err("fail to set system_clk: %d\n",
-						ret);
-			}
-
 		}
 
 		/* make sure clock set rate is finished before proceeding */
@@ -460,8 +450,10 @@ static int hw_device_state(u32 dma)
 		/* In non-stream mode, due to HW limitation cannot go
 		 * beyond 80MHz, otherwise, may see EP prime failures.
 		 */
-		if (udc->system_clk && !udc->enable_epprime_fix) {
-			ret = clk_set_rate(udc->system_clk, 80000000);
+		if (udc->system_clk && (udc->udc_driver->flags &
+				CI13XXX_DISABLE_STREAMING)) {
+			ret = clk_set_rate(udc->system_clk,
+						udc->default_system_clk_rate);
 			if (ret)
 				pr_err("fail to set system_clk ret:%d\n", ret);
 		}
@@ -4057,7 +4049,9 @@ static int udc_probe(struct ci13xxx_udc_driver *driver, struct device *dev,
 	if (pdata) {
 		udc->gadget.usb_core_id = pdata->usb_core_id;
 		udc->system_clk = pdata->system_clk;
-		udc->enable_epprime_fix = pdata->enable_epprime_fix;
+		udc->max_nominal_system_clk_rate =
+					pdata->max_nominal_system_clk_rate;
+		udc->default_system_clk_rate = pdata->default_system_clk_rate;
 	}
 
 	if (udc->udc_driver->flags & CI13XXX_REQUIRE_TRANSCEIVER) {

@@ -278,7 +278,7 @@ enum usb_id_state {
  * @usb_id_gpio: Gpio used for USB ID detection.
  * @bool phy_dvdd_always_on: PHY DVDD is supplied by always on PMIC LDO.
  * @bool emulation: Indicates whether we are running on emulation platform.
- * @bool enable_epprime_fix: Indicates whether HW fix for epprime failure is enabled.
+ * @bool enable_streaming: Indicates whether streaming to be enabled by default.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -312,7 +312,7 @@ struct msm_otg_platform_data {
 	int usb_id_gpio;
 	bool phy_dvdd_always_on;
 	bool emulation;
-	bool enable_epprime_fix;
+	bool enable_streaming;
 	struct clk *system_clk;
 };
 
@@ -433,6 +433,8 @@ struct msm_otg_platform_data {
  * @dbg_idx: Dynamic debug buffer Index.
  * @dbg_lock: Dynamic debug buffer Lock.
  * @buf: Dynamic Debug Buffer.
+ * @max_nominal_system_clk_rate: max freq at which system clock can run in
+		nominal mode.
  */
 struct msm_otg {
 	struct usb_phy phy;
@@ -585,6 +587,7 @@ struct msm_otg {
 	unsigned int dbg_idx;
 	rwlock_t dbg_lock;
 	char (buf[DEBUG_MAX_MSG])[DEBUG_MSG_LEN];   /* buffer */
+	u32 max_nominal_system_clk_rate;
 };
 
 struct ci13xxx_platform_data {
@@ -597,8 +600,10 @@ struct ci13xxx_platform_data {
 	void *prv_data;
 	bool l1_supported;
 	bool enable_ahb2ahb_bypass;
-	bool enable_epprime_fix;
+	bool enable_streaming;
 	struct clk *system_clk;
+	u32 max_nominal_system_clk_rate;
+	u32 default_system_clk_rate;
 };
 
 /**

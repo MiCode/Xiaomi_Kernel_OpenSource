@@ -185,7 +185,12 @@ struct ci13xxx {
 	bool                      skip_flush; /* skip flushing remaining EP
 						upon flush timeout for the
 						first EP. */
-	bool                      enable_epprime_fix; /* is prime fix enabled */
+	u32			  max_nominal_system_clk_rate;	/* max freq to
+						be voted for system clock in
+						streaming mode */;
+	u32			  default_system_clk_rate;	/* max freq at
+						which system clock should run
+						in non streaming mode */;
 };
 
 /******************************************************************************
