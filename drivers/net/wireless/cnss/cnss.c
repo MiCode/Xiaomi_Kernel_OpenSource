@@ -106,6 +106,7 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_VREG_NAME		"vdd-wlan"
 #define WLAN_VREG_IO_NAME	"vdd-wlan-io"
 #define WLAN_VREG_XTAL_NAME	"vdd-wlan-xtal"
+#define WLAN_VREG_CORE_NAME	"vdd-wlan-core"
 #define WLAN_VREG_SP2T_NAME	"vdd-wlan-sp2t"
 #define WLAN_SWREG_NAME		"wlan-soc-swreg"
 #define WLAN_EN_GPIO_NAME	"wlan-en-gpio"
@@ -122,6 +123,8 @@ static struct cnss_fw_files FW_FILES_DEFAULT = {
 #define WLAN_VREG_IO_MIN	1800000
 #define WLAN_VREG_XTAL_MAX	1800000
 #define WLAN_VREG_XTAL_MIN	1800000
+#define WLAN_VREG_CORE_MAX	1300000
+#define WLAN_VREG_CORE_MIN	1300000
 #define WLAN_VREG_SP2T_MAX	2700000
 #define WLAN_VREG_SP2T_MIN	2700000
 
@@ -171,6 +174,7 @@ struct cnss_wlan_vreg_info {
 	struct regulator *soc_swreg;
 	struct regulator *wlan_reg_io;
 	struct regulator *wlan_reg_xtal;
+	struct regulator *wlan_reg_core;
 	struct regulator *wlan_reg_sp2t;
 	bool state;
 };
@@ -291,6 +295,15 @@ static int cnss_wlan_vreg_on(struct cnss_wlan_vreg_info *vreg_info)
 {
 	int ret;
 
+	if (vreg_info->wlan_reg_core) {
+		ret = regulator_enable(vreg_info->wlan_reg_core);
+		if (ret) {
+			pr_err("%s: regulator enable failed for wlan_reg_core\n",
+				__func__);
+			goto error_enable_reg_core;
+		}
+	}
+
 	ret = regulator_enable(vreg_info->wlan_reg);
 	if (ret) {
 		pr_err("%s: regulator enable failed for WLAN power\n",
@@ -348,6 +361,9 @@ error_enable_reg_xtal:
 error_enable_reg_io:
 	regulator_disable(vreg_info->wlan_reg);
 error_enable:
+	if (vreg_info->wlan_reg_core)
+		regulator_disable(vreg_info->wlan_reg_core);
+error_enable_reg_core:
 	return ret;
 }
 
@@ -396,6 +412,15 @@ static int cnss_wlan_vreg_off(struct cnss_wlan_vreg_info *vreg_info)
 		pr_err("%s: regulator disable failed for WLAN power\n",
 				__func__);
 		goto error_disable;
+	}
+
+	if (vreg_info->wlan_reg_core) {
+		ret = regulator_disable(vreg_info->wlan_reg_core);
+		if (ret) {
+			pr_err("%s: regulator disable failed for wlan_reg_core\n",
+				__func__);
+			goto error_disable;
+		}
 	}
 
 error_disable:
@@ -528,6 +553,37 @@ static int cnss_wlan_get_resources(struct platform_device *pdev)
 	int ret = 0;
 	struct cnss_wlan_gpio_info *gpio_info = &penv->gpio_info;
 	struct cnss_wlan_vreg_info *vreg_info = &penv->vreg_info;
+
+	if (of_get_property(pdev->dev.of_node,
+		WLAN_VREG_CORE_NAME"-supply", NULL)) {
+		vreg_info->wlan_reg_core = regulator_get(&pdev->dev,
+			WLAN_VREG_CORE_NAME);
+		if (IS_ERR(vreg_info->wlan_reg_core)) {
+			ret = PTR_ERR(vreg_info->wlan_reg_core);
+
+			if (ret == -EPROBE_DEFER) {
+				pr_err("%s: wlan_reg_core probe deferred!\n",
+					__func__);
+			} else {
+				pr_err("%s: Get wlan_reg_core failed!\n",
+					__func__);
+			}
+			goto err_reg_core_get;
+		}
+
+		ret = regulator_set_voltage(vreg_info->wlan_reg_core,
+			WLAN_VREG_CORE_MIN, WLAN_VREG_CORE_MAX);
+		if (ret) {
+			pr_err("%s: Set wlan_reg_core failed!\n", __func__);
+			goto err_reg_core_set;
+		}
+
+		ret = regulator_enable(vreg_info->wlan_reg_core);
+		if (ret) {
+			pr_err("%s: Enable wlan_reg_core failed!\n", __func__);
+			goto err_reg_core_enable;
+		}
+	}
 
 	vreg_info->wlan_reg = regulator_get(&pdev->dev, WLAN_VREG_NAME);
 
@@ -739,10 +795,20 @@ err_reg_io_enable:
 
 err_reg_io_set:
 	regulator_disable(vreg_info->wlan_reg);
+
 err_reg_enable:
 	regulator_put(vreg_info->wlan_reg);
 
 err_reg_get:
+	if (vreg_info->wlan_reg_core)
+		regulator_disable(vreg_info->wlan_reg_core);
+
+err_reg_core_enable:
+err_reg_core_set:
+	if (vreg_info->wlan_reg_core)
+		regulator_put(vreg_info->wlan_reg_core);
+
+err_reg_core_get:
 	return ret;
 }
 
@@ -766,6 +832,8 @@ static void cnss_wlan_release_resources(void)
 	if (vreg_info->wlan_reg_io)
 		regulator_put(vreg_info->wlan_reg_io);
 	regulator_put(vreg_info->wlan_reg);
+	if (vreg_info->wlan_reg_core)
+		regulator_put(vreg_info->wlan_reg_core);
 	vreg_info->state = VREG_OFF;
 }
 
