@@ -123,6 +123,52 @@ exit:
 	return cnt;
 }
 
+static int mdss_mdp_tearcheck_enable(struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct mdss_mdp_ctl *sctl;
+	struct mdss_mdp_pp_tear_check *te;
+	struct mdss_mdp_mixer *mixer =
+		mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
+
+	if (IS_ERR_OR_NULL(ctl->panel_data)) {
+		pr_err("no panel data\n");
+		return -ENODEV;
+	}
+
+	if (IS_ERR_OR_NULL(mixer)) {
+		pr_err("mixer not configured\n");
+		return -ENODEV;
+	}
+
+	sctl = mdss_mdp_get_split_ctl(ctl);
+	te = &ctl->panel_data->panel_info.te;
+	mdss_mdp_pingpong_write(mixer->pingpong_base,
+		MDSS_MDP_REG_PP_TEAR_CHECK_EN,
+		te ? te->tear_check_en : 0);
+
+	/*
+	 * When there are two controls, driver needs to enable
+	 * tear check configuration for both.
+	 */
+	if (sctl) {
+		te = &sctl->panel_data->panel_info.te;
+		mdss_mdp_pingpong_write(mixer->pingpong_base,
+				MDSS_MDP_REG_PP_TEAR_CHECK_EN,
+				te ? te->tear_check_en : 0);
+	}
+
+	/*
+	 * In the case of pingpong split, there is no second
+	 * control and enables only slave tear check block as
+	 * defined in slave_pingpong_base.
+	 */
+	if (is_pingpong_split(ctl->mfd))
+		mdss_mdp_pingpong_write(mdata->slave_pingpong_base,
+				MDSS_MDP_REG_PP_TEAR_CHECK_EN,
+				te ? te->tear_check_en : 0);
+	return 0;
+}
 
 static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 		struct mdss_mdp_cmd_ctx *ctx, bool enable)
@@ -200,8 +246,8 @@ static int mdss_mdp_cmd_tearcheck_cfg(struct mdss_mdp_mixer *mixer,
 		te ? ((te->sync_threshold_continue << 16) |
 		 te->sync_threshold_start) : 0);
 	mdss_mdp_pingpong_write(pingpong_base,
-		MDSS_MDP_REG_PP_TEAR_CHECK_EN,
-		te ? te->tear_check_en : 0);
+		MDSS_MDP_REG_PP_SYNC_WRCOUNT,
+		te ? (te->start_pos + te->sync_threshold_start + 1) : 0);
 
 	return 0;
 }
@@ -756,6 +802,10 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl,
 		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL);
 		WARN(rc, "intf %d panel on error (%d)\n", ctl->intf_num, rc);
 
+		rc = mdss_mdp_tearcheck_enable(ctl);
+		WARN(rc, "intf %d tearcheck enable error (%d)\n",
+				ctl->intf_num, rc);
+
 		ctx->panel_power_state = MDSS_PANEL_POWER_ON;
 		if (sctx)
 			sctx->panel_power_state = MDSS_PANEL_POWER_ON;
@@ -982,6 +1032,9 @@ int mdss_mdp_cmd_restore(struct mdss_mdp_ctl *ctl)
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	if (mdss_mdp_cmd_tearcheck_setup(ctl->intf_ctx[MASTER_CTX], true))
 		pr_warn("%s: tearcheck setup failed\n", __func__);
+	else
+		mdss_mdp_tearcheck_enable(ctl);
+
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	return 0;
