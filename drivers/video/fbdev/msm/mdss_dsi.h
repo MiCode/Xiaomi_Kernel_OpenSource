@@ -411,6 +411,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool core_power;
 	bool mmss_clamp;
 	bool timing_db_mode;
+	char dlane_swap;	/* data lane swap */
 
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;

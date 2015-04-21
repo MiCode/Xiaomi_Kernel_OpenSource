@@ -770,30 +770,6 @@ static int mdss_dsi_panel_low_power_config(struct mdss_panel_data *pdata,
 	return 0;
 }
 
-static void mdss_dsi_parse_lane_swap(struct device_node *np, char *dlane_swap)
-{
-	const char *data;
-
-	*dlane_swap = DSI_LANE_MAP_0123;
-	data = of_get_property(np, "qcom,mdss-dsi-lane-map", NULL);
-	if (data) {
-		if (!strcmp(data, "lane_map_3012"))
-			*dlane_swap = DSI_LANE_MAP_3012;
-		else if (!strcmp(data, "lane_map_2301"))
-			*dlane_swap = DSI_LANE_MAP_2301;
-		else if (!strcmp(data, "lane_map_1230"))
-			*dlane_swap = DSI_LANE_MAP_1230;
-		else if (!strcmp(data, "lane_map_0321"))
-			*dlane_swap = DSI_LANE_MAP_0321;
-		else if (!strcmp(data, "lane_map_1032"))
-			*dlane_swap = DSI_LANE_MAP_1032;
-		else if (!strcmp(data, "lane_map_2103"))
-			*dlane_swap = DSI_LANE_MAP_2103;
-		else if (!strcmp(data, "lane_map_3210"))
-			*dlane_swap = DSI_LANE_MAP_3210;
-	}
-}
-
 static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
 		char *trigger_key)
 {
@@ -2100,8 +2076,6 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_dsi_parse_trigger(np, &(pinfo->mipi.dma_trigger),
 		"qcom,mdss-dsi-dma-trigger");
-
-	mdss_dsi_parse_lane_swap(np, &(pinfo->mipi.dlane_swap));
 
 	mdss_dsi_parse_compression_params(np, pinfo);
 

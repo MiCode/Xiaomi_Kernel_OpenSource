@@ -2297,6 +2297,30 @@ static int mdss_dsi_irq_init(struct device *dev, int irq_no,
 	return ret;
 }
 
+static void mdss_dsi_parse_lane_swap(struct device_node *np, char *dlane_swap)
+{
+	const char *data;
+
+	*dlane_swap = DSI_LANE_MAP_0123;
+	data = of_get_property(np, "qcom,lane-map", NULL);
+	if (data) {
+		if (!strcmp(data, "lane_map_3012"))
+			*dlane_swap = DSI_LANE_MAP_3012;
+		else if (!strcmp(data, "lane_map_2301"))
+			*dlane_swap = DSI_LANE_MAP_2301;
+		else if (!strcmp(data, "lane_map_1230"))
+			*dlane_swap = DSI_LANE_MAP_1230;
+		else if (!strcmp(data, "lane_map_0321"))
+			*dlane_swap = DSI_LANE_MAP_0321;
+		else if (!strcmp(data, "lane_map_1032"))
+			*dlane_swap = DSI_LANE_MAP_1032;
+		else if (!strcmp(data, "lane_map_2103"))
+			*dlane_swap = DSI_LANE_MAP_2103;
+		else if (!strcmp(data, "lane_map_3210"))
+			*dlane_swap = DSI_LANE_MAP_3210;
+	}
+}
+
 int dsi_panel_device_register(struct device_node *pan_node,
 				struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -2464,6 +2488,9 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	} else {
 		ctrl_pdata->mode_gpio = -EINVAL;
 	}
+
+	mdss_dsi_parse_lane_swap(ctrl_pdev->dev.of_node,
+			&(ctrl_pdata->dlane_swap));
 
 	ctrl_pdata->timing_db_mode = of_property_read_bool(
 		ctrl_pdev->dev.of_node, "qcom,timing-db-mode");
