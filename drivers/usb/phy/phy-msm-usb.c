@@ -833,6 +833,11 @@ static int msm_otg_reset(struct usb_phy *phy)
 
 	msm_otg_dbg_log_event(&motg->phy, "USB RESET DONE", phy->state,
 			get_pm_runtime_counter(phy->dev));
+
+	if (pdata->enable_axi_prefetch)
+		writel_relaxed(readl_relaxed(USB_HS_APF_CTRL) | (APF_CTRL_EN),
+							USB_HS_APF_CTRL);
+
 	return 0;
 }
 
@@ -5397,6 +5402,8 @@ struct msm_otg_platform_data *msm_otg_dt_to_pdata(struct platform_device *pdev)
 	pdata->enable_streaming = of_property_read_bool(node,
 					"qcom,boost-sysclk-with-streaming");
 
+	pdata->enable_axi_prefetch = of_property_read_bool(node,
+						"qcom,axi-prefetch-enable");
 	return pdata;
 }
 

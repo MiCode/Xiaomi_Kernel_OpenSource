@@ -279,6 +279,8 @@ enum usb_id_state {
  * @bool phy_dvdd_always_on: PHY DVDD is supplied by always on PMIC LDO.
  * @bool emulation: Indicates whether we are running on emulation platform.
  * @bool enable_streaming: Indicates whether streaming to be enabled by default.
+ * @bool enable_axi_prefetch: Indicates whether AXI Prefetch interface is used
+		for improving data performance.
  */
 struct msm_otg_platform_data {
 	int *phy_init_seq;
@@ -313,6 +315,7 @@ struct msm_otg_platform_data {
 	bool phy_dvdd_always_on;
 	bool emulation;
 	bool enable_streaming;
+	bool enable_axi_prefetch;
 	struct clk *system_clk;
 };
 
