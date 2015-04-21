@@ -1,6 +1,6 @@
 /* Qualcomm Crypto Engine driver.
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2774,18 +2774,23 @@ static void qce_sps_exit(struct qce_device *pce_dev)
 	qce_sps_release_bam(pce_dev);
 }
 
+static void print_notify_debug(struct sps_event_notify *notify)
+{
+	phys_addr_t addr = DESC_FULL_ADDR(notify->data.transfer.iovec.flags,
+					  notify->data.transfer.iovec.addr);
+	pr_debug("sps ev_id=%d, addr=0x%pa, size=0x%x, flags=0x%x\n",
+			notify->event_id, &addr,
+			notify->data.transfer.iovec.size,
+			notify->data.transfer.iovec.flags);
+}
+
 static void _aead_sps_producer_callback(struct sps_event_notify *notify)
 {
 	struct qce_device *pce_dev = (struct qce_device *)
 		((struct sps_event_notify *)notify)->user;
 
 	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
-
+	print_notify_debug(notify);
 	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
 		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 		/* done */
@@ -2814,11 +2819,7 @@ static void _sha_sps_producer_callback(struct sps_event_notify *notify)
 		((struct sps_event_notify *)notify)->user;
 
 	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
+	print_notify_debug(notify);
 	/* done */
 	_sha_complete(pce_dev);
 };
@@ -2829,11 +2830,7 @@ static void _f9_sps_producer_callback(struct sps_event_notify *notify)
 		((struct sps_event_notify *)notify)->user;
 
 	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
+	print_notify_debug(notify);
 	/* done */
 	_f9_complete(pce_dev);
 }
@@ -2844,12 +2841,7 @@ static void _f8_sps_producer_callback(struct sps_event_notify *notify)
 		((struct sps_event_notify *)notify)->user;
 
 	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
-
+	print_notify_debug(notify);
 	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
 		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 		/* done */
@@ -2878,12 +2870,7 @@ static void _ablk_cipher_sps_producer_callback(struct sps_event_notify *notify)
 		((struct sps_event_notify *)notify)->user;
 
 	pce_dev->ce_sps.notify = *notify;
-	pr_debug("sps ev_id=%d, addr=0x%x, size=0x%x, flags=0x%x\n",
-			notify->event_id,
-			notify->data.transfer.iovec.addr,
-			notify->data.transfer.iovec.size,
-			notify->data.transfer.iovec.flags);
-
+	print_notify_debug(notify);
 	if (pce_dev->ce_sps.producer_state == QCE_PIPE_STATE_COMP) {
 		pce_dev->ce_sps.producer_state = QCE_PIPE_STATE_IDLE;
 		/* done */
