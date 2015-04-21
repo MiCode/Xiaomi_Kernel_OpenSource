@@ -117,6 +117,7 @@ struct smbchg_chip {
 	bool				chg_inhibit_source_fg;
 	bool				low_volt_dcin;
 	bool				vbat_above_headroom;
+	bool				force_aicl_rerun;
 	u8				original_usbin_allowance;
 	struct parallel_usb_cfg		parallel;
 	struct delayed_work		parallel_en_work;
@@ -2987,10 +2988,50 @@ static void smbchg_soc_changed(struct smbchg_chip *chip)
 #define AICL_RERUN_MASK			(BIT(5) | BIT(4))
 #define AICL_RERUN_ON			(BIT(5) | BIT(4))
 #define AICL_RERUN_OFF			0
+
+static int smbchg_hw_aicl_rerun_en(struct smbchg_chip *chip, bool en)
+{
+	int rc = 0;
+
+	rc = smbchg_sec_masked_write(chip,
+		chip->misc_base + MISC_TRIM_OPT_15_8,
+		AICL_RERUN_MASK, en ? AICL_RERUN_ON : AICL_RERUN_OFF);
+	if (rc)
+		pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
+			rc);
+	return rc;
+}
+
+static int smbchg_aicl_config(struct smbchg_chip *chip)
+{
+	int rc = 0;
+
+	rc = smbchg_sec_masked_write(chip,
+		chip->usb_chgpth_base + USB_AICL_CFG,
+		USB_AICL_DEGLITCH_MASK, USB_AICL_DEGLITCH_LONG);
+	if (rc) {
+		pr_err("Couldn't write to USB_AICL_CFG rc=%d\n", rc);
+		return rc;
+	}
+	rc = smbchg_sec_masked_write(chip,
+		chip->dc_chgpth_base + DC_AICL_CFG,
+		DC_AICL_DEGLITCH_MASK, DC_AICL_DEGLITCH_LONG);
+	if (rc) {
+		pr_err("Couldn't write to DC_AICL_CFG rc=%d\n", rc);
+		return rc;
+	}
+	rc = smbchg_hw_aicl_rerun_en(chip, true);
+	if (rc)
+		pr_err("Couldn't enable AICL rerun rc= %d\n", rc);
+	return rc;
+}
+
 static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 {
 	int rc;
 
+	if (chip->force_aicl_rerun)
+		return;
 	if (en && !chip->aicl_deglitch_short) {
 		rc = smbchg_sec_masked_write(chip,
 			chip->usb_chgpth_base + USB_AICL_CFG,
@@ -3006,12 +3047,9 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 			pr_err("Couldn't write to DC_AICL_CFG rc=%d\n", rc);
 			return;
 		}
-		rc = smbchg_sec_masked_write(chip,
-			chip->misc_base + MISC_TRIM_OPT_15_8,
-			AICL_RERUN_MASK, AICL_RERUN_ON);
+		rc = smbchg_hw_aicl_rerun_en(chip, true);
 		if (rc) {
-			pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
-					rc);
+			pr_err("Couldn't enable AICL rerun rc= %d\n", rc);
 			return;
 		}
 		pr_smb(PR_STATUS, "AICL deglitch set to short\n");
@@ -3030,12 +3068,9 @@ static void smbchg_aicl_deglitch_wa_en(struct smbchg_chip *chip, bool en)
 			pr_err("Couldn't write to DC_AICL_CFG rc=%d\n", rc);
 			return;
 		}
-		rc = smbchg_sec_masked_write(chip,
-			chip->misc_base + MISC_TRIM_OPT_15_8,
-			AICL_RERUN_MASK, AICL_RERUN_OFF);
+		rc = smbchg_hw_aicl_rerun_en(chip, false);
 		if (rc) {
-			pr_err("Couldn't write to MISC_TRIM_OPTIONS_15_8 rc=%d\n",
-				rc);
+			pr_err("Couldn't disable AICL rerun rc= %d\n", rc);
 			return;
 		}
 		pr_smb(PR_STATUS, "AICL deglitch set to normal\n");
@@ -3893,6 +3928,7 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	bool dc_present = is_dc_present(chip);
+	int rc;
 
 	pr_smb(PR_STATUS, "chip->dc_present = %d dc_present = %d\n",
 			chip->dc_present, dc_present);
@@ -3904,6 +3940,12 @@ static irqreturn_t dcin_uv_handler(int irq, void *_chip)
 			power_supply_changed(&chip->dc_psy);
 		smbchg_charging_status_change(chip);
 		smbchg_aicl_deglitch_wa_check(chip);
+		if (chip->force_aicl_rerun && !dc_present) {
+			rc = smbchg_hw_aicl_rerun_en(chip, true);
+			if (rc)
+				pr_err("Error enabling AICL rerun rc= %d\n",
+					rc);
+		}
 		chip->vbat_above_headroom = false;
 	}
 
@@ -3918,6 +3960,12 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 
 	chip->apsd_rerun = false;
 	smbchg_aicl_deglitch_wa_check(chip);
+	if (chip->force_aicl_rerun) {
+		rc = smbchg_hw_aicl_rerun_en(chip, true);
+		if (rc)
+			pr_err("Error enabling AICL rerun rc= %d\n",
+				rc);
+	}
 	/* Clear the OV detected status set before */
 	if (chip->usb_ov_det)
 		chip->usb_ov_det = false;
@@ -4354,7 +4402,7 @@ static irqreturn_t aicl_done_handler(int irq, void *_chip)
 	else
 		chip->aicl_complete = false;
 
-	if (chip->aicl_deglitch_short) {
+	if (chip->aicl_deglitch_short || chip->force_aicl_rerun) {
 		if (!chip->aicl_irq_count)
 			get_current_time(&chip->first_aicl_seconds);
 
@@ -4897,6 +4945,9 @@ static int smbchg_hw_init(struct smbchg_chip *chip)
 		}
 	}
 
+	if (chip->force_aicl_rerun)
+		rc = smbchg_aicl_config(chip);
+
 	return rc;
 }
 
@@ -5106,6 +5157,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 						"qcom,chg-inhibit-fg");
 	chip->low_volt_dcin = of_property_read_bool(node,
 					"qcom,low-volt-dcin");
+	chip->force_aicl_rerun = of_property_read_bool(node,
+					"qcom,force-aicl-rerun");
 
 	/* parse the battery missing detection pin source */
 	rc = of_property_read_string(chip->spmi->dev.of_node,
