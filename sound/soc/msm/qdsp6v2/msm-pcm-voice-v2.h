@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +19,8 @@ enum {
 	VOICE2_SESSION_INDEX,
 	QCHAT_SESSION_INDEX,
 	VOWLAN_SESSION_INDEX,
+	VOICEMMODE1_INDEX,
+	VOICEMMODE2_INDEX,
 	VOICE_SESSION_INDEX_MAX,
 };
 
