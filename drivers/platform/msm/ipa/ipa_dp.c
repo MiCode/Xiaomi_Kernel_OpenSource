@@ -1781,6 +1781,9 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 	unsigned char *buf;
 	bool drop_packet;
 	int src_pipe;
+	unsigned int used = *(unsigned int *)skb->cb;
+	unsigned int used_align = ALIGN(used, 32);
+	unsigned long unused = IPA_GENERIC_RX_BUFF_BASE_SZ - used;
 
 	IPA_DUMP_BUFF(skb->data, 0, skb->len);
 
@@ -1813,6 +1816,8 @@ static int ipa_lan_rx_pyld_hdlr(struct sk_buff *skb,
 						skb->data, sys->len_rem);
 					skb_trim(skb2,
 						skb2->len - sys->len_pad);
+					skb2->truesize = skb2->len +
+						sizeof(struct sk_buff);
 					sys->ep->client_notify(sys->ep->priv,
 						IPA_RECEIVE,
 						(unsigned long)(skb2));
@@ -1962,6 +1967,11 @@ begin:
 					if (drop_packet)
 						dev_kfree_skb_any(skb2);
 					else {
+					skb2->truesize = skb2->len +
+						sizeof(struct sk_buff) +
+						(ALIGN(len +
+						IPA_PKT_STATUS_SIZE, 32) *
+						unused / used_align);
 						sys->ep->client_notify(
 							sys->ep->priv,
 							IPA_RECEIVE,
