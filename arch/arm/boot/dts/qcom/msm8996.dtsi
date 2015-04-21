@@ -736,6 +736,7 @@
 		vdd-perfcl-supply = <&apc1_vreg>;
 		vdd-cbf-supply = <&apc0_vreg>;
 		vdd-dig-supply = <&pm8994_s2_corner_ao>;
+		cbf-dev = <&m4m_cache>;
 		qcom,pwrcl-speedbin0-v0 =
 			<          0  0 >,
 			<  300000000  3 >,

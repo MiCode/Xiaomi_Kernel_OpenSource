@@ -605,6 +605,10 @@ static struct clk *logical_cpu_to_clk(int cpu)
 	struct device_node *cpu_node;
 	const u32 *cell;
 	u64 hwid;
+	static struct clk *cpu_clk_map[NR_CPUS];
+
+	if (cpu_clk_map[cpu])
+		return cpu_clk_map[cpu];
 
 	cpu_node = of_get_cpu_node(cpu, NULL);
 	if (!cpu_node)
@@ -617,10 +621,14 @@ static struct clk *logical_cpu_to_clk(int cpu)
 	}
 
 	hwid = of_read_number(cell, of_n_addr_cells(cpu_node));
-	if ((hwid | pwrcl_clk.cpu_reg_mask) == pwrcl_clk.cpu_reg_mask)
+	if ((hwid | pwrcl_clk.cpu_reg_mask) == pwrcl_clk.cpu_reg_mask) {
+		cpu_clk_map[cpu] = &pwrcl_clk.c;
 		return &pwrcl_clk.c;
-	if ((hwid | perfcl_clk.cpu_reg_mask) == perfcl_clk.cpu_reg_mask)
+	}
+	if ((hwid | perfcl_clk.cpu_reg_mask) == perfcl_clk.cpu_reg_mask) {
+		cpu_clk_map[cpu] = &perfcl_clk.c;
 		return &perfcl_clk.c;
+	}
 
 fail:
 	return NULL;
@@ -886,7 +894,11 @@ static int add_opp(struct clk *c, struct device *dev, unsigned long max_rate)
 {
 	unsigned long rate = 0;
 	int level;
+	int uv;
+	int *vdd_uv = c->vdd_class->vdd_uv;
+	struct regulator *reg = c->vdd_class->regulator[0];
 	long ret;
+	bool first = true;
 
 	while (1) {
 		ret = clk_round_rate(c, rate + 1);
@@ -897,16 +909,37 @@ static int add_opp(struct clk *c, struct device *dev, unsigned long max_rate)
 		rate = ret;
 		level = find_vdd_level(c, rate);
 		if (level <= 0) {
+			pr_warn("clock-cpu: no corner for %lu.\n", rate);
+			return -EINVAL;
+		}
+
+		uv = regulator_list_corner_voltage(reg, vdd_uv[level]);
+		if (uv < 0) {
 			pr_warn("clock-cpu: no uv for %lu.\n", rate);
 			return -EINVAL;
 		}
-		ret = dev_pm_opp_add(dev, rate, c->vdd_class->vdd_uv[level]);
+
+		ret = dev_pm_opp_add(dev, rate, uv);
 		if (ret) {
 			pr_warn("clock-cpu: failed to add OPP for %lu\n", rate);
 			return ret;
 		}
-		if (rate >= max_rate)
-			break;
+
+		/*
+		 * Print the OPP pair for the lowest and highest frequency for
+		 * each device that we're populating. This is important since
+		 * this information will be used by thermal mitigation and the
+		 * scheduler.
+		 */
+		if ((rate >= max_rate) || first) {
+			/* one time print at bootup */
+			pr_info("clock-cpu-8996: set OPP pair (%lu Hz, %d uv) on %s\n",
+				rate, uv, dev_name(dev));
+			if (first)
+				first = false;
+			else
+				break;
+		}
 	}
 
 	return 0;
@@ -914,49 +947,46 @@ static int add_opp(struct clk *c, struct device *dev, unsigned long max_rate)
 
 static void populate_opp_table(struct platform_device *pdev)
 {
-	struct platform_device *apc0_dev, *apc1_dev;
-	struct device_node *apc0_node, *apc1_node;
-	unsigned long apc0_fmax, apc1_fmax;
+	unsigned long pwrcl_fmax, perfcl_fmax, cbf_fmax;
+	struct device_node *cbf_node;
+	struct platform_device *cbf_dev;
+	int cpu;
 
-	apc0_node = of_parse_phandle(pdev->dev.of_node, "vdd-pwrcl-supply", 0);
-	apc1_node = of_parse_phandle(pdev->dev.of_node, "vdd-perfcl-supply", 0);
+	pwrcl_fmax = pwrcl_clk.c.fmax[pwrcl_clk.c.num_fmax - 1];
+	perfcl_fmax = perfcl_clk.c.fmax[perfcl_clk.c.num_fmax - 1];
+	cbf_fmax = cbf_hf_mux.c.fmax[cbf_hf_mux.c.num_fmax - 1];
 
-	if (!apc0_node) {
-		pr_err("can't find the apc0 dt node.\n");
+	for_each_possible_cpu(cpu) {
+		if (logical_cpu_to_clk(cpu) == &pwrcl_clk.c) {
+			WARN(add_opp(&pwrcl_clk.c, get_cpu_device(cpu),
+				     pwrcl_fmax),
+			     "Failed to add OPP levels for power cluster\n");
+		}
+		if (logical_cpu_to_clk(cpu) == &perfcl_clk.c) {
+			WARN(add_opp(&perfcl_clk.c, get_cpu_device(cpu),
+				     perfcl_fmax),
+			     "Failed to add OPP levels for perf cluster\n");
+		}
+	}
+
+	cbf_node = of_parse_phandle(pdev->dev.of_node, "cbf-dev", 0);
+	if (!cbf_node) {
+		pr_err("can't find the CBF dt node\n");
 		return;
 	}
 
-	if (!apc1_node) {
-		pr_err("can't find the apc1 dt node.\n");
+	cbf_dev = of_find_device_by_node(cbf_node);
+	if (!cbf_dev) {
+		pr_err("can't find the CBF dt device\n");
 		return;
 	}
 
-	apc0_dev = of_find_device_by_node(apc0_node);
-	apc1_dev = of_find_device_by_node(apc1_node);
-
-	if (!apc0_dev) {
-		pr_err("can't find the apc0 device node.\n");
-		return;
-	}
-
-	if (!apc1_dev) {
-		pr_err("can't find the apc1 device node.\n");
-		return;
-	}
-
-	apc0_fmax = pwrcl_clk.c.fmax[pwrcl_clk.c.num_fmax - 1];
-	apc1_fmax = perfcl_clk.c.fmax[perfcl_clk.c.num_fmax - 1];
-
-	WARN(add_opp(&pwrcl_clk.c, &apc0_dev->dev, apc0_fmax),
-		"Failed to add OPP levels for A53\n");
-	WARN(add_opp(&perfcl_clk.c, &apc1_dev->dev, apc1_fmax),
-		"Failed to add OPP levels for perf\n");
-
-	/* One time print during bootup */
-	pr_info("clock-cpu-8996: OPP tables populated.\n");
+	WARN(add_opp(&cbf_hf_mux.c, &cbf_dev->dev, cbf_fmax),
+	    "Failed to add OPP levels for CBF\n");
 }
 
 static int perfclspeedbin;
+static struct platform_device *cpu_clock_8996_dev;
 
 static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 {
@@ -1021,7 +1051,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 		WARN(clk_prepare_enable(&cbf_hf_mux.c),
 			"Failed to enable cbf clock.\n");
 		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
-			"Failed to enabled clock for cpu %d\n", cpu);
+			"Failed to enable clock for cpu %d\n", cpu);
 	}
 
 	pwrclrate = clk_get_rate(&pwrcl_clk.c);
@@ -1069,12 +1099,20 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	clk_prepare_enable(&perfcl_alt_pll.c);
 	clk_prepare_enable(&pwrcl_alt_pll.c);
 
-	populate_opp_table(pdev);
+	cpu_clock_8996_dev = pdev;
 
 	put_online_cpus();
 
 	return 0;
 }
+
+static int __init cpu_clock_8996_init_opp(void)
+{
+	if (cpu_clock_8996_dev)
+		populate_opp_table(cpu_clock_8996_dev);
+	return 0;
+}
+module_init(cpu_clock_8996_init_opp);
 
 static struct of_device_id match_table[] = {
 	{ .compatible = "qcom,cpu-clock-8996" },

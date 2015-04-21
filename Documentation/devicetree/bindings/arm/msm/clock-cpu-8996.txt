@@ -36,6 +36,8 @@ Required properties:
 			Similar to the qcom,perfcl-speedbinY-vZ property above,
 			except this frequency to voltage table is applied to the
 			clock for the CBF.
+- cbf-dev:		The CBF cache device to which the OPP table for the
+			CBF clock domain will be added.
 Example:
 	clock_cpu: qcom,cpu-clock-8996@ {
 		compatible = "qcom,cpu-clock-8996";
