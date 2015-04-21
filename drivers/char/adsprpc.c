@@ -1631,7 +1631,10 @@ static struct platform_driver fastrpc_driver = {
 static int __init fastrpc_device_init(void)
 {
 	struct fastrpc_apps *me = &gfa;
-	int err = 0, i;
+	struct device *auddev = 0;
+	struct device_node *node;
+	struct platform_device *pdev;
+	int err = 0, i, j;
 
 	memset(me, 0, sizeof(*me));
 
@@ -1667,6 +1670,28 @@ static int __init fastrpc_device_init(void)
 		me->channel[i].nb.notifier_call = fastrpc_restart_notifier_cb,
 		(void)subsys_notif_register_notifier(gcinfo[i].subsys,
 							&me->channel[i].nb);
+	}
+
+	node = of_find_compatible_node(NULL, NULL, "qcom,msm-audio-ion");
+	if (node) {
+		pdev = of_find_device_by_node(node);
+		if (pdev) {
+			auddev = &pdev->dev;
+			dev_dbg(auddev, "%s: Using audio Context bank\n",
+				__func__);
+		}
+	}
+	if (auddev) {
+		for (i = 0; i < NUM_CHANNELS; i++) {
+			if (!gcinfo[i].name)
+				continue;
+			for (j = 0 ; j < me->channel[i].sesscount; j++) {
+				struct fastrpc_session_ctx *sess;
+				sess = &me->channel[i].session[j];
+				sess->smmu.dev = auddev;
+				sess->smmu.cb = 1;
+			}
+		}
 	}
 
 	return 0;
