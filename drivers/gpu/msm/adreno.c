@@ -283,6 +283,9 @@ static int kgsl_iommu_pdev_probe(struct platform_device *pdev)
 	if (of_property_read_bool(pdev->dev.of_node, "qcom,global_pt"))
 		data->features |= KGSL_MMU_GLOBAL_PAGETABLE;
 
+	if (of_property_read_bool(pdev->dev.of_node, "qcom,hyp_secure_alloc"))
+		data->features |= KGSL_MMU_HYP_SECURE_ALLOC;
+
 	result = of_platform_populate(pdev->dev.of_node, iommu_match_table,
 				NULL, &pdev->dev);
 	if (!result)
