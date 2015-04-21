@@ -101,6 +101,26 @@ Optional properties:
  - qcom,cdc-variant: Indicates codec variant, WCD9XXX indicates all codecs till Taiko
 			WCD9330 indicates wcd9330 audio codec
 
+ - qcom,cdc-micbias1-mv: micbias1 output voltage in milli volts.
+			 This is used when cfilt is not user configurable
+			 and micbias1 is directly controlled with a register
+			 write.
+
+ - qcom,cdc-micbias2-mv: micbias2 output voltage in milli volts.
+			 This is used when cfilt is not user configurable
+			 and micbias2 is directly controlled with a register
+			 write.
+
+ - qcom,cdc-micbias3-mv: micbias3 output voltage in milli volts.
+			 This is used when cfilt is not user configurable
+			 and micbias3 is directly controlled with a register
+			 write.
+
+ - qcom,cdc-micbias4-mv: micbias4 output voltage in milli volts.
+			 This is used when cfilt is not user configurable
+			 and micbias4 is directly controlled with a register
+			 write.
+
 Example:
 
 taiko_codec {

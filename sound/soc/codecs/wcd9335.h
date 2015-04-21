@@ -26,6 +26,16 @@
 
 #define TASHA_ZDET_SUPPORTED false
 
+#define WCD9335_DMIC_CLK_DIV_2  0x0
+#define WCD9335_DMIC_CLK_DIV_3  0x1
+#define WCD9335_DMIC_CLK_DIV_4  0x2
+#define WCD9335_DMIC_CLK_DIV_6  0x3
+#define WCD9335_DMIC_CLK_DIV_8  0x4
+#define WCD9335_DMIC_CLK_DIV_16  0x5
+
+#define WCD9335_ANC_DMIC_X2_FULL_RATE 1
+#define WCD9335_ANC_DMIC_X2_HALF_RATE 0
+
 /* Number of input and output Slimbus port */
 enum {
 	TASHA_RX0 = 0,
