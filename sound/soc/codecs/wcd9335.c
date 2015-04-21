@@ -4234,6 +4234,31 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 	},
 };
 
+int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable, bool dapm)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	int ret = 0;
+
+	if (!tasha->wcd_ext_clk) {
+		dev_err(codec->dev, "%s: wcd ext clock is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (enable) {
+		ret = clk_prepare_enable(tasha->wcd_ext_clk);
+		if (ret) {
+			dev_err(codec->dev, "%s: ext clk enable failed\n",
+				__func__);
+			goto bg_clk_unlock;
+		}
+	} else
+		clk_disable_unprepare(tasha->wcd_ext_clk);
+
+bg_clk_unlock:
+	return ret;
+}
+EXPORT_SYMBOL(tasha_cdc_mclk_enable);
+
 static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CODEC_RPM_CLK_GATE, 0x03, 0x00},
 	/* Rbuckfly/R_EAR(32) */
@@ -4746,6 +4771,7 @@ static int tasha_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	struct tasha_priv *tasha;
+	struct clk *wcd_ext_clk;
 
 	tasha = devm_kzalloc(&pdev->dev, sizeof(struct tasha_priv),
 			    GFP_KERNEL);
@@ -4778,9 +4804,20 @@ static int tasha_probe(struct platform_device *pdev)
 	tasha->swr_plat_data.clk = tasha_swrm_clock;
 	tasha->swr_plat_data.handle_irq = tasha_swrm_handle_irq;
 
+	/* Register for Clock */
+	wcd_ext_clk = clk_get(tasha->wcd9xxx->dev, "wcd_clk");
+	if (IS_ERR(wcd_ext_clk)) {
+		dev_err(tasha->wcd9xxx->dev, "%s: clk get %s failed\n",
+			__func__, "wcd_ext_clk");
+		goto unregister_codec;
+	}
+	tasha->wcd_ext_clk = wcd_ext_clk;
 	schedule_work(&tasha->swr_add_devices_work);
 	return ret;
 
+unregister_codec:
+	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
+		snd_soc_unregister_codec(&pdev->dev);
 cdc_reg_fail:
 	devm_kfree(&pdev->dev, tasha);
 	return ret;

@@ -84,4 +84,6 @@ struct tasha_reg_mask_val {
 	u8 val;
 };
 
+extern int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable,
+				 bool dapm);
 #endif
