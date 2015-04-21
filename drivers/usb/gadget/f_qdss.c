@@ -775,6 +775,9 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	qdss->gadget = gadget;
 
+	/* Increment usage count on connect */
+	usb_gadget_autopm_get_async(qdss->gadget);
+
 	if (alt != 0)
 		goto fail;
 
@@ -787,14 +790,14 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	if (intf == qdss->data_iface_id) {
 
-		if (config_ep_by_speed(gadget, f, qdss->port.data))
-			return -EINVAL;
+		if (config_ep_by_speed(gadget, f, qdss->port.data)) {
+			ret = -EINVAL;
+			goto fail;
+		}
 
 		if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA ||
 				dxport == USB_GADGET_XPORT_BAM_DMUX) {
 			qdss->usb_connected = 1;
-			/* Increment usage count on connect */
-			usb_gadget_autopm_get_async(qdss->gadget);
 			usb_qdss_connect_work(&qdss->connect_w);
 			return 0;
 		}
@@ -810,8 +813,10 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	} else if ((intf == qdss->ctrl_iface_id) &&
 	(qdss->debug_inface_enabled)) {
 
-		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_in))
-			return -EINVAL;
+		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_in)) {
+			ret = -EINVAL;
+			goto fail;
+		}
 
 		ret = usb_ep_enable(qdss->port.ctrl_in);
 		if (ret)
@@ -820,8 +825,10 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		qdss->port.ctrl_in->driver_data = qdss;
 		qdss->ctrl_in_enabled = 1;
 
-		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_out))
-			return -EINVAL;
+		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_out)) {
+			ret = -EINVAL;
+			goto fail;
+		}
 
 
 		ret = usb_ep_enable(qdss->port.ctrl_out);
@@ -847,14 +854,14 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	if (qdss->usb_connected && (ch->app_conn ||
 		(dxport == USB_GADGET_XPORT_HSIC))) {
 		msm_bam_set_qdss_usb_active(true);
-		/* Increment usage count on connect */
-		usb_gadget_autopm_get_async(qdss->gadget);
 		queue_work(qdss->wq, &qdss->connect_w);
 	}
 	return 0;
 fail:
 	pr_err("qdss_set_alt failed\n");
 	qdss_eps_disable(f);
+	/* Decrement usage count in case of failure */
+	usb_gadget_autopm_put_async(qdss->gadget);
 	return ret;
 }
 
