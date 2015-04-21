@@ -873,8 +873,10 @@ static struct mdss_mdp_pipe *__assign_pipe_for_layer(
 	mutex_unlock(&mdp5_data->list_lock);
 
 end:
-	if (!IS_ERR_OR_NULL(pipe))
+	if (!IS_ERR_OR_NULL(pipe)) {
+		pipe->dirty = false;
 		pipe->params_changed++;
+	}
 	return pipe;
 }
 
