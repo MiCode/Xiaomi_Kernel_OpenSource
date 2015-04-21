@@ -784,6 +784,7 @@ struct dwc3_scratchpad_array {
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
  * @in_lpm: if 1, indicates that the controller is in low power mode (no clocks)
+ * @tx_fifo_size: Available RAM size for TX fifo allocation
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -910,6 +911,8 @@ struct dwc3 {
 
 	u8			hird_thresh;
 	atomic_t		in_lpm;
+	int			tx_fifo_size;
+	bool			tx_fifo_reduced;
 };
 
 /* -------------------------------------------------------------------------- */
