@@ -5977,7 +5977,8 @@ static int msm_otg_probe(struct platform_device *pdev)
 
 	if (motg->pdata->otg_control == OTG_PMIC_CONTROL &&
 			(!(motg->pdata->mode == USB_OTG) ||
-			 motg->pdata->pmic_id_irq || motg->ext_id_irq))
+			 motg->pdata->pmic_id_irq || motg->ext_id_irq ||
+								!motg->phy_irq))
 		motg->caps = ALLOW_PHY_POWER_COLLAPSE | ALLOW_PHY_RETENTION;
 
 	if (motg->pdata->otg_control == OTG_PHY_CONTROL || motg->phy_irq)
