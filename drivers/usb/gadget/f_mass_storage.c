@@ -2562,6 +2562,10 @@ static void handle_exception(struct fsg_common *common)
 		if (sig != SIGUSR1) {
 			if (common->state < FSG_STATE_EXIT)
 				DBG(common, "Main thread exiting on signal\n");
+
+			WARN_ON(1);
+			pr_err("%s: signal(%d) received from PID(%d) UID(%d)\n",
+				__func__, sig, info.si_pid, info.si_uid);
 			raise_exception(common, FSG_STATE_EXIT);
 		}
 	}
