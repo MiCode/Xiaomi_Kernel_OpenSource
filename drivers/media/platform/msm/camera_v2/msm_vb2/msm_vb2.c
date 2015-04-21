@@ -80,7 +80,7 @@ static void msm_vb2_buf_queue(struct vb2_buffer *vb)
 	spin_unlock_irqrestore(&stream->stream_lock, flags);
 }
 
-static int msm_vb2_buf_finish(struct vb2_buffer *vb)
+static void msm_vb2_buf_finish(struct vb2_buffer *vb)
 {
 	struct msm_vb2_buffer *msm_vb2;
 	struct msm_stream *stream;
@@ -91,13 +91,13 @@ static int msm_vb2_buf_finish(struct vb2_buffer *vb)
 
 	if (!msm_vb2) {
 		pr_err("%s:%d] vb2_buf NULL", __func__, __LINE__);
-		return -EINVAL;
+		return; 
 	}
 
 	stream = msm_get_stream_from_vb2q(vb->vb2_queue);
 	if (!stream) {
 		pr_err("%s:%d] NULL stream", __func__, __LINE__);
-		return -EINVAL;
+		return;
 	}
 
 	spin_lock_irqsave(&stream->stream_lock, flags);
@@ -109,7 +109,7 @@ static int msm_vb2_buf_finish(struct vb2_buffer *vb)
 		}
 	}
 	spin_unlock_irqrestore(&stream->stream_lock, flags);
-	return 0;
+	return;
 }
 
 static void msm_vb2_buf_cleanup(struct vb2_buffer *vb)

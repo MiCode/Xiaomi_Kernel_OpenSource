@@ -190,9 +190,6 @@ int msm_isp_create_isp_buf_mgr(struct msm_isp_buf_mgr *buf_mgr,
 int msm_isp_proc_buf_cmd(struct msm_isp_buf_mgr *buf_mgr,
 	unsigned int cmd, void *arg);
 
-int msm_isp_create_secure_domain(struct msm_isp_buf_mgr *buf_mgr,
-	struct msm_iova_layout *iova_layout);
-
 int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	void *arg);
 

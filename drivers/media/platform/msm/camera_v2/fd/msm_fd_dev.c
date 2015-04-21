@@ -260,14 +260,12 @@ out:
  * msm_fd_stop_streaming - vb2_ops stop_streaming callback.
  * @q: Pointer to vb2 queue struct.
  */
-static int msm_fd_stop_streaming(struct vb2_queue *q)
+static void msm_fd_stop_streaming(struct vb2_queue *q)
 {
 	struct fd_ctx *ctx = vb2_get_drv_priv(q);
 
 	msm_fd_hw_remove_buffers_from_queue(ctx->fd_device, q);
 	msm_fd_hw_put(ctx->fd_device);
-
-	return 0;
 }
 
 /* Videobuf2 queue callbacks. */
