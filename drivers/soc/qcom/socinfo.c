@@ -535,6 +535,11 @@ uint32_t socinfo_get_id(void)
 }
 EXPORT_SYMBOL_GPL(socinfo_get_id);
 
+static char *socinfo_get_id_string(void)
+{
+	return (socinfo) ? cpu_of_id[socinfo->v1.id].soc_id_string : NULL;
+}
+
 uint32_t socinfo_get_version(void)
 {
 	return (socinfo) ? socinfo->v1.version : 0;
@@ -1107,7 +1112,8 @@ static void  __init soc_info_populate(struct soc_device_attribute *soc_dev_attr)
 	uint32_t soc_version = socinfo_get_version();
 
 	soc_dev_attr->soc_id   = kasprintf(GFP_KERNEL, "%d", socinfo_get_id());
-	soc_dev_attr->machine  = "Snapdragon";
+	soc_dev_attr->family  =  "Snapdragon";
+	soc_dev_attr->machine  = socinfo_get_id_string();
 	soc_dev_attr->revision = kasprintf(GFP_KERNEL, "%u.%u",
 			SOCINFO_VERSION_MAJOR(soc_version),
 			SOCINFO_VERSION_MINOR(soc_version));
