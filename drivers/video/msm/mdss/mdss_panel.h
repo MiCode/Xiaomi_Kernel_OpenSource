@@ -297,7 +297,6 @@ struct mipi_panel_info {
 	char data_lane1;
 	char data_lane2;
 	char data_lane3;
-	char dlane_swap;	/* data lane swap */
 	char rgb_swap;
 	char b_sel;
 	char g_sel;

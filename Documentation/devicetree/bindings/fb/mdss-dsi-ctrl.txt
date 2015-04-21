@@ -68,6 +68,15 @@ Optional properties:
 - qcom,dsi-irq-line:			Boolean specifies if DSI has a different irq line than mdp.
 - qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
 - qcom,dsi-clk-ln-recovery:		Boolean which enables the clk lane recovery
+- qcom,lane-map:			Specifies the data lane swap configuration.
+					"lane_map_0123" = <0 1 2 3> (default value)
+					"lane_map_3012" = <3 0 1 2>
+					"lane_map_2301" = <2 3 0 1>
+					"lane_map_1230" = <1 2 3 0>
+					"lane_map_0321" = <0 3 2 1>
+					"lane_map_1032" = <1 0 3 2>
+					"lane_map_2103" = <2 1 0 3>
+					"lane_map_3210" = <3 2 1 0>
 
 Example:
         mdss_dsi0: qcom,mdss_dsi@fd922800 {
@@ -108,6 +117,7 @@ Example:
 		qcom,dsi-irq-line;
 		qcom,timing-db-mode;
 		qcom,dsi-clk-ln-recovery;
+		qcom,lane-map = "lane_map_3012";
 
 		qcom,core-supply-entries {
 			#address-cells = <1>;
