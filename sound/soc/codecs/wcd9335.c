@@ -1817,7 +1817,11 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"RX INT7 CHAIN", NULL, "RX INT7 MIX2"},
 	{"RX INT7 CHAIN", NULL, "RX_BIAS"},
-	{"SPK OUT", NULL, "RX INT7 CHAIN"},
+	{"SPK1 OUT", NULL, "RX INT7 CHAIN"},
+
+	{"RX INT8 CHAIN", NULL, "RX INT8_1 MIX1"},
+	{"RX INT8 CHAIN", NULL, "RX_BIAS"},
+	{"SPK2 OUT", NULL, "RX INT8 CHAIN"},
 
 	/* SLIM_MUX("AIF1_PB", "AIF1 PB"),*/
 	{"SLIM RX0 MUX", "AIF1_PB", "AIF1 PB"},
@@ -3361,6 +3365,7 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 		5, 0, NULL, 0, tasha_codec_enable_interpolator,
 		SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU),
 	SND_SOC_DAPM_MIXER("RX INT7 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT8 CHAIN", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MUX("RX INT0 MIX2 INP", SND_SOC_NOPM, 0, 0,
 		&rx_int0_mix2_inp_mux),
@@ -3670,7 +3675,8 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY("RX_BIAS", SND_SOC_NOPM, 0, 0,
 		tasha_codec_enable_rx_bias, SND_SOC_DAPM_PRE_PMU |
 		SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_OUTPUT("SPK OUT"),
+	SND_SOC_DAPM_OUTPUT("SPK1 OUT"),
+	SND_SOC_DAPM_OUTPUT("SPK2 OUT"),
 };
 
 static int tasha_get_channel_map(struct snd_soc_dai *dai,
