@@ -685,6 +685,19 @@
 		qcom,android-usb-uicc-nluns = /bits/ 8 <1>;
 	};
 
+	slim_msm: slim@c140000{
+		cell-index = <1>;
+		compatible = "qcom,slim-ngd";
+		reg = <0xc140000 0x2c000>,
+			<0xc104000 0x2a000>;
+		reg-names = "slimbus_physical", "slimbus_bam_physical";
+		interrupts = <0 163 0>, <0 180 0>;
+		interrupt-names = "slimbus_irq", "slimbus_bam_irq";
+		qcom,apps-ch-pipes = <0x600000>;
+		qcom,ea-pc = <0x170>;
+		status = "disabled";
+	};
+
 	qcom,usbbam@78c4000 {
 		compatible = "qcom,usb-bam-msm";
 		reg = <0x78c4000 0x15000>;
