@@ -153,6 +153,7 @@ enum dsi_pm_type {
 #define DSI_CMD_DST_FORMAT_RGB666	7
 #define DSI_CMD_DST_FORMAT_RGB888	8
 
+#define DSI_INTR_DESJEW_MASK			BIT(31)
 #define DSI_INTR_DYNAMIC_REFRESH_MASK		BIT(29)
 #define DSI_INTR_DYNAMIC_REFRESH_DONE		BIT(28)
 #define DSI_INTR_ERROR_MASK		BIT(25)
@@ -167,6 +168,15 @@ enum dsi_pm_type {
 #define DSI_INTR_CMD_DMA_DONE		BIT(0)
 /* Update this if more interrupt masks are added in future chipsets */
 #define DSI_INTR_TOTAL_MASK		0x2222AA02
+
+#define DSI_INTR_MASK_ALL	\
+		(DSI_INTR_DESJEW_MASK | \
+		DSI_INTR_DYNAMIC_REFRESH_MASK | \
+		DSI_INTR_ERROR_MASK | \
+		DSI_INTR_BTA_DONE_MASK | \
+		DSI_INTR_VIDEO_DONE_MASK | \
+		DSI_INTR_CMD_MDP_DONE_MASK | \
+		DSI_INTR_CMD_DMA_DONE_MASK)
 
 #define DSI_CMD_TRIGGER_NONE		0x0	/* mdp trigger */
 #define DSI_CMD_TRIGGER_TE		0x02
