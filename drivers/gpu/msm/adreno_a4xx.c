@@ -592,6 +592,7 @@ static void a4xx_protect_init(struct adreno_device *adreno_dev)
 		 */
 		adreno_set_protected_registers(adreno_dev, &index, 0x2c00, 10);
 		adreno_set_protected_registers(adreno_dev, &index, 0x3300, 8);
+		adreno_set_protected_registers(adreno_dev, &index, 0x3400, 10);
 	}
 
 	/* SMMU registers */
