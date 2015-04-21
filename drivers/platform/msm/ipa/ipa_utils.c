@@ -4622,7 +4622,7 @@ int ipa_tag_aggr_force_close(int pipe_num)
 	int num_descs;
 	int num_aggr_descs;
 
-	if (pipe_num < -1 || pipe_num >= ipa_ctx->ipa_num_pipes) {
+	if (pipe_num < -1 || pipe_num >= (int)ipa_ctx->ipa_num_pipes) {
 		IPAERR("Invalid pipe number %d\n", pipe_num);
 		return -EINVAL;
 	}
