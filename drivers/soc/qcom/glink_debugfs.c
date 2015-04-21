@@ -381,6 +381,10 @@ void glink_debugfs_add_xprt(struct glink_core_xprt_ctx *xprt_ctx)
 		GLINK_ERR("%s: Transport Context is NULL\n", __func__);
 	xprt_name = glink_get_xprt_name(xprt_ctx);
 	edge_name = glink_get_xprt_edge_name(xprt_ctx);
+	if (!xprt_name || !edge_name) {
+		GLINK_ERR("%s: xprt name or edge name is NULL\n", __func__);
+		return;
+	}
 	xprt_dbgfs.par_name = "glink";
 	xprt_dbgfs.curr_name = "xprt";
 	xprt_dbgfs.b_dir_create = true;
