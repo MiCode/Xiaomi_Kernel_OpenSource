@@ -300,7 +300,6 @@
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
 	qcom,dsi-pref-prim-pan = <&dsi_truly_1080_vid>;
-	qcom,dsi-panel-bias-vreg;
 
 	qcom,platform-enable-gpio = <&msm_gpio 90 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 0 0>;

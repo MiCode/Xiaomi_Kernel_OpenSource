@@ -215,6 +215,8 @@
 		vddio-supply = <&pm8994_l12>;
 		vdda-supply = <&pm8994_l2>;
 		vcca-supply = <&pm8994_l28>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,
@@ -321,6 +323,8 @@
 		vddio-supply = <&pm8994_l12>;
 		vdda-supply = <&pm8994_l2>;
 		vcca-supply = <&pm8994_l28>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
 		qcom,mdss-fb-map = <&mdss_fb0>;
 		qcom,mdss-mdp = <&mdss_mdp>;
 		clocks = <&clock_mmss clk_mdss_mdp_clk>,

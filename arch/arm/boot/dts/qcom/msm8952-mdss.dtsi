@@ -133,6 +133,8 @@
 		vdda-supply = <&pm8950_l2>;
 		vdd-supply = <&pm8950_l17>;
 		vddio-supply = <&pm8950_l6>;
+		lab-supply = <&lab_regulator>;
+		ibb-supply = <&ibb_regulator>;
 		clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
 			<&clock_gcc clk_gcc_mdss_ahb_clk>,
 			<&clock_gcc clk_gcc_mdss_axi_clk>,

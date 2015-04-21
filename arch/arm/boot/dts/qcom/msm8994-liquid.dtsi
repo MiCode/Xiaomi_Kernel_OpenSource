@@ -79,7 +79,6 @@
 	qcom,platform-reset-gpio = <&msm_gpio 78 0>;
 	qcom,platform-bklight-en-gpio = <&pmi8994_gpios 2 0>;
 
-	qcom,dsi-panel-bias-vreg;
 	qcom,regulator-ldo-mode;
 };
 
