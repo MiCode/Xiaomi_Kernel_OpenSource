@@ -1,9 +1,10 @@
-/* arch/arm/mach-msm/io.c
+/*
+ * arch/arm/mach-msm/io.c
  *
  * MSM7K, QSD io support
  *
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  * Author: Brian Swetland <swetland@google.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -202,3 +203,16 @@ void __init msm_map_msmvpipa_io(void)
 	iotable_init(msmvpipa_io_desc, ARRAY_SIZE(msmvpipa_io_desc));
 }
 #endif /* CONFIG_ARCH_MSMVPIPA */
+
+#ifdef CONFIG_ARCH_MDMFERMIUM
+static struct map_desc mdmfermium_io_desc[] __initdata = {
+#ifdef CONFIG_DEBUG_MDMFERMIUM_UART
+	MSM_DEVICE(DEBUG_UART),
+#endif
+};
+
+void __init msm_map_mdmfermium_io(void)
+{
+	iotable_init(mdmfermium_io_desc, ARRAY_SIZE(mdmfermium_io_desc));
+}
+#endif /* CONFIG_ARCH_MDMFERMIUM */
