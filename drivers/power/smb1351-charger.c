@@ -1815,7 +1815,7 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 	}
 
 	if (status) {
-		chip->chg_present = !!status;
+		chip->chg_present = true;
 		pr_debug("APSD complete. USB type detected=%d chg_present=%d\n",
 						type, chip->chg_present);
 		power_supply_set_supply_type(chip->usb_psy, type);
@@ -1831,7 +1831,7 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 					POWER_SUPPLY_PROP_TYPE, &prop);
 		if ((prop.intval == POWER_SUPPLY_TYPE_USB) ||
 				(prop.intval == POWER_SUPPLY_TYPE_USB_CDP)) {
-			chip->chg_present = !status;
+			chip->chg_present = false;
 			power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 			power_supply_set_present(chip->usb_psy,
