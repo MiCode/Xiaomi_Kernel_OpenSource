@@ -367,6 +367,41 @@ static int __wcd9xxx_reg_write(
 	return ret;
 }
 
+static int __wcd9xxx_reg_update_bits(struct wcd9xxx *wcd9xxx,
+				     unsigned short reg, u8 mask, u8 val)
+{
+	int ret;
+	u8 orig, tmp;
+
+	if (wcd9xxx->using_regmap)
+		ret = regmap_update_bits(wcd9xxx->regmap, reg, mask, val);
+	else {
+		mutex_lock(&wcd9xxx->io_lock);
+		ret = wcd9xxx_read(wcd9xxx, reg, 1, &orig, false);
+		if (ret < 0) {
+			dev_err(wcd9xxx->dev, "%s: Codec read 0x%x failed\n",
+				__func__, reg);
+			goto err;
+		}
+		tmp = orig & ~mask;
+		tmp |= val & mask;
+		if (tmp != orig)
+			ret = wcd9xxx_write(wcd9xxx, reg, 1, &tmp, false);
+err:
+		mutex_unlock(&wcd9xxx->io_lock);
+	}
+	return ret;
+}
+
+int wcd9xxx_reg_update_bits(
+	struct wcd9xxx_core_resource *core_res,
+	unsigned short reg, u8 mask, u8 val)
+{
+	struct wcd9xxx *wcd9xxx = (struct wcd9xxx *) core_res->parent;
+	return __wcd9xxx_reg_update_bits(wcd9xxx, reg, mask, val);
+}
+EXPORT_SYMBOL(wcd9xxx_reg_update_bits);
+
 int wcd9xxx_reg_write(
 	struct wcd9xxx_core_resource *core_res,
 	unsigned short reg, u8 val)

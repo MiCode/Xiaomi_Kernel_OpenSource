@@ -39,6 +39,7 @@
 #include <sound/tlv.h>
 #include "wcd9335.h"
 #include "wcd9xxx-common-v2.h"
+#include "wcd9xxx-resmgr-v2.h"
 
 #define TASHA_RX_PORT_START_NUMBER  16
 
@@ -264,9 +265,13 @@ struct tasha_priv {
 	/* Tasha Interpolator Mode Select for EAR, HPH_L and HPH_R */
 	u32 hph_mode;
 
+	struct wcd9xxx_resmgr_v2 *resmgr;
+
 	struct clk *wcd_ext_clk;
 	struct mutex swr_read_lock;
 	struct mutex swr_write_lock;
+	struct mutex swr_clk_lock;
+	int swr_clk_users;
 };
 
 static int tasha_get_iir_enable_audio_mixer(
@@ -1385,24 +1390,6 @@ out:
 	return ret;
 }
 
-static int tasha_codec_enable_ana_clk(struct snd_soc_dapm_widget *w,
-		struct snd_kcontrol *kcontrol, int event)
-{
-	struct snd_soc_codec *codec = w->codec;
-
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		/* Enable Analog clk top clock buffer */
-		snd_soc_update_bits(codec, WCD9335_ANA_CLK_TOP, 0x80, 0x80);
-		break;
-	case SND_SOC_DAPM_POST_PMD:
-		snd_soc_update_bits(codec, WCD9335_ANA_CLK_TOP, 0x80, 0x00);
-		break;
-	};
-
-	return 0;
-}
-
 static u8 tasha_get_dmic_clk_val(struct snd_soc_codec *codec,
 				 u32 mclk_rate, u32 dmic_clk_rate)
 {
@@ -1811,31 +1798,22 @@ static const struct snd_soc_dapm_route audio_map[] = {
 
 	{"ADC MUX0", "DMIC", "DMIC MUX0"},
 	{"ADC MUX0", "AMIC", "AMIC MUX0"},
-	{"ADC MUX0", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX1", "DMIC", "DMIC MUX1"},
 	{"ADC MUX1", "AMIC", "AMIC MUX1"},
-	{"ADC MUX1", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX2", "DMIC", "DMIC MUX2"},
 	{"ADC MUX2", "AMIC", "AMIC MUX2"},
-	{"ADC MUX2", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX3", "DMIC", "DMIC MUX3"},
 	{"ADC MUX3", "AMIC", "AMIC MUX3"},
-	{"ADC MUX3", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX4", "DMIC", "DMIC MUX4"},
 	{"ADC MUX4", "AMIC", "AMIC MUX4"},
-	{"ADC MUX4", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX5", "DMIC", "DMIC MUX5"},
 	{"ADC MUX5", "AMIC", "AMIC MUX5"},
-	{"ADC MUX5", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX6", "DMIC", "DMIC MUX6"},
 	{"ADC MUX6", "AMIC", "AMIC MUX6"},
-	{"ADC MUX6", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX7", "DMIC", "DMIC MUX7"},
 	{"ADC MUX7", "AMIC", "AMIC MUX7"},
-	{"ADC MUX7", NULL, "ANA_CLK_TOP"},
 	{"ADC MUX8", "DMIC", "DMIC MUX8"},
 	{"ADC MUX8", "AMIC", "AMIC MUX8"},
-	{"ADC MUX8", NULL, "ANA_CLK_TOP"},
 
 	{"DMIC MUX0", "DMIC0", "DMIC0"},
 	{"DMIC MUX0", "DMIC1", "DMIC1"},
@@ -3831,10 +3809,6 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_ADC("ADC5", NULL, WCD9335_ANA_AMIC5, 7, 0),
 	SND_SOC_DAPM_ADC("ADC6", NULL, WCD9335_ANA_AMIC6, 7, 0),
 
-	SND_SOC_DAPM_SUPPLY("ANA_CLK_TOP", WCD9335_ANA_CLK_TOP, 6, 0,
-			    tasha_codec_enable_ana_clk,
-			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
 	SND_SOC_DAPM_SUPPLY("COMP1_CLK", SND_SOC_NOPM, COMPANDER_1, 0,
 			    tasha_config_compander, SND_SOC_DAPM_PRE_PMU |
 			    SND_SOC_DAPM_PRE_PMD),
@@ -4517,28 +4491,47 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 	},
 };
 
-int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable, bool dapm)
+static int __tasha_cdc_mclk_enable(struct tasha_priv *tasha, bool enable)
 {
-	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
 	if (!tasha->wcd_ext_clk) {
-		dev_err(codec->dev, "%s: wcd ext clock is NULL\n", __func__);
+		dev_err(tasha->dev, "%s: wcd ext clock is NULL\n", __func__);
 		return -EINVAL;
 	}
 
+	dev_dbg(tasha->dev, "%s: mclk_enable = %u\n", __func__, enable);
+
+	WCD9XXX_V2_BG_CLK_LOCK(tasha->resmgr);
 	if (enable) {
 		ret = clk_prepare_enable(tasha->wcd_ext_clk);
 		if (ret) {
-			dev_err(codec->dev, "%s: ext clk enable failed\n",
+			dev_err(tasha->dev, "%s: ext clk enable failed\n",
 				__func__);
 			goto bg_clk_unlock;
 		}
-	} else
+		/* get BG */
+		wcd_resmgr_enable_master_bias(tasha->resmgr);
+		/* get MCLK */
+		wcd_resmgr_enable_clk_block(tasha->resmgr, WCD_CLK_MCLK);
+	} else {
+		/* put MCLK */
+		wcd_resmgr_disable_clk_block(tasha->resmgr, WCD_CLK_MCLK);
+		/* put BG */
+		wcd_resmgr_disable_master_bias(tasha->resmgr);
 		clk_disable_unprepare(tasha->wcd_ext_clk);
+	}
 
 bg_clk_unlock:
+	WCD9XXX_V2_BG_CLK_UNLOCK(tasha->resmgr);
 	return ret;
+}
+
+int tasha_cdc_mclk_enable(struct snd_soc_codec *codec, bool enable, bool dapm)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	return __tasha_cdc_mclk_enable(tasha, enable);
 }
 EXPORT_SYMBOL(tasha_cdc_mclk_enable);
 
@@ -4839,7 +4832,13 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 	tasha = snd_soc_codec_get_drvdata(codec);
 	snd_soc_codec_set_cache_io(codec, addr_bits, data_bits,
 					     SND_SOC_REGMAP);
-	/* Resource Manager Init */
+	/* Resource Manager post Init */
+	ret = wcd_resmgr_post_init(tasha->resmgr, codec);
+	if (ret) {
+		dev_err(codec->dev, "%s: wcd resmgr post init failed\n",
+			__func__);
+		goto err;
+	}
 	/* Class-H Init*/
 	wcd_clsh_init(&tasha->clsh_d);
 	/* Default HPH Mode to Class-H HiFi */
@@ -5051,6 +5050,32 @@ static int tasha_swrm_clock(void *handle, bool enable)
 			__func__);
 		return -EINVAL;
 	}
+
+	mutex_lock(&tasha->swr_clk_lock);
+	if (enable) {
+		tasha->swr_clk_users++;
+		if (tasha->swr_clk_users == 1) {
+			__tasha_cdc_mclk_enable(tasha, true);
+			wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+				WCD9335_CDC_CLK_RST_CTRL_FS_CNT_CONTROL,
+				0x01, 0x01);
+			wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+				WCD9335_CDC_CLK_RST_CTRL_SWR_CONTROL,
+				0x01, 0x01);
+		}
+	} else {
+		tasha->swr_clk_users--;
+		if (tasha->swr_clk_users == 0) {
+			wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+				WCD9335_CDC_CLK_RST_CTRL_SWR_CONTROL,
+				0x01, 0x00);
+			wcd9xxx_reg_update_bits(&tasha->wcd9xxx->core_res,
+				WCD9335_CDC_CLK_RST_CTRL_FS_CNT_CONTROL,
+				0x01, 0x00);
+			__tasha_cdc_mclk_enable(tasha, false);
+		}
+	}
+	mutex_unlock(&tasha->swr_clk_lock);
 	return 0;
 }
 
@@ -5173,6 +5198,7 @@ static int tasha_probe(struct platform_device *pdev)
 	int ret = 0;
 	struct tasha_priv *tasha;
 	struct clk *wcd_ext_clk;
+	struct wcd9xxx_resmgr_v2 *resmgr;
 
 	tasha = devm_kzalloc(&pdev->dev, sizeof(struct tasha_priv),
 			    GFP_KERNEL);
@@ -5188,6 +5214,7 @@ static int tasha_probe(struct platform_device *pdev)
 	INIT_WORK(&tasha->swr_add_devices_work, wcd_swr_ctrl_add_devices);
 	mutex_init(&tasha->swr_read_lock);
 	mutex_init(&tasha->swr_write_lock);
+	mutex_init(&tasha->swr_clk_lock);
 
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_tasha,
@@ -5198,7 +5225,18 @@ static int tasha_probe(struct platform_device *pdev)
 			goto cdc_reg_fail;
 		}
 	}
-
+	/*
+	 * Init resource manager so that if child nodes such as SoundWire
+	 * requests for clock, resource manager can honor the request
+	 */
+	resmgr = wcd_resmgr_init(&tasha->wcd9xxx->core_res, NULL);
+	if (IS_ERR(resmgr)) {
+		ret = PTR_ERR(resmgr);
+		dev_err(&pdev->dev, "%s: Failed to initialize wcd resmgr\n",
+			__func__);
+		goto unregister_codec;
+	}
+	tasha->resmgr = resmgr;
 	tasha->swr_plat_data.handle = (void *) tasha;
 	tasha->swr_plat_data.read = tasha_swrm_read;
 	tasha->swr_plat_data.write = tasha_swrm_write;
@@ -5210,12 +5248,14 @@ static int tasha_probe(struct platform_device *pdev)
 	if (IS_ERR(wcd_ext_clk)) {
 		dev_err(tasha->wcd9xxx->dev, "%s: clk get %s failed\n",
 			__func__, "wcd_ext_clk");
-		goto unregister_codec;
+		goto resmgr_remove;
 	}
 	tasha->wcd_ext_clk = wcd_ext_clk;
 	schedule_work(&tasha->swr_add_devices_work);
 	return ret;
 
+resmgr_remove:
+	wcd_resmgr_remove(tasha->resmgr);
 unregister_codec:
 	if (wcd9xxx_get_intf_type() == WCD9XXX_INTERFACE_TYPE_SLIMBUS)
 		snd_soc_unregister_codec(&pdev->dev);
