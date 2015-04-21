@@ -391,10 +391,16 @@
 		qcom,cpr-voltage-floor = <1050000 1050000 1155000>;
 		vdd-apc-supply = <&pm8950_s5>;
 
-		qcom,vdd-mx-corner-map = <4 5 7>;
-		qcom,vdd-mx-vmin-method = <4>;
-		vdd-mx-supply = <&pm8950_l3_corner_ao>;
-		qcom,vdd-mx-vmax = <7>;
+		qcom,vdd-mx-corner-map = < RPM_SMD_REGULATOR_LEVEL_SVS >,	/* 1: SVS  */
+					 < RPM_SMD_REGULATOR_LEVEL_SVS_PLUS >,	/* 2: SVS+ */
+					 < RPM_SMD_REGULATOR_LEVEL_SVS_PLUS >,	/* 3: SVS+ */
+					 < RPM_SMD_REGULATOR_LEVEL_NOM >,	/* 4: NOM  */
+					 < RPM_SMD_REGULATOR_LEVEL_NOM_PLUS >,	/* 5: NOM+ */
+					 < RPM_SMD_REGULATOR_LEVEL_TURBO >,	/* 6: TUR  */
+					 < RPM_SMD_REGULATOR_LEVEL_TURBO >;	/* 7: TUR  */
+		qcom,vdd-mx-vmin-method = <5>;
+		vdd-mx-supply = <&pm8950_l3_level_ao>;
+		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		mem-acc-supply = <&mem_acc_vreg_corner>;
 
