@@ -169,7 +169,7 @@ static DEFINE_PER_CPU(struct msm_l1_err_stats, msm_l1_erp_stats);
 static void msm_erp_show_icache_error(void)
 {
 	u64 icesr;
-	int cpu = smp_processor_id();
+	int cpu = raw_smp_processor_id();
 
 	icesr = erp_mrs(ICESR_EL1);
 	if (!(icesr & (ICESR_BIT_L0TPE | ICESR_BIT_L0DPE | ICESR_BIT_L1TPE |
@@ -200,7 +200,7 @@ clear_out:
 static void msm_erp_show_dcache_error(void)
 {
 	u64 dcesr;
-	int cpu = smp_processor_id();
+	int cpu = raw_smp_processor_id();
 
 	dcesr = erp_mrs(DCESR_EL1);
 	if (!(dcesr & (DCESR_BIT_L1VTPE | DCESR_BIT_L1PTPE | DCESR_BIT_L1DPE |
@@ -247,7 +247,7 @@ static void msm_l2_erp_local_handler(void *force)
 	parity_ue = esr0 & L2ESR0_UE;
 	parity_ce = esr0 & L2ESR0_CE;
 	misc_ue = esr1;
-	cpu = smp_processor_id();
+	cpu = raw_smp_processor_id();
 
 	if (force || parity_ue || parity_ce || misc_ue) {
 		if (parity_ue)
@@ -342,7 +342,7 @@ static irqreturn_t msm_m4m_erp_irq(int irq, void *dev_id)
 {
 	u32 m4m_status;
 
-	pr_alert("CPU%d: M4M error detected\n", smp_processor_id());
+	pr_alert("CPU%d: M4M error detected\n", raw_smp_processor_id());
 	m4m_status = readl_relaxed(m4m_base + M4M_ERR_STATUS);
 	pr_alert("M4M_ERR_STATUS 0x%0x\n", m4m_status);
 	if ((m4m_status & M4M_ERR_STATUS_MASK) &
