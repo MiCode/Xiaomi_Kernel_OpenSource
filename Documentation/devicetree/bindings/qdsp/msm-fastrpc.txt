@@ -1,0 +1,35 @@
+Qualcomm Technologies, Inc. FastRPC Driver
+
+The MSM FastRPC driver implements an IPC (Inter-Processor Communication)
+mechanism that allows for clients to transparently make remote method
+invocations across DSP and APPS boundaries. This enables developers
+to offload tasks to the DSP and free up the application processor for
+other tasks.
+
+Required properties:
+- compatible :	Must be "qcom,msm-fastrpc-adsp"
+
+Optional subnodes:
+- qcom,msm_fastrpc_compute_cb :	Child nodes representing the compute context
+				banks
+Subnode properties:
+- compatible :	Must be "qcom,msm-fastrpc-compute-cb"
+- label:	Label describing the channel this context bank belongs to
+- iommus : 	A list of phandle and IOMMU specifier pairs that describe the
+		IOMMU master interfaces of the device
+
+Example:
+	qcom,msm_fastrpc {
+		compatible = "qcom,msm-fastrpc-adsp";
+
+		qcom,msm_fastrpc_compute_cb_1 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 8>,
+		};
+		qcom,msm_fastrpc_compute_cb_2 {
+			compatible = "qcom,msm-fastrpc-compute-cb";
+			label = "adsprpc-smd";
+			iommus = <&lpass_q6_smmu 9>,
+		};
+	};
