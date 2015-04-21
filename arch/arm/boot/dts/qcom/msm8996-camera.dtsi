@@ -603,6 +603,9 @@
 				"camss_cpp_axi_clk", "cpp_vbif_ahb_clk",
 				"smmu_cpp_ahb_clk";
 	clock-rates = <0 0 0 0 400000000 400000000 400000000 80000000 0 0 0 0 0>;
+		bus-bandwidth-vectors = <13000000 13000000>,
+					<45000000 45000000>,
+					<90000000 90000000>;
 		status = "ok";
 	};
 
