@@ -148,9 +148,16 @@
 
 /* Bit fields */
 
+/* Global SoC Bus Configuration Register 1 */
+#define DWC3_GSBUSCFG1_PIPETRANSLIMIT_MASK	(0x0f << 8)
+#define DWC3_GSBUSCFG1_PIPETRANSLIMIT(n)	((n) << 8)
+
 /* Global Configuration Register */
 #define DWC3_GCTL_PWRDNSCALE(n)	((n) << 19)
+#define DWC3_GCTL_PWRDNSCALEMASK (0xFFF80000)
 #define DWC3_GCTL_U2RSTECN	(1 << 16)
+#define DWC3_GCTL_SOFITPSYNC	(1 << 10)
+#define DWC3_GCTL_U2EXIT_LFPS	(1 << 2)
 #define DWC3_GCTL_RAMCLKSEL(x)	(((x) & DWC3_GCTL_CLK_MASK) << 6)
 #define DWC3_GCTL_CLK_BUS	(0)
 #define DWC3_GCTL_CLK_PIPE	(1)
@@ -178,6 +185,9 @@
 /* Global USB3 PIPE Control Register */
 #define DWC3_GUSB3PIPECTL_PHYSOFTRST	(1 << 31)
 #define DWC3_GUSB3PIPECTL_SUSPHY	(1 << 17)
+#define DWC3_GUSB3PIPECTL_DELAY_P1P2P3	(7 << 19)
+#define DWC3_GUSB3PIPECTL_DELAYP1TRANS  (1 << 18)
+#define DWC3_GUSB3PIPECTL_DIS_RXDET_U3_RXDET (1 << 22)
 #define DWC3_GUSB3PIPECTL_ELASTIC_BUF_MODE	(1 << 0)
 
 /* Global TX Fifo Size Register */
@@ -647,6 +657,8 @@ struct dwc3_scratchpad_array {
 };
 
 #define DWC3_CONTROLLER_ERROR_EVENT			0
+#define DWC3_CONTROLLER_RESET_EVENT			1
+#define DWC3_CONTROLLER_POST_RESET_EVENT		2
 /**
  * struct dwc3 - representation of our controller
  * @ctrl_req: usb control request which is used for ep0
@@ -1045,6 +1057,7 @@ static inline int dwc3_gadget_resume(struct dwc3 *dwc)
 }
 #endif /* !IS_ENABLED(CONFIG_USB_DWC3_HOST) */
 
+int dwc3_core_init(struct dwc3 *dwc);
 void dwc3_post_host_reset_core_init(struct dwc3 *dwc);
 int dwc3_event_buffers_setup(struct dwc3 *dwc);
 
