@@ -1078,28 +1078,28 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 	mutex_lock(&fd->lock);
 
 	if (fd->ref_count == 0) {
-		ret = msm_fd_hw_set_clock_rate_idx(fd, clock_rate_idx);
-		if (ret < 0) {
-			dev_err(fd->dev, "Fail to enable vdd\n");
-			goto error;
-		}
-
 		ret = regulator_enable(fd->vdd);
 		if (ret < 0) {
 			dev_err(fd->dev, "Fail to enable vdd\n");
 			goto error;
 		}
 
-		ret = msm_fd_hw_enable_clocks(fd);
-		if (ret < 0) {
-			dev_err(fd->dev, "Fail to enable clocks\n");
-			goto error_clocks;
-		}
-
 		ret = msm_fd_hw_bus_request(fd, clock_rate_idx);
 		if (ret < 0) {
 			dev_err(fd->dev, "Fail bus request\n");
 			goto error_bus_request;
+		}
+
+		ret = msm_fd_hw_set_clock_rate_idx(fd, clock_rate_idx);
+		if (ret < 0) {
+			dev_err(fd->dev, "Fail to set clock index\n");
+			goto error_clocks;
+		}
+
+		ret = msm_fd_hw_enable_clocks(fd);
+		if (ret < 0) {
+			dev_err(fd->dev, "Fail to enable clocks\n");
+			goto error_clocks;
 		}
 
 		if (msm_fd_hw_misc_irq_supported(fd))
@@ -1113,9 +1113,9 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 
 	return 0;
 
-error_bus_request:
-	msm_fd_hw_disable_clocks(fd);
 error_clocks:
+	msm_fd_hw_bus_release(fd);
+error_bus_request:
 	regulator_disable(fd->vdd);
 error:
 	mutex_unlock(&fd->lock);
