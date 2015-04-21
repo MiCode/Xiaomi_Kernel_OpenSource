@@ -54,6 +54,14 @@ config IOSCHED_CFQ
 
 	  This is the default I/O scheduler.
 
+config IOSCHED_FIOPS
+	tristate "IOPS based I/O scheduler"
+	default y
+	---help---
+	  This is an IOPS based I/O scheduler. It will try to distribute
+	  IOPS equally among all processes in the system. It's mainly for
+	  Flash based storage.
+
 config CFQ_GROUP_IOSCHED
 	bool "CFQ Group Scheduling support"
 	depends on IOSCHED_CFQ && BLK_CGROUP
@@ -95,7 +103,10 @@ choice
 		bool "CFQ" if IOSCHED_CFQ=y
 
 	config DEFAULT_NOOP
-		bool "No-op"
+		bool "No-op" if IOSCHED_NOOP=y
+
+	config DEFAULT_FIOPS
+		bool "FIOPS" if IOSCHED_FIOPS=y
 
 	config DEFAULT_SIO
 		bool "SIO" if IOSCHED_SIO=y
@@ -109,6 +120,7 @@ config DEFAULT_IOSCHED
 	default "cfq" if DEFAULT_CFQ
 	default "noop" if DEFAULT_NOOP
 	default "sio" if DEFAULT_SIO
+	default "fiops" if DEFAULT_FIOPS
 
 endmenu
 
