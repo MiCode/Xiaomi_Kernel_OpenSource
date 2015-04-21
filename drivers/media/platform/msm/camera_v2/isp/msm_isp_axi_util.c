@@ -951,16 +951,35 @@ static void msm_isp_reload_ping_pong_offset(struct vfe_device *vfe_dev,
 	int i, j;
 	uint32_t flag;
 	struct msm_isp_buffer *buf;
+	int32_t buf_size_byte = 0;
+	int32_t word_per_line = 0;
+
 	for (i = 0; i < 2; i++) {
 		buf = stream_info->buf[i];
 		if (!buf)
 			continue;
+
 		flag = i ? VFE_PONG_FLAG : VFE_PING_FLAG;
 		for (j = 0; j < stream_info->num_planes; j++) {
+			word_per_line = msm_isp_cal_word_per_line(
+				stream_info->output_format, stream_info->
+				plane_cfg[j].output_stride);
+			if (word_per_line < 0) {
+				/* 0 means no prefetch*/
+				word_per_line = 0;
+				buf_size_byte = 0;
+			} else {
+				buf_size_byte = (word_per_line * 8 *
+					stream_info->plane_cfg[j].
+					output_scan_lines) - stream_info->
+					plane_cfg[j].plane_addr_offset;
+			}
+
 			vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
 				vfe_dev, stream_info->wm[j], flag,
 				buf->mapped_info[j].paddr +
-				stream_info->plane_cfg[j].plane_addr_offset);
+				stream_info->plane_cfg[j].plane_addr_offset,
+				buf_size_byte);
 		}
 	}
 }
@@ -1017,13 +1036,33 @@ static int msm_isp_cfg_pong_address(struct vfe_device *vfe_dev,
 {
 	int i, rc = -1;
 	struct msm_isp_buffer *buf = stream_info->buf[0];
+	int32_t buffer_size_byte = 0;
+	int32_t word_per_line = 0;
+
 	if (!buf)
 		return rc;
-	for (i = 0; i < stream_info->num_planes; i++)
+
+	for (i = 0; i < stream_info->num_planes; i++) {
+		word_per_line = msm_isp_cal_word_per_line(
+			stream_info->output_format, stream_info->
+			plane_cfg[i].output_stride);
+		if (word_per_line < 0) {
+			/* 0 means no prefetch*/
+			word_per_line = 0;
+			buffer_size_byte = 0;
+		} else {
+			buffer_size_byte = (word_per_line * 8 *
+				stream_info->plane_cfg[i].
+				output_scan_lines) - stream_info->
+				plane_cfg[i].plane_addr_offset;
+		}
+
 		vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
 			vfe_dev, stream_info->wm[i],
 			VFE_PONG_FLAG, buf->mapped_info[i].paddr +
-			stream_info->plane_cfg[i].plane_addr_offset);
+			stream_info->plane_cfg[i].plane_addr_offset,
+			buffer_size_byte);
+	}
 	stream_info->buf[1] = buf;
 	return 0;
 }
@@ -1100,6 +1139,8 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 	struct msm_vfe_frame_request_queue *queue_req;
 	uint32_t pingpong_bit;
 	uint32_t stream_idx = HANDLE_TO_IDX(stream_info->stream_handle);
+	uint32_t buffer_size_byte = 0;
+	int32_t word_per_line = 0;
 
 	if (stream_idx >= MAX_NUM_STREAM) {
 		pr_err("%s: Invalid stream_idx", __func__);
@@ -1142,11 +1183,27 @@ static int msm_isp_cfg_ping_pong_address(struct vfe_device *vfe_dev,
 		goto buf_error;
 	}
 
-	for (i = 0; i < stream_info->num_planes; i++)
+	for (i = 0; i < stream_info->num_planes; i++) {
+		word_per_line = msm_isp_cal_word_per_line(
+			stream_info->output_format, stream_info->
+			plane_cfg[i].output_stride);
+		if (word_per_line < 0) {
+			/* 0 means no prefetch*/
+			word_per_line = 0;
+			buffer_size_byte = 0;
+		} else {
+			buffer_size_byte = (word_per_line * 8 *
+				stream_info->plane_cfg[i].
+				output_scan_lines) - stream_info->
+				plane_cfg[i].plane_addr_offset;
+		}
+
 		vfe_dev->hw_info->vfe_ops.axi_ops.update_ping_pong_addr(
 			vfe_dev, stream_info->wm[i],
 			pingpong_status, buf->mapped_info[i].paddr +
-			stream_info->plane_cfg[i].plane_addr_offset);
+			stream_info->plane_cfg[i].plane_addr_offset,
+			buffer_size_byte);
+	}
 
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	stream_info->buf[pingpong_bit] = buf;

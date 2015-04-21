@@ -1138,7 +1138,8 @@ static void msm_vfe32_cfg_axi_ub(struct vfe_device *vfe_dev)
 }
 
 static void msm_vfe32_update_ping_pong_addr(struct vfe_device *vfe_dev,
-		uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr)
+		uint8_t wm_idx, uint32_t pingpong_status,
+		dma_addr_t paddr, int32_t buffer_size)
 {
 	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
 	msm_camera_io_w(paddr32, vfe_dev->vfe_base +

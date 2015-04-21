@@ -155,7 +155,8 @@ struct msm_vfe_axi_ops {
 	void (*read_wm_ping_pong_addr)(struct vfe_device *vfe_dev);
 
 	void (*update_ping_pong_addr)(struct vfe_device *vfe_dev,
-		uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr);
+		uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr,
+		int32_t buf_size);
 
 	uint32_t (*get_wm_mask)(uint32_t irq_status0, uint32_t irq_status1);
 	uint32_t (*get_comp_mask)(uint32_t irq_status0, uint32_t irq_status1);

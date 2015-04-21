@@ -1395,7 +1395,8 @@ static void msm_vfe46_read_wm_ping_pong_addr(
 
 static void msm_vfe46_update_ping_pong_addr(
 	struct vfe_device *vfe_dev,
-	uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr)
+	uint8_t wm_idx, uint32_t pingpong_status,
+	dma_addr_t paddr, int32_t buf_size)
 {
 	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
 

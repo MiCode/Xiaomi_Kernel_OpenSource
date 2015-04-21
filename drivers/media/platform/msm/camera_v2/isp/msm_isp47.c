@@ -363,7 +363,7 @@ static void msm_vfe47_init_hardware_reg(struct vfe_device *vfe_dev)
 
 
 	/* BUS_CFG */
-	msm_camera_io_w(0x00000001, vfe_dev->vfe_base + 0x84);
+	msm_camera_io_w(0x00000101, vfe_dev->vfe_base + 0x84);
 	/* IRQ_MASK/CLEAR */
 	msm_camera_io_w(0xE00000F3, vfe_dev->vfe_base + 0x5C);
 	msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x60);
@@ -1529,12 +1529,21 @@ static void msm_vfe47_read_wm_ping_pong_addr(
 
 static void msm_vfe47_update_ping_pong_addr(
 	struct vfe_device *vfe_dev,
-	uint8_t wm_idx, uint32_t pingpong_status, dma_addr_t paddr)
+	uint8_t wm_idx, uint32_t pingpong_status,
+	dma_addr_t paddr, int32_t buf_size)
 {
 	uint32_t paddr32 = (paddr & 0xFFFFFFFF);
+	uint32_t paddr32_max = 0;
+
+	if (buf_size < 0)
+		buf_size = 0;
+
+	paddr32_max = (paddr + buf_size) & 0xFFFFFFC0;
 
 	msm_camera_io_w(paddr32, vfe_dev->vfe_base +
 		VFE47_PING_PONG_BASE(wm_idx, pingpong_status));
+	msm_camera_io_w(paddr32_max, vfe_dev->vfe_base +
+		VFE47_PING_PONG_BASE(wm_idx, pingpong_status) + 0x4);
 }
 
 static int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
