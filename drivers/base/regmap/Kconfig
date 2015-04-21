@@ -20,3 +20,16 @@ config REGMAP_MMIO
 
 config REGMAP_IRQ
 	bool
+
+config REGMAP_SWR
+	tristate
+
+config REGMAP_ALLOW_WRITE_DEBUGFS
+	bool "Allow register writes through debugfs"
+	depends on DEBUG_FS
+	depends on REGMAP
+	help
+	 Add support to allow register writes through
+	 debugfs. Client driver can enable this config
+	 option to write registers using debugfs from
+	 regmap registers file.
