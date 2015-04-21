@@ -40,6 +40,8 @@
 #define HPD_INT_ENABLE           BIT(7)
 #define MONITOR_SENSE_INT_ENABLE BIT(6)
 #define EDID_READY_INT_ENABLE    BIT(2)
+#define HDCP_BKSV_FLAG           BIT(6)
+#define HDCP_ERROR               BIT(7)
 
 #define MAX_WAIT_TIME (100)
 #define MAX_RW_TRIES (3)
@@ -121,7 +123,7 @@ static struct adv7533_reg_cfg adv7533_video_setup[] = {
 	/* hdmi enable */
 	{ADV7533_CEC_DSI, 0x03, 0x89},
 	/* hdmi mode, hdcp */
-	{ADV7533_MAIN, 0xAF, 0x06},
+	{ADV7533_MAIN, 0xAF, 0x96},
 	/* color depth */
 	{ADV7533_MAIN, 0x4C, 0x04},
 	/* down dither */
@@ -192,10 +194,11 @@ static struct adv7533_reg_cfg I2S_cfg[] = {
 };
 
 static struct adv7533_reg_cfg irq_config[] = {
-	{ADV7533_CEC_DSI, 0x38, BIT(6)},
 	{ADV7533_MAIN, 0x94, HPD_INT_ENABLE |
 		MONITOR_SENSE_INT_ENABLE |
 		EDID_READY_INT_ENABLE},
+	{ADV7533_MAIN, 0x95, HDCP_BKSV_FLAG |
+		HDCP_ERROR},
 };
 
 static struct i2c_client *client;
@@ -512,30 +515,6 @@ err_none:
 	return ret;
 }
 
-static void adv7533_get_cmdline_config(void)
-{
-	int len = 0;
-	char *t;
-
-	len = strlen(mdss_mdp_panel);
-
-	if (len <= 0)
-		return;
-
-	t = strnstr(mdss_mdp_panel, "hdmi", MDSS_MAX_PANEL_LEN);
-	if (t)
-		pdata->adv_output = true;
-	else
-		pdata->adv_output = false;
-
-	t = strnstr(mdss_mdp_panel, "720", MDSS_MAX_PANEL_LEN);
-	if (t)
-		pdata->video_mode = ADV7533_VIDEO_720P;
-
-	t = strnstr(mdss_mdp_panel, "1080", MDSS_MAX_PANEL_LEN);
-	if (t)
-		pdata->video_mode = ADV7533_VIDEO_1080P;
-}
 
 u32 adv7533_read_edid(u32 size, char *edid_buf)
 {
@@ -578,11 +557,62 @@ end:
 	return ret;
 }
 
+static void adv7533_handle_hdcp_intr(void)
+{
+	u8 hdcp_status = 0xFF;
+
+	if (adv7533_read_byte(ADV7533_MAIN, 0x97, &hdcp_status))
+		goto reset;
+
+	/* HDCP ready for read */
+	if (hdcp_status & BIT(6))
+		pr_debug("%s: BKSV FLAG\n", __func__);
+
+	/* check for HDCP error */
+	if (hdcp_status & BIT(7)) {
+		u8 ddc_status;
+		pr_err("%s: HDCP ERROR\n", __func__);
+
+		/* get error details */
+		adv7533_read_byte(ADV7533_MAIN, 0xC8, &ddc_status);
+
+		switch (ddc_status & 0xF0 >> 4) {
+		case 0:
+			pr_debug("%s: DDC: NO ERROR\n", __func__);
+			break;
+		case 1:
+			pr_err("%s: DDC: BAD RX BKSV\n", __func__);
+			break;
+		case 2:
+			pr_err("%s: DDC: Ri MISMATCH\n", __func__);
+			break;
+		case 3:
+			pr_err("%s: DDC: Pj MISMATCH\n", __func__);
+			break;
+		case 4:
+			pr_err("%s: DDC: I2C ERROR\n", __func__);
+			break;
+		case 5:
+			pr_err("%s: DDC: TIMED OUT DS DONE\n", __func__);
+			break;
+		case 6:
+			pr_err("%s: DDC: MAX CAS EXC\n", __func__);
+			break;
+		default:
+			pr_debug("%s: DDC: UNKNOWN ERROR\n", __func__);
+		}
+	}
+
+reset:
+	if (adv7533_write_byte(pdata->main_i2c_addr, 0x97, hdcp_status))
+		pr_err("%s: Failed: clear hdcp intr\n", __func__);
+}
+
 static void adv7533_intr_work(struct work_struct *work)
 {
-	u8 int_status;
-	u8 int_state;
 	int ret;
+	u8 int_status  = 0xFF;
+	u8 int_state   = 0xFF;
 	struct adv7533_platform_data *pdata;
 	struct delayed_work *dw = to_delayed_work(work);
 
@@ -590,12 +620,15 @@ static void adv7533_intr_work(struct work_struct *work)
 			adv7533_intr_work_id);
 	if (!pdata) {
 		pr_err("%s: invalid input\n", __func__);
-		return;
+		goto reset;
 	}
 
 	/* READ Interrupt registers */
-	adv7533_read_byte(ADV7533_MAIN, 0x96, &int_status);
-	adv7533_read_byte(ADV7533_MAIN, 0x42, &int_state);
+	if (adv7533_read_byte(ADV7533_MAIN, 0x96, &int_status))
+		goto reset;
+
+	if (adv7533_read_byte(ADV7533_MAIN, 0x42, &int_state))
+		goto reset;
 
 	if (int_status & BIT(6)) {
 		if (int_state & BIT(5)) {
@@ -632,14 +665,15 @@ static void adv7533_intr_work(struct work_struct *work)
 			MSM_DBA_CB_HPD_CONNECT);
 	}
 
-	/* Clear interrupts */
-	ret = adv7533_write_byte(pdata->main_i2c_addr, 0x96, int_status);
-	if (ret)
-		pr_err("%s: Failed: clear interrupts %d\n", __func__, ret);
+	adv7533_handle_hdcp_intr();
 
-	ret = adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config));
-	if (ret)
-		pr_err("%s: Failed: irq config %d\n", __func__, ret);
+reset:
+	/* Clear interrupts */
+	if (adv7533_write_byte(pdata->main_i2c_addr, 0x96, int_status))
+		pr_err("%s: Failed: clear hpd intr\n", __func__);
+
+	if (adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config)))
+		pr_err("%s: Failed: irq config\n", __func__);
 }
 
 static irqreturn_t adv7533_irq(int irq, void *data)
@@ -743,6 +777,34 @@ static int adv7533_video_on(void *client, bool on,
 		ARRAY_SIZE(adv7533_video_setup));
 	if (ret)
 		pr_err("%s: Failed: video setup\n", __func__);
+end:
+	return ret;
+}
+
+static int adv7533_hdcp_enable(void *client, bool hdcp_on,
+	bool enc_on, u32 flags)
+{
+	int ret = -EINVAL;
+	u8 reg_val;
+
+	if (adv7533_read_byte(pdata->main_i2c_addr, 0xAF, &reg_val))
+		goto end;
+
+	if (hdcp_on) {
+		reg_val |= BIT(7);
+		reg_val |= BIT(4);
+
+		if (adv7533_write_byte(pdata->main_i2c_addr, 0xAF, reg_val))
+			goto end;
+	} else {
+		reg_val &= ~BIT(7);
+		reg_val &= ~BIT(4);
+
+		if (adv7533_write_byte(pdata->main_i2c_addr, 0xAF, reg_val))
+			goto end;
+	}
+
+	ret = 0;
 end:
 	return ret;
 }
@@ -926,6 +988,7 @@ static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 	client_ops->power_on = adv7533_power_on;
 	client_ops->video_on = adv7533_video_on;
 	client_ops->configure_audio = adv7533_configure_audio;
+	client_ops->hdcp_enable = adv7533_hdcp_enable;
 	client_ops->get_edid_size = adv7533_get_edid_size;
 	client_ops->get_raw_edid = adv7533_get_raw_edid;
 
@@ -981,23 +1044,13 @@ static int adv7533_probe(struct i2c_client *client_,
 		pr_err("%s: Failed to select %s pinstate %d\n",
 			__func__, PINCTRL_STATE_ACTIVE, ret);
 
-	pdata->adv_output = true;
-	adv7533_get_cmdline_config();
-
-	if (!(pdata->disable_gpios)) {
-		ret = adv7533_gpio_configure(pdata, true);
-		if (ret) {
-			pr_err("%s: Failed to configure GPIOs\n", __func__);
-			goto p_err;
-		}
-
-		if (pdata->adv_output) {
-			gpio_set_value(pdata->switch_gpio, 0);
-		} else {
-			gpio_set_value(pdata->switch_gpio, 1);
-			goto p_err;
-		}
+	ret = adv7533_gpio_configure(pdata, true);
+	if (ret) {
+		pr_err("%s: Failed to configure GPIOs\n", __func__);
+		goto p_err;
 	}
+
+	gpio_set_value(pdata->switch_gpio, 0);
 
 	pdata->irq = gpio_to_irq(pdata->irq_gpio);
 
@@ -1032,7 +1085,10 @@ static int adv7533_probe(struct i2c_client *client_,
 	return 0;
 
 p_err:
+	disable_irq(pdata->irq);
+	free_irq(pdata->irq, pdata);
 	adv7533_gpio_configure(pdata, false);
+
 	devm_kfree(&client->dev, pdata);
 	return ret;
 }
@@ -1048,6 +1104,7 @@ static int adv7533_remove(struct i2c_client *client)
 	ret = adv7533_gpio_configure(pdata, false);
 
 	devm_kfree(&client->dev, pdata);
+
 	return ret;
 }
 
