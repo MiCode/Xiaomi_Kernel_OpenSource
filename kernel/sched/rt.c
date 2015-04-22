@@ -1645,13 +1645,15 @@ static struct task_struct *pick_highest_pushable_task(struct rq *rq, int cpu)
 static DEFINE_PER_CPU(cpumask_var_t, local_cpu_mask);
 
 #ifdef CONFIG_SCHED_HMP
+
 static int find_lowest_rq_hmp(struct task_struct *task)
 {
 	struct cpumask *lowest_mask = __get_cpu_var(local_cpu_mask);
-	int cpu_cost, min_cost = INT_MAX;
-	u64 cpu_load, min_load = ULLONG_MAX;
+	struct cpumask candidate_mask = CPU_MASK_NONE;
+	struct sched_cluster *cluster;
 	int best_cpu = -1;
 	int prev_cpu = task_cpu(task);
+	u64 cpu_load, min_load = ULLONG_MAX;
 	int i;
 
 	/* Make sure the mask is initialized first */
@@ -1670,46 +1672,26 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	 * the best one based on our affinity and topology.
 	 */
 
-	/* Skip performance considerations and optimize for power.
-	 * Worst case we'll be iterating over all CPUs here. CPU
-	 * online mask should be taken care of when constructing
-	 * the lowest_mask.
-	 */
-	for_each_cpu(i, lowest_mask) {
-		cpu_load = scale_load_to_cpu(
-			cpu_rq(i)->hmp_stats.cumulative_runnable_avg, i);
+	for_each_sched_cluster(cluster) {
+		cpumask_and(&candidate_mask, &cluster->cpus, lowest_mask);
 
-#ifdef CONFIG_SCHED_QHMP
-		cpu_cost = power_cost(cpu_load, i);
-		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), mostly_idle_cpu(i),
-				     sched_irqload(i), cpu_cost, cpu_temp(i));
-
-		if (sched_boost() && capacity(cpu_rq(i)) != max_capacity)
+		if (cpumask_empty(&candidate_mask))
 			continue;
-#else
-		cpu_cost = power_cost(i, cpu_cravg_sync(i, 0));
-		trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
-			sched_irqload(i), cpu_cost, cpu_temp(i));
-#endif
 
-		if (power_delta_exceeded(cpu_cost, min_cost)) {
-			if (cpu_cost > min_cost)
+		for_each_cpu(i, &candidate_mask) {
+			if (sched_cpu_high_irqload(i))
 				continue;
 
-			min_cost = cpu_cost;
-			min_load = ULLONG_MAX;
-			best_cpu = -1;
-		}
+			cpu_load = scale_load_to_cpu(
+			  cpu_rq(i)->hmp_stats.cumulative_runnable_avg, i);
 
-		if (sched_cpu_high_irqload(i))
-			continue;
-
-		if (cpu_load < min_load ||
-		    (cpu_load == min_load &&
-		     (i == prev_cpu || (best_cpu != prev_cpu &&
-					cpus_share_cache(prev_cpu, i))))) {
-			min_load = cpu_load;
-			best_cpu = i;
+			if (cpu_load < min_load ||
+				(cpu_load == min_load &&
+				(i == prev_cpu || (best_cpu != prev_cpu &&
+				cpus_share_cache(prev_cpu, i))))) {
+				min_load = cpu_load;
+				best_cpu = i;
+			}
 		}
 	}
 

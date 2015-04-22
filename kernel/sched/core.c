@@ -1290,7 +1290,7 @@ static int compute_load_scale_factor(struct sched_cluster *cluster)
 	return load_scale;
 }
 
-static struct list_head cluster_head;
+struct list_head cluster_head;
 static DEFINE_MUTEX(cluster_lock);
 static cpumask_t all_cluster_cpus = CPU_MASK_NONE;
 DECLARE_BITMAP(all_cluster_ids, NR_CPUS);
@@ -1313,9 +1313,6 @@ static struct sched_cluster init_cluster = {
 	.dstate_wakeup_energy	=	0,
 	.dstate_wakeup_latency	=	0,
 };
-
-#define for_each_sched_cluster(cluster) \
-	list_for_each_entry_rcu(cluster, &cluster_head, list)
 
 void update_all_clusters_stats(void)
 {

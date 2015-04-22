@@ -2469,15 +2469,9 @@ unsigned int __read_mostly sysctl_sched_spill_nr_run = 10;
  */
 unsigned int __read_mostly sysctl_sched_enable_power_aware = 0;
 
-/*
- * This specifies the maximum percent power difference between 2
- * CPUs for them to be considered identical in terms of their
- * power characteristics (i.e. they are in the same power band).
- */
-unsigned int __read_mostly sysctl_sched_powerband_limit_pct;
-
 unsigned int __read_mostly sysctl_sched_lowspill_freq;
 unsigned int __read_mostly sysctl_sched_pack_freq = UINT_MAX;
+
 /*
  * CPUs with load greater than the sched_spill_load_threshold are not
  * eligible for task placement. When all CPUs in a cluster achieve a
@@ -2661,18 +2655,6 @@ static inline u64 cpu_load_sync(int cpu, int sync)
 	return scale_load_to_cpu(cpu_cravg_sync(cpu, sync), cpu);
 }
 
-static int
-spill_threshold_crossed(u64 task_load, u64 cpu_load, struct rq *rq)
-{
-	u64 total_load = task_load + cpu_load;
-
-	if (total_load > sched_spill_load ||
-	    (rq->nr_running + 1) > sysctl_sched_spill_nr_run)
-		return 1;
-
-	return 0;
-}
-
 static int boost_refcount;
 static DEFINE_SPINLOCK(boost_lock);
 static DEFINE_MUTEX(boost_mutex);
@@ -2777,31 +2759,9 @@ static int task_will_fit(struct task_struct *p, int cpu)
 	return task_load_will_fit(p, tload, cpu);
 }
 
-static int eligible_cpu(u64 task_load, u64 cpu_load, int cpu, int sync)
-{
-	if (sched_cpu_high_irqload(cpu))
-		return 0;
-
-	return !spill_threshold_crossed(task_load, cpu_load, cpu_rq(cpu));
-}
-
 struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
 {
 	return NULL;
-}
-
-int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost)
-{
-	int delta, cost_limit;
-
-	if (!base_cost || cpu_cost == base_cost ||
-				!sysctl_sched_powerband_limit_pct)
-		return 0;
-
-	delta = cpu_cost - base_cost;
-	cost_limit = div64_u64((u64)sysctl_sched_powerband_limit_pct *
-						(u64)base_cost, 100);
-	return abs(delta) > cost_limit;
 }
 
 /*
@@ -2875,59 +2835,270 @@ unlock:
 
 }
 
+struct cpu_select_env {
+	struct task_struct *p;
+	u8 reason;
+	u8 need_idle:1;
+	u8 boost:1;
+	u8 sync:1;
+	u8 ignore_prev_cpu:1;
+	int prev_cpu;
+	DECLARE_BITMAP(candidate_list, NR_CPUS);
+	DECLARE_BITMAP(backup_list, NR_CPUS);
+	u64 task_load;
+	u64 cpu_load;
+};
+
+struct cluster_cpu_stats {
+	int best_idle_cpu, best_capacity_cpu, best_cpu, best_sibling_cpu;
+	int min_cost, best_sibling_cpu_cost;
+	u64 min_load, best_sibling_cpu_load;
+	s64 highest_spare_capacity;
+};
+
 #define UP_MIGRATION		1
 #define DOWN_MIGRATION		2
-#define IRQLOAD_MIGRATION	4
+#define IRQLOAD_MIGRATION	3
 
-static int skip_cluster(int tcpu, int cpu, int reason)
+static int
+spill_threshold_crossed(struct cpu_select_env *env, struct rq *rq)
 {
-	int skip;
+	u64 total_load;
 
-	if (!reason)
-		return 0;
+	total_load = env->task_load + env->cpu_load;
 
-	switch (reason) {
-	case UP_MIGRATION:
-		skip = (cpu_capacity(cpu) <= cpu_capacity(tcpu));
-		break;
+	if (total_load > sched_spill_load ||
+	    (rq->nr_running + 1) > sysctl_sched_spill_nr_run)
+		return 1;
 
-	case DOWN_MIGRATION:
-		skip = (cpu_capacity(cpu) >= cpu_capacity(tcpu));
-		break;
-
-	case IRQLOAD_MIGRATION:
-		/* Purposely fall through */
-
-	default:
-		return 0;
-	}
-
-	return skip;
+	return 0;
 }
 
-static int skip_cpu(struct rq *task_rq, struct rq *rq, int cpu, int reason)
+static int skip_cpu(int cpu, struct cpu_select_env *env)
 {
-	int skip;
+	int tcpu = task_cpu(env->p);
+	int skip = 0;
 
-	if (!reason)
+	if (!env->reason)
 		return 0;
 
 	if (is_reserved(cpu))
 		return 1;
 
-	switch (reason) {
+	switch (env->reason) {
 	case UP_MIGRATION:
 		skip = !idle_cpu(cpu);
 		break;
-
 	case IRQLOAD_MIGRATION:
 		/* Purposely fall through */
-
 	default:
-		skip = (rq == task_rq);
+		skip = (cpu == tcpu);
+		break;
 	}
 
 	return skip;
+}
+
+static inline int
+acceptable_capacity(struct sched_cluster *cluster, struct cpu_select_env *env)
+{
+	int tcpu;
+
+	if (!env->reason)
+		return 1;
+
+	tcpu = task_cpu(env->p);
+	switch (env->reason) {
+	case UP_MIGRATION:
+		return cluster->capacity > cpu_capacity(tcpu);
+
+	case DOWN_MIGRATION:
+		return cluster->capacity < cpu_capacity(tcpu);
+
+	default:
+		break;
+	}
+
+	return 1;
+}
+
+static int
+skip_cluster(struct sched_cluster *cluster, struct cpu_select_env *env)
+{
+	if (!acceptable_capacity(cluster, env)) {
+		__clear_bit(cluster->id, env->candidate_list);
+		return 1;
+	}
+
+	return 0;
+}
+
+static struct sched_cluster *
+select_least_power_cluster(struct cpu_select_env *env)
+{
+	struct sched_cluster *cluster;
+
+	for_each_sched_cluster(cluster) {
+		if (!skip_cluster(cluster, env)) {
+			int cpu = cluster_first_cpu(cluster);
+
+			env->task_load = scale_load_to_cpu(task_load(env->p),
+									 cpu);
+			if (task_load_will_fit(env->p, env->task_load, cpu))
+				return cluster;
+
+			__set_bit(cluster->id, env->backup_list);
+			__clear_bit(cluster->id, env->candidate_list);
+		}
+	}
+
+	return NULL;
+}
+
+static struct sched_cluster *
+next_candidate(const unsigned long *list, int start, int end)
+{
+	int cluster_id;
+
+	cluster_id = find_next_bit(list, end, start - 1 + 1);
+	if (cluster_id >= end)
+		return NULL;
+
+	return sched_cluster[cluster_id];
+}
+
+static void update_spare_capacity(
+struct cluster_cpu_stats *stats, int cpu, int capacity, u64 cpu_load)
+{
+	s64 spare_capacity = sched_ravg_window - cpu_load;
+
+	if (spare_capacity > 0 &&
+	    (spare_capacity > stats->highest_spare_capacity ||
+	    (spare_capacity == stats->highest_spare_capacity &&
+	     capacity > cpu_capacity(stats->best_capacity_cpu)))) {
+		stats->highest_spare_capacity = spare_capacity;
+		stats->best_capacity_cpu = cpu;
+	}
+}
+
+static inline void find_backup_cluster(
+struct cpu_select_env *env, struct cluster_cpu_stats *stats)
+{
+	struct sched_cluster *next = NULL;
+	int i;
+
+	while (!bitmap_empty(env->backup_list, num_clusters)) {
+		next = next_candidate(env->backup_list, 0, num_clusters);
+		__clear_bit(next->id, env->backup_list);
+		for_each_cpu_and(i, &env->p->cpus_allowed, &next->cpus) {
+			trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
+			sched_irqload(i), power_cost(i, task_load(env->p) +
+					cpu_cravg_sync(i, env->sync)), 0);
+
+			update_spare_capacity(stats, i, next->capacity,
+					  cpu_load_sync(i, env->sync));
+		}
+	}
+}
+
+struct sched_cluster *
+next_best_cluster(struct sched_cluster *cluster, struct cpu_select_env *env)
+{
+	struct sched_cluster *next = NULL;
+
+	__clear_bit(cluster->id, env->candidate_list);
+
+	do {
+		if (bitmap_empty(env->candidate_list, num_clusters))
+			return NULL;
+
+		next = next_candidate(env->candidate_list, 0, num_clusters);
+		if (next)
+			if (skip_cluster(next, env))
+				next = NULL;
+	} while (!next);
+
+	env->task_load = scale_load_to_cpu(task_load(env->p),
+					cluster_first_cpu(next));
+	return next;
+}
+
+static void update_cluster_stats(int cpu, struct cluster_cpu_stats *stats,
+					 struct cpu_select_env *env)
+{
+	int cpu_cost;
+	int prev_cpu = env->prev_cpu;
+
+	cpu_cost = power_cost(cpu, task_load(env->p) +
+				cpu_cravg_sync(cpu, env->sync));
+	if (cpu_cost > stats->min_cost)
+		return;
+
+	if (cpu != prev_cpu && cpus_share_cache(prev_cpu, cpu)) {
+		if (stats->best_sibling_cpu_cost > cpu_cost ||
+		    (stats->best_sibling_cpu_cost == cpu_cost &&
+		     stats->best_sibling_cpu_load > env->cpu_load)) {
+
+			stats->best_sibling_cpu_cost = cpu_cost;
+			stats->best_sibling_cpu_load = env->cpu_load;
+			stats->best_sibling_cpu = cpu;
+		}
+	}
+
+	if ((cpu_cost < stats->min_cost) ||
+	    ((stats->best_cpu != prev_cpu && stats->min_load > env->cpu_load) ||
+	     cpu == prev_cpu)) {
+		if (env->need_idle) {
+			if (idle_cpu(cpu)) {
+				stats->min_cost = cpu_cost;
+				stats->best_idle_cpu = cpu;
+			}
+		} else {
+			stats->min_cost = cpu_cost;
+			stats->min_load = env->cpu_load;
+			stats->best_cpu = cpu;
+		}
+	}
+}
+
+static void find_best_cpu_in_cluster(struct sched_cluster *c,
+	 struct cpu_select_env *env, struct cluster_cpu_stats *stats)
+{
+	int i;
+	struct cpumask search_cpus;
+
+	cpumask_and(&search_cpus, tsk_cpus_allowed(env->p), &c->cpus);
+	if (env->ignore_prev_cpu)
+		cpumask_clear_cpu(env->prev_cpu, &search_cpus);
+
+	for_each_cpu(i, &search_cpus) {
+		env->cpu_load = cpu_load_sync(i, env->sync);
+
+		trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
+			sched_irqload(i),
+			power_cost(i, task_load(env->p) +
+					cpu_cravg_sync(i, env->sync)), 0);
+
+		if (unlikely(!cpu_active(i)) || skip_cpu(i, env))
+			continue;
+
+		update_spare_capacity(stats, i, c->capacity, env->cpu_load);
+
+		if (env->boost || sched_cpu_high_irqload(i) ||
+				spill_threshold_crossed(env, cpu_rq(i)))
+			continue;
+
+		update_cluster_stats(i, stats, env);
+	}
+}
+
+static inline void init_cluster_cpu_stats(struct cluster_cpu_stats *stats)
+{
+	stats->best_cpu = stats->best_idle_cpu = -1;
+	stats->best_capacity_cpu = stats->best_sibling_cpu  = -1;
+	stats->min_cost = stats->best_sibling_cpu_cost = INT_MAX;
+	stats->min_load	= stats->best_sibling_cpu_load = ULLONG_MAX;
+	stats->highest_spare_capacity = 0;
 }
 
 /*
@@ -2942,163 +3113,118 @@ static int skip_cpu(struct rq *task_rq, struct rq *rq, int cpu, int reason)
 static inline int wake_to_idle(struct task_struct *p)
 {
 	return (current->flags & PF_WAKE_UP_IDLE) ||
-			 (p->flags & PF_WAKE_UP_IDLE);
+				(p->flags & PF_WAKE_UP_IDLE);
 }
 
-static inline bool short_sleep_task_waking(struct task_struct *p, int prev_cpu,
-					   const cpumask_t *search_cpus)
+static inline bool
+bias_to_prev_cpu(struct cpu_select_env *env, struct cluster_cpu_stats *stats)
 {
+	int prev_cpu;
+	struct task_struct *task = env->p;
+	struct sched_cluster *cluster;
+
+	if (env->boost || env->reason || env->need_idle ||
+				!sched_short_sleep_task_threshold)
+		return false;
+
+	prev_cpu = env->prev_cpu;
+	if (!cpumask_test_cpu(prev_cpu, tsk_cpus_allowed(task)) ||
+					unlikely(!cpu_active(prev_cpu)))
+		return false;
+
 	/*
 	 * This function should be used by task wake up path only as it's
 	 * assuming p->last_switch_out_ts as last sleep time.
 	 * p->last_switch_out_ts can denote last preemption time as well as
 	 * last sleep time.
 	 */
-	return (sched_short_sleep_task_threshold &&
-		(p->ravg.mark_start - p->last_switch_out_ts <
-		 sched_short_sleep_task_threshold) &&
-		cpumask_test_cpu(prev_cpu, search_cpus));
+	if (task->ravg.mark_start - task->last_switch_out_ts >=
+					sched_short_sleep_task_threshold)
+		return false;
+
+	env->task_load = scale_load_to_cpu(task_load(task), prev_cpu);
+	cluster = cpu_rq(prev_cpu)->cluster;
+
+	if (!task_load_will_fit(task, env->task_load, prev_cpu)) {
+
+		__set_bit(cluster->id, env->backup_list);
+		__clear_bit(cluster->id, env->candidate_list);
+		return false;
+	}
+
+	env->cpu_load = cpu_load_sync(prev_cpu, env->sync);
+	if (sched_cpu_high_irqload(prev_cpu) ||
+			spill_threshold_crossed(env, cpu_rq(prev_cpu))) {
+		update_spare_capacity(stats, prev_cpu,
+				cluster->capacity, env->cpu_load);
+		env->ignore_prev_cpu = 1;
+		return false;
+	}
+
+	return true;
 }
 
 /* return cheapest cpu that can fit this task */
 static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
 {
-	int i, best_cpu = -1, best_idle_cpu = -1, best_capacity_cpu = -1;
-	int prev_cpu = task_cpu(p), best_sibling_cpu = -1;
-	int cpu_cost, min_cost = INT_MAX, best_sibling_cpu_cost = INT_MAX;
-	u64 tload, cpu_load, best_sibling_cpu_load = ULLONG_MAX;
-	u64 min_load = ULLONG_MAX;
-	s64 spare_capacity, highest_spare_capacity = 0;
-	int boost = sched_boost();
-	int need_idle = wake_to_idle(p);
+	struct sched_cluster *cluster;
+	struct cluster_cpu_stats stats;
 	bool fast_path = false;
-	cpumask_t search_cpus;
-	struct rq *trq;
 
-	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
+	struct cpu_select_env env = {
+		.p			= p,
+		.reason			= reason,
+		.need_idle		= wake_to_idle(p),
+		.boost			= sched_boost(),
+		.sync			= sync,
+		.prev_cpu		= target,
+		.ignore_prev_cpu	= 0,
+	};
 
-	if (!boost && !reason && !need_idle &&
-	    short_sleep_task_waking(p, prev_cpu, &search_cpus)) {
-		cpu_load = cpu_load_sync(prev_cpu, sync);
-		tload = scale_load_to_cpu(task_load(p), prev_cpu);
-		if (eligible_cpu(tload, cpu_load, prev_cpu, sync) &&
-		    task_load_will_fit(p, tload, prev_cpu)) {
-			fast_path = true;
-			best_cpu = prev_cpu;
-			goto done;
-		}
+	bitmap_copy(env.candidate_list, all_cluster_ids, NR_CPUS);
+	bitmap_zero(env.backup_list, NR_CPUS);
 
-		spare_capacity = sched_ravg_window - cpu_load;
-		if (spare_capacity > 0) {
-			highest_spare_capacity = spare_capacity;
-			best_capacity_cpu = prev_cpu;
-		}
-		cpumask_clear_cpu(prev_cpu, &search_cpus);
+	init_cluster_cpu_stats(&stats);
+
+	if (bias_to_prev_cpu(&env, &stats)) {
+		fast_path = true;
+		goto out;
 	}
 
-	trq = task_rq(p);
-	for_each_cpu(i, &search_cpus) {
-		struct rq *rq = cpu_rq(i);
+	rcu_read_lock();
+	cluster = select_least_power_cluster(&env);
 
-		trace_sched_cpu_load_wakeup(cpu_rq(i), idle_cpu(i),
-		 sched_irqload(i),
-		 power_cost(i, task_load(p) + cpu_cravg_sync(i, sync)),
-		 cpu_temp(i));
-
-		if (skip_cluster(task_cpu(p), i, reason)) {
-			cpumask_andnot(&search_cpus, &search_cpus,
-						&rq->cluster->cpus);
-			continue;
-		}
-
-		if (skip_cpu(task_rq(p), rq, i, reason))
-			continue;
-
-		cpu_load = cpu_load_sync(i, sync);
-		spare_capacity = sched_ravg_window - cpu_load;
-
-		/* Note the highest spare capacity CPU in the system */
-		if (spare_capacity > 0 &&
-		    (spare_capacity > highest_spare_capacity ||
-		     (spare_capacity == highest_spare_capacity &&
-			cpu_capacity(i) > cpu_capacity(best_capacity_cpu)))) {
-			highest_spare_capacity = spare_capacity;
-			best_capacity_cpu = i;
-		}
-
-		if (boost)
-			continue;
-
-		tload = scale_load_to_cpu(task_load(p), i);
-		if (!eligible_cpu(tload, cpu_load, i, sync) ||
-					!task_load_will_fit(p, tload, i))
-			continue;
-
-		/*
-		 * The task will fit on this CPU and the CPU can accommodate it
-		 * under spill.
-		 */
-
-		cpu_cost = power_cost(i, task_load(p) +
-					 cpu_cravg_sync(i, sync));
-
-		if (cpu_cost > min_cost)
-			continue;
-
-		/*
-		 * If the task fits in a CPU in a lower power band, that
-		 * overrides all other considerations.
-		 */
-		if (power_delta_exceeded(cpu_cost, min_cost)) {
-			min_cost = cpu_cost;
-			min_load = ULLONG_MAX;
-			best_cpu = -1;
-		}
-
-		if (i != prev_cpu && cpus_share_cache(prev_cpu, i)) {
-			if (best_sibling_cpu_cost > cpu_cost ||
-			    (best_sibling_cpu_cost == cpu_cost &&
-			     best_sibling_cpu_load > cpu_load)) {
-				best_sibling_cpu_cost = cpu_cost;
-				best_sibling_cpu_load = cpu_load;
-				best_sibling_cpu = i;
-			}
-		}
-
-		if ((cpu_cost < min_cost) ||
-		    ((best_cpu != prev_cpu && min_load > cpu_load) ||
-		     i == prev_cpu)) {
-			if (need_idle) {
-				if (idle_cpu(i)) {
-					min_cost = cpu_cost;
-					best_idle_cpu = i;
-				}
-			} else {
-				min_cost = cpu_cost;
-				min_load = cpu_load;
-				best_cpu = i;
-			}
-		}
+	if (!cluster) {
+		rcu_read_unlock();
+		goto out;
 	}
 
-	if (best_idle_cpu >= 0) {
-		best_cpu = best_idle_cpu;
-	} else if (best_cpu < 0 || boost) {
-		if (unlikely(best_capacity_cpu < 0))
-			best_cpu = prev_cpu;
-		else
-			best_cpu = best_capacity_cpu;
+	do {
+		find_best_cpu_in_cluster(cluster, &env, &stats);
+
+	} while ((cluster = next_best_cluster(cluster, &env)));
+
+	rcu_read_unlock();
+
+	if (stats.best_idle_cpu >= 0) {
+		target = stats.best_idle_cpu;
+	} else if (stats.best_cpu >= 0) {
+		if (stats.best_cpu != task_cpu(p) &&
+				stats.min_cost == stats.best_sibling_cpu_cost)
+			stats.best_cpu = stats.best_sibling_cpu;
+
+		target = stats.best_cpu;
 	} else {
-		if (best_cpu != prev_cpu && min_cost == best_sibling_cpu_cost)
-			best_cpu = best_sibling_cpu;
+		find_backup_cluster(&env, &stats);
+		if (stats.best_capacity_cpu >= 0)
+			target = stats.best_capacity_cpu;
 	}
 
-done:
-	trace_sched_task_load(p, boost, reason, sync, need_idle, fast_path,
-			      best_cpu);
-
-	return best_cpu;
+out:
+	trace_sched_task_load(p, sched_boost(), env.reason, env.sync,
+					env.need_idle, fast_path, target);
+	return target;
 }
 
 static void
@@ -3687,7 +3813,7 @@ unsigned int power_cost(int cpu, u64 demand)
 }
 
 static inline int
-spill_threshold_crossed(u64 task_load, u64 cpu_load, struct rq *rq)
+spill_threshold_crossed(struct cpu_select_env *env, struct rq *rq)
 {
 	return 0;
 }

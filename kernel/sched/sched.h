@@ -366,6 +366,13 @@ static inline int cluster_first_cpu(struct sched_cluster *cluster)
 	return cpumask_first(&cluster->cpus);
 }
 
+extern struct list_head cluster_head;
+extern int num_clusters;
+extern struct sched_cluster *sched_cluster[NR_CPUS];
+
+#define for_each_sched_cluster(cluster) \
+	list_for_each_entry_rcu(cluster, &cluster_head, list)
+
 #endif
 
 /* CFS-related fields in a runqueue */
@@ -940,6 +947,11 @@ extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 unsigned int cpu_temp(int cpu);
 extern unsigned int nr_eligible_big_tasks(int cpu);
 extern void update_up_down_migrate(void);
+
+static inline struct sched_cluster *cpu_cluster(int cpu)
+{
+	return cpu_rq(cpu)->cluster;
+}
 
 static inline int cpu_capacity(int cpu)
 {
