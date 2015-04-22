@@ -219,6 +219,7 @@ enum {
  */
 struct dsi_shared_data {
 	u32 hw_config; /* DSI setup configuration i.e. single/dual/split */
+	u32 pll_src_config; /* PLL source selection for DSI link clocks */
 	u32 hw_rev; /* DSI h/w revision */
 
 	/* DSI ULPS clamp register offsets */
@@ -233,6 +234,18 @@ struct dsi_shared_data {
 	struct clk *ahb_clk;
 	struct clk *axi_clk;
 	struct clk *mmss_misc_ahb_clk;
+
+	/* Other shared clocks */
+	struct clk *ext_byte0_clk;
+	struct clk *ext_pixel0_clk;
+	struct clk *ext_byte1_clk;
+	struct clk *ext_pixel1_clk;
+
+	/* Clock sources for branch clocks */
+	struct clk *byte0_parent;
+	struct clk *pixel0_parent;
+	struct clk *byte1_parent;
+	struct clk *pixel1_parent;
 
 	/* DSI core regulators */
 	struct dss_module_power power_data[DSI_MAX_PM];
@@ -262,6 +275,17 @@ enum mdss_dsi_hw_config {
 	SINGLE_DSI,
 	DUAL_DSI,
 	SPLIT_DSI,
+};
+
+/*
+ * enum mdss_dsi_pll_src_config - The PLL source for DSI link clocks
+ *
+ * @PLL_SRC_0:		The link clocks are sourced out of PLL0.
+ * @PLL_SRC_1:		The link clocks are sourced out of PLL1.
+ */
+enum mdss_dsi_pll_src_config {
+	PLL_SRC_0,
+	PLL_SRC_1,
 };
 
 struct dsi_panel_cmds {
@@ -300,9 +324,9 @@ struct panel_horizontal_idle {
 #define DSI_CTRL_CLK_SLAVE	DSI_CTRL_RIGHT
 #define DSI_CTRL_CLK_MASTER	DSI_CTRL_LEFT
 
-#define DSI_BUS_CLKS	BIT(0)
+#define DSI_CORE_CLKS	BIT(0)
 #define DSI_LINK_CLKS	BIT(1)
-#define DSI_ALL_CLKS	((DSI_BUS_CLKS) | (DSI_LINK_CLKS))
+#define DSI_ALL_CLKS	((DSI_CORE_CLKS) | (DSI_LINK_CLKS))
 
 #define DSI_EV_PLL_UNLOCKED		0x0001
 #define DSI_EV_MDP_FIFO_UNDERFLOW	0x0002
@@ -334,7 +358,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct dss_io_data mmss_misc_io;
 	struct dss_io_data phy_io;
 	int reg_size;
-	u32 bus_clk_cnt;
+	u32 core_clk_cnt;
 	u32 link_clk_cnt;
 	u32 flags;
 	struct clk *byte_clk;
@@ -346,7 +370,9 @@ struct mdss_dsi_ctrl_pdata {
 	struct clk *pll_pixel_clk;
 	struct clk *shadow_byte_clk;
 	struct clk *shadow_pixel_clk;
-	struct clk *vco_clk;
+	struct clk *byte_clk_rcg;
+	struct clk *pixel_clk_rcg;
+	struct clk *vco_dummy_clk;
 	u8 ctrl_state;
 	int panel_mode;
 	int irq_cnt;
@@ -483,18 +509,14 @@ int mdss_dsi_link_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_link_clk_deinit(struct device *dev,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-int mdss_dsi_bus_clk_init(struct platform_device *pdev,
+int mdss_dsi_core_clk_init(struct platform_device *pdev,
 			struct dsi_shared_data *sdata);
-void mdss_dsi_bus_clk_deinit(struct device *dev,
+void mdss_dsi_core_clk_deinit(struct device *dev,
 			struct dsi_shared_data *sdata);
 int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_shadow_clk_deinit(struct device *dev,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-int mdss_dsi_pll_1_clk_init(struct platform_device *pdev,
-		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
 void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl);
@@ -570,6 +592,35 @@ static inline bool mdss_dsi_is_hw_config_split(struct dsi_shared_data *sdata)
 static inline bool mdss_dsi_is_hw_config_dual(struct dsi_shared_data *sdata)
 {
 	return mdss_dsi_get_hw_config(sdata) == DUAL_DSI;
+}
+
+static inline u32 mdss_dsi_get_pll_src_config(struct dsi_shared_data *sdata)
+{
+	return sdata->pll_src_config;
+}
+
+/*
+ * mdss_dsi_is_pll_src_pll0: Check if the PLL source for a DSI device is PLL0
+ * The function is only valid if the DSI configuration is single/split DSI.
+ * Not valid for dual DSI configuration.
+ *
+ * @sdata: pointer to DSI shared data structure
+ */
+static inline u32 mdss_dsi_is_pll_src_pll0(struct dsi_shared_data *sdata)
+{
+	return sdata->pll_src_config == PLL_SRC_0;
+}
+
+/*
+ * mdss_dsi_is_pll_src_pll1: Check if the PLL source for a DSI device is PLL1
+ * The function is only valid if the DSI configuration is single/split DSI.
+ * Not valid for dual DSI configuration.
+ *
+ * @sdata: pointer to DSI shared data structure
+ */
+static inline u32 mdss_dsi_is_pll_src_pll1(struct dsi_shared_data *sdata)
+{
+	return sdata->pll_src_config == PLL_SRC_1;
 }
 
 static inline bool mdss_dsi_sync_wait_enable(struct mdss_dsi_ctrl_pdata *ctrl)
