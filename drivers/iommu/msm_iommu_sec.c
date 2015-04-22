@@ -308,12 +308,11 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 	iommu_access_ops->iommu_clk_on(drvdata);
 	tmp = msm_iommu_dump_fault_regs(drvdata->sec_id,
 					ctx_drvdata->num, regs);
-	iommu_access_ops->iommu_clk_off(drvdata);
 
 	if (tmp) {
 		pr_err("%s: Couldn't dump fault registers (%d) %s, ctx: %d\n",
 			__func__, tmp, drvdata->name, ctx_drvdata->num);
-		goto free_regs;
+		goto clock_off;
 	} else {
 		struct msm_iommu_context_reg ctx_regs[MAX_DUMP_REGS];
 		memset(ctx_regs, 0, sizeof(ctx_regs));
@@ -322,7 +321,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 		if (tmp < 0) {
 			ret = IRQ_NONE;
 			pr_err("Incorrect response from secure environment\n");
-			goto free_regs;
+			goto clock_off;
 		}
 
 		if (ctx_regs[DUMP_REG_FSR].val) {
@@ -355,6 +354,8 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 			ret = IRQ_NONE;
 		}
 	}
+clock_off:
+	iommu_access_ops->iommu_clk_off(drvdata);
 free_regs:
 	kfree(regs);
 lock_release:
