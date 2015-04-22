@@ -48,6 +48,125 @@ static struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl(u32 ctrl_id)
 	return mdss_dsi_res->ctrl_pdata[ctrl_id];
 }
 
+static void mdss_dsi_config_clk_src(struct platform_device *pdev)
+{
+	struct mdss_dsi_data *dsi_res = platform_get_drvdata(pdev);
+	struct dsi_shared_data *sdata = dsi_res->shared_data;
+
+	if (!sdata->ext_byte0_clk || !sdata->ext_byte1_clk ||
+		!sdata->ext_pixel0_clk || !sdata->ext_pixel1_clk) {
+		pr_debug("%s: config_clk_src not needed\n", __func__);
+		return;
+	}
+
+	if (!mdss_dsi_is_hw_config_dual(sdata)) {
+		/*
+		 * For split-dsi and single-dsi use cases, map the PLL source
+		 * based on the pll source configuration. It is possible that
+		 * for split-dsi case, the only supported config is to source
+		 * the clocks from PLL0. This is not explictly checked here as
+		 * it should have been already enforced when validating the
+		 * board configuration.
+		 */
+		if (mdss_dsi_is_pll_src_pll0(sdata)) {
+			pr_debug("%s: single source: PLL0", __func__);
+			sdata->byte0_parent = sdata->ext_byte0_clk;
+			sdata->pixel0_parent = sdata->ext_pixel0_clk;
+		} else {
+			pr_debug("%s: single source: PLL1", __func__);
+			sdata->byte0_parent = sdata->ext_byte1_clk;
+			sdata->pixel0_parent = sdata->ext_pixel1_clk;
+		}
+		sdata->byte1_parent = sdata->byte0_parent;
+		sdata->pixel1_parent = sdata->pixel0_parent;
+	} else {
+		/*
+		 * For dual-dsi use cases, map:
+		 *     DSI0 <--> PLL0
+		 *     DSI1 <--> PLL1
+		 */
+		pr_debug("%s: dual-dsi: DSI0 <--> PLL0, DSI1 <--> PLL1",
+			__func__);
+		sdata->byte0_parent = sdata->ext_byte0_clk;
+		sdata->byte1_parent = sdata->ext_byte1_clk;
+		sdata->pixel0_parent = sdata->ext_pixel0_clk;
+		sdata->pixel1_parent = sdata->ext_pixel1_clk;
+	}
+
+	return;
+}
+
+static char const *mdss_dsi_get_clk_src(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct dsi_shared_data *sdata;
+
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return "????";
+	}
+
+	sdata = ctrl->shared_data;
+
+	if (mdss_dsi_is_left_ctrl(ctrl)) {
+		if (sdata->byte0_parent == sdata->ext_byte0_clk)
+			return "PLL0";
+		else
+			return "PLL1";
+	} else {
+		if (sdata->byte1_parent == sdata->ext_byte0_clk)
+			return "PLL0";
+		else
+			return "PLL1";
+	}
+}
+
+static int mdss_dsi_set_clk_src(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	int rc;
+	struct dsi_shared_data *sdata;
+	struct clk *byte_parent, *pixel_parent;
+
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	sdata = ctrl->shared_data;
+
+	if (!ctrl->byte_clk_rcg || !ctrl->pixel_clk_rcg) {
+		pr_debug("%s: set_clk_src not needed\n", __func__);
+		return 0;
+	}
+
+	if (mdss_dsi_is_left_ctrl(ctrl)) {
+		byte_parent = sdata->byte0_parent;
+		pixel_parent = sdata->pixel0_parent;
+	} else {
+		byte_parent = sdata->byte1_parent;
+		pixel_parent = sdata->pixel1_parent;
+	}
+
+	rc = clk_set_parent(ctrl->byte_clk_rcg, byte_parent);
+	if (rc) {
+		pr_err("%s: failed to set parent for byte clk for ctrl%d. rc=%d\n",
+			__func__, ctrl->ndx, rc);
+		goto error;
+	}
+
+	rc = clk_set_parent(ctrl->pixel_clk_rcg, pixel_parent);
+	if (rc) {
+		pr_err("%s: failed to set parent for pixel clk for ctrl%d. rc=%d\n",
+			__func__, ctrl->ndx, rc);
+		goto error;
+	}
+
+	pr_debug("%s: ctrl%d clock source set to %s", __func__, ctrl->ndx,
+		mdss_dsi_get_clk_src(ctrl));
+
+error:
+	return rc;
+}
+
 static int mdss_dsi_regulator_init(struct platform_device *pdev,
 		struct dsi_shared_data *sdata)
 {
@@ -1079,10 +1198,16 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	ret = mdss_dsi_panel_power_ctrl(pdata, MDSS_PANEL_POWER_ON);
 	if (ret) {
 		pr_err("%s:Panel power on failed. rc=%d\n", __func__, ret);
-		return ret;
+		goto end;
 	}
 
-	if (cur_power_state != MDSS_PANEL_POWER_OFF) {
+	ret = mdss_dsi_set_clk_src(ctrl_pdata);
+	if (ret) {
+		pr_err("%s: failed to set clk src. rc=%d\n", __func__, ret);
+		goto end;
+	}
+
+	if (mdss_panel_is_power_on(cur_power_state)) {
 		pr_debug("%s: dsi_on from panel low power state\n", __func__);
 		goto end;
 	}
@@ -1123,7 +1248,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 
 end:
 	pr_debug("%s-:\n", __func__);
-	return 0;
+	return ret;
 }
 
 static int mdss_dsi_pinctrl_set_state(
@@ -2220,7 +2345,7 @@ static void mdss_dsi_res_deinit(struct platform_device *pdev)
 			&sdata->power_data[i]);
 	}
 
-	mdss_dsi_bus_clk_deinit(&pdev->dev, sdata);
+	mdss_dsi_core_clk_deinit(&pdev->dev, sdata);
 
 	if (sdata)
 		devm_kfree(&pdev->dev, sdata);
@@ -2270,9 +2395,9 @@ static int mdss_dsi_res_init(struct platform_device *pdev)
 			goto mem_fail;
 		}
 
-		rc = mdss_dsi_bus_clk_init(pdev, sdata);
+		rc = mdss_dsi_core_clk_init(pdev, sdata);
 		if (rc) {
-			pr_err("%s: failed to initialize DSI Bus clocks\n",
+			pr_err("%s: failed to initialize DSI core clocks\n",
 				__func__);
 			goto mem_fail;
 		}
@@ -2369,6 +2494,65 @@ static int mdss_dsi_parse_hw_cfg(struct platform_device *pdev)
 	return 0;
 }
 
+static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
+{
+	const char *data;
+	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
+
+	sdata->pll_src_config = PLL_SRC_0;
+	data = of_get_property(pdev->dev.of_node, "pll-src-config", NULL);
+	if (data) {
+		if (!strcmp(data, "PLL0"))
+			sdata->pll_src_config = PLL_SRC_0;
+		else if (!strcmp(data, "PLL1"))
+			sdata->pll_src_config = PLL_SRC_1;
+		else
+			pr_err("%s: invalid pll src config %s. Using PLL_SRC_0 as default\n",
+				__func__, data);
+	} else {
+		pr_debug("%s: PLL src config not present. Using PLL0 by default\n",
+			__func__);
+	}
+
+	pr_debug("%s: pll_src_config = %d", __func__, sdata->pll_src_config);
+
+	return;
+}
+
+static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
+{
+	int rc = 0;
+
+	/*
+	 * DSI PLL1 can only drive DSI PHY1. As such:
+	 *     - For split dsi config, only PLL0 is supported
+	 *     - For dual dsi config, DSI0-PLL0 and DSI1-PLL1 is the only
+	 *       possible configuration
+	 *     - For single dsi, it is not possible to source the clocks for
+	 *       DSI0 from PLL1.
+	 */
+
+	if (mdss_dsi_is_hw_config_split(sdata) &&
+		mdss_dsi_is_pll_src_pll1(sdata)) {
+		pr_err("%s: unsupported PLL config: using PLL1 for split-dsi\n",
+			__func__);
+		rc = -EINVAL;
+		goto error;
+	}
+
+	/* todo: enforce remaining checks */
+
+error:
+	return rc;
+}
+
+static int mdss_dsi_validate_config(struct platform_device *pdev)
+{
+	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
+
+	return mdss_dsi_validate_pll_src_config(sdata);
+}
+
 static const struct of_device_id mdss_dsi_ctrl_dt_match[] = {
 	{.compatible = "qcom,mdss-dsi-ctrl"},
 	{}
@@ -2419,10 +2603,21 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	mdss_dsi_parse_pll_src_cfg(pdev);
+
 	of_platform_populate(pdev->dev.of_node, mdss_dsi_ctrl_dt_match,
 				NULL, &pdev->dev);
 
-	return 0;
+	rc = mdss_dsi_validate_config(pdev);
+	if (rc) {
+		pr_err("%s: Invalid DSI hw configuration\n", __func__);
+		goto error;
+	}
+
+	mdss_dsi_config_clk_src(pdev);
+
+error:
+	return rc;
 }
 
 static int mdss_dsi_remove(struct platform_device *pdev)
@@ -2769,10 +2964,6 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		pr_err("%s: unable to initialize Dsi ctrl clks\n", __func__);
 		return -EPERM;
 	}
-
-	rc = mdss_dsi_pll_1_clk_init(ctrl_pdev, ctrl_pdata);
-	if (rc)
-		pr_err("PLL 1 Clock's did not register\n");
 
 	if (pinfo->dynamic_fps &&
 			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {

@@ -31,6 +31,19 @@ Optional properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- pll-src-config			Specified the source PLL for the DSI
+					link clocks:
+					"PLL0" - Clocks sourced out of DSI PLL0
+					"PLL1" - Clocks sourced out of DSI PLL1
+					This property is only valid for
+					certain DSI hardware configurations
+					mentioned in the "hw-config" binding above.
+					For example, in split_dsi config, the clocks can
+					only be sourced out of PLL0. For
+					dual_dsi, both PLL would be active.
+					For single DSI, it is possible to
+					select either PLL. If no value is specified,
+					the default value for single DSI is set as PLL0.
 - qcom,mmss-ulp-clamp-ctrl-offset:	Specifies the offset for dsi ulps clamp control register.
 - qcom,mmss-phyreset-ctrl-offset:	Specifies the offset for dsi phy reset control register.
 - qcom,timing-db-mode:			Boolean specifies dsi timing mode registers are supported or not.
@@ -93,6 +106,7 @@ Example:
 	mdss_dsi: qcom,mdss_dsi@0 {
 		compatible = "qcom,mdss-dsi";
 		hw-config = "single_dsi";
+		pll-src-config = "PLL0";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		vdda-supply = <&pm8226_l4>;
