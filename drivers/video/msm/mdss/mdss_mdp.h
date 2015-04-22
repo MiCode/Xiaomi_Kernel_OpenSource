@@ -561,6 +561,7 @@ struct mdss_mdp_wfd;
 struct mdss_overlay_private {
 	ktime_t vsync_time;
 	struct kernfs_node *vsync_event_sd;
+	struct kernfs_node *hist_event_sd;
 	int borderfill_enable;
 	int overlay_play_enable;
 	int hw_refresh;
@@ -599,6 +600,7 @@ struct mdss_overlay_private {
 	int retire_cnt;
 	bool kickoff_released;
 	u32 cursor_ndx[2];
+	u32 hist_events;
 };
 
 struct mdss_mdp_set_ot_params {
