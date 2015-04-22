@@ -453,6 +453,7 @@
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pmd9635_s1>;
 		vdd_cx-supply = <&pmd9635_l3_corner>;
+		vdd_cx-voltage = <7>;
 		vdd_mx-supply = <&pmd9635_s3>;
 		vdd_mx-uV = <7>;
 		vdd_pll-supply = <&pmd9635_l7>;

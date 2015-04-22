@@ -18,6 +18,7 @@ Required properties:
 		      "halt_nc" is required.
 - interrupts:         The modem watchdog interrupt
 - vdd_cx-supply:      Reference to the regulator that supplies the vdd_cx domain.
+- vdd_cx-voltage:     Voltage corner/level(max) for cx rail.
 - vdd_mx-supply:      Reference to the regulator that supplies the memory rail.
 - vdd_mx-uV:          Voltage setting for the mx rail.
 - qcom,firmware-name: Base name of the firmware image. Ex. "mdsp"
@@ -76,6 +77,7 @@ Example:
 		interrupts = <0 24 1>;
 		vdd_mss-supply = <&pm8841_s3>;
 		vdd_cx-supply = <&pm8841_s2>;
+		vdd_cx-voltage = <7>;
 		vdd_mx-supply = <&pm8841_s1>;
 		vdd_mx-uV = <105000>;
 
