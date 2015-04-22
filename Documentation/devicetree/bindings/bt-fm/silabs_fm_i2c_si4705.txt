@@ -1,0 +1,73 @@
+Silicon Labs Si4705 FM radio
+
+Silabs Si4705 is a FM radio chip which sits on the i2c bus.
+This node must live under i2c controller.
+
+Required properties:
+
+ - compatible		: should be "silabs,si4705"
+ - reg			: i2c slave address of the device
+ - interrupt-parent	: parent of interrupt
+ - interrupts		: interrupt to indicate completion of on going tune, seek etc.
+ - silabs,int-gpio	: interrupt gpio
+ - silabs,reset-gpio	: reset gpio
+ - silabs,status-gpio	: status gpio
+ - pinctrl-names : This should be defined if a target uses pinctrl framework.
+			See "pinctrl" in Documentation/devicetree/bindings/pinctrl/msm-pinctrl.txt.
+			It should specify the names of the configs that pinctrl can install in driver.
+			Following are the pinctrl configs that can be installed:
+			"pmx_fm_active" : Active configuration of pins, this should specify active
+					config defined in pin groups of interrupt and reset gpio.
+			"pmx_fm_suspend" : Disabled configuration of pins, this should specify sleep
+					config defined in pin groups of interrupt and reset gpio.
+
+- pinctrl		: Active and suspend configuration of interrupt and reset pins.
+
+- interrupt-names	: Name of interrupt, must be "silabs_fm_int"
+
+Optional properties:
+ - vdd-supply		: Digital power supply needed to power device
+ - va-supply		: Analog power supply needed to power device
+ - silabs,va-supply-voltage    : specifies VA voltage levels for supply.
+			Should be specified in pair (min, max), units uV.
+ - silabs,vdd-supply-voltage   : specifies VDD voltage levels for supply.
+			Should be specified in pairs (min, max), units uV.
+
+Example:
+	i2c_5: i2c@f9967000 { /* BLSP2 QUP5 */
+		compatible = "qcom,i2c-msm-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg-names = "qup_phys_addr", "bam_phys_addr";
+		reg = <0xf9967000 0x1000>,
+		      <0xf9944000 0x19000>;
+		interrupt-names = "qup_irq", "bam_irq";
+		interrupts = <0 105 0>, <0 239 0>;
+		qcom,clk-freq-out = <100000>;
+		qcom,clk-freq-in  = <19200000>;
+		clock-names = "iface_clk", "core_clk";
+		clocks = <&clock_gcc clk_gcc_blsp2_ahb_clk>,
+			 <&clock_gcc clk_gcc_blsp2_qup5_i2c_apps_clk>;
+
+		pinctrl-names = "i2c_active", "i2c_sleep";
+		pinctrl-0 = <&i2c_5_active>;
+		pinctrl-1 = <&i2c_5_sleep>;
+
+		silabs4705@11 { /* SiLabs FM chip, slave id 0x11*/
+			status = "ok";
+			compatible = "silabs,si4705";
+			reg = <0x11>;
+			vdd-supply = <&pm8994_s4>;
+			silabs,va-supply-voltage = <3300000 3300000>;
+			silabs,vdd-supply-voltage = <1800000 1800000>;
+			pinctrl-names = "pmx_fm_active","pmx_fm_suspend";
+			pinctrl-0 = <&fm_int_active &fm_rst_active>;
+			pinctrl-1 = <&fm_int_suspend &fm_rst_suspend>;
+			silabs,reset-gpio = <&msm_gpio 62 0>;
+			silabs,int-gpio = <&msm_gpio 9 0>;
+			silabs,status-gpio = <&msm_gpio 11 0>;
+			interrupt-parent = <&msm_gpio>;
+			interrupts = <9 2>;
+			interrupt-names = "silabs_fm_int";
+			};
+		};
