@@ -622,6 +622,28 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 	}
 	perf->bw_overlap = quota;
 
+
+	/* apply fudge factor if hflip and high downscaling */
+	if (mdss_has_quirk(mdata, MDSS_QUIRK_DOWNSCALE_HFLIP_MDPCLK) &&
+		    (pipe->src_fmt->bpp == 4) && (pipe->flags & MDP_FLIP_LR)) {
+		u32 src_w = DECIMATED_DIMENSION(src.w, pipe->horz_deci);
+		u32 h_dwnscale = mult_frac(src_w, 1000, dst.w);
+		u32 h_overfetch = pipe->scale.left_ftch[0] +
+			pipe->scale.right_ftch[0];
+		pr_debug("pxl_ext:%d, h_overfetch:%d\n",
+			pipe->scale.enable_pxl_ext, h_overfetch);
+
+		if (h_dwnscale > (8 * 1000 / 3) && (!pipe->scale.enable_pxl_ext
+			|| (((src_w + h_overfetch) % 4) != 0))) {
+				u32 hflip_dwnscale_factor = mult_frac(src_w,
+					(3 * 1000), (dst.w * 8));
+				rate = mult_frac(rate, hflip_dwnscale_factor,
+					1000);
+				pr_debug("hflip clk factor:%d, rate:%d\n",
+					hflip_dwnscale_factor, rate);
+		}
+	}
+
 	if (flags & PERF_CALC_PIPE_APPLY_CLK_FUDGE)
 		perf->mdp_clk_rate = mdss_mdp_clk_fudge_factor(mixer, rate);
 	else
