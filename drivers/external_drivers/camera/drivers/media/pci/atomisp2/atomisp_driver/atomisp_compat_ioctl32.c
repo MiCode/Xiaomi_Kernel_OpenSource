@@ -693,7 +693,8 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 {
 	int n = offsetof(struct atomisp_parameters32, output_frame) /
 				sizeof(compat_uptr_t);
-
+	unsigned int size, offset = 0;
+	void  __user *user_ptr;
 	if (!access_ok(VERIFY_READ, up, sizeof(struct atomisp_parameters32)))
 			return -EFAULT;
 
@@ -717,6 +718,12 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 			struct atomisp_dvs_6axis_config dvs_6axis_config;
 		} karg;
 
+		size = sizeof(struct atomisp_shading_table) +
+				sizeof(struct atomisp_morph_table) +
+				sizeof(struct atomisp_dis_coefficients) +
+				sizeof(struct atomisp_dvs_6axis_config);
+		user_ptr = compat_alloc_user_space(size);
+
 		/* handle shading table */
 		if (up->shading_table != 0) {
 			if (get_atomisp_shading_table32(&karg.shading_table,
@@ -724,8 +731,8 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 						(uintptr_t)up->shading_table))
 				return -EFAULT;
 
-			kp->shading_table = compat_alloc_user_space(
-					sizeof(struct atomisp_shading_table));
+			kp->shading_table = user_ptr + offset;
+			offset = sizeof(struct atomisp_shading_table);
 			if (!kp->shading_table)
 				return -EFAULT;
 
@@ -742,8 +749,8 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 						(uintptr_t)up->morph_table))
 				return -EFAULT;
 
-			kp->morph_table = compat_alloc_user_space(
-					sizeof(struct atomisp_morph_table));
+			kp->morph_table = user_ptr + offset;
+			offset += sizeof(struct atomisp_morph_table);
 			if (!kp->morph_table)
 				return -EFAULT;
 
@@ -759,8 +766,8 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 						(uintptr_t)up->dvs2_coefs))
 				return -EFAULT;
 
-			kp->dvs2_coefs = compat_alloc_user_space(
-				sizeof(struct atomisp_dis_coefficients));
+			kp->dvs2_coefs = user_ptr + offset;
+			offset += sizeof(struct atomisp_dis_coefficients);
 			if (!kp->dvs2_coefs)
 				return -EFAULT;
 
@@ -775,8 +782,8 @@ static int get_atomisp_parameters32(struct atomisp_parameters *kp,
 						(uintptr_t)up->dvs_6axis_config))
 				return -EFAULT;
 
-			kp->dvs_6axis_config = compat_alloc_user_space(
-				sizeof(struct atomisp_dvs_6axis_config));
+			kp->dvs_6axis_config = user_ptr + offset;
+			offset += sizeof(struct atomisp_dvs_6axis_config);
 			if (!kp->dvs_6axis_config)
 				return -EFAULT;
 
