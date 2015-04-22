@@ -266,7 +266,8 @@ inline u64 mhi_get_memregion_len(struct mhi_meminfo *meminfo)
 	return meminfo->size;
 }
 
-enum MHI_STATUS mhi_mallocmemregion(struct mhi_meminfo *meminfo, size_t size)
+enum MHI_STATUS mhi_mallocmemregion(struct mhi_device_ctxt *mhi_dev_ctxt,
+				    struct mhi_meminfo *meminfo, size_t size)
 {
 	meminfo->va_unaligned = (uintptr_t)dma_alloc_coherent(
 				meminfo->dev,

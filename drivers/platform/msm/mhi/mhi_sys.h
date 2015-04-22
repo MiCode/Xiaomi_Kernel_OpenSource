@@ -58,7 +58,8 @@ struct mhi_meminfo {
 	uintptr_t size;
 };
 
-enum MHI_STATUS mhi_mallocmemregion(struct mhi_meminfo *meminfo, size_t size);
+enum MHI_STATUS mhi_mallocmemregion(struct mhi_device_ctxt *mhi_dev_ctxt,
+				    struct mhi_meminfo *meminfo, size_t size);
 
 uintptr_t mhi_get_phy_addr(struct mhi_meminfo *meminfo);
 void *mhi_get_virt_addr(struct mhi_meminfo *meminfo);

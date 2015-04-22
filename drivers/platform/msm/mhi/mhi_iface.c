@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 #include <linux/debugfs.h>
 #include <linux/pm_runtime.h>
+#include <linux/interrupt.h>
 
 #define CREATE_TRACE_POINTS
 #include "mhi_trace.h"

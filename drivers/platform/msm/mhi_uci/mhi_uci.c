@@ -268,8 +268,8 @@ static enum MHI_STATUS mhi_init_inbound(struct uci_client *client_handle,
 			i, chan_attributes->nr_trbs);
 	for (i = 0; i < chan_attributes->nr_trbs; ++i) {
 		data_loc = kmalloc(buf_size, GFP_KERNEL);
-		uci_log(UCI_DBG_INFO, "Allocated buffer %p size %d\n",
-		data_loc, buf_size);
+		uci_log(UCI_DBG_INFO, "Allocated buffer %p size %zd\n",
+			data_loc, buf_size);
 		if (data_loc == NULL)
 			return -ENOMEM;
 		dma_addr = dma_map_single(NULL, data_loc,
@@ -329,7 +329,7 @@ static int mhi_uci_send_packet(struct mhi_client_handle **client_handle,
 			data_loc = kmalloc(data_to_insert_now, GFP_KERNEL);
 			if (NULL == data_loc) {
 				uci_log(UCI_DBG_ERROR,
-					"Failed to allocate memory 0x%x\n",
+					"Failed to allocate memory 0x%zx\n",
 					data_to_insert_now);
 				return -ENOMEM;
 			}
@@ -670,8 +670,7 @@ static int mhi_uci_client_release(struct inode *mhi_inode,
 					uci_handle->in_buf_list[i],
 					buf_size,
 					DMA_FROM_DEVICE);
-			kfree(dma_to_virt(NULL,
-					uci_handle->in_buf_list[i]));
+			kfree((void *)uci_handle->in_buf_list[i]);
 		}
 		kfree(uci_handle->in_buf_list);
 		atomic_set(&uci_handle->avail_pkts, 0);
@@ -721,14 +720,13 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 			}
 			phy_buf = result.payload_buf;
 			if (phy_buf != 0)
-				uci_handle->pkt_loc = dma_to_virt(NULL,
-								phy_buf);
+				uci_handle->pkt_loc = (void *)phy_buf;
 			else
 				uci_handle->pkt_loc = 0;
 			uci_handle->pkt_size = result.bytes_xferd;
 			*bytes_pending = uci_handle->pkt_size;
 			uci_log(UCI_DBG_VERBOSE,
-				"Got pkt of size 0x%x at addr 0x%lx, chan %d\n",
+				"Got pkt of size 0x%zx at addr 0x%lx, chan %d\n",
 				uci_handle->pkt_size, (uintptr_t)phy_buf, chan);
 			dma_unmap_single(NULL, (dma_addr_t)phy_buf,
 					 buf_size,
@@ -798,7 +796,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		bytes_copied = *bytes_pending;
 		*bytes_pending = 0;
 		uci_log(UCI_DBG_VERBOSE,
-				"Copied 0x%x of 0x%x, chan %d\n",
+				"Copied 0x%zx of 0x%x, chan %d\n",
 				bytes_copied, (u32)*bytes_pending, chan);
 	} else {
 		addr_offset = uci_handle->pkt_size - *bytes_pending;
@@ -812,7 +810,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		bytes_copied = uspace_buf_size;
 		*bytes_pending -= uspace_buf_size;
 		uci_log(UCI_DBG_VERBOSE,
-				"Copied 0x%x of 0x%x,chan %d\n",
+				"Copied 0x%zx of 0x%x,chan %d\n",
 				bytes_copied,
 				(u32)*bytes_pending,
 				chan);
@@ -841,7 +839,7 @@ static ssize_t mhi_uci_client_read(struct file *file, char __user *buf,
 		uci_handle->pkt_loc = 0;
 	}
 	uci_log(UCI_DBG_VERBOSE,
-			"Returning 0x%x bytes, 0x%x bytes left\n",
+			"Returning 0x%zx bytes, 0x%x bytes left\n",
 			bytes_copied, (u32)*bytes_pending);
 	mutex_unlock(mutex);
 	return bytes_copied;
@@ -979,13 +977,13 @@ static void process_rs232_state(struct mhi_result *result)
 	}
 	if (result->bytes_xferd != sizeof(struct rs232_ctrl_msg)) {
 		uci_log(UCI_DBG_ERROR,
-		"Buffer is of wrong size is: 0x%x: expected 0x%x\n",
+		"Buffer is of wrong size is: 0x%x: expected 0x%zx\n",
 		result->bytes_xferd, sizeof(struct rs232_ctrl_msg));
 		goto error_size;
 	}
 	dma_unmap_single(NULL, result->payload_buf,
 			result->bytes_xferd, DMA_FROM_DEVICE);
-	rs232_pkt = dma_to_virt(NULL, result->payload_buf);
+	rs232_pkt = (void *)result->payload_buf;
 	MHI_GET_CTRL_DEST_ID(CTRL_DEST_ID, rs232_pkt, chan);
 	client = &uci_ctxt.client_handles[chan / 2];
 
@@ -1040,8 +1038,7 @@ static void parse_outbound_ack(struct uci_client *uci_handle,
 			result->payload_buf,
 			result->bytes_xferd,
 			DMA_TO_DEVICE);
-	kfree(dma_to_virt(NULL,
-			result->payload_buf));
+	kfree((void *) result->payload_buf);
 	uci_log(UCI_DBG_VERBOSE,
 		"Received ack on chan %d, pending acks: 0x%x\n",
 		uci_handle->out_chan,
@@ -1053,7 +1050,7 @@ static void parse_outbound_ack(struct uci_client *uci_handle,
 
 static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 {
-	u32 chan_nr;
+	int chan_nr;
 	struct uci_client *uci_handle = NULL;
 	u32 client_index;
 	struct mhi_result *result;
@@ -1061,7 +1058,7 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 	if (!cb_info)
 		uci_log(UCI_DBG_CRITICAL, "Bad CB info from MHI.\n");
 	if (cb_info->result) {
-		chan_nr = (u32)cb_info->result->user_data;
+		chan_nr = (uintptr_t)cb_info->result->user_data;
 		client_index = CHAN_TO_CLIENT(chan_nr);
 		uci_handle =
 			&uci_ctxt.client_handles[client_index];
@@ -1082,7 +1079,7 @@ static void uci_xfer_cb(struct mhi_cb_info *cb_info)
 				return;
 		}
 		result = cb_info->result;
-		chan_nr = (u32)result->user_data;
+		chan_nr = (uintptr_t)result->user_data;
 		client_index = chan_nr / 2;
 			uci_handle =
 				&uci_ctxt.client_handles[client_index];
@@ -1118,7 +1115,7 @@ static int mhi_register_client(struct uci_client *mhi_client, int index)
 			mhi_client->out_chan,
 			0,
 			&uci_ctxt.client_info,
-			(void *)(mhi_client->out_chan));
+			(void *)(uintptr_t)(mhi_client->out_chan));
 	if (MHI_STATUS_SUCCESS != ret_val)
 			uci_log(UCI_DBG_ERROR,
 			"Failed to init outbound chan 0x%x, ret 0x%x\n",
@@ -1129,7 +1126,7 @@ static int mhi_register_client(struct uci_client *mhi_client, int index)
 			mhi_client->in_chan,
 			0,
 			&uci_ctxt.client_info,
-			(void *)(mhi_client->in_chan));
+			(void *)(uintptr_t)(mhi_client->in_chan));
 	if (MHI_STATUS_SUCCESS != ret_val)
 		uci_log(UCI_DBG_ERROR,
 			"Failed to init inbound chan 0x%x, ret 0x%x\n",
