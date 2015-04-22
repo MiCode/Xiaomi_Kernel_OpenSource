@@ -8527,16 +8527,18 @@ static int ufshcd_devfreq_target(struct device *dev,
 		return 0;
 	}
 
-	if (ufshcd_is_clkgating_allowed(hba) &&
-	    (hba->clk_gating.state != CLKS_ON)) {
-		if (cancel_delayed_work(&hba->clk_gating.gate_work)) {
+	if (ufshcd_is_clkgating_allowed(hba)) {
+		if (cancel_delayed_work(&hba->clk_gating.gate_work) ||
+		    (hba->clk_gating.state == CLKS_ON)) {
 			/* hold the vote until the scaling work is completed */
 			hba->clk_gating.active_reqs++;
 			release_clk_hold = true;
-			hba->clk_gating.state = CLKS_ON;
-			trace_ufshcd_clk_gating(dev_name(hba->dev),
-				ufschd_clk_gating_state_to_string(
-					hba->clk_gating.state));
+			if (hba->clk_gating.state != CLKS_ON) {
+				hba->clk_gating.state = CLKS_ON;
+				trace_ufshcd_clk_gating(dev_name(hba->dev),
+					ufschd_clk_gating_state_to_string(
+						hba->clk_gating.state));
+			}
 		} else {
 			/*
 			 * Clock gating work seems to be running in parallel
