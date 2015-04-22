@@ -1108,8 +1108,11 @@ struct edid *intel_hdmi_get_edid(struct drm_connector *connector, bool force)
 		/*
 		 * A few monitors issue EDID after some delay, so give them
 		 * a few chances but no longer than 30ms
+		 *
+		 * Force bit will be at bootup,
+		 * decrease retry times to optimize boot progress
 		 */
-		retry = 3;
+		retry = force ? 1 : 3;
 READ_EDID:
 		new_edid = drm_get_edid(connector, adapter);
 		if (!new_edid) {
