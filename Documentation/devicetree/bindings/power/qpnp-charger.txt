@@ -1,0 +1,352 @@
+Qualcomm QPNP Charger
+
+The charger supports the switch mode battery charger and boost (SMBB)
+peripherals on Qualcomm PMIC chips.
+
+There are seven different peripherals adding the following functionality.
+Each of these peripherals are implemented as subnodes in the example at the
+end of this file.
+
+- qcom,chgr:		Supports charging control and status
+			reporting.
+- qcom,bat-if:		Battery status reporting such as presence,
+			temperature reporting and voltage collapse
+			protection.
+- qcom,buck:		Charger buck configuration and status
+			reporting with regards to several regulation
+			loops such as vdd, ibat etc.
+- qcom,usb-chgpth:	USB charge path detection and input current
+			limiting configuration.
+- qcom,dc-chgpth:	DC charge path detection and input current
+			limiting configuration.
+- qcom,chg-misc:	Miscellaneous features such as buck frequency
+			settings, comparator override features etc.
+
+Parent node required properties:
+- qcom,vddmax-mv:			Target voltage of battery in mV.
+- qcom,vddsafe-mv:			Maximum Vdd voltage in mV.
+- qcom,vinmin-mv:			Minimum input voltage in mV.
+- qcom,ibatmax-ma:			Maximum battery charge current in mA
+- qcom,ibatsafe-ma:			Safety battery current setting
+- qcom,thermal-mitigation:		Array of ibatmax values for different
+					system thermal mitigation level.
+
+Parent node optional properties:
+- qcom,ibatterm-ma:			Current at which charging is terminated when
+					the analog end of charge option is selected.
+- qcom,maxinput-usb-ma:			Maximum input current USB.
+- qcom,maxinput-dc-ma:			Maximum input current DC.
+- qcom,vbatdet-delta-mv:		Battery charging resume delta.
+- qcom,vbatweak-mv:			Weak battery voltage threshold in mV, above which
+					fast charging can start. The supported voltage range is
+					from 2100mV to 3600mV with a step size of 100mV.
+- qcom,charging-disabled:		Set this property to disable charging
+					by default. This can then be overriden
+					writing the the module parameter
+					"charging_disabled".
+- qcom,duty-cycle-100p:			Set this property to enable the 100% duty
+					cycle feature.
+- qcom,use-default-batt-values:		Set this flag to force reporting of
+					battery temperature of 250 decidegree
+					Celsius, state of charge to be 50%
+					and disable charging.
+- qcom,warm-bat-decidegc:		Warm battery temperature in decidegC.
+- qcom,cool-bat-decidegc:		Cool battery temperature in decidegC.
+					Note that if both warm and cool battery
+					temperatures are set, the corresponding
+					ibatmax and bat-mv properties are
+					required to be set.
+- qcom,ibatmax-cool-ma:			Maximum cool battery charge current.
+- qcom,ibatmax-warm-ma:			Maximum warm battery charge current.
+- qcom,warm-bat-mv:			Warm temperature battery target voltage.
+- qcom,cool-bat-mv:			Cool temperature battery target voltage.
+- qcom,tchg-mins:			Maximum total software initialized charge time.
+- qcom,bpd-detection:			Select a battery presence detection scheme by
+					specifying either "bpd_thm", "bpd_id" or
+					"bpd_thm_id". "bpd_thm" selects the temperature
+					pin, "bpd_id" uses the id pin for battery presence
+					detection, "bpd_thm_id" selects both.
+					If the property is not set, the temperatue pin will
+					be used.
+- qcom,btc-disabled:			If flag is set battery hot and cold monitoring is
+					disabled in hardware. This monitoring is turned on
+					by default.
+- qcom,batt-hot-percent:		Specify a supported hot threshold percentage.
+					Supported thresholds: 25% and 35%. If none is specified
+					hardware defaults will be used.
+- qcom,batt-cold-percent:		Specify a supported cold threshold percentage.
+					Supported thresholds: 70% and 80%. If none is specified
+					hardware defaults will be used.
+- otg-parent-supply			Specify a phandle to a parent supply regulator
+					for the OTG regulator.
+- boost-parent-supply			Specify a phandle to a parent supply regulator
+					for the boost regulator.
+- qcom,resume-soc			Capacity in percent at which charging should resume
+					when a fully charged battery drops below this level.
+- qcom,chg-vadc				Corresponding VADC device's phandle.
+- qcom,pmic-revid			The phandle to the revid node of the pmic on which charger
+					peripheral is present. This property is a must on PMIC chips
+					that exhibit inaccuracies in battery current readings. This
+					phandle is used to check the version of the PMIC and apply
+					necessary software workarounds.
+- qcom,ext-ovp-present			Indicates if an external OVP exists which reduces the
+					overall input resistance of the charge path.
+- qcom,ovp-monitor-en			The ovp is enabled on hw by default. If this flag is
+					set, the charger ovp status is monitored in software.
+- qcom,ibat-calibration-enabled		Indicates if ibat calibration is enabled. This is
+					required for devices which have a ibat trim error
+					causing ibatmax to go out of spec.
+- qcom,power-stage-reduced		Indicates if power stage workaround is enabled. This work
+					around reduces the power stage segments while charging
+					under high load during low battery voltages. It's for
+					improving IADC accuracy while board has a bad layout.
+- qcom,use-external-rsense		A boolean that controls whether BMS will use
+					an external sensor resistor instead of the default
+					RDS of the batfet.
+- qcom,vbatdet-maxerr-mv		This property in mV is a hystersis value for the charge
+					resume voltage property qcom,vbatdet-delta-mv. If this
+					property is not defined it defaults to 50 mV.
+- qcom,parallel-ovp-mode		When this option is enabled, it allows charging through both
+					DC and USB OVP FETs. Please note that this should only
+					be enabled in board designs with PM8941 which have DC_IN
+					and USB_IN connected via a short.
+ - qcom,ext-ovp-isns-enable-gpio	External OVP enable GPIO.
+ - qcom,ext-ovp-isns-r-ohm			External ISNS OVP resistance in ohm.
+
+Sub node required structure:
+- A qcom,chg node must be a child of an SPMI node that has specified
+	the spmi-dev-container property. Each subnode reflects
+	a hardware peripheral which adds a unique set of features
+	to the collective charging device. For example USB detection
+	and the battery interface are each seperate peripherals and
+	each should be their own subnode.
+- qcom,chg-adc_tm			Corresponding ADC TM device's phandle to set recurring
+					measurements and receive notification for batt_therm.
+
+Sub node required properties:
+- compatible:		Must be "qcom,qpnp-charger".
+- reg:			Specifies the SPMI address and size for this peripheral.
+- interrupts:		Specifies the interrupt associated with the peripheral.
+- interrupt-names:	Specifies the interrupt names for the peripheral. Every
+			available interrupt needs to have an associated name
+			with it to indentify its purpose.
+
+			The following lists each subnode and their corresponding
+			required interrupt names:
+
+			qcom,usb-chgpth:
+			 - usbin-valid
+			 - usb-ocp (only for SMBBP and SMBCL)
+
+			qcom,chgr:
+			 - chg-done
+			 - chg-failed
+
+			The following interrupts are available:
+
+			qcom,chgr:
+			 - chg-done:		Triggers on charge completion.
+			 - chg-failed:		Notifies of charge failures.
+			 - fast-chg-on:		Notifies of fast charging state.
+			 - trkl-chg-on:		Indicates trickle charging.
+			 - state-change:	Notifies of a state change in
+						the charger state machine.
+			 - chgwdog:		Charger watchdog interrupt.
+			 - vbat-det-hi:		Triggers on vbat-det-hi voltage
+						setting,can be used as
+						battery alarm.
+			 - vbat-det-hi:		Triggers on vbat-det-low voltage
+						setting, can be used as
+						battery alarm.
+
+			qcom,buck:
+			 - vdd-loop:		VDD loop change interrupt.
+			 - ibat-loop:		Ibat loop change interrupt.
+			 - ichg-loop:		Charge current loop change.
+			 - vchg-loop:		Charge voltage loop change.
+			 - overtemp:		Overtemperature interrupt.
+			 - vref-ov:		Reference overvoltage interrupt.
+			 - vbat-ov:		Battery overvoltage interrupt.
+
+			qcom,bat-if:
+			 - psi:			PMIC serial interface interrupt.
+			 - vcp-on:		Voltage collapse protection
+						status interrupt.
+			 - bat-fet-on:		BATFET status interrupt.
+			 - bat-temp-ok:		Battery temperature status
+						interrupt.
+			 - batt-pres:		Battery presence status
+						interrupt.
+
+			qcom,usb-chgpth:
+			 - usbin-valid:		Indicates valid USB connection.
+			 - coarse-det-usb:	Coarse detect interrupt triggers
+						at low voltage on USB_IN.
+			 - chg-gone:		Triggers on VCHG line.
+			 - usb-ocp		Triggers on over current conditions when
+						reverse boosting. (Only available on
+						SMBCL and SMBBP devices).
+
+			qcom,dc-chgpth:
+			 - dcin-valid:		Indicates a valid DC charger
+						connection.
+			 - coarse-det-dc:	Coarse detect interrupt triggers
+						at low voltage on DC_IN.
+
+			qcom,boost:
+			 - limit-error:		Limiting error on SMBB boost.
+			 - boost-pwr-ok:	Status of boost power.
+
+Sub node optional properties:
+			qcom,usb-chgpth:
+			 - regulator-name:	A string used as a descriptive name
+						for the OTG regulator.
+			qcom,boost:
+			 - regulator-min-microvolt:	Minimum boost voltage setting.
+			 - regulator-max-microvolt:	Maximum boost voltage setting.
+			 - regulator-name:	A string used as a descriptive name
+						for the boost regulator.
+
+			qcom,batfet:
+			 - regulator-name:	A string used as a descriptive name
+						for the batfet regulator.
+
+			qcom,chgr:
+			 - regulator-name:	A string used as a descriptive name
+						for the flash workarounds regulator.
+Example:
+	pm8941-chg {
+		spmi-dev-container;
+		compatible = "qcom,qpnp-charger";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		otg-parent-supply = <&pm8941_boost>;
+		boost-parent-supply = <&foo_parent_reg>;
+
+		qcom,vddmax-mv = <4200>;
+		qcom,vddsafe-mv = <4200>;
+		qcom,vinmin-mv = <4200>;
+		qcom,ibatmax-ma = <1500>;
+		qcom,ibatterm-ma = <200>;
+		qcom,ibatsafe-ma = <1500>;
+		qcom,vbatweak-mv = <3200>;
+		qcom,thermal-mitigation = <1500 700 600 325>;
+		qcom,cool-bat-degc = <10>;
+		qcom,cool-bat-mv = <4100>;
+		qcom,ibatmax-warm-ma = <350>;
+		qcom,warm-bat-degc = <45>;
+		qcom,warm-bat-mv = <4100>;
+		qcom,ibatmax-cool-ma = <350>;
+		qcom,vbatdet-delta-mv = <60>;
+		qcom,batt-hot-percent = <25>;
+		qcom,batt-cold-percent = <85>;
+		qcom,btc-disabled = <0>;
+		qcom,chg-vadc = <&pm8941_vadc>;
+		qcom,chg-adc_tm = <&pm8941_adc_tm>;
+		qcom,pmic-revid = <&pm8941_revid>;
+
+		qcom,chgr@1000 {
+			reg = <0x1000 0x100>;
+			interrupts =	<0x0 0x10 0x0>,
+				<0x0 0x10 0x1>,
+					<0x0 0x10 0x2>,
+					<0x0 0x10 0x3>,
+					<0x0 0x10 0x4>,
+					<0x0 0x10 0x5>,
+					<0x0 0x10 0x6>,
+					<0x0 0x10 0x7>;
+
+			interrupt-names =	"chg-done",
+						"chg-failed",
+						"fast-chg-on",
+						"trkl-chg-on",
+						"state-change",
+						"chgwdog",
+						"vbat-det-hi",
+						"vbat-det-lo";
+		};
+
+		qcom,buck@1100 {
+			reg = <0x1100 0x100>;
+			interrupts =	<0x0 0x11 0x0>,
+					<0x0 0x11 0x1>,
+					<0x0 0x11 0x2>,
+					<0x0 0x11 0x3>,
+					<0x0 0x11 0x4>,
+					<0x0 0x11 0x5>,
+					<0x0 0x11 0x6>;
+
+			interrupt-names =	"vdd-loop",
+						"ibat-loop",
+						"ichg-loop",
+						"vchg-loop",
+						"overtemp",
+						"vref-ov",
+						"vbat-ov";
+		};
+
+		qcom,bat-if@1200 {
+			reg = <0x1200 0x100>;
+			interrupts =	<0x0 0x12 0x0>,
+					<0x0 0x12 0x1>,
+					<0x0 0x12 0x2>,
+					<0x0 0x12 0x3>,
+					<0x0 0x12 0x4>;
+
+			interrupt-names =	"psi",
+						"vcp-on",
+						"bat-fet-on",
+						"bat-temp-ok",
+						"batt-pres";
+		};
+
+		pm8941_chg_otg: qcom,usb-chgpth@1300 {
+			reg = <0x1300 0x100>;
+			interrupts =	<0 0x13 0x0>,
+					<0 0x13 0x1>,
+					<0x0 0x13 0x2>;
+
+			interrupt-names =	"usbin-valid",
+						"coarse-det-usb",
+						"chg-gone";
+		};
+
+		qcom,dc-chgpth@1400 {
+			reg = <0x1400 0x100>;
+			interrupts =	<0x0 0x14 0x0>,
+					<0x0 0x14 0x1>;
+
+			interrupt-names =	"dcin-valid",
+						"coarse-det-dc";
+		};
+
+		pm8941_chg_boost: qcom,boost@1500 {
+			reg = <0x1500 0x100>;
+			interrupts =	<0x0 0x15 0x0>,
+					<0x0 0x15 0x1>;
+
+			interrupt-names =	"limit-error",
+						"boost-pwr-ok";
+		};
+
+		qcom,misc@1600 {
+			reg = <0x1600 0x100>;
+		};
+	};
+
+In regulator specific device tree file:
+
+	&pm8941_chg_boost {
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-name = "8941_smbb_boost";
+	};
+
+	&pm8941_chg_batif  {
+		regulator-name = "batfet";
+	};
+
+	&pm8941_chg_otg {
+		regulator-name = "8941_smbb_otg";
+	};

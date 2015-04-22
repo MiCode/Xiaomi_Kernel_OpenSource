@@ -1,0 +1,219 @@
+SMB1360 battery charger and fuel gauge
+
+SMB1360 is a single path switch-mode battery charger and
+fuel gauge. The charger has a max current rating of 1.5A.
+The fuel gauge uses voltage + coulomb counting to report
+the state of charge.
+
+The smb1360 interface is via I2C bus.
+
+Required Properties:
+- compatible:			Must be "qcom,smb1360-charger-fg"
+- reg:				The device 7-bit I2C address.
+
+Optional Properties:
+
+- interrupts			This indicates the IRQ number of the GPIO
+				connected to the STAT pin.
+- pinctrl-names:		The state name of the pin configuration. Only
+				support: "default".
+- pinctrl-0:			The phandle of the pin configuration node in
+				pinctrl for smb_int_pin.
+				For details of pinctrl properties, please refer to:
+				"Documentation/devicetree/bindings/pinctrl/pinctrl-bindings.txt"
+- qcom,float-voltage-mv	 	Float Voltage in mV - the maximum voltage up to which
+				the battery is charged. Supported range 3460V to 4360V
+- qcom,charging-timeout		Maximum duration in minutes that a single charge
+				cycle may last.  Supported values are: 0, 192, 384,
+				768, and 1536.  A value of 0 means that no
+				charge cycle timeout is used and charging can
+				continue indefinitely.
+- qcom,charging-disabled		Set this if charging should be disabled in the build
+				by default. Useful in usecases where battery current
+				needs to be profiled even when USB is present.
+- qcom,recharge-thresh-mv	Specifies the minimum voltage drop in millivolts
+				below the float voltage that is required in
+				order to initiate a new charging cycle.
+				Supported values are: 50, 100, 200 and 300mV.
+- qcom,recharge-disabled		Disabled the auto-recharge function
+- qcom,iterm-ma			Specifies the termination current to indicate end-of-charge.
+				Possible values in mA - 25, 50, 75, 100, 125, 150, 175, 200
+- qcom,iterm-disabled		Disables the termination current feature. This is a bool
+				property.
+- qcom,chg-inhibit-disabled	Disables the charger-inhibit function.
+- qcom,batt-id-disabled		Disabled the batt-id function. Doing this will
+				disable the ability of RID based battery profile selection.
+- qcom,fg-delta-soc		The delta in SOC which will generate an interrupt
+- qcom,fg-soc-max		SOC value (max) at which an interrupt is generated.
+				This can be used to alert the system when the
+				battery reaches a specifc (maximum) SOC value.
+- qcom,fg-soc-min		SOC value (min) at which an interrupt is generated.
+				This can be used to alert the system when the
+				battery reaches a specific (minimum) SOC value.
+- qcom,fg-voltage-min-mv	The minimum volatge at which an interrupt is generated.
+				This can be used as an alert mechanism.
+- qcom,fg-voltage-empty-mv	The voltage which indicates the battery is empty.
+- qcom,thermal-mitigation:	Array of input current limit values for different
+				system thermal mitigation level.
+- qcom,stat-pulsed-irq:		A boolean flag to indicate the state-irq pin will generate pulse
+				signal when interrupt happened. If this property is not specified,
+				the default configuration is static level irq.
+- qcom,shdn-after-pwroff:	A bool property to configure smb1360 for shutdown at power-off.
+- qcom,empty-soc-disabled:	A bool property to indicate whether stop updating empty_soc flag.
+				System reports 0% SOC when empty_soc being set.
+- qcom,awake-min-soc		A bool property to indicate whether the system is prevented from
+				sleeping when SOC is under the min_soc threshold.
+- qcom,batt-profile-select	A boolean flag to indicate of battery-profile
+				selection is enabled.
+- qcom,profile-a-rid-kohm	The battery-ID resistor (RID) in Kohm supported by
+				profile-A of SMB1360. This should be specified
+				if 'batt-profile-select' is defined.
+- qcom,profile-b-rid-kohm	The battery-ID resistor (RID) in Kohm supported by
+				profile-B of SMB1360. This should be specified
+				if 'batt-profile-select' is defined.
+- qcom,batt-id-vref-uv		The reference voltage on the battery-ID line
+				specified in micro-volts.
+- qcom,batt-id-rpullup-kohm	The pull-up resistor connected on the battery-ID
+				(vref) line.
+- qcom,smb1360-vadc		VADC device phandle (used for reading the RID)
+- qcom,fg-batt-capacity-mah	The new battery capacity to be supported.
+				This updates the ACTUAL and NOMINAL CAPACITY
+				of the profile.
+- qcom,fg-cc-soc-coeff		The CC_TO_SOC_COEFF of the new battery capacity.
+				This is updated only if 'fg-batt-capacity-mah'
+				is specified. This value is calculated from the
+				batt-capacity and then encoded as floating number.
+				cc_soc_coeff = HALF_ENCODING(8192 / batt-capacity)
+- qcom,fg-cutoff-voltage-mv	This is the minimum allowed system voltage. The
+				FG will report SOC = 0 at this volatge. This
+				value is in mv.
+- qcom,fg-iterm-ma		This is termination current at which the
+				Monotonic SOC reports 100. The value passed here
+				is negated in the driver (assuming that the iterm
+				is always -ve). This value is in mA.
+- qcom,fg-ibatt-standby-ma	This is the minimum current value for the SOC to
+				be above 0% at the cutoff voltage. This value
+				is in mA.
+- qcom,fg-cc-to-cv-mv		This is the voltage at which the FG transitions
+				from CC to CV. This value should never be
+				higher than the float volatge. Its in mV.
+- qcom,thermistor-c1-coeff	This is the NTC thermistor C1 coeff for the
+				thermistor inside the battery. This value is
+				16-bit float encoded value determined from the
+				NTC-c1_coeff mapping.
+- qcom,otg-batt-curr-limit	This property defines the current threshold draw
+				from battery when device working at OTG mode.
+				The possible values are: 350, 550, 950, 1500mA.
+- qcom,fg-auto-recharge-soc	This property defines the auto recharging SOC threshold.
+- qcom,min-icl-100ma		A bool property to set the minimum ICL current
+				to 100mA. If this property is not set the minimum
+				ICL is set to 500mA in all the scenarios.
+- qcom,config-hard-thresholds	This property indicates if cold and hot thresholds need be modified.
+				If it's not defined, default temp thresholds will be used. If this
+				defined, it's required to specify the "qcom,hot-bat-decidegc" and
+				"qcom,cold-bat-decidegc" values.
+- qcom,hot-bat-decidegc		Hot battery temperature in decidegC. This property must be
+				out of range [0, 55].
+- qcom,cold-bat-decidegc	Cold battery temperature in decidegC. This property must be
+				out of range [0, 55].
+- qcom,soft-jeita-supported	This property indicates whether soft jeita supported.
+- qcom,warm-bat-decidegc	Warm battery temperature in decidegC. After hitting this threshold,
+				"qcom,warm-bat-ma" defines maximum charging current and
+				"qcom,warm-bat-mv" defines maximum target voltage.
+				This property must be in range [0, 55] if needed.
+- qcom,cool-bat-decidegc	Cool battery temperature in decidegC. After hitting this threshold,
+				"qcom,cool-bat-ma" defines maximum charging current and
+				"qcom,cool-bat-mv" defines maximum target voltage.
+				This property must be in range [0, 55] if needed.
+- qcom,warm-bat-mv		Maximum warm battery target voltage in milli-volts.
+- qcom,cool-bat-mv		Maximum cool battery target voltage in milli-volts.
+- qcom,warm-bat-ma		Maximum warm battery charge current in milli-amps.
+- qcom,cool-bat-ma		Maximum cool battery charge current in milli-amps.
+- qcom,fg-reset-at-pon		This is a bool property which indicates if the
+				FG reset at power-on is enabled.
+- qcom,fg-reset-thresold-mv	This value indicates the volatge threshold to
+				reset the FG. This value is compared against
+				the difference between in predicted voltage and
+				current voltage. If this value is not specified
+				a default value of 50mV is used. Unit is in milli-volts.
+- qcom,rsense-10mhom		A bool property to indicate the Rsense resistor
+				configuraton. If set, the Rsense is 10mOhm else
+				its 20mOhm.
+- qcom,otg-fet-present		A bool property to indicate that a pMOS FET is present
+				to boost the OTG current. On enabling this the max OTG
+				current supported is 3x(qcom,otg-batt-curr-limit).
+- qcom,otg-fet-enable-gpio	GPIO for enabling and disabling OTG FET.
+				Following should be the PMIC gpio configuration:
+				{
+					qcom,mode = <1>; //Digital output
+					qcom,pull = <0>; //Pull up configuration
+					qcom,vin-sel = <0>; //Voltage level: VPH_PWR
+					qcom,src-sel = <0>; //Pin function: GPIO
+					qcom,master-en = <1>; //Enable
+				}
+				Please go through the documentation for PMIC gpio
+				configuration details:
+				Documentation/devicetree/bindings/gpio/qpnp-pin.txt
+- qcom,parallel-charging-enabled: A bool property which enables SMB1360 to
+				operate in the parallel mode. SMB1360 acts
+				as the primary charger.
+- qcom,max-parallel-current-ma: This is the max charging current which can be
+				drawn from the secondary charger. If this is
+				not specified this value defaults to 540mA.
+				The overall current charging current is
+				1500mA(from SMB) + qcom,max-parallel-current-ma.
+
+Example:
+	i2c@f9967000 {
+		smb1360-chg-fg@1b {
+			compatible = "qcom,smb1360-chg-fg";
+			reg = <0x1b>;
+			interrupt-parent = <&spmi_bus>;
+			interrupts = <0x00 0xcd 0>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&smb_int_default>;
+
+			/* battery-profile selection properties */
+			qcom,batt-profile-select;
+			qcom,smb1360-vadc = <&pm8916_vadc>;
+			qcom,batt-id-vref-uv = <1800000>;
+			qcom,batt-id-rpullup-kohm = <100>;
+			qcom,profile-a-rid-kohm = <78>;
+			qcom,profile-b-rid-kohm = <200>;
+
+			/* battery capacity */
+			qcom,fg-batt-capacity-mah = <4000>;
+			qcom,fg-cc-soc-coeff = <0x8009>;
+
+			qcom,fg-cutoff-voltage-mv = <3300>;
+			qcom,fg-iterm-ma = <100>;
+			qcom,fg-ibatt-standby-ma = <200>;
+			qcom,fg-cc-to-cv-mv = <4180>;
+			qcom,thermistor-c1-coeff = <0x86DB>;
+
+			qcom,float-voltage-mv = <4200>;
+			qcom,iterm-ma = <100>;
+			qcom,charging-disabled;
+			qcom,recharge-thresh-mv = <100>;
+			qcom,fg-soc-max = <85>;
+			qcom,fg-soc-min = <15>;
+			qcom,fg-auto-recharge-soc = <99>;
+			qcom,thermal-mitigation = <1500 700 300 0>;
+			qcom,config-hard-thresholds;
+			qcom,hot-bat-decidegc = <650>;
+			qcom,cold-bat-decidegc = <(-100)>;
+			qcom,soft-jeita-supported;
+			qcom,warm-bat-decidegc = <450>;
+			qcom,cool-bat-decidegc = <100>;
+			qcom,warm-bat-mv = <4100>;
+			qcom,cool-bat-mv = <4100>;
+			qcom,warm-bat-ma = <750>;
+			qcom,cool-bat-ma = <750>;
+
+			qcom,otg-batt-curr-limit = <950>;
+			qcom,fg-reset-at-pon;
+
+			qcom,otg-fet-present;
+			qcom,otg-fet-enable-gpio = <&pm8916_gpios 3 0>;
+		};
+	};
