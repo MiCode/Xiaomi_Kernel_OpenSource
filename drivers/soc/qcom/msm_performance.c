@@ -48,7 +48,8 @@ struct cluster {
 	u64 last_mode_check_ts;
 	unsigned int single_enter_cycle_cnt;
 	unsigned int single_exit_cycle_cnt;
-	unsigned int multi_cycle_cnt;
+	unsigned int multi_enter_cycle_cnt;
+	unsigned int multi_exit_cycle_cnt;
 	spinlock_t mode_lock;
 	/* Tunables */
 	unsigned int single_enter_load;
@@ -57,7 +58,8 @@ struct cluster {
 	unsigned int pcpu_multi_exit_load;
 	unsigned int single_enter_cycles;
 	unsigned int single_exit_cycles;
-	unsigned int multi_cycles;
+	unsigned int multi_enter_cycles;
+	unsigned int multi_exit_cycles;
 	spinlock_t timer_lock;
 	unsigned int timer_rate;
 	struct timer_list mode_exit_timer;
@@ -119,7 +121,8 @@ static struct task_struct *notify_thread;
 #define DEF_PCPU_MULTI_EX	50
 #define DEF_SINGLE_ENTER_CYCLE	4
 #define DEF_SINGLE_EXIT_CYCLE	4
-#define DEF_MULTI_CYCLE		4
+#define DEF_MULTI_ENTER_CYCLE	4
+#define DEF_MULTI_EXIT_CYCLE	4
 #define LAST_LD_CHECK_TOL	(2 * USEC_PER_MSEC)
 
 /**************************sysfs start********************************/
@@ -786,7 +789,8 @@ static const struct kernel_param_ops param_ops_single_exit_cycles = {
 };
 device_param_cb(single_exit_cycles, &param_ops_single_exit_cycles, NULL, 0644);
 
-static int set_multi_cycles(const char *buf, const struct kernel_param *kp)
+static int set_multi_enter_cycles(const char *buf,
+					const struct kernel_param *kp)
 {
 	unsigned int val, i, ntokens = 0;
 	const char *cp = buf;
@@ -807,7 +811,7 @@ static int set_multi_cycles(const char *buf, const struct kernel_param *kp)
 		if (sscanf(cp, "%u\n", &val) != 1)
 			return -EINVAL;
 
-		managed_clusters[i]->multi_cycles = val;
+		managed_clusters[i]->multi_enter_cycles = val;
 
 		bytes_left = PAGE_SIZE - (cp - buf);
 		cp = strnchr(cp, bytes_left, ':');
@@ -817,7 +821,7 @@ static int set_multi_cycles(const char *buf, const struct kernel_param *kp)
 	return 0;
 }
 
-static int get_multi_cycles(char *buf, const struct kernel_param *kp)
+static int get_multi_enter_cycles(char *buf, const struct kernel_param *kp)
 {
 	int i, cnt = 0;
 
@@ -826,17 +830,69 @@ static int get_multi_cycles(char *buf, const struct kernel_param *kp)
 
 	for (i = 0; i < num_clusters; i++)
 		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
-				"%u:", managed_clusters[i]->multi_cycles);
+				"%u:", managed_clusters[i]->multi_enter_cycles);
 	cnt--;
 	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, " ");
 	return cnt;
 }
 
-static const struct kernel_param_ops param_ops_multi_cycles = {
-	.set = set_multi_cycles,
-	.get = get_multi_cycles,
+static const struct kernel_param_ops param_ops_multi_enter_cycles = {
+	.set = set_multi_enter_cycles,
+	.get = get_multi_enter_cycles,
 };
-device_param_cb(multi_cycles, &param_ops_multi_cycles, NULL, 0644);
+device_param_cb(multi_enter_cycles, &param_ops_multi_enter_cycles, NULL, 0644);
+
+static int set_multi_exit_cycles(const char *buf, const struct kernel_param *kp)
+{
+	unsigned int val, i, ntokens = 0;
+	const char *cp = buf;
+	unsigned int bytes_left;
+
+	if (!clusters_inited)
+		return -EINVAL;
+
+	while ((cp = strpbrk(cp + 1, ":")))
+		ntokens++;
+
+	if (ntokens != (num_clusters - 1))
+		return -EINVAL;
+
+	cp = buf;
+	for (i = 0; i < num_clusters; i++) {
+
+		if (sscanf(cp, "%u\n", &val) != 1)
+			return -EINVAL;
+
+		managed_clusters[i]->multi_exit_cycles = val;
+
+		bytes_left = PAGE_SIZE - (cp - buf);
+		cp = strnchr(cp, bytes_left, ':');
+		cp++;
+	}
+
+	return 0;
+}
+
+static int get_multi_exit_cycles(char *buf, const struct kernel_param *kp)
+{
+	int i, cnt = 0;
+
+	if (!clusters_inited)
+		return cnt;
+
+	for (i = 0; i < num_clusters; i++)
+		cnt += snprintf(buf + cnt, PAGE_SIZE - cnt,
+				"%u:", managed_clusters[i]->multi_exit_cycles);
+	cnt--;
+	cnt += snprintf(buf + cnt, PAGE_SIZE - cnt, " ");
+	return cnt;
+}
+
+static const struct kernel_param_ops param_ops_multi_exit_cycles = {
+	.set = set_multi_exit_cycles,
+	.get = get_multi_exit_cycles,
+};
+device_param_cb(multi_exit_cycles, &param_ops_multi_exit_cycles, NULL, 0644);
 
 static int set_io_enter_cycles(const char *buf, const struct kernel_param *kp)
 {
@@ -945,7 +1001,8 @@ static int set_workload_detect(const char *buf, const struct kernel_param *kp)
 			spin_lock_irqsave(&i_cl->mode_lock, flags);
 			i_cl->single_enter_cycle_cnt = 0;
 			i_cl->single_exit_cycle_cnt = 0;
-			i_cl->multi_cycle_cnt = 0;
+			i_cl->multi_enter_cycle_cnt = 0;
+			i_cl->multi_exit_cycle_cnt = 0;
 			i_cl->mode = 0;
 			i_cl->mode_change = true;
 			spin_unlock_irqrestore(&i_cl->mode_lock, flags);
@@ -1166,8 +1223,9 @@ static void disable_timer(struct cluster *cl)
 		trace_single_cycle_exit_timer_stop(cpumask_first(cl->cpus),
 			cl->single_enter_cycles, cl->single_enter_cycle_cnt,
 			cl->single_exit_cycles, cl->single_exit_cycle_cnt,
-			cl->multi_cycles, cl->multi_cycle_cnt, cl->timer_rate,
-			cl->mode);
+			cl->multi_enter_cycles, cl->multi_enter_cycle_cnt,
+			cl->multi_exit_cycles, cl->multi_exit_cycle_cnt,
+			cl->timer_rate, cl->mode);
 	}
 
 	spin_unlock_irqrestore(&cl->timer_lock, flags);
@@ -1187,8 +1245,9 @@ static void start_timer(struct cluster *cl)
 		trace_single_cycle_exit_timer_start(cpumask_first(cl->cpus),
 			cl->single_enter_cycles, cl->single_enter_cycle_cnt,
 			cl->single_exit_cycles, cl->single_exit_cycle_cnt,
-			cl->multi_cycles, cl->multi_cycle_cnt, cl->timer_rate,
-			cl->mode);
+			cl->multi_enter_cycles, cl->multi_enter_cycle_cnt,
+			cl->multi_exit_cycles, cl->multi_exit_cycle_cnt,
+			cl->timer_rate, cl->mode);
 	}
 	spin_unlock_irqrestore(&cl->timer_lock, flags);
 }
@@ -1258,19 +1317,25 @@ static void check_cpu_load(struct cluster *cl, u64 now)
 
 	if (!(cl->mode & MULTI)) {
 		if (total_load >= total_load_ceil) {
-			cl->multi_cycle_cnt++;
-			if (cl->multi_cycle_cnt >= cl->multi_cycles)
+			cl->multi_enter_cycle_cnt++;
+			if (cl->multi_enter_cycle_cnt
+				>= cl->multi_enter_cycles) {
 				ret_mode |= MULTI;
+				cl->multi_enter_cycle_cnt = 0;
+			}
 		} else {
-			cl->multi_cycle_cnt = 0;
+			cl->multi_enter_cycle_cnt = 0;
 		}
 	} else {
 		if (total_load < total_load_floor) {
-			cl->multi_cycle_cnt--;
-			if (!cl->multi_cycle_cnt)
+			cl->multi_exit_cycle_cnt++;
+			if (cl->multi_exit_cycle_cnt
+				>= cl->multi_exit_cycles) {
 				ret_mode &= ~MULTI;
+				cl->multi_exit_cycle_cnt = 0;
+			}
 		} else {
-			cl->multi_cycle_cnt = cl->multi_cycles;
+			cl->multi_exit_cycle_cnt = 0;
 		}
 	}
 
@@ -1284,8 +1349,8 @@ static void check_cpu_load(struct cluster *cl, u64 now)
 
 	trace_cpu_mode_detect(cpumask_first(cl->cpus), max_load,
 		cl->single_enter_cycle_cnt, cl->single_exit_cycle_cnt,
-		total_load, cl->multi_cycle_cnt,
-		cl->mode, cpu_cnt);
+		total_load, cl->multi_enter_cycle_cnt,
+		cl->multi_exit_cycle_cnt, cl->mode, cpu_cnt);
 
 	spin_unlock_irqrestore(&cl->mode_lock, flags);
 
@@ -1611,10 +1676,10 @@ static void single_mod_exit_timer(unsigned long data)
 		i_cl->single_enter_cycle_cnt = 0;
 		i_cl->single_exit_cycle_cnt = 0;
 		trace_single_mode_timeout(cpumask_first(i_cl->cpus),
-			i_cl->single_enter_cycles,
-			i_cl->single_enter_cycle_cnt,
+			i_cl->single_enter_cycles, i_cl->single_enter_cycle_cnt,
 			i_cl->single_exit_cycles, i_cl->single_exit_cycle_cnt,
-			i_cl->multi_cycles, i_cl->multi_cycle_cnt,
+			i_cl->multi_enter_cycles, i_cl->multi_enter_cycle_cnt,
+			i_cl->multi_exit_cycles, i_cl->multi_exit_cycle_cnt,
 			i_cl->timer_rate, i_cl->mode);
 	}
 	spin_unlock_irqrestore(&i_cl->mode_lock, flags);
@@ -1652,7 +1717,8 @@ static int init_cluster_control(void)
 		managed_clusters[i]->pcpu_multi_enter_load
 						= DEF_PCPU_MULTI_ENT;
 		managed_clusters[i]->pcpu_multi_exit_load = DEF_PCPU_MULTI_EX;
-		managed_clusters[i]->multi_cycles = DEF_MULTI_CYCLE;
+		managed_clusters[i]->multi_enter_cycles = DEF_MULTI_ENTER_CYCLE;
+		managed_clusters[i]->multi_exit_cycles = DEF_MULTI_EXIT_CYCLE;
 
 		spin_lock_init(&(managed_clusters[i]->iowait_lock));
 		spin_lock_init(&(managed_clusters[i]->mode_lock));
