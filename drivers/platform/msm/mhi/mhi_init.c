@@ -215,8 +215,7 @@ static enum MHI_STATUS mhi_init_device_ctrl(struct mhi_device_ctxt
 	/* Calculate the size of the control segment needed */
 
 	ctrl_seg_size += align_len - (ctrl_seg_size % align_len);
-
-	ret_val = mhi_mallocmemregion(mhi_dev_ctxt->mhi_ctrl_seg_info,
+	ret_val = mhi_mallocmemregion(mhi_dev_ctxt, mhi_dev_ctxt->mhi_ctrl_seg_info,
 							ctrl_seg_size);
 	if (MHI_STATUS_SUCCESS != ret_val)
 		return MHI_STATUS_ERROR;
@@ -309,12 +308,12 @@ static enum MHI_STATUS mhi_spawn_threads(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_dev_ctxt->event_thread_handle = kthread_run(parse_event_thread,
 							mhi_dev_ctxt,
 							"mhi_ev_thrd");
-	if (-ENOMEM == (int)mhi_dev_ctxt->event_thread_handle)
+	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
 		return MHI_STATUS_ERROR;
 	mhi_dev_ctxt->st_thread_handle = kthread_run(mhi_state_change_thread,
 							mhi_dev_ctxt,
 							"mhi_st_thrd");
-	if (-ENOMEM == (int)mhi_dev_ctxt->event_thread_handle)
+	if (IS_ERR(mhi_dev_ctxt->event_thread_handle))
 		return MHI_STATUS_ERROR;
 	return MHI_STATUS_SUCCESS;
 }
@@ -334,6 +333,7 @@ enum MHI_STATUS mhi_init_device_ctxt(struct mhi_pcie_dev_info *dev_info,
 		struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
+
 	if (NULL == dev_info || NULL == mhi_dev_ctxt)
 		return MHI_STATUS_ERROR;
 	mhi_log(MHI_MSG_VERBOSE, "mhi_init_device_ctxt>Init MHI dev ctxt\n");

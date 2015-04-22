@@ -22,7 +22,7 @@
 #include <linux/spinlock.h>
 #include <linux/sched.h>
 #include <linux/cdev.h>
-#include <mach/msm_pcie.h>
+#include <linux/msm_pcie.h>
 #include <linux/sched.h>
 
 extern struct mhi_pcie_devices mhi_devices;

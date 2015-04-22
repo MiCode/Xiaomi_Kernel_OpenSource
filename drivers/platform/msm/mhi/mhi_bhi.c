@@ -50,7 +50,7 @@ static ssize_t bhi_write(struct file *file,
 	wait_event_interruptible(*mhi_dev_ctxt->mhi_ev_wq.bhi_event,
 			mhi_dev_ctxt->mhi_state == MHI_STATE_BHI);
 
-	mhi_log(MHI_MSG_INFO, "Entered. User Image size 0x%x\n", count);
+	mhi_log(MHI_MSG_INFO, "Entered. User Image size 0x%zx\n", count);
 
 	bhi_ctxt->unaligned_image_loc = kmalloc(count + (align_len - 1),
 						GFP_KERNEL);
@@ -185,7 +185,7 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 		mhi_log(MHI_MSG_CRITICAL,
 			"Failed to instantiate class %d\n",
 			ret_val);
-		r = (int)bhi_ctxt->bhi_class;
+		r = PTR_RET(bhi_ctxt->bhi_class);
 		goto err_class_create;
 	}
 	cdev_init(&bhi_ctxt->cdev, &bhi_fops);
@@ -197,7 +197,7 @@ int bhi_probe(struct mhi_pcie_dev_info *mhi_pcie_device)
 	if (IS_ERR(bhi_ctxt->dev)) {
 		mhi_log(MHI_MSG_CRITICAL,
 				"Failed to add bhi cdev\n");
-		r = (int)bhi_ctxt->dev;
+		r = PTR_RET(bhi_ctxt->dev);
 		goto err_dev_create;
 	}
 	return 0;

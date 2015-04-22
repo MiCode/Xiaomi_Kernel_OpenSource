@@ -84,10 +84,6 @@ int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev)
 		ioremap_nocache(pci_resource_start(pcie_device, 0),
 			pci_resource_len(pcie_device, 0));
 	if (!mhi_pcie_dev->core.bar0_base) {
-		mhi_log(MHI_MSG_ERROR,
-			"Failed to map bar 0 addr 0x%x len 0x%x.\n",
-			pci_resource_start(pcie_device, 0),
-			pci_resource_len(pcie_device, 0));
 		goto mhi_device_list_error;
 	}
 
@@ -97,10 +93,6 @@ int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev)
 		ioremap_nocache(pci_resource_start(pcie_device, 2),
 			pci_resource_len(pcie_device, 2));
 	if (!mhi_pcie_dev->core.bar2_base) {
-		mhi_log(MHI_MSG_ERROR,
-			"Failed to map bar 2 addr 0x%x len 0x%x.\n",
-			pci_resource_start(pcie_device, 2),
-			pci_resource_len(pcie_device, 2));
 		goto io_map_err;
 	}
 
@@ -149,7 +141,7 @@ static void mhi_move_interrupts(struct mhi_device_ctxt *mhi_dev_ctxt, u32 cpu)
 int mhi_cpu_notifier_cb(struct notifier_block *nfb, unsigned long action,
 			void *hcpu)
 {
-	u32 cpu = (u32)hcpu;
+	uintptr_t cpu = (uintptr_t)hcpu;
 	struct mhi_device_ctxt *mhi_dev_ctxt = container_of(nfb,
 						struct mhi_device_ctxt,
 						mhi_cpu_notifier);
@@ -596,7 +588,7 @@ enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
 	wmb();
 
 	mhi_log(MHI_MSG_VERBOSE,
-		"Channel %d Has buf size of %d and buf addr %lx, flags 0x%x\n",
+		"Channel %d Has buf size of %zd and buf addr %lx, flags 0x%x\n",
 				chan, buf_len, (uintptr_t)buf, mhi_flags);
 
 	/* Add the TRB to the correct transfer ring */
