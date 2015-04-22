@@ -2675,11 +2675,15 @@ static void mxt_fw_cb(const struct firmware *fw, void *ctx)
 	/*reset chip in case of I2C mode pin is configured
 	* after power on touch chip without keep reset active
 	*/
-	gpiod_direction_output(gpio_to_desc(data->pdata->gpio_reset), 0);
-	ndelay(100);
-	gpiod_direction_output(gpio_to_desc(data->pdata->gpio_reset), 1);
-	/* wait it gets out of reset */
-	msleep(MXT_RESET_TIME);
+	if (gpio_is_valid(data->pdata->gpio_reset)) {
+		gpiod_direction_output(gpio_to_desc(data->pdata->gpio_reset),
+					0);
+		ndelay(100);
+		gpiod_direction_output(gpio_to_desc(data->pdata->gpio_reset),
+					1);
+		/* wait it gets out of reset */
+		msleep(MXT_RESET_TIME);
+	}
 
 	if (fw) {
 		error = mxt_check_firmware(data, fw);
