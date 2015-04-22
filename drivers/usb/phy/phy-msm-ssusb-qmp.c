@@ -506,6 +506,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		reg = qmp_settings_rev1;
 		break;
 	case 0x20000000:
+	case 0x20000001:
 		reg = qmp_settings_rev2;
 		misc = qmp_override_sysclk;
 		pll = qmp_override_pll_rev2;
