@@ -2425,9 +2425,11 @@ int msm_comm_suspend(int core_id)
 		return -EINVAL;
 	}
 
+	mutex_lock(&core->lock);
 	rc = call_hfi_op(hdev, suspend, hdev->hfi_device_data);
 	if (rc)
 		dprintk(VIDC_WARN, "Failed to suspend\n");
+	mutex_unlock(&core->lock);
 
 	return rc;
 }
