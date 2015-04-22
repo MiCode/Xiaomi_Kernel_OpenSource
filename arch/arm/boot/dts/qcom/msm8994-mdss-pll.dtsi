@@ -19,10 +19,8 @@
 
 		reg = <0xfd998300 0x500>,
 		      <0xfd8c2300 0x8>,
-		      <0xfd998200 0x64>,
-		      <0xfd9a0300 0x500>;
-		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base",
-			"pll_1_base";
+		      <0xfd998200 0x64>;
+		reg-names = "pll_base", "gdsc_base", "dynamic_pll_base";
 
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8994_l12>;
@@ -81,6 +79,7 @@
 		vddio-supply = <&pm8994_l12>;
 		vcca-supply = <&pm8994_l28>;
 
+		qcom,mdss-en-pll-90-phase;
 		clocks = <&clock_mmss clk_mdss_ahb_clk>;
 		clock-names = "iface_clk";
 		clock-rate = <0>;

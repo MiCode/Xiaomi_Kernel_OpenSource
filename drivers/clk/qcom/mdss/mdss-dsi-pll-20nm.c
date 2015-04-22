@@ -466,8 +466,6 @@ static void dsi_pll_off_work(struct work_struct *work)
 
 	mdss_pll_resource_enable(pll_res, true);
 	pll_20nm_config_powerdown(pll_res->pll_base);
-	if (pll_res->pll_1_base)
-		pll_20nm_config_powerdown(pll_res->pll_1_base);
 	mdss_pll_resource_enable(pll_res, false);
 }
 
@@ -591,19 +589,19 @@ int dsi_pll_clock_register_20nm(struct platform_device *pdev,
 				pr_err("Clock register failed\n");
 				rc = -EPROBE_DEFER;
 			}
-			pll_res->gdsc_cb.notifier_call =
-				dsi_pll_regulator_notifier_call;
-			INIT_WORK(&pll_res->pll_off, dsi_pll_off_work);
-
-			pll_reg = mdss_pll_get_mp_by_reg_name(pll_res, "gdsc");
-			if (pll_reg) {
-				pr_debug("Registering for gdsc regulator events\n");
-				if (regulator_register_notifier(pll_reg->vreg,
-							&(pll_res->gdsc_cb)))
-					pr_err("Regulator notification registration failed!\n");
-			}
 		}
 
+		pll_res->gdsc_cb.notifier_call =
+			dsi_pll_regulator_notifier_call;
+		INIT_WORK(&pll_res->pll_off, dsi_pll_off_work);
+
+		pll_reg = mdss_pll_get_mp_by_reg_name(pll_res, "gdsc");
+		if (pll_reg) {
+			pr_debug("Registering for gdsc regulator events\n");
+			if (regulator_register_notifier(pll_reg->vreg,
+						&(pll_res->gdsc_cb)))
+				pr_err("Regulator notification registration failed!\n");
+		}
 	} else {
 		pr_err("Invalid target ID\n");
 		rc = -EINVAL;
