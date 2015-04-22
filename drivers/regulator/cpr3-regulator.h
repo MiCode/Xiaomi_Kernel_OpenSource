@@ -134,6 +134,8 @@ struct cpr3_corner {
  *			closed-loop mode or less than 0 if no corner has been
  *			requested.  CPR registers are only written to when using
  *			closed-loop mode.
+ * @debug_corner:	Index identifying voltage corner used for displaying
+ *			corner configuration values in debugfs
  * @ldo_headroom_volt:	Voltage difference in microvolts required between the
  *			VDD supply voltage and the LDO output in order for the
  *			LDO operate
@@ -147,8 +149,8 @@ struct cpr3_corner {
  *			within the regulator framework.
  *
  * This structure contains both configuration and runtime state data.  The
- * elements current_corner, last_closed_loop_corner, and vreg_enabled are state
- * variables.
+ * elements current_corner, last_closed_loop_corner, debug_corner, and
+ * vreg_enabled are state variables.
  */
 struct cpr3_thread {
 	u32			thread_id;
@@ -175,6 +177,7 @@ struct cpr3_thread {
 	u32			down_threshold;
 	int			current_corner;
 	int			last_closed_loop_corner;
+	int			debug_corner;
 	int			ldo_headroom_volt;
 	int			ldo_adjust_volt;
 	int			ldo_max_volt;

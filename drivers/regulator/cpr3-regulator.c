@@ -1519,6 +1519,539 @@ static int cpr3_regulator_thread_register(struct cpr3_thread *thread)
 	return 0;
 }
 
+static int debugfs_int_set(void *data, u64 val)
+{
+	*(int *)data = val;
+	return 0;
+}
+
+static int debugfs_int_get(void *data, u64 *val)
+{
+	*val = *(int *)data;
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(fops_int, debugfs_int_get, debugfs_int_set, "%lld\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_int_ro, debugfs_int_get, NULL, "%lld\n");
+DEFINE_SIMPLE_ATTRIBUTE(fops_int_wo, NULL, debugfs_int_set, "%lld\n");
+
+/**
+ * debugfs_create_int - create a debugfs file that is used to read and write a
+ *		signed int value
+ * @name:		Pointer to a string containing the name of the file to
+ *			create
+ * @mode:		The permissions that the file should have
+ * @parent:		Pointer to the parent dentry for this file.  This should
+ *			be a directory dentry if set.  If this parameter is
+ *			%NULL, then the file will be created in the root of the
+ *			debugfs filesystem.
+ * @value:		Pointer to the variable that the file should read to and
+ *			write from
+ *
+ * This function creates a file in debugfs with the given name that
+ * contains the value of the variable @value.  If the @mode variable is so
+ * set, it can be read from, and written to.
+ *
+ * This function will return a pointer to a dentry if it succeeds.  This
+ * pointer must be passed to the debugfs_remove() function when the file is
+ * to be removed.  If an error occurs, %NULL will be returned.
+ */
+static struct dentry *debugfs_create_int(const char *name, umode_t mode,
+				struct dentry *parent, int *value)
+{
+	/* if there are no write bits set, make read only */
+	if (!(mode & S_IWUGO))
+		return debugfs_create_file(name, mode, parent, value,
+					   &fops_int_ro);
+	/* if there are no read bits set, make write only */
+	if (!(mode & S_IRUGO))
+		return debugfs_create_file(name, mode, parent, value,
+					   &fops_int_wo);
+
+	return debugfs_create_file(name, mode, parent, value, &fops_int);
+}
+
+/**
+ * cpr3_debug_ldo_mode_allowed_set() - debugfs callback used to change the
+ *		value of the CPR thread ldo_mode_allowed flag
+ * @data:		Pointer to private data which is equal to the CPR
+ *			thread pointer
+ * @val:		New value for ldo_mode_allowed
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_ldo_mode_allowed_set(void *data, u64 val)
+{
+	struct cpr3_thread *thread = data;
+	bool allow = !!val;
+	int rc, vdd_volt;
+
+	mutex_lock(&thread->ctrl->lock);
+
+	if (thread->ldo_mode_allowed == allow)
+		goto done;
+
+	thread->ldo_mode_allowed = allow;
+
+	if (!allow && thread->ldo_regulator_bypass == LDO_MODE) {
+		vdd_volt = regulator_get_voltage(thread->ctrl->vdd_regulator);
+		if (vdd_volt < 0) {
+			cpr3_err(thread, "regulator_get_voltage(vdd) failed, rc=%d\n",
+				 vdd_volt);
+			goto done;
+		}
+
+		/* Switch back to BHS */
+		rc = cpr3_regulator_set_bhs_mode(thread, vdd_volt,
+				       thread->ctrl->aggr_corner.ceiling_volt);
+		if (rc) {
+			cpr3_err(thread, "unable to switch to BHS mode, rc=%d\n",
+				 rc);
+			goto done;
+		}
+	} else {
+		rc = cpr3_regulator_update_ctrl_state(thread->ctrl);
+		if (rc) {
+			cpr3_err(thread, "could not change LDO mode=%s, rc=%d\n",
+				allow ? "allowed" : "disallowed", rc);
+			goto done;
+		}
+	}
+
+	cpr3_debug(thread, "LDO mode=%s\n", allow ? "allowed" : "disallowed");
+
+done:
+	mutex_unlock(&thread->ctrl->lock);
+	return 0;
+}
+
+/**
+ * cpr3_debug_ldo_mode_allowed_get() - debugfs callback used to retrieve the
+ *		value of the CPR thread ldo_mode_allowed flag
+ * @data:		Pointer to private data which is equal to the CPR
+ *			thread pointer
+ * @val:		Output parameter written with a value of the
+ *			ldo_mode_allowed flag
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_ldo_mode_allowed_get(void *data, u64 *val)
+{
+	struct cpr3_thread *thread = data;
+
+	*val = thread->ldo_mode_allowed;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_ldo_mode_allowed_fops,
+			cpr3_debug_ldo_mode_allowed_get,
+			cpr3_debug_ldo_mode_allowed_set,
+			"%llu\n");
+
+/**
+ * cpr3_debug_ldo_mode_get() - debugfs callback used to retrieve the state of
+ *		the CPR thread's LDO
+ * @data:		Pointer to private data which is equal to the CPR
+ *			thread pointer
+ * @val:		Output parameter written with a value of 1 if using
+ *			LDO mode or 0 if the LDO is bypassed
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_ldo_mode_get(void *data, u64 *val)
+{
+	struct cpr3_thread *thread = data;
+
+	*val = (thread->ldo_regulator_bypass == LDO_MODE);
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_ldo_mode_fops, cpr3_debug_ldo_mode_get,
+			NULL, "%llu\n");
+
+/**
+ * struct cpr3_debug_corner_info - data structure used by the
+ *		cpr3_debugfs_create_corner_int function
+ * @thread:		Pointer to the CPR3 thread
+ * @index:		Pointer to the corner array index
+ * @member_offset:	Offset in bytes from the beginning of struct cpr3_corner
+ *			to the beginning of the value to be read from
+ */
+struct cpr3_debug_corner_info {
+	struct cpr3_thread	*thread;
+	int			*index;
+	size_t			member_offset;
+};
+
+static int cpr3_debug_corner_int_get(void *data, u64 *val)
+{
+	struct cpr3_debug_corner_info *info = data;
+	int i;
+
+	mutex_lock(&info->thread->ctrl->lock);
+
+	i = *info->index;
+	if (i < 0)
+		i = 0;
+
+	*val = *(int *)((char *)&info->thread->corner[i] + info->member_offset);
+
+	mutex_unlock(&info->thread->ctrl->lock);
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_corner_int_fops, cpr3_debug_corner_int_get,
+			NULL, "%lld\n");
+
+/**
+ * cpr3_debugfs_create_corner_int - create a debugfs file that is used to read
+ *		a signed int value out of a CPR thread's corner array
+ * @thread:		Pointer to the CPR3 thread
+ * @name:		Pointer to a string containing the name of the file to
+ *			create
+ * @mode:		The permissions that the file should have
+ * @parent:		Pointer to the parent dentry for this file.  This should
+ *			be a directory dentry if set.  If this parameter is
+ *			%NULL, then the file will be created in the root of the
+ *			debugfs filesystem.
+ * @index:		Pointer to the corner array index
+ * @member_offset:	Offset in bytes from the beginning of struct cpr3_corner
+ *			to the beginning of the value to be read from
+ *
+ * This function creates a file in debugfs with the given name that
+ * contains the value of the int type variable thread->corner[index].member
+ * where member_offset == offsetof(struct cpr3_corner, member).
+ */
+static struct dentry *cpr3_debugfs_create_corner_int(struct cpr3_thread *thread,
+		const char *name, umode_t mode,	struct dentry *parent,
+		int *index, size_t member_offset)
+{
+	struct cpr3_debug_corner_info *info;
+
+	info = devm_kzalloc(thread->ctrl->dev, sizeof(*info), GFP_KERNEL);
+	if (!info) {
+		cpr3_err(thread, "could not allocate memory for debugfs function data\n");
+		return NULL;
+	}
+
+	info->thread = thread;
+	info->index = index;
+	info->member_offset = member_offset;
+
+	return debugfs_create_file(name, mode, parent, info,
+				   &cpr3_debug_corner_int_fops);
+}
+
+static int cpr3_debug_quot_open(struct inode *inode, struct file *file)
+{
+	struct cpr3_debug_corner_info *info = inode->i_private;
+	int size, i, pos;
+	u32 *quot;
+	char *buf;
+
+	/*
+	 * Max size:
+	 *  - 10 digits + ' ' or '\n' = 11 bytes per number
+	 *  - terminating '\0'
+	 */
+	size = CPR3_RO_COUNT * 11;
+	buf = kzalloc(size + 1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	file->private_data = buf;
+
+	mutex_lock(&info->thread->ctrl->lock);
+
+	quot = info->thread->corner[*info->index].target_quot;
+
+	for (i = 0, pos = 0; i < CPR3_RO_COUNT; i++)
+		pos += scnprintf(buf + pos, size - pos, "%u%c",
+			quot[i], i < CPR3_RO_COUNT - 1 ? ' ' : '\n');
+
+	mutex_unlock(&info->thread->ctrl->lock);
+
+	return nonseekable_open(inode, file);
+}
+
+static ssize_t cpr3_debug_quot_read(struct file *file, char __user *buf,
+		size_t len, loff_t *ppos)
+{
+	return simple_read_from_buffer(buf, len, ppos, file->private_data,
+					strlen(file->private_data));
+}
+
+static int cpr3_debug_quot_release(struct inode *inode, struct file *file)
+{
+	kfree(file->private_data);
+
+	return 0;
+}
+
+static const struct file_operations cpr3_debug_quot_fops = {
+	.owner	 = THIS_MODULE,
+	.open	 = cpr3_debug_quot_open,
+	.release = cpr3_debug_quot_release,
+	.read	 = cpr3_debug_quot_read,
+	.llseek  = no_llseek,
+};
+
+/**
+ * cpr3_regulator_debugfs_corner_add() - add debugfs files to expose
+ *		configuration data for the CPR corner
+ * @thread:		Pointer to the CPR3 thread
+ * @corner_dir:		Pointer to the parent corner dentry for the new files
+ * @index:		Pointer to the corner array index
+ *
+ * Return: none
+ */
+static void cpr3_regulator_debugfs_corner_add(struct cpr3_thread *thread,
+		struct dentry *corner_dir, int *index)
+{
+	struct cpr3_debug_corner_info *info;
+	struct dentry *temp;
+
+	temp = cpr3_debugfs_create_corner_int(thread, "floor_volt", S_IRUGO,
+		corner_dir, index, offsetof(struct cpr3_corner, floor_volt));
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "floor_volt debugfs file creation failed\n");
+		return;
+	}
+
+	temp = cpr3_debugfs_create_corner_int(thread, "ceiling_volt", S_IRUGO,
+		corner_dir, index, offsetof(struct cpr3_corner, ceiling_volt));
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "ceiling_volt debugfs file creation failed\n");
+		return;
+	}
+
+	temp = cpr3_debugfs_create_corner_int(thread, "open_loop_volt", S_IRUGO,
+		corner_dir, index,
+		offsetof(struct cpr3_corner, open_loop_volt));
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "open_loop_volt debugfs file creation failed\n");
+		return;
+	}
+
+	temp = cpr3_debugfs_create_corner_int(thread, "last_volt", S_IRUGO,
+		corner_dir, index, offsetof(struct cpr3_corner, last_volt));
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "last_volt debugfs file creation failed\n");
+		return;
+	}
+
+	info = devm_kzalloc(thread->ctrl->dev, sizeof(*info), GFP_KERNEL);
+	if (!info) {
+		cpr3_err(thread, "could not allocate memory for debugfs function data\n");
+		return;
+	}
+	info->thread = thread;
+	info->index = index;
+
+	temp = debugfs_create_file("target_quots", S_IRUGO, corner_dir,
+				info, &cpr3_debug_quot_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "target_quots debugfs file creation failed\n");
+		return;
+	}
+}
+
+/**
+ * cpr3_debug_corner_index_set() - debugfs callback used to change the
+ *		value of the CPR thread debug_corner index
+ * @data:		Pointer to private data which is equal to the CPR
+ *			thread pointer
+ * @val:		New value for debug_corner
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_corner_index_set(void *data, u64 val)
+{
+	struct cpr3_thread *thread = data;
+
+	if (val < CPR3_CORNER_OFFSET || val > thread->corner_count) {
+		cpr3_err(thread, "invalid corner index %llu; allowed values: %d-%d\n",
+			val, CPR3_CORNER_OFFSET, thread->corner_count);
+		return -EINVAL;
+	}
+
+	mutex_lock(&thread->ctrl->lock);
+	thread->debug_corner = val - CPR3_CORNER_OFFSET;
+	mutex_unlock(&thread->ctrl->lock);
+
+	return 0;
+}
+
+/**
+ * cpr3_debug_corner_index_get() - debugfs callback used to retrieve
+ *		the value of the CPR thread debug_corner index
+ * @data:		Pointer to private data which is equal to the CPR
+ *			thread pointer
+ * @val:		Output parameter written with the value of
+ *			debug_corner
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_corner_index_get(void *data, u64 *val)
+{
+	struct cpr3_thread *thread = data;
+
+	*val = thread->debug_corner + CPR3_CORNER_OFFSET;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_corner_index_fops,
+			cpr3_debug_corner_index_get,
+			cpr3_debug_corner_index_set,
+			"%llu\n");
+
+/**
+ * cpr3_debug_current_corner_index_get() - debugfs callback used to retrieve
+ *		the value of the CPR thread current_corner index
+ * @data:		Pointer to private data which is equal to the CPR
+ *			thread pointer
+ * @val:		Output parameter written with the value of
+ *			current_corner
+ *
+ * Return: 0 on success, errno on failure
+ */
+static int cpr3_debug_current_corner_index_get(void *data, u64 *val)
+{
+	struct cpr3_thread *thread = data;
+
+	*val = thread->current_corner + CPR3_CORNER_OFFSET;
+
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_current_corner_index_fops,
+			cpr3_debug_current_corner_index_get,
+			NULL, "%llu\n");
+
+/**
+ * cpr3_regulator_debugfs_thread_add() - add debugfs files to expose
+ *		configuration data for the CPR thread
+ * @thread:		Pointer to the CPR3 thread
+ *
+ * Return: none
+ */
+static void cpr3_regulator_debugfs_thread_add(struct cpr3_thread *thread)
+{
+	struct dentry *temp, *thread_dir, *corner_dir, *vreg_dir;
+	struct debugfs_blob_wrapper *blob;
+	size_t name_len;
+	char buf[20];
+	char *name;
+
+	scnprintf(buf, sizeof(buf), "thread%u", thread->thread_id);
+	thread_dir = debugfs_create_dir(buf, thread->ctrl->debugfs);
+	if (IS_ERR_OR_NULL(thread_dir)) {
+		cpr3_err(thread, "%s debugfs directory creation failed\n", buf);
+		return;
+	}
+
+	/* The 2 is for '\n' and '\0' */
+	name_len = strlen(thread->name) + 2;
+	name = devm_kzalloc(thread->ctrl->dev, name_len, GFP_KERNEL);
+	blob = devm_kzalloc(thread->ctrl->dev, sizeof(*blob), GFP_KERNEL);
+	if (!name || !blob) {
+		cpr3_err(thread, "could not allocate memory for debugfs name data\n");
+		return;
+	}
+	strlcpy(name, thread->name, name_len);
+	strlcat(name, "\n", name_len);
+	blob->data = name;
+	blob->size = strlen(name);
+
+	temp = debugfs_create_blob("name", S_IRUGO, thread_dir, blob);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "name debugfs file creation failed\n");
+		return;
+	}
+
+	vreg_dir = debugfs_create_dir(thread->name, thread_dir);
+	if (IS_ERR_OR_NULL(vreg_dir)) {
+		cpr3_err(thread, "%s debugfs directory creation failed\n",
+			thread->name);
+		return;
+	}
+
+	temp = debugfs_create_int("speed_bin_fuse", S_IRUGO, vreg_dir,
+				  &thread->speed_bin_fuse);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "speed_bin_fuse debugfs file creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_int("cpr_rev_fuse", S_IRUGO, vreg_dir,
+				  &thread->cpr_rev_fuse);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "cpr_rev_fuse debugfs file creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_int("fuse_combo", S_IRUGO, vreg_dir,
+				  &thread->fuse_combo);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "fuse_combo debugfs file creation failed\n");
+		return;
+	}
+
+	if (thread->ldo_regulator) {
+		temp = debugfs_create_file("ldo_mode", S_IRUGO, vreg_dir,
+				thread, &cpr3_debug_ldo_mode_fops);
+		if (IS_ERR_OR_NULL(temp)) {
+			cpr3_err(thread, "ldo_mode debugfs file creation failed\n");
+			return;
+		}
+
+		temp = debugfs_create_file("ldo_mode_allowed",
+				S_IRUGO | S_IWUSR, vreg_dir, thread,
+				&cpr3_debug_ldo_mode_allowed_fops);
+		if (IS_ERR_OR_NULL(temp)) {
+			cpr3_err(thread, "ldo_mode_allowed debugfs file creation failed\n");
+			return;
+		}
+	}
+
+	temp = debugfs_create_int("corner_count", S_IRUGO, vreg_dir,
+				  &thread->corner_count);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "corner_count debugfs file creation failed\n");
+		return;
+	}
+
+	corner_dir = debugfs_create_dir("corner", vreg_dir);
+	if (IS_ERR_OR_NULL(corner_dir)) {
+		cpr3_err(thread, "corner debugfs directory creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("index", S_IRUGO | S_IWUSR, corner_dir,
+				thread, &cpr3_debug_corner_index_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "index debugfs file creation failed\n");
+		return;
+	}
+
+	cpr3_regulator_debugfs_corner_add(thread, corner_dir,
+					&thread->debug_corner);
+
+	corner_dir = debugfs_create_dir("current_corner", vreg_dir);
+	if (IS_ERR_OR_NULL(corner_dir)) {
+		cpr3_err(thread, "current_corner debugfs directory creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_file("index", S_IRUGO, corner_dir,
+				thread, &cpr3_debug_current_corner_index_fops);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(thread, "index debugfs file creation failed\n");
+		return;
+	}
+
+	cpr3_regulator_debugfs_corner_add(thread, corner_dir,
+					  &thread->current_corner);
+}
+
 /**
  * cpr3_debug_closed_loop_enable_set() - debugfs callback used to change the
  *		value of the CPR controller cpr_allowed_sw flag which enables or
@@ -1703,7 +2236,8 @@ DEFINE_SIMPLE_ATTRIBUTE(cpr3_debug_hw_closed_loop_enable_fops,
  */
 static void cpr3_regulator_debugfs_ctrl_add(struct cpr3_controller *ctrl)
 {
-	struct dentry *temp;
+	struct dentry *temp, *aggr_dir;
+	int i;
 
 	/* Add cpr3-regulator base directory if it isn't present already. */
 	if (cpr3_debugfs_base == NULL) {
@@ -1721,23 +2255,76 @@ static void cpr3_regulator_debugfs_ctrl_add(struct cpr3_controller *ctrl)
 		return;
 	}
 
-	temp = debugfs_create_file("cpr_closed_loop_enable", S_IRUSR | S_IWUSR,
+	temp = debugfs_create_file("cpr_closed_loop_enable", S_IRUGO | S_IWUSR,
 					ctrl->debugfs, ctrl,
 					&cpr3_debug_closed_loop_enable_fops);
 	if (IS_ERR_OR_NULL(temp)) {
-		cpr3_err(ctrl, "cpr_closed_loop_enable debugfs directory creation failed\n");
+		cpr3_err(ctrl, "cpr_closed_loop_enable debugfs file creation failed\n");
 		return;
 	}
 
 	if (ctrl->supports_hw_closed_loop) {
 		temp = debugfs_create_file("use_hw_closed_loop",
-					S_IRUSR | S_IWUSR, ctrl->debugfs, ctrl,
+					S_IRUGO | S_IWUSR, ctrl->debugfs, ctrl,
 					&cpr3_debug_hw_closed_loop_enable_fops);
 		if (IS_ERR_OR_NULL(temp)) {
-			cpr3_err(ctrl, "use_hw_closed_loop debugfs directory creation failed\n");
+			cpr3_err(ctrl, "use_hw_closed_loop debugfs file creation failed\n");
 			return;
 		}
 	}
+
+	temp = debugfs_create_int("thread_count", S_IRUGO, ctrl->debugfs,
+				  &ctrl->thread_count);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(ctrl, "thread_count debugfs file creation failed\n");
+		return;
+	}
+
+	if (ctrl->apm) {
+		temp = debugfs_create_int("apm_threshold_volt", S_IRUGO,
+				ctrl->debugfs, &ctrl->apm_threshold_volt);
+		if (IS_ERR_OR_NULL(temp)) {
+			cpr3_err(ctrl, "apm_threshold_volt debugfs file creation failed\n");
+			return;
+		}
+	}
+
+	aggr_dir = debugfs_create_dir("max_aggregated_voltages", ctrl->debugfs);
+	if (IS_ERR_OR_NULL(aggr_dir)) {
+		cpr3_err(ctrl, "max_aggregated_voltages debugfs directory creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_int("floor_volt", S_IRUGO, aggr_dir,
+				  &ctrl->aggr_corner.floor_volt);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(ctrl, "aggr floor_volt debugfs file creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_int("ceiling_volt", S_IRUGO, aggr_dir,
+				  &ctrl->aggr_corner.ceiling_volt);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(ctrl, "aggr ceiling_volt debugfs file creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_int("open_loop_volt", S_IRUGO, aggr_dir,
+				  &ctrl->aggr_corner.open_loop_volt);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(ctrl, "aggr open_loop_volt debugfs file creation failed\n");
+		return;
+	}
+
+	temp = debugfs_create_int("last_volt", S_IRUGO, aggr_dir,
+				  &ctrl->aggr_corner.last_volt);
+	if (IS_ERR_OR_NULL(temp)) {
+		cpr3_err(ctrl, "aggr last_volt debugfs file creation failed\n");
+		return;
+	}
+
+	for (i = 0; i < ctrl->thread_count; i++)
+		cpr3_regulator_debugfs_thread_add(&ctrl->thread[i]);
 }
 
 /**
