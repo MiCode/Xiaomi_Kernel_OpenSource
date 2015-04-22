@@ -373,25 +373,39 @@
 #define clk_mmss_debug_mux 0xe646ffda
 
 /* dsi0pll controlled clocks */
-#define clk_pixel_clk_src 0x1708ae85
-#define clk_byte_clk_src 0x63154efc
-#define clk_fixed_hr_oclk2_div_clk_8994 0xabbb0923
-#define clk_bypass_lp_div_mux_8994 0xdc0bb6ea
-#define clk_hr_oclk3_div_clk_8994 0xc91f9f32
-#define clk_indirect_path_div2_clk_8994 0x21cdcc22
-#define clk_ndiv_clk_8994 0x39f41978
-#define clk_dsi_vco_clk_8994 0x976ed967
-#define clk_mdss_pixel_clk_mux 0xf261a1a6
-#define clk_mdss_byte_clk_mux 0x64a23fa0
-#define clk_shadow_byte_clk_src 0x5e69f8ef
-#define clk_shadow_pixel_clk_src 0xa6b20c5a
-#define clk_shadow_fixed_hr_oclk2_div_clk_8994 0xd1ec3fb3
-#define clk_shadow_bypass_lp_div_mux_8994 0xa57bf87b
-#define clk_shadow_hr_oclk3_div_clk_8994 0x20274a2b
-#define clk_shadow_indirect_path_div2_clk_8994 0x5d6b34c8
-#define clk_shadow_ndiv_clk_8994 0x488de275
-#define clk_shadow_dsi_vco_clk_8994 0x7995eebd
-#define clk_mdss_dsi1_vco_clk_src 0xfcd15658
+#define clk_dsi0pll_pixel_clk_mux 0x792379e1
+#define clk_dsi0pll_byte_clk_mux 0x60e83f06
+#define clk_dsi0pll_pixel_clk_src 0x45b3260f
+#define clk_dsi0pll_byte_clk_src 0xbbaa30be
+#define clk_dsi0pll_fixed_hr_oclk2_div_clk 0xf8643be5
+#define clk_dsi0pll_bypass_lp_div_mux 0x160d41db
+#define clk_dsi0pll_hr_oclk3_div_clk 0xd95b00fb
+#define clk_dsi0pll_indirect_path_div2_clk 0x7693b712
+#define clk_dsi0pll_ndiv_clk 0x1d9dbaf6
+#define clk_dsi0pll_vco_clk 0x15940d40
+#define clk_dsi0pll_shadow_pixel_clk_src 0x98ae3c92
+#define clk_dsi0pll_shadow_byte_clk_src 0x177c029c
+#define clk_dsi0pll_shadow_fixed_hr_oclk2_div_clk 0x2e81f92c
+#define clk_dsi0pll_shadow_bypass_lp_div_mux 0xce7abc8e
+#define clk_dsi0pll_shadow_hr_oclk3_div_clk 0xe5afdd24
+#define clk_dsi0pll_shadow_indirect_path_div2_clk 0x40b0f2e2
+#define clk_dsi0pll_shadow_ndiv_clk 0x4b946dcf
+#define clk_dsi0pll_shadow_dsi_vco_clk 0x2b4f6083
+
+/* dsi1pll controlled clocks */
+#define clk_dsi1pll_pixel_clk_mux 0x36458019
+#define clk_dsi1pll_byte_clk_mux 0xb5a42b7b
+#define clk_dsi1pll_pixel_clk_src 0x0e4c9b56
+#define clk_dsi1pll_byte_clk_src 0x63930a8f
+#define clk_dsi1pll_fixed_hr_oclk2_div_clk 0x2944cc70
+#define clk_dsi1pll_bypass_lp_div_mux 0xe9cb9e0c
+#define clk_dsi1pll_hr_oclk3_div_clk 0x314b034b
+#define clk_dsi1pll_indirect_path_div2_clk 0x7a1d4dc7
+#define clk_dsi1pll_ndiv_clk 0x95579b1c
+#define clk_dsi1pll_vco_clk 0x99797b50
+#define clk_dsi1pll_shadow_pixel_clk_src 0xdcca3ffc
+#define clk_dsi1pll_shadow_byte_clk_src 0xfc021ce5
+#define clk_dsi1pll_vco_dummy_clk 0x4a4735ab
 
 /* clock_cpu controlled clocks */
 #define clk_a57_clk 0x6c7dc3ea

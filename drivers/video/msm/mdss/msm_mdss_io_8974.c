@@ -489,7 +489,7 @@ int mdss_dsi_pll_1_clk_init(struct platform_device *pdev,
 	}
 
 	dev = &pdev->dev;
-	ctrl->vco_clk = clk_get(dev, "clk_mdss_dsi1_vco_clk_src");
+	ctrl->vco_clk = clk_get(dev, "pll1_vco_clk_src");
 	if (IS_ERR(ctrl->vco_clk)) {
 		rc = PTR_ERR(ctrl->vco_clk);
 		pr_err("%s: can't find vco_clk. rc=%d\n",
@@ -529,7 +529,7 @@ int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 	}
 
 	dev = &pdev->dev;
-	ctrl->mux_byte_clk = devm_clk_get(dev, "mdss_byte_clk_mux");
+	ctrl->mux_byte_clk = devm_clk_get(dev, "pll_byte_clk_mux");
 	if (IS_ERR(ctrl->mux_byte_clk)) {
 		rc = PTR_ERR(ctrl->mux_byte_clk);
 		pr_err("%s: can't find mux_byte_clk. rc=%d\n",
@@ -538,7 +538,7 @@ int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		goto error;
 	}
 
-	ctrl->mux_pixel_clk = devm_clk_get(dev, "mdss_pixel_clk_mux");
+	ctrl->mux_pixel_clk = devm_clk_get(dev, "pll_pixel_clk_mux");
 	if (IS_ERR(ctrl->mux_pixel_clk)) {
 		rc = PTR_ERR(ctrl->mux_pixel_clk);
 		pr_err("%s: can't find mdss_mux_pixel_clk. rc=%d\n",
@@ -547,7 +547,7 @@ int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		goto error;
 	}
 
-	ctrl->pll_byte_clk = devm_clk_get(dev, "byte_clk_src");
+	ctrl->pll_byte_clk = devm_clk_get(dev, "pll_byte_clk_src");
 	if (IS_ERR(ctrl->pll_byte_clk)) {
 		rc = PTR_ERR(ctrl->pll_byte_clk);
 		pr_err("%s: can't find pll_byte_clk. rc=%d\n",
@@ -556,7 +556,7 @@ int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		goto error;
 	}
 
-	ctrl->pll_pixel_clk = devm_clk_get(dev, "pixel_clk_src");
+	ctrl->pll_pixel_clk = devm_clk_get(dev, "pll_pixel_clk_src");
 	if (IS_ERR(ctrl->pll_pixel_clk)) {
 		rc = PTR_ERR(ctrl->pll_pixel_clk);
 		pr_err("%s: can't find pll_pixel_clk. rc=%d\n",
@@ -565,7 +565,7 @@ int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		goto error;
 	}
 
-	ctrl->shadow_byte_clk = devm_clk_get(dev, "shadow_byte_clk_src");
+	ctrl->shadow_byte_clk = devm_clk_get(dev, "pll_shadow_byte_clk_src");
 	if (IS_ERR(ctrl->shadow_byte_clk)) {
 		rc = PTR_ERR(ctrl->shadow_byte_clk);
 		pr_err("%s: can't find shadow_byte_clk. rc=%d\n",
@@ -574,7 +574,7 @@ int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		goto error;
 	}
 
-	ctrl->shadow_pixel_clk = devm_clk_get(dev, "shadow_pixel_clk_src");
+	ctrl->shadow_pixel_clk = devm_clk_get(dev, "pll_shadow_pixel_clk_src");
 	if (IS_ERR(ctrl->shadow_pixel_clk)) {
 		rc = PTR_ERR(ctrl->shadow_pixel_clk);
 		pr_err("%s: can't find shadow_pixel_clk. rc=%d\n",
