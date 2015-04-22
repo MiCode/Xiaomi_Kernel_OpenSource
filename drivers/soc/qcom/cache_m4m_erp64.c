@@ -506,7 +506,7 @@ static int msm_cache_erp_probe(struct platform_device *pdev)
 	/* L2 erp irq per cluster */
 	dev_info(&pdev->dev, "Registering for L2 error interrupts\n");
 	for (i = IRQ_L2_INFO0; i <= IRQ_L2_ERR1; i++) {
-		ret = devm_request_threaded_irq(&pdev->dev, erp_irqs[i], NULL,
+		ret = devm_request_irq(&pdev->dev, erp_irqs[i],
 						msm_l2_erp_irq,
 						IRQF_ONESHOT |
 						IRQF_TRIGGER_HIGH,
@@ -567,7 +567,7 @@ static int msm_m4m_erp_m4m_probe(struct platform_device *pdev)
 	erp_irqs[IRQ_M4M] = r->start;
 
 	dev_info(&pdev->dev, "Registering for M4M error interrupts\n");
-	ret = devm_request_threaded_irq(&pdev->dev, erp_irqs[IRQ_M4M], NULL,
+	ret = devm_request_irq(&pdev->dev, erp_irqs[IRQ_M4M],
 					msm_m4m_erp_irq,
 					IRQF_ONESHOT | IRQF_TRIGGER_HIGH,
 					erp_irq_names[IRQ_M4M], NULL);
