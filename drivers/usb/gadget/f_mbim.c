@@ -1339,6 +1339,11 @@ static void mbim_resume(struct usb_function *f)
 		f->func_is_suspended)
 		return;
 
+	/* resume control path by queuing notify req */
+	spin_lock(&mbim->lock);
+	mbim_do_notify(mbim);
+	spin_unlock(&mbim->lock);
+
 	if (mbim->cdev->gadget->speed == USB_SPEED_SUPER)
 		remote_wakeup_allowed = f->func_wakeup_allowed;
 	else
@@ -1389,9 +1394,6 @@ static int mbim_func_suspend(struct usb_function *f, unsigned char options)
 	} else {
 		if (f->func_is_suspended) {
 			f->func_is_suspended = false;
-			spin_lock(&mbim->lock);
-			mbim_do_notify(mbim);
-			spin_unlock(&mbim->lock);
 			mbim_resume(f);
 		}
 		f->func_wakeup_allowed = func_wakeup_allowed;
