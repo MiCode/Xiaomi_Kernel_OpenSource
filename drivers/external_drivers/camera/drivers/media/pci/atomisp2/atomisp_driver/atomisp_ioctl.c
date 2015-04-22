@@ -1843,9 +1843,19 @@ start_sensor:
 		atomisp_css_irq_enable(isp, CSS_IRQ_INFO_CSS_RECEIVER_SOF,
 				atomisp_css_valid_sof(isp));
 		atomisp_csi2_configure(asd);
-
-		if (atomisp_freq_scaling(isp, ATOMISP_DFS_MODE_AUTO, false) < 0)
-			dev_dbg(isp->dev, "dfs failed!\n");
+		/*
+		 * set freq to max when streaming count > 1 which indicate
+		 * dual camera would run
+		*/
+		if (atomisp_streaming_count(isp) > 1) {
+			if (atomisp_freq_scaling(isp,
+				ATOMISP_DFS_MODE_MAX, false) < 0)
+				dev_dbg(isp->dev, "dfs failed!\n");
+		} else {
+			if (atomisp_freq_scaling(isp,
+				ATOMISP_DFS_MODE_AUTO, false) < 0)
+				dev_dbg(isp->dev, "dfs failed!\n");
+		}
 	} else {
 		if (atomisp_freq_scaling(isp, ATOMISP_DFS_MODE_MAX, false) < 0)
 			dev_dbg(isp->dev, "dfs failed!\n");
