@@ -346,7 +346,7 @@ static void pmc_dev_state(void *seq_file)
 				pr_info("%s in SC is in D0 prior to sleep\n",
 					dev_map[dev_index].name);
 
-		} else {
+		} else if (s) {
 			seq_printf(s, "Dev: %-32s\tState: %s [%s]\n",
 			dev_map[dev_index].name,
 			func_dis_index ?

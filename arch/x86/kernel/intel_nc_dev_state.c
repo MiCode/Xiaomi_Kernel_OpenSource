@@ -125,7 +125,7 @@ static void nc_dev_state_list(void *seq_file)
 			if (!nc_val)
 				pr_info("%s in NC is in D0 prior to suspend\n",
 				nc_dev[dev_index].name);
-		} else
+		} else if (s)
 			seq_printf(s, "%9s : %s\n", nc_dev[dev_index].name,
 				dstates[nc_val]);
 	}
