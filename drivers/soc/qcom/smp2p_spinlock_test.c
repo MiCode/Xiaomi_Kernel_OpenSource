@@ -372,6 +372,11 @@ static void smp2p_ut_remote_spinlock_wcnss(struct seq_file *s)
 	smp2p_ut_remote_spinlock_pid(s, SMP2P_WIRELESS_PROC, false);
 }
 
+static void smp2p_ut_remote_spinlock_tz(struct seq_file *s)
+{
+	smp2p_ut_remote_spinlock_pid(s, SMP2P_TZ_PROC, false);
+}
+
 /**
  * smp2p_ut_remote_spinlock_rpm - Verify remote spinlock.
  *
@@ -746,6 +751,11 @@ static void smp2p_ut_remote_spinlock_track_wcnss(struct seq_file *s)
 	smp2p_ut_remote_spinlock_track(s, SMP2P_WIRELESS_PROC);
 }
 
+static void smp2p_ut_remote_spinlock_track_tz(struct seq_file *s)
+{
+	smp2p_ut_remote_spinlock_track(s, SMP2P_TZ_PROC);
+}
+
 static int __init smp2p_debugfs_init(void)
 {
 	/*
@@ -771,6 +781,8 @@ static int __init smp2p_debugfs_init(void)
 		smp2p_ut_remote_spinlock_dsps);
 	smp2p_debug_create("ut_remote_spinlock_wcnss",
 		smp2p_ut_remote_spinlock_wcnss);
+	smp2p_debug_create("ut_remote_spinlock_tz",
+		smp2p_ut_remote_spinlock_tz);
 	smp2p_debug_create("ut_remote_spinlock_rpm",
 		smp2p_ut_remote_spinlock_rpm);
 	smp2p_debug_create_u32("ut_remote_spinlock_time",
@@ -785,6 +797,8 @@ static int __init smp2p_debugfs_init(void)
 		&smp2p_ut_remote_spinlock_track_dsps);
 	smp2p_debug_create("ut_remote_spinlock_track_wcnss",
 		&smp2p_ut_remote_spinlock_track_wcnss);
+	smp2p_debug_create("ut_remote_spinlock_track_tz",
+		&smp2p_ut_remote_spinlock_track_tz);
 	return 0;
 }
 module_init(smp2p_debugfs_init);

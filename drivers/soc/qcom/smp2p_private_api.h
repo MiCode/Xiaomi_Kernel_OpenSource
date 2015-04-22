@@ -33,6 +33,7 @@ enum {
 	SMP2P_WIRELESS_PROC   = 4,
 	SMP2P_RESERVED_PROC_2 = 5,
 	SMP2P_POWER_PROC      = 6,
+	SMP2P_TZ_PROC         = 7,
 	/* add new processors here */
 
 	SMP2P_REMOTE_MOCK_PROC = 15,

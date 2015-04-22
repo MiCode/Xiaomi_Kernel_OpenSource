@@ -185,7 +185,9 @@ added to the end of the list (Table 3).
               -------------------------------------------------
              | Power processor            |        6           |
               -------------------------------------------------
-             | NUM PROCESSORS             |        7           |
+             | TrustZone processor        |        7           |
+              -------------------------------------------------
+             | NUM PROCESSORS             |        8           |
               -------------------------------------------------
                             Table 3 - Processor IDs
 
@@ -201,21 +203,23 @@ particular edge, the remote processor ID (Table 3) is added to the base item ID
 for the local processor (Table 4).  For example, the Apps ==> Modem (id 1) SMEM
 Item ID will be 427 + 1 = 428.
 
-          --------------------------------------------------
-         | Description                   | SMEM ID value    |
-          --------------------------------------------------
-         | Apps SMP2P SMEM Item base     |       427        |
-          --------------------------------------------------
-         | Modem SMP2P SMEM Item base    |       435        |
-          --------------------------------------------------
-         | Audio SMP2P SMEM Item base    |       443        |
-          --------------------------------------------------
-         | Sensors SMP2P SMEM Item base  |       481        |
-          --------------------------------------------------
-         | Wireless SMP2P SMEM Item base |       451        |
-          --------------------------------------------------
-         | Power SMP2P SMEM Item base    |       459        |
-          --------------------------------------------------
+          ---------------------------------------------------
+         | Description                    | SMEM ID value    |
+          ---------------------------------------------------
+         | Apps SMP2P SMEM Item base      |       427        |
+          ---------------------------------------------------
+         | Modem SMP2P SMEM Item base     |       435        |
+          ---------------------------------------------------
+         | Audio SMP2P SMEM Item base     |       443        |
+          ---------------------------------------------------
+         | Sensors SMP2P SMEM Item base   |       481        |
+          ---------------------------------------------------
+         | Wireless SMP2P SMEM Item base  |       451        |
+          ---------------------------------------------------
+         | Power SMP2P SMEM Item base     |       459        |
+          ---------------------------------------------------
+         | TrustZone SMP2P SMEM Item base |       489        |
+          ---------------------------------------------------
                       Table 4 - SMEM Items Base IDs
 
 
