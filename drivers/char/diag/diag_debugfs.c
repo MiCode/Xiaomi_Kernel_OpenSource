@@ -20,8 +20,8 @@
 #include "diagfwd_bridge.h"
 #include "diagfwd_hsic.h"
 #include "diagfwd_smux.h"
-#endif
 #include "diagfwd_mhi.h"
+#endif
 #include "diagmem.h"
 #include "diag_dci.h"
 #include "diag_usb.h"
