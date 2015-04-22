@@ -37,12 +37,15 @@ static struct msm_bus_vectors msm_isp_init_vectors[] = {
 	},
 };
 
+/* During open node request min ab/ib bus bandwidth which
+*  is needed to successfully enable bus clocks
+*/
 static struct msm_bus_vectors msm_isp_ping_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_VFE,
 		.dst = MSM_BUS_SLAVE_EBI_CH0,
-		.ab  = 0,
-		.ib  = 0,
+		.ab  = MSM_ISP_MIN_AB,
+		.ib  = MSM_ISP_MIN_IB,
 	},
 };
 
