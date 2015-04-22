@@ -1,0 +1,218 @@
+* Qualcomm Technologies, Inc. MSM
+
+MSM uses a combination of DTS and DTSI files to describe the hardware on various
+SoCs and boards. Typically, a SoC-specific DTSI file describes the devices
+present on a given SoC, and a board-specific DTSI file describes the devices
+external to the SoC, although some targets may follow a more simplified
+approach. Additionally, the SoC-specific DTSI files may further consist of a
+base chip-specific file and a version-specific DTSI file, to facilitate reuse
+of device definitions among multiple revisions of the same SoC.
+
+Required properties:
+- compatible: Every device present on the MSM SoC shall have a 'qcom,' prefix
+  in its compatible string
+
+Example:
+restart@fc4ab000 {
+	compatible = "qcom,pshold";
+	reg = <0xfc4ab000 0x4>;
+};
+
+
+* Compatible strings:
+
+SoCs:
+
+- APQ8016
+  compatible = "qcom,apq8016"
+
+- APQ8026
+  compatible = "qcom,apq8026"
+
+- APQ8074
+  compatible = "qcom,apq8074"
+
+- APQ8084
+  compatible = "qcom,apq8084"
+
+- APQ8094
+  compatible = "qcom,apq8094"
+
+- MDM9630
+  compatible = "qcom,mdm9630"
+
+- MSM8226
+  compatible = "qcom,msm8226"
+
+- MSM8610
+  compatible = "qcom,msm8610"
+
+- MSM8909
+  compatible = "qcom,msm8909"
+
+- MSM8916
+  compatible = "qcom,msm8916"
+
+- APQ8016
+  compatible = "qcom,apq8016"
+
+- MSM8936
+  compatible = "qcom,msm8936"
+
+- MSM8960
+  compatible = "qcom,msm8960"
+
+- MSM8992
+  compatible = "qcom,msm8992"
+
+- MSM8994
+  compatible = "qcom,msm8994"
+
+- MSM8952
+  compatible = "qcom,msm8952"
+
+- MDM9640
+  compatible = "qcom,mdm9640"
+
+- VPIPA
+  compatible = "qcom,msmvpipa"
+
+- FSM9010
+  compatible = "qcom,fsm9010"
+
+- FSM9910
+  compatible = "qcom,fsm9900"
+
+- MSM8929
+  compatible = "qcom,msm8929"
+
+Generic board variants:
+
+- CDP device:
+  compatible = "qcom,cdp"
+
+- MTP device:
+  compatible = "qcom,mtp"
+
+- FLUID device:
+  compatible = "qcom,fluid"
+
+- LIQUID device:
+  compatible = "qcom,liquid"
+
+- Dragonboard device:
+  compatible = "qcom,dragonboard"
+
+- SURF device:
+  compatible = "qcom,surf"
+
+- QRD device:
+  compatible = "qcom,qrd"
+
+- SBC device:
+  compatible = "qcom,sbc"
+
+- Simulator device:
+  compatible = "qcom,sim"
+
+- RUMI device:
+  compatible = "qcom,rumi"
+
+
+
+Boards (SoC type + board variant):
+
+compatible = "qcom,apq8016"
+compatible = "qcom,apq8026-cdp"
+compatible = "qcom,apq8026-mtp"
+compatible = "qcom,apq8026-xpm"
+compatible = "qcom,apq8074-cdp"
+compatible = "qcom,apq8074-dragonboard"
+compatible = "qcom,apq8074-liquid"
+compatible = "qcom,apq8084-cdp"
+compatible = "qcom,apq8084-liquid"
+compatible = "qcom,apq8084-mtp"
+compatible = "qcom,apq8084-sbc"
+compatible = "qcom,apq8094-cdp"
+compatible = "qcom,apq8094-fluid"
+compatible = "qcom,apq8094-liquid"
+compatible = "qcom,apq8094-mtp"
+compatible = "qcom,apq8094-dragonboard"
+compatible = "qcom,mdm9630-cdp"
+compatible = "qcom,mdm9630-mtp"
+compatible = "qcom,mdm9630-sim"
+compatible = "qcom,msm8226-cdp"
+compatible = "qcom,msm8226-fluid"
+compatible = "qcom,msm8226-mtp"
+compatible = "qcom,msm8226-qrd"
+compatible = "qcom,msm8226-sim"
+compatible = "qcom,msm8610-cdp"
+compatible = "qcom,msm8610-mtp"
+compatible = "qcom,msm8610-qrd"
+compatible = "qcom,msm8610-rumi"
+compatible = "qcom,msm8610-sim"
+compatible = "qcom,msm8660-surf"
+compatible = "qcom,msm8909-cdp"
+compatible = "qcom,msm8909-mtp"
+compatible = "qcom,msm8909-qrd"
+compatible = "qcom,msm8909-rumi"
+compatible = "qcom,msm8909-sim"
+compatible = "qcom,msm8916-cdp"
+compatible = "qcom,msm8916-mtp"
+compatible = "qcom,msm8916-qrd-skuh"
+compatible = "qcom,msm8916-qrd-skuhf"
+compatible = "qcom,msm8916-qrd-skui"
+compatible = "qcom,msm8916-qrd-skuic"
+compatible = "qcom,msm8916-qrd-skuid"
+compatible = "qcom,msm8916-qrd-skut1"
+compatible = "qcom,msm8916-rumi"
+compatible = "qcom,msm8916-sim"
+compatible = "qcom,apq8016-sbc"
+compatible = "qcom,msm8926-cdp"
+compatible = "qcom,msm8926-mtp"
+compatible = "qcom,msm8926-qrd"
+compatible = "qcom,msm8936-cdp"
+compatible = "qcom,msm8936-mtp"
+compatible = "qcom,msm8939-cdp"
+compatible = "qcom,msm8939-mtp"
+compatible = "qcom,msm8939-qrd-skuk"
+compatible = "qcom,msm8939-qrd-skul"
+compatible = "qcom,msm8939-rumi"
+compatible = "qcom,msm8939-sim"
+compatible = "qcom,msm8960-cdp"
+compatible = "qcom,msm8974-cdp"
+compatible = "qcom,msm8974-fluid"
+compatible = "qcom,msm8974-liquid"
+compatible = "qcom,msm8974-mtp"
+compatible = "qcom,msm8974-rumi"
+compatible = "qcom,msm8974-sim"
+compatible = "qcom,msm8992-cdp"
+compatible = "qcom,msm8992-mtp"
+compatible = "qcom,msm8992-rumi"
+compatible = "qcom,msm8992-sim"
+compatible = "qcom,msm8994-cdp"
+compatible = "qcom,msm8994-fluid"
+compatible = "qcom,msm8994-liquid"
+compatible = "qcom,msm8994-mtp"
+compatible = "qcom,msm8994-rumi"
+compatible = "qcom,msm8994-sim"
+compatible = "qcom,msm8952-rumi"
+compatible = "qcom,msm8952-sim"
+compatible = "qcom,msmterbium-rumi"
+compatible = "qcom,msmterbium-sim"
+compatible = "qcom,msmterbium-cdp"
+compatible = "qcom,msmterbium-mtp"
+compatible = "qcom,mdm9640-cdp"
+compatible = "qcom,mdm9640-mtp"
+compatible = "qcom,mdm9640-rumi"
+compatible = "qcom,mdm9640-sim"
+compatible = "qcom,fsm9010-cdp"
+compatible = "qcom,fsm9010-mtp"
+compatible = "qcom,fsm9900-cdp"
+compatible = "qcom,fsm9900-mtp"
+compatible = "qcom,msmvpipa-sim"
+compatible = "qcom,msm8929-cdp"
+compatible = "qcom,msm8929-mtp"
+compatible = "qcom,msm8929-qrd"
+compatible = "qcom,msm8929-qrd-skul"
+compatible = "qcom,msm8929-qrd-skulb"
