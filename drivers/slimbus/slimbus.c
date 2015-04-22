@@ -1279,6 +1279,39 @@ int slim_dealloc_mgrports(struct slim_device *sb, u32 *hdl, int nports)
 EXPORT_SYMBOL_GPL(slim_dealloc_mgrports);
 
 /*
+ * slim_config_mgrports: Configure manager side ports
+ * @sb: device/client handle.
+ * @ph: array of port handles for which this configuration is valid
+ * @nports: Number of ports in ph
+ * @cfg: configuration requested for port(s)
+ * Configure port settings if they are different than the default ones.
+ * Returns success if the config could be applied. Returns -EISCONN if the
+ * port is in use
+ */
+int slim_config_mgrports(struct slim_device *sb, u32 *ph, int nports,
+				struct slim_port_cfg *cfg)
+{
+	int i;
+	struct slim_controller *ctrl;
+
+	if (!sb || !ph || !nports || !sb->ctrl || !cfg)
+		return -EINVAL;
+
+	ctrl = sb->ctrl;
+	mutex_lock(&ctrl->sched.m_reconf);
+	for (i = 0; i < nports; i++) {
+		u8 pn = SLIM_HDL_TO_PORT(ph[i]);
+
+		if (ctrl->ports[pn].state == SLIM_P_CFG)
+			return -EISCONN;
+		ctrl->ports[pn].cfg = *cfg;
+	}
+	mutex_unlock(&ctrl->sched.m_reconf);
+	return 0;
+}
+EXPORT_SYMBOL(slim_config_mgrports);
+
+/*
  * slim_get_slaveport: Get slave port handle
  * @la: slave device logical address.
  * @idx: port index at slave
@@ -1644,8 +1677,13 @@ static int slim_remove_ch(struct slim_controller *ctrl, struct slim_ich *slc)
 
 	ph = slc->srch;
 	la = SLIM_HDL_TO_LA(ph);
-	if (la == SLIM_LA_MANAGER)
-		ctrl->ports[SLIM_HDL_TO_PORT(ph)].state = SLIM_P_UNCFG;
+	if (la == SLIM_LA_MANAGER) {
+		u8 pn = SLIM_HDL_TO_PORT(ph);
+
+		ctrl->ports[pn].state = SLIM_P_UNCFG;
+		ctrl->ports[pn].cfg.watermark = 0;
+		ctrl->ports[pn].cfg.port_opts = 0;
+	}
 
 	kfree(slc->sinkh);
 	slc->sinkh = NULL;
