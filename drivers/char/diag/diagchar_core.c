@@ -1816,7 +1816,7 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	memcpy(data->buf, &header, sizeof(header));
 	write_len += sizeof(header);
 	memcpy(data->buf + write_len, buf, len);
-	write_len += sizeof(len);
+	write_len += len;
 	*(uint8_t *)(data->buf + write_len) = CONTROL_CHAR;
 	write_len += sizeof(uint8_t);
 	data->len += write_len;
@@ -1827,6 +1827,8 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 			ret = -EIO;
 			goto fail_free_buf;
 		}
+		data->buf = NULL;
+		data->len = 0;
 	}
 
 	return PKT_ALLOC;
