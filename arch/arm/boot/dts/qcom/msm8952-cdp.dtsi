@@ -255,6 +255,7 @@
 };
 
 #include "dsi-panel-truly-1080p-video.dtsi"
+#include "dsi-panel-truly-1080p-cmd.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
@@ -284,6 +285,10 @@
 	qcom,platform-enable-gpio = <&msm_gpio 90 0>;
 	qcom,platform-reset-gpio = <&msm_gpio 0 0>;
 	qcom,platform-bklight-en-gpio = <&msm_gpio 91 0>;
+};
+
+&dsi_truly_1080_cmd {
+	qcom,cont-splash-enabled;
 };
 
 &labibb {
