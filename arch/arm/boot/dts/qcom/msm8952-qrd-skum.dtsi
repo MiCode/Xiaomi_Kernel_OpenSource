@@ -14,7 +14,7 @@
 #include "msm8952-qrd.dtsi"
 
 &spmi_bus {
-	qcom,pm8950@0 {
+	qcom,pmi8950@2 {
 		qcom,leds@a100 {
 			status = "okay";
 			qcom,led_mpp_2 {
