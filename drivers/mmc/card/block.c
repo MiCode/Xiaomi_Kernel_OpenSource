@@ -2099,8 +2099,8 @@ static void mmc_blk_wait_cmdq_data(struct mmc_request *mrq)
 	struct mmc_host		*host = mrq->host;
 	struct mmc_queue_req	*mqrq;
 	struct request		*req;
-	int error, bytes;
-	bool partial;
+	int error;
+	unsigned int bytes;
 
 	BUG_ON(!mrq->data);
 	BUG_ON(!host->areq);
@@ -2113,16 +2113,15 @@ static void mmc_blk_wait_cmdq_data(struct mmc_request *mrq)
 	mmc_queue_bounce_post(mqrq);
 	error = mrq->data->error;
 	bytes = mrq->data->bytes_xfered;
-	partial = (blk_rq_bytes(req) != bytes) ? true : false;
+	if (blk_rq_bytes(req) == bytes)
+		mqrq->mmc_active.success = true;
 	host->context_info.is_done_rcv = true;
 	wake_up_interruptible(&mrq->host->context_info.wait);
 	if (error) {
 		pr_err("%s: data err %d for id %d\n",
 				__func__, error, mqrq->task_id);
-	} else if (!partial) {
-		mqrq->mmc_active.success = true;
+	} else if (mqrq->mmc_active.success)
 		blk_end_request(req, 0, bytes);
-	}
 }
 
 static int mmc_blk_cmdq_check(struct mmc_card *card, unsigned long *status)
@@ -2196,12 +2195,16 @@ static int mmc_blk_execute_cmdq(struct mmc_queue *mq,
 		case MMC_BLK_PARTIAL:
 			mmc_blk_reset_success(md, MMC_BLK_CMDQ);
 			/* re-queue */
-			BUG_ON(!prev_mqrq);
-			blk_end_request(prev_mqrq->req, 0,
+			if (prev_mqrq) {
+				blk_end_request(prev_mqrq->req, 0,
 					prev_mqrq->brq.data.bytes_xfered);
-			err = mmc_blk_queue_cmdq_req(mq, prev_mqrq, NULL);
-			if (err)
-				return err;
+				err = mmc_blk_queue_cmdq_req(mq, prev_mqrq,
+						NULL);
+				if (err)
+					return err;
+			} else
+				pr_err("%s: no previous mrq\n",
+						mmc_hostname(host));
 			break;
 		case MMC_BLK_NEW_REQUEST:
 			cntx->is_pending_cmdq = true;
@@ -2219,11 +2222,13 @@ static int mmc_blk_flush_cmdq(struct mmc_queue *mq, bool urgent)
 {
 	int err;
 	unsigned long status;
-	struct mmc_host *host = mq->card->host;
+	struct mmc_host *host;
 	unsigned long timeout;
 
-	if (!mq)
+	if (!mq || !mq->card)
 		return 0;
+
+	host = mq->card->host;
 
 	if (host->context_info.is_pending_cmdq) {
 		host->context_info.is_pending_cmdq = false;
@@ -2290,14 +2295,6 @@ static int mmc_blk_cmdq_data_err_check(struct mmc_card *card,
 	struct mmc_queue_req *mqrq = container_of(areq, struct mmc_queue_req,
 						    mmc_active);
 	struct mmc_blk_request *brq = &mqrq->brq;
-	int err;
-
-	/* check card status */
-	if (brq->data.flags & MMC_DATA_WRITE) {
-		err = mmc_busy_wait(card->host);
-		if (err)
-			return MMC_BLK_ABORT;
-	}
 
 	if (areq->success)
 		return MMC_BLK_SUCCESS;
