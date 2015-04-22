@@ -38,7 +38,8 @@ struct cluster {
 	/* stats for load detection */
 	/* IO */
 	u64 last_io_check_ts;
-	unsigned int iowait_cycle_cnt;
+	unsigned int iowait_enter_cycle_cnt;
+	unsigned int iowait_exit_cycle_cnt;
 	spinlock_t iowait_lock;
 	unsigned int cur_io_busy;
 	bool io_change;
@@ -101,6 +102,7 @@ static unsigned int workload_detect;
 
 /* IOwait related tunables */
 static unsigned int io_enter_cycles = 4;
+static unsigned int io_exit_cycles = 4;
 static u64 iowait_ceiling_pct = 25;
 static u64 iowait_floor_pct = 8;
 #define LAST_IO_CHECK_TOL	(3 * USEC_PER_MSEC)
@@ -917,6 +919,29 @@ static const struct kernel_param_ops param_ops_io_enter_cycles = {
 };
 device_param_cb(io_enter_cycles, &param_ops_io_enter_cycles, NULL, 0644);
 
+static int set_io_exit_cycles(const char *buf, const struct kernel_param *kp)
+{
+	unsigned int val;
+
+	if (sscanf(buf, "%u\n", &val) != 1)
+		return -EINVAL;
+
+	io_exit_cycles = val;
+
+	return 0;
+}
+
+static int get_io_exit_cycles(char *buf, const struct kernel_param *kp)
+{
+	return snprintf(buf, PAGE_SIZE, "%u", io_exit_cycles);
+}
+
+static const struct kernel_param_ops param_ops_io_exit_cycles = {
+	.set = set_io_exit_cycles,
+	.get = get_io_exit_cycles,
+};
+device_param_cb(io_exit_cycles, &param_ops_io_exit_cycles, NULL, 0644);
+
 static int set_iowait_floor_pct(const char *buf, const struct kernel_param *kp)
 {
 	u64 val;
@@ -989,7 +1014,8 @@ static int set_workload_detect(const char *buf, const struct kernel_param *kp)
 		for (i = 0; i < num_clusters; i++) {
 			i_cl = managed_clusters[i];
 			spin_lock_irqsave(&i_cl->iowait_lock, flags);
-			i_cl->iowait_cycle_cnt = 0;
+			i_cl->iowait_enter_cycle_cnt = 0;
+			i_cl->iowait_exit_cycle_cnt = 0;
 			i_cl->cur_io_busy = 0;
 			i_cl->io_change = true;
 			spin_unlock_irqrestore(&i_cl->iowait_lock, flags);
@@ -1184,24 +1210,29 @@ static void check_cluster_iowait(struct cluster *cl, u64 now)
 
 	if (!cl->cur_io_busy) {
 		if (max_iowait > iowait_ceiling_pct) {
-			cl->iowait_cycle_cnt++;
-			if (cl->iowait_cycle_cnt >= io_enter_cycles)
+			cl->iowait_enter_cycle_cnt++;
+			if (cl->iowait_enter_cycle_cnt >= io_enter_cycles) {
 				cl->cur_io_busy = 1;
+				cl->iowait_enter_cycle_cnt = 0;
+			}
 		} else {
-			cl->iowait_cycle_cnt = 0;
+			cl->iowait_enter_cycle_cnt = 0;
 		}
 	} else {
 		if (max_iowait < iowait_floor_pct) {
-			cl->iowait_cycle_cnt--;
-			if (!cl->iowait_cycle_cnt)
+			cl->iowait_exit_cycle_cnt++;
+			if (cl->iowait_exit_cycle_cnt >= io_exit_cycles) {
 				cl->cur_io_busy = 0;
+				cl->iowait_exit_cycle_cnt = 0;
+			}
 		} else {
-			cl->iowait_cycle_cnt = io_enter_cycles;
+			cl->iowait_exit_cycle_cnt = 0;
 		}
 	}
+
 	cl->last_io_check_ts = now;
-	trace_track_iowait(cpumask_first(cl->cpus), cl->iowait_cycle_cnt,
-						cl->cur_io_busy, max_iowait);
+	trace_track_iowait(cpumask_first(cl->cpus), cl->iowait_enter_cycle_cnt,
+			cl->iowait_exit_cycle_cnt, cl->cur_io_busy, max_iowait);
 
 	if (temp_iobusy != cl->cur_io_busy) {
 		cl->io_change = true;
