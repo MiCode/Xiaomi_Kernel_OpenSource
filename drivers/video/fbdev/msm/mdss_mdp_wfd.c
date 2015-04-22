@@ -73,6 +73,9 @@ int mdss_mdp_wfd_wait_for_finish(struct mdss_mdp_wfd *wfd)
 
 	if (ret == 0)
 		ret = -ETIME;
+	else if (ret > 0)
+		ret = 0;
+
 	return ret;
 }
 
