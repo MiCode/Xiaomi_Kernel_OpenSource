@@ -1602,6 +1602,23 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	return ret;
 }
 
+static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
+			   struct scatterlist *sg, unsigned int nents, int prot)
+{
+	int ret;
+	unsigned long flags;
+	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+
+	if (!ops)
+		return -ENODEV;
+
+	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
+	ret = ops->map_sg(ops, iova, sg, nents, prot);
+	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+	return ret;
+}
+
 static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 					      dma_addr_t iova, bool do_halt)
 {
@@ -2081,7 +2098,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.detach_dev		= arm_smmu_detach_dev,
 	.map			= arm_smmu_map,
 	.unmap			= arm_smmu_unmap,
-	.map_sg			= default_iommu_map_sg,
+	.map_sg			= arm_smmu_map_sg,
 	.iova_to_phys		= arm_smmu_iova_to_phys,
 	.iova_to_phys_hard	= arm_smmu_iova_to_phys_hard,
 	.add_device		= arm_smmu_add_device,
