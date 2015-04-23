@@ -129,6 +129,203 @@
 	};
 };
 
+&mdss_mdp {
+	gdsc-venus-supply = <&gdsc_venus>;
+};
+
+&mdss_dsi0 {
+	gdsc-venus-supply = <&gdsc_venus>;
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "gdsc-venus";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,core-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "gdsc";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&mdss_dsi1{
+	gdsc-venus-supply = <&gdsc_venus>;
+	qcom,core-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,core-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "gdsc-venus";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,core-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "gdsc";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+
+&mdss_hdmi_tx {
+	hpd-gdsc-venus-supply = <&gdsc_venus>;
+	qcom,supply-names = "hpd-gdsc-venus", "hpd-gdsc";
+	qcom,min-voltage-level = <0 0>;
+	qcom,max-voltage-level = <0 0>;
+	qcom,enable-load = <0 0>;
+	qcom,disable-load = <0 0>;
+};
+
+&mdss_dsi0_pll {
+	gdsc-venus-supply = <&gdsc_venus>;
+	qcom,platform-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,platform-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "gdsc-venus";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,platform-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "gdsc";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,platform-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <1250000>;
+			qcom,supply-max-voltage = <1250000>;
+			qcom,supply-enable-load = <18160>;
+			qcom,supply-disable-load = <1>;
+		};
+
+		qcom,platform-supply-entry@3 {
+			reg = <3>;
+			qcom,supply-name = "vcca";
+			qcom,supply-min-voltage = <925000>;
+			qcom,supply-max-voltage = <925000>;
+			qcom,supply-enable-load = <17000>;
+			qcom,supply-disable-load = <33>;
+		};
+	};
+};
+
+&mdss_dsi1_pll {
+	gdsc-venus-supply = <&gdsc_venus>;
+	qcom,platform-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,platform-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "gdsc-venus";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,platform-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "gdsc";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,platform-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "vdda";
+			qcom,supply-min-voltage = <1250000>;
+			qcom,supply-max-voltage = <1250000>;
+			qcom,supply-enable-load = <18160>;
+			qcom,supply-disable-load = <1>;
+		};
+
+		qcom,platform-supply-entry@3 {
+			reg = <3>;
+			qcom,supply-name = "vcca";
+			qcom,supply-min-voltage = <925000>;
+			qcom,supply-max-voltage = <925000>;
+			qcom,supply-enable-load = <17000>;
+			qcom,supply-disable-load = <33>;
+		};
+	};
+};
+
+&mdss_hdmi_pll {
+	gdsc-venus-supply = <&gdsc_venus>;
+	qcom,platform-supply-entries {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,platform-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "gdsc-venus";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,platform-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "gdsc";
+			qcom,supply-min-voltage = <0>;
+			qcom,supply-max-voltage = <0>;
+			qcom,supply-enable-load = <0>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,platform-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,platform-supply-entry@3 {
+			reg = <3>;
+			qcom,supply-name = "vcca";
+			qcom,supply-min-voltage = <925000>;
+			qcom,supply-max-voltage = <925000>;
+			qcom,supply-enable-load = <10000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+};
+
 &soc {
 	tsens1: tsens@4ad000 {
 		compatible = "qcom,msm8996-tsens";
