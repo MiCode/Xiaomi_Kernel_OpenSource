@@ -578,7 +578,8 @@ static void *emit_load_register_imm(void *mem, __u32 reg, __u32 val)
 static void *emit_cs_stall_pipe_control(void *mem)
 {
 	mem = emit_dword(mem, GFX_OP_PIPE_CONTROL(6));
-	mem = emit_dword(mem, PIPE_CONTROL_CS_STALL);
+	mem = emit_dword(mem, PIPE_CONTROL_CS_STALL|PIPE_CONTROL_WRITE_FLUSH|
+			      PIPE_CONTROL_GLOBAL_GTT_IVB);
 	mem = emit_dword(mem, 0);
 	mem = emit_dword(mem, 0);
 	mem = emit_dword(mem, 0);
@@ -619,7 +620,7 @@ int i915_perfmon_update_workaround_bb(struct drm_i915_private *dev_priv,
 		return 0;
 	}
 
-	/* diable RC6 WA BB */
+	/* disable RC6 WA BB */
 	I915_WRITE(GEN8_RC6_WA_BB, 0x0);
 
 	buffer_tail = dev_priv->rc6_wa_bb.address;
