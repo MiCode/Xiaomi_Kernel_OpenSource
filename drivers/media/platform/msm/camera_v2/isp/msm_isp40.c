@@ -821,24 +821,6 @@ static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 	irq_mask |= 1 << (comp_mask_index + 25);
 
-	/*
-	 * For dual VFE, composite 2/3 interrupt is used to trigger
-	 * microcontroller to update certain VFE registers
-	 */
-	if (stream_info->plane_cfg[0].plane_addr_offset &&
-		stream_info->stream_src == PIX_VIEWFINDER) {
-		comp_mask |= (axi_data->composite_info[comp_mask_index].
-		stream_composite_mask << 16);
-		irq_mask |= BIT(27);
-	}
-
-	if (stream_info->plane_cfg[0].plane_addr_offset &&
-		stream_info->stream_src == PIX_ENCODER) {
-		comp_mask |= (axi_data->composite_info[comp_mask_index].
-		stream_composite_mask << 24);
-		irq_mask |= BIT(28);
-	}
-
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x40);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
 }
@@ -846,7 +828,6 @@ static void msm_vfe40_axi_cfg_comp_mask(struct vfe_device *vfe_dev,
 static void msm_vfe40_axi_clear_comp_mask(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info)
 {
-	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	uint32_t comp_mask, comp_mask_index = stream_info->comp_mask_index;
 	uint32_t irq_mask;
 
@@ -855,20 +836,6 @@ static void msm_vfe40_axi_clear_comp_mask(struct vfe_device *vfe_dev,
 
 	irq_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 	irq_mask &= ~(1 << (comp_mask_index + 25));
-
-	if (stream_info->plane_cfg[0].plane_addr_offset &&
-		stream_info->stream_src == PIX_VIEWFINDER) {
-		comp_mask &= ~(axi_data->composite_info[comp_mask_index].
-		stream_composite_mask << 16);
-		irq_mask &= ~BIT(27);
-	}
-
-	if (stream_info->plane_cfg[0].plane_addr_offset &&
-		stream_info->stream_src == PIX_ENCODER) {
-		comp_mask &= ~(axi_data->composite_info[comp_mask_index].
-		stream_composite_mask << 24);
-		irq_mask &= ~BIT(28);
-	}
 
 	msm_camera_io_w(comp_mask, vfe_dev->vfe_base + 0x40);
 	msm_camera_io_w(irq_mask, vfe_dev->vfe_base + 0x28);
@@ -1370,6 +1337,10 @@ static void msm_vfe40_update_camif_state(struct vfe_device *vfe_dev,
 		return;
 
 	if (update_state == ENABLE_CAMIF) {
+		msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
+		msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x34);
+		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x24);
+
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
 		val |= 0xF7;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x28);
