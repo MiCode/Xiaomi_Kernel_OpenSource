@@ -5160,6 +5160,8 @@ struct asm_stream_cmd_open_read_compressed {
 								0x0001070E
 #define ADM_CMD_COPP_OPENOPOLOGY_ID_SPEAKER_STEREO_IIR_AUDIO_COPP_MBDRCV2\
 								0x0001070F
+#define ADM_CMD_COPP_OPENOPOLOGY_ID_SPEAKER_STEREO_AUDIO_COPP_MBDRC_V3 \
+								0x11000000
 #define ADM_CMD_COPP_OPENOPOLOGY_ID_SPEAKER_MCH_PEAK_VOL \
 								0x0001031B
 #define ADM_CMD_COPP_OPENOPOLOGY_ID_MIC_MONO_AUDIO_COPP  0x00010315
@@ -6418,6 +6420,18 @@ struct asm_iir_filter_config_params {
  */
 #define ASM_PARAM_ID_MBDRC_CONFIG_PARAMS_IMPROVED_FILTBANK_V2 \
 								0x0001070C
+
+#define ASM_MODULE_ID_MBDRCV3					0x0001090B
+/*
+ * ID of the MMBDRC module version 3 pre/postprocessing block.
+ * This module differs from MBDRCv2 (#ASM_MODULE_ID_MBDRCV2) in
+ * that it supports both 16- and 24-bit data.
+ * This module supports the following parameter ID:
+ * - #ASM_PARAM_ID_MBDRC_ENABLE
+ * - #ASM_PARAM_ID_MBDRC_CONFIG_PARAMS
+ * - #ASM_PARAM_ID_MBDRC_CONFIG_PARAMS_V3
+ * - #ASM_PARAM_ID_MBDRC_FILTER_XOVER_FREQS
+ */
 
 /* Structure for the enable parameter for an MBDRC module. */
 
