@@ -1719,15 +1719,17 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 
 	queue_work(sys->repl_wq, &sys->repl_work);
 
-	if (rx_len_cached == 0) {
-		if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
-			IPA_STATS_INC_CNT(ipa_ctx->stats.wan_rx_empty);
-		else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
-			IPA_STATS_INC_CNT(ipa_ctx->stats.lan_rx_empty);
-		else
-			WARN_ON(1);
+	if (rx_len_cached <= 1) {
+		if (rx_len_cached == 0) {
+			if (sys->ep->client == IPA_CLIENT_APPS_WAN_CONS)
+				IPA_STATS_INC_CNT(ipa_ctx->stats.wan_rx_empty);
+			else if (sys->ep->client == IPA_CLIENT_APPS_LAN_CONS)
+				IPA_STATS_INC_CNT(ipa_ctx->stats.lan_rx_empty);
+			else
+				WARN_ON(1);
+		}
 		queue_delayed_work(sys->wq, &sys->replenish_rx_work,
-				msecs_to_jiffies(1));
+			msecs_to_jiffies(1));
 	}
 
 	return;
