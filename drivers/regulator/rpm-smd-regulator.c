@@ -1901,8 +1901,9 @@ static int rpm_vreg_resource_probe(struct platform_device *pdev)
 	if (rpm_vreg->handle_active == NULL
 	    || IS_ERR(rpm_vreg->handle_active)) {
 		rc = PTR_ERR(rpm_vreg->handle_active);
-		dev_err(dev, "%s: failed to create active RPM handle, rc=%d\n",
-			__func__, rc);
+		if (rc != -EPROBE_DEFER)
+			dev_err(dev, "%s: failed to create active RPM handle, rc=%d\n",
+				__func__, rc);
 		goto fail_free_vreg;
 	}
 
@@ -1910,8 +1911,9 @@ static int rpm_vreg_resource_probe(struct platform_device *pdev)
 		resource_type, rpm_vreg->resource_id, RPM_REGULATOR_PARAM_MAX);
 	if (rpm_vreg->handle_sleep == NULL || IS_ERR(rpm_vreg->handle_sleep)) {
 		rc = PTR_ERR(rpm_vreg->handle_sleep);
-		dev_err(dev, "%s: failed to create sleep RPM handle, rc=%d\n",
-			__func__, rc);
+		if (rc != -EPROBE_DEFER)
+			dev_err(dev, "%s: failed to create sleep RPM handle, rc=%d\n",
+				__func__, rc);
 		goto fail_free_handle_active;
 	}
 
