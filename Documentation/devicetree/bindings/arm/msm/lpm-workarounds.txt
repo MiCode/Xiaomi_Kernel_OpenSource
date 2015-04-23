@@ -5,6 +5,11 @@ The required properties are:
 - compatible: "qcom,lpm-workarounds"
 
 The optional properties are:
+- reg: The physical address and the size of the l1_l2_gcc and l2_pwr_sts
+	regitsters of performance cluster.
+
+- reg-names: "l2_pwr_sts" - string to identify l2_pwr_sts physical address.
+	     "l1_l2_gcc" - string to identify l1_l2_gcc physical address.
 
 - qcom,lpm-wa-cx-turbo-unvote: Indicates the workaround to unvote CX turbo
 	vote when system is coming out of rpm assisted power collaspe.
@@ -21,12 +26,28 @@ The optional properties are:
 	based on the L2 mode flag passed. Set lpm-wa-skip-l2-spm node if this
 	is required.
 
+- qcom,lpm-wa-dynamic-clock-gating: Due to a hardware bug on 8952, L1/L2 dynamic
+	clock gating needs to be enabled by software for performance cluster
+	cores and L2. Set lpm-wa-dynamic-clock-gating node if this workaround is
+	required.
+
+- qcom,cpu-offline-mask: Dynamic clock gating should be enabled when cluster is
+	in L2 PC. Each bit of cpu-offline-mask lists the cpu no. to hotplug by KTM
+	driver.
+
+- qcom,non-boot-cpu-index: will hold index of non boot cluster cpu.
+
 Example:
 
 qcom,lpm-workarounds {
 	compatible = "qcom,lpm-workarounds";
-
+	reg = <0x0B011018 0x4>,
+	      <0x0B011088 0x4>;
+	reg-names = "l2-pwr-sts", "l1-l2-gcc";
 	lpm-cx-supply = <&pm8916_s2_corner>;
 	qcom,lpm-wa-cx-turbo-unvote;
 	qcom,lpm-wa-skip-l2-spm;
+	qcom,lpm-wa-dynamic-clock-gating;
+	qcom,cpu-offline-mask = "0xF";
+	qcom,non-boot-cpu-index = <4>;
 }
