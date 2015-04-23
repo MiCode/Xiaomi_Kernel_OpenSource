@@ -1387,11 +1387,13 @@ static int mdss_dsi_clk_ctrl_sub(struct mdss_dsi_ctrl_pdata *ctrl,
 			 * to enable ULPS when turning off the clocks
 			 * while blanking the panel.
 			 */
-			if (((mdss_dsi_ulps_feature_enabled(pdata)) &&
-				(pdata->panel_info.blank_state !=
-				 MDSS_PANEL_BLANK_BLANK)) ||
-				(pdata->panel_info.ulps_suspend_enabled))
+			if (pdata->panel_info.blank_state ==
+				MDSS_PANEL_BLANK_BLANK) {
+				if (pdata->panel_info.ulps_suspend_enabled)
+					mdss_dsi_ulps_config(ctrl, 1);
+			} else if (mdss_dsi_ulps_feature_enabled(pdata)) {
 				mdss_dsi_ulps_config(ctrl, 1);
+			}
 
 			mdss_dsi_link_clk_stop(ctrl);
 		}
