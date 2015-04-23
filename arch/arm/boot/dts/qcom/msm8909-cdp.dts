@@ -15,7 +15,6 @@
 #include "msm8909-cdp.dtsi"
 #include "msm8909-pm8909.dtsi"
 #include "msm8909-pm8909-cdp.dtsi"
-#include "msm8909-memory.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909-PM8909 CDP";
