@@ -115,7 +115,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&dsi_dual_jdi_video_0 {
+&dsi_dual_jdi_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
@@ -124,21 +124,11 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&dsi_dual_jdi_video_1 {
-	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-};
-
-&dsi_dual_jdi_cmd_0 {
+&dsi_dual_jdi_cmd {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
 	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 7 0>;
-	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-};
-
-&dsi_dual_jdi_cmd_1 {
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
@@ -150,6 +140,10 @@
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 	vdd-cx-supply = <&pma8084_s2_corner>;
+};
+
+&mdss_dsi {
+	hw-config = "single_dsi";
 };
 
 &mdss_dsi0 {

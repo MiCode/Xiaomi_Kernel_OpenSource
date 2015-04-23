@@ -16,11 +16,9 @@
 #include "dsi-panel-generic-720p-cmd.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
 #include "dsi-panel-sim-video.dtsi"
-#include "dsi-panel-sim-dualmipi0-video.dtsi"
-#include "dsi-panel-sim-dualmipi1-video.dtsi"
+#include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi0-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi1-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {

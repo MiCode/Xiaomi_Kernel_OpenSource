@@ -113,75 +113,90 @@
 		};
 	};
 
-	mdss_dsi0: qcom,mdss_dsi@fd922800 {
-		compatible = "qcom,mdss-dsi-ctrl";
-		label = "MDSS DSI CTRL->0";
-		cell-index = <0>;
-		reg = 	<0xfd922800 0x1f8>,
-			<0xfd922b00 0x280>,
-			<0xfd922d80 0x30>,
-			<0xfd828000 0x108>;
-		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator", "mmss_misc_phys";
-		qcom,mdss-fb-map = <&mdss_fb0>;
-		qcom,mdss-mdp = <&mdss_mdp>;
-		gdsc-supply = <&gdsc_mdss>;
-		vdd-supply = <&pm8226_l15>;
-		vddio-supply = <&pm8226_l8>;
-		vdda-supply = <&pm8226_l4>;
-		qcom,platform-reset-gpio = <&msmgpio 25 0>;
-		qcom,platform-te-gpio = <&msmgpio 24 0>;
-		qcom,platform-strength-ctrl = [ff 06];
-		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,platform-regulator-settings = [07 08 07 00 20 07 01];
-		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
-			00 00 00 00 05 00 00 01 97
-			00 00 00 00 0a 00 00 01 97
-			00 00 00 00 0f 00 00 01 97
-			00 c0 00 00 00 00 00 01 bb];
+	mdss_dsi: qcom,mdss_dsi@0 {
+		compatible = "qcom,mdss-dsi";
+		hw-config = "single_dsi";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0xfd922800 0xfd922800 0x1f8
+			0xfd922b00 0xfd922b00 0x280
+			0xfd922d80 0xfd922d80 0x30
+			0xfd828000 0xfd828000 0x108>;
 
-		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
-		qcom,mmss-phyreset-ctrl-offset = <0x108>;
+		mdss_dsi0: qcom,mdss_dsi_ctrl0@fd922800 {
+			compatible = "qcom,mdss-dsi-ctrl";
+			label = "MDSS DSI CTRL->0";
+			cell-index = <0>;
+			reg = 	<0xfd922800 0x1f8>,
+				<0xfd922b00 0x280>,
+				<0xfd922d80 0x30>,
+				<0xfd828000 0x108>;
+			reg-names = "dsi_ctrl", "dsi_phy",
+				"dsi_phy_regulator", "mmss_misc_phys";
 
-		qcom,core-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
+			qcom,mdss-fb-map = <&mdss_fb0>;
+			qcom,mdss-mdp = <&mdss_mdp>;
+			gdsc-supply = <&gdsc_mdss>;
+			vdd-supply = <&pm8226_l15>;
+			vddio-supply = <&pm8226_l8>;
+			vdda-supply = <&pm8226_l4>;
 
-			qcom,core-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "gdsc";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
+			qcom,platform-reset-gpio = <&msmgpio 25 0>;
+			qcom,platform-te-gpio = <&msmgpio 24 0>;
+
+			qcom,platform-strength-ctrl = [ff 06];
+			qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+			qcom,platform-regulator-settings = [07 08 07 00 20 07 01];
+			qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
+				00 00 00 00 05 00 00 01 97
+				00 00 00 00 0a 00 00 01 97
+				00 00 00 00 0f 00 00 01 97
+				00 c0 00 00 00 00 00 01 bb];
+
+			qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
+			qcom,mmss-phyreset-ctrl-offset = <0x108>;
+
+			qcom,core-supply-entries {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				qcom,core-supply-entry@0 {
+					reg = <0>;
+					qcom,supply-name = "gdsc";
+					qcom,supply-min-voltage = <0>;
+					qcom,supply-max-voltage = <0>;
+					qcom,supply-enable-load = <0>;
+					qcom,supply-disable-load = <0>;
+				};
 			};
-		};
 
-		qcom,ctrl-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
+			qcom,ctrl-supply-entries {
+				#address-cells = <1>;
+				#size-cells = <0>;
 
-			qcom,ctrl-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vdda";
-				qcom,supply-min-voltage = <1200000>;
-				qcom,supply-max-voltage = <1200000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
-				qcom,supply-post-on-sleep = <20>;
+				qcom,ctrl-supply-entry@0 {
+					reg = <0>;
+					qcom,supply-name = "vdda";
+					qcom,supply-min-voltage = <1200000>;
+					qcom,supply-max-voltage = <1200000>;
+					qcom,supply-enable-load = <100000>;
+					qcom,supply-disable-load = <100>;
+					qcom,supply-post-on-sleep = <20>;
+				};
 			};
-		};
 
-		qcom,phy-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
+			qcom,phy-supply-entries {
+				#address-cells = <1>;
+				#size-cells = <0>;
 
-			qcom,phy-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vddio";
-				qcom,supply-min-voltage = <1800000>;
-				qcom,supply-max-voltage = <1800000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
+				qcom,phy-supply-entry@0 {
+					reg = <0>;
+					qcom,supply-name = "vddio";
+					qcom,supply-min-voltage = <1800000>;
+					qcom,supply-max-voltage = <1800000>;
+					qcom,supply-enable-load = <100000>;
+					qcom,supply-disable-load = <100>;
+				};
 			};
 		};
 	};

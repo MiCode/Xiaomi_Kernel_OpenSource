@@ -13,9 +13,7 @@
 &mdss_mdp {
 	dsi_sharp_1080_hr_vid: qcom,mdss_dsi_sharp_1080p_hr_video {
 		qcom,mdss-dsi-panel-name = "Sharp 1080p hr video mode dsi panel";
-		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
-		qcom,mdss-dsi-panel-destination = "display_1";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;

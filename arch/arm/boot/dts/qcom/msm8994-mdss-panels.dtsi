@@ -10,18 +10,14 @@
  * GNU General Public License for more details.
  */
 
-#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
-#include "dsi-panel-jdi-dualmipi0-video.dtsi"
-#include "dsi-panel-jdi-dualmipi1-video.dtsi"
-#include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
-#include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
+#include "dsi-panel-sharp-dualmipi-wqxga-video.dtsi"
+#include "dsi-panel-jdi-dualmipi-video.dtsi"
+#include "dsi-panel-jdi-dualmipi-cmd.dtsi"
 #include "dsi-panel-nt35597-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-wqxga-cmd.dtsi"
 #include "dsi-panel-jdi-1080p-video.dtsi"
 #include "dsi-panel-sharp-1080p-cmd.dtsi"
-#include "dsi-panel-jdi-4k-dualmipi0-video.dtsi"
-#include "dsi-panel-jdi-4k-dualmipi1-video.dtsi"
+#include "dsi-panel-jdi-4k-dualmipi-video.dtsi"
 
 
 &soc {
