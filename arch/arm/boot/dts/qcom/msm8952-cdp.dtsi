@@ -260,6 +260,10 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&dsi_truly_1080_vid {
+	qcom,cont-splash-enabled;
+};
+
 &pmx_mdss {
 	qcom,num-grp-pins = <3>;
 	qcom,pins = <&gp 90>, <&gp 0>, <&gp 91>;
