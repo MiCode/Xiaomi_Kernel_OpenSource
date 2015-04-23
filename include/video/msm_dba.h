@@ -94,6 +94,48 @@ enum msm_dba_audio_format_type {
 };
 
 /**
+ * enum msm_dba_audio_copyright_type - audio copyright
+ * @MSM_DBA_AUDIO_COPYRIGHT_PROTECTED: copy right protected
+ * @MSM_DBA_AUDIO_COPYRIGHT_NOT_PROTECTED: not copy right protected
+ */
+enum msm_dba_audio_copyright_type {
+	MSM_DBA_AUDIO_COPYRIGHT_PROTECTED = BIT(0),
+	MSM_DBA_AUDIO_COPYRIGHT_NOT_PROTECTED = BIT(1),
+};
+
+/**
+ * enum msm_dba_audio_pre_emphasis_type - pre-emphasis
+ * @MSM_DBA_AUDIO_NO_PRE_EMPHASIS: 2 audio channels w/o pre-emphasis
+ * @MSM_DBA_AUDIO_PRE_EMPHASIS_50_15us: 2 audio channels with 50/15uS
+ */
+enum msm_dba_audio_pre_emphasis_type {
+	MSM_DBA_AUDIO_NO_PRE_EMPHASIS = BIT(0),
+	MSM_DBA_AUDIO_PRE_EMPHASIS_50_15us = BIT(1),
+};
+
+/**
+ * enum msm_dba_audio_clock_accuracy - Audio Clock Accuracy
+ * @MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL1: normal accuracy +/-1000 x 10^-6
+ * @MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL2: high accuracy +/- 50 x 10^-6
+ * @MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL3: variable pitch shifted clock
+ */
+enum msm_dba_audio_clock_accuracy {
+	MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL1 = BIT(1),
+	MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL2 = BIT(0),
+	MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL3 = BIT(2),
+};
+
+/**
+ * enum msm_dba_channel_status_source - CS override
+ * @MSM_DBA_AUDIO_CS_SOURCE_I2S_STREAM: use channel status bits from I2S stream
+ * @MSM_DBA_AUDIO_CS_SOURCE_REGISTERS: use channel status bits from registers
+ */
+enum msm_dba_channel_status_source {
+	MSM_DBA_AUDIO_CS_SOURCE_I2S_STREAM,
+	MSM_DBA_AUDIO_CS_SOURCE_REGISTERS
+};
+
+/**
  * enum msm_dba_audio_sampling_rates_type - audio sampling rates
  * @MSM_DBA_AUDIO_32KHZ: 32KHz sampling rate
  * @MSM_DBA_AUDIO_44P1KHZ: 44.1KHz sampling rate
@@ -105,7 +147,9 @@ enum msm_dba_audio_sampling_rates_type {
 	MSM_DBA_AUDIO_32KHZ = BIT(0),
 	MSM_DBA_AUDIO_44P1KHZ = BIT(1),
 	MSM_DBA_AUDIO_48KHZ = BIT(2),
+	MSM_DBA_AUDIO_88P2KHZ = BIT(1),
 	MSM_DBA_AUDIO_96KHZ = BIT(3),
+	MSM_DBA_AUDIO_176P4KHZ = BIT(1),
 	MSM_DBA_AUDIO_192KHZ = BIT(4),
 };
 
@@ -157,6 +201,22 @@ enum msm_dba_video_aspect_ratio {
 	MSM_DBA_AR_64_27,
 	MSM_DBA_AR_256_135,
 	MSM_DBA_AR_MAX
+};
+
+enum msm_dba_audio_word_endian_type {
+	MSM_DBA_AUDIO_WORD_LITTLE_ENDIAN = 0,
+	MSM_DBA_AUDIO_WORD_BIG_ENDIAN,
+	MSM_DBA_AUDIO_WORD_ENDIAN_MAX
+};
+
+/**
+ * msm_dba_audio_op_mode - i2s audio operation mode
+ * @MSM_DBA_AUDIO_MODE_MANUAL: Manual mode
+ * @MSM_DBA_AUDIO_MODE_AUTOMATIC: Automatic mode
+ */
+enum msm_dba_audio_op_mode {
+	MSM_DBA_AUDIO_MODE_MANUAL,
+	MSM_DBA_AUDIO_MODE_AUTOMATIC,
 };
 
 /**
@@ -242,12 +302,32 @@ struct msm_dba_capabilities {
  * @format: Compressed vs Uncompressed formats.
  * @channels: Number of channels.
  * @i2s_fmt: I2S data packing format. This is valid only if interface is I2S.
+ * @sampling_rate: sampling rate of audio data
+ * @word_size: word size
+ * @word_endianness: little or big endian words
  */
 struct msm_dba_audio_cfg {
 	enum msm_dba_audio_interface_type interface;
 	enum msm_dba_audio_format_type format;
 	enum msm_dba_audio_channel_count channels;
 	enum msm_dba_audio_i2s_format i2s_fmt;
+	enum msm_dba_audio_sampling_rates_type sampling_rate;
+	enum msm_dba_audio_word_bit_depth word_size;
+	enum msm_dba_audio_word_endian_type word_endianness;
+	enum msm_dba_audio_copyright_type copyright;
+	enum msm_dba_audio_pre_emphasis_type pre_emphasis;
+	enum msm_dba_audio_clock_accuracy clock_accuracy;
+	enum msm_dba_channel_status_source channel_status_source;
+	enum msm_dba_audio_op_mode mode;
+
+	u32 channel_status_category_code;
+	u32 channel_status_source_number;
+	u32 channel_status_v_bit;
+	u32 channel_allocation;
+	u32 channel_status_word_length;
+
+	u32 n;
+	u32 cts;
 };
 
 /**
