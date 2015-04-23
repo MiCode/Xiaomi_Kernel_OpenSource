@@ -31,9 +31,12 @@
 #include <asm/smp_plat.h>
 #include <asm/suspend.h>
 #include <asm/system_misc.h>
+#include <asm/suspend.h>
 
 #define PSCI_POWER_STATE_TYPE_STANDBY		0
 #define PSCI_POWER_STATE_TYPE_POWER_DOWN	1
+
+#define PSCI_POWER_STATE_BIT	BIT(30)
 
 struct psci_power_state {
 	u16	id;
@@ -42,7 +45,7 @@ struct psci_power_state {
 };
 
 struct psci_operations {
-	int (*cpu_suspend)(struct psci_power_state state,
+	int (*cpu_suspend)(unsigned long state_id,
 			   unsigned long entry_point);
 	int (*cpu_off)(struct psci_power_state state);
 	int (*cpu_on)(unsigned long cpuid, unsigned long entry_point);
@@ -151,15 +154,14 @@ static int psci_get_version(void)
 	return err;
 }
 
-static int psci_cpu_suspend(struct psci_power_state state,
+static int psci_cpu_suspend(unsigned long  state_id,
 			    unsigned long entry_point)
 {
 	int err;
-	u32 fn, power_state;
+	u32 fn;
 
 	fn = psci_function_id[PSCI_FN_CPU_SUSPEND];
-	power_state = psci_power_state_pack(state);
-	err = invoke_psci_fn(fn, power_state, entry_point, 0);
+	err = invoke_psci_fn(fn, state_id, entry_point, 0);
 	return psci_to_linux_errno(err);
 }
 
@@ -380,7 +382,6 @@ static int __init psci_0_2_init(struct device_node *np)
 		pr_info("PSCIv%d.%d detected in firmware.\n",
 				PSCI_VERSION_MAJOR(ver),
 				PSCI_VERSION_MINOR(ver));
-
 		if (PSCI_VERSION_MAJOR(ver) == 0 &&
 				PSCI_VERSION_MINOR(ver) < 2) {
 			err = -EINVAL;
@@ -484,6 +485,7 @@ int __init psci_init(void)
 
 static int __init cpu_psci_cpu_init(struct device_node *dn, unsigned int cpu)
 {
+	pr_info("Initializing psco_cpu_init\n");
 	return 0;
 }
 
@@ -562,31 +564,20 @@ static int cpu_psci_cpu_kill(unsigned int cpu)
 #endif
 #endif
 
-static int psci_suspend_finisher(unsigned long index)
+static int psci_suspend_finisher(unsigned long state_id)
 {
-	struct psci_power_state *state = __get_cpu_var(psci_power_state);
-
-	return psci_ops.cpu_suspend(state[index - 1],
-				    virt_to_phys(cpu_resume));
+	return psci_ops.cpu_suspend(state_id, virt_to_phys(cpu_resume));
 }
 
-static int __maybe_unused cpu_psci_cpu_suspend(unsigned long index)
+static int __maybe_unused cpu_psci_cpu_suspend(unsigned long state_id)
 {
-	int ret;
-	struct psci_power_state *state = __get_cpu_var(psci_power_state);
-	/*
-	 * idle state index 0 corresponds to wfi, should never be called
-	 * from the cpu_suspend operations
-	 */
-	if (WARN_ON_ONCE(!index))
+	if (WARN_ON_ONCE(!state_id))
 		return -EINVAL;
 
-	if (state[index - 1].type == PSCI_POWER_STATE_TYPE_STANDBY)
-		ret = psci_ops.cpu_suspend(state[index - 1], 0);
+	if (state_id & PSCI_POWER_STATE_BIT)
+		return __cpu_suspend(state_id, psci_suspend_finisher);
 	else
-		ret = __cpu_suspend(index, psci_suspend_finisher);
-
-	return ret;
+		return  psci_ops.cpu_suspend(state_id, 0);
 }
 
 static struct cpu_operations cpu_psci_ops = {
@@ -597,6 +588,9 @@ static struct cpu_operations cpu_psci_ops = {
 #endif
 #ifdef CONFIG_SMP
 	.cpu_init	= cpu_psci_cpu_init,
+#ifdef CONFIG_ARM64_CPU_SUSPEND
+	.cpu_suspend	= cpu_psci_cpu_suspend,
+#endif
 	.cpu_prepare	= cpu_psci_cpu_prepare,
 	.cpu_boot	= cpu_psci_cpu_boot,
 #ifdef CONFIG_HOTPLUG_CPU
