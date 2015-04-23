@@ -36,6 +36,14 @@
 	/delete-property/ qcom,cpr-hw-closed-loop;
 };
 
+&apc0_vreg {
+	qcom,ldo-disable;
+};
+
+&apc1_vreg {
+	qcom,ldo-disable;
+};
+
 &clock_gcc {
 	compatible = "qcom,gcc-8996-v2";
 };
