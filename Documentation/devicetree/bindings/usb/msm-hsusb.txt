@@ -149,6 +149,9 @@ Optional properties :
 - qcom,usbin-vadc: Corresponding vadc device's phandle to read usbin voltage using VADC.
 	This will be used to get value of usb power supply's VOLTAGE_NOW property.
 - qcom,usbid-gpio: This corresponds to gpio which is used for USB ID detection.
+- qcom,hub-reset-gpio: This corresponds to gpio which is used for HUB reset.
+- qcom,sw-sel-gpio: This corresponds to gpio which is used for switch select routing
+	of D+/D- between the USB HUB and type B USB jack for peripheral mode.
 - qcom,bus-clk-rate: If present, indicates nominal bus frequency to be voted for
 	bimc/snoc/pcnoc clock with usb cable connected. If AHB2AHB bypass is enabled,
 	pcnoc value should be defined to very large number so that PNOC runs at max
