@@ -339,8 +339,12 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
+&mdss_dsi {
+	hw-config = "split_dsi";
+};
+
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video_0>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -350,7 +354,7 @@
 };
 
 &mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video_1>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video>;
 };
 
 &mdss_hdmi_tx {
@@ -374,7 +378,7 @@
 	qcom,qpnp-ibb-discharge-resistor = <32>;
 };
 
-&dsi_dual_sharp_video_0 {
+&dsi_dual_sharp_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
@@ -382,20 +386,10 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&dsi_dual_sharp_video_1 {
-	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-};
-
-&dsi_dual_nt35597_video_0 {
+&dsi_dual_nt35597_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
-	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-};
-
-&dsi_dual_nt35597_video_1 {
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
@@ -407,7 +401,7 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&dsi_dual_jdi_cmd_0 {
+&dsi_dual_jdi_cmd {
 	pwms = <&pmi8994_pwm_4 0 0>;
 	pwm-names = "backlight";
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
@@ -416,11 +410,6 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
-	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-};
-
-&dsi_dual_jdi_cmd_1 {
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };

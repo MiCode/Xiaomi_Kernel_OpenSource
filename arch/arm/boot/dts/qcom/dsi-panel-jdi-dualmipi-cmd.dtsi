@@ -11,11 +11,9 @@
  */
 
 &mdss_mdp {
-	dsi_dual_jdi_cmd_1: qcom,mdss_dsi_jdi_qhd_dualmipi1_cmd{
-		qcom,mdss-dsi-panel-name = "Dual 1 cmd mode dsi panel";
-		qcom,mdss-dsi-panel-controller = <&mdss_dsi1>;
+	dsi_dual_jdi_cmd: qcom,mdss_dsi_jdi_qhd_dualmipi_cmd{
+		qcom,mdss-dsi-panel-name = "Dual cmd mode dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
-		qcom,mdss-dsi-panel-destination = "display_2";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;

@@ -10,23 +10,16 @@
  * GNU General Public License for more details.
  */
 
-#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-dualmipi1-wqxga-video.dtsi"
+#include "dsi-panel-sharp-dualmipi-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-dualmipi-wqxga-video.dtsi"
 #include "dsi-panel-nt35597-dsc-wqxga-video.dtsi"
-#include "dsi-panel-jdi-dualmipi0-video.dtsi"
-#include "dsi-panel-jdi-dualmipi1-video.dtsi"
-#include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
-#include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
-#include "dsi-panel-jdi-4k-dualmipi0-video-nofbc.dtsi"
-#include "dsi-panel-jdi-4k-dualmipi1-video-nofbc.dtsi"
+#include "dsi-panel-jdi-dualmipi-video.dtsi"
+#include "dsi-panel-jdi-dualmipi-cmd.dtsi"
+#include "dsi-panel-jdi-4k-dualmipi-video-nofbc.dtsi"
 #include "dsi-panel-sim-video.dtsi"
-#include "dsi-panel-sim-dualmipi0-video.dtsi"
-#include "dsi-panel-sim-dualmipi1-video.dtsi"
+#include "dsi-panel-sim-dualmipi-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi0-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi1-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -81,7 +74,7 @@
 	};
 };
 
-&dsi_dual_sharp_video_0 {
+&dsi_dual_sharp_video {
 	qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
 			23 20 06 09 05 03 04 a0
 			23 20 06 09 05 03 04 a0
@@ -89,15 +82,7 @@
 			23 2e 06 08 05 03 04 a0];
 };
 
-&dsi_dual_sharp_video_1 {
-	qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
-			23 20 06 09 05 03 04 a0
-			23 20 06 09 05 03 04 a0
-			23 20 06 09 05 03 04 a0
-			23 2e 06 08 05 03 04 a0];
-};
-
-&dsi_dual_jdi_cmd_0 {
+&dsi_dual_jdi_cmd {
 	qcom,mdss-dsi-panel-timings-8996 = [22 1e 06 08 04 03 04 a0
 			22 1e 06 08 04 03 04 a0
 			22 1e 06 08 04 03 04 a0
@@ -107,17 +92,7 @@
 	qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
 };
 
-&dsi_dual_jdi_cmd_1 {
-	qcom,mdss-dsi-panel-timings-8996 = [22 1e 06 08 04 03 04 a0
-			22 1e 06 08 04 03 04 a0
-			22 1e 06 08 04 03 04 a0
-			22 1e 06 08 04 03 04 a0
-			22 2c 05 08 04 03 04 a0];
-	qcom,esd-check-enabled;
-	qcom,mdss-dsi-panel-status-check-mode = "te_signal_check";
-};
-
-&dsi_dual_jdi_video_0 {
+&dsi_dual_jdi_video {
 	qcom,mdss-dsi-panel-timings-8996 = [22 1e 06 08 04 03 04 a0
 			22 1e 06 08 04 03 04 a0
 			22 1e 06 08 04 03 04 a0
@@ -125,23 +100,7 @@
 			22 2c 05 08 04 03 04 a0];
 };
 
-&dsi_dual_jdi_video_1 {
-	qcom,mdss-dsi-panel-timings-8996 = [22 1e 06 08 04 03 04 a0
-			22 1e 06 08 04 03 04 a0
-			22 1e 06 08 04 03 04 a0
-			22 1e 06 08 04 03 04 a0
-			22 2c 05 08 04 03 04 a0];
-};
-
-&dsi_dual_nt35597_video_0 {
-	qcom,mdss-dsi-panel-timings-8996 = [23 1f 06 08 04 03 04 a0
-		23 1f 06 08 04 03 04 a0
-		23 1f 06 08 04 03 04 a0
-		23 1f 06 08 04 03 04 a0
-		23 2d 05 08 04 03 04 a0];
-};
-
-&dsi_dual_nt35597_video_1 {
+&dsi_dual_nt35597_video {
 	qcom,mdss-dsi-panel-timings-8996 = [23 1f 06 08 04 03 04 a0
 		23 1f 06 08 04 03 04 a0
 		23 1f 06 08 04 03 04 a0
@@ -157,15 +116,7 @@
 		07 0e 04 05 03 13 04 a0];
 };
 
-&dsi_dual_jdi_4k_nofbc_video_0 {
-	qcom,mdss-dsi-panel-timings-8996 = [31 2e 0d 12 0d 03 04 a0
-		31 2e 0d 12 0d 03 04 a0
-		31 2e 0d 12 0d 03 04 a0
-		31 2e 0d 12 0d 03 04 a0
-		31 53 0c 12 0d 03 04 a0];
-};
-
-&dsi_dual_jdi_4k_nofbc_video_1 {
+&dsi_dual_jdi_4k_nofbc_video {
 	qcom,mdss-dsi-panel-timings-8996 = [31 2e 0d 12 0d 03 04 a0
 		31 2e 0d 12 0d 03 04 a0
 		31 2e 0d 12 0d 03 04 a0

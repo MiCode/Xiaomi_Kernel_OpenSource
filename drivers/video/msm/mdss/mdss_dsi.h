@@ -204,47 +204,33 @@ extern struct device dsi_dev;
 extern u32 dsi_irq;
 extern struct mdss_dsi_ctrl_pdata *ctrl_list[];
 
-struct dsiphy_pll_divider_config {
-	u64 clk_rate;
-	u32 fb_divider;
-	u32 ref_divider_ratio;
-	u32 bit_clk_divider;	/* oCLK1 */
-	u32 byte_clk_divider;	/* oCLK2 */
-	u32 analog_posDiv;
-	u32 digital_posDiv;
+enum {
+	DSI_CTRL_0,
+	DSI_CTRL_1,
+	DSI_CTRL_MAX,
 };
 
-extern struct dsiphy_pll_divider_config pll_divider_config;
-
-struct dsi_clk_mnd_table {
-	u8 lanes;
-	u8 bpp;
-	u8 pll_digital_posDiv;
-	u8 pclk_m;
-	u8 pclk_n;
-	u8 pclk_d;
+struct mdss_dsi_data {
+	u32 hw_config; /* DSI setup configuration i.e. single/dual/split */
+	bool res_init;
+	struct platform_device *pdev;
+	/* List of controller specific struct data */
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata[DSI_CTRL_MAX];
 };
 
-static const struct dsi_clk_mnd_table mnd_table[] = {
-	{ 1, 2,  8, 1, 1, 0},
-	{ 1, 3, 12, 1, 1, 0},
-	{ 2, 2,  4, 1, 1, 0},
-	{ 2, 3,  6, 1, 1, 0},
-	{ 3, 2,  1, 3, 8, 4},
-	{ 3, 3,  4, 1, 1, 0},
-	{ 4, 2,  2, 1, 1, 0},
-	{ 4, 3,  3, 1, 1, 0},
+/*
+ * enum mdss_dsi_hw_config - Supported DSI h/w configurations
+ *
+ * @SINGLE_DSI:		Single DSI panel driven by either DSI0 or DSI1.
+ * @DUAL_DSI:		Two DSI panels driven independently by DSI0 & DSI1.
+ * @SPLIT_DSI:		A split DSI panel driven by both the DSI controllers
+ *			with the DSI link clocks sourced by a single DSI PLL.
+ */
+enum mdss_dsi_hw_config {
+	SINGLE_DSI,
+	DUAL_DSI,
+	SPLIT_DSI,
 };
-
-struct dsi_clk_desc {
-	u32 src;
-	u32 m;
-	u32 n;
-	u32 d;
-	u32 mnd_mode;
-	u32 pre_div_func;
-};
-
 
 struct dsi_panel_cmds {
 	char *buf;
@@ -275,12 +261,6 @@ struct panel_horizontal_idle {
 	int min;
 	int max;
 	int idle;
-};
-
-enum {
-	DSI_CTRL_0,
-	DSI_CTRL_1,
-	DSI_CTRL_MAX,
 };
 
 #define DSI_CTRL_LEFT		DSI_CTRL_0
@@ -441,8 +421,8 @@ struct dsi_status_data {
 };
 
 void mdss_dsi_read_hw_revision(struct mdss_dsi_ctrl_pdata *ctrl);
-int dsi_panel_device_register(struct device_node *pan_node,
-				struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+int dsi_panel_device_register(struct platform_device *ctrl_pdev,
+	struct device_node *pan_node, struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 
 int mdss_dsi_cmds_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 		struct dsi_cmd_desc *cmds, int cnt);
@@ -510,6 +490,8 @@ u32 mdss_dsi_panel_cmd_read(struct mdss_dsi_ctrl_pdata *ctrl, char cmd0,
 int mdss_dsi_panel_init(struct device_node *node,
 		struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 		bool cmd_cfg_cont_splash);
+int mdss_panel_parse_bl_settings(struct device_node *np,
+			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_panel_get_dst_fmt(u32 bpp, char mipi_mode, u32 pixel_packing,
 				char *dst_format);
 
