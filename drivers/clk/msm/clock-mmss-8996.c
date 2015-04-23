@@ -2522,8 +2522,8 @@ static struct branch_clk mdss_mdp_clk = {
 	},
 };
 
-static DEFINE_CLK_VOTER(mdss_mdp_vote_clk, &mdss_mdp_clk.c, 85714286);
-static DEFINE_CLK_VOTER(mdss_rotator_vote_clk, &mdss_mdp_clk.c, 85714286);
+static DEFINE_CLK_VOTER(mdss_mdp_vote_clk, &mdss_mdp_clk.c, 0);
+static DEFINE_CLK_VOTER(mdss_rotator_vote_clk, &mdss_mdp_clk.c, 0);
 
 static struct branch_clk mdss_pclk0_clk = {
 	.cbcr_reg = MMSS_MDSS_PCLK0_CBCR,
