@@ -3727,7 +3727,7 @@ fail_cmd:
 }
 
 int q6asm_media_format_block_alac(struct audio_client *ac,
-				struct asm_alac_cfg *cfg)
+				struct asm_alac_cfg *cfg, int stream_id)
 {
 	struct asm_alac_fmt_blk_v2 fmt;
 	int rc = 0;
@@ -3735,7 +3735,7 @@ int q6asm_media_format_block_alac(struct audio_client *ac,
 	pr_debug("%s :session[%d]rate[%d]ch[%d]\n", __func__,
 		ac->session, cfg->sample_rate, cfg->num_channels);
 
-	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+	q6asm_stream_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE, stream_id);
 	atomic_set(&ac->cmd_state, 1);
 
 	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
@@ -3810,7 +3810,7 @@ fail_cmd:
 }
 
 int q6asm_media_format_block_ape(struct audio_client *ac,
-		struct asm_ape_cfg *cfg)
+				struct asm_ape_cfg *cfg, int stream_id)
 {
 	struct asm_ape_fmt_blk_v2 fmt;
 	int rc = 0;
@@ -3818,7 +3818,7 @@ int q6asm_media_format_block_ape(struct audio_client *ac,
 	pr_debug("%s :session[%d]rate[%d]ch[%d]\n", __func__,
 			ac->session, cfg->sample_rate, cfg->num_channels);
 
-	q6asm_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE);
+	q6asm_stream_add_hdr(ac, &fmt.hdr, sizeof(fmt), TRUE, stream_id);
 	atomic_set(&ac->cmd_state, 1);
 
 	fmt.hdr.opcode = ASM_DATA_CMD_MEDIA_FMT_UPDATE_V2;
