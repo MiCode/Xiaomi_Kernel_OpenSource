@@ -88,3 +88,7 @@
 &mdss_mdp {
 	qcom,max-clk-rate = <360000000>;
 };
+
+&ssphy {
+	qcom,override-pll-calibration;
+};
