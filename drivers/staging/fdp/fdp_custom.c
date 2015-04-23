@@ -828,8 +828,8 @@ int fdp_suspend(struct i2c_client *client, pm_message_t mesg)
 		return 0;
 	}
 
-	if (p_device->state == CUSTOM_OPENED)
-		/* disable_irq(p_device->irqout); */
+	/* if (p_device->state == CUSTOM_OPENED)
+		disable_irq(p_device->irqout); */
 
 	return 0;
 }
@@ -845,8 +845,8 @@ int fdp_resume(struct i2c_client *client)
 		return 0;
 	}
 
-	if (p_device->state == CUSTOM_OPENED)
-		/* enable_irq(p_device->irqout); */
+	/* if (p_device->state == CUSTOM_OPENED)
+		enable_irq(p_device->irqout); */
 
 	return 0;
 }
