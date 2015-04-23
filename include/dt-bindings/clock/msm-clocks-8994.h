@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -319,6 +319,10 @@
 #define clk_esc0_clk_src 0xb41d7c38
 #define clk_esc1_clk_src 0x3b0afa42
 #define clk_extpclk_clk_src 0xb2c31abd
+#define clk_ext_byte0_clk_src 0xfb32f31e
+#define clk_ext_byte1_clk_src 0x585ef6d4
+#define clk_ext_pclk0_clk_src 0x087c1612
+#define clk_ext_pclk1_clk_src 0x8067c5a3
 #define clk_hdmi_clk_src 0xb40aeea9
 #define clk_hdmi_20nm_vco_clk 0xacaed5e6
 #define clk_vsync_clk_src 0xecb43940
