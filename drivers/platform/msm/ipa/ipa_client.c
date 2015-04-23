@@ -490,10 +490,13 @@ int ipa_sps_connect_safe(struct sps_pipe *h, struct sps_connect *connect,
 {
 	int res;
 
-	res = ipa_uc_reset_pipe(ipa_client);
-	if (res)
-		return res;
-
+	if (ipa_ctx->ipa_hw_type > IPA_HW_v2_5 || ipa_ctx->skip_uc_pipe_reset) {
+		IPADBG("uC pipe reset is not required\n");
+	} else {
+		res = ipa_uc_reset_pipe(ipa_client);
+		if (res)
+			return res;
+	}
 	return sps_connect(h, connect);
 }
 EXPORT_SYMBOL(ipa_sps_connect_safe);

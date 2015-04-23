@@ -3010,6 +3010,7 @@ static int ipa_init(const struct ipa_plat_drv_res *resource_p,
 	ipa_ctx->ipa_bam_remote_mode = resource_p->ipa_bam_remote_mode;
 	ipa_ctx->modem_cfg_emb_pipe_flt = resource_p->modem_cfg_emb_pipe_flt;
 	ipa_ctx->wan_rx_ring_size = resource_p->wan_rx_ring_size;
+	ipa_ctx->skip_uc_pipe_reset = resource_p->skip_uc_pipe_reset;
 
 	/* default aggregation parameters */
 	ipa_ctx->aggregation_type = IPA_MBIM_16;
@@ -3564,6 +3565,13 @@ static int get_ipa_dts_configuration(struct platform_device *pdev,
 	IPADBG(": modem configure embedded pipe filtering = %s\n",
 			ipa_drv_res->modem_cfg_emb_pipe_flt
 			? "True" : "False");
+
+	ipa_drv_res->skip_uc_pipe_reset =
+		of_property_read_bool(pdev->dev.of_node,
+		"qcom,skip-uc-pipe-reset");
+	IPADBG(": skip uC pipe reset = %s\n",
+		ipa_drv_res->skip_uc_pipe_reset
+		? "True" : "False");
 
 	/* Get IPA wrapper address */
 	resource = platform_get_resource_byname(pdev, IORESOURCE_MEM,
