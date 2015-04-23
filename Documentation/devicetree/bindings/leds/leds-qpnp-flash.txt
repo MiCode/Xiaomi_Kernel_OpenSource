@@ -23,7 +23,7 @@ Optional properties:
 - qcom,thermal-derate-enabled : boolean type. derate enablement when module
 				temperature reaches threshold
 - qcom,thermal-derate-threshold : thermal threshold for derate. Values
-				should be 80, 90, 100, 110, 120, 130 in C.
+				should be 95, 105, 115, 125 in C.
 - qcom,thermal-derate-rate	: derate rate when module temperature
 				reaches threshold. Values should be
 				"1_PERCENT", "1P25_PERCENT", "2_PERCENT",

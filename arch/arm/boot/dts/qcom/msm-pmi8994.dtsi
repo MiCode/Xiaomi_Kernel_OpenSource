@@ -608,7 +608,7 @@
 			qcom,pmic-charger-support;
 			qcom,self-check-enabled;
 			qcom,thermal-derate-enabled;
-			qcom,thermal-derate-threshold = <100>;
+			qcom,thermal-derate-threshold = <105>;
 			qcom,thermal-derate-rate = "5_PERCENT";
 			qcom,current-ramp-enabled;
 			qcom,ramp_up_step = "6P7_US";
