@@ -293,6 +293,7 @@ static struct attribute_group attr_group = {
 static inline void stop_logging_wakeup_reasons(void)
 {
 	ACCESS_ONCE(log_wakeups) = false;
+	smp_wmb();
 }
 
 /*
@@ -330,8 +331,15 @@ void log_base_wakeup_reason(int irq)
 struct wakeup_irq_node *
 log_possible_wakeup_reason_start(int irq, struct irq_desc *desc, unsigned depth)
 {
-	BUG_ON(!irqs_disabled() || !logging_wakeup_reasons());
+	BUG_ON(!irqs_disabled());
 	BUG_ON((signed)depth < 0);
+
+	/* This function can race with a call to stop_logging_wakeup_reasons()
+	 * from a thread context.  If this happens, just exit silently, as we are no
+	 * longer interested in logging interrupts.
+	 */
+	if (!logging_wakeup_reasons())
+		return NULL;
 
 	/* If suspend was aborted, the base IRQ nodes are missing, and we stop
 	 * logging interrupts immediately.
@@ -540,7 +548,6 @@ static int wakeup_reason_pm_event(struct notifier_block *notifier,
 		/* log_wakeups should have been cleared by now. */
 		if (WARN_ON(logging_wakeup_reasons())) {
 			stop_logging_wakeup_reasons();
-			mb();
 			print_wakeup_sources();
 		}
 		/* monotonic time since boot */
