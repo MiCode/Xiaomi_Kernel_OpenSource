@@ -85,9 +85,6 @@ Optional properties:
 					screen using the qcom,memblock-reserve binding
 					for the framebuffer device attached to the panel.
 - qcom,cmd-sync-wait-broadcast:		Boolean used to broadcast dcs command to panels.
-- qcom,cmd-sync-wait-trigger:		Boolean used to identify the which panel in a dual-dsi
-					configuration will be used to trigger the DCS commands.
-					This flag should be set only for one of the two panels.
 - qcom,mdss-dsi-fbc-enable:		Boolean used to enable frame buffer compression mode.
 - qcom,mdss-dsi-fbc-slice-height:	Slice height(in lines) of compressed block.
 					Expressed as power of 2. To set as 128 lines,
@@ -429,7 +426,6 @@ Example:
 		qcom,mdss-dsi-pixel-packing = <0>;
 		qcom,mdss-dsi-panel-destination = "display_1";
 		qcom,cmd-sync-wait-broadcast;
-		qcom,cmd-sync-wait-trigger;
 		qcom,mdss-dsi-fbc-enable;
 		qcom,mdss-dsi-fbc-slice-height = <5>;
 		qcom,mdss-dsi-fbc-2d-pred-mode;

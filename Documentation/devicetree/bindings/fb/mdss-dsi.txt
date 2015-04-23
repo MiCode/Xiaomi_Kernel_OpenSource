@@ -1,7 +1,18 @@
-Qualcomm mdss-dsi-ctrl
+Qualcomm mdss-dsi
 
-mdss-dsi-ctrl is a dsi controller device which supports host controllers that
-are compatable with MIPI display serial interface specification.
+mdss-dsi is the master DSI device which supports multiple DSI host controllers that
+are compatible with MIPI display serial interface specification.
+
+Required properties:
+- compatible:				Must be "qcom,mdss-dsi"
+- hw-config:				Specifies the DSI host setup configuration
+					"hw-config" = "single_dsi"
+					"hw-config" = "dual_dsi"
+					"hw-config" = "split_dsi"
+- ranges:				The standard property which specifies the child address
+					space, parent address space and the length.
+
+mdss-dsi-ctrl is a dsi controller device which is treated as a subnode of the mdss-dsi device.
 
 Required properties:
 - compatible:				Must be "qcom,mdss-dsi-ctrl"
@@ -79,98 +90,115 @@ Optional properties:
 					"lane_map_3210" = <3 2 1 0>
 
 Example:
-        mdss_dsi0: qcom,mdss_dsi@fd922800 {
-		compatible = "qcom,mdss-dsi-ctrl";
-		label = "MDSS DSI CTRL->0";
-		cell-index = <0>;
-		reg = 	<0xfd922800 0x1f8>,
-			<0xfd922b00 0x2b0>,
-			<0xfd998780 0x30>,
-			<0xfd828000 0x108>;
-		reg-names = "dsi_ctrl", "dsi_phy", "dsi_phy_regulator", "mmss_misc_phys";
-		vdd-supply = <&pm8226_l15>;
-		vddio-supply = <&pm8226_l8>;
-		vdda-supply = <&pm8226_l4>;
-		vcca-supply = <&pm8226_l28>;
-		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
-		qcom,platform-strength-ctrl = [ff 06];
-		qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
-		qcom,regulator-ldo-mode;
-		qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
-		qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
-			00 00 00 00 05 00 00 01 97
-			00 00 00 00 0a 00 00 01 97
-			00 00 00 00 0f 00 00 01 97
-			00 c0 00 00 00 00 00 01 bb];
-		qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
-		qcom,mmss-phyreset-ctrl-offset = <0x24>;
-		qcom,mdss-fb-map = <&mdss_fb0>;
-		qcom,mdss-mdp = <&mdss_mdp>;
-		pinctrl-names = "mdss_default", "mdss_sleep";
-		pinctrl-0 = <&mdss_dsi_active>;
-		pinctrl-1 = <&mdss_dsi_suspend>;
-		qcom,platform-reset-gpio = <&msmgpio 25 1>;
-		qcom,platform-te-gpio = <&msmgpio 24 0>;
-		qcom,platform-enable-gpio = <&msmgpio 58 1>;
-		qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
-		qcom,platform-mode-gpio = <&msmgpio 7 0>;
-		qcom,dsi-irq-line;
-		qcom,timing-db-mode;
-		qcom,dsi-clk-ln-recovery;
-		qcom,lane-map = "lane_map_3012";
+	mdss_dsi: qcom,mdss_dsi@0 {
+		compatible = "qcom,mdss-dsi";
+		hw-config = "single_dsi";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x1a98000 0x1a98000 0x25c
+		      0x1a98500 0x1a98500 0x280
+		      0x1a98780 0x1a98780 0x30
+		      0x193e000 0x193e000 0x30>;
 
-		qcom,core-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
+		mdss_dsi0: mdss_dsi_ctrl0@fd922800 {
+			compatible = "qcom,mdss-dsi-ctrl";
+			label = "MDSS DSI CTRL->0";
+			cell-index = <0>;
+			reg = 	<0xfd922800 0x1f8>,
+				<0xfd922b00 0x2b0>,
+				<0xfd998780 0x30>,
+				<0xfd828000 0x108>;
+			reg-names = "dsi_ctrl", "dsi_phy",
+				"dsi_phy_regulator", "mmss_misc_phys";
 
-			qcom,core-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "gdsc";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
-				qcom,supply-pre-on-sleep = <0>;
-				qcom,supply-post-on-sleep = <0>;
-				qcom,supply-pre-off-sleep = <0>;
-				qcom,supply-post-off-sleep = <0>;
+			vdd-supply = <&pm8226_l15>;
+			vddio-supply = <&pm8226_l8>;
+			vdda-supply = <&pm8226_l4>;
+			vcca-supply = <&pm8226_l28>;
+			qcom,mdss-fb-map = <&mdss_fb0>;
+			qcom,mdss-mdp = <&mdss_mdp>;
+
+			qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+
+			qcom,platform-strength-ctrl = [ff 06];
+			qcom,platform-bist-ctrl = [00 00 b1 ff 00 00];
+			qcom,platform-regulator-settings = [07 09 03 00 20 00 01];
+			qcom,platform-lane-config = [00 00 00 00 00 00 00 01 97
+				00 00 00 00 05 00 00 01 97
+				00 00 00 00 0a 00 00 01 97
+				00 00 00 00 0f 00 00 01 97
+				00 c0 00 00 00 00 00 01 bb];
+
+			qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
+			qcom,mmss-phyreset-ctrl-offset = <0x24>;
+			qcom,regulator-ldo-mode;
+
+			pinctrl-names = "mdss_default", "mdss_sleep";
+			pinctrl-0 = <&mdss_dsi_active>;
+			pinctrl-1 = <&mdss_dsi_suspend>;
+			qcom,platform-reset-gpio = <&msmgpio 25 1>;
+			qcom,platform-te-gpio = <&msmgpio 24 0>;
+			qcom,platform-enable-gpio = <&msmgpio 58 1>;
+			qcom,platform-bklight-en-gpio = <&msmgpio 86 0>;
+			qcom,platform-mode-gpio = <&msmgpio 7 0>;
+			qcom,dsi-irq-line;
+			qcom,timing-db-mode;
+			qcom,dsi-clk-ln-recovery;
+			qcom,lane-map = "lane_map_3012";
+
+			qcom,core-supply-entries {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				qcom,core-supply-entry@0 {
+					reg = <0>;
+					qcom,supply-name = "gdsc";
+					qcom,supply-min-voltage = <0>;
+					qcom,supply-max-voltage = <0>;
+					qcom,supply-enable-load = <0>;
+					qcom,supply-disable-load = <0>;
+					qcom,supply-pre-on-sleep = <0>;
+					qcom,supply-post-on-sleep = <0>;
+					qcom,supply-pre-off-sleep = <0>;
+					qcom,supply-post-off-sleep = <0>;
+				};
 			};
-		};
 
-		qcom,phy-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
+			qcom,phy-supply-entries {
+				#address-cells = <1>;
+				#size-cells = <0>;
 
-			qcom,phy-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vddio";
-				qcom,supply-min-voltage = <1800000>;
-				qcom,supply-max-voltage = <1800000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
-				qcom,supply-pre-on-sleep = <0>;
-				qcom,supply-post-on-sleep = <20>;
-				qcom,supply-pre-off-sleep = <0>;
-				qcom,supply-post-off-sleep = <0>;
+				qcom,phy-supply-entry@0 {
+					reg = <0>;
+					qcom,supply-name = "vddio";
+					qcom,supply-min-voltage = <1800000>;
+					qcom,supply-max-voltage = <1800000>;
+					qcom,supply-enable-load = <100000>;
+					qcom,supply-disable-load = <100>;
+					qcom,supply-pre-on-sleep = <0>;
+					qcom,supply-post-on-sleep = <20>;
+					qcom,supply-pre-off-sleep = <0>;
+					qcom,supply-post-off-sleep = <0>;
+				};
 			};
-		};
 
-		qcom,ctrl-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
+			qcom,ctrl-supply-entries {
+				#address-cells = <1>;
+				#size-cells = <0>;
 
-			qcom,ctrl-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vdda";
-				qcom,supply-min-voltage = <1200000>;
-				qcom,supply-max-voltage = <1200000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
-				qcom,supply-pre-on-sleep = <0>;
-				qcom,supply-post-on-sleep = <20>;
-				qcom,supply-pre-off-sleep = <0>;
-				qcom,supply-post-off-sleep = <0>;
+				qcom,ctrl-supply-entry@0 {
+					reg = <0>;
+					qcom,supply-name = "vdda";
+					qcom,supply-min-voltage = <1200000>;
+					qcom,supply-max-voltage = <1200000>;
+					qcom,supply-enable-load = <100000>;
+					qcom,supply-disable-load = <100>;
+					qcom,supply-pre-on-sleep = <0>;
+					qcom,supply-post-on-sleep = <20>;
+					qcom,supply-pre-off-sleep = <0>;
+					qcom,supply-post-off-sleep = <0>;
+				};
 			};
-		};
 
-        };
+	        };
+	};
