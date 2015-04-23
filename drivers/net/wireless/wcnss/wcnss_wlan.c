@@ -899,7 +899,6 @@ int wcnss_get_mux_control(void)
 		return 0;
 
 	pmu_conf_reg = penv->msm_wcnss_base + PRONTO_PMU_OFFSET;
-	writel_relaxed(0, pmu_conf_reg);
 	reg = readl_relaxed(pmu_conf_reg);
 	reg |= WCNSS_PMU_CFG_GC_BUS_MUX_SEL_TOP;
 	writel_relaxed(reg, pmu_conf_reg);
