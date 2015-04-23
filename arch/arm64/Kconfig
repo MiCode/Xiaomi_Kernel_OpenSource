@@ -211,6 +211,7 @@ config ARCH_MSM
 	select DEVFREQ_GOV_MSM_BW_HWMON
 	select DEVFREQ_SIMPLE_DEV
 	select ARCH_HAS_OPP
+	select CPU_FREQ_MSM
 	help
 	  This enables support for the ARMv8 based Qualcomm chipsets.
 
