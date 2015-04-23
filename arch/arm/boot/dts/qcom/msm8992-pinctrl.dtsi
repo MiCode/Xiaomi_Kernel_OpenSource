@@ -708,6 +708,18 @@
 			};
 		};
 
+		wcd9xxx_intr {
+			qcom,pins = <&gp 72>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "wcd-intr-default";
+			wcd_intr_default: default {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* pull down */
+				input-enable;
+			};
+		};
+
 		spi0_active {
 			/* MOSI, MISO, CLK */
 			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
