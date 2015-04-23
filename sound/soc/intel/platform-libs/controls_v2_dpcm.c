@@ -415,13 +415,6 @@ static int sst_slot_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-/* assumes a boolean mux */
-static inline int get_mux_state(struct sst_data *sst,
-				  unsigned int reg, unsigned int shift)
-{
-	return sst_reg_read(sst, reg, shift, 2);
-}
-
 int sst_vtsv_event_get(struct snd_kcontrol *kcontrol,
 			 struct snd_ctl_elem_value *ucontrol)
 {
@@ -1155,9 +1148,13 @@ void send_ssp_cmd(struct snd_soc_platform *platform, const char *id, bool enable
 	cmd.header.length = sizeof(struct sst_cmd_sba_hw_set_ssp)
 				- sizeof(struct sst_dsp_header);
 	mux_shift = sst->pdata->mux_shift[ssp_no];
-	mux = (mux_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, mux_shift);
+	mux = (mux_shift == -1) ? 0 : sst_reg_read(sst, SST_MUX_REG,
+						mux_shift, 1);
+
 	domain_shift = sst->pdata->domain_shift[ssp_no][mux];
-	domain = (domain_shift == -1) ? 0 : get_mux_state(sst, SST_MUX_REG, domain_shift);
+	domain = (domain_shift == -1) ? 0 : sst_reg_read(sst, SST_MUX_REG,
+							domain_shift, 1);
+
 	config = &(sst->pdata->ssp_config)[ssp_no][mux][domain];
 	pr_debug("%s: ssp_id: %u, mux: %d, domain: %d\n", __func__,
 		 config->ssp_id, mux, domain);
@@ -1222,7 +1219,7 @@ static int sst_send_speech_path(struct sst_data *sst, u16 switch_state)
 	cmd.config.cfg.format = 0;
 	cmd.config.cfg.rate = 0;
 
-	is_wideband = get_mux_state(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT);
+	is_wideband = sst_reg_read(sst, SST_MUX_REG, SST_VOICE_MODE_SHIFT, 1);
 	if (is_wideband)
 		cmd.config.cfg.rate = 1;
 	return sst_fill_and_send_cmd(sst, SST_IPC_IA_CMD, SST_FLAG_BLOCKED,
