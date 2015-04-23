@@ -2237,7 +2237,7 @@ static int msm_vidc_deinit_core(struct msm_vidc_inst *inst)
 
 	mutex_lock(&core->lock);
 
-	if (list_empty(&core->instances)) {
+	if (!core->resources.never_unload_fw && list_empty(&core->instances)) {
 		cancel_delayed_work(&core->fw_unload_work);
 
 		/*

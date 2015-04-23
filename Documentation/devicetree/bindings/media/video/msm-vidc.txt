@@ -70,6 +70,10 @@ Optional properties:
   scalable = 0x1 (if the driver should vary the clock's frequency based on load)
 - qcom,sw-power-collapse = A bool indicating if video hardware core can be
   power collapsed in idle state.
+- qcom,never-unload-fw = A bool indicating if video firmware should be not be
+  unloaded after all active sessions have closed.  Once a new session starts up
+  after this, the firmware will be ready to go.  This should be set on platforms
+  that desire low-latency video startup and don't mind "leakage" of some memory.
 - qcom,use-non-secure-pil = A bool indicating which type of pil to use to load
   the fw.
 - qcom,fw-bias = The address at which venus fw is loaded (manually).
@@ -157,6 +161,7 @@ Example:
 		qcom,qdss-presets = <0xFC307000 0x1000>,
 			<0xFC322000 0x1000>;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,never-unload-fw;
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;
 		qcom,sw-power-collapse;

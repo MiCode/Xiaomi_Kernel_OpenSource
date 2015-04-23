@@ -684,6 +684,9 @@ int read_platform_resources_from_dt(
 	dprintk(VIDC_DBG, "Power collapse supported = %s\n",
 		res->sw_power_collapsible ? "yes" : "no");
 
+	res->never_unload_fw = of_property_read_bool(pdev->dev.of_node,
+			"qcom,never-unload-fw");
+
 	return rc;
 err_load_max_hw_load:
 	msm_vidc_free_clock_table(res);

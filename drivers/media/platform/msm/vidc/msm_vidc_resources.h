@@ -138,6 +138,7 @@ struct msm_vidc_platform_resources {
 	bool thermal_mitigable;
 	const char *fw_name;
 	const char *hfi_version;
+	bool never_unload_fw;
 };
 
 static inline bool is_iommu_present(struct msm_vidc_platform_resources *res)
