@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@
 	pinctrl-1 = <&sdc1_clk_off &sdc1_cmd_off &sdc1_data_off>;
 
 	qcom,bus-width = <4>;
-	qcom,clk-rates = <400000 25000000 50000000 100000000 200000000>;
+	qcom,clk-rates = <400000 25000000 50000000 100000000 171430000>;
 
 	status = "ok";
 };
