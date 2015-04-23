@@ -47,6 +47,7 @@
 #include <soc/qcom/msm-core.h>
 #include <linux/cpumask.h>
 #include <linux/suspend.h>
+#include <linux/uaccess.h>
 
 #define CREATE_TRACE_POINTS
 #define TRACE_MSM_THERMAL
@@ -62,6 +63,8 @@
 #define MSM_CONFIG       "config"
 #define CPU_BUF_SIZE 64
 #define CPU_DEVICE "cpu%d"
+#define MAX_DEBUGFS_CONFIG_LEN   32
+#define DEBUGFS_DISABLE_ALL_MIT "disable"
 
 #define THERM_CREATE_DEBUGFS_DIR(_node, _name, _parent, _ret) \
 	do { \
@@ -161,6 +164,8 @@ static int tsens_scaling_factor = SENSOR_SCALING_FACTOR;
 
 static LIST_HEAD(devices_list);
 static LIST_HEAD(thresholds_list);
+static int mitigation = 1;
+
 enum thermal_threshold {
 	HOTPLUG_THRESHOLD_HIGH,
 	HOTPLUG_THRESHOLD_LOW,
@@ -267,6 +272,11 @@ enum msm_temp_band {
 	MSM_TEMP_MAX_NR,
 };
 
+enum cpu_mit_type {
+	CPU_FREQ_MITIGATION    = 0x1,
+	CPU_HOTPLUG_MITIGATION = 0x2,
+};
+
 struct msm_thermal_debugfs_entry {
 	struct dentry *parent;
 	struct dentry *tsens_print;
@@ -303,6 +313,9 @@ enum ocr_request {
 };
 
 static int thermal_config_debugfs_read(struct seq_file *m, void *data);
+static ssize_t thermal_config_debugfs_write(struct file *file,
+					const char __user *buffer,
+					size_t count, loff_t *ppos);
 
 #define SYNC_CORE(_cpu) \
 	(core_ptr && cpus[_cpu].parent_ptr->sync_cluster)
@@ -366,6 +379,17 @@ static int thermal_config_debugfs_read(struct seq_file *m, void *data);
 	ko_attr.store = store_mx_##_name; \
 	sysfs_attr_init(&ko_attr.attr); \
 	_attr_gp.attrs[0] = &ko_attr.attr;
+
+#define THERM_MITIGATION_DISABLE(_flag, _id) \
+	do { \
+		if (!_flag) \
+			return; \
+		if (_id >= 0) \
+			sensor_mgr_remove_threshold( \
+				&thresh[_id]); \
+		_flag = 0; \
+	} while (0)
+
 
 static uint32_t get_mask_from_core_handle(struct platform_device *pdev,
 						const char *key)
@@ -719,6 +743,11 @@ int devmgr_client_request_mitigation(struct device_clnt_data *clnt,
 	int ret = 0;
 	struct device_manager_data *dev_mgr = NULL;
 
+	if (!mitigation) {
+		pr_err("Thermal Mitigations disabled.\n");
+		goto req_exit;
+	}
+
 	if (!clnt || !req) {
 		pr_err("Invalid inputs for mitigation.\n");
 		ret = -EINVAL;
@@ -977,6 +1006,7 @@ static int thermal_config_debugfs_open(struct inode *inode,
 static const struct file_operations thermal_debugfs_config_ops = {
 	.open = thermal_config_debugfs_open,
 	.read = seq_read,
+	.write = thermal_config_debugfs_write,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
@@ -3583,6 +3613,11 @@ int msm_thermal_set_cluster_freq(uint32_t cluster, uint32_t freq, bool is_max)
 	struct cluster_info *cluster_ptr = NULL;
 	bool notify = false;
 
+	if (!mitigation) {
+		pr_err("Thermal Mitigations disabled.\n");
+		return -ENODEV;
+	}
+
 	if (!core_ptr) {
 		pr_err("Topology ptr not initialized\n");
 		return -ENODEV;
@@ -3629,6 +3664,11 @@ int msm_thermal_set_cluster_freq(uint32_t cluster, uint32_t freq, bool is_max)
 int msm_thermal_set_frequency(uint32_t cpu, uint32_t freq, bool is_max)
 {
 	int ret = 0;
+
+	if (!mitigation) {
+		pr_err("Thermal Mitigations disabled.\n");
+		goto set_freq_exit;
+	}
 
 	if (cpu >= num_possible_cpus()) {
 		pr_err("Invalid input\n");
@@ -4331,6 +4371,11 @@ static ssize_t __ref store_cc_enabled(struct kobject *kobj,
 	int val = 0;
 	uint32_t cpu = 0;
 
+	if (!mitigation) {
+		pr_err("Thermal Mitigations disabled.\n");
+		goto done_store_cc;
+	}
+
 	ret = kstrtoint(buf, 10, &val);
 	if (ret) {
 		pr_err("Invalid input %s. err:%d\n", buf, ret);
@@ -4384,6 +4429,10 @@ static ssize_t __ref store_cpus_offlined(struct kobject *kobj,
 	uint32_t val = 0;
 	uint32_t cpu;
 
+	if (!mitigation) {
+		pr_err("Thermal Mitigations disabled.\n");
+		goto done_cc;
+	}
 	mutex_lock(&core_control_mutex);
 	ret = kstrtouint(buf, 10, &val);
 	if (ret) {
@@ -4675,29 +4724,39 @@ device_exit:
 	return ret;
 }
 
+static void msm_thermal_init_cpu_mit(enum cpu_mit_type cpu_mit)
+{
+	uint32_t cpu;
+
+	for_each_possible_cpu(cpu) {
+		cpus[cpu].cpu = cpu;
+		if (cpu_mit & CPU_HOTPLUG_MITIGATION) {
+			cpus[cpu].offline = 0;
+			cpus[cpu].user_offline = 0;
+			cpus[cpu].hotplug_thresh_clear = false;
+		}
+		if (cpu_mit & CPU_FREQ_MITIGATION) {
+			cpus[cpu].max_freq = false;
+			cpus[cpu].user_max_freq = UINT_MAX;
+			cpus[cpu].shutdown_max_freq = UINT_MAX;
+			cpus[cpu].suspend_max_freq = UINT_MAX;
+			cpus[cpu].user_min_freq = 0;
+			cpus[cpu].limited_max_freq = UINT_MAX;
+			cpus[cpu].limited_min_freq = 0;
+			cpus[cpu].freq_thresh_clear = false;
+		}
+	}
+}
+
 int msm_thermal_init(struct msm_thermal_data *pdata)
 {
 	int ret = 0;
-	uint32_t cpu;
 
 	ret = devmgr_devices_init(pdata->pdev);
 	if (ret)
 		pr_err("cannot initialize devm devices. err:%d\n", ret);
 
-	for_each_possible_cpu(cpu) {
-		cpus[cpu].cpu = cpu;
-		cpus[cpu].offline = 0;
-		cpus[cpu].user_offline = 0;
-		cpus[cpu].hotplug_thresh_clear = false;
-		cpus[cpu].max_freq = false;
-		cpus[cpu].user_max_freq = UINT_MAX;
-		cpus[cpu].shutdown_max_freq = UINT_MAX;
-		cpus[cpu].suspend_max_freq = UINT_MAX;
-		cpus[cpu].user_min_freq = 0;
-		cpus[cpu].limited_max_freq = UINT_MAX;
-		cpus[cpu].limited_min_freq = 0;
-		cpus[cpu].freq_thresh_clear = false;
-	}
+	msm_thermal_init_cpu_mit(CPU_FREQ_MITIGATION | CPU_HOTPLUG_MITIGATION);
 	BUG_ON(!pdata);
 	memcpy(&msm_thermal_info, pdata, sizeof(struct msm_thermal_data));
 
@@ -5918,6 +5977,154 @@ PROBE_FREQ_EXIT:
 	return ret;
 }
 
+static void thermal_cpu_freq_mit_disable(void)
+{
+	uint32_t cpu = 0, th_cnt = 0;
+	struct device_manager_data *dev_mgr = NULL;
+	struct device_clnt_data *clnt = NULL;
+	char device_name[TSENS_NAME_MAX] = {0};
+
+	freq_mitigation_enabled = 0;
+	msm_thermal_init_cpu_mit(CPU_FREQ_MITIGATION);
+	for_each_possible_cpu(cpu) {
+		for (th_cnt = FREQ_THRESHOLD_HIGH;
+			th_cnt <= FREQ_THRESHOLD_LOW; th_cnt++)
+			sensor_cancel_trip(cpus[cpu].sensor_id,
+				&cpus[cpu].threshold[th_cnt]);
+
+		snprintf(device_name, TSENS_NAME_MAX, CPU_DEVICE, cpu);
+		dev_mgr = find_device_by_name(device_name);
+		if (!dev_mgr) {
+			pr_err("Invalid device %s\n", device_name);
+			return;
+		}
+		mutex_lock(&dev_mgr->clnt_lock);
+		list_for_each_entry(clnt, &dev_mgr->client_list, clnt_ptr) {
+			if (!clnt->req_active)
+				continue;
+			clnt->request.freq.max_freq
+				= CPUFREQ_MAX_NO_MITIGATION;
+			clnt->request.freq.min_freq
+				= CPUFREQ_MIN_NO_MITIGATION;
+		}
+		dev_mgr->active_req.freq.max_freq = CPUFREQ_MAX_NO_MITIGATION;
+		dev_mgr->active_req.freq.min_freq = CPUFREQ_MIN_NO_MITIGATION;
+		mutex_unlock(&dev_mgr->clnt_lock);
+	}
+	if (freq_mitigation_task)
+		complete(&freq_mitigation_complete);
+	else
+		pr_err("Freq mit task is not initialized\n");
+}
+
+static void thermal_cpu_hotplug_mit_disable(void)
+{
+	uint32_t cpu = 0, th_cnt = 0;
+	struct device_manager_data *dev_mgr = NULL;
+	struct device_clnt_data *clnt = NULL;
+
+	mutex_lock(&core_control_mutex);
+	hotplug_enabled = 0;
+	msm_thermal_init_cpu_mit(CPU_HOTPLUG_MITIGATION);
+	for_each_possible_cpu(cpu) {
+		if (!(msm_thermal_info.core_control_mask & BIT(cpu)))
+			continue;
+
+		for (th_cnt = HOTPLUG_THRESHOLD_HIGH;
+			th_cnt <= HOTPLUG_THRESHOLD_LOW; th_cnt++)
+			sensor_cancel_trip(cpus[cpu].sensor_id,
+				&cpus[cpu].threshold[th_cnt]);
+	}
+
+	dev_mgr = find_device_by_name(HOTPLUG_DEVICE);
+	if (!dev_mgr) {
+		pr_err("Invalid device %s\n", HOTPLUG_DEVICE);
+		mutex_unlock(&core_control_mutex);
+		return;
+	}
+	mutex_lock(&dev_mgr->clnt_lock);
+	list_for_each_entry(clnt, &dev_mgr->client_list, clnt_ptr) {
+		if (!clnt->req_active)
+			continue;
+		HOTPLUG_NO_MITIGATION(&clnt->request.offline_mask);
+	}
+	HOTPLUG_NO_MITIGATION(&dev_mgr->active_req.offline_mask);
+	mutex_unlock(&dev_mgr->clnt_lock);
+
+	if (hotplug_task)
+		complete(&hotplug_notify_complete);
+	else
+		pr_err("Hotplug task is not initialized\n");
+
+	mutex_unlock(&core_control_mutex);
+}
+
+static void thermal_reset_disable(void)
+{
+	THERM_MITIGATION_DISABLE(therm_reset_enabled, MSM_THERM_RESET);
+}
+
+static void thermal_mx_mit_disable(void)
+{
+	int ret = 0;
+
+	THERM_MITIGATION_DISABLE(vdd_mx_enabled, MSM_VDD_MX_RESTRICTION);
+	ret = remove_vdd_mx_restriction();
+	if (ret)
+		pr_err("Failed to remove vdd mx restriction\n");
+}
+
+static void thermal_vdd_mit_disable(void)
+{
+	int ret = 0;
+
+	THERM_MITIGATION_DISABLE(vdd_rstr_enabled, MSM_VDD_RESTRICTION);
+	ret = vdd_restriction_apply_all(0);
+	if (ret)
+		pr_err("Disable vdd rstr for all failed. err:%d\n", ret);
+}
+
+static void thermal_psm_mit_disable(void)
+{
+	int ret = 0;
+
+	THERM_MITIGATION_DISABLE(psm_enabled, -1);
+	ret = psm_set_mode_all(PMIC_AUTO_MODE);
+	if (ret)
+		pr_err("Set auto mode for all failed. err:%d\n", ret);
+}
+
+static void thermal_ocr_mit_disable(void)
+{
+	int ret = 0;
+
+	THERM_MITIGATION_DISABLE(ocr_enabled, MSM_OCR);
+	ret = ocr_set_mode_all(OPTIMUM_CURRENT_MAX);
+	if (ret)
+		pr_err("Set max optimum current failed. err:%d\n", ret);
+}
+
+static void thermal_phase_ctrl_mit_disable(void)
+{
+	int ret = 0;
+
+	THERM_MITIGATION_DISABLE(cx_phase_ctrl_enabled, MSM_CX_PHASE_CTRL_HOT);
+	ret = send_temperature_band(MSM_CX_PHASE_CTRL, MSM_WARM);
+	if (ret)
+		pr_err("cx band set to WARM failed. err:%d\n", ret);
+
+	if (gfx_crit_phase_ctrl_enabled || gfx_warm_phase_ctrl_enabled) {
+		THERM_MITIGATION_DISABLE(gfx_warm_phase_ctrl_enabled,
+					MSM_GFX_PHASE_CTRL_WARM);
+		THERM_MITIGATION_DISABLE(gfx_crit_phase_ctrl_enabled,
+					MSM_GFX_PHASE_CTRL_HOT);
+		ret = send_temperature_band(MSM_GFX_PHASE_CTRL, MSM_NORMAL);
+		if (!ret)
+			pr_err("gfx phase set to NORMAL failed. err:%d\n",
+				ret);
+	}
+}
+
 static void thermal_boot_config_read(struct seq_file *m, void *data)
 {
 
@@ -6070,8 +6277,53 @@ static void thermal_phase_ctrl_config_read(struct seq_file *m, void *data)
 			msm_thermal_info.gfx_sensor);
 }
 
+static void thermal_disable_all_mitigation(void)
+{
+	thermal_cpu_freq_mit_disable();
+	thermal_cpu_hotplug_mit_disable();
+	thermal_reset_disable();
+	thermal_mx_mit_disable();
+	thermal_vdd_mit_disable();
+	thermal_psm_mit_disable();
+	thermal_ocr_mit_disable();
+	thermal_phase_ctrl_mit_disable();
+}
+
+static ssize_t thermal_config_debugfs_write(struct file *file,
+			const char __user *buffer, size_t count, loff_t *ppos)
+{
+	int ret = 0;
+	char config_string[MAX_DEBUGFS_CONFIG_LEN] = { '\0' };
+
+	if (!mitigation || count > (MAX_DEBUGFS_CONFIG_LEN - 1)) {
+		pr_err("Invalid parameters\n");
+		return -EINVAL;
+	}
+
+	if (copy_from_user(config_string, buffer, count)) {
+		pr_err("Error reading debugfs command\n");
+		ret = -EFAULT;
+		goto exit_debugfs_write;
+	}
+	pr_debug("Debugfs config command string: %s\n", config_string);
+	if (!strcmp(config_string, DEBUGFS_DISABLE_ALL_MIT)) {
+		mitigation = 0;
+		pr_err("KTM mitigations disabled via debugfs\n");
+		thermal_disable_all_mitigation();
+	}
+
+exit_debugfs_write:
+	if (!ret)
+		return count;
+	return ret;
+}
+
 static int thermal_config_debugfs_read(struct seq_file *m, void *data)
 {
+	if (!mitigation) {
+		seq_puts(m, "KTM Mitigations Disabled\n");
+		return 0;
+	}
 	thermal_boot_config_read(m, data);
 	thermal_emergency_config_read(m, data);
 	thermal_mx_config_read(m, data);
