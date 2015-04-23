@@ -80,7 +80,6 @@
 	anoc0_smmu: arm,smmu-anoc0@1640000 {
 		status = "disabled";
 		compatible = "qcom,smmu-v2";
-		qcom,no-mmu-enable;
 		reg = <0x1640000 0x10000>;
 		#iommu-cells = <1>;
 	};
