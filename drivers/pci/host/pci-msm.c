@@ -109,6 +109,7 @@
 #define QSERDES_TX_N_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN(n, m) (TX(n, m) + 0x68)
 #define QSERDES_TX_N_LANE_MODE(n, m)			(TX(n, m) + 0x94)
 
+#define QSERDES_RX_N_UCDR_SO_GAIN_HALF(n, m)		(RX(n, m) + 0x010)
 #define QSERDES_RX_N_UCDR_SO_GAIN(n, m)			(RX(n, m) + 0x01C)
 #define QSERDES_RX_N_UCDR_SO_SATURATION_AND_ENABLE(n, m) (RX(n, m) + 0x048)
 #define QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL2(n, m)	(RX(n, m) + 0x0D8)
@@ -121,7 +122,9 @@
 #define PCIE_N_SW_RESET(n, m)			(PCS_PORT(n, m) + 0x00)
 #define PCIE_N_POWER_DOWN_CONTROL(n, m)		(PCS_PORT(n, m) + 0x04)
 #define PCIE_N_START_CONTROL(n, m)		(PCS_PORT(n, m) + 0x08)
+#define PCIE_N_TXDEEMPH_M3P5DB_V0(n, m)		(PCS_PORT(n, m) + 0x28)
 #define PCIE_N_ENDPOINT_REFCLK_DRIVE(n, m)	(PCS_PORT(n, m) + 0x54)
+#define PCIE_N_RX_IDLE_DTCT_CNTRL(n, m)		(PCS_PORT(n, m) + 0x58)
 #define PCIE_N_POWER_STATE_CONFIG1(n, m)	(PCS_PORT(n, m) + 0x60)
 #define PCIE_N_POWER_STATE_CONFIG4(n, m)	(PCS_PORT(n, m) + 0x6C)
 #define PCIE_N_TEST_CONTROL4(n, m)		(PCS_PORT(n, m) + 0x11C)
@@ -1077,18 +1080,15 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 		msm_pcie_write_reg(dev->phy, PCIE_COM_POWER_DOWN_CONTROL, 0x01);
 
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_BIAS_EN_CLKBUFLR_EN, 0x1C);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_ENABLE1, 0x1F);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_SELECT, 0x30);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_BG_CTRL, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_ENABLE1, 0x10);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_SELECT, 0x33);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CMN_CONFIG, 0x06);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP_EN, 0x00);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_RESETSM_CNTRL, 0x01);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_MAP, 0x00);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE2_MODE0, 0x02);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE1_MODE0, 0x24);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE2_MODE0, 0x01);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE1_MODE0, 0x3F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_TIMER1, 0xFF);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_TIMER2, 0x1F);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_RESTRIM_CTRL, 0x00);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_HSCLK_SEL, 0x01);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SVS_MODE_CLK_SEL, 0x01);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CORE_CLK_EN, 0x6E);
@@ -1101,8 +1101,8 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP3_MODE0, 0x00);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP2_MODE0, 0x34);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP1_MODE0, 0x14);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_SELECT, 0x31);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYS_CLK_CTRL, 0x06);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_SELECT, 0x33);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYS_CLK_CTRL, 0x04);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYSCLK_BUF_ENABLE, 0x1F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYSCLK_EN_SEL, 0x04);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CP_CTRL_MODE0, 0x0B);
@@ -1118,15 +1118,12 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_STEP_SIZE1, 0x2f);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SSC_STEP_SIZE2, 0x19);
 
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_CTRL, 0x1C);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE1_MODE0, 0x3F);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE2_MODE0, 0x01);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_RESCODE_DIV_NUM, 0x15);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_BG_TRIM, 0x0F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_PLL_IVCO, 0x0F);
 
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_EP_DIV, 0x19);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_ENABLE1, 0x1F);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_ENABLE1, 0x10);
 
 	if (dev->common_phy) {
 		msm_pcie_write_reg(dev->phy, PCIE_COM_SW_RESET, 0x00);
@@ -1150,36 +1147,45 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		common_phy), 0x45);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_TX_N_LANE_MODE(dev->rc_idx, common_phy),
-		0x02);
+		0x06);
 
 	msm_pcie_write_reg(dev->phy,
+		PCIE_N_TXDEEMPH_M3P5DB_V0(dev->rc_idx, common_phy),
+		0x11);
+	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_SIGDET_ENABLES(dev->rc_idx, common_phy),
-		0x10);
+		0x1C);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_SIGDET_LVL(dev->rc_idx, common_phy),
-		0x1B);
+		0x17);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL2(dev->rc_idx, common_phy),
-		0x71);
+		0x01);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL3(dev->rc_idx, common_phy),
-		0x5E);
+		0x00);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_RX_EQU_ADAPTOR_CNTRL4(dev->rc_idx, common_phy),
-		0xBB);
+		0xDB);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_UCDR_SO_GAIN(dev->rc_idx, common_phy),
-		0x04);
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		QSERDES_RX_N_UCDR_SO_GAIN_HALF(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_RX_IDLE_DTCT_CNTRL(dev->rc_idx, common_phy),
+		0x4C);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_UCDR_SO_SATURATION_AND_ENABLE(dev->rc_idx,
-		common_phy), 0x4B);
+		common_phy), 0x40);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_SIGDET_DEGLITCH_CNTRL(dev->rc_idx, common_phy),
-		0x08);
+		0x14);
 
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_ENDPOINT_REFCLK_DRIVE(dev->rc_idx, common_phy),
-		0x04);
+		0x05);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, common_phy),
 		0x02);
