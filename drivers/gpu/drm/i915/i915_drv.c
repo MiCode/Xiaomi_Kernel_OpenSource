@@ -628,12 +628,11 @@ static int i915_drm_freeze(struct drm_device *dev)
 
 	dev_priv->suspend_count++;
 
-	ret = intel_suspend_complete(dev_priv);
+	intel_display_set_init_power(dev_priv, false);
 
+	ret = intel_suspend_complete(dev_priv);
 	if (ret)
 		WARN(1, "Suspend complete failed: %d\n", ret);
-
-	intel_display_set_init_power(dev_priv, false);
 
 	kobject_uevent_env(&dev->primary->kdev->kobj, KOBJ_CHANGE, envp);
 
