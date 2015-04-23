@@ -98,6 +98,7 @@ free_mem:
 
 static int __init cpu_psci_cpu_init(unsigned int cpu)
 {
+	pr_info("Initializing psci_cpu_init\n");
 	return 0;
 }
 
@@ -178,29 +179,25 @@ static int cpu_psci_cpu_kill(unsigned int cpu)
 }
 #endif
 
-static int psci_suspend_finisher(unsigned long index)
+static int psci_suspend_finisher(unsigned long state_id)
 {
-	u32 *state = __this_cpu_read(psci_power_state);
-
-	return psci_ops.cpu_suspend(state[index - 1],
-				    virt_to_phys(cpu_resume));
+	return psci_ops.cpu_suspend(state_id, virt_to_phys(cpu_resume));
 }
 
-static int __maybe_unused cpu_psci_cpu_suspend(unsigned long index)
+static int __maybe_unused cpu_psci_cpu_suspend(unsigned long state_id)
 {
 	int ret;
-	u32 *state = __this_cpu_read(psci_power_state);
 	/*
-	 * idle state index 0 corresponds to wfi, should never be called
+	 * idle state id 0 corresponds to wfi, should never be called
 	 * from the cpu_suspend operations
 	 */
-	if (WARN_ON_ONCE(!index))
+	if (WARN_ON_ONCE(!state_id))
 		return -EINVAL;
 
-	if (!psci_power_state_loses_context(state[index - 1]))
-		ret = psci_ops.cpu_suspend(state[index - 1], 0);
+	if (!psci_power_state_loses_context(state_id))
+		ret = psci_ops.cpu_suspend(state_id, 0);
 	else
-		ret = cpu_suspend(index, psci_suspend_finisher);
+		ret = cpu_suspend(state_id, psci_suspend_finisher);
 
 	return ret;
 }
