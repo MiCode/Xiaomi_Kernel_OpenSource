@@ -91,4 +91,5 @@
 
 &ssphy {
 	qcom,override-pll-calibration;
+	qcom,qmp-misc-config;
 };
