@@ -1,0 +1,104 @@
+Qualcomm's QPNP PMIC current ADC driver
+
+QPNP PMIC current ADC (IADC) provides interface to clients to read
+current. A 16 bit ADC is used for current measurements. There are multiple
+peripherals to the IADC and the scope of the driver is to provide interface
+for the USR peripheral of the IADC.
+
+IADC node
+
+Required properties:
+- compatible : should be "qcom,qpnp-iadc" for Current ADC driver.
+- reg : offset and length of the PMIC Arbiter register map.
+- reg-names : resource names used for the physical base address of the PMIC IADC
+	      peripheral, the SMBB_BAT_IF_TRIM_CNST_RDS register.
+	      Should be "iadc-base" for the PMIC IADC peripheral base register.
+	      Should be "batt-id-trim-cnst-rds" for reading the
+	      SMBB_BAT_IF_TRIM_CNST_RDS register.
+- address-cells : Must be one.
+- size-cells : Must be zero.
+- interrupts : The USR bank peripheral IADC interrupt.
+- interrupt-names : Should contain "eoc-int-en-set".
+- qcom,adc-bit-resolution : Bit resolution of the ADC.
+- qcom,adc-vdd-reference : Voltage reference used by the ADC.
+
+Optional properties:
+- qcom,rsense : Use this property when external rsense should be used
+		for current calculation and specify the units in nano-ohms.
+- qcom,iadc-poll-eoc: Use polling instead of interrupts for End of Conversion completion.
+- qcom,pmic-revid : Phandle pointing to the revision peripheral node. Use it to query the
+		    PMIC type and revision for applying the appropriate temperature
+		    compensation parameters.
+- qcom,use-default-rds-trim : Add this property to check if certain conditions are to be checked
+			      reading the SMBB_BAT_IF_CNST_RDS, IADC_RDS trim register and
+			      manufacturer type. Check the driver for conditions that each of the type.
+			      0 : Select the TypeA to read the IADC and SMBB trim register and
+				  apply the default RSENSE if conditions are met.
+			      1 : Select the TypeB to read the IADC, SMBB trim register and
+				  manufacturer type and apply the default RSENSE if conditions are met.
+			      2 : Select the TypeC to read the IADC, SMBB trim register and
+				  apply the default RSENSE if conditions are met.
+
+Channel node
+NOTE: Atleast one Channel node is required.
+
+Client required property:
+- qcom,<consumer name>-iadc : The phandle to the corresponding iadc device.
+			The consumer name passed to the driver when calling
+			qpnp_get_iadc() is used to associate the client
+			with the corresponding device.
+
+Required properties:
+- label : Channel name used for sysfs entry.
+- reg : AMUX channel number.
+- qcom,channel-num : Channel number associated to the AMUX input.
+- qcom,decimation : Sampling rate to use for the individual channel measurement.
+		    Select from the following unsigned int.
+		    0 : 512
+		    1 : 1K
+		    2 : 2K
+		    3 : 4K
+- qcom,fast-avg-setup : Average number of samples to be used for measurement. Fast averaging
+			provides the option to obtain a single measurement from the ADC that
+			is an average of multiple samples. The value selected is 2^(value)
+			Select from the following unsigned int.
+			0 : 1
+			1 : 2
+			2 : 4
+			3 : 8
+			4 : 16
+			5 : 32
+			6 : 64
+			7 : 128
+			8 : 256
+- qcom,iadc-vadc : Corresponding phandle of the VADC device to read the die_temperature and set
+		simultaneous voltage and current conversion requests.
+
+Example:
+	/* Main Node */
+	qcom,iadc@3200 {
+                        compatible = "qcom,qpnp-iadc";
+                        reg = <0x3200 0x100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+                        interrupts = <0 0x36 0>;
+			interrupt-names = "eoc-int-en-set";
+                        qcom,adc-bit-resolution = <16>;
+                        qcom,adc-vdd-reference = <1800>;
+			qcom,rsense = <1500>;
+			qcom,iadc-vadc = <&pm8941_vadc>;
+
+			/* Channel Node */
+                        chan@0 = {
+                                label = "rsense";
+                                reg = <0>;
+                                qcom,decimation = <0>;
+                                qcom,fast-avg-setup = <0>;
+                        };
+	};
+
+Client device example:
+/* Add to the clients node that needs the IADC */
+client_node {
+	qcom,client-iadc = <&pm8941_iadc>;
+};
