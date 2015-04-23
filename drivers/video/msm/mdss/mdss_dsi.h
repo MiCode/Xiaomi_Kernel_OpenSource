@@ -54,6 +54,7 @@
 #define MDSS_DSI_HW_REV_103		0x10030000	/* 8994    */
 #define MDSS_DSI_HW_REV_103_1		0x10030001	/* 8916/8936 */
 #define MDSS_DSI_HW_REV_104             0x10040000      /* 8996   */
+#define MDSS_DSI_HW_REV_104_1           0x10040001      /* 8996   */
 
 #define NONE_PANEL "none"
 

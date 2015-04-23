@@ -74,7 +74,7 @@ static void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
+	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev, MDSS_DSI_HW_REV_104)) {
 		if (mdss_dsi_is_ctrl_clk_master(ctrl))
 			sctrl = mdss_dsi_get_ctrl_clk_slave();
 		else
@@ -105,7 +105,7 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104)
+	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev, MDSS_DSI_HW_REV_104))
 		return;
 
 	MIPI_OUTP(ctrl->shared_ctrl_data->phy_regulator_io.base
@@ -119,7 +119,7 @@ static void mdss_dsi_phy_lane_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104)
+	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev, MDSS_DSI_HW_REV_104))
 		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0x0000);
 	else
 		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
@@ -177,7 +177,7 @@ void mdss_dsi_lp_cd_rx(struct mdss_dsi_ctrl_pdata *ctrl)
 		return;
 	}
 
-	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104)
+	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev, MDSS_DSI_HW_REV_104))
 		return;
 
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
@@ -575,6 +575,7 @@ static void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
 
 	switch (ctrl->hw_rev) {
 	case MDSS_DSI_HW_REV_104:
+	case MDSS_DSI_HW_REV_104_1:
 		mdss_dsi_8996_phy_init(ctrl);
 		break;
 	case MDSS_DSI_HW_REV_103:
@@ -1324,7 +1325,7 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		return -EINVAL;
 	}
 
-	if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
+	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev, MDSS_DSI_HW_REV_104)) {
 		pr_debug("%s: clamp ctrl configuration is skipped\n", __func__);
 		return 0;
 	}
@@ -1382,7 +1383,9 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		 * reset when mdss ahb clock reset is asserted while coming
 		 * out of power collapse
 		 */
-		if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
+		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev,
+			MDSS_DSI_HW_REV_104)) {
+
 			regval = MIPI_INP(ctrl->mmss_misc_io.base +
 				clamp_reg_off);
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
@@ -1395,7 +1398,9 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		wmb();
 		ctrl->mmss_clamp = true;
 	} else if (!enable && ctrl->mmss_clamp) {
-		if (ctrl->hw_rev == MDSS_DSI_HW_REV_104) {
+		if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev,
+			MDSS_DSI_HW_REV_104)) {
+
 			regval = MIPI_INP(ctrl->mmss_misc_io.base +
 				clamp_reg_off);
 			MIPI_OUTP(ctrl->mmss_misc_io.base + clamp_reg_off,
