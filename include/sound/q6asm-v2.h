@@ -388,13 +388,13 @@ int q6asm_stream_media_format_block_flac(struct audio_client *ac,
 			struct asm_flac_cfg *cfg, int stream_id);
 
 int q6asm_media_format_block_alac(struct audio_client *ac,
-			struct asm_alac_cfg *cfg);
+			struct asm_alac_cfg *cfg, int stream_id);
 
 int q6asm_stream_media_format_block_vorbis(struct audio_client *ac,
 			struct asm_vorbis_cfg *cfg, int stream_id);
 
 int q6asm_media_format_block_ape(struct audio_client *ac,
-			struct asm_ape_cfg *cfg);
+			struct asm_ape_cfg *cfg, int stream_id);
 
 int q6asm_ds1_set_endp_params(struct audio_client *ac,
 				int param_id, int param_value);
