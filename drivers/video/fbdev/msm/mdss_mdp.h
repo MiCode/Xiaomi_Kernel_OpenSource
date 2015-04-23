@@ -810,7 +810,8 @@ static inline int mdss_mdp_get_wb_ctl_support(struct mdss_data_type *mdata,
 
 static inline int mdss_mdp_get_pixel_ram_size(struct mdss_data_type *mdata)
 {
-	return (mdata->mdp_rev == MDSS_MDP_HW_REV_107) ?
+	return (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_107)) ?
 						MDSS_MDP_PIXEL_RAM_SIZE : 0;
 }
 
