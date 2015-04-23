@@ -185,17 +185,6 @@ static const struct dev_pm_ops pcie_portdrv_pm_ops = {
 #endif /* !PM */
 
 /*
- * PCIe port runtime suspend is broken for some chipsets, so use a
- * enable list to enable runtime PM only for good chipsets.
- */
-static const struct pci_device_id port_runtime_pm_enable_list[] = {
-	/*Cherryview*/
-	{PCI_DEVICE(PCI_VENDOR_ID_INTEL, 0x22c8),},
-
-	{ /* end: all zeroes */ }
-};
-
-/*
  * pcie_portdrv_probe - Probe PCI-Express port devices
  * @dev: PCI-Express port device being probed
  *
@@ -228,20 +217,11 @@ static int pcie_portdrv_probe(struct pci_dev *dev,
 	 * it by default.
 	 */
 	dev->d3cold_allowed = false;
-	if (pci_match_id(port_runtime_pm_enable_list, dev)) {
-		pm_runtime_put_noidle(&dev->dev);
-		pm_runtime_allow(&dev->dev);
-	}
-
 	return 0;
 }
 
 static void pcie_portdrv_remove(struct pci_dev *dev)
 {
-	if (pci_match_id(port_runtime_pm_enable_list, dev)) {
-		pm_runtime_forbid(&dev->dev);
-		pm_runtime_get_noresume(&dev->dev);
-	}
 	pcie_port_device_remove(dev);
 }
 

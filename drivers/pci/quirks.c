@@ -25,6 +25,7 @@
 #include <linux/sched.h>
 #include <linux/ktime.h>
 #include <linux/mm.h>
+#include <linux/pm_runtime.h>
 #include <asm/dma.h>	/* isa_dma_bridge_buggy */
 #include "pci.h"
 #include <linux/usb.h>
@@ -2907,6 +2908,42 @@ static void quirk_intel_ntb(struct pci_dev *dev)
 }
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x0e08, quirk_intel_ntb);
 DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x0e0d, quirk_intel_ntb);
+
+
+/*PCIe port 0 on Cherryview should support runtime PM*/
+static void quirk_pcie_enable_rtpm(struct pci_dev *dev)
+{
+	dev_info(&dev->dev, "enable runtime PM\n");
+	pm_runtime_put_noidle(&dev->dev);
+	pm_runtime_allow(&dev->dev);
+}
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_INTEL,
+	PCI_DEVICE_ID_INTEL_CHV_PCIe_0, quirk_pcie_enable_rtpm);
+
+static int pci_disbale_dev_pme_poll(struct pci_dev *pdev, void *data)
+{
+	pdev->pme_poll = false;
+}
+
+/*PCIEe port 1 on Cherryview should support runtime PM and ignore children*/
+static void quirk_pcie_enable_rtpm_ignore_children(struct pci_dev *dev)
+{
+	dev_info(&dev->dev, "enable runtime PM and ignore children\n");
+	pm_suspend_ignore_children(&dev->dev, true);
+	/*
+	 * If any subordinate device needs pme poll, we should keep
+	 * the port in D0, because we need port in D0 to poll it.
+	 * But for this special case, we need this PCIe port enter D3
+	 * no matter the status of child device.
+	 * Set device pme_poll as false.
+	 */
+	pci_walk_bus(dev->subordinate, pci_disbale_dev_pme_poll, NULL);
+	pm_runtime_put_noidle(&dev->dev);
+	pm_runtime_allow(&dev->dev);
+}
+
+DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_INTEL,
+	PCI_DEVICE_ID_INTEL_CHV_PCIe_1, quirk_pcie_enable_rtpm_ignore_children);
 
 static ktime_t fixup_debug_start(struct pci_dev *dev,
 				 void (*fn)(struct pci_dev *dev))
