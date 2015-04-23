@@ -12,6 +12,7 @@
  */
 
 #include "msm8952-qrd.dtsi"
+#include "dsi-panel-otm1906c-1080p-cmd.dtsi"
 
 &spmi_bus {
 	qcom,pm8950@0 {
@@ -195,4 +196,28 @@
 
 &pmi8950_fg {
 	qcom,battery-data = <&qrd_batterydata>;
+};
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 0>;
+};
+
+&pmx_mdss_te {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 24>;
+};
+
+&mdss_dsi0 {
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,dsi-pref-prim-pan = <&dsi_otm1906c_1080p_cmd>;
+	qcom,dsi-panel-bias-vreg;
+
+	qcom,platform-reset-gpio = <&msm_gpio 0 0>;
 };
