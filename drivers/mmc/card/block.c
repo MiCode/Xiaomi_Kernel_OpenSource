@@ -2840,6 +2840,26 @@ static int mmc_blk_cmdq_start_req(struct mmc_host *host,
 	return mmc_cmdq_start_req(host, cmdq_req);
 }
 
+/* prepare for non-data commands */
+static struct mmc_cmdq_req *mmc_cmdq_prep_dcmd(
+		struct mmc_queue_req *mqrq, struct mmc_queue *mq)
+{
+	struct request *req = mqrq->req;
+	struct mmc_cmdq_req *cmdq_req = &mqrq->cmdq_req;
+
+	memset(&mqrq->cmdq_req, 0, sizeof(struct mmc_cmdq_req));
+
+	cmdq_req->mrq.data = NULL;
+	cmdq_req->cmd_flags = req->cmd_flags;
+	cmdq_req->mrq.req = mqrq->req;
+	req->special = mqrq;
+	cmdq_req->cmdq_req_flags |= DCMD;
+	cmdq_req->mrq.cmdq_req = cmdq_req;
+
+	return &mqrq->cmdq_req;
+}
+
+
 #define IS_RT_CLASS_REQ(x)     \
 	(IOPRIO_PRIO_CLASS(req_get_ioprio(x)) == IOPRIO_CLASS_RT)
 
@@ -2943,6 +2963,47 @@ static int mmc_blk_cmdq_issue_rw_rq(struct mmc_queue *mq, struct request *req)
 	return ret;
 }
 
+/*
+ * Issues a flush (dcmd) request
+ */
+int mmc_blk_cmdq_issue_flush_rq(struct mmc_queue *mq, struct request *req)
+{
+	int err;
+	struct mmc_queue_req *active_mqrq;
+	struct mmc_card *card = mq->card;
+	struct mmc_host *host;
+	struct mmc_cmdq_req *cmdq_req;
+	struct mmc_cmdq_context_info *ctx_info;
+
+	BUG_ON(!card);
+	host = card->host;
+	BUG_ON(!host);
+	BUG_ON(req->tag > card->ext_csd.cmdq_depth);
+	BUG_ON(test_and_set_bit(req->tag, &host->cmdq_ctx.active_reqs));
+
+	ctx_info = &host->cmdq_ctx;
+
+	set_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
+
+	active_mqrq = &mq->mqrq_cmdq[req->tag];
+	active_mqrq->req = req;
+
+	cmdq_req = mmc_cmdq_prep_dcmd(active_mqrq, mq);
+	cmdq_req->cmdq_req_flags |= QBR;
+	cmdq_req->mrq.cmd = &cmdq_req->cmd;
+	cmdq_req->tag = req->tag;
+
+	err = mmc_cmdq_prepare_flush(cmdq_req->mrq.cmd);
+	if (err) {
+		pr_err("%s: failed (%d) preparing flush req\n",
+		       mmc_hostname(host), err);
+		return err;
+	}
+	err = mmc_blk_cmdq_start_req(card->host, cmdq_req);
+	return err;
+}
+EXPORT_SYMBOL(mmc_blk_cmdq_issue_flush_rq);
+
 /* invoked by block layer in softirq context */
 void mmc_blk_cmdq_complete_rq(struct request *rq)
 {
@@ -2969,12 +3030,17 @@ void mmc_blk_cmdq_complete_rq(struct request *rq)
 
 	BUG_ON(!test_and_clear_bit(cmdq_req->tag,
 				   &ctx_info->active_reqs));
+	if (cmdq_req->cmdq_req_flags & DCMD) {
+		clear_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx_info->curr_state);
+		blk_end_request_all(rq, 0);
+		goto out;
+	}
 
 	blk_end_request(rq, err, cmdq_req->data.bytes_xfered);
 
+out:
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
-
 	mmc_release_host(host);
 	return;
 }
@@ -3191,18 +3257,25 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 	int ret;
 	struct mmc_blk_data *md = mq->data;
 	struct mmc_card *card = md->queue.card;
+	unsigned int cmd_flags = req ? req->cmd_flags : 0;
 
 	mmc_claim_host(card->host);
 	ret = mmc_blk_part_switch(card, md);
 	if (ret) {
 		pr_err("%s: %s: partition switch failed %d\n",
 				md->disk->disk_name, __func__, ret);
-		blk_end_request_all(req, ret);
+		if (req)
+			blk_end_request_all(req, ret);
 		mmc_release_host(card->host);
 		goto switch_failure;
 	}
 
-	ret = mmc_blk_cmdq_issue_rw_rq(mq, req);
+	if (req) {
+		if (cmd_flags & REQ_PREFLUSH)
+			ret = mmc_blk_cmdq_issue_flush_rq(mq, req);
+		else
+			ret = mmc_blk_cmdq_issue_rw_rq(mq, req);
+	}
 
 switch_failure:
 	return ret;
@@ -3382,7 +3455,7 @@ again:
 	if (mmc_card_mmc(card) &&
 	    md->flags & MMC_BLK_CMD23 &&
 	    ((card->ext_csd.rel_param & EXT_CSD_WR_REL_PARAM_EN) ||
-	     card->ext_csd.rel_sectors) && !card->cmdq_init) {
+	     card->ext_csd.rel_sectors)) {
 		md->flags |= MMC_BLK_REL_WR;
 		blk_queue_write_cache(md->queue.queue, true, true);
 	}
