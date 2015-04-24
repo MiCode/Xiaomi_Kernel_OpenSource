@@ -1,0 +1,58 @@
+* Qualcomm Technologies Inc. NSS GMAC Platform Driver.
+
+This driver configures GMAC interfaces on the board, along with MII/MDIO interfaces and PHY devices.This forms the base interface for HLOS/Crypto Drivers.
+This driver has 2 sections listed below, one common to all the GMACs and other specific to each GMAC interface.
+
+1. Driver access details common to all GMACs
+
+Required properties:
+- compatible: "qcom,nss-gmac-common"
+- reg-names: Indicates various resources passed to driver by name.
+		"nss_reg_base", "qsgmii_reg_base", "clk_ctl_base".
+		These correspond to different register bases of GMAC.
+- reg: physical address and length of the register set for the device.
+
+Example:
+nss-gmac-common@fc800000 {
+	compatible = "qcom,nss-gmac-common";
+	reg-names = "nss_reg_base" , "qsgmii_reg_base", "clk_ctl_base";
+	reg = <0xfc800000 0x0000ffff>,
+	    <0xfc900000 0x0000ffff>,
+	    <0xfc400000 0x00004000>;
+};
+
+Required properties:
+- device_type: = "network";
+- compatible: = should be "qcom,nss-gmac";
+- reg:  physical address and length of the register set for the device.
+- interrupts: GMAC interrupts to this processor.
+- phy-mode:  Specifies PHY type being used (eg., "sgmii", "rgmii", "gmii" etc).
+- qcom,id: Unique Identifier for the GMAC block.This field is unique identifier for the core,
+	                which is also used as an index for global nss context.
+- qcom,chanid: Specifies the channel ID used by PHY to communicate with MAC Chip.
+- qcom,phy-mdio-addr: MDIO port number, used for communication with PHY chips
+- qcom,poll-required: Enables disables auto-negotiation , thus polling the PHY chip to
+			determine the configuration attributes of relavant chips.
+- qcom,rgmii-delay: Enables delay during RGMI clock configuration
+- qcom,forced-speed: The speed setting forced onto the GMAC, rather then probed.
+- qcom,forced-duplex: The Duplex setting forced onto the GMAC,rather then probed.
+- local-mac-address: Dummy MAC Address to be used at the time of GMAC initialization
+
+Optional properties:
+
+gmac0: ethernet@e7000000 {
+	device_type = "network";
+	compatible = "qcom,nss-gmac";
+	reg = <0xe7000000 0x200000>;
+	interrupts = <0 242 0>;
+	phy-mode = "sgmii";
+	qcom,id = <0>;
+	qcom,chanid = <1>;
+	qcom,phy-mdio-addr = <0>;
+	qcom,poll-required = <1>;
+	qcom,rgmii-delay = <0>;
+	qcom,forced-speed = <0>;
+	qcom,forced-duplex = <10>;
+	local-mac-address = [000000000000];
+	mdiobus = <&mdio0>;
+};

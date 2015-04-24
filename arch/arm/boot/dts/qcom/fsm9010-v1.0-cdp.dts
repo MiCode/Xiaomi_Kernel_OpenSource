@@ -85,4 +85,11 @@
 		status = "ok";
 	};
 
+	gmac0: ethernet@e7000000 {
+		status = "disabled";
+	};
+
+	gmac1: ethernet@e7200000 {
+		status = "ok";
+	};
 };

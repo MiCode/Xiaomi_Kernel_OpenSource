@@ -1,0 +1,58 @@
+* Qualcomm Technologies Inc. NSS HLOS Platform Driver.
+
+This driver communicates with the NSS Firmware, and provides empty buffers for packet-processing to the UBI32 processor.
+It also keeps track of sync packets from NSS Firmware.
+This driver has 2 sections listed below, one common to all the UBI32 cores and other specific to each UBI32 core.
+
+1. Driver access details common to UBI32 cores
+
+Required properties:
+- compatible: "qcom,nss-common"
+- reg-names: Indicates various resources passed to driver by name.
+		"nss_fpb_base","clk_ctl_base".
+		These correspond to different register bases UBI32.
+- reg: physical address and length of the register set for the device.
+
+example:
+nss-common@fc800000 {
+	compatible = "qcom,nss-common";
+	reg-names = "nss_fpb_base", "clk_ctl_base";
+	reg = <0xfc800000 0x00001000>,
+	    <0xfc400000 0x00004000>;
+};
+
+2. Driver access details specific to each UBI32 core.
+
+Required properties:
+- compatible: "qcom,nss"
+- interrupts: UBI32 to Apps interrupts for Sync/Data Packets and Empty Buffers.
+- reg-names: Indicates various resources passed to driver by name.
+		"nphys","vphys"
+		Refers to TCM and CSM Base Addresses of UBI32 Memory map.
+- reg: physical address and length of the register set for the device.
+- qcom,id: Unique Identifier for the HLOS block.This field is unique identifier for the core, which is also used as an index for global nss context.
+Optional properties:
+- qcom,ipv4-enabled: Enables registeration of N2H/PPPoE/ETH handlers, to receive stat sync
+	             IPV4 packets from UBI32.
+- qcom,ipv6-enabled: Enables registeration of IPV6 packet handlers, to receive stat sync
+                     IPV6 packets from UBI32.
+- qcom,crypto-enabled: Enables the cryptography feature for the platform.
+- qcom,gmac0-enabled: Enables GMAC0 port.
+- qcom,gmac1-enabled: Enables GMAC1 port.
+
+example:
+nss: nss@e6000000 {
+	compatible = "qcom,nss";
+	interrupts = <0 229 0x4>,
+		<0 230 0x4>;
+	reg-names = "nphys", "vphys";
+	reg = <0xe6000000 0x1000>,
+		<0xe4000000 0x20000>;
+	qcom,id = <0>;
+	qcom,num-irq = <2>;
+	qcom,ipv4-enabled;
+	qcom,ipv6-enabled;
+	qcom,crypto-enabled;
+	qcom,gmac0-enabled;
+	qcom,gmac1-enabled;
+};
