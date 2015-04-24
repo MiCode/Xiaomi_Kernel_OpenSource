@@ -497,7 +497,6 @@ void __init create_kmalloc_caches(unsigned long flags)
 }
 #endif /* !CONFIG_SLOB */
 
-
 #ifdef CONFIG_SLABINFO
 void print_slabinfo_header(struct seq_file *m)
 {
