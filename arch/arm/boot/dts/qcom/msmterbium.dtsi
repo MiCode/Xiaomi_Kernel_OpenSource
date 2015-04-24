@@ -223,6 +223,7 @@
 #include "msmterbium-ion.dtsi"
 #include "msmterbium-iommu.dtsi"
 #include "msmterbium-smp2p.dtsi"
+#include "msmterbium-bus.dtsi"
 
 &soc {
 	#address-cells = <1>;
