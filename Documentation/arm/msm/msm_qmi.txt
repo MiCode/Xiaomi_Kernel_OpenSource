@@ -1,0 +1,519 @@
+Introduction
+============
+
+Qualcomm MSM Interface(QMI) is a messaging format used to communicate
+between software components in the modem and other peripheral subsystems.
+This document proposes an architecture to introduce the QMI messaging
+into the kernel. This document proposes introducing a QMI encode/decode
+library to enable QMI message marshaling and an interface library to enable
+sending and receiving QMI messages through MSM IPC Router.
+
+Hardware description
+====================
+
+QMI is a messaging format used to interface with the components in modem
+and other subsystems. QMI does not drive or manage any hardware resources.
+
+Software description
+====================
+QMI communication is based on a client-server model, where clients and
+servers exchange messages in QMI wire format. A module can act as a client
+of any number of QMI services and a QMI service can serve any number of
+clients.
+
+QMI communication is of request/response type or an unsolicited event type.
+QMI client driver sends a request to a QMI service and receives a response.
+QMI client driver registers with the QMI service to receive indications
+regarding a system event and the QMI service sends the indications to the
+client when the event occurs in the system.
+
+The wire format of QMI message is as follows:
+
+   ----------------------------------------------------
+   |  QMI Header  |  TLV 0  |  TLV 1  | ... |  TLV N  |
+   ----------------------------------------------------
+
+QMI Header:
+-----------
+   --------------------------------------------------------
+   | Flags | Transaction ID | Message ID | Message Length |
+   --------------------------------------------------------
+
+The flags field is used to indicate the kind of QMI message - request,
+response or indication. The transaction ID is a client specific field
+to uniquely match the QMI request and the response. The message ID is
+also a client specific field to indicate the kind of information present
+in the QMI payload. The message length field holds the size information
+of the QMI payload.
+
+Flags:
+------
+  * 0 - QMI Request
+  * 2 - QMI Response
+  * 4 - QMI Indication
+
+TLV:
+----
+QMI payload is represented using a series of Type, Length and Value fields.
+Each information being passed is encoded into a type, length and value
+combination. The type element identifies the type of information being
+encoded. The length element specifies the length of the information/values
+being encoded. The information can be of a primitive type or a structure
+or an array.
+
+    -------------------------------------------
+    | Type | Length | Value 0 | ... | Value N |
+    -------------------------------------------
+
+QMI Message Marshaling and Transport:
+-------------------------------------
+QMI encode/decode library is designed to encode the kernel C data
+structures into QMI wire format and to decode the QMI messages into kernel
+C data strcuture format. This library will provide a single interface to
+transform any data structure into a QMI message and vice-versa.
+
+QMI interface library is designed to send and receive QMI messages over
+IPC Router.
+
+
+                 ----------------------------------
+                 |         Kernel Drivers         |
+                 ----------------------------------
+                        |                  |
+                        |                  |
+                -----------------   -----------------
+                | QMI Interface |___|  QMI Enc/Dec  |
+                |    Library    |   |    Library    |
+                -----------------   -----------------
+                        |
+                        |
+               -------------------
+               |   IPC Message   |
+               |      Router     |
+               -------------------
+                        |
+                        |
+                     -------
+                     | SMD |
+                     -------
+
+Design
+======
+
+The design goals of this proposed QMI messaging mechanism are:
+    * To enable QMI messaging from within the kernel
+    * To provide a common library to marshal QMI messages
+    * To provide a common interface library to send/receive QMI messages
+    * To support kernel QMI clients which have latency constraints
+
+The reason behind this design decision is:
+    * To provide a simple QMI marshaling interface to the kernel users
+    * To hide the complexities of QMI message transports
+    * To minimize code redundancy
+
+In order to provide a single encode/decode API, the library expects
+the kernel drivers to pass the:
+    * starting address of the data structure to be encoded/decoded
+    * starting address of the QMI message buffer
+    * a table containing information regarding the data structure to
+      be encoded/decoded
+
+The design is based on the idea that any complex data structure is a
+collection of primary data elements. Hence the information about any
+data structure can be constructed as an array of information about its
+primary data elements. The following structure is defined to describe
+information about a primary data element.
+
+/**
+ * elem_info - Data structure to specify information about an element
+ *             in a data structure. An array of this data structure
+ *             can be used to specify info about a complex data
+ *             structure to be encoded/decoded.
+ * @data_type: Data type of this element
+ * @elem_len: Array length of this element, if an array
+ * @elem_size: Size of a single instance of this data type
+ * @is_array: Array type of this element
+ * @tlv_type: QMI message specific type to identify which element
+ *            is present in an incoming message
+ * @offset: To identify the address of the first instance of this
+ *          element in the data structure
+ * @ei_array: Array to provide information about the nested structure
+ *            within a data structure to be encoded/decoded.
+ */
+struct elem_info {
+    enum elem_type data_type;
+    uint32_t elem_len;
+    uint32_t elem_size;
+    enum array_type is_array;
+    uint8_t tlv_type;
+    uint32_t offset;
+    struct elem_info *ei_array;
+};
+
+The alternate design discussions include manual encoding/decoding of QMI
+messages. From RPC experience, this approach has mostly been error prone.
+This in turn lead to increased development and debugging effort. Another
+approach included data-structure specific marshaling API -- i.e. every
+data structure to be encoded/decoded should have a unique auto-generated
+marshaling API. This approach comes with the cost of code redundancy and
+was therefore rejected.
+
+Power Management
+================
+
+N/A
+
+SMP/multi-core
+==============
+
+The QMI encode/decode library does not access any global or shared data
+structures. Hence it does not require any locking mechanisms to ensure
+multi-core safety.
+
+The QMI interface library uses mutexes while accessing shared resources.
+
+Security
+========
+
+N/A
+
+Performance
+===========
+
+This design proposal is to support kernel QMI clients which have latency
+constraints. Hence the number and size of QMI messages are expected to be
+kept short, in order to achieve latency of less than 1 ms consistently.
+
+Interface
+=========
+
+Kernel-APIs:
+------------
+
+Encode/Decode Library APIs:
+---------------------------
+
+/**
+ * elem_type - Enum to identify the data type of elements in a data
+ *             structure.
+ */
+enum elem_type {
+    QMI_OPT_FLAG = 1,
+    QMI_DATA_LEN,
+    QMI_UNSIGNED_1_BYTE,
+    QMI_UNSIGNED_2_BYTE,
+    QMI_UNSIGNED_4_BYTE,
+    QMI_UNSIGNED_8_BYTE,
+    QMI_SIGNED_2_BYTE_ENUM,
+    QMI_SIGNED_4_BYTE_ENUM,
+    QMI_STRUCT,
+    QMI_END_OF_TYPE_INFO,
+};
+
+/**
+ * array_type - Enum to identify if an element in a data structure is
+ *              an array. If so, then is it a static length array or a
+ *              variable length array.
+ */
+enum array_type {
+    NO_ARRAY = 0,
+    STATIC_ARRAY = 1,
+    VAR_LEN_ARRAY = 2,
+};
+
+/**
+ * msg_desc - Describe about the main/outer structure to be
+ *            encoded/decoded.
+ * @msg_id: Message ID to identify the kind of QMI message.
+ * @max_msg_len: Maximum possible length of the QMI message.
+ * @ei_array: Array to provide information about a data structure.
+ */
+struct msg_desc {
+    uint16_t msg_id;
+    int max_msg_len;
+    struct elem_info *ei_array;
+};
+
+/**
+ * qmi_kernel_encode() - Encode to QMI message wire format
+ * @desc: Structure describing the data structure to be encoded.
+ * @out_buf: Buffer to hold the encoded QMI message.
+ * @out_buf_len: Length of the buffer to hold the QMI message.
+ * @in_c_struct: C Structure to be encoded.
+ *
+ * @return: size of encoded message on success,
+ *          -ve value on failure.
+ */
+int qmi_kernel_encode(struct msg_desc *desc,
+                      void *out_buf, uint32_t out_buf_len,
+                      void *in_c_struct);
+
+/**
+ * qmi_kernel_decode() - Decode to C Structure format
+ * @desc: Structure describing the data structure format.
+ * @out_c_struct: Buffer to hold the decoded C structure.
+ * @in_buf: Buffer containg the QMI message to be decoded.
+ * @in_buf_len: Length of the incoming QMI message.
+ *
+ * @return: 0 on success, -ve value on failure.
+ */
+int qmi_kernel_decode(struct msg_desc *desc, void *out_c_struct,
+                      void *in_buf, uint32_t in_buf_len);
+
+Interface Library APIs:
+-----------------------
+
+/**
+ * qmi_svc_event_notifier_register() - Register a notifier block to receive
+ *                                     events regarding a QMI service
+ * @service_id: Service ID to identify the QMI service.
+ * @instance_id: Instance ID to identify the instance of the QMI service.
+ * @nb: Notifier block used to receive the event.
+ *
+ * @return: 0 if successfully registered, < 0 on error.
+ */
+int qmi_svc_event_notifier_register(uint32_t service_id,
+                                    uint32_t instance_id,
+                                    struct notifier_block *nb);
+
+/**
+ * qmi_handle_create() - Create a QMI handle
+ * @notify: Callback to notify events on the handle created.
+ * @notify_priv: Private info to be passed along with the notification.
+ *
+ * @return: Valid QMI handle on success, NULL on error.
+ */
+struct qmi_handle *qmi_handle_create(
+    void (*notify)(struct qmi_handle *handle,
+                   enum qmi_event_type event, void *notify_priv),
+    void *notify_priv);
+
+/**
+ * qmi_connect_to_service() - Connect the QMI handle with a QMI service
+ * @handle: QMI handle to be connected with the QMI service.
+ * @service_id: Service id to identify the QMI service.
+ * @instance_id: Instance id to identify the instance of the QMI service.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_connect_to_service(struct qmi_handle *handle,
+                           uint32_t service_id, uint32_t instance_id);
+
+/**
+ * qmi_register_ind_cb() - Register the indication callback function
+ * @handle: QMI handle with which the function is registered.
+ * @ind_cb: Callback function to be registered.
+ * @ind_cb_priv: Private data to be passed with the indication callback.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_register_ind_cb(struct qmi_handle *handle,
+    void (*ind_cb)(struct qmi_handle *handle,
+                   unsigned int msg_id, void *msg,
+                   unsigned int msg_len, void *ind_cb_priv),
+    void *ind_cb_priv);
+
+/**
+ * qmi_send_req_wait() - Send a synchronous QMI request
+ * @handle: QMI handle through which the QMI request is sent.
+ * @req_desc: Structure describing the request data structure.
+ * @req: Buffer containing the request data structure.
+ * @req_len: Length of the request data structure.
+ * @resp_desc: Structure describing the response data structure.
+ * @resp: Buffer to hold the response data structure.
+ * @resp_len: Length of the response data structure.
+ * @timeout_ms: Timeout before a response is received.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_send_req_wait(struct qmi_handle *handle,
+                      struct msg_desc *req_desc,
+                      void *req, unsigned int req_len,
+                      struct msg_desc *resp_desc,
+                      void *resp, unsigned int resp_len,
+                      unsigned long timeout_ms);
+
+/**
+ * qmi_send_req_nowait() - Send an asynchronous QMI request
+ * @handle: QMI handle through which the QMI request is sent.
+ * @req_desc: Structure describing the request data structure.
+ * @req: Buffer containing the request data structure.
+ * @req_len: Length of the request data structure.
+ * @resp_desc: Structure describing the response data structure.
+ * @resp: Buffer to hold the response data structure.
+ * @resp_len: Length of the response data structure.
+ * @resp_cb: Callback function to be invoked when the response arrives.
+ * @resp_cb_data: Private information to be passed along with the callback.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_send_req_nowait(struct qmi_handle *handle,
+                        struct msg_desc *req_desc,
+                        void *req, unsigned int req_len,
+                        struct msg_desc *resp_desc,
+                        void *resp, unsigned int resp_len,
+                        void (*resp_cb)(struct qmi_handle *handle,
+                                        unsigned int msg_id, void *msg,
+                                        void *resp_cb_data),
+                        void *resp_cb_data);
+
+/**
+ * qmi_recv_msg() - Receive the QMI message
+ * @handle: Handle for which the QMI message has to be received.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_recv_msg(struct qmi_handle *handle);
+
+/**
+ * qmi_handle_destroy() - Destroy the QMI handle
+ * @handle: QMI handle to be destroyed.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_handle_destroy(struct qmi_handle *handle);
+
+/**
+ * qmi_svc_event_notifier_unregister() - Unregister service event notifier block
+ * @service_id: Service ID to identify the QMI service.
+ * @instance_id: Instance ID to identify the instance of the QMI service.
+ * @nb: Notifier block registered to receive the events.
+ *
+ * @return: 0 if successfully registered, < 0 on error.
+ */
+int qmi_svc_event_notifier_unregister(uint32_t service_id,
+                                      uint32_t instance_id,
+                                      struct notifier_block *nb);
+
+/**
+ * qmi_svc_ops_options - Operations and options to be specified when
+ *                       a service registers.
+ * @version: Version field to identify the ops_options structure.
+ * @service_id: Service ID of the service being registered.
+ * @instance_id: Instance ID of the service being registered.
+ * @connect_cb: Callback when a new client connects with the service.
+ * @disconnect_cb: Callback when the client exits the connection.
+ * @req_desc_cb: Callback to get request structure and its descriptor
+ *               for a message id.
+ * @req_cb: Callback to process the request.
+ */
+struct qmi_svc_ops_options {
+	unsigned version;
+	uint32_t service_id;
+	uint32_t instance_id;
+	int (*connect_cb)(struct qmi_handle *handle,
+			  struct qmi_svc_clnt *clnt);
+	int (*disconnect_cb)(struct qmi_handle *handle,
+			     struct qmi_svc_clnt *clnt);
+	struct msg_desc *(*req_desc_cb)(unsigned int msg_id,
+					void **req,
+					unsigned int req_len);
+	int (*req_cb)(struct qmi_handle *handle,
+		      struct qmi_svc_clnt *clnt,
+		      void *req_handle,
+		      unsigned int msg_id,
+		      void *req);
+};
+
+/**
+ * qmi_svc_register() - Register a QMI service with a QMI handle
+ * @handle: QMI handle on which the service has to be registered.
+ * @ops_options: Service specific operations and options.
+ *
+ * @return: 0 if successfully registered, < 0 on error.
+ */
+int qmi_svc_register(struct qmi_handle *handle,
+		     void *ops_options);
+
+/**
+ * qmi_send_resp() - Send response to a request
+ * @handle: QMI handle from which the response is sent.
+ * @clnt: Client to which the response is sent.
+ * @req_handle: Request for which the response is sent.
+ * @resp_desc: Descriptor explaining the response structure.
+ * @resp: Pointer to the response structure.
+ * @resp_len: Length of the response structure.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_send_resp(struct qmi_handle *handle,
+		  struct qmi_svc_clnt *clnt,
+		  void *req_handle,
+		  struct msg_desc *resp_desc,
+		  void *resp,
+		  unsigned int resp_len);
+
+/**
+ * qmi_send_ind() - Send unsolicited event/indication to a client
+ * @handle: QMI handle from which the indication is sent.
+ * @clnt: Client to which the indication is sent.
+ * @ind_desc: Descriptor explaining the indication structure.
+ * @ind: Pointer to the indication structure.
+ * @ind_len: Length of the indication structure.
+ *
+ * @return: 0 on success, < 0 on error.
+ */
+int qmi_send_ind(struct qmi_handle *handle,
+		 struct qmi_svc_clnt *clnt,
+		 struct msg_desc *ind_desc,
+		 void *ind,
+		 unsigned int ind_len);
+
+/**
+ * qmi_svc_unregister() - Unregister the service from a QMI handle
+ * @handle: QMI handle from which the service has to be unregistered.
+ *
+ * return: 0 on success, < 0 on error.
+ */
+int qmi_svc_unregister(struct qmi_handle *handle);
+
+User-space APIs:
+----------------
+This proposal is meant only for kernel QMI clients/services and hence no
+user-space interface is defined as part of this proposal.
+
+Driver parameters
+=================
+
+N/A
+
+Config options
+==============
+
+The QMI encode/decode library will be enabled by default in the kernel.
+It can be disabled using CONFIG_QMI_ENCDEC kernel config option.
+
+The QMI Interface library will be disabled by default in the kernel,
+since it depends on other components which are disabled by dafault.
+It can be enabled using CONFIG_MSM_QMI_INTERFACE kernel config option.
+
+Dependencies
+============
+
+The QMI encode/decode library is a stand-alone module and is not
+dependent on any other kernel modules.
+
+The QMI Interface library depends on QMI Encode/Decode library and
+IPC Message Router.
+
+User space utilities
+====================
+
+N/A
+
+Other
+=====
+
+N/A
+
+Known issues
+============
+
+N/A
+
+To do
+=====
+
+Look into the possibility of making QMI Interface Library transport
+agnostic. This may involve the kernel drivers to register the transport,
+with the QMI Interface Library, to be used for transporting QMI messages.
