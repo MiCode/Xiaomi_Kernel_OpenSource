@@ -320,8 +320,8 @@ struct gpio_pad_info {
 	/* Interrupt line selected (0~15), -1 if not interruptible. */
 	int interrupt_line;
 
-	/*function mode switch support. Once enable, gpio_request will force set
-	* the pad mode to GPIO, gpio_free will switch it back to native mode.
+	/*function mode switch support. Once enable, gpio_free will
+	* switch it back to native mode.
 	* It is disabled in default. */
 	int switch_en;
 
@@ -780,13 +780,9 @@ static int chv_gpio_request(struct gpio_chip *chip, unsigned offset)
 
 	dev_dbg(&cg->pdev->dev, "chv_gpio_request %d\n", offset);
 
-	if (cg->pad_info[offset].switch_en > 0) {
-		/*change it to GPIO mode*/
-		value = chv_readl(reg) | CV_GPIO_EN;
-		chv_writel(value, reg);
-		dev_info(&cg->pdev->dev,
-			"pin %d force set to gpio mode\n", offset);
-	}
+	/*make sure it is configured to GPIO mode*/
+	value = chv_readl(reg) | CV_GPIO_EN;
+	chv_writel(value, reg);
 
 	return 0;
 }
