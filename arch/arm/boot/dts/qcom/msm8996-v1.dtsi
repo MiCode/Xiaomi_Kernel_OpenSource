@@ -45,6 +45,10 @@
 
 };
 
+&kgsl_msm_iommu {
+	 qcom,global_pt;
+};
+
 &vmem {
 	status = "disabled";
 };
