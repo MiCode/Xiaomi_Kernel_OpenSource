@@ -183,7 +183,7 @@ struct mdss_intf_recovery {
  *				- 1: update to command mode
  * @MDSS_EVENT_REGISTER_RECOVERY_HANDLER: Event to recover the interface in
  *					case there was any errors detected.
- * @ MDSS_EVENT_DSI_PANEL_STATUS:Event to check the panel status
+ * @MDSS_EVENT_DSI_PANEL_STATUS: Event to check the panel status
  *				<= 0: panel check fail
  *				>  0: panel check success
  * @MDSS_EVENT_DSI_DYNAMIC_SWITCH: Send DCS command to panel to initiate
@@ -195,6 +195,8 @@ struct mdss_intf_recovery {
  *				- MIPI_CMD_PANEL: switch to command mode
  * @MDSS_EVENT_DSI_RESET_WRITE_PTR: Reset the write pointer coordinates on
  *				the panel.
+ * @MDSS_EVENT_PANEL_TIMING_SWITCH: Panel timing switch is requested.
+ *				Argument provided is new panel timing.
  */
 enum mdss_intf_events {
 	MDSS_EVENT_RESET = 1,
@@ -221,6 +223,7 @@ enum mdss_intf_events {
 	MDSS_EVENT_DSI_DYNAMIC_SWITCH,
 	MDSS_EVENT_DSI_RECONFIG_CMD,
 	MDSS_EVENT_DSI_RESET_WRITE_PTR,
+	MDSS_EVENT_PANEL_TIMING_SWITCH,
 };
 
 struct lcd_panel_info {
@@ -262,6 +265,14 @@ enum dynamic_mode_switch {
 	DYNAMIC_MODE_SWITCH_DISABLED = 0,
 	DYNAMIC_MODE_SWITCH_SUSPEND_RESUME,
 	DYNAMIC_MODE_SWITCH_IMMEDIATE,
+	DYNAMIC_MODE_RESOLUTION_SWITCH_IMMEDIATE,
+};
+
+enum dynamic_switch_modes {
+	SWITCH_MODE_UNKNOWN = 0,
+	SWITCH_TO_CMD_MODE,
+	SWITCH_TO_VIDEO_MODE,
+	SWITCH_RESOLUTION,
 };
 
 struct mipi_panel_info {
@@ -458,6 +469,33 @@ struct mdss_panel_info {
 	struct mdss_panel_debugfs_info *debugfs_info;
 };
 
+struct mdss_panel_timing {
+	struct list_head list;
+	const char *name;
+
+	u32 xres;
+	u32 yres;
+
+	u32 h_back_porch;
+	u32 h_front_porch;
+	u32 h_pulse_width;
+	u32 hsync_skew;
+	u32 v_back_porch;
+	u32 v_front_porch;
+	u32 v_pulse_width;
+
+	u32 border_top;
+	u32 border_bottom;
+	u32 border_left;
+	u32 border_right;
+
+	u32 clk_rate;
+	char frame_rate;
+
+	struct fbc_panel_info fbc;
+	struct mdss_mdp_pp_tear_check te;
+};
+
 struct mdss_panel_data {
 	struct mdss_panel_info panel_info;
 	void (*set_backlight) (struct mdss_panel_data *pdata, u32 bl_level);
@@ -476,6 +514,10 @@ struct mdss_panel_data {
 	 * and teardown.
 	 */
 	int (*event_handler) (struct mdss_panel_data *pdata, int e, void *arg);
+
+	struct list_head timings_list;
+	struct mdss_panel_timing *current_timing;
+	bool active;
 
 	struct mdss_panel_data *next;
 };
@@ -651,6 +693,7 @@ static inline bool mdss_panel_is_power_on_ulp(int panel_power_state)
  * returns NULL on error or if @intf_val is not the configured
  * controller.
  */
+
 struct mdss_panel_cfg *mdss_panel_intf_type(int intf_val);
 
 /**
@@ -676,6 +719,29 @@ int mdss_rect_cmp(struct mdss_rect *rect1, struct mdss_rect *rect2);
 int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info);
 void mdss_panel_debugfs_cleanup(struct mdss_panel_info *panel_info);
 void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info);
+
+/*
+ * mdss_panel_info_from_timing() - return panel timing with matching name
+ * @pdata:	pointer to panel data struct containing list of panel timings
+ * @name:	name of the panel timing to be returned
+ *
+ * Looks through list of timings provided in panel data and returns pointer
+ * to panel timing matching it. If none is found, NULL is returned.
+ */
+void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
+		struct mdss_panel_info *pinfo);
+
+/**
+ * mdss_panel_get_timing_by_name() - return panel timing with matching name
+ * @pdata:	pointer to panel data struct containing list of panel timings
+ * @name:	name of the panel timing to be returned
+ *
+ * Looks through list of timings provided in panel data and returns pointer
+ * to panel timing matching it. If none is found, NULL is returned.
+ */
+struct mdss_panel_timing *mdss_panel_get_timing_by_name(
+		struct mdss_panel_data *pdata,
+		const char *name);
 #else
 static inline int mdss_panel_debugfs_init(
 			struct mdss_panel_info *panel_info) { return 0; };
@@ -683,5 +749,10 @@ static inline void mdss_panel_debugfs_cleanup(
 			struct mdss_panel_info *panel_info) { };
 static inline void mdss_panel_debugfsinfo_to_panelinfo(
 			struct mdss_panel_info *panel_info) { };
+static inline void mdss_panel_info_from_timing(struct mdss_panel_timing *pt,
+		struct mdss_panel_info *pinfo) { };
+static inline struct mdss_panel_timing *mdss_panel_get_timing_by_name(
+		struct mdss_panel_data *pdata,
+		const char *name) { return NULL; };
 #endif
 #endif /* MDSS_PANEL_H */
