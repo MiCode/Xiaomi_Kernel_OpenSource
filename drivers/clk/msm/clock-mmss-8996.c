@@ -3410,7 +3410,7 @@ static void msm_mmsscc_8996_v2_fixup(void)
 	axi_clk_src.freq_tbl = ftbl_axi_clk_src_v2;
 	axi_clk_src.c.fmax[VDD_DIG_HIGH] = 405000000;
 	maxi_clk_src.freq_tbl = ftbl_maxi_clk_src_v2;
-	axi_clk_src.c.fmax[VDD_DIG_HIGH] = 405000000;
+	maxi_clk_src.c.fmax[VDD_DIG_HIGH] = 405000000;
 
 	rbcpr_clk_src.freq_tbl = ftbl_rbcpr_clk_src_v2;
 	rbcpr_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
