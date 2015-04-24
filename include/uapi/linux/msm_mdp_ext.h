@@ -7,6 +7,22 @@
 /* atomic commit ioctl used for validate and commit request */
 #define MSMFB_ATOMIC_COMMIT	_IOWR(MDP_IOCTL_MAGIC, 128, void *)
 
+/*
+ * Ioctl for updating the layer position asynchronously. Initially, pipes
+ * should be configured with MDP_LAYER_ASYNC flag set during the atomic commit,
+ * after which any number of position update calls can be made. This would
+ * enable multiple position updates within a single vsync. However, the screen
+ * update would happen only after vsync, which would pick the latest update.
+ *
+ * Limitations:
+ * - Currently supported only for video mode panels with single LM or dual LM
+ *   with source_split enabled.
+ * - Only position update is supported with no scaling/cropping.
+ * - Async layers should have unique z_order.
+ */
+#define MSMFB_ASYNC_POSITION_UPDATE _IOWR(MDP_IOCTL_MAGIC, 129, \
+					struct mdp_position_update)
+
 /**********************************************************************
 LAYER FLAG CONFIGURATION
 **********************************************************************/
@@ -39,6 +55,9 @@ LAYER FLAG CONFIGURATION
 
 /* layer contains bandwidth compressed format data */
 #define MDP_LAYER_BWC			0x80
+
+/* layer is async position updatable */
+#define MDP_LAYER_ASYNC			0x100
 
 /**********************************************************************
 VALIDATE/COMMIT FLAG CONFIGURATION
@@ -346,6 +365,54 @@ struct mdp_layer_commit {
 		/* Layer commit/validate definition for V1 */
 		struct mdp_layer_commit_v1 commit_v1;
 	};
+};
+
+struct mdp_point {
+	uint32_t x;
+	uint32_t y;
+};
+
+/*
+ * Async updatable layers. One layer holds configuration for one pipe.
+ */
+struct mdp_async_layer {
+	/*
+	 * Flag to enable/disable properties for layer configuration. Refer
+	 * layer flag config section for all possible flags.
+	 */
+	uint32_t flags;
+
+	/*
+	 * Pipe selection for this layer by client. Client provides the
+	 * pipe index that the device reserved during ATOMIC_COMMIT.
+	 */
+	uint32_t		pipe_ndx;
+
+	/* Source start x,y. */
+	struct mdp_point	src;
+
+	/* Destination start x,y. */
+	struct mdp_point	dst;
+
+	/*
+	 * This is an output parameter.
+	 *
+	 * Frame buffer device sets error code based on the failure.
+	 */
+	int			error_code;
+
+	uint32_t		reserved[3];
+};
+
+/*
+ * mdp_position_update - argument for ioctl MSMFB_ASYNC_POSITION_UPDATE
+ */
+struct mdp_position_update {
+	 /* Pointer to a list of async updatable input layers */
+	struct mdp_async_layer __user *input_layers;
+
+	/* Input layer count present in input list */
+	uint32_t input_layer_cnt;
 };
 
 #endif

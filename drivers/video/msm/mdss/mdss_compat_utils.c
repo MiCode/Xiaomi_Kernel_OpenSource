@@ -52,6 +52,9 @@
 						struct mdp_overlay_list32)
 #define MSMFB_ATOMIC_COMMIT32	_IOWR(MDP_IOCTL_MAGIC, 128, compat_caddr_t)
 
+#define MSMFB_ASYNC_POSITION_UPDATE_32 _IOWR(MDP_IOCTL_MAGIC, 129, \
+		struct mdp_position_update32)
+
 static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 {
 	unsigned int cmd;
@@ -98,6 +101,9 @@ static unsigned int __do_compat_ioctl_nr(unsigned int cmd32)
 		break;
 	case MSMFB_ATOMIC_COMMIT32:
 		cmd = MSMFB_ATOMIC_COMMIT;
+		break;
+	case MSMFB_ASYNC_POSITION_UPDATE_32:
+		cmd = MSMFB_ASYNC_POSITION_UPDATE;
 		break;
 	default:
 		cmd = cmd32;
@@ -347,6 +353,96 @@ static int __compat_atomic_commit(struct fb_info *info, unsigned int cmd,
 layer_list_err:
 	kfree(layer_list32);
 	kfree(output_layer);
+	return ret;
+}
+
+static int __copy_to_user_async_position_update(
+		struct mdp_position_update *update_pos,
+		struct mdp_position_update32 *update_pos32,
+		unsigned long argp, u32 layer_cnt)
+{
+	int ret;
+
+	ret = copy_to_user(update_pos32->input_layers,
+			update_pos->input_layers,
+			sizeof(struct mdp_async_layer) * layer_cnt);
+	if (ret)
+		goto end;
+
+	ret = copy_to_user((void __user *) argp, update_pos32,
+			sizeof(struct mdp_position_update32));
+
+end:
+	return ret;
+}
+
+static struct mdp_async_layer *__create_async_layer_list(
+	struct mdp_position_update32 *update_pos32, u32 layer_cnt)
+{
+	u32 buffer_size;
+	struct mdp_async_layer *layer_list;
+	int ret;
+
+	buffer_size = sizeof(struct mdp_async_layer) * layer_cnt;
+
+	layer_list = kmalloc(buffer_size, GFP_KERNEL);
+	if (!layer_list) {
+		layer_list = ERR_PTR(-ENOMEM);
+		goto end;
+	}
+
+	ret = copy_from_user(layer_list,
+			update_pos32->input_layers, buffer_size);
+	if (ret) {
+		pr_err("layer list32 copy from user failed\n");
+		kfree(layer_list);
+		layer_list = ERR_PTR(ret);
+	}
+
+end:
+	return layer_list;
+}
+
+static int __compat_async_position_update(struct fb_info *info,
+		unsigned int cmd, unsigned long argp)
+{
+	struct mdp_position_update update_pos;
+	struct mdp_position_update32 update_pos32;
+	struct mdp_async_layer *layer_list = NULL;
+	u32 layer_cnt, ret;
+
+	/* copy top level memory from 32 bit structure to kernel memory */
+	ret = copy_from_user(&update_pos32, (void __user *)argp,
+		sizeof(struct mdp_position_update32));
+	if (ret) {
+		pr_err("%s:copy_from_user failed\n", __func__);
+		return ret;
+	}
+
+	update_pos.input_layer_cnt = update_pos32.input_layer_cnt;
+	layer_cnt = update_pos32.input_layer_cnt;
+	if (!layer_cnt) {
+		pr_err("no async layer to update\n");
+		return -EINVAL;
+	}
+
+	layer_list = __create_async_layer_list(&update_pos32,
+		layer_cnt);
+	if (IS_ERR_OR_NULL(layer_list))
+		return PTR_ERR(layer_list);
+
+	update_pos.input_layers = layer_list;
+
+	ret = mdss_fb_async_position_update(info, &update_pos);
+	if (ret)
+		pr_err("async position update failed ret:%d\n", ret);
+
+	ret = __copy_to_user_async_position_update(&update_pos, &update_pos32,
+			argp, layer_cnt);
+	if (ret)
+		pr_err("copy to user of async update position failed\n");
+
+	kfree(layer_list);
 	return ret;
 }
 
@@ -3676,6 +3772,9 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_ATOMIC_COMMIT:
 		ret = __compat_atomic_commit(info, cmd, arg);
+		break;
+	case MSMFB_ASYNC_POSITION_UPDATE:
+		ret = __compat_async_position_update(info, cmd, arg);
 		break;
 	case MSMFB_MDP_PP:
 	case MSMFB_HISTOGRAM_START:

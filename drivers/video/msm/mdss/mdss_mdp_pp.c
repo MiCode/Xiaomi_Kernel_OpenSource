@@ -983,9 +983,11 @@ static int mdss_mdp_scale_setup(struct mdss_mdp_pipe *pipe)
 	if (pipe->scale.enable_pxl_ext)
 		mdss_mdp_pipe_program_pixel_extn(pipe);
 
-	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA) {
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA ||
+			pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
 		if (pipe->dst.h != pipe->src.h || pipe->dst.w != pipe->src.w) {
-			pr_err("no scaling supported on dma pipe\n");
+			pr_err("no scaling supported on dma/cursor pipe, num:%d\n",
+					pipe->num);
 			return -EINVAL;
 		} else {
 			return 0;
