@@ -644,6 +644,8 @@ static long msm_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 	case MSM_SD_SHUTDOWN:
 		msm_sensor_stop_stream(s_ctrl);
 		return 0;
+	case MSM_SD_NOTIFY_FREEZE:
+		return 0;
 	default:
 		return -ENOIOCTLCMD;
 	}

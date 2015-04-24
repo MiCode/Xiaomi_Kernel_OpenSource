@@ -91,6 +91,8 @@ struct csid_device {
 	uint32_t csid_max_clk;
 	uint8_t is_testmode;
 	struct msm_camera_csid_testmode_parms testmode_params;
+	uint32_t csid_sof_debug;
+	uint32_t csid_lane_cnt;
 };
 
 #define VIDIOC_MSM_CSID_RELEASE \

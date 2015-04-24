@@ -66,5 +66,9 @@ struct ispif_device {
 	uint32_t num_ahb_clk;
 	uint32_t num_clk;
 	uint32_t clk_idx;
+	uint32_t ispif_sof_debug;
+	uint32_t ispif_rdi0_debug;
+	uint32_t ispif_rdi1_debug;
+	uint32_t ispif_rdi2_debug;
 };
 #endif
