@@ -335,7 +335,7 @@ static inline void mpu6050_set_fifo_start_time(struct mpu6050_sensor *sensor)
 {
 	struct timespec ts;
 
-	ktime_get_ts(&ts);
+	get_monotonic_boottime(&ts);
 	sensor->fifo_start_ns = timespec_to_ns(&ts);
 }
 
@@ -776,7 +776,7 @@ static void mpu6050_accel_work_fn(struct work_struct *work)
 	sensor = container_of((struct delayed_work *)work,
 				struct mpu6050_sensor, accel_poll_work);
 
-	timestamp = ktime_get();
+	timestamp = ktime_get_boottime();
 	mpu6050_acc_data_process(sensor);
 
 	shift = mpu_accel_fs_shift[sensor->cfg.accel_fs];
@@ -816,7 +816,7 @@ static void mpu6050_gyro_work_fn(struct work_struct *work)
 	sensor = container_of((struct delayed_work *)work,
 				struct mpu6050_sensor, gyro_poll_work);
 
-	timestamp = ktime_get();
+	timestamp = ktime_get_boottime();
 	mpu6050_read_gyro_data(sensor, &sensor->axis);
 	mpu6050_remap_gyro_data(&sensor->axis, sensor->pdata->place);
 
@@ -1773,11 +1773,12 @@ static int mpu6050_gyro_cdev_set_latency(struct sensors_classdev *sensors_cdev,
 			struct mpu6050_sensor, gyro_cdev);
 
 	mutex_lock(&sensor->op_lock);
-	if (max_latency <= sensor->gyro_poll_ms) {
+
+	if (max_latency <= sensor->gyro_poll_ms)
 		sensor->batch_gyro = false;
-	} else {
+	else
 		sensor->batch_gyro = true;
-	}
+
 	sensor->gyro_latency_ms = max_latency;
 	mutex_unlock(&sensor->op_lock);
 	return 0;

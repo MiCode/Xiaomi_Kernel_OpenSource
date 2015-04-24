@@ -1747,6 +1747,7 @@ static void akm_dev_poll(struct work_struct *work)
 	int ret;
 	int mag_x, mag_y, mag_z;
 	int tmp;
+	ktime_t timestamp;
 
 	akm = container_of((struct delayed_work *)work,
 			struct akm_compass_data,  dwork);
@@ -1763,6 +1764,8 @@ static void akm_dev_poll(struct work_struct *work)
 		AKECS_Reset(akm, 0);
 		goto exit;
 	}
+
+	timestamp = ktime_get_boottime();
 
 	tmp = (int)((int16_t)(dat_buf[2]<<8)+((int16_t)dat_buf[1]));
 	tmp = tmp * akm->sense_conf[0] / 256 + tmp / 2;
@@ -1820,6 +1823,12 @@ static void akm_dev_poll(struct work_struct *work)
 	input_report_abs(akm->input, ABS_X, mag_x);
 	input_report_abs(akm->input, ABS_Y, mag_y);
 	input_report_abs(akm->input, ABS_Z, mag_z);
+	input_event(akm->input,
+		EV_SYN, SYN_TIME_SEC,
+		ktime_to_timespec(timestamp).tv_sec);
+	input_event(akm->input,
+		EV_SYN, SYN_TIME_NSEC,
+		ktime_to_timespec(timestamp).tv_nsec);
 	input_sync(akm->input);
 
 	dev_vdbg(&s_akm->i2c->dev,
