@@ -2467,14 +2467,15 @@ EXPORT_SYMBOL(glink_sigs_set);
  * glink_sigs_local_get() - Get the local signals for the GLINK channel
  *
  * handle:	handle returned by glink_open()
+ * sigs:	Pointer to hold the signals
  *
- * Return: Local signal value or standard Linux error code for failure case
+ * Return: 0 for success; standard Linux error code for failure case
  */
-int glink_sigs_local_get(void *handle)
+int glink_sigs_local_get(void *handle, uint32_t *sigs)
 {
 	struct channel_ctx *ctx = (struct channel_ctx *)handle;
 
-	if (!ctx)
+	if (!ctx || !sigs)
 		return -EINVAL;
 
 	if (!ch_is_fully_opened(ctx)) {
@@ -2483,7 +2484,8 @@ int glink_sigs_local_get(void *handle)
 		return -EBUSY;
 	}
 
-	return ctx->lsigs;
+	*sigs = ctx->lsigs;
+	return 0;
 }
 EXPORT_SYMBOL(glink_sigs_local_get);
 
@@ -2491,14 +2493,15 @@ EXPORT_SYMBOL(glink_sigs_local_get);
  * glink_sigs_remote_get() - Get the Remote signals for the GLINK channel
  *
  * handle:	handle returned by glink_open()
+ * sigs:	Pointer to hold the signals
  *
- * Return: Remote signal value or standard Linux error code for failure case
+ * Return: 0 for success; standard Linux error code for failure case
  */
-int glink_sigs_remote_get(void *handle)
+int glink_sigs_remote_get(void *handle, uint32_t *sigs)
 {
 	struct channel_ctx *ctx = (struct channel_ctx *)handle;
 
-	if (!ctx)
+	if (!ctx || !sigs)
 		return -EINVAL;
 
 	if (!ch_is_fully_opened(ctx)) {
@@ -2507,7 +2510,8 @@ int glink_sigs_remote_get(void *handle)
 		return -EBUSY;
 	}
 
-	return ctx->rsigs;
+	*sigs = ctx->rsigs;
+	return 0;
 }
 EXPORT_SYMBOL(glink_sigs_remote_get);
 

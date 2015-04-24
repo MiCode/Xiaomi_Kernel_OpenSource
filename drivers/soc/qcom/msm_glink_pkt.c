@@ -650,16 +650,16 @@ static int glink_pkt_tiocmset(struct glink_pkt_dev *devp, unsigned int cmd,
 							unsigned long arg)
 {
 	int ret;
-	int sigs;
+	uint32_t sigs;
 	uint32_t val;
 
 	ret = get_user(val, (uint32_t *)arg);
 	if (ret)
 		return ret;
-	sigs = glink_sigs_local_get(devp->handle);
-	if (sigs < 0) {
-		GLINK_PKT_ERR("%s: Get signals failed[%d]\n", __func__, sigs);
-		return sigs;
+	ret = glink_sigs_local_get(devp->handle, &sigs);
+	if (ret < 0) {
+		GLINK_PKT_ERR("%s: Get signals failed[%d]\n", __func__, ret);
+		return ret;
 	}
 	switch (cmd) {
 	case TIOCMBIS:
@@ -693,6 +693,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 	int ret;
 	struct glink_pkt_dev *devp;
 	size_t size = 0;
+	uint32_t sigs = 0;
 
 	devp = file->private_data;
 	if (!devp || !devp->handle) {
@@ -704,10 +705,11 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case TIOCMGET:
 		devp->sigs_updated = false;
-		ret = glink_sigs_remote_get(devp->handle);
-		GLINK_PKT_INFO("%s: TIOCMGET sigs[0x%x]\n", __func__, ret);
-		if (ret >= 0)
-			ret = put_user(ret, (uint32_t *)arg);
+		ret = glink_sigs_remote_get(devp->handle, &sigs);
+		GLINK_PKT_INFO("%s: TIOCMGET ret[%d] sigs[0x%x]\n",
+					__func__, ret, sigs);
+		if (!ret)
+			ret = put_user(sigs, (uint32_t *)arg);
 		break;
 	case TIOCMSET:
 	case TIOCMBIS:
