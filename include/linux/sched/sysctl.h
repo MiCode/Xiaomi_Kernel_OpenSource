@@ -70,6 +70,7 @@ extern unsigned int sysctl_sched_lowspill_freq;
 extern unsigned int sysctl_sched_pack_freq;
 extern unsigned int sysctl_sched_boost;
 extern unsigned int sysctl_sched_select_prev_cpu_us;
+extern unsigned int sysctl_sched_enable_colocation;
 #if defined(CONFIG_SCHED_FREQ_INPUT)
 extern unsigned int sysctl_sched_new_task_windows;
 #endif
