@@ -271,6 +271,8 @@
 
 &dsi_truly_1080_vid {
 	qcom,cont-splash-enabled;
+	qcom,mdss-dsi-pan-enable-dynamic-fps;
+	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 };
 
 &pmx_mdss {
