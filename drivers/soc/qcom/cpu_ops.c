@@ -159,7 +159,7 @@ static int msm_cpu_boot(unsigned int cpu)
 	return secondary_pen_release(cpu);
 }
 
-static int msmterbium_cpu_boot(unsigned int cpu)
+static int msm8976_cpu_boot(unsigned int cpu)
 {
 	int ret = 0;
 
@@ -169,7 +169,7 @@ static int msmterbium_cpu_boot(unsigned int cpu)
 			if (ret)
 				return ret;
 		} else {
-			ret = msmterbium_unclamp_secondary_arm_cpu(cpu);
+			ret = msm8976_unclamp_secondary_arm_cpu(cpu);
 			if (ret)
 				return ret;
 		}
@@ -263,11 +263,11 @@ static const struct cpu_operations msm8994_cortex_a_ops = {
 };
 CPU_METHOD_OF_DECLARE(msm8994_cortex_a_ops, &msm8994_cortex_a_ops);
 
-static const struct cpu_operations msmterbium_cortex_a_ops = {
-	.name		= "qcom,terbium-arm-cortex-acc",
+static const struct cpu_operations msm8976_cortex_a_ops = {
+	.name		= "qcom,8976-arm-cortex-acc",
 	.cpu_init	= msm_cpu_init,
 	.cpu_prepare	= msm_cpu_prepare,
-	.cpu_boot	= msmterbium_cpu_boot,
+	.cpu_boot	= msm8976_cpu_boot,
 	.cpu_postboot	= msm_cpu_postboot,
 #ifdef CONFIG_HOTPLUG_CPU
 	.cpu_die        = msm_wfi_cpu_die,
@@ -276,4 +276,4 @@ static const struct cpu_operations msmterbium_cortex_a_ops = {
 	.cpu_suspend       = msm_pm_collapse,
 #endif
 };
-CPU_METHOD_OF_DECLARE(msmterbium_cortex_a_ops, &msmterbium_cortex_a_ops);
+CPU_METHOD_OF_DECLARE(msm8976_cortex_a_ops, &msm8976_cortex_a_ops);
