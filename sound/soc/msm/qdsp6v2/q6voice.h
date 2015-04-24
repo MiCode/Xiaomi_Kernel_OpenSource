@@ -40,6 +40,20 @@
 #define CVD_VERSION_STRING_MAX_SIZE          31
 #define CVD_VERSION_DEFAULT                  ""
 #define CVD_VERSION_0_0                      "0.0"
+#define CVD_VERSION_2_1                      "2.1"
+#define CVD_VERSION_2_2                      "2.2"
+
+#define CVD_INT_VERSION_DEFAULT              0
+#define CVD_INT_VERSION_0_0                  1
+#define CVD_INT_VERSION_2_1                  2
+#define CVD_INT_VERSION_2_2                  3
+#define CVD_INT_VERSION_LAST                 CVD_INT_VERSION_2_2
+#define CVD_INT_VERSION_MAX                  (CVD_INT_VERSION_LAST + 1)
+
+struct cvd_version_table {
+	char cvd_ver[CVD_VERSION_STRING_MAX_SIZE];
+	int cvd_ver_int;
+};
 
 int voc_get_cvd_version(char *);
 
@@ -90,6 +104,7 @@ struct device_data {
 	uint32_t volume_step_value;
 	uint32_t volume_ramp_duration_ms;
 	uint32_t dev_mute_ramp_duration_ms;
+	uint32_t no_of_channels;
 };
 
 struct voice_dev_route_state {
@@ -950,6 +965,12 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 
 #define VSS_IVOCPROC_CMD_SET_DEVICE_V2			0x000112C6
 
+#define VSS_IVOCPROC_CMD_SET_DEVICE_V3			0x0001316A
+
+#define VSS_IVOCPROC_CMD_TOPOLOGY_SET_DEV_CHANNELS	0x00013199
+
+#define VSS_IVOCPROC_CMD_TOPOLOGY_COMMIT		0x00013198
+
 #define VSS_IVOCPROC_CMD_SET_VP3_DATA			0x000110EB
 
 #define VSS_IVOLUME_CMD_SET_STEP			0x000112C2
@@ -1032,6 +1053,12 @@ struct vss_istream_cmd_set_packet_exchange_mode_t {
 /*CDMA EVRC-NW vocoder modem format */
 
 #define VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION_V2	0x000112BF
+#define VSS_IVOCPROC_CMD_CREATE_FULL_CONTROL_SESSION_V3	0x00013169
+
+#define VSS_NUM_DEV_CHANNELS_1 1
+#define VSS_NUM_DEV_CHANNELS_2 2
+#define VSS_NUM_DEV_CHANNELS_3 3
+#define VSS_NUM_DEV_CHANNELS_4 4
 
 struct vss_ivocproc_cmd_create_full_control_session_v2_t {
 	uint16_t direction;
@@ -1197,6 +1224,24 @@ struct vss_ivocproc_cmd_register_volume_cal_data_t {
 	 */
 } __packed;
 
+struct vss_ivocproc_cmd_topology_set_dev_channels_t {
+	uint16_t tx_num_channels;
+	/*
+	 * Number of Mics.
+	 * Supported values
+	 * 1  VSS_NUM_DEV_CHANNELS_1
+	 * 2  VSS_NUM_DEV_CHANNELS_2
+	 * 3  VSS_NUM_DEV_CHANNELS_3
+	 * 4  VSS_NUM_DEV_CHANNELS_4
+	 */
+	uint16_t rx_num_channels;
+	/*
+	 * Number of speaker channels.
+	 * Supported values
+	 * 1 VSS_NUM_DEV_CHANNELS_1
+	 */
+} __packed;
+
 /* Starts a vocoder PCM session */
 #define VSS_IVPCM_CMD_START_V2	0x00011339
 
@@ -1314,6 +1359,11 @@ struct cvp_command {
 struct cvp_set_device_cmd {
 	struct apr_hdr hdr;
 	struct vss_ivocproc_cmd_set_device_v2_t cvp_set_device_v2;
+} __packed;
+
+struct cvp_set_dev_channels_cmd {
+	struct apr_hdr hdr;
+	struct vss_ivocproc_cmd_topology_set_dev_channels_t cvp_set_channels;
 } __packed;
 
 struct cvp_set_vp3_data_cmd {
@@ -1670,9 +1720,6 @@ int voc_end_voice_call(uint32_t session_id);
 int voc_standby_voice_call(uint32_t session_id);
 int voc_resume_voice_call(uint32_t session_id);
 int voc_set_lch(uint32_t session_id, enum voice_lch_mode lch_mode);
-int voc_set_rxtx_port(uint32_t session_id,
-		      uint32_t dev_port_id,
-		      uint32_t dev_type);
 int voc_set_rx_vol_step(uint32_t session_id, uint32_t dir, uint32_t vol_step,
 			uint32_t ramp_duration);
 int voc_set_tx_mute(uint32_t session_id, uint32_t dir, uint32_t mute,
@@ -1718,7 +1765,8 @@ int voc_enable_device(uint32_t session_id);
 void voc_set_destroy_cvd_flag(bool is_destroy_cvd);
 void voc_set_vote_bms_flag(bool is_vote_bms);
 int voc_disable_topology(uint32_t session_id, uint32_t disable);
-
+int voc_set_device_config(uint32_t session_id, uint8_t path_dir,
+			  uint8_t no_of_channels, uint32_t dev_port_id);
 uint32_t voice_get_topology(uint32_t topology_idx);
 int voc_set_sound_focus(struct sound_focus_param sound_focus_param);
 int voc_get_sound_focus(struct sound_focus_param *soundFocusData);
