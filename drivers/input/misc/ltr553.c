@@ -883,7 +883,7 @@ static int ltr553_process_data(struct ltr553_data *ltr, int als_ps)
 	int i;
 	int distance;
 
-	timestamp = ktime_get();
+	timestamp = ktime_get_boottime();
 
 	if (als_ps) { /* process als data */
 		/* Read data */
