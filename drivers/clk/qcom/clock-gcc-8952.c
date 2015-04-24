@@ -46,8 +46,10 @@ enum {
 static void __iomem *virt_bases[N_BASES];
 #define GCC_REG_BASE(x) (void __iomem *)(virt_bases[GCC_BASE] + (x))
 
-#define CLKFLAG_WAKEUP_CYCLES		0x0
-#define CLKFLAG_SLEEP_CYCLES		0x0
+#define OXILI_GMEM_WAKEUP_CYCLES	0x0
+#define OXILI_GMEM_SLEEP_CYCLES		0x0
+#define GFX_TCU_WAKEUP_CYCLES		0x1
+#define GFX_TCU_SLEEP_CYCLES		0x1
 
 /* Mux source select values */
 #define xo_source_val			0
@@ -3435,9 +3437,18 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	/* Configure Sleep and Wakeup cycles for GMEM clock */
 	regval = readl_relaxed(GCC_REG_BASE(OXILI_GMEM_CBCR));
 	regval ^= 0xFF0;
-	regval |= CLKFLAG_WAKEUP_CYCLES << 8;
-	regval |= CLKFLAG_SLEEP_CYCLES << 4;
+	regval |= OXILI_GMEM_WAKEUP_CYCLES << 8;
+	regval |= OXILI_GMEM_SLEEP_CYCLES << 4;
 	writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
+
+	/* Configure Sleep and Wakeup cycles for GFX_TCU clock */
+	regval = readl_relaxed(GCC_REG_BASE(GFX_TCU_CBCR));
+	regval &= ~0xFF0;
+	regval |= GFX_TCU_WAKEUP_CYCLES << 8;
+	regval |= GFX_TCU_SLEEP_CYCLES << 4;
+	/* Force MEM PERIPH ON */
+	regval |= BIT(13);
+	writel_relaxed(regval, GCC_REG_BASE(GFX_TCU_CBCR));
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
