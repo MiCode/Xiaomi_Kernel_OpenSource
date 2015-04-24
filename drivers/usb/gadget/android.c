@@ -1545,6 +1545,222 @@ static struct android_usb_function qdss_function = {
 	.attributes	= qdss_function_attributes,
 };
 
+/* SERIAL */
+#define MAX_SERIAL_INSTANCES 4
+struct serial_function_config {
+	int instances_on;
+	struct usb_function *f_serial[MAX_SERIAL_INSTANCES];
+	struct usb_function_instance *f_serial_inst[MAX_SERIAL_INSTANCES];
+};
+
+static char serial_transports[32];	/*enabled FSERIAL ports - "tty[,sdio]"*/
+static ssize_t serial_transports_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(serial_transports, buff, sizeof(serial_transports));
+
+	return size;
+}
+
+/*enabled FSERIAL transport names - "serial_hsic[,serial_hsusb]"*/
+static char serial_xport_names[32];
+static ssize_t serial_xport_names_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	strlcpy(serial_xport_names, buff, sizeof(serial_xport_names));
+
+	return size;
+}
+
+static ssize_t serial_xport_names_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%s\n", serial_xport_names);
+}
+static ssize_t serial_modem_is_connected_show(
+		struct device *device, struct device_attribute *attr,
+		char *buff)
+{
+	unsigned int is_connected = gserial_is_connected();
+
+	return snprintf(buff, PAGE_SIZE, "%u\n", is_connected);
+}
+
+static ssize_t dun_w_softap_enable_show(
+		struct device *device, struct device_attribute *attr,
+		char *buff)
+{
+	unsigned int dun_w_softap_enable = gserial_is_dun_w_softap_enabled();
+
+	return snprintf(buff, PAGE_SIZE, "%u\n", dun_w_softap_enable);
+}
+
+static ssize_t dun_w_softap_enable_store(
+		struct device *device, struct device_attribute *attr,
+		const char *buff, size_t size)
+{
+	unsigned int dun_w_softap_enable;
+
+	sscanf(buff, "%u", &dun_w_softap_enable);
+
+	gserial_dun_w_softap_enable(dun_w_softap_enable);
+
+	return size;
+}
+
+static ssize_t dun_w_softap_active_show(
+		struct device *device, struct device_attribute *attr,
+		char *buff)
+{
+	unsigned int dun_w_softap_active = gserial_is_dun_w_softap_active();
+
+	return snprintf(buff, PAGE_SIZE, "%u\n", dun_w_softap_active);
+}
+
+static DEVICE_ATTR(is_connected_flag, S_IRUGO, serial_modem_is_connected_show,
+		NULL);
+static DEVICE_ATTR(dun_w_softap_enable, S_IRUGO | S_IWUSR,
+	dun_w_softap_enable_show, dun_w_softap_enable_store);
+static DEVICE_ATTR(dun_w_softap_active, S_IRUGO, dun_w_softap_active_show,
+		NULL);
+
+
+static DEVICE_ATTR(transports, S_IWUSR, NULL, serial_transports_store);
+static struct device_attribute dev_attr_serial_xport_names =
+				__ATTR(transport_names, S_IRUGO | S_IWUSR,
+				serial_xport_names_show,
+				serial_xport_names_store);
+
+static struct device_attribute *serial_function_attributes[] = {
+					&dev_attr_transports,
+					&dev_attr_serial_xport_names,
+					&dev_attr_is_connected_flag,
+					&dev_attr_dun_w_softap_enable,
+					&dev_attr_dun_w_softap_active,
+					NULL };
+
+static int serial_function_init(struct android_usb_function *f,
+					struct usb_composite_dev *cdev)
+{
+	struct serial_function_config *config;
+
+	config = kzalloc(sizeof(struct serial_function_config), GFP_KERNEL);
+	if (!config)
+		return -ENOMEM;
+
+	f->config = config;
+
+	return 0;
+}
+
+static void serial_function_cleanup(struct android_usb_function *f)
+{
+	int i;
+	struct serial_function_config *config = f->config;
+
+	gport_cleanup();
+	for (i = 0; i < config->instances_on; i++) {
+		usb_put_function(config->f_serial[i]);
+		usb_put_function_instance(config->f_serial_inst[i]);
+	}
+	kfree(f->config);
+	f->config = NULL;
+}
+
+static int serial_function_bind_config(struct android_usb_function *f,
+					struct usb_configuration *c)
+{
+	char *name, *xport_name = NULL;
+	char buf[32], *b, xport_name_buf[32], *tb;
+	int err = -1, i;
+	static int serial_initialized, ports;
+	struct serial_function_config *config = f->config;
+
+	if (serial_initialized)
+		goto bind_config;
+
+	serial_initialized = 1;
+	strlcpy(buf, serial_transports, sizeof(buf));
+	b = strim(buf);
+
+	strlcpy(xport_name_buf, serial_xport_names, sizeof(xport_name_buf));
+	tb = strim(xport_name_buf);
+
+	while (b) {
+		name = strsep(&b, ",");
+
+		if (name) {
+			if (tb)
+				xport_name = strsep(&tb, ",");
+			err = gserial_init_port(ports, name, xport_name);
+			if (err) {
+				pr_err("serial: Cannot open port '%s'", name);
+				goto out;
+			}
+			ports++;
+			if (ports >= MAX_SERIAL_INSTANCES) {
+				pr_err("serial: max ports reached '%s'", name);
+				goto out;
+			}
+		}
+	}
+	err = gport_setup(c);
+	if (err) {
+		pr_err("serial: Cannot setup transports");
+		goto out;
+	}
+
+	for (i = 0; i < ports; i++) {
+		config->f_serial_inst[i] = usb_get_function_instance("gser");
+		if (IS_ERR(config->f_serial_inst[i])) {
+			err = PTR_ERR(config->f_serial_inst[i]);
+			goto err_gser_usb_get_function_instance;
+		}
+		config->f_serial[i] = usb_get_function(config->f_serial_inst[i]);
+		if (IS_ERR(config->f_serial[i])) {
+			err = PTR_ERR(config->f_serial[i]);
+			goto err_gser_usb_get_function;
+		}
+	}
+	config->instances_on = ports;
+
+bind_config:
+	for (i = 0; i < ports; i++) {
+		err = usb_add_function(c, config->f_serial[i]);
+		if (err) {
+			pr_err("Could not bind gser%u config\n", i);
+			goto err_gser_usb_add_function;
+		}
+	}
+	return 0;
+
+err_gser_usb_add_function:
+	while (i-- > 0)
+		usb_remove_function(c, config->f_serial[i]);
+
+	return err;
+
+err_gser_usb_get_function_instance:
+	while (i-- > 0) {
+		usb_put_function(config->f_serial[i]);
+err_gser_usb_get_function:
+		usb_put_function_instance(config->f_serial_inst[i]);
+	}
+
+out:
+	return err;
+}
+
+static struct android_usb_function serial_function = {
+	.name		= "serial",
+	.init		= serial_function_init,
+	.cleanup	= serial_function_cleanup,
+	.bind_config	= serial_function_bind_config,
+	.attributes	= serial_function_attributes,
+};
+
 /* CCID */
 static int ccid_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
@@ -2370,6 +2586,7 @@ static struct android_usb_function *supported_functions[] = {
 	&gps_function,
 	&diag_function,
 	&qdss_function,
+	&serial_function,
 	&ccid_function,
 	&acm_function,
 	&mtp_function,
