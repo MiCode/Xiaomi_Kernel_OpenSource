@@ -32,11 +32,20 @@
 #define IN_BUF_SIZE		16384
 #define MAX_IN_BUF_SIZE	32768
 #define MAX_SYNC_OBJ_NAME_SIZE	32
-/* Size of the buffer used for deframing a packet
-  reveived from the PC tool*/
-#define HDLC_MAX 4096
+
+#define DIAG_MAX_REQ_SIZE	(16 * 1024)
+#define DIAG_MAX_RSP_SIZE	(16 * 1024)
+/*
+ * In the worst case, the HDLC buffer can be atmost twice the size of the
+ * original packet. Add 3 bytes for 16 bit CRC (2 bytes) and a delimiter
+ * (1 byte)
+ */
+#define DIAG_MAX_HDLC_BUF_SIZE	((DIAG_MAX_REQ_SIZE * 2) + 3)
 #define HDLC_OUT_BUF_SIZE	(driver->itemsize_hdlc)
-#define DIAG_HDLC_BUF_SIZE	8195
+
+/* The header of callback data type has remote processor token (of type int) */
+#define CALLBACK_HDR_SIZE	(sizeof(int))
+#define CALLBACK_BUF_SIZE	(DIAG_MAX_REQ_SIZE + CALLBACK_HDR_SIZE)
 
 #define MAX_SSID_PER_RANGE	200
 
@@ -50,8 +59,7 @@
 #define REMOTE_DATA		4
 #define APPS_PROC		1
 
-#define USER_SPACE_DATA 8192
-#define PKT_SIZE 4096
+#define USER_SPACE_DATA		16384
 
 #define DIAG_CTRL_MSG_LOG_MASK	9
 #define DIAG_CTRL_MSG_EVENT_MASK	10
@@ -72,6 +80,7 @@
 #define DIAG_STM_SENSORS 0x16
 
 #define DIAG_CMD_VERSION	0
+#define DIAG_CMD_ERROR		0x13
 #define DIAG_CMD_DOWNLOAD	0x3A
 #define DIAG_CMD_DIAG_SUBSYS	0x4B
 #define DIAG_CMD_LOG_CONFIG	0x73
@@ -344,6 +353,7 @@ struct diag_smd_info {
 	struct work_struct diag_general_smd_work;
 	int general_context;
 	uint8_t inited;
+	uint32_t fifo_size;
 
 	/*
 	 * Function ptr for function to call to process the data that
@@ -394,12 +404,10 @@ struct diagchar_dev {
 	int dci_state;
 	struct workqueue_struct *diag_dci_wq;
 	/* Sizes that reflect memory pool sizes */
-	unsigned int itemsize;
 	unsigned int poolsize;
-	unsigned int itemsize_hdlc;
 	unsigned int poolsize_hdlc;
-	unsigned int itemsize_dci;
 	unsigned int poolsize_dci;
+	unsigned int poolsize_user;
 	unsigned int debug_flag;
 	int used;
 	/* Buffers for masks */
@@ -423,13 +431,14 @@ struct diagchar_dev {
 	uint8_t peripheral_buffering_support[NUM_SMD_CONTROL_CHANNELS];
 	struct diag_buffering_mode_t buffering_mode[NUM_SMD_CONTROL_CHANNELS];
 	struct mutex mode_lock;
-	unsigned char *apps_rsp_buf;
 	unsigned char *user_space_data_buf;
 	uint8_t user_space_data_busy;
 	/* buffer for updating mask to peripherals */
 	unsigned char *buf_feature_mask_update;
 	struct mutex diag_hdlc_mutex;
 	unsigned char *hdlc_buf;
+	uint32_t hdlc_buf_len;
+	unsigned char *apps_rsp_buf;
 	unsigned hdlc_count;
 	unsigned hdlc_escape;
 	int in_busy_pktdata;
@@ -449,8 +458,8 @@ struct diagchar_dev {
 	struct workqueue_struct *diag_cntl_wq;
 	uint8_t log_on_demand_support;
 	struct diag_master_table *table;
-	uint8_t *pkt_buf;
-	int pkt_length;
+	uint8_t *apps_req_buf;
+	uint32_t apps_req_buf_len;
 	uint8_t *dci_pkt_buf; /* For Apps DCI packets */
 	uint32_t dci_pkt_length;
 	int in_busy_dcipktdata;

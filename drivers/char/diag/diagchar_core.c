@@ -60,20 +60,13 @@ struct diagchar_priv {
 
 /* Memory pool variables */
 /* Used for copying any incoming packet from user space clients. */
-static unsigned int itemsize = 4096;
 static unsigned int poolsize = 12;
-module_param(itemsize, uint, 0);
 module_param(poolsize, uint, 0);
 
 /*
  * Used for HDLC encoding packets coming from the user
- * space. Itemsize is defined in diagchar_init. HDLC
- * Buffer can be at most twice as long as the itemsize.
- * Add 3 bytes for CRC bytes and delimiter. Don't expose
- * itemsize_hdlc as it is dependent on itemsize.By
- * default it is set to DIAG_HDLC_BUF_SIZE (8K)
+ * space.
  */
-static unsigned int itemsize_hdlc = DIAG_HDLC_BUF_SIZE;
 static unsigned int poolsize_hdlc = 10;
 module_param(poolsize_hdlc, uint, 0);
 
@@ -81,7 +74,6 @@ module_param(poolsize_hdlc, uint, 0);
  * This is used for incoming DCI requests from the user space clients.
  * Don't expose itemsize as it is internal.
  */
-static unsigned int itemsize_user = 8192;
 static unsigned int poolsize_user = 8;
 module_param(poolsize_user, uint, 0);
 
@@ -94,7 +86,6 @@ static unsigned int poolsize_usb_apps = 10;
 module_param(poolsize_usb_apps, uint, 0);
 
 /* Used for DCI client buffers. Don't expose itemsize as it is constant. */
-static unsigned int itemsize_dci = IN_BUF_SIZE;
 static unsigned int poolsize_dci = 10;
 module_param(poolsize_dci, uint, 0);
 
@@ -248,6 +239,18 @@ void diag_add_client(int i, struct file *file)
 
 static void diag_mempool_init(void)
 {
+	uint32_t itemsize = DIAG_MAX_REQ_SIZE;
+	uint32_t itemsize_hdlc = DIAG_MAX_HDLC_BUF_SIZE;
+	uint32_t itemsize_dci = IN_BUF_SIZE;
+	uint32_t itemsize_user = DCI_REQ_BUF_SIZE;
+
+	itemsize += ((DCI_HDR_SIZE > CALLBACK_HDR_SIZE) ? DCI_HDR_SIZE :
+		     CALLBACK_HDR_SIZE);
+	diagmem_setsize(POOL_TYPE_COPY, itemsize, poolsize);
+	diagmem_setsize(POOL_TYPE_HDLC, itemsize_hdlc, poolsize_hdlc);
+	diagmem_setsize(POOL_TYPE_DCI, itemsize_dci, poolsize_dci);
+	diagmem_setsize(POOL_TYPE_USER, itemsize_user, poolsize_user);
+
 	diagmem_init(driver, POOL_TYPE_COPY);
 	diagmem_init(driver, POOL_TYPE_HDLC);
 	diagmem_init(driver, POOL_TYPE_USER);
@@ -616,7 +619,7 @@ static int diag_remote_init(void)
 			poolsize_mdm_dci_write);
 	diagmem_setsize(POOL_TYPE_QSC_MUX, itemsize_qsc_usb,
 			poolsize_qsc_usb);
-	driver->cb_buf = kzalloc(HDLC_OUT_BUF_SIZE, GFP_KERNEL);
+	driver->cb_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE, GFP_KERNEL);
 	if (!driver->cb_buf)
 		return -ENOMEM;
 	driver->cb_buf_len = 0;
@@ -650,7 +653,7 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len)
 	 * Add 3 bytes for CRC bytes (2 bytes) and delimiter (1 byte)
 	 */
 	max_len = (2 * len) + 3;
-	if (HDLC_OUT_BUF_SIZE < max_len) {
+	if (DIAG_MAX_HDLC_BUF_SIZE < max_len) {
 		pr_err("diag: Dropping packet, HDLC encoded packet payload size crosses buffer limit. Current payload size %d\n",
 			max_len);
 		return -EBADMSG;
@@ -1494,7 +1497,7 @@ static int diag_user_process_callback_data(const char __user *buf, int len)
 	const int mempool = POOL_TYPE_COPY;
 	unsigned char *user_space_data = NULL;
 
-	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
+	if (!buf || len <= 0 || len > CALLBACK_BUF_SIZE) {
 		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
 				   __func__, buf, len);
 		return -EBADMSG;
@@ -1625,15 +1628,15 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	 */
 	const uint32_t max_encoded_size = ((2 * len) + 3);
 
-	if (!buf || len <= 0 || len > diag_mempools[mempool].itemsize) {
+	if (!buf || len <= 0 || len > DIAG_MAX_RSP_SIZE) {
 		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
 				   __func__, buf, len);
 		return -EBADMSG;
 	}
 
-	if (HDLC_OUT_BUF_SIZE < max_encoded_size) {
+	if (DIAG_MAX_HDLC_BUF_SIZE < max_encoded_size) {
 		pr_err("diag: In %s, encoded data is larger %d than the buffer size %d\n",
-		       __func__, max_encoded_size, HDLC_OUT_BUF_SIZE);
+		       __func__, max_encoded_size, DIAG_MAX_HDLC_BUF_SIZE);
 		return -EBADMSG;
 	}
 
@@ -1682,14 +1685,14 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	send.terminate = 1;
 
 	if (!buf_hdlc)
-		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+		buf_hdlc = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
 					 POOL_TYPE_HDLC);
 	if (!buf_hdlc) {
 		ret = -ENOMEM;
 		goto fail_free_copy;
 	}
 
-	if (HDLC_OUT_BUF_SIZE - driver->used <= max_encoded_size) {
+	if ((DIAG_MAX_HDLC_BUF_SIZE - driver->used) <= max_encoded_size) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
 				     buf_hdlc_ctxt);
 		if (err) {
@@ -1698,7 +1701,7 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 		}
 		buf_hdlc = NULL;
 		driver->used = 0;
-		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+		buf_hdlc = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
 					 POOL_TYPE_HDLC);
 		if (!buf_hdlc) {
 			ret = -ENOMEM;
@@ -1716,7 +1719,8 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	 * current buffer and start aggregation in a newly allocated
 	 * buffer.
 	 */
-	if ((uintptr_t)enc.dest >= (uintptr_t)(buf_hdlc + HDLC_OUT_BUF_SIZE)) {
+	if ((uintptr_t)enc.dest >= (uintptr_t)(buf_hdlc +
+					       DIAG_MAX_HDLC_BUF_SIZE)) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
 				     buf_hdlc_ctxt);
 		if (err) {
@@ -1725,7 +1729,7 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 		}
 		buf_hdlc = NULL;
 		driver->used = 0;
-		buf_hdlc = diagmem_alloc(driver, HDLC_OUT_BUF_SIZE,
+		buf_hdlc = diagmem_alloc(driver, DIAG_MAX_HDLC_BUF_SIZE,
 					 POOL_TYPE_HDLC);
 		if (!buf_hdlc) {
 			ret = -ENOMEM;
@@ -1738,9 +1742,9 @@ static int diag_user_process_apps_data(const char __user *buf, int len,
 	}
 
 	driver->used = (((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) <
-						HDLC_OUT_BUF_SIZE) ?
+						DIAG_MAX_HDLC_BUF_SIZE) ?
 			((uintptr_t)enc.dest - (uintptr_t)buf_hdlc) :
-						HDLC_OUT_BUF_SIZE;
+						DIAG_MAX_HDLC_BUF_SIZE;
 	if (pkt_type == DATA_TYPE_RESPONSE) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, buf_hdlc, driver->used,
 				     buf_hdlc_ctxt);
@@ -1858,9 +1862,10 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 	if (driver->data_ready[index] & PKT_TYPE) {
 		/*Copy the type of data being passed*/
 		data_type = driver->data_ready[index] & PKT_TYPE;
-		COPY_USER_SPACE_OR_EXIT(buf, data_type, 4);
-		COPY_USER_SPACE_OR_EXIT(buf+4, *(driver->pkt_buf),
-							 driver->pkt_length);
+		COPY_USER_SPACE_OR_EXIT(buf, data_type, sizeof(data_type));
+		COPY_USER_SPACE_OR_EXIT(buf + sizeof(data_type),
+					*(driver->apps_req_buf),
+					driver->apps_req_buf_len);
 		driver->data_ready[index] ^= PKT_TYPE;
 		driver->in_busy_pktdata = 0;
 		goto exit;
@@ -2371,20 +2376,10 @@ static int __init diagchar_init(void)
 	driver->debug_flag = 1;
 	driver->dci_state = DIAG_DCI_NO_ERROR;
 	setup_timer(&drain_timer, drain_timer_func, 1234);
-	driver->itemsize = itemsize;
 	driver->poolsize = poolsize;
-	/*
-	 * HDLC buffer can be at most twice as much as itemsize. Add 3 for
-	 * 16-bit CRC and delimiter.
-	 */
-	itemsize_hdlc = (itemsize * 2) + 3;
-	driver->itemsize_hdlc = itemsize_hdlc;
 	driver->poolsize_hdlc = poolsize_hdlc;
-	driver->itemsize_dci = itemsize_dci;
 	driver->poolsize_dci = poolsize_dci;
-	diagmem_setsize(POOL_TYPE_COPY, itemsize, poolsize);
-	diagmem_setsize(POOL_TYPE_HDLC, itemsize_hdlc, poolsize_hdlc);
-	diagmem_setsize(POOL_TYPE_USER, itemsize_user, poolsize_user);
+	driver->poolsize_user = poolsize_user;
 	/*
 	 * POOL_TYPE_MUX_APPS is for the buffers in the Diag MUX layer.
 	 * The number of buffers encompasses Diag data generated on
@@ -2395,7 +2390,6 @@ static int __init diagchar_init(void)
 	diagmem_setsize(POOL_TYPE_MUX_APPS, itemsize_usb_apps,
 			poolsize_usb_apps + 1 + (NUM_SMD_DATA_CHANNELS * 2) +
 			NUM_SMD_CMD_CHANNELS);
-	diagmem_setsize(POOL_TYPE_DCI, itemsize_dci, poolsize_dci);
 	driver->num_clients = max_clients;
 	driver->logging_mode = USB_MODE;
 	driver->socket_process = NULL;

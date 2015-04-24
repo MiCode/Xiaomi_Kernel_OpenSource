@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2009, 2012-2013, The Linux Foundation.
+/* Copyright (c) 2008-2009, 2012-2013, 2015 The Linux Foundation.
  * All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
@@ -173,7 +173,7 @@ int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc)
 	unsigned int i;
 	uint8_t src_byte;
 
-	int pkt_bnd = 0;
+	int pkt_bnd = HDLC_INCOMPLETE;
 	int msg_start;
 
 	if (hdlc && hdlc->src_ptr && hdlc->dest_ptr &&
@@ -213,7 +213,7 @@ int diag_hdlc_decode(struct diag_hdlc_decode_type *hdlc)
 					as end of packet */
 				dest_ptr[len++] = src_byte;
 				i++;
-				pkt_bnd = 1;
+				pkt_bnd = HDLC_COMPLETE;
 				break;
 			} else {
 				dest_ptr[len++] = src_byte;
