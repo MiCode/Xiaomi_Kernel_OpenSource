@@ -1561,6 +1561,7 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 	loff_t offset;
 	size_t len;
 	size_t actual_len, ret_len;
+	int is_euclean = 0;
 
 	actual_len = ops->len;
 	ret_len = 0;
@@ -1594,7 +1595,14 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 
 		ops->datbuf = no_copy ? actual_buf : bounce_buf;
 		err = msm_nand_read_oob(mtd, aligned_from, ops);
+		if (err == -EUCLEAN) {
+			is_euclean = 1;
+			err = 0;
+		}
+
 		if (err < 0) {
+			/* Clear previously set EUCLEAN */
+			is_euclean = 0;
 			ret_len = ops->retlen;
 			break;
 		}
@@ -1616,6 +1624,8 @@ static int msm_nand_read_partial_page(struct mtd_info *mtd,
 	ops->retlen = ret_len;
 	kfree(bounce_buf);
 out:
+	if (is_euclean == 1)
+		err = -EUCLEAN;
 	return err;
 }
 
@@ -1627,6 +1637,7 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 	      size_t *retlen, u_char *buf)
 {
 	int ret;
+	int is_euclean = 0;
 	struct mtd_oob_ops ops;
 	unsigned char *bounce_buf = NULL;
 
@@ -1663,8 +1674,16 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 					no_copy = true;
 				}
 				ret = msm_nand_read_oob(mtd, from, &ops);
-				if (ret < 0)
+				if (ret == -EUCLEAN) {
+					is_euclean = 1;
+					ret = 0;
+				}
+				if (ret < 0) {
+					/* Clear previously set EUCLEAN */
+					is_euclean = 0;
 					break;
+				}
+
 
 				if (!no_copy)
 					memcpy(buf, bounce_buf, ops.retlen);
@@ -1699,6 +1718,8 @@ static int msm_nand_read(struct mtd_info *mtd, loff_t from, size_t len,
 		*retlen = ops.retlen;
 	}
 out:
+	if (is_euclean == 1)
+		ret = -EUCLEAN;
 	return ret;
 }
 
