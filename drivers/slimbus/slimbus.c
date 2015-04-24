@@ -731,8 +731,8 @@ static int slim_processtxn(struct slim_controller *ctrl,
 			ctrl->last_tid++;
 		}
 		ctrl->txnt[i] = txn;
-		spin_unlock(&ctrl->txn_lock);
 		txn->tid = i;
+		spin_unlock(&ctrl->txn_lock);
 	}
 
 	ret = ctrl->xfer_msg(ctrl, txn);
