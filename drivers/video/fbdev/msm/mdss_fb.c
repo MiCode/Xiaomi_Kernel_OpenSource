@@ -405,7 +405,7 @@ static void mdss_fb_get_split(struct msm_fb_data_type *mfd)
 		mdss_fb_parse_dt_split(mfd);
 
 	if ((mfd->split_mode == MDP_SPLIT_MODE_NONE) &&
-	    (mfd->split_fb_left || mfd->split_fb_right))
+	    (mfd->split_fb_left && mfd->split_fb_right))
 		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
 
 	pr_debug("split framebuffer left=%d right=%d mode=%d\n",
