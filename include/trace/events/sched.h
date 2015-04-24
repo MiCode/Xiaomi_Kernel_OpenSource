@@ -154,6 +154,31 @@ TRACE_EVENT(sched_task_load,
 		__entry->best_cpu, __entry->latency)
 );
 
+TRACE_EVENT(sched_set_preferred_cluster,
+
+	TP_PROTO(struct related_thread_group *grp, u64 total_demand),
+
+	TP_ARGS(grp, total_demand),
+
+	TP_STRUCT__entry(
+		__field(		int,	id			)
+		__field(		u64,	demand			)
+		__field(		int,	cluster_first_cpu	)
+	),
+
+	TP_fast_assign(
+		__entry->id			= grp->id;
+		__entry->demand			= total_demand;
+		__entry->cluster_first_cpu	= grp->preferred_cluster ?
+							cluster_first_cpu(grp->preferred_cluster)
+							: -1;
+	),
+
+	TP_printk("group_id %d total_demand %llu preferred_cluster_first_cpu %d",
+			__entry->id, __entry->demand,
+			__entry->cluster_first_cpu)
+);
+
 DECLARE_EVENT_CLASS(sched_cpu_load,
 
 	TP_PROTO(struct rq *rq, int idle, u64 irqload, unsigned int power_cost, int temp),
