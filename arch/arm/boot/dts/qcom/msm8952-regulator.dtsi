@@ -25,43 +25,6 @@
 	/* PM8950 S2 - VDD_CX supply */
 	rpm-regulator-smpa2 {
 		status = "okay";
-		/*
-		 * TODO: remove this node once consumer moves to level voting
-		 */
-		pm8950_s2_corner: regulator-s2-corner {
-			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pm8950_s2_corner";
-			qcom,set = <3>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
-		};
-
-		/*
-		 * TODO: remove this node once consumer moves to level voting
-		 */
-		pm8950_s2_floor_corner: regulator-s2-floor-corner {
-			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pm8950_s2_floor_corner";
-			qcom,set = <3>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-floor-corner;
-			qcom,always-send-voltage;
-		};
-
-		/*
-		 * TODO: remove this node once consumer moves to level voting
-		 */
-		pm8950_s2_corner_ao: regulator-s2-corner-ao {
-			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pm8950_s2_corner_ao";
-			qcom,set = <1>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
-		};
-
 		pm8950_s2_level: regulator-s2-level {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8950_s2_level";
@@ -124,40 +87,6 @@
 	/* VDD_MX supply */
 	rpm-regulator-ldoa3 {
 		status = "okay";
-		/*
-		 * TODO: remove this node once consumer moves to level voting
-		 */
-		pm8950_l3: regulator-l3 {
-			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1287500>;
-			status = "okay";
-		};
-
-		/*
-		 * TODO: remove this node once consumer moves to level voting
-		 */
-		pm8950_l3_corner_ao: regulator-l3-corner-ao {
-			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pm8950_l3_corner_ao";
-			qcom,set = <1>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-floor-corner;
-			qcom,always-send-voltage;
-		};
-
-		/*
-		 * TODO: remove this node once consumer moves to level voting
-		 */
-		pm8950_l3_corner_so: regulator-l3-corner-so {
-			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "pm8950_l3_corner_so";
-			qcom,set = <2>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
-		};
-
 		pm8950_l3_level_ao: regulator-l3-level-ao {
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8950_l3_level_ao";
