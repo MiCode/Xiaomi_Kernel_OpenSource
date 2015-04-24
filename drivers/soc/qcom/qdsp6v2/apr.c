@@ -384,6 +384,10 @@ struct apr_svc *apr_register(char *dest, char *svc_name, apr_fn svc_fn,
 			}
 		}
 		pr_debug("%s: modem Up\n", __func__);
+	} else {
+		pr_err("%s: Invalid destination id %d\n", __func__,
+				dest_id);
+		return NULL;
 	}
 
 	if (apr_get_svc(svc_name, domain_id, &client_id, &svc_idx, &svc_id)) {
