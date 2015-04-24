@@ -1,0 +1,28 @@
+Embedded Power Measurement(EPM) using Cypress Progammable System on a chip (PSOC)
+
+The EPM using the PSoC5 is used by clients to measure on target power
+measurement on supported channels. The PSoC5 is a microcontroller
+that is communicated over the SPI from the MSM. Primary configuration
+supports upto 31 channels and the scope of the driver is to support
+userspace clients.
+
+EPM node
+
+Required properties:
+- compatible : should be "cy,epm-adc-cy8c5568lti-114" for EPM using PSoC5.
+- reg : chip select for the device.
+- interrupt-parent : should be phandle of the interrupt controller
+		     servicing the interrupt for this device.
+- spi-max-frequency : existing support is set for 960kHz.
+- qcom,channels : The number of voltage and current channels that
+		  are supported.
+- qcom,gain : The gain for each of the supported channels.
+- qcom,rsense : The rsense value for each channel. The current channels
+		rsense values units are in milliohms. The voltage channels
+		rsense value is 1.
+- qcom,channel-type : Bitmak of channels to set as voltage and current.
+		      These are platform dependent and the appropriate scaling
+		      functions are used for returning voltage and current.
+- qcom,<gpio-name>-gpio : Handle to the GPIO node, see "gpios property" in
+		Documentation/devicetree/bindings/gpio/gpio.txt.
+  "gpio-name" can be "epm-enable" which is the EPM global enable GPIO for powering up the PSoC.

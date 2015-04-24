@@ -1137,6 +1137,14 @@ config SENSORS_PCF8591
 	  These devices are hard to detect and rarely found on mainstream
 	  hardware.  If unsure, say N.
 
+config SENSORS_EPM_ADC
+	tristate "EPM ADC Driver for power measurement"
+	depends on I2C && SPI_MASTER
+	default n
+	help
+	  Provides interface for measuring the current on specific power rails
+	  through the channels on ADC1158 ADC
+
 config SENSORS_QPNP_ADC_VOLTAGE
 	tristate "Support for Qualcomm QPNP Voltage ADC"
 	depends on MSM_SPMI
