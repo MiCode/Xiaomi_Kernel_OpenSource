@@ -278,22 +278,23 @@ static int pil_venus_auth_and_reset(void)
 	if (iommu_present) {
 		phys_addr_t pa = fw_bias;
 
+		/* Enable this for new SMMU to set the device attribute */
+		rc = iommu_domain_set_attr(venus_data->mapping->domain,
+				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
+				&disable_htw);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"%s: Failed to disable COHERENT_HTW: %s\n",
+				__func__, dev_name(dev));
+			goto release_mapping;
+		}
+
 		rc = arm_iommu_attach_device(dev, venus_data->mapping);
 		if (rc) {
 			dprintk(VIDC_ERR,
 				"Failed to attach iommu for %s : %d\n",
 				dev_name(dev), rc);
 			goto release_mapping;
-		}
-
-		/* Enable this for new SMMU to set the device attribute */
-		if (iommu_domain_set_attr(venus_data->mapping->domain,
-				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
-				&disable_htw)) {
-			dprintk(VIDC_ERR,
-				"%s: Failed to disable COHERENT_HTW: %s\n",
-				__func__, dev_name(dev));
-			goto err_iommu_map;
 		}
 
 		dprintk(VIDC_DBG, "Attached and created mapping for %s\n",
