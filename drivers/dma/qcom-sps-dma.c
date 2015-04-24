@@ -48,28 +48,17 @@
 #define QBAM_MAX_CHANNELS	(32)
 
 /*
- * qbam_xfer_buf - a single buffer transfer.
- *
- * @addr buffer's physical address
- * @size buffer's size
- * @flags BAM transfer slags.
- */
-struct qbam_xfer_buf {
-	phys_addr_t			addr;
-	u32				size;
-	u32				flags;
-};
-
-/*
  * qbam_async_tx_descriptor - dma descriptor plus a list of xfer_bufs
  *
- * @xfer_bufs array of transfer buffers
- * @num_xfer_bufs size of that array
+ * @sgl scatterlist of transfer buffers
+ * @sg_len size of that list
+ * @flags dma xfer flags
  */
 struct qbam_async_tx_descriptor {
 	struct dma_async_tx_descriptor	dma_desc;
-	struct qbam_xfer_buf		*xfer_bufs;
-	u32				num_xfer_bufs;
+	struct scatterlist		*sgl;
+	unsigned int			sg_len;
+	unsigned long			flags;
 };
 
 #define DMA_TO_QBAM_ASYNC_DESC(dma_async_desc) \
@@ -123,7 +112,7 @@ struct qbam_channel {
 
 	struct dma_chan			chan;
 	enum dma_transfer_direction	direction;
-	struct qbam_async_tx_descriptor	*pending_desc;
+	struct qbam_async_tx_descriptor	pending_desc;
 
 	struct qbam_device		*qbam_dev;
 	struct mutex			lock;
@@ -167,18 +156,13 @@ static void qbam_free_chan(struct dma_chan *chan)
 	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
 	struct qbam_device  *qbam_dev  = qbam_chan->qbam_dev;
 
-
 	mutex_lock(&qbam_chan->lock);
 	if (qbam_disconnect_chan(qbam_chan))
 		qbam_err(qbam_dev,
 			"error free_chan() faild to disconnect(pipe:%d)\n",
 			qbam_chan->bam_pipe.index);
-
-	if (qbam_chan->pending_desc) {
-		kfree(qbam_chan->pending_desc->xfer_bufs);
-		kfree(qbam_chan->pending_desc);
-		qbam_chan->pending_desc = NULL;
-	}
+	qbam_chan->pending_desc.sgl = NULL;
+	qbam_chan->pending_desc.sg_len = 0;
 	mutex_unlock(&qbam_chan->lock);
 }
 
@@ -259,8 +243,9 @@ static enum dma_status qbam_tx_status(struct dma_chan *chan,
 			dma_cookie_t cookie, struct dma_tx_state *state)
 {
 	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
-	struct qbam_async_tx_descriptor	*qbam_desc = qbam_chan->pending_desc;
+	struct qbam_async_tx_descriptor	*qbam_desc = &qbam_chan->pending_desc;
 	enum dma_status ret;
+	struct scatterlist *sg;
 
 	mutex_lock(&qbam_chan->lock);
 
@@ -274,8 +259,8 @@ static enum dma_status qbam_tx_status(struct dma_chan *chan,
 		int i;
 		u32 transfer_size = 0;
 
-		for (i = 0; i < qbam_desc->num_xfer_bufs; ++i)
-			transfer_size += qbam_desc->xfer_bufs[i].size;
+		for_each_sg(qbam_desc->sgl, sg, qbam_desc->sg_len, i)
+			transfer_size += sg_dma_len(sg);
 
 		dma_set_residue(state, transfer_size);
 	}
@@ -343,21 +328,11 @@ static void qbam_eot_callback(struct sps_event_notify *notify)
 {
 	struct qbam_async_tx_descriptor *qbam_desc = notify->data.transfer.user;
 	struct dma_async_tx_descriptor  *dma_desc  = &qbam_desc->dma_desc;
-	struct dma_chan     *chan	= qbam_desc->dma_desc.chan;
-	struct qbam_channel *qbam_chan	= DMA_TO_QBAM_CHAN(chan);
 	dma_async_tx_callback callback	= dma_desc->callback;
 	void *param			= dma_desc->callback_param;
 
-	dma_cookie_complete(dma_desc);
-	kfree(qbam_desc->xfer_bufs);
-	kfree(qbam_desc);
-
 	if (callback)
 		callback(param);
-	else
-		qbam_err(qbam_chan->qbam_dev,
-			"qbam_eot_callback() null callback pipe:%d\n",
-			qbam_chan->bam_pipe.index);
 }
 
 static void qbam_error_callback(struct sps_event_notify *notify)
@@ -530,15 +505,11 @@ static int qbam_control(struct dma_chan *chan, enum dma_ctrl_cmd cmd,
 /* qbam_tx_submit - sets the descriptor as the next one to be executed */
 static dma_cookie_t qbam_tx_submit(struct dma_async_tx_descriptor *dma_desc)
 {
-	struct qbam_async_tx_descriptor *qbam_desc =
-					DMA_TO_QBAM_ASYNC_DESC(dma_desc);
 	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(dma_desc->chan);
 	dma_cookie_t ret;
-
 	mutex_lock(&qbam_chan->lock);
 
 	ret = dma_cookie_assign(dma_desc);
-	qbam_chan->pending_desc = qbam_desc;
 
 	mutex_unlock(&qbam_chan->lock);
 
@@ -563,10 +534,7 @@ static struct dma_async_tx_descriptor *qbam_prep_slave_sg(struct dma_chan *chan,
 {
 	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
 	struct qbam_device *qbam_dev = qbam_chan->qbam_dev;
-	struct qbam_async_tx_descriptor *qbam_desc;
-	struct scatterlist *sg;
-	u32 i;
-	struct qbam_xfer_buf *xfer;
+	struct qbam_async_tx_descriptor *qbam_desc = &qbam_chan->pending_desc;
 
 	if (qbam_chan->direction != direction) {
 		qbam_err(qbam_dev,
@@ -575,41 +543,11 @@ static struct dma_async_tx_descriptor *qbam_prep_slave_sg(struct dma_chan *chan,
 		return ERR_PTR(-EINVAL);
 	}
 
-	qbam_desc = kzalloc(sizeof(*qbam_desc), GFP_KERNEL);
-	if (!qbam_desc) {
-		qbam_err(qbam_dev, "error kmalloc(size:%lu) faild\n",
-			 sizeof(*qbam_desc));
-		return ERR_PTR(-ENOMEM);
-	}
-
-	qbam_desc->xfer_bufs = kzalloc(sizeof(*xfer) * sg_len, GFP_KERNEL);
-	if (!qbam_desc->xfer_bufs) {
-		kfree(qbam_desc);
-		qbam_err(qbam_dev,
-			"error faild kmalloc(size:%lu * sg_len:%u) pipe:%d\n",
-			sizeof(*qbam_desc->xfer_bufs), sg_len,
-			qbam_chan->bam_pipe.index);
-		return ERR_PTR(-ENOMEM);
-	}
-	qbam_desc->num_xfer_bufs = sg_len;
-
-	/*
-	 * Iterate over the sg array and copy the address and length to the
-	 * xfer array
-	 */
-	for_each_sg(sgl, sg, sg_len, i) {
-		xfer       = &qbam_desc->xfer_bufs[i];
-		xfer->addr = sg_dma_address(sg);
-		xfer->size = sg_dma_len(sg);
-	}
-	/*
-	 * Normally we want to add EOT+NWD to the last descriptor. xfer points
-	 * to the last descriptor at this point.
-	 */
-	xfer->flags = flags;
-
 	qbam_desc->dma_desc.chan	= &qbam_chan->chan;
 	qbam_desc->dma_desc.tx_submit	= qbam_tx_submit;
+	qbam_desc->sgl			= sgl;
+	qbam_desc->sg_len		= sg_len;
+	qbam_desc->flags		= flags;
 	return &qbam_desc->dma_desc;
 }
 
@@ -624,10 +562,10 @@ static void qbam_issue_pending(struct dma_chan *chan)
 	int ret = 0;
 	struct qbam_channel *qbam_chan = DMA_TO_QBAM_CHAN(chan);
 	struct qbam_device  *qbam_dev  = qbam_chan->qbam_dev;
-	struct qbam_async_tx_descriptor *qbam_desc;
-
+	struct qbam_async_tx_descriptor *qbam_desc = &qbam_chan->pending_desc;
+	struct scatterlist		*sg;
 	mutex_lock(&qbam_chan->lock);
-	if (!qbam_chan->pending_desc) {
+	if (!qbam_chan->pending_desc.sgl) {
 		qbam_err(qbam_dev,
 		   "error qbam_issue_pending() no pending descriptor pipe:%d\n",
 		   qbam_chan->bam_pipe.index);
@@ -635,28 +573,26 @@ static void qbam_issue_pending(struct dma_chan *chan)
 		return;
 	}
 
-	qbam_desc = qbam_chan->pending_desc;
-
-	for (i = 0; i < qbam_desc->num_xfer_bufs; ++i) {
-		struct qbam_xfer_buf *xfer = &qbam_desc->xfer_bufs[i];
+	for_each_sg(qbam_desc->sgl, sg, qbam_desc->sg_len, i) {
 
 		ret = sps_transfer_one(qbam_chan->bam_pipe.handle,
-					xfer->addr, xfer->size, qbam_desc,
-					xfer->flags);
-
+					sg_dma_address(sg), sg_dma_len(sg),
+					qbam_desc, qbam_desc->flags);
 		if (ret < 0) {
 			qbam_chan->error = ret;
 
 			qbam_err(qbam_dev, "erorr:%d sps_transfer_one\n"
-				 "(addr:0x%lx len:%d flags:0x%x pipe:%d)\n",
-				 ret, (ulong) xfer->addr, xfer->size,
-				 xfer->flags, qbam_chan->bam_pipe.index);
-
+				"(addr:0x%lx len:%d flags:0x%lx pipe:%d)\n",
+				ret, (ulong) sg_dma_address(sg), sg_dma_len(sg),
+				qbam_desc->flags, qbam_chan->bam_pipe.index);
 			break;
 		}
 	}
-	qbam_chan->pending_desc = NULL;
+
+	dma_cookie_complete(&qbam_desc->dma_desc);
 	qbam_chan->error = 0;
+	qbam_desc->sgl = NULL;
+	qbam_desc->sg_len = 0;
 	mutex_unlock(&qbam_chan->lock);
 };
 
