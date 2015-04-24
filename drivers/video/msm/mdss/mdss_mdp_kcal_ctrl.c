@@ -56,7 +56,7 @@ struct kcal_lut_data {
 	int cont;
 };
 
-static uint32_t igc_Table_Inverted[IGC_LUT_ENTRIES] = {
+static uint32_t igc_inverted[IGC_LUT_ENTRIES] = {
 	267390960, 266342368, 265293776, 264245184,
 	263196592, 262148000, 261099408, 260050816,
 	259002224, 257953632, 256905040, 255856448,
@@ -123,7 +123,7 @@ static uint32_t igc_Table_Inverted[IGC_LUT_ENTRIES] = {
 	3145776, 2097184, 1048592, 0
 };
 
-static uint32_t igc_Table_RGB[IGC_LUT_ENTRIES] = {
+static uint32_t igc_rgb[IGC_LUT_ENTRIES] = {
 	4080, 4064, 4048, 4032, 4016, 4000, 3984, 3968, 3952, 3936, 3920, 3904,
 	3888, 3872, 3856, 3840, 3824, 3808, 3792, 3776, 3760, 3744, 3728, 3712,
 	3696, 3680, 3664, 3648, 3632, 3616, 3600, 3584, 3568, 3552, 3536, 3520,
@@ -168,13 +168,6 @@ static void mdss_mdp_kcal_update_pcc(struct kcal_lut_data *lut_data)
 	u32 copyback = 0;
 	struct mdp_pcc_cfg_data pcc_config;
 
-	lut_data->red = lut_data->red < lut_data->minimum ?
-		lut_data->minimum : lut_data->red;
-	lut_data->green = lut_data->green < lut_data->minimum ?
-		lut_data->minimum : lut_data->green;
-	lut_data->blue = lut_data->blue < lut_data->minimum ?
-		lut_data->minimum : lut_data->blue;
-
 	memset(&pcc_config, 0, sizeof(struct mdp_pcc_cfg_data));
 
 	pcc_config.block = MDP_LOGICAL_BLOCK_DISP_0;
@@ -186,6 +179,29 @@ static void mdss_mdp_kcal_update_pcc(struct kcal_lut_data *lut_data)
 	pcc_config.b.b = lut_data->blue * PCC_ADJ;
 
 	mdss_mdp_pcc_config(&pcc_config, &copyback);
+}
+
+static void mdss_mdp_kcal_read_pcc(struct kcal_lut_data *lut_data)
+{
+	u32 copyback = 0;
+	struct mdp_pcc_cfg_data pcc_config;
+
+	memset(&pcc_config, 0, sizeof(struct mdp_pcc_cfg_data));
+
+	pcc_config.block = MDP_LOGICAL_BLOCK_DISP_0;
+	pcc_config.ops = MDP_PP_OPS_READ;
+
+	mdss_mdp_pcc_config(&pcc_config, &copyback);
+
+	/* LiveDisplay disables pcc when using default values and regs
+	 * are zeroed on pp resume, so throw these values out.
+	 */
+	if (!pcc_config.r.r && !pcc_config.g.g && !pcc_config.b.b)
+		return;
+
+	lut_data->red = pcc_config.r.r / PCC_ADJ;
+	lut_data->green = pcc_config.g.g / PCC_ADJ;
+	lut_data->blue = pcc_config.b.b / PCC_ADJ;
 }
 
 static void mdss_mdp_kcal_update_pa(struct kcal_lut_data *lut_data)
@@ -232,6 +248,44 @@ static void mdss_mdp_kcal_update_pa(struct kcal_lut_data *lut_data)
 	}
 }
 
+static void mdss_mdp_kcal_read_pa(struct kcal_lut_data *lut_data)
+{
+	u32 copyback = 0;
+	struct mdp_pa_cfg_data pa_config;
+	struct mdp_pa_v2_cfg_data pa_v2_config;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103) {
+		memset(&pa_config, 0, sizeof(struct mdp_pa_cfg_data));
+
+		pa_config.block = MDP_LOGICAL_BLOCK_DISP_0;
+		pa_config.pa_data.flags = MDP_PP_OPS_READ;
+
+		mdss_mdp_pa_config(&pa_config, &copyback);
+
+		lut_data->hue = pa_config.pa_data.hue_adj;
+		lut_data->sat = pa_config.pa_data.sat_adj;
+		lut_data->val = pa_config.pa_data.val_adj;
+		lut_data->cont = pa_config.pa_data.cont_adj;
+	} else {
+		memset(&pa_v2_config, 0, sizeof(struct mdp_pa_v2_cfg_data));
+
+		pa_v2_config.block = MDP_LOGICAL_BLOCK_DISP_0;
+		pa_v2_config.pa_v2_data.flags = MDP_PP_OPS_READ;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_HUE_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_SAT_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_VAL_ENABLE;
+		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_CONT_ENABLE;
+
+		mdss_mdp_pa_v2_config(&pa_v2_config, &copyback);
+
+		lut_data->hue = pa_v2_config.pa_v2_data.global_hue_adj;
+		lut_data->sat = pa_v2_config.pa_v2_data.global_sat_adj;
+		lut_data->val = pa_v2_config.pa_v2_data.global_val_adj;
+		lut_data->cont = pa_v2_config.pa_v2_data.global_cont_adj;
+	}
+}
+
 static void mdss_mdp_kcal_update_igc(struct kcal_lut_data *lut_data)
 {
 	u32 copyback = 0, copy_from_kernel = 1;
@@ -244,10 +298,20 @@ static void mdss_mdp_kcal_update_igc(struct kcal_lut_data *lut_data)
 		MDP_PP_OPS_WRITE | MDP_PP_OPS_ENABLE :
 			MDP_PP_OPS_WRITE | MDP_PP_OPS_DISABLE;
 	igc_config.len = IGC_LUT_ENTRIES;
-	igc_config.c0_c1_data = &igc_Table_Inverted[0];
-	igc_config.c2_data = &igc_Table_RGB[0];
+	igc_config.c0_c1_data = igc_inverted;
+	igc_config.c2_data = igc_rgb;
 
 	mdss_mdp_igc_lut_config(&igc_config, &copyback, copy_from_kernel);
+}
+
+static void mdss_mdp_kcal_check_pcc(struct kcal_lut_data *lut_data)
+{
+	lut_data->red = lut_data->red < lut_data->minimum ?
+		lut_data->minimum : lut_data->red;
+	lut_data->green = lut_data->green < lut_data->minimum ?
+		lut_data->minimum : lut_data->green;
+	lut_data->blue = lut_data->blue < lut_data->minimum ?
+		lut_data->minimum : lut_data->blue;
 }
 
 static ssize_t kcal_store(struct device *dev, struct device_attribute *attr,
@@ -257,13 +321,15 @@ static ssize_t kcal_store(struct device *dev, struct device_attribute *attr,
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
 	r = sscanf(buf, "%d %d %d", &kcal_r, &kcal_g, &kcal_b);
-	if ((r != 3) || (kcal_r < 0 || kcal_r > 256) ||
-		(kcal_g < 0 || kcal_g > 256) || (kcal_b < 0 || kcal_b > 256))
+	if ((r != 3) || (kcal_r < 1 || kcal_r > 256) ||
+		(kcal_g < 1 || kcal_g > 256) || (kcal_b < 1 || kcal_b > 256))
 		return -EINVAL;
 
 	lut_data->red = kcal_r;
 	lut_data->green = kcal_g;
 	lut_data->blue = kcal_b;
+
+	mdss_mdp_kcal_check_pcc(lut_data);
 
 	if (mdss_mdp_kcal_is_panel_on())
 		mdss_mdp_kcal_update_pcc(lut_data);
@@ -278,6 +344,9 @@ static ssize_t kcal_show(struct device *dev, struct device_attribute *attr,
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
+	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
+		mdss_mdp_kcal_read_pcc(lut_data);
+
 	return scnprintf(buf, PAGE_SIZE, "%d %d %d\n",
 		lut_data->red, lut_data->green, lut_data->blue);
 }
@@ -289,10 +358,12 @@ static ssize_t kcal_min_store(struct device *dev,
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
 	r = kstrtoint(buf, 10, &kcal_min);
-	if ((r) || (kcal_min < 0 || kcal_min > 256))
+	if ((r) || (kcal_min < 1 || kcal_min > 256))
 		return -EINVAL;
 
 	lut_data->minimum = kcal_min;
+
+	mdss_mdp_kcal_check_pcc(lut_data);
 
 	if (mdss_mdp_kcal_is_panel_on())
 		mdss_mdp_kcal_update_pcc(lut_data);
@@ -367,6 +438,8 @@ static ssize_t kcal_invert_show(struct device *dev,
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
+	/* IGC lut does not support reading regs in kernel space yet */
+
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->invert);
 }
 
@@ -394,6 +467,9 @@ static ssize_t kcal_sat_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
+
+	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
+		mdss_mdp_kcal_read_pa(lut_data);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->sat);
 }
@@ -423,6 +499,9 @@ static ssize_t kcal_hue_show(struct device *dev,
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
+	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
+		mdss_mdp_kcal_read_pa(lut_data);
+
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->hue);
 }
 
@@ -451,6 +530,9 @@ static ssize_t kcal_val_show(struct device *dev,
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
+	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
+		mdss_mdp_kcal_read_pa(lut_data);
+
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->val);
 }
 
@@ -478,6 +560,9 @@ static ssize_t kcal_cont_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
+
+	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
+		mdss_mdp_kcal_read_pa(lut_data);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->cont);
 }
