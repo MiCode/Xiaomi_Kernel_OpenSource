@@ -704,7 +704,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case TIOCMGET:
 		devp->sigs_updated = false;
-		ret = glink_sigs_local_get(devp->handle);
+		ret = glink_sigs_remote_get(devp->handle);
 		GLINK_PKT_INFO("%s: TIOCMGET sigs[0x%x]\n", __func__, ret);
 		if (ret >= 0)
 			ret = put_user(ret, (uint32_t *)arg);
