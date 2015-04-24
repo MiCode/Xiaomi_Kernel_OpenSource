@@ -204,7 +204,7 @@ u32 get_dump_range(struct dump_offset *range_node, size_t max_offset)
 }
 
 static void mdss_dump_reg(u32 reg_dump_flag,
-	char *addr, int len, u32 *dump_mem)
+	char *addr, int len, u32 **dump_mem)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool in_log, in_mem;
@@ -223,12 +223,12 @@ static void mdss_dump_reg(u32 reg_dump_flag,
 	len /= 16;
 
 	if (in_mem) {
-		if (!dump_mem)
-			dump_mem = dma_alloc_coherent(&mdata->pdev->dev,
+		if (!(*dump_mem))
+			*dump_mem = dma_alloc_coherent(&mdata->pdev->dev,
 				len * 16, &phys, GFP_KERNEL);
 
-		if (dump_mem) {
-			dump_addr = dump_mem;
+		if (*dump_mem) {
+			dump_addr = *dump_mem;
 			pr_info("start_addr:%p end_addr:%p reg_addr=%p\n",
 				dump_addr, dump_addr + (u32)len * 16,
 				addr);
@@ -289,7 +289,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 				addr, xlog_node->offset.start,
 				xlog_node->offset.end);
 			mdss_dump_reg(reg_dump_flag, addr, len,
-				xlog_node->reg_dump);
+				&xlog_node->reg_dump);
 		}
 	} else {
 		/* If there is no list to dump ranges, dump all registers */
@@ -297,7 +297,7 @@ static void mdss_dump_reg_by_ranges(struct mdss_debug_base *dbg,
 		pr_info("base:0x%p len:0x%zu\n", dbg->base, dbg->max_offset);
 		addr = dbg->base;
 		len = dbg->max_offset;
-		mdss_dump_reg(reg_dump_flag, addr, len, dbg->reg_dump);
+		mdss_dump_reg(reg_dump_flag, addr, len, &dbg->reg_dump);
 	}
 }
 
