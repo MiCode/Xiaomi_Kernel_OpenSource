@@ -237,6 +237,13 @@ struct mdss_mdp_ctl_intfs_ops {
 				struct mdss_mdp_ctl *sctl, int new_fps);
 	int (*restore_fnc)(struct mdss_mdp_ctl *ctl);
 	int (*early_wake_up_fnc)(struct mdss_mdp_ctl *ctl);
+
+	/*
+	 * reconfigure interface for new resolution, called before (pre=1)
+	 * and after interface has been reconfigured (pre=0)
+	 */
+	int (*reconfigure)(struct mdss_mdp_ctl *ctl,
+			enum dynamic_switch_modes mode, bool pre);
 };
 
 struct mdss_mdp_ctl {
@@ -320,6 +327,7 @@ struct mdss_mdp_ctl {
 	bool force_ctl_start;
 
 	u64 last_input_time;
+	int pending_mode_switch;
 };
 
 struct mdss_mdp_mixer {
