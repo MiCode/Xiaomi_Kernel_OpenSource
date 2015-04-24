@@ -26,6 +26,10 @@
 #define XPOWER_BATTEMP_LOW	0x59
 #define XPOWER_GPADC_LOW	0x5b
 
+#define XPOWER_GPIO1_CTL	0x92
+#define XPOWER_GPIO1_LDO_OFF	0x04
+#define XPOWER_GPIO1_LDO_ON	0x03
+
 static struct pmic_pwr_table pwr_table[] = {
 	{
 		.address = 0x00,
@@ -119,45 +123,52 @@ static struct pmic_pwr_table pwr_table[] = {
 		},
 	},
 	{
-		.address = 0x38,
+		.address = 0x34,
 		.pwr_reg = {
 			.reg = 0x10,
 			.bit = 0x03,
 		},
 	},
 	{
-		.address = 0x3c,
+		.address = 0x38,
 		.pwr_reg = {
 			.reg = 0x10,
 			.bit = 0x06,
 		},
 	},
 	{
-		.address = 0x40,
+		.address = 0x3c,
 		.pwr_reg = {
 			.reg = 0x10,
 			.bit = 0x05,
 		},
 	},
 	{
-		.address = 0x44,
+		.address = 0x40,
 		.pwr_reg = {
 			.reg = 0x10,
 			.bit = 0x04,
 		},
 	},
 	{
-		.address = 0x48,
+		.address = 0x44,
 		.pwr_reg = {
 			.reg = 0x10,
 			.bit = 0x01,
 		},
 	},
 	{
-		.address = 0x4c,
+		.address = 0x48,
 		.pwr_reg = {
 			.reg = 0x10,
-			.bit = 0x00
+			.bit = 0x00,
+		},
+	},
+	{
+		.address = 0x4c,
+		.pwr_reg = {
+			.reg = 0x92,
+			.bit = 0x00,
 		},
 	},
 };
@@ -213,11 +224,19 @@ static int intel_xpower_pmic_update_power(struct pmic_pwr_reg *preg, bool on)
 	if (ret < 0)
 		return -EIO;
 
-	data = (u8)ret;
-	if (on)
-		data |= BIT(preg->bit);
-	else
-		data &= ~BIT(preg->bit);
+	/* For GPIO1 switch on/off the LDO */
+	if (preg->reg == XPOWER_GPIO1_CTL) {
+		if (on)
+			data = XPOWER_GPIO1_LDO_ON;
+		else
+			data = XPOWER_GPIO1_LDO_OFF;
+	} else {
+		data = (u8)ret;
+		if (on)
+			data |= BIT(preg->bit);
+		else
+			data &= ~BIT(preg->bit);
+	}
 
 	ret = intel_soc_pmic_writeb(preg->reg, data);
 	if (ret < 0)
