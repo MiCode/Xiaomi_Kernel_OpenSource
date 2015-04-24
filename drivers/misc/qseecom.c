@@ -2170,7 +2170,7 @@ static int __qseecom_send_cmd(struct qseecom_dev_handle *data,
 	if (!found_app) {
 		pr_err("app_id %d (%s) is not found\n", data->client.app_id,
 			(char *)data->client.app_name);
-		return -EINVAL;
+		return -ENOENT;
 	}
 
 	if (qseecom.qsee_version < QSEE_VERSION_40) {
@@ -3148,6 +3148,7 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		goto err;
 
 	data->client.app_id = ret;
+	strlcpy(data->client.app_name, app_name, MAX_APP_NAME_SIZE);
 	if (ret > 0) {
 		pr_warn("App id %d for [%s] app exists\n", ret,
 			(char *)app_ireq.app_name);
@@ -3172,8 +3173,6 @@ int qseecom_start_app(struct qseecom_handle **handle,
 		ret = __qseecom_load_fw(data, app_name);
 		if (ret < 0)
 			goto err;
-		data->client.app_id = ret;
-		strlcpy(data->client.app_name, app_name, MAX_APP_NAME_SIZE);
 	}
 	if (!found_app) {
 		entry = kmalloc(sizeof(*entry), GFP_KERNEL);
