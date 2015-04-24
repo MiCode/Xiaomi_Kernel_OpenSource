@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -182,7 +182,7 @@ void audio_aio_async_read_ack(struct q6audio_aio *audio, uint32_t token,
 	filled_buf = list_first_entry(&audio->in_queue,
 					struct audio_aio_buffer_node, list);
 
-	pr_debug("%s token: 0x[%d], filled_buf->token: 0x[%lu]",
+	pr_debug("%s token: 0x[%x], filled_buf->token: 0x[%x]",
 				 __func__, token, filled_buf->token);
 	if (token == (filled_buf->token)) {
 		list_del(&filled_buf->list);
@@ -212,7 +212,7 @@ void audio_aio_async_read_ack(struct q6audio_aio *audio, uint32_t token,
 					event_payload);
 		kfree(filled_buf);
 	} else {
-		pr_err("%s[%p]:expected=%lx ret=%x\n",
+		pr_err("%s[%p]:expected=%x ret=%x\n",
 			__func__, audio, filled_buf->token, token);
 		spin_unlock_irqrestore(&audio->dsp_lock, flags);
 	}
