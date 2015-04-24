@@ -83,6 +83,10 @@
 
 #define XIN_HALT_TIMEOUT_US	0x4000
 
+/* hw cursor can only be setup in highest mixer stage */
+#define HW_CURSOR_STAGE(mdata) \
+	(((mdata)->max_target_zorder + MDSS_MDP_STAGE_0) - 1)
+
 enum mdss_mdp_perf_state_type {
 	PERF_SW_COMMIT_STATE = 0,
 	PERF_HW_MDP_STATE,
@@ -537,6 +541,7 @@ struct mdss_mdp_pipe {
 	struct mdp_input_layer layer;
 	u32 params_changed;
 	bool dirty;
+	bool async_update;
 
 	struct mdss_mdp_pipe_smp_map smp_map[MAX_PLANES];
 
@@ -956,6 +961,9 @@ int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
 int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 	struct mdp_layer_commit_v1 *ov_commit);
 
+int mdss_mdp_async_position_update(struct msm_fb_data_type *mfd,
+		struct mdp_position_update *update_pos);
+
 int mdss_mdp_overlay_req_check(struct msm_fb_data_type *mfd,
 			       struct mdp_overlay *req,
 			       struct mdss_mdp_format_params *fmt);
@@ -974,6 +982,8 @@ int mdp_pipe_tune_perf(struct mdss_mdp_pipe *pipe,
 int mdss_mdp_overlay_setup_scaling(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_pipe *mdss_mdp_pipe_assign(struct mdss_data_type *mdata,
 	struct mdss_mdp_mixer *mixer, u32 ndx);
+void mdss_mdp_pipe_position_update(struct mdss_mdp_pipe *pipe,
+		struct mdss_rect *src, struct mdss_rect *dst);
 int mdss_mdp_video_addr_setup(struct mdss_data_type *mdata,
 		u32 *offsets,  u32 count);
 int mdss_mdp_video_start(struct mdss_mdp_ctl *ctl);
@@ -1038,7 +1048,9 @@ int mdss_mdp_mixer_handoff(struct mdss_mdp_ctl *ctl, u32 num,
 void mdss_mdp_ctl_perf_set_transaction_status(struct mdss_mdp_ctl *ctl,
 	enum mdss_mdp_perf_state_type component, bool new_status);
 void mdss_mdp_ctl_perf_release_bw(struct mdss_mdp_ctl *ctl);
-
+int mdss_mdp_async_ctl_flush(struct msm_fb_data_type *mfd,
+		u32 flush_bits);
+int mdss_mdp_get_pipe_flush_bits(struct mdss_mdp_pipe *pipe);
 struct mdss_mdp_mixer *mdss_mdp_block_mixer_alloc(void);
 int mdss_mdp_block_mixer_destroy(struct mdss_mdp_mixer *mixer);
 struct mdss_mdp_mixer *mdss_mdp_mixer_get(struct mdss_mdp_ctl *ctl, int mux);

@@ -3495,6 +3495,77 @@ static int mdss_fb_cursor(struct fb_info *info, void __user *p)
 	return mfd->mdp.cursor_update(mfd, &cursor);
 }
 
+int mdss_fb_async_position_update(struct fb_info *info,
+		struct mdp_position_update *update_pos)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+
+	if (!update_pos->input_layer_cnt) {
+		pr_err("no input layers for position update\n");
+		return -EINVAL;
+	}
+	return mfd->mdp.async_position_update(mfd, update_pos);
+}
+
+static int mdss_fb_async_position_update_ioctl(struct fb_info *info,
+		unsigned long *argp)
+{
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+	struct mdp_position_update update_pos;
+	int ret, rc;
+	u32 buffer_size, layer_cnt;
+	struct mdp_async_layer *layer_list = NULL;
+	struct mdp_async_layer __user *input_layer_list;
+
+	if (!mfd->mdp.async_position_update)
+		return -ENODEV;
+
+	ret = copy_from_user(&update_pos, argp, sizeof(update_pos));
+	if (ret) {
+		pr_err("copy from user failed\n");
+		return ret;
+	}
+	input_layer_list = update_pos.input_layers;
+
+	layer_cnt = update_pos.input_layer_cnt;
+	if (!layer_cnt) {
+		pr_err("no async layers to update\n");
+		return -EINVAL;
+	}
+
+	buffer_size = sizeof(struct mdp_async_layer) * layer_cnt;
+	layer_list = kmalloc(buffer_size, GFP_KERNEL);
+	if (!layer_list) {
+		pr_err("unable to allocate memory for layers\n");
+		return -ENOMEM;
+	}
+
+	ret = copy_from_user(layer_list, input_layer_list, buffer_size);
+	if (ret) {
+		pr_err("layer list copy from user failed\n");
+		goto end;
+	}
+	update_pos.input_layers = layer_list;
+
+	ret = mdss_fb_async_position_update(info, &update_pos);
+	if (ret)
+		pr_err("async position update failed ret:%d\n", ret);
+
+	rc = copy_to_user(input_layer_list, layer_list, buffer_size);
+	if (rc)
+		pr_err("layer error code copy to user failed\n");
+
+	update_pos.input_layers = input_layer_list;
+	rc = copy_to_user(argp, &update_pos,
+			sizeof(struct mdp_position_update));
+	if (rc)
+		pr_err("copy to user for layers failed");
+
+end:
+	kfree(layer_list);
+	return ret;
+}
+
 static int mdss_fb_set_lut(struct fb_info *info, void __user *p)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -4039,6 +4110,10 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		break;
 	case MSMFB_ATOMIC_COMMIT:
 		ret = mdss_fb_atomic_commit_ioctl(info, argp);
+		break;
+
+	case MSMFB_ASYNC_POSITION_UPDATE:
+		ret = mdss_fb_async_position_update_ioctl(info, argp);
 		break;
 
 	default:

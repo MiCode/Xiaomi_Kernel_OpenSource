@@ -205,6 +205,8 @@ struct msm_mdp_interface {
 	void (*dma_fnc)(struct msm_fb_data_type *mfd);
 	int (*cursor_update)(struct msm_fb_data_type *mfd,
 				struct fb_cursor *cursor);
+	int (*async_position_update)(struct msm_fb_data_type *mfd,
+				struct mdp_position_update *update_pos);
 	int (*lut_update)(struct msm_fb_data_type *mfd, struct fb_cmap *cmap);
 	int (*do_histogram)(struct msm_fb_data_type *mfd,
 				struct mdp_histogram *hist);
@@ -428,5 +430,8 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
 int mdss_fb_atomic_commit(struct fb_info *info,
 	struct mdp_layer_commit  *commit);
+int mdss_fb_async_position_update(struct fb_info *info,
+		struct mdp_position_update *update_pos);
+
 u32 mdss_fb_get_mode_switch(struct msm_fb_data_type *mfd);
 #endif /* MDSS_FB_H */

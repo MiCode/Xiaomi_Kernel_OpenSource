@@ -532,4 +532,9 @@ struct mdp_layer_commit32 {
 	};
 };
 
+struct mdp_position_update32 {
+	compat_caddr_t __user	*input_layers;
+	uint32_t input_layer_cnt;
+};
+
 #endif

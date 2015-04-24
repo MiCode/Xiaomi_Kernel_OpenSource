@@ -838,6 +838,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	u32 max_clk_rate = 0;
 	u64 bw_overlap_max = 0;
 	u64 bw_overlap[MAX_PIPES_PER_LM] = { 0 };
+	u64 bw_overlap_async = 0;
 	u32 v_region[MAX_PIPES_PER_LM * 2] = { 0 };
 	u32 prefill_bytes = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -962,9 +963,24 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
 		prefill_bytes += tmp.prefill_bytes;
-		bw_overlap[i] = tmp.bw_overlap;
-		v_region[2*i] = pipe->dst.y;
-		v_region[2*i + 1] = pipe->dst.y + pipe->dst.h;
+
+		/*
+		 * for async layers, the overlap calculation is skipped
+		 * and the bandwidth is added at the end, accounting for
+		 * worst case, that async layer might overlap with
+		 * all the other layers.
+		 */
+		if (pipe->async_update) {
+			bw_overlap[i] = 0;
+			v_region[2*i] = 0;
+			v_region[2*i + 1] = 0;
+			bw_overlap_async += tmp.bw_overlap;
+		} else {
+			bw_overlap[i] = tmp.bw_overlap;
+			v_region[2*i] = pipe->dst.y;
+			v_region[2*i + 1] = pipe->dst.y + pipe->dst.h;
+		}
+
 		if (tmp.mdp_clk_rate > max_clk_rate)
 			max_clk_rate = tmp.mdp_clk_rate;
 	}
@@ -1000,7 +1016,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 		bw_overlap_max = max(bw_overlap_max, bw_max_region);
 	}
 
-	perf->bw_overlap += bw_overlap_max;
+	perf->bw_overlap += bw_overlap_max + bw_overlap_async;
 	perf->prefill_bytes += prefill_bytes;
 
 	if (max_clk_rate > perf->mdp_clk_rate)
@@ -3742,6 +3758,48 @@ struct mdss_mdp_pipe *mdss_mdp_get_staged_pipe(struct mdss_mdp_ctl *ctl,
 	return pipe;
 }
 
+int mdss_mdp_get_pipe_flush_bits(struct mdss_mdp_pipe *pipe)
+{
+	u32 flush_bits;
+
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
+		flush_bits |= BIT(pipe->num) << 5;
+	else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
+			pipe->num == MDSS_MDP_SSPP_RGB3)
+		flush_bits |= BIT(pipe->num) << 10;
+	else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
+		flush_bits |= BIT(22 + pipe->num - MDSS_MDP_SSPP_CURSOR0);
+	else /* RGB/VIG 0-2 pipes */
+		flush_bits |= BIT(pipe->num);
+
+	return flush_bits;
+}
+
+int mdss_mdp_async_ctl_flush(struct msm_fb_data_type *mfd,
+		u32 flush_bits)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_ctl *ctl = mdp5_data->ctl;
+	struct mdss_mdp_ctl *sctl = NULL;
+	int ret = 0;
+
+	mutex_lock(&ctl->flush_lock);
+
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
+	if ((!ctl->split_flush_en) && is_split_lm(mfd)) {
+		sctl = mdss_mdp_get_split_ctl(ctl);
+		if (!sctl) {
+			pr_err("not able to get the other ctl\n");
+			ret = -EINVAL;
+			goto end;
+		}
+		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH, flush_bits);
+	}
+end:
+	mutex_unlock(&ctl->flush_lock);
+	return ret;
+}
+
 int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 			 struct mdss_mdp_mixer *mixer, int params_changed)
 {
@@ -3803,15 +3861,9 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 	if (ctl->mdata->mdp_rev == MDSS_MDP_HW_REV_200) {
 		mpq_num = mdss_mdp_mpq_pipe_num_map(pipe->num);
 		ctl->flush_bits |= BIT(mpq_num);
-	} else if (pipe->type == MDSS_MDP_PIPE_TYPE_DMA)
-		ctl->flush_bits |= BIT(pipe->num) << 5;
-	else if (pipe->num == MDSS_MDP_SSPP_VIG3 ||
-			pipe->num == MDSS_MDP_SSPP_RGB3)
-		ctl->flush_bits |= BIT(pipe->num) << 10;
-	else if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
-		ctl->flush_bits |= BIT(22 + pipe->num - MDSS_MDP_SSPP_CURSOR0);
-	else /* RGB/VIG 0-2 pipes */
-		ctl->flush_bits |= BIT(pipe->num);
+	} else {
+		ctl->flush_bits |= mdss_mdp_get_pipe_flush_bits(pipe);
+	}
 
 	mutex_unlock(&ctl->flush_lock);
 
