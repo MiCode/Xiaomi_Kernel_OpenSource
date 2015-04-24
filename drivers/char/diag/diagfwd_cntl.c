@@ -674,6 +674,11 @@ void diag_update_real_time_vote(uint16_t proc, uint8_t real_time, int index)
 {
 	int i;
 
+	if (index > DIAG_NUM_PROC) {
+		pr_err("diag: In %s, invalid index %d\n", __func__, index);
+		return;
+	}
+
 	mutex_lock(&driver->real_time_mutex);
 	if (index == ALL_PROC) {
 		for (i = 0; i < DIAG_NUM_PROC; i++) {

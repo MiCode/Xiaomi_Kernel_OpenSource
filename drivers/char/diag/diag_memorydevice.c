@@ -130,7 +130,7 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 	unsigned long flags;
 	struct diag_md_info *ch = NULL;
 
-	if (id < 0 || id >= NUM_DIAG_MD_DEV)
+	if (id < 0 || id >= NUM_DIAG_MD_DEV || id >= DIAG_NUM_PROC)
 		return -EINVAL;
 
 	if (!buf || len < 0)
@@ -171,8 +171,10 @@ int diag_md_write(int id, unsigned char *buf, int len, int ctx)
 
 	found = 0;
 	for (i = 0; i < driver->num_clients && !found; i++) {
-		if (driver->client_map[i].pid != driver->logging_process_id)
+		if ((driver->client_map[i].pid != driver->md_proc[id].pid) ||
+		    (driver->client_map[i].pid == 0)) {
 			continue;
+		}
 		found = 1;
 		driver->data_ready[i] |= USER_SPACE_DATA_TYPE;
 		pr_debug("diag: wake up logging process\n");
