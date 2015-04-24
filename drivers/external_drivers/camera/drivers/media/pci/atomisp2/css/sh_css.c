@@ -4248,7 +4248,7 @@ ia_css_pipe_enqueue_buffer(struct ia_css_pipe *pipe,
 		ddr_buffer.payload.s3a = *buffer->data.stats_3a;
 	} else if (buf_type == IA_CSS_BUFFER_TYPE_DIS_STATISTICS) {
 #if defined(IS_ISP_2500_SYSTEM)
-		if (buffer->data.stats_skc_dvs == 0) {
+		if (buffer->data.stats_skc_dvs == NULL) {
 			IA_CSS_LEAVE_ERR(IA_CSS_ERR_INVALID_ARGUMENTS);
 			return IA_CSS_ERR_INVALID_ARGUMENTS;
 		}
@@ -4264,7 +4264,7 @@ ia_css_pipe_enqueue_buffer(struct ia_css_pipe *pipe,
 #endif
 #if defined(IS_ISP_2500_SYSTEM)
 	} else if (buf_type == IA_CSS_BUFFER_TYPE_LACE_STATISTICS) {
-		if (buffer->data.stats_lace == 0) {
+		if (buffer->data.stats_lace == NULL) {
 			IA_CSS_LEAVE_ERR(IA_CSS_ERR_INVALID_ARGUMENTS);
 			return IA_CSS_ERR_INVALID_ARGUMENTS;
 		}
@@ -4272,6 +4272,10 @@ ia_css_pipe_enqueue_buffer(struct ia_css_pipe *pipe,
 		ddr_buffer.payload.lace_stat = (hrt_vaddress)buffer->data.stats_lace;
 #endif
 	} else if (buf_type == IA_CSS_BUFFER_TYPE_METADATA) {
+		if (buffer->data.metadata == NULL) {
+			IA_CSS_LEAVE_ERR(IA_CSS_ERR_INVALID_ARGUMENTS);
+			return IA_CSS_ERR_INVALID_ARGUMENTS;
+		}
 		ddr_buffer.kernel_ptr = HOST_ADDRESS(buffer->data.metadata);
 		ddr_buffer.payload.metadata = *buffer->data.metadata;
 	} else if ((buf_type == IA_CSS_BUFFER_TYPE_INPUT_FRAME)

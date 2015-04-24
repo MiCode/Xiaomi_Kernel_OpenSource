@@ -3485,9 +3485,14 @@ sh_css_init_isp_params_from_global(struct ia_css_stream *stream,
 		/* Only IA_CSS_PIPE_ID_VIDEO & IA_CSS_PIPE_ID_CAPTURE will support dvs_6axis_config*/
 		for (i = 0; i < IA_CSS_PIPE_ID_NUM; i++) {
 			if (stream_params->pipe_dvs_6axis_config[i]) {
-				params->pipe_dvs_6axis_config[i] =
+				if (params->pipe_dvs_6axis_config[i]) {
+					copy_dvs_6axis_table(params->pipe_dvs_6axis_config[i],
+								stream_params->pipe_dvs_6axis_config[i]);
+				} else {
+					params->pipe_dvs_6axis_config[i] =
 						generate_dvs_6axis_table_from_config(stream_params->pipe_dvs_6axis_config[i]);
 				}
+			}
 		}
 		ia_css_set_sdis_config(params, &stream_params->dvs_coefs);
 		params->dis_coef_table_changed = stream_params->dis_coef_table_changed;
@@ -4892,6 +4897,14 @@ free_ia_css_isp_parameter_set_info(
 						sizeof(size_t)); i++) {
 		if (addrs[i] == mmgr_NULL)
 			continue;
+
+		/* sanity check - ptr must be valid */
+		if (!ia_css_refcount_is_valid(addrs[i])) {
+			IA_CSS_ERROR("%s: IA_CSS_REFCOUNT_PARAM_BUFFER(0x%x) invalid arg", __func__, ptr);
+			err = IA_CSS_ERR_INVALID_ARGUMENTS;
+			continue;
+		}
+
 		ia_css_refcount_decrement(IA_CSS_REFCOUNT_PARAM_BUFFER, addrs[i]);
 	}
 	ia_css_refcount_decrement(IA_CSS_REFCOUNT_PARAM_SET_POOL, ptr);
