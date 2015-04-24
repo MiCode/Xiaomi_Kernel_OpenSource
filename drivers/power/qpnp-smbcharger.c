@@ -4172,13 +4172,12 @@ out:
  * src_detect_handler() - this is called on rising edge when USB charger type
  *			is detected and on falling edge when USB voltage falls
  *			below the coarse detect voltage(1V), use it for
- *			handling USB charger insertion and CDP or SDP removal
+ *			handling USB charger insertion and removal.
  * @chip: pointer to smbchg_chip
  * @rt_stat: the status bit indicating chg insertion/removal
  */
 static irqreturn_t src_detect_handler(int irq, void *_chip)
 {
-	union power_supply_propval prop = {0, };
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
 
@@ -4193,15 +4192,13 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 	if (is_src_detect_high(chip)) {
 		if (usb_present || chip->apsd_rerun)
 			update_usb_status(chip, usb_present, chip->apsd_rerun);
-	} else if (chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
-							POWER_SUPPLY_PROP_TYPE,
-							&prop)) {
-		if ((prop.intval == POWER_SUPPLY_TYPE_USB_CDP) ||
-			(prop.intval == POWER_SUPPLY_TYPE_USB)) {
-				/* CDP or SDP removed */
-				update_usb_status(chip, 0, false);
-				chip->aicl_irq_count = 0;
-		}
+	} else if (chip->usb_present) {
+		/*
+		 * Handle all the charger removals here. Note that DCP/HVDCP
+		 * would have been handled already in UV handler.
+		 */
+		update_usb_status(chip, 0, false);
+		chip->aicl_irq_count = 0;
 	}
 
 out:
