@@ -53,12 +53,37 @@ struct debug_bus {
 #define MDSS_XLOG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DEFAULT, \
 		##__VA_ARGS__, DATA_LIMITER)
 
+/*
+ * MDSS_XLOG_TOUT_HANDLER:
+ * If xlog is enabled, will dump registers requested and the xlog buffer.
+ * This cannot be called from interrupt context.
+ */
 #define MDSS_XLOG_TOUT_HANDLER(...)	\
-	mdss_xlog_tout_handler_default(false, __func__, ##__VA_ARGS__, \
+	mdss_xlog_tout_handler_default(false, false, __func__, ##__VA_ARGS__, \
 		XLOG_TOUT_DATA_LIMITER)
 
+/*
+ * MDSS_XLOG_TOUT_HANDLER_WQ:
+ * If xlog is enabled, will dump the registers requested and the xlog buffer
+ * from a work item.
+ * This can be called from interrupt context.
+ */
 #define MDSS_XLOG_TOUT_HANDLER_WQ(...)	\
-	mdss_xlog_tout_handler_default(true, __func__, ##__VA_ARGS__, \
+	mdss_xlog_tout_handler_default(false, true, __func__, ##__VA_ARGS__, \
+		XLOG_TOUT_DATA_LIMITER)
+
+/*
+ * MDSS_XLOG_TOUT_HANDLER_FATAL_DUMP:
+ * Will enforce a dump of the registers requested
+ * (and debug bus, if requested by the caller).
+ * If xlog is enabled: will dump the registers, bus and xlog buffer.
+ * If xlog is disabled: will dump the registers and debug bus.
+ * This must be used only in fatal error conditions, since the
+ * dump of the registers (and debug bus, if requested) will be
+ * forced to happen during the call, even when xlog is disabled.
+ */
+#define MDSS_XLOG_TOUT_HANDLER_FATAL_DUMP(...)	\
+	mdss_xlog_tout_handler_default(true, true, __func__, ##__VA_ARGS__, \
 		XLOG_TOUT_DATA_LIMITER)
 
 #define MDSS_XLOG_DBG(...) mdss_xlog(__func__, __LINE__, MDSS_XLOG_DBG, \
@@ -143,7 +168,8 @@ void mdss_misr_crc_collect(struct mdss_data_type *mdata, int block_id);
 
 int mdss_create_xlog_debug(struct mdss_debug_data *mdd);
 void mdss_xlog(const char *name, int line, int flag, ...);
-void mdss_xlog_tout_handler_default(bool queue, const char *name, ...);
+void mdss_xlog_tout_handler_default(bool enforce_dump,
+	bool queue, const char *name, ...);
 int mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
 	struct device *dev, unsigned long iova, int flags, void *token);
 #else
@@ -179,8 +205,8 @@ static inline void mdss_xlog_dump(void) { }
 static inline void mdss_xlog(const char *name, int line, int flag, ...) { }
 
 static inline void mdss_dsi_debug_check_te(struct mdss_panel_data *pdata) { }
-static inline void mdss_xlog_tout_handler_default(bool queue,
-	const char *name, ...) { }
+static inline void mdss_xlog_tout_handler_default(bool enforce_dump,
+	bool queue, const char *name, ...) { }
 static inline int  mdss_xlog_tout_handler_iommu(struct iommu_domain *domain,
 	struct device *dev, unsigned long iova, int flags, void *token)
 { return 0; }
