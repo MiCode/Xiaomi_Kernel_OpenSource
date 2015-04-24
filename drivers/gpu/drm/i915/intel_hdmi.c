@@ -1870,6 +1870,26 @@ intel_hdmi_add_properties(struct intel_hdmi *intel_hdmi, struct drm_connector *c
 	intel_hdmi->color_range_auto = true;
 }
 
+static void intel_hdmi_setup_ddc_vbt(struct drm_i915_private *dev_priv,
+				     struct intel_digital_port *intel_dig_port)
+{
+	struct intel_hdmi *intel_hdmi = &intel_dig_port->hdmi;
+	struct intel_encoder *intel_encoder = &intel_dig_port->base;
+	enum port port = intel_dig_port->port;
+	int i;
+
+	for (i = 0; i < dev_priv->vbt.child_dev_num; i++) {
+		if (port != dev_priv->vbt.child_dev[i].common.dvo_port)
+			continue;
+
+		intel_hdmi->ddc_bus = dev_priv->vbt.child_dev[i].common.ddc_pin;
+		break;
+	}
+
+	DRM_INFO("hdmi port %d, ddc_bus %d, hpd_pin %d\n",
+		 port, intel_hdmi->ddc_bus, intel_encoder->hpd_pin);
+}
+
 void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 			       struct intel_connector *intel_connector)
 {
@@ -1898,10 +1918,7 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 		intel_encoder->hpd_pin = HPD_PORT_C;
 		break;
 	case PORT_D:
-		if (IS_CHERRYVIEW(dev))
-			intel_hdmi->ddc_bus = GMBUS_PORT_DPD_CHV;
-		else
-			intel_hdmi->ddc_bus = GMBUS_PORT_DPD;
+		intel_hdmi->ddc_bus = GMBUS_PORT_DPD;
 		intel_encoder->hpd_pin = HPD_PORT_D;
 		break;
 	case PORT_A:
@@ -1910,6 +1927,10 @@ void intel_hdmi_init_connector(struct intel_digital_port *intel_dig_port,
 	default:
 		BUG();
 	}
+
+	/* for cherryview, we prefer the ddc_bus number from VBT */
+	if (IS_CHERRYVIEW(dev))
+		intel_hdmi_setup_ddc_vbt(dev_priv, intel_dig_port);
 
 	if (IS_VALLEYVIEW(dev)) {
 		intel_hdmi->write_infoframe = vlv_write_infoframe;
