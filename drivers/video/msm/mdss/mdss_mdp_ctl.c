@@ -2595,11 +2595,6 @@ static int mdss_mdp_ctl_fbc_enable(int enable,
 
 	fbc = &pdata->fbc;
 
-	if (!fbc || !fbc->enabled) {
-		pr_err("Invalid FBC structure\n");
-		return -EINVAL;
-	}
-
 	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0 ||
 			mixer->num == MDSS_MDP_INTF_LAYERMIXER1) {
 		pr_debug("Mixer supports FBC.\n");
@@ -2767,8 +2762,8 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 int mdss_mdp_ctl_reconfig(struct mdss_mdp_ctl *ctl,
 		struct mdss_panel_data *pdata)
 {
-	int (*stop_fnc)(struct mdss_mdp_ctl *ctl, int panel_power_state);
-	int ret;
+	void *tmp;
+	int ret = 0;
 
 	/*
 	 * Switch first to prevent deleting important data in the case
@@ -2780,13 +2775,17 @@ int mdss_mdp_ctl_reconfig(struct mdss_mdp_ctl *ctl,
 		return -EINVAL;
 	}
 
+	/* if only changing resolution there is no need for intf reconfig */
+	if (!ctl->is_video_mode == (pdata->panel_info.type == MIPI_CMD_PANEL))
+		goto skip_intf_reconfig;
+
 	/*
 	 * Intentionally not clearing stop function, as stop will
 	 * be called after panel is instructed mode switch is happening
 	 */
-	stop_fnc = ctl->ops.stop_fnc;
+	tmp = ctl->ops.stop_fnc;
 	memset(&ctl->ops, 0, sizeof(ctl->ops));
-	ctl->ops.stop_fnc = stop_fnc;
+	ctl->ops.stop_fnc = tmp;
 
 	switch (pdata->panel_info.type) {
 	case MIPI_VIDEO_PANEL:
@@ -2809,6 +2808,16 @@ int mdss_mdp_ctl_reconfig(struct mdss_mdp_ctl *ctl,
 	ctl->play_cnt = 0;
 
 	ctl->opmode |= (ctl->intf_num << 4);
+
+skip_intf_reconfig:
+	ctl->width = get_panel_xres(&pdata->panel_info);
+	ctl->height = get_panel_yres(&pdata->panel_info);
+	if (ctl->mixer_left) {
+		ctl->mixer_left->width = ctl->width;
+		ctl->mixer_left->height = ctl->height;
+	}
+	ctl->border_x_off = pdata->panel_info.lcdc.border_left;
+	ctl->border_y_off = pdata->panel_info.lcdc.border_top;
 
 	return ret;
 }
@@ -3098,7 +3107,7 @@ int mdss_mdp_ctl_intf_event(struct mdss_mdp_ctl *ctl, int event, void *arg,
 		if (pdata->event_handler)
 			rc = pdata->event_handler(pdata, event, arg);
 		pdata = pdata->next;
-	} while (rc == 0 && pdata && !skip_broadcast);
+	} while (rc == 0 && pdata && pdata->active && !skip_broadcast);
 
 	return rc;
 }
@@ -3242,7 +3251,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 	pr_debug("ctl_num=%d, power_state=%d\n", ctl->num, ctl->power_state);
 
 	if (mdss_mdp_ctl_is_power_on_interactive(ctl)
-			&& !(ctl->force_ctl_start)) {
+			&& !(ctl->pending_mode_switch)) {
 		pr_debug("%d: panel already on!\n", __LINE__);
 		return 0;
 	}
@@ -3262,7 +3271,7 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 	 * keep power_on false during handoff to avoid unexpected
 	 * operations to overlay.
 	 */
-	if (!handoff || ctl->force_ctl_start)
+	if (!handoff || ctl->pending_mode_switch)
 		ctl->power_state = MDSS_PANEL_POWER_ON;
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
@@ -3328,8 +3337,7 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 
 	if (ctl->ops.stop_fnc) {
 		ret = ctl->ops.stop_fnc(ctl, power_state);
-		if (ctl->panel_data->panel_info.fbc.enabled)
-			mdss_mdp_ctl_fbc_enable(0, ctl->mixer_left,
+		mdss_mdp_ctl_fbc_enable(0, ctl->mixer_left,
 				&ctl->panel_data->panel_info);
 	} else {
 		pr_warn("no stop func for ctl=%d\n", ctl->num);
@@ -3337,8 +3345,7 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 
 	if (sctl && sctl->ops.stop_fnc) {
 		ret = sctl->ops.stop_fnc(sctl, power_state);
-		if (ctl->panel_data->panel_info.fbc.enabled)
-			mdss_mdp_ctl_fbc_enable(0, sctl->mixer_left,
+		mdss_mdp_ctl_fbc_enable(0, sctl->mixer_left,
 				&sctl->panel_data->panel_info);
 	}
 	if (ret) {
@@ -3373,7 +3380,8 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 end:
 	if (!ret) {
 		ctl->power_state = power_state;
-		mdss_mdp_ctl_perf_update(ctl, 0, true);
+		if (!ctl->pending_mode_switch)
+			mdss_mdp_ctl_perf_update(ctl, 0, true);
 	}
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
@@ -4593,7 +4601,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	ctl->valid_roi = 0;
 
 	if (ret)
-		pr_warn("error displaying frame\n");
+		pr_warn("ctl %d error displaying frame\n", ctl->num);
 
 	ctl->play_cnt++;
 	ATRACE_END("flush_kickoff");
