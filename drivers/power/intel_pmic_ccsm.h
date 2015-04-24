@@ -399,5 +399,4 @@ struct pmic_chrgr_drv_context {
 	struct thermal_cooling_device *vbus_cdev;
 	struct list_head evt_queue;
 	struct work_struct evt_work;
-	struct mutex evt_queue_lock;
 };

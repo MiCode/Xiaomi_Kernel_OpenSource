@@ -1079,7 +1079,6 @@ static void pmic_event_worker(struct work_struct *work)
 
 	dev_dbg(chc.dev, "%s\n", __func__);
 
-	mutex_lock(&chc.evt_queue_lock);
 	list_for_each_entry_safe(evt, tmp, &chc.evt_queue, node) {
 		list_del(&evt->node);
 
@@ -1097,8 +1096,6 @@ static void pmic_event_worker(struct work_struct *work)
 						evt->battemp_int_stat);
 		kfree(evt);
 	}
-
-	mutex_unlock(&chc.evt_queue_lock);
 }
 
 static irqreturn_t pmic_isr(int irq, void *data)
@@ -1164,9 +1161,7 @@ static irqreturn_t pmic_thread_handler(int id, void *data)
 	}
 
 	INIT_LIST_HEAD(&evt->node);
-	mutex_lock(&chc.evt_queue_lock);
 	list_add_tail(&evt->node, &chc.evt_queue);
-	mutex_unlock(&chc.evt_queue_lock);
 
 	dev_dbg(chc.dev, "%s pwrsrc=%X, spwrsrc=%x battirq=%x sbattirq=%x miscirq=%x smiscirq=%x wake thread\n",
 			__func__, evt->pwrsrc_int,
@@ -1515,9 +1510,7 @@ static int pmic_check_initial_events(void)
 	}
 
 	INIT_LIST_HEAD(&evt->node);
-	mutex_lock(&chc.evt_queue_lock);
 	list_add_tail(&evt->node, &chc.evt_queue);
-	mutex_unlock(&chc.evt_queue_lock);
 	schedule_work(&chc.evt_work);
 
 	pmic_bat_zone_changed();
@@ -1756,7 +1749,10 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 
 	INIT_WORK(&chc.evt_work, pmic_event_worker);
 	INIT_LIST_HEAD(&chc.evt_queue);
-	mutex_init(&chc.evt_queue_lock);
+
+	ret = pmic_check_initial_events();
+	if (ret)
+		goto otg_req_failed;
 
 	/* register interrupt */
 	for (i = 0; i < chc.irq_cnt; ++i) {
@@ -1784,10 +1780,6 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 	if (ret)
 		dev_warn(&pdev->dev, "Error updating register: %x\n",
 				chc.reg_map->pmic_mchgrirq1);
-
-	ret = pmic_check_initial_events();
-	if (ret)
-		goto otg_req_failed;
 
 	chc.batt_health = POWER_SUPPLY_HEALTH_GOOD;
 #ifdef CONFIG_DEBUG_FS
