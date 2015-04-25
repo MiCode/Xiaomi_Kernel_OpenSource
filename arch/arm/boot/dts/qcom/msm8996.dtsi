@@ -1316,6 +1316,8 @@
 
 		qcom,common-phy;
 
+		iommus = <&anoc0_smmu>;
+
 		qcom,ep-wakeirq;
 
 		linux,pci-domain = <0>;
@@ -1453,6 +1455,8 @@
 
 		qcom,common-phy;
 
+		iommus = <&anoc0_smmu>;
+
 		qcom,ep-latency = <10>;
 
 		linux,pci-domain = <1>;
@@ -1589,6 +1593,8 @@
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
 
 		qcom,common-phy;
+
+		iommus = <&anoc0_smmu>;
 
 		qcom,ep-latency = <10>;
 
