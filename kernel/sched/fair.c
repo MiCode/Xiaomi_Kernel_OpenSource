@@ -829,7 +829,7 @@ static inline void check_for_high_latency(struct task_struct *p, u64 latency_us)
 		if (do_panic)
 			panic(fmt, p->comm, p->pid, latency_us);
 		else
-			printk_sched(fmt, p->comm, p->pid, latency_us);
+			printk_deferred(fmt, p->comm, p->pid, latency_us);
 	}
 }
 #else

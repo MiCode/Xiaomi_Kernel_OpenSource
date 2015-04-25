@@ -6842,7 +6842,6 @@ void __cfg80211_send_event_skb(struct sk_buff *skb, gfp_t gfp)
 }
 EXPORT_SYMBOL(__cfg80211_send_event_skb);
 
-
 static int nl80211_connect(struct sk_buff *skb, struct genl_info *info)
 {
 	struct cfg80211_registered_device *rdev = info->user_ptr[0];
