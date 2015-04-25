@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -135,6 +135,23 @@ static struct msm_ipc_router_hsic_xprt *
 	}
 	mutex_unlock(&hsic_remote_xprt_list_lock_lha1);
 	return NULL;
+}
+
+/**
+ * ipc_router_hsic_set_xprt_version() - Set IPC Router header version
+ *                                          in the transport
+ * @xprt: Reference to the transport structure.
+ * @version: The version to be set in transport.
+ */
+static void ipc_router_hsic_set_xprt_version(
+	struct msm_ipc_router_xprt *xprt, unsigned version)
+{
+	struct msm_ipc_router_hsic_xprt *hsic_xprtp;
+
+	if (!xprt)
+		return;
+	hsic_xprtp = container_of(xprt, struct msm_ipc_router_hsic_xprt, xprt);
+	hsic_xprtp->xprt_version = version;
 }
 
 /**
@@ -581,6 +598,8 @@ static int msm_ipc_router_hsic_config_init(
 						XPRT_NAME_LEN);
 	hsic_xprtp->xprt.name = hsic_xprtp->xprt_name;
 
+	hsic_xprtp->xprt.set_version =
+		ipc_router_hsic_set_xprt_version;
 	hsic_xprtp->xprt.get_version =
 		msm_ipc_router_hsic_get_xprt_version;
 	hsic_xprtp->xprt.get_option =

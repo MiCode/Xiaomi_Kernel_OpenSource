@@ -179,6 +179,22 @@ static void *glink_xprt_vbuf_provider(void *iovec, size_t offset,
 	return NULL;
 }
 
+/**
+ * ipc_router_glink_xprt_set_version() - Set the IPC Router version in transport
+ * @xprt:	Reference to the transport structure.
+ * @version:	The version to be set in transport.
+ */
+static void ipc_router_glink_xprt_set_version(
+	struct msm_ipc_router_xprt *xprt, unsigned version)
+{
+	struct ipc_router_glink_xprt *glink_xprtp;
+
+	if (!xprt)
+		return;
+	glink_xprtp = container_of(xprt, struct ipc_router_glink_xprt, xprt);
+	glink_xprtp->xprt_version = version;
+}
+
 static int ipc_router_glink_xprt_get_version(
 	struct msm_ipc_router_xprt *xprt)
 {
@@ -665,6 +681,7 @@ static int ipc_router_glink_config_init(
 	glink_xprtp->xprt.name = glink_xprtp->ipc_rtr_xprt_name;
 
 	glink_xprtp->xprt.get_version =	ipc_router_glink_xprt_get_version;
+	glink_xprtp->xprt.set_version =	ipc_router_glink_xprt_set_version;
 	glink_xprtp->xprt.get_option = ipc_router_glink_xprt_get_option;
 	glink_xprtp->xprt.read_avail = NULL;
 	glink_xprtp->xprt.read = NULL;
