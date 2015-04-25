@@ -213,6 +213,25 @@ enum {
 	COMPANDER_MAX,
 };
 
+enum {
+	SRC_IN_HPHL,
+	SRC_IN_LO1,
+	SRC_IN_HPHR,
+	SRC_IN_LO2,
+	SRC_IN_SPKRL,
+	SRC_IN_LO3,
+	SRC_IN_SPKRR,
+	SRC_IN_LO4,
+};
+
+enum {
+	SPLINE_SRC0,
+	SPLINE_SRC1,
+	SPLINE_SRC2,
+	SPLINE_SRC3,
+	SPLINE_SRC_MAX,
+};
+
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
 static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
@@ -305,6 +324,7 @@ struct tasha_priv {
 	u32 hph_mode;
 
 	u16 prim_int_users[TASHA_NUM_INTERPOLATORS];
+	int spl_src_users[SPLINE_SRC_MAX];
 
 	struct wcd9xxx_resmgr_v2 *resmgr;
 
@@ -1421,6 +1441,152 @@ static int tasha_codec_enable_prim_interpolator(
 	return 0;
 }
 
+static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
+					 int src_num,
+					 int event)
+{
+	u16 rx_path_cfg_reg;
+	u16 rx_path_ctl_reg;
+	u16 src_clk_reg;
+	int *src_users, count, spl_src;
+	struct tasha_priv *tasha;
+
+	tasha = snd_soc_codec_get_drvdata(codec);
+
+	switch (src_num) {
+	case SRC_IN_HPHL:
+		rx_path_cfg_reg = WCD9335_CDC_RX1_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX1_RX_PATH_CTL;
+		spl_src = SPLINE_SRC0;
+		break;
+	case SRC_IN_LO1:
+		rx_path_cfg_reg = WCD9335_CDC_RX3_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC0_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX3_RX_PATH_CTL;
+		spl_src = SPLINE_SRC0;
+		break;
+	case SRC_IN_HPHR:
+		rx_path_cfg_reg = WCD9335_CDC_RX2_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX2_RX_PATH_CTL;
+		spl_src = SPLINE_SRC1;
+		break;
+	case SRC_IN_LO2:
+		rx_path_cfg_reg = WCD9335_CDC_RX4_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC1_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX4_RX_PATH_CTL;
+		spl_src = SPLINE_SRC1;
+		break;
+	case SRC_IN_SPKRL:
+		rx_path_cfg_reg = WCD9335_CDC_RX7_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX7_RX_PATH_CTL;
+		spl_src = SPLINE_SRC2;
+		break;
+	case SRC_IN_LO3:
+		rx_path_cfg_reg = WCD9335_CDC_RX5_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC2_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX5_RX_PATH_CTL;
+		spl_src = SPLINE_SRC2;
+		break;
+	case SRC_IN_SPKRR:
+		rx_path_cfg_reg = WCD9335_CDC_RX8_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX8_RX_PATH_CTL;
+		spl_src = SPLINE_SRC3;
+		break;
+	case SRC_IN_LO4:
+		rx_path_cfg_reg = WCD9335_CDC_RX6_RX_PATH_CFG0;
+		src_clk_reg = WCD9335_SPLINE_SRC3_CLK_RST_CTL_0;
+		rx_path_ctl_reg = WCD9335_CDC_RX6_RX_PATH_CTL;
+		spl_src = SPLINE_SRC3;
+		break;
+	};
+
+	if ((snd_soc_read(codec, rx_path_ctl_reg) & 0x0f) != 0x08) {
+		dev_err(codec->dev, "%s: sample rate is not set to 44.1KHz\n",
+			__func__);
+		return -EINVAL;
+	}
+	src_users = &tasha->spl_src_users[spl_src];
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		count = *src_users;
+		count++;
+		if (count == 1) {
+			snd_soc_update_bits(codec, src_clk_reg,	0x01, 0x01);
+			snd_soc_update_bits(codec, rx_path_cfg_reg, 0x80,
+					    0x80);
+		}
+		*src_users = count;
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		count = *src_users;
+		count--;
+		if (count == 0) {
+			snd_soc_update_bits(codec, rx_path_cfg_reg, 0x80,
+					    0x00);
+			snd_soc_update_bits(codec, src_clk_reg, 0x01, 0x00);
+			/* default sample rate */
+			snd_soc_update_bits(codec, rx_path_ctl_reg, 0x0f,
+					    0x04);
+		}
+		*src_users = count;
+		break;
+	};
+
+	dev_dbg(codec->dev, "%s: Spline SRC%d, users: %d\n",
+		__func__, spl_src, *src_users);
+	return 0;
+}
+
+static int tasha_codec_enable_spline_resampler(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol,
+				int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+	u8 src_in;
+
+	src_in = snd_soc_read(codec, WCD9335_CDC_RX_INP_MUX_SPLINE_SRC_CFG0);
+	if (!(src_in & 0xFF)) {
+		dev_err(codec->dev, "%s: Spline SRC%u input not selected\n",
+			__func__, w->shift);
+		return -EINVAL;
+	}
+
+	switch (w->shift) {
+	case SPLINE_SRC0:
+		ret = tasha_codec_enable_spline_src(codec,
+			((src_in & 0x03) == 1) ? SRC_IN_HPHL : SRC_IN_LO1,
+			event);
+		break;
+	case SPLINE_SRC1:
+		ret = tasha_codec_enable_spline_src(codec,
+			((src_in & 0x0C) == 4) ? SRC_IN_HPHR : SRC_IN_LO2,
+			event);
+		break;
+	case SPLINE_SRC2:
+		ret = tasha_codec_enable_spline_src(codec,
+			((src_in & 0x30) == 0x10) ? SRC_IN_LO3 : SRC_IN_SPKRL,
+			event);
+		break;
+	case SPLINE_SRC3:
+		ret = tasha_codec_enable_spline_src(codec,
+			((src_in & 0xC0) == 0x40) ? SRC_IN_LO4 : SRC_IN_SPKRR,
+			event);
+		break;
+	default:
+		dev_err(codec->dev, "%s: Invalid spline src:%u\n", __func__,
+			w->shift);
+		ret = -EINVAL;
+	};
+
+	return ret;
+}
+
 static int tasha_codec_enable_mix_path(struct snd_soc_dapm_widget *w,
 		struct snd_kcontrol *kcontrol, int event)
 {
@@ -2221,7 +2387,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"EAR", NULL, "EAR PA"},
 
 	{"RX INT1 INTERP", NULL, "RX INT1_1 MIX1"},
-	{"RX INT1 SEC MIX", NULL, "RX INT1 INTERP"},
+	{"SPL SRC0 MUX", "SRC_IN_HPHL", "RX INT1 INTERP"},
+	{"RX INT1 SPLINE MIX", NULL, "RX INT1 INTERP"},
+	{"RX INT1 SPLINE MIX", NULL, "SPL SRC0 MUX"},
+	{"RX INT1 SEC MIX", NULL, "RX INT1 SPLINE MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 SEC MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 MIX2 INP"},
 	{"RX INT1 DEM MUX", "CLSH_DSM_OUT", "RX INT1 MIX2"},
@@ -2231,7 +2400,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"HPHL", NULL, "HPHL PA"},
 
 	{"RX INT2 INTERP", NULL, "RX INT2_1 MIX1"},
-	{"RX INT2 SEC MIX", NULL, "RX INT2 INTERP"},
+	{"SPL SRC1 MUX", "SRC_IN_HPHR", "RX INT2 INTERP"},
+	{"RX INT2 SPLINE MIX", NULL, "RX INT2 INTERP"},
+	{"RX INT2 SPLINE MIX", NULL, "SPL SRC1 MUX"},
+	{"RX INT2 SEC MIX", NULL, "RX INT2 SPLINE MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 SEC MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 MIX2 INP"},
 	{"RX INT2 DEM MUX", "CLSH_DSM_OUT", "RX INT2 MIX2"},
@@ -2246,7 +2418,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
 
 	{"RX INT7 INTERP", NULL, "RX INT7_1 MIX1"},
-	{"RX INT7 SEC MIX", NULL, "RX INT7 INTERP"},
+	{"SPL SRC2 MUX", "SRC_IN_SPKRL", "RX INT7 INTERP"},
+	{"RX INT7 SPLINE MIX", NULL, "RX INT7 INTERP"},
+	{"RX INT7 SPLINE MIX", NULL, "SPL SRC2 MUX"},
+	{"RX INT7 SEC MIX", NULL, "RX INT7 SPLINE MIX"},
 	{"RX INT7 MIX2", NULL, "RX INT7 SEC MIX"},
 	{"RX INT7 MIX2", NULL, "RX INT7 MIX2 INP"},
 
@@ -2264,7 +2439,10 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"SPK1 OUT", NULL, "RX INT7 CHAIN"},
 
 	{"RX INT8 INTERP", NULL, "RX INT8_1 MIX1"},
-	{"RX INT8 SEC MIX", NULL, "RX INT8 INTERP"},
+	{"SPL SRC3 MUX", "SRC_IN_SPKRR", "RX INT8 INTERP"},
+	{"RX INT8 SPLINE MIX", NULL, "RX INT8 INTERP"},
+	{"RX INT8 SPLINE MIX", NULL, "SPL SRC3 MUX"},
+	{"RX INT8 SEC MIX", NULL, "RX INT8 SPLINE MIX"},
 	{"RX INT8 CHAIN", NULL, "RX INT8 SEC MIX"},
 	{"RX INT8 CHAIN", NULL, "RX_BIAS"},
 	{"SPK2 OUT", NULL, "RX INT8 CHAIN"},
@@ -3080,6 +3258,22 @@ static const struct snd_kcontrol_new tasha_analog_gain_controls[] = {
 			analog_gain),
 };
 
+static const char * const spl_src0_mux_text[] = {
+	"ZERO", "SRC_IN_HPHL", "SRC_IN_LO1",
+};
+
+static const char * const spl_src1_mux_text[] = {
+	"ZERO", "SRC_IN_HPHR", "SRC_IN_LO2",
+};
+
+static const char * const spl_src2_mux_text[] = {
+	"ZERO", "SRC_IN_LO3", "SRC_IN_SPKRL",
+};
+
+static const char * const spl_src3_mux_text[] = {
+	"ZERO", "SRC_IN_LO4", "SRC_IN_SPKRR",
+};
+
 static const char * const rx_int0_mix_mux_text[] = {
 	"ZERO", "RX0", "RX1", "RX2", "RX3", "RX4", "RX5",
 	"RX6", "RX7", "PROXIMITY"
@@ -3222,6 +3416,22 @@ static const char * const rx_echo_mux_text[] = {
 	"RX_MIX5", "RX_MIX6", "RX_MIX7", "RX_MIX8", "RX_MIX_VBAT5",
 	"RX_MIX_VBAT6",	"RX_MIX_VBAT7", "RX_MIX_VBAT8"
 };
+
+static const struct soc_enum spl_src0_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_SPLINE_SRC_CFG0, 0, 3,
+			spl_src0_mux_text);
+
+static const struct soc_enum spl_src1_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_SPLINE_SRC_CFG0, 2, 3,
+			spl_src1_mux_text);
+
+static const struct soc_enum spl_src2_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_SPLINE_SRC_CFG0, 4, 3,
+			spl_src2_mux_text);
+
+static const struct soc_enum spl_src3_mux_chain_enum =
+	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_SPLINE_SRC_CFG0, 6, 3,
+			spl_src3_mux_text);
 
 static const struct soc_enum rx_int0_2_mux_chain_enum =
 	SOC_ENUM_SINGLE(WCD9335_CDC_RX_INP_MUX_RX_INT0_CFG1, 0, 10,
@@ -3657,6 +3867,18 @@ static const struct snd_kcontrol_new rx_int2_dem_inp_mux =
 			  snd_soc_dapm_get_enum_double,
 			  tasha_int_dem_inp_mux_put);
 
+static const struct snd_kcontrol_new spl_src0_mux =
+	SOC_DAPM_ENUM("SPL SRC0 MUX Mux", spl_src0_mux_chain_enum);
+
+static const struct snd_kcontrol_new spl_src1_mux =
+	SOC_DAPM_ENUM("SPL SRC1 MUX Mux", spl_src1_mux_chain_enum);
+
+static const struct snd_kcontrol_new spl_src2_mux =
+	SOC_DAPM_ENUM("SPL SRC2 MUX Mux", spl_src2_mux_chain_enum);
+
+static const struct snd_kcontrol_new spl_src3_mux =
+	SOC_DAPM_ENUM("SPL SRC3 MUX Mux", spl_src3_mux_chain_enum);
+
 static const struct snd_kcontrol_new rx_int0_2_mux =
 	SOC_DAPM_ENUM("RX INT0_2 MUX Mux", rx_int0_2_mux_chain_enum);
 
@@ -4002,6 +4224,19 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("SLIM RX6", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("SLIM RX7", SND_SOC_NOPM, 0, 0, NULL, 0),
 
+	SND_SOC_DAPM_MUX_E("SPL SRC0 MUX", SND_SOC_NOPM, SPLINE_SRC0, 0,
+			 &spl_src0_mux, tasha_codec_enable_spline_resampler,
+			 SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("SPL SRC1 MUX", SND_SOC_NOPM, SPLINE_SRC1, 0,
+			 &spl_src1_mux, tasha_codec_enable_spline_resampler,
+			 SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("SPL SRC2 MUX", SND_SOC_NOPM, SPLINE_SRC2, 0,
+			 &spl_src2_mux, tasha_codec_enable_spline_resampler,
+			 SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_MUX_E("SPL SRC3 MUX", SND_SOC_NOPM, SPLINE_SRC3, 0,
+			 &spl_src3_mux, tasha_codec_enable_spline_resampler,
+			 SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MUX_E("RX INT0_2 MUX", WCD9335_CDC_RX0_RX_PATH_MIX_CTL,
 			5, 0, &rx_int0_2_mux, tasha_codec_enable_mix_path,
 			SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
@@ -4081,8 +4316,10 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX INT0_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT0 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT1 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT2_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT2 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT2 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT3_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT4_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -4090,8 +4327,10 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX INT6_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT7 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT8_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT8 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT8 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	SND_SOC_DAPM_MIXER("RX INT0 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
