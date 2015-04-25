@@ -1058,14 +1058,24 @@ static void apps_ipa_tx_complete_notify(void *priv,
 {
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct net_device *dev = (struct net_device *)priv;
-	struct wwan_private *wwan_ptr = netdev_priv(dev);
+	struct wwan_private *wwan_ptr;
+
 	if (evt != IPA_WRITE_DONE) {
-		IPAWANERR("unsupported event on Tx callback\n");
+		IPAWANDBG("unsupported event on Tx callback\n");
 		return;
 	}
+
+	if (dev != ipa_netdevs[0]) {
+		IPAWANDBG("Received pre-SSR packet completion\n");
+		dev_kfree_skb_any(skb);
+		return;
+	}
+
+	wwan_ptr = netdev_priv(dev);
 	atomic_dec(&wwan_ptr->outstanding_pkts);
 	__netif_tx_lock_bh(netdev_get_tx_queue(dev, 0));
-	if (netif_queue_stopped(wwan_ptr->net) &&
+	if (!atomic_read(&is_ssr) &&
+		netif_queue_stopped(wwan_ptr->net) &&
 		atomic_read(&wwan_ptr->outstanding_pkts) <
 					(wwan_ptr->outstanding_low)) {
 		IPAWANDBG("Outstanding low (%d) - waking up queue\n",
@@ -2090,10 +2100,11 @@ static int ssr_notifier_cb(struct notifier_block *this,
 	if (ipa_rmnet_ctx.ipa_rmnet_ssr) {
 		if (SUBSYS_BEFORE_SHUTDOWN == code) {
 			pr_info("IPA received MPSS BEFORE_SHUTDOWN\n");
+			atomic_set(&is_ssr, 1);
 			ipa_q6_cleanup();
+			netif_stop_queue(ipa_netdevs[0]);
 			ipa_qmi_stop_workqueues();
 			wan_ioctl_stop_qmi_messages();
-			atomic_set(&is_ssr, 1);
 			if (atomic_read(&is_initialized))
 				platform_driver_unregister(&rmnet_ipa_driver);
 			pr_info("IPA BEFORE_SHUTDOWN handling is complete\n");
