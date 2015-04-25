@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -230,6 +230,8 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2, MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),
 	FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_VENUS, MDSS_MDP_CHROMA_420,
 		       C1_B_Cb, C2_R_Cr),
+	FMT_YUV_PSEUDO(MDP_Y_CRCB_H2V2_VENUS, MDSS_MDP_CHROMA_420,
+			C2_R_Cr, C1_B_Cb),
 
 	FMT_YUV_PLANR(MDP_Y_CB_CR_H2V2, MDSS_MDP_CHROMA_420, C2_R_Cr, C1_B_Cb),
 	FMT_YUV_PLANR(MDP_Y_CR_CB_H2V2, MDSS_MDP_CHROMA_420, C1_B_Cb, C2_R_Cr),

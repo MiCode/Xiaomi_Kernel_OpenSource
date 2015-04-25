@@ -471,8 +471,11 @@ int mdss_mdp_get_plane_sizes(u32 format, u32 w, u32 h,
 			ps->num_planes = 1;
 			ps->plane_size[0] = w * h * bpp;
 			ps->ystride[0] = w * bpp;
-		} else if (format == MDP_Y_CBCR_H2V2_VENUS) {
-			int cf = COLOR_FMT_NV12;
+		} else if (format == MDP_Y_CBCR_H2V2_VENUS ||
+				format == MDP_Y_CRCB_H2V2_VENUS) {
+
+			int cf = (format == MDP_Y_CBCR_H2V2_VENUS) ?
+					COLOR_FMT_NV12 : COLOR_FMT_NV21;
 			ps->num_planes = 2;
 			ps->ystride[0] = VENUS_Y_STRIDE(cf, w);
 			ps->ystride[1] = VENUS_UV_STRIDE(cf, w);
