@@ -34,6 +34,7 @@
 #include <soc/qcom/scm.h>
 #include <soc/qcom/jtag.h>
 #include <asm/smp_plat.h>
+#include <asm/etmv4x.h>
 
 #define CORESIGHT_LAR		(0xFB0)
 
@@ -172,6 +173,7 @@
 #define ETM_MAX_RES_SEL			(32)
 #define ETM_MAX_SS_CMP			(8)
 
+#define ETM_CPMR_CLKEN			(0x4)
 #define ETM_ARCH_V4			(0x40)
 
 #define MAX_ETM_STATE_SIZE	(165)
@@ -217,6 +219,7 @@ struct etm_ctx {
 	uint8_t			nr_event;
 	uint8_t			nr_resource;
 	uint8_t			nr_ss_cmp;
+	bool			si_enable;
 	bool			save_restore_enabled;
 	bool			os_lock_present;
 	bool			init;
@@ -479,14 +482,943 @@ static inline void etm_mm_restore_state(struct etm_ctx *etmdata)
 	ETM_LOCK(etmdata);
 }
 
+static inline void etm_clk_disable(void)
+{
+	uint32_t cpmr;
+
+	isb();
+	asm volatile("mrs %0, S3_7_c15_c0_5" : "=r" (cpmr));
+	cpmr  &= ~ETM_CPMR_CLKEN;
+	asm volatile("msr S3_7_c15_c0_5, %0" : : "r" (cpmr));
+}
+
+static inline void etm_clk_enable(void)
+{
+	uint32_t cpmr;
+
+	asm volatile("mrs %0, S3_7_c15_c0_5" : "=r" (cpmr));
+	cpmr  |= ETM_CPMR_CLKEN;
+	asm volatile("msr S3_7_c15_c0_5, %0" : : "r" (cpmr));
+	isb();
+}
+
+static int etm_read_ssxr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		state[i++] = trc_readl(ETMSEQEVR0);
+		break;
+	case 1:
+		state[i++] = trc_readl(ETMSEQEVR1);
+		break;
+	case 2:
+		state[i++] = trc_readl(ETMSEQEVR2);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_read_crxr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		state[i++] = trc_readl(ETMCNTRLDVR0);
+		state[i++] = trc_readl(ETMCNTCTLR0);
+		state[i++] = trc_readl(ETMCNTVR0);
+		break;
+	case 1:
+		state[i++] = trc_readl(ETMCNTRLDVR1);
+		state[i++] = trc_readl(ETMCNTCTLR1);
+		state[i++] = trc_readl(ETMCNTVR1);
+		break;
+	case 2:
+		state[i++] = trc_readl(ETMCNTRLDVR2);
+		state[i++] = trc_readl(ETMCNTCTLR2);
+		state[i++] = trc_readl(ETMCNTVR2);
+		break;
+	case 3:
+		state[i++] = trc_readl(ETMCNTRLDVR3);
+		state[i++] = trc_readl(ETMCNTCTLR3);
+		state[i++] = trc_readl(ETMCNTVR3);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_read_rsxr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 2:
+		state[i++] = trc_readl(ETMRSCTLR2);
+		break;
+	case 3:
+		state[i++] = trc_readl(ETMRSCTLR3);
+		break;
+	case 4:
+		state[i++] = trc_readl(ETMRSCTLR4);
+		break;
+	case 5:
+		state[i++] = trc_readl(ETMRSCTLR5);
+		break;
+	case 6:
+		state[i++] = trc_readl(ETMRSCTLR6);
+		break;
+	case 7:
+		state[i++] = trc_readl(ETMRSCTLR7);
+		break;
+	case 8:
+		state[i++] = trc_readl(ETMRSCTLR8);
+		break;
+	case 9:
+		state[i++] = trc_readl(ETMRSCTLR9);
+		break;
+	case 10:
+		state[i++] = trc_readl(ETMRSCTLR10);
+		break;
+	case 11:
+		state[i++] = trc_readl(ETMRSCTLR11);
+		break;
+	case 12:
+		state[i++] = trc_readl(ETMRSCTLR12);
+		break;
+	case 13:
+		state[i++] = trc_readl(ETMRSCTLR13);
+		break;
+	case 14:
+		state[i++] = trc_readl(ETMRSCTLR14);
+		break;
+	case 15:
+		state[i++] = trc_readl(ETMRSCTLR15);
+		break;
+	case 16:
+		state[i++] = trc_readl(ETMRSCTLR16);
+		break;
+	case 17:
+		state[i++] = trc_readl(ETMRSCTLR17);
+		break;
+	case 18:
+		state[i++] = trc_readl(ETMRSCTLR18);
+		break;
+	case 19:
+		state[i++] = trc_readl(ETMRSCTLR19);
+		break;
+	case 20:
+		state[i++] = trc_readl(ETMRSCTLR20);
+		break;
+	case 21:
+		state[i++] = trc_readl(ETMRSCTLR21);
+		break;
+	case 22:
+		state[i++] = trc_readl(ETMRSCTLR22);
+		break;
+	case 23:
+		state[i++] = trc_readl(ETMRSCTLR23);
+		break;
+	case 24:
+		state[i++] = trc_readl(ETMRSCTLR24);
+		break;
+	case 25:
+		state[i++] = trc_readl(ETMRSCTLR25);
+		break;
+	case 26:
+		state[i++] = trc_readl(ETMRSCTLR26);
+		break;
+	case 27:
+		state[i++] = trc_readl(ETMRSCTLR27);
+		break;
+	case 28:
+		state[i++] = trc_readl(ETMRSCTLR28);
+		break;
+	case 29:
+		state[i++] = trc_readl(ETMRSCTLR29);
+		break;
+	case 30:
+		state[i++] = trc_readl(ETMRSCTLR30);
+		break;
+	case 31:
+		state[i++] = trc_readl(ETMRSCTLR31);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_read_acr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		state[i++] = trc_readq(ETMACVR0);
+		state[i++] = trc_readq(ETMACATR0);
+		break;
+	case 1:
+		state[i++] = trc_readq(ETMACVR1);
+		state[i++] = trc_readq(ETMACATR1);
+		break;
+	case 2:
+		state[i++] = trc_readq(ETMACVR2);
+		state[i++] = trc_readq(ETMACATR2);
+		break;
+	case 3:
+		state[i++] = trc_readq(ETMACVR3);
+		state[i++] = trc_readq(ETMACATR3);
+		break;
+	case 4:
+		state[i++] = trc_readq(ETMACVR4);
+		state[i++] = trc_readq(ETMACATR4);
+		break;
+	case 5:
+		state[i++] = trc_readq(ETMACVR5);
+		state[i++] = trc_readq(ETMACATR5);
+		break;
+	case 6:
+		state[i++] = trc_readq(ETMACVR6);
+		state[i++] = trc_readq(ETMACATR6);
+		break;
+	case 7:
+		state[i++] = trc_readq(ETMACVR7);
+		state[i++] = trc_readq(ETMACATR7);
+		break;
+	case 8:
+		state[i++] = trc_readq(ETMACVR8);
+		state[i++] = trc_readq(ETMACATR8);
+		break;
+	case 9:
+		state[i++] = trc_readq(ETMACVR9);
+		state[i++] = trc_readq(ETMACATR9);
+		break;
+	case 10:
+		state[i++] = trc_readq(ETMACVR10);
+		state[i++] = trc_readq(ETMACATR10);
+		break;
+	case 11:
+		state[i++] = trc_readq(ETMACVR11);
+		state[i++] = trc_readq(ETMACATR11);
+		break;
+	case 12:
+		state[i++] = trc_readq(ETMACVR12);
+		state[i++] = trc_readq(ETMACATR12);
+		break;
+	case 13:
+		state[i++] = trc_readq(ETMACVR13);
+		state[i++] = trc_readq(ETMACATR13);
+		break;
+	case 14:
+		state[i++] = trc_readq(ETMACVR14);
+		state[i++] = trc_readq(ETMACATR14);
+		break;
+	case 15:
+		state[i++] = trc_readq(ETMACVR15);
+		state[i++] = trc_readq(ETMACATR15);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_read_dvcr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		state[i++] = trc_readq(ETMDVCVR0);
+		state[i++] = trc_readq(ETMDVCMR0);
+		break;
+	case 1:
+		state[i++] = trc_readq(ETMDVCVR1);
+		state[i++] = trc_readq(ETMDVCMR1);
+		break;
+	case 2:
+		state[i++] = trc_readq(ETMDVCVR2);
+		state[i++] = trc_readq(ETMDVCMR2);
+		break;
+	case 3:
+		state[i++] = trc_readq(ETMDVCVR3);
+		state[i++] = trc_readq(ETMDVCMR3);
+		break;
+	case 4:
+		state[i++] = trc_readq(ETMDVCVR4);
+		state[i++] = trc_readq(ETMDVCMR4);
+		break;
+	case 5:
+		state[i++] = trc_readq(ETMDVCVR5);
+		state[i++] = trc_readq(ETMDVCMR5);
+		break;
+	case 6:
+		state[i++] = trc_readq(ETMDVCVR6);
+		state[i++] = trc_readq(ETMDVCMR6);
+		break;
+	case 7:
+		state[i++] = trc_readq(ETMDVCVR7);
+		state[i++] = trc_readq(ETMDVCMR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_read_ccvr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		state[i++] = trc_readq(ETMCIDCVR0);
+		break;
+	case 1:
+		state[i++] = trc_readq(ETMCIDCVR1);
+		break;
+	case 2:
+		state[i++] = trc_readq(ETMCIDCVR2);
+		break;
+	case 3:
+		state[i++] = trc_readq(ETMCIDCVR3);
+		break;
+	case 4:
+		state[i++] = trc_readq(ETMCIDCVR4);
+		break;
+	case 5:
+		state[i++] = trc_readq(ETMCIDCVR5);
+		break;
+	case 6:
+		state[i++] = trc_readq(ETMCIDCVR6);
+		break;
+	case 7:
+		state[i++] = trc_readq(ETMCIDCVR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_read_vcvr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		state[i++] = trc_readq(ETMVMIDCVR0);
+		break;
+	case 1:
+		state[i++] = trc_readq(ETMVMIDCVR1);
+		break;
+	case 2:
+		state[i++] = trc_readq(ETMVMIDCVR2);
+		break;
+	case 3:
+		state[i++] = trc_readq(ETMVMIDCVR3);
+		break;
+	case 4:
+		state[i++] = trc_readq(ETMVMIDCVR4);
+		break;
+	case 5:
+		state[i++] = trc_readq(ETMVMIDCVR5);
+		break;
+	case 6:
+		state[i++] = trc_readq(ETMVMIDCVR6);
+		break;
+	case 7:
+		state[i++] = trc_readq(ETMVMIDCVR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_read_sscr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		state[i++] = trc_readl(ETMSSCCR0);
+		state[i++] = trc_readl(ETMSSCSR0);
+		state[i++] = trc_readl(ETMSSPCICR0);
+		break;
+	case 1:
+		state[i++] = trc_readl(ETMSSCCR1);
+		state[i++] = trc_readl(ETMSSCSR1);
+		state[i++] = trc_readl(ETMSSPCICR1);
+		break;
+	case 2:
+		state[i++] = trc_readl(ETMSSCCR2);
+		state[i++] = trc_readl(ETMSSCSR2);
+		state[i++] = trc_readl(ETMSSPCICR2);
+		break;
+	case 3:
+		state[i++] = trc_readl(ETMSSCCR3);
+		state[i++] = trc_readl(ETMSSCSR3);
+		state[i++] = trc_readl(ETMSSPCICR3);
+		break;
+	case 4:
+		state[i++] = trc_readl(ETMSSCCR4);
+		state[i++] = trc_readl(ETMSSCSR4);
+		state[i++] = trc_readl(ETMSSPCICR4);
+		break;
+	case 5:
+		state[i++] = trc_readl(ETMSSCCR5);
+		state[i++] = trc_readl(ETMSSCSR5);
+		state[i++] = trc_readl(ETMSSPCICR5);
+		break;
+	case 6:
+		state[i++] = trc_readl(ETMSSCCR6);
+		state[i++] = trc_readl(ETMSSCSR6);
+		state[i++] = trc_readl(ETMSSPCICR6);
+		break;
+	case 7:
+		state[i++] = trc_readl(ETMSSCCR7);
+		state[i++] = trc_readl(ETMSSCSR7);
+		state[i++] = trc_readl(ETMSSPCICR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static inline void etm_si_save_state(struct etm_ctx *etmdata)
+{
+	int i, j, count;
+
+	i = 0;
+	/* Ensure all writes are complete before saving ETM registers */
+	mb();
+	isb();
+
+	/* Vote for ETM power/clock enable */
+	etm_clk_enable();
+
+	switch (etmdata->arch) {
+	case ETM_ARCH_V4:
+		trc_write(0x1, ETMOSLAR);
+		isb();
+
+		/* poll until programmers' model becomes stable */
+		for (count = TIMEOUT_US; (BVAL(trc_readl(ETMSTATR), 1)
+		     != 1) && count > 0; count--)
+			udelay(1);
+		if (count == 0)
+			pr_err_ratelimited("programmers model is not stable\n");
+
+		/* main control and configuration registers */
+		etmdata->state[i++] = trc_readl(ETMCONFIGR);
+		etmdata->state[i++] = trc_readl(ETMEVENTCTL0R);
+		etmdata->state[i++] = trc_readl(ETMEVENTCTL1R);
+		etmdata->state[i++] = trc_readl(ETMSTALLCTLR);
+		etmdata->state[i++] = trc_readl(ETMTSCTLR);
+		etmdata->state[i++] = trc_readl(ETMSYNCPR);
+		etmdata->state[i++] = trc_readl(ETMCCCTLR);
+		etmdata->state[i++] = trc_readl(ETMTRACEIDR);
+		/* filtering control registers */
+		etmdata->state[i++] = trc_readl(ETMVICTLR);
+		etmdata->state[i++] = trc_readl(ETMVIIECTLR);
+		etmdata->state[i++] = trc_readl(ETMVISSCTLR);
+		/* derived resource registers */
+		for (j = 0; j < etmdata->nr_seq_state-1; j++)
+			i = etm_read_ssxr(etmdata->state, i, j);
+		etmdata->state[i++] = trc_readl(ETMSEQRSTEVR);
+		etmdata->state[i++] = trc_readl(ETMSEQSTR);
+		etmdata->state[i++] = trc_readl(ETMEXTINSELR);
+		for (j = 0; j < etmdata->nr_cntr; j++)
+			i = etm_read_crxr(etmdata->state, i, j);
+		/* resource selection registers */
+		for (j = 0; j < etmdata->nr_resource; j++)
+			i = etm_read_rsxr(etmdata->state, i, j + 2);
+		/* comparator registers */
+		for (j = 0; j < etmdata->nr_addr_cmp * 2; j++)
+			i = etm_read_acr(etmdata->state, i, j);
+		for (j = 0; j < etmdata->nr_data_cmp; j++)
+			i = etm_read_dvcr(etmdata->state, i, j);
+		for (j = 0; j < etmdata->nr_ctxid_cmp; j++)
+			i = etm_read_ccvr(etmdata->state, i, j);
+		etmdata->state[i++] = trc_readl(ETMCIDCCTLR0);
+		for (j = 0; j < etmdata->nr_vmid_cmp; j++)
+			i = etm_read_vcvr(etmdata->state, i, j);
+		/* single-shot comparator registers */
+		for (j = 0; j < etmdata->nr_ss_cmp; j++)
+			i = etm_read_sscr(etmdata->state, i, j);
+		/* program ctrl register */
+		etmdata->state[i++] = trc_readl(ETMPRGCTLR);
+
+		/* ensure trace unit is idle to be powered down */
+		for (count = TIMEOUT_US; (BVAL(trc_readl(ETMSTATR), 0)
+		     != 1) && count > 0; count--)
+			udelay(1);
+		if (count == 0)
+			pr_err_ratelimited("timeout waiting for idle state\n");
+
+		atomic_notifier_call_chain(&etm_save_notifier_list, 0, NULL);
+
+		break;
+	default:
+		pr_err_ratelimited("unsupported etm arch %d in %s\n",
+				   etmdata->arch, __func__);
+	}
+
+	/* Vote for ETM power/clock disable */
+	etm_clk_disable();
+}
+
+static int etm_write_ssxr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		trc_write(state[i++], ETMSEQEVR0);
+		break;
+	case 1:
+		trc_write(state[i++], ETMSEQEVR1);
+		break;
+	case 2:
+		trc_write(state[i++], ETMSEQEVR2);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_write_crxr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		trc_write(state[i++], ETMCNTRLDVR0);
+		trc_write(state[i++], ETMCNTCTLR0);
+		trc_write(state[i++], ETMCNTVR0);
+		break;
+	case 1:
+		trc_write(state[i++], ETMCNTRLDVR1);
+		trc_write(state[i++], ETMCNTCTLR1);
+		trc_write(state[i++], ETMCNTVR1);
+		break;
+	case 2:
+		trc_write(state[i++], ETMCNTRLDVR2);
+		trc_write(state[i++], ETMCNTCTLR2);
+		trc_write(state[i++], ETMCNTVR2);
+		break;
+	case 3:
+		trc_write(state[i++], ETMCNTRLDVR3);
+		trc_write(state[i++], ETMCNTCTLR3);
+		trc_write(state[i++], ETMCNTVR3);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_write_rsxr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 2:
+		trc_write(state[i++], ETMRSCTLR2);
+		break;
+	case 3:
+		trc_write(state[i++], ETMRSCTLR3);
+		break;
+	case 4:
+		trc_write(state[i++], ETMRSCTLR4);
+		break;
+	case 5:
+		trc_write(state[i++], ETMRSCTLR5);
+		break;
+	case 6:
+		trc_write(state[i++], ETMRSCTLR6);
+		break;
+	case 7:
+		trc_write(state[i++], ETMRSCTLR7);
+		break;
+	case 8:
+		trc_write(state[i++], ETMRSCTLR8);
+		break;
+	case 9:
+		trc_write(state[i++], ETMRSCTLR9);
+		break;
+	case 10:
+		trc_write(state[i++], ETMRSCTLR10);
+		break;
+	case 11:
+		trc_write(state[i++], ETMRSCTLR11);
+		break;
+	case 12:
+		trc_write(state[i++], ETMRSCTLR12);
+		break;
+	case 13:
+		trc_write(state[i++], ETMRSCTLR13);
+		break;
+	case 14:
+		trc_write(state[i++], ETMRSCTLR14);
+		break;
+	case 15:
+		trc_write(state[i++], ETMRSCTLR15);
+		break;
+	case 16:
+		trc_write(state[i++], ETMRSCTLR16);
+		break;
+	case 17:
+		trc_write(state[i++], ETMRSCTLR17);
+		break;
+	case 18:
+		trc_write(state[i++], ETMRSCTLR18);
+		break;
+	case 19:
+		trc_write(state[i++], ETMRSCTLR19);
+		break;
+	case 20:
+		trc_write(state[i++], ETMRSCTLR20);
+		break;
+	case 21:
+		trc_write(state[i++], ETMRSCTLR21);
+		break;
+	case 22:
+		trc_write(state[i++], ETMRSCTLR22);
+		break;
+	case 23:
+		trc_write(state[i++], ETMRSCTLR23);
+		break;
+	case 24:
+		trc_write(state[i++], ETMRSCTLR24);
+		break;
+	case 25:
+		trc_write(state[i++], ETMRSCTLR25);
+		break;
+	case 26:
+		trc_write(state[i++], ETMRSCTLR26);
+		break;
+	case 27:
+		trc_write(state[i++], ETMRSCTLR27);
+		break;
+	case 28:
+		trc_write(state[i++], ETMRSCTLR28);
+		break;
+	case 29:
+		trc_write(state[i++], ETMRSCTLR29);
+		break;
+	case 30:
+		trc_write(state[i++], ETMRSCTLR30);
+		break;
+	case 31:
+		trc_write(state[i++], ETMRSCTLR31);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_write_acr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		trc_write(state[i++], ETMACVR0);
+		trc_write(state[i++], ETMACATR0);
+		break;
+	case 1:
+		trc_write(state[i++], ETMACVR1);
+		trc_write(state[i++], ETMACATR1);
+		break;
+	case 2:
+		trc_write(state[i++], ETMACVR2);
+		trc_write(state[i++], ETMACATR2);
+		break;
+	case 3:
+		trc_write(state[i++], ETMACVR3);
+		trc_write(state[i++], ETMACATR3);
+		break;
+	case 4:
+		trc_write(state[i++], ETMACVR4);
+		trc_write(state[i++], ETMACATR4);
+		break;
+	case 5:
+		trc_write(state[i++], ETMACVR5);
+		trc_write(state[i++], ETMACATR5);
+		break;
+	case 6:
+		trc_write(state[i++], ETMACVR6);
+		trc_write(state[i++], ETMACATR6);
+		break;
+	case 7:
+		trc_write(state[i++], ETMACVR7);
+		trc_write(state[i++], ETMACATR7);
+		break;
+	case 8:
+		trc_write(state[i++], ETMACVR8);
+		trc_write(state[i++], ETMACATR8);
+		break;
+	case 9:
+		trc_write(state[i++], ETMACVR9);
+		trc_write(state[i++], ETMACATR9);
+		break;
+	case 10:
+		trc_write(state[i++], ETMACVR10);
+		trc_write(state[i++], ETMACATR10);
+		break;
+	case 11:
+		trc_write(state[i++], ETMACVR11);
+		trc_write(state[i++], ETMACATR11);
+		break;
+	case 12:
+		trc_write(state[i++], ETMACVR12);
+		trc_write(state[i++], ETMACATR12);
+		break;
+	case 13:
+		trc_write(state[i++], ETMACVR13);
+		trc_write(state[i++], ETMACATR13);
+		break;
+	case 14:
+		trc_write(state[i++], ETMACVR14);
+		trc_write(state[i++], ETMACATR14);
+		break;
+	case 15:
+		trc_write(state[i++], ETMACVR15);
+		trc_write(state[i++], ETMACATR15);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_write_dvcr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		trc_write(state[i++], ETMDVCVR0);
+		trc_write(state[i++], ETMDVCMR0);
+		break;
+	case 1:
+		trc_write(state[i++], ETMDVCVR1);
+		trc_write(state[i++], ETMDVCMR1);
+		break;
+	case 2:
+		trc_write(state[i++], ETMDVCVR2);
+		trc_write(state[i++], ETMDVCMR2);
+		break;
+	case 3:
+		trc_write(state[i++], ETMDVCVR3);
+		trc_write(state[i++], ETMDVCMR3);
+		break;
+	case 4:
+		trc_write(state[i++], ETMDVCVR4);
+		trc_write(state[i++], ETMDVCMR4);
+		break;
+	case 5:
+		trc_write(state[i++], ETMDVCVR5);
+		trc_write(state[i++], ETMDVCMR5);
+		break;
+	case 6:
+		trc_write(state[i++], ETMDVCVR6);
+		trc_write(state[i++], ETMDVCMR6);
+		break;
+	case 7:
+		trc_write(state[i++], ETMDVCVR7);
+		trc_write(state[i++], ETMDVCMR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_write_ccvr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		trc_write(state[i++], ETMCIDCVR0);
+		break;
+	case 1:
+		trc_write(state[i++], ETMCIDCVR1);
+		break;
+	case 2:
+		trc_write(state[i++], ETMCIDCVR2);
+		break;
+	case 3:
+		trc_write(state[i++], ETMCIDCVR3);
+		break;
+	case 4:
+		trc_write(state[i++], ETMCIDCVR4);
+		break;
+	case 5:
+		trc_write(state[i++], ETMCIDCVR5);
+		break;
+	case 6:
+		trc_write(state[i++], ETMCIDCVR6);
+		break;
+	case 7:
+		trc_write(state[i++], ETMCIDCVR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_write_vcvr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		trc_write(state[i++], ETMVMIDCVR0);
+		break;
+	case 1:
+		trc_write(state[i++], ETMVMIDCVR1);
+		break;
+	case 2:
+		trc_write(state[i++], ETMVMIDCVR2);
+		break;
+	case 3:
+		trc_write(state[i++], ETMVMIDCVR3);
+		break;
+	case 4:
+		trc_write(state[i++], ETMVMIDCVR4);
+		break;
+	case 5:
+		trc_write(state[i++], ETMVMIDCVR5);
+		break;
+	case 6:
+		trc_write(state[i++], ETMVMIDCVR6);
+		break;
+	case 7:
+		trc_write(state[i++], ETMVMIDCVR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static int etm_write_sscr(uint64_t *state, int i, int j)
+{
+	switch (j) {
+	case 0:
+		trc_write(state[i++], ETMSSCCR0);
+		trc_write(state[i++], ETMSSCSR0);
+		trc_write(state[i++], ETMSSPCICR0);
+		break;
+	case 1:
+		trc_write(state[i++], ETMSSCCR1);
+		trc_write(state[i++], ETMSSCSR1);
+		trc_write(state[i++], ETMSSPCICR1);
+		break;
+	case 2:
+		trc_write(state[i++], ETMSSCCR2);
+		trc_write(state[i++], ETMSSCSR2);
+		trc_write(state[i++], ETMSSPCICR2);
+		break;
+	case 3:
+		trc_write(state[i++], ETMSSCCR3);
+		trc_write(state[i++], ETMSSCSR3);
+		trc_write(state[i++], ETMSSPCICR3);
+		break;
+	case 4:
+		trc_write(state[i++], ETMSSCCR4);
+		trc_write(state[i++], ETMSSCSR4);
+		trc_write(state[i++], ETMSSPCICR4);
+		break;
+	case 5:
+		trc_write(state[i++], ETMSSCCR5);
+		trc_write(state[i++], ETMSSCSR5);
+		trc_write(state[i++], ETMSSPCICR5);
+		break;
+	case 6:
+		trc_write(state[i++], ETMSSCCR6);
+		trc_write(state[i++], ETMSSCSR6);
+		trc_write(state[i++], ETMSSPCICR6);
+		break;
+	case 7:
+		trc_write(state[i++], ETMSSCCR7);
+		trc_write(state[i++], ETMSSCSR7);
+		trc_write(state[i++], ETMSSPCICR7);
+		break;
+	default:
+		pr_err_ratelimited("idx %d out of bounds in %s\n", j, __func__);
+	}
+	return i;
+}
+
+static inline void etm_si_restore_state(struct etm_ctx *etmdata)
+{
+	int i, j;
+
+	i = 0;
+
+	/* Vote for ETM power/clock enable */
+	etm_clk_enable();
+
+	switch (etmdata->arch) {
+	case ETM_ARCH_V4:
+		atomic_notifier_call_chain(&etm_restore_notifier_list, 0, NULL);
+
+		/* check OS lock is locked */
+		if (BVAL(trc_readl(ETMOSLSR), 1) != 1) {
+			pr_err_ratelimited("OS lock is unlocked\n");
+			trc_write(0x1, ETMOSLAR);
+			isb();
+		}
+
+		/* main control and configuration registers */
+		trc_write(etmdata->state[i++], ETMCONFIGR);
+		trc_write(etmdata->state[i++], ETMEVENTCTL0R);
+		trc_write(etmdata->state[i++], ETMEVENTCTL1R);
+		trc_write(etmdata->state[i++], ETMSTALLCTLR);
+		trc_write(etmdata->state[i++], ETMTSCTLR);
+		trc_write(etmdata->state[i++], ETMSYNCPR);
+		trc_write(etmdata->state[i++], ETMCCCTLR);
+		trc_write(etmdata->state[i++], ETMTRACEIDR);
+		/* filtering control registers */
+		trc_write(etmdata->state[i++], ETMVICTLR);
+		trc_write(etmdata->state[i++], ETMVIIECTLR);
+		trc_write(etmdata->state[i++], ETMVISSCTLR);
+		/* derived resources registers */
+		for (j = 0; j < etmdata->nr_seq_state-1; j++)
+			i = etm_write_ssxr(etmdata->state, i, j);
+		trc_write(etmdata->state[i++], ETMSEQRSTEVR);
+		trc_write(etmdata->state[i++], ETMSEQSTR);
+		trc_write(etmdata->state[i++], ETMEXTINSELR);
+		for (j = 0; j < etmdata->nr_cntr; j++)
+			i = etm_write_crxr(etmdata->state, i, j);
+		/* resource selection registers */
+		for (j = 0; j < etmdata->nr_resource; j++)
+			i = etm_write_rsxr(etmdata->state, i, j + 2);
+		/* comparator registers */
+		for (j = 0; j < etmdata->nr_addr_cmp * 2; j++)
+			i = etm_write_acr(etmdata->state, i, j);
+		for (j = 0; j < etmdata->nr_data_cmp; j++)
+			i = etm_write_dvcr(etmdata->state, i, j);
+		for (j = 0; j < etmdata->nr_ctxid_cmp; j++)
+			i = etm_write_ccvr(etmdata->state, i, j);
+		trc_write(etmdata->state[i++], ETMCIDCCTLR0);
+		for (j = 0; j < etmdata->nr_vmid_cmp; j++)
+			i = etm_write_vcvr(etmdata->state, i, j);
+		/* single-shot comparator registers */
+		for (j = 0; j < etmdata->nr_ss_cmp; j++)
+			i = etm_write_sscr(etmdata->state, i, j);
+		/* program ctrl register */
+		trc_write(etmdata->state[i++], ETMPRGCTLR);
+
+		isb();
+		trc_write(0x0, ETMOSLAR);
+		break;
+	default:
+		pr_err_ratelimited("unsupported etm arch %d in %s\n",
+				   etmdata->arch,  __func__);
+	}
+
+	/* Vote for ETM power/clock disable */
+	etm_clk_disable();
+}
+
 void msm_jtag_etm_save_state(void)
 {
 	int cpu;
 
 	cpu = raw_smp_processor_id();
 
-	if (etm[cpu] && etm[cpu]->save_restore_enabled)
-		etm_mm_save_state(etm[cpu]);
+	if (etm[cpu] && etm[cpu]->save_restore_enabled) {
+		if (etm[cpu]->si_enable)
+			etm_si_save_state(etm[cpu]);
+		else
+			etm_mm_save_state(etm[cpu]);
+	}
 }
 EXPORT_SYMBOL(msm_jtag_etm_save_state);
 
@@ -500,8 +1432,12 @@ void msm_jtag_etm_restore_state(void)
 	 * Check to ensure we attempt to restore only when save
 	 * has been done is accomplished by callee function.
 	 */
-	if (etm[cpu] && etm[cpu]->save_restore_enabled)
-		etm_mm_restore_state(etm[cpu]);
+	if (etm[cpu] && etm[cpu]->save_restore_enabled) {
+		if (etm[cpu]->si_enable)
+			etm_si_restore_state(etm[cpu]);
+		else
+			etm_mm_restore_state(etm[cpu]);
+	}
 }
 EXPORT_SYMBOL(msm_jtag_etm_restore_state);
 
@@ -622,6 +1558,9 @@ static int jtag_mm_etm_probe(struct platform_device *pdev, uint32_t cpu)
 	etmdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!etmdata->base)
 		return -EINVAL;
+
+	etmdata->si_enable = of_property_read_bool(pdev->dev.of_node,
+						   "qcom,si-enable");
 
 	/* Allocate etm state save space per core */
 	etmdata->state = devm_kzalloc(dev,

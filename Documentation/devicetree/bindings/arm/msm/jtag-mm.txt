@@ -15,6 +15,8 @@ reg-names: should be "etm-base" for etm register set and "debug-base" for debug
 	register set.
 qcom,coresight-jtagmm-cpu : specifies phandle for the cpu associated with the
 			    jtag-mm device
+qcom,si-enable : boolean, indicating etm save and restore is supported via
+		 system instructions
 
 Example:
 jtag_mm: jtagmm@fc332000 {
