@@ -53,8 +53,10 @@ union rr_control_msg {
 	uint32_t cmd;
 	struct {
 		uint32_t cmd;
-		uint32_t magic;
+		uint32_t checksum;
+		uint32_t versions;
 		uint32_t capability;
+		uint32_t reserved;
 	} hello;
 	struct {
 		uint32_t cmd;
