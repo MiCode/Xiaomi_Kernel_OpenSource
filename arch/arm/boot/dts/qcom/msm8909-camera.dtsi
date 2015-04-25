@@ -158,6 +158,20 @@
 				0xCCCC1111 0xCCCC1111 0xCCCC1111
 				0xCCCC1111 0xCCCC1111 0xCCCC1111
 				0xCCCC1111 0xCCCC1111 0x00000103>;
+	};
+
+	qcom,cam_smmu {
+		compatible = "qcom,msm-cam-smmu";
+		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&apps_iommu 0x400>;
+			label = "vfe";
 		};
 
+		msm_cam_smmu_cb2: msm_cam_smmu_cb2 {
+			compatible = "qcom,qsmmu-cam-cb";
+			label = "vfe_secure";
+			qcom,secure-context;
+		};
+	};
 };

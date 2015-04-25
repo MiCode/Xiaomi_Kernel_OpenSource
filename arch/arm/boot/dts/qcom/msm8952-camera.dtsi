@@ -273,7 +273,35 @@
 			0xCCCC1111	0x00000103>;
 		max-clk-nominal = <308570000>;
 		max-clk-turbo = <360000000>;
-};
+	};
+
+	qcom,cam_smmu {
+		compatible = "qcom,msm-cam-smmu";
+		msm_cam_smmu_cb1: msm_cam_smmu_cb1 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&apps_iommu 0x400>,
+						<&apps_iommu 0x3000>;
+			label = "vfe";
+		};
+
+		msm_cam_smmu_cb2: msm_cam_smmu_cb2 {
+			compatible = "qcom,qsmmu-cam-cb";
+			label = "vfe_secure";
+			qcom,secure-context;
+		};
+
+		msm_cam_smmu_cb3: msm_cam_smmu_cb3 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&apps_iommu 0x2400>;
+			label = "cpp";
+		};
+
+		msm_cam_smmu_cb4: msm_cam_smmu_cb4 {
+			compatible = "qcom,qsmmu-cam-cb";
+			iommus = <&apps_iommu 0x2000>;
+			label = "jpeg_enc0";
+		};
+	};
 
 	qcom,jpeg@1b1c000 {
 		cell-index = <0>;
