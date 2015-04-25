@@ -403,6 +403,16 @@
 		};
 	};
 
+	qcom,lpm-workarounds@0x0b011018 {
+		compatible = "qcom,lpm-workarounds";
+		reg = <0x0b011018 0x4>,
+		      <0x0b011088 0x4>;
+		reg-names = "l2-pwr-sts", "l1-l2-gcc";
+		qcom,lpm-wa-dynamic-clock-gating;
+		qcom,cpu-offline-mask = <0xf>;
+		qcom,non-boot-cpu-index = <4>;
+	};
+
 	qcom,mpm@601d0 {
 		compatible = "qcom,mpm-v2";
 		reg = <0x601d0 0x1000>, /* MSM_RPM_MPM_BASE 4K */
