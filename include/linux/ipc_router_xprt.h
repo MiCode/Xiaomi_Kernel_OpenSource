@@ -116,6 +116,7 @@ struct rr_packet {
  * @link_id: Network cluster ID to which the XPRT belongs to.
  * @priv: XPRT's private data.
  * @get_version: Method to get header version supported by the XPRT.
+ * @set_version: Method to set header version in XPRT.
  * @get_option: Method to get XPRT specific options.
  * @read_avail: Method to get data size available to be read from the XPRT.
  * @read: Method to read data from the XPRT.
@@ -132,6 +133,8 @@ struct msm_ipc_router_xprt {
 
 	int (*get_version)(struct msm_ipc_router_xprt *xprt);
 	int (*get_option)(struct msm_ipc_router_xprt *xprt);
+	void (*set_version)(struct msm_ipc_router_xprt *xprt,
+			    unsigned version);
 	int (*read_avail)(struct msm_ipc_router_xprt *xprt);
 	int (*read)(void *data, uint32_t len,
 		    struct msm_ipc_router_xprt *xprt);

@@ -304,6 +304,22 @@ int mhi_xprt_queue_in_buffers(struct ipc_router_mhi_xprt *mhi_xprtp,
 }
 
 /**
+* ipc_router_mhi_set_xprt_version() - Set the IPC Router version in transport
+* @xprt:      Reference to the transport structure.
+* @version:   The version to be set in transport.
+*/
+static void ipc_router_mhi_set_xprt_version(struct msm_ipc_router_xprt *xprt,
+					   unsigned version)
+{
+	struct ipc_router_mhi_xprt *mhi_xprtp;
+
+	if (!xprt)
+		return;
+	mhi_xprtp = container_of(xprt, struct ipc_router_mhi_xprt, xprt);
+	mhi_xprtp->xprt_version = version;
+}
+
+/**
  * ipc_router_mhi_get_xprt_version() - Get IPC Router header version
  *				       supported by the XPRT
  * @xprt: XPRT for which the version information is required.
@@ -874,6 +890,7 @@ static int ipc_router_mhi_config_init(
 	mhi_xprtp->xprt.link_id = mhi_xprt_config->link_id;
 	mhi_xprtp->xprt.name = mhi_xprtp->xprt_name;
 	mhi_xprtp->xprt.get_version = ipc_router_mhi_get_xprt_version;
+	mhi_xprtp->xprt.set_version = ipc_router_mhi_set_xprt_version;
 	mhi_xprtp->xprt.get_option = ipc_router_mhi_get_xprt_option;
 	mhi_xprtp->xprt.read_avail = NULL;
 	mhi_xprtp->xprt.read = NULL;
