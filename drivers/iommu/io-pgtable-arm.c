@@ -452,8 +452,6 @@ static int arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 
 	*ptep = table;
 	tlb->flush_pgtable(ptep, sizeof(*ptep), cookie);
-	iova &= ~(blk_size - 1);
-	tlb->tlb_add_flush(iova, blk_size, true, cookie);
 	return size;
 }
 
@@ -480,12 +478,8 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 
 		if (!iopte_leaf(pte, lvl)) {
 			/* Also flush any partial walks */
-			tlb->tlb_add_flush(iova, size, false, cookie);
-			tlb->tlb_sync(data->iop.cookie);
 			ptep = iopte_deref(pte, data);
 			__arm_lpae_free_pgtable(data, lvl + 1, ptep);
-		} else {
-			tlb->tlb_add_flush(iova, size, true, cookie);
 		}
 
 		return size;
@@ -515,7 +509,7 @@ static int arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 
 	unmapped = __arm_lpae_unmap(data, iova, size, lvl, ptep);
 	if (unmapped)
-		iop->cfg.tlb->tlb_sync(iop->cookie);
+		iop->cfg.tlb->tlb_flush_all(iop->cookie);
 
 	return unmapped;
 }
