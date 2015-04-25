@@ -134,6 +134,7 @@ struct pll_clk {
 	void __iomem *const config_reg;
 	void __iomem *const config_ctl_reg;
 	void __iomem *const status_reg;
+	void __iomem *const alt_status_reg;
 	void __iomem *const test_ctl_lo_reg;
 	void __iomem *const test_ctl_hi_reg;
 

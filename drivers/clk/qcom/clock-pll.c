@@ -19,6 +19,7 @@
 #include <linux/err.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/sched.h>
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/msm-clock-controller.h>
 
@@ -31,6 +32,8 @@
 
 #define PLL_EN_REG(x)		(*(x)->base + (unsigned long) (x)->en_reg)
 #define PLL_STATUS_REG(x)	(*(x)->base + (unsigned long) (x)->status_reg)
+#define PLL_ALT_STATUS_REG(x)	(*(x)->base + (unsigned long) \
+							(x)->alt_status_reg)
 #define PLL_MODE_REG(x)		(*(x)->base + (unsigned long) (x)->mode_reg)
 #define PLL_L_REG(x)		(*(x)->base + (unsigned long) (x)->l_reg)
 #define PLL_M_REG(x)		(*(x)->base + (unsigned long) (x)->m_reg)
@@ -258,8 +261,11 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 	unsigned long flags;
 	struct pll_clk *pll = to_pll_clk(c);
 	int ret = 0, count;
-	u32 mode;
+	u32 mode, testlo;
 	u32 lockmask = pll->masks.lock_mask ?: PLL_LOCKED_BIT;
+	u32 mode_lock;
+	u64 time;
+	bool early_lock = false;
 
 	spin_lock_irqsave(&pll_reg_lock, flags);
 
@@ -273,6 +279,17 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 		pll->pgm_test_ctl_enable)
 		writel_relaxed(pll->vals.test_ctl_lo_val,
 				PLL_TEST_CTL_LO_REG(pll));
+
+	/* Enable test_ctl debug */
+	mode |= BIT(3);
+	writel_relaxed(mode, PLL_MODE_REG(pll));
+
+	testlo = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+	testlo &= ~BM(7, 6);
+	testlo |= 0xC0;
+	writel_relaxed(testlo, PLL_TEST_CTL_LO_REG(pll));
+	/* Wait for the write to complete */
+	mb();
 
 	/* Disable PLL bypass mode. */
 	mode |= PLL_BYPASSNL;
@@ -303,6 +320,8 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 		pll->pgm_test_ctl_enable)
 		writel_relaxed(0x0, PLL_TEST_CTL_LO_REG(pll));
 
+
+	time = sched_clock();
 	/* Wait for pll to lock. */
 	for (count = ENABLE_WAIT_MAX_LOOPS; count > 0; count--) {
 		if (readl_relaxed(PLL_STATUS_REG(pll)) & lockmask) {
@@ -314,12 +333,74 @@ static int variable_rate_pll_clk_enable(struct clk *c)
 			 */
 			if ((readl_relaxed(PLL_STATUS_REG(pll)) & lockmask))
 				break;
+			else
+				early_lock = true;
 		}
 		udelay(1);
 	}
+	time = sched_clock() - time;
 
-	if (!(readl_relaxed(PLL_STATUS_REG(pll)) & lockmask))
-		pr_err("PLL %s didn't lock after enabling it!\n", c->dbg_name);
+	mode_lock = readl_relaxed(PLL_STATUS_REG(pll));
+
+	if (!(mode_lock & lockmask)) {
+		pr_err("PLL lock bit detection total wait time: %lld ns", time);
+		pr_err("PLL %s didn't lock after enabling for L value 0x%x!\n",
+			c->dbg_name, readl_relaxed(PLL_L_REG(pll)));
+		pr_err("mode register is 0x%x\n",
+			readl_relaxed(PLL_STATUS_REG(pll)));
+		pr_err("user control register is 0x%x\n",
+			readl_relaxed(PLL_CONFIG_REG(pll)));
+		pr_err("config control register is 0x%x\n",
+			readl_relaxed(PLL_CFG_CTL_REG(pll)));
+		pr_err("test control high register is 0x%x\n",
+			readl_relaxed(PLL_TEST_CTL_HI_REG(pll)));
+		pr_err("test control low register is 0x%x\n",
+			readl_relaxed(PLL_TEST_CTL_LO_REG(pll)));
+		pr_err("early lock? %s\n", early_lock ? "yes" : "no");
+
+		testlo = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+		testlo &= ~BM(7, 6);
+		writel_relaxed(testlo, PLL_TEST_CTL_LO_REG(pll));
+		/* Wait for the write to complete */
+		mb();
+
+		pr_err("test_ctl_lo = 0x%x, pll status is: 0x%x\n",
+			readl_relaxed(PLL_TEST_CTL_LO_REG(pll)),
+			readl_relaxed(PLL_ALT_STATUS_REG(pll)));
+
+		testlo = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+		testlo &= ~BM(7, 6);
+		testlo |= 0x40;
+		writel_relaxed(testlo, PLL_TEST_CTL_LO_REG(pll));
+		/* Wait for the write to complete */
+		mb();
+		pr_err("test_ctl_lo = 0x%x, pll status is: 0x%x\n",
+			readl_relaxed(PLL_TEST_CTL_LO_REG(pll)),
+			readl_relaxed(PLL_ALT_STATUS_REG(pll)));
+
+		testlo = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+		testlo &= ~BM(7, 6);
+		testlo |= 0x80;
+		writel_relaxed(testlo, PLL_TEST_CTL_LO_REG(pll));
+		/* Wait for the write to complete */
+		mb();
+
+		pr_err("test_ctl_lo = 0x%x, pll status is: 0x%x\n",
+			readl_relaxed(PLL_TEST_CTL_LO_REG(pll)),
+			readl_relaxed(PLL_ALT_STATUS_REG(pll)));
+
+		testlo = readl_relaxed(PLL_TEST_CTL_LO_REG(pll));
+		testlo &= ~BM(7, 6);
+		testlo |= 0xC0;
+		writel_relaxed(testlo, PLL_TEST_CTL_LO_REG(pll));
+		/* Wait for the write to complete */
+		mb();
+
+		pr_err("test_ctl_lo = 0x%x, pll status is: 0x%x\n",
+			readl_relaxed(PLL_TEST_CTL_LO_REG(pll)),
+			readl_relaxed(PLL_ALT_STATUS_REG(pll)));
+		panic("failed to lock %s PLL\n", c->dbg_name);
+	}
 
 	/* Enable PLL output. */
 	mode |= PLL_OUTCTRL;
