@@ -127,8 +127,6 @@ int adreno_drawctxt_wait(struct adreno_device *adreno_dev,
 void adreno_drawctxt_invalidate(struct kgsl_device *device,
 		struct kgsl_context *context);
 
-unsigned int adreno_drawctxt_timestamp(struct kgsl_context *context);
-
 void adreno_drawctxt_dump(struct kgsl_device *device,
 		struct kgsl_context *context);
 
