@@ -286,6 +286,7 @@ static int msm_dt_node_to_map(struct pinctrl_dev *pctldev,
 	char *fn_name;
 	u32 val;
 	unsigned long *cfg;
+	unsigned int fn_name_len = 0;
 	int cfg_cnt = 0, map_cnt = 0, func_cnt = 0, ret = 0;
 
 	dd = pinctrl_dev_get_drvdata(pctldev);
@@ -331,14 +332,14 @@ static int msm_dt_node_to_map(struct pinctrl_dev *pctldev,
 	}
 	/* Get function mapping */
 	of_property_read_u32(parent, "qcom,pin-func", &val);
-	fn_name = kzalloc(strlen(grp_name) + strlen("-func"),
-						GFP_KERNEL);
+
+	fn_name_len = strlen(grp_name) + strlen("-func") + 1;
+	fn_name = kzalloc(fn_name_len, GFP_KERNEL);
 	if (!fn_name) {
 		ret = -ENOMEM;
 		goto func_err;
 	}
-	snprintf(fn_name, strlen(grp_name) + strlen("-func") + 1, "%s%s",
-						grp_name, "-func");
+	snprintf(fn_name, fn_name_len, "%s-func", grp_name);
 	map[*nmaps].data.mux.group = grp_name;
 	map[*nmaps].data.mux.function = fn_name;
 	map[*nmaps].type = PIN_MAP_TYPE_MUX_GROUP;
