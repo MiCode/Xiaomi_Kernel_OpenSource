@@ -48,6 +48,9 @@ allowed_warnings = set([
     "jhash.h:137",
     "cmpxchg.h:162",
     "ping.c:87",
+    "nfnetlink_queue_core.c:264",
+    "nfnetlink_queue_core.c:265",
+    "irq.c:159",
  ])
 
 # Capture the name of the object file, can find it.
