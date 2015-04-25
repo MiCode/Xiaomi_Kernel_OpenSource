@@ -1,4 +1,4 @@
-/* Copyright (c) 2009-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2009-2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -300,6 +300,8 @@ enum msm_cci_cmd_type {
 };
 
 struct msm_camera_cci_wait_sync_cfg {
+	uint16_t cid;
+	int16_t csid;
 	uint16_t line;
 	uint16_t delay;
 };
