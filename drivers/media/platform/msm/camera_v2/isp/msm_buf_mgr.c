@@ -33,6 +33,7 @@
 
 #include "msm.h"
 #include "msm_buf_mgr.h"
+#include "cam_smmu_api.h"
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -140,35 +141,30 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_qbuf_buffer *qbuf_buf)
 {
 	int i, rc = -1;
+	int ret;
 	struct msm_isp_buffer_mapped_info *mapped_info;
 	struct buffer_cmd *buf_pending = NULL;
-	int domain_num;
 	uint32_t accu_length = 0;
 	unsigned long flags;
+	int iommu_hdl;
 
 	if (buf_mgr->secure_enable == NON_SECURE_MODE)
-		domain_num = buf_mgr->iommu_domain_num;
+		iommu_hdl = buf_mgr->ns_iommu_hdl;
 	else
-		domain_num = buf_mgr->iommu_domain_num_secure;
+		iommu_hdl = buf_mgr->sec_iommu_hdl;
 
 	for (i = 0; i < qbuf_buf->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
-		mapped_info->handle =
-		ion_import_dma_buf(buf_mgr->client,
-			qbuf_buf->planes[i].addr);
-		if (IS_ERR_OR_NULL(mapped_info->handle)) {
-			pr_err_ratelimited("%s: null/error ION handle %p\n",
-				__func__, mapped_info->handle);
-			goto ion_map_error;
-		}
-		if (ion_map_iommu(buf_mgr->client, mapped_info->handle,
-				domain_num, 0, SZ_4K,
-				0, &(mapped_info->paddr),
-				&(mapped_info->len), 0, 0) < 0) {
+		mapped_info->buf_fd = qbuf_buf->planes[i].addr;
+		ret = cam_smmu_get_phy_addr(iommu_hdl,
+					mapped_info->buf_fd,
+					CAM_SMMU_MAP_RW,
+					&(mapped_info->paddr),
+					&(mapped_info->len));
+		if (ret) {
 			rc = -EINVAL;
-			pr_err("%s: cannot map address", __func__);
-			ion_free(buf_mgr->client, mapped_info->handle);
-			goto ion_map_error;
+			pr_err_ratelimited("%s: cannot map address", __func__);
+			goto get_phy_err;
 		}
 		mapped_info->paddr += accu_length;
 		accu_length += qbuf_buf->planes[i].length;
@@ -177,8 +173,9 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 
 		buf_pending = kzalloc(sizeof(struct buffer_cmd), GFP_ATOMIC);
 		if (!buf_pending) {
-			pr_err("No free memory for buf_pending\n");
-			return rc;
+			pr_err_ratelimited("No free memory for buf_pending\n");
+			rc = -ENOMEM;
+			goto get_mem_err;
 		}
 
 		buf_pending->mapped_info = mapped_info;
@@ -188,12 +185,13 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 	}
 	buf_info->num_planes = qbuf_buf->num_planes;
 	return 0;
-ion_map_error:
-	for (--i; i >= 0; i--) {
-		mapped_info = &buf_info->mapped_info[i];
-		ion_unmap_iommu(buf_mgr->client, mapped_info->handle,
-		buf_mgr->iommu_domain_num, 0);
-		ion_free(buf_mgr->client, mapped_info->handle);
+
+get_phy_err:
+	i--;
+get_mem_err:
+	for (; i >= 0; i--) {
+		cam_smmu_put_phy_addr(iommu_hdl,
+				qbuf_buf->planes[i].addr);
 	}
 	return rc;
 }
@@ -205,13 +203,13 @@ static void msm_isp_unprepare_v4l2_buf(
 	int i;
 	struct msm_isp_buffer_mapped_info *mapped_info;
 	struct buffer_cmd *buf_pending = NULL;
-	int domain_num;
 	unsigned long flags;
+	int iommu_hdl;
 
 	if (buf_mgr->secure_enable == NON_SECURE_MODE)
-		domain_num = buf_mgr->iommu_domain_num;
+		iommu_hdl = buf_mgr->ns_iommu_hdl;
 	else
-		domain_num = buf_mgr->iommu_domain_num_secure;
+		iommu_hdl = buf_mgr->sec_iommu_hdl;
 
 	for (i = 0; i < buf_info->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
@@ -221,16 +219,10 @@ static void msm_isp_unprepare_v4l2_buf(
 				break;
 
 			if (buf_pending->mapped_info == mapped_info) {
+				cam_smmu_put_phy_addr(iommu_hdl,
+							mapped_info->buf_fd);
 				list_del_init(&buf_pending->list);
 				kfree(buf_pending);
-				spin_unlock_irqrestore(
-					&buf_mgr->bufq_list_lock, flags);
-				ion_unmap_iommu(buf_mgr->client,
-					mapped_info->handle,
-					domain_num, 0);
-				ion_free(buf_mgr->client, mapped_info->handle);
-				spin_lock_irqsave(
-					&buf_mgr->bufq_list_lock, flags);
 				break;
 			}
 		}
@@ -1076,113 +1068,34 @@ static void msm_isp_release_all_bufq(
 	}
 }
 
-static void msm_isp_register_ctx(struct msm_isp_buf_mgr *buf_mgr,
-	struct device **iommu_ctx1, struct device **iommu_ctx2,
-	int num_iommu_ctx, int secure_num_iommu_ctx)
-{
-	int i;
-	buf_mgr->num_iommu_ctx = num_iommu_ctx;
-	for (i = 0; i < num_iommu_ctx; i++)
-		buf_mgr->iommu_ctx[i] = iommu_ctx1[i];
-
-	buf_mgr->num_iommu_secure_ctx = secure_num_iommu_ctx;
-	for (i = 0; i < secure_num_iommu_ctx; i++)
-		buf_mgr->iommu_secure_ctx[i] = iommu_ctx2[i];
-}
-
-static int msm_isp_attach_ctx(struct msm_isp_buf_mgr *buf_mgr,
-	struct msm_vfe_smmu_attach_cmd *cmd)
-{
-	int rc, i;
-	if (cmd->security_mode == NON_SECURE_MODE) {
-		/*non secure mode*/
-		for (i = 0; i < buf_mgr->num_iommu_ctx; i++) {
-
-			if (buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i] == 0) {
-				/* attach only once */
-				rc = iommu_attach_device(
-					buf_mgr->iommu_domain,
-					buf_mgr->iommu_ctx[i]);
-				if (rc) {
-					pr_err("%s: attach error bank: %d, rc : %d\n",
-						__func__, i, rc);
-					return -EINVAL;
-				}
-				buf_mgr->attach_state = MSM_ISP_BUF_MGR_ATTACH;
-			}
-			buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i]++;
-		}
-	} else {
-		/*secure mode*/
-		for (i = 0; i < buf_mgr->num_iommu_secure_ctx; i++) {
-
-			if (buf_mgr->attach_ref_cnt[SECURE_MODE][i] == 0) {
-				/* attach only once */
-				rc = iommu_attach_device(
-					buf_mgr->iommu_domain_secure,
-					buf_mgr->iommu_secure_ctx[i]);
-				if (rc) {
-					pr_err("%s: attach error bank: %d, rc : %d\n",
-						__func__, i, rc);
-					return -EINVAL;
-				}
-				buf_mgr->attach_state = MSM_ISP_BUF_MGR_ATTACH;
-			}
-			buf_mgr->attach_ref_cnt[SECURE_MODE][i]++;
-		}
-	}
-	return 0;
-}
-
-static int msm_isp_detach_ctx(struct msm_isp_buf_mgr *buf_mgr)
-{
-	int i;
-
-	if (buf_mgr->secure_enable == NON_SECURE_MODE) {
-		/*non secure mode*/
-		for (i = 0; i < buf_mgr->num_iommu_ctx; i++) {
-			/*Detach only if ref count is one*/
-			if (buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i] == 1) {
-				iommu_detach_device(buf_mgr->iommu_domain,
-					buf_mgr->iommu_ctx[i]);
-				buf_mgr->attach_state = MSM_ISP_BUF_MGR_DETACH;
-			}
-			if (buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i] > 0)
-				--buf_mgr->attach_ref_cnt[NON_SECURE_MODE][i];
-		}
-	} else {
-		/*secure mode*/
-		for (i = 0; i < buf_mgr->num_iommu_secure_ctx; i++) {
-			/*Detach only if ref count is one*/
-			if (buf_mgr->attach_ref_cnt[SECURE_MODE][i] == 1) {
-				iommu_detach_device(
-						buf_mgr->iommu_domain_secure,
-						buf_mgr->iommu_secure_ctx[i]);
-				buf_mgr->attach_state = MSM_ISP_BUF_MGR_DETACH;
-			}
-			if (buf_mgr->attach_ref_cnt[SECURE_MODE][i] > 0)
-				--buf_mgr->attach_ref_cnt[SECURE_MODE][i];
-		}
-	}
-	return 0;
-}
-
 int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	void *arg)
 {
 	struct msm_vfe_smmu_attach_cmd *cmd = arg;
+	int iommu_hdl;
 	int rc = 0;
+
+	if (cmd->security_mode == NON_SECURE_MODE)
+		iommu_hdl = buf_mgr->ns_iommu_hdl;
+	else
+		iommu_hdl = buf_mgr->sec_iommu_hdl;
+
 	pr_debug("%s: cmd->security_mode : %d\n", __func__, cmd->security_mode);
 	mutex_lock(&buf_mgr->lock);
 	if (cmd->iommu_attach_mode == IOMMU_ATTACH) {
 		buf_mgr->secure_enable = cmd->security_mode;
-		rc = msm_isp_attach_ctx(buf_mgr, cmd);
+		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_ATTACH);
 		if (rc < 0) {
 			pr_err("%s: smmu attach error, rc :%d\n", __func__, rc);
 			goto iommu_error;
 		}
-	} else
-		msm_isp_detach_ctx(buf_mgr);
+	} else {
+		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_DETACH);
+		if (rc < 0) {
+			pr_err("%s: smmu detach error, rc :%d\n", __func__, rc);
+			goto iommu_error;
+		}
+	}
 
 iommu_error:
 	mutex_unlock(&buf_mgr->lock);
@@ -1217,11 +1130,26 @@ static int msm_isp_init_isp_buf_mgr(
 		pr_err("Bufq malloc error\n");
 		goto bufq_error;
 	}
-	buf_mgr->client = msm_ion_client_create(ctx_name);
+
+	rc = cam_smmu_get_handle("vfe", &buf_mgr->ns_iommu_hdl);
+	if (rc < 0) {
+		pr_err("vfe non secure get handled failed\n");
+		goto get_handle_error1;
+	}
+	rc = cam_smmu_get_handle("vfe_secure", &buf_mgr->sec_iommu_hdl);
+	if (rc < 0) {
+		pr_err("vfe secure get handled failed\n");
+		goto get_handle_error2;
+	}
 	buf_mgr->buf_handle_cnt = 0;
 	buf_mgr->pagefault_debug = 0;
 	mutex_unlock(&buf_mgr->lock);
 	return 0;
+
+get_handle_error2:
+	cam_smmu_destroy_handle(buf_mgr->ns_iommu_hdl);
+get_handle_error1:
+	kfree(buf_mgr->bufq);
 bufq_error:
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
@@ -1239,12 +1167,16 @@ static int msm_isp_deinit_isp_buf_mgr(
 		return 0;
 	}
 	msm_isp_release_all_bufq(buf_mgr);
-	ion_client_destroy(buf_mgr->client);
 	kfree(buf_mgr->bufq);
 	buf_mgr->num_buf_q = 0;
 	buf_mgr->pagefault_debug = 0;
-	msm_isp_detach_ctx(buf_mgr);
 	mutex_unlock(&buf_mgr->lock);
+	if (buf_mgr->secure_enable == NON_SECURE_MODE)
+		cam_smmu_ops(buf_mgr->ns_iommu_hdl, CAM_SMMU_DETACH);
+	else
+		cam_smmu_ops(buf_mgr->sec_iommu_hdl, CAM_SMMU_DETACH);
+	cam_smmu_destroy_handle(buf_mgr->ns_iommu_hdl);
+	cam_smmu_destroy_handle(buf_mgr->sec_iommu_hdl);
 	return 0;
 }
 
@@ -1340,7 +1272,6 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 	.flush_buf = msm_isp_flush_buf,
 	.buf_done = msm_isp_buf_done,
 	.buf_divert = msm_isp_buf_divert,
-	.register_ctx = msm_isp_register_ctx,
 	.buf_mgr_init = msm_isp_init_isp_buf_mgr,
 	.buf_mgr_deinit = msm_isp_deinit_isp_buf_mgr,
 	.buf_mgr_debug = msm_isp_buf_mgr_debug,
@@ -1351,27 +1282,12 @@ static struct msm_isp_buf_ops isp_buf_ops = {
 int msm_isp_create_isp_buf_mgr(
 	struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_sd_req_vb2_q *vb2_ops,
-	struct msm_iova_layout *iova_layout)
+	struct device *dev)
 {
 	int rc = 0;
-	int i = 0, j = 0;
 	if (buf_mgr->init_done)
 		return rc;
 
-	buf_mgr->iommu_domain_num = msm_register_domain(iova_layout);
-	if (buf_mgr->iommu_domain_num < 0) {
-		pr_err("%s: Invalid iommu domain number\n", __func__);
-		rc = -1;
-		goto iommu_domain_error;
-	}
-
-	buf_mgr->iommu_domain = msm_get_iommu_domain(
-		buf_mgr->iommu_domain_num);
-	if (!buf_mgr->iommu_domain) {
-		pr_err("%s: Invalid iommu domain\n", __func__);
-		rc = -1;
-		goto iommu_domain_error;
-	}
 	buf_mgr->ops = &isp_buf_ops;
 	buf_mgr->vb2_ops = vb2_ops;
 	buf_mgr->open_count = 0;
@@ -1381,36 +1297,5 @@ int msm_isp_create_isp_buf_mgr(
 	mutex_init(&buf_mgr->lock);
 	spin_lock_init(&buf_mgr->bufq_list_lock);
 
-	for (i = 0; i < MAX_PROTECTION_MODE; i++)
-		for (j = 0; j < MAX_IOMMU_CTX; j++)
-			buf_mgr->attach_ref_cnt[i][j] = 0;
 	return 0;
-iommu_domain_error:
-	return rc;
-}
-
-int msm_isp_create_secure_domain(
-	struct msm_isp_buf_mgr *buf_mgr,
-	struct msm_iova_layout *iova_layout)
-{
-	int rc = 0;
-	if (buf_mgr->init_done)
-		return rc;
-	buf_mgr->iommu_domain_num_secure = msm_register_domain(iova_layout);
-	if (buf_mgr->iommu_domain_num_secure < 0) {
-		pr_err("%s: Invalid iommu domain number\n", __func__);
-		rc = -1;
-		goto iommu_domain_error;
-	}
-
-	buf_mgr->iommu_domain_secure = msm_get_iommu_domain(
-	  buf_mgr->iommu_domain_num_secure);
-	if (!buf_mgr->iommu_domain_secure) {
-		pr_err("%s: Invalid iommu domain\n", __func__);
-		rc = -1;
-		goto iommu_domain_error;
-	}
-	return 0;
-iommu_domain_error:
-	return rc;
 }

@@ -153,7 +153,7 @@ struct msm_cpp_tasklet_queue_cmd {
 struct msm_cpp_buffer_map_info_t {
 	unsigned long len;
 	dma_addr_t phy_addr;
-	struct ion_handle *ion_handle;
+	int buf_fd;
 	struct msm_cpp_buffer_info_t buff_info;
 };
 
@@ -209,6 +209,7 @@ struct cpp_device {
 	uint32_t num_clk;
 	uint32_t min_clk_rate;
 
+	int iommu_hdl;
 	/* Reusing proven tasklet from msm isp */
 	atomic_t irq_cnt;
 	uint8_t taskletq_idx;
