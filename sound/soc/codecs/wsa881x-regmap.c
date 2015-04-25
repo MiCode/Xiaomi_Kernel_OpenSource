@@ -181,6 +181,15 @@ static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 	case WSA881X_SPKR_STATUS1:
 	case WSA881X_SPKR_STATUS2:
 	case WSA881X_SPKR_STATUS3:
+	case WSA881X_OTP_REG_0:
+	case WSA881X_OTP_REG_1:
+	case WSA881X_OTP_REG_2:
+	case WSA881X_OTP_REG_3:
+	case WSA881X_OTP_REG_4:
+	case WSA881X_OTP_REG_5:
+	case WSA881X_TEMP_DOUT_MSB:
+	case WSA881X_TEMP_DOUT_LSB:
+	case WSA881X_TEMP_OP:
 		return true;
 	default:
 		return false;
