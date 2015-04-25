@@ -83,6 +83,7 @@ struct msm_isp_buffer {
 
 	/*Vb2 buffer data*/
 	struct vb2_buffer *vb2_buf;
+	spinlock_t lock;
 
 	/*Share buffer cache state*/
 	struct list_head share_list;
@@ -156,13 +157,15 @@ struct msm_isp_buf_ops {
 	struct msm_isp_bufq * (*get_bufq)(struct msm_isp_buf_mgr *buf_mgr,
 		uint32_t bufq_handle);
 	int (*update_put_buf_cnt)(struct msm_isp_buf_mgr *buf_mgr,
-		uint32_t bufq_handle, uint32_t buf_index);
+		uint32_t bufq_handle, uint32_t buf_index,
+		uint32_t frame_id);
 };
 
 struct msm_isp_buf_mgr {
 	int init_done;
 	uint32_t open_count;
 	uint32_t pagefault_debug;
+	uint32_t frameId_mismatch_recovery;
 	uint16_t num_buf_q;
 	struct msm_isp_bufq *bufq;
 
