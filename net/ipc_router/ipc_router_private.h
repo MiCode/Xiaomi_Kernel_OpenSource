@@ -32,6 +32,9 @@
  * with an existing alternate transport in user-space, if needed.
  */
 #define IPC_ROUTER_V2		3
+#define IPC_ROUTER_VER_BITMASK ((BIT(IPC_ROUTER_V1)) | (BIT(IPC_ROUTER_V2)))
+#define IPC_ROUTER_HELLO_MAGIC 0xE110
+#define IPC_ROUTER_CHECKSUM_MASK 0xFFFF
 
 #define IPC_ROUTER_ADDRESS			0x0000FFFF
 
