@@ -1639,6 +1639,7 @@ static struct branch_clk camss_cpp_ahb_clk = {
 
 static struct branch_clk camss_cpp_clk = {
 	.cbcr_reg = MMSS_CAMSS_CPP_CBCR,
+	.bcr_reg = MMSS_CAMSS_CPP_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
@@ -2005,6 +2006,7 @@ static struct branch_clk camss_ispif_ahb_clk = {
 
 static struct branch_clk camss_jpeg0_clk = {
 	.cbcr_reg = MMSS_CAMSS_JPEG0_CBCR,
+	.bcr_reg = MMSS_CAMSS_JPEG_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
@@ -2017,6 +2019,7 @@ static struct branch_clk camss_jpeg0_clk = {
 
 static struct branch_clk camss_jpeg2_clk = {
 	.cbcr_reg = MMSS_CAMSS_JPEG2_CBCR,
+	.bcr_reg = MMSS_CAMSS_JPEG_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
@@ -2205,6 +2208,7 @@ static struct branch_clk camss_vfe0_ahb_clk = {
 
 static struct branch_clk camss_vfe0_clk = {
 	.cbcr_reg = MMSS_CAMSS_VFE0_CBCR,
+	.bcr_reg = MMSS_CAMSS_VFE0_BCR,
 	.has_sibling = 1,
 	.base = &virt_base,
 	.c = {
@@ -2240,6 +2244,7 @@ static struct branch_clk camss_vfe1_ahb_clk = {
 
 static struct branch_clk camss_vfe1_clk = {
 	.cbcr_reg = MMSS_CAMSS_VFE1_CBCR,
+	.bcr_reg = MMSS_CAMSS_VFE1_BCR,
 	.has_sibling = 1,
 	.base = &virt_base,
 	.c = {
@@ -2275,6 +2280,7 @@ static struct branch_clk fd_ahb_clk = {
 
 static struct branch_clk fd_core_clk = {
 	.cbcr_reg = MMSS_FD_CORE_CBCR,
+	.bcr_reg = MMSS_FD_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
@@ -2324,6 +2330,7 @@ static struct branch_clk gpu_aon_isense_clk = {
 
 static struct branch_clk gpu_gx_gfx3d_clk = {
 	.cbcr_reg = MMSS_GPU_GX_GFX3D_CBCR,
+	.bcr_reg = MMSS_GPU_GX_BCR,
 	.has_sibling = 0,
 	.base = &virt_base_gpu,
 	.c = {
@@ -2504,6 +2511,7 @@ static struct branch_clk mdss_hdmi_clk = {
 
 static struct branch_clk mdss_mdp_clk = {
 	.cbcr_reg = MMSS_MDSS_MDP_CBCR,
+	.bcr_reg = MMSS_MDSS_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
@@ -2951,6 +2959,7 @@ static struct branch_clk video_axi_clk = {
 
 static struct branch_clk video_core_clk = {
 	.cbcr_reg = MMSS_VIDEO_CORE_CBCR,
+	.bcr_reg = MMSS_VIDEO_BCR,
 	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
