@@ -761,9 +761,7 @@ static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
 	if (wcd9xxx->type == WCD9335) {
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
 		__wcd9xxx_reg_write(wcd9xxx,
-				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x4);
-		__wcd9xxx_reg_write(wcd9xxx,
-				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x0);
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
 	} else if (wcd9xxx->type == WCD9330) {
 		__wcd9xxx_reg_write(wcd9xxx, WCD9330_A_LEAKAGE_CTL, 0x4);
