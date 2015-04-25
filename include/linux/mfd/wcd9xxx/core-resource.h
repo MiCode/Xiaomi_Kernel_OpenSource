@@ -31,6 +31,15 @@ enum wcd9xxx_pm_state {
 	WCD9XXX_PM_ASLEEP,
 };
 
+enum {
+	WCD9XXX_INTR_STATUS_BASE = 0,
+	WCD9XXX_INTR_CLEAR_BASE,
+	WCD9XXX_INTR_MASK_BASE,
+	WCD9XXX_INTR_LEVEL_BASE,
+	WCD9XXX_INTR_CLR_COMMIT,
+	WCD9XXX_INTR_REG_MAX,
+};
+
 enum wcd9xxx_intf_status {
 	WCD9XXX_INTERFACE_TYPE_PROBING,
 	WCD9XXX_INTERFACE_TYPE_SLIMBUS,
@@ -59,6 +68,7 @@ struct wcd9xxx_core_resource {
 	bool irq_level_high[WCD9XXX_MAX_NUM_IRQS];
 	int num_irqs;
 	int num_irq_regs;
+	u16 intr_reg[WCD9XXX_INTR_REG_MAX];
 
 	/* Callback functions to read/write codec registers */
 	int (*codec_reg_read) (struct wcd9xxx_core_resource *,
