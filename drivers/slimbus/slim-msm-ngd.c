@@ -784,7 +784,7 @@ static int ngd_allocbw(struct slim_device *sb, int *subfrmc, int *clkgear)
 			/* Per protocol, only last 5 bits for client no. */
 			wbuf[txn.len++] = (u8) (slc->prop.dataf << 5) |
 					(sb->laddr & 0x1f);
-			wbuf[txn.len] = slc->seglen;
+			wbuf[txn.len] = slc->prop.sampleszbits >> 2;
 			if (slc->srch && slc->prop.prot == SLIM_PUSH)
 				slc->prop.prot = SLIM_PULL;
 			if (slc->coeff == SLIM_COEFF_3)
