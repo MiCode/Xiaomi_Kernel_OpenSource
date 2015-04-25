@@ -37,9 +37,13 @@
 			compatible = "qcom,rpm-smd-regulator";
 			regulator-name = "pm8994_s1_corner_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <1>;
+			regulator-min-microvolt = <4>;
 			regulator-max-microvolt = <7>;
+			regulator-always-on;
+			qcom,init-voltage-corner = <6>;
 			qcom,use-voltage-corner;
+			proxy-supply = <&pm8994_s1_corner_ao>;
+			qcom,proxy-consumer-voltage = <7 7>;
 		};
 	};
 
