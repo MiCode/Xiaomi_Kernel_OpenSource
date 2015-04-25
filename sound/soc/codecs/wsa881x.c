@@ -33,6 +33,7 @@
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
 #include "wsa881x.h"
+#include "wsa881x-temp-sensor.h"
 
 enum {
 	G_18DB = 0,
@@ -83,6 +84,9 @@ struct wsa881x_priv {
 	bool visense_enable;
 	struct swr_port port[WSA881X_MAX_SWR_PORTS];
 	int pd_gpio;
+	struct wsa881x_tz_priv tz_pdata;
+	int bg_cnt;
+	struct mutex bg_lock;
 };
 
 #define SWR_SLV_MAX_REG_ADDR	0x390
@@ -338,13 +342,28 @@ static int wsa881x_visense_adc_ctrl(struct snd_soc_codec *codec, bool enable)
 
 static int wsa881x_bandgap_ctrl(struct snd_soc_codec *codec, bool enable)
 {
-	dev_dbg(codec->dev, "%s: enable:%d\n", __func__, enable);
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: enable:%d, bg_count:%d\n", __func__,
+		enable, wsa881x->bg_cnt);
+	mutex_lock(&wsa881x->bg_lock);
 	if (enable) {
-		snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x08, 0x08);
-		usleep_range(400, 410);
+		++wsa881x->bg_cnt;
+		if (wsa881x->bg_cnt == 1) {
+			snd_soc_update_bits(codec, WSA881X_TEMP_OP,
+					    0x08, 0x08);
+			/* 400usec sleep is needed as per HW requirement */
+			usleep_range(400, 410);
+		}
 	} else {
-		snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x08, 0x00);
+		--wsa881x->bg_cnt;
+		if (wsa881x->bg_cnt <= 0) {
+			WARN_ON(wsa881x->bg_cnt < 0);
+			wsa881x->bg_cnt = 0;
+			snd_soc_update_bits(codec, WSA881X_TEMP_OP, 0x08, 0x00);
+		}
 	}
+	mutex_unlock(&wsa881x->bg_lock);
 	return 0;
 }
 
@@ -695,6 +714,12 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, WSA881X_BOOST_ZX_CTL, 0x20, 0x00);
 }
 
+static int32_t wsa881x_resource_acquire(struct snd_soc_codec *codec,
+						bool enable)
+{
+	return wsa881x_bandgap_ctrl(codec, enable);
+}
+
 static int wsa881x_probe(struct snd_soc_codec *codec)
 {
 	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
@@ -720,13 +745,28 @@ static int wsa881x_probe(struct snd_soc_codec *codec)
 		return ret;
 	}
 	dev->dev_num = devnum;
+	mutex_init(&wsa881x->bg_lock);
+	snprintf(wsa881x->tz_pdata.name, sizeof(wsa881x->tz_pdata.name),
+		"%s.%x", "wsatz", (u8)dev->addr);
+	wsa881x->bg_cnt = 0;
+	wsa881x->tz_pdata.codec = codec;
+	wsa881x->tz_pdata.dig_base = WSA881X_DIGITAL_BASE;
+	wsa881x->tz_pdata.ana_base = WSA881X_ANALOG_BASE;
+	wsa881x->tz_pdata.wsa_resource_acquire = wsa881x_resource_acquire;
+	wsa881x_init_thermal(&wsa881x->tz_pdata);
 	wsa881x_init(codec);
+
 	return ret;
 }
 
 static int wsa881x_remove(struct snd_soc_codec *codec)
 {
-	/* Add codec shutdown sequence */
+	struct wsa881x_priv *wsa881x = snd_soc_codec_get_drvdata(codec);
+
+	if (wsa881x->tz_pdata.tz_dev)
+		wsa881x_deinit_thermal(wsa881x->tz_pdata.tz_dev);
+	mutex_destroy(&wsa881x->bg_lock);
+
 	return 0;
 }
 
