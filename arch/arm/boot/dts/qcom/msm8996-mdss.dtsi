@@ -335,9 +335,14 @@
 				qcom,supply-enable-load = <18160>;
 				qcom,supply-disable-load = <1>;
 			};
+		};
 
-			qcom,ctrl-supply-entry@1 {
-				reg = <2>;
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
 				qcom,supply-name = "vcca";
 				qcom,supply-min-voltage = <925000>;
 				qcom,supply-max-voltage = <925000>;
@@ -420,8 +425,13 @@
 				qcom,supply-enable-load = <18160>;
 				qcom,supply-disable-load = <1>;
 			};
+		};
 
-			qcom,ctrl-supply-entry@1 {
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
 				reg = <2>;
 				qcom,supply-name = "vcca";
 				qcom,supply-min-voltage = <925000>;

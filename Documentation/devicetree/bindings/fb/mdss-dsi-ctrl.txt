@@ -35,10 +35,12 @@ Optional properties:
 - qcom,platform-bist-ctrl:		An array of length 6 that specifies the PHY
 					BIST ctrl settings.
 - vcca-supply:				Phandle for vcca regulator device node.
-- qcom,ctrl-supply-entries:		A node that lists the elements of the supply used by the
-					DSI controller and PHY. There can be more than one instance
-					of this binding, in which case the entry would be appended
-					with the supply entry index.
+- qcom,<type>-supply-entries:		A node that lists the elements of the supply used by the
+					a particular "type" of DSI modulee. The module "types"
+					can be "core", "ctrl", and "phy". Within the same type,
+					there can be more than one instance of this binding,
+					in which case the entry would be appended with the
+					supply entry index.
 					e.g. qcom,ctrl-supply-entry@0
 					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
 					-- qcom,supply-min-voltage: minimum voltage level (uV)
@@ -49,12 +51,6 @@ Optional properties:
 					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
 					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
 					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
-- qcom,core-supply-entries:		A node that lists the elements of the supply used to
-					power the DSI core. There can be more than one instance
-					of this binding, in which case the entry would be appended
-					with the supply entry index. For a detailed description of
-					fields in the supply entry, refer to the qcom,ctrl-supply-entries
-					binding above.
 - qcom,platform-enable-gpio:		Specifies the panel lcd/display enable gpio.
 - qcom,platform-reset-gpio:		Specifies the panel reset gpio.
 - qcom,platform-te-gpio:		Specifies the gpio used for TE.
@@ -128,6 +124,24 @@ Example:
 				qcom,supply-disable-load = <0>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
 				qcom,supply-pre-off-sleep = <0>;
 				qcom,supply-post-off-sleep = <0>;
 			};

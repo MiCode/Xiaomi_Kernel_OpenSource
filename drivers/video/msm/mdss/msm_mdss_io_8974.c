@@ -1449,6 +1449,7 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 	int enable)
 {
 	int rc = 0;
+	int i = 0;
 	struct mdss_panel_data *pdata = NULL;
 
 	if (!ctrl) {
@@ -1464,16 +1465,31 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 
 	if (enable) {
 		if (!ctrl->core_power) {
-			/* enable mdss gdsc */
-			pr_debug("%s: Enable MDP FS\n", __func__);
-			rc = msm_dss_enable_vreg(
-				ctrl->power_data[DSI_CORE_PM].vreg_config,
-				ctrl->power_data[DSI_CORE_PM].num_vreg, 1);
-			if (rc) {
-				pr_err("%s: failed to enable vregs for %s\n",
-					__func__,
-					__mdss_dsi_pm_name(DSI_CORE_PM));
-				goto error;
+			/*
+			 *              Enable DSI core power
+			 * 1.> PANEL_PM are controlled as part of
+			 *     panel_power_ctrl. Needed not be handled here.
+			 * 2.> PHY_PM and CTRL_PM need to be enabled/disabled
+			 *     only during unblank/blank. Their state should
+			 *     not be changed during static screen.
+			 */
+			pr_debug("%s: Enable DSI core power\n", __func__);
+			for (i = 0; i < DSI_MAX_PM; i++) {
+				if ((DSI_PANEL_PM == i) ||
+					((DSI_CORE_PM != i) &&
+					(pdata->panel_info.blank_state !=
+					MDSS_PANEL_BLANK_BLANK) &&
+					!pdata->panel_info.cont_splash_enabled))
+					continue;
+				rc = msm_dss_enable_vreg(
+					ctrl->power_data[i].vreg_config,
+					ctrl->power_data[i].num_vreg, 1);
+				if (rc) {
+					pr_err("%s: failed to enable vregs for %s\n",
+						__func__,
+						__mdss_dsi_pm_name(i));
+					goto error;
+				}
 			}
 			ctrl->core_power = true;
 		}
@@ -1559,21 +1575,28 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 		 */
 		mdss_dsi_bus_clk_stop(ctrl);
 
-		/* disable mdss gdsc only if dsi phy was successfully clamped*/
+		/* disable DSI core power if dsi phy was successfully clamped */
 		if (rc) {
-			pr_debug("%s: leaving mdss gdsc on\n", __func__);
+			pr_debug("%s: leaving DSI core power on\n", __func__);
 		} else {
-			pr_debug("%s: Disable MDP FS\n", __func__);
-			rc = msm_dss_enable_vreg(
-				ctrl->power_data[DSI_CORE_PM].vreg_config,
-				ctrl->power_data[DSI_CORE_PM].num_vreg, 0);
-			if (rc) {
-				pr_warn("%s: failed to disable vregs for %s\n",
-					__func__,
-					__mdss_dsi_pm_name(DSI_CORE_PM));
-				rc = 0;
-			} else {
-				ctrl->core_power = false;
+			pr_debug("%s: Disable DSI core power\n", __func__);
+			for (i = DSI_MAX_PM - 1; i >= 0; i--) {
+				if ((DSI_PANEL_PM == i) ||
+					((DSI_CORE_PM != i) &&
+					(pdata->panel_info.blank_state !=
+						MDSS_PANEL_BLANK_BLANK)))
+					continue;
+				rc = msm_dss_enable_vreg(
+					ctrl->power_data[i].vreg_config,
+					ctrl->power_data[i].num_vreg, 0);
+				if (rc) {
+					pr_warn("%s: failed to disable vregs for %s\n",
+						__func__,
+						__mdss_dsi_pm_name(i));
+					rc = 0;
+				} else {
+					ctrl->core_power = false;
+				}
 			}
 		}
 	}
@@ -1582,12 +1605,20 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 error_ulps:
 	mdss_dsi_bus_clk_stop(ctrl);
 error_bus_clk_start:
-	if (msm_dss_enable_vreg(ctrl->power_data[DSI_CORE_PM].vreg_config,
-		ctrl->power_data[DSI_CORE_PM].num_vreg, 0))
-		pr_warn("%s: failed to disable vregs for %s\n",
-			__func__, __mdss_dsi_pm_name(DSI_CORE_PM));
-	else
-		ctrl->core_power = false;
+	for (i = DSI_MAX_PM - 1; i >= 0; i--) {
+		if ((DSI_PANEL_PM == i) || ((DSI_CORE_PM != i) &&
+			(pdata->panel_info.blank_state !=
+			MDSS_PANEL_BLANK_BLANK)))
+			continue;
+		rc = msm_dss_enable_vreg(ctrl->power_data[i].vreg_config,
+			ctrl->power_data[i].num_vreg, 0);
+		if (rc) {
+			pr_warn("%s: failed to disable vregs for %s\n",
+				__func__, __mdss_dsi_pm_name(i));
+		} else {
+			ctrl->core_power = false;
+		}
+	}
 error:
 	return rc;
 }
