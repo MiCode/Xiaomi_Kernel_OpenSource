@@ -1104,7 +1104,6 @@ void dwc3_gadget_complete(struct dwc3 *dwc);
 int dwc3_gadget_suspend(struct dwc3 *dwc);
 int dwc3_gadget_resume(struct dwc3 *dwc);
 void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend);
-void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend);
 #else
 static inline int dwc3_gadget_prepare(struct dwc3 *dwc)
 {
@@ -1126,7 +1125,6 @@ static inline int dwc3_gadget_resume(struct dwc3 *dwc)
 }
 
 static void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend) { }
-static void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend) { }
 #endif /* !IS_ENABLED(CONFIG_USB_DWC3_HOST) */
 
 void dwc3_gadget_restart(struct dwc3 *dwc);

@@ -442,12 +442,6 @@ int dwc3_core_init(struct dwc3 *dwc)
 	reg &= ~DWC3_GCTL_SCALEDOWN_MASK;
 	reg &= ~DWC3_GCTL_DISSCRAMBLE;
 
-	/*
-	 * clear DWC3_GUSB2PHYCFG_ENBLSLPM and
-	 * DWC3_GUSB2PHYCFG_SUSPHY bits after core reset.
-	 */
-	dwc3_gadget_usb2_phy_suspend(dwc, false);
-
 	switch (DWC3_GHWPARAMS1_EN_PWROPT(dwc->hwparams.hwparams1)) {
 	case DWC3_GHWPARAMS1_EN_PWROPT_CLK:
 		reg &= ~DWC3_GCTL_DSBLCLKGTNG;
