@@ -82,15 +82,8 @@
 			debounce-interval = <15>;
 		};
 	};
-};
 
-&tlmm_pinmux {
-	tlmm_gpio_key {
-		qcom,pins = <&gp 85>, <&gp 86>, <&gp 87>, <&gp 88>;
-		qcom,num-grp-pins = <4>;
-	};
-
-	 sound {
+	sound {
 		compatible = "qcom,msm8952-audio-codec";
 		qcom,model = "msm8952-snd-card";
 		reg = <0xc051000 0x4>,
@@ -168,6 +161,13 @@
 		asoc-codec = <&stub_codec>, <&pm8950_cajon_dig>;
 		asoc-codec-names = "msm-stub-codec.1", "cajon_codec";
 	};
+};
+
+&tlmm_pinmux {
+        tlmm_gpio_key {
+                qcom,pins = <&gp 85>, <&gp 86>, <&gp 87>, <&gp 88>;
+                qcom,num-grp-pins = <4>;
+        };
 };
 
 &blsp1_uart2 {
