@@ -22,6 +22,7 @@ else
 endif
 
 
+obj-$(CONFIG_MSM_DBA) += msm_dba/
 
 # EBI2
 
