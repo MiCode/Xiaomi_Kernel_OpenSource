@@ -76,6 +76,7 @@
 #endif
 #include "f_ncm.c"
 #include "f_charger.c"
+#include "debug.h"
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -3880,6 +3881,8 @@ static int android_probe(struct platform_device *pdev)
 	list_add_tail(&android_dev->list_item, &android_dev_list);
 	android_dev_count++;
 
+	debug_debugfs_init();
+
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (res) {
 		diag_dload = devm_ioremap(&pdev->dev, res->start,
@@ -3941,6 +3944,7 @@ err_alloc:
 		class_destroy(android_class);
 		android_class = NULL;
 	}
+	debug_debugfs_exit();
 	return ret;
 }
 
@@ -3960,6 +3964,8 @@ static int android_remove(struct platform_device *pdev)
 		if (dev->pdata->usb_core_id == usb_core_id)
 			break;
 	}
+
+	debug_debugfs_exit();
 
 	if (dev) {
 		android_destroy_device(dev);
