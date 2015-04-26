@@ -348,16 +348,6 @@ void msm_isp_update_req_history(uint32_t client, uint64_t ab,
 }
 
 #ifdef CONFIG_COMPAT
-struct msm_isp_event_data32 {
-	struct compat_timeval timestamp;
-	struct compat_timeval mono_timestamp;
-	enum msm_vfe_input_src input_intf;
-	uint32_t frame_id;
-	union {
-		struct msm_isp_stats_event stats;
-		struct msm_isp_buf_event buf_done;
-	} u;
-};
 static long msm_isp_dqevent(struct file *file, struct v4l2_fh *vfh, void *arg)
 {
 	long rc;
@@ -389,7 +379,6 @@ static long msm_isp_dqevent(struct file *file, struct v4l2_fh *vfh, void *arg)
 				event_data->mono_timestamp.tv_sec;
 		event_data32->mono_timestamp.tv_usec =
 				event_data->mono_timestamp.tv_usec;
-		event_data32->input_intf = event_data->input_intf;
 		event_data32->frame_id = event_data->frame_id;
 		memcpy(&(event_data32->u), &(event_data->u),
 					sizeof(event_data32->u));
