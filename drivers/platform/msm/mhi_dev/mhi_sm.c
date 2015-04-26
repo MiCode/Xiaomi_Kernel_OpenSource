@@ -163,24 +163,28 @@ static inline const char *mhi_sm_pcie_event_str(enum ep_pcie_event event)
  * struct mhi_sm_device_event - mhi-core event work
  * @event: mhi core state change event
  * @work: work struct
+ * @id: event id, according to the event counter in stats
  *
  * used to add work for mhi state change event to mhi_sm_wq
  */
 struct mhi_sm_device_event {
 	enum mhi_dev_event event;
 	struct work_struct work;
+	int id;
 };
 
 /**
  * struct mhi_sm_ep_pcie_event - ep-pcie event work
  * @event: ep-pcie link state change event
  * @work: work struct
+ * @id: event id, according to the event counter in stats
  *
  * used to add work for ep-pcie link state change event to mhi_sm_wq
  */
 struct mhi_sm_ep_pcie_event {
 	enum ep_pcie_event event;
 	struct work_struct work;
+	int id;
 };
 
 /**
@@ -683,8 +687,9 @@ static void mhi_sm_dev_event_manager(struct work_struct *work)
 	MHI_SM_FUNC_ENTRY();
 
 	mutex_lock(&mhi_sm_ctx->mhi_state_lock);
-	MHI_SM_DBG("Start handling %s event, current states: %s & %s\n",
+	MHI_SM_DBG("Start handling %s event No. %d, current states: %s & %s\n",
 		mhi_sm_dev_event_str(chg_event->event),
+		chg_event->id,
 		mhi_sm_mstate_str(mhi_sm_ctx->mhi_state),
 		mhi_sm_dstate_str(mhi_sm_ctx->d_state));
 
@@ -761,8 +766,9 @@ static void mhi_sm_pcie_event_manager(struct work_struct *work)
 	mutex_lock(&mhi_sm_ctx->mhi_state_lock);
 	old_dstate = mhi_sm_ctx->d_state;
 
-	MHI_SM_DBG("Start handling %s event, current MHI state %s and %s\n",
+	MHI_SM_DBG("Start handling %s event No.%d, current MHI state %s & %s\n",
 		mhi_sm_pcie_event_str(chg_event->event),
+		chg_event->id,
 		mhi_sm_mstate_str(mhi_sm_ctx->mhi_state),
 		mhi_sm_dstate_str(old_dstate));
 
@@ -1055,6 +1061,7 @@ int mhi_dev_notify_sm_event(enum mhi_dev_event event)
 {
 	struct mhi_sm_device_event *state_change_event;
 	int res;
+	int event_id;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -1063,21 +1070,22 @@ int mhi_dev_notify_sm_event(enum mhi_dev_event event)
 		return -EFAULT;
 	 }
 
-	MHI_SM_DBG("received: %s\n",
-		mhi_sm_dev_event_str(event));
-
 	switch (event) {
 	case MHI_DEV_EVENT_M0_STATE:
 		mhi_sm_ctx->stats.m0_event_cnt++;
+		event_id = mhi_sm_ctx->stats.m0_event_cnt;
 		break;
 	case MHI_DEV_EVENT_M3_STATE:
 		mhi_sm_ctx->stats.m3_event_cnt++;
+		event_id = mhi_sm_ctx->stats.m3_event_cnt;
 		break;
 	case MHI_DEV_EVENT_HW_ACC_WAKEUP:
 		mhi_sm_ctx->stats.hw_acc_wakeup_event_cnt++;
+		event_id = mhi_sm_ctx->stats.hw_acc_wakeup_event_cnt;
 		break;
 	case MHI_DEV_EVENT_CORE_WAKEUP:
 		mhi_sm_ctx->stats.mhi_core_wakeup_event_cnt++;
+		event_id = mhi_sm_ctx->stats.mhi_core_wakeup_event_cnt;
 		break;
 	case MHI_DEV_EVENT_CTRL_TRIG:
 	case MHI_DEV_EVENT_M1_STATE:
@@ -1092,6 +1100,9 @@ int mhi_dev_notify_sm_event(enum mhi_dev_event event)
 		goto exit;
 	}
 
+	MHI_SM_DBG("received: %s No. %d\n",
+		mhi_sm_dev_event_str(event), event_id);
+
 	/*init work and push to queue*/
 	state_change_event = kzalloc(sizeof(*state_change_event), GFP_ATOMIC);
 	if (!state_change_event) {
@@ -1101,6 +1112,7 @@ int mhi_dev_notify_sm_event(enum mhi_dev_event event)
 	}
 
 	state_change_event->event = event;
+	state_change_event->id = event_id;
 	INIT_WORK(&state_change_event->work, mhi_sm_dev_event_manager);
 	atomic_inc(&mhi_sm_ctx->pending_device_events);
 	queue_work(mhi_sm_ctx->mhi_sm_wq, &state_change_event->work);
@@ -1123,6 +1135,7 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 {
 	struct mhi_sm_ep_pcie_event *dstate_change_evt;
 	enum ep_pcie_event event;
+	int event_id;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -1137,34 +1150,32 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 	}
 
 	event = notify->event;
-	MHI_SM_DBG("received: %s\n",
-		mhi_sm_pcie_event_str(event));
-
-	dstate_change_evt = kzalloc(sizeof(*dstate_change_evt), GFP_ATOMIC);
-	if (!dstate_change_evt) {
-		MHI_SM_ERR("kzalloc error\n");
-		goto exit;
-	}
 
 	switch (event) {
 	case EP_PCIE_EVENT_LINKUP:
 		mhi_sm_ctx->stats.linkup_event_cnt++;
+		event_id = mhi_sm_ctx->stats.linkup_event_cnt;
 		break;
 	case EP_PCIE_EVENT_PM_D3_COLD:
 		mhi_sm_ctx->stats.d3_cold_event_cnt++;
+		event_id = mhi_sm_ctx->stats.d3_cold_event_cnt;
 		break;
 	case EP_PCIE_EVENT_PM_D3_HOT:
 		mhi_sm_ctx->stats.d3_hot_event_cnt++;
+		event_id = mhi_sm_ctx->stats.d3_hot_event_cnt;
 		mhi_dev_backup_mmio(mhi_sm_ctx->mhi_dev);
 		break;
 	case EP_PCIE_EVENT_PM_RST_DEAST:
 		mhi_sm_ctx->stats.rst_deast_event_cnt++;
+		event_id = mhi_sm_ctx->stats.rst_deast_event_cnt;
 		break;
 	case EP_PCIE_EVENT_PM_D0:
 		mhi_sm_ctx->stats.d0_event_cnt++;
+		event_id = mhi_sm_ctx->stats.d0_event_cnt;
 		break;
 	case EP_PCIE_EVENT_LINKDOWN:
 		mhi_sm_ctx->stats.linkdown_event_cnt++;
+		event_id = mhi_sm_ctx->stats.linkdown_event_cnt;
 		mhi_sm_ctx->syserr_occurred = true;
 		MHI_SM_ERR("got %s, ERROR occured\n",
 			mhi_sm_pcie_event_str(event));
@@ -1172,11 +1183,21 @@ void mhi_dev_sm_pcie_handler(struct ep_pcie_notify *notify)
 	default:
 		MHI_SM_ERR("Invalid ep_pcie event, received 0x%x event\n",
 			event);
-		kfree(dstate_change_evt);
+		goto exit;
+	}
+
+	MHI_SM_DBG("received: %s No.%d\n",
+		mhi_sm_pcie_event_str(event), event_id);
+
+	/*init work and push to queue*/
+	dstate_change_evt = kzalloc(sizeof(*dstate_change_evt), GFP_ATOMIC);
+	if (!dstate_change_evt) {
+		MHI_SM_ERR("kzalloc error\n");
 		goto exit;
 	}
 
 	dstate_change_evt->event = event;
+	dstate_change_evt->id = event_id;
 	INIT_WORK(&dstate_change_evt->work, mhi_sm_pcie_event_manager);
 	queue_work(mhi_sm_ctx->mhi_sm_wq, &dstate_change_evt->work);
 	atomic_inc(&mhi_sm_ctx->pending_pcie_events);
