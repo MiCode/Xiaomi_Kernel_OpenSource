@@ -42,6 +42,8 @@ memory allocation over a PCIe bridge
                                 is in remote mode.
 - qcom,modem-cfg-emb-pipe-flt:  Boolean context flag to determine if modem
                                 configures embedded pipe filtering rules
+- qcom,skip-uc-pipe-reset:      Boolean context flag to indicate whether
+                                a pipe reset via the IPA uC is required
 
 IPA pipe sub nodes (A2 static pipes configurations):
 

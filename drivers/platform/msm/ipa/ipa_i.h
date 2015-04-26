@@ -1109,6 +1109,7 @@ struct ipa_sps_pm {
  * @uc_ctx: uC interface context
  * @uc_wdi_ctx: WDI specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
+ * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1199,6 +1200,7 @@ struct ipa_context {
 
 	struct ipa_uc_wdi_ctx uc_wdi_ctx;
 	u32 wan_rx_ring_size;
+	bool skip_uc_pipe_reset;
 };
 
 /**
@@ -1247,6 +1249,7 @@ struct ipa_plat_drv_res {
 	bool ipa_bam_remote_mode;
 	bool modem_cfg_emb_pipe_flt;
 	u32 wan_rx_ring_size;
+	bool skip_uc_pipe_reset;
 };
 
 struct ipa_mem_partition {
