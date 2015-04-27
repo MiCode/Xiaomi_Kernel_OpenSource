@@ -2965,7 +2965,7 @@ static int calculate_initial_aging_comp(struct qpnp_bms_chip *chip)
 
 static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 {
-	u8 val, state, bms_en = 0;
+	u8 val, bms_en = 0;
 	u32 interval[2], count[2], fifo[2];
 	int rc;
 
@@ -3063,14 +3063,10 @@ static int bms_load_hw_defaults(struct qpnp_bms_chip *chip)
 	get_fifo_length(chip, S2_STATE, &fifo[1]);
 
 	/* Force the BMS state to S2 at boot-up */
-	rc = get_fsm_state(chip, &state);
-	if (rc)
-		pr_err("Unable to get FSM state rc=%d\n", rc);
-	if (rc || (state != S2_STATE)) {
-		pr_debug("Forcing S2 state\n");
-		rc = force_fsm_state(chip, S2_STATE);
-		if (rc)
-			pr_err("Unable to set FSM state rc=%d\n", rc);
+	rc = force_fsm_state(chip, S2_STATE);
+	if (rc) {
+		pr_err("Unable to force S2 state rc=%d\n", rc);
+		return rc;
 	}
 
 	rc = qpnp_read_wrapper(chip, &bms_en, chip->base + EN_CTL_REG, 1);
