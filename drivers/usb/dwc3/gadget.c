@@ -1637,11 +1637,9 @@ static void dwc3_gadget_wakeup_work(struct work_struct *w)
 
 	dwc = container_of(w, struct dwc3, wakeup_work);
 
-	if (atomic_read(&dwc->in_lpm)) {
-		pm_runtime_get_sync(dwc->dev);
-		dbg_event(0xFF, "Gdgwake gsyn",
-			atomic_read(&dwc->dev->power.usage_count));
-	}
+	pm_runtime_get_sync(dwc->dev);
+	dbg_event(0xFF, "Gdgwake gsyn",
+		atomic_read(&dwc->dev->power.usage_count));
 
 	ret = dwc3_gadget_wakeup_int(dwc);
 
@@ -1649,6 +1647,10 @@ static void dwc3_gadget_wakeup_work(struct work_struct *w)
 		pr_err("Remote wakeup failed. ret = %d.\n", ret);
 	else
 		pr_debug("Remote wakeup succeeded.\n");
+
+	pm_runtime_put_noidle(dwc->dev);
+	dbg_event(0xFF, "Gdgwake put",
+		atomic_read(&dwc->dev->power.usage_count));
 }
 
 static int dwc3_gadget_wakeup_int(struct dwc3 *dwc)
@@ -3031,12 +3033,10 @@ static void dwc3_gadget_wakeup_interrupt(struct dwc3 *dwc, bool remote_wakeup)
 		 * In case of remote wake up dwc3_gadget_wakeup_work()
 		 * is doing pm_runtime_get_sync().
 		 */
-		if (!remote_wakeup) {
-			dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
-			dwc->b_suspend = false;
-			dwc3_notify_event(dwc,
-					DWC3_CONTROLLER_NOTIFY_OTG_EVENT);
-		}
+		dev_dbg(dwc->dev, "Notify OTG from %s\n", __func__);
+		dwc->b_suspend = false;
+		dwc3_notify_event(dwc,
+				DWC3_CONTROLLER_NOTIFY_OTG_EVENT);
 
 		dwc3_resume_gadget(dwc);
 	}
