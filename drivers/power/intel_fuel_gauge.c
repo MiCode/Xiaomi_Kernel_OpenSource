@@ -283,7 +283,7 @@ static void intel_fg_worker(struct work_struct *work)
 			dev_err(fg_info->dev, "Error while reading UP CC");
 	}
 	if (fg_info->input->get_long_avg_ocv) {
-		ret = fg_info->input->get_long_avg(&ip.long_avg_at_ocv);
+		ret = fg_info->input->get_long_avg_ocv(&ip.long_avg_at_ocv);
 		if (ret)
 			dev_err(fg_info->dev, "Error while reading UP CC");
 	}
