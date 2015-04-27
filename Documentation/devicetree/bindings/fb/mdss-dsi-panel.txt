@@ -417,6 +417,12 @@ Optional properties:
 					in tandem to compress large image.
 - qcom,mdss-dsc-config-by-manufacture-cmd: A boolean to indicates panel use manufacture command to setup pps
 					instead of standard dcs type 0x0A.
+- qcom,panel-supply-entries:		A node that lists the elements of the supply used to
+					power the DSI panel. There can be more than one instance
+					of this binding, in which case the entry would be appended
+					with the supply entry index. For a detailed description of
+					fields in the supply entry, refer to the qcom,ctrl-supply-entries
+					binding above.
 
 Note, if a given optional qcom,* binding is not present, then the driver will configure
 the default values specified.
@@ -569,5 +575,35 @@ Example:
 		qcom,mdss-dsc-ich-reset-override = <0>;
 		qcom,mdss-dsc-data-path-mode = "1p1d";
 		qcom,mdss-dsc-config-by-manufacture-cmd;
+		qcom,panel-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,panel-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vdd";
+				qcom,supply-min-voltage = <2800000>;
+				qcom,supply-max-voltage = <2800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+
+			qcom,panel-supply-entry@1 {
+				reg = <1>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
 	};
 };
