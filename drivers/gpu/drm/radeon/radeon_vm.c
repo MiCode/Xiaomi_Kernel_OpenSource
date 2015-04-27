@@ -513,6 +513,8 @@ int radeon_vm_bo_set_addr(struct radeon_device *rdev,
 			tmp->addr = bo_va->addr;
 			tmp->bo = radeon_bo_ref(bo_va->bo);
 			list_add(&tmp->vm_status, &vm->freed);
+
+			bo_va->addr = 0;
 		}
 
 		interval_tree_remove(&bo_va->it, &vm->va);
