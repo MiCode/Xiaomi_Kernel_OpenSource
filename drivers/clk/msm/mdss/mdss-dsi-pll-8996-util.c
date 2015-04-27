@@ -24,6 +24,7 @@
 
 #define DSI_PLL_POLL_MAX_READS                  15
 #define DSI_PLL_POLL_TIMEOUT_US                 1000
+#define MSM8996_DSI_PLL_REVISION_2		2
 
 int set_mdss_byte_mux_sel_8996(struct mux_clk *clk, int sel)
 {
@@ -336,13 +337,15 @@ static void mdss_dsi_pll_8996_input_init(struct dsi_pll_db *pdb)
 }
 
 static void pll_8996_dec_frac_calc(struct dsi_pll_db *pdb,
-			 s64 vco_clk_rate, s64 fref)
+	struct mdss_pll_resources *pll)
 {
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
 	s64 multiplier = BIT(20);
 	s64 dec_start_multiple, dec_start, pll_comp_val;
 	s32 duration, div_frac_start;
+	s64 vco_clk_rate = pll->vco_current_rate;
+	s64 fref = pll->vco_ref_clk_rate;
 
 	pr_debug("vco_clk_rate=%lld ref_clk_rate=%lld\n",
 				vco_clk_rate, fref);
@@ -371,7 +374,10 @@ static void pll_8996_dec_frac_calc(struct dsi_pll_db *pdb,
 	pout->plllock_cmp = (u32)pll_comp_val;
 
 	pout->pll_txclk_en = 1;
-	pout->cmn_ldo_cntrl = 0x1c;
+	if (pll->revision == MSM8996_DSI_PLL_REVISION_2)
+		pout->cmn_ldo_cntrl = 0x3c;
+	else
+		pout->cmn_ldo_cntrl = 0x1c;
 }
 
 static u32 pll_8996_kvco_slop(u32 vrate)
@@ -608,8 +614,7 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 
 	mdss_dsi_pll_8996_input_init(pdb);
 
-	pll_8996_dec_frac_calc(pdb, pll->vco_current_rate,
-					pll->vco_ref_clk_rate);
+	pll_8996_dec_frac_calc(pdb, pll);
 
 	pll_8996_calc_vco_count(pdb, pll->vco_current_rate,
 					pll->vco_ref_clk_rate);
