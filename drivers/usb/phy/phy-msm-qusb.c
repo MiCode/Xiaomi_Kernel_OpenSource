@@ -332,8 +332,8 @@ static void qusb_phy_shutdown(struct usb_phy *phy)
 		qphy->clocks_enabled = true;
 	}
 
-	/* Disable the PHY - CLAMP_N_EN to 0 and POWER_DOWN to 1 */
-	writel_relaxed(FREEZIO_N | POWER_DOWN,
+	/* Disable the PHY */
+	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
 			qphy->base + QUSB2PHY_PORT_POWERDOWN);
 	wmb();
 
@@ -415,12 +415,6 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			clk_disable_unprepare(qphy->cfg_ahb_clk);
 			clk_disable_unprepare(qphy->ref_clk);
 		} else { /* Disconnect case */
-			/* Disable all interrupts */
-			writel_relaxed(0x00,
-					qphy->base + QUSB2PHY_PORT_INTR_CTRL);
-			/* Disable PHY - CLAMP_N_EN to 0 and POWER_DOWN to 1 */
-			writel_relaxed(FREEZIO_N | POWER_DOWN,
-					qphy->base + QUSB2PHY_PORT_POWERDOWN);
 			clk_disable_unprepare(qphy->cfg_ahb_clk);
 			clk_disable_unprepare(qphy->ref_clk);
 			qusb_phy_enable_power(qphy, false);
