@@ -62,6 +62,7 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 	diag_cmd_remove_reg_by_proc(peripheral);
 	driver->feature[peripheral].rcvd_feature_mask = 0;
 	driver->feature[peripheral].stm_support = DISABLE_STM;
+	driver->feature[peripheral].log_on_demand = 0;
 	driver->stm_state[peripheral] = DISABLE_STM;
 	driver->stm_state_requested[peripheral] = DISABLE_STM;
 	reg_dirty ^= PERIPHERAL_MASK(peripheral);
@@ -252,6 +253,18 @@ static void process_socket_feature(uint8_t peripheral)
 	mutex_unlock(&driver->cntl_lock);
 }
 
+static void process_log_on_demand_feature(uint8_t peripheral)
+{
+	/* Log On Demand command is registered only on Modem */
+	if (peripheral != PERIPHERAL_MODEM)
+		return;
+
+	if (driver->feature[PERIPHERAL_MODEM].log_on_demand)
+		driver->log_on_demand_support = 1;
+	else
+		driver->log_on_demand_support = 0;
+}
+
 static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 					  uint8_t peripheral)
 {
@@ -290,7 +303,7 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 		read_len += sizeof(uint8_t);
 
 		if (FEATURE_SUPPORTED(F_DIAG_LOG_ON_DEMAND_APPS))
-			driver->log_on_demand_support = 1;
+			driver->feature[peripheral].log_on_demand = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_REQ_RSP_SUPPORT))
 			driver->feature[peripheral].separate_cmd_rsp = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_APPS_HDLC_ENCODE))
@@ -306,6 +319,7 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 	}
 
 	process_socket_feature(peripheral);
+	process_log_on_demand_feature(peripheral);
 }
 
 static void process_last_event_report(uint8_t *buf, uint32_t len,

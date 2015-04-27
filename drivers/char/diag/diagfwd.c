@@ -764,6 +764,16 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 	pr_debug("diag: In %s, received cmd %02x %02x %02x\n",
 		 __func__, entry.cmd_code, entry.subsys_id, entry.cmd_code_hi);
 
+	if (*buf == DIAG_CMD_LOG_ON_DMND && driver->log_on_demand_support &&
+	    driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask) {
+		write_len = diag_cmd_log_on_demand(buf, len,
+						   driver->apps_rsp_buf,
+						   DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len);
+		return 0;
+	}
+
 	temp_entry = diag_cmd_search(&entry, ALL_PROC);
 	if (temp_entry) {
 		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
@@ -832,15 +842,6 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		memcpy(driver->apps_rsp_buf, buf, 4);
 		driver->apps_rsp_buf[4] = wrap_count;
 		diag_send_rsp(driver->apps_rsp_buf, 6);
-		return 0;
-	}
-	/* Log on Demand Rsp */
-	else if (*buf == DIAG_CMD_LOG_ON_DMND) {
-		write_len = diag_cmd_log_on_demand(buf, len,
-						   driver->apps_rsp_buf,
-						   DIAG_MAX_RSP_SIZE);
-		if (write_len > 0)
-			diag_send_rsp(driver->apps_rsp_buf, write_len);
 		return 0;
 	}
 	/* Mobile ID Rsp */
@@ -1353,6 +1354,7 @@ int diagfwd_init(void)
 		driver->feature[i].peripheral_buffering = 0;
 		driver->feature[i].encode_hdlc = 0;
 		driver->feature[i].mask_centralization = 0;
+		driver->feature[i].log_on_demand = 0;
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;
