@@ -15,8 +15,6 @@
 #include "msm8909-mtp.dtsi"
 #include "msm8909-pm8909.dtsi"
 #include "msm8909-pm8909-mtp.dtsi"
-#include "msm8909-memory.dtsi"
-
 / {
 	model = "Qualcomm Technologies, Inc. MSM8909-PM8909 MTP";
 	compatible = "qcom,msm8909-mtp", "qcom,msm8909", "qcom,mtp";
