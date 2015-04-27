@@ -98,7 +98,6 @@ enum a4xx_rb_perfctr_rb_sel {
 #define A4XX_RBBM_AHB_CTL0			0x23
 #define A4XX_RBBM_AHB_CTL1			0x24
 #define A4XX_RBBM_AHB_CMD			0x25
-#define A4XX_RBBM_GPR0_CTL		0x29
 #define A4XX_RBBM_WAIT_IDLE_CLOCKS_CTL		0x2b
 #define A4XX_RBBM_INTERFACE_HANG_INT_CTL	0x2f
 #define A4XX_RBBM_INT_CLEAR_CMD			0x36
