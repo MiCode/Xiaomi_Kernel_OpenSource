@@ -404,6 +404,22 @@ Fudge Factors:			Fudge factors are used to boost demand for
 				command mode panels.
 - qcom,max-bandwidth-per-pipe-kbps: This value indicates the max bandwidth in KB
 				that a single pipe can support without underflow.
+- qcom,max-bw-settings:         This two dimension array indicates the max bandwidth
+				in KB that has to be supported when particular
+				scenarios are involved such as camera, flip.
+				The first parameter indicate the
+				scenario/usecase and second paramter indicate
+				the maximum bandwidth for that usecase.
+				Following are the enum values for modes in different
+				cases:
+				For default case, mode = 1
+				camera usecase, mode = 2
+				hflip usecase, mode = 4
+				vflip usecase, mode = 8
+				First parameter/mode value need to match enum,
+				mdss_mdp_max_bw_mode, present in
+				include/uapi/linux/msm_mdp.h.
+
 - qcom,mdss-has-panic-ctrl: Boolean property to indicate if panic/robust signal
 				control feature is available or not.
 - qcom,mdss-pipe-vig-panic-ctrl-offsets: Array of panic/robust signal offsets
@@ -523,6 +539,11 @@ Example:
 
 		qcom,max-bandwidth-low-kbps = <2300000>;
 		qcom,max-bandwidth-high-kbps = <3000000>;
+		qcom,max-bw-settings = <1 2300000>,
+				       <2 1700000>,
+				       <4 2300000>,
+				       <8 2000000>;
+
 		qcom,max-mixer-width = <2048>;
 		qcom,max-clk-rate = <320000000>;
 		qcom,vbif-settings = <0x0004 0x00000001>,
