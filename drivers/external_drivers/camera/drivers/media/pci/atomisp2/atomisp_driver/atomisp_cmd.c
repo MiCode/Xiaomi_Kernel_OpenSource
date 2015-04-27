@@ -5063,20 +5063,22 @@ static void atomisp_get_dis_envelop(struct atomisp_sub_device *asd,
 }
 
 static void atomisp_check_copy_mode(struct atomisp_sub_device *asd,
-		int source_pad)
+		int source_pad, struct v4l2_format *f)
 {
 #if defined(ISP2401_NEW_INPUT_SYSTEM)
-	/*
-	 * For SOC camera we are using copy_mode all the time
-	 * TDB: Do we have some cases where the copy_mode can't be used?
-	 */
-	if (((asd->isp->inputs[asd->input_curr].type == RAW_CAMERA) &&
-	    (!atomisp_subdev_format_conversion(asd, source_pad))) ||
+	struct v4l2_mbus_framefmt *sink, *src;
+
+	sink = atomisp_subdev_get_ffmt(&asd->subdev, NULL,
+		V4L2_SUBDEV_FORMAT_ACTIVE, ATOMISP_SUBDEV_PAD_SINK);
+	src = atomisp_subdev_get_ffmt(&asd->subdev, NULL,
+		V4L2_SUBDEV_FORMAT_ACTIVE, source_pad);
+
+	if ((sink->code == src->code &&
+	    sink->width == f->fmt.pix.width &&
+	    sink->height == f->fmt.pix.height) ||
 	    ((asd->isp->inputs[asd->input_curr].type == SOC_CAMERA) &&
 	    (asd->isp->inputs[asd->input_curr].camera_caps->
-		sensor[asd->sensor_curr].stream_num > 1)) ||
-	    ((asd->depth_mode->val) &&
-	     (!atomisp_subdev_format_conversion(asd, source_pad))))
+	    sensor[asd->sensor_curr].stream_num > 1)))
 		asd->copy_mode = true;
 	else
 #endif
@@ -5084,17 +5086,6 @@ static void atomisp_check_copy_mode(struct atomisp_sub_device *asd,
 		asd->copy_mode = false;
 
 	dev_dbg(asd->isp->dev, "copy_mode: %d\n", asd->copy_mode);
-
-#if defined(ISP2401_NEW_INPUT_SYSTEM)
-	/*
-	 * In copy mode we can still make a format conversion if formats
-	 * doesn't match
-	 */
-	if (asd->copy_mode)
-		asd->copy_mode_format_conv =
-			atomisp_subdev_copy_format_conversion(asd, source_pad);
-	dev_dbg(asd->isp->dev, "copy_mode_format_conv: %d\n", asd->copy_mode_format_conv);
-#endif
 
 }
 
@@ -5260,7 +5251,10 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		}
 
 		if (source_pad == ATOMISP_SUBDEV_PAD_SOURCE_PREVIEW &&
-		    asd->copy_mode) {
+		    (asd->isp->inputs[asd->input_curr].type == SOC_CAMERA) &&
+		    (asd->isp->inputs[asd->input_curr].camera_caps->
+		    sensor[asd->sensor_curr].stream_num > 1)) {
+			/* For M10MO outputing YUV preview images. */
 			uint16_t video_index =
 				atomisp_source_pad_to_stream_id(asd,
 					ATOMISP_SUBDEV_PAD_SOURCE_VIDEO);
@@ -5315,6 +5309,7 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 				/ format_bridge->depth,	format_bridge->sh_fmt);
 			atomisp_css_video_get_viewfinder_frame_info(asd,
 								&output_info);
+			asd->copy_mode = false;
 		} else {
 			atomisp_css_capture_configure_viewfinder(asd,
 				f->fmt.pix.width, f->fmt.pix.height,
@@ -5323,6 +5318,7 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 				/ format_bridge->depth,	format_bridge->sh_fmt);
 			atomisp_css_capture_get_viewfinder_frame_info(asd,
 								&output_info);
+			asd->copy_mode = false;
 		}
 
 		goto done;
@@ -5457,7 +5453,7 @@ int atomisp_set_fmt(struct video_device *vdev, struct v4l2_format *f)
 		crop_needs_override = true;
 	}
 
-	atomisp_check_copy_mode(asd, source_pad);
+	atomisp_check_copy_mode(asd, source_pad, &backup_fmt);
 	asd->yuvpp_mode = false;			/* Reset variable */
 
 	isp_sink_crop = *atomisp_subdev_get_rect(&asd->subdev, NULL,
