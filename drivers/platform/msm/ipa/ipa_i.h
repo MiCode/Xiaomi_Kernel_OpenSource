@@ -1125,6 +1125,7 @@ struct ipa_sps_pm {
  * @uc_wdi_ctx: WDI specific fields for uC interface
  * @ipa_num_pipes: The number of pipes used by IPA HW
  * @skip_uc_pipe_reset: Indicates whether pipe reset via uC needs to be avoided
+ * @ipa_client_apps_wan_cons_agg_gro: RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA
 
  * IPA context - holds all relevant info about IPA driver and its state
  */
@@ -1226,6 +1227,9 @@ struct ipa_context {
 	u32 peer_bam_map_cnt;
 	u32 wdi_map_cnt;
 	bool use_dma_zone;
+
+	/* RMNET_IOCTL_INGRESS_FORMAT_AGG_DATA */
+	bool ipa_client_apps_wan_cons_agg_gro;
 };
 
 /**

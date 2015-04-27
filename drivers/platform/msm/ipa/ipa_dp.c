@@ -25,16 +25,24 @@
 #define POLLING_MIN_SLEEP_TX 400
 #define POLLING_MAX_SLEEP_TX 500
 /* 8K less 1 nominal MTU (1500 bytes) rounded to units of KB */
+#define IPA_MTU 1500
 #define IPA_GENERIC_AGGR_BYTE_LIMIT 6
 #define IPA_GENERIC_AGGR_TIME_LIMIT 1
 #define IPA_GENERIC_AGGR_PKT_LIMIT 0
 
 #define IPA_GENERIC_RX_BUFF_BASE_SZ 8192
-#define IPA_REAL_GENERIC_RX_BUFF_SZ (SKB_DATA_ALIGN(\
-		IPA_GENERIC_RX_BUFF_BASE_SZ + NET_SKB_PAD) +\
+#define IPA_REAL_GENERIC_RX_BUFF_SZ(X) (SKB_DATA_ALIGN(\
+		(X) + NET_SKB_PAD) +\
 		SKB_DATA_ALIGN(sizeof(struct skb_shared_info)))
-#define IPA_GENERIC_RX_BUFF_SZ (IPA_GENERIC_RX_BUFF_BASE_SZ -\
-		(IPA_REAL_GENERIC_RX_BUFF_SZ - IPA_GENERIC_RX_BUFF_BASE_SZ))
+#define IPA_GENERIC_RX_BUFF_SZ(X) ((X) -\
+		(IPA_REAL_GENERIC_RX_BUFF_SZ(X) - (X)))
+#define IPA_GENERIC_RX_BUFF_LIMIT (\
+		IPA_REAL_GENERIC_RX_BUFF_SZ(\
+		IPA_GENERIC_RX_BUFF_BASE_SZ) -\
+		IPA_GENERIC_RX_BUFF_BASE_SZ)
+
+/* less 1 nominal MTU (1500 bytes) rounded to units of KB */
+#define IPA_ADJUST_AGGR_BYTE_LIMIT(X) (((X) - IPA_MTU)/1000)
 
 #define IPA_WLAN_RX_POOL_SZ 100
 #define IPA_WLAN_RX_POOL_SZ_LOW_WM 5
@@ -64,6 +72,8 @@ static void ipa_cleanup_wlan_rx_common_cache(void);
 static void ipa_wq_repl_rx(struct work_struct *work);
 static void ipa_dma_memcpy_notify(struct ipa_sys_context *sys,
 		struct sps_iovec *iovec);
+
+static u32 ipa_adjust_ra_buff_base_sz(u32 aggr_byte_limit);
 
 static void ipa_wq_write_done_common(struct ipa_sys_context *sys, u32 cnt)
 {
@@ -2125,12 +2135,19 @@ static int ipa_wan_rx_pyld_hdlr(struct sk_buff *skb,
 		IPAERR("ZLT\n");
 		goto bail;
 	}
+
+	if (ipa_ctx->ipa_client_apps_wan_cons_agg_gro) {
+		sys->ep->client_notify(sys->ep->priv,
+					IPA_RECEIVE, (unsigned long)(skb));
+		return rc;
+	}
 	/*
 	 * payload splits across 2 buff or more,
 	 * take the start of the payload from prev_skb
 	 */
 	if (sys->len_rem)
 		wan_rx_handle_splt_pyld(skb, sys);
+
 
 	while (skb->len) {
 		IPADBG("LEN_REM %d\n", skb->len);
@@ -2566,26 +2583,69 @@ static int ipa_assign_policy(struct ipa_sys_connect_params *in,
 						replenish_rx_work_func);
 				INIT_WORK(&sys->repl_work, ipa_wq_repl_rx);
 				atomic_set(&sys->curr_polling_state, 0);
-				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ;
+				sys->rx_buff_sz = IPA_GENERIC_RX_BUFF_SZ(
+					IPA_GENERIC_RX_BUFF_BASE_SZ);
 				sys->get_skb = ipa_get_skb_ipa_rx;
 				sys->free_skb = ipa_free_skb_rx;
 				in->ipa_ep_cfg.aggr.aggr_en = IPA_ENABLE_AGGR;
 				in->ipa_ep_cfg.aggr.aggr = IPA_GENERIC;
-				in->ipa_ep_cfg.aggr.aggr_byte_limit =
-					IPA_GENERIC_AGGR_BYTE_LIMIT;
 				in->ipa_ep_cfg.aggr.aggr_time_limit =
 					IPA_GENERIC_AGGR_TIME_LIMIT;
-				in->ipa_ep_cfg.aggr.aggr_pkt_limit =
-					IPA_GENERIC_AGGR_PKT_LIMIT;
 				if (in->client == IPA_CLIENT_APPS_LAN_CONS) {
 					sys->pyld_hdlr = ipa_lan_rx_pyld_hdlr;
 					sys->rx_pool_sz =
 						IPA_GENERIC_RX_POOL_SZ;
+					in->ipa_ep_cfg.aggr.aggr_byte_limit =
+					IPA_GENERIC_AGGR_BYTE_LIMIT;
+					in->ipa_ep_cfg.aggr.aggr_pkt_limit =
+					IPA_GENERIC_AGGR_PKT_LIMIT;
 				} else if (in->client ==
 						IPA_CLIENT_APPS_WAN_CONS) {
 					sys->pyld_hdlr = ipa_wan_rx_pyld_hdlr;
 					sys->rx_pool_sz =
 						ipa_ctx->wan_rx_ring_size;
+					if (ipa_ctx->
+					ipa_client_apps_wan_cons_agg_gro) {
+						IPAERR("get close-by %u\n",
+						ipa_adjust_ra_buff_base_sz(
+						in->ipa_ep_cfg.aggr.
+						aggr_byte_limit));
+						IPAERR("set rx_buff_sz %lu\n",
+						(unsigned long int)
+						IPA_GENERIC_RX_BUFF_SZ(
+						ipa_adjust_ra_buff_base_sz(
+						in->ipa_ep_cfg.
+							aggr.aggr_byte_limit)));
+						/* disable ipa_status */
+						sys->ep->status.
+							status_en = false;
+						sys->rx_buff_sz =
+						IPA_GENERIC_RX_BUFF_SZ(
+						ipa_adjust_ra_buff_base_sz(
+						in->ipa_ep_cfg.aggr.
+							aggr_byte_limit));
+						in->ipa_ep_cfg.aggr.
+							aggr_byte_limit =
+						sys->rx_buff_sz < in->
+						ipa_ep_cfg.aggr.
+						aggr_byte_limit ?
+						IPA_ADJUST_AGGR_BYTE_LIMIT(
+						sys->rx_buff_sz) :
+						IPA_ADJUST_AGGR_BYTE_LIMIT(
+						in->ipa_ep_cfg.
+						aggr.aggr_byte_limit);
+						IPAERR("set aggr_limit %lu\n",
+						(unsigned long int)
+						in->ipa_ep_cfg.aggr.
+						aggr_byte_limit);
+					} else {
+						in->ipa_ep_cfg.aggr.
+							aggr_byte_limit =
+						IPA_GENERIC_AGGR_BYTE_LIMIT;
+						in->ipa_ep_cfg.aggr.
+							aggr_pkt_limit =
+						IPA_GENERIC_AGGR_PKT_LIMIT;
+					}
 				}
 				if (nr_cpu_ids > 1)
 					sys->repl_hdlr =
@@ -3001,3 +3061,23 @@ int ipa_sys_teardown(u32 clnt_hdl)
 	return 0;
 }
 EXPORT_SYMBOL(ipa_sys_teardown);
+
+/**
+ * ipa_adjust_ra_buff_base_sz()
+ *
+ * Return value: the largest power of two which is smaller
+ * than the input value
+ */
+static u32 ipa_adjust_ra_buff_base_sz(u32 aggr_byte_limit)
+{
+	aggr_byte_limit += IPA_MTU;
+	aggr_byte_limit += IPA_GENERIC_RX_BUFF_LIMIT;
+	aggr_byte_limit--;
+	aggr_byte_limit |= aggr_byte_limit >> 1;
+	aggr_byte_limit |= aggr_byte_limit >> 2;
+	aggr_byte_limit |= aggr_byte_limit >> 4;
+	aggr_byte_limit |= aggr_byte_limit >> 8;
+	aggr_byte_limit |= aggr_byte_limit >> 16;
+	aggr_byte_limit++;
+	return aggr_byte_limit >> 1;
+}
