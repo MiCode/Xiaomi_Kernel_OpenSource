@@ -50,19 +50,18 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-#include "dsi-panel-jdi-4k-dualmipi0-video.dtsi"
-#include "dsi-panel-jdi-4k-dualmipi1-video.dtsi"
-
 &dsi_dual_jdi_4k_video_0 {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
 	qcom,mdss-dsi-pwm-gpio = <&pmi8994_mpps 1 0>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_jdi_4k_video_1 {
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &mdss_fb0 {

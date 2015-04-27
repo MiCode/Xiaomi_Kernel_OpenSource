@@ -59,7 +59,6 @@
 	};
 };
 
-#include "dsi-panel-jdi-fhd-video.dtsi"
 #include "msm8939-mdss.dtsi"
 
 &dsi_jdi_fhd_video {
@@ -68,6 +67,7 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_jdi>;
 };
 
 &pmx_mdss {
@@ -86,13 +86,6 @@
 	qcom,platform-bklight-en-gpio = <&msm_gpio 98 0>;
 
 	qcom,platform-strength-ctrl = [77 06];
-
-	qcom,panel-supply-entries {
-		qcom,panel-supply-entry@0 {
-			qcom,supply-min-voltage = <3000000>;
-			qcom,supply-max-voltage = <3000000>;
-		};
-	};
 };
 
 #include "msm8939-camera-sensor-cdp.dtsi"

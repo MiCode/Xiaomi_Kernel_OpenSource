@@ -10,19 +10,19 @@
  * GNU General Public License for more details.
  */
 
-#include "dsi-panel-jdi-1080p-video.dtsi"
+#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
+#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
 #include "dsi-panel-jdi-dualmipi0-video.dtsi"
 #include "dsi-panel-jdi-dualmipi1-video.dtsi"
 #include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
 #include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
+#include "dsi-panel-nt35597-wqxga-video.dtsi"
+#include "dsi-panel-nt35597-wqxga-cmd.dtsi"
+#include "dsi-panel-jdi-1080p-video.dtsi"
+#include "dsi-panel-sharp-1080p-cmd.dtsi"
 #include "dsi-panel-jdi-4k-dualmipi0-video.dtsi"
 #include "dsi-panel-jdi-4k-dualmipi1-video.dtsi"
-#include "dsi-panel-sim-video.dtsi"
-#include "dsi-panel-sim-dualmipi0-video.dtsi"
-#include "dsi-panel-sim-dualmipi1-video.dtsi"
-#include "dsi-panel-sim-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi0-cmd.dtsi"
-#include "dsi-panel-sim-dualmipi1-cmd.dtsi"
+
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
@@ -32,21 +32,12 @@
 		qcom,panel-supply-entry@0 {
 			reg = <0>;
 			qcom,supply-name = "vdd";
-			qcom,supply-min-voltage = <3000000>;
-			qcom,supply-max-voltage = <3000000>;
-			qcom,supply-enable-load = <150000>;
-			qcom,supply-disable-load = <100>;
-			qcom,supply-post-on-sleep = <20>;
-		};
-
-		qcom,panel-supply-entry@1 {
-			reg = <1>;
-			qcom,supply-name = "vddio";
 			qcom,supply-min-voltage = <1800000>;
 			qcom,supply-max-voltage = <1800000>;
 			qcom,supply-enable-load = <100000>;
 			qcom,supply-disable-load = <100>;
-			qcom,supply-post-on-sleep = <20>;
+			qcom,supply-post-on-sleep = <5>;
 		};
 	};
 };
+

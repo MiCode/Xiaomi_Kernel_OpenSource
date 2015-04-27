@@ -13,15 +13,6 @@
 #include "msm8992-pinctrl.dtsi"
 #include "msm8992-camera-sensor-mtp.dtsi"
 
-#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-wqxga-cmd.dtsi"
-#include "dsi-panel-sharp-1080p-cmd.dtsi"
-#include "dsi-panel-nt35597-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-wqxga-cmd.dtsi"
-#include "dsi-panel-jdi-1080p-video.dtsi"
-
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
@@ -53,10 +44,12 @@
 
 &dsi_nt35597_wqxga_video {
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_nt35597_wqxga_cmd {
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_sharp_video_0 {
@@ -67,6 +60,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-min-refresh-rate = <45>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_sharp_video_1 {
@@ -74,6 +68,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-min-refresh-rate = <45>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_sharp_1080_cmd {
@@ -81,14 +76,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
-};
-
-&dsi_nt35597_wqxga_video {
-	qcom,cont-splash-enabled;
-};
-
-&dsi_nt35597_wqxga_cmd {
-	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_jdi_1080_vid {
@@ -96,6 +84,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &labibb {

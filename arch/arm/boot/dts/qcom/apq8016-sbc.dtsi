@@ -13,7 +13,6 @@
 #include "msm8916.dtsi"
 #include "msm8916-pinctrl.dtsi"
 #include "apq8016-camera-sensor-sbc.dtsi"
-#include "dsi-panel-jdi-1080p-video.dtsi"
 
 / {
 	aliases {
@@ -354,7 +353,8 @@
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
-
+	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &mdss_mdp {
@@ -501,10 +501,6 @@
 			};
 	};
 
-};
-
-&dsi_jdi_1080_vid {
-       qcom,cont-splash-enabled;
 };
 
 &qcom_tzlog {

@@ -227,6 +227,7 @@
 
 &dsi_generic_720p_cmd {
 	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &usb3 {

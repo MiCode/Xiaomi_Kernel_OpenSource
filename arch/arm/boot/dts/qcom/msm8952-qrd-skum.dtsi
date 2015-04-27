@@ -12,7 +12,6 @@
  */
 
 #include "msm8952-qrd.dtsi"
-#include "dsi-panel-otm1906c-1080p-cmd.dtsi"
 
 &spmi_bus {
 	qcom,pmi8950@2 {
@@ -225,4 +224,8 @@
 &sdhc_2 {
 	/delete-property/ bias-pull-up;
 	bias-disable;
+};
+
+&dsi_otm1906c_1080p_cmd {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
