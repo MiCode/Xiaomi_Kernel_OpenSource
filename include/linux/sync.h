@@ -75,6 +75,9 @@ struct sync_timeline_ops {
 
 	/* optional */
 	void (*pt_value_str)(struct sync_pt *pt, char *str, int size);
+
+	/* optional */
+	void (*pt_log)(struct sync_pt *pt);
 };
 
 /**
