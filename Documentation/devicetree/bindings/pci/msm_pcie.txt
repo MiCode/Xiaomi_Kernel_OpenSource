@@ -93,10 +93,6 @@ Optional Properties:
 	manager(scm) driver. scm driver uses this device id to restore PCIe
 	controller related security configuration after coming out of the controller
 	power collapse.
-  - iommus: the phandle and stream IDs for the SMMU used by this root
-    complex.  This should be used in separate nodes from the main root
-    complex nodes, and is the only property needed in that case.
-
 
 Example:
 

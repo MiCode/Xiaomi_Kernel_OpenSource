@@ -44,7 +44,6 @@
 #include <soc/qcom/scm.h>
 #include <linux/ipc_logging.h>
 #include <linux/msm_pcie.h>
-#include <linux/iommu.h>
 
 #define TX_BASE 0x1000
 #define RX_BASE 0x1200
@@ -4746,57 +4745,12 @@ void msm_pcie_irq_deinit(struct msm_pcie_dev_t *dev)
 	disable_irq(dev->wake_n);
 }
 
-struct msm_pcie_smmu_cb {
-	struct iommu_domain *domain;
-	struct device *dev;
-	struct list_head list;
-};
-
-static LIST_HEAD(msm_pcie_smmu_cbs);
-
-static int msm_pcie_smmu_probe(struct platform_device *pdev)
-{
-	struct msm_pcie_smmu_cb *cb;
-
-	cb = devm_kzalloc(&pdev->dev, sizeof(*cb), GFP_KERNEL);
-	if (!cb)
-		return -ENOMEM;
-
-	cb->dev = &pdev->dev;
-	cb->domain = iommu_domain_alloc(&platform_bus_type);
-
-	if (!cb->domain)
-		return -ENOMEM;
-
-	if (iommu_attach_device(cb->domain, cb->dev)) {
-		iommu_domain_free(cb->domain);
-		return -EINVAL;
-	}
-
-	list_add(&cb->list, &msm_pcie_smmu_cbs);
-	return 0;
-}
-
-static int msm_pcie_smmu_remove(struct platform_device *pdev)
-{
-	struct msm_pcie_smmu_cb *cb, *tmp;
-
-	list_for_each_entry_safe(cb, tmp, &msm_pcie_smmu_cbs, list) {
-		iommu_detach_device(cb->domain, cb->dev);
-		iommu_domain_free(cb->domain);
-	}
-
-	return 0;
-}
 
 static int msm_pcie_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int rc_idx = -1;
-	int i, j, len;
-
-	if (of_get_property(pdev->dev.of_node, "iommus", &len))
-		return msm_pcie_smmu_probe(pdev);
+	int i, j;
 
 	PCIE_GEN_DBG("%s\n", __func__);
 
@@ -5091,10 +5045,7 @@ out:
 static int msm_pcie_remove(struct platform_device *pdev)
 {
 	int ret = 0;
-	int rc_idx, len;
-
-	if (of_get_property(pdev->dev.of_node, "iommus", &len))
-		return msm_pcie_smmu_remove(pdev);
+	int rc_idx;
 
 	PCIE_GEN_DBG("PCIe:%s.\n", __func__);
 
