@@ -464,12 +464,15 @@ static int _sendcache_pre(struct audio_client *ac)
 		return -EINVAL;
 	}
 
-	eagle_precache_dbg("%s: first 6 integers %i %i %i %i %i %i (30th %i)",
-		  __func__,
-		  *((int *)&_depc[offset]), *((int *)&_depc[offset+4]),
-		  *((int *)&_depc[offset+8]), *((int *)&_depc[offset+12]),
-		  *((int *)&_depc[offset+16]), *((int *)&_depc[offset+20]),
-		  *((int *)&_depc[offset+120]));
+	if ((offset < (UINT_MAX - 124)) && ((offset + 124) < _depc_size))
+		eagle_precache_dbg("%s: first 6 integers %i %i %i %i %i %i (30th %i)",
+			__func__, *((int *)&_depc[offset]),
+			*((int *)&_depc[offset+4]),
+			*((int *)&_depc[offset+8]),
+			*((int *)&_depc[offset+12]),
+			*((int *)&_depc[offset+16]),
+			*((int *)&_depc[offset+20]),
+			*((int *)&_depc[offset+120]));
 	eagle_precache_dbg("%s: sending full data block to port, with cache index = %d device mask 0x%X, param = 0x%X, offset = %u, and size = %u",
 		  __func__, cidx, _c_bl[cidx][CBD_DEV_MASK], cmd, offset, size);
 
@@ -544,10 +547,14 @@ NT_MODE_GOTO:
 		return -EINVAL;
 	}
 
-	eagle_postcache_dbg("%s: first 6 integers %i %i %i %i %i %i", __func__,
-		  *((int *)&_depc[offset]), *((int *)&_depc[offset+4]),
-		  *((int *)&_depc[offset+8]), *((int *)&_depc[offset+12]),
-		  *((int *)&_depc[offset+16]), *((int *)&_depc[offset+20]));
+	if ((offset < (UINT_MAX - 24)) && ((offset + 24) < _depc_size))
+		eagle_postcache_dbg("%s: first 6 integers %i %i %i %i %i %i",
+			__func__, *((int *)&_depc[offset]),
+			*((int *)&_depc[offset+4]),
+			*((int *)&_depc[offset+8]),
+			*((int *)&_depc[offset+12]),
+			*((int *)&_depc[offset+16]),
+			*((int *)&_depc[offset+20]));
 	eagle_postcache_dbg("%s: sending full data block to port, with cache index = %d device mask 0x%X, port_id = 0x%X, param = 0x%X, offset = %u, and size = %u",
 		__func__, cidx, _c_bl[cidx][CBD_DEV_MASK], port_id, cmd,
 		offset, size);
