@@ -71,6 +71,14 @@ config DEVFREQ_GOV_CPUFREQ
 	  CPU frequency to device frequency mapping table(s). This governor
 	  can be useful for controlling devices such as DDR, cache, CCI, etc.
 
+config DEVFREQ_GOV_MSM_ADRENO_TZ
+	tristate "MSM Adreno Trustzone"
+	depends on MSM_KGSL && MSM_SCM
+	help
+	  Trustzone based governor for the Adreno GPU.
+	  Sets the frequency using a "on-demand" algorithm.
+	  This governor is unlikely to be useful for other devices.
+
 config MSM_BIMC_BWMON
 	tristate "MSM BIMC Bandwidth monitor hardware"
 	depends on ARCH_MSM
@@ -79,6 +87,15 @@ config MSM_BIMC_BWMON
 	  traffic coming from each master port connected to the BIMC. It also
 	  has the capability to raise an IRQ when the count exceeds a
 	  programmable limit.
+
+config DEVFREQ_GOV_MSM_GPUBW_MON
+	tristate "GPU BW voting governor"
+	depends on DEVFREQ_GOV_MSM_ADRENO_TZ
+	help
+	 MSM GPU governor for GPU bus bandwidth voting.
+	 This governor works together with MSM Adreno Trustzone governor,
+	 and select bus frequency votes using an "on-demand" alorithm..
+	 This governor is unlikely to be useful for non-MSM devices.
 
 config ARMBW_HWMON
 	tristate "ARM PMU Bandwidth monitor hardware"
