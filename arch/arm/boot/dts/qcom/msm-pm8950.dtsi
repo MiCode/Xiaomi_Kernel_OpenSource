@@ -113,9 +113,14 @@
 			};
 
 			mpp@a300 {
+				/* MPP4 - CASE_THERM config */
 				reg = <0xa300 0x100>;
 				qcom,pin-num = <4>;
-				status = "disabled";
+				qcom,mode = <4>; /* AIN input */
+				qcom,invert = <1>; /* Enable MPP */
+				qcom,ain-route = <3>; /* AMUX 8 */
+				qcom,master-en = <1>;
+				qcom,src-sel = <0>; /* Function constant */
 			};
 		};
 
@@ -296,6 +301,18 @@
 				qcom,pre-div-channel-scaling = <0>;
 				qcom,calibration-type = "absolute";
 				qcom,scale-function = <4>;
+				qcom,hw-settle-time = <2>;
+				qcom,fast-avg-setup = <0>;
+				qcom,vadc-thermal-node;
+			};
+
+			chan@13 {
+				label = "case_therm";
+				reg = <0x13>;
+				qcom,decimation = <0>;
+				qcom,pre-div-channel-scaling = <0>;
+				qcom,calibration-type = "ratiometric";
+				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
 				qcom,vadc-thermal-node;
