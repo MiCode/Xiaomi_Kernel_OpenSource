@@ -65,7 +65,7 @@
 						      <0x2b4 4 8>;
 		qcom,mdss-pipe-dma-clk-ctrl-offsets = <0x2ac 8 12>;
 
-		qcom,mdss-smp-data = <12 8192>;
+		qcom,mdss-smp-data = <8 8192>;
 
 		qcom,mdss-ctl-off = <0x00002000 0x00002200 0x00002400>;
 		qcom,mdss-mixer-intf-off = <0x00045000>;
@@ -89,17 +89,21 @@
 			 <&clock_gcc clk_gcc_mdss_vsync_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
 				"core_clk", "vsync_clk";
-		qcom,mdp-settings = <0x000011e4 0x00000000>,
+		qcom,mdp-settings = <0x0000117C 0x0000FFFF>,
+				    <0x00001180 0x0000000F>,
+				    <0x00001184 0x0000FF00>,
+				    <0x000011e0 0x000000E4>,
+				    <0x000011e4 0x00000000>,
 				    <0x00065048 0x00000008>,
 				    <0x00065848 0x00000008>,
 				    <0x00066048 0x00000008>;
 
 		/* buffer parameters to calculate prefill bandwidth */
-		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
+		qcom,mdss-prefill-outstanding-buffer-bytes = <2048>;
 		qcom,mdss-prefill-y-buffer-bytes = <0>;
 		qcom,mdss-prefill-scaler-buffer-lines-bilinear = <2>;
 		qcom,mdss-prefill-scaler-buffer-lines-caf = <4>;
-		qcom,mdss-prefill-post-scaler-buffer-pixels = <0>;
+		qcom,mdss-prefill-post-scaler-buffer-pixels = <2048>;
 		qcom,mdss-prefill-pingpong-buffer-pixels = <4096>;
 		qcom,mdss-prefill-fbc-lines = <0>;
 
