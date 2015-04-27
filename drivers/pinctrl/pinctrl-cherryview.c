@@ -951,9 +951,16 @@ static int chv_gpio_direction_input(struct gpio_chip *chip, unsigned offset)
 
 	spin_lock_irqsave(&cg->lock, flags);
 
+	/*Special workaround for virtual GPIO 6. This GPIO need be
+	*configured as tx/rx both enabled even for input to support
+	*interrupt triggered on PMC firmware. For general input gpio,
+	*enable rx only*/
 	value = chv_readl(reg) & (~CV_GPIO_CFG_MASK);
-	/* Disable TX and Enable RX */
-	value |= CV_GPIO_RX_EN;
+	if (cg->chip.ngpio != 8 || offset != 6) {
+		/* Disable TX and Enable RX */
+		value |= CV_GPIO_RX_EN;
+	}
+
 	chv_writel(value, reg);
 
 	spin_unlock_irqrestore(&cg->lock, flags);
