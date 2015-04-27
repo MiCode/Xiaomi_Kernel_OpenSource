@@ -21,15 +21,7 @@
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996 v2";
-	qcom,msm-id = <246 0x20000>;
-};
-
-&l2ccc_0 {
-	qcom,clamped-reset-seq;
-};
-
-&l2ccc_1 {
-	qcom,clamped-reset-seq;
+	qcom,msm-id = <246 0x20001>;
 };
 
 &apcc_cpr {
