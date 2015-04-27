@@ -15,7 +15,6 @@
 
 #include "msm8939-v3.0.dtsi"
 #include "msm8939-cdp.dtsi"
-#include "msm8939-regulator.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8939v3.0 CDP JDI 5.5-inch A216 FHD";
