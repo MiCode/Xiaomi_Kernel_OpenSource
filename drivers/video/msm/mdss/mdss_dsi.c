@@ -345,11 +345,12 @@ static void mdss_dsi_put_dt_vreg_data(struct device *dev,
 }
 
 static int mdss_dsi_get_dt_vreg_data(struct device *dev,
-	struct dss_module_power *mp, enum dsi_pm_type module)
+	struct device_node *of_node, struct dss_module_power *mp,
+	enum dsi_pm_type module)
 {
 	int i = 0, rc = 0;
 	u32 tmp = 0;
-	struct device_node *of_node = NULL, *supply_node = NULL;
+	struct device_node *supply_node = NULL;
 	const char *pm_supply_name = NULL;
 	struct device_node *supply_root_node = NULL;
 
@@ -359,15 +360,21 @@ static int mdss_dsi_get_dt_vreg_data(struct device *dev,
 		return rc;
 	}
 
-	of_node = dev->of_node;
-
 	mp->num_vreg = 0;
 	pm_supply_name = __mdss_dsi_pm_supply_node_name(module);
 	supply_root_node = of_get_child_by_name(of_node, pm_supply_name);
 	if (!supply_root_node) {
-		pr_err("no supply entry present\n");
-		goto novreg;
+		/*
+		 * Try to get the root node for panel power supply using
+		 * of_parse_phandle() API if of_get_child_by_name() API fails.
+		 */
+		supply_root_node = of_parse_phandle(of_node, pm_supply_name, 0);
+		if (!supply_root_node) {
+			pr_err("no supply entry present\n");
+			goto novreg;
+		}
 	}
+
 
 	for_each_child_of_node(supply_root_node, supply_node) {
 		mp->num_vreg++;
@@ -2216,7 +2223,9 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 
 	/* Parse the regulator information */
 	for (i = 0; i < DSI_MAX_PM; i++) {
-		rc = mdss_dsi_get_dt_vreg_data(&pdev->dev,
+		if (DSI_PANEL_PM == i)
+			continue;
+		rc = mdss_dsi_get_dt_vreg_data(&pdev->dev, pdev->dev.of_node,
 			&ctrl_pdata->power_data[i], i);
 		if (rc) {
 			DEV_ERR("%s: '%s' get_dt_vreg_data failed.rc=%d\n",
@@ -2455,6 +2464,14 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	}
 
 	ctrl_pdev = of_find_device_by_node(dsi_ctrl_np);
+
+	rc = mdss_dsi_get_dt_vreg_data(&ctrl_pdev->dev, pan_node,
+		&ctrl_pdata->power_data[DSI_PANEL_PM], DSI_PANEL_PM);
+	if (rc) {
+		DEV_ERR("%s: '%s' get_dt_vreg_data failed.rc=%d\n",
+			__func__, __mdss_dsi_pm_name(DSI_PANEL_PM), rc);
+		return rc;
+	}
 
 	rc = mdss_dsi_regulator_init(ctrl_pdev);
 	if (rc) {
