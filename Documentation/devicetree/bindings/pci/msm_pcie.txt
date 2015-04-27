@@ -76,6 +76,9 @@ Optional Properties:
   - qcom,msi-gicm-addr: MSI address for GICv2m.
   - qcom,msi-gicm-base: MSI IRQ base for GICv2m.
   - qcom,ext-ref-clk: The reference clock is external.
+  - iommus: the phandle and stream IDs for the SMMU used by this root
+    complex. This should be used in separate nodes from the main root
+    complex nodes, and is the only property needed in that case.
   - qcom,common-phy: There is a common phy for all the Root Complexes.
   - qcom,ep-latency: The time (unit: ms) to wait for the PCIe endpoint to become
     stable after power on, before de-assert the PERST to the endpoint.
@@ -218,6 +221,8 @@ Example:
 		qcom,tlp-rd-size = <0x5>;
 		qcom,common-phy;
 		qcom,ep-latency = <100>;
+
+		iommus = <&anoc0_smmu>;
 
 		qcom,msm-bus,name = "pcie0";
 		qcom,msm-bus,num-cases = <2>;
