@@ -86,6 +86,14 @@
 	};
 };
 
+&mdss_dsi0_pll {
+	compatible = "qcom,mdss_dsi_pll_8996";
+};
+
+&mdss_dsi1_pll {
+	compatible = "qcom,mdss_dsi_pll_8996";
+};
+
 &mdss_mdp {
 	qcom,max-clk-rate = <360000000>;
 };
