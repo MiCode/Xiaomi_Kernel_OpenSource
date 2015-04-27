@@ -655,10 +655,13 @@ void _iommu_get_clks(struct kgsl_mmu *mmu)
 	struct kgsl_iommu *iommu = mmu->priv;
 	struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_unit;
 	struct kgsl_device_iommu_data *data = pdata->iommu_data;
+#ifdef CONFIG_MSM_IOMMU
 	struct msm_iommu_drvdata *drvdata = 0;
+#endif
 	int i;
 
 	/* Init IOMMU unit clks here */
+#ifdef CONFIG_MSM_IOMMU
 	if (MMU_FEATURE(mmu, KGSL_MMU_DMA_API)) {
 		for (i = 0; i < KGSL_IOMMU_MAX_CLKS; i++)
 			iommu_unit->clks[i] = data->clks[i];
@@ -669,6 +672,10 @@ void _iommu_get_clks(struct kgsl_mmu *mmu)
 		iommu_unit->clks[2] = drvdata->aclk;
 		iommu_unit->clks[3] = iommu->gtcu_iface_clk;
 	}
+#else
+	for (i = 0; i < KGSL_IOMMU_MAX_CLKS; i++)
+		iommu_unit->clks[i] = data->clks[i];
+#endif
 }
 
 /*
@@ -776,10 +783,15 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu)
 		ctx->name = data->iommu_ctxs[i].iommu_ctx_name;
 
 		/* Add device ptr here */
+#ifdef CONFIG_MSM_IOMMU
 		if (data->iommu_ctxs[i].dev)
 			ctx->dev = data->iommu_ctxs[i].dev;
 		else
 			ctx->dev = msm_iommu_get_ctx(ctx->name);
+#else
+		if (data->iommu_ctxs[i].dev)
+                        ctx->dev = data->iommu_ctxs[i].dev;
+#endif
 
 		/* Add ctx_id here */
 		ctx->ctx_id = data->iommu_ctxs[i].ctx_id;
