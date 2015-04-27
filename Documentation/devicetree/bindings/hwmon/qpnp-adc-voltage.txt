@@ -34,9 +34,7 @@ Optional properties:
 - qcom,vadc-recalib-check: Add this property to check if recalibration required due to inaccuracy.
 - qcom,vadc-thermal-node : If present a thermal node is created and the channel is registered as
 			   part of the thermal sysfs which allows clients to use the thermal framework
-			   to set temperature thresholds and receive notification when the temperature
-			   crosses a set threshold, read temperature and enable/set trip types supported
-			   by the thermal framework.
+			   to read temperature.
 - hkadc_ldo-supply : Add this property if VADC needs to perform a Software Vote for the HKADC.
 - hkadc_ok-supply : Add this property if the VADC needs to perform a Software vote for the HKADC VREG_OK.
 
