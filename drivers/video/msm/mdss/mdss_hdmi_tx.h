@@ -15,6 +15,7 @@
 
 #include <linux/switch.h>
 #include "mdss_hdmi_util.h"
+#include "mdss_cec_abstract.h"
 
 enum hdmi_tx_io_type {
 	HDMI_TX_CORE_IO,
@@ -116,6 +117,9 @@ struct hdmi_tx_ctrl {
 	void *feature_data[HDMI_TX_FEAT_MAX];
 	u32 s3d_mode;
 	atomic_t audio_ack_pending;
+
+	struct cec_ops hdmi_cec_ops;
+	struct cec_cbs hdmi_cec_cbs;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */

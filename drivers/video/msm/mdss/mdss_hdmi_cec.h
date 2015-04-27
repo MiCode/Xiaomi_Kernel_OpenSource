@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2013, 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,16 +14,18 @@
 #define __MDSS_HDMI_CEC_H__
 
 #include "mdss_hdmi_util.h"
+#include "mdss_cec_abstract.h"
+
+#define RETRANSMIT_MAX_NUM	5
 
 struct hdmi_cec_init_data {
 	struct workqueue_struct *workq;
-	struct kobject *sysfs_kobj;
 	struct dss_io_data *io;
 };
 
-int hdmi_cec_deconfig(void *cec_ctrl);
-int hdmi_cec_config(void *cec_ctrl);
 int hdmi_cec_isr(void *cec_ctrl);
-void hdmi_cec_deinit(void *cec_ctrl);
-void *hdmi_cec_init(struct hdmi_cec_init_data *init_data);
+int hdmi_cec_init(struct hdmi_cec_init_data *init_data,
+	struct cec_ops *ops);
+void hdmi_cec_deinit(void *data);
+void hdmi_cec_register_cb(void *data, struct cec_cbs *cbs);
 #endif /* __MDSS_HDMI_CEC_H__ */
