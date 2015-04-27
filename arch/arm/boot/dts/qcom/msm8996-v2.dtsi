@@ -18,6 +18,7 @@
 
 #include "msm8996.dtsi"
 #include "msm-arm-smmu-8996v2.dtsi"
+#include "msm8996-coresight-v2.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8996 v2";

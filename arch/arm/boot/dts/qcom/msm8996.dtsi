@@ -161,7 +161,6 @@
 #include "msm8996-ipcrouter.dtsi"
 #include "msm-gdsc-8996.dtsi"
 #include "msm8996-bus.dtsi"
-#include "msm8996-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
