@@ -64,6 +64,11 @@ struct mdss_hw_settings {
 	u32 val;
 };
 
+struct mdss_max_bw_settings {
+	u32 mdss_max_bw_mode;
+	u32 mdss_max_bw_val;
+};
+
 struct mdss_debug_inf {
 	void *debug_data;
 	void (*debug_enable_clock)(int on);
@@ -393,6 +398,10 @@ struct mdss_data_type {
 
 	struct mutex mdp_bus_lock;
 	u32 bus_ref_cnt;
+
+	struct mdss_max_bw_settings *max_bw_settings;
+	u32 bw_mode_bitmap;
+	u32 max_bw_settings_cnt;
 };
 extern struct mdss_data_type *mdss_res;
 
