@@ -658,12 +658,26 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	cti_modem_cpu1: cti@860000 {
+		compatible = "arm,coresight-cti";
+		reg = <0x860000 0x1000>;
+		reg-names = "cti-base";
+
+		coresight-id = <38>;
+		coresight-name = "coresight-cti-modem-cpu1";
+		coresight-nr-inports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			<&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	cti_wcn_cpu0: cti@835000 {
 		compatible = "arm,coresight-cti";
 		reg = <0x835000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-id = <38>;
+		coresight-id = <39>;
 		coresight-name = "coresight-cti-wcn-cpu0";
 		coresight-nr-inports = <0>;
 
@@ -677,7 +691,7 @@
 		reg = <0x830000 0x1000>;
 		reg-names = "cti-base";
 
-		coresight-id = <39>;
+		coresight-id = <40>;
 		coresight-name = "coresight-cti-video-cpu0";
 		coresight-nr-inports = <0>;
 
@@ -689,7 +703,7 @@
 	rpm_etm0 {
 		compatible = "qcom,coresight-rpm-etm";
 
-		coresight-id = <40>;
+		coresight-id = <41>;
 		coresight-name = "coresight-rpm-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -700,7 +714,7 @@
 	wcn_etm0 {
 		compatible = "qcom,coresight-wcn-etm";
 
-		coresight-id = <41>;
+		coresight-id = <42>;
 		coresight-name = "coresight-wcn-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
