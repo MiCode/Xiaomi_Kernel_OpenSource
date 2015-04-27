@@ -330,6 +330,7 @@ struct sdhci_ops {
 	void	(*pm_qos_update)(struct sdhci_host *host,
 				 struct mmc_request *mrq,
 				 enum sdhci_pm_qos_update type);
+	void	(*reset_workaround)(struct sdhci_host *host, u32 enable);
 };
 
 #ifdef CONFIG_MMC_SDHCI_IO_ACCESSORS
