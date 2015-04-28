@@ -156,6 +156,16 @@ TIOCMBIC and GLINK_PKT_IOCTL_QUEUE_RX_INTENT.
 The GLINK_PKT_IOCTL_QUEUE_RX_INTENT ioctl is mapped to glink_queue_rx_intent()
 API which queues an RX intent with Glink core.
 
+Signals:
+==========
+Glink protocol provoide 32-bit control signal field to pass through for the
+clients-specific signaling where as Glink packet driver client which are from
+user space can use the signal filed as mentioned below.
+
+* 31:28 - Reserved for SMD RS-232 signals
+* 27:16 - Pass through for client usage
+* 15:0 - TICOM bits
+
 SSR operation:
 ==============
 On remote subsystem restart all open channels on that edge will be closed and
