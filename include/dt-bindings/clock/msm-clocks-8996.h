@@ -481,6 +481,14 @@
 #define clk_mmpll8_postdiv_clk		0xedf57882
 #define clk_mmpll9_postdiv_clk		0x3064b618
 #define clk_gfx3d_clk_src_v2		0x4210acb7
+#define clk_byte0_clk_src		0x75cc885b
+#define clk_byte1_clk_src		0x63c2c955
+#define clk_pclk0_clk_src		0xccac1f35
+#define clk_pclk1_clk_src		0x090f68ac
+#define clk_ext_byte0_clk_src		0xfb32f31e
+#define clk_ext_byte1_clk_src		0x585ef6d4
+#define clk_ext_pclk0_clk_src		0x087c1612
+#define clk_ext_pclk1_clk_src		0x8067c5a3
 
 /* clock_debug controlled clocks */
 #define clk_gcc_debug_mux		0x8121ac15
