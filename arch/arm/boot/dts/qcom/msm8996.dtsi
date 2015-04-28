@@ -1650,6 +1650,7 @@
 			qcom,smd-irq-bitmask = <0x1000>;
 			interrupts = <0 449 1>;
 			label = "modem";
+			qcom,not-loadable;
 		};
 
 		qcom,smd-adsp {
