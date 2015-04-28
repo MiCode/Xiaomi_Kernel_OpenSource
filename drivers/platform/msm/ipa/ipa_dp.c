@@ -1435,6 +1435,7 @@ begin:
 
 		sys->repl.cache[curr] = rx_pkt;
 		curr = next;
+		/* ensure write is done before setting tail index */
 		mb();
 		atomic_set(&sys->repl.tail_idx, next);
 	}
@@ -1712,6 +1713,7 @@ static void ipa_fast_replenish_rx_cache(struct ipa_sys_context *sys)
 		}
 		rx_len_cached = ++sys->len;
 		curr = (curr + 1) % sys->repl.capacity;
+		/* ensure write is done before setting head index */
 		mb();
 		atomic_set(&sys->repl.head_idx, curr);
 	}
