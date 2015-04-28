@@ -52,7 +52,7 @@
 		qcom,max-bandwidth-low-kbps = <9600000>;
 		qcom,max-bandwidth-high-kbps = <9600000>;
 		qcom,max-bandwidth-per-pipe-kbps = <4500000>;
-		qcom,max-clk-rate = <413000000>;
+		qcom,max-clk-rate = <412500000>;
 		qcom,mdss-default-ot-rd-limit = <32>;
 		qcom,mdss-default-ot-wr-limit = <16>;
 
