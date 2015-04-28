@@ -129,8 +129,22 @@
 	};
 };
 
-&tsens {
-	interrupts = <0 458 0>, <0 455 0>;
+&soc {
+	tsens1: tsens@4ad000 {
+		compatible = "qcom,msm8996-tsens";
+		reg = <0x4ac000 0x2000>,
+			<0x75230 0x1000>;
+		reg-names = "tsens_physical", "tsens_eeprom_physical";
+		interrupts = <0 184 0>, <0 430 0>;
+		interrupt-names = "tsens-upper-lower", "tsens-critical";
+		qcom,client-id = <13 14 15 16 17 18 19 20>;
+		qcom,sensors = <8>;
+		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200>;
+	};
+};
+
+&tsens0 {
+	interrupts = <0 458 0>, <0 445 0>;
 	qcom,sensors = <13>;
 	qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
 };
