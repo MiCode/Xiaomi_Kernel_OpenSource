@@ -427,4 +427,5 @@ int mdss_fb_async_position_update(struct fb_info *info,
 		struct mdp_position_update *update_pos);
 
 u32 mdss_fb_get_mode_switch(struct msm_fb_data_type *mfd);
+void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd);
 #endif /* MDSS_FB_H */

@@ -19,33 +19,6 @@
 #include "mdss_mdp.h"
 
 /*
- * mdss_report_panel_dead() - Sends the PANEL_ALIVE=0 status to HAL layer.
- * @pstatus_data   : dsi status data
- *
- * This function is called if the panel fails to respond as expected to
- * the register read/BTA or if the TE signal is not coming as expected
- * from the panel. The function sends the PANEL_ALIVE=0 status to HAL
- * layer.
- */
-static void mdss_report_panel_dead(struct dsi_status_data *pstatus_data)
-{
-	char *envp[2] = {"PANEL_ALIVE=0", NULL};
-	struct mdss_panel_data *pdata =
-		dev_get_platdata(&pstatus_data->mfd->pdev->dev);
-	if (!pdata) {
-		pr_err("%s: Panel data not available\n", __func__);
-		return;
-	}
-
-	pdata->panel_info.panel_dead = true;
-	kobject_uevent_env(&pstatus_data->mfd->fbi->dev->kobj,
-		KOBJ_CHANGE, envp);
-	pr_err("%s: Panel has gone bad, sending uevent - %s\n",
-		__func__, envp[0]);
-	return;
-}
-
-/*
  * mdss_check_te_status() - Check the status of panel for TE based ESD.
  * @ctrl_pdata   : dsi controller data
  * @pstatus_data : dsi status data
@@ -210,5 +183,5 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 	return;
 
 status_dead:
-	mdss_report_panel_dead(pstatus_data);
+	mdss_fb_report_panel_dead(pstatus_data->mfd);
 }
