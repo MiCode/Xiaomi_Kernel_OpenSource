@@ -290,7 +290,7 @@ static ssize_t force_ro_show(struct device *dev, struct device_attribute *attr,
 	if (!md)
 		return -EINVAL;
 
-	ret = snprintf(buf, PAGE_SIZE, "%d",
+	ret = snprintf(buf, PAGE_SIZE, "%d\n",
 		       get_disk_ro(dev_to_disk(dev)) ^
 		       md->read_only);
 	mmc_blk_put(md);
