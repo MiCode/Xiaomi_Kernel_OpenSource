@@ -2025,13 +2025,14 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 		spin_lock_irqsave(&port->port_lock, flags);
 	}
 
+exit:
 	/*
 	 * Decrement usage count after IPA handshake is done
 	 * to allow gadget parent to go to lpm. This counter was
 	 * incremented upon cable connect.
 	 */
 	usb_gadget_autopm_put_async(port->gadget);
-exit:
+
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
