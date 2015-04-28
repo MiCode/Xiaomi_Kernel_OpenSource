@@ -459,6 +459,7 @@ struct msm_ois_params_t {
 	uint16_t data_size;
 	uint16_t setting_size;
 	uint32_t i2c_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_camera_i2c_reg_addr_type i2c_addr_type;
 	enum msm_camera_i2c_data_type i2c_data_type;
 	struct reg_settings_ois_t *settings;
@@ -498,6 +499,7 @@ struct msm_actuator_params_t {
 	uint16_t data_size;
 	uint16_t init_setting_size;
 	uint32_t i2c_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_actuator_addr_type i2c_addr_type;
 	enum msm_actuator_data_type i2c_data_type;
 	struct msm_actuator_reg_params_t *reg_tbl_params;
@@ -581,6 +583,7 @@ struct msm_camera_led_cfg_t {
 struct msm_flash_init_info_t {
 	enum msm_flash_driver_type flash_driver_type;
 	uint32_t slave_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	struct msm_sensor_power_setting_array *power_setting_array;
 	struct msm_camera_i2c_reg_setting_array *settings;
 };
@@ -671,6 +674,7 @@ struct msm_actuator_params_t32 {
 	uint16_t data_size;
 	uint16_t init_setting_size;
 	uint32_t i2c_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_actuator_addr_type i2c_addr_type;
 	enum msm_actuator_data_type i2c_data_type;
 	compat_uptr_t reg_tbl_params;
@@ -735,6 +739,7 @@ struct msm_ois_params_t32 {
 	uint16_t data_size;
 	uint16_t setting_size;
 	uint32_t i2c_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	enum msm_camera_i2c_reg_addr_type i2c_addr_type;
 	enum msm_camera_i2c_data_type i2c_data_type;
 	compat_uptr_t settings;
@@ -755,6 +760,7 @@ struct msm_ois_cfg_data32 {
 struct msm_flash_init_info_t32 {
 	enum msm_flash_driver_type flash_driver_type;
 	uint32_t slave_addr;
+	enum i2c_freq_mode_t i2c_freq_mode;
 	compat_uptr_t power_setting_array;
 	compat_uptr_t settings;
 };
