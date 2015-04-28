@@ -1345,6 +1345,71 @@ static struct android_usb_function mbim_function = {
 	.attributes	= mbim_function_attributes,
 };
 
+#ifdef CONFIG_SND_PCM
+/* PERIPHERAL AUDIO */
+struct audio_function_config {
+	struct usb_function *func;
+	struct usb_function_instance *fi;
+};
+
+static int audio_function_init(struct android_usb_function *f,
+			       struct usb_composite_dev *cdev)
+{
+	struct audio_function_config *config;
+	f->config = kzalloc(sizeof(*config), GFP_KERNEL);
+	if (!f->config)
+		return -ENOMEM;
+
+	config = f->config;
+	config->fi = usb_get_function_instance("uac1");
+	if (IS_ERR(config->fi))
+		return PTR_ERR(config->fi);
+
+	config->func = usb_get_function(config->fi);
+	if (IS_ERR(config->func)) {
+		usb_put_function_instance(config->fi);
+		return PTR_ERR(config->func);
+	}
+
+	return 0;
+}
+
+static void audio_function_cleanup(struct android_usb_function *f)
+{
+	struct audio_function_config *config = f->config;
+	if (config) {
+		usb_put_function(config->func);
+		usb_put_function_instance(config->fi);
+	}
+
+	kfree(f->config);
+	f->config = NULL;
+}
+
+static int audio_function_bind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	struct audio_function_config *config = f->config;
+	return usb_add_function(c, config->func);
+}
+
+static void audio_function_unbind_config(struct android_usb_function *f,
+					  struct usb_configuration *c)
+{
+	struct audio_function_config *config = f->config;
+	if (config->func)
+		usb_remove_function(c, config->func);
+}
+
+static struct android_usb_function audio_function = {
+	.name		= "audio",
+	.init		= audio_function_init,
+	.cleanup	= audio_function_cleanup,
+	.bind_config	= audio_function_bind_config,
+	.unbind_config	= audio_function_unbind_config,
+};
+#endif
+
 
 /* DIAG */
 static char diag_clients[32];	    /*enabled DIAG clients- "diag[,diag_mdm]" */
@@ -2619,6 +2684,9 @@ static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
 	&mbim_function,
 	&ecm_qc_function,
+#ifdef CONFIG_SND_PCM
+	&audio_function,
+#endif
 	&rmnet_function,
 	&gps_function,
 	&diag_function,

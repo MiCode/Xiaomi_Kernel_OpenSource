@@ -27,6 +27,7 @@
 #define FILE_PCM_CAPTURE	"/dev/snd/pcmC0D0c"
 #define FILE_CONTROL		"/dev/snd/controlC0"
 
+#define UAC1_IN_EP_MAX_PACKET_SIZE	32
 #define UAC1_OUT_EP_MAX_PACKET_SIZE	200
 #define UAC1_REQ_COUNT			256
 #define UAC1_AUDIO_BUF_SIZE		48000
@@ -55,14 +56,18 @@ struct gaudio {
 	struct gaudio_snd_dev		playback;
 	struct gaudio_snd_dev		capture;
 
+	bool				audio_reinit;
 	/* TODO */
 };
 
 struct f_uac1_opts {
 	struct usb_function_instance	func_inst;
-	int				req_buf_size;
-	int				req_count;
-	int				audio_buf_size;
+	int				req_playback_buf_size;
+	int				req_capture_buf_size;
+	int				req_playback_count;
+	int				req_capture_count;
+	int				audio_playback_buf_size;
+	int				audio_capture_buf_size;
 	char				*fn_play;
 	char				*fn_cap;
 	char				*fn_cntl;
@@ -78,8 +83,12 @@ struct f_uac1_opts {
 int gaudio_setup(struct gaudio *card);
 void gaudio_cleanup(struct gaudio *the_card);
 
+void u_audio_clear(struct gaudio *card);
 size_t u_audio_playback(struct gaudio *card, void *buf, size_t count);
+size_t u_audio_capture(struct gaudio *card, void *buf, size_t count);
 int u_audio_get_playback_channels(struct gaudio *card);
 int u_audio_get_playback_rate(struct gaudio *card);
+int u_audio_get_capture_channels(struct gaudio *card);
+int u_audio_get_capture_rate(struct gaudio *card);
 
 #endif /* __U_AUDIO_H */
