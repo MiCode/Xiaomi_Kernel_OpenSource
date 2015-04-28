@@ -20,7 +20,7 @@
 #include "mdss_mdp_trace.h"
 
 #define VSYNC_EXPIRE_TICK 6
-
+#define MAX_RECOVERY_TRIALS 10
 #define MAX_SESSIONS 2
 
 #define SPLIT_MIXER_OFFSET 0x800
@@ -688,7 +688,10 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 	}
 
 	if (rc <= 0) {
-		if (!ctx->pp_timeout_report_cnt) {
+		if (ctx->pp_timeout_report_cnt == 0) {
+			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
+				"dsi1_ctrl", "dsi1_phy");
+		} else if (ctx->pp_timeout_report_cnt == MAX_RECOVERY_TRIALS) {
 			WARN(1, "cmd kickoff timed out (%d) ctl=%d\n",
 					rc, ctl->num);
 			MDSS_XLOG_TOUT_HANDLER("mdp", "dsi0_ctrl", "dsi0_phy",
