@@ -4,7 +4,7 @@
  * Copyright (C) 2000 Ralph Metzler & Marcus Metzler
  *		      for convergence integrated media GmbH
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -2604,6 +2604,11 @@ static int dvb_dmxdev_section_callback(const u8 *buffer1, size_t buffer1_len,
 	struct dmx_filter_event event;
 	ssize_t free;
 
+	if (!dmxdevfilter) {
+		pr_err("%s: null filter. status=%d\n", __func__, success);
+		return -EINVAL;
+	}
+
 	spin_lock(&dmxdevfilter->dev->lock);
 
 	if (dmxdevfilter->buffer.error ||
@@ -2684,6 +2689,12 @@ static int dvb_dmxdev_ts_callback(const u8 *buffer1, size_t buffer1_len,
 	struct dmxdev_events_queue *events;
 	struct dmx_filter_event event;
 	ssize_t free;
+
+	if (!dmxdevfilter) {
+		pr_err("%s: null filter (feed->is_filtering=%d) status=%d\n",
+			__func__, feed->is_filtering, success);
+		return -EINVAL;
+	}
 
 	spin_lock(&dmxdevfilter->dev->lock);
 
@@ -2785,6 +2796,13 @@ static int dvb_dmxdev_section_event_cb(struct dmx_section_filter *filter,
 	struct dmx_filter_event event;
 	ssize_t free;
 
+	if (!dmxdevfilter) {
+		pr_err("%s: null filter. event type=%d (length=%d) will be discarded\n",
+			__func__, dmx_data_ready->status,
+			dmx_data_ready->data_length);
+		return -EINVAL;
+	}
+
 	spin_lock(&dmxdevfilter->dev->lock);
 
 	if (dmxdevfilter->buffer.error == -ETIMEDOUT ||
@@ -2868,6 +2886,14 @@ static int dvb_dmxdev_ts_event_cb(struct dmx_ts_feed *feed,
 	struct dmxdev_events_queue *events;
 	struct dmx_filter_event event;
 	ssize_t free;
+
+	if (!dmxdevfilter) {
+		pr_err("%s: null filter (feed->is_filtering=%d) event type=%d (length=%d) will be discarded\n",
+			__func__, feed->is_filtering,
+			dmx_data_ready->status,
+			dmx_data_ready->data_length);
+		return -EINVAL;
+	}
 
 	spin_lock(&dmxdevfilter->dev->lock);
 
