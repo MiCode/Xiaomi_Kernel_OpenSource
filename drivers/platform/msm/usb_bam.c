@@ -245,12 +245,6 @@ void msm_bam_set_hsic_host_dev(struct device *dev)
 	host_info[HSIC_CTRL].in_lpm = false;
 }
 
-void msm_bam_set_usb_dev(struct device *dev)
-{
-	pr_debug("%s: Updating usb device for power managment\n", __func__);
-	usb_device = dev;
-}
-
 void msm_bam_set_usb_host_dev(struct device *dev)
 {
 	host_info[CI_CTRL].dev = dev;
@@ -3105,11 +3099,6 @@ static int usb_bam_probe(struct platform_device *pdev)
 
 	dev_dbg(&pdev->dev, "usb_bam_probe\n");
 
-	if (!usb_device) {
-		dev_dbg(&pdev->dev, "OTG not yet probed\n");
-		return -EPROBE_DEFER;
-	}
-
 	ret = device_create_file(&pdev->dev, &dev_attr_inactivity_timer);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to create fs node\n");
@@ -3177,6 +3166,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 		destroy_workqueue(ctx->usb_bam_wq);
 		return ret;
 	}
+	usb_device = pdev->dev.parent;
 	spin_lock_init(&usb_bam_ipa_handshake_info_lock);
 	if (ipa_is_ready())
 		usb_bam_ipa_create_resources(bam_type);

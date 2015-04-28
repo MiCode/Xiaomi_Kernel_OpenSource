@@ -23,6 +23,7 @@
 #include <linux/ioport.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/of_platform.h>
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
@@ -3306,6 +3307,7 @@ static void msm_otg_sm_work(struct work_struct *w)
 	struct msm_otg *motg = container_of(w, struct msm_otg, sm_work);
 	struct usb_otg *otg = motg->phy.otg;
 	bool work = 0, srp_reqd, dcp;
+	int ret;
 
 	pm_runtime_resume(otg->phy->dev);
 	if (motg->pm_done) {
@@ -3320,7 +3322,12 @@ static void msm_otg_sm_work(struct work_struct *w)
 	switch (otg->phy->state) {
 	case OTG_STATE_UNDEFINED:
 		msm_otg_reset(otg->phy);
-		msm_bam_set_usb_dev(otg->phy->dev);
+		/* Add child device only after block reset */
+		ret = of_platform_populate(motg->pdev->dev.of_node, NULL, NULL,
+					&motg->pdev->dev);
+		if (ret)
+			dev_dbg(&motg->pdev->dev, "failed to add BAM core\n");
+
 		msm_otg_init_sm(motg);
 		if (!psy && legacy_power_supply) {
 			psy = power_supply_get_by_name("usb");
@@ -5690,6 +5697,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	motg->pdata = pdata;
 	phy = &motg->phy;
 	phy->dev = &pdev->dev;
+	motg->pdev = pdev;
 	motg->dbg_idx = 0;
 	motg->dbg_lock = __RW_LOCK_UNLOCKED(lck);
 

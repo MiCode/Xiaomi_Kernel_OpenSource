@@ -2731,8 +2731,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		enable_irq_wake(mdwc->pmic_id_irq);
 	}
 
-	msm_bam_set_usb_dev(mdwc->dev);
-
 	return 0;
 
 put_dwc3:
