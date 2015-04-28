@@ -3822,7 +3822,7 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 				struct pp_hist_col_info *hist_info,
 				char __iomem *ctl_base, u32 expect_sum)
 {
-	int kick_ret, wait_ret, ret = 0;
+	int kick_ret = 1, wait_ret, ret = 0;
 	u32 timeout, sum;
 	char __iomem *v_base;
 	unsigned long flag;
@@ -3854,7 +3854,8 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 			pipe = container_of(res, struct mdss_mdp_pipe, pp_res);
 			pipe->params_changed++;
 		}
-		kick_ret = wait_for_completion_killable_timeout(
+		if (!is_hist_v2)
+			kick_ret = wait_for_completion_killable_timeout(
 				&(hist_info->first_kick), timeout /
 					HIST_KICKOFF_WAIT_FRACTION);
 		if (kick_ret != 0)
