@@ -1635,6 +1635,17 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	}
 	img_size = (height << 16) | width;
 
+	/*
+	 * in solid fill, there is no src rectangle, but hardware needs to
+	 * be programmed same as dst to avoid issues in scaling blocks
+	 */
+	if (data == NULL) {
+		src_size = dst_size;
+		img_size = dst_size;
+		src_xy = 0;
+		decimation = 0;
+	}
+
 	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103) &&
 		pipe->bwc_mode) {
 		/* check source dimensions change */
