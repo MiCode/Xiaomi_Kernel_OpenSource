@@ -1075,17 +1075,18 @@ int32_t ov2685_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			break;
 		}
 
+		conf_array.addr_type = conf_array32.addr_type;
+		conf_array.data_type = conf_array32.data_type;
+		conf_array.delay = conf_array32.delay;
+		conf_array.size = conf_array32.size;
+		conf_array.reg_setting = compat_ptr(conf_array32.reg_setting);
+
 		if (!conf_array.size ||
 			conf_array.size > CCI_I2C_MAX_WRITE) {
 			pr_err("%s:%d failed\n", __func__, __LINE__);
 			rc = -EFAULT;
 			break;
 		}
-		conf_array.addr_type = conf_array32.addr_type;
-		conf_array.data_type = conf_array32.data_type;
-		conf_array.delay = conf_array32.delay;
-		conf_array.size = conf_array32.size;
-		conf_array.reg_setting = compat_ptr(conf_array32.reg_setting);
 
 		reg_setting = kzalloc(conf_array.size *
 			(sizeof(struct msm_camera_i2c_reg_array)), GFP_KERNEL);
