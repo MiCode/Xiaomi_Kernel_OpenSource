@@ -419,4 +419,5 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 		     unsigned long arg);
 int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg);
+void mdss_fb_report_panel_dead(struct msm_fb_data_type *mfd);
 #endif /* MDSS_FB_H */
