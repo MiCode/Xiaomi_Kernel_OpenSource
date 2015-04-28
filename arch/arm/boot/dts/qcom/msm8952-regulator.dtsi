@@ -276,6 +276,17 @@
 			status = "okay";
 		};
 	};
+
+	rpm-regulator-clk0 {
+		status = "okay";
+		rpm_apc_vreg: regulator-clk0 {
+			regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_SVS>;
+			regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
+			qcom,always-send-voltage;
+			status = "okay";
+		};
+	};
 };
 
 /* SPM controlled regulators */
@@ -321,6 +332,9 @@
 		qcom,cpr-voltage-floor = <1050000 1050000 1155000>;
 		vdd-apc-supply = <&pm8950_s5>;
 
+		vdd-mx-supply = <&pm8950_l3_level_ao>;
+		qcom,vdd-mx-vmin-method = <5>;
+		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
 		qcom,vdd-mx-corner-map = < RPM_SMD_REGULATOR_LEVEL_SVS >,	/* 1: SVS  */
 					 < RPM_SMD_REGULATOR_LEVEL_SVS_PLUS >,	/* 2: SVS+ */
 					 < RPM_SMD_REGULATOR_LEVEL_SVS_PLUS >,	/* 3: SVS+ */
@@ -329,9 +343,16 @@
 					 < RPM_SMD_REGULATOR_LEVEL_NOM_PLUS >,	/* 6: NOM+ */
 					 < RPM_SMD_REGULATOR_LEVEL_TURBO >,	/* 7: TUR  */
 					 < RPM_SMD_REGULATOR_LEVEL_TURBO >;	/* 8: TUR  */
-		qcom,vdd-mx-vmin-method = <5>;
-		vdd-mx-supply = <&pm8950_l3_level_ao>;
-		qcom,vdd-mx-vmax = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+
+		rpm-apc-supply = <&rpm_apc_vreg>;
+		qcom,rpm-apc-corner-map =  < RPM_SMD_REGULATOR_LEVEL_SVS >,	/* 1: SVS  */
+					 < RPM_SMD_REGULATOR_LEVEL_SVS_PLUS >,	/* 2: SVS+ */
+					 < RPM_SMD_REGULATOR_LEVEL_SVS_PLUS >,	/* 3: SVS+ */
+					 < RPM_SMD_REGULATOR_LEVEL_SVS_PLUS >,	/* 4: SVS+ */
+					 < RPM_SMD_REGULATOR_LEVEL_NOM >,	/* 5: NOM  */
+					 < RPM_SMD_REGULATOR_LEVEL_NOM_PLUS >,	/* 6: NOM+ */
+					 < RPM_SMD_REGULATOR_LEVEL_TURBO >,	/* 7: TUR  */
+					 < RPM_SMD_REGULATOR_LEVEL_TURBO >;	/* 8: TUR  */
 
 		mem-acc-supply = <&mem_acc_vreg_corner>;
 
