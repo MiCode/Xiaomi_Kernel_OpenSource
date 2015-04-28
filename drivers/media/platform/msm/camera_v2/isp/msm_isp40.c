@@ -440,7 +440,7 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1,
 	struct msm_isp_timestamp *ts)
 {
-	int cnt;
+	int cnt = 0, pix_cnt = 0;
 
 	if (!(irq_status0 & 0xF))
 		return;
@@ -448,7 +448,8 @@ static void msm_vfe40_process_camif_irq(struct vfe_device *vfe_dev,
 	if (irq_status0 & (1 << 0)) {
 		ISP_DBG("%s: SOF IRQ\n", __func__);
 		cnt = vfe_dev->axi_data.src_info[VFE_PIX_0].raw_stream_count;
-		if (cnt > 0) {
+		pix_cnt = vfe_dev->axi_data.src_info[VFE_PIX_0].pix_stream_count;
+		if (cnt > 0 && (pix_cnt == 0)) {
 			msm_isp_sof_notify(vfe_dev, VFE_RAW_0, ts);
 			if (vfe_dev->axi_data.stream_update)
 				msm_isp_axi_stream_update(vfe_dev,
