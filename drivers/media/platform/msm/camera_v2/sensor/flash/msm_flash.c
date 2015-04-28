@@ -256,6 +256,7 @@ static int32_t msm_flash_i2c_init(
 		cci_client->sid = flash_init_info->slave_addr >> 1;
 		cci_client->retries = 3;
 		cci_client->id_map = 0;
+		cci_client->i2c_freq_mode = flash_init_info->i2c_freq_mode;
 	}
 
 	flash_ctrl->power_info.power_setting =
@@ -998,6 +999,8 @@ static long msm_flash_subdev_do_ioctl(
 				flash_init_info32.flash_driver_type;
 			flash_init_info.slave_addr =
 				flash_init_info32.slave_addr;
+			flash_init_info.i2c_freq_mode =
+				flash_init_info32.i2c_freq_mode;
 			flash_init_info.settings =
 				compat_ptr(flash_init_info32.settings);
 			flash_init_info.power_setting_array =

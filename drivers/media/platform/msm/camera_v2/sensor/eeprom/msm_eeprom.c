@@ -1058,6 +1058,20 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 		return rc;
 	}
 
+	rc = of_property_read_u32(of_node, "qcom,i2c-freq-mode",
+		&e_ctrl->i2c_freq_mode);
+	CDBG("qcom,i2c_freq_mode %d, rc %d\n", e_ctrl->i2c_freq_mode, rc);
+	if (rc < 0) {
+		pr_err("%s qcom,i2c-freq-mode read fail. Setting to 0 %d\n",
+			__func__, rc);
+		e_ctrl->i2c_freq_mode = 0;
+	}
+
+	if (e_ctrl->i2c_freq_mode >= I2C_MAX_MODES) {
+		pr_err("%s:%d invalid i2c_freq_mode = %d\n", __func__, __LINE__,
+			e_ctrl->i2c_freq_mode);
+		return -EINVAL;
+	}
 	/* Set platform device handle */
 	e_ctrl->pdev = pdev;
 	/* Set device type as platform device */
@@ -1097,6 +1111,7 @@ static int msm_eeprom_platform_probe(struct platform_device *pdev)
 	cci_client = e_ctrl->i2c_client.cci_client;
 	cci_client->cci_subdev = msm_cci_get_subdev();
 	cci_client->cci_i2c_master = e_ctrl->cci_master;
+	cci_client->i2c_freq_mode = e_ctrl->i2c_freq_mode;
 	cci_client->sid = eb_info->i2c_slaveaddr >> 1;
 	cci_client->retries = 3;
 	cci_client->id_map = 0;

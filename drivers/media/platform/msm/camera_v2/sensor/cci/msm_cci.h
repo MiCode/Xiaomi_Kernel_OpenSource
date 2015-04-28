@@ -164,10 +164,10 @@ struct cci_device {
 	struct msm_camera_cci_i2c_queue_info
 		cci_i2c_queue_info[NUM_MASTERS][NUM_QUEUES];
 	struct msm_camera_cci_master_info cci_master_info[NUM_MASTERS];
+	enum i2c_freq_mode_t i2c_freq_mode[NUM_MASTERS];
 	struct msm_cci_clk_params_t cci_clk_params[I2C_MAX_MODES];
 	struct gpio *cci_gpio_tbl;
 	uint8_t cci_gpio_tbl_size;
-	uint8_t master_clk_init[MASTER_MAX];
 	struct msm_pinctrl_info cci_pinctrl;
 	uint8_t cci_pinctrl_status;
 	uint32_t cycles_per_us;

@@ -52,17 +52,22 @@ static struct v4l2_subdev *g_cci_subdev;
 
 static struct msm_cam_clk_info cci_clk_info[CCI_NUM_CLK_CASES][CCI_NUM_CLK_MAX];
 
-static void msm_cci_set_clk_param(struct cci_device *cci_dev,
+static int32_t msm_cci_set_clk_param(struct cci_device *cci_dev,
 	struct msm_camera_cci_ctrl *c_ctrl)
 {
 	struct msm_cci_clk_params_t *clk_params = NULL;
 	enum cci_i2c_master_t master = c_ctrl->cci_info->cci_i2c_master;
 	enum i2c_freq_mode_t i2c_freq_mode = c_ctrl->cci_info->i2c_freq_mode;
 
-	if (cci_dev->master_clk_init[master])
-		return;
 	clk_params = &cci_dev->cci_clk_params[i2c_freq_mode];
 
+	if ((i2c_freq_mode >= I2C_MAX_MODES) || (i2c_freq_mode < 0)) {
+		pr_err("%s:%d invalid i2c_freq_mode = %d",
+			__func__, __LINE__, i2c_freq_mode);
+		return -EINVAL;
+	}
+	if (cci_dev->i2c_freq_mode[master] == i2c_freq_mode)
+		return 0;
 	if (MASTER_0 == master) {
 		msm_camera_io_w_mb(clk_params->hw_thigh << 16 |
 			clk_params->hw_tlow,
@@ -94,8 +99,8 @@ static void msm_cci_set_clk_param(struct cci_device *cci_dev,
 			clk_params->hw_trdhld << 4 | clk_params->hw_tsp,
 			cci_dev->base + CCI_I2C_M1_MISC_CTL_ADDR);
 	}
-	cci_dev->master_clk_init[master] = 1;
-	return;
+	cci_dev->i2c_freq_mode[master] = i2c_freq_mode;
+	return 0;
 }
 
 static void msm_cci_flush_queue(struct cci_device *cci_dev,
@@ -717,6 +722,14 @@ static int32_t msm_cci_i2c_read(struct v4l2_subdev *sd,
 	read_cfg = &c_ctrl->cfg.cci_i2c_read_cfg;
 	mutex_lock(&cci_dev->cci_master_info[master].mutex_q[queue]);
 
+	/* Set the I2C Frequency */
+	rc = msm_cci_set_clk_param(cci_dev, c_ctrl);
+	if (rc < 0) {
+		pr_err("%s:%d msm_cci_set_clk_param failed rc = %d\n",
+			__func__, __LINE__, rc);
+		return rc;
+	}
+
 	/*
 	 * Call validate queue to make sure queue is empty before starting.
 	 * If this call fails, don't proceed with i2c_read call. This is to
@@ -937,6 +950,13 @@ static int32_t msm_cci_i2c_write(struct v4l2_subdev *sd,
 		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
 		c_ctrl->cci_info->id_map);
 
+	/* Set the I2C Frequency */
+	rc = msm_cci_set_clk_param(cci_dev, c_ctrl);
+	if (rc < 0) {
+		pr_err("%s:%d msm_cci_set_clk_param failed rc = %d\n",
+			__func__, __LINE__, rc);
+		return rc;
+	}
 	/*
 	 * Call validate queue to make sure queue is empty before starting.
 	 * If this call fails, don't proceed with i2c_write call. This is to
@@ -1174,7 +1194,6 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s ref_count %d\n", __func__, cci_dev->ref_count);
 		master = c_ctrl->cci_info->cci_i2c_master;
 		CDBG("%s:%d master %d\n", __func__, __LINE__, master);
-		msm_cci_set_clk_param(cci_dev, c_ctrl);
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
 			flush_workqueue(cci_dev->write_wq[master]);
@@ -1275,8 +1294,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		goto reset_complete_failed;
 	}
 	for (i = 0; i < MASTER_MAX; i++)
-		cci_dev->master_clk_init[i] = 0;
-	msm_cci_set_clk_param(cci_dev, c_ctrl);
+		cci_dev->i2c_freq_mode[i] = I2C_MAX_MODES;
 	msm_camera_io_w_mb(CCI_IRQ_MASK_0_RMSK,
 		cci_dev->base + CCI_IRQ_MASK_0_ADDR);
 	msm_camera_io_w_mb(CCI_IRQ_MASK_0_RMSK,
@@ -1367,8 +1385,7 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 	msm_camera_request_gpio_table(cci_dev->cci_gpio_tbl,
 		cci_dev->cci_gpio_tbl_size, 0);
 	for (i = 0; i < MASTER_MAX; i++)
-		cci_dev->master_clk_init[i] = 0;
-
+		cci_dev->i2c_freq_mode[i] = I2C_MAX_MODES;
 	cci_dev->cci_state = CCI_STATE_DISABLED;
 	cci_dev->cycles_per_us = 0;
 	cci_dev->cci_clk_src = 0;

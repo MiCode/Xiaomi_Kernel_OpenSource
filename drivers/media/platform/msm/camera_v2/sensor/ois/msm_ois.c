@@ -205,6 +205,7 @@ static int32_t msm_ois_control(struct msm_ois_ctrl_t *o_ctrl,
 		cci_client->retries = 3;
 		cci_client->id_map = 0;
 		cci_client->cci_i2c_master = o_ctrl->cci_master;
+		cci_client->i2c_freq_mode = set_info->ois_params.i2c_freq_mode;
 	} else {
 		o_ctrl->i2c_client.client->addr =
 			set_info->ois_params.i2c_addr;
@@ -561,6 +562,8 @@ static long msm_ois_subdev_do_ioctl(
 				u32->cfg.set_info.ois_params.setting_size;
 			ois_data.cfg.set_info.ois_params.i2c_addr =
 				u32->cfg.set_info.ois_params.i2c_addr;
+			ois_data.cfg.set_info.ois_params.i2c_freq_mode =
+				u32->cfg.set_info.ois_params.i2c_freq_mode;
 			ois_data.cfg.set_info.ois_params.i2c_addr_type =
 				u32->cfg.set_info.ois_params.i2c_addr_type;
 			ois_data.cfg.set_info.ois_params.i2c_data_type =
