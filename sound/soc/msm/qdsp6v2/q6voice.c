@@ -2877,7 +2877,7 @@ static int voice_map_memory_physical_cmd(struct voice_data *v,
 
 	/* Store shared mem adddress (64 bit) */
 	memtable[3] = lower_32_bits(phys);
-	memtable[4] = upper_32_bits(phys);
+	memtable[4] = populate_upper_32_bits(phys);
 
 	/* Store shared memory size */
 	memtable[5] = size;

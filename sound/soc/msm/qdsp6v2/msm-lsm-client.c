@@ -116,7 +116,7 @@ static int msm_lsm_queue_lab_buffer(struct lsm_priv *prtd, int i)
 	cmd_read.buf_addr_lsw =
 		lower_32_bits(prtd->lsm_client->lab_buffer[i].phys);
 	cmd_read.buf_addr_msw =
-		upper_32_bits(prtd->lsm_client->lab_buffer[i].phys);
+		populate_upper_32_bits(prtd->lsm_client->lab_buffer[i].phys);
 	cmd_read.buf_size = prtd->lsm_client->lab_buffer[i].size;
 	cmd_read.mem_map_handle =
 		prtd->lsm_client->lab_buffer[i].mem_map_handle;
@@ -157,7 +157,8 @@ static int lsm_lab_buffer_sanity(struct lsm_priv *prtd,
 	for (i = 0; i < prtd->lsm_client->hw_params.period_count; i++) {
 		if ((lower_32_bits(prtd->lsm_client->lab_buffer[i].phys) ==
 			read_done->buf_addr_lsw) &&
-			(upper_32_bits(prtd->lsm_client->lab_buffer[i].phys) ==
+			(populate_upper_32_bits
+				(prtd->lsm_client->lab_buffer[i].phys) ==
 			read_done->buf_addr_msw) &&
 			(prtd->lsm_client->lab_buffer[i].mem_map_handle ==
 			read_done->mem_map_handle)) {
