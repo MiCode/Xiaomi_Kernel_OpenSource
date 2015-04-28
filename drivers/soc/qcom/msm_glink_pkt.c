@@ -30,6 +30,7 @@
 #include <linux/mm.h>
 #include <linux/of.h>
 #include <linux/ipc_logging.h>
+#include <linux/termios.h>
 
 #include <soc/qcom/glink.h>
 
@@ -41,6 +42,37 @@
 
 #define GLINK_PKT_IOCTL_QUEUE_RX_INTENT \
 	_IOW(GLINK_PKT_IOCTL_MAGIC, 0, unsigned int)
+
+#define SMD_DTR_SIG BIT(31)
+#define SMD_CTS_SIG BIT(30)
+#define SMD_CD_SIG BIT(29)
+#define SMD_RI_SIG BIT(28)
+
+#define map_to_smd_trans_signal(sigs) \
+	do { \
+		sigs &= 0x0fff; \
+		if (sigs & TIOCM_DTR) \
+			sigs |= SMD_DTR_SIG; \
+		if (sigs & TIOCM_RTS) \
+			sigs |= SMD_CTS_SIG; \
+		if (sigs & TIOCM_CD) \
+			sigs |= SMD_CD_SIG; \
+		if (sigs & TIOCM_RI) \
+			sigs |= SMD_RI_SIG; \
+	} while (0)
+
+#define map_from_smd_trans_signal(sigs) \
+	do { \
+		if (sigs & SMD_DTR_SIG) \
+			sigs |= TIOCM_DTR; \
+		if (sigs & SMD_CTS_SIG) \
+			sigs |= TIOCM_RTS; \
+		if (sigs & SMD_CD_SIG) \
+			sigs |= TIOCM_CD; \
+		if (sigs & SMD_RI_SIG) \
+			sigs |= TIOCM_RI; \
+		sigs &= 0x0fff; \
+	} while (0)
 
 /**
  * glink_pkt_dev - G-Link packet device structure
@@ -656,6 +688,7 @@ static int glink_pkt_tiocmset(struct glink_pkt_dev *devp, unsigned int cmd,
 	ret = get_user(val, (uint32_t *)arg);
 	if (ret)
 		return ret;
+	map_to_smd_trans_signal(val);
 	ret = glink_sigs_local_get(devp->handle, &sigs);
 	if (ret < 0) {
 		GLINK_PKT_ERR("%s: Get signals failed[%d]\n", __func__, ret);
@@ -708,6 +741,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 		ret = glink_sigs_remote_get(devp->handle, &sigs);
 		GLINK_PKT_INFO("%s: TIOCMGET ret[%d] sigs[0x%x]\n",
 					__func__, ret, sigs);
+		map_from_smd_trans_signal(sigs);
 		if (!ret)
 			ret = put_user(sigs, (uint32_t *)arg);
 		break;
