@@ -668,7 +668,7 @@ static int pp_get_hist_isr(u32 *isr_mask)
 
 static bool pp_is_sspp_hist_supp(void)
 {
-	return true;
+	return false;
 }
 
 static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,

@@ -406,18 +406,17 @@ struct mdss_mdp_data {
 struct pp_hist_col_info {
 	u32 col_state;
 	u32 col_en;
-	u32 read_request;
 	u32 hist_cnt_read;
 	u32 hist_cnt_sent;
 	u32 hist_cnt_time;
 	u32 frame_cnt;
-	struct completion comp;
-	struct completion first_kick;
 	u32 data[HIST_V_SIZE];
 	struct mutex hist_mutex;
 	spinlock_t hist_lock;
 	char __iomem *base;
 	u32 intr_shift;
+	u32 disp_num;
+	struct mdss_mdp_ctl *ctl;
 };
 
 struct mdss_mdp_ad {

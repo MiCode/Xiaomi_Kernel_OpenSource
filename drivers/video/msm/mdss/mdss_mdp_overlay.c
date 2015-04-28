@@ -3616,7 +3616,6 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 	struct mdp_histogram_start_req hist_req;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	u32 block;
-	static int req = -1;
 
 	if (!mdata)
 		return -EPERM;
@@ -3625,15 +3624,6 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 	case MSMFB_HISTOGRAM_START:
 		if (mdss_fb_is_power_off(mfd))
 			return -EPERM;
-
-		if (mdata->needs_hist_vote && (mdata->reg_bus_hdl)) {
-			req = msm_bus_scale_client_update_request(
-					mdata->reg_bus_hdl,
-					REG_CLK_CFG_LOW);
-			if (req)
-				pr_err("Updated pp_bus_scale failed, ret = %d",
-						req);
-		}
 
 		ret = copy_from_user(&hist_req, argp, sizeof(hist_req));
 		if (ret)
@@ -3650,20 +3640,13 @@ static int mdss_mdp_histo_ioctl(struct msm_fb_data_type *mfd, u32 cmd,
 		ret = mdss_mdp_hist_stop(block);
 		if (ret)
 			return ret;
-
-		if (mdata->needs_hist_vote && (mdata->reg_bus_hdl && !req)) {
-			req = msm_bus_scale_client_update_request(
-				mdata->reg_bus_hdl,
-				REG_CLK_CFG_OFF);
-			if (req)
-				pr_err("Updated pp_bus_scale failed, ret = %d",
-					req);
-		}
 		break;
 
 	case MSMFB_HISTOGRAM:
-		if (mdss_fb_is_power_off(mfd))
+		if (mdss_fb_is_power_off(mfd)) {
+			pr_err("mfd is turned off MSMFB_HISTOGRAM failed\n");
 			return -EPERM;
+		}
 
 		ret = copy_from_user(&hist, argp, sizeof(hist));
 		if (ret)
