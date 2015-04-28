@@ -53,6 +53,9 @@
 #define STATUS_ERROR(st)	(((st)&0x08) != 0x0)
 #define REG_CNTL1_MODE(reg_cntl1)	(reg_cntl1 & 0x0F)
 
+/*Max Single Measure mode supported frequency */
+#define MAX_SNG_MEASURE_SUPPORTED 20
+
 /* Save last device state for power down */
 struct akm_sensor_state {
 	bool power_on;
@@ -101,6 +104,7 @@ struct akm_compass_data {
 	int	gpio_rstn;
 	bool	power_enabled;
 	bool	use_poll;
+	bool	use_sng_measure;
 	struct	regulator		*vdd;
 	struct	regulator		*vio;
 	struct	akm_sensor_state		state;
@@ -456,7 +460,7 @@ static int AKECS_GetData_Poll(
 
 	/* Check ST bit */
 	if (!(AKM_DRDY_IS_HIGH(buffer[0])))
-		return -EAGAIN;
+		dev_dbg(&akm->i2c->dev, "DRDY is low. Use last value.\n");
 
 	/* Read rest data */
 	buffer[1] = AKM_REG_STATUS + 1;
@@ -874,8 +878,18 @@ static int akm_enable_set(struct sensors_classdev *sensors_cdev,
 
 	if (akm->use_poll && akm->pdata->auto_report) {
 		if (enable) {
-			AKECS_SetMode(akm,
-				AKM_MODE_SNG_MEASURE | AKM8963_BIT_OP_16);
+
+			if (akm->delay[MAG_DATA_FLAG] <
+					MAX_SNG_MEASURE_SUPPORTED) {
+				AKECS_SetMode(akm,
+					AK8963_MODE_CONT2_MEASURE);
+				akm->use_sng_measure = false;
+			} else {
+				AKECS_SetMode(akm,
+							AKM_MODE_SNG_MEASURE
+							| AKM8963_BIT_OP_16);
+				akm->use_sng_measure = true;
+			}
 			queue_delayed_work(akm->data_wq,
 					&akm->dwork,
 					msecs_to_jiffies
@@ -1451,6 +1465,8 @@ static int akm_compass_suspend(struct device *dev)
 
 	akm->state.power_on = akm->power_enabled;
 	if (akm->state.power_on) {
+		if (!akm->use_sng_measure)
+			AKECS_Set_PowerDown(akm);
 		akm_compass_power_set(akm, false);
 		/* Clear status */
 		akm->is_busy = 0;
@@ -1747,6 +1763,7 @@ static void akm_dev_poll(struct work_struct *work)
 	int ret;
 	int mag_x, mag_y, mag_z;
 	int tmp;
+	ktime_t timestamp;
 
 	akm = container_of((struct delayed_work *)work,
 			struct akm_compass_data,  dwork);
@@ -1763,6 +1780,8 @@ static void akm_dev_poll(struct work_struct *work)
 		AKECS_Reset(akm, 0);
 		goto exit;
 	}
+
+	timestamp = ktime_get_boottime();
 
 	tmp = (int)((int16_t)(dat_buf[2]<<8)+((int16_t)dat_buf[1]));
 	tmp = tmp * akm->sense_conf[0] / 256 + tmp / 2;
@@ -1820,6 +1839,12 @@ static void akm_dev_poll(struct work_struct *work)
 	input_report_abs(akm->input, ABS_X, mag_x);
 	input_report_abs(akm->input, ABS_Y, mag_y);
 	input_report_abs(akm->input, ABS_Z, mag_z);
+	input_event(akm->input,
+		EV_SYN, SYN_TIME_SEC,
+		ktime_to_timespec(timestamp).tv_sec);
+	input_event(akm->input,
+		EV_SYN, SYN_TIME_NSEC,
+		ktime_to_timespec(timestamp).tv_nsec);
 	input_sync(akm->input);
 
 	dev_vdbg(&s_akm->i2c->dev,
@@ -1827,10 +1852,12 @@ static void akm_dev_poll(struct work_struct *work)
 			mag_x, mag_y, mag_z);
 
 exit:
-	ret = AKECS_SetMode(akm, AKM_MODE_SNG_MEASURE | AKM8963_BIT_OP_16);
-	if (ret < 0)
-		dev_warn(&akm->i2c->dev, "Failed to set mode\n");
-
+	if (akm->use_sng_measure) {
+		ret = AKECS_SetMode(akm,
+			AKM_MODE_SNG_MEASURE | AKM8963_BIT_OP_16);
+		if (ret < 0)
+			dev_warn(&akm->i2c->dev, "Failed to set mode\n");
+	}
 	if (akm->use_poll)
 		queue_delayed_work(akm->data_wq,
 				&akm->dwork,
@@ -2022,6 +2049,8 @@ int akm8963_compass_probe(
 				"%s: create sysfs failed.", __func__);
 		goto err_destroy_workqueue;
 	}
+
+	input_set_events_per_packet(s_akm->input, 60);
 
 	s_akm->cdev = sensors_cdev;
 	s_akm->cdev.sensors_enable = akm_enable_set;
