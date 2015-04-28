@@ -882,23 +882,20 @@ i915_gem_context_get_current_context(struct intel_engine_cs *ring,
 	struct drm_i915_private *dev_priv;
 	enum context_submission_status status = CONTEXT_SUBMISSION_STATUS_OK;
 
-	if (!current_context || !ring) {
-		WARN(!ring, "Ring is null!\n");
+	if (WARN(!ring, "Ring is null"))
 		return CONTEXT_SUBMISSION_STATUS_UNDEFINED;
-	}
+
+	if (!i915.enable_execlists)
+		return status;
 
 	dev_priv = ring->dev->dev_private;
 
-	if (i915.enable_execlists) {
-		status = intel_execlists_TDR_get_submitted_context(ring,
-				current_context);
-	} else {
-		*current_context = ring->last_context;
-		if (*current_context)
-			i915_gem_context_reference(*current_context);
-	}
+	status = intel_execlists_TDR_get_submitted_context(ring,
+		current_context);
 
-	if (!*current_context) {
+	if (current_context &&
+		(status == CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED)) {
+
 		/* Use default context if nothing has been submitted yet */
 		*current_context = ring->default_context;
 		i915_gem_context_reference(*current_context);

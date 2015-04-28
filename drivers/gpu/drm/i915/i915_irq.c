@@ -3535,7 +3535,6 @@ void i915_hangcheck_sample(struct work_struct *work)
 	struct drm_device *dev;
 	struct drm_i915_private *dev_priv;
 	struct intel_engine_cs *ring;
-	struct intel_context *current_context = NULL;
 	enum context_submission_status status = CONTEXT_SUBMISSION_STATUS_OK;
 	struct intel_ring_hangcheck *hc =
 		container_of(work, typeof(*hc), work.work);
@@ -3550,8 +3549,7 @@ void i915_hangcheck_sample(struct work_struct *work)
 	/* Sample the current state */
 
 	if (i915.enable_execlists)
-		status = i915_gem_context_get_current_context(ring,
-			&current_context);
+		status = i915_gem_context_get_current_context(ring, NULL);
 
 	head = I915_READ_HEAD(ring) & HEAD_ADDR;
 	tail = I915_READ_TAIL(ring) & TAIL_ADDR;
@@ -3693,14 +3691,6 @@ void i915_hangcheck_sample(struct work_struct *work)
 		mod_delayed_work(dev_priv->ring[hc->ringid].hangcheck.wq,
 				&dev_priv->ring[hc->ringid].hangcheck.work,
 				round_jiffies_up_relative(DRM_I915_HANGCHECK_JIFFIES));
-	}
-
-	if (i915.enable_execlists) {
-		unsigned long flags;
-
-		spin_lock_irqsave(&ring->execlist_lock, flags);
-		i915_gem_context_unreference(current_context);
-		spin_unlock_irqrestore(&ring->execlist_lock, flags);
 	}
 }
 

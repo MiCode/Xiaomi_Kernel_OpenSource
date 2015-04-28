@@ -860,9 +860,7 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 	unsigned hw_context = 0;
 	enum context_submission_status status =
 			CONTEXT_SUBMISSION_STATUS_UNDEFINED;
-
-	if (!ctx)
-		return CONTEXT_SUBMISSION_STATUS_UNDEFINED;
+	struct intel_context *tmpctx = NULL;
 
 	gen8_gt_force_wake_get(dev_priv);
 	spin_lock_irqsave(&ring->execlist_lock, flags);
@@ -871,19 +869,19 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 	req = list_first_entry_or_null(&ring->execlist_queue,
 		struct intel_ctx_submit_request, execlist_link);
 
-	*ctx = NULL;
 	if (req) {
 		if (req->ctx) {
-			*ctx = req->ctx;
-			i915_gem_context_reference(*ctx);
+			tmpctx = req->ctx;
+			i915_gem_context_reference(tmpctx);
 		} else {
 			WARN(1, "No context in request %p", req);
 		}
 	}
 
-	if (*ctx) {
+	if (tmpctx) {
 		unsigned sw_context =
-			intel_execlists_ctx_id((*ctx)->engine[ring->id].state);
+			intel_execlists_ctx_id(
+					(tmpctx)->engine[ring->id].state);
 
 		status = ((hw_context == sw_context) && (0 != hw_context)) ?
 			CONTEXT_SUBMISSION_STATUS_OK :
@@ -898,6 +896,11 @@ intel_execlists_TDR_get_submitted_context(struct intel_engine_cs *ring,
 			CONTEXT_SUBMISSION_STATUS_SUBMITTED :
 			CONTEXT_SUBMISSION_STATUS_NONE_SUBMITTED;
 	}
+
+	if (ctx)
+		*ctx = tmpctx;
+	else if (tmpctx)
+		i915_gem_context_unreference(tmpctx);
 
 	spin_unlock_irqrestore(&ring->execlist_lock, flags);
 	gen8_gt_force_wake_put(dev_priv);
