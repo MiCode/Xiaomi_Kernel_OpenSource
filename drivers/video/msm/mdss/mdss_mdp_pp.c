@@ -351,6 +351,7 @@ struct mdss_pp_res_type {
 static DEFINE_MUTEX(mdss_pp_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
 
+static int pp_hist_stop_wrapper(struct msm_fb_data_type *mfd);
 static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
 static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix);
@@ -2177,6 +2178,7 @@ int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 	}
 
 	mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
+	mfd->mdp.stop_histogram = pp_hist_stop_wrapper;
 	return 0;
 }
 
@@ -3585,6 +3587,11 @@ static int pp_hist_disable(struct pp_hist_col_info *hist_info)
 exit:
 	mutex_unlock(&hist_info->hist_mutex);
 	return ret;
+}
+
+static int pp_hist_stop_wrapper(struct msm_fb_data_type *mfd)
+{
+	return mdss_mdp_hist_stop(mfd->index + MDP_LOGICAL_BLOCK_DISP_0);
 }
 
 int mdss_mdp_hist_stop(u32 block)
