@@ -1547,6 +1547,11 @@ static int dwc3_gadget_ep_set_halt(struct usb_ep *ep, int value)
 
 	int				ret;
 
+	if (!ep->desc) {
+		dev_err(dwc->dev, "(%s)'s desc is NULL.\n", dep->name);
+		return -EINVAL;
+	}
+
 	spin_lock_irqsave(&dwc->lock, flags);
 	dbg_event(dep->number, "HALT", value);
 	ret = __dwc3_gadget_ep_set_halt(dep, value, false);
