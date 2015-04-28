@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2007-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2007-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -203,6 +203,7 @@ struct clk {
 	.siblings = LIST_HEAD_INIT((name).siblings), \
 	.list = LIST_HEAD_INIT((name).list)
 
+bool is_rate_valid(struct clk *clk, unsigned long rate);
 int vote_vdd_level(struct clk_vdd_class *vdd_class, int level);
 int unvote_vdd_level(struct clk_vdd_class *vdd_class, int level);
 int __clk_pre_reparent(struct clk *c, struct clk *new, unsigned long *flags);
