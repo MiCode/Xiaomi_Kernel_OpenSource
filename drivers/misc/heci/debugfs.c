@@ -30,7 +30,7 @@ static ssize_t heci_dbgfs_read_meclients(struct file *fp, char __user *ubuf,
 	int i;
 	int pos = 0;
 	int ret;
-
+	unsigned long	flags;
 	if  (!buf)
 		return -ENOMEM;
 
@@ -40,10 +40,10 @@ static ssize_t heci_dbgfs_read_meclients(struct file *fp, char __user *ubuf,
 	/*  if the driver is not enabled the list won't b consitent */
 	if (dev->dev_state != HECI_DEV_ENABLED)
 		goto out;
-
+	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	for (i = 0; i < dev->me_clients_num; i++) {
 		cl = &dev->me_clients[i];
-
+		spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 		/* skip me clients that cannot be connected */
 		if (cl->props.max_number_of_connections == 0)
 			continue;
@@ -55,7 +55,9 @@ static ssize_t heci_dbgfs_read_meclients(struct file *fp, char __user *ubuf,
 			&cl->props.protocol_name,
 			cl->props.max_number_of_connections,
 			cl->props.max_msg_length);
+		spin_lock_irqsave(&dev->me_clients_lock, flags);
 	}
+	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 out:
 	ret = simple_read_from_buffer(ubuf, cnt, ppos, buf, pos);
 	kfree(buf);

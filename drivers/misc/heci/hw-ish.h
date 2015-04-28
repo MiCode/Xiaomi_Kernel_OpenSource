@@ -24,9 +24,9 @@ extern int	suspend_flag;
 extern wait_queue_head_t	suspend_wait;
 
 struct ipc_rst_payload_type {
-    u16            reset_id;
-    u16            reserved;
-} ;
+	u16            reset_id;
+	u16            reserved;
+};
 
 struct ish_hw {
 	void __iomem *mem_addr;
@@ -44,6 +44,19 @@ void ish_set_host_rdy(struct heci_device *dev);
 bool ish_hw_is_ready(struct heci_device *dev);
 void ish_intr_enable(struct heci_device *dev);
 void ish_intr_disable(struct heci_device *dev);
+
+int	write_ipc_from_queue(struct heci_device *dev);
+
+static int	ipc_send_mng_msg(struct heci_device *dev, uint32_t msg_code,
+	void *msg, size_t size);
+
+static int	ipc_send_heci_msg(struct heci_device *dev,
+	struct heci_msg_hdr *hdr, void *msg, void(*ipc_send_compl)(void *),
+	void *ipc_send_compl_prm);
+
+static u32	ish_read_hdr(const struct heci_device *dev);
+
+void g_ish_print_log(char *format, ...);
 
 #endif /* _HECI_HW_ISH_H_ */
 

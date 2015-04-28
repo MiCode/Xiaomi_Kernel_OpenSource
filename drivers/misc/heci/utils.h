@@ -32,7 +32,7 @@
 			completed = (condition); \
 			for (j = jiffies, done = 0; !done; ) { \
 				schedule_timeout(timeinc); \
-				if (jiffies >= j + timeinc) \
+				if (time_is_before_eq_jiffies(j + timeinc)) \
 					done = 1; \
 			} \
 		} while (!(completed)); \
@@ -40,7 +40,8 @@
 
 
 /*
- * Waits for specified event when a thread that triggers event can't signal with timeout (use whenever we may hang)
+ * Waits for specified event when a thread that triggers event
+ * can't signal with timeout (use whenever we may hang)
  */
 #define	timed_wait_for_timeout(timeinc, condition, timeout) \
 	do { \
@@ -51,7 +52,7 @@
 \
 			for (j = jiffies, done = 0; !done; ) { \
 				schedule_timeout(timeinc); \
-				if (jiffies >= j + timeinc) \
+				if (time_is_before_eq_jiffies(j + timeinc)) \
 					done = 1; \
 			} \
 			t -= timeinc; \

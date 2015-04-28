@@ -18,7 +18,8 @@
 #include <linux/device.h>
 #include <linux/uuid.h>
 
-/*typedef void (*heci_cl_event_cb_t)(struct heci_cl_device *device, u32 events, void *context);*/
+/*typedef void (*heci_cl_event_cb_t)(struct heci_cl_device *device, u32 events,
+	void *context);*/
 
 struct heci_cl;
 struct heci_cl_device;
@@ -52,7 +53,8 @@ struct heci_cl_dev_ops {
 	int (*recv)(struct heci_cl_device *device, u8 *buf, size_t length);
 };
 
-struct heci_cl_device *heci_bus_add_device(struct heci_device *dev, uuid_le uuid, char *name, struct heci_cl_dev_ops *ops);
+struct heci_cl_device *heci_bus_add_device(struct heci_device *dev,
+	uuid_le uuid, char *name, struct heci_cl_dev_ops *ops);
 void heci_bus_remove_device(struct heci_cl_device *device);
 
 /**
@@ -79,7 +81,8 @@ struct heci_cl_device {
 	struct list_head	device_link;
 	const struct heci_cl_dev_ops *ops;
 	struct work_struct event_work;
-	void (*event_cb)(struct heci_cl_device *device, u32 events, void *context);
+	void (*event_cb)(struct heci_cl_device *device, u32 events,
+		void *context);
 	void *event_context;
 	unsigned long events;
 	void *priv_data;
@@ -89,16 +92,19 @@ struct heci_cl_driver {
 	struct device_driver driver;
 	const char *name;
 	const struct heci_cl_device_id *id_table;
-	int (*probe)(struct heci_cl_device *dev, const struct heci_cl_device_id *id);
+	int (*probe)(struct heci_cl_device *dev,
+		const struct heci_cl_device_id *id);
 	int (*remove)(struct heci_cl_device *dev);
 };
 
-int __heci_cl_driver_register(struct heci_cl_driver *driver, struct module *owner);
+int __heci_cl_driver_register(struct heci_cl_driver *driver,
+	struct module *owner);
 #define heci_cl_driver_register(driver)             \
 	__heci_cl_driver_register(driver, THIS_MODULE)
 
 void heci_cl_driver_unregister(struct heci_cl_driver *driver);
-int heci_register_event_cb(struct heci_cl_device *device, void (*read_cb)(struct heci_cl_device *, u32, void *), void *context);
+int heci_register_event_cb(struct heci_cl_device *device,
+	void (*read_cb)(struct heci_cl_device *, u32, void *), void *context);
 
 #define HECI_CL_EVENT_RX 0
 #define HECI_CL_EVENT_TX 1

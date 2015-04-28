@@ -508,8 +508,10 @@ static const struct sensor_map {
 	{0,	0}
 };
 
-static const char *modifiers[16] = {"none", "chg_sensitivity_abs", "max", "min", "accuracy", "resolution", "thres_high", "thres_low",
-	"calibration_offset", "calibration_multiplier", "report_interval", "freq_max", "period_max", "chg_sensitivity_percent_range",
+static const char *modifiers[16] = {"none", "chg_sensitivity_abs", "max", "min",
+	"accuracy", "resolution", "thres_high", "thres_low",
+	"calibration_offset", "calibration_multiplier", "report_interval",
+	"freq_max", "period_max", "chg_sensitivity_percent_range",
 	"chg_sensitivity_percent_rel", "custom"};
 
 

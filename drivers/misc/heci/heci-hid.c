@@ -22,25 +22,15 @@
 #include "platform-config.h"
 #include "client.h"
 
-/* TODO - figure out if this number is used for anything but assignment. BUS_I2C is not */
+/*
+ * TODO - figure out if this number is used for anything but assignment.
+ * BUS_I2C is not
+ */
 #define	BUS_HECI	0x44
 /* TODO: just to bootstrap, numbers will probably change */
 #define	ISH_HID_VENDOR	0x8086
 #define	ISH_HID_PRODUCT	0x22D8
 #define	ISH_HID_VERSION	0x0200
-
-extern unsigned char	*report_descr[MAX_HID_DEVICES];
-extern int	report_descr_size[MAX_HID_DEVICES];
-extern struct device_info	*hid_devices;
-extern int	may_send;
-extern int	get_report_done;			/* Get Feature/Input report complete flag */
-extern unsigned	cur_hid_dev;
-extern struct hid_device	*hid_sensor_hubs[MAX_HID_DEVICES];
-extern unsigned	num_hid_devices;
-extern struct heci_cl  *hid_heci_cl;			/* HECI client */
-
-void hid_heci_set_feature(struct hid_device *hid, char *buf, unsigned len, int report_id);
-void hid_heci_get_report(struct hid_device *hid, int report_id, int report_type);
 
 static int heci_hid_parse(struct hid_device *hid)
 {
@@ -48,13 +38,18 @@ static int heci_hid_parse(struct hid_device *hid)
 
 	ISH_DBG_PRINT(KERN_ALERT "[hid-heci]: %s():+++\n", __func__);
 
-	rv = hid_parse_report(hid, report_descr[cur_hid_dev], report_descr_size[cur_hid_dev]);
+	rv = hid_parse_report(hid, report_descr[cur_hid_dev],
+		report_descr_size[cur_hid_dev]);
 	if (rv) {
-		ISH_DBG_PRINT(KERN_ALERT "[heci-hid] %s(): parsing report descriptor failed\n", __func__);
+		ISH_DBG_PRINT(KERN_ALERT
+			"[heci-hid] %s(): parsing report descriptor failed\n",
+			__func__);
 		return	rv;
 	}
 
-	ISH_DBG_PRINT(KERN_ALERT "[heci-hid] %s(): parsing report descriptor succeeded\n", __func__);
+	ISH_DBG_PRINT(KERN_ALERT
+		"[heci-hid] %s(): parsing report descriptor succeeded\n",
+		__func__);
 	return 0;
 }
 
@@ -89,9 +84,11 @@ static int heci_hid_power(struct hid_device *hid, int lvl)
 
 
 
-static void heci_hid_request(struct hid_device *hid, struct hid_report *rep, int reqtype)
+static void heci_hid_request(struct hid_device *hid, struct hid_report *rep,
+	int reqtype)
 {
-	unsigned len = ((rep->size - 1) >> 3) + 1 + (rep->id > 0);	/* this is specific report length, just HID part of it */
+	/* the specific report length, just HID part of it */
+	unsigned len = ((rep->size - 1) >> 3) + 1 + (rep->id > 0);
 	char *buf;
 	/* s32 checkValue = 0; */
 	/* int i = 0; */
@@ -105,9 +102,13 @@ static void heci_hid_request(struct hid_device *hid, struct hid_report *rep, int
 		break;
 	case HID_REQ_SET_REPORT:
 		buf = kzalloc(len, GFP_KERNEL);
+		if (!buf)
+			return;
 		hid_output_report(rep, buf + header_size);
 	/* checkValue = rep->field[3]->value[0]; */
-	/* ISH_DBG_PRINT(KERN_ALERT "[hid-ish]: %s(): after hid_output_report value is %d\n", __func__, checkValue);	 */
+	/* ISH_DBG_PRINT(KERN_ALERT
+		"[hid-ish]: %s(): after hid_output_report value is %d\n",
+		__func__, checkValue);	 */
 	/* for(;i < len; i++) */
 	/*   ISH_DBG_PRINT("\n%d %d\n", i, (int) buf[i]); */
 		hid_heci_set_feature(hid, buf, len, rep->id);
@@ -164,17 +165,23 @@ struct tmp_heci_data {
 	struct task_struct	*read_task;
 };
 
-static int heci_hid_get_raw_report(struct hid_device *hid, unsigned char report_number, __u8 *buf, size_t count, unsigned char report_type)
+static int heci_hid_get_raw_report(struct hid_device *hid,
+	unsigned char report_number, __u8 *buf, size_t count,
+	unsigned char report_type)
 {
 	return	0;
 }
 
-static int heci_hid_output_raw_report(struct hid_device *hid, __u8 *buf, size_t count, unsigned char report_type)
+static int heci_hid_output_raw_report(struct hid_device *hid, __u8 *buf,
+	size_t count, unsigned char report_type)
 {
 	return	0;
 }
 
-/* probably the best way make it driver probe so it will create device with itself as ll_driver, as usb and i2c do */
+/*
+ * probably the best way make it driver probe so it will create device with
+ * itself as ll_driver, as usb and i2c do
+ */
 int	heci_hid_probe(unsigned cur_hid_dev)
 {
 	int rv;
@@ -198,12 +205,14 @@ int	heci_hid_probe(unsigned cur_hid_dev)
 	hid->vendor = le16_to_cpu(ISH_HID_VENDOR);
 	hid->product = le16_to_cpu(ISH_HID_PRODUCT);
 
-	snprintf(hid->name, sizeof(hid->name), "%s %04hX:%04hX", "hid-heci", hid->vendor, hid->product);
+	snprintf(hid->name, sizeof(hid->name), "%s %04hX:%04hX", "hid-heci",
+		hid->vendor, hid->product);
 
 	rv = hid_add_device(hid);
 	if (rv) {
 		if (rv != -ENODEV)
-			printk(KERN_ERR "[hid-heci]: can't add HID device: %d\n", rv);
+			hid_err(hid, "[hid-heci]: can't add HID device: %d\n",
+				rv);
 		kfree(hid);
 		return	rv;
 	}
@@ -234,7 +243,6 @@ void	heci_hid_remove(void)
 
 void register_flush_cb(void (*flush_cb_func)(void))
 {
-dev_err(NULL, "%s() +++\n", __func__);
 	flush_cb = flush_cb_func;
 }
 EXPORT_SYMBOL_GPL(register_flush_cb);

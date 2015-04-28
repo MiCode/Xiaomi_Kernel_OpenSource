@@ -17,7 +17,7 @@
 #define PLATFORM_CONFIG__H
 
 /* Build ID string */
-#define	BUILD_ID	"imin-0170-sync-send-ipc-fc-send-frag-rc-fix"
+#define	BUILD_ID	"0174-imin-reset-flow-private-prop"
 
 #define	ISH_DEBUG	0
 #if ISH_DEBUG
@@ -33,14 +33,13 @@
 #define	ISH_INFO_PRINT	no_printk
 #endif
 
-/* Define for ISH internal logging facility */
-#if 0
 #define ISH_LOG		1
-#endif
-
 
 #if 0
-/* Define if running on VirtualBox - may solve imprecise timer emulation problems */
+/*
+ * Define if running on VirtualBox -
+ * may solve imprecise timer emulation problems
+ */
 #define	HOST_VIRTUALBOX	1
 #endif
 
@@ -70,7 +69,7 @@
 #endif
 #endif
 
-#if defined(SUPPORT_A0_ONLY) && defined (SUPPORT_B0_ONLY)
+#if defined(SUPPORT_A0_ONLY) && defined(SUPPORT_B0_ONLY)
 #error Only one of SUPPORT_A0_ONLY and SUPPORT_B0_ONLY may be defined
 #endif
 
@@ -107,13 +106,15 @@ static void	do_mutex_unlock(void *m)
 
 #define mutex_lock(a) \
 	do {\
-		printk(KERN_ALERT "%s:%d[%s] -- mutex_lock(%p)\n", __FILE__, __LINE__, __func__, a);	\
+		dev_warn(NULL, "%s:%d[%s] -- mutex_lock(%p)\n",	\
+			__FILE__, __LINE__, __func__, a);	\
 		do_mutex_lock(a);	\
 	} while (0)
 
 #define mutex_unlock(a) \
 	do {\
-		printk(KERN_ALERT "%s:%d[%s] -- mutex_unlock(%p)\n", __FILE__, __LINE__, __func__, a);	\
+		dev_warn(NULL, "%s:%d[%s] -- mutex_unlock(%p)\n",	\
+			__FILE__, __LINE__, __func__, a);	\
 		do_mutex_unlock(a);	\
 	} while (0)
 #endif /* DEBUG_LOCK */

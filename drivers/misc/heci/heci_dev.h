@@ -29,7 +29,10 @@
 /* Number of messages to be held in ISR->BH FIFO */
 #define	RD_INT_FIFO_SIZE	64
 #define	IPC_FULL_MSG_SIZE	132
-/* Number of IPC messages to be held in Tx FIFO, to be sent by ISR - Tx complete interrupt or RX_COMPLETE handler */
+/*
+ * Number of IPC messages to be held in Tx FIFO, to be sent by ISR -
+ * Tx complete interrupt or RX_COMPLETE handler
+ */
 #define	IPC_TX_FIFO_SIZE	512
 
 /*
@@ -104,7 +107,8 @@ struct heci_cl_rb {
 
 
 struct wr_msg_ctl_info {
-	void	(*ipc_send_compl)(void *);	/* Will be called with 'ipc_send_compl_prm' as parameter */
+	void	(*ipc_send_compl)(void *);	/* Will be called with
+					'ipc_send_compl_prm' as parameter */
 	void	*ipc_send_compl_prm;
 	size_t length;
 	struct list_head	link;
@@ -121,14 +125,18 @@ struct wr_msg_ctl_info {
  * @write            - write a message to FW
  */
 struct heci_hw_ops {
-	bool (*host_is_ready) (struct heci_device *dev);
-	bool (*hw_is_ready) (struct heci_device *dev);
-	int (*hw_reset) (struct heci_device *dev, bool enable);
-	int  (*hw_start) (struct heci_device *dev);
-	void (*hw_config) (struct heci_device *dev);
-	int (*write)(struct heci_device *dev, struct heci_msg_hdr *hdr, unsigned char *buf);
-	int (*write_ex)(struct heci_device *dev, struct heci_msg_hdr *hdr, void *msg, void(*ipc_send_compl)(void *), void *ipc_send_compl_prm);
-	int (*read)(struct heci_device *dev, unsigned char *buffer, unsigned long buffer_length);
+	bool (*host_is_ready)(struct heci_device *dev);
+	bool (*hw_is_ready)(struct heci_device *dev);
+	int (*hw_reset)(struct heci_device *dev, bool enable);
+	int (*hw_start)(struct heci_device *dev);
+	void (*hw_config)(struct heci_device *dev);
+	int (*write)(struct heci_device *dev, struct heci_msg_hdr *hdr,
+		unsigned char *buf);
+	int (*write_ex)(struct heci_device *dev, struct heci_msg_hdr *hdr,
+		void *msg, void(*ipc_send_compl)(void *),
+		void *ipc_send_compl_prm);
+	int (*read)(struct heci_device *dev, unsigned char *buffer,
+		unsigned long buffer_length);
 	u32 (*get_fw_status)(struct heci_device *dev);
 };
 
@@ -154,12 +162,14 @@ struct heci_device {
 	 * list of heci_cl's (formerly: files)
 	 */
 	struct list_head cl_list;
+	spinlock_t      cl_list_lock;
 	long open_handle_count;			/* Why's this?.. */
 
 	/*
 	 * lock for the device
+	 * for everything that doesn't have a dedicated spinlock
 	 */
-	spinlock_t	device_lock;		/* device lock - for everything that doesn't have a dedicated spinlock */
+	spinlock_t	device_lock;
 
 	bool recvd_hw_ready;
 	/*
@@ -182,25 +192,37 @@ struct heci_device {
 	struct work_struct	bh_hbm_work;
 
 #if 0
-	/* FIFO for output IPC messages. Includes also HECI/IPC header to be supplied in DRBL (first dword) */
+	/*
+	 * FIFO for output IPC messages. Includes also HECI/IPC header
+	 * to be supplied in DRBL (first dword)
+	 */
 	unsigned char	wr_msg_fifo[IPC_TX_FIFO_SIZE * IPC_FULL_MSG_SIZE];
 #endif
 	/*
-	 * Control info for IPC messages HECI/IPC sending FIFO - list with inline data buffer
-	 * This structure will be filled with parameters submitted by the caller glue layer
+	 * Control info for IPC messages HECI/IPC sending FIFO -
+	 * list with inline data buffer
+	 * This structure will be filled with parameters submitted
+	 * by the caller glue layer
 	 * 'buf' may be pointing to the external buffer or to 'inline_data'
 	 * 'offset' will be initialized to 0 by submitting
 	 *
-	 * 'ipc_send_compl' is intended for use by clients that send fragmented messages. When a fragment is sent down to IPC msg regs, it will be called.
-	 * If it has more fragments to send, it will do it. With last fragment it will send appropriate HECI "message-complete" flag.
-	 * It will remove the outstanding message (mark outstanding buffer as available).
-	 * If counting flow control is in work and there are more flow control credits, it can put the next client message queued in cl. structure for IPC processing.
+	 * 'ipc_send_compl' is intended for use by clients that send fragmented
+	 * messages. When a fragment is sent down to IPC msg regs,
+	 * it will be called.
+	 * If it has more fragments to send, it will do it. With last fragment
+	 * it will send appropriate HECI "message-complete" flag.
+	 * It will remove the outstanding message
+	 * (mark outstanding buffer as available).
+	 * If counting flow control is in work and there are more flow control
+	 * credits, it can put the next client message queued in cl.
+	 * structure for IPC processing.
 	 *
 	 * (!) We can work on FIFO list or cyclic FIFO in an array
 	 */
 
 	struct wr_msg_ctl_info wr_processing_list_head, wr_free_list_head;
-	spinlock_t	wr_processing_spinlock;		/* For both processing and free lists */
+	spinlock_t wr_processing_spinlock;	/* For both processing
+						   and free lists */
 	spinlock_t	out_ipc_spinlock;
 /*
 	unsigned	wr_msg_fifo_head, wr_msg_fifo_tail;
@@ -213,9 +235,10 @@ struct heci_device {
 	u8 me_clients_num;
 	u8 me_client_presentation_num;
 	u8 me_client_index;
-
+	spinlock_t      me_clients_lock;
 	/* List of bus devices */
 	struct list_head device_list;
+	spinlock_t      device_list_lock;
 
 	/* buffer to save prints from driver */
 	unsigned char log_buffer[PRINT_BUFFER_SIZE];
@@ -287,7 +310,8 @@ static inline bool heci_hw_is_ready(struct heci_device *dev)
 	return dev->ops->hw_is_ready(dev);
 }
 
-static inline int heci_write_message(struct heci_device *dev, struct heci_msg_hdr *hdr, unsigned char *buf)
+static inline int heci_write_message(struct heci_device *dev,
+	struct heci_msg_hdr *hdr, unsigned char *buf)
 {
 	return dev->ops->write_ex(dev, hdr, buf, NULL, NULL);
 }
@@ -310,9 +334,9 @@ void heci_deregister(struct heci_device *dev);
 void    heci_bus_remove_all_clients(struct heci_device *heci_dev);
 
 #define HECI_HDR_FMT "hdr:host=%02d me=%02d len=%d comp=%1d"
-#define HECI_HDR_PRM(hdr)                  \
-	(hdr)->host_addr, (hdr)->me_addr, \
-	(hdr)->length, (hdr)->msg_complete
+#define HECI_HDR_PRM(hdr)		\
+	((hdr)->host_addr, (hdr)->me_addr,	\
+	(hdr)->length, (hdr)->msg_complete)
 
-#endif
+#endif /*_HECI_DEV_H_*/
 

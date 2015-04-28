@@ -888,4 +888,4 @@
 #define USB_VENDOR_ID_PRIMAX	0x0461
 #define USB_DEVICE_ID_PRIMAX_KEYBOARD	0x4e05
 
-#endif
+#endif /*HID_IDS_H_FILE*/

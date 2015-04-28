@@ -57,7 +57,10 @@ void heci_device_init(struct heci_device *dev)
 	init_waitqueue_head(&dev->wait_dma_ready);
 	dev->dev_state = HECI_DEV_INITIALIZING;
 
-	/* We need to reserve something, because client #0 is reserved for HECI bus messages */
+	/*
+	 * We need to reserve something, because client #0
+	 * is reserved for HECI bus messages
+	 */
 	bitmap_zero(dev->host_clients_map, HECI_CLIENTS_MAX);
 	dev->open_handle_count = 0;
 
@@ -81,14 +84,21 @@ void heci_device_init(struct heci_device *dev)
 		for (i = 0; i < IPC_TX_FIFO_SIZE; ++i) {
 			struct wr_msg_ctl_info	*tx_buf;
 
-			tx_buf = kmalloc(sizeof(struct wr_msg_ctl_info), GFP_KERNEL);
+			tx_buf = kmalloc(sizeof(struct wr_msg_ctl_info),
+				GFP_KERNEL);
 			if (!tx_buf) {
-				/* ERROR: decide what to do with it. IPC buffers may be limited or not available at all - although this shouldn't happen */
-				printk(KERN_ERR "[heci-ish]: failure in Tx FIFO allocations (%d)\n", i);
+				/*
+				 * ERROR: decide what to do with it.
+				 * IPC buffers may be limited or not available
+				 * at all - although this shouldn't happen
+				 */
+				dev_err(&dev->pdev->dev, "[heci-ish]: failure in Tx FIFO allocations (%d)\n",
+					i);
 				break;
 			}
 			memset(tx_buf, 0, sizeof(struct wr_msg_ctl_info));
-			list_add_tail(&tx_buf->link, &dev->wr_free_list_head.link);
+			list_add_tail(&tx_buf->link,
+				&dev->wr_free_list_head.link);
 		}
 		printk(KERN_ALERT "[heci-ish]: success Tx FIFO allocations\n");
 	} while (0);
@@ -112,15 +122,22 @@ int heci_start(struct heci_device *dev)
 	 * Once this was 10 seconds, lowered to 2.
 	 * TODO: check out all FW ISS/SEC path how much it should be */
 
-	/*timed_wait_for_timeout(WAIT_FOR_CONNECT_SLICE, dev->recvd_hw_ready, (10*HZ));*/
+	/*timed_wait_for_timeout(WAIT_FOR_CONNECT_SLICE, dev->recvd_hw_ready,
+		(10*HZ));*/
 	if (!dev->recvd_hw_ready)
-		wait_event_timeout(dev->wait_hw_ready, dev->recvd_hw_ready, 10*HZ);
-	/* Lock only after FW-reset flow worked or failed. Otherwise interrupts BH will be locked */
+		wait_event_timeout(dev->wait_hw_ready, dev->recvd_hw_ready,
+			10*HZ);
+	/*
+	 * Lock only after FW-reset flow worked or failed.
+	 * otherwise interrupts BH will be locked
+	 */
 	if (dev->recvd_hw_ready)
 		goto	reset_done;
-	dev_err(&dev->pdev->dev, "[heci-ish] %s(): Timed out waiting for FW-initiated reset\n", __func__);
+	dev_err(&dev->pdev->dev, "[heci-ish] %s(): Timed out waiting for FW-initiated reset\n",
+		__func__);
 #if 1
-	goto	err; /* DEBUGDEBUGDEBUG: raise timeout for FW-initiated reset to 10 s and don't sent host-initiated reset flow */
+	goto	err;	/* DEBUGDEBUGDEBUG: raise timeout for FW-initiated reset
+			 * to 10 s and don't sent host-initiated reset flow */
 #endif
 	/* DEBUGDEBUGDEBUG: Below code until 'reset_done:' is defunct */
 #else
@@ -197,8 +214,6 @@ void heci_reset(struct heci_device *dev, int interrupts_enabled)
 		heci_cl_all_disconnect(dev);
 	}
 
-	dev->me_clients_num = 0;
-
 	if (unexpected)
 		dev_warn(&dev->pdev->dev, "unexpected reset: dev_state = %s\n",
 			 heci_dev_state_str(dev->dev_state));
@@ -221,7 +236,8 @@ void heci_reset(struct heci_device *dev, int interrupts_enabled)
 	dev->dev_state = HECI_DEV_INIT_CLIENTS;
 	dev->hbm_state = HECI_HBM_START;
 	heci_hbm_start_req(dev);
-	ISH_DBG_PRINT(KERN_ALERT "%s(): after heci_hbm_start_req()\n", __func__);
+	ISH_DBG_PRINT(KERN_ALERT "%s(): after heci_hbm_start_req()\n",
+		__func__);
 	/* wake up all readings so they can be interrupted */
 	heci_cl_all_read_wakeup(dev);
 }

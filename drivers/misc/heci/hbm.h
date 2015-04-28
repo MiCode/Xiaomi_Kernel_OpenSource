@@ -355,6 +355,7 @@ void send_resume(struct heci_device *dev);
 void query_subscribers(struct heci_device *dev);
 
 void recv_fixed_cl_msg(struct heci_device *dev, struct heci_msg_hdr *heci_hdr);
+void heci_hbm_dispatch(struct heci_device *dev, struct heci_bus_message *hdr);
 
 #endif /* _HECI_HBM_H_ */
 

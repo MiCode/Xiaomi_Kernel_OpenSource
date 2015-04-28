@@ -49,8 +49,6 @@ static  void no_dev_dbg(void *v, char *s, ...)
 #define dev_dbg no_dev_dbg
 /*#define dev_dbg dev_err*/
 
-extern int	host_dma_enabled;
-
 /**
  * heci_open - the open function
  *
@@ -67,6 +65,7 @@ static int heci_open(struct inode *inode, struct file *file)
 	struct heci_device *dev;
 	int err;
 
+	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	/* Non-blocking semantics are not supported */
 	if (file->f_flags & O_NONBLOCK)
 		return	-EINVAL;
@@ -86,15 +85,16 @@ static int heci_open(struct inode *inode, struct file *file)
 	if (!cl)
 		goto out_free;
 
-	/* We may have a case of issued open() with dev->dev_state == HECI_DEV_DISABLED, as part of re-enabling path */
-#if 0
+	/*
+	 * We may have a case of issued open() with
+	 * dev->dev_state == HECI_DEV_DISABLED, as part of re-enabling path
+	 */
 	err = -ENODEV;
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		dev_dbg(&dev->pdev->dev, "dev_state != HECI_ENABLED  dev_state = %s\n",
 		    heci_dev_state_str(dev->dev_state));
 		goto out_free;
 	}
-#endif
 
 	err = heci_cl_link(cl, HECI_HOST_CLIENT_ID_ANY);
 	if (err)
@@ -107,6 +107,7 @@ static int heci_open(struct inode *inode, struct file *file)
 out_free:
 	kfree(cl);
 out:
+	ISH_DBG_PRINT(KERN_ALERT "%s(): ---\n", __func__);
 	return err;
 }
 
@@ -123,36 +124,42 @@ static int heci_release(struct inode *inode, struct file *file)
 	struct heci_cl *cl = file->private_data;
 	struct heci_device *dev;
 	int rets = 0;
+	unsigned int flags;
 
+	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	if (WARN_ON(!cl || !cl->dev))
 		return -ENODEV;
 
 	dev = cl->dev;
 
-	/* May happen if device sent FW reset or was intentionally halted by host SW. The client is then invalid */
+	/*
+	 * May happen if device sent FW reset or was intentionally
+	 * halted by host SW. The client is then invalid
+	 */
 	if (dev->dev_state != HECI_DEV_ENABLED)
 		return	0;
 
 	if (cl->state == HECI_CL_CONNECTED) {
 		cl->state = HECI_CL_DISCONNECTING;
-		dev_dbg(&dev->pdev->dev,
-			"disconnecting client host client = %d, "
-		    "ME client = %d\n",
-		    cl->host_client_id,
-		    cl->me_client_id);
+		dev_dbg(&dev->pdev->dev, "disconnecting client host client = %d, ME client = %d\n",
+			cl->host_client_id, cl->me_client_id);
 		rets = heci_cl_disconnect(cl);
 	}
-	heci_cl_flush_queues(cl);
+
 	dev_dbg(&dev->pdev->dev, "remove client host client = %d, ME client = %d\n",
 	    cl->host_client_id,
 	    cl->me_client_id);
 
 	heci_cl_unlink(cl);
-
+	heci_cl_flush_queues(cl);
 	file->private_data = NULL;
 
 	/* disband and free all Tx and Rx client-level rings */
+	spin_lock_irqsave(&dev->cl_list_lock, flags);
 	heci_cl_free(cl);
+	spin_unlock_irqrestore(&dev->cl_list_lock, flags);
+
+	ISH_DBG_PRINT(KERN_ALERT "%s(): ---\n", __func__);
 	return rets;
 }
 
@@ -184,14 +191,15 @@ static ssize_t heci_read(struct file *file, char __user *ubuf,
 		return -ENODEV;
 
 	dev = cl->dev;
-dev->print_log(dev, "%s() +++, *offset=%d\n", __func__, *offset);
 	if (dev->dev_state != HECI_DEV_ENABLED) {
-dev->print_log(dev, "%s() dev_state is not HECI_DEV_ENABLED\n");
 		rets = -ENODEV;
 		goto out;
 	}
 
-/* EXPLAINME: handle reading message by fragments smaller than actual message size. Why needed? Reportedly, doesn't work: why? */
+/*
+ * EXPLAINME: handle reading message by fragments smaller than
+ * actual message size. Why needed? Reportedly, doesn't work: why?
+ */
 #if 0
 	if (cl->read_rb && cl->read_rb->buf_idx > *offset) {
 		rb = cl->read_rb;
@@ -202,7 +210,6 @@ dev->print_log(dev, "%s() dev_state is not HECI_DEV_ENABLED\n");
 		rets = 0;
 		goto free;
 	} else if ((!cl->read_rb || !cl->read_rb->buf_idx) && *offset > 0) {
-dev->print_log(dev, "%s(): in if to reset offset\n", __func__);
 		/*Offset needs to be cleaned for contiguous reads*/
 		*offset = 0;
 		rets = 0;
@@ -210,33 +217,36 @@ dev->print_log(dev, "%s(): in if to reset offset\n", __func__);
 	}
 #endif
 
-/*****************************************/
 	spin_lock_irqsave(&cl->in_process_spinlock, flags);
 	if (!list_empty(&cl->in_process_list.list)) {
-dev->print_log(dev, "%s(): there is some msg in in_process_list, read it\n", __func__);
-		rb = list_entry(cl->in_process_list.list.next, struct heci_cl_rb, list);
+		rb = list_entry(cl->in_process_list.list.next,
+			struct heci_cl_rb, list);
 		list_del_init(&rb->list);
 		spin_unlock_irqrestore(&cl->in_process_spinlock, flags);
 		goto copy_buffer;
 	}
 	spin_unlock_irqrestore(&cl->in_process_spinlock, flags);
-/*****************************************/
 
 	if (waitqueue_active(&cl->rx_wait)) {
 		rets = -EBUSY;
 		goto out;
 	}
 
-dev->print_log(dev, "%s(): before wait_event_interruptible\n", __func__);
 	if (wait_event_interruptible(cl->rx_wait,
 			(dev->dev_state == HECI_DEV_ENABLED &&
-			(cl->read_rb || HECI_CL_INITIALIZING == cl->state || HECI_CL_DISCONNECTED == cl->state || HECI_CL_DISCONNECTING == cl->state)))) {
-		printk(KERN_ALERT "%s(): woke up not in success; sig. pending = %d signal = %08lX\n", __func__, signal_pending(current), current->pending.signal.sig[0]);
+			(cl->read_rb || HECI_CL_INITIALIZING == cl->state ||
+			HECI_CL_DISCONNECTED == cl->state ||
+			HECI_CL_DISCONNECTING == cl->state)))) {
+		dev_err(&dev->pdev->dev, "%s(): woke up not in success; sig. pending = %d signal = %08lX\n",
+			__func__, signal_pending(current),
+			current->pending.signal.sig[0]);
 		return	-ERESTARTSYS;
 	}
-dev->print_log(dev, "%s(): after wait_event_interruptible\n", __func__);
 
-	/* If FW reset arrived, this will happen. Don't check cl->, as 'cl' may be freed already */
+	/*
+	 * If FW reset arrived, this will happen. Don't check cl->,
+	 * as 'cl' may be freed already
+	 */
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		rets = -ENODEV;
 		goto	out;
@@ -250,7 +260,6 @@ dev->print_log(dev, "%s(): after wait_event_interruptible\n", __func__);
 	}
 
 	rb = cl->read_rb;
-dev->print_log(dev,"%s(): rb[%p] content %02X %02X %02X %02X\n", __func__,rb, rb->buffer.data[0], rb->buffer.data[1], rb->buffer.data[2], rb->buffer.data[3]);
 	if (!rb) {
 		rets = -ENODEV;
 		goto out;
@@ -258,10 +267,8 @@ dev->print_log(dev,"%s(): rb[%p] content %02X %02X %02X %02X\n", __func__,rb, rb
 
 	/* now copy the data to user space */
 copy_buffer:
-dev->print_log(dev, "%s(): copy_buffer\n", __func__);
 	dev_dbg(&dev->pdev->dev, "buf.size = %d buf.idx= %ld\n",
 	    rb->buffer.size, rb->buf_idx);
-dev->print_log(dev, "%s(): length=%d, ubuf=%p, *offset=%d, rb->buf_idx=%d\n", __func__, length, ubuf, *offset, rb->buf_idx);
 	if (length == 0 || ubuf == NULL || *offset > rb->buf_idx) {
 		rets = -EMSGSIZE;
 		goto free;
@@ -282,14 +289,11 @@ dev->print_log(dev, "%s(): length=%d, ubuf=%p, *offset=%d, rb->buf_idx=%d\n", __
 		goto out;
 
 free:
-dev->print_log(dev, "%s(): in free label\n", __func__);
-dev->print_log(dev, "%s(): return rb[%p] to free_list\n", __func__, rb);
 	heci_io_rb_recycle(rb);
 
 	cl->read_rb = NULL;
 	*offset = 0;
 out:
-dev->print_log(dev, "%s(): end heci read rets= %d\n", __func__, rets);
 	dev_dbg(&dev->pdev->dev, "end heci read rets= %d\n", rets);
 	return rets;
 }
@@ -305,11 +309,15 @@ dev->print_log(dev, "%s(): end heci read rets= %d\n", __func__, rets);
  *
  * returns >=0 data length on success , <0 on error
  */
-static ssize_t heci_write(struct file *file, const char __user *ubuf, size_t length, loff_t *offset)
+static ssize_t heci_write(struct file *file, const char __user *ubuf,
+	size_t length, loff_t *offset)
 {
 	struct heci_cl *cl = file->private_data;
 
-	/* TODO: we may further optimize write path by obtaining and directly copy_from_user'ing to tx_ring's buffer */
+	/*
+	 * TODO: we may further optimize write path by obtaining and directly
+	 * copy_from_user'ing to tx_ring's buffer
+	 */
 	void *write_buf = NULL;
 	struct heci_device *dev;
 	int rets;
@@ -322,7 +330,6 @@ static ssize_t heci_write(struct file *file, const char __user *ubuf, size_t len
 		return -ENODEV;
 
 	dev = cl->dev;
-dev->print_log(dev, "%s(): +++\n", __func__);
 
 	if (dev->dev_state != HECI_DEV_ENABLED) {
 		rets = -ENODEV;
@@ -344,7 +351,9 @@ dev->print_log(dev, "%s(): +++\n", __func__);
 	/* FIXME: check for DMA size for clients that accept DMA transfers */
 	if (length > cl->device->fw_client->props.max_msg_length) {
 		/* If the client supports DMA, try to use it */
-		if (!(host_dma_enabled && cl->device->fw_client->props.dma_hdr_len & HECI_CLIENT_DMA_ENABLED)) {
+		if (!(host_dma_enabled &&
+				cl->device->fw_client->props.dma_hdr_len &
+				HECI_CLIENT_DMA_ENABLED)) {
 			rets = -EMSGSIZE;
 			goto out;
 		}
@@ -360,22 +369,15 @@ dev->print_log(dev, "%s(): +++\n", __func__);
 	rets = copy_from_user(write_buf, ubuf, length);
 	if (rets)
 		goto out;
-dev->print_log(dev, "%s() call heci_cl_write\n", __func__);
 	rets = heci_cl_send(cl, write_buf, length);
-dev->print_log(dev, "%s() heci_cl_write returned %d\n", __func__, rets);
 	if (!rets)
 		rets = length;
 	else
 		rets = -EIO;
 out:
-	if (write_buf)
-		kfree(write_buf);
+	kfree(write_buf);
 	return rets;
 }
-
-
-int     heci_can_client_connect(struct heci_device *heci_dev, uuid_le *uuid);
-
 
 /**
  * heci_ioctl_connect_client - the connect to fw client IOCTL function
@@ -388,13 +390,15 @@ int     heci_can_client_connect(struct heci_device *heci_dev, uuid_le *uuid);
  *
  * returns 0 on success, <0 on failure.
  */
-static int heci_ioctl_connect_client(struct file *file, struct heci_connect_client_data *data)
+static int heci_ioctl_connect_client(struct file *file,
+	struct heci_connect_client_data *data)
 {
 	struct heci_device *dev;
 	struct heci_client *client;
 	struct heci_cl *cl;
 	int i;
 	int rets;
+	unsigned long flags;
 
 	ISH_DBG_PRINT(KERN_ALERT "%s(): +++\n", __func__);
 	cl = file->private_data;
@@ -416,13 +420,14 @@ static int heci_ioctl_connect_client(struct file *file, struct heci_connect_clie
 
 	/* find ME client we're trying to connect to */
 	i = heci_me_cl_by_uuid(dev, &data->in_client_uuid);
+	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	if (i < 0 || dev->me_clients[i].props.fixed_address) {
 		dev_dbg(&dev->pdev->dev, "Cannot connect to FW Client UUID = %pUl\n",
 				&data->in_client_uuid);
 		rets = -ENODEV;
 		goto end;
 	}
-
+	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 	/* Check if there's driver attached to this UUID */
 	if (!heci_can_client_connect(dev, &data->in_client_uuid))
 		return	-EBUSY;
@@ -432,17 +437,19 @@ static int heci_ioctl_connect_client(struct file *file, struct heci_connect_clie
 
 	dev_dbg(&dev->pdev->dev, "Connect to FW Client ID = %d\n",
 			cl->me_client_id);
+	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	dev_dbg(&dev->pdev->dev, "FW Client - Protocol Version = %d\n",
 			dev->me_clients[i].props.protocol_version);
 	dev_dbg(&dev->pdev->dev, "FW Client - Max Msg Len = %d\n",
 			dev->me_clients[i].props.max_msg_length);
-
+	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 	/* prepare the output buffer */
 	client = &data->out_client_properties;
+	spin_lock_irqsave(&dev->me_clients_lock, flags);
 	client->max_msg_length = dev->me_clients[i].props.max_msg_length;
 	client->protocol_version = dev->me_clients[i].props.protocol_version;
 	dev_dbg(&dev->pdev->dev, "Can connect?\n");
-
+	spin_unlock_irqrestore(&dev->me_clients_lock, flags);
 	rets = heci_cl_connect(cl);
 
 end:
@@ -468,6 +475,9 @@ static long heci_ioctl(struct file *file, unsigned int cmd, unsigned long data)
 	int rets;
 	unsigned	ring_size;
 	char fw_stat_buf[20];
+
+	if (!cl)
+		return -EINVAL;
 
 	dev = cl->dev;
 	dev_dbg(&dev->pdev->dev, "IOCTL cmd = 0x%x", cmd);
@@ -507,7 +517,9 @@ err:
 		ISH_DBG_PRINT(KERN_ALERT "%s(): ISS host stop is requested\n",
 			__func__);
 		/* Handle ISS reset against upper layers */
-		heci_bus_remove_all_clients(dev);			/* Remove all client devices */
+
+		/* Remove all client devices */
+		heci_bus_remove_all_clients(dev);
 		dev->dev_state = HECI_DEV_DISABLED;
 		return	0;
 	}
@@ -559,7 +571,8 @@ err:
 		goto out;
 	}
 	dev_dbg(&dev->pdev->dev, "copy connect data from user\n");
-	if (copy_from_user(connect_data, (char __user *)data, sizeof(struct heci_connect_client_data))) {
+	if (copy_from_user(connect_data, (char __user *)data,
+			sizeof(struct heci_connect_client_data))) {
 		dev_dbg(&dev->pdev->dev, "failed to copy data from userland\n");
 		rets = -EFAULT;
 		goto out;
@@ -599,7 +612,7 @@ static long heci_compat_ioctl(struct file *file,
 {
 	return heci_ioctl(file, cmd, (unsigned long)compat_ptr(data));
 }
-#endif
+#endif /*CONFIG_COMPAT*/
 
 
 /*
@@ -611,7 +624,7 @@ static const struct file_operations heci_fops = {
 	.unlocked_ioctl = heci_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = heci_compat_ioctl,
-#endif
+#endif /*CONFIG_COMPAT*/
 	.open = heci_open,
 	.release = heci_release,
 	.write = heci_write,
@@ -622,7 +635,7 @@ static const struct file_operations heci_fops = {
  * Misc Device Struct
  */
 static struct miscdevice  heci_misc_device = {
-		.name = "ish",				/* "heci" changed to "ish", stuff it #2 */
+		.name = "ish",		/*"heci" changed to "ish", stuff it #2*/
 		.fops = &heci_fops,
 		.minor = MISC_DYNAMIC_MINOR,
 };

@@ -75,9 +75,12 @@ struct heci_cl {
 	spinlock_t      tx_free_list_spinlock;
 	size_t	tx_offs;			/* Offset in buffer at head of 'tx_list' */
 	/*#############################*/
-	/* if we get a FC, and the list is not empty, we must know whether we are at the middle of sending.
-	 * if so - need to increase FC counter, otherwise, need to start sending the first msg in list
-	 * (!) This is for counting-FC implementation only. Within single-FC the other party may NOT send FC until it receives complete message
+	/* if we get a FC, and the list is not empty, we must know whether we
+	 * are at the middle of sending.
+	 * if so - need to increase FC counter, otherwise, need to start sending
+	 * the first msg in list
+	 * (!) This is for counting-FC implementation only. Within single-FC the
+	 * other party may NOT send FC until it receives complete message
 	 */
 	int sending;
 	/*#############################*/
@@ -105,7 +108,11 @@ struct heci_cl {
 	unsigned long	max_fc_delay_sec, max_fc_delay_usec;
 };
 
-int heci_me_cl_by_uuid(const struct heci_device *dev, const uuid_le *cuuid);
+extern int	dma_ready;
+extern int	host_dma_enabled;
+
+int heci_can_client_connect(struct heci_device *heci_dev, uuid_le *uuid);
+int heci_me_cl_by_uuid(struct heci_device *dev, const uuid_le *cuuid);
 int heci_me_cl_by_id(struct heci_device *dev, u8 client_id);
 
 /*
@@ -126,7 +133,7 @@ static inline void heci_io_list_init(struct heci_cl_rb *list)
 {
 	INIT_LIST_HEAD(&list->list);
 }
-void heci_io_list_flush(struct heci_cl_rb *list, struct heci_cl *cl);
+void heci_read_list_flush(struct heci_cl *cl);
 
 /*
  * HECI Host Client Functions
