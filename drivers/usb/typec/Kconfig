@@ -1,0 +1,7 @@
+config USB_TYPEC_CORE
+	bool "Support for Type-C"
+	depends on USB_TYPEC
+	help
+	  Say Y here if your system has a Type-C connector support
+	  for USB controller based on the USB phy IP Core.
+

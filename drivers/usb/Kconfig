@@ -84,6 +84,15 @@ config USB
 	  To compile this driver as a module, choose M here: the
 	  module will be called usbcore.
 
+config USB_TYPEC
+       tristate "support usb typec connector"
+       ---help---
+         USB Type-C is a new connector type defined by USB specification,
+         which will be widely used for USB connections across the devices.
+         It promotes commonly used connectors for USB communications across
+         devices, working seemlessly with existing solutions. Also provides
+         non-USB data-path options like display, audio, etc.
+
 if USB
 
 source "drivers/usb/core/Kconfig"
@@ -101,6 +110,12 @@ source "drivers/usb/class/Kconfig"
 source "drivers/usb/storage/Kconfig"
 
 source "drivers/usb/image/Kconfig"
+
+endif
+
+if USB_TYPEC
+
+source "drivers/usb/typec/Kconfig"
 
 endif
 
