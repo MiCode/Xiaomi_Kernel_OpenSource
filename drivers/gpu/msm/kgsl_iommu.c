@@ -476,6 +476,48 @@ static void _check_if_freed(struct kgsl_iommu_context *ctx,
 	}
 }
 
+static bool
+kgsl_iommu_uche_overfetch(struct kgsl_process_private *private,
+		uint64_t faultaddr)
+{
+	int id;
+	struct kgsl_mem_entry *entry = NULL;
+
+	spin_lock(&private->mem_lock);
+	idr_for_each_entry(&private->mem_idr, entry, id) {
+		struct kgsl_memdesc *m = &entry->memdesc;
+
+		if ((faultaddr >= (m->gpuaddr + m->size))
+				&& (faultaddr < (m->gpuaddr + m->size + 64))) {
+			spin_unlock(&private->mem_lock);
+			return true;
+		}
+	}
+	spin_unlock(&private->mem_lock);
+	return false;
+}
+
+/*
+ * Read pagefaults where the faulting address lies within the first 64 bytes
+ * of a page (UCHE line size is 64 bytes) and the fault page is preceded by a
+ * valid allocation are considered likely due to UCHE overfetch and suppressed.
+ */
+
+static bool kgsl_iommu_suppress_pagefault(uint64_t faultaddr, int write,
+					struct kgsl_context *context)
+{
+	/*
+	 * If there is no context associated with the pagefault then this
+	 * could be a fault on a global buffer. We do not suppress faults
+	 * on global buffers as they are mainly accessed by the CP bypassing
+	 * the UCHE. Also, write pagefaults are never suppressed.
+	 */
+	if (!context || write)
+		return false;
+
+	return kgsl_iommu_uche_overfetch(context->proc_priv, faultaddr);
+}
+
 static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 	struct device *dev, unsigned long addr, int flags, void *token)
 {
@@ -524,6 +566,18 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 
 	context = kgsl_context_get(device, curr_context_id);
 
+	write = (flags & IOMMU_FAULT_WRITE) ? 1 : 0;
+	if (flags & IOMMU_FAULT_TRANSLATION)
+		fault_type = "translation";
+	else if (flags & IOMMU_FAULT_PERMISSION)
+		fault_type = "permission";
+
+	if (kgsl_iommu_suppress_pagefault(addr, write, context)) {
+		iommu->pagefault_suppression_count++;
+		kgsl_context_put(context);
+		return ret;
+	}
+
 	if (context != NULL) {
 		/* save pagefault timestamp for GFT */
 		set_bit(KGSL_CONTEXT_PRIV_PAGEFAULT, &context->priv);
@@ -543,12 +597,6 @@ static int kgsl_iommu_fault_handler(struct iommu_domain *domain,
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
 		mutex_unlock(&device->mutex);
 	}
-
-	write = (flags & IOMMU_FAULT_WRITE) ? 1 : 0;
-	if (flags & IOMMU_FAULT_TRANSLATION)
-		fault_type = "translation";
-	else if (flags & IOMMU_FAULT_PERMISSION)
-		fault_type = "permission";
 
 	ptbase = KGSL_IOMMU_GET_CTX_REG_Q(ctx, TTBR0);
 	contextidr = KGSL_IOMMU_GET_CTX_REG(ctx, CONTEXTIDR);
@@ -1178,7 +1226,6 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	int status;
 
 	mmu->features |= KGSL_MMU_PAGED;
-	mmu->features |= KGSL_MMU_NEED_GUARD_PAGE;
 
 	if (ctx->name == NULL) {
 		KGSL_CORE_ERR("dt: gfx3d0_user context bank not found\n");
@@ -1221,7 +1268,8 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		}
 	}
 
-	if (kgsl_guard_page == NULL) {
+	if (MMU_FEATURE(mmu, KGSL_MMU_NEED_GUARD_PAGE)
+			&& (kgsl_guard_page == NULL)) {
 		kgsl_guard_page = alloc_page(GFP_KERNEL | __GFP_ZERO |
 				__GFP_HIGHMEM);
 		if (kgsl_guard_page == NULL) {
