@@ -1327,6 +1327,9 @@ static int aic31xx_codec_probe(struct snd_soc_codec *codec)
 			AIC31XX_HSPLUGDET_MASK,
 			AIC31XX_HSPLUGDET_MASK);
 	snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
+			AIC31XX_HSPLUGDET_MASK,
+			AIC31XX_HSPLUGDET_MASK);
+	snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
 			AIC31XX_BUTTONPRESSDET_MASK,
 			AIC31XX_BUTTONPRESSDET_MASK);
 	/* Program codec to use internal clock */
@@ -1365,13 +1368,6 @@ static int aic31xx_codec_probe(struct snd_soc_codec *codec)
 	aic31xx_add_controls(codec);
 	aic31xx_add_widgets(codec);
 	dev_dbg(codec->dev, "%d, %s, Firmware test\n", __LINE__, __func__);
-
-	snd_soc_update_bits(codec, AIC31XX_INT1CTRL,
-			AIC31XX_HSPLUGDET_MASK,
-			AIC31XX_HSPLUGDET_MASK);
-	msleep(250);
-	snd_soc_read(codec, AIC31XX_INTRDACFLAG);
-	snd_soc_read(codec, AIC31XX_INTRFLAG);
 
 	return ret;
 }

@@ -41,7 +41,7 @@
 
 #define CHT_PLAT_CLK_3_HZ	25000000
 
-#define CHT_INTR_DEBOUNCE               2000
+#define CHT_INTR_DEBOUNCE               0
 #define CHT_HS_INSERT_DET_DELAY         100
 #define CHT_HS_REMOVE_DET_DELAY         100
 #define CHT_BUTTON_DET_DELAY            50
@@ -168,7 +168,6 @@ static int cht_check_jack_type(struct snd_soc_jack *jack,
 static int cht_hs_detection(void *data)
 {
 	int status, jack_type = 0;
-	static int boot_debounce;
 	int ret, val, instantaneous;
 	struct snd_soc_jack_gpio *gpio = &hs_gpio;
 	struct snd_soc_jack *jack = gpio->jack;
@@ -188,15 +187,7 @@ static int cht_hs_detection(void *data)
 	pr_debug("Enter:%s Page0/44=0x%x, Page0/46=0x%x", __func__,
 						val, instantaneous);
 
-	/* Debounce time for boot is 2 second due to noise from hardarware jack
-	   which generates spurious interrupt. After boot debounce time is again
-	   set to 100ms */
-	if (!boot_debounce) {
-		gpio->debounce_time = 100;
-		boot_debounce = 1;
-	}
-
-	if ((!jack->status) && (val & AIC31XX_HSPLUG_MASK)) {
+	if (!jack->status) {
 		ctx->hs_det_retry = CHT_HS_DET_RETRY_COUNT;
 		ret = schedule_delayed_work(&ctx->hs_insert_work,
 				msecs_to_jiffies(ctx->hs_insert_det_delay));
@@ -214,7 +205,7 @@ static int cht_hs_detection(void *data)
 		/* jd status low indicates accessory has been disconnected.
 		 * However, confirm the removal in the delayed work
 		 */
-		if ((!status) && (val & AIC31XX_HSPLUG_MASK)) {
+		if (!status) {
 			/* Do not process button events while we make sure
 			 * accessory is disconnected
 			 */
@@ -709,7 +700,6 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 		return ret;
 	}
 
-
 	ret = snd_soc_add_card_controls(card, cht_mc_controls,
 					ARRAY_SIZE(cht_mc_controls));
 	if (ret) {
@@ -722,7 +712,6 @@ static int cht_audio_init(struct snd_soc_pcm_runtime *runtime)
 		pr_err("unable to sync dapm\n");
 		return ret;
 	}
-
 	return ret;
 }
 
