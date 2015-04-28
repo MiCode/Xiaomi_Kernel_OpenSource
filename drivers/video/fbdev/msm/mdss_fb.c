@@ -124,6 +124,7 @@ void mdss_fb_no_update_notify_timer_cb(unsigned long data)
 
 void mdss_fb_bl_update_notify(struct msm_fb_data_type *mfd)
 {
+	struct mdss_overlay_private *mdp5_data = NULL;
 	if (!mfd) {
 		pr_err("%s mfd NULL\n", __func__);
 		return;
@@ -145,6 +146,11 @@ void mdss_fb_bl_update_notify(struct msm_fb_data_type *mfd)
 		mutex_lock(&mfd->no_update.lock);
 	}
 	mutex_unlock(&mfd->no_update.lock);
+	mdp5_data = mfd_to_mdp5_data(mfd);
+	if (mdp5_data) {
+		mdp5_data->bl_events++;
+		sysfs_notify_dirent(mdp5_data->bl_event_sd);
+	}
 }
 
 static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
