@@ -2473,7 +2473,7 @@ static unsigned int fsg_num_buffers = CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS;
 #else
 #define fsg_num_buffers	CONFIG_USB_GADGET_STORAGE_NUM_BUFFERS
 #endif /* CONFIG_USB_GADGET_DEBUG_FILES */
-static struct fsg_module_parameters fsg_mod_data = { .stall = 1 };
+static struct fsg_module_parameters fsg_mod_data;
 FSG_MODULE_PARAMETERS(/* no prefix */, fsg_mod_data);
 
 static int mass_storage_function_bind_config(struct android_usb_function *f,
