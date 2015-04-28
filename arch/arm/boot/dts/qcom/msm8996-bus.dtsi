@@ -136,7 +136,7 @@
 			clock-names = "bus_clk", "bus_a_clk", "bus_qos_clk";
 			clocks = <&clock_mmss clk_mmss_s0_axi_clk>,
 			     <&clock_mmss  clk_mmss_s0_axi_clk>,
-			     <&clock_mmss  clk_mmss_mmagic_cfg_ahb_clk>;
+			     <&clock_mmss  clk_mmss_mmagic_ahb_clk>;
 			bus-qos-gdsc-supply = <&gdsc_mmagic_bimc>;
 			coresight-id = <202>;
 			coresight-name = "coresight-mnoc";
@@ -1333,6 +1333,10 @@
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_VMEM_CFG>;
+			qcom,enable-only-clk;
+			clock-names = "node_clk";
+			clocks = <&clock_mmss clk_mmss_mmagic_maxi_clk>;
+			node-gdsc-supply = <&gdsc_mmagic_video>;
 		};
 
 		slv_dsa_cfg: slv-dsa-cfg {
@@ -1507,6 +1511,10 @@
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_VMEM>;
+			qcom,enable-only-clk;
+			clock-names = "node_clk";
+			clocks = <&clock_mmss clk_mmss_mmagic_maxi_clk>;
+			node-gdsc-supply = <&gdsc_mmagic_video>;
 		};
 
 		slv_srvc_mnoc: slv-srvc-mnoc {
