@@ -160,7 +160,7 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 					mapped_info->buf_fd,
 					CAM_SMMU_MAP_RW,
 					&(mapped_info->paddr),
-					&(mapped_info->len));
+					(size_t *)&(mapped_info->len));
 		if (ret) {
 			rc = -EINVAL;
 			pr_err_ratelimited("%s: cannot map address", __func__);
@@ -219,10 +219,14 @@ static void msm_isp_unprepare_v4l2_buf(
 				break;
 
 			if (buf_pending->mapped_info == mapped_info) {
-				cam_smmu_put_phy_addr(iommu_hdl,
-							mapped_info->buf_fd);
 				list_del_init(&buf_pending->list);
 				kfree(buf_pending);
+				spin_unlock_irqrestore(
+					&buf_mgr->bufq_list_lock, flags);
+				cam_smmu_put_phy_addr(iommu_hdl,
+							mapped_info->buf_fd);
+				spin_lock_irqsave(
+					&buf_mgr->bufq_list_lock, flags);
 				break;
 			}
 		}
@@ -1087,7 +1091,6 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 			iommu_hdl = buf_mgr->ns_iommu_hdl;
 		else
 			iommu_hdl = buf_mgr->sec_iommu_hdl;
-
 		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_ATTACH);
 		if (rc < 0) {
 			pr_err("%s: smmu attach error, rc :%d\n", __func__, rc);
@@ -1181,10 +1184,6 @@ static int msm_isp_deinit_isp_buf_mgr(
 	buf_mgr->num_buf_q = 0;
 	buf_mgr->pagefault_debug = 0;
 	mutex_unlock(&buf_mgr->lock);
-	if (buf_mgr->secure_enable == NON_SECURE_MODE)
-		cam_smmu_ops(buf_mgr->ns_iommu_hdl, CAM_SMMU_DETACH);
-	else
-		cam_smmu_ops(buf_mgr->sec_iommu_hdl, CAM_SMMU_DETACH);
 	cam_smmu_destroy_handle(buf_mgr->ns_iommu_hdl);
 	cam_smmu_destroy_handle(buf_mgr->sec_iommu_hdl);
 	return 0;

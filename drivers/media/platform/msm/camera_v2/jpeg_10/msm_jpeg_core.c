@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014,The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015,The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,16 +55,14 @@ int msm_jpeg_core_reset(struct msm_jpeg_device *pgmn_dev, uint8_t op_mode,
 	return 0;
 }
 
-void msm_jpeg_core_release(struct msm_jpeg_device *pgmn_dev,
-	int domain_num) {
+void msm_jpeg_core_release(struct msm_jpeg_device *pgmn_dev)
+{
 	int i = 0;
 	for (i = 0; i < 2; i++) {
 		if (pgmn_dev->we_pingpong_buf.buf_status[i] &&
 			pgmn_dev->release_buf)
-			msm_jpeg_platform_p2v(pgmn_dev,
-				pgmn_dev->we_pingpong_buf.buf[i].file,
-				&pgmn_dev->we_pingpong_buf.buf[i].handle,
-					domain_num);
+			msm_jpeg_platform_p2v(pgmn_dev->iommu_hdl,
+				pgmn_dev->we_pingpong_buf.buf[i].ion_fd);
 		pgmn_dev->we_pingpong_buf.buf_status[i] = 0;
 	}
 }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,6 +35,6 @@ int msm_jpeg_core_reset(struct msm_jpeg_device *pgmn_dev, uint8_t op_mode,
 	void *base, int size);
 int msm_jpeg_core_fe_start(struct msm_jpeg_device *);
 
-void msm_jpeg_core_release(struct msm_jpeg_device *, int);
+void msm_jpeg_core_release(struct msm_jpeg_device *);
 void msm_jpeg_core_init(struct msm_jpeg_device *);
 #endif /* MSM_JPEG_CORE_H */

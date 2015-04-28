@@ -1173,7 +1173,7 @@ int msm_fd_hw_map_buffer(struct msm_fd_mem_pool *pool, int fd,
 	buf->fd = fd;
 	ret = cam_smmu_get_phy_addr(pool->fd_device->iommu_hdl,
 			buf->fd, CAM_SMMU_MAP_RW,
-			&buf->addr, &buf->size);
+			&buf->addr, (size_t *)&buf->size);
 	if (ret < 0) {
 		pr_err("Error: cannot get phy addr\n");
 		return -ENOMEM;
