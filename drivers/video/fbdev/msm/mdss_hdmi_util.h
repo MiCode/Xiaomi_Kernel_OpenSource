@@ -243,9 +243,13 @@
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_LSB  (0x000000F8)
 #define QFPROM_RAW_FEAT_CONFIG_ROW0_MSB  (0x000000FC)
 #define QFPROM_RAW_VERSION_4             (0x000000A8)
+#define SEC_CTRL_HW_VERSION              (0x00006000)
 #define HDCP_KSV_LSB                     (0x000060D8)
 #define HDCP_KSV_MSB                     (0x000060DC)
 #define HDCP_KSV_VERSION_4_OFFSET        (0x00000014)
+
+/* SEC_CTRL version that supports HDCP SEL */
+#define HDCP_SEL_MIN_SEC_VERSION         (0x50010000)
 
 #define TOP_AND_BOTTOM		0x10
 #define FRAME_PACKING		0x20
