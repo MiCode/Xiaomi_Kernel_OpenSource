@@ -1430,7 +1430,7 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	init_completion(&dev->reconf);
 	init_completion(&dev->ctrl_up);
 	mutex_init(&dev->tx_lock);
-	mutex_init(&dev->tx_buf_lock);
+	spin_lock_init(&dev->tx_buf_lock);
 	spin_lock_init(&dev->rx_lock);
 	dev->ee = 1;
 	dev->irq = irq->start;
@@ -1458,9 +1458,18 @@ static int ngd_slim_probe(struct platform_device *pdev)
 	dev->ctrl.dev.of_node = pdev->dev.of_node;
 	dev->state = MSM_CTRL_DOWN;
 
-	ret = request_threaded_irq(dev->irq, NULL,
+	/*
+	 * As this does not perform expensive
+	 * operations, it can execute in an
+	 * interrupt context. This avoids
+	 * context switches, provides
+	 * extensive benifits and performance
+	 * improvements.
+	 */
+	ret = request_irq(dev->irq,
 			ngd_slim_interrupt,
-			IRQF_TRIGGER_HIGH | IRQF_ONESHOT, "ngd_slim_irq", dev);
+			IRQF_TRIGGER_HIGH,
+			"ngd_slim_irq", dev);
 
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
