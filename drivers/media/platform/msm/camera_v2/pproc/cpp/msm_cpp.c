@@ -2463,6 +2463,9 @@ long msm_cpp_subdev_ioctl(struct v4l2_subdev *sd,
 				k_stream_buff_info.identity & 0xFFFF);
 
 		if (buff_queue_info == NULL) {
+			if (cmd == VIDIOC_MSM_CPP_DELETE_STREAM_BUFF)
+				goto STREAM_BUFF_END;
+
 			rc = msm_cpp_add_buff_queue_entry(cpp_dev,
 				((k_stream_buff_info.identity >> 16) & 0xFFFF),
 				(k_stream_buff_info.identity & 0xFFFF));
