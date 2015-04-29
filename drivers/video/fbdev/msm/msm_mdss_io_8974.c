@@ -809,7 +809,7 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	u32 fb_divider, rate, vco;
 	u32 div_ratio = 0;
 	u32 pll_analog_posDiv = 1;
-	u32 h_period, v_period;
+	u64 h_period, v_period, clk_rate;
 	u32 dsi_pclk_rate;
 	u8 lanes = 0, bpp;
 	struct dsi_clk_mnd_table const *mnd_entry = mnd_table;
@@ -845,24 +845,25 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 	     panel_info->mipi.frame_rate) ||
 	    (!panel_info->clk_rate)) {
 		if (lanes > 0) {
-			panel_info->clk_rate =
-			((h_period * v_period *
-			  frame_rate * bpp * 8)
-			   / lanes);
+			panel_info->clk_rate = h_period * v_period * frame_rate
+				* bpp * 8;
+			do_div(panel_info->clk_rate, lanes);
 		} else {
 			pr_err("%s: forcing mdss_dsi lanes to 1\n", __func__);
 			panel_info->clk_rate =
-				(h_period * v_period * frame_rate * bpp * 8);
+				h_period * v_period * frame_rate * bpp * 8;
 		}
 	}
 	pll_divider_config.clk_rate = panel_info->clk_rate;
 
-
 	if (pll_divider_config.clk_rate == 0)
 		pll_divider_config.clk_rate = 454000000;
 
-	rate = (pll_divider_config.clk_rate / 2)
-			 / 1000000; /* Half Bit Clock In Mhz */
+	/* Half Bit Clock In Mhz */
+	clk_rate = pll_divider_config.clk_rate;
+	do_div(clk_rate, 2U);
+	do_div(clk_rate, 1000000U);
+	rate = (u32)clk_rate;
 
 	if (rate < 43) {
 		vco = rate * 16;
@@ -921,8 +922,9 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 		dsi_pclk.n = mnd_entry->pclk_n;
 		dsi_pclk.d = mnd_entry->pclk_d;
 	}
-	dsi_pclk_rate = (((pll_divider_config.clk_rate) * lanes)
-				      / (8 * bpp));
+	clk_rate = pll_divider_config.clk_rate;
+	do_div(clk_rate, 8 * bpp);
+	dsi_pclk_rate = (u32) clk_rate * lanes;
 
 	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
 		dsi_pclk_rate = 35000000;

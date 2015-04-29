@@ -465,9 +465,9 @@ struct mdss_panel_info {
 	u32 bl_max;
 	u32 bl_min;
 	u32 fb_num;
-	u32 clk_rate;
+	u64 clk_rate;
 	u32 clk_min;
-	u32 clk_max;
+	u64 clk_max;
 	u32 frame_count;
 	u32 is_3d_panel;
 	u32 out_format;
@@ -571,6 +571,7 @@ struct mdss_panel_debugfs_info {
 static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 {
 	u32 frame_rate, pixel_total;
+	u64 rate;
 
 	if (panel_info == NULL)
 		return DEFAULT_FRAME_RATE;
@@ -595,11 +596,13 @@ static inline u32 mdss_panel_get_framerate(struct mdss_panel_info *panel_info)
 			  panel_info->lcdc.v_front_porch +
 			  panel_info->lcdc.v_pulse_width +
 			  panel_info->yres);
-		if (pixel_total)
-			frame_rate = panel_info->clk_rate / pixel_total;
-		else
+		if (pixel_total) {
+			rate = panel_info->clk_rate;
+			do_div(rate, pixel_total);
+			frame_rate = (u32)rate;
+		} else {
 			frame_rate = DEFAULT_FRAME_RATE;
-
+		}
 		break;
 	}
 	return frame_rate;

@@ -2012,6 +2012,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	struct fb_fix_screeninfo *fix;
 	struct fb_var_screeninfo *var;
 	int *id;
+	u64 clk_rate;
 
 	/*
 	 * fb info initialization
@@ -2165,7 +2166,9 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	var->left_margin = panel_info->lcdc.h_back_porch;
 	var->right_margin = panel_info->lcdc.h_front_porch;
 	var->hsync_len = panel_info->lcdc.h_pulse_width;
-	var->pixclock = panel_info->clk_rate / 1000;
+	clk_rate = panel_info->clk_rate;
+	do_div(clk_rate, 1000U);
+	var->pixclock = (u32) clk_rate;
 
 	/*
 	 * Populate smem length here for uspace to get the
@@ -3076,7 +3079,7 @@ static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 	var->right_margin = pinfo->lcdc.h_front_porch;
 	var->left_margin = pinfo->lcdc.h_back_porch;
 	var->hsync_len = pinfo->lcdc.h_pulse_width;
-	var->pixclock = pinfo->clk_rate;
+	var->pixclock = (u32)pinfo->clk_rate;
 }
 
 /**
