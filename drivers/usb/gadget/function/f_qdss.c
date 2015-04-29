@@ -504,7 +504,6 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	if (qdss->port_num >= nr_qdss_ports) {
 		pr_err("%s: supporting ports#%u port_id:%u", __func__,
 				nr_qdss_ports, portno);
-		msm_bam_set_qdss_usb_active(false);
 		return;
 	}
 	pr_debug("usb_qdss_disconnect_work\n");
@@ -557,7 +556,6 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 				xport_to_str(dxport));
 	}
 
-	msm_bam_set_qdss_usb_active(false);
 	/*
 	 * Decrement usage count which was incremented
 	 * before calling connect work
@@ -607,7 +605,6 @@ static void qdss_disable(struct usb_function *f)
 	spin_unlock_irqrestore(&qdss->lock, flags);
 	/*cancell all active xfers*/
 	qdss_eps_disable(f);
-	msm_bam_set_qdss_usb_active(true);
 	if (!gadget_is_dwc3(qdss->cdev->gadget))
 		msm_usb_irq_disable(true);
 	queue_work(qdss->wq, &qdss->disconnect_w);
@@ -681,7 +678,6 @@ static void usb_qdss_connect_work(struct work_struct *work)
 	if (qdss->usb_connected == 0) {
 		pr_debug("%s: discard connect_work\n", __func__);
 		cancel_work_sync(&qdss->disconnect_w);
-		msm_bam_set_qdss_usb_active(false);
 		return;
 	}
 
@@ -759,9 +755,6 @@ static void usb_qdss_connect_work(struct work_struct *work)
 		pr_err("%s: Un-supported transport: %s\n", __func__,
 				xport_to_str(dxport));
 	}
-
-	msm_bam_set_qdss_usb_active(false);
-
 }
 
 static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
@@ -855,7 +848,6 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 	if (qdss->usb_connected && (ch->app_conn ||
 		(dxport == USB_GADGET_XPORT_HSIC))) {
-		msm_bam_set_qdss_usb_active(true);
 		queue_work(qdss->wq, &qdss->connect_w);
 	}
 	return 0;

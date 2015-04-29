@@ -1374,12 +1374,6 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 				return -EBUSY;
 			}
 		}
-
-		if (!msm_bam_usb_lpm_ok(DWC3_CTRL)) {
-			dev_dbg(mdwc->dev, "%s: IPA handshake not finished, will suspend when done\n",
-					__func__);
-			return -EBUSY;
-		}
 	}
 
 	if (!mdwc->vbus_active && dwc->is_drd &&
@@ -1638,7 +1632,6 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 
 	atomic_set(&dwc->in_lpm, 0);
 
-	msm_bam_notify_lpm_resume(DWC3_CTRL);
 	/* disable wakeup from LPM */
 	if (mdwc->pwr_event_irq) {
 		disable_irq_wake(mdwc->pwr_event_irq);

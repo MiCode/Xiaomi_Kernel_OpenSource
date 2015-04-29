@@ -1382,17 +1382,6 @@ static int msm_otg_suspend(struct msm_otg *motg)
 	if (atomic_read(&motg->in_lpm))
 		return 0;
 
-	/*
-	 * Don't allow low power mode if bam pipes are still connected.
-	 * Otherwise it could lead to unclocked access when sps driver
-	 * accesses USB bam registers as part of disconnecting bam pipes.
-	 */
-	if (!msm_bam_usb_lpm_ok(CI_CTRL)) {
-		msm_otg_dbg_log_event(phy, "BAM NOT READY", 0, 0);
-		pm_schedule_suspend(phy->dev, 1000);
-		return -EBUSY;
-	}
-
 	motg->ui_enabled = 0;
 	disable_irq(motg->irq);
 lpm_start:
@@ -1725,8 +1714,6 @@ static int msm_otg_resume(struct msm_otg *motg)
 				atomic_read(&motg->in_lpm), phy->state);
 		return 0;
 	}
-
-	msm_bam_notify_lpm_resume(CI_CTRL);
 
 	if (motg->ui_enabled) {
 		motg->ui_enabled = 0;
