@@ -106,6 +106,7 @@ struct msm_bus_node_info_type {
 	uint32_t util_fact;
 	uint32_t vrail_comp;
 	uint32_t num_aggports;
+	bool defer_qos;
 };
 
 struct msm_bus_node_device_type {

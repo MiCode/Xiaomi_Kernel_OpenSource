@@ -23,6 +23,9 @@
 #include "msm_bus_noc.h"
 #include "msm_bus_bimc.h"
 
+static int msm_bus_dev_init_qos(struct device *dev, void *data);
+
+
 ssize_t vrail_show(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
@@ -434,6 +437,7 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 {
 	int ret = 0;
 	int i = 0;
+	struct msm_bus_node_device_type *node_info;
 
 	/* Aggregate the bus clocks */
 	bus_for_each_dev(&msm_bus_type, NULL, (void *)&ctx,
@@ -448,6 +452,12 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 		if (!node_device) {
 			MSM_BUS_ERR("Can't find device for %d", dirty_nodes[i]);
 			continue;
+		}
+
+		node_info = node_device->platform_data;
+		if (node_info) {
+			if (unlikely(node_info->node_info->defer_qos))
+				msm_bus_dev_init_qos(node_device, NULL);
 		}
 
 		ret = flush_bw_data(node_device, ctx);
@@ -788,6 +798,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 				if (ret < 0) {
 					MSM_BUS_ERR("Can't Enable QoS clk %d",
 					node_dev->node_info->id);
+					node_dev->node_info->defer_qos = true;
 					goto exit_init_qos;
 				}
 
@@ -798,6 +809,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 					bus_node_info->fabdev->qos_off,
 					bus_node_info->fabdev->qos_freq);
 				ret = msm_bus_disable_node_qos_clk(node_dev);
+				node_dev->node_info->defer_qos = false;
 			}
 		} else
 			MSM_BUS_ERR("%s: Skipping QOS init for %d",
