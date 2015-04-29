@@ -534,7 +534,6 @@ module_param_named(debug_mask, msm_pcie_debug_mask,
 
 /* debugfs values */
 static u32 rc_sel;
-static u32 rc_sel_max;
 static u32 base_sel;
 static u32 wr_offset;
 static u32 wr_mask;
@@ -1944,6 +1943,8 @@ static struct dentry *dfile_wr_offset;
 static struct dentry *dfile_wr_mask;
 static struct dentry *dfile_wr_value;
 static struct dentry *dfile_corr_counter_limit;
+
+static u32 rc_sel_max;
 
 static ssize_t msm_pcie_cmd_debug(struct file *file,
 				const char __user *buf,
