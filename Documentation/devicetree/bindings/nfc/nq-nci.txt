@@ -1,0 +1,43 @@
+Qualcomm Technologies, Inc NQxxxx NFC NCI device
+
+Near Field Communication (NFC) device is based on NFC Controller Interface (NCI)
+
+Required properties:
+
+- compatible: "qcom,nq-nci"
+- reg: NCI i2c slave address.
+- qcom,nq-ven: specific gpio for hardware reset.
+- qcom,nq-irq: specific gpio for read interrupt.
+- interrupt-parent: Should be phandle for the interrupt controller
+                    that services interrupts for this device.
+- interrupts: Nfc read interrupt,gpio-clk-req interrupt
+
+
+Recommended properties:
+
+- interrupt-names: names of interrupts, should include "nfc_irq", used for reference
+
+
+Optional properties:
+
+- pinctrl-names, pinctrl-0, pincntrl-1: references to our pincntrl settings
+- clocks, clock-names: must contain the NQxxxx's core clock.
+
+Example:
+
+	nq-nci@2b {
+		compatible = "qcom,nq-nci";
+		reg = <0x2b>;
+		qcom,irq-gpio = <&msm_gpio 29 0x00>;
+		qcom,en-gpio = <&msm_gpio 30 0x00>;
+		qcom,clk-src = "BBCLK2";
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <29 0>;
+		interrupt-names = "nfc_irq";
+		pinctrl-names = "nfc_active","nfc_suspend";
+		pinctrl-0 = <&nfc_int_active &nfc_disable_active>;
+		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
+		qcom,clk-gpio = <&pm8916_gpios 2 0>;
+		clocks = <&clock_rpm clk_bb_clk2_pin>;
+		clock-names = "ref_clk";
+	};
