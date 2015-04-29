@@ -69,7 +69,8 @@ static struct snd_pcm_hardware msm_pcm_hardware_listen = {
 		 SNDRV_PCM_INFO_INTERLEAVED |
 		 SNDRV_PCM_INFO_PAUSE |
 		 SNDRV_PCM_INFO_RESUME),
-	.formats = (SNDRV_PCM_FMTBIT_S16_LE),
+	.formats = (SNDRV_PCM_FMTBIT_S16_LE |
+		    SNDRV_PCM_FMTBIT_S24_LE),
 	.rates = SNDRV_PCM_RATE_16000,
 	.rate_min = 16000,
 	.rate_max = 16000,
@@ -2064,9 +2065,12 @@ static int msm_cpe_lsm_hwparams(struct snd_pcm_substream *substream,
 				/ params_periods(params));
 	hw_params->period_count = params_periods(params);
 	hw_params->sample_rate = params_rate(params);
-	if (params_format(params) == SNDRV_PCM_FORMAT_S16_LE)
+	if (params_format(params) == SNDRV_PCM_FORMAT_S16_LE) {
 		hw_params->sample_size = 16;
-	else {
+	} else if (params_format(params) ==
+		 SNDRV_PCM_FORMAT_S24_LE) {
+		hw_params->sample_size = 24;
+	} else {
 		dev_err(rtd->dev,
 			"%s: Invalid Format 0x%x\n",
 			__func__, params_format(params));
