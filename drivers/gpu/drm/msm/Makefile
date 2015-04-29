@@ -5,10 +5,6 @@ ccflags-$(CONFIG_SYNC) += -Idrivers/staging/android
 ccflags-$(CONFIG_DRM_MSM_DSI_PLL) += -Idrivers/gpu/drm/msm/dsi
 
 msm-y := \
-	adreno/adreno_device.o \
-	adreno/adreno_gpu.o \
-	adreno/a3xx_gpu.o \
-	adreno/a4xx_gpu.o \
 	hdmi/hdmi.o \
 	hdmi/hdmi_audio.o \
 	hdmi/hdmi_bridge.o \
@@ -63,6 +59,14 @@ msm-y := \
 	msm_ringbuffer.o \
 	msm_evtlog.o \
 	msm_prop.o \
+
+# use drm gpu driver only if qcom_kgsl driver not available
+ifneq ($(CONFIG_QCOM_KGSL),y)
+msm-y += adreno/adreno_device.o \
+	adreno/adreno_gpu.o \
+	adreno/a3xx_gpu.o \
+	adreno/a4xx_gpu.o
+endif
 
 msm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
 msm-$(CONFIG_SYNC) += sde/sde_fence.o
