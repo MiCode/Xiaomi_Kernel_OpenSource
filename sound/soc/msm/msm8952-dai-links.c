@@ -771,11 +771,11 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm8952_tomtom_dai_links, msm8952_common_fe_dai,
 				sizeof(msm8952_common_fe_dai));
 		memcpy(msm8952_tomtom_dai_links + len1,
-			msm8952_tomtom_fe_dai, sizeof(msm8952_common_be_dai));
-		memcpy(msm8952_tomtom_dai_links + len2,
 			msm8952_tomtom_fe_dai, sizeof(msm8952_tomtom_fe_dai));
+		memcpy(msm8952_tomtom_dai_links + len2,
+			msm8952_common_be_dai, sizeof(msm8952_common_be_dai));
 		memcpy(msm8952_tomtom_dai_links + len3,
-			msm8952_tomtom_fe_dai, sizeof(msm8952_tomtom_be_dai));
+			msm8952_tomtom_be_dai, sizeof(msm8952_tomtom_be_dai));
 		msm8952_dai_links = msm8952_tomtom_dai_links;
 	}
 	card->dai_link = msm8952_dai_links;

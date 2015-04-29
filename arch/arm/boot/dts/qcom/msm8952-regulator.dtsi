@@ -385,3 +385,13 @@
 		regulator-name = "smbcharger_charger_otg";
 	};
 };
+
+&soc {
+	eldo2_8952: eldo2 {
+		compatible = "regulator-fixed";
+		regulator-name = "eldo2_8952";
+		startup-delay-us = <0>;
+		enable-active-high;
+		gpio = <&pm8950_gpios 7 0>;
+	};
+};
