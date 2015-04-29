@@ -1137,6 +1137,7 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 {
 	int rc = 0;
 	u32 data;
+	u64 clk_rate;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 
 	if (pdata == NULL) {
@@ -1165,8 +1166,9 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 		__mdss_dsi_calc_dfps_delay(pdata);
 		ctrl_pdata->pclk_rate =
 			pdata->panel_info.mipi.dsi_pclk_rate;
-		ctrl_pdata->byte_clk_rate =
-			pdata->panel_info.clk_rate / 8;
+		clk_rate = pdata->panel_info.clk_rate;
+		do_div(clk_rate, 8U);
+		ctrl_pdata->byte_clk_rate = (u32) clk_rate;
 
 		pr_debug("byte_rate=%i\n", ctrl_pdata->byte_clk_rate);
 		pr_debug("pclk_rate=%i\n", ctrl_pdata->pclk_rate);
@@ -1223,8 +1225,9 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 	} else {
 		ctrl_pdata->pclk_rate =
 			pdata->panel_info.mipi.dsi_pclk_rate;
-		ctrl_pdata->byte_clk_rate =
-			pdata->panel_info.clk_rate / 8;
+		clk_rate = pdata->panel_info.clk_rate;
+		do_div(clk_rate, 8U);
+		ctrl_pdata->byte_clk_rate = (u32) clk_rate;
 	}
 
 	return rc;
@@ -1922,6 +1925,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	struct device_node *dsi_ctrl_np = NULL;
 	struct platform_device *ctrl_pdev = NULL;
 	const char *data;
+	u64 clk_rate;
 	struct resource *res;
 
 	mipi  = &(pinfo->mipi);
@@ -2136,7 +2140,9 @@ int dsi_panel_device_register(struct device_node *pan_node,
 	}
 
 	ctrl_pdata->pclk_rate = mipi->dsi_pclk_rate;
-	ctrl_pdata->byte_clk_rate = pinfo->clk_rate / 8;
+	clk_rate = pinfo->clk_rate;
+	do_div(clk_rate, 8U);
+	ctrl_pdata->byte_clk_rate = (u32)clk_rate;
 	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
 			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
 

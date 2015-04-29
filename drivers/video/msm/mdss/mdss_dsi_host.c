@@ -1060,7 +1060,7 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 	struct mdss_panel_info *pinfo;
 	struct mipi_panel_info *mipi;
 	struct dsc_desc *dsc = NULL;
-	u32 clk_rate;
+	u64 clk_rate;
 	u32 hbp, hfp, vbp, vfp, hspw, vspw, width, height;
 	u32 ystride, bpp, dst_bpp;
 	u32 stream_ctrl, stream_total;

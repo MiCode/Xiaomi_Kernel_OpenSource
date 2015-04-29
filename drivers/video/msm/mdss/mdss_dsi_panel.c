@@ -2030,8 +2030,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-framerate", &tmp);
 	pinfo->mipi.frame_rate = (!rc ? tmp : 60);
-	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-clockrate", &tmp);
-	pinfo->clk_rate = (!rc ? tmp : 0);
+	pinfo->clk_rate = 0;
+	of_property_read_u64(np, "qcom,mdss-dsi-panel-clockrate",
+		&pinfo->clk_rate);
 	data = of_get_property(np, "qcom,mdss-dsi-panel-timings", &len);
 	if ((!data) || (len != 12)) {
 		pr_err("%s:%d, Unable to read Phy timing settings",

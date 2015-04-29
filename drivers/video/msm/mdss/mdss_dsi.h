@@ -204,7 +204,7 @@ extern u32 dsi_irq;
 extern struct mdss_dsi_ctrl_pdata *ctrl_list[];
 
 struct dsiphy_pll_divider_config {
-	u32 clk_rate;
+	u64 clk_rate;
 	u32 fb_divider;
 	u32 ref_divider_ratio;
 	u32 bit_clk_divider;	/* oCLK1 */
