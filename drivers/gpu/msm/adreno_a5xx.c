@@ -732,6 +732,9 @@ static void a5xx_gpmu_start(struct adreno_device *adreno_dev)
 	if (ret)
 		return;
 
+	/* GPMU clock gating setup */
+	kgsl_regwrite(device, A5XX_GPMU_WFI_CONFIG, 0x00004014);
+
 	/* Kick off GPMU firmware */
 	kgsl_regwrite(device, A5XX_GPMU_CM3_SYSRESET, 0);
 	/*
