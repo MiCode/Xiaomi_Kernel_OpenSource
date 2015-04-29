@@ -173,7 +173,7 @@ static struct msm_bus_scale_pdata msm_cpp_bus_scale_data = {
 	qcmd;			 \
 })
 
-#define MSM_CPP_MAX_TIMEOUT_TRIAL 3
+#define MSM_CPP_MAX_TIMEOUT_TRIAL 0
 
 struct msm_cpp_timer_data_t {
 	struct cpp_device *cpp_dev;
@@ -1645,6 +1645,7 @@ NOTIFY_FRAME_DONE:
 static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info)
 {
 	int i, i1, i2;
+	struct cpp_device *cpp_dev = cpp_timer.data.cpp_dev;
 	CPP_DBG("-- start: cpp frame cmd for identity=0x%x, frame_id=%d --\n",
 		frame_info->identity, frame_info->frame_id);
 
@@ -1676,9 +1677,11 @@ static int msm_cpp_dump_frame_cmd(struct msm_cpp_frame_info_t *frame_info)
 
 static void msm_cpp_do_timeout_work(struct work_struct *work)
 {
-	uint32_t i = 0;
+	uint32_t j = 0, i = 0, i1 = 0, i2 = 0;
 	int32_t queue_len = 0;
 	struct msm_device_queue *queue = NULL;
+	struct msm_cpp_frame_info_t *processed_frame[MAX_CPP_PROCESSING_FRAME];
+	struct cpp_device *cpp_dev;
 
 	pr_info("cpp_timer_callback called. (jiffies=%lu)\n",
 		jiffies);
@@ -1711,18 +1714,67 @@ static void msm_cpp_do_timeout_work(struct work_struct *work)
 
 	queue = &cpp_timer.data.cpp_dev->processing_q;
 	queue_len = queue->len;
-	mutex_lock(&cpp_timer.data.cpp_dev->mutex);
-	for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++)
-		msm_cpp_dump_frame_cmd(cpp_timer.data.processed_frame[i]);
+	cpp_dev = cpp_timer.data.cpp_dev;
 
-	while (queue_len) {
-		msm_cpp_notify_frame_done(cpp_timer.data.cpp_dev, 1);
-		queue_len--;
+	mutex_lock(&cpp_dev->mutex);
+
+	if (cpp_dev->timeout_trial_cnt >=
+		cpp_dev->max_timeout_trial_cnt) {
+		pr_info("Max trial reached\n");
+		while (queue_len) {
+			msm_cpp_notify_frame_done(cpp_dev, 1);
+			queue_len--;
+		}
+		atomic_set(&cpp_timer.used, 0);
+		for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++)
+			cpp_timer.data.processed_frame[i] = NULL;
+		cpp_dev->timeout_trial_cnt = 0;
+		mutex_unlock(&cpp_dev->mutex);
+		pr_info("exit\n");
+		return;
 	}
-	atomic_set(&cpp_timer.used, 0);
+
+	atomic_set(&cpp_timer.used, 1);
+	pr_info("Starting timer to fire in %d ms. (jiffies=%lu)\n",
+		CPP_CMD_TIMEOUT_MS, jiffies);
+	mod_timer(&cpp_timer.cpp_timer,
+		jiffies + msecs_to_jiffies(CPP_CMD_TIMEOUT_MS));
+
 	for (i = 0; i < MAX_CPP_PROCESSING_FRAME; i++)
-		cpp_timer.data.processed_frame[i] = NULL;
-	cpp_timer.data.cpp_dev->timeout_trial_cnt = 0;
+		processed_frame[i] = cpp_timer.data.processed_frame[i];
+
+	for (i = 0; i < queue_len; i++) {
+		pr_info("Rescheduling for identity=0x%x, frame_id=%03d\n",
+			processed_frame[i]->identity,
+			processed_frame[i]->frame_id);
+
+		msm_cpp_write(0x6, cpp_dev->base);
+		/* send top level and plane level */
+		for (j = 0; j < cpp_dev->stripe_base; j++) {
+			if (j % MSM_CPP_RX_FIFO_LEVEL == 0)
+				msm_cpp_poll_rx_empty(cpp_dev->base);
+			msm_cpp_write(processed_frame[i]->cpp_cmd_msg[j],
+				cpp_dev->base);
+		}
+		/* send stripes */
+		i1 = cpp_dev->stripe_base +
+			cpp_dev->stripe_size *
+			processed_frame[i]->first_stripe_index;
+		i2 = cpp_dev->stripe_size *
+			(processed_frame[i]->last_stripe_index -
+			processed_frame[i]->first_stripe_index + 1);
+		for (j = 0; j < i2; j++) {
+			if (j % MSM_CPP_RX_FIFO_LEVEL == 0)
+				msm_cpp_poll_rx_empty(cpp_dev->base);
+			msm_cpp_write(processed_frame[i]->cpp_cmd_msg[j+i1],
+				cpp_dev->base);
+		}
+		/* send trailer */
+		msm_cpp_write(0xabcdefaa, cpp_dev->base);
+		pr_info("After frame:%d write\n", i+1);
+	}
+
+	cpp_timer.data.cpp_dev->timeout_trial_cnt++;
 	mutex_unlock(&cpp_timer.data.cpp_dev->mutex);
 
 	pr_info("exit\n");
@@ -3626,6 +3678,7 @@ static int cpp_probe(struct platform_device *pdev)
 	setup_timer(&cpp_timer.cpp_timer,
 		cpp_timer_callback, (unsigned long)&cpp_timer);
 	cpp_dev->fw_name_bin = NULL;
+	cpp_dev->max_timeout_trial_cnt = MSM_CPP_MAX_TIMEOUT_TRIAL;
 	if (rc == 0)
 		CPP_DBG("SUCCESS.");
 	else

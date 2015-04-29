@@ -204,6 +204,7 @@ struct cpp_device {
 	uint32_t fw_version;
 	uint8_t stream_cnt;
 	uint8_t timeout_trial_cnt;
+	uint8_t max_timeout_trial_cnt;
 
 	int domain_num;
 	struct iommu_domain *domain;
