@@ -3881,6 +3881,14 @@ static int ufshcd_link_recovery(struct ufs_hba *hba)
 	ufshcd_set_eh_in_progress(hba);
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 
+	if (hba->vops && hba->vops->full_reset) {
+		ret = hba->vops->full_reset(hba);
+		if (ret)
+			dev_warn(hba->dev,
+				"full reset returned %d, trying to recover the link\n",
+				ret);
+	}
+
 	ret = ufshcd_host_reset_and_restore(hba);
 
 	spin_lock_irqsave(hba->host->host_lock, flags);

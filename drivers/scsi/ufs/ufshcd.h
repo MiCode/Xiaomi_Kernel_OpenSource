@@ -299,6 +299,8 @@ struct ufs_pwr_mode_info {
  *			to be set.
  * @suspend: called during host controller PM callback
  * @resume: called during host controller PM callback
+ * @full_reset:  called during link recovery for handling variant specific
+ *		 implementations of resetting the hci
  * @update_sec_cfg: called to restore host controller secure configuration
  * @crypto_engine_cfg: configure cryptographic engine according to tag parameter
  * @crypto_engine_eh: cryptographic engine error handling.
@@ -329,6 +331,7 @@ struct ufs_hba_variant_ops {
 					struct ufs_pa_layer_attr *);
 	int	(*suspend)(struct ufs_hba *, enum ufs_pm_op);
 	int	(*resume)(struct ufs_hba *, enum ufs_pm_op);
+	int	(*full_reset)(struct ufs_hba *);
 	int	(*update_sec_cfg)(struct ufs_hba *hba, bool restore_sec_cfg);
 	int	(*crypto_engine_cfg)(struct ufs_hba *, unsigned int);
 	int	(*crypto_engine_reset)(struct ufs_hba *);
