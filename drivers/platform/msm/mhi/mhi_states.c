@@ -254,7 +254,6 @@ static enum MHI_STATUS mhi_process_link_down(
 	mhi_deassert_device_wake(mhi_dev_ctxt);
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
-
 	mhi_dev_ctxt->flags.stop_threads = 1;
 
 	while (!mhi_dev_ctxt->ev_thread_stopped) {
@@ -415,6 +414,21 @@ static void mhi_reset_ev_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 	local_ev_ctxt->wp = local_ev_ctxt->base;
 }
 
+static enum MHI_STATUS mhi_set_state_of_all_channels(
+			struct mhi_device_ctxt *mhi_dev_ctxt,
+			enum MHI_CHAN_STATE new_state)
+{
+	u32 i = 0;
+	struct mhi_chan_ctxt *chan_ctxt = NULL;
+	if (new_state >= MHI_CHAN_STATE_LIMIT)
+		return MHI_STATUS_ERROR;
+	for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
+		chan_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list[i];
+		chan_ctxt->mhi_chan_state = new_state;
+	}
+	return MHI_STATUS_SUCCESS;
+}
+
 static enum MHI_STATUS process_reset_transition(
 			struct mhi_device_ctxt *mhi_dev_ctxt,
 			enum STATE_TRANSITION cur_work_item)
@@ -422,9 +436,17 @@ static enum MHI_STATUS process_reset_transition(
 	u32 i = 0;
 	u32 ev_ring_index;
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	unsigned long flags = 0;
+
 	mhi_log(MHI_MSG_INFO, "Processing RESET state transition\n");
+	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+	mhi_dev_ctxt->mhi_state = MHI_STATE_RESET;
+	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 	mhi_dev_ctxt->counters.mhi_reset_cntr++;
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_PBL;
+	ret_val = mhi_test_for_device_reset(mhi_dev_ctxt);
+	ret_val = mhi_set_state_of_all_channels(mhi_dev_ctxt,
+			MHI_CHAN_STATE_DISABLED);
 	ret_val = mhi_test_for_device_ready(mhi_dev_ctxt);
 	switch (ret_val) {
 	case MHI_STATUS_SUCCESS:
@@ -494,6 +516,7 @@ enum MHI_STATUS start_chan_sync(struct mhi_client_handle *client_handle)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
 	int r = 0;
+	init_completion(&client_handle->chan_open_complete);
 	ret_val = mhi_send_cmd(client_handle->mhi_dev_ctxt,
 			       MHI_COMMAND_START_CHAN,
 			       client_handle->chan);
@@ -587,6 +610,8 @@ static enum MHI_STATUS process_amss_transition(
 				enum STATE_TRANSITION cur_work_item)
 {
 	enum MHI_STATUS ret_val;
+	struct mhi_client_handle *client_handle = NULL;
+	int i = 0;
 
 	mhi_log(MHI_MSG_INFO, "Processing AMSS state transition\n");
 	mhi_dev_ctxt->dev_exec_env = MHI_EXEC_ENV_AMSS;
@@ -608,8 +633,21 @@ static enum MHI_STATUS process_amss_transition(
 			mhi_log(MHI_MSG_CRITICAL,
 				"Failed to probe MHI CORE clients, ret 0x%x\n",
 				ret_val);
+		enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
+	} else {
+		mhi_log(MHI_MSG_INFO, "MHI is initialized\n");
+		for (i = 0; i < MHI_MAX_CHANNELS; ++i) {
+			client_handle = mhi_dev_ctxt->client_handle_list[i];
+			if (client_handle && client_handle->chan_status)
+				ret_val = start_chan_sync(client_handle);
+				if (ret_val)
+					mhi_log(MHI_MSG_ERROR,
+					"Failed to start chan %d ret %d\n",
+					i, ret_val);
+
+		}
+		ring_all_chan_dbs(mhi_dev_ctxt);
 	}
-	enable_clients(mhi_dev_ctxt, mhi_dev_ctxt->dev_exec_env);
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return MHI_STATUS_SUCCESS;
@@ -618,11 +656,42 @@ static enum MHI_STATUS process_amss_transition(
 static void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
 					enum MHI_STATE new_state)
 {
-	mhi_reg_write_field(mhi_dev_ctxt,
+	if (MHI_STATE_RESET == new_state) {
+		mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_addr, MHICTRL,
+			MHICTRL_RESET_MASK,
+			MHICTRL_RESET_SHIFT,
+			1);
+	} else {
+		mhi_reg_write_field(mhi_dev_ctxt,
 			mhi_dev_ctxt->mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			new_state);
+	}
+}
+
+enum MHI_STATUS mhi_trigger_reset(struct mhi_device_ctxt *mhi_dev_ctxt)
+{
+	enum MHI_STATUS ret_val;
+	unsigned long flags = 0;
+
+	mhi_log(MHI_MSG_INFO, "Entered\n");
+	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
+	mhi_dev_ctxt->mhi_state = MHI_STATE_SYS_ERR;
+	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
+
+	mhi_log(MHI_MSG_INFO, "Setting RESET to MDM.\n");
+	mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_RESET);
+	mhi_log(MHI_MSG_INFO, "Transitioning state to RESET\n");
+	ret_val = mhi_init_state_transition(mhi_dev_ctxt,
+					    STATE_TRANSITION_RESET);
+	if (MHI_STATUS_SUCCESS != ret_val)
+		mhi_log(MHI_MSG_CRITICAL,
+			"Failed to initiate 0x%x state trans ret %d\n",
+			STATE_TRANSITION_RESET, ret_val);
+	mhi_log(MHI_MSG_INFO, "Exiting\n");
+	return ret_val;
 }
 
 static enum MHI_STATUS process_stt_work_item(
