@@ -297,12 +297,10 @@ static int qpnp_pon_set_dbc(struct qpnp_pon *pon, u32 delay)
 	int rc = 0;
 	u32 delay_reg;
 
-	if (!pon->pon_input)
-		return -EINVAL;
-
-	mutex_lock(&pon->pon_input->mutex);
 	if (delay == pon->dbc)
-		goto unlock;
+		goto out;
+	if (pon->pon_input)
+		mutex_lock(&pon->pon_input->mutex);
 
 	if (delay < QPNP_PON_MIN_DBC_US)
 		delay = QPNP_PON_MIN_DBC_US;
@@ -321,7 +319,9 @@ static int qpnp_pon_set_dbc(struct qpnp_pon *pon, u32 delay)
 	pon->dbc = delay;
 
 unlock:
-	mutex_unlock(&pon->pon_input->mutex);
+	if (pon->pon_input)
+		mutex_unlock(&pon->pon_input->mutex);
+out:
 	return rc;
 }
 
