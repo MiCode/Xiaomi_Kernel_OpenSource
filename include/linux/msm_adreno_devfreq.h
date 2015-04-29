@@ -36,6 +36,7 @@ struct devfreq_msm_adreno_tz_data {
 		u64 gpu_time;
 		u32 num;
 		u32 max;
+		u32 width;
 		u32 *up;
 		u32 *down;
 		u32 *p_up;
@@ -61,6 +62,7 @@ struct msm_adreno_extended_profile {
 struct msm_busmon_extended_profile {
 	u32 flag;
 	unsigned long percent_ab;
+	unsigned long ab_mbytes;
 	struct devfreq_msm_adreno_tz_data *private_data;
 	struct devfreq_dev_profile profile;
 };

@@ -168,8 +168,10 @@ static void _ab_buslevel_update(struct kgsl_pwrctrl *pwr,
 		return;
 	if (ib == 0)
 		*ab = 0;
-	else if (!pwr->bus_percent_ab)
+	else if ((!pwr->bus_percent_ab) && (!pwr->bus_ab_mbytes))
 		*ab = DEFAULT_BUS_P * ib / 100;
+	else if (pwr->bus_width)
+		*ab = pwr->bus_ab_mbytes;
 	else
 		*ab = (pwr->bus_percent_ab * max_bw) / 100;
 
@@ -250,6 +252,8 @@ void kgsl_pwrctrl_buslevel_update(struct kgsl_device *device,
 	} else {
 		/* If the bus is being turned off, reset to default level */
 		pwr->bus_mod = 0;
+		pwr->bus_percent_ab = 0;
+		pwr->bus_ab_mbytes = 0;
 	}
 	trace_kgsl_buslevel(device, pwr->active_pwrlevel, buslevel);
 	last_vote_buslevel = buslevel;
@@ -1548,6 +1552,10 @@ int kgsl_pwrctrl_init(struct kgsl_device *device)
 
 	/* Set if independent bus BW voting is supported */
 	pwr->bus_control = pdata->bus_control;
+	/* Bus width in bytes, set it to zero if not found */
+	if (of_property_read_u32(pdev->dev.of_node, "qcom,bus-width",
+		&pwr->bus_width))
+		pwr->bus_width = 0;
 
 	/* Check if gpu bandwidth vote device is defined in dts */
 	gpubw_dev_node = of_parse_phandle(pdev->dev.of_node,

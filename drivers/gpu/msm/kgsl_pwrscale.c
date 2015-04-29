@@ -715,6 +715,7 @@ int kgsl_busmon_target(struct device *dev, unsigned long *freq, u32 flags)
 
 	if (pwr->bus_mod != b) {
 		pwr->bus_percent_ab = device->pwrscale.bus_profile.percent_ab;
+		pwr->bus_ab_mbytes =  device->pwrscale.bus_profile.ab_mbytes;
 		kgsl_pwrctrl_buslevel_update(device, true);
 	}
 
@@ -797,6 +798,7 @@ int kgsl_pwrscale_init(struct device *dev, const char *governor)
 		data->bus.num = out;
 		data->bus.ib = &pwr->bus_ib[0];
 		data->bus.index = &pwr->bus_index[0];
+		data->bus.width = pwr->bus_width;
 	} else
 		data->bus.num = 0;
 
