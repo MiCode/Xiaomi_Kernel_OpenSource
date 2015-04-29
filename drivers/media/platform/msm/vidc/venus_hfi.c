@@ -3381,7 +3381,7 @@ static struct msm_vidc_cb_info *__response_handler(
 {
 	struct msm_vidc_cb_info *packets = NULL;
 	int packet_count = 0;
-	const int max_packets = 16;
+	const int max_packets = 32;
 	u8 *raw_packet = NULL;
 
 	raw_packet = kzalloc(VIDC_IFACEQ_VAR_HUGE_PKT_SIZE, GFP_TEMPORARY);
