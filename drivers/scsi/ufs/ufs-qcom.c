@@ -28,6 +28,7 @@
 #include "ufshci.h"
 #include "ufs-qcom-ice.h"
 #include "ufs-qcom-debugfs.h"
+#include <linux/clk/msm-clk.h>
 
 #define UFS_QCOM_DEFAULT_DBG_PRINT_EN	\
 	(UFS_QCOM_DBG_PRINT_REGS_EN | UFS_QCOM_DBG_PRINT_TEST_BUS_EN)
@@ -632,6 +633,27 @@ static int ufs_qcom_resume(struct ufs_hba *hba, enum ufs_pm_op pm_op)
 
 out:
 	return err;
+}
+
+static int ufs_qcom_full_reset(struct ufs_hba *hba)
+{
+	struct ufs_clk_info *clki;
+	int ret = -ENOTSUPP;
+
+	list_for_each_entry(clki, &hba->clk_list_head, list) {
+		if (!strcmp(clki->name, "core_clk")) {
+			ret = clk_reset(clki->clk, CLK_RESET_ASSERT);
+			if (ret)
+				goto out;
+			/* Very small delay, per the documented requirement */
+			usleep_range(1, 2);
+
+			ret = clk_reset(clki->clk, CLK_RESET_DEASSERT);
+			break;
+		}
+	}
+out:
+	return ret;
 }
 
 static
@@ -1777,6 +1799,7 @@ const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.pwr_change_notify	= ufs_qcom_pwr_change_notify,
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,
+	.full_reset		= ufs_qcom_full_reset,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
