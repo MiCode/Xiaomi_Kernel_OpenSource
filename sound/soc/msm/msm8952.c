@@ -49,6 +49,8 @@ enum btsco_rates {
 	RATE_16KHZ_ID,
 };
 
+static bool ext_codec;
+
 static int msm8952_auxpcm_rate = 8000;
 static int msm_btsco_rate = BTSCO_RATE_8KHZ;
 static int msm_btsco_ch = 1;
@@ -1979,6 +1981,11 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	int ret, id, i;
 	struct resource	*muxsel;
 
+	if (ext_codec == true) {
+		pr_err("%s: ext codec setprop is true\n", __func__);
+		return -EINVAL;
+	}
+
 	pdata = devm_kzalloc(&pdev->dev,
 			sizeof(struct msm8916_asoc_mach_data), GFP_KERNEL);
 	if (!pdata) {
@@ -2207,6 +2214,82 @@ static struct platform_driver msm8952_asoc_machine_driver = {
 	.remove = msm8952_asoc_machine_remove,
 };
 module_platform_driver(msm8952_asoc_machine_driver);
+
+static ssize_t codec_detect_store(struct kobject *kobj,
+		struct kobj_attribute *attr, const char *buf,
+		size_t count)
+{
+	int boot = 0;
+	if (sscanf(buf, "%du", &boot) == 1) {
+		if (boot == 1)
+			ext_codec = true;
+	}
+	return count;
+}
+
+static struct kobj_attribute codec_detect_attribute =
+	__ATTR(boot, 0220, NULL, codec_detect_store);
+
+static struct attribute *attrs[] = {
+	&codec_detect_attribute.attr,
+	NULL,
+};
+
+static int codec_detector_init_sysfs(void)
+{
+	int ret = -EINVAL;
+	struct kobject *boot_cdc_det = NULL;
+	struct attribute_group *attr_group;
+
+	attr_group = kzalloc(sizeof(*(attr_group)),
+				GFP_KERNEL);
+	if (!attr_group) {
+		pr_err("%s: malloc attr_group failed\n",
+						__func__);
+		ret = -ENOMEM;
+		goto error_return;
+	}
+
+	attr_group->attrs = attrs;
+
+	boot_cdc_det = kobject_create_and_add("codec_type", kernel_kobj);
+	if (!boot_cdc_det) {
+		pr_err("%s: sysfs create and add failed\n",
+						__func__);
+		ret = -ENOMEM;
+		goto error_return;
+	}
+
+	ret = sysfs_create_group(boot_cdc_det, attr_group);
+	if (ret) {
+		pr_err("%s: sysfs create group failed %d\n",
+							__func__, ret);
+		goto error_return;
+	}
+
+	return 0;
+
+error_return:
+	kfree(attr_group);
+	if (boot_cdc_det) {
+		kobject_del(boot_cdc_det);
+		boot_cdc_det = NULL;
+	}
+
+	return ret;
+}
+
+static int __init codec_detector_init(void)
+{
+	int ret = codec_detector_init_sysfs();
+	if (ret != 0) {
+		pr_err("%s: Error in initing sysfs\n", __func__);
+		return ret;
+	}
+	return 0;
+}
+module_init(codec_detector_init);
+
 
 MODULE_DESCRIPTION("ALSA SoC msm");
 MODULE_LICENSE("GPL v2");
