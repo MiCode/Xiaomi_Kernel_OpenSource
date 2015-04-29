@@ -36,6 +36,13 @@
 
 &msm_vidc {
 	qcom,firmware-name = "venus-v1";
+	qcom,imem-size = <0>;
+
+	/* Buses */
+	venus_bus_vmem {
+		status = "disabled";
+	};
+
 };
 
 &vmem {
