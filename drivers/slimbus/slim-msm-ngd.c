@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -267,16 +267,8 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 				u8 *tid, struct completion *done)
 {
 	struct msm_slim_ctrl *dev = slim_get_ctrldata(ctrl);
-	mutex_lock(&ctrl->m_ctrl);
+	spin_lock(&ctrl->txn_lock);
 	if (ctrl->last_tid <= 255) {
-		ctrl->txnt = krealloc(ctrl->txnt,
-				(ctrl->last_tid + 1) *
-				sizeof(struct slim_msg_txn *),
-				GFP_KERNEL);
-		if (!ctrl->txnt) {
-			mutex_unlock(&ctrl->m_ctrl);
-			return -ENOMEM;
-		}
 		dev->msg_cnt = ctrl->last_tid;
 		ctrl->last_tid++;
 	} else {
@@ -288,7 +280,7 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 		}
 		if (i >= 256) {
 			dev_err(&ctrl->dev, "out of TID");
-			mutex_unlock(&ctrl->m_ctrl);
+			spin_unlock(&ctrl->txn_lock);
 			return -ENOMEM;
 		}
 	}
@@ -296,7 +288,7 @@ static int ngd_get_tid(struct slim_controller *ctrl, struct slim_msg_txn *txn,
 	txn->tid = dev->msg_cnt;
 	txn->comp = done;
 	*tid = dev->msg_cnt;
-	mutex_unlock(&ctrl->m_ctrl);
+	spin_unlock(&ctrl->txn_lock);
 	return 0;
 }
 static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
@@ -655,9 +647,9 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 			SLIM_ERR(dev,
 				"connect/disconnect:0x%x,tid:%d err:%d\n",
 					txn->mc, txn->tid, ret);
-			mutex_lock(&ctrl->m_ctrl);
+			spin_lock(&ctrl->txn_lock);
 			ctrl->txnt[txn->tid] = NULL;
-			mutex_unlock(&ctrl->m_ctrl);
+			spin_unlock(&ctrl->txn_lock);
 		}
 		return ret ? ret : dev->err;
 	}
@@ -725,9 +717,9 @@ static int ngd_xferandwait_ack(struct slim_controller *ctrl,
 		if (ret != -EREMOTEIO || txn->mc != SLIM_USR_MC_CHAN_CTRL)
 			SLIM_ERR(dev, "master msg:0x%x,tid:%d ret:%d\n",
 				txn->mc, txn->tid, ret);
-		mutex_lock(&ctrl->m_ctrl);
+		spin_lock(&ctrl->txn_lock);
 		ctrl->txnt[txn->tid] = NULL;
-		mutex_unlock(&ctrl->m_ctrl);
+		spin_unlock(&ctrl->txn_lock);
 	}
 
 	return ret;
@@ -1014,30 +1006,30 @@ capability_retry:
 		mt == SLIM_MSG_MT_SRC_REFERRED_USER) {
 		struct slim_msg_txn *txn;
 		u8 failed_ea[6] = {0, 0, 0, 0, 0, 0};
-		mutex_lock(&dev->ctrl.m_ctrl);
+		spin_lock(&dev->ctrl.txn_lock);
 		txn = dev->ctrl.txnt[buf[3]];
 		if (!txn) {
+			spin_unlock(&dev->ctrl.txn_lock);
 			SLIM_WARN(dev,
 				"LADDR response after timeout, tid:0x%x\n",
 					buf[3]);
-			mutex_unlock(&dev->ctrl.m_ctrl);
 			return;
 		}
 		if (memcmp(&buf[4], failed_ea, 6))
 			txn->la = buf[10];
 		dev->ctrl.txnt[buf[3]] = NULL;
-		mutex_unlock(&dev->ctrl.m_ctrl);
 		complete(txn->comp);
+		spin_unlock(&dev->ctrl.txn_lock);
 	}
 	if (mc == SLIM_USR_MC_GENERIC_ACK &&
 		mt == SLIM_MSG_MT_SRC_REFERRED_USER) {
 		struct slim_msg_txn *txn;
-		mutex_lock(&dev->ctrl.m_ctrl);
+		spin_lock(&dev->ctrl.txn_lock);
 		txn = dev->ctrl.txnt[buf[3]];
 		if (!txn) {
+			spin_unlock(&dev->ctrl.txn_lock);
 			SLIM_WARN(dev, "ACK received after timeout, tid:0x%x\n",
 				buf[3]);
-			mutex_unlock(&dev->ctrl.m_ctrl);
 			return;
 		}
 		dev_dbg(dev->dev, "got response:tid:%d, response:0x%x",
@@ -1048,8 +1040,8 @@ capability_retry:
 			txn->ec = -EIO;
 		}
 		dev->ctrl.txnt[buf[3]] = NULL;
-		mutex_unlock(&dev->ctrl.m_ctrl);
 		complete(txn->comp);
+		spin_unlock(&dev->ctrl.txn_lock);
 	}
 }
 
@@ -1191,16 +1183,16 @@ static int ngd_slim_power_down(struct msm_slim_ctrl *dev)
 {
 	int i;
 	struct slim_controller *ctrl = &dev->ctrl;
-	mutex_lock(&ctrl->m_ctrl);
+	spin_lock(&ctrl->txn_lock);
 	/* Pending response for a message */
 	for (i = 0; i < ctrl->last_tid; i++) {
 		if (ctrl->txnt[i]) {
+			spin_unlock(&ctrl->txn_lock);
 			SLIM_INFO(dev, "NGD down:txn-rsp for %d pending", i);
-			mutex_unlock(&ctrl->m_ctrl);
 			return -EBUSY;
 		}
 	}
-	mutex_unlock(&ctrl->m_ctrl);
+	spin_unlock(&ctrl->txn_lock);
 	return msm_slim_qmi_power_request(dev, false);
 }
 
