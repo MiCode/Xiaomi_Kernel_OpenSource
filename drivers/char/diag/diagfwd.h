@@ -35,7 +35,8 @@
 int diagfwd_init(void);
 void diagfwd_exit(void);
 int diag_smd_write(struct diag_smd_info *smd_info, void *buf, int len);
-void diag_process_hdlc(void *data, unsigned len);
+void diag_process_hdlc_pkt(void *data, unsigned len);
+void diag_process_non_hdlc_pkt(unsigned char *data, int len);
 void diag_smd_send_req(struct diag_smd_info *smd_info);
 long diagchar_ioctl(struct file *, unsigned int, unsigned long);
 int mask_request_validate(unsigned char mask_buf[]);
@@ -50,7 +51,6 @@ int diag_cmd_get_mobile_id(unsigned char *src_buf, int src_len,
 int diag_check_common_cmd(struct diag_pkt_header_t *header);
 void diag_update_userspace_clients(unsigned int type);
 void diag_update_sleeping_process(int process_id, int data_type);
-void encode_rsp_and_send(int buf_length);
 void diag_smd_notify(void *ctxt, unsigned event);
 int diag_smd_constructor(struct diag_smd_info *smd_info, int peripheral,
 			 int type);

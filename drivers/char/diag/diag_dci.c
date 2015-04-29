@@ -704,6 +704,7 @@ static int diag_dci_filter_commands(struct diag_pkt_header_t *header)
 		case 0x62: /* Extended Log Mask Config */
 		case 0x20C: /* Set current Preset ID */
 		case 0x20D: /* Get current Preset ID */
+		case 0x218: /* HDLC Disabled Command */
 			return 1;
 		}
 	}
