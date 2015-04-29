@@ -61,6 +61,7 @@ struct cpe_lsm_session {
 
 	struct completion cmd_comp;
 	struct wcd_cpe_afe_port_cfg afe_port_cfg;
+	struct wcd_cpe_afe_port_cfg afe_out_port_cfg;
 	struct mutex lsm_lock;
 
 	u32 snd_model_size;
@@ -90,6 +91,9 @@ struct wcd_cpe_afe_ops {
 
 	int (*afe_port_resume) (void *core_handle,
 			       struct wcd_cpe_afe_port_cfg *cfg);
+
+	int (*afe_port_cmd_cfg)(void *core_handle,
+				struct wcd_cpe_afe_port_cfg *cfg);
 };
 
 struct wcd_cpe_lsm_ops {

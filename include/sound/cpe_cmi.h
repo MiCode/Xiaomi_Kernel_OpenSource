@@ -17,6 +17,7 @@
 #include <linux/types.h>
 
 #define CPE_AFE_PORT_1_TX 1
+#define CPE_AFE_PORT_ID_2_OUT 0x02
 #define CMI_INBAND_MESSAGE_SIZE 127
 
 /*
@@ -81,6 +82,7 @@
 #define CPE_AFE_PORT_CMD_SHARED_MEM_ALLOC	(0x1005)
 #define CPE_AFE_PORT_CMDRSP_SHARED_MEM_ALLOC	(0x1006)
 #define CPE_AFE_PORT_CMD_SHARED_MEM_DEALLOC	(0x1007)
+#define CPE_AFE_PORT_CMD_GENERIC_CONFIG		(0x1008)
 
 /* AFE Service module and param IDs */
 #define CPE_AFE_CMD_SET_PARAM			(0x1000)
@@ -304,6 +306,14 @@ struct cpe_afe_port_cfg {
 	u32 sample_rate;
 } __packed;
 
+struct cpe_afe_cmd_port_cfg {
+	struct cmi_hdr hdr;
+	u8 bit_width;
+	u8 num_channels;
+	u16 buffer_size;
+	u32 sample_rate;
+} __packed;
+
 struct cpe_afe_params {
 	struct cmi_hdr hdr;
 	struct cpe_afe_hw_mad_ctrl hw_mad_ctrl;
@@ -405,4 +415,8 @@ struct cpe_lsm_lab_latency_config {
 #define OUT_FMT_CFG_CMD_PAYLOAD_SIZE ( \
 		sizeof(struct cpe_lsm_output_format_cfg) - \
 		sizeof(struct cmi_hdr))
+
+#define CPE_AFE_CMD_PORT_CFG_PAYLOAD_SIZE \
+		(sizeof(struct cpe_afe_cmd_port_cfg) - \
+		 sizeof(struct cmi_hdr))
 #endif /* __CPE_CMI_H__ */
