@@ -77,7 +77,7 @@ static char dbg_buff[IPADMA_MAX_MSG_LEN];
 static void ipa_dma_debugfs_init(void);
 static void ipa_dma_debugfs_destroy(void);
 #else
-static void ipa_debugfs_init(void) {}
+static void ipa_dma_debugfs_init(void) {}
 static void ipa_dma_debugfs_destroy(void) {}
 #endif
 

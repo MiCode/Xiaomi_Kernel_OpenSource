@@ -1693,5 +1693,31 @@ void ipa_debugfs_remove(void)
 #else /* !CONFIG_DEBUG_FS */
 void ipa_debugfs_init(void) {}
 void ipa_debugfs_remove(void) {}
+int _ipa_read_dbg_cnt_v1_1(char *buf, int max_len)
+{
+	return 0;
+}
+int _ipa_read_ep_reg_v1_1(char *buf, int max_len, int pipe)
+{
+	return 0;
+}
+int _ipa_read_gen_reg_v1_1(char *buff, int max_len)
+{
+	return 0;
+}
+void _ipa_write_dbg_cnt_v1_1(int option) {}
+int _ipa_read_gen_reg_v2_0(char *buff, int max_len)
+{
+	return 0;
+}
+int _ipa_read_ep_reg_v2_0(char *buf, int max_len, int pipe)
+{
+	return 0;
+}
+void _ipa_write_dbg_cnt_v2_0(int option) {}
+int _ipa_read_dbg_cnt_v2_0(char *buf, int max_len)
+{
+	return 0;
+}
 #endif
 
