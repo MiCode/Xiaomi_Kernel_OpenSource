@@ -47,9 +47,9 @@ struct msm_cpp_frame_strip_info {
 
 	/* extra 5th and 6th layer parameters */
 	int32_t extra_src_start_x;
-	int32_t extra_src_end_x;
+	uint32_t extra_src_end_x;
 	int32_t extra_src_start_y;
-	int32_t extra_src_end_y;
+	uint32_t extra_src_end_y;
 
 	int32_t extra_initial_vertical_count[2];
 	int32_t extra_initial_horizontal_count[2];
@@ -159,6 +159,11 @@ struct msm_cpp_frame_strip_info {
 	int32_t we_v_init;
 	int32_t we_h_step;
 	int32_t we_v_step;
+
+	int32_t temporal_we_h_init;
+	int32_t temporal_we_v_init;
+	int32_t temporal_we_h_step;
+	int32_t temporal_we_v_step;
 };
 
 struct msm_cpp_buffer_info_t {
