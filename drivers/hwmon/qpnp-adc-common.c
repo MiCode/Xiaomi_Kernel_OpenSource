@@ -30,10 +30,6 @@
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/platform_device.h>
 
-/* Min ADC code represets 0V */
-#define QPNP_VADC_MIN_ADC_CODE			0x6000
-/* Max ADC code represents full-scale range of 1.8V */
-#define QPNP_VADC_MAX_ADC_CODE			0xA800
 #define KELVINMIL_DEGMIL	273160
 #define QPNP_VADC_LDO_VOLTAGE_MIN	1800000
 #define QPNP_VADC_LDO_VOLTAGE_MAX	1800000
@@ -1844,20 +1840,6 @@ int32_t qpnp_adc_smb_btm_rscaler(struct qpnp_vadc_chip *chip,
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_smb_btm_rscaler);
-
-int32_t qpnp_vadc_check_result(int32_t *data, bool recalib_check)
-{
-	if (recalib_check)
-		return 0;
-
-	if (*data < QPNP_VADC_MIN_ADC_CODE)
-		*data = QPNP_VADC_MIN_ADC_CODE;
-	else if (*data > QPNP_VADC_MAX_ADC_CODE)
-		*data = QPNP_VADC_MAX_ADC_CODE;
-
-	return 0;
-}
-EXPORT_SYMBOL(qpnp_vadc_check_result);
 
 int32_t qpnp_adc_enable_voltage(struct qpnp_adc_drv *adc)
 {

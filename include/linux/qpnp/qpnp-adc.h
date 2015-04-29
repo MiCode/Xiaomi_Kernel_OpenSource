@@ -1137,13 +1137,6 @@ int32_t qpnp_vadc_conv_seq_request(struct qpnp_vadc_chip *dev,
 			struct qpnp_vadc_result *result);
 
 /**
- * qpnp_vadc_check_result() - Performs check on the ADC raw code.
- * @data:	Data used for verifying the range of the ADC code.
- * @recalib_check:	Recalibration check to ignore result check.
- */
-int32_t qpnp_vadc_check_result(int32_t *data, bool recalib_check);
-
-/**
  * qpnp_adc_get_devicetree_data() - Abstracts the ADC devicetree data.
  * @spmi:	spmi ADC device.
  * @adc_qpnp:	spmi device tree node structure
