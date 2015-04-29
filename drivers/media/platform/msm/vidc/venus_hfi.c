@@ -13,6 +13,7 @@
 
 #include <asm/dma-iommu.h>
 #include <asm/memory.h>
+#include <linux/clk/msm-clk.h>
 #include <linux/coresight-stm.h>
 #include <linux/delay.h>
 #include <linux/devfreq.h>
@@ -1159,6 +1160,7 @@ static int __unset_imem(struct venus_hfi_device *device)
 		rc = -EIO;
 		goto imem_unset_failed;
 	}
+	rc = 0;
 
 imem_unset_failed:
 	return rc;
@@ -1271,6 +1273,21 @@ static struct clock_info *__get_clock(struct venus_hfi_device *device,
 	}
 
 	dprintk(VIDC_WARN, "%s Clock %s not found\n", __func__, name);
+
+	return NULL;
+}
+
+static struct regulator_info *__get_regulator(struct venus_hfi_device *device,
+			char *name)
+{
+	struct regulator_info *r;
+
+	venus_hfi_for_each_regulator(device, r) {
+		if (!strcmp(r->name, name))
+			return r;
+	}
+
+	dprintk(VIDC_WARN, "%s Regulator %s not found\n", __func__, name);
 
 	return NULL;
 }
@@ -4052,10 +4069,54 @@ static int __enable_hw_power_collapse(struct venus_hfi_device *device)
 	return rc;
 }
 
+static int __core_clk_reset(struct venus_hfi_device *device,
+				enum clk_reset_action action)
+{
+	int rc = 0;
+	struct regulator_info *rinfo;
+	struct clock_info *vc;
+
+	rinfo = __get_regulator(device, "venus");
+	if (!rinfo)
+		return -EINVAL;
+
+	if (regulator_is_enabled(rinfo->regulator)) {
+		/*
+		 * This is a workaround for msm8996 V2, because MDP enables
+		 * Venus GDSC. Due to MDP's vote on Venus GDSC, some of Venus
+		 * registers are not cleared after firmware is unloaded. This
+		 * causes subsequent video sessions to fail. By reseting
+		 * core_clk we are forcing a hard reset and ensure each
+		 * firmware load starts on a clean slate.
+		 */
+		dprintk(VIDC_DBG, "%s core-clk\n",
+			action == CLK_RESET_DEASSERT ? "de-assert" : "assert");
+		vc = __get_clock(device, "core_clk");
+		if (vc) {
+			rc = clk_reset(vc->clk, action);
+			if (rc) {
+				dprintk(VIDC_ERR,
+					"clk_reset action - %d failed: %d\n",
+					action, rc);
+				return rc;
+			}
+		} else {
+			return -EINVAL;
+		}
+		udelay(1);
+	}
+	return rc;
+}
+
 static int __enable_regulators(struct venus_hfi_device *device)
 {
 	int rc = 0, c = 0;
 	struct regulator_info *rinfo;
+
+	rc = __core_clk_reset(device, CLK_RESET_DEASSERT);
+	if (rc)
+		return rc;
+
 
 	dprintk(VIDC_DBG, "Enabling regulators\n");
 
@@ -4085,13 +4146,16 @@ err_reg_enable_failed:
 static int __disable_regulators(struct venus_hfi_device *device)
 {
 	struct regulator_info *rinfo;
+	int rc = 0;
 
 	dprintk(VIDC_DBG, "Disabling regulators\n");
 
 	venus_hfi_for_each_regulator_reverse(device, rinfo)
 		__disable_regulator(rinfo);
 
-	return 0;
+	rc = __core_clk_reset(device, CLK_RESET_ASSERT);
+
+	return rc;
 }
 
 static int __load_fw(struct venus_hfi_device *device)
