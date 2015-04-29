@@ -519,8 +519,8 @@ static inline int __init_resources(struct vmem *v,
 		const char *name = NULL;
 		struct clk *temp = NULL;
 
-		of_property_read_string(pdev->dev.of_node, "clock-names",
-				&name);
+		of_property_read_string_index(pdev->dev.of_node, "clock-names",
+				c, &name);
 		temp = devm_clk_get(&pdev->dev, name);
 		if (IS_ERR_OR_NULL(temp)) {
 			rc = PTR_ERR(temp) ?: -ENOENT;
