@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -560,18 +560,22 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 {
 	char *buf;
 	int ret = 0;
-	int i;
+	int i = 0;
+	int is_polling = 0;
 	unsigned int bytes_remaining;
 	unsigned int bytes_in_buffer = 0;
 	unsigned int bytes_written;
 	unsigned int buf_size;
-	buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
+	struct list_head *start;
+	struct list_head *temp;
+	struct diag_cmd_reg_t *item = NULL;
 
-	if (diag_dbgfs_table_index >= diag_max_reg) {
-		/* Done. Reset to prepare for future requests */
+	if (diag_dbgfs_table_index == driver->cmd_reg_count) {
 		diag_dbgfs_table_index = 0;
 		return 0;
 	}
+
+	buf_size = (DEBUG_BUF_SIZE < count) ? DEBUG_BUF_SIZE : count;
 
 	buf = kzalloc(sizeof(char) * buf_size, GFP_KERNEL);
 	if (ZERO_OR_NULL_PTR(buf)) {
@@ -583,30 +587,32 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 
 	if (diag_dbgfs_table_index == 0) {
 		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
-			"Client ids: Modem: %d, LPASS: %d, "
-			"WCNSS: %d, APPS: %d\n",
-			MODEM_DATA, LPASS_DATA, WCNSS_DATA, APPS_DATA);
+					  "Client ids: Modem: %d, LPASS: %d, WCNSS: %d, SLPI: %d, APPS: %d\n",
+					  MODEM_DATA, LPASS_DATA, WCNSS_DATA,
+					  SENSORS_DATA, APPS_DATA);
 		bytes_in_buffer += bytes_written;
 		bytes_remaining -= bytes_written;
 	}
 
-	for (i = diag_dbgfs_table_index; i < diag_max_reg; i++) {
-		/* Do not process empty entries in the table */
-		if (driver->table[i].process_id == 0)
+	list_for_each_safe(start, temp, &driver->cmd_reg_list) {
+		item = list_entry(start, struct diag_cmd_reg_t, link);
+		if (i < diag_dbgfs_table_index) {
+			i++;
 			continue;
+		}
 
+		is_polling = diag_cmd_chk_polling(&item->entry);
 		bytes_written = scnprintf(buf+bytes_in_buffer, bytes_remaining,
-			"i: %3d, cmd_code: %4x, subsys_id: %4x, "
-			"client: %2d, cmd_code_lo: %4x, "
-			"cmd_code_hi: %4x, process_id: %5d %s\n",
-			i,
-			driver->table[i].cmd_code,
-			driver->table[i].subsys_id,
-			driver->table[i].client_id,
-			driver->table[i].cmd_code_lo,
-			driver->table[i].cmd_code_hi,
-			driver->table[i].process_id,
-			(diag_find_polling_reg(i) ? "<- Polling cmd reg" : ""));
+					  "i: %3d, cmd_code: %4x, subsys_id: %4x, cmd_code_lo: %4x, cmd_code_hi: %4x, proc: %d, process_id: %5d %s\n",
+					  i++,
+					  item->entry.cmd_code,
+					  item->entry.subsys_id,
+					  item->entry.cmd_code_lo,
+					  item->entry.cmd_code_hi,
+					  item->proc,
+					  item->pid,
+					  (is_polling == DIAG_CMD_POLLING) ?
+					  "<-- Polling Cmd" : "");
 
 		bytes_in_buffer += bytes_written;
 
@@ -616,7 +622,7 @@ static ssize_t diag_dbgfs_read_table(struct file *file, char __user *ubuf,
 		if (bytes_remaining < bytes_written)
 			break;
 	}
-	diag_dbgfs_table_index = i+1;
+	diag_dbgfs_table_index = i;
 
 	*ppos = 0;
 	ret = simple_read_from_buffer(ubuf, count, ppos, buf, bytes_in_buffer);

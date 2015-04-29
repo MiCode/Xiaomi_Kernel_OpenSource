@@ -1102,10 +1102,10 @@ void extract_dci_events(unsigned char *buf, int len, int data_source, int token)
 		pr_err("diag: Incoming dci event length is invalid\n");
 		return;
 	}
-	/* Move directly to the start of the event series. 1 byte for
+	/*
+	 * Move directly to the start of the event series. 1 byte for
 	 * event code and 2 bytes for the length field.
-	 */
-	/* The length field indicates the total length removing the cmd_code
+	 * The length field indicates the total length removing the cmd_code
 	 * and the lenght field. The event parsing in that case should happen
 	 * till the end.
 	 */
@@ -1379,12 +1379,15 @@ void diag_dci_notify_client(int peripheral_mask, int data, int proc)
 	}
 }
 
-static int diag_send_dci_pkt(struct diag_master_table entry,
+static int diag_send_dci_pkt(struct diag_cmd_reg_t *entry,
 			     unsigned char *buf, int len, int tag)
 {
 	int i, status = DIAG_DCI_NO_ERROR;
 	uint32_t write_len = 0;
 	struct diag_dci_pkt_header_t header;
+
+	if (!entry)
+		return -EIO;
 
 	if (len < 1 || len > DIAG_MAX_REQ_SIZE) {
 		pr_err("diag: dci: In %s, invalid length %d, max_length: %d\n",
@@ -1413,28 +1416,28 @@ static int diag_send_dci_pkt(struct diag_master_table entry,
 	write_len += sizeof(uint8_t);
 
 	/* This command is registered locally on the Apps */
-	if (entry.client_id == APPS_DATA) {
+	if (entry->proc == APPS_DATA) {
 		diag_update_pkt_buffer(driver->apps_dci_buf, write_len,
 				       DCI_PKT_TYPE);
-		diag_update_sleeping_process(entry.process_id, DCI_PKT_TYPE);
+		diag_update_sleeping_process(entry->pid, DCI_PKT_TYPE);
 		mutex_unlock(&driver->dci_mutex);
 		return DIAG_DCI_NO_ERROR;
 	}
 
 	for (i = 0; i < NUM_SMD_DCI_CHANNELS; i++)
-		if (entry.client_id == i) {
+		if (entry->proc == i) {
 			status = 1;
 			break;
 		}
 
 	if (status) {
-		status = diag_dci_write_proc(entry.client_id,
+		status = diag_dci_write_proc(entry->proc,
 					     DIAG_DATA_TYPE,
 					     driver->apps_dci_buf,
 					     write_len);
 	} else {
 		pr_err("diag: Cannot send packet to peripheral %d",
-		       entry.client_id);
+		       entry->proc);
 		status = DIAG_DCI_SEND_DATA_FAIL;
 	}
 	mutex_unlock(&driver->dci_mutex);
@@ -1734,17 +1737,19 @@ fill_buffer:
 
 static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 {
-	int ret = DIAG_DCI_TABLE_ERR, i;
+	int ret = DIAG_DCI_TABLE_ERR;
 	int common_cmd = 0;
 	struct diag_pkt_header_t *header = NULL;
 	unsigned char *temp = buf;
 	unsigned char *req_buf = NULL;
-	uint8_t retry_count = 0, max_retries = 3, found = 0;
+	uint8_t retry_count = 0, max_retries = 3;
 	uint32_t read_len = 0, req_len = len;
-	struct diag_master_table entry;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
 	struct diag_dci_client_tbl *dci_entry = NULL;
 	struct dci_pkt_req_t req_hdr;
+	struct diag_cmd_reg_t *reg_item;
+	struct diag_cmd_reg_entry_t reg_entry;
+	struct diag_cmd_reg_entry_t *temp_entry;
 
 	if (!buf)
 		return -EIO;
@@ -1832,48 +1837,19 @@ static int diag_process_dci_pkt_rsp(unsigned char *buf, int len)
 	if ((ret == DIAG_DCI_NO_ERROR && !common_cmd) || ret < 0)
 		return ret;
 
-	/* Check the registration table for command entries */
-	for (i = 0; i < diag_max_reg && !found; i++) {
-		entry = driver->table[i];
-		if (entry.process_id == NO_PROCESS)
-			continue;
-		if (entry.cmd_code == header->cmd_code &&
-			    entry.subsys_id == header->subsys_id &&
-			    entry.cmd_code_lo <= header->subsys_cmd_code &&
-			    entry.cmd_code_hi >= header->subsys_cmd_code) {
-			ret = diag_send_dci_pkt(entry, req_buf, req_len,
-						req_entry->tag);
-			if (!common_cmd)
-				found = 1;
-		} else if (entry.cmd_code == 255 && header->cmd_code == 75) {
-			if (entry.subsys_id == header->subsys_id &&
-			    entry.cmd_code_lo <= header->subsys_cmd_code &&
-			    entry.cmd_code_hi >= header->subsys_cmd_code) {
-				ret = diag_send_dci_pkt(entry, req_buf, req_len,
-							req_entry->tag);
-				if (!common_cmd)
-					found = 1;
-			}
-		} else if (entry.cmd_code == 255 && entry.subsys_id == 255) {
-			if (entry.cmd_code_lo <= header->cmd_code &&
-			    entry.cmd_code_hi >= header->cmd_code) {
-				/*
-				 * If its a Mode reset command, make sure it is
-				 * registered on the Apps Processor
-				 */
-				if (entry.cmd_code_lo == MODE_CMD &&
-				    entry.cmd_code_hi == MODE_CMD &&
-				    header->subsys_id == RESET_ID) {
-					if (entry.client_id != APPS_DATA)
-						continue;
-				}
-				ret = diag_send_dci_pkt(entry, req_buf,
-							req_len,
-							req_entry->tag);
-				if (!common_cmd)
-					found = 1;
-			}
-		}
+	reg_entry.cmd_code = header->cmd_code;
+	reg_entry.subsys_id = header->subsys_id;
+	reg_entry.cmd_code_hi = header->subsys_cmd_code;
+	reg_entry.cmd_code_lo = header->subsys_cmd_code;
+
+	temp_entry = diag_cmd_search(&reg_entry, ALL_PROC);
+	if (temp_entry) {
+		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
+								entry);
+		ret = diag_send_dci_pkt(reg_item, req_buf, req_len,
+					req_entry->tag);
+	} else {
+		pr_err("diag: In %s, command not found\n", __func__);
 	}
 
 	return ret;

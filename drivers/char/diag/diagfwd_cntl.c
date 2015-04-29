@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -40,7 +40,7 @@ void diag_clean_reg_fn(struct work_struct *work)
 		smd_info->peripheral);
 
 	reg_dirty |= smd_info->peripheral_mask;
-	diag_clear_reg(smd_info->peripheral);
+	diag_cmd_remove_reg_by_proc(smd_info->peripheral);
 	reg_dirty ^= smd_info->peripheral_mask;
 
 	/* Reset the feature mask flag */
@@ -120,6 +120,58 @@ static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info)
 	}
 }
 
+static void process_command_deregistration(uint8_t *buf, uint32_t len,
+					 struct diag_smd_info *smd_info)
+{
+	uint8_t *ptr = buf;
+	int i;
+	int header_len = sizeof(struct diag_ctrl_cmd_dereg);
+	int read_len = 0;
+	struct diag_ctrl_cmd_dereg *dereg = NULL;
+	struct cmd_code_range *range = NULL;
+	struct diag_cmd_reg_entry_t del_entry;
+
+	/*
+	 * Perform Basic sanity. The len field is the size of the data payload.
+	 * This doesn't include the header size.
+	 */
+	if (!buf || !smd_info || len == 0)
+		return;
+
+	/* Peripheral undergoing SSR should not do deregistration */
+	if (reg_dirty & smd_info->peripheral_mask) {
+		pr_err("diag: dropping command deregistration from peripheral %d\n",
+		       smd_info->peripheral);
+		return;
+	}
+
+	dereg = (struct diag_ctrl_cmd_dereg *)ptr;
+	ptr += header_len;
+	/* Don't account for pkt_id and length */
+	read_len += header_len - (2 * sizeof(uint32_t));
+
+	if (dereg->count_entries == 0) {
+		pr_debug("diag: In %s, received reg tbl with no entries\n",
+			 __func__);
+		return;
+	}
+
+	for (i = 0; i < dereg->count_entries && read_len < len; i++) {
+		range = (struct cmd_code_range *)ptr;
+		ptr += sizeof(struct cmd_code_range) - sizeof(uint32_t);
+		read_len += sizeof(struct cmd_code_range) - sizeof(uint32_t);
+		del_entry.cmd_code = dereg->cmd_code;
+		del_entry.subsys_id = dereg->subsysid;
+		del_entry.cmd_code_hi = range->cmd_code_hi;
+		del_entry.cmd_code_lo = range->cmd_code_lo;
+		diag_cmd_remove_reg(&del_entry, smd_info->peripheral);
+	}
+
+	if (i != dereg->count_entries) {
+		pr_err("diag: In %s, reading less than available, read_len: %d, len: %d count: %d\n",
+		       __func__, read_len, len, dereg->count_entries);
+	}
+}
 static void process_command_registration(uint8_t *buf, uint32_t len,
 					 struct diag_smd_info *smd_info)
 {
@@ -127,10 +179,9 @@ static void process_command_registration(uint8_t *buf, uint32_t len,
 	int i;
 	int header_len = sizeof(struct diag_ctrl_cmd_reg);
 	int read_len = 0;
-	struct bindpkt_params_per_process *pkt_params = NULL;
-	struct bindpkt_params *temp = NULL;
 	struct diag_ctrl_cmd_reg *reg = NULL;
 	struct cmd_code_range *range = NULL;
+	struct diag_cmd_reg_entry_t new_entry;
 
 	/*
 	 * Perform Basic sanity. The len field is the size of the data payload.
@@ -157,40 +208,21 @@ static void process_command_registration(uint8_t *buf, uint32_t len,
 		return;
 	}
 
-	pkt_params = kzalloc(sizeof(struct bindpkt_params_per_process),
-			     GFP_KERNEL);
-	if (!pkt_params) {
-		pr_err("diag: In %s, unable to allocate memory for new command table entry\n",
-		       __func__);
-		return;
-	}
-	pkt_params->count = reg->count_entries;
-	pkt_params->params = kzalloc(pkt_params->count *
-				     sizeof(struct bindpkt_params),
-				     GFP_KERNEL);
-	if (!pkt_params->params) {
-		pr_err("diag: In %s, Memory alloc fail for cmd_code: %d, subsys: %d\n",
-		       __func__, reg->cmd_code, reg->subsysid);
-		kfree(pkt_params);
-		return;
-	}
-
-	temp = pkt_params->params;
-	for (i = 0; i < reg->count_entries && read_len < len; i++, temp++) {
-		temp->cmd_code = reg->cmd_code;
-		temp->subsys_id = reg->subsysid;
-		temp->client_id = smd_info->peripheral;
-		temp->proc_id = NON_APPS_PROC;
+	for (i = 0; i < reg->count_entries && read_len < len; i++) {
 		range = (struct cmd_code_range *)ptr;
-		temp->cmd_code_lo = range->cmd_code_lo;
-		temp->cmd_code_hi = range->cmd_code_hi;
 		ptr += sizeof(struct cmd_code_range);
 		read_len += sizeof(struct cmd_code_range);
+		new_entry.cmd_code = reg->cmd_code;
+		new_entry.subsys_id = reg->subsysid;
+		new_entry.cmd_code_hi = range->cmd_code_hi;
+		new_entry.cmd_code_lo = range->cmd_code_lo;
+		diag_cmd_add_reg(&new_entry, smd_info->peripheral, INVALID_PID);
 	}
 
-	diagchar_ioctl(NULL, DIAG_IOCTL_COMMAND_REG, (unsigned long)pkt_params);
-	kfree(pkt_params->params);
-	kfree(pkt_params);
+	if (i != reg->count_entries) {
+		pr_err("diag: In %s, reading less than available, read_len: %d, len: %d count: %d\n",
+		       __func__, read_len, len, reg->count_entries);
+	}
 }
 
 static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
@@ -553,6 +585,10 @@ int diag_process_smd_cntl_read_data(struct diag_smd_info *smd_info, void *buf,
 		switch (ctrl_pkt->pkt_id) {
 		case DIAG_CTRL_MSG_REG:
 			process_command_registration(ptr, ctrl_pkt->len,
+						     smd_info);
+			break;
+		case DIAG_CTRL_MSG_DEREG:
+			process_command_deregistration(ptr, ctrl_pkt->len,
 						     smd_info);
 			break;
 		case DIAG_CTRL_MSG_FEATURE:
