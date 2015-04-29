@@ -648,6 +648,11 @@ out:
 	return err;
 }
 
+static int ufs_qcom_full_reset(struct ufs_hba *hba)
+{
+	return 0;
+}
+
 static
 int ufs_qcom_crytpo_engine_cfg(struct ufs_hba *hba, unsigned int task_tag)
 {
@@ -1835,6 +1840,7 @@ static struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.apply_dev_quirks	= ufs_qcom_apply_dev_quirks,
 	.suspend		= ufs_qcom_suspend,
 	.resume			= ufs_qcom_resume,
+	.full_reset		= ufs_qcom_full_reset,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
 #ifdef CONFIG_DEBUG_FS
