@@ -29,3 +29,78 @@
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
 	};
 };
+
+#include "msm8996-mdss-panels.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_nofbc_video_0>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,dsi-panel-bias-vreg;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
+	qcom,platform-bklight-en-gpio = <&pm8994_gpios 14 0>;
+};
+
+&mdss_dsi1 {
+	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_nofbc_video_1>;
+};
+
+&labibb {
+	status = "ok";
+	qpnp,qpnp-labibb-mode = "lcd";
+	qcom,qpnp-ibb-discharge-resistor = <32>;
+};
+
+&dsi_dual_jdi_4k_nofbc_video_0 {
+	pwms = <&pmi8994_pwm_4 0 0>;
+	pwm-names = "backlight";
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pwm-pmi;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
+&pmi8994_pwm_4 {
+	qcom,channel-owner = "lcd_bl";
+	qcom,lpg-dtest-line = <4>;
+	qcom,dtest-output = <1>;
+	status = "okay";
+};
+
+&pm8994_gpios {
+	gpio@cd00 { /* GPIO 14 - lcd_bklt_reg_en */
+		qcom,mode = <1>;	/* DIGITAL OUT */
+		qcom,output-type = <0>;		/* CMOS logic */
+		qcom,invert = <1>; 	/* output hight initially */
+		qcom,vin-sel = <2>;	/* 1.8 */
+		qcom,src-sel = <0>;	/* CONSTANT */
+		qcom,out-strength = <1>;	/* Low drive strength */
+		qcom,master-en = <1>;	/* ENABLE GPIO */
+		status = "okay";
+	};
+};
+
+&pmi8994_mpps {
+	mpp@a000 { /* MPP 1 */
+		qcom,mode = <1>;                /* Digital output */
+		qcom,output-type = <0>;         /* CMOS logic */
+		qcom,vin-sel = <0>;             /* S4 1.8V */
+		qcom,src-sel = <7>;             /* DTEST4 */
+		qcom,master-en = <1>;           /* Enable MPP */
+		status = "okay";
+	};
+
+	mpp@a300 { /* MPP 4 */
+		/* WLED FET */
+		qcom,mode = <1>;        /* DIGITAL OUT */
+		qcom,vin-sel = <0>;     /* VIN0 */
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+};

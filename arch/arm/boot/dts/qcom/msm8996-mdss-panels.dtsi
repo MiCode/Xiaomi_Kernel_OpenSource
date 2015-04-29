@@ -19,6 +19,8 @@
 #include "dsi-panel-jdi-dualmipi1-video.dtsi"
 #include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
 #include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
+#include "dsi-panel-jdi-4k-dualmipi0-video-nofbc.dtsi"
+#include "dsi-panel-jdi-4k-dualmipi1-video-nofbc.dtsi"
 
 
 &dsi_dual_sharp_video_0 {
@@ -95,4 +97,20 @@
 		07 04 04 06 03 03 04 a0
 		07 04 04 06 03 03 04 a0
 		07 0e 04 05 03 13 04 a0];
+};
+
+&dsi_dual_jdi_4k_nofbc_video_0 {
+	qcom,mdss-dsi-panel-timings-8996 = [31 2e 0d 12 0d 03 04 a0
+		31 2e 0d 12 0d 03 04 a0
+		31 2e 0d 12 0d 03 04 a0
+		31 2e 0d 12 0d 03 04 a0
+		31 53 0c 12 0d 03 04 a0];
+};
+
+&dsi_dual_jdi_4k_nofbc_video_1 {
+	qcom,mdss-dsi-panel-timings-8996 = [31 2e 0d 12 0d 03 04 a0
+		31 2e 0d 12 0d 03 04 a0
+		31 2e 0d 12 0d 03 04 a0
+		31 2e 0d 12 0d 03 04 a0
+		31 53 0c 12 0d 03 04 a0];
 };
