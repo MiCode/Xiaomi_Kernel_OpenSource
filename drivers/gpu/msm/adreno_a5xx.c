@@ -958,7 +958,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 		 * detection logic as per recommendation of hardware team.
 		 */
 		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL11,
-					0xE0000000);
+					0xF0000000);
 		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL12,
 					0xFFFFFFFF);
 		kgsl_regwrite(device, A5XX_RBBM_INTERFACE_HANG_MASK_CNTL13,
