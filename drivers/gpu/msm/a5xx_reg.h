@@ -628,7 +628,6 @@
 #define A5XX_VPC_PERFCTR_VPC_SEL_3          0xE67
 
 /* UCHE registers */
-#define A5XX_UCHE_SVM_CNTL                  0xE82
 #define A5XX_UCHE_WRITE_THRU_BASE_LO        0xE87
 #define A5XX_UCHE_WRITE_THRU_BASE_HI        0xE88
 #define A5XX_UCHE_TRAP_BASE_LO              0xE89
