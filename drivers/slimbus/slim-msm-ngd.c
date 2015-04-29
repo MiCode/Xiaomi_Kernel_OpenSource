@@ -537,19 +537,10 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 		wbuf[0] == dev->pgdla) {
 		if (txn->mc != SLIM_USR_MC_DISCONNECT_PORT)
 			dev->err = msm_slim_connect_pipe_port(dev, wbuf[1]);
-		else {
-			/*
-			 * Remove channel disconnects master-side ports from
-			 * channel. No need to send that again on the bus
-			 * Only disable port
-			 */
+		else
 			writel_relaxed(0, PGD_PORT(PGD_PORT_CFGn,
 					(dev->pipes[wbuf[1]].port_b),
 						dev->ver));
-			mutex_unlock(&dev->tx_lock);
-			msm_slim_put_ctrl(dev);
-			return 0;
-		}
 		if (dev->err) {
 			SLIM_ERR(dev, "pipe-port connect err:%d\n", dev->err);
 			goto ngd_xfer_err;
