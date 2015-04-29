@@ -22,13 +22,6 @@ msm-y := \
 	edp/edp_phy.o \
 	mdp/mdp_format.o \
 	mdp/mdp_kms.o \
-	mdp/mdp4/mdp4_crtc.o \
-	mdp/mdp4/mdp4_dtv_encoder.o \
-	mdp/mdp4/mdp4_lcdc_encoder.o \
-	mdp/mdp4/mdp4_lvds_connector.o \
-	mdp/mdp4/mdp4_irq.o \
-	mdp/mdp4/mdp4_kms.o \
-	mdp/mdp4/mdp4_plane.o \
 	mdp/mdp5/mdp5_cfg.o \
 	mdp/mdp5/mdp5_ctl.o \
 	mdp/mdp5/mdp5_crtc.o \
@@ -67,6 +60,14 @@ msm-y += adreno/adreno_device.o \
 	adreno/a3xx_gpu.o \
 	adreno/a4xx_gpu.o
 endif
+
+msm-$(CONFIG_DRM_MSM_MDP4) += mdp/mdp4/mdp4_crtc.o \
+	mdp/mdp4/mdp4_dtv_encoder.o \
+	mdp/mdp4/mdp4_lcdc_encoder.o \
+	mdp/mdp4/mdp4_lvds_connector.o \
+	mdp/mdp4/mdp4_irq.o \
+	mdp/mdp4/mdp4_kms.o \
+	mdp/mdp4/mdp4_plane.o
 
 msm-$(CONFIG_DRM_FBDEV_EMULATION) += msm_fbdev.o
 msm-$(CONFIG_SYNC) += sde/sde_fence.o

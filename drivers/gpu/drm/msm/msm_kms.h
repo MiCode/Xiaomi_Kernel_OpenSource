@@ -87,7 +87,12 @@ static inline void msm_kms_init(struct msm_kms *kms,
 	kms->funcs = funcs;
 }
 
+#ifdef CONFIG_DRM_MSM_MDP4
 struct msm_kms *mdp4_kms_init(struct drm_device *dev);
+#else
+static inline
+struct msm_kms *mdp4_kms_init(struct drm_device *dev) { return NULL; };
+#endif
 struct msm_kms *mdp5_kms_init(struct drm_device *dev);
 struct msm_kms *sde_kms_init(struct drm_device *dev);
 
