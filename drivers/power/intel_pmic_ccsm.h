@@ -398,5 +398,5 @@ struct pmic_chrgr_drv_context {
 	struct usb_phy *otg;
 	struct thermal_cooling_device *vbus_cdev;
 	struct list_head evt_queue;
-	struct work_struct evt_work;
+	struct delayed_work evt_work;
 };
