@@ -972,10 +972,14 @@ static inline bool ufshcd_is_hs_mode(struct ufs_pa_layer_attr *pwr_info)
 		pwr_info->pwr_tx == FASTAUTO_MODE);
 }
 
+#ifdef CONFIG_DEBUG_FS
 static inline void ufshcd_init_req_stats(struct ufs_hba *hba)
 {
 	memset(hba->ufs_stats.req_stats, 0, sizeof(hba->ufs_stats.req_stats));
 }
+#else
+static inline void ufshcd_init_req_stats(struct ufs_hba *hba) {}
+#endif
 
 #define ASCII_STD true
 #define UTF16_STD false
