@@ -18,7 +18,6 @@
 #include "glink_private.h"
 #include "glink_core_if.h"
 
-#if defined(CONFIG_DEBUG_FS)
 
 static const char * const ss_string[] = {
 	[GLINK_DBGFS_MPSS] = "mpss",
@@ -54,6 +53,7 @@ static const char * const xprt_st_string[] = {
 	[GLINK_XPRT_FAILED] = "FAILED"
 };
 
+#if defined(CONFIG_DEBUG_FS)
 #define GLINK_DBGFS_NAME_SIZE (2 * GLINK_NAME_SIZE + 1)
 
 struct glink_dbgfs_dent {
@@ -89,6 +89,7 @@ static const struct file_operations debug_ops = {
 	.read = seq_read,
 	.llseek = seq_lseek,
 };
+#endif
 
 /**
  * glink_get_ss_enum_string() - get the name of the subsystem based on enum value
@@ -151,6 +152,7 @@ const char *glink_get_ch_state_string(
 }
 EXPORT_SYMBOL(glink_get_ch_state_string);
 
+#if defined(CONFIG_DEBUG_FS)
 /**
  * glink_dfs_create_file() - create the debugfs file
  * @name:	debugfs file name
@@ -757,5 +759,25 @@ void glink_debugfs_exit(void)
 	if (dent != NULL)
 		debugfs_remove_recursive(dent);
 }
+EXPORT_SYMBOL(glink_debugfs_exit);
+#else
+void glink_debugfs_remove_recur(struct glink_dbgfs *dfs) { }
+EXPORT_SYMBOL(glink_debugfs_remove_recur);
+
+void glink_debugfs_remove_channel(struct channel_ctx *ch_ctx,
+			struct glink_core_xprt_ctx *xprt_ctx) { }
+EXPORT_SYMBOL(glink_debugfs_remove_channel);
+
+void glink_debugfs_add_channel(struct channel_ctx *ch_ctx,
+		struct glink_core_xprt_ctx *xprt_ctx) { }
+EXPORT_SYMBOL(glink_debugfs_add_channel);
+
+void glink_debugfs_add_xprt(struct glink_core_xprt_ctx *xprt_ctx) { }
+EXPORT_SYMBOL(glink_debugfs_add_xprt);
+
+int glink_debugfs_init(void) { return 0; }
+EXPORT_SYMBOL(glink_debugfs_init);
+
+void glink_debugfs_exit(void) { }
 EXPORT_SYMBOL(glink_debugfs_exit);
 #endif /* CONFIG_DEBUG_FS */
