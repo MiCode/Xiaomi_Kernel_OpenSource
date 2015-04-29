@@ -200,13 +200,6 @@ struct __packed mhi_reset_chan_cmd_pkt {
 	u32 info;
 };
 
-struct __packed mhi_stop_chan_cmd_pkt {
-	u32 reserved1;
-	u32 reserved2;
-	u32 reserved3;
-	u32 info;
-};
-
 struct __packed mhi_ee_state_change_event {
 	u64 reserved1;
 	u32 exec_env;
@@ -238,7 +231,6 @@ union __packed mhi_xfer_pkt {
 };
 
 union __packed mhi_cmd_pkt {
-	struct mhi_stop_chan_cmd_pkt stop_cmd_pkt;
 	struct mhi_reset_chan_cmd_pkt reset_cmd_pkt;
 	struct mhi_noop_cmd_pkt noop_cmd_pkt;
 	struct mhi_noop_cmd_pkt type;
@@ -272,6 +264,7 @@ struct mhi_ring {
 	uintptr_t len;
 	uintptr_t el_size;
 	u32 overwrite_en;
+	enum MHI_CHAN_TYPE dir;
 };
 
 enum MHI_CMD_STATUS {
@@ -355,17 +348,12 @@ struct mhi_state_work_queue {
 
 struct mhi_control_seg {
 	union mhi_xfer_pkt *xfer_trb_list[MHI_MAX_CHANNELS];
-	union mhi_event_pkt *ev_trb_list[EVENT_RINGS_ALLOCATED];
+	union mhi_event_pkt *ev_trb_list[NR_EV_RINGS];
 	union mhi_cmd_pkt cmd_trb_list[NR_OF_CMD_RINGS][CMD_EL_PER_RING + 1];
 	struct mhi_cmd_ctxt mhi_cmd_ctxt_list[NR_OF_CMD_RINGS];
 	struct mhi_chan_ctxt mhi_cc_list[MHI_MAX_CHANNELS];
-	struct mhi_event_ctxt mhi_ec_list[EVENT_RINGS_ALLOCATED];
+	struct mhi_event_ctxt mhi_ec_list[NR_EV_RINGS];
 	u32 padding;
-};
-
-struct mhi_chan_counters {
-	u32 pkts_xferd;
-	u32 ev_processed;
 };
 
 struct mhi_counters {
@@ -383,7 +371,10 @@ struct mhi_counters {
 	u32 msi_disable_cntr;
 	u32 msi_enable_cntr;
 	u32 nr_irq_migrations;
+	u32 msi_counter[NR_EV_RINGS];
+	u32 ev_counter[NR_EV_RINGS];
 	atomic_t outbound_acks;
+	u32 chan_pkts_xferd[MHI_MAX_CHANNELS];
 };
 
 struct mhi_flags {
@@ -397,29 +388,45 @@ struct mhi_flags {
 	atomic_t pending_resume;
 	atomic_t pending_ssr;
 	atomic_t pending_powerup;
+	atomic_t m2_transition;
 	int stop_threads;
 	atomic_t device_wake;
 	u32 ssr;
+	u32 ev_thread_stopped;
+	u32 st_thread_stopped;
+	u32 uldl_enabled;
+	u32 db_mode[MHI_MAX_CHANNELS];
+};
+
+struct mhi_wait_queues {
+	wait_queue_head_t *mhi_event_wq;
+	wait_queue_head_t *state_change_event;
+	wait_queue_head_t *m0_event;
+	wait_queue_head_t *m3_event;
+	wait_queue_head_t *bhi_event;
+};
+
+struct dev_mmio_info {
+	void __iomem *mmio_addr;
+	void __iomem *chan_db_addr;
+	void __iomem *event_db_addr;
+	void __iomem *cmd_db_addr;
+	u64 mmio_len;
 };
 
 struct mhi_device_ctxt {
-	struct mhi_pcie_dev_info *dev_info;
-	struct pcie_core_info *dev_props;
-	void __iomem *mmio_addr;
-	void __iomem *channel_db_addr;
-	void __iomem *event_db_addr;
-	void __iomem *cmd_db_addr;
-	struct mhi_control_seg *mhi_ctrl_seg;
-	struct mhi_meminfo *mhi_ctrl_seg_info;
-	u64 nr_of_cc;
-	u64 nr_of_ec;
-	u64 nr_of_cmdc;
 	enum MHI_STATE mhi_state;
 	enum MHI_EXEC_ENV dev_exec_env;
-	u64 mmio_len;
+
+	struct mhi_pcie_dev_info *dev_info;
+	struct pcie_core_info *dev_props;
+	struct mhi_control_seg *mhi_ctrl_seg;
+	struct mhi_meminfo *mhi_ctrl_seg_info;
+
 	struct mhi_ring mhi_local_chan_ctxt[MHI_MAX_CHANNELS];
-	struct mhi_ring mhi_local_event_ctxt[MHI_MAX_CHANNELS];
+	struct mhi_ring mhi_local_event_ctxt[NR_EV_RINGS];
 	struct mhi_ring mhi_local_cmd_ctxt[NR_OF_CMD_RINGS];
+
 	struct mutex *mhi_chan_mutex;
 	struct mutex mhi_link_state;
 	spinlock_t *mhi_ev_spinlock_list;
@@ -427,48 +434,33 @@ struct mhi_device_ctxt {
 	struct mhi_client_handle *client_handle_list[MHI_MAX_CHANNELS];
 	struct task_struct *event_thread_handle;
 	struct task_struct *st_thread_handle;
-	u32 ev_thread_stopped;
-	u32 st_thread_stopped;
-	wait_queue_head_t *event_handle;
-	wait_queue_head_t *state_change_event_handle;
-	wait_queue_head_t *M0_event;
-	wait_queue_head_t *M3_event;
-	wait_queue_head_t *bhi_event;
-	wait_queue_head_t *chan_start_complete;
+	struct mhi_wait_queues mhi_ev_wq;
+	struct dev_mmio_info mmio_info;
 
 	u32 mhi_chan_db_order[MHI_MAX_CHANNELS];
 	u32 mhi_ev_db_order[MHI_MAX_CHANNELS];
 	spinlock_t *db_write_lock;
 
-	struct platform_device *mhi_uci_dev;
-	struct platform_device *mhi_rmnet_dev;
-	atomic_t link_ops_flag;
-
 	struct mhi_state_work_queue state_change_work_item_list;
 	enum MHI_CMD_STATUS mhi_chan_pend_cmd_ack[MHI_MAX_CHANNELS];
 
 	u32 cmd_ring_order;
-	u32 alloced_ev_rings[EVENT_RINGS_ALLOCATED];
-	u32 ev_ring_props[EVENT_RINGS_ALLOCATED];
-	u32 msi_counter[EVENT_RINGS_ALLOCATED];
-	u32 db_mode[MHI_MAX_CHANNELS];
-	u32 uldl_enabled;
-	u32 hw_intmod_rate;
-	u32 outbound_evmod_rate;
+	u32 alloced_ev_rings[NR_EV_RINGS];
+	u32 ev_ring_props[NR_EV_RINGS];
+
 	struct mhi_counters counters;
 	struct mhi_flags flags;
+
 	u32 device_wake_asserted;
 
 	rwlock_t xfer_lock;
-	atomic_t m2_transition;
 	struct hrtimer m1_timer;
 	ktime_t m1_timeout;
-	ktime_t ul_acc_tmr_timeout;
-	struct mhi_chan_counters mhi_chan_cntr[MHI_MAX_CHANNELS];
-	u32 ev_counter[MHI_MAX_CHANNELS];
-	u32 bus_client;
+
 	struct esoc_desc *esoc_handle;
 	void *esoc_ssr_handle;
+
+	u32 bus_client;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	struct notifier_block mhi_cpu_notifier;
 
@@ -477,6 +469,7 @@ struct mhi_device_ctxt {
 	atomic_t outbound_acks;
 	struct mutex pm_lock;
 	struct wakeup_source w_lock;
+
 	int enable_lpm;
 	char *chan_info;
 	struct dentry *mhi_parent_folder;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -156,7 +156,8 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 	if (!mhi_init_debugfs(&mhi_pcie_dev->mhi_ctxt))
 		mhi_log(MHI_MSG_ERROR, "Failed to init debugfs.\n");
 
-	mhi_pcie_dev->mhi_ctxt.mmio_addr = mhi_pcie_dev->core.bar0_base;
+	mhi_pcie_dev->mhi_ctxt.mmio_info.mmio_addr =
+						mhi_pcie_dev->core.bar0_base;
 	pcie_device->dev.platform_data = &mhi_pcie_dev->mhi_ctxt;
 	mhi_pcie_dev->mhi_ctxt.dev_info->plat_dev->dev.platform_data =
 						&mhi_pcie_dev->mhi_ctxt;

@@ -28,8 +28,9 @@ static void conditional_chan_db_write(
 	if (0 == mhi_dev_ctxt->mhi_chan_db_order[chan]) {
 		db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
-		mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->channel_db_addr,
-				chan, db_value);
+		mhi_process_db(mhi_dev_ctxt,
+			       mhi_dev_ctxt->mmio_info.chan_db_addr,
+			       chan, db_value);
 	}
 	mhi_dev_ctxt->mhi_chan_db_order[chan] = 0;
 	spin_unlock_irqrestore(&mhi_dev_ctxt->db_write_lock[chan], flags);
@@ -45,9 +46,10 @@ static void ring_all_chan_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 		if (VALID_CHAN_NR(i)) {
 			local_ctxt = &mhi_dev_ctxt->mhi_local_chan_ctxt[i];
 			if (IS_HARDWARE_CHANNEL(i))
-				mhi_dev_ctxt->db_mode[i] = 1;
+				mhi_dev_ctxt->flags.db_mode[i] = 1;
 			if ((local_ctxt->wp != local_ctxt->rp) ||
-			   ((local_ctxt->wp != local_ctxt->rp) && (i % 2)))
+			   ((local_ctxt->wp != local_ctxt->rp) &&
+			    (local_ctxt->dir == MHI_IN)))
 				conditional_chan_db_write(mhi_dev_ctxt, i);
 		}
 }
@@ -69,11 +71,13 @@ static void ring_all_cmd_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	db_value = mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[0].wp);
 	if (0 == mhi_dev_ctxt->cmd_ring_order && rp != db_value)
-		mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->cmd_db_addr,
+		mhi_process_db(mhi_dev_ctxt,
+			       mhi_dev_ctxt->mmio_info.cmd_db_addr,
 							0, db_value);
 	mhi_dev_ctxt->cmd_ring_order = 0;
 	mutex_unlock(cmd_mutex);
 }
+
 static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	u32 i;
@@ -85,11 +89,10 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	unsigned long flags;
 	mhi_ctrl = mhi_dev_ctxt->mhi_ctrl_seg;
 
-	for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i) {
+	for (i = 0; i < NR_EV_RINGS; ++i) {
 		event_ring_index = mhi_dev_ctxt->alloced_ev_rings[i];
 		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[event_ring_index];
 		mhi_dev_ctxt->mhi_ev_db_order[event_ring_index] = 0;
-
 
 		spin_lock_irqsave(lock, flags);
 		event_ctxt = &mhi_ctrl->mhi_ec_list[event_ring_index];
@@ -99,7 +102,7 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 		if (0 == mhi_dev_ctxt->mhi_ev_db_order[event_ring_index]) {
 			mhi_process_db(mhi_dev_ctxt,
-				       mhi_dev_ctxt->event_db_addr,
+				       mhi_dev_ctxt->mmio_info.event_db_addr,
 				       event_ring_index, db_value);
 		}
 		mhi_dev_ctxt->mhi_ev_db_order[event_ring_index] = 0;
@@ -153,7 +156,7 @@ static enum MHI_STATUS process_m0_transition(
 		atomic_set(&mhi_dev_ctxt->flags.pending_ssr, 0);
 		atomic_set(&mhi_dev_ctxt->flags.pending_powerup, 0);
 	}
-	wake_up_interruptible(mhi_dev_ctxt->M0_event);
+	wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.m0_event);
 	if (ret_val == -ERESTARTSYS)
 		mhi_log(MHI_MSG_CRITICAL,
 			"Pending restart detected\n");
@@ -181,15 +184,15 @@ static enum MHI_STATUS process_m1_transition(
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 	if (!mhi_dev_ctxt->flags.pending_M3) {
 		mhi_log(MHI_MSG_INFO, "Setting M2 Transition flag\n");
-		atomic_inc(&mhi_dev_ctxt->m2_transition);
+		atomic_inc(&mhi_dev_ctxt->flags.m2_transition);
 		mhi_dev_ctxt->mhi_state = MHI_STATE_M2;
 		mhi_log(MHI_MSG_INFO, "Allowing transition to M2\n");
 		mhi_reg_write_field(mhi_dev_ctxt,
-			mhi_dev_ctxt->mmio_addr, MHICTRL,
+			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			MHI_STATE_M2);
-		mhi_reg_read(mhi_dev_ctxt->mmio_addr, MHICTRL);
+		mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL);
 		mhi_dev_ctxt->counters.m1_m2++;
 	}
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
@@ -216,7 +219,7 @@ static enum MHI_STATUS process_m1_transition(
 				"Failed to remove counter ret %d\n", r);
 		}
 	}
-	atomic_set(&mhi_dev_ctxt->m2_transition, 0);
+	atomic_set(&mhi_dev_ctxt->flags.m2_transition, 0);
 	mhi_log(MHI_MSG_INFO, "M2 transition complete.\n");
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
@@ -233,7 +236,7 @@ static enum MHI_STATUS process_m3_transition(
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 	mhi_dev_ctxt->mhi_state = MHI_STATE_M3;
 	mhi_dev_ctxt->flags.pending_M3 = 0;
-	wake_up_interruptible(mhi_dev_ctxt->M3_event);
+	wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.m3_event);
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 	mhi_dev_ctxt->counters.m0_m3++;
 	return MHI_STATUS_SUCCESS;
@@ -256,12 +259,12 @@ static enum MHI_STATUS mhi_process_link_down(
 
 	mhi_dev_ctxt->flags.stop_threads = 1;
 
-	while (!mhi_dev_ctxt->ev_thread_stopped) {
-		wake_up_interruptible(mhi_dev_ctxt->event_handle);
+	while (!mhi_dev_ctxt->flags.ev_thread_stopped) {
+		wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.mhi_event_wq);
 		mhi_log(MHI_MSG_INFO,
 			"Waiting for threads to SUSPEND EVT: %d, STT: %d\n",
-			mhi_dev_ctxt->st_thread_stopped,
-			mhi_dev_ctxt->ev_thread_stopped);
+			mhi_dev_ctxt->flags.st_thread_stopped,
+			mhi_dev_ctxt->flags.ev_thread_stopped);
 		msleep(20);
 	}
 
@@ -341,7 +344,7 @@ static enum MHI_STATUS process_bhi_transition(
 	mhi_turn_on_pcie_link(mhi_dev_ctxt);
 	mhi_log(MHI_MSG_INFO, "Entered\n");
 	mhi_dev_ctxt->mhi_state = MHI_STATE_BHI;
-	wake_up_interruptible(mhi_dev_ctxt->bhi_event);
+	wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.bhi_event);
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return MHI_STATUS_SUCCESS;
 }
@@ -377,7 +380,7 @@ static enum MHI_STATUS process_ready_transition(
 
 	mhi_dev_ctxt->flags.stop_threads = 0;
 	mhi_reg_write_field(mhi_dev_ctxt,
-			mhi_dev_ctxt->mmio_addr, MHICTRL,
+			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			MHI_STATE_M0);
@@ -477,7 +480,7 @@ static enum MHI_STATUS process_reset_transition(
 				mhi_v2p_addr(mhi_dev_ctxt->mhi_ctrl_seg_info,
 			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp);
 	}
-	for (i = 0; i < EVENT_RINGS_ALLOCATED; ++i) {
+	for (i = 0; i < NR_EV_RINGS; ++i) {
 		ev_ring_index = mhi_dev_ctxt->alloced_ev_rings[i];
 		mhi_reset_ev_ctxt(mhi_dev_ctxt, ev_ring_index);
 	}
@@ -658,13 +661,13 @@ static void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
 {
 	if (MHI_STATE_RESET == new_state) {
 		mhi_reg_write_field(mhi_dev_ctxt,
-			mhi_dev_ctxt->mmio_addr, MHICTRL,
+			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
 			MHICTRL_RESET_MASK,
 			MHICTRL_RESET_SHIFT,
 			1);
 	} else {
 		mhi_reg_write_field(mhi_dev_ctxt,
-			mhi_dev_ctxt->mmio_addr, MHICTRL,
+			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
 			MHICTRL_MHISTATE_SHIFT,
 			new_state);
@@ -764,9 +767,9 @@ int mhi_state_change_thread(void *ctxt)
 	}
 	for (;;) {
 		r = wait_event_interruptible(
-				*mhi_dev_ctxt->state_change_event_handle,
+				*mhi_dev_ctxt->mhi_ev_wq.state_change_event,
 				((work_q->q_info.rp != work_q->q_info.wp) &&
-				 !mhi_dev_ctxt->st_thread_stopped));
+				 !mhi_dev_ctxt->flags.st_thread_stopped));
 		if (r) {
 			mhi_log(MHI_MSG_INFO,
 				"Caught signal %d, quitting\n", r);
@@ -778,7 +781,7 @@ int mhi_state_change_thread(void *ctxt)
 				"Caught exit signal, quitting\n");
 			return 0;
 		}
-		mhi_dev_ctxt->st_thread_stopped = 0;
+		mhi_dev_ctxt->flags.st_thread_stopped = 0;
 		spin_lock_irqsave(work_q->q_lock, flags);
 		cur_work_item = *(enum STATE_TRANSITION *)(state_change_q->rp);
 		ret_val = ctxt_del_element(&work_q->q_info, NULL);
@@ -826,7 +829,7 @@ enum MHI_STATUS mhi_init_state_transition(struct mhi_device_ctxt *mhi_dev_ctxt,
 	MHI_ASSERT(MHI_STATUS_SUCCESS == ret_val,
 			"Failed to add selement to STT workqueue\n");
 	spin_unlock_irqrestore(work_q->q_lock, flags);
-	wake_up_interruptible(mhi_dev_ctxt->state_change_event_handle);
+	wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.state_change_event);
 	return ret_val;
 }
 
@@ -844,7 +847,7 @@ int mhi_initiate_m0(struct mhi_device_ctxt *mhi_dev_ctxt)
 		"Waiting for M0 M1 or M3. Currently %d...\n",
 					mhi_dev_ctxt->mhi_state);
 
-	r = wait_event_interruptible_timeout(*mhi_dev_ctxt->M3_event,
+	r = wait_event_interruptible_timeout(*mhi_dev_ctxt->mhi_ev_wq.m3_event,
 			mhi_dev_ctxt->mhi_state == MHI_STATE_M3 ||
 			mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
 			mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
@@ -936,13 +939,14 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 			"Triggering wake out of M2\n");
 		write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
 		mhi_dev_ctxt->flags.pending_M3 = 1;
-		if ((atomic_read(&mhi_dev_ctxt->m2_transition)) == 0) {
+		if ((atomic_read(&mhi_dev_ctxt->flags.m2_transition)) == 0) {
 			mhi_log(MHI_MSG_INFO,
-				"M2_transition not set\n");
+				"M2 transition not set\n");
 			mhi_assert_device_wake(mhi_dev_ctxt);
 		}
 		write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
-		r = wait_event_interruptible_timeout(*mhi_dev_ctxt->M0_event,
+		r = wait_event_interruptible_timeout(
+				*mhi_dev_ctxt->mhi_ev_wq.m0_event,
 				mhi_dev_ctxt->mhi_state == MHI_STATE_M0 ||
 				mhi_dev_ctxt->mhi_state == MHI_STATE_M1,
 				msecs_to_jiffies(MHI_MAX_RESUME_TIMEOUT));
@@ -999,7 +1003,7 @@ int mhi_initiate_m3(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 	mhi_log(MHI_MSG_INFO,
 			"Waiting for M3 completion.\n");
-	r = wait_event_interruptible_timeout(*mhi_dev_ctxt->M3_event,
+	r = wait_event_interruptible_timeout(*mhi_dev_ctxt->mhi_ev_wq.m3_event,
 			mhi_dev_ctxt->mhi_state == MHI_STATE_M3,
 		msecs_to_jiffies(MHI_MAX_SUSPEND_TIMEOUT));
 	switch (r) {
