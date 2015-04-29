@@ -354,7 +354,6 @@ bool aarch64_insn_hotpatch_safe(u32 old_insn, u32 new_insn);
 int aarch64_insn_patch_text_nosync(void *addr, u32 insn);
 int aarch64_insn_patch_text_sync(void *addrs[], u32 insns[], int cnt);
 int aarch64_insn_patch_text(void *addrs[], u32 insns[], int cnt);
-#endif /* __ASSEMBLY__ */
 
 bool aarch32_insn_is_wide(u32 insn);
 
@@ -365,5 +364,6 @@ bool aarch32_insn_is_wide(u32 insn);
 u32 aarch32_insn_extract_reg_num(u32 insn, int offset);
 u32 aarch32_insn_mcr_extract_opc2(u32 insn);
 u32 aarch32_insn_mcr_extract_crm(u32 insn);
+#endif /* __ASSEMBLY__ */
 
 #endif	/* __ASM_INSN_H */
