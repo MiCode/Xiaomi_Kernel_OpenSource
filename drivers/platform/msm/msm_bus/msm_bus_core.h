@@ -338,7 +338,7 @@ static inline void msm_bus_dbg_commit_data(const char *fabname,
 	int op)
 {
 }
-static inline void void msm_bus_dbg_remove_client
+static inline void msm_bus_dbg_remove_client
 		(const struct msm_bus_client_handle *pdata)
 {
 }
