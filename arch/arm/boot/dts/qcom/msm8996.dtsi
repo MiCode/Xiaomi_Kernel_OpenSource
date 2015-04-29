@@ -1455,6 +1455,7 @@
 
 		perst-gpio = <&tlmm 130 0>;
 		wake-gpio = <&tlmm 132 0>;
+		qcom,ep-gpio = <&tlmm 94 0>;
 
 		gdsc-smmu-supply = <&gdsc_aggre0_noc>;
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
