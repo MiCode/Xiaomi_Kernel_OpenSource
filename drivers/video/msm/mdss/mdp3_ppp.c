@@ -552,8 +552,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 	if (lreq->req_list[0].flags & MDP_SOLID_FILL) {
 		req = &(lreq->req_list[0]);
 		mdp3_get_bpp_info(req->dst.format, &bpp);
-		ppp_res.solid_fill_pixel = req->dst_rect.w * req->dst_rect.h;
-		ppp_res.solid_fill_byte = req->dst_rect.w * req->dst_rect.h *
+		ppp_res.solid_fill_pixel += req->dst_rect.w * req->dst_rect.h;
+		ppp_res.solid_fill_byte += req->dst_rect.w * req->dst_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
 		ATRACE_END(__func__);
 		return 0;
