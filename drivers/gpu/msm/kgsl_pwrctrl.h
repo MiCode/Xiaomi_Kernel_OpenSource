@@ -108,6 +108,8 @@ struct kgsl_pwr_constraint {
  * @bus_control - true if the bus calculation is independent
  * @bus_mod - modifier from the current power level for the bus vote
  * @bus_percent_ab - current percent of total possible bus usage
+ * @bus_width - target specific bus width in number of bytes
+ * @bus_ab_mbytes - AB vote in Mbytes for current bus usage
  * @bus_index - default bus index into the bus_ib table
  * @bus_ib - the set of unique ib requests needed for the bus calculation
  * @constraint - currently active power constraint
@@ -152,6 +154,8 @@ struct kgsl_pwrctrl {
 	bool bus_control;
 	int bus_mod;
 	unsigned int bus_percent_ab;
+	unsigned int bus_width;
+	unsigned long bus_ab_mbytes;
 	struct device *devbw;
 	unsigned int bus_index[KGSL_MAX_PWRLEVELS];
 	uint64_t *bus_ib;

@@ -82,6 +82,8 @@ Optional Properties:
 - qcom,initial-powerlevel: This value indicates which qcom,gpu-pwrlevel should be used at start time
 			   and when coming back out of resume
 - qcom,bus-control:	   Boolean. Enables an independent bus vote from the gpu frequency
+- qcom,bus-width:	   Bus width in number of bytes. This enables dynamic AB bus voting based on
+			   bus width and actual bus transactions.
 - qcom,gpubw-dev:	   a phandle to a device representing bus bandwidth requirements
 			   (see devdw.txt)
 - qcom,idle-timeout:	   This property represents the time in microseconds for idle timeout.
