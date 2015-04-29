@@ -2366,6 +2366,12 @@
 			 <&clock_gcc clk_gcc_blsp1_qup1_spi_apps_clk>;
 	};
 
+	qcom,rmnet-ipa {
+		compatible = "qcom,rmnet-ipa";
+		qcom,rmnet-ipa-ssr;
+		qcom,ipa-loaduC;
+	};
+
 	qcom_rng: qrng@83000 {
 		compatible = "qcom,msm-rng";
 		reg = <0x83000 0x1000>;
