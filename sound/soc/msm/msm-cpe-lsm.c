@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,7 +26,7 @@
 #include <sound/cpe_core.h>
 #include <sound/lsm_params.h>
 #include <sound/pcm_params.h>
-
+#include <sound/msm-slim-dma.h>
 
 #define LSM_VOICE_WAKEUP_APP_V2 2
 #define LISTEN_MIN_NUM_PERIODS     2
@@ -251,6 +251,7 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 	struct wcd_cpe_lsm_ops *lsm_ops;
 	struct cpe_lsm_session *session;
 	struct wcd_cpe_lsm_lab *lab_sess;
+	struct msm_slim_dma_data *dma_data = NULL;
 	int rc;
 
 	if (!cpe || !cpe->core_handle) {
@@ -270,6 +271,15 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 	lsm_ops = &cpe->lsm_ops;
 	session = lsm_d->lsm_session;
 	lab_sess = &session->lab;
+	if (rtd->cpu_dai)
+		dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai,
+					substream);
+	if (!dma_data || !dma_data->dai_channel_ctl) {
+		dev_err(rtd->dev,
+			"%s: dma_data is not set\n",
+			__func__);
+		return -EINVAL;
+	}
 
 	if (lab_sess->thread_status != MSM_LSM_LAB_THREAD_STOP) {
 
@@ -292,13 +302,31 @@ static int msm_cpe_lsm_lab_stop(struct snd_pcm_substream *substream)
 		}
 
 		lab_sess->thread_status = MSM_LSM_LAB_THREAD_STOP;
-		rc = lsm_ops->lsm_lab_stop(cpe->core_handle, session);
-		if (rc) {
+		lab_sess->buf_idx = 0;
+		atomic_set(&lab_sess->in_count, 0);
+		lab_sess->dma_write = 0;
+
+		rc = lsm_ops->lab_ch_setup(lab_sess->core_handle,
+					   lab_sess->lsm_s,
+					   WCD_CPE_PRE_DISABLE);
+		if (rc)
 			dev_err(rtd->dev,
-				"%s: Lab stop failed, error = %d\n",
+				"%s: PRE ch teardown failed, err = %d\n",
 				__func__, rc);
-			return rc;
-		}
+		/* continue with teardown even if any intermediate step fails */
+		rc = dma_data->dai_channel_ctl(dma_data, rtd->cpu_dai, false);
+		if (rc)
+			dev_err(rtd->dev,
+				"%s: open data failed %d\n", __func__, rc);
+		dma_data->ph = 0;
+
+		rc = lsm_ops->lab_ch_setup(lab_sess->core_handle,
+					   lab_sess->lsm_s,
+					   WCD_CPE_POST_DISABLE);
+		if (rc)
+			dev_err(rtd->dev,
+				"%s: POST ch teardown failed, err = %d\n",
+				__func__, rc);
 	}
 
 	return 0;
@@ -315,11 +343,13 @@ static int msm_cpe_lab_thread(void *data)
 {
 	struct wcd_cpe_lsm_lab *lab = (struct wcd_cpe_lsm_lab *)data;
 	struct wcd_cpe_lab_hw_params *hw_params = &lab->hw_params;
-	struct wcd_cpe_core *core = (struct wcd_cpe_core *)lab->core_handle;
 	struct snd_pcm_substream *substream = lab->substream;
 	struct cpe_priv *cpe = cpe_get_private_data(substream);
 	struct wcd_cpe_lsm_ops *lsm_ops;
 	struct wcd_cpe_data_pcm_buf *cur_buf, *next_buf;
+	struct msm_slim_dma_data *dma_data = NULL;
+	struct snd_soc_pcm_runtime *rtd = NULL;
+	bool wait_timedout = false;
 	int rc = 0;
 	u32 done_len = 0;
 	u32 buf_count = 1;
@@ -328,45 +358,79 @@ static int msm_cpe_lab_thread(void *data)
 	set_current_state(TASK_INTERRUPTIBLE);
 
 	pr_debug("%s: Lab thread start\n", __func__);
+	init_completion(&lab->comp);
 
-	if (!core || !cpe) {
+	if (PCM_RUNTIME_CHECK(substream))
+		return -EINVAL;
+
+	if (!lab->core_handle || !cpe) {
 		pr_err("%s: Handle to %s is invalid\n",
 			__func__,
-			(!core) ? "core" : "cpe");
+			(!lab->core_handle) ? "core" : "cpe");
+		rc = -EINVAL;
+		goto done;
+	}
+
+	rtd = substream->private_data;
+	if (rtd->cpu_dai)
+		dma_data = snd_soc_dai_get_dma_data(rtd->cpu_dai,
+					substream);
+	if (!dma_data || !dma_data->dai_channel_ctl) {
+		pr_err("%s: dma_data is not set\n", __func__);
 		rc = -EINVAL;
 		goto done;
 	}
 
 	lsm_ops = &cpe->lsm_ops;
-	memset(lab->pcm_buf[0].mem, 0, lab->pcm_size);
-
-	if (lsm_ops->lsm_lab_data_channel_read == NULL ||
-		lsm_ops->lsm_lab_data_channel_read_status == NULL) {
-			pr_err("%s: slim ops not present\n", __func__);
-			rc = -EINVAL;
-			goto done;
-	}
-
-	if (!hw_params || !substream || !cpe) {
-		pr_err("%s: Lab thread pointers NULL\n", __func__);
-		rc = -EINVAL;
-		goto done;
-	}
 
 	if (!kthread_should_stop()) {
-		rc = lsm_ops->lsm_lab_data_channel_read(core, lab->lsm_s,
-					lab->pcm_buf[0].phys,
-					lab->pcm_buf[0].mem,
-					hw_params->buf_sz);
+		rc = lsm_ops->lab_ch_setup(lab->core_handle,
+					   lab->lsm_s,
+					   WCD_CPE_PRE_ENABLE);
 		if (rc) {
-			pr_err("%s:Slim read error %d\n", __func__, rc);
+			dev_err(rtd->dev,
+				"%s: PRE ch setup failed, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
+		rc = dma_data->dai_channel_ctl(dma_data, rtd->cpu_dai, true);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: open data failed %d\n", __func__, rc);
+			goto done;
+		}
+
+		rc = lsm_ops->lab_ch_setup(lab->core_handle,
+					   lab->lsm_s,
+					   WCD_CPE_POST_ENABLE);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: POST ch setup failed, err = %d\n",
+				__func__, rc);
+			goto done;
+		}
+
+		dev_dbg(rtd->dev, "%s: Established data channel\n",
+			__func__);
+		init_waitqueue_head(&lab->period_wait);
+		memset(lab->pcm_buf[0].mem, 0, lab->pcm_size);
+
+		rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
+				    lab->pcm_buf[0].phys,
+				    hw_params->buf_sz, &lab->comp);
+		if (rc) {
+			dev_err(rtd->dev,
+				"%s: buf[0] slim_port_xfer failed, err = %d\n",
+				__func__, rc);
 			goto done;
 		}
 
 		cur_buf = &lab->pcm_buf[0];
 		next_buf = &lab->pcm_buf[1];
 	} else {
-		pr_debug("%s: LAB stopped before starting read\n",
+		dev_dbg(rtd->dev,
+			"%s: LAB stopped before starting read\n",
 			 __func__);
 		goto done;
 	}
@@ -374,22 +438,38 @@ static int msm_cpe_lab_thread(void *data)
 	while (!kthread_should_stop() &&
 	       lab->thread_status != MSM_LSM_LAB_THREAD_ERROR) {
 
-		rc = lsm_ops->lsm_lab_data_channel_read(core, lab->lsm_s,
-						next_buf->phys,
-						next_buf->mem,
-						hw_params->buf_sz);
+		rc = slim_port_xfer(dma_data->sdev, dma_data->ph,
+				    next_buf->phys,
+				    hw_params->buf_sz, &lab->comp);
 		if (rc) {
-			pr_err("%s: Thread read Slim read error %d\n",
-			       __func__, rc);
+			dev_err(rtd->dev,
+				"%s: slim_port_xfer failed, err = %d\n",
+				__func__, rc);
 			lab->thread_status = MSM_LSM_LAB_THREAD_ERROR;
 		}
-		rc = lsm_ops->lsm_lab_data_channel_read_status(core, lab->lsm_s,
-						cur_buf->phys, &done_len);
-		if (rc) {
-			pr_err("%s: Wait on current buf failed %d\n",
-			       __func__, rc);
+
+		rc = wait_for_completion_timeout(&lab->comp, (2 * HZ/10));
+		if (!rc) {
+			dev_err(rtd->dev,
+				"%s: wait timedout for slim buffer\n",
+				__func__);
+			wait_timedout = true;
+		} else {
+			wait_timedout = false;
+		}
+
+		rc = slim_port_get_xfer_status(dma_data->sdev,
+					       dma_data->ph,
+					       &cur_buf->phys, &done_len);
+		if (rc ||
+		    (!rc && wait_timedout)) {
+			dev_err(rtd->dev,
+				"%s: xfer_status failure, rc = %d, wait_timedout = %s\n",
+				__func__, rc,
+				(wait_timedout ? "true" : "false"));
 			lab->thread_status = MSM_LSM_LAB_THREAD_ERROR;
 		}
+
 		if (done_len ||
 		    ((!done_len) &&
 		     lab->thread_status == MSM_LSM_LAB_THREAD_ERROR)) {
@@ -405,11 +485,13 @@ static int msm_cpe_lab_thread(void *data)
 				next_buf = &lab->pcm_buf[buf_count + 1];
 				buf_count++;
 			}
-			pr_debug("%s: Cur buf = %p Next Buf = %p\n"
-				 " buf count = 0x%x\n",
+			dev_dbg(rtd->dev,
+				"%s: Cur buf = %p Next Buf = %p\n"
+				" buf count = 0x%x\n",
 				 __func__, cur_buf, next_buf, buf_count);
 		} else {
-			pr_err("%s: SB get status, invalid len = 0x%x\n",
+			dev_err(rtd->dev,
+				"%s: SB get status, invalid len = 0x%x\n",
 				__func__, done_len);
 		}
 		done_len = 0;
@@ -507,6 +589,7 @@ static int msm_cpe_lsm_open(struct snd_pcm_substream *substream)
 	/* Explicitly Assign the LAB thread to STOP state */
 	lsm_d->lsm_session->lab.thread_status = MSM_LSM_LAB_THREAD_STOP;
 	lsm_d->lsm_session->started = false;
+	init_waitqueue_head(&lsm_d->lsm_session->lab.period_wait);
 
 	dev_dbg(rtd->dev, "%s: allocated session with id = %d\n",
 		__func__, lsm_d->lsm_session->id);
@@ -747,6 +830,7 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 			}
 
 			lab_sess->substream = substream;
+			lab_sess->lsm_s = session;
 			dma_buf->dev.type = SNDRV_DMA_TYPE_DEV;
 			dma_buf->dev.dev = substream->pcm->card->dev;
 			dma_buf->private_data = NULL;
@@ -1134,8 +1218,6 @@ static int msm_cpe_lsm_lab_start(struct snd_pcm_substream *substream,
 		atomic_set(&lab_sess->abort_read, 0);
 		pr_debug("%s: KW detected,\n"
 		"scheduling LAB thread\n", __func__);
-		lsm_ops->lsm_lab_data_channel_open(
-			cpe->core_handle, session);
 
 		/*
 		 * Even though thread might be only scheduled and
