@@ -733,10 +733,9 @@ static int qpnp_lbc_bat_if_configure_btc(struct qpnp_lbc_chip *chip)
 		mask |= BTC_COLD_MASK;
 	}
 
-	if (!chip->cfg_btc_disabled) {
-		mask |= BTC_COMP_EN_MASK;
+	mask |= BTC_COMP_EN_MASK;
+	if (!chip->cfg_btc_disabled)
 		btc_cfg |= BTC_COMP_EN_MASK;
-	}
 
 	pr_debug("BTC configuration mask=%x\n", btc_cfg);
 
