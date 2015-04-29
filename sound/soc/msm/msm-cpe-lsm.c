@@ -881,6 +881,60 @@ done:
 	return rc;
 }
 
+static int msm_cpe_lsm_validate_out_format(
+	struct snd_pcm_substream *substream,
+	struct snd_lsm_output_format_cfg *cfg)
+{
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	int rc = 0;
+
+	if (!cfg) {
+		dev_err(rtd->dev,
+			"%s: Invalid lsm out cfg\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->format != LSM_OUT_FORMAT_PCM &&
+	    cfg->format != LSM_OUT_FORMAT_ADPCM) {
+		dev_err(rtd->dev,
+			"%s: Invalid format %u\n",
+			__func__, cfg->format);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->packing != LSM_OUT_DATA_RAW &&
+	    cfg->packing != LSM_OUT_DATA_PACKED) {
+		dev_err(rtd->dev,
+			"%s: Invalid packing method %u\n",
+			__func__, cfg->packing);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->events != LSM_OUT_DATA_EVENTS_DISABLED &&
+	    cfg->events != LSM_OUT_DATA_EVENTS_ENABLED) {
+		dev_err(rtd->dev,
+			"%s: Invalid events provided %u\n",
+			__func__, cfg->events);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	if (cfg->mode != LSM_OUT_TRANSFER_MODE_RT &&
+	    cfg->mode != LSM_OUT_TRANSFER_MODE_FTRT) {
+		dev_err(rtd->dev,
+			"%s: Invalid transfer mode %u\n",
+			__func__, cfg->mode);
+		rc = -EINVAL;
+		goto done;
+	}
+
+done:
+	return rc;
+}
+
 /*
  * msm_cpe_lsm_ioctl_shared: Shared IOCTL for this platform driver
  * @substream: ASoC substream for which the operation is invoked
@@ -1331,6 +1385,45 @@ static int msm_cpe_lsm_ioctl_shared(struct snd_pcm_substream *substream,
 		kfree(session->conf_levels);
 		session->conf_levels = NULL;
 
+		break;
+
+		case SNDRV_LSM_OUT_FORMAT_CFG: {
+			struct snd_lsm_output_format_cfg u_fmt_cfg;
+
+			if (!arg) {
+				dev_err(rtd->dev,
+					"%s: Invalid argument to ioctl %s\n",
+					__func__, "SNDRV_LSM_OUT_FORMAT_CFG");
+				return -EINVAL;
+			}
+
+			if (copy_from_user(&u_fmt_cfg, arg,
+					   sizeof(u_fmt_cfg))) {
+				dev_err(rtd->dev,
+					"%s: copy_from_user failed for out_fmt_cfg\n",
+					__func__);
+				return -EFAULT;
+			}
+
+			if (msm_cpe_lsm_validate_out_format(substream,
+							    &u_fmt_cfg))
+				return -EINVAL;
+
+			session->out_fmt_cfg.format = u_fmt_cfg.format;
+			session->out_fmt_cfg.pack_mode = u_fmt_cfg.packing;
+			session->out_fmt_cfg.data_path_events =
+						u_fmt_cfg.events;
+			session->out_fmt_cfg.transfer_mode = u_fmt_cfg.mode;
+
+			rc = lsm_ops->lsm_set_fmt_cfg(cpe->core_handle,
+						      session);
+			if (rc) {
+				dev_err(rtd->dev,
+					"%s: lsm_set_fmt_cfg failed, err = %d\n",
+					__func__, rc);
+				return rc;
+			}
+		}
 		break;
 
 	default:
