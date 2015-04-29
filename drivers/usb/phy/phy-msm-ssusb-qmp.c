@@ -249,10 +249,10 @@ static const struct qmp_reg_val qmp_settings_rev2[] = {
 	/* Rx settings */
 	{0x440, 0x0B}, /* QSERDES_RX_UCDR_FASTLOCK_FO_GAIN */
 	{0x41C, 0x04}, /* QSERDES_RX_UCDR_SO_GAIN */
-	{0x4D8, 0x01}, /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2 */
-	{0x4DC, 0x48}, /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3 */
+	{0x4D8, 0x02}, /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL2 */
+	{0x4DC, 0x4C}, /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL3 */
 	{0x4E0, 0xBB}, /* QSERDES_RX_RX_EQU_ADAPTOR_CNTRL4 */
-	{0x508, 0x76}, /* QSERDES_RX_RX_EQ_OFFSET_ADAPTOR_CNTRL1 */
+	{0x508, 0x77}, /* QSERDES_RX_RX_EQ_OFFSET_ADAPTOR_CNTRL1 */
 	{0x50C, 0x80}, /* QSERDES_RX_RX_OFFSET_ADAPTOR_CNTRL2 */
 	{0x514, 0x03}, /* QSERDES_RX_SIGDET_CNTRL */
 	{0x518, 0x1B}, /* QSERDES_RX_SIGDET_LVL */
@@ -261,10 +261,10 @@ static const struct qmp_reg_val qmp_settings_rev2[] = {
 	/* TX settings */
 	{0x268, 0x45}, /* QSERDES_TX_HIGHZ_TRANSCEIVEREN_BIAS_DRVR_EN */
 	{0x2AC, 0x12}, /* QSERDES_TX_RCV_DETECT_LVL_2 */
-	{0x294, 0x02}, /* QSERDES_TX_LANE_MODE */
+	{0x294, 0x06}, /* QSERDES_TX_LANE_MODE */
 
 	/* FLL settings */
-	{0x6C4, 0x13}, /* USB3_PHY_FLL_CNTRL2 */
+	{0x6C4, 0x03}, /* USB3_PHY_FLL_CNTRL2 */
 	{0x6C0, 0x02}, /* USB3_PHY_FLL_CNTRL1 */
 	{0x6C8, 0x09}, /* USB3_PHY_FLL_CNT_VAL_L */
 	{0x6CC, 0x42}, /* USB3_PHY_FLL_CNT_VAL_H_TOL */
@@ -310,6 +310,12 @@ static const struct qmp_reg_val qmp_settings_rev0_misc[] = {
 /* Override for SYSCLK */
 static const struct qmp_reg_val qmp_override_sysclk[] = {
 	{0xAC, 0x17}, /* QSERDES_COM_SYSCLK_EN_SEL */
+	/*
+	 * FLL_CNTRL2 value is changed betwen v1 and v2 except
+	 * need of sysclk and pll override workaround for v1.
+	 * Hence for v1, using this hook to program FLL_CNTRL2.
+	 */
+	{0x6C4, 0x13}, /* USB3_PHY_FLL_CNTRL2 */
 	{-1, -1} /* terminating entry */
 };
 
