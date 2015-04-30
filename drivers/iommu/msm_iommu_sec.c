@@ -324,7 +324,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 			goto clock_off;
 		}
 
-		if (ctx_regs[DUMP_REG_FSR].val) {
+		if (ctx_regs[DUMP_REG_FSR].val & 0x1FF) {
 			if (tmp)
 				pr_err("Incomplete fault register dump. Printout will be incomplete.\n");
 			if (!ctx_drvdata->attached_domain) {
