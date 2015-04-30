@@ -442,7 +442,7 @@ struct smp_operations msm8916_smp_ops __initdata = {
 #endif
 };
 
-struct smp_operations msmterbium_smp_ops __initdata = {
+struct smp_operations msm8976_smp_ops __initdata = {
 	.smp_init_cpus = arm_smp_init_cpus,
 	.smp_prepare_cpus = msm_platform_smp_prepare_cpus_mc,
 	.smp_secondary_init = msm_secondary_init,

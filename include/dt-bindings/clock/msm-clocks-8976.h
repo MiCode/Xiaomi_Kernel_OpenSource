@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __MSM_CLOCKS_TERBIUM_H
-#define __MSM_CLOCKS_TERBIUM_H
+#ifndef __MSM_CLOCKS_8976_H
+#define __MSM_CLOCKS_8976_H
 
 #define clk_gpll0_clk_src			0x5933b69f
 #define clk_gpll2_clk_src			0x7c34503b

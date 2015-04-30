@@ -15,8 +15,8 @@
 #include <dt-bindings/clock/msm-clocks-8952.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM Terbium";
-	compatible = "qcom,msmterbium";
+	model = "Qualcomm Technologies, Inc. MSM 8976";
+	compatible = "qcom,msm8976";
 	qcom,msm-id = <266 0x0>; /* Needs update */
 	interrupt-parent = <&intc>;
 
@@ -139,7 +139,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x0>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -153,7 +153,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x1>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_0>;
 		};
@@ -162,7 +162,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x2>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_0>;
 		};
@@ -171,7 +171,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x3>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_0>;
 		};
@@ -180,7 +180,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x100>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc4>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
@@ -194,7 +194,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x101>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc5>;
 			next-level-cache = <&L2_1>;
 		};
@@ -203,7 +203,7 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x102>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc6>;
 			next-level-cache = <&L2_1>;
 		};
@@ -212,19 +212,19 @@
 			device_type = "cpu";
 			compatible = "arm,armv8";
 			reg = <0x103>;
-			enable-method = "qcom,terbium-arm-cortex-acc";
+			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc7>;
 			next-level-cache = <&L2_1>;
 		};
 	};
 };
 
-#include "msmterbium-pinctrl.dtsi"
-#include "msmterbium-ion.dtsi"
-#include "msmterbium-iommu.dtsi"
-#include "msmterbium-smp2p.dtsi"
-#include "msmterbium-bus.dtsi"
-#include "msmterbium-coresight.dtsi"
+#include "msm8976-pinctrl.dtsi"
+#include "msm8976-ion.dtsi"
+#include "msm8976-iommu.dtsi"
+#include "msm8976-smp2p.dtsi"
+#include "msm8976-bus.dtsi"
+#include "msm8976-coresight.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -233,12 +233,12 @@
 	compatible = "simple-bus";
 
 	l2ccc_0: clock-controller@b111000 {
-		compatible = "qcom,terbium-l2ccc";
+		compatible = "qcom,8976-l2ccc";
 		reg = <0x0b111000 0x1000>;
 	};
 
 	l2ccc_1: clock-controller@b011000 {
-		compatible = "qcom,terbium-l2ccc";
+		compatible = "qcom,8976-l2ccc";
 		reg = <0x0b011000 0x1000>;
 	};
 
@@ -430,7 +430,7 @@
 	};
 
 	tsens: tsens@4a8000 {
-		compatible = "qcom,msmterbium-tsens";
+		compatible = "qcom,msm8976-tsens";
 		reg = <0x4a8000 0x2000>,
 		      <0xa4000  0x1000>;
 		reg-names = "tsens_physical", "tsens_eeprom_physical";
@@ -640,9 +640,9 @@
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
-		hsusb_vdd_dig-supply = <&pmterbium_s6_corner>;
-		HSUSB_1p8-supply = <&pmterbium_l7>;
-		HSUSB_3p3-supply = <&pmterbium_l13>;
+		hsusb_vdd_dig-supply = <&pm8976_s6_corner>;
+		HSUSB_1p8-supply = <&pm8976_l7>;
+		HSUSB_3p3-supply = <&pm8976_l13>;
 		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
@@ -1116,7 +1116,7 @@
 		reg = <0xc200000 0x00100>;
 		interrupts = <0 293 1>;
 
-		vdd_cx-supply = <&pmterbium_s2_corner>;
+		vdd_cx-supply = <&pm8976_s2_corner>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
 
@@ -1195,7 +1195,7 @@
 	};
 };
 
-#include "msmterbium-regulator.dtsi"
+#include "msm8976-regulator.dtsi"
 #include "msm-gdsc-8916.dtsi"
 #include "msm-pm8950.dtsi"
 #include "msm-pmi8950.dtsi"

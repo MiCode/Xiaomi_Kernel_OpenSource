@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,4 +24,4 @@ extern struct smp_operations msm8625_smp_ops;
 extern struct smp_operations scorpion_smp_ops;
 extern struct smp_operations msm8916_smp_ops;
 extern struct smp_operations msm8936_smp_ops;
-extern struct smp_operations msmterbium_smp_ops;
+extern struct smp_operations msm8976_smp_ops;

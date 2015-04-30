@@ -62,7 +62,7 @@ struct msm_l2ccc_of_info {
 };
 
 
-static int power_on_l2_msmterbium(struct device_node *l2ccc_node, u32 pon_mask,
+static int power_on_l2_msm8976(struct device_node *l2ccc_node, u32 pon_mask,
 				int cpu)
 {
 	u32 pon_status;
@@ -338,8 +338,8 @@ static const struct msm_l2ccc_of_info l2ccc_info[] = {
 		.l2_power_on_mask = BIT(9),
 	},
 	{
-		.compat = "qcom,terbium-l2ccc",
-		.l2_power_on = power_on_l2_msmterbium,
+		.compat = "qcom,8976-l2ccc",
+		.l2_power_on = power_on_l2_msm8976,
 		.l2_power_on_mask = BIT(9) | BIT(28),
 	},
 
@@ -565,7 +565,7 @@ out_acc:
 	return ret;
 }
 
-static inline void msmterbium_unclamp_perf_cluster_cpu(void __iomem *reg)
+static inline void msm8976_unclamp_perf_cluster_cpu(void __iomem *reg)
 {
 
 	/* Assert head switch enable few */
@@ -605,7 +605,7 @@ static inline void msmterbium_unclamp_perf_cluster_cpu(void __iomem *reg)
 	mb();
 }
 
-static inline void msmterbium_unclamp_power_cluster_cpu(void __iomem *reg)
+static inline void msm8976_unclamp_power_cluster_cpu(void __iomem *reg)
 {
 	/* Deassert CPU in sleep state */
 	writel_relaxed(0x00000033, reg + CPU_PWR_CTL);
@@ -645,7 +645,7 @@ static inline void msmterbium_unclamp_power_cluster_cpu(void __iomem *reg)
 	mb();
 }
 
-int msmterbium_unclamp_secondary_arm_cpu(unsigned int cpu)
+int msm8976_unclamp_secondary_arm_cpu(unsigned int cpu)
 {
 
 	int ret = 0;
@@ -692,9 +692,9 @@ int msmterbium_unclamp_secondary_arm_cpu(unsigned int cpu)
 	}
 
 	if (MPIDR_AFFINITY_LEVEL(mpidr, 1))
-		msmterbium_unclamp_perf_cluster_cpu(reg);
+		msm8976_unclamp_perf_cluster_cpu(reg);
 	else
-		msmterbium_unclamp_power_cluster_cpu(reg);
+		msm8976_unclamp_power_cluster_cpu(reg);
 
 	/* Secondary CPU-N is now alive */
 	iounmap(reg);
