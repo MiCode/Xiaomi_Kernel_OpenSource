@@ -1009,6 +1009,9 @@ enum v4l2_mpeg_vidc_video_mbi_statistics_mode {
 	V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2		= 2,
 };
 
+#define V4L2_CID_MPEG_VIDC_VIDEO_OPERATING_RATE \
+		(V4L2_CID_MPEG_MSM_VIDC_BASE + 75)
+
 /*  Camera class control IDs */
 
 #define V4L2_CID_CAMERA_CLASS_BASE 	(V4L2_CTRL_CLASS_CAMERA | 0x900)
