@@ -1052,13 +1052,21 @@ static void l2cap_sock_kill(struct sock *sk)
 static int __l2cap_wait_ack(struct sock *sk)
 {
 	struct l2cap_chan *chan = l2cap_pi(sk)->chan;
+	struct l2cap_conn *conn;
 	DECLARE_WAITQUEUE(wait, current);
 	int err = 0;
 	int timeo = HZ/5;
 
 	add_wait_queue(sk_sleep(sk), &wait);
 	set_current_state(TASK_INTERRUPTIBLE);
-	while (chan->unacked_frames > 0 && chan->conn) {
+
+	conn = chan->conn;
+	if (conn)
+		mutex_lock(&conn->chan_lock);
+	l2cap_chan_lock(chan);
+	lock_sock(sk);
+
+	while (chan->unacked_frames > 0 && conn) {
 		if (!timeo)
 			timeo = HZ/5;
 
@@ -1068,14 +1076,29 @@ static int __l2cap_wait_ack(struct sock *sk)
 		}
 
 		release_sock(sk);
+		l2cap_chan_unlock(chan);
+		if (conn)
+			mutex_unlock(&conn->chan_lock);
+
 		timeo = schedule_timeout(timeo);
+
+		if (conn)
+			mutex_lock(&conn->chan_lock);
+		l2cap_chan_lock(chan);
 		lock_sock(sk);
+
 		set_current_state(TASK_INTERRUPTIBLE);
 
 		err = sock_error(sk);
 		if (err)
 			break;
 	}
+
+	release_sock(sk);
+	l2cap_chan_unlock(chan);
+	if (conn)
+		mutex_unlock(&conn->chan_lock);
+
 	set_current_state(TASK_RUNNING);
 	remove_wait_queue(sk_sleep(sk), &wait);
 	return err;
@@ -1103,8 +1126,19 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 	lock_sock(sk);
 
 	if (!sk->sk_shutdown) {
-		if (chan->mode == L2CAP_MODE_ERTM)
+		if (chan->mode == L2CAP_MODE_ERTM) {
+			release_sock(sk);
+			l2cap_chan_unlock(chan);
+			if (conn)
+				mutex_unlock(&conn->chan_lock);
+
 			err = __l2cap_wait_ack(sk);
+
+			if (conn)
+				mutex_lock(&conn->chan_lock);
+			l2cap_chan_lock(chan);
+			lock_sock(sk);
+		}
 
 		sk->sk_shutdown = SHUTDOWN_MASK;
 
