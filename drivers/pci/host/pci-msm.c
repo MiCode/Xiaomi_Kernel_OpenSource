@@ -361,6 +361,7 @@ enum msm_pcie_irq {
 enum msm_pcie_gpio {
 	MSM_PCIE_GPIO_PERST,
 	MSM_PCIE_GPIO_WAKE,
+	MSM_PCIE_GPIO_EP,
 	MSM_PCIE_MAX_GPIO
 };
 
@@ -377,6 +378,7 @@ struct msm_pcie_gpio_info_t {
 	bool	 out;
 	uint32_t   on;
 	uint32_t   init;
+	bool	required;
 };
 
 /* voltage regulator info structrue */
@@ -567,8 +569,9 @@ static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 
 /* GPIOs */
 static struct msm_pcie_gpio_info_t msm_pcie_gpio_info[MSM_PCIE_MAX_GPIO] = {
-	{"perst-gpio",	0, 1, 0, 0},
-	{"wake-gpio",	 0, 0, 0, 0}
+	{"perst-gpio",		0, 1, 0, 0, 1},
+	{"wake-gpio",		0, 0, 0, 0, 1},
+	{"qcom,ep-gpio",	0, 1, 1, 0, 0}
 };
 
 /* clocks */
@@ -3285,13 +3288,22 @@ static int msm_pcie_get_resources(struct msm_pcie_dev_t *dev,
 					gpio_info->name, 0);
 		if (ret >= 0) {
 			gpio_info->num = ret;
-			ret = 0;
 			dev->gpio_n++;
 			PCIE_DBG(dev, "GPIO num for %s is %d\n",
 				gpio_info->name, gpio_info->num);
 		} else {
-			goto out;
+			if (gpio_info->required) {
+				PCIE_ERR(dev,
+					"Could not get required GPIO %s\n",
+					gpio_info->name);
+				goto out;
+			} else {
+				PCIE_DBG(dev,
+					"Could not get optional GPIO %s\n",
+					gpio_info->name);
+			}
 		}
+		ret = 0;
 	}
 
 	for (i = 0; i < MSM_PCIE_MAX_CLK; i++) {
@@ -3585,6 +3597,10 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	if (dev->ep_latency)
 		usleep_range(dev->ep_latency * 1000, dev->ep_latency * 1000);
 
+	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
+		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
+				dev->gpio[MSM_PCIE_GPIO_EP].on);
+
 	/* de-assert PCIe reset link to bring EP out of reset */
 
 	PCIE_INFO(dev, "PCIe: Release the reset of endpoint of RC%d.\n",
@@ -3643,6 +3659,9 @@ int msm_pcie_enable(struct msm_pcie_dev_t *dev, u32 options)
 	goto out;
 
 link_fail:
+	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
+		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
+				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_SW_RESET(dev->rc_idx, dev->common_phy), 0x1);
 	msm_pcie_write_reg(dev->phy,
@@ -3713,6 +3732,10 @@ void msm_pcie_disable(struct msm_pcie_dev_t *dev, u32 options)
 
 	if (options & PM_PIPE_CLK)
 		msm_pcie_pipe_clk_deinit(dev);
+
+	if (dev->gpio[MSM_PCIE_GPIO_EP].num)
+		gpio_set_value(dev->gpio[MSM_PCIE_GPIO_EP].num,
+				1 - dev->gpio[MSM_PCIE_GPIO_EP].on);
 
 	mutex_unlock(&dev->setup_lock);
 
