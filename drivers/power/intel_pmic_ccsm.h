@@ -318,6 +318,7 @@ char *pmic_regs_name[] = {
 	"pmic_mchgrirq1",
 	"pmic_chgrctrl0",
 	"pmic_chgrctrl1",
+	"pmic_chgdisctrl",
 	"pmic_lowbattdet0",
 	"pmic_lowbattdet1",
 	"pmic_battdetctrl",
