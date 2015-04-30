@@ -673,14 +673,14 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 					ipa_ctx->hdr_proc_ctx_tbl.start_offset)
 					>> 5;
 
-				pr_err(
-					"tbl_idx:%d tbl_name:%s tbl_ref:%u "
-					"rule_idx:%d dst:%d ep:%d S:%u "
-					"proc_ctx[32B]:%u attrib_mask:%08x ",
+				pr_err("tbl_idx:%d tbl_name:%s tbl_ref:%u ",
 					entry->tbl->idx, entry->tbl->name,
-					entry->tbl->ref_cnt, i, entry->rule.dst,
+					entry->tbl->ref_cnt);
+				pr_err("rule_idx:%d dst:%d ep:%d S:%u ",
+					i, entry->rule.dst,
 					ipa_get_ep_mapping(entry->rule.dst),
-					!ipa_ctx->hdr_tbl_lcl,
+					!ipa_ctx->hdr_tbl_lcl);
+				pr_err("proc_ctx[32B]:%u attrib_mask:%08x ",
 					ofst_words,
 					entry->rule.attrib.attrib_mask);
 			} else {
@@ -689,14 +689,14 @@ static ssize_t ipa_read_rt(struct file *file, char __user *ubuf, size_t count,
 				else
 					ofst = 0;
 
-				pr_err(
-					"tbl_idx:%d tbl_name:%s tbl_ref:%u "
-					"rule_idx:%d dst:%d ep:%d S:%u "
-					"hdr_ofst[words]:%u attrib_mask:%08x ",
+				pr_err("tbl_idx:%d tbl_name:%s tbl_ref:%u ",
 					entry->tbl->idx, entry->tbl->name,
-					entry->tbl->ref_cnt, i, entry->rule.dst,
+					entry->tbl->ref_cnt);
+				pr_err("rule_idx:%d dst:%d ep:%d S:%u ",
+					i, entry->rule.dst,
 					ipa_get_ep_mapping(entry->rule.dst),
-					!ipa_ctx->hdr_tbl_lcl,
+					!ipa_ctx->hdr_tbl_lcl);
+				pr_err("hdr_ofst[words]:%u attrib_mask:%08x ",
 					ofst >> 2,
 					entry->rule.attrib.attrib_mask);
 			}
@@ -734,20 +734,24 @@ static ssize_t ipa_read_proc_ctx(struct file *file, char __user *ubuf,
 		if (entry->hdr->is_hdr_proc_ctx) {
 			nbytes += scnprintf(dbg_buff + nbytes,
 				IPA_MAX_MSG_LEN - nbytes,
-				"id:%u hdr_proc_type:%s proc_ctx[32B]:%u "
-				"hdr_phys_base:0x%pa\n",
+				"id:%u hdr_proc_type:%s proc_ctx[32B]:%u ",
 				entry->id,
 				ipa_hdr_proc_type_name[entry->type],
-				ofst_words,
+				ofst_words);
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"hdr_phys_base:0x%pa\n",
 				&entry->hdr->phys_base);
 		} else {
 			nbytes += scnprintf(dbg_buff + nbytes,
 				IPA_MAX_MSG_LEN - nbytes,
-				"id:%u hdr_proc_type:%s proc_ctx[32B]:%u "
-				"hdr[words]:%u\n",
+				"id:%u hdr_proc_type:%s proc_ctx[32B]:%u ",
 				entry->id,
 				ipa_hdr_proc_type_name[entry->type],
-				ofst_words,
+				ofst_words);
+			nbytes += scnprintf(dbg_buff + nbytes,
+				IPA_MAX_MSG_LEN - nbytes,
+				"hdr[words]:%u\n",
 				entry->hdr->offset_entry->offset >> 2);
 		}
 	}
@@ -786,11 +790,10 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 			bitmap = entry->rule.attrib.attrib_mask;
 			eq = false;
 		}
-		pr_err(
-			   "ep_idx:global rule_idx:%d act:%d rt_tbl_idx:%d "
-			   "attrib_mask:%08x to_uc:%d, retain_hdr:%d eq:%d ",
-			   i, entry->rule.action, rt_tbl_idx, bitmap,
-			   entry->rule.to_uc, entry->rule.retain_hdr, eq);
+		pr_err("ep_idx:global rule_idx:%d act:%d rt_tbl_idx:%d ",
+			i, entry->rule.action, rt_tbl_idx);
+		pr_err("attrib_mask:%08x to_uc:%d, retain_hdr:%d eq:%d ",
+			bitmap, entry->rule.to_uc, entry->rule.retain_hdr, eq);
 		if (eq)
 			ipa_attrib_dump_eq(
 				&entry->rule.eq_attrib);
@@ -817,12 +820,12 @@ static ssize_t ipa_read_flt(struct file *file, char __user *ubuf, size_t count,
 				bitmap = entry->rule.attrib.attrib_mask;
 				eq = false;
 			}
-			pr_err(
-				"ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d "
-				"attrib_mask:%08x to_uc:%d, retain_hdr:%d eq:%d ",
-				j, i, entry->rule.action,
-				rt_tbl_idx, bitmap, entry->rule.to_uc,
-				entry->rule.retain_hdr, eq);
+			pr_err("ep_idx:%d rule_idx:%d act:%d rt_tbl_idx:%d ",
+				j, i, entry->rule.action, rt_tbl_idx);
+			pr_err("attrib_mask:%08x to_uc:%d, retain_hdr:%d ",
+				bitmap, entry->rule.to_uc,
+				entry->rule.retain_hdr);
+			pr_err("eq:%d ", eq);
 			if (eq)
 				ipa_attrib_dump_eq(
 					&entry->rule.eq_attrib);

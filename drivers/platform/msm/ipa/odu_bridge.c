@@ -108,7 +108,7 @@ struct odu_bridge_ctx {
 	u8 device_ethaddr[ETH_ALEN];
 	void *priv;
 	ipa_notify_cb tx_dp_notify;
-	int(*send_dl_skb)(void *priv, struct sk_buff *skb);
+	int (*send_dl_skb)(void *priv, struct sk_buff *skb);
 	struct stats stats;
 	bool is_connected;
 	enum odu_bridge_mode mode;
@@ -392,7 +392,7 @@ static int odu_bridge_disconnect_bridge(void)
  *
  * Return codes: 0- success, error otherwise
  */
-int odu_bridge_disconnect()
+int odu_bridge_disconnect(void)
 {
 	int res;
 
@@ -443,7 +443,7 @@ EXPORT_SYMBOL(odu_bridge_disconnect);
  *		-EPERM: Operation not permitted as the bridge is already
  *		connected
  */
-int odu_bridge_connect()
+int odu_bridge_connect(void)
 {
 	int res;
 
