@@ -1668,6 +1668,7 @@ static void msm_isp_process_overflow_irq(
 
 	if (overflow_mask) {
 		struct msm_isp_event_data error_event;
+		struct msm_vfe_axi_halt_cmd halt_cmd;
 
 		if (vfe_dev->reset_pending == 1) {
 			pr_err("%s:%d failed: overflow %x during reset\n",
@@ -1679,19 +1680,12 @@ static void msm_isp_process_overflow_irq(
 
 		ISP_DBG("%s: Bus overflow detected: 0x%x, start recovery!\n",
 				__func__, overflow_mask);
-		atomic_set(&vfe_dev->error_info.overflow_state,
-				OVERFLOW_DETECTED);
-		/*Store current IRQ mask*/
-		vfe_dev->hw_info->vfe_ops.core_ops.get_irq_mask(vfe_dev,
-			&vfe_dev->error_info.overflow_recover_irq_mask0,
-			&vfe_dev->error_info.overflow_recover_irq_mask1);
 
-		/*Halt the hardware & Clear all other IRQ mask*/
-		vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 0);
+		halt_cmd.overflow_detected = 1;
+		halt_cmd.stop_camif = 1;
+		halt_cmd.blocking_halt = 0;
 
-		/*Stop CAMIF Immediately*/
-		vfe_dev->hw_info->vfe_ops.core_ops.
-			update_camif_state(vfe_dev, DISABLE_CAMIF_IMMEDIATELY);
+		msm_isp_axi_halt(vfe_dev, &halt_cmd);
 
 		/*Update overflow state*/
 		*irq_status0 = 0;
