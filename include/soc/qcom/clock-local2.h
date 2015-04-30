@@ -225,6 +225,8 @@ extern struct clk_ops clk_ops_rcg_hdmi;
 extern struct clk_ops clk_ops_rcg_edp;
 extern struct clk_ops clk_ops_byte;
 extern struct clk_ops clk_ops_pixel;
+extern struct clk_ops clk_ops_byte_multiparent;
+extern struct clk_ops clk_ops_pixel_multiparent;
 extern struct clk_ops clk_ops_edppixel;
 extern struct clk_ops clk_ops_gate;
 extern struct clk_ops clk_ops_rst;

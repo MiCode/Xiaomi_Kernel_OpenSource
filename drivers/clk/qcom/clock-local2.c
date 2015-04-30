@@ -337,17 +337,26 @@ static long rcg_clk_list_rate(struct clk *c, unsigned n)
 	return (rcg->freq_tbl + n)->freq_hz;
 }
 
-static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, int has_mnd)
+static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, bool has_mnd,
+								bool match_rate)
 {
 	u32 n_regval = 0, m_regval = 0, d_regval = 0;
 	u32 cfg_regval, div, div_regval;
 	struct clk_freq_tbl *freq;
 	u32 cmd_rcgr_regval;
 
+	if (!rcg->freq_tbl) {
+		WARN(1, "No frequency table present for rcg %s\n",
+							rcg->c.dbg_name);
+		return NULL;
+	}
+
 	/* Is there a pending configuration? */
 	cmd_rcgr_regval = readl_relaxed(CMD_RCGR_REG(rcg));
-	if (cmd_rcgr_regval & CMD_RCGR_CONFIG_DIRTY_MASK)
+	if (cmd_rcgr_regval & CMD_RCGR_CONFIG_DIRTY_MASK) {
+		WARN(1, "Pending transaction for rcg %s\n", rcg->c.dbg_name);
 		return NULL;
+	}
 
 	/* Get values of m, n, d, div and src_sel registers. */
 	if (has_mnd) {
@@ -386,6 +395,13 @@ static struct clk *_rcg_clk_get_parent(struct rcg_clk *rcg, int has_mnd)
 		if ((freq->div_src_val & CFG_RCGR_SRC_SEL_MASK)
 		    != (cfg_regval & CFG_RCGR_SRC_SEL_MASK))
 			continue;
+		/*
+		 * Stop if we found the required parent in the frequency table
+		 * and only care if the source matches but dont care if the
+		 * frequency matches
+		 */
+		if (!match_rate)
+			break;
 		/* divider does not match */
 		div = freq->div_src_val & CFG_RCGR_DIV_MASK;
 		div_regval = cfg_regval & CFG_RCGR_DIV_MASK;
@@ -439,14 +455,19 @@ static enum handoff _rcg_clk_handoff(struct rcg_clk *rcg)
 	return HANDOFF_ENABLED_CLK;
 }
 
+static struct clk *display_clk_get_parent(struct clk *c)
+{
+	return _rcg_clk_get_parent(to_rcg_clk(c), false, false);
+}
+
 static struct clk *rcg_mnd_clk_get_parent(struct clk *c)
 {
-	return _rcg_clk_get_parent(to_rcg_clk(c), 1);
+	return _rcg_clk_get_parent(to_rcg_clk(c), true, true);
 }
 
 static struct clk *rcg_clk_get_parent(struct clk *c)
 {
-	return _rcg_clk_get_parent(to_rcg_clk(c), 0);
+	return _rcg_clk_get_parent(to_rcg_clk(c), false, true);
 }
 
 static enum handoff rcg_mnd_clk_handoff(struct clk *c)
@@ -1741,6 +1762,18 @@ struct clk_ops clk_ops_pixel = {
 	.set_parent = rcg_clk_set_parent,
 };
 
+struct clk_ops clk_ops_pixel_multiparent = {
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
+	.set_rate = set_rate_pixel,
+	.list_rate = rcg_clk_list_rate,
+	.round_rate = round_rate_pixel,
+	.handoff = pixel_rcg_handoff,
+	.list_registers = rcg_mnd_clk_list_registers,
+	.get_parent = display_clk_get_parent,
+	.set_parent = rcg_clk_set_parent,
+};
+
 struct clk_ops clk_ops_edppixel = {
 	.enable = rcg_clk_enable,
 	.disable = rcg_clk_disable,
@@ -1759,6 +1792,18 @@ struct clk_ops clk_ops_byte = {
 	.round_rate = rcg_clk_round_rate,
 	.handoff = byte_rcg_handoff,
 	.list_registers = rcg_hid_clk_list_registers,
+	.set_parent = rcg_clk_set_parent,
+};
+
+struct clk_ops clk_ops_byte_multiparent = {
+	.enable = rcg_clk_enable,
+	.disable = rcg_clk_disable,
+	.set_rate = set_rate_byte,
+	.list_rate = rcg_clk_list_rate,
+	.round_rate = rcg_clk_round_rate,
+	.handoff = byte_rcg_handoff,
+	.list_registers = rcg_hid_clk_list_registers,
+	.get_parent = display_clk_get_parent,
 	.set_parent = rcg_clk_set_parent,
 };
 
