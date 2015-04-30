@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,7 +22,8 @@
 #define WAN_IOC_MAGIC 0x69
 
 #define WAN_IOCTL_ADD_FLT_RULE		0
-#define WAN_IOCTL_ADD_FLT_INDEX		2
+#define WAN_IOCTL_ADD_FLT_INDEX		1
+#define WAN_IOCTL_VOTE_FOR_BW_MBPS	2
 
 #define WAN_IOC_ADD_FLT_RULE _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ADD_FLT_RULE, \
@@ -31,5 +32,9 @@
 #define WAN_IOC_ADD_FLT_RULE_INDEX _IOWR(WAN_IOC_MAGIC, \
 		WAN_IOCTL_ADD_FLT_INDEX, \
 		struct ipa_fltr_installed_notif_req_msg_v01 *)
+
+#define WAN_IOC_VOTE_FOR_BW_MBPS _IOWR(WAN_IOC_MAGIC, \
+		WAN_IOCTL_VOTE_FOR_BW_MBPS, \
+		uint32_t *)
 
 #endif /* _RMNET_IPA_FD_IOCTL_H */
