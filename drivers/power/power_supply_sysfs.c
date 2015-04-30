@@ -45,7 +45,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 					  char *buf) {
 	static char *type_text[] = {
 		"Unknown", "Battery", "UPS", "Mains", "USB", "USB",
-		"USB_DCP", "USB_CDP", "USB_ACA", "USB_HOST", "USB_TYPEC"
+		"USB_DCP", "USB_CDP", "USB_ACA", "USB_HOST", "USB_TYPEC",
+		"Wireless"
 	};
 	static char *status_text[] = {
 		"Unknown", "Charging", "Discharging", "Not charging", "Full"
@@ -55,8 +56,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 	};
 	static char *health_text[] = {
 		"Unknown", "Good", "Overheat", "Dead", "Over voltage",
-		"Unspecified failure", "Cold", "Watchdog timer expire",
-		"Safety timer expire"
+		"Over current", "Unspecified failure", "Cold",
+		"Watchdog timer expire", "Safety timer expire"
 	};
 	static char *technology_text[] = {
 		"Unknown", "NiMH", "Li-ion", "Li-poly", "LiFe", "NiCd",
@@ -104,11 +105,12 @@ static ssize_t power_supply_show_property(struct device *dev,
 		return sprintf(buf, "%s\n", scope_text[value.intval]);
 	else if (off >= POWER_SUPPLY_PROP_MODEL_NAME)
 		return sprintf(buf, "%s\n", value.strval);
-
-	if (off == POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT)
+	else if (off == POWER_SUPPLY_PROP_CHARGE_COUNTER_EXT)
 		return sprintf(buf, "%lld\n", value.int64val);
-	else
+	else if (!power_supply_is_string_property(off))
 		return sprintf(buf, "%d\n", value.intval);
+	else
+		return sprintf(buf, "%s\n", value.strval);
 }
 
 static ssize_t power_supply_store_property(struct device *dev,
@@ -121,12 +123,15 @@ static ssize_t power_supply_store_property(struct device *dev,
 	long long_val;
 
 	/* TODO: support other types than int */
-	ret = kstrtol(buf, 10, &long_val);
-	if (ret < 0)
-		return ret;
 
-	value.intval = long_val;
-
+	if (!power_supply_is_string_property(off)) {
+		ret = kstrtol(buf, 10, &long_val);
+		if (ret < 0)
+			return ret;
+		value.intval = long_val;
+	} else {
+		value.strval = buf;
+	}
 	ret = psy->set_property(psy, off, &value);
 	if (ret < 0)
 		return ret;

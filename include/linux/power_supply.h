@@ -55,6 +55,7 @@ enum {
 	POWER_SUPPLY_HEALTH_OVERHEAT,
 	POWER_SUPPLY_HEALTH_DEAD,
 	POWER_SUPPLY_HEALTH_OVERVOLTAGE,
+	POWER_SUPPLY_HEALTH_OVERCURRENT,
 	POWER_SUPPLY_HEALTH_UNSPEC_FAILURE,
 	POWER_SUPPLY_HEALTH_COLD,
 	POWER_SUPPLY_HEALTH_WATCHDOG_TIMER_EXPIRE,
@@ -188,6 +189,7 @@ enum power_supply_type {
 	POWER_SUPPLY_TYPE_USB_ACA,	/* Accessory Charger Adapters */
 	POWER_SUPPLY_TYPE_USB_HOST,	/* To support OTG devices */
 	POWER_SUPPLY_TYPE_USB_TYPEC,    /* To support TYPEC devices */
+	POWER_SUPPLY_TYPE_WIRELESS,
 };
 
 enum power_supply_charger_event {
@@ -196,6 +198,7 @@ enum power_supply_charger_event {
 	POWER_SUPPLY_CHARGER_EVENT_RESUME,
 	POWER_SUPPLY_CHARGER_EVENT_SUSPEND,
 	POWER_SUPPLY_CHARGER_EVENT_DISCONNECT,
+	POWER_SUPPLY_CHARGER_EVENT_LINK_DISCONNECT,
 };
 
 struct power_supply_charger_cap {
@@ -219,6 +222,7 @@ enum power_supply_charger_cable_type {
 	POWER_SUPPLY_CHARGER_TYPE_MHL = 1 << 10,
 	POWER_SUPPLY_CHARGER_TYPE_B_DEVICE = 1 << 11,
 	POWER_SUPPLY_CHARGER_TYPE_USB_TYPEC = 1 << 12,
+	POWER_SUPPLY_CHARGER_TYPE_WIRELESS = 1 << 13,
 };
 
 enum power_supply_notifier_events {
@@ -419,6 +423,19 @@ static inline bool power_supply_is_watt_property(enum power_supply_property psp)
 		break;
 	}
 
+	return 0;
+}
+static inline bool power_supply_is_string_property(
+	enum power_supply_property psp)
+{
+	switch (psp) {
+	case POWER_SUPPLY_PROP_MODEL_NAME:
+	case POWER_SUPPLY_PROP_MANUFACTURER:
+	case POWER_SUPPLY_PROP_SERIAL_NUMBER:
+		return 1;
+	default:
+		break;
+	}
 	return 0;
 }
 

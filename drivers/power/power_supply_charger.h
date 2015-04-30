@@ -25,7 +25,7 @@ struct batt_props {
 	long current_now_cache[MAX_CUR_VOLT_SAMPLES];
 	int temperature;
 	long status;
-	unsigned long tstamp;
+	u64 tstamp;
 	enum psy_algo_stat algo_stat;
 	int health;
 };
@@ -185,7 +185,8 @@ static inline int get_ps_int_property(struct power_supply *psy,
 				psy->type == POWER_SUPPLY_TYPE_USB_CDP || \
 			psy->type == POWER_SUPPLY_TYPE_USB_DCP || \
 			psy->type == POWER_SUPPLY_TYPE_USB_ACA || \
-			psy->type == POWER_SUPPLY_TYPE_USB_TYPEC)
+			psy->type == POWER_SUPPLY_TYPE_USB_TYPEC || \
+			psy->type == POWER_SUPPLY_TYPE_WIRELESS)
 #define IS_ONLINE(psy) \
 		(get_ps_int_property(psy, POWER_SUPPLY_PROP_ONLINE) == 1)
 #define IS_PRESENT(psy) \
@@ -193,8 +194,14 @@ static inline int get_ps_int_property(struct power_supply *psy,
 #define IS_SUPPORTED_CABLE(psy, cable_type) \
 		(psy->supported_cables & cable_type)
 #define IS_CABLE_ACTIVE(status) \
-	((status != EXTCON_CHRGR_CABLE_DISCONNECTED))
+		((status != POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) &&\
+		(status != POWER_SUPPLY_CHARGER_EVENT_LINK_DISCONNECT))
 
+#define IS_CABLE_READY_TO_SUPPLY(status) \
+		((status == POWER_SUPPLY_CHARGER_EVENT_CONNECT) ||\
+		(status == POWER_SUPPLY_CHARGER_EVENT_UPDATE) ||\
+		(status == POWER_SUPPLY_CHARGER_EVENT_RESUME) ||\
+		(status == POWER_SUPPLY_CHARGER_EVENT_SUSPEND))
 #define IS_CHARGER_PROP_CHANGED(prop, cache_prop)\
 	((cache_prop.online != prop.online) || \
 	(cache_prop.present != prop.present) || \
