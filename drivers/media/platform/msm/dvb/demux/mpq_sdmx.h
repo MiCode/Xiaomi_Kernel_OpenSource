@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #define SDMX_MAX_SESSIONS  (4)
 #define SDMX_LOOPBACK_PID  (0x2000)
 
-#define SDMX_MAX_PHYSICAL_CHUNKS (10)
+#define SDMX_MAX_PHYSICAL_CHUNKS (256)
 
 /* Filter-level error indicators */
 #define SDMX_FILTER_SUCCESS                       (0)
