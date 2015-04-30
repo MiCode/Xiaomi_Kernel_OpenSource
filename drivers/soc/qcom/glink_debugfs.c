@@ -406,12 +406,12 @@ void glink_debugfs_add_xprt(struct glink_core_xprt_ctx *xprt_ctx)
 		GLINK_ERR("%s: xprt name or edge name is NULL\n", __func__);
 		return;
 	}
+	snprintf(curr_dir_name, sizeof(curr_dir_name), "%s_%s",
+					edge_name, xprt_name);
 	xprt_dbgfs.par_name = "glink";
 	xprt_dbgfs.curr_name = "xprt";
 	xprt_dbgfs.b_dir_create = true;
-	glink_debugfs_create(xprt_name, NULL, &xprt_dbgfs, NULL, false);
-	snprintf(curr_dir_name, sizeof(curr_dir_name), "%s_%s",
-					edge_name, xprt_name);
+	glink_debugfs_create(curr_dir_name, NULL, &xprt_dbgfs, NULL, false);
 	xprt_dbgfs.curr_name = "channel";
 	glink_debugfs_create(curr_dir_name, NULL, &xprt_dbgfs, NULL, false);
 }
@@ -559,9 +559,9 @@ void glink_dfs_update_list(struct dentry *curr_dent, struct dentry *parent,
 			dbgfs_dent_s->parent = parent;
 			dbgfs_dent_s->self = curr_dent;
 			strlcpy(dbgfs_dent_s->self_name,
-				curr, GLINK_DBGFS_NAME_SIZE);
+				curr, strlen(curr) + 1);
 			strlcpy(dbgfs_dent_s->par_name, par_dir,
-					GLINK_DBGFS_NAME_SIZE);
+					strlen(par_dir) + 1);
 			mutex_lock(&dent_list_lock_lha0);
 			list_add_tail(&dbgfs_dent_s->list_node, &dent_list);
 			mutex_unlock(&dent_list_lock_lha0);
