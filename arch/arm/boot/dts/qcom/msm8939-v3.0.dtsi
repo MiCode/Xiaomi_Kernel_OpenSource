@@ -429,12 +429,8 @@
 	};
 
 	qcom,msm-thermal {
-		qcom,freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
-					&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,core-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
-					&CPU4 &CPU5 &CPU6 &CPU7>;
-		qcom,freq-mitigation-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
-						&CPU4 &CPU5 &CPU6 &CPU7>;
+		qcom,core-control-mask = <0xFF>;
+		qcom,freq-mitigation-control-mask = <0xFF>;
 	};
 };
 
