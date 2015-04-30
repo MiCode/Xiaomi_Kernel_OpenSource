@@ -453,7 +453,7 @@
 				 &slv_dsa_cfg &slv_smmu_venus_cfg
 				 &slv_vmem_cfg &slv_smmu_jpeg_cfg
 				 &slv_smmu_mdp_cfg &slv_mnoc_mpu_cfg>;
-			qcom,bus-dev = <&fab_mnoc>;
+			qcom,bus-dev = <&fab_mnoc_ahb>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CNOC_MNOC_MMSS_CFG>;
 		};
 
