@@ -311,6 +311,16 @@ config CRYPTO_DEV_S5P
 	  Select this to offload Samsung S5PV210 or S5PC110, Exynos from AES
 	  algorithms execution.
 
+config CRYPTO_DEV_QCOM_ICE
+	tristate "Inline Crypto Module"
+	default n
+	help
+	  This driver supports Inline Crypto Engine for QTI chipsets, MSM8994
+	  and later, to accelerate crypto operations for storage needs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ice.
+
 config CRYPTO_DEV_NX
 	bool "Support for IBM Power7+ in-Nest cryptographic acceleration"
 	depends on PPC64 && IBMVIO && !CPU_LITTLE_ENDIAN

@@ -1,0 +1,1 @@
+obj-$(CONFIG_CRYPTO_DEV_QCOM_ICE) += ice.o
