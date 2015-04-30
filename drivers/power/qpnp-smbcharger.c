@@ -605,7 +605,7 @@ static bool is_usb_present(struct smbchg_chip *chip)
 		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
 		return false;
 	}
-	if ((reg & USBIN_UV_BIT) || (reg & USBIN_OV_BIT))
+	if (!(reg & USBIN_SRC_DET_BIT) || (reg & USBIN_OV_BIT))
 		return false;
 
 	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + INPUT_STS, 1);
@@ -4222,40 +4222,26 @@ out:
  */
 static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 {
+	struct smbchg_chip *chip = _chip;
+	int aicl_level = smbchg_get_aicl_level_ma(chip);
 	int rc;
 	u8 reg;
-	union power_supply_propval prop = {0, };
-	struct smbchg_chip *chip = _chip;
-	bool usb_present = is_usb_present(chip);
 
+	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
+	if (rc) {
+		pr_err("could not read rt sts: %d", rc);
+		goto out;
+	}
 
 	pr_smb(PR_STATUS,
-		"%s chip->usb_present = %d usb_present = %d apsd_rerun_ignore_uv_irq = %d\n",
+		"%s chip->usb_present = %d rt_sts = 0x%02x apsd_rerun_ignore_uv_irq = %d aicl = %d\n",
 		chip->apsd_rerun_ignore_uv_irq ? "Ignoring":"",
-		chip->usb_present, usb_present, chip->apsd_rerun_ignore_uv_irq);
+		chip->usb_present, reg, chip->apsd_rerun_ignore_uv_irq,
+		aicl_level);
 
 	if (chip->apsd_rerun_ignore_uv_irq)
 		goto out;
 
-	rc = smbchg_read(chip, &reg, chip->usb_chgpth_base + RT_STS, 1);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read usb rt status rc = %d\n", rc);
-		goto out;
-	}
-	reg &= USBIN_UV_BIT;
-
-	if (reg && chip->usb_psy && !chip->usb_psy->get_property(chip->usb_psy,
-							POWER_SUPPLY_PROP_TYPE,
-							&prop)) {
-		if ((prop.intval == POWER_SUPPLY_TYPE_USB_HVDCP)
-			|| (prop.intval == POWER_SUPPLY_TYPE_USB_DCP)
-			|| (prop.intval == POWER_SUPPLY_TYPE_UNKNOWN)) {
-				if (!usb_present) {
-					update_usb_status(chip, 0, false);
-					chip->aicl_irq_count = 0;
-				}
-		}
-	}
 	smbchg_wipower_check(chip);
 out:
 	return IRQ_HANDLED;
@@ -4289,14 +4275,18 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 		goto out;
 	}
 
+	/*
+	 * When VBAT is above the AICL threshold (4.25V) - 180mV (4.07V),
+	 * an input collapse due to AICL will actually cause an USBIN_UV
+	 * interrupt to fire as well.
+	 *
+	 * Handle USB insertions and removals in the source detect handler
+	 * instead of the USBIN_UV handler since the latter is untrustworthy
+	 * when the battery voltage is high.
+	 */
 	if (src_detect) {
-		if (usb_present || chip->apsd_rerun)
-			update_usb_status(chip, usb_present, chip->apsd_rerun);
-	} else if (chip->usb_present) {
-		/*
-		 * Handle all the charger removals here. Note that DCP/HVDCP
-		 * would have been handled already in UV handler.
-		 */
+		update_usb_status(chip, usb_present, chip->apsd_rerun);
+	} else {
 		update_usb_status(chip, 0, false);
 		chip->aicl_irq_count = 0;
 	}
