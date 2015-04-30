@@ -229,6 +229,7 @@
 
 &soc {
 	wcd9xxx_intc: wcd9xxx-irq {
+		status = "disabled";
 		compatible = "qcom,wcd9xxx-irq";
 		interrupt-controller;
 		#interrupt-cells = <1>;
@@ -238,6 +239,7 @@
 	};
 
 	sound-9330 {
+		status = "disabled";
 		compatible = "qcom,msm8952-audio-slim-codec";
 		qcom,model = "msm8952-tomtom-snd-card";
 		qcom,cdc-mclk-gpios = <&pm8950_gpios 1 0>;
@@ -330,7 +332,7 @@
 };
 
 &slim_msm {
-	status = "ok";
+	status = "disabled";
 	tomtom_codec {
 		compatible = "qcom,tomtom-slim-pgd";
 		elemental-addr = [00 01 30 01 17 02];
