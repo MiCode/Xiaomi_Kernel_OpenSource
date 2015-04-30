@@ -3501,7 +3501,7 @@ static struct msm_vidc_cb_info *__response_handler(
 				dprintk(VIDC_ERR,
 						"Received a packet (%#x) for an unrecognized session (%p), discarding\n",
 						info->response_type,
-						(void *)session_id);
+						*session_id);
 				--packet_count;
 				continue;
 			}
