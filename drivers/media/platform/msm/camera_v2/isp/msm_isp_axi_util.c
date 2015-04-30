@@ -1314,6 +1314,7 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 
 			halt_cmd.overflow_detected = 1;
 			halt_cmd.stop_camif = 1;
+			halt_cmd.blocking_halt = 0;
 
 			msm_isp_axi_halt(vfe_dev, &halt_cmd);
 			error_event.frame_id =
