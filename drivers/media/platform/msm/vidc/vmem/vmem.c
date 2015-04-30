@@ -65,19 +65,19 @@
 
 /* Register masks */
 /* OCIMEM_PSCGC_M0_M7_CTL */
-DECLARE_TYPE(BANK0_STATE, 3, 0)
-DECLARE_TYPE(BANK1_STATE, 7, 4)
-DECLARE_TYPE(BANK2_STATE, 11, 8)
-DECLARE_TYPE(BANK3_STATE, 15, 12)
+DECLARE_TYPE(BANK0_STATE, 3, 0);
+DECLARE_TYPE(BANK1_STATE, 7, 4);
+DECLARE_TYPE(BANK2_STATE, 11, 8);
+DECLARE_TYPE(BANK3_STATE, 15, 12);
 /* OCIMEM_PSCGC_TIMERS */
-DECLARE_TYPE(TIMERS_WAKEUP, 3, 0)
-DECLARE_TYPE(TIMERS_SLEEP, 11, 8)
+DECLARE_TYPE(TIMERS_WAKEUP, 3, 0);
+DECLARE_TYPE(TIMERS_SLEEP, 11, 8);
 /* OCIMEM_HW_VERSION */
-DECLARE_TYPE(VERSION_STEP, 15, 0)
-DECLARE_TYPE(VERSION_MINOR, 27, 16)
-DECLARE_TYPE(VERSION_MAJOR, 31, 28)
+DECLARE_TYPE(VERSION_STEP, 15, 0);
+DECLARE_TYPE(VERSION_MINOR, 27, 16);
+DECLARE_TYPE(VERSION_MAJOR, 31, 28);
 /* OCIMEM_HW_PROFILE */
-DECLARE_TYPE(PROFILE_BANKS, 16, 12)
+DECLARE_TYPE(PROFILE_BANKS, 16, 12);
 /* OCIMEM_AXI_ERR_SYNDROME */
 DECLARE_TYPE(ERR_SYN_ATID, 14, 8);
 DECLARE_TYPE(ERR_SYN_AMID, 23, 16);
@@ -88,7 +88,6 @@ DECLARE_TYPE(AXI_ERR_INT, 0, 0);
 
 /* Internal stuff */
 #define MAX_BANKS 4
-#define BYTES_PER_BANK SZ_256K
 
 enum bank_state {
 	BANK_STATE_NORM_PASSTHRU = 0b000,
@@ -103,6 +102,7 @@ enum bank_state {
 struct vmem {
 	int irq;
 	int num_banks;
+	int bank_size;
 	struct {
 		struct resource *resource;
 		void __iomem *base;
@@ -333,7 +333,7 @@ int vmem_allocate(size_t size, phys_addr_t *addr)
 		goto exit;
 	}
 
-	BUG_ON(vmem->num_banks != DIV_ROUND_UP(size, BYTES_PER_BANK));
+	BUG_ON(vmem->num_banks != DIV_ROUND_UP(size, vmem->bank_size));
 
 	/* Make sure all the banks are sleeping (default) */
 	for (c = 0; c < vmem->num_banks; ++c) {
@@ -424,7 +424,7 @@ static void __irq_helper(struct work_struct *work)
 	pr_cont("\tmemory status: %x\n", pscgc_stat);
 	pr_cont("\tfault address: %x (absolute), %x (relative)\n",
 			err_addr_abs, err_addr_rel);
-	pr_cont("\tfault bank: %x\n", err_addr_rel / BYTES_PER_BANK);
+	pr_cont("\tfault bank: %x\n", err_addr_rel / v->bank_size);
 	pr_cont("\tfault core: %u (mid), %u (pid), %u (bid)\n",
 			ERR_SYN_AMID(err_syn), ERR_SYN_APID(err_syn),
 			ERR_SYN_ABID(err_syn));
@@ -554,16 +554,19 @@ static inline int __init_resources(struct vmem *v,
 	}
 
 	/* Misc. */
-	rc = of_property_read_u32(pdev->dev.of_node, "qcom,banks",
-			&v->num_banks);
-	if (rc || !v->num_banks) {
-		pr_err("Failed reading (or found invalid) qcom,banks in %s (%d)\n",
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,bank-size",
+			&v->bank_size);
+	if (rc || !v->bank_size) {
+		pr_err("Failed reading (or found invalid) qcom,bank-size in %s (%d)\n",
 				of_node_full_name(pdev->dev.of_node), rc);
 		rc = -ENOENT;
 		goto free_pdata;
 	}
 
-	pr_debug("Found configuration with %d banks\n", v->num_banks);
+	v->num_banks = resource_size(v->mem.resource) / v->bank_size;
+
+	pr_debug("Found configuration with %d banks with size %d\n",
+			v->num_banks, v->bank_size);
 
 	return 0;
 free_pdata:
@@ -636,17 +639,10 @@ static int vmem_probe(struct platform_device *pdev)
 
 	num_banks = PROFILE_BANKS(__readl(OCIMEM_HW_PROFILE(v)));
 	pr_debug("Found %d banks on chip\n", num_banks);
-	if (v->num_banks > num_banks) {
-		pr_err("Platform configuration of %d banks exceeds what's available on chip (%d)\n",
+	if (v->num_banks != num_banks) {
+		pr_err("Platform configuration of %d banks differs from what's available on chip (%d)\n",
 				v->num_banks, num_banks);
 		rc = -EINVAL;
-		goto disable_clocks;
-	}
-
-	if (v->num_banks * BYTES_PER_BANK >
-			resource_size(v->mem.resource)) {
-		pr_err("Too many banks in configuration\n");
-		rc = -E2BIG;
 		goto disable_clocks;
 	}
 

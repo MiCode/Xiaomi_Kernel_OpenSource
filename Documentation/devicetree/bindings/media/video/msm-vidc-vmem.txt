@@ -11,7 +11,7 @@ space should be called "reg-base" and the memory space should be called "mem-bas
 hardware uses.
 - clock-names : A string that describes the "clocks" property.  The AHB clock
 should be named "ahb" and the MAXI clock should be named "maxi".
-- qcom,banks : The number of memory banks that the hardware supports.
+- qcom,bank-size : The size of each memory bank, in bytes.
 - vdd-supply: phandle to a regulator that is considered to be the footswitch for vmem.
 - qcom,msm-bus,(name|num-cases,num-paths,vectors-KBps) - Bus to be voted for prior to
   issuing any IO transactions to vmem.  Refer to Documentation/devicetree/bindings/arm/\
@@ -31,7 +31,7 @@ qcom,vmem@880000 {
 	       <&clock_mmss clk_vmem_maxi_clk>;
 	clock-names = "ahb", "maxi";
 
-	qcom,banks = <4>;
+	qcom,bank-size = <131072>;
 
 	qcom,msm-bus,name = "vmem";
 	qcom,msm-bus,num-cases = <2>;

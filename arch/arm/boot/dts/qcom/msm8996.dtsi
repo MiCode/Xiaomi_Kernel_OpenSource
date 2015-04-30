@@ -478,7 +478,7 @@
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG   0   0>,
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_VMEM_CFG 500 800>;
 
-		qcom,banks = <4>;
+		qcom,bank-size = <131072>; /* 128 kB */
 	};
 
 	i2c_12: i2c@75ba000 {
