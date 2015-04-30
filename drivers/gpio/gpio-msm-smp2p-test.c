@@ -1,6 +1,6 @@
 /* drivers/gpio/gpio-msm-smp2p-test.c
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -95,9 +95,10 @@ static int smp2p_gpio_test_probe(struct platform_device *pdev)
 		gpio_info_ptr = &gpio_info[SMP2P_WIRELESS_PROC].in;
 	} else if (strcmp("qcom,smp2pgpio_test_smp2p_4_out", node->name) == 0) {
 		gpio_info_ptr = &gpio_info[SMP2P_WIRELESS_PROC].out;
-	} else if (strcmp("qcom,smp2pgpio_test_smp2p_7_in", node->name) == 0) {
+	} else if (strcmp("qcom,smp2pgpio_test_smp2p_15_in", node->name) == 0) {
 		gpio_info_ptr = &gpio_info[SMP2P_REMOTE_MOCK_PROC].in;
-	} else if (strcmp("qcom,smp2pgpio_test_smp2p_7_out", node->name) == 0) {
+	} else if (
+		strcmp("qcom,smp2pgpio_test_smp2p_15_out", node->name) == 0) {
 		gpio_info_ptr = &gpio_info[SMP2P_REMOTE_MOCK_PROC].out;
 	} else {
 		pr_err("%s: unable to match device type '%s'\n",
@@ -144,8 +145,8 @@ static struct of_device_id msm_smp2p_match_table[] = {
 	{.compatible = "qcom,smp2pgpio_test_smp2p_4_in", },
 
 	/* mock loopback */
-	{.compatible = "qcom,smp2pgpio_test_smp2p_7_out", },
-	{.compatible = "qcom,smp2pgpio_test_smp2p_7_in", },
+	{.compatible = "qcom,smp2pgpio_test_smp2p_15_out", },
+	{.compatible = "qcom,smp2pgpio_test_smp2p_15_in", },
 	{},
 };
 
