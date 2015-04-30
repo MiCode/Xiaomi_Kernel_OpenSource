@@ -3625,6 +3625,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		ATRACE_END("prepare_fnc");
 		if (ret) {
 			pr_err("error preparing display\n");
+			mutex_unlock(&ctl->flush_lock);
 			goto done;
 		}
 
