@@ -738,9 +738,9 @@ int msm8996_cpuss_pm_init(unsigned int cpu)
 
 	/* Configure power switch serializer delays */
 	writel_relaxed(0x00000001, pm_cpuss + MSM8996_APCC_SER_EN);
-	writel_relaxed(0x14141414, pm_cpuss + MSM8996_APCC_SER_DLY);
-	writel_relaxed(0x00000000, pm_cpuss + MSM8996_APCC_SER_DLY_SEL0);
-	writel_relaxed(0x00000000, pm_cpuss + MSM8996_APCC_SER_DLY_SEL1);
+	writel_relaxed(0x231b0c16, pm_cpuss + MSM8996_APCC_SER_DLY);
+	writel_relaxed(0xe5e5e514, pm_cpuss + MSM8996_APCC_SER_DLY_SEL0);
+	writel_relaxed(0x00e5e5e5, pm_cpuss + MSM8996_APCC_SER_DLY_SEL1);
 
 	switch (version) {
 	case MSM8996_CPUSS_VER_1P0:
@@ -750,8 +750,8 @@ int msm8996_cpuss_pm_init(unsigned int cpu)
 		writel_relaxed(0x07001000, pm_cpuss + MSM8996_APCC_APM_DLY);
 		break;
 	case MSM8996_CPUSS_VER_1P2:
-		writel_relaxed(0x01001001, pm_cpuss + MSM8996_APCC_APM_DLY);
-		writel_relaxed(0x0000000a, pm_cpuss + MSM8996_APCC_APM_DLY2);
+		writel_relaxed(0x01001011, pm_cpuss + MSM8996_APCC_APM_DLY);
+		writel_relaxed(0x00000002, pm_cpuss + MSM8996_APCC_APM_DLY2);
 		break;
 	}
 
