@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,30 @@
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
 		status = "okay";
+	};
+
+	stub_regulator_p95v: stub_p95v  {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "stub-regulator-0.95v";
+		qcom,hpm-min-load = <1000>;
+		regulator-min-microvolt = <950000>;
+		regulator-max-microvolt = <950000>;
+	};
+
+	stub_regulator_vdd_mx: stub_vdd_mx {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "stub-regulator_vdd_mx";
+		qcom,hpm-min-load = <10000>;
+		regulator-min-microvolt = <1>;
+		regulator-max-microvolt = <7>;
+	};
+
+	stub_regulator_3p3v: stub_3p3v {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "stub-regulator_3.3v";
+		qcom,hpm-min-load = <5000>;
+		regulator-min-microvolt = <3200000>;
+		regulator-max-microvolt = <3200000>;
 	};
 };
 
