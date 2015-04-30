@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014 The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,7 +55,7 @@
 
 #define JPEG_OFFLINE_CMD_START 0x00000001
 
-#define JPEG_RESET_DEFAULT 0x00030013
+#define JPEG_RESET_DEFAULT 0x00032093
 
 #define JPEG_IRQ_DISABLE_ALL 0x00000000
 #define JPEG_IRQ_CLEAR_ALL 0xFFFFFFFF
@@ -147,7 +147,7 @@
 
 #define JPEGDMA_IRQ_STATUS_ADDR (JPEG_REG_BASE + 0x00000010)
 #define JPEGDMA_IRQ_STATUS_BMSK 0xFFFFFFFF
-#define JPEGDMA_RESET_DEFAULT 0x00030083
+#define JPEGDMA_RESET_DEFAULT 0x00032083
 
 
 #define JPEGDMA_CMD_ADDR (JPEG_REG_BASE + 0x0000001C)
