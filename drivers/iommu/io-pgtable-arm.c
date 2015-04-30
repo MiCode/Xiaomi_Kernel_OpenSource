@@ -513,6 +513,7 @@ static int arm_lpae_split_blk_unmap(struct arm_lpae_io_pgtable *data,
 	blk_start = iova & ~(blk_size - 1);
 	blk_end = blk_start + blk_size;
 	blk_paddr = iopte_to_pfn(*ptep, data) << data->pg_shift;
+	size = ARM_LPAE_BLOCK_SIZE(lvl + 1, data);
 
 	for (; blk_start < blk_end; blk_start += size, blk_paddr += size) {
 		arm_lpae_iopte *tablep;
@@ -573,6 +574,32 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		}
 
 		return size;
+	} else if ((lvl == ARM_LPAE_MAX_LEVELS - 2) && !iopte_leaf(pte, lvl)) {
+		arm_lpae_iopte *table = iopte_deref(pte, data);
+		int tl_offset = ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
+		int entry_size = ARM_LPAE_GRANULE(data);
+		int max_entries = ARM_LPAE_BLOCK_SIZE(lvl, data) / entry_size;
+		int entries = min_t(int, size / entry_size,
+			max_entries - tl_offset);
+		int table_len = entries * sizeof(*table);
+
+		/*
+		 * This isn't a block mapping so it must be a table mapping
+		 * and since it's the 2nd-to-last level the next level has
+		 * to be all page mappings.  Zero them all out in one fell
+		 * swoop.
+		 */
+
+		table += tl_offset;
+
+		memset(table, 0, table_len);
+		dma_sync_single_for_device(iop->cfg.iommu_dev,
+					   __arm_lpae_dma_addr(table),
+					   table_len, DMA_TO_DEVICE);
+		io_pgtable_tlb_add_flush(iop, iova, entries * entry_size,
+					ARM_LPAE_GRANULE(data), true);
+
+		return entries * entry_size;
 	} else if (iopte_leaf(pte, lvl)) {
 		/*
 		 * Insert a table at the next level to map the old region,
@@ -591,12 +618,25 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			  size_t size)
 {
-	size_t unmapped;
+	size_t unmapped = 0;
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	arm_lpae_iopte *ptep = data->pgd;
 	int lvl = ARM_LPAE_START_LVL(data);
 
-	unmapped = __arm_lpae_unmap(data, iova, size, lvl, ptep);
+	while (unmapped < size) {
+		size_t ret, size_to_unmap, remaining;
+
+		remaining = (size - unmapped);
+		size_to_unmap = remaining < SZ_2M
+			? remaining
+			: iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova,
+				       remaining);
+		ret = __arm_lpae_unmap(data, iova, size_to_unmap, lvl, ptep);
+		if (ret == 0)
+			break;
+		unmapped += ret;
+		iova += ret;
+	}
 	if (unmapped)
 		io_pgtable_tlb_sync(&data->iop);
 
