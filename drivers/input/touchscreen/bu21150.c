@@ -1082,25 +1082,28 @@ static int fb_notifier_callback(struct notifier_block *self,
 	struct bu21150_data *ts =
 			container_of(self, struct bu21150_data, fb_notif);
 
-	if (evdata && evdata->data && ts && ts->client && !cont_splash) {
+	if (evdata && evdata->data && ts && ts->client) {
 		blank = evdata->data;
 		if (event == FB_EARLY_EVENT_BLANK) {
 			if (*blank == FB_BLANK_UNBLANK) {
 				ts->lcd_on = true;
-				bu21150_fb_resume(&ts->client->dev);
+				if (!cont_splash)
+					bu21150_fb_resume(&ts->client->dev);
 			} else if (*blank == FB_BLANK_POWERDOWN) {
 				ts->lcd_on = false;
 			}
 		} else if (event == FB_R_EARLY_EVENT_BLANK) {
 			if (*blank == FB_BLANK_UNBLANK) {
 				ts->lcd_on = false;
-				bu21150_fb_resume(&ts->client->dev);
+				if (!cont_splash)
+					bu21150_fb_resume(&ts->client->dev);
 			} else if (*blank == FB_BLANK_POWERDOWN) {
 				ts->lcd_on = true;
 			}
 		} else if (event == FB_EVENT_BLANK && *blank ==
 							FB_BLANK_POWERDOWN) {
-			bu21150_fb_suspend(&ts->client->dev);
+			if (!cont_splash)
+				bu21150_fb_suspend(&ts->client->dev);
 		}
 	}
 
@@ -1435,7 +1438,8 @@ static long bu21150_ioctl_spi_write(unsigned long arg)
 			((data.next_mode & afe_active_mode) && ts->lcd_on) ||
 			((data.next_mode & afe_gesture_mode) && !ts->lcd_on);
 	if (!valid_op) {
-		pr_err("%s: AFE scan mode and LCD state conflict\n", __func__);
+		pr_err("%s: AFE scan mode(%d) and LCD state(%d) conflict\n",
+					__func__, ts->lcd_on, data.next_mode);
 		return -EINVAL;
 	}
 
