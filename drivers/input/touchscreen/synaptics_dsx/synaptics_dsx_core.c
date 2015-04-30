@@ -28,6 +28,9 @@
 #include <linux/input/synaptics_dsx.h>
 #include "synaptics_dsx_core.h"
 #include <linux/input/mt.h>
+#ifdef CONFIG_PM_SLEEP
+#include <linux/power_hal_sysfs.h>
+#endif
 
 #define INPUT_PHYS_NAME "synaptics_dsx/touch_input"
 
@@ -124,6 +127,11 @@ static ssize_t synaptics_rmi4_wake_gesture_store(struct device *dev,
 
 static ssize_t synaptics_rmi4_virtual_key_map_show(struct kobject *kobj,
 		struct kobj_attribute *attr, char *buf);
+
+#ifdef CONFIG_PM_SLEEP
+static ssize_t synaptics_rmi4_power_hal_suspend_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count);
+#endif
 
 struct synaptics_rmi4_f01_device_status {
 	union {
@@ -501,6 +509,11 @@ static struct device_attribute attrs[] = {
 	__ATTR(wake_gesture, (S_IRUGO | S_IWUGO),
 			synaptics_rmi4_wake_gesture_show,
 			synaptics_rmi4_wake_gesture_store),
+#ifdef CONFIG_PM_SLEEP
+	__ATTR(power_HAL_suspend, S_IWUGO,
+			NULL,
+			synaptics_rmi4_power_hal_suspend_store),
+#endif
 };
 
 static struct kobj_attribute virtual_key_map_attr = {
@@ -2542,6 +2555,7 @@ static int synaptics_rmi4_set_input_dev(struct synaptics_rmi4_data *rmi4_data)
 
 	synaptics_rmi4_set_params(rmi4_data);
 
+	dev_set_name(&rmi4_data->input_dev->dev, PLATFORM_DRIVER_NAME);
 	retval = input_register_device(rmi4_data->input_dev);
 	if (retval) {
 		dev_err(rmi4_data->pdev->dev.parent,
@@ -3102,6 +3116,13 @@ static int synaptics_rmi4_probe(struct platform_device *pdev)
 			&exp_data.work,
 			0);
 
+#ifdef CONFIG_PM_SLEEP
+	retval = register_power_hal_suspend_device(&rmi4_data->input_dev->dev);
+	if (retval < 0) {
+		dev_err(&pdev->dev, "Unable to register for power hal");
+		goto err_sysfs;
+	}
+#endif
 	return retval;
 
 err_sysfs:
@@ -3156,6 +3177,10 @@ static int synaptics_rmi4_remove(struct platform_device *pdev)
 	cancel_delayed_work_sync(&exp_data.work);
 	flush_workqueue(exp_data.workqueue);
 	destroy_workqueue(exp_data.workqueue);
+
+#ifdef CONFIG_PM_SLEEP
+	unregister_power_hal_suspend_device(&rmi4_data->input_dev->dev);
+#endif
 
 	for (attr_count = 0; attr_count < ARRAY_SIZE(attrs); attr_count++) {
 		sysfs_remove_file(&rmi4_data->input_dev->dev.kobj,
@@ -3374,8 +3399,13 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	struct synaptics_rmi4_exp_fhandler *exp_fhandler;
 	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
 
+	mutex_lock(&rmi4_data->input_dev->mutex);
+
+	if (rmi4_data->suspend)
+		goto exit;
+
 	if (rmi4_data->stay_awake)
-		return 0;
+		goto exit;
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, true);
@@ -3399,9 +3429,10 @@ static int synaptics_rmi4_suspend(struct device *dev)
 	if (rmi4_data->pwr_reg)
 		regulator_disable(rmi4_data->pwr_reg);
 
-exit:
 	rmi4_data->suspend = true;
-
+	dev_info(dev, "Synaptic suspend complete\n");
+exit:
+	mutex_unlock(&rmi4_data->input_dev->mutex);
 	return 0;
 }
 
@@ -3413,8 +3444,16 @@ static int synaptics_rmi4_resume(struct device *dev)
 	const struct synaptics_dsx_board_data *bdata =
 			rmi4_data->hw_if->board_data;
 
+	mutex_lock(&rmi4_data->input_dev->mutex);
+
+	if (!rmi4_data->suspend)
+		goto exit;
+
+	if (rmi4_data->power_hal_want_suspend)
+		goto exit;
+
 	if (rmi4_data->stay_awake)
-		return 0;
+		goto exit;
 
 	if (rmi4_data->enable_wakeup_gesture) {
 		synaptics_rmi4_wakeup_gesture(rmi4_data, false);
@@ -3446,11 +3485,42 @@ static int synaptics_rmi4_resume(struct device *dev)
 	}
 	mutex_unlock(&exp_data.mutex);
 
-exit:
 	rmi4_data->suspend = false;
-
+	dev_info(dev, "Synaptic resume complete\n");
+exit:
+	mutex_unlock(&rmi4_data->input_dev->mutex);
 	return 0;
 }
+
+#ifdef CONFIG_PM_SLEEP
+static void synaptics_rmi4_power_hal_suspend(struct device *dev)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	rmi4_data->power_hal_want_suspend = true;
+	synaptics_rmi4_suspend(&rmi4_data->pdev->dev);
+}
+
+static void synaptics_rmi4_power_hal_resume(struct device *dev)
+{
+	struct synaptics_rmi4_data *rmi4_data = dev_get_drvdata(dev);
+
+	rmi4_data->power_hal_want_suspend = false;
+	synaptics_rmi4_resume(&rmi4_data->pdev->dev);
+}
+
+static ssize_t synaptics_rmi4_power_hal_suspend_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	if (!strncmp(buf, POWER_HAL_SUSPEND_ON, POWER_HAL_SUSPEND_STATUS_LEN))
+		synaptics_rmi4_power_hal_suspend(dev);
+	else
+		synaptics_rmi4_power_hal_resume(dev);
+
+	return count;
+}
+static DEVICE_POWER_HAL_SUSPEND_ATTR(synaptics_rmi4_power_hal_suspend_store);
+#endif
 
 static const struct dev_pm_ops synaptics_rmi4_dev_pm_ops = {
 	.suspend = synaptics_rmi4_suspend,

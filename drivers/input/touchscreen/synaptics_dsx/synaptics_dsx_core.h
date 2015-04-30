@@ -267,6 +267,9 @@ struct synaptics_rmi4_data {
 	bool irq_enabled;
 	bool fingers_on_2d;
 	bool suspend;
+#ifdef CONFIG_PM_SLEEP
+	bool power_hal_want_suspend;
+#endif
 	bool sensor_sleep;
 	bool stay_awake;
 	bool f11_wakeup_gesture;
