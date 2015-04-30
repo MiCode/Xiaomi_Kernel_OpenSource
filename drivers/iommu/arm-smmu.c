@@ -1453,7 +1453,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	/* Ensure that the domain is finalised */
 	ret = arm_smmu_init_domain_context(domain, smmu);
 	if (IS_ERR_VALUE(ret))
-		return ret;
+		goto err_disable_clocks;
 
 	/*
 	 * Sanity check the domain. We don't support domains across
