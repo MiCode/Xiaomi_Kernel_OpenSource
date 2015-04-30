@@ -136,8 +136,9 @@ static struct vregs_info iris_vregs_pronto_v2[] = {
 
 /* WCNSS regulators for Pronto v2 hardware */
 static struct vregs_info pronto_vregs_pronto_v2[] = {
-	{"qcom,pronto-vddmx",  VREG_NULL_CONFIG, 1287500,  0,
-		1287500, 0,    NULL},
+	{"qcom,pronto-vddmx",  VREG_NULL_CONFIG,
+		RPM_REGULATOR_CORNER_SUPER_TURBO,  0,
+		RPM_REGULATOR_CORNER_SUPER_TURBO, 0,    NULL},
 	{"qcom,pronto-vddcx",  VREG_NULL_CONFIG, RPM_REGULATOR_CORNER_NORMAL,
 		RPM_REGULATOR_CORNER_NONE, RPM_REGULATOR_CORNER_SUPER_TURBO,
 		0,             NULL},
