@@ -39,6 +39,7 @@
 #include <linux/notifier.h>
 #include <linux/power/battery_id.h>
 #include <linux/mfd/intel_soc_pmic.h>
+#include <linux/extcon.h>
 #include "intel_pmic_ccsm.h"
 
 /* Macros */
@@ -903,6 +904,9 @@ static void handle_internal_usbphy_notifications(int mask)
 		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cap.chrg_type = get_charger_type();
 		chc.charger_type = cap.chrg_type;
+
+		if (cap.chrg_type == 0)
+			return;
 	} else {
 		cap.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_DISCONNECT;
 		cap.chrg_type = chc.charger_type;
@@ -1052,24 +1056,39 @@ static void handle_pwrsrc_interrupt(u16 int_reg, u16 stat_reg)
 	mutex_unlock(&pmic_lock);
 
 	if (int_reg & BIT_POS(PMIC_INT_VBUS)) {
+		int ret;
 		mask = !!(stat_reg & BIT_POS(PMIC_INT_VBUS));
 		if (mask) {
 			dev_info(chc.dev,
 				"USB VBUS Detected. Notifying OTG driver\n");
+			mutex_lock(&pmic_lock);
 			chc.otg_mode_enabled =
 				(stat_reg & id_mask) == SHRT_GND_DET;
+			mutex_unlock(&pmic_lock);
 		} else {
 			dev_info(chc.dev,
 				"USB VBUS Removed. Notifying OTG driver\n");
+		}
+		ret = intel_soc_pmic_readb(chc.reg_map->pmic_chgrctrl1);
+		dev_dbg(chc.dev, "chgrctrl = %x", ret);
+		if (ret & CHGRCTRL1_OTGMODE_MASK) {
+			mutex_lock(&pmic_lock);
+			chc.otg_mode_enabled = true;
+			mutex_unlock(&pmic_lock);
 		}
 
 		/* Avoid charger-detection flow in case of host-mode */
 		if (chc.is_internal_usb_phy && !chc.otg_mode_enabled)
 			handle_internal_usbphy_notifications(mask);
-		else if (!mask)
+		else if (!mask) {
+			mutex_lock(&pmic_lock);
 			chc.otg_mode_enabled =
 					(stat_reg & id_mask) == SHRT_GND_DET;
+			mutex_unlock(&pmic_lock);
+		}
+		mutex_lock(&pmic_lock);
 		intel_pmic_handle_otgmode(chc.otg_mode_enabled);
+		mutex_unlock(&pmic_lock);
 	}
 }
 
@@ -1637,6 +1656,27 @@ static void pmic_set_battery_alerts(void)
 	}
 }
 
+static void pmic_ccsm_extcon_host_work(struct work_struct *work)
+{
+	mutex_lock(&pmic_lock);
+	if (chc.cable_state) {
+		chc.otg_mode_enabled = chc.cable_state;
+		intel_pmic_handle_otgmode(chc.otg_mode_enabled);
+	}
+	pmic_write_reg(chc.reg_map->pmic_usbphyctrl, chc.cable_state);
+	mutex_unlock(&pmic_lock);
+}
+
+static int pmic_ccsm_usb_host_nb(struct notifier_block *nb,
+		unsigned long event, void *data)
+{
+	struct extcon_dev *dev = (struct extcon_dev *)data;
+
+	chc.cable_state = extcon_get_cable_state(dev, "USB-Host");
+	schedule_work(&chc.extcon_work);
+	return NOTIFY_OK;
+}
+
 /**
  * pmic_charger_probe - PMIC charger probe function
  * @pdev: pmic platform device structure
@@ -1753,6 +1793,11 @@ static int pmic_chrgr_probe(struct platform_device *pdev)
 	ret = pmic_check_initial_events();
 	if (ret)
 		goto otg_req_failed;
+
+	INIT_WORK(&chc.extcon_work, pmic_ccsm_extcon_host_work);
+	chc.cable_nb.notifier_call = pmic_ccsm_usb_host_nb;
+	extcon_register_interest(&chc.host_cable, "usb-typec", "USB-Host",
+						&chc.cable_nb);
 
 	/* register interrupt */
 	for (i = 0; i < chc.irq_cnt; ++i) {
