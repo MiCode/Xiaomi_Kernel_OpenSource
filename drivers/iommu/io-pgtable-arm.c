@@ -463,6 +463,7 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 	const struct iommu_gather_ops *tlb = data->iop.cfg.tlb;
 	void *cookie = data->iop.cookie;
 	size_t blk_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
+	size_t pgsize = iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova, size);
 
 	ptep += ARM_LPAE_LVL_IDX(iova, lvl, data);
 	pte = *ptep;
@@ -472,7 +473,7 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		return 0;
 
 	/* If the size matches this level, we're in the right place */
-	if (size == blk_size) {
+	if (size == pgsize && size == blk_size) {
 		*ptep = 0;
 		tlb->flush_pgtable(ptep, sizeof(*ptep), cookie);
 
@@ -482,6 +483,37 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 			__arm_lpae_free_pgtable(data, lvl + 1, ptep);
 		}
 
+		return size;
+	} else if ((lvl == ARM_LPAE_MAX_LEVELS - 2) && !iopte_leaf(pte, lvl)) {
+		size_t remaining = size;
+		/*
+		 * This isn't a block mapping so it must be a table mapping
+		 * and since it's the 2nd-to-last level the next level has
+		 * to be all page mappings.  Zero them all out in one fell
+		 * swoop.
+		 */
+		for (;;) {
+			arm_lpae_iopte *table = iopte_deref(pte, data);
+			int table_len;
+			size_t unmapped;
+			int tl_offset = ARM_LPAE_LVL_IDX(iova, lvl + 1, data);
+			int entry_size = (1 << data->pg_shift);
+			int max_entries =
+				ARM_LPAE_BLOCK_SIZE(lvl, data) / entry_size;
+			int entries = min_t(int, remaining / entry_size,
+					    max_entries - tl_offset);
+
+			table += tl_offset;
+			table_len = entries * sizeof(*table);
+			memset(table, 0, table_len);
+			tlb->flush_pgtable(table, table_len, cookie);
+			unmapped = entries * entry_size;
+			iova += unmapped;
+			remaining -= unmapped;
+			if (!remaining)
+				break;
+			pte = *++ptep;
+		}
 		return size;
 	} else if (iopte_leaf(pte, lvl)) {
 		/*
