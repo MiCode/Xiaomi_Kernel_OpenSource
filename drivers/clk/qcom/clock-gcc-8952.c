@@ -2908,6 +2908,85 @@ static struct branch_clk gcc_venus0_vcodec0_clk = {
 
 static struct clk_ops clk_ops_debug_mux;
 
+static void __iomem *meas_base;
+
+static struct measure_clk apc0_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "apc0_m_clk",
+		CLK_INIT(apc0_m_clk.c),
+	},
+};
+
+static struct measure_clk apc1_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "apc1_m_clk",
+		CLK_INIT(apc1_m_clk.c),
+	},
+};
+
+static struct measure_clk cci_m_clk = {
+	.c = {
+		.ops = &clk_ops_empty,
+		.dbg_name = "cci_m_clk",
+		CLK_INIT(cci_m_clk.c),
+	},
+};
+
+static struct mux_clk apss_debug_ter_mux = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 8,
+	MUX_SRC_LIST(
+		{&apc0_m_clk.c, 0},
+		{&apc1_m_clk.c, 1},
+		{&cci_m_clk.c,	2},
+	),
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "apss_debug_ter_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(apss_debug_ter_mux.c),
+	},
+};
+
+static struct mux_clk apss_debug_sec_mux = {
+	.ops = &mux_reg_ops,
+	.mask = 0x7,
+	.shift = 12,
+	MUX_SRC_LIST(
+		{&apss_debug_ter_mux.c, 0},
+	),
+	MUX_REC_SRC_LIST(
+		&apss_debug_ter_mux.c,
+	),
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "apss_debug_sec_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(apss_debug_sec_mux.c),
+	},
+};
+
+static struct mux_clk apss_debug_pri_mux = {
+	.ops = &mux_reg_ops,
+	.mask = 0x3,
+	.shift = 16,
+	MUX_SRC_LIST(
+		{&apss_debug_sec_mux.c, 0},
+	),
+	MUX_REC_SRC_LIST(
+		&apss_debug_sec_mux.c,
+	),
+	.base = &meas_base,
+	.c = {
+		.dbg_name = "apss_debug_pri_mux",
+		.ops = &clk_ops_gen_mux,
+		CLK_INIT(apss_debug_pri_mux.c),
+	},
+};
+
 static struct measure_clk_data debug_mux_priv = {
 	.cxo = &xo_clk_src.c,
 	.plltest_reg = GCC_PLLTEST_PAD_CFG,
@@ -2926,7 +3005,11 @@ static struct mux_clk gcc_debug_mux = {
 	.en_offset = GCC_DEBUG_CLK_CTL,
 	.en_mask = BIT(16),
 	.base = &virt_bases[GCC_BASE],
+	MUX_REC_SRC_LIST(
+		&apss_debug_pri_mux.c,
+	),
 	MUX_SRC_LIST(
+		{ &apss_debug_pri_mux.c, 0x016A},
 		{ &snoc_clk.c,  0x0000 },
 		{ &pnoc_clk.c, 0x0008 },
 		{ &bimc_clk.c,  0x0154 },
@@ -3455,11 +3538,28 @@ static int __init msm_gcc_init(void)
 
 static struct clk_lookup msm_clocks_measure[] = {
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
+	CLK_LIST(apss_debug_pri_mux),
+	CLK_LIST(apc0_m_clk),
+	CLK_LIST(apc1_m_clk),
+	CLK_LIST(cci_m_clk),
 };
 
 static int msm_clock_debug_probe(struct platform_device *pdev)
 {
 	int ret;
+	struct resource *res;
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "meas");
+	if (!res) {
+		dev_err(&pdev->dev, "GLB clock diag base not defined.\n");
+		return -EINVAL;
+	}
+
+	meas_base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+	if (!meas_base) {
+		dev_err(&pdev->dev, "Unable to map GLB clock diag base.\n");
+		return -ENOMEM;
+	}
 
 	clk_ops_debug_mux = clk_ops_gen_mux;
 	clk_ops_debug_mux.get_rate = measure_get_rate;
