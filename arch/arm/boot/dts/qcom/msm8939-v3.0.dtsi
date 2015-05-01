@@ -457,3 +457,7 @@
 	qcom,platform-regulator-settings = [03 08 07 00 20 07 01];
 	/delete-node/ qcom,regulator-ldo-mode;
 };
+
+&clock_gcc {
+	compatible = "qcom,gcc-8936-v3";
+};
