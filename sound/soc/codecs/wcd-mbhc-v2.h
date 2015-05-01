@@ -297,6 +297,7 @@ struct wcd_mbhc_cb {
 	void (*hph_pull_up_control)(struct snd_soc_codec *, bool);
 	int (*mbhc_micbias_control)(struct snd_soc_codec *, int req);
 	void (*mbhc_micb_ramp_control)(struct snd_soc_codec *, bool);
+	bool (*extn_use_mb)(struct snd_soc_codec *);
 };
 
 struct wcd_mbhc {

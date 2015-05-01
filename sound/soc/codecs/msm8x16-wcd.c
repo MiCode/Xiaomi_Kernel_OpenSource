@@ -280,6 +280,7 @@ static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
 		bool enable);
 static void msm8x16_wcd_configure_cap(struct snd_soc_codec *codec,
 		bool micbias1, bool micbias2);
+static bool msm8x16_wcd_use_mb(struct snd_soc_codec *codec);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
@@ -744,6 +745,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.micb_internal = msm8x16_wcd_mbhc_internal_micbias_ctrl,
 	.hph_pa_on_status = msm8x16_wcd_mbhc_hph_pa_on_status,
 	.set_btn_thr = msm8x16_wcd_mbhc_program_btn_thr,
+	.extn_use_mb = msm8x16_wcd_use_mb,
 };
 
 static const uint32_t wcd_imped_val[] = {4, 8, 12, 16,
@@ -2896,6 +2898,15 @@ static int msm8x16_wcd_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static bool msm8x16_wcd_use_mb(struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (get_codec_version(msm8x16_wcd) < CAJON)
+		return true;
+	else
+		return false;
+}
 
 static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
 					bool enable)
