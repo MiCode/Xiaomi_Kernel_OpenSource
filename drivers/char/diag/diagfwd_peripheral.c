@@ -25,6 +25,7 @@
 #include "diagfwd_cntl.h"
 #include "diag_masks.h"
 #include "diag_dci.h"
+#include "diagfwd.h"
 #include "diagfwd_smd.h"
 #include "diagfwd_socket.h"
 #include "diag_mux.h"
@@ -316,7 +317,7 @@ end:
 	mutex_unlock(&driver->hdlc_disable_mutex);
 	if (temp_buf) {
 		diagfwd_write_done(fwd_info->peripheral, fwd_info->type,
-				   temp_buf->ctxt);
+				   GET_BUF_NUM(temp_buf->ctxt));
 	}
 	diagfwd_queue_read(fwd_info);
 	return;
