@@ -94,7 +94,8 @@
 #define	FLASH_LED_THERMAL_DEVIDER				10
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_MIN_MV			2500
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_DIVIDER			100
-#define FLASH_LED_HDRM_SNS_ENABLE				0x81
+#define	FLASH_LED_HDRM_SNS_ENABLE				0x81
+#define	FLASH_LED_HDRM_SNS_DISABLE				0x01
 #define	FLASH_LED_UA_PER_MA					1000
 #define	FLASH_LED_MASK_MODULE_MASK2_ENABLE			0x20
 #define	FLASH_LED_MASK3_ENABLE_SHIFT				7
@@ -617,6 +618,31 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			return -EINVAL;
 		}
 	}
+
+	if (led->pdata->hdrm_sns_ch0_en) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+			FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
+			FLASH_LED_HDRM_SNS_ENABLE_MASK,
+			FLASH_LED_HDRM_SNS_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Headroom sense disable failed\n");
+			return rc;
+		}
+	}
+
+	if (led->pdata->hdrm_sns_ch1_en) {
+		rc = qpnp_led_masked_write(led->spmi_dev,
+			FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
+			FLASH_LED_HDRM_SNS_ENABLE_MASK,
+			FLASH_LED_HDRM_SNS_DISABLE);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+					"Headroom sense disable failed\n");
+			return rc;
+		}
+	}
+
 	return 0;
 }
 
@@ -768,6 +794,34 @@ static void qpnp_flash_led_work(struct work_struct *work)
 			dev_err(&led->spmi_dev->dev,
 				"Module enable reg write failed\n");
 			goto exit_flash_led_work;
+		}
+
+		if (led->flash_node[2].flash_on) {
+			if (led->pdata->hdrm_sns_ch0_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
+		}
+
+		if (led->flash_node[3].flash_on) {
+			if (led->pdata->hdrm_sns_ch1_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
 		}
 
 		rc = qpnp_led_masked_write(led->spmi_dev,
@@ -953,6 +1007,34 @@ static void qpnp_flash_led_work(struct work_struct *work)
 
 			usleep_range(FLASH_RAMP_UP_DELAY_US_MIN,
 						FLASH_RAMP_UP_DELAY_US_MAX);
+		}
+
+		if (led->flash_node[0].flash_on) {
+			if (led->pdata->hdrm_sns_ch0_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
+		}
+
+		if (led->flash_node[1].flash_on) {
+			if (led->pdata->hdrm_sns_ch1_en) {
+				rc = qpnp_led_masked_write(led->spmi_dev,
+					FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
+					FLASH_LED_HDRM_SNS_ENABLE_MASK,
+					FLASH_LED_HDRM_SNS_ENABLE);
+				if (rc) {
+					dev_err(&led->spmi_dev->dev,
+					"Headroom sense enable failed\n");
+					goto exit_flash_led_work;
+				}
+			}
 		}
 
 		rc = qpnp_led_masked_write(led->spmi_dev,
@@ -1209,30 +1291,6 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "VPH PWR droop reg write failed\n");
 		return rc;
-	}
-
-	if (led->pdata->hdrm_sns_ch0_en) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
-				FLASH_HDRM_SNS_ENABLE_CTRL0(led->base),
-				FLASH_LED_HDRM_SNS_ENABLE_MASK,
-				FLASH_LED_HDRM_SNS_ENABLE);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-					"Headroom sense enable failed\n");
-			return rc;
-		}
-	}
-
-	if (led->pdata->hdrm_sns_ch1_en) {
-		rc = qpnp_led_masked_write(led->spmi_dev,
-				FLASH_HDRM_SNS_ENABLE_CTRL1(led->base),
-				FLASH_LED_HDRM_SNS_ENABLE_MASK,
-				FLASH_LED_HDRM_SNS_ENABLE);
-		if (rc) {
-			dev_err(&led->spmi_dev->dev,
-					"Headroom sense enable failed\n");
-			return rc;
-		}
 	}
 
 	led->battery_psy = power_supply_get_by_name("battery");
