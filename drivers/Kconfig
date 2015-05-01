@@ -196,4 +196,6 @@ source "drivers/sensors/Kconfig"
 
 source "drivers/firmware/Kconfig"
 
+source "drivers/bif/Kconfig"
+
 endmenu

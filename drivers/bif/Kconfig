@@ -1,0 +1,26 @@
+#
+# BIF framework and drivers
+#
+menuconfig BIF
+	bool "MIPI-BIF support"
+	select CRC_CCITT
+	select BITREVERSE
+	help
+	  MIPI-BIF (battery interface) is a one-wire serial interface between a
+	  host master device and one or more slave devices which are located in
+	  a battery pack or also on the host.  Enabling this option allows for
+	  BIF consumer drivers to issue transactions via BIF controller drivers.
+
+if BIF
+config BIF_QPNP
+	depends on SPMI || MSM_SPMI
+	depends on OF_SPMI
+	tristate "Qualcomm QPNP BIF support"
+	help
+	  This driver supports the QPNP BSI peripheral found inside of Qualcomm
+	  QPNP PMIC devices.  The BSI peripheral is able to communicate using
+	  the BIF protocol.  The QPNP BSI driver hooks into the BIF framework.
+	  Enable this option in order to provide support for BIF communication
+	  on targets which have BSI PMIC peripherals.
+
+endif
