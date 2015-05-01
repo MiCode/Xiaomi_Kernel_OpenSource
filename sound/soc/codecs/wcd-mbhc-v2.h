@@ -154,6 +154,7 @@ struct wcd_mbhc_cb {
 			enum wcd_cal_type);
 	void (*set_cap_mode)(struct snd_soc_codec *, bool, bool);
 	void (*skip_imped_detect)(struct snd_soc_codec *);
+	bool (*extn_use_mb)(struct snd_soc_codec *);
 };
 
 struct wcd_mbhc {

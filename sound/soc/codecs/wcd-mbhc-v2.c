@@ -953,6 +953,9 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 			enum wcd_mbhc_plug_type plug_type)
 {
+
+	struct snd_soc_codec *codec = mbhc->codec;
+
 	/*
 	 * Do not disable micbias if recording is going on or
 	 * headset is inserted on the other side of the extn
@@ -961,7 +964,9 @@ static void wcd_enable_mbhc_supply(struct wcd_mbhc *mbhc,
 	 * If the accessory type is invalid or unsupported, we
 	 * dont need to enable either of them.
 	 */
-	if (det_extn_cable_en && mbhc->is_extn_cable) {
+	if (det_extn_cable_en && mbhc->is_extn_cable &&
+		mbhc->mbhc_cb && mbhc->mbhc_cb->extn_use_mb &&
+		mbhc->mbhc_cb->extn_use_mb(codec)) {
 		if (plug_type == MBHC_PLUG_TYPE_HEADPHONE ||
 		    plug_type == MBHC_PLUG_TYPE_HEADSET)
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
