@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p_test.c
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1060,6 +1060,26 @@ static void smp2p_ut_local_ssr_ack(struct seq_file *s)
 }
 
 /**
+ * get_ssr_name_for_proc - Retrieve an SSR name from the provided list
+ *
+ * @names:	List of possible processor names
+ * @name_len:	The length of @names
+ * @index:	Index into @names
+ *
+ * Return: Pointer to the next processor name, NULL in error conditions
+ */
+static char *get_ssr_name_for_proc(char *names[], size_t name_len, int index)
+{
+	if (index >= name_len) {
+		pr_err("%s: SSR failed; check subsys name table\n",
+				__func__);
+		return NULL;
+	}
+
+	return names[index];
+}
+
+/**
  * smp2p_ut_local_ssr_ack - Verify SSR Done/ACK Feature
  *
  * @s: pointer to output file
@@ -1076,8 +1096,17 @@ static void smp2p_ut_remotesubsys_ssr_ack(struct seq_file *s, uint32_t rpid,
 		struct smp2p_smem *rhdr;
 		struct smp2p_smem *lhdr;
 		int negotiation_state;
-		bool ssr_ack_enabled;
+		int name_index;
+		int ret;
 		uint32_t ssr_done_start;
+		bool ssr_ack_enabled = false;
+		bool ssr_success = false;
+		char *name = NULL;
+
+		static char *mpss_names[] = {"modem", "mpss"};
+		static char *lpass_names[] = {"adsp", "lpass"};
+		static char *sensor_names[] = {"slpi", "dsps"};
+		static char *wcnss_names[] = {"wcnss"};
 
 		lhdr = smp2p_get_out_item(rpid, &negotiation_state);
 		UT_ASSERT_PTR(NULL, !=, lhdr);
@@ -1098,8 +1127,53 @@ static void smp2p_ut_remotesubsys_ssr_ack(struct seq_file *s, uint32_t rpid,
 				SMP2P_GET_RESTART_ACK(lhdr->flags));
 
 		/* trigger restart */
-		seq_printf(s, "Restarting '%s'\n", int_cfg->name);
-		subsystem_restart(int_cfg->name);
+		name_index = 0;
+		while (!ssr_success) {
+
+			switch (rpid) {
+			case SMP2P_MODEM_PROC:
+				name = get_ssr_name_for_proc(mpss_names,
+						ARRAY_SIZE(mpss_names),
+						name_index);
+				break;
+			case SMP2P_AUDIO_PROC:
+				name = get_ssr_name_for_proc(lpass_names,
+						ARRAY_SIZE(lpass_names),
+						name_index);
+				break;
+			case SMP2P_SENSOR_PROC:
+				name = get_ssr_name_for_proc(sensor_names,
+						ARRAY_SIZE(sensor_names),
+						name_index);
+				break;
+			case SMP2P_WIRELESS_PROC:
+				name = get_ssr_name_for_proc(wcnss_names,
+						ARRAY_SIZE(wcnss_names),
+						name_index);
+				break;
+			default:
+				pr_err("%s: Invalid proc ID %d given for ssr\n",
+						__func__, rpid);
+			}
+
+			if (!name) {
+				seq_puts(s, "\tSSR failed; check subsys name table\n");
+				failed = true;
+				break;
+			}
+
+			seq_printf(s, "Restarting '%s'\n", name);
+			ret = subsystem_restart(name);
+			if (ret == -ENODEV) {
+				seq_puts(s, "\tSSR call failed\n");
+				++name_index;
+				continue;
+			}
+			ssr_success = true;
+		}
+		if (failed)
+			break;
+
 		msleep(10*1000);
 
 		/* verify ack signaling */
