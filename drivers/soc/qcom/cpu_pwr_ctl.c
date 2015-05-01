@@ -62,23 +62,69 @@ struct msm_l2ccc_of_info {
 	u32 l2_power_on_mask;
 };
 
+static int kick_l2spm(struct device_node *l2ccc_node,
+				struct device_node *vctl_node)
+{
+	struct resource res;
+	int val;
+	int timeout = 10, ret = 0;
+	void __iomem *l2spm_base = of_iomap(vctl_node, 0);
+
+	if (!l2spm_base)
+		return -ENOMEM;
+
+	if (!(__raw_readl(l2spm_base + L2_SPM_STS) & 0xFFFF0000))
+		goto bail_l2_pwr_bit;
+
+	ret = of_address_to_resource(l2ccc_node, 1, &res);
+	if (ret)
+		goto bail_l2_pwr_bit;
+
+	/* L2 is executing sleep state machine,
+	 * let's softly kick it awake
+	 */
+	val = scm_io_read((u32)res.start);
+	val |= BIT(0);
+	scm_io_write((u32)res.start, val);
+
+	/* Wait until the SPM status indicates that the PWR_CTL
+	 * bits are clear.
+	 */
+	while (readl_relaxed(l2spm_base + L2_SPM_STS) & 0xFFFF0000) {
+		BUG_ON(!timeout--);
+		cpu_relax();
+		usleep(100);
+	}
+
+bail_l2_pwr_bit:
+	iounmap(l2spm_base);
+	return ret;
+}
 
 static int power_on_l2_msm8976(struct device_node *l2ccc_node, u32 pon_mask,
 				int cpu)
 {
 	u32 pon_status;
 	void __iomem *l2_base;
+	int ret = 0;
+	struct device_node *vctl_node;
+
+	vctl_node = of_parse_phandle(l2ccc_node, "qcom,vctl-node", 0);
+	if (!vctl_node)
+		return -ENODEV;
 
 	l2_base = of_iomap(l2ccc_node, 0);
 	if (!l2_base)
 		return -ENOMEM;
 
 	/* Skip power-on sequence if l2 cache is already powered up */
-	pon_status = (__raw_readl(l2_base + L2_PWR_STATUS) & pon_mask)
+	pon_status = (__raw_readl(l2_base + L2_PWR_CTL) & pon_mask)
 				== pon_mask;
+	/* Check L2 SPM Status */
 	if (pon_status) {
+		ret = kick_l2spm(l2ccc_node, vctl_node);
 		iounmap(l2_base);
-		return 0;
+		return ret;
 	}
 
 	/* Close Few of the head-switches for L2SCU logic */
@@ -201,45 +247,6 @@ static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
 	return 0;
 }
 
-static int kick_l2spm_8994(struct device_node *l2ccc_node,
-				struct device_node *vctl_node)
-{
-	struct resource res;
-	int val;
-	int timeout = 10, ret = 0;
-	void __iomem *l2spm_base = of_iomap(vctl_node, 0);
-
-	if (!l2spm_base)
-		return -ENOMEM;
-
-	if (!(__raw_readl(l2spm_base + L2_SPM_STS) & 0xFFFF0000))
-		goto bail_l2_pwr_bit;
-
-	ret = of_address_to_resource(l2ccc_node, 1, &res);
-	if (ret)
-		goto bail_l2_pwr_bit;
-
-	/* L2 is executing sleep state machine,
-	 * let's softly kick it awake
-	 */
-	val = scm_io_read((u32)res.start);
-	val |= BIT(0);
-	scm_io_write((u32)res.start, val);
-
-	/* Wait until the SPM status indicates that the PWR_CTL
-	 * bits are clear.
-	 */
-	while (readl_relaxed(l2spm_base + L2_SPM_STS) & 0xFFFF0000) {
-		BUG_ON(!timeout--);
-		cpu_relax();
-		usleep(100);
-	}
-
-bail_l2_pwr_bit:
-	iounmap(l2spm_base);
-	return ret;
-}
-
 static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
 				int cpu)
 {
@@ -262,7 +269,7 @@ static int power_on_l2_msm8994(struct device_node *l2ccc_node, u32 pon_mask,
 
 	/* Check L2 SPM Status */
 	if (pon_status) {
-		ret = kick_l2spm_8994(l2ccc_node, vctl_node);
+		ret = kick_l2spm(l2ccc_node, vctl_node);
 		iounmap(l2_base);
 		return ret;
 	}
@@ -742,6 +749,8 @@ int msm8976_unclamp_secondary_arm_cpu(unsigned int cpu)
 	struct device_node *cpu_node, *acc_node, *l2_node, *l2ccc_node;
 	void __iomem *reg;
 	u32 mpidr = cpu_logical_map(cpu);
+	struct resource res;
+	int val;
 
 	cpu_node = of_get_cpu_node(cpu, NULL);
 	if (!cpu_node)
@@ -786,7 +795,17 @@ int msm8976_unclamp_secondary_arm_cpu(unsigned int cpu)
 	else
 		msm8976_unclamp_power_cluster_cpu(reg);
 
-	/* Secondary CPU-N is now alive */
+	/* Secondary CPU-N is now alive.
+	 * Allowing L2 Low power modes
+	 */
+	ret = of_address_to_resource(l2ccc_node, 1, &res);
+	if (ret)
+		goto out_l2ccc_1;
+	val = scm_io_read((u32)res.start);
+	val &= ~BIT(0);
+	scm_io_write((u32)res.start, val);
+
+out_l2ccc_1:
 	iounmap(reg);
 out_acc_reg:
 	of_node_put(l2ccc_node);
