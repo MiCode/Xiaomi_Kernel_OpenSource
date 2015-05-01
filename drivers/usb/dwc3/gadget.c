@@ -2945,19 +2945,6 @@ void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend)
 
 	dwc3_writel(dwc->regs, DWC3_GUSB3PIPECTL(0), reg);
 }
-void dwc3_gadget_usb2_phy_suspend(struct dwc3 *dwc, int suspend)
-{
-	u32	reg;
-
-	reg = dwc3_readl(dwc->regs, DWC3_GUSB2PHYCFG(0));
-
-	if (suspend)
-		reg |= (DWC3_GUSB2PHYCFG_ENBLSLPM | DWC3_GUSB2PHYCFG_SUSPHY);
-	else
-		reg &= ~(DWC3_GUSB2PHYCFG_ENBLSLPM | DWC3_GUSB2PHYCFG_SUSPHY);
-
-	dwc3_writel(dwc->regs, DWC3_GUSB2PHYCFG(0), reg);
-}
 
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
@@ -3005,7 +2992,6 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 	/* after reset -> Default State */
 	usb_gadget_set_state(&dwc->gadget, USB_STATE_DEFAULT);
 
-	dwc3_gadget_usb2_phy_suspend(dwc, false);
 	dwc3_gadget_usb3_phy_suspend(dwc, false);
 
 	if (dotg && dotg->otg.phy)
@@ -3138,10 +3124,6 @@ static void dwc3_gadget_conndone_interrupt(struct dwc3 *dwc)
 		}
 		dwc3_writel(dwc->regs, DWC3_DCTL, reg);
 	}
-
-	/* suspend HS phy in super speed mode */
-	if (dwc->gadget.speed == USB_SPEED_SUPER)
-		dwc3_gadget_usb2_phy_suspend(dwc, true);
 
 	/*
 	 * In HS mode this allows SS phy suspend. In SS mode this allows ss phy
