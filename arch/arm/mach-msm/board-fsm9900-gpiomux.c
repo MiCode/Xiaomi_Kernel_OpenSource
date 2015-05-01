@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -569,10 +569,15 @@ static struct gpiomux_setting uim_config_data_clk = {
 	.pull = GPIOMUX_PULL_UP,
 };
 
-static struct gpiomux_setting uim_config_reset_present = {
+static struct gpiomux_setting uim_config_reset = {
 	.func = GPIOMUX_FUNC_1,
 	.drv = GPIOMUX_DRV_4MA,
 	.pull = GPIOMUX_PULL_DOWN,
+};
+
+static struct gpiomux_setting uim_config_present = {
+	.func = GPIOMUX_FUNC_1,
+	.pull = GPIOMUX_PULL_NONE,
 };
 
 static struct gpiomux_setting uim_config_reset_suspended = {
@@ -598,14 +603,14 @@ static struct msm_gpiomux_config fsm_uim_configs[] __initdata = {
 	{
 		.gpio      = 26,       /* UIM_RESET */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &uim_config_reset_present,
+			[GPIOMUX_ACTIVE] = &uim_config_reset,
 			[GPIOMUX_SUSPENDED] = &uim_config_reset_suspended,
 		},
 	},
 	{
 		.gpio      = 27,       /* UIM_PRESENT */
 		.settings = {
-			[GPIOMUX_ACTIVE] = &uim_config_reset_present,
+			[GPIOMUX_ACTIVE] = &uim_config_present,
 		},
 	},
 };
