@@ -2432,7 +2432,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 		if (!ctl->mixer_left) {
 			pr_err("unable to allocate layer mixer\n");
 			return -ENOMEM;
-		} else if (ctl->mixer_left->num >= 1 &&
+		} else if (split_fb && ctl->mixer_left->num >= 1 &&
 			(ctl->panel_data->panel_info.type == MIPI_CMD_PANEL)) {
 			pr_err("use only DSPP0 and DSPP1 with cmd split\n");
 			return -EPERM;
