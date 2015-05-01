@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -211,6 +211,7 @@ EXPORT_SYMBOL(msm_dss_config_vreg);
 int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 {
 	int i = 0, rc = 0;
+	bool need_sleep;
 	if (enable) {
 		for (i = 0; i < num_vreg; i++) {
 			rc = PTR_RET(in_vreg[i].vreg);
@@ -220,7 +221,8 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 					in_vreg[i].vreg_name, rc);
 				goto vreg_set_opt_mode_fail;
 			}
-			if (in_vreg[i].pre_on_sleep)
+			need_sleep = !regulator_is_enabled(in_vreg[i].vreg);
+			if (in_vreg[i].pre_on_sleep && need_sleep)
 				msleep(in_vreg[i].pre_on_sleep);
 			rc = regulator_set_optimum_mode(in_vreg[i].vreg,
 				in_vreg[i].enable_load);
@@ -231,7 +233,7 @@ int msm_dss_enable_vreg(struct dss_vreg *in_vreg, int num_vreg, int enable)
 				goto vreg_set_opt_mode_fail;
 			}
 			rc = regulator_enable(in_vreg[i].vreg);
-			if (in_vreg[i].post_on_sleep)
+			if (in_vreg[i].post_on_sleep && need_sleep)
 				msleep(in_vreg[i].post_on_sleep);
 			if (rc < 0) {
 				DEV_ERR("%pS->%s: %s enable failed\n",
