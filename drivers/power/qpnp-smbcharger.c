@@ -228,9 +228,11 @@ struct smbchg_chip {
 	unsigned long			first_aicl_seconds;
 	int				aicl_irq_count;
 	struct mutex			usb_status_lock;
+	/* apsd workaround */
 	struct work_struct		rerun_apsd_work;
 	bool				apsd_rerun;
 	bool				apsd_rerun_ignore_uv_irq;
+	struct completion		apsd_src_det_lowered;
 };
 
 enum print_reason {
@@ -4105,6 +4107,7 @@ unlock:
 	mutex_unlock(&chip->usb_status_lock);
 }
 
+#define APSD_LOWERED_TIMEOUT_MS		1000
 static void rerun_apsd_work(struct work_struct *work)
 {
 	int rc, tries = 0;
@@ -4121,6 +4124,12 @@ static void rerun_apsd_work(struct work_struct *work)
 
 	pr_smb(PR_STATUS, "Rerunning APSD\n");
 	pr_smb(PR_MISC, "Allow only 9V chargers\n");
+	if (!is_src_detect_high(chip)) {
+		pr_smb(PR_STATUS, "source detect is already low\n");
+		goto abort;
+	} else {
+		INIT_COMPLETION(chip->apsd_src_det_lowered);
+	}
 	chip->apsd_rerun_ignore_uv_irq = true;
 	rc = smbchg_sec_masked_write(chip,
 			chip->usb_chgpth_base + USBIN_CHGR_CFG,
@@ -4130,16 +4139,14 @@ static void rerun_apsd_work(struct work_struct *work)
 		goto abort;
 	}
 
-	usb_uv = is_usb_uv(chip);
-	while (!usb_uv && tries++ < 5) {
-		msleep(20); /* sleep for UV condition to happen */
-		usb_uv = is_usb_uv(chip);
+	rc = wait_for_completion_interruptible_timeout(
+				&chip->apsd_src_det_lowered,
+				msecs_to_jiffies(APSD_LOWERED_TIMEOUT_MS));
+	if (rc <= 0) {
+		pr_smb(PR_STATUS, "no src_det falling=%d\n", rc);
+		if (is_src_detect_high(chip))
+			goto abort;
 	}
-	if (!usb_uv) {
-		pr_err("USB didnt go to UV after 9V aborting\n");
-		goto abort;
-	}
-
 	pr_smb(PR_MISC, "Allow 5V-9V\n");
 	rc = smbchg_sec_masked_write(chip,
 			chip->usb_chgpth_base + USBIN_CHGR_CFG,
@@ -4157,6 +4164,7 @@ static void rerun_apsd_work(struct work_struct *work)
 		usb_uv = is_usb_uv(chip);
 	}
 	if (usb_uv) {
+		pr_smb(PR_MISC, "USB was removed during rerun\n");
 		/* looks like USB was removed */
 		update_usb_status(chip, 0, 0);
 		goto abort;
@@ -4265,16 +4273,23 @@ static irqreturn_t src_detect_handler(int irq, void *_chip)
 {
 	struct smbchg_chip *chip = _chip;
 	bool usb_present = is_usb_present(chip);
+	bool src_detect = is_src_detect_high(chip);
 
 	pr_smb(PR_STATUS,
-		"%s chip->usb_present = %d usb_present = %d apsd_rerun_ignore_uv_irq=%d\n",
+		"%s chip->usb_present = %d usb_present = %d src_detect = %d apsd_rerun_ignore_uv_irq=%d\n",
 		chip->apsd_rerun_ignore_uv_irq ? "Ignoring":"",
-		chip->usb_present, usb_present, chip->apsd_rerun_ignore_uv_irq);
+		chip->usb_present, usb_present, src_detect,
+		chip->apsd_rerun_ignore_uv_irq);
 
-	if (chip->apsd_rerun_ignore_uv_irq)
+	if (chip->apsd_rerun_ignore_uv_irq) {
+		if (!src_detect) {
+			pr_smb(PR_STATUS, "APSD rerun: src_detect low\n");
+			complete_all(&chip->apsd_src_det_lowered);
+		}
 		goto out;
+	}
 
-	if (is_src_detect_high(chip)) {
+	if (src_detect) {
 		if (usb_present || chip->apsd_rerun)
 			update_usb_status(chip, usb_present, chip->apsd_rerun);
 	} else if (chip->usb_present) {
@@ -5563,6 +5578,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 			smbchg_parallel_usb_en_work);
 	INIT_DELAYED_WORK(&chip->vfloat_adjust_work, smbchg_vfloat_adjust_work);
 	INIT_DELAYED_WORK(&chip->hvdcp_det_work, smbchg_hvdcp_det_work);
+	init_completion(&chip->apsd_src_det_lowered);
 	chip->vadc_dev = vadc_dev;
 	chip->spmi = spmi;
 	chip->dev = &spmi->dev;
