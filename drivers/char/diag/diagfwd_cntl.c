@@ -55,7 +55,7 @@ void diag_cntl_smd_work_fn(struct work_struct *work)
 						struct diag_smd_info,
 						diag_general_smd_work);
 
-	if (!smd_info || smd_info->type != SMD_CNTL_TYPE)
+	if (!smd_info || smd_info->type != TYPE_CNTL)
 		return;
 
 	if (smd_info->general_context == UPDATE_PERIPHERAL_STM_STATE) {
@@ -75,7 +75,7 @@ void diag_cntl_smd_work_fn(struct work_struct *work)
 
 void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action)
 {
-	if (!smd_info || smd_info->type != SMD_CNTL_TYPE)
+	if (!smd_info || smd_info->type != TYPE_CNTL)
 		return;
 
 	if (action == CLEAR_PERIPHERAL_STM_STATE) {
@@ -107,14 +107,14 @@ static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info)
 		driver->feature[smd_info->peripheral].encode_hdlc =
 						ENABLE_APPS_HDLC_ENCODING;
 		if (driver->feature[smd_info->peripheral].separate_cmd_rsp &&
-			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
+			smd_info->peripheral < NUM_PERIPHERALS)
 			driver->feature[smd_info->peripheral].encode_hdlc =
 						ENABLE_APPS_HDLC_ENCODING;
 	} else {
 		driver->feature[smd_info->peripheral].encode_hdlc =
 						DISABLE_APPS_HDLC_ENCODING;
 		if (driver->feature[smd_info->peripheral].separate_cmd_rsp &&
-			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
+			smd_info->peripheral < NUM_PERIPHERALS)
 			driver->feature[smd_info->peripheral].encode_hdlc =
 						DISABLE_APPS_HDLC_ENCODING;
 	}
@@ -241,7 +241,7 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 		return;
 
 	peripheral = smd_info->peripheral;
-	if (peripheral < MODEM_DATA || peripheral > LAST_PERIPHERAL) {
+	if (peripheral < PERIPHERAL_MODEM || peripheral >= NUM_PERIPHERALS) {
 		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
 		       peripheral);
 		return;
@@ -798,7 +798,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 	 * circular buffering mode, don't send the real time mode control
 	 * packet.
 	 */
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		if (!driver->feature[i].peripheral_buffering)
 			continue;
 		switch (driver->buffering_mode[i].mode) {
@@ -824,7 +824,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 					 __func__);
 				break;
 			}
-			for (j = 0; j < NUM_SMD_CONTROL_CHANNELS; j++)
+			for (j = 0; j < NUM_PERIPHERALS; j++)
 				diag_send_diag_mode_update_by_smd(
 					&driver->smd_cntl[j], temp_real_time);
 		} else {
@@ -861,7 +861,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 		}
 
 		if (i == DIAG_LOCAL_PROC) {
-			for (j = 0; j < NUM_SMD_CONTROL_CHANNELS; j++)
+			for (j = 0; j < NUM_PERIPHERALS; j++)
 				diag_send_diag_mode_update_by_smd(
 					&driver->smd_cntl[j], temp_real_time);
 		} else {
@@ -882,7 +882,7 @@ int diag_send_diag_mode_update_by_smd(struct diag_smd_info *smd_info,
 	int msg_size = sizeof(struct diag_ctrl_msg_diagmode);
 	int err = 0;
 
-	if (!smd_info || smd_info->type != SMD_CNTL_TYPE) {
+	if (!smd_info || smd_info->type != TYPE_CNTL) {
 		pr_err("diag: In %s, invalid channel info, smd_info: %p type: %d\n",
 					__func__, smd_info,
 					((smd_info) ? smd_info->type : -1));
@@ -923,7 +923,7 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 		return -EIO;
 
 	peripheral = params->peripheral;
-	if (peripheral > LAST_PERIPHERAL) {
+	if (peripheral >= NUM_PERIPHERALS) {
 		pr_err("diag: In %s, invalid peripheral %d\n", __func__,
 		       peripheral);
 		return -EINVAL;
@@ -1001,7 +1001,7 @@ int diag_send_stm_state(struct diag_smd_info *smd_info,
 	int success = 0;
 	int err = 0;
 
-	if (!smd_info || (smd_info->type != SMD_CNTL_TYPE) ||
+	if (!smd_info || (smd_info->type != TYPE_CNTL) ||
 		(driver->feature[smd_info->peripheral].stm_support ==
 								DISABLE_STM)) {
 		return -EINVAL;
@@ -1160,19 +1160,19 @@ static int diag_smd_cntl_probe(struct platform_device *pdev)
 	if (chk_apps_only()) {
 		switch (pdev->id) {
 		case SMD_APPS_MODEM:
-			index = MODEM_DATA;
+			index = PERIPHERAL_MODEM;
 			channel_name = "DIAG_CNTL";
 			break;
 		case SMD_APPS_QDSP:
-			index = LPASS_DATA;
+			index = PERIPHERAL_LPASS;
 			channel_name = "DIAG_CNTL";
 			break;
 		case SMD_APPS_WCNSS:
-			index = WCNSS_DATA;
+			index = PERIPHERAL_WCNSS;
 			channel_name = "APPS_RIVA_CTRL";
 			break;
 		case SMD_APPS_DSPS:
-			index = SENSORS_DATA;
+			index = PERIPHERAL_SENSORS;
 			channel_name = "DIAG_CNTL";
 			break;
 		}
@@ -1242,9 +1242,9 @@ int diagfwd_cntl_init(void)
 	if (!driver->diag_cntl_wq)
 		goto err;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
 		ret = diag_smd_constructor(&driver->smd_cntl[i], i,
-							SMD_CNTL_TYPE);
+							TYPE_CNTL);
 		if (ret)
 			goto err;
 	}
@@ -1256,7 +1256,7 @@ int diagfwd_cntl_init(void)
 err:
 	pr_err("diag: Could not initialize diag buffers");
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_smd_destructor(&driver->smd_cntl[i]);
 
 	if (driver->diag_cntl_wq)
@@ -1268,7 +1268,7 @@ void diagfwd_cntl_exit(void)
 {
 	int i;
 
-	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++)
+	for (i = 0; i < NUM_PERIPHERALS; i++)
 		diag_smd_destructor(&driver->smd_cntl[i]);
 
 	destroy_workqueue(driver->diag_cntl_wq);
