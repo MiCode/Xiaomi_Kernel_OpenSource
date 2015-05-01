@@ -738,6 +738,7 @@ static int diag_copy_dci(char __user *buf, size_t count,
 	int total_data_len = 0;
 	int ret = 0;
 	int exit_stat = 1;
+	uint8_t drain_again = 0;
 	struct diag_dci_buffer_t *buf_entry, *temp;
 	struct diag_smd_info *smd_info = NULL;
 
@@ -746,11 +747,22 @@ static int diag_copy_dci(char __user *buf, size_t count,
 
 	ret = *pret;
 
-	ret += 4;
+	ret += sizeof(int);
+	if (ret >= count) {
+		pr_err("diag: In %s, invalid value for ret: %d, count: %zu\n",
+		       __func__, ret, count);
+		return -EINVAL;
+	}
 
 	mutex_lock(&entry->write_buf_mutex);
 	list_for_each_entry_safe(buf_entry, temp, &entry->list_write_buf,
 								buf_track) {
+
+		if ((ret + buf_entry->data_len) > count) {
+			drain_again = 1;
+			break;
+		}
+
 		list_del(&buf_entry->buf_track);
 		mutex_lock(&buf_entry->data_mutex);
 		if ((buf_entry->data_len > 0) &&
@@ -804,11 +816,13 @@ drop:
 			__func__, total_data_len);
 	}
 
-	entry->in_service = 0;
 	exit_stat = 0;
 exit:
+	entry->in_service = 0;
 	mutex_unlock(&entry->write_buf_mutex);
 	*pret = ret;
+	if (drain_again)
+		dci_drain_data(0);
 
 	return exit_stat;
 }
