@@ -723,6 +723,12 @@ DEFINE_EXT_CLK(ext_pclk0_clk_src, NULL);
 DEFINE_EXT_CLK(ext_pclk1_clk_src, NULL);
 static struct clk_freq_tbl ftbl_pclk0_clk_src[] = {
 	{
+		.div_src_val = BVAL(10, 8, mmsscc_xo_mm_source_val)
+				| BVAL(4, 0, 0),
+		.src_clk = &mmsscc_xo.c,
+		.freq_hz = 0,
+	},
+	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val)
 				| BVAL(4, 0, 0),
 		.src_clk = &ext_pclk0_clk_src.c,
@@ -745,8 +751,7 @@ static struct rcg_clk pclk0_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "pclk0_clk_src",
-		.parent = &ext_pclk0_clk_src.c,
-		.ops = &clk_ops_pixel,
+		.ops = &clk_ops_pixel_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 75000000, LOW, 150000000,
 				  NOMINAL, 250000000),
@@ -755,6 +760,12 @@ static struct rcg_clk pclk0_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_pclk1_clk_src[] = {
+	{
+		.div_src_val = BVAL(10, 8, mmsscc_xo_mm_source_val)
+				| BVAL(4, 0, 0),
+		.src_clk = &mmsscc_xo.c,
+		.freq_hz = 0,
+	},
 	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val)
 				| BVAL(4, 0, 0),
@@ -778,8 +789,7 @@ static struct rcg_clk pclk1_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "pclk1_clk_src",
-		.parent = &ext_pclk1_clk_src.c,
-		.ops = &clk_ops_pixel,
+		.ops = &clk_ops_pixel_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 75000000, LOW, 150000000,
 				  NOMINAL, 250000000),
@@ -1121,6 +1131,12 @@ DEFINE_EXT_CLK(ext_byte0_clk_src, NULL);
 DEFINE_EXT_CLK(ext_byte1_clk_src, NULL);
 static struct clk_freq_tbl ftbl_byte0_clk_src[] = {
 	{
+		.div_src_val = BVAL(10, 8, mmsscc_xo_mm_source_val)
+				| BVAL(4, 0, 0),
+		.src_clk = &mmsscc_xo.c,
+		.freq_hz = 0,
+	},
+	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val),
 		.src_clk = &ext_byte0_clk_src.c,
 		.freq_hz = 0,
@@ -1142,8 +1158,7 @@ static struct rcg_clk byte0_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "byte0_clk_src",
-		.parent = &ext_byte0_clk_src.c,
-		.ops = &clk_ops_byte,
+		.ops = &clk_ops_byte_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 60000000, LOW, 112500000,
 				  NOMINAL, 187500000),
@@ -1152,6 +1167,12 @@ static struct rcg_clk byte0_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_byte1_clk_src[] = {
+	{
+		.div_src_val = BVAL(10, 8, mmsscc_xo_mm_source_val)
+				| BVAL(4, 0, 0),
+		.src_clk = &mmsscc_xo.c,
+		.freq_hz = 0,
+	},
 	{
 		.div_src_val = BVAL(10, 8, dsi0phypll_mm_source_val),
 		.src_clk = &ext_byte0_clk_src.c,
@@ -1174,8 +1195,7 @@ static struct rcg_clk byte1_clk_src = {
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "byte1_clk_src",
-		.parent = &ext_byte1_clk_src.c,
-		.ops = &clk_ops_byte,
+		.ops = &clk_ops_byte_multiparent,
 		.flags = CLKFLAG_NO_RATE_CACHE,
 		VDD_DIG_FMAX_MAP3(LOWER, 60000000, LOW, 112500000,
 				  NOMINAL, 187500000),
@@ -2541,6 +2561,7 @@ static struct clk_lookup msm_clocks_mmss_8994[] = {
 	CLK_LIST(venus0_core1_vcodec_clk),
 	CLK_LIST(venus0_core2_vcodec_clk),
 	CLK_LIST(mmss_debug_mux),
+	CLK_LIST(ext_extpclk_clk_src),
 };
 
 static void msm_mmsscc_8994v2_fixup(void)
