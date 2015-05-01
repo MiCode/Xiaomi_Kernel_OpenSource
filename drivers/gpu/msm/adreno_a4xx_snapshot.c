@@ -165,7 +165,7 @@ static const unsigned int a4xx_vbif_ver_20020000_registers[] = {
 };
 
 static const unsigned int a4xx_vbif_ver_20050000_registers[] = {
-	/* VBIF version 0x20050000*/
+	/* VBIF version 0x20050000 and 0x20090000 */
 	0x3000, 0x3007, 0x302C, 0x302C, 0x3030, 0x3030, 0x3034, 0x3036,
 	0x3038, 0x3038, 0x303C, 0x303D, 0x3040, 0x3040, 0x3049, 0x3049,
 	0x3058, 0x3058, 0x305B, 0x3061, 0x3064, 0x3068, 0x306C, 0x306D,
@@ -186,6 +186,8 @@ static const struct adreno_vbif_snapshot_registers
 				ARRAY_SIZE(a4xx_vbif_ver_20050000_registers)/2},
 	{ 0x20070000, a4xx_vbif_ver_20020000_registers,
 				ARRAY_SIZE(a4xx_vbif_ver_20020000_registers)/2},
+	{ 0x20090000, a4xx_vbif_ver_20050000_registers,
+				ARRAY_SIZE(a4xx_vbif_ver_20050000_registers)/2},
 };
 
 static const unsigned int a4xx_vbif_snapshot_reg_cnt =
