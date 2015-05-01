@@ -2920,14 +2920,17 @@ fail_alloc:
 			proc_buf = &new_entry->buffers[i];
 			if (proc_buf) {
 				mutex_destroy(&proc_buf->health_mutex);
-				mutex_destroy(
-					&proc_buf->buf_primary->data_mutex);
-				mutex_destroy(&proc_buf->buf_cmd->data_mutex);
-				if (proc_buf->buf_primary)
+				if (proc_buf->buf_primary) {
 					kfree(proc_buf->buf_primary->data);
+					mutex_destroy(
+					   &proc_buf->buf_primary->data_mutex);
+				}
 				kfree(proc_buf->buf_primary);
-				if (proc_buf->buf_cmd)
+				if (proc_buf->buf_cmd) {
 					kfree(proc_buf->buf_cmd->data);
+					mutex_destroy(
+					   &proc_buf->buf_cmd->data_mutex);
+				}
 				kfree(proc_buf->buf_cmd);
 			}
 		}
