@@ -3699,6 +3699,9 @@ static int msm_gcc_8996_probe(struct platform_device *pdev)
 	/* This clock is used for all MMSS register access */
 	clk_prepare_enable(&gcc_mmss_noc_cfg_ahb_clk.c);
 
+	/* Keep an active vote on CXO in case no other driver votes for it */
+	clk_prepare_enable(&cxo_clk_src_ao.c);
+
 	dev_info(&pdev->dev, "Registered GCC clocks.\n");
 	return 0;
 }
