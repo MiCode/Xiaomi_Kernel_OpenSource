@@ -22,6 +22,12 @@
 #include "dsi-panel-jdi-4k-dualmipi0-video-nofbc.dtsi"
 #include "dsi-panel-jdi-4k-dualmipi1-video-nofbc.dtsi"
 
+#include "dsi-panel-sim-video.dtsi"
+#include "dsi-panel-sim-dualmipi0-video.dtsi"
+#include "dsi-panel-sim-dualmipi1-video.dtsi"
+#include "dsi-panel-sim-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi0-cmd.dtsi"
+#include "dsi-panel-sim-dualmipi1-cmd.dtsi"
 
 &dsi_dual_sharp_video_0 {
 	qcom,mdss-dsi-panel-timings-8996 = [23 20 06 09 05 03 04 a0
