@@ -26,8 +26,10 @@ static void conditional_chan_db_write(
 	mhi_dev_ctxt->mhi_chan_db_order[chan] = 0;
 	spin_lock_irqsave(&mhi_dev_ctxt->db_write_lock[chan], flags);
 	if (0 == mhi_dev_ctxt->mhi_chan_db_order[chan]) {
-		db_value = virt_to_dma(NULL,
-				mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
+		db_value =
+		mhi_v2p_addr(mhi_dev_ctxt,
+			MHI_RING_TYPE_XFER_RING, chan,
+			(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].wp);
 		mhi_process_db(mhi_dev_ctxt,
 			       mhi_dev_ctxt->mmio_info.chan_db_addr,
 			       chan, db_value);
@@ -66,8 +68,13 @@ static void ring_all_cmd_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_dev_ctxt->cmd_ring_order = 0;
 	mutex_lock(cmd_mutex);
 	local_ctxt = &mhi_dev_ctxt->mhi_local_cmd_ctxt[PRIMARY_CMD_RING];
-	rp = virt_to_dma(NULL, local_ctxt->rp);
-	db_value = virt_to_dma(NULL, mhi_dev_ctxt->mhi_local_cmd_ctxt[0].wp);
+	rp = mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_CMD_RING,
+						PRIMARY_CMD_RING,
+						(uintptr_t)local_ctxt->rp);
+	db_value =
+		mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_CMD_RING,
+			PRIMARY_CMD_RING,
+			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[0].wp);
 	if (0 == mhi_dev_ctxt->cmd_ring_order && rp != db_value)
 		mhi_process_db(mhi_dev_ctxt,
 			       mhi_dev_ctxt->mmio_info.cmd_db_addr,
@@ -93,6 +100,10 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 		event_ctxt = &mhi_ctrl->mhi_ec_list[i];
 		db_value = virt_to_dma(NULL,
 				mhi_dev_ctxt->mhi_local_event_ctxt[i].wp);
+		db_value =
+		 mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_EVENT_RING,
+			i,
+			(uintptr_t)mhi_dev_ctxt->mhi_local_event_ctxt[i].wp);
 		if (0 == mhi_dev_ctxt->mhi_ev_db_order[i]) {
 			mhi_process_db(mhi_dev_ctxt,
 				       mhi_dev_ctxt->mmio_info.event_db_addr,
@@ -302,7 +313,6 @@ static enum MHI_STATUS process_wake_transition(
 			"Pending SSR, Ignoring.\n");
 		goto exit;
 	}
-
 	if (mhi_dev_ctxt->flags.mhi_initialized) {
 		r = pm_request_resume(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 		mhi_log(MHI_MSG_VERBOSE,
@@ -432,8 +442,9 @@ static enum MHI_STATUS process_reset_transition(
 				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].base;
 		mhi_dev_ctxt->mhi_ctrl_seg->mhi_cmd_ctxt_list[i].
 						mhi_cmd_ring_read_ptr =
-				virt_to_dma(NULL,
-				mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp);
+		   mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_CMD_RING,
+			i,
+			(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[i].rp);
 	}
 	for (i = 0; i < mhi_dev_ctxt->mmio_info.nr_event_rings; ++i)
 		mhi_reset_ev_ctxt(mhi_dev_ctxt, i);

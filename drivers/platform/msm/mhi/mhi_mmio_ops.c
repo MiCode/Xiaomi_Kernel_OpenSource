@@ -144,8 +144,9 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 				MHICFG_NER_MASK, MHICFG_NER_SHIFT,
 				mhi_dev_ctxt->mmio_info.nr_event_rings);
 
-	pcie_dword_val = virt_to_dma(NULL,
-				 mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list);
+	pcie_dword_val = ((uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->mhi_cc_list -
+				  mhi_dev_ctxt->mhi_ctrl_seg_info->va_aligned)+
+	mhi_dev_ctxt->mhi_ctrl_seg_info->pa_aligned;
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
 	mhi_reg_write_field(mhi_dev_ctxt,
 			    mhi_dev_ctxt->mmio_info.mmio_addr, CCABAP_HIGHER,
@@ -160,8 +161,7 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 				pcie_word_val);
 
 	/* Write the Event Context Base Address Register High and Low parts */
-	pcie_dword_val = virt_to_dma(NULL,
-				     mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list);
+	pcie_dword_val = mhi_dev_ctxt->mmio_info.dma_ev_ctxt;
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
 	mhi_reg_write_field(mhi_dev_ctxt,
 			mhi_dev_ctxt->mmio_info.mmio_addr, ECABAP_HIGHER,
@@ -176,8 +176,10 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 
 
 	/* Write the Command Ring Control Register High and Low parts */
-	pcie_dword_val = virt_to_dma(NULL,
-				mhi_dev_ctxt->mhi_ctrl_seg->mhi_cmd_ctxt_list);
+	pcie_dword_val =
+		 ((uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->mhi_cmd_ctxt_list -
+				mhi_dev_ctxt->mhi_ctrl_seg_info->va_aligned)+
+	mhi_dev_ctxt->mhi_ctrl_seg_info->pa_aligned;
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
 	mhi_reg_write_field(mhi_dev_ctxt,
 				mhi_dev_ctxt->mmio_info.mmio_addr,
@@ -195,7 +197,9 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 	mhi_dev_ctxt->mmio_info.cmd_db_addr =
 			mhi_dev_ctxt->mmio_info.mmio_addr + CRDB_LOWER;
 	/* Set the control segment in the MMIO */
-	pcie_dword_val = virt_to_dma(NULL, mhi_dev_ctxt->mhi_ctrl_seg);
+	pcie_dword_val = ((uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg -
+				  mhi_dev_ctxt->mhi_ctrl_seg_info->va_aligned)+
+	mhi_dev_ctxt->mhi_ctrl_seg_info->pa_aligned;
 	pcie_word_val = HIGH_WORD(pcie_dword_val);
 	mhi_reg_write_field(mhi_dev_ctxt,
 			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRLBASE_HIGHER,
@@ -210,7 +214,9 @@ enum MHI_STATUS mhi_init_mmio(struct mhi_device_ctxt *mhi_dev_ctxt)
 			MHICTRLBASE_LOWER_MHICTRLBASE_LOWER_SHIFT,
 			0);
 
-	pcie_dword_val = virt_to_dma(NULL, mhi_dev_ctxt->mhi_ctrl_seg) +
+	pcie_dword_val = (((uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg -
+				mhi_dev_ctxt->mhi_ctrl_seg_info->va_aligned) +
+				mhi_dev_ctxt->mhi_ctrl_seg_info->pa_aligned) +
 		mhi_get_memregion_len(mhi_dev_ctxt->mhi_ctrl_seg_info) - 1;
 
 	pcie_word_val = HIGH_WORD(pcie_dword_val);

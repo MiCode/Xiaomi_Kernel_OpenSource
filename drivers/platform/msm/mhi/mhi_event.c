@@ -56,7 +56,7 @@ int mhi_populate_event_cfg(struct mhi_device_ctxt *mhi_dev_ctxt)
 			goto dt_error;
 		}
 		mhi_log(MHI_MSG_INFO,
-			"Pulled ev ring %d, desc: 0x%x, msi_vec: 0x%x, intmod %d flags 0x%x\n",
+		"Pulled ev ring %d,desc:0x%x,msi_vec:0x%x,intmod%d flags0x%x\n",
 			i, mhi_dev_ctxt->ev_ring_props[i].nr_desc,
 			   mhi_dev_ctxt->ev_ring_props[i].msi_vec,
 			   mhi_dev_ctxt->ev_ring_props[i].intmod,
@@ -180,7 +180,9 @@ void ring_ev_db(struct mhi_device_ctxt *mhi_dev_ctxt, u32 event_ring_index)
 	u64 db_value = 0;
 	event_ctxt =
 		&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index];
-	db_value = virt_to_dma(NULL, event_ctxt->wp);
+	db_value = mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_EVENT_RING,
+						event_ring_index,
+						(uintptr_t) event_ctxt->wp);
 	mhi_process_db(mhi_dev_ctxt, mhi_dev_ctxt->mmio_info.event_db_addr,
 					event_ring_index, db_value);
 }
