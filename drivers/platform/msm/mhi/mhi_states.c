@@ -292,6 +292,8 @@ static enum MHI_STATUS process_wake_transition(
 			enum STATE_TRANSITION cur_work_item)
 {
 	enum MHI_STATUS ret_val = MHI_STATUS_SUCCESS;
+	int r = 0;
+
 	mhi_log(MHI_MSG_INFO, "Entered\n");
 	__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 
@@ -300,19 +302,14 @@ static enum MHI_STATUS process_wake_transition(
 			"Pending SSR, Ignoring.\n");
 		goto exit;
 	}
-	ret_val = mhi_turn_on_pcie_link(mhi_dev_ctxt);
 
-	if (MHI_STATUS_SUCCESS != ret_val) {
-		mhi_log(MHI_MSG_CRITICAL,
-			"Failed to turn on PCIe link.\n");
-		goto exit;
-	}
-	if (mhi_dev_ctxt->flags.mhi_initialized &&
-		mhi_dev_ctxt->flags.link_up) {
+	if (mhi_dev_ctxt->flags.mhi_initialized) {
 		mhi_log(MHI_MSG_VERBOSE,
 			"MHI is initialized, transitioning to M0.\n");
-		mhi_initiate_m0(mhi_dev_ctxt);
+		r = pm_request_resume(&mhi_dev_ctxt->dev_info->plat_dev->dev);
+		BUG_ON(r && r != -EINPROGRESS);
 	}
+
 	if (!mhi_dev_ctxt->flags.mhi_initialized) {
 		mhi_log(MHI_MSG_INFO,
 			"MHI is not initialized transitioning to base.\n");
