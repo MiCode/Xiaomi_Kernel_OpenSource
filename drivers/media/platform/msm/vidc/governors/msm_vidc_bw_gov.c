@@ -556,7 +556,7 @@ static unsigned long __calculate_decoder(struct vidc_bus_vote_data *d,
 		__dump(dump, ARRAY_SIZE(dump));
 	}
 
-	return kbps(fp_int((gm == GOVERNOR_DDR ? &ddr : &vmem)->total));
+	return kbps(fp_round((gm == GOVERNOR_DDR ? &ddr : &vmem)->total));
 }
 
 static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
@@ -568,11 +568,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	 * measured heuristics and hardcoded numbers taken from the firmware.
 	 */
 	/* Encoder Parameters */
-	enum scenario scenario;
-	enum usecase {
-		USECASE_CAMCORDER,
-		USECASE_WFD,
-	} usecase, bitrate_scenario;
+	enum scenario scenario, bitrate_scenario;
 	enum hal_video_codec standard;
 	int width, height, fps, vmem_size;
 	enum hal_uncompressed_format dpb_color_format;
@@ -581,6 +577,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		two_stage_encoding, low_power, rotation, cropping_or_scaling;
 	fp_t dpb_compression_factor, original_compression_factor,
 		qsmmu_bw_overhead_factor;
+	bool b_frames_enabled;
 
 	/* Derived Parameters */
 	int lcu_size;
@@ -589,7 +586,6 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		GOP_IPPP,
 	} gop;
 	unsigned long bitrate;
-	bool b_frames_enabled;
 	fp_t bins_to_bit_factor, chroma_luma_factor_dpb, one_frame_bw_dpb,
 		 chroma_luma_factor_original, one_frame_bw_original,
 		 line_buffer_size_per_lcu, line_buffer_size, line_buffer_bw,
@@ -609,7 +605,6 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	/* Encoder Parameters setup */
 	scenario = SCENARIO_WORST;
-	usecase = USECASE_CAMCORDER;
 
 	standard = d->codec;
 	width = max(d->width, BASELINE_DIMENSIONS.width);
@@ -627,11 +622,12 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	two_stage_encoding = false;
 	low_power = d->low_power_mode;
+	b_frames_enabled = false;
 
 	dpb_compression_factor = !dpb_compression_enabled ? FP_ONE :
 		__compression_ratio(__lut(width, height),
 				__bpp(dpb_color_format), scenario);
-	original_compression_factor = !original_color_format ? FP_ONE :
+	original_compression_factor = !original_compression_enabled ? FP_ONE :
 		__compression_ratio(__lut(width, height),
 				__bpp(original_color_format), scenario);
 
@@ -641,16 +637,9 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 
 	/* Derived Parameters */
 	lcu_size = 16;
-	gop = low_power ? GOP_IPPP :
-		usecase == USECASE_WFD ? GOP_IPPP :
-					GOP_IBBP;
+	gop = b_frames_enabled ? GOP_IBBP : GOP_IPPP;
 	bitrate = __lut(width, height)->bitrate[bitrate_scenario];
 	bins_to_bit_factor = FP(1, 6, 10);
-	/*
-	 * Possibly cleaner to do gop == GOP_IBBP, but keeping this in sync
-	 * with documentation
-	 */
-	b_frames_enabled = usecase == USECASE_CAMCORDER;
 
 	/*
 	 * FIXME: Minor color format related hack: a lot of the derived params
@@ -665,11 +654,13 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	 */
 	chroma_luma_factor_dpb = FP(0, 1, 2);
 	one_frame_bw_dpb = fp_mult(FP_ONE + chroma_luma_factor_dpb,
-			FP_INT(width * height * fps / 1000 / 1000));
+			fp_div(FP_INT(width * height * fps),
+				FP_INT(1000 * 1000)));
 
 	chroma_luma_factor_original = FP(0, 1, 2); /* XXX: CF hack */
 	one_frame_bw_original = fp_mult(FP_ONE + chroma_luma_factor_original,
-			FP_INT(width * height * fps / 1000 / 1000));
+			fp_div(FP_INT(width * height * fps),
+				FP_INT(1000 * 1000)));
 
 	line_buffer_size_per_lcu = FP_ZERO;
 	if (lcu_size == 16)
@@ -702,7 +693,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 			FP_INT(1024));
 
 	search_window_size_vertical_p = low_power ? 32 :
-					usecase == USECASE_CAMCORDER  ? 80 :
+					b_frames_enabled ? 80 :
 					width > 2048 ? 64 : 48;
 	search_window_factor_p = search_window_size_vertical_p * 2 / lcu_size;
 	search_window_factor_bw_p = !two_stage_encoding ?
@@ -728,12 +719,13 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 			fp_int(original_vmem_requirement)) / vmem_size_b);
 
 	/* Output parameters for DDR */
-	ddr.vsp_read = fp_mult(FP_INT(bitrate / 8), bins_to_bit_factor);
-	ddr.vsp_write = ddr.vsp_read + FP_INT(bitrate / 8);
+	ddr.vsp_read = fp_mult(fp_div(FP_INT(bitrate), FP_INT(8)),
+			bins_to_bit_factor);
+	ddr.vsp_write = ddr.vsp_read + fp_div(FP_INT(bitrate), FP_INT(8));
 
-	ddr.collocated_read = FP_INT(DIV_ROUND_UP(width, lcu_size) *
+	ddr.collocated_read = fp_div(FP_INT(DIV_ROUND_UP(width, lcu_size) *
 			DIV_ROUND_UP(height, lcu_size) *
-			collocated_mv_per_lcu * fps / 1000 / 1000);
+			collocated_mv_per_lcu * fps), FP_INT(1000 * 1000));
 	ddr.collocated_write = ddr.collocated_read;
 
 	ddr.line_buffer_read = (FP_INT(vmem_size) >= line_buffer_size +
@@ -861,7 +853,6 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		struct dump dump[] = {
 		{"ENCODER PARAMETERS", "", DUMP_HEADER_MAGIC},
 		{"scenario", "%d", scenario},
-		{"use case", "%d", usecase},
 		{"standard", "%#x", standard},
 		{"width", "%d", width},
 		{"height", "%d", height},
@@ -946,7 +937,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 		__dump(dump, ARRAY_SIZE(dump));
 	}
 
-	return kbps(fp_int((gm == GOVERNOR_DDR ? &ddr : &vmem)->total));
+	return kbps(fp_round((gm == GOVERNOR_DDR ? &ddr : &vmem)->total));
 }
 
 static unsigned long __calculate(struct vidc_bus_vote_data *d,
