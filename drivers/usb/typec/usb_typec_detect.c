@@ -270,11 +270,9 @@ static void detect_lock_ufp_work(struct work_struct *work)
 	ret = wait_for_completion_timeout(&detect->lock_ufp_complete, timeout);
 	if (ret == 0) {
 		mutex_lock(&detect->lock);
-		detect->state = DETECT_STATE_UNATTACHED_UFP;
+		detect->state = DETECT_STATE_UNATTACHED_DRP;
 		mutex_unlock(&detect->lock);
-		/* start the timer asap goto unattached dfp */
-		mod_timer(&detect->drp_timer, jiffies +
-					msecs_to_jiffies(1));
+		typec_switch_mode(detect->phy, TYPEC_MODE_DRP);
 	}
 	/* got vbus, goto attached ufp */
 
@@ -388,7 +386,7 @@ static void update_phy_state(struct work_struct *work)
 		detect->got_vbus = false;
 		typec_setup_cc(phy, 0, TYPEC_STATE_UNATTACHED_UFP);
 		mutex_unlock(&detect->lock);
-		if (phy->state == TYPEC_STATE_ATTACHED_UFP) {
+		if (detect->state == DETECT_STATE_ATTACHED_UFP) {
 			extcon_set_cable_state(detect->edev, "USB", false);
 			/* notify power supply */
 			cable_props.chrg_evt =
@@ -418,9 +416,6 @@ static void update_phy_state(struct work_struct *work)
 		mutex_lock(&detect->lock);
 		detect->state = DETECT_STATE_UNATTACHED_DRP;
 		mutex_unlock(&detect->lock);
-		/* start the timer asap */
-		mod_timer(&detect->drp_timer, jiffies +
-					msecs_to_jiffies(1));
 		break;
 	default:
 		dev_err(detect->phy->dev, "unknown event %d", detect->event);
@@ -451,28 +446,6 @@ static int typec_handle_phy_ntf(struct notifier_block *nb,
 		/* start the timer now */
 		mod_timer(&detect->drp_timer, jiffies +
 				msecs_to_jiffies(1));
-		break;
-	case TYPEC_EVENT_DEV_SUSPEND:
-		if (detect->state == DETECT_STATE_ATTACHED_DFP) {
-			/* disable vbus */
-		} else if (detect->state == DETECT_STATE_UNATTACHED_UFP ||
-				detect->state == DETECT_STATE_UNATTACHED_DFP ||
-				detect->state == DETECT_STATE_UNATTACHED_DRP)  {
-			cancel_work_sync(&detect->dfp_work);
-			del_timer(&detect->drp_timer);
-			detect->state = DETECT_STATE_UNATTACHED_DRP;
-		}
-		break;
-	case TYPEC_EVENT_DEV_RESUME:
-		if (detect->state == DETECT_STATE_ATTACHED_DFP) {
-			/* enable vbus */
-		} else if (detect->state == DETECT_STATE_UNATTACHED_UFP ||
-			detect->state == DETECT_STATE_UNATTACHED_DFP ||
-			detect->state == DETECT_STATE_UNATTACHED_DRP) {
-			/* start the timer now */
-			mod_timer(&detect->drp_timer, jiffies +
-					msecs_to_jiffies(1));
-		}
 		break;
 	default:
 		handled = NOTIFY_DONE;
