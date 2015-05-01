@@ -378,9 +378,6 @@ static void update_phy_state(struct work_struct *work)
 			typec_setup_cc(phy, use_cc, TYPEC_STATE_ATTACHED_UFP);
 			extcon_set_cable_state(detect->edev, "USB", true);
 
-			/* notify usb */
-			atomic_notifier_call_chain(&detect->otg->notifier,
-					USB_EVENT_VBUS, NULL);
 			/* notify power supply */
 			cable_props.chrg_evt =
 					POWER_SUPPLY_CHARGER_EVENT_CONNECT;
@@ -420,11 +417,10 @@ static void update_phy_state(struct work_struct *work)
 			mutex_unlock(&detect->lock);
 			queue_work(detect->wq_lock_ufp,
 					&detect->lock_ufp_work);
+			atomic_notifier_call_chain(&detect->otg->notifier,
+					USB_EVENT_NONE, NULL);
 			break;
 		}
-		/* setup data mux */
-		atomic_notifier_call_chain(&detect->otg->notifier,
-					USB_EVENT_NONE, NULL);
 		mutex_lock(&detect->lock);
 		detect->state = DETECT_STATE_UNATTACHED_DRP;
 		mutex_unlock(&detect->lock);
