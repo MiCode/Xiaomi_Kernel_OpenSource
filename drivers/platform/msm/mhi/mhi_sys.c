@@ -144,8 +144,11 @@ static ssize_t mhi_dbgfs_ev_read(struct file *fp, char __user *buf,
 			mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index].wp,
 			&v_wp_index);
 	get_element_index(&mhi_dev_ctxt->mhi_local_event_ctxt[event_ring_index],
-			(void *)dma_to_virt(NULL, ev_ctxt->mhi_event_read_ptr),
-			&device_p_rp_index);
+			(void *)mhi_p2v_addr(mhi_dev_ctxt,
+					MHI_RING_TYPE_EVENT_RING,
+					event_ring_index,
+					ev_ctxt->mhi_event_read_ptr),
+					&device_p_rp_index);
 
 	amnt_copied =
 	scnprintf(mhi_dev_ctxt->chan_info,
@@ -356,4 +359,63 @@ clean_chan:
 	debugfs_remove(mhi_chan_stats);
 	debugfs_remove(mhi_dev_ctxt->mhi_parent_folder);
 	return -ENOMEM;
+}
+
+uintptr_t mhi_p2v_addr(struct mhi_device_ctxt *mhi_dev_ctxt,
+			enum MHI_RING_TYPE type,
+			u32 chan, uintptr_t phy_ptr)
+{
+	uintptr_t virtual_ptr;
+	struct mhi_control_seg *cs;
+	cs = mhi_dev_ctxt->mhi_ctrl_seg;
+	switch (type) {
+	case MHI_RING_TYPE_EVENT_RING:
+		 virtual_ptr = (uintptr_t)((phy_ptr -
+		(uintptr_t)cs->mhi_ec_list[chan].mhi_event_ring_base_addr)
+			+ mhi_dev_ctxt->mhi_local_event_ctxt[chan].base);
+		break;
+	case MHI_RING_TYPE_XFER_RING:
+		virtual_ptr = (uintptr_t)((phy_ptr -
+		(uintptr_t)cs->mhi_cc_list[chan].mhi_trb_ring_base_addr)
+				+ mhi_dev_ctxt->mhi_local_chan_ctxt[chan].base);
+		 break;
+	case MHI_RING_TYPE_CMD_RING:
+		virtual_ptr = (uintptr_t)((phy_ptr -
+		(uintptr_t)cs->mhi_cmd_ctxt_list[chan].mhi_cmd_ring_base_addr)
+				+ mhi_dev_ctxt->mhi_local_cmd_ctxt[chan].base);
+		break;
+	default:
+		break;
+		}
+	return virtual_ptr;
+}
+
+
+dma_addr_t mhi_v2p_addr(struct mhi_device_ctxt *mhi_dev_ctxt,
+			enum MHI_RING_TYPE type,
+			 u32 chan, uintptr_t va_ptr)
+{
+	dma_addr_t phy_ptr;
+	struct mhi_control_seg *cs;
+	cs = mhi_dev_ctxt->mhi_ctrl_seg;
+	switch (type) {
+	case MHI_RING_TYPE_EVENT_RING:
+		phy_ptr = (dma_addr_t)((va_ptr -
+		(uintptr_t)mhi_dev_ctxt->mhi_local_event_ctxt[chan].base) +
+		(uintptr_t)cs->mhi_ec_list[chan].mhi_event_ring_base_addr);
+		break;
+	case MHI_RING_TYPE_XFER_RING:
+		phy_ptr = (dma_addr_t)((va_ptr -
+		(uintptr_t)mhi_dev_ctxt->mhi_local_chan_ctxt[chan].base) +
+		((uintptr_t)cs->mhi_cc_list[chan].mhi_trb_ring_base_addr));
+		break;
+	case MHI_RING_TYPE_CMD_RING:
+		phy_ptr = (dma_addr_t)((va_ptr -
+	(uintptr_t)mhi_dev_ctxt->mhi_local_cmd_ctxt[chan].base) +
+	((uintptr_t)cs->mhi_cmd_ctxt_list[chan].mhi_cmd_ring_base_addr));
+		break;
+	default:
+		break;
+		}
+		return phy_ptr;
 }

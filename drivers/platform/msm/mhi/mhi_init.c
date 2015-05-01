@@ -286,15 +286,19 @@ static enum MHI_STATUS mhi_init_contexts(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
 	struct mhi_control_seg *mhi_ctrl = mhi_dev_ctxt->mhi_ctrl_seg;
-
 	r = init_event_ctxt_array(mhi_dev_ctxt);
 	if (r)
 		return MHI_STATUS_ERROR;
 
+	u64 phy_cmd_trb_addr;
+	init_ecabap(mhi_dev_ctxt);
 	/* Init Command Ring */
+	phy_cmd_trb_addr =
+	((uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->cmd_trb_list[PRIMARY_CMD_RING] -
+		mhi_dev_ctxt->mhi_ctrl_seg_info->va_aligned)+
+	    mhi_dev_ctxt->mhi_ctrl_seg_info->pa_aligned;
 	mhi_cmd_ring_init(&mhi_ctrl->mhi_cmd_ctxt_list[PRIMARY_CMD_RING],
-			virt_to_dma(NULL,
-				mhi_ctrl->cmd_trb_list[PRIMARY_CMD_RING]),
+			phy_cmd_trb_addr,
 			(uintptr_t)mhi_ctrl->cmd_trb_list[PRIMARY_CMD_RING],
 			CMD_EL_PER_RING,
 			&mhi_dev_ctxt->mhi_local_cmd_ctxt[PRIMARY_CMD_RING]);

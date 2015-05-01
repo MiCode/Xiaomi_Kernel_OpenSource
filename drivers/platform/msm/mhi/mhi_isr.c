@@ -53,7 +53,7 @@ irqreturn_t mhi_msi_ipa_handlr(int irq_number, void *dev_id)
 	if (likely(NULL != client_handle)) {
 		client_handle->result.user_data =
 				client_handle->user_data;
-		if (likely(NULL != &client_info->mhi_client_cb)) {
+if (likely(NULL != &client_info->mhi_client_cb)) {
 			cb_info.result = &client_handle->result;
 			cb_info.cb_reason = MHI_CB_XFER;
 			cb_info.chan = client_handle->chan_info.chan_nr;
@@ -82,8 +82,11 @@ static enum MHI_STATUS mhi_process_event_ring(
 	u32 event_code;
 
 	ev_ctxt = &mhi_dev_ctxt->mhi_ctrl_seg->mhi_ec_list[ev_index];
-
-	device_rp = dma_to_virt(NULL, ev_ctxt->mhi_event_read_ptr);
+	device_rp = (union mhi_event_pkt *)mhi_p2v_addr(
+						mhi_dev_ctxt,
+						MHI_RING_TYPE_EVENT_RING,
+						ev_index,
+						ev_ctxt->mhi_event_read_ptr);
 	local_rp = (union mhi_event_pkt *)local_ev_ctxt->rp;
 
 	BUG_ON(validate_ev_el_addr(local_ev_ctxt, (uintptr_t)device_rp));
@@ -91,7 +94,8 @@ static enum MHI_STATUS mhi_process_event_ring(
 			(device_rp != NULL) && (local_rp != NULL)) {
 		event_to_process = *local_rp;
 		ev_ptr = &event_to_process;
-		event_code = get_cmd_pkt(ev_ptr, &cmd_pkt);
+		event_code = get_cmd_pkt(mhi_dev_ctxt,
+					ev_ptr, &cmd_pkt, ev_index);
 		if (((MHI_TRB_READ_INFO(EV_TRB_TYPE, (&event_to_process)) ==
 		    MHI_PKT_TYPE_CMD_COMPLETION_EVENT)) &&
 		    (event_code == MHI_EVENT_CC_SUCCESS)) {
@@ -125,11 +129,12 @@ static enum MHI_STATUS mhi_process_event_ring(
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
 			ret_val = parse_cmd_event(mhi_dev_ctxt,
-					&event_to_process);
+					&event_to_process, ev_index);
 			break;
 		case MHI_PKT_TYPE_TX_EVENT:
 			__pm_stay_awake(&mhi_dev_ctxt->w_lock);
-			parse_xfer_event(mhi_dev_ctxt, &event_to_process);
+			parse_xfer_event(mhi_dev_ctxt,
+						&event_to_process, ev_index);
 			__pm_relax(&mhi_dev_ctxt->w_lock);
 			break;
 		case MHI_PKT_TYPE_STATE_CHANGE_EVENT:
@@ -179,7 +184,11 @@ static enum MHI_STATUS mhi_process_event_ring(
 			break;
 		}
 		local_rp = (union mhi_event_pkt *)local_ev_ctxt->rp;
-		device_rp = dma_to_virt(NULL, ev_ctxt->mhi_event_read_ptr);
+		device_rp = (union mhi_event_pkt *)mhi_p2v_addr(
+						mhi_dev_ctxt,
+						MHI_RING_TYPE_EVENT_RING,
+						ev_index,
+						ev_ctxt->mhi_event_read_ptr);
 		ret_val = MHI_STATUS_SUCCESS;
 		--event_quota;
 	}

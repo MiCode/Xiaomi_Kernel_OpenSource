@@ -63,8 +63,11 @@ enum MHI_STATUS mhi_mallocmemregion(struct mhi_device_ctxt *mhi_dev_ctxt,
 
 uintptr_t mhi_get_phy_addr(struct mhi_meminfo *meminfo);
 void *mhi_get_virt_addr(struct mhi_meminfo *meminfo);
-uintptr_t mhi_p2v_addr(struct mhi_meminfo *meminfo, phys_addr_t pa);
-phys_addr_t mhi_v2p_addr(struct mhi_meminfo *meminfo, uintptr_t va);
+uintptr_t mhi_p2v_addr(struct mhi_device_ctxt *mhi_dev_ctxt, enum MHI_RING_TYPE,
+			u32 chan, uintptr_t phy_ptr);
+dma_addr_t mhi_v2p_addr(struct mhi_device_ctxt *mhi_dev_ctxt,
+			enum MHI_RING_TYPE type,
+			 u32 chan, uintptr_t va_ptr);
 u64 mhi_get_memregion_len(struct mhi_meminfo *meminfo);
 void mhi_freememregion(struct mhi_meminfo *meminfo);
 
