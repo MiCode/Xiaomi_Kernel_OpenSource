@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,8 +19,9 @@ struct diag_log_mask_t {
 	uint8_t equip_id;
 	uint32_t num_items;
 	uint32_t range;
+	struct mutex lock;
 	uint8_t *ptr;
-} __packed;
+};
 
 struct diag_ssid_range_t {
 	uint16_t ssid_first;
@@ -31,8 +32,9 @@ struct diag_msg_mask_t {
 	uint32_t ssid_first;
 	uint32_t ssid_last;
 	uint32_t range;
+	struct mutex lock;
 	uint32_t *ptr;
-} __packed;
+};
 
 struct diag_log_config_req_t {
 	uint8_t cmd_code;
