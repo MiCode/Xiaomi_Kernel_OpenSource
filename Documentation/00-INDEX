@@ -91,6 +91,8 @@ basic_profiling.txt
 	- basic instructions for those who wants to profile Linux kernel.
 bcache.txt
 	- Block-layer cache on fast SSDs to improve slow (raid) I/O performance.
+bif-framework.txt
+	- information about MIPI-BIF support in the Linux kernel.
 binfmt_misc.txt
 	- info on the kernel support for extra binary formats.
 blackfin/
