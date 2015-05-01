@@ -297,7 +297,10 @@ static void update_phy_state(struct work_struct *work)
 	struct typec_detect *detect;
 	int ret;
 	enum typec_cc_pin use_cc = 0;
-	struct typec_cc_psy cc1_psy, cc2_psy;
+	struct typec_cc_psy cc1_psy = {USB_TYPEC_CC_VRD_UNKNOWN,
+					TYPEC_CURRENT_UNKNOWN};
+	struct typec_cc_psy cc2_psy = {USB_TYPEC_CC_VRD_UNKNOWN,
+					TYPEC_CURRENT_UNKNOWN};
 	struct power_supply_cable_props cable_props = {0};
 	int state;
 
@@ -325,25 +328,24 @@ static void update_phy_state(struct work_struct *work)
 			mutex_unlock(&detect->lock);
 		}
 
-		mutex_lock(&detect->lock);
-
 		ret = typec_measure_cc(phy, TYPEC_PIN_CC1, &cc1_psy, 0);
 		if (ret < 0) {
-			dev_err(detect->phy->dev,
+			dev_warn(detect->phy->dev,
 					"%s: Error(%d) measuring cc1\n",
 					__func__, ret);
-			break;
+			cc1_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
+			cc1_psy.cur = TYPEC_CURRENT_UNKNOWN;
 		}
 
 		ret = typec_measure_cc(phy, TYPEC_PIN_CC2, &cc2_psy, 0);
 		if (ret < 0) {
-			dev_err(detect->phy->dev,
+			dev_warn(detect->phy->dev,
 					"%s: Error(%d) measuring cc2\n",
 					__func__, ret);
-			break;
+			cc2_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
+			cc2_psy.cur = TYPEC_CURRENT_UNKNOWN;
 		}
 
-		mutex_unlock(&detect->lock);
 		dev_info(detect->phy->dev, "evt_vbus cc1 = %d, cc2 = %d",
 						cc1_psy.v_rd, cc2_psy.v_rd);
 
@@ -351,19 +353,21 @@ static void update_phy_state(struct work_struct *work)
 		if (CC_OPEN(cc1_psy.v_rd) || CC_RA(cc1_psy.v_rd)) {
 			ret = typec_measure_cc(phy, TYPEC_PIN_CC1, &cc1_psy, 0);
 			if (ret < 0) {
-				dev_err(detect->phy->dev,
+				dev_warn(detect->phy->dev,
 					"%s: Error(%d) measuring cc1\n",
 					__func__, ret);
-				break;
+				cc1_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
+				cc1_psy.cur = TYPEC_CURRENT_UNKNOWN;
 			}
 		}
 		if (CC_OPEN(cc2_psy.v_rd) || CC_RA(cc2_psy.v_rd)) {
 			ret = typec_measure_cc(phy, TYPEC_PIN_CC2, &cc2_psy, 0);
 			if (ret < 0) {
-				dev_err(detect->phy->dev,
+				dev_warn(detect->phy->dev,
 					"%s: Error(%d) measuring cc2\n",
 					__func__, ret);
-				break;
+				cc2_psy.v_rd = USB_TYPEC_CC_VRD_UNKNOWN;
+				cc2_psy.cur = TYPEC_CURRENT_UNKNOWN;
 			}
 		}
 
