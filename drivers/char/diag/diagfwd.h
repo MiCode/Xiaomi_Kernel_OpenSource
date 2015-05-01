@@ -14,7 +14,6 @@
 #define DIAGFWD_H
 
 #define NO_PROCESS	0
-#define NON_APPS_PROC	-1
 
 #define RESET_AND_NO_QUEUE 0
 #define RESET_AND_QUEUE 1
