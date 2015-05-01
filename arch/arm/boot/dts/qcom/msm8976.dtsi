@@ -225,6 +225,7 @@
 #include "msm8976-smp2p.dtsi"
 #include "msm8976-bus.dtsi"
 #include "msm8976-coresight.dtsi"
+#include "msm8976-pm.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -607,6 +608,13 @@
 		qcom,disable-vdd-mx;
 		qcom,disable-psm;
 		qcom,disable-ocr;
+	};
+
+	rpm_bus: qcom,rpm-smd {
+		compatible = "qcom,rpm-smd";
+		rpm-channel-name = "rpm_requests";
+		rpm-channel-type = <15>; /* SMD_APPS_RPM */
+		rpm-standalone; /* TODO: remove this after bring up */
 	};
 
 	sdhc_1: sdhci@7824900 {
