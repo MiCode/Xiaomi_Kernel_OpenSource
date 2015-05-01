@@ -2233,7 +2233,7 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_3_out 0 0>;
 	};
 
-        qcom,mss@2080000 {
+       pil_modem: qcom,mss@2080000 {
                 compatible = "qcom,pil-q6v55-mss";
                 reg = <0x2080000 0x100>,
 		      <0x0760000 0x400>,

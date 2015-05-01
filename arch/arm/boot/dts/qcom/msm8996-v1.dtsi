@@ -102,3 +102,7 @@
 	qcom,override-pll-calibration;
 	qcom,qmp-misc-config;
 };
+
+&pil_modem {
+	status = "disabled";
+};
