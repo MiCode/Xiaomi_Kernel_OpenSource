@@ -64,6 +64,10 @@ Optional Properties:
 - qcom,batt-cool-ma:		Maximum cool battery charge current in milli-amps.
 - qcom,batt-warm-mv:		Maximum warm battery target voltage in milli-volts.
 - qcom,batt-cool-mv:		Maximum cool battery target voltage in milli-volts.
+- qcom,parallel-en-pin-polarity Specify the polarity of enable signal controlled
+				via pin in a parallel-charger configuration.
+				0 - Active low and 1  - Active high.
+				If not specified the default value is active-low.
 
 Example for standalone charger:
 
