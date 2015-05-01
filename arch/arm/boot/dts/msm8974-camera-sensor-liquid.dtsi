@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,7 @@
 		reg = <0x0>;
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
-		qcom,mount-angle = <90>;
+		qcom,mount-angle = <0>;
 		qcom,actuator-src = <&actuator0>;
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
@@ -134,30 +134,25 @@
 		reg = <0x02>;
 		qcom,csiphy-sd-index = <2>;
 		qcom,csid-sd-index = <2>;
-		qcom,mount-angle = <90>;
+		qcom,mount-angle = <180>;
 		cam_vdig-supply = <&pm8941_l3>;
 		cam_vana-supply = <&pm8941_l17>;
-		cam_vio-supply = <&pm8941_lvs3>;
-		cam_vaf-supply = <&pm8941_l23>;
-		qcom,cam-vreg-name = "cam_vdig", "cam_vio", "cam_vana",
-				     "cam_vaf";
-		qcom,cam-vreg-type = <0 1 0 0>;
-		qcom,cam-vreg-min-voltage = <1225000 0 2850000 3000000>;
-		qcom,cam-vreg-max-voltage = <1225000 0 2850000 3000000>;
-		qcom,cam-vreg-op-mode = <105000 0 80000 100000>;
+		cam_vio-supply = <&pm8941_lvs2>;
+		qcom,cam-vreg-name = "cam_vdig", "cam_vana", "cam_vio";
+		qcom,cam-vreg-type = <0 0 1>;
+		qcom,cam-vreg-min-voltage = <1225000 2850000 0>;
+		qcom,cam-vreg-max-voltage = <1225000 2850000 0>;
+		qcom,cam-vreg-op-mode = <105000 80000 0>;
 		qcom,gpio-no-mux = <0>;
 		gpios = <&msmgpio 17 0>,
-			<&msmgpio 18 0>,
-			<&msmgpio 28 0>;
+			<&msmgpio 18 0>;
 		qcom,gpio-reset = <1>;
-		qcom,gpio-standby = <2>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <1 0 0>;
-		qcom,gpio-req-tbl-label = "CAMIF_MCLK2",
-					  "CAM_RESET2",
-					  "CAM_STANDBY2";
+		qcom,gpio-req-tbl-num = <0 1 >;
+		qcom,gpio-req-tbl-flags = <1 0>;
+		qcom,gpio-req-tbl-label = "CAMIF_MCLK1",
+					  "CAM_RESET1";
 		qcom,sensor-position = <1>;
-		qcom,sensor-mode = <0>;
+		qcom,sensor-mode = <1>;
 		qcom,cci-master = <0>;
 		status = "ok";
 	};
