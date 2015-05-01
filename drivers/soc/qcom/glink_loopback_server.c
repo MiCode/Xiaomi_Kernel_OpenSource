@@ -748,7 +748,7 @@ void glink_lpbsrv_notify_rx(void *handle, const void *priv,
 		"%s:%s:%s %s: end (Success) RX priv[%p] data[%p] size[%zu]\n",
 		rx_ch_info->transport, rx_ch_info->edge, rx_ch_info->name,
 		__func__, pkt_priv, (char *)ptr, size);
-	tmp_work_info = kmalloc(sizeof(struct rx_work_info), GFP_KERNEL);
+	tmp_work_info = kzalloc(sizeof(struct rx_work_info), GFP_KERNEL);
 	if (!tmp_work_info) {
 		LBSRV_ERR("%s:%s:%s %s: Error allocating rx_work\n",
 				rx_ch_info->transport, rx_ch_info->edge,
@@ -776,7 +776,7 @@ void glink_lpbsrv_notify_rxv(void *handle, const void *priv,
 	LBSRV_INFO("%s:%s:%s %s: priv[%p] data[%p] size[%zu]\n",
 		   rx_ch_info->transport, rx_ch_info->edge, rx_ch_info->name,
 		   __func__, pkt_priv, (char *)ptr, size);
-	tmp_work_info = kmalloc(sizeof(struct rx_work_info), GFP_KERNEL);
+	tmp_work_info = kzalloc(sizeof(struct rx_work_info), GFP_KERNEL);
 	if (!tmp_work_info) {
 		LBSRV_ERR("%s:%s:%s %s: Error allocating rx_work\n",
 				rx_ch_info->transport, rx_ch_info->edge,
