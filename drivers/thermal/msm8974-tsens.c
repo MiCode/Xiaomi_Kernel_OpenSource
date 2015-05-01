@@ -1294,7 +1294,10 @@ static irqreturn_t tsens_tm_critical_irq_thread(int irq, void *data)
 		}
 		if (critical_thr) {
 			unsigned long temp;
+			enum thermal_trip_type trip =
+					THERMAL_TRIP_CRITICAL;
 			tsens_tz_get_temp(tm->sensor[i].tz_dev, &temp);
+			thermal_sensor_trip(tm->sensor[i].tz_dev, trip, temp);
 
 			rc = tsens_get_sw_id_mapping(
 					tm->sensor[i].sensor_hw_num,
@@ -1363,6 +1366,7 @@ static irqreturn_t tsens_tm_irq_thread(int irq, void *data)
 			if (upper_thr)
 				trip = THERMAL_TRIP_CONFIGURABLE_HI;
 			tsens_tz_get_temp(tm->sensor[i].tz_dev, &temp);
+			thermal_sensor_trip(tm->sensor[i].tz_dev, trip, temp);
 
 			rc = tsens_get_sw_id_mapping(
 					tm->sensor[i].sensor_hw_num,
@@ -1437,6 +1441,7 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 			if (upper_thr)
 				trip = THERMAL_TRIP_CONFIGURABLE_HI;
 			tsens_tz_get_temp(tm->sensor[i].tz_dev, &temp);
+			thermal_sensor_trip(tm->sensor[i].tz_dev, trip, temp);
 
 			rc = tsens_get_sw_id_mapping(
 					tm->sensor[i].sensor_hw_num,
