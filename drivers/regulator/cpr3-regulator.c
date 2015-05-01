@@ -1208,7 +1208,7 @@ static int cpr3_regulator_disable(struct regulator_dev *rdev)
 		if (rc) {
 			cpr3_err(thread, "unable to switch to BHS mode, rc=%d\n",
 				 rc);
-			return rc;
+			goto done;
 		}
 	}
 
