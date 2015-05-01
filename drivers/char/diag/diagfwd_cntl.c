@@ -44,7 +44,7 @@ void diag_clean_reg_fn(struct work_struct *work)
 	reg_dirty ^= smd_info->peripheral_mask;
 
 	/* Reset the feature mask flag */
-	driver->rcvd_feature_mask[smd_info->peripheral] = 0;
+	driver->feature[smd_info->peripheral].rcvd_feature_mask = 0;
 
 	smd_info->notify_context = 0;
 }
@@ -59,7 +59,7 @@ void diag_cntl_smd_work_fn(struct work_struct *work)
 		return;
 
 	if (smd_info->general_context == UPDATE_PERIPHERAL_STM_STATE) {
-		if (driver->peripheral_supports_stm[smd_info->peripheral] ==
+		if (driver->feature[smd_info->peripheral].stm_support ==
 								ENABLE_STM) {
 			int status = 0;
 			int index = smd_info->peripheral;
@@ -79,7 +79,7 @@ void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action)
 		return;
 
 	if (action == CLEAR_PERIPHERAL_STM_STATE) {
-		driver->peripheral_supports_stm[smd_info->peripheral] =
+		driver->feature[smd_info->peripheral].stm_support =
 								DISABLE_STM;
 		/*
 		 * Turn off STM for now until such time as the
@@ -92,7 +92,7 @@ void diag_cntl_stm_notify(struct diag_smd_info *smd_info, int action)
 
 static void enable_stm_feature(struct diag_smd_info *smd_info)
 {
-	driver->peripheral_supports_stm[smd_info->peripheral] = ENABLE_STM;
+	driver->feature[smd_info->peripheral].stm_support = ENABLE_STM;
 	smd_info->general_context = UPDATE_PERIPHERAL_STM_STATE;
 	queue_work(driver->diag_cntl_wq, &(smd_info->diag_general_smd_work));
 }
@@ -104,18 +104,18 @@ static void process_hdlc_encoding_feature(struct diag_smd_info *smd_info)
 	 * peripheral supports apps hdlc encoding
 	 */
 	if (driver->supports_apps_hdlc_encoding) {
-		driver->smd_data[smd_info->peripheral].encode_hdlc =
+		driver->feature[smd_info->peripheral].encode_hdlc =
 						ENABLE_APPS_HDLC_ENCODING;
-		if (driver->separate_cmdrsp[smd_info->peripheral] &&
+		if (driver->feature[smd_info->peripheral].separate_cmd_rsp &&
 			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
-			driver->smd_cmd[smd_info->peripheral].encode_hdlc =
+			driver->feature[smd_info->peripheral].encode_hdlc =
 						ENABLE_APPS_HDLC_ENCODING;
 	} else {
-		driver->smd_data[smd_info->peripheral].encode_hdlc =
+		driver->feature[smd_info->peripheral].encode_hdlc =
 						DISABLE_APPS_HDLC_ENCODING;
-		if (driver->separate_cmdrsp[smd_info->peripheral] &&
+		if (driver->feature[smd_info->peripheral].separate_cmd_rsp &&
 			smd_info->peripheral < NUM_SMD_CMD_CHANNELS)
-			driver->smd_cmd[smd_info->peripheral].encode_hdlc =
+			driver->feature[smd_info->peripheral].encode_hdlc =
 						DISABLE_APPS_HDLC_ENCODING;
 	}
 }
@@ -262,26 +262,26 @@ static void process_incoming_feature_mask(uint8_t *buf, uint32_t len,
 		feature_mask_len = FEATURE_MASK_LEN;
 	}
 
-	driver->rcvd_feature_mask[peripheral] = 1;
+	driver->feature[peripheral].rcvd_feature_mask = 1;
 
 	for (i = 0; i < feature_mask_len && read_len < len; i++) {
 		feature_mask = *(uint8_t *)ptr;
-		driver->peripheral_feature[peripheral][i] = feature_mask;
+		driver->feature[peripheral].feature_mask[i] = feature_mask;
 		ptr += sizeof(uint8_t);
 		read_len += sizeof(uint8_t);
 
 		if (FEATURE_SUPPORTED(F_DIAG_LOG_ON_DEMAND_APPS))
 			driver->log_on_demand_support = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_REQ_RSP_SUPPORT))
-			driver->separate_cmdrsp[peripheral] = 1;
+			driver->feature[peripheral].separate_cmd_rsp = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_APPS_HDLC_ENCODE))
 			process_hdlc_encoding_feature(smd_info);
 		if (FEATURE_SUPPORTED(F_DIAG_STM))
 			enable_stm_feature(smd_info);
 		if (FEATURE_SUPPORTED(F_DIAG_MASK_CENTRALIZATION))
-			driver->mask_centralization[peripheral] = 1;
+			driver->feature[peripheral].mask_centralization = 1;
 		if (FEATURE_SUPPORTED(F_DIAG_PERIPHERAL_BUFFERING))
-			driver->peripheral_buffering_support[peripheral] = 1;
+			driver->feature[peripheral].peripheral_buffering = 1;
 	}
 }
 
@@ -799,7 +799,7 @@ void diag_real_time_work_fn(struct work_struct *work)
 	 * packet.
 	 */
 	for (i = 0; i < NUM_SMD_CONTROL_CHANNELS; i++) {
-		if (!driver->peripheral_buffering_support[i])
+		if (!driver->feature[i].peripheral_buffering)
 			continue;
 		switch (driver->buffering_mode[i].mode) {
 		case DIAG_BUFFERING_MODE_THRESHOLD:
@@ -943,7 +943,7 @@ int diag_send_peripheral_buffering_mode(struct diag_buffering_mode_t *params)
 		return -EINVAL;
 	}
 
-	if (!driver->peripheral_buffering_support[peripheral]) {
+	if (!driver->feature[peripheral].peripheral_buffering) {
 		pr_debug("diag: In %s, peripheral %d doesn't support buffering\n",
 			 __func__, peripheral);
 		return -EIO;
@@ -1002,7 +1002,7 @@ int diag_send_stm_state(struct diag_smd_info *smd_info,
 	int err = 0;
 
 	if (!smd_info || (smd_info->type != SMD_CNTL_TYPE) ||
-		(driver->peripheral_supports_stm[smd_info->peripheral] ==
+		(driver->feature[smd_info->peripheral].stm_support ==
 								DISABLE_STM)) {
 		return -EINVAL;
 	}
@@ -1035,7 +1035,7 @@ int diag_send_peripheral_drain_immediate(struct diag_smd_info *smd_info)
 	if (!smd_info)
 		return -EIO;
 
-	if (!driver->peripheral_buffering_support[smd_info->peripheral]) {
+	if (!driver->feature[smd_info->peripheral].peripheral_buffering) {
 		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",
 			 __func__, smd_info->peripheral);
 		return -EINVAL;
@@ -1065,7 +1065,7 @@ int diag_send_buffering_tx_mode_pkt(struct diag_smd_info *smd_info,
 	if (!smd_info || !params)
 		return -EIO;
 
-	if (!driver->peripheral_buffering_support[smd_info->peripheral]) {
+	if (!driver->feature[smd_info->peripheral].peripheral_buffering) {
 		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",
 			 __func__, smd_info->peripheral);
 		return -EINVAL;
@@ -1113,7 +1113,7 @@ int diag_send_buffering_wm_values(struct diag_smd_info *smd_info,
 	if (!smd_info || !params)
 		return -EIO;
 
-	if (!driver->peripheral_buffering_support[smd_info->peripheral]) {
+	if (!driver->feature[smd_info->peripheral].peripheral_buffering) {
 		pr_debug("diag: In %s, peripheral  %d doesn't support buffering\n",
 			 __func__, smd_info->peripheral);
 		return -EINVAL;
