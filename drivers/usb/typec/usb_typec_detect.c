@@ -120,6 +120,33 @@ static enum typec_cc_pin get_active_cc(struct typec_cc_psy *cc1,
 	return ret;
 }
 
+/*
+ * return 1 on VBUS presence (UFP detected),
+ * 0 on measurement sucess,
+ * -ERR on measuremet failure
+ */
+static int detect_measure_cc(struct typec_detect *detect, enum typec_cc_pin pin,
+		struct typec_cc_psy *cc_psy, bool *found)
+{
+	int ret;
+
+	ret = typec_measure_cc(detect->phy, pin, cc_psy, msecs_to_jiffies(3));
+	if (ret >= 0) {
+		*found = true;
+		ret = 0;
+	}
+	mutex_lock(&detect->lock);
+	if (detect->got_vbus) {
+		ret = detect->got_vbus;
+		mutex_unlock(&detect->lock);
+		dev_err(detect->phy->dev, "%s:exiting got vbus cc%d\n",
+				__func__, pin);
+		return ret;
+	}
+	mutex_unlock(&detect->lock);
+	return ret;
+}
+
 static void detect_dfp_work(struct work_struct *work)
 {
 	struct typec_detect *detect =
@@ -128,11 +155,9 @@ static void detect_dfp_work(struct work_struct *work)
 	bool cc2_found = false;
 	int ret;
 	enum typec_cc_pin use_cc = 0;
-	enum typec_cc_pin cc_pin = 0;
 	struct typec_phy *phy = detect->phy;
 	struct typec_cc_psy cc1 = {0, 0};
 	struct typec_cc_psy cc2 = {0, 0};
-	struct typec_cc_psy *pcc;
 
 	mutex_lock(&detect->lock);
 	if (detect->state != DETECT_STATE_UNATTACHED_DFP || detect->got_vbus) {
@@ -141,32 +166,20 @@ static void detect_dfp_work(struct work_struct *work)
 	}
 	mutex_unlock(&detect->lock);
 
+	ret = detect_measure_cc(detect, TYPEC_PIN_CC1, &cc1, &cc1_found);
+	/* if vbus is received due to the UFP attachment, then break worker */
+	if (ret > 0)
+		return;
 
-	cc_pin = TYPEC_PIN_CC1;
-	pcc = &cc1;
-	do {
-		ret = typec_measure_cc(detect->phy, cc_pin, pcc,
-				msecs_to_jiffies(3));
-		if (ret >= 0)
-			cc_pin == TYPEC_PIN_CC1 ? (cc1_found = true)
-				: (cc2_found = true);
-
-		mutex_lock(&detect->lock);
-		if (detect->got_vbus) {
-			mutex_unlock(&detect->lock);
-			dev_err(detect->phy->dev, "%s:exiting got vbus cc%d\n",
-					__func__, cc_pin);
-			return;
-		}
-		mutex_unlock(&detect->lock);
-
-		cc_pin = TYPEC_PIN_CC2;
-		pcc = &cc2;
-	} while (cc_pin <= TYPEC_PIN_CC2);
+	ret = detect_measure_cc(detect, TYPEC_PIN_CC2, &cc2, &cc2_found);
+	/* if vbus is received due to the UFP attachment, then break worker */
+	if (ret > 0)
+		return;
 
 	dev_dbg(detect->phy->dev,
 		"cc1_found = %d cc2_found = %d unattach dfp cc1 = %d, cc2 = %d",
 		cc1_found, cc2_found, cc1.v_rd, cc2.v_rd);
+
 	if (cc1_found && cc2_found) {
 		if (((CC_RA(cc1.v_rd) || (CC_OPEN(cc1.v_rd)))
 				&& CC_RD(cc2.v_rd)) ||
@@ -183,7 +196,6 @@ static void detect_dfp_work(struct work_struct *work)
 			use_cc = get_active_cc(&cc1, &cc2);
 			typec_setup_cc(phy, use_cc, TYPEC_STATE_ATTACHED_DFP);
 
-			/* enable VBUS */
 			extcon_set_cable_state(detect->edev, "USB-Host", true);
 			atomic_notifier_call_chain(&detect->otg->notifier,
 				USB_EVENT_ID, NULL);
