@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include <linux/coresight.h>
 #include "coresight-qmi.h"
 
-#ifdef CONFIG_CORESIGHT_MODEM_ETM_DEFAULT_ENABLE
+#ifdef CONFIG_CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
 static int boot_enable = 1;
 #else
 static int boot_enable;
@@ -34,7 +34,7 @@ module_param_named(
 	boot_enable, boot_enable, int, S_IRUGO
 );
 
-struct modem_etm_drvdata {
+struct remote_etm_drvdata {
 	struct device			*dev;
 	struct coresight_device		*csdev;
 	struct mutex			mutex;
@@ -47,9 +47,9 @@ struct modem_etm_drvdata {
 	uint32_t			inst_id;
 };
 
-static int modem_etm_enable(struct coresight_device *csdev)
+static int remote_etm_enable(struct coresight_device *csdev)
 {
-	struct modem_etm_drvdata *drvdata =
+	struct remote_etm_drvdata *drvdata =
 		dev_get_drvdata(csdev->dev.parent);
 	struct coresight_set_etm_req_msg_v01 req;
 	struct coresight_set_etm_resp_msg_v01 resp = { { 0, 0 } };
@@ -103,17 +103,17 @@ static int modem_etm_enable(struct coresight_device *csdev)
 out:
 	mutex_unlock(&drvdata->mutex);
 
-	dev_info(drvdata->dev, "Modem ETM tracing enabled\n");
+	dev_info(drvdata->dev, "Remote ETM tracing enabled\n");
 	return 0;
 err:
 	mutex_unlock(&drvdata->mutex);
 	return ret;
 }
 
-static void modem_etm_disable(struct coresight_device *csdev)
+static void remote_etm_disable(struct coresight_device *csdev)
 {
-	struct modem_etm_drvdata *drvdata =
-		dev_get_drvdata(csdev->dev.parent);
+	struct remote_etm_drvdata *drvdata =
+		 dev_get_drvdata(csdev->dev.parent);
 	struct coresight_set_etm_req_msg_v01 req;
 	struct coresight_set_etm_resp_msg_v01 resp = { { 0, 0 } };
 	struct msg_desc req_desc, resp_desc;
@@ -154,37 +154,37 @@ static void modem_etm_disable(struct coresight_device *csdev)
 out:
 	mutex_unlock(&drvdata->mutex);
 
-	dev_info(drvdata->dev, "Modem ETM tracing disabled\n");
+	dev_info(drvdata->dev, "Remote ETM tracing disabled\n");
 	return;
 err:
 	mutex_unlock(&drvdata->mutex);
 }
 
-static const struct coresight_ops_source modem_etm_source_ops = {
-	.enable		= modem_etm_enable,
-	.disable	= modem_etm_disable,
+static const struct coresight_ops_source remote_etm_source_ops = {
+	.enable		= remote_etm_enable,
+	.disable	= remote_etm_disable,
 };
 
-static const struct coresight_ops modem_cs_ops = {
-	.source_ops	= &modem_etm_source_ops,
+static const struct coresight_ops remote_cs_ops = {
+	.source_ops	= &remote_etm_source_ops,
 };
 
-static void modem_etm_rcv_msg(struct work_struct *work)
+static void remote_etm_rcv_msg(struct work_struct *work)
 {
-	struct modem_etm_drvdata *drvdata = container_of(work,
-					    struct modem_etm_drvdata,
-					    work_rcv_msg);
+	struct remote_etm_drvdata *drvdata = container_of(work,
+						struct remote_etm_drvdata,
+						work_rcv_msg);
 
 	if (qmi_recv_msg(drvdata->handle) < 0)
 		dev_err(drvdata->dev, "%s: Error receiving QMI message\n",
 			__func__);
 }
 
-static void modem_etm_notify(struct qmi_handle *handle,
-			enum qmi_event_type event, void *notify_priv)
+static void remote_etm_notify(struct qmi_handle *handle,
+			   enum qmi_event_type event, void *notify_priv)
 {
-	struct modem_etm_drvdata *drvdata =
-			(struct modem_etm_drvdata *)notify_priv;
+	struct remote_etm_drvdata *drvdata =
+			(struct remote_etm_drvdata *)notify_priv;
 	switch (event) {
 	case QMI_RECV_MSG:
 		queue_work(drvdata->wq, &drvdata->work_rcv_msg);
@@ -194,13 +194,13 @@ static void modem_etm_notify(struct qmi_handle *handle,
 	}
 }
 
-static void modem_etm_svc_arrive(struct work_struct *work)
+static void remote_etm_svc_arrive(struct work_struct *work)
 {
-	struct modem_etm_drvdata *drvdata = container_of(work,
-					    struct modem_etm_drvdata,
-					    work_svc_arrive);
+	struct remote_etm_drvdata *drvdata = container_of(work,
+						struct remote_etm_drvdata,
+						work_svc_arrive);
 
-	drvdata->handle = qmi_handle_create(modem_etm_notify, drvdata);
+	drvdata->handle = qmi_handle_create(remote_etm_notify, drvdata);
 	if (!drvdata->handle) {
 		dev_err(drvdata->dev, "%s: QMI client handle alloc failed\n",
 			__func__);
@@ -217,23 +217,23 @@ static void modem_etm_svc_arrive(struct work_struct *work)
 	}
 }
 
-static void modem_etm_svc_exit(struct work_struct *work)
+static void remote_etm_svc_exit(struct work_struct *work)
 {
-	struct modem_etm_drvdata *drvdata = container_of(work,
-					    struct modem_etm_drvdata,
-					    work_svc_exit);
+	struct remote_etm_drvdata *drvdata = container_of(work,
+						struct remote_etm_drvdata,
+						work_svc_exit);
 
 	qmi_handle_destroy(drvdata->handle);
 	drvdata->handle = NULL;
 }
 
-static int modem_etm_svc_event_notify(struct notifier_block *this,
-				      unsigned long event,
-				      void *data)
+static int remote_etm_svc_event_notify(struct notifier_block *this,
+				    unsigned long event,
+				    void *data)
 {
-	struct modem_etm_drvdata *drvdata = container_of(this,
-					    struct modem_etm_drvdata,
-					    nb);
+	struct remote_etm_drvdata *drvdata = container_of(this,
+						struct remote_etm_drvdata,
+						nb);
 
 	switch (event) {
 	case QMI_SERVER_ARRIVE:
@@ -248,11 +248,11 @@ static int modem_etm_svc_event_notify(struct notifier_block *this,
 	return 0;
 }
 
-static int modem_etm_probe(struct platform_device *pdev)
+static int remote_etm_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct coresight_platform_data *pdata;
-	struct modem_etm_drvdata *drvdata;
+	struct remote_etm_drvdata *drvdata;
 	struct coresight_desc *desc;
 	int ret;
 
@@ -273,24 +273,23 @@ static int modem_etm_probe(struct platform_device *pdev)
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
 		return -ENOMEM;
-
 	if (pdev->dev.of_node) {
 		ret = of_property_read_u32(pdev->dev.of_node, "qcom,inst-id",
 					   &drvdata->inst_id);
 		if (ret)
-			drvdata->inst_id = CORESIGHT_SVC_INST_ID_MODEM_V01;
+			return ret;
 	}
 
 	mutex_init(&drvdata->mutex);
 
-	drvdata->nb.notifier_call = modem_etm_svc_event_notify;
+	drvdata->nb.notifier_call = remote_etm_svc_event_notify;
 
-	drvdata->wq = create_singlethread_workqueue("modem-etm");
+	drvdata->wq = create_singlethread_workqueue(dev_name(dev));
 	if (!drvdata->wq)
 		return -EFAULT;
-	INIT_WORK(&drvdata->work_svc_arrive, modem_etm_svc_arrive);
-	INIT_WORK(&drvdata->work_svc_exit, modem_etm_svc_exit);
-	INIT_WORK(&drvdata->work_rcv_msg, modem_etm_rcv_msg);
+	INIT_WORK(&drvdata->work_svc_arrive, remote_etm_svc_arrive);
+	INIT_WORK(&drvdata->work_svc_exit, remote_etm_svc_exit);
+	INIT_WORK(&drvdata->work_rcv_msg, remote_etm_rcv_msg);
 	ret = qmi_svc_event_notifier_register(CORESIGHT_QMI_SVC_ID,
 					      CORESIGHT_QMI_VERSION,
 					      drvdata->inst_id,
@@ -300,7 +299,7 @@ static int modem_etm_probe(struct platform_device *pdev)
 
 	desc->type = CORESIGHT_DEV_TYPE_SOURCE;
 	desc->subtype.source_subtype = CORESIGHT_DEV_SUBTYPE_SOURCE_PROC;
-	desc->ops = &modem_cs_ops;
+	desc->ops = &remote_cs_ops;
 	desc->pdata = pdev->dev.platform_data;
 	desc->dev = &pdev->dev;
 	desc->owner = THIS_MODULE;
@@ -309,10 +308,11 @@ static int modem_etm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drvdata->csdev);
 		goto err1;
 	}
-	dev_info(dev, "Modem ETM initialized\n");
+	dev_info(dev, "Remote ETM initialized\n");
 
 	if (boot_enable)
 		coresight_enable(drvdata->csdev);
+
 	return 0;
 err1:
 	qmi_svc_event_notifier_unregister(CORESIGHT_QMI_SVC_ID,
@@ -324,40 +324,40 @@ err0:
 	return ret;
 }
 
-static int modem_etm_remove(struct platform_device *pdev)
+static int remote_etm_remove(struct platform_device *pdev)
 {
-	struct modem_etm_drvdata *drvdata = platform_get_drvdata(pdev);
+	struct remote_etm_drvdata *drvdata = platform_get_drvdata(pdev);
 
 	coresight_unregister(drvdata->csdev);
 	return 0;
 }
 
-static struct of_device_id modem_etm_match[] = {
-	{.compatible = "qcom,coresight-modem-etm"},
+static struct of_device_id remote_etm_match[] = {
+	{.compatible = "qcom,coresight-remote-etm"},
 	{}
 };
 
-static struct platform_driver modem_etm_driver = {
-	.probe          = modem_etm_probe,
-	.remove         = modem_etm_remove,
+static struct platform_driver remote_etm_driver = {
+	.probe          = remote_etm_probe,
+	.remove         = remote_etm_remove,
 	.driver         = {
-		.name   = "coresight-modem-etm",
+		.name   = "coresight-remote-etm",
 		.owner	= THIS_MODULE,
-		.of_match_table = modem_etm_match,
+		.of_match_table = remote_etm_match,
 	},
 };
 
-int __init modem_etm_init(void)
+int __init remote_etm_init(void)
 {
-	return platform_driver_register(&modem_etm_driver);
+	return platform_driver_register(&remote_etm_driver);
 }
-module_init(modem_etm_init);
+module_init(remote_etm_init);
 
-void __exit modem_etm_exit(void)
+void __exit remote_etm_exit(void)
 {
-	platform_driver_unregister(&modem_etm_driver);
+	platform_driver_unregister(&remote_etm_driver);
 }
-module_exit(modem_etm_exit);
+module_exit(remote_etm_exit);
 
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("CoreSight Modem ETM driver");
+MODULE_DESCRIPTION("CoreSight Remote ETM driver");
