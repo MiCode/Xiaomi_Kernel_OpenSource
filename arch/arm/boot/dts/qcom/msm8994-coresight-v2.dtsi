@@ -412,6 +412,8 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <2>;
+
+		qcom,inst-id = <5>;
 	};
 
 	modem_etm0 {
@@ -423,6 +425,8 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <1>;
+
+		qcom,inst-id = <2>;
 	};
 
 	wcn_etm0 {
@@ -434,6 +438,8 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in1>;
 		coresight-child-ports = <0>;
+
+		qcom,inst-id = <3>;
 	};
 
 	rpm_etm0 {
@@ -445,6 +451,8 @@
 		coresight-outports = <0>;
 		coresight-child-list = <&funnel_in0>;
 		coresight-child-ports = <0>;
+
+		qcom,inst-id = <4>;
 	};
 
 	csr: csr@fc301000 {
