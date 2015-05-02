@@ -178,23 +178,14 @@ struct msm_isp_buf_mgr {
 	/*IOMMU driver*/
 	int ns_iommu_hdl;
 	int sec_iommu_hdl;
-	/*IOMMU specific*/
-	int iommu_domain_num;
-	struct iommu_domain *iommu_domain;
-
-	/*Add secure domain num and domain */
-	int iommu_domain_num_secure;
-	struct iommu_domain *iommu_domain_secure;
 
 	/*Add secure mode*/
 	int secure_enable;
 
 	int num_iommu_ctx;
-	struct device *iommu_ctx[2];
 	struct list_head buffer_q;
 	spinlock_t bufq_list_lock;
 	int num_iommu_secure_ctx;
-	struct device *iommu_secure_ctx[2];
 	int attach_ref_cnt[MAX_PROTECTION_MODE][MAX_IOMMU_CTX];
 	enum msm_isp_buf_mgr_state attach_state;
 	struct mutex lock;

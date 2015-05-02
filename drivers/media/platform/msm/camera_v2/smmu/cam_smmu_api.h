@@ -24,7 +24,6 @@
 #include <linux/random.h>
 #include <linux/spinlock_types.h>
 #include <linux/mutex.h>
-#include "../msm.h"
 
 /*
  * Enum for possible CAM SMMU operations
@@ -45,7 +44,8 @@ enum cam_smmu_map_dir {
 	CAM_SMMU_MAP_INVALID
 };
 
-/* @param identifier: Unique identifier to be used by clients which they
+/**
+ * @param identifier: Unique identifier to be used by clients which they
  *                    should get from device tree. CAM SMMU driver will
  *                    not enforce how this string is obtained and will
  *                    only validate this against the list of permitted
@@ -56,7 +56,8 @@ enum cam_smmu_map_dir {
  */
 int cam_smmu_get_handle(char *identifier, int *handle_ptr);
 
-/* @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
  * @param op    : Operation to be performed. Can be either CAM_SMMU_ATTACH
  *                or CAM_SMMU_DETACH
  *
@@ -64,7 +65,8 @@ int cam_smmu_get_handle(char *identifier, int *handle_ptr);
  */
 int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
 
-/* @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
  * @param ion_fd: ION handle identifying the memory buffer.
  * @phys_addr   : Pointer to physical address where mapped address will be
  *                returned.
@@ -75,19 +77,42 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
  */
 int cam_smmu_get_phy_addr(int handle,
 				int ion_fd, enum cam_smmu_map_dir dir,
-				dma_addr_t *dma_addr, unsigned long *len_ptr);
+				dma_addr_t *dma_addr, size_t *len_ptr);
 
-/* @param handle: Handle to identify the CAMSMMU client (VFE, CPP, FD etc.)
+/**
+ * @param handle: Handle to identify the CAMSMMU client (VFE, CPP, FD etc.)
  * @param ion_fd: ION handle identifying the memory buffer.
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_put_phy_addr(int handle, int ion_fd);
 
-/* @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_destroy_handle(int handle);
+
+/**
+ * @return numger of client. Zero in case of error.
+ */
+int cam_smmu_get_num_of_clients(void);
+
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @return Index of SMMU client. Nagative in case of error.
+ */
+int cam_smmu_find_index_by_handle(int hdl);
+
+/**
+ * @param handle: Handle to identify the CAM SMMU client (VFE, CPP, FD etc.)
+ * @param client_page_fault_handler: It is triggered in IOMMU page fault
+ * @param token: It is input param when trigger page fault handler
+ */
+void cam_smmu_reg_client_page_fault_handler(int handle,
+		int (*client_page_fault_handler)(struct iommu_domain *,
+		struct device *, unsigned long,
+		int, void*), void *token);
 
 #endif /* _CAM_SMMU_API_H_ */

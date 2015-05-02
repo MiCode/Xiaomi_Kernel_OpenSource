@@ -106,44 +106,40 @@ error:
 	return rc;
 }
 
-void msm_jpeg_platform_p2v(struct msm_jpeg_device *pgmn_dev, struct file  *file,
-	struct ion_handle **ionhandle, int domain_num)
+void msm_jpeg_platform_p2v(int iommu_hdl, int fd)
 {
-	ion_unmap_iommu(pgmn_dev->jpeg_client, *ionhandle, domain_num, 0);
-	ion_free(pgmn_dev->jpeg_client, *ionhandle);
-	*ionhandle = NULL;
+	cam_smmu_put_phy_addr(iommu_hdl, fd);
+	return;
 }
 
 uint32_t msm_jpeg_platform_v2p(struct msm_jpeg_device *pgmn_dev, int fd,
-	uint32_t len, struct file **file_p, struct ion_handle **ionhandle,
-	int domain_num) {
+	uint32_t len, int iommu_hdl)
+{
 	dma_addr_t paddr;
 	unsigned long size;
 	int rc;
-	*ionhandle = ion_import_dma_buf(pgmn_dev->jpeg_client, fd);
-	if (IS_ERR_OR_NULL(*ionhandle))
-		return 0;
 
-	rc = ion_map_iommu(pgmn_dev->jpeg_client, *ionhandle, domain_num, 0,
-		SZ_4K, 0, &paddr, (unsigned long *)&size, 0, 0);
+	rc = cam_smmu_get_phy_addr(pgmn_dev->iommu_hdl, fd, CAM_SMMU_MAP_RW,
+			&paddr, (size_t *)&size);
 	JPEG_DBG("%s:%d] addr 0x%x size %ld", __func__, __LINE__,
 		(uint32_t)paddr, size);
 
 	if (rc < 0) {
-		JPEG_PR_ERR("%s: ion_map_iommu fd %d error %d\n", __func__, fd,
+		JPEG_PR_ERR("%s: fd %d got phy addr error %d\n", __func__, fd,
 			rc);
-		goto error1;
+		goto err_get_phy;
 	}
 
 	/* validate user input */
 	if (len > size) {
 		JPEG_PR_ERR("%s: invalid offset + len\n", __func__);
-		goto error1;
+		goto err_size;
 	}
 
 	return paddr;
-error1:
-	ion_free(pgmn_dev->jpeg_client, *ionhandle);
+err_size:
+	cam_smmu_put_phy_addr(pgmn_dev->iommu_hdl, fd);
+err_get_phy:
 	return 0;
 }
 
@@ -292,32 +288,22 @@ static struct msm_bus_scale_pdata msm_jpeg_bus_client_pdata = {
 #ifdef CONFIG_MSM_IOMMU
 static int msm_jpeg_attach_iommu(struct msm_jpeg_device *pgmn_dev)
 {
-	int i;
-
-	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
-		int rc = iommu_attach_device(pgmn_dev->domain,
-				pgmn_dev->iommu_ctx_arr[i]);
-		if (rc < 0) {
-			JPEG_PR_ERR("%s: Device attach failed\n", __func__);
-			return -ENODEV;
-		}
-		JPEG_DBG("%s:%d] dom 0x%lx ctx 0x%lx", __func__, __LINE__,
-				(unsigned long)pgmn_dev->domain,
-				(unsigned long)pgmn_dev->iommu_ctx_arr[i]);
+	int rc;
+	rc = cam_smmu_ops(pgmn_dev->iommu_hdl, CAM_SMMU_ATTACH);
+	if (rc < 0) {
+		JPEG_PR_ERR("%s: Device attach failed\n", __func__);
+		return -ENODEV;
 	}
+	JPEG_DBG("%s:%d] handle %d attach\n",
+			__func__, __LINE__, pgmn_dev->iommu_hdl);
 	return 0;
 }
+
 static int msm_jpeg_detach_iommu(struct msm_jpeg_device *pgmn_dev)
 {
-	int i;
-
-	for (i = 0; i < pgmn_dev->iommu_cnt; i++) {
-		JPEG_DBG("%s:%d] dom 0x%lx ctx 0x%lx", __func__, __LINE__,
-				(unsigned long)pgmn_dev->domain,
-				(unsigned long)pgmn_dev->iommu_ctx_arr[i]);
-		iommu_detach_device(pgmn_dev->domain,
-				pgmn_dev->iommu_ctx_arr[i]);
-	}
+	JPEG_DBG("%s:%d] handle %d detach\n",
+			__func__, __LINE__, pgmn_dev->iommu_hdl);
+	cam_smmu_ops(pgmn_dev->iommu_hdl, CAM_SMMU_DETACH);
 	return 0;
 }
 #else

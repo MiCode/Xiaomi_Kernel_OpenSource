@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -294,6 +294,7 @@ static void msm_jpeg_exit(struct msm_jpeg_device *msm_jpeg_device_p)
 			msm_jpeg_device_p->msm_jpeg_devno);
 	class_destroy(msm_jpeg_device_p->msm_jpeg_class);
 	unregister_chrdev_region(msm_jpeg_device_p->msm_jpeg_devno, 1);
+	cam_smmu_destroy_handle(msm_jpeg_device_p->iommu_hdl);
 
 	__msm_jpeg_exit(msm_jpeg_device_p);
 }
