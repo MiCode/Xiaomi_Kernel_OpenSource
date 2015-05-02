@@ -1,6 +1,6 @@
 /* drivers/soc/qcom/smp2p_private_api.h
  *
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,7 @@ enum {
 	SMP2P_POWER_PROC      = 6,
 	/* add new processors here */
 
-	SMP2P_REMOTE_MOCK_PROC,
+	SMP2P_REMOTE_MOCK_PROC = 15,
 	SMP2P_NUM_PROCS,
 };
 
