@@ -95,6 +95,31 @@
 			};
 		};
 
+		mdc0_pin {
+			qcom,pins = <&gp 14>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "mdc0-pin";
+			/* default state */
+			mdc0_pin_default: mdc0_pin_default {
+				drive-strength = <8>; /* 8 MA */
+				bias-disable; /* No PULL */
+				output-high;
+			};
+		};
+
+		mdio0_pin {
+			qcom,pins = <&gp 15>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "mdio0-pin";
+			/* default state */
+			mdio0_pin_default: mdio0_pin_default {
+				drive-strength = <8>; /* 8 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
 		pcie0_perst {
 			qcom,pins = <&gp 21>;
 			qcom,num-grp-pins = <1>;

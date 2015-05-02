@@ -23,6 +23,7 @@
 	interrupt-parent = <&intc>;
 
 	aliases {
+		mdio-gpio0 = &mdio0;
 		sdhc1 = &sdhc_1; /* SDC1 eMMC slot */
 	};
 
@@ -993,6 +994,106 @@
 		status = "disable";
 	};
 
+	nss-common@fc800000 {
+		compatible = "qcom,nss-common";
+		reg-names = "nss_fpb_base", "clk_ctl_base";
+		reg = <0xfc800000 0x00001000>,
+		      <0xfc400000 0x00004000>;
+	};
+
+	nss: nss@e6000000 {
+		compatible = "qcom,nss";
+		interrupts = <0 229 0x4>,
+			     <0 230 0x4>;
+		reg-names = "nphys", "vphys";
+		reg = <0xe6000000 0x1000>,
+		      <0xe4000000 0x20000>;
+		qcom,id = <0>;
+		qcom,nss-ctrl = <1>;
+		qcom,ipv4-enabled;
+		qcom,ipv6-enabled;
+		qcom,crypto-enabled;
+		qcom,gmac0-enabled;
+		qcom,gmac1-enabled;
+	};
+
+	nss-gmac-common@fc800000 {
+		compatible = "qcom,nss-gmac-common";
+		reg-names = "nss_reg_base" , "qsgmii_reg_base", "clk_ctl_base";
+		reg = <0xfc800000 0x0000ffff>,
+		      <0xfc900000 0x0000ffff>,
+		      <0xfc400000 0x00004000>;
+	};
+
+	gmac0: ethernet@e7000000 {
+		device_type = "network";
+		compatible = "qcom,nss-gmac";
+		reg = <0xe7000000 0x200000>;
+		interrupts = <0 242 0>;
+		phy-mode = "sgmii";
+		qcom,id = <0>;
+		qcom,chanid = <1>;
+		qcom,phy-mdio-addr = <0>;
+		qcom,poll-required = <1>;
+		qcom,rgmii-delay = <0>;
+		qcom,forced-speed = <0>;
+		qcom,forced-duplex = <10>;
+		local-mac-address = [000000000000];
+		mdiobus = <&mdio0>;
+	};
+
+	gmac1: ethernet@e7200000 {
+		device_type = "network";
+		compatible = "qcom,nss-gmac";
+		reg = <0xe7200000 0x200000>;
+		interrupts = <0 244 0>;
+		phy-mode = "sgmii";
+		qcom,id = <1>;
+		qcom,chanid = <2>;
+		qcom,phy-mdio-addr = <1>;
+		qcom,poll-required = <1>;
+		qcom,rgmii-delay = <0>;
+		qcom,forced-speed = <0>;
+		qcom,forced-duplex = <10>;
+		local-mac-address = [000000000000];
+		mdiobus = <&mdio0>;
+	};
+
+	mdio0: mdio {
+		compatible = "virtual,mdio-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&mdc0_pin_default &mdio0_pin_default>;
+
+		gpios = <&msm_gpio 14 0 &msm_gpio 15 0>;
+
+		phy0: ethernet-phy@0 {
+			device_type = "ethernet-phy";
+			reg = <0>;
+		};
+		phy1: ethernet-phy@1 {
+			device_type = "ethernet-phy";
+			reg = <1>;
+		};
+	};
+
+	crypto0: crypto@e8000000 {
+		compatible = "qcom,nss-crypto";
+		reg-names = "crypto_pbase", "bam_base";
+		reg = <0xe8000000 0x20000>,
+			<0xe8004000 0x22000>;
+		qcom,ee = <0>;
+	};
+
+	crypto1: crypto@e8400000 {
+		compatible = "qcom,nss-crypto";
+		reg-names = "crypto_pbase", "bam_base";
+		reg = <0xe8400000 0x20000>,
+			<0xe8404000 0x22000>;
+		qcom,ee = <0>;
+	};
 };
 
 #include "fsm9010-regulator.dtsi"

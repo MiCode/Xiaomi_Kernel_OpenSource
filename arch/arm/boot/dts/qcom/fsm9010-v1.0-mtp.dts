@@ -79,4 +79,21 @@
 		compatible = "usb-nop-xceiv";
 	};
 
+	gmac0: ethernet@e7000000 {
+		status = "ok";
+	};
+
+	gmac1: ethernet@e7200000 {
+		status = "disabled";
+	};
+
+	mdio0: mdio {
+		phy0: ethernet-phy@0 {
+			status = "ok";
+		};
+
+		phy1: ethernet-phy@1 {
+			status = "disabled";
+		};
+	};
 };
