@@ -1723,19 +1723,21 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 
 	for (i = 0; i < nmixers; i++) {
 		mixer = mixer_pool + i;
-		if (mixer->ref_cnt == 0) {
-			mixer->ref_cnt++;
-			mixer->params_changed++;
-			mixer->ctl = ctl;
-			pr_debug("alloc mixer num %d for ctl=%d\n",
-				 mixer->num, ctl->num);
+		if (mixer->ref_cnt == 0)
 			break;
-		}
 		mixer = NULL;
 	}
 
 	if (!mixer && alt_mixer && (alt_mixer->ref_cnt == 0))
 		mixer = alt_mixer;
+
+	if (mixer) {
+		mixer->ref_cnt++;
+		mixer->params_changed++;
+		mixer->ctl = ctl;
+		pr_debug("alloc mixer num %d for ctl=%d\n",
+				mixer->num, ctl->num);
+	}
 	mutex_unlock(&mdss_mdp_ctl_lock);
 
 	return mixer;
@@ -2003,8 +2005,7 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 
 	max_mixer_width = ctl->mdata->max_mixer_width;
 
-	split_fb = (ctl->mfd->split_fb_left &&
-		    ctl->mfd->split_fb_right &&
+	split_fb = (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY &&
 		    (ctl->mfd->split_fb_left <= max_mixer_width) &&
 		    (ctl->mfd->split_fb_right <= max_mixer_width)) ? 1 : 0;
 	pr_debug("max=%d xres=%d left=%d right=%d\n", max_mixer_width,
@@ -2341,12 +2342,15 @@ int mdss_mdp_ctl_split_display_setup(struct mdss_mdp_ctl *ctl,
 
 	sctl->roi = (struct mdss_rect){0, 0, sctl->width, sctl->height};
 
-	ctl->mixer_left = mdss_mdp_mixer_alloc(ctl, MDSS_MDP_MIXER_TYPE_INTF,
-			false, 0);
 	if (!ctl->mixer_left) {
-		pr_err("unable to allocate layer mixer\n");
-		mdss_mdp_ctl_destroy(sctl);
-		return -ENOMEM;
+		ctl->mixer_left = mdss_mdp_mixer_alloc(ctl,
+				MDSS_MDP_MIXER_TYPE_INTF,
+				false, 0);
+		if (!ctl->mixer_left) {
+			pr_err("unable to allocate layer mixer\n");
+			mdss_mdp_ctl_destroy(sctl);
+			return -ENOMEM;
+		}
 	}
 
 	mixer = mdss_mdp_mixer_alloc(sctl, MDSS_MDP_MIXER_TYPE_INTF, false, 0);
