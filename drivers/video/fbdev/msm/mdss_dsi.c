@@ -1805,11 +1805,14 @@ static int mdss_dsi_ctl_partial_roi(struct mdss_panel_data *pdata)
 		return -EINVAL;
 	}
 
+	if (!pdata->panel_info.partial_update_enabled)
+		return 0;
+
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
 	if (ctrl_pdata->set_col_page_addr)
-		rc = ctrl_pdata->set_col_page_addr(pdata);
+		rc = ctrl_pdata->set_col_page_addr(pdata, false);
 
 	return rc;
 }
@@ -1880,6 +1883,56 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x194, idle);
 
 	return 0;
+}
+
+static int mdss_dsi_reset_write_ptr(struct mdss_panel_data *pdata)
+{
+
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo;
+	int rc = 0;
+
+	if (pdata == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return -EINVAL;
+	}
+
+	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
+			panel_data);
+
+	pinfo = &ctrl_pdata->panel_data.panel_info;
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	/* Need to reset the DSI core since the pixel stream was stopped. */
+	mdss_dsi_sw_reset(ctrl_pdata, true);
+
+	/*
+	 * Reset the partial update co-ordinates to the panel height and
+	 * width
+	 */
+	if (pinfo->dcs_cmd_by_left && (ctrl_pdata->ndx == 1))
+		goto skip_cmd_send;
+
+	pinfo->roi.x = 0;
+	pinfo->roi.y = 0;
+	pinfo->roi.w = pinfo->xres;
+	if (pinfo->dcs_cmd_by_left)
+		pinfo->roi.w = pinfo->xres;
+	if (pdata->next)
+		pinfo->roi.w += pdata->next->panel_info.xres;
+	pinfo->roi.h = pinfo->yres;
+
+	mdss_dsi_set_stream_size(pdata);
+
+	if (ctrl_pdata->set_col_page_addr)
+		rc = ctrl_pdata->set_col_page_addr(pdata, true);
+
+skip_cmd_send:
+	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+
+	pr_debug("%s: DSI%d write ptr reset finished\n", __func__,
+			ctrl_pdata->ndx);
+
+	return rc;
 }
 
 int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
@@ -2000,6 +2053,9 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		break;
 	case MDSS_EVENT_ENABLE_PARTIAL_ROI:
 		rc = mdss_dsi_ctl_partial_roi(pdata);
+		break;
+	case MDSS_EVENT_DSI_RESET_WRITE_PTR:
+		rc = mdss_dsi_reset_write_ptr(pdata);
 		break;
 	case MDSS_EVENT_DSI_STREAM_SIZE:
 		rc = mdss_dsi_set_stream_size(pdata);
