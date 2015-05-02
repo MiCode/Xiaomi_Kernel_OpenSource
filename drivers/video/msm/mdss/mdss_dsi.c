@@ -35,8 +35,6 @@
 /* Master structure to hold all the information about the DSI/panel */
 static struct mdss_dsi_data *mdss_dsi_res;
 
-static struct dsi_drv_cm_data shared_ctrl_data;
-
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
 
@@ -1939,12 +1937,12 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		ctrl_pdata->refresh_clk_rate = true;
 		break;
 	case MDSS_EVENT_LINK_READY:
+		mdss_dsi_get_hw_revision(ctrl_pdata);
 		rc = mdss_dsi_on(pdata);
 		mdss_dsi_op_mode_config(pdata->panel_info.mipi.mode,
 							pdata);
 		break;
 	case MDSS_EVENT_UNBLANK:
-		mdss_dsi_get_hw_revision(ctrl_pdata);
 		if (ctrl_pdata->refresh_clk_rate)
 			rc = mdss_dsi_clk_refresh(pdata);
 
@@ -2450,6 +2448,8 @@ static int mdss_dsi_res_init(struct platform_device *pdev)
 			goto mem_fail;
 		}
 
+		mutex_init(&sdata->phy_reg_lock);
+
 		for (i = 0; i < DSI_CTRL_MAX; i++) {
 			mdss_dsi_res->ctrl_pdata[i] = devm_kzalloc(&pdev->dev,
 					sizeof(struct mdss_dsi_ctrl_pdata),
@@ -2741,18 +2741,15 @@ int mdss_dsi_retrieve_ctrl_resources(struct platform_device *pdev, int mode,
 		return rc;
 	}
 
-	ctrl->shared_ctrl_data = &shared_ctrl_data;
-	rc = msm_dss_ioremap_byname(pdev,
-			&ctrl->shared_ctrl_data->phy_regulator_io,
+	rc = msm_dss_ioremap_byname(pdev, &ctrl->phy_regulator_io,
 			"dsi_phy_regulator");
 	if (rc)
 		pr_debug("%s:%d unable to remap dsi phy regulator resources\n",
 			       __func__, __LINE__);
 	else
 		pr_info("%s: phy_regulator_base=%p phy_regulator_size=%x\n",
-			__func__,
-			ctrl->shared_ctrl_data->phy_regulator_io.base,
-			ctrl->shared_ctrl_data->phy_regulator_io.len);
+			__func__, ctrl->phy_regulator_io.base,
+			ctrl->phy_regulator_io.len);
 
 	pr_info("%s: ctrl_base=%p ctrl_size=%x phy_base=%p phy_size=%x\n",
 		__func__, ctrl->ctrl_base, ctrl->reg_size, ctrl->phy_io.base,
@@ -3094,6 +3091,7 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 			mdss_dsi_panel_pwm_enable(ctrl_pdata);
 		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+		ctrl_pdata->is_phyreg_enabled = 1;
 		ctrl_pdata->ctrl_state |=
 			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
 	} else {
@@ -3109,18 +3107,16 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	if (pinfo->pdest == DISPLAY_1) {
 		mdss_debug_register_io("dsi0_ctrl", &ctrl_pdata->ctrl_io, NULL);
 		mdss_debug_register_io("dsi0_phy", &ctrl_pdata->phy_io, NULL);
-		if (ctrl_pdata->shared_ctrl_data->phy_regulator_io.len)
+		if (ctrl_pdata->phy_regulator_io.len)
 			mdss_debug_register_io("dsi0_phy_regulator",
-				&ctrl_pdata->shared_ctrl_data->phy_regulator_io,
-				NULL);
+				&ctrl_pdata->phy_regulator_io, NULL);
 		ctrl_pdata->ndx = 0;
 	} else {
 		mdss_debug_register_io("dsi1_ctrl", &ctrl_pdata->ctrl_io, NULL);
 		mdss_debug_register_io("dsi1_phy", &ctrl_pdata->phy_io, NULL);
-		if (ctrl_pdata->shared_ctrl_data->phy_regulator_io.len)
+		if (ctrl_pdata->phy_regulator_io.len)
 			mdss_debug_register_io("dsi1_phy_regulator",
-			  &ctrl_pdata->shared_ctrl_data->phy_regulator_io,
-			  NULL);
+				&ctrl_pdata->phy_regulator_io, NULL);
 		ctrl_pdata->ndx = 1;
 	}
 
