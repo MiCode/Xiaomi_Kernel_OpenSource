@@ -122,11 +122,10 @@ static void mdss_dsi_phy_regulator_disable(struct mdss_dsi_ctrl_pdata *ctrl)
 		MDSS_DSI_HW_REV_104))
 		return;
 
-	MIPI_OUTP(ctrl->shared_ctrl_data->phy_regulator_io.base
-		+ 0x018, 0x000);
+	MIPI_OUTP(ctrl->phy_regulator_io.base + 0x018, 0x000);
 }
 
-static void mdss_dsi_phy_lane_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
+static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	if (!ctrl) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -139,41 +138,6 @@ static void mdss_dsi_phy_lane_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 	else
 		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
 
-}
-
-void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-	struct mdss_dsi_ctrl_pdata *other_ctrl;
-	if (ctrl == NULL) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	ctrl->shared_ctrl_data->phy_disable_refcount++;
-
-	/*
-	 * In split-dsi configuration, the phy should be disabled for the
-	 * first controller only when the second controller is disabled.
-	 * This is true regardless of whether broadcast mode is enabled.
-	 */
-	if (!mdss_dsi_is_hw_config_split(ctrl->shared_data) ||
-			ctrl->shared_ctrl_data->phy_disable_refcount == 2) {
-
-		other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
-		if (other_ctrl)
-			mdss_dsi_phy_lane_shutdown(other_ctrl);
-
-		mdss_dsi_phy_lane_shutdown(ctrl);
-
-		mdss_dsi_phy_regulator_disable(ctrl);
-
-		/*
-		* Wait for the registers writes to complete in order to
-		* ensure that the phy is completely disabled
-		*/
-		wmb();
-		ctrl->shared_ctrl_data->phy_disable_refcount = 0;
-	}
 }
 
 /**
@@ -211,27 +175,26 @@ static void mdss_dsi_28nm_phy_regulator_enable(
 
 	if (pd->reg_ldo_mode) {
 		/* Regulator ctrl 0 */
-		MIPI_OUTP(ctrl_pdata->shared_ctrl_data->phy_regulator_io.base,
-				0x0);
+		MIPI_OUTP(ctrl_pdata->phy_regulator_io.base, 0x0);
 		/* Regulator ctrl - CAL_PWR_CFG */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x18, pd->regulator[6]);
 		/* Add H/w recommended delay */
 		udelay(1000);
 		/* Regulator ctrl - TEST */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x14, pd->regulator[5]);
 		/* Regulator ctrl 3 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0xc, pd->regulator[3]);
 		/* Regulator ctrl 2 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x8, pd->regulator[2]);
 		/* Regulator ctrl 1 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x4, pd->regulator[1]);
 		/* Regulator ctrl 4 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x10, pd->regulator[4]);
 		/* LDO ctrl */
 		if (MIPI_INP(ctrl_pdata->ctrl_base) == MDSS_DSI_HW_REV_103_1)
@@ -240,34 +203,34 @@ static void mdss_dsi_28nm_phy_regulator_enable(
 			MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x0d);
 	} else {
 		/* Regulator ctrl 0 */
-		MIPI_OUTP(ctrl_pdata->shared_ctrl_data->phy_regulator_io.base,
+		MIPI_OUTP(ctrl_pdata->phy_regulator_io.base,
 					0x0);
 		/* Regulator ctrl - CAL_PWR_CFG */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x18, pd->regulator[6]);
 		/* Add H/w recommended delay */
 		udelay(1000);
 		/* Regulator ctrl 1 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x4, pd->regulator[1]);
 		/* Regulator ctrl 2 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x8, pd->regulator[2]);
 		/* Regulator ctrl 3 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0xc, pd->regulator[3]);
 		/* Regulator ctrl 4 */
-		MIPI_OUTP((ctrl_pdata->shared_ctrl_data->phy_regulator_io.base)
+		MIPI_OUTP((ctrl_pdata->phy_regulator_io.base)
 				+ 0x10, pd->regulator[4]);
 		/* LDO ctrl */
 		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x1dc, 0x00);
 		/* Regulator ctrl 0 */
-		MIPI_OUTP(ctrl_pdata->shared_ctrl_data->phy_regulator_io.base,
+		MIPI_OUTP(ctrl_pdata->phy_regulator_io.base,
 				pd->regulator[0]);
 	}
 }
 
-static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+static void mdss_dsi_28nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	struct mdss_dsi_phy_ctrl *pd;
 	int i, off, ln, offset;
@@ -279,10 +242,10 @@ static void mdss_dsi_28nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
 
-	/* Strength ctrl 0 */
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
-
-	mdss_dsi_28nm_phy_regulator_enable(ctrl_pdata);
+	/* Strength ctrl 0 for 28nm PHY*/
+	if ((ctrl_pdata->shared_data->hw_rev <= MDSS_DSI_HW_REV_103) &&
+		(ctrl_pdata->shared_data->hw_rev != MDSS_DSI_HW_REV_103))
+		MIPI_OUTP((ctrl_pdata->phy_io.base) + 0x0184, pd->strength[0]);
 
 	off = 0x0140;	/* phy timing ctrl 0 - 11 */
 	for (i = 0; i < 12; i++) {
@@ -338,7 +301,7 @@ static void mdss_dsi_20nm_phy_regulator_enable(struct mdss_dsi_ctrl_pdata
 	void __iomem *phy_io_base;
 
 	pd = &(((ctrl_pdata->panel_data).panel_info.mipi).dsi_phy_db);
-	phy_io_base = ctrl_pdata->shared_ctrl_data->phy_regulator_io.base;
+	phy_io_base = ctrl_pdata->phy_regulator_io.base;
 
 	if (pd->regulator_len != 7) {
 		pr_err("%s: wrong regulator settings\n", __func__);
@@ -481,6 +444,38 @@ static void mdss_dsi_8996_pll_source_from_left(
 	MIPI_OUTP((ctrl->phy_io.base) + DSIPHY_CMN_GLBL_TEST_CTRL, data);
 }
 
+static void mdss_dsi_8996_phy_regulator_enable(
+	struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_dsi_phy_ctrl *pd;
+	int j, off, ln, cnt, ln_off;
+	char *ip;
+	void __iomem *base;
+
+	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
+	/* 4 lanes + clk lane configuration */
+	for (ln = 0; ln < 5; ln++) {
+		/*
+		 * data lane offset frome base: 0x100
+		 * data lane size: 0x80
+		 */
+		base = ctrl->phy_io.base +
+				DATALANE_OFFSET_FROM_BASE_8996;
+		base += (ln * DATALANE_SIZE_8996); /* lane base */
+
+		/* vreg ctrl, 1 * 5 */
+		cnt = 1;
+		ln_off = cnt * ln;
+		ip = &pd->regulator[ln_off];
+		off = 0x64;
+		for (j = 0; j < cnt; j++, off += 4)
+			MIPI_OUTP(base + off, *ip++);
+	}
+
+	wmb(); /* make sure registers committed */
+
+}
+
 static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	struct mdss_dsi_phy_ctrl *pd;
@@ -548,14 +543,6 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		off = 0x38;
 		for (j = 0; j < cnt; j++, off += 4)
 			MIPI_OUTP(base + off, *ip++);
-
-		/* vreg ctrl, 1 * 5 */
-		cnt = 1;
-		ln_off = cnt * ln;
-		ip = &pd->regulator[ln_off];
-		off = 0x64;
-		for (j = 0; j < cnt; j++, off += 4)
-			MIPI_OUTP(base + off, *ip++);
 	}
 
 	wmb(); /* make sure registers committed */
@@ -581,47 +568,113 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 	wmb(); /* make sure registers committed */
 }
 
-static void mdss_dsi_20nm_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+static void mdss_dsi_phy_regulator_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
+	bool enable)
 {
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
+	struct mdss_dsi_ctrl_pdata *other_ctrl;
+	struct dsi_shared_data *sdata;
 
-	mdss_dsi_20nm_phy_regulator_enable(ctrl_pdata);
-
-	mdss_dsi_20nm_phy_config(ctrl_pdata);
-}
-
-static void mdss_dsi_8996_phy_init(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
-{
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid input data\n", __func__);
-		return;
-	}
-
-	mdss_dsi_8996_phy_config(ctrl_pdata);
-}
-
-static void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
-{
 	if (!ctrl) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return;
 	}
 
-	switch (ctrl->shared_data->hw_rev) {
-	case MDSS_DSI_HW_REV_104:
-	case MDSS_DSI_HW_REV_104_1:
-		mdss_dsi_8996_phy_init(ctrl);
-		break;
-	case MDSS_DSI_HW_REV_103:
-		mdss_dsi_20nm_phy_init(ctrl);
-		break;
-	default:
-		mdss_dsi_28nm_phy_init(ctrl);
-		break;
+	sdata = ctrl->shared_data;
+
+	mutex_lock(&sdata->phy_reg_lock);
+	if (enable) {
+		switch (ctrl->shared_data->hw_rev) {
+		case MDSS_DSI_HW_REV_104:
+		case MDSS_DSI_HW_REV_104_1:
+			mdss_dsi_8996_phy_regulator_enable(ctrl);
+			break;
+		case MDSS_DSI_HW_REV_103:
+			mdss_dsi_20nm_phy_regulator_enable(ctrl);
+			break;
+		default:
+			mdss_dsi_28nm_phy_regulator_enable(ctrl);
+			break;
+		}
+		ctrl->is_phyreg_enabled = 1;
+	} else {
+		/*
+		 * In split-dsi/dual-dsi configuration, the dsi phy regulator
+		 * should be turned off only when both the DSI devices are
+		 * going to be turned off since it is shared.
+		 */
+		if (mdss_dsi_is_hw_config_split(ctrl->shared_data) ||
+			mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
+			other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
+			if (other_ctrl && !other_ctrl->is_phyreg_enabled)
+				mdss_dsi_phy_regulator_disable(ctrl);
+		} else {
+			mdss_dsi_phy_regulator_disable(ctrl);
+		}
+		ctrl->is_phyreg_enabled = 0;
 	}
+	mutex_unlock(&sdata->phy_reg_lock);
+}
+
+static void mdss_dsi_phy_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, bool enable)
+{
+	struct mdss_dsi_ctrl_pdata *other_ctrl;
+	if (!ctrl) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	if (enable) {
+		switch (ctrl->shared_data->hw_rev) {
+		case MDSS_DSI_HW_REV_104:
+		case MDSS_DSI_HW_REV_104_1:
+			mdss_dsi_8996_phy_config(ctrl);
+			break;
+		case MDSS_DSI_HW_REV_103:
+			mdss_dsi_20nm_phy_config(ctrl);
+			break;
+		default:
+			mdss_dsi_28nm_phy_config(ctrl);
+			break;
+		}
+	} else {
+		/*
+		 * In split-dsi configuration, the phy should be disabled for
+		 * the first controller only when the second controller is
+		 * disabled. This is true regardless of whether broadcast
+		 * mode is enabled.
+		 */
+		if (mdss_dsi_is_hw_config_split(ctrl->shared_data)) {
+			other_ctrl = mdss_dsi_get_other_ctrl(ctrl);
+			if (mdss_dsi_is_right_ctrl(ctrl) && other_ctrl) {
+				mdss_dsi_phy_shutdown(other_ctrl);
+				mdss_dsi_phy_shutdown(ctrl);
+			}
+		} else {
+			mdss_dsi_phy_shutdown(ctrl);
+		}
+	}
+}
+
+void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	if (ctrl == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return;
+	}
+
+	mdss_dsi_phy_ctrl(ctrl, false);
+	mdss_dsi_phy_regulator_ctrl(ctrl, false);
+	/*
+	 * Wait for the registers writes to complete in order to
+	 * ensure that the phy is completely disabled
+	 */
+	wmb();
+}
+
+void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	mdss_dsi_phy_regulator_ctrl(ctrl, true);
+	mdss_dsi_phy_ctrl(ctrl, true);
 }
 
 void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)

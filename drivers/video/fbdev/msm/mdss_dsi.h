@@ -251,6 +251,9 @@ struct dsi_shared_data {
 
 	/* DSI core regulators */
 	struct dss_module_power power_data[DSI_MAX_PM];
+
+	/* Shared mutex for DSI PHY regulator */
+	struct mutex phy_reg_lock;
 };
 
 struct mdss_dsi_data {
@@ -305,11 +308,6 @@ struct dsi_kickoff_action {
 	void *data;
 };
 
-struct dsi_drv_cm_data {
-	struct dss_io_data phy_regulator_io;
-	int phy_disable_refcount;
-};
-
 struct dsi_pinctrl_res {
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *gpio_state_active;
@@ -360,6 +358,7 @@ struct mdss_dsi_ctrl_pdata {
 	struct dss_io_data ctrl_io;
 	struct dss_io_data mmss_misc_io;
 	struct dss_io_data phy_io;
+	struct dss_io_data phy_regulator_io;
 	int reg_size;
 	u32 core_clk_cnt;
 	u32 link_clk_cnt;
@@ -403,7 +402,6 @@ struct mdss_dsi_ctrl_pdata {
 
 	struct mdss_rect roi;
 	struct pwm_device *pwm_bl;
-	struct dsi_drv_cm_data *shared_ctrl_data;
 	u32 pclk_rate;
 	u32 byte_clk_rate;
 	bool refresh_clk_rate; /* flag to recalculate clk_rate */
@@ -445,6 +443,8 @@ struct mdss_dsi_ctrl_pdata {
 	bool core_power;
 	bool mmss_clamp;
 	char dlane_swap;	/* data lane swap */
+	bool is_phyreg_enabled;
+
 
 	struct dsi_buf tx_buf;
 	struct dsi_buf rx_buf;
