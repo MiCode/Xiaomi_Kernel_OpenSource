@@ -25,6 +25,8 @@ struct irq_domain;
 struct spi_device;
 struct regmap;
 struct regmap_range_cfg;
+struct regmap_field;
+struct swr_device;
 
 /* An enum of all the supported cache types */
 enum regcache_type {
@@ -320,6 +322,8 @@ struct regmap *regmap_init_spi(struct spi_device *dev,
 struct regmap *regmap_init_mmio_clk(struct device *dev, const char *clk_id,
 				    void __iomem *regs,
 				    const struct regmap_config *config);
+struct regmap *regmap_init_swr(struct swr_device *dev,
+			       const struct regmap_config *config);
 
 struct regmap *devm_regmap_init(struct device *dev,
 				const struct regmap_bus *bus,
@@ -332,6 +336,8 @@ struct regmap *devm_regmap_init_spi(struct spi_device *dev,
 struct regmap *devm_regmap_init_mmio_clk(struct device *dev, const char *clk_id,
 					 void __iomem *regs,
 					 const struct regmap_config *config);
+struct regmap *devm_regmap_init_swr(struct swr_device *dev,
+				    const struct regmap_config *config);
 
 /**
  * regmap_init_mmio(): Initialise register map
