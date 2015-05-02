@@ -381,8 +381,25 @@ static void mdss_dsi_20nm_phy_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	MIPI_OUTP((ctrl_pdata->phy_io.base) + MDSS_DSI_DSIPHY_STRENGTH_CTRL_0,
 		pd->strength[0]);
 
-	MIPI_OUTP((ctrl_pdata->phy_io.base) + MDSS_DSI_DSIPHY_GLBL_TEST_CTRL,
-		0x00);
+
+	if (!mdss_dsi_is_hw_config_dual(ctrl_pdata->shared_data)) {
+		if (mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data) ||
+			mdss_dsi_is_left_ctrl(ctrl_pdata) ||
+			(mdss_dsi_is_right_ctrl(ctrl_pdata) &&
+			mdss_dsi_is_pll_src_pll0(ctrl_pdata->shared_data)))
+			MIPI_OUTP((ctrl_pdata->phy_io.base) +
+				MDSS_DSI_DSIPHY_GLBL_TEST_CTRL, 0x00);
+		else
+			MIPI_OUTP((ctrl_pdata->phy_io.base) +
+				MDSS_DSI_DSIPHY_GLBL_TEST_CTRL, 0x01);
+	} else {
+		if (mdss_dsi_is_left_ctrl(ctrl_pdata))
+			MIPI_OUTP((ctrl_pdata->phy_io.base) +
+				MDSS_DSI_DSIPHY_GLBL_TEST_CTRL, 0x00);
+		else
+			MIPI_OUTP((ctrl_pdata->phy_io.base) +
+				MDSS_DSI_DSIPHY_GLBL_TEST_CTRL, 0x01);
+	}
 
 	if (pd->lanecfg_len != 45) {
 		pr_err("%s: wrong lane cfg\n", __func__);
@@ -554,7 +571,11 @@ static void mdss_dsi_8996_phy_config(struct mdss_dsi_ctrl_pdata *ctrl)
 		else
 			mdss_dsi_8996_pll_source_from_right(ctrl);
 	} else {
-		mdss_dsi_8996_pll_source_standalone(ctrl);
+		if (mdss_dsi_is_right_ctrl(ctrl) &&
+			mdss_dsi_is_pll_src_pll0(ctrl->shared_data))
+			mdss_dsi_8996_pll_source_from_left(ctrl);
+		else
+			mdss_dsi_8996_pll_source_standalone(ctrl);
 	}
 
 	wmb(); /* make sure registers committed */
