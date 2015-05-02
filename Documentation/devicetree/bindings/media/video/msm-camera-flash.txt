@@ -45,6 +45,8 @@ Optional properties:
     and expected id read value.
 - qcom,max-current: Max current in mA supported by flash
 - qcom,max-duration: Max duration in milliseconds the flash can glow.
+-qcom,switch-source : Should contain phandle to switch source node.
+      This is used to trigger dual led at same time to avoid sync issues.
 Example:
 
 qcom,led-flash@60 {

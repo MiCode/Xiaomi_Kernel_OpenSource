@@ -378,6 +378,8 @@ static int32_t msm_flash_off(struct msm_flash_ctrl_t *flash_ctrl,
 	for (i = 0; i < flash_ctrl->torch_num_sources; i++)
 		if (flash_ctrl->torch_trigger[i])
 			led_trigger_event(flash_ctrl->torch_trigger[i], 0);
+	if (flash_ctrl->switch_trigger)
+		led_trigger_event(flash_ctrl->switch_trigger, 0);
 
 	CDBG("Exit\n");
 	return 0;
@@ -518,7 +520,8 @@ static int32_t msm_flash_low(
 				curr);
 		}
 	}
-
+	if (flash_ctrl->switch_trigger)
+		led_trigger_event(flash_ctrl->switch_trigger, 1);
 	CDBG("Exit\n");
 	return 0;
 }
@@ -554,6 +557,8 @@ static int32_t msm_flash_high(
 				curr);
 		}
 	}
+	if (flash_ctrl->switch_trigger)
+		led_trigger_event(flash_ctrl->switch_trigger, 1);
 	return 0;
 }
 
@@ -759,6 +764,32 @@ static int32_t msm_flash_get_pmic_source_info(
 	uint32_t count = 0, i = 0;
 	struct device_node *flash_src_node = NULL;
 	struct device_node *torch_src_node = NULL;
+	struct device_node *switch_src_node = NULL;
+
+	switch_src_node = of_parse_phandle(of_node, "qcom,switch-source", 0);
+	if (!switch_src_node) {
+		CDBG("%s:%d switch_src_node NULL\n", __func__, __LINE__);
+	} else {
+		rc = of_property_read_string(switch_src_node,
+			"qcom,default-led-trigger",
+			&fctrl->switch_trigger_name);
+		if (rc < 0) {
+			rc = of_property_read_string(switch_src_node,
+				"linux,default-trigger",
+				&fctrl->switch_trigger_name);
+			if (rc < 0)
+				pr_err("default-trigger read failed\n");
+		}
+		of_node_put(switch_src_node);
+		switch_src_node = NULL;
+		if (!rc) {
+			CDBG("switch trigger %s\n",
+				fctrl->switch_trigger_name);
+			led_trigger_register_simple(
+				fctrl->switch_trigger_name,
+				&fctrl->switch_trigger);
+		}
+	}
 
 	if (of_get_property(of_node, "qcom,flash-source", &count)) {
 		count /= sizeof(uint32_t);
