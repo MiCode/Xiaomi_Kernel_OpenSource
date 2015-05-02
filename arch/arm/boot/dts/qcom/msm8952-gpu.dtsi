@@ -113,7 +113,7 @@
 		coresight-child-ports = <4>;
 
 		/* CPU latency parameter */
-		qcom,pm-qos-active-latency = <401>;
+		qcom,pm-qos-active-latency = <601>;
 		qcom,pm-qos-wakeup-latency = <401>;
 
 		/* Power levels */
