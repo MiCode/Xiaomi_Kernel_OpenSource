@@ -125,6 +125,8 @@ struct channel_desc {
  * @out_irq_mask:		Mask written to @out_irq_reg to trigger the
  *				correct irq.
  * @irq_line:			The incoming interrupt line.
+ * @tx_irq_count:		Number of interrupts triggered.
+ * @rx_irq_count:		Number of interrupts received.
  * @tx_ch_desc:			Reference to the channel description structure
  *				for tx in SMEM for this edge.
  * @rx_ch_desc:			Reference to the channel description structure
@@ -164,6 +166,8 @@ struct edge_info {
 	void __iomem *out_irq_reg;
 	uint32_t out_irq_mask;
 	uint32_t irq_line;
+	uint32_t tx_irq_count;
+	uint32_t rx_irq_count;
 	struct channel_desc *tx_ch_desc;
 	struct channel_desc *rx_ch_desc;
 	void __iomem *tx_fifo;
@@ -207,6 +211,7 @@ struct deferred_cmd {
 static uint32_t negotiate_features_v1(struct glink_transport_if *if_ptr,
 				      const struct glink_core_version *version,
 				      uint32_t features);
+static void register_debugfs_info(struct edge_info *einfo);
 
 static struct edge_info *edge_infos[NUM_SMEM_SUBSYSTEMS];
 static DEFINE_MUTEX(probe_lock);
@@ -226,6 +231,7 @@ static void send_irq(struct edge_info *einfo)
 	 */
 	wmb();
 	writel_relaxed(einfo->out_irq_mask, einfo->out_irq_reg);
+	einfo->tx_irq_count++;
 }
 
 /**
@@ -1101,6 +1107,7 @@ irqreturn_t irq_handler(int irq, void *priv)
 	struct edge_info *einfo = (struct edge_info *)priv;
 
 	queue_kthread_work(&einfo->kworker, &einfo->kwork);
+	einfo->rx_irq_count++;
 
 	return IRQ_HANDLED;
 }
@@ -2149,6 +2156,7 @@ static int glink_smem_native_probe(struct platform_device *pdev)
 		pr_err("%s: enable_irq_wake() failed on %d\n", __func__,
 								irq_line);
 
+	register_debugfs_info(einfo);
 	/* fake an interrupt on this edge to see if the remote side is up */
 	irq_handler(0, einfo);
 	return 0;
@@ -2395,6 +2403,7 @@ static int glink_rpm_native_probe(struct platform_device *pdev)
 		pr_err("%s: enable_irq_wake() failed on %d\n", __func__,
 								irq_line);
 
+	register_debugfs_info(einfo);
 	einfo->xprt_if.glink_core_if_ptr->link_up(&einfo->xprt_if);
 	return 0;
 
@@ -2427,19 +2436,27 @@ edge_info_alloc_fail:
 static void debug_edge(struct seq_file *s)
 {
 	struct edge_info *einfo;
-	int i;
+	struct glink_dbgfs_data *dfs_d;
+
+	dfs_d = s->private;
+	einfo = dfs_d->priv_data;
 
 /*
  * formatted, human readable edge state output, ie:
-ID|NAME      |TX READ   |TX WRITE  |TX SIZE   |RX READ   |RX WRITE  |RX SIZE
+ * TX/RX fifo information:
+ID|EDGE      |TX READ   |TX WRITE  |TX SIZE   |RX READ   |RX WRITE  |RX SIZE
 -------------------------------------------------------------------------------
- 1|mpss      |0x00000128|0x00000128|0x00000800|0x00000256|0x00000256|0x00001000
- 4|lpass     |Link Not Up
+01|mpss      |0x00000128|0x00000128|0x00000800|0x00000256|0x00000256|0x00001000
+ *
+ * Interrupt information:
+ * EDGE      |TX INT    |RX INT
+ * --------------------------------
+ * mpss      |0x00000006|0x00000008
  */
-
+	seq_puts(s, "TX/RX fifo information:\n");
 	seq_printf(s, "%2s|%-10s|%-10s|%-10s|%-10s|%-10s|%-10s|%-10s\n",
 								"ID",
-								"NAME",
+								"EDGE",
 								"TX READ",
 								"TX WRITE",
 								"TX SIZE",
@@ -2448,17 +2465,14 @@ ID|NAME      |TX READ   |TX WRITE  |TX SIZE   |RX READ   |RX WRITE  |RX SIZE
 								"RX SIZE");
 	seq_puts(s,
 		"-------------------------------------------------------------------------------\n");
-	for (i = 0; i < NUM_SMEM_SUBSYSTEMS; ++i) {
-		einfo = edge_infos[i];
-		if (!einfo)
-			continue;
+	if (!einfo)
+		return;
 
-		seq_printf(s, "%02i|%-10s|", i, einfo->xprt_cfg.edge);
-		if (!einfo->rx_fifo) {
-			seq_puts(s, "Link Not Up\n");
-			continue;
-		}
-
+	seq_printf(s, "%02i|%-10s|", einfo->remote_proc_id,
+					einfo->xprt_cfg.edge);
+	if (!einfo->rx_fifo)
+		seq_puts(s, "Link Not Up\n");
+	else
 		seq_printf(s, "0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
 						einfo->tx_ch_desc->read_index,
 						einfo->tx_ch_desc->write_index,
@@ -2466,24 +2480,45 @@ ID|NAME      |TX READ   |TX WRITE  |TX SIZE   |RX READ   |RX WRITE  |RX SIZE
 						einfo->rx_ch_desc->read_index,
 						einfo->rx_ch_desc->write_index,
 						einfo->rx_fifo_size);
-	}
+
+	seq_puts(s, "\nInterrupt information:\n");
+	seq_printf(s, "%-10s|%-10s|%-10s\n", "EDGE", "TX INT", "RX INT");
+	seq_puts(s, "--------------------------------\n");
+	seq_printf(s, "%-10s|0x%08X|0x%08X\n", einfo->xprt_cfg.edge,
+						einfo->tx_irq_count,
+						einfo->rx_irq_count);
 }
 
 /**
- * debugfs_init() - initialize debugfs device entries
+ * register_debugfs_info() - initialize debugfs device entries
+ * @einfo:	Pointer to specific edge_info for which register is called.
  */
-static void debugfs_init(void)
+static void register_debugfs_info(struct edge_info *einfo)
 {
 	struct glink_dbgfs dfs;
+	char *curr_dir_name;
+	int dir_name_len;
 
-	dfs.curr_name = glink_get_xprt_enum_string(GLINK_DBGFS_SMEM);
+	dir_name_len = strlen(einfo->xprt_cfg.edge) +
+				strlen(einfo->xprt_cfg.name) + 2;
+	curr_dir_name = kmalloc(dir_name_len, GFP_KERNEL);
+	if (!curr_dir_name) {
+		GLINK_ERR("%s: Memory allocation failed\n", __func__);
+		return;
+	}
+
+	snprintf(curr_dir_name, dir_name_len, "%s_%s",
+				einfo->xprt_cfg.edge, einfo->xprt_cfg.name);
+	dfs.curr_name = curr_dir_name;
 	dfs.par_name = "xprt";
 	dfs.b_dir_create = false;
-	glink_debugfs_create("XPRT_INFO", debug_edge, &dfs, NULL, false);
+	glink_debugfs_create("XPRT_INFO", debug_edge,
+					&dfs, einfo, false);
+	kfree(curr_dir_name);
 }
 
 #else
-static void debugfs_init(void)
+static void register_debugfs_info(struct edge_info *einfo)
 {
 }
 #endif /* CONFIG_DEBUG_FS */
@@ -2534,7 +2569,6 @@ static int __init glink_smem_native_xprt_init(void)
 		return rc;
 	}
 
-	debugfs_init();
 	return 0;
 }
 arch_initcall(glink_smem_native_xprt_init);
