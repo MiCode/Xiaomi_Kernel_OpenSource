@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -60,6 +60,10 @@ static inline const char *mdss_mdp_format2str(u32 format)
 		FORMAT_NAME(Y_CR_CB_GH2V2),
 		FORMAT_NAME(YCBYCR_H2V1),
 		FORMAT_NAME(YCRYCB_H2V1),
+		FORMAT_NAME(RGBA_8888_UBWC),
+		FORMAT_NAME(RGBX_8888_UBWC),
+		FORMAT_NAME(RGB_565_UBWC),
+		FORMAT_NAME(Y_CBCR_H2V2_UBWC)
 #undef FORMAT_NAME
 	};
 
