@@ -301,6 +301,7 @@ header-y += msm_kgsl.h
 header-y += msm_mdp.h
 header-y += msm_mdp_ext.h
 header-y += msm_rmnet.h
+header-y += msm_rotator.h
 header-y += mtio.h
 header-y += nbd.h
 header-y += ncp_fs.h
