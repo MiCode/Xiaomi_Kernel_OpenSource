@@ -2903,12 +2903,11 @@ static int __init diagchar_init(void)
 	 * POOL_TYPE_MUX_APPS is for the buffers in the Diag MUX layer.
 	 * The number of buffers encompasses Diag data generated on
 	 * the Apss processor + 1 for the responses generated exclusively on
-	 * the Apps processor + data from data channels (2 channels per
-	 * peripheral) + data from command channels
+	 * the Apps processor + data from data channels (4 channels per
+	 * peripheral) + data from command channels (2)
 	 */
 	diagmem_setsize(POOL_TYPE_MUX_APPS, itemsize_usb_apps,
-			poolsize_usb_apps + 1 + (NUM_PERIPHERALS * 2) +
-			NUM_PERIPHERALS);
+			poolsize_usb_apps + 1 + (NUM_PERIPHERALS * 6));
 	driver->num_clients = max_clients;
 	driver->logging_mode = USB_MODE;
 	for (i = 0; i < DIAG_NUM_PROC; i++) {

@@ -38,6 +38,14 @@
 
 #define DIAG_USB_MODE		0
 
+struct diag_usb_buf_tbl_t {
+	struct list_head track;
+	unsigned char *buf;
+	uint32_t len;
+	atomic_t ref_count;
+	int ctxt;
+};
+
 struct diag_usb_info {
 	int id;
 	int ctxt;
@@ -47,6 +55,8 @@ struct diag_usb_info {
 	atomic_t read_pending;
 	int enabled;
 	int mempool;
+	int max_size;
+	struct list_head buf_tbl;
 	unsigned long read_cnt;
 	unsigned long write_cnt;
 	spinlock_t lock;
