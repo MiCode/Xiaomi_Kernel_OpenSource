@@ -1934,6 +1934,27 @@ out_unlock:
 	return ret;
 }
 
+static int arm_smmu_dma_supported(struct iommu_domain *domain,
+				  struct device *dev, u64 mask)
+{
+	struct arm_smmu_device *smmu;
+	struct arm_smmu_domain *smmu_domain = domain->priv;
+	int ret;
+
+	mutex_lock(&smmu_domain->lock);
+	smmu = smmu_domain->smmu;
+	if (!smmu) {
+		dev_err(dev,
+			"Can't call dma_supported on an unattached domain\n");
+		mutex_unlock(&smmu_domain->lock);
+		return 0;
+	}
+
+	ret = ((1ULL << smmu->va_size) - 1) <= mask ? 0 : 1;
+	mutex_unlock(&smmu_domain->lock);
+	return ret;
+}
+
 static struct iommu_ops arm_smmu_ops = {
 	.capable		= arm_smmu_capable,
 	.domain_init		= arm_smmu_domain_init,
@@ -1949,6 +1970,7 @@ static struct iommu_ops arm_smmu_ops = {
 	.domain_get_attr	= arm_smmu_domain_get_attr,
 	.domain_set_attr	= arm_smmu_domain_set_attr,
 	.pgsize_bitmap		= -1UL, /* Restricted during device attach */
+	.dma_supported		= arm_smmu_dma_supported,
 };
 
 static void arm_smmu_device_reset(struct arm_smmu_device *smmu)
