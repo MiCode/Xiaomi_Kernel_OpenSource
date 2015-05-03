@@ -86,3 +86,19 @@
 	qcom,hsusb-otg-otg-control = <1>;
 	qcom,emulation;
 };
+
+&clock_gcc {
+	compatible = "qcom,dummycc";
+};
+
+&clock_debug {
+	compatible = "qcom,dummycc";
+};
+
+&clock_gcc_mdss {
+	compatible = "qcom,dummycc";
+};
+
+&clock_gcc_gfx {
+	compatible = "qcom,dummycc";
+};
