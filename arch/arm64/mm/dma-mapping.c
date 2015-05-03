@@ -1416,6 +1416,12 @@ static int arm_iommu_dma_supported(struct device *dev, u64 mask)
 	return iommu_dma_supported(mapping->domain, dev, mask);
 }
 
+static int arm_iommu_mapping_error(struct device *dev,
+				   dma_addr_t dma_addr)
+{
+	return dma_addr == DMA_ERROR_CODE;
+}
+
 const struct dma_map_ops iommu_ops = {
 	.alloc		= arm_iommu_alloc_attrs,
 	.free		= arm_iommu_free_attrs,
@@ -1434,6 +1440,7 @@ const struct dma_map_ops iommu_ops = {
 
 	.set_dma_mask		= arm_dma_set_mask,
 	.dma_supported		= arm_iommu_dma_supported,
+	.mapping_error		= arm_iommu_mapping_error,
 };
 
 const struct dma_map_ops iommu_coherent_ops = {
