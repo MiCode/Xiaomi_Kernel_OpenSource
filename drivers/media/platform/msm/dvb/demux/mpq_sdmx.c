@@ -21,7 +21,7 @@
 static struct qseecom_handle *sdmx_qseecom_handles[SDMX_MAX_SESSIONS];
 static struct mutex sdmx_lock[SDMX_MAX_SESSIONS];
 
-#define QSEECOM_SBUFF_SIZE	SZ_16K
+#define QSEECOM_SBUFF_SIZE	SZ_128K
 #define QSEECOM_ALIGN_SIZE	0x40
 #define QSEECOM_ALIGN_MASK	(QSEECOM_ALIGN_SIZE - 1)
 #define QSEECOM_ALIGN(x)	\
