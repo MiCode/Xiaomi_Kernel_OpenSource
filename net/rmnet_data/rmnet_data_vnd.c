@@ -476,8 +476,6 @@ static const struct net_device_ops rmnet_data_vnd_ops = {
  *
  * Called by kernel whenever a new rmnet_data<n> device is created. Sets MTU,
  * flags, ARP type, needed headroom, etc...
- *
- * todo: What is watchdog_timeo? Do we need to explicitly set it?
  */
 static void rmnet_vnd_setup(struct net_device *dev)
 {
@@ -492,7 +490,6 @@ static void rmnet_vnd_setup(struct net_device *dev)
 	dev->mtu = RMNET_DATA_DFLT_PACKET_SIZE;
 	dev->needed_headroom = RMNET_DATA_NEEDED_HEADROOM;
 	random_ether_addr(dev->dev_addr);
-	dev->watchdog_timeo = 1000;
 	dev->tx_queue_len = RMNET_DATA_TX_QUEUE_LEN;
 
 	/* Raw IP mode */
