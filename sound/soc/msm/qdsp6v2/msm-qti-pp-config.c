@@ -60,6 +60,21 @@ struct msm_audio_eq_stream_config {
 	struct msm_audio_eq_band	eq_bands[EQ_BAND_MAX];
 } __packed;
 
+/* Audio Sphere data structures */
+struct msm_audio_pp_asphere_state_s {
+	uint32_t enabled;
+	uint32_t strength;
+	uint32_t mode;
+	uint32_t version;
+	int  port_id[AFE_MAX_PORTS];
+	int  copp_idx[AFE_MAX_PORTS];
+	bool  initialized;
+	uint32_t enabled_prev;
+	uint32_t strength_prev;
+};
+
+static struct msm_audio_pp_asphere_state_s asphere_state;
+
 struct msm_audio_eq_stream_config	eq_data[MAX_EQ_SESSIONS];
 
 static int msm_route_hfp_vol_control;
@@ -491,6 +506,173 @@ static int msm_qti_pp_put_channel_map_mixer(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+/* Audio Sphere functions */
+
+static void msm_qti_pp_asphere_init_state(void)
+{
+	int i;
+	if (asphere_state.initialized)
+		return;
+	asphere_state.initialized = true;
+	for (i = 0; i < AFE_MAX_PORTS; i++) {
+		asphere_state.port_id[i] = -1;
+		asphere_state.copp_idx[i] = -1;
+	}
+	asphere_state.enabled = 0;
+	asphere_state.strength = 0;
+	asphere_state.mode = 0;
+	asphere_state.version = 0;
+	asphere_state.enabled_prev = 0;
+	asphere_state.strength_prev = 0;
+}
+
+static int msm_qti_pp_asphere_send_params(int port_id, int copp_idx, bool force)
+{
+	char *params_value = NULL;
+	uint32_t *update_params_value = NULL;
+	uint32_t param_size = sizeof(uint32_t) +
+			sizeof(struct adm_param_data_v5);
+	int params_length = 0, param_count = 0, ret = 0;
+	bool set_enable = force ||
+			(asphere_state.enabled != asphere_state.enabled_prev);
+	bool set_strength = asphere_state.enabled == 1 && (set_enable ||
+		(asphere_state.strength != asphere_state.strength_prev));
+
+	if (set_enable)
+		param_count++;
+	if (set_strength)
+		param_count++;
+	params_length = param_count * param_size;
+
+	pr_debug("%s: port_id %d, copp_id %d, forced %d, param_count %d\n",
+			__func__, port_id, copp_idx, force, param_count);
+	pr_debug("%s: enable prev:%u cur:%u, strength prev:%u cur:%u\n",
+		__func__, asphere_state.enabled_prev, asphere_state.enabled,
+		asphere_state.strength_prev, asphere_state.strength);
+
+	if (params_length > 0)
+		params_value = kzalloc(params_length, GFP_KERNEL);
+	if (!params_value) {
+		pr_err("%s, params memory alloc failed\n", __func__);
+		return -ENOMEM;
+	}
+	update_params_value = (uint32_t *)params_value;
+	params_length = 0;
+	if (set_strength) {
+		/* add strength command */
+		*update_params_value++ = AUDPROC_MODULE_ID_AUDIOSPHERE;
+		*update_params_value++ = AUDPROC_PARAM_ID_AUDIOSPHERE_STRENGTH;
+		*update_params_value++ = sizeof(uint32_t);
+		*update_params_value++ = asphere_state.strength;
+		params_length += param_size;
+	}
+	if (set_enable) {
+		/* add enable command */
+		*update_params_value++ = AUDPROC_MODULE_ID_AUDIOSPHERE;
+		*update_params_value++ = AUDPROC_PARAM_ID_AUDIOSPHERE_ENABLE;
+		*update_params_value++ = sizeof(uint32_t);
+		*update_params_value++ = asphere_state.enabled;
+		params_length += param_size;
+	}
+	pr_debug("%s, param length: %d\n", __func__, params_length);
+	if (params_length) {
+		ret = adm_send_params_v5(port_id, copp_idx,
+					params_value, params_length);
+		if (ret) {
+			pr_err("%s: setting param failed with err=%d\n",
+				__func__, ret);
+			kfree(params_value);
+			return -EINVAL;
+		}
+	}
+	kfree(params_value);
+	return 0;
+}
+
+int msm_qti_pp_asphere_init(int port_id, int copp_idx)
+{
+	int index = adm_validate_and_get_port_index(port_id);
+
+	pr_debug("%s, port_id %d, copp_id %d\n", __func__, port_id, copp_idx);
+	if (index < 0) {
+		pr_err("%s: Invalid port idx %d port_id %#x\n", __func__, index,
+			port_id);
+		return -EINVAL;
+	}
+	msm_qti_pp_asphere_init_state();
+
+	asphere_state.port_id[index] = port_id;
+	asphere_state.copp_idx[index] = copp_idx;
+
+	if (asphere_state.enabled)
+		msm_qti_pp_asphere_send_params(port_id, copp_idx, true);
+
+	return 0;
+}
+
+void msm_qti_pp_asphere_deinit(int port_id)
+{
+	int index = adm_validate_and_get_port_index(port_id);
+
+	pr_debug("%s, port_id %d\n", __func__, port_id);
+	if (index < 0) {
+		pr_err("%s: Invalid port idx %d port_id %#x\n", __func__, index,
+			port_id);
+		return;
+	}
+
+	if (asphere_state.port_id[index] == port_id) {
+		asphere_state.port_id[index] = -1;
+		asphere_state.copp_idx[index] = -1;
+	}
+}
+
+static int msm_qti_pp_asphere_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	if (!asphere_state.initialized)
+		return -EAGAIN;
+	ucontrol->value.integer.value[0] = asphere_state.enabled;
+	ucontrol->value.integer.value[1] = asphere_state.strength;
+	pr_debug("%s, enable %u, strength %u\n", __func__,
+			asphere_state.enabled, asphere_state.strength);
+	return 0;
+}
+
+static int msm_qti_pp_asphere_set(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	int32_t enable = ucontrol->value.integer.value[0];
+	int32_t strength = ucontrol->value.integer.value[1];
+	int i;
+
+	pr_debug("%s, enable %u, strength %u\n", __func__, enable, strength);
+
+	msm_qti_pp_asphere_init_state();
+
+	if (enable == 0 || enable == 1) {
+		asphere_state.enabled_prev = asphere_state.enabled;
+		asphere_state.enabled = enable;
+	}
+
+	if (strength >= 0 && strength <= 1000) {
+		asphere_state.strength_prev = asphere_state.strength;
+		asphere_state.strength = strength;
+	}
+
+	if (asphere_state.strength != asphere_state.strength_prev ||
+		asphere_state.enabled != asphere_state.enabled_prev) {
+		for (i = 0; i < AFE_MAX_PORTS; i++) {
+			if (asphere_state.port_id[i] >= 0)
+				msm_qti_pp_asphere_send_params(
+					asphere_state.port_id[i],
+					asphere_state.copp_idx[i],
+					false);
+		}
+	}
+	return 0;
+}
+
 static const struct snd_kcontrol_new int_fm_vol_mixer_controls[] = {
 	SOC_SINGLE_EXT_TLV("Internal FM RX Volume", SND_SOC_NOPM, 0,
 	INT_RX_VOL_GAIN, 0, msm_qti_pp_get_fm_vol_mixer,
@@ -669,6 +851,11 @@ static const struct snd_kcontrol_new eq_coeff_mixer_controls[] = {
 	msm_qti_pp_get_eq_band_audio_mixer, msm_qti_pp_put_eq_band_audio_mixer),
 };
 
+static const struct snd_kcontrol_new asphere_mixer_controls[] = {
+	SOC_SINGLE_MULTI_EXT("MSM ASphere Set Param", SND_SOC_NOPM, 0,
+	0xFFFFFFFF, 0, 2, msm_qti_pp_asphere_get, msm_qti_pp_asphere_set),
+};
+
 void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 {
 	snd_soc_add_platform_controls(platform, int_fm_vol_mixer_controls,
@@ -699,4 +886,7 @@ void msm_qti_pp_add_controls(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, eq_coeff_mixer_controls,
 			ARRAY_SIZE(eq_coeff_mixer_controls));
+
+	snd_soc_add_platform_controls(platform, asphere_mixer_controls,
+			ARRAY_SIZE(asphere_mixer_controls));
 }

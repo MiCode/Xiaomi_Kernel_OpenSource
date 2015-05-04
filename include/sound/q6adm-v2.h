@@ -76,6 +76,9 @@ int adm_dts_eagle_get(int port_id, int copp_idx, int param_id,
 int adm_get_params(int port_id, int copp_idx, uint32_t module_id,
 		   uint32_t param_id, uint32_t params_length, char *params);
 
+int adm_send_params_v5(int port_id, int copp_idx, char *params,
+			      uint32_t params_length);
+
 int adm_dolby_dap_send_params(int port_id, int copp_idx, char *params,
 			      uint32_t params_length);
 
