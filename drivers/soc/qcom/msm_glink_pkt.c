@@ -725,7 +725,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 {
 	int ret;
 	struct glink_pkt_dev *devp;
-	size_t size = 0;
+	uint32_t size = 0;
 	uint32_t sigs = 0;
 
 	devp = file->private_data;
@@ -753,7 +753,7 @@ static long glink_pkt_ioctl(struct file *file, unsigned int cmd,
 
 	case GLINK_PKT_IOCTL_QUEUE_RX_INTENT:
 		ret = get_user(size, (uint32_t *)arg);
-		GLINK_PKT_INFO("%s: intent size[%zu]\n", __func__, size);
+		GLINK_PKT_INFO("%s: intent size[%d]\n", __func__, size);
 		ret  = glink_queue_rx_intent(devp->handle, devp, size);
 		if (ret) {
 			GLINK_PKT_ERR("%s: failed to QUEUE_RX_INTENT ret[%d]\n",
