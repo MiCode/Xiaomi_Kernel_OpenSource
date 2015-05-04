@@ -2609,7 +2609,7 @@
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,mx-restriction-temp = <5>;
-		qcom,mx-restriction-temp-hysteresis = <10>;
+		qcom,mx-restriction-temp-hysteresis = <5>;
 		qcom,mx-retention-min = <3>;
 		vdd-mx-supply = <&pm8994_s2_corner>;
 
