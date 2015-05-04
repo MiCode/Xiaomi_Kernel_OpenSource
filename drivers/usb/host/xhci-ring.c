@@ -2116,7 +2116,7 @@ static int process_ctrl_td(struct xhci_hcd *xhci, struct xhci_td *td,
 		if (!xhci_requires_manual_halt_cleanup(xhci,
 					ep_ctx, trb_comp_code))
 			break;
-		xhci_dbg(xhci, "TRB error code %u, "
+		xhci_err(xhci, "TRB error code %u, "
 				"halted endpoint index = %u\n",
 				trb_comp_code, ep_index);
 		/* else fall through */
