@@ -12,6 +12,34 @@
  */
 
 &soc {
+	gdsc_mmagic_bimc: qcom,gdsc@8c529c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_bimc";
+		reg = <0x8c529c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mmagic_video: qcom,gdsc@8c119c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_video";
+		reg = <0x8c119c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mmagic_mdss: qcom,gdsc@8c247c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_mdss";
+		reg = <0x8c247c 0x4>;
+		status = "disabled";
+	};
+
+	gdsc_mmagic_camss: qcom,gdsc@8c3c4c {
+		compatible = "qcom,gdsc";
+		regulator-name = "gdsc_mmagic_camss";
+		reg = <0x8c3c4c 0x4>;
+		status = "disabled";
+	};
+
 	gdsc_venus: qcom,gdsc@8c1024 {
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_venus";
@@ -161,34 +189,6 @@
 		compatible = "qcom,gdsc";
 		regulator-name = "gdsc_aggre0_noc";
 		reg = <0x381004 0x4>;
-		status = "disabled";
-	};
-
-	gdsc_mmagic_bimc: qcom,gdsc@8c529c {
-		compatible = "qcom,gdsc";
-		regulator-name = "gdsc_mmagic_bimc";
-		reg = <0x8c529c 0x4>;
-		status = "disabled";
-	};
-
-	gdsc_mmagic_video: qcom,gdsc@8c119c {
-		compatible = "qcom,gdsc";
-		regulator-name = "gdsc_mmagic_video";
-		reg = <0x8c119c 0x4>;
-		status = "disabled";
-	};
-
-	gdsc_mmagic_mdss: qcom,gdsc@8c247c {
-		compatible = "qcom,gdsc";
-		regulator-name = "gdsc_mmagic_mdss";
-		reg = <0x8c247c 0x4>;
-		status = "disabled";
-	};
-
-	gdsc_mmagic_camss: qcom,gdsc@8c3c4c {
-		compatible = "qcom,gdsc";
-		regulator-name = "gdsc_mmagic_camss";
-		reg = <0x8c3c4c 0x4>;
 		status = "disabled";
 	};
 };

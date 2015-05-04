@@ -3311,6 +3311,7 @@
 	clocks = <&clock_mmss clk_video_axi_clk>,
 		 <&clock_mmss clk_video_maxi_clk>,
 		 <&clock_mmss clk_video_core_clk>;
+	parent-supply = <&gdsc_mmagic_video>;
 	status = "ok";
 };
 
@@ -3332,6 +3333,7 @@
 	clock-names = "bus_clk", "vfe_axi";
 	clocks = <&clock_mmss clk_camss_cpp_axi_clk>,
 		 <&clock_mmss clk_camss_vfe_axi_clk>;
+	parent-supply = <&gdsc_mmagic_camss>;
 	status = "ok";
 };
 
@@ -3378,6 +3380,7 @@
 	clock-names = "bus_clk", "core_clk";
 	clocks = <&clock_mmss clk_mdss_axi_clk>,
 		 <&clock_mmss clk_mdss_mdp_clk>;
+	parent-supply = <&gdsc_mmagic_mdss>;
 	status = "ok";
 };
 
