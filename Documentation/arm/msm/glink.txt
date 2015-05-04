@@ -137,6 +137,8 @@ operations, which are defined by the client:
  * notify_state() - Notify the client that the channel's state has changed
  * notify_rx_intent_req() - Notify the client whether their request for a
                             receive intent was granted
+ * notify_rx_sigs() - Notify the client that there has been a change in the
+                      state of the remote side's control signals
  * notify_rx_abort() - During channel close, return structures associated
                        with receive intents to the client
  * notify_tx_abort() - During channel close, return structures associated
@@ -307,6 +309,12 @@ struct glink_transport_if {
         int (*tx_cmd_set_sigs)(struct glink_transport_if *if_ptr,
                         uint32_t lcid, uint32_t sigs);
 
+        /* Optional.  If NULL at xprt registration, dummies will be used */
+        int (*poll)(struct glink_transport_if *if_ptr, uint32_t lcid);
+        int (*mask_rx_irq)(struct glink_transport_if *if_ptr, uint32_t lcid,
+                        bool mask, void *pstruct);
+        int (*wait_link_down)(struct glink_transport_if *if_ptr);
+
         /* private pointer for core */
         struct glink_core_xprt_ctx *glink_core_priv;
 
@@ -413,9 +421,13 @@ pointers to notification functions:
                     changed
  * notify_rx_intent_req() - Notify the client whether their request for a
                             receive intent was granted
- * notify_rxv - Receive notification for vector buffers
+ * notify_rxv() - Receive notification for vector buffers
  * notify_rx_sigs() - Notification callback for change in state of remote
                       side's control signals.
+ * notify_rx_abort() - During channel close, return structures associated with
+                       receive intents to the client.
+ * notify_tx_abort() - During channel close, return structures associated with
+                       TX packets to the client.
 
 This structure is copied internally during the glink_open() call. The full
 definition of the structure is below:
@@ -443,6 +455,10 @@ struct glink_open_config {
                                               size_t *size));
         struct glink_ch_ctx (*notify_rx_sigs)(void *handle, const void *priv,
                         uint32_t old_sigs, uint32_t new_sigs);
+        struct glink_ch_ctx (*notify_rx_abort)(void *handle, const void *priv,
+                        const void *pkt_priv);
+        struct glink_ch_ctx (*notify_tx_abort)(void *handle, const void *priv,
+                        const void *pkt_priv);
 };
 
 The following are the possible event notification values. The GLINK_CONNECTED
