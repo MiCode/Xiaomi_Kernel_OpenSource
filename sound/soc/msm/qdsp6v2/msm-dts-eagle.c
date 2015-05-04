@@ -1434,6 +1434,7 @@ int msm_dts_eagle_ioctl(unsigned int cmd, unsigned long arg)
  *
  * Return: Return failure if any.
  */
+#ifdef CONFIG_COMPAT
 int msm_dts_eagle_compat_ioctl(unsigned int cmd, unsigned long arg)
 {
 	switch (cmd) {
@@ -1472,7 +1473,7 @@ int msm_dts_eagle_compat_ioctl(unsigned int cmd, unsigned long arg)
 	}
 	return msm_dts_eagle_ioctl(cmd, arg);
 }
-
+#endif
 /**
  * msm_dts_eagle_init_pre() - Initialize DTS premix module
  * @ac:	Initialize premix module in the ASM session.
