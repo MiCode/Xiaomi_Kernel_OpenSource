@@ -1,0 +1,228 @@
+Introduction:
+=============
+
+The Qualcomm crypto engine (qce) driver is a module that
+provides common services for accessing the Qualcomm crypto device.
+Currently, the two main clients of qce are
+-qcrypto driver (module provided for accessing CE HW by kernel space apps)
+-qcedev driver (module provided for accessing CE HW by user space apps)
+
+
+The crypto engine (qce) driver is a client to the DMA driver for the Qualcomm
+DMA device - Application Data Mover (ADM). ADM is used to provide the DMA
+transfer capability between Qualcomm crypto device hardware and DDR memory
+for crypto operations.
+
+  Figure 1.
+  ---------
+
+  Linux kernel
+  (ex:IPSec)<--*Qualcomm crypto driver----+
+			(qcrypto)	  |
+		   (for kernel space app) |
+					  |
+					  +-->|
+					      |
+					      | *qce   <----> Qualcomm
+					      | driver        ADM driver <---> ADM HW
+					  +-->|			|		|
+					  |			|		|
+					  |			|		|
+					  |			|		|
+   Linux kernel				  |			|		|
+   misc device  <--- *QCEDEV Driver-------+			|		|
+   interface             (qcedev) 			(Reg interface)	 (DMA interface)
+			(for user space app)			\		/
+								 \	       /
+								  \	      /
+								   \	     /
+								    \	    /
+								     \	   /
+								      \	  /
+								Qualcomm crypto CE3 HW
+
+
+ The entities marked with (*) in the Figure 1, are the software components of
+ the Linux Qualcomm crypto modules.
+
+===============
+IMPORTANT NOTE:
+===============
+(1) The CE hardware can be accessed either from user space OR kernel space,
+    at one time. Both user space and kernel space clients cannot access the
+    qce driver (and the CE hardware) at the same time.
+	- If your device has user space apps that needs to access the crypto
+	  hardware, make sure to have the qcrypto module disabled/unloaded.
+	  This will result in the kernel space apps to use the registered
+	  software implementation of the crypto algorithms.
+	- If your device has kernel space apps that needs to access the
+	  crypto hardware, make sure to have qcedev module disabled/unloaded
+	  and implement your user space application to use the software
+	  implemenation (ex: openssl/crypto) of the crypto algorithms.
+
+(2) If your device has Playready(Windows Media DRM) application enabled and
+    uses the qcedev module to access the crypto hardware accelarator,
+    please be informed that for performance reasons, the CE hardware will need
+    to be dedicated to playready application.  Any other user space application
+    should be implemented to use the software implemenation (ex: openssl/crypto)
+    of the crypto algorithms.
+
+
+Hardware description:
+=====================
+
+Qualcomm Crypto HW device family provides a series of algorithms implemented
+in the device hardware.
+
+Crypto 2 hardware provides hashing - SHA-1, SHA-256, ciphering - DES, 3DES, AES
+algorithms, and concurrent operations of hashing, and ciphering.
+
+In addition to those functions provided by Crypto 2 HW, Crypto 3 HW provides
+fast AES algorithms.
+
+In addition to those functions provided by Crypto 3 HW, Crypto 3E provides
+HMAC-SHA1 hashing algorithm, and Over The Air (OTA) f8/f9 algorithms as
+defined by the 3GPP forum.
+
+
+Software description
+====================
+
+The crypto device is defined as a platform device. The driver is
+independent of the platform. The driver supports multiple instances of
+crypto HW.
+All the platform specific parameters are defined in the board init
+file, eg. arch/arm/mach-msm/board-msm7x30.c for MSM7x30.
+
+The qce driver provide the common services of HW crypto
+access to the two drivers as listed above (qcedev, qcrypto. It sets up
+the crypto HW device for the operation, then it requests ADM driver for
+the DMA of the crypto operation.
+
+Two ADM channels and two command lists (one command list for each
+channel) are involved in an operation.
+
+The setting up of the command lists and the procedure of the operation
+of the crypto device are described in the following sections.
+
+The command list for the first DMA channel is set up as follows:
+
+  1st command of the list is for the DMA transfer from DDR memory to the
+  crypto device to input data to crypto device. The dst crci of the command
+  is set for crci-in for this crypto device.
+
+  2nd command is for the DMA tansfer is from crypto device to DDR memory for
+  the authentication result. The src crci is set as crci-hash-done of the
+  crypto device. If authentication is not required in the operation,
+  the 2nd command is not used.
+
+The command list for the second DMA channel is set up as follows:
+
+  One command to DMA data from crypto device to DDR memory for encryption or
+  decryption output from crypto device.
+
+To accomplish ciphering and authentication concurrent operations, the driver
+performs the following steps:
+    (a). set up HW crypto device
+    (b). hit the crypto go register.
+    (c). issue the DMA command of first channel to the ADM driver,
+    (d). issue the DMA command of 2nd channel to the ADM driver.
+
+SHA1/SHA256 is an authentication/integrity hash algorithm. To accomplish
+hash operation (or any authentication only algorithm), 2nd DMA channel is
+not required. Only steps (a) to (c) are performed.
+
+At the completion of the DMA operation (for (c) and (d)) ADM driver
+invokes the callback registered to the DMA driver. This signifies the end of
+the DMA operation(s). The driver reads the status and other information from
+the CE hardware register and then invokes the callback to the qce driver client.
+This signal the completion and the results of the DMA along with the status of
+the CE hardware to the qce driver client. This completes a crypto operation.
+
+In the qce driver initialization, memory for the two command lists, descriptor
+lists for each crypto device are allocated out of coherent memory, using Linux
+DMA API. The driver pre-configures most of the two ADM command lists
+in the initialization. During each crypto operation, minimal set up is required.
+src_dscr or/and dst_dscr descriptor list of the ADM command are populated
+from the information obtained from the corresponding data structure. eg: for
+AEAD request, the following data structure provides the information:
+
+    struct aead_request *req
+      ......
+    req->assoc
+    req->src
+    req->dst
+
+The DMA address of a scatter list will be retrieved and set up in the
+descriptor list of an ADM command.
+
+Power Management
+================
+  none
+
+
+Interface:
+==========
+
+The interface is defined in kernel/drivers/crypto/msm/inc/qce.h
+
+The clients qcrypto, qcedev drivers are the clients using
+the interfaces.
+
+The following services are provided by the qce driver -
+
+     qce_open(), qce_close(), qce_ablk_cipher_req(),
+     qce_hw_support(), qce_process_sha_req()
+
+  qce_open() is the first request from the client, ex. Qualcomm crypto
+  driver (qcedev, qcrypto), to open a crypto engine. It is normally
+  called at the probe function of the client for a device. During the
+  probe,
+  - ADM command list structure will be set up
+  - Crypto device will be initialized.
+  - Resource associated with the crypto engine is retrieved by doing
+    platform_get_resource() or platform_get_resource_byname().
+
+ The resources for a device are
+    - crci-in, crci-out, crci-hash-done
+    - two DMA channel IDs, one for encryption and decryption input, one for
+      output.
+    - base address of the HW crypto device.
+
+  qce_close() is the last request from the client. Normally, it is
+  called from the remove function of the client.
+
+  qce_hw_support() allows the client to query what is supported
+  by the crypto engine hardware.
+
+  qce_ablk_cipher_req() provides ciphering service to the client.
+  qce_process_sha_req() provide hashing service to the client.
+  qce_aead_req() provide aead service to the client.
+
+Module parameters:
+==================
+
+The following module parameters are defined in the board init file.
+-CE hardware nase register address
+-Data mover channel used for transfer to/from CE hardware
+These parameters differ in each platform.
+
+
+Dependencies:
+=============
+
+Existing DMA driver.
+The transfers are DMA'ed between the crypto hardware and DDR memory via the
+data mover, ADM. The data transfers are set up to use the existing dma driver.
+
+User space utilities:
+=====================
+  n/a
+
+Known issues:
+=============
+  n/a
+
+To do:
+======
+  n/a

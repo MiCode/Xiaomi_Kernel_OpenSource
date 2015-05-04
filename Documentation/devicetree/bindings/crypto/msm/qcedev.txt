@@ -1,0 +1,42 @@
+* QCEDEV (Qualcomm Crypto Engine Device)
+
+Required properties:
+  - compatible : should be "qcom,qcedev"
+  - reg : should contain crypto, BAM register map.
+  - reg-names : should contain the crypto and bam base register names.
+  - interrupts : should contain crypto BAM interrupt.
+  - qcom,bam-pipe-pair : should contain crypto BAM pipe pair index.
+  - qcom,ce-hw-instance : should contain crypto HW instance.
+  - qcom,msm_bus,name: Should be "qcedev-noc"
+  - qcom,msm_bus,num_cases: Depends on the use cases for bus scaling
+  - qcom,msm_bus,active-only: Boolean flag for context of request (actve/dual)
+  - qcom,msm_bus,num_paths: The paths for source and destination ports
+  - qcom,msm_bus,vectors: Vectors for bus topology.
+  - qcom,ce-device: Device number.
+  - qcom,ce-opp-freq: indicates the CE operating frequency in Hz, changes from target to target.
+
+Optional properties:
+  - qcom,ce-hw-shared : optional, indicates if the hardware is shared between EE.
+  - qcom,ce-hw-key : optional, indicates if the hardware supports use of HW KEY.
+  - qcom,support-core-clk-only : optional, indicates if the HW supports single crypto core clk.
+
+Example:
+
+	qcom,qcedev@fd440000 {
+		compatible = "qcom,qcedev";
+		reg = <0xfd440000 0x20000>,
+			<0xfd444000 0x8000>;
+		reg-names = "crypto-base","crypto-bam-base";
+		interrupts = <0 235 0>;
+		qcom,bam-pipe-pair = <0>;
+		qcom,ce-hw-instance = <1>;
+		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
+                qcom,msm-bus,name = "qcedev-noc";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<56 512 0 0>,
+				<56 512 3936000 393600>,
+		qcom,ce-opp-freq = <100000000>;
+	};
