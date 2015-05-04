@@ -313,6 +313,13 @@ static int msm_iommu_probe(struct platform_device *pdev)
 
 	drvdata->phys_base = r->start;
 
+	if (IS_ENABLED(CONFIG_MSM_IOMMU_VBIF_CHECK)) {
+		drvdata->vbif_base =
+			ioremap(drvdata->phys_base - (phys_addr_t) 0x4000,
+				0x1000);
+		WARN_ON_ONCE(!drvdata->vbif_base);
+	}
+
 	r = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 					"smmu_local_base");
 	if (r) {
@@ -342,27 +349,55 @@ static int msm_iommu_probe(struct platform_device *pdev)
 	}
 
 	drvdata->pclk = devm_clk_get(&pdev->dev, "iface_clk");
-	if (IS_ERR(drvdata->pclk))
-		return PTR_ERR(drvdata->pclk);
+	if (IS_ERR(drvdata->pclk)) {
+		ret = PTR_ERR(drvdata->pclk);
+		drvdata->pclk = NULL;
+		goto fail;
+	}
+
+	ret = clk_prepare(drvdata->pclk);
+	if (ret)
+		return ret;
 
 	drvdata->clk = devm_clk_get(&pdev->dev, "core_clk");
-	if (IS_ERR(drvdata->clk))
-		return PTR_ERR(drvdata->clk);
+	if (IS_ERR(drvdata->clk)) {
+		ret = PTR_ERR(drvdata->clk);
+		drvdata->clk = NULL;
+		goto fail;
+	}
+
+	ret = clk_prepare(drvdata->clk);
+	if (ret)
+		goto fail;
 
 	needs_alt_core_clk = of_property_read_bool(pdev->dev.of_node,
 						   "qcom,needs-alt-core-clk");
 	if (needs_alt_core_clk) {
 		drvdata->aclk = devm_clk_get(&pdev->dev, "alt_core_clk");
-		if (IS_ERR(drvdata->aclk))
-			return PTR_ERR(drvdata->aclk);
+		if (IS_ERR(drvdata->aclk)) {
+			ret =  PTR_ERR(drvdata->aclk);
+			drvdata->aclk = NULL;
+			goto fail;
+		}
+
+		ret =  clk_prepare(drvdata->aclk);
+		if (ret)
+			goto fail;
 	}
 
 	needs_alt_iface_clk = of_property_read_bool(pdev->dev.of_node,
 						   "qcom,needs-alt-iface-clk");
 	if (needs_alt_iface_clk) {
 		drvdata->aiclk = devm_clk_get(&pdev->dev, "alt_iface_clk");
-		if (IS_ERR(drvdata->aiclk))
-			return PTR_ERR(drvdata->aiclk);
+		if (IS_ERR(drvdata->aiclk)) {
+			ret = PTR_ERR(drvdata->aiclk);
+			drvdata->aiclk = NULL;
+			goto fail;
+		}
+
+		ret =  clk_prepare(drvdata->aiclk);
+		if (ret)
+			goto fail;
 	}
 
 	if (!of_property_read_u32(pdev->dev.of_node,
@@ -450,8 +485,14 @@ static int msm_iommu_probe(struct platform_device *pdev)
 
 	ret = of_platform_populate(pdev->dev.of_node, msm_iommu_ctx_match_table,
 				   NULL, &pdev->dev);
-	if (ret)
+fail:
+	if (ret) {
+		clk_unprepare(drvdata->clk);
+		clk_unprepare(drvdata->pclk);
+		clk_unprepare(drvdata->aclk);
+		clk_unprepare(drvdata->aiclk);
 		pr_err("Failed to create iommu context device\n");
+	}
 
 	return ret;
 }
@@ -466,6 +507,10 @@ static int msm_iommu_remove(struct platform_device *pdev)
 	drv = platform_get_drvdata(pdev);
 	if (drv) {
 		__put_bus_vote_client(drv);
+		clk_unprepare(drv->clk);
+		clk_unprepare(drv->pclk);
+		clk_unprepare(drv->aclk);
+		clk_unprepare(drv->aiclk);
 		msm_iommu_remove_drv(drv);
 		platform_set_drvdata(pdev, NULL);
 	}
