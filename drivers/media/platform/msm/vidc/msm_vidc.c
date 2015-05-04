@@ -396,20 +396,12 @@ static struct msm_smem *map_buffer(struct msm_vidc_inst *inst,
 static inline enum hal_buffer get_hal_buffer_type(
 		struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 {
-	if (inst->session_type == MSM_VIDC_DECODER) {
-		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-			return HAL_BUFFER_INPUT;
-		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
-			return HAL_BUFFER_OUTPUT;
-	} else {
-		/* FIXME in the future.  See comment in msm_comm_get_\
-		 * domain_partition. Same problem here. */
-		if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-			return HAL_BUFFER_OUTPUT;
-		else /* V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE */
-			return HAL_BUFFER_INPUT;
-	}
-	return -EINVAL;
+	if (b->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		return HAL_BUFFER_INPUT;
+	else if (b->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		return HAL_BUFFER_OUTPUT;
+	else
+		return -EINVAL;
 }
 
 static inline bool is_dynamic_output_buffer_mode(struct v4l2_buffer *b,
