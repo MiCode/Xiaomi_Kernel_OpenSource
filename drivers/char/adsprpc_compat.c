@@ -111,7 +111,7 @@ static int compat_get_fastrpc_ioctl_invoke(
 	num = REMOTE_SCALARS_INBUFS(sc) + REMOTE_SCALARS_OUTBUFS(sc);
 	for (j = 0; j < num; j++) {
 		err |= get_user(p, &pra32[j].buf.pv);
-		pra[j].buf.pv = NULL;
+		pra[j].buf.pv = 0;
 		err |= put_user(p, (compat_uptr_t *)&pra[j].buf.pv);
 		err |= get_user(s, &pra32[j].buf.len);
 		err |= put_user(s, &pra[j].buf.len);

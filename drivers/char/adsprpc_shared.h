@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,13 +92,13 @@ do {\
 #define remote_arg_t    union remote_arg
 
 struct remote_buf {
-	void *pv;		/* buffer pointer */
-	ssize_t len;		/* length of buffer */
+	uint64_t pv;
+	int64_t len;
 };
 
 union remote_arg {
-	struct remote_buf buf;	/* buffer info */
-	uint32_t h;		/* remote handle */
+	struct remote_buf	buf;
+	uint32_t h;
 };
 
 struct fastrpc_ioctl_invoke {
@@ -143,8 +143,8 @@ struct smq_null_invoke {
 };
 
 struct smq_phy_page {
-	unsigned long addr;	/* physical address */
-	ssize_t size;		/* size of contiguous region */
+	uint64_t addr;		/* physical address */
+	uint64_t size;		/* size of contiguous region */
 };
 
 struct smq_invoke_buf {
