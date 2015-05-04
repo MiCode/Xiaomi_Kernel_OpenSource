@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -113,8 +113,8 @@ enum MHI_FLAGS {
 
 struct mhi_result {
 	void *user_data;
-	dma_addr_t payload_buf;
-	u32 bytes_xferd;
+	void *buf_addr;
+	size_t bytes_xferd;
 	enum MHI_STATUS transaction_status;
 	enum MHI_FLAGS flags;
 };
@@ -180,12 +180,14 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle);
  *  @chain          Specify whether to set the chain bit on this buffer
  *  @eob            Specify whether this buffer should trigger EOB interrupt
  *
+ *  NOTE:
  *  Not thread safe, caller must ensure concurrency protection.
+ *  User buffer must be physically contiguous.
  *
  * @Return MHI_STATUS
  */
-enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
-		dma_addr_t buf, size_t buf_len, enum MHI_FLAGS flags);
+int mhi_queue_xfer(struct mhi_client_handle *client_handle,
+		void *buf, size_t buf_len, enum MHI_FLAGS mhi_flags);
 
 /**
  * mhi_close_channel - Client can request channel to be closed and handle freed

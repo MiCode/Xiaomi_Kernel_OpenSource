@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -546,7 +546,8 @@ void reset_bb_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 	mhi_log(MHI_MSG_VERBOSE, "Exited\n");
 }
 
-static enum MHI_STATUS mhi_queue_xfer(struct mhi_client_handle *client_handle,
+static enum MHI_STATUS mhi_queue_dma_xfer(
+		struct mhi_client_handle *client_handle,
 		dma_addr_t buf, size_t buf_len, enum MHI_FLAGS mhi_flags)
 {
 	union mhi_xfer_pkt *pkt_loc;
@@ -609,9 +610,8 @@ error:
 	pm_runtime_put_noidle(&mhi_dev_ctxt->dev_info->plat_dev->dev);
 	return ret_val;
 }
-EXPORT_SYMBOL(mhi_queue_xfer);
 
-int mhi_queue_virt_xfer(struct mhi_client_handle *client_handle,
+int mhi_queue_xfer(struct mhi_client_handle *client_handle,
 		void *buf, size_t buf_len, enum MHI_FLAGS mhi_flags)
 {
 	int r;
@@ -640,18 +640,20 @@ int mhi_queue_virt_xfer(struct mhi_client_handle *client_handle,
 	   "Queueing to HW: Client Buf 0x%p, size 0x%zx, DMA %llx, chan %d\n",
 			buf, buf_len, (u64)bb->bb_p_addr,
 			client_handle->chan_info.chan_nr);
-	r = mhi_queue_xfer(client_handle,
+	r = mhi_queue_dma_xfer(client_handle,
 				bb->bb_p_addr,
 				bb->buf_len,
 				mhi_flags);
 
-	/* Assumption: If create_bb did not fail, we do not
-	 * expect mhi_queue_xfer to fail, if it does, the bb list will be
+	/*
+	 * Assumption: If create_bounce_buffer did not fail, we do not
+	 * expect mhi_queue_dma_xfer to fail, if it does, the bb list will be
 	 * out of sync with the descriptor list which is problematic.
 	 */
 	BUG_ON(r);
 	return r;
 }
+EXPORT_SYMBOL(mhi_queue_xfer);
 
 enum MHI_STATUS mhi_send_cmd(struct mhi_device_ctxt *mhi_dev_ctxt,
 			enum MHI_COMMAND cmd, u32 chan)
