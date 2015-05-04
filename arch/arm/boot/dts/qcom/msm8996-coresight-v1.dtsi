@@ -871,7 +871,6 @@
 		coresight-id = <52>;
 		coresight-name = "coresight-cti-l2pmu-cluster0";
 		coresight-nr-inports = <0>;
-		coresight-cti-cpu = <&L2_0>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -886,7 +885,6 @@
 		coresight-id = <53>;
 		coresight-name = "coresight-cti-l2pmu-cluster1";
 		coresight-nr-inports = <0>;
-		coresight-cti-cpu = <&L2_1>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
