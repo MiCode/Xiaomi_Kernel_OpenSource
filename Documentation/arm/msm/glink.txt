@@ -143,6 +143,8 @@ operations, which are defined by the client:
                        with receive intents to the client
  * notify_tx_abort() - During channel close, return structures associated
                        with TX packets to the client
+ * notify_rx_tracer_pkt() - Notify the client that a tracer packet has been
+                            received
 
 Buffer ownership is transferred between the local G-Link and the remote G-Link
 using message passing. A typical transmit sequence is as follows:
@@ -314,6 +316,8 @@ struct glink_transport_if {
         int (*mask_rx_irq)(struct glink_transport_if *if_ptr, uint32_t lcid,
                         bool mask, void *pstruct);
         int (*wait_link_down)(struct glink_transport_if *if_ptr);
+        int (*tx_cmd_tracer_pkt)(struct glink_transport_if *if_ptr,
+                        uint32_t lcid, struct glink_core_tx_pkt *pctx);
 
         /* private pointer for core */
         struct glink_core_xprt_ctx *glink_core_priv;
@@ -428,6 +432,7 @@ pointers to notification functions:
                        receive intents to the client.
  * notify_tx_abort() - During channel close, return structures associated with
                        TX packets to the client.
+ * notify_rx_tracer_pkt() - Receive notification for tracer packet
 
 This structure is copied internally during the glink_open() call. The full
 definition of the structure is below:
@@ -459,6 +464,9 @@ struct glink_open_config {
                         const void *pkt_priv);
         struct glink_ch_ctx (*notify_tx_abort)(void *handle, const void *priv,
                         const void *pkt_priv);
+        struct glink_ch_ctx (*notify_rx_tracer_pkt)(void *handle,
+                        const void *priv, const void *pkt_priv, const void *ptr,
+                        size_t size);
 };
 
 The following are the possible event notification values. The GLINK_CONNECTED
@@ -1003,6 +1011,204 @@ ssr(struct glink_transport_if *if_ptr)
 --------------------------------------
 The ssr() function is part of the Transport Interface, and as mentioned above is
 used to perform any necessary clean-up on the transport.
+
+Tracer Packet Framework
+=======================
+
+A tracer packet is a special type of packet that can be used to trace the timing
+of events. This helps profile the latency experienced by a packet, and provides
+granular information regarding the individual latencies that make up the overall
+latency. The information obtained using the tracer packet can be used to
+configure the Power Management Quality of Service (PM QoS) in the system in
+order to achieve a client's desired packet latency. The tracer packet moves
+through the system along with other normal traffic without any impact on the
+normal traffic.
+
+When a transport is registered with the local G-Link core, it performs a
+transport-specific version and feature negotiation with the remote G-Link core.
+Based on this negotiation, the transport reports its capability of supporting
+tracer packets to the local G-Link core.
+
+Once the transport has successfully completed the negotiation, the clients open
+the G-Link channel over the concerned transport. After the channel is open, the
+clients can exchange tracer packets over G-Link, in a way similar to normal
+traffic.
+
+When a tracer packet is exchanged over a G-Link channel, the G-Link core and the
+transport log events related to packet exchange and their time.
+
+1. Tracer Packet Format
+-----------------------
+The tracer packet contains a header and a payload. The header contains
+identification and configuration information associated with a tracer packet.
+The payload contains a series of event logs. The below diagram shows the layout
+of the tracer packet:
+
+Tracer Packet Header Layout
+---------------------------
+ 31                           16 15 14 13  12   11   4 3       0
++-------------------------------+-----+---+----+------+---------+
+|      Packet Length (words)    | CCL | Q | ID | Res. | Version |
++-------------------------------+-------------------------------+
+|       Client Event Cfg.       |     Packet Offset (words)     |
+|           Bit Mask            |                               |
++-------------------------------+-------------------------------+
+|                  G-Link Event Config Bit Mask                 |
++---------------------------------------------------------------+
+|                   Base Timestamp (MS 32 bits)                 |
++---------------------------------------------------------------+
+|                   Base Timestamp (LS 32 bits)                 |
++---------------------------------------------------------------+
+|                         Client Cookie                         |
++---------------------------------------------------------------+
+
+Tracer Packet Payload Layout
+----------------------------
+ 31                           16 15                            0
++-------------------------------+-------------------------------+
+|            Reserved           |          Event 1 ID           |
++-------------------------------+-------------------------------+
+|                   Event 1 Timestamp (LS 32 bits)              |
++---------------------------------------------------------------+
+                                .
+                                .
+                                .
++-------------------------------+-------------------------------+
+|            Reserved           |          Event N ID           |
++-------------------------------+-------------------------------+
+|                   Event N Timestamp (LS 32 bits)              |
++---------------------------------------------------------------+
+
+Tracer Packet Header Fields
+---------------------------
+Version - This field contains the tracer packet version. The current version
+          of tracer packet supported by G-Link is 1. If a version of the tracer
+          packet is not supported by G-Link or its transport abstraction layer,
+          the tracer packet is still exchanged, but no events are logged.
+
+Reserved - The reserved bit fields are set to 0 and can be used for future
+           extension of tracer packet functionality.
+
+ID - The ID bit field indicates the presence or absence of the Source Processor
+     ID, Destination Processor ID and Transport ID fields in the tracer
+     packet. Currently this field is set to 0 and the concerned IDs are not
+     defined.
+
+CoreSight ("Q" in the diagram above) - This bit field is used to indicate the
+                                       location of the log events. If this bit
+                                       field is set, the log events are logged
+                                       into CoreSight, otherwise the log events
+                                       are logged into the packet itself. If the
+                                       log events are logged into the packet,
+                                       then the number of events logged into the
+                                       packet depends on the size of the packet.
+
+CCL - The tracer packet framework allows clients to differentiate multiple
+      tracer packets through a client-specified cookie. The Client Cookie Length
+      (CCL) bit field indicates the length of that cookie in units of words.
+
+Packet Length - These 16 bits indicate the length of the tracer packet in units
+                of words.
+
+Packet Offset - This field is used when events are logged into the packet. This
+                16-bit field indicates the offset into the packet, in units of
+                words, to log an event. Once an event is logged, this field is
+                updated with the appropriate offset to log future events.
+
+Client Configuration Bit Mask - This bit-mask is used to enable/disable the
+                                G-Link client-specific events. The procedure to
+                                enable/disable client events is dependent upon
+                                the client's implementation and is not included
+                                in this document.
+
+G-Link Configuration Bit Mask - This bit-mask is used to enable/disable the
+                                G-Link-specific events. When a bit is set, the
+                                concerned event logging is enabled.
+
+Base Timestamp - The base timestamp contains the starting time of the tracer
+                 packet exchange. The timestamp logged along with the event is
+                 used as an offset from this base timestamp. This optimization
+                 helps in reducing the log size of an event.
+
+Client Cookie - The tracer packet framework allows clients to differentiate
+                multiple tracer packets through a client-specified cookie.
+
+Tracer Packet Payload Fields
+----------------------------
+Event ID - The Event ID field uniquely identifies the G-Link and client-specific
+           tracer packet events. This field is present only when the events are
+           logged into the packet. The G-Link and client event IDs are assigned
+           a unique range. Refer to the table below for more information
+           regarding the event ID definition.
+
+Reserved - The reserved field is set to 0 and can be used for future extension
+           of tracer packet functionality.
+
+Event Timestamp - The Event Timestamp field contains the time at which the event
+                  is logged. This field is used as an offset from the Base
+                  Timestamp field in the header to calculate the actual event
+                  timestamp. This field is present only when the events are
+                  logged into the packet.
+
+2. Tracer Packet Events
+-----------------------
+Each event has a uniquely defined ID. Since G-Link clients can use the tracer
+packet framework, G-Link events and G-Link client events are defined in mutually
+exclusive ranges. Since client events are client-context specific, the event
+IDs can be reused among the clients. The ranges are detailed in the table below:
++--------------------------+-----------------------+
+| Event Type               | Range                 |
++==========================+=======================+
+| G-Link                   | 1-255                 |
++--------------------------+-----------------------+
+| Client                   | 255 and above         |
++--------------------------+-----------------------+
+
+The G-Link specific events and their associated IDs are defined in the below
+table:
++--------------------------+-----------------------+
+| G-Link Event             | ID                    |
++==========================+=======================+
+| GLINK_CORE_TX            | 1                     |
++--------------------------+-----------------------+
+| GLINK_QUEUE_TO_SCHEDULER | 2                     |
++--------------------------+-----------------------+
+| GLINK_SCHEDULER_TX       | 3                     |
++--------------------------+-----------------------+
+| GLINK_XPRT_TX            | 4                     |
++--------------------------+-----------------------+
+| GLINK_XPRT_RX            | 5                     |
++--------------------------+-----------------------+
+| GLINK_CORE_RX            | 6                     |
++--------------------------+-----------------------+
+
+3. Tracer Packet API
+--------------------
+tracer_pkt_init(void *data, size_t data_len, uint16_t client_event_cfg,
+            uint32_t glink_event_cfg, void *pkt_priv, size_t pkt_priv_len)
+--------------------------------------------------------------------------
+Initialize a buffer with the tracer packet header. The tracer packet header
+includes the data passed in the parameters.
+
+tracer_pkt_set_event_cfg(void *data, uint16_t client_event_cfg,
+            uint32_t glink_event_cfg)
+---------------------------------------------------------------
+Initialize a buffer with the event configuration mask passed in the parameters.
+
+tracer_pkt_log_event(void *data, uint32_t event_id)
+---------------------------------------------------
+Log an event specific to the tracer packet. The event is logged either into
+the tracer packet itself or a different tracing mechanism as configured.
+
+tracer_pkt_calc_hex_dump_size(void *data, size_t data_len)
+----------------------------------------------------------
+Calculate the length of the buffer required to hold the hex dump of the tracer
+packet.
+
+tracer_pkt_hex_dump(void *buf, size_t buf_len, void *data, size_t data_len)
+---------------------------------------------------------------------------
+Dump the contents of the tracer packet into a buffer in a specific hexadecimal
+format. The hex dump buffer can then be dumped through debugfs.
 
 Known issues
 ============
