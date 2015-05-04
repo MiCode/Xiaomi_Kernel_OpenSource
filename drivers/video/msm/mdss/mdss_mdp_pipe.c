@@ -909,7 +909,6 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 	struct mdss_mdp_mixer *mixer, bool pipe_share)
 {
-	u32 reg_val, force_off_mask;
 	bool is_realtime;
 	int rc = 0;
 	struct mdss_data_type *mdata;
@@ -927,22 +926,8 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 
 	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
-	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata)) {
-		force_off_mask =
-			BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_OFF_OFFSET);
-
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
-		mutex_lock(&mdata->reg_lock);
-		reg_val = readl_relaxed(mdata->mdp_base +
-			pipe->clk_ctrl.reg_off);
-		if (reg_val & force_off_mask) {
-			reg_val &= ~force_off_mask;
-			writel_relaxed(reg_val,
-				mdata->mdp_base + pipe->clk_ctrl.reg_off);
-		}
-		mutex_unlock(&mdata->reg_lock);
-		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
-	}
+	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata))
+		mdss_mdp_pipe_clk_force_off(pipe);
 
 	if (pipe) {
 		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
@@ -1334,6 +1319,34 @@ exit:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	return is_idle;
+}
+
+/*
+ * mdss_mdp_pipe_clk_force_off() - check force off mask and reset for the pipe.
+ * @pipe: pointer to the pipe data structure which needs to be checked for clk.
+ *
+ * This function would be called where software reset is available for pipe
+ * clocks.
+ */
+
+void mdss_mdp_pipe_clk_force_off(struct mdss_mdp_pipe *pipe)
+{
+	u32 reg_val, force_off_mask;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	force_off_mask =
+		BIT(pipe->clk_ctrl.bit_off + CLK_FORCE_OFF_OFFSET);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+	mutex_lock(&mdata->reg_lock);
+	reg_val = readl_relaxed(mdata->mdp_base +
+			pipe->clk_ctrl.reg_off);
+	if (reg_val & force_off_mask) {
+		reg_val &= ~force_off_mask;
+		writel_relaxed(reg_val,
+				mdata->mdp_base + pipe->clk_ctrl.reg_off);
+	}
+	mutex_unlock(&mdata->reg_lock);
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
 /**

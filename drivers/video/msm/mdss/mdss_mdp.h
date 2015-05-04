@@ -342,6 +342,8 @@ struct mdss_mdp_mixer {
 	bool is_right_mixer;
 	struct mdss_mdp_ctl *ctl;
 	struct mdss_mdp_pipe *stage_pipe[MAX_PIPES_PER_LM];
+	u32 next_pipe_map;
+	u32 pipe_mapped;
 };
 
 struct mdss_mdp_format_params {
@@ -1144,6 +1146,7 @@ int mdss_mdp_ctl_addr_setup(struct mdss_data_type *mdata, u32 *ctl_offsets,
 int mdss_mdp_wb_addr_setup(struct mdss_data_type *mdata,
 	u32 num_wb, u32 num_intf_wb);
 
+void mdss_mdp_pipe_clk_force_off(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_fetch_halt(struct mdss_mdp_pipe *pipe);
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable);
 void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata);
