@@ -24,6 +24,7 @@
 #include <linux/msm_tsens.h>
 #include <linux/err.h>
 #include <linux/of.h>
+#include <linux/vmalloc.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/trace_thermal.h>
@@ -731,6 +732,120 @@ struct tsens_tm_device {
 
 struct tsens_tm_device *tmdev;
 
+static ssize_t
+zonemask_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	unsigned int zone_mtc , th1 , th2;
+	int ret;
+
+	ret = sscanf(buf, "%d %d %d", &zone_mtc , &th1 , &th2);
+
+	if (ret != TSENS_ZONEMASK_PARAMS)
+		pr_err("Invalid command line arguments\n");
+	else {
+		pr_debug("store zone_mtc=%d th1=%d th2=%d\n",
+				zone_mtc , th1 , th2);
+		tsens_set_mtc_zone_sw_mask(zone_mtc , th1 , th2);
+	}
+
+	return 0;
+}
+
+static ssize_t
+zonemask_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned int zone_mtc , th1 , th2;
+	int ret;
+
+	ret = sscanf(buf, "%d %d %d", &zone_mtc , &th1 , &th2);
+
+	if (ret != TSENS_ZONEMASK_PARAMS)
+		pr_err("Invalid command line arguments\n");
+	else {
+		pr_debug("store zone_mtc=%d th1=%d th2=%d\n",
+				zone_mtc , th1 , th2);
+		tsens_set_mtc_zone_sw_mask(zone_mtc , th1 , th2);
+	}
+
+	return count;
+}
+
+static ssize_t
+zonelog_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	unsigned int zone_log;
+	int *p , ret;
+
+	p = vmalloc(sizeof(int));
+
+	if (!p)
+		pr_err("vmalloc failed\n");
+	else {
+		ret = sscanf(buf, "%d", &zone_log);
+		if (ret != TSENS_ZONELOG_PARAMS)
+			pr_err("Invalid command line arguments\n");
+		else {
+			pr_debug("show zone_log=%d\n", zone_log);
+			tsens_get_mtc_zone_log(zone_log , p);
+		}
+	}
+
+	return 0;
+}
+
+static ssize_t
+zonelog_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	unsigned int zone_log;
+	int *p , ret;
+
+	p = vmalloc(sizeof(int));
+
+	if (!p)
+		pr_err("vmalloc failed\n");
+	else {
+		ret = sscanf(buf, "%d", &zone_log);
+		if (ret != TSENS_ZONELOG_PARAMS)
+			pr_err("Invalid command line arguments\n");
+		else {
+			pr_debug("show zone_log=%d\n", zone_log);
+			tsens_get_mtc_zone_log(zone_log , p);
+		}
+	}
+
+	return count;
+}
+
+static struct device_attribute tsens_mtc_dev_attr[] = {
+	__ATTR(zonemask, 0644, zonemask_show, zonemask_store),
+	__ATTR(zonelog, 0644, zonelog_show, zonelog_store),
+};
+
+static int create_tsens_mtc_sysfs(struct platform_device *pdev)
+{
+	int result = 0, i;
+	struct device_attribute *attr_ptr = NULL;
+
+	attr_ptr = tsens_mtc_dev_attr;
+
+	for (i = 0; i < ARRAY_SIZE(tsens_mtc_dev_attr); i++) {
+		result = device_create_file(&pdev->dev, &attr_ptr[i]);
+		if (result < 0)
+			goto error;
+	}
+
+	pr_debug("create_tsens_mtc_sysfs success\n");
+
+	return result;
+
+error:
+	for (i = 0; i < ARRAY_SIZE(tsens_mtc_dev_attr); i++)
+		device_remove_file(&pdev->dev, &attr_ptr[i]);
+
+	return result;
+}
 
 int tsens_is_ready()
 {
@@ -1011,8 +1126,10 @@ int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log)
 				  >> TSENS_LOGS_LOG4_SHIFT;
 		log[5] = (reg_cntl & TSENS_LOGS_LOG5_MASK)
 				  >> TSENS_LOGS_LOG5_SHIFT;
-		for (i = 0; i < (TSENS_MTC_ZONE_LOG_SIZE); i++)
+		for (i = 0; i < (TSENS_MTC_ZONE_LOG_SIZE); i++) {
 			*(zlog+i) = log[i];
+			pr_debug("Log[%d]=%d\n", i , log[i]);
+		}
 	} else {
 		pr_debug("tsens: Valid bit disabled\n");
 		return -EINVAL;
@@ -4244,6 +4361,10 @@ static int tsens_tm_probe(struct platform_device *pdev)
 	tmdev->is_ready = true;
 
 	platform_set_drvdata(pdev, tmdev);
+
+	rc = create_tsens_mtc_sysfs(pdev);
+	if (rc < 0)
+		pr_debug("Cannot create create_tsens_mtc_sysfs %d\n", rc);
 
 	return 0;
 fail:

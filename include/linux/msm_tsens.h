@@ -27,9 +27,10 @@ enum platform_type {
 };
 
 #define TSENS_MAX_SENSORS		11
-#define TSENS_MTC_ZONE_LOG_SIZE   6
-#define TSENS_NUM_MTC_ZONES_SUPPORT 3
-
+#define TSENS_MTC_ZONE_LOG_SIZE		6
+#define TSENS_NUM_MTC_ZONES_SUPPORT	3
+#define TSENS_ZONEMASK_PARAMS		3
+#define TSENS_ZONELOG_PARAMS		1
 
 struct tsens_platform_data {
 	int				slope[TSENS_MAX_SENSORS];
