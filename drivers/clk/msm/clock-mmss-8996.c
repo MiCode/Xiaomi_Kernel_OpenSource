@@ -2731,7 +2731,7 @@ static struct branch_clk mmss_s0_axi_clk = {
 
 static struct branch_clk mmss_mmagic_maxi_clk = {
 	.cbcr_reg = MMSS_MMSS_MMAGIC_MAXI_CBCR,
-	.has_sibling = 1,
+	.has_sibling = 0,
 	.base = &virt_base,
 	.c = {
 		.dbg_name = "mmss_mmagic_maxi_clk",
