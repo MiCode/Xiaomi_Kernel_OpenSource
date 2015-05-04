@@ -15,6 +15,7 @@
 #include "dsi-panel-otm1906c-1080p-cmd.dtsi"
 #include "dsi-panel-sim-video.dtsi"
 #include "dsi-panel-sim-cmd.dtsi"
+#include "dsi-panel-sharp-1080p-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
