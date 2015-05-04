@@ -19,7 +19,7 @@
 #include "mhi_sys.h"
 
 enum MHI_DEBUG_LEVEL mhi_msg_lvl = MHI_MSG_ERROR;
-enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_INFO;
+enum MHI_DEBUG_LEVEL mhi_ipc_log_lvl = MHI_MSG_VERBOSE;
 
 enum MHI_DEBUG_CLASS mhi_msg_class = MHI_DBG_DATA | MHI_DBG_POWER;
 
