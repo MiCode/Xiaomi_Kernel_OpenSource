@@ -1511,7 +1511,6 @@
 			qcom,ap-owned;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,slv-rpm-id = <ICBID_SLAVE_VMEM>;
-			qcom,enable-only-clk;
 			clock-names = "node_clk";
 			clocks = <&clock_mmss clk_mmss_mmagic_maxi_clk>;
 			node-gdsc-supply = <&gdsc_mmagic_video>;
