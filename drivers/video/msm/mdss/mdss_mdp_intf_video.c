@@ -899,12 +899,26 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 
 	if (pdata->panel_info.dfps_update
 			!= DFPS_SUSPEND_RESUME_MODE) {
+		if (!ctx->timegen_en) {
+			pr_err("TG is OFF. DFPS mode invalid\n");
+			return -EINVAL;
+		}
+
+		/*
+		 * there is possibility that the time of mdp flush
+		 * bit set and the time of dsi flush bit are cross
+		 * vsync boundary. therefore wait4vsync is needed
+		 * to guarantee both flush bits are set within same
+		 * vsync period regardless of mdp revision.
+		 */
+		rc = mdss_mdp_video_dfps_wait4vsync(ctl);
+		if (rc < 0) {
+			pr_err("Error during wait4vsync\n");
+			return rc;
+		}
+
 		if (pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-			if (!ctx->timegen_en) {
-				pr_err("TG is OFF. DFPS mode invalid\n");
-				return -EINVAL;
-			}
 			rc = mdss_mdp_ctl_intf_event(ctl,
 					MDSS_EVENT_PANEL_UPDATE_FPS,
 					(void *) (unsigned long) new_fps);
@@ -915,23 +929,6 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 				pdata->panel_info.dfps_update
 				== DFPS_IMMEDIATE_PORCH_UPDATE_MODE_HFP) {
 			unsigned long flags;
-			if (!ctx->timegen_en) {
-				pr_err("TG is OFF. DFPS mode invalid\n");
-				return -EINVAL;
-			}
-
-			/*
-			 * there is possibility that the time of mdp flush
-			 * bit set and the time of dsi flush bit are cross
-			 * vsync boundary. therefore wait4vsync is needed
-			 * to guarantee both flush bits are set within same
-			 * vsync period regardless of mdp revision.
-			 */
-			rc = mdss_mdp_video_dfps_wait4vsync(ctl);
-			if (rc < 0) {
-				pr_err("Error during wait4vsync\n");
-				return rc;
-			}
 
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 			spin_lock_irqsave(&ctx->dfps_lock, flags);
