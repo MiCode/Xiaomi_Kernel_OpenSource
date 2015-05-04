@@ -3453,6 +3453,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 		writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
 
 		/* Enable GMEM HW Dynamic */
+		regval = 0x0;
 		writel_relaxed(regval, GCC_REG_BASE(GCC_SPARE3_REG));
 	} else
 		ret = of_msm_clock_register(pdev->dev.of_node,
