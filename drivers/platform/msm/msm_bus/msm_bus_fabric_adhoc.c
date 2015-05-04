@@ -398,13 +398,14 @@ static int flush_clk_data(struct device *node_device, int ctx)
 			ret = enable_nodeclk(nodeclk, node_device);
 
 			if ((node->node_info->is_fab_dev) &&
-				!IS_ERR_OR_NULL(node->qos_clk.clk))
-					ret = enable_nodeclk(&node->qos_clk,
+				!IS_ERR_OR_NULL(node->bus_qos_clk.clk))
+					ret = enable_nodeclk(&node->bus_qos_clk,
 								node_device);
 		} else {
 			if ((node->node_info->is_fab_dev) &&
-				!IS_ERR_OR_NULL(node->qos_clk.clk))
-					ret = disable_nodeclk(&node->qos_clk);
+				!IS_ERR_OR_NULL(node->bus_qos_clk.clk))
+					ret =
+					disable_nodeclk(&node->bus_qos_clk);
 
 			ret = disable_nodeclk(nodeclk);
 		}
@@ -642,119 +643,60 @@ static void msm_bus_fab_init_noc_ops(struct msm_bus_node_device_type *bus_dev)
 	}
 }
 
-static int msm_bus_qos_disable_clk(struct msm_bus_node_device_type *node,
-				int disable_bus_qos_clk)
+static int msm_bus_disable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
+	int i;
 	int ret = 0;
 
-	if (!node) {
+	if (!node || (!node->node_info->bus_device->platform_data)) {
 		ret = -ENXIO;
-		goto exit_disable_qos_clk;
+		goto exit_disable_node_qos_clk;
 	}
-
 	bus_node = node->node_info->bus_device->platform_data;
 
-	if (!bus_node) {
-		ret = -ENXIO;
-		goto exit_disable_qos_clk;
-	}
+	for (i = 0; i < bus_node->num_node_qos_clks; i++)
+		ret = disable_nodeclk(&bus_node->node_qos_clks[i]);
 
-	if (disable_bus_qos_clk)
-		ret = disable_nodeclk(&bus_node->clk[DUAL_CTX]);
-
-	if (ret) {
-		MSM_BUS_ERR("%s: Failed to disable bus clk, node %d",
-			__func__, node->node_info->id);
-		goto exit_disable_qos_clk;
-	}
-
-	if (!IS_ERR_OR_NULL(node->qos_clk.clk)) {
-		ret = disable_nodeclk(&node->qos_clk);
-
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to disable mas qos clk,node %d",
-				__func__, node->node_info->id);
-			goto exit_disable_qos_clk;
-		}
-	}
-
-exit_disable_qos_clk:
+exit_disable_node_qos_clk:
 	return ret;
 }
 
-static int msm_bus_qos_enable_clk(struct msm_bus_node_device_type *node)
+static int msm_bus_enable_node_qos_clk(struct msm_bus_node_device_type *node)
 {
 	struct msm_bus_node_device_type *bus_node = NULL;
+	int i;
+	int ret;
 	long rounded_rate;
-	int ret = 0;
-	int bus_qos_enabled = 0;
 
-	if (!node) {
+	if (!node || (!node->node_info->bus_device->platform_data)) {
 		ret = -ENXIO;
-		goto exit_enable_qos_clk;
+		goto exit_enable_node_qos_clk;
 	}
-
 	bus_node = node->node_info->bus_device->platform_data;
 
-	if (!bus_node) {
-		ret = -ENXIO;
-		goto exit_enable_qos_clk;
-	}
-
-	/* Check if the bus clk is already set before trying to set it
-	 * Do this only during
-	 *	a. Bootup
-	 *	b. Only for bus clks
-	 **/
-	if (!clk_get_rate(bus_node->clk[DUAL_CTX].clk)) {
-		rounded_rate = clk_round_rate(bus_node->clk[DUAL_CTX].clk, 1);
-		ret = setrate_nodeclk(&bus_node->clk[DUAL_CTX], rounded_rate);
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to set bus clk, node %d",
-				__func__, node->node_info->id);
-			goto exit_enable_qos_clk;
+	for (i = 0; i < bus_node->num_node_qos_clks; i++) {
+		if (!bus_node->node_qos_clks[i].enable_only_clk) {
+			rounded_rate =
+				clk_round_rate(
+					bus_node->node_qos_clks[i].clk, 1);
+			ret = setrate_nodeclk(&bus_node->node_qos_clks[i],
+								rounded_rate);
+			if (ret)
+				MSM_BUS_ERR("%s: Failed set rate clk, node %d",
+					__func__, node->node_info->id);
 		}
-	}
-
-	ret = enable_nodeclk(&bus_node->clk[DUAL_CTX],
-					node->node_info->bus_device);
-	if (ret) {
-		MSM_BUS_ERR("%s: Failed to enable bus clk, node %d",
-			__func__, node->node_info->id);
-		goto exit_enable_qos_clk;
-	}
-	bus_qos_enabled = 1;
-
-	if (!IS_ERR_OR_NULL(bus_node->qos_clk.clk)) {
-		ret = enable_nodeclk(&bus_node->qos_clk,
+		ret = enable_nodeclk(&bus_node->node_qos_clks[i],
 					node->node_info->bus_device);
 		if (ret) {
-			MSM_BUS_ERR("%s: Failed to enable bus QOS clk, node %d",
-				__func__, node->node_info->id);
-			goto exit_enable_qos_clk;
+			pr_err("%s: Failed to set Qos Clks ret %d",
+				__func__, ret);
+			msm_bus_disable_node_qos_clk(node);
+			goto exit_enable_node_qos_clk;
 		}
+
 	}
-
-	if (!IS_ERR_OR_NULL(node->qos_clk.clk)) {
-		rounded_rate = clk_round_rate(node->qos_clk.clk, 1);
-		ret = setrate_nodeclk(&node->qos_clk, rounded_rate);
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to enable mas qos clk, node %d",
-				__func__, node->node_info->id);
-			goto exit_enable_qos_clk;
-		}
-
-		ret = enable_nodeclk(&node->qos_clk, NULL);
-		if (ret) {
-			MSM_BUS_ERR("Err enable mas qos clk, node %d ret %d",
-				node->node_info->id, ret);
-			goto exit_enable_qos_clk;
-		}
-	}
-	ret = bus_qos_enabled;
-
-exit_enable_qos_clk:
+exit_enable_node_qos_clk:
 	return ret;
 }
 
@@ -842,7 +784,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 				if (bus_node_info->fabdev->bypass_qos_prg)
 					goto exit_init_qos;
 
-				ret = msm_bus_qos_enable_clk(node_dev);
+				ret = msm_bus_enable_node_qos_clk(node_dev);
 				if (ret < 0) {
 					MSM_BUS_ERR("Can't Enable QoS clk %d",
 					node_dev->node_info->id);
@@ -855,7 +797,7 @@ static int msm_bus_dev_init_qos(struct device *dev, void *data)
 					bus_node_info->fabdev->base_offset,
 					bus_node_info->fabdev->qos_off,
 					bus_node_info->fabdev->qos_freq);
-				ret = msm_bus_qos_disable_clk(node_dev, ret);
+				ret = msm_bus_disable_node_qos_clk(node_dev);
 			}
 		} else
 			MSM_BUS_ERR("%s: Skipping QOS init for %d",
@@ -923,8 +865,8 @@ static int msm_bus_init_clk(struct device *bus_dev,
 				struct msm_bus_node_device_type *pdata)
 {
 	unsigned int ctx;
-	int ret = 0;
 	struct msm_bus_node_device_type *node_dev = bus_dev->platform_data;
+	int i;
 
 	for (ctx = 0; ctx < NUM_CTX; ctx++) {
 		if (!IS_ERR_OR_NULL(pdata->clk[ctx].clk)) {
@@ -937,24 +879,51 @@ static int msm_bus_init_clk(struct device *bus_dev,
 				pdata->clk[ctx].reg_name, MAX_REG_NAME);
 			node_dev->clk[ctx].reg = NULL;
 			bus_get_reg(&node_dev->clk[ctx], bus_dev);
-			MSM_BUS_ERR("%s: Valid node clk node %d ctx %d",
+			pr_info("%s: Valid node clk node %d ctx %d\n",
 				__func__, node_dev->node_info->id, ctx);
 		}
 	}
 
-	if (!IS_ERR_OR_NULL(pdata->qos_clk.clk)) {
-		node_dev->qos_clk.clk = pdata->qos_clk.clk;
-		node_dev->qos_clk.enable_only_clk =
-					pdata->qos_clk.enable_only_clk;
-		node_dev->qos_clk.enable = false;
-		strlcpy(node_dev->qos_clk.reg_name,
-			pdata->qos_clk.reg_name, MAX_REG_NAME);
-		node_dev->qos_clk.reg = NULL;
-		MSM_BUS_ERR("%s: Valid Iface clk node %d", __func__,
+	if (!IS_ERR_OR_NULL(pdata->bus_qos_clk.clk)) {
+		node_dev->bus_qos_clk.clk = pdata->bus_qos_clk.clk;
+		node_dev->bus_qos_clk.enable_only_clk =
+					pdata->bus_qos_clk.enable_only_clk;
+		node_dev->bus_qos_clk.enable = false;
+		strlcpy(node_dev->bus_qos_clk.reg_name,
+			pdata->bus_qos_clk.reg_name, MAX_REG_NAME);
+		node_dev->bus_qos_clk.reg = NULL;
+		pr_info("%s: Valid bus qos clk node %d\n", __func__,
 						node_dev->node_info->id);
 	}
 
-	return ret;
+	if (pdata->num_node_qos_clks) {
+		node_dev->num_node_qos_clks = pdata->num_node_qos_clks;
+		node_dev->node_qos_clks = devm_kzalloc(bus_dev,
+			(node_dev->num_node_qos_clks * sizeof(struct nodeclk)),
+			GFP_KERNEL);
+		if (!node_dev->node_qos_clks) {
+			dev_err(bus_dev, "Failed to alloc memory for qos clk");
+			return -ENOMEM;
+		}
+
+		for (i = 0; i < pdata->num_node_qos_clks; i++) {
+			node_dev->node_qos_clks[i].clk =
+					pdata->node_qos_clks[i].clk;
+			node_dev->node_qos_clks[i].enable_only_clk =
+					pdata->node_qos_clks[i].enable_only_clk;
+			node_dev->node_qos_clks[i].enable = false;
+			strlcpy(node_dev->node_qos_clks[i].reg_name,
+				pdata->node_qos_clks[i].reg_name, MAX_REG_NAME);
+			node_dev->node_qos_clks[i].reg = NULL;
+			pr_info("%s: Valid qos clk[%d] node %d %d Reg%s\n",
+					__func__, i,
+					node_dev->node_info->id,
+					node_dev->num_node_qos_clks,
+					node_dev->node_qos_clks[i].reg_name);
+		}
+	}
+
+	return 0;
 }
 
 static int msm_bus_copy_node_info(struct msm_bus_node_device_type *pdata,

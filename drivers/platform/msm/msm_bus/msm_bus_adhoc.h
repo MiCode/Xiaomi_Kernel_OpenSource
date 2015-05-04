@@ -118,7 +118,9 @@ struct msm_bus_node_device_type {
 	struct list_head link;
 	unsigned int ap_owned;
 	struct nodeclk clk[NUM_CTX];
-	struct nodeclk qos_clk;
+	struct nodeclk bus_qos_clk;
+	uint32_t num_node_qos_clks;
+	struct nodeclk *node_qos_clks;
 	struct device_node *of_node;
 };
 

@@ -42,7 +42,7 @@
 #define INTERLEAVED_VAL(fab_pdata, n) \
 	((fab_pdata->il_flag) ? (n) : 1)
 #define KBTOB(a) (a * 1000ULL)
-#define MAX_REG_NAME	(20)
+#define MAX_REG_NAME	(50)
 
 enum msm_bus_dbg_op_type {
 	MSM_BUS_DBG_UNREGISTER = -2,

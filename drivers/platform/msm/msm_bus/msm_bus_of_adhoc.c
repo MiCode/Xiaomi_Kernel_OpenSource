@@ -228,6 +228,62 @@ static void get_qos_params(
 
 }
 
+static int msm_bus_of_parse_clk_array(struct device_node *dev_node,
+			struct platform_device *pdev, struct nodeclk **clk_arr,
+			int *num_clks, int id)
+{
+	int ret = 0;
+	int idx = 0;
+	struct property *prop;
+	const char *clk_name;
+	int clks = 0;
+
+	clks = of_property_count_strings(dev_node, "clock-names");
+	if (clks < 0) {
+		pr_info("%s: No qos clks node %d\n", __func__, id);
+		ret = clks;
+		goto exit_of_parse_clk_array;
+	}
+
+	*num_clks = clks;
+	*clk_arr = devm_kzalloc(&pdev->dev,
+			(clks * sizeof(struct nodeclk)), GFP_KERNEL);
+
+	if (!(*clk_arr)) {
+		pr_err("%s: Error allocating clk nodes for %d\n", __func__, id);
+		ret = -ENOMEM;
+		*num_clks = 0;
+		goto exit_of_parse_clk_array;
+	}
+
+	of_property_for_each_string(dev_node, "clock-names", prop, clk_name) {
+		char gdsc_string[MAX_REG_NAME];
+
+		(*clk_arr)[idx].clk = of_clk_get_by_name(dev_node, clk_name);
+
+		if (IS_ERR_OR_NULL((*clk_arr)[idx].clk)) {
+			dev_err(&pdev->dev,
+				"Failed to get clk %s for bus%d ", clk_name,
+									id);
+			continue;
+		}
+		if (strnstr(clk_name, "no-rate", strlen("no-rate")))
+			(*clk_arr)[idx].enable_only_clk = true;
+
+		scnprintf(gdsc_string, MAX_REG_NAME, "%s-supply", clk_name);
+
+		if (of_find_property(dev_node, gdsc_string, NULL))
+			scnprintf((*clk_arr)[idx].reg_name,
+				MAX_REG_NAME, "%s", clk_name);
+		else
+			scnprintf((*clk_arr)[idx].reg_name,
+					MAX_REG_NAME, "%c", '\0');
+
+		idx++;
+	}
+exit_of_parse_clk_array:
+	return ret;
+}
 
 static struct msm_bus_node_info_type *get_node_info_data(
 		struct device_node * const dev_node,
@@ -378,6 +434,7 @@ static int get_bus_node_device_data(
 							"qcom,ap-owned");
 
 	if (node_device->node_info->is_fab_dev) {
+		struct device_node *qos_clk_node;
 		dev_err(&pdev->dev, "Dev %d\n", node_device->node_info->id);
 
 		if (!node_device->node_info->virt_dev) {
@@ -436,49 +493,59 @@ static int get_bus_node_device_data(
 			scnprintf(node_device->clk[ACTIVE_CTX].reg_name,
 				MAX_REG_NAME, "%c", '\0');
 
-		node_device->qos_clk.clk = of_clk_get_by_name(dev_node,
+		node_device->bus_qos_clk.clk = of_clk_get_by_name(dev_node,
 							"bus_qos_clk");
 
-		if (IS_ERR_OR_NULL(node_device->qos_clk.clk)) {
+		if (IS_ERR_OR_NULL(node_device->bus_qos_clk.clk)) {
 			dev_dbg(&pdev->dev,
 				"%s:Failed to get bus qos clk for %d",
 				__func__, node_device->node_info->id);
-			scnprintf(node_device->qos_clk.reg_name,
+			scnprintf(node_device->bus_qos_clk.reg_name,
 					MAX_REG_NAME, "%c", '\0');
 		} else {
 			if (of_find_property(dev_node, "bus-qos-gdsc-supply",
 								NULL))
-				scnprintf(node_device->qos_clk.reg_name,
+				scnprintf(node_device->bus_qos_clk.reg_name,
 					MAX_REG_NAME, "%s", "bus-qos-gdsc");
 			else
-				scnprintf(node_device->qos_clk.reg_name,
+				scnprintf(node_device->bus_qos_clk.reg_name,
 					MAX_REG_NAME, "%c", '\0');
 		}
+
+		qos_clk_node = of_find_node_by_name(dev_node,
+						"qcom,node-qos-clks");
+
+		if (qos_clk_node)
+			msm_bus_of_parse_clk_array(qos_clk_node, pdev,
+			&node_device->node_qos_clks,
+			&node_device->num_node_qos_clks,
+			node_device->node_info->id);
 
 		if (msmbus_coresight_init_adhoc(pdev, dev_node))
 			dev_warn(&pdev->dev,
 				 "Coresight support absent for bus: %d\n",
 				  node_device->node_info->id);
 	} else {
-		node_device->qos_clk.clk = of_clk_get_by_name(dev_node,
+		node_device->bus_qos_clk.clk = of_clk_get_by_name(dev_node,
 							"bus_qos_clk");
 
-		if (IS_ERR_OR_NULL(node_device->qos_clk.clk))
+		if (IS_ERR_OR_NULL(node_device->bus_qos_clk.clk))
 			dev_dbg(&pdev->dev,
 				"%s:Failed to get bus qos clk for mas%d",
 				__func__, node_device->node_info->id);
 
 		if (of_find_property(dev_node, "bus-qos-gdsc-supply",
 									NULL))
-			scnprintf(node_device->qos_clk.reg_name,
+			scnprintf(node_device->bus_qos_clk.reg_name,
 				MAX_REG_NAME, "%s", "bus-qos-gdsc");
 		else
-			scnprintf(node_device->qos_clk.reg_name,
+			scnprintf(node_device->bus_qos_clk.reg_name,
 				MAX_REG_NAME, "%c", '\0');
 
 		enable_only = of_property_read_bool(dev_node,
 							"qcom,enable-only-clk");
 		node_device->clk[DUAL_CTX].enable_only_clk = enable_only;
+		node_device->bus_qos_clk.enable_only_clk = enable_only;
 
 		node_device->clk[DUAL_CTX].clk = of_clk_get_by_name(dev_node,
 							"node_clk");

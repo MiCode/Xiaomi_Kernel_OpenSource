@@ -114,7 +114,6 @@ qcom,blacklist:         An array of phandles that represent devices that this de
 			intermediate nodes.
 qcom,agg-ports:		The number of aggregation ports on the bus.
 
-
 The following properties are optional as collecting data via coresight might
 and are present on child nodes that represent NOC devices. The documentation
 for coresight properties can be found in:
@@ -128,6 +127,14 @@ coresight-child-list	List of phandles pointing to the children of this
 			component.
 coresight-child-ports	List of input port numbers of the children.
 
+The following sub-nodes are optional paramters:
+
+qcom,node-qos-clks:	Optional node listing all the clocks and regulators required for programming of
+			QoS registers. Usually these are associated with fabric nodes.
+	clock-names:	An array of clock names for QoS programming,
+	clocks:		An array of clock phandles corresponding to the clock names listed above.
+	clock-name-gdsc:
+			An optional property listing the regulator associated with a given clock name.
 
 Example:
 
@@ -148,6 +155,12 @@ Example:
                 clock-names = "bus_clk", "bus_a_clk";
                 clocks = <&clock_rpm  clk_snoc_msmbus_clk>,
                       <&clock_rpm  clk_snoc_msmbus_a_clk>;
+		qcom,node-qos-clks {
+			clock-names = "q0-clk", "q1-clk";
+			clocks = <&clock_gcc clk_q0_clk>,
+				<&clock_gcc clk_q1_clk>;
+			q0-clk-supply = <&gdsc_q0_clk>;
+		};
         };
 
         mm_int_bimc: mm-int-bimc {
