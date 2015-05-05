@@ -124,6 +124,10 @@ static const char *const mpeg2_level[] = {
 	"2",
 	"3",
 };
+static const char *const mpeg_vidc_video_entropy_mode[] = {
+	"CAVLC Entropy Mode",
+	"CABAC Entropy Mode",
+};
 
 static const char *const mpeg_vidc_video_h264_mvc_layout[] = {
 	"Frame packing arrangement sequential",
@@ -569,7 +573,22 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.maximum = V4L2_VIDC_QBUF_BATCHED,
 		.default_value = V4L2_VIDC_QBUF_STANDARD,
 		.step = 1,
-	}
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE,
+		.name = "Entropy Mode",
+		.type = V4L2_CTRL_TYPE_MENU,
+		.minimum = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC,
+		.maximum = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC,
+		.default_value = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC,
+		.step = 0,
+		.menu_skip_mask = ~(
+		(1 << V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC) |
+		(1 << V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC)
+		),
+		.qmenu = mpeg_vidc_video_entropy_mode,
+		.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_READ_ONLY,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
@@ -578,6 +597,7 @@ static int set_buffer_size(struct msm_vidc_inst *inst,
 				u32 buffer_size, enum hal_buffer buffer_type);
 static int update_output_buffer_size(struct msm_vidc_inst *inst,
 		struct v4l2_format *f, int num_planes);
+static int vdec_hal_to_v4l2(int id, int value);
 
 static u32 get_frame_size_nv12(int plane,
 					u32 height, u32 width)
@@ -1925,16 +1945,21 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
 	struct hfi_device *hdev;
-	struct hal_profile_level profile_level;
 	union hal_get_property hprop;
 
-	if (!inst || !inst->core || !inst->core->device) {
+	if (!inst || !inst->core || !inst->core->device || !ctrl) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
 		return -EINVAL;
 	}
 
 	hdev = inst->core->device;
-	dprintk(VIDC_DBG, "%s ctrl->id:%x\n", __func__, ctrl->id);
+	/*
+	 * HACK: unlock the control prior to querying the hardware.  Otherwise
+	 * lower level code that attempts to do g_ctrl() will end up deadlocking
+	 * us.
+	 */
+	v4l2_ctrl_unlock(ctrl);
+
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
@@ -1942,51 +1967,62 @@ static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
 		rc = msm_comm_try_get_prop(inst,
-						HAL_PARAM_PROFILE_LEVEL_CURRENT,
-						&hprop);
+				HAL_PARAM_PROFILE_LEVEL_CURRENT, &hprop);
 		if (rc) {
-			dprintk(VIDC_ERR, "%s Error rc:%d\n", __func__, rc);
-			return rc;
+			dprintk(VIDC_ERR, "%s: Failed getting profile: %d",
+					__func__, rc);
+			break;
 		}
-		profile_level = hprop.profile_level;
-		ctrl->val = profile_level.profile;
-		dprintk(VIDC_DBG, "%s: PROFILE ctrl->id:%x ctrl->val:%d\n",
-					__func__, ctrl->id, ctrl->val);
+		ctrl->val = vdec_hal_to_v4l2(ctrl->id,
+				hprop.profile_level.profile);
 		break;
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL:
 	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
 		rc = msm_comm_try_get_prop(inst,
-						HAL_PARAM_PROFILE_LEVEL_CURRENT,
-						&hprop);
+				HAL_PARAM_PROFILE_LEVEL_CURRENT, &hprop);
 		if (rc) {
-			dprintk(VIDC_ERR, "%s Error rc:%d\n", __func__, rc);
-			return rc;
-		}
-		profile_level = hprop.profile_level;
-		ctrl->val = profile_level.level;
-		dprintk(VIDC_DBG, "%s: LEVEL ctrl->id:%x ctrl->val:%d\n",
-					__func__, ctrl->id, ctrl->val);
-		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE_SCALING_THRESHOLD:
-		if (!(inst->flags & VIDC_SECURE) ||
-			!inst->capability.secure_output2_threshold.max) {
-			dprintk(VIDC_ERR, "%s id:%x invalid configuration\n",
-					__func__, ctrl->id);
-			rc = -EINVAL;
+			dprintk(VIDC_ERR, "%s: Failed getting level: %d",
+					__func__, rc);
 			break;
 		}
-		dprintk(VIDC_DBG,
-				"Secure Scaling Threshold is : %d",
+
+		ctrl->val = vdec_hal_to_v4l2(ctrl->id,
+				hprop.profile_level.level);
+		break;
+	case V4L2_CID_MPEG_VIDC_VIDEO_SECURE_SCALING_THRESHOLD:
+		dprintk(VIDC_DBG, "Secure scaling threshold is: %d",
 				inst->capability.secure_output2_threshold.max);
 		ctrl->val = inst->capability.secure_output2_threshold.max;
 		break;
+	case V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE:
+		rc = msm_comm_try_get_prop(inst,
+				HAL_CONFIG_VDEC_ENTROPY, &hprop);
+		if (rc) {
+			dprintk(VIDC_ERR, "%s: Failed getting entropy type: %d",
+					__func__, rc);
+			break;
+		}
+		switch (hprop.h264_entropy) {
+		case HAL_H264_ENTROPY_CAVLC:
+			ctrl->val = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CAVLC;
+			break;
+		case HAL_H264_ENTROPY_CABAC:
+			ctrl->val = V4L2_MPEG_VIDEO_H264_ENTROPY_MODE_CABAC;
+			break;
+		case HAL_UNUSED_ENTROPY:
+			rc = -ENOTSUPP;
+			break;
+		}
+		break;
 	default:
-		dprintk(VIDC_DBG, "%s id:%x not supported\n",
-					__func__, ctrl->id);
+		/* Other controls aren't really volatile, shouldn't need to
+		 * modify ctrl->value */
 		break;
 	}
+	v4l2_ctrl_lock(ctrl);
+
 	return rc;
 }
 
@@ -2055,6 +2091,91 @@ static int vdec_v4l2_to_hal(int id, int value)
 			goto unknown_value;
 		}
 	}
+unknown_value:
+	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
+	return -EINVAL;
+}
+
+static int vdec_hal_to_v4l2(int id, int value)
+{
+	switch (id) {
+		/* H264 */
+	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
+		switch (value) {
+		case HAL_H264_PROFILE_BASELINE:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
+		case HAL_H264_PROFILE_CONSTRAINED_BASE:
+			return
+			V4L2_MPEG_VIDEO_H264_PROFILE_CONSTRAINED_BASELINE;
+		case HAL_H264_PROFILE_MAIN:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_MAIN;
+		case HAL_H264_PROFILE_EXTENDED:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_EXTENDED;
+		case HAL_H264_PROFILE_HIGH:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
+		case HAL_H264_PROFILE_HIGH10:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10;
+		case HAL_H264_PROFILE_HIGH422:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_422;
+		case HAL_H264_PROFILE_HIGH444:
+			return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_444_PREDICTIVE;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
+		switch (value) {
+		case HAL_H264_LEVEL_1:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
+		case HAL_H264_LEVEL_1b:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1B;
+		case HAL_H264_LEVEL_11:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_1;
+		case HAL_H264_LEVEL_12:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_2;
+		case HAL_H264_LEVEL_13:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_1_3;
+		case HAL_H264_LEVEL_2:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_2_0;
+		case HAL_H264_LEVEL_21:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_2_1;
+		case HAL_H264_LEVEL_22:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_2_2;
+		case HAL_H264_LEVEL_3:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_3_0;
+		case HAL_H264_LEVEL_31:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_3_1;
+		case HAL_H264_LEVEL_32:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_3_2;
+		case HAL_H264_LEVEL_4:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
+		case HAL_H264_LEVEL_41:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
+		case HAL_H264_LEVEL_42:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
+		case HAL_H264_LEVEL_5:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_5_0;
+		case HAL_H264_LEVEL_51:
+			return V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
+		default:
+			goto unknown_value;
+		}
+	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_PROFILE:
+	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL:
+	case V4L2_CID_MPEG_VIDC_VIDEO_MPEG2_LEVEL:
+		/*
+		 * Extremely dirty hack: we haven't implemented g_ctrl of
+		 * any of these controls and have no intention of doing
+		 * so in the near future.  So just return 0 so that we
+		 * don't see the annoying "Unknown control" errors at the
+		 * bottom of this function.
+		 */
+		return 0;
+	}
+
 unknown_value:
 	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
 	return -EINVAL;
@@ -2680,19 +2801,6 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 			return -EINVAL;
 		}
 
-		switch (msm_vdec_ctrls[idx].id) {
-		case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
-		case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
-		case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-		case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
-		case V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE:
-		case V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL:
-		case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
-		case V4L2_CID_MPEG_VIDC_VIDEO_SECURE_SCALING_THRESHOLD:
-			ctrl->flags |= msm_vdec_ctrls[idx].flags;
-			break;
-		}
-
 		ret_val = inst->ctrl_handler.error;
 		if (ret_val) {
 			dprintk(VIDC_ERR,
@@ -2702,6 +2810,7 @@ int msm_vdec_ctrl_init(struct msm_vidc_inst *inst)
 			return ret_val;
 		}
 
+		ctrl->flags |= msm_vdec_ctrls[idx].flags;
 		inst->ctrls[idx] = ctrl;
 	}
 

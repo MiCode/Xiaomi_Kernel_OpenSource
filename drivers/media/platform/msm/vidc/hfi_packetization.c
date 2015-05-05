@@ -915,8 +915,11 @@ int create_pkt_cmd_session_get_property(
 	pkt->num_properties = 1;
 	switch (ptype) {
 	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
-			pkt->rg_property_data[0] =
-				HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_PROFILE_LEVEL_CURRENT;
+		break;
+	case HAL_CONFIG_VDEC_ENTROPY:
+		pkt->rg_property_data[0] = HFI_PROPERTY_CONFIG_VDEC_ENTROPY;
 		break;
 	default:
 		dprintk(VIDC_ERR, "%s cmd:%#x not supported\n", __func__,

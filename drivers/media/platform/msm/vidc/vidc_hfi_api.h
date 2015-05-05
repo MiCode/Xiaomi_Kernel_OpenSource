@@ -220,6 +220,7 @@ enum hal_property {
 	HAL_CONFIG_VENC_BASELAYER_PRIORITYID,
 	HAL_PARAM_EXTRADATA_INPUT_CROP,
 	HAL_PROPERTY_PARAM_VENC_ASPECT_RATIO,
+	HAL_CONFIG_VDEC_ENTROPY,
 };
 
 enum hal_domain {
@@ -1110,7 +1111,6 @@ union hal_get_property {
 	struct hal_bitrate bitrate;
 	struct hal_profile_level profile_level;
 	struct hal_profile_level_supported profile_level_supported;
-	struct hal_h264_entropy_control h264_entropy_control;
 	struct hal_mpeg4_time_resolution mpeg4_time_resolution;
 	struct hal_mpeg4_header_extension mpeg4_header_extension;
 	struct hal_h264_db_control h264_db_control;
@@ -1143,6 +1143,7 @@ union hal_get_property {
 	struct hal_buffer_info buffer_info;
 	struct hal_buffer_alloc_mode buffer_alloc_mode;
 	struct buffer_requirements buf_req;
+	enum hal_h264_entropy h264_entropy;
 };
 
 /* HAL Response */

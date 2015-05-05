@@ -3566,47 +3566,48 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		return -EINVAL;
 	}
 
-	if (inst->state == MSM_VIDC_CORE_INVALID ||
-			inst->core->state == VIDC_CORE_INVALID) {
-		dprintk(VIDC_ERR,
-			"Core is in bad state can't query get_bufreqs()\n");
-		return -EAGAIN;
-	}
 	hdev = inst->core->device;
 	mutex_lock(&inst->sync_lock);
-	if (inst->state < MSM_VIDC_OPEN_DONE || inst->state >= MSM_VIDC_CLOSE) {
+	if (inst->state < MSM_VIDC_OPEN_DONE ||
+			inst->state >= MSM_VIDC_CLOSE) {
+
+		/* No need to check inst->state == MSM_VIDC_INVALID since
+		 * INVALID is > CLOSE_DONE. When core went to INVALID state,
+		 * we put all the active instances in INVALID. So > CLOSE_DONE
+		 * is enough check to have.
+		 */
+
 		dprintk(VIDC_ERR,
-			"%s Not in proper state\n", __func__);
+			"In Wrong state to call Buf Req: Inst %p or Core %p\n",
+				inst, inst->core);
 		rc = -EAGAIN;
+		mutex_unlock(&inst->sync_lock);
 		goto exit;
 	}
+	mutex_unlock(&inst->sync_lock);
+
 	init_completion(&inst->completions[
 			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO)]);
 	switch (ptype) {
 	case HAL_PARAM_PROFILE_LEVEL_CURRENT:
-		rc = call_hfi_op(hdev, session_get_property,
-					(void *) inst->session, ptype);
-		if (rc) {
-			dprintk(VIDC_ERR, "%s Failed: PROFILE_LEVEL_INFO\n",
-						__func__);
-			rc = -EAGAIN;
-			goto exit;
-		}
+	case HAL_CONFIG_VDEC_ENTROPY:
+		rc = call_hfi_op(hdev, session_get_property, inst->session,
+				ptype);
 		break;
 	case HAL_PARAM_GET_BUFFER_REQUIREMENTS:
-		rc = call_hfi_op(hdev, session_get_buf_req,
-						(void *) inst->session);
-		if (rc) {
-			dprintk(VIDC_ERR, "Failed to get property\n");
-			rc = -EAGAIN;
-			goto exit;
-		}
+		rc = call_hfi_op(hdev, session_get_buf_req, inst->session);
 		break;
 	default:
 		rc = -EAGAIN;
-		dprintk(VIDC_ERR, "%s id:%d not supported\n", __func__, ptype);
 		break;
 	}
+
+	if (rc) {
+		dprintk(VIDC_ERR, "Can't query hardware for property: %d\n",
+				rc);
+		goto exit;
+	}
+
 	rc = wait_for_completion_timeout(&inst->completions[
 			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO)],
 		msecs_to_jiffies(msm_vidc_hw_rsp_timeout));
@@ -3617,8 +3618,11 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 			SESSION_MSG_INDEX(HAL_SESSION_PROPERTY_INFO));
 		inst->state = MSM_VIDC_CORE_INVALID;
 		msm_comm_kill_session(inst);
-		rc = -EIO;
+		rc = -ETIMEDOUT;
 		goto exit;
+	} else {
+		/* wait_for_completion_timeout returns jiffies before expiry */
+		rc = 0;
 	}
 
 	mutex_lock(&inst->pending_getpropq.lock);
@@ -3629,14 +3633,12 @@ int msm_comm_try_get_prop(struct msm_vidc_inst *inst, enum hal_property ptype,
 		kfree(buf->data);
 		list_del(&buf->list);
 		kfree(buf);
-		rc = 0;
 	} else {
 		dprintk(VIDC_ERR, "%s getprop list empty\n", __func__);
 		rc = -EINVAL;
 	}
 	mutex_unlock(&inst->pending_getpropq.lock);
 exit:
-	mutex_unlock(&inst->sync_lock);
 	return rc;
 }
 
