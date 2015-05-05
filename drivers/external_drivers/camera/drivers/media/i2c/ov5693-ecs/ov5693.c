@@ -1317,10 +1317,6 @@ static int ov5693_init(struct v4l2_subdev *sd)
 				"vcm change mode failed\n");
 	}
 
-	/* restore settings */
-	ov5693_res = ov5693_res_preview;
-	N_RES = N_RES_PREVIEW;
-
 	/*change initial focus value for ad5823*/
 	if (dev->vcm == VCM_AD5823) {
 		dev->focus = AD5823_INIT_FOCUS_POS;
@@ -1492,8 +1488,12 @@ static int ov5693_s_power(struct v4l2_subdev *sd, int on)
 		return power_down(sd);
 	else {
 		ret = power_up(sd);
-		if (!ret)
-			return ov5693_init(sd);
+		if (!ret) {
+			ret = ov5693_init(sd);
+			/* restore settings */
+			ov5693_res = ov5693_res_preview;
+			N_RES = N_RES_PREVIEW;
+		}
 	}
 	return ret;
 }
