@@ -371,6 +371,7 @@ struct diag_md_proc_info {
 struct diag_feature_t {
 	uint8_t feature_mask[FEATURE_MASK_LEN];
 	uint8_t rcvd_feature_mask;
+	uint8_t log_on_demand;
 	uint8_t separate_cmd_rsp;
 	uint8_t encode_hdlc;
 	uint8_t peripheral_buffering;
