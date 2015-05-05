@@ -899,7 +899,6 @@ static int atomisp_release(struct file *file)
 	bool acc_node;
 	struct v4l2_requestbuffers req;
 	struct v4l2_subdev_fh fh;
-	uint16_t source_pad = atomisp_subdev_source_pad(vdev);
 	struct v4l2_rect clear_compose = {0};
 	int ret = 0;
 
@@ -1017,11 +1016,13 @@ subdev_uninit:
 		dev_err(isp->dev, "Failed to power off device\n");
 
 done:
-	atomisp_subdev_set_selection(&asd->subdev, &fh,
+	if (!acc_node) {
+		atomisp_subdev_set_selection(&asd->subdev, &fh,
 				V4L2_SUBDEV_FORMAT_ACTIVE,
-				source_pad,
+				atomisp_subdev_source_pad(vdev),
 				V4L2_SEL_TGT_COMPOSE, 0,
 				&clear_compose);
+	}
 	rt_mutex_unlock(&isp->mutex);
 	mutex_unlock(&isp->streamoff_mutex);
 
