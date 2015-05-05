@@ -1773,6 +1773,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU0>;
+		qcom,si-enable;
 	};
 
 	jtag_mm1: jtagmm@3940000 {
@@ -1785,6 +1786,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU1>;
+		qcom,si-enable;
 	};
 
 	jtag_mm2: jtagmm@3a40000 {
@@ -1797,6 +1799,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU2>;
+		qcom,si-enable;
 	};
 
 	jtag_mm3: jtagmm@3b40000 {
@@ -1809,6 +1812,7 @@
 		clock-names = "core_clk", "core_a_clk";
 
 		qcom,coresight-jtagmm-cpu = <&CPU3>;
+		qcom,si-enable;
 	};
 
 	rpm_bus: qcom,rpm-smd {
