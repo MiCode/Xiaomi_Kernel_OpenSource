@@ -37,6 +37,12 @@
 		qcom,max-bandwidth-high-kbps = <2000000>;
 		qcom,max-bandwidth-per-pipe-kbps = <1500000>;
 
+		/* Bandwidth limit settings */
+		qcom,max-bw-settings = <1 2300000>,	/* Default */
+				       <2 1700000>,	/* Camera */
+				       <4 2300000>,	/* HFlip */
+				       <8 2000000>;	/* VFlip */
+
 		/* VBIF QoS remapper settings*/
 		qcom,mdss-vbif-qos-rt-setting = <2 2 2 2>;
 		qcom,mdss-vbif-qos-nrt-setting = <1 1 1 1>;
