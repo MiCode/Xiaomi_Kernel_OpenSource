@@ -116,6 +116,7 @@ dtb-$(CONFIG_ARCH_MSM8916) += msm8916-sim.dtb \
 	msm8952-rumi.dtb \
 	msm8952-qrd-skum.dtb \
 	msm8952-cdp.dtb \
+	msm8952-ext-codec-cdp.dtb \
 	msm8952-mtp.dtb \
 	msm8976-sim.dtb \
 	msm8976-rumi.dtb \
