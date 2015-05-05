@@ -1096,6 +1096,9 @@ int mdss_debugfs_init(struct mdss_data_type *mdata)
 		goto err;
 	}
 
+	debugfs_create_bool("allow_cx_vddmin", 0644, mdd->root,
+		(u32 *)&mdata->allow_cx_vddmin);
+
 	mdss_debugfs_perf_init(mdd, mdata);
 
 	if (mdss_create_xlog_debug(mdd))
