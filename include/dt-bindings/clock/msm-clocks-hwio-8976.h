@@ -249,6 +249,7 @@
 #define USB_HS_PHY_CFG_AHB_BCR			 0x41038
 #define QUSB2_PHY_BCR				 0x4103C
 #define USB_HS_PHY_CFG_AHB_CBCR			 0x41030
+#define APSS_MISC				 0x60000
 #define DCC_CBCR				 0x77004
 #define APS_0_CBCR				 0x78004
 #define APS_0_CMD_RCGR				 0x78008
