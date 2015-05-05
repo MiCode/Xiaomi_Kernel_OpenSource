@@ -77,6 +77,7 @@
 #define MAX17042_CHRG_CONV_FCTR	500
 #define MAX17042_CURR_CONV_FCTR	1562500
 #define MAX17042_VMAX_OFFSET	50
+#define VALERT_VOLT_LSB		20 /* 20mV */
 #define BATTID_UNKNOWN		"UNKNOWNB"
 #define BATTID_LENGTH		8
 
@@ -905,16 +906,40 @@ static void max17042_set_soc_threshold(struct max17042_chip *chip, u16 off)
 	regmap_write(map, MAX17042_SALRT_Th, soc_tr);
 }
 
+static void max17042_set_default_volt_threshold(struct max17042_chip *chip)
+{
+	int vmin, vmax, reg_val;
+
+	vmax = chip->pdata->vmax + MAX17042_VMAX_OFFSET;
+	vmin = chip->pdata->vmin - MAX17042_VMAX_OFFSET;
+	reg_val = ((vmax / VALERT_VOLT_LSB) << 8) |
+			(vmin / VALERT_VOLT_LSB);
+	regmap_write(chip->regmap, MAX17042_VALRT_Th, reg_val);
+
+}
+
 static irqreturn_t max17042_thread_handler(int id, void *dev)
 {
 	struct max17042_chip *chip = dev;
 	u32 stat;
+	int vmax, vmin, reg_val;
 
 	regmap_read(chip->regmap, MAX17042_STATUS, &stat);
 	if ((stat & STATUS_INTR_SOCMIN_BIT) ||
 		(stat & STATUS_INTR_SOCMAX_BIT)) {
 		dev_info(&chip->client->dev, "SOC threshold INTR\n");
 		max17042_set_soc_threshold(chip, 1);
+	} else if (stat & STATUS_VMX_BIT) {
+		vmax = chip->pdata->vmax +  MAX17042_VMAX_OFFSET;
+		vmin =  chip->pdata->vmax - MAX17042_VMAX_OFFSET;
+
+		reg_val = ((vmax / VALERT_VOLT_LSB) << 8) |
+				(vmin / VALERT_VOLT_LSB);
+
+		regmap_write(chip->regmap, MAX17042_VALRT_Th, reg_val);
+
+	} else if (stat & STATUS_VMN_BIT) {
+		max17042_set_default_volt_threshold(chip);
 	}
 
 	chip->health = max17042_get_battery_health(chip);
@@ -943,6 +968,7 @@ static void max17042_init_worker(struct work_struct *work)
 		val |= CONFIG_ALRT_BIT_ENBL;
 		regmap_write(chip->regmap, MAX17042_CONFIG, val);
 		max17042_set_soc_threshold(chip, 1);
+		max17042_set_default_volt_threshold(chip);
 	}
 
 	chip->init_complete = 1;
@@ -1241,6 +1267,7 @@ static int max17042_probe(struct i2c_client *client,
 			val |= CONFIG_ALRT_BIT_ENBL;
 			regmap_write(chip->regmap, MAX17042_CONFIG, val);
 			max17042_set_soc_threshold(chip, 1);
+			max17042_set_default_volt_threshold(chip);
 		} else {
 			client->irq = 0;
 			dev_err(&client->dev, "%s(): cannot get IRQ\n",
