@@ -434,7 +434,48 @@ MODULE_DEVICE_TABLE(of, dw_i2c_of_match);
 #endif
 
 #ifdef CONFIG_PM
-static int dw_i2c_suspend(struct device *dev)
+static int dw_i2c_suspend_late(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (i_dev->polling)
+		return 0;
+
+	mutex_lock(&i_dev->lock);
+	i2c_dw_disable(i_dev);
+	clk_disable_unprepare(i_dev->clk);
+
+	i_dev->status |= STATUS_SUSPENDED;
+	mutex_unlock(&i_dev->lock);
+
+	return 0;
+}
+
+static int dw_i2c_resume_early(struct device *dev)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
+
+
+	dev_dbg(dev, "%s\n", __func__);
+
+	if (i_dev->polling)
+		return 0;
+
+	mutex_lock(&i_dev->lock);
+	clk_prepare_enable(i_dev->clk);
+	i2c_dw_init(i_dev);
+
+	i_dev->status &= ~STATUS_SUSPENDED;
+	mutex_unlock(&i_dev->lock);
+
+	return 0;
+}
+
+static int dw_i2c_runtime_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
@@ -448,7 +489,7 @@ static int dw_i2c_suspend(struct device *dev)
 	return 0;
 }
 
-static int dw_i2c_resume(struct device *dev)
+static int dw_i2c_runtime_resume(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct dw_i2c_dev *i_dev = platform_get_drvdata(pdev);
@@ -463,9 +504,13 @@ static int dw_i2c_resume(struct device *dev)
 }
 #endif
 
-static UNIVERSAL_DEV_PM_OPS(dw_i2c_dev_pm_ops, dw_i2c_suspend,
-			    dw_i2c_resume, NULL);
-
+static const struct dev_pm_ops dw_i2c_dev_pm_ops = {
+#ifdef CONFIG_PM_SLEEP
+	.suspend_late = dw_i2c_suspend_late,
+	.resume_early = dw_i2c_resume_early,
+#endif
+	SET_RUNTIME_PM_OPS(dw_i2c_runtime_suspend, dw_i2c_runtime_resume, NULL)
+};
 /* work with hotplug and coldplug */
 MODULE_ALIAS("platform:i2c_designware");
 

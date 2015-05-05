@@ -34,6 +34,13 @@
 #define DW_IC_CON_RESTART_EN		0x20
 #define DW_IC_CON_SLAVE_DISABLE		0x40
 
+/*
+ * status codes
+ */
+#define STATUS_IDLE			0x0
+#define STATUS_WRITE_IN_PROGRESS	0x1
+#define STATUS_READ_IN_PROGRESS		0x2
+#define STATUS_SUSPENDED		0x4
 
 /**
  * struct dw_i2c_dev - private i2c-designware data

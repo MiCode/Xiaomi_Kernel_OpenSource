@@ -703,6 +703,13 @@ i2c_dw_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	dev_dbg(dev->dev, "%s: msgs: %d\n", __func__, num);
 
 	mutex_lock(&dev->lock);
+
+	if (dev->status & STATUS_SUSPENDED) {
+		dev_err(dev->dev, "i2c xfer after suspend!\n");
+		mutex_unlock(&dev->lock);
+		return -EIO;
+	}
+
 	pm_runtime_get_sync(dev->dev);
 
 	reinit_completion(&dev->cmd_complete);
