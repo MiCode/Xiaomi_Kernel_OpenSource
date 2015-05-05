@@ -170,8 +170,9 @@
 
 	clock_debug: qcom,cc-debug@1874000 {
 		compatible = "qcom,cc-debug-8952";
-		reg = <0x1874000 0x4>;
-		reg-names = "cc_base";
+		reg = <0x1874000 0x4>,
+		      <0xb11101c 0x8>;
+		reg-names = "cc_base", "meas";
 		#clock-cells = <1>;
 	};
 
