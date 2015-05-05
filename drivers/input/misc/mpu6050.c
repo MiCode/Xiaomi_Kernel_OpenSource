@@ -3066,7 +3066,8 @@ static int mpu6050_probe(struct i2c_client *client,
 			gpio_is_valid(sensor->pdata->gpio_int))
 		sensor->accel_cdev.max_delay = MPU6050_ACCEL_INT_MAX_DELAY;
 
-	ret = sensors_classdev_register(&client->dev, &sensor->accel_cdev);
+	ret = sensors_classdev_register(&sensor->accel_dev->dev,
+			&sensor->accel_cdev);
 	if (ret) {
 		dev_err(&client->dev,
 			"create accel class device file failed!\n");
@@ -3085,7 +3086,8 @@ static int mpu6050_probe(struct i2c_client *client,
 			gpio_is_valid(sensor->pdata->gpio_int))
 		sensor->gyro_cdev.max_delay = MPU6050_GYRO_INT_MAX_DELAY;
 
-	ret = sensors_classdev_register(&client->dev, &sensor->gyro_cdev);
+	ret = sensors_classdev_register(&sensor->gyro_dev->dev,
+			&sensor->gyro_cdev);
 	if (ret) {
 		dev_err(&client->dev,
 			"create accel class device file failed!\n");

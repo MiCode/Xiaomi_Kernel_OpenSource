@@ -3,7 +3,7 @@
  * FocalTech ft5x06 TouchScreen driver.
  *
  * Copyright (c) 2010  Focal tech Ltd.
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -2307,7 +2307,7 @@ static int ft5x06_ts_probe(struct i2c_client *client,
 					ft5x06_psensor_enable_set;
 		psensor_pdata->data = data;
 
-		err = sensors_classdev_register(&client->dev,
+		err = sensors_classdev_register(&psensor_input_dev->dev,
 						&psensor_pdata->ps_cdev);
 		if (err)
 			goto unregister_psensor_input_device;
