@@ -2135,11 +2135,11 @@ static int bq24192_probe(struct i2c_client *client,
 	}
 
 	chip->client = client;
+	dev = &client->dev;
 	if (id) {
 		chip->pdata = (struct bq24192_platform_data *)id->driver_data;
 	} else {
 #ifdef CONFIG_ACPI
-		dev = &client->dev;
 		if (!ACPI_HANDLE(dev)) {
 			i2c_set_clientdata(client, NULL);
 			kfree(chip);
