@@ -42,6 +42,7 @@ struct usbnet_ipa_stats {
 
 struct usbnet_ipa_ctx {
 	struct usbnet_ipa_stats stats;
+	struct dentry *debugfs_dir;
 };
 
 /* interface from usbnet core to each USB networking link we handle */

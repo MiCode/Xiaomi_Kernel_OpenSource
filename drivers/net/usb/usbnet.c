@@ -45,6 +45,7 @@
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/pm_runtime.h>
+#include <linux/debugfs.h>
 
 #define DRIVER_VERSION		"22-Aug-2005"
 
@@ -1530,6 +1531,75 @@ static void usbnet_bh (unsigned long param)
  * USB Device Driver support
  *
  *-------------------------------------------------------------------------*/
+static ssize_t usbnet_ipa_debugfs_read_stats(struct file *file,
+					     char __user *user_buf,
+					     size_t count, loff_t *ppos)
+{
+	struct usbnet *dev = file->private_data;
+	struct usbnet_ipa_ctx *usbnet_ipa = dev->pusbnet_ipa;
+	char *buf;
+	unsigned int len = 0, buf_len = 1000;
+	ssize_t ret_cnt;
+
+	if (unlikely(!usbnet_ipa)) {
+		pr_err("%s NULL Pointer\n", __func__);
+		return -EINVAL;
+	}
+
+	buf = kzalloc(buf_len, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	len += scnprintf(buf + len, buf_len - len, "%25s\n",
+	"USBNET IPA stats");
+	len += scnprintf(buf + len, buf_len - len, "%25s\n",
+	"==================================================");
+	len += scnprintf(buf + len, buf_len - len, "%25s %10llu\n",
+	"IPA RX Pkt Send: ", usbnet_ipa->stats.rx_ipa_send);
+	len += scnprintf(buf + len, buf_len - len, "%25s %10llu\n",
+	"IPA RX IPA Send Fail: ", usbnet_ipa->stats.rx_ipa_send_fail);
+	len += scnprintf(buf + len, buf_len - len, "%25s %10llu\n",
+	"IPA RX Write done: ", usbnet_ipa->stats.rx_ipa_write_done);
+	len += scnprintf(buf + len, buf_len - len, "%25s %10llu\n",
+	"IPA RX Exception: ", usbnet_ipa->stats.rx_ipa_excep);
+	len += scnprintf(buf + len, buf_len - len, "%25s %10llu\n",
+	"IPA TX Send: ", usbnet_ipa->stats.tx_ipa_send);
+	len += scnprintf(buf + len, buf_len - len, "%25s %10llu\n",
+	"IPA TX Send Err: ", usbnet_ipa->stats.tx_ipa_send_err);
+
+	if (len > buf_len)
+		len = buf_len;
+
+	ret_cnt = simple_read_from_buffer(user_buf, count, ppos, buf, len);
+	kfree(buf);
+
+	return ret_cnt;
+}
+
+static const struct file_operations fops_usbnet_ipa_stats = {
+		.read = usbnet_ipa_debugfs_read_stats,
+		.open = simple_open,
+		.owner = THIS_MODULE,
+		.llseek = default_llseek,
+};
+
+static int usbnet_debugfs_init(struct usbnet *dev)
+{
+	dev->pusbnet_ipa->debugfs_dir = debugfs_create_dir("usbnet", 0);
+	if (!dev->pusbnet_ipa->debugfs_dir)
+		return -ENOMEM;
+
+	debugfs_create_file("stats", S_IRUSR, dev->pusbnet_ipa->debugfs_dir,
+			    dev, &fops_usbnet_ipa_stats);
+
+	return 0;
+}
+
+void usbnet_debugfs_exit(struct usbnet *dev)
+{
+	debugfs_remove_recursive(dev->pusbnet_ipa->debugfs_dir);
+}
+
 static void usbnet_ipa_cleanup_rm(void)
 {
 	int ret;
@@ -1583,6 +1653,7 @@ void usbnet_disconnect (struct usb_interface *intf)
 				"%s ODU bridge cleanup failed.\n",
 				__func__);
 		usbnet_ipa_cleanup_rm();
+		usbnet_debugfs_exit(dev);
 		kfree(dev->pusbnet_ipa);
 	}
 	usb_scuttle_anchored_urbs(&dev->deferred);
@@ -1945,6 +2016,10 @@ usbnet_probe (struct usb_interface *udev, const struct usb_device_id *prod)
 			pr_err("USBNET: IPA Setup RM Failed\n");
 			goto out4;
 		}
+
+		status = usbnet_debugfs_init(dev);
+		if (status)
+			pr_err("USBNET: Debugfs Init Failed\n");
 
 		/* Initialize the ODU bridge driver now: odu_bridge_init()*/
 		params_ptr->netdev_name = net->name;
