@@ -26,6 +26,7 @@
 #include "diag_masks.h"
 #include "diag_dci.h"
 #include "diagfwd_smd.h"
+#include "diagfwd_socket.h"
 #include "diag_mux.h"
 #include "diag_ipc_logging.h"
 
@@ -34,6 +35,8 @@ struct data_header {
 	uint8_t version;
 	uint16_t length;
 };
+
+static struct diagfwd_info *early_init_info[NUM_TRANSPORT];
 
 static void diagfwd_queue_read(struct diagfwd_info *fwd_info);
 static void diagfwd_buffers_exit(struct diagfwd_info *fwd_info);
@@ -397,11 +400,40 @@ static void diagfwd_reset_buffers(struct diagfwd_info *fwd_info,
 int diagfwd_peripheral_init(void)
 {
 	uint8_t peripheral;
+	uint8_t transport;
 	uint8_t type;
 	struct diagfwd_info *fwd_info = NULL;
 
+	for (transport = 0; transport < NUM_TRANSPORT; transport++) {
+		early_init_info[transport] = kzalloc(
+				sizeof(struct diagfwd_info) * NUM_PERIPHERALS,
+				GFP_KERNEL);
+		if (!early_init_info[transport])
+			return -ENOMEM;
+	}
+	kmemleak_not_leak(early_init_info);
+
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
+		for (transport = 0; transport < NUM_TRANSPORT; transport++) {
+			fwd_info = &early_init_info[transport][peripheral];
+			fwd_info->peripheral = peripheral;
+			fwd_info->type = TYPE_CNTL;
+			fwd_info->transport = transport;
+			fwd_info->ctxt = NULL;
+			fwd_info->p_ops = NULL;
+			fwd_info->ch_open = 0;
+			fwd_info->inited = 1;
+			fwd_info->read_bytes = 0;
+			fwd_info->write_bytes = 0;
+			spin_lock_init(&fwd_info->buf_lock);
+			mutex_init(&fwd_info->data_mutex);
+		}
+	}
+
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		for (type = 0; type < NUM_TYPES; type++) {
+			if (type == TYPE_CNTL)
+				continue;
 			fwd_info = &peripheral_info[type][peripheral];
 			fwd_info->peripheral = peripheral;
 			fwd_info->type = type;
@@ -428,6 +460,8 @@ int diagfwd_peripheral_init(void)
 	}
 
 	diag_smd_init();
+	if (driver->supports_sockets)
+		diag_socket_init();
 
 	return 0;
 }
@@ -439,6 +473,7 @@ void diagfwd_peripheral_exit(void)
 	struct diagfwd_info *fwd_info = NULL;
 
 	diag_smd_exit();
+	diag_socket_exit();
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		for (type = 0; type < NUM_TYPES; type++) {
@@ -457,9 +492,11 @@ void diagfwd_peripheral_exit(void)
 		driver->diagfwd_cmd[peripheral] = NULL;
 		driver->diagfwd_dci_cmd[peripheral] = NULL;
 	}
+
+	kfree(early_init_info);
 }
 
-int diagfwd_cntl_register(uint8_t peripheral, void *ctxt,
+int diagfwd_cntl_register(uint8_t transport, uint8_t peripheral, void *ctxt,
 			  struct diag_peripheral_ops *ops,
 			  struct diagfwd_info **fwd_ctxt)
 {
@@ -468,11 +505,11 @@ int diagfwd_cntl_register(uint8_t peripheral, void *ctxt,
 	if (!ctxt || !ops)
 		return -EIO;
 
-	if (peripheral >= NUM_PERIPHERALS)
+	if (transport >= NUM_TRANSPORT || peripheral >= NUM_PERIPHERALS)
 		return -EINVAL;
 
-	fwd_info = &peripheral_info[TYPE_CNTL][peripheral];
-	*fwd_ctxt = &peripheral_info[TYPE_CNTL][peripheral];
+	fwd_info = &early_init_info[transport][peripheral];
+	*fwd_ctxt = &early_init_info[transport][peripheral];
 	fwd_info->ctxt = ctxt;
 	fwd_info->p_ops = ops;
 	fwd_info->c_ops = &cntl_ch_ops;
@@ -480,14 +517,14 @@ int diagfwd_cntl_register(uint8_t peripheral, void *ctxt,
 	return 0;
 }
 
-int diagfwd_register(uint8_t peripheral, uint8_t type,
+int diagfwd_register(uint8_t transport, uint8_t peripheral, uint8_t type,
 		     void *ctxt, struct diag_peripheral_ops *ops,
 		     struct diagfwd_info **fwd_ctxt)
 {
 	struct diagfwd_info *fwd_info = NULL;
 
 	if (peripheral >= NUM_PERIPHERALS || type >= NUM_TYPES ||
-	    !ctxt || !ops) {
+	    !ctxt || !ops || transport >= NUM_TRANSPORT) {
 		pr_err("diag: In %s, returning error\n", __func__);
 		return -EIO;
 	}
@@ -496,6 +533,7 @@ int diagfwd_register(uint8_t peripheral, uint8_t type,
 	*fwd_ctxt = &peripheral_info[type][peripheral];
 	fwd_info->ctxt = ctxt;
 	fwd_info->p_ops = ops;
+	fwd_info->transport = transport;
 	fwd_info->ch_open = 0;
 
 	switch (type) {
@@ -550,6 +588,42 @@ void diagfwd_deregister(uint8_t peripheral, uint8_t type, void *ctxt)
 		driver->diagfwd_dci_cmd[peripheral] = NULL;
 		break;
 	}
+}
+
+void diagfwd_close_transport(uint8_t transport, uint8_t peripheral)
+{
+	struct diagfwd_info *fwd_info = NULL;
+	struct diagfwd_info *dest_info = NULL;
+	int (*init_fn)(uint8_t) = NULL;
+	void (*invalidate_fn)(void *, struct diagfwd_info *) = NULL;
+	uint8_t transport_open = 0;
+
+	if (peripheral >= NUM_PERIPHERALS)
+		return;
+
+	switch (transport) {
+	case TRANSPORT_SMD:
+		transport_open = TRANSPORT_SOCKET;
+		init_fn = diag_socket_init_peripheral;
+		invalidate_fn = diag_socket_invalidate;
+		break;
+	case TRANSPORT_SOCKET:
+		transport_open = TRANSPORT_SMD;
+		init_fn = diag_smd_init_peripheral;
+		invalidate_fn = diag_smd_invalidate;
+		break;
+	default:
+		return;
+
+	}
+
+	fwd_info = &early_init_info[transport_open][peripheral];
+	dest_info = &peripheral_info[TYPE_CNTL][peripheral];
+	memcpy(dest_info, fwd_info, sizeof(struct diagfwd_info));
+	invalidate_fn(dest_info->ctxt, dest_info);
+	diagfwd_queue_read(dest_info);
+	init_fn(peripheral);
+	diag_cntl_channel_open(dest_info);
 }
 
 int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len)
@@ -619,13 +693,16 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 
 void diagfwd_early_open(uint8_t peripheral)
 {
+	uint8_t transport = 0;
 	struct diagfwd_info *fwd_info = NULL;
 
 	if (peripheral >= NUM_PERIPHERALS)
 		return;
 
-	fwd_info = &peripheral_info[TYPE_CNTL][peripheral];
-	__diag_fwd_open(fwd_info);
+	for (transport = 0; transport < NUM_TRANSPORT; transport++) {
+		fwd_info = &early_init_info[transport][peripheral];
+		__diag_fwd_open(fwd_info);
+	}
 }
 
 void diagfwd_open(uint8_t peripheral, uint8_t type)

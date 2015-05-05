@@ -17,6 +17,11 @@
 #define MAX_PERIPHERAL_BUF_SZ		32768
 #define MAX_PERIPHERAL_HDLC_BUF_SZ	65539
 
+#define TRANSPORT_UNKNOWN		-1
+#define TRANSPORT_SMD			0
+#define TRANSPORT_SOCKET		1
+#define NUM_TRANSPORT			2
+
 #define PERIPHERAL_MASK(x)					\
 	((x == PERIPHERAL_MODEM) ? DIAG_CON_MPSS :		\
 	((x == PERIPHERAL_LPASS) ? DIAG_CON_LPASS :		\
@@ -54,6 +59,7 @@ struct diag_peripheral_ops {
 struct diagfwd_info {
 	uint8_t peripheral;
 	uint8_t type;
+	uint8_t transport;
 	uint8_t inited;
 	uint8_t ch_open;
 	atomic_t opened;
@@ -73,15 +79,17 @@ extern struct diagfwd_info peripheral_info[NUM_TYPES][NUM_PERIPHERALS];
 int diagfwd_peripheral_init(void);
 void diagfwd_peripheral_exit(void);
 
+void diagfwd_close_transport(uint8_t transport, uint8_t peripheral);
+
 void diagfwd_open(uint8_t peripheral, uint8_t type);
 void diagfwd_early_open(uint8_t peripheral);
 
 void diagfwd_late_open(struct diagfwd_info *fwd_info);
 void diagfwd_close(uint8_t peripheral, uint8_t type);
-int diagfwd_register(uint8_t peripheral, uint8_t type,
+int diagfwd_register(uint8_t transport, uint8_t peripheral, uint8_t type,
 		     void *ctxt, struct diag_peripheral_ops *ops,
 		     struct diagfwd_info **fwd_ctxt);
-int diagfwd_cntl_register(uint8_t peripheral, void *ctxt,
+int diagfwd_cntl_register(uint8_t transport, uint8_t peripheral, void *ctxt,
 			  struct diag_peripheral_ops *ops,
 			  struct diagfwd_info **fwd_ctxt);
 void diagfwd_deregister(uint8_t peripheral, uint8_t type, void *ctxt);
