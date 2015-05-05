@@ -20,6 +20,12 @@
 
 #define TZ_PROTECT_MEMORY 0x1
 
+/*
+ * prevent memory from being zeroed out on unlock on nonsecure
+ * devices only.
+ */
+#define FLAG_DONT_CLEAR_ON_UNLOCK 0x1
+
 /* filesystem parameters */
 #define MPU_MAGIC_LOCK 0x11
 #define MPU_MAGIC_UNLOCK 0x10
@@ -66,7 +72,7 @@ static void mem_prot_region(u64 start, u64 size, bool lock)
 	 */
 	desc.args[2] = 0x1;
 	desc.args[3] = lock;
-	desc.args[4] = 0;
+	desc.args[4] = lock ? 0 : FLAG_DONT_CLEAR_ON_UNLOCK;
 
 	if (!is_scm_armv8())
 		ret = -EINVAL;
