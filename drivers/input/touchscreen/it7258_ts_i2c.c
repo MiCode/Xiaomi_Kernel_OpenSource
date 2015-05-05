@@ -16,32 +16,17 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
-#include <asm/uaccess.h>
 #include <linux/input.h>
 #include <linux/interrupt.h>
-#include <linux/io.h>
-#include <linux/cdev.h>
-#include <linux/platform_device.h>
-#include <linux/time.h>
-#include <linux/timer.h>
 #include <linux/firmware.h>
-#include <linux/timer.h>
 #include <linux/gpio.h>
 #include <linux/slab.h>
-#include <linux/sync.h>
-#include <linux/proc_fs.h>
-#include <linux/notifier.h>
-#include <linux/asus_utility.h>
 #include <linux/wakelock.h>
 
 #define MAX_BUFFER_SIZE			144
 #define DEVICE_NAME			"IT7260"
 #define SCREEN_X_RESOLUTION		320
 #define SCREEN_Y_RESOLUTION		320
-
-#define IOC_MAGIC			'd'
-#define IOCTL_SET			_IOW(IOC_MAGIC, 1, struct ioctl_cmd168)
-#define IOCTL_GET			_IOR(IOC_MAGIC, 2, struct ioctl_cmd168)
 
 #define BUF_COMMAND			0x20 /* all commands writes go to this idx */
 #define BUF_SYS_COMMAND			0x40
@@ -79,8 +64,7 @@
 #define SYSFS_RESULT_SUCCESS		1
 #define DEVICE_READY_MAX_WAIT		500
 
-
-//result of reading with BUF_QUERY bits
+/* result of reading with BUF_QUERY bits */
 #define CMD_STATUS_BITS			0x07
 #define CMD_STATUS_DONE			0x00
 #define CMD_STATUS_BUSY			0x01
@@ -108,36 +92,22 @@ struct PointData {
 } __attribute__((packed));
 
 #define PD_FLAGS_DATA_TYPE_BITS		0xF0
-# define PD_FLAGS_DATA_TYPE_TOUCH	0x00 /* other types (like chip-detected gestures) exist but we do not care */
+/* other types (like chip-detected gestures) exist but we do not care */
+#define PD_FLAGS_DATA_TYPE_TOUCH	0x00
 #define PD_FLAGS_NOT_PEN		0x08 /* set if pen touched, clear if finger(s) */
 #define PD_FLAGS_HAVE_FINGERS		0x07 /* a bit for each finger data that is valid (from lsb to msb) */
 #define PD_PALM_FLAG_BIT		0x01
 #define FD_PRESSURE_BITS		0x0F
-# define FD_PRESSURE_NONE		0x00
-# define FD_PRESSURE_HOVER		0x01
-# define FD_PRESSURE_LIGHT		0x02
-# define FD_PRESSURE_NORMAL		0x04
-# define FD_PRESSURE_HIGH		0x08
-# define FD_PRESSURE_HEAVY		0x0F
-
-struct ioctl_cmd168 {
-	uint16_t bufferIndex;
-	uint16_t length;
-	uint16_t buffer[MAX_BUFFER_SIZE];
-};
+#define FD_PRESSURE_NONE		0x00
+#define FD_PRESSURE_HOVER		0x01
+#define FD_PRESSURE_LIGHT		0x02
+#define FD_PRESSURE_NORMAL		0x04
+#define FD_PRESSURE_HIGH		0x08
+#define FD_PRESSURE_HEAVY		0x0F
 
 struct IT7260_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
-	struct delayed_work palmdown_work;
-	struct delayed_work palmup_work;
-};
-
-struct ite7260_perfile_data {
-	rwlock_t lock;
-	uint16_t bufferIndex;
-	uint16_t length;
-	uint16_t buffer[MAX_BUFFER_SIZE];
 };
 
 static int8_t fwUploadResult = SYSFS_RESULT_NOT_DONE;
@@ -148,23 +118,11 @@ static bool chipAwake = true;
 static bool hadFingerDown = false;
 static bool isDeviceSleeping = false;
 static bool isDeviceSuspend = false;
-static int ite7260_major = 0;
-static int ite7260_minor = 0;
-static struct cdev ite7260_cdev;
-static struct class *ite7260_class = NULL;
-static dev_t ite7260_dev;
 static struct input_dev *input_dev;
-static struct device *class_dev = NULL;
-static int suspend_touch_down = 0;
-static int suspend_touch_up = 0;
 static struct IT7260_ts_data *gl_ts;
-static struct wake_lock touch_lock;
 
 #define LOGE(...)	pr_err(DEVICE_NAME ": " __VA_ARGS__)
 #define LOGI(...)	printk(DEVICE_NAME ": " __VA_ARGS__)
-
-/* add workqueue for delay_work */
-static struct workqueue_struct *IT7260_wq;
 
 /* internal use func - does not make sure chip is ready before read */
 static bool i2cReadNoReadyCheck(uint8_t bufferIndex, uint8_t *dataBuffer, uint16_t dataLength)
@@ -293,7 +251,7 @@ static bool chipSetStartOffset(uint16_t offset)
 }
 
 
-//write fwLength bytes from fwData at chip offset writeStartOffset
+/* write fwLength bytes from fwData at chip offset writeStartOffset */
 static bool chipFlashWriteAndVerify(unsigned int fwLength, const uint8_t *fwData, uint16_t writeStartOffset)
 {
 	uint32_t curDataOfst;
@@ -370,7 +328,10 @@ out:
 	return chipFirmwareUpgradeModeEnterExit(false) && chipFirmwareReinitialize(CMD_FIRMWARE_REINIT_6F) && success;
 }
 
-//both buffers should be VERSION_LENGTH in size, but only a part of them is significant */
+/*
+ * both buffers should be VERSION_LENGTH in size,
+ * but only a part of them is significant
+ */
 static bool chipGetVersions(uint8_t *verFw, uint8_t *verCfg, bool logIt)
 {
 	/* this code to get versions is reproduced as was written, but it does not make sense. Something here *PROBABLY IS* wrong */
@@ -390,37 +351,6 @@ static bool chipGetVersions(uint8_t *verFw, uint8_t *verCfg, bool logIt)
 			verCfg[1], verCfg[2], verCfg[3], verCfg[4]);
 
 	return ret;
-}
-
-/* fix touch will not wake up system in suspend mode */
-static void chipLowPowerMode(bool low)
-{
-	int allow_irq_wake = !(isDeviceSleeping);
-	static const uint8_t cmdLowPower[] = { CMD_PWR_CTL, 0x00, PWR_CTL_LOW_POWER_MODE};
-	uint8_t dummy;
-
-	if (devicePresent) {
-		LOGI("low power %s\n", low ? "enter" : "exit");
-
-		if (low) {
-			if (allow_irq_wake){
-				smp_wmb();
-				enable_irq_wake(gl_ts->client->irq);
-			}
-			isDeviceSleeping = true;
-			wake_unlock(&touch_lock);
-			i2cWriteNoReadyCheck(BUF_COMMAND, cmdLowPower, sizeof(cmdLowPower));
-		} else {
-			if (!allow_irq_wake){
-				smp_wmb();
-				disable_irq_wake(gl_ts->client->irq);
-			}
-			isDeviceSleeping = false;
-			isDeviceSuspend = false;
-			wake_unlock(&touch_lock);
-			i2cReadNoReadyCheck(BUF_QUERY, &dummy, sizeof(dummy));
-		}
-	}
 }
 
 static ssize_t sysfsUpgradeStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
@@ -451,8 +381,12 @@ static ssize_t sysfsUpgradeStore(struct device *dev, struct device_attribute *at
 
 	fwUploadResult = SYSFS_RESULT_NOT_DONE;
 	if (fwLen && cfgLen) {
-		if (manualUpgrade || (verFw[5] < fw->data[8] || verFw[6] < fw->data[9] || verFw[7] < fw->data[10] || verFw[8] < fw->data[11]) || 
-		(verCfg[1] < cfg->data[cfgLen - 8] || verCfg[2] < cfg->data[cfgLen - 7] || verCfg[3] < cfg->data[cfgLen - 6] || verCfg[4] < cfg->data[cfgLen - 5])){
+		if (manualUpgrade || (verFw[5] < fw->data[8] || verFw[6] <
+			fw->data[9] || verFw[7] < fw->data[10] || verFw[8] <
+			fw->data[11]) || (verCfg[1] < cfg->data[cfgLen - 8]
+			|| verCfg[2] < cfg->data[cfgLen - 7] || verCfg[3] <
+			cfg->data[cfgLen - 6] ||
+			verCfg[4] < cfg->data[cfgLen - 5])){
 			LOGI("firmware/config will be upgraded\n");
 			disable_irq(gl_ts->client->irq);
 			success = chipFirmwareUpload(fwLen, fw->data, cfgLen, cfg->data);
@@ -539,7 +473,7 @@ static ssize_t sysfsStatusShow(struct device *dev, struct device_attribute *attr
 static ssize_t sysfsStatusStore(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
 	uint8_t verFw[10], verCfg[10];
-	
+
 	chipGetVersions(verFw, verCfg, true);
 
 	return count;
@@ -651,23 +585,6 @@ void sendCalibrationCmd(void)
 }
 EXPORT_SYMBOL(sendCalibrationCmd);
 
-
-static int mode_notify_sys(struct notifier_block *notif, unsigned long code, void *data)
-{
-	switch (code) {
-	case 0: //FB_BLANK_ENTER_NON_INTERACTIVE
-		chipLowPowerMode(1);
-		break;
-	case 1: //FB_BLANK_ENTER_INTERACTIVE
-		chipLowPowerMode(0);
-		break;
-	default:
-		break;
-	}
-
-	return 0;
-}
-
 static void readFingerData(uint16_t *xP, uint16_t *yP, uint8_t *pressureP, const struct FingerData *fd)
 {
 	uint16_t x = fd->xLo;
@@ -682,21 +599,6 @@ static void readFingerData(uint16_t *xP, uint16_t *yP, uint8_t *pressureP, const
 		*yP = y;
 	if (pressureP)
 		*pressureP = fd->pressure & FD_PRESSURE_BITS;
-}
-
-static uint64_t getMsTime(void)
-{
-	struct timespec ts;
-	uint64_t ret;
-
-	getnstimeofday(&ts);
-
-	/* convert nsec to msec */
-	ret = ts.tv_nsec;
-	do_div(ret, 1000000UL);
-
-	/* add in sec */
-	return ret + ts.tv_sec * 1000ULL;
 }
 
 static void readTouchDataPoint(void)
@@ -730,7 +632,7 @@ static void readTouchDataPoint(void)
 			hadFingerDown = true;
 
 		readFingerData(&x, &y, &pressure, pointData.fd);
-		
+
 		input_report_abs(gl_ts->input_dev, ABS_X, x);
 		input_report_abs(gl_ts->input_dev, ABS_Y, y);
 		input_report_key(gl_ts->input_dev, BTN_TOUCH, 1);
@@ -776,8 +678,7 @@ static bool chipIdentifyIT7260(void)
 		LOGE("i2cRead() failed\n");
 		return false;
 	}
-
-	LOGI("chipIdentifyIT7260 read id: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
+	pr_info("chipIdentifyIT7260 read id: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X\n",
 		chipID[0], chipID[1], chipID[2], chipID[3], chipID[4],
 		chipID[5], chipID[6], chipID[7], chipID[8], chipID[9]);
 
@@ -788,7 +689,7 @@ static bool chipIdentifyIT7260(void)
 		LOGI("rev BX3 found\n");
 	else if (chipID[8] == '6' && chipID[9] == '6')
 		LOGI("rev BX4 found\n");
-	else	
+	else
 		LOGI("unknown revision (0x%02X 0x%02X) found\n", chipID[8], chipID[9]);
 
 	return true;
@@ -812,7 +713,6 @@ static int IT7260_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		ret = -ENODEV;
 		goto err_out;
 	}
-
 	gl_ts = kzalloc(sizeof(*gl_ts), GFP_KERNEL);
 	if (!gl_ts) {
 		ret = -ENOMEM;
@@ -857,10 +757,6 @@ static int IT7260_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	input_set_abs_params(input_dev, ABS_X, 0, SCREEN_X_RESOLUTION, 0, 0);
 	input_set_abs_params(input_dev, ABS_Y, 0, SCREEN_Y_RESOLUTION, 0, 0);
 
-	IT7260_wq = create_workqueue("IT7260_wq");
-	if (!IT7260_wq)
-		goto err_check_functionality_failed;
-	
 	if (input_register_device(input_dev)) {
 		LOGE("failed to register input device\n");
 		goto err_input_register;
@@ -875,7 +771,6 @@ static int IT7260_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		dev_err(&client->dev, "failed to register sysfs #2\n");
 		goto err_sysfs_grp_create_2;
 	}
-	wake_lock_init(&touch_lock, WAKE_LOCK_SUSPEND, "touch-lock");
 	
 	devicePresent = true;
 
@@ -903,112 +798,15 @@ err_ident_fail_or_input_alloc:
 err_sysfs_grp_create_1:
 	kfree(gl_ts);
 
-err_check_functionality_failed:
-	if (IT7260_wq)
-		destroy_workqueue(IT7260_wq);
-
 err_out:
 	return ret;
 }
 
 static int IT7260_ts_remove(struct i2c_client *client)
 {
-	destroy_workqueue(IT7260_wq);
 	devicePresent = false;
 	return 0;
 }
-
-static long ite7260_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
-{
-	static const uint8_t fakeCmdIrqOff[] = {0x00, 0x49, 0x54, 0x37, 0x32};
-	static const uint8_t fakeCmdIrqOn[] = {0x80, 0x49, 0x54, 0x37, 0x32};
-	uint8_t buffer[MAX_BUFFER_SIZE] = {0,};
-	struct ioctl_cmd168 data = {0, };
-	unsigned i;
-
-	switch (cmd) {
-	case IOCTL_SET:
-		LOGE("direct command TX from userspace is undoubtedly bad!\n");
-		if (copy_from_user(&data, (void __user *)arg, sizeof(struct ioctl_cmd168)))
-			return -EFAULT;
-		if (data.length >= sizeof(buffer))
-			return -EINVAL; /* stop trying to overflow kernel stack! */
-
-		for (i = 0; i < data.length; i++)
-			buffer[i] = data.buffer[i];
-
-		if (data.bufferIndex == 0x60) {
-			if (!memcmp(buffer, fakeCmdIrqOff, sizeof(fakeCmdIrqOff))) {
-				pr_info("Disabling IRQ.\n");
-				disable_irq(gl_ts->client->irq);
-			} else if (!memcmp(buffer, fakeCmdIrqOn, sizeof(fakeCmdIrqOff))) {
-				pr_info("Enabling IRQ.\n");
-				enable_irq(gl_ts->client->irq);
-			}
-			LOGE("reserved command being sent to chip, this is probably bad!\n");
-		}
-		i2cWriteNoReadyCheck(data.bufferIndex, buffer, data.length);
-		return 0;
-
-	case IOCTL_GET:
-		LOGE("direct command RX from userspace is undoubtedly bad!\n");
-		if (copy_from_user(&data, (void __user *)arg, sizeof(struct ioctl_cmd168)))
-			return -EFAULT;
-		if (data.length >= sizeof(buffer))
-			return -EINVAL; /* stop trying to overflow kernel stack! */
-
-		if (!data.length)
-			data.buffer[0] = 128;
-		else {
-			i2cReadNoReadyCheck(data.bufferIndex, buffer, data.length);
-			for (i = 0; i < data.length; i++)
-				data.buffer[i] = buffer[i];
-		}
-
-		if (copy_to_user((int __user *)arg, &data, sizeof(struct ioctl_cmd168)))
-			return -EFAULT;
-		return 0;
-
-	default:
-		return -ENOTTY;
-	}
-}
-
-static int ite7260_open(struct inode *inode, struct file *filp)
-{
-	struct ite7260_perfile_data *dev;
-	int i;
-
-
-	dev = kmalloc(sizeof(struct ite7260_perfile_data), GFP_KERNEL);
-	if (!dev)
-		return -ENOMEM;
-
-	rwlock_init(&dev->lock);
-	for (i = 0; i < MAX_BUFFER_SIZE; i++)
-		dev->buffer[i] = 0xFF;
-
-	filp->private_data = dev;
-
-	return 0;
-}
-
-static int ite7260_close(struct inode *inode, struct file *filp)
-{
-	struct ite7260_perfile_data *dev = filp->private_data;
-
-	if (dev)
-		kfree(dev);
-
-	return 0;
-}
-
-static const struct file_operations ite7260_fops = {
-	.owner = THIS_MODULE,
-	.open = ite7260_open,
-	.release = ite7260_close,
-	.unlocked_ioctl = ite7260_ioctl,
-};
 
 static const struct i2c_device_id IT7260_ts_id[] = {
 	{ DEVICE_NAME, 0},
@@ -1020,10 +818,6 @@ MODULE_DEVICE_TABLE(i2c, IT7260_ts_id);
 static const struct of_device_id IT7260_match_table[] = {
 	{ .compatible = "ITE,IT7260_ts",},
 	{},
-};
-
-static struct notifier_block display_mode_notifier = {
-        .notifier_call =    mode_notify_sys,
 };
 
 static int IT7260_ts_resume(struct i2c_client *i2cdev)
@@ -1051,90 +845,7 @@ static struct i2c_driver IT7260_ts_driver = {
 	.suspend = IT7260_ts_suspend,
 };
 
-static int __init IT7260_ts_init(void)
-{
-	dev_t dev;
-
-
-	if (alloc_chrdev_region(&dev, 0, 1, DEVICE_NAME)) {
-		LOGE("cdev can't get major number\n");
-		goto err_cdev_alloc;
-	}
-	ite7260_major = MAJOR(dev);
-
-	cdev_init(&ite7260_cdev, &ite7260_fops);
-	ite7260_cdev.owner = THIS_MODULE;
-
-	if (cdev_add(&ite7260_cdev, MKDEV(ite7260_major, ite7260_minor), 1)) {
-		LOGE("cdev can't get minor number\n");
-		goto err_cdev_add;
-	}
-
-	ite7260_class = class_create(THIS_MODULE, DEVICE_NAME);
-	if (IS_ERR(ite7260_class)) {
-		LOGE("failed in creating class.\n");
-		goto err_class_create;
-	}
-
-	class_dev = device_create(ite7260_class, NULL, MKDEV(ite7260_major, ite7260_minor), NULL, DEVICE_NAME);
-	if (!class_dev) {
-
-		LOGE("failed in creating device.\n");
-		goto err_dev_create;
-	}
-
-	if (device_create_file(class_dev, &device_attr) < 0) {
-		LOGE("failed in creating file.\n");
-		goto err_file_create;
-	}
-
-	register_mode_notifier(&display_mode_notifier);
-
-	LOGI("=========================================\n");
-	LOGI("register IT7260 cdev, major: %d, minor: %d \n", ite7260_major, ite7260_minor);
-	LOGI("=========================================\n");
-
-	if (!i2c_add_driver(&IT7260_ts_driver))
-		return 0;
-
-	unregister_mode_notifier(&display_mode_notifier);
-	device_remove_file(class_dev, &device_attr);
-
-err_file_create:
-	device_destroy(ite7260_class, ite7260_dev);
-
-err_dev_create:
-	class_destroy(ite7260_class);
-
-err_class_create:
-	cdev_del(&ite7260_cdev);
-
-err_cdev_add:
-	unregister_chrdev_region(dev, 1);
-
-err_cdev_alloc:
-	return -1;
-}
-
-static void __exit IT7260_ts_exit(void)
-{
-	dev_t dev = MKDEV(ite7260_major, ite7260_minor);
-
-	i2c_del_driver(&IT7260_ts_driver);
-	unregister_mode_notifier(&display_mode_notifier);
-	device_remove_file(class_dev, &device_attr);
-	device_destroy(ite7260_class, ite7260_dev);
-	class_destroy(ite7260_class);
-	cdev_del(&ite7260_cdev);
-	unregister_chrdev_region(dev, 1);
-	wake_lock_destroy(&touch_lock);
-	if (IT7260_wq)
-		destroy_workqueue(IT7260_wq);
-}
-
-module_init(IT7260_ts_init);
-module_exit(IT7260_ts_exit);
+module_i2c_driver(IT7260_ts_driver);
 
 MODULE_DESCRIPTION("IT7260 Touchscreen Driver");
 MODULE_LICENSE("GPL v2");
-
