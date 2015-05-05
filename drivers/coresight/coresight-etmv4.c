@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -32,6 +32,7 @@
 #include <linux/coresight.h>
 #include <linux/pm_wakeup.h>
 #include <asm/sections.h>
+#include <asm/etmv4x.h>
 #include <soc/qcom/socinfo.h>
 #include <soc/qcom/memory_dump.h>
 
@@ -186,6 +187,7 @@ do {									\
 #define ETM_MAX_RES_SEL			(16)
 #define ETM_MAX_SS_CMP			(8)
 
+#define ETM_CPMR_CLKEN			(0x4)
 #define ETM_ARCH_V4			(0x40)
 #define ETM_SYNC_MASK                   (0x1F)
 #define ETM_CYC_THRESHOLD_MASK		(0xFFF)
@@ -316,6 +318,7 @@ struct etm_drvdata {
 	uint8_t				instr_addr_size;
 	uint8_t				trcid;
 	uint8_t				trcid_size;
+	bool				enable_noovrflw;
 	bool				instrp0_support;
 	bool				trc_cond_support;
 	bool				cond_type_support;
@@ -621,6 +624,40 @@ static void etm_reset_data(struct etm_drvdata *drvdata)
 	spin_unlock(&drvdata->spinlock);
 }
 
+static inline void etm_clk_disable(void)
+{
+	uint32_t cpmr;
+
+	isb();
+	asm volatile("mrs %0, S3_7_c15_c0_5" : "=r" (cpmr));
+	cpmr  &= ~ETM_CPMR_CLKEN;
+	asm volatile("msr S3_7_c15_c0_5, %0" : : "r" (cpmr));
+}
+
+static inline void etm_clk_enable(void)
+{
+	uint32_t cpmr;
+
+	asm volatile("mrs %0, S3_7_c15_c0_5" : "=r" (cpmr));
+	cpmr  |= ETM_CPMR_CLKEN;
+	asm volatile("msr S3_7_c15_c0_5, %0" : : "r" (cpmr));
+	isb();
+}
+
+static inline void etm_trace_disable(void)
+{
+	etm_clk_enable();
+	trc_write(0x0, ETMPRGCTLR);
+	etm_clk_disable();
+}
+
+static inline void etm_trace_enable(void)
+{
+	etm_clk_enable();
+	trc_write(0x1, ETMPRGCTLR);
+	etm_clk_disable();
+}
+
 static void __etm_enable(void *info)
 {
 	int i;
@@ -629,7 +666,10 @@ static void __etm_enable(void *info)
 	ETM_UNLOCK(drvdata);
 
 	/* Disable the trace unit before programming trace registers */
-	etm_writel(drvdata, 0, TRCPRGCTLR);
+	if (drvdata->enable_noovrflw)
+		etm_trace_disable();
+	else
+		etm_writel(drvdata, 0, TRCPRGCTLR);
 
 	etm_writel(drvdata, drvdata->pe_sel, TRCPROCSELR);
 	etm_writel(drvdata, drvdata->cfg, TRCCONFIGR);
@@ -688,7 +728,10 @@ static void __etm_enable(void *info)
 	etm_writel(drvdata, drvdata->vmid_mask1, TRCVMIDCCTLR1);
 
 	/* Enable the trace unit */
-	etm_writel(drvdata, 1, TRCPRGCTLR);
+	if (drvdata->enable_noovrflw)
+		etm_trace_enable();
+	else
+		etm_writel(drvdata, 1, TRCPRGCTLR);
 
 	ETM_LOCK(drvdata);
 
@@ -740,7 +783,10 @@ static void __etm_disable(void *info)
 
 	mb();
 	isb();
-	etm_writel(drvdata, 0, TRCPRGCTLR);
+	if (drvdata->enable_noovrflw)
+		etm_trace_disable();
+	else
+		etm_writel(drvdata, 0, TRCPRGCTLR);
 
 	ETM_LOCK(drvdata);
 
@@ -3133,6 +3179,9 @@ static void etm_init_default_data(struct etm_drvdata *drvdata)
 
 	/* disable stalling */
 	drvdata->stall_ctrl = 0x0;
+	/* Set NOOVERFLOW bit */
+	if (drvdata->no_overflow_support && drvdata->enable_noovrflw)
+		drvdata->stall_ctrl |= BIT(13);
 
 	/* disable timestamp event */
 	drvdata->ts_ctrl = 0x0;
@@ -3421,6 +3470,9 @@ static int etm_probe(struct platform_device *pdev)
 		ret = PTR_ERR(drvdata->clk);
 		goto err0;
 	}
+
+	drvdata->enable_noovrflw = of_property_read_bool(pdev->dev.of_node,
+						"qcom,noovrflw-enable");
 
 	drvdata->cpu = -1;
 	cpu_node = of_parse_phandle(pdev->dev.of_node, "coresight-etm-cpu", 0);
