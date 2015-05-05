@@ -64,6 +64,60 @@ static int xhci_plat_start(struct usb_hcd *hcd)
 	return xhci_run(hcd);
 }
 
+static ssize_t config_imod_store(struct device *pdev,
+		struct device_attribute *attr, const char *buff, size_t size)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct xhci_hcd *xhci;
+	u32 temp;
+	u32 imod;
+	unsigned long flags;
+
+	if (kstrtouint(buff, 10, &imod) != 1)
+		return 0;
+
+	imod &= ER_IRQ_INTERVAL_MASK;
+	xhci = hcd_to_xhci(hcd);
+
+	if (xhci->shared_hcd->state == HC_STATE_SUSPENDED
+		&& hcd->state == HC_STATE_SUSPENDED)
+		return -EACCES;
+
+	spin_lock_irqsave(&xhci->lock, flags);
+	temp = readl_relaxed(&xhci->ir_set->irq_control);
+	temp &= ~ER_IRQ_INTERVAL_MASK;
+	temp |= imod;
+	writel_relaxed(temp, &xhci->ir_set->irq_control);
+	spin_unlock_irqrestore(&xhci->lock, flags);
+
+	return size;
+}
+
+static ssize_t config_imod_show(struct device *pdev,
+		struct device_attribute *attr, char *buff)
+{
+	struct usb_hcd *hcd = dev_get_drvdata(pdev);
+	struct xhci_hcd *xhci;
+	u32 temp;
+	unsigned long flags;
+
+	xhci = hcd_to_xhci(hcd);
+
+	if (xhci->shared_hcd->state == HC_STATE_SUSPENDED
+		&& hcd->state == HC_STATE_SUSPENDED)
+		return -EACCES;
+
+	spin_lock_irqsave(&xhci->lock, flags);
+	temp = readl_relaxed(&xhci->ir_set->irq_control) &
+			ER_IRQ_INTERVAL_MASK;
+	spin_unlock_irqrestore(&xhci->lock, flags);
+
+	return snprintf(buff, PAGE_SIZE, "%08u\n", temp);
+}
+
+static DEVICE_ATTR(config_imod, S_IRUGO | S_IWUSR,
+		config_imod_show, config_imod_store);
+
 static int xhci_plat_probe(struct platform_device *pdev)
 {
 	struct device_node	*node = pdev->dev.of_node;
@@ -177,6 +231,10 @@ static int xhci_plat_probe(struct platform_device *pdev)
 	if (ret)
 		goto put_usb3_hcd;
 
+	ret = device_create_file(&pdev->dev, &dev_attr_config_imod);
+	if (ret)
+		dev_err(&pdev->dev, "%s: unable to create imod sysfs entry\n",
+					__func__);
 	pm_runtime_put_autosuspend(&pdev->dev);
 
 	return 0;
@@ -205,6 +263,7 @@ static int xhci_plat_remove(struct platform_device *dev)
 
 	pm_runtime_disable(&dev->dev);
 
+	device_remove_file(&dev->dev, &dev_attr_config_imod);
 	usb_remove_hcd(xhci->shared_hcd);
 	usb_put_hcd(xhci->shared_hcd);
 
