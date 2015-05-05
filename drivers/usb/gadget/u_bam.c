@@ -853,38 +853,44 @@ static void gbam_start_endless_rx(struct gbam_port *port)
 {
 	struct bam_ch_info *d = &port->data_ch;
 	int status;
+	struct usb_ep *ep;
+	unsigned long flags;
 
-	spin_lock(&port->port_lock_ul);
+	spin_lock_irqsave(&port->port_lock_ul, flags);
 	if (!port->port_usb) {
-		spin_unlock(&port->port_lock_ul);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
 	}
 
+	ep = port->port_usb->out;
+	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 	pr_debug("%s: enqueue\n", __func__);
-	status = usb_ep_queue(port->port_usb->out, d->rx_req, GFP_ATOMIC);
+	status = usb_ep_queue(ep, d->rx_req, GFP_ATOMIC);
 	if (status)
 		pr_err("%s: error enqueuing transfer, %d\n", __func__, status);
-	spin_unlock(&port->port_lock_ul);
 }
 
 static void gbam_start_endless_tx(struct gbam_port *port)
 {
 	struct bam_ch_info *d = &port->data_ch;
 	int status;
+	struct usb_ep *ep;
+	unsigned long flags;
 
-	spin_lock(&port->port_lock_dl);
+	spin_lock_irqsave(&port->port_lock_dl, flags);
 	if (!port->port_usb) {
-		spin_unlock(&port->port_lock_dl);
+		spin_unlock_irqrestore(&port->port_lock_dl, flags);
 		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
 	}
 
+	ep = port->port_usb->in;
+	spin_unlock_irqrestore(&port->port_lock_dl, flags);
 	pr_debug("%s: enqueue\n", __func__);
-	status = usb_ep_queue(port->port_usb->in, d->tx_req, GFP_ATOMIC);
+	status = usb_ep_queue(ep, d->tx_req, GFP_ATOMIC);
 	if (status)
 		pr_err("%s: error enqueuing transfer, %d\n", __func__, status);
-	spin_unlock(&port->port_lock_dl);
 
 }
 
@@ -892,38 +898,45 @@ static void gbam_stop_endless_rx(struct gbam_port *port)
 {
 	struct bam_ch_info *d = &port->data_ch;
 	int status;
+	unsigned long flags;
+	struct usb_ep *ep;
 
-	spin_lock(&port->port_lock_ul);
+	spin_lock_irqsave(&port->port_lock_ul, flags);
 	if (!port->port_usb) {
-		spin_unlock(&port->port_lock_ul);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags);
 		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
 	}
+
+	ep = port->port_usb->out;
+	spin_unlock_irqrestore(&port->port_lock_ul, flags);
 	pr_debug("%s: dequeue\n", __func__);
-	status = usb_ep_dequeue(port->port_usb->out, d->rx_req);
+	status = usb_ep_dequeue(ep, d->rx_req);
 	if (status)
 		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
 
-	spin_unlock(&port->port_lock_ul);
 }
 
 static void gbam_stop_endless_tx(struct gbam_port *port)
 {
 	struct bam_ch_info *d = &port->data_ch;
 	int status;
+	unsigned long flags;
+	struct usb_ep *ep;
 
-	spin_lock(&port->port_lock_dl);
+	spin_lock_irqsave(&port->port_lock_dl, flags);
 	if (!port->port_usb) {
-		spin_unlock(&port->port_lock_dl);
+		spin_unlock_irqrestore(&port->port_lock_dl, flags);
 		pr_err("%s: port->port_usb is NULL", __func__);
 		return;
 	}
 
+	ep = port->port_usb->in;
+	spin_unlock_irqrestore(&port->port_lock_dl, flags);
 	pr_debug("%s: dequeue\n", __func__);
-	status = usb_ep_dequeue(port->port_usb->in, d->tx_req);
+	status = usb_ep_dequeue(ep, d->tx_req);
 	if (status)
 		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
-	spin_unlock(&port->port_lock_dl);
 }
 
 
