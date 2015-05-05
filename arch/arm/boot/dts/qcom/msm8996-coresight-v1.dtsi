@@ -432,6 +432,8 @@
 		coresight-child-ports = <0>;
 		coresight-etm-cpu = <&CPU0>;
 
+		qcom,noovrflw-enable;
+
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -449,6 +451,8 @@
 		coresight-child-list = <&funnel_apss0>;
 		coresight-child-ports = <1>;
 		coresight-etm-cpu = <&CPU1>;
+
+		qcom,noovrflw-enable;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
@@ -468,6 +472,8 @@
 		coresight-child-ports = <0>;
 		coresight-etm-cpu = <&CPU2>;
 
+		qcom,noovrflw-enable;
+
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
 		clock-names = "core_clk", "core_a_clk";
@@ -485,6 +491,8 @@
 		coresight-child-list = <&funnel_apss1>;
 		coresight-child-ports = <1>;
 		coresight-etm-cpu = <&CPU3>;
+
+		qcom,noovrflw-enable;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
