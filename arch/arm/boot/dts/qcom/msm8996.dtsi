@@ -2707,6 +2707,42 @@
 			qcom,sensor-type =  "adc";
 			qcom,sensor-name = "quiet_therm";
 		};
+		sensor_information22: qcom,sensor-information-22 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "DLMt_APC1";
+		};
+		sensor_information23: qcom,sensor-information-23 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_m4m0";
+		};
+		sensor_information24: qcom,sensor-information-24 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_cp10";
+		};
+		sensor_information25: qcom,sensor-information-25 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_l3--";
+		};
+		sensor_information26: qcom,sensor-information-26 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_cp01";
+		};
+		sensor_information27: qcom,sensor-information-27 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_cp00";
+		};
+		sensor_information28: qcom,sensor-information-28 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_l21-";
+		};
+		sensor_information29: qcom,sensor-information-29 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_cp11";
+		};
+		sensor_information30: qcom,sensor-information-30 {
+			qcom,sensor-type =  "llm";
+			qcom,sensor-name = "LLM_l20-";
+		};
 	};
 
 	mitigation_profile0: qcom,limit_info-0 {
