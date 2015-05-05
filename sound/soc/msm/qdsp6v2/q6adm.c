@@ -3277,7 +3277,7 @@ int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
 	sample_rate = atomic_read(&this_adm.copp.rate[port_idx][copp_idx]);
 
 	mutex_lock(&this_adm.cal_data[cal_index]->lock);
-	cal_block = adm_find_cal(cal_index, path, app_type,
+	cal_block = adm_find_cal(cal_index, get_cal_path(path), app_type,
 				acdb_id, sample_rate);
 	if (cal_block == NULL)
 		goto unlock;
@@ -3288,11 +3288,6 @@ int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
 		rc = -EINVAL;
 		goto unlock;
 	}
-
-	pr_debug("%s:port_id %d, copp_idx %d, path %d",
-		 __func__, port_id, copp_idx, path);
-	pr_debug("perf_mode %d, cal_type %d, size %d\n",
-		 perf_mode, cal_index, *size);
 
 	if (cal_index == ADM_AUDPROC_CAL) {
 		if (cal_block->cal_data.size > AUD_PROC_BLOCK_SIZE) {
@@ -3316,6 +3311,11 @@ int adm_store_cal_data(int port_id, int copp_idx, int path, int perf_mode,
 	}
 	memcpy(params, cal_block->cal_data.kvaddr, cal_block->cal_data.size);
 	*size = cal_block->cal_data.size;
+
+	pr_debug("%s:port_id %d, copp_idx %d, path %d",
+		 __func__, port_id, copp_idx, path);
+	pr_debug("perf_mode %d, cal_type %d, size %d\n",
+		 perf_mode, cal_index, *size);
 
 unlock:
 	mutex_unlock(&this_adm.cal_data[cal_index]->lock);
