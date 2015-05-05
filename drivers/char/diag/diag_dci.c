@@ -37,6 +37,7 @@
 #include "diag_dci.h"
 #include "diag_masks.h"
 #include "diagfwd_bridge.h"
+#include "diagfwd_peripheral.h"
 
 static struct timer_list dci_drain_timer;
 static int dci_timer_in_progress;
@@ -462,7 +463,7 @@ void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes)
 	dci_check_drain_timer();
 }
 
-int diag_process_remote_dci_read_data(int index, void *buf, int recd_bytes)
+void diag_process_remote_dci_read_data(int index, void *buf, int recd_bytes)
 {
 	int read_bytes = 0, err = 0;
 	uint16_t dci_pkt_len;
@@ -471,7 +472,7 @@ int diag_process_remote_dci_read_data(int index, void *buf, int recd_bytes)
 	int token = BRIDGE_TO_TOKEN(index);
 
 	if (!buf)
-		return -EIO;
+		return;
 
 	diag_dci_record_traffic(recd_bytes, 0, 0, token);
 
@@ -564,20 +565,20 @@ end:
 	/* wake up all sleeping DCI clients which have some data */
 	diag_dci_wakeup_clients();
 	dci_check_drain_timer();
-	return 0;
+	return;
 }
 
-/* Process the data read from the smd dci channel */
-int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
-								int recd_bytes)
+/* Process the data read from the peripheral dci channels */
+void diag_dci_process_peripheral_data(struct diagfwd_info *p_info, void *buf,
+				      int recd_bytes)
 {
 	int read_bytes = 0, err = 0;
 	uint16_t dci_pkt_len;
 	struct diag_dci_pkt_header_t *header = NULL;
 	uint8_t recv_pkt_cmd_code;
 
-	if (!buf)
-		return -EIO;
+	if (!buf || !p_info)
+		return;
 
 	/*
 	 * Release wakeup source when there are no more clients to
@@ -585,11 +586,11 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 	 */
 	if (driver->num_dci_client == 0) {
 		diag_ws_reset(DIAG_WS_DCI);
-		return 0;
+		return;
 	}
 
-	diag_dci_record_traffic(recd_bytes, (uint8_t)smd_info->type,
-				(uint8_t)smd_info->peripheral, DCI_LOCAL_PROC);
+	diag_dci_record_traffic(recd_bytes, p_info->type, p_info->peripheral,
+				DCI_LOCAL_PROC);
 	while (read_bytes < recd_bytes) {
 		header = (struct diag_dci_pkt_header_t *)buf;
 		recv_pkt_cmd_code = header->pkt_code;
@@ -605,14 +606,15 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 			pr_err("diag: Invalid length in %s, len: %d, dci_pkt_len: %d",
 				__func__, recd_bytes, dci_pkt_len);
 			diag_ws_release();
-			return 0;
+			return;
 		}
 		/*
 		 * Retrieve from the DCI control packet after the header = start
 		 * (1 byte) + version (1 byte) + length (2 bytes)
 		 */
 		err = diag_process_single_dci_pkt(buf + 4, dci_pkt_len,
-					smd_info->peripheral, DCI_LOCAL_PROC);
+						  (int)p_info->peripheral,
+						  DCI_LOCAL_PROC);
 		if (err) {
 			diag_ws_release();
 			break;
@@ -624,7 +626,7 @@ int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
 	/* wake up all sleeping DCI clients which have some data */
 	diag_dci_wakeup_clients();
 	dci_check_drain_timer();
-	return 0;
+	return;
 }
 
 int diag_dci_query_log_mask(struct diag_dci_client_tbl *entry,
@@ -1028,14 +1030,6 @@ void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 	rsp_buf->data_len += rsp_len;
 	rsp_buf->data_source = data_source;
 
-	if (token == DCI_LOCAL_PROC && data_source < NUM_PERIPHERALS) {
-		if (driver->feature[data_source].separate_cmd_rsp &&
-					data_source < NUM_PERIPHERALS)
-			driver->smd_dci_cmd[data_source].in_busy_1 = 1;
-		else
-			driver->smd_dci[data_source].in_busy_1 = 1;
-	}
-
 	mutex_unlock(&rsp_buf->data_mutex);
 
 	/*
@@ -1295,11 +1289,8 @@ void extract_dci_log(unsigned char *buf, int len, int data_source, int token)
 	}
 }
 
-void diag_update_smd_dci_work_fn(struct work_struct *work)
+void diag_dci_channel_open_work(struct work_struct *work)
 {
-	struct diag_smd_info *smd_info = container_of(work,
-						struct diag_smd_info,
-						diag_notify_update_smd_work);
 	int i, j;
 	char dirty_bits[16];
 	uint8_t *client_log_mask_ptr;
@@ -1348,8 +1339,6 @@ void diag_update_smd_dci_work_fn(struct work_struct *work)
 	diag_update_userspace_clients(DCI_EVENT_MASKS_TYPE);
 	/* Send updated event mask to peripheral */
 	ret = dci_ops_tbl[DCI_LOCAL_PROC].send_event_mask(DCI_LOCAL_PROC);
-
-	smd_info->notify_context = 0;
 }
 
 void diag_dci_notify_client(int peripheral_mask, int data, int proc)
@@ -2237,8 +2226,6 @@ int diag_send_dci_event_mask(int token)
 		 * is down. It may also mean that the peripheral doesn't
 		 * support DCI.
 		 */
-		if (!driver->smd_dci[i].ch)
-			continue;
 		err = diag_dci_write_proc(i, DIAG_CNTL_TYPE, buf,
 					  header_size + DCI_EVENT_MASK_SIZE);
 		if (err != DIAG_DCI_NO_ERROR)
@@ -2396,13 +2383,6 @@ int diag_send_dci_log_mask(int token)
 		}
 		write_len = dci_fill_log_mask(buf, log_mask_ptr);
 		for (j = 0; j < NUM_PERIPHERALS && write_len; j++) {
-			/*
-			 * Don't send to peripheral if its regular channel
-			 * is down. It may also mean that the peripheral
-			 * doesn't support DCI.
-			 */
-			if (!driver->smd_dci[j].ch)
-				continue;
 			err = diag_dci_write_proc(j, DIAG_CNTL_TYPE, buf,
 						  write_len);
 			if (err != DIAG_DCI_NO_ERROR) {
@@ -2418,118 +2398,6 @@ int diag_send_dci_log_mask(int token)
 
 	return ret;
 }
-
-static int diag_dci_probe(struct platform_device *pdev)
-{
-	int err = 0;
-	int index;
-
-	switch (pdev->id) {
-	case SMD_APPS_MODEM:
-		index = PERIPHERAL_MODEM;
-		break;
-	case SMD_APPS_QDSP:
-		index = PERIPHERAL_LPASS;
-		break;
-	case SMD_APPS_WCNSS:
-		index = PERIPHERAL_WCNSS;
-		break;
-	case SMD_APPS_DSPS:
-		index = PERIPHERAL_SENSORS;
-		break;
-	default:
-		pr_debug("diag: In %s Received probe for invalid index %d",
-			__func__, pdev->id);
-		return 0;
-	}
-	err = smd_named_open_on_edge("DIAG_2",
-				     pdev->id,
-				     &driver->smd_dci[index].ch,
-				     &driver->smd_dci[index],
-				     diag_smd_notify);
-	driver->smd_dci[index].ch_save = driver->smd_dci[index].ch;
-	if (err)
-		pr_err("diag: In %s, cannot open DCI Lpass port, Id = %d, err: %d\n",
-			__func__, pdev->id, err);
-	else
-		diag_smd_buffer_init(&driver->smd_dci[index]);
-
-	return err;
-}
-
-static int diag_dci_cmd_probe(struct platform_device *pdev)
-{
-	int err = 0;
-	int index;
-
-	switch (pdev->id) {
-	case SMD_APPS_MODEM:
-		index = PERIPHERAL_MODEM;
-		break;
-	case SMD_APPS_QDSP:
-		index = PERIPHERAL_LPASS;
-		break;
-	case SMD_APPS_WCNSS:
-		index = PERIPHERAL_WCNSS;
-		break;
-	case SMD_APPS_DSPS:
-		index = PERIPHERAL_SENSORS;
-		break;
-	default:
-		pr_debug("diag: In %s Received probe for invalid index %d",
-			__func__, pdev->id);
-		return 0;
-	}
-	err = smd_named_open_on_edge("DIAG_2_CMD",
-			pdev->id,
-			&driver->smd_dci_cmd[index].ch,
-			&driver->smd_dci_cmd[index],
-			diag_smd_notify);
-	driver->smd_dci_cmd[index].ch_save =
-			driver->smd_dci_cmd[index].ch;
-	if (err)
-		pr_err("diag: In %s, cannot open DCI Modem CMD port, Id = %d, err: %d\n",
-				__func__, pdev->id, err);
-	else
-		diag_smd_buffer_init(&driver->smd_dci_cmd[index]);
-
-	return err;
-}
-
-static int diag_dci_runtime_suspend(struct device *dev)
-{
-	dev_dbg(dev, "pm_runtime: suspending...\n");
-	return 0;
-}
-
-static int diag_dci_runtime_resume(struct device *dev)
-{
-	dev_dbg(dev, "pm_runtime: resuming...\n");
-	return 0;
-}
-
-static const struct dev_pm_ops diag_dci_dev_pm_ops = {
-	.runtime_suspend = diag_dci_runtime_suspend,
-	.runtime_resume = diag_dci_runtime_resume,
-};
-
-struct platform_driver msm_diag_dci_driver = {
-	.probe = diag_dci_probe,
-	.driver = {
-		.name = "DIAG_2",
-		.owner = THIS_MODULE,
-		.pm   = &diag_dci_dev_pm_ops,
-	},
-};
-
-struct platform_driver msm_diag_dci_cmd_driver = {
-	.probe = diag_dci_cmd_probe,
-	.driver = {
-		.name = "DIAG_2_CMD",
-		.owner = THIS_MODULE,
-		.pm   = &diag_dci_dev_pm_ops,
-	},
-};
 
 static int diag_dci_init_local(void)
 {
@@ -2612,7 +2480,7 @@ err:
 int diag_dci_init(void)
 {
 	int ret = 0;
-	int i;
+	uint8_t peripheral;
 
 	driver->dci_tag = 0;
 	driver->dci_client_id = 0;
@@ -2626,20 +2494,9 @@ int diag_dci_init(void)
 	if (ret)
 		goto err;
 
-	for (i = 0; i < NUM_PERIPHERALS; i++) {
-		ret = diag_smd_constructor(&driver->smd_dci[i], i,
-							TYPE_DCI);
-		if (ret)
-			goto err;
-	}
-
-	if (driver->supports_separate_cmdrsp) {
-		for (i = 0; i < NUM_PERIPHERALS; i++) {
-			ret = diag_smd_constructor(&driver->smd_dci_cmd[i],
-							i, TYPE_DCI_CMD);
-			if (ret)
-				goto err;
-		}
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
+		diagfwd_open(peripheral, TYPE_DCI);
+		diagfwd_open(peripheral, TYPE_DCI_CMD);
 	}
 
 	if (driver->apps_dci_buf == NULL) {
@@ -2655,29 +2512,12 @@ int diag_dci_init(void)
 		goto err;
 
 	INIT_WORK(&dci_data_drain_work, dci_data_drain_work_fn);
-	ret = platform_driver_register(&msm_diag_dci_driver);
-	if (ret) {
-		pr_err("diag: Could not register DCI driver\n");
-		goto err;
-	}
-	if (driver->supports_separate_cmdrsp) {
-		ret = platform_driver_register(&msm_diag_dci_cmd_driver);
-		if (ret) {
-			pr_err("diag: Could not register DCI cmd driver\n");
-			goto err;
-		}
-	}
+
 	setup_timer(&dci_drain_timer, dci_drain_data, 0);
 	return DIAG_DCI_NO_ERROR;
 err:
 	pr_err("diag: Could not initialize diag DCI buffers");
 	kfree(driver->apps_dci_buf);
-	for (i = 0; i < NUM_PERIPHERALS; i++)
-		diag_smd_destructor(&driver->smd_dci[i]);
-
-	if (driver->supports_separate_cmdrsp)
-		for (i = 0; i < NUM_PERIPHERALS; i++)
-			diag_smd_destructor(&driver->smd_dci_cmd[i]);
 
 	if (driver->diag_dci_wq)
 		destroy_workqueue(driver->diag_dci_wq);
@@ -2690,19 +2530,6 @@ err:
 
 void diag_dci_exit(void)
 {
-	int i;
-
-	for (i = 0; i < NUM_PERIPHERALS; i++)
-		diag_smd_destructor(&driver->smd_dci[i]);
-
-	platform_driver_unregister(&msm_diag_dci_driver);
-
-	if (driver->supports_separate_cmdrsp) {
-		for (i = 0; i < NUM_PERIPHERALS; i++)
-			diag_smd_destructor(&driver->smd_dci_cmd[i]);
-
-		platform_driver_unregister(&msm_diag_dci_cmd_driver);
-	}
 	kfree(partial_pkt.data);
 	kfree(driver->apps_dci_buf);
 	mutex_destroy(&driver->dci_mutex);
@@ -2821,13 +2648,6 @@ int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry)
 	}
 
 	mutex_lock(&driver->dci_mutex);
-	if (!(driver->num_dci_client)) {
-		for (i = 0; i < NUM_PERIPHERALS; i++)
-			driver->smd_dci[i].in_busy_1 = 0;
-		if (driver->supports_separate_cmdrsp)
-			for (i = 0; i < NUM_PERIPHERALS; i++)
-				driver->smd_dci_cmd[i].in_busy_1 = 0;
-	}
 
 	new_entry->client = current;
 	new_entry->client_info.notification_list =
@@ -2949,7 +2769,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	struct diag_dci_buffer_t *buf_entry, *temp;
 	struct list_head *start, *req_temp;
 	struct dci_pkt_req_entry_t *req_entry = NULL;
-	struct diag_smd_info *smd_info = NULL;
 	int token = DCI_LOCAL_PROC;
 
 	if (!entry)
@@ -3011,13 +2830,6 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 			peripheral = buf_entry->data_source;
 			if (peripheral == APPS_DATA)
 				continue;
-			mutex_lock(&buf_entry->data_mutex);
-			smd_info =
-				driver->feature[peripheral].separate_cmd_rsp ?
-				&driver->smd_dci_cmd[peripheral] :
-				&driver->smd_dci[peripheral];
-			smd_info->in_busy_1 = 0;
-			mutex_unlock(&buf_entry->data_mutex);
 		}
 		/*
 		 * These are buffers that can't be written to the client which
@@ -3075,37 +2887,31 @@ int diag_dci_deinit_client(struct diag_dci_client_tbl *entry)
 	return DIAG_DCI_NO_ERROR;
 }
 
-int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len)
+int diag_dci_write_proc(uint8_t peripheral, int pkt_type, char *buf, int len)
 {
-	struct diag_smd_info *smd_info = NULL;
+	uint8_t dest_channel = TYPE_DATA;
 	int err = 0;
 
-	if (!buf || (peripheral < 0 || peripheral >= NUM_PERIPHERALS)
-		|| !driver->feature[peripheral].rcvd_feature_mask || len < 0) {
+	if (!buf || peripheral >= NUM_PERIPHERALS || len < 0 ||
+	    !(driver->feature[PERIPHERAL_MODEM].rcvd_feature_mask)) {
 		pr_err("diag: In %s, invalid data 0x%p, peripheral: %d, len: %d\n",
 				__func__, buf, peripheral, len);
 		return -EINVAL;
 	}
 
 	if (pkt_type == DIAG_DATA_TYPE) {
-		smd_info = driver->feature[peripheral].separate_cmd_rsp ?
-			&driver->smd_dci_cmd[peripheral] :
-			&driver->smd_dci[peripheral];
+		dest_channel = TYPE_DCI_CMD;
 	} else if (pkt_type == DIAG_CNTL_TYPE) {
-		smd_info = &driver->smd_cntl[peripheral];
+		dest_channel = TYPE_CNTL;
 	} else {
 		pr_err("diag: Invalid DCI pkt type in %s", __func__);
 		return -EINVAL;
 	}
 
-	if (!smd_info || !smd_info->ch)
-		return -EINVAL;
-
-	err = diag_smd_write(smd_info, buf, len);
-	if (err) {
-		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
-		       __func__, smd_info->peripheral,
-		       smd_info->type, len, err);
+	err = diagfwd_write(peripheral, dest_channel, buf, len);
+	if (err && err != -ENODEV) {
+		pr_err("diag: In %s, unable to write to peripheral: %d, type: %d, len: %d, err: %d\n",
+		       __func__, peripheral, dest_channel, len, err);
 	} else {
 		err = DIAG_DCI_NO_ERROR;
 	}

@@ -265,19 +265,19 @@ int diag_dci_init(void);
 void diag_dci_exit(void);
 int diag_dci_register_client(struct diag_dci_reg_tbl_t *reg_entry);
 int diag_dci_deinit_client(struct diag_dci_client_tbl *entry);
-void diag_update_smd_dci_work_fn(struct work_struct *);
+void diag_dci_channel_open_work(struct work_struct *);
 void diag_dci_notify_client(int peripheral_mask, int data, int proc);
 void diag_dci_wakeup_clients(void);
 void diag_process_apps_dci_read_data(int data_type, void *buf, int recd_bytes);
-int diag_process_smd_dci_read_data(struct diag_smd_info *smd_info, void *buf,
-								int recd_bytes);
+void diag_dci_process_peripheral_data(struct diagfwd_info *p_info, void *buf,
+				      int recd_bytes);
 int diag_process_dci_transaction(unsigned char *buf, int len);
 void extract_dci_pkt_rsp(unsigned char *buf, int len, int data_source,
 			 int token);
 void extract_dci_ctrl_pkt(unsigned char *buf, int len, int token);
 struct diag_dci_client_tbl *diag_dci_get_client_entry(int client_id);
 struct diag_dci_client_tbl *dci_lookup_client_entry_pid(int tgid);
-int diag_process_remote_dci_read_data(int index, void *buf, int recd_bytes);
+void diag_process_remote_dci_read_data(int index, void *buf, int recd_bytes);
 int diag_dci_get_support_list(struct diag_dci_peripherals_t *support_list);
 /* DCI Log streaming functions */
 void update_dci_cumulative_log_mask(int offset, unsigned int byte_index,
@@ -303,7 +303,7 @@ uint8_t diag_dci_get_cumulative_real_time(int token);
 int diag_dci_set_real_time(struct diag_dci_client_tbl *entry,
 			   uint8_t real_time);
 int diag_dci_copy_health_stats(struct diag_dci_health_stats_proc *stats_proc);
-int diag_dci_write_proc(int peripheral, int pkt_type, char *buf, int len);
+int diag_dci_write_proc(uint8_t peripheral, int pkt_type, char *buf, int len);
 void dci_drain_data(unsigned long data);
 
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
