@@ -43,12 +43,14 @@
 #include <linux/gpio/consumer.h>
 #include <linux/gpio.h>
 #include <linux/completion.h>
+#include <linux/thermal.h>
 
 #include <asm/intel_em_config.h>
 
 
 #define DRV_NAME "bq24192_charger"
 #define DEV_NAME "bq24192"
+#define VBUS_CTRL_CDEV_NAME	"vbus_control"
 
 /*
  * D0, D1, D2 can be used to set current limits
@@ -256,6 +258,9 @@ struct bq24192_chip {
 	struct power_supply_cable_props cap;
 	struct power_supply_cable_props cached_cap;
 	struct notifier_block otg_notify;
+	struct thermal_cooling_device *vbus_cdev;
+	int vbus_state;
+	bool vbus_enable;
 	struct usb_phy *transceiver;
 	struct completion vbus_detect;
 	/* Wake lock to prevent platform from going to S3 when charging */
@@ -285,6 +290,12 @@ struct bq24192_chip {
 	bool boost_mode;
 	bool online;
 	bool present;
+};
+
+enum vbus_states {
+	VBUS_DISABLE,
+	VBUS_ENABLE,
+	MAX_VBUSCTRL_STATES,
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -945,11 +956,21 @@ static int bq24192_turn_otg_vbus(struct bq24192_chip *chip, bool votg_on)
 			}
 			/* Configure the charger in OTG mode */
 			if ((chip->chip_type == BQ24296) ||
-				(chip->chip_type == BQ24297))
-				ret = bq24192_reg_read_modify(chip->client,
-					BQ24192_POWER_ON_CFG_REG,
-					POWER_ON_CFG_BQ29X_OTG_EN, true);
-			else
+				(chip->chip_type == BQ24297)) {
+				if (chip->vbus_state != VBUS_ENABLE) {
+					ret = bq24192_reg_read_modify(
+						chip->client,
+						BQ24192_POWER_ON_CFG_REG,
+						POWER_ON_CFG_BQ29X_OTG_EN,
+						true);
+				} else {
+					ret = bq24192_reg_read_modify(
+						chip->client,
+						BQ24192_POWER_ON_CFG_REG,
+						POWER_ON_CFG_BQ29X_OTG_EN,
+						false);
+				}
+			} else
 				ret = bq24192_reg_read_modify(chip->client,
 					BQ24192_POWER_ON_CFG_REG,
 					POWER_ON_CFG_CHRG_CFG_OTG, true);
@@ -1020,30 +1041,37 @@ i2c_write_fail:
 
 int bq24192_vbus_enable(void)
 {
+	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
+
+	chip->vbus_enable = true;
+
 	if (!bq24192_client)
 		return -EAGAIN;
 
-	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
 	return bq24192_turn_otg_vbus(chip, true);
 }
 EXPORT_SYMBOL(bq24192_vbus_enable);
 
 int bq24192_vbus_disable(void)
 {
+	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
+
+	chip->vbus_enable = false;
+
 	if (!bq24192_client)
 		return -EAGAIN;
 
-	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
 	return bq24192_turn_otg_vbus(chip, false);
 }
 EXPORT_SYMBOL(bq24192_vbus_disable);
 
 int bq24192_set_usb_port(int port_mode)
 {
+	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
+
 	if (!bq24192_client)
 		return -EAGAIN;
 
-	struct bq24192_chip *chip = i2c_get_clientdata(bq24192_client);
 	if ((chip->chip_type == BQ24297) &&
 			chip->switch_io)
 		gpiod_set_value(chip->switch_io, port_mode);
@@ -2111,6 +2139,73 @@ static int bq24192_get_chip_version(struct bq24192_chip *chip)
 	return 0;
 }
 
+/* vbus control cooling device callbacks */
+static int vbus_get_max_state(struct thermal_cooling_device *tcd,
+		unsigned long *state)
+{
+	*state = MAX_VBUSCTRL_STATES;
+	return 0;
+}
+
+static int vbus_get_cur_state(struct thermal_cooling_device *tcd,
+		unsigned long *state)
+{
+	struct bq24192_chip *chip = tcd->devdata;
+
+	mutex_lock(&chip->event_lock);
+	*state = chip->vbus_state;
+	mutex_unlock(&chip->event_lock);
+
+	return 0;
+}
+
+static int vbus_set_cur_state(struct thermal_cooling_device *tcd,
+		unsigned long new_state)
+{
+	struct bq24192_chip *chip = tcd->devdata;
+	int ret;
+
+	if (new_state >= MAX_VBUSCTRL_STATES || new_state < 0) {
+		dev_err(&chip->client->dev, "Invalid vbus ctrl state: %ld\n",
+					new_state);
+		return -EINVAL;
+	}
+	/* set vbus only when the ID_GND detected and want to change
+		the state from previous state (vbus enable/disable) */
+	mutex_lock(&chip->event_lock);
+	if (chip->vbus_enable && chip->vbus_state != new_state) {
+		ret = bq24192_reg_read_modify(
+				chip->client,
+				BQ24192_POWER_ON_CFG_REG,
+				POWER_ON_CFG_BQ29X_OTG_EN,
+				!new_state);
+	}
+	chip->vbus_state = new_state;
+	mutex_unlock(&chip->event_lock);
+
+	return 0;
+}
+
+static struct thermal_cooling_device_ops psy_vbuscd_ops = {
+	.get_max_state = vbus_get_max_state,
+	.get_cur_state = vbus_get_cur_state,
+	.set_cur_state = vbus_set_cur_state,
+};
+
+static inline int register_cooling_device(struct bq24192_chip *chip)
+{
+	chip->vbus_cdev = thermal_cooling_device_register(
+				(char *)VBUS_CTRL_CDEV_NAME,
+				chip,
+				&psy_vbuscd_ops);
+	if (IS_ERR(chip->vbus_cdev))
+		return PTR_ERR(chip->vbus_cdev);
+
+	dev_dbg(&chip->client->dev, "cooling device register success for %s\n",
+			VBUS_CTRL_CDEV_NAME);
+	return 0;
+}
+
 static int bq24192_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
@@ -2268,6 +2363,8 @@ static int bq24192_probe(struct i2c_client *client,
 
 	/* register bq24192 usb with power supply subsystem */
 	if (!chip->pdata->slave_mode) {
+		if (chip->chip_type == BQ24297)
+			chip->vbus_state = VBUS_DISABLE;
 		chip->usb.name = CHARGER_PS_NAME;
 		chip->usb.type = POWER_SUPPLY_TYPE_USB;
 		chip->usb.supplied_to = chip->pdata->supplied_to;
@@ -2316,6 +2413,15 @@ static int bq24192_probe(struct i2c_client *client,
 	}
 
 	if (chip->chip_type == BQ24297) {
+		/* Register cooling device to control the vbus */
+		ret = register_cooling_device(chip);
+		if (ret) {
+			dev_warn(&chip->client->dev,
+				"Register cooling device Failed (%d)\n", ret);
+		}
+	}
+
+	if (chip->chip_type == BQ24297) {
 		/*
 		 * For BQ24297, check the initial cable status.
 		 * During Probe, a charger cable might have been
@@ -2338,6 +2444,15 @@ static int bq24192_probe(struct i2c_client *client,
 static int bq24192_remove(struct i2c_client *client)
 {
 	struct bq24192_chip *chip = i2c_get_clientdata(client);
+	int ret;
+
+	if (chip->chip_type == BQ24297) {
+		if (IS_ERR_OR_NULL(chip->vbus_cdev))
+			ret = PTR_ERR(chip->vbus_cdev);
+		else
+			thermal_cooling_device_unregister(chip->vbus_cdev);
+
+	}
 
 	bq24192_remove_debugfs(chip);
 
@@ -2350,7 +2465,7 @@ static int bq24192_remove(struct i2c_client *client)
 	i2c_set_clientdata(client, NULL);
 	wake_lock_destroy(&chip->wakelock);
 	kfree(chip);
-	return 0;
+	return ret;
 }
 
 #ifdef CONFIG_PM
