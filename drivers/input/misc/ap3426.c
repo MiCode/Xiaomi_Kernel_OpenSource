@@ -807,7 +807,7 @@ static int ap3426_process_data(struct ap3426_data *di, int als_ps)
 	int i;
 	int distance;
 
-	timestamp = ktime_get();
+	timestamp = ktime_get_boottime();
 
 	if (als_ps) { /* process als value */
 		/* Read data */
