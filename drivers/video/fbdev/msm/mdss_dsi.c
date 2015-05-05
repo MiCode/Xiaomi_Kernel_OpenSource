@@ -536,8 +536,10 @@ static int mdss_dsi_get_panel_cfg(char *panel_cfg,
 }
 
 struct buf_data {
-	char *buf;
-	int blen;
+	char *buf; /* cmd buf */
+	int blen; /* cmd buf length */
+	char *string_buf; /* cmd buf as string, 3 bytes per number */
+	int sblen; /* string buffer length */
 	int sync_flag;
 };
 
@@ -620,86 +622,129 @@ static int mdss_dsi_cmd_open(struct inode *inode, struct file *file)
 }
 
 static ssize_t mdss_dsi_cmd_read(struct file *file, char __user *buf,
-				size_t count, loff_t *ppos)
+				 size_t count, loff_t *ppos)
 {
 	struct buf_data *pcmds = file->private_data;
-	char *buffer, *bp;
-	int blen = 0, bsize = 0;
+	char *bp;
 	ssize_t ret = 0;
 
-	if (*ppos)
-		return 0; /* the end */
+	if (*ppos == 0) {
+		kfree(pcmds->string_buf);
+		pcmds->string_buf = NULL;
+		pcmds->sblen = 0;
+	}
+
+	if (!pcmds->string_buf) {
+		/*
+		 * Buffer size is the sum of cmd length (3 bytes per number)
+		 * with NULL terminater
+		 */
+		int bsize = ((pcmds->blen)*3 + 1);
+		int blen = 0;
+		char *buffer;
+
+		buffer = kmalloc(bsize, GFP_KERNEL);
+		if (!buffer) {
+			pr_err("%s: Failed to allocate memory\n", __func__);
+			return -ENOMEM;
+		}
+
+		bp = pcmds->buf;
+		while ((blen < (bsize-1)) &&
+		       (bp < ((pcmds->buf) + (pcmds->blen)))) {
+			struct dsi_ctrl_hdr dchdr =
+					*((struct dsi_ctrl_hdr *)bp);
+			int dhrlen = sizeof(dchdr), dlen;
+			char *tmp = (char *)(&dchdr);
+			dlen = dchdr.dlen;
+			dchdr.dlen = htons(dchdr.dlen);
+			while (dhrlen--)
+				blen += snprintf(buffer+blen, bsize-blen,
+						 "%02x ", (*tmp++));
+
+			bp += sizeof(dchdr);
+			while (dlen--)
+				blen += snprintf(buffer+blen, bsize-blen,
+						 "%02x ", (*bp++));
+			buffer[blen-1] = '\n';
+		}
+		buffer[blen] = '\0';
+		pcmds->string_buf = buffer;
+		pcmds->sblen = blen;
+	}
 
 	/*
-	 * Max size:
-	 *  - 2 digits + ' '/'\n' = 3 bytes per number
-	 *  - terminating NUL character
+	 * The max value of count is PAGE_SIZE(4096).
+	 * It may need multiple times of reading if string buf is too large
 	 */
-	bsize = ((pcmds->blen)*3 + 1);
-	buffer = kmalloc(bsize, GFP_KERNEL);
-	if (!buffer) {
-		pr_err("%s: Failed to allocate memory\n", __func__);
-		return -ENOMEM;
+	if (*ppos >= (pcmds->sblen)) {
+		kfree(pcmds->string_buf);
+		pcmds->string_buf = NULL;
+		pcmds->sblen = 0;
+		return 0; /* the end */
 	}
-
-	bp = pcmds->buf;
-	while (blen < bsize-1) {
-		struct dsi_ctrl_hdr dchdr = *((struct dsi_ctrl_hdr *)bp);
-		int dhrlen = sizeof(dchdr), dlen;
-		char *tmp = (char *)(&dchdr);
-		dlen = dchdr.dlen;
-		dchdr.dlen = htons(dchdr.dlen);
-		while (dhrlen--)
-			blen += snprintf(buffer+blen, bsize-blen,
-					 "%02x ", (*tmp++));
-
-		bp += sizeof(dchdr);
-		while (dlen--)
-			blen += snprintf(buffer+blen, bsize-blen,
-					 "%02x ", (*bp++));
-
-		buffer[blen-1] = '\n';
-	}
-
-	ret = simple_read_from_buffer(buf, count, ppos, buffer, blen);
-	kfree(buffer);
+	ret = simple_read_from_buffer(buf, count, ppos, pcmds->string_buf,
+				      pcmds->sblen);
 	return ret;
 }
 
 static ssize_t mdss_dsi_cmd_write(struct file *file, const char __user *p,
-				size_t count, loff_t *ppos)
+				  size_t count, loff_t *ppos)
 {
 	struct buf_data *pcmds = file->private_data;
-	char *input = NULL, *bufp = NULL, *buf = NULL, *bp;
-	ssize_t res;
-	int i = 0, blen, len;
+	ssize_t ret = 0;
+	int blen = 0;
+	char *string_buf;
+
+	if (*ppos == 0) {
+		kfree(pcmds->string_buf);
+		pcmds->string_buf = NULL;
+		pcmds->sblen = 0;
+	}
+
+	/* Allocate memory for the received string */
+	blen = count + (pcmds->sblen);
+	string_buf = krealloc(pcmds->string_buf, blen + 1, GFP_KERNEL);
+	if (!string_buf) {
+		pr_err("%s: Failed to allocate memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	/* Writing in batches is possible */
+	ret = simple_write_to_buffer(string_buf, blen, ppos, p, count);
+
+	string_buf[blen] = '\0';
+	pcmds->string_buf = string_buf;
+	pcmds->sblen = blen;
+	return ret;
+}
+
+static int mdss_dsi_cmd_flush(struct file *file, fl_owner_t id)
+{
+	struct buf_data *pcmds = file->private_data;
+	int blen, len, i;
+	char *buf, *bufp, *bp;
 	struct dsi_ctrl_hdr *dchdr;
 
-	input = kmalloc(count+1, GFP_KERNEL);
-	if (!input) {
-		pr_err("%s: Failed to allocate memory\n", __func__);
-		return -ENOMEM;
-	}
-
-	res = simple_write_to_buffer(input, count, ppos, p, count);
-	if (res)
-		*ppos += res;
-	input[count] = '\0';
+	if (!pcmds->string_buf)
+		return 0;
 
 	/*
-	 *  - 2 digits + ' '/'\n' = 3 bytes per number
-	 *  - terminating NUL character
+	 * Allocate memory for command buffer
+	 * 3 bytes per number, and 2 bytes for the last one
 	 */
-	blen = count/3;
-	buf = kzalloc(blen * sizeof(char), GFP_KERNEL);
+	blen = ((pcmds->sblen) + 2) / 3;
+	buf = kzalloc(blen, GFP_KERNEL);
 	if (!buf) {
 		pr_err("%s: Failed to allocate memory\n", __func__);
-		kfree(input);
+		kfree(pcmds->string_buf);
+		pcmds->string_buf = NULL;
+		pcmds->sblen = 0;
 		return -ENOMEM;
 	}
 
-	/* translate the input string to command array */
-	bufp = input;
+	/* Translate the input string to command array */
+	bufp = pcmds->string_buf;
 	for (i = 0; i < blen; i++) {
 		uint32_t value = 0;
 		int step = 0;
@@ -708,9 +753,8 @@ static ssize_t mdss_dsi_cmd_write(struct file *file, const char __user *p,
 			bufp += step;
 		}
 	}
-	kfree(input);
 
-	/* scan dcs commands */
+	/* Scan dcs commands */
 	bp = buf;
 	len = blen;
 	while (len >= sizeof(*dchdr)) {
@@ -743,14 +787,14 @@ static ssize_t mdss_dsi_cmd_write(struct file *file, const char __user *p,
 		pcmds->buf = buf;
 		pcmds->blen = blen;
 	}
-
-	return res;
+	return 0;
 }
 
 static const struct file_operations mdss_dsi_cmd_fop = {
 	.open = mdss_dsi_cmd_open,
 	.read = mdss_dsi_cmd_read,
 	.write = mdss_dsi_cmd_write,
+	.flush = mdss_dsi_cmd_flush,
 };
 
 struct dentry *dsi_debugfs_create_dcs_cmd(const char *name, umode_t mode,
@@ -759,6 +803,8 @@ struct dentry *dsi_debugfs_create_dcs_cmd(const char *name, umode_t mode,
 {
 	cmd->buf = ctrl_cmds.buf;
 	cmd->blen = ctrl_cmds.blen;
+	cmd->string_buf = NULL;
+	cmd->sblen = 0;
 	cmd->sync_flag = 1;
 
 	return debugfs_create_file(name, mode, parent,
