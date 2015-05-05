@@ -1445,6 +1445,7 @@ static int diag_cmd_register_tbl(struct diag_cmd_reg_tbl_t *reg_tbl)
 	if (err) {
 		pr_err("diag: In %s, error copying data from userspace, err: %d\n",
 		       __func__, err);
+		kfree(entries);
 		return -EFAULT;
 	}
 
@@ -1457,6 +1458,7 @@ static int diag_cmd_register_tbl(struct diag_cmd_reg_tbl_t *reg_tbl)
 		}
 	}
 
+	kfree(entries);
 	return err;
 }
 
