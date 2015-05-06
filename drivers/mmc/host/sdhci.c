@@ -3709,6 +3709,16 @@ static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 	if (host->ops->clear_set_dumpregs)
 		host->ops->clear_set_dumpregs(host, set);
 }
+static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
+		struct mmc_request *mrq, u32 slot)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (!host->is_crypto_en)
+		return 0;
+
+	return sdhci_crypto_cfg(host, mrq, slot);
+}
 #else
 static void sdhci_cmdq_clear_set_irqs(struct mmc_host *mmc, bool clear)
 {
@@ -3740,7 +3750,11 @@ static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 {
 
 }
-
+static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
+		struct mmc_request *mrq, u32 slot)
+{
+	return 0;
+}
 #endif
 
 static const struct cmdq_host_ops sdhci_cmdq_ops = {
@@ -3749,6 +3763,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.dump_vendor_regs = sdhci_cmdq_dump_vendor_regs,
 	.set_block_size = sdhci_cmdq_set_block_size,
 	.clear_set_dumpregs = sdhci_cmdq_clear_set_dumpregs,
+	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
 };
 
 int sdhci_add_host(struct sdhci_host *host)
