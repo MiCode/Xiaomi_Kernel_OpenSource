@@ -729,6 +729,15 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		goto ring_doorbell;
 	}
 
+	if (cq_host->ops->crypto_cfg) {
+		err = cq_host->ops->crypto_cfg(mmc, mrq, tag);
+		if (err) {
+			pr_err("%s: failed to configure crypto: err %d tag %d\n",
+					mmc_hostname(mmc), err, tag);
+			goto out;
+		}
+	}
+
 	task_desc = (__le64 __force *)get_desc(cq_host, tag);
 
 	cmdq_prep_task_desc(mrq, &data, 1,

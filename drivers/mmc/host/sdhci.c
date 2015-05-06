@@ -3746,6 +3746,16 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 			SDHCI_INT_RESPONSE, SDHCI_INT_ENABLE);
 	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
 }
+static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
+		struct mmc_request *mrq, u32 slot)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	if (!host->is_crypto_en)
+		return 0;
+
+	return sdhci_crypto_cfg(host, mrq, slot);
+}
 #else
 static void sdhci_cmdq_set_transfer_params(struct mmc_host *mmc)
 {
@@ -3789,6 +3799,12 @@ static void sdhci_cmdq_clear_set_dumpregs(struct mmc_host *mmc, bool set)
 
 static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 {
+
+}
+static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
+		struct mmc_request *mrq, u32 slot)
+{
+	return 0;
 }
 #endif
 
@@ -3801,6 +3817,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.enhanced_strobe_mask = sdhci_enhanced_strobe_mask,
 	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
 	.set_transfer_params = sdhci_cmdq_set_transfer_params,
+	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
 };
 
 #ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
