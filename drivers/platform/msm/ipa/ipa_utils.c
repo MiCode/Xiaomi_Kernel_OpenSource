@@ -3029,6 +3029,11 @@ int ipa_cfg_ep_mode(u32 clnt_hdl, const struct ipa_ep_cfg_mode *ep_mode)
 		return -EINVAL;
 	}
 
+	WARN_ON(ep_mode->mode == IPA_DMA && IPA_CLIENT_IS_PROD(ep_mode->dst));
+
+	if (!IPA_CLIENT_IS_CONS(ep_mode->dst))
+		ep = ipa_get_ep_mapping(IPA_CLIENT_APPS_LAN_CONS);
+
 	IPADBG("pipe=%d mode=%d(%s), dst_client_number=%d",
 			clnt_hdl,
 			ep_mode->mode,
