@@ -81,8 +81,8 @@ Required properties:
 					"mmss_misc_phys" - Register region for MMSS DSI clamps
 - vdd-supply:				Phandle for vdd regulator device node.
 - vddio-supply:				Phandle for vdd-io regulator device node.
-- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
-					interface is mapped.
+- qcom,mdss-fb-map-prim:		pHandle that specifies the framebuffer to which the
+					primary interface is mapped.
 - qcom,mdss-mdp:			pHandle that specifies the mdss-mdp device.
 - qcom,platform-regulator-settings:	An array of length 7 or 5 that specifies the PHY
 					regulator settings. It use 5 bytes for 8996 pll.
@@ -97,6 +97,10 @@ Required properties:
 
 Optional properties:
 - label:		        	A string used to describe the controller used.
+- qcom,mdss-fb-map:			pHandle that specifies the framebuffer to which the
+					interface is mapped.
+- qcom,mdss-fb-map-sec:			pHandle that specifies the framebuffer to which the
+					secondary interface is mapped.
 - qcom,platform-enable-gpio:		Specifies the panel lcd/display enable gpio.
 - qcom,platform-reset-gpio:		Specifies the panel reset gpio.
 - qcom,platform-te-gpio:		Specifies the gpio used for TE.
@@ -207,7 +211,7 @@ Example:
 
 			vdd-supply = <&pm8226_l15>;
 			vddio-supply = <&pm8226_l8>;
-			qcom,mdss-fb-map = <&mdss_fb0>;
+			qcom,mdss-fb-map-prim = <&mdss_fb0>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 
 			qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;

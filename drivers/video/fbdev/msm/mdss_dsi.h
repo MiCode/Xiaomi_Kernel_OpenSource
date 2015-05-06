@@ -746,6 +746,20 @@ static inline u32 mdss_dsi_get_phy_revision(struct mdss_dsi_ctrl_pdata *ctrl)
 	return ctrl->shared_data->phy_rev;
 }
 
+static inline const char *mdss_dsi_get_fb_name(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_panel_info *pinfo = &(ctrl->panel_data.panel_info);
+
+	if (mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
+		if (pinfo->pdest == DISPLAY_1)
+			return "qcom,mdss-fb-map-prim";
+		else
+			return "qcom,mdss-fb-map-sec";
+	} else {
+		return "qcom,mdss-fb-map-prim";
+	}
+}
+
 static inline bool mdss_dsi_sync_wait_enable(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	return ctrl->cmd_sync_wait_broadcast;

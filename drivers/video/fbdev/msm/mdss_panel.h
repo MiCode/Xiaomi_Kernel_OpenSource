@@ -711,6 +711,7 @@ struct mdss_panel_data {
 	 * and teardown.
 	 */
 	int (*event_handler) (struct mdss_panel_data *pdata, int e, void *arg);
+	struct device_node *(*get_fb_node)(struct platform_device *pdev);
 
 	struct list_head timings_list;
 	struct mdss_panel_timing *current_timing;
