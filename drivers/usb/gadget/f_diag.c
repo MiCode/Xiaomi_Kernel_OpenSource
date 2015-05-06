@@ -424,6 +424,27 @@ fail:
 }
 EXPORT_SYMBOL(usb_diag_alloc_req);
 
+#define DWC3_MAX_REQUEST_SIZE (1024 * 1024)
+#define CI_MAX_REQUEST_SIZE   (16 * 1024)
+/**
+ * usb_diag_request_size - Max request size for controller
+ * @ch: Channel handler
+ *
+ * Infom max request size so that diag driver can split packets
+ * in chunks of max size which controller can handle.
+ */
+int usb_diag_request_size(struct usb_diag_ch *ch)
+{
+	struct diag_context *ctxt = ch->priv_usb;
+	struct usb_composite_dev *cdev = ctxt->cdev;
+
+	if (gadget_is_dwc3(cdev->gadget))
+		return DWC3_MAX_REQUEST_SIZE;
+	else
+		return CI_MAX_REQUEST_SIZE;
+}
+EXPORT_SYMBOL(usb_diag_request_size);
+
 /**
  * usb_diag_read() - Read data from USB diag channel
  * @ch: Channel handler
