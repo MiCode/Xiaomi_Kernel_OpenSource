@@ -1184,10 +1184,10 @@ static void glink_lbsrv_tx_worker(struct work_struct *work)
 				flags);
 		mutex_unlock(&tmp_ch_info->ch_info_lock);
 		if (ret < 0 && ret != -EAGAIN) {
-			LBSRV_ERR("%s:%s:%s %s: Error tx'ing data...\n",
+			LBSRV_ERR("%s:%s:%s %s: TX Error %d\n",
 					tmp_ch_info->transport,
 					tmp_ch_info->edge,
-					tmp_ch_info->name, __func__);
+					tmp_ch_info->name, __func__, ret);
 			glink_lbsrv_free_data(tmp_work_info->data,
 					      tmp_work_info->buf_type);
 			kfree(tmp_work_info);
