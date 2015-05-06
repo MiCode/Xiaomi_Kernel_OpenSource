@@ -381,6 +381,7 @@ struct fg_chip {
 	struct work_struct	set_resume_soc_work;
 	struct work_struct	rslow_comp_work;
 	struct work_struct	sysfs_restart_work;
+	struct work_struct	init_work;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
@@ -4392,10 +4393,8 @@ static int fg_init_irqs(struct fg_chip *chip)
 	return rc;
 }
 
-static int fg_remove(struct spmi_device *spmi)
+static void fg_cleanup(struct fg_chip *chip)
 {
-	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
-
 	cancel_delayed_work_sync(&chip->update_sram_data);
 	cancel_delayed_work_sync(&chip->update_temp_work);
 	cancel_delayed_work_sync(&chip->update_jeita_setting);
@@ -4410,6 +4409,7 @@ static int fg_remove(struct spmi_device *spmi)
 	cancel_work_sync(&chip->cycle_count_work);
 	cancel_work_sync(&chip->update_esr_work);
 	cancel_work_sync(&chip->sysfs_restart_work);
+	cancel_work_sync(&chip->init_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -4422,6 +4422,13 @@ static int fg_remove(struct spmi_device *spmi)
 	wakeup_source_trash(&chip->profile_wakeup_source.source);
 	wakeup_source_trash(&chip->update_temp_wakeup_source.source);
 	wakeup_source_trash(&chip->update_sram_wakeup_source.source);
+}
+
+static int fg_remove(struct spmi_device *spmi)
+{
+	struct fg_chip *chip = dev_get_drvdata(&spmi->dev);
+
+	fg_cleanup(chip);
 	dev_set_drvdata(&spmi->dev, NULL);
 	return 0;
 }
@@ -5154,6 +5161,44 @@ static int fg_detect_pmic_type(struct fg_chip *chip)
 }
 
 #define INIT_JEITA_DELAY_MS 1000
+
+static void delayed_init_work(struct work_struct *work)
+{
+	int rc;
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				init_work);
+
+	/* hold memory access until initialization finishes */
+	atomic_add_return(1, &chip->memif_user_cnt);
+
+	rc = fg_hw_init(chip);
+	if (rc) {
+		pr_err("failed to hw init rc = %d\n", rc);
+		fg_release_access_if_necessary(chip);
+		fg_cleanup(chip);
+		return;
+	}
+
+	schedule_delayed_work(
+		&chip->update_jeita_setting,
+		msecs_to_jiffies(INIT_JEITA_DELAY_MS));
+
+	if (chip->last_sram_update_time == 0)
+		update_sram_data_work(&chip->update_sram_data.work);
+
+	if (chip->last_temp_update_time == 0)
+		update_temp_data(&chip->update_temp_work.work);
+
+	/* release memory access if necessary */
+	fg_release_access_if_necessary(chip);
+
+	if (!chip->use_otp_profile)
+		schedule_work(&chip->batt_profile_init);
+
+	pr_debug("FG: HW_init success\n");
+}
+
 static int fg_probe(struct spmi_device *spmi)
 {
 	struct device *dev = &(spmi->dev);
@@ -5213,6 +5258,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->update_esr_work, update_esr_value);
 	INIT_WORK(&chip->set_resume_soc_work, set_resume_soc_work);
 	INIT_WORK(&chip->sysfs_restart_work, sysfs_restart_work);
+	INIT_WORK(&chip->init_work, delayed_init_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -5299,9 +5345,6 @@ static int fg_probe(struct spmi_device *spmi)
 		goto of_init_fail;
 	}
 
-	/* hold memory access until initialization finishes */
-	atomic_add_return(1, &chip->memif_user_cnt);
-
 	rc = fg_init_irqs(chip);
 	if (rc) {
 		pr_err("failed to request interrupts %d\n", rc);
@@ -5341,27 +5384,7 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
-	schedule_delayed_work(
-		&chip->update_jeita_setting,
-		msecs_to_jiffies(INIT_JEITA_DELAY_MS));
-
-	if (chip->last_sram_update_time == 0)
-		update_sram_data_work(&chip->update_sram_data.work);
-
-	if (chip->last_temp_update_time == 0)
-		update_temp_data(&chip->update_temp_work.work);
-
-	rc = fg_hw_init(chip);
-	if (rc) {
-		pr_err("failed to hw init rc = %d\n", rc);
-		goto power_supply_unregister;
-	}
-
-	/* release memory access if necessary */
-	fg_release_access_if_necessary(chip);
-
-	if (!chip->use_otp_profile)
-		schedule_work(&chip->batt_profile_init);
+	schedule_work(&chip->init_work);
 
 	pr_info("FG Probe success - FG Revision DIG:%d.%d ANA:%d.%d PMIC subtype=%d\n",
 		chip->revision[DIG_MAJOR], chip->revision[DIG_MINOR],
@@ -5387,6 +5410,7 @@ cancel_work:
 	cancel_work_sync(&chip->update_esr_work);
 	cancel_work_sync(&chip->rslow_comp_work);
 	cancel_work_sync(&chip->sysfs_restart_work);
+	cancel_work_sync(&chip->init_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
