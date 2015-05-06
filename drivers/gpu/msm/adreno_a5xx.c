@@ -1063,10 +1063,6 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 			ARRAY_SIZE(a510_hwcg_regs));
 
 	a5xx_protect_init(adreno_dev);
-
-	/* Set A5x specific power control bits to enable features. */
-	if (ADRENO_FEATURE(adreno_dev, ADRENO_SPTP_PC))
-		adreno_dev->pwrctrl_flag |= BIT(ADRENO_SPTP_PC_CTRL);
 }
 
 /*
