@@ -1622,7 +1622,6 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		return rc;
 	}
 
-	boot_reason = ffs(pon_sts);
 
 	index = ffs(pon_sts) - 1;
 	cold_boot = !qpnp_pon_is_warm_reset();
@@ -1778,6 +1777,8 @@ static int qpnp_pon_probe(struct spmi_device *spmi)
 		list_add(&pon->list, &spon_dev_list);
 		mutex_unlock(&spon_list_mutex);
 		pon->is_spon = true;
+	} else {
+		boot_reason = ffs(pon_sts);
 	}
 
 	/* config whether store the hard reset reason */
