@@ -133,33 +133,7 @@
 	gdsc-venus-supply = <&gdsc_venus>;
 };
 
-&mdss_dsi0 {
-	gdsc-venus-supply = <&gdsc_venus>;
-	qcom,core-supply-entries {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		qcom,core-supply-entry@0 {
-			reg = <0>;
-			qcom,supply-name = "gdsc-venus";
-			qcom,supply-min-voltage = <0>;
-			qcom,supply-max-voltage = <0>;
-			qcom,supply-enable-load = <0>;
-			qcom,supply-disable-load = <0>;
-		};
-
-		qcom,core-supply-entry@1 {
-			reg = <1>;
-			qcom,supply-name = "gdsc";
-			qcom,supply-min-voltage = <0>;
-			qcom,supply-max-voltage = <0>;
-			qcom,supply-enable-load = <0>;
-			qcom,supply-disable-load = <0>;
-		};
-	};
-};
-
-&mdss_dsi1{
+&mdss_dsi {
 	gdsc-venus-supply = <&gdsc_venus>;
 	qcom,core-supply-entries {
 		#address-cells = <1>;
