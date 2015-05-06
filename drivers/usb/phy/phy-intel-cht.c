@@ -32,12 +32,19 @@
 #include "../host/xhci.h"
 #include "../host/xhci-intel-cap.h"
 
+#include <asm/intel_em_config.h>
 #include "phy-intel-cht.h"
 
 #define DRIVER_VERSION "Rev. 0.5"
 #define DRIVER_AUTHOR "Hao Wu"
 #define DRIVER_DESC "Intel CherryTrail USB OTG Transceiver Driver"
 #define DRIVER_INFO DRIVER_DESC " " DRIVER_VERSION
+
+#define FPO0_USB_COMP_OFFSET	0x01
+
+#define USB_VBUS_DRAW_HIGH	500
+#define USB_VBUS_DRAW_SUPER	900
+
 
 static const char driver_name[] = "intel-cht-otg";
 
@@ -153,6 +160,8 @@ static struct otg_fsm_ops cht_otg_ops = {
 
 static int cht_otg_set_power(struct usb_phy *phy, unsigned mA)
 {
+	struct usb_gadget *gadget = cht_otg_dev->fsm.otg->gadget;
+
 	dev_dbg(phy->dev, "%s --->\n", __func__);
 
 	if (!cht_otg_dev)
@@ -161,6 +170,15 @@ static int cht_otg_set_power(struct usb_phy *phy, unsigned mA)
 	if (phy->state != OTG_STATE_B_PERIPHERAL)
 		dev_err(phy->dev, "ERR: Draw %d mA in state %s\n",
 			mA, usb_otg_state_string(cht_otg_dev->phy.state));
+
+	/* For none-compliance mode, ignore the given value
+	 * and always draw maxium. */
+	if (!cht_otg_dev->compliance) {
+		if (gadget->speed == USB_SPEED_SUPER)
+			mA = USB_VBUS_DRAW_SUPER;
+		else
+			mA = USB_VBUS_DRAW_HIGH;
+	}
 
 	/* Notify other drivers that device enumerated or not.
 	 * e.g It is needed by some charger driver, to set
@@ -500,6 +518,8 @@ static int cht_handle_extcon_otg_event(struct notifier_block *nb,
 static int cht_otg_probe(struct platform_device *pdev)
 {
 	struct cht_otg *cht_otg;
+	struct em_config_oem1_data em_config;
+	unsigned compliance_bit = 0;
 	int status;
 
 	cht_otg = kzalloc(sizeof(struct cht_otg), GFP_KERNEL);
@@ -550,6 +570,19 @@ static int cht_otg_probe(struct platform_device *pdev)
 					"USB-Host", &cht_otg_dev->id_nb);
 	if (status)
 		dev_warn(&pdev->dev, "failed to register extcon notifier\n");
+
+#ifdef CONFIG_ACPI
+	status = em_config_get_oem1_data(&em_config);
+	if (!status)
+		pr_warn("%s: failed to fetch OEM1 table %d\n",
+			__func__, status);
+	else
+		/* 0 - usb compliance, 1 - no usb compliance */
+		compliance_bit = em_config.fpo_0 & FPO0_USB_COMP_OFFSET;
+	pr_info("%s : usb %s mode selected\n", __func__,
+		compliance_bit ? "none_compliance" : "compliance");
+	cht_otg->compliance = !compliance_bit;
+#endif
 
 	/* init otg-fsm */
 	status = cht_otg_start(pdev);

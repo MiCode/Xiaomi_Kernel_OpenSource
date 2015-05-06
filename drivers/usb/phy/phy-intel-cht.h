@@ -29,4 +29,5 @@ struct cht_otg {
 	struct notifier_block id_nb;
 	struct work_struct fsm_work;
 	void __iomem *regs;
+	int compliance:1;
 };
