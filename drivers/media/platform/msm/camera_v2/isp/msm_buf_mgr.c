@@ -1082,26 +1082,38 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 		 * Call hypervisor thru scm call to notify secure or
 		 * non-secure mode
 		 */
-
-		rc = cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_ATTACH);
-		if (rc < 0) {
-			pr_err("%s: img smmu attach error, rc :%d\n",
-				__func__, rc);
+		if (buf_mgr->attach_ref_cnt == 0) {
+			rc = cam_smmu_ops(buf_mgr->img_iommu_hdl,
+				CAM_SMMU_ATTACH);
+			if (rc < 0) {
+				pr_err("%s: img smmu attach error, rc :%d\n",
+					__func__, rc);
 			goto err1;
+			}
+			rc = cam_smmu_ops(buf_mgr->stats_iommu_hdl,
+				CAM_SMMU_ATTACH);
+			if (rc < 0) {
+				pr_err("%s: stats smmu attach error, rc :%d\n",
+					__func__, rc);
+				goto err2;
+			}
 		}
-		rc = cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_ATTACH);
-		if (rc < 0) {
-			pr_err("%s: stats smmu attach error, rc :%d\n",
-				__func__, rc);
-			goto err2;
-		}
+		buf_mgr->attach_ref_cnt++;
 	} else {
-		rc = cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
-		rc |= cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH);
-		if (rc < 0) {
-			pr_err("%s: img/stats smmu detach error, rc :%d\n",
-				__func__, rc);
+		if (buf_mgr->attach_ref_cnt == 1) {
+			rc = cam_smmu_ops(buf_mgr->img_iommu_hdl,
+				CAM_SMMU_DETACH);
+			rc |= cam_smmu_ops(buf_mgr->stats_iommu_hdl,
+				CAM_SMMU_DETACH);
+			if (rc < 0) {
+				pr_err("%s: img/stats smmu detach error, rc :%d\n",
+					__func__, rc);
+			}
 		}
+		if (buf_mgr->attach_ref_cnt > 0)
+			buf_mgr->attach_ref_cnt--;
+		else
+			pr_err("%s: Error! Invalid ref_cnt\n", __func__);
 	}
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
