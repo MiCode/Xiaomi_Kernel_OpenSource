@@ -32,6 +32,7 @@ void ubi_dump_vid_hdr(const struct ubi_vid_hdr *vid_hdr);
 		pr_crit("UBI assert failed in %s at %u (pid %d)\n",          \
 		       __func__, __LINE__, current->pid);                    \
 		dump_stack();                                                \
+		BUG();                                                       \
 	}                                                                    \
 } while (0)
 
