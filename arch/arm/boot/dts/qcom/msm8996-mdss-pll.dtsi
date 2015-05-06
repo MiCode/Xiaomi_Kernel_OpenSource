@@ -21,7 +21,6 @@
 		      <0x008C2300 0x8>;
 		reg-names = "pll_base", "gdsc_base";
 
-		gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8994_l2>;
 		vcca-supply = <&pm8994_l28>;
@@ -34,9 +33,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			qcom,core-supply-entry@0 {
+			qcom,platform-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "gdsc-mmagic-mdss";
+				qcom,supply-name = "gdsc";
 				qcom,supply-min-voltage = <0>;
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
@@ -45,15 +44,6 @@
 
 			qcom,platform-supply-entry@1 {
 				reg = <1>;
-				qcom,supply-name = "gdsc";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
-			};
-
-			qcom,platform-supply-entry@2 {
-				reg = <2>;
 				qcom,supply-name = "vdda";
 				qcom,supply-min-voltage = <1250000>;
 				qcom,supply-max-voltage = <1250000>;
@@ -61,8 +51,8 @@
 				qcom,supply-disable-load = <1>;
 			};
 
-			qcom,platform-supply-entry@3 {
-				reg = <3>;
+			qcom,platform-supply-entry@2 {
+				reg = <2>;
 				qcom,supply-name = "vcca";
 				qcom,supply-min-voltage = <925000>;
 				qcom,supply-max-voltage = <925000>;
@@ -135,7 +125,6 @@
 		      <0x8C2300 0x8>;
 		reg-names = "pll_base", "phy_base", "gdsc_base";
 
-		gdsc-mmagic-mdss-supply = <&gdsc_mmagic_mdss>;
 		gdsc-supply = <&gdsc_mdss>;
 		vddio-supply = <&pm8994_l12>;
 		vcca-supply = <&pm8994_l28>;
@@ -150,9 +139,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-			qcom,core-supply-entry@0 {
+			qcom,platform-supply-entry@0 {
 				reg = <0>;
-				qcom,supply-name = "gdsc-mmagic-mdss";
+				qcom,supply-name = "gdsc";
 				qcom,supply-min-voltage = <0>;
 				qcom,supply-max-voltage = <0>;
 				qcom,supply-enable-load = <0>;
@@ -161,15 +150,6 @@
 
 			qcom,platform-supply-entry@1 {
 				reg = <1>;
-				qcom,supply-name = "gdsc";
-				qcom,supply-min-voltage = <0>;
-				qcom,supply-max-voltage = <0>;
-				qcom,supply-enable-load = <0>;
-				qcom,supply-disable-load = <0>;
-			};
-
-			qcom,platform-supply-entry@2 {
-				reg = <2>;
 				qcom,supply-name = "vddio";
 				qcom,supply-min-voltage = <1800000>;
 				qcom,supply-max-voltage = <1800000>;
@@ -177,8 +157,8 @@
 				qcom,supply-disable-load = <100>;
 			};
 
-			qcom,platform-supply-entry@3 {
-				reg = <3>;
+			qcom,platform-supply-entry@2 {
+				reg = <2>;
 				qcom,supply-name = "vcca";
 				qcom,supply-min-voltage = <925000>;
 				qcom,supply-max-voltage = <925000>;
