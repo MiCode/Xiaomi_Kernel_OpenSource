@@ -638,15 +638,15 @@
 		clock-names = "cpu0_clk", "cpu1_clk", "cpu2_clk",
 				"cpu3_clk", "cpu4_clk", "cpu5_clk",
 				"cpu6_clk", "cpu7_clk", "l2_clk";
-		clocks = <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_lc>,
-			 <&clock_cpu clk_a53ssmux_lc>,
-			 <&clock_cpu clk_a53ssmux_lc>,
-			 <&clock_cpu clk_a53ssmux_lc>,
-			 <&clock_cpu clk_a53ssmux_cci>;
+		clocks = <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a72_clk>,
+			 <&clock_cpu clk_a72_clk>,
+			 <&clock_cpu clk_a72_clk>,
+			 <&clock_cpu clk_a72_clk>,
+			 <&clock_cpu clk_cci_clk>;
 
 		qcom,tz-flushes-cache;
 

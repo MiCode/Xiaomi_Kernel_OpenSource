@@ -190,6 +190,8 @@
 
 	clock_debug: qcom,cc-debug@1874000 {
 		compatible = "qcom,cc-debug-8976";
+		clocks = <&clock_cpu clk_cpu_debug_pri_mux>;
+		clock-names = "debug_cpu_clk";
 		#clock-cells = <1>;
 	};
 
@@ -225,37 +227,156 @@
 		#clock-cells = <1>;
 	};
 
-	clock_cpu: qcom,cpu-clock-8939@b111050 {
-		compatible = "qcom,dummycc";
+	clock_cpu: qcom,cpu-clock-8976@b016000 {
+		compatible = "qcom,cpu-clock-8976";
+		reg = <0xb116000 0x40>,
+		      <0xb016000 0x40>,
+		      <0xb1d0000 0x40>,
+		      <0xb111050 0x08>,
+		      <0xb011050 0x08>,
+		      <0xb1d1050 0x08>,
+		      <0x00a412c 0x08>;
+		reg-names = "c0-pll", "c1-pll", "cci-pll",
+			    "c0-mux", "c1-mux", "cci-mux",
+			    "efuse";
+		vdd_mx_hf-supply = <&pm8950_s6_level_ao>;
+		vdd_hf_pll-supply = <&pm8950_l7_ao>;
+		vdd_mx_sr-supply = <&pm8950_s6_level_ao>;
+		vdd_a72-supply = <&apc1_vreg_corner>;
+		vdd_a53-supply = <&apc0_vreg_corner>;
+		vdd_cci-supply = <&apc0_vreg_corner>;
+		clocks = <&clock_gcc clk_xo_a_clk_src>,
+			 <&clock_gcc clk_gpll4_clk_src>,
+			 <&clock_gcc clk_gpll0_ao_clk_src>;
+		clock-names = "xo_a", "aux_clk_2", "aux_clk_3";
+		qcom,speed0-bin-v0-c0 =
+			<          0 0>,
+			<  200000000 1>,
+			<  400000000 2>,
+			<  652800000 3>,
+			<  806400000 4>,
+			<  902400000 5>,
+			< 1200000000 6>,
+			< 1305600000 7>,
+			< 1401600000 8>,
+			< 1440000000 9>;
+		qcom,speed0-bin-v0-c1 =
+			<          0 0>,
+			<  200000000 1>,
+			<  302400000 2>,
+			<  400000000 3>,
+			<  892800000 4>,
+			< 1190400000 5>,
+			< 1382400000 6>,
+			< 1612800000 7>,
+			< 1728000000 8>;
+		qcom,speed0-bin-v0-cci =
+			<          0 0>,
+			<  307200000 2>,
+			<  403200000 4>,
+			<  451200000 5>,
+			<  556800000 6>,
+			<  614400000 8>;
 		#clock-cells = <1>;
+	};
+
+	cci_cache: qcom,cci {
+		compatible = "devfreq-simple-dev";
+		clock-names = "devfreq_clk";
+		clocks = <&clock_cpu clk_cci_clk>;
+		governor = "cpufreq";
+		freq-tbl-khz =
+			<  153600 >,
+			<  200000 >,
+			<  307200 >,
+			<  403200 >,
+			<  451200 >,
+			<  556800 >,
+			<  614400 >;
+	};
+
+	cpubw: qcom,cpubw {
+		compatible = "qcom,devbw";
+		governor = "cpufreq";
+		qcom,src-dst-ports = <1 512>;
+		qcom,active-only;
+		qcom,bw-tbl =
+			<  1611 /*  105.6 MHz */ >,
+			<  2929 /*  192   MHz */ >,	/* SVS	 */
+			<  4101 /*  268.8 MHz */ >,     /* SVS+ */
+			<  5126 /*  336.0 MHz */ >,	/* NOM  */
+			<  5712 /*  374.4 MHz */ >,
+			<  6152 /*  403.2 MHz */ >,	/* TURBO */
+			<  7104 /*  465.6 MHz */ >;	/* STURBO */
+	};
+
+	devfreq-cpufreq {
+		cpubw-cpufreq {
+			target-dev = <&cpubw>;
+			cpu-to-dev-map-0 =
+				<  400000  2929 >,	/* SVS   */
+				<  806400  4101 >,	/* SVS+  */
+				<  902400  5712 >,	/* NOM   */
+				< 1305600  6152 >,	/* TURBO */
+				< 1401600  7104 >;	/* STURBO */
+			cpu-to-dev-map-4 =
+				<  400000  2929 >,	/* SVS   */
+				< 1190400  4101 >,	/* SVS+  */
+				< 1382400  5712 >,	/* NOM   */
+				< 1612800  6152 >,	/* TURBO */
+				< 1728000  7104 >;	/* TURBO */
+		};
+
+		cci-cpufreq {
+			target-dev = <&cci_cache>;
+			cpu-to-dev-map-0 =
+				<  200000  200000 >,
+				<  902400  307200 >,
+				< 1305600  403400 >,
+				< 1401600  556800 >,
+				< 1440000  614400 >;
+			cpu-to-dev-map-4 =
+				<  200000 200000 >,
+				<  806400 307200 >,
+				< 1612800 556800 >,
+				< 1728000 614400 >;
+		};
 	};
 
 	qcom,msm-cpufreq {
 		compatible = "qcom,msm-cpufreq";
 		clock-names = "l2_clk", "cpu0_clk", "cpu1_clk", "cpu2_clk",
-				"cpu3_clk", "cpu4_clk", "cpu5_clk",
-				"cpu6_clk", "cpu7_clk";
-		clocks = <&clock_cpu clk_a53ssmux_cci>,
-			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_bc>,
-			 <&clock_cpu clk_a53ssmux_lc>,
-			 <&clock_cpu clk_a53ssmux_lc>,
-			 <&clock_cpu clk_a53ssmux_lc>,
-			 <&clock_cpu clk_a53ssmux_lc>;
-
+			      "cpu3_clk", "cpu4_clk", "cpu5_clk", "cpu6_clk",
+			      "cpu7_clk";
+		clocks = <&clock_cpu clk_cci_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a53_clk>,
+			 <&clock_cpu clk_a72_clk>,
+			 <&clock_cpu clk_a72_clk>,
+			 <&clock_cpu clk_a72_clk>,
+			 <&clock_cpu clk_a72_clk>;
+		qcom,governor-per-policy;
 		qcom,cpufreq-table-0 =
-			 <  200000 >,
-			 <  345600 >,
-			 <  400000 >,
-			 <  533330 >,
-			 <  800000 >;
+			<  200000 >,
+			<  400000 >,
+			<  652800 >,
+			<  806400 >,
+			<  902400 >,
+			< 1200000 >,
+			< 1305600 >,
+			< 1401600 >,
+			< 1440000 >;
 		qcom,cpufreq-table-4 =
-			 <  200000 >,
-			 <  249600 >,
-			 <  499200 >,
-			 <  800000 >;
+			<  200000 >,
+			<  302400 >,
+			<  400000 >,
+			<  892800 >,
+			< 1190400 >,
+			< 1382400 >,
+			< 1612800 >,
+			< 1728000 >;
 	};
 
 	timer {
