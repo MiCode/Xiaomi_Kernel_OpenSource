@@ -1278,10 +1278,11 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 {
 	struct msm_nand_info *info = mtd->priv;
 	struct msm_nand_chip *chip = &info->nand_chip;
+	struct flash_identification *flash_dev = &info->flash_dev;
 	uint32_t cwperpage = (mtd->writesize >> 9);
 	int err, pageerr = 0, rawerr = 0, submitted_num_desc = 0;
 	uint32_t n = 0, pages_read = 0;
-	uint32_t ecc_errors = 0, total_ecc_errors = 0;
+	uint32_t ecc_errors = 0, total_ecc_errors = 0, ecc_capability;
 	struct msm_nand_rw_params rw_params;
 	struct msm_nand_rw_reg_data data;
 	struct sps_iovec *iovec;
@@ -1326,6 +1327,8 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	memset(&data, 0, sizeof(struct msm_nand_rw_reg_data));
 	msm_nand_update_rw_reg_data(chip, ops, &rw_params, &data);
 	cmd_list = (struct msm_nand_rw_cmd_desc *)&dma_buffer->cmd_list;
+
+	ecc_capability = flash_dev->ecc_capability;
 
 	while (rw_params.page_count-- > 0) {
 		uint32_t cw_desc_cnt = 0;
@@ -1482,11 +1485,14 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 					total_ecc_errors += ecc_errors;
 					mtd->ecc_stats.corrected += ecc_errors;
 					/*
-					 * For Micron devices it is observed
-					 * that correctable errors upto 3 bits
-					 * are very common.
+					 * Since the nand device can have the
+					 * ecc errors even on the first ever
+					 * write. Any reporting of EUCLEAN
+					 * when there are less then the ecc
+					 * capability of the device is not
+					 * useful.
 					 */
-					if (ecc_errors > 3)
+					if (ecc_errors >= ecc_capability)
 						pageerr = -EUCLEAN;
 				}
 			}
@@ -2476,18 +2482,20 @@ int msm_nand_scan(struct mtd_info *mtd)
 		mtd_writesize = mtd->writesize;
 
 		/* Check whether NAND device support 8bit ECC*/
-		if (supported_flash->ecc_correctability >= 8)
+		if (supported_flash->ecc_correctability >= 8) {
 			chip->bch_caps = MSM_NAND_CAP_8_BIT_BCH;
-		else
+			supported_flash->ecc_capability = 8;
+		} else {
 			chip->bch_caps = MSM_NAND_CAP_4_BIT_BCH;
+			supported_flash->ecc_capability = 4;
+		}
 
 		pr_info("NAND Id: 0x%x Buswidth: %dBits Density: %lld MByte\n",
 			supported_flash->flash_id, (wide_bus) ? 16 : 8,
 			(mtd->size >> 20));
 		pr_info("pagesize: %d Erasesize: %d oobsize: %d (in Bytes)\n",
 			mtd->writesize, mtd->erasesize, mtd->oobsize);
-		pr_info("BCH ECC: %d Bit\n",
-			(chip->bch_caps & MSM_NAND_CAP_8_BIT_BCH ? 8 : 4));
+		pr_info("BCH ECC: %d Bit\n", supported_flash->ecc_capability);
 	}
 
 	chip->cw_size = (chip->bch_caps & MSM_NAND_CAP_8_BIT_BCH) ? 532 : 528;
