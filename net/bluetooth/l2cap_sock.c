@@ -882,8 +882,19 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 	lock_sock(sk);
 
 	if (!sk->sk_shutdown) {
-		if (chan->mode == L2CAP_MODE_ERTM)
+		if (chan->mode == L2CAP_MODE_ERTM) {
+			release_sock(sk);
+			l2cap_chan_unlock(chan);
+			if (conn)
+				mutex_unlock(&conn->chan_lock);
+
 			err = __l2cap_wait_ack(sk);
+
+			if (conn)
+				mutex_lock(&conn->chan_lock);
+			l2cap_chan_lock(chan);
+			lock_sock(sk);
+		}
 
 		sk->sk_shutdown = SHUTDOWN_MASK;
 
