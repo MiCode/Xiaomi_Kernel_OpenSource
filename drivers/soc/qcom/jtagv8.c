@@ -871,6 +871,7 @@ void msm_jtag_save_state(void)
 	/* ensure counter is updated before moving forward */
 	mb();
 
+	msm_jtag_etm_save_state();
 	if (dbg.save_restore_enabled)
 		dbg_save_state(cpu);
 }
@@ -902,6 +903,7 @@ void msm_jtag_restore_state(void)
 
 	if (dbg.save_restore_enabled)
 		dbg_restore_state(cpu);
+	msm_jtag_etm_restore_state();
 }
 EXPORT_SYMBOL(msm_jtag_restore_state);
 
