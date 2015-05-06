@@ -94,6 +94,34 @@
 				    <0x00065848 0x00000008>,
 				    <0x00066048 0x00000008>;
 
+		qcom,regs-dump-mdp = <0x01000 0x01424>,
+				     <0x02000 0x02030>,
+				     <0x02200 0x02230>,
+				     <0x02400 0x02430>,
+				     <0x05000 0x05130>,
+				     <0x05200 0x05230>,
+				     <0x15000 0x15130>,
+				     <0x17000 0x17130>,
+				     <0x25000 0x2512C>,
+				     <0x45000 0x4538c>,
+				     <0x48000 0x4838c>,
+				     <0x55000 0x5522c>,
+				     <0x65000 0x652b4>,
+				     <0x65800 0x65ab4>,
+				     <0x6b800 0x6ba54>,
+				     <0x71000 0x710d0>;
+
+		qcom,regs-dump-names-mdp = "MDP",
+			"CTL_0",     "CTL_1",  "CTL_2",
+			"VIG0_SSPP", "VIG0",
+			"RGB0_SSPP", "RGB1_SSPP",
+			"DMA0_SSPP",
+			"LAYER_0",   "LAYER_3",
+			"DSPP_0",
+			"WB_0",      "WB_1",
+			"INTF_1",
+			"PP_0";
+
 		/* buffer parameters to calculate prefill bandwidth */
 		qcom,mdss-prefill-outstanding-buffer-bytes = <1024>;
 		qcom,mdss-prefill-y-buffer-bytes = <0>;
