@@ -43,9 +43,10 @@ struct ps_temp_chg_table {
 /* Charging Profile */
 struct ps_pse_mod_prof {
 	/* battery id */
-	char batt_id[BATTID_STR_LEN];
+	char batt_id[BATTID_STR_LEN + 1];
+	u8 turbo;
 	/* type of battery */
-	u16 battery_type;
+	u8 battery_type;
 	u16 capacity;
 	u16 voltage_max;
 	/* charge termination current */

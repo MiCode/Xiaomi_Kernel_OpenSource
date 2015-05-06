@@ -63,18 +63,18 @@ EXPORT_SYMBOL(em_config_get_oem1_data);
 
 static int em_config_get_charge_profile(struct ps_pse_mod_prof *chrg_prof)
 {
+	struct em_config_oem0_data chrg_prof_temp;
 	int ret = 0;
 
 	if (chrg_prof == NULL)
 		return 0;
-	ret = em_config_get_oem0_data((struct em_config_oem0_data *)chrg_prof);
+	ret = em_config_get_oem0_data(&chrg_prof_temp);
 	if (ret > 0) {
-		/*
-		 * battery_type field contains 2 bytes, and upper byte
-		 * contains * battery_type & lower byte used for turbo,
-		 * which is discarded
-		 */
-		chrg_prof->battery_type = chrg_prof->battery_type >> 8;
+		memcpy(chrg_prof, &chrg_prof_temp, BATTID_STR_LEN);
+		chrg_prof->batt_id[BATTID_STR_LEN] = '\0';
+		memcpy(&(chrg_prof->turbo),
+			((char *)&chrg_prof_temp) + BATTID_STR_LEN,
+			sizeof(struct em_config_oem0_data) - BATTID_STR_LEN);
 #ifdef DEBUG
 		dump_chrg_profile(chrg_prof);
 #endif
