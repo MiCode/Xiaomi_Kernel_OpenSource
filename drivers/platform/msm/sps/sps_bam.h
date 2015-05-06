@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -213,6 +213,9 @@ struct sps_bam {
 	/* Statistics */
 	u32 irq_from_disabled_pipe;
 	u32 event_trigger_failures;
+
+	/* Desc cache pointers */
+	u8 *desc_cache_pointers[BAM_MAX_PIPES];
 
 };
 

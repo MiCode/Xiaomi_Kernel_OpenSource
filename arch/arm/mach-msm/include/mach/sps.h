@@ -109,6 +109,8 @@
 #define SPS_BAM_NO_LOCAL_CLK_GATING (1UL << 5)
 /* Don't enable writeback cancel*/
 #define SPS_BAM_CANCEL_WB           (1UL << 6)
+/* Hold memory for BAM DMUX */
+#define SPS_BAM_HOLD_MEM            (1UL << 8)
 
 
 /* BAM device management flags */
