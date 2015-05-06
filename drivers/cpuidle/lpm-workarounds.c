@@ -186,7 +186,7 @@ static int lpm_wa_probe(struct platform_device *pdev)
 	if (!enable_dynamic_clock_gating)
 		return ret;
 	is_l1_l2_gcc_secure = of_property_read_bool(pdev->dev.of_node,
-					"qcom,l1_l2_gcc_secure");
+					"qcom,l1-l2-gcc-secure");
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 							"l2-pwr-sts");
