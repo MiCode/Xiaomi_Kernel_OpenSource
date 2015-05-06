@@ -179,6 +179,11 @@ retry:
 			 */
 			ubi_msg(ubi->ubi_num,
 				"fixable bit-flip detected at PEB %d", pnum);
+
+			if (len != read)
+				ubi_msg(ubi->ubi_num,
+				"Error: Expected read %d != actual read %d",
+				len, read);
 			ubi_assert(len == read);
 			return UBI_IO_BITFLIPS;
 		}
