@@ -2674,6 +2674,23 @@ static int smbchg_otg_pulse_skip_enable(struct smbchg_chip *chip, bool enable)
 	return 0;
 }
 
+#define LOW_PWR_OPTIONS_REG	0xFF
+#define FORCE_TLIM_BIT		BIT(4)
+static int smbchg_force_tlim_en(struct smbchg_chip *chip, bool enable)
+{
+	int rc;
+
+	rc = smbchg_sec_masked_write(chip, chip->otg_base + LOW_PWR_OPTIONS_REG,
+			FORCE_TLIM_BIT, enable ? FORCE_TLIM_BIT : 0);
+	if (rc < 0) {
+		dev_err(chip->dev,
+			"Couldn't %s otg force tlim rc = %d\n",
+			enable ? "enable" : "disable", rc);
+		return rc;
+	}
+	return rc;
+}
+
 static int smbchg_battery_set_property(struct power_supply *psy,
 				       enum power_supply_property prop,
 				       const union power_supply_propval *val)
@@ -2712,6 +2729,9 @@ static int smbchg_battery_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_FLASH_ACTIVE:
 		rc = smbchg_otg_pulse_skip_enable(chip, val->intval);
+		break;
+	case POWER_SUPPLY_PROP_FORCE_TLIM:
+		rc = smbchg_force_tlim_en(chip, val->intval);
 		break;
 	default:
 		return -EINVAL;
