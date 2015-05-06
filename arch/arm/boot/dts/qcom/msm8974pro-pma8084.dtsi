@@ -50,17 +50,18 @@
 	};
 
 	qcom,mdss_dsi@0 {
+		vdda-supply = <&pma8084_l2>;
+		vddio-supply = <&pma8084_l12>;
+
 		qcom,mdss_dsi_ctrl0@fd922800 {
 			vdd-supply = <&pma8084_l22>;
 			vddio-supply = <&pma8084_l12>;
-			vdda-supply = <&pma8084_l2>;
 			qcom,platform-reset-gpio = <&pma8084_gpios 20 0>;
 		};
 
 		qcom,mdss_dsi_ctrl1@fd922e00 {
 			vdd-supply = <&pma8084_l22>;
 			vddio-supply = <&pma8084_l12>;
-			vdda-supply = <&pma8084_l2>;
 		};
 	};
 
