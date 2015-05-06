@@ -614,6 +614,21 @@ static inline u32 mdss_dsi_is_pll_src_pll1(struct dsi_shared_data *sdata)
 	return sdata->pll_src_config == PLL_SRC_1;
 }
 
+static inline const char *__mdss_dsi_get_fb_name(
+	struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	struct mdss_panel_info *pinfo = &(ctrl->panel_data.panel_info);
+
+	if (mdss_dsi_is_hw_config_dual(ctrl->shared_data)) {
+		if (pinfo->pdest == DISPLAY_1)
+			return "qcom,mdss-fb-map-prim";
+		else
+			return "qcom,mdss-fb-map-sec";
+	} else {
+		return "qcom,mdss-fb-map-prim";
+	}
+}
+
 static inline bool mdss_dsi_sync_wait_enable(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	return ctrl->cmd_sync_wait_broadcast;

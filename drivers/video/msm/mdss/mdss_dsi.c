@@ -2843,6 +2843,8 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	struct dsi_shared_data *sdata;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
 	struct resource *res;
+	struct device_node *fb_node;
+	struct platform_device *dsi_dev;
 
 	mipi  = &(pinfo->mipi);
 
@@ -2986,7 +2988,22 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		pinfo->panel_power_state = MDSS_PANEL_POWER_OFF;
 	}
 
-	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
+	dsi_dev = of_find_device_by_node(ctrl_pdev->dev.of_node->parent);
+	if (!dsi_dev) {
+		pr_err("Unable to find dsi master device: %s\n",
+			ctrl_pdev->dev.of_node->full_name);
+		return -ENODEV;
+	}
+
+	fb_node = of_parse_phandle(dsi_dev->dev.of_node,
+			__mdss_dsi_get_fb_name(ctrl_pdata), 0);
+	if (!fb_node) {
+		pr_err("Unable to find fb node for device: %s\n",
+			ctrl_pdev->name);
+		return -ENODEV;
+	}
+
+	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data), fb_node);
 	if (rc) {
 		pr_err("%s: unable to register MIPI DSI panel\n", __func__);
 		return rc;

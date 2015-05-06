@@ -128,6 +128,7 @@ static int mdss_wb_probe(struct platform_device *pdev)
 	struct mdss_panel_data *pdata = NULL;
 	struct mdss_wb_ctrl *wb_ctrl = NULL;
 	int rc = 0;
+	struct device_node *fb_node;
 
 	if (!pdev->dev.of_node)
 		return -ENODEV;
@@ -158,7 +159,13 @@ static int mdss_wb_probe(struct platform_device *pdev)
 	pdata->event_handler = mdss_wb_event_handler;
 	pdev->dev.platform_data = pdata;
 
-	rc = mdss_register_panel(pdev, pdata);
+	fb_node = of_parse_phandle(pdev->dev.of_node, "qcom,mdss-fb-map", 0);
+	if (!fb_node) {
+		pr_err("Unable to find fb node for device: %s\n", pdev->name);
+		goto error_init;
+	}
+
+	rc = mdss_register_panel(pdev, pdata, fb_node);
 	if (rc) {
 		dev_err(&pdev->dev, "unable to register writeback panel\n");
 		goto error_init;

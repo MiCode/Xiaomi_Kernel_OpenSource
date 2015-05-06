@@ -121,12 +121,19 @@
 			cell-index = <2>;
 			compatible = "qcom,mdss-fb";
 		};
+
+		mdss_fb3: qcom,mdss_fb_secondary {
+			cell-index = <3>;
+			compatible = "qcom,mdss-fb";
+		};
 	};
 
 	mdss_dsi: qcom,mdss_dsi@0 {
 		compatible = "qcom,mdss-dsi";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		qcom,mdss-fb-map-prim = <&mdss_fb0>;
+		qcom,mdss-fb-map-sec = <&mdss_fb3>;
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8941_l2>;
 		vddio-supply = <&pm8941_l12>;
@@ -198,7 +205,6 @@
 
 			vdd-supply = <&pm8941_l22>;
 			vddio-supply = <&pm8941_l12>;
-			qcom,mdss-fb-map = <&mdss_fb0>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 
 			qcom,platform-reset-gpio = <&pm8941_gpios 19 0>;
@@ -228,7 +234,6 @@
 
 			vdd-supply = <&pm8941_l22>;
 			vddio-supply = <&pm8941_l12>;
-			qcom,mdss-fb-map = <&mdss_fb0>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 
 			qcom,platform-strength-ctrl = [ff 06];
