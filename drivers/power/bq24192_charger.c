@@ -1925,6 +1925,7 @@ sched_task_work:
 
 	curr_health = bq24192_get_battery_health();
 	if (prev_health != curr_health) {
+		power_supply_changed(fg_psy);
 		power_supply_changed(&chip->usb);
 		dev_warn(&chip->client->dev,
 			"%s health status  %d",
