@@ -123,6 +123,7 @@
 		hw-config = "single_dsi";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		qcom,mdss-fb-map-prim = <&mdss_fb0>;
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8950_l2>;
 		vddio-supply = <&pm8950_l6>;
@@ -190,7 +191,6 @@
 			reg-names = "dsi_ctrl", "dsi_phy",
 			      "dsi_phy_regulator", "mmss_misc_phys";
 
-			qcom,mdss-fb-map = <&mdss_fb0>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 			vdd-supply = <&pm8950_l17>;
 			vddio-supply = <&pm8950_l6>;

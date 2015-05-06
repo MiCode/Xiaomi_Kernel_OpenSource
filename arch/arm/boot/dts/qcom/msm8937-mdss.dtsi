@@ -221,6 +221,8 @@
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x20>;
 		qcom,mmss-phyreset-ctrl-offset = <0x24>;
 
+		qcom,mdss-fb-map-prim = <&mdss_fb0>;
+		qcom,mdss-fb-map-sec = <&mdss_fb2>;
 		qcom,core-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -279,7 +281,6 @@
 			qcom,mdss-mdp = <&mdss_mdp>;
 			vdd-supply = <&pm8937_l17>;
 			vddio-supply = <&pm8937_l6>;
-			qcom,mdss-fb-map = <&mdss_fb0>;
 
 			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte0_clk>,
 				<&clock_gcc_mdss clk_gcc_mdss_pclk0_clk>,
@@ -314,7 +315,6 @@
 			qcom,mdss-mdp = <&mdss_mdp>;
 			vdd-supply = <&pm8937_l17>;
 			vddio-supply = <&pm8937_l6>;
-			qcom,mdss-fb-map = <&mdss_fb2>;
 
 			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte1_clk>,
 				<&clock_gcc_mdss clk_gcc_mdss_pclk1_clk>,

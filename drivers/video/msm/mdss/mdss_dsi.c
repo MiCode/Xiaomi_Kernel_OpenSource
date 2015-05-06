@@ -2213,6 +2213,35 @@ int mdss_dsi_register_recovery_handler(struct mdss_dsi_ctrl_pdata *ctrl,
 	return 0;
 }
 
+static struct device_node *mdss_dsi_get_fb_node_cb(struct platform_device *pdev)
+{
+	struct device_node *fb_node;
+	struct platform_device *dsi_dev;
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata;
+
+	if (pdev == NULL) {
+		pr_err("%s: Invalid input data\n", __func__);
+		return NULL;
+	}
+
+	ctrl_pdata = platform_get_drvdata(pdev);
+	dsi_dev = of_find_device_by_node(pdev->dev.of_node->parent);
+	if (!dsi_dev) {
+		pr_err("Unable to find dsi master device: %s\n",
+			pdev->dev.of_node->full_name);
+		return NULL;
+	}
+
+	fb_node = of_parse_phandle(dsi_dev->dev.of_node,
+			mdss_dsi_get_fb_name(ctrl_pdata), 0);
+	if (!fb_node) {
+		pr_err("Unable to find fb node for device: %s\n", pdev->name);
+		return NULL;
+	}
+
+	return fb_node;
+}
+
 static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 				  int event, void *arg)
 {
@@ -3652,6 +3681,7 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 	}
 
 	ctrl_pdata->panel_data.event_handler = mdss_dsi_event_handler;
+	ctrl_pdata->panel_data.get_fb_node = mdss_dsi_get_fb_node_cb;
 
 	if (ctrl_pdata->status_mode == ESD_REG ||
 			ctrl_pdata->status_mode == ESD_REG_NT35596)

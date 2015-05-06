@@ -279,6 +279,11 @@
 			cell-index = <2>;
 			compatible = "qcom,mdss-fb";
 		};
+
+		mdss_fb3: qcom,mdss_fb_secondary {
+			cell-index = <3>;
+			compatible = "qcom,mdss-fb";
+		};
 	};
 
 	mdss_dsi: qcom,mdss_dsi@0 {
@@ -304,6 +309,9 @@
 			<22 512 0 1000>;
 
 		qcom,mmss-ulp-clamp-ctrl-offset = <0x14>;
+
+		qcom,mdss-fb-map-prim = <&mdss_fb0>;
+		qcom,mdss-fb-map-sec = <&mdss_fb3>;
 
 		clocks = <&clock_mmss clk_mdss_mdp_vote_clk>,
 			 <&clock_mmss clk_mdss_ahb_clk>,
@@ -375,7 +383,6 @@
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
 			qcom,mdss-mdp = <&mdss_mdp>;
-			qcom,mdss-fb-map = <&mdss_fb0>;
 
 			clocks = <&clock_mmss clk_mdss_byte0_clk>,
 				 <&clock_mmss clk_mdss_pclk0_clk>,
@@ -427,7 +434,6 @@
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
 			qcom,mdss-mdp = <&mdss_mdp>;
-			qcom,mdss-fb-map = <&mdss_fb0>;
 
 			clocks = <&clock_mmss clk_mdss_byte1_clk>,
 				 <&clock_mmss clk_mdss_pclk1_clk>,
