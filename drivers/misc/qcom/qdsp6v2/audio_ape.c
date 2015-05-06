@@ -71,7 +71,8 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 				ape_config->sampleRate,
 				ape_config->seekTablePresent);
 		/* Configure Media format block */
-		rc = q6asm_media_format_block_ape(audio->ac, &ape_cfg);
+		rc = q6asm_media_format_block_ape(audio->ac, &ape_cfg,
+							audio->ac->stream_id);
 		if (rc < 0) {
 			pr_err("cmd media format block failed\n");
 			break;
