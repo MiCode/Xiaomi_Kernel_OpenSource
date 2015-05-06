@@ -2614,15 +2614,15 @@ static bool mxt_fw_is_latest(struct mxt_data *data, struct mxt_info *info,
 		return false;
 	}
 
+	/* update firmware when fw version is different and IDs are same */
 	if (fw_info->family_id == info->family_id &&
-		fw_info->variant_id == info->variant_id &&
-		fw_info->version == info->version &&
-		fw_info->build == info->build)
-		return true;
-	else {
+			fw_info->variant_id == info->variant_id &&
+			(fw_info->version != info->version ||
+			fw_info->build != info->build)) {
 		dev_info(&data->client->dev, "Update firmware\n");
 		return false;
-	}
+	} else
+		return true;
 }
 
 static int mxt_check_firmware(struct mxt_data *data, const struct firmware *fw)
