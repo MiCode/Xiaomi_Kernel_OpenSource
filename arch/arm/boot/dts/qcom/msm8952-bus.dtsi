@@ -307,8 +307,8 @@
 			qcom,qport = <0>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&pcnoc_int_1>;
-			qcom,prio1 = <0>;
-			qcom,prio0 = <0>;
+			qcom,prio1 = <1>;
+			qcom,prio0 = <1>;
 			qcom,bus-dev = <&fab_pcnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CRYPTO>;
 			qcom,blacklist = <&slv_crypto_0_cfg &slv_message_ram &slv_venus_cfg
