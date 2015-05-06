@@ -120,10 +120,11 @@ enum dsi_lane_map_type {
 };
 
 enum dsi_pm_type {
+	/* PANEL_PM not used as part of power_data in dsi_shared_data */
+	DSI_PANEL_PM,
 	DSI_CORE_PM,
 	DSI_CTRL_PM,
 	DSI_PHY_PM,
-	DSI_PANEL_PM,
 	DSI_MAX_PM
 };
 
@@ -210,12 +211,43 @@ enum {
 	DSI_CTRL_MAX,
 };
 
-struct mdss_dsi_data {
+/*
+ * Common DSI properties for each controller. The DSI root probe will create the
+ * shared_data struct which should be accessible to each controller. The goal is
+ * to only access ctrl_pdata and ctrl_pdata->shared_data during the lifetime of
+ * each controller i.e. mdss_dsi_res should not be used directly.
+ */
+struct dsi_shared_data {
 	u32 hw_config; /* DSI setup configuration i.e. single/dual/split */
+	u32 hw_rev; /* DSI h/w revision */
+
+	/* DSI ULPS clamp register offsets */
+	u32 ulps_clamp_ctrl_off;
+	u32 ulps_phyrst_ctrl_off;
+
+	bool timing_db_mode;
+	bool cmd_clk_ln_recovery_en;
+
+	/* DSI bus clocks */
+	struct clk *mdp_core_clk;
+	struct clk *ahb_clk;
+	struct clk *axi_clk;
+	struct clk *mmss_misc_ahb_clk;
+
+	/* DSI core regulators */
+	struct dss_module_power power_data[DSI_MAX_PM];
+};
+
+struct mdss_dsi_data {
 	bool res_init;
 	struct platform_device *pdev;
 	/* List of controller specific struct data */
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata[DSI_CTRL_MAX];
+	/*
+	 * This structure should hold common data structures like
+	 * mutex, clocks, regulator information, setup information
+	 */
+	struct dsi_shared_data *shared_data;
 };
 
 /*
@@ -298,7 +330,6 @@ struct mdss_dsi_ctrl_pdata {
 	void (*switch_mode) (struct mdss_panel_data *pdata, int mode);
 	struct mdss_panel_data panel_data;
 	unsigned char *ctrl_base;
-	u32 hw_rev;
 	struct dss_io_data ctrl_io;
 	struct dss_io_data mmss_misc_io;
 	struct dss_io_data phy_io;
@@ -306,10 +337,6 @@ struct mdss_dsi_ctrl_pdata {
 	u32 bus_clk_cnt;
 	u32 link_clk_cnt;
 	u32 flags;
-	struct clk *mdp_core_clk;
-	struct clk *ahb_clk;
-	struct clk *axi_clk;
-	struct clk *mmss_misc_ahb_clk;
 	struct clk *byte_clk;
 	struct clk *esc_clk;
 	struct clk *pixel_clk;
@@ -342,7 +369,6 @@ struct mdss_dsi_ctrl_pdata {
 	bool dcs_cmd_insert;
 	atomic_t te_irq_ready;
 
-	bool cmd_clk_ln_recovery_en;
 	bool cmd_sync_wait_broadcast;
 	bool cmd_sync_wait_trigger;
 
@@ -352,7 +378,8 @@ struct mdss_dsi_ctrl_pdata {
 	u32 pclk_rate;
 	u32 byte_clk_rate;
 	bool refresh_clk_rate; /* flag to recalculate clk_rate */
-	struct dss_module_power power_data[DSI_MAX_PM];
+	struct dss_module_power panel_power_data;
+	struct dss_module_power power_data[DSI_MAX_PM]; /* for 8x10 */
 	u32 dsi_irq_mask;
 	struct mdss_hw *dsi_hw;
 	struct mdss_intf_recovery *recovery;
@@ -385,12 +412,9 @@ struct mdss_dsi_ctrl_pdata {
 	struct regulator *ibb; /* vreg handle */
 	struct mutex clk_lane_mutex;
 
-	u32 ulps_clamp_ctrl_off;
-	u32 ulps_phyrst_ctrl_off;
 	bool ulps;
 	bool core_power;
 	bool mmss_clamp;
-	bool timing_db_mode;
 	char dlane_swap;	/* data lane swap */
 
 	struct dsi_buf tx_buf;
@@ -409,6 +433,7 @@ struct mdss_dsi_ctrl_pdata {
 	int horizontal_idle_cnt;
 	struct panel_horizontal_idle *line_idle;
 	struct mdss_util_intf *mdss_util;
+	struct dsi_shared_data *shared_data;
 
 	/* debugfs structure */
 	struct mdss_dsi_debugfs_info *debugfs_info;
@@ -454,14 +479,20 @@ void mdss_dsi_irq_handler_config(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_set_tx_power_mode(int mode, struct mdss_panel_data *pdata);
 int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			    int frame_rate);
-int mdss_dsi_clk_init(struct platform_device *pdev,
+int mdss_dsi_link_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_link_clk_deinit(struct device *dev,
+			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+int mdss_dsi_bus_clk_init(struct platform_device *pdev,
+			struct dsi_shared_data *sdata);
+void mdss_dsi_bus_clk_deinit(struct device *dev,
+			struct dsi_shared_data *sdata);
 int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+void mdss_dsi_shadow_clk_deinit(struct device *dev,
+			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_pll_1_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-void mdss_dsi_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
-void mdss_dsi_shadow_clk_deinit(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_enable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_disable_bus_clocks(struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
@@ -521,14 +552,24 @@ static inline const char *__mdss_dsi_pm_supply_node_name(
 	}
 }
 
-static inline bool mdss_dsi_split_display_enabled(void)
+static inline u32 mdss_dsi_get_hw_config(struct dsi_shared_data *sdata)
 {
-	/*
-	 * currently the only supported mode is split display.
-	 * So, if both controllers are initialized, then assume that
-	 * split display mode is enabled.
-	 */
-	return ctrl_list[DSI_CTRL_LEFT] && ctrl_list[DSI_CTRL_RIGHT];
+	return sdata->hw_config;
+}
+
+static inline bool mdss_dsi_is_hw_config_single(struct dsi_shared_data *sdata)
+{
+	return mdss_dsi_get_hw_config(sdata) == SINGLE_DSI;
+}
+
+static inline bool mdss_dsi_is_hw_config_split(struct dsi_shared_data *sdata)
+{
+	return mdss_dsi_get_hw_config(sdata) == SPLIT_DSI;
+}
+
+static inline bool mdss_dsi_is_hw_config_dual(struct dsi_shared_data *sdata)
+{
+	return mdss_dsi_get_hw_config(sdata) == DUAL_DSI;
 }
 
 static inline bool mdss_dsi_sync_wait_enable(struct mdss_dsi_ctrl_pdata *ctrl)
@@ -571,13 +612,13 @@ static inline struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl_by_index(int ndx)
 
 static inline bool mdss_dsi_is_ctrl_clk_master(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	return mdss_dsi_split_display_enabled() &&
+	return mdss_dsi_is_hw_config_split(ctrl->shared_data) &&
 		(ctrl->ndx == DSI_CTRL_CLK_MASTER);
 }
 
 static inline bool mdss_dsi_is_ctrl_clk_slave(struct mdss_dsi_ctrl_pdata *ctrl)
 {
-	return mdss_dsi_split_display_enabled() &&
+	return mdss_dsi_is_hw_config_split(ctrl->shared_data) &&
 		(ctrl->ndx == DSI_CTRL_CLK_SLAVE);
 }
 
