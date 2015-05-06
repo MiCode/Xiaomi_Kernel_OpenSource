@@ -113,6 +113,8 @@
 #define SPS_BAM_SMMU_EN             (1UL << 9)
 /* Confirm resource status before access BAM*/
 #define SPS_BAM_RES_CONFIRM         (1UL << 7)
+/* Hold memory for BAM DMUX */
+#define SPS_BAM_HOLD_MEM            (1UL << 8)
 
 /* BAM device management flags */
 
