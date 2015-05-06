@@ -39,6 +39,9 @@
 #define GPIO_OTG_VBUS_INDEX	2
 #define FPO0_USB_COMP_OFFSET	0x01
 
+/*If need PMIC support power button event report, define it*/
+/*#define PMIC_DC_PWR_BTN_EN*/
+
 enum {
 	VBUS_FALLING_IRQ = 2,
 	VBUS_RISING_IRQ,
@@ -81,6 +84,7 @@ enum {
 	BC_USB_CHNG_IRQ,
 };
 
+#ifdef PMIC_DC_PWR_BTN_EN
 static struct resource power_button_resources[] = {
 	{
 		.start	= POKN_IRQ,
@@ -93,7 +97,7 @@ static struct resource power_button_resources[] = {
 		.flags	= IORESOURCE_IRQ,
 	},
 };
-
+#endif
 
 static struct resource gpio_resources[] = {
 	{
@@ -228,12 +232,14 @@ static struct mfd_cell dollar_cove_dev[] = {
 		.num_resources = ARRAY_SIZE(gpio_resources),
 		.resources = gpio_resources,
 	},
+#ifdef PMIC_DC_PWR_BTN_EN
 	{
 		.name = "dollar_cove_power_button",
 		.id = 0,
 		.num_resources = ARRAY_SIZE(power_button_resources),
 		.resources = power_button_resources,
 	},
+#endif
 	{
 		.name = "dollar_cove_pwrsrc",
 		.id = 0,
