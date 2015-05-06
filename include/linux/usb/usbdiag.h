@@ -50,6 +50,7 @@ struct usb_diag_ch {
 };
 
 #ifdef CONFIG_USB_G_ANDROID
+int usb_diag_request_size(struct usb_diag_ch *ch);
 struct usb_diag_ch *usb_diag_open(const char *name, void *priv,
 		void (*notify)(void *, unsigned, struct diag_request *));
 void usb_diag_close(struct usb_diag_ch *ch);
