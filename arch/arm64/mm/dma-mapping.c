@@ -60,10 +60,12 @@ static int __init early_coherent_pool(char *p)
 }
 early_param("coherent_pool", early_coherent_pool);
 
-static void *__alloc_from_pool(size_t size, struct page **ret_page)
+static void *__alloc_from_pool(size_t size, struct page **ret_pages)
 {
 	unsigned long val;
 	void *ptr = NULL;
+	int count = size >> PAGE_SHIFT;
+	int i;
 
 	if (!atomic_pool) {
 		WARN(1, "coherent pool not initialised!\n");
@@ -73,8 +75,10 @@ static void *__alloc_from_pool(size_t size, struct page **ret_page)
 	val = gen_pool_alloc(atomic_pool, size);
 	if (val) {
 		phys_addr_t phys = gen_pool_virt_to_phys(atomic_pool, val);
-
-		*ret_page = phys_to_page(phys);
+		for (i = 0; i < count ; i++) {
+			ret_pages[i] = phys_to_page(phys);
+			phys += 1 << PAGE_SHIFT;
+		}
 		ptr = (void *)val;
 	}
 
@@ -203,11 +207,23 @@ static void *__dma_alloc_noncoherent(struct device *dev, size_t size,
 	size = PAGE_ALIGN(size);
 
 	if (!(flags & __GFP_WAIT)) {
-		struct page *page = NULL;
-		void *addr = __alloc_from_pool(size, &page);
+		struct page **page = NULL;
+		int count = size >> PAGE_SHIFT;
+		int array_size = count * sizeof(struct page *);
+		void *addr;
+
+		if (array_size <= PAGE_SIZE)
+			page = kzalloc(array_size, flags);
+		else
+			page = vzalloc(array_size);
+
+		if (!page)
+			return NULL;
+
+		addr = __alloc_from_pool(size, page);
 
 		if (addr)
-			*dma_handle = phys_to_dma(dev, page_to_phys(page));
+			*dma_handle = phys_to_dma(dev, page_to_phys(*page));
 
 		return addr;
 
@@ -847,24 +863,37 @@ static struct page **__iommu_get_pages(void *cpu_addr, struct dma_attrs *attrs)
 	return NULL;
 }
 
-static void *__iommu_alloc_atomic(struct device *dev, size_t size,
-				  dma_addr_t *handle)
+void *__iommu_alloc_atomic(struct device *dev, size_t size,
+				  dma_addr_t *handle, gfp_t gfp)
 {
-	struct page *page;
+	struct page **pages;
+	int count = size >> PAGE_SHIFT;
+	int array_size = count * sizeof(struct page *);
 	void *addr;
 
-	addr = __alloc_from_pool(size, &page);
-	if (!addr)
+	if (array_size <= PAGE_SIZE)
+		pages = kzalloc(array_size, gfp);
+	else
+		pages = vzalloc(array_size);
+
+	if (!pages)
 		return NULL;
 
-	*handle = __iommu_create_mapping(dev, &page, size);
+	addr = __alloc_from_pool(size, pages);
+	if (!addr)
+		goto err_free;
+
+	*handle = __iommu_create_mapping(dev, pages, size);
 	if (*handle == DMA_ERROR_CODE)
 		goto err_mapping;
 
+	kvfree(pages);
 	return addr;
 
 err_mapping:
 	__free_from_pool(addr, size);
+err_free:
+	kvfree(pages);
 	return NULL;
 }
 
@@ -886,7 +915,7 @@ static void *arm_iommu_alloc_attrs(struct device *dev, size_t size,
 	size = PAGE_ALIGN(size);
 
 	if (!(gfp & __GFP_WAIT))
-		return __iommu_alloc_atomic(dev, size, handle);
+		return __iommu_alloc_atomic(dev, size, handle, gfp);
 
 	/*
 	 * Following is a work-around (a.k.a. hack) to prevent pages
