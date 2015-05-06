@@ -79,7 +79,21 @@
     };
 
 	i2c@78b8000 { /* BLSP1 QUP4 */
-       /*DSI_TO_HDMI insert I2C configuration */
+		/* DSI_TO_HDMI I2C configuration */
+		adv7533@39 {
+			compatible = "adv7533";
+			reg = <0x39>;
+			adi,video-mode = <3>; /* 3 = 1080p */
+			adi,main-addr = <0x39>;
+			adi,cec-dsi-addr = <0x3C>;
+			adi,enable-audio;
+			pinctrl-names = "pmx_adv7533_active","pmx_adv7533_suspend";
+			pinctrl-0 = <&adv7533_int_active &adv7533_hpd_int_active &adv7533_switch_active>;
+			pinctrl-1 = <&adv7533_int_suspend &adv7533_hpd_int_suspend &adv7533_switch_suspend>;
+			adi,irq-gpio = <&msm_gpio 31 0x2002>;
+			adi,hpd-irq-gpio = <&msm_gpio 20 0x2003>;
+			adi,switch-gpio = <&msm_gpio 32 0x0>;
+		};
 	};
 
 	i2c@78b9000 { /* BLSP1 QUP5 */
@@ -335,10 +349,6 @@
 	status = "ok";
 };
 
-&mdss_mdp {
-	qcom,mdss-pref-prim-intf = "dsi";
-};
-
 &dsi_jdi_1080_vid {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
@@ -347,8 +357,121 @@
 
 };
 
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+
+	dsi_adv7533_720p: qcom,mdss_dsi_adv7533_720p {
+		label = "adv7533 720p video mode dsi panel";
+		qcom,mdss-dsi-panel-name = "dsi_adv7533_720p";
+		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-panel-destination = "display_1";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1280>;
+		qcom,mdss-dsi-panel-height = <720>;
+		qcom,mdss-dsi-h-front-porch = <110>;
+		qcom,mdss-dsi-h-back-porch = <220>;
+		qcom,mdss-dsi-h-pulse-width = <40>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <20>;
+		qcom,mdss-dsi-v-front-porch = <5>;
+		qcom,mdss-dsi-v-pulse-width = <5>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-on-command = [
+				05 01 00 00 c8 00 02 11 00
+				05 01 00 00 0a 00 02 29 00];
+		qcom,mdss-dsi-off-command = [05 01 00 00 00 00 02 28 00
+				05 01 00 00 00 00 02 10 00];
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-h-sync-pulse = <1>;
+		qcom,mdss-dsi-traffic-mode = "non_burst_sync_pulse";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-panel-timings = [A4 24 18 00 4E 52 1C 28 1C 03 04 00];
+		qcom,mdss-dsi-t-clk-post = <0x03>;
+		qcom,mdss-dsi-t-clk-pre = <0x20>;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-reset-sequence = <1 20>, <0 1>, <1 20>;
+		qcom,mdss-pan-physical-width-dimension = <160>;
+		qcom,mdss-pan-physical-height-dimension = <90>;
+		qcom,mdss-dsi-force-clock-lane-hs;
+		qcom,mdss-dsi-always-on;
+	};
+
+	dsi_adv7533_1080p: qcom,mdss_dsi_adv7533_1080p {
+		label = "adv7533 720p video mode dsi panel";
+		qcom,mdss-dsi-panel-name = "dsi_adv7533_1080p";
+		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
+		qcom,mdss-dsi-panel-type = "dsi_video_mode";
+		qcom,mdss-dsi-panel-destination = "display_1";
+		qcom,mdss-dsi-panel-framerate = <60>;
+		qcom,mdss-dsi-virtual-channel-id = <0>;
+		qcom,mdss-dsi-stream = <0>;
+		qcom,mdss-dsi-panel-width = <1920>;
+		qcom,mdss-dsi-panel-height = <1080>;
+		qcom,mdss-dsi-h-front-porch = <88>;
+		qcom,mdss-dsi-h-back-porch = <148>;
+		qcom,mdss-dsi-h-pulse-width = <44>;
+		qcom,mdss-dsi-h-sync-skew = <0>;
+		qcom,mdss-dsi-v-back-porch = <36>;
+		qcom,mdss-dsi-v-front-porch = <4>;
+		qcom,mdss-dsi-v-pulse-width = <5>;
+		qcom,mdss-dsi-h-left-border = <0>;
+		qcom,mdss-dsi-h-right-border = <0>;
+		qcom,mdss-dsi-v-top-border = <0>;
+		qcom,mdss-dsi-v-bottom-border = <0>;
+		qcom,mdss-dsi-bpp = <24>;
+		qcom,mdss-dsi-underflow-color = <0xff>;
+		qcom,mdss-dsi-border-color = <0>;
+		qcom,mdss-dsi-on-command = [
+				05 01 00 00 c8 00 02 11 00
+				05 01 00 00 0a 00 02 29 00];
+		qcom,mdss-dsi-off-command = [05 01 00 00 00 00 02 28 00
+				05 01 00 00 00 00 02 10 00];
+		qcom,mdss-dsi-on-command-state = "dsi_lp_mode";
+		qcom,mdss-dsi-off-command-state = "dsi_hs_mode";
+		qcom,mdss-dsi-h-sync-pulse = <1>;
+		qcom,mdss-dsi-traffic-mode = "non_burst_sync_pulse";
+		qcom,mdss-dsi-bllp-eof-power-mode;
+		qcom,mdss-dsi-bllp-power-mode;
+		qcom,mdss-dsi-lane-0-state;
+		qcom,mdss-dsi-lane-1-state;
+		qcom,mdss-dsi-lane-2-state;
+		qcom,mdss-dsi-lane-3-state;
+		qcom,mdss-dsi-panel-timings = [E6 38 26 00 68 6C 2A 3A 2C 03 04 00];
+		qcom,mdss-dsi-t-clk-post = <0x02>;
+		qcom,mdss-dsi-t-clk-pre = <0x2B>;
+		qcom,mdss-dsi-bl-min-level = <1>;
+		qcom,mdss-dsi-bl-max-level = <4095>;
+		qcom,mdss-dsi-dma-trigger = "trigger_sw";
+		qcom,mdss-dsi-mdp-trigger = "none";
+		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+		qcom,mdss-dsi-reset-sequence = <1 20>, <0 1>, <1 20>;
+		qcom,mdss-pan-physical-width-dimension = <160>;
+		qcom,mdss-pan-physical-height-dimension = <90>;
+		qcom,mdss-dsi-force-clock-lane-hs;
+		qcom,mdss-dsi-always-on;
+	};
+};
+
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_adv7533_1080p>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
@@ -494,6 +617,78 @@
        status = "disabled";
     };
 
+	/* add pingrp for adv7533 */
+	pmx_adv7533_int_active {
+		qcom,pins = <&gp 31>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "pmx_adv7533_int_active";
+
+		adv7533_int_active: adv7533_int_active {
+			drive-strength = <16>;
+			bias-disable;
+		};
+	};
+
+	pmx_adv7533_int_suspend {
+		qcom,pins = <&gp 20>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "pmx_adv7533_int_suspend";
+
+		adv7533_int_suspend: adv7533_int_suspend {
+			drive-strength = <16>;
+			bias-disable;
+		};
+	};
+
+	pmx_adv7533_hpd_int_active {
+		qcom,pins = <&gp 20>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "pmx_adv7533_hpd_int_active";
+
+		adv7533_hpd_int_active: adv7533_hpd_int_active {
+			drive-strength = <16>;
+			bias-disable;
+		};
+	};
+
+	pmx_adv7533_hpd_int_suspend {
+		qcom,pins = <&gp 20>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "pmx_adv7533_hpd_int_suspend";
+
+		adv7533_hpd_int_suspend: adv7533_hpd_int_suspend {
+			drive-strength = <16>;
+			bias-disable;
+		};
+	};
+
+	pmx_adv7533_switch_active {
+		qcom,pins = <&gp 32>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "pmx_adv7533_switch_active";
+
+		adv7533_switch_active: adv7533_switch_active {
+			drive-strength = <16>;
+			bias-disable;
+		};
+	};
+
+	pmx_adv7533_switch_suspend {
+		qcom,pins = <&gp 32>;
+		qcom,pin-func = <0>;
+		qcom,num-grp-pins = <1>;
+		label = "pmx_adv7533_switch_suspend";
+
+		adv7533_switch_suspend: adv7533_switch_suspend {
+			drive-strength = <16>;
+			bias-disable;
+		};
+	};
 };
 
 
