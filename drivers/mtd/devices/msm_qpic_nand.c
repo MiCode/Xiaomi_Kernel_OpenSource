@@ -15,6 +15,8 @@
 
 #include "msm_qpic_nand.h"
 
+static bool enable_euclean;
+
 /*
  * Get the DMA memory for requested amount of size. It returns the pointer
  * to free memory available from the allocated pool. Returns NULL if there
@@ -1491,8 +1493,12 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 					 * when there are less then the ecc
 					 * capability of the device is not
 					 * useful.
+					 *
+					 * Also don't report EUCLEAN unless
+					 * the enable_euclean is set.
 					 */
-					if (ecc_errors >= ecc_capability)
+					if (enable_euclean &&
+					    ecc_errors >= ecc_capability)
 						pageerr = -EUCLEAN;
 				}
 			}
@@ -3081,6 +3087,9 @@ static struct platform_driver msm_nand_driver = {
 		.pm		= &msm_nand_pm_ops,
 	},
 };
+
+module_param(enable_euclean, bool, 0644);
+MODULE_PARM_DESC(enable_euclean, "Set this parameter to enable reporting EUCLEAN to upper layer when the correctable bitflips are equal to the max correctable limit.");
 
 module_platform_driver(msm_nand_driver);
 
