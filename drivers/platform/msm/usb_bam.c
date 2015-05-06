@@ -1360,7 +1360,7 @@ static inline int all_pipes_suspended(enum usb_ctrl cur_bam)
 
 static void usb_bam_finish_suspend(enum usb_ctrl cur_bam)
 {
-	int ret;
+	int ret, bam2bam;
 	u32 cons_empty, idx, dst_idx;
 	struct sps_pipe *cons_pipe;
 	struct usb_bam_pipe_connect *pipe_connect;
@@ -1388,25 +1388,29 @@ static void usb_bam_finish_suspend(enum usb_ctrl cur_bam)
 		idx = info[cur_bam].pipes_suspended;
 		dst_idx = info[cur_bam].suspend_dst_idx[idx];
 		cons_pipe = ctx.usb_bam_sps.sps_pipes[dst_idx];
+		pipe_connect = &usb_bam_connections[dst_idx];
 
 		log_event(1, "pipes_suspended=%d pipes_to_suspend=%d",
 			info[cur_bam].pipes_suspended,
 			info[cur_bam].pipes_to_suspend);
 
+		bam2bam = (pipe_connect->pipe_type == USB_BAM_PIPE_BAM2BAM);
+
 		spin_unlock(&usb_bam_ipa_handshake_info_lock);
-		ret = sps_is_pipe_empty(cons_pipe, &cons_empty);
-		if (ret) {
-			pr_err("%s: sps_is_pipe_empty failed with %d\n",
-				__func__, ret);
-			goto no_lpm;
+
+		if (bam2bam) {
+			ret = sps_is_pipe_empty(cons_pipe, &cons_empty);
+			if (ret) {
+				pr_err("%s: sps_is_pipe_empty failed with %d\n",
+					__func__, ret);
+				goto no_lpm;
+			}
 		}
 
 		spin_lock(&usb_bam_ipa_handshake_info_lock);
 		/* Stop CONS transfers and go to lpm if no more data in the */
 		/* pipes */
 		if (cons_empty) {
-			pipe_connect = &usb_bam_connections[dst_idx];
-
 			log_event(1, "%s: Stopping CONS transfers on dst_idx=%d"
 				, __func__, dst_idx);
 			stop_cons_transfers(pipe_connect);
