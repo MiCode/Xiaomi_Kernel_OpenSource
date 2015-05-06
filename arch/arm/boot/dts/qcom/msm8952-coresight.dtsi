@@ -715,7 +715,7 @@
         };
 
 	rpm_etm0 {
-		compatible = "qcom,coresight-rpm-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <42>;
 		coresight-name = "coresight-rpm-etm0";
@@ -728,7 +728,7 @@
 	};
 
 	wcn_etm0 {
-		compatible = "qcom,coresight-wcn-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <43>;
 		coresight-name = "coresight-wcn-etm0";
@@ -741,7 +741,7 @@
 	};
 
 	audio_etm0 {
-		compatible = "qcom,coresight-audio-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <44>;
 		coresight-name = "coresight-audio-etm0";
@@ -754,7 +754,7 @@
 	};
 
 	modem_etm0 {
-		compatible = "qcom,coresight-modem-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <45>;
 		coresight-name = "coresight-modem-etm0";
@@ -767,7 +767,7 @@
 	};
 
 	modem_etm1 {
-		compatible = "qcom,coresight-modem-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <46>;
 		coresight-name = "coresight-modem-etm1";
