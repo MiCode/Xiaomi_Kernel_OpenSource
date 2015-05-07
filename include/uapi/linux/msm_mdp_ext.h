@@ -100,6 +100,9 @@ struct mdp_layer_buffer {
 	/* valid planes count in layer planes list */
 	uint32_t plane_count;
 
+	/* compression ratio factor, value depends on the pixel format */
+	struct mult_factor comp_ratio;
+
 	/*
 	 * SyncFence associated with this buffer. It is used in two ways.
 	 *
