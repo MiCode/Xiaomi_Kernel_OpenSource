@@ -848,7 +848,7 @@ static int mdss_mdp_video_dfps_check_line_cnt(struct mdss_mdp_ctl *ctl)
 
 	line_cnt = mdss_mdp_video_line_count(ctl);
 	if (line_cnt >=	pdata->panel_info.yres/2) {
-		pr_err("Too few lines left line_cnt=%d yres/2=%d\n",
+		pr_debug("Too few lines left line_cnt=%d yres/2=%d\n",
 			line_cnt,
 			pdata->panel_info.yres/2);
 		return -EPERM;
