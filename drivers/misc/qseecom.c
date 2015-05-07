@@ -2386,7 +2386,9 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			uint64_t *update_64bit;
 			if (__boundary_checks_offset(req, lstnr_resp, data, i))
 				goto err;
-			if (data->client.app_arch == ELFCLASS32) {
+			if ((data->type == QSEECOM_CLIENT_APP &&
+				data->client.app_arch == ELFCLASS32) ||
+				(data->type == QSEECOM_LISTENER_SERVICE)) {
 				/*
 				 * check if 32bit app's sg phy addr
 				 * region is under 4GB
@@ -2404,10 +2406,15 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 				update = (uint32_t *) field;
 				*update = cleanup ? 0 :
 					(uint32_t)sg_dma_address(sg_ptr->sgl);
-			} else {
+			} else if (data->type == QSEECOM_CLIENT_APP &&
+				data->client.app_arch == ELFCLASS64) {
 				update_64bit = (uint64_t *) field;
 				*update_64bit = cleanup ? 0 :
 					(uint64_t)sg_dma_address(sg_ptr->sgl);
+			} else {
+				pr_err("QSEE app arch %u is not supported\n",
+							data->client.app_arch);
+				goto err;
 			}
 			len += (uint32_t)sg->length;
 		} else {
@@ -2439,9 +2446,11 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 					goto err;
 				}
 			}
-
-			for (j = 0; j < sg_ptr->nents; j++) {
-				if (data->client.app_arch == ELFCLASS32) {
+			if ((data->type == QSEECOM_CLIENT_APP &&
+				data->client.app_arch == ELFCLASS32) ||
+				(data->type == QSEECOM_LISTENER_SERVICE)) {
+				update = (struct qseecom_sg_entry *)field;
+				for (j = 0; j < sg_ptr->nents; j++) {
 					/*
 					 * check if 32bit app's sg phy addr
 					 * region is under 4GB
@@ -2457,23 +2466,30 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 							sg->length);
 						goto err;
 					}
-					update = (struct qseecom_sg_entry *)
-							field;
 					update->phys_addr = cleanup ? 0 :
 						(uint32_t)sg_dma_address(sg);
 					update->len = cleanup ? 0 : sg->length;
 					update++;
-				} else {
-					update_64bit =
+					len += sg->length;
+					sg = sg_next(sg);
+				}
+			} else if (data->type == QSEECOM_CLIENT_APP &&
+				data->client.app_arch == ELFCLASS64) {
+				update_64bit =
 					(struct qseecom_sg_entry_64bit *)field;
+				for (j = 0; j < sg_ptr->nents; j++) {
 					update_64bit->phys_addr = cleanup ? 0 :
 						(uint64_t)sg_dma_address(sg);
 					update_64bit->len = cleanup ? 0 :
 								sg->length;
 					update_64bit++;
+					len += sg->length;
+					sg = sg_next(sg);
 				}
-				len += sg->length;
-				sg = sg_next(sg);
+			} else {
+				pr_err("QSEE app arch %u is not supported\n",
+							data->client.app_arch);
+					goto err;
 			}
 		}
 		if (cleanup)
@@ -2585,7 +2601,7 @@ static int qseecom_receive_req(struct qseecom_dev_handle *data)
 
 static bool __qseecom_is_fw_image_valid(const struct firmware *fw_entry)
 {
-	unsigned char app_arch;
+	unsigned char app_arch = 0;
 	struct elf32_hdr *ehdr;
 	struct elf64_hdr *ehdr64;
 
@@ -2643,7 +2659,7 @@ static bool __qseecom_is_fw_image_valid(const struct firmware *fw_entry)
 		break;
 	}
 	default: {
-		pr_err("Invalid app arch %d\n", app_arch);
+		pr_err("QSEE app arch %u is not supported\n", app_arch);
 		return false;
 	}
 	}
@@ -2677,15 +2693,16 @@ static int __qseecom_get_fw_size(char *appname, uint32_t *fw_size,
 	if (*app_arch == ELFCLASS32) {
 		ehdr = (struct elf32_hdr *)fw_entry->data;
 		num_images = ehdr->e_phnum;
-	} else  if (*app_arch == ELFCLASS64) {
+	} else if (*app_arch == ELFCLASS64) {
 		ehdr64 = (struct elf64_hdr *)fw_entry->data;
 		num_images = ehdr64->e_phnum;
 	} else {
-		pr_err("Invalid arch: %d for %s\n", *app_arch, appname);
+		pr_err("QSEE %s app, arch %u is not supported\n",
+						appname, *app_arch);
 		ret = -EIO;
 		goto err;
 	}
-	pr_debug("app: %s, arch: %d\n", appname, *app_arch);
+	pr_debug("QSEE %s app, arch %u\n", appname, *app_arch);
 	release_firmware(fw_entry);
 	for (i = 0; i < num_images; i++) {
 		memset(fw_name, 0, sizeof(fw_name));
@@ -2716,7 +2733,7 @@ static int __qseecom_get_fw_data(char *appname, u8 *img_data,
 	struct elf32_hdr *ehdr;
 	struct elf64_hdr *ehdr64;
 	int num_images = 0;
-	unsigned char app_arch;
+	unsigned char app_arch = 0;
 
 	snprintf(fw_name, sizeof(fw_name), "%s.mdt", appname);
 	rc = request_firmware(&fw_entry, fw_name,  qseecom.pdev);
@@ -2738,7 +2755,8 @@ static int __qseecom_get_fw_data(char *appname, u8 *img_data,
 		ehdr64 = (struct elf64_hdr *)fw_entry->data;
 		num_images = ehdr64->e_phnum;
 	} else {
-		pr_err("Invalid arch: %d for %s\n", app_arch, appname);
+		pr_err("QSEE %s app, arch %u is not supported\n",
+						appname, app_arch);
 		ret = -EIO;
 		goto err;
 	}
@@ -2825,7 +2843,7 @@ static int __qseecom_load_fw(struct qseecom_dev_handle *data, char *appname)
 	struct ion_handle *ihandle = NULL;
 	void *cmd_buf = NULL;
 	size_t cmd_len;
-	uint32_t app_arch;
+	uint32_t app_arch = 0;
 
 	if (__qseecom_get_fw_size(appname, &fw_size, &app_arch))
 		return -EIO;
@@ -2958,7 +2976,7 @@ static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data,
 	ion_phys_addr_t pa = 0;
 	void *cmd_buf = NULL;
 	size_t cmd_len;
-	uint32_t app_arch;
+	uint32_t app_arch = 0;
 
 	if (!cmnlib_name) {
 		pr_err("cmnlib_name is NULL\n");
@@ -3964,6 +3982,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	struct qseecom_check_app_ireq req;
 	struct qseecom_registered_app_list *entry = NULL;
 	unsigned long flags = 0;
+	uint32_t app_arch = 0;
 
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(&query_req,
@@ -3989,6 +4008,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 		list_for_each_entry(entry,
 				&qseecom.registered_app_list_head, list){
 			if (entry->app_id == ret) {
+				app_arch = entry->app_arch;
 				entry->ref_cnt++;
 				break;
 			}
@@ -3997,6 +4017,13 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 				&qseecom.registered_app_list_lock, flags);
 		data->client.app_id = ret;
 		query_req.app_id = ret;
+		if (app_arch) {
+			data->client.app_arch = app_arch;
+			query_req.app_arch = app_arch;
+		} else {
+			data->client.app_arch = 0;
+			query_req.app_arch = 0;
+		}
 		strlcpy(data->client.app_name, query_req.app_name,
 				MAX_APP_NAME_SIZE);
 		if (copy_to_user(argp, &query_req, sizeof(query_req))) {

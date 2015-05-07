@@ -166,6 +166,7 @@ static int compat_get_qseecom_qseos_app_load_query(
 	unsigned int i;
 	compat_int_t app_id;
 	char app_name;
+	compat_ulong_t app_arch;
 
 	for (i = 0; i < MAX_APP_NAME_SIZE; i++) {
 		err |= get_user(app_name, &(data32->app_name[i]));
@@ -173,6 +174,8 @@ static int compat_get_qseecom_qseos_app_load_query(
 	}
 	err |= get_user(app_id, &data32->app_id);
 	err |= put_user(app_id, &data->app_id);
+	err |= get_user(app_arch, &data32->app_arch);
+	err |= put_user(app_arch, &data->app_arch);
 	return err;
 }
 
@@ -409,6 +412,7 @@ static int compat_put_qseecom_load_img_req(
 	compat_ulong_t mdt_len;
 	compat_ulong_t img_len;
 	compat_long_t ifd_data_fd;
+	compat_ulong_t app_arch;
 	compat_int_t app_id;
 
 	err = get_user(mdt_len, &data->mdt_len);
@@ -419,6 +423,8 @@ static int compat_put_qseecom_load_img_req(
 	err |= put_user(ifd_data_fd, &data32->ifd_data_fd);
 	err |= copy_in_user(data32->img_name, data->img_name,
 				MAX_APP_NAME_SIZE);
+	err |= get_user(app_arch, &data->app_arch);
+	err |= put_user(app_arch, &data32->app_arch);
 	err |= get_user(app_id, &data->app_id);
 	err |= put_user(app_id, &data32->app_id);
 	return err;
@@ -443,6 +449,7 @@ static int compat_put_qseecom_qseos_app_load_query(
 	int err = 0;
 	unsigned int i;
 	compat_int_t app_id;
+	compat_ulong_t app_arch;
 	char app_name;
 
 	for (i = 0; i < MAX_APP_NAME_SIZE; i++) {
@@ -451,6 +458,8 @@ static int compat_put_qseecom_qseos_app_load_query(
 	}
 	err |= get_user(app_id, &data->app_id);
 	err |= put_user(app_id, &data32->app_id);
+	err |= get_user(app_arch, &data->app_arch);
+	err |= put_user(app_arch, &data32->app_arch);
 
 	return err;
 }
