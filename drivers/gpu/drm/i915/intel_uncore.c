@@ -329,7 +329,7 @@ void intel_uncore_forcewake_reset(struct drm_device *dev, bool restore)
 	else if (IS_GEN6(dev) || IS_GEN7(dev))
 		__gen6_gt_force_wake_reset(dev_priv);
 
-	if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev) || IS_GEN8(dev))
+	if (IS_IVYBRIDGE(dev) || IS_HASWELL(dev) || IS_BROADWELL(dev))
 		__gen7_gt_force_wake_mt_reset(dev_priv);
 
 	if (restore) { /* If reset with a user forcewake, try to restore */
