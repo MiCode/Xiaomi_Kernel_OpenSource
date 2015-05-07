@@ -375,12 +375,22 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,cont-splash-enabled;
+};
+
+&dsi_dual_sharp_video_1 {
+	qcom,cont-splash-enabled;
 };
 
 &dsi_dual_nt35597_video_0 {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,cont-splash-enabled;
+};
+
+&dsi_dual_nt35597_video_1 {
+	qcom,cont-splash-enabled;
 };
 
 &dsi_nt35597_dsc_video {
@@ -398,8 +408,12 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
+	qcom,cont-splash-enabled;
 };
 
+&dsi_dual_jdi_cmd_1 {
+	qcom,cont-splash-enabled;
+};
 
 &slim_msm {
 	tomtom_codec {
