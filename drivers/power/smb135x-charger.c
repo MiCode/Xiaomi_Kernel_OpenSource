@@ -2689,7 +2689,8 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	usb_supply_type = get_usb_supply_type(reg);
 	pr_debug("inserted %s, usb psy type = %d stat_5 = 0x%02x apsd_rerun = %d\n",
 			usb_type_name, usb_supply_type, reg, chip->apsd_rerun);
-	if (!chip->apsd_rerun && chip->usb_psy) {
+
+	if (chip->batt_present && !chip->apsd_rerun && chip->usb_psy) {
 		if (usb_supply_type == POWER_SUPPLY_TYPE_USB) {
 			pr_debug("setting usb psy allow detection 1 SDP and rerun\n");
 			power_supply_set_allow_detection(chip->usb_psy, 1);
