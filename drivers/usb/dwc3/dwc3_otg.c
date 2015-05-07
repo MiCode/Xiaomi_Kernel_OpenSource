@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
+#include <linux/of_gpio.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 
@@ -46,6 +47,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
 	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
 	struct dwc3 *dwc = dotg->dwc;
+	struct device_node *node = dwc->dev->parent->of_node;
 	struct usb_hcd *hcd;
 	int ret = 0;
 
@@ -79,6 +81,21 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			dbg_event(0xFF, "vregerr psync",
 				atomic_read(&otg->phy->dev->power.usage_count));
 			return ret;
+		}
+
+		dotg->cpe_gpio = of_get_named_gpio(node, "qcom,cpe-gpio", 0);
+		if (dotg->cpe_gpio < 0) {
+			dotg->cpe_gpio = 0;
+			dev_dbg(otg->phy->dev, "Error getting CPE GPIO");
+		} else {
+			ret = devm_gpio_request(dwc->dev->parent,
+					dotg->cpe_gpio, "cpe-gpio");
+			if (ret)
+				dev_dbg(otg->phy->dev, "Error requesting CPE GPIO");
+
+			ret = gpio_direction_output(dotg->cpe_gpio, 1);
+			if (ret)
+				dev_dbg(otg->phy->dev, "Error setting direction for CPE GPIO");
 		}
 
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_HOST);
@@ -120,6 +137,12 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		if (ret) {
 			dev_err(otg->phy->dev, "unable to disable vbus_otg\n");
 			return ret;
+		}
+
+		if (dotg->cpe_gpio) {
+			ret = gpio_direction_output(dotg->cpe_gpio, 0);
+			if (ret)
+				dev_dbg(otg->phy->dev, "Error setting direction for CPE GPIO");
 		}
 
 		pm_runtime_get_sync(dwc->dev);
