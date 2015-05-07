@@ -267,6 +267,11 @@ struct mdp_img {
 	uint32_t priv;
 };
 
+struct mult_factor {
+	uint32_t numer;
+	uint32_t denom;
+};
+
 /*
  * {3x3} + {3} ccs matrix
  */
