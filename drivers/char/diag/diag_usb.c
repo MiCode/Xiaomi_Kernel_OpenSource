@@ -225,7 +225,6 @@ static void diag_usb_write_done(struct diag_usb_info *ch,
 		ch->ops->write_done(req->buf, req->actual, ctxt, DIAG_USB_MODE);
 	diag_ws_on_copy_complete(DIAG_WS_MUX);
 	diagmem_free(driver, req, ch->mempool);
-	queue_work(ch->usb_wq, &(ch->read_work));
 }
 
 static void diag_usb_notifier(void *priv, unsigned event,
