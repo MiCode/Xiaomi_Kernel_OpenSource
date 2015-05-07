@@ -79,6 +79,9 @@ struct mdss_mdp_video_ctx {
 static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 		struct mdss_mdp_ctl *ctl);
 
+static void mdss_mdp_fetch_end_config(struct mdss_mdp_video_ctx *ctx,
+		struct mdss_mdp_ctl *ctl);
+
 static inline void mdp_video_write(struct mdss_mdp_video_ctx *ctx,
 				   u32 reg, u32 val)
 {
@@ -985,6 +988,13 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			if (sctx)
 				mdss_mdp_fetch_start_config(sctx, ctl);
 
+			if (test_bit(MDSS_QOS_VBLANK_PANIC_CTRL,
+					mdata->mdss_qos_map)) {
+				mdss_mdp_fetch_end_config(ctx, ctl);
+				if (sctx)
+					mdss_mdp_fetch_end_config(sctx, ctl);
+			}
+
 			/*
 			 * MDP INTF registers support DB on targets
 			 * starting from MDP v1.5.
@@ -1160,6 +1170,35 @@ static void mdss_mdp_disable_prefill(struct mdss_mdp_ctl *ctl)
 			pinfo->lcdc.v_back_porch, pinfo->lcdc.v_pulse_width,
 			pinfo->prg_fet);
 	}
+}
+
+static void mdss_mdp_fetch_end_config(struct mdss_mdp_video_ctx *ctx,
+		struct mdss_mdp_ctl *ctl)
+{
+	int fetch_stop, h_total;
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+	u32 lines_before_active = ctl->mdata->lines_before_active ? : 2;
+	u32 vblank_lines = pinfo->lcdc.v_back_porch + pinfo->lcdc.v_pulse_width;
+	u32 vblank_end_enable;
+
+	if (vblank_lines <= lines_before_active) {
+		pr_debug("cannot support fetch end vblank:%d lines:%d\n",
+			vblank_lines, lines_before_active);
+		return;
+	}
+
+	/* Fetch should always be stopped before the active start */
+	h_total = mdss_panel_get_htotal(pinfo, true);
+	fetch_stop = (vblank_lines - lines_before_active) * h_total;
+
+	vblank_end_enable = mdp_video_read(ctx, MDSS_MDP_REG_INTF_CONFIG);
+	vblank_end_enable |= BIT(22);
+
+	pr_debug("ctl:%d fetch_stop:%d lines:%d\n",
+		ctl->num, fetch_stop, lines_before_active);
+
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_VBLANK_END_CONF, fetch_stop);
+	mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, vblank_end_enable);
 }
 
 static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
@@ -1366,6 +1405,10 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 			return -EINVAL;
 		}
 		mdss_mdp_fetch_start_config(ctx, ctl);
+
+		if (test_bit(MDSS_QOS_VBLANK_PANIC_CTRL, mdata->mdss_qos_map))
+			mdss_mdp_fetch_end_config(ctx, ctl);
+
 	} else {
 		mdss_mdp_handoff_programmable_fetch(ctl, ctx);
 	}

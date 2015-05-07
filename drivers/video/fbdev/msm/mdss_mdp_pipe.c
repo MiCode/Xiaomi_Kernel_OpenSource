@@ -38,6 +38,9 @@
 #define QOS_LUT_420_CHROMA	0x555557
 #define QOS_LUT_LINEAR		0x55555B
 
+/* Priority 2, no panic */
+#define VBLANK_PANIC_DEFAULT_CONFIG 0x200000
+
 static DEFINE_MUTEX(mdss_mdp_sspp_lock);
 static DEFINE_MUTEX(mdss_mdp_smp_lock);
 
@@ -145,6 +148,49 @@ void mdss_mdp_config_pipe_panic_lut(struct mdss_data_type *mdata)
 	}
 }
 
+/**
+ * @mdss_mdp_pipe_panic_vblank_signal_ctrl -
+ * @pipe: pointer to a pipe
+ * @enable: TRUE - enables feature FALSE - disables feature
+ *
+ * This function assumes that clocks are enabled, so it is callers
+ * responsibility to enable clocks before calling this function.
+ */
+int mdss_mdp_pipe_panic_vblank_signal_ctrl(struct mdss_mdp_pipe *pipe,
+	bool enable)
+{
+	uint32_t panic_ctrl;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdata->has_panic_ctrl)
+		goto end;
+
+	if (!is_rt_pipe(pipe))
+		goto end;
+
+	if (!test_bit(MDSS_QOS_VBLANK_PANIC_CTRL, mdata->mdss_qos_map))
+		goto end;
+
+	mutex_lock(&mdata->reg_lock);
+
+	panic_ctrl = mdss_mdp_pipe_read(pipe,
+			MDSS_MDP_REG_SSPP_QOS_CTRL);
+
+	panic_ctrl |= VBLANK_PANIC_DEFAULT_CONFIG;
+
+	if (enable)
+		panic_ctrl |= BIT(16);
+	else
+		panic_ctrl &= ~BIT(16);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_QOS_CTRL,
+				panic_ctrl);
+
+	mutex_unlock(&mdata->reg_lock);
+
+end:
+	return 0;
+}
+
 int mdss_mdp_pipe_panic_signal_ctrl(struct mdss_mdp_pipe *pipe, bool enable)
 {
 	uint32_t panic_robust_ctrl;
@@ -210,6 +256,14 @@ void mdss_mdp_bwcpanic_ctrl(struct mdss_data_type *mdata, bool enable)
 	mutex_unlock(&mdata->reg_lock);
 }
 
+/**
+ * @mdss_mdp_pipe_nrt_vbif_setup -
+ * @mdata: pointer to global driver data.
+ * @pipe: pointer to a pipe
+ *
+ * This function assumes that clocks are enabled, so it is callers
+ * responsibility to enable clocks before calling this function.
+ */
 static void mdss_mdp_pipe_nrt_vbif_setup(struct mdss_data_type *mdata,
 					struct mdss_mdp_pipe *pipe)
 {
@@ -218,7 +272,6 @@ static void mdss_mdp_pipe_nrt_vbif_setup(struct mdss_data_type *mdata,
 	if (pipe->type != MDSS_MDP_PIPE_TYPE_DMA)
 		return;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	nrt_vbif_client_sel = readl_relaxed(mdata->mdp_base +
 				MMSS_MDP_RT_NRT_VBIF_CLIENT_SEL);
 	if (mdss_mdp_is_nrt_vbif_client(mdata, pipe))
@@ -227,7 +280,6 @@ static void mdss_mdp_pipe_nrt_vbif_setup(struct mdss_data_type *mdata,
 		nrt_vbif_client_sel &= ~BIT(pipe->num - MDSS_MDP_SSPP_DMA0);
 	writel_relaxed(nrt_vbif_client_sel,
 			mdata->mdp_base + MMSS_MDP_RT_NRT_VBIF_CLIENT_SEL);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 
 	return;
 }
@@ -839,6 +891,8 @@ int mdss_mdp_pipe_map(struct mdss_mdp_pipe *pipe)
  * @pipe:	Pointer to source pipe struct to get xin id's.
  * @is_realtime:	To determine if pipe's client is real or
  *			non real time.
+ * This function assumes that clocks are on, so it is caller responsibility to
+ * call this function with clocks enabled.
  */
 static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 			struct mdss_mdp_pipe *pipe, bool is_realtime)
@@ -849,7 +903,6 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 	if (mdata->npriority_lvl == 0)
 		return;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	for (i = 0; i < mdata->npriority_lvl; i++) {
 		reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4,
 								is_nrt_vbif);
@@ -861,7 +914,6 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
 		MDSS_VBIF_WRITE(mdata, MDSS_VBIF_QOS_REMAP_BASE + i*4, reg_val,
 								is_nrt_vbif);
 	}
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
 /**
@@ -871,6 +923,8 @@ static void mdss_mdp_qos_vbif_remapper_setup(struct mdss_data_type *mdata,
  * @pipe:       Pointer to source pipe struct to get xin id's.
  * @is_realtime:        To determine if pipe's client is real or
  *                      non real time.
+ * This function assumes that clocks are on, so it is caller responsibility to
+ * call this function with clocks enabled.
  */
 static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 		struct mdss_mdp_pipe *pipe, bool is_realtime)
@@ -881,7 +935,6 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 	if (!mdata->has_fixed_qos_arbiter_enabled)
 		return;
 
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 	mutex_lock(&mdata->reg_lock);
 	reg_val = MDSS_VBIF_READ(mdata, MDSS_VBIF_FIXED_SORT_EN, is_nrt_vbif);
 	mask = 0x1 << pipe->xin_id;
@@ -903,7 +956,6 @@ static void mdss_mdp_fixed_qos_arbiter_setup(struct mdss_data_type *mdata,
 	/* Set the fixed_sort regs as per RT/NRT client */
 	MDSS_VBIF_WRITE(mdata, MDSS_VBIF_FIXED_SORT_SEL0, reg_val, is_nrt_vbif);
 	mutex_unlock(&mdata->reg_lock);
-	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 }
 
 static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
@@ -912,6 +964,8 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 	bool is_realtime;
 	int rc = 0;
 	struct mdss_data_type *mdata;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
 	if (pipe) {
 		rc = mdss_mdp_pipe_fetch_halt(pipe);
@@ -924,6 +978,7 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 
 	mdata = mixer->ctl->mdata;
 
+	mdss_mdp_pipe_panic_vblank_signal_ctrl(pipe, false);
 	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 
 	if (pipe && mdss_mdp_pipe_is_sw_reset_available(mdata))
@@ -947,13 +1002,16 @@ static int mdss_mdp_pipe_init_config(struct mdss_mdp_pipe *pipe,
 		 * shared as long as its attached to a writeback mixer
 		 */
 		pipe = mdata->dma_pipes + mixer->num;
-		if (pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK)
-			return -EINVAL;
+		if (pipe->mixer_left->type != MDSS_MDP_MIXER_TYPE_WRITEBACK) {
+			rc = -EINVAL;
+			goto end;
+		}
 		kref_get(&pipe->kref);
 		pr_debug("pipe sharing for pipe=%d\n", pipe->num);
 	}
 
 end:
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return rc;
 }
 
@@ -1197,7 +1255,9 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
+	mdss_mdp_pipe_panic_vblank_signal_ctrl(pipe, false);
 	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
+
 	if (pipe->play_cnt) {
 		mdss_mdp_pipe_fetch_halt(pipe);
 		mdss_mdp_pipe_pp_clear(pipe);
@@ -2054,6 +2114,7 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 			mdss_mdp_pipe_qos_lut(pipe);
 
 		if (pipe->type != MDSS_MDP_PIPE_TYPE_CURSOR) {
+			mdss_mdp_pipe_panic_vblank_signal_ctrl(pipe, true);
 			mdss_mdp_pipe_panic_signal_ctrl(pipe, true);
 			mdss_mdp_set_ot_limit_pipe(pipe);
 		}
