@@ -25,11 +25,7 @@
 #include <linux/coresight.h>
 #include "coresight-qmi.h"
 
-#ifdef CONFIG_CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
-static int boot_enable = 1;
-#else
 static int boot_enable;
-#endif
 module_param_named(
 	boot_enable, boot_enable, int, S_IRUGO
 );
@@ -310,7 +306,9 @@ static int remote_etm_probe(struct platform_device *pdev)
 	}
 	dev_info(dev, "Remote ETM initialized\n");
 
-	if (boot_enable)
+	if (drvdata->inst_id >= sizeof(int)*BITS_PER_BYTE)
+		dev_err(dev, "inst_id greater than boot_enable bit mask\n");
+	else if (boot_enable & BIT(drvdata->inst_id))
 		coresight_enable(drvdata->csdev);
 
 	return 0;
