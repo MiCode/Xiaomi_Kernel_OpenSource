@@ -498,79 +498,74 @@ Interface
 Kernel-space APIs:
 
 /**
- * smem_alloc() - Find an already allocated SMEM item and return its address.
- *                Do not allocate the item if does not currently exist.
+ * smem_alloc() - Find an existing item, otherwise allocate it with security
+ *                support
  *
- * @id: The SMEM item to find
- * @size: The expected size of the SMEM item
- * @returns: Base address of the SMEM item (or NULL if there is a failure)
+ * @id: ID of SMEM item
+ * @size_in: Size of the SMEM item
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it couldn't be found/allocated, or
+ *           -EPROBE_DEFER if the driver is not ready
  */
-void *smem_alloc(unsigned id, unsigned size);
+void *smem_alloc(unsigned id, unsigned size_in, unsigned to_proc,
+                   unsigned flags);
 
 /**
- * smem_alloc2() - Allocate a SMEM item and return its address
+ * smem_get_entry() - Get existing item with security support
  *
- * @id: The SMEM item to create
- * @size: The desired size of the SMEM item
- * @returns: Base address of the SMEM item (or NULL if there is a failure)
- *
- * Looks to see if the SMEM item exists, and if so returns a pointer to the
- * existing item.  If the item does not exist, creates it, and returns a pointer
- * to the new item.
+ * @id: ID of SMEM item
+ * @size: Pointer to size variable for storing the result
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *           if the driver isn't ready
  */
-void *smem_alloc2(unsigned id, unsigned size_in);
+void *smem_get_entry(unsigned id, unsigned *size, unsigned to_proc,
+                                unsigned flags);
 
 /**
- * smem_get_entry() - Find an allocated SMEM item and return its size/address
+ * smem_get_entry_no_rlock() - Get existing item without using remote spinlock.
  *
- * @id: The SMEM item to find
- * @size: Returns the current size of the SMEM item
- * @returns: Base address of the SMEM item (or NULL if there is a failure)
+ * @id: ID of SMEM item
+ * @size_out: Pointer to size variable for storing the result
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *           if the driver isn't ready
+ *
+ * This function does not lock the remote spinlock and should only be used in
+ * failure-recover cases such as retrieving the subsystem failure reason during
+ * subsystem restart.
  */
-void *smem_get_entry(unsigned id, unsigned *size);
+void *smem_get_entry_no_rlock(unsigned id, unsigned *size_out, unsigned to_proc,
+                                unsigned flags);
 
 /**
- * smem_find() - Find an allocated SMEM item and return its address
+ * smem_find() - Find existing item with security support
  *
- * @id: The SMEM item to find
- * @size: The expected size of the SMEM item
- * @returns: Base address of the SMEM item (or NULL if there is a failure)
+ * @id: ID of SMEM item
+ * @size_in: Size of the SMEM item
+ * @to_proc: SMEM host that shares the item with apps
+ * @flags: Item attribute flags
+ * @returns: Pointer to SMEM item, NULL if it doesn't exist, or -EPROBE_DEFER
+ *           if the driver is not ready
  */
 void *smem_find(unsigned id, unsigned size);
 
 /**
  * smem_virt_to_phys() - Convert SMEM address to physical address.
  *
- * @smem_address: Virtual address returned by smem_alloc()/smem_alloc2()
+ * @smem_address: Address of SMEM item (returned by smem_alloc(), etc)
  * @returns: Physical address (or NULL if there is a failure)
  *
  * This function should only be used if an SMEM item needs to be handed
- * off to a DMA engine.
+ * off to a DMA engine. This function will not return a version of EPROBE_DEFER
+ * if the driver is not ready since the caller should obtain @smem_address from
+ * one of the other public APIs and get EPROBE_DEFER at that time, if
+ * applicable.
  */
 phys_addr_t smem_virt_to_phys(void *smem_address);
-
-Security supported API:
-----------------------
-
-For all of the functions below, the to_proc parameter indicates which remote
-processor the indicated SMEM item is shared with.  The flags parameter indicates
-if the client wants the SMEM item allocated from the cached heap.  All other
-parameters and return values are identical to the above non-"to_proc" versions.
-
-When the security feature is not enabled, the below functions act identical to
-their non-"to_proc" counterparts.  When the security feature is enabled, the
-below functions reference only the applicable secured partition, if it exists.
-If the applicable secured partition does not exist, then the below functions
-fallback to the default unsecured partition.
-
-void *smem_alloc_to_proc(unsigned id, unsigned size, unsigned to_proc,
-								unsigned flags);
-void *smem_alloc2_to_proc(unsigned id, unsigned size_in, unsigned to_proc,
-								unsigned flags);
-void *smem_get_entry_to_proc(unsigned id, unsigned *size, unsigned to_proc,
-								unsigned flags);
-void *smem_find_to_proc(unsigned id, unsigned size, unsigned to_proc,
-								unsigned flags);
 
 Driver parameters
 =================
