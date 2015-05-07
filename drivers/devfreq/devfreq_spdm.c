@@ -278,7 +278,11 @@ int __spdm_scm_call(struct spdm_args *args, int num_args)
 				sizeof(args->ret));
 	} else {
 		struct scm_desc desc = {0};
-		desc.arginfo = SCM_ARGS(num_args);
+		/*
+		 * Need to hard code this, this is a requirement from TZ syscall
+		 * interface.
+		 */
+		desc.arginfo = SCM_ARGS(6);
 		memcpy(desc.args, args->arg,
 			COPY_SIZE(sizeof(desc.args), sizeof(args->arg)));
 
