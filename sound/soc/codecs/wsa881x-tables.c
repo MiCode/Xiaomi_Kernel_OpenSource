@@ -13,9 +13,9 @@
 
 #include <linux/regmap.h>
 #include <linux/device.h>
-#include "wsa881x-registers-analog.h"
+#include "wsa881x-registers.h"
 
-const u8 wsa881x_ana_reg_readable[WSA881X_CACHE_SIZE] = {
+const u8 wsa881x_reg_readable[WSA881X_CACHE_SIZE] = {
 	[WSA881X_CHIP_ID0] = 1,
 	[WSA881X_CHIP_ID1] = 1,
 	[WSA881X_CHIP_ID2] = 1,
@@ -120,7 +120,7 @@ const u8 wsa881x_ana_reg_readable[WSA881X_CACHE_SIZE] = {
 	[WSA881X_ADC_EN_DET_TEST_V] = 1,
 	[WSA881X_ADC_EN_DET_TEST_I] = 1,
 	[WSA881X_ADC_SEL_IBIAS] = 1,
-	[WSA881X_ADC_EN_SEL_IBIAS] = 1,
+	[WSA881X_ADC_EN_SEL_IBAIS] = 1,
 	[WSA881X_SPKR_DRV_EN] = 1,
 	[WSA881X_SPKR_DRV_GAIN] = 1,
 	[WSA881X_SPKR_DAC_CTL] = 1,

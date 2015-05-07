@@ -722,11 +722,11 @@ static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 	}
 	if (pdata->codec) {
 		/* restore defaults to cache */
-		for (reg = 0; reg < ARRAY_SIZE(wsa881x_reg_defaults);
+		for (reg = 0; reg < ARRAY_SIZE(wsa881x_ana_reg_defaults);
 				reg++) {
-			if (wsa881x_reg_readable[reg])
+			if (wsa881x_ana_reg_readable[reg])
 				snd_soc_cache_write(pdata->codec, reg,
-					wsa881x_reg_defaults[reg].def);
+					wsa881x_ana_reg_defaults[reg].def);
 		}
 	}
 	return 0;
@@ -759,7 +759,7 @@ static struct snd_soc_codec_driver soc_codec_dev_wsa881x = {
 	.write = wsa881x_i2c_write,
 
 	.reg_cache_size = WSA881X_CACHE_SIZE,
-	.reg_cache_default = wsa881x_reg_defaults,
+	.reg_cache_default = wsa881x_ana_reg_defaults,
 	.reg_word_size = 1,
 
 	.controls = wsa881x_snd_controls,
@@ -903,9 +903,9 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 		dev_dbg(&client->dev, "%s:wsa_idx = %d SLAVE = %d\n",
 				__func__, wsa881x_index, WSA881X_ANALOG_SLAVE);
 		pdata->regmap[WSA881X_ANALOG_SLAVE] =
-				devm_regmap_init_i2c(
-					client,
-				&wsa881x_regmap_config[WSA881X_ANALOG_SLAVE]);
+			devm_regmap_init_i2c(
+				client,
+			&wsa881x_ana_regmap_config[WSA881X_ANALOG_SLAVE]);
 		regcache_cache_bypass(pdata->regmap[WSA881X_ANALOG_SLAVE],
 					true);
 		if (IS_ERR(pdata->regmap[WSA881X_ANALOG_SLAVE])) {
@@ -946,9 +946,9 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 		dev_set_drvdata(&client->dev, client);
 
 		pdata->regmap[WSA881X_DIGITAL_SLAVE] =
-				devm_regmap_init_i2c(
-					client,
-				&wsa881x_regmap_config[WSA881X_DIGITAL_SLAVE]);
+			devm_regmap_init_i2c(
+				client,
+			&wsa881x_ana_regmap_config[WSA881X_DIGITAL_SLAVE]);
 		regcache_cache_bypass(pdata->regmap[WSA881X_DIGITAL_SLAVE],
 					true);
 		if (IS_ERR(pdata->regmap[WSA881X_DIGITAL_SLAVE])) {

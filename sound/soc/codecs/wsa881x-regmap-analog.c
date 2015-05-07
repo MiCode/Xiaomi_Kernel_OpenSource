@@ -16,7 +16,7 @@
 #include "wsa881x-registers-analog.h"
 #include "wsa881x-analog.h"
 
-const struct reg_default wsa881x_reg_defaults[] = {
+const struct reg_default wsa881x_ana_reg_defaults[] = {
 	{WSA881X_CHIP_ID0, 0x00},
 	{WSA881X_CHIP_ID1, 0x00},
 	{WSA881X_CHIP_ID2, 0x00},
@@ -168,7 +168,7 @@ const struct reg_default wsa881x_reg_defaults[] = {
 	{WSA881X_SPKR_STATUS3, 0x00},
 };
 
-const struct reg_default wsa881x_reg_defaults_0[] = {
+const struct reg_default wsa881x_ana_reg_defaults_0[] = {
 	{WSA881X_CHIP_ID0, 0x00},
 	{WSA881X_CHIP_ID1, 0x00},
 	{WSA881X_CHIP_ID2, 0x00},
@@ -257,7 +257,7 @@ const struct reg_default wsa881x_reg_defaults_0[] = {
 	{WSA881X_OTP_REG_63, 0x40},
 };
 
-const struct reg_default wsa881x_reg_defaults_1[] = {
+const struct reg_default wsa881x_ana_reg_defaults_1[] = {
 	{WSA881X_BIAS_REF_CTRL - WSA881X_ANALOG_BASE, 0x6C},
 	{WSA881X_BIAS_TEST - WSA881X_ANALOG_BASE, 0x16},
 	{WSA881X_BIAS_BIAS - WSA881X_ANALOG_BASE, 0xF0},
@@ -324,7 +324,7 @@ const struct reg_default wsa881x_reg_defaults_1[] = {
 
 static bool wsa881x_readable_register(struct device *dev, unsigned int reg)
 {
-	return wsa881x_reg_readable[reg];
+	return wsa881x_ana_reg_readable[reg];
 }
 
 static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
@@ -341,13 +341,13 @@ static bool wsa881x_volatile_register(struct device *dev, unsigned int reg)
 	}
 }
 
-struct regmap_config wsa881x_regmap_config[] = {
+struct regmap_config wsa881x_ana_regmap_config[] = {
 {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.cache_type = REGCACHE_NONE,
-	.reg_defaults = wsa881x_reg_defaults_0,
-	.num_reg_defaults = ARRAY_SIZE(wsa881x_reg_defaults_0),
+	.reg_defaults = wsa881x_ana_reg_defaults_0,
+	.num_reg_defaults = ARRAY_SIZE(wsa881x_ana_reg_defaults_0),
 	.max_register = WSA881X_MAX_REGISTER,
 	.volatile_reg = wsa881x_volatile_register,
 	.readable_reg = wsa881x_readable_register,
@@ -358,8 +358,8 @@ struct regmap_config wsa881x_regmap_config[] = {
 	.reg_bits = 8,
 	.val_bits = 8,
 	.cache_type = REGCACHE_NONE,
-	.reg_defaults = wsa881x_reg_defaults_1,
-	.num_reg_defaults = ARRAY_SIZE(wsa881x_reg_defaults_1),
+	.reg_defaults = wsa881x_ana_reg_defaults_1,
+	.num_reg_defaults = ARRAY_SIZE(wsa881x_ana_reg_defaults_1),
 	.max_register = WSA881X_MAX_REGISTER,
 	.volatile_reg = wsa881x_volatile_register,
 	.readable_reg = wsa881x_readable_register,
