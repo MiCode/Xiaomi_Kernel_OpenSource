@@ -1291,7 +1291,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 
 	BUG_ON(NULL == iommu_pt);
 
-	flags = IOMMU_READ | IOMMU_WRITE;
+	flags = IOMMU_READ | IOMMU_WRITE | IOMMU_NOEXEC;
 
 	/* Set up the protection for the page(s) */
 	if (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY)
