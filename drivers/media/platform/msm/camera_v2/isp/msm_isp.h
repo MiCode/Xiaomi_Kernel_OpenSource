@@ -423,6 +423,7 @@ struct msm_vfe_axi_shared_data {
 	struct msm_vfe_src_info src_info[VFE_SRC_MAX];
 	uint16_t stream_handle_cnt;
 	uint32_t event_mask;
+	uint8_t enable_frameid_recovery;
 };
 
 struct msm_vfe_stats_hardware_info {
