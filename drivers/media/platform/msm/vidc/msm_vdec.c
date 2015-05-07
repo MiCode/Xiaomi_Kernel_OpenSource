@@ -25,10 +25,6 @@
 #define DEFAULT_VIDEO_CONCEAL_COLOR_BLACK 0x8010
 #define MB_SIZE_IN_PIXEL (16 * 16)
 
-#define TZ_DYNAMIC_BUFFER_FEATURE_ID 12
-#define TZ_FEATURE_VERSION(major, minor, patch) \
-	(((major & 0x3FF) << 22) | ((minor & 0x3FF) << 12) | (patch & 0xFFF))
-
 static const char *const mpeg_video_vidc_divx_format[] = {
 	"DIVX Format 3",
 	"DIVX Format 4",
@@ -2056,20 +2052,6 @@ static inline enum buffer_mode_type get_buf_type(int val)
 	return 0;
 }
 
-static int check_tz_dynamic_buffer_support(void)
-{
-	int version = scm_get_feat_version(TZ_DYNAMIC_BUFFER_FEATURE_ID);
-
-	if (version < TZ_FEATURE_VERSION(1, 1, 0)) {
-		dprintk(VIDC_DBG,
-			"Dynamic buffer mode not supported, tz version is: %u vs required : %u\n",
-			version, TZ_FEATURE_VERSION(1, 1, 0));
-		return -ENOTSUPP;
-	}
-
-	return 0;
-}
-
 static int try_get_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 {
 	int rc = 0;
@@ -2379,13 +2361,6 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 				ctrl->val);
 			rc = -ENOTSUPP;
 			break;
-		}
-
-		if (alloc_mode.buffer_mode == HAL_BUFFER_MODE_DYNAMIC &&
-			(inst->flags & VIDC_SECURE) &&
-			check_tz_dynamic_buffer_support()) {
-				rc = -ENOTSUPP;
-				break;
 		}
 
 		alloc_mode.buffer_type = HAL_BUFFER_OUTPUT;
