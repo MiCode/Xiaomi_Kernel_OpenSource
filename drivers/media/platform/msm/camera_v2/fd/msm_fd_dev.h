@@ -211,6 +211,7 @@ enum msm_fd_mem_resources {
  * @work_queue: Pointer to FD device IRQ bottom half workqueue.
  * @work: IRQ bottom half work struct.
  * @hw_halt_completion: Completes when face detection hw halt completes.
+ * @vbif_enabled: Flag to check if VBIF is enabled by FD core.
  */
 struct msm_fd_device {
 	u32 hw_revision;
@@ -248,6 +249,7 @@ struct msm_fd_device {
 	struct workqueue_struct *work_queue;
 	struct work_struct work;
 	struct completion hw_halt_completion;
+	uint32_t vbif_enabled;
 };
 
 #endif /* __MSM_FD_DEV_H__ */
