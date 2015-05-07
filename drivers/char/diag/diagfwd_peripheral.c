@@ -302,6 +302,7 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 		if (err) {
 			pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
 					   __func__, err);
+			diag_ws_release();
 			goto end;
 		}
 	}
@@ -853,6 +854,7 @@ void diagfwd_channel_read(struct diagfwd_info *fwd_info)
 			 __func__, fwd_info->peripheral, fwd_info->type,
 			 fwd_info->inited, atomic_read(&fwd_info->opened),
 			 fwd_info->ch_open);
+		diag_ws_release();
 		return;
 	}
 
