@@ -92,6 +92,7 @@ isl	Intersil
 jedec	Jedec Solid State Technology Association
 karo	Ka-Ro electronics GmbH
 kionix	Kionix Inc.
+ite	ITE Tech. Inc.
 lattice	Lattice Semiconductor.
 lg	LG Corporation
 linux	Linux-specific binding
