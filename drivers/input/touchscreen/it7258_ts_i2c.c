@@ -22,7 +22,8 @@
 #include <linux/firmware.h>
 #include <linux/gpio.h>
 #include <linux/slab.h>
-#include <linux/wakelock.h>
+#include <linux/regulator/consumer.h>
+#include <linux/of_gpio.h>
 
 #define MAX_BUFFER_SIZE			144
 #define DEVICE_NAME			"IT7260"
@@ -128,9 +129,25 @@ struct PointData {
 #define FD_PRESSURE_HIGH		0x08
 #define FD_PRESSURE_HEAVY		0x0F
 
+#define IT_VTG_MIN_UV		1800000
+#define IT_VTG_MAX_UV		1800000
+#define IT_I2C_VTG_MIN_UV	2600000
+#define IT_I2C_VTG_MAX_UV	3300000
+
+struct IT7260_ts_platform_data {
+	u32 irqflags;
+	u32 irq_gpio;
+	u32 irq_gpio_flags;
+	u32 reset_gpio;
+	u32 reset_gpio_flags;
+};
+
 struct IT7260_ts_data {
 	struct i2c_client *client;
 	struct input_dev *input_dev;
+	const struct IT7260_ts_platform_data *pdata;
+	struct regulator *vdd;
+	struct regulator *avdd;
 };
 
 static int8_t fwUploadResult;
@@ -782,9 +799,10 @@ static int IT7260_ts_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
 	static const uint8_t cmdStart[] = {CMD_UNKNOWN_7};
-	struct IT7260_i2c_platform_data *pdata;
+	struct IT7260_ts_platform_data *pdata;
 	uint8_t rsp[2];
 	int ret = -1;
+	int rc;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		LOGE("need I2C_FUNC_I2C\n");
@@ -805,11 +823,95 @@ static int IT7260_ts_probe(struct i2c_client *client,
 
 	gl_ts->client = client;
 	i2c_set_clientdata(client, gl_ts);
-	pdata = client->dev.platform_data;
 
+	if (client->dev.platform_data == NULL)
+		return -ENODEV;
+
+	if (client->dev.of_node) {
+		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata)
+			return -ENOMEM;
+	} else
+		pdata = client->dev.platform_data;
+
+	if (!pdata)
+		return -ENOMEM;
+
+	gl_ts->pdata = pdata;
 	if (sysfs_create_group(&(client->dev.kobj), &it7260_attrstatus_group)) {
 		dev_err(&client->dev, "failed to register sysfs #1\n");
 		goto err_sysfs_grp_create_1;
+	}
+
+	gl_ts->vdd = regulator_get(&gl_ts->client->dev, "vdd");
+	if (IS_ERR(gl_ts->vdd)) {
+		dev_err(&gl_ts->client->dev,
+				"Regulator get failed vdd\n");
+		gl_ts->vdd = NULL;
+	} else {
+		rc = regulator_set_voltage(gl_ts->vdd,
+				IT_VTG_MIN_UV, IT_VTG_MAX_UV);
+		if (rc)
+			dev_err(&gl_ts->client->dev,
+				"Regulator set_vtg failed vdd\n");
+	}
+
+	gl_ts->avdd = regulator_get(&gl_ts->client->dev, "avdd");
+	if (IS_ERR(gl_ts->avdd)) {
+		dev_err(&gl_ts->client->dev,
+				"Regulator get failed avdd\n");
+		gl_ts->avdd = NULL;
+	} else {
+		rc = regulator_set_voltage(gl_ts->avdd, IT_I2C_VTG_MIN_UV,
+							IT_I2C_VTG_MAX_UV);
+		if (rc)
+			dev_err(&gl_ts->client->dev,
+				"Regulator get failed avdd\n");
+	}
+
+	if (gl_ts->vdd) {
+		rc = regulator_enable(gl_ts->vdd);
+		if (rc) {
+			dev_err(&gl_ts->client->dev,
+				"Regulator vdd enable failed rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	if (gl_ts->avdd) {
+		rc = regulator_enable(gl_ts->avdd);
+		if (rc) {
+			dev_err(&gl_ts->client->dev,
+				"Regulator avdd enable failed rc=%d\n", rc);
+			return rc;
+		}
+	}
+
+	/* reset gpio info */
+	pdata->reset_gpio = of_get_named_gpio_flags(client->dev.of_node,
+					"ite,reset-gpio", 0,
+					&pdata->reset_gpio_flags);
+	if (gpio_is_valid(pdata->reset_gpio)) {
+		if (gpio_request(pdata->reset_gpio, "ite_reset_gpio"))
+			dev_err(&gl_ts->client->dev,
+				"gpio_request failed for reset GPIO\n");
+		if (gpio_direction_output(pdata->reset_gpio, 0))
+			dev_err(&gl_ts->client->dev,
+				"gpio_direction_output for reset GPIO\n");
+		dev_dbg(&gl_ts->client->dev, "Reset GPIO %d\n",
+							pdata->reset_gpio);
+	} else {
+		return pdata->reset_gpio;
+	}
+
+	/* irq gpio info */
+	pdata->irq_gpio = of_get_named_gpio_flags(client->dev.of_node,
+				"ite,irq-gpio", 0, &pdata->irq_gpio_flags);
+	if (gpio_is_valid(pdata->irq_gpio)) {
+		dev_dbg(&gl_ts->client->dev, "IRQ GPIO %d, IRQ # %d\n",
+				pdata->irq_gpio, gpio_to_irq(pdata->irq_gpio));
+	} else {
+		return pdata->irq_gpio;
 	}
 
 	if (!chipIdentifyIT7260()) {
@@ -901,7 +1003,7 @@ static const struct i2c_device_id IT7260_ts_id[] = {
 MODULE_DEVICE_TABLE(i2c, IT7260_ts_id);
 
 static const struct of_device_id IT7260_match_table[] = {
-	{ .compatible = "ITE,IT7260_ts",},
+	{ .compatible = "ite,it7260_ts",},
 	{},
 };
 
