@@ -548,6 +548,15 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 	allow_interpolation = of_property_read_bool(node,
 				"qcom,allow-voltage-interpolation");
 
+	/*
+	 * No LowSVS open-loop voltage fuse exists.  Instead, intermediate
+	 * voltages are interpolated between MinSVS and SVS.  Set the LowSVS
+	 * voltage to be equal to the adjusted SVS voltage in order to avoid
+	 * triggering an incorrect condition violation in the following loop.
+	 */
+	fuse_volt[CPR3_MSM8996_HMSS_FUSE_CORNER_LOWSVS]
+		= fuse_volt[CPR3_MSM8996_HMSS_FUSE_CORNER_SVS];
+
 	for (i = 1; i < thread->fuse_corner_count; i++) {
 		if (fuse_volt[i] < fuse_volt[i - 1]) {
 			cpr3_err(thread, "voltage fuse[%d]=%d < fuse[%d]=%d uV; interpolation not possible\n",
