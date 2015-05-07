@@ -510,25 +510,19 @@ int map_and_register_buf(struct msm_vidc_inst *inst, struct v4l2_buffer *b)
 			binfo->mapped[i] = false;
 			binfo->handle[i] = same_fd_handle;
 		} else {
-			if (inst->map_output_buffer) {
-				binfo->handle[i] =
-					map_buffer(inst, &b->m.planes[i],
-						get_hal_buffer_type(inst, b));
-				if (!binfo->handle[i]) {
-					rc = -EINVAL;
-					goto exit;
-				}
-				binfo->mapped[i] = true;
-				binfo->device_addr[i] =
-					binfo->handle[i]->device_addr +
-					binfo->buff_off[i];
-				b->m.planes[i].m.userptr =
-					binfo->device_addr[i];
-			} else {
-				binfo->device_addr[i] =
-					b->m.planes[i].m.userptr;
+			binfo->handle[i] = map_buffer(inst, &b->m.planes[i],
+					get_hal_buffer_type(inst, b));
+			if (!binfo->handle[i]) {
+				rc = -EINVAL;
+				goto exit;
 			}
+
+			binfo->mapped[i] = true;
+			binfo->device_addr[i] = binfo->handle[i]->device_addr +
+				binfo->buff_off[i];
+			b->m.planes[i].m.userptr = binfo->device_addr[i];
 		}
+
 		/* We maintain one ref count for all planes*/
 		if (!i && is_dynamic_output_buffer_mode(b, inst)) {
 			rc = buf_ref_get(inst, binfo);
@@ -664,9 +658,6 @@ int output_buffer_cache_invalidate(struct msm_vidc_inst *inst,
 		return -EINVAL;
 	}
 
-	if (!inst->map_output_buffer)
-		return 0;
-
 	if (!binfo) {
 		dprintk(VIDC_ERR, "%s: invalid buffer info: %p\n",
 			__func__, inst);
@@ -711,17 +702,8 @@ int msm_vidc_prepare_buf(void *instance, struct v4l2_buffer *b)
 	if (is_dynamic_output_buffer_mode(b, inst))
 		return 0;
 
-	/* Map the buffer only for non-kernel clients */
-	/*
-	 * TODO: We don't have any kernel clients anymore.  Reconsider deleting
-	 * the conditional once we confirm that no userspace client sends
-	 * reserved[0] == 0
-	 */
-	if (b->m.planes[0].reserved[0]) {
-		inst->map_output_buffer = true;
-		if (map_and_register_buf(inst, b))
-			return -EINVAL;
-	}
+	if (map_and_register_buf(inst, b))
+		return -EINVAL;
 
 	if (inst->session_type == MSM_VIDC_DECODER)
 		return msm_vdec_prepare_buf(instance, b);
@@ -871,9 +853,6 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	}
 
 	if (is_dynamic_output_buffer_mode(b, inst)) {
-		if (b->m.planes[0].reserved[0])
-			inst->map_output_buffer = true;
-
 		rc = map_and_register_buf(inst, b);
 		if (rc == -EEXIST)
 			return 0;
@@ -882,8 +861,6 @@ int msm_vidc_qbuf(void *instance, struct v4l2_buffer *b)
 	}
 
 	for (i = 0; i < b->length; ++i) {
-		if (!inst->map_output_buffer)
-			continue;
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
 			!b->m.planes[i].length) {
@@ -963,8 +940,6 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		return rc;
 
 	for (i = 0; i < b->length; i++) {
-		if (!inst->map_output_buffer)
-			continue;
 		if (EXTRADATA_IDX(b->length) &&
 			(i == EXTRADATA_IDX(b->length)) &&
 			!b->m.planes[i].m.userptr) {
@@ -989,7 +964,7 @@ int msm_vidc_dqbuf(void *instance, struct v4l2_buffer *b)
 		}
 	}
 
-	if (!buffer_info && inst->map_output_buffer) {
+	if (!buffer_info) {
 		dprintk(VIDC_ERR,
 			"%s: error - no buffer info found in registered list\n",
 			__func__);
@@ -1205,7 +1180,6 @@ void *msm_vidc_open(int core_id, int session_type)
 	inst->session_type = session_type;
 	inst->state = MSM_VIDC_CORE_UNINIT_DONE;
 	inst->core = core;
-	inst->map_output_buffer = false;
 	inst->bit_depth = MSM_VIDC_BIT_DEPTH_8;
 
 	for (i = SESSION_MSG_INDEX(SESSION_MSG_START);
