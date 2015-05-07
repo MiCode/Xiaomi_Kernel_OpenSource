@@ -117,6 +117,7 @@ struct qseecom_qseos_version_req {
 struct qseecom_qseos_app_load_query {
 	char app_name[MAX_APP_NAME_SIZE]; /* in */
 	int app_id; /* out */
+	uint32_t app_arch;
 };
 
 struct qseecom_send_svc_cmd_req {
@@ -230,7 +231,7 @@ struct qseecom_sg_entry {
 struct qseecom_sg_entry_64bit {
 	uint64_t phys_addr;
 	uint32_t len;
-};
+} __attribute__ ((packed));
 
 #define SG_ENTRY_SZ		sizeof(struct qseecom_sg_entry)
 #define SG_ENTRY_SZ_64BIT	sizeof(struct qseecom_sg_entry_64bit)

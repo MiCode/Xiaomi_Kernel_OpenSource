@@ -118,6 +118,7 @@ struct compat_qseecom_qseos_version_req {
 struct compat_qseecom_qseos_app_load_query {
 	char app_name[MAX_APP_NAME_SIZE]; /* in */
 	compat_int_t app_id; /* out */
+	compat_ulong_t app_arch;
 };
 
 struct compat_qseecom_send_svc_cmd_req {
