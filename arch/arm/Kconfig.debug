@@ -1297,14 +1297,6 @@ config EARLY_PRINTK
 	  kernel low-level debugging functions. Add earlyprintk to your
 	  kernel parameters to enable this console.
 
-config OC_ETM
-	bool "On-chip ETM and ETB"
-	depends on ARM_AMBA
-	help
-	  Enables the on-chip embedded trace macrocell and embedded trace
-	  buffer driver that will allow you to collect traces of the
-	  kernel code.
-
 config ARM_KPROBES_TEST
 	tristate "Kprobes test module"
 	depends on KPROBES && MODULES
@@ -1330,5 +1322,7 @@ config DEBUG_SET_MODULE_RONX
 	  patching and dynamic kernel tracing - and they might also protect
 	  against certain classes of kernel exploits.
 	  If in doubt, say "N".
+
+source "drivers/hwtracing/coresight/Kconfig"
 
 endmenu
