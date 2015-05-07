@@ -484,19 +484,22 @@ struct msm_vfe_axi_src_state {
 };
 
 enum msm_isp_event_idx {
-	ISP_REG_UPDATE      = 0,
-	ISP_EPOCH_0         = 1,
-	ISP_EPOCH_1         = 2,
-	ISP_START_ACK       = 3,
-	ISP_STOP_ACK        = 4,
-	ISP_IRQ_VIOLATION   = 5,
-	ISP_WM_BUS_OVERFLOW = 6,
-	ISP_STATS_OVERFLOW  = 7,
-	ISP_CAMIF_ERROR     = 8,
-	ISP_BUF_DONE        = 9,
-	ISP_FE_RD_DONE      = 10,
-	ISP_IOMMU_P_FAULT   = 11,
-	ISP_EVENT_MAX       = 12
+	ISP_REG_UPDATE        = 0,
+	ISP_EPOCH_0           = 1,
+	ISP_EPOCH_1           = 2,
+	ISP_START_ACK         = 3,
+	ISP_STOP_ACK          = 4,
+	ISP_IRQ_VIOLATION     = 5,
+	ISP_WM_BUS_OVERFLOW   = 6,
+	ISP_STATS_OVERFLOW    = 7,
+	ISP_CAMIF_ERROR       = 8,
+	ISP_BUF_DONE          = 9,
+	ISP_FE_RD_DONE        = 10,
+	ISP_IOMMU_P_FAULT     = 11,
+	ISP_FRAME_ID_MISMATCH = 12,
+	ISP_GET_BUF_FAILED    = 13,
+	ISP_STATS_FRAME_DROP  = 14,
+	ISP_EVENT_MAX         = 15
 };
 
 #define ISP_EVENT_OFFSET          8
@@ -548,7 +551,9 @@ struct msm_isp_stream_ack {
 
 struct msm_isp_error_info {
 	/* 1 << msm_isp_event_idx */
-	uint32_t error_mask;
+	uint16_t error_mask;
+	uint16_t stream_framedrop_mask;
+	uint32_t stats_framedrop_mask;
 };
 
 struct msm_isp_event_data {
@@ -558,7 +563,6 @@ struct msm_isp_event_data {
 	struct timeval timestamp;
 	/* Monotonic timestamp since bootup */
 	struct timeval mono_timestamp;
-	enum msm_vfe_input_src input_intf;
 	uint32_t frame_id;
 	union {
 		struct msm_isp_stats_event stats;
@@ -566,6 +570,19 @@ struct msm_isp_event_data {
 		struct msm_isp_error_info error_info;
 	} u; /* union can have max 52 bytes */
 };
+
+#ifdef CONFIG_COMPAT
+struct msm_isp_event_data32 {
+	struct compat_timeval timestamp;
+	struct compat_timeval mono_timestamp;
+	uint32_t frame_id;
+	union {
+		struct msm_isp_stats_event stats;
+		struct msm_isp_buf_event buf_done;
+		struct msm_isp_error_info error_info;
+	} u;
+};
+#endif
 
 #define V4L2_PIX_FMT_QBGGR8  v4l2_fourcc('Q', 'B', 'G', '8')
 #define V4L2_PIX_FMT_QGBRG8  v4l2_fourcc('Q', 'G', 'B', '8')

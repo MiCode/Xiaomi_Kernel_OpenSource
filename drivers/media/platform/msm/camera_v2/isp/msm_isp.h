@@ -483,10 +483,11 @@ struct msm_vfe_error_info {
 	uint32_t error_mask1;
 	uint32_t violation_status;
 	uint32_t camif_status;
-	uint32_t stream_framedrop_count[MAX_NUM_STREAM];
-	uint32_t stats_framedrop_count[MSM_ISP_STATS_MAX];
+	uint8_t stream_framedrop_count[MAX_NUM_STREAM];
+	uint8_t stats_framedrop_count[MSM_ISP_STATS_MAX];
 	uint32_t info_dump_frame_count;
 	uint32_t error_count;
+	uint32_t framedrop_flag;
 };
 
 struct msm_isp_statistics {

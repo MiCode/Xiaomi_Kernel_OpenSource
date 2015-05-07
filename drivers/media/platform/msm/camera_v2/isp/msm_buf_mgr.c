@@ -248,8 +248,9 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 	}
 
 	if (buf_info->state != MSM_ISP_BUFFER_STATE_INITIALIZED) {
-		pr_err("%s: Invalid buffer state: %d\n",
-			__func__, buf_info->state);
+		pr_err("%s: Invalid buffer state: %d bufq %x buf-id %d\n",
+			__func__, buf_info->state, bufq->bufq_handle,
+			buf_info->buf_idx);
 		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 		return rc;
 	}
@@ -651,10 +652,9 @@ static int msm_isp_put_buf_unsafe(struct msm_isp_buf_mgr *buf_mgr,
 }
 
 static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
-	uint32_t bufq_handle, uint32_t buf_index)
+	uint32_t bufq_handle, uint32_t buf_index, uint32_t frame_id)
 {
 	int rc = -1;
-	unsigned long flags;
 	struct msm_isp_bufq *bufq = NULL;
 	struct msm_isp_buffer *buf_info = NULL;
 	enum msm_isp_buffer_state state;
@@ -671,22 +671,23 @@ static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	spin_lock_irqsave(&bufq->bufq_lock, flags);
-	state = buf_info->state;
-	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
+	if (bufq->buf_type != ISP_SHARE_BUF ||
+		buf_info->buf_put_count == 0) {
+		buf_info->frame_id = frame_id;
+	}
 
+	state = buf_info->state;
 	if (state == MSM_ISP_BUFFER_STATE_DEQUEUED ||
 		state == MSM_ISP_BUFFER_STATE_DIVERTED) {
-		spin_lock_irqsave(&bufq->bufq_lock, flags);
 		if (bufq->buf_type == ISP_SHARE_BUF) {
 			buf_info->buf_put_count++;
 			if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT) {
 				rc = buf_info->buf_put_count;
-				spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 				return rc;
 			}
 		}
-		spin_unlock_irqrestore(&bufq->bufq_lock, flags);
+	} else {
+		pr_warn("%s: Invalid state\n", __func__);
 	}
 
 	return 0;
@@ -800,7 +801,6 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 	struct timeval *tv, uint32_t frame_id)
 {
 	int rc = -1;
-	unsigned long flags;
 	struct msm_isp_bufq *bufq = NULL;
 	struct msm_isp_buffer *buf_info = NULL;
 
@@ -816,12 +816,15 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
-	spin_lock_irqsave(&bufq->bufq_lock, flags);
+	if (bufq->buf_type != ISP_SHARE_BUF ||
+		buf_info->buf_put_count == 0) {
+		buf_info->frame_id = frame_id;
+	}
+
 	if (bufq->buf_type == ISP_SHARE_BUF) {
 		buf_info->buf_put_count++;
 		if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT) {
 			rc = buf_info->buf_put_count;
-			spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 			return rc;
 		}
 	}
@@ -829,9 +832,7 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 	if (buf_info->state == MSM_ISP_BUFFER_STATE_DEQUEUED) {
 		buf_info->state = MSM_ISP_BUFFER_STATE_DIVERTED;
 		buf_info->tv = tv;
-		buf_info->frame_id = frame_id;
 	}
-	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 
 	return 0;
 }
@@ -996,6 +997,7 @@ static int msm_isp_request_bufq(struct msm_isp_buf_mgr *buf_mgr,
 		bufq->bufs[i].state = MSM_ISP_BUFFER_STATE_INITIALIZED;
 		bufq->bufs[i].bufq_handle = bufq->bufq_handle;
 		bufq->bufs[i].buf_idx = i;
+		spin_lock_init(&bufq->bufs[i].lock);
 	}
 
 	return 0;
@@ -1119,6 +1121,7 @@ static int msm_isp_init_isp_buf_mgr(
 	}
 	buf_mgr->buf_handle_cnt = 0;
 	buf_mgr->pagefault_debug = 0;
+	buf_mgr->frameId_mismatch_recovery = 0;
 	mutex_unlock(&buf_mgr->lock);
 	return 0;
 
@@ -1188,7 +1191,7 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 	struct msm_isp_buffer *bufs = NULL;
 	uint32_t i = 0, j = 0, k = 0, rc = 0;
 	char *print_buf = NULL, temp_buf[512];
-	uint32_t start_addr = 0, end_addr = 0, print_buf_size = 1024;
+	uint32_t start_addr = 0, end_addr = 0, print_buf_size = 2500;
 	if (!buf_mgr) {
 		pr_err_ratelimited("%s: %d] NULL buf_mgr\n",
 			__func__, __LINE__);
@@ -1203,7 +1206,7 @@ static int msm_isp_buf_mgr_debug(struct msm_isp_buf_mgr *buf_mgr)
 	for (i = 0; i < BUF_MGR_NUM_BUF_Q; i++) {
 		if (buf_mgr->bufq[i].bufq_handle != 0) {
 			snprintf(temp_buf, sizeof(temp_buf),
-				"handle %x stream %x num_bufs %d",
+				"handle %x stream %x num_bufs %d\n",
 				buf_mgr->bufq[i].bufq_handle,
 				buf_mgr->bufq[i].stream_id,
 				buf_mgr->bufq[i].num_bufs);

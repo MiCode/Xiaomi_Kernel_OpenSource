@@ -1600,14 +1600,7 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 
 void msm_isp_process_error_info(struct vfe_device *vfe_dev)
 {
-	int i;
-	uint8_t num_stats_type =
-		vfe_dev->hw_info->stats_hw_info->num_stats_type;
 	struct msm_vfe_error_info *error_info = &vfe_dev->error_info;
-	static DEFINE_RATELIMIT_STATE(rs,
-		DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
-	static DEFINE_RATELIMIT_STATE(rs_stats,
-		DEFAULT_RATELIMIT_INTERVAL, DEFAULT_RATELIMIT_BURST);
 
 	if (error_info->error_count == 1 ||
 		!(error_info->info_dump_frame_count % 100)) {
@@ -1617,24 +1610,6 @@ void msm_isp_process_error_info(struct vfe_device *vfe_dev)
 		error_info->error_mask1 = 0;
 		error_info->camif_status = 0;
 		error_info->violation_status = 0;
-		for (i = 0; i < MAX_NUM_STREAM; i++) {
-			if (error_info->stream_framedrop_count[i] != 0 &&
-				__ratelimit(&rs)) {
-				pr_err("%s: Stream[%d]: dropped %d frames\n",
-					__func__, i,
-					error_info->stream_framedrop_count[i]);
-				error_info->stream_framedrop_count[i] = 0;
-			}
-		}
-		for (i = 0; i < num_stats_type; i++) {
-			if (error_info->stats_framedrop_count[i] != 0 &&
-				__ratelimit(&rs_stats)) {
-				pr_err("%s: Stats stream[%d]: dropped %d frames\n",
-					__func__, i,
-					error_info->stats_framedrop_count[i]);
-				error_info->stats_framedrop_count[i] = 0;
-			}
-		}
 	}
 }
 
@@ -1829,8 +1804,8 @@ void msm_isp_do_tasklet(unsigned long data)
 			ms_isp_process_iommu_page_fault(vfe_dev);
 			continue;
 		}
-		ISP_DBG("%s: status0: 0x%x status1: 0x%x\n",
-			__func__, irq_status0, irq_status1);
+		ISP_DBG("%s: vfe_id %d status0: 0x%x status1: 0x%x\n",
+			__func__, vfe_dev->pdev->id, irq_status0, irq_status1);
 		irq_ops->process_reset_irq(vfe_dev,
 			irq_status0, irq_status1);
 		irq_ops->process_halt_irq(vfe_dev,
@@ -1852,8 +1827,6 @@ void msm_isp_do_tasklet(unsigned long data)
 			irq_status0, irq_status1, &ts);
 		irq_ops->process_epoch_irq(vfe_dev,
 			irq_status0, irq_status1, &ts);
-
-		msm_isp_process_error_info(vfe_dev);
 	}
 }
 
