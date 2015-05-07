@@ -228,7 +228,7 @@
 	};
 
 	audio_etm0 {
-		compatible = "qcom,coresight-audio-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <14>;
 		coresight-name = "coresight-audio-etm0";
@@ -241,7 +241,7 @@
 	};
 
 	rpm_etm0 {
-		compatible = "qcom,coresight-rpm-etm";
+		compatible = "qcom,coresight-remote-etm";
 
 		coresight-id = <15>;
 		coresight-name = "coresight-rpm-etm0";
