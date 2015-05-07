@@ -152,11 +152,13 @@ static int mdss_smmu_attach_v2(struct mdss_data_type *mdata)
 		mdss_smmu = mdss_smmu_get_cb(i);
 		if (mdss_smmu->dev) {
 			mp = &mdss_smmu->mp;
-			rc = mdss_smmu_enable_power(mp, true);
-			if (rc) {
-				pr_err("power enable failed - domain:[%d] rc:%d\n",
-					i, rc);
-				goto err;
+			if (!mdata->handoff_pending) {
+				rc = mdss_smmu_enable_power(mp, true);
+				if (rc) {
+					pr_err("power enable failed - domain:[%d] rc:%d\n",
+						i, rc);
+					goto err;
+				}
 			}
 
 			if (!mdss_smmu->domain_attached) {
@@ -591,7 +593,8 @@ int mdss_smmu_probe(struct platform_device *pdev)
 		}
 	}
 
-	mdss_smmu_enable_power(mp, false);
+	if (!mdata->handoff_pending)
+		mdss_smmu_enable_power(mp, false);
 
 	mdss_smmu->dev = dev;
 	pr_info("iommu v2 domain[%d] mapping and clk register successful!\n",
