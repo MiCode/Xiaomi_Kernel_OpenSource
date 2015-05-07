@@ -1756,8 +1756,6 @@ int32_t qpnp_vadc_read(struct qpnp_vadc_chip *vadc,
 {
 	struct qpnp_vadc_result die_temp_result;
 	int rc = 0;
-	enum power_supply_property prop;
-	union power_supply_propval ret = {0, };
 
 	if (channel == VBAT_SNS) {
 		rc = qpnp_vadc_conv_seq_request(vadc, ADC_SEQ_NONE,
@@ -1782,6 +1780,21 @@ int32_t qpnp_vadc_read(struct qpnp_vadc_chip *vadc,
 		return 0;
 	} else if (channel == SPARE2) {
 		/* chg temp channel */
+		int version;
+		enum power_supply_property prop;
+		union power_supply_propval ret = {0, };
+
+		/* Note reading version support is not needed if by default
+		 * the channel is supported across all revisions.
+		 */
+		version = qpnp_adc_get_revid_version(vadc->dev);
+		if (version == -EINVAL)
+			pr_debug("Unable to get rev-id support\n");
+		else if (version == QPNP_REV_ID_PMI8994_1_0) {
+			pr_err("Version does not support CHG Temp\n");
+			return -EINVAL;
+		}
+
 		if (!vadc->vadc_chg_vote) {
 			vadc->vadc_chg_vote =
 				power_supply_get_by_name("battery");
