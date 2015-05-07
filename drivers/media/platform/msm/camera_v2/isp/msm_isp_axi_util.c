@@ -1253,7 +1253,8 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 			vfe_dev->pdev->id, buf->buf_idx);
 		return;
 	} else if (rc == 0) {
-		if (buf->frame_id != frame_id) {
+		if ((buf->frame_id != frame_id) &&
+			vfe_dev->axi_data.enable_frameid_recovery) {
 			struct msm_isp_event_data error_event;
 			struct msm_vfe_axi_halt_cmd halt_cmd;
 
