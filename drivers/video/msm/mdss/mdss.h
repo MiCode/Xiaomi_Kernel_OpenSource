@@ -167,6 +167,7 @@ enum mdss_qos_settings {
 	MDSS_QOS_OTLIM,
 	MDSS_QOS_PER_PIPE_LUT,
 	MDSS_QOS_SIMPLIFIED_PREFILL,
+	MDSS_QOS_VBLANK_PANIC_CTRL,
 	MDSS_QOS_MAX,
 };
 
@@ -327,6 +328,7 @@ struct mdss_data_type {
 	u32 enable_bw_release;
 	u32 enable_rotator_bw_release;
 	u32 serialize_wait4pp;
+	u32 lines_before_active;
 
 	struct mdss_hw_settings *hw_settings;
 
