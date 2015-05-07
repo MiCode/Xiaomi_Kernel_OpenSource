@@ -30,6 +30,7 @@
 #include <linux/hwmon-sysfs.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/platform_device.h>
+#include <linux/power_supply.h>
 #include <linux/thermal.h>
 
 /* QPNP VADC register definition */
@@ -153,6 +154,7 @@ struct qpnp_vadc_chip {
 	struct work_struct		trigger_low_thr_work;
 	struct qpnp_vadc_mode_state	*state_copy;
 	struct qpnp_vadc_thermal_data	*vadc_therm_chan;
+	struct power_supply		*vadc_chg_vote;
 	struct sensor_device_attribute	sens_attr[0];
 };
 
@@ -1748,6 +1750,8 @@ int32_t qpnp_vadc_read(struct qpnp_vadc_chip *vadc,
 {
 	struct qpnp_vadc_result die_temp_result;
 	int rc = 0;
+	enum power_supply_property prop;
+	union power_supply_propval ret = {0, };
 
 	if (channel == VBAT_SNS) {
 		rc = qpnp_vadc_conv_seq_request(vadc, ADC_SEQ_NONE,
@@ -1768,6 +1772,41 @@ int32_t qpnp_vadc_read(struct qpnp_vadc_chip *vadc,
 						die_temp_result.physical);
 		if (rc < 0)
 			pr_err("Error with vbat compensation\n");
+
+		return 0;
+	} else if (channel == SPARE2) {
+		/* chg temp channel */
+		if (!vadc->vadc_chg_vote) {
+			vadc->vadc_chg_vote =
+				power_supply_get_by_name("battery");
+			if (!vadc->vadc_chg_vote) {
+				pr_err("no vadc_chg_vote found\n");
+				return -EINVAL;
+			}
+		}
+
+		prop = POWER_SUPPLY_PROP_FORCE_TLIM;
+		ret.intval = 1;
+
+		rc = vadc->vadc_chg_vote->set_property(vadc->vadc_chg_vote,
+								prop, &ret);
+		if (rc) {
+			pr_err("error enabling the charger circuitry vote\n");
+			return rc;
+		}
+
+		rc = qpnp_vadc_conv_seq_request(vadc, ADC_SEQ_NONE,
+				channel, result);
+		if (rc < 0)
+			pr_err("Error reading die_temp\n");
+
+		ret.intval = 0;
+		rc = vadc->vadc_chg_vote->set_property(vadc->vadc_chg_vote,
+								prop, &ret);
+		if (rc) {
+			pr_err("error enabling the charger circuitry vote\n");
+			return rc;
+		}
 
 		return 0;
 	} else
