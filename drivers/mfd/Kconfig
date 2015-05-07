@@ -1166,6 +1166,7 @@ config WCD9330_CODEC
 config WCD9335_CODEC
 	tristate "WCD9335 Codec"
 	depends on SLIMBUS
+	select SOUNDWIRE_WCD_CTRL
 	select MFD_CORE
 	select REGMAP_ALLOW_WRITE_DEBUGFS
 	help
