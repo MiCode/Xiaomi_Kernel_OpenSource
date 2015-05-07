@@ -606,8 +606,8 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 			src_read_bw = mdp3_adjust_scale_factor(req,
 						src_read_bw, bpp.bpp_pln);
 			if (!(check_if_rgb(req->src.format))) {
-				src_read_bw = src_read_bw * YUV_BW_FUDGE_NUM;
-				src_read_bw = do_div(src_read_bw,
+				src_read_bw = fudge_factor(src_read_bw,
+						YUV_BW_FUDGE_NUM,
 						YUV_BW_FUDGE_DEN);
 			}
 			mdp3_get_bpp_info(req->dst.format, &bpp);
