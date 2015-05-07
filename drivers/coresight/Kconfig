@@ -241,15 +241,6 @@ config CORESIGHT_REMOTE_ETM
 	  tracing on remote processor via sysfs by configuring the required
 	  CoreSight components.
 
-config CORESIGHT_REMOTE_ETM_DEFAULT_ENABLE
-	bool "Turn on remote processor ETM tracing by default"
-	help
-	  Turns on CoreSight remote processor ETM tracing by default. Otherwise,
-	  tracing is disabled by default but can be enabled via sysfs.
-
-	  If unsure, say 'N' here to avoid potential power and performance
-	  penalty.
-
 endif
 
 config CORESIGHT_QPDI
