@@ -168,7 +168,8 @@ static int mdss_mdp_splash_iommu_attach(struct msm_fb_data_type *mfd)
 	rc = mdss_smmu_map(MDSS_IOMMU_DOMAIN_UNSECURE,
 				mdp5_data->splash_mem_addr,
 				mdp5_data->splash_mem_addr,
-				mdp5_data->splash_mem_size, IOMMU_READ);
+				mdp5_data->splash_mem_size,
+				IOMMU_READ | IOMMU_NOEXEC);
 	if (rc) {
 		pr_debug("iommu memory mapping failed rc=%d\n", rc);
 	} else {
