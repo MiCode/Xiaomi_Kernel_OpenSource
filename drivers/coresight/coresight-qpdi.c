@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -127,7 +127,7 @@ static int qpdi_enable(struct qpdi_drvdata *drvdata)
 	if (ret)
 		goto err;
 
-	qpdi_writel(drvdata, 0, QPDI_DISABLE_CFG);
+	qpdi_writel(drvdata, 0x2, QPDI_DISABLE_CFG);
 
 	drvdata->enable = true;
 	dev_info(drvdata->dev, "qpdi enabled\n");
@@ -159,7 +159,7 @@ static void qpdi_disable(struct qpdi_drvdata *drvdata)
 		return;
 	}
 
-	qpdi_writel(drvdata, 1, QPDI_DISABLE_CFG);
+	qpdi_writel(drvdata, 0x3, QPDI_DISABLE_CFG);
 
 	__qpdi_disable(drvdata);
 
