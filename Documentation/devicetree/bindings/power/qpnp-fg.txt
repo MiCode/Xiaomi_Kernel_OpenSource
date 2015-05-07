@@ -134,6 +134,10 @@ Parent node optional properties:
 - qcom,cl-max-start-soc:		The battery soc has to be below this
 					value at the start of a charge cycle
 					for capacity learning to be run.
+- qcom,cl-vbat-est-thr-uv:		The maximum difference between the
+					battery voltage shadow and the current
+					predicted voltage in uV to initiate
+					capacity learning.
 - qcom,capacity-estimation-on:		A boolean property to have the fuel
 					gauge driver attempt to estimate the
 					battery capacity using battery
