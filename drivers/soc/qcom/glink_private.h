@@ -14,10 +14,6 @@
 
 #include <linux/ipc_logging.h>
 
-#ifdef INIT_COMPLETION
-#define reinit_completion(x) INIT_COMPLETION(*(x))
-#endif /* INIT_COMPLETION */
-
 /* Logging Macros */
 enum {
 	QCOM_GLINK_INFO = 1U << 0,
