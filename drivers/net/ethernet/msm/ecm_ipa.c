@@ -1107,14 +1107,15 @@ static int ecm_ipa_create_rm_resource(struct ecm_ipa_dev *ecm_ipa_ctx)
 	}
 	ECM_IPA_DEBUG("rm_it client was created");
 
-	result = ipa_rm_add_dependency(IPA_RM_RESOURCE_STD_ECM_PROD,
-				       ecm_ipa_ctx->ipa_rm_resource_name_cons);
+	result = ipa_rm_add_dependency_sync(IPA_RM_RESOURCE_STD_ECM_PROD,
+		ecm_ipa_ctx->ipa_rm_resource_name_cons);
 	if (result && result != -EINPROGRESS)
 		ECM_IPA_ERROR("unable to add ECM/USB dependency (%d)\n",
 				result);
 
-	result = ipa_rm_add_dependency(ecm_ipa_ctx->ipa_rm_resource_name_prod,
-				       IPA_RM_RESOURCE_APPS_CONS);
+	result = ipa_rm_add_dependency_sync(
+			ecm_ipa_ctx->ipa_rm_resource_name_prod,
+			IPA_RM_RESOURCE_APPS_CONS);
 	if (result && result != -EINPROGRESS)
 		ECM_IPA_ERROR("unable to add USB/APPS dependency (%d)\n",
 				result);
