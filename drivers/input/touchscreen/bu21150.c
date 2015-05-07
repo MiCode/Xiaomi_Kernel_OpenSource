@@ -987,7 +987,10 @@ static int bu21150_fb_suspend(struct device *dev)
 	if (ts->suspended)
 		return 0;
 
-	bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
+	rc = bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
+	if (rc)
+		dev_err(&ts->client->dev,
+			"%s: failed to disable sensing (%d)\n", __func__, rc);
 
 	ts->timeout_enb = 0;
 	get_frame_timer_delete();
@@ -996,7 +999,11 @@ static int bu21150_fb_suspend(struct device *dev)
 	/* wake up */
 	wake_up_frame_waitq(ts);
 
-	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf2), buf2);
+	rc = bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf2), buf2);
+	if (rc)
+		dev_err(&ts->client->dev,
+			"%s: failed to write to REG_INT_RUN_ENB (%d)\n",
+			__func__, rc);
 
 	if (!ts->wake_up) {
 		disable_irq(client->irq);
@@ -1030,7 +1037,6 @@ static int bu21150_fb_resume(struct device *dev)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	int rc;
 	u8 buf[2] = {0x01, 0x00};
-	u8 buf1[2] = {0x00, 0x00};
 
 	if (!ts->suspended)
 		return 0;
@@ -1056,12 +1062,15 @@ static int bu21150_fb_resume(struct device *dev)
 			goto err_pin_enable;
 		}
 	}
-	bu21150_write_register(REG_SENS_START, (u16)sizeof(buf1), buf1);
 
 	ts->timeout_enb = 0;
 	get_frame_timer_delete();
 
-	bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
+	rc = bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf), buf);
+	if (rc)
+		dev_err(&ts->client->dev,
+			"%s: failed to write to REG_INT_RUN_ENB (%d)\n",
+			__func__, rc);
 
 	ts->suspended = false;
 
@@ -1388,6 +1397,7 @@ static long bu21150_ioctl_spi_read(unsigned long arg)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	void __user *argp = (void __user *)arg;
 	struct bu21150_ioctl_spi_data data;
+	int ret;
 
 	if (arg == 0) {
 		pr_err("%s: arg == 0.\n", __func__);
@@ -1404,7 +1414,11 @@ static long bu21150_ioctl_spi_read(unsigned long arg)
 		return -EINVAL;
 	}
 
-	bu21150_read_register(data.addr, data.count, ts->spi_buf);
+	ret = bu21150_read_register(data.addr, data.count, ts->spi_buf);
+	if (ret) {
+		pr_err("%s: Failed to read register (%d).\n", __func__, ret);
+		return ret;
+	}
 
 	if (copy_to_user(data.buf, ts->spi_buf, data.count)) {
 		pr_err("%s: Failed to copy_to_user().\n", __func__);
@@ -1423,6 +1437,7 @@ static long bu21150_ioctl_spi_write(unsigned long arg)
 	unsigned int afe_gesture_mode = AFE_SCAN_GESTURE_SELF_CAP |
 						AFE_SCAN_GESTURE_MUTUAL_CAP;
 	bool valid_op;
+	int ret;
 
 	if (arg == 0) {
 		pr_err("%s: arg == 0.\n", __func__);
@@ -1439,7 +1454,7 @@ static long bu21150_ioctl_spi_write(unsigned long arg)
 			((data.next_mode & afe_gesture_mode) && !ts->lcd_on);
 	if (!valid_op) {
 		pr_err("%s: AFE scan mode(%d) and LCD state(%d) conflict\n",
-					__func__, ts->lcd_on, data.next_mode);
+					__func__, data.next_mode, ts->lcd_on);
 		return -EINVAL;
 	}
 
@@ -1453,9 +1468,11 @@ static long bu21150_ioctl_spi_write(unsigned long arg)
 		return -EFAULT;
 	}
 
-	bu21150_write_register(data.addr, data.count, ts->spi_buf);
+	ret = bu21150_write_register(data.addr, data.count, ts->spi_buf);
+	if (ret)
+		pr_err("%s: Failed to write register (%d).\n", __func__, ret);
 
-	return 0;
+	return ret;
 }
 
 static long bu21150_ioctl_unblock(void)
@@ -1608,7 +1625,7 @@ static int bu21150_read_register(u32 addr, u16 size, u8 *data)
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
 	if (ret)
-		pr_err("%s : spi_sync read data error:ret=[%d]", __func__, ret);
+		pr_err("%s: spi_sync read data error:ret=[%d]", __func__, ret);
 
 	memcpy(data, output+SPI_HEADER_SIZE, size);
 	swap_2byte(data, size);
@@ -1650,7 +1667,7 @@ static int bu21150_write_register(u32 addr, u16 size, u8 *data)
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
 	if (ret)
-		pr_err("%s : spi_sync read data error:ret=[%d]", __func__, ret);
+		pr_err("%s: spi_sync write data error:ret=[%d]", __func__, ret);
 
 	kfree(req);
 	kfree(input);
