@@ -1214,7 +1214,6 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 		return;
 	}
 
-	spin_lock_irqsave(&buf->lock, flags);
 	if (stream_info->buf_divert && rc == 0 &&
 			buf_src != MSM_ISP_BUFFER_SRC_SCRATCH) {
 		rc = vfe_dev->buf_mgr->ops->buf_divert(vfe_dev->buf_mgr,
@@ -1224,7 +1223,6 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 		rc = vfe_dev->buf_mgr->ops->update_put_buf_cnt(vfe_dev->buf_mgr,
 			buf->bufq_handle, buf->buf_idx, frame_id);
 	}
-	spin_unlock_irqrestore(&buf->lock, flags);
 
 	/* Buf divert return value represent whether the buf
 	 * can be diverted. A positive return value means
