@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,22 +29,6 @@
 #define CORESIGHT_QMI_SET_ETM_RESP_MAX_LEN	(7)
 
 #define TIMEOUT_MS				(5000)
-
-enum coresight_svc_instance_id {
-	/* To force a 32 bit signed enum. Do not change or use */
-	CORESIGHT_SVC_INST_ID_ENUM_TYPE_MIN_ENUM_VAL_V01 = INT_MIN,
-	CORESIGHT_SVC_INST_ID_UNKNOWN_V01 = 0,
-	CORESIGHT_SVC_INST_ID_APPS_V01 = 1,
-	CORESIGHT_SVC_INST_ID_MODEM_V01 = 2,
-	CORESIGHT_SVC_INST_ID_WCN_V01 = 3,
-	CORESIGHT_SVC_INST_ID_RPM_V01 = 4,
-	CORESIGHT_SVC_INST_ID_AUDIO_V01 = 5,
-	CORESIGHT_SVC_INST_ID_VIDEO_V01 = 6,
-	CORESIGHT_SVC_INST_ID_GNSS_V01 = 7,
-	CORESIGHT_SVC_INST_ID_SENSOR_V01 = 8,
-	CORESIGHT_SVC_INST_ID_VPU_V01 = 10,
-	CORESIGHT_SVC_INST_ID_ENUM_TYPE_MAX_ENUM_VAL_V01 = INT_MAX,
-};
 
 enum coresight_etm_state_enum_type_v01 {
 	/* To force a 32 bit signed enum. Do not change or use */
