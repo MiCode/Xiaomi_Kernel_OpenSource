@@ -194,6 +194,10 @@ static DEFINE_CLK_VOTER(pnoc_usb_a_clk, &pnoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(snoc_usb_a_clk, &snoc_a_clk.c, LONG_MAX);
 static DEFINE_CLK_VOTER(bimc_usb_a_clk, &bimc_a_clk.c, LONG_MAX);
 
+static DEFINE_CLK_VOTER(pnoc_usb_clk, &pnoc_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(snoc_usb_clk, &snoc_clk.c, LONG_MAX);
+static DEFINE_CLK_VOTER(bimc_usb_clk, &bimc_clk.c, LONG_MAX);
+
 /* Branch Voter clocks */
 static DEFINE_CLK_BRANCH_VOTER(xo_gcc, &xo_clk_src.c);
 static DEFINE_CLK_BRANCH_VOTER(xo_otg_clk, &xo_clk_src.c);
@@ -343,6 +347,7 @@ static struct pll_freq_tbl apcs_c1_pll_freq[] = {
 	F_APCS_PLL(1497600000, 78, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1516800000, 79, 0x0, 0x1, 0x0, 0x0, 0x0),
 	F_APCS_PLL(1536000000, 80, 0x0, 0x1, 0x0, 0x0, 0x0),
+	F_APCS_PLL(1651200000, 86, 0x0, 0x1, 0x0, 0x0, 0x0),
 };
 
 static struct pll_clk a53ss_c1_pll = {
@@ -1413,7 +1418,7 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 	.c = {
 		.dbg_name = "sdcc1_apps_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP2(LOWER, 200000000, NOMINAL, 384000000),
+		VDD_DIG_FMAX_MAP2(LOWER, 50000000, NOMINAL, 384000000),
 		CLK_INIT(sdcc1_apps_clk_src.c),
 	},
 };
@@ -2318,6 +2323,7 @@ static struct local_vote_clk gcc_crypto_ahb_clk = {
 	.base = &virt_bases[GCC_BASE],
 	.c = {
 		.dbg_name = "gcc_crypto_ahb_clk",
+		.parent = &crypto_clk_src.c,
 		.ops = &clk_ops_vote,
 		CLK_INIT(gcc_crypto_ahb_clk.c),
 	},
@@ -3204,6 +3210,9 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(pnoc_usb_a_clk),
 	CLK_LIST(snoc_usb_a_clk),
 	CLK_LIST(bimc_usb_a_clk),
+	CLK_LIST(pnoc_usb_clk),
+	CLK_LIST(snoc_usb_clk),
+	CLK_LIST(bimc_usb_clk),
 
 	CLK_LIST(ipa_clk),
 	CLK_LIST(ipa_a_clk),
