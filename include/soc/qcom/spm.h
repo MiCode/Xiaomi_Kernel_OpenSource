@@ -23,6 +23,11 @@ enum {
 	MSM_SPM_MODE_NR
 };
 
+enum msm_spm_avs_irq {
+	MSM_SPM_AVS_IRQ_MIN,
+	MSM_SPM_AVS_IRQ_MAX,
+};
+
 struct msm_spm_device;
 struct device_node;
 
@@ -45,6 +50,10 @@ int msm_spm_avs_enable(unsigned int cpu);
 int msm_spm_avs_disable(unsigned int cpu);
 int msm_spm_avs_set_limit(unsigned int cpu, uint32_t min_lvl,
 		uint32_t max_lvl);
+int msm_spm_avs_enable_irq(unsigned int cpu, enum msm_spm_avs_irq irq);
+int msm_spm_avs_disable_irq(unsigned int cpu, enum msm_spm_avs_irq irq);
+int msm_spm_avs_clear_irq(unsigned int cpu, enum msm_spm_avs_irq irq);
+
 #if defined(CONFIG_MSM_L2_SPM)
 
 /* Public functions */
@@ -114,6 +123,24 @@ static inline struct msm_spm_device *msm_spm_get_device_by_name(const char *name
 static inline bool msm_spm_is_mode_avail(unsigned int mode)
 {
 	return false;
+}
+
+static inline int msm_spm_avs_enable_irq(unsigned int cpu,
+		enum msm_spm_avs_irq irq)
+{
+	return -ENOSYS;
+}
+
+static inline int msm_spm_avs_disable_irq(unsigned int cpu,
+		enum msm_spm_avs_irq irq)
+{
+	return -ENOSYS;
+}
+
+static inline int msm_spm_avs_clear_irq(unsigned int cpu,
+		enum msm_spm_avs_irq irq)
+{
+	return -ENOSYS;
 }
 
 #endif  /* defined (CONFIG_MSM_SPM) */

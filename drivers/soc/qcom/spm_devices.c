@@ -473,6 +473,60 @@ int msm_spm_avs_set_limit(unsigned int cpu,
 EXPORT_SYMBOL(msm_spm_avs_set_limit);
 
 /**
+ * msm_spm_avs_enable_irq() - Enable an AVS interrupt
+ * @cpu: specifies which CPU's AVS should be configured
+ * @irq: specifies which interrupt to enable
+ *
+ * Returns errno in case of failure or 0 if successful.
+ */
+int msm_spm_avs_enable_irq(unsigned int cpu, enum msm_spm_avs_irq irq)
+{
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
+
+	if (!dev)
+		return -ENXIO;
+
+	return msm_spm_drv_set_avs_irq_enable(&dev->reg_data, irq, true);
+}
+EXPORT_SYMBOL(msm_spm_avs_enable_irq);
+
+/**
+ * msm_spm_avs_disable_irq() - Disable an AVS interrupt
+ * @cpu: specifies which CPU's AVS should be configured
+ * @irq: specifies which interrupt to disable
+ *
+ * Returns errno in case of failure or 0 if successful.
+ */
+int msm_spm_avs_disable_irq(unsigned int cpu, enum msm_spm_avs_irq irq)
+{
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
+
+	if (!dev)
+		return -ENXIO;
+
+	return msm_spm_drv_set_avs_irq_enable(&dev->reg_data, irq, false);
+}
+EXPORT_SYMBOL(msm_spm_avs_disable_irq);
+
+/**
+ * msm_spm_avs_clear_irq() - Clear a latched AVS interrupt
+ * @cpu: specifies which CPU's AVS should be configured
+ * @irq: specifies which interrupt to clear
+ *
+ * Returns errno in case of failure or 0 if successful.
+ */
+int msm_spm_avs_clear_irq(unsigned int cpu, enum msm_spm_avs_irq irq)
+{
+	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
+
+	if (!dev)
+		return -ENXIO;
+
+	return msm_spm_drv_avs_clear_irq(&dev->reg_data, irq);
+}
+EXPORT_SYMBOL(msm_spm_avs_clear_irq);
+
+/**
  * msm_spm_set_low_power_mode() - Configure SPM start address for low power mode
  * @mode: SPM LPM mode to enter
  * @notify_rpm: Notify RPM in this mode

@@ -118,6 +118,12 @@ int msm_spm_drv_set_avs_limit(struct msm_spm_driver_data *dev,
 int msm_spm_drv_set_avs_enable(struct msm_spm_driver_data *dev,
 		 bool enable);
 int msm_spm_drv_get_avs_enable(struct msm_spm_driver_data *dev);
+
+int msm_spm_drv_set_avs_irq_enable(struct msm_spm_driver_data *dev,
+		enum msm_spm_avs_irq irq, bool enable);
+int msm_spm_drv_avs_clear_irq(struct msm_spm_driver_data *dev,
+		enum msm_spm_avs_irq irq);
+
 void msm_spm_reinit(void);
 int msm_spm_init(struct msm_spm_platform_data *data, int nr_devs);
 

@@ -273,6 +273,64 @@ int msm_spm_drv_set_avs_limit(struct msm_spm_driver_data *dev,
 	return 0;
 }
 
+static int msm_spm_drv_avs_irq_mask(enum msm_spm_avs_irq irq)
+{
+	switch (irq) {
+	case MSM_SPM_AVS_IRQ_MIN:
+		return BIT(1);
+	case MSM_SPM_AVS_IRQ_MAX:
+		return BIT(2);
+	default:
+		return -EINVAL;
+	}
+}
+
+int msm_spm_drv_set_avs_irq_enable(struct msm_spm_driver_data *dev,
+		enum msm_spm_avs_irq irq, bool enable)
+{
+	int mask = msm_spm_drv_avs_irq_mask(irq);
+	uint32_t value;
+
+	if (!dev)
+		return -EINVAL;
+	else if (mask < 0)
+		return mask;
+
+	value = enable ? mask : 0;
+
+	if ((dev->reg_shadow[MSM_SPM_REG_SAW_AVS_CTL] & mask) ^ value) {
+		dev->reg_shadow[MSM_SPM_REG_SAW_AVS_CTL] &= ~mask;
+		dev->reg_shadow[MSM_SPM_REG_SAW_AVS_CTL] |= value;
+		msm_spm_drv_flush_shadow(dev, MSM_SPM_REG_SAW_AVS_CTL);
+	}
+
+	return 0;
+}
+
+int msm_spm_drv_avs_clear_irq(struct msm_spm_driver_data *dev,
+		enum msm_spm_avs_irq irq)
+{
+	int mask = msm_spm_drv_avs_irq_mask(irq);
+
+	if (!dev)
+		return -EINVAL;
+	else if (mask < 0)
+		return mask;
+
+	if (dev->reg_shadow[MSM_SPM_REG_SAW_AVS_CTL] & mask) {
+		/*
+		 * The interrupt status is cleared by disabling and then
+		 * re-enabling the interrupt.
+		 */
+		dev->reg_shadow[MSM_SPM_REG_SAW_AVS_CTL] &= ~mask;
+		msm_spm_drv_flush_shadow(dev, MSM_SPM_REG_SAW_AVS_CTL);
+		dev->reg_shadow[MSM_SPM_REG_SAW_AVS_CTL] |= mask;
+		msm_spm_drv_flush_shadow(dev, MSM_SPM_REG_SAW_AVS_CTL);
+	}
+
+	return 0;
+}
+
 void msm_spm_drv_flush_seq_entry(struct msm_spm_driver_data *dev)
 {
 	int i;
