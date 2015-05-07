@@ -1035,7 +1035,7 @@ static bool ufshcd_is_unipro_pa_params_tuning_req(struct ufs_hba *hba)
 	 * logic simple, we will only do manual tuning if local unipro version
 	 * doesn't support ver1.6 or later.
 	 */
-	if (ufshcd_get_local_unipro_ver(hba) <= UFS_UNIPRO_VER_1_6)
+	if (ufshcd_get_local_unipro_ver(hba) < UFS_UNIPRO_VER_1_6)
 		return true;
 	else
 		return false;
