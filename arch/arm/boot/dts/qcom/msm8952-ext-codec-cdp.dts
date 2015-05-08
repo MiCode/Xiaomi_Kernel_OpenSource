@@ -129,6 +129,11 @@
 
 &slim_msm {
 	status = "ok";
+	msm_dai_slim {
+		compatible = "qcom,msm-dai-slim";
+		elemental-addr = [ff ff ff fe 17 02];
+	};
+
 	tomtom_codec {
 		compatible = "qcom,tomtom-slim-pgd";
 		elemental-addr = [00 01 30 01 17 02];
