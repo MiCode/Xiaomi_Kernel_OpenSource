@@ -808,11 +808,8 @@ kgsl_mmu_map(struct kgsl_pagetable *pagetable,
 	if (kgsl_memdesc_has_guard_page(memdesc))
 		size += kgsl_memdesc_guard_page_size(memdesc);
 
-	if (KGSL_MMU_TYPE_IOMMU != kgsl_mmu_get_mmutype())
-		spin_lock(&pagetable->lock);
 	ret = pagetable->pt_ops->mmu_map(pagetable, memdesc);
-	if (KGSL_MMU_TYPE_IOMMU == kgsl_mmu_get_mmutype())
-		spin_lock(&pagetable->lock);
+	spin_lock(&pagetable->lock);
 
 	if (ret)
 		goto done;
