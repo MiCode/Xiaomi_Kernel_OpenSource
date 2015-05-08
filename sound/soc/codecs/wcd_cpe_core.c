@@ -2191,6 +2191,13 @@ static int wcd_cpe_send_lsm_cal(
 		goto unlock_cal_mutex;
 	}
 
+	if (lsm_cal->cal_data.size == 0) {
+		dev_dbg(core->dev, "%s: No LSM cal to send\n",
+			__func__);
+		rc = 0;
+		goto unlock_cal_mutex;
+	}
+
 	inb_msg = kzalloc(sizeof(struct cmi_hdr) + lsm_cal->cal_data.size,
 			  GFP_KERNEL);
 	if (!inb_msg) {
@@ -3188,6 +3195,13 @@ static int wcd_cpe_send_afe_cal(void *core_handle,
 		pr_err("%s: failed to get afe cal block\n",
 			__func__);
 		rc = -EINVAL;
+		goto rel_cal_mutex;
+	}
+
+	if (afe_cal->cal_data.size == 0) {
+		dev_dbg(core->dev, "%s: No AFE cal to send\n",
+			__func__);
+		rc = 0;
 		goto rel_cal_mutex;
 	}
 
