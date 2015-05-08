@@ -810,7 +810,11 @@ int msm_isp_release_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		stream_cfg.cmd = STOP_STREAM;
 		stream_cfg.num_streams = 1;
 		stream_cfg.stream_handle[0] = stream_release_cmd->stream_handle;
-		msm_isp_cfg_axi_stream(vfe_dev, (void *) &stream_cfg);
+		rc = msm_isp_cfg_axi_stream(vfe_dev, (void *) &stream_cfg);
+		if (rc < 0) {
+			pr_err("%s: msm_isp_cfg_axi_stream failed: %d\n", __func__, rc);
+			return rc;
+		}
 	}
 
 	for (i = 0; i < stream_info->num_planes; i++) {
@@ -1831,6 +1835,8 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			src_mask, 2);
 		if (rc < 0) {
 			pr_err("%s: wait for config done failed\n", __func__);
+			if (rc == -EINVAL)
+				return rc;
 			for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 				stream_info = &axi_data->stream_info[
 				HANDLE_TO_IDX(
