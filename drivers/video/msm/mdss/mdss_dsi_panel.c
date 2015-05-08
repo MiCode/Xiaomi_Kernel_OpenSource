@@ -990,7 +990,7 @@ static int mdss_dsi_parse_fbc_params(struct device_node *np,
 }
 
 static void mdss_panel_parse_te_params(struct device_node *np,
-				       struct mdss_panel_timing *timing)
+			u32 sim_panel_mode, struct mdss_panel_timing *timing)
 {
 	struct mdss_mdp_pp_tear_check *te = &timing->te;
 	u32 tmp;
@@ -1004,24 +1004,39 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 	te->tear_check_en =
 		!of_property_read_bool(np, "qcom,mdss-tear-check-disable");
 	rc = of_property_read_u32
-		(np, "qcom,mdss-tear-check-sync-cfg-height", &tmp);
-	te->sync_cfg_height = (!rc ? tmp : 0xfff0);
-	rc = of_property_read_u32
-		(np, "qcom,mdss-tear-check-sync-init-val", &tmp);
-	te->vsync_init_val = (!rc ? tmp : timing->yres);
-	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-sync-threshold-start", &tmp);
 	te->sync_threshold_start = (!rc ? tmp : 4);
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-sync-threshold-continue", &tmp);
 	te->sync_threshold_continue = (!rc ? tmp : 4);
-	rc = of_property_read_u32(np, "qcom,mdss-tear-check-start-pos", &tmp);
-	te->start_pos = (!rc ? tmp : te->vsync_init_val);
-	rc = of_property_read_u32
-		(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
-	te->rd_ptr_irq = (!rc ? tmp : te->vsync_init_val + 1);
 	rc = of_property_read_u32(np, "qcom,mdss-tear-check-frame-rate", &tmp);
 	te->refx100 = (!rc ? tmp : 6000);
+
+	/* override te parameters if panel is in sw te mode */
+	if (sim_panel_mode == SIM_SW_TE_MODE) {
+		te->sync_cfg_height = timing->yres
+				+ timing->v_front_porch
+				+ timing->v_back_porch;
+		te->vsync_init_val = 0;
+		te->start_pos = 5;
+		te->rd_ptr_irq = 1;
+		pr_debug("SW TE override: read_ptr:%d,start_pos:%d,height:%d,init_val:%d\n",
+			te->rd_ptr_irq, te->start_pos, te->sync_cfg_height,
+			te->vsync_init_val);
+	} else {
+		rc = of_property_read_u32
+			(np, "qcom,mdss-tear-check-sync-cfg-height", &tmp);
+		te->sync_cfg_height = (!rc ? tmp : 0xfff0);
+		rc = of_property_read_u32
+			(np, "qcom,mdss-tear-check-sync-init-val", &tmp);
+		te->vsync_init_val = (!rc ? tmp : timing->yres);
+		rc = of_property_read_u32(np, "qcom,mdss-tear-check-start-pos",
+				&tmp);
+		te->start_pos = (!rc ? tmp : te->vsync_init_val);
+		rc = of_property_read_u32
+			(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
+		te->rd_ptr_irq = (!rc ? tmp : te->vsync_init_val + 1);
+	}
 }
 
 
@@ -1322,8 +1337,8 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 
 	mdss_dsi_parse_dms_config(np, ctrl);
 
-	pinfo->panel_ack_disabled = of_property_read_bool(np,
-				"qcom,panel-ack-disabled");
+	pinfo->panel_ack_disabled = pinfo->sim_panel_mode ?
+		1 : of_property_read_bool(np, "qcom,panel-ack-disabled");
 
 	mdss_dsi_parse_esd_params(np, ctrl);
 
@@ -1586,7 +1601,7 @@ static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 }
 
 static void  mdss_dsi_panel_config_res_properties(struct device_node *np,
-		struct dsi_panel_timing *pt)
+		u32 sim_panel_mode, struct dsi_panel_timing *pt)
 {
 	mdss_dsi_parse_dcs_cmds(np, &pt->on_cmds,
 			"qcom,mdss-dsi-on-command",
@@ -1595,7 +1610,7 @@ static void  mdss_dsi_panel_config_res_properties(struct device_node *np,
 			"qcom,mdss-dsi-timing-switch-command",
 			"qcom,mdss-dsi-timing-switch-command-state");
 	mdss_dsi_parse_fbc_params(np, &pt->timing.fbc);
-	mdss_panel_parse_te_params(np, &pt->timing);
+	mdss_panel_parse_te_params(np, sim_panel_mode, &pt->timing);
 }
 
 static int mdss_dsi_panel_parse_display_timings(struct device_node *np,
@@ -1624,7 +1639,8 @@ static int mdss_dsi_panel_parse_display_timings(struct device_node *np,
 		pr_debug("reading display-timings from panel node\n");
 		rc = mdss_dsi_panel_timing_from_dt(np, &pt);
 		if (!rc) {
-			mdss_dsi_panel_config_res_properties(np, &pt);
+			mdss_dsi_panel_config_res_properties(np,
+				panel_data->panel_info.sim_panel_mode, &pt);
 			rc = mdss_dsi_panel_timing_switch(ctrl, &pt.timing);
 		}
 		return rc;
@@ -1651,7 +1667,8 @@ static int mdss_dsi_panel_parse_display_timings(struct device_node *np,
 			goto exit;
 		}
 
-		mdss_dsi_panel_config_res_properties(entry, (modedb + i));
+		mdss_dsi_panel_config_res_properties(entry,
+			panel_data->panel_info.sim_panel_mode, (modedb + i));
 
 		/* if default is set, use it otherwise use first as default */
 		if (of_property_read_bool(entry,
@@ -1823,8 +1840,12 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	pinfo->mipi.vsync_enable = of_property_read_bool(np,
 		"qcom,mdss-dsi-te-check-enable");
-	pinfo->mipi.hw_vsync_mode = of_property_read_bool(np,
-		"qcom,mdss-dsi-te-using-te-pin");
+
+	if (pinfo->sim_panel_mode == SIM_SW_TE_MODE)
+		pinfo->mipi.hw_vsync_mode = false;
+	else
+		pinfo->mipi.hw_vsync_mode = of_property_read_bool(np,
+			"qcom,mdss-dsi-te-using-te-pin");
 
 	rc = of_property_read_u32(np,
 		"qcom,mdss-dsi-h-sync-pulse", &tmp);
@@ -1983,7 +2004,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 		return rc;
 	}
 
-	if (!cmd_cfg_cont_splash)
+	if (!cmd_cfg_cont_splash || pinfo->sim_panel_mode)
 		pinfo->cont_splash_enabled = false;
 	pr_info("%s: Continuous splash %s\n", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");
