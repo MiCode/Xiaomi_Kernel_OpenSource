@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -278,7 +278,7 @@ static void etm_os_unlock(struct etm_ctx *etmdata)
 	}
 }
 
-static inline void etm_save_state(struct etm_ctx *etmdata)
+static inline void etm_mm_save_state(struct etm_ctx *etmdata)
 {
 	int i, j, count;
 
@@ -385,7 +385,7 @@ static inline void etm_save_state(struct etm_ctx *etmdata)
 	ETM_LOCK(etmdata);
 }
 
-static inline void etm_restore_state(struct etm_ctx *etmdata)
+static inline void etm_mm_restore_state(struct etm_ctx *etmdata)
 {
 	int i, j;
 
@@ -479,18 +479,18 @@ static inline void etm_restore_state(struct etm_ctx *etmdata)
 	ETM_LOCK(etmdata);
 }
 
-void msm_jtag_mm_save_state(void)
+void msm_jtag_etm_save_state(void)
 {
 	int cpu;
 
 	cpu = raw_smp_processor_id();
 
 	if (etm[cpu] && etm[cpu]->save_restore_enabled)
-		etm_save_state(etm[cpu]);
+		etm_mm_save_state(etm[cpu]);
 }
-EXPORT_SYMBOL(msm_jtag_mm_save_state);
+EXPORT_SYMBOL(msm_jtag_etm_save_state);
 
-void msm_jtag_mm_restore_state(void)
+void msm_jtag_etm_restore_state(void)
 {
 	int cpu;
 
@@ -501,9 +501,9 @@ void msm_jtag_mm_restore_state(void)
 	 * has been done is accomplished by callee function.
 	 */
 	if (etm[cpu] && etm[cpu]->save_restore_enabled)
-		etm_restore_state(etm[cpu]);
+		etm_mm_restore_state(etm[cpu]);
 }
-EXPORT_SYMBOL(msm_jtag_mm_restore_state);
+EXPORT_SYMBOL(msm_jtag_etm_restore_state);
 
 static inline bool etm_arch_supported(uint8_t arch)
 {

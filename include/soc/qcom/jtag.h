@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,14 +17,14 @@
 	defined(CONFIG_MSM_JTAGV8)
 extern void msm_jtag_save_state(void);
 extern void msm_jtag_restore_state(void);
-extern void msm_jtag_mm_save_state(void);
-extern void msm_jtag_mm_restore_state(void);
+extern void msm_jtag_etm_save_state(void);
+extern void msm_jtag_etm_restore_state(void);
 extern bool msm_jtag_fuse_apps_access_disabled(void);
 #else
 static inline void msm_jtag_save_state(void) {}
 static inline void msm_jtag_restore_state(void) {}
-static inline void msm_jtag_mm_save_state(void) {}
-static inline void msm_jtag_mm_restore_state(void){}
+static inline void msm_jtag_etm_save_state(void) {}
+static inline void msm_jtag_etm_restore_state(void){}
 static inline bool msm_jtag_fuse_apps_access_disabled(void) { return false; }
 #endif
 #ifdef CONFIG_MSM_JTAGV8
