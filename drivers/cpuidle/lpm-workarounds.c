@@ -224,7 +224,7 @@ static int lpm_wa_probe(struct platform_device *pdev)
 	key = "qcom,non-boot-cpu-index";
 	ret = of_property_read_u32(pdev->dev.of_node, key,
 						&non_boot_cpu_index);
-	if (!ret) {
+	if (ret) {
 		pr_err("%s: Missing qcom,non_boot_cpu_index property\n"
 							, __func__);
 	}
