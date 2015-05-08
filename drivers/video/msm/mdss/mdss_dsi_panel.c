@@ -1305,24 +1305,40 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 	panel_info->te.tear_check_en =
 		!of_property_read_bool(np, "qcom,mdss-tear-check-disable");
 	rc = of_property_read_u32
-		(np, "qcom,mdss-tear-check-sync-cfg-height", &tmp);
-	panel_info->te.sync_cfg_height = (!rc ? tmp : 0xfff0);
-	rc = of_property_read_u32
-		(np, "qcom,mdss-tear-check-sync-init-val", &tmp);
-	panel_info->te.vsync_init_val = (!rc ? tmp : panel_info->yres);
-	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-sync-threshold-start", &tmp);
 	panel_info->te.sync_threshold_start = (!rc ? tmp : 4);
 	rc = of_property_read_u32
 		(np, "qcom,mdss-tear-check-sync-threshold-continue", &tmp);
 	panel_info->te.sync_threshold_continue = (!rc ? tmp : 4);
-	rc = of_property_read_u32(np, "qcom,mdss-tear-check-start-pos", &tmp);
-	panel_info->te.start_pos = (!rc ? tmp : panel_info->yres);
-	rc = of_property_read_u32
-		(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
-	panel_info->te.rd_ptr_irq = (!rc ? tmp : panel_info->yres + 1);
 	rc = of_property_read_u32(np, "qcom,mdss-tear-check-frame-rate", &tmp);
 	panel_info->te.refx100 = (!rc ? tmp : 6000);
+
+	/* override te parameters if panel is in sw te mode */
+	if (panel_info->sim_panel_mode == SIM_SW_TE_MODE) {
+		panel_info->te.sync_cfg_height = panel_info->yres
+				+ panel_info->lcdc.v_front_porch
+				+ panel_info->lcdc.v_back_porch;
+		panel_info->te.vsync_init_val = 0;
+		panel_info->te.start_pos = 5;
+		panel_info->te.rd_ptr_irq = 1;
+		pr_debug("SW TE override: read_ptr:%d,start_pos:%d,height:%d,init_val:%d\n",
+			panel_info->te.rd_ptr_irq, panel_info->te.start_pos,
+			panel_info->te.sync_cfg_height,
+			panel_info->te.vsync_init_val);
+	} else {
+		rc = of_property_read_u32
+			(np, "qcom,mdss-tear-check-sync-cfg-height", &tmp);
+		panel_info->te.sync_cfg_height = (!rc ? tmp : 0xfff0);
+		rc = of_property_read_u32
+			(np, "qcom,mdss-tear-check-sync-init-val", &tmp);
+		panel_info->te.vsync_init_val = (!rc ? tmp : panel_info->yres);
+		rc = of_property_read_u32
+			(np, "qcom,mdss-tear-check-start-pos", &tmp);
+		panel_info->te.start_pos = (!rc ? tmp : panel_info->yres);
+		rc = of_property_read_u32
+			(np, "qcom,mdss-tear-check-rd-ptr-trigger-intr", &tmp);
+		panel_info->te.rd_ptr_irq = (!rc ? tmp : panel_info->yres + 1);
+	}
 }
 
 
@@ -1612,8 +1628,8 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 
 	mdss_dsi_parse_dms_config(np, ctrl);
 
-	pinfo->panel_ack_disabled = of_property_read_bool(np,
-				"qcom,panel-ack-disabled");
+	pinfo->panel_ack_disabled = pinfo->sim_panel_mode ?
+		1 : of_property_read_bool(np, "qcom,panel-ack-disabled");
 
 	mdss_dsi_parse_esd_params(np, ctrl);
 
@@ -1954,8 +1970,12 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	pinfo->mipi.vsync_enable = of_property_read_bool(np,
 		"qcom,mdss-dsi-te-check-enable");
-	pinfo->mipi.hw_vsync_mode = of_property_read_bool(np,
-		"qcom,mdss-dsi-te-using-te-pin");
+
+	if (pinfo->sim_panel_mode == SIM_SW_TE_MODE)
+		pinfo->mipi.hw_vsync_mode = false;
+	else
+		pinfo->mipi.hw_vsync_mode = of_property_read_bool(np,
+			"qcom,mdss-dsi-te-using-te-pin");
 
 	rc = of_property_read_u32(np,
 		"qcom,mdss-dsi-h-sync-pulse", &tmp);
@@ -2149,7 +2169,7 @@ int mdss_dsi_panel_init(struct device_node *node,
 		return rc;
 	}
 
-	if (!cmd_cfg_cont_splash)
+	if (!cmd_cfg_cont_splash || pinfo->sim_panel_mode)
 		pinfo->cont_splash_enabled = false;
 	pr_info("%s: Continuous splash %s\n", __func__,
 		pinfo->cont_splash_enabled ? "enabled" : "disabled");
