@@ -116,6 +116,7 @@ gfx_cpr: cpr3-ctrl@838000 {
 		 <&clock_mmss clk_mmss_mmagic_ahb_clk>;
 	clock-names = "core_clk", "iface_clk", "bus_clk";
 	interrupts = <0 166 0>;
+	interrupt-names = "cpr";
 	qcom,cpr-ctrl-name = "gfx";
 
 	qcom,cpr-sensor-time = <1000>;

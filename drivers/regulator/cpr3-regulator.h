@@ -233,6 +233,9 @@ enum cpr3_count_mode {
  * @iface_clk:		Pointer to the CPR3 interface clock (platform specific)
  * @bus_clk:		Pointer to the CPR3 bus clock (platform specific)
  * @irq:		CPR interrupt number
+ * @ceiling_irq:	Interrupt number for the interrupt that is triggered
+ *			when hardware closed-loop attempts to exceed the ceiling
+ *			voltage
  * @apm:		Handle to the array power mux (APM)
  * @apm_threshold_volt:	APM threshold voltage in microvolts
  * @apm_adj_volt:	Minimum difference between APM threshold voltage and
@@ -312,6 +315,7 @@ struct cpr3_controller {
 	struct clk		*iface_clk;
 	struct clk		*bus_clk;
 	int			irq;
+	int			ceiling_irq;
 	struct msm_apm_ctrl_dev *apm;
 	int			apm_threshold_volt;
 	int			apm_adj_volt;
