@@ -456,7 +456,7 @@
 	};
 
 	qcom,cpu-bwmon {
-		compatible = "qcom,bimc-bwmon2";
+		compatible = "qcom,bimc-bwmon3";
 		reg = <0x00408000 0x300>, <0x00401000 0x200>;
 		reg-names = "base", "global_base";
 		interrupts = <0 183 4>;
