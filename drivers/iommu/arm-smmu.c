@@ -823,10 +823,12 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 	struct arm_smmu_domain *smmu_domain = cookie;
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	unsigned long offset = (unsigned long)addr & ~PAGE_MASK;
+	int coherent_htw_disable = smmu_domain->attributes &
+		(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 
 
 	/* Ensure new page tables are visible to the hardware walker */
-	if (smmu->features & ARM_SMMU_FEAT_COHERENT_WALK) {
+	if (!coherent_htw_disable) {
 		dsb(ishst);
 	} else {
 		/*
