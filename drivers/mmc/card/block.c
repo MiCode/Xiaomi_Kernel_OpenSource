@@ -1842,6 +1842,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	}
 
 	mqrq->mmc_active.mrq = &brq->mrq;
+	mqrq->mmc_active.mrq->req = mqrq->req;
 	mqrq->mmc_active.err_check = mmc_blk_err_check;
 
 	mmc_queue_bounce_pre(mqrq);

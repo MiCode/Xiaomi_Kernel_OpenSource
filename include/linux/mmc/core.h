@@ -107,6 +107,7 @@ struct mmc_request {
 	struct completion	completion;
 	void			(*done)(struct mmc_request *);/* completion function */
 	struct mmc_host		*host;
+	struct request *req;
 };
 
 struct mmc_card;
