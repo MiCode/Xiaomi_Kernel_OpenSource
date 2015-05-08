@@ -239,14 +239,7 @@
 #define RESUME_TERMINATE		(1 << 0)
 
 #define TTBCR2_SEP_SHIFT		15
-#define TTBCR2_SEP_MASK			0x7
-
-#define TTBCR2_ADDR_32			0
-#define TTBCR2_ADDR_36			1
-#define TTBCR2_ADDR_40			2
-#define TTBCR2_ADDR_42			3
-#define TTBCR2_ADDR_44			4
-#define TTBCR2_ADDR_48			5
+#define TTBCR2_SEP_UPSTREAM		(0x7 << TTBCR2_SEP_SHIFT)
 
 #define TTBCR2_SEP_31			0
 #define TTBCR2_SEP_35			1
@@ -1444,7 +1437,7 @@ static void arm_smmu_init_context_bank(struct arm_smmu_domain *smmu_domain,
 		writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBCR);
 		if (smmu->version > ARM_SMMU_V1) {
 			reg = pgtbl_cfg->arm_lpae_s1_cfg.tcr >> 32;
-			reg |= (TTBCR2_SEP_NOSIGN << TTBCR2_SEP_SHIFT);
+			reg |= TTBCR2_SEP_UPSTREAM;
 			writel_relaxed(reg, cb_base + ARM_SMMU_CB_TTBCR2);
 		}
 	} else {
