@@ -5057,9 +5057,14 @@ static int msm_pcie_probe(struct platform_device *pdev)
 decrease_rc_num:
 	pcie_drv.rc_num--;
 out:
-	PCIE_ERR(&msm_pcie_dev[rc_idx],
-		"PCIe: Driver probe failed for RC%d:%d\n",
-		rc_idx, ret);
+	if (rc_idx < 0 || rc_idx >= MAX_RC_NUM)
+		pr_err("PCIe: Invalid RC index %d. Driver probe failed\n",
+		rc_idx);
+	else
+		PCIE_ERR(&msm_pcie_dev[rc_idx],
+			"PCIe: Driver probe failed for RC%d:%d\n",
+			rc_idx, ret);
+
 	mutex_unlock(&pcie_drv.drv_lock);
 
 	return ret;
