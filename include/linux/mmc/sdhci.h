@@ -288,6 +288,8 @@ struct sdhci_host {
 	ktime_t data_start_time;
 	enum sdhci_power_policy power_policy;
 
+	bool is_crypto_en;
+
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;
 	unsigned long private[0] ____cacheline_aligned;
