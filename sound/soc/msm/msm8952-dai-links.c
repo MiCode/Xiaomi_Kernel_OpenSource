@@ -30,12 +30,17 @@ static struct snd_soc_ops msm8952_slimbus_be_ops = {
 	.hw_params = msm_snd_hw_params,
 };
 
+
+static struct snd_soc_ops msm8952_cpe_ops = {
+	.hw_params = msm_snd_cpe_hw_params,
+};
+
 static struct snd_soc_dai_link msm8952_tomtom_fe_dai[] = {
 	/* CPE LSM FE */
 	{
 		.name = "CPE Listen service",
 		.stream_name = "CPE Listen Audio Service",
-		.cpu_dai_name = "CPE_LSM_NOHOST",
+		.cpu_dai_name = "msm-dai-slim",
 		.platform_name = "msm-cpe-lsm",
 		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
 			    SND_SOC_DPCM_TRIGGER_POST },
@@ -44,6 +49,7 @@ static struct snd_soc_dai_link msm8952_tomtom_fe_dai[] = {
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "tomtom_mad1",
 		.codec_name = "tomtom_codec",
+		.ops = &msm8952_cpe_ops,
 	},
 };
 

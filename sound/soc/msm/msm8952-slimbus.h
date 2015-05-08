@@ -37,6 +37,8 @@ int msm_proxy_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 int msm_audrx_init(struct snd_soc_pcm_runtime *rtd);
 int msm_mi2s_snd_hw_params(struct snd_pcm_substream *substream,
 			     struct snd_pcm_hw_params *params);
+int msm_snd_cpe_hw_params(struct snd_pcm_substream *substream,
+				struct snd_pcm_hw_params *params);
 int msm_quat_mi2s_snd_startup(struct snd_pcm_substream *substream);
 void msm_quat_mi2s_snd_shutdown(struct snd_pcm_substream *substream);
 struct snd_soc_card *populate_snd_card_dailinks(struct device *dev);
