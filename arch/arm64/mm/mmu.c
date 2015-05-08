@@ -618,7 +618,7 @@ static void __init map_mem(void)
 	memblock_set_current_limit(MEMBLOCK_ALLOC_ANYWHERE);
 }
 #ifdef CONFIG_FORCE_PAGES
-static noinline void __init split_pmd(pmd_t *pmd, unsigned long addr,
+static noinline void __init split_and_set_pmd(pmd_t *pmd, unsigned long addr,
 				unsigned long end, unsigned long pfn)
 {
 	pte_t *pte, *start_pte;
@@ -668,7 +668,7 @@ static noinline void __init remap_pages(void)
 					next_pmd = pmd_addr_end(addr_pmd,
 								next_pud);
 					if (pmd_none(*pmd) || pmd_bad(*pmd))
-						split_pmd(pmd, addr_pmd,
+						split_and_set_pmd(pmd, addr_pmd,
 					next_pmd, __phys_to_pfn(phys_pmd));
 					pmd++;
 					phys_pmd += next_pmd - addr_pmd;
