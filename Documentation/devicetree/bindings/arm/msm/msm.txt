@@ -139,6 +139,8 @@ Generic board variants:
 - RUMI device:
   compatible = "qcom,rumi"
 
+- Polaris device:
+  compatible = "qcom,polaris"
 
 
 Boards (SoC type + board variant):
@@ -225,6 +227,7 @@ compatible = "qcom,msm8952-qrd"
 compatible = "qcom,msm8952-qrd-skum"
 compatible = "qcom,msm8952-cdp"
 compatible = "qcom,msm8952-mtp"
+compatible = "qcom,msm8952-polaris"
 compatible = "qcom,msm8976-rumi"
 compatible = "qcom,msm8976-sim"
 compatible = "qcom,msm8976-cdp"
