@@ -75,6 +75,8 @@ Optional properties:
   the same property except this is for IOMMU with LPAE support.
 - qcom,iommu-sid-mask : List of mask values to map the unique stream ids to
   the Stream Mapping Table entries.
+- qcom,report-error-on-fault : boolean indicating that when any fault
+  occurs in this context bank, an error will be sent to respective master
 
 Example:
 

@@ -591,6 +591,10 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 					&ctx_drvdata->name))
 		ctx_drvdata->name = dev_name(&pdev->dev);
 
+	ctx_drvdata->report_error_on_fault =
+		of_property_read_bool(pdev->dev.of_node,
+				"qcom,report-error-on-fault");
+
 	if (!of_get_property(pdev->dev.of_node, "qcom,iommu-ctx-sids", &nsid)) {
 		ret = -EINVAL;
 		goto out;
