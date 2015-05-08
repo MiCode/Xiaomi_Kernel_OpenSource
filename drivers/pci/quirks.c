@@ -2920,9 +2920,10 @@ static void quirk_pcie_enable_rtpm(struct pci_dev *dev)
 DECLARE_PCI_FIXUP_ENABLE(PCI_VENDOR_ID_INTEL,
 	PCI_DEVICE_ID_INTEL_CHV_PCIe_0, quirk_pcie_enable_rtpm);
 
-static int pci_disbale_dev_pme_poll(struct pci_dev *pdev, void *data)
+static int pci_disable_dev_pme_poll(struct pci_dev *pdev, void *data)
 {
 	pdev->pme_poll = false;
+	return 0;
 }
 
 /*PCIEe port 1 on Cherryview should support runtime PM and ignore children*/
@@ -2937,7 +2938,7 @@ static void quirk_pcie_enable_rtpm_ignore_children(struct pci_dev *dev)
 	 * no matter the status of child device.
 	 * Set device pme_poll as false.
 	 */
-	pci_walk_bus(dev->subordinate, pci_disbale_dev_pme_poll, NULL);
+	pci_walk_bus(dev->subordinate, pci_disable_dev_pme_poll, NULL);
 	pm_runtime_put_noidle(&dev->dev);
 	pm_runtime_allow(&dev->dev);
 }
