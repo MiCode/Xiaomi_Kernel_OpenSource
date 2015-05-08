@@ -289,6 +289,7 @@ struct sdhci_host {
 	enum sdhci_power_policy power_policy;
 
 	bool is_crypto_en;
+	bool crypto_reset_reqd;
 
 	u32 auto_cmd_err_sts;
 	struct ratelimit_state dbg_dump_rs;
