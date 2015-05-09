@@ -297,7 +297,7 @@ static struct platform_driver diag_smd_cntl_driver = {
 static struct platform_driver diag_smd_lite_cntl_driver = {
 	.probe = smd_cntl_probe,
 	.driver = {
-		.name = "APPS_RIVA_CNTL",
+		.name = "APPS_RIVA_CTRL",
 		.owner = THIS_MODULE,
 		.pm   = &smd_dev_pm_ops,
 	},
