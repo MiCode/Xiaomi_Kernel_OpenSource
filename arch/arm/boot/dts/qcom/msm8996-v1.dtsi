@@ -83,7 +83,6 @@
 &soc {
 	pcie_smmu {
 		compatible = "qcom,pci-msm";
-		qcom,iommu-auto-attach;
 		iommus = <&anoc0_smmu 0x0>,
 			<&anoc0_smmu 0x100>;
 	};
