@@ -1550,6 +1550,11 @@ void msm_isp_update_error_frame_count(struct vfe_device *vfe_dev)
 void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 {
 	struct msm_isp_event_data error_event;
+	struct msm_vfe_axi_halt_cmd halt_cmd;
+
+	memset(&halt_cmd, 0, sizeof(struct msm_vfe_axi_halt_cmd));
+	halt_cmd.stop_camif = 1;
+	halt_cmd.overflow_detected = 0;
 
 	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
 		__LINE__, vfe_dev, vfe_dev->pdev->id);
@@ -1563,6 +1568,9 @@ void msm_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
 	msm_isp_print_ping_pong_address(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
+
+	msm_isp_axi_halt(vfe_dev, &halt_cmd);
+
 	msm_isp_send_event(vfe_dev,
 					ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }
