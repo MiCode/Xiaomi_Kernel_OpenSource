@@ -668,29 +668,6 @@ static void bam_data_stop_endless_tx(struct bam_data_port *port)
 		pr_err("%s: error dequeuing transfer, %d\n", __func__, status);
 }
 
-static int bam_data_peer_reset_cb(void *param)
-{
-	struct bam_data_port	*port = (struct bam_data_port *)param;
-	struct bam_data_ch_info *d;
-	int ret;
-
-	d = &port->data_ch;
-
-	pr_debug("%s: reset by peer\n", __func__);
-
-	/* Reset BAM */
-	ret = usb_bam_a2_reset(0);
-	if (ret) {
-		pr_err("%s: BAM reset failed %d\n", __func__, ret);
-		return ret;
-	}
-
-	/* Unregister the peer reset callback */
-	usb_bam_register_peer_reset_cb(NULL, NULL);
-
-	return 0;
-}
-
 static void bam2bam_free_rx_skb_idle_list(struct bam_data_port *port)
 {
 	struct bam_data_ch_info *d;
@@ -1149,8 +1126,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		}
 		atomic_set(&d->pipe_connect_notified, 1);
 	} else { /* transport type is USB_GADGET_XPORT_BAM2BAM */
-		/* Upadate BAM specific attributes in usb_request */
-		usb_bam_reset_complete();
 		/* Setup BAM connection and fetch USB PIPE index */
 		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
 		if (ret) {
@@ -1183,18 +1158,6 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 	/* queue in & out requests */
 	bam_data_start_rx_transfers(d, port);
 	bam_data_start_endless_tx(port);
-
-	/* Register for peer reset callback if USB_GADGET_XPORT_BAM2BAM */
-	if (d->trans != USB_GADGET_XPORT_BAM2BAM_IPA) {
-		usb_bam_register_peer_reset_cb(bam_data_peer_reset_cb, port);
-
-		ret = usb_bam_client_ready(true);
-		if (ret) {
-			pr_err("%s: usb_bam_client_ready failed: err:%d\n",
-			__func__, ret);
-			return;
-		}
-	}
 
 	pr_debug("Connect workqueue done (port %p)", port);
 	return;
@@ -1502,9 +1465,6 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 		port->last_event = U_BAM_DATA_DISCONNECT_E;
 		queue_work(bam_data_wq, &port->disconnect_w);
 	} else {
-		if (usb_bam_client_ready(false))
-			pr_err("%s: usb_bam_client_ready failed\n",
-				__func__);
 		usb_gadget_autopm_put_async(port->gadget);
 	}
 

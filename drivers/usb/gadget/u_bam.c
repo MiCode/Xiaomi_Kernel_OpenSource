@@ -206,7 +206,6 @@ struct gbam_port *bam2bam_ports[BAM2BAM_N_PORTS];
 static void gbam_start_rx(struct gbam_port *port);
 static void gbam_start_endless_rx(struct gbam_port *port);
 static void gbam_start_endless_tx(struct gbam_port *port);
-static int gbam_peer_reset_cb(void *param);
 static void gbam_notify(void *p, int event, unsigned long data);
 static void gbam_data_write_tobam(struct work_struct *w);
 
@@ -1343,7 +1342,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
-		usb_bam_reset_complete();
 		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
 		if (ret) {
 			pr_err("%s: usb_bam_connect (src) failed: err:%d\n",
@@ -1547,18 +1545,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	}
 	gbam_start_endless_tx(port);
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM && port->port_num == 0) {
-		/* Register for peer reset callback */
-		usb_bam_register_peer_reset_cb(gbam_peer_reset_cb, port);
-
-		ret = usb_bam_client_ready(true);
-		if (ret) {
-			pr_err("%s: usb_bam_client_ready failed: err:%d\n",
-				__func__, ret);
-			return;
-		}
-	}
-
 	pr_debug("%s: done\n", __func__);
 }
 
@@ -1682,42 +1668,6 @@ static void gbam2bam_resume_work(struct work_struct *w)
 
 exit:
 	spin_unlock_irqrestore(&port->port_lock, flags);
-}
-
-static int gbam_peer_reset_cb(void *param)
-{
-	struct gbam_port	*port = (struct gbam_port *)param;
-	struct bam_ch_info *d;
-	struct usb_gadget *gadget;
-	int ret;
-	unsigned long flags;
-
-	spin_lock_irqsave(&port->port_lock, flags);
-	if (!port->port_usb) {
-		pr_debug("%s: usb cable is disconnected, exiting\n",
-			__func__);
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		return -ENODEV;
-	}
-
-	d = &port->data_ch;
-	gadget = port->port_usb->gadget;
-	spin_unlock_irqrestore(&port->port_lock, flags);
-
-	pr_debug("%s: reset by peer\n", __func__);
-
-	/* Reset BAM */
-	ret = usb_bam_a2_reset(0);
-	if (ret) {
-		pr_err("%s: BAM reset failed %d\n", __func__, ret);
-		return ret;
-	}
-
-	/* Unregister the peer reset callback */
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM && port->port_num == 0)
-		usb_bam_register_peer_reset_cb(NULL, NULL);
-
-	return 0;
 }
 
 /* BAM data channel ready, allow attempt to open */
@@ -2150,14 +2100,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 		trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		port->last_event = U_BAM_DISCONNECT_E;
 		queue_work(gbam_wq, &port->disconnect_w);
-	}
-	else if (trans == USB_GADGET_XPORT_BAM2BAM) {
-		if (port_num == 0) {
-			if (usb_bam_client_ready(false)) {
-				pr_err("%s: usb_bam_client_ready failed\n",
-					__func__);
-			}
-		}
+	} else if (trans == USB_GADGET_XPORT_BAM2BAM) {
 		usb_gadget_autopm_put_async(port->gadget);
 	}
 
