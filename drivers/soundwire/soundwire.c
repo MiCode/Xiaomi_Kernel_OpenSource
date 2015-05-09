@@ -355,6 +355,35 @@ int swr_disconnect_port(struct swr_device *dev, u8 *port_id, u8 num_port)
 EXPORT_SYMBOL(swr_disconnect_port);
 
 /**
+ * swr_get_logical_dev_num - Get soundwire slave logical device number
+ * @dev: pointer to soundwire slave device
+ * @dev_id: physical device id of soundwire slave device
+ * @dev_num: pointer to logical device num of soundwire slave device
+ *
+ * This API will get the logical device number of soundwire slave device
+ */
+int swr_get_logical_dev_num(struct swr_device *dev, u64 dev_id,
+			u8 *dev_num)
+{
+	int ret = 0;
+	struct swr_master *master = dev->master;
+
+	if (!master) {
+		pr_err("%s: Master is NULL\n", __func__);
+		return -EINVAL;
+	}
+	mutex_lock(&master->mlock);
+	ret = master->get_logical_dev_num(master, dev_id, dev_num);
+	if (!ret) {
+		pr_err("%s: Error %d to get logical addr for device %llu\n",
+			__func__, ret, dev_id);
+	}
+	mutex_unlock(&master->mlock);
+	return ret;
+}
+EXPORT_SYMBOL(swr_get_logical_dev_num);
+
+/**
  * swr_read - read soundwire slave device registers
  * @dev: pointer to soundwire slave device
  * @dev_num: logical device num of soundwire slave device
