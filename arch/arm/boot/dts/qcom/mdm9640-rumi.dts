@@ -23,22 +23,6 @@
 
 &blsp1_uart2 {
 	status = "ok";
-	pinctrl-names = "default";
-	pinctrl-0 = <&uart2_console_active>;
-};
-
-&spi_0 {
-	status = "ok";
-	ethernet-switch@0 {
-		compatible = "simtec,ks8851";
-		interrupt-parent = <&msm_gpio>;
-		reg = <0>;
-		spi-max-frequency = <2400000>;
-		interrupts = <88 0>;
-		vdd-io-supply = <&spi_eth_vreg>;
-		vdd-phy-supply = <&spi_eth_vreg>;
-		rst-gpio = <&msm_gpio 89 0>;
-	};
 };
 
 &usb3 {
