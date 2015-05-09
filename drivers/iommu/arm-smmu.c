@@ -2063,23 +2063,25 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 			return -ENODEV;
 		}
 
-		smr = SMR_MASK_MASK << SMR_MASK_SHIFT;
-		smr |= (SMR_ID_MASK << SMR_ID_SHIFT);
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
+		if (!(smmu->options & ARM_SMMU_OPT_SKIP_INIT)) {
+			smr = SMR_MASK_MASK << SMR_MASK_SHIFT;
+			smr |= (SMR_ID_MASK << SMR_ID_SHIFT);
+			writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
+			smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
 
-		mask = (smr >> SMR_MASK_SHIFT) & SMR_MASK_MASK;
-		sid = (smr >> SMR_ID_SHIFT) & SMR_ID_MASK;
-		if ((mask & sid) != sid) {
-			dev_err(smmu->dev,
-				"SMR mask bits (0x%x) insufficient for ID field (0x%x)\n",
-				mask, sid);
-			return -ENODEV;
+			mask = (smr >> SMR_MASK_SHIFT) & SMR_MASK_MASK;
+			sid = (smr >> SMR_ID_SHIFT) & SMR_ID_MASK;
+			if ((mask & sid) != sid) {
+				dev_err(smmu->dev,
+					"SMR mask bits (0x%x) insufficient for ID field (0x%x)\n",
+					mask, sid);
+				return -ENODEV;
+			}
+
+			dev_notice(smmu->dev,
+				   "\tstream matching with %u register groups, mask 0x%x",
+				   smmu->num_mapping_groups, mask);
 		}
-
-		dev_notice(smmu->dev,
-			   "\tstream matching with %u register groups, mask 0x%x",
-			   smmu->num_mapping_groups, mask);
 	} else {
 		smmu->num_mapping_groups = (id >> ID0_NUMSIDB_SHIFT) &
 					   ID0_NUMSIDB_MASK;
@@ -2283,6 +2285,8 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 		smmu->irqs[i] = irq;
 	}
 
+	parse_driver_options(smmu);
+
 	err = arm_smmu_device_cfg_probe(smmu);
 	if (err)
 		return err;
@@ -2321,8 +2325,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	err = arm_smmu_parse_impl_def_registers(smmu);
 	if (err)
 		goto out_put_masters;
-
-	parse_driver_options(smmu);
 
 	if (smmu->version == ARM_SMMU_V2 &&
 	    smmu->num_context_banks != smmu->num_context_irqs) {
