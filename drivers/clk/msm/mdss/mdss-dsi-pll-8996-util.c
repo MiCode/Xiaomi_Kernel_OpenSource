@@ -79,12 +79,17 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 int post_n1_div_get_div(struct div_clk *clk)
 {
 	u32  div;
+	int rc;
 	struct mdss_pll_resources *pll = clk->priv;
-	struct dsi_pll_db *pdb;
-	struct dsi_pll_output *pout;
 
-	pdb = (struct dsi_pll_db *)pll->priv;
-	pout = &pdb->out;
+	if (is_gdsc_disabled(pll))
+		return 0;
+
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("Failed to enable mdss dsi pll resources\n");
+		return rc;
+	}
 
 	/*
 	 * postdiv = 1/2/4/8
@@ -92,10 +97,11 @@ int post_n1_div_get_div(struct div_clk *clk)
 	 * fot the time being, assume postdiv = 1
 	 */
 
-	div = pout->pll_postdiv * pout->pll_n1div;
+	div = MDSS_PLL_REG_R(pll->pll_base, DSIPHY_CMN_CLK_CFG0);
+	div &= 0xF;
+	pr_debug("n1 div = %d\n", div);
 
-	pr_debug("div=%d postdiv=%x n1div=%x\n",
-			div, pout->pll_postdiv, pout->pll_n1div);
+	mdss_pll_resource_enable(pll, false);
 
 	return div;
 }
@@ -646,7 +652,7 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 
 unsigned long pll_vco_get_rate_8996(struct clk *c)
 {
-	u64 vco_rate, multiplier = (1 << 20);
+	u64 vco_rate, multiplier = BIT(20);
 	s32 div_frac_start;
 	u32 dec_start;
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
@@ -676,7 +682,7 @@ unsigned long pll_vco_get_rate_8996(struct clk *c)
 			DSIPHY_PLL_DIV_FRAC_START1) & 0x0ff;
 	pr_debug("div_frac_start = 0x%x\n", div_frac_start);
 
-	vco_rate = ref_clk * 2 * dec_start;
+	vco_rate = ref_clk * dec_start;
 	vco_rate += ((ref_clk * div_frac_start) / multiplier);
 
 	pr_debug("returning vco rate = %lu\n", (unsigned long)vco_rate);
