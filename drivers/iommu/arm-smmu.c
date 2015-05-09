@@ -434,6 +434,7 @@ struct arm_smmu_device {
 #define ARM_SMMU_OPT_FATAL_ASF		(1 << 6)
 #define ARM_SMMU_OPT_ERRATA_TZ_ATOS	(1 << 7)
 #define ARM_SMMU_OPT_NO_M		(1 << 8)
+#define ARM_SMMU_OPT_NO_SMR_CHECK	(1 << 9)
 	u32				options;
 	enum arm_smmu_arch_version	version;
 
@@ -509,6 +510,7 @@ static struct arm_smmu_option_prop arm_smmu_options[] = {
 	{ ARM_SMMU_OPT_FATAL_ASF, "qcom,fatal-asf" },
 	{ ARM_SMMU_OPT_ERRATA_TZ_ATOS, "qcom,errata-tz-atos" },
 	{ ARM_SMMU_OPT_NO_M, "qcom,no-mmu-enable" },
+	{ ARM_SMMU_OPT_NO_SMR_CHECK, "qcom,no-smr-check" },
 	{ 0, NULL},
 };
 
@@ -2517,18 +2519,20 @@ static int arm_smmu_device_cfg_probe(struct arm_smmu_device *smmu)
 			return -ENODEV;
 		}
 
-		smr = SMR_MASK_MASK << SMR_MASK_SHIFT;
-		smr |= (SMR_ID_MASK << SMR_ID_SHIFT);
-		writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
-		smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
+		if (!(smmu->options & ARM_SMMU_OPT_NO_SMR_CHECK)) {
+			smr = SMR_MASK_MASK << SMR_MASK_SHIFT;
+			smr |= (SMR_ID_MASK << SMR_ID_SHIFT);
+			writel_relaxed(smr, gr0_base + ARM_SMMU_GR0_SMR(0));
+			smr = readl_relaxed(gr0_base + ARM_SMMU_GR0_SMR(0));
 
-		mask = (smr >> SMR_MASK_SHIFT) & SMR_MASK_MASK;
-		sid = (smr >> SMR_ID_SHIFT) & SMR_ID_MASK;
-		if ((mask & sid) != sid) {
-			dev_err(smmu->dev,
-				"SMR mask bits (0x%x) insufficient for ID field (0x%x)\n",
-				mask, sid);
-			return -ENODEV;
+			mask = (smr >> SMR_MASK_SHIFT) & SMR_MASK_MASK;
+			sid = (smr >> SMR_ID_SHIFT) & SMR_ID_MASK;
+			if ((mask & sid) != sid) {
+				dev_err(smmu->dev,
+					"SMR mask bits (0x%x) insufficient for ID field (0x%x)\n",
+					mask, sid);
+				return -ENODEV;
+			}
 		}
 
 		dev_notice(smmu->dev,
@@ -2710,6 +2714,8 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	if (err)
 		goto out_put_masters;
 
+	parse_driver_options(smmu);
+
 	arm_smmu_enable_regulators(smmu);
 	arm_smmu_enable_clocks(smmu);
 	err = arm_smmu_device_cfg_probe(smmu);
@@ -2717,8 +2723,6 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	arm_smmu_disable_regulators(smmu);
 	if (err)
 		goto out_put_masters;
-
-	parse_driver_options(smmu);
 
 	if (of_device_is_compatible(dev->of_node, "qcom,smmu-v2"))
 		smmu->model = SMMU_MODEL_QCOM_V2;

@@ -98,6 +98,14 @@ conditions.
                   enabled for stage 1 translation" (Section 2.1: "Overview
                   of SMMU operation").
 
+- qcom,no-smr-check : Usually when an SMMU probes we do a sanity check on
+                  the SMR registers to make sure they can fully support all
+                  of the mask bits.  This check can cause problems for use
+                  cases where the SMMU is already in use when the SMMU
+                  probes.  For example, for continuous splash screen
+                  support, the stream matching table is programmed before
+                  control is even turned over to Linux.
+
 - clocks        : List of clocks to be used during SMMU register access. See
                   Documentation/devicetree/bindings/clock/clock-bindings.txt
                   for information about the format. For each clock specified
