@@ -118,6 +118,7 @@ static int vdd_corner[] = {
 
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_corner, NULL);
+static DEFINE_CLK_MEASURE(gcc_bimc_clk);
 
 /* RPM clocks are never modified in this chip */
 
@@ -1355,6 +1356,8 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_sys_noc_usb3_axi_clk.c, 0x0007 },
 		{ &gcc_sdcc1_apps_clk.c, 0x0068 },
 		{ &gcc_sdcc1_ahb_clk.c, 0x0069 },
+		{ &gcc_blsp1_ahb_clk.c, 0x0088 },
+		{ &gcc_blsp1_qup2_i2c_apps_clk.c, 0x0090 },
 		{ &gcc_pdm2_ahb_clk.c, 0x00d0 },
 		{ &gcc_pdm2_clk.c, 0x00d2 },
 		{ &gcc_prng_ahb_clk.c, 0x00d8 },
@@ -1369,6 +1372,8 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_ce2_clk.c, 0x0140 },
 		{ &gcc_ce2_axi_clk.c, 0x0141 },
 		{ &gcc_ce2_ahb_clk.c, 0x0142 },
+		{ &gcc_bimc_clk, 0x0154},
+		{ &gcc_blsp1_uart4_apps_clk.c, 0x09A },
 		{ &gcc_ddr_dim_cfg_clk.c, 0x0160 },
 		{ &gcc_ddr_dim_sleep_clk.c, 0x0163 },
 		{ &gcc_pcie_0_slv_axi_clk.c, 0x01F8 },
@@ -1388,6 +1393,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_gmac0_axi_clk.c, 0x02e5 },
 		{ &gcc_gmac1_axi_clk.c, 0x02e6 },
 		{ &gcc_usb30_master_clk.c, 0x02f0 },
+		{ &gcc_usb30_sleep_clk.c, 0x02f1 },
 		{ &gcc_usb30_mock_utmi_clk.c, 0x02f2 },
 		{ &gcc_usb3_aux_clk.c, 0x02f3 },
 		{ &gcc_usb_phy_cfg_ahb_clk.c, 0x02f7 },
@@ -1499,6 +1505,7 @@ static int __init msm_gcc_init(void)
 
 static struct clk_lookup msm_clocks_measure[] = {
 	CLK_LOOKUP_OF("measure", gcc_debug_mux, "debug"),
+	CLK_LOOKUP("", gcc_bimc_clk, ""),
 };
 
 static int msm_clock_debug_probe(struct platform_device *pdev)
