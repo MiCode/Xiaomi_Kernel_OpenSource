@@ -171,6 +171,33 @@ static void sdhci_dumpregs(struct sdhci_host *host)
 	pr_info(DRIVER_NAME ": ===========================================\n");
 }
 
+#define MAX_PM_QOS_TIMEOUT_VALUE	100000 /* 100 ms */
+static ssize_t
+show_sdhci_pm_qos_tout(struct device *dev, struct device_attribute *attr,
+			char *buf)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d us\n", host->pm_qos_timeout_us);
+}
+
+static ssize_t
+store_sdhci_pm_qos_tout(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	struct sdhci_host *host = dev_get_drvdata(dev);
+	uint32_t value;
+	unsigned long flags;
+
+	if (!kstrtou32(buf, 0, &value)) {
+		spin_lock_irqsave(&host->lock, flags);
+		if (value <= MAX_PM_QOS_TIMEOUT_VALUE)
+			host->pm_qos_timeout_us = value;
+		spin_unlock_irqrestore(&host->lock, flags);
+	}
+	return count;
+}
+
 /*****************************************************************************\
  *                                                                           *
  * Low level functions                                                       *
@@ -1514,11 +1541,18 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 static int sdhci_enable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
+	u32 pol_index = 0;
 
-	if (!(host->when_to_vote & PM_QOS_VOTE_REQUEST) &&
-	     host->ops->pm_qos_update)
-		host->ops->pm_qos_update(host, NULL, SDHCI_PM_QOS_VOTE);
+	if (unlikely(!host->cpu_dma_latency_us))
+		goto platform_bus_vote;
 
+	if (host->cpu_dma_latency_tbl_sz > 1)
+		pol_index = host->power_policy;
+
+	pm_qos_update_request(&host->pm_qos_req_dma,
+		host->cpu_dma_latency_us[pol_index]);
+
+platform_bus_vote:
 	if (host->ops->platform_bus_voting)
 		host->ops->platform_bus_voting(host, 1);
 
@@ -1528,11 +1562,29 @@ static int sdhci_enable(struct mmc_host *mmc)
 static int sdhci_disable(struct mmc_host *mmc)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
+	u32 pol_index = 0;
 
-	if (!(host->when_to_vote & PM_QOS_VOTE_REQUEST) &&
-	     host->ops->pm_qos_update)
-		host->ops->pm_qos_update(host, NULL, SDHCI_PM_QOS_UNVOTE);
+	if (unlikely(!host->cpu_dma_latency_us))
+		goto platform_bus_vote;
 
+	if (host->cpu_dma_latency_tbl_sz > 1)
+		pol_index = host->power_policy;
+	/*
+	 * In performance mode, release QoS vote after a timeout to
+	 * make sure back-to-back requests don't suffer from latencies
+	 * that are involved to wake CPU from low power modes in cases
+	 * where the CPU goes into low power mode as soon as QoS vote is
+	 * released.
+	 */
+	if (host->power_policy == SDHCI_POWER_SAVE_MODE)
+		pm_qos_update_request(&host->pm_qos_req_dma,
+			PM_QOS_DEFAULT_VALUE);
+	else
+		pm_qos_update_request_timeout(&host->pm_qos_req_dma,
+			host->cpu_dma_latency_us[pol_index],
+			host->pm_qos_timeout_us);
+
+platform_bus_vote:
 	if (host->ops->platform_bus_voting)
 		host->ops->platform_bus_voting(host, 0);
 
@@ -3433,6 +3485,29 @@ static int sdhci_is_adma2_64bit(struct sdhci_host *host)
 }
 #endif
 
+#ifdef CONFIG_SMP
+static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
+{
+	/*
+	 * The default request type PM_QOS_REQ_ALL_CORES is
+	 * applicable to all CPU cores that are online and
+	 * this would have a power impact when there are more
+	 * number of CPUs. This new PM_QOS_REQ_AFFINE_IRQ request
+	 * type shall update/apply the vote only to that CPU to
+	 * which this IRQ's affinity is set to.
+	 * PM_QOS_REQ_AFFINE_CORES request type is used for targets that have
+	 * little cluster and will update/apply the vote to all the cores in
+	 * the little cluster.
+	 */
+	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_IRQ)
+		host->pm_qos_req_dma.irq = host->irq;
+}
+#else
+static void sdhci_set_pmqos_req_type(struct sdhci_host *host)
+{
+}
+#endif
+
 int sdhci_add_host(struct sdhci_host *host)
 {
 	struct mmc_host *mmc;
@@ -3984,6 +4059,23 @@ int sdhci_add_host(struct sdhci_host *host)
 
 	mmiowb();
 
+	if (host->cpu_dma_latency_us) {
+		host->pm_qos_timeout_us = 10000; /* default value */
+		sdhci_set_pmqos_req_type(host);
+		pm_qos_add_request(&host->pm_qos_req_dma,
+				PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
+
+		host->pm_qos_tout.show = show_sdhci_pm_qos_tout;
+		host->pm_qos_tout.store = store_sdhci_pm_qos_tout;
+		sysfs_attr_init(&host->pm_qos_tout.attr);
+		host->pm_qos_tout.attr.name = "pm_qos_unvote_delay";
+		host->pm_qos_tout.attr.mode = S_IRUGO | S_IWUSR;
+		ret = device_create_file(mmc_dev(mmc), &host->pm_qos_tout);
+		if (ret)
+			pr_err("%s: cannot create pm_qos_unvote_delay %d\n",
+					mmc_hostname(mmc), ret);
+	}
+
 	if (caps[0] & SDHCI_ASYNC_INTR)
 		host->async_int_supp = true;
 
@@ -4039,6 +4131,8 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 	sdhci_update_power_policy(host, SDHCI_POWER_SAVE_MODE);
 	sdhci_disable_card_detection(host);
 
+	if (host->cpu_dma_latency_us)
+		pm_qos_remove_request(&host->pm_qos_req_dma);
 	mmc_remove_host(host->mmc);
 
 #ifdef SDHCI_USE_LEDS_CLASS

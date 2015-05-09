@@ -42,7 +42,6 @@
 #include <linux/pinctrl/consumer.h>
 #include <linux/msm-bus.h>
 
-#include <trace/events/mmc.h>
 #include "sdhci-pltfm.h"
 
 enum sdc_mpm_pin_state {
@@ -181,14 +180,7 @@ enum sdc_mpm_pin_state {
 #define CORE_VERSION_MAJOR_SHIFT	28
 #define CORE_VERSION_TARGET_MASK	0x000000FF
 
-#define MSM_MMC_DEFAULT_CPU_DMA_LATENCY_US	200
-#define MSM_MMC_DEFAULT_NUM_QOS_CONFIGS		1
-#define MSM_MMC_DEFAULT_QOS_PLANE		0
-#define MSM_MMC_DEFAULT_BY_CPU			BIT(31)
-#define MSM_MMC_PM_QOS_TIMEOUT_US		10000	/* default value */
-#define MSM_MMC_LATENCY_TBL_SIZE		SDHCI_NUM_PWR_POLICIES
-#define MSM_MMC_PM_QOS_INVALID_LATENCY		(-2)	/* invalid latency */
-
+#define MSM_MMC_DEFAULT_CPU_DMA_LATENCY 200 /* usecs */
 /*
  * Waiting until end of potential AHB access for data:
  * 16 AHB cycles (160ns for 100MHz and 320ns for 50MHz) +
@@ -312,51 +304,6 @@ struct sdhci_msm_bus_voting_data {
 	unsigned int bw_vecs_size;
 };
 
-#ifdef CONFIG_SMP
-enum sdhci_msm_pm_qos_rw_policy {
-	PM_QOS_READ_WRITE,
-	PM_QOS_READ,
-	PM_QOS_WRITE,
-};
-
-enum sdhci_msm_pm_qos_mngmt_type {
-	PM_QOS_MNGMT_IRQ_TYPE,
-	PM_QOS_MNGMT_THREAD_TYPE,
-};
-
-struct sdhci_msm_pm_qos_config {
-	struct list_head		list;
-	enum pm_qos_req_type		cpu_affinity_type;
-	cpumask_t			cpu_affinity_mask;
-	enum sdhci_msm_pm_qos_rw_policy	rw_policy;
-	unsigned int			cpu_dma_latency_tbl_sz;
-	s32				*cpu_dma_latency_tbl_us;
-};
-
-struct sdhci_msm_pm_qos_mngmt {
-	struct list_head			head;
-	struct sdhci_msm_pm_qos_config		*prev;
-	s32					prev_latency;
-	enum sdhci_msm_pm_qos_mngmt_type	type;
-	struct pm_qos_request			dma_req;
-};
-
-struct sdhci_msm_pm_qos {
-	struct sdhci_msm_pm_qos_mngmt	irq;
-	struct sdhci_msm_pm_qos_mngmt	thread;
-	unsigned int			default_rd_config;
-	unsigned int			default_wr_config;
-	struct sdhci_msm_pm_qos_config *qos_configs;
-	unsigned int			num_qos_configs;
-	unsigned int			pm_qos_timeout_us;
-	struct device_attribute		tout;
-	unsigned int			when_to_vote; /* shadow for init flow */
-};
-#else
-struct sdhci_msm_pm_qos {
-};
-#endif
-
 struct sdhci_msm_pltfm_data {
 	/* Supported UHS-I Modes */
 	u32 caps;
@@ -372,13 +319,16 @@ struct sdhci_msm_pltfm_data {
 	bool pin_cfg_sts;
 	struct sdhci_msm_pin_data *pin_data;
 	struct sdhci_pinctrl_data *pctrl_data;
+	u32 *cpu_dma_latency_us;
+	unsigned int cpu_dma_latency_tbl_sz;
 	int status_gpio; /* card detection GPIO that is configured as IRQ */
 	struct sdhci_msm_bus_voting_data *voting_data;
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
 	int mpm_sdiowakeup_int;
 	int sdiowakeup_irq;
-	struct sdhci_msm_pm_qos pm_qos;
+	enum pm_qos_req_type cpu_affinity_type;
+	cpumask_t cpu_affinity_mask;
 };
 
 struct sdhci_msm_bus_vote {
@@ -1580,704 +1530,47 @@ out:
 }
 
 #ifdef CONFIG_SMP
-#define MAX_PM_QOS_TIMEOUT_VALUE_MS	100000 /* 100 ms */
-static ssize_t show_msm_sdhci_pm_qos_tout(struct device *dev,
-					  struct device_attribute *attr,
-					  char *buf)
+static void sdhci_msm_populate_affinity(struct sdhci_msm_pltfm_data *pdata,
+					     struct device_node *np)
 {
-	struct sdhci_host *host;
-	struct sdhci_pltfm_host *pltfm_host;
-	struct sdhci_msm_host *msm_host;
-	struct sdhci_msm_pltfm_data *pdata;
-
-	if (!dev || !buf)
-		return -EINVAL;
-
-	host = dev_get_drvdata(dev);
-	if (!host || !sdhci_priv(host))
-		return -EINVAL;
-
-	pltfm_host = sdhci_priv(host);
-	msm_host = pltfm_host->priv;
-	if (!msm_host)
-		return -EINVAL;
-
-	pdata = msm_host->pdata;
-	return snprintf(buf, PAGE_SIZE, "%d us\n",
-			pdata->pm_qos.pm_qos_timeout_us);
-}
-
-static ssize_t store_msm_sdhci_pm_qos_tout(struct device *dev,
-					   struct device_attribute *attr,
-					   const char *buf, size_t count)
-{
-	struct sdhci_host *host;
-	struct sdhci_pltfm_host *pltfm_host;
-	struct sdhci_msm_host *msm_host;
-	struct sdhci_msm_pltfm_data *pdata;
-	u32 value;
-	unsigned long flags;
-
-	if (!dev || !buf)
-		return -EINVAL;
-
-	host = dev_get_drvdata(dev);
-	if (!host || !sdhci_priv(host))
-		return -EINVAL;
-
-	pltfm_host = sdhci_priv(host);
-	msm_host = pltfm_host->priv;
-	if (!msm_host)
-		return -EINVAL;
-
-	pdata = msm_host->pdata;
-	if (!kstrtou32(buf, 0, &value)) {
-		spin_lock_irqsave(&host->lock, flags);
-		if (value <= MAX_PM_QOS_TIMEOUT_VALUE_MS)
-			pdata->pm_qos.pm_qos_timeout_us = value;
-		spin_unlock_irqrestore(&host->lock, flags);
-	}
-	return count;
-}
-
-static void pm_qos_dump_configuration(struct device *dev,
-				      struct sdhci_msm_pm_qos_config *config)
-{
-	dev_dbg(dev, "type=%d, mask=0x%08lX, policy=%d, tbl_sz=%d\n",
-			config->cpu_affinity_type,
-			config->cpu_affinity_mask.bits[0],
-			config->rw_policy,
-			config->cpu_dma_latency_tbl_sz);
-	if (config->cpu_dma_latency_tbl_sz == 1)
-		dev_dbg(dev, "latency_us=[%d]\n",
-			config->cpu_dma_latency_tbl_us[0]);
-	else if (config->cpu_dma_latency_tbl_sz == 3)
-		dev_dbg(dev, "latency_us=[%d, %d, %d]\n",
-			config->cpu_dma_latency_tbl_us[0],
-			config->cpu_dma_latency_tbl_us[1],
-			config->cpu_dma_latency_tbl_us[2]);
-	else
-		dev_dbg(dev, "not dumping latency_us table\n");
-
-	trace_mmc_pm_qos_config(dev_name(dev), config->cpu_affinity_type,
-			&config->cpu_affinity_mask, config->rw_policy,
-			config->cpu_dma_latency_tbl_us,
-			config->cpu_dma_latency_tbl_sz);
-}
-
-static struct sdhci_msm_pm_qos_config *search_pm_qos_config(
-			struct list_head *head,
-			enum sdhci_msm_pm_qos_rw_policy policy)
-{
-	struct sdhci_msm_pm_qos_config *qos_config;
-
-	list_for_each_entry(qos_config, head, list) {
-		if ((policy == PM_QOS_READ_WRITE ||
-		     policy == qos_config->rw_policy) &&
-		    (qos_config->cpu_affinity_type != PM_QOS_REQ_AFFINE_CORES ||
-		     cpumask_test_cpu(current_thread_info()->cpu,
-				      &qos_config->cpu_affinity_mask)))
-			return qos_config;
-	}
-	return NULL;
-}
-
-static void pm_qos_update(struct sdhci_host *host,
-			  enum sdhci_msm_pm_qos_rw_policy policy,
-			  enum sdhci_pm_qos_update type,
-			  struct sdhci_msm_pm_qos_mngmt *mngmt)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	struct sdhci_msm_pltfm_data *pdata = msm_host->pdata;
-	struct device *dev = &msm_host->pdev->dev;
-	struct sdhci_msm_pm_qos_config *config = NULL;
-	bool changed_cpu = false;
-	s32 latency;
-	unsigned int default_num;
-	bool update_timeout;
-	const char *name = dev_name(dev);
-
-	if (list_empty(&mngmt->head))
-		return;
-
-	config = search_pm_qos_config(&mngmt->head, policy);
-
-	/*
-	 * If the user specified that the priority in finding a default
-	 * configuration should be based on the running cpu rather than
-	 * a global r/w policy - change the search policy and search again
-	 */
-	if (!config && ((policy == PM_QOS_READ &&
-	     pdata->pm_qos.default_rd_config & MSM_MMC_DEFAULT_BY_CPU) ||
-	    (policy == PM_QOS_WRITE &&
-	     pdata->pm_qos.default_wr_config & MSM_MMC_DEFAULT_BY_CPU)))
-		config = search_pm_qos_config(&mngmt->head, PM_QOS_READ_WRITE);
-
-	/* if configuration was not found - resort to defaults */
-	if (!config) {
-		if (policy == PM_QOS_READ)
-			default_num = pdata->pm_qos.default_rd_config;
-		else
-			default_num = pdata->pm_qos.default_wr_config;
-		default_num &= ~MSM_MMC_DEFAULT_BY_CPU;
-		config = &pdata->pm_qos.qos_configs[default_num];
-
-		/*
-		 * validate that the default configuration that is chosen
-		 * matches the mngmt type and thereby the mngmt->dma_req
-		 */
-		if ((mngmt->type == PM_QOS_MNGMT_THREAD_TYPE &&
-		     config->cpu_affinity_type == PM_QOS_REQ_AFFINE_IRQ) ||
-		    (mngmt->type == PM_QOS_MNGMT_IRQ_TYPE &&
-		     config->cpu_affinity_type != PM_QOS_REQ_AFFINE_IRQ)) {
-			dev_dbg(dev,
-				"could not find default configuration got mngmt->type=%d\n",
-				mngmt->type);
-			trace_mmc_pm_qos_skip(name,
-				"could not find default configuration",
-				mngmt->type);
-			goto out_no_update;
-		}
-	}
-
-	if (type == SDHCI_PM_QOS_UNVOTE &&
-	    host->power_policy == SDHCI_POWER_SAVE_MODE)
-		latency = PM_QOS_DEFAULT_VALUE;
-	else if (config->cpu_dma_latency_tbl_sz > 1)
-		latency = config->cpu_dma_latency_tbl_us[host->power_policy];
-	else
-		latency = config->cpu_dma_latency_tbl_us[0];
-
-	if (unlikely(!mngmt->prev)) {
-		/*
-		 * ensure that:
-		 * 1. mngmt->prev is not NULL the next time pm_qos is updated
-		 * 2. mngmt->prev_latency has an known invalid value
-		 */
-		latency = MSM_MMC_PM_QOS_INVALID_LATENCY;
-		goto out_ok;
-	}
-
-	/*
-	 * When unvoting in non-power-save mode, release QoS vote after a
-	 * timeout to make sure back-to-back requests don't suffer from
-	 * latencies that are involved to wake CPU from low power modes in cases
-	 * where the CPU goes into low power mode as soon as QoS vote is
-	 * released.
-	 */
-	update_timeout = (type == SDHCI_PM_QOS_UNVOTE &&
-			  host->power_policy != SDHCI_POWER_SAVE_MODE);
-
-	/* Optimization to avoid voting unnecessarily */
-	if (config == mngmt->prev && latency == mngmt->prev_latency &&
-	    !update_timeout) {
-		dev_dbg(dev,
-			"skipping update of pm qos for mngmt->type=%d (no change)\n",
-			mngmt->type);
-		trace_mmc_pm_qos_skip(name, "no change, skipping pm_qos_voting",
-			mngmt->type);
-		goto out_no_update;
-	}
-
-	if (config != mngmt->prev && mngmt->type == PM_QOS_MNGMT_THREAD_TYPE)
-		changed_cpu = !cpumask_equal(&mngmt->prev->cpu_affinity_mask,
-					     &config->cpu_affinity_mask);
-
-	if (changed_cpu) {
-		/*
-		 * In order to update the cpumask for the pm_qos
-		 * request, it is necessary to remove the old one and add
-		 * a new one.
-		 */
-		trace_mmc_pm_qos_remove(name, mngmt->prev_latency,
-					mngmt->type,
-					&mngmt->prev->cpu_affinity_mask);
-		pm_qos_remove_request(&mngmt->dma_req);
-		cpumask_copy(&mngmt->dma_req.cpus_affine,
-			     &config->cpu_affinity_mask);
-		trace_mmc_pm_qos_add(name, latency, mngmt->type,
-					&config->cpu_affinity_mask);
-		pm_qos_add_request(&mngmt->dma_req,
-				   PM_QOS_CPU_DMA_LATENCY, latency);
-	} else {
-		trace_mmc_pm_qos_update(name, latency, mngmt->type,
-					&config->cpu_affinity_mask);
-		pm_qos_update_request(&mngmt->dma_req, latency);
-	}
-
-	if (update_timeout) {
-		trace_mmc_pm_qos_update_timeout(name,
-					latency, mngmt->type,
-					&mngmt->prev->cpu_affinity_mask);
-		pm_qos_update_request_timeout(&mngmt->dma_req,
-			latency, pdata->pm_qos.pm_qos_timeout_us);
-		/*
-		 * In order to avoid a situation where the timeout expires
-		 * yet the unnecessary-voting-optimization kicks in -
-		 * corrupt the latency value.
-		 */
-		latency = MSM_MMC_PM_QOS_INVALID_LATENCY;
-	}
-
-	/*
-	 * IRQ shall be served on mmc thread affined CPU
-	 */
-	if (changed_cpu && mngmt->type == PM_QOS_MNGMT_THREAD_TYPE) {
-		irq_set_affinity(host->irq, &config->cpu_affinity_mask);
-		pr_debug("irq %d affinity was set for cpumask 0x%lx\n",
-			host->irq, config->cpu_affinity_mask.bits[0]);
-	}
-
-out_ok:
-	dev_dbg(dev, "new pm_qos configuration for mngmt->type=%d:\n",
-		mngmt->type);
-	pm_qos_dump_configuration(dev, config);
-	mngmt->prev = config;
-	mngmt->prev_latency = latency;
-out_no_update:
-	return;
-}
-
-/**
- *	sdhci_msm_pm_qos_update - update the pm_qos
- *	@host: the sdhci host
- *	@mrq: a request (may be null)
- *	@type: indicates where in the sdchi lifecycle the update is occuring
- *
- *	Searches through the pm_qos configurations for a configuration
- *	matching according to the following algorithm:
- *	1. search for a configuration that matches the request's data direction
- *	2. if such a configuration is found, make sure that the current cpu is
- *	   in the configuration's cpu bitmask
- *	3. if the above criteria aren't matched - go with the default. If the
- *	   data direction is not defined specifically as read, the default is
- *	   the matching write configuration.
- *
- *	Since there is a default configuration, the function always returns 0
- */
-static void sdhci_msm_pm_qos_update(struct sdhci_host *host,
-				   struct mmc_request *mrq,
-				   enum sdhci_pm_qos_update type)
-{
-	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
-	struct sdhci_msm_host *msm_host = pltfm_host->priv;
-	struct sdhci_msm_pltfm_data *pdata = msm_host->pdata;
-	enum sdhci_msm_pm_qos_rw_policy rw_policy;
-
-	if (!mrq || !mrq->data)
-		rw_policy = PM_QOS_READ_WRITE;
-	else if (mrq->data->flags & MMC_DATA_READ)
-		rw_policy = PM_QOS_READ;
-	else
-		rw_policy = PM_QOS_WRITE;
-
-	pm_qos_update(host, rw_policy, type, &pdata->pm_qos.thread);
-	pm_qos_update(host, rw_policy, type, &pdata->pm_qos.irq);
-
-}
-
-static int sdhci_msm_populate_affinity(struct device *dev,
-				       struct sdhci_msm_pm_qos *pm_qos)
-{
-	struct device_node *np = dev->of_node;
-	const char *affinity;
+	const char *cpu_affinity = NULL;
 	u32 cpu_mask;
-	int ret = 0;
-	bool need_cpu_mask = false;
-	const __be32 *p;
-	struct property *prop;
-	struct sdhci_msm_pm_qos_config *qos_config =
-		&pm_qos->qos_configs[0];
-	struct sdhci_msm_pm_qos_config *last_config =
-		&pm_qos->qos_configs[pm_qos->num_qos_configs];
 
-	/* Iterate over QoS configs and read their cpu-affinity */
-	if (of_get_property(np, "qcom,cpu-affinity", NULL)) {
-		if (of_property_count_strings(np, "qcom,cpu-affinity") !=
-		    pm_qos->num_qos_configs) {
-			dev_err(dev,
-				"qcom,cpu-affinity size doesn't equal %d\n",
-				pm_qos->num_qos_configs);
-			return -ENODATA;
+	pdata->cpu_affinity_type = PM_QOS_REQ_AFFINE_IRQ;
+	if (!of_property_read_string(np, "qcom,cpu-affinity", &cpu_affinity)) {
+		if (!strcmp(cpu_affinity, "all_cores"))
+			pdata->cpu_affinity_type = PM_QOS_REQ_ALL_CORES;
+		else if (!strcmp(cpu_affinity, "affine_cores") &&
+			 !of_property_read_u32(np, "qcom,cpu-affinity-mask",
+						&cpu_mask)) {
+				cpumask_bits(&pdata->cpu_affinity_mask)[0] =
+					cpu_mask;
+				pdata->cpu_affinity_type =
+					PM_QOS_REQ_AFFINE_CORES;
 		}
-
-		of_property_for_each_string(np, "qcom,cpu-affinity", prop,
-						affinity) {
-			if (!strcmp("irq", affinity)) {
-				qos_config->cpu_affinity_type =
-						PM_QOS_REQ_AFFINE_IRQ;
-			} else if (!strcmp("all_cores", affinity)) {
-				qos_config->cpu_affinity_type =
-						PM_QOS_REQ_ALL_CORES;
-			} else if (!strcmp("affine_cores", affinity)) {
-				qos_config->cpu_affinity_type =
-						PM_QOS_REQ_AFFINE_CORES;
-				need_cpu_mask = true;
-			} else {
-				dev_err(dev, "qcom,cpu-affinity is illegal");
-				return -EILSEQ;
-			}
-			qos_config++;
-		}
-	} else {
-		dev_dbg(dev, "defaulting affinity on all QoS configs\n");
-		for (qos_config = &pm_qos->qos_configs[0];
-		     qos_config < last_config;
-		     qos_config++)
-			qos_config->cpu_affinity_type = PM_QOS_REQ_AFFINE_IRQ;
 	}
-
-	if (!need_cpu_mask)
-		goto out;
-
-	if (!of_get_property(np, "qcom,cpu-affinity-mask", NULL)) {
-		dev_err(dev, "missing cpu-affinity-mask\n");
-		return -ENODATA;
-	}
-
-	qos_config = &pm_qos->qos_configs[0];
-
-	/*
-	 * The method of copying the u32 qcom,cpu-affinity-mask directly
-	 * into index 0 of the qos_config->cpu_affinity_mask will only work
-	 * so long as:
-	 *  1. nr_cpu_ids < 32
-	 *  2. ARRAY_SIZE(cpumask_bits(&qos_config->cpu_affinity_mask)) < 32
-	 * The 2nd condition is (mostly) a given since ARRAY_SIZE is the same
-	 * as sizeof(long) which - in general - is ge than sizeof(u32)
-	 */
-	of_property_for_each_u32(np, "qcom,cpu-affinity-mask", prop, p,
-				 cpu_mask) {
-		cpumask_bits(&qos_config->cpu_affinity_mask)[0] = cpu_mask;
-		qos_config++;
-	}
-
-	if (qos_config != last_config) {
-		dev_err(dev, "qcom,cpu-affinity-mask is too small\n");
-		return -EINVAL;
-	}
-
-out:
-	for (qos_config = &pm_qos->qos_configs[0];
-	     qos_config < last_config;
-	     qos_config++) {
-		if (qos_config->cpu_affinity_type == PM_QOS_REQ_AFFINE_IRQ)
-			list_add(&qos_config->list, &pm_qos->irq.head);
-		else
-			list_add(&qos_config->list, &pm_qos->thread.head);
-	}
-
-	return ret;
 }
-
-static int sdhci_msm_copy_cpu_latency(struct device *dev, u32 *values,
-				     struct sdhci_msm_pm_qos_config *qos_config,
-				     bool be_to_cpu) {
-
-	int i;
-
-	qos_config->cpu_dma_latency_tbl_us = devm_kzalloc(dev,
-		qos_config->cpu_dma_latency_tbl_sz*
-		sizeof(*qos_config->cpu_dma_latency_tbl_us),
-		GFP_KERNEL);
-	if (!qos_config->cpu_dma_latency_tbl_us) {
-		dev_err(dev, "no memory for latency table\n");
-		return -ENOMEM;
-	}
-
-	for (i = 0; i < qos_config->cpu_dma_latency_tbl_sz ; i++)
-		qos_config->cpu_dma_latency_tbl_us[i] = be_to_cpu ?
-							be32_to_cpu(values[i]) :
-							values[i];
-
-	return 0;
-}
-
-static int sdhci_msm_parse_cpu_latencies(struct device *dev,
-					 struct sdhci_msm_pm_qos *pm_qos,
-					 u32 *latencies)
-{
-	struct device_node *np = dev->of_node;
-	struct property *prop;
-	const __be32 *p; /* __be, since the value comes from the dt */
-	struct sdhci_msm_pm_qos_config *qos_config = &pm_qos->qos_configs[0];
-	u32 scratch[MSM_MMC_LATENCY_TBL_SIZE];
-	int i = 0;
-	int ret;
-
-	of_property_for_each_u32(np, "qcom,cpu-dma-latency-us", prop, p,
-				 scratch[i]) {
-
-		if (i++ == ARRAY_SIZE(scratch) - 1) {
-			qos_config->cpu_dma_latency_tbl_sz = i;
-			ret = sdhci_msm_copy_cpu_latency(dev, scratch,
-						qos_config, false);
-			if (ret)
-				return ret;
-
-			i = 0;
-			qos_config++;
-		}
-	}
-	return 0;
-}
-
-static int sdhci_msm_get_default_configs(struct device *dev,
-					 struct sdhci_msm_pm_qos *pm_qos,
-					 bool read)
-{
-	struct device_node *np = dev->of_node;
-	char *name;
-	unsigned int *default_config;
-	unsigned int config_num;
-	const char *prop;
-
-	if (read) {
-		name = "qcom,default-rd-pm-qos";
-		default_config = &pm_qos->default_rd_config;
-	} else {
-		name = "qcom,default-wr-pm-qos";
-		default_config = &pm_qos->default_wr_config;
-	}
-
-	if (!of_property_read_string(np, name, &prop)) {
-		if (!strcmp("cpu", prop)) {
-			config_num = MSM_MMC_DEFAULT_BY_CPU;
-		} else {
-			if (kstrtouint(prop, 0, &config_num)) {
-				dev_err(dev, "%s: %s can't be converted to a number\n",
-						__func__, name);
-				return -EINVAL;
-			}
-
-			if (config_num >= pm_qos->num_qos_configs) {
-				dev_err(dev, "%s: %s has an illegal value (%d)\n",
-					__func__, name, config_num);
-				return -EINVAL;
-			}
-		}
-	} else {
-		dev_dbg(dev, "setting %s to default value (%d)\n", name,
-				MSM_MMC_DEFAULT_QOS_PLANE);
-		config_num = MSM_MMC_DEFAULT_QOS_PLANE;
-	}
-
-	dev_dbg(dev, "%s resulted in default setting of 0x%x\n",
-			name, config_num);
-	*default_config = config_num;
-
-	return 0;
-}
-
-static int sdhci_msm_populate_qos_pdata(struct device *dev,
-					struct sdhci_msm_pltfm_data *pdata,
-					struct sdhci_host *host)
-{
-	int tbl_sz = 0;
-	struct device_node *np = dev->of_node;
-	int ret = 0;
-	int i;
-	struct property *prop;
-	const char *policy;
-	u32 *latencies = NULL;
-	struct sdhci_msm_pm_qos_config *qos_config;
-	const u32 default_latency = MSM_MMC_DEFAULT_CPU_DMA_LATENCY_US;
-	struct sdhci_msm_pm_qos *pm_qos = &pdata->pm_qos;
-
-	pm_qos->pm_qos_timeout_us = MSM_MMC_PM_QOS_TIMEOUT_US;
-	INIT_LIST_HEAD(&pm_qos->thread.head);
-	pm_qos->thread.dma_req.type = PM_QOS_REQ_ALL_CORES;
-	pm_qos->thread.type = PM_QOS_MNGMT_THREAD_TYPE;
-	INIT_LIST_HEAD(&pm_qos->irq.head);
-	pm_qos->irq.dma_req.type = PM_QOS_REQ_AFFINE_IRQ;
-	pm_qos->irq.type = PM_QOS_MNGMT_IRQ_TYPE;
-
-	/* Get number of QoS configs */
-	if (of_property_read_u32(np, "qcom,num-pm-qos-configs",
-				  &pm_qos->num_qos_configs)) {
-		dev_dbg(dev, "defaulting to single qos config");
-		pm_qos->num_qos_configs = MSM_MMC_DEFAULT_NUM_QOS_CONFIGS;
-	}
-	dev_dbg(dev, "num_qos_configs=%d\n", pm_qos->num_qos_configs);
-
-	if (pm_qos->num_qos_configs <= 0) {
-		dev_err(dev, "num_qos_configs=0\n");
-		ret = -EINVAL;
-		goto out;
-	}
-
-	pm_qos->qos_configs = devm_kzalloc(dev,
-				pm_qos->num_qos_configs*
-				sizeof(*pm_qos->qos_configs), GFP_KERNEL);
-	if (!pm_qos->qos_configs) {
-		dev_err(dev, "not enough memory for QoS configs\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	/* Iterate over QoS configs and read their r/w policy */
-	if (of_get_property(np, "qcom,pm-qos-rw-policy", NULL)) {
-		if (of_property_count_strings(np, "qcom,pm-qos-rw-policy") !=
-		    pm_qos->num_qos_configs) {
-			dev_err(dev,
-				"qcom,pm-qos-rw-policy size doesn't equal %d\n",
-				pm_qos->num_qos_configs);
-			ret = -ENODATA;
-			goto out;
-		}
-
-		i = 0;
-		of_property_for_each_string(np, "qcom,pm-qos-rw-policy", prop,
-						policy) {
-			if (!strcmp("rw", policy)) {
-				pm_qos->qos_configs[i].rw_policy =
-						PM_QOS_READ_WRITE;
-			} else if (!strcmp("r", policy)) {
-				pm_qos->qos_configs[i].rw_policy = PM_QOS_READ;
-				pm_qos->when_to_vote |= PM_QOS_VOTE_REQUEST;
-			} else if (!strcmp("w", policy)) {
-				pm_qos->qos_configs[i].rw_policy = PM_QOS_WRITE;
-				pm_qos->when_to_vote |= PM_QOS_VOTE_REQUEST;
-			} else {
-				dev_err(dev, "entry %d of qcom,pm-qos-rw-policy is illegal",
-						i);
-				ret = -EILSEQ;
-				goto out;
-			}
-			i++;
-		}
-	} else {
-		dev_dbg(dev, "defaulting all QoS configs to rw\n");
-		for (i = 0; i < pm_qos->num_qos_configs; i++)
-			pm_qos->qos_configs[i].rw_policy = PM_QOS_READ_WRITE;
-	}
-
-	/* Iterate over the QoS configs and read latency requirements */
-	latencies = (u32 *)of_get_property(np, "qcom,cpu-dma-latency-us",
-					  &tbl_sz);
-	if (latencies) {
-		tbl_sz /=
-			sizeof(*pm_qos->qos_configs[0].cpu_dma_latency_tbl_us);
-
-		if (!((pm_qos->num_qos_configs == 1 && tbl_sz == 1) ||
-		     (tbl_sz / pm_qos->num_qos_configs ==
-				     MSM_MMC_LATENCY_TBL_SIZE))) {
-			dev_err(dev,
-				"illegal size of qcom,cpu-dma-latency-us\n");
-			ret = -EINVAL;
-			goto out;
-		}
-
-		/* backward compatible case */
-		if (pm_qos->num_qos_configs == 1) {
-			qos_config = &pm_qos->qos_configs[0];
-			qos_config->cpu_dma_latency_tbl_sz = tbl_sz;
-			ret = sdhci_msm_copy_cpu_latency(dev, latencies,
-							 qos_config, true);
-			if (ret)
-				goto out;
-		} else {
-			ret = sdhci_msm_parse_cpu_latencies(dev, pm_qos,
-							    latencies);
-			if (ret)
-				goto out;
-		}
-	} else {
-		dev_dbg(dev, "qcom,cpu-dma-latency-us not provided, defaulting\n");
-		for (i = 0; i < pm_qos->num_qos_configs; i++) {
-			qos_config = &pm_qos->qos_configs[i];
-			qos_config->cpu_dma_latency_tbl_sz = 1;
-			ret = sdhci_msm_copy_cpu_latency(dev,
-						(u32 *)&default_latency,
-						qos_config, false);
-			if (ret)
-				goto out;
-		}
-	}
-
-	/* Set default QoS configs */
-	ret = sdhci_msm_get_default_configs(dev, pm_qos, true);
-	if (ret)
-		goto out;
-	ret = sdhci_msm_get_default_configs(dev, pm_qos, false);
-	if (ret)
-		goto out;
-
-	pm_qos_add_request(&pm_qos->thread.dma_req,
-			   PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-
-	/* Iterate over the QoS configs and read their affinity */
-	ret = sdhci_msm_populate_affinity(dev, pm_qos);
-	if (ret)
-		goto out;
-
-	/*
-	 * Configure the request set to PM_QOS_REQ_AFFINE_IRQ
-	 * to default values. These can later be overridden by configurations
-	 * from the dts.
-	 */
-	pm_qos->irq.dma_req.irq = host->irq;
-	pm_qos_add_request(&pm_qos->irq.dma_req,
-			   PM_QOS_CPU_DMA_LATENCY, PM_QOS_DEFAULT_VALUE);
-
-	pm_qos->tout.show = show_msm_sdhci_pm_qos_tout;
-	pm_qos->tout.store = store_msm_sdhci_pm_qos_tout;
-	sysfs_attr_init(&pm_qos->tout.attr);
-	pm_qos->tout.attr.name = "pm_qos_unvote_delay";
-	pm_qos->tout.attr.mode = S_IRUGO | S_IWUSR;
-	ret = device_create_file(dev, &pm_qos->tout);
-	if (ret) {
-		dev_err(dev, "cannot create pm_qos_unvote_delay %d\n", ret);
-		goto out;
-	}
-
-	host->when_to_vote = pdata->pm_qos.when_to_vote;
-	dev_dbg(dev, "all pm_qos configurations:\n");
-	for (i = 0; i < pm_qos->num_qos_configs; i++)
-		pm_qos_dump_configuration(dev, &pm_qos->qos_configs[i]);
-out:
-	return ret;
-}
-
-static void sdhci_msm_remove_qos(struct device *dev,
-				 struct sdhci_msm_pm_qos *pm_qos)
-{
-	device_remove_file(dev, &pm_qos->tout);
-	pm_qos_remove_request(&pm_qos->thread.dma_req);
-	pm_qos_remove_request(&pm_qos->irq.dma_req);
-}
-#else /* CONFIG_SMP */
-static int sdhci_msm_populate_qos_pdata(struct device *dev,
-					struct sdhci_msm_pltfm_data *pdata,
-					struct sdhci_host *host)
-{
-	return 0;
-}
-
-static void sdhci_msm_remove_qos(struct device *dev,
-				 struct sdhci_msm_pm_qos *pm_qos)
+#else
+static void sdhci_msm_populate_affinity(struct sdhci_msm_pltfm_data *pdata,
+							struct device_node *np)
 {
 }
-
-static void sdhci_msm_pm_qos_update(struct sdhci_host *host,
-				   struct mmc_request *mrq,
-				   enum sdhci_pm_qos_update type)
-{
-}
-#endif /* CONFIG_SMP */
+#endif
 
 /* Parse platform data */
-static struct sdhci_msm_pltfm_data *
-sdhci_msm_populate_pdata(struct device *dev, struct sdhci_host *host)
+static
+struct sdhci_msm_pltfm_data *sdhci_msm_populate_pdata(struct device *dev,
+						struct sdhci_msm_host *msm_host)
 {
 	struct sdhci_msm_pltfm_data *pdata = NULL;
 	struct device_node *np = dev->of_node;
 	u32 bus_width = 0;
+	u32 prop_val = 0;
 	int len, i, mpm_int;
 	int clk_table_len;
 	u32 *clk_table = NULL;
 	enum of_gpio_flags flags = OF_GPIO_ACTIVE_LOW;
+	bool skip_qos_from_dt = false;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
@@ -2299,9 +1592,50 @@ sdhci_msm_populate_pdata(struct device *dev, struct sdhci_host *host)
 		pdata->mmc_bus_width = 0;
 	}
 
-	if (sdhci_msm_populate_qos_pdata(dev, pdata, host)) {
-		dev_err(dev, "failed parsing QoS data\n");
-		goto out;
+	if (of_get_property(np, "qcom,cpu-dma-latency-us",
+				&prop_val)) {
+
+		pdata->cpu_dma_latency_tbl_sz =
+			prop_val/sizeof(*pdata->cpu_dma_latency_us);
+
+		if (!(pdata->cpu_dma_latency_tbl_sz == 1 ||
+			pdata->cpu_dma_latency_tbl_sz == 3)) {
+			dev_warn(dev, "incorrect Qos param passed from DT: %d\n",
+				pdata->cpu_dma_latency_tbl_sz);
+			skip_qos_from_dt = true;
+		} else {
+			pdata->cpu_dma_latency_us = devm_kzalloc(dev,
+				sizeof(*pdata->cpu_dma_latency_us) *
+				pdata->cpu_dma_latency_tbl_sz,
+				GFP_KERNEL);
+			if (!pdata->cpu_dma_latency_us) {
+				dev_err(dev, "No memory for cpu_dma_latency_us\n");
+				goto out;
+			}
+			if (of_property_read_u32_array(np,
+					"qcom,cpu-dma-latency-us",
+					pdata->cpu_dma_latency_us,
+					pdata->cpu_dma_latency_tbl_sz)) {
+				dev_err(dev, "failed to parse cpu-dma-latency\n");
+				goto out;
+			}
+		}
+	} else {
+		dev_info(dev, "no qcom,cpu-dma-latency-us found\n");
+		skip_qos_from_dt = true;
+	}
+
+	if (skip_qos_from_dt) {
+		pdata->cpu_dma_latency_tbl_sz = 1;
+		pdata->cpu_dma_latency_us = devm_kzalloc(dev,
+			sizeof(*pdata->cpu_dma_latency_us) *
+			pdata->cpu_dma_latency_tbl_sz,
+			GFP_KERNEL);
+		if (!pdata->cpu_dma_latency_us) {
+			dev_err(dev, "No memory for cpu_dma_latency_us\n");
+			goto out;
+		}
+		pdata->cpu_dma_latency_us[0] = MSM_MMC_DEFAULT_CPU_DMA_LATENCY;
 	}
 
 	if (sdhci_msm_dt_get_array(dev, "qcom,clk-rates",
@@ -2381,6 +1715,11 @@ sdhci_msm_populate_pdata(struct device *dev, struct sdhci_host *host)
 		pdata->mpm_sdiowakeup_int = mpm_int;
 	else
 		pdata->mpm_sdiowakeup_int = -1;
+
+	sdhci_msm_populate_affinity(pdata, np);
+
+	if (of_property_read_bool(np, "qcom,wakeup-on-idle"))
+		msm_host->mmc->wakeup_on_idle = true;
 
 	return pdata;
 out:
@@ -3744,7 +3083,6 @@ static struct sdhci_ops sdhci_msm_ops = {
 	.dump_vendor_regs = sdhci_msm_dump_vendor_regs,
 	.config_auto_tuning_cmd = sdhci_msm_config_auto_tuning_cmd,
 	.enable_controller_clock = sdhci_msm_enable_controller_clock,
-	.pm_qos_update = sdhci_msm_pm_qos_update,
 	.reset_workaround = sdhci_msm_reset_workaround,
 };
 
@@ -3899,7 +3237,8 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 			goto pltfm_free;
 		}
 
-		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev, host);
+		msm_host->pdata = sdhci_msm_populate_pdata(&pdev->dev,
+							   msm_host);
 		if (!msm_host->pdata) {
 			dev_err(&pdev->dev, "DT parsing error\n");
 			goto pltfm_free;
@@ -3917,10 +3256,10 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		/* Vote for max. clk rate for max. performance */
 		ret = clk_set_rate(msm_host->bus_clk, INT_MAX);
 		if (ret)
-			goto remove_pm_qos;
+			goto pltfm_free;
 		ret = clk_prepare_enable(msm_host->bus_clk);
 		if (ret)
-			goto remove_pm_qos;
+			goto pltfm_free;
 	}
 
 	/* Setup main peripheral bus clock */
@@ -4147,7 +3486,13 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	if (msm_host->pdata->nonhotplug)
 		msm_host->mmc->caps2 |= MMC_CAP2_NONHOTPLUG;
 
-	sdhci_msm_pm_qos_update(host, NULL, SDHCI_PM_QOS_UPDATE);
+	host->cpu_dma_latency_us = msm_host->pdata->cpu_dma_latency_us;
+	host->cpu_dma_latency_tbl_sz = msm_host->pdata->cpu_dma_latency_tbl_sz;
+	host->pm_qos_req_dma.type = msm_host->pdata->cpu_affinity_type;
+	if (host->pm_qos_req_dma.type == PM_QOS_REQ_AFFINE_CORES)
+		bitmap_copy(cpumask_bits(&host->pm_qos_req_dma.cpus_affine),
+			    cpumask_bits(&msm_host->pdata->cpu_affinity_mask),
+			    nr_cpumask_bits);
 
 	init_completion(&msm_host->pwr_irq_completion);
 
@@ -4295,8 +3640,6 @@ pclk_disable:
 bus_clk_disable:
 	if (!IS_ERR_OR_NULL(msm_host->bus_clk))
 		clk_disable_unprepare(msm_host->bus_clk);
-remove_pm_qos:
-	sdhci_msm_remove_qos(&pdev->dev, &msm_host->pdata->pm_qos);
 pltfm_free:
 	sdhci_pltfm_free(pdev);
 out:
@@ -4339,9 +3682,6 @@ static int sdhci_msm_remove(struct platform_device *pdev)
 		sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 		sdhci_msm_bus_unregister(msm_host);
 	}
-
-	sdhci_msm_remove_qos(&pdev->dev, &msm_host->pdata->pm_qos);
-
 	return 0;
 }
 
