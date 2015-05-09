@@ -15,6 +15,7 @@
 #include <linux/errno.h>
 #include <linux/slab.h>
 #include <linux/init.h>
+#include <linux/types.h>
 #include <linux/of_device.h>
 #include <linux/completion.h>
 #include <linux/idr.h>
@@ -122,7 +123,7 @@ EXPORT_SYMBOL(swr_new_device);
  * @master: pointer to soundwire master device
  *
  * Registers a soundwire device for each child node of master node which has
- * a "ea-addr" property
+ * a "swr-devid" property
  *
  */
 int of_register_swr_devices(struct swr_master *master)
@@ -135,7 +136,7 @@ int of_register_swr_devices(struct swr_master *master)
 
 	for_each_available_child_of_node(master->dev.of_node, node) {
 		struct swr_boardinfo info = {};
-		struct property *prop;
+		phys_addr_t addr;
 
 		dev_dbg(&master->dev, "of_swr:register %s\n", node->full_name);
 
@@ -144,13 +145,12 @@ int of_register_swr_devices(struct swr_master *master)
 				node->full_name);
 			continue;
 		}
-		prop = of_find_property(node, "ea-addr", NULL);
-		if (!prop) {
-			dev_err(&master->dev, "of_swr:invalid ea-addr %s\n",
+		if (of_property_read_u64(node, "reg", (u64 *)&addr)) {
+			dev_err(&master->dev, "of_swr:invalid reg %s\n",
 				node->full_name);
 			continue;
 		}
-		memcpy(&info.addr, prop->value, 6);
+		info.addr = addr;
 		info.of_node = of_node_get(node);
 		swr = swr_new_device(master, &info);
 		if (!swr) {
@@ -612,7 +612,7 @@ static const struct swr_device_id *swr_match(const struct swr_device_id *id,
 					     const struct swr_device *swr_dev)
 {
 	while (id->name[0]) {
-		if (strcmp((dev_name(&swr_dev->dev)), id->name) == 0)
+		if (strcmp(swr_dev->name, id->name) == 0)
 			return id;
 		id++;
 	}
