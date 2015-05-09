@@ -1062,4 +1062,16 @@ config INPUT_MT_WRAPPER
 
 	  If unsure, say N.
 
+config TOUCHSCREEN_IT7260_I2C
+	tristate "IT7260 Touchscreen Driver"
+	depends on I2C
+	help
+	  Say Y here if you have a IT7260 Touchscreen Driver
+	  connected to your system.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called it7258_ts_i2c.
+
 endif
