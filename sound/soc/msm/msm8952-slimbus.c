@@ -62,6 +62,7 @@ static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
+static int msm_vi_feed_tx_ch = 2;
 static int msm_btsco_rate = SAMPLING_RATE_8KHZ;
 static int msm_btsco_ch = 1;
 static int msm8952_spk_control = 1;
@@ -478,6 +479,25 @@ static int slim0_rx_bit_format_put(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int msm_vi_feed_tx_ch_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = (msm_vi_feed_tx_ch/2 - 1);
+	pr_debug("%s: msm_vi_feed_tx_ch = %ld\n", __func__,
+				ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int msm_vi_feed_tx_ch_put(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	msm_vi_feed_tx_ch =
+		roundup_pow_of_two(ucontrol->value.integer.value[0] + 2);
+
+	pr_debug("%s: msm_vi_feed_tx_ch = %d\n", __func__, msm_vi_feed_tx_ch);
+	return 1;
+}
+
 static int msm_slim_0_rx_ch_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
@@ -520,6 +540,7 @@ static const char *const slim0_rx_ch_text[] = {"One", "Two"};
 static const char *const slim0_tx_ch_text[] = {"One", "Two", "Three", "Four",
 						"Five", "Six", "Seven",
 						"Eight"};
+static const char *const vi_feed_ch_text[] = {"One", "Two"};
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static char const *slim0_rx_sample_rate_text[] = {"KHZ_48", "KHZ_96",
 					"KHZ_192"};
@@ -530,6 +551,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(8, slim0_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(3, slim0_rx_sample_rate_text),
+	SOC_ENUM_SINGLE_EXT(2, vi_feed_ch_text),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -545,6 +567,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim0_rx_bit_format_get, slim0_rx_bit_format_put),
 	SOC_ENUM_EXT("SLIM_0_RX SampleRate", msm_snd_enum[4],
 			slim0_rx_sample_rate_get, slim0_rx_sample_rate_put),
+	SOC_ENUM_EXT("VI_FEED_TX Channels", msm_snd_enum[5],
+			msm_vi_feed_tx_ch_get, msm_vi_feed_tx_ch_put),
 };
 
 int msm_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
@@ -722,6 +746,21 @@ int msm_slim_0_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
 	rate->min = rate->max = 48000;
 	channels->min = channels->max = msm_slim_0_tx_ch;
 
+	return 0;
+}
+
+int msm_slim_4_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rtd,
+					    struct snd_pcm_hw_params *params)
+{
+	struct snd_interval *rate = hw_param_interval(params,
+	SNDRV_PCM_HW_PARAM_RATE);
+
+	struct snd_interval *channels = hw_param_interval(params,
+			SNDRV_PCM_HW_PARAM_CHANNELS);
+
+	rate->min = rate->max = 48000;
+	channels->min = channels->max = msm_vi_feed_tx_ch;
+	pr_debug("%s: %d\n", __func__, msm_vi_feed_tx_ch);
 	return 0;
 }
 
