@@ -57,9 +57,11 @@
 
 #define CMD_META_DATA_READY		0x1
 #define CMD_LOAD_READY			0x2
+#define CMD_PILFAIL_NFY_MBA		0xffffdead
 
 #define STATUS_META_DATA_AUTH_SUCCESS	0x3
 #define STATUS_AUTH_COMPLETE		0x4
+#define STATUS_MBA_UNLOCKED		0x6
 
 /* External BHS */
 #define EXTERNAL_BHS_ON			BIT(0)
@@ -277,11 +279,25 @@ int pil_mss_shutdown(struct pil_desc *pil)
 	return ret;
 }
 
-int pil_mss_deinit_image(struct pil_desc *pil)
+int __pil_mss_deinit_image(struct pil_desc *pil, bool err_path)
 {
 	struct modem_data *drv = dev_get_drvdata(pil->dev);
 	struct q6v5_data *q6_drv = container_of(pil, struct q6v5_data, desc);
 	int ret = 0;
+	s32 status;
+
+	if (err_path) {
+		writel_relaxed(CMD_PILFAIL_NFY_MBA,
+				drv->rmb_base + RMB_MBA_COMMAND);
+		ret = readl_poll_timeout(drv->rmb_base + RMB_MBA_STATUS, status,
+			status == STATUS_MBA_UNLOCKED || status < 0,
+			POLL_INTERVAL_US, pbl_mba_boot_timeout_ms * 1000);
+		if (ret)
+			dev_err(pil->dev, "MBA region unlock timed out\n");
+		else if (status < 0)
+			dev_err(pil->dev, "MBA unlock returned err status: %d\n",
+						status);
+	}
 
 	ret = pil_mss_shutdown(pil);
 
@@ -295,6 +311,11 @@ int pil_mss_deinit_image(struct pil_desc *pil)
 				drv->q6->mba_virt, drv->q6->mba_phys,
 				&drv->attrs_dma);
 	return ret;
+}
+
+int pil_mss_deinit_image(struct pil_desc *pil)
+{
+	return __pil_mss_deinit_image(pil, true);
 }
 
 int pil_mss_make_proxy_votes(struct pil_desc *pil)
