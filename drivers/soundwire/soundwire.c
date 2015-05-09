@@ -53,9 +53,13 @@ static struct swr_master *swr_master_get(struct swr_master *master)
 static void swr_dev_release(struct device *dev)
 {
 	struct swr_device *swr_dev = to_swr_device(dev);
+	struct swr_master *master = swr_dev->master;
 
-	if (!swr_dev)
+	if (!swr_dev || !master)
 		return;
+	mutex_lock(&master->mlock);
+	list_del_init(&swr_dev->dev_list);
+	mutex_unlock(&master->mlock);
 	swr_master_put(swr_dev->master);
 	kfree(swr_dev);
 }
@@ -97,6 +101,9 @@ struct swr_device *swr_new_device(struct swr_master *master,
 	swr->dev.bus = &soundwire_type;
 	swr->dev.release = swr_dev_release;
 	swr->dev.of_node = info->of_node;
+	mutex_lock(&master->mlock);
+	list_add_tail(&swr->dev_list, &master->devices);
+	mutex_unlock(&master->mlock);
 
 	dev_set_name(&swr->dev, "%s.%lx", swr->name, swr->addr);
 	result = device_register(&swr->dev);
@@ -423,6 +430,91 @@ int swr_write(struct swr_device *dev, u8 dev_num, u32 reg_addr,
 	return master->write(master, dev_num, reg_addr, buf);
 }
 EXPORT_SYMBOL(swr_write);
+
+/**
+ * swr_device_up - Function to bringup the soundwire slave device
+ * @swr_dev: pointer to soundwire slave device
+ * Context: can sleep
+ *
+ * This API will be called by soundwire master to bringup the slave
+ * device.
+ */
+int swr_device_up(struct swr_device *swr_dev)
+{
+	struct device *dev;
+	const struct swr_driver *sdrv;
+
+	if (!swr_dev)
+		return -EINVAL;
+
+	dev = &swr_dev->dev;
+	sdrv = to_swr_driver(dev->driver);
+	if (!sdrv)
+		return -EINVAL;
+
+	if (sdrv->device_up)
+		return sdrv->device_up(to_swr_device(dev));
+
+	return -ENODEV;
+}
+EXPORT_SYMBOL(swr_device_up);
+
+/**
+ * swr_device_down - Function to call soundwire slave device down
+ * @swr_dev: pointer to soundwire slave device
+ * Context: can sleep
+ *
+ * This API will be called by soundwire master to put slave device in
+ * shutdown state.
+ */
+int swr_device_down(struct swr_device *swr_dev)
+{
+	struct device *dev;
+	const struct swr_driver *sdrv;
+
+	if (!swr_dev)
+		return -EINVAL;
+
+	dev = &swr_dev->dev;
+	sdrv = to_swr_driver(dev->driver);
+	if (!sdrv)
+		return -EINVAL;
+
+	if (sdrv->device_down)
+		return sdrv->device_down(to_swr_device(dev));
+
+	return -ENODEV;
+}
+EXPORT_SYMBOL(swr_device_down);
+
+/**
+ * swr_reset_device - reset soundwire slave device
+ * @swr_dev: pointer to soundwire slave device
+ * Context: can sleep
+ *
+ * This API will be called by soundwire master to reset the slave
+ * device when the slave device is not responding or in undefined
+ * state
+ */
+int swr_reset_device(struct swr_device *swr_dev)
+{
+	struct device *dev;
+	const struct swr_driver *sdrv;
+
+	if (!swr_dev)
+		return -EINVAL;
+
+	dev = &swr_dev->dev;
+	sdrv = to_swr_driver(dev->driver);
+	if (!sdrv)
+		return -EINVAL;
+
+	if (sdrv->reset_device)
+		return sdrv->reset_device(to_swr_device(dev));
+
+	return -ENODEV;
+}
+EXPORT_SYMBOL(swr_reset_device);
 
 static int swr_drv_probe(struct device *dev)
 {
