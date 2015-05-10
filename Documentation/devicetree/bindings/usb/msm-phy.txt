@@ -102,6 +102,8 @@ Required properties:
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
+ - ""vls_clamp_reg" : top-level CSR register to be written to enable phy vls
+   clamp which allows phy to detect autonomous mode.
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
@@ -124,9 +126,11 @@ Example:
 	ssphy0: ssphy@f9b38000 {
 		compatible = "qcom,usb-ssphy-qmp";
 		reg = <0xf9b38000 0x16c>,
-			<0xf9b3e000 0x3ff>;
+			<0xf9b3e000 0x3ff>,
+			<0x01947244 0x4>;
 		reg-names = "qmp_phy_base",
-			"qmp_ahb2phy_base";
+			"qmp_ahb2phy_base",
+			"vls_clamp_reg";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
