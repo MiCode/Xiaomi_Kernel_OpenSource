@@ -94,6 +94,12 @@
 			reg = <0x0 0x83000000 0x0 0x1400000>;
 			label = "cont_splash_mem";
 		};
+
+		adsp_mem: adsp_region@0 {
+                        linux,reserve-contiguous-region;
+                        reg = <0 0 0 0x400000>;
+                        label = "adsp_mem";
+                };
 	};
 
 	aliases {
