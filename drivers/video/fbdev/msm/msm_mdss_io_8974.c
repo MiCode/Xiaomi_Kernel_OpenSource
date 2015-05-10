@@ -1538,6 +1538,9 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			goto error_ulps;
 		}
 	} else {
+		if (pdata->panel_info.cont_splash_enabled)
+			mdss_dsi_read_hw_revision(ctrl);
+
 		/*
 		 * Enable DSI clamps only if entering idle power collapse or
 		 * when ULPS during suspend is enabled.
