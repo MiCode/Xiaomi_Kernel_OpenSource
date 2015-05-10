@@ -67,6 +67,8 @@ only on SAW2 v3.0 and above.
 - qcom,use-qchannel-for-wfi: This boolean property is used to indicate
 	that the SPM gets triggerd by the qchannel and not by means of
 	wfi. So a wfe could trigger a spm for clock gating as well.
+- qcom,use-c1-exit-fsm-for-wfi: This boolean property is used to indicate
+	that C1 staggered exit FSM will be used insted of the SPM for wfi.
 
 Example 1:
 	qcom,spm@f9089000 {
