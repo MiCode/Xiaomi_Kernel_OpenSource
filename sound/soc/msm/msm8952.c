@@ -100,6 +100,8 @@ static struct afe_clk_cfg mi2s_tx_clk = {
 static char const *rx_bit_format_text[] = {"S16_LE", "S24_LE"};
 static const char *const ter_mi2s_tx_ch_text[] = {"One", "Two"};
 static const char *const loopback_mclk_text[] = {"DISABLE", "ENABLE"};
+static const char *const proxy_rx_ch_text[] = {"One", "Two", "Three", "Four",
+	"Five", "Six", "Seven", "Eight"};
 
 static inline int param_is_mask(int p)
 {
@@ -225,6 +227,24 @@ int is_us_eu_switch_gpio_support(struct platform_device *pdev,
 			mbhc_cfg.swap_gnd_mic = msm8952_swap_gnd_mic;
 		}
 	}
+	return 0;
+}
+
+static int msm_proxy_rx_ch_get(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_proxy_rx_ch = %d\n", __func__,
+						msm_proxy_rx_ch);
+	ucontrol->value.integer.value[0] = msm_proxy_rx_ch - 1;
+	return 0;
+}
+
+static int msm_proxy_rx_ch_put(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	msm_proxy_rx_ch = ucontrol->value.integer.value[0] + 1;
+	pr_debug("%s: msm_proxy_rx_ch = %d\n", __func__,
+						msm_proxy_rx_ch);
 	return 0;
 }
 
@@ -698,6 +718,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(2, ter_mi2s_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, loopback_mclk_text),
+	SOC_ENUM_SINGLE_EXT(8, proxy_rx_ch_text),
 };
 
 static const char *const btsco_rate_text[] = {"BTSCO_RATE_8KHZ",
@@ -717,6 +738,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			loopback_mclk_get, loopback_mclk_put),
 	SOC_ENUM_EXT("Internal BTSCO SampleRate", msm_btsco_enum[0],
 		     msm_btsco_rate_get, msm_btsco_rate_put),
+	SOC_ENUM_EXT("PROXY_RX Channels", msm_snd_enum[3],
+			msm_proxy_rx_ch_get, msm_proxy_rx_ch_put),
 
 };
 
