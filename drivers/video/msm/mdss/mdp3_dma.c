@@ -936,6 +936,14 @@ static int mdp3_dmap_histo_op(struct mdp3_dma *dma, u32 op)
 	return ret;
 }
 
+bool mdp3_dmap_busy(void)
+{
+	u32 val;
+
+	val = MDP3_REG_READ(MDP3_REG_DISPLAY_STATUS);
+	return val & MDP3_DMA_P_BUSY_BIT;
+}
+
 static int mdp3_dma_start(struct mdp3_dma *dma, struct mdp3_intf *intf)
 {
 	unsigned long flag;
@@ -1029,6 +1037,7 @@ int mdp3_dma_init(struct mdp3_dma *dma)
 		dma->dma_done_notifier = mdp3_dma_done_notifier;
 		dma->start = mdp3_dma_start;
 		dma->stop = mdp3_dma_stop;
+		dma->busy = mdp3_dmap_busy;
 		break;
 	case MDP3_DMA_S:
 		dma->dma_config = mdp3_dmas_config;

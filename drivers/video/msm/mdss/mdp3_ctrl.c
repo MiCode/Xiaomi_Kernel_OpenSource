@@ -158,6 +158,8 @@ static void mdp3_dispatch_dma_done(struct work_struct *work)
 static void mdp3_dispatch_clk_off(struct work_struct *work)
 {
 	struct mdp3_session_data *session;
+	int rc;
+	bool dmap_busy;
 
 	pr_debug("%s\n", __func__);
 	session = container_of(work, struct mdp3_session_data,
@@ -171,6 +173,24 @@ static void mdp3_dispatch_clk_off(struct work_struct *work)
 		mutex_unlock(&session->lock);
 		pr_debug("Ignoring clk shut down\n");
 		return;
+	}
+
+	if (session->intf->active) {
+		rc = wait_for_completion_timeout(&session->dma_completion,
+							WAIT_DMA_TIMEOUT);
+		if (rc <= 0) {
+			struct mdss_panel_data *panel;
+
+			panel = session->panel;
+			pr_debug("cmd kickoff timed out (%d)\n", rc);
+			dmap_busy = session->dma->busy();
+			if (dmap_busy) {
+				pr_err("dmap is still busy, bug_on\n");
+				BUG_ON(1);
+			} else {
+				pr_debug("dmap is not busy, continue\n");
+			}
+		}
 	}
 
 	mdp3_ctrl_vsync_enable(session->mfd, 0);
@@ -190,7 +210,7 @@ void dma_done_notify_handler(void *arg)
 	struct mdp3_session_data *session = (struct mdp3_session_data *)arg;
 	atomic_inc(&session->dma_done_cnt);
 	schedule_work(&session->dma_done_work);
-	complete(&session->dma_completion);
+	complete_all(&session->dma_completion);
 }
 
 void vsync_count_down(void *arg)
@@ -2508,7 +2528,7 @@ int mdp3_ctrl_init(struct msm_fb_data_type *mfd)
 	mdp3_session->vsync_timer.data = (u32)mdp3_session;
 	mdp3_session->vsync_period = 1000 / mfd->panel_info->mipi.frame_rate;
 	mfd->mdp.private1 = mdp3_session;
-	init_completion(&mdp3_session->dma_completion);
+	INIT_COMPLETION(mdp3_session->dma_completion);
 	if (intf_type != MDP3_DMA_OUTPUT_SEL_DSI_VIDEO)
 		mdp3_session->wait_for_dma_done = mdp3_wait_for_dma_done;
 

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -353,5 +353,7 @@ enum {
 #define MDP3_DMA_P_HIST_INTR_RESET_DONE_BIT		BIT(0)
 #define MDP3_DMA_P_HIST_INTR_HIST_DONE_BIT		BIT(1)
 #define MDP3_PPP_DONE MDP3_INTR_DP0_ROI_DONE
+
+#define MDP3_DMA_P_BUSY_BIT				BIT(6)
 
 #endif /* MDP3_HWIO_H */
