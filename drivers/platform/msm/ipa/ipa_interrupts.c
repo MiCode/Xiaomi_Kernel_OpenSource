@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,9 @@ struct ipa_interrupt_work_wrap {
 static struct ipa_interrupt_info ipa_interrupt_to_cb[IPA_IRQ_MAX];
 static struct workqueue_struct *ipa_interrupt_wq;
 static u32 ipa_ee;
+
+static void ipa_interrupt_defer(struct work_struct *work);
+static DECLARE_WORK(ipa_interrupt_defer_work, ipa_interrupt_defer);
 
 static void deferred_interrupt_work(struct work_struct *work)
 {
@@ -122,22 +125,59 @@ fail_alloc_work:
 	return res;
 }
 
-static irqreturn_t ipa_isr(int irq, void *ctxt)
+static void ipa_process_interrupts(void)
 {
 	u32 reg;
-	u32 bmsk = 1;
+	u32 bmsk;
 	u32 i = 0;
 	u32 en;
 
 	en = ipa_read_reg(ipa_ctx->mmio, IPA_IRQ_EN_EE_n_ADDR(ipa_ee));
 	reg = ipa_read_reg(ipa_ctx->mmio, IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
-	for (i = 0; i < IPA_IRQ_MAX; i++) {
-		if (en & reg & bmsk)
-			handle_interrupt(i);
-		bmsk = bmsk << 1;
+	while (en & reg) {
+		bmsk = 1;
+		for (i = 0; i < IPA_IRQ_MAX; i++) {
+			if (en & reg & bmsk)
+				handle_interrupt(i);
+			bmsk = bmsk << 1;
+		}
+		ipa_write_reg(ipa_ctx->mmio,
+				IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
+		reg = ipa_read_reg(ipa_ctx->mmio,
+				IPA_IRQ_STTS_EE_n_ADDR(ipa_ee));
 	}
-	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
+}
 
+static void ipa_interrupt_defer(struct work_struct *work)
+{
+	IPADBG("processing interrupts in wq\n");
+	ipa_inc_client_enable_clks();
+	ipa_process_interrupts();
+	ipa_dec_client_disable_clks();
+	IPADBG("Done\n");
+}
+
+static irqreturn_t ipa_isr(int irq, void *ctxt)
+{
+	unsigned long flags;
+
+	/* defer interrupt handling in case IPA is not clocked on */
+	if (ipa_active_clients_trylock(&flags) == 0) {
+		IPADBG("defer interrupt processing\n");
+		queue_work(ipa_ctx->power_mgmt_wq, &ipa_interrupt_defer_work);
+		return IRQ_HANDLED;
+	}
+
+	if (ipa_ctx->ipa_active_clients.cnt == 0) {
+		IPADBG("defer interrupt processing\n");
+		queue_work(ipa_ctx->power_mgmt_wq, &ipa_interrupt_defer_work);
+		goto bail;
+	}
+
+	ipa_process_interrupts();
+
+bail:
+	ipa_active_clients_trylock_unlock(&flags);
 	return IRQ_HANDLED;
 }
 /**
@@ -240,7 +280,7 @@ int ipa_interrupts_init(u32 ipa_irq, u32 ee, struct device *ipa_dev)
 	ipa_write_reg(ipa_ctx->mmio, IPA_IRQ_CLR_EE_n_ADDR(ipa_ee), reg);
 
 	res = request_irq(ipa_irq, (irq_handler_t) ipa_isr,
-				IRQF_TRIGGER_HIGH, "ipa", ipa_dev);
+				IRQF_TRIGGER_RISING, "ipa", ipa_dev);
 	if (res) {
 		IPAERR("fail to register IPA IRQ handler irq=%d\n", ipa_irq);
 		return -ENODEV;
