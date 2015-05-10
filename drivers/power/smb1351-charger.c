@@ -440,6 +440,7 @@ struct smb1351_charger {
 	int			fastchg_current_max_ma;
 	int			workaround_flags;
 
+	int			parallel_pin_polarity_setting;
 	bool			parallel_charger;
 	bool			parallel_charger_present;
 	bool			bms_controlled_charging;
@@ -1388,7 +1389,7 @@ static int smb1351_parallel_set_chg_present(struct smb1351_charger *chip,
 		}
 
 		/* set chg en by pin active low  */
-		reg = EN_BY_PIN_LOW_ENABLE | USBCS_CTRL_BY_I2C;
+		reg = chip->parallel_pin_polarity_setting | USBCS_CTRL_BY_I2C;
 		rc = smb1351_masked_write(chip, CHG_PIN_EN_CTRL_REG,
 					EN_PIN_CTRL_MASK | USBCS_CTRL_BIT, reg);
 		if (rc) {
@@ -2840,6 +2841,15 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	if (rc)
 		chip->recharge_mv = -EINVAL;
 
+	rc = of_property_read_u32(node, "qcom,parallel-en-pin-polarity",
+					&chip->parallel_pin_polarity_setting);
+	if (rc)
+		chip->parallel_pin_polarity_setting = EN_BY_PIN_LOW_ENABLE;
+	else
+		chip->parallel_pin_polarity_setting =
+				chip->parallel_pin_polarity_setting ?
+				EN_BY_PIN_HIGH_ENABLE : EN_BY_PIN_LOW_ENABLE;
+
 	i2c_set_clientdata(client, chip);
 
 	chip->parallel_psy.name		= "usb-parallel";
@@ -2862,8 +2872,6 @@ static int smb1351_parallel_charger_probe(struct i2c_client *client,
 	mutex_init(&chip->irq_complete);
 
 	create_debugfs_entries(chip);
-
-	dump_regs(chip);
 
 	pr_info("smb1351 parallel successfully probed.\n");
 
