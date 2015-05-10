@@ -493,6 +493,7 @@ int pil_mss_reset_load_mba(struct pil_desc *pil)
 err_mss_reset:
 	dma_free_attrs(&md->mba_mem_dev, drv->mba_size, drv->mba_virt,
 				drv->mba_phys, &md->attrs_dma);
+	drv->mba_virt = NULL;
 err_dma_alloc:
 	release_firmware(fw);
 	return ret;
@@ -516,7 +517,8 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 					GFP_KERNEL, &attrs);
 	if (!mdata_virt) {
 		dev_err(pil->dev, "MBA metadata buffer allocation failed\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto fail;
 	}
 	memcpy(mdata_virt, metadata, size);
 	/* wmb() ensures copy completes prior to starting authentication. */
@@ -541,10 +543,17 @@ static int pil_msa_auth_modem_mdt(struct pil_desc *pil, const u8 *metadata,
 
 	dma_free_attrs(&drv->mba_mem_dev, size, mdata_virt, mdata_phys, &attrs);
 
-	if (ret) {
-		modem_log_rmb_regs(drv->rmb_base);
-		if (drv->q6)
-			pil_mss_shutdown(pil);
+	if (!ret)
+		return ret;
+
+fail:
+	modem_log_rmb_regs(drv->rmb_base);
+	if (drv->q6) {
+		pil_mss_shutdown(pil);
+		dma_free_attrs(&drv->mba_mem_dev, drv->q6->mba_size,
+				drv->q6->mba_virt, drv->q6->mba_phys,
+				&drv->attrs_dma);
+		drv->q6->mba_virt = NULL;
 	}
 	return ret;
 }
