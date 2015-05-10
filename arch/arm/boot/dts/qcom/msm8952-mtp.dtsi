@@ -38,6 +38,18 @@
 	};
 };
 
+&i2c_2 {
+	/* Parallel-charger configuration */
+	smb1351-charger@1d {
+		compatible = "qcom,smb1351-charger";
+		reg = <0x1d>;
+		qcom,parallel-en-pin-polarity = <1>;
+		qcom,parallel-charger;
+		qcom,float-voltage-mv = <4250>;
+		qcom,recharge-mv = <100>;
+	};
+};
+
 &soc {
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
