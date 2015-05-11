@@ -2219,7 +2219,6 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 		} else {
 			/* request intent of correct size */
 			reinit_completion(&ctx->int_req_ack_complete);
-			reinit_completion(&ctx->int_req_complete);
 			ret = ctx->transport_ptr->ops->tx_cmd_rx_intent_req(
 				ctx->transport_ptr->ops, ctx->lcid, size);
 			if (ret)
