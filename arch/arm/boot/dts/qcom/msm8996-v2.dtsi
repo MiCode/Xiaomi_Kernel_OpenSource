@@ -338,6 +338,41 @@
 		qcom,sensors = <8>;
 		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200>;
 	};
+
+	ipa_hw: qcom,ipa@680000 {
+		compatible = "qcom,ipa";
+		reg = <0x680000 0x4effc>,
+			<0x684000 0x26934>;
+		reg-names = "ipa-base", "bam-base";
+		interrupts = <0 333 0>,
+					<0 432 0>;
+		interrupt-names = "ipa-irq", "bam-irq";
+		qcom,ipa-hw-ver = <5>; /* IPA core version = IPAv2.5 */
+		qcom,ipa-hw-mode = <0>;
+		qcom,ee = <0>;
+		qcom,use-ipa-tethering-bridge;
+		qcom,modem-cfg-emb-pipe-flt;
+		clocks = <&clock_gcc clk_ipa_clk>,
+			<&clock_gcc clk_aggre2_noc_clk>;
+		clock-names = "core_clk", "smmu_clk";
+		qcom,arm-smmu;
+		qcom,smmu-disable-htw;
+
+		ipa_smmu_ap: ipa_smmu_ap {
+			compatible = "qcom,ipa-smmu-ap-cb";
+			iommus = <&anoc2_smmu 0x30>;
+		};
+
+		ipa_smmu_wlan: ipa_smmu_wlan {
+			compatible = "qcom,ipa-smmu-wlan-cb";
+			iommus = <&anoc2_smmu 0x31>;
+		};
+
+		ipa_smmu_uc: ipa_smmu_uc {
+			compatible = "qcom,ipa-smmu-uc-cb";
+			iommus = <&anoc2_smmu 0x32>;
+		};
+	};
 };
 
 &tsens0 {
