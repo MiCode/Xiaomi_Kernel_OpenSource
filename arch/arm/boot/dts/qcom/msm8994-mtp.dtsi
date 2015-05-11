@@ -299,11 +299,6 @@
 	};
 };
 
-#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
-#include "dsi-panel-jdi-1080p-video.dtsi"
-#include "dsi-panel-sharp-1080p-cmd.dtsi"
-
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
@@ -338,6 +333,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_jdi_1080_vid {
@@ -345,6 +341,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &labibb {
@@ -361,6 +358,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-min-refresh-rate = <30>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_sharp_video_1 {
@@ -368,6 +366,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-min-refresh-rate = <30>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &pmx_hdmi_cec {

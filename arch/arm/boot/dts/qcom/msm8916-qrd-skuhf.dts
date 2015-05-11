@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -51,11 +51,10 @@
 	};
 };
 
-#include "dsi-panel-otm1283a-720p-video.dtsi"
-
 &dsi_otm1283a_720p_video {
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &mdss_dsi0 {

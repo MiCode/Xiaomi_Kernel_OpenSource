@@ -15,7 +15,6 @@
 
 #include "msm8939-v3.0.dtsi"
 #include "msm8939-qrd-skuk.dtsi"
-#include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM8939v3.0 QRD SKUK";
@@ -118,32 +117,6 @@
 
 	vsp-supply = <&tps65132_pos>;
 	vsn-supply = <&tps65132_neg>;
-
-	qcom,ctrl-supply-entries {
-		/delete-node/ qcom,ctrl-supply-entry@0;
-	};
-
-	qcom,panel-supply-entries {
-		/delete-node/qcom,panel-supply-entry@0;
-
-		qcom,panel-supply-entry@2 {
-			reg = <2>;
-			qcom,supply-name = "vsp";
-			qcom,supply-min-voltage = <5800000>;
-			qcom,supply-max-voltage = <5800000>;
-			qcom,supply-enable-load = <200>;
-			qcom,supply-disable-load = <0>;
-		};
-
-		qcom,panel-supply-entry@3 {
-			reg = <3>;
-			qcom,supply-name = "vsn";
-			qcom,supply-min-voltage = <5800000>;
-			qcom,supply-max-voltage = <5800000>;
-			qcom,supply-enable-load = <40>;
-			qcom,supply-disable-load = <0>;
-		};
-	};
 };
 
 &dsi_nt35596_1080p_skuk_video {
@@ -151,6 +124,7 @@
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply_qrd_skuk>;
 };
 
 &usb_otg {

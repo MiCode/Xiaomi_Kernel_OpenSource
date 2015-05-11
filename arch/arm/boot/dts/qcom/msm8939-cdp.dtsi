@@ -342,14 +342,6 @@
 	status = "okay";
 };
 
-#include "dsi-panel-jdi-1080p-video.dtsi"
-#include "dsi-panel-nt35590-720p-video.dtsi"
-#include "dsi-panel-nt35590-720p-cmd.dtsi"
-#include "dsi-panel-hx8394d-720p-video.dtsi"
-#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
-#include "dsi-panel-jdi-a216-fhd-video.dtsi"
-
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
@@ -362,6 +354,7 @@
 	qcom,cont-splash-enabled;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_hx8394d_720_vid {
@@ -370,6 +363,7 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_nt35590_720_vid {
@@ -381,6 +375,7 @@
 	qcom,esd-check-enabled;
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_nt35590_720_cmd {
@@ -390,6 +385,7 @@
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
 	qcom,esd-check-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_jdi_a216_fhd_vid {
@@ -398,6 +394,7 @@
 	qcom,mdss-dsi-bl-pmic-bank-select = <0>;
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &pmx_mdss {
@@ -428,11 +425,13 @@
         qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
 	qcom,mdss-dsi-lane-map = "lane_map_0123";
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_sharp_video_1 {
         qcom,mdss-dsi-lane-map = "lane_map_3210";
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &pm8916_mpps {

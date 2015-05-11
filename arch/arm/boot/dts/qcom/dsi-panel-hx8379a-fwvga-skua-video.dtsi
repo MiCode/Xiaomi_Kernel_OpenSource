@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -117,7 +117,6 @@
 		qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 		qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
 		qcom,mdss-dsi-bl-pmic-bank-select = <0>;
-		qcom,mdss-dsi-pwm-gpio = <&pm8909_mpps 2 0>;
 		qcom,mdss-dsi-dma-trigger = "trigger_sw";
 		qcom,mdss-dsi-mdp-trigger = "none";
 		qcom,mdss-dsi-reset-sequence = <1 20>, <0 20>, <1 20>;

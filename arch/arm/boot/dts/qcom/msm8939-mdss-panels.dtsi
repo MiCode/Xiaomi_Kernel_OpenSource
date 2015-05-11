@@ -1,0 +1,106 @@
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "dsi-panel-sim-video.dtsi"
+#include "dsi-panel-sim-cmd.dtsi"
+#include "dsi-panel-jdi-1080p-video.dtsi"
+#include "dsi-panel-nt35590-720p-video.dtsi"
+#include "dsi-panel-nt35590-720p-cmd.dtsi"
+#include "dsi-panel-hx8394d-720p-video.dtsi"
+#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
+#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
+#include "dsi-panel-jdi-a216-fhd-video.dtsi"
+#include "dsi-panel-jdi-fhd-video.dtsi"
+#include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
+#include "dsi-panel-r61318-hd-video.dtsi"
+#include "dsi-panel-r63417-1080p-video.dtsi"
+
+&soc {
+	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <2850000>;
+			qcom,supply-max-voltage = <2850000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+
+	dsi_panel_pwr_supply_jdi: dsi_panel_pwr_supply_jdi {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vdd";
+			qcom,supply-min-voltage = <3000000>;
+			qcom,supply-max-voltage = <3000000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+	};
+
+	dsi_panel_pwr_supply_qrd_skuk: dsi_panel_pwr_supply_qrd_skuk {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		qcom,panel-supply-entry@0 {
+			reg = <0>;
+			qcom,supply-name = "vddio";
+			qcom,supply-min-voltage = <1800000>;
+			qcom,supply-max-voltage = <1800000>;
+			qcom,supply-enable-load = <100000>;
+			qcom,supply-disable-load = <100>;
+		};
+
+		qcom,panel-supply-entry@1 {
+			reg = <1>;
+			qcom,supply-name = "vsp";
+			qcom,supply-min-voltage = <5800000>;
+			qcom,supply-max-voltage = <5800000>;
+			qcom,supply-enable-load = <200>;
+			qcom,supply-disable-load = <0>;
+		};
+
+		qcom,panel-supply-entry@2 {
+			reg = <2>;
+			qcom,supply-name = "vsn";
+			qcom,supply-min-voltage = <5800000>;
+			qcom,supply-max-voltage = <5800000>;
+			qcom,supply-enable-load = <40>;
+			qcom,supply-disable-load = <0>;
+		};
+	};
+};
+

@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -138,18 +138,18 @@
 	};
 };
 
-#include "apq8084-mdss-panels.dtsi"
-
 &dsi_dual_jdi_video_0 {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <2>;
 	qcom,mdss-dsi-pwm-gpio = <&pma8084_gpios 7 0>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_jdi_video_1 {
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 
@@ -162,6 +162,7 @@
 	/delete-property/ qcom,cmd-sync-wait-broadcast;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_jdi_cmd_1 {
@@ -170,6 +171,7 @@
 	/delete-property/ qcom,cmd-sync-wait-trigger;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 

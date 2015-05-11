@@ -94,10 +94,12 @@
 
 &dsi_hx8394d_720_vid {
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_hx8394d_qhd_vid {
 	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 2 0>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &pm8916_chg {

@@ -300,21 +300,6 @@
 				qcom,supply-disable-load = <100>;
 			};
 		};
-
-		qcom,panel-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,panel-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vdd";
-				qcom,supply-min-voltage = <1800000>;
-				qcom,supply-max-voltage = <1800000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
-				qcom,supply-post-on-sleep = <5>;
-			};
-		};
 	};
 
 	mdss_dsi1: qcom,mdss_dsi@fd996000 {
@@ -415,21 +400,6 @@
 				qcom,supply-disable-load = <100>;
 			};
 		};
-
-		qcom,panel-supply-entries {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			qcom,panel-supply-entry@0 {
-				reg = <0>;
-				qcom,supply-name = "vdd";
-				qcom,supply-min-voltage = <1800000>;
-				qcom,supply-max-voltage = <1800000>;
-				qcom,supply-enable-load = <100000>;
-				qcom,supply-disable-load = <100>;
-				qcom,supply-post-on-sleep = <5>;
-			};
-		};
 	};
 
 	qcom,mdss_wb_panel {
@@ -472,3 +442,5 @@
 		};
 	};
 };
+
+#include "msm8992-mdss-panels.dtsi"

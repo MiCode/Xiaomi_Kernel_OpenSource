@@ -13,17 +13,6 @@
 #include "msm8992-pinctrl.dtsi"
 #include "msm8992-camera-sensor-cdp.dtsi"
 
-#include "dsi-panel-sharp-dualmipi0-wqxga-video.dtsi"
-#include "dsi-panel-sharp-dualmipi1-wqxga-video.dtsi"
-#include "dsi-panel-jdi-dualmipi0-video.dtsi"
-#include "dsi-panel-jdi-dualmipi1-video.dtsi"
-#include "dsi-panel-jdi-dualmipi0-cmd.dtsi"
-#include "dsi-panel-jdi-dualmipi1-cmd.dtsi"
-#include "dsi-panel-nt35597-wqxga-video.dtsi"
-#include "dsi-panel-nt35597-wqxga-cmd.dtsi"
-#include "dsi-panel-jdi-1080p-video.dtsi"
-#include "dsi-panel-sharp-1080p-cmd.dtsi"
-
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
@@ -58,14 +47,17 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_nt35597_wqxga_video {
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_nt35597_wqxga_cmd {
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_sharp_video_0 {
@@ -76,6 +68,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-min-refresh-rate = <45>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_sharp_video_1 {
@@ -83,6 +76,7 @@
 	qcom,mdss-dsi-pan-enable-dynamic-fps;
 	qcom,mdss-dsi-pan-fps-update = "dfps_immediate_porch_mode_vfp";
 	qcom,mdss-dsi-min-refresh-rate = <45>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 
@@ -96,10 +90,12 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,5v-boost-gpio = <&pm8994_gpios 14 0>;
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_jdi_video_1 {
 	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_jdi_cmd_0 {
@@ -114,12 +110,14 @@
 	qcom,cont-splash-enabled;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_dual_jdi_cmd_1 {
 	qcom,cont-splash-enabled;
 	qcom,partial-update-enabled;
 	qcom,panel-roi-alignment = <4 4 2 2 20 20>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &dsi_sharp_1080_cmd {
@@ -131,14 +129,7 @@
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
 	qcom,cont-splash-enabled;
-};
-
-&dsi_nt35597_wqxga_video {
-	qcom,cont-splash-enabled;
-};
-
-&dsi_nt35597_wqxga_cmd {
-	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
 &labibb {
