@@ -97,6 +97,7 @@ struct dcc_drvdata {
 	enum dcc_func_type	func_type;
 	uint32_t		ram_cfg;
 	bool			enable;
+	bool			interrupt_disable;
 	char			*sram_node;
 	struct cdev		sram_dev;
 	struct class		*sram_class;
@@ -281,6 +282,25 @@ static void __dcc_reg_dump(struct dcc_drvdata *drvdata)
 	drvdata->reg_data.magic = DCC_REG_DUMP_MAGIC_V2;
 }
 
+static void __dcc_first_crc(struct dcc_drvdata *drvdata)
+{
+	int i;
+
+	/*
+	 * Need to send 2 triggers to DCC. First trigger sets CRC error status
+	 * bit. So need second trigger to reset this bit.
+	 */
+	for (i = 0; i < 2; i++) {
+		if (!dcc_ready(drvdata))
+			dev_err(drvdata->dev, "DCC is not ready!\n");
+
+		dcc_writel(drvdata, 1, DCC_SW_CTL);
+	}
+
+	/* Clear CRC error interrupt */
+	dcc_writel(drvdata, BIT(0), DCC_INT_STATUS);
+}
+
 static int dcc_enable(struct dcc_drvdata *drvdata)
 {
 	int ret = 0;
@@ -314,7 +334,8 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 		   DCC_CFG);
 
 	/* 5. Clears interrupt status register */
-	dcc_writel(drvdata, 0, DCC_INT_STATUS);
+	dcc_writel(drvdata, 0, DCC_INT_ENABLE);
+	dcc_writel(drvdata, (BIT(4) | BIT(0)), DCC_INT_STATUS);
 
 	/* Make sure all config is written in sram */
 	mb();
@@ -322,6 +343,14 @@ static int dcc_enable(struct dcc_drvdata *drvdata)
 	/* 6. Set LL bit */
 	dcc_writel(drvdata, 1, DCC_LL);
 	drvdata->enable = 1;
+
+	if (drvdata->func_type == DCC_FUNC_TYPE_CRC) {
+		__dcc_first_crc(drvdata);
+
+		/* Enable CRC error interrupt */
+		if (!drvdata->interrupt_disable)
+			dcc_writel(drvdata, BIT(0), DCC_INT_ENABLE);
+	}
 
 	/* Save DCC registers */
 	if (drvdata->save_reg)
@@ -667,6 +696,33 @@ err:
 }
 static DEVICE_ATTR(ready, S_IRUGO, dcc_show_ready, NULL);
 
+static ssize_t dcc_show_interrupt_disable(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
+{
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned)drvdata->interrupt_disable);
+}
+
+static ssize_t dcc_store_interrupt_disable(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t size)
+{
+	unsigned long val;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+	drvdata->interrupt_disable = (val ? 1:0);
+	mutex_unlock(&drvdata->mutex);
+	return size;
+}
+static DEVICE_ATTR(interrupt_disable, S_IRUGO | S_IWUSR,
+		   dcc_show_interrupt_disable, dcc_store_interrupt_disable);
+
 static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_func_type,
 	&dev_attr_data_sink,
@@ -676,6 +732,7 @@ static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_config_reset,
 	&dev_attr_ready,
 	&dev_attr_crc_error,
+	&dev_attr_interrupt_disable,
 	NULL,
 };
 
