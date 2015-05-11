@@ -16,6 +16,10 @@
 #include "msm8916-regulator.dtsi"
 #include "msm8909-pm8916-camera.dtsi"
 
+/ {
+	qcom,pmic-id = <0x1000B 0x0 0x0 0x0>;
+};
+
 &soc {
 	/* remove msm8916 acc/cpr regulator node */
 	/delete-node/ regulator@1946000;
