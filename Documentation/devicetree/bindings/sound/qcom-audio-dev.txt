@@ -221,7 +221,9 @@ Required properties:
 
  - qcom,msm-cpudai-auxpcm-pcm-clk-rate:   Clock rate for pcm - 2048000. The
                                           first value is for 8khz mode, the
-                                          second is for auxpcm
+                                          second is for 16KHz mode. When clock
+					  rate is set to zero, then external
+					  clock is assumed.
 
  - qcom,msm-auxpcm-interface:             name of AUXPCM interface "primary"
                                           indicates primary AUXPCM interface
@@ -233,7 +235,10 @@ Optional properties:
 					  group configuration.
 - pinctrl-x: 				  Defines pinctrl state for each pin
 					  group
-
+- qcom,msm-cpudai-afe-clk-ver:            Indicates version of AFE clock
+					  interface to be used for enabling
+					  PCM clock. If not defined, selects
+					  default AFE clock interface.
 
 * msm-pcm-hostless
 
