@@ -535,6 +535,9 @@ static unsigned int convert_cmd(unsigned int cmd)
 		return QSEECOM_QTEEC_IOCTL_REQUEST_CANCELLATION_REQ;
 	case COMPAT_QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ:
 		return QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ;
+	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ:
+		return QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ;
+
 	default:
 		return cmd;
 	}
@@ -612,7 +615,8 @@ long compat_qseecom_ioctl(struct file *file,
 						(unsigned long)data);
 	}
 	break;
-	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_REQ: {
+	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_REQ:
+	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ: {
 		struct compat_qseecom_send_modfd_cmd_req __user *data32;
 		struct qseecom_send_modfd_cmd_req __user *data;
 		int err;

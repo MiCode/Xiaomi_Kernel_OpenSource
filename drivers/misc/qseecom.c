@@ -2387,13 +2387,13 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 		sg = sg_ptr->sgl;
 		if (sg_ptr->nents == 1) {
 			uint32_t *update;
-			uint64_t *update_64bit;
 			if (__boundary_checks_offset(req, lstnr_resp, data, i))
 				goto err;
 			if ((data->type == QSEECOM_CLIENT_APP &&
 				data->client.app_arch == ELFCLASS32) ||
 				(data->type == QSEECOM_LISTENER_SERVICE)) {
 				/*
+				 * 32bit app is using 32bit address, and
 				 * check if 32bit app's sg phy addr
 				 * region is under 4GB
 				 */
@@ -2412,9 +2412,10 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 					(uint32_t)sg_dma_address(sg_ptr->sgl);
 			} else if (data->type == QSEECOM_CLIENT_APP &&
 				data->client.app_arch == ELFCLASS64) {
-				update_64bit = (uint64_t *) field;
-				*update_64bit = cleanup ? 0 :
-					(uint64_t)sg_dma_address(sg_ptr->sgl);
+				/* 64bit app is still using 32bit address */
+				update = (uint32_t *) field;
+				*update = cleanup ? 0 :
+					(uint32_t)sg_dma_address(sg_ptr->sgl);
 			} else {
 				pr_err("QSEE app arch %u is not supported\n",
 							data->client.app_arch);
@@ -2423,7 +2424,6 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			len += (uint32_t)sg->length;
 		} else {
 			struct qseecom_sg_entry *update;
-			struct qseecom_sg_entry_64bit *update_64bit;
 			int j = 0;
 
 			if ((data->type != QSEECOM_LISTENER_SERVICE) &&
@@ -2456,6 +2456,7 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 				update = (struct qseecom_sg_entry *)field;
 				for (j = 0; j < sg_ptr->nents; j++) {
 					/*
+					 * 32bit app is using 32bit address, and
 					 * check if 32bit app's sg phy addr
 					 * region is under 4GB
 					 */
@@ -2479,14 +2480,14 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 				}
 			} else if (data->type == QSEECOM_CLIENT_APP &&
 				data->client.app_arch == ELFCLASS64) {
-				update_64bit =
-					(struct qseecom_sg_entry_64bit *)field;
+				/* 64bit app is still using 32bit address */
+				update = (struct qseecom_sg_entry *)field;
 				for (j = 0; j < sg_ptr->nents; j++) {
-					update_64bit->phys_addr = cleanup ? 0 :
-						(uint64_t)sg_dma_address(sg);
-					update_64bit->len = cleanup ? 0 :
+					update->phys_addr = cleanup ? 0 :
+						(uint32_t)sg_dma_address(sg);
+					update->len = cleanup ? 0 :
 								sg->length;
-					update_64bit++;
+					update++;
 					len += sg->length;
 					sg = sg_next(sg);
 				}
@@ -2515,8 +2516,151 @@ err:
 	return -ENOMEM;
 }
 
-static int qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
-					void __user *argp)
+static int __qseecom_update_cmd_buf_64(void *msg, bool cleanup,
+			struct qseecom_dev_handle *data)
+{
+	struct ion_handle *ihandle;
+	char *field;
+	int ret = 0;
+	int i = 0;
+	uint32_t len = 0;
+	struct scatterlist *sg;
+	struct qseecom_send_modfd_cmd_req *req = NULL;
+	struct qseecom_send_modfd_listener_resp *lstnr_resp = NULL;
+	struct qseecom_registered_listener_list *this_lstnr = NULL;
+
+	if ((data->type != QSEECOM_LISTENER_SERVICE) &&
+			(data->type != QSEECOM_CLIENT_APP))
+		return -EFAULT;
+
+	if (msg == NULL) {
+		pr_err("Invalid address\n");
+		return -EINVAL;
+	}
+	if (data->type == QSEECOM_LISTENER_SERVICE) {
+		lstnr_resp = (struct qseecom_send_modfd_listener_resp *)msg;
+		this_lstnr = __qseecom_find_svc(data->listener.id);
+		if (IS_ERR_OR_NULL(this_lstnr)) {
+			pr_err("Invalid listener ID\n");
+			return -ENOMEM;
+		}
+	} else {
+		req = (struct qseecom_send_modfd_cmd_req *)msg;
+	}
+
+	for (i = 0; i < MAX_ION_FD; i++) {
+		struct sg_table *sg_ptr = NULL;
+		if ((data->type != QSEECOM_LISTENER_SERVICE) &&
+						(req->ifd_data[i].fd > 0)) {
+			ihandle = ion_import_dma_buf(qseecom.ion_clnt,
+					req->ifd_data[i].fd);
+			if (IS_ERR_OR_NULL(ihandle)) {
+				pr_err("Ion client can't retrieve the handle\n");
+				return -ENOMEM;
+			}
+			field = (char *) req->cmd_req_buf +
+				req->ifd_data[i].cmd_buf_offset;
+		} else if ((data->type == QSEECOM_LISTENER_SERVICE) &&
+				(lstnr_resp->ifd_data[i].fd > 0)) {
+			ihandle = ion_import_dma_buf(qseecom.ion_clnt,
+						lstnr_resp->ifd_data[i].fd);
+			if (IS_ERR_OR_NULL(ihandle)) {
+				pr_err("Ion client can't retrieve the handle\n");
+				return -ENOMEM;
+			}
+			field = lstnr_resp->resp_buf_ptr +
+				lstnr_resp->ifd_data[i].cmd_buf_offset;
+		} else {
+			continue;
+		}
+		/* Populate the cmd data structure with the phys_addr */
+		sg_ptr = ion_sg_table(qseecom.ion_clnt, ihandle);
+		if (sg_ptr == NULL) {
+			pr_err("IOn client could not retrieve sg table\n");
+			goto err;
+		}
+		if (sg_ptr->nents == 0) {
+			pr_err("Num of scattered entries is 0\n");
+			goto err;
+		}
+		if (sg_ptr->nents > QSEECOM_MAX_SG_ENTRY) {
+			pr_err("Num of scattered entries");
+			pr_err(" (%d) is greater than max supported %d\n",
+				sg_ptr->nents, QSEECOM_MAX_SG_ENTRY);
+			goto err;
+		}
+		sg = sg_ptr->sgl;
+		if (sg_ptr->nents == 1) {
+			uint64_t *update_64bit;
+			if (__boundary_checks_offset(req, lstnr_resp, data, i))
+				goto err;
+				/* 64bit app uses 64bit address */
+			update_64bit = (uint64_t *) field;
+			*update_64bit = cleanup ? 0 :
+					(uint64_t)sg_dma_address(sg_ptr->sgl);
+			len += (uint32_t)sg->length;
+		} else {
+			struct qseecom_sg_entry_64bit *update_64bit;
+			int j = 0;
+
+			if ((data->type != QSEECOM_LISTENER_SERVICE) &&
+					(req->ifd_data[i].fd > 0)) {
+
+				if ((req->cmd_req_len <
+					 SG_ENTRY_SZ * sg_ptr->nents) ||
+					(req->ifd_data[i].cmd_buf_offset >
+						(req->cmd_req_len -
+						SG_ENTRY_SZ * sg_ptr->nents))) {
+					pr_err("Invalid offset = 0x%x\n",
+					req->ifd_data[i].cmd_buf_offset);
+					goto err;
+				}
+
+			} else if ((data->type == QSEECOM_LISTENER_SERVICE) &&
+					(lstnr_resp->ifd_data[i].fd > 0)) {
+
+				if ((lstnr_resp->resp_len <
+						SG_ENTRY_SZ * sg_ptr->nents) ||
+				(lstnr_resp->ifd_data[i].cmd_buf_offset >
+						(lstnr_resp->resp_len -
+						SG_ENTRY_SZ * sg_ptr->nents))) {
+					goto err;
+				}
+			}
+			/* 64bit app uses 64bit address */
+			update_64bit = (struct qseecom_sg_entry_64bit *)field;
+			for (j = 0; j < sg_ptr->nents; j++) {
+				update_64bit->phys_addr = cleanup ? 0 :
+					(uint64_t)sg_dma_address(sg);
+				update_64bit->len = cleanup ? 0 :
+						(uint32_t)sg->length;
+				update_64bit++;
+				len += sg->length;
+				sg = sg_next(sg);
+			}
+		}
+		if (cleanup)
+			msm_ion_do_cache_op(qseecom.ion_clnt,
+					ihandle, NULL, len,
+					ION_IOC_INV_CACHES);
+		else
+			msm_ion_do_cache_op(qseecom.ion_clnt,
+					ihandle, NULL, len,
+					ION_IOC_CLEAN_INV_CACHES);
+		/* Deallocate the handle */
+		if (!IS_ERR_OR_NULL(ihandle))
+			ion_free(qseecom.ion_clnt, ihandle);
+	}
+	return ret;
+err:
+	if (!IS_ERR_OR_NULL(ihandle))
+		ion_free(qseecom.ion_clnt, ihandle);
+	return -ENOMEM;
+}
+
+static int __qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
+					void __user *argp,
+					bool is_64bit_addr)
 {
 	int ret = 0;
 	int i;
@@ -2550,18 +2694,44 @@ static int qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
 	req.resp_buf = (void *)__qseecom_uvirt_to_kvirt(data,
 						(uintptr_t)req.resp_buf);
 
-	ret = __qseecom_update_cmd_buf(&req, false, data);
-	if (ret)
-		return ret;
-	ret = __qseecom_send_cmd(data, &send_cmd_req);
-	if (ret)
-		return ret;
-	ret = __qseecom_update_cmd_buf(&req, true, data);
-	if (ret)
-		return ret;
+	if (!is_64bit_addr) {
+		ret = __qseecom_update_cmd_buf(&req, false, data);
+		if (ret)
+			return ret;
+		ret = __qseecom_send_cmd(data, &send_cmd_req);
+		if (ret)
+			return ret;
+		ret = __qseecom_update_cmd_buf(&req, true, data);
+		if (ret)
+			return ret;
+	} else {
+		ret = __qseecom_update_cmd_buf_64(&req, false, data);
+		if (ret)
+			return ret;
+		ret = __qseecom_send_cmd(data, &send_cmd_req);
+		if (ret)
+			return ret;
+		ret = __qseecom_update_cmd_buf_64(&req, true, data);
+		if (ret)
+			return ret;
+	}
 
 	return ret;
 }
+
+static int qseecom_send_modfd_cmd(struct qseecom_dev_handle *data,
+					void __user *argp)
+{
+	return __qseecom_send_modfd_cmd(data, argp, false);
+}
+
+static int qseecom_send_modfd_cmd_64(struct qseecom_dev_handle *data,
+					void __user *argp)
+{
+	return __qseecom_send_modfd_cmd(data, argp, true);
+}
+
+
 
 static int __qseecom_listener_has_rcvd_req(struct qseecom_dev_handle *data,
 		struct qseecom_registered_listener_list *svc)
@@ -5420,7 +5590,8 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			pr_err("failed qseecom_send_cmd: %d\n", ret);
 		break;
 	}
-	case QSEECOM_IOCTL_SEND_MODFD_CMD_REQ: {
+	case QSEECOM_IOCTL_SEND_MODFD_CMD_REQ:
+	case QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ: {
 		if ((data->client.app_id == 0) ||
 			(data->type != QSEECOM_CLIENT_APP)) {
 			pr_err("send mdfd cmd: invalid handle (%d) appid(%d)\n",
@@ -5465,7 +5636,10 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 			perf_enabled = true;
 		}
 		atomic_inc(&data->ioctl_count);
-		ret = qseecom_send_modfd_cmd(data, argp);
+		if (cmd == QSEECOM_IOCTL_SEND_MODFD_CMD_REQ)
+			ret = qseecom_send_modfd_cmd(data, argp);
+		else
+			ret = qseecom_send_modfd_cmd_64(data, argp);
 		if (qseecom.support_bus_scaling)
 			__qseecom_add_bw_scale_down_timer(
 				QSEECOM_SEND_CMD_CRYPTO_TIMEOUT);
