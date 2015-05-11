@@ -1701,11 +1701,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_DROP_FRAME;
 		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_MBAFF)
 			vb->v4l2_buf.flags |= V4L2_MSM_BUF_FLAG_MBAFF;
-		if (fill_buf_done->flags1 &
-			HAL_BUFFERFLAG_TS_DISCONTINUITY)
-			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_TS_DISCONTINUITY;
-		if (fill_buf_done->flags1 & HAL_BUFFERFLAG_TS_ERROR)
-			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_TS_ERROR;
+
 		switch (fill_buf_done->picture_type) {
 		case HAL_PICTURE_IDR:
 			vb->v4l2_buf.flags |= V4L2_QCOM_BUF_FLAG_IDRFRAME;
@@ -1728,6 +1724,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		default:
 			break;
 		}
+
 		inst->count.fbd++;
 		if (fill_buf_done->filled_len1)
 			msm_vidc_debugfs_update(inst,
@@ -3159,23 +3156,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				V4L2_QCOM_BUF_TIMESTAMP_INVALID)
 				frame_data.timestamp = LLONG_MAX;
 
-			if (vb->v4l2_buf.flags &
-					V4L2_QCOM_BUF_TS_DISCONTINUITY) {
-				frame_data.flags |=
-					HAL_BUFFERFLAG_TS_DISCONTINUITY;
-				dprintk(VIDC_DBG,
-					"Received TS_DISCONTINUE on output\n");
-			}
-
-			if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_TS_ERROR) {
-				frame_data.flags |=
-					HAL_BUFFERFLAG_TS_ERROR;
-				dprintk(VIDC_DBG,
-					"Received TS_ERROR on output cap\n");
-			}
-
-			extra_idx =
-				EXTRADATA_IDX(inst->fmts[OUTPUT_PORT]->
+			extra_idx = EXTRADATA_IDX(inst->fmts[OUTPUT_PORT]->
 					num_planes);
 			if (extra_idx && extra_idx < VIDEO_MAX_PLANES &&
 					vb->v4l2_planes[extra_idx].m.userptr) {
