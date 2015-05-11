@@ -3327,6 +3327,10 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 				dprintk(VIDC_DBG,
 					"Received HFI_MSG_SYS_RELEASE_RESOURCE\n");
 				complete(&release_resources_done);
+			} else if (rc == HFI_MSG_SYS_PC_PREP_DONE) {
+				dprintk(VIDC_DBG,
+					"Received HFI_MSG_SYS_PC_PREP_DONE\n");
+				complete(&pc_prep_done);
 			} else if (rc == HFI_MSG_SYS_INIT_DONE) {
 				int ret = 0;
 				dprintk(VIDC_DBG,
@@ -3338,13 +3342,6 @@ static void venus_hfi_response_handler(struct venus_hfi_device *device)
 			}
 		}
 		venus_hfi_flush_debug_queue(device, packet);
-		switch (rc) {
-		case HFI_MSG_SYS_PC_PREP_DONE:
-			dprintk(VIDC_DBG,
-					"Received HFI_MSG_SYS_PC_PREP_DONE\n");
-			complete(&pc_prep_done);
-			break;
-		}
 	} else {
 		dprintk(VIDC_ERR, "SPURIOUS_INTERRUPT\n");
 	}
