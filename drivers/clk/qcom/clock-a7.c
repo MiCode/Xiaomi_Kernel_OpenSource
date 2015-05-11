@@ -290,9 +290,11 @@ static void get_speed_bin_b(struct platform_device *pdev, int *bin,
 			*version = (pte_efuse >> 18) & 0x3;
 			if (!(*version)) {
 				*bin = (pte_efuse >> 23) & 0x3;
-				dev_info(&pdev->dev, "Speed bin: %d PVS Version: %d\n",
-						*bin, *version);
-				return;
+				if (*bin) {
+					dev_info(&pdev->dev, "Speed bin: %d PVS Version: %d\n",
+						      *bin, *version);
+					return;
+				}
 			}
 		} else {
 			dev_warn(&pdev->dev,
