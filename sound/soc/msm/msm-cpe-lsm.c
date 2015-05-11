@@ -145,6 +145,8 @@ struct cpe_lsm_data {
 	u8 ev_det_status;
 	u8 ev_det_pld_size;
 	u8 *ev_det_payload;
+
+	bool cpe_prepared;
 };
 
 /*
@@ -751,6 +753,7 @@ static int msm_cpe_lsm_open(struct snd_pcm_substream *substream)
 	lsm_d->lsm_session->started = false;
 	lsm_d->substream = substream;
 	init_waitqueue_head(&lsm_d->lab.period_wait);
+	lsm_d->cpe_prepared = false;
 
 	dev_dbg(rtd->dev, "%s: allocated session with id = %d\n",
 		__func__, lsm_d->lsm_session->id);
@@ -838,6 +841,8 @@ static int msm_cpe_lsm_close(struct snd_pcm_substream *substream)
 				   cpe->core_handle,
 				   afe_ops, afe_cfg,
 				   AFE_CMD_PORT_STOP);
+
+	lsm_d->cpe_prepared = false;
 
 	rc = lsm_ops->lsm_close_tx(cpe->core_handle, session);
 	if (rc != 0) {
@@ -1944,6 +1949,13 @@ static int msm_cpe_lsm_prepare(struct snd_pcm_substream *substream)
 
 	dev_dbg(rtd->dev,
 		"%s: pcm_size 0x%x", __func__, lab_d->pcm_size);
+
+	if (lsm_d->cpe_prepared) {
+		dev_dbg(rtd->dev, "%s: CPE is alredy prepared\n",
+			__func__);
+		return 0;
+	}
+
 	afe_ops = &cpe->afe_ops;
 	afe_cfg = &(lsm_d->lsm_session->afe_port_cfg);
 
@@ -1965,6 +1977,12 @@ static int msm_cpe_lsm_prepare(struct snd_pcm_substream *substream)
 				   cpe->core_handle,
 				   afe_ops, afe_cfg,
 				   AFE_CMD_PORT_START);
+	if (rc)
+		dev_err(rtd->dev,
+			"%s: cpe_afe_port start failed, err = %d\n",
+			__func__, rc);
+	else
+		lsm_d->cpe_prepared = true;
 
 	return rc;
 }
