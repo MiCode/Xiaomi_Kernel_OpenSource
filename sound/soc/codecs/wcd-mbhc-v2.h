@@ -13,12 +13,15 @@
 #define __WCD_MBHC_V2_H__
 
 #include <linux/wait.h>
+#include <linux/stringify.h>
 #include "wcdcal-hwdep.h"
 
 #define TOMBAK_MBHC_NC	0
 #define TOMBAK_MBHC_NO	1
 #define WCD_MBHC_DEF_BUTTONS 8
 #define WCD_MBHC_USLEEP_RANGE_MARGIN_US 100
+#define WCD_MBHC_THR_HS_MICB_MV  2700
+#define WCD_MBHC_STRINGIFY(s)  __stringify(s)
 
 struct wcd_mbhc;
 enum wcd_mbhc_register_function {
@@ -104,6 +107,10 @@ enum wcd_notify_event {
 	WCD_EVENT_POST_MICBIAS_2_OFF,
 	WCD_EVENT_PRE_MICBIAS_2_ON,
 	WCD_EVENT_POST_MICBIAS_2_ON,
+	WCD_EVENT_PRE_DAPM_MICBIAS_2_OFF,
+	WCD_EVENT_POST_DAPM_MICBIAS_2_OFF,
+	WCD_EVENT_PRE_DAPM_MICBIAS_2_ON,
+	WCD_EVENT_POST_DAPM_MICBIAS_2_ON,
 	/* events for PA ON and OFF */
 	WCD_EVENT_PRE_HPHL_PA_ON,
 	WCD_EVENT_POST_HPHL_PA_OFF,
@@ -300,6 +307,7 @@ struct wcd_mbhc_cb {
 	int (*mbhc_micbias_control)(struct snd_soc_codec *, int req);
 	void (*mbhc_micb_ramp_control)(struct snd_soc_codec *, bool);
 	bool (*extn_use_mb)(struct snd_soc_codec *);
+	int (*mbhc_micb_ctrl_thr_mic)(struct snd_soc_codec *, int, bool);
 };
 
 struct wcd_mbhc {

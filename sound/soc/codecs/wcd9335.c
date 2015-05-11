@@ -93,6 +93,9 @@
 #define CPE_FLL_CLK_150MHZ 150000000
 #define WCD9335_REG_BITS 8
 
+/* Convert from vout ctl to micbias voltage in mV */
+#define WCD_VOUT_CTL_TO_MICB(v) (1000 + v * 50)
+
 static int cpe_debug_mode = 1;
 module_param(cpe_debug_mode, int,
 	     S_IRUGO | S_IWUSR | S_IWGRP);
@@ -365,6 +368,7 @@ static const DECLARE_TLV_DB_SCALE(line_gain, 0, 7, 1);
 static const DECLARE_TLV_DB_SCALE(analog_gain, 0, 25, 1);
 
 static struct snd_soc_dai_driver tasha_dai[];
+static int wcd9335_get_micb_vout_ctl_val(u32 micb_mv);
 
 /* Hold instance to soundwire platform device */
 struct tasha_swr_ctrl_data {
@@ -746,7 +750,7 @@ static void tasha_mbhc_hph_l_pull_up_control(struct snd_soc_codec *codec,
 }
 
 static int tasha_micbias_control(struct snd_soc_codec *codec,
-				 int req)
+				 int req, bool is_dapm)
 {
 	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 
@@ -774,6 +778,10 @@ static int tasha_micbias_control(struct snd_soc_codec *codec,
 					WCD_EVENT_POST_MICBIAS_2_ON,
 					&tasha->mbhc);
 		}
+		if (is_dapm)
+			blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_POST_DAPM_MICBIAS_2_ON,
+					&tasha->mbhc);
 		break;
 	case MICB_DISABLE:
 		tasha->micb_ref--;
@@ -781,12 +789,19 @@ static int tasha_micbias_control(struct snd_soc_codec *codec,
 			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
 					    0x80);
 		else if ((tasha->micb_ref == 0) && (tasha->pullup_ref == 0)) {
+			blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_PRE_MICBIAS_2_OFF,
+					&tasha->mbhc);
 			snd_soc_update_bits(codec, WCD9335_ANA_MICB2, 0xC0,
 					    0x00);
 			blocking_notifier_call_chain(&tasha->notifier,
 					WCD_EVENT_POST_MICBIAS_2_OFF,
 					&tasha->mbhc);
 		}
+		if (is_dapm)
+			blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_POST_DAPM_MICBIAS_2_OFF,
+					&tasha->mbhc);
 		break;
 	};
 
@@ -801,25 +816,25 @@ static int tasha_micbias_control(struct snd_soc_codec *codec,
 static int tasha_mbhc_request_micbias(struct snd_soc_codec *codec,
 				      int req)
 {
-	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	int ret;
 
 	/*
 	 * If micbias is requested, make sure that there
-	 * is vote to enable master bias
+	 * is vote to enable mclk
 	 */
 	if (req == MICB_ENABLE)
-		wcd_resmgr_enable_master_bias(tasha->resmgr);
+		tasha_cdc_mclk_enable(codec, true, false);
 
-	tasha_micbias_control(codec, req);
+	ret = tasha_micbias_control(codec, req, false);
 
 	/*
-	 * Release vote for master bias while requesting for
+	 * Release vote for mclk while requesting for
 	 * micbias disable
 	 */
 	if (req == MICB_DISABLE)
-		wcd_resmgr_disable_master_bias(tasha->resmgr);
+		tasha_cdc_mclk_enable(codec, false, false);
 
-	return 0;
+	return ret;
 }
 
 static void tasha_mbhc_micb_ramp_control(struct snd_soc_codec *codec,
@@ -857,6 +872,96 @@ static struct firmware_cal *tasha_get_hwdep_fw_cal(struct snd_soc_codec *codec,
 	return hwdep_cal;
 }
 
+static int tasha_mbhc_micb_adjust_voltage(struct snd_soc_codec *codec,
+					  int req_volt,
+					  int micb_num)
+{
+	int cur_vout_ctl, req_vout_ctl;
+	int micb_reg, micb_val, micb_en;
+
+	switch (micb_num) {
+	case MIC_BIAS_1:
+		micb_reg = WCD9335_ANA_MICB1;
+		break;
+	case MIC_BIAS_2:
+		micb_reg = WCD9335_ANA_MICB2;
+		break;
+	case MIC_BIAS_3:
+		micb_reg = WCD9335_ANA_MICB3;
+		break;
+	case MIC_BIAS_4:
+		micb_reg = WCD9335_ANA_MICB4;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	/*
+	 * If requested micbias voltage is same as current micbias
+	 * voltage, then just return. Otherwise, adjust voltage as
+	 * per requested value. If micbias is already enabled, then
+	 * to avoid slow micbias ramp-up or down enable pull-up
+	 * momentarily, change the micbias value and then re-enable
+	 * micbias.
+	 */
+	micb_val = snd_soc_read(codec, micb_reg);
+	micb_en = (micb_val & 0xC0) >> 6;
+	cur_vout_ctl = micb_val & 0x3F;
+
+	req_vout_ctl = wcd9335_get_micb_vout_ctl_val(req_volt);
+	if (IS_ERR_VALUE(req_vout_ctl))
+		return -EINVAL;
+	if (cur_vout_ctl == req_vout_ctl)
+		return 0;
+
+	dev_dbg(codec->dev, "%s: micb_num: %d, cur_mv: %d, req_mv: %d, micb_en: %d\n",
+		 __func__, micb_num, WCD_VOUT_CTL_TO_MICB(cur_vout_ctl),
+		 req_volt, micb_en);
+
+	if (micb_en == 0x1)
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x80);
+
+	snd_soc_update_bits(codec, micb_reg, 0x3F, req_vout_ctl);
+
+	if (micb_en == 0x1) {
+		snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
+		/*
+		 * Add 2ms delay as per HW requirement after enabling
+		 * micbias
+		 */
+		usleep_range(2000, 2100);
+	}
+
+	return 0;
+}
+
+static int tasha_mbhc_micb_ctrl_threshold_mic(struct snd_soc_codec *codec,
+					      int micb_num, bool req_en)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	struct wcd9xxx_pdata *pdata = dev_get_platdata(codec->dev->parent);
+	int rc, micb_mv;
+
+	if (micb_num != MIC_BIAS_2)
+		return -EINVAL;
+
+	/*
+	 * If device tree micbias level is already above the minimum
+	 * voltage needed to detect threshold microphone, then do
+	 * not change the micbias, just return.
+	 */
+	if (pdata->micbias.micb2_mv >= WCD_MBHC_THR_HS_MICB_MV)
+		return 0;
+
+	micb_mv = req_en ? WCD_MBHC_THR_HS_MICB_MV : pdata->micbias.micb2_mv;
+
+	mutex_lock(&tasha->micb_lock);
+	rc = tasha_mbhc_micb_adjust_voltage(codec, micb_mv, MIC_BIAS_2);
+	mutex_unlock(&tasha->micb_lock);
+
+	return rc;
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tasha_mbhc_request_irq,
 	.irq_control = tasha_mbhc_irq_control,
@@ -873,6 +978,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.mbhc_micbias_control = tasha_mbhc_request_micbias,
 	.mbhc_micb_ramp_control = tasha_mbhc_micb_ramp_control,
 	.get_hwdep_fw_cal = tasha_get_hwdep_fw_cal,
+	.mbhc_micb_ctrl_thr_mic = tasha_mbhc_micb_ctrl_threshold_mic,
 };
 
 static int tasha_get_iir_enable_audio_mixer(
@@ -2988,7 +3094,7 @@ static int tasha_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		 * and enable requests
 		 */
 		if (micb_reg == WCD9335_ANA_MICB2)
-			tasha_micbias_control(codec, MICB_ENABLE);
+			tasha_micbias_control(codec, MICB_ENABLE, true);
 		else
 			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x40);
 		break;
@@ -2998,7 +3104,7 @@ static int tasha_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (micb_reg == WCD9335_ANA_MICB2)
-			tasha_micbias_control(codec, MICB_DISABLE);
+			tasha_micbias_control(codec, MICB_DISABLE, true);
 		else
 			snd_soc_update_bits(codec, micb_reg, 0xC0, 0x00);
 		break;
@@ -7269,6 +7375,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CDC_RX7_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_CDC_RX8_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_SOC_MAD_AUDIO_CTL_2, 0x03, 0x03},
+	{WCD9335_MICB2_TEST_CTL_2, 0x07, 0x01},
 };
 
 static void tasha_update_reg_reset_values(struct snd_soc_codec *codec)

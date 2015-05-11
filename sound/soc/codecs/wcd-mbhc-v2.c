@@ -191,6 +191,43 @@ static void wcd_enable_curr_micbias(const struct wcd_mbhc *mbhc,
 	pr_debug("%s: exit\n", __func__);
 }
 
+static const char *wcd_mbhc_get_event_string(int event)
+{
+	switch (event) {
+	case WCD_EVENT_PRE_MICBIAS_2_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_MICBIAS_2_OFF);
+	case WCD_EVENT_POST_MICBIAS_2_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_POST_MICBIAS_2_OFF);
+	case WCD_EVENT_PRE_MICBIAS_2_ON:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_MICBIAS_2_ON);
+	case WCD_EVENT_POST_MICBIAS_2_ON:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_POST_MICBIAS_2_ON);
+	case WCD_EVENT_PRE_HPHL_PA_ON:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_HPHL_PA_ON);
+	case WCD_EVENT_POST_HPHL_PA_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_POST_HPHL_PA_OFF);
+	case WCD_EVENT_PRE_HPHR_PA_ON:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_HPHR_PA_ON);
+	case WCD_EVENT_POST_HPHR_PA_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_POST_HPHR_PA_OFF);
+	case WCD_EVENT_PRE_HPHR_PA_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_HPHR_PA_OFF);
+	case WCD_EVENT_PRE_HPHL_PA_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_HPHL_PA_OFF);
+	case WCD_EVENT_POST_DAPM_MICBIAS_2_ON:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_POST_DAPM_MICBIAS_2_ON);
+	case WCD_EVENT_PRE_DAPM_MICBIAS_2_ON:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_DAPM_MICBIAS_2_ON);
+	case WCD_EVENT_POST_DAPM_MICBIAS_2_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_POST_DAPM_MICBIAS_2_OFF);
+	case WCD_EVENT_PRE_DAPM_MICBIAS_2_OFF:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_PRE_DAPM_MICBIAS_2_OFF);
+	case WCD_EVENT_INVALID:
+	default:
+		return WCD_MBHC_STRINGIFY(WCD_EVENT_INVALID);
+	}
+}
+
 static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 			    void *data)
 {
@@ -201,7 +238,8 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 	bool micbias1 = false;
 	u8 fsm_en;
 
-	pr_debug("%s: event %d\n", __func__, event);
+	pr_debug("%s: event %s (%d)\n", __func__,
+		 wcd_mbhc_get_event_string(event), event);
 	if (mbhc->mbhc_cb->micbias_enable_status) {
 		micbias2 = mbhc->mbhc_cb->micbias_enable_status(mbhc,
 								MIC_BIAS_2);
@@ -210,6 +248,11 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 	}
 	switch (event) {
 	/* MICBIAS usage change */
+	case WCD_EVENT_POST_DAPM_MICBIAS_2_ON:
+		mbhc->is_hs_recording = true;
+		pr_debug("%s: is_capture: %d\n", __func__,
+			  mbhc->is_hs_recording);
+		break;
 	case WCD_EVENT_POST_MICBIAS_2_ON:
 		if (!mbhc->micbias_enable)
 			goto out_micb_en;
@@ -233,7 +276,6 @@ static int wcd_event_notify(struct notifier_block *self, unsigned long val,
 					MBHC_COMMON_MICB_PRECHARGE,
 					false);
 out_micb_en:
-		mbhc->is_hs_recording = true;
 		/* Disable current source if micbias enabled */
 		if (mbhc->mbhc_cb->mbhc_micbias_control) {
 			WCD_MBHC_REG_READ(WCD_MBHC_FSM_EN, fsm_en);
@@ -241,19 +283,40 @@ out_micb_en:
 				WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL,
 							 0);
 		} else {
+			mbhc->is_hs_recording = true;
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 		}
 		/* configure cap settings properly when micbias is enabled */
 		if (mbhc->mbhc_cb->set_cap_mode)
 			mbhc->mbhc_cb->set_cap_mode(codec, micbias1, true);
 		break;
+	case WCD_EVENT_PRE_MICBIAS_2_OFF:
+		/*
+		 * Before MICBIAS_2 is turned off, if FSM is enabled,
+		 * make sure current source is enabled so as to detect
+		 * button press/release events
+		 */
+		if (mbhc->mbhc_cb->mbhc_micbias_control &&
+		    !mbhc->micbias_enable) {
+			WCD_MBHC_REG_READ(WCD_MBHC_FSM_EN, fsm_en);
+			if (fsm_en)
+				WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL,
+							 3);
+		}
+		break;
 	/* MICBIAS usage change */
+	case WCD_EVENT_POST_DAPM_MICBIAS_2_OFF:
+		mbhc->is_hs_recording = false;
+		pr_debug("%s: is_capture: %d\n", __func__,
+			  mbhc->is_hs_recording);
+		break;
 	case WCD_EVENT_POST_MICBIAS_2_OFF:
 		if (mbhc->mbhc_cb->set_auto_zeroing)
 			mbhc->mbhc_cb->set_auto_zeroing(codec, false);
 		if (mbhc->mbhc_cb->set_micbias_value)
 			mbhc->mbhc_cb->set_micbias_value(codec);
-		mbhc->is_hs_recording = false;
+		if (!mbhc->mbhc_cb->mbhc_micbias_control)
+			mbhc->is_hs_recording = false;
 		/* Enable PULL UP if PA's are enabled */
 		if ((test_bit(WCD_MBHC_EVENT_PA_HPHL, &mbhc->event_state)) ||
 				(test_bit(WCD_MBHC_EVENT_PA_HPHR,
@@ -264,12 +327,6 @@ out_micb_en:
 			/* enable current source and disable mb, pullup*/
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_CS);
 
-		if (mbhc->mbhc_cb->mbhc_micbias_control) {
-			WCD_MBHC_REG_READ(WCD_MBHC_FSM_EN, fsm_en);
-			if (fsm_en)
-				WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL,
-							 0);
-		}
 		/* configure cap settings properly when micbias is disabled */
 		if (mbhc->mbhc_cb->set_cap_mode)
 			mbhc->mbhc_cb->set_cap_mode(codec, micbias1, false);
@@ -480,8 +537,17 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 				~WCD_MBHC_JACK_BUTTON_MASK;
 		}
 
-		if (mbhc->micbias_enable)
+		if (mbhc->micbias_enable) {
+			if (mbhc->mbhc_cb->mbhc_micbias_control)
+				mbhc->mbhc_cb->mbhc_micbias_control(
+							mbhc->codec,
+							MICB_DISABLE);
+			if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic)
+				mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
+						mbhc->codec,
+						MIC_BIAS_2, false);
 			mbhc->micbias_enable = false;
+		}
 
 		mbhc->hph_type = WCD_MBHC_HPH_NONE;
 		mbhc->zl = mbhc->zr = 0;
@@ -504,8 +570,17 @@ static void wcd_mbhc_report_plug(struct wcd_mbhc *mbhc, int insertion,
 		    jack_type == SND_JACK_LINEOUT) &&
 		    (mbhc->hph_status && mbhc->hph_status != jack_type)) {
 
-			if (mbhc->micbias_enable)
+			if (mbhc->micbias_enable) {
+				if (mbhc->mbhc_cb->mbhc_micbias_control)
+					mbhc->mbhc_cb->mbhc_micbias_control(
+							mbhc->codec,
+							MICB_DISABLE);
+				if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic)
+					mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(
+							mbhc->codec,
+							MIC_BIAS_2, false);
 				mbhc->micbias_enable = false;
+			}
 			mbhc->hph_type = WCD_MBHC_HPH_NONE;
 			mbhc->zl = mbhc->zr = 0;
 			pr_debug("%s: Reporting removal (%x)\n",
@@ -679,18 +754,30 @@ static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 {
 	struct snd_soc_codec *codec = mbhc->codec;
-	int delay = 0;
+	int delay = 0, rc;
 	bool ret = false;
 	bool hs_comp_res;
 
 	/*
-	 * Enable micbias if not already enabled
-	 * and disable current source if using micbias
+	 * Increase micbias to 2.7V to detect headsets with
+	 * threshold on microphone
 	 */
-	if (mbhc->mbhc_cb->mbhc_micbias_control)
-		mbhc->mbhc_cb->mbhc_micbias_control(codec, MICB_ENABLE);
-	else
-		wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
+	if (mbhc->mbhc_cb->mbhc_micbias_control &&
+	    !mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+		pr_debug("%s: callback fn micb_ctrl_thr_mic not defined\n",
+			 __func__);
+		return false;
+	} else if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic) {
+		rc = mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(codec,
+							MIC_BIAS_2, true);
+		if (rc) {
+			pr_err("%s: Micbias control for thr mic failed, rc: %d\n",
+				__func__, rc);
+			return false;
+		}
+	}
+
+	wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 
 	pr_debug("%s: special headset, start register writes\n", __func__);
 
@@ -740,22 +827,29 @@ static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
 	if (mbhc->mbhc_cb->set_auto_zeroing)
 		mbhc->mbhc_cb->set_auto_zeroing(codec, false);
 
-	if (mbhc->mbhc_cb->mbhc_micbias_control)
-		mbhc->mbhc_cb->mbhc_micbias_control(codec, MICB_DISABLE);
+	if (mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic &&
+	    !mbhc->micbias_enable)
+		mbhc->mbhc_cb->mbhc_micb_ctrl_thr_mic(codec, MIC_BIAS_2,
+						      false);
 
-	pr_debug("%s: leave\n", __func__);
+	pr_debug("%s: leave, micb_enable: %d\n", __func__,
+		  mbhc->micbias_enable);
 	return ret;
 }
 
 static void wcd_mbhc_update_fsm_source(struct wcd_mbhc *mbhc,
 				       enum wcd_mbhc_plug_type plug_type)
 {
+	bool micbias2;
+
+	micbias2 = mbhc->mbhc_cb->micbias_enable_status(mbhc,
+							MIC_BIAS_2);
 	switch (plug_type) {
 	case MBHC_PLUG_TYPE_HEADPHONE:
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 3);
 		break;
 	case MBHC_PLUG_TYPE_HEADSET:
-		if (!mbhc->is_hs_recording)
+		if (!mbhc->is_hs_recording && !micbias2)
 			WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_BTN_ISRC_CTL, 3);
 		break;
 	default:
@@ -1031,9 +1125,10 @@ enable_supply:
 	else
 		wcd_enable_mbhc_supply(mbhc, plug_type);
 exit:
-	if (mbhc->mbhc_cb->mbhc_micbias_control)
+	if (mbhc->mbhc_cb->mbhc_micbias_control &&
+	    !mbhc->micbias_enable)
 		mbhc->mbhc_cb->mbhc_micbias_control(codec,
-						    MICB_PULLUP_DISABLE);
+						    MICB_DISABLE);
 	if (mbhc->mbhc_cb->micbias_enable_status) {
 		micbias1 = mbhc->mbhc_cb->micbias_enable_status(mbhc,
 								MIC_BIAS_1);
@@ -1065,7 +1160,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		mbhc->mbhc_cb->set_cap_mode(codec, micbias1, true);
 
 	if (mbhc->mbhc_cb->mbhc_micbias_control)
-		mbhc->mbhc_cb->mbhc_micbias_control(codec, MICB_PULLUP_ENABLE);
+		mbhc->mbhc_cb->mbhc_micbias_control(codec, MICB_ENABLE);
 	else
 		wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_MB);
 
