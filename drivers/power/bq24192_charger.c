@@ -370,6 +370,8 @@ static enum power_supply_type get_power_supply_type(
 		return POWER_SUPPLY_TYPE_USB_ACA;
 	case POWER_SUPPLY_CHARGER_TYPE_AC:
 		return POWER_SUPPLY_TYPE_MAINS;
+	case POWER_SUPPLY_CHARGER_TYPE_WIRELESS:
+		return POWER_SUPPLY_TYPE_WIRELESS;
 	case POWER_SUPPLY_CHARGER_TYPE_NONE:
 	case POWER_SUPPLY_CHARGER_TYPE_USB_SDP:
 	default:
@@ -2528,7 +2530,8 @@ struct bq24192_platform_data tbg24296_drvdata = {
 	.supplied_to = bq24192_supplied_to,
 	.num_throttle_states = ARRAY_SIZE(byt_throttle_states),
 	.num_supplicants = ARRAY_SIZE(bq24192_supplied_to),
-	.supported_cables = POWER_SUPPLY_CHARGER_TYPE_USB,
+	.supported_cables = (POWER_SUPPLY_CHARGER_TYPE_USB |
+			POWER_SUPPLY_CHARGER_TYPE_WIRELESS),
 	.sfi_tabl_present = true,
 	.max_cc = 1800,	/* 1800 mA */
 	.max_cv = 4350,	/* 4350 mV */
