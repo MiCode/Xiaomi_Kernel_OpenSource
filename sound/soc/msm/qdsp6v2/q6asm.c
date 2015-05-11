@@ -1451,8 +1451,13 @@ static int32_t q6asm_callback(struct apr_client_data *data, void *priv)
 		pr_err("%s: data NULL\n", __func__);
 		return -EINVAL;
 	}
-	if (ac->session <= 0 || ac->session > 8 ||
-		!q6asm_is_valid_audio_client(ac)) {
+	if (!q6asm_is_valid_audio_client(ac)) {
+		pr_err("%s: audio client pointer is invalid, ac = %p\n",
+				__func__, ac);
+		return -EINVAL;
+	}
+
+	if (ac->session <= 0 || ac->session > 8) {
 		pr_err("%s: Session ID is invalid, session = %d\n", __func__,
 			ac->session);
 		return -EINVAL;
