@@ -35,7 +35,21 @@ Optional properties:
 
 - vcca-supply:				Phandle for vcca regulator device node.
 - qcom,ctrl-supply-entries:		A node that lists the elements of the supply used by the
-					DSI controller and PHY. There can be more than one instance
+					DSI controller. There can be more than one instance
+					of this binding, in which case the entry would be appended
+					with the supply entry index.
+					e.g. qcom,ctrl-supply-entry@0
+					-- qcom,supply-name: name of the supply (vdd/vdda/vddio)
+					-- qcom,supply-min-voltage: minimum voltage level (uV)
+					-- qcom,supply-max-voltage: maximum voltage level (uV)
+					-- qcom,supply-enable-load: load drawn (uA) from enabled supply
+					-- qcom,supply-disable-load: load drawn (uA) from disabled supply
+					-- qcom,supply-pre-on-sleep: time to sleep (ms) before turning on
+					-- qcom,supply-post-on-sleep: time to sleep (ms) after turning on
+					-- qcom,supply-pre-off-sleep: time to sleep (ms) before turning off
+					-- qcom,supply-post-off-sleep: time to sleep (ms) after turning off
+- qcom,phy-supply-entries:		A node that lists the elements of the supply used by the
+					DSI PHY. There can be more than one instance
 					of this binding, in which case the entry would be appended
 					with the supply entry index.
 					e.g. qcom,ctrl-supply-entry@0
@@ -127,6 +141,24 @@ Example:
 				qcom,supply-disable-load = <0>;
 				qcom,supply-pre-on-sleep = <0>;
 				qcom,supply-post-on-sleep = <0>;
+				qcom,supply-pre-off-sleep = <0>;
+				qcom,supply-post-off-sleep = <0>;
+			};
+		};
+
+		qcom,phy-supply-entries {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			qcom,phy-supply-entry@0 {
+				reg = <0>;
+				qcom,supply-name = "vddio";
+				qcom,supply-min-voltage = <1800000>;
+				qcom,supply-max-voltage = <1800000>;
+				qcom,supply-enable-load = <100000>;
+				qcom,supply-disable-load = <100>;
+				qcom,supply-pre-on-sleep = <0>;
+				qcom,supply-post-on-sleep = <20>;
 				qcom,supply-pre-off-sleep = <0>;
 				qcom,supply-post-off-sleep = <0>;
 			};
