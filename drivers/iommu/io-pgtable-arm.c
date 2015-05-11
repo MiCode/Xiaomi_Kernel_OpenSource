@@ -1127,6 +1127,43 @@ static void __init arm_lpae_dump_ops(struct io_pgtable_ops *ops)
 		-EFAULT;						\
 })
 
+/*
+ * Returns true if the entire iova range has any mapping in ops.
+ */
+static bool arm_lpae_range_has_mapping(struct io_pgtable_ops *ops,
+				       unsigned long iova_start, size_t size)
+{
+	unsigned long iova = iova_start;
+
+	while (iova < (iova_start + size)) {
+		if (!ops->iova_to_phys(ops, iova + 42))
+			return false;
+		iova += SZ_4K;
+	}
+	return true;
+}
+
+/*
+ * Returns true if the iova range is successfully mapped to the contiguous
+ * phys range in ops.
+ */
+static bool arm_lpae_range_has_specific_mapping(struct io_pgtable_ops *ops,
+						const unsigned long iova_start,
+						const phys_addr_t phys_start,
+						const size_t size)
+{
+	unsigned long iova = iova_start;
+	phys_addr_t phys = phys_start;
+
+	while (iova < (iova_start + size)) {
+		if (ops->iova_to_phys(ops, iova + 42) != (phys + 42))
+			return false;
+		iova += SZ_4K;
+		phys += SZ_4K;
+	}
+	return true;
+}
+
 static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 {
 	static const enum io_pgtable_fmt fmts[] = {
@@ -1152,16 +1189,11 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 		}
 
 		/*
-		 * Initial sanity checks.
-		 * Empty page tables shouldn't provide any translations.
+		 * Initial sanity checks.  Empty page tables shouldn't
+		 * provide any translations.  TODO: check entire supported
+		 * range for these ops rather than first 2G
 		 */
-		if (ops->iova_to_phys(ops, 42))
-			return __FAIL(ops, i);
-
-		if (ops->iova_to_phys(ops, SZ_1G + 42))
-			return __FAIL(ops, i);
-
-		if (ops->iova_to_phys(ops, SZ_2G + 42))
+		if (arm_lpae_range_has_mapping(ops, 0, SZ_2G))
 			return __FAIL(ops, i);
 
 		/*
@@ -1183,7 +1215,8 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 				      IOMMU_READ | IOMMU_NOEXEC))
 				return __FAIL(ops, i);
 
-			if (ops->iova_to_phys(ops, iova + 42) != (iova + 42))
+			if (!arm_lpae_range_has_specific_mapping(ops, iova,
+								 iova, size))
 				return __FAIL(ops, i);
 
 			iova += SZ_1G;
@@ -1196,11 +1229,15 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 		if (ops->unmap(ops, SZ_1G + size, size) != size)
 			return __FAIL(ops, i);
 
+		if (arm_lpae_range_has_mapping(ops, SZ_1G + size, size))
+			return __FAIL(ops, i);
+
 		/* Remap of partial unmap */
 		if (ops->map(ops, SZ_1G + size, size, size, IOMMU_READ))
 			return __FAIL(ops, i);
 
-		if (ops->iova_to_phys(ops, SZ_1G + size + 42) != (size + 42))
+		if (!arm_lpae_range_has_specific_mapping(ops, SZ_1G + size,
+							 size, size))
 			return __FAIL(ops, i);
 
 		/* Full unmap */
@@ -1229,6 +1266,9 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 			j++;
 			j = find_next_bit(&cfg->pgsize_bitmap, BITS_PER_LONG, j);
 		}
+
+		if (arm_lpae_range_has_mapping(ops, 0, SZ_2G))
+			return __FAIL(ops, i);
 
 		/* map_sg */
 		for (j = 0; j < ARRAY_SIZE(test_sg_sizes); ++j) {
@@ -1261,6 +1301,13 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 			if (mapped != total_size)
 				return __FAIL(ops, i);
 
+			if (!arm_lpae_range_has_mapping(ops, iova, total_size))
+				return __FAIL(ops, i);
+
+			if (arm_lpae_range_has_mapping(ops, iova + total_size,
+					      SZ_2G - (iova + total_size)))
+				return __FAIL(ops, i);
+
 			for_each_sg(table.sgl, sg, table.nents, k) {
 				dma_addr_t newphys =
 					ops->iova_to_phys(ops, iova + 42);
@@ -1272,9 +1319,15 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 			if (ops->unmap(ops, 0, total_size) != total_size)
 				return __FAIL(ops, i);
 
+			if (arm_lpae_range_has_mapping(ops, 0, SZ_2G))
+				return __FAIL(ops, i);
+
 			sg_free_table(&table);
 			__free_pages(page, get_order(chunk_size));
 		}
+
+		if (arm_lpae_range_has_mapping(ops, 0, SZ_2G))
+			return __FAIL(ops, i);
 
 		free_io_pgtable_ops(ops);
 	}
