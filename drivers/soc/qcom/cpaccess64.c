@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +31,7 @@
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
 #include <asm/mmu.h>
+#include <soc/qcom/scm-mpu.h>
 
 #define TYPE_MAX_CHARACTERS 20
 
@@ -113,6 +114,7 @@ static u64 do_cpregister_rw(int write)
 	 * Grab address of the Dummy function, write the MRS/MSR
 	 * instruction, ensuring cache coherency.
 	 */
+	scm_mpu_unlock_kernel_text();
 	p_opcode = (u32 *)&cpaccess_dummy_inst;
 	mem_text_write_kernel_word(p_opcode, opcode);
 
