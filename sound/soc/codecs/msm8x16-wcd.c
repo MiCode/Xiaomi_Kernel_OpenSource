@@ -596,6 +596,14 @@ static unsigned int msm8x16_wcd_read(struct snd_soc_codec *codec,
 		return -ENODEV;
 	} else
 		val = __msm8x16_wcd_reg_read(codec, reg);
+	/*
+	 * If register is 0x16 or 0x116 return read value as 0, so that
+	 * SW can disable only the required interrupts. Which will
+	 * ensure other interrupts are not effected.
+	 */
+	if ((reg == MSM8X16_WCD_A_DIGITAL_INT_EN_CLR) ||
+			(reg == MSM8X16_WCD_A_ANALOG_INT_EN_CLR))
+		val = 0;
 	dev_dbg(codec->dev, "%s: Read from reg 0x%x val 0x%x\n",
 					__func__, reg, val);
 	return val;
