@@ -49,7 +49,8 @@ static ssize_t power_supply_show_property(struct device *dev,
 		"Wireless"
 	};
 	static char *status_text[] = {
-		"Unknown", "Charging", "Discharging", "Not charging", "Full"
+		"Unknown", "Charging", "Discharging", "Not charging", "Full",
+		"Pru_null", "Pru_boot", "Pru_on", "Pru_alert", "Pru_error"
 	};
 	static char *charge_type[] = {
 		"Unknown", "N/A", "Trickle", "Fast"
@@ -216,6 +217,23 @@ static struct device_attribute power_supply_attrs[] = {
 	POWER_SUPPLY_ATTR(charge_enabled),
 	/* Local extensions of type int64_t */
 	POWER_SUPPLY_ATTR(charge_counter_ext),
+	/* Wireless charging */
+	POWER_SUPPLY_ATTR(vrect),
+	POWER_SUPPLY_ATTR(irect),
+	POWER_SUPPLY_ATTR(vdcout),
+	POWER_SUPPLY_ATTR(idcout),
+	POWER_SUPPLY_ATTR(pru_temp),
+	POWER_SUPPLY_ATTR(pru_dcen),
+	POWER_SUPPLY_ATTR(vrect_min_dyn),
+	POWER_SUPPLY_ATTR(vrect_set_dyn),
+	POWER_SUPPLY_ATTR(vrect_high_dyn),
+	POWER_SUPPLY_ATTR(pru_dynamic_param),
+	POWER_SUPPLY_ATTR(pru_static_param),
+	POWER_SUPPLY_ATTR(ptu_static_param),
+	POWER_SUPPLY_ATTR(ptu_power),
+	POWER_SUPPLY_ATTR(ptu_max_src_impedance),
+	POWER_SUPPLY_ATTR(ptu_max_load_resistance),
+	POWER_SUPPLY_ATTR(ptu_class),
 	/* Properties of type `const char *' */
 	POWER_SUPPLY_ATTR(model_name),
 	POWER_SUPPLY_ATTR(manufacturer),

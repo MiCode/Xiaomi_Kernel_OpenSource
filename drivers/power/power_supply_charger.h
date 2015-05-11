@@ -195,6 +195,7 @@ static inline int get_ps_int_property(struct power_supply *psy,
 		(psy->supported_cables & cable_type)
 #define IS_CABLE_ACTIVE(status) \
 		((status != POWER_SUPPLY_CHARGER_EVENT_DISCONNECT) &&\
+		(status != POWER_SUPPLY_CHARGER_EVENT_DETACH) &&\
 		(status != POWER_SUPPLY_CHARGER_EVENT_LINK_DISCONNECT))
 
 #define IS_CABLE_READY_TO_SUPPLY(status) \

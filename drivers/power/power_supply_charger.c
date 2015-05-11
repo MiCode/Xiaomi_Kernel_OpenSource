@@ -25,6 +25,7 @@ struct power_supply_charger {
 	struct list_head batt_cache_lst;
 	struct list_head evt_queue;
 	struct work_struct algo_trigger_work;
+	struct work_struct wireless_chrgr_work;
 	struct mutex evt_lock;
 	struct power_supply_cable_props cable_props;
 	wait_queue_head_t wait_chrg_enable;
@@ -786,6 +787,12 @@ static int __trigger_charging_handler(struct device *dev, void *data)
 	return 0;
 }
 
+static void handle_wireless_charger(struct work_struct *work)
+{
+	atomic_notifier_call_chain(&power_supply_notifier,
+		PSY_CABLE_EVENT, &psy_chrgr.cable_props);
+}
+
 static void trigger_algo_psy_class(struct work_struct *work)
 {
 	class_for_each_device(power_supply_class, NULL, NULL,
@@ -894,8 +901,21 @@ static int select_chrgr_cable(struct device *dev, void *data)
 	 * capabilities changed.switch cable and enable charger and charging
 	 */
 	set_present(psy, 1);
-	if (CABLE_TYPE(psy) != max_ma_cable->chrg_type)
+	if (CABLE_TYPE(psy) != max_ma_cable->chrg_type) {
+		if (max_ma_cable->chrg_evt ==
+				POWER_SUPPLY_CHARGER_EVENT_ATTACH) {
+			/* send SELECT notification for cable selected */
+			max_ma_cable->chrg_evt =
+				POWER_SUPPLY_CHARGER_EVENT_SELECTED;
+			psy_chrgr.cable_props.chrg_type =
+				max_ma_cable->chrg_type;
+			psy_chrgr.cable_props.chrg_evt =
+				max_ma_cable->chrg_evt;
+			psy_chrgr.cable_props.ma = max_ma_cable->ma;
+			schedule_work(&psy_chrgr.wireless_chrgr_work);
+		}
 		switch_cable(psy, max_ma_cable->chrg_type);
+	}
 
 	if (IS_CHARGER_CAN_BE_ENABLED(psy) &&
 			(max_ma_cable->ma >= 100) &&
@@ -989,6 +1009,8 @@ int power_supply_register_charger(struct power_supply *psy)
 		INIT_LIST_HEAD(&psy_chrgr.chrgr_cache_lst);
 		INIT_LIST_HEAD(&psy_chrgr.batt_cache_lst);
 		INIT_WORK(&psy_chrgr.algo_trigger_work, trigger_algo_psy_class);
+		INIT_WORK(&psy_chrgr.wireless_chrgr_work,
+			handle_wireless_charger);
 		psy_chrgr.is_cable_evt_reg = true;
 	}
 
