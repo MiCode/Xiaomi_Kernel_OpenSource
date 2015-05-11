@@ -26,6 +26,7 @@
 #include <linux/platform_device.h>
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_qos.h>
 
 #include <soc/qcom/scm.h>
 #include <soc/qcom/clock-pll.h>
@@ -460,6 +461,10 @@ struct cpu_clk_8996 {
 	unsigned long *alt_pll_freqs;
 	int n_alt_pll_freqs;
 	struct clk c;
+	bool hw_low_power_ctrl;
+	int pm_qos_latency;
+	cpumask_t cpumask;
+	struct pm_qos_request req;
 };
 
 static inline struct cpu_clk_8996 *to_cpu_clk_8996(struct clk *c)
@@ -491,6 +496,8 @@ static unsigned long alt_pll_perfcl_freqs[] = {
 	 576000000,
 };
 
+static void do_nothing(void *unused) { }
+
 static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 {
 	struct cpu_clk_8996 *cpuclk = to_cpu_clk_8996(c);
@@ -498,6 +505,7 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 	unsigned long alt_pll_prev_rate = cpuclk->alt_pll->rate;
 	unsigned long alt_pll_rate;
 	unsigned long n_alt_freqs = cpuclk->n_alt_pll_freqs;
+	bool hw_low_power_ctrl = cpuclk->hw_low_power_ctrl;
 
 	alt_pll_rate = cpuclk->alt_pll_freqs[0];
 	if (rate >= cpuclk->alt_pll_freqs[n_alt_freqs - 1])
@@ -507,6 +515,23 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 		if (cpuclk->alt_pll_freqs[i] < rate &&
 		    cpuclk->alt_pll_freqs[i+1] >= rate)
 			alt_pll_rate = cpuclk->alt_pll_freqs[i];
+
+	/*
+	 * If hardware control of the clock tree is enabled during power
+	 * collapse, setup a PM QOS request to prevent power collapse and
+	 * wake up one of the CPUs in this clock domain, to ensure software
+	 * control while the clock rate is being switched.
+	 */
+	if (hw_low_power_ctrl) {
+		memset(&cpuclk->req, 0, sizeof(cpuclk->req));
+		cpuclk->req.cpus_affine = cpuclk->cpumask;
+		cpuclk->req.type = PM_QOS_REQ_AFFINE_CORES;
+		pm_qos_add_request(&cpuclk->req, PM_QOS_CPU_DMA_LATENCY,
+				   cpuclk->pm_qos_latency);
+
+		ret = smp_call_function_any(&cpuclk->cpumask, do_nothing,
+						NULL, 1);
+	}
 
 	ret = clk_set_rate(cpuclk->alt_pll, alt_pll_rate);
 	if (ret) {
@@ -542,6 +567,9 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 		goto set_rate_fail;
 	}
 
+	if (hw_low_power_ctrl)
+		pm_qos_remove_request(&cpuclk->req);
+
 	return 0;
 
 set_rate_fail:
@@ -559,6 +587,9 @@ fail:
 		pr_err("failed to reset rate to %lu on alt pll after failing to  set %lu on %s (%d)\n",
 			alt_pll_prev_rate, rate, c->dbg_name, err_ret);
 out:
+	if (hw_low_power_ctrl)
+		pm_qos_remove_request(&cpuclk->req);
+
 	return ret;
 }
 
@@ -570,11 +601,15 @@ static struct clk_ops clk_ops_cpu_8996 = {
 
 DEFINE_VDD_REGS_INIT(vdd_pwrcl, 1);
 
+#define PERFCL_LATENCY_NO_L2_PC_US (800 - 1)
+#define PWRCL_LATENCY_NO_L2_PC_US (700 - 1)
+
 static struct cpu_clk_8996 pwrcl_clk = {
 	.cpu_reg_mask = 0x3,
 	.alt_pll = &pwrcl_alt_pll.c,
 	.alt_pll_freqs = alt_pll_pwrcl_freqs,
 	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_pwrcl_freqs),
+	.pm_qos_latency = PWRCL_LATENCY_NO_L2_PC_US,
 	.c = {
 		.parent = &pwrcl_hf_mux.c,
 		.dbg_name = "pwrcl_clk",
@@ -591,6 +626,7 @@ static struct cpu_clk_8996 perfcl_clk = {
 	.alt_pll = &perfcl_alt_pll.c,
 	.alt_pll_freqs = alt_pll_perfcl_freqs,
 	.n_alt_pll_freqs = ARRAY_SIZE(alt_pll_perfcl_freqs),
+	.pm_qos_latency = PERFCL_LATENCY_NO_L2_PC_US,
 	.c = {
 		.parent = &perfcl_hf_mux.c,
 		.dbg_name = "perfcl_clk",
@@ -998,6 +1034,8 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 
 	pwrcl_pll_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	perfcl_pll_main.c.flags = CLKFLAG_NO_RATE_CACHE;
+	pwrcl_clk.hw_low_power_ctrl = true;
+	perfcl_clk.hw_low_power_ctrl = true;
 
 	ret = cpu_clock_8996_resources_init(pdev);
 	if (ret) {
@@ -1039,6 +1077,13 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	}
 
 	get_online_cpus();
+
+	for_each_possible_cpu(cpu) {
+		if (logical_cpu_to_clk(cpu) == &pwrcl_clk.c)
+			cpumask_set_cpu(cpu, &pwrcl_clk.cpumask);
+		if (logical_cpu_to_clk(cpu) == &perfcl_clk.c)
+			cpumask_set_cpu(cpu, &perfcl_clk.cpumask);
+	}
 
 	ret = of_msm_clock_register(pdev->dev.of_node, cpu_clocks_8996,
 				    ARRAY_SIZE(cpu_clocks_8996));
