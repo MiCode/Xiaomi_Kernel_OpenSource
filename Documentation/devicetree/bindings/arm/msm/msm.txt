@@ -86,6 +86,9 @@ SoCs:
 - MSM8929
   compatible = "qcom,msm8929"
 
+- APQ8052
+  compatible = "qcom,apq8052"
+
 Generic board variants:
 
 - CDP device:
@@ -220,3 +223,5 @@ compatible = "qcom,msm8929-mtp"
 compatible = "qcom,msm8929-qrd"
 compatible = "qcom,msm8929-qrd-skul"
 compatible = "qcom,msm8929-qrd-skulb"
+compatible = "qcom,apq8052-cdp"
+compatible = "qcom,apq8052-mtp"
