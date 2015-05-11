@@ -1704,15 +1704,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 
 	/* Enable wakeup from LPM */
 	if (mdwc->pwr_event_irq) {
+		disable_irq(mdwc->pwr_event_irq);
 		dwc3_msm_wake_interrupt_enable(mdwc, true);
 		enable_irq_wake(mdwc->pwr_event_irq);
 	}
-
-	/*
-	 * Marking in LPM before disabling the clocks in order to avoid a
-	 * potential race condition with pwr_event_irq.
-	 */
-	atomic_set(&dwc->in_lpm, 1);
 
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
 
@@ -1777,6 +1772,10 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 			mdwc->lpm_flags |= MDWC3_ASYNC_IRQ_WAKE_CAPABILITY;
 		}
 	}
+
+	atomic_set(&dwc->in_lpm, 1);
+	if (mdwc->pwr_event_irq)
+		enable_irq(mdwc->pwr_event_irq);
 
 	dev_info(mdwc->dev, "DWC3 in low power mode\n");
 	return 0;
