@@ -2317,7 +2317,7 @@ int glink_queue_rx_intent(void *handle, const void *pkt_priv, size_t size)
 {
 	struct channel_ctx *ctx = (struct channel_ctx *)handle;
 	struct glink_core_rx_intent *intent_ptr;
-	int ret;
+	int ret = 0;
 
 	if (!ctx)
 		return -EINVAL;
@@ -2338,6 +2338,9 @@ int glink_queue_rx_intent(void *handle, const void *pkt_priv, size_t size)
 	}
 	GLINK_DBG_CH(ctx, "%s: L[%u]:%zu\n", __func__, intent_ptr->id,
 			intent_ptr->intent_size);
+
+	if (ctx->transport_ptr->capabilities & GCAP_INTENTLESS)
+		return ret;
 
 	/* notify remote side of rx intent */
 	ret = ctx->transport_ptr->ops->tx_cmd_local_rx_intent(
