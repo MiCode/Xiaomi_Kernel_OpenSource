@@ -1113,8 +1113,10 @@
 		reg-names = "core_mem", "bam_mem";
 
 		interrupt-names = "core_irq", "bam_irq", "wakeup_irq";
+		#address-cells = <0>;
 		interrupt-parent = <&blsp1_uart0>;
 		interrupts = <0 1 2>;
+		#interrupt-cells = <1>;
 		interrupt-map-mask = <0xffffffff>;
 		interrupt-map = <0 &intc 0 107 0
 				1 &intc 0 238 0
