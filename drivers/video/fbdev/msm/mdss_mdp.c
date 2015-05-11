@@ -943,6 +943,14 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 		pr_err("unable to get gdsc regulator\n");
 		return -EINVAL;
 	}
+
+	mdata->venus = devm_regulator_get_optional(&mdata->pdev->dev,
+		"gdsc-venus");
+	if (IS_ERR_OR_NULL(mdata->venus)) {
+		mdata->venus = NULL;
+		pr_debug("unable to get venus gdsc regulator\n");
+	}
+
 	mdata->fs_ena = false;
 
 	mdata->gdsc_cb.notifier_call = mdss_mdp_gdsc_notifier_call;
@@ -1203,6 +1211,12 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 	if (mdata != NULL) {
 		if (on) {
 			pr_debug("Enable MDP FS for splash.\n");
+			if (mdata->venus) {
+				ret = regulator_enable(mdata->venus);
+				if (ret)
+					pr_err("venus failed to enable\n");
+			}
+
 			ret = regulator_enable(mdata->fs);
 			if (ret)
 				pr_err("Footswitch failed to enable\n");
@@ -1212,6 +1226,8 @@ void mdss_mdp_footswitch_ctrl_splash(int on)
 			pr_debug("Disable MDP FS for splash.\n");
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 			regulator_disable(mdata->fs);
+			if (mdata->venus)
+				regulator_disable(mdata->venus);
 			mdata->handoff_pending = false;
 		}
 	} else {
@@ -3497,6 +3513,12 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 	if (on) {
 		if (!mdata->fs_ena) {
 			pr_debug("Enable MDP FS\n");
+			if (mdata->venus) {
+				ret = regulator_enable(mdata->venus);
+				if (ret)
+					pr_err("venus failed to enable\n");
+			}
+
 			ret = regulator_enable(mdata->fs);
 			if (ret)
 				pr_warn("Footswitch failed to enable\n");
@@ -3527,6 +3549,8 @@ static void mdss_mdp_footswitch_ctrl(struct mdss_data_type *mdata, int on)
 			if (mdata->en_svs_high)
 				mdss_mdp_config_cx_voltage(mdata, false);
 			regulator_disable(mdata->fs);
+			if (mdata->venus)
+				regulator_disable(mdata->venus);
 		}
 		mdata->fs_ena = false;
 	}
