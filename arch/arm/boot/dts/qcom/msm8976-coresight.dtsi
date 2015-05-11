@@ -862,12 +862,31 @@
 
 	fuse: fuse@a601c {
 		compatible = "arm,coresight-fuse-v2";
-		reg = <0xa601c 0x8>;
-		reg-names = "fuse-base";
+		reg = <0xa601c 0x8>,
+		      <0x5e00c 0x4>;
+		reg-names = "fuse-base", "qpdi-fuse-base";
 
 		coresight-id = <54>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
+	};
+
+	qpdi: qpdi@1941000 {
+		compatible = "qcom,coresight-qpdi";
+		reg = <0x1941000 0x4>;
+		reg-names = "qpdi-base";
+
+		coresight-id = <49>;
+		coresight-name = "coresight-qpdi";
+		coresight-nr-inports = <0>;
+
+		vdd-supply = <&pm8976_l11>;
+		qcom,vdd-voltage-level = <2800000 2950000>;
+		qcom,vdd-current-level = <15000 400000>;
+
+		vdd-io-supply = <&pm8976_l12>;
+		qcom,vdd-io-voltage-level = <1800000 2950000>;
+		qcom,vdd-io-current-level = <200 50000>;
 	};
 };
 
