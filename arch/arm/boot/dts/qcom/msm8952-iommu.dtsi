@@ -77,6 +77,7 @@
 			interrupts = <0 53 0>, <0 53 0>;
 			qcom,iommu-ctx-sids = <0x8c0 0x8c6>;
 			label = "venus_fw";
+			qcom,report-error-on-fault;
 		};
 
 		venus_sec_bitstream: qcom,iommu-ctx@1e23000 {
@@ -87,6 +88,7 @@
 			qcom,iommu-ctx-sids = <0x880 0x884 0x888>;
 			qcom,iommu-sid-mask = <0x3 0x0 0x2>;
 			label = "venus_sec_bitstream";
+			qcom,report-error-on-fault;
 		};
 
 		venus_sec_pixel: qcom,iommu-ctx@1e24000 {
@@ -96,6 +98,7 @@
 			interrupts = <0 58 0>, <0 58 0>;
 			qcom,iommu-ctx-sids = <0x885>;
 			label = "venus_sec_pixel";
+			qcom,report-error-on-fault;
 		};
 
 		venus_sec_non_pixel: qcom,iommu-ctx@1e25000 {
@@ -106,6 +109,7 @@
 			qcom,iommu-ctx-sids = <0x887 0x889 0x8a0>;
 			qcom,iommu-sid-mask = <0x0 0x2 0x0>;
 			label = "venus_sec_non_pixel";
+			qcom,report-error-on-fault;
 		};
 
 		mdp_1: qcom,iommu-ctx@1e26000 {
@@ -173,6 +177,7 @@
 			qcom,iommu-ctx-sids = <0x800 0x804 0x807 0x808>;
 			qcom,iommu-sid-mask = <0x3 0x1 0x0 0x3>;
 			label = "venus_ns";
+			qcom,report-error-on-fault;
 		};
 
 		mdp_0: qcom,iommu-ctx@1e37000 {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -48,6 +48,7 @@
 					0x811>;
 		qcom,iommu-sid-mask = <0x0 0x0 0x27
 					0x220>;
+		qcom,report-error-on-fault;
 	};
 
 	cpp: qcom,iommu-ctx@1e26000 {
@@ -96,22 +97,26 @@
 					0x90e>;
 		qcom,iommu-sid-mask = <0x0 0x20 0x0 0x20
 					0x0>;
+		qcom,report-error-on-fault;
 	};
 
 	venus_sec_bitstream: qcom,iommu-ctx@1e34000 {
 		interrupts = <0 223 0>, <0 223 0>;
 		qcom,iommu-ctx-sids = <0x90c>;
+		qcom,report-error-on-fault;
 	};
 
 	venus_sec_non_pixel: qcom,iommu-ctx@1e35000 {
 		interrupts = <0 224 0>, <0 224 0>;
 		qcom,iommu-ctx-sids = <0x9c0 0x907 0x908
 					0x90d 0x90f>;
+		qcom,report-error-on-fault;
 	};
 
 	venus_fw: qcom,iommu-ctx@1e36000 {
 		interrupts = <0 225 0>, <0 225 0>;
 		qcom,iommu-ctx-sids = <0x980 0x986>;
+		qcom,report-error-on-fault;
 	};
 
 	periph_rpm: qcom,iommu-ctx@1e37000 {
