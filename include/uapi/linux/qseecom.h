@@ -328,4 +328,7 @@ extern long qseecom_ioctl(struct file *file,
 #define QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 34, struct qseecom_mdtp_cipher_dip_req)
 
+#define QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 35, struct qseecom_send_modfd_cmd_req)
+
 #endif /* _UAPI_QSEECOM_H_ */
