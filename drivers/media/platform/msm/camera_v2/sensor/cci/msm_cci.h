@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/platform_device.h>
 #include <media/v4l2-subdev.h>
+#include <linux/workqueue.h>
 #include <media/msm_cam_sensor.h>
 #include <soc/qcom/camera2.h>
 #include "msm_sd.h"
@@ -64,6 +65,7 @@ enum msm_cci_cmd_type {
 	MSM_CCI_I2C_READ,
 	MSM_CCI_I2C_WRITE,
 	MSM_CCI_I2C_WRITE_SEQ,
+	MSM_CCI_I2C_WRITE_ASYNC,
 	MSM_CCI_GPIO_WRITE,
 };
 
@@ -108,9 +110,11 @@ struct msm_camera_cci_master_info {
 	atomic_t q_free[NUM_QUEUES];
 	uint8_t q_lock[NUM_QUEUES];
 	uint8_t reset_pending;
-	atomic_t done_pending;
 	struct mutex mutex;
 	struct completion reset_complete;
+	struct mutex mutex_q[NUM_QUEUES];
+	struct completion report_q[NUM_QUEUES];
+	atomic_t done_pending[NUM_QUEUES];
 };
 
 struct msm_cci_clk_params_t {
@@ -164,6 +168,7 @@ struct cci_device {
 	int32_t regulator_count;
 	uint8_t payload_size;
 	uint8_t support_seq_write;
+	struct workqueue_struct *write_wq[MASTER_MAX];
 };
 
 enum msm_cci_i2c_cmd_type {
@@ -197,6 +202,13 @@ enum msm_cci_gpio_cmd_type {
 	CCI_GPIO_REPEAT_CMD,
 	CCI_GPIO_CONTINUE_CMD,
 	CCI_GPIO_INVALID_CMD,
+};
+
+struct cci_write_async {
+	struct cci_device *cci_dev;
+	struct msm_camera_cci_ctrl c_ctrl;
+	enum cci_i2c_queue_t queue;
+	struct work_struct work;
 };
 
 #ifdef CONFIG_MSM_CCI

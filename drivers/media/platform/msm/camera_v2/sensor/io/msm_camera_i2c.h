@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -55,6 +55,8 @@ struct msm_camera_i2c_fn_t {
 		struct msm_camera_i2c_reg_array *reg_setting, uint32_t reg_size,
 		uint32_t buf_len, uint32_t addr,
 		enum msm_camera_i2c_data_type data_type);
+	int32_t (*i2c_write_table_async)(struct msm_camera_i2c_client *,
+		struct msm_camera_i2c_reg_setting *);
 };
 
 int32_t msm_camera_cci_i2c_read(struct msm_camera_i2c_client *client,
@@ -72,6 +74,10 @@ int32_t msm_camera_cci_i2c_write_seq(struct msm_camera_i2c_client *client,
 	uint32_t addr, uint8_t *data, uint32_t num_byte);
 
 int32_t msm_camera_cci_i2c_write_table(
+	struct msm_camera_i2c_client *client,
+	struct msm_camera_i2c_reg_setting *write_setting);
+
+int32_t msm_camera_cci_i2c_write_table_async(
 	struct msm_camera_i2c_client *client,
 	struct msm_camera_i2c_reg_setting *write_setting);
 

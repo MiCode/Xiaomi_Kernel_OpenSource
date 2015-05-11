@@ -417,6 +417,7 @@ enum msm_sensor_cfg_type_t {
 	CFG_SET_AUTOFOCUS,
 	CFG_CANCEL_AUTOFOCUS,
 	CFG_SET_STREAM_TYPE,
+	CFG_WRITE_I2C_ARRAY_ASYNC,
 };
 
 enum msm_actuator_cfg_type_t {

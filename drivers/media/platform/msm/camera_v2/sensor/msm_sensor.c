@@ -729,7 +729,8 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 			cdata->cfg.sensor_init_params.position,
 			cdata->cfg.sensor_init_params.sensor_mount_angle);
 		break;
-	case CFG_WRITE_I2C_ARRAY: {
+	case CFG_WRITE_I2C_ARRAY:
+	case CFG_WRITE_I2C_ARRAY_ASYNC: {
 		struct msm_camera_i2c_reg_setting32 conf_array32;
 		struct msm_camera_i2c_reg_setting conf_array;
 		struct msm_camera_i2c_reg_array *reg_setting = NULL;
@@ -784,9 +785,15 @@ static int msm_sensor_config32(struct msm_sensor_ctrl_t *s_ctrl,
 
 		conf_array.reg_setting = reg_setting;
 
-		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
-			i2c_write_table(s_ctrl->sensor_i2c_client,
-			&conf_array);
+		if (CFG_WRITE_I2C_ARRAY == cdata->cfgtype)
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table(s_ctrl->sensor_i2c_client,
+				&conf_array);
+		else
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table_async(s_ctrl->sensor_i2c_client,
+				&conf_array);
+
 		kfree(reg_setting);
 		break;
 	}
@@ -1078,7 +1085,9 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			cdata->cfg.sensor_init_params.position,
 			cdata->cfg.sensor_init_params.sensor_mount_angle);
 		break;
-	case CFG_WRITE_I2C_ARRAY: {
+
+	case CFG_WRITE_I2C_ARRAY:
+	case CFG_WRITE_I2C_ARRAY_ASYNC: {
 		struct msm_camera_i2c_reg_setting conf_array;
 		struct msm_camera_i2c_reg_array *reg_setting = NULL;
 
@@ -1124,8 +1133,14 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		}
 
 		conf_array.reg_setting = reg_setting;
-		rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->i2c_write_table(
-			s_ctrl->sensor_i2c_client, &conf_array);
+		if (cdata->cfgtype == CFG_WRITE_I2C_ARRAY)
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table(s_ctrl->sensor_i2c_client,
+					&conf_array);
+		else
+			rc = s_ctrl->sensor_i2c_client->i2c_func_tbl->
+				i2c_write_table_async(s_ctrl->sensor_i2c_client,
+					&conf_array);
 		kfree(reg_setting);
 		break;
 	}
@@ -1500,6 +1515,8 @@ static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl = {
 		msm_camera_cci_i2c_write_table_w_microdelay,
 	.i2c_util = msm_sensor_cci_i2c_util,
 	.i2c_write_conf_tbl = msm_camera_cci_i2c_write_conf_tbl,
+	.i2c_write_table_async = msm_camera_cci_i2c_write_table_async,
+
 };
 
 static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
@@ -1511,6 +1528,7 @@ static struct msm_camera_i2c_fn_t msm_sensor_qup_func_tbl = {
 	.i2c_write_table_w_microdelay =
 		msm_camera_qup_i2c_write_table_w_microdelay,
 	.i2c_write_conf_tbl = msm_camera_qup_i2c_write_conf_tbl,
+	.i2c_write_table_async = msm_camera_qup_i2c_write_table,
 };
 
 int32_t msm_sensor_platform_probe(struct platform_device *pdev,
