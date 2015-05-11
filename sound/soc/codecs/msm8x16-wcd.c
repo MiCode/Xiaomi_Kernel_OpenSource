@@ -208,6 +208,7 @@ static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
 static void msm8x16_wcd_configure_cap(struct snd_soc_codec *codec,
 		bool micbias1, bool micbias2);
 static void msm8x16_skip_imped_detect(struct snd_soc_codec *codec);
+static bool msm8x16_wcd_use_mb(struct snd_soc_codec *codec);
 
 struct msm8x16_wcd_spmi msm8x16_wcd_modules[MAX_MSM8X16_WCD_DEVICE];
 
@@ -276,6 +277,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.get_hwdep_fw_cal = msm8x16_wcd_get_hwdep_fw_cal,
 	.set_cap_mode = msm8x16_wcd_configure_cap,
 	.skip_imped_detect = msm8x16_skip_imped_detect,
+	.extn_use_mb = msm8x16_wcd_use_mb,
 };
 
 static const uint32_t wcd_imped_val[] = {4, 8, 12, 16,
@@ -2480,6 +2482,15 @@ static int msm8x16_wcd_codec_enable_dmic(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static bool msm8x16_wcd_use_mb(struct snd_soc_codec *codec)
+{
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
+
+	if (get_codec_version(msm8x16_wcd) < CAJON)
+		return true;
+	else
+		return false;
+}
 
 static void msm8x16_wcd_set_auto_zeroing(struct snd_soc_codec *codec,
 					bool enable)
