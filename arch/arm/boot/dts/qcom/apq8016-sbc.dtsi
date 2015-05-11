@@ -785,7 +785,7 @@
 				qcom,max-current = <40>;
 				qcom,id = <8>;
 				linux,default-trigger =
-						"none";
+						"boot-indication";
 				qcom,default-state = "on";
 				qcom,source-sel = <1>;
 				qcom,mode-ctrl = <0x10>;
@@ -831,6 +831,10 @@
 
 &pm8916_s3{
 	qcom,init-voltage = <1300000>;
+};
+
+&mdss_fb0 {
+	qcom,boot-indication-enabled;
 };
 
 &spmi_bus {
