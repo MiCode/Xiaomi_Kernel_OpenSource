@@ -525,6 +525,9 @@ struct mdss_mdp_pipe {
 	struct mdss_mdp_format_params *src_fmt;
 	struct mdss_mdp_plane_sizes src_planes;
 
+	/* compression ratio from the source format */
+	struct mult_factor comp_ratio;
+
 	u8 mixer_stage;
 	u8 is_fg;
 	u8 alpha;
@@ -1037,8 +1040,8 @@ void mdss_mdp_ctl_notifier_unregister(struct mdss_mdp_ctl *ctl,
 	struct notifier_block *notifier);
 u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl);
 u32 mdss_apply_overhead_factors(u32 quota, bool is_nrt,
-	bool is_rot_read, struct mdss_mdp_format_params *fmt);
-
+	bool is_rot_read, struct mdss_mdp_format_params *fmt,
+	struct mult_factor *comp_ratio);
 
 int mdss_mdp_scan_pipes(void);
 

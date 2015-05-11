@@ -428,6 +428,8 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
+	pipe->comp_ratio = layer->buffer.comp_ratio;
+
 	if (mfd->panel_orientation)
 		layer->flags ^= mfd->panel_orientation;
 
