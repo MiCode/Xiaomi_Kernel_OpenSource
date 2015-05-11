@@ -31,18 +31,21 @@ Required properties:
 - pinctrl-names : Names corresponding to the numbered pinctrl states
 - clocks: from common clock binding: handle to xo and rf_clk clocks.
 - clock-names: Names of all the clocks that are accessed by the subsystem
+- qcom,vdd-voltage-level: This property represents (nominal, min, max) voltage
+for iris and pronto regulators in milli-volts.
+- qcom,vdd-current: This property represents current value for
+iris and pronto regulators in micro-amps.
 
 Optional properties:
 - qcom,has-autodetect-xo: boolean flag to determine whether Iris XO auto detect
 should be performed during boot up.
 - qcom,wlan-rx-buff-count: WLAN RX buffer count is a configurable value,
 using a smaller count for this buffer will reduce the memory usage.
-- qcom,is-pronto-vt: boolean flag to determine the pronto hardware version
-in use. subsequently Pronto and IRIS voltage regulator range is configured
-according to the ponto HW version
 - qcom,is-pronto-v3: boolean flag to determine the pronto hardware version
 in use. subsequently correct workqueue will be used by DXE engine to push frames
-in TX data path and correct voting to RPM will be decided for booting.
+in TX data path.
+- qcom,is-pronto-vadc: boolean flag to determine Battery voltage feature
+support for pronto hardware.
 - qcom,wcnss-pm : <Core rail LDO#, PA rail LDO#, XO settling time,
 		   RPM power collapse enabled, standalone power collapse enabled>
 	Power manager related parameter for LDO configuration.

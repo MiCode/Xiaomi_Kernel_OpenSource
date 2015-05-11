@@ -1276,7 +1276,7 @@ static void wcnss_smd_notify_event(void *data, unsigned int event)
 		schedule_work(&penv->wcnss_pm_config_work);
 		cancel_delayed_work(&penv->wcnss_pm_qos_del_req);
 		schedule_delayed_work(&penv->wcnss_pm_qos_del_req, 0);
-		if (penv->wlan_config.is_pronto_v3 && (penv->vadc_dev))
+		if (penv->wlan_config.is_pronto_vadc && (penv->vadc_dev))
 			schedule_work(&penv->wcnss_vadc_work);
 		break;
 
@@ -1542,8 +1542,10 @@ EXPORT_SYMBOL(wcnss_get_wlan_config);
 
 int wcnss_is_hw_pronto_ver3(void)
 {
-	if (penv && penv->pdev)
-		return penv->wlan_config.is_pronto_v3;
+	if (penv && penv->pdev) {
+		if (penv->wlan_config.is_pronto_v3)
+			return penv->wlan_config.is_pronto_v3;
+	}
 	return 0;
 }
 EXPORT_SYMBOL(wcnss_is_hw_pronto_ver3);
@@ -2697,29 +2699,140 @@ static struct miscdevice wcnss_usr_ctrl = {
 };
 
 static int
+wcnss_dt_parse_vreg_level(struct device *dev, int index,
+			  const char *current_vreg_name, const char *vreg_name,
+			  struct vregs_level *vlevel)
+{
+	int ret = 0;
+	/* array used to store nominal, low and high voltage values
+	 */
+	u32 voltage_levels[3], current_vreg;
+
+	ret = of_property_read_u32_array(dev->of_node, vreg_name,
+					 voltage_levels,
+					 ARRAY_SIZE(voltage_levels));
+	if (ret) {
+		dev_err(dev, "error reading %s property\n", vreg_name);
+		return ret;
+	}
+
+	vlevel[index].nominal_min = voltage_levels[0];
+	vlevel[index].low_power_min = voltage_levels[1];
+	vlevel[index].max_voltage = voltage_levels[2];
+
+	ret = of_property_read_u32(dev->of_node, current_vreg_name,
+				   &current_vreg);
+	if (ret) {
+		dev_err(dev, "error reading %s property\n", current_vreg_name);
+		return ret;
+	}
+
+	vlevel[index].uA_load = current_vreg;
+
+	return ret;
+}
+
+static int
 wcnss_trigger_config(struct platform_device *pdev)
 {
 	int ret;
-	int rc;
+	int rc, index = 0;
 	struct qcom_wcnss_opts *pdata;
 	struct resource *res;
-	int is_pronto_vt;
+	int is_pronto_vadc;
 	int is_pronto_v3;
 	int pil_retry = 0;
 	int has_pronto_hw = of_property_read_bool(pdev->dev.of_node,
 							"qcom,has-pronto-hw");
 
-	is_pronto_vt = of_property_read_bool(pdev->dev.of_node,
-							"qcom,is-pronto-vt");
+	is_pronto_vadc = of_property_read_bool(pdev->dev.of_node,
+					       "qcom,is-pronto-vadc");
 
 	is_pronto_v3 = of_property_read_bool(pdev->dev.of_node,
 							"qcom,is-pronto-v3");
 
-	penv->is_vsys_adc_channel = of_property_read_bool(pdev->dev.of_node,
-						"qcom,has-vsys-adc-channel");
 	if (of_property_read_u32(pdev->dev.of_node,
 			"qcom,wlan-rx-buff-count", &penv->wlan_rx_buff_count)) {
 		penv->wlan_rx_buff_count = WCNSS_DEF_WLAN_RX_BUFF_COUNT;
+	}
+
+	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
+					"qcom,pronto-vddmx-current",
+					"qcom,vddmx-voltage-level",
+					penv->wlan_config.pronto_vlevel);
+
+	if (ret) {
+		dev_err(&pdev->dev, "error reading voltage-level property\n");
+		goto fail;
+	}
+
+	index++;
+	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
+					"qcom,pronto-vddcx-current",
+					"qcom,vddcx-voltage-level",
+					penv->wlan_config.pronto_vlevel);
+
+	if (ret) {
+		dev_err(&pdev->dev, "error reading voltage-level property\n");
+		goto fail;
+	}
+
+	index++;
+	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
+					"qcom,pronto-vddpx-current",
+					"qcom,vddpx-voltage-level",
+					penv->wlan_config.pronto_vlevel);
+
+	if (ret) {
+		dev_err(&pdev->dev, "error reading voltage-level property\n");
+		goto fail;
+	}
+
+	/* assign 0 to index now onwards, index variable re used to
+	 * represent iris regulator index
+	 */
+	index = 0;
+	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
+					"qcom,iris-vddxo-current",
+					"qcom,iris-vddxo-voltage-level",
+					penv->wlan_config.iris_vlevel);
+
+	if (ret) {
+		dev_err(&pdev->dev, "error reading voltage-level property\n");
+		goto fail;
+	}
+
+	index++;
+	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
+					"qcom,iris-vddrfa-current",
+					"qcom,iris-vddrfa-voltage-level",
+					penv->wlan_config.iris_vlevel);
+
+	if (ret) {
+		dev_err(&pdev->dev, "error reading voltage-level property\n");
+		goto fail;
+	}
+
+	index++;
+	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
+					"qcom,iris-vddpa-current",
+					"qcom,iris-vddpa-voltage-level",
+					penv->wlan_config.iris_vlevel);
+
+	if (ret) {
+		dev_err(&pdev->dev, "error reading voltage-level property\n");
+		goto fail;
+	}
+
+	index++;
+	ret = wcnss_dt_parse_vreg_level(&pdev->dev, index,
+					"qcom,iris-vdddig-current",
+					"qcom,iris-vdddig-voltage-level",
+					penv->wlan_config.iris_vlevel);
+
+	if (ret) {
+		dev_err(&pdev->dev, "error reading voltage-level property\n");
+		goto fail;
 	}
 
 	/* make sure we are only triggered once */
@@ -2739,7 +2852,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 	}
 	penv->wcnss_hw_type = (has_pronto_hw) ? WCNSS_PRONTO_HW : WCNSS_RIVA_HW;
 	penv->wlan_config.use_48mhz_xo = has_48mhz_xo;
-	penv->wlan_config.is_pronto_vt = is_pronto_vt;
+	penv->wlan_config.is_pronto_vadc = is_pronto_vadc;
 	penv->wlan_config.is_pronto_v3 = is_pronto_v3;
 
 	if (WCNSS_CONFIG_UNSPECIFIED == has_autodetect_xo && has_pronto_hw) {
@@ -3035,7 +3148,7 @@ wcnss_trigger_config(struct platform_device *pdev)
 		penv->fw_vbatt_state = WCNSS_CONFIG_UNSPECIFIED;
 	}
 
-	if (penv->wlan_config.is_pronto_v3) {
+	if (penv->wlan_config.is_pronto_vadc) {
 		penv->vadc_dev = qpnp_get_vadc(&penv->pdev->dev, "wcnss");
 
 		if (IS_ERR(penv->vadc_dev)) {
@@ -3090,6 +3203,9 @@ fail_res:
 		wcnss_pronto_gpios_config(pdev, false);
 fail_gpio_res:
 	wcnss_disable_pc_remove_req();
+fail:
+	if (penv->wcnss_notif_hdle)
+		subsys_notif_unregister_notifier(penv->wcnss_notif_hdle, &wnb);
 	penv = NULL;
 	return ret;
 }
