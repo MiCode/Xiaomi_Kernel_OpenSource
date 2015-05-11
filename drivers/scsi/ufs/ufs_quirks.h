@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,6 +105,15 @@ struct ufs_card_fix {
  * link to be kept in off state during suspend.
  */
 #define UFS_DEVICE_QUIRK_NO_LINK_OFF	(1 << 3)
+
+/*
+ * Few Toshiba UFS device models advertise RX_MIN_ACTIVATETIME_CAPABILITY as
+ * 600us which may not be enough for reliable hibern8 exit hardware sequence
+ * from UFS device.
+ * To workaround this issue, host should set its PA_TACTIVATE time to 1ms even
+ * if device advertises RX_MIN_ACTIVATETIME_CAPABILITY less than 1ms.
+ */
+#define UFS_DEVICE_QUIRK_PA_TACTIVATE	(1 << 4)
 
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);

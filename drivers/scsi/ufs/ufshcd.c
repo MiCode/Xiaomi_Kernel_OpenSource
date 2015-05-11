@@ -6520,6 +6520,10 @@ static void ufshcd_tune_unipro_params(struct ufs_hba *hba)
 		ufshcd_tune_pa_tactivate(hba);
 		ufshcd_tune_pa_hibern8time(hba);
 	}
+
+	if (hba->dev_quirks & UFS_DEVICE_QUIRK_PA_TACTIVATE)
+		/* set 1ms timeout for PA_TACTIVATE */
+		ufshcd_dme_set(hba, UIC_ARG_MIB(PA_TACTIVATE), 10);
 }
 
 static void ufshcd_clear_dbg_ufs_stats(struct ufs_hba *hba)
