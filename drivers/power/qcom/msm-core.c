@@ -615,7 +615,7 @@ static int msm_get_voltage_levels(struct device *dev, int cpu,
 	unsigned int *voltage;
 	int i;
 	int corner;
-	struct opp *opp;
+	struct dev_pm_opp *opp;
 	struct device *cpu_dev = get_cpu_device(cpu);
 	/*
 	 * Convert cpr corner voltage to average voltage of both
