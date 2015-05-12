@@ -4499,25 +4499,42 @@ static int tasha_codec_config_mad(struct snd_soc_codec *codec)
 {
 	int ret, idx;
 	const struct firmware *fw;
+	struct firmware_cal *hwdep_cal = NULL;
 	struct wcd_mad_audio_cal *mad_cal = NULL;
+	const void *data;
 	const char *filename = TASHA_MAD_AUDIO_FIRMWARE_PATH;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	size_t cal_size;
 
-	ret = request_firmware(&fw, filename, codec->dev);
-	if (ret || !fw) {
-		dev_err(codec->dev,
-			"%s: MAD firmware acquire failed, err = %d\n",
-			__func__, ret);
-		return -ENODEV;
+	hwdep_cal = wcdcal_get_fw_cal(tasha->fw_data, WCD9XXX_MAD_CAL);
+	if (hwdep_cal) {
+		data = hwdep_cal->data;
+		cal_size = hwdep_cal->size;
+		dev_dbg(codec->dev, "%s: using hwdep calibration\n",
+			__func__);
+	} else {
+		ret = request_firmware(&fw, filename, codec->dev);
+		if (ret || !fw) {
+			dev_err(codec->dev,
+				"%s: MAD firmware acquire failed, err = %d\n",
+				__func__, ret);
+			return -ENODEV;
+		}
+		data = fw->data;
+		cal_size = fw->size;
+		dev_dbg(codec->dev, "%s: using request_firmware calibration\n",
+			__func__);
 	}
-	if (fw->size < sizeof(*mad_cal)) {
+
+	if (cal_size < sizeof(*mad_cal)) {
 		dev_err(codec->dev,
 			"%s: Incorrect size %zd for MAD Cal, expected %zd\n",
-			__func__, fw->size, sizeof(*mad_cal));
+			__func__, cal_size, sizeof(*mad_cal));
 		ret = -ENOMEM;
 		goto done;
 	}
 
-	mad_cal = (struct wcd_mad_audio_cal *) (fw->data);
+	mad_cal = (struct wcd_mad_audio_cal *) (data);
 	if (!mad_cal) {
 		dev_err(codec->dev,
 			"%s: Invalid calibration data\n",
@@ -4596,7 +4613,8 @@ static int tasha_codec_config_mad(struct snd_soc_codec *codec)
 		      mad_cal->ultrasound_info.rms_threshold_msb);
 
 done:
-	release_firmware(fw);
+	if (!hwdep_cal)
+		release_firmware(fw);
 
 	return ret;
 }
@@ -7686,6 +7704,7 @@ static int tasha_codec_probe(struct snd_soc_codec *codec)
 		goto err;
 	}
 	set_bit(WCD9XXX_MBHC_CAL, tasha->fw_data->cal_bit);
+	set_bit(WCD9XXX_MAD_CAL, tasha->fw_data->cal_bit);
 	ret = wcd_cal_create_hwdep(tasha->fw_data,
 				   WCD9XXX_CODEC_HWDEP_NODE, codec);
 	if (ret < 0) {
