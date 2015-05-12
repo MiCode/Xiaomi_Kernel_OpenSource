@@ -260,8 +260,10 @@ int parse_event_thread(void *ctxt)
 struct mhi_result *mhi_poll(struct mhi_client_handle *client_handle)
 {
 	enum MHI_STATUS ret_val;
+
 	client_handle->result.payload_buf = 0;
 	client_handle->result.bytes_xferd = 0;
+	client_handle->result.transaction_status = 0;
 	ret_val = mhi_process_event_ring(client_handle->mhi_dev_ctxt,
 				client_handle->event_ring_index,
 				1);
