@@ -56,4 +56,7 @@ void check_local_cpu_errata(void);
 
 #endif /* __ASSEMBLY__ */
 
+bool cpu_supports_mixed_endian_el0(void);
+bool system_supports_mixed_endian_el0(void);
+
 #endif
