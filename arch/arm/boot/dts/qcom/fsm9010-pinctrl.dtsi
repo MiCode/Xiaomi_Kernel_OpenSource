@@ -271,8 +271,7 @@
 			label = "uim0_present";
 
 			uim0_present_default: uim0_present_default {
-				drive-strength = <4>;
-				bias-pull-down;
+				bias-disable;
 			};
 		};
 
