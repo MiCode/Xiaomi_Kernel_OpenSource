@@ -2524,10 +2524,13 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	if (!dev->dma_mask)
-		dev->dma_mask = &dev->coherent_dma_mask;
-	if (!dev->coherent_dma_mask)
-		dev->coherent_dma_mask = DMA_BIT_MASK(64);
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64))) {
+		dev_err(&pdev->dev, "setting DMA mask to 64 failed.\n");
+		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))) {
+			dev_err(&pdev->dev, "setting DMA mask to 32 failed.\n");
+			return -EOPNOTSUPP;
+		}
+	}
 
 	platform_set_drvdata(pdev, mdwc);
 	mdwc->dev = &pdev->dev;
