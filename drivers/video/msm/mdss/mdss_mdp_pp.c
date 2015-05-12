@@ -1324,18 +1324,22 @@ int mdss_mdp_pipe_pp_setup(struct mdss_mdp_pipe *pipe, u32 *op)
 	return ret;
 }
 
-void mdss_mdp_pipe_sspp_term(struct mdss_mdp_pipe *pipe)
+void mdss_mdp_pipe_pp_clear(struct mdss_mdp_pipe *pipe)
 {
 	struct pp_hist_col_info *hist_info;
 
-	if (pipe) {
-		if (pipe->pp_res.hist.col_en) {
-			hist_info = &pipe->pp_res.hist;
-			pp_hist_disable(hist_info);
-		}
-		memset(&pipe->pp_cfg, 0, sizeof(struct mdp_overlay_pp_params));
-		memset(&pipe->pp_res, 0, sizeof(struct mdss_pipe_pp_res));
+	if (!pipe) {
+		pr_err("Invalid pipe context passed, %p\n",
+			pipe);
+		return;
 	}
+	if (mdss_mdp_pipe_is_yuv(pipe)) {
+		hist_info = &pipe->pp_res.hist;
+		pp_hist_disable(hist_info);
+	}
+
+	memset(&pipe->pp_res.pp_sts, 0, sizeof(struct pp_sts_type));
+	pipe->pp_cfg.config_ops = 0;
 }
 
 int mdss_mdp_pipe_sspp_setup(struct mdss_mdp_pipe *pipe, u32 *op)

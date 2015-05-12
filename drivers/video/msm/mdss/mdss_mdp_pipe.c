@@ -906,8 +906,6 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_init(struct mdss_mdp_mixer *mixer,
 
 	if (pipe) {
 		pr_debug("type=%x   pnum=%d\n", pipe->type, pipe->num);
-		mutex_init(&pipe->pp_res.hist.hist_mutex);
-		spin_lock_init(&pipe->pp_res.hist.hist_lock);
 		kref_init(&pipe->kref);
 		INIT_LIST_HEAD(&pipe->buf_queue);
 		is_realtime = !((mixer->ctl->intf_num == MDSS_MDP_NO_INTF)
@@ -1051,7 +1049,7 @@ static void mdss_mdp_pipe_free(struct kref *kref)
 	mdss_mdp_pipe_panic_signal_ctrl(pipe, false);
 	if (pipe->play_cnt) {
 		mdss_mdp_pipe_fetch_halt(pipe);
-		mdss_mdp_pipe_sspp_term(pipe);
+		mdss_mdp_pipe_pp_clear(pipe);
 		mdss_mdp_smp_free(pipe);
 	} else {
 		mdss_mdp_smp_unreserve(pipe);
