@@ -611,6 +611,9 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	u8 ping_val = 0;
 	u8 retry_cmd_num = 3;
 
+	/* enable swr clock */
+	swrm->clk(swrm->handle, true);
+
 	/* Clear Rows and Cols */
 	mask = (SWRM_MCP_FRAME_CTRL_BANK_ROW_CTRL_BMSK |
 		SWRM_MCP_FRAME_CTRL_BANK_COL_CTRL_BMSK);
