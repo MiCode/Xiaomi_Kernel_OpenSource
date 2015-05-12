@@ -209,6 +209,7 @@ static enum MHI_STATUS mhi_init_device_ctrl(struct mhi_device_ctxt
 		return MHI_STATUS_ERROR;
 
 	mhi_dev_ctxt->enable_lpm = 1;
+	mhi_dev_ctxt->flags.mhi_initialized = 0;
 
 	mhi_log(MHI_MSG_INFO, "Allocating control segment.\n");
 	ctrl_seg_size += sizeof(struct mhi_control_seg);
