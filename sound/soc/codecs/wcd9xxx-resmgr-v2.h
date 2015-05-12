@@ -68,4 +68,5 @@ int wcd_resmgr_enable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 				enum wcd_clock_type type);
 int wcd_resmgr_disable_clk_block(struct wcd9xxx_resmgr_v2 *resmgr,
 				enum wcd_clock_type type);
+int wcd_resmgr_get_clk_type(struct wcd9xxx_resmgr_v2 *resmgr);
 #endif
