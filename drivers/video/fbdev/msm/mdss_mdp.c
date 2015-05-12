@@ -1409,6 +1409,20 @@ static ssize_t mdss_mdp_show_capabilities(struct device *dev,
 	SPRINT("smp_mb_per_pipe=%d\n", mdata->smp_mb_per_pipe);
 	SPRINT("max_downscale_ratio=%d\n", MAX_DOWNSCALE_RATIO);
 	SPRINT("max_upscale_ratio=%d\n", MAX_UPSCALE_RATIO);
+
+	if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map)) {
+		SPRINT("fmt_mt_nv12_factor=%d\n",
+			mdata->prefill_data.prefill_factors.fmt_mt_nv12_factor);
+		SPRINT("fmt_mt_factor=%d\n",
+			mdata->prefill_data.prefill_factors.fmt_mt_factor);
+		SPRINT("fmt_linear_factor=%d\n",
+			mdata->prefill_data.prefill_factors.fmt_linear_factor);
+		SPRINT("scale_factor=%d\n",
+			mdata->prefill_data.prefill_factors.scale_factor);
+		SPRINT("xtra_ff_factor=%d\n",
+			mdata->prefill_data.prefill_factors.xtra_ff_factor);
+	}
+
 	if (mdata->props)
 		SPRINT("props=%d", mdata->props);
 	if (mdata->max_bw_low)
