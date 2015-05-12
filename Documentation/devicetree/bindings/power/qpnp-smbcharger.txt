@@ -252,6 +252,9 @@ Optional Properties:
 					charger current reduces beyond this threshold
 					parallel charger is disabled. Must be specified
 					if parallel charger is used.
+- qcom,battery-data			Points to the phandle of node which
+					contains the battery-profiles supported
+					by the charger/FG.
 
 Example:
 	qcom,qpnp-smbcharger {

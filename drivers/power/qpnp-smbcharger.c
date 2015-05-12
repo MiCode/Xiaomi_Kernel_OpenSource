@@ -34,6 +34,7 @@
 #include <linux/rtc.h>
 #include <linux/qpnp/qpnp-adc.h>
 #include <linux/batterydata-lib.h>
+#include <linux/of_batterydata.h>
 #include <linux/msm_bcl.h>
 #include <linux/ktime.h>
 
@@ -165,6 +166,7 @@ struct smbchg_chip {
 	bool				usb_ov_det;
 	bool				otg_pulse_skip_en;
 	bool				very_weak_charger;
+	const char			*battery_type;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -3114,6 +3116,62 @@ static void smbchg_aicl_deglitch_wa_check(struct smbchg_chip *chip)
 
 #define UNKNOWN_BATT_TYPE	"Unknown Battery"
 #define LOADING_BATT_TYPE	"Loading Battery Data"
+static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
+{
+	int rc = 0, max_voltage_uv = 0;
+	struct device_node *batt_node, *profile_node;
+	struct device_node *node = chip->spmi->dev.of_node;
+	union power_supply_propval prop = {0,};
+
+	rc = chip->bms_psy->get_property(chip->bms_psy,
+			POWER_SUPPLY_PROP_BATTERY_TYPE, &prop);
+	if (rc) {
+		pr_smb(PR_STATUS, "Unable to read battery-type rc=%d\n", rc);
+		return 0;
+	}
+	if (!strcmp(prop.strval, UNKNOWN_BATT_TYPE) ||
+		!strcmp(prop.strval, LOADING_BATT_TYPE)) {
+		pr_smb(PR_MISC, "Battery-type not identified\n");
+		return 0;
+	}
+	/* quit if there is no change in the battery-type from previous */
+	if (chip->battery_type && !strcmp(prop.strval, chip->battery_type))
+		return 0;
+
+	batt_node = of_parse_phandle(node, "qcom,battery-data", 0);
+	if (!batt_node) {
+		pr_smb(PR_MISC, "No batterydata available\n");
+		return 0;
+	}
+
+	profile_node = of_batterydata_get_best_profile(batt_node,
+							"bms", NULL);
+	if (!profile_node) {
+		pr_err("couldn't find profile handle\n");
+		return -EINVAL;
+	}
+	chip->battery_type = prop.strval;
+
+	/* change vfloat */
+	rc = of_property_read_u32(profile_node, "qcom,max-voltage-uv",
+						&max_voltage_uv);
+	if (rc) {
+		pr_warn("couldn't find battery max voltage rc=%d\n", rc);
+		return rc;
+	}
+	if (chip->vfloat_mv != (max_voltage_uv / 1000)) {
+		pr_info("Vfloat changed from %dmV to %dmV for battery-type %s\n",
+				chip->vfloat_mv, (max_voltage_uv / 1000),
+				chip->battery_type);
+		rc = smbchg_float_voltage_set(chip, (max_voltage_uv / 1000));
+		if (rc < 0)
+			dev_err(chip->dev,
+				"Couldn't set float voltage rc = %d\n", rc);
+	}
+
+	return rc;
+}
+
 static void smbchg_external_power_changed(struct power_supply *psy)
 {
 	struct smbchg_chip *chip = container_of(psy,
@@ -3141,6 +3199,12 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 			chip->previous_soc = soc;
 			smbchg_soc_changed(chip);
 		}
+
+		rc = smbchg_config_chg_battery_type(chip);
+		if (rc)
+			pr_smb(PR_MISC,
+				"Couldn't update charger configuration rc=%d\n",
+									rc);
 	}
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
