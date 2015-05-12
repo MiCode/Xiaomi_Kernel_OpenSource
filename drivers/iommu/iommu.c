@@ -1298,7 +1298,11 @@ size_t iommu_pgsize(unsigned long pgsize_bitmap,
 	pgsize &= pgsize_bitmap;
 
 	/* make sure we're still sane */
-	BUG_ON(!pgsize);
+	if (!pgsize) {
+		pr_err("invalid pgsize/addr/size! 0x%lx 0x%lx 0x%zx\n",
+		       pgsize_bitmap, addr_merge, size);
+		BUG();
+	}
 
 	/* pick the biggest page */
 	pgsize_idx = __fls(pgsize);
