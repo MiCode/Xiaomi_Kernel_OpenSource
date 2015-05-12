@@ -26,11 +26,18 @@
 #include <linux/thermal.h>
 #include <linux/slab.h>
 #include "lmh_interface.h"
+#include <linux/string.h>
+#include <linux/uaccess.h>
 
 #define LMH_MON_NAME			"lmh_monitor"
 #define LMH_ISR_POLL_DELAY		"interrupt_poll_delay_msec"
 #define LMH_TRACE_ENABLE		"hw_trace_enable"
 #define LMH_TRACE_INTERVAL		"hw_trace_interval"
+#define LMH_DBGFS_DIR			"debug"
+#define LMH_DBGFS_READ			"data"
+#define LMH_DBGFS_CONFIG_READ		"config"
+#define LMH_DBGFS_READ_TYPES		"data_types"
+#define LMH_DBGFS_CONFIG_TYPES		"config_types"
 #define LMH_TRACE_INTERVAL_XO_TICKS	250
 
 struct lmh_mon_threshold {
@@ -71,6 +78,17 @@ struct lmh_mon_driver_data {
 	struct dentry			*hw_log_delay;
 	uint32_t			hw_log_enable;
 	uint64_t			hw_log_interval;
+	struct dentry			*debug_dir;
+	struct dentry			*debug_read;
+	struct dentry			*debug_config;
+	struct dentry			*debug_read_type;
+	struct dentry			*debug_config_type;
+	struct lmh_debug_ops		*debug_ops;
+};
+
+enum lmh_read_type {
+	LMH_DEBUG_READ_TYPE,
+	LMH_DEBUG_CONFIG_TYPE,
 };
 
 static struct lmh_mon_driver_data	*lmh_mon_data;
@@ -877,6 +895,261 @@ void lmh_device_deregister(struct lmh_device_ops *ops)
 	return;
 }
 
+static int lmh_parse_and_extract(const char __user *user_buf, size_t count,
+	enum lmh_read_type type)
+{
+	char *local_buf = NULL, *token = NULL, *curr_ptr = NULL, *token1 = NULL;
+	char *next_line = NULL;
+	int ret = 0, data_ct = 0, i = 0, size = 0;
+	uint32_t *config_buf = NULL;
+
+	/* Allocate two extra space to add ';' character and NULL terminate */
+	local_buf = kzalloc(count + 2, GFP_KERNEL);
+	if (!local_buf) {
+		ret = -ENOMEM;
+		goto dfs_cfg_write_exit;
+	}
+	if (copy_from_user(local_buf, user_buf, count)) {
+		pr_err("user buf error\n");
+		ret = -EFAULT;
+		goto dfs_cfg_write_exit;
+	}
+	size = count + (strnchr(local_buf, count, '\n') ? 1 :  2);
+	local_buf[size - 2] = ';';
+	local_buf[size - 1] = '\0';
+	curr_ptr = next_line = local_buf;
+	while ((token1 = strnchr(next_line, local_buf + size - next_line, ';'))
+		!= NULL) {
+		data_ct = 0;
+		*token1 = '\0';
+		curr_ptr = next_line;
+		next_line = token1 + 1;
+		for (token = (char *)curr_ptr; token &&
+			((token = strnchr(token, next_line - token, ' '))
+			 != NULL); token++)
+			data_ct++;
+		if (data_ct < 2) {
+			pr_err("Invalid format string:[%s]\n", curr_ptr);
+			ret = -EINVAL;
+			goto dfs_cfg_write_exit;
+		}
+		config_buf = kzalloc((++data_ct) * sizeof(uint32_t),
+				GFP_KERNEL);
+		if (!config_buf) {
+			ret = -ENOMEM;
+			goto dfs_cfg_write_exit;
+		}
+		pr_debug("Input:%s data_ct:%d\n", curr_ptr, data_ct);
+		for (i = 0, token = (char *)curr_ptr; token && (i < data_ct);
+			i++) {
+			token = strnchr(token, next_line - token, ' ');
+			if (token)
+				*token = '\0';
+			ret = kstrtouint(curr_ptr, 0, &config_buf[i]);
+			if (ret < 0) {
+				pr_err("Data[%s] scan error. err:%d\n",
+					curr_ptr, ret);
+				kfree(config_buf);
+				goto dfs_cfg_write_exit;
+			}
+			if (token)
+				curr_ptr = ++token;
+		}
+		switch (type) {
+		case LMH_DEBUG_READ_TYPE:
+			ret = lmh_mon_data->debug_ops->debug_config_read(
+				lmh_mon_data->debug_ops, config_buf, data_ct);
+			break;
+		case LMH_DEBUG_CONFIG_TYPE:
+			ret = lmh_mon_data->debug_ops->debug_config_lmh(
+				lmh_mon_data->debug_ops, config_buf, data_ct);
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+		}
+		kfree(config_buf);
+		if (ret) {
+			pr_err("Config error. type:%d err:%d\n", type, ret);
+			goto dfs_cfg_write_exit;
+		}
+	}
+
+dfs_cfg_write_exit:
+	kfree(local_buf);
+	return ret;
+}
+
+static ssize_t lmh_dbgfs_config_write(struct file *file,
+	const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	lmh_parse_and_extract(user_buf, count, LMH_DEBUG_CONFIG_TYPE);
+	return count;
+}
+
+static int lmh_dbgfs_data_read(struct seq_file *seq_fp, void *data)
+{
+	uint32_t *read_buf = NULL;
+	int ret = 0, i = 0;
+
+	ret = lmh_mon_data->debug_ops->debug_read(lmh_mon_data->debug_ops,
+		&read_buf);
+	if (ret <= 0 || !read_buf)
+		goto dfs_read_exit;
+
+	do {
+		seq_printf(seq_fp, "0x%x ", read_buf[i]);
+		i++;
+		if ((i % LMH_READ_LINE_LENGTH) == 0)
+			seq_puts(seq_fp, "\n");
+	} while (i < (ret / sizeof(uint32_t)));
+
+dfs_read_exit:
+	return (ret < 0) ? ret : 0;
+}
+
+static ssize_t lmh_dbgfs_data_write(struct file *file,
+	const char __user *user_buf, size_t count, loff_t *ppos)
+{
+	lmh_parse_and_extract(user_buf, count, LMH_DEBUG_READ_TYPE);
+	return count;
+}
+
+static int lmh_dbgfs_data_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, lmh_dbgfs_data_read, inode->i_private);
+}
+
+static int lmh_get_types(struct seq_file *seq_fp, enum lmh_read_type type)
+{
+	int ret = 0, idx = 0, size = 0;
+	uint32_t *type_list = NULL;
+
+	switch (type) {
+	case LMH_DEBUG_READ_TYPE:
+		ret = lmh_mon_data->debug_ops->debug_get_types(
+			lmh_mon_data->debug_ops, true, &type_list);
+		break;
+	case LMH_DEBUG_CONFIG_TYPE:
+		ret = lmh_mon_data->debug_ops->debug_get_types(
+			lmh_mon_data->debug_ops, false, &type_list);
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (ret <= 0 || !type_list) {
+		pr_err("No device information. err:%d\n", ret);
+		return -ENODEV;
+	}
+	size = ret;
+	for (idx = 0; idx < size; idx++)
+		seq_printf(seq_fp, "0x%x ", type_list[idx]);
+	seq_puts(seq_fp, "\n");
+
+	return 0;
+}
+
+static int lmh_dbgfs_read_type(struct seq_file *seq_fp, void *data)
+{
+	return lmh_get_types(seq_fp, LMH_DEBUG_READ_TYPE);
+}
+
+static int lmh_dbgfs_read_type_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, lmh_dbgfs_read_type, inode->i_private);
+}
+
+static int lmh_dbgfs_config_type(struct seq_file *seq_fp, void *data)
+{
+	return lmh_get_types(seq_fp, LMH_DEBUG_CONFIG_TYPE);
+}
+
+static int lmh_dbgfs_config_type_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, lmh_dbgfs_config_type, inode->i_private);
+}
+
+static const struct file_operations lmh_dbgfs_config_fops = {
+	.write		= lmh_dbgfs_config_write,
+};
+static const struct file_operations lmh_dbgfs_read_fops = {
+	.open		= lmh_dbgfs_data_open,
+	.read		= seq_read,
+	.write		= lmh_dbgfs_data_write,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+static const struct file_operations lmh_dbgfs_read_type_fops = {
+	.open		= lmh_dbgfs_read_type_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+static const struct file_operations lmh_dbgfs_config_type_fops = {
+	.open		= lmh_dbgfs_config_type_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+
+int lmh_debug_register(struct lmh_debug_ops *ops)
+{
+	int ret = 0;
+
+	if (!ops || !ops->debug_read || !ops->debug_config_read
+		       || !ops->debug_get_types) {
+		pr_err("Invalid input");
+		ret = -EINVAL;
+		goto dbg_reg_exit;
+	}
+
+	lmh_mon_data->debug_ops = ops;
+	LMH_CREATE_DEBUGFS_DIR(lmh_mon_data->debug_dir, LMH_DBGFS_DIR,
+			lmh_mon_data->debugfs_parent, ret);
+	if (ret)
+		goto dbg_reg_exit;
+
+	LMH_CREATE_DEBUGFS_FILE(lmh_mon_data->debug_read, LMH_DBGFS_READ, 0600,
+		lmh_mon_data->debug_dir, NULL, &lmh_dbgfs_read_fops, ret);
+	if (!lmh_mon_data->debug_read) {
+		pr_err("Error creating" LMH_DBGFS_READ "entry.\n");
+		ret = -ENODEV;
+		goto dbg_reg_exit;
+	}
+	LMH_CREATE_DEBUGFS_FILE(lmh_mon_data->debug_config,
+		LMH_DBGFS_CONFIG_READ, 0200, lmh_mon_data->debug_dir, NULL,
+		&lmh_dbgfs_config_fops, ret);
+	if (!lmh_mon_data->debug_config) {
+		pr_err("Error creating" LMH_DBGFS_CONFIG_READ "entry\n");
+		ret = -ENODEV;
+		goto dbg_reg_exit;
+	}
+	LMH_CREATE_DEBUGFS_FILE(lmh_mon_data->debug_read_type,
+		LMH_DBGFS_READ_TYPES, 0400, lmh_mon_data->debug_dir, NULL,
+		&lmh_dbgfs_read_type_fops, ret);
+	if (!lmh_mon_data->debug_read_type) {
+		pr_err("Error creating" LMH_DBGFS_READ_TYPES "entry\n");
+		ret = -ENODEV;
+		goto dbg_reg_exit;
+	}
+	LMH_CREATE_DEBUGFS_FILE(lmh_mon_data->debug_config_type,
+		LMH_DBGFS_CONFIG_TYPES, 0400, lmh_mon_data->debug_dir, NULL,
+		&lmh_dbgfs_config_type_fops, ret);
+	if (!lmh_mon_data->debug_config_type) {
+		pr_err("Error creating" LMH_DBGFS_CONFIG_TYPES "entry\n");
+		ret = -ENODEV;
+		goto dbg_reg_exit;
+	}
+
+dbg_reg_exit:
+	if (ret) {
+		/*Clean up all the dbg nodes*/
+		debugfs_remove_recursive(lmh_mon_data->debug_dir);
+		lmh_mon_data->debug_ops = NULL;
+	}
+
+	return ret;
+}
 static int lmh_mon_init_driver(void)
 {
 	int ret = 0;
@@ -940,10 +1213,19 @@ static void lmh_device_cleanup(void)
 	up_write(&lmh_dev_access_lock);
 }
 
+static void lmh_debug_cleanup(void)
+{
+	if (lmh_mon_data->debug_ops) {
+		debugfs_remove_recursive(lmh_mon_data->debug_dir);
+		lmh_mon_data->debug_ops = NULL;
+	}
+}
+
 static void __exit lmh_mon_exit(void)
 {
 	lmh_mon_cleanup();
 	lmh_device_cleanup();
+	lmh_debug_cleanup();
 }
 
 module_init(lmh_mon_init_call);
