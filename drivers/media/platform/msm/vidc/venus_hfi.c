@@ -628,9 +628,10 @@ static void __write_register(struct venus_hfi_device *device,
 
 	__strict_check(device);
 
-	if (device->clk_state != ENABLED_PREPARED) {
+	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
-			"HFI Write register failed : Clocks are OFF\n");
+			"HFI Write register failed : Power is OFF\n");
+		WARN_ON(1);
 		return;
 	}
 
@@ -653,9 +654,10 @@ static int __read_register(struct venus_hfi_device *device, u32 reg)
 
 	__strict_check(device);
 
-	if (device->clk_state != ENABLED_PREPARED) {
+	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
-			"HFI Read register failed : Clocks are OFF\n");
+			"HFI Read register failed : Power is OFF\n");
+		WARN_ON(1);
 		return -EINVAL;
 	}
 
@@ -1389,9 +1391,10 @@ static int __halt_axi(struct venus_hfi_device *device)
 	 * Driver needs to make sure that clocks are enabled to read Venus AXI
 	 * registers. If not skip AXI HALT.
 	 */
-	if (device->clk_state != ENABLED_PREPARED) {
+	if (!device->power_enabled) {
 		dprintk(VIDC_WARN,
 			"Clocks are OFF, skipping AXI HALT\n");
+		WARN_ON(1);
 		return -EINVAL;
 	}
 
@@ -3719,21 +3722,10 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 		return;
 	}
 
-	if (device->clk_state == DISABLED_UNPREPARED) {
+	if (!device->power_enabled) {
 		dprintk(VIDC_DBG, "Clocks already unprepared and disabled\n");
 		return;
 	}
-
-	/*
-	* Make the clock state variable as unprepared before actually
-	* unpreparing clocks. This will make sure that when we check
-	* the state, we have the right clock state. We are not taking
-	* any action based unprepare failures. So it is safe to do
-	* before the call. This is also in sync with prepare_enable
-	* state update.
-	*/
-
-	device->clk_state = DISABLED_UNPREPARED;
 
 	venus_hfi_for_each_clock(device, cl) {
 		 usleep_range(100, 500);
@@ -3752,7 +3744,7 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		return -EINVAL;
 	}
 
-	if (device->clk_state == ENABLED_PREPARED) {
+	if (device->power_enabled) {
 		dprintk(VIDC_DBG, "Clocks already prepared and enabled\n");
 		return 0;
 	}
@@ -3776,7 +3768,6 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 		dprintk(VIDC_DBG, "Clock: %s prepared and enabled\n", cl->name);
 	}
 
-	device->clk_state = ENABLED_PREPARED;
 	__write_register(device, VIDC_WRAPPER_CLOCK_CONFIG, 0);
 	__write_register(device, VIDC_WRAPPER_CPU_CLOCK_CONFIG, 0);
 	return rc;
@@ -3791,7 +3782,6 @@ fail_clk_enable:
 		clk_disable_unprepare(cl->clk);
 	}
 
-	device->clk_state = DISABLED_UNPREPARED;
 	return rc;
 }
 

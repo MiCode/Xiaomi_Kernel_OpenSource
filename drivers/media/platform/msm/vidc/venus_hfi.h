@@ -120,11 +120,6 @@ enum vidc_hw_reg {
 	VIDC_HWREG_HVI_SOFTINTEN =  0xA,
 };
 
-enum clock_state {
-	DISABLED_UNPREPARED,
-	ENABLED_PREPARED,
-};
-
 struct vidc_mem_addr {
 	ion_phys_addr_t align_device_addr;
 	u8 *align_virtual_addr;
@@ -230,7 +225,6 @@ struct venus_hfi_device {
 	u32 codecs_enabled;
 	u32 last_packet_type;
 	struct msm_vidc_gov_data bus_vote;
-	enum clock_state clk_state;
 	bool power_enabled;
 	struct mutex lock;
 	msm_vidc_callback callback;
