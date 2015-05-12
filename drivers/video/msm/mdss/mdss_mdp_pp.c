@@ -4009,9 +4009,8 @@ exit:
 int mdss_mdp_hist_stop(u32 block)
 {
 	int i, ret = 0;
-	u32 dspp_num, disp_num;
+	u32 disp_num;
 	struct pp_hist_col_info *hist_info;
-	u32 mixer_cnt, mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
 	struct mdss_mdp_pipe *pipe;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
@@ -4056,36 +4055,17 @@ int mdss_mdp_hist_stop(u32 block)
 				(PP_BLOCK(block) >= MDP_BLOCK_MAX))
 			goto hist_stop_clk;
 
-		disp_num = PP_BLOCK(block) - MDP_LOGICAL_BLOCK_DISP_0;
-		mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
-
-		if (!mixer_cnt) {
-			pr_err("%s, no dspp connects to disp %d\n",
-					__func__, disp_num);
-			ret = -EPERM;
-			goto hist_stop_clk;
-		}
-		if (mixer_cnt > mdata->nmixers_intf) {
-			pr_err("%s, Too many dspp connects to disp %d\n",
-					__func__, mixer_cnt);
-			ret = -EPERM;
-			goto hist_stop_clk;
-		}
-
-		for (i = 0; i < mixer_cnt; i++) {
-			dspp_num = mixer_id[i];
-			if (dspp_num >= mdata->ndspp) {
-				ret = -EINVAL;
-				pr_warn("Invalid dspp num %d\n", dspp_num);
-				goto hist_stop_clk;
-			}
-			hist_info = &mdss_pp_res->dspp_hist[dspp_num];
+		disp_num = PP_BLOCK(block);
+		for (i = 0; i < mdata->ndspp; i++) {
+			hist_info = &mdss_pp_res->dspp_hist[i];
+			if (disp_num != hist_info->disp_num)
+				continue;
 			ret = pp_hist_disable(hist_info);
 			hist_info->disp_num = 0;
 			hist_info->ctl = NULL;
 			if (ret)
 				goto hist_stop_clk;
-			mdss_pp_res->pp_disp_flags[disp_num] |=
+			mdss_pp_res->pp_disp_flags[i] |=
 							PP_FLAGS_DIRTY_HIST_COL;
 		}
 	}
