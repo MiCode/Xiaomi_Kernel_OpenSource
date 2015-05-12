@@ -40,8 +40,6 @@
 #define SW_RESET_PLL BIT(0)
 #define PWRDN_B BIT(7)
 
-static struct dsi_clk_desc dsi_pclk;
-
 void mdss_dsi_phy_sw_reset(struct mdss_dsi_ctrl_pdata *ctrl)
 {
 	u32 ctrl_rev;
@@ -570,8 +568,6 @@ void mdss_dsi_shadow_clk_deinit(struct mdss_dsi_ctrl_pdata  *ctrl)
 		clk_put(ctrl->shadow_pixel_clk);
 }
 
-#define PREF_DIV_RATIO 27
-struct dsiphy_pll_divider_config pll_divider_config;
 
 int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			    int frame_rate)
@@ -580,13 +576,9 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 			struct mdss_panel_data, panel_info);
 	struct  mdss_dsi_ctrl_pdata *ctrl_pdata = container_of(pdata,
 			struct mdss_dsi_ctrl_pdata, panel_data);
-	u32 fb_divider, rate, vco;
-	u32 div_ratio = 0;
-	u32 pll_analog_posDiv = 1;
 	u32 h_period, v_period;
 	u32 dsi_pclk_rate;
 	u8 lanes = 0, bpp;
-	struct dsi_clk_mnd_table const *mnd_entry = mnd_table;
 
 	if (panel_info->mipi.data_lane3)
 		lanes += 1;
@@ -629,74 +621,11 @@ int mdss_dsi_clk_div_config(struct mdss_panel_info *panel_info,
 				(h_period * v_period * frame_rate * bpp * 8);
 		}
 	}
-	pll_divider_config.clk_rate = panel_info->clk_rate;
 
+	if (panel_info->clk_rate == 0)
+		panel_info->clk_rate = 454000000;
 
-	if (pll_divider_config.clk_rate == 0)
-		pll_divider_config.clk_rate = 454000000;
-
-	rate = (pll_divider_config.clk_rate / 2)
-			 / 1000000; /* Half Bit Clock In Mhz */
-
-	if (rate < 43) {
-		vco = rate * 16;
-		div_ratio = 16;
-		pll_analog_posDiv = 8;
-	} else if (rate < 85) {
-		vco = rate * 8;
-		div_ratio = 8;
-		pll_analog_posDiv = 4;
-	} else if (rate < 170) {
-		vco = rate * 4;
-		div_ratio = 4;
-		pll_analog_posDiv = 2;
-	} else if (rate < 340) {
-		vco = rate * 2;
-		div_ratio = 2;
-		pll_analog_posDiv = 1;
-	} else {
-		/* DSI PLL Direct path configuration */
-		vco = rate * 1;
-		div_ratio = 1;
-		pll_analog_posDiv = 1;
-	}
-
-	/* find the mnd settings from mnd_table entry */
-	for (; mnd_entry < mnd_table + ARRAY_SIZE(mnd_table); ++mnd_entry) {
-		if (((mnd_entry->lanes) == lanes) &&
-			((mnd_entry->bpp) == bpp))
-			break;
-	}
-
-	if (mnd_entry == mnd_table + ARRAY_SIZE(mnd_table)) {
-		pr_err("%s: requested Lanes, %u & BPP, %u, not supported\n",
-			__func__, lanes, bpp);
-		return -EINVAL;
-	}
-	fb_divider = ((vco * PREF_DIV_RATIO) / 27);
-	pll_divider_config.fb_divider = fb_divider;
-	pll_divider_config.ref_divider_ratio = PREF_DIV_RATIO;
-	pll_divider_config.bit_clk_divider = div_ratio;
-	pll_divider_config.byte_clk_divider =
-			pll_divider_config.bit_clk_divider * 8;
-	pll_divider_config.analog_posDiv = pll_analog_posDiv;
-	pll_divider_config.digital_posDiv =
-			(mnd_entry->pll_digital_posDiv) * div_ratio;
-
-	if ((mnd_entry->pclk_d == 0)
-		|| (mnd_entry->pclk_m == 1)) {
-		dsi_pclk.mnd_mode = 0;
-		dsi_pclk.src = 0x3;
-		dsi_pclk.pre_div_func = (mnd_entry->pclk_n - 1);
-	} else {
-		dsi_pclk.mnd_mode = 2;
-		dsi_pclk.src = 0x3;
-		dsi_pclk.m = mnd_entry->pclk_m;
-		dsi_pclk.n = mnd_entry->pclk_n;
-		dsi_pclk.d = mnd_entry->pclk_d;
-	}
-	dsi_pclk_rate = (((pll_divider_config.clk_rate) * lanes)
-				      / (8 * bpp));
+	dsi_pclk_rate = (((panel_info->clk_rate) * lanes) / (8 * bpp));
 
 	if ((dsi_pclk_rate < 3300000) || (dsi_pclk_rate > 250000000))
 		dsi_pclk_rate = 35000000;

@@ -50,7 +50,7 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-&dsi_dual_jdi_4k_video_0 {
+&dsi_dual_jdi_4k_video {
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
 	qcom,mdss-dsi-bl-pmic-pwm-frequency = <50>;
 	qcom,mdss-dsi-bl-pmic-bank-select = <3>;
@@ -59,17 +59,16 @@
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
 
-&dsi_dual_jdi_4k_video_1 {
-	qcom,cont-splash-enabled;
-	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
-};
-
 &mdss_fb0 {
 	qcom,boot-indication-enabled;
 };
 
+&mdss_dsi {
+	hw-config = "split_dsi";
+};
+
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_video_0>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_video>;
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active>;
 	pinctrl-1 = <&mdss_dsi_suspend>;
@@ -83,7 +82,7 @@
 };
 
 &mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_video_1>;
+	qcom,dsi-pref-prim-pan = <&dsi_dual_jdi_4k_video>;
 
 	vddio-supply = <&pm8994_s4>;
 	qcom,regulator-ldo-mode;

@@ -24,8 +24,11 @@
 		status = "ok";
 	};
 
-	qcom,mdss_dsi@fd922800{
-		qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+	qcom,mdss_dsi@0 {
+		hw-config = "single_dsi";
+		qcom,mdss_dsi_ctrl0@fd922800{
+			qcom,dsi-pref-prim-pan = <&dsi_tosh_720_vid>;
+		};
 	};
 
 	qcom,mdss_mdp@fd900000 {

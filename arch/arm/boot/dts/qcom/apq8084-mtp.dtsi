@@ -178,6 +178,10 @@
 	qcom,mdss-fb-splash-logo-enabled;
 };
 
+&mdss_dsi {
+	hw-config = "single_dsi";
+};
+
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_jdi_1080_vid>;
 	qcom,platform-reset-gpio = <&msmgpio 96 0>;

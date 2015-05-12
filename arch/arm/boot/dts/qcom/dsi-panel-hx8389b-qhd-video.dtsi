@@ -13,9 +13,7 @@
 &mdss_mdp {
 	dsi_hx8389b_qhd_vid: qcom,mdss_dsi_hx8389b_qhd_video {
 		qcom,mdss-dsi-panel-name = "hx8389b qhd video mode dsi panel";
-		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
-		qcom,mdss-dsi-panel-destination = "display_1";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;

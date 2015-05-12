@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -13,10 +13,8 @@
 &mdss_mdp {
 	dsi_orise_720_vid: qcom,mdss_dsi_orise_720p_video {
 		label = "orise 720p video mode dsi panel";
-		qcom,dsi-ctrl-phandle = <&mdss_dsi1>;
 		qcom,mdss-pan-res = <720 1280>;
 		qcom,mdss-pan-bpp = <24>;
-		qcom,mdss-pan-dest = "display_2";
 		qcom,mdss-pan-porch-values = <32 12 144 3 4 9>;
 		qcom,mdss-pan-underflow-clr = <0xff>;
 		qcom,mdss-pan-bl-levels = <1 255>;

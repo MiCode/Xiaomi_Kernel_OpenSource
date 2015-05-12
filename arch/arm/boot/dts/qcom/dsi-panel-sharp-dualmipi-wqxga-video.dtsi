@@ -11,11 +11,9 @@
  */
 
 &mdss_mdp {
-	dsi_dual_sharp_video_0: qcom,mdss_dsi_sharp_wqxga_video_0 {
-		qcom,mdss-dsi-panel-name = "Dual 0 SHARP video mode dsi panel";
-		qcom,mdss-dsi-panel-controller = <&mdss_dsi0>;
+	dsi_dual_sharp_video: qcom,mdss_dsi_sharp_wqxga_video {
+		qcom,mdss-dsi-panel-name = "Dual SHARP video mode dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
-		qcom,mdss-dsi-panel-destination = "display_1";
 		qcom,mdss-dsi-panel-framerate = <60>;
 		qcom,mdss-dsi-virtual-channel-id = <0>;
 		qcom,mdss-dsi-stream = <0>;
