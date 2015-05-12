@@ -4044,10 +4044,12 @@ static int tasha_config_compander(struct snd_soc_dapm_widget *w,
 		snd_soc_update_bits(codec, rx_path_cfg0_reg, 0x02, 0x02);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+		snd_soc_update_bits(codec, comp_ctl0_reg, 0x04, 0x04);
 		snd_soc_update_bits(codec, rx_path_cfg0_reg, 0x02, 0x00);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x02, 0x02);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x02, 0x00);
 		snd_soc_update_bits(codec, comp_ctl0_reg, 0x01, 0x00);
+		snd_soc_update_bits(codec, comp_ctl0_reg, 0x04, 0x00);
 		break;
 	};
 
