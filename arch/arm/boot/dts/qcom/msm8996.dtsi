@@ -2036,7 +2036,6 @@
 
 	usb_nop_phy: usb_nop_phy {
 		compatible = "usb-nop-xceiv";
-		status = "disabled";
 	};
 
 	dbm_1p5: dbm@6af8000 {

@@ -111,8 +111,16 @@
 &ssphy {
 	qcom,override-pll-calibration;
 	qcom,qmp-misc-config;
+	status = "disabled";
 };
 
 &pil_modem {
 	status = "disabled";
+};
+
+&usb3 {
+	dwc3@6a00000 {
+		usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
+		maximum-speed = "high-speed";
+	};
 };
