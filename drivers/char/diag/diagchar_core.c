@@ -229,8 +229,10 @@ void diag_drain_work_fn(struct work_struct *work)
 	timer_in_progress = 0;
 
 	mutex_lock(&apps_data_mutex);
-	diag_drain_apps_data(&hdlc_data);
-	diag_drain_apps_data(&non_hdlc_data);
+	if (!driver->hdlc_disabled)
+		diag_drain_apps_data(&hdlc_data);
+	else
+		diag_drain_apps_data(&non_hdlc_data);
 	mutex_unlock(&apps_data_mutex);
 }
 
@@ -1106,7 +1108,6 @@ static int diag_switch_logging(int requested_mode)
 		driver->md_proc[DIAG_LOCAL_PROC].socket_process = NULL;
 	}
 
-	driver->logging_mode = new_mode;
 	diag_ws_reset(DIAG_WS_MUX);
 	err = diag_mux_switch_logging(mux_mode);
 	if (err) {
@@ -1115,6 +1116,7 @@ static int diag_switch_logging(int requested_mode)
 		driver->logging_mode = current_mode;
 		goto fail;
 	}
+	driver->logging_mode = new_mode;
 	pr_info("diag: Logging switched from %d to %d mode\n",
 		current_mode, new_mode);
 

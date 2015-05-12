@@ -108,8 +108,18 @@ static void usb_connect(struct diag_usb_info *ch)
 		return;
 	}
 
-	if (ch->ops && ch->ops->open)
-		ch->ops->open(ch->ctxt, DIAG_USB_MODE);
+	if (ch->ops && ch->ops->open) {
+		if (atomic_read(&ch->diag_state)) {
+			ch->ops->open(ch->ctxt, DIAG_USB_MODE);
+		} else {
+			/*
+			 * This case indicates that the USB is connected
+			 * but the logging is still happening in MEMORY
+			 * DEVICE MODE. Continue the logging without
+			 * resetting the buffers.
+			 */
+		}
+	}
 	/* As soon as we open the channel, queue a read */
 	queue_work(ch->usb_wq, &(ch->read_work));
 }
