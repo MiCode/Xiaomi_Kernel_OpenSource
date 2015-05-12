@@ -19,10 +19,12 @@
  */
 /** @{ */
 
+#include "platform.h"
+
 /* --- global ---- */
 #define MC_FC_INVALID	((uint32_t)0)  /**< Invalid FastCall ID */
 
-#if defined(__AARCH32__)
+#if defined(CONFIG_ARM64) && !defined(MC_ARMV7_FC)
 
 /* These should be handled as 64-bit FCs; now they are more like 32bits... */
 #define MC_FC_STD64_BASE	((uint32_t)0xFF000000)

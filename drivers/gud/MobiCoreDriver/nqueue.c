@@ -17,6 +17,7 @@
 #include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
+#include <linux/of_irq.h>
 
 #include "public/mc_linux.h"
 #include "public/mc_admin.h"
@@ -192,15 +193,38 @@ void nqueue_cleanup(void)
 		free_pages((ulong)mci_base, order);
 }
 
+int irq_setup(void)
+{
+	int result = 0;
+
+	g_ctx.irq=-1;
+
+#if defined(CONFIG_OF)
+	g_ctx.irq = irq_of_parse_and_map(g_ctx.mcd->of_node, 0);
+#endif
+#if defined(MC_INTR_SSIQ)
+ 	 if (g_ctx.irq < 0)
+ 	      	g_ctx.irq = MC_INTR_SSIQ;
+#endif
+
+	if (g_ctx.irq <= 0) {
+		MCDRV_ERROR("No IRQ number, aborting");
+		result  = ENODEV;
+	}
+	MCDRV_DBG(" MC_INTR_SSIQ set to %d", g_ctx.irq);
+
+	return result;
+}
+
 /* Set up S-SIQ interrupt handler */
 int irq_handler_init(void)
 {
-	return request_irq(MC_INTR_SSIQ, irq_handler, IRQF_TRIGGER_RISING,
+	return request_irq(g_ctx.irq, irq_handler, IRQF_TRIGGER_RISING,
 			   MC_ADMIN_DEVNODE, NULL);
 }
 
 void irq_handler_exit(void)
 {
 	flush_scheduled_work();
-	free_irq(MC_INTR_SSIQ, g_ctx.mcd);
+	free_irq(g_ctx.irq, g_ctx.mcd);
 }

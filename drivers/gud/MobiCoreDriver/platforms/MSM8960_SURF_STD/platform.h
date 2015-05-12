@@ -14,7 +14,7 @@
 #ifndef _MC_PLATFORM_H_
 #define _MC_PLATFORM_H_
 
-/* MobiCore Interrupt for Qualcomm */
+/* MobiCore Interrupt for Qualcomm (DT IRQ has priority if present) */
 #define MC_INTR_SSIQ						280
 
 /* Use SMC for fastcalls */
@@ -22,7 +22,8 @@
 
 /*--------------- Implementation -------------- */
 #if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
-	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8909)
+	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8909) || \
+	defined(CONFIG_ARCH_MSM8996)
 
 #include <soc/qcom/scm.h>
 
@@ -59,7 +60,7 @@
 static inline int smc_fastcall(void *fc_generic, size_t size)
 {
 #if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
-	defined(CONFIG_ARCH_MSM8994)
+	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8996)
 	if (is_scm_armv8()) {
 		struct scm_desc desc = {0};
 		int ret;
@@ -93,10 +94,20 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 			fc_generic, size,
 			fc_generic, size);
 #if defined(CONFIG_ARCH_APQ8084) || defined(CONFIG_ARCH_MSM8916) || \
-	defined(CONFIG_ARCH_MSM8994)
+	defined(CONFIG_ARCH_MSM8994) || defined(CONFIG_ARCH_MSM8996)
 	}
 #endif
 }
+
+
+/* Fastcall value should be the one for armv7, even if we are on armv8,
+ * as long as __aarch32__ is not activated in SW.
+ * But for 8996, we are armv8 with __aarch32__ in Sw
+ */
+#if !defined(CONFIG_ARCH_MSM8996)
+#define MC_ARMV7_FC
+#endif
+
 
 /* Enable mobicore mem traces */
 #define MC_MEM_TRACES
@@ -108,14 +119,21 @@ static inline int smc_fastcall(void *fc_generic, size_t size)
 #define MC_VM_UNMAP
 #endif
 
+/* If LPAE activated in SW */
+#if defined(CONFIG_ARCH_MSM8996)
+#define LPAE_SUPPORT
+#endif
+
 /*
  *  Perform crypto clock enable/disable
  */
-#if !defined(CONFIG_ARCH_MSM8960) && !defined(CONFIG_ARCH_MSM8994)
+#if (!defined(CONFIG_ARCH_MSM8960) && !defined(CONFIG_ARCH_MSM8994)) || \
+		defined(CONFIG_ARCH_MSM8996)
 #define MC_CRYPTO_CLOCK_MANAGEMENT
 #endif
 
-#if defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8909)
+#if defined(CONFIG_ARCH_MSM8916) || defined(CONFIG_ARCH_MSM8909) || \
+	defined(CONFIG_ARCH_MSM8996)
 #define MC_USE_DEVICE_TREE
 #endif
 

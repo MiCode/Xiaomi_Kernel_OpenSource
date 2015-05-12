@@ -17,6 +17,7 @@
 
 int nqueue_init(uint16_t txq_length, uint16_t rxq_length);
 void nqueue_cleanup(void);
+int irq_setup(void);
 int irq_handler_init(void);
 void irq_handler_exit(void);
 

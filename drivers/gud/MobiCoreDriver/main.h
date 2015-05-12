@@ -85,6 +85,9 @@ struct mc_device_ctx {
 	bool			f_timeout;
 	bool			f_mem_ext;
 	bool			f_ta_auth;
+
+	/* Interrupt */
+	int				irq;
 };
 
 extern struct mc_device_ctx g_ctx;

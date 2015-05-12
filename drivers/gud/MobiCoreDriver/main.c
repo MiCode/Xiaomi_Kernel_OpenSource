@@ -664,6 +664,10 @@ static int __init mobicore_init(void)
 	if (err)
 		goto fail_create_devs;
 
+	err = irq_setup();
+	if (err)
+		goto fail_irq_init;
+
 	err = irq_handler_init();
 	if (err) {
 		MCDRV_ERROR("Interrupts init failed!");
