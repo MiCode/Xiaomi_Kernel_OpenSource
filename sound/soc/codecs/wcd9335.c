@@ -1942,6 +1942,7 @@ static int tasha_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 				      int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
@@ -1961,12 +1962,20 @@ static int tasha_codec_enable_hphr_pa(struct snd_soc_dapm_widget *w,
 					    WCD9335_CDC_RX2_RX_PATH_MIX_CTL,
 					    0x10, 0x00);
 		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_PRE_HPHR_PA_OFF,
+					&tasha->mbhc);
+		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/*
 		 * 5ms sleep is required after PA is disabled as per
 		 * HW requirement
 		 */
 		usleep_range(5000, 5500);
+		blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_POST_HPHR_PA_OFF,
+					&tasha->mbhc);
 		break;
 	};
 
@@ -1978,6 +1987,7 @@ static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 				      int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
@@ -1997,12 +2007,20 @@ static int tasha_codec_enable_hphl_pa(struct snd_soc_dapm_widget *w,
 					    WCD9335_CDC_RX1_RX_PATH_MIX_CTL,
 					    0x10, 0x00);
 		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_PRE_HPHL_PA_OFF,
+					&tasha->mbhc);
+		break;
 	case SND_SOC_DAPM_POST_PMD:
 		/*
 		 * 5ms sleep is required after PA is disabled as per
 		 * HW requirement
 		 */
 		usleep_range(5000, 5500);
+		blocking_notifier_call_chain(&tasha->notifier,
+					WCD_EVENT_POST_HPHL_PA_OFF,
+					&tasha->mbhc);
 		break;
 	};
 
@@ -6384,11 +6402,11 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_E("HPHL PA", WCD9335_ANA_HPH, 7, 0, NULL, 0,
 			   tasha_codec_enable_hphl_pa,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("HPHR PA", WCD9335_ANA_HPH, 6, 0, NULL, 0,
 			   tasha_codec_enable_hphr_pa,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMU |
-			   SND_SOC_DAPM_POST_PMD),
+			   SND_SOC_DAPM_PRE_PMD | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_PGA_E("EAR PA", WCD9335_ANA_EAR, 7, 0, NULL, 0,
 			   tasha_codec_enable_ear_pa,
 			   SND_SOC_DAPM_POST_PMU |
