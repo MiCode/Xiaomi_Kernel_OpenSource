@@ -14,8 +14,11 @@
  * may be used to reset the timeout - for code which intentionally
  * disables interrupts for a long time. This call is stateless.
  */
-#if defined(CONFIG_HAVE_NMI_WATCHDOG) || defined(CONFIG_HARDLOCKUP_DETECTOR)
+#if defined(CONFIG_HAVE_NMI_WATCHDOG) || defined(CONFIG_HARDLOCKUP_DETECTOR_NMI)
 #include <asm/nmi.h>
+#endif
+
+#if defined(CONFIG_HAVE_NMI_WATCHDOG) || defined(CONFIG_HARDLOCKUP_DETECTOR)
 extern void touch_nmi_watchdog(void);
 #else
 static inline void touch_nmi_watchdog(void)
@@ -45,13 +48,23 @@ static inline bool watchdog_hardlockup_detector_is_enabled(void)
 #ifdef arch_trigger_all_cpu_backtrace
 static inline bool trigger_all_cpu_backtrace(void)
 {
+	#if defined(CONFIG_ARM)
+	arch_trigger_all_cpu_backtrace();
+	#else
 	arch_trigger_all_cpu_backtrace(true);
+	#endif
 
 	return true;
 }
 static inline bool trigger_allbutself_cpu_backtrace(void)
 {
+	#if defined(CONFIG_ARM)
+	arch_trigger_all_cpu_backtrace();
+	#else
 	arch_trigger_all_cpu_backtrace(false);
+	#endif
+
+
 	return true;
 }
 #else
