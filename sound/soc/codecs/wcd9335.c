@@ -1810,6 +1810,10 @@ static int tasha_codec_enable_prim_interpolator(
 		if (tasha->prim_int_users[ind] == 0) {
 			snd_soc_update_bits(codec, prim_int_reg,
 					1 << 0x5, 0 << 0x5);
+			snd_soc_update_bits(codec, prim_int_reg,
+					0x40, 0x40);
+			snd_soc_update_bits(codec, prim_int_reg,
+					0x40, 0x00);
 		}
 		break;
 	};
