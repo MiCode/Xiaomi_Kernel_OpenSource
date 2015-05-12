@@ -120,7 +120,7 @@ static void mdss_dsi_phy_lane_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->hw_rev, MDSS_DSI_HW_REV_104))
-		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0x0000);
+		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, ~0x1F);
 	else
 		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
 
