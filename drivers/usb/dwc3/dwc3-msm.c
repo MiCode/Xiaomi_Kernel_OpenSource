@@ -126,6 +126,9 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 #define DWC3_3P3_VOL_MIN		3075000 /* uV */
 #define DWC3_3P3_VOL_MAX		3200000 /* uV */
 #define DWC3_3P3_HPM_LOAD		30000	/* uA */
+#define DWC3_1P8_VOL_MIN		1800000 /* uV */
+#define DWC3_1P8_VOL_MAX		1800000 /* uV */
+#define DWC3_1P8_HPM_LOAD		30000   /* uA */
 
 /* TZ SCM parameters */
 #define DWC3_MSM_RESTORE_SCM_CFG_CMD 0x2
@@ -168,6 +171,7 @@ struct dwc3_msm {
 	/* VBUS regulator if no OTG and running in host only mode */
 	struct regulator	*vbus_otg;
 	struct regulator	*vdda33;
+	struct regulator	*vdda18;
 	struct dwc3_ext_xceiv	ext_xceiv;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
@@ -2090,10 +2094,30 @@ static int dwc3_msm_remove_pulldown(struct dwc3_msm *mdwc, bool rm_pulldown)
 	if (!rm_pulldown)
 		goto disable_vdda33;
 
+	ret = regulator_set_optimum_mode(mdwc->vdda18, DWC3_1P8_HPM_LOAD);
+	if (ret < 0) {
+		dev_err(mdwc->dev, "Unable to set HPM of vdda18:%d\n", ret);
+		return ret;
+	}
+
+	ret = regulator_set_voltage(mdwc->vdda18, DWC3_1P8_VOL_MIN,
+						DWC3_1P8_VOL_MAX);
+	if (ret) {
+		dev_err(mdwc->dev,
+				"Unable to set voltage for vdda18:%d\n", ret);
+		goto put_vdda18_lpm;
+	}
+
+	ret = regulator_enable(mdwc->vdda18);
+	if (ret) {
+		dev_err(mdwc->dev, "Unable to enable vdda18:%d\n", ret);
+		goto unset_vdda18;
+	}
+
 	ret = regulator_set_optimum_mode(mdwc->vdda33, DWC3_3P3_HPM_LOAD);
 	if (ret < 0) {
 		dev_err(mdwc->dev, "Unable to set HPM of vdda33:%d\n", ret);
-		return ret;
+		goto disable_vdda18;
 	}
 
 	ret = regulator_set_voltage(mdwc->vdda33, DWC3_3P3_VOL_MIN,
@@ -2127,6 +2151,22 @@ put_vdda33_lpm:
 	ret = regulator_set_optimum_mode(mdwc->vdda33, 0);
 	if (ret < 0)
 		dev_err(mdwc->dev, "Unable to set (0) HPM of vdda33\n");
+
+disable_vdda18:
+	ret = regulator_disable(mdwc->vdda18);
+	if (ret)
+		dev_err(mdwc->dev, "Unable to disable vdda18:%d\n", ret);
+
+unset_vdda18:
+	ret = regulator_set_voltage(mdwc->vdda18, 0, DWC3_1P8_VOL_MAX);
+	if (ret)
+		dev_err(mdwc->dev,
+			"Unable to set (0) voltage for vdda18:%d\n", ret);
+
+put_vdda18_lpm:
+	ret = regulator_set_optimum_mode(mdwc->vdda18, 0);
+	if (ret < 0)
+		dev_err(mdwc->dev, "Unable to set LPM of vdda18\n");
 
 	return ret;
 }
@@ -2484,6 +2524,12 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (IS_ERR(mdwc->vdda33)) {
 		dev_err(&pdev->dev, "unable to get vdda33 supply\n");
 		return PTR_ERR(mdwc->vdda33);
+	}
+
+	mdwc->vdda18 = devm_regulator_get(dev, "vdda18");
+	if (IS_ERR(mdwc->vdda18)) {
+		dev_err(&pdev->dev, "unable to get vdda18 supply\n");
+		return PTR_ERR(mdwc->vdda18);
 	}
 
 	ret = dwc3_msm_config_gdsc(mdwc, 1);
