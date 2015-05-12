@@ -269,22 +269,6 @@ config ARCH_MSMVPIPA
 	select USE_PINCTRL_IRQ
 	select MSM_IRQ
 
-config ARCH_MDMFERRUM
-	bool "MDMFERRUM"
-	select ARM_GIC
-	select CPU_V7
-	select ARCH_MSM_CORTEXMP
-	select HAVE_ARM_ARCH_TIMER
-	select MAY_HAVE_SPARSE_IRQ
-	select SPARSE_IRQ
-	select PINCTRL
-	select PINCTRL_MSM_TLMM
-	select MSM_CORTEX_A7
-	select MSM_NOPM
-	select CPU_FREQ_MSM
-	select CPU_FREQ
-	select MSM_IRQ
-
 config ARCH_MSM8610
 	bool "MSM8610"
 	select ARM_GIC
@@ -581,14 +565,6 @@ choice
 		  their output to the serial port on MSM VPIPA devices.
 		  This is useful as this makes kernel to print console message
 		  early.
-
-	config DEBUG_MDMFERRUM_UART
-		bool "Kernel low-level debugging messages via MDM FERRUM UART"
-		depends on ARCH_MDMFERRUM
-		select MSM_HAS_DEBUG_UART_HS_V14
-		help
-		 Say Y here if you want the debug print routines to direct
-		 their output to the serial port on MDM FERRUM devices.
 
 endchoice
 
