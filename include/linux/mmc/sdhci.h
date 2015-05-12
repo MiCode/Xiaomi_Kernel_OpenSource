@@ -30,6 +30,19 @@ enum sdhci_power_policy {
 	SDHCI_POWER_SAVE_MODE,
 };
 
+struct sdhci_host_qos {
+	unsigned int *cpu_dma_latency_us;
+	unsigned int cpu_dma_latency_tbl_sz;
+	struct pm_qos_request pm_qos_req_dma;
+};
+
+enum sdhci_host_qos_policy {
+	SDHCI_QOS_READ_WRITE,
+	SDHCI_QOS_READ,
+	SDHCI_QOS_WRITE,
+	SDHCI_QOS_MAX_POLICY,
+};
+
 struct sdhci_host {
 	/* Data set by hardware interface driver */
 	const char *hw_name;	/* Hardware bus name */
@@ -267,11 +280,13 @@ struct sdhci_host {
 #define SDHCI_TUNING_MODE_1	0
 	struct timer_list	tuning_timer;	/* Timer for tuning */
 
-	unsigned int *cpu_dma_latency_us;
-	unsigned int cpu_dma_latency_tbl_sz;
-	struct pm_qos_request pm_qos_req_dma;
+	struct sdhci_host_qos host_qos[SDHCI_QOS_MAX_POLICY];
+	enum sdhci_host_qos_policy last_qos_policy;
+
+	bool host_use_default_qos;
 	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
 	struct device_attribute pm_qos_tout;
+	struct delayed_work pm_qos_work;
 
 	struct sdhci_next next_data;
 	ktime_t data_start_time;
