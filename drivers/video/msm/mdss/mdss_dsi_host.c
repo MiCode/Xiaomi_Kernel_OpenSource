@@ -1066,9 +1066,9 @@ static void mdss_dsi_dsc_config(struct mdss_dsi_ctrl_pdata *ctrl,
 		MIPI_OUTP((ctrl->ctrl_base) + 0x2b0, 0);
 
 		/* MDSS_DSI_COMMAND_COMPRESSION_MODE_CTRL2 */
-		MIPI_OUTP((ctrl->ctrl_base) + 0x2ac, dsc->bytes_per_pkt);
+		MIPI_OUTP((ctrl->ctrl_base) + 0x2ac, dsc->bytes_in_slice);
 
-		data = 0x0b << 8;
+		data = DTYPE_DCS_LWRITE << 8;
 		data |= (dsc->pkt_per_line - 1) << 6;
 		data |= dsc->eol_byte_num << 4;
 		data |= 1;	/* enable */
@@ -1158,7 +1158,12 @@ static void mdss_dsi_mode_setup(struct mdss_panel_data *pdata)
 
 		ystride = width * bpp + 1;
 
-		if (pinfo->partial_update_enabled &&
+		if (dsc) {
+			stream_ctrl = ((dsc->bytes_in_slice + 1) << 16) |
+					(mipi->vc << 8) | DTYPE_DCS_LWRITE;
+			stream_total = dsc->pic_height << 16 |
+							dsc->pclk_per_line;
+		} else if (pinfo->partial_update_enabled &&
 			mdss_dsi_is_panel_on(pdata) && pinfo->roi.w &&
 			pinfo->roi.h) {
 			stream_ctrl = (((pinfo->roi.w * bpp) + 1) << 16) |

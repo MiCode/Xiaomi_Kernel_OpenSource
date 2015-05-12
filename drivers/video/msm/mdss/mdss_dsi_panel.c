@@ -31,6 +31,8 @@
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
+#define CEIL(x, y)	(((x) + ((y)-1)) / (y))
+
 static u32 rc_buf_thresh[] = {0x0e, 0x1c, 0x2a, 0x38, 0x46, 0x54, 0x62,
 	0x69, 0x70, 0x77, 0x79, 0x7b, 0x7d, 0x7e};
 static char rc_range_min_qp[] = {0, 0, 1, 1, 3, 3, 3, 3, 3, 3, 5, 5, 5, 7, 13};
@@ -1050,8 +1052,6 @@ void mdss_dsc_parameters_calc(struct mdss_panel_info *pinfo)
 	dsc->max_qp_flatness = 12;
 	dsc->min_qp_flatness = 3;
 
-	dsc->pkt_per_line = 1;
-
 	dsc->edge_factor = 6;
 	dsc->quant_incr_limit0 = 11;
 	dsc->quant_incr_limit1 = 11;
@@ -1087,20 +1087,14 @@ void mdss_dsc_parameters_calc(struct mdss_panel_info *pinfo)
 	if (dsc->pic_width % slice_per_line)
 		bytes_in_slice++;
 
-	data = 0;
-	bytes_in_slice *= dsc->bpp;	/* compressed */
-	if (bytes_in_slice % 8)
-		data++;
+	bytes_in_slice *= dsc->bpp;	/* bytes per compressed pixel */
+	bytes_in_slice = CEIL(bytes_in_slice, 8);
 
-	bytes_in_slice /= 8;
-	if (data)
-		bytes_in_slice++;
+	dsc->bytes_in_slice = bytes_in_slice;
 
 	total_bytes = bytes_in_slice * slice_per_line;
 	dsc->eol_byte_num = total_bytes % 3;
-	dsc->pclk_per_line =  total_bytes / 3;
-	if (dsc->eol_byte_num)
-		dsc->pclk_per_line++;
+	dsc->pclk_per_line =  CEIL(total_bytes, 3);
 
 	dsc->slice_last_group_size = 3 - dsc->eol_byte_num;
 
