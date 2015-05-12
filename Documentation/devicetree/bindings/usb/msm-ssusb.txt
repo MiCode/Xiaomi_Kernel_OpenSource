@@ -59,6 +59,8 @@ Optional properties :
   after USB is kept into LPM.
 - qcom,vbus-present: Indicates that there is no VBUS indication from PMIC. Assume VBUS is
   present if this property is defined.
+- qcom,cpe-gpio: Specifies GPIO number for driving CPE USB SW pin. If this is defined,
+  the GPIO will be driven high when operating in host mode.
 Sub nodes:
 - Sub node for "DWC3- USB3 controller".
   This sub node is required property for device node. The properties of this subnode

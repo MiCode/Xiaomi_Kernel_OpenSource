@@ -278,4 +278,5 @@
 
 &usb3 {
 	vbus_dwc3-supply = <&smb1357_otg_supply>;
+	qcom,cpe-gpio = <&msm_gpio 87 0>;
 };
