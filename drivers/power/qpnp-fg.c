@@ -4278,7 +4278,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 				return rc;
 			}
 
-			rc |= devm_request_irq(chip->dev,
+			rc = devm_request_irq(chip->dev,
 				chip->soc_irq[FULL_SOC].irq,
 				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
 				"full-soc", chip);
@@ -4287,7 +4287,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->soc_irq[FULL_SOC].irq, rc);
 				return rc;
 			}
-			rc |= devm_request_irq(chip->dev,
+			rc = devm_request_irq(chip->dev,
 				chip->soc_irq[EMPTY_SOC].irq,
 				fg_empty_soc_irq_handler,
 				IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
@@ -4297,7 +4297,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->soc_irq[EMPTY_SOC].irq, rc);
 				return rc;
 			}
-			rc |= devm_request_irq(chip->dev,
+			rc = devm_request_irq(chip->dev,
 				chip->soc_irq[DELTA_SOC].irq,
 				fg_soc_irq_handler, IRQF_TRIGGER_RISING,
 				"delta-soc", chip);
@@ -4306,7 +4306,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 					chip->soc_irq[DELTA_SOC].irq, rc);
 				return rc;
 			}
-			rc |= devm_request_irq(chip->dev,
+			rc = devm_request_irq(chip->dev,
 				chip->soc_irq[FIRST_EST_DONE].irq,
 				fg_first_soc_irq_handler, IRQF_TRIGGER_RISING,
 				"first-est-done", chip);
@@ -4327,7 +4327,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 				pr_err("Unable to get mem-avail irq\n");
 				return rc;
 			}
-			rc |= devm_request_irq(chip->dev,
+			rc = devm_request_irq(chip->dev,
 					chip->mem_irq[FG_MEM_AVAIL].irq,
 					fg_mem_avail_irq_handler,
 					IRQF_TRIGGER_RISING |
@@ -4348,11 +4348,13 @@ static int fg_init_irqs(struct fg_chip *chip)
 				rc = -EINVAL;
 				return rc;
 			}
-			rc |= devm_request_irq(chip->dev,
+			rc = devm_request_threaded_irq(chip->dev,
 					chip->batt_irq[BATT_MISSING].irq,
+					NULL,
 					fg_batt_missing_irq_handler,
 					IRQF_TRIGGER_RISING |
-					IRQF_TRIGGER_FALLING,
+					IRQF_TRIGGER_FALLING |
+					IRQF_ONESHOT,
 					"batt-missing", chip);
 			if (rc < 0) {
 				pr_err("Can't request %d batt-missing: %d\n",
@@ -4367,7 +4369,7 @@ static int fg_init_irqs(struct fg_chip *chip)
 				rc = -EINVAL;
 				return rc;
 			}
-			rc |= devm_request_irq(chip->dev,
+			rc = devm_request_irq(chip->dev,
 					chip->batt_irq[VBATT_LOW].irq,
 					fg_vbatt_low_handler,
 					IRQF_TRIGGER_RISING |
