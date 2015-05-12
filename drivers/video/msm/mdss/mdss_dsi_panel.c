@@ -25,7 +25,7 @@
 #include "mdss_dsi.h"
 
 #define DT_CMD_HDR 6
-#define MIN_REFRESH_RATE 30
+#define MIN_REFRESH_RATE 48
 #define DEFAULT_MDP_TRANSFER_TIME 14000
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
