@@ -45,6 +45,7 @@
 #include <linux/amba/bus.h>
 #include <soc/qcom/msm_tz_smmu.h>
 #include <linux/msm_pcie.h>
+#include <asm/cacheflush.h>
 
 #include "io-pgtable.h"
 
@@ -669,12 +670,28 @@ static void __arm_smmu_free_bitmap(unsigned long *map, int idx)
 	clear_bit(idx, map);
 }
 
-static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
+static void arm_smmu_unprepare_clocks(struct arm_smmu_device *smmu)
 {
-	if (!smmu->gdsc)
-		return 0;
+	int i;
 
-	return regulator_enable(smmu->gdsc);
+	for (i = 0; i < smmu->num_clocks; ++i)
+		clk_unprepare(smmu->clocks[i]);
+}
+
+static int arm_smmu_prepare_clocks(struct arm_smmu_device *smmu)
+{
+	int i, ret = 0;
+
+	for (i = 0; i < smmu->num_clocks; ++i) {
+		ret = clk_prepare(smmu->clocks[i]);
+		if (ret) {
+			dev_err(smmu->dev, "Couldn't prepare clock #%d\n", i);
+			while (i--)
+				clk_unprepare(smmu->clocks[i]);
+			break;
+		}
+	}
+	return ret;
 }
 
 static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
@@ -682,7 +699,24 @@ static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
 	if (!smmu->gdsc)
 		return 0;
 
+	arm_smmu_unprepare_clocks(smmu);
 	return regulator_disable(smmu->gdsc);
+}
+
+static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
+{
+	int ret;
+
+	if (!smmu->gdsc)
+		return 0;
+
+	ret = regulator_enable(smmu->gdsc);
+	if (ret)
+		return ret;
+	ret = arm_smmu_prepare_clocks(smmu);
+	if (ret)
+		regulator_disable(smmu->gdsc);
+	return ret;
 }
 
 static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
@@ -690,11 +724,11 @@ static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
 	int i, ret = 0;
 
 	arm_smmu_enable_regulators(smmu);
-
 	for (i = 0; i < smmu->num_clocks; ++i) {
 		ret = clk_prepare_enable(smmu->clocks[i]);
 		if (ret) {
-			dev_err(smmu->dev, "Couldn't enable clock #%d\n", i);
+			dev_err(smmu->dev,
+				"Couldn't enable and prepare clock #%d\n", i);
 			while (i--)
 				clk_disable_unprepare(smmu->clocks[i]);
 			arm_smmu_disable_regulators(smmu);
@@ -713,6 +747,32 @@ static void arm_smmu_disable_clocks(struct arm_smmu_device *smmu)
 		clk_disable_unprepare(smmu->clocks[i]);
 
 	arm_smmu_disable_regulators(smmu);
+}
+
+/* Clocks must be prepared before this (arm_smmu_prepare_clocks) */
+static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
+{
+	int i, ret = 0;
+
+	for (i = 0; i < smmu->num_clocks; ++i) {
+		ret = clk_enable(smmu->clocks[i]);
+		if (ret) {
+			dev_err(smmu->dev, "Couldn't enable clock #%d\n", i);
+			while (i--)
+				clk_disable(smmu->clocks[i]);
+			break;
+		}
+	}
+	return ret;
+}
+
+/* Clocks should be unprepared after this (arm_smmu_unprepare_clocks) */
+static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu)
+{
+	int i;
+
+	for (i = 0; i < smmu->num_clocks; ++i)
+		clk_disable(smmu->clocks[i]);
 }
 
 /* Wait for any pending TLB invalidations to complete */
@@ -753,6 +813,7 @@ static void arm_smmu_tlb_sync(void *cookie)
 	__arm_smmu_tlb_sync(smmu_domain->smmu);
 }
 
+/* Must be called with clocks/regulators enabled */
 static void arm_smmu_tlb_inv_context(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
@@ -761,7 +822,8 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *base;
 
-	arm_smmu_enable_clocks(smmu);
+	if (!smmu)
+		return;
 
 	if (stage1) {
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
@@ -774,7 +836,6 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 	}
 
 	__arm_smmu_tlb_sync(smmu);
-	arm_smmu_disable_clocks(smmu);
 }
 
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
@@ -785,8 +846,13 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 	struct arm_smmu_device *smmu = smmu_domain->smmu;
 	bool stage1 = cfg->cbar != CBAR_TYPE_S2_TRANS;
 	void __iomem *reg;
+	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
-	arm_smmu_enable_clocks(smmu);
+	BUG_ON(atomic_ctx && !smmu);
+	if (!smmu)
+		return;
+
+	arm_smmu_enable_clocks_atomic(smmu);
 
 	if (stage1) {
 		reg = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
@@ -815,14 +881,12 @@ static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
 		writel_relaxed(ARM_SMMU_CB_VMID(cfg), reg);
 	}
 
-	arm_smmu_disable_clocks(smmu);
+	arm_smmu_disable_clocks_atomic(smmu);
 }
 
 static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
-	struct arm_smmu_device *smmu = smmu_domain->smmu;
-	unsigned long offset = (unsigned long)addr & ~PAGE_MASK;
 	int coherent_htw_disable = smmu_domain->attributes &
 		(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE);
 
@@ -838,8 +902,7 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 		 * recursion here as the SMMU table walker will not be wired
 		 * through another SMMU.
 		 */
-		dma_map_page(smmu->dev, virt_to_page(addr), offset, size,
-			     DMA_TO_DEVICE);
+		dmac_clean_range(addr, addr + size);
 	}
 }
 
@@ -1237,7 +1300,6 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 	 */
 	cb_base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 	writel_relaxed(0, cb_base + ARM_SMMU_CB_SCTLR);
-	arm_smmu_disable_clocks(smmu_domain->smmu);
 
 	if (cfg->irptndx != INVALID_IRPTNDX) {
 		irq = smmu->irqs[smmu->num_global_irqs + cfg->irptndx];
@@ -1246,6 +1308,8 @@ static void arm_smmu_destroy_domain_context(struct iommu_domain *domain)
 
 	if (smmu_domain->pgtbl_ops)
 		free_io_pgtable_ops(smmu_domain->pgtbl_ops);
+
+	arm_smmu_disable_clocks(smmu_domain->smmu);
 
 	__arm_smmu_free_bitmap(smmu->context_map, cfg->cbndx);
 	smmu_domain->smmu = NULL;
@@ -1426,6 +1490,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_device *smmu;
 	struct arm_smmu_master_cfg *cfg;
+	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	mutex_lock(&smmu_domain->init_mutex);
 	smmu = find_smmu_for_device(dev);
@@ -1442,7 +1507,17 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 
 	mutex_lock(&smmu->attach_lock);
 	if (!smmu->attach_count++) {
-		if (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE))
+		/*
+		 * We need an extra power vote if we can't retain register
+		 * settings across a power collapse, or if this is an
+		 * atomic domain (since atomic domains can't sleep during
+		 * unmap, so regulators already need to be on to enable tlb
+		 * invalidation).  The result (due to regulator
+		 * refcounting) is that we never disable regulators while a
+		 * client is attached in these cases.
+		 */
+		if (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE) ||
+			atomic_ctx)
 			arm_smmu_enable_regulators(smmu);
 		arm_smmu_enable_clocks(smmu);
 		arm_smmu_device_reset(smmu);
@@ -1497,20 +1572,22 @@ err_disable_clocks:
 	mutex_unlock(&smmu_domain->init_mutex);
 	mutex_lock(&smmu->attach_lock);
 	if (!--smmu->attach_count &&
-		(!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE)))
+	    (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE) || atomic_ctx))
 		arm_smmu_disable_regulators(smmu);
 	mutex_unlock(&smmu->attach_lock);
 	return ret;
 }
 
-static void arm_smmu_power_off(struct arm_smmu_device *smmu)
+static void arm_smmu_power_off(struct arm_smmu_device *smmu,
+			       bool force_regulator_disable)
 {
 	/* Turn the thing off */
 	arm_smmu_enable_clocks(smmu);
 	writel_relaxed(sCR0_CLIENTPD,
 		ARM_SMMU_GR0_NS(smmu) + ARM_SMMU_GR0_sCR0);
 	arm_smmu_disable_clocks(smmu);
-	if (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE))
+	if (!(smmu->options & ARM_SMMU_OPT_REGISTER_SAVE)
+	    || force_regulator_disable)
 		arm_smmu_disable_regulators(smmu);
 }
 
@@ -1519,6 +1596,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct arm_smmu_master_cfg *cfg;
 	struct arm_smmu_device *smmu;
+	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	mutex_lock(&smmu_domain->init_mutex);
 	smmu = smmu_domain->smmu;
@@ -1539,7 +1617,7 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 	arm_smmu_destroy_domain_context(domain);
 	mutex_lock(&smmu->attach_lock);
 	if (!--smmu->attach_count)
-		arm_smmu_power_off(smmu);
+		arm_smmu_power_off(smmu, atomic_ctx);
 	mutex_unlock(&smmu->attach_lock);
 	mutex_unlock(&smmu_domain->init_mutex);
 }
@@ -1551,13 +1629,34 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
+	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (!ops)
 		return -ENODEV;
 
+	/* see the comment in arm_smmu_unmap */
+	BUG_ON(atomic_ctx && !smmu_domain->smmu);
+
+	if (atomic_ctx) {
+		arm_smmu_enable_clocks_atomic(smmu_domain->smmu);
+	} else {
+		mutex_lock(&smmu_domain->init_mutex);
+		if (smmu_domain->smmu)
+			arm_smmu_enable_clocks(smmu_domain->smmu);
+	}
+
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	if (atomic_ctx) {
+		arm_smmu_disable_clocks_atomic(smmu_domain->smmu);
+	} else {
+		if (smmu_domain->smmu)
+			arm_smmu_disable_clocks(smmu_domain->smmu);
+		mutex_unlock(&smmu_domain->init_mutex);
+	}
+
 	return ret;
 }
 
@@ -1568,13 +1667,34 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
+	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (!ops)
 		return -ENODEV;
 
+	/* see the comment in arm_smmu_unmap */
+	BUG_ON(atomic_ctx && !smmu_domain->smmu);
+
+	if (atomic_ctx) {
+		arm_smmu_enable_clocks_atomic(smmu_domain->smmu);
+	} else {
+		mutex_lock(&smmu_domain->init_mutex);
+		if (smmu_domain->smmu)
+			arm_smmu_enable_clocks(smmu_domain->smmu);
+	}
+
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map_sg(ops, iova, sg, nents, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	if (atomic_ctx) {
+		arm_smmu_disable_clocks_atomic(smmu_domain->smmu);
+	} else {
+		if (smmu_domain->smmu)
+			arm_smmu_disable_clocks(smmu_domain->smmu);
+		mutex_unlock(&smmu_domain->init_mutex);
+	}
+
 	return ret;
 }
 
@@ -1585,13 +1705,44 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
+	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (!ops)
 		return 0;
 
+	/*
+	 * The contract here is that if you set DOMAIN_ATTR_ATOMIC your
+	 * domain *must* must be attached an SMMU during unmap.  This
+	 * function calls other functions that try to use smmu_domain->smmu
+	 * if it's not NULL (like the tlb invalidation routines).  So if
+	 * the client sets DOMAIN_ATTR_ATOMIC and detaches in the middle of
+	 * the unmap the smmu instance could go away and we could
+	 * dereference NULL.  This little BUG_ON should catch most gross
+	 * offenders but if atomic clients violate this contract then this
+	 * code is racy.
+	 */
+	BUG_ON(atomic_ctx && !smmu_domain->smmu);
+
+	if (atomic_ctx) {
+		arm_smmu_enable_clocks_atomic(smmu_domain->smmu);
+	} else {
+		mutex_lock(&smmu_domain->init_mutex);
+		if (smmu_domain->smmu)
+			arm_smmu_enable_clocks(smmu_domain->smmu);
+	}
+
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->unmap(ops, iova, size);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	if (atomic_ctx) {
+		arm_smmu_disable_clocks_atomic(smmu_domain->smmu);
+	} else {
+		if (smmu_domain->smmu)
+			arm_smmu_disable_clocks(smmu_domain->smmu);
+		mutex_unlock(&smmu_domain->init_mutex);
+	}
+
 	return ret;
 }
 
@@ -1765,6 +1916,15 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 	case DOMAIN_ATTR_SECURE_VMID:
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_ATOMIC:
+	{
+		int atomic_ctx = *((int *)data);
+		if (atomic_ctx)
+			smmu_domain->attributes |= (1 << DOMAIN_ATTR_ATOMIC);
+		else
+			smmu_domain->attributes &= ~(1 << DOMAIN_ATTR_ATOMIC);
+		break;
+	}
 	default:
 		ret = -ENODEV;
 	}
@@ -2315,7 +2475,7 @@ static int arm_smmu_device_remove(struct platform_device *pdev)
 	 * still powered on. Power off now.
 	 */
 	if (smmu->attach_count)
-		arm_smmu_power_off(smmu);
+		arm_smmu_power_off(smmu, false);
 	mutex_unlock(&smmu->attach_lock);
 
 	return 0;
