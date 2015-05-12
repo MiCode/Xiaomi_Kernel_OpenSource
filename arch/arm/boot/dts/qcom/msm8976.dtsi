@@ -610,6 +610,13 @@
 		qcom,disable-ocr;
 	};
 
+	qcom,lmh@b1db000 {
+		compatible = "qcom,lmh";
+		interrupts = <0 264 4>;
+		reg = <0xb1db000 0x4>;
+		qcom,lmh-trim-err-offset = <18>;
+	};
+
 	rpm_bus: qcom,rpm-smd {
 		compatible = "qcom,rpm-smd";
 		rpm-channel-name = "rpm_requests";
