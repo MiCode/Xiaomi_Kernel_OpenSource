@@ -142,6 +142,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		if (ext_xceiv && ext_xceiv->ext_block_reset)
 			ext_xceiv->ext_block_reset(ext_xceiv, true);
 
+		dwc3_gadget_usb3_phy_suspend(dwc, false);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
 
 		/* re-init core and OTG registers as block reset clears these */
@@ -194,6 +195,7 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 		usb_gadget_vbus_disconnect(otg->gadget);
 		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		usb_phy_notify_disconnect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
+		dwc3_gadget_usb3_phy_suspend(dotg->dwc, false);
 	}
 
 	pm_runtime_put_sync(otg->phy->dev);
