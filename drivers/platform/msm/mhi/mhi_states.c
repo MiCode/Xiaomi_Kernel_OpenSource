@@ -159,12 +159,10 @@ static enum MHI_STATUS process_m0_transition(
 		atomic_set(&mhi_dev_ctxt->flags.pending_powerup, 0);
 	}
 	wake_up_interruptible(mhi_dev_ctxt->mhi_ev_wq.m0_event);
-	if (ret_val == -ERESTARTSYS)
-		mhi_log(MHI_MSG_CRITICAL,
-			"Pending restart detected\n");
 	write_lock_irqsave(&mhi_dev_ctxt->xfer_lock, flags);
-	if ((!mhi_dev_ctxt->flags.pending_M3) &&
-	   (mhi_dev_ctxt->flags.link_up))
+	if (!mhi_dev_ctxt->flags.pending_M3 &&
+	     mhi_dev_ctxt->flags.link_up &&
+	     mhi_dev_ctxt->flags.mhi_initialized)
 		mhi_deassert_device_wake(mhi_dev_ctxt);
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
 
@@ -376,6 +374,7 @@ static enum MHI_STATUS process_ready_transition(
 	}
 
 	mhi_dev_ctxt->flags.stop_threads = 0;
+	mhi_assert_device_wake(mhi_dev_ctxt);
 	mhi_reg_write_field(mhi_dev_ctxt,
 			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
 			MHICTRL_MHISTATE_MASK,
@@ -600,6 +599,9 @@ static enum MHI_STATUS process_amss_transition(
 		ring_all_chan_dbs(mhi_dev_ctxt);
 	}
 	atomic_dec(&mhi_dev_ctxt->flags.data_pending);
+	if (!mhi_dev_ctxt->flags.pending_M3 &&
+	     mhi_dev_ctxt->flags.link_up)
+		mhi_deassert_device_wake(mhi_dev_ctxt);
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return MHI_STATUS_SUCCESS;
 }
