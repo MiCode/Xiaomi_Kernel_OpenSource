@@ -1057,6 +1057,20 @@ static struct ov5693_reg const ov5693_2576x1936_30fps[] = {
 
 struct ov5693_resolution ov5693_res_preview[] = {
 	{
+		.desc = "ov5693_736x496_30fps",
+		.width = 736,
+		.height = 496,
+		.pix_clk_freq = 160,
+		.fps = 30,
+		.used = 0,
+		.pixels_per_line = 2688,
+		.lines_per_frame = 1984,
+		.bin_factor_x = 1,
+		.bin_factor_y = 1,
+		.bin_mode = 0,
+		.regs = ov5693_736x496_30fps,
+	},
+	{
 		.desc = "ov5693_1616x1216_30fps",
 		.width = 1616,
 		.height = 1216,
