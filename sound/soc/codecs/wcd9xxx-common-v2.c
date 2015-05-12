@@ -19,7 +19,7 @@
 #include <linux/mfd/wcd9xxx/wcd9xxx_registers.h>
 #include "wcd9xxx-common-v2.h"
 
-#define WCD_USLEEP_RANGE 5
+#define WCD_USLEEP_RANGE 50
 
 static void (*clsh_state_fp[NUM_CLSH_STATES])(struct snd_soc_codec *,
 					      struct wcd_clsh_cdc_data *,
@@ -165,10 +165,10 @@ static void wcd_clsh_buck_ctrl(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev, "%s: buck_users %d, enable %d, mode: %s",
 		__func__, clsh_d->buck_users, enable, mode_to_str(mode));
 	/*
-	 * 50us sleep is required after buck enable/disable
+	 * 500us sleep is required after buck enable/disable
 	 * as per HW requirement
 	 */
-	usleep_range(50, 50 + WCD_USLEEP_RANGE);
+	usleep_range(500, 500 + WCD_USLEEP_RANGE);
 }
 
 static void wcd_clsh_flyback_ctrl(struct snd_soc_codec *codec,
@@ -192,10 +192,10 @@ static void wcd_clsh_flyback_ctrl(struct snd_soc_codec *codec,
 	dev_dbg(codec->dev, "%s: flyback_users %d, enable %d, mode: %s",
 		__func__, clsh_d->flyback_users, enable, mode_to_str(mode));
 	/*
-	 * 50us sleep is required after flyback enable/disable
+	 * 500us sleep is required after flyback enable/disable
 	 * as per HW requirement
 	 */
-	usleep_range(50, 50 + WCD_USLEEP_RANGE);
+	usleep_range(500, 500 + WCD_USLEEP_RANGE);
 }
 
 static void wcd_clsh_set_hph_mode(struct snd_soc_codec *codec,
@@ -516,10 +516,6 @@ static void wcd_clsh_state_hph_r(struct snd_soc_codec *codec,
 		wcd_clsh_set_hph_mode(codec, mode);
 	} else {
 		wcd_clsh_set_hph_mode(codec, CLS_H_NORMAL);
-		/* buck and flyback set to default mode and disable */
-		wcd_clsh_buck_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
-		wcd_clsh_flyback_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
-		wcd_clsh_set_buck_regulator_mode(codec, CLS_H_NORMAL);
 
 		if (mode != CLS_AB) {
 			snd_soc_update_bits(codec,
@@ -527,6 +523,10 @@ static void wcd_clsh_state_hph_r(struct snd_soc_codec *codec,
 					    0x40, 0x00);
 			wcd_enable_clsh_block(codec, clsh_d, false);
 		}
+		/* buck and flyback set to default mode and disable */
+		wcd_clsh_buck_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
+		wcd_clsh_flyback_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
+		wcd_clsh_set_buck_regulator_mode(codec, CLS_H_NORMAL);
 	}
 }
 
@@ -564,10 +564,6 @@ static void wcd_clsh_state_hph_l(struct snd_soc_codec *codec,
 		wcd_clsh_set_hph_mode(codec, mode);
 	} else {
 		wcd_clsh_set_hph_mode(codec, CLS_H_NORMAL);
-		/* set buck and flyback to Default Mode */
-		wcd_clsh_buck_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
-		wcd_clsh_flyback_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
-		wcd_clsh_set_buck_regulator_mode(codec, CLS_H_NORMAL);
 
 		if (mode != CLS_AB) {
 			snd_soc_update_bits(codec,
@@ -575,6 +571,10 @@ static void wcd_clsh_state_hph_l(struct snd_soc_codec *codec,
 					    0x40, 0x00);
 			wcd_enable_clsh_block(codec, clsh_d, false);
 		}
+		/* set buck and flyback to Default Mode */
+		wcd_clsh_buck_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
+		wcd_clsh_flyback_ctrl(codec, clsh_d, CLS_H_NORMAL, false);
+		wcd_clsh_set_buck_regulator_mode(codec, CLS_H_NORMAL);
 	}
 }
 
@@ -599,12 +599,12 @@ static void wcd_clsh_state_ear(struct snd_soc_codec *codec,
 		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, true);
 		wcd_clsh_buck_ctrl(codec, clsh_d, mode, true);
 	} else {
-		wcd_clsh_buck_ctrl(codec, clsh_d, mode, false);
-		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, false);
 		snd_soc_update_bits(codec,
 				    WCD9XXX_A_CDC_RX0_RX_PATH_CFG0,
 				    0x40, 0x00);
 		wcd_enable_clsh_block(codec, clsh_d, false);
+		wcd_clsh_buck_ctrl(codec, clsh_d, mode, false);
+		wcd_clsh_flyback_ctrl(codec, clsh_d, mode, false);
 	}
 }
 

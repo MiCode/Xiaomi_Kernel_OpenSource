@@ -2115,12 +2115,12 @@ static int tasha_codec_hphr_dac_event(struct snd_soc_dapm_widget *w,
 			     hph_mode);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		/* 100us required as per HW requirement */
-		usleep_range(100, 110);
+		/* 1000us required as per HW requirement */
+		usleep_range(1000, 1100);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* 100us required as per HW requirement */
-		usleep_range(100, 110);
+		/* 1000us required as per HW requirement */
+		usleep_range(1000, 1100);
 		wcd_clsh_fsm(codec, &tasha->clsh_d,
 			     WCD_CLSH_EVENT_POST_PA,
 			     WCD_CLSH_STATE_HPHR,
@@ -2160,12 +2160,12 @@ static int tasha_codec_hphl_dac_event(struct snd_soc_dapm_widget *w,
 			     hph_mode);
 		break;
 	case SND_SOC_DAPM_POST_PMU:
-		/* 100us required as per HW requirement */
-		usleep_range(100, 110);
+		/* 1000us required as per HW requirement */
+		usleep_range(1000, 1100);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/* 100us required as per HW requirement */
-		usleep_range(100, 110);
+		/* 1000us required as per HW requirement */
+		usleep_range(1000, 1100);
 		wcd_clsh_fsm(codec, &tasha->clsh_d,
 			     WCD_CLSH_EVENT_POST_PA,
 			     WCD_CLSH_STATE_HPHL,
