@@ -3026,6 +3026,7 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 			uint32_t imped, bool set_gain)
 {
 	uint32_t value;
+	int codec_version;
 	struct msm8x16_wcd_priv *msm8x16_wcd =
 				snd_soc_codec_get_drvdata(codec);
 
@@ -3042,15 +3043,20 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 		return;
 	}
 
-	if (get_codec_version(msm8x16_wcd) < CONGA) {
-		pr_debug("%s: Default gain is set\n", __func__);
-	} else {
-		if (set_gain) {
+	codec_version = get_codec_version(msm8x16_wcd);
+
+	if (set_gain) {
+		switch (codec_version) {
+		case TOMBAK_1_0:
+		case TOMBAK_2_0:
+			pr_debug("%s: Default gain is set\n", __func__);
+			break;
+		case CONGA:
 			/*
-			 * For 32Ohm load and higher loads, Set 0x19E bit 5
-			 * to 1 (POS_6_DB_DI). For loads lower than 32Ohm
-			 * (such as 16Ohm load), Set 0x19E bit 5 to 0
-			 * (POS_1P5_DB_DI)
+			 * For 32Ohm load and higher loads, Set 0x19E
+			 * bit 5 to 1 (POS_6_DB_DI). For loads lower
+			 * than 32Ohm (such as 16Ohm load), Set 0x19E
+			 * bit 5 to 0 (POS_1P5_DB_DI)
 			 */
 			if (value >= 32)
 				snd_soc_update_bits(codec,
@@ -3060,11 +3066,32 @@ void wcd_imped_config(struct snd_soc_codec *codec,
 				snd_soc_update_bits(codec,
 					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
 					0x20, 0x00);
-		} else {
-			snd_soc_update_bits(codec,
-				MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
-				0x20, 0x00);
+			break;
+		case CAJON:
+			if (value >= 13) {
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+					0x20, 0x20);
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_NCP_VCTRL,
+					0x07, 0x07);
+			} else {
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+					0x20, 0x00);
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_NCP_VCTRL,
+					0x07, 0x04);
+			}
+			break;
 		}
+	} else {
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_RX_EAR_CTL,
+			0x20, 0x00);
+		snd_soc_update_bits(codec,
+			MSM8X16_WCD_A_ANALOG_NCP_VCTRL,
+			0x07, 0x04);
 	}
 
 	pr_debug("%s: Exit\n", __func__);
