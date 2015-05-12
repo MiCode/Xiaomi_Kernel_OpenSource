@@ -27,6 +27,7 @@
 #define clk_gcc_blsp1_uart4_apps_clk            0x26be16c0
 #define clk_gcc_blsp1_qup2_i2c_apps_clk         0x1076f220
 #define clk_gcc_blsp1_ahb_clk                   0x8caa5b4f
+#define clk_blsp_sim_clk_src                    0x36377c55
 #define clk_gcc_sdcc1_ahb_clk                   0x691e0caa
 #define clk_gcc_sdcc1_apps_clk                  0x9ad6fb96
 #define clk_gcc_prng_ahb_clk                    0x397e7eaa
