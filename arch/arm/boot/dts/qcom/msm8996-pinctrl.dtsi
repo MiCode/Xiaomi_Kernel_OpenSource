@@ -1125,10 +1125,10 @@
 			};
 		};
 
-		trigout_d: trigout_d {
-			cti_trigout_d {
-				pins = "gpio100";
-				function = "qdss_cti";
+		trigout_b: trigout_b {
+			cti_trigout_b {
+				pins = "gpio4";
+				function = "qdss_cti_trig_out_b";
 				drive-strength = <2>;
 				bias-disable;
 			};
