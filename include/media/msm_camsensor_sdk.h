@@ -241,7 +241,6 @@ struct msm_camera_sensor_slave_info {
 	struct msm_sensor_power_setting_array power_setting_array;
 	unsigned char  is_init_params_valid;
 	struct msm_sensor_init_params sensor_init_params;
-	unsigned char is_flash_supported;
 	enum msm_sensor_output_format_t output_format;
 };
 
