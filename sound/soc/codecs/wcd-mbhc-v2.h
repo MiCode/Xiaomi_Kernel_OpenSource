@@ -109,6 +109,8 @@ enum wcd_notify_event {
 	WCD_EVENT_POST_HPHL_PA_OFF,
 	WCD_EVENT_PRE_HPHR_PA_ON,
 	WCD_EVENT_POST_HPHR_PA_OFF,
+	WCD_EVENT_PRE_HPHL_PA_OFF,
+	WCD_EVENT_PRE_HPHR_PA_OFF,
 	WCD_EVENT_LAST,
 };
 
@@ -359,6 +361,8 @@ struct wcd_mbhc {
 	struct wcd_mbhc_register *wcd_mbhc_regs;
 
 	struct completion btn_press_compl;
+	struct mutex hphl_pa_lock;
+	struct mutex hphr_pa_lock;
 };
 #define WCD_MBHC_CAL_SIZE(buttons, rload) ( \
 	sizeof(struct wcd_mbhc_general_cfg) + \
