@@ -32,9 +32,8 @@
 #include <linux/task_work.h>
 #include <linux/ratelimit.h>
 
-#include <trace/events/sched.h>
-
 #include "sched.h"
+#include <trace/events/sched.h>
 
 /*
  * Targeted preemption latency for CPU-bound tasks:
@@ -3822,6 +3821,9 @@ static inline int invalid_value_freq_input(unsigned int *data)
 	if (data == &sysctl_sched_freq_account_wait_time)
 		return !(*data == 0 || *data == 1);
 
+	if (data == &sysctl_sched_freq_aggregate)
+		return !(*data == 0 || *data == 1);
+
 	return 0;
 }
 #else
@@ -7262,6 +7264,7 @@ enum fbq_type { regular, remote, all };
 				LBF_BIG_TASK_ACTIVE_BALANCE)
 #define LBF_IGNORE_BIG_TASKS 0x100
 #define LBF_IGNORE_PREFERRED_CLUSTER_TASKS 0x200
+#define LBF_MOVED_RELATED_THREAD_GROUP_TASK 0x400
 
 struct lb_env {
 	struct sched_domain	*sd;
@@ -7538,6 +7541,8 @@ static void detach_task(struct task_struct *p, struct lb_env *env)
 	p->on_rq = TASK_ON_RQ_MIGRATING;
 	double_lock_balance(env->src_rq, env->dst_rq);
 	set_task_cpu(p, env->dst_cpu);
+	if (rcu_access_pointer(p->grp))
+		env->flags |= LBF_MOVED_RELATED_THREAD_GROUP_TASK;
 	double_unlock_balance(env->src_rq, env->dst_rq);
 }
 
@@ -9242,10 +9247,13 @@ no_move:
 
 		/* Assumes one 'busiest' cpu that we pulled tasks from */
 		if (!same_freq_domain(this_cpu, cpu_of(busiest))) {
-			check_for_freq_change(this_rq, false);
-			check_for_freq_change(busiest, false);
+			int check_groups = !!(env.flags &
+					 LBF_MOVED_RELATED_THREAD_GROUP_TASK);
+
+			check_for_freq_change(this_rq, false, check_groups);
+			check_for_freq_change(busiest, false, check_groups);
 		} else {
-			check_for_freq_change(this_rq, true);
+			check_for_freq_change(this_rq, true, false);
 		}
 	}
 	if (likely(!active_balance)) {
@@ -9546,10 +9554,12 @@ out_unlock:
 	local_irq_enable();
 
 	if (moved && !same_freq_domain(busiest_cpu, target_cpu)) {
-		check_for_freq_change(busiest_rq, false);
-		check_for_freq_change(target_rq, false);
+		int check_groups = !!(env.flags &
+					 LBF_MOVED_RELATED_THREAD_GROUP_TASK);
+		check_for_freq_change(busiest_rq, false, check_groups);
+		check_for_freq_change(target_rq, false, check_groups);
 	} else if (moved) {
-		check_for_freq_change(target_rq, true);
+		check_for_freq_change(target_rq, true, false);
 	}
 
 	if (per_cpu(dbs_boost_needed, target_cpu)) {

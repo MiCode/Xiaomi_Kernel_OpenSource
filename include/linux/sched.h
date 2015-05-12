@@ -281,6 +281,16 @@ enum task_event {
 	IRQ_UPDATE	= 5,
 };
 
+/* Note: this need to be in sync with migrate_type_names array */
+enum migrate_types {
+	GROUP_TO_RQ,
+	RQ_TO_GROUP,
+	RQ_TO_RQ,
+	GROUP_TO_GROUP,
+};
+
+extern const char *migrate_type_names[];
+
 #include <linux/spinlock.h>
 
 /*
