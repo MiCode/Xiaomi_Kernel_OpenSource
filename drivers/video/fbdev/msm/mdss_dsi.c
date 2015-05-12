@@ -1818,9 +1818,10 @@ static int mdss_dsi_ctl_partial_roi(struct mdss_panel_data *pdata)
 
 static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 {
-	u32 data, idle;
+	u32 stream_ctrl, stream_total, idle;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo;
+	struct dsc_desc *dsc = NULL;
 	struct mdss_rect *roi;
 	struct panel_horizontal_idle *pidle;
 	int i;
@@ -1838,18 +1839,28 @@ static int mdss_dsi_set_stream_size(struct mdss_panel_data *pdata)
 	if (!pinfo->partial_update_supported)
 		return -EINVAL;
 
+	if (pinfo->compression_mode == COMPRESSION_DSC)
+		dsc = &pinfo->dsc;
+
 	roi = &pinfo->roi;
 
 	/* DSI_COMMAND_MODE_MDP_STREAM_CTRL */
-	data = (((roi->w * 3) + 1) << 16) |
+	if (dsc) {
+		stream_ctrl = ((dsc->bytes_in_slice + 1) << 16) |
 			(pdata->panel_info.mipi.vc << 8) | DTYPE_DCS_LWRITE;
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, data);
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, data);
+		stream_total = roi->h << 16 | dsc->pclk_per_line;
+	} else  {
+
+		stream_ctrl = (((roi->w * 3) + 1) << 16) |
+			(pdata->panel_info.mipi.vc << 8) | DTYPE_DCS_LWRITE;
+		stream_total = roi->h << 16 | roi->w;
+	}
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x60, stream_ctrl);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x58, stream_ctrl);
 
 	/* DSI_COMMAND_MODE_MDP_STREAM_TOTAL */
-	data = roi->h << 16 | roi->w;
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, data);
-	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, data);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x64, stream_total);
+	MIPI_OUTP((ctrl_pdata->ctrl_base) + 0x5C, stream_total);
 
 	/* set idle control -- dsi clk cycle */
 	idle = 0;
