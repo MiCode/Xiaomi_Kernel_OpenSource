@@ -235,4 +235,5 @@
 
 &usb3 {
 	vdda33-supply = <&pma8084_l24>;
+	vdda18-supply = <&pma8084_l6>;
 };
