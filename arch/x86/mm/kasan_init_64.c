@@ -190,7 +190,7 @@ void __init kasan_init(void)
 			panic("kasan: unable to allocate shadow!");
 	}
 
-	populate_zero_shadow(kasan_mem_to_shadow((void *)PAGE_OFFSET + MAXMEM),
+	populate_zero_shadow(kasan_mem_to_shadow((void *)MODULES_END),
 				(void *)KASAN_SHADOW_END);
 
 	memset(kasan_zero_page, 0, PAGE_SIZE);
