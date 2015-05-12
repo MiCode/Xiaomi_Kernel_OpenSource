@@ -1371,6 +1371,13 @@ static const struct snd_soc_dapm_widget msm8952_tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("Digital Mic6", NULL),
 };
 
+static struct snd_soc_dapm_route wcd9335_audio_paths[] = {
+	{"MIC BIAS1", NULL, "MCLK"},
+	{"MIC BIAS2", NULL, "MCLK"},
+	{"MIC BIAS3", NULL, "MCLK"},
+	{"MIC BIAS4", NULL, "MCLK"},
+};
+
 static int msm8952_codec_event_cb(struct snd_soc_codec *codec,
 		enum wcd9xxx_codec_event codec_event)
 {
@@ -1427,6 +1434,8 @@ int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 			tasha_get_afe_config;
 		snd_soc_dapm_new_controls(dapm, msm8952_tasha_dapm_widgets,
 				ARRAY_SIZE(msm8952_tasha_dapm_widgets));
+		snd_soc_dapm_add_routes(dapm, wcd9335_audio_paths,
+				ARRAY_SIZE(wcd9335_audio_paths));
 	}
 
 	snd_soc_dapm_enable_pin(dapm, "Lineout_1 amp");
