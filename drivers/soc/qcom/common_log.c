@@ -16,6 +16,7 @@
 #include <linux/init.h>
 #include <linux/kallsyms.h>
 #include <linux/slab.h>
+#include <linux/kmemleak.h>
 #include <soc/qcom/memory_dump.h>
 
 #define MISC_DUMP_DATA_LEN		4096
@@ -210,7 +211,9 @@ static void __init common_log_register_log_buf(void)
 							&entry_log_buf)) {
 			kfree(dump_data);
 			pr_err("Unable to register %d.\n", entry_log_buf.id);
-		}
+		} else
+			kmemleak_not_leak(dump_data);
+
 		if (fist_idxp) {
 			dump_data = kzalloc(sizeof(struct msm_dump_data),
 							GFP_KERNEL);
@@ -222,9 +225,12 @@ static void __init common_log_register_log_buf(void)
 			entry_first_idx.id = MSM_DUMP_DATA_LOG_BUF_FIRST_IDX;
 			entry_first_idx.addr = virt_to_phys(dump_data);
 			if (msm_dump_data_register(MSM_DUMP_TABLE_APPS,
-						&entry_first_idx))
+						&entry_first_idx)) {
+				kfree(dump_data);
 				pr_err("Unable to register %d.\n",
 						entry_first_idx.id);
+			} else
+				kmemleak_not_leak(dump_data);
 		}
 	}
 }
