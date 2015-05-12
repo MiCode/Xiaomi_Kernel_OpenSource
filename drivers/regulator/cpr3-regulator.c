@@ -681,24 +681,28 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 
 		ldo_volt = thread->corner[thread->current_corner].open_loop_volt
 			- thread->ldo_adjust_volt;
-		bhs_volt = vdd_volt - thread->ldo_headroom_volt;
 
 		if (vdd_floor_volt >= ldo_volt
 		    + thread->ldo_headroom_volt) {
 			if (thread->ldo_regulator_bypass == BHS_MODE) {
-				if (bhs_volt > thread->ldo_max_volt ||
-				    ldo_volt > thread->ldo_max_volt) {
-					cpr3_debug(ctrl, "cannot support LDO mode with bhs_volt=%d uV, ldo_volt=%d uV\n",
-						   bhs_volt, ldo_volt);
+				if (ldo_volt > thread->ldo_max_volt) {
+					cpr3_debug(ctrl, "cannot support LDO mode with ldo_volt=%d uV\n",
+						   ldo_volt);
 					/* Skip thread, can't switch to LDO */
 					continue;
 				}
-
 				/*
 				 * BHS to LDO transition. Configure LDO output
-				 * to VDD minus LDO headroom voltage then
-				 * switch the regulator mode.
+				 * to min(max LDO output, VDD - LDO headroom)
+				 * voltage then switch the regulator mode.
 				 */
+				bhs_volt = vdd_volt - thread->ldo_headroom_volt;
+				if (bhs_volt > thread->ldo_max_volt) {
+					cpr3_debug(ctrl, "limiting bhs_volt=%d uV to %d uV\n",
+						   bhs_volt,
+						   thread->ldo_max_volt);
+					bhs_volt = thread->ldo_max_volt;
+				}
 				rc = regulator_set_voltage(ldo_reg, bhs_volt,
 							   vdd_ceiling_volt);
 				if (rc) {
