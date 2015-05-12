@@ -2593,7 +2593,7 @@ int dsi_panel_device_register(struct device_node *pan_node,
 			return rc;
 		}
 		if (ctrl_pdata->bklt_ctrl == BL_PWM)
-			ctrl_pdata->pwm_enabled = 1;
+			mdss_dsi_panel_pwm_enable(ctrl_pdata);
 		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
 		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
 		ctrl_pdata->ctrl_state |=
