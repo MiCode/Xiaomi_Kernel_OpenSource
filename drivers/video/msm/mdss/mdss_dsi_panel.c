@@ -55,6 +55,23 @@ void mdss_dsi_panel_pwm_cfg(struct mdss_dsi_ctrl_pdata *ctrl)
 	ctrl->pwm_enabled = 0;
 }
 
+bool mdss_dsi_panel_pwm_enable(struct mdss_dsi_ctrl_pdata *ctrl)
+{
+	bool status = true;
+	if (!ctrl->pwm_enabled)
+		goto end;
+
+	if (pwm_enable(ctrl->pwm_bl)) {
+		pr_err("%s: pwm_enable() failed\n", __func__);
+		status = false;
+	}
+
+	ctrl->pwm_enabled = 1;
+
+end:
+	return status;
+}
+
 static void mdss_dsi_panel_bklt_pwm(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
 	int ret;
