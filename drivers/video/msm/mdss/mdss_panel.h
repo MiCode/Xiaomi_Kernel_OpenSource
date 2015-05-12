@@ -401,6 +401,7 @@ struct dsc_desc {
 	int chunk_size;
 
 	int pkt_per_line;
+	int bytes_in_slice;
 	int bytes_per_pkt;
 	int eol_byte_num;
 	int pclk_per_line;	/* width */
