@@ -97,6 +97,14 @@ struct mdss_intr {
 	spinlock_t lock;
 };
 
+struct simplified_prefill_factors {
+	u32 fmt_mt_nv12_factor;
+	u32 fmt_mt_factor;
+	u32 fmt_linear_factor;
+	u32 scale_factor;
+	u32 xtra_ff_factor;
+};
+
 struct mdss_prefill_data {
 	u32 ot_bytes;
 	u32 y_buf_bytes;
@@ -105,6 +113,7 @@ struct mdss_prefill_data {
 	u32 post_scaler_pixels;
 	u32 pp_pixels;
 	u32 fbc_lines;
+	struct simplified_prefill_factors prefill_factors;
 };
 
 struct mdss_mdp_ppb {
@@ -163,6 +172,7 @@ enum mdss_qos_settings {
 	MDSS_QOS_CDP,
 	MDSS_QOS_OTLIM,
 	MDSS_QOS_PER_PIPE_LUT,
+	MDSS_QOS_SIMPLIFIED_PREFILL,
 	MDSS_QOS_MAX,
 };
 

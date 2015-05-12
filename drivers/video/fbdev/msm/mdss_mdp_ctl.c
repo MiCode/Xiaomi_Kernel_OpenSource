@@ -51,6 +51,7 @@ static inline u64 apply_inverse_fudge_factor(u64 val,
 static DEFINE_MUTEX(mdss_mdp_ctl_lock);
 
 static inline int __mdss_mdp_ctl_get_mixer_off(struct mdss_mdp_mixer *mixer);
+static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl);
 
 static inline u32 mdss_mdp_get_pclk_rate(struct mdss_mdp_ctl *ctl)
 {
@@ -623,6 +624,59 @@ u32 mdss_apply_overhead_factors(u32 quota, bool is_nrt,
 	return quota;
 }
 
+u64 mdss_mdp_perf_calc_simplified_prefill(struct mdss_mdp_pipe *pipe,
+	u32 v_total, u32 fps, struct mdss_mdp_ctl *ctl)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct simplified_prefill_factors *pfactors =
+			&mdata->prefill_data.prefill_factors;
+	u64 prefill_per_pipe = 0;
+	u32 prefill_lines = pfactors->xtra_ff_factor;
+
+
+	/* do not calculate prefill for command mode */
+	if (!ctl->is_video_mode)
+		goto exit;
+
+	prefill_per_pipe = pipe->src.w * pipe->src_fmt->bpp;
+
+	/* format factors */
+	if (mdss_mdp_is_tile_format(pipe->src_fmt)) {
+		if (mdss_mdp_is_nv12_format(pipe->src_fmt))
+			prefill_lines += pfactors->fmt_mt_nv12_factor;
+		else
+			prefill_lines += pfactors->fmt_mt_factor;
+	} else {
+		prefill_lines += pfactors->fmt_linear_factor;
+	}
+
+	/* scaling factors */
+	if (pipe->src.h > pipe->dst.h) {
+		prefill_lines += pfactors->scale_factor;
+
+		prefill_per_pipe = fudge_factor(prefill_per_pipe,
+			DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci),
+			pipe->dst.h);
+	}
+
+	prefill_per_pipe *= prefill_lines * mdss_mdp_get_vbp_factor_max(ctl);
+
+	pr_debug("pipe src: %dx%d bpp:%d\n",
+		pipe->src.w, pipe->src.h, pipe->src_fmt->bpp);
+	pr_debug("ff_factor:%d mt_nv12:%d mt:%d\n",
+		pfactors->xtra_ff_factor,
+		(mdss_mdp_is_tile_format(pipe->src_fmt) &&
+		mdss_mdp_is_nv12_format(pipe->src_fmt)) ?
+		pfactors->fmt_mt_nv12_factor : 0,
+		mdss_mdp_is_tile_format(pipe->src_fmt) ?
+		pfactors->fmt_mt_factor : 0);
+	pr_debug("pipe prefill:%llu lines:%d\n",
+		prefill_per_pipe, prefill_lines);
+
+exit:
+	return prefill_per_pipe;
+}
+
 /**
  * mdss_mdp_perf_calc_pipe() - calculate performance numbers required by pipe
  * @pipe:	Source pipe struct containing updated pipe params
@@ -773,6 +827,13 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		mixer->ctl->disable_prefill ||
 		(pipe->flags & MDP_SOLID_FILL)) {
 		perf->prefill_bytes = 0;
+		perf->bw_prefill = 0;
+		goto exit;
+	}
+
+	if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map)) {
+		perf->bw_prefill = mdss_mdp_perf_calc_simplified_prefill(pipe,
+			v_total, fps, mixer->ctl);
 		goto exit;
 	}
 
@@ -810,9 +871,9 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 			mdss_mdp_perf_calc_pipe_prefill_cmd(&prefill_params);
 
 exit:
-	pr_debug("mixer=%d pnum=%d clk_rate=%u bw_overlap=%llu prefill=%d %s\n",
+	pr_debug("mixer=%d pnum=%d clk_rate=%u bw_overlap=%llu bw_prefill=%llu (%d) %s\n",
 		 mixer->num, pipe->num, perf->mdp_clk_rate, perf->bw_overlap,
-		 perf->prefill_bytes, mdata->disable_prefill ?
+		 perf->bw_prefill, perf->prefill_bytes, mdata->disable_prefill ?
 		 "prefill is disabled" : "");
 
 	return 0;
@@ -843,7 +904,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	u64 bw_overlap[MAX_PIPES_PER_LM] = { 0 };
 	u64 bw_overlap_async = 0;
 	u32 v_region[MAX_PIPES_PER_LM * 2] = { 0 };
-	u32 prefill_bytes = 0;
+	u32 prefill_val = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool apply_fudge = true;
 	struct mdss_mdp_format_params *fmt;
@@ -965,8 +1026,6 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 		bitmap_or(perf->bw_vote_mode, perf->bw_vote_mode,
 			tmp.bw_vote_mode, MDSS_MDP_BW_MODE_MAX);
 
-		prefill_bytes += tmp.prefill_bytes;
-
 		/*
 		 * for async layers, the overlap calculation is skipped
 		 * and the bandwidth is added at the end, accounting for
@@ -986,6 +1045,11 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 
 		if (tmp.mdp_clk_rate > max_clk_rate)
 			max_clk_rate = tmp.mdp_clk_rate;
+
+		if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map))
+			prefill_val += tmp.bw_prefill;
+		else
+			prefill_val += tmp.prefill_bytes;
 	}
 
 	/*
@@ -1020,7 +1084,11 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 	}
 
 	perf->bw_overlap += bw_overlap_max + bw_overlap_async;
-	perf->prefill_bytes += prefill_bytes;
+
+	if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map))
+		perf->bw_prefill += prefill_val;
+	else
+		perf->prefill_bytes += prefill_val;
 
 	if (max_clk_rate > perf->mdp_clk_rate)
 		perf->mdp_clk_rate = max_clk_rate;
@@ -1028,7 +1096,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 exit:
 	pr_debug("final mixer=%d video=%d clk_rate=%u bw=%llu prefill=%d mode=0x%lx\n",
 		mixer->num, mixer->ctl->is_video_mode, perf->mdp_clk_rate,
-		perf->bw_overlap, perf->prefill_bytes,
+		perf->bw_overlap, prefill_val,
 		*(perf->bw_vote_mode));
 }
 
@@ -1127,6 +1195,11 @@ static u32 mdss_mdp_get_vbp_factor_max(struct mdss_mdp_ctl *ctl)
 		struct mdss_mdp_ctl *ctl = mdata->ctl_off + i;
 		u32 vbp_fac;
 
+		/* skip command mode interfaces */
+		if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map)
+				&& !ctl->is_video_mode)
+			continue;
+
 		if (mdss_mdp_ctl_is_power_on(ctl)) {
 			vbp_fac = mdss_mdp_get_vbp_factor(ctl);
 			vbp_max = max(vbp_max, vbp_fac);
@@ -1165,6 +1238,7 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		u32 flags)
 {
 	struct mdss_mdp_perf_params tmp;
+	struct mdss_data_type *mdata = ctl->mdata;
 
 	memset(perf, 0, sizeof(*perf));
 
@@ -1177,9 +1251,13 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 
 		perf->max_per_pipe_ib = tmp.max_per_pipe_ib;
 		perf->bw_overlap += tmp.bw_overlap;
-		perf->prefill_bytes += tmp.prefill_bytes;
 		perf->mdp_clk_rate = tmp.mdp_clk_rate;
 		perf->bw_writeback += tmp.bw_writeback;
+
+		if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map))
+			perf->bw_prefill += tmp.bw_prefill;
+		else
+			perf->prefill_bytes += tmp.prefill_bytes;
 	}
 
 	if (ctl->mixer_right) {
@@ -1192,10 +1270,14 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 		perf->max_per_pipe_ib = max(perf->max_per_pipe_ib,
 			tmp.max_per_pipe_ib);
 		perf->bw_overlap += tmp.bw_overlap;
-		perf->prefill_bytes += tmp.prefill_bytes;
 		perf->bw_writeback += tmp.bw_writeback;
 		if (tmp.mdp_clk_rate > perf->mdp_clk_rate)
 			perf->mdp_clk_rate = tmp.mdp_clk_rate;
+
+		if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map))
+			perf->bw_prefill += tmp.bw_prefill;
+		else
+			perf->prefill_bytes += tmp.prefill_bytes;
 
 		if (ctl->intf_type) {
 			u32 clk_rate = mdss_mdp_get_pclk_rate(ctl);
@@ -1210,7 +1292,8 @@ static void __mdss_mdp_perf_calc_ctl_helper(struct mdss_mdp_ctl *ctl,
 	if (perf->bw_overlap == 0)
 		perf->bw_overlap = SZ_16M;
 
-	if (ctl->intf_type != MDSS_MDP_NO_INTF) {
+	if (!test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map) &&
+		(ctl->intf_type != MDSS_MDP_NO_INTF)) {
 		u32 vbp_fac = mdss_mdp_get_vbp_factor_max(ctl);
 
 		perf->bw_prefill = perf->prefill_bytes;
@@ -1368,8 +1451,12 @@ int mdss_mdp_perf_bw_check_pipe(struct mdss_mdp_perf_params *perf,
 	if (ctl->intf_type == MDSS_MDP_NO_INTF)
 		return 0;
 
-	vbp_fac = mdss_mdp_get_vbp_factor_max(ctl);
-	prefill_bw = perf->prefill_bytes * vbp_fac;
+	if (test_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map)) {
+		prefill_bw = perf->bw_prefill;
+	} else {
+		vbp_fac = mdss_mdp_get_vbp_factor_max(ctl);
+		prefill_bw = perf->prefill_bytes * vbp_fac;
+	}
 	pipe_bw = max(prefill_bw, perf->bw_overlap);
 	pr_debug("prefill=%llu, vbp_fac=%u, overlap=%llu\n",
 			prefill_bw, vbp_fac, perf->bw_overlap);

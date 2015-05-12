@@ -1051,6 +1051,15 @@ static u32 mdss_get_props(void)
 	return props;
 }
 
+void mdss_mdp_init_default_prefill_factors(struct mdss_data_type *mdata)
+{
+	mdata->prefill_data.prefill_factors.fmt_mt_nv12_factor = 8;
+	mdata->prefill_data.prefill_factors.fmt_mt_factor = 4;
+	mdata->prefill_data.prefill_factors.fmt_linear_factor = 1;
+	mdata->prefill_data.prefill_factors.scale_factor = 1;
+	mdata->prefill_data.prefill_factors.xtra_ff_factor = 2;
+}
+
 static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 {
 
@@ -1078,9 +1087,11 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		set_bit(MDSS_QOS_CDP, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		set_bit(MDSS_QOS_PER_PIPE_LUT, mdata->mdss_qos_map);
+		set_bit(MDSS_QOS_SIMPLIFIED_PREFILL, mdata->mdss_qos_map);
 		set_bit(MDSS_CAPS_YUV_CONFIG, mdata->mdss_caps_map);
 		set_bit(MDSS_CAPS_SCM_RESTORE_NOT_REQUIRED,
 			mdata->mdss_caps_map);
+		mdss_mdp_init_default_prefill_factors(mdata);
 		break;
 	case MDSS_MDP_HW_REV_105:
 	case MDSS_MDP_HW_REV_109:
