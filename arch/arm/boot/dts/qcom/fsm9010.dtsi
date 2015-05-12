@@ -88,6 +88,7 @@
 	restart@fc4ab000 {
 		compatible = "qcom,pshold";
 		reg = <0xfc4ab000 0x4>;
+		reg-names = "pshold-base";
 	};
 
 	timer {
