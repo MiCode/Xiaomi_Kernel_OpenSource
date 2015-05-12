@@ -33,6 +33,7 @@
 #include "../codecs/wcd9330.h"
 #include "../codecs/wcd9335.h"
 #include "../codecs/wcd-mbhc-v2.h"
+#include "../codecs/wsa881x.h"
 
 #define DRV_NAME "msm8952-slimbus-wcd"
 
@@ -288,6 +289,35 @@ static inline int param_is_mask(int p)
 static inline struct snd_mask *param_to_mask(struct snd_pcm_hw_params *p, int n)
 {
 	return &(p->masks[n - SNDRV_PCM_HW_PARAM_FIRST_MASK]);
+}
+
+int msm895x_wsa881x_init(struct snd_soc_dapm_context *dapm)
+{
+	u8 spkleft_ports[WSA881X_MAX_SWR_PORTS] = {100, 101, 102, 106};
+	u8 spkright_ports[WSA881X_MAX_SWR_PORTS] = {103, 104, 105, 107};
+	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
+	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
+
+	if (!dapm->codec->name) {
+		pr_err("%s codec_name is NULL\n", __func__);
+		return -EINVAL;
+	}
+	dev_dbg(dapm->codec->dev, "%s codec_name: %s\n", __func__,
+		dapm->codec->name);
+	if (!strcmp(dapm->codec->name, "wsa881x.20170212")) {
+		wsa881x_set_channel_map(dapm->codec, &spkleft_ports[0],
+				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
+				&ch_rate[0]);
+	} else if (!strcmp(dapm->codec->name, "wsa881x.20170211")) {
+		wsa881x_set_channel_map(dapm->codec, &spkright_ports[0],
+				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
+				&ch_rate[0]);
+	} else {
+		dev_err(dapm->codec->dev, "%s: wrong codec name %s\n", __func__,
+			dapm->codec->name);
+		return -EINVAL;
+	}
+	return 0;
 }
 
 static void param_set_mask(struct snd_pcm_hw_params *p, int n, unsigned bit)
