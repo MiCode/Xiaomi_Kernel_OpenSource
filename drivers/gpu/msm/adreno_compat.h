@@ -19,12 +19,12 @@
 #include "kgsl_device.h"
 
 int adreno_getproperty_compat(struct kgsl_device *device,
-			enum kgsl_property_type type,
+			unsigned int type,
 			void __user *value,
 			size_t sizebytes);
 
 int adreno_setproperty_compat(struct kgsl_device_private *dev_priv,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value,
 				unsigned int sizebytes);
 
@@ -34,14 +34,14 @@ long adreno_compat_ioctl(struct kgsl_device_private *dev_priv,
 #else
 
 static inline int adreno_getproperty_compat(struct kgsl_device *device,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value, size_t sizebytes)
 {
 	BUG();
 }
 
 static inline int adreno_setproperty_compat(struct kgsl_device_private
-				*dev_priv, enum kgsl_property_type type,
+				*dev_priv, unsigned int type,
 				void __user *value, unsigned int sizebytes)
 {
 	BUG();
