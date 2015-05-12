@@ -24,6 +24,10 @@
 #define BURST_SKIP_THRESHOLD              (16)
 #define ISP_SOF_DEBUG_COUNT 0
 
+static int msm_isp_update_dual_HW_ms_info_at_start(
+	struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src stream_src);
+
 int msm_isp_axi_create_stream(
 	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream_request_cmd *stream_cfg_cmd)
@@ -635,6 +639,7 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	switch (event_type) {
 	case ISP_EVENT_SOF:
 		src_info = &vfe_dev->axi_data.src_info[frame_src];
+		msm_isp_update_dual_HW_ms_info_at_start(vfe_dev, frame_src);
 
 		if (frame_src == VFE_PIX_0) {
 
@@ -1976,6 +1981,132 @@ static int msm_isp_axi_update_cgc_override(struct vfe_device *vfe_dev,
 	return 0;
 }
 
+static int msm_isp_update_dual_HW_ms_info_at_start(
+	struct vfe_device *vfe_dev,
+	enum msm_vfe_input_src stream_src)
+{
+	int rc = 0;
+	uint32_t j, k, max_sof = 0;
+	uint8_t slave_id;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	struct msm_vfe_src_info *src_info = NULL;
+
+	if (stream_src >= VFE_SRC_MAX) {
+		pr_err("%s: Error! Invalid src %u\n", __func__, stream_src);
+		return -EINVAL;
+	}
+
+	src_info = &axi_data->src_info[stream_src];
+	if (src_info->dual_hw_type != DUAL_HW_MASTER_SLAVE)
+		return rc;
+
+	if (src_info->dual_hw_ms_info.dual_hw_ms_type ==
+		MS_TYPE_MASTER) {
+		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+		vfe_dev->common_data->master_active = 1;
+		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+
+		/*
+		 * If any slaves are active, then find the max slave
+		 * frame_id and set it to Master, so master will start
+		 * higher and then the slave can copy master frame_id
+		 * without repeating.
+		 * For safety, add some buffer, currently 5.
+		 */
+		if (!vfe_dev->common_data->slave_active_mask)
+			return rc;
+
+		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+		for (j = 0, k = 0; j < vfe_dev->common_data->num_slave;
+			k++) {
+			if (vfe_dev->common_data->reserved_slave_mask &
+				(1 << k))
+				j++;
+			else
+				continue;
+
+			if (vfe_dev->common_data->slave_active_mask &
+				(1 << k) &&
+				(vfe_dev->common_data->slave_sof_info[
+					(j - 1)].frame_id > max_sof)) {
+				max_sof = vfe_dev->common_data->
+					slave_sof_info[j - 1].frame_id;
+			}
+		}
+		vfe_dev->axi_data.src_info[stream_src].frame_id =
+			max_sof + 1;
+		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+
+		ISP_DBG("%s: Setting Master frame_id to %u\n", __func__,
+			max_sof + 1);
+	} else {
+		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+		slave_id = src_info->dual_hw_ms_info.slave_id;
+		vfe_dev->common_data->slave_active_mask |=
+			(1 << slave_id);
+		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+	}
+
+	return rc;
+}
+
+static int msm_isp_update_dual_HW_ms_info_at_stop(
+	struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd,
+	enum msm_isp_camif_update_state camif_update)
+{
+	int i, rc = 0;
+	uint8_t slave_id;
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
+	enum msm_vfe_input_src stream_src = VFE_SRC_MAX;
+	struct msm_vfe_src_info *src_info = NULL;
+
+	if (stream_cfg_cmd->num_streams > MAX_NUM_STREAM ||
+		stream_cfg_cmd->num_streams == 0)
+		return -EINVAL;
+
+	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
+		if (HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i]) >=
+			MAX_NUM_STREAM) {
+			return -EINVAL;
+		}
+		stream_info = &axi_data->stream_info[
+			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
+		stream_src = SRC_TO_INTF(stream_info->stream_src);
+
+		/* Remove PIX if DISABLE CAMIF */
+		if (stream_src == VFE_PIX_0 && !((camif_update == DISABLE_CAMIF)
+			|| (camif_update == DISABLE_CAMIF_IMMEDIATELY)))
+			continue;
+
+		src_info = &axi_data->src_info[stream_src];
+		if (src_info->dual_hw_type != DUAL_HW_MASTER_SLAVE)
+			continue;
+
+		spin_lock(&vfe_dev->common_data->common_dev_data_lock);
+		if (src_info->dual_hw_ms_info.dual_hw_ms_type ==
+			MS_TYPE_MASTER) {
+			/*
+			 * Once Master is inactive, slave will increment
+			 * its own frame_id
+			 */
+			vfe_dev->common_data->master_active = 0;
+		} else {
+			slave_id = src_info->dual_hw_ms_info.slave_id;
+			vfe_dev->common_data->reserved_slave_mask &=
+				~(1 << slave_id);
+			vfe_dev->common_data->slave_active_mask &=
+				~(1 << slave_id);
+			vfe_dev->common_data->num_slave--;
+		}
+		src_info->dual_hw_ms_info.sof_info = NULL;
+		spin_unlock(&vfe_dev->common_data->common_dev_data_lock);
+	}
+
+	return rc;
+}
+
 static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd,
 			enum msm_isp_camif_update_state camif_update)
@@ -2244,7 +2375,7 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 
 int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 {
-	int rc = 0;
+	int rc = 0, ret;
 	struct msm_vfe_axi_stream_cfg_cmd *stream_cfg_cmd = arg;
 	struct msm_vfe_axi_shared_data *axi_data = &vfe_dev->axi_data;
 	enum msm_isp_camif_update_state camif_update;
@@ -2268,16 +2399,26 @@ int msm_isp_cfg_axi_stream(struct vfe_device *vfe_dev, void *arg)
 		msm_isp_axi_update_cgc_override(vfe_dev, stream_cfg_cmd, 1);
 
 		rc = msm_isp_start_axi_stream(
-		   vfe_dev, stream_cfg_cmd, camif_update);
+			vfe_dev, stream_cfg_cmd, camif_update);
 	} else {
 		rc = msm_isp_stop_axi_stream(
-		   vfe_dev, stream_cfg_cmd, camif_update);
+			vfe_dev, stream_cfg_cmd, camif_update);
 
 		msm_isp_axi_update_cgc_override(vfe_dev, stream_cfg_cmd, 0);
 		if (axi_data->num_active_stream == 0) {
 			/* Reset hvx state */
 			vfe_dev->hvx_cmd = HVX_DISABLE;
 		}
+
+		/*
+		 * Use different ret value to not overwrite the error from
+		 * msm_isp_stop_axi_stream
+		 */
+		ret = msm_isp_update_dual_HW_ms_info_at_stop(
+			vfe_dev, stream_cfg_cmd, camif_update);
+		if (ret < 0)
+			pr_warn("%s: Warning! Update dual_cam failed\n",
+				__func__);
 	}
 
 	if (rc < 0)

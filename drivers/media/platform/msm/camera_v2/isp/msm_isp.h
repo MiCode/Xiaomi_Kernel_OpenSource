@@ -67,10 +67,9 @@ struct msm_vfe_stats_stream;
 
 #define VFE_SD_HW_MAX VFE_SD_COMMON
 
-#define DUAL_CAM_NUM_SLAVE_MAX 1
-
 struct msm_vfe_sof_info {
-	struct timeval timestamp;
+	uint32_t timestamp_ms;
+	uint32_t mono_timestamp_ms;
 	uint32_t frame_id;
 };
 
@@ -600,11 +599,14 @@ struct dual_vfe_resource {
 };
 
 struct msm_vfe_common_dev_data {
+	spinlock_t common_dev_data_lock;
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	struct msm_vfe_sof_info master_sof_info;
+	uint8_t master_active;
 	uint32_t num_slave;
-	uint32_t free_slave_mask;
-	struct msm_vfe_sof_info slave_sof_info[DUAL_CAM_NUM_SLAVE_MAX];
+	uint32_t reserved_slave_mask;
+	uint32_t slave_active_mask;
+	struct msm_vfe_sof_info slave_sof_info[MS_NUM_SLAVE_MAX];
 };
 
 struct msm_vfe_common_subdev {
