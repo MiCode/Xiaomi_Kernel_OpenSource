@@ -83,6 +83,7 @@
 		/* Bus Scale Settings */
 		qcom,gpubw-dev = <&gpubw>;
 		qcom,bus-control;
+		qcom,bus-width = <16>;
 		qcom,msm-bus,name = "grp3d";
 		qcom,msm-bus,num-cases = <10>;
 		qcom,msm-bus,num-paths = <1>;
