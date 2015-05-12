@@ -934,6 +934,12 @@ static struct cal_block_data *afe_find_cal_topo_id_by_port(
 	int32_t path;
 	struct audio_cal_info_afe_top *afe_top;
 
+	if (port_id == RT_PROXY_PORT_001_RX) {
+		pr_debug("%s: not setting cal block for proxy port\n",
+		__func__);
+		return NULL;
+	}
+
 	list_for_each_safe(ptr, next,
 		&cal_type->cal_blocks) {
 		cal_block = list_entry(ptr,
@@ -1123,6 +1129,11 @@ done:
 void afe_send_cal(u16 port_id)
 {
 	pr_debug("%s: port_id=0x%x\n", __func__, port_id);
+
+	if (port_id == RT_PROXY_PORT_001_RX) {
+		pr_debug("%s: not sending afe cal for proxy port\n", __func__);
+		return;
+	}
 
 	if (afe_get_port_type(port_id) == MSM_AFE_PORT_TYPE_TX) {
 		afe_send_cal_spkr_prot_tx(port_id);
