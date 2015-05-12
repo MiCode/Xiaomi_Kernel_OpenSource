@@ -977,7 +977,6 @@
 			qcom,src-bam-pipe-index = <1>;
 			qcom,data-fifo-size = <0x8000>;
 			qcom,descriptor-fifo-size = <0x2000>;
-			qcom,reset-bam-on-connect;
 		};
 		qcom,pipe1 {
 			label = "hsusb-ipa-in-0";
@@ -990,7 +989,6 @@
 			qcom,dst-bam-pipe-index = <0>;
 			qcom,data-fifo-size = <0x8000>;
 			qcom,descriptor-fifo-size = <0x2000>;
-			qcom,reset-bam-on-connect;
 		};
 
 		qcom,pipe2 {
@@ -1008,7 +1006,6 @@
 			qcom,data-fifo-size = <0xe00>;
 			qcom,descriptor-fifo-offset = <0xe00>;
 			qcom,descriptor-fifo-size = <0x200>;
-			qcom,reset-bam-on-connect;
 		};
 
 		/* USB BAM pipe (consumer) configuration for accelerated DPL */
@@ -1023,7 +1020,6 @@
 			qcom,dst-bam-pipe-index = <3>;
 			qcom,data-fifo-size = <0x8000>;
 			qcom,descriptor-fifo-size = <0x2000>;
-			qcom,reset-bam-on-connect;
 		};
 	};
 
