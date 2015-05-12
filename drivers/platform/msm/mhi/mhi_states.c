@@ -304,10 +304,9 @@ static enum MHI_STATUS process_wake_transition(
 	}
 
 	if (mhi_dev_ctxt->flags.mhi_initialized) {
-		mhi_log(MHI_MSG_VERBOSE,
-			"MHI is initialized, transitioning to M0.\n");
 		r = pm_request_resume(&mhi_dev_ctxt->dev_info->plat_dev->dev);
-		BUG_ON(r && r != -EINPROGRESS);
+		mhi_log(MHI_MSG_VERBOSE,
+			"MHI is initialized, transitioning to M0, ret %d\n", r);
 	}
 
 	if (!mhi_dev_ctxt->flags.mhi_initialized) {
