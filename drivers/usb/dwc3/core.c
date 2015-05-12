@@ -798,6 +798,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	void			*mem;
 
 	u32			hird_thresh;
+	u32			lpm_nyet_thresh;
 
 	mem = devm_kzalloc(dev, sizeof(*dwc) + DWC3_ALIGN_MASK, GFP_KERNEL);
 	if (!mem)
@@ -865,6 +866,12 @@ static int dwc3_probe(struct platform_device *pdev)
 			dwc->hird_thresh = (u8) hird_thresh;
 		else
 			dwc->hird_thresh = DWC3_DCTL_HIRD_THRES_DEFAULT;
+
+		ret = of_property_read_u32(node, "snps,lpm-nyet-thresh",
+							&lpm_nyet_thresh);
+		if (!ret)
+			dwc->lpm_nyet_thresh = (u8)lpm_nyet_thresh;
+
 		if (dwc->enable_bus_suspend) {
 			pm_runtime_set_autosuspend_delay(dev, 500);
 			pm_runtime_use_autosuspend(dev);
