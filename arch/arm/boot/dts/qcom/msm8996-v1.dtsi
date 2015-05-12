@@ -85,12 +85,6 @@
 };
 
 &soc {
-	pcie_smmu {
-		compatible = "qcom,pci-msm";
-		iommus = <&anoc0_smmu 0x0>,
-			<&anoc0_smmu 0x100>;
-	};
-
 	qcom,cnss {
 		status = "disabled";
 	};
