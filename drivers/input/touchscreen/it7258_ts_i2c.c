@@ -715,7 +715,7 @@ static void readFingerData(uint16_t *xP, uint16_t *yP, uint8_t *pressureP,
 		*pressureP = fd->pressure & FD_PRESSURE_BITS;
 }
 
-static void readTouchDataPoint(void)
+static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 {
 	struct PointData pointData;
 	uint8_t devStatus;
@@ -725,49 +725,46 @@ static void readTouchDataPoint(void)
 	/* verify there is point data to read & it is readable and valid */
 	i2cReadNoReadyCheck(BUF_QUERY, &devStatus, sizeof(devStatus));
 	if (!((devStatus & PT_INFO_BITS) & PT_INFO_YES)) {
-		pr_err("readTouchDataPoint() called when no data available (0x%02X)\n",
-								devStatus);
-		return;
+		return IRQ_HANDLED;
 	}
 	if (!i2cReadNoReadyCheck(BUF_POINT_INFO, (void *)&pointData,
 						sizeof(pointData))) {
-		pr_err("readTouchDataPoint() failed to read point data buffer\n");
-		return;
+		dev_err(&gl_ts->client->dev,
+			"readTouchDataPoint() failed to read point data buffer\n");
+		return IRQ_HANDLED;
 	}
 	if ((pointData.flags & PD_FLAGS_DATA_TYPE_BITS) !=
 					PD_FLAGS_DATA_TYPE_TOUCH) {
-		pr_err("readTouchDataPoint() dropping non-point data of type 0x%02X\n",
+		dev_err(&gl_ts->client->dev,
+			"readTouchDataPoint() dropping non-point data of type 0x%02X\n",
 							pointData.flags);
-		return;
+		return IRQ_HANDLED;
 	}
 
 	if ((pointData.flags & PD_FLAGS_HAVE_FINGERS) & 1)
 		readFingerData(&x, &y, &pressure, pointData.fd);
 
 	if (pressure >= FD_PRESSURE_LIGHT) {
-
 		if (!hadFingerDown)
 			hadFingerDown = true;
 
 		readFingerData(&x, &y, &pressure, pointData.fd);
 
-		input_report_abs(gl_ts->input_dev, ABS_X, x);
-		input_report_abs(gl_ts->input_dev, ABS_Y, y);
 		input_report_key(gl_ts->input_dev, BTN_TOUCH, 1);
+		input_report_abs(gl_ts->input_dev, ABS_MT_POSITION_X, x);
+		input_report_abs(gl_ts->input_dev, ABS_MT_POSITION_Y, y);
+		input_mt_sync(gl_ts->input_dev);
 		input_sync(gl_ts->input_dev);
+
 
 	} else if (hadFingerDown) {
 		hadFingerDown = false;
 
 		input_report_key(gl_ts->input_dev, BTN_TOUCH, 0);
+		input_mt_sync(gl_ts->input_dev);
 		input_sync(gl_ts->input_dev);
 	}
 
-}
-
-static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
-{
-	readTouchDataPoint();
 	return IRQ_HANDLED;
 }
 
@@ -954,8 +951,10 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	set_bit(KEY_SLEEP,input_dev->keybit);
 	set_bit(KEY_WAKEUP,input_dev->keybit);
 	set_bit(KEY_POWER,input_dev->keybit);
-	input_set_abs_params(input_dev, ABS_X, 0, SCREEN_X_RESOLUTION, 0, 0);
-	input_set_abs_params(input_dev, ABS_Y, 0, SCREEN_Y_RESOLUTION, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0,
+				SCREEN_X_RESOLUTION, 0, 0);
+	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0,
+				SCREEN_Y_RESOLUTION, 0, 0);
 	input_set_drvdata(gl_ts->input_dev, gl_ts);
 
 	if (input_register_device(input_dev)) {
