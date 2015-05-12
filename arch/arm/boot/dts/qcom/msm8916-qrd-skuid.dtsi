@@ -19,6 +19,7 @@
 
 &mdss_dsi0 {
 	qcom,dsi-pref-prim-pan = <&dsi_hx8379a_fwvga_video>;
+	qcom,lane-map = "lane_map_3012";
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active>;
 	pinctrl-1 = <&mdss_dsi_suspend>;
