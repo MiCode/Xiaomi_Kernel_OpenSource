@@ -147,6 +147,11 @@ static char bus_clkname[USB_NUM_BUS_CLOCKS][20] = {"bimc_clk", "snoc_clk",
 						"pcnoc_clk"};
 static bool bus_clk_rate_set;
 
+static void dbg_inc(unsigned *idx)
+{
+	*idx = (*idx + 1) & (DEBUG_MAX_MSG-1);
+}
+
 static void
 msm_otg_dbg_log_event(struct usb_phy *phy, char *event, int d1, int d2)
 {
@@ -4653,6 +4658,39 @@ static ssize_t msm_otg_bus_write(struct file *file, const char __user *ubuf,
 	return count;
 }
 
+static int msm_otg_dbg_buff_show(struct seq_file *s, void *unused)
+{
+	struct msm_otg *motg = s->private;
+	unsigned long	flags;
+	unsigned	i;
+
+	read_lock_irqsave(&motg->dbg_lock, flags);
+
+	i = motg->dbg_idx;
+	if (strnlen(motg->buf[i], DEBUG_MSG_LEN))
+		seq_printf(s, "%s\n", motg->buf[i]);
+	for (dbg_inc(&i); i != motg->dbg_idx;  dbg_inc(&i)) {
+		if (!strnlen(motg->buf[i], DEBUG_MSG_LEN))
+			continue;
+		seq_printf(s, "%s\n", motg->buf[i]);
+	}
+	read_unlock_irqrestore(&motg->dbg_lock, flags);
+
+	return 0;
+}
+
+static int msm_otg_dbg_buff_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, msm_otg_dbg_buff_show, inode->i_private);
+}
+
+const struct file_operations msm_otg_dbg_buff_fops = {
+	.open = msm_otg_dbg_buff_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
 static int
 otg_get_prop_usbin_voltage_now(struct msm_otg *motg)
 {
@@ -4917,6 +4955,14 @@ static int msm_otg_debugfs_init(struct msm_otg *motg)
 
 	msm_otg_dentry = debugfs_create_file("otg_state", S_IRUGO,
 				msm_otg_dbg_root, motg, &msm_otg_state_fops);
+
+	if (!msm_otg_dentry) {
+		debugfs_remove_recursive(msm_otg_dbg_root);
+		return -ENODEV;
+	}
+
+	msm_otg_dentry = debugfs_create_file("dbg_buff", S_IRUGO,
+		msm_otg_dbg_root, motg, &msm_otg_dbg_buff_fops);
 
 	if (!msm_otg_dentry) {
 		debugfs_remove_recursive(msm_otg_dbg_root);
