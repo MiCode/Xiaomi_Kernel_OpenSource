@@ -1509,9 +1509,12 @@ static struct mux_clk gcc_debug_mux = {
 
 static struct clk_lookup msm_clocks_lookup[] = {
 
+	CLK_LIST(gcc_blsp1_uart1_apps_clk),
+	CLK_LIST(gcc_blsp1_uart3_apps_clk),
 	CLK_LIST(gcc_blsp1_uart4_apps_clk),
 	CLK_LIST(gcc_blsp1_qup2_i2c_apps_clk),
 	CLK_LIST(gcc_blsp1_ahb_clk),
+	CLK_LIST(blsp_sim_clk_src),
 	CLK_LIST(gcc_sdcc1_ahb_clk),
 	CLK_LIST(gcc_sdcc1_apps_clk),
 	CLK_LIST(gcc_prng_ahb_clk),
