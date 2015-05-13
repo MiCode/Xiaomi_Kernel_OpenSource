@@ -129,6 +129,22 @@
 #define CPR3_REG_CPR_TIMER_MID_CONT	0x3004
 #define CPR3_REG_CPR_TIMER_UP_DN_CONT	0x3008
 
+#define CPR3_REG_LAST_MEASUREMENT		0x7F8
+#define CPR3_LAST_MEASUREMENT_THREAD_DN_SHIFT	0
+#define CPR3_LAST_MEASUREMENT_THREAD_UP_SHIFT	4
+#define CPR3_LAST_MEASUREMENT_THREAD_DN(thread) \
+		(BIT(thread) << CPR3_LAST_MEASUREMENT_THREAD_DN_SHIFT)
+#define CPR3_LAST_MEASUREMENT_THREAD_UP(thread) \
+		(BIT(thread) << CPR3_LAST_MEASUREMENT_THREAD_UP_SHIFT)
+#define CPR3_LAST_MEASUREMENT_AGGR_DN		BIT(8)
+#define CPR3_LAST_MEASUREMENT_AGGR_MID		BIT(9)
+#define CPR3_LAST_MEASUREMENT_AGGR_UP		BIT(10)
+#define CPR3_LAST_MEASUREMENT_VALID		BIT(11)
+#define CPR3_LAST_MEASUREMENT_SAW_ERROR		BIT(12)
+#define CPR3_LAST_MEASUREMENT_PD_BYPASS_MASK	GENMASK(23, 16)
+#define CPR3_LAST_MEASUREMENT_PD_BYPASS_SHIFT	16
+#define CPR3_LAST_MEASUREMENT_PD_BYPASS(thread)	(0x7 << (0x5 * (thread)))
+
 static DEFINE_MUTEX(cpr3_controller_list_mutex);
 static LIST_HEAD(cpr3_controller_list);
 static struct dentry *cpr3_debugfs_base;
@@ -552,6 +568,110 @@ static int cpr3_regulator_set_target_quot(struct cpr3_thread *thread,
 }
 
 /**
+ * cpr3_update_thread_closed_loop_volt() - update the last known settled
+ *		closed loop voltage for a CPR thread
+ * @thread:		Pointer to the CPR3 thread
+ * @vdd_volt:		Last known settled voltage in microvolts for the
+ *			VDD supply
+ *
+ * Return: 0 on success, errno on failure
+ */
+static void cpr3_update_thread_closed_loop_volt(struct cpr3_thread *thread,
+				int vdd_volt)
+{
+	bool step_dn, step_up, aggr_step_up, aggr_step_dn, aggr_step_mid;
+	bool valid, pd_valid, saw_error;
+	bool initial = (thread->last_closed_loop_corner
+			== CPR3_REGULATOR_CORNER_INVALID);
+	struct cpr3_controller *ctrl = thread->ctrl;
+	struct cpr3_corner *corner;
+	u32 result;
+
+	if (initial)
+		return;
+	else
+		corner = &thread->corner[thread->last_closed_loop_corner];
+
+	if (!ctrl->cpr_enabled || !ctrl->last_corner_was_closed_loop) {
+		return;
+	} else if (ctrl->thread_count == 1
+		 && vdd_volt >= corner->floor_volt
+		 && vdd_volt <= corner->ceiling_volt) {
+		corner->last_volt = vdd_volt;
+		cpr3_debug(thread, "last_volt updated: last_volt[%d]=%d, ceiling_volt[%d]=%d, floor_volt[%d]=%d\n",
+			   thread->last_closed_loop_corner, corner->last_volt,
+			   thread->last_closed_loop_corner,
+			   corner->ceiling_volt,
+			   thread->last_closed_loop_corner,
+			   corner->floor_volt);
+		return;
+	} else if (!ctrl->supports_hw_closed_loop) {
+		return;
+	}
+
+	/* CPR clocks are on and HW closed loop is supported */
+	result = cpr3_read(ctrl, CPR3_REG_LAST_MEASUREMENT);
+	valid = !!(result & CPR3_LAST_MEASUREMENT_VALID);
+	if (!valid) {
+		cpr3_debug(thread, "CPR_LAST_VALID_MEASUREMENT=0x%X valid bit not set\n",
+			   result);
+		return;
+	}
+
+	step_dn = !!(result
+		     & CPR3_LAST_MEASUREMENT_THREAD_DN(thread->thread_id));
+	step_up = !!(result
+		     & CPR3_LAST_MEASUREMENT_THREAD_UP(thread->thread_id));
+
+	aggr_step_dn = !!(result & CPR3_LAST_MEASUREMENT_AGGR_DN);
+	aggr_step_mid = !!(result & CPR3_LAST_MEASUREMENT_AGGR_MID);
+	aggr_step_up = !!(result & CPR3_LAST_MEASUREMENT_AGGR_UP);
+	saw_error = !!(result & CPR3_LAST_MEASUREMENT_SAW_ERROR);
+
+	pd_valid = !((((result & CPR3_LAST_MEASUREMENT_PD_BYPASS_MASK)
+		       >> CPR3_LAST_MEASUREMENT_PD_BYPASS_SHIFT)
+		      & CPR3_LAST_MEASUREMENT_PD_BYPASS(thread->thread_id))
+		     == CPR3_LAST_MEASUREMENT_PD_BYPASS(thread->thread_id));
+
+	if (!pd_valid) {
+		cpr3_debug(thread, "CPR_LAST_VALID_MEASUREMENT=0x%X, all power domains bypassed\n",
+			   result);
+		return;
+	} else if (step_dn && step_up) {
+		cpr3_err(thread, "both up and down status bits set, CPR_LAST_VALID_MEASUREMENT=0x%X\n",
+			 result);
+		return;
+	} else if (aggr_step_dn && step_dn && vdd_volt < corner->last_volt
+		   && vdd_volt >= corner->floor_volt) {
+		corner->last_volt = vdd_volt;
+	} else if (aggr_step_up && step_up && vdd_volt > corner->last_volt
+		   && vdd_volt <= corner->ceiling_volt) {
+		corner->last_volt = vdd_volt;
+	} else if (aggr_step_mid
+		   && vdd_volt >= corner->floor_volt
+		   && vdd_volt <= corner->ceiling_volt) {
+		corner->last_volt = vdd_volt;
+	} else if (saw_error && (vdd_volt == corner->ceiling_volt
+				 || vdd_volt == corner->floor_volt)) {
+		corner->last_volt = vdd_volt;
+	} else {
+		cpr3_debug(thread, "last_volt not updated: last_volt[%d]=%d, ceiling_volt[%d]=%d, floor_volt[%d]=%d, vdd_volt=%d, CPR_LAST_VALID_MEASUREMENT=0x%X\n",
+			   thread->last_closed_loop_corner, corner->last_volt,
+			   thread->last_closed_loop_corner,
+			   corner->ceiling_volt,
+			   thread->last_closed_loop_corner, corner->floor_volt,
+			   vdd_volt, result);
+		return;
+	}
+
+	cpr3_debug(thread, "last_volt updated: last_volt[%d]=%d, ceiling_volt[%d]=%d, floor_volt[%d]=%d, CPR_LAST_VALID_MEASUREMENT=0x%X\n",
+		   thread->last_closed_loop_corner, corner->last_volt,
+		   thread->last_closed_loop_corner, corner->ceiling_volt,
+		   thread->last_closed_loop_corner, corner->floor_volt,
+		   result);
+}
+
+/**
  * cpr3_regulator_config_ldo_retention() - configure per-thread LDO retention mode
  * @thread:		Pointer to the CPR3 thread to configure
  * @floor_volt:		vdd floor voltage
@@ -640,6 +760,7 @@ static int cpr3_regulator_set_bhs_mode(struct cpr3_thread *thread,
  *			the VDD supply
  * @vdd_ceiling_volt:	Last known aggregated ceiling voltage in microvolts for
  *			the VDD supply
+ * @vdd_volt:		Last known voltage in microvolts for the VDD supply
  *
  * This function performs all relevant LDO or BHS configurations if per-thread
  * LDO regulators are supported.
@@ -647,11 +768,12 @@ static int cpr3_regulator_set_bhs_mode(struct cpr3_thread *thread,
  * Return: 0 on success, errno on failure
  */
 static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
-			     int vdd_floor_volt, int vdd_ceiling_volt)
+			     int vdd_floor_volt, int vdd_ceiling_volt,
+			     int vdd_volt)
 {
 	struct regulator *ldo_reg;
 	struct cpr3_thread *thread;
-	int i, rc, ldo_volt, bhs_volt, vdd_volt = 0;
+	int i, rc, ldo_volt, bhs_volt;
 
 	for (i = 0; i < ctrl->thread_count; i++) {
 		thread = &ctrl->thread[i];
@@ -668,16 +790,6 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
 		if (!thread->vreg_enabled || !thread->ldo_mode_allowed
 		    || thread->current_corner == CPR3_REGULATOR_CORNER_INVALID)
 			continue;
-
-		/* Avoid unnecessary requests */
-		if (!vdd_volt) {
-			vdd_volt  = regulator_get_voltage(ctrl->vdd_regulator);
-			if (vdd_volt < 0) {
-				cpr3_err(ctrl, "regulator_get_voltage(vdd) failed, rc=%d\n",
-					 vdd_volt);
-				return vdd_volt;
-			}
-		}
 
 		ldo_volt = thread->corner[thread->current_corner].open_loop_volt
 			- thread->ldo_adjust_volt;
@@ -748,6 +860,7 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
  *		requirements
  * @ctrl:		Pointer to the CPR3 controller
  * @new_volt:		New voltage in microvolts that VDD needs to end up at
+ * @last_volt:		Last known voltage in microvolts for the VDD supply
  * @aggr_corner:	Pointer to the CPR3 corner which corresponds to the max
  *			corner aggregate of all CPR3 threads managed by the CPR3
  *			controller
@@ -761,18 +874,15 @@ static int cpr3_regulator_config_ldo(struct cpr3_controller *ctrl,
  * Return: 0 on success, errno on failure
  */
 static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
-				int new_volt, struct cpr3_corner *aggr_corner)
+				int new_volt, int last_volt,
+				struct cpr3_corner *aggr_corner)
 {
 	struct regulator *vdd = ctrl->vdd_regulator;
 	bool apm_crossing = false;
 	int apm_volt = ctrl->apm_threshold_volt;
 	int last_max_volt = ctrl->aggr_corner.ceiling_volt;
 	int max_volt = aggr_corner->ceiling_volt;
-	int last_volt, rc;
-
-	last_volt = (ctrl->cpr_enabled && !ctrl->use_hw_closed_loop)
-			? ctrl->aggr_corner.last_volt
-			: ctrl->aggr_corner.open_loop_volt;
+	int rc;
 
 	if (ctrl->apm && apm_volt > 0
 		&& ((last_volt < apm_volt && apm_volt <= new_volt)
@@ -799,7 +909,7 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 
 	if (new_volt < last_volt) {
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
-					       last_max_volt);
+					       last_max_volt, last_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
@@ -823,7 +933,7 @@ static int cpr3_regulator_scale_vdd_voltage(struct cpr3_controller *ctrl,
 
 	if (new_volt >= last_volt) {
 		rc = cpr3_regulator_config_ldo(ctrl, aggr_corner->floor_volt,
-					       max_volt);
+					       max_volt, new_volt);
 		if (rc) {
 			cpr3_err(ctrl, "unable to configure LDO state, rc=%d\n",
 				 rc);
@@ -862,7 +972,16 @@ static int cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 	struct cpr3_corner *corn;
 	struct cpr3_thread *thread;
 	bool valid = false;
-	int i, rc, new_volt;
+	int i, rc, new_volt, vdd_volt;
+
+	cpr3_ctrl_loop_disable(ctrl);
+
+	vdd_volt = regulator_get_voltage(ctrl->vdd_regulator);
+	if (vdd_volt < 0) {
+		cpr3_err(ctrl, "regulator_get_voltage(vdd) failed, rc=%d\n",
+			 vdd_volt);
+		return vdd_volt;
+	}
 
 	/* Aggregate the requests of all threads */
 	for (i = 0; i < ctrl->thread_count; i++) {
@@ -876,6 +995,8 @@ static int cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 			valid = true;
 		}
 
+		cpr3_update_thread_closed_loop_volt(thread, vdd_volt);
+
 		corn = &thread->corner[thread->current_corner];
 
 		aggr_corner.ceiling_volt = max(aggr_corner.ceiling_volt,
@@ -888,8 +1009,6 @@ static int cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 						corn->open_loop_volt);
 		aggr_corner.irq_en |= corn->irq_en;
 	}
-
-	cpr3_ctrl_loop_disable(ctrl);
 
 	if (valid && ctrl->cpr_allowed_hw && ctrl->cpr_allowed_sw) {
 		rc = cpr3_closed_loop_enable(ctrl);
@@ -909,13 +1028,13 @@ static int cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 	if (!valid)
 		return 0;
 
-	new_volt = (ctrl->cpr_enabled && !ctrl->use_hw_closed_loop)
-			? aggr_corner.last_volt
-			: aggr_corner.open_loop_volt;
+	new_volt = (ctrl->cpr_enabled && ctrl->last_corner_was_closed_loop)
+		? aggr_corner.last_volt
+		: aggr_corner.open_loop_volt;
 
 	cpr3_debug(ctrl, "setting new voltage=%d uV\n", new_volt);
 	rc = cpr3_regulator_scale_vdd_voltage(ctrl, new_volt,
-						&aggr_corner);
+					      vdd_volt, &aggr_corner);
 	if (rc) {
 		cpr3_err(ctrl, "vdd voltage scaling failed, rc=%d\n", rc);
 		return rc;
@@ -987,6 +1106,7 @@ static int cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 		cpr3_ctrl_loop_enable(ctrl);
 
 	ctrl->aggr_corner = aggr_corner;
+	ctrl->last_corner_was_closed_loop = ctrl->cpr_enabled;
 
 	cpr3_debug(ctrl, "CPR configuration updated\n");
 
@@ -1328,39 +1448,6 @@ static bool cpr3_thread_busy(struct cpr3_thread *thread)
 }
 
 /**
- * cpr3_update_last_volt() - update the closed-loop last_volt value for a CPR3
- *		thread if this thread was responsible for the aggregated
- *		change in voltage (up or down)
- * @thread:		Pointer to the CPR3 thread
- * @new_volt:		The new voltage being set at the PMIC as a result of a
- *			CPR interrupt
- * @aggr_step_up:	Flag indicating that the aggregated change in voltage
- *			was up as opposed to down
- *
- * Return: None
- */
-static void cpr3_update_last_volt(struct cpr3_thread *thread, int new_volt,
-				bool aggr_step_up)
-{
-	bool step_dn, step_up;
-	struct cpr3_corner *corner;
-	u32 result;
-
-	result = cpr3_read(thread->ctrl, CPR3_REG_RESULT0(thread->thread_id));
-
-	step_dn = !!(result & CPR3_RESULT0_STEP_DN_MASK);
-	step_up = !!(result & CPR3_RESULT0_STEP_UP_MASK);
-
-	corner = &thread->corner[thread->current_corner];
-	if (aggr_step_up && step_up && new_volt > corner->last_volt
-				&& new_volt <= corner->ceiling_volt)
-		corner->last_volt = new_volt;
-	else if (!aggr_step_up && step_dn && new_volt < corner->last_volt
-				&& new_volt >= corner->floor_volt)
-		corner->last_volt = new_volt;
-}
-
-/**
  * cpr3_irq_handler() - CPR interrupt handler callback function used for
  *		software closed-loop operation
  * @irq:		CPR interrupt number
@@ -1459,8 +1546,6 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 	}
 
 	aggr->last_volt = new_volt;
-	for (i = 0; i < ctrl->thread_count; i++)
-		cpr3_update_last_volt(&ctrl->thread[i], new_volt, up);
 
 done:
 	/* Clear interrupt status */

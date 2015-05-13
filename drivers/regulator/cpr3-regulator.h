@@ -282,13 +282,15 @@ enum cpr3_count_mode {
  *			enabled and operating in closed-loop mode.  CPR clocks
  *			have been prepared and enabled whenever this flag is
  *			true.
+ * @last_corner_was_closed_loop: Boolean indicating if the last known corners
+ *			were updated during closed loop operation.
  * @cpr_suspended:	Boolean which indicates that CPR has been temporarily
  *			disabled while enterring system suspend.
  * @debugfs:		Pointer to the debugfs directory of this CPR3 controller
  *
  * This structure contains both configuration and runtime state data.  The
- * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled, and
- * cpr_suspended are state variables.
+ * elements cpr_allowed_sw, use_hw_closed_loop, aggr_corner, cpr_enabled,
+ * last_corner_was_closed_loop, and cpr_suspended are state variables.
  *
  * The apm* elements do not need to be initialized if the VDD supply managed by
  * the CPR3 controller does not utilize an APM.
@@ -331,6 +333,7 @@ struct cpr3_controller {
 	bool			use_hw_closed_loop;
 	struct cpr3_corner	aggr_corner;
 	bool			cpr_enabled;
+	bool			last_corner_was_closed_loop;
 	bool			cpr_suspended;
 	struct dentry		*debugfs;
 };
