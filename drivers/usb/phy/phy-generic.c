@@ -26,6 +26,7 @@
  *	autonomous such as isp1504, isp1707, etc.
  */
 
+#include <linux/acpi.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
@@ -165,6 +166,7 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 		struct usb_phy_gen_xceiv_platform_data *pdata)
 {
 	enum usb_phy_type type = USB_PHY_TYPE_USB2;
+	struct device *gpio_dev = dev;
 	int err;
 
 	u32 clk_rate = 0;
@@ -211,7 +213,11 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 			return -EPROBE_DEFER;
 	}
 
-	nop->gpio_reset = devm_gpiod_get_index(dev, "reset", 0);
+	/* HACK: use parent's ACPI companion if only available */
+	if (!ACPI_HANDLE(dev) && ACPI_HANDLE(dev->parent))
+		gpio_dev = dev->parent;
+
+	nop->gpio_reset = devm_gpiod_get_index(gpio_dev, "reset", 0);
 	if (IS_ERR(nop->gpio_reset)) {
 		if (PTR_ERR(nop->gpio_reset) == -EPROBE_DEFER) {
 			dev_err(dev, "Error requesting RESET GPIO\n");
@@ -220,7 +226,7 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 		dev_info(dev, "No RESET GPIO is available\n");
 	}
 
-	nop->gpio_cs = devm_gpiod_get_index(dev, "cs", 1);
+	nop->gpio_cs = devm_gpiod_get_index(gpio_dev, "cs", 1);
 	if (IS_ERR(nop->gpio_cs)) {
 		if (PTR_ERR(nop->gpio_cs) == -EPROBE_DEFER) {
 			dev_err(dev, "Error requesting CS GPIO\n");
