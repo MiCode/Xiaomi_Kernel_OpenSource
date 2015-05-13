@@ -23,11 +23,18 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/reboot.h>
+#include <linux/kexec.h>
 #include <linux/slab.h>
 
 #define LOADER_ENTRY_ONE_SHOT "LoaderEntryOneShot"
+#define LOADER_ENTRY_REBOOT "LoaderEntryRebootReason"
 #define LOADER_GUID EFI_GUID(0x4a67b082, 0x0a4c, 0x41cf, 0xb6, 0xc7, \
 				0x44, 0x0b, 0x29, 0xbb, 0x8c, 0x4f)
+
+#define REBOOT_REASON_CRASH	"kernel_panic"
+#define REBOOT_REASON_NORMAL	"reboot"
+#define REBOOT_REASON_SHUTDOWN	"shutdowm"
+#define REBOOT_REASON_HALT	"halt"
 
 /*
  * Convert char string to efi_char16_t string. Null byte at end is always
@@ -120,8 +127,93 @@ out:
 	return ret;
 }
 
+static int efibc_reboot_reason(unsigned long what, char *cmd)
+{
+	int ret = NOTIFY_DONE;
+	efi_status_t status;
+	efi_char16_t name_efichar[40];
+	efi_char16_t cmd_efichar[20];
+	size_t name_efichar_blen, cmd_efichar_blen;
+
+	name_efichar_blen = efi_char16_bufsz(LOADER_ENTRY_REBOOT);
+	cmd_efichar_blen = efi_char16_bufsz(cmd);
+
+	if (efichar_from_char(name_efichar, LOADER_ENTRY_REBOOT,
+			name_efichar_blen) != strlen(LOADER_ENTRY_REBOOT)) {
+		pr_err("efibc: %s: Failed to convert char to u16.",
+			__func__);
+		goto out;
+	}
+
+	if (efichar_from_char(cmd_efichar, cmd, cmd_efichar_blen)
+			!= strlen(cmd)) {
+		pr_err("efibc: %s: Failed to convert char to u16",
+			__func__);
+		goto out;
+	}
+
+	status = efi.set_variable(
+			name_efichar,
+			&LOADER_GUID,
+			EFI_VARIABLE_NON_VOLATILE
+				| EFI_VARIABLE_BOOTSERVICE_ACCESS
+				| EFI_VARIABLE_RUNTIME_ACCESS,
+			cmd_efichar_blen,
+			cmd_efichar);
+
+	if (status != EFI_SUCCESS) {
+		pr_err("efibc: set_variable() failed. " "status=%lx\n",
+			status);
+		goto out;
+	}
+
+	ret = NOTIFY_OK;
+out:
+	return ret;
+}
+
+static int efibc_reboot_reason_notifier_call(
+		struct notifier_block *notifier,
+		unsigned long what, void *data)
+{
+	int ret;
+
+	switch (what) {
+	case SYS_RESTART:
+		ret = efibc_reboot_reason(what, REBOOT_REASON_NORMAL);
+		break;
+	case SYS_HALT:
+		ret = efibc_reboot_reason(what, REBOOT_REASON_HALT);
+		break;
+	default:
+		ret = efibc_reboot_reason(what, REBOOT_REASON_SHUTDOWN);
+		break;
+	}
+
+	return ret;
+}
+
+static int efibc_panic_notifier_call(
+		struct notifier_block *notifier,
+		unsigned long what, void *data)
+{
+	int ret;
+
+	ret = efibc_reboot_reason(what, REBOOT_REASON_CRASH);
+
+	return ret;
+}
+
 static struct notifier_block efibc_reboot_notifier = {
 	.notifier_call = efibc_reboot_notifier_call,
+};
+
+static struct notifier_block efibc_reboot_reason_notifier = {
+	.notifier_call = efibc_reboot_reason_notifier_call,
+};
+
+static struct notifier_block paniced = {
+	.notifier_call  = efibc_panic_notifier_call,
 };
 
 static int __init efibc_init(void)
@@ -137,6 +229,15 @@ static int __init efibc_init(void)
 		return ret;
 	}
 
+	ret = register_reboot_notifier(&efibc_reboot_reason_notifier);
+	if (ret) {
+		pr_err("efibc: unable to register reboot notifier\n");
+		unregister_reboot_notifier(&efibc_reboot_notifier);
+		return ret;
+	}
+
+	 atomic_notifier_chain_register(&panic_notifier_list, &paniced);
+
 	return 0;
 }
 module_init(efibc_init);
@@ -144,6 +245,8 @@ module_init(efibc_init);
 static void __exit efibc_exit(void)
 {
 	unregister_reboot_notifier(&efibc_reboot_notifier);
+	unregister_reboot_notifier(&efibc_reboot_reason_notifier);
+	atomic_notifier_chain_unregister(&panic_notifier_list, &paniced);
 }
 module_exit(efibc_exit);
 
