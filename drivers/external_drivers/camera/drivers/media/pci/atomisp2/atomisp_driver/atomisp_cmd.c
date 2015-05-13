@@ -1368,9 +1368,11 @@ static void __atomisp_css_recover(struct atomisp_device *isp, bool isp_timeout)
 					CSS_INPUT_MODE_SENSOR);
 
 		css_pipe_id = atomisp_get_css_pipe_id(asd);
-		atomisp_css_start(asd, css_pipe_id, true);
-
-		asd->streaming = ATOMISP_DEVICE_STREAMING_ENABLED;
+		if (atomisp_css_start(asd, css_pipe_id, true))
+			dev_warn(isp->dev,
+				"start SP failed, so do not set streaming to be enable!\n");
+		else
+			asd->streaming = ATOMISP_DEVICE_STREAMING_ENABLED;
 
 		atomisp_csi2_configure(asd);
 	}
