@@ -1248,6 +1248,8 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 	strlcpy(buf, buff, sizeof(buf));
 	b = strim(buf);
 
+	pr_info("android_usb: selecting functions: %s\n", b);
+	
 	while (b) {
 		name = strsep(&b, ",");
 		if (!name)
@@ -1328,6 +1330,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->desc.bDeviceSubClass = device_desc.bDeviceSubClass;
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
 		list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
+			pr_info("android_usb: enabling function %s\n", f->name);
 			if (f->enable)
 				f->enable(f);
 		}
@@ -1336,6 +1339,7 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 	} else if (!enabled && dev->enabled) {
 		android_disable(dev);
 		list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
+			pr_info("android_usb: disabling function %s\n", f->name);
 			if (f->disable)
 				f->disable(f);
 		}
