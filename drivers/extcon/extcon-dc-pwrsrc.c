@@ -257,8 +257,6 @@ static int handle_chrg_det_event(struct dc_pwrsrc_info *info)
 		cable_props.chrg_evt = POWER_SUPPLY_CHARGER_EVENT_CONNECT;
 		cable_props.chrg_type = POWER_SUPPLY_CHARGER_TYPE_USB_DCP;
 		cable_props.ma = DC_XPWR_CHARGE_CUR_DCP;
-		if (!wake_lock_active(&info->wakelock))
-			wake_lock(&info->wakelock);
 	} else {
 		dev_warn(&info->pdev->dev,
 			"disconnect or unknown or ID event\n");
@@ -281,6 +279,8 @@ notify_otg_em:
 		if (wake_lock_active(&info->wakelock))
 			wake_unlock(&info->wakelock);
 	} else {
+		if (!wake_lock_active(&info->wakelock))
+			wake_lock(&info->wakelock);
 		if (notify_otg) {
 			/*
 			 * TODO:close mux path to switch
