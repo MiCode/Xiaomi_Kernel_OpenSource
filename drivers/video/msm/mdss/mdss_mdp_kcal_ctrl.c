@@ -248,44 +248,6 @@ static void mdss_mdp_kcal_update_pa(struct kcal_lut_data *lut_data)
 	}
 }
 
-static void mdss_mdp_kcal_read_pa(struct kcal_lut_data *lut_data)
-{
-	u32 copyback = 0;
-	struct mdp_pa_cfg_data pa_config;
-	struct mdp_pa_v2_cfg_data pa_v2_config;
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	if (mdata->mdp_rev < MDSS_MDP_HW_REV_103) {
-		memset(&pa_config, 0, sizeof(struct mdp_pa_cfg_data));
-
-		pa_config.block = MDP_LOGICAL_BLOCK_DISP_0;
-		pa_config.pa_data.flags = MDP_PP_OPS_READ;
-
-		mdss_mdp_pa_config(&pa_config, &copyback);
-
-		lut_data->hue = pa_config.pa_data.hue_adj;
-		lut_data->sat = pa_config.pa_data.sat_adj;
-		lut_data->val = pa_config.pa_data.val_adj;
-		lut_data->cont = pa_config.pa_data.cont_adj;
-	} else {
-		memset(&pa_v2_config, 0, sizeof(struct mdp_pa_v2_cfg_data));
-
-		pa_v2_config.block = MDP_LOGICAL_BLOCK_DISP_0;
-		pa_v2_config.pa_v2_data.flags = MDP_PP_OPS_READ;
-		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_HUE_ENABLE;
-		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_SAT_ENABLE;
-		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_VAL_ENABLE;
-		pa_v2_config.pa_v2_data.flags |= MDP_PP_PA_CONT_ENABLE;
-
-		mdss_mdp_pa_v2_config(&pa_v2_config, &copyback);
-
-		lut_data->hue = pa_v2_config.pa_v2_data.global_hue_adj;
-		lut_data->sat = pa_v2_config.pa_v2_data.global_sat_adj;
-		lut_data->val = pa_v2_config.pa_v2_data.global_val_adj;
-		lut_data->cont = pa_v2_config.pa_v2_data.global_cont_adj;
-	}
-}
-
 static void mdss_mdp_kcal_update_igc(struct kcal_lut_data *lut_data)
 {
 	u32 copyback = 0, copy_from_kernel = 1;
@@ -468,9 +430,6 @@ static ssize_t kcal_sat_show(struct device *dev,
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
-	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
-		mdss_mdp_kcal_read_pa(lut_data);
-
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->sat);
 }
 
@@ -498,9 +457,6 @@ static ssize_t kcal_hue_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
-
-	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
-		mdss_mdp_kcal_read_pa(lut_data);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->hue);
 }
@@ -530,9 +486,6 @@ static ssize_t kcal_val_show(struct device *dev,
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
 
-	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
-		mdss_mdp_kcal_read_pa(lut_data);
-
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->val);
 }
 
@@ -560,9 +513,6 @@ static ssize_t kcal_cont_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	struct kcal_lut_data *lut_data = dev_get_drvdata(dev);
-
-	if (mdss_mdp_kcal_is_panel_on() && lut_data->enable)
-		mdss_mdp_kcal_read_pa(lut_data);
 
 	return scnprintf(buf, PAGE_SIZE, "%d\n", lut_data->cont);
 }
