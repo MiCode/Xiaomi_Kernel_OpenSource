@@ -19,9 +19,12 @@
 #include <linux/irqreturn.h>
 #include <linux/pinctrl/consumer.h>
 #include <linux/gpio.h>
+#include <linux/switch.h>
+#include <video/msm_dba.h>
 
 #include "mdss_panel.h"
 #include "mdss_dsi_cmd.h"
+#include "mdss_hdmi_edid.h"
 
 #define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */
 
@@ -456,6 +459,22 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_dsi_debugfs_info *debugfs_info;
 
 	bool dfps_status;	/* dynamic refresh status */
+	struct switch_dev sdev;
+	bool hpd_state;
+	bool ds_registered;
+
+	struct msm_dba_reg_info dba_info;
+	struct msm_dba_ops dba_ops;
+	struct msm_dba_video_cfg dba_video_cfg;
+	void *dba_data;
+
+	void *edid_data;
+	u8 edid_buf[EDID_BLOCK_SIZE * 2];
+
+	struct fb_info *fbi;
+
+	struct workqueue_struct *workq;
+	struct delayed_work dba_work;
 };
 
 struct dsi_status_data {
