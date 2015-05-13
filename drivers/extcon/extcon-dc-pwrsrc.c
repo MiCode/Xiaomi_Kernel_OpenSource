@@ -86,7 +86,12 @@
 
 #define DC_XPWR_CHARGE_CUR_DCP		2000
 #define DC_XPWR_CHARGE_CUR_CDP		1500
-#define DC_XPWR_CHARGE_CUR_SDP		100
+/*
+ * HACK: USB2 SDP connection supposes to start in 100ma and raise up to 500ma
+ * after enumeration. We are still defining a clean standard interface for it.
+ * In meanwhile, we'll go to 500ma right away.
+ */
+#define DC_XPWR_CHARGE_CUR_SDP		500
 
 #define DC_PWRSRC_INTR_NUM		4
 #define PWRSRC_DRV_NAME			"dollar_cove_pwrsrc"
