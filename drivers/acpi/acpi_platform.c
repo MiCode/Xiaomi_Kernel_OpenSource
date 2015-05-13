@@ -35,7 +35,6 @@ static const struct acpi_device_id acpi_platform_device_ids[] = {
 	{ "BCM2E1A" },
 	{ "BCM2E39" },
 	{ "BCM2E3D" },
-	{ "PNP0C40" }, /* GPIO buttons device */
 
 	/* Intel Smart Sound Technology */
 	{ "INT33C8" },
