@@ -304,6 +304,7 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 	int new_uc_idx;
 	u64 ab_quota[MAX_AXI_PORT_COUNT] = {0, 0};
 	u64 ib_quota[MAX_AXI_PORT_COUNT] = {0, 0};
+	int rc;
 
 	if (mdss_res->bus_hdl < 1) {
 		pr_err("invalid bus handle %d\n", mdss_res->bus_hdl);
@@ -390,8 +391,12 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 	}
 	mdss_res->curr_bw_uc_idx = new_uc_idx;
 
-	return msm_bus_scale_client_update_request(mdss_res->bus_hdl,
+	ATRACE_BEGIN("msm_bus_scale_req");
+	rc = msm_bus_scale_client_update_request(mdss_res->bus_hdl,
 		new_uc_idx);
+	ATRACE_END("msm_bus_scale_req");
+
+	return rc;
 }
 
 int mdss_enable_bus_vote(int usecase_ndx)
