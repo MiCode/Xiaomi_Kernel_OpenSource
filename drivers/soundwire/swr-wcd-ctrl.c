@@ -900,7 +900,6 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 	u32 mask, val;
 	u8 row_ctrl = SWR_MAX_ROW;
 	u8 col_ctrl = SWR_MIN_COL;
-	u8 ping_val = 0;
 	u8 retry_cmd_num = 3;
 
 	/* enable swr clock */
@@ -920,12 +919,6 @@ static int swrm_master_init(struct swr_mstr_ctrl *swrm)
 
 	/* Mask soundwire interrupts */
 	swrm->write(swrm->handle, SWRM_INTERRUPT_MASK_ADDR, 0x1FFFD);
-
-	/* Configure NO_PINGS */
-	val = swrm->read(swrm->handle, SWRM_MCP_CFG_ADDR);
-	val &= ~SWRM_MCP_CFG_MAX_NUM_OF_CMD_NO_PINGS_BMSK;
-	val |= (ping_val << SWRM_MCP_CFG_MAX_NUM_OF_CMD_NO_PINGS_SHFT);
-	swrm->write(swrm->handle, SWRM_MCP_CFG_ADDR, val);
 
 	/* Configure number of retries of a read/write cmd */
 	val = swrm->read(swrm->handle, SWRM_CMD_FIFO_CFG_ADDR);
