@@ -70,16 +70,10 @@ static int nop_set_suspend(struct usb_phy *x, int suspend)
 
 static void nop_reset_set(struct usb_phy_gen_xceiv *nop, int asserted)
 {
-	int value;
-
-	if (!gpio_is_valid(nop->gpio_reset))
+	if (IS_ERR(nop->gpio_reset))
 		return;
 
-	value = asserted;
-	if (nop->reset_active_low)
-		value = !value;
-
-	gpio_set_value_cansleep(nop->gpio_reset, value);
+	gpiod_set_value_cansleep(nop->gpio_reset, asserted);
 
 	if (!asserted)
 		usleep_range(10000, 20000);
@@ -159,30 +153,18 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 	u32 clk_rate = 0;
 	bool needs_vcc = false;
 
-	nop->reset_active_low = true;	/* default behaviour */
-
 	if (dev->of_node) {
 		struct device_node *node = dev->of_node;
-		enum of_gpio_flags flags = 0;
 
 		if (of_property_read_u32(node, "clock-frequency", &clk_rate))
 			clk_rate = 0;
 
 		needs_vcc = of_property_read_bool(node, "vcc-supply");
-		nop->gpio_reset = of_get_named_gpio_flags(node, "reset-gpios",
-								0, &flags);
-		if (nop->gpio_reset == -EPROBE_DEFER)
-			return -EPROBE_DEFER;
-
-		nop->reset_active_low = flags & OF_GPIO_ACTIVE_LOW;
 
 	} else if (pdata) {
 		type = pdata->type;
 		clk_rate = pdata->clk_rate;
 		needs_vcc = pdata->needs_vcc;
-		nop->gpio_reset = pdata->gpio_reset;
-	} else {
-		nop->gpio_reset = -1;
 	}
 
 	nop->phy.otg = devm_kzalloc(dev, sizeof(*nop->phy.otg),
@@ -212,22 +194,13 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 			return -EPROBE_DEFER;
 	}
 
-	if (gpio_is_valid(nop->gpio_reset)) {
-		unsigned long gpio_flags;
-
-		/* Assert RESET */
-		if (nop->reset_active_low)
-			gpio_flags = GPIOF_OUT_INIT_LOW;
-		else
-			gpio_flags = GPIOF_OUT_INIT_HIGH;
-
-		err = devm_gpio_request_one(dev, nop->gpio_reset,
-						gpio_flags, dev_name(dev));
-		if (err) {
-			dev_err(dev, "Error requesting RESET GPIO %d\n",
-					nop->gpio_reset);
-			return err;
+	nop->gpio_reset = devm_gpiod_get_index(dev, "reset", 0);
+	if (IS_ERR(nop->gpio_reset)) {
+		if (PTR_ERR(nop->gpio_reset) == -EPROBE_DEFER) {
+			dev_err(dev, "Error requesting RESET GPIO\n");
+			return -EPROBE_DEFER;
 		}
+		dev_info(dev, "No RESET GPIO is available\n");
 	}
 
 	nop->dev		= dev;
