@@ -134,6 +134,10 @@
 #define WR_RD_BSY_GAP		17
 #define ENABLE_BCH_ECC		27
 
+#define BYTES_512		512
+#define BYTES_516		516
+#define BYTES_517		517
+
 #define MSM_NAND_DEV0_ECC_CFG(info)	    MSM_NAND_REG(info, 0x30028)
 #define ECC_CFG_ECC_DISABLE	0
 #define ECC_SW_RESET	1
@@ -257,6 +261,7 @@ struct msm_nand_chip {
 	uint32_t cfg0, cfg1, cfg0_raw, cfg1_raw;
 	uint32_t ecc_buf_cfg;
 	uint32_t ecc_bch_cfg;
+	uint32_t ecc_cfg_raw;
 };
 
 /* Structure that defines an SPS end point for a NANDc BAM pipe. */
