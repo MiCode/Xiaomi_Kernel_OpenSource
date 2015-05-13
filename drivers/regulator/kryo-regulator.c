@@ -51,15 +51,8 @@
 #define APC_PWR_GATE_MODE	0x18
 #define APC_PWR_GATE_DLY	0x28
 #define APC_LDO_CFG		0x40
-#define APC_IMEAS_CFG		0x48
 #define APC_APM_CFG		0x50
 #define APC_PGSCTL_STS		0x60
-
-/* CPU power domain register offsets */
-#define APC_CPU_MISC_EN		0x30
-
-/* L2 power domain register offsets */
-#define APC_L2_MISC_EN		0x28
 
 /* Register bit mask definitions*/
 #define PWR_GATE_SWITCH_MODE_MASK	GENMASK(0, 0)
@@ -67,7 +60,6 @@
 #define APM_CFG_MASK			GENMASK(7, 0)
 #define FSM_CUR_STATE_MASK		GENMASK(5, 4)
 #define APC_PWR_GATE_DLY_MASK		GENMASK(11, 0)
-#define IMEAS_CFG_MASK			GENMASK(15, 0)
 #define APCC_PGS_MASK(cluster)		(0x7 << (0x3 * (cluster)))
 
 /* Register bit definitions */
@@ -93,9 +85,6 @@ struct kryo_regulator {
 	enum kryo_supply_mode		retention_mode;
 	void __iomem			*reg_base;
 	void __iomem			*pm_apcc_base;
-	void __iomem			*pm_cpu0_base;
-	void __iomem			*pm_cpu1_base;
-	void __iomem			*pm_l2_base;
 	struct dentry			*debugfs;
 	struct mutex			lock;
 	int				volt;
@@ -514,18 +503,13 @@ static void kryo_ldo_voltage_init(struct kryo_regulator *kvreg)
 #define APC_PWR_GATE_DLY_INIT		0x00000101
 #define APC_LDO_CFG_INIT		0x31f0e471
 #define APC_APM_CFG_INIT		0x00000000
-#define APC_IMEAS_CFG_INIT		0x0000eba2
-#define APC_MISC_EN_VAL			0x00000001
 static int kryo_hw_init(struct kryo_regulator *kvreg)
 {
 	/* Set up VREF_LDO and VREF_RET */
 	kryo_ldo_voltage_init(kvreg);
 
-	/* Program LDO, ODCM, and APM configuration registers */
+	/* Program LDO and APM configuration registers */
 	writel_relaxed(APC_LDO_CFG_INIT, kvreg->reg_base + APC_LDO_CFG);
-
-	kryo_masked_write(kvreg, APC_IMEAS_CFG, IMEAS_CFG_MASK,
-			    APC_IMEAS_CFG_INIT);
 
 	kryo_masked_write(kvreg, APC_APM_CFG, APM_CFG_MASK,
 			    APC_APM_CFG_INIT);
@@ -533,11 +517,6 @@ static int kryo_hw_init(struct kryo_regulator *kvreg)
 	/* Configure power gate sequencer delay */
 	kryo_masked_write(kvreg, APC_PWR_GATE_DLY, APC_PWR_GATE_DLY_MASK,
 			   APC_PWR_GATE_DLY_INIT);
-
-	/* Enable ADC circuits in APC power gate switch */
-	writel_relaxed(APC_MISC_EN_VAL, kvreg->pm_cpu0_base + APC_CPU_MISC_EN);
-	writel_relaxed(APC_MISC_EN_VAL, kvreg->pm_cpu1_base + APC_CPU_MISC_EN);
-	writel_relaxed(APC_MISC_EN_VAL, kvreg->pm_l2_base + APC_L2_MISC_EN);
 
 	/* Complete the above writes before other accesses */
 	mb();
@@ -644,7 +623,6 @@ static int kryo_regulator_init_data(struct platform_device *pdev,
 	int rc = 0;
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	struct device_node *node;
 	void __iomem *temp;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "pm-apc");
@@ -754,58 +732,6 @@ static int kryo_regulator_init_data(struct platform_device *pdev,
 		dev_err(dev, "qcom,retention-voltage=%d uV outside allowed range\n",
 			kvreg->retention_volt);
 		return -EINVAL;
-	}
-
-	node = of_parse_phandle(dev->of_node, "qcom,pm-cpu0", 0);
-	if (!node) {
-		dev_err(dev, "qcom,pm-cpu0 missing\n");
-		return -EINVAL;
-
-	}
-
-	if (of_address_to_resource(node, 0, res)) {
-		dev_err(dev, "no physical address for pm-cpu0 resource\n");
-		return -EINVAL;
-	}
-
-	kvreg->pm_cpu0_base = devm_ioremap(dev, res->start, resource_size(res));
-	if (!kvreg->pm_cpu0_base) {
-		dev_err(dev, "failed to map CPU0 PM registers\n");
-		return -ENOMEM;
-	}
-
-	node = of_parse_phandle(dev->of_node, "qcom,pm-cpu1", 0);
-	if (!node) {
-		dev_err(dev, "qcom,pm-cpu1 missing\n");
-		return -EINVAL;
-	}
-
-	if (of_address_to_resource(node, 0, res)) {
-		dev_err(dev, "no physical address for pm-cpu1 resource\n");
-		return -EINVAL;
-	}
-
-	kvreg->pm_cpu1_base = devm_ioremap(dev, res->start, resource_size(res));
-	if (!kvreg->pm_cpu1_base) {
-		dev_err(dev, "failed to map CPU1 PM registers\n");
-		return -ENOMEM;
-	}
-
-	node = of_parse_phandle(dev->of_node, "qcom,pm-l2", 0);
-	if (!node) {
-		dev_err(dev, "qcom,pm-l2 missing\n");
-		return -EINVAL;
-	}
-
-	if (of_address_to_resource(node, 0, res)) {
-		dev_err(dev, "no physical address for pm-l2 resource\n");
-		return -EINVAL;
-	}
-
-	kvreg->pm_l2_base = devm_ioremap(dev, res->start, resource_size(res));
-	if (!kvreg->pm_l2_base) {
-		dev_err(dev, "failed to map L2 PM registers\n");
-		return -ENOMEM;
 	}
 
 	rc = of_property_read_u32(dev->of_node, "qcom,cluster-num",

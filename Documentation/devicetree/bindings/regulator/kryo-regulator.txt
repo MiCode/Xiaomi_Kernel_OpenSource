@@ -63,24 +63,6 @@ First Level Nodes
 	Value type: <u32>
 	Definition: The minimum configurable retention LDO voltage in microvolts.
 
-- qcom,pm-cpu0
-	Usage:      required
-	Value type: <phandle>
-	Definition: phandle to APC ACC device node which contains clock and power
-		    domain registers for CPU0 in this cluster.
-
-- qcom,pm-cpu1
-	Usage:      required
-	Value type: <phandle>
-	Definition: phandle to APC ACC device node which contains clock and power
-		    domain registers for CPU1 in this cluster.
-
-- qcom,pm-l2
-	Usage:      required
-	Value type: <phandle>
-	Definition: phandle to the L2 cache clock controller device node for this
-		    cluster.
-
 - qcom,cluster-num
 	Usage:      required
 	Value type: <u32>
@@ -116,9 +98,6 @@ Example
 		qcom,vref-functional-min-voltage = <299000>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
-		qcom,pm-cpu0 = <&acc0>;
-		qcom,pm-cpu1 = <&acc1>;
-		qcom,pm-l2 = <&l2ccc_0>;
 		qcom,cluster-num = <0>;
 		kryo0_retention_vreg: regulator {
 			regulator-name = "kryo0-retention";
@@ -141,9 +120,6 @@ Example
 		qcom,vref-functional-min-voltage = <296000>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
-		qcom,pm-cpu0 = <&acc2>;
-		qcom,pm-cpu1 = <&acc3>;
-		qcom,pm-l2 = <&l2ccc_1>;
 		qcom,cluster-num = <1>;
 		kryo1_retention_vreg: regulator {
 			regulator-name = "kryo1-retention";
