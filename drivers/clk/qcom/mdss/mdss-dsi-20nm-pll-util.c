@@ -562,10 +562,6 @@ static int dsi_pll_enable(struct clk *c)
 		if (!rc)
 			break;
 	}
-	/* Disable PLL1 to avoid current leakage while toggling MDSS GDSC */
-	if (dsi_pll_res->pll_1_base)
-		pll_20nm_config_powerdown(dsi_pll_res->pll_1_base);
-
 	if (rc) {
 		mdss_pll_resource_enable(dsi_pll_res, false);
 		pr_err("DSI PLL failed to lock\n");
@@ -587,10 +583,6 @@ static void dsi_pll_disable(struct clk *c)
 	}
 
 	dsi_pll_res->handoff_resources = false;
-
-	/* Disable PLL1 to avoid current leakage while toggling MDSS GDSC */
-	if (dsi_pll_res->pll_1_base)
-		pll_20nm_config_powerdown(dsi_pll_res->pll_1_base);
 
 	pll_20nm_config_powerdown(dsi_pll_res->pll_base);
 
@@ -1027,7 +1019,6 @@ int pll_20nm_vco_enable_seq(struct mdss_pll_resources *dsi_pll_res)
 		return -EINVAL;
 	}
 
-	pll_20nm_config_common_block_1(dsi_pll_res->pll_1_base);
 	pll_20nm_config_common_block_1(dsi_pll_res->pll_base);
 	pll_20nm_config_common_block_2(dsi_pll_res->pll_base);
 	pll_20nm_config_loop_bw(dsi_pll_res->pll_base);
