@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -35,7 +35,6 @@
 
 #include "msm-compr-q6-v2.h"
 #include "msm-pcm-routing-v2.h"
-#include "audio_ocmem.h"
 #include <sound/tlv.h>
 
 #define COMPRE_CAPTURE_NUM_PERIODS	16
@@ -58,10 +57,6 @@
 
 const DECLARE_TLV_DB_LINEAR(compr_rx_vol_gain, 0,
 			    COMPRESSED_LR_VOL_MAX_STEPS);
-struct snd_msm {
-	atomic_t audio_ocmem_req;
-};
-static struct snd_msm compressed_audio;
 
 static struct audio_locks the_locks;
 
@@ -768,14 +763,6 @@ static int msm_compr_open(struct snd_pcm_substream *substream)
 	populate_codec_list(compr, runtime);
 	runtime->private_data = compr;
 	atomic_set(&prtd->eos, 0);
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		if (!atomic_cmpxchg(&compressed_audio.audio_ocmem_req, 0, 1))
-			audio_ocmem_process_req(AUDIO, true);
-		else
-			atomic_inc(&compressed_audio.audio_ocmem_req);
-		pr_debug("%s: req: %d\n", __func__,
-			atomic_read(&compressed_audio.audio_ocmem_req));
-	}
 	return 0;
 }
 
@@ -818,13 +805,6 @@ static int msm_compr_playback_close(struct snd_pcm_substream *substream)
 	dir = IN;
 	atomic_set(&prtd->pending_buffer, 0);
 
-	if (atomic_read(&compressed_audio.audio_ocmem_req) > 1)
-		atomic_dec(&compressed_audio.audio_ocmem_req);
-	else if (atomic_cmpxchg(&compressed_audio.audio_ocmem_req, 1, 0))
-		audio_ocmem_process_req(AUDIO, false);
-
-	pr_debug("%s: req: %d\n", __func__,
-		atomic_read(&compressed_audio.audio_ocmem_req));
 	prtd->pcm_irq_pos = 0;
 	q6asm_cmd(prtd->audio_client, CMD_CLOSE);
 	q6asm_audio_client_buf_free_contiguous(dir,
@@ -1655,7 +1635,6 @@ static int msm_compr_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "%s: dev name %s\n",
 			 __func__, dev_name(&pdev->dev));
 
-	atomic_set(&compressed_audio.audio_ocmem_req, 0);
 	return snd_soc_register_platform(&pdev->dev,
 				   &msm_soc_platform);
 }

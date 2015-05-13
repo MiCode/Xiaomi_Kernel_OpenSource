@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,7 +20,6 @@
 #include <linux/slab.h>
 #include <linux/qdsp6v2/apr.h>
 #include <soc/qcom/smd.h>
-#include <soc/qcom/ocmem.h>
 #include <sound/q6core.h>
 #include <sound/audio_cal_utils.h>
 
@@ -46,7 +45,6 @@ struct q6core_str {
 		struct avcs_cmdrsp_get_license_validation_result
 						cmdrsp_license_result;
 	} cmd_resp_payload;
-	struct avcs_cmd_rsp_get_low_power_segments_info_t lp_ocm_payload;
 	u32 param;
 	struct cal_type_data *cal_data;
 };
@@ -63,8 +61,6 @@ static struct generic_get_data_ *generic_get_data;
 static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 {
 	uint32_t *payload1;
-	uint32_t nseg;
-	int i, j;
 
 	if (data == NULL) {
 		pr_err("%s: data argument is null\n", __func__);
@@ -89,10 +85,6 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 
 		switch (payload1[0]) {
 
-		case AVCS_CMD_GET_LOW_POWER_SEGMENTS_INFO:
-			pr_info("%s: Cmd = AVCS_CMD_GET_LOW_POWER_SEGMENTS_INFO status[0x%x]\n",
-				__func__, payload1[1]);
-			break;
 		default:
 			pr_err("%s: Invalid cmd rsp[0x%x][0x%x] opcode %d\n",
 					__func__,
@@ -101,32 +93,6 @@ static int32_t aprv2_core_fn_q(struct apr_client_data *data, void *priv)
 		}
 		break;
 	}
-
-	case AVCS_CMDRSP_GET_LOW_POWER_SEGMENTS_INFO:
-		payload1 = data->payload;
-		pr_info("%s: cmd = AVCS_CMDRSP_GET_LOW_POWER_SEGMENTS_INFO num_segments = 0x%x\n",
-					__func__, payload1[0]);
-		nseg = payload1[0];
-		q6core_lcl.lp_ocm_payload.num_segments = nseg;
-		q6core_lcl.lp_ocm_payload.bandwidth = payload1[1];
-		for (i = 0, j = 2; i < nseg; i++) {
-			q6core_lcl.lp_ocm_payload.mem_segment[i].type =
-					(payload1[j] & 0xffff);
-			q6core_lcl.lp_ocm_payload.mem_segment[i].category =
-					((payload1[j++] >> 16) & 0xffff);
-			q6core_lcl.lp_ocm_payload.mem_segment[i].size =
-					payload1[j++];
-			q6core_lcl.lp_ocm_payload.
-				mem_segment[i].start_address_lsw =
-				payload1[j++];
-			q6core_lcl.lp_ocm_payload.
-				mem_segment[i].start_address_msw =
-				payload1[j++];
-		}
-
-		q6core_lcl.bus_bw_resp_received = 1;
-		wake_up(&q6core_lcl.bus_bw_req_wait);
-		break;
 
 	case RESET_EVENTS:{
 		pr_debug("%s: Reset event received in Core service\n",
@@ -471,56 +437,6 @@ uint32_t core_set_dolby_manufacturer_id(int manufacturer_id)
 	}
 	mutex_unlock(&(q6core_lcl.cmd_lock));
 	return rc;
-}
-
-int core_get_low_power_segments(
-		struct avcs_cmd_rsp_get_low_power_segments_info_t **lp_memseg)
-{
-	struct avcs_cmd_get_low_power_segments_info lp_ocm_cmd;
-	int ret = 0;
-
-	pr_debug("%s:", __func__);
-
-	ocm_core_open();
-	if (q6core_lcl.core_handle_q == NULL) {
-		pr_info("%s: apr registration for CORE failed\n", __func__);
-		return -ENODEV;
-	}
-
-
-	lp_ocm_cmd.hdr.hdr_field = APR_HDR_FIELD(APR_MSG_TYPE_SEQ_CMD,
-				APR_HDR_LEN(APR_HDR_SIZE), APR_PKT_VER);
-	lp_ocm_cmd.hdr.pkt_size =
-		sizeof(struct avcs_cmd_get_low_power_segments_info);
-
-	lp_ocm_cmd.hdr.src_port = 0;
-	lp_ocm_cmd.hdr.dest_port = 0;
-	lp_ocm_cmd.hdr.token = 0;
-	lp_ocm_cmd.hdr.opcode = AVCS_CMD_GET_LOW_POWER_SEGMENTS_INFO;
-
-
-	ret = apr_send_pkt(q6core_lcl.core_handle_q, (uint32_t *) &lp_ocm_cmd);
-	if (ret < 0) {
-		pr_err("%s: CORE low power segment request failed %d\n",
-			__func__, ret);
-		goto fail_cmd;
-	}
-
-	ret = wait_event_timeout(q6core_lcl.bus_bw_req_wait,
-				(q6core_lcl.bus_bw_resp_received == 1),
-				msecs_to_jiffies(TIMEOUT_MS));
-	if (!ret) {
-		pr_err("%s: wait_event timeout for GET_LOW_POWER_SEGMENTS\n",
-				__func__);
-		ret = -ETIME;
-		goto fail_cmd;
-	}
-
-	*lp_memseg = &q6core_lcl.lp_ocm_payload;
-	return 0;
-
-fail_cmd:
-	return ret;
 }
 
 bool q6core_is_adsp_ready(void)

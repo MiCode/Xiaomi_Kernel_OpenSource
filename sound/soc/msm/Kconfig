@@ -21,16 +21,6 @@ config SND_SOC_QDSP6V2
 	 audio drivers. This includes q6asm, q6adm,
 	 q6afe interfaces to DSP using apr.
 
-config AUDIO_OCMEM
-	bool "Enable OCMEM for audio/voice usecase"
-	depends on MSM_OCMEM
-	default n
-	help
-	 To add support for on-chip memory use
-	 for audio use cases on APQ8084.
-	 OCMEM gets exercised for low-power
-	 audio and voice use cases.
-
 config DOLBY_DAP
 	bool "Enable Dolby DAP"
 	depends on SND_SOC_MSM_QDSP6V2_INTF
@@ -99,7 +89,6 @@ config SND_SOC_APQ8084
 	select SND_SOC_WCD9330
 	select SND_SOC_WCD9320
 	select SND_DYNAMIC_MINORS
-	select AUDIO_OCMEM
 	select DOLBY_DAP
 	select DTS_SRS_TM
 	select QTI_PP
