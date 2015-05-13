@@ -258,12 +258,13 @@ static int mdss_smmu_map_dma_buf_v2(struct dma_buf *dma_buf,
 		pr_err("not able to get smmu context\n");
 		return -EINVAL;
 	}
-
+	ATRACE_BEGIN("map_buffer");
 	rc = dma_map_sg(mdss_smmu->dev, table->sgl, table->nents, dir);
 	if (!rc) {
 		pr_err("dma map sg failed\n");
 		return -ENOMEM;
 	}
+	ATRACE_END("map_buffer");
 	*iova = table->sgl->dma_address;
 	*size = table->sgl->dma_length;
 	return 0;
@@ -278,7 +279,9 @@ static void mdss_smmu_unmap_dma_buf_v2(struct sg_table *table, int domain,
 		return;
 	}
 
+	ATRACE_BEGIN("unmap_buffer");
 	dma_unmap_sg(mdss_smmu->dev, table->sgl, table->nents, dir);
+	ATRACE_END("unmap_buffer");
 }
 
 /*
