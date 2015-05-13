@@ -1640,7 +1640,7 @@ static int handle_qmi_indication(struct qmi_handle *handle, void *msg,
 				 unsigned int msg_id, unsigned int msg_len)
 {
 	if (handle->ind_cb)
-		handle->ind_cb(handle, msg_id, msg,
+		handle->ind_cb(handle, msg_id, msg + QMI_HEADER_SIZE,
 				msg_len, handle->ind_cb_priv);
 	return 0;
 }
