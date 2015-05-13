@@ -209,6 +209,9 @@ cleanup:
 #define PWCTRL_SW_CONTROL (1 << 0)
 #define TUSB1211_POWER_CONTROL_SET 0x3E
 #define TUSB1211_EYE_DIAGRAM_TUNING 0x4f
+#define TUSB1211_OTG_CTRL		0xa
+#define TUSB1211_OTG_CTRL_DPPULLDOWN	(1 << 1)
+#define TUSB1211_OTG_CTRL_DMPULLDOWN	(1 << 2)
 
 static void set_phy_eye_optim(struct dwc3 *dwc)
 {
@@ -217,6 +220,28 @@ static void set_phy_eye_optim(struct dwc3 *dwc)
 	/* Modify VS1 for better quality in eye diagram */
 	if (ulpi_write(dwc, 0x4f, TUSB1211_VENDOR_SPECIFIC1_SET))
 		dev_err(dwc->dev, "Tuning ULPI phy eye diagram failed.\n");
+}
+
+/*
+ * This is a tricky situation that can only be cleanly solved when ULPI bus
+ * is available for usb phy driver:
+ * When cable is removed, dwc3 will enter in autosuspend mode (if pm runtime is
+ * enabled). If USB cable is reconnected before suspend is actually called,
+ * the charger detection module will be unable to detect CDP charging mode
+ * because D+/D- will still be in connected state. In order to allow CDP
+ * connection again, we need to pull down D+/D- to notify USB host we are
+ * disconnected.
+ */
+void dwc3_set_phy_dpm_pulldown(struct dwc3 *dwc, int pull_down)
+{
+	u32 reg;
+
+	reg = ulpi_read(dwc, TUSB1211_OTG_CTRL);
+	if (pull_down)
+		reg |= TUSB1211_OTG_CTRL_DPPULLDOWN | TUSB1211_OTG_CTRL_DMPULLDOWN;
+	else
+		reg &= ~(TUSB1211_OTG_CTRL_DPPULLDOWN | TUSB1211_OTG_CTRL_DMPULLDOWN);
+	ulpi_write(dwc, reg, TUSB1211_OTG_CTRL);
 }
 
 static void dwc3_check_ulpi(struct dwc3 *dwc)
@@ -555,6 +580,10 @@ static int dwc3_handle_otg_notification(struct notifier_block *nb,
 	case USB_EVENT_VBUS:
 		dev_info(dwc->dev, "DWC3 OTG Notify USB_EVENT_VBUS\n");
 		last_value = event;
+		if (dwc->dpm_pulled_down) {
+			dwc3_set_phy_dpm_pulldown(dwc, 0);
+			dwc->dpm_pulled_down = 0;
+		}
 		pm_runtime_get(dwc->dev);
 		state = NOTIFY_OK;
 		break;
@@ -905,6 +934,8 @@ static int dwc3_suspend_common(struct device *dev)
 	dwc->gctl = dwc3_readl(dwc->regs, DWC3_GCTL);
 
 	dwc3_suspend_phy(dwc, true);
+
+	dwc->dpm_pulled_down = 0;
 
 	spin_unlock_irqrestore(&dwc->lock, flags);
 

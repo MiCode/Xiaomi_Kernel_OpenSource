@@ -2262,6 +2262,8 @@ static void dwc3_gadget_disconnect_interrupt(struct dwc3 *dwc)
 	if (dwc->runtime_suspend) {
 		pm_runtime_mark_last_busy(dwc->dev);
 		pm_runtime_put_autosuspend(dwc->dev);
+		dwc3_set_phy_dpm_pulldown(dwc, 1);
+		dwc->dpm_pulled_down = 1;
 	}
 }
 

@@ -739,6 +739,7 @@ struct dwc3 {
 	atomic_t		suspend_depth;
 
 	struct delayed_work	watchdog;
+	int			dpm_pulled_down;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -889,6 +890,9 @@ struct dwc3_gadget_ep_cmd_params {
 /* prototypes */
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
+
+/* remove me when ulpi bus is exported to usb phy */
+void dwc3_set_phy_dpm_pulldown(struct dwc3 *dwc, int pull_down);
 
 #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_host_init(struct dwc3 *dwc);
