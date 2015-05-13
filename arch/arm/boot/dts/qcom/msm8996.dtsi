@@ -1344,6 +1344,9 @@
 
 		linux,pci-domain = <0>;
 
+		qcom,msi-gicm-addr = <0x09BD0040>;
+		qcom,msi-gicm-base = <0x220>;
+
 		qcom,msm-bus,name = "pcie0";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1624,6 +1627,9 @@
 		qcom,ep-latency = <10>;
 
 		linux,pci-domain = <2>;
+
+		qcom,msi-gicm-addr = <0x09BD0040>;
+		qcom,msi-gicm-base = <0x260>;
 
 		qcom,msm-bus,name = "pcie2";
 		qcom,msm-bus,num-cases = <2>;
