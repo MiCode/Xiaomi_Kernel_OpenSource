@@ -255,6 +255,10 @@ Optional Properties:
 - qcom,battery-data			Points to the phandle of node which
 					contains the battery-profiles supported
 					by the charger/FG.
+- qcom,rerun-apsd		A bool property that will force the charger to
+				force the msm USB phy to relinquish control of the
+				USB data lines and rerun APSD when a USB SDP is
+				selected.
 
 Example:
 	qcom,qpnp-smbcharger {
