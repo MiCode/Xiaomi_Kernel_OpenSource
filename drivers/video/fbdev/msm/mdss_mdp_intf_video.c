@@ -1153,12 +1153,12 @@ static void mdss_mdp_disable_prefill(struct mdss_mdp_ctl *ctl)
 	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 	struct mdss_data_type *mdata = ctl->mdata;
 
-	if ((ctl->prg_fet + pinfo->lcdc.v_back_porch +
+	if ((pinfo->prg_fet + pinfo->lcdc.v_back_porch +
 			pinfo->lcdc.v_pulse_width) > mdata->min_prefill_lines) {
 		ctl->disable_prefill = true;
 		pr_debug("disable prefill vbp:%d vpw:%d prg_fet:%d\n",
 			pinfo->lcdc.v_back_porch, pinfo->lcdc.v_pulse_width,
-			ctl->prg_fet);
+			pinfo->prg_fet);
 	}
 }
 
@@ -1171,8 +1171,8 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 
 	mdata = ctl->mdata;
 
-	ctl->prg_fet = mdss_mdp_get_prefetch_lines(ctl);
-	if (!ctl->prg_fet) {
+	pinfo->prg_fet = mdss_mdp_get_prefetch_lines(ctl);
+	if (!pinfo->prg_fet) {
 		pr_debug("programmable fetch is not needed/supported\n");
 		return;
 	}
@@ -1184,7 +1184,7 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 	v_total = mdss_panel_get_vtotal(pinfo);
 	h_total = mdss_panel_get_htotal(pinfo, true);
 
-	fetch_start = (v_total - ctl->prg_fet) * h_total + 1;
+	fetch_start = (v_total - pinfo->prg_fet) * h_total + 1;
 	fetch_enable = BIT(31);
 
 	if (pinfo->dynamic_fps && (pinfo->dfps_update ==
@@ -1192,7 +1192,7 @@ static void mdss_mdp_fetch_start_config(struct mdss_mdp_video_ctx *ctx,
 		fetch_enable |= BIT(23);
 
 	pr_debug("ctl:%d fetch_start:%d lines:%d\n",
-		ctl->num, fetch_start, ctl->prg_fet);
+		ctl->num, fetch_start, pinfo->prg_fet);
 
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_PROG_FETCH_START, fetch_start);
 	mdp_video_write(ctx, MDSS_MDP_REG_INTF_CONFIG, fetch_enable);
@@ -1245,8 +1245,9 @@ static int mdss_mdp_video_cdm_setup(struct mdss_mdp_cdm *cdm,
 static void mdss_mdp_handoff_programmable_fetch(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_video_ctx *ctx)
 {
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 	u32 fetch_start_handoff, v_total_handoff, h_total_handoff;
-	ctl->prg_fet = 0;
+	pinfo->prg_fet = 0;
 	if (mdp_video_read(ctx, MDSS_MDP_REG_INTF_CONFIG) & BIT(31)) {
 		fetch_start_handoff = mdp_video_read(ctx,
 			MDSS_MDP_REG_INTF_PROG_FETCH_START);
@@ -1254,10 +1255,10 @@ static void mdss_mdp_handoff_programmable_fetch(struct mdss_mdp_ctl *ctl,
 			MDSS_MDP_REG_INTF_HSYNC_CTL) >> 16;
 		v_total_handoff = mdp_video_read(ctx,
 			MDSS_MDP_REG_INTF_VSYNC_PERIOD_F0)/h_total_handoff;
-		ctl->prg_fet = v_total_handoff -
+		pinfo->prg_fet = v_total_handoff -
 			((fetch_start_handoff - 1)/h_total_handoff);
 		pr_debug("programmable fetch lines %d start:%d\n",
-			ctl->prg_fet, fetch_start_handoff);
+			pinfo->prg_fet, fetch_start_handoff);
 	}
 }
 

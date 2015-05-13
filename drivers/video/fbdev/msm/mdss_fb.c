@@ -53,6 +53,7 @@
 #define CREATE_TRACE_POINTS
 #include "mdss_debug.h"
 #include "mdss_smmu.h"
+#include "mdss_mdp.h"
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -1450,6 +1451,9 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 	}
 
 	if (mfd->mdp.on_fnc) {
+		struct mdss_panel_info *panel_info = mfd->panel_info;
+		struct fb_var_screeninfo *var = &mfd->fbi->var;
+
 		ret = mfd->mdp.on_fnc(mfd);
 		if (ret) {
 			mdss_fb_stop_disp_thread(mfd);
@@ -1462,6 +1466,13 @@ static int mdss_fb_blank_unblank(struct msm_fb_data_type *mfd)
 		mfd->update.type = NOTIFY_TYPE_UPDATE;
 		mfd->update.is_suspend = 0;
 		mutex_unlock(&mfd->update.lock);
+
+		/*
+		 * Panel info can change depending in the information
+		 * programmed in the controller.
+		 * Update this info in the upstream structs.
+		 */
+		mdss_panelinfo_to_fb_var(panel_info, var);
 
 		/* Start the work thread to signal idle time */
 		if (mfd->idle_time)
@@ -3107,8 +3118,10 @@ static void mdss_panelinfo_to_fb_var(struct mdss_panel_info *pinfo,
 
 	var->xres = mdss_fb_get_panel_xres(&pdata->panel_info);
 	var->yres = pinfo->yres;
-	var->lower_margin = pinfo->lcdc.v_front_porch;
-	var->upper_margin = pinfo->lcdc.v_back_porch;
+	var->lower_margin = pinfo->lcdc.v_front_porch -
+		pinfo->prg_fet;
+	var->upper_margin = pinfo->lcdc.v_back_porch +
+		pinfo->prg_fet;
 	var->vsync_len = pinfo->lcdc.v_pulse_width;
 	var->right_margin = pinfo->lcdc.h_front_porch;
 	var->left_margin = pinfo->lcdc.h_back_porch;
