@@ -73,7 +73,8 @@ void msm_isp_axi_disable_all_wm(struct vfe_device *vfe_dev);
 
 int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev);
 
-void msm_isp_drop_frame(struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream *stream_info, struct msm_isp_timestamp *ts);
+int msm_isp_drop_frame(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info, struct msm_isp_timestamp *ts,
+	struct msm_isp_output_info *output_info);
 
 #endif /* __MSM_ISP_AXI_UTIL_H__ */
