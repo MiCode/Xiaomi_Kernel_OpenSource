@@ -502,19 +502,10 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 {
 	struct cpu_clk_8996 *cpuclk = to_cpu_clk_8996(c);
 	int ret, err_ret, i;
-	unsigned long alt_pll_prev_rate = cpuclk->alt_pll->rate;
+	unsigned long alt_pll_prev_rate;
 	unsigned long alt_pll_rate;
 	unsigned long n_alt_freqs = cpuclk->n_alt_pll_freqs;
 	bool hw_low_power_ctrl = cpuclk->hw_low_power_ctrl;
-
-	alt_pll_rate = cpuclk->alt_pll_freqs[0];
-	if (rate >= cpuclk->alt_pll_freqs[n_alt_freqs - 1])
-		alt_pll_rate = cpuclk->alt_pll_freqs[n_alt_freqs - 1];
-
-	for (i = 0; i < n_alt_freqs - 1; i++)
-		if (cpuclk->alt_pll_freqs[i] < rate &&
-		    cpuclk->alt_pll_freqs[i+1] >= rate)
-			alt_pll_rate = cpuclk->alt_pll_freqs[i];
 
 	/*
 	 * If hardware control of the clock tree is enabled during power
@@ -533,11 +524,23 @@ static int cpu_clk_8996_set_rate(struct clk *c, unsigned long rate)
 						NULL, 1);
 	}
 
-	ret = clk_set_rate(cpuclk->alt_pll, alt_pll_rate);
-	if (ret) {
-		pr_err("failed to set rate %lu on alt_pll when setting %lu on %s (%d)\n",
+	if (cpuclk->alt_pll && (n_alt_freqs > 0)) {
+		alt_pll_prev_rate = cpuclk->alt_pll->rate;
+		alt_pll_rate = cpuclk->alt_pll_freqs[0];
+		if (rate >= cpuclk->alt_pll_freqs[n_alt_freqs - 1])
+			alt_pll_rate = cpuclk->alt_pll_freqs[n_alt_freqs - 1];
+
+		for (i = 0; i < n_alt_freqs - 1; i++)
+			if (cpuclk->alt_pll_freqs[i] < rate &&
+			    cpuclk->alt_pll_freqs[i+1] >= rate)
+				alt_pll_rate = cpuclk->alt_pll_freqs[i];
+
+		ret = clk_set_rate(cpuclk->alt_pll, alt_pll_rate);
+		if (ret) {
+			pr_err("failed to set rate %lu on alt_pll when setting %lu on %s (%d)\n",
 			alt_pll_rate, rate, c->dbg_name, ret);
-		goto out;
+			goto out;
+		}
 	}
 
 	/*
@@ -582,10 +585,12 @@ set_rate_fail:
 	}
 
 fail:
-	err_ret = clk_set_rate(cpuclk->alt_pll, alt_pll_prev_rate);
-	if (err_ret)
-		pr_err("failed to reset rate to %lu on alt pll after failing to  set %lu on %s (%d)\n",
-			alt_pll_prev_rate, rate, c->dbg_name, err_ret);
+	if (cpuclk->alt_pll && (n_alt_freqs > 0)) {
+		err_ret = clk_set_rate(cpuclk->alt_pll, alt_pll_prev_rate);
+		if (err_ret)
+			pr_err("failed to reset rate to %lu on alt pll after failing to  set %lu on %s (%d)\n",
+				alt_pll_prev_rate, rate, c->dbg_name, err_ret);
+	}
 out:
 	if (hw_low_power_ctrl)
 		pm_qos_remove_request(&cpuclk->req);
@@ -695,16 +700,18 @@ static struct pll_clk cbf_pll = {
 		.post_div_masked = 0x100,
 		.pre_div_masked = 0x0,
 		.test_ctl_hi_val = 0x00004000,
+		.test_ctl_lo_val = 0x04000000,
 		.config_ctl_val = 0x200D4AA8,
 		.config_ctl_hi_val = 0x002,
 	},
 	.min_rate =  600000000,
 	.max_rate = 3000000000,
+	.src_rate = 19200000,
 	.base = &vbases[CBF_PLL_BASE],
 	.c = {
 		.parent = &xo_ao.c,
 		.dbg_name = "cbf_pll",
-		.ops = &clk_ops_variable_rate_pll,
+		.ops = &clk_ops_variable_rate_pll_hwfsm,
 		VDD_DIG_FMAX_MAP1(LOW, 3000000000),
 		CLK_INIT(cbf_pll.c),
 	},
@@ -724,7 +731,6 @@ static struct mux_clk cbf_hf_mux = {
 		{ &sys_apcsaux_clk.c, 3 },
 	),
 	.en_mask = 0,
-	.safe_parent = &sys_apcsaux_clk.c,
 	.ops = &cpu_mux_ops,
 	.mask = 0x3,
 	.shift = 0,
@@ -733,8 +739,17 @@ static struct mux_clk cbf_hf_mux = {
 		.dbg_name = "cbf_hf_mux",
 		.ops = &clk_ops_gen_mux,
 		.flags = CLKFLAG_NO_RATE_CACHE,
-		.vdd_class = &vdd_cbf,
 		CLK_INIT(cbf_hf_mux.c),
+	},
+};
+
+static struct cpu_clk_8996 cbf_clk = {
+	.c = {
+		.parent = &cbf_hf_mux.c,
+		.dbg_name = "cbf_clk",
+		.ops = &clk_ops_cpu_8996,
+		.vdd_class = &vdd_cbf,
+		CLK_INIT(cbf_clk.c),
 	},
 };
 
@@ -746,12 +761,12 @@ DEFINE_FIXED_SLAVE_DIV_CLK(perfcl_div_clk, 16, &perfcl_clk.c);
 static struct mux_clk cpu_debug_mux = {
 	.offset = APCS_CLK_DIAG,
 	MUX_SRC_LIST(
-		{ &cbf_hf_mux.c, 0x01 },
+		{ &cbf_clk.c, 0x01 },
 		{ &pwrcl_div_clk.c,  0x11 },
 		{ &perfcl_div_clk.c, 0x21 },
 	),
 	MUX_REC_SRC_LIST(
-		&cbf_hf_mux.c,
+		&cbf_clk.c,
 		&pwrcl_div_clk.c,
 		&perfcl_div_clk.c,
 	),
@@ -784,6 +799,7 @@ static struct clk_lookup cpu_clocks_8996[] = {
 
 	CLK_LIST(cbf_pll),
 	CLK_LIST(cbf_hf_mux),
+	CLK_LIST(cbf_clk),
 
 	CLK_LIST(xo_ao),
 	CLK_LIST(sys_apcsaux_clk),
@@ -990,7 +1006,7 @@ static void populate_opp_table(struct platform_device *pdev)
 
 	pwrcl_fmax = pwrcl_clk.c.fmax[pwrcl_clk.c.num_fmax - 1];
 	perfcl_fmax = perfcl_clk.c.fmax[perfcl_clk.c.num_fmax - 1];
-	cbf_fmax = cbf_hf_mux.c.fmax[cbf_hf_mux.c.num_fmax - 1];
+	cbf_fmax = cbf_clk.c.fmax[cbf_clk.c.num_fmax - 1];
 
 	for_each_possible_cpu(cpu) {
 		if (logical_cpu_to_clk(cpu) == &pwrcl_clk.c) {
@@ -1017,7 +1033,7 @@ static void populate_opp_table(struct platform_device *pdev)
 		return;
 	}
 
-	WARN(add_opp(&cbf_hf_mux.c, &cbf_dev->dev, cbf_fmax),
+	WARN(add_opp(&cbf_clk.c, &cbf_dev->dev, cbf_fmax),
 	    "Failed to add OPP levels for CBF\n");
 }
 
@@ -1034,6 +1050,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 
 	pwrcl_pll_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	perfcl_pll_main.c.flags = CLKFLAG_NO_RATE_CACHE;
+	cbf_pll_main.c.flags = CLKFLAG_NO_RATE_CACHE;
 	pwrcl_clk.hw_low_power_ctrl = true;
 	perfcl_clk.hw_low_power_ctrl = true;
 
@@ -1069,7 +1086,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 		}
 	}
 
-	ret = of_get_fmax_vdd_class(pdev, &cbf_hf_mux.c,
+	ret = of_get_fmax_vdd_class(pdev, &cbf_clk.c,
 				    "qcom,cbf-speedbin0-v0");
 	if (ret) {
 		dev_err(&pdev->dev, "Can't get speed bin for cbf\n");
@@ -1093,7 +1110,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	}
 
 	for_each_online_cpu(cpu) {
-		WARN(clk_prepare_enable(&cbf_hf_mux.c),
+		WARN(clk_prepare_enable(&cbf_clk.c),
 			"Failed to enable cbf clock.\n");
 		WARN(clk_prepare_enable(logical_cpu_to_clk(cpu)),
 			"Failed to enable clock for cpu %d\n", cpu);
@@ -1101,7 +1118,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 
 	pwrclrate = clk_get_rate(&pwrcl_clk.c);
 	perfclrate = clk_get_rate(&perfcl_clk.c);
-	cbfrate = clk_get_rate(&cbf_hf_mux.c);
+	cbfrate = clk_get_rate(&cbf_clk.c);
 
 	if (!pwrclrate) {
 		dev_err(&pdev->dev, "Unknown pwrcl rate. Setting safe rate\n");
@@ -1126,7 +1143,7 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	if (!cbfrate) {
 		dev_err(&pdev->dev, "Unknown CBF rate. Setting safe rate\n");
 		cbfrate = sys_apcsaux_clk.c.rate;
-		ret = clk_set_rate(&cbf_hf_mux.c, cbfrate);
+		ret = clk_set_rate(&cbf_clk.c, cbfrate);
 		if (ret) {
 			dev_err(&pdev->dev, "Can't set a safe rate on CBF.\n");
 			return -EINVAL;
@@ -1136,13 +1153,14 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	/* Set low frequencies until thermal/cpufreq probe. */
 	clk_set_rate(&pwrcl_clk.c, 768000000);
 	clk_set_rate(&perfcl_clk.c, 300000000);
-	clk_set_rate(&cbf_hf_mux.c, 595200000);
+	clk_set_rate(&cbf_clk.c, 595200000);
 
 	/* Permanently enable the cluster PLLs */
 	clk_prepare_enable(&perfcl_pll.c);
 	clk_prepare_enable(&pwrcl_pll.c);
 	clk_prepare_enable(&perfcl_alt_pll.c);
 	clk_prepare_enable(&pwrcl_alt_pll.c);
+	clk_prepare_enable(&cbf_pll.c);
 
 	cpu_clock_8996_dev = pdev;
 
@@ -1187,6 +1205,8 @@ module_exit(cpu_clock_8996_exit);
 
 #define APC0_BASE_PHY 0x06400000
 #define APC1_BASE_PHY 0x06480000
+#define CBF_BASE_PHY 0x09A11000
+#define CBF_PLL_BASE_PHY 0x09A20000
 #define AUX_BASE_PHY 0x09820050
 
 #define CLK_CTL_OFFSET 0x44
@@ -1215,6 +1235,10 @@ int __init cpu_clock_8996_early_init(void)
 
 	pr_info("clock-cpu-8996: configuring clocks for the perf cluster\n");
 
+	/*
+	 * We definitely don't want to parse DT here - this is too early and in
+	 * the critical path for boot timing. Just ioremap the bases.
+	 */
 	vbases[APC0_BASE] = ioremap(APC0_BASE_PHY, SZ_4K);
 	if (!vbases[APC0_BASE]) {
 		WARN(1, "Unable to ioremap power mux base. Can't configure CPU clocks\n");
@@ -1227,6 +1251,20 @@ int __init cpu_clock_8996_early_init(void)
 		WARN(1, "Unable to ioremap perf mux base. Can't configure CPU clocks\n");
 		ret = -ENOMEM;
 		goto apc1_fail;
+	}
+
+	vbases[CBF_BASE] = ioremap(CBF_BASE_PHY, SZ_4K);
+	if (!vbases[CBF_BASE]) {
+		WARN(1, "Unable to ioremap cbf mux base. Can't configure CPU clocks\n");
+		ret = -ENOMEM;
+		goto cbf_map_fail;
+	}
+
+	vbases[CBF_PLL_BASE] = ioremap(CBF_PLL_BASE_PHY, SZ_4K);
+	if (!vbases[CBF_BASE]) {
+		WARN(1, "Unable to ioremap cbf pll base. Can't configure CPU clocks\n");
+		ret = -ENOMEM;
+		goto cbf_pll_map_fail;
 	}
 
 	vbases[APC0_PLL_BASE] = vbases[APC0_BASE];
@@ -1258,6 +1296,9 @@ int __init cpu_clock_8996_early_init(void)
 	/* Select GPLL0 for 300MHz for the power cluster */
 	writel_relaxed(0xC, vbases[APC0_BASE] + MUX_OFFSET);
 
+	/* Select GPLL0 for 300MHz on the CBF  */
+	writel_relaxed(0xC, vbases[CBF_BASE] + CBF_MUX_OFFSET);
+
 	/* Ensure write goes through before PLLs are reconfigured */
 	mb();
 	udelay(5);
@@ -1282,6 +1323,8 @@ int __init cpu_clock_8996_early_init(void)
 			(unsigned long)pwrcl_pll.mode_reg);
 	writel_relaxed(0x0, vbases[APC1_BASE] +
 			(unsigned long)perfcl_pll.mode_reg);
+	writel_relaxed(0x0, vbases[CBF_PLL_BASE] +
+			(unsigned long)cbf_pll.mode_reg);
 
 	/* Let PLLs disable before re-init'ing them */
 	mb();
@@ -1289,12 +1332,16 @@ int __init cpu_clock_8996_early_init(void)
 	/* Initialize all the PLLs */
 	__variable_rate_pll_init(&perfcl_pll.c);
 	__variable_rate_pll_init(&pwrcl_pll.c);
+	__variable_rate_pll_init(&cbf_pll.c);
 	__init_alpha_pll(&perfcl_alt_pll.c);
 	__init_alpha_pll(&pwrcl_alt_pll.c);
 
 	/* Set an appropriate rate on the perf cluster's PLLs */
 	perfcl_pll.c.ops->set_rate(&perfcl_pll.c, 614400000);
 	perfcl_alt_pll.c.ops->set_rate(&perfcl_alt_pll.c, 307200000);
+
+	/* Set an appropriate rate on the CBF PLL */
+	cbf_pll.c.ops->set_rate(&cbf_pll.c, 614400000);
 
 	/* Set an appropriate rate on the power cluster's alternate PLL */
 	pwrcl_alt_pll.c.ops->set_rate(&pwrcl_alt_pll.c, 307200000);
@@ -1315,6 +1362,22 @@ int __init cpu_clock_8996_early_init(void)
 			(unsigned long)pwrcl_alt_pll.offset);
 	writel_relaxed(0x00118000, vbases[APC1_BASE] +
 			(unsigned long)perfcl_alt_pll.offset);
+
+	/*
+	 * Enable FSM mode on the CBF PLL.
+	 * This should turn on the PLL as well.
+	 */
+	writel_relaxed(0x00118000, vbases[CBF_PLL_BASE] +
+			(unsigned long)cbf_pll.mode_reg);
+
+	/*
+	 * If we're on MSM8996 V1, the CBF FSM bits are not present, and
+	 * the mode register will read zero at this point. In that case,
+	 * just enable the CBF PLL to "simulate" FSM mode.
+	 */
+	if (!readl_relaxed(vbases[CBF_PLL_BASE] +
+		(unsigned long)cbf_pll.mode_reg))
+		clk_ops_variable_rate_pll.enable(&cbf_pll.c);
 
 	/* Ensure write goes through before auto clock selection is enabled */
 	mb();
@@ -1348,6 +1411,10 @@ int __init cpu_clock_8996_early_init(void)
 
 	iounmap(auxbase);
 auxbase_fail:
+	iounmap(vbases[CBF_PLL_BASE]);
+cbf_pll_map_fail:
+	iounmap(vbases[CBF_BASE]);
+cbf_map_fail:
 	iounmap(vbases[APC1_BASE]);
 apc1_fail:
 	iounmap(vbases[APC0_BASE]);

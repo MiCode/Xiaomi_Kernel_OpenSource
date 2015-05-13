@@ -521,7 +521,7 @@
 			 <&clock_cpu clk_pwrcl_clk>,
 			 <&clock_cpu clk_perfcl_clk>,
 			 <&clock_cpu clk_perfcl_clk>,
-			 <&clock_cpu clk_cbf_hf_mux>;
+			 <&clock_cpu clk_cbf_clk>;
 	};
 
 	qcom,cpu-sleep-status {
