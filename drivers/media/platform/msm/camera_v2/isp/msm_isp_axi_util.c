@@ -560,9 +560,10 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 				continue;
 
 			if (stream_info->undelivered_request_cnt) {
-				msm_isp_drop_frame(vfe_dev, stream_info, ts);
-				output_info->output_err_mask |=
-					1 << stream_info->stream_id;
+				if (msm_isp_drop_frame(vfe_dev, stream_info, ts,
+					output_info)) {
+					pr_err("drop frame failed\n");
+				}
 			}
 		}
 	}
@@ -1393,17 +1394,21 @@ static void msm_isp_process_done_buf(struct vfe_device *vfe_dev,
 	}
 }
 
-void msm_isp_drop_frame(struct vfe_device *vfe_dev,
-	struct msm_vfe_axi_stream *stream_info, struct msm_isp_timestamp *ts)
+int msm_isp_drop_frame(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_stream *stream_info, struct msm_isp_timestamp *ts,
+	struct msm_isp_output_info *output_info)
 {
 	struct msm_isp_buffer *done_buf = NULL;
 	uint32_t pingpong_status, frame_id;
 	unsigned long flags;
+	struct msm_isp_bufq *bufq = NULL;
+	int rc = -1;
 
-	if (!vfe_dev || !stream_info) {
-		pr_err("%s %d failed: vfe_dev %p stream_info %p\n", __func__,
-			__LINE__, vfe_dev, stream_info);
-		return;
+	if (!vfe_dev || !stream_info || !ts || !output_info) {
+		pr_err("%s %d vfe_dev %p stream_info %p ts %p op_info %p\n",
+			__func__, __LINE__, vfe_dev, stream_info, ts,
+			output_info);
+		return -EINVAL;
 	}
 
 	pingpong_status =
@@ -1428,7 +1433,18 @@ void msm_isp_drop_frame(struct vfe_device *vfe_dev,
 		vfe_dev->buf_mgr->ops->buf_done(vfe_dev->buf_mgr,
 			done_buf->bufq_handle, done_buf->buf_idx, &ts->buf_time,
 			frame_id, stream_info->runtime_output_format);
+
+		bufq = vfe_dev->buf_mgr->ops->get_bufq(vfe_dev->buf_mgr,
+			done_buf->bufq_handle);
+		if (!bufq) {
+			pr_err("%s: Invalid bufq buf_handle %x\n",
+				__func__, done_buf->bufq_handle);
+			return rc;
+		}
+		output_info->output_err_mask |=
+			1 << bufq->stream_id;
 	}
+	return 0;
 }
 
 static enum msm_isp_camif_update_state
@@ -2099,7 +2115,7 @@ static int msm_isp_return_empty_buffer(struct vfe_device *vfe_dev,
 		vfe_dev->axi_data.src_info[frame_src].time_stamp;
 	error_event.u.error_info.err_type = ISP_ERROR_RETURN_EMPTY_BUFFER;
 	error_event.u.error_info.session_id = stream_info->session_id;
-	error_event.u.error_info.stream_id = stream_info->stream_id;
+	error_event.u.error_info.stream_id = user_stream_id;
 	msm_isp_send_event(vfe_dev, ISP_EVENT_ERROR, &error_event);
 
 	return 0;
