@@ -712,29 +712,29 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 	}
 
 	if (suspend) {
-		if (!phy->cable_connected) {
+		if (!phy->cable_connected)
 			writel_relaxed(0x00,
 				phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
-			clk_disable_unprepare(phy->pipe_clk);
-		} else {
+		else
 			msm_ssusb_qmp_enable_autonomous(phy, 1);
-		}
+
 		clk_disable_unprepare(phy->cfg_ahb_clk);
 		clk_disable_unprepare(phy->aux_clk);
+		clk_disable_unprepare(phy->pipe_clk);
 		phy->in_suspend = true;
 		msm_ssphy_power_enable(phy, 0);
 		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
 	} else {
 		msm_ssphy_power_enable(phy, 1);
+		clk_prepare_enable(phy->pipe_clk);
 		clk_prepare_enable(phy->aux_clk);
 		clk_prepare_enable(phy->cfg_ahb_clk);
-		if (!phy->cable_connected) {
-			clk_prepare_enable(phy->pipe_clk);
+		if (!phy->cable_connected)
 			writel_relaxed(0x01,
 				phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
-		} else  {
+		else
 			msm_ssusb_qmp_enable_autonomous(phy, 0);
-		}
+
 		phy->in_suspend = false;
 		dev_dbg(uphy->dev, "QMP PHY is resumed\n");
 	}
