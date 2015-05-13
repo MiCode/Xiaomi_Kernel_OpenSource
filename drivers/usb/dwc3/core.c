@@ -776,7 +776,7 @@ static int dwc3_probe(struct platform_device *pdev)
 	atomic_set(&dwc->suspend_depth, 0);
 
 	if (dwc->runtime_suspend) {
-		pm_runtime_set_autosuspend_delay(dev, 500);
+		pm_runtime_set_autosuspend_delay(dev, 10000);
 		pm_runtime_use_autosuspend(dev);
 		pm_runtime_mark_last_busy(dev);
 		pm_runtime_put_autosuspend(dev);
