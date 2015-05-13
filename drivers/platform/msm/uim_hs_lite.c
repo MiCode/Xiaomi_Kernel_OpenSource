@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2007 Google, Inc.
- * Copyright (c) 2010-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2010-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -32,6 +32,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/gpio.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 
 #include "uim_hs_lite.h"
@@ -90,6 +91,10 @@ struct uim_hsl_port {
 	/* buffer */
 	struct uim_buf txbuf;
 	struct uim_buf rxbuf;
+
+	/* pinctrl */
+	bool use_pinctrl;
+	struct pinctrl *pinctrl;
 
 	/* counter */
 	struct {
@@ -209,6 +214,9 @@ static int uim_hsl_config_uim_gpios(struct uim_hsl_port *port)
 		{ port->uim_reset_gpio, "UIM_RESET" },
 	};
 
+	if (port->use_pinctrl)
+		return 0;
+
 	for (i = 0; i < ARRAY_SIZE(gpio_list); ++i) {
 		if (!gpio_is_valid(gpio_list[i].gpio))
 			continue;
@@ -236,6 +244,9 @@ static int uim_hsl_unconfig_uim_gpios(struct uim_hsl_port *port)
 		port->uim_card_detect_gpio,
 	};
 
+	if (port->use_pinctrl)
+		return 0;
+
 	for (i = 0; i < ARRAY_SIZE(gpio_list); ++i)
 		if (gpio_is_valid(gpio_list[i]))
 			gpio_free(gpio_list[i]);
@@ -251,6 +262,12 @@ static int uim_hsl_unconfig_uim_gpios(struct uim_hsl_port *port)
 static struct uim_hsl_port *uim_file_to_port(struct file *file)
 {
 	return (struct uim_hsl_port *) file->private_data;
+}
+
+static void uim_buf_init(struct uim_buf *buf)
+{
+	buf->head = 0;
+	buf->tail = 0;
 }
 
 static int uim_buf_is_empty(struct uim_buf *buf)
@@ -487,6 +504,11 @@ static int uim_hsl_activate(struct uim_hsl_port *port)
 {
 	int retry = 3;
 	unsigned int status;
+	unsigned long flags;
+
+	spin_lock_irqsave(&port->lock, flags);
+	uim_buf_init(&port->rxbuf);
+	spin_unlock_irqrestore(&port->lock, flags);
 
 	while (retry-- > 0) {
 		uim_hsl_write(port, UART_UIM_CMD_RECOVER, UARTDM_UIM_CMD_REG);
@@ -501,7 +523,11 @@ static int uim_hsl_activate(struct uim_hsl_port *port)
 		usleep_range(100, 120);
 	}
 
-	return (retry < 0) ? -EIO : 0;
+	if (retry < 0) {
+		pr_err("UIM activation failed.\n");
+		return -EIO;
+	} else
+		return 0;
 }
 
 static int uim_hsl_deactivate(struct uim_hsl_port *port)
@@ -523,7 +549,11 @@ static int uim_hsl_deactivate(struct uim_hsl_port *port)
 		usleep_range(100, 120);
 	}
 
-	return (retry < 0) ? -EIO : 0;
+	if (retry < 0) {
+		pr_err("UIM deactivation failed.\n");
+		return -EIO;
+	} else
+		return 0;
 }
 
 static int uim_hsl_startup(struct uim_hsl_port *port)
@@ -532,7 +562,6 @@ static int uim_hsl_startup(struct uim_hsl_port *port)
 	unsigned int data, rfr_level;
 	unsigned int watermark, rxstale, mr1, mr2;
 	unsigned int status;
-	int retry_activate = 3;
 
 	/* GPIO */
 	ret = uim_hsl_config_uim_gpios(port);
@@ -598,19 +627,12 @@ static int uim_hsl_startup(struct uim_hsl_port *port)
 	usleep_range(100, 120);
 
 	/* Activate */
-	while (retry_activate-- > 0) {
-		uim_hsl_write(port, UART_UIM_CMD_RECOVER, UARTDM_UIM_CMD_REG);
+	uim_hsl_activate(port);
 
-		do {
-			status = uim_hsl_read(port, UARTDM_UIM_IO_STATUS_REG);
-		} while (status & UART_UIM_IO_STATUS_WIP);
-
-		if (!(status & UART_UIM_IO_STATUS_DEACTIVATED))
-			break;
+	if (!port->use_pinctrl) {
+		if (gpio_is_valid(port->uim_reset_gpio))
+			gpio_free(port->uim_reset_gpio);
 	}
-
-	if (gpio_is_valid(port->uim_reset_gpio))
-		gpio_free(port->uim_reset_gpio);
 
 	/* Interrupt handler */
 	ret = request_irq(port->irq, uim_irq, IRQF_TRIGGER_HIGH,
@@ -701,6 +723,8 @@ err_gpio:
 
 static void uim_hsl_shutdown(struct uim_hsl_port *port)
 {
+	uim_hsl_deactivate(port);
+
 	port->imr = 0;
 	uim_hsl_write(port, 0, UARTDM_IMR_REG);
 
@@ -1089,18 +1113,25 @@ static int msm_uim_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, port);
 
+	port->pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR_OR_NULL(port->pinctrl))
+		port->use_pinctrl = false;
+	else
+		port->use_pinctrl = true;
+
 	/* Read device tree */
 	port->uim_1v8 = of_property_read_bool(node, "qcom,uim-1v8");
 
-	port->uim_clk_gpio = of_get_named_gpio(node, "qcom,uim-clk-gpio", 0);
-
-	port->uim_data_gpio = of_get_named_gpio(node, "qcom,uim-data-gpio", 0);
-
-	port->uim_card_detect_gpio =
-		of_get_named_gpio(node, "qcom,uim-card-detect-gpio", 0);
-
-	port->uim_reset_gpio =
-		of_get_named_gpio(node, "qcom,uim-reset-gpio", 0);
+	if (!port->use_pinctrl) {
+		port->uim_clk_gpio =
+			of_get_named_gpio(node, "qcom,uim-clk-gpio", 0);
+		port->uim_data_gpio =
+			of_get_named_gpio(node, "qcom,uim-data-gpio", 0);
+		port->uim_card_detect_gpio =
+			of_get_named_gpio(node, "qcom,uim-card-detect-gpio", 0);
+		port->uim_reset_gpio =
+			of_get_named_gpio(node, "qcom,uim-reset-gpio", 0);
+	}
 
 	uim_resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (unlikely(!uim_resource)) {
@@ -1231,6 +1262,8 @@ static int msm_uim_probe(struct platform_device *pdev)
 				&uim_debugfs_status_fops);
 		}
 	}
+
+	uim_hsl_deactivate(port);
 
 	return 0;
 
