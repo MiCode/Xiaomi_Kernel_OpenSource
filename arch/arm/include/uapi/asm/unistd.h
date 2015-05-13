@@ -412,7 +412,7 @@
 #define __NR_renameat2			(__NR_SYSCALL_BASE+382)
 */
 #define __NR_seccomp			(__NR_SYSCALL_BASE+383)
-
+ 
 /*
  * The following SWIs are ARM private.
  */

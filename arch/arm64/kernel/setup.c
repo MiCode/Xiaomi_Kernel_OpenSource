@@ -43,7 +43,6 @@
 #include <linux/of_platform.h>
 #include <linux/personality.h>
 
-#include <asm/cpu.h>
 #include <asm/cputype.h>
 #include <asm/elf.h>
 #include <asm/cputable.h>
@@ -228,7 +227,7 @@ static void __init setup_processor(void)
 	sprintf(init_utsname()->machine, ELF_PLATFORM);
 	elf_hwcap = 0;
 
-	cpuinfo_store_boot_cpu();
+	cpuinfo_store_cpu();
 
 	/*
 	 * ID_AA64ISAR0_EL1 contains 4-bit wide signed feature blocks.
@@ -306,11 +305,7 @@ static void __init setup_machine_fdt(phys_addr_t dt_phys)
 		while (true)
 			cpu_relax();
 	}
-<<<<<<< HEAD
-=======
-
 	dump_stack_set_arch_desc("%s (DT)", of_flat_dt_get_machine_name());
->>>>>>> 551780f
 }
 
 /*
@@ -466,8 +461,6 @@ static const char *compat_hwcap_str[] = {
 	"lpae",
 	"evtstrm"
 };
-<<<<<<< HEAD
-=======
 
 static const char *compat_hwcap2_str[] = {
 	"aes",
@@ -477,7 +470,6 @@ static const char *compat_hwcap2_str[] = {
 	"crc32",
 	NULL
 };
->>>>>>> 551780f
 #endif /* CONFIG_COMPAT */
 
 static int c_show(struct seq_file *m, void *v)
@@ -509,13 +501,28 @@ static int c_show(struct seq_file *m, void *v)
 			for (j = 0; compat_hwcap_str[j]; j++)
 				if (compat_elf_hwcap & (1 << j))
 					seq_printf(m, " %s", compat_hwcap_str[j]);
-<<<<<<< HEAD
-=======
+#endif /* CONFIG_COMPAT */
+		} else {
+			for (j = 0; hwcap_str[j]; j++)
+				if (elf_hwcap & (1 << j))
+					seq_printf(m, " %s", hwcap_str[j]);
+
+		/*
+		 * Dump out the common processor features in a single line.
+		 * Userspace should read the hwcaps with getauxval(AT_HWCAP)
+		 * rather than attempting to parse this, but there's a body of
+		 * software which does already (at least for 32-bit).
+		 */
+		seq_puts(m, "Features\t:");
+		if (personality(current->personality) == PER_LINUX32) {
+#ifdef CONFIG_COMPAT
+			for (j = 0; compat_hwcap_str[j]; j++)
+				if (compat_elf_hwcap & (1 << j))
+					seq_printf(m, " %s", compat_hwcap_str[j]);
 
 			for (j = 0; compat_hwcap2_str[j]; j++)
 				if (compat_elf_hwcap2 & (1 << j))
 					seq_printf(m, " %s", compat_hwcap2_str[j]);
->>>>>>> 551780f
 #endif /* CONFIG_COMPAT */
 		} else {
 			for (j = 0; hwcap_str[j]; j++)
@@ -524,20 +531,12 @@ static int c_show(struct seq_file *m, void *v)
 		}
 		seq_puts(m, "\n");
 
-<<<<<<< HEAD
-		seq_printf(m, "CPU implementer\t: 0x%02x\n", (midr >> 24));
-		seq_printf(m, "CPU architecture: 8\n");
-		seq_printf(m, "CPU variant\t: 0x%x\n", ((midr >> 20) & 0xf));
-		seq_printf(m, "CPU part\t: 0x%03x\n", ((midr >> 4) & 0xfff));
-		seq_printf(m, "CPU revision\t: %d\n\n", (midr & 0xf));
-=======
 		seq_printf(m, "CPU implementer\t: 0x%02x\n",
 			   MIDR_IMPLEMENTOR(midr));
 		seq_printf(m, "CPU architecture: 8\n");
 		seq_printf(m, "CPU variant\t: 0x%x\n", MIDR_VARIANT(midr));
 		seq_printf(m, "CPU part\t: 0x%03x\n", MIDR_PARTNUM(midr));
 		seq_printf(m, "CPU revision\t: %d\n\n", MIDR_REVISION(midr));
->>>>>>> 551780f
 	}
 
 	return 0;

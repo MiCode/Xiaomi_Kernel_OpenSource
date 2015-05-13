@@ -28,6 +28,7 @@
 #include <asm/ptrace.h>
 #include <asm/thread_info.h>
 #include <asm/unistd.h>
+#include <asm/unistd32.h>
 
 /*
  * Bad Abort numbers
