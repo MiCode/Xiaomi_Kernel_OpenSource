@@ -295,6 +295,7 @@
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
 			<0xff 215>, /* o_bimc_intr */
+			<0xff 224>, /* spdm_realtime_irq(1) */
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdc2_pwr_cmd_irq */
