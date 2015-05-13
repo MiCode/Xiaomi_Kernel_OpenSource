@@ -424,7 +424,6 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 	if (config->enabled)
 		android_enable(dev);
 
-err:
 	mutex_unlock(&dev->mutex);
 	return ret;
 }
