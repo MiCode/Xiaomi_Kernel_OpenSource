@@ -162,6 +162,19 @@ static int nop_set_host(struct usb_otg *otg, struct usb_bus *host)
 	return 0;
 }
 
+static int nop_set_power(struct usb_phy *phy, unsigned mA)
+{
+	/* Notify other drivers that device enumerated or not.
+	 * e.g It is needed by some charger driver, to set
+	 * charging current for SDP case */
+	atomic_notifier_call_chain(&phy->notifier,
+				   USB_EVENT_ENUMERATED, &mA);
+
+	dev_info(phy->dev, "Draw %d mA\n", mA);
+
+	return 0;
+}
+
 int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 		struct usb_phy_gen_xceiv_platform_data *pdata)
 {
@@ -241,6 +254,7 @@ int usb_phy_gen_create_phy(struct device *dev, struct usb_phy_gen_xceiv *nop,
 	nop->phy.set_suspend	= nop_set_suspend;
 	nop->phy.state		= OTG_STATE_UNDEFINED;
 	nop->phy.type		= type;
+	nop->phy.set_power	= nop_set_power;
 
 	nop->phy.otg->phy		= &nop->phy;
 	nop->phy.otg->set_host		= nop_set_host;

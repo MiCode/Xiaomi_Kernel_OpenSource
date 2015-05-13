@@ -1691,6 +1691,32 @@ static int dwc3_gadget_stop(struct usb_gadget *g,
 	return 0;
 }
 
+static int __dwc3_vbus_draw(struct dwc3 *dwc, unsigned ma)
+{
+        int             ret;
+        struct usb_phy  *usb_phy;
+
+        usb_phy = usb_get_phy(USB_PHY_TYPE_USB2);
+        if (!usb_phy) {
+                dev_err(dwc->dev, "OTG driver not available\n");
+                return -ENODEV;
+        }
+
+        ret = usb_phy_set_power(usb_phy, ma);
+        usb_put_phy(usb_phy);
+
+        return ret;
+}
+
+static int dwc3_vbus_draw(struct usb_gadget *g, unsigned ma)
+{
+        struct dwc3     *dwc = gadget_to_dwc(g);
+
+        dev_info(dwc->dev, "otg_set_power: %d mA\n", ma);
+
+        return __dwc3_vbus_draw(dwc, ma);
+}
+
 static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.get_frame		= dwc3_gadget_get_frame,
 	.wakeup			= dwc3_gadget_wakeup,
@@ -1698,6 +1724,7 @@ static const struct usb_gadget_ops dwc3_gadget_ops = {
 	.pullup			= dwc3_gadget_pullup,
 	.udc_start		= dwc3_gadget_start,
 	.udc_stop		= dwc3_gadget_stop,
+	.vbus_draw		= dwc3_vbus_draw,
 };
 
 /* -------------------------------------------------------------------------- */
