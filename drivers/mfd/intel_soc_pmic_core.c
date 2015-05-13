@@ -414,17 +414,6 @@ static int pmic_irq_init(void)
 		irq_set_noprobe(cur_irq);
 	}
 
-	if (gpio_is_valid(pmic->pmic_int_gpio)) {
-		ret = gpio_request_one(pmic->pmic_int_gpio,
-				       GPIOF_DIR_IN, "PMIC Interupt");
-		if (ret) {
-			dev_err(pmic->dev, "Request PMIC_INT gpio error\n");
-			return ret;
-		}
-
-		pmic->irq = gpio_to_irq(pmic->pmic_int_gpio);
-	}
-
 	ret = request_threaded_irq(pmic->irq, pmic_irq_isr, pmic_irq_thread,
 				   pmic->irq_flags, "intel_soc_pmic", pmic);
 	if (ret != 0) {

@@ -102,6 +102,8 @@ static int pmic_i2c_lookup_gpio(struct device *dev, int acpi_index)
 static int pmic_i2c_probe(struct i2c_client *i2c,
 			  const struct i2c_device_id *id)
 {
+	int ret;
+
 	if (pmic_i2c_client != NULL || pmic_i2c != NULL)
 		return -EBUSY;
 
@@ -116,6 +118,18 @@ static int pmic_i2c_probe(struct i2c_client *i2c,
 	pmic_i2c->pmic_int_gpio = pmic_i2c_lookup_gpio(pmic_i2c->dev, 0);
 	pmic_i2c->readb	= pmic_i2c_readb;
 	pmic_i2c->writeb = pmic_i2c_writeb;
+
+	if (gpio_is_valid(pmic_i2c->pmic_int_gpio)) {
+		ret = gpio_request_one(pmic_i2c->pmic_int_gpio,
+				       GPIOF_DIR_IN, "PMIC Interupt");
+		if (ret) {
+			dev_err(pmic_i2c->dev, "Request PMIC_INT gpio error\n");
+			return ret;
+		}
+
+		pmic_i2c->irq = gpio_to_irq(pmic_i2c->pmic_int_gpio);
+		pmic_i2c_client->irq = pmic_i2c->irq;
+	}
 
 	return intel_pmic_add(pmic_i2c);
 }
