@@ -83,7 +83,7 @@ static void nop_func_set(struct usb_phy_gen_xceiv *nop, struct gpio_desc *gpio,
 
 static inline void nop_reset_set(struct usb_phy_gen_xceiv *nop, int asserted)
 {
-	nop_func_set(nop, nop->gpio_reset, asserted, !asserted);
+	nop_func_set(nop, nop->gpio_reset, !asserted, !asserted);
 }
 
 static inline void nop_cs_set(struct usb_phy_gen_xceiv *nop, int asserted)
