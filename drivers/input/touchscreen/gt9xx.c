@@ -196,14 +196,6 @@ out:
 	kfree(buf.pointer);
 }
 
-static irqreturn_t gt9xx_irq_handler(int irq, void *arg)
-{
-	struct gt9xx_ts *ts = arg;
-
-	gt9xx_irq_disable(ts, true);
-	return IRQ_WAKE_THREAD;
-}
-
 #define GT9XX_STATUS_REG_MASK_TOUCHES		0x0F
 #define GT9XX_STATUS_REG_MASK_VALID		0x80
 
@@ -222,13 +214,33 @@ static irqreturn_t gt9xx_thread_handler(int irq, void *arg)
 	u8 status;
 	int ret;
 	int i;
+	int retries = 5;
 
-	ret = gt9xx_i2c_read(ts->client, GT9XX_REG_STATUS, &status, 1);
-	if (ret)
-		goto out;
+	while (--retries) {
+		ret = gt9xx_i2c_read(ts->client, GT9XX_REG_STATUS, &status, 1);
+		if (ret)
+			goto out;
 
-	if (!(status & GT9XX_STATUS_REG_MASK_VALID))
+		if (status & GT9XX_STATUS_REG_MASK_VALID)
+			break;
+
+		/*
+		 * If we reach this place, it means the interrupt may be out of
+		 * sync with GT9XX_STATUS_REG_MASK_VALID bit. In other words,
+		 * the interrupt event is coming too early while the buffer of
+		 * events is not ready yet.
+		 * Our tests show this bit will (almost) always be set if user
+		 * is still pressing screen and we wait a bit. So we'll wait
+		 * and retry few times before discard the buffer for good.
+		 */
+		usleep_range(1000, 1500);
+	}
+
+	if (!retries) {
+		/* GT9XX_STATUS_REG_MASK_VALID was never set. Bad data? */
+		dev_dbg(&ts->client->dev, "buffer status was never set\n");
 		goto out;
+	}
 
 	touches = status & GT9XX_STATUS_REG_MASK_TOUCHES;
 	if (touches > GT9XX_MAX_TOUCHES) {
@@ -283,8 +295,6 @@ static irqreturn_t gt9xx_thread_handler(int irq, void *arg)
 
 out:
 	gt9xx_i2c_write_u8(ts->client, GT9XX_REG_STATUS, 0);
-
-	gt9xx_irq_enable(ts);
 
 	return IRQ_HANDLED;
 }
@@ -544,8 +554,9 @@ static int gt9xx_ts_probe(struct i2c_client *client,
 	if (ret)
 		return ret;
 
-	ret = devm_request_threaded_irq(dev, client->irq, gt9xx_irq_handler,
-					gt9xx_thread_handler, ts->irq_type,
+	ret = devm_request_threaded_irq(dev, client->irq, NULL,
+					gt9xx_thread_handler,
+					ts->irq_type | IRQF_ONESHOT,
 					client->name, ts);
 	if (ret) {
 		dev_err(dev, "request IRQ failed: %d", ret);
