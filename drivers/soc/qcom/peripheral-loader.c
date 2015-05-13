@@ -34,6 +34,7 @@
 #include <linux/dma-mapping.h>
 #include <soc/qcom/ramdump.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/secure_buffer.h>
 
 #include <asm/uaccess.h>
 #include <asm/setup.h>
@@ -168,6 +169,73 @@ int pil_do_ramdump(struct pil_desc *desc, void *ramdump_dev)
 	return ret;
 }
 EXPORT_SYMBOL(pil_do_ramdump);
+
+int pil_assign_mem_to_subsys(struct pil_desc *desc, phys_addr_t addr,
+							size_t size)
+{
+	int ret;
+	int srcVM[1] = {VMID_HLOS};
+	int destVM[1] = {desc->subsys_vmid};
+	int destVMperm[1] = {PERM_READ | PERM_WRITE};
+
+	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 1);
+	if (ret)
+		pil_err(desc, "%s: failed for %pa address of size %zx - subsys VMid %d\n",
+				__func__, &addr, size, desc->subsys_vmid);
+	return ret;
+}
+EXPORT_SYMBOL(pil_assign_mem_to_subsys);
+
+int pil_assign_mem_to_linux(struct pil_desc *desc, phys_addr_t addr,
+							size_t size)
+{
+	int ret;
+	int srcVM[1] = {desc->subsys_vmid};
+	int destVM[1] = {VMID_HLOS};
+	int destVMperm[1] = {PERM_READ | PERM_WRITE};
+
+	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 1);
+	if (ret)
+		panic("%s: failed for %pa address of size %zx - subsys VMid %d. Fatal error.\n",
+				__func__, &addr, size, desc->subsys_vmid);
+
+	return ret;
+}
+EXPORT_SYMBOL(pil_assign_mem_to_linux);
+
+int pil_assign_mem_to_subsys_and_linux(struct pil_desc *desc,
+						phys_addr_t addr, size_t size)
+{
+	int ret;
+	int srcVM[1] = {VMID_HLOS};
+	int destVM[2] = {VMID_HLOS, desc->subsys_vmid};
+	int destVMperm[2] = {PERM_READ | PERM_WRITE, PERM_READ | PERM_WRITE};
+
+	ret = hyp_assign_phys(addr, size, srcVM, 1, destVM, destVMperm, 2);
+	if (ret)
+		pil_err(desc, "%s: failed for %pa address of size %zx - subsys VMid %d\n",
+				__func__, &addr, size, desc->subsys_vmid);
+
+	return ret;
+}
+EXPORT_SYMBOL(pil_assign_mem_to_subsys_and_linux);
+
+int pil_reclaim_mem(struct pil_desc *desc, phys_addr_t addr, size_t size,
+						int VMid)
+{
+	int ret;
+	int srcVM[2] = {VMID_HLOS, desc->subsys_vmid};
+	int destVM[1] = {VMid};
+	int destVMperm[1] = {PERM_READ | PERM_WRITE};
+
+	ret = hyp_assign_phys(addr, size, srcVM, 2, destVM, destVMperm, 1);
+	if (ret)
+		panic("%s: failed for %pa address of size %zx - subsys VMid %d. Fatal error.\n",
+				__func__, &addr, size, desc->subsys_vmid);
+
+	return ret;
+}
+EXPORT_SYMBOL(pil_reclaim_mem);
 
 /**
  * pil_get_entry_addr() - Retrieve the entry address of a peripheral image
@@ -478,6 +546,16 @@ static int pil_init_mmap(struct pil_desc *desc, const struct pil_mdt *mdt)
 	if (ret)
 		return ret;
 
+	if (desc->subsys_vmid > 0) {
+		ret = pil_assign_mem_to_subsys_and_linux(desc,
+				priv->region_start,
+				(priv->region_end - priv->region_start));
+		if (ret) {
+			pil_err(desc, "Failed to assign memory, ret - %d\n",
+								ret);
+			return ret;
+		}
+	}
 	pil_info(desc, "loading from %pa to %pa\n", &priv->region_start,
 							&priv->region_end);
 
@@ -605,13 +683,21 @@ static int pil_load_seg(struct pil_desc *desc, struct pil_seg *seg)
 
 static int pil_parse_devicetree(struct pil_desc *desc)
 {
+	struct device_node *ofnode = desc->dev->of_node;
 	int clk_ready = 0;
 
-	if (desc->ops->proxy_unvote &&
-		of_find_property(desc->dev->of_node,
-				"qcom,gpio-proxy-unvote",
-				NULL)) {
-		clk_ready = of_get_named_gpio(desc->dev->of_node,
+	if (!ofnode)
+		return -EINVAL;
+
+	if (of_property_read_u32(ofnode, "qcom,mem-protect-id",
+					&desc->subsys_vmid))
+		pr_debug("Unable to read the addr-protect-id for %s\n",
+					desc->name);
+
+	if (desc->ops->proxy_unvote && of_find_property(ofnode,
+					"qcom,gpio-proxy-unvote",
+					NULL)) {
+		clk_ready = of_get_named_gpio(ofnode,
 				"qcom,gpio-proxy-unvote", 0);
 
 		if (clk_ready < 0) {
@@ -651,6 +737,7 @@ int pil_boot(struct pil_desc *desc)
 	struct pil_seg *seg;
 	const struct firmware *fw;
 	struct pil_priv *priv = desc->priv;
+	bool mem_protect = false;
 
 	if (desc->shutdown_fail)
 		pil_err(desc, "Subsystem shutdown failed previously!\n");
@@ -727,12 +814,29 @@ int pil_boot(struct pil_desc *desc)
 			goto err_deinit_image;
 	}
 
+	if (desc->subsys_vmid > 0) {
+		ret =  pil_reclaim_mem(desc, priv->region_start,
+				(priv->region_end - priv->region_start),
+				desc->subsys_vmid);
+		if (ret) {
+			pil_err(desc, "Failed to assign %s memory, ret - %d\n",
+							desc->name, ret);
+			goto err_deinit_image;
+		}
+	}
+
 	ret = desc->ops->auth_and_reset(desc);
 	if (ret) {
 		pil_err(desc, "Failed to bring out of reset\n");
-		goto err_deinit_image;
+		goto err_auth_and_reset;
 	}
 	pil_info(desc, "Brought out of reset\n");
+err_auth_and_reset:
+	if (ret && desc->subsys_vmid > 0) {
+		pil_assign_mem_to_linux(desc, priv->region_start,
+				(priv->region_end - priv->region_start));
+		mem_protect = true;
+	}
 err_deinit_image:
 	if (ret && desc->ops->deinit_image)
 		desc->ops->deinit_image(desc);
@@ -746,6 +850,12 @@ out:
 	up_read(&pil_pm_rwsem);
 	if (ret) {
 		if (priv->region) {
+			if (desc->subsys_vmid > 0 && !mem_protect) {
+				pil_reclaim_mem(desc, priv->region_start,
+					(priv->region_end -
+						priv->region_start),
+					VMID_HLOS);
+			}
 			dma_free_attrs(desc->dev, priv->region_size,
 					priv->region, priv->region_start,
 					&desc->attrs);
@@ -792,6 +902,9 @@ void pil_free_memory(struct pil_desc *desc)
 	struct pil_priv *priv = desc->priv;
 
 	if (priv->region) {
+		if (desc->subsys_vmid > 0)
+			pil_assign_mem_to_linux(desc, priv->region_start,
+				(priv->region_end - priv->region_start));
 		dma_free_attrs(desc->dev, priv->region_size,
 				priv->region, priv->region_start, &desc->attrs);
 		priv->region = NULL;

@@ -42,6 +42,8 @@ Optional properties:
 - qcom,is-not-loadable: Boolean- Present if the image does not need to
 			be loaded.
 - qcom,pil-self-auth: Boolean- True if authentication is required.
+- qcom,mem-protect-id: Virtual ID used by PIL to call into TZ/HYP to protect/unprotect
+			subsystem related memory.
 - qcom,gpio-err-fatal: GPIO used by the modem to indicate error fatal to the apps.
 - qcom,gpio-err-ready: GPIO used by the modem to indicate error ready to the apps.
 - qcom,gpio-proxy-unvote: GPIO used by the modem to trigger proxy unvoting in
