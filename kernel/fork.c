@@ -200,6 +200,9 @@ struct kmem_cache *vm_area_cachep;
 /* SLAB cache for mm_struct structures (tsk->mm) */
 static struct kmem_cache *mm_cachep;
 
+/* Notifier list called when a task struct is freed */
+static ATOMIC_NOTIFIER_HEAD(task_free_notifier);
+
 static void account_kernel_stack(struct thread_info *ti, int account)
 {
 	struct zone *zone = page_zone(virt_to_page(ti));
@@ -233,6 +236,18 @@ static inline void put_signal_struct(struct signal_struct *sig)
 		free_signal_struct(sig);
 }
 
+int task_free_register(struct notifier_block *n)
+{
+	return atomic_notifier_chain_register(&task_free_notifier, n);
+}
+EXPORT_SYMBOL(task_free_register);
+
+int task_free_unregister(struct notifier_block *n)
+{
+	return atomic_notifier_chain_unregister(&task_free_notifier, n);
+}
+EXPORT_SYMBOL(task_free_unregister);
+
 void __put_task_struct(struct task_struct *tsk)
 {
 	WARN_ON(!tsk->exit_state);
@@ -244,6 +259,7 @@ void __put_task_struct(struct task_struct *tsk)
 	delayacct_tsk_free(tsk);
 	put_signal_struct(tsk->signal);
 
+	atomic_notifier_call_chain(&task_free_notifier, 0, tsk);
 	if (!profile_handoff_task(tsk))
 		free_task(tsk);
 }
@@ -313,6 +329,15 @@ static struct task_struct *dup_task_struct(struct task_struct *orig)
 		goto free_ti;
 
 	tsk->stack = ti;
+#ifdef CONFIG_SECCOMP
+	/*
+	 * We must handle setting up seccomp filters once we're under
+	 * the sighand lock in case orig has changed between now and
+	 * then. Until then, filter must be NULL to avoid messing up
+	 * the usage counts on the error path calling free_task.
+	 */
+	tsk->seccomp.filter = NULL;
+#endif
 
 	setup_thread_stack(tsk, orig);
 	clear_user_return_notifier(tsk);
@@ -692,7 +717,8 @@ struct mm_struct *mm_access(struct task_struct *task, unsigned int mode)
 
 	mm = get_task_mm(task);
 	if (mm && mm != current->mm &&
-			!ptrace_may_access(task, mode)) {
+			!ptrace_may_access(task, mode) &&
+			!capable(CAP_SYS_RESOURCE)) {
 		mmput(mm);
 		mm = ERR_PTR(-EACCES);
 	}
@@ -1083,6 +1109,39 @@ static void copy_flags(unsigned long clone_flags, struct task_struct *p)
 	p->flags = new_flags;
 }
 
+static void copy_seccomp(struct task_struct *p)
+{
+#ifdef CONFIG_SECCOMP
+	/*
+	 * Must be called with sighand->lock held, which is common to
+	 * all threads in the group. Holding cred_guard_mutex is not
+	 * needed because this new task is not yet running and cannot
+	 * be racing exec.
+	 */
+	assert_spin_locked(&current->sighand->siglock);
+
+	/* Ref-count the new filter user, and assign it. */
+	get_seccomp_filter(current);
+	p->seccomp = current->seccomp;
+
+	/*
+	 * Explicitly enable no_new_privs here in case it got set
+	 * between the task_struct being duplicated and holding the
+	 * sighand lock. The seccomp state and nnp must be in sync.
+	 */
+	if (task_no_new_privs(current))
+		task_set_no_new_privs(p);
+
+	/*
+	 * If the parent gained a seccomp mode after copying thread
+	 * flags and between before we held the sighand lock, we have
+	 * to manually enable the seccomp thread flag here.
+	 */
+	if (p->seccomp.mode != SECCOMP_MODE_DISABLED)
+		set_tsk_thread_flag(p, TIF_SECCOMP);
+#endif
+}
+
 SYSCALL_DEFINE1(set_tid_address, int __user *, tidptr)
 {
 	current->clear_child_tid = tidptr;
@@ -1198,7 +1257,6 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 		goto fork_out;
 
 	ftrace_graph_init_task(p);
-	get_seccomp_filter(p);
 
 	rt_mutex_init_task(p);
 
@@ -1437,6 +1495,12 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	}
 
 	spin_lock(&current->sighand->siglock);
+
+	/*
+	 * Copy seccomp details explicitly here, in case they were changed
+	 * before holding sighand lock.
+	 */
+	copy_seccomp(p);
 
 	/*
 	 * Process group and session signals need to be delivered to just the

@@ -38,6 +38,7 @@
 
 #include <asm/atomic.h>
 #include <asm/cacheflush.h>
+#include <asm/cpu.h>
 #include <asm/cputype.h>
 #include <asm/cpu_ops.h>
 #include <asm/mmu_context.h>

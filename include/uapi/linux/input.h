@@ -152,7 +152,12 @@ struct input_keymap_entry {
 #define EVIOCGEFFECTS		_IOR('E', 0x84, int)			/* Report number of effects playable at the same time */
 
 #define EVIOCGRAB		_IOW('E', 0x90, int)			/* Grab/Release device */
-#define EVIOCREVOKE		_IOW('E', 0x91, int)			/* Revoke device access */
+
+/* HACK: disable conflicting EVIOCREVOKE until Android userspace stops using EVIOCSSUSPENDBLOCK */
+/*#define EVIOCREVOKE		_IOW('E', 0x91, int)*/			/* Revoke device access */
+
+#define EVIOCGSUSPENDBLOCK	_IOR('E', 0x91, int)			/* get suspend block enable */
+#define EVIOCSSUSPENDBLOCK	_IOW('E', 0x91, int)			/* set suspend block enable */
 
 #define EVIOCSCLOCKID		_IOW('E', 0xa0, int)			/* Set clockid to be used for timestamps */
 
@@ -462,7 +467,10 @@ struct input_keymap_entry {
 #define KEY_VIDEO_NEXT		241	/* drive next video source */
 #define KEY_VIDEO_PREV		242	/* drive previous video source */
 #define KEY_BRIGHTNESS_CYCLE	243	/* brightness up, after max is min */
-#define KEY_BRIGHTNESS_ZERO	244	/* brightness off, use ambient */
+#define KEY_BRIGHTNESS_AUTO	244	/* Set Auto Brightness: manual
+					  brightness control is off,
+					  rely on ambient */
+#define KEY_BRIGHTNESS_ZERO	KEY_BRIGHTNESS_AUTO
 #define KEY_DISPLAY_OFF		245	/* display device to off state */
 
 #define KEY_WWAN		246	/* Wireless WAN (LTE, UMTS, GSM, etc.) */
@@ -632,6 +640,7 @@ struct input_keymap_entry {
 #define KEY_ADDRESSBOOK		0x1ad	/* AL Contacts/Address Book */
 #define KEY_MESSENGER		0x1ae	/* AL Instant Messaging */
 #define KEY_DISPLAYTOGGLE	0x1af	/* Turn display (LCD) on and off */
+#define KEY_BRIGHTNESS_TOGGLE	KEY_DISPLAYTOGGLE
 #define KEY_SPELLCHECK		0x1b0   /* AL Spell Check */
 #define KEY_LOGOFF		0x1b1   /* AL Logoff */
 
@@ -722,6 +731,17 @@ struct input_keymap_entry {
 #define BTN_DPAD_RIGHT		0x223
 
 #define KEY_ALS_TOGGLE		0x230	/* Ambient light sensor */
+
+#define KEY_BUTTONCONFIG		0x240	/* AL Button Configuration */
+#define KEY_TASKMANAGER		0x241	/* AL Task/Project Manager */
+#define KEY_JOURNAL		0x242	/* AL Log/Journal/Timecard */
+#define KEY_CONTROLPANEL		0x243	/* AL Control Panel */
+#define KEY_APPSELECT		0x244	/* AL Select Task/Application */
+#define KEY_SCREENSAVER		0x245	/* AL Screen Saver */
+#define KEY_VOICECOMMAND		0x246	/* Listening Voice Command */
+
+#define KEY_BRIGHTNESS_MIN		0x250	/* Set Brightness to Minimum */
+#define KEY_BRIGHTNESS_MAX		0x251	/* Set Brightness to Maximum */
 
 #define BTN_TRIGGER_HAPPY		0x2c0
 #define BTN_TRIGGER_HAPPY1		0x2c0

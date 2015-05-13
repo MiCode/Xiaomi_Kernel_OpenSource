@@ -697,8 +697,11 @@ __SYSCALL(__NR_sched_setattr, sys_sched_setattr)
 #define __NR_sched_getattr 275
 __SYSCALL(__NR_sched_getattr, sys_sched_getattr)
 
+#define __NR_seccomp 277
+__SYSCALL(__NR_seccomp, sys_seccomp)
+
 #undef __NR_syscalls
-#define __NR_syscalls 276
+#define __NR_syscalls 278
 
 /*
  * All syscalls below here should go away really,

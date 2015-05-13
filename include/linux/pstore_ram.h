@@ -68,6 +68,8 @@ void persistent_ram_free_old(struct persistent_ram_zone *prz);
 ssize_t persistent_ram_ecc_string(struct persistent_ram_zone *prz,
 	char *str, size_t len);
 
+void ramoops_console_write_buf(const char *buf, size_t size);
+
 /*
  * Ramoops platform data
  * @mem_size	memory size for ramoops
@@ -81,6 +83,7 @@ struct ramoops_platform_data {
 	unsigned long	record_size;
 	unsigned long	console_size;
 	unsigned long	ftrace_size;
+	unsigned long	pmsg_size;
 	int		dump_oops;
 	struct persistent_ram_ecc_info ecc_info;
 };

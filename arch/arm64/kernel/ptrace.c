@@ -19,12 +19,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <linux/audit.h>
+#include <linux/compat.h>
 #include <linux/kernel.h>
 #include <linux/sched.h>
 #include <linux/mm.h>
 #include <linux/smp.h>
 #include <linux/ptrace.h>
 #include <linux/user.h>
+#include <linux/seccomp.h>
 #include <linux/security.h>
 #include <linux/init.h>
 #include <linux/signal.h>
@@ -38,6 +41,7 @@
 #include <asm/compat.h>
 #include <asm/debug-monitors.h>
 #include <asm/pgtable.h>
+#include <asm/syscall.h>
 #include <asm/traps.h>
 #include <asm/system_misc.h>
 
@@ -518,6 +522,7 @@ static int fpr_set(struct task_struct *target, const struct user_regset *regset,
 		return ret;
 
 	target->thread.fpsimd_state.user_fpsimd = newstate;
+	fpsimd_flush_task_state(target);
 	return ret;
 }
 
@@ -775,6 +780,7 @@ static int compat_vfp_set(struct task_struct *target,
 		uregs->fpcr = fpscr & VFP_FPSCR_CTRL_MASK;
 	}
 
+	fpsimd_flush_task_state(target);
 	return ret;
 }
 
@@ -1070,38 +1076,87 @@ const struct user_regset_view *task_user_regset_view(struct task_struct *task)
 long arch_ptrace(struct task_struct *child, long request,
 		 unsigned long addr, unsigned long data)
 {
-	return ptrace_request(child, request, addr, data);
-}
+	int ret;
 
-asmlinkage int syscall_trace(int dir, struct pt_regs *regs)
-{
-	unsigned long saved_reg;
-
-	if (!test_thread_flag(TIF_SYSCALL_TRACE))
-		return regs->syscallno;
-
-	if (is_compat_task()) {
-		/* AArch32 uses ip (r12) for scratch */
-		saved_reg = regs->regs[12];
-		regs->regs[12] = dir;
-	} else {
-		/*
-		 * Save X7. X7 is used to denote syscall entry/exit:
-		 *   X7 = 0 -> entry, = 1 -> exit
-		 */
-		saved_reg = regs->regs[7];
-		regs->regs[7] = dir;
+	switch (request) {
+		case PTRACE_SET_SYSCALL:
+			task_pt_regs(child)->syscallno = data;
+			ret = 0;
+			break;
+		default:
+			ret = ptrace_request(child, request, addr, data);
+			break;
 	}
 
-	if (dir)
+	return ret;
+}
+
+enum ptrace_syscall_dir {
+	PTRACE_SYSCALL_ENTER = 0,
+	PTRACE_SYSCALL_EXIT,
+};
+
+static void tracehook_report_syscall(struct pt_regs *regs,
+				     enum ptrace_syscall_dir dir)
+{
+	int regno;
+	unsigned long saved_reg;
+
+	/*
+	 * A scratch register (ip(r12) on AArch32, x7 on AArch64) is
+	 * used to denote syscall entry/exit:
+	 */
+	regno = (is_compat_task() ? 12 : 7);
+	saved_reg = regs->regs[regno];
+	regs->regs[regno] = dir;
+
+	if (dir == PTRACE_SYSCALL_EXIT)
 		tracehook_report_syscall_exit(regs, 0);
 	else if (tracehook_report_syscall_entry(regs))
 		regs->syscallno = ~0UL;
 
-	if (is_compat_task())
-		regs->regs[12] = saved_reg;
-	else
-		regs->regs[7] = saved_reg;
+	regs->regs[regno] = saved_reg;
+}
+
+asmlinkage int syscall_trace_enter(struct pt_regs *regs)
+{
+	unsigned int saved_syscallno = regs->syscallno;
+
+	/* Do the secure computing check first; failures should be fast. */
+	if (secure_computing(regs->syscallno) == -1)
+		return RET_SKIP_SYSCALL_TRACE;
+
+	if (test_thread_flag(TIF_SYSCALL_TRACE))
+		tracehook_report_syscall(regs, PTRACE_SYSCALL_ENTER);
+
+	if (IS_SKIP_SYSCALL(regs->syscallno)) {
+		/*
+		 * RESTRICTION: we can't modify a return value of user
+		 * issued syscall(-1) here. In order to ease this flavor,
+		 * we need to treat whatever value in x0 as a return value,
+		 * but this might result in a bogus value being returned.
+		 */
+		/*
+		 * NOTE: syscallno may also be set to -1 if fatal signal is
+		 * detected in tracehook_report_syscall_entry(), but since
+		 * a value set to x0 here is not used in this case, we may
+		 * neglect the case.
+		 */
+		if (!test_thread_flag(TIF_SYSCALL_TRACE) ||
+				(IS_SKIP_SYSCALL(saved_syscallno)))
+			regs->regs[0] = -ENOSYS;
+	}
+
+	audit_syscall_entry(syscall_get_arch(), regs->syscallno,
+		regs->orig_x0, regs->regs[1], regs->regs[2], regs->regs[3]);
 
 	return regs->syscallno;
+}
+
+asmlinkage void syscall_trace_exit(struct pt_regs *regs)
+{
+	audit_syscall_exit(regs);
+
+	if (test_thread_flag(TIF_SYSCALL_TRACE))
+		tracehook_report_syscall(regs, PTRACE_SYSCALL_EXIT);
 }
