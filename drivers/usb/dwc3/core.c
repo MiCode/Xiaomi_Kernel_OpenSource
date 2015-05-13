@@ -806,7 +806,13 @@ static int dwc3_probe(struct platform_device *pdev)
 
 	if (dwc->runtime_suspend) {
 		pm_runtime_set_autosuspend_delay(dev, 10000);
-		pm_runtime_use_autosuspend(dev);
+		
+		/*
+		 * Autosuspend seems to be the root cause of few rare issues
+		 * on this driver. We're disabling it while investigate why.
+		 */
+		/* pm_runtime_use_autosuspend(dev); */
+		
 		pm_runtime_mark_last_busy(dev);
 		pm_runtime_put_autosuspend(dev);
 
