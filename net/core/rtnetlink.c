@@ -2229,6 +2229,9 @@ void rtmsg_ifinfo(int type, struct net_device *dev, unsigned int change,
 	int err = -ENOBUFS;
 	size_t if_info_size;
 
+	if (dev->reg_state != NETREG_REGISTERED)
+		return;
+
 	skb = nlmsg_new((if_info_size = if_nlmsg_size(dev, 0)), flags);
 	if (skb == NULL)
 		goto errout;
