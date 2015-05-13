@@ -1099,6 +1099,12 @@ int adreno_probe(struct platform_device *pdev)
 	/* Identify the specific GPU */
 	adreno_identify_gpu(adreno_dev);
 
+	status = kgsl_device_platform_probe(device);
+	if (status) {
+		device->pdev = NULL;
+		return status;
+	}
+
 	/*
 	 * qcom,iommu-secure-id is used to identify MMUs that can handle secure
 	 * content but that is only part of the story - the GPU also has to be
@@ -1109,12 +1115,6 @@ int adreno_probe(struct platform_device *pdev)
 
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_CONTENT_PROTECTION))
 		device->mmu.secured = false;
-
-	status = kgsl_device_platform_probe(device);
-	if (status) {
-		device->pdev = NULL;
-		return status;
-	}
 
 	status = adreno_ringbuffer_init(device);
 	if (status)
