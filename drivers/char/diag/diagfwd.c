@@ -1004,6 +1004,16 @@ static int diagfwd_mux_open(int id, int mode)
 	uint8_t i;
 	unsigned long flags;
 
+	switch (mode) {
+	case DIAG_USB_MODE:
+		driver->usb_connected = 1;
+		break;
+	case DIAG_MEMORY_DEVICE_MODE:
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	if (driver->rsp_buf_busy) {
 		/*
 		 * When a client switches from callback mode to USB mode
@@ -1015,30 +1025,9 @@ static int diagfwd_mux_open(int id, int mode)
 		driver->rsp_buf_busy = 0;
 		spin_unlock_irqrestore(&driver->rsp_buf_busy_lock, flags);
 	}
-	switch (mode) {
-	case DIAG_USB_MODE:
-		driver->usb_connected = 1;
-		break;
-	case DIAG_MEMORY_DEVICE_MODE:
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	if ((mode == DIAG_USB_MODE &&
-	     driver->logging_mode == MEMORY_DEVICE_MODE) ||
-	    (mode == DIAG_MEMORY_DEVICE_MODE &&
-	     driver->logging_mode == USB_MODE)) {
-		/*
-		 * In this case Diag shouldn't not reset the smd in_busy data.
-		 * If the reset of smd in_busy values happens then this will
-		 * lead to loss of data read over peripherals.
-		*/
-	} else {
-		for (i = 0; i < NUM_PERIPHERALS; i++) {
-			diagfwd_open(i, TYPE_DATA);
-			diagfwd_open(i, TYPE_CMD);
-		}
+	for (i = 0; i < NUM_PERIPHERALS; i++) {
+		diagfwd_open(i, TYPE_DATA);
+		diagfwd_open(i, TYPE_CMD);
 	}
 	queue_work(driver->diag_real_time_wq, &driver->diag_real_time_work);
 	return 0;
@@ -1058,7 +1047,16 @@ static int diagfwd_mux_close(int id, int mode)
 		return -EINVAL;
 	}
 
-	if (driver->logging_mode == USB_MODE) {
+	if ((mode == DIAG_USB_MODE &&
+	     driver->logging_mode == MEMORY_DEVICE_MODE) ||
+	    (mode == DIAG_MEMORY_DEVICE_MODE &&
+	     driver->logging_mode == USB_MODE)) {
+		/*
+		 * In this case the channel must not be closed. This case
+		 * indicates that the USB is removed but there is a client
+		 * running in background with Memory Device mode
+		 */
+	} else {
 		for (i = 0; i < NUM_PERIPHERALS; i++) {
 			diagfwd_close(i, TYPE_DATA);
 			diagfwd_close(i, TYPE_CMD);
@@ -1066,7 +1064,11 @@ static int diagfwd_mux_close(int id, int mode)
 		/* Re enable HDLC encoding */
 		pr_debug("diag: In %s, re-enabling HDLC encoding\n",
 		       __func__);
+		mutex_lock(&driver->hdlc_disable_mutex);
 		driver->hdlc_disabled = 0;
+		mutex_unlock(&driver->hdlc_disable_mutex);
+		queue_work(driver->diag_wq,
+			&(driver->update_user_clients));
 	}
 	queue_work(driver->diag_real_time_wq,
 		   &driver->diag_real_time_work);
