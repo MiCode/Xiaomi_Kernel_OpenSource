@@ -300,5 +300,82 @@
                                 bias-disable; /* No PULL */
                         };
                 };
+
+		/* add pingrp for touchscreen */
+		pmx_ts_int_active {
+			qcom,pins = <&gp 65>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_int_active";
+
+			ts_int_active: ts_int_active {
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_ts_int_suspend {
+			qcom,pins = <&gp 65>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_int_suspend";
+
+			ts_int_suspend: ts_int_suspend {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pmx_ts_reset_active {
+			qcom,pins = <&gp 64>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_reset_active";
+
+			ts_reset_active: ts_reset_active {
+				drive-strength = <8>;
+				bias-pull-up;
+			};
+		};
+
+		pmx_ts_reset_suspend {
+			qcom,pins = <&gp 64>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <1>;
+			label = "pmx_ts_reset_suspend";
+
+			ts_reset_suspend: ts_reset_suspend {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pmx_ts_release {
+			qcom,pins = <&gp 65>, <&gp 64>;
+			qcom,num-grp-pins = <2>;
+			label = "pmx_ts_release";
+
+			ts_release: ts_release {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		tlmm_gpio_key {
+			qcom,pins = <&gp 113>, <&gp 114>, <&gp 115>;
+			qcom,pin-func = <0>;
+			qcom,num-grp-pins = <3>;
+			label = "tlmm_gpio_key";
+
+			gpio_key_active: gpio_key_active {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+
+			gpio_key_suspend: gpio_key_suspend {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
 	};
 };
