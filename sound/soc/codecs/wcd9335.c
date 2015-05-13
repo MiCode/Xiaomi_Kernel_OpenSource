@@ -1449,7 +1449,7 @@ static int tasha_codec_enable_slimvi_feedback(struct snd_soc_dapm_widget *w,
 	core = tasha_p->wcd9xxx;
 
 	dev_dbg(codec->dev, "%s: num_dai %d stream name %s\n",
-		__func__, w->codec->num_dai, w->sname);
+		__func__, w->codec->component.num_dai, w->sname);
 
 	/* Execute the callback only if interface type is slimbus */
 	if (tasha_p->intf_type != WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
@@ -1604,7 +1604,7 @@ static int tasha_codec_enable_slimtx(struct snd_soc_dapm_widget *w,
 	dev_dbg(codec->dev,
 		"%s: w->name %s, w->shift = %d, num_dai %d stream name %s\n",
 		__func__, w->name, w->shift,
-		w->codec->num_dai, w->sname);
+		w->codec->component.num_dai, w->sname);
 
 	dai = &tasha_p->dai[w->shift];
 	return __tasha_codec_enable_slimtx(codec, event, dai);
@@ -3993,7 +3993,7 @@ static int tasha_mad_input_put(struct snd_kcontrol *kcontrol,
 {
 	u8 tasha_mad_input;
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_card *card = codec->card;
+	struct snd_soc_card *card = codec->component.card;
 	char mad_amic_input_widget[6];
 	const char *mad_input_widget;
 	const char *source_widget = NULL;
@@ -4263,7 +4263,7 @@ static int tasha_put_dec_enum(struct snd_kcontrol *kcontrol,
 	u8 mic_sel;
 
 	val = ucontrol->value.enumerated.item[0];
-	if (val > e->max - 1)
+	if (val > e->items - 1)
 		return -EINVAL;
 
 	dev_dbg(codec->dev, "%s: wname: %s, val: 0x%x\n", __func__,
