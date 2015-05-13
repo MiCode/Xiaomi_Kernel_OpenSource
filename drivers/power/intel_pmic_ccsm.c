@@ -447,8 +447,8 @@ static int pmic_ccsm_resume(struct device *dev)
 }
 
 const struct dev_pm_ops pmic_ccsm_pm = {
-	.suspend_late = pmic_ccsm_suspend,
-	.resume_early = pmic_ccsm_resume,
+	.suspend = pmic_ccsm_suspend,
+	.resume = pmic_ccsm_resume,
 };
 
 static const struct file_operations pmic_chrgr_tt_reg_fops = {
