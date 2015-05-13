@@ -49,6 +49,7 @@ static int dwc3_pci_register_phys(struct dwc3_pci *glue)
 	pdev = platform_device_alloc("usb_phy_gen_xceiv", 0);
 	if (!pdev)
 		return -ENOMEM;
+	pdev->dev.parent = glue->dev;
 
 	glue->usb2_phy = pdev;
 	pdata.type = USB_PHY_TYPE_USB2;
