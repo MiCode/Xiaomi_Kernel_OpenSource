@@ -18,6 +18,7 @@
 #include <linux/extcon.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
+#include <linux/mutex.h>
 #include <linux/platform_device.h>
 
 #define DRV_NAME	"usb_otg_port"
@@ -27,7 +28,9 @@ struct vuport {
 	struct gpio_desc *gpio_vbus_en;
 	struct gpio_desc *gpio_usb_id;
 	struct gpio_desc *gpio_usb_mux;
+	int usb_id_value;
 
+	struct mutex mutex_port;
 	struct extcon_dev edev;
 };
 
@@ -53,11 +56,21 @@ static void vuport_set_port(struct vuport *vup, int id)
 
 	if (!IS_ERR(vup->gpio_vbus_en))
 		gpiod_direction_output(vup->gpio_vbus_en, vbus_val);
+
+	vup->usb_id_value = id;
 }
 
 static void vuport_do_usb_id(struct vuport *vup)
 {
 	int id = gpiod_get_value(vup->gpio_usb_id);
+
+	mutex_lock(&vup->mutex_port);
+
+	/* Nothing changed? Do nothing. */
+	if (id == vup->usb_id_value) {
+		mutex_unlock(&vup->mutex_port);
+		return;
+	}
 
 	dev_info(vup->dev, "USB PORT ID: %s\n", id ? "PERIPHERAL" : "HOST");
 
@@ -72,6 +85,8 @@ static void vuport_do_usb_id(struct vuport *vup)
 	 * id == 1: Host disconnected
 	 */
 	extcon_set_cable_state(&vup->edev, "USB-Host", !id);
+
+	mutex_unlock(&vup->mutex_port);
 }
 
 static irqreturn_t vuport_thread_isr(int irq, void *priv)
@@ -101,6 +116,7 @@ static int vuport_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 	vup->dev = dev;
+	mutex_init(&vup->mutex_port);
 
 	vup->gpio_usb_id = devm_gpiod_get_index(dev, "id", VUPORT_GPIO_USB_ID);
 	if (IS_ERR(vup->gpio_usb_id)) {
@@ -135,6 +151,14 @@ static int vuport_probe(struct platform_device *pdev)
 			ret);
 		return ret;
 	}
+
+	/*
+	 * We start with unknown value. The fist usb id operation will result
+	 * in an extcon event regardless the initial cable state. From the
+	 * second usb id operation and on, only actual id value changes will
+	 * result in extcon event.
+	 */
+	vup->usb_id_value = -1;
 
 	ret = devm_request_threaded_irq(dev, gpiod_to_irq(vup->gpio_usb_id),
 					vuport_isr, vuport_thread_isr,
@@ -173,11 +197,36 @@ static struct acpi_device_id vuport_acpi_match[] = {
 };
 MODULE_DEVICE_TABLE(acpi, vuport_acpi_match);
 
+#ifdef CONFIG_PM_SLEEP
+
+static void vuport_complete(struct device *dev)
+{
+	struct vuport *vup = dev_get_drvdata(dev);
+
+	/*
+	 * In case a micro A cable was plugged in while device was sleeping,
+	 * we missed the interrupt. We need to poll usb id gpio when waking the
+	 * driver to detect the missed event.
+	 * We use 'complete' callback to give time to all extcon listeners to
+	 * resume before we send new events.
+	 */
+	vuport_do_usb_id(vup);
+}
+
+static const struct dev_pm_ops vuport_pm_ops = {
+	.complete = vuport_complete,
+};
+
+#endif
+
 static struct platform_driver vuport_driver = {
 	.driver = {
 		.name = DRV_NAME,
 		.owner = THIS_MODULE,
 		.acpi_match_table = ACPI_PTR(vuport_acpi_match),
+#ifdef CONFIG_PM_SLEEP
+		.pm = &vuport_pm_ops,
+#endif
 	},
 	.probe = vuport_probe,
 	.remove = vuport_remove,
