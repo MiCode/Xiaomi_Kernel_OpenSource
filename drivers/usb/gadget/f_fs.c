@@ -675,22 +675,37 @@ static ssize_t ffs_epfile_io(struct file *file,
 
 		if (unlikely(ret < 0)) {
 			/* nop */
-		} else if (unlikely(wait_for_completion_interruptible(&done))) {
-			ret = -EINTR;
-			usb_ep_dequeue(ep->ep, req);
 		} else {
-			/*
-			 * XXX We may end up silently droping data here.
-			 * Since data_len (i.e. req->length) may be bigger
-			 * than len (after being rounded up to maxpacketsize),
-			 * we may end up with more data then user space has
-			 * space for.
-			 */
-			ret = ep->status;
-			if (read && ret > 0 &&
-			    unlikely(copy_to_user(buf, data,
-						  min_t(size_t, ret, len))))
-				ret = -EFAULT;
+			ret = wait_for_completion_interruptible(&done);
+			if (ret) {
+				/*
+				 * Hardware can't process END command
+				 * clearly if req has been START. We
+				 * can't force End command.
+				 */
+				ret = usb_ep_dequeue_forced(ep->ep, req, 0);
+				if (ret < 0) {
+					wait_for_completion(&done);
+					ret = 0;
+				} else
+					ret = -EINTR;
+			}
+
+			if (!ret) {
+				/*
+				 * XXX We may end up silently droping data
+				 * here. Since data_len (i.e. req->length)
+				 * may be bigger than len (after being
+				 * rounded up to maxpacketsize), we may end
+				 * up with more data then user space has
+				 * space for.
+				 */
+				ret = ep->status;
+				if (read && ret > 0 &&
+					unlikely(copy_to_user(buf, data,
+						min_t(size_t, ret, len))))
+					ret = -EFAULT;
+			}
 		}
 	}
 
