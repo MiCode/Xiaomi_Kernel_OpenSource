@@ -1148,12 +1148,12 @@ enum MHI_STATUS recycle_trb_and_ring(struct mhi_device_ctxt *mhi_dev_ctxt,
 		added_xfer_pkt->data_tx_pkt =
 				*(struct mhi_tx_pkt *)removed_xfer_pkt;
 	} else if (MHI_RING_TYPE_EVENT_RING == ring_type) {
+
 		spinlock_t *lock;
 		unsigned long flags;
 
 		if (ring_index >= mhi_dev_ctxt->mmio_info.nr_event_rings)
 			return MHI_STATUS_ERROR;
-
 		lock = &mhi_dev_ctxt->mhi_ev_spinlock_list[ring_index];
 		spin_lock_irqsave(lock, flags);
 		db_value = mhi_v2p_addr(mhi_dev_ctxt, ring_type, ring_index,
@@ -1586,7 +1586,7 @@ void mhi_process_db(struct mhi_device_ctxt *mhi_dev_ctxt,
 	/* Event Doorbell and Polling mode Disabled */
 	} else if (io_addr == mhi_dev_ctxt->mmio_info.event_db_addr) {
 		/* Only ring for software channel */
-		if (IS_SOFTWARE_CHANNEL(chan) ||
+		if (IS_SW_EV_RING(mhi_dev_ctxt, chan) ||
 		    !mhi_dev_ctxt->flags.uldl_enabled) {
 			mhi_write_db(mhi_dev_ctxt, io_addr, chan, val);
 			mhi_dev_ctxt->flags.db_mode[chan] = 0;
