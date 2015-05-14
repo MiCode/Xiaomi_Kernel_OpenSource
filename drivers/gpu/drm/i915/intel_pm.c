@@ -1624,7 +1624,7 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 			sr = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.sr);
 		}
-	} else if (hweight32(plane_stat) == 3) {
+	} else {
 		/* all 3 planes enabled, fifo allocation 50:25:25 */
 		dsparb |= DSPARB_50_25_25;
 		dsparb_h |= DSPARB2_50_25_25;
@@ -1633,46 +1633,11 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 		fifo_size = (32 * 1024 * 50) / 100;
 		pa = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.pa);
-		pa = 0x0f;
 		fifo_size = (32 * 1024 * 25) / 100;
 		sa = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.sa);
-		sa = 0x04;
 		sb = vlv_update_wm_val(fifo_size,
 					intel_crtc->vlv_wm.sb);
-		sb = 0x04;
-
-	} else if (hweight32(plane_stat) == 2) {
-		/* 2 planes, enable fifo allocation 50:50 */
-		fifo_size = (32 * 1024 * 50) / 100;
-		if ((plane_stat & PRI_SA) == PRI_SA) {
-			dsparb |= DSPARB_PRI50_SA50;
-			dsparb_h |= DSPARB2_PRI50_SA50;
-
-			pa = vlv_update_wm_val(fifo_size,
-					intel_crtc->vlv_wm.pa);
-			sa = vlv_update_wm_val(fifo_size,
-					intel_crtc->vlv_wm.sa);
-
-		} else if ((plane_stat & PRI_SB) == PRI_SB) {
-			dsparb |= DSPARB_PRI50_SB50;
-			dsparb_h |= DSPARB2_PRI50_SB50;
-
-			pa = vlv_update_wm_val(fifo_size,
-					intel_crtc->vlv_wm.pa);
-			sb = vlv_update_wm_val(fifo_size,
-					intel_crtc->vlv_wm.sb);
-		} else {
-			dsparb |= DSPARB_SA50_SB50;
-			dsparb_h |= DSPARB2_SA50_SB50;
-
-			sa = vlv_update_wm_val(fifo_size,
-					intel_crtc->vlv_wm.sa);
-			sb = vlv_update_wm_val(fifo_size,
-					intel_crtc->vlv_wm.sb);
-		}
-	} else {
-		DRM_ERROR("Invalid pipe\n");
 	}
 
 	if (!single_pipe_enabled(pipe_stat) ||
@@ -1680,6 +1645,7 @@ void vlv_update_dsparb(struct intel_crtc *intel_crtc)
 		pa = 0;
 		sa = 0;
 		sb = 0;
+		sr = 0;
 	}
 
 	if (sr) {

@@ -11225,7 +11225,8 @@ static int intel_crtc_set_display(struct drm_crtc *crtc,
 	plane_stat = VLV_PLANE_STATS(dev_priv->pipe_plane_stat, pipe);
 
 	if (IS_CHERRYVIEW(dev))
-		if (hweight32(prev_plane_stat) <=  hweight32(plane_stat))
+		if ((hweight32(prev_plane_stat) <=  hweight32(plane_stat)) ||
+				(prev_plane_stat != plane_stat))
 			valleyview_update_wm_pm5(intel_crtc);
 
 	/* Check if we need to a vblank, if so wait for vblank */
