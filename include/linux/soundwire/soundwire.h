@@ -77,7 +77,7 @@ struct swr_params {
 	u8 num_port;
 	u8 port_id[SWR_MAX_DEV_PORT_NUM];
 	u8 num_ch[SWR_MAX_DEV_PORT_NUM];
-	u8 ch_rate[SWR_MAX_DEV_PORT_NUM];
+	u32 ch_rate[SWR_MAX_DEV_PORT_NUM];
 	u8 ch_en[SWR_MAX_DEV_PORT_NUM];
 };
 
