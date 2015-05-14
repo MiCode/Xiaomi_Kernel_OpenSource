@@ -322,6 +322,7 @@
 #define clk_ext_byte1_clk_src 0x585ef6d4
 #define clk_ext_pclk0_clk_src 0x087c1612
 #define clk_ext_pclk1_clk_src 0x8067c5a3
+#define clk_ext_extpclk_clk_src 0x0d0a0845
 #define clk_hdmi_clk_src 0xb40aeea9
 #define clk_hdmi_20nm_vco_clk 0xacaed5e6
 #define clk_vsync_clk_src 0xecb43940
