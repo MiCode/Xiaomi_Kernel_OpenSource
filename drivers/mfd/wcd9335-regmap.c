@@ -1348,6 +1348,13 @@ static bool wcd9335_is_volatile_register(struct device *dev, unsigned int reg)
 	case WCD9335_ANA_CLK_TOP:
 	case WCD9335_ANA_RCO:
 	case WCD9335_CDC_CLK_RST_CTRL_MCLK_CONTROL:
+	case WCD9335_ANA_MBHC_RESULT_3:
+	case WCD9335_ANA_MBHC_RESULT_2:
+	case WCD9335_ANA_MBHC_RESULT_1:
+	case WCD9335_ANA_MBHC_MECH:
+	case WCD9335_ANA_MBHC_ELECT:
+	case WCD9335_ANA_MBHC_ZDET:
+	case WCD9335_ANA_MICB2:
 		return true;
 	default:
 		return false;
