@@ -24,6 +24,8 @@ Optional properties:
  - ite,wakeup		: boolean, use this to support touch-to-wake feature.
  - ite,palm-detect-en	: boolean, use this to send palm-detect-keycode when
 			  palm is detected.
+ - ite,fw-name		: Specify firmware file name in /etc/firmware
+ - ite,cfg-name		: Specify config file name in /etc/firmware
 
 Required properties palm-detect-en feature:
  - ite,palm-detect-keycode	: The keycode that is required to be sent when
@@ -43,5 +45,7 @@ Example:
 			ite,wakeup;
 			ite,palm-detect-en;
 			ite,palm-detect-keycode = <142>;
+			ite,fw-name = "ite7260_fw.bin";
+			ite,cfg-name = "ite7260_cfg.bin";
 		};
 	};
