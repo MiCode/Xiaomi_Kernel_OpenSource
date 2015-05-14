@@ -40,6 +40,7 @@ struct diag_socket_info {
 	uint32_t svc_id;
 	uint32_t ins_id;
 	uint32_t data_ready;
+	atomic_t flow_cnt;
 	char name[DIAG_SOCKET_NAME_SZ];
 	spinlock_t lock;
 	wait_queue_head_t wait_q;

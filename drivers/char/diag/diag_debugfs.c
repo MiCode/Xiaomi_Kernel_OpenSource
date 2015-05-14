@@ -619,6 +619,7 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 				"diag_state\t:\t%d\n"
 				"buf_1 busy\t:\t%d\n"
 				"buf_2 busy\t:\t%d\n"
+				"flow ctrl count\t:\t%d\n"
 				"data_ready\t:\t%d\n"
 				"init pending\t:\t%d\n"
 				"read pending\t:\t%d\n"
@@ -636,6 +637,7 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 				atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
 				(fwd_ctxt && fwd_ctxt->buf_2) ?
 				atomic_read(&fwd_ctxt->buf_2->in_busy) : -1,
+				atomic_read(&info->flow_cnt),
 				info->data_ready,
 				work_pending(&info->init_work),
 				work_pending(&info->read_work),
