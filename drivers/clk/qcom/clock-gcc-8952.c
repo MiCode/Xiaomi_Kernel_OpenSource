@@ -3011,6 +3011,7 @@ static struct mux_clk gcc_debug_mux = {
 	MUX_SRC_LIST(
 		{ &apss_debug_pri_mux.c, 0x016A},
 		{ &snoc_clk.c,  0x0000 },
+		{ &sysmmnoc_clk.c,  0x0001 },
 		{ &pnoc_clk.c, 0x0008 },
 		{ &bimc_clk.c,  0x0154 },
 		{ &gcc_gp1_clk.c, 0x0010 },
