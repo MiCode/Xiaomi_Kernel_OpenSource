@@ -39,6 +39,7 @@ img	Imagination Technologies Ltd.
 intercontrol	Inter Control Group
 invn	InvenSense Inc.
 intersil	Intersil Corp.
+ite	ITE Tech. Inc.
 jdi	Japan Display Inc.
 lattice	Lattice Semiconductor.
 linux	Linux-specific binding
