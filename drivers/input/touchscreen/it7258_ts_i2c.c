@@ -147,6 +147,7 @@ struct IT7260_ts_platform_data {
 	u32 irq_gpio_flags;
 	u32 reset_gpio;
 	u32 reset_gpio_flags;
+	bool wakeup;
 };
 
 struct IT7260_ts_data {
@@ -155,6 +156,9 @@ struct IT7260_ts_data {
 	const struct IT7260_ts_platform_data *pdata;
 	struct regulator *vdd;
 	struct regulator *avdd;
+	bool device_needs_wakeup;
+	bool suspended;
+	struct work_struct work_pm_relax;
 #ifdef CONFIG_FB
 	struct notifier_block fb_notif;
 #endif
@@ -165,7 +169,6 @@ static int8_t fwUploadResult;
 static int8_t calibrationWasSuccessful;
 static bool devicePresent;
 static bool hadFingerDown;
-static bool isDeviceSuspend;
 static struct input_dev *input_dev;
 static struct IT7260_ts_data *gl_ts;
 
@@ -184,7 +187,7 @@ static int IT7260_debug_suspend_set(void *_data, u64 val)
 
 static int IT7260_debug_suspend_get(void *_data, u64 *val)
 {
-	*val = isDeviceSuspend;
+	*val = gl_ts->suspended;
 
 	return 0;
 }
@@ -626,22 +629,27 @@ static ssize_t sysfsSleepShow(struct device *dev,
 	 * leaking a byte of kernel data (by claiming to return a byte but not
 	 * writing to buf. To fix this now we actually return the sleep status
 	 */
-	*buf = isDeviceSuspend ? '1' : '0';
+	*buf = gl_ts->suspended ? '1' : '0';
 	return 1;
 }
 
 static ssize_t sysfsSleepStore(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count)
 {
-	int goToSleepVal, ret;
+	int go_to_sleep, ret;
 
-	ret = sscanf(buf, "%d", &goToSleepVal);
+	ret = sscanf(buf, "%d", &go_to_sleep);
 
-	if ((isDeviceSuspend && goToSleepVal > 0) || (!isDeviceSuspend &&
-							goToSleepVal == 0))
+	/* (gl_ts->suspended == true && goToSleepVal > 0) means
+	 * device is already suspended and you want it to be in sleep,
+	 * (gl_ts->suspended == false && goToSleepVal == 0) means
+	 * device is already active and you also want it to be active.
+	 */
+	if ((gl_ts->suspended && go_to_sleep > 0) ||
+			(!gl_ts->suspended && go_to_sleep == 0))
 		dev_err(dev, "duplicate request to %s chip\n",
-			goToSleepVal ? "sleep" : "wake");
-	else if (goToSleepVal) {
+			go_to_sleep ? "sleep" : "wake");
+	else if (go_to_sleep) {
 		disable_irq(gl_ts->client->irq);
 		IT7260_ts_chipLowPowerMode(true);
 		dev_dbg(dev, "touch is going to sleep...\n");
@@ -650,11 +658,10 @@ static ssize_t sysfsSleepStore(struct device *dev,
 		enable_irq(gl_ts->client->irq);
 		dev_dbg(dev, "touch is going to wake!\n");
 	}
-	isDeviceSuspend = goToSleepVal;
+	gl_ts->suspended = go_to_sleep;
 
 	return count;
 }
-
 
 static DEVICE_ATTR(status, S_IRUGO|S_IWUSR|S_IWGRP,
 				sysfsStatusShow, sysfsStatusStore);
@@ -740,6 +747,23 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 	uint8_t pressure = FD_PRESSURE_NONE;
 	uint16_t x, y;
 
+	/* This code adds the touch-to-wake functioanlity to the ITE tech
+	 * driver. When the device is in suspend driver, it sends the
+	 * KEY_WAKEUP event to wake the device. The pm_stay_awake() call
+	 * tells the pm core to stay awake untill the CPU cores up already. The
+	 * schedule_work() call schedule a work that tells the pm core to relax
+	 * once the CPU cores are up.
+	 */
+	if (gl_ts->device_needs_wakeup) {
+		pm_stay_awake(&gl_ts->client->dev);
+		gl_ts->device_needs_wakeup = false;
+		input_report_key(gl_ts->input_dev, KEY_WAKEUP, 1);
+		input_sync(gl_ts->input_dev);
+		input_report_key(gl_ts->input_dev, KEY_WAKEUP, 0);
+		input_sync(gl_ts->input_dev);
+		schedule_work(&gl_ts->work_pm_relax);
+	}
+
 	/* verify there is point data to read & it is readable and valid */
 	i2cReadNoReadyCheck(BUF_QUERY, &devStatus, sizeof(devStatus));
 	if (!((devStatus & PT_INFO_BITS) & PT_INFO_YES)) {
@@ -784,6 +808,11 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 	}
 
 	return IRQ_HANDLED;
+}
+
+static void IT7260_ts_work_func(struct work_struct *work)
+{
+	pm_relax(&gl_ts->client->dev);
 }
 
 static bool chipIdentifyIT7260(void)
@@ -945,6 +974,9 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		return pdata->irq_gpio;
 	}
 
+	pdata->wakeup = of_property_read_bool(client->dev.of_node,
+						"ite,wakeup");
+
 	if (!chipIdentifyIT7260()) {
 		LOGI("chipIdentifyIT7260 FAIL");
 		goto err_ident_fail_or_input_alloc;
@@ -969,13 +1001,18 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	set_bit(INPUT_PROP_DIRECT,input_dev->propbit);
 	set_bit(BTN_TOUCH, input_dev->keybit);
 	set_bit(KEY_SLEEP,input_dev->keybit);
-	set_bit(KEY_WAKEUP,input_dev->keybit);
 	set_bit(KEY_POWER,input_dev->keybit);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_X, 0,
 				SCREEN_X_RESOLUTION, 0, 0);
 	input_set_abs_params(input_dev, ABS_MT_POSITION_Y, 0,
 				SCREEN_Y_RESOLUTION, 0, 0);
 	input_set_drvdata(gl_ts->input_dev, gl_ts);
+
+	if (pdata->wakeup) {
+		set_bit(KEY_WAKEUP, gl_ts->input_dev->keybit);
+		INIT_WORK(&gl_ts->work_pm_relax, IT7260_ts_work_func);
+		device_init_wakeup(&client->dev, pdata->wakeup);
+	}
 
 	if (input_register_device(input_dev)) {
 		LOGE("failed to register input device\n");
@@ -1047,6 +1084,10 @@ err_irq_reg:
 	input_dev = NULL;
 
 err_input_register:
+	if (pdata->wakeup) {
+		cancel_work_sync(&gl_ts->work_pm_relax);
+		device_init_wakeup(&client->dev, false);
+	}
 	if (input_dev)
 		input_free_device(input_dev);
 
@@ -1068,6 +1109,10 @@ static int IT7260_ts_remove(struct i2c_client *client)
 		dev_err(&client->dev, "Error occurred while unregistering fb_notifier.\n");
 #endif
 	sysfs_remove_group(&(client->dev.kobj), &it7260_attr_group);
+	if (gl_ts->pdata->wakeup) {
+		cancel_work_sync(&gl_ts->work_pm_relax);
+		device_init_wakeup(&client->dev, false);
+	}
 	devicePresent = false;
 	return 0;
 }
@@ -1083,10 +1128,10 @@ static int fb_notifier_callback(struct notifier_block *self,
 		if (event == FB_EVENT_BLANK) {
 			blank = evdata->data;
 			if (*blank == FB_BLANK_UNBLANK)
-				IT7260_ts_resume(&(gl_ts->input_dev->dev));
+				IT7260_ts_resume(&(gl_ts->client->dev));
 			else if (*blank == FB_BLANK_POWERDOWN ||
 					*blank == FB_BLANK_VSYNC_SUSPEND)
-				IT7260_ts_suspend(&(gl_ts->input_dev->dev));
+				IT7260_ts_suspend(&(gl_ts->client->dev));
 		}
 	}
 
@@ -1097,33 +1142,49 @@ static int fb_notifier_callback(struct notifier_block *self,
 #ifdef CONFIG_PM
 static int IT7260_ts_resume(struct device *dev)
 {
-	if (!isDeviceSuspend) {
+	if (!gl_ts->suspended) {
 		dev_info(dev, "Already in resume state\n");
 		return 0;
 	}
 
-	/* put the device in active powr mode */
+	if (device_may_wakeup(dev)) {
+		if (gl_ts->device_needs_wakeup) {
+			gl_ts->device_needs_wakeup = false;
+			disable_irq_wake(gl_ts->client->irq);
+		}
+		return 0;
+	}
+
+	/* put the device in active power mode */
 	IT7260_ts_chipLowPowerMode(false);
 
 	enable_irq(gl_ts->client->irq);
-	isDeviceSuspend	= false;
+	gl_ts->suspended = false;
 	return 0;
 }
 
 static int IT7260_ts_suspend(struct device *dev)
 {
-	if (isDeviceSuspend) {
+	if (gl_ts->suspended) {
 		dev_info(dev, "Already in suspend state\n");
+		return 0;
+	}
+
+	if (device_may_wakeup(dev)) {
+		if (!gl_ts->device_needs_wakeup) {
+			gl_ts->device_needs_wakeup = true;
+			enable_irq_wake(gl_ts->client->irq);
+		}
 		return 0;
 	}
 
 	disable_irq(gl_ts->client->irq);
 
-	/* put the device in active powr mode */
+	/* put the device in low power mode */
 	IT7260_ts_chipLowPowerMode(true);
 
 	IT7260_ts_release_all();
-	isDeviceSuspend = true;
+	gl_ts->suspended = true;
 
 	return 0;
 }
