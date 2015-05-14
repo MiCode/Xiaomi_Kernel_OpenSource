@@ -202,6 +202,7 @@ struct kgsl_iommu {
 	unsigned int ctx_ahb_offset;
 	struct kgsl_iommu_register_list *iommu_reg_list;
 	struct clk *gtcu_iface_clk;
+	struct clk *gtbu_clk;
 	struct kgsl_memdesc smmu_info;
 };
 
