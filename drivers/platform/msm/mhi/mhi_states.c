@@ -17,6 +17,25 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 
+static inline void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
+					enum MHI_STATE new_state)
+{
+	if (MHI_STATE_RESET == new_state) {
+		mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
+			MHICTRL_RESET_MASK,
+			MHICTRL_RESET_SHIFT,
+			1);
+	} else {
+		mhi_reg_write_field(mhi_dev_ctxt,
+			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
+			MHICTRL_MHISTATE_MASK,
+			MHICTRL_MHISTATE_SHIFT,
+			new_state);
+	}
+	mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL);
+}
+
 static void conditional_chan_db_write(
 				struct mhi_device_ctxt *mhi_dev_ctxt, u32 chan)
 {
@@ -187,12 +206,7 @@ static enum MHI_STATUS process_m1_transition(
 		atomic_inc(&mhi_dev_ctxt->flags.m2_transition);
 		mhi_dev_ctxt->mhi_state = MHI_STATE_M2;
 		mhi_log(MHI_MSG_INFO, "Allowing transition to M2\n");
-		mhi_reg_write_field(mhi_dev_ctxt,
-			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
-			MHICTRL_MHISTATE_MASK,
-			MHICTRL_MHISTATE_SHIFT,
-			MHI_STATE_M2);
-		mhi_reg_read(mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL);
+		mhi_set_m_state(mhi_dev_ctxt, MHI_STATE_M2);
 		mhi_dev_ctxt->counters.m1_m2++;
 	}
 	write_unlock_irqrestore(&mhi_dev_ctxt->xfer_lock, flags);
@@ -604,24 +618,6 @@ static enum MHI_STATUS process_amss_transition(
 		mhi_deassert_device_wake(mhi_dev_ctxt);
 	mhi_log(MHI_MSG_INFO, "Exited\n");
 	return MHI_STATUS_SUCCESS;
-}
-
-static void mhi_set_m_state(struct mhi_device_ctxt *mhi_dev_ctxt,
-					enum MHI_STATE new_state)
-{
-	if (MHI_STATE_RESET == new_state) {
-		mhi_reg_write_field(mhi_dev_ctxt,
-			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
-			MHICTRL_RESET_MASK,
-			MHICTRL_RESET_SHIFT,
-			1);
-	} else {
-		mhi_reg_write_field(mhi_dev_ctxt,
-			mhi_dev_ctxt->mmio_info.mmio_addr, MHICTRL,
-			MHICTRL_MHISTATE_MASK,
-			MHICTRL_MHISTATE_SHIFT,
-			new_state);
-	}
 }
 
 enum MHI_STATUS mhi_trigger_reset(struct mhi_device_ctxt *mhi_dev_ctxt)
