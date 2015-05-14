@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2016, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -33,6 +33,8 @@
 #define MHI_RPM_AUTOSUSPEND_TMR_VAL_MS 1000
 #define MAX_BUF_SIZE 32
 
+#define HW_EVENT_RINGS_ALLOCATED 2
+
 #define PRIMARY_CMD_RING 0
 #define MHI_WORK_Q_MAX_SIZE 128
 
@@ -46,11 +48,11 @@
 #define MHI_PCIE_DEVICE_ID_ZIRC 0x0301
 #define TRB_MAX_DATA_SIZE 0x1000
 
-
 #define MHI_DATA_SEG_WINDOW_START_ADDR 0x0ULL
 #define MHI_DATA_SEG_WINDOW_END_ADDR 0x3E800000ULL
 
 #define MHI_M2_DEBOUNCE_TMR_MS 10
+
 #define MHI_XFER_DB_INTERVAL 8
 #define MHI_EV_DB_INTERVAL 1
 
@@ -91,6 +93,14 @@
 #define MHI_READY_STATUS_TIMEOUT_MS 50
 #define MHI_THREAD_SLEEP_TIMEOUT_MS 20
 #define MHI_RESUME_WAKE_RETRIES 20
+
+#define IS_HW_EV_RING(_mhi_dev_ctxt, _EV_INDEX) (_EV_INDEX >= \
+				((_mhi_dev_ctxt)->mmio_info.nr_event_rings - \
+				HW_EVENT_RINGS_ALLOCATED))
+
+#define IS_SW_EV_RING(_mhi_dev_ctxt, _EV_INDEX) (_EV_INDEX < \
+				((_mhi_dev_ctxt)->mmio_info.nr_event_rings - \
+				HW_EVENT_RINGS_ALLOCATED))
 
 /* Debugging Capabilities*/
 #define MHI_DBG_MAX_EVENT_HISTORY 10
