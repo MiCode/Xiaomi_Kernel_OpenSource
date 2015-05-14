@@ -2048,3 +2048,18 @@ void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 
 	return;
 }
+
+void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev)
+{
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	uint32_t j = 0;
+
+	for (j = 0; j < MAX_NUM_STREAM; j++) {
+		stream_info =
+			&vfe_dev->axi_data.stream_info[j];
+		stream_info->prev_framedrop_pattern =
+			stream_info->framedrop_pattern;
+		stream_info->prev_framedrop_period =
+			stream_info->framedrop_period;
+	}
+}
