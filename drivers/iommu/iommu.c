@@ -1266,3 +1266,11 @@ int iommu_domain_set_attr(struct iommu_domain *domain,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(iommu_domain_set_attr);
+
+int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
+								u64 mask)
+{
+	if (domain->ops->dma_supported)
+		return domain->ops->dma_supported(domain, dev, mask);
+	return 0;
+}
