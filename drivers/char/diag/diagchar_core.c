@@ -1825,7 +1825,6 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	int ret = PKT_DROP;
 	struct diag_pkt_frame_t header;
 	struct diag_apps_data_t *data = &non_hdlc_data;
-	uint32_t write_len = 0;
 	/*
 	 * The maximum packet size, when the data is non hdlc encoded is equal
 	 * to the size of the packet frame header and the length. Add 1 for the
@@ -1868,13 +1867,12 @@ static int diag_process_apps_data_non_hdlc(unsigned char *buf, int len,
 	header.start = CONTROL_CHAR;
 	header.version = 1;
 	header.length = len;
-	memcpy(data->buf, &header, sizeof(header));
-	write_len += sizeof(header);
-	memcpy(data->buf + write_len, buf, len);
-	write_len += len;
-	*(uint8_t *)(data->buf + write_len) = CONTROL_CHAR;
-	write_len += sizeof(uint8_t);
-	data->len += write_len;
+	memcpy(data->buf + data->len, &header, sizeof(header));
+	data->len += sizeof(header);
+	memcpy(data->buf + data->len, buf, len);
+	data->len += len;
+	*(uint8_t *)(data->buf + data->len) = CONTROL_CHAR;
+	data->len += sizeof(uint8_t);
 	if (pkt_type == DATA_TYPE_RESPONSE) {
 		err = diag_mux_write(DIAG_LOCAL_PROC, data->buf, data->len,
 				     data->ctxt);
