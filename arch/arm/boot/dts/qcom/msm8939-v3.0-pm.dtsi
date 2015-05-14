@@ -273,10 +273,10 @@
 					reg = <1>;
 					label = "power-l2-gdhs";
 					qcom,spm-l2-mode = "gdhs";
-					qcom,latency-us = <550>;
-					qcom,ss-power = <588>;
-					qcom,energy-overhead = <566500>;
-					qcom,time-overhead = <900>;
+					qcom,latency-us = <480>;
+					qcom,ss-power = <580>;
+					qcom,energy-overhead = <531552>;
+					qcom,time-overhead = <837>;
 					qcom,min-child-idx = <1>;
 				};
 
@@ -349,10 +349,10 @@
 					reg = <1>;
 					label = "performance-l2-gdhs";
 					qcom,spm-l2-mode = "gdhs";
-					qcom,latency-us = <450>;
-					qcom,ss-power = <620>;
-					qcom,energy-overhead = <596765>;
-					qcom,time-overhead = <750>;
+					qcom,latency-us = <447>;
+					qcom,ss-power = <610>;
+					qcom,energy-overhead = <611809>;
+					qcom,time-overhead = <827>;
 					qcom,min-child-idx = <1>;
 				};
 
