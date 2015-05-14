@@ -44,6 +44,7 @@
 #include "f_rmnet.c"
 #include "f_gps.c"
 #include "u_smd.c"
+#include "u_data_bridge.c"
 #include "u_bam.c"
 #include "u_rmnet_ctrl_smd.c"
 #include "u_ctrl_qti.c"
