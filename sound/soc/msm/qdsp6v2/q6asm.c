@@ -4456,6 +4456,110 @@ fail_cmd:
 	return rc;
 }
 
+/*
+ * q6asm_set_multich_gain: set multiple channel gains on an ASM session
+ * @ac: audio client handle
+ * @channels: number of channels caller intends to set gains
+ * @gains: list of gains of audio channels
+ * @ch_map: list of channel mapping. Only valid if use_default is false
+ * @use_default: flag to indicate whether to use default mapping
+ */
+int q6asm_set_multich_gain(struct audio_client *ac, uint32_t channels,
+			   uint32_t *gains, uint8_t *ch_map, bool use_default)
+{
+	struct asm_volume_ctrl_multichannel_gain multich_gain;
+	int sz = 0;
+	int rc  = 0;
+	int i;
+	u8 default_chmap[VOLUME_CONTROL_MAX_CHANNELS];
+
+	if (ac == NULL) {
+		pr_err("%s: ac is NULL\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+	if (ac->apr == NULL) {
+		dev_err(ac->dev, "%s: AC APR handle NULL\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+	if (gains == NULL) {
+		dev_err(ac->dev, "%s: gain_list is NULL\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+	if (channels > VOLUME_CONTROL_MAX_CHANNELS) {
+		dev_err(ac->dev, "%s: Invalid channel count %d\n",
+			__func__, channels);
+		rc = -EINVAL;
+		goto done;
+	}
+	if (!use_default && ch_map == NULL) {
+		dev_err(ac->dev, "%s: NULL channel map\n", __func__);
+		rc = -EINVAL;
+		goto done;
+	}
+
+	memset(&multich_gain, 0, sizeof(multich_gain));
+	sz = sizeof(struct asm_volume_ctrl_multichannel_gain);
+	q6asm_add_hdr_async(ac, &multich_gain.hdr, sz, TRUE);
+	atomic_set(&ac->cmd_state, 1);
+	multich_gain.hdr.opcode = ASM_STREAM_CMD_SET_PP_PARAMS_V2;
+	multich_gain.param.data_payload_addr_lsw = 0;
+	multich_gain.param.data_payload_addr_msw = 0;
+	multich_gain.param.mem_map_handle = 0;
+	multich_gain.param.data_payload_size = sizeof(multich_gain) -
+		sizeof(multich_gain.hdr) - sizeof(multich_gain.param);
+	multich_gain.data.module_id = ASM_MODULE_ID_VOL_CTRL;
+	multich_gain.data.param_id = ASM_PARAM_ID_MULTICHANNEL_GAIN;
+	multich_gain.data.param_size = multich_gain.param.data_payload_size -
+		sizeof(multich_gain.data);
+	multich_gain.data.reserved = 0;
+
+	if (use_default) {
+		rc = q6asm_map_channels(default_chmap, channels);
+		if (rc < 0)
+			goto done;
+		for (i = 0; i < channels; i++) {
+			multich_gain.gain_data[i].channeltype =
+				default_chmap[i];
+			multich_gain.gain_data[i].gain = gains[i] << 15;
+		}
+	} else {
+		for (i = 0; i < channels; i++) {
+			multich_gain.gain_data[i].channeltype = ch_map[i];
+			multich_gain.gain_data[i].gain = gains[i] << 15;
+		}
+	}
+	multich_gain.num_channels = channels;
+
+	rc = apr_send_pkt(ac->apr, (uint32_t *) &multich_gain);
+	if (rc < 0) {
+		pr_err("%s: set-params send failed paramid[0x%x] rc %d\n",
+				__func__, multich_gain.data.param_id, rc);
+		goto done;
+	}
+
+	rc = wait_event_timeout(ac->cmd_wait,
+			(atomic_read(&ac->cmd_state) <= 0), 5*HZ);
+	if (!rc) {
+		pr_err("%s: timeout, set-params paramid[0x%x]\n", __func__,
+				multich_gain.data.param_id);
+		rc = -EINVAL;
+		goto done;
+	}
+	if (atomic_read(&ac->cmd_state) < 0) {
+		pr_err("%s: DSP returned error[%d] , set-params paramid[0x%x]\n",
+					__func__, atomic_read(&ac->cmd_state),
+					multich_gain.data.param_id);
+		rc = -EINVAL;
+		goto done;
+	}
+	rc = 0;
+done:
+	return rc;
+}
+
 int q6asm_set_mute(struct audio_client *ac, int muteflag)
 {
 	struct asm_volume_ctrl_mute_config mute;
