@@ -1113,7 +1113,7 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 
 	if (is_fw_load_aborted(buf))
 		retval = -EAGAIN;
-	else if (!buf->data)
+	else if (!buf->data && buf->is_paged_buf)
 		retval = -ENOMEM;
 
 	device_del(f_dev);
