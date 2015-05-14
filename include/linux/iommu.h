@@ -141,6 +141,8 @@ struct iommu_ops {
 	int (*domain_set_windows)(struct iommu_domain *domain, u32 w_count);
 	/* Get the numer of window per domain */
 	u32 (*domain_get_windows)(struct iommu_domain *domain);
+	int (*dma_supported)(struct iommu_domain *domain, struct device *dev,
+			     u64 mask);
 
 	unsigned long pgsize_bitmap;
 };
@@ -262,6 +264,9 @@ static inline size_t iommu_map_sg(struct iommu_domain *domain,
 {
 	return domain->ops->map_sg(domain, iova, sg, nents, prot);
 }
+
+extern int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
+			       u64 mask);
 
 #else /* CONFIG_IOMMU_API */
 
@@ -451,6 +456,12 @@ static inline int iommu_device_link(struct device *dev, struct device *link)
 
 static inline void iommu_device_unlink(struct device *dev, struct device *link)
 {
+}
+
+static int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
+			       u64 mask)
+{
+	return -EINVAL;
 }
 
 #endif /* CONFIG_IOMMU_API */
