@@ -440,6 +440,8 @@ void msm_isp_cfg_framedrop_reg(struct vfe_device *vfe_dev,
 			framedrop_period = 30 +
 				(stream_info->framedrop_altern_cnt++ & 1);
 		}
+		stream_info->framedrop_pattern = framedrop_pattern;
+		stream_info->framedrop_period = framedrop_period;
 	}
 
 	ISP_DBG("%s: stream %x framedrop pattern %x period %u\n", __func__,
@@ -2086,8 +2088,9 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	frame_src = SRC_TO_INTF(stream_info->stream_src);
-	if (frame_id <= vfe_dev->axi_data.src_info[frame_src].frame_id) {
-		pr_err("%s:%d invalid request_frame %d cur frame_id %d\n",
+	if ((frame_id <= vfe_dev->axi_data.src_info[frame_src].frame_id) ||
+		stream_info->undelivered_request_cnt >= 2) {
+		pr_debug("%s:%d invalid request_frame %d cur frame id %d\n",
 			__func__, __LINE__, frame_id,
 			vfe_dev->axi_data.src_info[frame_src].frame_id);
 		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
@@ -2095,6 +2098,22 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		if (rc < 0)
 			pr_err("%s:%d failed: return_empty_buffer src %d\n",
 				__func__, __LINE__, frame_src);
+		return 0;
+	}
+	if (!stream_info->undelivered_request_cnt &&
+		stream_info->prev_framedrop_pattern) {
+		pr_err("%s:%d frame_id %d prev_pattern is valid %d\n",
+			__func__, __LINE__, frame_id,
+			stream_info->prev_framedrop_pattern);
+		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
+			user_stream_id, frame_id, frame_src);
+		if (rc < 0)
+			pr_err("%s:%d failed: return_empty_buffer src %d\n",
+				__func__, __LINE__, frame_src);
+		vfe_dev->hw_info->vfe_ops.axi_ops.cfg_framedrop(vfe_dev,
+			stream_info, 0, 0);
+		stream_info->framedrop_pattern = 0;
+		stream_info->framedrop_period = 0;
 		return 0;
 	}
 
