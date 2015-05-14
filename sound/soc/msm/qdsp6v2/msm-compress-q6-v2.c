@@ -212,8 +212,12 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 				uint32_t volume_l, uint32_t volume_r)
 {
 	struct msm_compr_audio *prtd;
-	int rc = 0;
-	uint32_t avg_vol;
+	int rc = 0, i;
+	uint32_t avg_vol, gain_list[VOLUME_CONTROL_MAX_CHANNELS];
+	struct snd_soc_pcm_runtime *rtd;
+	struct msm_compr_pdata *pdata;
+	bool use_default = true;
+	u8 *chmap = NULL;
 
 	pr_debug("%s: volume_l %d volume_r %d\n",
 		__func__, volume_l, volume_r);
@@ -221,18 +225,24 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 		pr_err("%s: session not active\n", __func__);
 		return -EPERM;
 	}
+	rtd = cstream->private_data;
 	prtd = cstream->runtime->private_data;
 
-	if (!prtd || !prtd->audio_client) {
-		pr_err("%s: invalid session prtd or no audio client", __func__);
+	if (!rtd || !rtd->platform || !prtd || !prtd->audio_client) {
+		pr_err("%s: invalid rtd, prtd or audio client", __func__);
 		return rc;
 	}
+	pdata = snd_soc_platform_get_drvdata(rtd->platform);
 
 	if (prtd->compr_passthr != LEGACY_PCM) {
 		pr_debug("%s: No volume config for passthrough %d\n",
 			 __func__, prtd->compr_passthr);
 		return rc;
 	}
+
+	use_default = !(pdata->ch_map[rtd->dai_link->be_id]->set_ch_map);
+	chmap = pdata->ch_map[rtd->dai_link->be_id]->channel_map;
+
 	if (prtd->num_channels > 2) {
 		/*
 		 * Currently the left and right gains are averaged an applied
@@ -243,17 +253,17 @@ static int msm_compr_set_volume(struct snd_compr_stream *cstream,
 		 * channel gains.
 		 *
 		 */
-		pr_debug("%s: call q6asm_set_volume for multichannel\n",
-			 __func__);
 		avg_vol = (volume_l + volume_r) / 2;
-		rc = q6asm_set_volume(prtd->audio_client, avg_vol);
+		for (i = 0; i < prtd->num_channels; i++)
+			gain_list[i] = avg_vol;
+
 	} else {
-		pr_debug("%s: call q6asm_set_lrgain\n", __func__);
-		rc = q6asm_set_lrgain(prtd->audio_client, volume_l, volume_r);
-		if (rc < 0)
-			pr_err("%s: Send LR gain command failed rc=%d\n",
-				__func__, rc);
+		gain_list[0] = volume_l;
+		gain_list[1] = volume_r;
 	}
+
+	rc = q6asm_set_multich_gain(prtd->audio_client, prtd->num_channels,
+				    gain_list, chmap, use_default);
 
 	if (rc < 0)
 		pr_err("%s: Send vol gain command failed rc=%d\n",
