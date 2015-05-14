@@ -3681,7 +3681,8 @@ static int msm_gcc_8996_probe(struct platform_device *pdev)
 	compat = of_get_property(pdev->dev.of_node, "compatible", &compatlen);
 	if (!compat || (compatlen <= 0))
 		return -EINVAL;
-	is_v2 = !strcmp(compat, "qcom,gcc-8996-v2");
+	is_v2 = !strcmp(compat, "qcom,gcc-8996-v2") ||
+				!strcmp(compat, "qcom,gcc-8996-v3");
 	if (is_v2)
 		msm_clocks_gcc_8996_v2_fixup();
 
@@ -3718,6 +3719,7 @@ static int msm_gcc_8996_probe(struct platform_device *pdev)
 static struct of_device_id msm_clock_gcc_match_table[] = {
 	{ .compatible = "qcom,gcc-8996" },
 	{ .compatible = "qcom,gcc-8996-v2" },
+	{ .compatible = "qcom,gcc-8996-v3" },
 	{}
 };
 
@@ -3755,6 +3757,7 @@ static struct clk_lookup msm_clocks_measure_8996_v2[] = {
 static struct of_device_id msm_clock_debug_match_table[] = {
 	{ .compatible = "qcom,cc-debug-8996" },
 	{ .compatible = "qcom,cc-debug-8996-v2" },
+	{ .compatible = "qcom,cc-debug-8996-v3" },
 	{}
 };
 

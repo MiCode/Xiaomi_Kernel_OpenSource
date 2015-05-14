@@ -20,6 +20,7 @@ Required properties:
 			"qcom,gcc-fsm9010"
 			"qcom,gcc-8996"
 			"qcom,gcc-8996-v2"
+			"qcom,gcc-8996-v3"
 			"qcom,rpmcc-8994"
 			"qcom,rpmcc-8992"
 			"qcom,rpmcc-8916"
@@ -34,6 +35,7 @@ Required properties:
 			"qcom,cc-debug-fsm9010"
 			"qcom,cc-debug-8996"
 			"qcom,cc-debug-8996-v2"
+			"qcom,cc-debug-8996-v3"
 			"qcom,gcc-mdss-8936"
 			"qcom,gcc-mdss-8909"
 			"qcom,gcc-mdss-8916"
@@ -43,8 +45,10 @@ Required properties:
 			"qcom,mmsscc-8992"
 			"qcom,mmsscc-8996"
 			"qcom,mmsscc-8996-v2"
+			"qcom,mmsscc-8996-v3"
 			"qcom,gpucc-8996"
 			"qcom,gpucc-8996-v2"
+			"qcom,gpucc-8996-v3"
 
 - reg:			Pairs of physical base addresses and region sizes of
 			memory mapped registers.
