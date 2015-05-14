@@ -661,6 +661,7 @@ static void ecm_ipa_packet_receive_notify(void *priv,
 	struct sk_buff *skb = (struct sk_buff *)data;
 	struct ecm_ipa_dev *ecm_ipa_ctx = priv;
 	int result;
+	unsigned int packet_len = skb->len;
 
 	if (!skb) {
 		ECM_IPA_ERROR("Bad SKB received from IPA driver\n");
@@ -691,7 +692,7 @@ static void ecm_ipa_packet_receive_notify(void *priv,
 	if (result)
 		ECM_IPA_ERROR("fail on netif_rx_ni\n");
 	ecm_ipa_ctx->net->stats.rx_packets++;
-	ecm_ipa_ctx->net->stats.rx_bytes += skb->len;
+	ecm_ipa_ctx->net->stats.rx_bytes += packet_len;
 
 	return;
 }
