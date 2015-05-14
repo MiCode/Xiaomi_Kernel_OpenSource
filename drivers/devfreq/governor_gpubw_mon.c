@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +23,8 @@
 #define HIST                    5
 #define TARGET                  80
 #define CAP                     75
+/* AB vote is in multiple of BW_STEP Mega bytes */
+#define BW_STEP                 160
 
 static void _update_cutoff(struct devfreq_msm_adreno_tz_data *priv,
 					unsigned int norm_max)
@@ -59,6 +61,7 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 	 */
 	static int norm_ab_max = 300;
 	int norm_ab;
+	unsigned long ab_mbytes = 0;
 
 	stats.private_data = &b;
 
@@ -103,8 +106,15 @@ static int devfreq_gpubw_get_target(struct devfreq *df,
 			bus_profile->flag = DEVFREQ_FLAG_SLOW_HINT;
 	}
 
-	/* Re-calculate the AB percentage for a new IB vote */
-	if (bus_profile->flag) {
+	/* Calculate the AB vote based on bus width if defined */
+	if (priv->bus.width) {
+		norm_ab =  (unsigned int)priv->bus.ram_time /
+			(unsigned int) priv->bus.total_time;
+		/* Calculate AB in Mega Bytes and roundup in BW_STEP */
+		ab_mbytes = (norm_ab * priv->bus.width * 1000000ULL) >> 20;
+		bus_profile->ab_mbytes = roundup(ab_mbytes, BW_STEP);
+	} else if (bus_profile->flag) {
+		/* Re-calculate the AB percentage for a new IB vote */
 		norm_ab =  (unsigned int)priv->bus.ram_time /
 			(unsigned int) priv->bus.total_time;
 		if (norm_ab > norm_ab_max)
