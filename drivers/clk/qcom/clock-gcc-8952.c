@@ -54,7 +54,7 @@ static void __iomem *virt_bases[N_BASES];
 #define xo_a_source_val			0
 #define gpll0_source_val		1
 #define gpll3_source_val		2
-
+#define gpll0_out_main_source_val	1   /* sdcc1_ice_core */
 #define gpll0_out_aux_source_val	2   /* cci_clk_src and
 					     * usb_fs_system_clk_src */
 #define gpll4_source_val		2   /* sdcc1_apss_clk_src */
@@ -399,6 +399,7 @@ static struct pll_vote_clk gpll0_clk_src = {
 };
 
 DEFINE_EXT_CLK(gpll0_out_aux_clk_src, &gpll0_clk_src.c);
+DEFINE_EXT_CLK(gpll0_out_main_clk_src, &gpll0_clk_src.c);
 
 /* Don't vote for xo if using this clock to allow xo shutdown */
 static struct pll_vote_clk gpll0_ao_clk_src = {
@@ -1408,6 +1409,26 @@ static struct rcg_clk sdcc1_apps_clk_src = {
 		.ops = &clk_ops_rcg_mnd,
 		VDD_DIG_FMAX_MAP2(LOWER, 200000000, NOMINAL, 384000000),
 		CLK_INIT(sdcc1_apps_clk_src.c),
+	},
+};
+
+static struct clk_freq_tbl ftbl_gcc_sdcc1_ice_core_clk[] = {
+	F( 100000000,	gpll0_out_main,	8,	0,	0),
+	F( 200000000,	gpll0_out_main,	4,	0,	0),
+	F_END
+};
+
+static struct rcg_clk sdcc1_ice_core_clk_src = {
+	.cmd_rcgr_reg =  SDCC1_ICE_CORE_CMD_RCGR,
+	.set_rate = set_rate_mnd,
+	.freq_tbl = ftbl_gcc_sdcc1_ice_core_clk,
+	.current_freq = &rcg_dummy_freq,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "sdcc1_ice_core_clk_src",
+		.ops = &clk_ops_rcg_mnd,
+		VDD_DIG_FMAX_MAP2(LOWER, 100000000, NOMINAL, 200000000),
+		CLK_INIT(sdcc1_ice_core_clk_src.c),
 	},
 };
 
@@ -2579,6 +2600,18 @@ static struct branch_clk gcc_sdcc1_apps_clk = {
 	},
 };
 
+static struct branch_clk gcc_sdcc1_ice_core_clk = {
+	.cbcr_reg = SDCC1_ICE_CORE_CBCR,
+	.has_sibling = 0,
+	.base = &virt_bases[GCC_BASE],
+	.c = {
+		.dbg_name = "gcc_sdcc1_ice_core_clk",
+		.parent = &sdcc1_ice_core_clk_src.c,
+		.ops = &clk_ops_branch,
+		CLK_INIT(gcc_sdcc1_ice_core_clk.c),
+	}
+};
+
 static struct branch_clk gcc_sdcc2_ahb_clk = {
 	.cbcr_reg = SDCC2_AHB_CBCR,
 	.has_sibling = 1,
@@ -3034,6 +3067,7 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_usb_hs_phy_cfg_ahb_clk.c, 0x0064 },
 		{ &gcc_sdcc1_apps_clk.c, 0x0068 },
 		{ &gcc_sdcc1_ahb_clk.c, 0x0069 },
+		{ &gcc_sdcc1_ice_core_clk.c, 0x006a },
 		{ &gcc_sdcc2_apps_clk.c, 0x0070 },
 		{ &gcc_sdcc2_ahb_clk.c, 0x0071 },
 		{ &gcc_blsp1_ahb_clk.c, 0x0088 },
@@ -3268,6 +3302,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(vsync_clk_src),
 	CLK_LIST(pdm2_clk_src),
 	CLK_LIST(sdcc1_apps_clk_src),
+	CLK_LIST(sdcc1_ice_core_clk_src),
 	CLK_LIST(sdcc2_apps_clk_src),
 	CLK_LIST(usb_fs_ic_clk_src),
 	CLK_LIST(usb_fs_system_clk_src),
@@ -3354,6 +3389,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_pdm_ahb_clk),
 	CLK_LIST(gcc_sdcc1_ahb_clk),
 	CLK_LIST(gcc_sdcc1_apps_clk),
+	CLK_LIST(gcc_sdcc1_ice_core_clk),
 	CLK_LIST(gcc_sdcc2_ahb_clk),
 	CLK_LIST(gcc_sdcc2_apps_clk),
 	CLK_LIST(gcc_usb2a_phy_sleep_clk),

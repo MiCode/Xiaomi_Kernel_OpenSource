@@ -92,6 +92,7 @@
 #define clk_pclk0_clk_src			0xccac1f35
 #define clk_pdm2_clk_src			0x31e494fd
 #define clk_sdcc1_apps_clk_src			0xd4975db2
+#define clk_sdcc1_ice_core_clk_src		0xfd6a4301
 #define clk_sdcc2_apps_clk_src			0xfc46c821
 #define clk_usb_hs_system_clk_src		0x28385546
 #define clk_usb_fs_system_clk_src               0x06ee1762
@@ -196,6 +197,7 @@
 #define clk_gcc_pdm_ahb_clk			0x365664f6
 #define clk_gcc_sdcc1_ahb_clk			0x691e0caa
 #define clk_gcc_sdcc1_apps_clk			0x9ad6fb96
+#define clk_gcc_sdcc1_ice_core_clk		0x0fd5680a
 #define clk_gcc_sdcc2_ahb_clk			0x23d5727f
 #define clk_gcc_sdcc2_apps_clk			0x861b20ac
 #define clk_gcc_usb2a_phy_sleep_clk		0x6caa736f
