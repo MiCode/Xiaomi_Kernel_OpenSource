@@ -550,7 +550,8 @@ void assert_force_wake_inactive(struct drm_i915_private *dev_priv)
 	 REG_RANGE((reg), 0x8000, 0x8300) || \
 	 REG_RANGE((reg), 0x8500, 0x8600) || \
 	 REG_RANGE((reg), 0x9000, 0xB000) || \
-	 REG_RANGE((reg), 0xF000, 0x10000))
+	 REG_RANGE((reg), 0xF000, 0x10000) || \
+	 REG_RANGE((reg), 0x22000, 0x24000))
 
 static void
 ilk_dummy_write(struct drm_i915_private *dev_priv)
