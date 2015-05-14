@@ -1,0 +1,36 @@
+Introduction
+============
+
+The scm-mpu driver allows enabling xpu protection of arbitrary physical memory
+addresses as a debug mechanism.
+
+Software description
+====================
+
+Several methods of controlling this feature are provided.
+
+* CONFIG_KERNEL_TEXT_MPU_PROT - Enables protection of the kernel code and
+read-only sections by default.
+
+* kernel command line
+scm_mpu.mpu_start=0x0
+scm_mpu.mpu_size=0x1000
+
+* /sys/module/scm_mpu/parameters
+echo 0x0 > mpu_start
+echo 0x1000 > mpu_size
+echo 0x11 > mpu_enable
+
+The sysfs interface may also be used to unlock previously defined regions.
+echo 0x0 > mpu_start
+echo 0x1000 > mpu_size
+echo 0x10 > mpu_enable
+
+Limitations
+===========
+The number of distinct regions allowed is limited by available resources.
+
+No provisions are made for "carving out" or otherwise removing xpu protected
+regions from the linux memory map.
+
+XPU protection currently uses 4K alignment.
