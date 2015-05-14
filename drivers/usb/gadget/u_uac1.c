@@ -45,6 +45,10 @@ static char *fn_cntl = FILE_CONTROL;
 module_param(fn_cntl, charp, S_IRUGO);
 MODULE_PARM_DESC(fn_cntl, "Control device file name");
 
+static unsigned sample_rate = 16000;
+module_param(sample_rate, uint, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(sample_rate, "Sample rate for playback and capture");
+
 static struct gaudio *the_card;
 
 static bool audio_reinit;
@@ -152,13 +156,13 @@ static int playback_prepare_params(struct gaudio_snd_dev *snd)
        /*
 	* SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	* SNDRV_PCM_FORMAT_S16_LE
-	* CHANNELS: 2
-	* RATE: 8000
+	* CHANNELS: 1
+	* RATE: 16K default, user configurable
 	*/
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
-	snd->channels = 2;
-	snd->rate = 8000;
+	snd->channels = 1;
+	snd->rate = sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
@@ -244,12 +248,12 @@ static int capture_prepare_params(struct gaudio_snd_dev *snd)
 	 * SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	 * SNDRV_PCM_FORMAT_S16_LE
 	 * CHANNELS: 1
-	 * RATE: 8000
+	 * RATE: 16K default, user configurable
 	 */
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
 	snd->channels = 1;
-	snd->rate = 8000;
+	snd->rate = sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params) {
@@ -334,13 +338,13 @@ static int playback_default_hw_params(struct gaudio_snd_dev *snd)
        /*
 	* SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	* SNDRV_PCM_FORMAT_S16_LE
-	* CHANNELS: 2
-	* RATE: 8000
+	* CHANNELS: 1
+	* RATE: 16K default, user configurable
 	*/
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
-	snd->channels = 2;
-	snd->rate = 8000;
+	snd->channels = 1;
+	snd->rate = sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
@@ -378,12 +382,12 @@ static int capture_default_hw_params(struct gaudio_snd_dev *snd)
 	 * SNDRV_PCM_ACCESS_RW_INTERLEAVED,
 	 * SNDRV_PCM_FORMAT_S16_LE
 	 * CHANNELS: 1
-	 * RATE: 8000
+	 * RATE: 16K default, user configurable
 	 */
 	snd->access = SNDRV_PCM_ACCESS_RW_INTERLEAVED;
 	snd->format = SNDRV_PCM_FORMAT_S16_LE;
 	snd->channels = 1;
-	snd->rate = 8000;
+	snd->rate = sample_rate;
 
 	params = kzalloc(sizeof(*params), GFP_KERNEL);
 	if (!params)
