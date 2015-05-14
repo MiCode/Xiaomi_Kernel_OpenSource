@@ -1067,6 +1067,10 @@ static void msm_jpegdma_device_run(void *priv)
 
 	dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 	src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+	if (src_buf == NULL || dst_buf == NULL) {
+		dev_err(ctx->jdma_device->dev, "Error, buffer list empty\n");
+		return;
+	}
 
 	if (ctx->pending_config) {
 		msm_jpegdma_schedule_next_config(ctx);
@@ -1127,6 +1131,12 @@ void msm_jpegdma_isr_processing_done(struct msm_jpegdma_device *dma)
 		if (ctx->plane_idx >= formats[ctx->format_idx].num_planes) {
 			src_buf = v4l2_m2m_src_buf_remove(ctx->m2m_ctx);
 			dst_buf = v4l2_m2m_dst_buf_remove(ctx->m2m_ctx);
+			if (src_buf == NULL || dst_buf == NULL) {
+				dev_err(ctx->jdma_device->dev, "Error, buffer list empty\n");
+				mutex_unlock(&ctx->lock);
+				mutex_unlock(&dma->lock);
+				return;
+			}
 			complete_all(&ctx->completion);
 			ctx->plane_idx = 0;
 
@@ -1137,6 +1147,12 @@ void msm_jpegdma_isr_processing_done(struct msm_jpegdma_device *dma)
 		} else {
 			dst_buf = v4l2_m2m_next_dst_buf(ctx->m2m_ctx);
 			src_buf = v4l2_m2m_next_src_buf(ctx->m2m_ctx);
+			if (src_buf == NULL || dst_buf == NULL) {
+				dev_err(ctx->jdma_device->dev, "Error, buffer list empty\n");
+				mutex_unlock(&ctx->lock);
+				mutex_unlock(&dma->lock);
+				return;
+			}
 			msm_jpegdma_process_buffers(ctx, src_buf, dst_buf);
 		}
 		mutex_unlock(&ctx->lock);
