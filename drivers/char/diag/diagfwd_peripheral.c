@@ -412,8 +412,8 @@ int diagfwd_peripheral_init(void)
 				GFP_KERNEL);
 		if (!early_init_info[transport])
 			return -ENOMEM;
+		kmemleak_not_leak(early_init_info[transport]);
 	}
-	kmemleak_not_leak(early_init_info);
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		for (transport = 0; transport < NUM_TRANSPORT; transport++) {
