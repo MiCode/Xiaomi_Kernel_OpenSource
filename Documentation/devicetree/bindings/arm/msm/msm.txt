@@ -68,6 +68,9 @@ SoCs:
 - MSM8996
   compatible = "qcom,msm8996"
 
+- MSMCOBALT
+  compatible = "qcom,msmcobalt"
+
 - MSMTELLURIUM
   compatible = "qcom,msmtellurium"
 
@@ -190,6 +193,7 @@ compatible = "qcom,msm8996-cdp"
 compatible = "qcom,msm8996-fluid"
 compatible = "qcom,msm8996-liquid"
 compatible = "qcom,msm8996-mtp"
+compatible = "qcom,msmcobalt-sim"
 compatible = "qcom,msmtellurium-rumi"
 compatible = "qcom,msmtellurium-sim"
 compatible = "qcom,msmzirc-cdp"

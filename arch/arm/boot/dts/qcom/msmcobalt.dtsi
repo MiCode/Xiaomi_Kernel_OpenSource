@@ -1,0 +1,208 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "skeleton64.dtsi"
+#include <dt-bindings/clock/msm-clocks-8996.h>
+
+/ {
+	model = "Qualcomm Technologies, Inc. MSM COBALT";
+	compatible = "qcom,msmcobalt";
+	interrupt-parent = <&intc>;
+
+	aliases {
+		serial0 = &uartblsp2dm1;
+	};
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		CPU0: cpu@0 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x0>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_0>;
+			L2_0: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			};
+
+		};
+
+		CPU1: cpu@1 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x1>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU2: cpu@100 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x100>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+			next-level-cache = <&L2_1>;
+			L2_1: l2-cache {
+			      compatible = "arm,arch-cache";
+			      cache-level = <2>;
+			};
+		};
+
+		CPU3: cpu@101 {
+			device_type = "cpu";
+			compatible = "qcom,kryo";
+			reg = <0x0 0x101>;
+			enable-method = "spin-table";
+			cpu-release-addr = <0x0 0x90000000>;
+		};
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+
+				core1 {
+					cpu = <&CPU1>;
+				};
+			};
+
+			cluster1 {
+				core0 {
+					cpu = <&CPU2>;
+				};
+
+				core1 {
+					cpu = <&CPU3>;
+				};
+			};
+		};
+	};
+
+	soc: soc { };
+};
+
+&soc {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0 0 0 0xffffffff>;
+	compatible = "simple-bus";
+
+	intc: interrupt-controller@09bc0000 {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		#redistributor-regions = <1>;
+		redistributor-stride = <0x0 0x40000>;
+		reg = <0x09bc0000 0x10000>,       /* GICD */
+		      <0x09c00000 0x100000>;      /* GICR * 4 */
+		interrupts = <1 9 4>;
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <1 13 0xf08>,
+			     <1 14 0xf08>,
+			     <1 11 0xf08>,
+			     <1 10 0xf08>;
+		clock-frequency = <19200000>;
+	};
+
+	uartblsp1dm1: serial@07570000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x7570000 0x1000>;
+		interrupts = <0 108 0>;
+		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_blsp1_uart2_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp1_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+	};
+
+	uartblsp2dm1: serial@075b0000 {
+		compatible = "qcom,msm-lsuart-v14";
+		reg = <0x75b0000 0x1000>;
+		interrupts = <0 114 0>;
+		status = "disabled";
+		clocks = <&clock_gcc clk_gcc_blsp2_uart2_apps_clk>,
+			 <&clock_gcc clk_gcc_blsp2_ahb_clk>;
+		clock-names = "core_clk", "iface_clk";
+	};
+
+	timer@09840000 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		compatible = "arm,armv7-timer-mem";
+		reg = <0x09840000 0x1000>;
+		clock-frequency = <19200000>;
+
+		frame@09850000 {
+			frame-number = <0>;
+			interrupts = <0 31 0x4>,
+				     <0 30 0x4>;
+			reg = <0x09850000 0x1000>,
+			      <0x09860000 0x1000>;
+		};
+
+		frame@09870000 {
+			frame-number = <1>;
+			interrupts = <0 32 0x4>;
+			reg = <0x09870000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@09880000 {
+			frame-number = <2>;
+			interrupts = <0 33 0x4>;
+			reg = <0x09880000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@09890000 {
+			frame-number = <3>;
+			interrupts = <0 34 0x4>;
+			reg = <0x09890000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@098a0000 {
+			frame-number = <4>;
+			interrupts = <0 35 0x4>;
+			reg = <0x098a0000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@098b0000 {
+			frame-number = <5>;
+			interrupts = <0 36 0x4>;
+			reg = <0x098b0000 0x1000>;
+			status = "disabled";
+		};
+
+		frame@098c0000 {
+			frame-number = <6>;
+			interrupts = <0 37 0x4>;
+			reg = <0x098c0000 0x1000>;
+			status = "disabled";
+		};
+	};
+
+	clock_gcc: qcom,dummycc {
+		compatible = "qcom,dummycc";
+		#clock-cells = <1>;
+	};
+};

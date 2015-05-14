@@ -229,6 +229,13 @@ config ARCH_MSM8996
 	  This enables support for the MSM8996 chipset. If you don't
 	  know what to do here, say N
 
+config ARCH_MSMCOBALT
+	bool "Enable Support for Qualcomm MSMCOBALT"
+	depends on ARCH_MSM
+	help
+	  This enables support for the MSMCOBALT chipset. If you do not
+	  wish to build a kernel that runs on this chipset, say 'N' here.
+
 config ARCH_MSM8994_V1_TLBI_WA
 	bool "Enable MSM8994 v1 TLBI workaround"
 	depends on ARCH_MSM8994
