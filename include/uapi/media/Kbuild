@@ -6,6 +6,7 @@ header-y += msm_gemini.h
 header-y += msm_gestures.h
 header-y += msm_isp.h
 header-y += msm_jpeg.h
+header-y += msm_jpeg_dma.h
 header-y += msm_media_info.h
 header-y += msm_mercury.h
 header-y += msm_vidc.h

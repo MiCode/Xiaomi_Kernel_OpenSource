@@ -269,3 +269,10 @@ config MSM_FD
 	 depends on MSMB_CAMERA
 	 ---help---
 	    Enables support for the MSM FD face detection engine.
+
+config MSM_JPEGDMA
+	tristate "Qualcomm Technologies Inc. MSM Jpeg dma"
+        depends on MSMB_CAMERA
+        select V4L2_MEM2MEM_DEV
+	---help---
+	  Enable support for Jpeg dma engine.
