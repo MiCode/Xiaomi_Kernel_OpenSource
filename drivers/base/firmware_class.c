@@ -1079,7 +1079,7 @@ static int _request_firmware_load(struct firmware_priv *fw_priv,
 	cancel_delayed_work_sync(&fw_priv->timeout_work);
 	if (is_fw_load_aborted(buf))
 		retval = -EAGAIN;
-	else if (!buf->data)
+	else if (!buf->data && buf->is_paged_buf)
 		retval = -ENOMEM;
 
 	device_remove_file(f_dev, &dev_attr_loading);
