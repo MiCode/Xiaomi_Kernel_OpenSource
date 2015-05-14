@@ -1942,6 +1942,18 @@ static void arm_iommu_sync_single_for_device(struct device *dev,
 	__dma_page_cpu_to_dev(page, offset, size, dir);
 }
 
+static int arm_iommu_dma_supported(struct device *dev, u64 mask)
+{
+	struct dma_iommu_mapping *mapping = to_dma_iommu_mapping(dev);
+
+	if (!mapping) {
+		dev_warn(dev, "No IOMMU mapping for device\n");
+		return 0;
+	}
+
+	return iommu_dma_supported(mapping->domain, dev, mask);
+}
+
 const struct dma_map_ops iommu_ops = {
 	.alloc		= arm_iommu_alloc_attrs,
 	.free		= arm_iommu_free_attrs,
@@ -1959,6 +1971,7 @@ const struct dma_map_ops iommu_ops = {
 	.sync_sg_for_device	= arm_iommu_sync_sg_for_device,
 
 	.set_dma_mask		= arm_dma_set_mask,
+	.dma_supported		= arm_iommu_dma_supported,
 };
 
 const struct dma_map_ops iommu_coherent_ops = {
@@ -1974,6 +1987,7 @@ const struct dma_map_ops iommu_coherent_ops = {
 	.unmap_sg	= arm_coherent_iommu_unmap_sg,
 
 	.set_dma_mask	= arm_dma_set_mask,
+	.dma_supported   = arm_iommu_dma_supported,
 };
 
 /**
