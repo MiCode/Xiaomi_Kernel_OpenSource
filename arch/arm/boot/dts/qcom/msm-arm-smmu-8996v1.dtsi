@@ -115,6 +115,7 @@
 	qcom,errata-ctx-fault-hang;
 	qcom,fatal-asf;
 	qcom,errata-tz-atos;
+	qcom,no-smr-check;
 	#global-interrupts = <1>;
 	interrupts = <0 353 0>, <0 348 0>, <0 349 0>, <0 350 0>,
 		   <0 351 0>;
