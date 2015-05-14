@@ -1268,6 +1268,13 @@ struct mdp_display_commit {
 	uint32_t flags;
 	uint32_t wait_for_finish;
 	struct fb_var_screeninfo var;
+	/*
+	 * user needs to follow guidelines as per below rules
+	 * 1. source split is enabled: l_roi = roi and r_roi = 0
+	 * 2. source split is disabled:
+	 *	2.1 split display: l_roi = l_roi and r_roi = r_roi
+	 *	2.2 non split display: l_roi = roi and r_roi = 0
+	 */
 	struct mdp_rect l_roi;
 	struct mdp_rect r_roi;
 };
