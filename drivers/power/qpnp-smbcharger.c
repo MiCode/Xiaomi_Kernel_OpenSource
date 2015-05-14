@@ -1323,7 +1323,7 @@ static int smbchg_dc_en(struct smbchg_chip *chip, bool enable,
 		goto out;
 	}
 
-	if (chip->psy_registered)
+	if (chip->dc_psy_type != -EINVAL)
 		power_supply_changed(&chip->dc_psy);
 	pr_smb(PR_STATUS, "dc charging %s, suspended = %02x\n",
 			suspended == 0 ? "enabled"
