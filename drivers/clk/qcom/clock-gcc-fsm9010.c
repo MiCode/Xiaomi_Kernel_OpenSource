@@ -444,19 +444,6 @@ static struct rcg_clk blsp1_uart2_apps_clk_src = {
 	},
 };
 
-static struct rcg_clk blsp1_uart3_apps_clk_src = {
-	.cmd_rcgr_reg = BLSP1_UART3_APPS_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.freq_tbl = ftbl_gcc_blsp1_uart1_4_apps_clk,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "blsp1_uart3_apps_clk_src",
-		.ops = &clk_ops_rcg_mnd,
-		CLK_INIT(blsp1_uart3_apps_clk_src.c),
-	},
-};
-
 static struct rcg_clk blsp1_uart4_apps_clk_src = {
 	.cmd_rcgr_reg = BLSP1_UART4_APPS_CMD_RCGR,
 	.set_rate = set_rate_mnd,
@@ -851,18 +838,6 @@ static struct branch_clk gcc_blsp1_uart2_apps_clk = {
 		.dbg_name = "gcc_blsp1_uart2_apps_clk",
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_blsp1_uart2_apps_clk.c),
-	},
-};
-
-static struct branch_clk gcc_blsp1_uart3_apps_clk = {
-	.cbcr_reg = BLSP1_UART3_APPS_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.parent = &blsp1_uart3_apps_clk_src.c,
-		.dbg_name = "gcc_blsp1_uart3_apps_clk",
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_blsp1_uart3_apps_clk.c),
 	},
 };
 
@@ -1510,7 +1485,6 @@ static struct mux_clk gcc_debug_mux = {
 static struct clk_lookup msm_clocks_lookup[] = {
 
 	CLK_LIST(gcc_blsp1_uart1_apps_clk),
-	CLK_LIST(gcc_blsp1_uart3_apps_clk),
 	CLK_LIST(gcc_blsp1_uart4_apps_clk),
 	CLK_LIST(gcc_blsp1_qup2_i2c_apps_clk),
 	CLK_LIST(gcc_blsp1_ahb_clk),
