@@ -399,7 +399,8 @@ struct mvm_set_hd_enable_cmd {
 } __packed;
 
 struct vss_imemory_table_descriptor_t {
-	uint64_t mem_address;
+	uint32_t mem_address_lsw;
+	uint32_t mem_address_msw;
 	/*
 	 * Base physical address of the table. The address must be aligned
 	 * to LCM( cache_line_size, page_align, max_data_width ), where the
@@ -785,7 +786,8 @@ struct vss_istream_cmd_set_enc_dtx_mode_t {
 struct vss_istream_cmd_register_calibration_data_v2_t {
 	uint32_t cal_mem_handle;
 	/* Handle to the shared memory that holds the calibration data. */
-	uint64_t cal_mem_address;
+	uint32_t cal_mem_address_lsw;
+	uint32_t cal_mem_address_msw;
 	/* Location of calibration data. */
 	uint32_t cal_mem_size;
 	/* Size of the calibration data in bytes. */
@@ -945,9 +947,11 @@ struct cvs_enc_buffer_consumed_cmd {
 struct vss_istream_cmd_set_oob_packet_exchange_config_t {
 	struct apr_hdr hdr;
 	uint32_t mem_handle;
-	uint64_t enc_buf_addr;
+	uint32_t enc_buf_addr_lsw;
+	uint32_t enc_buf_addr_msw;
 	uint32_t enc_buf_size;
-	uint64_t dec_buf_addr;
+	uint32_t dec_buf_addr_lsw;
+	uint32_t dec_buf_addr_msw;
 	uint32_t dec_buf_size;
 } __packed;
 
@@ -1180,7 +1184,8 @@ struct vss_ivocproc_cmd_register_device_config_t {
 	 * Handle to the shared memory that holds the per-network calibration
 	 * data.
 	 */
-	uint64_t mem_address;
+	uint32_t mem_address_lsw;
+	uint32_t mem_address_msw;
 	/* Location of calibration data. */
 	uint32_t mem_size;
 	/* Size of the calibration data in bytes. */
@@ -1192,7 +1197,8 @@ struct vss_ivocproc_cmd_register_calibration_data_v2_t {
 	 * Handle to the shared memory that holds the per-network calibration
 	 * data.
 	 */
-	uint64_t cal_mem_address;
+	uint32_t cal_mem_address_lsw;
+	uint32_t cal_mem_address_msw;
 	/* Location of calibration data. */
 	uint32_t cal_mem_size;
 	/* Size of the calibration data in bytes. */
@@ -1211,7 +1217,8 @@ struct vss_ivocproc_cmd_register_volume_cal_data_t {
 	 * Handle to the shared memory that holds the volume calibration
 	 * data.
 	 */
-	uint64_t cal_mem_address;
+	uint32_t cal_mem_address_lsw;
+	uint32_t cal_mem_address_msw;
 	/* Location of volume calibration data. */
 	uint32_t cal_mem_size;
 	/* Size of the volume calibration data in bytes. */
@@ -1503,7 +1510,8 @@ struct cvp_set_sound_focus_param_cmd_t {
 /* Payload structure for the VSS_ISOURCETRACK_CMD_GET_ACTIVITY command */
 struct vss_isourcetrack_cmd_get_activity_t {
 	uint32_t mem_handle;
-	uint64_t mem_address;
+	uint32_t mem_address_lsw;
+	uint32_t mem_address_msw;
 	uint32_t mem_size;
 } __packed;
 
