@@ -785,9 +785,6 @@
 		qcom,vref-functional-min-voltage = <285420>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
-		qcom,pm-cpu0 = <&acc0>;
-		qcom,pm-cpu1 = <&acc1>;
-		qcom,pm-l2 = <&l2ccc_0>;
 		qcom,cluster-num = <0>;
 		kryo0_retention_vreg: regulator {
 			regulator-name = "kryo0-retention";
@@ -810,9 +807,6 @@
 		qcom,vref-functional-min-voltage = <284415>;
 		qcom,vref-retention-step-voltage = <4554>;
 		qcom,vref-retention-min-voltage = <332000>;
-		qcom,pm-cpu0 = <&acc2>;
-		qcom,pm-cpu1 = <&acc3>;
-		qcom,pm-l2 = <&l2ccc_1>;
 		qcom,cluster-num = <1>;
 		kryo1_retention_vreg: regulator {
 			regulator-name = "kryo1-retention";
