@@ -51,6 +51,8 @@ struct diag_channel_ops {
 };
 
 struct diag_peripheral_ops {
+	void (*open)(void *ctxt);
+	void (*close)(void *ctxt);
 	int (*write)(void *ctxt, unsigned char *buf, int len);
 	int (*read)(void *ctxt, unsigned char *buf, int len);
 	void (*queue_read)(void *ctxt);
