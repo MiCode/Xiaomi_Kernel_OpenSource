@@ -233,6 +233,21 @@
 	ranges = <0 0 0 0xffffffff>;
 	compatible = "simple-bus";
 
+	arm64-cpu-erp {
+		compatible = "arm,arm64-cpu-erp";
+		interrupts = <0 275 0>,
+			     <0 276 0>,
+			     <0 273 0>,
+			     <0 274 0>,
+			     <1 7 0>;
+		interrupt-names = "pri-dbe-irq",
+				  "sec-dbe-irq",
+				  "pri-ext-irq",
+				  "sec-ext-irq",
+				  "sbe-irq";
+		poll-delay-ms = <5000>;
+	};
+
 	l2ccc_0: clock-controller@b111000 {
 		compatible = "qcom,8976-l2ccc";
 		reg = <0x0b111000 0x1000>;
