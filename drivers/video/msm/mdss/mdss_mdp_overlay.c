@@ -616,7 +616,9 @@ int mdss_mdp_overlay_pipe_setup(struct msm_fb_data_type *mfd,
 		return -EOVERFLOW;
 	}
 
-	if (IS_RIGHT_MIXER_OV(req->flags, req->dst_rect.x, left_lm_w))
+	if (IS_RIGHT_MIXER_OV(req->flags, req->dst_rect.x, left_lm_w)
+			&& !(req->pipe_type == MDSS_MDP_PIPE_TYPE_CURSOR
+				&& is_split_lm(mfd)))
 		mixer_mux = MDSS_MDP_MIXER_MUX_RIGHT;
 	else
 		mixer_mux = MDSS_MDP_MIXER_MUX_LEFT;
