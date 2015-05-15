@@ -159,7 +159,7 @@ static int __dcc_ll_cfg(struct dcc_drvdata *drvdata)
 	int ret = 0;
 	uint32_t sram_offset = 0;
 	uint32_t prev_addr, addr;
-	uint32_t prev_off, off;
+	uint32_t prev_off = 0, off;
 	uint32_t link;
 	uint32_t pos;
 	struct dcc_config_entry *entry;
