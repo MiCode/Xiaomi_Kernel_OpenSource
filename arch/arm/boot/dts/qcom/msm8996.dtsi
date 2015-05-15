@@ -2763,6 +2763,7 @@
 		qcom,model = "msm8996-tasha-snd-card";
 
 		qcom,audio-routing =
+			"AIF4 VI", "MCLK",
 			"RX_BIAS", "MCLK",
 			"AMIC2", "MIC BIAS2",
 			"MIC BIAS2", "Headset Mic",
