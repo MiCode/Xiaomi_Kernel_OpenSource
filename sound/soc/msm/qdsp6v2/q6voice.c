@@ -2345,8 +2345,10 @@ static int voice_send_cvs_register_cal_cmd(struct voice_data *v)
 
 	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_handle =
 		cal_block->map_data.q6map_handle;
-	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_address =
-		cal_block->cal_data.paddr;
+	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_address_lsw =
+		lower_32_bits(cal_block->cal_data.paddr);
+	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_address_msw =
+		populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvs_reg_cal_cmd.cvs_cal_data.cal_mem_size =
 		cal_block->cal_data.size;
 
@@ -2473,8 +2475,10 @@ static int voice_send_cvp_register_dev_cfg_cmd(struct voice_data *v)
 
 	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_handle =
 		cal_block->map_data.q6map_handle;
-	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_address =
-		cal_block->cal_data.paddr;
+	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_address_lsw =
+		lower_32_bits(cal_block->cal_data.paddr);
+	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_address_msw =
+		populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_dev_cfg_cmd.cvp_dev_cfg_data.mem_size =
 		cal_block->cal_data.size;
 
@@ -2611,8 +2615,10 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 
 	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_handle =
 		cal_block->map_data.q6map_handle;
-	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_address =
-		cal_block->cal_data.paddr;
+	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_address_lsw =
+		lower_32_bits(cal_block->cal_data.paddr);
+	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_address_msw =
+		populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_cal_cmd.cvp_cal_data.cal_mem_size =
 		cal_block->cal_data.size;
 
@@ -2749,8 +2755,10 @@ static int voice_send_cvp_register_vol_cal_cmd(struct voice_data *v)
 
 	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_handle =
 		cal_block->map_data.q6map_handle;
-	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_address =
-		cal_block->cal_data.paddr;
+	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_address_lsw =
+		lower_32_bits(cal_block->cal_data.paddr);
+	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_address_msw =
+		populate_upper_32_bits(cal_block->cal_data.paddr);
 	cvp_reg_vol_cal_cmd.cvp_vol_cal_data.cal_mem_size =
 		cal_block->cal_data.size;
 
@@ -2892,7 +2900,10 @@ static int voice_map_memory_physical_cmd(struct voice_data *v,
 	mvm_map_phys_cmd.hdr.token = token;
 	mvm_map_phys_cmd.hdr.opcode = VSS_IMEMORY_CMD_MAP_PHYSICAL;
 
-	mvm_map_phys_cmd.table_descriptor.mem_address = table_info->phys;
+	mvm_map_phys_cmd.table_descriptor.mem_address_lsw =
+			lower_32_bits(table_info->phys);
+	mvm_map_phys_cmd.table_descriptor.mem_address_msw =
+			populate_upper_32_bits(table_info->phys);
 	mvm_map_phys_cmd.table_descriptor.mem_size =
 			sizeof(struct vss_imemory_block_t) +
 			sizeof(struct vss_imemory_table_descriptor_t);
@@ -3938,8 +3949,6 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	struct vss_istream_cmd_set_oob_packet_exchange_config_t
 						 packet_exchange_config_pkt;
 	int ret = 0;
-	phys_addr_t dec_buf;
-	phys_addr_t enc_buf;
 	void *apr_cvs;
 	u16 cvs_handle;
 
@@ -3947,8 +3956,6 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 		pr_err("%s: v is NULL\n", __func__);
 		return -EINVAL;
 	}
-	dec_buf = (phys_addr_t)v->shmem_info.sh_buf.buf[0].phys;
-	enc_buf = (phys_addr_t)v->shmem_info.sh_buf.buf[1].phys;
 
 	apr_cvs = common.apr_q6_cvs;
 
@@ -3972,16 +3979,26 @@ static int voice_send_cvs_packet_exchange_config_cmd(struct voice_data *v)
 	packet_exchange_config_pkt.hdr.opcode =
 			 VSS_ISTREAM_CMD_SET_OOB_PACKET_EXCHANGE_CONFIG;
 	packet_exchange_config_pkt.mem_handle = v->shmem_info.mem_handle;
-	packet_exchange_config_pkt.dec_buf_addr = (phys_addr_t)dec_buf;
+	/* dec buffer address */
+	packet_exchange_config_pkt.dec_buf_addr_lsw =
+		lower_32_bits(v->shmem_info.sh_buf.buf[0].phys);
+	packet_exchange_config_pkt.dec_buf_addr_msw =
+		populate_upper_32_bits(v->shmem_info.sh_buf.buf[0].phys);
 	packet_exchange_config_pkt.dec_buf_size = 4096;
-	packet_exchange_config_pkt.enc_buf_addr = (phys_addr_t)enc_buf;
+	/* enc buffer address */
+	packet_exchange_config_pkt.enc_buf_addr_lsw =
+		lower_32_bits(v->shmem_info.sh_buf.buf[1].phys);
+	packet_exchange_config_pkt.enc_buf_addr_msw =
+		populate_upper_32_bits(v->shmem_info.sh_buf.buf[1].phys);
 	packet_exchange_config_pkt.enc_buf_size = 4096;
 
-	pr_debug("%s: dec buf: add %pa, size %d, enc buf: add %pa, size %d\n",
+	pr_debug("%s: dec buf add: lsw %0x msw %0x, size %d, enc buf add: lsw %0x msw %0x, size %d\n",
 		__func__,
-		&dec_buf,
+		packet_exchange_config_pkt.dec_buf_addr_lsw,
+		packet_exchange_config_pkt.dec_buf_addr_msw,
 		packet_exchange_config_pkt.dec_buf_size,
-		&enc_buf,
+		packet_exchange_config_pkt.enc_buf_addr_lsw,
+		packet_exchange_config_pkt.enc_buf_addr_msw,
 		packet_exchange_config_pkt.enc_buf_size);
 
 	v->cvs_state = CMD_STATUS_FAIL;
@@ -7656,14 +7673,18 @@ static int voice_send_get_source_tracking_cmd(struct voice_data *v,
 
 	st_cmd.cvp_get_source_tracking_param.mem_handle	=
 				 common.source_tracking_sh_mem.mem_handle;
-	st_cmd.cvp_get_source_tracking_param.mem_address =
-		(uint64_t)common.source_tracking_sh_mem.sh_mem_block.phys;
+	st_cmd.cvp_get_source_tracking_param.mem_address_lsw =
+		lower_32_bits(common.source_tracking_sh_mem.sh_mem_block.phys);
+	st_cmd.cvp_get_source_tracking_param.mem_address_msw =
+		populate_upper_32_bits(common.source_tracking_sh_mem.
+					sh_mem_block.phys);
 	st_cmd.cvp_get_source_tracking_param.mem_size =
 		(uint32_t)common.source_tracking_sh_mem.sh_mem_block.size;
-	pr_debug("%s: mem_handle=0x%x, mem_address=0x%llx, mem_size=%d\n",
+	pr_debug("%s: mem_handle=0x%x, mem_address_lsw=0x%x, msw=0x%x, mem_size=%d\n",
 		 __func__,
 		 st_cmd.cvp_get_source_tracking_param.mem_handle,
-		 (uint64_t)st_cmd.cvp_get_source_tracking_param.mem_address,
+		 st_cmd.cvp_get_source_tracking_param.mem_address_lsw,
+		 st_cmd.cvp_get_source_tracking_param.mem_address_msw,
 		 (uint32_t)st_cmd.cvp_get_source_tracking_param.mem_size);
 
 	v->cvp_state = CMD_STATUS_FAIL;
