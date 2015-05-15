@@ -23,7 +23,6 @@
 /* clock_gcc controlled clocks */
 #define clk_gcc_blsp1_uart1_apps_clk            0xc7c62f90
 #define clk_gcc_blsp1_uart2_apps_clk            0xf8a61c96
-#define clk_gcc_blsp1_uart3_apps_clk            0xc3298bd7
 #define clk_gcc_blsp1_uart4_apps_clk            0x26be16c0
 #define clk_gcc_blsp1_qup2_i2c_apps_clk         0x1076f220
 #define clk_gcc_blsp1_ahb_clk                   0x8caa5b4f
