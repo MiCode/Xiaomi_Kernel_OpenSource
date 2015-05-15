@@ -1098,16 +1098,18 @@
 
 	sdhc_1: sdhci@7464900 {
 		compatible = "qcom,sdhci-msm";
-		reg = <0x7464900 0x314>, <0x7464000 0x800>, <0x7464E00 0x19C>;
+		reg = <0x7464900 0x500>, <0x7464000 0x800>, <0x7464E00 0x19C>;
 		reg-names = "hc_mem", "core_mem", "cmdq_mem";
 
 		interrupts = <0 141 0>, <0 134 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 
-		clock-names = "iface_clk", "core_clk";
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
 		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
-			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>;
 
+		sdhc-msm-crypto = <&sdcc1_ice>;
 		qcom,large-address-bus;
 		qcom,bus-width = <8>;
 		qcom,cpu-dma-latency-us = <701>;
