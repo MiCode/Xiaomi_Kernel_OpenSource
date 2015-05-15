@@ -22,6 +22,10 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <soc/qcom/memory_dump.h>
+#include <soc/qcom/rpm-smd.h>
+
+#define RPM_MISC_REQ_TYPE	0x6373696d
+#define RPM_MISC_DDR_DCC_ENABLE 0x32726464
 
 #define TIMEOUT_US		(100)
 
@@ -77,6 +81,11 @@ static const char * const str_dcc_data_sink[] = {
 	[DCC_DATA_SINK_SRAM]		= "sram",
 };
 
+struct rpm_trig_req {
+	uint32_t    enable;
+	uint32_t    reserved;
+};
+
 struct dcc_config_entry {
 	uint32_t		base;
 	uint32_t		offset;
@@ -108,6 +117,8 @@ struct dcc_drvdata {
 	bool			save_reg;
 	void			*sram_buf;
 	struct msm_dump_data	sram_data;
+	struct rpm_trig_req	rpm_trig_req;
+	struct msm_rpm_kvp	rpm_kvp;
 };
 
 static bool dcc_ready(struct dcc_drvdata *drvdata)
@@ -364,6 +375,38 @@ err:
 	return ret;
 }
 
+static int __dcc_rpm_sw_trigger(struct dcc_drvdata *drvdata, bool enable)
+{
+	int ret = 0;
+	struct msm_rpm_kvp *rpm_kvp = &drvdata->rpm_kvp;
+
+	if (enable == drvdata->rpm_trig_req.enable)
+		return 0;
+
+	if (enable && (!drvdata->enable || drvdata->func_type !=
+		       DCC_FUNC_TYPE_CRC)) {
+		dev_err(drvdata->dev,
+			"DCC: invalid state! Can't send sw trigger req to rpm\n");
+		return -EINVAL;
+	}
+
+	drvdata->rpm_trig_req.enable = enable;
+	rpm_kvp->key = RPM_MISC_DDR_DCC_ENABLE;
+	rpm_kvp->length = sizeof(struct rpm_trig_req);
+	rpm_kvp->data = (void *)(&drvdata->rpm_trig_req);
+
+	ret = msm_rpm_send_message(MSM_RPM_CTX_ACTIVE_SET,
+				   RPM_MISC_REQ_TYPE, 0, rpm_kvp, 1);
+	if (ret) {
+		dev_err(drvdata->dev,
+			"DCC: SW trigger %s req to rpm failed %d\n",
+			(enable ? "enable" : "disable"), ret);
+		drvdata->rpm_trig_req.enable = !enable;
+	}
+
+	return ret;
+}
+
 static void dcc_disable(struct dcc_drvdata *drvdata)
 {
 	mutex_lock(&drvdata->mutex);
@@ -371,6 +414,12 @@ static void dcc_disable(struct dcc_drvdata *drvdata)
 		mutex_unlock(&drvdata->mutex);
 		return;
 	}
+
+	/* Send request to RPM to disable DCC SW trigger */
+
+	if (__dcc_rpm_sw_trigger(drvdata, 0))
+		dev_err(drvdata->dev,
+			"DCC: Request to RPM to disable SW trigger failed.\n");
 
 	if (!dcc_ready(drvdata))
 		dev_err(drvdata->dev, "DCC is not ready! Disabling DCC...\n");
@@ -723,6 +772,33 @@ static ssize_t dcc_store_interrupt_disable(struct device *dev,
 static DEVICE_ATTR(interrupt_disable, S_IRUGO | S_IWUSR,
 		   dcc_show_interrupt_disable, dcc_store_interrupt_disable);
 
+static ssize_t dcc_show_rpm_sw_trigger_on(struct device *dev,
+					  struct device_attribute *attr,
+					  char *buf)
+{
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+	return scnprintf(buf, PAGE_SIZE, "%u\n",
+			 (unsigned)drvdata->rpm_trig_req.enable);
+}
+
+static ssize_t dcc_store_rpm_sw_trigger_on(struct device *dev,
+					   struct device_attribute *attr,
+					   const char *buf, size_t size)
+{
+	unsigned long val;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%lx", &val) != 1)
+		return -EINVAL;
+
+	mutex_lock(&drvdata->mutex);
+	__dcc_rpm_sw_trigger(drvdata, !!val);
+	mutex_unlock(&drvdata->mutex);
+	return size;
+}
+static DEVICE_ATTR(rpm_sw_trigger_on, S_IRUGO | S_IWUSR,
+		   dcc_show_rpm_sw_trigger_on, dcc_store_rpm_sw_trigger_on);
+
 static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_func_type,
 	&dev_attr_data_sink,
@@ -733,6 +809,7 @@ static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_ready,
 	&dev_attr_crc_error,
 	&dev_attr_interrupt_disable,
+	&dev_attr_rpm_sw_trigger_on,
 	NULL,
 };
 
