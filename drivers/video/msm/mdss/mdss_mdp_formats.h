@@ -128,9 +128,10 @@ enum {
 		.element = { (e0), (e1) }			\
 	}
 
-#define FMT_RGB_1555(fmt, alpha_en, e0, e1, e2, e3)		\
+#define FMT_RGB_1555(fmt, alpha_en, flag_arg, e0, e1, e2, e3)		\
 	{							\
 		.format = (fmt),				\
+		.flag = flag_arg,					\
 		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
 		.unpack_align_msb = 0,				\
@@ -147,9 +148,10 @@ enum {
 		},						\
 	}
 
-#define FMT_RGB_4444(fmt, alpha_en, e0, e1, e2, e3)		\
+#define FMT_RGB_4444(fmt, alpha_en, flag_arg, e0, e1, e2, e3)		\
 	{							\
 		.format = (fmt),				\
+		.flag = flag_arg,					\
 		.fetch_planes = MDSS_MDP_PLANE_INTERLEAVED,	\
 		.unpack_tight = 1,				\
 		.unpack_align_msb = 0,				\
@@ -350,10 +352,14 @@ static struct mdss_mdp_format_params mdss_mdp_format_map[] = {
 		.fetch_mode = MDSS_MDP_FETCH_LINEAR,
 		.element = { C2_R_Cr, C0_G_Y, C1_B_Cb, C0_G_Y },
 	},
-	FMT_RGB_1555(MDP_RGBA_5551, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_1555(MDP_ARGB_1555, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
-	FMT_RGB_4444(MDP_RGBA_4444, 1, C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
-	FMT_RGB_4444(MDP_ARGB_4444, 1, C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_1555(MDP_RGBA_5551, 1, VALID_ROT_WB_FORMAT,
+		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+	FMT_RGB_1555(MDP_ARGB_1555, 1, VALID_ROT_WB_FORMAT,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
+	FMT_RGB_4444(MDP_RGBA_4444, 1, VALID_ROT_WB_FORMAT,
+		C3_ALPHA, C1_B_Cb, C0_G_Y, C2_R_Cr),
+	FMT_RGB_4444(MDP_ARGB_4444, 1, VALID_ROT_WB_FORMAT,
+		C1_B_Cb, C0_G_Y, C2_R_Cr, C3_ALPHA),
 
 };
 #endif
