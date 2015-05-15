@@ -30,3 +30,7 @@
 &l2ccc_1 {
 	qcom,clamped-reset-seq;
 };
+
+&apcc_cpr {
+	/delete-property/ qcom,cpr-hw-closed-loop;
+};
