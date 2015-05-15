@@ -144,16 +144,48 @@ struct diag_smd_info smd_dci_cmd[NUM_PERIPHERALS] = {
 	}
 };
 
+static void diag_state_open_smd(void *ctxt);
+static void diag_state_close_smd(void *ctxt);
 static void smd_notify(void *ctxt, unsigned event);
 static int diag_smd_write(void *ctxt, unsigned char *buf, int len);
 static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len);
 static void diag_smd_queue_read(void *ctxt);
 
 static struct diag_peripheral_ops smd_ops = {
+	.open = diag_state_open_smd,
+	.close = diag_state_close_smd,
 	.write = diag_smd_write,
 	.read = diag_smd_read,
 	.queue_read = diag_smd_queue_read
 };
+
+static void diag_state_open_smd(void *ctxt)
+{
+	struct diag_smd_info *smd_info = NULL;
+
+	if (!ctxt)
+		return;
+
+	smd_info = (struct diag_smd_info *)(ctxt);
+	atomic_set(&smd_info->diag_state, 1);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		 "%s setting diag state to 1", smd_info->name);
+}
+
+static void diag_state_close_smd(void *ctxt)
+{
+	struct diag_smd_info *smd_info = NULL;
+
+	if (!ctxt)
+		return;
+
+	smd_info = (struct diag_smd_info *)(ctxt);
+	atomic_set(&smd_info->diag_state, 0);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		 "%s setting diag state to 0", smd_info->name);
+	wake_up(&smd_info->read_wait_q);
+	flush_workqueue(smd_info->wq);
+}
 
 static int smd_channel_probe(struct platform_device *pdev, uint8_t type)
 {
@@ -422,6 +454,7 @@ static void __diag_smd_init(struct diag_smd_info *smd_info)
 	smd_info->hdl = NULL;
 	smd_info->fwd_ctxt = NULL;
 	atomic_set(&smd_info->opened, 0);
+	atomic_set(&smd_info->diag_state, 0);
 
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s initialized fwd_ctxt: %p\n",
 		 smd_info->name, smd_info->fwd_ctxt);
@@ -685,7 +718,15 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 
 	wait_event(smd_info->read_wait_q, (smd_info->hdl == NULL) ||
 				(atomic_read(&smd_info->opened) == 0) ||
-				(smd_cur_packet_size(smd_info->hdl)));
+				(smd_cur_packet_size(smd_info->hdl)) ||
+				(atomic_read(&smd_info->diag_state) == 0));
+
+	if (atomic_read(&smd_info->diag_state) == 0) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			 "%s closing read thread. diag state is closed\n",
+			 smd_info->name);
+		return 0;
+	}
 
 	if (!smd_info->hdl || !atomic_read(&smd_info->opened)) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,

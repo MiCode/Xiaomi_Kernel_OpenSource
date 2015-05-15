@@ -162,16 +162,48 @@ struct diag_socket_info socket_dci_cmd[NUM_PERIPHERALS] = {
 	}
 };
 
+static void diag_state_open_socket(void *ctxt);
+static void diag_state_close_socket(void *ctxt);
 static int diag_socket_write(void *ctxt, unsigned char *buf, int len);
 static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len);
 static void diag_socket_queue_read(void *ctxt);
 static void socket_init_work_fn(struct work_struct *work);
 
 static struct diag_peripheral_ops socket_ops = {
+	.open = diag_state_open_socket,
+	.close = diag_state_close_socket,
 	.write = diag_socket_write,
 	.read = diag_socket_read,
 	.queue_read = diag_socket_queue_read
 };
+
+static void diag_state_open_socket(void *ctxt)
+{
+	struct diag_socket_info *info = NULL;
+
+	if (!ctxt)
+		return;
+
+	info = (struct diag_socket_info *)(ctxt);
+	atomic_set(&info->diag_state, 1);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		 "%s setting diag state to 1", info->name);
+}
+
+static void diag_state_close_socket(void *ctxt)
+{
+	struct diag_socket_info *info = NULL;
+
+	if (!ctxt)
+		return;
+
+	info = (struct diag_socket_info *)(ctxt);
+	atomic_set(&info->diag_state, 0);
+	DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+		 "%s setting diag state to 0", info->name);
+	wake_up(&info->read_wait_q);
+	flush_workqueue(info->wq);
+}
 
 static void socket_data_ready(struct sock *sk_ptr, int bytes)
 {
@@ -620,6 +652,7 @@ static void __diag_socket_init(struct diag_socket_info *info)
 	init_waitqueue_head(&info->wait_q);
 	info->inited = 0;
 	atomic_set(&info->opened, 0);
+	atomic_set(&info->diag_state, 0);
 	info->pkt_len = 0;
 	info->pkt_read = 0;
 	info->hdl = NULL;
@@ -828,7 +861,15 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	temp = buf;
 	bytes_remaining = buf_len;
 
-	wait_event(info->read_wait_q, (info->data_ready > 0) || (!info->hdl));
+	wait_event(info->read_wait_q, (info->data_ready > 0) || (!info->hdl) ||
+		   (atomic_read(&info->diag_state) == 0));
+
+	if (atomic_read(&info->diag_state) == 0) {
+		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
+			 "%s closing read thread. diag state is closed\n",
+			 info->name);
+		return 0;
+	}
 
 	if (!info->hdl) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s closing read thread\n",
