@@ -1211,6 +1211,7 @@ module_exit(cpu_clock_8996_exit);
 
 #define CLK_CTL_OFFSET 0x44
 #define AUTO_CLK_SEL_BIT BIT(8)
+#define CBF_AUTO_CLK_SEL_BIT BIT(6)
 #define AUTO_CLK_SEL_ALWAYS_ON_MASK BM(5, 4)
 #define AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL (0x3 << 4)
 
@@ -1314,6 +1315,11 @@ int __init cpu_clock_8996_early_init(void)
 	regval |= AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL;
 	writel_relaxed(regval, vbases[APC1_BASE] + MUX_OFFSET);
 
+	regval = readl_relaxed(vbases[CBF_BASE] + MUX_OFFSET);
+	regval &= ~AUTO_CLK_SEL_ALWAYS_ON_MASK;
+	regval |= AUTO_CLK_SEL_ALWAYS_ON_GPLL0_SEL;
+	writel_relaxed(regval, vbases[CBF_BASE] + MUX_OFFSET);
+
 	/* == Setup PLLs in FSM mode == */
 
 	/* Disable all PLLs (we're already on GPLL0 for both clusters) */
@@ -1385,7 +1391,7 @@ int __init cpu_clock_8996_early_init(void)
 	/* Wait for PLL(s) to lock */
 	udelay(50);
 
-	/* Enable auto clock selection for both clusters */
+	/* Enable auto clock selection for both clusters and the CBF */
 	regval = readl_relaxed(vbases[APC0_BASE] + CLK_CTL_OFFSET);
 	regval |= AUTO_CLK_SEL_BIT;
 	writel_relaxed(regval, vbases[APC0_BASE] + CLK_CTL_OFFSET);
@@ -1393,6 +1399,10 @@ int __init cpu_clock_8996_early_init(void)
 	regval = readl_relaxed(vbases[APC1_BASE] + CLK_CTL_OFFSET);
 	regval |= AUTO_CLK_SEL_BIT;
 	writel_relaxed(regval, vbases[APC1_BASE] + CLK_CTL_OFFSET);
+
+	regval = readl_relaxed(vbases[CBF_BASE] + CBF_MUX_OFFSET);
+	regval |= CBF_AUTO_CLK_SEL_BIT;
+	writel_relaxed(regval, vbases[CBF_BASE] + CBF_MUX_OFFSET);
 
 	/* Ensure write goes through before muxes are switched */
 	mb();
