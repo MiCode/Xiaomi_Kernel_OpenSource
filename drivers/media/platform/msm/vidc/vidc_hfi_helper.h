@@ -399,6 +399,8 @@ struct hfi_buffer_info {
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00C)
 #define  HFI_PROPERTY_CONFIG_VENC_PERF_MODE			\
 	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00E)
+#define HFI_PROPERTY_CONFIG_VENC_BASELAYER_PRIORITYID		\
+	(HFI_PROPERTY_CONFIG_VENC_COMMON_START + 0x00F)
 
 #define HFI_PROPERTY_CONFIG_VPE_COMMON_START				\
 	(HFI_DOMAIN_BASE_VPE + HFI_ARCH_COMMON_OFFSET + 0x8000)
@@ -834,10 +836,12 @@ struct hfi_codec_mask_supported {
 struct hfi_seq_header_info {
 	u32 max_hader_len;
 };
+
 struct hfi_aspect_ratio {
 	u32 aspect_width;
 	u32 aspect_height;
 };
+
 #define HFI_MVC_BUFFER_LAYOUT_TOP_BOTTOM  (0)
 #define HFI_MVC_BUFFER_LAYOUT_SIDEBYSIDE  (1)
 #define HFI_MVC_BUFFER_LAYOUT_SEQ         (2)

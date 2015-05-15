@@ -1484,7 +1484,6 @@ static int hfi_process_sys_property_info(u32 device_id,
 		*info = (struct msm_vidc_cb_info) {
 			.response_type =  HAL_RESPONSE_UNUSED,
 		};
-
 		return 0;
 	default:
 		dprintk(VIDC_DBG,
