@@ -3,6 +3,7 @@
  * Maxim SmartTouch Imager Touchscreen Driver
  *
  * Copyright (c)2013 Maxim Integrated Products, Inc.
+ * Copyright (C) 2013, NVIDIA Corporation.  All Rights Reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,14 +27,25 @@
 #include "genetlink.h"
 #endif
 
-#define DRIVER_VERSION  "1.4.1"
-#define DRIVER_RELEASE  "August 14, 2013"
+#define XSTR(s)               STR(s)
+#define STR(s)                #s
+
+#define DRV_VER_MAJOR         1
+#define DRV_VER_MINOR         1
+
+#define DRIVER_VERSION_STR    XSTR(DRV_VER_MAJOR) "." XSTR(DRV_VER_MINOR)
+#define DRIVER_VERSION_NUM    ((DRV_VER_MAJOR << 8) | DRV_VER_MINOR)
+
+#define DRIVER_VERSION        DRIVER_VERSION_STR
+#define DRIVER_RELEASE        "April 29, 2015"
+#define DRIVER_PROTOCOL       0x0102
 
 /****************************************************************************\
 * Netlink: common kernel/user space macros                                   *
 \****************************************************************************/
 
-#define NL_BUF_SIZE  8192
+//#define NL_BUF_SIZE  8192
+#define NL_BUF_SIZE  30720
 
 #define NL_ATTR_FIRST(nptr) \
 	((struct nlattr *)((void *)nptr + NLMSG_HDRLEN + GENL_HDRLEN))
@@ -153,8 +165,14 @@ enum {
 	DR_CONFIG_WATCHDOG,
 	DR_DECONFIG,
 	DR_INPUT,
+	DR_RESUME_ACK,
 	DR_LEGACY_FWDL,
 	DR_LEGACY_ACCELERATION,
+	DR_HANDSHAKE,
+	DR_CONFIG_FW,
+	DR_IDLE,
+	DR_SYSFS_ACK,
+	DR_TF_STATUS,
 };
 
 struct __attribute__ ((__packed__)) dr_add_mc_group {
@@ -189,12 +207,12 @@ struct __attribute__ ((__packed__)) dr_chip_access_method {
 	__u8  method;
 };
 
-#define MAX_IRQ_PARAMS  20
+#define MAX_IRQ_PARAMS  37
 struct __attribute__ ((__packed__)) dr_config_irq {
-	__u16  irq_param[MAX_IRQ_PARAMS];
-	__u8   irq_params;
 	__u8   irq_method;
 	__u8   irq_edge;
+	__u8   irq_params;
+	__u16  irq_param[MAX_IRQ_PARAMS];
 };
 
 struct __attribute__ ((__packed__)) dr_config_input {
@@ -224,12 +242,54 @@ struct __attribute__ ((__packed__)) dr_legacy_acceleration {
 	__u8  enable;
 };
 
+struct __attribute__ ((__packed__)) dr_handshake {
+	__u16 tf_ver;
+	__u16 chip_id;
+};
+
+#define  DR_SYSFS_UPDATE_NONE     0x0000
+#define  DR_SYSFS_UPDATE_BIT_GLOVE    0
+#define  DR_SYSFS_UPDATE_BIT_CHARGER  1
+#define  DR_SYSFS_UPDATE_BIT_LCD_FPS  2
+
+#define  DR_SYSFS_ACK_GLOVE       0x5A5A5A5A
+#define  DR_SYSFS_ACK_CHARGER     0xA5A5A5A5
+#define  DR_SYSFS_ACK_LCD_FPS     0xC3C3C3C3
+
+enum {
+	DR_NO_CHARGER,
+	DR_WIRED_CHARGER,
+	DR_WIRELESS_CHARGER,
+};
+
+struct __attribute__ ((__packed__)) dr_sysfs_ack {
+	__u32 type;
+};
+
+struct __attribute__ ((__packed__)) dr_config_fw {
+	__u16 fw_ver;
+	__u16 fw_protocol;
+};
+
+struct __attribute__ ((__packed__)) dr_idle {
+	__u8  idle;
+};
+
+#define  TF_STATUS_DEFAULT_LOADED (1 << 0)
+#define  TF_STATUS_BUSY (1 << 1)
+
+struct __attribute__ ((__packed__)) dr_tf_status {
+	__u32 tf_status;
+};
+
 enum {
 	FU_ECHO_RESPONSE,
 	FU_CHIP_READ_RESULT,
 	FU_IRQLINE_STATUS,
 	FU_ASYNC_DATA,
 	FU_RESUME,
+	FU_HANDSHAKE_RESPONSE,
+	FU_SYSFS_INFO,
 };
 
 struct __attribute__ ((__packed__)) fu_echo_response {
@@ -254,6 +314,19 @@ struct __attribute__ ((__packed__)) fu_async_data {
 	__u8   data[0];
 };
 
+struct __attribute__ ((__packed__)) fu_handshake_response {
+	__u16  driver_ver;
+	__u16  panel_id;
+	__u16  driver_protocol;
+};
+
+struct __attribute__ ((__packed__)) fu_sysfs_info {
+	__u8   type;
+	__u16  glove_value;
+	__u16  charger_value;
+	__u16  lcd_fps_value;
+};
+
 #ifdef __KERNEL__
 /****************************************************************************\
 * Kernel platform data structure                                             *
@@ -265,13 +338,14 @@ struct maxim_sti_pdata {
 	char      *touch_fusion;
 	char      *config_file;
 	char      *nl_family;
-	u8        nl_mc_groups;
-	u8        chip_access_method;
-	u8        default_reset_state;
-	u16       tx_buf_size;
-	u16       rx_buf_size;
-	unsigned  gpio_reset;
-	unsigned  gpio_irq;
+	char      *fw_name;
+	u32       nl_mc_groups;
+	u32       chip_access_method;
+	u32       default_reset_state;
+	u32       tx_buf_size;
+	u32       rx_buf_size;
+	u32       gpio_reset;
+	u32       gpio_irq;
 	int       (*init)(struct maxim_sti_pdata *pdata, bool init);
 	void      (*reset)(struct maxim_sti_pdata *pdata, int value);
 	int       (*irq)(struct maxim_sti_pdata *pdata);
