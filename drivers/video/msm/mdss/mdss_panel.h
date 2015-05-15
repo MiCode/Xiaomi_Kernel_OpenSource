@@ -285,6 +285,8 @@ struct mipi_panel_info {
 	/* Clock required during LP commands */
 	bool force_clk_lane_hs;
 
+	bool always_on;
+
 	char vsync_enable;
 	char hw_vsync_mode;
 
