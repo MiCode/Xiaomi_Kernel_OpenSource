@@ -289,6 +289,8 @@ struct mdss_data_type {
 
 	int handoff_pending;
 	bool idle_pc;
+	bool allow_cx_vddmin;
+	bool vdd_cx_en;
 	struct mdss_perf_tune perf_tune;
 	bool traffic_shaper_en;
 	int iommu_ref_cnt;
