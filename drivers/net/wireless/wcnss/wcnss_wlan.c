@@ -3019,6 +3019,10 @@ wcnss_trigger_config(struct platform_device *pdev)
 	/* Remove pm_qos request */
 	wcnss_disable_pc_remove_req();
 
+	if (of_property_read_bool(pdev->dev.of_node,
+		"qcom,wlan-indication-enabled"))
+		wcnss_en_wlan_led_trigger();
+
 	return 0;
 
 fail_ioremap2:

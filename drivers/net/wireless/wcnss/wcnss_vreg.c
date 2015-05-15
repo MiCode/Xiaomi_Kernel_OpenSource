@@ -24,6 +24,7 @@
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/clk.h>
+#include <linux/leds.h>
 
 
 static void __iomem *msm_wcnss_base;
@@ -32,6 +33,7 @@ static DEFINE_MUTEX(list_lock);
 static DEFINE_SEMAPHORE(wcnss_power_on_lock);
 static int auto_detect;
 static int is_power_on;
+DEFINE_LED_TRIGGER(wlan_indication_led);
 
 #define RIVA_PMU_OFFSET         0x28
 
@@ -734,6 +736,9 @@ int wcnss_req_power_on_lock(char *driver_name)
 	list_add(&node->list, &power_on_lock_list);
 	mutex_unlock(&list_lock);
 
+	if (wlan_indication_led)
+		led_trigger_event(wlan_indication_led, LED_FULL);
+
 	return 0;
 
 err:
@@ -760,6 +765,15 @@ int wcnss_free_power_on_lock(char *driver_name)
 		up(&wcnss_power_on_lock);
 	mutex_unlock(&list_lock);
 
+	if (wlan_indication_led)
+		led_trigger_event(wlan_indication_led, LED_OFF);
+
 	return ret;
 }
 EXPORT_SYMBOL(wcnss_free_power_on_lock);
+
+void wcnss_en_wlan_led_trigger(void)
+{
+	led_trigger_register_simple("wlan-indication-led",
+		&wlan_indication_led);
+}
