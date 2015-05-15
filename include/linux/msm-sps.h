@@ -57,7 +57,7 @@
 #define SPS_IRQ_INVALID          0
 
 /* Invalid address value */
-#define SPS_ADDR_INVALID      ((unsigned long)0)
+#define SPS_ADDR_INVALID      ((unsigned long)0xDEADBEEF)
 
 /* Invalid peripheral device enumeration class */
 #define SPS_CLASS_INVALID     ((unsigned long)-1)
