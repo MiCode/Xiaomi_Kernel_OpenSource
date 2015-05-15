@@ -37,6 +37,7 @@ static void __iomem *virt_base;
 static void __iomem *virt_dbgbase;
 
 #define cxo_clk_src_source_val 0
+#define cxo_clk_src_ao_source_val 0
 #define gpll0_out_main_source_val 1
 #define gpll4_out_main_source_val 5
 
@@ -1295,7 +1296,7 @@ static struct rcg_clk gp3_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_hmss_rbcpr_clk_src[] = {
-	F(  19200000,     cxo_clk_src,    1,    0,     0),
+	F(  19200000,     cxo_clk_src_ao,    1,    0,     0),
 	F_END
 };
 
@@ -1308,7 +1309,6 @@ static struct rcg_clk hmss_rbcpr_clk_src = {
 	.c = {
 		.dbg_name = "hmss_rbcpr_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOWER, 19200000),
 		CLK_INIT(hmss_rbcpr_clk_src.c),
 	},
 };
@@ -3601,9 +3601,6 @@ static struct clk_lookup msm_clocks_gcc_8996_v2[] = {
 
 static void msm_clocks_gcc_8996_v2_fixup(void)
 {
-	hmss_rbcpr_clk_src.c.fmax[VDD_DIG_NOMINAL] = 50000000;
-	hmss_rbcpr_clk_src.c.fmax[VDD_DIG_HIGH] = 50000000;
-
 	pcie_aux_clk_src.c.fmax[VDD_DIG_LOWER] = 9600000;
 	pcie_aux_clk_src.c.fmax[VDD_DIG_LOW] = 19200000;
 	pcie_aux_clk_src.c.fmax[VDD_DIG_NOMINAL] = 19200000;
