@@ -22,18 +22,26 @@ Optional properties:
  - avdd-supply		: Analog power supply needed to power device
  - vdd-supply		: Power source required to pull up i2c bus
  - ite,wakeup		: boolean, use this to support touch-to-wake feature.
+ - ite,palm-detect-en	: boolean, use this to send palm-detect-keycode when
+			  palm is detected.
+
+Required properties palm-detect-en feature:
+ - ite,palm-detect-keycode	: The keycode need to be sent when palm is
+			  detected by the ITE tech driver.
 
 Example:
 	i2c@f9927000 {
-            it7260@46 {
-                    compatible = "ite,it7260_ts";
-                    reg = <0x46>;
-                    interrupt-parent = <&msmgpio>;
-                    interrupts = <17 0x2>;
-                    avdd-supply = <&pm8226_l19>;
-                    vdd-supply = <&pm8226_lvs1>;
-                    ite,reset-gpio = <&msmgpio 16 0x00>;
-                    ite,irq-gpio = <&msmgpio 17 0x2008>;
-		    ite,wakeup;
-            };
+		it7260@46 {
+			compatible = "ite,it7260_ts";
+			reg = <0x46>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2>;
+			avdd-supply = <&pm8226_l19>;
+			vdd-supply = <&pm8226_lvs1>;
+			ite,reset-gpio = <&msmgpio 16 0x00>;
+			ite,irq-gpio = <&msmgpio 17 0x2008>;
+			ite,wakeup;
+			ite,palm-detect-en;
+			ite,palm-detect-keycode = <142>;
+		};
 	};

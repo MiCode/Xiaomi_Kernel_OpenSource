@@ -148,6 +148,8 @@ struct IT7260_ts_platform_data {
 	u32 reset_gpio;
 	u32 reset_gpio_flags;
 	bool wakeup;
+	bool palm_detect_en;
+	u16 palm_detect_keycode;
 };
 
 struct IT7260_ts_data {
@@ -744,6 +746,7 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 {
 	struct PointData pointData;
 	uint8_t devStatus;
+	bool palm_detected;
 	uint8_t pressure = FD_PRESSURE_NONE;
 	uint16_t x, y;
 
@@ -781,6 +784,16 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 			"readTouchDataPoint() dropping non-point data of type 0x%02X\n",
 							pointData.flags);
 		return IRQ_HANDLED;
+	}
+
+	palm_detected = pointData.palm & PD_PALM_FLAG_BIT;
+	if (palm_detected && gl_ts->pdata->palm_detect_en) {
+		input_report_key(gl_ts->input_dev,
+				gl_ts->pdata->palm_detect_keycode, 1);
+		input_sync(gl_ts->input_dev);
+		input_report_key(gl_ts->input_dev,
+				gl_ts->pdata->palm_detect_keycode, 0);
+		input_sync(gl_ts->input_dev);
 	}
 
 	if ((pointData.flags & PD_FLAGS_HAVE_FINGERS) & 1)
@@ -860,6 +873,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	struct IT7260_ts_platform_data *pdata;
 	uint8_t rsp[2];
 	int ret = -1;
+	u32 temp_val;
 	int rc;
 	struct dentry *temp;
 
@@ -976,6 +990,19 @@ static int IT7260_ts_probe(struct i2c_client *client,
 
 	pdata->wakeup = of_property_read_bool(client->dev.of_node,
 						"ite,wakeup");
+	pdata->palm_detect_en = of_property_read_bool(client->dev.of_node,
+						"ite,palm-detect-en");
+	if (pdata->palm_detect_en) {
+		rc = of_property_read_u32(client->dev.of_node,
+					"ite,palm-detect-keycode", &temp_val);
+		if (!rc) {
+			pdata->palm_detect_keycode = temp_val;
+		} else {
+			dev_err(&client->dev,
+				"Unable to read palm-detect-keycode\n");
+			return rc;
+		}
+	}
 
 	if (!chipIdentifyIT7260()) {
 		LOGI("chipIdentifyIT7260 FAIL");
@@ -988,6 +1015,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		ret = -ENOMEM;
 		goto err_ident_fail_or_input_alloc;
 	}
+
 	gl_ts->input_dev = input_dev;
 
 	input_dev->name = DEVICE_NAME;
@@ -1013,6 +1041,10 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		INIT_WORK(&gl_ts->work_pm_relax, IT7260_ts_work_func);
 		device_init_wakeup(&client->dev, pdata->wakeup);
 	}
+
+	if (pdata->palm_detect_en)
+		set_bit(gl_ts->pdata->palm_detect_keycode,
+					gl_ts->input_dev->keybit);
 
 	if (input_register_device(input_dev)) {
 		LOGE("failed to register input device\n");
