@@ -2176,12 +2176,15 @@ void mdss_mdp_pp_term(struct device *dev)
 
 int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 {
-	if (!mfd) {
-		pr_err("Invalid mfd.\n");
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if ((!mfd) || (!mdata)) {
+		pr_err("Invalid mfd or mdata.\n");
 		return -EPERM;
 	}
 
-	mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
+	if (mdata->nad_cfgs)
+		mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
 	mfd->mdp.stop_histogram = pp_hist_stop_wrapper;
 	return 0;
 }
