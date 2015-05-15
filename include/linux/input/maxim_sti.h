@@ -27,25 +27,18 @@
 #include "genetlink.h"
 #endif
 
-#define XSTR(s)               STR(s)
-#define STR(s)                #s
+#define DRV_VER_MAJOR		6
+#define DRV_VER_MINOR		4
 
-#define DRV_VER_MAJOR         3
-#define DRV_VER_MINOR         1
-
-#define DRIVER_VERSION_STR    XSTR(DRV_VER_MAJOR) "." XSTR(DRV_VER_MINOR)
-#define DRIVER_VERSION_NUM    ((DRV_VER_MAJOR << 8) | DRV_VER_MINOR)
-
-#define DRIVER_VERSION        DRIVER_VERSION_STR
-#define DRIVER_RELEASE        "March 5, 2015"
-#define DRIVER_PROTOCOL       0x0103
-#define LEGACY_DRIVER_PROTOCOL 0x0101
+#define DRIVER_VERSION		((DRV_VER_MAJOR << 8) | DRV_VER_MINOR)
+#define DRIVER_RELEASE		"April 21, 2015"
+#define DRIVER_PROTOCOL		0x0103
 
 /****************************************************************************\
 * Netlink: common kernel/user space macros                                   *
 \****************************************************************************/
 
-#define NL_BUF_SIZE  8192
+#define NL_BUF_SIZE  30720
 
 #define NL_ATTR_FIRST(nptr) \
 	((struct nlattr *)((void *)nptr + NLMSG_HDRLEN + GENL_HDRLEN))
@@ -61,7 +54,7 @@
 	((struct nlattr *)((void *)aptr + \
 			NLA_ALIGN(((struct nlattr *)aptr)->nla_len)))
 #define GENL_CMP(name1, name2)  strncmp(name1, name2, GENL_NAMSIZ)
-#define GENL_COPY(name1, name2) strncpy(name1, name2, GENL_NAMSIZ)
+#define GENL_COPY(name1, name2) strlcpy(name1, name2, GENL_NAMSIZ)
 #define GENL_CHK(name)          (strlen(name) > (GENL_NAMSIZ - 1))
 #define MSG_TYPE(nptr)          NL_ATTR_FIRST(nptr)->nla_type
 #define MSG_PAYLOAD(nptr)       NL_ATTR_VAL(NL_ATTR_FIRST(nptr), void)
@@ -106,7 +99,7 @@ nl_add_attr(void *buf, __u16 type, void *ptr, __u16 len)
 
 	a_ptr = nl_alloc_attr(buf, type, len);
 	if (a_ptr == NULL)
-		return -1;
+		return -EPERM;
 	memcpy(a_ptr, ptr, len);
 	return 0;
 }
@@ -175,15 +168,15 @@ enum {
 	DR_TF_STATUS,
 };
 
-#define  DR_SYSFS_UPDATE_NONE     0x0000
-#define  DR_SYSFS_UPDATE_BIT_GLOVE    0
-#define  DR_SYSFS_UPDATE_BIT_CHARGER  1
-#define  DR_SYSFS_UPDATE_BIT_LCD_FPS  2
-#define  DR_SYSFS_ACK_GLOVE       0x5A5A5A5A
-#define  DR_SYSFS_ACK_CHARGER     0xA5A5A5A5
-#define  DR_SYSFS_ACK_LCD_FPS     0xC3C3C3C3
-#define  TF_STATUS_DEFAULT_LOADED (1 << 0)
-#define  TF_STATUS_BUSY (1 << 1)
+#define DR_SYSFS_UPDATE_NONE 0x0000
+#define DR_SYSFS_UPDATE_BIT_GLOVE 0
+#define DR_SYSFS_UPDATE_BIT_CHARGER 1
+#define DR_SYSFS_UPDATE_BIT_LCD_FPS  2
+#define DR_SYSFS_ACK_GLOVE 0x5A5A5A5A
+#define DR_SYSFS_ACK_CHARGER 0xA5A5A5A5
+#define DR_SYSFS_ACK_LCD_FPS 0xC3C3C3C3
+#define TF_STATUS_DEFAULT_LOADED (1 << 0)
+#define TF_STATUS_BUSY (1 << 1)
 
 enum {
 	DR_NO_CHARGER,
@@ -221,14 +214,6 @@ struct __attribute__ ((__packed__)) dr_delay {
 
 struct __attribute__ ((__packed__)) dr_chip_access_method {
 	__u8  method;
-};
-
-#define MAX_IRQ_PARAMS_LEGACY 30
-struct __attribute__ ((__packed__)) dr_config_irq_legacy {
-	__u8   irq_params;
-	__u16  irq_param[MAX_IRQ_PARAMS_LEGACY];
-	__u8   irq_method;
-	__u8   irq_edge;
 };
 
 #define OLD_NIRQ_PARAMS 27
@@ -345,16 +330,19 @@ struct maxim_sti_pdata {
 	char      *touch_fusion;
 	char      *config_file;
 	char      *nl_family;
-	u8        nl_mc_groups;
-	u8        chip_access_method;
-	u8        default_reset_state;
-	u16       tx_buf_size;
-	u16       rx_buf_size;
-	unsigned  gpio_reset;
-	unsigned  gpio_irq;
-	int       (*init)(struct maxim_sti_pdata *pdata, bool init);
+	char      *fw_name;
+	u32       nl_mc_groups;
+	u32       chip_access_method;
+	u32       default_reset_state;
+	u32       tx_buf_size;
+	u32       rx_buf_size;
+	u32       gpio_reset;
+	u32       gpio_irq;
+	int       (*init)(struct device *dev,
+				struct maxim_sti_pdata *pdata, bool init);
 	void      (*reset)(struct maxim_sti_pdata *pdata, int value);
 	int       (*irq)(struct maxim_sti_pdata *pdata);
+	u32       wakeup_gesture_support;
 };
 #endif
 

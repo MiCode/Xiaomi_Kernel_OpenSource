@@ -20,33 +20,45 @@
 #include <linux/moduleparam.h>
 #include <linux/kmod.h>
 #include <linux/kthread.h>
+#include <linux/sched/rt.h>
 #include <linux/spi/spi.h>
 #include <linux/firmware.h>
 #include <linux/crc16.h>
 #include <linux/interrupt.h>
 #include <linux/input.h>
+#include <linux/input/evdt_helper.h>
 #include <linux/regulator/consumer.h>
 #include <linux/maxim_sti.h>
 #include <asm/byteorder.h>  /* MUST include this header to get byte order */
-
+#ifdef CONFIG_OF
+#include <linux/gpio.h>
+#include <linux/of_gpio.h>
+#endif
 
 /****************************************************************************\
 * Custom features                                                            *
 \****************************************************************************/
 
 #define INPUT_DEVICES         1
-#define INPUT_ENABLE_DISABLE  1
+#define INPUT_ENABLE_DISABLE  0
 #define SUSPEND_POWER_OFF     0
-#define NV_ENABLE_CPU_BOOST   1
-#define HI02_WORKAROUND       1
+#define CPU_BOOST             0
+#define SONY_CPU_BOOST        1
+#define FB_CALLBACK           0
+#define HI02                  1
+#define CFG_FILE_NAME_MAX     64
+#define FORCE_NO_DECONFIG     1
 
-#if NV_ENABLE_CPU_BOOST
+#if CPU_BOOST
 #define INPUT_IDLE_PERIOD     (msecs_to_jiffies(50))
 #endif
 
-#if HI02_WORKAROUND
-u16 read_value[2] = { 0 };
+#if FB_CALLBACK && defined(CONFIG_FB)
+#include <linux/fb.h>
 #endif
+
+#define MXM_WAKEUP_GESTURE "wakeup_gesture"
+
 /****************************************************************************\
 * Device context structure, globals, and macros                              *
 \****************************************************************************/
@@ -66,13 +78,12 @@ struct dev_data {
 	u8                           nl_mc_group_count;
 	bool                         nl_enabled;
 	bool                         start_fusion;
-	bool                         suspended;
 	bool                         suspend_in_progress;
 	bool                         resume_in_progress;
 	bool                         expect_resume_ack;
 	bool                         eraser_active;
 	bool                         legacy_acceleration;
-#if INPUT_ENABLE_DISABLE
+#if INPUT_ENABLE_DISABLE || FB_CALLBACK || FORCE_NO_DECONFIG
 	bool                         input_no_deconfig;
 #endif
 	bool                         irq_registered;
@@ -95,10 +106,14 @@ struct dev_data {
 	struct regulator             *reg_avdd;
 	struct regulator             *reg_dvdd;
 	void                         (*service_irq)(struct dev_data *dd);
-#if NV_ENABLE_CPU_BOOST
+#if CPU_BOOST
 	unsigned long                last_irq_jiffies;
 #endif
+#if FB_CALLBACK
+	struct notifier_block        fb_notifier;
+#endif
 	struct kobject               *parent;
+	char                         config_file[CFG_FILE_NAME_MAX];
 	u8                           sysfs_created;
 	u16                          chip_id;
 	u16                          glove_enabled;
@@ -113,27 +128,29 @@ struct dev_data {
 	bool                         idle;
 	bool                         resume_reset;
 	bool                         compatibility_mode;
+	bool                         pending_fps;
+	bool                         boost;
+	struct device_node           *evdt_node;
+	u8                           ew_input_device_id;
 	unsigned long int            sysfs_update_type;
-	struct completion            sysfs_ack_glove;
-	struct completion            sysfs_ack_charger;
-	struct completion            sysfs_ack_lcd_fps;
 	struct mutex                 sysfs_update_mutex;
+	struct mutex                 screen_status_mutex;
 };
 
-static unsigned short    panel_id;
+static unsigned short    panel_id = 0x0000;
 static struct list_head  dev_list;
 static spinlock_t        dev_lock;
-
-//static u16 int_counter;
 
 static void gesture_wake_detect(struct dev_data *dd);
 static irqreturn_t irq_handler(int irq, void *context);
 static void service_irq(struct dev_data *dd);
 static void service_irq_legacy_acceleration(struct dev_data *dd);
 
-#define ERROR(a, b...) printk(KERN_ERR "%s driver(ERROR:%s:%d): " a "\n", \
+#define ETF -2
+
+#define ERROR(a, b...) pr_err("%s driver(ERROR:%s:%d): " a "\n", \
 			      dd->nl_family.name, __func__, __LINE__, ##b)
-#define INFO(a, b...) printk(KERN_INFO "%s driver: " a "\n", \
+#define INFO(a, b...) pr_info("%s driver: " a "\n", \
 			     dd->nl_family.name, ##b)
 
 /****************************************************************************\
@@ -193,8 +210,7 @@ spi_read_123(struct dev_data *dd, u16 address, u8 *buf, u16 len, bool add_len)
 }
 
 static inline int
-spi_write_123(struct dev_data *dd, u16 address, u8 *buf, u16 len,
-	      bool add_len)
+spi_write_123(struct dev_data *dd, u16 address, u8 *buf, u16 len, bool add_len)
 {
 	struct maxim_sti_pdata  *pdata = dd->spi->dev.platform_data;
 	u16                     *tx_buf = (u16 *)dd->tx_buf;
@@ -252,19 +268,19 @@ stop_legacy_acceleration(struct dev_data *dd)
 	ret = spi_write_123(dd, 0x0003, (u8 *)&value,
 				sizeof(value), false);
 	if (ret < 0)
-		return -1;
+		return -EPERM;
 	usleep_range(100, 120);
 
 	for (i = 0; i < 200; i++) {
 		ret = spi_read_123(dd, 0x0003, (u8 *)&status, sizeof(status),
 				   false);
 		if (ret < 0)
-			return -1;
+			return -EPERM;
 		if (status == 0xABCD)
 			return 0;
 	}
 
-	return -2;
+	return -ETF;
 }
 
 static inline int
@@ -289,12 +305,12 @@ spi_rw_2_poll_status(struct dev_data *dd)
 		ret = spi_read_123(dd, 0x0000, (u8 *)&status, sizeof(status),
 				   false);
 		if (ret < 0)
-			return -1;
+			return -EPERM;
 		if (status == 0xABCD)
 			return 0;
 	}
 
-	return -2;
+	return -ETF;
 }
 
 static inline int
@@ -307,7 +323,7 @@ spi_read_2_page(struct dev_data *dd, u16 address, u8 *buf, u16 len)
 	ret = spi_write_123(dd, 0x0000, (u8 *)request, sizeof(request),
 			    false);
 	if (ret < 0)
-		return -1;
+		return -EPERM;
 
 	/* poll status */
 	ret = spi_rw_2_poll_status(dd);
@@ -328,13 +344,14 @@ spi_write_2_page(struct dev_data *dd, u16 address, u8 *buf, u16 len)
 	page[0] = 0xFEDC;
 	page[1] = address << 1;
 	page[2] = len / sizeof(u16);
+	page[3] = 0x0000;
 	memcpy(page + 4, buf, len);
 
 	/* write data with write request header */
 	ret = spi_write_123(dd, 0x0000, (u8 *)page, len + 4 * sizeof(u16),
 			    false);
 	if (ret < 0)
-		return -1;
+		return -EPERM;
 
 	/* poll status */
 	return spi_rw_2_poll_status(dd);
@@ -411,7 +428,7 @@ static int
 set_chip_access_method(struct dev_data *dd, u8 method)
 {
 	if (method == 0 || method > ARRAY_SIZE(chip_access_methods))
-		return -1;
+		return -EPERM;
 
 	memcpy(&dd->chip, &chip_access_methods[method - 1], sizeof(dd->chip));
 	return 0;
@@ -449,14 +466,14 @@ static int bootloader_wait_ready(struct dev_data *dd)
 	for (i = 0; i < 15; i++) {
 		if (spi_read_3(dd, 0x00FF, (u8 *)&status,
 			       sizeof(status)) != 0)
-			return -1;
+			return -EPERM;
 		if (status == 0xABCC)
 			return 0;
 		if (i >= 3)
 			usleep_range(500, 700);
 	}
 	ERROR("unexpected status %04X", status);
-	return -1;
+	return -EPERM;
 }
 
 static int bootloader_complete(struct dev_data *dd)
@@ -471,9 +488,9 @@ static int bootloader_read_data(struct dev_data *dd, u16 *value)
 	u16  buffer[2];
 
 	if (spi_read_3(dd, 0x00FE, (u8 *)buffer, sizeof(buffer)) != 0)
-		return -1;
+		return -EPERM;
 	if (buffer[1] != 0xABCC)
-		return -1;
+		return -EPERM;
 
 	*value = buffer[0];
 	return bootloader_complete(dd);
@@ -484,7 +501,7 @@ static int bootloader_write_data(struct dev_data *dd, u16 value)
 	u16  buffer[2] = {value, 0x5432};
 
 	if (bootloader_wait_ready(dd) != 0)
-		return -1;
+		return -EPERM;
 	return spi_write_3(dd, 0x00FE, (u8 *)buffer, sizeof(buffer));
 }
 
@@ -498,7 +515,7 @@ static int bootloader_wait_command(struct dev_data *dd)
 		if (i >= 3)
 			usleep_range(500, 700);
 	}
-	return -1;
+	return -EPERM;
 }
 
 static int bootloader_enter(struct dev_data *dd)
@@ -509,11 +526,11 @@ static int bootloader_enter(struct dev_data *dd)
 	for (i = 0; i < 3; i++) {
 		if (spi_write_3(dd, 0x7F00, (u8 *)&enter[i],
 				sizeof(enter[i])) != 0)
-			return -1;
+			return -EPERM;
 	}
 
 	if (bootloader_wait_command(dd) != 0)
-		return -1;
+		return -EPERM;
 	return 0;
 }
 
@@ -522,7 +539,7 @@ static int bootloader_exit(struct dev_data *dd)
 	u16  value = 0x0000;
 
 	if (bootloader_write_data(dd, 0x0001) != 0)
-		return -1;
+		return -EPERM;
 	return spi_write_3(dd, 0x7F00, (u8 *)&value, sizeof(value));
 }
 
@@ -533,15 +550,15 @@ static int bootloader_get_crc(struct dev_data *dd, u16 *crc16, u16 len)
 
 	for (i = 0; i < ARRAY_SIZE(command); i++)
 		if (bootloader_write_data(dd, command[i]) != 0)
-			return -1;
+			return -EPERM;
 	msleep(200); /* wait 200ms for it to get done */
 
 	for (i = 0; i < 2; i++)
 		if (bootloader_read_data(dd, &value[i]) != 0)
-			return -1;
+			return -EPERM;
 
 	if (bootloader_wait_command(dd) != 0)
-		return -1;
+		return -EPERM;
 	*crc16 = (value[1] << 8) | value[0];
 	return 0;
 }
@@ -552,19 +569,19 @@ static int bootloader_set_byte_mode(struct dev_data *dd)
 
 	for (i = 0; i < ARRAY_SIZE(command); i++)
 		if (bootloader_write_data(dd, command[i]) != 0)
-			return -1;
+			return -EPERM;
 	if (bootloader_wait_command(dd) != 0)
-		return -1;
+		return -EPERM;
 	return 0;
 }
 
 static int bootloader_erase_flash(struct dev_data *dd)
 {
 	if (bootloader_write_data(dd, 0x0002) != 0)
-		return -1;
+		return -EPERM;
 	msleep(60); /* wait 60ms */
 	if (bootloader_wait_command(dd) != 0)
-		return -1;
+		return -EPERM;
 	return 0;
 }
 
@@ -575,23 +592,23 @@ static int bootloader_write_flash(struct dev_data *dd, u16 *image, u16 len)
 
 	for (i = 0; i < ARRAY_SIZE(command); i++)
 		if (bootloader_write_data(dd, command[i]) != 0)
-			return -1;
+			return -EPERM;
 
 	for (i = 0; i < ((len / sizeof(u16)) / FLASH_BLOCK_SIZE); i++) {
 		if (bootloader_wait_ready(dd) != 0)
-			return -1;
+			return -EPERM;
 		memcpy(buffer, (void *)(image + i * FLASH_BLOCK_SIZE),
 			sizeof(buffer));
 		if (spi_write_3(dd, ((i % 2) == 0) ? 0x0000 : 0x0040,
 				(u8 *)buffer, sizeof(buffer)) != 0)
-			return -1;
+			return -EPERM;
 		if (bootloader_complete(dd) != 0)
-			return -1;
+			return -EPERM;
 	}
 
 	usleep_range(10000, 11000);
 	if (bootloader_wait_command(dd) != 0)
-		return -1;
+		return -EPERM;
 	return 0;
 }
 
@@ -600,49 +617,49 @@ static int device_fw_load(struct dev_data *dd, const struct firmware *fw)
 	u16  fw_crc16, chip_crc16;
 
 	fw_crc16 = crc16(0, fw->data, fw->size);
-	INFO("firmware size (%d) CRC16(0x%04X)", fw->size, fw_crc16);
+	INFO("firmware size (%d) CRC16(0x%04X)", (int)fw->size, fw_crc16);
 	if (bootloader_enter(dd) != 0) {
 		ERROR("failed to enter bootloader");
-		return -1;
+		return -EPERM;
 	}
 	if (bootloader_get_crc(dd, &chip_crc16, fw->size) != 0) {
 		ERROR("failed to get CRC16 from the chip");
-		return -1;
+		return -EPERM;
 	}
 	INFO("chip CRC16(0x%04X)", chip_crc16);
 	if (fw_crc16 != chip_crc16) {
 		INFO("will reprogram chip");
 		if (bootloader_erase_flash(dd) != 0) {
 			ERROR("failed to erase chip flash");
-			return -1;
+			return -EPERM;
 		}
 		INFO("flash erase OK");
 		if (bootloader_set_byte_mode(dd) != 0) {
 			ERROR("failed to set byte mode");
-			return -1;
+			return -EPERM;
 		}
 		INFO("byte mode OK");
 		if (bootloader_write_flash(dd, (u16 *)fw->data,
 							fw->size) != 0) {
 			ERROR("failed to write flash");
-			return -1;
+			return -EPERM;
 		}
 		INFO("flash write OK");
 		if (bootloader_get_crc(dd, &chip_crc16, fw->size) != 0) {
 			ERROR("failed to get CRC16 from the chip");
-			return -1;
+			return -EPERM;
 		}
 		if (fw_crc16 != chip_crc16) {
 			ERROR("failed to verify programming! (0x%04X)",
 			      chip_crc16);
-			return -1;
+			return -EPERM;
 		}
 		INFO("chip programmed successfully, new chip CRC16(0x%04X)",
 			chip_crc16);
 	}
 	if (bootloader_exit(dd) != 0) {
 		ERROR("failed to exit bootloader");
-		return -1;
+		return -EPERM;
 	}
 	return 0;
 }
@@ -655,12 +672,13 @@ static int fw_request_load(struct dev_data *dd)
 	ret = request_firmware(&fw, "maxim_fp35.bin", &dd->spi->dev);
 	if (ret || fw == NULL) {
 		ERROR("firmware request failed (%d,%p)", ret, fw);
-		return -1;
+		return -EPERM;
 	}
 	if (fw->size != FIRMWARE_SIZE) {
 		release_firmware(fw);
-		ERROR("incoming firmware is of wrong size (%04X)", fw->size);
-		return -1;
+		ERROR("incoming firmware is of wrong size (%04X)",
+				(int)fw->size);
+		return -EPERM;
 	}
 	ret = device_fw_load(dd, fw);
 	if (ret != 0 && bootloader_exit(dd) != 0)
@@ -676,42 +694,42 @@ static void stop_idle_scan(struct dev_data *dd)
 	u16 value;
 
 	value = dd->irq_param[13];
-	(void)dd->chip.write(dd, dd->irq_param[19],
-				(u8 *)&value, sizeof(value));
+	(void)dd->chip.write(dd, dd->irq_param[19], (u8 *)&value,
+			     sizeof(value));
 }
 
 static void stop_scan_canned(struct dev_data *dd)
 {
-	u16  value, i;
+	u16  value[2], i;
 
 	if (dd->legacy_acceleration)
 		(void)stop_legacy_acceleration_canned(dd);
-	value = dd->irq_param[13];
-	(void)dd->chip.write(dd, dd->irq_param[12], (u8 *)&value,
-			     sizeof(value));
+	value[0] = dd->irq_param[13];
+	(void)dd->chip.write(dd, dd->irq_param[12], (u8 *)value,
+			     sizeof(value[0]));
 	usleep_range(dd->irq_param[15], dd->irq_param[15] + 1000);
-	(void)dd->chip.read(dd, dd->irq_param[0], (u8 *)&value,
+	(void)dd->chip.read(dd, dd->irq_param[0], (u8 *)value,
 			     sizeof(value));
-	(void)dd->chip.write(dd, dd->irq_param[0], (u8 *)&value,
+	(void)dd->chip.write(dd, dd->irq_param[0], (u8 *)value,
 			     sizeof(value));
 	if (!dd->compatibility_mode) {
 		for (i = 28; i < 32; i++) {
-			value = dd->irq_param[i];
+			value[0] = dd->irq_param[i];
 			(void)dd->chip.write(dd, dd->irq_param[27],
-					(u8 *)&value, sizeof(value));
+					(u8 *)value, sizeof(value[0]));
 		}
-		value = dd->irq_param[33];
+		value[0] = dd->irq_param[33];
 		(void)dd->chip.write(dd, dd->irq_param[32],
-					(u8 *)&value, sizeof(value));
+					(u8 *)value, sizeof(value[0]));
 		usleep_range(500, 1000);
 		for (i = 28; i < 32; i++) {
-			value = dd->irq_param[i];
+			value[0] = dd->irq_param[i];
 			(void)dd->chip.write(dd, dd->irq_param[27],
-					(u8 *)&value, sizeof(value));
+					(u8 *)value, sizeof(value[0]));
 		}
-		value = dd->irq_param[13];
+		value[0] = dd->irq_param[13];
 		(void)dd->chip.write(dd, dd->irq_param[32],
-					(u8 *)&value, sizeof(value));
+					(u8 *)value, sizeof(value[0]));
 	}
 }
 
@@ -732,48 +750,57 @@ static void start_scan_canned(struct dev_data *dd)
 
 static void enable_gesture(struct dev_data *dd)
 {
-	u16  value;
+	u16 value;
 
-	if (!dd->idle)
+	INFO("%s : start", __func__);
+
+	if (!dd->idle) {
 		stop_scan_canned(dd);
 
-	if (!dd->compatibility_mode) {
-		value = dd->irq_param[13];
-		(void)dd->chip.write(dd, dd->irq_param[34],
-				     (u8 *)&value, sizeof(value));
-		value = dd->irq_param[36];
-		(void)dd->chip.write(dd, dd->irq_param[35],
-				     (u8 *)&value, sizeof(value));
+		if (!dd->compatibility_mode) {
+			value = dd->irq_param[13];
+			(void)dd->chip.write(dd, dd->irq_param[34],
+							(u8 *)&value,
+							sizeof(value));
+			value = dd->irq_param[36];
+			(void)dd->chip.write(dd, dd->irq_param[35],
+							(u8 *)&value,
+							sizeof(value));
+		}
 	}
 
 	value = dd->irq_param[18];
 	(void)dd->chip.write(dd, dd->irq_param[16], (u8 *)&value,
-			     sizeof(value));
+							sizeof(value));
 
 	value = dd->irq_param[20];
 	(void)dd->chip.write(dd, dd->irq_param[19], (u8 *)&value,
-			     sizeof(value));
+							sizeof(value));
 	if (!dd->idle) {
 		value = dd->irq_param[26];
 		(void)dd->chip.write(dd, dd->irq_param[25], (u8 *)&value,
-				     sizeof(value));
+							sizeof(value));
 	}
+
+	INFO("%s : end", __func__);
 }
 
 static void finish_gesture(struct dev_data *dd)
 {
 	struct maxim_sti_pdata *pdata = dd->spi->dev.platform_data;
 	u16 value;
-	u8  fail_count = 0;
 	int ret;
+	u8  fail_count = 0;
+
+	INFO("%s : start", __func__);
 
 	value = dd->irq_param[21];
 	(void)dd->chip.write(dd, dd->irq_param[19], (u8 *)&value,
-			     sizeof(value));
+							sizeof(value));
 	do {
 		msleep(20);
 		ret = dd->chip.read(dd, dd->irq_param[25], (u8 *)&value,
-				    sizeof(value));
+							sizeof(value));
 		if (ret < 0 || fail_count >= 20) {
 			ERROR("failed to read control register (%d)", ret);
 			pdata->reset(pdata, 0);
@@ -784,14 +811,16 @@ static void finish_gesture(struct dev_data *dd)
 		INFO("ctrl = 0x%04X", value);
 		fail_count++;
 	} while (value);
+
+	INFO("%s : end", __func__);
 }
 
 static int regulator_control(struct dev_data *dd, bool on)
 {
-	int ret;
+	int ret, tmp;
 
 	if (!dd->reg_avdd || !dd->reg_dvdd)
-		return 0;
+		return -EINVAL;
 
 	if (on) {
 		ret = regulator_enable(dd->reg_dvdd);
@@ -817,7 +846,7 @@ static int regulator_control(struct dev_data *dd, bool on)
 		ret = regulator_disable(dd->reg_dvdd);
 		if (ret < 0) {
 			ERROR("Failed to disable regulator dvdd: %d", ret);
-			regulator_enable(dd->reg_avdd);
+			tmp = regulator_enable(dd->reg_avdd);
 			return ret;
 		}
 	}
@@ -825,23 +854,287 @@ static int regulator_control(struct dev_data *dd, bool on)
 	return 0;
 }
 
-static void regulator_init(struct dev_data *dd)
+static int regulator_init(struct dev_data *dd)
 {
-	dd->reg_avdd = devm_regulator_get(&dd->spi->dev, "avdd");
-	if (IS_ERR(dd->reg_avdd))
-		goto err_null_regulator;
+	struct regulator *reg_avdd;
+	struct regulator *reg_dvdd;
 
-	dd->reg_dvdd = devm_regulator_get(&dd->spi->dev, "dvdd");
-	if (IS_ERR(dd->reg_dvdd))
-		goto err_null_regulator;
+	reg_avdd = devm_regulator_get(&dd->spi->dev, "avdd");
+	if (IS_ERR(reg_avdd)) {
+		dev_err(&dd->spi->dev, "Failed to get avdd\n");
+		return PTR_ERR(reg_avdd);
+	} else {
+		dd->reg_avdd = reg_avdd;
+	}
 
-	return;
-
-err_null_regulator:
-	dd->reg_avdd = NULL;
-	dd->reg_dvdd = NULL;
-	dev_warn(&dd->spi->dev, "Failed to init regulators\n");
+	reg_dvdd = devm_regulator_get(&dd->spi->dev, "dvdd");
+	if (IS_ERR(reg_dvdd)) {
+		dev_err(&dd->spi->dev, "Failed to get dvdd\n");
+		return PTR_ERR(reg_dvdd);
+	} else {
+		dd->reg_dvdd = reg_dvdd;
+	}
+	return 0;
 }
+
+#ifdef CONFIG_OF
+#define MAXIM_STI_GPIO_ERROR(ret, gpio, op)                                \
+do {                                                                       \
+	if (ret < 0) {                                                     \
+		pr_err("%s: GPIO %d %s failed (%d)\n", __func__, gpio, op, \
+			ret);                                              \
+		return ret;                                                \
+	}                                                                  \
+} while (0)
+
+int maxim_sti_gpio_init(struct device *dev, struct maxim_sti_pdata *pdata,
+								bool init)
+{
+	int  ret;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *irq_suspend;
+	struct pinctrl_state *irq_active;
+	struct pinctrl_state *reset_suspend;
+	struct pinctrl_state *reset_active;
+
+	pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pinctrl)) {
+		dev_err(dev, "%s: devm_pinctrl_get error\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (init) {
+		irq_active = pinctrl_lookup_state(pinctrl, "irq_gpio-active");
+		if (IS_ERR(irq_active)) {
+			dev_err(dev, "%s: cannot lookup pinctrl\n",
+				__func__);
+			devm_pinctrl_put(pinctrl);
+			return -EINVAL;
+		}
+
+		ret = pinctrl_select_state(pinctrl, irq_active);
+		if (ret) {
+			dev_err(dev,
+				"%s: cannot select pinctrl state\n",
+				__func__);
+			devm_pinctrl_put(pinctrl);
+			return ret;
+		}
+
+		ret = gpio_request(pdata->gpio_irq, "maxim_sti_irq");
+		if (ret)
+			devm_pinctrl_put(pinctrl);
+		MAXIM_STI_GPIO_ERROR(ret, pdata->gpio_irq, "request");
+
+		ret = gpio_direction_input(pdata->gpio_irq);
+		if (ret) {
+			gpio_free(pdata->gpio_irq);
+			devm_pinctrl_put(pinctrl);
+		}
+		MAXIM_STI_GPIO_ERROR(ret, pdata->gpio_irq, "direction");
+
+		reset_active =
+			pinctrl_lookup_state(pinctrl, "reset_gpio-active");
+		if (IS_ERR(reset_active)) {
+			dev_err(dev, "%s: cannot lookup pinctrl\n",
+					__func__);
+				devm_pinctrl_put(pinctrl);
+				return -EINVAL;
+		}
+
+		ret = pinctrl_select_state(pinctrl, reset_active);
+		if (ret) {
+			dev_err(dev,
+				"%s: cannot select pinctrl state\n",
+					__func__);
+			devm_pinctrl_put(pinctrl);
+			return ret;
+		}
+
+		ret = gpio_request(pdata->gpio_reset, "maxim_sti_reset");
+		if (ret) {
+			gpio_free(pdata->gpio_irq);
+			devm_pinctrl_put(pinctrl);
+		}
+		MAXIM_STI_GPIO_ERROR(ret, pdata->gpio_reset, "request");
+		ret = gpio_direction_output(pdata->gpio_reset,
+					    pdata->default_reset_state);
+		if (ret) {
+			gpio_free(pdata->gpio_irq);
+			gpio_free(pdata->gpio_reset);
+			devm_pinctrl_put(pinctrl);
+		}
+		MAXIM_STI_GPIO_ERROR(ret, pdata->gpio_reset, "direction");
+	} else {
+		irq_suspend = pinctrl_lookup_state(pinctrl, "irq_gpio-suspend");
+		if (IS_ERR(irq_active)) {
+			dev_err(dev, "%s: cannot lookup pinctrl\n",
+				__func__);
+			devm_pinctrl_put(pinctrl);
+			return -EINVAL;
+		}
+
+		ret = pinctrl_select_state(pinctrl, irq_suspend);
+		if (ret) {
+			dev_err(dev,
+				"%s: cannot select pinctrl state\n",
+				__func__);
+			devm_pinctrl_put(pinctrl);
+			return ret;
+		}
+
+		gpio_free(pdata->gpio_irq);
+
+		reset_suspend =
+			pinctrl_lookup_state(pinctrl, "reset_gpio-suspend");
+		if (IS_ERR(reset_suspend)) {
+			dev_err(dev, "%s: cannot lookup pinctrl\n",
+				__func__);
+			devm_pinctrl_put(pinctrl);
+				return -EINVAL;
+		}
+
+		ret = pinctrl_select_state(pinctrl, reset_suspend);
+		if (ret) {
+			dev_err(dev,
+				"%s: cannot select pinctrl state\n",
+				__func__);
+			devm_pinctrl_put(pinctrl);
+			return ret;
+		}
+
+		gpio_free(pdata->gpio_reset);
+	}
+
+	devm_pinctrl_put(pinctrl);
+	return 0;
+}
+
+void maxim_sti_gpio_reset(struct maxim_sti_pdata *pdata, int value)
+{
+	gpio_set_value(pdata->gpio_reset, !!value);
+}
+
+int maxim_sti_gpio_irq(struct maxim_sti_pdata *pdata)
+{
+	return gpio_get_value(pdata->gpio_irq);
+}
+
+/****************************************************************************\
+* Device Tree Support
+\****************************************************************************/
+
+static int maxim_parse_dt(struct device *dev, struct maxim_sti_pdata *pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32 val;
+	const char *str;
+	int ret;
+
+	pdata->gpio_reset = of_get_named_gpio(np, "maxim_sti,reset-gpio", 0);
+	if (!gpio_is_valid(pdata->gpio_reset)) {
+		dev_err(dev, "%s: unable to read reset-gpio\n", __func__);
+		ret = -EPERM;
+		goto fail;
+	}
+
+	pdata->gpio_irq = of_get_named_gpio(np, "maxim_sti,irq-gpio", 0);
+	if (!gpio_is_valid(pdata->gpio_irq)) {
+		dev_err(dev, "%s: unable to read irq-gpio\n", __func__);
+		ret = -EPERM;
+		goto fail;
+	}
+
+	ret = of_property_read_u32(np, "maxim_sti,nl_mc_groups", &val);
+	if (ret) {
+		dev_err(dev, "%s: unable to read nl_mc_groups (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->nl_mc_groups = (u8)val;
+
+	ret = of_property_read_u32(np, "maxim_sti,chip_access_method", &val);
+	if (ret) {
+		dev_err(dev, "%s: unable to read chip_access_method (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->chip_access_method = (u8)val;
+
+	ret = of_property_read_u32(np, "maxim_sti,default_reset_state", &val);
+	if (ret) {
+		dev_err(dev, "%s: unable to read default_reset_state (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->default_reset_state = (u8)val;
+
+	ret = of_property_read_u32(np, "maxim_sti,tx_buf_size", &val);
+	if (ret) {
+		dev_err(dev, "%s: unable to read tx_buf_size (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->tx_buf_size = (u16)val;
+
+	ret = of_property_read_u32(np, "maxim_sti,rx_buf_size", &val);
+	if (ret) {
+		dev_err(dev, "%s: unable to read rx_buf_size (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->rx_buf_size = (u16)val;
+
+	ret = of_property_read_string(np, "maxim_sti,touch_fusion", &str);
+	if (ret) {
+		dev_err(dev, "%s: unable to read touch_fusion location (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->touch_fusion = (char *)str;
+
+	ret = of_property_read_string(np, "maxim_sti,config_file", &str);
+	if (ret) {
+		dev_err(dev, "%s: unable to read config_file location (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->config_file = (char *)str;
+
+	ret = of_property_read_string(np, "maxim_sti,nl_family", &str);
+	if (ret) {
+		dev_err(dev, "%s: unable to read nl_family (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->nl_family = (char *)str;
+
+	ret = of_property_read_string(np, "maxim_sti,fw_name", &str);
+	if (ret) {
+		dev_err(dev, "%s: unable to read fw_name (%d)\n",
+								__func__, ret);
+	}
+	pdata->fw_name = (char *)str;
+
+	ret = of_property_read_u32(np, "wakeup_gesture_support", &val);
+	if (ret) {
+		dev_err(dev, "%s: unable to read wakeup_gesture_support (%d)\n",
+								__func__, ret);
+		goto fail;
+	}
+	pdata->wakeup_gesture_support = (u16)val;
+
+	pdata->init = maxim_sti_gpio_init;
+	pdata->reset = maxim_sti_gpio_reset;
+	pdata->irq = maxim_sti_gpio_irq;
+
+	return 0;
+
+fail:
+	return ret;
+}
+#endif
 
 /****************************************************************************\
 * Suspend/resume processing                                                  *
@@ -856,14 +1149,16 @@ static int early_suspend(struct device *dev)
 	int ret;
 #endif
 
-	if (dd->suspended)
-		return 0;
+	INFO("%s : start", __func__);
 
-	if (dd->suspend_in_progress)
-		return -1;
+	if (dd->suspend_in_progress) {
+		INFO("%s : suspend in progress", __func__);
+		return 0;
+	}
 
 	dd->suspend_in_progress = true;
 	wake_up_process(dd->thread);
+	INFO("%s : waiting", __func__);
 	wait_for_completion(&dd->suspend_resume);
 
 #if SUSPEND_POWER_OFF
@@ -877,6 +1172,8 @@ static int early_suspend(struct device *dev)
 	}
 #endif
 
+	INFO("%s : end", __func__);
+
 	return 0;
 }
 
@@ -888,8 +1185,12 @@ static int late_resume(struct device *dev)
 	int ret;
 #endif
 
-	if (!dd->suspended)
+	INFO("%s : start", __func__);
+
+	if (!dd->suspend_in_progress) {
+		INFO("%s : suspend not in progress", __func__);
 		return 0;
+	}
 
 #if SUSPEND_POWER_OFF
 	/* power-up and reset-high */
@@ -901,17 +1202,20 @@ static int late_resume(struct device *dev)
 	pdata->reset(pdata, 1);
 #endif
 
+
 	dd->resume_in_progress = true;
 	wake_up_process(dd->thread);
+	INFO("%s : waiting", __func__);
 	wait_for_completion(&dd->suspend_resume);
+	INFO("%s : end", __func__);
 	return 0;
 }
 
 static int suspend(struct device *dev)
 {
-	struct dev_data  *dd = spi_get_drvdata(to_spi_device(dev));
+	struct dev_data *dd = spi_get_drvdata(to_spi_device(dev));
 
-	if (dd->irq_registered) {
+	if (dd->irq_registered && dd->gesture_en) {
 		disable_irq(dd->spi->irq);
 		enable_irq_wake(dd->spi->irq);
 	}
@@ -921,9 +1225,9 @@ static int suspend(struct device *dev)
 
 static int resume(struct device *dev)
 {
-	struct dev_data  *dd = spi_get_drvdata(to_spi_device(dev));
+	struct dev_data *dd = spi_get_drvdata(to_spi_device(dev));
 
-	if (dd->irq_registered) {
+	if (dd->irq_registered && dd->gesture_en) {
 		disable_irq_wake(dd->spi->irq);
 		enable_irq(dd->spi->irq);
 	}
@@ -949,6 +1253,25 @@ static int input_enable(struct input_dev *dev)
 	struct dev_data *dd = input_get_drvdata(dev);
 
 	return late_resume(&dd->spi->dev);
+}
+#endif
+#if FB_CALLBACK && defined(CONFIG_FB)
+static int fb_notifier_callback(struct notifier_block *self,
+				unsigned long event, void *data)
+{
+	struct fb_event  *evdata = data;
+	int		 *blank;
+	struct dev_data  *dd = container_of(self,
+					    struct dev_data, fb_notifier);
+
+	if (evdata && evdata->data && event == FB_EVENT_BLANK) {
+		blank = evdata->data;
+		if (*blank == FB_BLANK_UNBLANK)
+			late_resume(&dd->spi->dev);
+		else if (*blank == FB_BLANK_POWERDOWN)
+			early_suspend(&dd->spi->dev);
+	}
+	return 0;
 }
 #endif
 #endif
@@ -977,6 +1300,94 @@ nl_callback_noop(struct sk_buff *skb, struct genl_info *info)
 }
 
 static inline bool
+nl_process_input_msg(struct dev_data *dd, struct sk_buff *skb)
+{
+	struct nlattr           *attr;
+	u16                     msg_id;
+	void                    *msg;
+	struct dr_input         *input_msg;
+	u8                      i, inp;
+
+	attr = NL_ATTR_FIRST(skb->data);
+	if (attr->nla_type != DR_INPUT)
+		return false;
+
+	for (; attr < NL_ATTR_LAST(skb->data); attr = NL_ATTR_NEXT(attr)) {
+		msg_id = attr->nla_type;
+		msg = NL_ATTR_VAL(attr, void);
+		switch (msg_id) {
+		case DR_INPUT:
+			for (i = 0; i < INPUT_DEVICES; i++)
+				if (dd->input_dev[i] == NULL) {
+					ERROR("input device %d is NULL", i);
+					return true;
+				}
+			input_msg = msg;
+			if (input_msg->events == 0) {
+				if (dd->eraser_active) {
+					input_report_key(
+						dd->input_dev[INPUT_DEVICES - 1],
+							 BTN_TOOL_RUBBER, 0);
+					dd->eraser_active = false;
+				}
+				for (i = 0; i < INPUT_DEVICES; i++) {
+					input_mt_sync(dd->input_dev[i]);
+					input_sync(dd->input_dev[i]);
+				}
+			} else {
+				for (i = 0; i < input_msg->events; i++) {
+					switch (input_msg->event[i].tool_type) {
+					case DR_INPUT_FINGER:
+						inp = 0;
+						input_report_abs(dd->input_dev[inp],
+								 ABS_MT_TOOL_TYPE,
+								 MT_TOOL_FINGER);
+						break;
+					case DR_INPUT_STYLUS:
+						inp = INPUT_DEVICES - 1;
+						input_report_abs(dd->input_dev[inp],
+								 ABS_MT_TOOL_TYPE,
+								 MT_TOOL_PEN);
+						break;
+					case DR_INPUT_ERASER:
+						inp = INPUT_DEVICES - 1;
+						input_report_key(dd->input_dev[inp],
+								 BTN_TOOL_RUBBER, 1);
+						dd->eraser_active = true;
+						break;
+					default:
+						inp = 0;
+						ERROR("invalid input tool type (%d)",
+						      input_msg->event[i].tool_type);
+						break;
+					}
+					input_report_abs(dd->input_dev[inp],
+							 ABS_MT_TRACKING_ID,
+							 input_msg->event[i].id);
+					input_report_abs(dd->input_dev[inp],
+							 ABS_MT_POSITION_X,
+							 input_msg->event[i].x);
+					input_report_abs(dd->input_dev[inp],
+							 ABS_MT_POSITION_Y,
+							 input_msg->event[i].y);
+					input_report_abs(dd->input_dev[inp],
+							 ABS_MT_PRESSURE,
+							 input_msg->event[i].z);
+					input_mt_sync(dd->input_dev[inp]);
+				}
+				for (i = 0; i < INPUT_DEVICES; i++)
+					input_sync(dd->input_dev[i]);
+			}
+			break;
+		default:
+			ERROR("unexpected message %d", msg_id);
+			break;
+		}
+	}
+	return true;
+}
+
+static inline bool
 nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 {
 	struct maxim_sti_pdata        *pdata = dd->spi->dev.platform_data;
@@ -1000,9 +1411,11 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 	struct dr_sysfs_ack           *sysfs_ack_msg;
 	struct dr_idle                *idle_msg;
 	struct dr_tf_status           *tf_status_msg;
-	u8                            i, inp;
-	u8                            irq_edge;
+	u8                            i, inp, irq_edge;
 	int                           ret;
+#if HI02
+	u16                           read_value[2] = { 0 };
+#endif
 
 	if (dd->expect_resume_ack && msg_id != DR_DECONFIG &&
 	    msg_id != DR_RESUME_ACK)
@@ -1057,23 +1470,30 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 		return true;
 	case DR_CHIP_WRITE:
 		write_msg = msg;
-#if HI02_WORKAROUND
-		if (write_msg->address == dd->irq_param[12] && write_msg->data[0] == dd->irq_param[13]) {
-				ret = dd->chip.write(dd, write_msg->address, write_msg->data,
+#if HI02
+		if (write_msg->address == dd->irq_param[12] &&
+		    write_msg->data[0] == dd->irq_param[13]) {
+			ret = dd->chip.write(dd, write_msg->address,
+					     write_msg->data,
 					     write_msg->length);
 			if (ret < 0)
 				ERROR("failed to write chip (%d)", ret);
-			msleep(15);
-			ret = dd->chip.read(dd, dd->irq_param[0], (u8 *)read_value, sizeof(read_value));
+			usleep_range(15000, 16000);
+			ret = dd->chip.read(dd, dd->irq_param[0],
+					    (u8 *)read_value,
+					    sizeof(read_value));
 			if (ret < 0)
 				ERROR("failed to read from chip (%d)", ret);
-			ret = dd->chip.write(dd, dd->irq_param[0], (u8 *)read_value, sizeof(read_value));
+			ret = dd->chip.write(dd, dd->irq_param[0],
+					     (u8 *)read_value,
+					     sizeof(read_value));
 			return false;
 		}
 		if (write_msg->address == dd->irq_param[0]) {
-			/* assume nothing follows TSISTAT, of course */
 			read_value[0] = ((u16 *)write_msg->data)[0];
-			ret = dd->chip.write(dd, write_msg->address, (u8 *)read_value, sizeof(read_value));
+			ret = dd->chip.write(dd, write_msg->address,
+					     (u8 *)read_value,
+					     sizeof(read_value));
 			return false;
 		}
 #endif
@@ -1157,10 +1577,10 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 				input_set_drvdata(dd->input_dev[i], dd);
 			}
 #endif
-#if NV_ENABLE_CPU_BOOST
+#ifdef SONY_CPU_BOOST
 			if (i == 0)
-				input_set_capability(dd->input_dev[i], EV_MSC,
-						     MSC_ACTIVITY);
+				input_set_capability(dd->input_dev[i], EV_SW,
+						     SW_TOUCH_ACTIVITY);
 #endif
 			__set_bit(EV_SYN, dd->input_dev[i]->evbit);
 			__set_bit(EV_ABS, dd->input_dev[i]->evbit);
@@ -1168,9 +1588,20 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 				__set_bit(EV_KEY, dd->input_dev[i]->evbit);
 				__set_bit(BTN_TOOL_RUBBER,
 					  dd->input_dev[i]->keybit);
-				__set_bit(KEY_POWER,
-					  dd->input_dev[i]->keybit);
 			}
+
+			if (pdata->wakeup_gesture_support) {
+				dd->evdt_node =	evdt_initialize(&dd->spi->dev,
+							dd->input_dev[i],
+							MXM_WAKEUP_GESTURE);
+				if (!dd->evdt_node) {
+					INFO("No wakeup_gesture dt");
+				} else {
+					INFO("%d - Touch Wakeup Feature OK", i);
+					dd->ew_input_device_id = i;
+				}
+			}
+
 			input_set_abs_params(dd->input_dev[i],
 					     ABS_MT_POSITION_X, 0,
 					     config_input_msg->x_range, 0, 0);
@@ -1198,6 +1629,10 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 				ERROR("failed to register input device");
 			}
 		}
+#if FB_CALLBACK && defined(CONFIG_FB)
+		dd->fb_notifier.notifier_call = fb_notifier_callback;
+		fb_register_client(&dd->fb_notifier);
+#endif
 		/* create symlink */
 		if (dd->parent == NULL) {
 			dd->parent = dd->input_dev[0]->dev.kobj.parent;
@@ -1217,7 +1652,10 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 			dd->irq_registered = false;
 		}
 		stop_scan_canned(dd);
+
+#if INPUT_ENABLE_DISABLE || FB_CALLBACK || FORCE_NO_DECONFIG
 		if (!dd->input_no_deconfig) {
+#endif
 			if (dd->parent != NULL) {
 				sysfs_remove_link(
 					dd->input_dev[0]->dev.kobj.parent,
@@ -1230,7 +1668,12 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 				input_unregister_device(dd->input_dev[i]);
 				dd->input_dev[i] = NULL;
 			}
+#if FB_CALLBACK && defined(CONFIG_FB)
+			fb_unregister_client(&dd->fb_notifier);
+#endif
+#if INPUT_ENABLE_DISABLE || FB_CALLBACK || FORCE_NO_DECONFIG
 		}
+#endif
 		dd->expect_resume_ack = false;
 		dd->eraser_active = false;
 		dd->legacy_acceleration = false;
@@ -1324,7 +1767,7 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 		handshake_msg = msg;
 		dd->tf_ver = handshake_msg->tf_ver;
 		dd->chip_id = handshake_msg->chip_id;
-		dd->drv_ver = DRIVER_VERSION_NUM;
+		dd->drv_ver = DRIVER_VERSION;
 		handshake_response = nl_alloc_attr(dd->outgoing_skb->data,
 						FU_HANDSHAKE_RESPONSE,
 						sizeof(*handshake_response));
@@ -1341,16 +1784,11 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 		return false;
 	case DR_SYSFS_ACK:
 		sysfs_ack_msg = msg;
-		if (sysfs_ack_msg->type == DR_SYSFS_ACK_GLOVE)
-			complete(&dd->sysfs_ack_glove);
-		if (sysfs_ack_msg->type == DR_SYSFS_ACK_CHARGER)
-			complete(&dd->sysfs_ack_charger);
-		if (sysfs_ack_msg->type == DR_SYSFS_ACK_LCD_FPS)
-			complete(&dd->sysfs_ack_lcd_fps);
 		return false;
 	case DR_IDLE:
 		idle_msg = msg;
 		dd->idle = !!(idle_msg->idle);
+		dd->boost = dd->idle;
 		return false;
 	case DR_TF_STATUS:
 		tf_status_msg = msg;
@@ -1386,9 +1824,9 @@ static int nl_process_msg(struct dev_data *dd, struct sk_buff *skb)
 		(void)skb_put(dd->outgoing_skb,
 			      NL_SIZE(dd->outgoing_skb->data));
 		if (NL_SEQ(skb->data) == 0)
-			ret = genlmsg_unicast(sock_net(skb->sk),
+			ret = genlmsg_unicast(&init_net,
 					      dd->outgoing_skb,
-					      NETLINK_CB(skb).pid);
+					      NETLINK_CB(skb).portid);
 		else
 			ret = genlmsg_multicast(dd->outgoing_skb, 0,
 					dd->nl_mc_groups[MC_FUSION].id,
@@ -1431,6 +1869,10 @@ nl_callback_driver(struct sk_buff *skb, struct genl_info *info)
 		ERROR("failed to clone incoming skb");
 		return -ENOMEM;
 	} else {
+		if (nl_process_input_msg(dd, skb2)) {
+			kfree_skb(skb2);
+			return 0;
+		}
 		skb_queue_tail(&dd->incoming_skb_queue, skb2);
 		wake_up_process(dd->thread);
 		return 0;
@@ -1467,10 +1909,23 @@ static irqreturn_t irq_handler(int irq, void *context)
 {
 	struct dev_data  *dd = context;
 
-#if NV_ENABLE_CPU_BOOST
+#if CPU_BOOST
+	/* implement CPU boost here
 	if (time_after(jiffies, dd->last_irq_jiffies + INPUT_IDLE_PERIOD))
-		input_event(dd->input_dev[0], EV_MSC, MSC_ACTIVITY, 1);
+		...;
+	*/
 	dd->last_irq_jiffies = jiffies;
+#endif
+#ifdef SONY_CPU_BOOST
+	if (dd->boost && likely(dd->input_dev[0])) {
+		input_event(dd->input_dev[0], EV_SW, SW_TOUCH_ACTIVITY, 1);
+		input_mt_sync(dd->input_dev[0]);
+		input_sync(dd->input_dev[0]);
+		input_event(dd->input_dev[0], EV_SW, SW_TOUCH_ACTIVITY, 0);
+		input_mt_sync(dd->input_dev[0]);
+		input_sync(dd->input_dev[0]);
+		dd->boost = false;
+	}
 #endif
 
 	wake_up_process(dd->thread);
@@ -1479,32 +1934,41 @@ static irqreturn_t irq_handler(int irq, void *context)
 
 static void gesture_wake_detect(struct dev_data *dd)
 {
-	u16    status, value;
-	int    ret = 0;
+	u16 status, value;
+	int ret = 0;
+
+	INFO("%s : start", __func__);
 
 	ret = dd->chip.read(dd, dd->irq_param[0],
-			    (u8 *)&status, sizeof(status));
-	INFO("%s: tsistat = %04X", __func__, status);
-	if (status & dd->irq_param[10])
-		dd->resume_reset = true;
-	if ((status & dd->irq_param[18]) && dd->input_dev[0]) {
-		ret = dd->chip.read(dd, dd->irq_param[22],
-				    (u8 *)&value, sizeof(value));
-		INFO("gesture code = 0x%04X", value);
-		if (value == dd->irq_param[24]) {
-			INFO("gesture detected");
-			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 1);
-			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
-			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 0);
-			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
-		}
-		value = dd->irq_param[18];
-		ret = dd->chip.write(dd, dd->irq_param[0],
-				     (u8 *)&value, sizeof(value));
-	} else {
-		ret = dd->chip.write(dd, dd->irq_param[0],
-				     (u8 *)&status, sizeof(status));
+				(u8 *)&status, sizeof(status));
+	if (ret < 0) {
+		ERROR("can't read IRQ status (%d)", ret);
+		INFO("Error stat = 0x%04X", status);
+		return;
 	}
+	INFO("stat = 0x%04X", status);
+	if (status & dd->irq_param[10]) {
+		dd->resume_reset = true;
+		value = dd->irq_param[10];
+		(void)dd->chip.write(dd, dd->irq_param[0],
+				(u8 *)&value, sizeof(value));
+	} else if (status & dd->irq_param[18]) {
+		ret = dd->chip.read(dd, dd->irq_param[22],
+				(u8 *)&value, sizeof(value));
+		if (ret < 0)
+			ERROR("can't read MAXQ status (%d)", ret);
+		else {
+			INFO("Gesture = 0x%04X", value);
+			evdt_execute(dd->evdt_node,
+				dd->input_dev[dd->ew_input_device_id], value);
+		}
+
+		value = dd->irq_param[18];
+		(void)dd->chip.write(dd, dd->irq_param[0],
+				(u8 *)&value, sizeof(value));
+	}
+
+	INFO("%s : end", __func__);
 }
 
 static void service_irq_legacy_acceleration(struct dev_data *dd)
@@ -1513,6 +1977,8 @@ static void service_irq_legacy_acceleration(struct dev_data *dd)
 	u16                   len, rx_len = 0, offset = 0;
 	u16                   buf[255], rx_limit = 250 * sizeof(u16);
 	int                   ret = 0, counter = 0;
+
+	INFO("%s : start", __func__);
 
 	async_data = nl_alloc_attr(dd->outgoing_skb->data, FU_ASYNC_DATA,
 				   sizeof(*async_data) + dd->irq_param[4] +
@@ -1595,19 +2061,17 @@ static void service_irq_legacy_acceleration(struct dev_data *dd)
 		if (ret < 0)
 			ERROR("could not allocate outgoing skb (%d)", ret);
 	}
+
+	INFO("%s : end", __func__);
 }
 
 static void service_irq(struct dev_data *dd)
 {
 	struct fu_async_data  *async_data;
-	u16                   status, test, address[2], xbuf;
+	u16                   status, test, address[2], xbuf, value;
 	u16                   clear[2] = { 0 };
 	bool                  read_buf[2] = {true, false};
 	int                   ret, ret2;
-	u16                   value;
-	//s16 finger_buf[36];
-	//int i;
-	//static u16 prev_finger_count;
 
 	ret = dd->chip.read(dd, dd->irq_param[0], (u8 *)&status,
 			    sizeof(status));
@@ -1625,8 +2089,6 @@ static void service_irq(struct dev_data *dd)
 		read_buf[0] = false;
 		clear[0] = dd->irq_param[10];
 	} else if (status & dd->irq_param[18]) {
-#if 1
-		//int_counter = 0;
 		test = status & (dd->irq_param[6] | dd->irq_param[7]);
 
 		if (test == 0)
@@ -1638,7 +2100,7 @@ static void service_irq(struct dev_data *dd)
 		else if (test == dd->irq_param[7])
 			xbuf = 1;
 		else {
-			ERROR("unexpected IRQ handler case 0x%04X ",status);
+			ERROR("unexpected IRQ handler case 0x%04X", status);
 			return;
 		}
 
@@ -1651,67 +2113,7 @@ static void service_irq(struct dev_data *dd)
 
 		value = dd->irq_param[17];
 		(void)dd->chip.write(dd, dd->irq_param[16], (u8 *)&value,
-				     sizeof(value));
-#else
-		//(void)dd->chip.read(dd, 0x1BDC, (u8 *)finger_buf, sizeof(finger_buf));
-		(void)dd->chip.read(dd, 0x1410, (u8 *)finger_buf, sizeof(finger_buf));
-		INFO("finger_buf[0] = 0x%04X", finger_buf[0]);
-		if (finger_buf[0] == 0xFFFFF1FA) {
-			INFO("old baseline score = %d, new baseline score = %d, max = %d, min = %d, above = %d, below = %d",
-			     finger_buf[30], finger_buf[31], finger_buf[32], finger_buf[33], finger_buf[34], finger_buf[35]);
-			finger_buf[0] = 0;
-		}
-		if (finger_buf[0] > 4)
-			/* shouldn't ever happen */
-			finger_buf[0] = 4;
-		for (i = 0; i < finger_buf[0]; i++) {
-			INFO("id = %d, x = %d, y = %d, z = %d",
-			     finger_buf[i * 4 + 1 + 0],
-			     800 - finger_buf[i * 4 + 1 + 2] * 800 / (36 * 128),
-			     finger_buf[i * 4 + 1 + 1] * 1280 / (52 * 128),
-			     finger_buf[i * 4 + 1 + 3] > 2040 ? 255 :
-			     finger_buf[i * 4 + 1 + 3] >> 3);
-			input_report_abs(dd->input_dev[0],
-					 ABS_MT_TRACKING_ID,
-					 finger_buf[i * 4 + 1 + 0]);
-			input_report_abs(dd->input_dev[0],
-					 ABS_MT_POSITION_X,
-					 800 - finger_buf[i * 4 + 1 + 2] * 800 / (36 * 128));
-			input_report_abs(dd->input_dev[0],
-					 ABS_MT_POSITION_Y,
-					 finger_buf[i * 4 + 1 + 1] * 1280 / (52 * 128));
-			input_report_abs(dd->input_dev[0],
-					 ABS_MT_PRESSURE,
-					 finger_buf[i * 4 + 1 + 3] > 2040 ? 255 :
-					 finger_buf[i * 4 + 1 + 3] >> 3);
-			input_mt_sync(dd->input_dev[0]);
-		}
-		if (finger_buf[0]) {
-			for (i = 0; i < 4; i++)
-				INFO("peak = %d, pixelcount = %d, energy = %d",
-				     finger_buf[i * 3 + 17 + 0],
-				     finger_buf[i * 3 + 17 + 1],
-				     finger_buf[i * 3 + 17 + 2]);
-			printk("\n");
-		}
-		if (!finger_buf[0] && prev_finger_count)
-			input_mt_sync(dd->input_dev[0]);
-		if (finger_buf[0] || prev_finger_count)
-			input_sync(dd->input_dev[0]);
-		if (finger_buf[29]) {
-			INFO("double-tap!!\n");
-			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 1);
-			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
-			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 0);
-			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
-		}
-		prev_finger_count = finger_buf[0];
-		clear[0] = dd->irq_param[18];
-		(void)dd->chip.write(dd, 0x6001, (u8 *)&clear,
-				     sizeof(clear));
-		return;
-#endif
-
+					sizeof(value));
 	} else if (status & dd->irq_param[9]) {
 		test = status & (dd->irq_param[6] | dd->irq_param[7]);
 
@@ -1748,7 +2150,7 @@ static void service_irq(struct dev_data *dd)
 		else if (test == dd->irq_param[7])
 			xbuf = 1;
 		else {
-			ERROR("unexpected IRQ handler case 0x%04X ",status);
+			ERROR("unexpected IRQ handler case 0x%04X ", status);
 			return;
 		}
 
@@ -1756,9 +2158,6 @@ static void service_irq(struct dev_data *dd)
 		clear[0] = xbuf ? dd->irq_param[7] : dd->irq_param[6];
 		clear[0] |= dd->irq_param[8];
 	}
-
-	//if (int_counter < 25)
-	//	INFO("interrupt #%d, 0x%04X", int_counter, status);
 
 	async_data = nl_alloc_attr(dd->outgoing_skb->data, FU_ASYNC_DATA,
 				   sizeof(*async_data) + dd->irq_param[4]);
@@ -1793,7 +2192,7 @@ static void service_irq(struct dev_data *dd)
 				    dd->irq_param[4]);
 	}
 
-#if HI02_WORKAROUND
+#if HI02
 	ret2 = dd->chip.write(dd, dd->irq_param[0], (u8 *)clear,
 			     sizeof(clear));
 #else
@@ -1808,8 +2207,6 @@ static void service_irq(struct dev_data *dd)
 		nl_msg_init(dd->outgoing_skb->data, dd->nl_family.id,
 			    dd->nl_seq - 1, MC_FUSION);
 	} else {
-		//if (int_counter < 25)
-		//	INFO("sending #%d, 0x%04X", int_counter++, status);
 		(void)skb_put(dd->outgoing_skb,
 			      NL_SIZE(dd->outgoing_skb->data));
 		ret = genlmsg_multicast(dd->outgoing_skb, 0,
@@ -1845,7 +2242,7 @@ static int send_sysfs_info(struct dev_data *dd)
 					sizeof(*sysfs_info));
 	if (sysfs_info == NULL) {
 		ERROR("Can't allocate sysfs_info");
-		return -1;
+		return -EPERM;
 	}
 	sysfs_info->type = dd->sysfs_update_type;
 
@@ -1858,17 +2255,15 @@ static int send_sysfs_info(struct dev_data *dd)
 	ret = genlmsg_multicast(dd->outgoing_skb, 0,
 			dd->nl_mc_groups[MC_FUSION].id,
 			GFP_KERNEL);
-	if (ret < 0) {
+	if (ret < 0)
 		ERROR("could not reply to fusion (%d)", ret);
-		return -1;
-	}
 
 	/* allocate new outgoing skb */
 	ret2 = nl_msg_new(dd, MC_FUSION);
 	if (ret2 < 0)
 		ERROR("could not allocate outgoing skb (%d)", ret2);
 
-	return 0;
+	return ret;
 
 }
 /****************************************************************************\
@@ -1882,9 +2277,11 @@ static int processing_thread(void *arg)
 	struct sk_buff          *skb;
 	char                    *argv[] = { pdata->touch_fusion, "daemon",
 					    pdata->nl_family,
-					    pdata->config_file, NULL };
+					    dd->config_file, NULL };
 	int                     ret, ret2;
 	bool                    fusion_dead;
+
+	INFO("%s : start", __func__);
 
 	sched_setscheduler(current, SCHED_FIFO, &dd->thread_sched);
 
@@ -1905,7 +2302,7 @@ static int processing_thread(void *arg)
 			stop_scan_canned(dd);
 			dd->start_fusion = true;
 			dd->fusion_process = (pid_t)0;
-#if INPUT_ENABLE_DISABLE
+#if INPUT_ENABLE_DISABLE || FB_CALLBACK
 			dd->input_no_deconfig = true;
 #endif
 		}
@@ -1917,15 +2314,15 @@ static int processing_thread(void *arg)
 					msleep(100);
 			} while (ret != 0 && !kthread_should_stop());
 
-			/* power-up and reset-high */
-			ret = regulator_control(dd, true);
-			if (ret < 0)
-				ERROR("failed to enable regulators");
-
-			usleep_range(300, 400);
+			/* reset-high */
 			pdata->reset(pdata, 1);
 
 			dd->start_fusion = false;
+			dd->tf_status |= TF_STATUS_BUSY;
+#if FORCE_NO_DECONFIG
+			dd->input_no_deconfig = true;
+			INFO("FORCE_NO_DECONFIG is enable");
+#endif
 		}
 		if (kthread_should_stop())
 			break;
@@ -1936,6 +2333,8 @@ static int processing_thread(void *arg)
 				break;
 			if (nl_process_msg(dd, skb) < 0)
 				skb_queue_purge(&dd->incoming_skb_queue);
+			if (dd->outgoing_skb == NULL)
+				continue;
 		}
 		if (kthread_should_stop())
 			break;
@@ -1952,12 +2351,11 @@ static int processing_thread(void *arg)
 				else
 					stop_idle_scan(dd);
 			}
-
 			complete(&dd->suspend_resume);
+			INFO("%s : complete", __func__);
 			dd->expect_resume_ack = true;
 			dd->resume_reset = false;
 			while (!dd->resume_in_progress) {
-				dd->suspended = true;
 				/* the line below is a MUST */
 				set_current_state(TASK_INTERRUPTIBLE);
 				if (dd->gesture_en && dd->irq_registered &&
@@ -1973,10 +2371,10 @@ static int processing_thread(void *arg)
 					start_scan_canned(dd);
 			}
 #endif
-			dd->suspended = false;
-			dd->suspend_in_progress = false;
 			dd->resume_in_progress = false;
+			dd->suspend_in_progress = false;
 			complete(&dd->suspend_resume);
+			INFO("%s : complete", __func__);
 
 			fusion_dead = false;
 			dd->send_fail_count = 0;
@@ -1991,7 +2389,7 @@ static int processing_thread(void *arg)
 				ret = nl_add_attr(dd->outgoing_skb->data,
 						  FU_RESUME, NULL, 0);
 				if (ret < 0) {
-					ERROR("can't add data to resume " \
+					ERROR("can't add data to resume "
 					      "buffer");
 					nl_msg_init(dd->outgoing_skb->data,
 						    dd->nl_family.id,
@@ -2013,29 +2411,40 @@ static int processing_thread(void *arg)
 						ret = 0;
 					}
 				}
-				ret2 = nl_msg_new(dd, MC_FUSION);
-				if (ret2 < 0)
-					ERROR("could not allocate outgoing " \
-					      "skb (%d)", ret2);
+				do {
+					ret2 = nl_msg_new(dd, MC_FUSION);
+					if (ret2 < 0) {
+						ERROR("could not allocate "
+						      "outgoing  skb (%d)",
+						      ret2);
+						msleep(1000);
+					}
+				} while (ret2 != 0);
 			} while (ret != 0);
-			if (dd->send_fail_count>= 10 &&
+			if (dd->send_fail_count >= 10 &&
 			    dd->fusion_process != (pid_t)0)
-			       (void)kill_pid(find_get_pid(dd->fusion_process),
-					      SIGKILL, 1);
+				(void)kill_pid(find_get_pid(dd->fusion_process),
+					       SIGKILL, 1);
 			dd->send_fail_count = 0;
 			if (fusion_dead)
 				continue;
 		}
 
 		/* priority 4: update /sys/device information */
-		if (dd->sysfs_update_type != DR_SYSFS_UPDATE_NONE)
+		if (dd->sysfs_update_type != DR_SYSFS_UPDATE_NONE) {
 			if (!dd->expect_resume_ack) {
+				mutex_lock(&dd->sysfs_update_mutex);
 				if (send_sysfs_info(dd) < 0)
 					ERROR(
 					      "Can not send sysfs update to touch fusion"
 					     );
-				dd->sysfs_update_type = DR_SYSFS_UPDATE_NONE;
+				else
+					dd->sysfs_update_type = DR_SYSFS_UPDATE_NONE;
+				mutex_unlock(&dd->sysfs_update_mutex);
 			}
+			if (dd->outgoing_skb == NULL)
+				continue;
+		}
 
 		/* priority 5: service interrupt */
 		if (dd->irq_registered && !dd->expect_resume_ack &&
@@ -2049,6 +2458,8 @@ static int processing_thread(void *arg)
 		schedule();
 	}
 
+	INFO("%s : end", __func__);
+
 	return 0;
 }
 
@@ -2061,7 +2472,7 @@ static ssize_t chip_id_show(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
-	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->chip_id);
+	return snprintf(buf, PAGE_SIZE, "0x%04X\n", dd->chip_id);
 }
 
 static ssize_t fw_ver_show(struct device *dev,
@@ -2070,7 +2481,7 @@ static ssize_t fw_ver_show(struct device *dev,
 
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
-	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->fw_ver);
+	return snprintf(buf, PAGE_SIZE, "0x%04X\n", dd->fw_ver);
 }
 
 static ssize_t driver_ver_show(struct device *dev,
@@ -2079,7 +2490,7 @@ static ssize_t driver_ver_show(struct device *dev,
 
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
-	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->drv_ver);
+	return snprintf(buf, PAGE_SIZE, "0x%04X\n", dd->drv_ver);
 }
 
 static ssize_t tf_ver_show(struct device *dev,
@@ -2087,13 +2498,13 @@ static ssize_t tf_ver_show(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
-	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->tf_ver);
+	return snprintf(buf, PAGE_SIZE, "0x%04X\n", dd->tf_ver);
 }
 
 static ssize_t panel_id_show(struct device *dev,
 	struct device_attribute *attr, char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%04X\n", panel_id);
+	return snprintf(buf, PAGE_SIZE, "0x%04X\n", panel_id);
 }
 
 static ssize_t glove_show(struct device *dev,
@@ -2101,6 +2512,7 @@ static ssize_t glove_show(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
+
 	return snprintf(buf, PAGE_SIZE, "%u\n", dd->glove_enabled);
 }
 
@@ -2109,26 +2521,22 @@ static ssize_t glove_store(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
-	u32 temp;
-	unsigned long           time_left;
+	u32                     temp;
 
 	mutex_lock(&dd->sysfs_update_mutex);
 
 	if (sscanf(buf, "%u", &temp) != 1) {
 		ERROR("Invalid (%s)", buf);
+		mutex_unlock(&dd->sysfs_update_mutex);
 		return -EINVAL;
 	}
 	dd->glove_enabled = !!temp;
 	set_bit(DR_SYSFS_UPDATE_BIT_GLOVE, &(dd->sysfs_update_type));
 	wake_up_process(dd->thread);
-	time_left = wait_for_completion_timeout(&dd->sysfs_ack_glove, 3*HZ);
 
 	mutex_unlock(&dd->sysfs_update_mutex);
 
-	if (time_left > 0)
-		return strnlen(buf, PAGE_SIZE);
-	else
-		return -EAGAIN;
+	return strnlen(buf, PAGE_SIZE);
 }
 
 static ssize_t gesture_wakeup_show(struct device *dev,
@@ -2160,6 +2568,7 @@ static ssize_t charger_mode_show(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
+
 	return snprintf(buf, PAGE_SIZE, "%u\n", dd->charger_mode_en);
 }
 
@@ -2168,30 +2577,27 @@ static ssize_t charger_mode_store(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
-	u32 temp;
-	unsigned long           time_left;
+	u32                     temp;
 
 	mutex_lock(&dd->sysfs_update_mutex);
 
 	if (sscanf(buf, "%u", &temp) != 1) {
 		ERROR("Invalid (%s)", buf);
+		mutex_unlock(&dd->sysfs_update_mutex);
 		return -EINVAL;
 	}
 	if (temp > DR_WIRELESS_CHARGER) {
 		ERROR("Charger Mode Value Out of Range");
+		mutex_unlock(&dd->sysfs_update_mutex);
 		return -EINVAL;
 	}
 	dd->charger_mode_en = temp;
 	set_bit(DR_SYSFS_UPDATE_BIT_CHARGER, &(dd->sysfs_update_type));
 	wake_up_process(dd->thread);
-	time_left = wait_for_completion_timeout(&dd->sysfs_ack_charger, 3*HZ);
 
 	mutex_unlock(&dd->sysfs_update_mutex);
 
-	if (time_left > 0)
-		return strnlen(buf, PAGE_SIZE);
-	else
-		return -EAGAIN;
+	return strnlen(buf, PAGE_SIZE);
 }
 
 static ssize_t info_show(struct device *dev,
@@ -2201,9 +2607,10 @@ static ssize_t info_show(struct device *dev,
 	struct dev_data         *dd = spi_get_drvdata(spi);
 	return snprintf(buf, PAGE_SIZE, "chip id: 0x%04X driver ver: 0x%04X "
 					"fw ver: 0x%04X panel id: 0x%04X "
-					"tf ver: 0x%04X\n",
+					"tf ver: 0x%04X default loaded: %d",
 					dd->chip_id, dd->drv_ver, dd->fw_ver,
-					panel_id, dd->tf_ver);
+					panel_id, dd->tf_ver,
+				(dd->tf_status & TF_STATUS_DEFAULT_LOADED));
 }
 
 static ssize_t screen_status_store(struct device *dev,
@@ -2213,14 +2620,25 @@ static ssize_t screen_status_store(struct device *dev,
 	struct dev_data         *dd = spi_get_drvdata(spi);
 	u32 temp;
 
+	mutex_lock(&dd->screen_status_mutex);
 	if (sscanf(buf, "%u", &temp) != 1) {
 		ERROR("Invalid (%s)", buf);
+		mutex_unlock(&dd->screen_status_mutex);
 		return -EINVAL;
 	}
-	if (temp)
+	if (temp) {
 		late_resume(dev);
-	else
+		if (dd->pending_fps) {
+			mutex_lock(&dd->sysfs_update_mutex);
+			set_bit(DR_SYSFS_UPDATE_BIT_LCD_FPS,
+				&(dd->sysfs_update_type));
+			wake_up_process(dd->thread);
+			dd->pending_fps = false;
+			mutex_unlock(&dd->sysfs_update_mutex);
+		}
+	} else
 		early_suspend(dev);
+	mutex_unlock(&dd->screen_status_mutex);
 
 	return strnlen(buf, PAGE_SIZE);
 }
@@ -2247,6 +2665,7 @@ static ssize_t lcd_fps_show(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
+
 	return snprintf(buf, PAGE_SIZE, "%u\n", dd->lcd_fps);
 }
 
@@ -2255,27 +2674,62 @@ static ssize_t lcd_fps_store(struct device *dev,
 {
 	struct spi_device       *spi = to_spi_device(dev);
 	struct dev_data         *dd = spi_get_drvdata(spi);
-	u32 temp;
-	unsigned long           time_left;
+	u32                     temp;
 
 	mutex_lock(&dd->sysfs_update_mutex);
 
 	if (sscanf(buf, "%u", &temp) != 1) {
 		ERROR("Invalid (%s)", buf);
+		mutex_unlock(&dd->sysfs_update_mutex);
 		return -EINVAL;
 	}
 
 	dd->lcd_fps = temp;
-	set_bit(DR_SYSFS_UPDATE_BIT_LCD_FPS, &(dd->sysfs_update_type));
-	wake_up_process(dd->thread);
-	time_left = wait_for_completion_timeout(&dd->sysfs_ack_lcd_fps, 3*HZ);
+	dd->pending_fps = true;
 
 	mutex_unlock(&dd->sysfs_update_mutex);
 
-	if (time_left > 0)
-		return strnlen(buf, PAGE_SIZE);
-	else
-		return -EAGAIN;
+	return strnlen(buf, PAGE_SIZE);
+}
+
+static ssize_t lcd_fpks_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	u32 dfpks = dd->lcd_fps * 1000;
+
+	return snprintf(buf, PAGE_SIZE, "%u\n", dfpks);
+}
+
+static ssize_t lcd_fpks_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	char buf2[6];
+	int dfps, dfpks, rc;
+
+	rc = kstrtoint(buf, 10, &dfpks);
+	if (rc < 0) {
+		ERROR("Invalid (%s)", buf);
+		return -EINVAL;
+	}
+
+	dfps = dfpks / 1000;
+	rc = scnprintf(buf2, sizeof(buf2), "%d\n", dfps);
+	if (rc < 0) {
+		ERROR("Invalid (%d)", dfps);
+		return -EINVAL;
+	}
+
+	rc = lcd_fps_store(dev, attr, buf2, sizeof(buf2));
+	if (rc < 0) {
+		ERROR("Invalid (%s)", buf2);
+		return -EINVAL;
+	}
+
+	return strnlen(buf, PAGE_SIZE);
 }
 
 static struct device_attribute dev_attrs[] = {
@@ -2285,13 +2739,16 @@ static struct device_attribute dev_attrs[] = {
 	__ATTR(driver_ver, S_IRUGO, driver_ver_show, NULL),
 	__ATTR(panel_id, S_IRUGO, panel_id_show, NULL),
 	__ATTR(glove_en, S_IRUGO | S_IWUSR, glove_show, glove_store),
-	__ATTR(gesture_wakeup, S_IRUGO | S_IWUSR, gesture_wakeup_show, gesture_wakeup_store),
-	__ATTR(charger_mode, S_IRUGO | S_IWUSR, charger_mode_show, charger_mode_store),
+	__ATTR(gesture_wakeup, S_IRUGO | S_IWUSR,
+			gesture_wakeup_show, gesture_wakeup_store),
+	__ATTR(charger_mode, S_IRUGO | S_IWUSR,
+			charger_mode_show, charger_mode_store),
 	__ATTR(info, S_IRUGO, info_show, NULL),
 	__ATTR(screen_status, S_IWUSR, NULL, screen_status_store),
 	__ATTR(tf_status, S_IRUGO, tf_status_show, NULL),
 	__ATTR(default_loaded, S_IRUGO, default_loaded_show, NULL),
 	__ATTR(lcd_fps, S_IRUGO | S_IWUSR, lcd_fps_show, lcd_fps_store),
+	__ATTR(lcd_fpks, S_IRUGO | S_IWUSR, lcd_fpks_show, lcd_fpks_store),
 };
 
 static int create_sysfs_entries(struct dev_data *dd)
@@ -2333,6 +2790,22 @@ static int probe(struct spi_device *spi)
 	unsigned long           flags;
 	int                     ret, i;
 	void                    *ptr;
+
+#ifdef CONFIG_OF
+	if (pdata == NULL && spi->dev.of_node) {
+		pdata = devm_kzalloc(&spi->dev,
+			sizeof(struct maxim_sti_pdata), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&spi->dev, "failed to allocate memory\n");
+			return -ENOMEM;
+		}
+
+		ret = maxim_parse_dt(&spi->dev, pdata);
+		if (ret)
+			return ret;
+		spi->dev.platform_data = pdata;
+	}
+#endif
 
 	/* validate platform data */
 	if (pdata == NULL || pdata->init == NULL || pdata->reset == NULL ||
@@ -2376,10 +2849,17 @@ static int probe(struct spi_device *spi)
 	(void)set_chip_access_method(dd, pdata->chip_access_method);
 
 	/* initialize regulators */
-	regulator_init(dd);
+	ret = regulator_init(dd);
+	if (ret < 0)
+		goto platform_failure;
+
+	/* Enable regulators */
+	ret = regulator_control(dd, true);
+	if (ret < 0)
+		goto platform_failure;
 
 	/* initialize platform */
-	ret = pdata->init(pdata, true);
+	ret = pdata->init(&spi->dev, pdata, true);
 	if (ret < 0)
 		goto platform_failure;
 
@@ -2434,19 +2914,16 @@ static int probe(struct spi_device *spi)
 	/* Netlink: ready to start processing incoming messages */
 	dd->nl_enabled = true;
 
-	/* No sysfs update initially */
 	dd->sysfs_update_type = DR_SYSFS_UPDATE_NONE;
-	init_completion(&dd->sysfs_ack_glove);
-	init_completion(&dd->sysfs_ack_charger);
-	init_completion(&dd->sysfs_ack_lcd_fps);
 	mutex_init(&dd->sysfs_update_mutex);
+	mutex_init(&dd->screen_status_mutex);
 
 	/* add us to the devices list */
 	spin_lock_irqsave(&dev_lock, flags);
 	list_add_tail(&dd->dev_list, &dev_list);
 	spin_unlock_irqrestore(&dev_lock, flags);
 
-#if NV_ENABLE_CPU_BOOST
+#if CPU_BOOST
 	dd->last_irq_jiffies = jiffies;
 #endif
 	ret = create_sysfs_entries(dd);
@@ -2454,11 +2931,13 @@ static int probe(struct spi_device *spi)
 		INFO("failed to create sysfs file");
 		goto sysfs_remove_group;
 	}
+	snprintf(dd->config_file, CFG_FILE_NAME_MAX,
+			pdata->config_file, panel_id);
 
 	/* start up Touch Fusion */
 	dd->start_fusion = true;
 	wake_up_process(dd->thread);
-	INFO("driver loaded; version %s; release date %s", DRIVER_VERSION,
+	INFO("driver loaded; version 0x%04X; release date %s", DRIVER_VERSION,
 	     DRIVER_RELEASE);
 
 	return 0;
@@ -2470,7 +2949,7 @@ nl_failure:
 nl_family_failure:
 	(void)kthread_stop(dd->thread);
 platform_failure:
-	pdata->init(pdata, false);
+	pdata->init(&spi->dev, pdata, false);
 	kfree(dd);
 	return ret;
 }
@@ -2508,6 +2987,9 @@ static int remove(struct spi_device *spi)
 	for (i = 0; i < INPUT_DEVICES; i++)
 		if (dd->input_dev[i])
 			input_unregister_device(dd->input_dev[i]);
+#if FB_CALLBACK && defined(CONFIG_FB)
+	fb_unregister_client(&dd->fb_notifier);
+#endif
 
 	if (dd->irq_registered)
 		free_irq(dd->spi->irq, dd);
@@ -2521,7 +3003,7 @@ static int remove(struct spi_device *spi)
 	pdata->reset(pdata, 0);
 	usleep_range(100, 120);
 	regulator_control(dd, false);
-	pdata->init(pdata, false);
+	pdata->init(&spi->dev, pdata, false);
 
 	kfree(dd);
 
@@ -2533,11 +3015,6 @@ static void shutdown(struct spi_device *spi)
 {
 	struct maxim_sti_pdata  *pdata = spi->dev.platform_data;
 	struct dev_data         *dd = spi_get_drvdata(spi);
-
-	if (dd->parent != NULL)
-		sysfs_remove_link(dd->input_dev[0]->dev.kobj.parent,
-						MAXIM_STI_NAME);
-	remove_sysfs_entries(dd);
 
 	pdata->reset(pdata, 0);
 	usleep_range(100, 120);
@@ -2555,6 +3032,13 @@ static const struct spi_device_id id[] = {
 
 MODULE_DEVICE_TABLE(spi, id);
 
+#ifdef CONFIG_OF
+static struct of_device_id maxim_match_table[] = {
+	{ .compatible = "maxim,maxim_sti",},
+	{ },
+};
+#endif
+
 static struct spi_driver driver = {
 	.probe          = probe,
 	.remove         = remove,
@@ -2562,6 +3046,9 @@ static struct spi_driver driver = {
 	.id_table       = id,
 	.driver = {
 		.name   = MAXIM_STI_NAME,
+#ifdef CONFIG_OF
+		.of_match_table = maxim_match_table,
+#endif
 		.owner  = THIS_MODULE,
 #ifdef CONFIG_PM_SLEEP
 		.pm     = &pm_ops,
@@ -2569,7 +3056,7 @@ static struct spi_driver driver = {
 	},
 };
 
-static int __devinit maxim_sti_init(void)
+static int __init maxim_sti_init(void)
 {
 	INIT_LIST_HEAD(&dev_list);
 	spin_lock_init(&dev_lock);
@@ -2590,5 +3077,5 @@ module_exit(maxim_sti_exit);
 MODULE_AUTHOR("Maxim Integrated Products, Inc.");
 MODULE_DESCRIPTION("Maxim SmartTouch Imager Touchscreen Driver");
 MODULE_LICENSE("GPL v2");
-MODULE_VERSION(DRIVER_VERSION);
+MODULE_VERSION(__stringify(DRIVER_VERSION));
 
