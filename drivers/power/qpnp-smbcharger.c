@@ -4617,6 +4617,24 @@ out:
 	return IRQ_HANDLED;
 }
 
+static int otg_oc_reset(struct smbchg_chip *chip)
+{
+	int rc;
+
+	rc = smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
+						OTG_EN_BIT, 0);
+	if (rc)
+		pr_err("Failed to disable OTG rc=%d\n", rc);
+
+	msleep(20);
+	rc = smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
+						OTG_EN_BIT, OTG_EN_BIT);
+	if (rc)
+		pr_err("Failed to re-enable OTG rc=%d\n", rc);
+
+	return rc;
+}
+
 /**
  * otg_oc_handler() - called when the usb otg goes over current
  */
@@ -4624,13 +4642,19 @@ out:
 #define OTG_OC_RETRY_DELAY_US		50000
 static irqreturn_t otg_oc_handler(int irq, void *_chip)
 {
+	int rc;
 	struct smbchg_chip *chip = _chip;
 	s64 elapsed_us = ktime_us_delta(ktime_get(), chip->otg_enable_time);
 
 	pr_smb(PR_INTERRUPT, "triggered\n");
 
-	if (chip->schg_version == QPNP_SCHG_LITE)
+	if (chip->schg_version == QPNP_SCHG_LITE) {
+		pr_smb(PR_STATUS, "Clear OTG-OC by enable/disable OTG\n");
+		rc = otg_oc_reset(chip);
+		if (rc)
+			pr_err("Failed to reset OTG OC state rc=%d\n", rc);
 		return IRQ_HANDLED;
+	}
 
 	if (elapsed_us > OTG_OC_RETRY_DELAY_US)
 		chip->otg_retries = 0;
@@ -4648,11 +4672,9 @@ static irqreturn_t otg_oc_handler(int irq, void *_chip)
 		pr_smb(PR_STATUS,
 			"Retrying OTG enable. Try #%d, elapsed_us %lld\n",
 						chip->otg_retries, elapsed_us);
-		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
-							OTG_EN_BIT, 0);
-		msleep(20);
-		smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_REG,
-							OTG_EN_BIT, OTG_EN_BIT);
+		rc = otg_oc_reset(chip);
+		if (rc)
+			pr_err("Failed to reset OTG OC state rc=%d\n", rc);
 		chip->otg_enable_time = ktime_get();
 	}
 	return IRQ_HANDLED;
