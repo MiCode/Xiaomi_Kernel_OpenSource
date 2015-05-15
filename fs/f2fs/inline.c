@@ -277,7 +277,7 @@ process_inline:
 }
 
 struct f2fs_dir_entry *find_in_inline_dir(struct inode *dir,
-			struct f2fs_filename *fname, struct page **res_page)
+			struct fscrypt_name *fname, struct page **res_page)
 {
 	struct f2fs_sb_info *sbi = F2FS_SB(dir->i_sb);
 	struct f2fs_inline_dentry *inline_dentry;
@@ -535,7 +535,7 @@ bool f2fs_empty_inline_dir(struct inode *dir)
 }
 
 int f2fs_read_inline_dir(struct file *file, void *dirent, filldir_t filldir,
-						struct f2fs_str *fstr)
+						struct fscrypt_str *fstr)
 {
 	unsigned long pos = file->f_pos;
 	unsigned int bit_pos = 0;

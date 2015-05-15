@@ -440,7 +440,7 @@ static int f2fs_file_mmap(struct file *file, struct vm_area_struct *vma)
 	int err;
 
 	if (f2fs_encrypted_inode(inode)) {
-		err = f2fs_get_encryption_info(inode);
+		err = fscrypt_get_encryption_info(inode);
 		if (err)
 			return 0;
 		if (!f2fs_encrypted_inode(inode))
@@ -462,10 +462,10 @@ static int f2fs_file_open(struct inode *inode, struct file *filp)
 	int ret = generic_file_open(inode, filp);
 
 	if (!ret && f2fs_encrypted_inode(inode)) {
-		ret = f2fs_get_encryption_info(inode);
+		ret = fscrypt_get_encryption_info(inode);
 		if (ret)
 			return -EACCES;
-		if (!f2fs_encrypted_inode(inode))
+		if (!fscrypt_has_encryption_key(inode))
 			return -ENOKEY;
 	}
 	return ret;
@@ -545,7 +545,8 @@ static int truncate_partial_data_page(struct inode *inode, u64 from,
 truncate_out:
 	f2fs_wait_on_page_writeback(page, DATA, true);
 	zero_user(page, offset, PAGE_CACHE_SIZE - offset);
-	if (!cache_only || !f2fs_encrypted_inode(inode) || !S_ISREG(inode->i_mode))
+	if (!cache_only || !f2fs_encrypted_inode(inode) ||
+					!S_ISREG(inode->i_mode))
 		set_page_dirty(page);
 	f2fs_put_page(page, 1);
 	return 0;
@@ -693,7 +694,7 @@ int f2fs_setattr(struct dentry *dentry, struct iattr *attr)
 
 	if (attr->ia_valid & ATTR_SIZE) {
 		if (f2fs_encrypted_inode(inode) &&
-				f2fs_get_encryption_info(inode))
+				fscrypt_get_encryption_info(inode))
 			return -EACCES;
 
 		if (attr->ia_size <= i_size_read(inode)) {
@@ -1551,39 +1552,30 @@ static bool uuid_is_nonzero(__u8 u[16])
 
 static int f2fs_ioc_set_encryption_policy(struct file *filp, unsigned long arg)
 {
-#ifdef CONFIG_F2FS_FS_ENCRYPTION
-	struct f2fs_encryption_policy policy;
+	struct fscrypt_policy policy;
 	struct inode *inode = file_inode(filp);
 
-	if (copy_from_user(&policy, (struct f2fs_encryption_policy __user *)arg,
-				sizeof(policy)))
+	if (copy_from_user(&policy, (struct fscrypt_policy __user *)arg,
+							sizeof(policy)))
 		return -EFAULT;
 
 	f2fs_update_time(F2FS_I_SB(inode), REQ_TIME);
-	return f2fs_process_policy(&policy, inode);
-#else
-	return -EOPNOTSUPP;
-#endif
+	return fscrypt_process_policy(inode, &policy);
 }
 
 static int f2fs_ioc_get_encryption_policy(struct file *filp, unsigned long arg)
 {
-#ifdef CONFIG_F2FS_FS_ENCRYPTION
-	struct f2fs_encryption_policy policy;
+	struct fscrypt_policy policy;
 	struct inode *inode = file_inode(filp);
 	int err;
 
-	err = f2fs_get_policy(inode, &policy);
+	err = fscrypt_get_policy(inode, &policy);
 	if (err)
 		return err;
 
-	if (copy_to_user((struct f2fs_encryption_policy __user *)arg, &policy,
-							sizeof(policy)))
+	if (copy_to_user((struct fscrypt_policy __user *)arg, &policy, sizeof(policy)))
 		return -EFAULT;
 	return 0;
-#else
-	return -EOPNOTSUPP;
-#endif
 }
 
 static int f2fs_ioc_get_encryption_pwsalt(struct file *filp, unsigned long arg)
@@ -1897,8 +1889,8 @@ static ssize_t f2fs_file_aio_write(struct kiocb *iocb, const struct iovec *iov,
 	ssize_t ret;
 
 	if (f2fs_encrypted_inode(inode) &&
-				!f2fs_has_encryption_key(inode) &&
-				f2fs_get_encryption_info(inode))
+				!fscrypt_has_encryption_key(inode) &&
+				fscrypt_get_encryption_info(inode))
 		return -EACCES;
 
 	ret = generic_segment_checks(iov, &nr_segs, &count, VERIFY_READ);
