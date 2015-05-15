@@ -198,28 +198,16 @@ static int msm_v4l2_decoder_cmd(struct file *file, void *fh,
 				struct v4l2_decoder_cmd *dec)
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
-	int rc = 0;
-	if (dec->cmd == V4L2_DEC_CMD_STOP)
-		rc = msm_vidc_release_buffers(vidc_inst,
-				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	if (rc)
-		dprintk(VIDC_WARN,
-			"Failed to release dec output buffers: %d\n", rc);
-	return msm_vidc_decoder_cmd((void *)vidc_inst, dec);
+
+	return msm_vidc_comm_cmd((void *)vidc_inst, (union msm_v4l2_cmd *)dec);
 }
 
 static int msm_v4l2_encoder_cmd(struct file *file, void *fh,
 				struct v4l2_encoder_cmd *enc)
 {
 	struct msm_vidc_inst *vidc_inst = get_vidc_inst(file, fh);
-	int rc = 0;
-	if (enc->cmd == V4L2_ENC_CMD_STOP)
-		rc = msm_vidc_release_buffers(vidc_inst,
-				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
-	if (rc)
-		dprintk(VIDC_WARN,
-			"Failed to release enc output buffers: %d\n", rc);
-	return msm_vidc_encoder_cmd((void *)vidc_inst, enc);
+
+	return msm_vidc_comm_cmd((void *)vidc_inst, (union msm_v4l2_cmd *)enc);
 }
 static int msm_v4l2_s_parm(struct file *file, void *fh,
 			struct v4l2_streamparm *a)
