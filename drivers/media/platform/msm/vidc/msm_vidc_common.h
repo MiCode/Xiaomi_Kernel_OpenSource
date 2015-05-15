@@ -85,4 +85,5 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 		enum hal_buffer buffer_type, int fourcc);
 int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id);
 void msm_comm_cleanup_internal_buffers(struct msm_vidc_inst *inst);
+int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a);
 #endif

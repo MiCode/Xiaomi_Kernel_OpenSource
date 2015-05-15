@@ -1198,52 +1198,6 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 exit:
 	return rc;
 }
-int msm_vdec_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
-{
-	u64 us_per_frame = 0;
-	int rc = 0, fps = 0;
-	if (a->parm.output.timeperframe.denominator) {
-		switch (a->type) {
-		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
-		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-			us_per_frame = a->parm.output.timeperframe.numerator *
-				(u64)USEC_PER_SEC;
-			do_div(us_per_frame, a->parm.output.\
-					timeperframe.denominator);
-			break;
-		default:
-			dprintk(VIDC_ERR,
-					"Scale clocks : Unknown buffer type %d\n",
-					a->type);
-			break;
-		}
-	}
-
-	if (!us_per_frame) {
-		dprintk(VIDC_ERR,
-			"Failed to scale clocks : time between frames is 0\n");
-		rc = -EINVAL;
-		goto exit;
-	}
-
-	fps = USEC_PER_SEC;
-	do_div(fps, us_per_frame);
-
-	if (fps % 15 == 14 || fps % 24 == 23)
-		fps = fps + 1;
-	else if (fps % 24 == 1 || fps % 15 == 1)
-		fps = fps - 1;
-
-	if (inst->prop.fps != fps) {
-		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
-				inst, inst->prop.fps, fps);
-		inst->prop.fps = fps;
-		msm_dcvs_init_load(inst);
-		msm_comm_scale_clocks_and_bus(inst);
-	}
-exit:
-	return rc;
-}
 
 static int set_buffer_size(struct msm_vidc_inst *inst,
 				u32 buffer_size, enum hal_buffer buffer_type)

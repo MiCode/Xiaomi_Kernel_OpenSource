@@ -15,6 +15,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
+#include <linux/bitops.h>
 #include <soc/qcom/subsystem_restart.h>
 #include <asm/div64.h>
 #include "msm_vidc_common.h"
@@ -4563,6 +4564,78 @@ int msm_comm_set_color_format(struct msm_vidc_inst *inst,
 		dprintk(VIDC_DBG, "Setting uncompressed colorformat to %#x\n",
 				format);
 
+exit:
+	return rc;
+}
+
+int msm_vidc_comm_s_parm(struct msm_vidc_inst *inst, struct v4l2_streamparm *a)
+{
+	u32 property_id = 0;
+	u64 us_per_frame = 0;
+	void *pdata;
+	int rc = 0, fps = 0;
+	struct hal_frame_rate frame_rate;
+	struct hfi_device *hdev;
+
+	if (!inst || !inst->core || !inst->core->device || !a) {
+		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	hdev = inst->core->device;
+	property_id = HAL_CONFIG_FRAME_RATE;
+
+	if (a->parm.output.timeperframe.denominator) {
+		switch (a->type) {
+		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+			us_per_frame = a->parm.output.timeperframe.numerator *
+				(u64)USEC_PER_SEC;
+			do_div(us_per_frame, a->parm.output.
+				timeperframe.denominator);
+			break;
+		default:
+			dprintk(VIDC_ERR,
+					"Scale clocks : Unknown buffer type %d\n",
+					a->type);
+			break;
+		}
+	}
+
+	if (!us_per_frame) {
+		dprintk(VIDC_ERR,
+				"Failed to scale clocks : time between frames is 0\n");
+		rc = -EINVAL;
+		goto exit;
+	}
+
+	fps = USEC_PER_SEC;
+	do_div(fps, us_per_frame);
+
+	if (fps % 15 == 14 || fps % 24 == 23)
+		fps = fps + 1;
+	else if (fps % 24 == 1 || fps % 15 == 1)
+		fps = fps - 1;
+
+	if (inst->prop.fps != fps) {
+		dprintk(VIDC_PROF, "reported fps changed for %p: %d->%d\n",
+				inst, inst->prop.fps, fps);
+		inst->prop.fps = fps;
+		frame_rate.frame_rate = inst->prop.fps * BIT(16);
+		frame_rate.buffer_type = HAL_BUFFER_OUTPUT;
+		pdata = &frame_rate;
+		if (inst->session_type == MSM_VIDC_ENCODER) {
+			rc = call_hfi_op(hdev, session_set_property,
+				inst->session, property_id, pdata);
+
+			if (rc)
+				dprintk(VIDC_WARN,
+					"Failed to set frame rate %d\n", rc);
+		} else {
+			msm_dcvs_init_load(inst);
+		}
+		msm_comm_scale_clocks_and_bus(inst);
+	}
 exit:
 	return rc;
 }

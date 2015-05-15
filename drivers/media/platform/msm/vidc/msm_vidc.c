@@ -94,21 +94,6 @@ int msm_vidc_querycap(void *instance, struct v4l2_capability *cap)
 }
 EXPORT_SYMBOL(msm_vidc_querycap);
 
-int msm_vidc_s_parm(void *instance,
-		struct v4l2_streamparm *a)
-{
-	struct msm_vidc_inst *inst = instance;
-
-	if (!inst || !a)
-		return -EINVAL;
-	if (inst->session_type == MSM_VIDC_DECODER)
-		return msm_vdec_s_parm(instance, a);
-	else if (inst->session_type == MSM_VIDC_ENCODER)
-		return msm_venc_s_parm(instance, a);
-	return -EINVAL;
-}
-EXPORT_SYMBOL(msm_vidc_s_parm);
-
 int msm_vidc_enum_fmt(void *instance, struct v4l2_fmtdesc *f)
 {
 	struct msm_vidc_inst *inst = instance;
