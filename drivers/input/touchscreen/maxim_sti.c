@@ -3,6 +3,7 @@
  * Maxim SmartTouch Imager Touchscreen Driver
  *
  * Copyright (c)2013 Maxim Integrated Products, Inc.
+ * Copyright (C) 2013, NVIDIA Corporation.  All Rights Reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -16,6 +17,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/moduleparam.h>
 #include <linux/kmod.h>
 #include <linux/kthread.h>
 #include <linux/spi/spi.h>
@@ -23,8 +25,10 @@
 #include <linux/crc16.h>
 #include <linux/interrupt.h>
 #include <linux/input.h>
+#include <linux/regulator/consumer.h>
 #include <linux/maxim_sti.h>
 #include <asm/byteorder.h>  /* MUST include this header to get byte order */
+
 
 /****************************************************************************\
 * Custom features                                                            *
@@ -32,12 +36,17 @@
 
 #define INPUT_DEVICES         1
 #define INPUT_ENABLE_DISABLE  1
-#define CPU_BOOST             1
+#define SUSPEND_POWER_OFF     0
+#define NV_ENABLE_CPU_BOOST   1
+#define HI02_WORKAROUND       1
 
-#if CPU_BOOST
-#include <linux/pm_qos.h>
+#if NV_ENABLE_CPU_BOOST
+#define INPUT_IDLE_PERIOD     (msecs_to_jiffies(50))
 #endif
 
+#if HI02_WORKAROUND
+u16 read_value[2] = { 0 };
+#endif
 /****************************************************************************\
 * Device context structure, globals, and macros                              *
 \****************************************************************************/
@@ -57,14 +66,17 @@ struct dev_data {
 	u8                           nl_mc_group_count;
 	bool                         nl_enabled;
 	bool                         start_fusion;
+	bool                         suspended;
 	bool                         suspend_in_progress;
 	bool                         resume_in_progress;
+	bool                         expect_resume_ack;
 	bool                         eraser_active;
 	bool                         legacy_acceleration;
 #if INPUT_ENABLE_DISABLE
 	bool                         input_no_deconfig;
 #endif
 	bool                         irq_registered;
+	u16                          nirq_params;
 	u16                          irq_param[MAX_IRQ_PARAMS];
 	pid_t                        fusion_process;
 	char                         input_phys[128];
@@ -80,17 +92,41 @@ struct dev_data {
 	struct task_struct           *thread;
 	struct sched_param           thread_sched;
 	struct list_head             dev_list;
+	struct regulator             *reg_avdd;
+	struct regulator             *reg_dvdd;
 	void                         (*service_irq)(struct dev_data *dd);
-#if CPU_BOOST
-	struct pm_qos_request        cpus_req;
-	struct pm_qos_request        freq_req;
-	unsigned long                boost_freq;
+#if NV_ENABLE_CPU_BOOST
+	unsigned long                last_irq_jiffies;
 #endif
+	struct kobject               *parent;
+	u8                           sysfs_created;
+	u16                          chip_id;
+	u16                          glove_enabled;
+	u16                          gesture_en;
+	u16                          charger_mode_en;
+	u16                          lcd_fps;
+	u16                          tf_ver;
+	u16                          drv_ver;
+	u16                          fw_ver;
+	u16                          fw_protocol;
+	u32                          tf_status;
+	bool                         idle;
+	bool                         resume_reset;
+	bool                         compatibility_mode;
+	unsigned long int            sysfs_update_type;
+	struct completion            sysfs_ack_glove;
+	struct completion            sysfs_ack_charger;
+	struct completion            sysfs_ack_lcd_fps;
+	struct mutex                 sysfs_update_mutex;
 };
 
+static unsigned short    panel_id;
 static struct list_head  dev_list;
 static spinlock_t        dev_lock;
 
+//static u16 int_counter;
+
+static void gesture_wake_detect(struct dev_data *dd);
 static irqreturn_t irq_handler(int irq, void *context);
 static void service_irq(struct dev_data *dd);
 static void service_irq_legacy_acceleration(struct dev_data *dd);
@@ -160,10 +196,11 @@ static inline int
 spi_write_123(struct dev_data *dd, u16 address, u8 *buf, u16 len,
 	      bool add_len)
 {
-	u16  *tx_buf = (u16 *)dd->tx_buf;
-	u16  words = len / sizeof(u16), header_len = 1;
+	struct maxim_sti_pdata  *pdata = dd->spi->dev.platform_data;
+	u16                     *tx_buf = (u16 *)dd->tx_buf;
+	u16                     words = len / sizeof(u16), header_len = 1;
 #ifdef __LITTLE_ENDIAN
-	u16  i;
+	u16                     i;
 #endif
 	int  ret;
 
@@ -186,7 +223,7 @@ spi_write_123(struct dev_data *dd, u16 address, u8 *buf, u16 len,
 				len + header_len * sizeof(u16));
 	} while (ret == -EAGAIN);
 
-	memset(dd->tx_buf, 0xFF, sizeof(dd->tx_buf));
+	memset(dd->tx_buf, 0xFF, pdata->tx_buf_size);
 	return ret;
 }
 
@@ -634,23 +671,51 @@ static int fw_request_load(struct dev_data *dd)
 
 /* ======================================================================== */
 
+static void stop_idle_scan(struct dev_data *dd)
+{
+	u16 value;
+
+	value = dd->irq_param[13];
+	(void)dd->chip.write(dd, dd->irq_param[19],
+				(u8 *)&value, sizeof(value));
+}
+
 static void stop_scan_canned(struct dev_data *dd)
 {
-	u16  value;
+	u16  value, i;
 
 	if (dd->legacy_acceleration)
 		(void)stop_legacy_acceleration_canned(dd);
 	value = dd->irq_param[13];
 	(void)dd->chip.write(dd, dd->irq_param[12], (u8 *)&value,
 			     sizeof(value));
-	value = dd->irq_param[11];
-	(void)dd->chip.write(dd, dd->irq_param[0], (u8 *)&value,
-			     sizeof(value));
 	usleep_range(dd->irq_param[15], dd->irq_param[15] + 1000);
+	(void)dd->chip.read(dd, dd->irq_param[0], (u8 *)&value,
+			     sizeof(value));
 	(void)dd->chip.write(dd, dd->irq_param[0], (u8 *)&value,
 			     sizeof(value));
+	if (!dd->compatibility_mode) {
+		for (i = 28; i < 32; i++) {
+			value = dd->irq_param[i];
+			(void)dd->chip.write(dd, dd->irq_param[27],
+					(u8 *)&value, sizeof(value));
+		}
+		value = dd->irq_param[33];
+		(void)dd->chip.write(dd, dd->irq_param[32],
+					(u8 *)&value, sizeof(value));
+		usleep_range(500, 1000);
+		for (i = 28; i < 32; i++) {
+			value = dd->irq_param[i];
+			(void)dd->chip.write(dd, dd->irq_param[27],
+					(u8 *)&value, sizeof(value));
+		}
+		value = dd->irq_param[13];
+		(void)dd->chip.write(dd, dd->irq_param[32],
+					(u8 *)&value, sizeof(value));
+	}
 }
 
+#if !SUSPEND_POWER_OFF
 static void start_scan_canned(struct dev_data *dd)
 {
 	u16  value;
@@ -663,22 +728,194 @@ static void start_scan_canned(struct dev_data *dd)
 				     sizeof(value));
 	}
 }
+#endif
+
+static void enable_gesture(struct dev_data *dd)
+{
+	u16  value;
+
+	if (!dd->idle)
+		stop_scan_canned(dd);
+
+	if (!dd->compatibility_mode) {
+		value = dd->irq_param[13];
+		(void)dd->chip.write(dd, dd->irq_param[34],
+				     (u8 *)&value, sizeof(value));
+		value = dd->irq_param[36];
+		(void)dd->chip.write(dd, dd->irq_param[35],
+				     (u8 *)&value, sizeof(value));
+	}
+
+	value = dd->irq_param[18];
+	(void)dd->chip.write(dd, dd->irq_param[16], (u8 *)&value,
+			     sizeof(value));
+
+	value = dd->irq_param[20];
+	(void)dd->chip.write(dd, dd->irq_param[19], (u8 *)&value,
+			     sizeof(value));
+	if (!dd->idle) {
+		value = dd->irq_param[26];
+		(void)dd->chip.write(dd, dd->irq_param[25], (u8 *)&value,
+				     sizeof(value));
+	}
+}
+
+static void finish_gesture(struct dev_data *dd)
+{
+	struct maxim_sti_pdata *pdata = dd->spi->dev.platform_data;
+	u16 value;
+	u8  fail_count = 0;
+	int ret;
+
+	value = dd->irq_param[21];
+	(void)dd->chip.write(dd, dd->irq_param[19], (u8 *)&value,
+			     sizeof(value));
+	do {
+		msleep(20);
+		ret = dd->chip.read(dd, dd->irq_param[25], (u8 *)&value,
+				    sizeof(value));
+		if (ret < 0 || fail_count >= 20) {
+			ERROR("failed to read control register (%d)", ret);
+			pdata->reset(pdata, 0);
+			msleep(20);
+			pdata->reset(pdata, 1);
+			return;
+		}
+		INFO("ctrl = 0x%04X", value);
+		fail_count++;
+	} while (value);
+}
+
+static int regulator_control(struct dev_data *dd, bool on)
+{
+	int ret;
+
+	if (!dd->reg_avdd || !dd->reg_dvdd)
+		return 0;
+
+	if (on) {
+		ret = regulator_enable(dd->reg_dvdd);
+		if (ret < 0) {
+			ERROR("Failed to enable regulator dvdd: %d", ret);
+			return ret;
+		}
+		usleep_range(1000, 1020);
+
+		ret = regulator_enable(dd->reg_avdd);
+		if (ret < 0) {
+			ERROR("Failed to enable regulator avdd: %d", ret);
+			regulator_disable(dd->reg_dvdd);
+			return ret;
+		}
+	} else {
+		ret = regulator_disable(dd->reg_avdd);
+		if (ret < 0) {
+			ERROR("Failed to disable regulator avdd: %d", ret);
+			return ret;
+		}
+
+		ret = regulator_disable(dd->reg_dvdd);
+		if (ret < 0) {
+			ERROR("Failed to disable regulator dvdd: %d", ret);
+			regulator_enable(dd->reg_avdd);
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+static void regulator_init(struct dev_data *dd)
+{
+	dd->reg_avdd = devm_regulator_get(&dd->spi->dev, "avdd");
+	if (IS_ERR(dd->reg_avdd))
+		goto err_null_regulator;
+
+	dd->reg_dvdd = devm_regulator_get(&dd->spi->dev, "dvdd");
+	if (IS_ERR(dd->reg_dvdd))
+		goto err_null_regulator;
+
+	return;
+
+err_null_regulator:
+	dd->reg_avdd = NULL;
+	dd->reg_dvdd = NULL;
+	dev_warn(&dd->spi->dev, "Failed to init regulators\n");
+}
 
 /****************************************************************************\
 * Suspend/resume processing                                                  *
 \****************************************************************************/
 
 #ifdef CONFIG_PM_SLEEP
-static int suspend(struct device *dev)
+static int early_suspend(struct device *dev)
 {
 	struct dev_data  *dd = spi_get_drvdata(to_spi_device(dev));
+#if SUSPEND_POWER_OFF
+	struct maxim_sti_pdata *pdata = dev->platform_data;
+	int ret;
+#endif
+
+	if (dd->suspended)
+		return 0;
 
 	if (dd->suspend_in_progress)
-		return 0;
+		return -1;
 
 	dd->suspend_in_progress = true;
 	wake_up_process(dd->thread);
 	wait_for_completion(&dd->suspend_resume);
+
+#if SUSPEND_POWER_OFF
+	/* reset-low and power-down */
+	pdata->reset(pdata, 0);
+	usleep_range(100, 120);
+	ret = regulator_control(dd, false);
+	if (ret < 0) {
+		pdata->reset(pdata, 1);
+		return ret;
+	}
+#endif
+
+	return 0;
+}
+
+static int late_resume(struct device *dev)
+{
+	struct dev_data  *dd = spi_get_drvdata(to_spi_device(dev));
+#if SUSPEND_POWER_OFF
+	struct maxim_sti_pdata *pdata = dev->platform_data;
+	int ret;
+#endif
+
+	if (!dd->suspended)
+		return 0;
+
+#if SUSPEND_POWER_OFF
+	/* power-up and reset-high */
+	ret = regulator_control(dd, true);
+	if (ret < 0)
+		return ret;
+
+	usleep_range(300, 400);
+	pdata->reset(pdata, 1);
+#endif
+
+	dd->resume_in_progress = true;
+	wake_up_process(dd->thread);
+	wait_for_completion(&dd->suspend_resume);
+	return 0;
+}
+
+static int suspend(struct device *dev)
+{
+	struct dev_data  *dd = spi_get_drvdata(to_spi_device(dev));
+
+	if (dd->irq_registered) {
+		disable_irq(dd->spi->irq);
+		enable_irq_wake(dd->spi->irq);
+	}
+
 	return 0;
 }
 
@@ -686,12 +923,11 @@ static int resume(struct device *dev)
 {
 	struct dev_data  *dd = spi_get_drvdata(to_spi_device(dev));
 
-	if (!dd->suspend_in_progress)
-		return 0;
+	if (dd->irq_registered) {
+		disable_irq_wake(dd->spi->irq);
+		enable_irq(dd->spi->irq);
+	}
 
-	dd->resume_in_progress = true;
-	wake_up_process(dd->thread);
-	wait_for_completion(&dd->suspend_resume);
 	return 0;
 }
 
@@ -705,14 +941,14 @@ static int input_disable(struct input_dev *dev)
 {
 	struct dev_data *dd = input_get_drvdata(dev);
 
-	return suspend(&dd->spi->dev);
+	return early_suspend(&dd->spi->dev);
 }
 
 static int input_enable(struct input_dev *dev)
 {
 	struct dev_data *dd = input_get_drvdata(dev);
 
-	return resume(&dd->spi->dev);
+	return late_resume(&dd->spi->dev);
 }
 #endif
 #endif
@@ -741,7 +977,7 @@ nl_callback_noop(struct sk_buff *skb, struct genl_info *info)
 }
 
 static inline bool
-nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
+nl_process_driver_msg(struct dev_data *dd, u16 msg_id, u16 msg_len, void *msg)
 {
 	struct maxim_sti_pdata        *pdata = dd->spi->dev.platform_data;
 	struct dr_add_mc_group        *add_mc_group_msg;
@@ -758,8 +994,19 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 	struct dr_config_watchdog     *config_watchdog_msg;
 	struct dr_input               *input_msg;
 	struct dr_legacy_acceleration *legacy_acceleration_msg;
+	struct dr_handshake           *handshake_msg;
+	struct fu_handshake_response  *handshake_response;
+	struct dr_config_fw           *config_fw_msg;
+	struct dr_sysfs_ack           *sysfs_ack_msg;
+	struct dr_idle                *idle_msg;
+	struct dr_tf_status           *tf_status_msg;
 	u8                            i, inp;
+	u8                            irq_edge;
 	int                           ret;
+
+	if (dd->expect_resume_ack && msg_id != DR_DECONFIG &&
+	    msg_id != DR_RESUME_ACK)
+		return false;
 
 	switch (msg_id) {
 	case DR_ADD_MC_GROUP:
@@ -810,6 +1057,26 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 		return true;
 	case DR_CHIP_WRITE:
 		write_msg = msg;
+#if HI02_WORKAROUND
+		if (write_msg->address == dd->irq_param[12] && write_msg->data[0] == dd->irq_param[13]) {
+				ret = dd->chip.write(dd, write_msg->address, write_msg->data,
+					     write_msg->length);
+			if (ret < 0)
+				ERROR("failed to write chip (%d)", ret);
+			msleep(15);
+			ret = dd->chip.read(dd, dd->irq_param[0], (u8 *)read_value, sizeof(read_value));
+			if (ret < 0)
+				ERROR("failed to read from chip (%d)", ret);
+			ret = dd->chip.write(dd, dd->irq_param[0], (u8 *)read_value, sizeof(read_value));
+			return false;
+		}
+		if (write_msg->address == dd->irq_param[0]) {
+			/* assume nothing follows TSISTAT, of course */
+			read_value[0] = ((u16 *)write_msg->data)[0];
+			ret = dd->chip.write(dd, write_msg->address, (u8 *)read_value, sizeof(read_value));
+			return false;
+		}
+#endif
 		ret = dd->chip.write(dd, write_msg->address, write_msg->data,
 				     write_msg->length);
 		if (ret < 0)
@@ -847,13 +1114,16 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 			ERROR("too many IRQ parameters");
 			return false;
 		}
+		dd->nirq_params = config_irq_msg->irq_params;
+		dd->compatibility_mode = dd->nirq_params <= OLD_NIRQ_PARAMS;
+		irq_edge = *((u8 *)msg + msg_len - 1);
 		memcpy(dd->irq_param, config_irq_msg->irq_param,
 		       config_irq_msg->irq_params * sizeof(dd->irq_param[0]));
 		if (dd->irq_registered)
 			return false;
 		dd->service_irq = service_irq;
 		ret = request_irq(dd->spi->irq, irq_handler,
-			(config_irq_msg->irq_edge == DR_IRQ_RISING_EDGE) ?
+			(irq_edge == DR_IRQ_RISING_EDGE) ?
 				IRQF_TRIGGER_RISING : IRQF_TRIGGER_FALLING,
 						pdata->nl_family, dd);
 		if (ret < 0) {
@@ -887,11 +1157,18 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				input_set_drvdata(dd->input_dev[i], dd);
 			}
 #endif
+#if NV_ENABLE_CPU_BOOST
+			if (i == 0)
+				input_set_capability(dd->input_dev[i], EV_MSC,
+						     MSC_ACTIVITY);
+#endif
 			__set_bit(EV_SYN, dd->input_dev[i]->evbit);
 			__set_bit(EV_ABS, dd->input_dev[i]->evbit);
 			if (i == (INPUT_DEVICES - 1)) {
 				__set_bit(EV_KEY, dd->input_dev[i]->evbit);
 				__set_bit(BTN_TOOL_RUBBER,
+					  dd->input_dev[i]->keybit);
+				__set_bit(KEY_POWER,
 					  dd->input_dev[i]->keybit);
 			}
 			input_set_abs_params(dd->input_dev[i],
@@ -905,9 +1182,14 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 			input_set_abs_params(dd->input_dev[i],
 					     ABS_MT_TRACKING_ID, 0,
 					     MAX_INPUT_EVENTS, 0, 0);
-			input_set_abs_params(dd->input_dev[i],
-					     ABS_MT_TOOL_TYPE, 0, MT_TOOL_MAX,
-					     0, 0);
+			if (i == (INPUT_DEVICES - 1))
+				input_set_abs_params(dd->input_dev[i],
+						     ABS_MT_TOOL_TYPE, 0,
+						     MT_TOOL_MAX, 0, 0);
+			else
+				input_set_abs_params(dd->input_dev[i],
+						     ABS_MT_TOOL_TYPE, 0,
+						     MT_TOOL_FINGER, 0, 0);
 
 			ret = input_register_device(dd->input_dev[i]);
 			if (ret < 0) {
@@ -915,6 +1197,14 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				dd->input_dev[i] = NULL;
 				ERROR("failed to register input device");
 			}
+		}
+		/* create symlink */
+		if (dd->parent == NULL) {
+			dd->parent = dd->input_dev[0]->dev.kobj.parent;
+			ret = sysfs_create_link(dd->parent, &dd->spi->dev.kobj,
+								MAXIM_STI_NAME);
+			if (ret)
+				ERROR("sysfs_create_link error\n");
 		}
 		return false;
 	case DR_CONFIG_WATCHDOG:
@@ -928,6 +1218,12 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 		}
 		stop_scan_canned(dd);
 		if (!dd->input_no_deconfig) {
+			if (dd->parent != NULL) {
+				sysfs_remove_link(
+					dd->input_dev[0]->dev.kobj.parent,
+					MAXIM_STI_NAME);
+				dd->parent = NULL;
+			}
 			for (i = 0; i < INPUT_DEVICES; i++) {
 				if (dd->input_dev[i] == NULL)
 					continue;
@@ -935,10 +1231,12 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				dd->input_dev[i] = NULL;
 			}
 		}
+		dd->expect_resume_ack = false;
 		dd->eraser_active = false;
 		dd->legacy_acceleration = false;
 		dd->service_irq = service_irq;
 		dd->fusion_process = (pid_t)0;
+		dd->sysfs_update_type = DR_SYSFS_UPDATE_NONE;
 		return false;
 	case DR_INPUT:
 		input_msg = msg;
@@ -975,6 +1273,7 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 					dd->eraser_active = true;
 					break;
 				default:
+					inp = 0;
 					ERROR("invalid input tool type (%d)",
 					      input_msg->event[i].tool_type);
 					break;
@@ -997,6 +1296,11 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 				input_sync(dd->input_dev[i]);
 		}
 		return false;
+	case DR_RESUME_ACK:
+		dd->expect_resume_ack = false;
+		if (dd->irq_registered && !dd->gesture_en)
+			enable_irq(dd->spi->irq);
+		return false;
 	case DR_LEGACY_FWDL:
 		ret = fw_request_load(dd);
 		if (ret < 0)
@@ -1015,6 +1319,42 @@ nl_process_driver_msg(struct dev_data *dd, u16 msg_id, void *msg)
 			dd->legacy_acceleration = false;
 			dd->service_irq = service_irq;
 		}
+		return false;
+	case DR_HANDSHAKE:
+		handshake_msg = msg;
+		dd->tf_ver = handshake_msg->tf_ver;
+		dd->chip_id = handshake_msg->chip_id;
+		dd->drv_ver = DRIVER_VERSION_NUM;
+		handshake_response = nl_alloc_attr(dd->outgoing_skb->data,
+						FU_HANDSHAKE_RESPONSE,
+						sizeof(*handshake_response));
+		if (handshake_response == NULL)
+			goto alloc_attr_failure;
+		handshake_response->driver_ver = dd->drv_ver;
+		handshake_response->panel_id = panel_id;
+		handshake_response->driver_protocol = DRIVER_PROTOCOL;
+		return true;
+	case DR_CONFIG_FW:
+		config_fw_msg = msg;
+		dd->fw_ver = config_fw_msg->fw_ver;
+		dd->fw_protocol = config_fw_msg->fw_protocol;
+		return false;
+	case DR_SYSFS_ACK:
+		sysfs_ack_msg = msg;
+		if (sysfs_ack_msg->type == DR_SYSFS_ACK_GLOVE)
+			complete(&dd->sysfs_ack_glove);
+		if (sysfs_ack_msg->type == DR_SYSFS_ACK_CHARGER)
+			complete(&dd->sysfs_ack_charger);
+		if (sysfs_ack_msg->type == DR_SYSFS_ACK_LCD_FPS)
+			complete(&dd->sysfs_ack_lcd_fps);
+		return false;
+	case DR_IDLE:
+		idle_msg = msg;
+		dd->idle = !!(idle_msg->idle);
+		return false;
+	case DR_TF_STATUS:
+		tf_status_msg = msg;
+		dd->tf_status = tf_status_msg->tf_status;
 		return false;
 	default:
 		ERROR("unexpected message %d", msg_id);
@@ -1036,6 +1376,7 @@ static int nl_process_msg(struct dev_data *dd, struct sk_buff *skb)
 	attr = NL_ATTR_FIRST(skb->data);
 	for (; attr < NL_ATTR_LAST(skb->data); attr = NL_ATTR_NEXT(attr)) {
 		if (nl_process_driver_msg(dd, attr->nla_type,
+					  (attr->nla_len - NLA_HDRLEN),
 					  NL_ATTR_VAL(attr, void)))
 			send_reply = true;
 	}
@@ -1126,8 +1467,44 @@ static irqreturn_t irq_handler(int irq, void *context)
 {
 	struct dev_data  *dd = context;
 
+#if NV_ENABLE_CPU_BOOST
+	if (time_after(jiffies, dd->last_irq_jiffies + INPUT_IDLE_PERIOD))
+		input_event(dd->input_dev[0], EV_MSC, MSC_ACTIVITY, 1);
+	dd->last_irq_jiffies = jiffies;
+#endif
+
 	wake_up_process(dd->thread);
 	return IRQ_HANDLED;
+}
+
+static void gesture_wake_detect(struct dev_data *dd)
+{
+	u16    status, value;
+	int    ret = 0;
+
+	ret = dd->chip.read(dd, dd->irq_param[0],
+			    (u8 *)&status, sizeof(status));
+	INFO("%s: tsistat = %04X", __func__, status);
+	if (status & dd->irq_param[10])
+		dd->resume_reset = true;
+	if ((status & dd->irq_param[18]) && dd->input_dev[0]) {
+		ret = dd->chip.read(dd, dd->irq_param[22],
+				    (u8 *)&value, sizeof(value));
+		INFO("gesture code = 0x%04X", value);
+		if (value == dd->irq_param[24]) {
+			INFO("gesture detected");
+			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 1);
+			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
+			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 0);
+			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
+		}
+		value = dd->irq_param[18];
+		ret = dd->chip.write(dd, dd->irq_param[0],
+				     (u8 *)&value, sizeof(value));
+	} else {
+		ret = dd->chip.write(dd, dd->irq_param[0],
+				     (u8 *)&status, sizeof(status));
+	}
 }
 
 static void service_irq_legacy_acceleration(struct dev_data *dd)
@@ -1137,10 +1514,6 @@ static void service_irq_legacy_acceleration(struct dev_data *dd)
 	u16                   buf[255], rx_limit = 250 * sizeof(u16);
 	int                   ret = 0, counter = 0;
 
-#if CPU_BOOST
-	pm_qos_update_request_timeout(&dd->cpus_req, 1, 10000);
-	pm_qos_update_request_timeout(&dd->freq_req, dd->boost_freq, 10000);
-#endif
 	async_data = nl_alloc_attr(dd->outgoing_skb->data, FU_ASYNC_DATA,
 				   sizeof(*async_data) + dd->irq_param[4] +
 				   2 * sizeof(u16));
@@ -1182,7 +1555,7 @@ static void service_irq_legacy_acceleration(struct dev_data *dd)
 
 			if (async_data->address +
 					offset / sizeof(u16) != buf[1]) {
-				ERROR("sequence number incorrect");
+				ERROR("sequence number incorrect %04X", buf[1]);
 				start_legacy_acceleration_canned(dd);
 				ret = -EBUSY;
 				break;
@@ -1227,14 +1600,14 @@ static void service_irq_legacy_acceleration(struct dev_data *dd)
 static void service_irq(struct dev_data *dd)
 {
 	struct fu_async_data  *async_data;
-	u16                   status, clear, test, address[2], xbuf;
+	u16                   status, test, address[2], xbuf;
+	u16                   clear[2] = { 0 };
 	bool                  read_buf[2] = {true, false};
 	int                   ret, ret2;
-
-#if CPU_BOOST
-	pm_qos_update_request_timeout(&dd->cpus_req, 1, 10000);
-	pm_qos_update_request_timeout(&dd->freq_req, dd->boost_freq, 10000);
-#endif
+	u16                   value;
+	//s16 finger_buf[36];
+	//int i;
+	//static u16 prev_finger_count;
 
 	ret = dd->chip.read(dd, dd->irq_param[0], (u8 *)&status,
 			    sizeof(status));
@@ -1243,9 +1616,102 @@ static void service_irq(struct dev_data *dd)
 		return;
 	}
 
-	if (status & dd->irq_param[10]) {
+	if (dd->resume_reset) {
 		read_buf[0] = false;
-		clear = 0xFFFF;
+		clear[0] = dd->irq_param[10];
+		status = dd->irq_param[10];
+		dd->resume_reset = false;
+	} else if (status & dd->irq_param[10]) {
+		read_buf[0] = false;
+		clear[0] = dd->irq_param[10];
+	} else if (status & dd->irq_param[18]) {
+#if 1
+		//int_counter = 0;
+		test = status & (dd->irq_param[6] | dd->irq_param[7]);
+
+		if (test == 0)
+			return;
+		else if (test == (dd->irq_param[6] | dd->irq_param[7]))
+			xbuf = ((status & dd->irq_param[5]) == 0) ? 0 : 1;
+		else if (test == dd->irq_param[6])
+			xbuf = 0;
+		else if (test == dd->irq_param[7])
+			xbuf = 1;
+		else {
+			ERROR("unexpected IRQ handler case 0x%04X ",status);
+			return;
+		}
+
+		read_buf[1] = true;
+		address[1] = xbuf ? dd->irq_param[2] : dd->irq_param[1];
+		address[0] = dd->irq_param[3];
+		clear[0] = xbuf ? dd->irq_param[7] : dd->irq_param[6];
+		clear[0] |= dd->irq_param[8];
+		clear[0] |= dd->irq_param[18];
+
+		value = dd->irq_param[17];
+		(void)dd->chip.write(dd, dd->irq_param[16], (u8 *)&value,
+				     sizeof(value));
+#else
+		//(void)dd->chip.read(dd, 0x1BDC, (u8 *)finger_buf, sizeof(finger_buf));
+		(void)dd->chip.read(dd, 0x1410, (u8 *)finger_buf, sizeof(finger_buf));
+		INFO("finger_buf[0] = 0x%04X", finger_buf[0]);
+		if (finger_buf[0] == 0xFFFFF1FA) {
+			INFO("old baseline score = %d, new baseline score = %d, max = %d, min = %d, above = %d, below = %d",
+			     finger_buf[30], finger_buf[31], finger_buf[32], finger_buf[33], finger_buf[34], finger_buf[35]);
+			finger_buf[0] = 0;
+		}
+		if (finger_buf[0] > 4)
+			/* shouldn't ever happen */
+			finger_buf[0] = 4;
+		for (i = 0; i < finger_buf[0]; i++) {
+			INFO("id = %d, x = %d, y = %d, z = %d",
+			     finger_buf[i * 4 + 1 + 0],
+			     800 - finger_buf[i * 4 + 1 + 2] * 800 / (36 * 128),
+			     finger_buf[i * 4 + 1 + 1] * 1280 / (52 * 128),
+			     finger_buf[i * 4 + 1 + 3] > 2040 ? 255 :
+			     finger_buf[i * 4 + 1 + 3] >> 3);
+			input_report_abs(dd->input_dev[0],
+					 ABS_MT_TRACKING_ID,
+					 finger_buf[i * 4 + 1 + 0]);
+			input_report_abs(dd->input_dev[0],
+					 ABS_MT_POSITION_X,
+					 800 - finger_buf[i * 4 + 1 + 2] * 800 / (36 * 128));
+			input_report_abs(dd->input_dev[0],
+					 ABS_MT_POSITION_Y,
+					 finger_buf[i * 4 + 1 + 1] * 1280 / (52 * 128));
+			input_report_abs(dd->input_dev[0],
+					 ABS_MT_PRESSURE,
+					 finger_buf[i * 4 + 1 + 3] > 2040 ? 255 :
+					 finger_buf[i * 4 + 1 + 3] >> 3);
+			input_mt_sync(dd->input_dev[0]);
+		}
+		if (finger_buf[0]) {
+			for (i = 0; i < 4; i++)
+				INFO("peak = %d, pixelcount = %d, energy = %d",
+				     finger_buf[i * 3 + 17 + 0],
+				     finger_buf[i * 3 + 17 + 1],
+				     finger_buf[i * 3 + 17 + 2]);
+			printk("\n");
+		}
+		if (!finger_buf[0] && prev_finger_count)
+			input_mt_sync(dd->input_dev[0]);
+		if (finger_buf[0] || prev_finger_count)
+			input_sync(dd->input_dev[0]);
+		if (finger_buf[29]) {
+			INFO("double-tap!!\n");
+			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 1);
+			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
+			input_report_key(dd->input_dev[INPUT_DEVICES - 1], KEY_POWER, 0);
+			input_sync(dd->input_dev[INPUT_DEVICES - 1]);
+		}
+		prev_finger_count = finger_buf[0];
+		clear[0] = dd->irq_param[18];
+		(void)dd->chip.write(dd, 0x6001, (u8 *)&clear,
+				     sizeof(clear));
+		return;
+#endif
+
 	} else if (status & dd->irq_param[9]) {
 		test = status & (dd->irq_param[6] | dd->irq_param[7]);
 
@@ -1263,8 +1729,13 @@ static void service_irq(struct dev_data *dd)
 		address[1] = xbuf ? dd->irq_param[2] : dd->irq_param[1];
 
 		address[0] = dd->irq_param[3];
-		clear = dd->irq_param[6] | dd->irq_param[7] |
+		clear[0] = dd->irq_param[6] | dd->irq_param[7] |
 			dd->irq_param[8] | dd->irq_param[9];
+		value = dd->irq_param[13];
+		(void)dd->chip.write(dd, dd->irq_param[12], (u8 *)&value,
+				     sizeof(value));
+
+
 	} else {
 		test = status & (dd->irq_param[6] | dd->irq_param[7]);
 
@@ -1277,14 +1748,17 @@ static void service_irq(struct dev_data *dd)
 		else if (test == dd->irq_param[7])
 			xbuf = 1;
 		else {
-			ERROR("unexpected IRQ handler case");
+			ERROR("unexpected IRQ handler case 0x%04X ",status);
 			return;
 		}
 
 		address[0] = xbuf ? dd->irq_param[2] : dd->irq_param[1];
-		clear = xbuf ? dd->irq_param[7] : dd->irq_param[6];
-		clear |= dd->irq_param[8];
+		clear[0] = xbuf ? dd->irq_param[7] : dd->irq_param[6];
+		clear[0] |= dd->irq_param[8];
 	}
+
+	//if (int_counter < 25)
+	//	INFO("interrupt #%d, 0x%04X", int_counter, status);
 
 	async_data = nl_alloc_attr(dd->outgoing_skb->data, FU_ASYNC_DATA,
 				   sizeof(*async_data) + dd->irq_param[4]);
@@ -1319,8 +1793,13 @@ static void service_irq(struct dev_data *dd)
 				    dd->irq_param[4]);
 	}
 
-	ret2 = dd->chip.write(dd, dd->irq_param[0], (u8 *)&clear,
+#if HI02_WORKAROUND
+	ret2 = dd->chip.write(dd, dd->irq_param[0], (u8 *)clear,
 			     sizeof(clear));
+#else
+	ret2 = dd->chip.write(dd, dd->irq_param[0], (u8 *)clear,
+			     sizeof(clear[0]));
+#endif
 	if (ret2 < 0)
 		ERROR("can't clear IRQ status (%d)", ret2);
 
@@ -1329,6 +1808,8 @@ static void service_irq(struct dev_data *dd)
 		nl_msg_init(dd->outgoing_skb->data, dd->nl_family.id,
 			    dd->nl_seq - 1, MC_FUSION);
 	} else {
+		//if (int_counter < 25)
+		//	INFO("sending #%d, 0x%04X", int_counter++, status);
 		(void)skb_put(dd->outgoing_skb,
 			      NL_SIZE(dd->outgoing_skb->data));
 		ret = genlmsg_multicast(dd->outgoing_skb, 0,
@@ -1337,8 +1818,9 @@ static void service_irq(struct dev_data *dd)
 		if (ret < 0) {
 			ERROR("can't send IRQ buffer %d", ret);
 			msleep(300);
-			if (++dd->send_fail_count >= 10 &&
-			    dd->fusion_process != (pid_t)0) {
+			if (read_buf[0] == false ||
+			    (++dd->send_fail_count >= 10 &&
+			     dd->fusion_process != (pid_t)0)) {
 				(void)kill_pid(
 					find_get_pid(dd->fusion_process),
 					SIGKILL, 1);
@@ -1353,6 +1835,42 @@ static void service_irq(struct dev_data *dd)
 	}
 }
 
+static int send_sysfs_info(struct dev_data *dd)
+{
+	struct fu_sysfs_info       *sysfs_info;
+	int                        ret, ret2;
+
+	sysfs_info = nl_alloc_attr(dd->outgoing_skb->data,
+					FU_SYSFS_INFO,
+					sizeof(*sysfs_info));
+	if (sysfs_info == NULL) {
+		ERROR("Can't allocate sysfs_info");
+		return -1;
+	}
+	sysfs_info->type = dd->sysfs_update_type;
+
+	sysfs_info->glove_value = dd->glove_enabled;
+	sysfs_info->charger_value = dd->charger_mode_en;
+	sysfs_info->lcd_fps_value = dd->lcd_fps;
+
+	(void)skb_put(dd->outgoing_skb,
+			      NL_SIZE(dd->outgoing_skb->data));
+	ret = genlmsg_multicast(dd->outgoing_skb, 0,
+			dd->nl_mc_groups[MC_FUSION].id,
+			GFP_KERNEL);
+	if (ret < 0) {
+		ERROR("could not reply to fusion (%d)", ret);
+		return -1;
+	}
+
+	/* allocate new outgoing skb */
+	ret2 = nl_msg_new(dd, MC_FUSION);
+	if (ret2 < 0)
+		ERROR("could not allocate outgoing skb (%d)", ret2);
+
+	return 0;
+
+}
 /****************************************************************************\
 * Processing thread                                                          *
 \****************************************************************************/
@@ -1365,7 +1883,8 @@ static int processing_thread(void *arg)
 	char                    *argv[] = { pdata->touch_fusion, "daemon",
 					    pdata->nl_family,
 					    pdata->config_file, NULL };
-	int                     ret;
+	int                     ret, ret2;
+	bool                    fusion_dead;
 
 	sched_setscheduler(current, SCHED_FIFO, &dd->thread_sched);
 
@@ -1397,12 +1916,21 @@ static int processing_thread(void *arg)
 				if (ret != 0)
 					msleep(100);
 			} while (ret != 0 && !kthread_should_stop());
+
+			/* power-up and reset-high */
+			ret = regulator_control(dd, true);
+			if (ret < 0)
+				ERROR("failed to enable regulators");
+
+			usleep_range(300, 400);
+			pdata->reset(pdata, 1);
+
 			dd->start_fusion = false;
 		}
 		if (kthread_should_stop())
 			break;
 
-		/* priority 1: process pending Netlink messages */
+		/* priority 2: process pending Netlink messages */
 		while ((skb = skb_dequeue(&dd->incoming_skb_queue)) != NULL) {
 			if (kthread_should_stop())
 				break;
@@ -1412,50 +1940,386 @@ static int processing_thread(void *arg)
 		if (kthread_should_stop())
 			break;
 
-		/* priority 2: suspend/resume */
-		if (dd->suspend_in_progress) {
-			if (dd->irq_registered)
+		/* priority 3: suspend/resume */
+		if (dd->suspend_in_progress && !(dd->tf_status & TF_STATUS_BUSY)) {
+			if (dd->irq_registered) {
 				disable_irq(dd->spi->irq);
-			stop_scan_canned(dd);
+				if (dd->gesture_en) {
+					enable_gesture(dd);
+					enable_irq(dd->spi->irq);
+				} else if (dd->compatibility_mode || !dd->idle)
+					stop_scan_canned(dd);
+				else
+					stop_idle_scan(dd);
+			}
+
 			complete(&dd->suspend_resume);
+			dd->expect_resume_ack = true;
+			dd->resume_reset = false;
 			while (!dd->resume_in_progress) {
+				dd->suspended = true;
 				/* the line below is a MUST */
 				set_current_state(TASK_INTERRUPTIBLE);
+				if (dd->gesture_en && dd->irq_registered &&
+				    pdata->irq(pdata) == 0)
+					gesture_wake_detect(dd);
 				schedule();
 			}
-			start_scan_canned(dd);
-			if (dd->irq_registered)
-				enable_irq(dd->spi->irq);
-			dd->resume_in_progress = false;
+#if !SUSPEND_POWER_OFF
+			if (dd->irq_registered) {
+				if (dd->gesture_en)
+					finish_gesture(dd);
+				else if (dd->compatibility_mode || !dd->idle)
+					start_scan_canned(dd);
+			}
+#endif
+			dd->suspended = false;
 			dd->suspend_in_progress = false;
+			dd->resume_in_progress = false;
 			complete(&dd->suspend_resume);
 
-			ret = nl_add_attr(dd->outgoing_skb->data, FU_RESUME,
-					  NULL, 0);
-			if (ret < 0)
-				ERROR("can't add data to resume buffer");
-			(void)skb_put(dd->outgoing_skb,
-				      NL_SIZE(dd->outgoing_skb->data));
-			ret = genlmsg_multicast(dd->outgoing_skb, 0,
-					dd->nl_mc_groups[MC_FUSION].id,
-					GFP_KERNEL);
-			if (ret < 0)
-				ERROR("can't send resume message %d", ret);
-			ret = nl_msg_new(dd, MC_FUSION);
-			if (ret < 0)
-				ERROR("could not allocate outgoing skb (%d)",
-				      ret);
+			fusion_dead = false;
+			dd->send_fail_count = 0;
+			do {
+				if (dd->fusion_process != (pid_t)0 &&
+				    get_pid_task(find_get_pid(
+							dd->fusion_process),
+						 PIDTYPE_PID) == NULL) {
+					fusion_dead = true;
+					break;
+				}
+				ret = nl_add_attr(dd->outgoing_skb->data,
+						  FU_RESUME, NULL, 0);
+				if (ret < 0) {
+					ERROR("can't add data to resume " \
+					      "buffer");
+					nl_msg_init(dd->outgoing_skb->data,
+						    dd->nl_family.id,
+						    dd->nl_seq - 1, MC_FUSION);
+					msleep(100);
+					continue;
+				}
+				(void)skb_put(dd->outgoing_skb,
+					      NL_SIZE(dd->outgoing_skb->data));
+				ret = genlmsg_multicast(dd->outgoing_skb, 0,
+						dd->nl_mc_groups[MC_FUSION].id,
+						GFP_KERNEL);
+				if (ret < 0) {
+					ERROR("can't send resume message %d",
+					      ret);
+					msleep(100);
+					if (++dd->send_fail_count >= 10) {
+						fusion_dead = true;
+						ret = 0;
+					}
+				}
+				ret2 = nl_msg_new(dd, MC_FUSION);
+				if (ret2 < 0)
+					ERROR("could not allocate outgoing " \
+					      "skb (%d)", ret2);
+			} while (ret != 0);
+			if (dd->send_fail_count>= 10 &&
+			    dd->fusion_process != (pid_t)0)
+			       (void)kill_pid(find_get_pid(dd->fusion_process),
+					      SIGKILL, 1);
+			dd->send_fail_count = 0;
+			if (fusion_dead)
+				continue;
 		}
 
-		/* priority 3: service interrupt */
-		if (dd->irq_registered && pdata->irq(pdata) == 0)
+		/* priority 4: update /sys/device information */
+		if (dd->sysfs_update_type != DR_SYSFS_UPDATE_NONE)
+			if (!dd->expect_resume_ack) {
+				if (send_sysfs_info(dd) < 0)
+					ERROR(
+					      "Can not send sysfs update to touch fusion"
+					     );
+				dd->sysfs_update_type = DR_SYSFS_UPDATE_NONE;
+			}
+
+		/* priority 5: service interrupt */
+		if (dd->irq_registered && !dd->expect_resume_ack &&
+		    (pdata->irq(pdata) == 0 || dd->resume_reset))
 			dd->service_irq(dd);
+		if (dd->irq_registered && !dd->expect_resume_ack &&
+		    pdata->irq(pdata) == 0)
+			continue;
 
 		/* nothing more to do; sleep */
 		schedule();
 	}
 
 	return 0;
+}
+
+/****************************************************************************\
+* SYSFS interface                                                            *
+\****************************************************************************/
+
+static ssize_t chip_id_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->chip_id);
+}
+
+static ssize_t fw_ver_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->fw_ver);
+}
+
+static ssize_t driver_ver_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->drv_ver);
+}
+
+static ssize_t tf_ver_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%04X\n", dd->tf_ver);
+}
+
+static ssize_t panel_id_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%04X\n", panel_id);
+}
+
+static ssize_t glove_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%u\n", dd->glove_enabled);
+}
+
+static ssize_t glove_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	u32 temp;
+	unsigned long           time_left;
+
+	mutex_lock(&dd->sysfs_update_mutex);
+
+	if (sscanf(buf, "%u", &temp) != 1) {
+		ERROR("Invalid (%s)", buf);
+		return -EINVAL;
+	}
+	dd->glove_enabled = !!temp;
+	set_bit(DR_SYSFS_UPDATE_BIT_GLOVE, &(dd->sysfs_update_type));
+	wake_up_process(dd->thread);
+	time_left = wait_for_completion_timeout(&dd->sysfs_ack_glove, 3*HZ);
+
+	mutex_unlock(&dd->sysfs_update_mutex);
+
+	if (time_left > 0)
+		return strnlen(buf, PAGE_SIZE);
+	else
+		return -EAGAIN;
+}
+
+static ssize_t gesture_wakeup_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%u\n", dd->gesture_en);
+}
+
+static ssize_t gesture_wakeup_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	u32 temp;
+
+	if (sscanf(buf, "%u", &temp) != 1) {
+		ERROR("Invalid (%s)", buf);
+		return -EINVAL;
+	}
+	dd->gesture_en = temp;
+
+	return strnlen(buf, PAGE_SIZE);
+}
+
+static ssize_t charger_mode_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%u\n", dd->charger_mode_en);
+}
+
+static ssize_t charger_mode_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	u32 temp;
+	unsigned long           time_left;
+
+	mutex_lock(&dd->sysfs_update_mutex);
+
+	if (sscanf(buf, "%u", &temp) != 1) {
+		ERROR("Invalid (%s)", buf);
+		return -EINVAL;
+	}
+	if (temp > DR_WIRELESS_CHARGER) {
+		ERROR("Charger Mode Value Out of Range");
+		return -EINVAL;
+	}
+	dd->charger_mode_en = temp;
+	set_bit(DR_SYSFS_UPDATE_BIT_CHARGER, &(dd->sysfs_update_type));
+	wake_up_process(dd->thread);
+	time_left = wait_for_completion_timeout(&dd->sysfs_ack_charger, 3*HZ);
+
+	mutex_unlock(&dd->sysfs_update_mutex);
+
+	if (time_left > 0)
+		return strnlen(buf, PAGE_SIZE);
+	else
+		return -EAGAIN;
+}
+
+static ssize_t info_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "chip id: 0x%04X driver ver: 0x%04X "
+					"fw ver: 0x%04X panel id: 0x%04X "
+					"tf ver: 0x%04X\n",
+					dd->chip_id, dd->drv_ver, dd->fw_ver,
+					panel_id, dd->tf_ver);
+}
+
+static ssize_t screen_status_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	u32 temp;
+
+	if (sscanf(buf, "%u", &temp) != 1) {
+		ERROR("Invalid (%s)", buf);
+		return -EINVAL;
+	}
+	if (temp)
+		late_resume(dev);
+	else
+		early_suspend(dev);
+
+	return strnlen(buf, PAGE_SIZE);
+}
+
+static ssize_t tf_status_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "0x%08X", dd->tf_status);
+}
+
+static ssize_t default_loaded_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%d",
+			(dd->tf_status & TF_STATUS_DEFAULT_LOADED));
+}
+
+static ssize_t lcd_fps_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	return snprintf(buf, PAGE_SIZE, "%u\n", dd->lcd_fps);
+}
+
+static ssize_t lcd_fps_store(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct spi_device       *spi = to_spi_device(dev);
+	struct dev_data         *dd = spi_get_drvdata(spi);
+	u32 temp;
+	unsigned long           time_left;
+
+	mutex_lock(&dd->sysfs_update_mutex);
+
+	if (sscanf(buf, "%u", &temp) != 1) {
+		ERROR("Invalid (%s)", buf);
+		return -EINVAL;
+	}
+
+	dd->lcd_fps = temp;
+	set_bit(DR_SYSFS_UPDATE_BIT_LCD_FPS, &(dd->sysfs_update_type));
+	wake_up_process(dd->thread);
+	time_left = wait_for_completion_timeout(&dd->sysfs_ack_lcd_fps, 3*HZ);
+
+	mutex_unlock(&dd->sysfs_update_mutex);
+
+	if (time_left > 0)
+		return strnlen(buf, PAGE_SIZE);
+	else
+		return -EAGAIN;
+}
+
+static struct device_attribute dev_attrs[] = {
+	__ATTR(fw_ver, S_IRUGO, fw_ver_show, NULL),
+	__ATTR(chip_id, S_IRUGO, chip_id_show, NULL),
+	__ATTR(tf_ver, S_IRUGO, tf_ver_show, NULL),
+	__ATTR(driver_ver, S_IRUGO, driver_ver_show, NULL),
+	__ATTR(panel_id, S_IRUGO, panel_id_show, NULL),
+	__ATTR(glove_en, S_IRUGO | S_IWUSR, glove_show, glove_store),
+	__ATTR(gesture_wakeup, S_IRUGO | S_IWUSR, gesture_wakeup_show, gesture_wakeup_store),
+	__ATTR(charger_mode, S_IRUGO | S_IWUSR, charger_mode_show, charger_mode_store),
+	__ATTR(info, S_IRUGO, info_show, NULL),
+	__ATTR(screen_status, S_IWUSR, NULL, screen_status_store),
+	__ATTR(tf_status, S_IRUGO, tf_status_show, NULL),
+	__ATTR(default_loaded, S_IRUGO, default_loaded_show, NULL),
+	__ATTR(lcd_fps, S_IRUGO | S_IWUSR, lcd_fps_show, lcd_fps_store),
+};
+
+static int create_sysfs_entries(struct dev_data *dd)
+{
+	int i, ret = 0;
+
+	for (i = 0; i < ARRAY_SIZE(dev_attrs); i++) {
+		ret = device_create_file(&dd->spi->dev, &dev_attrs[i]);
+		if (ret) {
+			for (; i >= 0; --i) {
+				device_remove_file(&dd->spi->dev,
+							&dev_attrs[i]);
+				dd->sysfs_created--;
+			}
+			break;
+		}
+		dd->sysfs_created++;
+	}
+	return ret;
+}
+
+static void remove_sysfs_entries(struct dev_data *dd)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(dev_attrs); i++)
+		if (dd->sysfs_created && dd->sysfs_created--)
+			device_remove_file(&dd->spi->dev, &dev_attrs[i]);
 }
 
 /****************************************************************************\
@@ -1508,13 +2372,19 @@ static int probe(struct spi_device *spi)
 	dd->spi = spi;
 	dd->nl_seq = 1;
 	init_completion(&dd->suspend_resume);
-	memset(dd->tx_buf, 0xFF, sizeof(dd->tx_buf));
+	memset(dd->tx_buf, 0xFF, pdata->tx_buf_size);
 	(void)set_chip_access_method(dd, pdata->chip_access_method);
+
+	/* initialize regulators */
+	regulator_init(dd);
 
 	/* initialize platform */
 	ret = pdata->init(pdata, true);
 	if (ret < 0)
 		goto platform_failure;
+
+	/* Netlink: initialize incoming skb queue */
+	skb_queue_head_init(&dd->incoming_skb_queue);
 
 	/* start processing thread */
 	dd->thread_sched.sched_priority = MAX_USER_RT_PRIO / 2;
@@ -1561,25 +2431,29 @@ static int probe(struct spi_device *spi)
 	if (ret < 0)
 		goto nl_failure;
 
-#if CPU_BOOST
-	/* initialize PM QOS */
-	dd->boost_freq = pm_qos_request(PM_QOS_CPU_FREQ_MAX);
-	pm_qos_add_request(&dd->cpus_req, PM_QOS_MIN_ONLINE_CPUS,
-			   PM_QOS_DEFAULT_VALUE);
-	pm_qos_add_request(&dd->freq_req, PM_QOS_CPU_FREQ_MIN,
-			   PM_QOS_DEFAULT_VALUE);
-#endif
-
-	/* Netlink: initialize incoming skb queue */
-	skb_queue_head_init(&dd->incoming_skb_queue);
-
 	/* Netlink: ready to start processing incoming messages */
 	dd->nl_enabled = true;
+
+	/* No sysfs update initially */
+	dd->sysfs_update_type = DR_SYSFS_UPDATE_NONE;
+	init_completion(&dd->sysfs_ack_glove);
+	init_completion(&dd->sysfs_ack_charger);
+	init_completion(&dd->sysfs_ack_lcd_fps);
+	mutex_init(&dd->sysfs_update_mutex);
 
 	/* add us to the devices list */
 	spin_lock_irqsave(&dev_lock, flags);
 	list_add_tail(&dd->dev_list, &dev_list);
 	spin_unlock_irqrestore(&dev_lock, flags);
+
+#if NV_ENABLE_CPU_BOOST
+	dd->last_irq_jiffies = jiffies;
+#endif
+	ret = create_sysfs_entries(dd);
+	if (ret) {
+		INFO("failed to create sysfs file");
+		goto sysfs_remove_group;
+	}
 
 	/* start up Touch Fusion */
 	dd->start_fusion = true;
@@ -1589,6 +2463,8 @@ static int probe(struct spi_device *spi)
 
 	return 0;
 
+sysfs_remove_group:
+	remove_sysfs_entries(dd);
 nl_failure:
 	genl_unregister_family(&dd->nl_family);
 nl_family_failure:
@@ -1608,6 +2484,11 @@ static int remove(struct spi_device *spi)
 
 	if (dd->fusion_process != (pid_t)0)
 		(void)kill_pid(find_get_pid(dd->fusion_process), SIGKILL, 1);
+
+	if (dd->parent != NULL)
+		sysfs_remove_link(dd->input_dev[0]->dev.kobj.parent,
+						MAXIM_STI_NAME);
+	remove_sysfs_entries(dd);
 
 	/* BEWARE: tear-down sequence below is carefully staged:            */
 	/* 1) first the feeder of Netlink messages to the processing thread */
@@ -1631,24 +2512,36 @@ static int remove(struct spi_device *spi)
 	if (dd->irq_registered)
 		free_irq(dd->spi->irq, dd);
 
-#if CPU_BOOST
-	if (dd->boost_freq != 0) {
-		pm_qos_remove_request(&dd->freq_req);
-		pm_qos_remove_request(&dd->cpus_req);
-	}
-#endif
-
 	stop_scan_canned(dd);
 
 	spin_lock_irqsave(&dev_lock, flags);
 	list_del(&dd->dev_list);
 	spin_unlock_irqrestore(&dev_lock, flags);
 
+	pdata->reset(pdata, 0);
+	usleep_range(100, 120);
+	regulator_control(dd, false);
+	pdata->init(pdata, false);
+
 	kfree(dd);
 
-	pdata->init(pdata, false);
 	INFO("driver unloaded");
 	return 0;
+}
+
+static void shutdown(struct spi_device *spi)
+{
+	struct maxim_sti_pdata  *pdata = spi->dev.platform_data;
+	struct dev_data         *dd = spi_get_drvdata(spi);
+
+	if (dd->parent != NULL)
+		sysfs_remove_link(dd->input_dev[0]->dev.kobj.parent,
+						MAXIM_STI_NAME);
+	remove_sysfs_entries(dd);
+
+	pdata->reset(pdata, 0);
+	usleep_range(100, 120);
+	regulator_control(dd, false);
 }
 
 /****************************************************************************\
@@ -1665,6 +2558,7 @@ MODULE_DEVICE_TABLE(spi, id);
 static struct spi_driver driver = {
 	.probe          = probe,
 	.remove         = remove,
+	.shutdown       = shutdown,
 	.id_table       = id,
 	.driver = {
 		.name   = MAXIM_STI_NAME,
@@ -1686,6 +2580,9 @@ static void __exit maxim_sti_exit(void)
 {
 	spi_unregister_driver(&driver);
 }
+
+module_param(panel_id, ushort, S_IRUGO);
+MODULE_PARM_DESC(panel_id, "Touch Panel ID Configuration");
 
 module_init(maxim_sti_init);
 module_exit(maxim_sti_exit);

@@ -3,6 +3,7 @@
  * Maxim SmartTouch Imager Touchscreen Driver
  *
  * Copyright (c)2013 Maxim Integrated Products, Inc.
+ * Copyright (C) 2013, NVIDIA Corporation.  All Rights Reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -26,8 +27,19 @@
 #include "genetlink.h"
 #endif
 
-#define DRIVER_VERSION  "1.4.1"
-#define DRIVER_RELEASE  "August 14, 2013"
+#define XSTR(s)               STR(s)
+#define STR(s)                #s
+
+#define DRV_VER_MAJOR         3
+#define DRV_VER_MINOR         1
+
+#define DRIVER_VERSION_STR    XSTR(DRV_VER_MAJOR) "." XSTR(DRV_VER_MINOR)
+#define DRIVER_VERSION_NUM    ((DRV_VER_MAJOR << 8) | DRV_VER_MINOR)
+
+#define DRIVER_VERSION        DRIVER_VERSION_STR
+#define DRIVER_RELEASE        "March 5, 2015"
+#define DRIVER_PROTOCOL       0x0103
+#define LEGACY_DRIVER_PROTOCOL 0x0101
 
 /****************************************************************************\
 * Netlink: common kernel/user space macros                                   *
@@ -153,8 +165,30 @@ enum {
 	DR_CONFIG_WATCHDOG,
 	DR_DECONFIG,
 	DR_INPUT,
+	DR_RESUME_ACK,
 	DR_LEGACY_FWDL,
 	DR_LEGACY_ACCELERATION,
+	DR_HANDSHAKE,
+	DR_CONFIG_FW,
+	DR_IDLE,
+	DR_SYSFS_ACK,
+	DR_TF_STATUS,
+};
+
+#define  DR_SYSFS_UPDATE_NONE     0x0000
+#define  DR_SYSFS_UPDATE_BIT_GLOVE    0
+#define  DR_SYSFS_UPDATE_BIT_CHARGER  1
+#define  DR_SYSFS_UPDATE_BIT_LCD_FPS  2
+#define  DR_SYSFS_ACK_GLOVE       0x5A5A5A5A
+#define  DR_SYSFS_ACK_CHARGER     0xA5A5A5A5
+#define  DR_SYSFS_ACK_LCD_FPS     0xC3C3C3C3
+#define  TF_STATUS_DEFAULT_LOADED (1 << 0)
+#define  TF_STATUS_BUSY (1 << 1)
+
+enum {
+	DR_NO_CHARGER,
+	DR_WIRED_CHARGER,
+	DR_WIRELESS_CHARGER,
 };
 
 struct __attribute__ ((__packed__)) dr_add_mc_group {
@@ -189,10 +223,19 @@ struct __attribute__ ((__packed__)) dr_chip_access_method {
 	__u8  method;
 };
 
-#define MAX_IRQ_PARAMS  20
-struct __attribute__ ((__packed__)) dr_config_irq {
-	__u16  irq_param[MAX_IRQ_PARAMS];
+#define MAX_IRQ_PARAMS_LEGACY 30
+struct __attribute__ ((__packed__)) dr_config_irq_legacy {
 	__u8   irq_params;
+	__u16  irq_param[MAX_IRQ_PARAMS_LEGACY];
+	__u8   irq_method;
+	__u8   irq_edge;
+};
+
+#define OLD_NIRQ_PARAMS 27
+#define MAX_IRQ_PARAMS  37
+struct __attribute__ ((__packed__)) dr_config_irq {
+	__u8   irq_params;
+	__u16  irq_param[MAX_IRQ_PARAMS];
 	__u8   irq_method;
 	__u8   irq_edge;
 };
@@ -224,12 +267,36 @@ struct __attribute__ ((__packed__)) dr_legacy_acceleration {
 	__u8  enable;
 };
 
+struct __attribute__ ((__packed__)) dr_handshake {
+	__u16 tf_ver;
+	__u16 chip_id;
+};
+
+struct __attribute__ ((__packed__)) dr_sysfs_ack {
+	__u32 type;
+};
+
+struct __attribute__ ((__packed__)) dr_config_fw {
+	__u16 fw_ver;
+	__u16 fw_protocol;
+};
+
+struct __attribute__ ((__packed__)) dr_idle {
+	__u8  idle;
+};
+
+struct __attribute__ ((__packed__)) dr_tf_status {
+	__u32 tf_status;
+};
+
 enum {
 	FU_ECHO_RESPONSE,
 	FU_CHIP_READ_RESULT,
 	FU_IRQLINE_STATUS,
 	FU_ASYNC_DATA,
 	FU_RESUME,
+	FU_HANDSHAKE_RESPONSE,
+	FU_SYSFS_INFO,
 };
 
 struct __attribute__ ((__packed__)) fu_echo_response {
@@ -252,6 +319,19 @@ struct __attribute__ ((__packed__)) fu_async_data {
 	__u16  length;
 	__u16  status;
 	__u8   data[0];
+};
+
+struct __attribute__ ((__packed__)) fu_handshake_response {
+	__u16  driver_ver;
+	__u16  panel_id;
+	__u16  driver_protocol;
+};
+
+struct __attribute__ ((__packed__)) fu_sysfs_info {
+	__u8   type;
+	__u16  glove_value;
+	__u16  charger_value;
+	__u16  lcd_fps_value;
 };
 
 #ifdef __KERNEL__
