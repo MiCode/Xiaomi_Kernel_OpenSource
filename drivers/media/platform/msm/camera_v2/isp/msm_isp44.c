@@ -1074,12 +1074,12 @@ static void msm_vfe44_update_camif_state(struct vfe_device *vfe_dev,
 		return;
 
 	if (update_state == ENABLE_CAMIF) {
-		msm_camera_io_w(0xFFFFFFFF, vfe_dev->vfe_base + 0x30);
-		msm_camera_io_w_mb(0xFFFFFFFF, vfe_dev->vfe_base + 0x34);
+		msm_camera_io_w(0xFF801F, vfe_dev->vfe_base + 0x30);
+		msm_camera_io_w_mb(0x1FF008F, vfe_dev->vfe_base + 0x34);
 		msm_camera_io_w_mb(0x1, vfe_dev->vfe_base + 0x24);
 
 		val = msm_camera_io_r(vfe_dev->vfe_base + 0x28);
-		val |= 0xF7;
+		val |= 0xF5;
 		msm_camera_io_w_mb(val, vfe_dev->vfe_base + 0x28);
 		msm_camera_io_w_mb(0x140000, vfe_dev->vfe_base + 0x318);
 
