@@ -288,7 +288,8 @@ struct mdp3_dma {
 
 	int (*dma_config)(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
-			struct mdp3_dma_output_config *output_config);
+			struct mdp3_dma_output_config *output_config,
+			bool splash_screen_active);
 
 	int (*dma_sync_config)(struct mdp3_dma *dma, struct mdp3_dma_source
 				*source_config, struct mdp3_tear_check *te);

@@ -566,7 +566,7 @@ static int mdp3_ctrl_get_pack_pattern(u32 imgType)
 static int mdp3_ctrl_intf_init(struct msm_fb_data_type *mfd,
 				struct mdp3_intf *intf)
 {
-	int rc;
+	int rc = 0;
 	struct mdp3_intf_cfg cfg;
 	struct mdp3_video_intf_cfg *video = &cfg.video;
 	struct mdss_panel_info *p = mfd->panel_info;
@@ -581,6 +581,9 @@ static int mdp3_ctrl_intf_init(struct msm_fb_data_type *mfd,
 	int v_pulse_width = p->lcdc.v_pulse_width;
 	int hsync_period = h_front_porch + h_back_porch + w + h_pulse_width;
 	int vsync_period = v_front_porch + v_back_porch + h + v_pulse_width;
+	struct mdp3_session_data *mdp3_session;
+
+	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 	vsync_period *= hsync_period;
 
 	cfg.type = mdp3_ctrl_get_intf_type(mfd);
@@ -614,10 +617,12 @@ static int mdp3_ctrl_intf_init(struct msm_fb_data_type *mfd,
 	} else
 		return -EINVAL;
 
-	if (intf->config)
-		rc = intf->config(intf, &cfg);
-	else
-		rc = -EINVAL;
+	if (!(mdp3_session->in_splash_screen)) {
+		if (intf->config)
+			rc = intf->config(intf, &cfg);
+		else
+			rc = -EINVAL;
+	}
 	return rc;
 }
 
@@ -636,6 +641,9 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 	int vtotal, vporch;
 	struct mdp3_notification dma_done_callback;
 	struct mdp3_tear_check te;
+	struct mdp3_session_data *mdp3_session;
+
+	mdp3_session = (struct mdp3_session_data *)mfd->mdp.private1;
 
 	vbp = panel_info->lcdc.v_back_porch;
 	vfp = panel_info->lcdc.v_front_porch;
@@ -695,7 +703,8 @@ static int mdp3_ctrl_dma_init(struct msm_fb_data_type *mfd,
 			dma->roi.x = sourceConfig.x;
 			dma->roi.y = sourceConfig.y;
 		}
-		rc = dma->dma_config(dma, &sourceConfig, &outputConfig);
+		rc = dma->dma_config(dma, &sourceConfig, &outputConfig,
+					mdp3_session->in_splash_screen);
 	} else {
 		pr_err("%s: dma config failed\n", __func__);
 		rc = -EINVAL;
@@ -933,16 +942,6 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 	mutex_lock(&mdp3_session->lock);
 
 	vsync_client = mdp3_dma->vsync_client;
-	if (panel && panel->set_backlight)
-		panel->set_backlight(panel, 0);
-
-	rc = mdp3_dma->stop(mdp3_dma, mdp3_session->intf);
-	if (rc) {
-		pr_err("fail to stop the MDP3 dma %d\n", rc);
-		goto reset_error;
-	}
-	/*wait to ensure DMA is stopped*/
-	msleep(20);
 
 	rc = mdp3_iommu_enable(MDP3_CLIENT_DMA_P);
 	if (rc) {
@@ -952,7 +951,6 @@ static int mdp3_ctrl_reset(struct msm_fb_data_type *mfd)
 
 	mdp3_ctrl_intf_init(mfd, mdp3_session->intf);
 	mdp3_ctrl_dma_init(mfd, mdp3_dma);
-
 	if (vsync_client.handler)
 		mdp3_dma->vsync_enable(mdp3_dma, &vsync_client);
 
@@ -1160,7 +1158,6 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 
 	panel = mdp3_session->panel;
 	if (mdp3_session->in_splash_screen) {
-		pr_debug("continuous splash screen, IOMMU not attached\n");
 		rc = mdp3_ctrl_reset(mfd);
 		if (rc) {
 			pr_err("fail to reset display\n");
@@ -1268,7 +1265,6 @@ static void mdp3_ctrl_pan_display(struct msm_fb_data_type *mfd)
 		return;
 
 	if (mdp3_session->in_splash_screen) {
-		pr_debug("continuous splash screen, IOMMU not attached\n");
 		rc = mdp3_ctrl_reset(mfd);
 		if (rc) {
 			pr_err("fail to reset display\n");

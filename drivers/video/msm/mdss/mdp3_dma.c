@@ -319,7 +319,8 @@ int mdp3_dma_sync_config(struct mdp3_dma *dma,
 
 static int mdp3_dmap_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
-			struct mdp3_dma_output_config *output_config)
+			struct mdp3_dma_output_config *output_config,
+			bool splash_screen_active)
 {
 	u32 dma_p_cfg_reg, dma_p_size, dma_p_out_xy;
 
@@ -335,14 +336,17 @@ static int mdp3_dmap_config(struct mdp3_dma *dma,
 
 	dma_p_size = source_config->width | (source_config->height << 16);
 	dma_p_out_xy = source_config->x | (source_config->y << 16);
+	if (!splash_screen_active) {
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dma_p_cfg_reg);
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, dma_p_size);
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR,
+			       (u32)source_config->buf);
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_Y_STRIDE,
+			       source_config->stride);
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_OUT_XY, dma_p_out_xy);
 
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_CONFIG, dma_p_cfg_reg);
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_SIZE, dma_p_size);
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_ADDR, (u32)source_config->buf);
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_IBUF_Y_STRIDE, source_config->stride);
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_OUT_XY, dma_p_out_xy);
-
-	MDP3_REG_WRITE(MDP3_REG_DMA_P_FETCH_CFG, 0x40);
+		MDP3_REG_WRITE(MDP3_REG_DMA_P_FETCH_CFG, 0x40);
+	}
 
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
@@ -371,7 +375,8 @@ static void mdp3_dmap_config_source(struct mdp3_dma *dma)
 
 static int mdp3_dmas_config(struct mdp3_dma *dma,
 			struct mdp3_dma_source *source_config,
-			struct mdp3_dma_output_config *output_config)
+			struct mdp3_dma_output_config *output_config,
+			bool splash_screen_active)
 {
 	u32 dma_s_cfg_reg, dma_s_size, dma_s_out_xy;
 
@@ -388,14 +393,17 @@ static int mdp3_dmas_config(struct mdp3_dma *dma,
 	dma_s_size = source_config->width | (source_config->height << 16);
 	dma_s_out_xy = source_config->x | (source_config->y << 16);
 
-	MDP3_REG_WRITE(MDP3_REG_DMA_S_CONFIG, dma_s_cfg_reg);
-	MDP3_REG_WRITE(MDP3_REG_DMA_S_SIZE, dma_s_size);
-	MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_ADDR, (u32)source_config->buf);
-	MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_Y_STRIDE, source_config->stride);
-	MDP3_REG_WRITE(MDP3_REG_DMA_S_OUT_XY, dma_s_out_xy);
+	if (!splash_screen_active) {
+		MDP3_REG_WRITE(MDP3_REG_DMA_S_CONFIG, dma_s_cfg_reg);
+		MDP3_REG_WRITE(MDP3_REG_DMA_S_SIZE, dma_s_size);
+		MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_ADDR,
+			       (u32)source_config->buf);
+		MDP3_REG_WRITE(MDP3_REG_DMA_S_IBUF_Y_STRIDE,
+			       source_config->stride);
+		MDP3_REG_WRITE(MDP3_REG_DMA_S_OUT_XY, dma_s_out_xy);
 
-	MDP3_REG_WRITE(MDP3_REG_SECONDARY_RD_PTR_IRQ, 0x10);
-
+		MDP3_REG_WRITE(MDP3_REG_SECONDARY_RD_PTR_IRQ, 0x10);
+	}
 	dma->source_config = *source_config;
 	dma->output_config = *output_config;
 
