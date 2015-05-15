@@ -482,6 +482,9 @@ Subnode properties:
 			- "rgba8888"
 			- "rgb888"
 			- "rgb565"
+- qcom,boot-indication-enabled: Boolean property that enables turning on the blue
+				LED for notifying that the device is in boot
+				process.
 
 Example:
 	mdss_mdp: qcom,mdss_mdp@fd900000 {
