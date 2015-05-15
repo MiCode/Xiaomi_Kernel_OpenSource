@@ -454,6 +454,8 @@ struct mdss_dsi_ctrl_pdata {
 
 	/* debugfs structure */
 	struct mdss_dsi_debugfs_info *debugfs_info;
+
+	bool dfps_status;	/* dynamic refresh status */
 };
 
 struct dsi_status_data {
