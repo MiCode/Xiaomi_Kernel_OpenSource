@@ -235,6 +235,7 @@ struct smbchg_chip {
 	struct mutex			usb_status_lock;
 	/* apsd workaround */
 	struct work_struct		rerun_apsd_work;
+	bool				do_apsd_reruns;
 	bool				apsd_rerun;
 	bool				apsd_rerun_ignore_uv_irq;
 	struct completion		apsd_src_det_lowered;
@@ -4319,7 +4320,8 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 		power_supply_set_allow_detection(chip->usb_psy, 1);
 	}
 
-	if (!chip->apsd_rerun && usb_supply_type == POWER_SUPPLY_TYPE_USB) {
+	if (chip->do_apsd_reruns && !chip->apsd_rerun
+			&& usb_supply_type == POWER_SUPPLY_TYPE_USB) {
 		chip->apsd_rerun = true;
 		schedule_work(&chip->rerun_apsd_work);
 		return;
@@ -5506,6 +5508,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 					"qcom,low-volt-dcin");
 	chip->force_aicl_rerun = of_property_read_bool(node,
 					"qcom,force-aicl-rerun");
+	chip->do_apsd_reruns = of_property_read_bool(node,
+					"qcom,rerun-apsd");
 
 	/* parse the battery missing detection pin source */
 	rc = of_property_read_string(chip->spmi->dev.of_node,
