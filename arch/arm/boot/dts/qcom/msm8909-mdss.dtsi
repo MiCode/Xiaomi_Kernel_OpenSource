@@ -42,6 +42,7 @@
 		hw-config = "single_dsi";
 		#address-cells = <1>;
 		#size-cells = <1>;
+		qcom,mdss-fb-map-prim = <&mdss_fb0>;
 		gdsc-supply = <&gdsc_mdss>;
 		vdda-supply = <&pm8909_l2>;
 		vddio-supply = <&pm8909_l6>;
@@ -115,7 +116,6 @@
 			qcom,dsi-irq-line;
 			interrupts = <0 80 0>;
 
-			qcom,mdss-fb-map = <&mdss_fb0>;
 			qcom,mdss-mdp = <&mdss_mdp>;
 			vdd-supply = <&pm8909_l17>;
 			vddio-supply = <&pm8909_l6>;

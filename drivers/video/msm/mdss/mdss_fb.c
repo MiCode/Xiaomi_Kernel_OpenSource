@@ -3881,10 +3881,9 @@ static int mdss_fb_register_extra_panel(struct platform_device *pdev,
 }
 
 int mdss_register_panel(struct platform_device *pdev,
-	struct mdss_panel_data *pdata)
+	struct mdss_panel_data *pdata, struct device_node *node)
 {
 	struct platform_device *fb_pdev, *mdss_pdev;
-	struct device_node *node;
 	int rc = 0;
 	bool master_panel = true;
 
@@ -3898,12 +3897,6 @@ int mdss_register_panel(struct platform_device *pdev,
 		return -EPROBE_DEFER;
 	}
 
-	node = of_parse_phandle(pdev->dev.of_node, "qcom,mdss-fb-map", 0);
-	if (!node) {
-		pr_err("Unable to find fb node for device: %s\n",
-				pdev->name);
-		return -ENODEV;
-	}
 	mdss_pdev = of_find_device_by_node(node->parent);
 	if (!mdss_pdev) {
 		pr_err("Unable to find mdss for node: %s\n", node->full_name);

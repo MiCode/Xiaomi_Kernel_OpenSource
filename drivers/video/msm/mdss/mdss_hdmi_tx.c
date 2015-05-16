@@ -3725,6 +3725,7 @@ static int hdmi_tx_panel_event_handler(struct mdss_panel_data *panel_data,
 static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 {
 	int rc = 0;
+	struct device_node *fb_node;
 
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -3742,7 +3743,16 @@ static int hdmi_tx_register_panel(struct hdmi_tx_ctrl *hdmi_ctrl)
 		return rc;
 	}
 
-	rc = mdss_register_panel(hdmi_ctrl->pdev, &hdmi_ctrl->panel_data);
+	fb_node = of_parse_phandle(hdmi_ctrl->pdev->dev.of_node,
+			"qcom,mdss-fb-map", 0);
+	if (!fb_node) {
+		pr_err("Unable to find fb node for device: %s\n",
+			hdmi_ctrl->pdev->name);
+		return -ENODEV;
+	}
+
+	rc = mdss_register_panel(hdmi_ctrl->pdev, &hdmi_ctrl->panel_data,
+		fb_node);
 	if (rc) {
 		DEV_ERR("%s: FAILED: to register HDMI panel\n", __func__);
 		return rc;

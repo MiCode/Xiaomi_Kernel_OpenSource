@@ -778,6 +778,7 @@ static int mdss_edp_device_register(struct mdss_edp_drv_pdata *edp_drv)
 {
 	int ret;
 	u32 tmp;
+	struct device_node *fb_node;
 
 	mdss_edp_edid2pinfo(edp_drv);
 	edp_drv->panel_data.panel_info.bl_min = 1;
@@ -796,7 +797,15 @@ static int mdss_edp_device_register(struct mdss_edp_drv_pdata *edp_drv)
 	edp_drv->panel_data.panel_info.cont_splash_enabled =
 					edp_drv->cont_splash;
 
-	ret = mdss_register_panel(edp_drv->pdev, &edp_drv->panel_data);
+	fb_node = of_parse_phandle(edp_drv->pdev->dev.of_node,
+			"qcom,mdss-fb-map", 0);
+	if (!fb_node) {
+		pr_err("Unable to find fb node for device: %s\n",
+			edp_drv->pdev->name);
+		return -ENODEV;
+	}
+
+	ret = mdss_register_panel(edp_drv->pdev, &edp_drv->panel_data, fb_node);
 	if (ret) {
 		dev_err(&(edp_drv->pdev->dev), "unable to register eDP\n");
 		return ret;
