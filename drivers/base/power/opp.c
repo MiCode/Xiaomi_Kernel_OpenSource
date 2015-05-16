@@ -462,6 +462,9 @@ int dev_pm_opp_add(struct device *dev, unsigned long freq, unsigned long u_volt)
 		else
 			head = &opp->node;
 	}
+	/* new_opp is the largest */
+	if (&opp->node == &dev_opp->opp_list)
+		goto list_add;
 
 	/* Duplicate OPPs ? */
 	if (new_opp->rate == opp->rate) {
