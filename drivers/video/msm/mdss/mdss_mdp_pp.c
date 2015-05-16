@@ -5351,6 +5351,7 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	struct mdss_ad_info *ad;
 	struct mdss_mdp_ctl *ctl;
 	struct msm_fb_data_type *mfd, *bl_mfd;
+	struct mdss_overlay_private *mdp5_data;
 	struct mdss_data_type *mdata;
 	char __iomem *base;
 	u32 calc_done = 0;
@@ -5365,12 +5366,12 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	bl_mfd = ad->bl_mfd;
 	ctl = mfd_to_ctl(ad->mfd);
 	mdata = mfd_to_mdata(ad->mfd);
+	mdp5_data = mfd_to_mdp5_data(mfd);
 
 	if (!mdata || ad->calc_hw_num >= mdata->nad_cfgs) {
 		mutex_unlock(&ad->lock);
 		return;
 	}
-
 
 	base = mdata->ad_off[ad->calc_hw_num].base;
 
@@ -5410,6 +5411,11 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	if (!ad->calc_itr) {
 		ad->state &= ~PP_AD_STATE_VSYNC;
 		ctl->ops.remove_vsync_handler(ctl, &ad->handle);
+	} else {
+		if (mdp5_data) {
+			mdp5_data->ad_events++;
+			sysfs_notify_dirent(mdp5_data->ad_event_sd);
+		}
 	}
 	mutex_unlock(&ad->lock);
 	/* dspp3 doesn't have ad attached to it so following is safe */
