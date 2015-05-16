@@ -373,34 +373,40 @@ TRACE_EVENT(core_ctl_set_busy,
 
 DECLARE_EVENT_CLASS(kpm_module2,
 
-	TP_PROTO(unsigned int cpu, unsigned int cycles, unsigned int io_busy,
-								u64 iowait),
+	TP_PROTO(unsigned int cpu, unsigned int enter_cycle_cnt,
+		unsigned int exit_cycle_cnt,
+		unsigned int io_busy, u64 iowait),
 
-	TP_ARGS(cpu, cycles, io_busy, iowait),
+	TP_ARGS(cpu, enter_cycle_cnt, exit_cycle_cnt, io_busy, iowait),
 
 	TP_STRUCT__entry(
 		__field(u32, cpu)
-		__field(u32, cycles)
+		__field(u32, enter_cycle_cnt)
+		__field(u32, exit_cycle_cnt)
 		__field(u32, io_busy)
 		__field(u64, iowait)
 	),
 
 	TP_fast_assign(
 		__entry->cpu = cpu;
-		__entry->cycles = cycles;
+		__entry->enter_cycle_cnt = enter_cycle_cnt;
+		__entry->exit_cycle_cnt = exit_cycle_cnt;
 		__entry->io_busy = io_busy;
 		__entry->iowait = iowait;
 	),
 
-	TP_printk("CPU:%u cycles=%u io_busy=%u iowait=%lu",
-		(unsigned int)__entry->cpu, (unsigned int)__entry->cycles,
-		(unsigned int)__entry->io_busy, (unsigned long)__entry->iowait)
+	TP_printk("CPU:%u enter_cycles=%u exit_cycles=%u io_busy=%u iowait=%lu",
+		(unsigned int)__entry->cpu,
+		(unsigned int)__entry->enter_cycle_cnt,
+		(unsigned int)__entry->exit_cycle_cnt,
+		(unsigned int)__entry->io_busy,
+		(unsigned long)__entry->iowait)
 );
 
 DEFINE_EVENT(kpm_module2, track_iowait,
-	TP_PROTO(unsigned int cpu, unsigned int cycles, unsigned int io_busy,
-								u64 iowait),
-	TP_ARGS(cpu, cycles, io_busy, iowait)
+	TP_PROTO(unsigned int cpu, unsigned int enter_cycle_cnt,
+		unsigned int exit_cycle_cnt, unsigned int io_busy, u64 iowait),
+	TP_ARGS(cpu, enter_cycle_cnt, exit_cycle_cnt, io_busy, iowait)
 );
 
 DECLARE_EVENT_CLASS(cpu_modes,
