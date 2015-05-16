@@ -47,6 +47,7 @@
 #define SAMPLING_RATE_44P1KHZ   44100
 
 #define MSM8996_SPK_ON     1
+#define MSM8996_HIFI_ON    1
 
 #define WCD9XXX_MBHC_DEF_BUTTONS    8
 #define WCD9XXX_MBHC_DEF_RLOADS     5
@@ -68,6 +69,7 @@ static int msm8996_spk_control = 1;
 static int msm_slim_0_rx_ch = 1;
 static int msm_slim_0_tx_ch = 1;
 static int msm_slim_5_rx_ch = 1;
+static int msm_hifi_control;
 
 static int msm_btsco_rate = SAMPLING_RATE_8KHZ;
 static int msm_hdmi_rx_ch = 2;
@@ -77,6 +79,7 @@ static int msm_tert_mi2s_tx_ch = 2;
 
 static bool codec_reg_done;
 
+static const char *const hifi_function[] = {"Off", "On"};
 static const char *const pin_states[] = {"Disable", "active"};
 static const char *const spk_function[] = {"Off", "On"};
 static const char *const slim0_rx_ch_text[] = {"One", "Two"};
@@ -119,6 +122,8 @@ static struct afe_clk_set mi2s_tx_clk = {
 struct msm8996_asoc_mach_data {
 	u32 mclk_freq;
 	int us_euro_gpio;
+	int hph_en1_gpio;
+	int hph_en0_gpio;
 };
 
 struct msm8996_asoc_wcd93xx_codec {
@@ -342,6 +347,54 @@ static int msm8996_set_spk(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int msm8996_hifi_ctrl(struct snd_soc_codec *codec)
+{
+	struct snd_soc_dapm_context *dapm = &codec->dapm;
+	struct snd_soc_card *card = codec->component.card;
+	struct msm8996_asoc_mach_data *pdata =
+				snd_soc_card_get_drvdata(card);
+
+	pr_debug("%s: msm_hifi_control = %d", __func__,
+		 msm_hifi_control);
+	if (pdata->hph_en1_gpio < 0) {
+		pr_err("%s: hph_en1_gpio is invalid\n", __func__);
+		return -EINVAL;
+	}
+	mutex_lock(&codec->mutex);
+	if (msm_hifi_control == MSM8996_HIFI_ON) {
+		gpio_direction_output(pdata->hph_en1_gpio, 1);
+		/* 5msec delay needed as per HW requirement */
+		usleep_range(5000, 5010);
+	} else {
+		gpio_direction_output(pdata->hph_en1_gpio, 0);
+	}
+	mutex_unlock(&codec->mutex);
+	snd_soc_dapm_sync(dapm);
+	return 0;
+}
+
+static int msm8996_hifi_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: msm_hifi_control = %d\n",
+			 __func__, msm_hifi_control);
+	ucontrol->value.integer.value[0] = msm_hifi_control;
+	return 0;
+}
+
+static int msm8996_hifi_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
+
+	pr_debug("%s() ucontrol->value.integer.value[0] = %ld\n",
+		 __func__, ucontrol->value.integer.value[0]);
+
+	msm_hifi_control = ucontrol->value.integer.value[0];
+	msm8996_hifi_ctrl(codec);
+	return 1;
+}
+
 static int msm8996_ext_us_amp_init(void)
 {
 	int ret = 0;
@@ -421,6 +474,44 @@ static int msm8996_mclk_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+static int msm_hifi_ctrl_event(struct snd_soc_dapm_widget *w,
+				    struct snd_kcontrol *k, int event)
+{
+	struct snd_soc_card *card = w->codec->component.card;
+	struct msm8996_asoc_mach_data *pdata =
+				snd_soc_card_get_drvdata(card);
+	int ret = 0;
+
+	pr_debug("%s: msm_hifi_control = %d", __func__,
+		 msm_hifi_control);
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		if (msm_hifi_control == MSM8996_HIFI_ON) {
+			if (pdata->hph_en0_gpio < 0) {
+				pr_err("%s: hph_en0_gpio is invalid\n",
+					__func__);
+				ret = -EINVAL;
+				goto err;
+			}
+			gpio_direction_output(pdata->hph_en0_gpio, 1);
+		}
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		if (msm_hifi_control == MSM8996_HIFI_ON) {
+			if (pdata->hph_en0_gpio < 0) {
+				pr_err("%s: hph_en0_gpio is invalid\n",
+					__func__);
+				ret = -EINVAL;
+				goto err;
+			}
+			gpio_direction_output(pdata->hph_en0_gpio, 0);
+		}
+		break;
+	}
+err:
+	return ret;
+}
+
 static const struct snd_soc_dapm_widget msm8996_dapm_widgets[] = {
 
 	SND_SOC_DAPM_SUPPLY("MCLK",  SND_SOC_NOPM, 0, 0,
@@ -431,6 +522,7 @@ static const struct snd_soc_dapm_widget msm8996_dapm_widgets[] = {
 	SND_SOC_DAPM_SPK("Lineout_2 amp", NULL),
 	SND_SOC_DAPM_SPK("Lineout_4 amp", NULL),
 	SND_SOC_DAPM_SPK("ultrasound amp", msm_ext_ultrasound_event),
+	SND_SOC_DAPM_SPK("hifi amp", msm_hifi_ctrl_event),
 	SND_SOC_DAPM_MIC("Handset Mic", NULL),
 	SND_SOC_DAPM_MIC("Headset Mic", NULL),
 	SND_SOC_DAPM_MIC("ANCRight Headset Mic", NULL),
@@ -1210,6 +1302,7 @@ static const struct soc_enum msm_snd_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, slim5_rx_sample_rate_text),
 	SOC_ENUM_SINGLE_EXT(2, slim5_rx_bit_format_text),
 	SOC_ENUM_SINGLE_EXT(2, slim5_rx_ch_text),
+	SOC_ENUM_SINGLE_EXT(2, hifi_function),
 };
 
 static const struct snd_kcontrol_new msm_snd_controls[] = {
@@ -1246,6 +1339,8 @@ static const struct snd_kcontrol_new msm_snd_controls[] = {
 			slim0_tx_sample_rate_get, slim0_tx_sample_rate_put),
 	SOC_ENUM_EXT("SLIM_0_TX Format", msm_snd_enum[4],
 			slim0_tx_bit_format_get, slim0_tx_bit_format_put),
+	SOC_ENUM_EXT("HiFi Function", msm_snd_enum[11], msm8996_hifi_get,
+			msm8996_hifi_put),
 };
 
 static bool msm8996_swap_gnd_mic(struct snd_soc_codec *codec)
@@ -3275,6 +3370,37 @@ static int msm8996_prepare_us_euro(struct snd_soc_card *card)
 	return 0;
 }
 
+static int msm8996_prepare_hifi(struct snd_soc_card *card)
+{
+	struct msm8996_asoc_mach_data *pdata =
+				snd_soc_card_get_drvdata(card);
+	int ret;
+
+	if (gpio_is_valid(pdata->hph_en1_gpio)) {
+		dev_dbg(card->dev, "%s: hph_en1_gpio request %d\n", __func__,
+			pdata->hph_en1_gpio);
+		ret = gpio_request(pdata->hph_en1_gpio, "hph_en1_gpio");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: hph_en1_gpio request failed, ret:%d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+	if (gpio_is_valid(pdata->hph_en0_gpio)) {
+		dev_dbg(card->dev, "%s: hph_en0_gpio request %d\n", __func__,
+			pdata->hph_en0_gpio);
+		ret = gpio_request(pdata->hph_en0_gpio, "hph_en0_gpio");
+		if (ret) {
+			dev_err(card->dev,
+				"%s: hph_en0_gpio request failed, ret:%d\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static const struct of_device_id msm8996_asoc_machine_of_match[]  = {
 	{ .compatible = "qcom,msm8996-asoc-snd-tomtom",
 	  .data = "tomtom_codec"},
@@ -3447,6 +3573,25 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		msm8996_codec_conf[i].dev_name = NULL;
 		msm8996_codec_conf[i].of_node = dai_node;
 	}
+
+	pdata->hph_en1_gpio = of_get_named_gpio(pdev->dev.of_node,
+						"qcom,hph-en1-gpio", 0);
+	if (pdata->hph_en1_gpio < 0) {
+		dev_dbg(&pdev->dev, "%s: %s property not found %d\n",
+			__func__, "qcom,hph-en1-gpio", pdata->hph_en1_gpio);
+	}
+
+	pdata->hph_en0_gpio = of_get_named_gpio(pdev->dev.of_node,
+						"qcom,hph-en0-gpio", 0);
+	if (pdata->hph_en0_gpio < 0) {
+		dev_dbg(&pdev->dev, "%s: %s property not found %d\n",
+			__func__, "qcom,hph-en0-gpio", pdata->hph_en0_gpio);
+	}
+	ret = msm8996_prepare_hifi(card);
+	if (ret)
+		dev_dbg(&pdev->dev, "msm8996_prepare_hifi failed (%d)\n",
+			ret);
+
 	ret = snd_soc_register_card(card);
 	if (ret == -EPROBE_DEFER) {
 		if (codec_reg_done)
@@ -3506,15 +3651,25 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 	if (ret)
 		dev_info(&pdev->dev, "msm8996_prepare_us_euro failed (%d)\n",
 			ret);
-
 	return 0;
-
 err:
 	if (pdata->us_euro_gpio > 0) {
 		dev_dbg(&pdev->dev, "%s free us_euro gpio %d\n",
 			__func__, pdata->us_euro_gpio);
 		gpio_free(pdata->us_euro_gpio);
 		pdata->us_euro_gpio = 0;
+	}
+	if (pdata->hph_en1_gpio > 0) {
+		dev_dbg(&pdev->dev, "%s free hph_en1_gpio %d\n",
+			__func__, pdata->hph_en1_gpio);
+		gpio_free(pdata->hph_en1_gpio);
+		pdata->hph_en1_gpio = 0;
+	}
+	if (pdata->hph_en0_gpio > 0) {
+		dev_dbg(&pdev->dev, "%s free hph_en0_gpio %d\n",
+			__func__, pdata->hph_en0_gpio);
+		gpio_free(pdata->hph_en0_gpio);
+		pdata->hph_en0_gpio = 0;
 	}
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
@@ -3530,6 +3685,8 @@ static int msm8996_asoc_machine_remove(struct platform_device *pdev)
 		gpio_free(ext_us_amp_gpio);
 
 	gpio_free(pdata->us_euro_gpio);
+	gpio_free(pdata->hph_en1_gpio);
+	gpio_free(pdata->hph_en0_gpio);
 
 	if (msm8996_liquid_dock_dev != NULL) {
 		switch_dev_unregister(&msm8996_liquid_dock_dev->audio_sdev);
