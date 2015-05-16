@@ -29,7 +29,16 @@
 #define CLAMP_N_EN			BIT(5)
 #define FREEZIO_N			BIT(1)
 #define POWER_DOWN			BIT(0)
+
+#define QUSB2PHY_PORT_UTMI_CTRL1	0xC0
+#define TERM_SELECT			BIT(4)
+#define XCVR_SELECT_FS			BIT(2)
+#define OP_MODE_NON_DRIVE		BIT(0)
+
 #define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
+#define UTMI_ULPI_SEL			BIT(7)
+#define UTMI_TEST_MUX_SEL		BIT(6)
+
 #define QUSB2PHY_PORT_TUNE1             0x80
 #define QUSB2PHY_PORT_TUNE2             0x84
 #define QUSB2PHY_PORT_TUNE3             0x88
@@ -415,6 +424,21 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			clk_disable_unprepare(qphy->cfg_ahb_clk);
 			clk_disable_unprepare(qphy->ref_clk);
 		} else { /* Disconnect case */
+			/* Disable all interrupts */
+			writel_relaxed(0x00,
+				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
+			/*
+			 * Phy in non-driving mode leaves Dp and Dm lines in
+			 * high-Z state. Controller power collapse is not
+			 * switching phy to non-driving mode causing charger
+			 * detection failure. Bring phy to non-driving mode by
+			 * overriding controller output via UTMI interface.
+			 */
+			writel_relaxed(TERM_SELECT | XCVR_SELECT_FS |
+				OP_MODE_NON_DRIVE,
+				qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+			writel_relaxed(UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL,
+				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 			clk_disable_unprepare(qphy->cfg_ahb_clk);
 			clk_disable_unprepare(qphy->ref_clk);
 			qusb_phy_enable_power(qphy, false);
