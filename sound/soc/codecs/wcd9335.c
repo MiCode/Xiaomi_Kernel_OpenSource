@@ -4060,7 +4060,7 @@ static int tasha_mad_input_get(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	u8 tasha_mad_input;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 
 	tasha_mad_input = snd_soc_read(codec,
 				WCD9335_SOC_MAD_INP_SEL) & 0x0F;
@@ -4076,7 +4076,7 @@ static int tasha_mad_input_put(struct snd_kcontrol *kcontrol,
 	struct snd_ctl_elem_value *ucontrol)
 {
 	u8 tasha_mad_input;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct snd_soc_card *card = codec->component.card;
 	char mad_amic_input_widget[6];
 	const char *mad_input_widget;
@@ -6646,10 +6646,14 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 				__func__, params_rate(params));
 			return ret;
 		}
-		if ((params_format(params)) == SNDRV_PCM_FORMAT_S16_LE)
+		switch (params_width(params)) {
+		case 16:
 			tasha->dai[dai->id].bit_width = 16;
-		else if ((params_format(params)) == SNDRV_PCM_FORMAT_S24_LE)
+			break;
+		case 24:
 			tasha->dai[dai->id].bit_width = 24;
+			break;
+		}
 		tasha->dai[dai->id].rate = params_rate(params);
 		break;
 	case SNDRV_PCM_STREAM_CAPTURE:
@@ -6688,19 +6692,19 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 			}
 		}
 		tasha->dai[dai->id].rate = params_rate(params);
-		switch (params_format(params)) {
-		case SNDRV_PCM_FORMAT_S16_LE:
+		switch (params_width(params)) {
+		case 16:
 			tasha->dai[dai->id].bit_width = 16;
 			break;
-		case SNDRV_PCM_FORMAT_S24_LE:
+		case 24:
 			tasha->dai[dai->id].bit_width = 24;
 			break;
-		case SNDRV_PCM_FORMAT_S32_LE:
+		case 32:
 			tasha->dai[dai->id].bit_width = 32;
 			break;
 		default:
 			dev_err(tasha->dev, "%s: Invalid format 0x%x\n",
-				__func__, params_format(params));
+				__func__, params_width(params));
 			return -EINVAL;
 		};
 		break;
@@ -7790,6 +7794,13 @@ static int tasha_codec_remove(struct snd_soc_codec *codec)
 	return 0;
 }
 
+static struct regmap *tasha_get_regmap(struct device *dev)
+{
+	struct wcd9xxx *control = dev_get_drvdata(dev->parent);
+
+	return control->regmap;
+}
+
 static struct snd_soc_codec_driver soc_codec_dev_tasha = {
 	.probe = tasha_codec_probe,
 	.remove = tasha_codec_remove,
@@ -7799,6 +7810,7 @@ static struct snd_soc_codec_driver soc_codec_dev_tasha = {
 	.num_dapm_widgets = ARRAY_SIZE(tasha_dapm_widgets),
 	.dapm_routes = audio_map,
 	.num_dapm_routes = ARRAY_SIZE(audio_map),
+	.get_regmap = tasha_get_regmap,
 };
 
 #ifdef CONFIG_PM
