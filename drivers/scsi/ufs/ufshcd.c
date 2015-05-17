@@ -1001,18 +1001,6 @@ static const char *ufschd_ufs_dev_pwr_mode_to_string(
 	}
 }
 
-static const char *ufshcd_hibern8_on_idle_state_to_string(
-			enum ufshcd_hibern8_on_idle_state state)
-{
-	switch (state) {
-	case HIBERN8_ENTERED:		return "HIBERN8_ENTERED";
-	case HIBERN8_EXITED:		return "HIBERN8_EXITED";
-	case REQ_HIBERN8_ENTER:		return "REQ_HIBERN8_ENTER";
-	case REQ_HIBERN8_EXIT:		return "REQ_HIBERN8_EXIT";
-	default:			return "UNKNOWN_STATE";
-	}
-}
-
 u32 ufshcd_get_local_unipro_ver(struct ufs_hba *hba)
 {
 	/* HCI version 1.0 and 1.1 supports UniPro 1.41 */
@@ -1967,8 +1955,7 @@ start:
 		if (cancel_delayed_work(&hba->hibern8_on_idle.enter_work)) {
 			hba->hibern8_on_idle.state = HIBERN8_EXITED;
 			trace_ufshcd_hibern8_on_idle(dev_name(hba->dev),
-				ufshcd_hibern8_on_idle_state_to_string(
-					hba->hibern8_on_idle.state));
+				hba->hibern8_on_idle.state);
 			break;
 		}
 		/*
@@ -1980,8 +1967,7 @@ start:
 		scsi_block_requests(hba->host);
 		hba->hibern8_on_idle.state = REQ_HIBERN8_EXIT;
 		trace_ufshcd_hibern8_on_idle(dev_name(hba->dev),
-			ufshcd_hibern8_on_idle_state_to_string(
-				hba->hibern8_on_idle.state));
+			hba->hibern8_on_idle.state);
 		schedule_work(&hba->hibern8_on_idle.exit_work);
 		/*
 		 * fall through to check if we should wait for this
@@ -2030,8 +2016,7 @@ static void __ufshcd_hibern8_release(struct ufs_hba *hba, bool no_sched)
 
 	hba->hibern8_on_idle.state = REQ_HIBERN8_ENTER;
 	trace_ufshcd_hibern8_on_idle(dev_name(hba->dev),
-			ufshcd_hibern8_on_idle_state_to_string(
-				hba->hibern8_on_idle.state));
+		hba->hibern8_on_idle.state);
 	/*
 	 * Scheduling the delayed work after 1 jiffies will make the work to
 	 * get schedule any time from 0ms to 1000/HZ ms which is not desirable
@@ -2067,8 +2052,7 @@ static void ufshcd_hibern8_enter_work(struct work_struct *work)
 	if (hba->hibern8_on_idle.is_suspended) {
 		hba->hibern8_on_idle.state = HIBERN8_EXITED;
 		trace_ufshcd_hibern8_on_idle(dev_name(hba->dev),
-				ufshcd_hibern8_on_idle_state_to_string(
-					hba->hibern8_on_idle.state));
+			hba->hibern8_on_idle.state);
 		goto rel_lock;
 	}
 
@@ -2084,8 +2068,7 @@ static void ufshcd_hibern8_enter_work(struct work_struct *work)
 		/* Enter failed */
 		hba->hibern8_on_idle.state = HIBERN8_EXITED;
 		trace_ufshcd_hibern8_on_idle(dev_name(hba->dev),
-				ufshcd_hibern8_on_idle_state_to_string(
-					hba->hibern8_on_idle.state));
+			hba->hibern8_on_idle.state);
 		goto out;
 	}
 	ufshcd_set_link_hibern8(hba);
@@ -2103,8 +2086,7 @@ static void ufshcd_hibern8_enter_work(struct work_struct *work)
 	if (hba->hibern8_on_idle.state == REQ_HIBERN8_ENTER) {
 		hba->hibern8_on_idle.state = HIBERN8_ENTERED;
 		trace_ufshcd_hibern8_on_idle(dev_name(hba->dev),
-				ufshcd_hibern8_on_idle_state_to_string(
-					hba->hibern8_on_idle.state));
+			hba->hibern8_on_idle.state);
 	}
 rel_lock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
@@ -2140,8 +2122,7 @@ static void ufshcd_hibern8_exit_work(struct work_struct *work)
 			ufshcd_set_link_active(hba);
 			hba->hibern8_on_idle.state = HIBERN8_EXITED;
 			trace_ufshcd_hibern8_on_idle(dev_name(hba->dev),
-					ufshcd_hibern8_on_idle_state_to_string(
-						hba->hibern8_on_idle.state));
+				hba->hibern8_on_idle.state);
 			spin_unlock_irqrestore(hba->host->host_lock, flags);
 		}
 	}
@@ -5517,7 +5498,7 @@ static int ufshcd_enable_auto_bkops(struct ufs_hba *hba)
 	}
 
 	hba->auto_bkops_enabled = true;
-	trace_ufshcd_auto_bkops_state(dev_name(hba->dev), "Enabled");
+	trace_ufshcd_auto_bkops_state(dev_name(hba->dev), 1);
 
 	/* No need of URGENT_BKOPS exception from the device */
 	err = ufshcd_disable_ee(hba, MASK_EE_URGENT_BKOPS);
@@ -5568,7 +5549,7 @@ static int ufshcd_disable_auto_bkops(struct ufs_hba *hba)
 	}
 
 	hba->auto_bkops_enabled = false;
-	trace_ufshcd_auto_bkops_state(dev_name(hba->dev), "Disabled");
+	trace_ufshcd_auto_bkops_state(dev_name(hba->dev), 0);
 out:
 	return err;
 }
