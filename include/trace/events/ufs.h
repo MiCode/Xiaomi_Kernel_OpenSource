@@ -20,32 +20,48 @@
 #include <linux/tracepoint.h>
 
 DECLARE_EVENT_CLASS(ufshcd_state_change_template,
-	TP_PROTO(const char *dev_name, const char *state),
+	TP_PROTO(const char *dev_name, int state),
 
 	TP_ARGS(dev_name, state),
 
 	TP_STRUCT__entry(
 		__string(dev_name, dev_name)
-		__string(state, state)
+		__field(int, state)
 	),
 
 	TP_fast_assign(
 		__assign_str(dev_name, dev_name);
-		__assign_str(state, state);
+		__entry->state = state;
 	),
 
 	TP_printk("%s: state changed to %s",
-		__get_str(dev_name), __get_str(state))
+		__get_str(dev_name), __entry->state ? "ON" : "OFF")
 );
 
-DEFINE_EVENT(ufshcd_state_change_template, ufshcd_clk_gating,
-	TP_PROTO(const char *dev_name, const char *state),
-	TP_ARGS(dev_name, state));
-DEFINE_EVENT(ufshcd_state_change_template, ufshcd_hibern8_on_idle,
-	TP_PROTO(const char *dev_name, const char *state),
-	TP_ARGS(dev_name, state));
+DEFINE_EVENT_PRINT(ufshcd_state_change_template, ufshcd_clk_gating,
+	TP_PROTO(const char *dev_name, int state),
+	TP_ARGS(dev_name, state),
+	TP_printk("%s: state changed to %s", __get_str(dev_name),
+		__print_symbolic(__entry->state,
+				{ CLKS_OFF, "CLKS_OFF" },
+				{ CLKS_ON, "CLKS_ON" },
+				{ REQ_CLKS_OFF, "REQ_CLKS_OFF" },
+				{ REQ_CLKS_ON, "REQ_CLKS_ON" }))
+);
+
+DEFINE_EVENT_PRINT(ufshcd_state_change_template, ufshcd_hibern8_on_idle,
+	TP_PROTO(const char *dev_name, int state),
+	TP_ARGS(dev_name, state),
+	TP_printk("%s: state changed to %s", __get_str(dev_name),
+		__print_symbolic(__entry->state,
+			{ HIBERN8_ENTERED, "HIBERN8_ENTER" },
+			{ HIBERN8_EXITED, "HIBERN8_EXIT" },
+			{ REQ_HIBERN8_ENTER, "REQ_HIBERN8_ENTER" },
+			{ REQ_HIBERN8_EXIT, "REQ_HIBERN8_EXIT" }))
+);
+
 DEFINE_EVENT(ufshcd_state_change_template, ufshcd_auto_bkops_state,
-	TP_PROTO(const char *dev_name, const char *state),
+	TP_PROTO(const char *dev_name, int state),
 	TP_ARGS(dev_name, state));
 
 TRACE_EVENT(ufshcd_clk_scaling,
@@ -118,7 +134,7 @@ DEFINE_EVENT(ufshcd_profiling_template, ufshcd_profile_clk_scaling,
 
 DECLARE_EVENT_CLASS(ufshcd_template,
 	TP_PROTO(const char *dev_name, int err, s64 usecs,
-		 const char *dev_state, const char *link_state),
+		 int dev_state, int link_state),
 
 	TP_ARGS(dev_name, err, usecs, dev_state, link_state),
 
@@ -126,52 +142,58 @@ DECLARE_EVENT_CLASS(ufshcd_template,
 		__field(s64, usecs)
 		__field(int, err)
 		__string(dev_name, dev_name)
-		__string(dev_state, dev_state)
-		__string(link_state, link_state)
+		__field(int, dev_state)
+		__field(int, link_state)
 	),
 
 	TP_fast_assign(
 		__entry->usecs = usecs;
 		__entry->err = err;
 		__assign_str(dev_name, dev_name);
-		__assign_str(dev_state, dev_state);
-		__assign_str(link_state, link_state);
+		__entry->dev_state = dev_state;
+		__entry->link_state = link_state;
 	),
 
 	TP_printk(
 		"%s: took %lld usecs, dev_state: %s, link_state: %s, err %d",
 		__get_str(dev_name),
 		__entry->usecs,
-		__get_str(dev_state),
-		__get_str(link_state),
+		__print_symbolic(__entry->dev_state,
+			{ UFS_ACTIVE_PWR_MODE, "ACTIVE" },
+			{ UFS_SLEEP_PWR_MODE, "SLEEP" },
+			{ UFS_POWERDOWN_PWR_MODE, "POWERDOWN" }),
+		__print_symbolic(__entry->link_state,
+			{ UIC_LINK_OFF_STATE, "LINK_OFF" },
+			{ UIC_LINK_ACTIVE_STATE, "LINK_ACTIVE" },
+			{ UIC_LINK_HIBERN8_STATE, "LINK_HIBERN8" }),
 		__entry->err
 	)
 );
 
 DEFINE_EVENT(ufshcd_template, ufshcd_system_suspend,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      const char *dev_state, const char *link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_system_resume,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      const char *dev_state, const char *link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_runtime_suspend,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      const char *dev_state, const char *link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_runtime_resume,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      const char *dev_state, const char *link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 DEFINE_EVENT(ufshcd_template, ufshcd_init,
-	     TP_PROTO(const char *dev_name, int err, s64 usecs,
-		      const char *dev_state, const char *link_state),
-	     TP_ARGS(dev_name, err, usecs, dev_state, link_state));
+	TP_PROTO(const char *dev_name, int err, s64 usecs,
+		int dev_state, int link_state),
+	TP_ARGS(dev_name, err, usecs, dev_state, link_state));
 
 TRACE_EVENT(ufshcd_command,
 	TP_PROTO(const char *dev_name, const char *str, unsigned int tag,
