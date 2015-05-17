@@ -26,6 +26,7 @@
 #include <linux/of_gpio.h>
 #include <linux/fb.h>
 #include <linux/debugfs.h>
+#include <linux/input/mt.h>
 
 #define MAX_BUFFER_SIZE			144
 #define DEVICE_NAME			"IT7260"
@@ -98,18 +99,14 @@
 #define PD_FLAGS_DATA_TYPE_BITS		0xF0
 /* other types (like chip-detected gestures) exist but we do not care */
 #define PD_FLAGS_DATA_TYPE_TOUCH	0x00
-/* set if pen touched, clear if finger(s) */
-#define PD_FLAGS_NOT_PEN		0x08
 /* a bit for each finger data that is valid (from lsb to msb) */
 #define PD_FLAGS_HAVE_FINGERS		0x07
+/* number of finger supported */
+#define PD_FINGERS_SUPPORTED		3
 #define PD_PALM_FLAG_BIT		0x01
 #define FD_PRESSURE_BITS		0x0F
 #define FD_PRESSURE_NONE		0x00
-#define FD_PRESSURE_HOVER		0x01
 #define FD_PRESSURE_LIGHT		0x02
-#define FD_PRESSURE_NORMAL		0x04
-#define FD_PRESSURE_HIGH		0x08
-#define FD_PRESSURE_HEAVY		0x0F
 
 #define IT_VTG_MIN_UV		1800000
 #define IT_VTG_MAX_UV		1800000
@@ -165,12 +162,6 @@ static int IT7260_ts_resume(struct device *dev);
 static int IT7260_ts_suspend(struct device *dev);
 
 static struct IT7260_ts_data *gl_ts;
-
-/* Function declarations */
-static int fb_notifier_callback(struct notifier_block *self,
-			unsigned long event, void *data);
-static int IT7260_ts_resume(struct device *dev);
-static int IT7260_ts_suspend(struct device *dev);
 
 static int IT7260_debug_suspend_set(void *_data, u64 val)
 {
@@ -706,35 +697,26 @@ EXPORT_SYMBOL(IT7260_sendCalibrationCmd);
 
 static void IT7260_ts_release_all(void)
 {
+	int finger;
+
+	for (finger = 0; finger < PD_FINGERS_SUPPORTED; finger++) {
+		input_mt_slot(gl_ts->input_dev, finger);
+		input_mt_report_slot_state(gl_ts->input_dev,
+				MT_TOOL_FINGER, 0);
+	}
+
 	input_report_key(gl_ts->input_dev, BTN_TOUCH, 0);
-	input_mt_sync(gl_ts->input_dev);
 	input_sync(gl_ts->input_dev);
-}
-
-static void IT7260_readFingerData(uint16_t *xP, uint16_t *yP,
-			uint8_t *pressureP, const struct FingerData *fd)
-{
-	uint16_t x = fd->xLo;
-	uint16_t y = fd->yLo;
-
-	x += ((uint16_t)(fd->hi & 0x0F)) << 8;
-	y += ((uint16_t)(fd->hi & 0xF0)) << 4;
-
-	if (xP)
-		*xP = x;
-	if (yP)
-		*yP = y;
-	if (pressureP)
-		*pressureP = fd->pressure & FD_PRESSURE_BITS;
 }
 
 static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 {
 	struct PointData point_data;
-	uint8_t dev_status;
+	struct input_dev *input_dev = gl_ts->input_dev;
+	u8 dev_status, finger, touch_count = 0, finger_status;
+	u8 pressure = FD_PRESSURE_NONE;
+	u16 x, y;
 	bool palm_detected;
-	uint8_t pressure = FD_PRESSURE_NONE;
-	uint16_t x, y;
 
 	/*
 	 * This code adds the touch-to-wake functionality to the ITE tech
@@ -747,10 +729,10 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 	if (gl_ts->device_needs_wakeup) {
 		pm_stay_awake(&gl_ts->client->dev);
 		gl_ts->device_needs_wakeup = false;
-		input_report_key(gl_ts->input_dev, KEY_WAKEUP, 1);
-		input_sync(gl_ts->input_dev);
-		input_report_key(gl_ts->input_dev, KEY_WAKEUP, 0);
-		input_sync(gl_ts->input_dev);
+		input_report_key(input_dev, KEY_WAKEUP, 1);
+		input_sync(input_dev);
+		input_report_key(input_dev, KEY_WAKEUP, 0);
+		input_sync(input_dev);
 		schedule_work(&gl_ts->work_pm_relax);
 	}
 
@@ -774,37 +756,42 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 
 	palm_detected = point_data.palm & PD_PALM_FLAG_BIT;
 	if (palm_detected && gl_ts->pdata->palm_detect_en) {
-		input_report_key(gl_ts->input_dev,
+		input_report_key(input_dev,
 				gl_ts->pdata->palm_detect_keycode, 1);
-		input_sync(gl_ts->input_dev);
-		input_report_key(gl_ts->input_dev,
+		input_sync(input_dev);
+		input_report_key(input_dev,
 				gl_ts->pdata->palm_detect_keycode, 0);
-		input_sync(gl_ts->input_dev);
+		input_sync(input_dev);
 	}
 
-	if ((point_data.flags & PD_FLAGS_HAVE_FINGERS) & 1)
-		IT7260_readFingerData(&x, &y, &pressure, point_data.fd);
+	for (finger = 0; finger < PD_FINGERS_SUPPORTED; finger++) {
+		finger_status = point_data.flags & (0x01 << finger);
 
-	if (pressure >= FD_PRESSURE_LIGHT) {
-		if (!gl_ts->had_finger_down)
-			gl_ts->had_finger_down = true;
+		input_mt_slot(input_dev, finger);
+		input_mt_report_slot_state(input_dev, MT_TOOL_FINGER,
+					finger_status != 0);
 
-		IT7260_readFingerData(&x, &y, &pressure, point_data.fd);
+		x = point_data.fd[finger].xLo +
+			(((u16)(point_data.fd[finger].hi & 0x0F)) << 8);
+		y = point_data.fd[finger].yLo +
+			(((u16)(point_data.fd[finger].hi & 0xF0)) << 4);
 
-		input_report_key(gl_ts->input_dev, BTN_TOUCH, 1);
-		input_report_abs(gl_ts->input_dev, ABS_MT_POSITION_X, x);
-		input_report_abs(gl_ts->input_dev, ABS_MT_POSITION_Y, y);
-		input_mt_sync(gl_ts->input_dev);
-		input_sync(gl_ts->input_dev);
+		pressure = point_data.fd[finger].pressure & FD_PRESSURE_BITS;
 
-
-	} else if (gl_ts->had_finger_down) {
-		gl_ts->had_finger_down = false;
-
-		input_report_key(gl_ts->input_dev, BTN_TOUCH, 0);
-		input_mt_sync(gl_ts->input_dev);
-		input_sync(gl_ts->input_dev);
+		if (finger_status) {
+			if (pressure >= FD_PRESSURE_LIGHT) {
+				input_report_key(input_dev, BTN_TOUCH, 1);
+				input_report_abs(input_dev,
+							ABS_MT_POSITION_X, x);
+				input_report_abs(input_dev,
+							ABS_MT_POSITION_Y, y);
+				touch_count++;
+			}
+		}
 	}
+
+	input_report_key(input_dev, BTN_TOUCH, touch_count > 0);
+	input_sync(input_dev);
 
 	return IRQ_HANDLED;
 }
@@ -1015,6 +1002,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	input_set_abs_params(gl_ts->input_dev, ABS_MT_POSITION_Y, 0,
 				SCREEN_Y_RESOLUTION, 0, 0);
 	input_set_drvdata(gl_ts->input_dev, gl_ts);
+	input_mt_init_slots(gl_ts->input_dev, PD_FINGERS_SUPPORTED, 0);
 
 	if (pdata->wakeup) {
 		set_bit(KEY_WAKEUP, gl_ts->input_dev->keybit);
