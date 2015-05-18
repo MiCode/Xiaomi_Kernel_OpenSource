@@ -2088,6 +2088,14 @@ static int create_3x_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_3x_intra_refresh);
 		break;
 	}
+	case HAL_PARAM_SYNC_BASED_INTERRUPT:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_SYNC_BASED_INTERRUPT,
+				((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
 	default:
 		rc = create_pkt_cmd_session_set_property(pkt,
 				session, ptype, pdata);

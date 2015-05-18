@@ -1068,6 +1068,15 @@ static struct msm_vidc_ctrl msm_venc_ctrls[] = {
 			(1 << V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2)),
 		.qmenu = mbi_statistics,
 	},
+	{
+		.id = V4L2_CID_VIDC_QBUF_MODE,
+		.name = "Allows batching of buffers for power savings",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_VIDC_QBUF_STANDARD,
+		.maximum = V4L2_VIDC_QBUF_BATCHED,
+		.default_value = V4L2_VIDC_QBUF_STANDARD,
+		.step = 1,
+	},
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_venc_ctrls)
@@ -1418,8 +1427,6 @@ static int set_bitrate_for_each_layer(struct msm_vidc_inst *inst,
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct vb2_buf_entry *temp;
-	struct list_head *ptr, *next;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1459,20 +1466,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 		goto fail_start;
 	}
 	msm_dcvs_init_load(inst);
-	mutex_lock(&inst->pendingq.lock);
-	list_for_each_safe(ptr, next, &inst->pendingq.list) {
-		temp = list_entry(ptr, struct vb2_buf_entry, list);
-		rc = msm_comm_qbuf(temp->vb);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to qbuf to hardware\n");
-			break;
-		}
-		list_del(&temp->list);
-		kfree(temp);
-	}
-	mutex_unlock(&inst->pendingq.lock);
-	return rc;
+
 fail_start:
 	return rc;
 }
@@ -1497,10 +1491,20 @@ static int msm_venc_start_streaming(struct vb2_queue *q, unsigned int count)
 			rc = start_streaming(inst);
 		break;
 	default:
-		dprintk(VIDC_ERR, "Q-type is not supported: %d\n", q->type);
+		dprintk(VIDC_ERR, "Queue type is not supported: %d\n", q->type);
 		rc = -EINVAL;
-		break;
+		goto stream_start_failed;
 	}
+
+	rc = msm_comm_qbuf(inst, NULL);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to commit buffers queued before STREAM_ON to hardware: %d\n",
+				rc);
+		goto stream_start_failed;
+	}
+
+stream_start_failed:
 	return rc;
 }
 
@@ -1536,8 +1540,7 @@ static void msm_venc_stop_streaming(struct vb2_queue *q)
 
 static void msm_venc_buf_queue(struct vb2_buffer *vb)
 {
-	int rc;
-	rc = msm_comm_qbuf(vb);
+	int rc = msm_comm_qbuf(vb2_get_drv_priv(vb->vb2_queue), vb);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to queue buffer: %d\n", rc);
 }
@@ -2748,6 +2751,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE,
 			ctrl->val);
 		pdata = &mbi_statistics_mode;
+		break;
+	case V4L2_CID_VIDC_QBUF_MODE:
+		property_id = HAL_PARAM_SYNC_BASED_INTERRUPT;
+		enable.enable = ctrl->val == V4L2_VIDC_QBUF_BATCHED;
+		pdata = &enable;
 		break;
 	default:
 		dprintk(VIDC_ERR, "Unsupported index: %x\n", ctrl->id);

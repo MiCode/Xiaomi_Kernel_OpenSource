@@ -42,7 +42,7 @@ int msm_comm_set_scratch_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_persist_buffers(struct msm_vidc_inst *inst);
 int msm_comm_set_output_buffers(struct msm_vidc_inst *inst);
 int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst);
-int msm_comm_qbuf(struct vb2_buffer *vb);
+int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb);
 void msm_comm_scale_clocks_and_bus(struct msm_vidc_inst *inst);
 int msm_comm_scale_clocks(struct msm_vidc_core *core);
 int msm_comm_scale_clocks_load(struct msm_vidc_core *core, int num_mbs_per_sec);

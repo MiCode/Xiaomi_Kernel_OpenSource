@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,9 +15,9 @@
 #include "vidc_hfi_api.h"
 #include "venus_hfi.h"
 
-void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
-			struct msm_vidc_platform_resources *res,
-			hfi_cmd_response_callback callback)
+struct hfi_device *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type,
+		u32 device_id, struct msm_vidc_platform_resources *res,
+		hfi_cmd_response_callback callback)
 {
 	struct hfi_device *hdev = NULL;
 	int rc = 0;
