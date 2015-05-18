@@ -45,6 +45,7 @@
 	((x)[1] < (y)->data[(y)->size - 7]) || \
 	((x)[2] < (y)->data[(y)->size - 6]) || \
 	((x)[3] < (y)->data[(y)->size - 5]))
+#define IT7260_COORDS_ARR_SIZE		4
 
 /* all commands writes go to this idx */
 #define BUF_COMMAND			0x20
@@ -113,8 +114,6 @@
 #define PD_FLAGS_DATA_TYPE_TOUCH	0x00
 /* a bit for each finger data that is valid (from lsb to msb) */
 #define PD_FLAGS_HAVE_FINGERS		0x07
-/* number of finger supported */
-#define PD_FINGERS_SUPPORTED		3
 #define PD_PALM_FLAG_BIT		0x01
 #define FD_PRESSURE_BITS		0x0F
 #define FD_PRESSURE_NONE		0x00
@@ -139,7 +138,6 @@ struct PointData {
 }  __packed;
 
 struct IT7260_ts_platform_data {
-	u32 irqflags;
 	u32 irq_gpio;
 	u32 irq_gpio_flags;
 	u32 reset_gpio;
@@ -149,6 +147,15 @@ struct IT7260_ts_platform_data {
 	u16 palm_detect_keycode;
 	const char *fw_name;
 	const char *cfg_name;
+	unsigned int panel_minx;
+	unsigned int panel_miny;
+	unsigned int panel_maxx;
+	unsigned int panel_maxy;
+	unsigned int disp_minx;
+	unsigned int disp_miny;
+	unsigned int disp_maxx;
+	unsigned int disp_maxy;
+	unsigned num_of_fingers;
 };
 
 struct IT7260_ts_data {
@@ -993,7 +1000,7 @@ static void IT7260_ts_release_all(void)
 {
 	int finger;
 
-	for (finger = 0; finger < PD_FINGERS_SUPPORTED; finger++) {
+	for (finger = 0; finger < gl_ts->pdata->num_of_fingers; finger++) {
 		input_mt_slot(gl_ts->input_dev, finger);
 		input_mt_report_slot_state(gl_ts->input_dev,
 				MT_TOOL_FINGER, 0);
@@ -1058,7 +1065,7 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 		input_sync(input_dev);
 	}
 
-	for (finger = 0; finger < PD_FINGERS_SUPPORTED; finger++) {
+	for (finger = 0; finger < gl_ts->pdata->num_of_fingers; finger++) {
 		finger_status = point_data.flags & (0x01 << finger);
 
 		input_mt_slot(input_dev, finger);
@@ -1136,6 +1143,130 @@ static bool IT7260_chipIdentify(void)
 	return true;
 }
 
+#if CONFIG_OF
+static int IT7260_get_dt_coords(struct device *dev, char *name,
+				struct IT7260_ts_platform_data *pdata)
+{
+	u32 coords[IT7260_COORDS_ARR_SIZE];
+	struct property *prop;
+	struct device_node *np = dev->of_node;
+	int coords_size, rc;
+
+	prop = of_find_property(np, name, NULL);
+	if (!prop)
+		return -EINVAL;
+	if (!prop->value)
+		return -ENODATA;
+
+	coords_size = prop->length / sizeof(u32);
+	if (coords_size != IT7260_COORDS_ARR_SIZE) {
+		dev_err(dev, "invalid %s\n", name);
+		return -EINVAL;
+	}
+
+	rc = of_property_read_u32_array(np, name, coords, coords_size);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read %s\n", name);
+		return rc;
+	}
+
+	if (strcmp(name, "ite,panel-coords") == 0) {
+		pdata->panel_minx = coords[0];
+		pdata->panel_miny = coords[1];
+		pdata->panel_maxx = coords[2];
+		pdata->panel_maxy = coords[3];
+
+		if (pdata->panel_maxx == 0 || pdata->panel_minx > 0)
+			rc = -EINVAL;
+		else if (pdata->panel_maxy == 0 || pdata->panel_miny > 0)
+			rc = -EINVAL;
+
+		if (rc) {
+			dev_err(dev, "Invalid panel resolution %d\n", rc);
+			return rc;
+		}
+	} else if (strcmp(name, "ite,display-coords") == 0) {
+		pdata->disp_minx = coords[0];
+		pdata->disp_miny = coords[1];
+		pdata->disp_maxx = coords[2];
+		pdata->disp_maxy = coords[3];
+	} else {
+		dev_err(dev, "unsupported property %s\n", name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int IT7260_parse_dt(struct device *dev,
+				struct IT7260_ts_platform_data *pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32 temp_val;
+	int rc;
+
+	/* reset, irq gpio info */
+	pdata->reset_gpio = of_get_named_gpio_flags(np,
+			"ite,reset-gpio", 0, &pdata->reset_gpio_flags);
+	pdata->irq_gpio = of_get_named_gpio_flags(np,
+			"ite,irq-gpio", 0, &pdata->irq_gpio_flags);
+
+	rc = of_property_read_u32(np, "ite,num-fingers", &temp_val);
+	if (!rc)
+		pdata->num_of_fingers = temp_val;
+	else if (rc != -EINVAL) {
+		dev_err(dev, "Unable to read reset delay\n");
+		return rc;
+	}
+
+	pdata->wakeup = of_property_read_bool(np, "ite,wakeup");
+	pdata->palm_detect_en = of_property_read_bool(np, "ite,palm-detect-en");
+	if (pdata->palm_detect_en) {
+		rc = of_property_read_u32(np, "ite,palm-detect-keycode",
+							&temp_val);
+		if (!rc) {
+			pdata->palm_detect_keycode = temp_val;
+		} else {
+			dev_err(dev, "Unable to read palm-detect-keycode\n");
+			return rc;
+		}
+	}
+
+	rc = of_property_read_string(np, "ite,fw-name", &pdata->fw_name);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read fw image name %d\n", rc);
+		return rc;
+	}
+
+	rc = of_property_read_string(np, "ite,cfg-name", &pdata->cfg_name);
+	if (rc && (rc != -EINVAL)) {
+		dev_err(dev, "Unable to read cfg image name %d\n", rc);
+		return rc;
+	}
+
+	snprintf(gl_ts->fw_name, MAX_BUFFER_SIZE, "%s",
+		(pdata->fw_name != NULL) ? pdata->fw_name : FW_NAME);
+	snprintf(gl_ts->cfg_name, MAX_BUFFER_SIZE, "%s",
+		(pdata->cfg_name != NULL) ? pdata->cfg_name : CFG_NAME);
+
+	rc = IT7260_get_dt_coords(dev, "ite,display-coords", pdata);
+	if (rc && (rc != -EINVAL))
+		return rc;
+
+	rc = IT7260_get_dt_coords(dev, "ite,panel-coords", pdata);
+	if (rc && (rc != -EINVAL))
+		return rc;
+
+	return 0;
+}
+#else
+static inline int IT7260_ts_parse_dt(struct device *dev,
+				struct IT7260_ts_platform_data *pdata)
+{
+	return 0;
+}
+#endif
+
 static int IT7260_ts_probe(struct i2c_client *client,
 				const struct i2c_device_id *id)
 {
@@ -1143,7 +1274,6 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	struct IT7260_ts_platform_data *pdata;
 	uint8_t rsp[2];
 	int ret = -1;
-	u32 temp_val;
 	struct dentry *temp;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
@@ -1165,6 +1295,10 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
+
+		ret = IT7260_parse_dt(&client->dev, pdata);
+		if (ret)
+			return ret;
 	} else {
 		pdata = client->dev.platform_data;
 	}
@@ -1223,9 +1357,6 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	}
 
 	/* reset gpio info */
-	pdata->reset_gpio = of_get_named_gpio_flags(client->dev.of_node,
-					"ite,reset-gpio", 0,
-					&pdata->reset_gpio_flags);
 	if (gpio_is_valid(pdata->reset_gpio)) {
 		if (gpio_request(pdata->reset_gpio, "ite_reset_gpio")) {
 			dev_err(&client->dev,
@@ -1244,49 +1375,12 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	}
 
 	/* irq gpio info */
-	pdata->irq_gpio = of_get_named_gpio_flags(client->dev.of_node,
-				"ite,irq-gpio", 0, &pdata->irq_gpio_flags);
 	if (gpio_is_valid(pdata->irq_gpio)) {
 		dev_dbg(&gl_ts->client->dev, "IRQ GPIO %d, IRQ # %d\n",
 				pdata->irq_gpio, gpio_to_irq(pdata->irq_gpio));
 	} else {
 		return pdata->irq_gpio;
 	}
-
-	pdata->wakeup = of_property_read_bool(client->dev.of_node,
-						"ite,wakeup");
-	pdata->palm_detect_en = of_property_read_bool(client->dev.of_node,
-						"ite,palm-detect-en");
-	if (pdata->palm_detect_en) {
-		ret = of_property_read_u32(client->dev.of_node,
-					"ite,palm-detect-keycode", &temp_val);
-		if (!ret) {
-			pdata->palm_detect_keycode = temp_val;
-		} else {
-			dev_err(&client->dev,
-				"Unable to read palm-detect-keycode\n");
-			return ret;
-		}
-	}
-
-	ret = of_property_read_string(client->dev.of_node,
-				"ite,fw-name", &pdata->fw_name);
-	if (ret && (ret != -EINVAL)) {
-		dev_err(&client->dev, "Unable to read fw file name %d\n", ret);
-		return ret;
-	}
-
-	ret = of_property_read_string(client->dev.of_node,
-				"ite,cfg-name", &pdata->cfg_name);
-	if (ret && (ret != -EINVAL)) {
-		dev_err(&client->dev, "Unable to read cfg file name %d\n", ret);
-		return ret;
-	}
-
-	snprintf(gl_ts->fw_name, MAX_BUFFER_SIZE, "%s",
-		(pdata->fw_name != NULL) ? pdata->fw_name : FW_NAME);
-	snprintf(gl_ts->cfg_name, MAX_BUFFER_SIZE, "%s",
-		(pdata->cfg_name != NULL) ? pdata->cfg_name : CFG_NAME);
 
 	if (!IT7260_chipIdentify()) {
 		dev_err(&client->dev, "Failed to identify chip!!!");
@@ -1315,12 +1409,13 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	set_bit(EV_ABS, gl_ts->input_dev->evbit);
 	set_bit(INPUT_PROP_DIRECT, gl_ts->input_dev->propbit);
 	set_bit(BTN_TOUCH, gl_ts->input_dev->keybit);
-	input_set_abs_params(gl_ts->input_dev, ABS_MT_POSITION_X, 0,
-				SCREEN_X_RESOLUTION, 0, 0);
-	input_set_abs_params(gl_ts->input_dev, ABS_MT_POSITION_Y, 0,
-				SCREEN_Y_RESOLUTION, 0, 0);
+	input_set_abs_params(gl_ts->input_dev, ABS_MT_POSITION_X,
+		gl_ts->pdata->disp_minx, gl_ts->pdata->disp_maxx, 0, 0);
+	input_set_abs_params(gl_ts->input_dev, ABS_MT_POSITION_Y,
+		gl_ts->pdata->disp_miny, gl_ts->pdata->disp_maxy, 0, 0);
+	input_mt_init_slots(gl_ts->input_dev, gl_ts->pdata->num_of_fingers, 0);
+
 	input_set_drvdata(gl_ts->input_dev, gl_ts);
-	input_mt_init_slots(gl_ts->input_dev, PD_FINGERS_SUPPORTED, 0);
 
 	if (pdata->wakeup) {
 		set_bit(KEY_WAKEUP, gl_ts->input_dev->keybit);
