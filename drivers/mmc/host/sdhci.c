@@ -3527,18 +3527,20 @@ int sdhci_add_host(struct sdhci_host *host)
 #endif
 
 #ifdef SDHCI_USE_LEDS_CLASS
-	snprintf(host->led_name, sizeof(host->led_name),
-		"%s::", mmc_hostname(mmc));
-	host->led.name = host->led_name;
-	host->led.brightness = LED_OFF;
-	host->led.default_trigger = mmc_hostname(mmc);
-	host->led.brightness_set = sdhci_led_control;
+	if (!device_async_suspend_enabled(mmc_dev(mmc))) {
+		snprintf(host->led_name, sizeof(host->led_name),
+			"%s::", mmc_hostname(mmc));
+		host->led.name = host->led_name;
+		host->led.brightness = LED_OFF;
+		host->led.default_trigger = mmc_hostname(mmc);
+		host->led.brightness_set = sdhci_led_control;
 
-	ret = led_classdev_register(mmc_dev(mmc), &host->led);
-	if (ret) {
-		pr_err("%s: Failed to register LED device: %d\n",
-		       mmc_hostname(mmc), ret);
-		goto reset;
+		ret = led_classdev_register(mmc_dev(mmc), &host->led);
+		if (ret) {
+			pr_err("%s: Failed to register LED device: %d\n",
+			       mmc_hostname(mmc), ret);
+			goto reset;
+		}
 	}
 #endif
 
@@ -3595,7 +3597,8 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 	mmc_remove_host(host->mmc);
 
 #ifdef SDHCI_USE_LEDS_CLASS
-	led_classdev_unregister(&host->led);
+	if (host->led.dev)
+		led_classdev_unregister(&host->led);
 #endif
 
 	if (!dead)

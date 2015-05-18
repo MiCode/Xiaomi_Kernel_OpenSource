@@ -545,6 +545,9 @@ int mmc_add_host(struct mmc_host *host)
 	pm_suspend_ignore_children(&host->class_dev, true);
 	pm_runtime_enable(&host->class_dev);
 
+	/* async mode for suspend/resume */
+	device_enable_async_suspend(&host->class_dev);
+
 	mmc_start_host(host);
 	if (!(host->pm_flags & MMC_PM_IGNORE_PM_NOTIFY))
 		register_pm_notifier(&host->pm_notify);

@@ -423,6 +423,9 @@ static int sdhci_acpi_probe(struct platform_device *pdev)
 
 	host->mmc->caps2 |= MMC_CAP2_NO_PRESCAN_POWERUP;
 
+	/* use async mode for suspend/resume */
+	device_enable_async_suspend(dev);
+
 	err = sdhci_add_host(host);
 	if (err)
 		goto remove_slot;
