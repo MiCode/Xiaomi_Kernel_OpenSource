@@ -4909,6 +4909,8 @@
 		qcom,hfi = "venus";
 		qcom,ocmem-size = <524288>; /* 512 * 1024*/
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
+		qcom,dcvs-min-load = <489600>; /* 1080p @ 60fps */
+		qcom,dcvs-min-mbperframe = <32400>; /* 4K */
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		venus-core1-supply = <&gdsc_venus_core1>;

@@ -1510,6 +1510,8 @@
 			<0x9180000 0x1000>,
 			<0x9181000 0x1000>;
 		qcom,max-hw-load = <489600>; /* 1080p @ 30 + 1080p @ 30 */
+		qcom,dcvs-min-load = <367200>; /* 1080p @ 45fps */
+		qcom,dcvs-min-mbperframe = <8160>; /* 1080p */
 		qcom,enable-idle-indicator;
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {

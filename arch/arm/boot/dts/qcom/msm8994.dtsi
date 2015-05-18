@@ -2197,6 +2197,8 @@
 			<0xfa181000 0x1000>;
 		qcom,ocmem-size = <524288>; /* 512 * 1024*/
 		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
+		qcom,dcvs-min-load = <489600>; /* 1080p @ 60fps */
+		qcom,dcvs-min-mbperframe = <32400>; /* 4K */
 		clock-names = "core_clk", "core0_clk", "core1_clk", "core2_clk",
 			"iface_clk", "bus_clk", "mem_clk";
 		venus-supply = <&gdsc_venus>;
