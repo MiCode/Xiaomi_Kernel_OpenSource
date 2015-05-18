@@ -166,6 +166,12 @@ static int IT7260_ts_suspend(struct device *dev);
 
 static struct IT7260_ts_data *gl_ts;
 
+/* Function declarations */
+static int fb_notifier_callback(struct notifier_block *self,
+			unsigned long event, void *data);
+static int IT7260_ts_resume(struct device *dev);
+static int IT7260_ts_suspend(struct device *dev);
+
 static int IT7260_debug_suspend_set(void *_data, u64 val)
 {
 	if (val)
@@ -857,25 +863,16 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	uint8_t rsp[2];
 	int ret = -1;
 	u32 temp_val;
-	int rc;
 	struct dentry *temp;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		dev_err(&client->dev, "need I2C_FUNC_I2C\n");
-		ret = -ENODEV;
-		goto err_out;
+		return -ENODEV;
 	}
 
-	if (!client->irq) {
-		dev_err(&client->dev, "need IRQ\n");
-		ret = -ENODEV;
-		goto err_out;
-	}
-	gl_ts = kzalloc(sizeof(*gl_ts), GFP_KERNEL);
-	if (!gl_ts) {
-		ret = -ENOMEM;
-		goto err_out;
-	}
+	gl_ts = devm_kzalloc(&client->dev, sizeof(*gl_ts), GFP_KERNEL);
+	if (!gl_ts)
+		return -ENOMEM;
 
 	gl_ts->client = client;
 	i2c_set_clientdata(client, gl_ts);
@@ -887,8 +884,9 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		pdata = devm_kzalloc(&client->dev, sizeof(*pdata), GFP_KERNEL);
 		if (!pdata)
 			return -ENOMEM;
-	} else
+	} else {
 		pdata = client->dev.platform_data;
+	}
 
 	if (!pdata)
 		return -ENOMEM;
@@ -901,12 +899,12 @@ static int IT7260_ts_probe(struct i2c_client *client,
 				"Regulator get failed vdd\n");
 		gl_ts->vdd = NULL;
 	} else {
-		rc = regulator_set_voltage(gl_ts->vdd,
+		ret = regulator_set_voltage(gl_ts->vdd,
 				IT_VTG_MIN_UV, IT_VTG_MAX_UV);
-		if (rc) {
+		if (ret) {
 			dev_err(&client->dev,
-				"Regulator set_vtg failed vdd %d\n", rc);
-			return rc;
+				"Regulator set_vtg failed vdd %d\n", ret);
+			return ret;
 		}
 	}
 
@@ -916,30 +914,30 @@ static int IT7260_ts_probe(struct i2c_client *client,
 				"Regulator get failed avdd\n");
 		gl_ts->avdd = NULL;
 	} else {
-		rc = regulator_set_voltage(gl_ts->avdd, IT_I2C_VTG_MIN_UV,
+		ret = regulator_set_voltage(gl_ts->avdd, IT_I2C_VTG_MIN_UV,
 							IT_I2C_VTG_MAX_UV);
-		if (rc) {
+		if (ret) {
 			dev_err(&client->dev,
-				"Regulator get failed avdd %d\n", rc);
-			return rc;
+				"Regulator get failed avdd %d\n", ret);
+			return ret;
 		}
 	}
 
 	if (gl_ts->vdd) {
-		rc = regulator_enable(gl_ts->vdd);
-		if (rc) {
-			dev_err(&client->dev,
-				"Regulator vdd enable failed rc=%d\n", rc);
-			return rc;
+		ret = regulator_enable(gl_ts->vdd);
+		if (ret) {
+			dev_err(&gl_ts->client->dev,
+				"Regulator vdd enable failed ret=%d\n", ret);
+			return ret;
 		}
 	}
 
 	if (gl_ts->avdd) {
-		rc = regulator_enable(gl_ts->avdd);
-		if (rc) {
-			dev_err(&client->dev,
-				"Regulator avdd enable failed rc=%d\n", rc);
-			return rc;
+		ret = regulator_enable(gl_ts->avdd);
+		if (ret) {
+			dev_err(&gl_ts->client->dev,
+				"Regulator avdd enable failed ret=%d\n", ret);
+			return ret;
 		}
 	}
 
@@ -979,27 +977,27 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	pdata->palm_detect_en = of_property_read_bool(client->dev.of_node,
 						"ite,palm-detect-en");
 	if (pdata->palm_detect_en) {
-		rc = of_property_read_u32(client->dev.of_node,
+		ret = of_property_read_u32(client->dev.of_node,
 					"ite,palm-detect-keycode", &temp_val);
-		if (!rc) {
+		if (!ret) {
 			pdata->palm_detect_keycode = temp_val;
 		} else {
 			dev_err(&client->dev,
 				"Unable to read palm-detect-keycode\n");
-			return rc;
+			return ret;
 		}
 	}
 
 	if (!IT7260_chipIdentify()) {
 		dev_err(&client->dev, "Failed to identify chip!!!");
-		goto err_ident_fail_or_input_alloc;
+		goto err_identification_fail;
 	}
 
 	gl_ts->input_dev = input_allocate_device();
 	if (!gl_ts->input_dev) {
 		dev_err(&client->dev, "failed to allocate input device\n");
 		ret = -ENOMEM;
-		goto err_ident_fail_or_input_alloc;
+		goto err_input_alloc;
 	}
 
 	gl_ts->input_dev->name = DEVICE_NAME;
@@ -1041,7 +1039,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 
 	if (sysfs_create_group(&(client->dev.kobj), &it7260_attr_group)) {
 		dev_err(&client->dev, "failed to register sysfs #2\n");
-		goto err_sysfs_grp_create_2;
+		goto err_sysfs_grp_create;
 	}
 
 #if defined(CONFIG_FB)
@@ -1050,7 +1048,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	ret = fb_register_client(&gl_ts->fb_notif);
 	if (ret)
 		dev_err(&client->dev, "Unable to register fb_notifier: %d\n",
-									ret);
+					ret);
 #endif
 	
 	IT7260_i2cWriteNoReadyCheck(BUF_COMMAND, cmd_start, sizeof(cmd_start));
@@ -1061,7 +1059,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	gl_ts->dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
 	if (gl_ts->dir == NULL || IS_ERR(gl_ts->dir)) {
 		dev_err(&client->dev,
-			"%s: Failed to create debugfs directory, rc = %ld\n",
+			"%s: Failed to create debugfs directory, ret = %ld\n",
 			__func__, PTR_ERR(gl_ts->dir));
 		ret = PTR_ERR(gl_ts->dir);
 		goto err_create_debugfs_dir;
@@ -1071,7 +1069,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 					gl_ts, &debug_suspend_fops);
 	if (temp == NULL || IS_ERR(temp)) {
 		dev_err(&client->dev,
-			"%s: Failed to create suspend debugfs file, rc = %ld\n",
+			"%s: Failed to create suspend debugfs file, ret = %ld\n",
 			__func__, PTR_ERR(temp));
 		ret = PTR_ERR(temp);
 		goto err_create_debugfs_file;
@@ -1088,12 +1086,11 @@ err_create_debugfs_dir:
 #endif
 	sysfs_remove_group(&(client->dev.kobj), &it7260_attr_group);
 
-err_sysfs_grp_create_2:
+err_sysfs_grp_create:
 	free_irq(client->irq, gl_ts);
 
 err_irq_reg:
 	input_unregister_device(gl_ts->input_dev);
-	gl_ts->input_dev = NULL;
 
 err_input_register:
 	if (pdata->wakeup) {
@@ -1102,11 +1099,20 @@ err_input_register:
 	}
 	if (gl_ts->input_dev)
 		input_free_device(gl_ts->input_dev);
+	gl_ts->input_dev = NULL;
 
-err_ident_fail_or_input_alloc:
-	kfree(gl_ts);
+err_input_alloc:
+err_identification_fail:
+	if (gpio_is_valid(pdata->reset_gpio))
+		gpio_free(pdata->reset_gpio);
+	if (gpio_is_valid(pdata->irq_gpio))
+		gpio_free(pdata->irq_gpio);
 
-err_out:
+	regulator_disable(gl_ts->vdd);
+	regulator_disable(gl_ts->avdd);
+	regulator_put(gl_ts->vdd);
+	regulator_put(gl_ts->avdd);
+
 	return ret;
 }
 
@@ -1118,10 +1124,23 @@ static int IT7260_ts_remove(struct i2c_client *client)
 		dev_err(&client->dev, "Error occurred while unregistering fb_notifier.\n");
 #endif
 	sysfs_remove_group(&(client->dev.kobj), &it7260_attr_group);
+	free_irq(client->irq, gl_ts);
+	input_unregister_device(gl_ts->input_dev);
+	if (gl_ts->input_dev)
+		input_free_device(gl_ts->input_dev);
+	gl_ts->input_dev = NULL;
 	if (gl_ts->pdata->wakeup) {
 		cancel_work_sync(&gl_ts->work_pm_relax);
 		device_init_wakeup(&client->dev, false);
 	}
+	if (gpio_is_valid(gl_ts->pdata->reset_gpio))
+		gpio_free(gl_ts->pdata->reset_gpio);
+	if (gpio_is_valid(gl_ts->pdata->irq_gpio))
+		gpio_free(gl_ts->pdata->irq_gpio);
+	regulator_disable(gl_ts->vdd);
+	regulator_disable(gl_ts->avdd);
+	regulator_put(gl_ts->vdd);
+	regulator_put(gl_ts->avdd);
 	return 0;
 }
 
