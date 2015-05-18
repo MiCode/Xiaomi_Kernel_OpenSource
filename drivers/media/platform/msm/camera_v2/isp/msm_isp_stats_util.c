@@ -175,6 +175,13 @@ static int32_t msm_isp_stats_configure(struct vfe_device *vfe_dev,
 		if (!(stats_irq_mask & (1 << i)))
 			continue;
 		stream_info = &vfe_dev->stats_data.stream_info[i];
+
+		if (stream_info->state == STATS_INACTIVE) {
+			pr_warn("%s: Warning! Stream already inactive. Drop irq handling\n",
+				__func__);
+			continue;
+		}
+
 		done_buf = NULL;
 		msm_isp_stats_cfg_ping_pong_address(vfe_dev,
 			stream_info, pingpong_status, &done_buf);
