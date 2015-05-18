@@ -258,6 +258,9 @@ struct mux_div_ops {
  * @try_get_rate
 		Set if you need the mux to directly jump to a source
 		that is at the desired rate currently.
+ * @force_enable_md
+		Set if the mux-div needs to be force enabled/disabled during
+		clk_enable/disable.
  */
 
 struct mux_div_clk {
@@ -288,6 +291,7 @@ struct mux_div_clk {
 	struct clk			*safe_parent;
 	unsigned long			safe_freq;
 	bool				try_get_rate;
+	bool				force_enable_md;
 };
 
 static inline struct mux_div_clk *to_mux_div_clk(struct clk *clk)

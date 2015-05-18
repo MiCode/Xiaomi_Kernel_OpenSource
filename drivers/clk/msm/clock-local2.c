@@ -1707,6 +1707,41 @@ static void rcg_get_src_div(struct mux_div_clk *md, u32 *src_sel, u32 *div)
 	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
 }
 
+static void mux_div_set_force_enable(struct mux_div_clk *md)
+{
+	u32 regval;
+	unsigned long flags;
+	int count;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	regval = readl_relaxed(RCGR_CMD_REG(md));
+	regval |= CMD_RCGR_ROOT_ENABLE_BIT;
+	writel_relaxed(regval, RCGR_CMD_REG(md));
+
+	/* Wait for RCG to turn ON */
+	for (count = UPDATE_CHECK_MAX_LOOPS; count > 0; count--) {
+		if (!(readl_relaxed(RCGR_CMD_REG(md)) &
+				CMD_RCGR_CONFIG_UPDATE_BIT))
+			goto exit;
+		udelay(1);
+	}
+	CLK_WARN(&md->c, count == 0, "rcg didn't turn on.");
+exit:
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
+static void mux_div_clear_force_enable(struct mux_div_clk *md)
+{
+	u32 regval;
+	unsigned long flags;
+
+	spin_lock_irqsave(&local_clock_reg_lock, flags);
+	regval = readl_relaxed(RCGR_CMD_REG(md));
+	regval &= ~CMD_RCGR_ROOT_ENABLE_BIT;
+	writel_relaxed(regval, RCGR_CMD_REG(md));
+	spin_unlock_irqrestore(&local_clock_reg_lock, flags);
+}
+
 static int rcg_set_src_div(struct mux_div_clk *md, u32 src_sel, u32 div)
 {
 	u32 regval;
@@ -1735,12 +1770,18 @@ static int rcg_set_src_div(struct mux_div_clk *md, u32 src_sel, u32 div)
 
 static int rcg_enable(struct mux_div_clk *md)
 {
+	if (md->force_enable_md)
+		mux_div_set_force_enable(md);
+
 	return rcg_set_src_div(md, md->src_sel, md->data.div);
 }
 
 static void rcg_disable(struct mux_div_clk *md)
 {
 	u32 src_sel;
+
+	if (md->force_enable_md)
+		mux_div_clear_force_enable(md);
 
 	if (!md->safe_freq)
 		return;
