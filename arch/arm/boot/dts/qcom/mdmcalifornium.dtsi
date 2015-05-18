@@ -49,6 +49,8 @@
 	soc: soc { };
 };
 
+#include "mdmcalifornium-regulator.dtsi"
+
 &soc {
 	#address-cells = <1>;
 	#size-cells = <1>;

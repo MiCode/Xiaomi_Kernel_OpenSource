@@ -1,0 +1,169 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
+
+/* Stub regulators */
+
+/ {
+	/* PMDCALIFORNIUM S1 = VDD_MSS supply */
+	pmdcalifornium_s1: regulator-s1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_s1";
+		regulator-min-microvolt = <800000>;
+		regulator-max-microvolt = <800000>;
+	};
+
+	pmdcalifornium_s2: regulator-s2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_s2";
+		regulator-min-microvolt = <1256000>;
+		regulator-max-microvolt = <1256000>;
+	};
+
+	pmdcalifornium_s3: regulator-s3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_s3";
+		regulator-min-microvolt = <1024000>;
+		regulator-max-microvolt = <1024000>;
+	};
+
+	pmdcalifornium_s4: regulator-s4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_s4";
+		regulator-min-microvolt = <1856000>;
+		regulator-max-microvolt = <1856000>;
+	};
+
+	/* PMDCALIFORNIUM S5 = VDD_CX supply */
+	pmdcalifornium_s5_level: regulator-s5-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_s5_level";
+		qcom,set = <3>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,use-voltage-level;
+	};
+
+	pmdcalifornium_s5_level_ao: regulator-s5-level-ao {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_s5_level_ao";
+		qcom,set = <1>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,use-voltage-level;
+	};
+
+	pmdcalifornium_s5_floor_level: regulator-s5-floor-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_s5_floor_level";
+		qcom,set = <3>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,use-voltage-floor-level;
+	};
+
+	pmdcalifornium_l1: regulator-l1 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l1";
+		regulator-min-microvolt = <1224000>;
+		regulator-max-microvolt = <1224000>;
+	};
+
+	pmdcalifornium_l2: regulator-l2 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l2";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+	};
+
+	pmdcalifornium_l3: regulator-l3 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l3";
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1000000>;
+	};
+
+	pmdcalifornium_l4: regulator-l4 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l4";
+		regulator-min-microvolt = <928000>;
+		regulator-max-microvolt = <928000>;
+	};
+
+	pmdcalifornium_l5: regulator-l5 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l5";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmdcalifornium_l6: regulator-l6 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l6";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmdcalifornium_l7: regulator-l7 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l7";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2848000>;
+	};
+
+	pmdcalifornium_l8: regulator-l8 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l8";
+		regulator-min-microvolt = <1000000>;
+		regulator-max-microvolt = <1000000>;
+	};
+
+	/* PMDCALIFORNIUM L9 = VDD_MX supply */
+	pmdcalifornium_l9_level: regulator-l9-level {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l9_level";
+		qcom,set = <3>;
+		regulator-min-microvolt = <RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+		regulator-max-microvolt = <RPM_SMD_REGULATOR_LEVEL_TURBO>;
+		qcom,use-voltage-level;
+	};
+
+	pmdcalifornium_l10: regulator-l10 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l10";
+		regulator-min-microvolt = <3088000>;
+		regulator-max-microvolt = <3088000>;
+	};
+
+	pmdcalifornium_l11: regulator-l11 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l11";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+
+	pmdcalifornium_l12: regulator-l12 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l12";
+		regulator-min-microvolt = <2704000>;
+		regulator-max-microvolt = <2704000>;
+	};
+
+	pmdcalifornium_l13: regulator-l13 {
+		compatible = "qcom,stub-regulator";
+		regulator-name = "pmdcalifornium_l13";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <2848000>;
+	};
+};
