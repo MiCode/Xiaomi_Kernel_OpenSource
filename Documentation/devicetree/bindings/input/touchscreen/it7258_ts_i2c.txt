@@ -26,6 +26,11 @@ Optional properties:
 			  palm is detected.
  - ite,fw-name		: Specify firmware file name in /etc/firmware
  - ite,cfg-name		: Specify config file name in /etc/firmware
+ - ite,panel-coords	: touch panel min x, min y, max x and
+			  max y resolution
+ - ite,display-coords	: display min x, min y, max x and
+			  max y resolution
+ - ite,num-fingers	: number of fingers supported by the touch controller
 
 Required properties palm-detect-en feature:
  - ite,palm-detect-keycode	: The keycode that is required to be sent when
@@ -47,5 +52,8 @@ Example:
 			ite,palm-detect-keycode = <142>;
 			ite,fw-name = "ite7260_fw.bin";
 			ite,cfg-name = "ite7260_cfg.bin";
+			ite,panel-coords = <0 0 320 320>;
+			ite,display-coords = <0 0 320 320>;
+			ite,num-fingers = <2>;
 		};
 	};
