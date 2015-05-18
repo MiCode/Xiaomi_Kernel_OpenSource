@@ -1481,6 +1481,7 @@
 		qcom,load-freq-tbl =
 			<489600 266670000 0x01000414>, /* Encoder turbo (wfd) */
 			<489600 228570000 0xf0fcfff>, /* Legacy decoder 1080p 60fps  */
+			<367200 180000000 0xf0fcfff>, /* Legacy decoder 1080p 45fps  */
 			<244800 180000000 0x00030000>, /* VC1 decoder 1080p 30fps  */
 			<244800 180000000 0x01000414>, /* Legacy encoder 1080p 30fps   */
 			<244800 133330000 0xf0ccfff>, /* decoder 1080p 30fps   */
