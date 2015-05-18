@@ -735,6 +735,18 @@ int read_platform_resources_from_dt(
 		goto err_load_clock_table;
 	}
 
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,dcvs-min-load",
+			&res->dcvs_min_load);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to determine dcvs min load: %d\n", rc);
+
+	rc = of_property_read_u32(pdev->dev.of_node, "qcom,dcvs-min-mbperframe",
+			&res->dcvs_min_mbperframe);
+	if (rc)
+		dprintk(VIDC_ERR,
+			"Failed to determine dcvs min MB per frame: %d\n", rc);
+
 	rc = of_property_read_u32(pdev->dev.of_node, "qcom,max-hw-load",
 			&res->max_load);
 	if (rc) {
