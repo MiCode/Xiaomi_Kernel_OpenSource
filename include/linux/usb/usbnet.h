@@ -38,6 +38,10 @@ struct usbnet_ipa_stats {
 	/* TX Side*/
 	uint64_t tx_ipa_send;
 	uint64_t tx_ipa_send_err;
+
+	/* Flow Control stats */
+	uint64_t flow_control_pkt_drop;
+	uint64_t ipa_low_watermark_cnt;
 };
 
 struct usbnet_ipa_ctx {
@@ -107,6 +111,10 @@ struct usbnet {
 	u16 ipa_free_desc_cnt;
 	u16 ipa_high_watermark;
 	u16 ipa_low_watermark;
+
+	struct sk_buff_head	ipa_pendq;
+	/* work to send pending packets to ipa */
+	struct work_struct ipa_send_task;
 };
 
 static inline struct usb_driver *driver_of(struct usb_interface *intf)
