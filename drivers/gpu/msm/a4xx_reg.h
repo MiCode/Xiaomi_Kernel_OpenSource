@@ -679,6 +679,7 @@ enum a4xx_vfd_perfctr_vfd_sel {
 
 #define A4XX_VBIF_XIN_HALT_CTRL0	0x3080
 #define A4XX_VBIF_XIN_HALT_CTRL0_MASK	0x1F
+#define A405_VBIF_XIN_HALT_CTRL0_MASK	0x3
 
 #define A4XX_VBIF_XIN_HALT_CTRL1	0x3081
 
