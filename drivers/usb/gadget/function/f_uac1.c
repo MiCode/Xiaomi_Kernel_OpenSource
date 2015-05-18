@@ -1125,12 +1125,14 @@ f_audio_bind(struct usb_configuration *c, struct usb_function *f)
 	if (!audio_opts->bound) {
 		status = gaudio_setup(&audio->card);
 		if (status < 0)
-			return status;
+			goto fail;
 		audio_opts->bound = true;
 	}
 	us = usb_gstrings_attach(cdev, uac1_strings, ARRAY_SIZE(strings_uac1));
-	if (IS_ERR(us))
-		return PTR_ERR(us);
+	if (IS_ERR(us)) {
+		status = PTR_ERR(us);
+		goto fail;
+	}
 	ac_interface_desc.iInterface = us[STR_AC_IF].id;
 	speaker_input_terminal_desc.iTerminal = us[STR_INPUT_TERMINAL].id;
 	speaker_input_terminal_desc.iChannelNames =
@@ -1466,6 +1468,9 @@ static void f_audio_free(struct usb_function *f)
 
 static void f_audio_unbind(struct usb_configuration *c, struct usb_function *f)
 {
+	struct f_audio *audio = func_to_audio(f);
+
+	gaudio_cleanup(&audio->card);
 	usb_free_all_descriptors(f);
 }
 
