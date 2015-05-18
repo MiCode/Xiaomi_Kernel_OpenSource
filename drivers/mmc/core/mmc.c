@@ -1937,6 +1937,16 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		}
 	}
 
+	card->clk_scaling_lowest = host->f_min;
+	if ((card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS400) |
+			(card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS200))
+		card->clk_scaling_highest = card->ext_csd.hs200_max_dtr;
+	else if ((card->mmc_avail_type | EXT_CSD_CARD_TYPE_HS) |
+			(card->mmc_avail_type | EXT_CSD_CARD_TYPE_DDR_52))
+		card->clk_scaling_highest = card->ext_csd.hs_max_dtr;
+	else
+		card->clk_scaling_highest = card->csd.max_dtr;
+
 	/*
 	 * Choose the power class with selected bus interface
 	 */
@@ -2238,7 +2248,8 @@ static int _mmc_suspend(struct mmc_host *host, bool is_suspend)
 	 * Disable clock scaling before suspend and enable it after resume so
 	 * as to avoid clock scaling decisions kicking in during this window.
 	 */
-	mmc_disable_clk_scaling(host);
+	if (mmc_can_scale_clk(host))
+		mmc_disable_clk_scaling(host);
 
 	if (mmc_card_doing_bkops(host->card)) {
 		err = mmc_stop_bkops(host->card);
