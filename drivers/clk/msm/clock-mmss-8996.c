@@ -420,6 +420,7 @@ static struct mux_div_clk gfx3d_clk_src_v2 = {
 	.src_shift = 8,
 	.ops = &rcg_mux_div_ops,
 	.try_get_rate = true,
+	.force_enable_md = true,
 	.data = {
 		.min_div = 1,
 		.max_div = 1,
