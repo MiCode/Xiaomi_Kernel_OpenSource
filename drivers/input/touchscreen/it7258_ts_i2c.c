@@ -124,8 +124,10 @@
 
 #define IT_VTG_MIN_UV		1800000
 #define IT_VTG_MAX_UV		1800000
+#define IT_ACTIVE_LOAD_UA	15000
 #define IT_I2C_VTG_MIN_UV	2600000
 #define IT_I2C_VTG_MAX_UV	3300000
+#define IT_I2C_ACTIVE_LOAD_UA	10000
 
 #define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
 #define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
@@ -1156,6 +1158,133 @@ static bool IT7260_chipIdentify(void)
 	return true;
 }
 
+static int reg_set_optimum_mode_check(struct regulator *reg, int load_uA)
+{
+	return (regulator_count_voltages(reg) > 0) ?
+		regulator_set_optimum_mode(reg, load_uA) : 0;
+}
+
+static int IT7260_regulator_configure(bool on)
+{
+	int retval;
+
+	if (on == false)
+		goto hw_shutdown;
+
+	gl_ts->vdd = devm_regulator_get(&gl_ts->client->dev, "vdd");
+	if (IS_ERR(gl_ts->vdd)) {
+		dev_err(&gl_ts->client->dev,
+				"%s: Failed to get vdd regulator\n", __func__);
+		return PTR_ERR(gl_ts->vdd);
+	}
+
+	if (regulator_count_voltages(gl_ts->vdd) > 0) {
+		retval = regulator_set_voltage(gl_ts->vdd,
+			IT_VTG_MIN_UV, IT_VTG_MAX_UV);
+		if (retval) {
+			dev_err(&gl_ts->client->dev,
+				"regulator set_vtg failed retval =%d\n",
+				retval);
+			goto err_set_vtg_vdd;
+		}
+	}
+
+	gl_ts->avdd = devm_regulator_get(&gl_ts->client->dev, "avdd");
+	if (IS_ERR(gl_ts->avdd)) {
+		dev_err(&gl_ts->client->dev,
+				"%s: Failed to get i2c regulator\n", __func__);
+		retval = PTR_ERR(gl_ts->avdd);
+		goto err_get_vtg_i2c;
+	}
+
+	if (regulator_count_voltages(gl_ts->avdd) > 0) {
+		retval = regulator_set_voltage(gl_ts->avdd,
+			IT_I2C_VTG_MIN_UV, IT_I2C_VTG_MAX_UV);
+		if (retval) {
+			dev_err(&gl_ts->client->dev,
+				"reg set i2c vtg failed retval =%d\n",
+				retval);
+		goto err_set_vtg_i2c;
+		}
+	}
+
+	return 0;
+
+err_set_vtg_i2c:
+err_get_vtg_i2c:
+	if (regulator_count_voltages(gl_ts->vdd) > 0)
+		regulator_set_voltage(gl_ts->vdd, 0, IT_VTG_MAX_UV);
+err_set_vtg_vdd:
+	return retval;
+
+hw_shutdown:
+	if (regulator_count_voltages(gl_ts->vdd) > 0)
+		regulator_set_voltage(gl_ts->vdd, 0, IT_VTG_MAX_UV);
+	if (regulator_count_voltages(gl_ts->avdd) > 0)
+		regulator_set_voltage(gl_ts->avdd, 0, IT_I2C_VTG_MAX_UV);
+	return 0;
+};
+
+static int IT7260_power_on(bool on)
+{
+	int retval;
+
+	if (on == false)
+		goto power_off;
+
+	retval = reg_set_optimum_mode_check(gl_ts->vdd,
+		IT_ACTIVE_LOAD_UA);
+	if (retval < 0) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator vdd set_opt failed rc=%d\n",
+			retval);
+		return retval;
+	}
+
+	retval = regulator_enable(gl_ts->vdd);
+	if (retval) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator vdd enable failed rc=%d\n",
+			retval);
+		goto error_reg_en_vdd;
+	}
+
+	retval = reg_set_optimum_mode_check(gl_ts->avdd,
+		IT_I2C_ACTIVE_LOAD_UA);
+	if (retval < 0) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator avdd set_opt failed rc=%d\n",
+			retval);
+		goto error_reg_opt_i2c;
+	}
+
+	retval = regulator_enable(gl_ts->avdd);
+	if (retval) {
+		dev_err(&gl_ts->client->dev,
+			"Regulator avdd enable failed rc=%d\n",
+			retval);
+		goto error_reg_en_avdd;
+	}
+
+	return 0;
+
+error_reg_en_avdd:
+	reg_set_optimum_mode_check(gl_ts->avdd, 0);
+error_reg_opt_i2c:
+	regulator_disable(gl_ts->vdd);
+error_reg_en_vdd:
+	reg_set_optimum_mode_check(gl_ts->vdd, 0);
+	return retval;
+
+power_off:
+	reg_set_optimum_mode_check(gl_ts->vdd, 0);
+	regulator_disable(gl_ts->vdd);
+	reg_set_optimum_mode_check(gl_ts->avdd, 0);
+	regulator_disable(gl_ts->avdd);
+
+	return 0;
+}
+
 #if CONFIG_OF
 static int IT7260_get_dt_coords(struct device *dev, char *name,
 				struct IT7260_ts_platform_data *pdata)
@@ -1385,52 +1514,16 @@ static int IT7260_ts_probe(struct i2c_client *client,
 
 	gl_ts->pdata = pdata;
 
-	gl_ts->vdd = devm_regulator_get(&gl_ts->client->dev, "vdd");
-	if (IS_ERR(gl_ts->vdd)) {
-		dev_err(&client->dev,
-				"Regulator get failed vdd\n");
-		gl_ts->vdd = NULL;
-	} else {
-		ret = regulator_set_voltage(gl_ts->vdd,
-				IT_VTG_MIN_UV, IT_VTG_MAX_UV);
-		if (ret) {
-			dev_err(&client->dev,
-				"Regulator set_vtg failed vdd %d\n", ret);
-			return ret;
-		}
+	ret = IT7260_regulator_configure(true);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to configure regulators\n");
+		goto err_reg_configure;
 	}
 
-	gl_ts->avdd = devm_regulator_get(&gl_ts->client->dev, "avdd");
-	if (IS_ERR(gl_ts->avdd)) {
-		dev_err(&client->dev,
-				"Regulator get failed avdd\n");
-		gl_ts->avdd = NULL;
-	} else {
-		ret = regulator_set_voltage(gl_ts->avdd, IT_I2C_VTG_MIN_UV,
-							IT_I2C_VTG_MAX_UV);
-		if (ret) {
-			dev_err(&client->dev,
-				"Regulator get failed avdd %d\n", ret);
-			return ret;
-		}
-	}
-
-	if (gl_ts->vdd) {
-		ret = regulator_enable(gl_ts->vdd);
-		if (ret) {
-			dev_err(&gl_ts->client->dev,
-				"Regulator vdd enable failed ret=%d\n", ret);
-			return ret;
-		}
-	}
-
-	if (gl_ts->avdd) {
-		ret = regulator_enable(gl_ts->avdd);
-		if (ret) {
-			dev_err(&gl_ts->client->dev,
-				"Regulator avdd enable failed ret=%d\n", ret);
-			return ret;
-		}
+	ret = IT7260_power_on(true);
+	if (ret < 0) {
+		dev_err(&client->dev, "Failed to power on\n");
+		goto err_power_device;
 	}
 
 	ret = IT7260_ts_pinctrl_init(gl_ts);
@@ -1466,7 +1559,8 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		dev_dbg(&gl_ts->client->dev, "Reset GPIO %d\n",
 							pdata->reset_gpio);
 	} else {
-		return pdata->reset_gpio;
+		ret = pdata->reset_gpio;
+		goto err_gpio_config;
 	}
 
 	/* irq gpio info */
@@ -1474,7 +1568,8 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		dev_dbg(&gl_ts->client->dev, "IRQ GPIO %d, IRQ # %d\n",
 				pdata->irq_gpio, gpio_to_irq(pdata->irq_gpio));
 	} else {
-		return pdata->irq_gpio;
+		ret = pdata->irq_gpio;
+		goto err_gpio_config;
 	}
 
 	if (!IT7260_chipIdentify()) {
@@ -1599,6 +1694,7 @@ err_input_register:
 
 err_input_alloc:
 err_identification_fail:
+err_gpio_config:
 	if (gpio_is_valid(pdata->reset_gpio))
 		gpio_free(pdata->reset_gpio);
 	if (gpio_is_valid(pdata->irq_gpio))
@@ -1617,11 +1713,12 @@ err_identification_fail:
 					ret);
 		}
 	}
-	regulator_disable(gl_ts->vdd);
-	regulator_disable(gl_ts->avdd);
-	regulator_put(gl_ts->vdd);
-	regulator_put(gl_ts->avdd);
+	IT7260_power_on(false);
 
+err_power_device:
+	IT7260_regulator_configure(false);
+
+err_reg_configure:
 	return ret;
 }
 
@@ -1661,10 +1758,9 @@ static int IT7260_ts_remove(struct i2c_client *client)
 					ret);
 		}
 	}
-	regulator_disable(gl_ts->vdd);
-	regulator_disable(gl_ts->avdd);
-	regulator_put(gl_ts->vdd);
-	regulator_put(gl_ts->avdd);
+	IT7260_power_on(false);
+	IT7260_regulator_configure(false);
+
 	return 0;
 }
 
