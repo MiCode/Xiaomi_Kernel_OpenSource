@@ -174,6 +174,8 @@ Optional properties:
    property should contain phandle of respective eeprom nodes
 - qcom,ois-src : if optical image stabilization is supported by this sensor,
    this property should contain phandle of respective ois node
+- qcom,special-support-sensors: if only some special sensors are supported
+   on this board, add sensor name in this property.
 
 * Qualcomm MSM ACTUATOR
 
