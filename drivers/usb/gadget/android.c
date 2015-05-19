@@ -3572,8 +3572,10 @@ static void android_suspend(struct usb_gadget *gadget)
 	unsigned long flags;
 
 	spin_lock_irqsave(&cdev->lock, flags);
-	dev->suspended = 1;
-	schedule_work(&dev->work);
+	if (!dev->suspended) {
+		dev->suspended = 1;
+		schedule_work(&dev->work);
+	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	composite_suspend_func(gadget);
@@ -3586,8 +3588,10 @@ static void android_resume(struct usb_gadget *gadget)
 	unsigned long flags;
 
 	spin_lock_irqsave(&cdev->lock, flags);
-	dev->suspended = 0;
-	schedule_work(&dev->work);
+	if (dev->suspended) {
+		dev->suspended = 0;
+		schedule_work(&dev->work);
+	}
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	composite_resume_func(gadget);
