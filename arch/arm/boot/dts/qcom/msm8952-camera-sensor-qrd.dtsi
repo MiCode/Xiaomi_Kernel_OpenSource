@@ -186,6 +186,7 @@
 		cell-index = <0>;
 		compatible = "qcom,camera";
 		reg = <0x0>;
+		qcom,special-support-sensors = "ov13850_q13v06k";
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
