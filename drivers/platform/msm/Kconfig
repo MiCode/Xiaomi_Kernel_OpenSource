@@ -302,6 +302,7 @@ config QPNP_HAPTIC
 config SEEMP_CORE
 	tristate "SEEMP Core"
 	help
-		This option enables malware protection component
-		to log on-device software API activity.
+          This option enables Qualcomm Technologies, Inc. Snapdragron Smart Protection to
+          detect anomalies in various activities. It records task activities in a log and
+          rates the actions according to whether a typical user would use the tools.
 endmenu
