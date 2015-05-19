@@ -251,6 +251,16 @@ static struct usb_gadget_strings *fsg_strings_array[] = {
 
 /*-------------------------------------------------------------------------*/
 
+/*
+ * If USB mass storage vfs operation is stuck for more than 10 sec
+ * host will initiate the reset. Configure the timer with 9 sec to print
+ * the error message before host is intiating the resume on it.
+ */
+#define MSC_VFS_TIMER_PERIOD_MS	9000
+static int msc_vfs_timer_period_ms = MSC_VFS_TIMER_PERIOD_MS;
+module_param(msc_vfs_timer_period_ms, int, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(msc_vfs_timer_period_ms, "Set period for MSC VFS timer");
+
 struct fsg_dev;
 struct fsg_common;
 
@@ -316,6 +326,7 @@ struct fsg_common {
 	/* LUN name for sysfs purpose */
 	char name[FSG_MAX_LUNS][LUN_NAME_LEN];
 	struct kref		ref;
+	struct timer_list	vfs_timer;
 };
 
 struct fsg_dev {
@@ -334,6 +345,26 @@ struct fsg_dev {
 	struct usb_ep		*bulk_in;
 	struct usb_ep		*bulk_out;
 };
+
+static void msc_usb_vfs_timer_func(unsigned long data)
+{
+	struct fsg_common *common = (struct fsg_common *) data;
+
+	switch (common->data_dir) {
+	case DATA_DIR_FROM_HOST:
+		dev_err(&common->curlun->dev,
+				"usb mass storage stuck in vfs_write\n");
+		break;
+	case DATA_DIR_TO_HOST:
+		dev_err(&common->curlun->dev,
+				"usb mass storage stuck in vfs_read\n");
+		break;
+	default:
+		dev_err(&common->curlun->dev,
+				"usb mass storage stuck in vfs_sync\n");
+		break;
+	}
+}
 
 static inline int __fsg_is_set(struct fsg_common *common,
 			       const char *func, unsigned line)
@@ -703,9 +734,12 @@ static int do_read(struct fsg_common *common)
 		/* Perform the read */
 		file_offset_tmp = file_offset;
 		start = ktime_get();
+		mod_timer(&common->vfs_timer, jiffies +
+			msecs_to_jiffies(msc_vfs_timer_period_ms));
 		nread = vfs_read(curlun->filp,
 				 (char __user *)bh->buf,
 				 amount, &file_offset_tmp);
+		del_timer_sync(&common->vfs_timer);
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 		      (unsigned long long)file_offset, (int)nread);
 		diff = ktime_sub(ktime_get(), start);
@@ -901,9 +935,12 @@ static int do_write(struct fsg_common *common)
 			/* Perform the write */
 			file_offset_tmp = file_offset;
 			start = ktime_get();
+			mod_timer(&common->vfs_timer, jiffies +
+				msecs_to_jiffies(msc_vfs_timer_period_ms));
 			nwritten = vfs_write(curlun->filp,
 					     (char __user *)bh->buf,
 					     amount, &file_offset_tmp);
+			del_timer_sync(&common->vfs_timer);
 			VLDBG(curlun, "file write %u @ %llu -> %d\n", amount,
 			      (unsigned long long)file_offset, (int)nwritten);
 			diff = ktime_sub(ktime_get(), start);
@@ -963,9 +1000,12 @@ static int do_synchronize_cache(struct fsg_common *common)
 
 	/* We ignore the requested LBA and write out all file's
 	 * dirty data buffers. */
+	mod_timer(&common->vfs_timer, jiffies +
+		msecs_to_jiffies(msc_vfs_timer_period_ms));
 	rc = fsg_lun_fsync_sub(curlun);
 	if (rc)
 		curlun->sense_data = SS_WRITE_ERROR;
+	del_timer_sync(&common->vfs_timer);
 	return 0;
 }
 
@@ -1021,7 +1061,10 @@ static int do_verify(struct fsg_common *common)
 	file_offset = ((loff_t) lba) << curlun->blkbits;
 
 	/* Write out all the dirty buffers before invalidating them */
+	mod_timer(&common->vfs_timer, jiffies +
+			msecs_to_jiffies(msc_vfs_timer_period_ms));
 	fsg_lun_fsync_sub(curlun);
+	del_timer_sync(&common->vfs_timer);
 	if (signal_pending(current))
 		return -EINTR;
 
@@ -1051,9 +1094,12 @@ static int do_verify(struct fsg_common *common)
 
 		/* Perform the read */
 		file_offset_tmp = file_offset;
+		mod_timer(&common->vfs_timer, jiffies +
+				msecs_to_jiffies(msc_vfs_timer_period_ms));
 		nread = vfs_read(curlun->filp,
 				(char __user *) bh->buf,
 				amount, &file_offset_tmp);
+		del_timer_sync(&common->vfs_timer);
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 				(unsigned long long) file_offset,
 				(int) nread);
@@ -1384,8 +1430,12 @@ static int do_prevent_allow(struct fsg_common *common)
 		return -EINVAL;
 	}
 
-	if (curlun->prevent_medium_removal && !prevent)
+	if (!curlun->nofua && curlun->prevent_medium_removal && !prevent) {
+		mod_timer(&common->vfs_timer, jiffies +
+			msecs_to_jiffies(msc_vfs_timer_period_ms));
 		fsg_lun_fsync_sub(curlun);
+		del_timer_sync(&common->vfs_timer);
+	}
 	curlun->prevent_medium_removal = prevent;
 	return 0;
 }
@@ -3688,6 +3738,8 @@ static struct usb_function *fsg_alloc(struct usb_function_instance *fi)
 	fsg->function.free_func	= fsg_free;
 
 	fsg->common               = common;
+	setup_timer(&common->vfs_timer, msc_usb_vfs_timer_func,
+		(unsigned long) common);
 
 	return &fsg->function;
 }
