@@ -494,6 +494,15 @@ ssize_t glink_pkt_read(struct file *file,
 		return -ENETRESET;
 	}
 
+	if (!glink_rx_intent_exists(devp->handle, count)) {
+		ret  = glink_queue_rx_intent(devp->handle, devp, count);
+		if (ret) {
+			GLINK_PKT_ERR("%s: failed to queue_rx_intent ret[%d]\n",
+					__func__, ret);
+			return ret;
+		}
+	}
+
 	GLINK_PKT_INFO("Begin %s on glink_pkt_dev id:%d buffer_size %zu\n",
 		__func__, devp->i, count);
 
