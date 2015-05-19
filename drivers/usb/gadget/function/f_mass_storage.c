@@ -635,7 +635,7 @@ static int do_read(struct fsg_common *common)
 	loff_t			file_offset, file_offset_tmp;
 	unsigned int		amount;
 	ssize_t			nread;
-
+	ktime_t			start, diff;
 	/*
 	 * Get the starting Logical Block Address and check that it's
 	 * not too big.
@@ -702,11 +702,15 @@ static int do_read(struct fsg_common *common)
 
 		/* Perform the read */
 		file_offset_tmp = file_offset;
+		start = ktime_get();
 		nread = vfs_read(curlun->filp,
 				 (char __user *)bh->buf,
 				 amount, &file_offset_tmp);
 		VLDBG(curlun, "file read %u @ %llu -> %d\n", amount,
 		      (unsigned long long)file_offset, (int)nread);
+		diff = ktime_sub(ktime_get(), start);
+		curlun->perf.rbytes += nread;
+		curlun->perf.rtime = ktime_add(curlun->perf.rtime, diff);
 		if (signal_pending(current))
 			return -EINTR;
 
@@ -767,6 +771,7 @@ static int do_write(struct fsg_common *common)
 	unsigned int		amount;
 	ssize_t			nwritten;
 	int			rc;
+	ktime_t			start, diff;
 
 	if (curlun->ro) {
 		curlun->sense_data = SS_WRITE_PROTECTED;
@@ -895,11 +900,16 @@ static int do_write(struct fsg_common *common)
 
 			/* Perform the write */
 			file_offset_tmp = file_offset;
+			start = ktime_get();
 			nwritten = vfs_write(curlun->filp,
 					     (char __user *)bh->buf,
 					     amount, &file_offset_tmp);
 			VLDBG(curlun, "file write %u @ %llu -> %d\n", amount,
 			      (unsigned long long)file_offset, (int)nwritten);
+			diff = ktime_sub(ktime_get(), start);
+			curlun->perf.wbytes += nwritten;
+			curlun->perf.wtime =
+					ktime_add(curlun->perf.wtime, diff);
 			if (signal_pending(current))
 				return -EINTR;		/* Interrupted! */
 
@@ -2641,6 +2651,7 @@ static ssize_t file_store(struct device *dev, struct device_attribute *attr,
 static DEVICE_ATTR_RW(ro);
 static DEVICE_ATTR_RW(nofua);
 static DEVICE_ATTR_RW(file);
+static DEVICE_ATTR(perf, 0644, fsg_show_perf, fsg_store_perf);
 
 static struct device_attribute dev_attr_ro_cdrom = __ATTR_RO(ro);
 static struct device_attribute dev_attr_file_nonremovable = __ATTR_RO(file);
@@ -2785,6 +2796,7 @@ static inline void fsg_common_remove_sysfs(struct fsg_lun *lun)
 	 */
 	device_remove_file(&lun->dev, &dev_attr_ro);
 	device_remove_file(&lun->dev, &dev_attr_file);
+	device_remove_file(&lun->dev, &dev_attr_perf);
 }
 
 void fsg_common_remove_lun(struct fsg_lun *lun, bool sysfs)
@@ -2917,6 +2929,10 @@ static inline int fsg_common_add_sysfs(struct fsg_common *common,
 	rc = device_create_file(&lun->dev, &dev_attr_nofua);
 	if (rc)
 		goto error;
+
+	rc = device_create_file(&lun->dev, &dev_attr_perf);
+	if (rc)
+		pr_err("failed to create sysfs entry: %d\n", rc);
 
 	return 0;
 

@@ -110,6 +110,13 @@ struct fsg_lun {
 						       of bound block device */
 	unsigned int	blksize; /* logical block size of bound block device */
 	struct device	dev;
+	struct {
+		unsigned long rbytes;
+		unsigned long wbytes;
+		ktime_t rtime;
+		ktime_t wtime;
+	} perf;
+
 	const char	*name;		/* "lun.name" */
 	const char	**name_pfx;	/* "function.name" */
 };
@@ -227,5 +234,9 @@ ssize_t fsg_store_cdrom(struct fsg_lun *curlun, struct rw_semaphore *filesem,
 			const char *buf, size_t count);
 ssize_t fsg_store_removable(struct fsg_lun *curlun, const char *buf,
 			    size_t count);
+ssize_t fsg_show_perf(struct device *dev, struct device_attribute *attr,
+				char *buf);
+ssize_t fsg_store_perf(struct device *dev, struct device_attribute *attr,
+				const char *buf, size_t count);
 
 #endif /* USB_STORAGE_COMMON_H */
