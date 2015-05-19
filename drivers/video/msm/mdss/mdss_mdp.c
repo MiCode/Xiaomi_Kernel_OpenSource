@@ -303,7 +303,7 @@ static void mdss_mdp_bus_scale_unregister(struct mdss_data_type *mdata)
 }
 
 /*
- * Caller needs to hold mdata->bus_bw_lock lock before calling this function.
+ * Caller needs to hold mdata->bus_lock lock before calling this function.
  */
 static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 		u64 ib_quota_rt, u64 ib_quota_nrt)
@@ -398,7 +398,7 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 	}
 	mdss_res->curr_bw_uc_idx = new_uc_idx;
 
-	if ((mdss_res->bus_bw_cnt == 0) && mdss_res->curr_bw_uc_idx) {
+	if ((mdss_res->bus_ref_cnt == 0) && mdss_res->curr_bw_uc_idx) {
 		rc = 0;
 	} else { /* vote BW if bus_bw_cnt > 0 or uc_idx is zero */
 		ATRACE_BEGIN("msm_bus_scale_req");
@@ -409,35 +409,35 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 	return rc;
 }
 
-int mdss_enable_bus_vote(int usecase_ndx)
+int mdss_update_reg_bus_vote(int usecase_ndx)
 {
 	int changed = 0, ret = 0;
 
 	if (!mdss_res || !mdss_res->reg_bus_hdl)
 		return 0;
 
-	mutex_lock(&mdss_res->mdp_bus_lock);
+	mutex_lock(&mdss_res->reg_bus_lock);
 	if (usecase_ndx) {
-		if (mdss_res->bus_ref_cnt == 0)
+		if (mdss_res->reg_bus_ref_cnt == 0)
 			changed++;
-		mdss_res->bus_ref_cnt++;
+		mdss_res->reg_bus_ref_cnt++;
 	} else {
-		if (mdss_res->bus_ref_cnt) {
-			mdss_res->bus_ref_cnt--;
-			if (mdss_res->bus_ref_cnt == 0)
+		if (mdss_res->reg_bus_ref_cnt) {
+			mdss_res->reg_bus_ref_cnt--;
+			if (mdss_res->reg_bus_ref_cnt == 0)
 				changed++;
 		} else {
 			pr_err("Can not be turned off\n");
 		}
 	}
 
-	pr_debug("%s: clk_cnt=%d changed=%d usecase_index=%d\n",
-			__func__, mdss_res->bus_ref_cnt, changed, usecase_ndx);
+	pr_debug("clk_cnt=%d changed=%d usecase_index=%d\n",
+		mdss_res->reg_bus_ref_cnt, changed, usecase_ndx);
 	if (changed)
 		ret = msm_bus_scale_client_update_request(mdss_res->reg_bus_hdl,
 			usecase_ndx);
 
-	mutex_unlock(&mdss_res->mdp_bus_lock);
+	mutex_unlock(&mdss_res->reg_bus_lock);
 
 	return ret;
 }
@@ -449,7 +449,7 @@ int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 	u64 total_ab_rt = 0, total_ib_rt = 0;
 	u64 total_ab_nrt = 0, total_ib_nrt = 0;
 
-	mutex_lock(&mdss_res->bus_bw_lock);
+	mutex_lock(&mdss_res->bus_lock);
 
 	mdss_res->ab[client] = ab_quota;
 	mdss_res->ib[client] = ib_quota;
@@ -468,7 +468,7 @@ int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota)
 	rc = mdss_mdp_bus_scale_set_quota(total_ab_rt, total_ab_nrt,
 			total_ib_rt, total_ib_nrt);
 
-	mutex_unlock(&mdss_res->bus_bw_lock);
+	mutex_unlock(&mdss_res->bus_lock);
 
 	return rc;
 }
@@ -780,15 +780,15 @@ void mdss_bus_bandwidth_ctrl(int enable)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	int changed = 0;
 
-	mutex_lock(&mdata->bus_bw_lock);
+	mutex_lock(&mdata->bus_lock);
 	if (enable) {
-		if (mdata->bus_bw_cnt == 0)
+		if (mdata->bus_ref_cnt == 0)
 			changed++;
-		mdata->bus_bw_cnt++;
+		mdata->bus_ref_cnt++;
 	} else {
-		if (mdata->bus_bw_cnt) {
-			mdata->bus_bw_cnt--;
-			if (mdata->bus_bw_cnt == 0)
+		if (mdata->bus_ref_cnt) {
+			mdata->bus_ref_cnt--;
+			if (mdata->bus_ref_cnt == 0)
 				changed++;
 		} else {
 			pr_err("Can not be turned off\n");
@@ -796,7 +796,7 @@ void mdss_bus_bandwidth_ctrl(int enable)
 	}
 
 	pr_debug("bw_cnt=%d changed=%d enable=%d\n",
-		mdata->bus_bw_cnt, changed, enable);
+		mdata->bus_ref_cnt, changed, enable);
 
 	if (changed) {
 		if (!enable) {
@@ -812,7 +812,7 @@ void mdss_bus_bandwidth_ctrl(int enable)
 		}
 	}
 
-	mutex_unlock(&mdata->bus_bw_lock);
+	mutex_unlock(&mdata->bus_lock);
 }
 EXPORT_SYMBOL(mdss_bus_bandwidth_ctrl);
 
@@ -846,7 +846,7 @@ void mdss_mdp_clk_ctrl(int enable)
 	if (changed) {
 		if (enable) {
 			pm_runtime_get_sync(&mdata->pdev->dev);
-			mdss_enable_bus_vote(VOTE_INDEX_19_MHZ);
+			mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
 		}
 
 		mdata->clk_ena = enable;
@@ -859,7 +859,7 @@ void mdss_mdp_clk_ctrl(int enable)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
 		if (!enable) {
-			mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
+			mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
 			pm_runtime_mark_last_busy(&mdata->pdev->dev);
 			pm_runtime_put_autosuspend(&mdata->pdev->dev);
 		}
@@ -901,7 +901,7 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 
 	pr_debug("restoring mdss secure config\n");
 
-	mdss_enable_bus_vote(VOTE_INDEX_19_MHZ);
+	mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 1);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 1);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 1);
@@ -912,7 +912,7 @@ static void __mdss_restore_sec_cfg(struct mdss_data_type *mdata)
 				ret, scm_ret);
 
 	mdss_mdp_clk_update(MDSS_CLK_AHB, 0);
-	mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
+	mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
 	mdss_mdp_clk_update(MDSS_CLK_AXI, 0);
 	mdss_mdp_clk_update(MDSS_CLK_MDP_CORE, 0);
 }
@@ -1501,8 +1501,8 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, mdata);
 	mdss_res = mdata;
 	mutex_init(&mdata->reg_lock);
-	mutex_init(&mdata->mdp_bus_lock);
-	mutex_init(&mdata->bus_bw_lock);
+	mutex_init(&mdata->reg_bus_lock);
+	mutex_init(&mdata->bus_lock);
 	atomic_set(&mdata->sd_client_count, 0);
 	atomic_set(&mdata->active_intf_cnt, 0);
 
