@@ -363,8 +363,6 @@ struct mdss_mdp_format_params {
 
 struct mdss_mdp_format_params_ubwc {
 	struct mdss_mdp_format_params mdp_format;
-	struct mdss_fudge_factor comp_ratio_rt;
-	struct mdss_fudge_factor comp_ratio_nrt;
 };
 
 struct mdss_mdp_plane_sizes {
@@ -1161,7 +1159,6 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps);
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
-bool mdss_mdp_initialize_ubwc_factors(struct mdss_data_type *mdata);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 void mdss_mdp_get_v_h_subsample_rate(u8 chroma_samp,
 	u8 *v_sample, u8 *h_sample);

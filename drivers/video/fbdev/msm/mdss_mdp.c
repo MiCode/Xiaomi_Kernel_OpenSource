@@ -1056,7 +1056,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 
 	mdata->per_pipe_ib_factor.numer = 0;
 	mdata->per_pipe_ib_factor.denom = 0;
-	mdata->ubwc_comp_ratio_factors_row = 1;
 	mdata->apply_post_scale_bytes = true;
 	mdata->hflip_buffer_reused = true;
 	/* prevent disable of prefill calculations */
@@ -1064,7 +1063,6 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 
 	switch (mdata->mdp_rev) {
 	case MDSS_MDP_HW_REV_107:
-		mdata->ubwc_comp_ratio_factors_row = 0;
 		mdss_set_quirk(mdata, MDSS_QUIRK_ROTCDP);
 	case MDSS_MDP_HW_REV_107_1:
 	case MDSS_MDP_HW_REV_107_2:
@@ -1650,12 +1648,6 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 		mdss_mdp_footswitch_ctrl_splash(false);
 	else
 		mdata->handoff_pending = true;
-
-	/* Initialize UBWC factors (needed for BW votes) */
-	if (test_bit(MDSS_QOS_OVERHEAD_FACTOR, mdata->mdss_qos_map)) {
-		if (mdss_mdp_initialize_ubwc_factors(mdata))
-			pr_err("error cannot initialize ubwc compression ratio factors\n");
-	}
 
 	pr_info("mdss version = 0x%x, bootloader display is %s\n",
 		mdata->mdp_rev, display_on ? "on" : "off");
