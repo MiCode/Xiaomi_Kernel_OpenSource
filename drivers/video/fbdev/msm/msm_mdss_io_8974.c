@@ -945,7 +945,7 @@ static int mdss_dsi_bus_clk_start(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 							 __func__, rc);
 		goto error;
 	}
-	mdss_enable_bus_vote(VOTE_INDEX_19_MHZ);
+	mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
 
 	rc = clk_prepare_enable(ctrl_pdata->ahb_clk);
 	if (rc) {
@@ -974,7 +974,7 @@ disable_axi_clk:
 disable_ahb_clk:
 	clk_disable_unprepare(ctrl_pdata->ahb_clk);
 disable_core_clk:
-	mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
+	mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
 	clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
 error:
 	return rc;
@@ -986,7 +986,7 @@ static void mdss_dsi_bus_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		clk_disable_unprepare(ctrl_pdata->mmss_misc_ahb_clk);
 	clk_disable_unprepare(ctrl_pdata->axi_clk);
 	clk_disable_unprepare(ctrl_pdata->ahb_clk);
-	mdss_enable_bus_vote(VOTE_INDEX_DISABLE);
+	mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
 	clk_disable_unprepare(ctrl_pdata->mdp_core_clk);
 }
 

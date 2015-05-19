@@ -285,11 +285,20 @@ struct mdss_data_type {
 
 	u32 rot_block_size;
 
+	/* data bus (AXI) */
+	u32 bus_hdl;
+	u32 bus_ref_cnt;
+	struct mutex bus_lock;
+
+	/* register bus (AHB) */
+	u32 reg_bus_hdl;
+	u32 reg_bus_ref_cnt;
+	struct mutex reg_bus_lock;
+
 	u32 axi_port_cnt;
 	u32 nrt_axi_port_cnt;
 	u32 bus_channels;
 	u32 curr_bw_uc_idx;
-	u32 bus_hdl;
 	struct msm_bus_scale_pdata *bus_scale_table;
 	u32 max_bw_low;
 	u32 max_bw_high;
@@ -297,10 +306,6 @@ struct mdss_data_type {
 	u32 *vbif_rt_qos;
 	u32 *vbif_nrt_qos;
 	u32 npriority_lvl;
-	u32 bus_bw_cnt;
-	struct mutex bus_bw_lock;
-
-	u32 reg_bus_hdl;
 
 	struct mdss_fudge_factor ab_factor;
 	struct mdss_fudge_factor ib_factor;
@@ -398,9 +403,6 @@ struct mdss_data_type {
 	struct mdss_mdp_dsc *dsc_off;
 	u32 ndsc;
 
-	struct mutex mdp_bus_lock;
-	u32 bus_ref_cnt;
-
 	struct mdss_max_bw_settings *max_bw_settings;
 	u32 bw_mode_bitmap;
 	u32 max_bw_settings_cnt;
@@ -425,7 +427,7 @@ struct irq_info *mdss_intr_line(void);
 void mdss_bus_bandwidth_ctrl(int enable);
 int mdss_iommu_ctrl(int enable);
 int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
-int mdss_enable_bus_vote(int usecase_ndx);
+int mdss_update_reg_bus_vote(int usecase_ndx);
 
 struct mdss_util_intf {
 	bool mdp_probe_done;
