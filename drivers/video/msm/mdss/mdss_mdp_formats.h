@@ -169,79 +169,31 @@ enum {
 	}
 
 /*
- * UBWC compression ratio factors tables:
- * These tables hold the compression ratios that need to be used for
- * BW vote for the different UBWC formats within different chipsets.
- * If a new ubwc format is added to the mdss_mdp_format_ubwc_map
- * table, then a new column needs to be added to the ubwc_rt_factors
- * and ubwc_nrt_factors as well as update the definition of
- * UBWC_TOTAL_FORMATS to account for the size of the table.
- * If the chipset needs these factors for BW calculation, driver will verify
- * that the size of the factors tables are multiple of the ubwc_map
- * table and throw an error if a mismatch is found.
- */
-#define UBWC_TOTAL_FORMATS 4
-
-static struct mdss_fudge_factor ubwc_rt_factors[][UBWC_TOTAL_FORMATS] = {
-	/* 8996 v1*/
-	{{1, 1} ,       /* RGB_565_UBWC   */
-	 {126, 100} ,   /* RGBA_8888_UBWC */
-	 {126, 100} ,   /* RGBX_8888_UBWC */
-	 {123, 100} } , /* YUV_H2V2_UBWC  */
-	/* 8996 v2/v3 */
-	{{1, 1} ,       /* RGB_565_UBWC   */
-	 {126, 100} ,   /* RGBA_8888_UBWC */
-	 {126, 100} ,   /* RGBX_8888_UBWC */
-	 {123, 100} },  /* YUV_H2V2_UBWC  */
-};
-
-static struct mdss_fudge_factor ubwc_nrt_factors[][UBWC_TOTAL_FORMATS] = {
-	/* 8996 v1*/
-	{{1, 1} ,       /* RGB_565_UBWC   */
-	 {146, 100} ,   /* RGBA_8888_UBWC */
-	 {146, 100} ,   /* RGBX_8888_UBWC */
-	 {1, 1} } ,     /* YUV_H2V2_UBWC  */
-	/* 8996 v2/v3 */
-	{{1, 1} ,       /* RGB_565_UBWC   */
-	 {146, 100} ,   /* RGBA_8888_UBWC */
-	 {146, 100} ,   /* RGBX_8888_UBWC */
-	 {128, 100} } , /* YUV_H2V2_UBWC  */
-};
-
-/*
  * UBWC formats table:
  * This table holds the UBWC formats supported.
- * If a new format is added, the corresponding compression ratio must be
- * added in ubwc_rt_factors and ubwc_nrt_factors tables.
+ * If a compression ratio needs to be used for this or any other format,
+ * the data will be passed by user-space.
  */
 static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 	{
 		.mdp_format = FMT_RGB_565(MDP_RGB_565_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT,
 			C1_B_Cb, C0_G_Y, C2_R_Cr),
-		.comp_ratio_rt = {1, 1},
-		.comp_ratio_nrt = {1, 1},
 	},
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBA_8888_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 1,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-		.comp_ratio_rt = {1, 1},
-		.comp_ratio_nrt = {1, 1},
 	},
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBX_8888_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 0,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
-		.comp_ratio_rt = {1, 1},
-		.comp_ratio_nrt = {1, 1},
 	},
 	{
 		.mdp_format = FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_UBWC,
 			MDSS_MDP_FETCH_UBWC, MDSS_MDP_CHROMA_420,
 			VALID_ROT_WB_FORMAT, C1_B_Cb, C2_R_Cr),
-		.comp_ratio_rt = {1, 1},
-		.comp_ratio_nrt = {1, 1},
 	},
 };
 
