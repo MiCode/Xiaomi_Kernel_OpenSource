@@ -20,6 +20,7 @@
 #include <linux/of.h>
 #include <linux/irqdomain.h>
 
+extern bool from_suspend;
 extern struct irq_chip gic_arch_extn;
 
 void gic_configure_irq(unsigned int irq, unsigned int type,
