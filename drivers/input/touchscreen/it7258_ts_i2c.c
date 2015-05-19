@@ -26,11 +26,13 @@
 #include <linux/regulator/consumer.h>
 #include <linux/of_gpio.h>
 #include <linux/fb.h>
+#include <linux/debugfs.h>
 
 #define MAX_BUFFER_SIZE			144
 #define DEVICE_NAME			"IT7260"
 #define SCREEN_X_RESOLUTION		320
 #define SCREEN_Y_RESOLUTION		320
+#define DEBUGFS_DIR_NAME		"ts_debug"
 
 /* all commands writes go to this idx */
 #define BUF_COMMAND			0x20
@@ -156,6 +158,7 @@ struct IT7260_ts_data {
 #ifdef CONFIG_FB
 	struct notifier_block fb_notif;
 #endif
+	struct dentry *dir;
 };
 
 static int8_t fwUploadResult;
@@ -168,6 +171,26 @@ static struct IT7260_ts_data *gl_ts;
 
 #define LOGE(...)	pr_err(DEVICE_NAME ": " __VA_ARGS__)
 #define LOGI(...)	printk(DEVICE_NAME ": " __VA_ARGS__)
+
+static int IT7260_debug_suspend_set(void *_data, u64 val)
+{
+	if (val)
+		IT7260_ts_suspend(&gl_ts->client->dev);
+	else
+		IT7260_ts_resume(&gl_ts->client->dev);
+
+	return 0;
+}
+
+static int IT7260_debug_suspend_get(void *_data, u64 *val)
+{
+	*val = isDeviceSuspend;
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(debug_suspend_fops, IT7260_debug_suspend_get,
+				IT7260_debug_suspend_set, "%lld\n");
 
 /* internal use func - does not make sure chip is ready before read */
 static bool i2cReadNoReadyCheck(uint8_t bufferIndex, uint8_t *dataBuffer,
@@ -809,6 +832,7 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	uint8_t rsp[2];
 	int ret = -1;
 	int rc;
+	struct dentry *temp;
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		LOGE("need I2C_FUNC_I2C\n");
@@ -985,7 +1009,35 @@ static int IT7260_ts_probe(struct i2c_client *client,
 	i2cReadNoReadyCheck(BUF_RESPONSE, rsp, sizeof(rsp));
 	mdelay(10);
 
+	gl_ts->dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
+	if (gl_ts->dir == NULL || IS_ERR(gl_ts->dir)) {
+		dev_err(&client->dev,
+			"%s: Failed to create debugfs directory, rc = %ld\n",
+			__func__, PTR_ERR(gl_ts->dir));
+		ret = PTR_ERR(gl_ts->dir);
+		goto err_create_debugfs_dir;
+	}
+
+	temp = debugfs_create_file("suspend", S_IRUSR | S_IWUSR, gl_ts->dir,
+					gl_ts, &debug_suspend_fops);
+	if (temp == NULL || IS_ERR(temp)) {
+		dev_err(&client->dev,
+			"%s: Failed to create suspend debugfs file, rc = %ld\n",
+			__func__, PTR_ERR(temp));
+		ret = PTR_ERR(temp);
+		goto err_create_debugfs_file;
+	}
+
 	return 0;
+
+err_create_debugfs_file:
+	debugfs_remove_recursive(gl_ts->dir);
+err_create_debugfs_dir:
+#if defined(CONFIG_FB)
+	if (fb_unregister_client(&gl_ts->fb_notif))
+		dev_err(&client->dev, "Error occurred while unregistering fb_notifier.\n");
+#endif
+	sysfs_remove_group(&(client->dev.kobj), &it7260_attr_group);
 
 err_sysfs_grp_create_2:
 	free_irq(client->irq, gl_ts);
@@ -1010,10 +1062,12 @@ err_out:
 
 static int IT7260_ts_remove(struct i2c_client *client)
 {
+	debugfs_remove_recursive(gl_ts->dir);
 #if defined(CONFIG_FB)
 	if (fb_unregister_client(&gl_ts->fb_notif))
 		dev_err(&client->dev, "Error occurred while unregistering fb_notifier.\n");
 #endif
+	sysfs_remove_group(&(client->dev.kobj), &it7260_attr_group);
 	devicePresent = false;
 	return 0;
 }
