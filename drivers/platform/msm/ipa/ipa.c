@@ -30,7 +30,6 @@
 #include <linux/msm-bus-board.h>
 #include <linux/netdevice.h>
 #include <linux/delay.h>
-#include <linux/qcom_iommu.h>
 #include "ipa_i.h"
 #include "ipa_rm_i.h"
 
@@ -3861,40 +3860,6 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	return result;
 }
 
-#define IPA_QSMMU_AP_CB_LABEL "ipa_shared"
-#define IPA_QSMMU_WLAN_CB_LABEL "ipa_wlan"
-#define IPA_QSMMU_UC_CB_LABEL "ipa_uc"
-
-static int ipa_qsmmu_setup(struct device *dev)
-{
-	struct device *d;
-	int result = 0;
-
-	d = msm_iommu_get_ctx(IPA_QSMMU_AP_CB_LABEL);
-	if (IS_ERR_OR_NULL(d)) {
-		if (d != ERR_PTR(-EPROBE_DEFER))
-			IPAERR("fail to get ipa ap cb\n");
-		return PTR_ERR(d);
-	} else {
-		result = ipa_smmu_ap_cb_probe(d);
-	}
-
-	/* TODO: add err handling for WLAN and uc */
-	d = msm_iommu_get_ctx(IPA_QSMMU_WLAN_CB_LABEL);
-	if (IS_ERR_OR_NULL(d))
-		IPAERR("fail to get ipa wlan cb\n");
-	else
-		ipa_smmu_wlan_cb_probe(d);
-
-	d = msm_iommu_get_ctx(IPA_QSMMU_UC_CB_LABEL);
-	if (IS_ERR_OR_NULL(d))
-		IPAERR("fail to get ipa uc cb\n");
-	else
-		ipa_smmu_uc_cb_probe(d);
-
-	return result;
-}
-
 static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 {
 	int result;
@@ -3928,7 +3893,8 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 				ipa_plat_drv_match, NULL, &pdev_p->dev);
 	} else if (of_property_read_bool(pdev_p->dev.of_node,
 				"qcom,msm-smmu")) {
-		result = ipa_qsmmu_setup(dev);
+		IPAERR("Legacy IOMMU not supported\n");
+		result = -EOPNOTSUPP;
 	} else {
 		if (dma_set_mask(&pdev_p->dev, DMA_BIT_MASK(32)) ||
 			    dma_set_coherent_mask(&pdev_p->dev,
