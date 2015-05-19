@@ -97,9 +97,15 @@
 #define DIAG_CMD_QUERY_TMC	0x02
 #define DIAG_SS_TDSCDMA	0x57
 #define DIAG_CMD_TDSCDMA_STATUS	0x0E
+#define DIAG_CMD_DIAG_SUBSYS_DELAY 0x80
 
 #define DIAG_SS_DIAG		0x12
 #define DIAG_SS_PARAMS		0x32
+#define DIAG_SS_FILE_READ_MODEM 0x0816
+#define DIAG_SS_FILE_READ_ADSP  0x0E10
+#define DIAG_SS_FILE_READ_WCNSS 0x141F
+#define DIAG_SS_FILE_READ_SLPI 0x01A18
+#define DIAG_SS_FILE_READ_APPS 0x020F
 
 #define DIAG_DIAG_MAX_PKT_SZ	0x55
 #define DIAG_DIAG_STM		0x214
@@ -380,6 +386,13 @@ struct diag_feature_t {
 	uint8_t sent_feature_mask;
 };
 
+struct diag_mdlog_client_info {
+	struct task_struct *client_process;
+	int client_id;
+	uint16_t notification_list;
+	int signal_type;
+};
+
 struct diagchar_dev {
 
 	/* State for the char driver */
@@ -491,6 +504,7 @@ struct diagchar_dev {
 	int logging_mode;
 	int mask_check;
 	struct diag_md_proc_info md_proc[DIAG_NUM_PROC];
+	struct diag_mdlog_client_info md_client_info;
 	/* Power related variables */
 	struct diag_ws_ref_t dci_ws;
 	struct diag_ws_ref_t md_ws;
@@ -509,8 +523,8 @@ struct diagchar_dev {
 	uint32_t max_ssid_count[NUM_PERIPHERALS];
 #ifdef CONFIG_DIAGFWD_BRIDGE_CODE
 	/* For sending command requests in callback mode */
-	unsigned char *cb_buf;
-	int cb_buf_len;
+	unsigned char *hdlc_encode_buf;
+	int hdlc_encode_buf_len;
 #endif
 };
 

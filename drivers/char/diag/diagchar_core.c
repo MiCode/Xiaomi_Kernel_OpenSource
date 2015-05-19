@@ -59,8 +59,8 @@ struct diagchar_priv {
 	int pid;
 };
 
-#define CALLBACK_NON_HDLC_DATA	0
-#define CALLBACK_HDLC_DATA	1
+#define USER_SPACE_RAW_DATA	0
+#define USER_SPACE_HDLC_DATA	1
 
 /* Memory pool variables */
 /* Used for copying any incoming packet from user space clients. */
@@ -376,6 +376,8 @@ static void diag_close_logging_process(int pid)
 		if (logging_proc->callback_process)
 			logging_proc->callback_process = NULL;
 		logging_proc->pid = 0;
+		if (driver->md_client_info.client_process)
+			driver->md_client_info.client_process = NULL;
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN, i);
 	}
 	mutex_unlock(&driver->diagchar_mutex);
@@ -842,19 +844,19 @@ static int diag_remote_init(void)
 			poolsize_mdm_dci_write);
 	diagmem_setsize(POOL_TYPE_QSC_MUX, itemsize_qsc_usb,
 			poolsize_qsc_usb);
-	driver->cb_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE, GFP_KERNEL);
-	if (!driver->cb_buf)
+	driver->hdlc_encode_buf = kzalloc(DIAG_MAX_HDLC_BUF_SIZE, GFP_KERNEL);
+	if (!driver->hdlc_encode_buf)
 		return -ENOMEM;
-	driver->cb_buf_len = 0;
+	driver->hdlc_encode_buf_len = 0;
 	return 0;
 }
 
 static void diag_remote_exit(void)
 {
-	kfree(driver->cb_buf);
+	kfree(driver->hdlc_encode_buf);
 }
 
-static int diag_cb_send_data_remote(int proc, void *buf, int len,
+static int diag_send_raw_data_remote(int proc, void *buf, int len,
 				    uint8_t hdlc_flag)
 {
 	int err = 0;
@@ -864,6 +866,7 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 	uint16_t payload = 0;
 	struct diag_send_desc_type send = { NULL, NULL, DIAG_STATE_START, 0 };
 	struct diag_hdlc_dest_type enc = { NULL, NULL, 0 };
+	int bridge_index = proc - 1;
 
 	if (!buf)
 		return -EINVAL;
@@ -873,24 +876,30 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 		return -EBADMSG;
 	}
 
+	if (bridge_index < 0 || bridge_index > NUM_REMOTE_DEV) {
+		pr_err("diag: In %s, invalid bridge index: %d\n", __func__,
+			bridge_index);
+		return -EINVAL;
+	 }
+
 	do {
-		if (driver->cb_buf_len == 0)
+		if (driver->hdlc_encode_buf_len == 0)
 			break;
 		usleep_range(10000, 10100);
 		retry_count++;
 	} while (retry_count < max_retries);
 
-	if (driver->cb_buf_len != 0)
+	if (driver->hdlc_encode_buf_len != 0)
 		return -EAGAIN;
 
 	if (driver->hdlc_disabled) {
 		payload = *(uint16_t *)(buf + 2);
-		driver->cb_buf_len = payload;
+		driver->hdlc_encode_buf_len = payload;
 		/*
 		 * Adding 4 bytes for start (1 byte), version (1 byte) and
 		 * payload (2 bytes)
 		 */
-		memcpy(driver->cb_buf, buf + 4, payload);
+		memcpy(driver->hdlc_encode_buf, buf + 4, payload);
 		goto send_data;
 	}
 
@@ -900,8 +909,8 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 			       len);
 			return -EBADMSG;
 		}
-		driver->cb_buf_len = len;
-		memcpy(driver->cb_buf, buf, len);
+		driver->hdlc_encode_buf_len = len;
+		memcpy(driver->hdlc_encode_buf, buf, len);
 		goto send_data;
 	}
 
@@ -922,18 +931,19 @@ static int diag_cb_send_data_remote(int proc, void *buf, int len,
 	send.last = (void *)(buf + len - 1);
 	send.terminate = 1;
 
-	enc.dest = driver->cb_buf;
-	enc.dest_last = (void *)(driver->cb_buf + max_len - 1);
+	enc.dest = driver->hdlc_encode_buf;
+	enc.dest_last = (void *)(driver->hdlc_encode_buf + max_len - 1);
 	diag_hdlc_encode(&send, &enc);
-	driver->cb_buf_len = (int)(enc.dest - (void *)driver->cb_buf);
+	driver->hdlc_encode_buf_len = (int)(enc.dest -
+					(void *)driver->hdlc_encode_buf);
 
 send_data:
-	err = diagfwd_bridge_write(proc, driver->cb_buf,
-				   driver->cb_buf_len);
+	err = diagfwd_bridge_write(proc, driver->hdlc_encode_buf,
+				   driver->hdlc_encode_buf_len);
 	if (err) {
 		pr_err_ratelimited("diag: Error writing Callback packet to proc: %d, err: %d\n",
 				   proc, err);
-		driver->cb_buf_len = 0;
+		driver->hdlc_encode_buf_len = 0;
 	}
 
 	return err;
@@ -984,7 +994,7 @@ uint16_t diag_get_remote_device_mask(void)
 	return 0;
 }
 
-static int diag_cb_send_data_remote(int proc, void *buf, int len,
+static int diag_send_raw_data_remote(int proc, void *buf, int len,
 				    uint8_t hdlc_flag)
 {
 	return -EINVAL;
@@ -1004,7 +1014,22 @@ static int mask_request_validate(unsigned char mask_buf[])
 
 	packet_id = mask_buf[0];
 
-	if (packet_id == 0x4B) {
+	if (packet_id == DIAG_CMD_DIAG_SUBSYS_DELAY) {
+		subsys_id = mask_buf[1];
+		ss_cmd = *(uint16_t *)(mask_buf + 2);
+		switch (subsys_id) {
+		case DIAG_SS_DIAG:
+			if ((ss_cmd == DIAG_SS_FILE_READ_MODEM) ||
+				(ss_cmd == DIAG_SS_FILE_READ_ADSP) ||
+				(ss_cmd == DIAG_SS_FILE_READ_WCNSS) ||
+				(ss_cmd == DIAG_SS_FILE_READ_SLPI) ||
+				(ss_cmd == DIAG_SS_FILE_READ_APPS))
+				return 1;
+			break;
+		default:
+			return 0;
+		}
+	} else if (packet_id == 0x4B) {
 		subsys_id = mask_buf[1];
 		ss_cmd = *(uint16_t *)(mask_buf + 2);
 		/* Packets with SSID which are allowed */
@@ -1111,6 +1136,10 @@ static int diag_switch_logging(int requested_mode)
 		driver->md_proc[DIAG_LOCAL_PROC].socket_process = NULL;
 	}
 
+	if (new_mode == MEMORY_DEVICE_MODE)
+		driver->md_client_info.client_process = current;
+
+	mutex_lock(&driver->diagchar_mutex);
 	diag_ws_reset(DIAG_WS_MUX);
 	err = diag_mux_switch_logging(mux_mode);
 	if (err) {
@@ -1972,7 +2001,7 @@ fail:
 	return err;
 }
 
-static int diag_user_process_callback_data(const char __user *buf, int len)
+static int diag_user_process_raw_data(const char __user *buf, int len)
 {
 	int err = 0;
 	int ret = 0;
@@ -1999,82 +2028,41 @@ static int diag_user_process_callback_data(const char __user *buf, int len)
 
 	/* Check for proc_type */
 	remote_proc = diag_get_remote(*(int *)user_space_data);
-	if (!remote_proc) {
+	if (remote_proc) {
+		token_offset = sizeof(int);
+		if (len <= MIN_SIZ_ALLOW) {
+			pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
+		       __func__, len);
+			diagmem_free(driver, user_space_data, mempool);
+			user_space_data = NULL;
+			return -EBADMSG;
+		}
+		len -= sizeof(int);
+	}
+	if (driver->mask_check) {
+		if (!mask_request_validate(user_space_data +
+						token_offset)) {
+			pr_alert("diag: mask request Invalid\n");
+			diagmem_free(driver, user_space_data, mempool);
+			user_space_data = NULL;
+			return -EFAULT;
+		}
+	}
+	if (remote_proc) {
+		ret = diag_send_raw_data_remote(remote_proc - 1,
+				(void *)(user_space_data + token_offset),
+				len, USER_SPACE_RAW_DATA);
+		if (ret) {
+			pr_err("diag: Error sending data to remote proc %d, err: %d\n",
+				remote_proc, ret);
+		}
+	} else {
 		wait_event_interruptible(driver->wait_q,
 					 (driver->in_busy_pktdata == 0));
 		ret = diag_process_apps_pkt(user_space_data, len);
-		diagmem_free(driver, user_space_data, mempool);
-		user_space_data = NULL;
-		return ret;
+		if (ret == 1)
+			diag_send_error_rsp((void *)(user_space_data), len);
 	}
-
-	token_offset = sizeof(int);
-	if (len <= MIN_SIZ_ALLOW) {
-		pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
-		       __func__, len);
-		return -EBADMSG;
-	}
-
-	len -= sizeof(int);
-	ret = diag_cb_send_data_remote(remote_proc - 1,
-				(void *)(user_space_data + token_offset),
-				len, CALLBACK_NON_HDLC_DATA);
-fail:
-	diagmem_free(driver, user_space_data, mempool);
-	user_space_data = NULL;
-	return ret;
-}
-
-static int diag_user_process_callback_hdlc_data(const char __user *buf, int len)
-{
-	int err = 0;
-	int ret = 0;
-	int token_offset = 0;
-	int remote_proc = 0;
-	const int mempool = POOL_TYPE_COPY;
-	unsigned char *user_space_data = NULL;
-
-	if (!buf || len <= 0 || len > CALLBACK_BUF_SIZE) {
-		pr_err_ratelimited("diag: In %s, invalid buf %p len: %d\n",
-				   __func__, buf, len);
-		return -EBADMSG;
-	}
-
-	user_space_data = diagmem_alloc(driver, len, mempool);
-	if (!user_space_data)
-		return -ENOMEM;
-
-	err = copy_from_user(user_space_data, buf, len);
-	if (err) {
-		pr_err("diag: copy failed for user space data\n");
-		goto fail;
-	}
-
-	/* Check for proc_type */
-	remote_proc = diag_get_remote(*(int *)user_space_data);
-	if (!remote_proc) {
-		wait_event_interruptible(driver->wait_q,
-					 (driver->in_busy_pktdata == 0));
-		if (driver->hdlc_disabled)
-			diag_process_non_hdlc_pkt(user_space_data, len);
-		else
-			diag_process_hdlc_pkt((void *)user_space_data, len);
-		diagmem_free(driver, user_space_data, mempool);
-		user_space_data = NULL;
-		return 0;
-	}
-
-	token_offset = sizeof(int);
-	if (len <= MIN_SIZ_ALLOW) {
-		pr_err("diag: In %s, possible integer underflow, payload size: %d\n",
-		       __func__, len);
-		return -EBADMSG;
-	}
-
-	len -= sizeof(int);
-	ret = diag_cb_send_data_remote(remote_proc - 1,
-				(void *)(user_space_data + token_offset),
-				len, CALLBACK_HDLC_DATA);
 fail:
 	diagmem_free(driver, user_space_data, mempool);
 	user_space_data = NULL;
@@ -2461,11 +2449,8 @@ static ssize_t diagchar_write(struct file *file, const char __user *buf,
 						       pkt_type);
 	else if (pkt_type == DCI_DATA_TYPE)
 		return diag_user_process_dci_data(payload_buf, payload_len);
-	else if (pkt_type == CALLBACK_DATA_TYPE)
-		return diag_user_process_callback_data(payload_buf,
-						       payload_len);
-	else if (pkt_type == CALLBACK_HDLC_DATA_TYPE)
-		return diag_user_process_callback_hdlc_data(payload_buf,
+	else if (pkt_type == USER_SPACE_RAW_DATA_TYPE)
+		return diag_user_process_raw_data(payload_buf,
 							    payload_len);
 	else if (pkt_type == USER_SPACE_DATA_TYPE)
 		return diag_user_process_userspace_data(payload_buf,
@@ -2829,6 +2814,7 @@ static int __init diagchar_init(void)
 		driver->md_proc[i].callback_process = NULL;
 		driver->md_proc[i].socket_process = NULL;
 	}
+	driver->md_client_info.client_process = NULL;
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;

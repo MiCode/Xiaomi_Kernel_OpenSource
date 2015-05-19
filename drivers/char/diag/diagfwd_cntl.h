@@ -44,6 +44,7 @@
 #define DIAG_CTRL_MSG_BUILD_MASK_REPORT		25
 #define DIAG_CTRL_MSG_DEREG		27
 #define DIAG_CTRL_MSG_DCI_HANDSHAKE_PKT		29
+#define DIAG_CTRL_MSG_PD_STATUS			30
 
 /*
  * Feature Mask Definitions: Feature mask is used to sepcify Diag features
@@ -185,6 +186,14 @@ struct diag_ctrl_dci_handshake_pkt {
 	uint32_t magic;
 } __packed;
 
+struct diag_ctrl_msg_pd_status {
+	uint32_t ctrl_pkt_id;
+	uint32_t ctrl_pkt_data_len;
+	uint32_t version;
+	uint32_t pd_id;
+	uint8_t status;
+} __packed;
+
 struct diag_ctrl_last_event_report {
 	uint32_t pkt_id;
 	uint32_t len;
@@ -260,5 +269,5 @@ int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
 				    struct diag_buffering_mode_t *params);
 int diag_send_buffering_wm_values(uint8_t peripheral,
 				  struct diag_buffering_mode_t *params);
-
+void diag_notify_md_client(uint16_t peripheral_mask, int data);
 #endif

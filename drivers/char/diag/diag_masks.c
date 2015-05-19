@@ -158,7 +158,7 @@ static void diag_send_log_mask_update(uint8_t peripheral, int equip_id)
 		mutex_unlock(&mask->lock);
 		err = diagfwd_write(peripheral, TYPE_CNTL,
 				    buf, header_len + mask_size);
-		if (err) {
+		if (err && err != -ENODEV) {
 			pr_err("diag: Unable to send log masks to peripheral %d, equip_id: %d, err: %d\n",
 			       peripheral, i, err);
 		}
@@ -236,7 +236,7 @@ static void diag_send_event_mask_update(uint8_t peripheral)
 	write_len += sizeof(header);
 
 	err = diagfwd_write(peripheral, TYPE_CNTL, buf, write_len);
-	if (err) {
+	if (err && err != -ENODEV) {
 		pr_err("diag: Unable to send event masks to peripheral %d\n",
 		       peripheral);
 	}
@@ -327,7 +327,7 @@ proceed:
 
 		err = diagfwd_write(peripheral, TYPE_CNTL, buf,
 				    header_len + mask_size);
-		if (err) {
+		if (err && err != -ENODEV) {
 			pr_err("diag: Unable to send msg masks to peripheral %d\n",
 			       peripheral);
 		}
@@ -382,7 +382,7 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 	total_len = header_size + FEATURE_MASK_LEN;
 
 	err = diagfwd_write(peripheral, TYPE_CNTL, buf, total_len);
-	if (err) {
+	if (err && err != -ENODEV) {
 		pr_err("diag: In %s, unable to write to peripheral: %d, type: %d, len: %d, err: %d\n",
 		       __func__, peripheral, TYPE_CNTL,
 		       total_len, err);

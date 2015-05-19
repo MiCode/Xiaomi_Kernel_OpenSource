@@ -97,6 +97,39 @@ static void diag_stm_update_work_fn(struct work_struct *work)
 	}
 }
 
+void diag_notify_md_client(uint16_t peripheral_mask, int data)
+{
+	int stat;
+	struct siginfo info;
+
+	memset(&info, 0, sizeof(struct siginfo));
+	info.si_code = SI_QUEUE;
+	info.si_int = (peripheral_mask | data);
+	info.si_signo = SIGCONT;
+	stat = send_sig_info(info.si_signo,
+		&info, driver->md_client_info.client_process);
+	if (stat)
+		pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
+			info.si_int, stat);
+}
+
+static void process_pd_status(uint8_t *buf, uint32_t len,
+				uint8_t peripheral) {
+	struct diag_ctrl_msg_pd_status *pd_msg =
+				(struct diag_ctrl_msg_pd_status *)buf;
+	uint16_t pd;
+	uint8_t status;
+
+	if (!buf || peripheral >= NUM_PERIPHERALS || len == 0)
+		return;
+
+	pd = pd_msg->pd_id;
+	status = pd_msg->status;
+	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
+		diag_notify_md_client(PERIPHERAL_MASK(peripheral), status);
+	}
+}
+
 static void enable_stm_feature(uint8_t peripheral)
 {
 	if (peripheral >= NUM_PERIPHERALS)
@@ -654,6 +687,10 @@ void diag_cntl_process_read_data(struct diagfwd_info *p_info, void *buf,
 			process_build_mask_report(ptr, ctrl_pkt->len,
 						  p_info->peripheral);
 			break;
+		case DIAG_CTRL_MSG_PD_STATUS:
+			process_pd_status(ptr, ctrl_pkt->len,
+						p_info->peripheral);
+			break;
 		default:
 			pr_debug("diag: Control packet %d not supported\n",
 				 ctrl_pkt->pkt_id);
@@ -945,7 +982,7 @@ int diag_send_real_time_update(uint8_t peripheral, int real_time)
 
 	mutex_lock(&driver->diag_cntl_mutex);
 	err = diagfwd_write(peripheral, TYPE_CNTL, buf, msg_size);
-	if (err) {
+	if (err && err != -ENODEV) {
 		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
 		       __func__, peripheral, TYPE_CNTL,
 		       msg_size, err);
@@ -1061,7 +1098,7 @@ int diag_send_stm_state(uint8_t peripheral, uint8_t stm_control_data)
 	stm_msg.version = 1;
 	stm_msg.control_data = stm_control_data;
 	err = diagfwd_write(peripheral, TYPE_CNTL, &stm_msg, msg_size);
-	if (err) {
+	if (err && err != -ENODEV) {
 		pr_err("diag: In %s, unable to write to smd, peripheral: %d, type: %d, len: %d, err: %d\n",
 		       __func__, peripheral, TYPE_CNTL,
 		       msg_size, err);
@@ -1095,7 +1132,7 @@ int diag_send_peripheral_drain_immediate(uint8_t peripheral)
 	ctrl_pkt.stream_id = 1;
 
 	err = diagfwd_write(peripheral, TYPE_CNTL, &ctrl_pkt, sizeof(ctrl_pkt));
-	if (err) {
+	if (err && err != -ENODEV) {
 		pr_err("diag: Unable to send drain immediate ctrl packet to peripheral %d, err: %d\n",
 		       peripheral, err);
 	}
@@ -1140,7 +1177,7 @@ int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
 	ctrl_pkt.tx_mode = params->mode;
 
 	err = diagfwd_write(peripheral, TYPE_CNTL, &ctrl_pkt, sizeof(ctrl_pkt));
-	if (err) {
+	if (err && err != -ENODEV) {
 		pr_err("diag: Unable to send tx_mode ctrl packet to peripheral %d, err: %d\n",
 		       peripheral, err);
 		goto fail;
@@ -1200,7 +1237,7 @@ int diag_send_buffering_wm_values(uint8_t peripheral,
 
 	err = diagfwd_write(peripheral, TYPE_CNTL, &ctrl_pkt,
 			    sizeof(ctrl_pkt));
-	if (err) {
+	if (err && err != -ENODEV) {
 		pr_err("diag: Unable to send watermark values to peripheral %d, err: %d\n",
 		       peripheral, err);
 	}

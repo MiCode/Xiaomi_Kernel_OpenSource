@@ -233,8 +233,8 @@ int diag_remote_dev_write_done(int id, unsigned char *buf, int len, int ctxt)
 		return -EINVAL;
 
 	if (bridge_info[id].type == DIAG_DATA_TYPE) {
-		if (buf == driver->cb_buf)
-			driver->cb_buf_len = 0;
+		if (buf == driver->hdlc_encode_buf)
+			driver->hdlc_encode_buf_len = 0;
 		/*
 		 * For remote processor, the token offset is stripped from the
 		 * buffer. Account for the token offset while checking against
