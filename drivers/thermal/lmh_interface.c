@@ -13,7 +13,7 @@
 #define pr_fmt(fmt) "%s:%s " fmt, KBUILD_MODNAME, __func__
 
 #include <linux/module.h>
-#include <linux/platform_device.h>
+#include <linux/device.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
 #include <linux/kernel.h>
@@ -57,6 +57,7 @@ struct lmh_device_data {
 	struct dentry			*avail_lvl_fs;
 	struct list_head		list_ptr;
 	struct rw_semaphore		lock;
+	struct device			dev;
 };
 
 struct lmh_mon_sensor_data {
@@ -89,9 +90,13 @@ struct lmh_mon_driver_data {
 enum lmh_read_type {
 	LMH_DEBUG_READ_TYPE,
 	LMH_DEBUG_CONFIG_TYPE,
+	LMH_PROFILES,
 };
 
 static struct lmh_mon_driver_data	*lmh_mon_data;
+static struct class			lmh_class_info = {
+	.name = "msm_limits",
+};
 static DECLARE_RWSEM(lmh_mon_access_lock);
 static LIST_HEAD(lmh_sensor_list);
 static DECLARE_RWSEM(lmh_dev_access_lock);
@@ -141,104 +146,117 @@ DEFINE_SIMPLE_ATTRIBUTE(_name##_fops, _name##_get, _name##_set, \
 	"%llu\n");
 
 #define LMH_DEV_GET(_name) \
-static int _name##_get(void *data, u64 *val) \
+static ssize_t _name##_get(struct device *dev, \
+	struct device_attribute *attr, char *buf) \
 { \
-	struct lmh_device_data *lmh_dev = (struct lmh_device_data *) data; \
-	*val = lmh_dev->_name; \
-	return 0; \
-}
+	struct lmh_device_data *lmh_dev = container_of(dev, \
+			struct lmh_device_data, dev); \
+	return snprintf(buf, LMH_NAME_MAX, "%d", lmh_dev->_name); \
+} \
 
 LMH_HW_LOG_FS(hw_log_enable);
 LMH_HW_LOG_FS(hw_log_interval);
 LMH_DEV_GET(max_level);
 LMH_DEV_GET(curr_level);
 
-static int curr_level_set(void *data, u64 val)
+static ssize_t curr_level_set(struct device *dev,
+	struct device_attribute *attr, const char *buf, size_t count)
 {
-	struct lmh_device_data *lmh_dev = (struct lmh_device_data *) data;
+	struct lmh_device_data *lmh_dev = container_of(dev,
+		struct lmh_device_data, dev);
+	int val = 0, ret = 0;
 
+	ret = kstrtouint(buf, 0, &val);
+	if (ret < 0) {
+		pr_err("Invalid input [%s]. err:%d\n", buf, ret);
+		return ret;
+	}
 	return lmh_set_dev_level(lmh_dev->device_name, val);
 }
 
-static ssize_t avail_level_get(struct file *fp, char __user *user_buffer,
-	       size_t buffer_length, loff_t *position)
+static ssize_t avail_level_get(struct device *dev,
+	struct device_attribute *attr, char *buf)
 {
-	struct lmh_device_data *lmh_dev = list_first_entry(&lmh_device_list,
-		       struct lmh_device_data, list_ptr);
-	int idx = 0, count = 0, ret = 0;
-	char *profile_buf = NULL;
-	char *buf_start = NULL;
+	struct lmh_device_data *lmh_dev = container_of(dev,
+		struct lmh_device_data, dev);
+	uint32_t *type_list = NULL;
+	int ret = 0, count = 0, lvl_buf_count = 0, idx = 0;
+	char *lvl_buf = NULL;
 
-	if (!lmh_dev || !lmh_dev->max_level)
-		return ret;
-
-	profile_buf = kzalloc(LMH_NAME_MAX * lmh_dev->max_level, GFP_KERNEL);
-	if (!profile_buf) {
+	if (!lmh_dev || !lmh_dev->levels || !lmh_dev->max_level) {
+		pr_err("Invalid input\n");
+		return -EINVAL;
+	}
+	type_list = lmh_dev->levels;
+	lvl_buf = kzalloc(PAGE_SIZE, GFP_KERNEL);
+	if (!lvl_buf) {
 		pr_err("Error allocating memory\n");
 		return -ENOMEM;
 	}
-	buf_start = profile_buf;
-	for (idx = 0; idx < lmh_dev->max_level; idx++) {
-		count = snprintf(buf_start, LMH_NAME_MAX, "%d ",
-			       lmh_dev->levels[idx]);
-		if (count <= 0) {
-			pr_err("Error getting freq value idx:%d. err:%d\n",
-				       idx, count);
-			return count;
+	for (idx = 0; (idx < lmh_dev->max_level) && (lvl_buf_count < PAGE_SIZE)
+		; idx++) {
+		count = snprintf(lvl_buf + lvl_buf_count,
+				PAGE_SIZE - lvl_buf_count, "%d ",
+				type_list[idx]);
+		if (count + lvl_buf_count >= PAGE_SIZE) {
+			pr_err("overflow.\n");
+			break;
 		}
-		buf_start += count;
+		lvl_buf_count += count;
 	}
-	if (buf_start != profile_buf) {
-		buf_start[-1] = '\n';
-		ret = simple_read_from_buffer(user_buffer, buffer_length,
-				position, profile_buf,
-				buf_start - profile_buf - 1);
-		if (ret)
-			pr_err("populating the buffer failed. err:%d\n", ret);
-	} else {
-		ret = -ENODEV;
+	count = snprintf(lvl_buf + lvl_buf_count, PAGE_SIZE - lvl_buf_count,
+			"\n");
+	if (count + lvl_buf_count < PAGE_SIZE)
+		lvl_buf_count += count;
+
+	count = snprintf(buf, lvl_buf_count + 1, lvl_buf);
+	if (count > PAGE_SIZE) {
+		pr_err("copy to user buf failed\n");
+		ret = -EFAULT;
+		goto lvl_get_exit;
 	}
 
-	kfree(profile_buf);
-	return ret;
+lvl_get_exit:
+	kfree(lvl_buf);
+	return (ret) ? ret : count;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(curr_level_fops, curr_level_get, curr_level_set,
-	"%llu\n");
-
-DEFINE_SIMPLE_ATTRIBUTE(max_level_fops, max_level_get, NULL, "%llu\n");
-
-static const struct file_operations avail_level_fops  = {
-	.read = avail_level_get,
-};
-
-static int lmh_create_dev_debugfs(struct lmh_device_data *lmh_dev)
+static int lmh_create_dev_sysfs(struct lmh_device_data *lmh_dev)
 {
 	int ret = 0;
+	static DEVICE_ATTR(level, 0600, curr_level_get, curr_level_set);
+	static DEVICE_ATTR(available_levels, 0400, avail_level_get, NULL);
+	static DEVICE_ATTR(total_levels, 0400, max_level_get, NULL);
 
-	LMH_CREATE_DEBUGFS_DIR(lmh_dev->dev_parent, lmh_dev->device_name,
-		       lmh_mon_data->debugfs_parent, ret);
-	if (ret)
-		goto debugfs_exit;
-	LMH_CREATE_DEBUGFS_FILE(lmh_dev->curr_lvl_fs, "level",
-		0600, lmh_dev->dev_parent, (void *)lmh_dev,
-		&curr_level_fops, ret);
-	if (ret)
-		goto debugfs_exit;
-	LMH_CREATE_DEBUGFS_FILE(lmh_dev->max_lvl_fs, "total_levels",
-		0400, lmh_dev->dev_parent, (void *)lmh_dev,
-		&max_level_fops, ret);
-	if (ret)
-		goto debugfs_exit;
-	LMH_CREATE_DEBUGFS_FILE(lmh_dev->avail_lvl_fs, "available_levels",
-		0400, lmh_dev->dev_parent, (void *)lmh_dev,
-		&avail_level_fops, ret);
-	if (ret)
-		goto debugfs_exit;
+	lmh_dev->dev.class = &lmh_class_info;
+	dev_set_name(&lmh_dev->dev, "%s", lmh_dev->device_name);
+	ret = device_register(&lmh_dev->dev);
+	if (ret) {
+		pr_err("Error registering profile device. err:%d\n", ret);
+		return ret;
+	}
+	ret = device_create_file(&lmh_dev->dev, &dev_attr_level);
+	if (ret) {
+		pr_err("Error creating profile level sysfs node. err:%d\n",
+			ret);
+		goto dev_sysfs_exit;
+	}
+	ret = device_create_file(&lmh_dev->dev, &dev_attr_total_levels);
+	if (ret) {
+		pr_err("Error creating total level sysfs node. err:%d\n",
+			ret);
+		goto dev_sysfs_exit;
+	}
+	ret = device_create_file(&lmh_dev->dev, &dev_attr_available_levels);
+	if (ret) {
+		pr_err("Error creating available level sysfs node. err:%d\n",
+			ret);
+		goto dev_sysfs_exit;
+	}
 
-debugfs_exit:
+dev_sysfs_exit:
 	if (ret)
-		debugfs_remove_recursive(lmh_dev->dev_parent);
+		device_unregister(&lmh_dev->dev);
 	return ret;
 }
 
@@ -706,7 +724,7 @@ static int lmh_device_init(struct lmh_device_data *lmh_device,
 	lmh_device->device_ops = ops;
 	strlcpy(lmh_device->device_name, device_name, LMH_NAME_MAX);
 	list_add_tail(&lmh_device->list_ptr, &lmh_device_list);
-	lmh_create_dev_debugfs(lmh_device);
+	lmh_create_dev_sysfs(lmh_device);
 
 dev_init_exit:
 	if (ret)
@@ -1150,6 +1168,7 @@ dbg_reg_exit:
 
 	return ret;
 }
+
 static int lmh_mon_init_driver(void)
 {
 	int ret = 0;
@@ -1186,8 +1205,13 @@ static int __init lmh_mon_init_call(void)
 		pr_err("Error initializing the debugfs. err:%d\n", ret);
 		goto lmh_init_exit;
 	}
+	ret = class_register(&lmh_class_info);
+	if (ret)
+		goto lmh_init_exit;
 
 lmh_init_exit:
+	if (ret)
+		class_unregister(&lmh_class_info);
 	return ret;
 }
 
@@ -1226,6 +1250,7 @@ static void __exit lmh_mon_exit(void)
 	lmh_mon_cleanup();
 	lmh_device_cleanup();
 	lmh_debug_cleanup();
+	class_unregister(&lmh_class_info);
 }
 
 module_init(lmh_mon_init_call);
