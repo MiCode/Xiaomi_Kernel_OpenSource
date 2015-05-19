@@ -1,0 +1,52 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/dts-v1/;
+
+#include "msm8916-qrd-skuh.dtsi"
+#include "msm8916-memory.dtsi"
+
+/ {
+	model = "Qualcomm Technologies, Inc. APQ 8016 QRD SKUH";
+	compatible = "qcom,apq8016-qrd-skuh", "qcom,apq8016-qrd", "qcom,apq8016", "qcom,qrd";
+	qcom,msm-id = <247 0>;
+	qcom,board-id = <0x1000b 0>, <0x1000b 4>,
+			<0x1010b 0>, <0x1010b 4>,
+			<0x2010b 0>, <0x2010b 4>;
+
+	memory {
+		modem_adsp_mem: modem_adsp_region@0 {
+			reg = <0x0 0x86800000 0x0 0x02b00000>;
+		};
+
+		peripheral_mem: pheripheral_region@0 {
+			reg = <0x0 0x89300000 0x0 0x0600000>;
+		};
+	};
+};
+
+&soc {
+	sound {
+		qcom,msm-hs-micbias-type = "external";
+		qcom,audio-routing =
+				"RX_BIAS", "MCLK",
+				"SPK_RX_BIAS", "MCLK",
+				"INT_LDO_H", "MCLK",
+				"MIC BIAS External", "Handset Mic",
+				"MIC BIAS External2", "Headset Mic",
+				"MIC BIAS External", "Secondary Mic",
+				"AMIC1", "MIC BIAS External",
+				"AMIC2", "MIC BIAS External2",
+				"AMIC3", "MIC BIAS External";
+	};
+};
