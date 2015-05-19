@@ -185,6 +185,17 @@ int glink_tx(void *handle, void *pkt_priv, void *data, size_t size,
 int glink_queue_rx_intent(void *handle, const void *pkt_priv, size_t size);
 
 /**
+ * glink_rx_intent_exists() - Check if an intent of size exists.
+ *
+ * @handle:	handle returned by glink_open()
+ * @size:	size of an intent to check or 0 for any intent
+ *
+ * Return:	TRUE if an intent exists with greater than or equal to the size
+ *		else FALSE
+ */
+bool glink_rx_intent_exists(void *handle, size_t size);
+
+/**
  * glink_rx_done() - Return receive buffer to remote side.
  *
  * @handle:	handle returned by glink_open()
@@ -292,6 +303,11 @@ static inline int glink_tx(void *handle, void *pkt_priv, void *data,
 
 static inline int glink_queue_rx_intent(void *handle, const void *pkt_priv,
 								size_t size)
+{
+	return -ENODEV;
+}
+
+static inline bool glink_rx_intent_exists(void *handle, size_t size)
 {
 	return -ENODEV;
 }

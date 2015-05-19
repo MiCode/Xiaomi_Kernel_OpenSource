@@ -2351,6 +2351,38 @@ int glink_queue_rx_intent(void *handle, const void *pkt_priv, size_t size)
 EXPORT_SYMBOL(glink_queue_rx_intent);
 
 /**
+ * glink_rx_intent_exists() - Check if an intent exists.
+ *
+ * @handle:	handle returned by glink_open()
+ * @size:	size of an intent to check or 0 for any intent
+ *
+ * Return:	TRUE if an intent exists with greater than or equal to the size
+ *		else FALSE
+ */
+bool glink_rx_intent_exists(void *handle, size_t size)
+{
+	struct channel_ctx *ctx = (struct channel_ctx *)handle;
+	struct glink_core_rx_intent *intent;
+	unsigned long flags;
+
+	if (!ctx || !ch_is_fully_opened(ctx))
+		return false;
+
+	spin_lock_irqsave(&ctx->local_rx_intent_lst_lock_lhc1, flags);
+	list_for_each_entry(intent, &ctx->local_rx_intent_list, list) {
+		if (size <= intent->intent_size) {
+			spin_unlock_irqrestore(
+				&ctx->local_rx_intent_lst_lock_lhc1, flags);
+			return true;
+		}
+	}
+	spin_unlock_irqrestore(&ctx->local_rx_intent_lst_lock_lhc1, flags);
+
+	return false;
+}
+EXPORT_SYMBOL(glink_rx_intent_exists);
+
+/**
  * glink_rx_done() - Return receive buffer to remote side.
  *
  * @handle:	handle returned by glink_open()
