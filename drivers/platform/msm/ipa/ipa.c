@@ -3833,12 +3833,6 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		return -EPROBE_DEFER;
 	}
 
-	result = arm_iommu_attach_device(cb->dev, cb->mapping);
-	if (result) {
-		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
-		return result;
-	}
-
 	if (smmu_disable_htw) {
 		if (iommu_domain_set_attr(cb->mapping->domain,
 				DOMAIN_ATTR_COHERENT_HTW_DISABLE,
@@ -3855,6 +3849,12 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 		IPAERR("couldn't set domain as atomic\n");
 		arm_iommu_detach_device(cb->dev);
 		return -EIO;
+	}
+
+	result = arm_iommu_attach_device(cb->dev, cb->mapping);
+	if (result) {
+		IPAERR("couldn't attach to IOMMU ret=%d\n", result);
+		return result;
 	}
 
 	cb->valid = true;
