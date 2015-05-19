@@ -7,3 +7,4 @@ obj-$(CONFIG_SPS) += sps/
 obj-$(CONFIG_EP_PCIE) += ep_pcie/
 obj-$(CONFIG_GPIO_USB_DETECT) += gpio-usbdetect.o
 obj-$(CONFIG_MSM_11AD) += msm_11ad/
+obj-$(CONFIG_SEEMP_CORE) += seemp_core/
