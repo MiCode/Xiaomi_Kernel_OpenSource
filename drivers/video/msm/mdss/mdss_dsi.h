@@ -463,6 +463,7 @@ struct mdss_dsi_ctrl_pdata {
 	bool hpd_state;
 	bool ds_registered;
 
+	struct switch_dev sdev_audio;
 	struct msm_dba_reg_info dba_info;
 	struct msm_dba_ops dba_ops;
 	struct msm_dba_video_cfg dba_video_cfg;

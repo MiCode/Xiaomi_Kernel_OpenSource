@@ -747,6 +747,121 @@ end:
 	return ret;
 }
 
+static int adv7533_configure_audio(void *client,
+	struct msm_dba_audio_cfg *cfg, u32 flags)
+{
+	int ret = -EINVAL;
+	int sampling_rate = 0;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
+	struct adv7533_reg_cfg reg_cfg[] = {
+		{ADV7533_MAIN, 0x12, 0x00},
+		{ADV7533_MAIN, 0x13, 0x00},
+		{ADV7533_MAIN, 0x14, 0x00},
+		{ADV7533_MAIN, 0x15, 0x00},
+		{ADV7533_MAIN, 0x0A, 0x00},
+		{ADV7533_MAIN, 0x0C, 0x00},
+		{ADV7533_MAIN, 0x0D, 0x00},
+		{ADV7533_MAIN, 0x03, 0x00},
+		{ADV7533_MAIN, 0x02, 0x00},
+		{ADV7533_MAIN, 0x01, 0x00},
+		{ADV7533_MAIN, 0x09, 0x00},
+		{ADV7533_MAIN, 0x08, 0x00},
+		{ADV7533_MAIN, 0x07, 0x00},
+		{ADV7533_MAIN, 0x73, 0x00},
+		{ADV7533_MAIN, 0x76, 0x00},
+	};
+
+	if (!pdata || !cfg) {
+		pr_err("%s: invalid data\n", __func__);
+		goto end;
+	}
+
+	if (cfg->copyright == MSM_DBA_AUDIO_COPYRIGHT_NOT_PROTECTED)
+		reg_cfg[0].val |= BIT(5);
+
+	if (cfg->pre_emphasis == MSM_DBA_AUDIO_PRE_EMPHASIS_50_15us)
+		reg_cfg[0].val |= BIT(2);
+
+	if (cfg->clock_accuracy == MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL1)
+		reg_cfg[0].val |= BIT(0);
+	else if (cfg->clock_accuracy == MSM_DBA_AUDIO_CLOCK_ACCURACY_LVL3)
+		reg_cfg[0].val |= BIT(1);
+
+	reg_cfg[1].val = cfg->channel_status_category_code;
+
+	reg_cfg[2].val = (cfg->channel_status_word_length & 0xF) << 0 |
+		(cfg->channel_status_source_number & 0xF) << 4;
+
+	if (cfg->sampling_rate == MSM_DBA_AUDIO_32KHZ)
+		sampling_rate = 0x3;
+	else if (cfg->sampling_rate == MSM_DBA_AUDIO_44P1KHZ)
+		sampling_rate = 0x0;
+	else if (cfg->sampling_rate == MSM_DBA_AUDIO_48KHZ)
+		sampling_rate = 0x2;
+	else if (cfg->sampling_rate == MSM_DBA_AUDIO_88P2KHZ)
+		sampling_rate = 0x8;
+	else if (cfg->sampling_rate == MSM_DBA_AUDIO_96KHZ)
+		sampling_rate = 0xA;
+	else if (cfg->sampling_rate == MSM_DBA_AUDIO_176P4KHZ)
+		sampling_rate = 0xC;
+	else if (cfg->sampling_rate == MSM_DBA_AUDIO_192KHZ)
+		sampling_rate = 0xE;
+
+	reg_cfg[3].val = (sampling_rate & 0xF) << 4;
+
+	if (cfg->mode == MSM_DBA_AUDIO_MODE_MANUAL)
+		reg_cfg[4].val |= BIT(7);
+
+	if (cfg->interface == MSM_DBA_AUDIO_SPDIF_INTERFACE)
+		reg_cfg[4].val |= BIT(4);
+
+	if (cfg->interface == MSM_DBA_AUDIO_I2S_INTERFACE) {
+		/* i2s enable */
+		reg_cfg[5].val |= BIT(2);
+
+		/* audio samp freq select */
+		reg_cfg[5].val |= BIT(7);
+	}
+
+	/* format */
+	reg_cfg[5].val |= cfg->i2s_fmt & 0x3;
+
+	/* channel status override */
+	reg_cfg[5].val |= (cfg->channel_status_source & 0x1) << 6;
+
+	/* sample word lengths, default 24 */
+	reg_cfg[6].val |= 0x18;
+
+	/* endian order of incoming I2S data */
+	if (cfg->word_endianness == MSM_DBA_AUDIO_WORD_LITTLE_ENDIAN)
+		reg_cfg[6].val |= 0x1 << 7;
+
+	/* compressed audio v - bit */
+	reg_cfg[6].val |= (cfg->channel_status_v_bit & 0x1) << 5;
+
+	/* ACR - N */
+	reg_cfg[7].val |= (cfg->n & 0x000FF) >> 0;
+	reg_cfg[8].val |= (cfg->n & 0x0FF00) >> 8;
+	reg_cfg[9].val |= (cfg->n & 0xF0000) >> 16;
+
+	/* ACR - CTS */
+	reg_cfg[10].val |= (cfg->cts & 0x000FF) >> 0;
+	reg_cfg[11].val |= (cfg->cts & 0x0FF00) >> 8;
+	reg_cfg[12].val |= (cfg->cts & 0xF0000) >> 16;
+
+	/* channel count */
+	reg_cfg[13].val |= (cfg->channels & 0x3);
+
+	/* CA */
+	reg_cfg[14].val = cfg->channel_allocation;
+
+	ret = adv7533_write_regs(pdata, reg_cfg, ARRAY_SIZE(reg_cfg));
+
+end:
+	return ret;
+}
+
 static int adv7533_get_edid_size(void *client,
 	u32 *size, u32 flags)
 {
@@ -810,6 +925,7 @@ static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 
 	client_ops->power_on = adv7533_power_on;
 	client_ops->video_on = adv7533_video_on;
+	client_ops->configure_audio = adv7533_configure_audio;
 	client_ops->get_edid_size = adv7533_get_edid_size;
 	client_ops->get_raw_edid = adv7533_get_raw_edid;
 

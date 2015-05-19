@@ -38,6 +38,9 @@ static struct mdss_dsi_data *mdss_dsi_res;
 static int mdss_dsi_pinctrl_set_state(struct mdss_dsi_ctrl_pdata *ctrl_pdata,
 					bool active);
 
+static void mdss_dsi_send_audio_notification(
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata, int val);
+
 static struct mdss_dsi_ctrl_pdata *mdss_dsi_get_ctrl(u32 ctrl_id)
 {
 	if (ctrl_id >= DSI_CTRL_MAX || !mdss_dsi_res)
@@ -1358,6 +1361,10 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 							__func__);
 				goto error;
 			}
+
+			if (ctrl_pdata->ds_registered)
+				mdss_dsi_send_audio_notification(
+					ctrl_pdata, 1);
 		}
 		ctrl_pdata->ctrl_state |= CTRL_STATE_PANEL_INIT;
 	}
@@ -1439,6 +1446,10 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 				pr_err("%s: Panel OFF failed\n", __func__);
 				goto error;
 			}
+
+			if (ctrl_pdata->ds_registered)
+				mdss_dsi_send_audio_notification(
+					ctrl_pdata, 0);
 		}
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_PANEL_INIT;
 	}
@@ -1997,6 +2008,25 @@ static inline void mdss_dsi_send_cable_notification(
 		ctrl_pdata->sdev.state);
 }
 
+static void mdss_dsi_send_audio_notification(
+	struct mdss_dsi_ctrl_pdata *ctrl_pdata, int val)
+{
+	int state = 0;
+
+	if (!ctrl_pdata) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		return;
+	}
+	state = ctrl_pdata->sdev_audio.state;
+
+	switch_set_state(&ctrl_pdata->sdev_audio, val);
+
+	DEV_INFO("%s: audio state %s %d\n", __func__,
+		ctrl_pdata->sdev_audio.state == state ?
+			"is same" : "switched to",
+		ctrl_pdata->sdev_audio.state);
+}
+
 static u32 mdss_dsi_read_edid_block(void *caller_data, u8 block, u8 *edid_buf)
 {
 	u32 ret = 0;
@@ -2103,6 +2133,13 @@ static void mdss_dsi_ctrl_init_dba(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	ctrl_pdata->sdev.name = "dsi";
 	if (switch_dev_register(&ctrl_pdata->sdev) < 0) {
 		pr_err("%s: DSI switch registration failed\n",
+			__func__);
+		goto end;
+	}
+
+	ctrl_pdata->sdev_audio.name = "bridge_audio";
+	if (switch_dev_register(&ctrl_pdata->sdev_audio) < 0) {
+		pr_err("%s: audio switch registration failed\n",
 			__func__);
 		goto end;
 	}
