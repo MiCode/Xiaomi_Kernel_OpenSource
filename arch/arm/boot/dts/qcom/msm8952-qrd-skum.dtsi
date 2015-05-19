@@ -226,5 +226,6 @@
 };
 
 &dsi_otm1906c_1080p_cmd {
+	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
