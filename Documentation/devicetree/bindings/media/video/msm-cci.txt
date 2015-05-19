@@ -172,6 +172,8 @@ Optional properties:
    should contain phandle of respective ir-led node
 - qcom,ir-cut-src : if ir cut is supported by this sensor, this property
    should contain phandle of respective ir-cut node
+- qcom,special-support-sensors: if only some special sensors are supported
+   on this board, add sensor name in this property.
 
 * Qualcomm Technologies, Inc. MSM ACTUATOR
 
