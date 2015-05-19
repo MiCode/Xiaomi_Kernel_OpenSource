@@ -68,6 +68,7 @@ struct mdp_rotation_buf_info {
 	uint32_t width;
 	uint32_t height;
 	uint32_t format;
+	struct mult_factor comp_ratio;
 };
 
 struct mdp_rotation_config {
