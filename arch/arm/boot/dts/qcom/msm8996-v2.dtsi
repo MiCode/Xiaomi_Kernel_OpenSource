@@ -335,6 +335,7 @@
 		interrupts = <0 184 0>, <0 430 0>;
 		interrupt-names = "tsens-upper-lower", "tsens-critical";
 		qcom,client-id = <13 14 15 16 17 18 19 20>;
+		qcom,sensor-id = <1 6 7 0 2 3 4 5>;
 		qcom,sensors = <8>;
 		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200>;
 	};
