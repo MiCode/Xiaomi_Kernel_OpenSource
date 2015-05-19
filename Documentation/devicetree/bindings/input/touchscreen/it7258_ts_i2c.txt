@@ -17,6 +17,7 @@ Required properties:
 			  same as "interrupts" node. It will also
 			  contain active low or active high information.
  - ite,reset-gpio	: reset gpio to control the reset of chip
+ - ite,reset-delay	: reset delay for controller (ms), default 20
 
 Optional properties:
  - avdd-supply		: Analog power supply needed to power device
@@ -41,6 +42,9 @@ Optional properties:
 			config defined in pin groups of interrupt and reset gpio.
 			"pmx_ts_release" : Release configuration of pins, this should specify
 			release config defined in pin groups of interrupt and reset gpio.
+ - ite,low-reset	: boolean, if the controller needs low-state of the reset gpio while
+			  initializing, and reset gpio should be made as high-state to reset the
+			  controller. It means the controller needs "active-high" reset gpio.
 
 Required properties palm-detect-en feature:
  - ite,palm-detect-keycode	: The keycode that is required to be sent when
@@ -70,5 +74,7 @@ Example:
 			ite,panel-coords = <0 0 320 320>;
 			ite,display-coords = <0 0 320 320>;
 			ite,num-fingers = <2>;
+			ite,reset-delay = <20>;
+			ite,low-reset;
 		};
 	};

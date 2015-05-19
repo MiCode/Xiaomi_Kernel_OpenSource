@@ -130,6 +130,7 @@
 #define PINCTRL_STATE_ACTIVE	"pmx_ts_active"
 #define PINCTRL_STATE_SUSPEND	"pmx_ts_suspend"
 #define PINCTRL_STATE_RELEASE	"pmx_ts_release"
+#define IT_I2C_WAIT		1000
 
 struct FingerData {
 	uint8_t xLo;
@@ -163,6 +164,8 @@ struct IT7260_ts_platform_data {
 	unsigned int disp_maxx;
 	unsigned int disp_maxy;
 	unsigned num_of_fingers;
+	unsigned int reset_delay;
+	bool low_reset;
 };
 
 struct IT7260_ts_data {
@@ -285,7 +288,7 @@ static bool IT7260_waitDeviceReady(bool forever, bool slowly)
 			query = CMD_STATUS_BUSY;
 
 		if (slowly)
-			mdelay(1000);
+			msleep(IT_I2C_WAIT);
 		if (!forever)
 			count--;
 
@@ -1259,6 +1262,16 @@ static int IT7260_parse_dt(struct device *dev,
 	snprintf(gl_ts->cfg_name, MAX_BUFFER_SIZE, "%s",
 		(pdata->cfg_name != NULL) ? pdata->cfg_name : CFG_NAME);
 
+	rc = of_property_read_u32(np, "ite,reset-delay", &temp_val);
+	if (!rc)
+		pdata->reset_delay = temp_val;
+	else if (rc != -EINVAL) {
+		dev_err(dev, "Unable to read reset delay\n");
+		return rc;
+	}
+
+	pdata->low_reset = of_property_read_bool(np, "ite,low-reset");
+
 	rc = IT7260_get_dt_coords(dev, "ite,display-coords", pdata);
 	if (rc && (rc != -EINVAL))
 		return rc;
@@ -1441,12 +1454,14 @@ static int IT7260_ts_probe(struct i2c_client *client,
 		if (gpio_request(pdata->reset_gpio, "ite_reset_gpio")) {
 			dev_err(&client->dev,
 				"gpio_request failed for reset GPIO\n");
-			return -EINVAL;
-		}
-		if (gpio_direction_output(pdata->reset_gpio, 0)) {
-			dev_err(&client->dev,
-				"gpio_direction_output for reset GPIO\n");
-			return -EINVAL;
+		if (pdata->low_reset) {
+			if (gpio_direction_output(pdata->reset_gpio, 0))
+				dev_err(&gl_ts->client->dev,
+					"gpio_direction_output for reset GPIO\n");
+		} else {
+			if (gpio_direction_output(pdata->reset_gpio, 1))
+				dev_err(&gl_ts->client->dev,
+					"gpio_direction_output for reset GPIO\n");
 		}
 		dev_dbg(&gl_ts->client->dev, "Reset GPIO %d\n",
 							pdata->reset_gpio);
@@ -1533,9 +1548,9 @@ static int IT7260_ts_probe(struct i2c_client *client,
 #endif
 	
 	IT7260_i2cWriteNoReadyCheck(BUF_COMMAND, cmd_start, sizeof(cmd_start));
-	mdelay(10);
+	msleep(pdata->reset_delay);
 	IT7260_i2cReadNoReadyCheck(BUF_RESPONSE, rsp, sizeof(rsp));
-	mdelay(10);
+	msleep(pdata->reset_delay);
 
 	gl_ts->dir = debugfs_create_dir(DEBUGFS_DIR_NAME, NULL);
 	if (gl_ts->dir == NULL || IS_ERR(gl_ts->dir)) {
