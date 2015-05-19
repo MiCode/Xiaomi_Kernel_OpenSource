@@ -1050,7 +1050,7 @@ static int tsens_tz_get_temp(struct thermal_zone_device *thermal,
 	if (!tmdev)
 		return -EINVAL;
 
-	rc = msm_tsens_get_temp(tm_sensor->sensor_hw_num, temp);
+	rc = msm_tsens_get_temp(tm_sensor->sensor_client_id, temp);
 	if (rc)
 		return rc;
 
