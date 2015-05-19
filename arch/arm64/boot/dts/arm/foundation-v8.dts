@@ -1,10 +1,7 @@
 /*
- * ARM Ltd. Fast Models
+ * ARM Ltd.
  *
- * Architecture Envelope Model (AEM) ARMv8-A
- * ARMAEMv8AMPCT
- *
- * RTSM_VE_AEMv8A.lisa
+ * ARMv8 Foundation model DTS
  */
 
 /dts-v1/;
@@ -12,8 +9,8 @@
 /memreserve/ 0x80000000 0x00010000;
 
 / {
-	model = "RTSM_VE_AEMv8A";
-	compatible = "arm,rtsm_ve,aemv8a", "arm,vexpress";
+	model = "Foundation-v8A";
+	compatible = "arm,foundation-aarch64", "arm,vexpress";
 	interrupt-parent = <&gic>;
 	#address-cells = <2>;
 	#size-cells = <2>;
@@ -37,6 +34,7 @@
 			reg = <0x0 0x0>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x8000fff8>;
+			next-level-cache = <&L2_0>;
 		};
 		cpu@1 {
 			device_type = "cpu";
@@ -44,6 +42,7 @@
 			reg = <0x0 0x1>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x8000fff8>;
+			next-level-cache = <&L2_0>;
 		};
 		cpu@2 {
 			device_type = "cpu";
@@ -51,6 +50,7 @@
 			reg = <0x0 0x2>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x8000fff8>;
+			next-level-cache = <&L2_0>;
 		};
 		cpu@3 {
 			device_type = "cpu";
@@ -58,6 +58,11 @@
 			reg = <0x0 0x3>;
 			enable-method = "spin-table";
 			cpu-release-addr = <0x0 0x8000fff8>;
+			next-level-cache = <&L2_0>;
+		};
+
+		L2_0: l2-cache0 {
+			compatible = "cache";
 		};
 	};
 
@@ -81,10 +86,10 @@
 
 	timer {
 		compatible = "arm,armv8-timer";
-		interrupts = <1 13 0xff01>,
-			     <1 14 0xff01>,
-			     <1 11 0xff01>,
-			     <1 10 0xff01>;
+		interrupts = <1 13 0xf08>,
+			     <1 14 0xf08>,
+			     <1 11 0xf08>,
+			     <1 10 0xf08>;
 		clock-frequency = <100000000>;
 	};
 
@@ -97,10 +102,11 @@
 	};
 
 	smb {
-		compatible = "simple-bus";
-
-		#address-cells = <2>;
+		compatible = "arm,vexpress,v2m-p1", "simple-bus";
+		arm,v2m-memory-map = "rs1";
+		#address-cells = <2>; /* SMB chipselect number and offset */
 		#size-cells = <1>;
+
 		ranges = <0 0 0 0x08000000 0x04000000>,
 			 <1 0 0 0x14000000 0x04000000>,
 			 <2 0 0 0x18000000 0x04000000>,
@@ -154,6 +160,81 @@
 				<0 0 41 &gic 0 41 4>,
 				<0 0 42 &gic 0 42 4>;
 
-		/include/ "rtsm_ve-motherboard.dtsi"
+		ethernet@2,02000000 {
+			compatible = "smsc,lan91c111";
+			reg = <2 0x02000000 0x10000>;
+			interrupts = <15>;
+		};
+
+		v2m_clk24mhz: clk24mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <24000000>;
+			clock-output-names = "v2m:clk24mhz";
+		};
+
+		v2m_refclk1mhz: refclk1mhz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <1000000>;
+			clock-output-names = "v2m:refclk1mhz";
+		};
+
+		v2m_refclk32khz: refclk32khz {
+			compatible = "fixed-clock";
+			#clock-cells = <0>;
+			clock-frequency = <32768>;
+			clock-output-names = "v2m:refclk32khz";
+		};
+
+		iofpga@3,00000000 {
+			compatible = "arm,amba-bus", "simple-bus";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			ranges = <0 3 0 0x200000>;
+
+			v2m_sysreg: sysreg@010000 {
+				compatible = "arm,vexpress-sysreg";
+				reg = <0x010000 0x1000>;
+			};
+
+			v2m_serial0: uart@090000 {
+				compatible = "arm,pl011", "arm,primecell";
+				reg = <0x090000 0x1000>;
+				interrupts = <5>;
+				clocks = <&v2m_clk24mhz>, <&v2m_clk24mhz>;
+				clock-names = "uartclk", "apb_pclk";
+			};
+
+			v2m_serial1: uart@0a0000 {
+				compatible = "arm,pl011", "arm,primecell";
+				reg = <0x0a0000 0x1000>;
+				interrupts = <6>;
+				clocks = <&v2m_clk24mhz>, <&v2m_clk24mhz>;
+				clock-names = "uartclk", "apb_pclk";
+			};
+
+			v2m_serial2: uart@0b0000 {
+				compatible = "arm,pl011", "arm,primecell";
+				reg = <0x0b0000 0x1000>;
+				interrupts = <7>;
+				clocks = <&v2m_clk24mhz>, <&v2m_clk24mhz>;
+				clock-names = "uartclk", "apb_pclk";
+			};
+
+			v2m_serial3: uart@0c0000 {
+				compatible = "arm,pl011", "arm,primecell";
+				reg = <0x0c0000 0x1000>;
+				interrupts = <8>;
+				clocks = <&v2m_clk24mhz>, <&v2m_clk24mhz>;
+				clock-names = "uartclk", "apb_pclk";
+			};
+
+			virtio_block@0130000 {
+				compatible = "virtio,mmio";
+				reg = <0x130000 0x200>;
+				interrupts = <42>;
+			};
+		};
 	};
 };

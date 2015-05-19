@@ -1307,7 +1307,7 @@ config EARLY_PRINTK_DIRECT
 
 config OC_ETM
 	bool "On-chip ETM and ETB"
-	depends on ARM_AMBA
+	depends on ARM_AMBA && !CORESIGHT
 	help
 	  Enables the on-chip embedded trace macrocell and embedded trace
 	  buffer driver that will allow you to collect traces of the
@@ -1338,5 +1338,7 @@ config DEBUG_SET_MODULE_RONX
 	  patching and dynamic kernel tracing - and they might also protect
 	  against certain classes of kernel exploits.
 	  If in doubt, say "N".
+
+source "drivers/hwtracing/coresight/Kconfig"
 
 endmenu
