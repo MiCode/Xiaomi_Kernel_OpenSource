@@ -20,7 +20,7 @@
 #include "msm_cci.h"
 
 #undef CDBG
-#define CDBG(fmt, args...) pr_err(fmt, ##args)
+#define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 DEFINE_MSM_MUTEX(msm_flash_mutex);
 
