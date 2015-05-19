@@ -12,6 +12,8 @@
 #ifndef _ICNSS_WLAN_H_
 #define _ICNSS_WLAN_H_
 
+#define ICNSS_MAX_IRQ_REGISTRATIONS    12
+
 struct icnss_driver_ops {
 	char *name;
 	int (*probe)(struct device *dev);
@@ -19,8 +21,8 @@ struct icnss_driver_ops {
 	void (*shutdown)(struct device *dev);
 	int (*reinit)(struct device *dev);
 	void (*crash_shutdown)(void *pdev);
-	void (*suspend)(struct device *dev, pm_message_t state);
-	void (*resume)(struct device *dev);
+	int (*suspend)(struct device *dev, pm_message_t state);
+	int (*resume)(struct device *dev);
 };
 
 
@@ -55,8 +57,8 @@ enum icnss_driver_mode {
 };
 
 struct icnss_soc_info {
-	u64 v_addr;
-	u64 p_addr;
+	void __iomem *v_addr;
+	phys_addr_t p_addr;
 	u32 version;
 };
 

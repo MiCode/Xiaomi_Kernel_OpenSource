@@ -8,14 +8,18 @@ WLAN PD restart notifications.
 
 Required properties:
   - compatible: "qcom,icnss"
+  - reg: Memory regions defined as starting address and size
+  - reg-names: Names of the memory regions defined in reg entry
   - qcom,ce-irq-tbl: Copy engine interrupt table
 
 Optional properties:
 
 Example:
 
-    qcom,icnss {
+    qcom,icnss@0a000000 {
         compatible = "qcom,icnss";
+        reg = <0x0a000000 0x1000000>;
+        reg-names = "membase";
         qcom,ce-irq-tbl =
 			<  120  /* CE0 */ >,
 			<  121  /* CE1 */ >,

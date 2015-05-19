@@ -22,8 +22,6 @@
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/icnss.h>
 
-#define ICNSS_NUM_OF_CE_IRQS 12
-
 struct ce_irq_list {
 	int irq;
 	irqreturn_t (*handler)(int, void *);
@@ -32,8 +30,10 @@ struct ce_irq_list {
 static struct {
 	struct platform_device *pdev;
 	struct icnss_driver_ops *ops;
-	struct ce_irq_list ce_irq_list[ICNSS_NUM_OF_CE_IRQS];
-	u32 ce_irqs[ICNSS_NUM_OF_CE_IRQS];
+	struct ce_irq_list ce_irq_list[ICNSS_MAX_IRQ_REGISTRATIONS];
+	u32 ce_irqs[ICNSS_MAX_IRQ_REGISTRATIONS];
+	phys_addr_t mem_base_pa;
+	void __iomem *mem_base_va;
 } *penv;
 
 int icnss_register_driver(struct icnss_driver_ops *ops)
@@ -109,7 +109,7 @@ int icnss_register_ce_irq(unsigned int ce_id,
 		ret = -ENODEV;
 		goto out;
 	}
-	if (ce_id >= ICNSS_NUM_OF_CE_IRQS) {
+	if (ce_id >= ICNSS_MAX_IRQ_REGISTRATIONS) {
 		pr_err("icnss: Invalid CE ID %d\n", ce_id);
 		ret = -EINVAL;
 		goto out;
@@ -191,9 +191,15 @@ EXPORT_SYMBOL(icnss_disable_irq);
 
 int icnss_get_soc_info(struct icnss_soc_info *info)
 {
-	int ret = 0;
+	if (!penv) {
+		pr_err("icnss: platform driver not initialized\n");
+		return -EINVAL;
+	}
 
-	return ret;
+	info->v_addr = penv->mem_base_va;
+	info->p_addr = penv->mem_base_pa;
+
+	return 0;
 }
 EXPORT_SYMBOL(icnss_get_soc_info);
 
@@ -214,6 +220,7 @@ static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 	int len = 0;
+	struct resource *res;
 
 	if (penv)
 		return -EEXIST;
@@ -224,19 +231,33 @@ static int icnss_probe(struct platform_device *pdev)
 
 	penv->pdev = pdev;
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "membase");
+	if (!res) {
+		pr_err("icnss: Memory base not found\n");
+		ret = -EINVAL;
+		goto out;
+	}
+	penv->mem_base_pa = res->start;
+	penv->mem_base_va = ioremap(penv->mem_base_pa, resource_size(res));
+	if (!penv->mem_base_va) {
+		pr_err("icnss: ioremap failed\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
 	if (!of_find_property(pdev->dev.of_node, "qcom,ce-irq-tbl", &len)) {
 		pr_err("icnss: CE IRQ table not found\n");
 		ret = -EINVAL;
 		goto out;
 	}
-	if (len != ICNSS_NUM_OF_CE_IRQS * sizeof(u32)) {
+	if (len != ICNSS_MAX_IRQ_REGISTRATIONS * sizeof(u32)) {
 		pr_err("icnss: invalid CE IRQ table %d\n", len);
 		ret = -EINVAL;
 		goto out;
 	}
 
 	ret = of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,ce-irq-tbl", penv->ce_irqs, ICNSS_NUM_OF_CE_IRQS);
+		"qcom,ce-irq-tbl", penv->ce_irqs, ICNSS_MAX_IRQ_REGISTRATIONS);
 	if (ret) {
 		pr_err("icnss: IRQ table not read ret = %d\n", ret);
 		goto out;
