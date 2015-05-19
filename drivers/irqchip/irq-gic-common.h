@@ -27,6 +27,7 @@ struct gic_quirk {
 	u32 iidr;
 	u32 mask;
 };
+extern bool from_suspend;
 
 #ifdef CONFIG_QCOM_SHOW_RESUME_IRQ
 extern int msm_show_resume_irq_mask;
