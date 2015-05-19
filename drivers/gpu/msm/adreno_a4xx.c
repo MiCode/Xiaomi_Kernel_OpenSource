@@ -392,12 +392,16 @@ static void a4xx_enable_ppd(struct adreno_device *adreno_dev)
  * a4xx_pwrlevel_change_settings() - Program the hardware during power level
  * transitions
  * @adreno_dev: The adreno device pointer
- * @mask_throttle: flag to check if PPD throttle should be masked
+ * @prelevel: The previous power level
+ * @postlevel: The new power level
+ * @post: True if called after the clock change has taken effect
  */
 static void a4xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
-						bool mask_throttle)
+				unsigned int prelevel, unsigned int postlevel,
+				bool post)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	static int pre;
 
 	/* PPD programming only for A430v2 */
 	if (!ADRENO_FEATURE(adreno_dev, ADRENO_PPD) ||
@@ -405,15 +409,24 @@ static void a4xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 		!adreno_is_a430v2(adreno_dev))
 		return;
 
-	if (mask_throttle) {
+	/* if this is a real pre, or a post without a previous pre, set pre */
+	if ((post == 0) || (pre == 0 && post == 1))
+		pre = 1;
+	else if (post == 1)
+		pre = 0;
+
+	if ((prelevel == 0) && pre) {
 		/* Going to Non-Turbo mode - mask the throttle and reset */
 		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40E);
 		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40C);
-	} else {
+	} else if ((postlevel == 0) && post) {
 		/* Going to Turbo mode - unmask the throttle and reset */
 		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E40A);
 		kgsl_regwrite(device, A4XX_RBBM_PPD_CTRL, 0x1002E408);
 	}
+
+	if (post)
+		pre = 0;
 }
 
 /*
