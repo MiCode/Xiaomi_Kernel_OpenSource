@@ -1639,18 +1639,6 @@ static struct branch_clk gcc_smmu_aggre0_axi_clk = {
 	},
 };
 
-static struct branch_clk gcc_aggre0_noc_at_clk = {
-	.cbcr_reg = GCC_AGGRE0_NOC_AT_CBCR,
-	.has_sibling = 1,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "gcc_aggre0_noc_at_clk",
-		.always_on = true,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_aggre0_noc_at_clk.c),
-	},
-};
-
 static struct gate_clk gcc_aggre0_noc_qosgen_extref_clk = {
 	.en_reg = GCC_AGGRE0_NOC_QOSGEN_EXTREF_CTL,
 	.en_mask = BIT(0),
@@ -3293,7 +3281,6 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_ufs_tx_symbol_clk_core_clk.c, 0x0109 },
 		{ &gcc_aggre0_snoc_axi_clk.c, 0x0116 },
 		{ &gcc_aggre0_cnoc_ahb_clk.c, 0x0117 },
-		{ &gcc_aggre0_noc_at_clk.c, 0x0118 },
 		{ &gcc_smmu_aggre0_axi_clk.c, 0x0119 },
 		{ &gcc_smmu_aggre0_ahb_clk.c, 0x011a },
 		{ &gcc_aggre0_noc_qosgen_extref_clk.c, 0x011b },
@@ -3469,7 +3456,6 @@ static struct clk_lookup msm_clocks_gcc_8996[] = {
 	CLK_LIST(gcc_aggre0_snoc_axi_clk),
 	CLK_LIST(gcc_smmu_aggre0_ahb_clk),
 	CLK_LIST(gcc_smmu_aggre0_axi_clk),
-	CLK_LIST(gcc_aggre0_noc_at_clk),
 	CLK_LIST(gcc_aggre0_noc_qosgen_extref_clk),
 	CLK_LIST(gcc_aggre2_usb3_axi_clk),
 	CLK_LIST(gcc_aggre2_ufs_axi_clk),
