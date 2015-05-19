@@ -3304,7 +3304,8 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 	const char *mbhc_audio_jack_type = NULL;
 	char *mclk_freq_prop_name;
 	const struct of_device_id *match;
-	int ret;
+	int ret, i;
+	struct device_node *dai_node;
 
 	if (!pdev->dev.of_node) {
 		dev_err(&pdev->dev, "No platform supplied from device tree\n");
@@ -3374,7 +3375,18 @@ static int msm8996_asoc_machine_probe(struct platform_device *pdev)
 		ret = -EPROBE_DEFER;
 		goto err;
 	}
-
+	for (i = 0; i < card->num_aux_devs; i++) {
+		dai_node = of_parse_phandle(pdev->dev.of_node,
+					   "qcom,aux-codec", i);
+		if (!dai_node) {
+			dev_err(&pdev->dev, "Aux Codec node is not present\n");
+			return -EINVAL;
+		}
+		msm8996_aux_dev[i].codec_name = NULL;
+		msm8996_aux_dev[i].codec_of_node = dai_node;
+		msm8996_codec_conf[i].dev_name = NULL;
+		msm8996_codec_conf[i].of_node = dai_node;
+	}
 	ret = snd_soc_register_card(card);
 	if (ret == -EPROBE_DEFER) {
 		if (codec_reg_done)
