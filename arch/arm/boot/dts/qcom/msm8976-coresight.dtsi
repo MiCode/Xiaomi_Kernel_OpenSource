@@ -52,11 +52,11 @@
 		interrupts = <0 82 0>;
 		interrupt-names = "nidnt-irq";
 
-		vdd-supply = <&pm8976_l11>;
+		vdd-supply = <&pm8950_l11>;
 		qcom,vdd-voltage-level = <2950000 2950000>;
 		qcom,vdd-current-level = <15000 400000>;
 
-		vdd-io-supply = <&pm8976_l12>;
+		vdd-io-supply = <&pm8950_l12>;
 		qcom,vdd-io-voltage-level = <2950000 2950000>;
 		qcom,vdd-io-current-level = <200 50000>;
 
@@ -980,11 +980,11 @@
 		coresight-name = "coresight-qpdi";
 		coresight-nr-inports = <0>;
 
-		vdd-supply = <&pm8976_l11>;
+		vdd-supply = <&pm8950_l11>;
 		qcom,vdd-voltage-level = <2800000 2950000>;
 		qcom,vdd-current-level = <15000 400000>;
 
-		vdd-io-supply = <&pm8976_l12>;
+		vdd-io-supply = <&pm8950_l12>;
 		qcom,vdd-io-voltage-level = <1800000 2950000>;
 		qcom,vdd-io-current-level = <200 50000>;
 	};
