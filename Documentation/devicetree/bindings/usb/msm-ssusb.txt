@@ -17,6 +17,8 @@ Required properties :
 	'dwc3' sub node for "DWC3-USB3 Core device".
 	"vdda33" : 3.3V analog voltage supply is applied to remove Dp & Dm pull
 	downs for proper USB charger detection by charger driver.
+	"vdda18" : 1.8V analog voltage supply always required to be turned on
+	anytime the 3.3V supply is on.
 
 Optional properties :
 - Refer to "Documentation/devicetree/bindings/arm/msm/msm_bus.txt" for
