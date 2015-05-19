@@ -15,6 +15,7 @@
 #include <linux/msm_bus_rules.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <linux/msm-bus.h>
 #include <trace/events/trace_msm_bus.h>
 
 struct node_vote_info {
@@ -293,7 +294,6 @@ int msm_rules_update_path(struct list_head *input_list,
 
 	list_for_each_entry(node_it, &node_list, link)
 		apply_rule(node_it, output_list);
-
 	mutex_unlock(&msm_bus_rules_lock);
 	return ret;
 }
@@ -502,18 +502,18 @@ static int copy_rule(struct bus_rule_type *src, struct rules_def *node_rule,
 	return ret;
 }
 
-void msm_rule_register(int num_rules, struct bus_rule_type *rule,
+static bool __rule_register(int num_rules, struct bus_rule_type *rule,
 					struct notifier_block *nb)
 {
 	struct rule_node_info *node = NULL;
 	int i, j;
 	struct rules_def *node_rule = NULL;
 	int num_dst = 0;
+	bool reg_success = true;
 
-	if (!rule)
-		return;
+	if (num_rules <= 0)
+		return false;
 
-	mutex_lock(&msm_bus_rules_lock);
 	for (i = 0; i < num_rules; i++) {
 		if (nb)
 			num_dst = 1;
@@ -531,6 +531,7 @@ void msm_rule_register(int num_rules, struct bus_rule_type *rule,
 			node = gen_node(id, nb);
 			if (!node) {
 				pr_info("Error getting rule");
+				reg_success = false;
 				goto exit_rule_register;
 			}
 			node_rule = kzalloc(sizeof(struct rules_def),
@@ -538,11 +539,13 @@ void msm_rule_register(int num_rules, struct bus_rule_type *rule,
 			if (!node_rule) {
 				pr_err("%s: Failed to allocate for rule",
 								__func__);
+				reg_success = false;
 				goto exit_rule_register;
 			}
 
 			if (copy_rule(&rule[i], node_rule, nb)) {
 				pr_err("Error copying rule");
+				reg_success = false;
 				goto exit_rule_register;
 			}
 
@@ -554,12 +557,10 @@ void msm_rule_register(int num_rules, struct bus_rule_type *rule,
 		}
 	}
 	list_sort(NULL, &node->node_rules, node_rules_compare);
-
-	if (nb)
+	if (nb && nb != node->rule_notify_list.head)
 		raw_notifier_chain_register(&node->rule_notify_list, nb);
 exit_rule_register:
-	mutex_unlock(&msm_bus_rules_lock);
-	return;
+	return reg_success;
 }
 
 static int comp_rules(struct bus_rule_type *rulea, struct bus_rule_type *ruleb)
@@ -572,14 +573,24 @@ static int comp_rules(struct bus_rule_type *rulea, struct bus_rule_type *ruleb)
 	if (!ret && (rulea->num_dst == ruleb->num_dst))
 		ret = memcmp(rulea->dst_node, ruleb->dst_node,
 				(sizeof(int) * rulea->num_dst));
-	if (!ret && (rulea->dst_bw == ruleb->dst_bw) &&
-		(rulea->op == ruleb->op) && (rulea->thresh == ruleb->thresh))
-		ret = 0;
-
+	if (ret || (rulea->dst_bw != ruleb->dst_bw) ||
+		(rulea->op != ruleb->op) || (rulea->thresh != ruleb->thresh))
+		ret = 1;
 	return ret;
 }
 
-void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
+void msm_rule_register(int num_rules, struct bus_rule_type *rule,
+					struct notifier_block *nb)
+{
+	if (!rule || num_rules <= 0)
+		return;
+
+	mutex_lock(&msm_bus_rules_lock);
+	__rule_register(num_rules, rule, nb);
+	mutex_unlock(&msm_bus_rules_lock);
+}
+
+static bool __rule_unregister(int num_rules, struct bus_rule_type *rule,
 					struct notifier_block *nb)
 {
 	int i;
@@ -589,24 +600,33 @@ void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
 	struct rules_def *node_rule_tmp;
 	bool match_found = false;
 
-	if (!rule)
-		return;
+	if (num_rules <= 0)
+		return false;
 
-	mutex_lock(&msm_bus_rules_lock);
 	if (nb) {
 		node = get_node(NB_ID, nb);
 		if (!node) {
 			pr_err("%s: Can't find node", __func__);
 			goto exit_unregister_rule;
 		}
-
+		match_found = true;
 		list_for_each_entry_safe(node_rule, node_rule_tmp,
 					&node->node_rules, link) {
-			list_del(&node_rule->link);
-			kfree(node_rule);
-			node->num_rules--;
+			if (comp_rules(&node_rule->rule_ops,
+					&rule[i]) == 0) {
+				list_del(&node_rule->link);
+				kfree(node_rule);
+				match_found = true;
+				node->num_rules--;
+				list_sort(NULL,
+					&node->node_rules,
+					node_rules_compare);
+				break;
+			}
 		}
-		raw_notifier_chain_unregister(&node->rule_notify_list, nb);
+		if (!node->num_rules)
+			raw_notifier_chain_unregister(
+					&node->rule_notify_list, nb);
 	} else {
 		for (i = 0; i < num_rules; i++) {
 			match_found = false;
@@ -639,7 +659,62 @@ void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
 		}
 	}
 exit_unregister_rule:
+	return match_found;
+}
+
+void msm_rule_unregister(int num_rules, struct bus_rule_type *rule,
+					struct notifier_block *nb)
+{
+	if (!rule || num_rules <= 0)
+		return;
+
+	mutex_lock(&msm_bus_rules_lock);
+	__rule_unregister(num_rules, rule, nb);
 	mutex_unlock(&msm_bus_rules_lock);
+}
+
+bool msm_rule_update(struct bus_rule_type *old_rule,
+			struct bus_rule_type *new_rule,
+			struct notifier_block *nb)
+{
+	bool rc = true;
+
+	if (!old_rule || !new_rule) {
+		pr_err("%s:msm_rule_update: void rules, error\n", __func__);
+		return false;
+	}
+	mutex_lock(&msm_bus_rules_lock);
+	if (!__rule_unregister(1, old_rule, nb)) {
+		pr_err("%s:msm_rule_update: failed to unregister old rule\n",
+				__func__);
+		rc = false;
+		goto exit_rule_update;
+	}
+
+	if (!__rule_register(1, new_rule, nb)) {
+		/*
+		 * Registering new rule has failed for some reason, attempt
+		 * to re-register the old rule and return error.
+		 */
+		pr_err("%s:msm_rule_update: failed to register new rule\n",
+				__func__);
+		__rule_register(1, old_rule, nb);
+		rc = false;
+	}
+exit_rule_update:
+	mutex_unlock(&msm_bus_rules_lock);
+	return rc;
+}
+
+void msm_rule_evaluate_rules(int node)
+{
+	struct msm_bus_client_handle *handle;
+
+	handle = msm_bus_scale_register(node, node, "tmp-rm", false);
+	if (!handle)
+		return;
+	msm_bus_scale_update_bw(handle, 0, 0);
+	msm_bus_scale_unregister(handle);
 }
 
 bool msm_rule_are_rules_registered(void)

@@ -367,7 +367,6 @@ int msm_bus_dbg_rec_transaction(const struct msm_bus_client_handle *pdata,
 			MSM_BUS_DBG("Client doesn't have a name\n");
 			return -EINVAL;
 		}
-		pr_debug("\n%s setting up debugfs %s", __func__, pdata->name);
 		cldata->file = debugfs_create_file(pdata->name, S_IRUGO,
 				clients, (void *)pdata, &client_data_fops);
 	}
