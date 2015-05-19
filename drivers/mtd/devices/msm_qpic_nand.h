@@ -291,6 +291,7 @@ struct flash_identification {
 	uint32_t blksize;
 	uint32_t oobsize;
 	uint32_t ecc_correctability;
+	uint32_t ecc_capability; /* Set based on the ECC capability selected. */
 };
 
 struct msm_nand_clk_data {
