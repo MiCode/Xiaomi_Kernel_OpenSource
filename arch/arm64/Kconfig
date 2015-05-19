@@ -559,6 +559,13 @@ config HW_PERF_EVENTS
 	def_bool y
 	depends on ARM_PMU
 
+config ARM64_REG_REBALANCE_ON_CTX_SW
+	bool "Rebalance registers during context switches."
+	def_bool ARCH_MSM8996
+	help
+	 Forcefully re-balance register rename pools on context switches for
+	 improved performance on some devices.
+
 config SYS_SUPPORTS_HUGETLBFS
 	def_bool y
 
