@@ -2797,7 +2797,9 @@ static void mmc_blk_cmdq_reset(struct mmc_host *host, bool clear_all)
 		mmc_cmdq_discard_queue(host, 0);
 reset:
 	mmc_hw_reset(host);
+	mmc_host_clk_hold(host);
 	host->cmdq_ops->reset(host, true);
+	mmc_host_clk_release(host);
 	clear_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
 }
 
@@ -2988,6 +2990,7 @@ void mmc_blk_cmdq_req_done(struct mmc_request *mrq)
 {
 	struct request *req = mrq->req;
 
+	mmc_host_clk_release(mrq->host);
 	blk_complete_request(req);
 }
 EXPORT_SYMBOL(mmc_blk_cmdq_req_done);
