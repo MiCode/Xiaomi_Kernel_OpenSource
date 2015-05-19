@@ -175,8 +175,8 @@ struct msm_isp_buf_mgr {
 	struct msm_sd_req_vb2_q *vb2_ops;
 
 	/*IOMMU driver*/
-	int ns_iommu_hdl;
-	int sec_iommu_hdl;
+	int img_iommu_hdl;
+	int stats_iommu_hdl;
 
 	/*Add secure mode*/
 	int secure_enable;

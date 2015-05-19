@@ -139,7 +139,8 @@ static void msm_isp_copy_planes_from_v4l2_buffer(
 
 static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_buffer *buf_info,
-	struct msm_isp_qbuf_buffer *qbuf_buf)
+	struct msm_isp_qbuf_buffer *qbuf_buf,
+	uint32_t stream_id)
 {
 	int i, rc = -1;
 	int ret;
@@ -148,10 +149,10 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 	int iommu_hdl;
 	uint32_t accu_length = 0;
 
-	if (buf_mgr->secure_enable == NON_SECURE_MODE)
-		iommu_hdl = buf_mgr->ns_iommu_hdl;
+	if (stream_id & ISP_STATS_STREAM_BIT)
+		iommu_hdl = buf_mgr->stats_iommu_hdl;
 	else
-		iommu_hdl = buf_mgr->sec_iommu_hdl;
+		iommu_hdl = buf_mgr->img_iommu_hdl;
 
 	for (i = 0; i < qbuf_buf->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
@@ -197,17 +198,18 @@ get_mem_err:
 
 static void msm_isp_unprepare_v4l2_buf(
 	struct msm_isp_buf_mgr *buf_mgr,
-	struct msm_isp_buffer *buf_info)
+	struct msm_isp_buffer *buf_info,
+	uint32_t stream_id)
 {
 	int i;
 	struct msm_isp_buffer_mapped_info *mapped_info;
 	struct buffer_cmd *buf_pending = NULL;
 	int iommu_hdl;
 
-	if (buf_mgr->secure_enable == NON_SECURE_MODE)
-		iommu_hdl = buf_mgr->ns_iommu_hdl;
+	if (stream_id & ISP_STATS_STREAM_BIT)
+		iommu_hdl = buf_mgr->stats_iommu_hdl;
 	else
-		iommu_hdl = buf_mgr->sec_iommu_hdl;
+		iommu_hdl = buf_mgr->img_iommu_hdl;
 
 	for (i = 0; i < buf_info->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
@@ -274,11 +276,12 @@ static int msm_isp_buf_prepare(struct msm_isp_buf_mgr *buf_mgr,
 		buf = info->buffer;
 	}
 
-	rc = msm_isp_prepare_isp_buf(buf_mgr, buf_info, &buf);
+	rc = msm_isp_prepare_isp_buf(buf_mgr, buf_info, &buf, bufq->stream_id);
 	if (rc < 0) {
 		pr_err_ratelimited("%s: Prepare buffer error\n", __func__);
 		return rc;
 	}
+
 	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	buf_info->state = MSM_ISP_BUFFER_STATE_PREPARED;
 	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
@@ -314,7 +317,7 @@ static int msm_isp_buf_unprepare_all(struct msm_isp_buf_mgr *buf_mgr,
 				buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
 					bufq->session_id, bufq->stream_id);
 		}
-		msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info);
+		msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info, bufq->stream_id);
 	}
 	return 0;
 }
@@ -386,7 +389,7 @@ static int msm_isp_buf_unprepare(struct msm_isp_buf_mgr *buf_mgr,
 			buf_mgr->vb2_ops->put_buf(buf_info->vb2_buf,
 				bufq->session_id, bufq->stream_id);
 	}
-	msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info);
+	msm_isp_unprepare_v4l2_buf(buf_mgr, buf_info, bufq->stream_id);
 
 	return 0;
 }
@@ -1062,39 +1065,48 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	void *arg)
 {
 	struct msm_vfe_smmu_attach_cmd *cmd = arg;
-	int iommu_hdl;
 	int rc = 0;
-
 
 	pr_debug("%s: cmd->security_mode : %d\n", __func__, cmd->security_mode);
 	mutex_lock(&buf_mgr->lock);
 	if (cmd->iommu_attach_mode == IOMMU_ATTACH) {
 		buf_mgr->secure_enable = cmd->security_mode;
 
-		if (buf_mgr->secure_enable == NON_SECURE_MODE)
-			iommu_hdl = buf_mgr->ns_iommu_hdl;
-		else
-			iommu_hdl = buf_mgr->sec_iommu_hdl;
+		/*
+		 * Call hypervisor thru scm call to notify secure or
+		 * non-secure mode
+		 */
 
-		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_ATTACH);
+		rc = cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_ATTACH);
 		if (rc < 0) {
-			pr_err("%s: smmu attach error, rc :%d\n", __func__, rc);
-			goto iommu_error;
+			pr_err("%s: img smmu attach error, rc :%d\n",
+				__func__, rc);
+			goto err1;
+		}
+		rc = cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_ATTACH);
+		if (rc < 0) {
+			pr_err("%s: stats smmu attach error, rc :%d\n",
+				__func__, rc);
+			goto err2;
 		}
 	} else {
-		if (buf_mgr->secure_enable == NON_SECURE_MODE)
-			iommu_hdl = buf_mgr->ns_iommu_hdl;
-		else
-			iommu_hdl = buf_mgr->sec_iommu_hdl;
-
-		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_DETACH);
+		rc = cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
+		rc |= cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH);
 		if (rc < 0) {
-			pr_err("%s: smmu detach error, rc :%d\n", __func__, rc);
-			goto iommu_error;
+			pr_err("%s: img/stats smmu detach error, rc :%d\n",
+				__func__, rc);
 		}
 	}
+	mutex_unlock(&buf_mgr->lock);
+	return rc;
 
-iommu_error:
+err2:
+	rc |= cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
+	if (rc < 0) {
+		pr_err("%s: img smmu detach error, rc :%d\n",
+			__func__, rc);
+	}
+err1:
 	mutex_unlock(&buf_mgr->lock);
 	return rc;
 }
@@ -1128,17 +1140,15 @@ static int msm_isp_init_isp_buf_mgr(
 		goto bufq_error;
 	}
 
-	rc = cam_smmu_get_handle("vfe", &buf_mgr->ns_iommu_hdl);
+	rc = cam_smmu_get_handle("vfe_image", &buf_mgr->img_iommu_hdl);
 	if (rc < 0) {
-		pr_err("vfe non secure get handled failed\n");
+		pr_err("vfe get image handle failed\n");
 		goto get_handle_error1;
 	}
-	if (buf_mgr->num_iommu_secure_ctx) {
-		rc = cam_smmu_get_handle("vfe_secure", &buf_mgr->sec_iommu_hdl);
-		if (rc < 0) {
-			pr_err("vfe secure get handled failed\n");
-			goto get_handle_error2;
-		}
+	rc = cam_smmu_get_handle("vfe_stats", &buf_mgr->stats_iommu_hdl);
+	if (rc < 0) {
+		pr_err("vfe get stats handle failed\n");
+		goto get_handle_error2;
 	}
 	buf_mgr->buf_handle_cnt = 0;
 	buf_mgr->pagefault_debug = 0;
@@ -1147,7 +1157,7 @@ static int msm_isp_init_isp_buf_mgr(
 	return 0;
 
 get_handle_error2:
-	cam_smmu_destroy_handle(buf_mgr->ns_iommu_hdl);
+	cam_smmu_destroy_handle(buf_mgr->img_iommu_hdl);
 get_handle_error1:
 	kfree(buf_mgr->bufq);
 bufq_error:
@@ -1171,9 +1181,10 @@ static int msm_isp_deinit_isp_buf_mgr(
 	buf_mgr->num_buf_q = 0;
 	buf_mgr->pagefault_debug = 0;
 
-	cam_smmu_destroy_handle(buf_mgr->ns_iommu_hdl);
-	if (buf_mgr->num_iommu_secure_ctx)
-		cam_smmu_destroy_handle(buf_mgr->sec_iommu_hdl);
+	cam_smmu_ops(buf_mgr->img_iommu_hdl, CAM_SMMU_DETACH);
+	cam_smmu_ops(buf_mgr->stats_iommu_hdl, CAM_SMMU_DETACH);
+	cam_smmu_destroy_handle(buf_mgr->img_iommu_hdl);
+	cam_smmu_destroy_handle(buf_mgr->stats_iommu_hdl);
 
 	mutex_unlock(&buf_mgr->lock);
 	return 0;

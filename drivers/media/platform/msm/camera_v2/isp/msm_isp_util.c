@@ -1951,14 +1951,12 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->vt_enable = 0;
 	/* Register page fault handler */
 	vfe_dev->buf_mgr->pagefault_debug = 0;
-	if (vfe_dev->buf_mgr->secure_enable == NON_SECURE_MODE)
-		cam_smmu_reg_client_page_fault_handler(
-				vfe_dev->buf_mgr->ns_iommu_hdl,
-				msm_vfe_iommu_fault_handler, vfe_dev);
-	else
-		cam_smmu_reg_client_page_fault_handler(
-				vfe_dev->buf_mgr->sec_iommu_hdl,
-				msm_vfe_iommu_fault_handler, vfe_dev);
+	cam_smmu_reg_client_page_fault_handler(
+			vfe_dev->buf_mgr->img_iommu_hdl,
+			msm_vfe_iommu_fault_handler, vfe_dev);
+	cam_smmu_reg_client_page_fault_handler(
+			vfe_dev->buf_mgr->stats_iommu_hdl,
+			msm_vfe_iommu_fault_handler, vfe_dev);
 	mutex_unlock(&vfe_dev->core_mutex);
 	mutex_unlock(&vfe_dev->realtime_mutex);
 	return 0;
@@ -1998,14 +1996,12 @@ int msm_isp_close_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 		return 0;
 	}
 	/* Unregister page fault handler */
-	if (vfe_dev->buf_mgr->secure_enable == NON_SECURE_MODE)
-		cam_smmu_reg_client_page_fault_handler(
-			vfe_dev->buf_mgr->ns_iommu_hdl,
-			NULL, NULL);
-	else
-		cam_smmu_reg_client_page_fault_handler(
-			vfe_dev->buf_mgr->sec_iommu_hdl,
-			NULL, NULL);
+	cam_smmu_reg_client_page_fault_handler(
+		vfe_dev->buf_mgr->img_iommu_hdl,
+		NULL, NULL);
+	cam_smmu_reg_client_page_fault_handler(
+		vfe_dev->buf_mgr->stats_iommu_hdl,
+		NULL, NULL);
 
 	rc = vfe_dev->hw_info->vfe_ops.axi_ops.halt(vfe_dev, 1);
 	if (rc <= 0)

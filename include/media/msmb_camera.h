@@ -202,9 +202,9 @@ struct msm_v4l2_format_data {
 #define MSM_V4L2_PIX_FMT_STATS_BHST v4l2_fourcc('B', 'H', 'S', 'T')
 
 enum smmu_attach_mode {
-	NON_SECURE_MODE,
-	SECURE_MODE,
-	MAX_PROTECTION_MODE,
+	NON_SECURE_MODE = 0x01,
+	SECURE_MODE = 0x02,
+	MAX_PROTECTION_MODE = 0x03,
 };
 
 struct msm_camera_smmu_attach_type {
