@@ -94,6 +94,7 @@
 
 #define CPE_FLL_CLK_75MHZ 75000000
 #define CPE_FLL_CLK_150MHZ 150000000
+#define WCD9335_REG_BITS 8
 
 static int tasha_cpe_debug_mode = 1;
 module_param(tasha_cpe_debug_mode, int,
@@ -108,6 +109,93 @@ static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.bit_width = 16,
 	.data_format = 0,
 	.num_channels = 1
+};
+
+static struct afe_param_cdc_reg_page_cfg tasha_cdc_reg_page_cfg = {
+	.minor_version = AFE_API_VERSION_CDC_REG_PAGE_CFG,
+	.enable = 1,
+	.proc_id = AFE_CDC_REG_PAGE_ASSIGN_PROC_ID_1,
+};
+
+static struct afe_param_cdc_reg_cfg audio_reg_cfg[] = {
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_SOC_MAD_MAIN_CTL_1),
+		HW_MAD_AUDIO_ENABLE, 0x1, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_SOC_MAD_AUDIO_CTL_3),
+		HW_MAD_AUDIO_SLEEP_TIME, 0xF, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_SOC_MAD_AUDIO_CTL_4),
+		HW_MAD_TX_AUDIO_SWITCH_OFF, 0x1, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_INTR_CFG),
+		MAD_AUDIO_INT_DEST_SELECT_REG, 0x2, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_INTR_PIN2_MASK3),
+		MAD_AUDIO_INT_MASK_REG, 0x1, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_INTR_PIN2_STATUS3),
+		MAD_AUDIO_INT_STATUS_REG, 0x1, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_INTR_PIN2_CLEAR3),
+		MAD_AUDIO_INT_CLEAR_REG, 0x1, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + TASHA_SB_PGD_PORT_TX_BASE),
+		SB_PGD_PORT_TX_WATERMARK_N, 0x1E, WCD9335_REG_BITS, 0x1
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + TASHA_SB_PGD_PORT_TX_BASE),
+		SB_PGD_PORT_TX_ENABLE_N, 0x1, WCD9335_REG_BITS, 0x1
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + TASHA_SB_PGD_PORT_RX_BASE),
+		SB_PGD_PORT_RX_WATERMARK_N, 0x1E, WCD9335_REG_BITS, 0x1
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + TASHA_SB_PGD_PORT_RX_BASE),
+		SB_PGD_PORT_RX_ENABLE_N, 0x1, WCD9335_REG_BITS, 0x1
+	},
+	{	1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_CDC_ANC0_IIR_ADAPT_CTL),
+		AANC_FF_GAIN_ADAPTIVE, 0x4, WCD9335_REG_BITS, 0
+	},
+	{	1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_CDC_ANC0_IIR_ADAPT_CTL),
+		AANC_FFGAIN_ADAPTIVE_EN, 0x8, WCD9335_REG_BITS, 0
+	},
+	{
+		1,
+		(TASHA_REGISTER_START_OFFSET + WCD9335_CDC_ANC0_FF_A_GAIN_CTL),
+		AANC_GAIN_CONTROL, 0xFF, WCD9335_REG_BITS, 0
+	},
+};
+
+static struct afe_param_cdc_reg_cfg_data tasha_audio_reg_cfg = {
+	.num_registers = ARRAY_SIZE(audio_reg_cfg),
+	.reg_data = audio_reg_cfg,
+};
+
+static struct afe_param_id_cdc_aanc_version tasha_cdc_aanc_version = {
+	.cdc_aanc_minor_version = AFE_API_VERSION_CDC_AANC_VERSION,
+	.aanc_hw_version        = AANC_HW_BLOCK_VERSION_2,
 };
 
 enum {
@@ -494,15 +582,17 @@ void *tasha_get_afe_config(struct snd_soc_codec *codec,
 	case AFE_SLIMBUS_SLAVE_CONFIG:
 		return &priv->slimbus_slave_cfg;
 	case AFE_CDC_REGISTERS_CONFIG:
-		return NULL;
+		return &tasha_audio_reg_cfg;
 	case AFE_SLIMBUS_SLAVE_PORT_CONFIG:
 		return &tasha_slimbus_slave_port_cfg;
 	case AFE_AANC_VERSION:
-		return NULL;
+		return &tasha_cdc_aanc_version;
 	case AFE_CLIP_BANK_SEL:
 		return NULL;
 	case AFE_CDC_CLIP_REGISTERS_CONFIG:
 		return NULL;
+	case AFE_CDC_REGISTER_PAGE_CONFIG:
+		return &tasha_cdc_reg_page_cfg;
 	default:
 		dev_err(codec->dev, "%s: Unknown config_type 0x%x\n",
 			__func__, config_type);
