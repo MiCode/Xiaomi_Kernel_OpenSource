@@ -148,6 +148,14 @@ config I2C_MSM_PROF_DBG
 
 	  This module can also be dynamically linked as a shared kernel object.
 
+config SEEMP_CORE
+	tristate "SEEMP Core"
+	help
+	  This option enables Qualcomm Snapdragron Smart Protection to detect
+	  anomalies in various activities. It records task activities in
+	  a log and rates the actions according to whether a typical user would
+	  use the tools.
+
 config QPNP_HAPTIC
 	tristate "Haptic support for QPNP PMIC"
 	depends on OF_SPMI
