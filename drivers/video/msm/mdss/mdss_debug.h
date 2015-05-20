@@ -98,6 +98,11 @@ struct debug_bus {
 #define ATRACE_END(name) trace_tracing_mark_write(current->tgid, name, 0)
 #define ATRACE_BEGIN(name) trace_tracing_mark_write(current->tgid, name, 1)
 #define ATRACE_FUNC() ATRACE_BEGIN(__func__)
+#define ATRACE_BEGIN_STR(buf, msg, ...)			\
+	do {							\
+		snprintf(buf, sizeof(buf), msg, __VA_ARGS__);	\
+		ATRACE_BEGIN(buf);				\
+	} while (0)
 
 #define ATRACE_INT(name, value) \
 	trace_mdp_trace_counter(current->tgid, name, value)

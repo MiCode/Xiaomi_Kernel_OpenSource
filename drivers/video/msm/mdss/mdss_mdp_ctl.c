@@ -2745,7 +2745,9 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 		}
 	}
 
+	ATRACE_BEGIN("hist_intr_resume");
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
+	ATRACE_END("hist_intr_resume");
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	mutex_unlock(&ctl->lock);
@@ -2773,7 +2775,9 @@ int mdss_mdp_ctl_stop(struct mdss_mdp_ctl *ctl, int power_state)
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
+	ATRACE_BEGIN("hist_intr_suspend");
 	mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
+	ATRACE_END("hist_intr_suspend");
 
 	if (ctl->ops.stop_fnc) {
 		ret = ctl->ops.stop_fnc(ctl, power_state);
