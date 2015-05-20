@@ -563,6 +563,7 @@ struct mdss_overlay_private {
 	struct kernfs_node *hist_event_sd;
 	struct kernfs_node *bl_event_sd;
 	struct kernfs_node *ad_event_sd;
+	struct kernfs_node *ad_bl_event_sd;
 	int borderfill_enable;
 	int overlay_play_enable;
 	int hw_refresh;
@@ -604,6 +605,7 @@ struct mdss_overlay_private {
 	u32 hist_events;
 	u32 bl_events;
 	u32 ad_events;
+	u32 ad_bl_events;
 };
 
 struct mdss_mdp_set_ot_params {
