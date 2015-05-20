@@ -2589,6 +2589,14 @@ static int voice_send_cvp_register_cal_cmd(struct voice_data *v)
 		goto unlock;
 	}
 
+	v->dev_tx.dev_id = ((struct audio_cal_info_vocproc *)
+				cal_block->cal_info)->tx_acdb_id;
+	v->dev_rx.dev_id = ((struct audio_cal_info_vocproc *)
+				cal_block->cal_info)->rx_acdb_id;
+	pr_debug("%s: %s: Tx acdb id = %d and Rx acdb id = %d", __func__,
+		 voc_get_session_name(v->session_id), v->dev_tx.dev_id,
+		 v->dev_rx.dev_id);
+
 	memcpy(&cvp_reg_cal_cmd.cvp_cal_data.column_info[0],
 	       (void *) &((struct audio_cal_info_voc_col *)
 	       col_data->cal_info)->data,
@@ -3475,6 +3483,7 @@ static int voice_setup_vocproc(struct voice_data *v)
 	rtac_add_voice(voice_get_cvs_handle(v),
 		voice_get_cvp_handle(v),
 		v->dev_rx.port_id, v->dev_tx.port_id,
+		v->dev_rx.dev_id, v->dev_tx.dev_id,
 		v->session_id);
 
 	return 0;
@@ -4868,6 +4877,7 @@ static int voc_enable_cvp(uint32_t session_id)
 		rtac_add_voice(voice_get_cvs_handle(v),
 			voice_get_cvp_handle(v),
 			v->dev_rx.port_id, v->dev_tx.port_id,
+			v->dev_rx.dev_id, v->dev_tx.dev_id,
 			v->session_id);
 		v->voc_state = VOC_RUN;
 	}
@@ -5424,6 +5434,7 @@ int voc_enable_device(uint32_t session_id)
 		rtac_add_voice(voice_get_cvs_handle(v),
 			       voice_get_cvp_handle(v),
 			       v->dev_rx.port_id, v->dev_tx.port_id,
+			       v->dev_rx.dev_id, v->dev_tx.dev_id,
 			       v->session_id);
 
 		ret = voice_send_start_voice_cmd(v);
@@ -7808,6 +7819,8 @@ static int __init voice_init(void)
 
 		common.voice[i].dev_tx.port_id = 0x100B;
 		common.voice[i].dev_rx.port_id = 0x100A;
+		common.voice[i].dev_tx.dev_id = 0;
+		common.voice[i].dev_rx.dev_id = 0;
 		common.voice[i].sidetone_gain = 0x512;
 		common.voice[i].dtmf_rx_detect_en = 0;
 		common.voice[i].lch_mode = 0;
