@@ -524,10 +524,6 @@
 			 <&clock_cpu clk_cbf_clk>;
 	};
 
-	qcom,cpu-sleep-status {
-		compatible = "qcom,cpu-sleep-status";
-	};
-
 	qcom,mpm@681b8 {
 		compatible = "qcom,mpm-v2";
 		reg = <0x681B8 0x1000>, /* MSM_RPM_MPM_BASE 4K */
