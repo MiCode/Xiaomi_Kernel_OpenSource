@@ -105,7 +105,13 @@ static int power_on_l2_msm8976(struct device_node *l2ccc_node, u32 pon_mask,
 	writel_relaxed(0x4101703, l2_base + L2_PWR_CTL);
 	mb();
 	udelay(4);
-
+	/* Assert L2 memory wl_en_clk */
+	writel_relaxed(0x4101783, l2_base + L2_PWR_CTL);
+	mb();
+	udelay(1);
+	/* De-assert L2 memory wl_en_clk */
+	writel_relaxed(0x4101703, l2_base + L2_PWR_CTL);
+	mb();
 	/* Enable clocks via SW_CLK_EN */
 	writel_relaxed(0x01, l2_base + L2_CORE_CBCR);
 
@@ -587,6 +593,14 @@ static inline void msm8976_unclamp_perf_cluster_cpu(void __iomem *reg)
 	writel_relaxed(0x0000007D, reg + CPU_PWR_CTL);
 	mb();
 	udelay(2);
+
+	/* Assert core memories wl_en_clk */
+	writel_relaxed(0x0000407D, reg + CPU_PWR_CTL);
+	mb();
+	udelay(1);
+	/* De-ssert core memories wl_en_clk */
+	writel_relaxed(0x0000007D, reg + CPU_PWR_CTL);
+	mb();
 
 	/* Ungate clock */
 	writel_relaxed(0x0000003D, reg + CPU_PWR_CTL);
