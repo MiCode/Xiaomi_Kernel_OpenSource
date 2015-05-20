@@ -864,10 +864,15 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 	wait_event(info->read_wait_q, (info->data_ready > 0) || (!info->hdl) ||
 		   (atomic_read(&info->diag_state) == 0));
 
+	/*
+	 * There is no need to continue reading over peripheral in this case.
+	 * Release the wake source hold earlier.
+	 */
 	if (atomic_read(&info->diag_state) == 0) {
 		DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 			 "%s closing read thread. diag state is closed\n",
 			 info->name);
+		diag_ws_release();
 		return 0;
 	}
 
