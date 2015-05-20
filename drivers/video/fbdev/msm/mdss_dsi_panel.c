@@ -1571,8 +1571,8 @@ static void mdss_dsi_parse_roi_alignment(struct device_node *np,
 					__func__);
 		else {
 			pinfo->xstart_pix_align = value[0];
-			pinfo->width_pix_align = value[1];
-			pinfo->ystart_pix_align = value[2];
+			pinfo->ystart_pix_align = value[1];
+			pinfo->width_pix_align = value[2];
 			pinfo->height_pix_align = value[3];
 			pinfo->min_width = value[4];
 			pinfo->min_height = value[5];
