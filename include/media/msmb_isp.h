@@ -441,6 +441,32 @@ struct msm_vfe_reg_cfg_cmd {
 	enum msm_vfe_reg_cfg_type cmd_type;
 };
 
+enum vfe_sd_type {
+	VFE_SD_0 = 0,
+	VFE_SD_1,
+	VFE_SD_COMMON,
+	VFE_SD_MAX,
+};
+
+/* Usecases when 2 HW need to be related or synced */
+enum msm_vfe_dual_hw_type {
+	DUAL_NONE = 0,
+	DUAL_HW_VFE_SPLIT = 1,
+	DUAL_HW_MASTER_SLAVE = 2,
+};
+
+enum msm_vfe_dual_hw_ms_type {
+	DUAL_HW_MASTER,
+	DUAL_HW_SLAVE,
+	DUAL_HW_MAX,
+};
+
+struct msm_isp_set_dual_hw_ms_cmd {
+	uint8_t num_src;
+	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type[VFE_SRC_MAX];
+	enum msm_vfe_input_src input_src[VFE_SRC_MAX];
+};
+
 enum msm_isp_buf_type {
 	ISP_PRIVATE_BUF,
 	ISP_SHARE_BUF,
@@ -738,5 +764,9 @@ struct msm_isp_event_data32 {
 
 #define VIDIOC_MSM_ISP_DEQUEUE_BUF \
 	_IOWR('V', BASE_VIDIOC_PRIVATE+21, struct msm_isp_qbuf_info)
+
+#define VIDIOC_MSM_ISP_SET_DUAL_HW_MASTER_SLAVE \
+	_IOWR('V', BASE_VIDIOC_PRIVATE+22, struct msm_isp_set_dual_hw_ms_cmd)
+
 
 #endif /* __MSMB_ISP__ */

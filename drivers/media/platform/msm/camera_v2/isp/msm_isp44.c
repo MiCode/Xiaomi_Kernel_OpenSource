@@ -1938,21 +1938,6 @@ static struct msm_vfe_stats_hardware_info msm_vfe44_stats_hw_info = {
 	.num_stats_comp_mask = VFE44_NUM_STATS_COMP,
 };
 
-static struct v4l2_subdev_core_ops msm_vfe44_subdev_core_ops = {
-	.ioctl = msm_isp_ioctl,
-	.subscribe_event = msm_isp_subscribe_event,
-	.unsubscribe_event = msm_isp_unsubscribe_event,
-};
-
-static struct v4l2_subdev_ops msm_vfe44_subdev_ops = {
-	.core = &msm_vfe44_subdev_core_ops,
-};
-
-static struct v4l2_subdev_internal_ops msm_vfe44_internal_ops = {
-	.open = msm_isp_open_node,
-	.close = msm_isp_close_node,
-};
-
 struct msm_vfe_hardware_info vfe44_hw_info = {
 	.num_iommu_ctx = 1,
 	.num_iommu_secure_ctx = 1,
@@ -2043,7 +2028,40 @@ struct msm_vfe_hardware_info vfe44_hw_info = {
 	.dmi_reg_offset = 0x918,
 	.axi_hw_info = &msm_vfe44_axi_hw_info,
 	.stats_hw_info = &msm_vfe44_stats_hw_info,
-	.subdev_ops = &msm_vfe44_subdev_ops,
-	.subdev_internal_ops = &msm_vfe44_internal_ops,
 };
 EXPORT_SYMBOL(vfe44_hw_info);
+
+static const struct of_device_id msm_vfe44_dt_match[] = {
+	{
+		.compatible = "qcom,vfe44",
+		.data = &vfe44_hw_info,
+	},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, msm_vfe44_dt_match);
+
+static struct platform_driver vfe44_driver = {
+	.probe = vfe_hw_probe,
+	.driver = {
+		.name = "msm_vfe44",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_vfe44_dt_match,
+	},
+};
+
+static int __init msm_vfe44_init_module(void)
+{
+	return platform_driver_register(&vfe44_driver);
+}
+
+static void __exit msm_vfe44_exit_module(void)
+{
+	platform_driver_unregister(&vfe44_driver);
+}
+
+module_init(msm_vfe44_init_module);
+module_exit(msm_vfe44_exit_module);
+MODULE_DESCRIPTION("MSM VFE44 driver");
+MODULE_LICENSE("GPL v2");
+

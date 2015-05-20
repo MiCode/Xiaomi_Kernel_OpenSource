@@ -36,33 +36,18 @@
 #include "msm_isp32.h"
 
 static struct msm_sd_req_vb2_q vfe_vb2_ops;
+static struct msm_isp_buf_mgr vfe_buf_mgr;
+static struct msm_vfe_common_dev_data vfe_common_data;
 
 static const struct of_device_id msm_vfe_dt_match[] = {
 	{
-		.compatible = "qcom,vfe47",
-		.data = &vfe47_hw_info,
+		.compatible = "qcom,vfe",
 	},
-	{
-		.compatible = "qcom,vfe46",
-		.data = &vfe46_hw_info,
-	},
-	{
-		.compatible = "qcom,vfe44",
-		.data = &vfe44_hw_info,
-	},
-	{
-		.compatible = "qcom,vfe40",
-		.data = &vfe40_hw_info,
-	},
-
 	{}
 };
 
 MODULE_DEVICE_TABLE(of, msm_vfe_dt_match);
 
-static const struct platform_device_id msm_vfe_dev_id[] = {
-	{}
-};
 #define MAX_OVERFLOW_COUNTERS  29
 #define OVERFLOW_LENGTH 1024
 #define OVERFLOW_BUFFER_LENGTH 64
@@ -72,8 +57,10 @@ static struct msm_isp_buf_mgr vfe_buf_mgr;
 static struct dual_vfe_resource dualvfe;
 struct msm_isp_statistics stats;
 struct msm_isp_ub_info ub_info;
+
 static int msm_isp_enable_debugfs(struct vfe_device *vfe_dev,
-				  struct msm_isp_bw_req_info *isp_req_hist);
+	  struct msm_isp_bw_req_info *isp_req_hist);
+
 static char *stats_str[MAX_OVERFLOW_COUNTERS] = {
 	"imgmaster0_overflow_cnt",
 	"imgmaster1_overflow_cnt",
@@ -114,11 +101,12 @@ static char *stats_str[MAX_OVERFLOW_COUNTERS] = {
 #define MAX_UB_INFO_LINE_BUFF_LEN 256
 
 static struct msm_isp_bw_req_info
-		msm_isp_bw_request_history[MAX_DEPTH_BW_REQ_HISTORY];
+	msm_isp_bw_request_history[MAX_DEPTH_BW_REQ_HISTORY];
 static int msm_isp_bw_request_history_idx;
 static char bw_request_history_buff[MAX_BW_HISTORY_BUFF_LEN];
 static char ub_info_buffer[MAX_UB_INFO_BUFF_LEN];
 static spinlock_t req_history_lock;
+
 static int vfe_debugfs_statistics_open(struct inode *inode, struct file *file)
 {
 	file->private_data = inode->i_private;
@@ -288,7 +276,7 @@ static const struct file_operations ub_info_ops = {
 };
 
 static int msm_isp_enable_debugfs(struct vfe_device *vfe_dev,
-				  struct msm_isp_bw_req_info *isp_req_hist)
+	struct msm_isp_bw_req_info *isp_req_hist)
 {
 	struct dentry *debugfs_base;
 	char dirname[32] = {0};
@@ -417,20 +405,86 @@ static long msm_isp_subdev_do_ioctl(
 	}
 }
 
-static long msm_isp_subdev_fops_ioctl(struct file *file, unsigned int cmd,
+static struct v4l2_subdev_core_ops msm_vfe_v4l2_subdev_core_ops = {
+	.ioctl = msm_isp_ioctl,
+	.subscribe_event = msm_isp_subscribe_event,
+	.unsubscribe_event = msm_isp_unsubscribe_event,
+};
+
+static struct v4l2_subdev_ops msm_vfe_v4l2_subdev_ops = {
+	.core = &msm_vfe_v4l2_subdev_core_ops,
+};
+
+static struct v4l2_subdev_internal_ops msm_vfe_subdev_internal_ops = {
+	.open = msm_isp_open_node,
+	.close = msm_isp_close_node,
+};
+
+static long msm_isp_v4l2_fops_ioctl(struct file *file, unsigned int cmd,
 	unsigned long arg)
 {
 	return video_usercopy(file, cmd, arg, msm_isp_subdev_do_ioctl);
 }
 
-static struct v4l2_file_operations msm_isp_v4l2_subdev_fops = {
+static struct v4l2_file_operations msm_isp_v4l2_fops = {
 #ifdef CONFIG_COMPAT
-	.compat_ioctl32 = msm_isp_subdev_fops_ioctl,
+	.compat_ioctl32 = msm_isp_v4l2_fops_ioctl,
 #endif
-	.unlocked_ioctl = msm_isp_subdev_fops_ioctl
+	.unlocked_ioctl = msm_isp_v4l2_fops_ioctl
 };
 
 static int vfe_probe(struct platform_device *pdev)
+{
+	struct vfe_parent_device *vfe_parent_dev;
+	int rc = 0;
+	struct device_node *node;
+	struct platform_device *new_dev = NULL;
+	const struct device_node *dt_node = pdev->dev.of_node;
+
+	vfe_parent_dev = kzalloc(sizeof(struct vfe_parent_device),
+		GFP_KERNEL);
+	if (!vfe_parent_dev) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	vfe_parent_dev->common_sd = kzalloc(
+		sizeof(struct msm_vfe_common_subdev), GFP_KERNEL);
+	if (!vfe_parent_dev->common_sd) {
+		rc = -ENOMEM;
+		goto probe_fail1;
+	}
+
+	vfe_parent_dev->common_sd->common_data = &vfe_common_data;
+
+	for_each_available_child_of_node(dt_node, node) {
+		new_dev = of_platform_device_create(node, NULL, &pdev->dev);
+		if (!new_dev) {
+			pr_err("Failed to create device %s\n", node->name);
+			goto probe_fail2;
+		}
+		vfe_parent_dev->child_list[vfe_parent_dev->num_hw_sd++] =
+			new_dev;
+		new_dev->dev.platform_data =
+			(void *)vfe_parent_dev->common_sd->common_data;
+
+		pr_debug("%s: device creation done\n", __func__);
+	}
+
+	vfe_parent_dev->num_sd = vfe_parent_dev->num_hw_sd;
+	vfe_parent_dev->pdev = pdev;
+
+	return rc;
+
+probe_fail2:
+	kfree(vfe_parent_dev->common_sd);
+probe_fail1:
+	kfree(vfe_parent_dev);
+end:
+	return rc;
+}
+
+int vfe_hw_probe(struct platform_device *pdev)
 {
 	struct vfe_device *vfe_dev;
 	/*struct msm_cam_subdev_info sd_info;*/
@@ -456,10 +510,16 @@ static int vfe_probe(struct platform_device *pdev)
 		rc = -ENOMEM;
 		goto probe_fail2;
 	}
+
+	vfe_dev->common_data = (struct msm_vfe_common_dev_data *)
+		pdev->dev.platform_data;
+
 	if (pdev->dev.of_node) {
-		of_property_read_u32((&pdev->dev)->of_node,
+		of_property_read_u32(pdev->dev.of_node,
 			"cell-index", &pdev->id);
-		match_dev = of_match_device(msm_vfe_dt_match, &pdev->dev);
+
+		match_dev = of_match_device(pdev->dev.driver->of_match_table,
+			&pdev->dev);
 		if (!match_dev) {
 			pr_err("%s: No vfe hardware info\n", __func__);
 			rc = -EINVAL;
@@ -498,9 +558,9 @@ static int vfe_probe(struct platform_device *pdev)
 	tasklet_init(&vfe_dev->vfe_tasklet,
 		msm_isp_do_tasklet, (unsigned long)vfe_dev);
 
-	v4l2_subdev_init(&vfe_dev->subdev.sd, vfe_dev->hw_info->subdev_ops);
+	v4l2_subdev_init(&vfe_dev->subdev.sd, &msm_vfe_v4l2_subdev_ops);
 	vfe_dev->subdev.sd.internal_ops =
-		vfe_dev->hw_info->subdev_internal_ops;
+		&msm_vfe_subdev_internal_ops;
 	snprintf(vfe_dev->subdev.sd.name,
 		ARRAY_SIZE(vfe_dev->subdev.sd.name),
 		"vfe");
@@ -526,12 +586,12 @@ static int vfe_probe(struct platform_device *pdev)
 		goto probe_fail3;
 	}
 
-	msm_isp_v4l2_subdev_fops.owner = v4l2_subdev_fops.owner;
-	msm_isp_v4l2_subdev_fops.open = v4l2_subdev_fops.open;
-	msm_isp_v4l2_subdev_fops.release = v4l2_subdev_fops.release;
-	msm_isp_v4l2_subdev_fops.poll = v4l2_subdev_fops.poll;
+	msm_isp_v4l2_fops.owner = v4l2_subdev_fops.owner;
+	msm_isp_v4l2_fops.open = v4l2_subdev_fops.open;
+	msm_isp_v4l2_fops.release = v4l2_subdev_fops.release;
+	msm_isp_v4l2_fops.poll = v4l2_subdev_fops.poll;
 
-	vfe_dev->subdev.sd.devnode->fops = &msm_isp_v4l2_subdev_fops;
+	vfe_dev->subdev.sd.devnode->fops = &msm_isp_v4l2_fops;
 
 	vfe_dev->buf_mgr = &vfe_buf_mgr;
 	v4l2_subdev_notify(&vfe_dev->subdev.sd,
@@ -568,7 +628,6 @@ static struct platform_driver vfe_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = msm_vfe_dt_match,
 	},
-	.id_table = msm_vfe_dev_id,
 };
 
 static int __init msm_vfe_init_module(void)

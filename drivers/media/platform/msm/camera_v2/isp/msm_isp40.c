@@ -2142,21 +2142,6 @@ static struct msm_vfe_stats_hardware_info msm_vfe40_stats_hw_info = {
 	.num_stats_comp_mask = 2,
 };
 
-static struct v4l2_subdev_core_ops msm_vfe40_subdev_core_ops = {
-	.ioctl = msm_isp_ioctl,
-	.subscribe_event = msm_isp_subscribe_event,
-	.unsubscribe_event = msm_isp_unsubscribe_event,
-};
-
-static struct v4l2_subdev_ops msm_vfe40_subdev_ops = {
-	.core = &msm_vfe40_subdev_core_ops,
-};
-
-static struct v4l2_subdev_internal_ops msm_vfe40_internal_ops = {
-	.open = msm_isp_open_node,
-	.close = msm_isp_close_node,
-};
-
 struct msm_vfe_hardware_info vfe40_hw_info = {
 	.num_iommu_ctx = 1,
 	.num_iommu_secure_ctx = 1,
@@ -2247,7 +2232,40 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 	.dmi_reg_offset = 0x918,
 	.axi_hw_info = &msm_vfe40_axi_hw_info,
 	.stats_hw_info = &msm_vfe40_stats_hw_info,
-	.subdev_ops = &msm_vfe40_subdev_ops,
-	.subdev_internal_ops = &msm_vfe40_internal_ops,
 };
 EXPORT_SYMBOL(vfe40_hw_info);
+
+static const struct of_device_id msm_vfe40_dt_match[] = {
+	{
+		.compatible = "qcom,vfe40",
+		.data = &vfe40_hw_info,
+	},
+	{}
+};
+
+MODULE_DEVICE_TABLE(of, msm_vfe40_dt_match);
+
+static struct platform_driver vfe40_driver = {
+	.probe = vfe_hw_probe,
+	.driver = {
+		.name = "msm_vfe40",
+		.owner = THIS_MODULE,
+		.of_match_table = msm_vfe40_dt_match,
+	},
+};
+
+static int __init msm_vfe40_init_module(void)
+{
+	return platform_driver_register(&vfe40_driver);
+}
+
+static void __exit msm_vfe40_exit_module(void)
+{
+	platform_driver_unregister(&vfe40_driver);
+}
+
+module_init(msm_vfe40_init_module);
+module_exit(msm_vfe40_exit_module);
+MODULE_DESCRIPTION("MSM VFE40 driver");
+MODULE_LICENSE("GPL v2");
+
