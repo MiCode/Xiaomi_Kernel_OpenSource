@@ -1,0 +1,132 @@
+include versions
+export BACKPORTS_VERSION BACKPORTED_KERNEL_VERSION BACKPORTED_KERNEL_NAME
+ifdef BACKPORTS_GIT_TRACKED
+export BACKPORTS_GIT_TRACKER_DEF=-DBACKPORTS_GIT_TRACKED=\"$(BACKPORTS_GIT_TRACKED)\"
+else
+export BACKPORTS_GIT_TRACKER_DEF=
+endif
+
+ifdef BACKPORTS_BUILD_TSTAMP
+export BACKPORTS_BUILD_TSTAMP_DEF="-DBACKPORTS_BUILD_TSTAMP=$(BACKPORTS_BUILD_TSTAMP)"
+else
+export BACKPORTS_BUILD_TSTAMP_DEF=
+endif
+
+ifdef BACKPORTS_BRANCH_TSTAMP
+export BACKPORTS_BRANCH_TSTAMP_DEF=-DBACKPORTS_BRANCH_TSTAMP=\"$(BACKPORTS_BRANCH_TSTAMP)\"
+else
+export BACKPORTS_BRANCH_TSTAMP_DEF=
+endif
+
+# disable built-in rules for this file
+.SUFFIXES:
+
+export CONFIG_=CPTCFG_
+
+.PHONY: menuconfig
+menuconfig:
+	@$(MAKE) -C kconf mconf
+	@./kconf/mconf Kconfig
+
+.PHONY: listnewconfig oldaskconfig oldconfig \
+	silentoldconfig olddefconfig oldnoconfig \
+	allnoconfig allyesconfig allmodconfig \
+	alldefconfig randconfig
+listnewconfig oldaskconfig oldconfig \
+silentoldconfig olddefconfig oldnoconfig \
+allnoconfig allyesconfig allmodconfig \
+alldefconfig randconfig:
+	@$(MAKE) -C kconf conf
+	@./kconf/conf --$@ Kconfig
+
+.PHONY: usedefconfig
+usedefconfig:
+	@$(MAKE) -C kconf conf
+	@./kconf/conf --defconfig=defconfig Kconfig
+
+.PHONY: savedefconfig
+savedefconfig:
+	@$(MAKE) -C kconf conf
+	@./kconf/conf --savedefconfig=defconfig Kconfig
+
+defconfig-%::
+	@$(MAKE) -C kconf conf
+	@./kconf/conf --defconfig=defconfigs/$(@:defconfig-%=%) Kconfig
+
+.config:
+	@test -f defconfig && $(MAKE) usedefconfig || (			\
+	echo "/--------------"						;\
+	echo "| Your backport package isn't configured, please configure it" ;\
+	echo "| using one of the following options:"			;\
+	echo "| To configure manually:"					;\
+	echo "|     make oldconfig"					;\
+	echo "|     make menuconfig"					;\
+	echo "|"							;\
+	echo "| To get defaults for certain drivers:"			;\
+	(cd defconfigs ; for f in $$(ls) ; do				\
+		echo "|     make defconfig-$$f"				;\
+	done )								;\
+	echo "\--"							;\
+	false )
+
+backport-include/backport/autoconf.h: .config Kconfig.versions Kconfig.kernel
+	@$(MAKE) oldconfig
+	@echo -n "Building backport-include/backport/autoconf.h ..."
+	@grep -f .local-symbols .config | (				\
+		echo "#ifndef COMPAT_AUTOCONF_INCLUDED"			;\
+		echo "#define COMPAT_AUTOCONF_INCLUDED"			;\
+		echo "/*"						;\
+		echo " * Automatically generated file, don't edit!"	;\
+		echo " * Changes will be overwritten"			;\
+		echo " */"						;\
+		echo ""							;\
+		while read l ; do					\
+			n=$${l%%=*}					;\
+			v=$${l#*=}					;\
+			case $$v in					\
+				y) echo "#define $$n 1" ;;		\
+				m) echo "#define $${n}_MODULE 1" ;;	\
+				\"*) echo "#define $$n $$v" ;;		\
+				[0-9]*) echo "#define $$n $$v" ;;	\
+				*) echo "#warning unknown value for $$n";;\
+			esac						;\
+		done							;\
+		echo "#endif /* COMPAT_AUTOCONF_INCLUDED */"		;\
+	) > backport-include/backport/autoconf.h
+	@echo " done."
+
+.PHONY: modules
+modules: backport-include/backport/autoconf.h
+	@$(MAKE) -f Makefile.build modules
+
+.PHONY: install
+install: modules
+	@$(MAKE) -C $(KLIB_BUILD) M=$(BACKPORT_DIR)			\
+		INSTALL_MOD_DIR=$(KMODDIR) $(KMODPATH_ARG)		\
+		modules_install
+	@./scripts/blacklist.sh $(KLIB)/ $(KLIB)/$(KMODDIR)
+	@./scripts/compress_modules.sh $(KLIB)/$(KMODDIR)
+	@./scripts/check_depmod.sh
+	@/sbin/depmod -a
+	@./scripts/update-initramfs.sh $(KLIB)
+	@echo
+	@echo Your backported driver modules should be installed now.
+	@echo Reboot.
+	@echo
+
+.PHONY: modules_install
+modules_install: install
+
+.PHONY: uninstall
+uninstall:
+	@./scripts/uninstall.sh
+	@/sbin/depmod -a
+	@./scripts/update-initramfs.sh $(KLIB)
+	@echo
+	@echo Your backported driver modules should be uninstalled now.
+	@echo Reboot.
+	@echo
+
+.PHONY: clean
+clean:
+	@$(MAKE) -f Makefile.build clean

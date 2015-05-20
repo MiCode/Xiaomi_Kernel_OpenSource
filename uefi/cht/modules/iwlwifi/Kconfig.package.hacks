@@ -1,0 +1,8 @@
+# some hacks for when we use backports to generate a package
+# to build modules out of tree.
+config WIRELESS
+	def_bool y
+config NET_CORE
+	def_bool y
+config EXPERT
+	def_bool y

@@ -1,0 +1,24 @@
+mainmenu "Backports from $BACKPORTED_KERNEL_NAME $BACKPORTED_KERNEL_VERSION (backports $BACKPORTS_VERSION)"
+
+config BACKPORT_DIR
+	string
+	option env="BACKPORT_DIR"
+config BACKPORTS_VERSION
+	string
+	option env="BACKPORTS_VERSION"
+config BACKPORTED_KERNEL_VERSION
+	string
+	option env="BACKPORTED_KERNEL_VERSION"
+config BACKPORTED_KERNEL_NAME
+	string
+	option env="BACKPORTED_KERNEL_NAME"
+
+# Packaging hacks
+source "$BACKPORT_DIR/Kconfig.package.hacks"
+
+# Code we backport
+source "$BACKPORT_DIR/Kconfig.sources"
+
+# these will be generated
+source "$BACKPORT_DIR/Kconfig.kernel"
+source "$BACKPORT_DIR/Kconfig.versions"

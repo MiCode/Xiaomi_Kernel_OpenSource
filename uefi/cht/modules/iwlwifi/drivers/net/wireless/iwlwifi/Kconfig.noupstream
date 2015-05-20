@@ -1,0 +1,119 @@
+config IWLXVT
+	tristate "Enable XVT op_mode"
+	depends on IWLWIFI
+	select IWLWIFI_DEVICE_TESTMODE
+	select IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	help
+	  This option enables the xVT operation mode. xVT mode supports
+	  special debug and testing operations that are not supported in
+	  the standard operation modes, and is used for verification
+	  purposes.
+	  xVT mode does not support the standard WiFi operations, and
+	  does not communicate with the user mode through the nl80211.
+
+	  Enabling this options allows to fully control the HW using
+	  an external tool in user space.
+
+	  Say Y if you have the user space application and want
+	  to execute debug and testing flows on the HW.
+
+config IWLWIFI_NUM_CHANNELS
+	int "number of supported concurrent channels"
+	range 1 2
+	default 2
+	depends on IWLMVM
+
+config IWLMVM_POWER_SCHEME
+        int "power scheme mode: 1 CAM, 2 BPS, 3 LP"
+        range 1 3
+        default 2
+        depends on IWLMVM
+	---help---
+	  power scheme modes:
+	  1 - Continous Active Mode (CAM):  Power save is disabled.
+	  2 - Balanced Power Save (BPS): the default mode.
+	      for power saving with least influence on performance.
+	  3 - Low Power (LP): Best power saving mode with possible performance degradation.
+	  This value might get overridden by power_scheme module_param if exists.
+
+config IWLWIFI_DEVICE_TESTMODE
+	bool "enable generic netlink testmode support"
+	depends on IWLWIFI
+	default y if IWLMVM
+	select IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+
+config IWLWIFI_SUPPORT_DEBUG_OVERRIDES
+	depends on IWLWIFI
+	bool "enable default value override (for debugging)"
+
+config IWLWIFI_PCIE_SUSPEND_RESUME
+	bool "enable PCIe suspend/resume code workarounds"
+	depends on IWLWIFI_PCIE
+	# Intel Media requires this
+	default y if CONFIG_ARCH_GEN3
+	help
+	  Enable this option if your base kernel has broken PCI(e)
+	  suspend/resume code and the driver has to work around it
+	  or if you need the driver to store and restore the PCIe
+	  configuration for other reasons.
+
+config IWLWIFI_WANT_PM_RUNTIME
+	bool
+
+config IWLWIFI_MINI_PM_RUNTIME
+	bool
+	depends on IWLWIFI_WANT_PM_RUNTIME
+	default y if !PM_RUNTIME
+	help
+	  Enable use of an internal reference counting framework for the
+	  purpose of getting the FW and bus into a low power state when
+	  the WiFi component is idle.
+
+config IWLMVM_TCM
+	bool "enable traffic conditions monitoring"
+	depends on IWLMVM
+	default y
+	help
+	  This option enables (vendor) events to userspace and traffic
+	  monitoring for low-latency and traffic thresholds, as well as
+	  their impact on quota and other submodules.
+
+config IWLWIFI_LTE_COEX
+        bool "enable lte coexistence support"
+        depends on IWLMVM
+	help
+	  This option enables LTE-Coexistence (vendor) commands
+
+config IWLMVM_SCAN_PRECEDENCE_LEVEL
+	int "define scan fragmentation level"
+	range 1 2
+	default 1
+	depends on IWLMVM
+	help
+	  Scan precedence level defines relative priority of scan comparing to
+	  on channel activities.
+	  This level is expressed in terms of scan timing - out-of-channel time
+	  and scan suspend time.
+	  Level 1: scan is of higher precedence, decreasing overall scan
+	  duration.
+	  Level 2: scan is of lower precedence, increasing overall scan
+	  duration.
+
+config IWLMVM_TDLS_PEER_CACHE
+	bool "enable TDLS peer caching and traffic monitoring"
+	depends on IWLMVM
+	default y
+	help
+	  This option enables (vendor) commands from userspace to monitor
+	  traffic to and from specific peers on the same BSS. These peers
+	  might be TDLS peers, or candidates to become such.
+
+config IWLWIFI_PLATFORM_DATA
+	bool "iwlwifi platform data support"
+	---help---
+	  This option enables support for platform data hooks
+
+	  Select this to be able to implement platform data hooks
+	  for power function handlings (GPIO toggling)
+
+	  If unsure, select N.

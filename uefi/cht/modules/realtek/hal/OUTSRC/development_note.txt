@@ -1,0 +1,1303 @@
+<2014/10/15 16:00 YuChen Reviewer: BB: Stanley, SD4 :Adam >
+Modified Files:
+	HAL/OUTSRC/phydm_DIG.c
+	HAL/OUTSRC/phydm_DIG.h
+
+Change Notes:
+	1. Update DIG V1.3
+		prevent mis-writting IGI when enable Adaptivity
+	
+Verification Before Checked-In:
+	1. build all ok
+--------------------------------------------------------------------------------
+
+<2014/10/14 11:10 YuChen Reviewer: Luke, Georgia >
+Modified Files:
+	HAL/OUTSRC/PhyDM_Adaptivity.c
+	HAL/OUTSRC/PhyDM_Adaptivity.h
+
+Change Notes:
+	1. sync SD7 adaptivity_BSOD function to prevent BSOD
+	2. Bug Fix, disable enable adc_mask to prevent 8812 EDCCA hang
+	
+Verification Before Checked-In:
+	1. build all ok
+
+--------------------------------------------------------------------------------
+<2014/10/13 16:00 Stanley Reviewer: Luke, Georgia>
+Modified Files:
+	HAL/OUTSRC/rtl8723b/HalHWImg8723B_BB.c
+	HAL/OUTSRC/rtl8723b/HalHWImg8723B_MAC.c
+	HAL/OUTSRC/rtl8723b/HalHWImg8723B_RF.c
+
+Change Notes:
+	1. [8723B]Update RTL8723B_MP_Parameter_D-cut_v13_20141013
+
+Verification Before Checked-In:
+	1. make all ok
+--------------------------------------------------------------------------------
+<2014/10/03 15:00 YuChen Reviewer: Jeff >
+Modified Files:
+	hal/OUTSRC/PhyDM_Adaptivity.c
+	hal/OUTSRC/PhyDM_Adaptivity.h
+
+Change Notes:
+	1. Sync with sd7
+		
+Verification Before Checked-In:
+	1. make all ok
+--------------------------------------------------------------------------------
+<2014/10/01 15:00 James Reviewer: Dino, Georgia >
+Modified Files:
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_BB.c
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_MAC.c
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_RF.c
+
+Change Notes:
+	1. Update 8188E parameters to v54 (Power by rate table for AzureWave)
+		
+Verification Before Checked-In:
+	1. make all ok
+---------------------------------------------------------------------------
+<2014/09/22 17:35 Luke.Lee Reviewer: Dino,Georgia >
+Modified Files:
+	hal/OUTSRC/HalPhyRf.c
+	hal/OUTSRC/phydm.h
+	hal/OUTSRC/phydm_types.h
+	
+Change Notes:
+	1. fix compilation warning
+	
+Verification Before Checked-In:
+	1. make all OK
+---------------------------------------------------------------------------
+<2014/09/19 18:00 Luke.Lee Reviewer: Dino,Georgia >
+Modified Files:
+	hal/OUTSRC/phydm.c
+	hal/OUTSRC/phydm.h
+	hal/OUTSRC/phydm_debug.c
+	hal/OUTSRC/phydm_debug.h
+	hal/OUTSRC/phydm_interface.c
+	hal/OUTSRC/phydm_interface.h
+	hal/OUTSRC/phydm_types.h
+	include/rtl8192e_cmd.h
+	include/rtl8723b_cmd.h
+	include/rtl8812a_cmd.h
+	
+Change Notes:
+	1. Add SBD timing report function (default disabled)
+	2. sync with SD7 and SD8
+	
+Verification Before Checked-In:
+	1. make all OK in v12242
+	2. 8723au, 8723as and 8723be compile error in the newest version cause by other modification
+---------------------------------------------------------------------------
+<2014/09/11 17:10 Stanley Reviewer: Jeffery,Jeff >
+Modified Files:
+	hal/OUTSRC/phydm.h
+	
+Change Notes:
+	1. Fix wrong definition of compile flag 
+	
+Verification Before Checked-In:
+	1. make all OK in v12242
+	2. 8723au, 8723as and 8723be compile error in the newest version cause by other modification
+	
+---------------------------------------------------------------------------
+<2014/09/10 13:45 Stanley Reviewer: Luke,Georgia >
+Modified Files:
+	hal/OUTSRC/phydm.h
+	hal/OUTSRC/phydm_DIG.c
+	
+Change Notes:
+	1. Add compile flag of BT coex. for linux driver
+	2. Add BT coex. compile flag in DIG for code size reduction
+	
+Verification Before Checked-In:
+	1. make all OK
+	
+---------------------------------------------------------------------------
+<2014/09/05 17:20 Luke Reviewer:Dino, Georgia >
+Modified Files:
+Change Notes:
+	hal/OUTSRC/phydm_interface.c
+	1. Sync with SD7
+	
+Verification Before Checked-In:
+	1. make all OK
+---------------------------------------------------------------------------
+<2014/09/05 12:00 Luke Reviewer:Dino >
+Modified Files:
+Change Notes:
+	hal/OUTSRC/phydm.c
+	hal/OUTSRC/phydm.h
+	hal/OUTSRC/phydm_debug.c
+	hal/OUTSRC/phydm_debug.h
+	1. Move PhyDM_Cmd() to phydm_debug.c
+	
+Verification Before Checked-In:
+	1. make all OK
+
+---------------------------------------------------------------------------
+<2014/09/05 12:00 Stanley Reviewer:Luke >
+Modified Files:
+Change Notes:
+	hal/OUTSRC/phydm.h
+	hal/OUTSRC/phydm_HWConfig.c	
+	1. Add definition that 11N series is supported or not
+	
+	hal/OUTSRC/phydm_DIG.c
+	hal/OUTSRC/phydm_DIG.h
+	1. Update DIG v1.1
+	2. Add compile flag for code size reduction for 8195A
+	
+	hal/hal_com.c
+	hal/OUTSRC/phydm.c
+	hal/OUTSRC/phydm_CfoTracking.c
+	hal/OUTSRC/phydm_debug.c
+	hal/OUTSRC/phydm_RXHP.c
+	hal/OUTSRC/rtl8188e/phydm_RTL8188E.c
+	hal/OUTSRC/rtl8192d/phydm_RTL8192D.c
+	hal/OUTSRC/rtl8192e/phydm_RTL8192E.c
+	1. Change parameters definition to uppercase
+	
+	hal/OUTSRC/rtl8723b/phydm_RTL8723B.c
+	hal/OUTSRC/rtl8723b/phydm_RTL8723B.h
+	1. Remove dummy code of 8723B
+	
+Verification Before Checked-In:
+	1. make all OK
+
+---------------------------------------------------------------------------
+<2014/08/26 20:50 Luke.Lee Reviewer:Wilson >
+Modified Files:
+
+Change Notes:
+	1. rename files from odm_xxxx to phydm_xxxx
+	2. add verion control for each PHY DM
+	
+Verification Before Checked-In:
+	1. make all OK
+
+---------------------------------------------------------------------------
+<2014/08/12 20:00 James Reviewer:Stanley >
+Modified Files:
+	autoconf_multidrv_usb_linux.h
+	autoconf_rtl8188e_pci_linux.h
+	autoconf_rtl8188e_usb_linux.h
+	autoconf_rtl8189e_gspi_linux.h
+	autoconf_rtl8189e_sdio_linux.h
+	autoconf_rtl8192c_pci_linux.h
+	autoconf_rtl8192c_usb_linux.h
+	autoconf_rtl8192d_pci_linux.h
+	autoconf_rtl8192d_usb_linux.h
+	autoconf_rtl8192e_pci_linux.h
+	autoconf_rtl8192e_usb_linux.h
+	autoconf_rtl8723a_gspi_linux.h
+	autoconf_rtl8723a_sdio_linux.h
+	autoconf_rtl8723a_usb_linux.h
+	autoconf_rtl8723b_gspi_linux.h
+	autoconf_rtl8723b_pci_linux.h
+	autoconf_rtl8723b_sdio_linux.h
+	autoconf_rtl8723b_usb_linux.h
+	autoconf_rtl8812a_pci_linux.h
+	autoconf_rtl8812a_usb_linux.h
+	autoconf_rtl8821a_pci_linux.h
+	autoconf_rtl8821a_sdio_linux.h
+	autoconf_rtl8821a_usb_linux.h
+	hal/hal_com.c
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_CfoTracking.c
+	hal/OUTSRC/odm_debug.c
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_RXHP.c
+	hal/OUTSRC/rtl8188e/odm_RTL8188E.c
+	hal/OUTSRC/rtl8192d/odm_RTL8192D.c
+	hal/OUTSRC/rtl8192e/odm_RTL8192E.c
+	hal/OUTSRC/rtl8723b/odm_RTL8723B.c
+
+Change Notes:
+	1. Create PhyDM_Get_Structure for IOT platform
+	
+Verification Before Checked-In:
+	1.make all ok
+---------------------------------------------------------------------------
+<2014/08/12 11:30 Luke.Lee Reviewer:James >
+Modified Files:
+	OUTSRC/rtl8192e/HalHWImg8192E_BB.c
+	OUTSRC/rtl8192e/HalHWImg8192E_MAC.c
+	OUTSRC/rtl8192e/HalHWImg8192E_RF.c
+
+Change Notes:
+	[92E] Update MP PHY parameter package v036
+	
+Verification Before Checked-In:
+	1.N/A
+
+---------------------------------------------------------------------------
+<2014/08/12 10:20 YuChen Reviewer:Stanley >
+Modified Files:
+	OUTSRC/PhyDM_Adaptivity.c
+
+Change Notes:
+	Fix SearchPwdBLowerBound() in MPdriver 
+	
+Verification Before Checked-In:
+	1.make all ok
+---------------------------------------------------------------------------
+<2014/08/06 18:00 YuChen Reviewer:Stanley >
+Modified Files:
+	OUTSRC/odm_debug.c
+	OUTSRC/odm_debug.h
+	OUTSRC/PhyDM_Adaptivity.c
+	core/rtw_odm.c
+
+Change Notes:
+	Add Adaptivity debug message
+	
+Verification Before Checked-In:
+	1.make build all ok
+---------------------------------------------------------------------------
+<2014/08/04 14:05 YuChen Reviewer:Luke.Lee, Georgia >
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_ACS.c
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+	hal/OUTSRC/odm_precomp.h
+	Makefile
+
+Add Files:
+	hal/OUTSRC/PhyDM_Adaptivity.c
+	hal/OUTSRC/PhyDM_Adaptivity.h
+
+Change Notes:
+	1. Moving adaptivity function from odm_DIG.c to PhyDM_Adaptivity.c
+	
+Verification Before Checked-In:
+	1.make all ok
+---------------------------------------------------------------------------
+<2014/07/31 18:15 YuChen Reviewer:Stanley, Georgia >
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_HWConfig.c
+	hal/OUTSRC/odm_precomp.h
+
+Add Files:
+	HAL/OUTSRC/odm_PowerTracking.c
+	HAL/OUTSRC/odm_PowerTracking.h
+
+Change Notes:
+	1. Moving power tracking function from odm.c to odm_PowerTracking.c
+	2. Sync adaptivity with sd8
+	3. fix coverity error
+	
+Verification Before Checked-In:
+	1.make all ok
+	
+---------------------------------------------------------------------------
+<2014/07/28 17:45 Luke.Lee Reviewer:Johnny, Georgia >
+Modified Files:
+	hal/OUTSRC/rtl8188e/HalHWImg8188E_BB.c
+	hal/OUTSRC/rtl8188e/HalHWImg8188E_MAC.c
+	hal/OUTSRC/rtl8188e/HalHWImg8188E_RF.c
+	hal/OUTSRC/rtl8192e/HalHWImg8192E_BB.c
+	hal/OUTSRC/rtl8192e/HalHWImg8192E_MAC.c
+	hal/OUTSRC/rtl8192e/HalHWImg8192E_RF.c
+	hal/OUTSRC/rtl8723a/HalHWImg8723A_BB.c
+	hal/OUTSRC/rtl8723a/HalHWImg8723A_MAC.c
+	hal/OUTSRC/rtl8723a/HalHWImg8723A_RF.c
+	hal/OUTSRC/rtl8723a/odm_RegConfig8723A.c
+	hal/OUTSRC/rtl8723a/odm_RegConfig8723A.h
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_BB.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_MAC.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_RF.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_BB.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_MAC.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_RF.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_BB.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_MAC.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_RF.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_RF.h
+	
+Change Notes:
+	1. Update PHY Reg for solving coverity issue
+	2. [8723A] modify odm_ConfigBB_PHY_REG_PG_8723A() to avoid compile error
+	
+Verification Before Checked-In:
+	1.Make all ok
+
+---------------------------------------------------------------------------
+<2014/07/22 13:20 Stanley Reviewer:James >
+Modified Files:
+	HAL/OUTSRC/odm.c
+	HAL/OUTSRC/odm_DIG.c
+	HAL/OUTSRC/odm_DIG.h
+	
+Change Notes:
+	1. Ignore DIG mechanism if IGI has been changed by other mechanism
+	2. bSTA flag need to be reset when STA mode for windows driver
+	
+Verification Before Checked-In:
+	1.Make all ok
+
+---------------------------------------------------------------------------
+<2014/07/21 21:20 James Reviewer: Georgia, Luke.Lee >
+Modified Files:
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_BB.c
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_MAC.c
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_RF.c
+
+Change Notes:
+	1. UPDATE_PARAMETERS_V52(add GLNA & GLNA+CUTI)
+	
+Verification Before Checked-In:
+	1.N62/N63 build all ok
+
+--------------------------------------------------------------------------------
+<2014/07/21 17:40 YuChen Reviewer: Jeff, Luke.Lee >
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+
+
+Change Notes:
+	1. update Adaptivity V7.1
+	2. total legal version
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/07/18 17:00 James Reviewer: Georgia, Wilson >
+Modified Files:
+	hal/OUTSRC/rtl8821a/PhyDM_IQK_8821A.c
+
+Change Notes:
+	1. Fix Typing Error(fix coverity check error)
+	2. Correct Fill RXIQC Setting
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/07/16 21:00 James Reviewer: Baron, Luke >
+Modified Files:
+	hal/rtl8812a/rtl8812a_dm.c
+
+Change Notes:
+	1. Fix RegIQKFWOffload Initial Issue
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/07/16 16:20 James Reviewer: Baron, Luke >
+Modified Files:
+	core/rtw_mp.c
+	hal/OUTSRC/development_note.txt
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_interface.c
+	hal/OUTSRC/odm_interface.h
+	hal/OUTSRC/odm_precomp.h
+	hal/OUTSRC/rtl8812a/HalPhyRf_8812A.c
+	hal/OUTSRC/rtl8821a/HalPhyRf_8821A.c
+	hal/OUTSRC/rtl8821a/HalPhyRf_8821A.h
+	hal/rtl8812a/rtl8812a_dm.c
+	hal/rtl8812a/rtl8812a_phycfg.c
+	Makefile
+
+Add Files:
+	hal/OUTSRC/rtl8821a/PhyDM_IQK_8821A.c
+	hal/OUTSRC/rtl8821a/PhyDM_IQK_8821A.h
+
+Change Notes:
+	1. Sync 8821A IQK function from SD7 & SD8
+	2. Extract 8821A IQK from HalPhyRf_8821A
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/07/16 15:30 Dino Reviewer: Jeff, Stanley >
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_AntDiv.c
+	hal/OUTSRC/odm_AntDiv.h
+	hal/OUTSRC/odm_HWConfig.c
+	hal/OUTSRC/rtl8192c/odm_RTL8192C.c
+	hal/OUTSRC/rtl8192c/odm_RTL8192C.h
+
+Change Notes:
+	1. Sync antenna diversity function from SD7
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/07/11 17:00 YuChen Reviewer: Jeff, Stanley >
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+	hal/rtl8188e/rtl8188e_dm.c
+	hal/rtl8192e/rtl8192e_dm.c
+	hal/rtl8723b/rtl8723b_dm.c
+	hal/rtl8812a/rtl8812a_dm.c
+
+Change Notes:
+	1. update Adaptivity V7.0
+	2. temporary turn off updatePowerTrainingStatus
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/07/10 17:50 Luke.Lee Reviewer: Jeff, Johnny >
+Modified Files:
+	hal/OUTSRC/odm_ACS.c
+	hal/OUTSRC/odm_PathDiv.c
+	hal/OUTSRC/odm_RXHP.c
+	hal/OUTSRC/odm_types.h
+	hal/OUTSRC/rtl8188e/Hal8188ERateAdaptive.c
+	hal/OUTSRC/rtl8188e/Hal8188EReg.h
+	hal/OUTSRC/rtl8188e/HalPhyRf_8188e.c
+	hal/OUTSRC/rtl8188e/odm_RegConfig8188E.c
+
+Change Notes:
+	1. reslove coverity check issue
+	2. sync with SD7 and SD8
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/07/01 13:30 YuChen	Reviewer: Stanley >
+Modified Files:
+	OUTSRC/odm_DIG.c
+
+Change Notes:
+	1. Adjust Adaptivity threshold from -69dBm to -72dBm incase of shortcontrol
+	signal fail problem.
+
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/06/30 11:05 Stanley	Reviewer: Dino, Georgia > 
+Modified Files:
+Change Notes:
+	hal/OUTSRC/odm_DIG.c
+	1. Fix compile warning of odm_CheckEDCCABit
+	
+	hal/rtl8188e/rtl8188e_dm.c
+	1. Enable dynamic power training mechanism of 8188E
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/06/27 16:00 Stanley	Reviewer: YuChen, Georgia > 
+Modified Files:
+	hal/hal_dm.c
+	hal/OUTSRC/development_note.txt
+	hal/OUTSRC/HalPhyRf.c
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_AntDiv.c
+	hal/OUTSRC/odm_CfoTracking.c
+	hal/OUTSRC/odm_PathDiv.c
+	hal/OUTSRC/rtl8188e/HalPhyRf_8188e.c
+	hal/OUTSRC/rtl8192e/HalPhyRf_8192e.c
+	hal/OUTSRC/rtl8723b/HalPhyRf_8723B.c
+	hal/OUTSRC/rtl8812a/HalPhyRf_8812A.c
+	hal/OUTSRC/rtl8821a/HalPhyRf_8821A.c
+
+Change Notes:
+	1. Change MP driver flag definition and sync with SD7/SD8
+	2. Remove useless compile flag of MP driver
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/06/27 14:40 YuChen Reviewer: Stanley >
+Modified Files:
+	OUTSRC/odm.c
+	OUTSRC/odm.h
+	OUTSRC/odm_DIG.c
+	OUTSRC/odm_DIG.h
+
+Change Notes:
+Update Adaptivity V6.1
+	1. Support Reapeater mode( for lab test only)
+	2. Refine test condition, we can't reset EDCCA threshold
+	when interference is exist
+	
+Verification Before Checked-In:
+	1.make all ok
+	
+--------------------------------------------------------------------------------
+<2014/06/23 11:55 Luke.Lee	Reviewer: Stanley, Georgia > 
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_precomp.h
+	odm_RXHP.c
+	odm_RXHP.h
+
+Change Notes:
+	1. move out RXHP from odm.c/h to odm_RXHP.c/h
+	2. reduce dummy prototype and function in odm.c
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/06/20 18:00 Luke.Lee	Reviewer:  Jeff> 
+Modified Files:
+	hal/OUTSRC/HalPhyRf.c
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_ACS.c
+	hal/OUTSRC/odm_AntDiv.c
+	hal/OUTSRC/odm_CfoTracking.c
+	hal/OUTSRC/odm_debug.c
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DynamicBBPowerSaving.c
+	hal/OUTSRC/odm_DynamicTxPower.c
+	hal/OUTSRC/odm_EdcaTurboCheck.c
+	hal/OUTSRC/odm_HWConfig.c
+	hal/OUTSRC/odm_interface.c
+	hal/OUTSRC/odm_PathDiv.c
+	hal/OUTSRC/odm_RaInfo.c
+	hal/OUTSRC/rtl8188e/Hal8188ERateAdaptive.c
+	hal/OUTSRC/rtl8188e/HalHWImg8188E_BB.c
+	hal/OUTSRC/rtl8188e/HalHWImg8188E_FW.c
+	hal/OUTSRC/rtl8188e/HalHWImg8188E_MAC.c
+	hal/OUTSRC/rtl8188e/HalHWImg8188E_RF.c
+	hal/OUTSRC/rtl8188e/HalPhyRf_8188e.c
+	hal/OUTSRC/rtl8188e/odm_RegConfig8188E.c
+	hal/OUTSRC/rtl8188e/odm_RTL8188E.c
+	hal/OUTSRC/rtl8192c/odm_RTL8192C.c
+	hal/OUTSRC/rtl8192d/odm_RTL8192D.c
+	hal/OUTSRC/rtl8192e/HalHWImg8192E_BB.c
+	hal/OUTSRC/rtl8192e/HalHWImg8192E_FW.c
+	hal/OUTSRC/rtl8192e/HalHWImg8192E_MAC.c
+	hal/OUTSRC/rtl8192e/HalHWImg8192E_RF.c
+	hal/OUTSRC/rtl8192e/HalPhyRf_8192e.c
+	hal/OUTSRC/rtl8192e/odm_RegConfig8192E.c
+	hal/OUTSRC/rtl8192e/odm_RTL8192E.c
+	hal/OUTSRC/rtl8723a/odm_RegConfig8723A.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_BB.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_FW.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_MAC.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_RF.c
+	hal/OUTSRC/rtl8723b/HalPhyRf_8723B.c
+	hal/OUTSRC/rtl8723b/odm_RegConfig8723B.c
+	hal/OUTSRC/rtl8723b/odm_RTL8723B.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_BB.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_FW.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_MAC.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_RF.c
+	hal/OUTSRC/rtl8812a/HalPhyRf_8812A.c
+	hal/OUTSRC/rtl8812a/odm_RegConfig8812A.c
+	hal/OUTSRC/rtl8812a/odm_RTL8812A.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_BB.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_FW.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_MAC.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_RF.c
+	hal/OUTSRC/rtl8821a/HalPhyRf_8821A.c
+	hal/OUTSRC/rtl8821a/odm_RegConfig8821A.c
+	hal/OUTSRC/rtl8821a/odm_RTL8821A.c
+	
+New Files:
+	hal/OUTSRC/Mp_Precomp.h
+	hal/OUTSRC/rtl8188e/Mp_Precomp.h
+	hal/OUTSRC/rtl8192c/Mp_Precomp.h
+	hal/OUTSRC/rtl8192d/Mp_Precomp.h
+	hal/OUTSRC/rtl8192e/Mp_Precomp.h
+	hal/OUTSRC/rtl8723a/Mp_Precomp.h
+	hal/OUTSRC/rtl8723b/Mp_Precomp.h
+	hal/OUTSRC/rtl8812a/Mp_Precomp.h
+	hal/OUTSRC/rtl8821a/Mp_Precomp.h
+
+Change Notes:
+	1. Add dummy Mp_Precomp.h
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/06/19 17:15 Stanley	Reviewer: Dino > 
+Modified Files:
+	hal/OUTSRC/rtl8188e/Hal8188ERateAdaptive.c
+
+Change Notes:
+	1. Add dynamic power training mechanism for 8188E
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/06/19 13:20 YuChen	Reviewer: LukeLee > 
+Modified Files:
+	HAL/OUTSRC/odm.h
+	HAL/OUTSRC/odm_DIG.c
+
+Change Notes:
+	1. Refine Adaptivity to V6.0, fix can't link problem
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/06/18 19:55 Luke.Lee	Reviewer: YuChen > 
+Modified Files:
+	HAL/OUTSRC/odm_debug.c
+	HAL/OUTSRC/odm_debug.h
+	HAL/OUTSRC/odm_EdcaTurboCheck.c
+	HAL/OUTSRC/odm_interface.c
+	HAL/OUTSRC/odm_interface.h
+	HAL/OUTSRC/odm_reg.h
+	HAL/OUTSRC/odm_types.h
+
+Change Notes:
+	1. Merge SD4/7/8 ODM code
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/06/18 14:45 YuChen	Reviewer:Luke > 
+Modified Files:
+	OUTSRC/odm.h
+	OUTSRC/odm_DIG.c
+	OUTSRC/odm_DIG.h
+	OUTSRC/odm_RegDefine11AC.h
+	OUTSRC/odm_RegDefine11N.h
+
+Change Notes:
+	1. Update Adaptivity V6.0 fix SearchPwdBlowerBound()
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/06/13 21:10 Stanley  Reviewer:YuChen > 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_ACS.c
+	hal/OUTSRC/odm_ACS.h
+	hal/OUTSRC/odm_debug.c
+	hal/OUTSRC/odm_debug.h
+	hal/OUTSRC/odm_precomp.h
+	1. Sync. odm_ACS.c with windows driver
+	   - Add auto channel mechanism for linux driver
+	
+	hal/OUTSRC/odm_RaInfo.c
+	1. Disable power training when noisy environment
+	
+Verification Before Checked-In:
+	1.make All ok
+
+--------------------------------------------------------------------------------
+<2014/06/12 21:10 Luke.Lee  Reviewer: Georgia> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm_AntDiv.c
+	hal/OUTSRC/rtl8192c/odm_RTL8192C.c
+	1. Fix compile warning
+	
+Verification Before Checked-In:
+	1.make All ok
+
+--------------------------------------------------------------------------------
+<2014/06/12 19:50 Stanley  Reviewer: James> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.h
+	1. Sync definition for 8822B\8821B
+	
+	hal/OUTSRC/odm_DIG.c
+	1. Fix DIG upper bound before link
+	2. Disable forbidden IGI mechanism before link
+	
+	hal/OUTSRC/odm_interface.c
+	hal/OUTSRC/odm_interface.h
+	hal/OUTSRC/odm_PathDiv.c
+	hal/OUTSRC/odm_RaInfo.c
+	hal/rtl8188e/rtl8188e_cmd.c
+	hal/rtl8192e/rtl8192e_cmd.c
+	include/rtl8188e_cmd.h
+	include/rtl8192c_cmd.h
+	include/rtl8192e_cmd.h
+	include/rtl8812a_cmd.h
+	1. Add H2C command interface between ODM and driver of linux driver
+	
+Verification Before Checked-In:
+	1.make All ok
+
+--------------------------------------------------------------------------------
+<2014/06/12 17:00 YuChen> 
+Modified Files:
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DynamicTxPower.c
+	hal/OUTSRC/odm_HWConfig.c
+	hal/OUTSRC/odm_PathDiv.h
+	hal/OUTSRC/odm_precomp.h
+	hal/OUTSRC/odm_RaInfo.h
+
+Change Notes: 
+	[ODM]ODM reorganization 
+	1. Sync with sd7 and sd8
+	2. Delete 8812a testchip hwimg
+	
+Verification Before Checked-In:
+	1.make All ok
+--------------------------------------------------------------------------------
+<2014/06/12 18:00 Luke.Lee> 
+Modified Files:
+	HAL/OUTSRC/odm.c
+	HAL/OUTSRC/odm.h
+	HAL/OUTSRC/odm_AntDiv.c
+	HAL/OUTSRC/odm_AntDiv.h
+	HAL/OUTSRC/rtl8192c/odm_RTL8192C.c
+	HAL/OUTSRC/rtl8192c/odm_RTL8192C.h
+
+Change Notes: 
+	[ODM Reorganization] 
+	1. Move 92C AntDiv to odm_RTL8192C.c
+	
+Verification Before Checked-In:
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/06/10 18:16 YuChen> 
+Modified Files:
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_BB.c
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_MAC.c
+	HAL/OUTSRC/rtl8188e/HalHWImg8188E_RF.c
+	HAL/OUTSRC/rtl8188e/MPChip/BB/AGC_TAB.txt
+	HAL/OUTSRC/rtl8188e/MPChip/BB/PHY_REG.txt
+	HAL/OUTSRC/rtl8188e/MPChip/BB/PHY_REG_PG.txt
+	HAL/OUTSRC/rtl8188e/MPChip/MAC/MAC_REG.txt
+	HAL/OUTSRC/rtl8188e/MPChip/RF/RadioA.txt
+	HAL/OUTSRC/rtl8188e/MPChip/RF/TxPowerTrack_AP.txt
+	HAL/OUTSRC/rtl8188e/MPChip/RF/TxPowerTrack_PCIE.txt
+	HAL/OUTSRC/rtl8188e/MPChip/RF/TxPowerTrack_USB.txt
+	HAL/OUTSRC/rtl8188e/MPChip/RF/TXPWR_LMT.txt
+
+Change Notes: 
+	[8188E] 
+	1. Update PHY REG V51
+	Same content with V50, fix CSV logical error 
+Verification Before Checked-In:
+	1.make All ok
+	
+--------------------------------------------------------------------------------
+<2014/06/09 11:00 YuChen> 
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_AntDiv.c
+	hal/OUTSRC/odm_AntDiv.h
+	hal/OUTSRC/odm_PathDiv.c
+	hal/OUTSRC/odm_PathDiv.h
+	hal/OUTSRC/odm_RaInfo.c
+	hal/OUTSRC/odm_types.h
+	hal/OUTSRC/rtl8188e/odm_RTL8188E.c
+	hal/OUTSRC/rtl8192e/odm_RTL8192E.c
+	hal/OUTSRC/rtl8821a/odm_RTL8821A.c
+	hal/OUTSRC/rtl8821a/odm_RTL8821A.h
+	hal/rtl8188e/rtl8188e_dm.c
+	hal/rtl8192c/rtl8192c_dm.c
+	hal/rtl8192d/rtl8192d_dm.c
+	hal/rtl8192e/rtl8192e_dm.c
+	hal/rtl8723a/rtl8723a_dm.c
+	hal/rtl8723b/rtl8723b_dm.c
+	hal/rtl8812a/rtl8812a_dm.c
+Change Notes: 
+	1. ODM_reorganization sync odm_watchdog and odm_watchdoginit with sd7 
+	
+	hal/OUTSRC/odm_DIG.c
+Change Notes: 
+	1. Add Tx>1Mb condition, update to AdaptivityV5.1  
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/06/06 10:35 YuChen> 
+Modified Files:
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_BB.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_MAC.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_RF.c
+
+Change Notes: 
+	[8821A] 
+	1. Update PHY REG V41
+	0x1F = 0x00064, RC BW for 80M (for better TX mask) 
+	
+Verification Before Checked-In:
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/06/03 21:00 Stanley> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_BB.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_BB.h
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_MAC.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_MAC.h
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_RF.c
+	hal/OUTSRC/rtl8812a/HalHWImg8812A_RF.h
+	1. Update RL6286_MAC_PHY_Parameter_v046
+	
+	hal/OUTSRC/odm_DIG.c
+	1. Force IGI upper bound before link to avoid abnormal false alarm
+	
+Verification Before Checked-In:	
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/05/23 19:10 RS_James> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_precomp.h
+
+Add Files£º
+	hal/OUTSRC/odm_RaInfo.c
+	hal/OUTSRC/odm_RaInfo.h
+
+	1. Sync odm_RaInfo(RSSIMonitorCheck/RefreshRateAdaptiveMask)  with SD7/SD8
+	
+Verification Before Checked-In:	
+	1.make all ok
+
+--------------------------------------------------------------------------------
+<2014/05/23 16:30 YuChen> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+
+	1. Add check channel plan to enable Adaptivity
+	
+Verification Before Checked-In:	
+	1.make all ok
+--------------------------------------------------------------------------------
+<2014/05/20 14:00 Stanley> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm_CfoTracking.c
+	hal/OUTSRC/odm_CfoTracking.h
+	hal/OUTSRC/odm_HWConfig.c
+	1. Sync CFO tracking with SD7 and SD8
+	
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+	1. Sync NHM with SD7 and SD8
+	
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm_PathDiv.c
+	1. Sync DMInit with SD7 and SD8
+	
+	hal/OUTSRC/odm_types.h
+	1. Add definition for windows and linux driver
+	
+Verification Before Checked-In:	
+	1.make all ok
+	
+--------------------------------------------------------------------------------
+<2014/05/13 17:40 Georgia> 
+Modified Files:
+hal/OUTSRC/odm.c
+hal/OUTSRC/odm.h
+hal/OUTSRC/odm_interface.c
+hal/OUTSRC/odm_interface.h
+hal/OUTSRC/odm_NoiseMonitor.c
+hal/OUTSRC/odm_NoiseMonitor.h
+hal/OUTSRC/odm_precomp.h
+
+Change Notes: 
+	1.Add in_band noise monitor v1 for all 80211N series ic
+	
+Verification Before Checked-In:	
+	1.make all ok
+	2.8192EU test ok
+--------------------------------------------------------------------------------
+<2014/05/05 17:20 YuChen> 
+Modified Files:
+Change Notes: 
+	HAL/OUTSRC/odm_HWConfig.c
+	HAL/OUTSRC/rtl8192e/HalHWImg8192E_BB.c
+	HAL/OUTSRC/rtl8192e/HalHWImg8192E_BB.h
+	HAL/OUTSRC/rtl8192e/HalHWImg8192E_MAC.c
+	HAL/OUTSRC/rtl8192e/HalHWImg8192E_MAC.h
+	HAL/OUTSRC/rtl8192e/HalHWImg8192E_RF.c
+	HAL/OUTSRC/rtl8192e/HalHWImg8192E_RF.h
+
+	[8192E] 
+	1. Update PHY REG V34 (Support Img2Header V2)
+
+Verification Before Checked-In:
+	1. N62/N63 Buildall OK
+
+--------------------------------------------------------------------------------
+<2014/05/02 19:25 Stanley> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_AntDiv.c
+	hal/OUTSRC/odm_debug.c
+	hal/OUTSRC/odm_debug.h
+	hal/OUTSRC/odm_HWConfig.c
+	hal/OUTSRC/odm_precomp.h
+	hal/OUTSRC/odm_RegDefine11AC.h
+	hal/OUTSRC/odm_RegDefine11N.h
+	hal/OUTSRC/odm_CfoTracking.c
+	hal/OUTSRC/odm_CfoTracking.h
+	Makefile
+	1. Rename ODM_DynamicATCSwitch to odm_CfoTracking
+	2. Rename ODM_BB_CFO_TRACKING to ODM_BB_CFO_TRACKING
+	3. Rename bBtDisable to bBtEnable
+	4. Seperate ODM_DynamicATCSwitch from odm.c
+	
+	hal/rtl8188e/rtl8188e_dm.c
+	hal/rtl8192c/rtl8192c_dm.c
+	hal/rtl8192d/rtl8192d_dm.c
+	hal/rtl8192e/rtl8192e_dm.c
+	hal/rtl8723a/rtl8723a_dm.c
+	hal/rtl8723b/rtl8723b_dm.c
+	hal/rtl8812a/rtl8812a_dm.c
+	1. Enable DM, CFO tracking, for all IC
+	
+	autoconf_multidrv_usb_linux.h
+	autoconf_rtl8188e_pci_linux.h
+	autoconf_rtl8188e_usb_linux.h
+	autoconf_rtl8189e_sdio_linux.h
+	autoconf_rtl8192c_pci_linux.h
+	autoconf_rtl8192c_usb_linux.h
+	autoconf_rtl8192d_pci_linux.h
+	autoconf_rtl8192d_usb_linux.h
+	autoconf_rtl8192e_pci_linux.h
+	autoconf_rtl8192e_usb_linux.h
+	autoconf_rtl8723a_gspi_linux.h
+	autoconf_rtl8723a_sdio_linux.h
+	autoconf_rtl8723a_usb_linux.h
+	autoconf_rtl8723b_gspi_linux.h
+	autoconf_rtl8723b_pci_linux.h
+	autoconf_rtl8723b_sdio_linux.h
+	autoconf_rtl8723b_usb_linux.h
+	autoconf_rtl8812a_pci_linux.h
+	autoconf_rtl8812a_usb_linux.h
+	autoconf_rtl8821a_pci_linux.h
+	autoconf_rtl8821a_sdio_linux.h
+	autoconf_rtl8821a_usb_linux.h
+	hal/hal_com_phycfg.c
+	1. Rename RTL8813A_SUPPORT to RTL8814A_SUPPORT
+	
+Verification Before Checked-In:
+	1. Buildall OK
+
+--------------------------------------------------------------------------------
+<2014/04/29 19:10 YuChen> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm_EdcaTurboCheck.c
+	hal/OUTSRC/odm_HWConfig.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_BB.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_BB.h
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_MAC.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_MAC.h
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_RF.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_RF.h
+
+Remove files:
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_TestChip_BB.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_TestChip_BB.h
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_TestChip_MAC.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_TestChip_MAC.h
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_TestChip_RF.c
+	hal/OUTSRC/rtl8821a/HalHWImg8821A_TestChip_RF.h
+
+	[8821A] 
+	1. Remove Testchip Files
+	2. Update PHY REG V40 (Support Img2Header V2)
+	[ODM_reorganization]
+	1. odm_EdcaTurboCheck remove goto	
+
+Verification Before Checked-In:
+	1. N62/N63 Buildall OK
+
+--------------------------------------------------------------------------------
+<2014/04/29 13:55 RS_James> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm_PathDiv.c
+	hal/OUTSRC/odm_PathDiv.h
+	1. Sync PathDiversity with SD7 and SD8
+	
+Verification Before Checked-In:
+	1. Buildall OK
+
+--------------------------------------------------------------------------------
+<2014/04/28 16:50 Stanley> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+	1. Sync DIG with SD7 and SD8
+	
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_BB.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_BB.h
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_MAC.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_MAC.h
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_RF.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_RF.h
+	1. Update RTL8723B_MP_Parameter_D-cut_v11 to fix compile warning
+	
+Verification Before Checked-In:
+	1. Buildall OK
+
+--------------------------------------------------------------------------------
+<2014/04/28 11:50 YuChen> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_precomp.h
+	Makefile
+Add files
+	hal/OUTSRC/odm_DynamicTxPower.c
+	hal/OUTSRC/odm_DynamicTxPower.h
+
+	1. Separate odm_DynamicTxPower from odm
+	1. Sync odm_DynmaicTxPower with sd7 sd8
+	
+Verification Before Checked-In:
+	1. N62/N63 Buildall OK
+
+-----------------------------------------------------------------------------------------------------
+<2014/04/24 18:00 YuChen> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_DIG.c
+
+	1. Add CarrierSense mode
+	
+Verification Before Checked-In:
+	1. Buildall OK
+
+-----------------------------------------------------------------------------------------------------
+<2014/04/23 14:40 Stanley\YuChen> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	1. Seperate odm_NHMCounterStatistics function from odm_NHMBB
+	2. Move difination of LPS DIG to odm_DIG.c
+	3. Remove dummy prototype
+	
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+	hal/OUTSRC/odm_RegDefine11AC.h
+	1. Sync DIG, dynamic EDCCA, MP DIG and adaptivity with sd4, SD7 and SD8
+	2. Modify debug message of DIG
+
+Verification Before Checked-In:
+	1. Buildall OK
+	
+-----------------------------------------------------------------------------------------------------
+<2014/04/016 13:35 YuChen> 
+Modified Files:
+Change Notes: 
+	OUTSRC/odm_DynamicBBPowerSaving.c
+	OUTSRC/odm_DynamicBBPowerSaving.h
+	OUTSRC/odm_EdcaTurboCheck.c
+
+	1. Sync DynamicBBpowersaving function with sd7 and sd8
+	2. Sync EdcaTurboCheck function with sd7 and sd8	  
+
+Verification Before Checked-In:
+	1. N62 buildall OK
+
+-----------------------------------------------------------------------------------------------------
+<2014/04/09 15:00 YuChen> 
+Modified Files:
+	hal/OUTSRC/odm_EdcaTurboCheck.c
+
+Add Files:
+Change Notes: 
+	1. Remove dummy code
+		
+Verification Before Checked-In:
+	1. buildall OK
+
+-----------------------------------------------------------------------------------------------------
+<2014/04/08 17:35 YuChen> 
+Modified Files:
+	hal/OUTSRC/odm_EdcaTurboCheck.c
+	hal/OUTSRC/odm_EdcaTurboCheck.h
+
+Add Files:
+Change Notes: 
+	1. Sync odm_EdcaTurboCheck to exactly same with SD7
+		
+Verification Before Checked-In:
+	1. buildall OK
+
+-----------------------------------------------------------------------------------------------------
+
+<2014/04/07 11:30 YuChen> 
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_precomp.h
+	make_release
+	Makefile
+
+
+
+Add Files:
+	hal/OUTSRC/odm_DynamicBBPowerSaving.c
+	hal/OUTSRC/odm_DynamicBBPowerSaving.h
+
+Change Notes: 
+	1. Seperate odm_DynamicBBPowerSaving function from odm.c
+		
+Verification Before Checked-In:
+	1. buildall OK
+
+-----------------------------------------------------------------------------------------------------
+
+<2014/04/04 16:55 RS_James> 
+Modified Files:
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_precomp.h
+        Makefile
+
+Add Files:
+	hal/OUTSRC/odm_PathDiv.c
+	hal/OUTSRC/odm_PathDiv.h 
+
+Change Notes: 
+	1. Seperate odm_PathDiversity function from odm.c
+		
+Verification Before Checked-In:
+	1. buildall OK
+
+-----------------------------------------------------------------------------------------------------
+
+<2014/03/26 17:30 Stanley> 
+Modified Files:
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_BB.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_BB.h
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_MAC.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_MAC.h
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_RF.c
+	hal/OUTSRC/rtl8723b/HalHWImg8723B_RF.h
+
+Change Notes: 
+	1. Update RTL8723B_MP_Parameter_D-cut_v10_20140324
+	2. Seperate TFBGA and QFN parameters in radioA
+		
+Verification Before Checked-In:
+	1. buildall OK
+
+-----------------------------------------------------------------------------------------------------
+
+<2014/03/17 14:15 YuChen> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/odm_AntDiv.c
+	hal/OUTSRC/rtl8188e/odm_RTL8188E.c
+	hal/OUTSRC/rtl8723b/odm_RTL8723B.c
+	hal/OUTSRC/rtl8723b/odm_RTL8723B.h
+
+	1. Fix some coverity errors.
+		1.1 [Coverity][10671][Medium][Structurally dead code]odm_TRX_HWAntDiv_Init_88E in hal/OUTSRC/odm_AntDiv.c
+		1.2 [Coverity][10670][Medium][Structurally dead code]odm_TRX_HWAntDiv_Init_88E in hal/OUTSRC/odm_AntDiv.c
+		1.3 [Coverity][10669][Medium][Structurally dead code]odm_TRX_HWAntDiv_Init_88E in hal/OUTSRC/odm_AntDiv.c
+		1.4 [Coverity][10530][Medium][Structurally dead code]odm_DynamicPrimaryCCA in hal/OUTSRC/rtl8188e/odm_RTL8188E.c
+		
+	
+Verification Before Checked-In:
+	1. N62 buildall OK
+
+-----------------------------------------------------------------------------------------------------
+
+<2014/03/10 14:50 YuChen> 
+Modified Files:
+Change Notes: 
+	hal/OUTSRC/development_note.txt
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_precomp.h
+	Makefile
+
+add files	
+	hal/OUTSRC/odm_EdcaTurboCheck.c
+	hal/OUTSRC/odm_EdcaTurboCheck.h
+	hal/OUTSRC/odm_DIG.c
+	hal/OUTSRC/odm_DIG.h
+
+	1. Seperate odm_EdcaTurboCheck function from odm.c
+	2. Seperate odm_DIG function from odm.c
+	
+Verification Before Checked-In:
+	1. N62 buildall OK
+
+-----------------------------------------------------------------------------------------------------
+
+<2014/03/05 16:10 YuChen> 
+Modified Files:
+Change Notes: 
+	hal/hal_com_phycfg.c
+	hal/OUTSRC/odm.c
+	hal/OUTSRC/odm.h
+	hal/OUTSRC/odm_RegDefine11AC.h
+	hal/OUTSRC/odm_RegDefine11N.h
+	hal/OUTSRC/rtl8188e/HalPhyRf_8188e.c
+	hal/OUTSRC/rtl8192c/HalDMOutSrc8192C_CE.c
+	hal/OUTSRC/rtl8192d/HalDMOutSrc8192D_CE.c
+	hal/OUTSRC/rtl8192e/HalPhyRf_8192e.c
+	hal/OUTSRC/rtl8723b/HalPhyRf_8723B.c
+	hal/rtl8188e/rtl8188e_mp.c
+	hal/rtl8188e/rtl8188e_phycfg.c
+	hal/rtl8192c/rtl8192c_mp.c
+	hal/rtl8192c/rtl8192c_phycfg.c
+	hal/rtl8192c/rtl8192c_rf6052.c
+	hal/rtl8192d/rtl8192d_mp.c
+	hal/rtl8192d/rtl8192d_phycfg.c
+	hal/rtl8192d/rtl8192d_rf6052.c
+	hal/rtl8192e/rtl8192e_mp.c
+	hal/rtl8723a/rtl8723a_mp.c
+	hal/rtl8723a/rtl8723a_phycfg.c
+	hal/rtl8723a/rtl8723a_rf6052.c
+	hal/rtl8723b/rtl8723b_mp.c
+	hal/rtl8812a/rtl8812a_mp.c
+	include/rtw_mp_phy_regdef.h
+
+	1. [ODM] Adaptivity Refine
+	a.add odm_SearchPwdBLowerBound function to prevent enable adaptivity Tx hang
+	b.add odm_NHMBB() 
+	c.add odm_pauseDIG
+	d.replace 0xffffff00 to bMaskH3Bytes	  
+
+Verification Before Checked-In:
+	1. N62 buildall OK
+
+-----------------------------------------------------------------------------------------------------
