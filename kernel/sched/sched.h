@@ -748,6 +748,7 @@ extern unsigned int sched_heavy_task;
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
 extern void fixup_nr_big_small_task(int cpu, int reset_stats);
 u64 scale_load_to_cpu(u64 load, int cpu);
+unsigned int task_load(struct task_struct *p);
 unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
