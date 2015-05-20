@@ -176,8 +176,10 @@ static int mdss_pll_clock_register(struct platform_device *pdev,
 		break;
 	}
 
-	if (rc)
-		pr_err("Pll parent clock register failed rc=%d\n", rc);
+	if (rc) {
+		pr_err("Pll ndx=%d clock register failed rc=%d\n",
+				pll_res->index, rc);
+	}
 
 	return rc;
 }
@@ -239,6 +241,9 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		goto io_error;
 	}
 
+	pr_debug("%s: ndx=%d base=%p\n", __func__,
+			pll_res->index, pll_res->pll_base);
+
 	rc = mdss_pll_resource_parse(pdev, pll_res);
 	if (rc) {
 		pr_err("Pll resource parsing from dt failed rc=%d\n", rc);
@@ -286,13 +291,15 @@ static int mdss_pll_probe(struct platform_device *pdev)
 
 	rc = mdss_pll_resource_init(pdev, pll_res);
 	if (rc) {
-		pr_err("Pll resource init failed rc=%d\n", rc);
+		pr_err("Pll ndx=%d resource init failed rc=%d\n",
+				pll_res->index, rc);
 		goto res_init_error;
 	}
 
 	rc = mdss_pll_clock_register(pdev, pll_res);
 	if (rc) {
-		pr_err("Pll clock register failed rc=%d\n", rc);
+		pr_err("Pll ndx=%d clock register failed rc=%d\n",
+			pll_res->index, rc);
 		goto clock_register_error;
 	}
 

@@ -139,6 +139,12 @@ struct dsi_pll_output {
 	u32 fcvo;
 };
 
+enum {
+	DSI_PLL_0,
+	DSI_PLL_1,
+	DSI_PLL_NUM
+};
+
 struct dsi_pll_db {
 	struct dsi_pll_input in;
 	struct dsi_pll_output out;

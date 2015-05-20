@@ -68,8 +68,8 @@ int post_n1_div_set_div(struct div_clk *clk, int div)
 	pout->pll_postdiv = 1;	/* fixed, divided by 1 */
 	pout->pll_n1div  = div;
 
-	pr_debug("div=%d postdiv=%x n1div=%x\n",
-			div, pout->pll_postdiv, pout->pll_n1div);
+	pr_debug("ndx=%d div=%d postdiv=%x n1div=%x\n",
+			pll->index, div, pout->pll_postdiv, pout->pll_n1div);
 
 	/* registers commited at pll_db_commit_8996() */
 
@@ -139,7 +139,7 @@ int n2_div_set_div(struct div_clk *clk, int div)
 
 	/* set dsiclk_sel=1 so that n2div *= 2 */
 	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_CMN_CLK_CFG1, 1);
-	pr_debug("div=%d n2div=%x\n", div, n2div);
+	pr_debug("ndx=%d div=%d n2div=%x\n", pll->index, div, n2div);
 
 	mdss_pll_resource_enable(pll, false);
 
@@ -157,7 +157,8 @@ int n2_div_get_div(struct div_clk *clk)
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
+		pr_err("Failed to enable mdss dsi pll=%d resources\n",
+						pll->index);
 		return rc;
 	}
 
@@ -167,7 +168,7 @@ int n2_div_get_div(struct div_clk *clk)
 
 	mdss_pll_resource_enable(pll, false);
 
-	pr_debug("div=%d\n", n2div);
+	pr_debug("ndx=%d div=%d\n", pll->index, n2div);
 
 	return n2div;
 }
@@ -184,7 +185,8 @@ static bool pll_is_pll_locked_8996(struct mdss_pll_resources *pll)
 			((status & BIT(5)) > 0),
 			DSI_PLL_POLL_MAX_READS,
 			DSI_PLL_POLL_TIMEOUT_US)) {
-		pr_debug("DSI PLL status=%x failed to Lock\n", status);
+			pr_err("DSI PLL ndx=%d status=%x failed to Lock\n",
+					pll->index, status);
 		pll_locked = false;
 	} else if (readl_poll_timeout_atomic((pll->pll_base +
 				DSIPHY_PLL_RESET_SM_READY_STATUS),
@@ -192,7 +194,8 @@ static bool pll_is_pll_locked_8996(struct mdss_pll_resources *pll)
 				((status & BIT(0)) > 0),
 				DSI_PLL_POLL_MAX_READS,
 				DSI_PLL_POLL_TIMEOUT_US)) {
-		pr_debug("DSI PLL status=%x PLl not ready\n", status);
+			pr_err("DSI PLL ndx=%d status=%x PLl not ready\n",
+					pll->index, status);
 		pll_locked = false;
 	} else {
 		pll_locked = true;
@@ -232,12 +235,12 @@ int dsi_pll_enable_seq_8996(struct mdss_pll_resources *pll)
 	 */
 
 	if (!pll_is_pll_locked_8996(pll)) {
-		pr_err("DSI PLL lock failed\n");
+		pr_err("DSI PLL ndx=%d lock failed\n", pll->index);
 		rc = -EINVAL;
 		goto init_lock_err;
 	}
 
-	pr_debug("DSI PLL Lock success\n");
+	pr_debug("DSI PLL ndx=%d Lock success\n", pll->index);
 
 init_lock_err:
 	return rc;
@@ -251,7 +254,8 @@ static int dsi_pll_enable(struct clk *c)
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
+		pr_err("ndx=%d Failed to enable mdss dsi pll resources\n",
+							pll->index);
 		return rc;
 	}
 
@@ -266,7 +270,7 @@ static int dsi_pll_enable(struct clk *c)
 
 	if (rc) {
 		mdss_pll_resource_enable(pll, false);
-		pr_err("DSI PLL failed to lock\n");
+		pr_err("ndx=%d DSI PLL failed to lock\n", pll->index);
 	} else {
 		pll->pll_on = true;
 	}
@@ -282,7 +286,7 @@ static void dsi_pll_disable(struct clk *c)
 
 	if (!pll->pll_on &&
 		mdss_pll_resource_enable(pll, true)) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
+		pr_err("Failed to enable mdss dsi pll=%d\n", pll->index);
 		return;
 	}
 
@@ -311,7 +315,7 @@ static void dsi_pll_disable(struct clk *c)
 
 	pll->pll_on = false;
 
-	pr_debug("DSI PLL Disabled\n");
+	pr_debug("DSI PLL ndx=%d Disabled\n", pll->index);
 	return;
 }
 
@@ -621,11 +625,12 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
+		pr_err("Failed to enable mdss dsi plla=%d\n", pll->index);
 		return rc;
 	}
 
-	pr_debug("%s: rate=%lu\n", __func__, rate);
+	pr_debug("%s: ndx=%d base=%p rate=%lu\n", __func__,
+				pll->index, pll->pll_base, rate);
 
 	pll->vco_current_rate = rate;
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
@@ -665,7 +670,7 @@ unsigned long pll_vco_get_rate_8996(struct clk *c)
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
+		pr_err("Failed to enable mdss dsi pll=%d\n", pll->index);
 		return rc;
 	}
 
@@ -725,7 +730,7 @@ enum handoff pll_vco_handoff_8996(struct clk *c)
 
 	rc = mdss_pll_resource_enable(pll, true);
 	if (rc) {
-		pr_err("Failed to enable mdss dsi pll resources\n");
+		pr_err("Failed to enable mdss dsi pll=%d\n", pll->index);
 		return ret;
 	}
 
@@ -756,7 +761,8 @@ int pll_vco_prepare_8996(struct clk *c)
 	    && (pll->vco_cached_rate == c->rate)) {
 		rc = c->ops->set_rate(c, pll->vco_cached_rate);
 		if (rc) {
-			pr_err("vco_set_rate failed. rc=%d\n", rc);
+			pr_err("index=%d vco_set_rate failed. rc=%d\n",
+					rc, pll->index);
 			goto error;
 		}
 	}
