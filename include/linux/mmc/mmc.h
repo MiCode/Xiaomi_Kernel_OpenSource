@@ -29,6 +29,11 @@
 extern const u8 tuning_blk_pattern_4bit[MMC_TUNING_BLK_PATTERN_4BIT_SIZE];
 extern const u8 tuning_blk_pattern_8bit[MMC_TUNING_BLK_PATTERN_8BIT_SIZE];
 
+/* class 11 */
+#define MMC_CMDQ_TASK_MGMT       48  /* ac   [31:0] task ID     R1b */
+#define DISCARD_QUEUE		0x1
+#define DISCARD_TASK		0x2
+
 static inline bool mmc_op_multi(u32 opcode)
 {
 	return opcode == MMC_WRITE_MULTIPLE_BLOCK ||
