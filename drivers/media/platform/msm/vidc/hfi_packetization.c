@@ -2095,6 +2095,22 @@ static int create_3x_pkt_cmd_session_set_property(
 	return rc;
 }
 
+int create_pkt_cmd_session_sync_process(
+		struct hfi_cmd_session_sync_process_packet *pkt,
+		struct hal_session *session)
+{
+	if (!pkt || !session)
+		return -EINVAL;
+
+	*pkt = (struct hfi_cmd_session_sync_process_packet) {0};
+	pkt->size = sizeof(*pkt);
+	pkt->packet_type = HFI_CMD_SESSION_SYNC;
+	pkt->session_id = hash32_ptr(session);
+	pkt->sync_id = 0;
+
+	return 0;
+}
+
 static struct hfi_packetization_ops hfi_default = {
 	.sys_init = create_pkt_cmd_sys_init,
 	.sys_pc_prep = create_pkt_cmd_sys_pc_prep,
@@ -2132,6 +2148,7 @@ struct hfi_packetization_ops *get_venus_3x_ops(void)
 	hfi_venus_3x.session_set_property =
 		create_3x_pkt_cmd_session_set_property;
 	hfi_venus_3x.session_cmd = create_3x_pkt_cmd_session_cmd;
+	hfi_venus_3x.session_sync_process = create_pkt_cmd_session_sync_process;
 
 	return &hfi_venus_3x;
 }

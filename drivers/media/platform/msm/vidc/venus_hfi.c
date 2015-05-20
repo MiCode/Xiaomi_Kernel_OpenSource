@@ -84,6 +84,9 @@ static void __flush_debug_queue(struct venus_hfi_device *device, u8 *packet);
 static int __initialize_packetization(struct venus_hfi_device *device);
 static struct hal_session *__get_session(struct venus_hfi_device *device,
 		u32 session_id);
+static int __iface_cmdq_write(struct venus_hfi_device *device,
+					void *pkt);
+
 
 /**
  * Utility function to enforce some of our assumptions.  Spam calls to this
@@ -327,14 +330,14 @@ static int __acquire_regulators(struct venus_hfi_device *device)
 }
 
 static int __write_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
-		u32 *rx_req_is_set)
+		bool *rx_req_is_set)
 {
 	struct hfi_queue_header *queue;
 	u32 packet_size_in_words, new_write_idx;
 	u32 empty_space, read_idx;
 	u32 *write_ptr;
 
-	if (!qinfo || !packet || !rx_req_is_set) {
+	if (!qinfo || !packet) {
 		dprintk(VIDC_ERR, "Invalid Params\n");
 		return -EINVAL;
 	} else if (!qinfo->q_array.align_virtual_addr) {
@@ -391,9 +394,10 @@ static int __write_queue(struct vidc_iface_q_info *qinfo, u8 *packet,
 	 * write index */
 	mb();
 	queue->qhdr_write_idx = new_write_idx;
-	*rx_req_is_set = (1 == queue->qhdr_rx_req) ? 1 : 0;
-	/*Memory barrier to make sure write index is updated before an
-	 * interupt is raised on venus.*/
+	if (rx_req_is_set)
+		*rx_req_is_set = queue->qhdr_rx_req == 1;
+	/* Memory barrier to make sure write index is updated before an
+	 * interrupt is raised on venus. */
 	mb();
 	return 0;
 }
@@ -917,9 +921,6 @@ static int venus_hfi_vote_buses(void *dev, struct vidc_bus_vote_data *d, int n)
 	return rc;
 
 }
-static int __iface_cmdq_write(struct venus_hfi_device *device,
-					void *pkt);
-
 static int __core_set_resource(struct venus_hfi_device *device,
 		struct vidc_resource_hdr *resource_hdr, void *resource_value)
 {
@@ -1647,13 +1648,13 @@ static int venus_hfi_scale_clocks(void *dev, int load, int codecs_enabled)
 	return rc;
 }
 
-static int __iface_cmdq_write(struct venus_hfi_device *device,
-					void *pkt)
+/* Writes into cmdq without raising an interrupt */
+static int __iface_cmdq_write_relaxed(struct venus_hfi_device *device,
+		void *pkt, bool *requires_interrupt)
 {
-	u32 rx_req_is_set = 0;
 	struct vidc_iface_q_info *q_info;
 	struct vidc_hal_cmd_pkt_hdr *cmd_packet;
-	int result = -EPERM;
+	int result = -E2BIG;
 
 	if (!device || !pkt) {
 		dprintk(VIDC_ERR, "Invalid Params\n");
@@ -1684,8 +1685,7 @@ static int __iface_cmdq_write(struct venus_hfi_device *device,
 	}
 
 	__sim_modify_cmd_packet((u8 *)pkt, device);
-	if (!__write_queue(q_info, (u8 *)pkt, &rx_req_is_set)) {
-
+	if (!__write_queue(q_info, (u8 *)pkt, requires_interrupt)) {
 		if (__power_on(device)) {
 			dprintk(VIDC_ERR, "%s: Power on failed\n", __func__);
 			goto err_q_write;
@@ -1696,10 +1696,6 @@ static int __iface_cmdq_write(struct venus_hfi_device *device,
 			dprintk(VIDC_ERR, "Clock scaling failed\n");
 			goto err_q_write;
 		}
-
-		if (rx_req_is_set)
-			__write_register(device, VIDC_CPU_IC_SOFTINT,
-				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
 
 		if (device->res->sw_power_collapsible) {
 			dprintk(VIDC_DBG,
@@ -1716,12 +1712,27 @@ static int __iface_cmdq_write(struct venus_hfi_device *device,
 
 		result = 0;
 	} else {
-		dprintk(VIDC_ERR, "__iface_cmdq_write:queue_full\n");
+		dprintk(VIDC_ERR, "__iface_cmdq_write: queue full\n");
 	}
 
 err_q_write:
 err_q_null:
 	return result;
+}
+
+static int __iface_cmdq_write(struct venus_hfi_device *device, void *pkt)
+{
+	bool needs_interrupt = false;
+	int rc = __iface_cmdq_write_relaxed(device, pkt, &needs_interrupt);
+
+	if (!rc && needs_interrupt) {
+		/* Consumer of cmdq prefers that we raise an interrupt */
+		rc = 0;
+		__write_register(device, VIDC_CPU_IC_SOFTINT,
+				1 << VIDC_CPU_IC_SOFTINT_H2A_SHFT);
+	}
+
+	return rc;
 }
 
 static int __iface_msgq_read(struct venus_hfi_device *device, void *pkt)
@@ -2909,6 +2920,55 @@ static int venus_hfi_session_stop(void *session)
 	return rc;
 }
 
+static int __session_etb(struct hal_session *session,
+		struct vidc_frame_data *input_frame, bool relaxed)
+{
+	int rc = 0;
+	struct venus_hfi_device *device = session->device;
+
+	if (session->is_decoder) {
+		struct hfi_cmd_session_empty_buffer_compressed_packet pkt;
+
+		rc = call_hfi_pkt_op(device, session_etb_decoder,
+				&pkt, session, input_frame);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"Session etb decoder: failed to create pkt\n");
+			goto err_create_pkt;
+		}
+
+		if (!relaxed)
+			rc = __iface_cmdq_write(session->device, &pkt);
+		else
+			rc = __iface_cmdq_write_relaxed(session->device,
+					&pkt, NULL);
+		if (rc)
+			goto err_create_pkt;
+	} else {
+		struct hfi_cmd_session_empty_buffer_uncompressed_plane0_packet
+			pkt;
+
+		rc = call_hfi_pkt_op(device, session_etb_encoder,
+					 &pkt, session, input_frame);
+		if (rc) {
+			dprintk(VIDC_ERR,
+					"Session etb encoder: failed to create pkt\n");
+			goto err_create_pkt;
+		}
+
+		if (!relaxed)
+			rc = __iface_cmdq_write(session->device, &pkt);
+		else
+			rc = __iface_cmdq_write_relaxed(session->device,
+					&pkt, NULL);
+		if (rc)
+			goto err_create_pkt;
+	}
+
+err_create_pkt:
+	return rc;
+}
+
 static int venus_hfi_session_etb(void *sess,
 				struct vidc_frame_data *input_frame)
 {
@@ -2923,48 +2983,38 @@ static int venus_hfi_session_etb(void *sess,
 
 	device = session->device;
 	mutex_lock(&device->lock);
+	rc = __session_etb(session, input_frame, false);
+	mutex_unlock(&device->lock);
+	return rc;
+}
 
-	if (session->is_decoder) {
-		struct hfi_cmd_session_empty_buffer_compressed_packet pkt;
+static int __session_ftb(struct hal_session *session,
+		struct vidc_frame_data *output_frame, bool relaxed)
+{
+	int rc = 0;
+	struct venus_hfi_device *device = session->device;
+	struct hfi_cmd_session_fill_buffer_packet pkt;
 
-		rc = call_hfi_pkt_op(device, session_etb_decoder,
-				&pkt, session, input_frame);
-		if (rc) {
-			dprintk(VIDC_ERR,
-			"Session etb decoder: failed to create pkt\n");
-			goto err_create_pkt;
-		}
-
-		dprintk(VIDC_DBG, "Q DECODER INPUT BUFFER\n");
-		if (__iface_cmdq_write(session->device, &pkt))
-			rc = -ENOTEMPTY;
-	} else {
-		struct hfi_cmd_session_empty_buffer_uncompressed_plane0_packet
-			pkt;
-
-
-		rc = call_hfi_pkt_op(device, session_etb_encoder,
-					 &pkt, session, input_frame);
-		if (rc) {
-			dprintk(VIDC_ERR,
-			"Session etb encoder: failed to create pkt\n");
-			goto err_create_pkt;
-		}
-
-		dprintk(VIDC_DBG, "Q ENCODER INPUT BUFFER\n");
-		if (__iface_cmdq_write(session->device, &pkt))
-			rc = -ENOTEMPTY;
+	rc = call_hfi_pkt_op(device, session_ftb,
+			&pkt, session, output_frame);
+	if (rc) {
+		dprintk(VIDC_ERR, "Session ftb: failed to create pkt\n");
+		goto err_create_pkt;
 	}
 
+	if (!relaxed)
+		rc = __iface_cmdq_write(session->device, &pkt);
+	else
+		rc = __iface_cmdq_write_relaxed(session->device,
+				&pkt, NULL);
+
 err_create_pkt:
-	mutex_unlock(&device->lock);
 	return rc;
 }
 
 static int venus_hfi_session_ftb(void *sess,
 				struct vidc_frame_data *output_frame)
 {
-	struct hfi_cmd_session_fill_buffer_packet pkt;
 	int rc = 0;
 	struct hal_session *session = sess;
 	struct venus_hfi_device *device;
@@ -2976,17 +3026,56 @@ static int venus_hfi_session_ftb(void *sess,
 
 	device = session->device;
 	mutex_lock(&device->lock);
+	rc = __session_ftb(session, output_frame, false);
+	mutex_unlock(&device->lock);
+	return rc;
+}
 
-	rc = call_hfi_pkt_op(device, session_ftb,
-			&pkt, session, output_frame);
+static int venus_hfi_session_process_batch(void *sess,
+		int num_etbs, struct vidc_frame_data etbs[],
+		int num_ftbs, struct vidc_frame_data ftbs[])
+{
+	int rc = 0, c = 0;
+	struct hal_session *session = sess;
+	struct venus_hfi_device *device;
+	struct hfi_cmd_session_sync_process_packet pkt;
+
+	if (!session || !session->device) {
+		dprintk(VIDC_ERR, "%s: Invalid Params\n", __func__);
+		return -EINVAL;
+	}
+
+	device = session->device;
+
+	mutex_lock(&device->lock);
+	for (c = 0; c < num_ftbs; ++c) {
+		rc = __session_ftb(session, &ftbs[c], true);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to queue batched ftb: %d\n",
+					rc);
+			goto err_etbs_and_ftbs;
+		}
+	}
+
+	for (c = 0; c < num_etbs; ++c) {
+		rc = __session_etb(session, &etbs[c], true);
+		if (rc) {
+			dprintk(VIDC_ERR, "Failed to queue batched etb: %d\n",
+					rc);
+			goto err_etbs_and_ftbs;
+		}
+	}
+
+	rc = call_hfi_pkt_op(device, session_sync_process, &pkt, session);
 	if (rc) {
-		dprintk(VIDC_ERR, "Session ftb: failed to create pkt\n");
-		goto err_create_pkt;
+		dprintk(VIDC_ERR, "Failed to create sync packet\n");
+		goto err_etbs_and_ftbs;
 	}
 
 	if (__iface_cmdq_write(session->device, &pkt))
 		rc = -ENOTEMPTY;
-err_create_pkt:
+
+err_etbs_and_ftbs:
 	mutex_unlock(&device->lock);
 	return rc;
 }
@@ -4566,6 +4655,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_stop = venus_hfi_session_stop;
 	hdev->session_etb = venus_hfi_session_etb;
 	hdev->session_ftb = venus_hfi_session_ftb;
+	hdev->session_process_batch = venus_hfi_session_process_batch;
 	hdev->session_parse_seq_hdr = venus_hfi_session_parse_seq_hdr;
 	hdev->session_get_seq_hdr = venus_hfi_session_get_seq_hdr;
 	hdev->session_get_buf_req = venus_hfi_session_get_buf_req;
