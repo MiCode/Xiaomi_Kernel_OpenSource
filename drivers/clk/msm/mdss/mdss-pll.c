@@ -310,8 +310,6 @@ dyn_pll_io_error:
 	if (pll_res->phy_base)
 		iounmap(pll_res->phy_base);
 phy_io_error:
-	if (pll_res->pll_1_base)
-		iounmap(pll_res->pll_1_base);
 	mdss_pll_resource_release(pdev, pll_res);
 res_parse_error:
 	iounmap(pll_res->pll_base);
