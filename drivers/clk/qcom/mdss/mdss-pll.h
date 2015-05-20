@@ -48,7 +48,6 @@ struct mdss_pll_resources {
 	 * register mapping
 	 */
 	void __iomem	*pll_base;
-	void __iomem	*pll_1_base;
 	void __iomem	*phy_base;
 	void __iomem	*gdsc_base;
 	void __iomem	*dyn_pll_base;
