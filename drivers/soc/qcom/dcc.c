@@ -129,7 +129,7 @@ static bool dcc_ready(struct dcc_drvdata *drvdata)
 	uint32_t val;
 
 	/* poll until DCC ready */
-	if (!readx_poll_timeout(__raw_readl, (drvdata->base + DCC_STATUS), val,
+	if (!readl_poll_timeout((drvdata->base + DCC_STATUS), val,
 				(BVAL(val, 4) == 1), 1, TIMEOUT_US))
 		return true;
 
