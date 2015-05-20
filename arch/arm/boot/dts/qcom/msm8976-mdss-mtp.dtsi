@@ -23,6 +23,14 @@
 	qcom,mdss-dsi-bl-max-level = <4095>;
 };
 
+&dsi_dual_nt35597_cmd {
+	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+};
+
 &pmx_mdss {
 	qcom,num-grp-pins = <3>;
 	qcom,pins = <&gp 25>, <&gp 66>, <&gp 107>;
