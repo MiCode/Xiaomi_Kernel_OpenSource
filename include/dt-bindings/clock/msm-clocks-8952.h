@@ -299,4 +299,7 @@
 #define clk_a53ssmux_bc				0xb5983c42
 #define clk_a53ssmux_cci			0x15560bd5
 
+#define clk_audio_ap_clk 0x312ac429
+#define clk_audio_pmi_clk 0xb7ba2274
+
 #endif

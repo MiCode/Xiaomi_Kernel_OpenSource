@@ -397,7 +397,7 @@ config SND_SOC_MSM8909_WCD
 
 config AUDIO_EXT_CLK
 	tristate
-	default y if SND_SOC_WCD9335=y
+	default y if SND_SOC_WCD9335=y || SND_SOC_WCD9330=y || SND_SOC_MSM8X16_WCD=y
 
 config SND_SOC_WL1273
 	tristate
