@@ -606,11 +606,12 @@ int diag_cmd_get_mobile_id(unsigned char *src_buf, int src_len,
 	rsp.header.cmd_code = header->cmd_code;
 	rsp.header.subsys_id = header->subsys_id;
 	rsp.header.subsys_cmd_code = header->subsys_cmd_code;
-	rsp.version = 1;
+	rsp.version = 2;
 	rsp.padding[0] = 0;
 	rsp.padding[1] = 0;
 	rsp.padding[2] = 0;
-	rsp.family = (uint32_t)socinfo_get_msm_cpu();
+	rsp.family = 0;
+	rsp.chip_id = (uint32_t)socinfo_get_id();
 
 	memcpy(dest_buf, &rsp, sizeof(rsp));
 	write_len += sizeof(rsp);
@@ -856,7 +857,7 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 						   driver->apps_rsp_buf,
 						   DIAG_MAX_RSP_SIZE);
 		if (write_len > 0) {
-			diag_send_rsp(driver->apps_rsp_buf, write_len - 1);
+			diag_send_rsp(driver->apps_rsp_buf, write_len);
 			return 0;
 		}
 	}

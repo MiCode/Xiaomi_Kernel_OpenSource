@@ -246,7 +246,8 @@ struct diag_cmd_ext_mobile_rsp_t {
 	uint8_t version;
 	uint8_t padding[3];
 	uint32_t family;
-};
+	uint32_t chip_id;
+} __packed;
 
 struct diag_cmd_reg_entry_t {
 	uint16_t cmd_code;
