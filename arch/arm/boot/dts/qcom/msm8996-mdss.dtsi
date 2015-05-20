@@ -346,13 +346,13 @@
 			clocks = <&clock_mmss clk_mdss_byte0_clk>,
 				 <&clock_mmss clk_mdss_pclk0_clk>,
 				 <&clock_mmss clk_mdss_esc0_clk>,
-				 <&mdss_dsi0_pll clk_mdss_byte_clk_mux>,
-				 <&mdss_dsi0_pll clk_mdss_pixel_clk_mux>,
-				 <&mdss_dsi0_pll clk_byte_clk_src>,
-				 <&mdss_dsi0_pll clk_pixel_clk_src>;
+				 <&mdss_dsi0_pll clk_dsi0pll_byte_clk_mux>,
+				 <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_mux>,
+				 <&mdss_dsi0_pll clk_dsi0pll_byte_clk_src>,
+				 <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_src>;
 			clock-names = "byte_clk", "pixel_clk", "core_clk",
-				"mdss_byte_clk_mux", "mdss_pixel_clk_mux",
-				"byte_clk_src", "pixel_clk_src";
+				"pll_byte_clk_mux", "pll_pixel_clk_mux",
+				"pll_byte_clk_src", "pll_pixel_clk_src";
 
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06
@@ -386,13 +386,13 @@
 			clocks = <&clock_mmss clk_mdss_byte1_clk>,
 				 <&clock_mmss clk_mdss_pclk1_clk>,
 				 <&clock_mmss clk_mdss_esc1_clk>,
-				 <&mdss_dsi0_pll clk_mdss_byte_clk_mux>,
-				 <&mdss_dsi0_pll clk_mdss_pixel_clk_mux>,
-				 <&mdss_dsi0_pll clk_byte_clk_src>,
-				 <&mdss_dsi0_pll clk_pixel_clk_src>;
+				 <&mdss_dsi0_pll clk_dsi0pll_byte_clk_mux>,
+				 <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_mux>,
+				 <&mdss_dsi0_pll clk_dsi0pll_byte_clk_src>,
+				 <&mdss_dsi0_pll clk_dsi0pll_pixel_clk_src>;
 			clock-names = "byte_clk", "pixel_clk", "core_clk",
-				"mdss_byte_clk_mux", "mdss_pixel_clk_mux",
-				"byte_clk_src", "pixel_clk_src";
+				"pll_byte_clk_mux", "pll_pixel_clk_mux",
+				"pll_byte_clk_src", "pll_pixel_clk_src";
 
 			qcom,platform-strength-ctrl = [ff 06
 							ff 06

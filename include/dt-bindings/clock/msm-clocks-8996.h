@@ -494,13 +494,20 @@
 #define clk_gcc_debug_mux		0x8121ac15
 
 /* external multimedia clocks */
-#define clk_mdss_pixel_clk_mux		0xf261a1a6
-#define clk_mdss_byte_clk_mux		0x64a23fa0
-#define clk_byte_clk_src		0x3a911c53
-#define clk_pixel_clk_src		0x8b6f83d8
-#define clk_n2_div_clk			0x55f99368
-#define clk_post_n1_div_clk		0x8d82b2ed
-#define clk_dsi_vco_clk			0x57ed31b4
+#define clk_dsi0pll_pixel_clk_mux	0x792379e1
+#define clk_dsi0pll_byte_clk_mux	0x60e83f06
+#define clk_dsi0pll_byte_clk_src	0xbbaa30be
+#define clk_dsi0pll_pixel_clk_src	0x45b3260f
+#define clk_dsi0pll_n2_div_clk		0x1474c213
+#define clk_dsi0pll_post_n1_div_clk	0xdab8c389
+#define clk_dsi0pll_vco_clk		0x15940d40
+#define clk_dsi1pll_pixel_clk_mux	0x36458019
+#define clk_dsi1pll_byte_clk_mux	0xb5a42b7b
+#define clk_dsi1pll_byte_clk_src	0x63930a8f
+#define clk_dsi1pll_pixel_clk_src	0x0e4c9b56
+#define clk_dsi1pll_n2_div_clk		0x2c9d4007
+#define clk_dsi1pll_post_n1_div_clk	0x03020041
+#define clk_dsi1pll_vco_clk		0x99797b50
 #define clk_mdss_dsi1_vco_clk_src	0xfcd15658
 #define clk_hdmi_vco_clk		0x66003284
 #define clk_edp_pixel_clk_src		0xce3cfd11
