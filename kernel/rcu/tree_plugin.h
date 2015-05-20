@@ -1106,7 +1106,7 @@ static void __init __rcu_init_preempt(void)
 
 #ifdef CONFIG_RCU_BOOST
 
-#include "../rtmutex_common.h"
+#include "../locking/rtmutex_common.h"
 
 #ifdef CONFIG_RCU_TRACE
 

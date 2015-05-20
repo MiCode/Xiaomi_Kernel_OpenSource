@@ -52,7 +52,7 @@ static struct task_struct *pick_next_task_stop(struct rq *rq)
 	struct task_struct *stop = rq->stop;
 
 	if (stop && stop->on_rq) {
-		stop->se.exec_start = rq->clock_task;
+		stop->se.exec_start = rq_clock_task(rq);
 		return stop;
 	}
 
@@ -83,7 +83,7 @@ static void put_prev_task_stop(struct rq *rq, struct task_struct *prev)
 	struct task_struct *curr = rq->curr;
 	u64 delta_exec;
 
-	delta_exec = rq->clock_task - curr->se.exec_start;
+	delta_exec = rq_clock_task(rq) - curr->se.exec_start;
 	if (unlikely((s64)delta_exec < 0))
 		delta_exec = 0;
 
@@ -93,7 +93,7 @@ static void put_prev_task_stop(struct rq *rq, struct task_struct *prev)
 	curr->se.sum_exec_runtime += delta_exec;
 	account_group_exec_runtime(curr, delta_exec);
 
-	curr->se.exec_start = rq->clock_task;
+	curr->se.exec_start = rq_clock_task(rq);
 	cpuacct_charge(curr, delta_exec);
 }
 
@@ -105,7 +105,7 @@ static void set_curr_task_stop(struct rq *rq)
 {
 	struct task_struct *stop = rq->stop;
 
-	stop->se.exec_start = rq->clock_task;
+	stop->se.exec_start = rq_clock_task(rq);
 }
 
 static void switched_to_stop(struct rq *rq, struct task_struct *p)
@@ -129,7 +129,7 @@ get_rr_interval_stop(struct rq *rq, struct task_struct *task)
  * Simple, special scheduling class for the per-CPU stop tasks:
  */
 const struct sched_class stop_sched_class = {
-	.next			= &rt_sched_class,
+	.next			= &dl_sched_class,
 
 	.enqueue_task		= enqueue_task_stop,
 	.dequeue_task		= dequeue_task_stop,
