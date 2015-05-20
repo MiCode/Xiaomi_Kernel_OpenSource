@@ -1415,11 +1415,6 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 	del_timer(&mfd->no_update.timer);
 	mfd->no_update.value = NOTIFY_TYPE_SUSPEND;
 	complete(&mfd->no_update.comp);
-	if (mfd->mdp.stop_histogram)
-		ret = (*mfd->mdp.stop_histogram)(mfd);
-	if (ret)
-		pr_err("Failed to stop histogram before suspend, fb idx = %d\n",
-			mfd->index);
 
 	mfd->op_enable = false;
 	if (mdss_panel_is_power_off(req_power_state)) {
