@@ -260,6 +260,14 @@
 			"cpp_iface_clk", "cpp_bus_clk", "micro_iface_clk",
 			"camss_ahb_clk";
 		qcom,clock-rates = <0 320000000 0 80000000 320000000 0 0 0 0>;
+		qcom,cpp-fw-payload-info {
+			qcom,stripe-base = <140>;
+			qcom,plane-base = <125>;
+			qcom,stripe-size = <27>;
+			qcom,plane-size = <5>;
+			qcom,fe-ptr-off = <5>;
+			qcom,we-ptr-off = <11>;
+		};
 	};
 
 	cci: qcom,cci@1b0c000 {
