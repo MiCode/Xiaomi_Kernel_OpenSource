@@ -894,10 +894,47 @@
 		clock-names = "core_clk", "core_a_clk";
 	};
 
+	tpda_lmh: tpda@6b91000 {
+		compatible = "qcom,coresight-tpda";
+		reg = <0x6b91000 0x1000>;
+		reg-names = "tpda-base";
+
+		coresight-id = <55>;
+		coresight-name = "coresight-tpda-lmh";
+		coresight-nr-inports = <32>;
+		coresight-outports = <0>;
+		coresight-child-list = <&funnel_apps_l1>;
+		coresight-child-ports = <1>;
+
+		qcom,tpda-atid = <65>;
+		qcom,cmb-elem-size = <0 64>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
+	tpdm_lmh: tpdm@6b90000 {
+		compatible = "qcom,coresight-tpdm";
+		reg = <0x6b90000 0x1000>;
+		reg-names = "tpdm-base";
+
+		coresight-id = <56>;
+		coresight-name = "coresight-tpdm-lmh";
+		coresight-nr-inports = <1>;
+		coresight-outports = <0>;
+		coresight-child-list = <&tpda_lmh>;
+		coresight-child-ports = <0>;
+
+		clocks = <&clock_gcc clk_qdss_clk>,
+			 <&clock_gcc clk_qdss_a_clk>;
+		clock-names = "core_clk", "core_a_clk";
+	};
+
 	rpm_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-id = <55>;
+		coresight-id = <57>;
 		coresight-name = "coresight-rpm-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -910,7 +947,7 @@
 	wcn_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-id = <56>;
+		coresight-id = <58>;
 		coresight-name = "coresight-wcn-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -923,7 +960,7 @@
 	modem_etm0 {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-id = <57>;
+		coresight-id = <59>;
 		coresight-name = "coresight-modem-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -936,7 +973,7 @@
 	modem_etm1 {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-id = <58>;
+		coresight-id = <60>;
 		coresight-name = "coresight-modem-etm1";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -949,7 +986,7 @@
 	audio_etm {
 		compatible = "qcom,coresight-remote-etm";
 
-		coresight-id = <59>;
+		coresight-id = <61>;
 		coresight-name = "coresight-audio-etm0";
 		coresight-nr-inports = <0>;
 		coresight-outports = <0>;
@@ -966,7 +1003,7 @@
 		      <0x5e00c 0x4>;
 		reg-names = "fuse-base", "nidnt-fuse-base", "qpdi-fuse-base";
 
-		coresight-id = <60>;
+		coresight-id = <62>;
 		coresight-name = "coresight-fuse";
 		coresight-nr-inports = <0>;
 	};
@@ -976,7 +1013,7 @@
 		reg = <0x1941000 0x4>;
 		reg-names = "qpdi-base";
 
-		coresight-id = <61>;
+		coresight-id = <63>;
 		coresight-name = "coresight-qpdi";
 		coresight-nr-inports = <0>;
 
