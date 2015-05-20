@@ -2392,11 +2392,12 @@
 			 <&clock_gcc clk_gcc_boot_rom_ahb_clk>,
 			 <&clock_gcc clk_gpll0_out_msscc>,
 			 <&clock_gcc clk_gcc_mss_snoc_axi_clk>,
-			 <&clock_gcc clk_gcc_mss_mnoc_bimc_axi_clk>;
+			 <&clock_gcc clk_gcc_mss_mnoc_bimc_axi_clk>,
+			 <&clock_gcc clk_qdss_clk>;
 		clock-names = "xo", "iface_clk", "pnoc_clk", "bus_clk",
 			      "mem_clk", "gpll0_mss_clk", "snoc_axi_clk",
-			      "mnoc_axi_clk";
-		qcom,proxy-clock-names = "xo", "pnoc_clk";
+			      "mnoc_axi_clk", "qdss_clk";
+		qcom,proxy-clock-names = "xo", "pnoc_clk", "qdss_clk";
 		qcom,active-clock-names = "iface_clk", "bus_clk", "mem_clk",
 					  "gpll0_mss_clk", "snoc_axi_clk",
 					  "mnoc_axi_clk";
