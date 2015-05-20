@@ -70,5 +70,9 @@ struct ispif_device {
 	uint32_t ispif_rdi0_debug;
 	uint32_t ispif_rdi1_debug;
 	uint32_t ispif_rdi2_debug;
+	struct regulator *fs_vfe0;
+	struct regulator *fs_vfe1;
+	struct regulator *fs_mmagic_camss;
+	struct regulator *fs_camss;
 };
 #endif

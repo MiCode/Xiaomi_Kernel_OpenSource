@@ -208,7 +208,10 @@
 		interrupts = <0 309 0>;
 		interrupt-names = "ispif";
 		qcom,num-isps = <0x2>;
-		vdd-supply = <&gdsc_camss_top>;
+		camss-vdd-supply = <&gdsc_camss_top>;
+		mmagic-vdd-supply = <&gdsc_mmagic_camss>;
+		vfe0-vdd-supply = <&gdsc_vfe0>;
+		vfe1-vdd-supply = <&gdsc_vfe1>;
 		clocks = <&clock_mmss clk_camss_ispif_ahb_clk>,
 			<&clock_mmss clk_csi0_clk_src>,
 			<&clock_mmss clk_camss_csi0_clk>,
