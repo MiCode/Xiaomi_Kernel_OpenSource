@@ -2156,13 +2156,14 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 {
 	int caf, i;
 	uint32_t src_h;
-	uint32_t unity_scale = 0, upscale = 0;
+	bool unity_scale_x = false, upscale_x = false;
+	bool unity_scale_y, upscale_y;
 
 	if (!(pipe->src_fmt->is_yuv))
-		unity_scale = (pipe->src.w == pipe->dst.w);
+		unity_scale_x = (pipe->src.w == pipe->dst.w);
 
-	if (!unity_scale)
-		upscale = (pipe->src.w <= pipe->dst.w);
+	if (!unity_scale_x)
+		upscale_x = (pipe->src.w <= pipe->dst.w);
 
 	pr_debug("pipe=%d, src(%d, %d, %d, %d), dest(%d, %d, %d, %d)\n",
 			pipe->num,
@@ -2210,10 +2211,10 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 
 		pr_debug("roi_w[%d]=%d, caf=%d\n", i, pipe->scale.roi_w[i],
 			caf);
-		if (unity_scale) {
+		if (unity_scale_x) {
 			left = 0;
 			right = 0;
-		} else if (!upscale) {
+		} else if (!upscale_x) {
 			left = 0;
 			right = (pipe->dst.w - 1) *
 				pipe->scale.phase_step_x[i];
@@ -2238,8 +2239,9 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 		pipe->scale.num_ext_pxls_right[i] = __pxl_extn_helper(right);
 
 		/* Pixel extension calculations for Y direction */
-		unity_scale = 0;
-		upscale = 0;
+		unity_scale_y = false;
+		upscale_y = false;
+
 		src_h = DECIMATED_DIMENSION(pipe->src.h, pipe->vert_deci);
 
 		/* Subsampling of chroma components is factored */
@@ -2247,15 +2249,15 @@ void mdss_mdp_pipe_calc_pixel_extn(struct mdss_mdp_pipe *pipe)
 			src_h >>= pipe->chroma_sample_v;
 
 		if (!(pipe->src_fmt->is_yuv))
-			unity_scale = (src_h == pipe->dst.h);
+			unity_scale_y = (src_h == pipe->dst.h);
 
-		if (!unity_scale)
-			upscale = (src_h <= pipe->dst.h);
+		if (!unity_scale_y)
+			upscale_y = (src_h <= pipe->dst.h);
 
-		if (unity_scale) {
+		if (unity_scale_y) {
 			top = 0;
 			bottom = 0;
-		} else if (!upscale) {
+		} else if (!upscale_y) {
 			top = 0;
 			bottom = (pipe->dst.h - 1) *
 				pipe->scale.phase_step_y[i];
