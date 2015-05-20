@@ -321,4 +321,8 @@
 #define clk_a53_lc_clk				0xc69f0878
 #define clk_a53_bc_clk				0xcf28e63a
 #define clk_cci_clk                             0x96854074
+
+#define clk_audio_ap_clk			0x312ac429
+#define clk_audio_pmi_clk			0xb7ba2274
+
 #endif
