@@ -899,6 +899,8 @@ static int msm_ehci_resume(struct msm_hcd *mhcd)
 		goto skip_phy_resume;
 
 	temp = readl_relaxed(USB_PORTSC) & ~PORTSC_PHCD;
+	temp &= ~PORT_RWC_BITS;
+	temp |= PORT_RESUME;
 	writel_relaxed(temp, USB_PORTSC);
 
 	timeout = jiffies + usecs_to_jiffies(PHY_RESUME_TIMEOUT_USEC);
