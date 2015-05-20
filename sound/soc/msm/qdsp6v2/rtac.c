@@ -102,18 +102,20 @@ static u32			*rtac_asm_buffer;
 static u32			*rtac_afe_buffer;
 
 /* Voice info & APR */
-struct rtac_voice_data {
+struct rtac_voice_data_t {
 	uint32_t	tx_topology_id;
 	uint32_t	rx_topology_id;
 	uint32_t	tx_afe_port;
 	uint32_t	rx_afe_port;
 	uint16_t	cvs_handle;
 	uint16_t	cvp_handle;
+	uint32_t	tx_acdb_id;
+	uint32_t	rx_acdb_id;
 };
 
 struct rtac_voice {
-	uint32_t		num_of_voice_combos;
-	struct rtac_voice_data	voice[RTAC_MAX_ACTIVE_VOICE_COMBOS];
+	uint32_t			num_of_voice_combos;
+	struct rtac_voice_data_t	voice[RTAC_MAX_ACTIVE_VOICE_COMBOS];
 };
 
 struct rtac_afe_user_data {
@@ -526,6 +528,7 @@ void rtac_remove_popp_from_adm_devices(u32 popp_id)
 /* Voice Info */
 static void set_rtac_voice_data(int idx, u32 cvs_handle, u32 cvp_handle,
 					u32 rx_afe_port, u32 tx_afe_port,
+					u32 rx_acdb_id, u32 tx_acdb_id,
 					u32 session_id)
 {
 	rtac_voice_data.voice[idx].tx_topology_id =
@@ -534,15 +537,24 @@ static void set_rtac_voice_data(int idx, u32 cvs_handle, u32 cvp_handle,
 		voice_get_topology(CVP_VOC_RX_TOPOLOGY_CAL);
 	rtac_voice_data.voice[idx].tx_afe_port = tx_afe_port;
 	rtac_voice_data.voice[idx].rx_afe_port = rx_afe_port;
+	rtac_voice_data.voice[idx].tx_acdb_id = tx_acdb_id;
+	rtac_voice_data.voice[idx].rx_acdb_id = rx_acdb_id;
 	rtac_voice_data.voice[idx].cvs_handle = cvs_handle;
 	rtac_voice_data.voice[idx].cvp_handle = cvp_handle;
+	pr_debug("%s\n%s: %x\n%s: %d %s: %d\n%s: %d %s: %d\n%s: %d %s: %d\n%s",
+		 "<---- Voice Data Info ---->", "Session id", session_id,
+		 "cvs_handle", cvs_handle, "cvp_handle", cvp_handle,
+		 "rx_afe_port", rx_afe_port, "tx_afe_port", tx_afe_port,
+		 "rx_acdb_id", rx_acdb_id, "tx_acdb_id", tx_acdb_id,
+		 "<-----------End----------->");
 
 	/* Store session ID for voice RTAC */
 	voice_session_id[idx] = session_id;
 }
 
 void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
-			u32 tx_afe_port, u32 session_id)
+			u32 tx_afe_port, u32 rx_acdb_id, u32 tx_acdb_id,
+			u32 session_id)
 {
 	u32 i = 0;
 	pr_debug("%s\n", __func__);
@@ -560,8 +572,8 @@ void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
 			if (rtac_voice_data.voice[i].cvs_handle ==
 							cvs_handle) {
 				set_rtac_voice_data(i, cvs_handle, cvp_handle,
-					rx_afe_port, tx_afe_port,
-					session_id);
+					rx_afe_port, tx_afe_port, rx_acdb_id,
+					tx_acdb_id, session_id);
 				goto done;
 			}
 		}
@@ -571,6 +583,7 @@ void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
 	rtac_voice_data.num_of_voice_combos++;
 	set_rtac_voice_data(i, cvs_handle, cvp_handle,
 				rx_afe_port, tx_afe_port,
+				rx_acdb_id, tx_acdb_id,
 				session_id);
 done:
 	mutex_unlock(&rtac_voice_mutex);
