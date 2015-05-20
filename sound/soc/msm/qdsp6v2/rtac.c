@@ -487,7 +487,7 @@ static void rtac_remove_adm_device_v2(u32 port_id)
 
 	/* look for device */
 	for (i = 0; i < rtac_adm_data_v2.num_of_dev; i++) {
-		if (rtac_adm_data_v2.device[i].afe_port == port_id) {
+		if (rtac_adm_data_v2.device[i].afe_port == port_id && rtac_adm_data_v2.device[i].num_of_popp == 0) {
 			memset(&rtac_adm_data_v2.device[i], 0,
 				   sizeof(rtac_adm_data_v2.device[i]));
 			rtac_adm_data_v2.num_of_dev--;
