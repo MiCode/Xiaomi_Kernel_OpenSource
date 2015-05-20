@@ -1,6 +1,0 @@
-config BT_LPM
-	tristate "Bluetooth Low Power Mode"
-	depends on SERIAL_HSU
-	default n
-	help
-	   Select this module for Bluetooth Low Power Management.
