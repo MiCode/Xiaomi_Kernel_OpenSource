@@ -1826,6 +1826,10 @@ static int mdss_mdp_probe(struct platform_device *pdev)
 	mdss_mdp_footswitch_ctrl_splash(true);
 	mdss_hw_init(mdata);
 
+	/* Restoring Secure configuration during boot-up */
+	if (mdss_mdp_req_init_restore_cfg(mdata))
+		__mdss_restore_sec_cfg(mdata);
+
 	if (mdss_has_quirk(mdata, MDSS_QUIRK_BWCPANIC)) {
 		mdata->default_panic_lut0 = readl_relaxed(mdata->mdp_base +
 			MMSS_MDP_PANIC_LUT0);

@@ -821,6 +821,19 @@ static inline u32 get_panel_width(struct mdss_mdp_ctl *ctl)
 	return width;
 }
 
+static inline bool mdss_mdp_req_init_restore_cfg(struct mdss_data_type *mdata)
+{
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_106) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_108) ||
+	    IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev,
+				MDSS_MDP_HW_REV_112))
+		return true;
+
+	return false;
+}
+
 static inline int mdss_mdp_panic_signal_support_mode(
 	struct mdss_data_type *mdata)
 {
