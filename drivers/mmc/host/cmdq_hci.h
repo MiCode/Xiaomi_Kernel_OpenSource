@@ -92,6 +92,17 @@
 /* task error info */
 #define CQTERRI		0x54
 
+/* CQTERRI bit fields */
+#define CQ_RMECI	0x1F
+#define CQ_RMETI	(0x1F << 8)
+#define CQ_RMEFV	(1 << 15)
+#define CQ_DTECI	(0x3F << 16)
+#define CQ_DTETI	(0x1F << 24)
+#define CQ_DTEFV	(1 << 31)
+
+#define GET_CMD_ERR_TAG(__r__) ((__r__ & CQ_RMETI) >> 8)
+#define GET_DAT_ERR_TAG(__r__) ((__r__ & CQ_DTETI) >> 24)
+
 /* command response index */
 #define CQCRI		0x58
 
@@ -105,6 +116,7 @@
 #define CQ_CMD_DBG_RAM	0x158
 #define CQ_CMD_DBG_RAM_WA 0x198
 #define CQ_CMD_DBG_RAM_OL 0x19C
+
 
 /* attribute fields */
 #define VALID(x)	((x & 1) << 0)
@@ -186,6 +198,7 @@ struct cmdq_host_ops {
 	void (*write_l)(struct cmdq_host *host, u32 val, int reg);
 	u32 (*read_l)(struct cmdq_host *host, int reg);
 	void (*clear_set_dumpregs)(struct mmc_host *mmc, bool set);
+	int (*reset)(struct mmc_host *mmc);
 };
 
 static inline void cmdq_writel(struct cmdq_host *host, u32 val, int reg)
@@ -204,7 +217,7 @@ static inline u32 cmdq_readl(struct cmdq_host *host, int reg)
 		return readl_relaxed(host->mmio + reg);
 }
 
-extern irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask);
+extern irqreturn_t cmdq_irq(struct mmc_host *mmc, int err);
 extern int cmdq_init(struct cmdq_host *cq_host, struct mmc_host *mmc,
 		     bool dma64);
 extern struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev);

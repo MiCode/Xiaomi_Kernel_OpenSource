@@ -837,3 +837,21 @@ int mmc_can_ext_csd(struct mmc_card *card)
 {
 	return (card && card->csd.mmca_vsn > CSD_SPEC_VER_3);
 }
+
+int mmc_discard_queue(struct mmc_host *host, u32 tasks)
+{
+	struct mmc_command cmd = {0};
+
+	cmd.opcode = MMC_CMDQ_TASK_MGMT;
+	if (tasks) {
+		cmd.arg = DISCARD_TASK;
+		cmd.arg |= (tasks << 16);
+	} else {
+		cmd.arg = DISCARD_QUEUE;
+	}
+
+	cmd.flags = MMC_RSP_R1B | MMC_CMD_AC;
+
+	return mmc_wait_for_cmd(host, &cmd, 0);
+}
+EXPORT_SYMBOL(mmc_discard_queue);

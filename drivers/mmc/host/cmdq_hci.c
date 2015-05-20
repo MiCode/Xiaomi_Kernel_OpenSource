@@ -32,6 +32,12 @@
 /* 1 sec */
 #define HALT_TIMEOUT_MS 1000
 
+static inline struct mmc_request *get_req_by_tag(struct cmdq_host *cq_host,
+					  unsigned int tag)
+{
+	return cq_host->mrq_slot[tag];
+}
+
 static inline u8 *get_desc(struct cmdq_host *cq_host, u8 tag)
 {
 	return cq_host->desc_base + (tag * cq_host->slot_sz);
@@ -122,43 +128,43 @@ static void cmdq_dumpregs(struct cmdq_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
 
-	pr_info(DRV_NAME ": ========== REGISTER DUMP (%s)==========\n",
+	pr_err(DRV_NAME ": ========== REGISTER DUMP (%s)==========\n",
 		mmc_hostname(mmc));
 
-	pr_info(DRV_NAME ": Caps: 0x%08x	  | Version:  0x%08x\n",
+	pr_err(DRV_NAME ": Caps: 0x%08x		  | Version:  0x%08x\n",
 		cmdq_readl(cq_host, CQCAP),
 		cmdq_readl(cq_host, CQVER));
-	pr_info(DRV_NAME ": Queing config: 0x%08x | Queue Ctrl:  0x%08x\n",
+	pr_err(DRV_NAME ": Queing config: 0x%08x  | Queue Ctrl:  0x%08x\n",
 		cmdq_readl(cq_host, CQCFG),
 		cmdq_readl(cq_host, CQCTL));
-	pr_info(DRV_NAME ": Int stat: 0x%08x	  | Int enab:  0x%08x\n",
+	pr_err(DRV_NAME ": Int stat: 0x%08x	  | Int enab:  0x%08x\n",
 		cmdq_readl(cq_host, CQIS),
 		cmdq_readl(cq_host, CQISTE));
-	pr_info(DRV_NAME ": Int sig: 0x%08x	  | Int Coal:  0x%08x\n",
+	pr_err(DRV_NAME ": Int sig: 0x%08x	  | Int Coal:  0x%08x\n",
 		cmdq_readl(cq_host, CQISGE),
 		cmdq_readl(cq_host, CQIC));
-	pr_info(DRV_NAME ": TDL base: 0x%08x	  | TDL up32:  0x%08x\n",
+	pr_err(DRV_NAME ": TDL base: 0x%08x	  | TDL up32:  0x%08x\n",
 		cmdq_readl(cq_host, CQTDLBA),
 		cmdq_readl(cq_host, CQTDLBAU));
-	pr_info(DRV_NAME ": Doorbell: 0x%08x	  | Comp Notif:  0x%08x\n",
+	pr_err(DRV_NAME ": Doorbell: 0x%08x	  | Comp Notif:  0x%08x\n",
 		cmdq_readl(cq_host, CQTDBR),
 		cmdq_readl(cq_host, CQTCN));
-	pr_info(DRV_NAME ": Dev queue: 0x%08x	  | Dev Pend:  0x%08x\n",
+	pr_err(DRV_NAME ": Dev queue: 0x%08x	  | Dev Pend:  0x%08x\n",
 		cmdq_readl(cq_host, CQDQS),
 		cmdq_readl(cq_host, CQDPT));
-	pr_info(DRV_NAME ": Task clr: 0x%08x	  | Send stat 1:  0x%08x\n",
+	pr_err(DRV_NAME ": Task clr: 0x%08x	  | Send stat 1:  0x%08x\n",
 		cmdq_readl(cq_host, CQTCLR),
 		cmdq_readl(cq_host, CQSSC1));
-	pr_info(DRV_NAME ": Send stat 2: 0x%08x	  | DCMD resp:  0x%08x\n",
+	pr_err(DRV_NAME ": Send stat 2: 0x%08x	  | DCMD resp:  0x%08x\n",
 		cmdq_readl(cq_host, CQSSC2),
 		cmdq_readl(cq_host, CQCRDCT));
-	pr_info(DRV_NAME ": Resp err mask: 0x%08x | Task err:  0x%08x\n",
+	pr_err(DRV_NAME ": Resp err mask: 0x%08x  | Task err:  0x%08x\n",
 		cmdq_readl(cq_host, CQRMEM),
 		cmdq_readl(cq_host, CQTERRI));
-	pr_info(DRV_NAME ": Resp idx 0x%08x	  | Resp arg:  0x%08x\n",
+	pr_err(DRV_NAME ": Resp idx 0x%08x	  | Resp arg:  0x%08x\n",
 		cmdq_readl(cq_host, CQCRI),
 		cmdq_readl(cq_host, CQCRA));
-	pr_info(DRV_NAME ": ===========================================\n");
+	pr_err(DRV_NAME ": ===========================================\n");
 
 	cmdq_dump_debug_ram(cq_host);
 	if (cq_host->ops->dump_vendor_regs)
@@ -296,7 +302,6 @@ static int cmdq_enable(struct mmc_host *mmc)
 				CQTDLBA);
 		cmdq_writel(cq_host, upper_32_bits(cq_host->desc_dma_base),
 				CQTDLBAU);
-		cmdq_dumpregs(cq_host);
 	}
 
 	/*
@@ -345,6 +350,49 @@ static void cmdq_disable(struct mmc_host *mmc, bool soft)
 	}
 
 	cq_host->enabled = false;
+}
+
+static void cmdq_reset(struct mmc_host *mmc, bool soft)
+{
+	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	unsigned int cqcfg;
+	unsigned int tdlba;
+	unsigned int tdlbau;
+	unsigned int rca;
+	int ret;
+
+	cqcfg = cmdq_readl(cq_host, CQCFG);
+	tdlba = cmdq_readl(cq_host, CQTDLBA);
+	tdlbau = cmdq_readl(cq_host, CQTDLBAU);
+	rca = cmdq_readl(cq_host, CQSSC2);
+
+	cmdq_disable(mmc, true);
+
+	if (cq_host->ops->reset) {
+		ret = cq_host->ops->reset(mmc);
+		if (ret) {
+			pr_crit("%s: reset CMDQ controller: failed\n",
+				mmc_hostname(mmc));
+			BUG();
+		}
+	}
+
+	cmdq_writel(cq_host, tdlba, CQTDLBA);
+	cmdq_writel(cq_host, tdlbau, CQTDLBAU);
+
+	if (cq_host->ops->clear_set_irqs)
+		cq_host->ops->clear_set_irqs(mmc, true);
+
+	cmdq_clear_set_irqs(cq_host, 0x0, CQ_INT_ALL);
+
+	/* cq_host would use this rca to address the card */
+	cmdq_writel(cq_host, rca, CQSSC2);
+
+	/* ensure the writes are done before enabling CQE */
+	mb();
+
+	cmdq_writel(cq_host, cqcfg, CQCFG);
+	cq_host->enabled = true;
 }
 
 static void cmdq_prep_task_desc(struct mmc_request *mrq,
@@ -539,18 +587,65 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 	struct mmc_request *mrq;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 
-	mrq = cq_host->mrq_slot[tag];
+	mrq = get_req_by_tag(cq_host, tag);
 	mrq->done(mrq);
 }
 
-irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask)
+irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 {
 	u32 status;
 	unsigned long tag = 0, comp_status;
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	unsigned long err_info = 0;
+	struct mmc_request *mrq;
 
 	status = cmdq_readl(cq_host, CQIS);
 	cmdq_writel(cq_host, status, CQIS);
+
+	if (!status && !err)
+		return IRQ_NONE;
+
+	if (err || (status & CQIS_RED)) {
+		err_info = cmdq_readl(cq_host, CQTERRI);
+		pr_err("%s: err: %d status: 0x%08x task-err-info (0x%08lx)\n",
+		       mmc_hostname(mmc), err, status, err_info);
+
+		cmdq_dumpregs(cq_host);
+
+		if (err_info & CQ_RMEFV) {
+			tag = GET_CMD_ERR_TAG(err_info);
+			pr_err("%s: CMD err tag: %lu\n", __func__, tag);
+
+			mrq = get_req_by_tag(cq_host, tag);
+			/* CMD44/45/46/47 will not have a valid cmd */
+			if (mrq->cmd)
+				mrq->cmd->error = err;
+			else
+				mrq->data->error = err;
+		} else {
+			tag = GET_DAT_ERR_TAG(err_info);
+			pr_err("%s: Dat err  tag: %lu\n", __func__, tag);
+			mrq = get_req_by_tag(cq_host, tag);
+			mrq->data->error = err;
+		}
+
+		tag = 0;
+		/*
+		 * CQE detected a response error from device
+		 * In most cases, this would require a reset.
+		 */
+		if (status & CQIS_RED) {
+			mrq->cmdq_req->resp_err = true;
+			pr_err("%s: Response error (0x%08x) from card !!!",
+					mmc_hostname(mmc), status);
+		} else {
+			mrq->cmdq_req->resp_idx = cmdq_readl(cq_host, CQCRI);
+			mrq->cmdq_req->resp_arg = cmdq_readl(cq_host, CQCRA);
+		}
+
+		mmc->err_mrq = mrq;
+		cmdq_finish_data(mmc, tag);
+	}
 
 	if (status & CQIS_TCC) {
 		/* read QCTCN and complete the request */
@@ -565,12 +660,6 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask)
 			cmdq_finish_data(mmc, tag);
 		}
 		cmdq_writel(cq_host, comp_status, CQTCN);
-	}
-
-	if (status & CQIS_RED) {
-		/* task response has an error */
-		pr_err("%s: RED error %d !!!\n", mmc_hostname(mmc), status);
-		cmdq_dumpregs(cq_host);
 	}
 
 	if (status & CQIS_HAC) {
@@ -632,6 +721,7 @@ static const struct mmc_cmdq_host_ops cmdq_host_ops = {
 	.request = cmdq_request,
 	.post_req = cmdq_post_req,
 	.halt = cmdq_halt,
+	.reset	= cmdq_reset,
 };
 
 struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev)

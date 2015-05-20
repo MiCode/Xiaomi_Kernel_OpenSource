@@ -64,4 +64,9 @@
 #define MMC_APP_CMD              55   /* ac   [31:16] RCA        R1  */
 #define MMC_GEN_CMD              56   /* adtc [0] RD/WR          R1  */
 
+/* class 11 */
+#define MMC_CMDQ_TASK_MGMT       48  /* ac   [31:0] task ID     R1b */
+#define DISCARD_QUEUE		0x1
+#define DISCARD_TASK		0x2
+
 #endif /* UAPI_MMC_MMC_H */
