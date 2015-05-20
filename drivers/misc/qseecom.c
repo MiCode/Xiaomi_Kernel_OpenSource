@@ -3007,6 +3007,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 	struct qseecom_check_app_ireq req;
 	struct qseecom_registered_app_list *entry = NULL;
 	unsigned long flags = 0;
+	bool found_app = false;
 
 	/* Copy the relevant information needed for loading the image */
 	if (copy_from_user(&query_req,
@@ -3033,6 +3034,7 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 				&qseecom.registered_app_list_head, list){
 			if (entry->app_id == ret) {
 				entry->ref_cnt++;
+				found_app = true;
 				break;
 			}
 		}
@@ -3042,6 +3044,29 @@ static int qseecom_query_app_loaded(struct qseecom_dev_handle *data,
 		query_req.app_id = ret;
 		strlcpy(data->client.app_name, query_req.app_name,
 				MAX_APP_NAME_SIZE);
+		/*
+		 * If app was loaded by appsbl or kernel client before
+		 * and was not registered, regiser this app now.
+		 */
+		if (!found_app) {
+			pr_debug("Register app %d [%s] which was loaded before\n",
+					ret, (char *)query_req.app_name);
+			entry = kmalloc(sizeof(*entry), GFP_KERNEL);
+			if (!entry) {
+				pr_err("kmalloc for app entry failed\n");
+				return  -ENOMEM;
+			}
+			entry->app_id = ret;
+			entry->ref_cnt = 1;
+			strlcpy(entry->app_name, data->client.app_name,
+				MAX_APP_NAME_SIZE);
+			spin_lock_irqsave(&qseecom.registered_app_list_lock,
+				flags);
+			list_add_tail(&entry->list,
+				&qseecom.registered_app_list_head);
+			spin_unlock_irqrestore(
+				&qseecom.registered_app_list_lock, flags);
+		}
 		if (copy_to_user(argp, &query_req, sizeof(query_req))) {
 			pr_err("copy_to_user failed\n");
 			return -EFAULT;
