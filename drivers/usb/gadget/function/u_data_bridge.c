@@ -1,5 +1,7 @@
 /*
  * Copyright (c) 2011, 2013-2015, The Linux Foundation. All rights reserved.
+ * Linux Foundation chooses to take subject only to the GPLv2 license terms,
+ * and distributes only under these terms.
  *
  * This code also borrows from drivers/usb/gadget/u_serial.c, which is
  * Copyright (C) 2000 - 2003 Al Borchers (alborchers@steinerpoint.com)
@@ -7,6 +9,11 @@
  * Copyright (C) 2008 by Nokia Corporation
  * Copyright (C) 1999 - 2002 Greg Kroah-Hartman (greg@kroah.com)
  * Copyright (C) 2000 Peter Berger (pberger@brimson.com)
+ *
+ * gbridge_port_read() API implementation is using borrowed code from
+ * drivers/usb/gadget/legacy/printer.c, which is
+ * Copyright (C) 2003-2005 David Brownell
+ * Copyright (C) 2006 Craig W. Nadler
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,6 +64,13 @@ struct gbridge_port {
 	struct list_head	read_pool;
 	struct list_head	read_queued;
 	struct list_head	write_pool;
+
+	/* current active USB RX request */
+	struct usb_request	*current_rx_req;
+	/* number of pending bytes */
+	size_t			pending_rx_bytes;
+	/* current USB RX buffer */
+	u8			*current_rx_buf;
 
 	struct gserial		*port_usb;
 
@@ -258,6 +272,10 @@ static void gbridge_start_io(struct gbridge_port *port)
 	if (!port->port_usb)
 		goto start_io_out;
 
+	port->current_rx_req = NULL;
+	port->pending_rx_bytes = 0;
+	port->current_rx_buf = NULL;
+
 	ret = gbridge_alloc_requests(port->port_usb->out,
 				&port->read_pool,
 				BRIDGE_RX_QUEUE_SIZE, BRIDGE_RX_BUF_SIZE,
@@ -308,6 +326,13 @@ static void gbridge_stop_io(struct gbridge_port *port)
 	in->driver_data = NULL;
 
 	spin_lock_irqsave(&port->port_lock, flags);
+	if (port->current_rx_req != NULL) {
+		kfree(port->current_rx_req->buf);
+		usb_ep_free_request(out, port->current_rx_req);
+	}
+
+	port->pending_rx_bytes = 0;
+	port->current_rx_buf = NULL;
 	gbridge_free_requests(out, &port->read_queued);
 	gbridge_free_requests(out, &port->read_pool);
 	gbridge_free_requests(in, &port->write_pool);
@@ -364,7 +389,6 @@ int gbridge_port_release(struct inode *inode, struct file *file)
 
 	pr_debug("closing port(%p)\n", port);
 	spin_lock_irqsave(&port->port_lock, flags);
-
 	port->port_open = false;
 	port->cbits_updated = false;
 	spin_unlock_irqrestore(&port->port_lock, flags);
@@ -378,12 +402,13 @@ ssize_t gbridge_port_read(struct file *file,
 		       size_t count,
 		       loff_t *ppos)
 {
-	int ret;
-	unsigned size;
 	unsigned long flags;
 	struct gbridge_port *port;
 	struct usb_request *req;
 	struct list_head *pool;
+	struct usb_request *current_rx_req;
+	size_t pending_rx_bytes, bytes_copied = 0, size;
+	u8 *current_rx_buf;
 
 	port = file->private_data;
 	if (!port) {
@@ -391,42 +416,85 @@ ssize_t gbridge_port_read(struct file *file,
 		return -EINVAL;
 	}
 
-	spin_lock_irqsave(&port->port_lock, flags);
 	pr_debug("read on port(%p) count:%zu\n", port, count);
-	if (list_empty(&port->read_queued)) {
+	spin_lock_irqsave(&port->port_lock, flags);
+	current_rx_req = port->current_rx_req;
+	pending_rx_bytes = port->pending_rx_bytes;
+	current_rx_buf = port->current_rx_buf;
+	port->current_rx_req = NULL;
+	port->current_rx_buf = NULL;
+	port->pending_rx_bytes = 0;
+	bytes_copied = 0;
+
+	if (list_empty(&port->read_queued) && !pending_rx_bytes) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		pr_debug("%s(): read_queued list is empty.\n", __func__);
-		ret = 0;
 		goto start_rx;
 	}
 
-	pool = &port->read_queued;
-	req = list_first_entry(pool, struct usb_request, list);
-	list_del(&req->list);
-	spin_unlock_irqrestore(&port->port_lock, flags);
+	/*
+	 * Consider below cases:
+	 * 1. If available read buffer size (i.e. count value) is greater than
+	 * available data as part of one USB OUT request buffer, then consider
+	 * copying multiple USB OUT request buffers until read buffer is filled.
+	 * 2. If available read buffer size (i.e. count value) is smaller than
+	 * available data as part of one USB OUT request buffer, then copy this
+	 * buffer data across multiple read() call until whole USB OUT request
+	 * buffer is copied.
+	 */
+	while ((pending_rx_bytes || !list_empty(&port->read_queued)) && count) {
+		if (pending_rx_bytes == 0) {
+			pool = &port->read_queued;
+			req = list_first_entry(pool, struct usb_request, list);
+			list_del_init(&req->list);
+			current_rx_req = req;
+			pending_rx_bytes = req->actual;
+			current_rx_buf = req->buf;
+		}
 
-	size = (req->actual < count) ? req->actual : count;
-	pr_debug("req->actual:%u count:%zu size:%u\n",
-				req->actual, count, size);
-	if (req->actual > count)
-		pr_err("%s(): (%zu) bytes are being dropped.\n",
-				__func__, (req->actual - count));
-	ret = copy_to_user(buf, req->buf, size);
-	if (ret) {
-		pr_err("copy_to_user failed: err %d\n", ret);
-		ret = -EFAULT;
-	} else {
-		pr_debug("copied %d bytes to userspace\n", req->actual);
-		spin_lock_irqsave(&port->port_lock, flags);
-		ret = size;
-		port->nbytes_to_port_bridge += size;
-		list_add_tail(&req->list, &port->read_pool);
 		spin_unlock_irqrestore(&port->port_lock, flags);
+		size = count;
+		if (size > pending_rx_bytes)
+			size = pending_rx_bytes;
+
+		pr_debug("pending_rx_bytes:%zu count:%zu size:%zu\n",
+					pending_rx_bytes, count, size);
+		size -= copy_to_user(buf, current_rx_buf, size);
+		port->nbytes_to_port_bridge += size;
+		bytes_copied += size;
+		count -= size;
+		buf += size;
+
+		spin_lock_irqsave(&port->port_lock, flags);
+		if (!port->is_connected) {
+			list_add_tail(&current_rx_req->list, &port->read_pool);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			return -EAGAIN;
+		}
+
+		/*
+		 * partial data available, then update pending_rx_bytes,
+		 * otherwise add USB request back to read_pool for next data.
+		 */
+		if (size < pending_rx_bytes) {
+			pending_rx_bytes -= size;
+			current_rx_buf += size;
+		} else {
+			list_add_tail(&current_rx_req->list, &port->read_pool);
+			pending_rx_bytes = 0;
+			current_rx_req = NULL;
+			current_rx_buf = NULL;
+		}
 	}
+
+	port->pending_rx_bytes = pending_rx_bytes;
+	port->current_rx_buf = current_rx_buf;
+	port->current_rx_req = current_rx_req;
+	spin_unlock_irqrestore(&port->port_lock, flags);
 
 start_rx:
 	gbridge_start_rx(port);
-	return ret;
+	return bytes_copied;
 }
 
 ssize_t gbridge_port_write(struct file *file,
