@@ -950,6 +950,7 @@
 		qcom,dwc-usb3-msm-tx-fifo-size = <29696>;
 		qcom,dwc-usb3-msm-qdss-tx-fifo-size = <8192>;
 		vdda33-supply = <&stub_regulator_3p3v>;
+		vdda18-supply = <&stub_regulator_1p8v>;
 
 		clocks = <&clock_gcc clk_gcc_usb30_master_clk>,
 			 <&clock_gcc clk_gcc_sys_noc_usb3_axi_clk>,
