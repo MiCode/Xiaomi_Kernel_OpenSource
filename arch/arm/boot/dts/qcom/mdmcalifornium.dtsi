@@ -282,6 +282,91 @@
 		};
 	};
 
+	pcie0: qcom,pcie@80000 {
+		compatible = "qcom,pci-msm";
+		cell-index = <0>;
+
+		reg = <0x00080000 0x2000>,
+		      <0x00086000 0x1000>,
+		      <0x40000000 0xf1d>,
+		      <0x40000f20 0xa8>,
+		      <0x40100000 0x100000>,
+		      <0x40200000 0x100000>,
+		      <0x40300000 0x1d00000>,
+		      <0x01956044 0x4>;
+
+		reg-names = "parf", "phy", "dm_core", "elbi",
+				"conf", "io", "bars", "tcsr";
+
+		#address-cells = <3>;
+		#size-cells = <2>;
+		ranges = <0x01000000 0x0 0x40200000 0x40200000 0x0 0x100000>,
+			<0x02000000 0x0 0x40300000 0x40300000 0x0 0x1d00000>;
+		interrupt-parent = <&pcie0>;
+		interrupts = <0 1 2 3 4 5>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0xffffffff>;
+		interrupt-map = <0 0 0 0 &intc 0 53 0
+				0 0 0 1 &intc 0 115 0
+				0 0 0 2 &intc 0 116 0
+				0 0 0 3 &intc 0 117 0
+				0 0 0 4 &intc 0 118 0
+				0 0 0 5 &intc 0 49 0>;
+
+		interrupt-names = "int_msi", "int_a", "int_b", "int_c",
+				"int_d", "int_global_int";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_clkreq_default
+			&pcie0_perst_default
+			&pcie0_wake_default>;
+
+		perst-gpio = <&tlmm_pinmux 60 0>;
+		wake-gpio = <&tlmm_pinmux 65 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie>;
+		vreg-1.8-supply = <&pmdcalifornium_l5>;
+		vreg-0.9-supply = <&pmdcalifornium_l4>;
+
+		qcom,vreg-0.9-voltage-level = <928000 928000 24000>;
+
+		qcom,l1-supported;
+		qcom,l1ss-supported;
+		qcom,aux-clk-sync;
+
+		qcom,ep-latency = <10>;
+
+		qcom,ep-wakeirq;
+
+		linux,pci-domain = <0>;
+
+		qcom,use-19p2mhz-aux-clk;
+
+		qcom,msm-bus,name = "pcie0";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		clocks = <&clock_gcc clk_gcc_pcie_pipe_clk>,
+			<&clock_gcc clk_ln_bb_clk>,
+			<&clock_gcc clk_gcc_pcie_sleep_clk>,
+			<&clock_gcc clk_gcc_pcie_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_axi_mstr_clk>,
+			<&clock_gcc clk_gcc_pcie_axi_clk>,
+			<&clock_gcc clk_gcc_pcie_ref_clk>,
+			<&clock_gcc clk_gcc_pcie_phy_reset>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_ref_clk_src",
+				"pcie_0_aux_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_ldo", "pcie_0_phy_reset";
+
+		max-clock-frequency-hz = <0>, <0>, <19200000>,
+					<0>, <0>, <0>, <0>, <0>, <0>;
+	};
+
 	blsp1_uart1: serial@78af000 {
 		compatible = "qcom,msm-lsuart-v14";
 		reg = <0x78af000 0x200>;

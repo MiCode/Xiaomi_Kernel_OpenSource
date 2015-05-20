@@ -301,6 +301,44 @@
 			};
 		};
 
+		pcie0 {
+			pcie0_clkreq_default: pcie0_clkreq_default {
+				mux {
+					pins = "gpio64";
+					function = "pcie_clkreq";
+				};
+				config {
+					pins = "gpio64";
+					drive-strength = <2>;
+					bias-pull-up;
+				};
+			};
+
+			pcie0_perst_default: pcie0_perst_default {
+				mux {
+					pins = "gpio60";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio60";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+
+			pcie0_wake_default: pcie0_wake_default {
+				mux {
+					pins = "gpio65";
+					function = "gpio";
+				};
+				config {
+					pins = "gpio65";
+					drive-strength = <2>;
+					bias-pull-down;
+				};
+			};
+		};
+
 		/* UART HS CONFIGURATION */
 
 		blsp1_uart1_active: blsp1_uart1_active {
