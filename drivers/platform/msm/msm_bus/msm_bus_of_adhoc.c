@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -574,33 +574,33 @@ int msm_bus_of_get_static_rules(struct platform_device *pdev,
 	int rule_idx = 0;
 	int bw_fld = 0;
 	int i;
-	struct bus_rule_type *static_rule = NULL;
+	struct bus_rule_type *local_rule = NULL;
 
 	of_node = pdev->dev.of_node;
 	num_rules = of_get_child_count(of_node);
-	static_rule = devm_kzalloc(&pdev->dev,
+	local_rule = devm_kzalloc(&pdev->dev,
 				sizeof(struct bus_rule_type) * num_rules,
 				GFP_KERNEL);
 
-	if (IS_ERR_OR_NULL(static_rule)) {
+	if (IS_ERR_OR_NULL(local_rule)) {
 		ret = -ENOMEM;
 		goto exit_static_rules;
 	}
 
-	*static_rules = static_rule;
+	*static_rules = local_rule;
 	for_each_child_of_node(of_node, child_node) {
 		ret = msm_bus_of_get_ids(pdev, child_node,
-			&static_rule[rule_idx].src_id,
-			&static_rule[rule_idx].num_src,
+			&local_rule[rule_idx].src_id,
+			&local_rule[rule_idx].num_src,
 			"qcom,src-nodes");
 
 		ret = msm_bus_of_get_ids(pdev, child_node,
-			&static_rule[rule_idx].dst_node,
-			&static_rule[rule_idx].num_dst,
+			&local_rule[rule_idx].dst_node,
+			&local_rule[rule_idx].num_dst,
 			"qcom,dest-node");
 
 		ret = of_property_read_u32(child_node, "qcom,src-field",
-				&static_rule[rule_idx].src_field);
+				&local_rule[rule_idx].src_field);
 		if (ret) {
 			dev_err(&pdev->dev, "src-field missing");
 			ret = -ENXIO;
@@ -608,7 +608,7 @@ int msm_bus_of_get_static_rules(struct platform_device *pdev,
 		}
 
 		ret = of_property_read_u32(child_node, "qcom,src-op",
-				&static_rule[rule_idx].op);
+				&local_rule[rule_idx].op);
 		if (ret) {
 			dev_err(&pdev->dev, "src-op missing");
 			ret = -ENXIO;
@@ -616,7 +616,7 @@ int msm_bus_of_get_static_rules(struct platform_device *pdev,
 		}
 
 		ret = of_property_read_u32(child_node, "qcom,mode",
-				&static_rule[rule_idx].mode);
+				&local_rule[rule_idx].mode);
 		if (ret) {
 			dev_err(&pdev->dev, "mode missing");
 			ret = -ENXIO;
@@ -629,14 +629,14 @@ int msm_bus_of_get_static_rules(struct platform_device *pdev,
 			ret = -ENXIO;
 			goto err_static_rules;
 		} else
-			static_rule[rule_idx].thresh = KBTOB(bw_fld);
+			local_rule[rule_idx].thresh = KBTOB(bw_fld);
 
 		ret = of_property_read_u32(child_node, "qcom,dest-bw",
 								&bw_fld);
 		if (ret)
-			static_rule[rule_idx].dst_bw = 0;
+			local_rule[rule_idx].dst_bw = 0;
 		else
-			static_rule[rule_idx].dst_bw = KBTOB(bw_fld);
+			local_rule[rule_idx].dst_bw = KBTOB(bw_fld);
 
 		rule_idx++;
 	}
@@ -645,17 +645,16 @@ exit_static_rules:
 	return ret;
 err_static_rules:
 	for (i = 0; i < num_rules; i++) {
-		if (!IS_ERR_OR_NULL(static_rule)) {
-			if (!IS_ERR_OR_NULL(static_rule[i].src_id))
+		if (!IS_ERR_OR_NULL(local_rule)) {
+			if (!IS_ERR_OR_NULL(local_rule[i].src_id))
 				devm_kfree(&pdev->dev,
-						static_rule[i].src_id);
-			if (!IS_ERR_OR_NULL(static_rule[i].dst_node))
+						local_rule[i].src_id);
+			if (!IS_ERR_OR_NULL(local_rule[i].dst_node))
 				devm_kfree(&pdev->dev,
-						static_rule[i].dst_node);
-			devm_kfree(&pdev->dev, static_rule);
+						local_rule[i].dst_node);
+			devm_kfree(&pdev->dev, local_rule);
 		}
 	}
-	devm_kfree(&pdev->dev, *static_rules);
-	static_rules = NULL;
+	*static_rules = NULL;
 	return ret;
 }
