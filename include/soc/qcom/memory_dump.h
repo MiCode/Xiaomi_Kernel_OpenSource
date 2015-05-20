@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -77,6 +77,7 @@ enum msm_dump_data_ids {
 	MSM_DUMP_DATA_PMIC = 0xE4,
 	MSM_DUMP_DATA_DBGUI_REG = 0xE5,
 	MSM_DUMP_DATA_MISC = 0xE8,
+	MSM_DUMP_DATA_VSENSE = 0xE9,
 	MSM_DUMP_DATA_TMC_ETF = 0xF0,
 	MSM_DUMP_DATA_TMC_REG = 0x100,
 	MSM_DUMP_DATA_LOG_BUF = 0x110,
