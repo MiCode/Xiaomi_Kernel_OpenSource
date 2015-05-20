@@ -2713,6 +2713,18 @@ static ssize_t mdss_mdp_ad_show_event(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_mdp_ad_bl_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	int ret;
+
+	ret = scnprintf(buf, PAGE_SIZE, "%d\n", mdp5_data->ad_bl_events);
+	return ret;
+}
+
 static inline int mdss_mdp_ad_is_supported(struct msm_fb_data_type *mfd)
 {
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
@@ -2930,6 +2942,7 @@ static DEVICE_ATTR(dyn_pu, S_IRUGO | S_IWUSR | S_IWGRP, mdss_mdp_dyn_pu_show,
 static DEVICE_ATTR(hist_event, S_IRUGO, mdss_mdp_hist_show_event, NULL);
 static DEVICE_ATTR(bl_event, S_IRUGO, mdss_mdp_bl_show_event, NULL);
 static DEVICE_ATTR(ad_event, S_IRUGO, mdss_mdp_ad_show_event, NULL);
+static DEVICE_ATTR(ad_bl_event, S_IRUGO, mdss_mdp_ad_bl_show_event, NULL);
 
 static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_vsync_event.attr,
@@ -2939,6 +2952,7 @@ static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_hist_event.attr,
 	&dev_attr_bl_event.attr,
 	&dev_attr_ad_event.attr,
+	&dev_attr_ad_bl_event.attr,
 	NULL,
 };
 
@@ -4924,6 +4938,14 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 							 "ad_event");
 	if (!mdp5_data->ad_event_sd) {
 		pr_err("ad_event sysfs lookup failed\n");
+		rc = -ENODEV;
+		goto init_fail;
+	}
+
+	mdp5_data->ad_bl_event_sd = sysfs_get_dirent(dev->kobj.sd,
+							 "ad_bl_event");
+	if (!mdp5_data->ad_bl_event_sd) {
+		pr_err("ad_bl_event sysfs lookup failed\n");
 		rc = -ENODEV;
 		goto init_fail;
 	}
