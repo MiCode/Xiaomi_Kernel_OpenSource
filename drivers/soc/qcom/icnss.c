@@ -52,7 +52,7 @@ int icnss_register_driver(struct icnss_driver_ops *ops)
 		goto out;
 	}
 
-	if (!penv->ops) {
+	if (penv->ops) {
 		pr_err("icnss: driver already registered\n");
 		ret = -EEXIST;
 		goto out;
