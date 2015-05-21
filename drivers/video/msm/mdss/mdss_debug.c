@@ -928,7 +928,7 @@ static ssize_t mdss_debug_perf_bw_limit_read(struct file *file,
 			char __user *buff, size_t count, loff_t *ppos)
 {
 	struct mdss_data_type *mdata = file->private_data;
-	struct mdss_max_bw_settings *temp_settings = mdata->max_bw_settings;
+	struct mdss_max_bw_settings *temp_settings;
 	int len = 0, i;
 	char buf[256];
 
@@ -941,6 +941,7 @@ static ssize_t mdss_debug_perf_bw_limit_read(struct file *file,
 	pr_debug("mdata->max_bw_settings_cnt = %d\n",
 			mdata->max_bw_settings_cnt);
 
+	temp_settings = mdata->max_bw_settings;
 	for (i = 0; i < mdata->max_bw_settings_cnt; i++) {
 		len += snprintf(buf + len, sizeof(buf), "%d %d\n",
 				temp_settings->mdss_max_bw_mode,
@@ -964,9 +965,8 @@ static ssize_t mdss_debug_perf_bw_limit_write(struct file *file,
 {
 	struct mdss_data_type *mdata = file->private_data;
 	char buf[32];
-	u32 mode, val;
-	u32 cnt = mdata->max_bw_settings_cnt;
-	struct mdss_max_bw_settings *temp_settings = mdata->max_bw_settings;
+	u32 mode, val, cnt;
+	struct mdss_max_bw_settings *temp_settings;
 
 	if (!mdata)
 		return -ENODEV;
@@ -979,6 +979,8 @@ static ssize_t mdss_debug_perf_bw_limit_write(struct file *file,
 		return -EFAULT;
 
 	buf[count] = 0;	/* end of string */
+	cnt = mdata->max_bw_settings_cnt;
+	temp_settings = mdata->max_bw_settings;
 
 	if (strnchr(buf, count, ' ')) {
 		/* Parsing buf */
