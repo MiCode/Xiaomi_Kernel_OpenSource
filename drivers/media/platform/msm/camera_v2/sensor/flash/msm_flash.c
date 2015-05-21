@@ -815,6 +815,16 @@ static int32_t msm_flash_get_pmic_source_info(
 				continue;
 			}
 
+			/* Read max-duration */
+			rc = of_property_read_u32(flash_src_node,
+				"qcom,duration",
+				&fctrl->flash_max_duration[i]);
+			if (rc < 0) {
+				pr_err("duration: read failed\n");
+				of_node_put(flash_src_node);
+				continue;
+			}
+
 			of_node_put(flash_src_node);
 
 			CDBG("max_current[%d] %d\n",
