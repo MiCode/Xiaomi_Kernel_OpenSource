@@ -1322,6 +1322,8 @@ static inline unsigned int load_to_freq(struct rq *rq, u64 load)
 static int send_notification(struct rq *rq)
 {
 	unsigned int cur_freq, freq_required;
+	unsigned long flags;
+	int rc = 0;
 
 	if (!sched_enable_hmp)
 		return 0;
@@ -1332,7 +1334,14 @@ static int send_notification(struct rq *rq)
 	if (nearly_same_freq(cur_freq, freq_required))
 		return 0;
 
-	return 1;
+	raw_spin_lock_irqsave(&rq->lock, flags);
+	if (!rq->notifier_sent) {
+		rq->notifier_sent = 1;
+		rc = 1;
+	}
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
+
+	return rc;
 }
 
 /* Alert governor if there is a need to change frequency */
@@ -2102,6 +2111,12 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 
 #ifdef CONFIG_SCHED_FREQ_INPUT
 
+static inline u64
+scale_load_to_freq(u64 load, unsigned int src_freq, unsigned int dst_freq)
+{
+	return div64_u64(load * (u64)src_freq, (u64)dst_freq);
+}
+
 unsigned long sched_get_busy(int cpu)
 {
 	unsigned long flags;
@@ -2116,7 +2131,6 @@ unsigned long sched_get_busy(int cpu)
 	raw_spin_lock_irqsave(&rq->lock, flags);
 	update_task_ravg(rq->curr, rq, TASK_UPDATE, sched_clock(), 0);
 	load = rq->old_busy_time = rq->prev_runnable_sum;
-	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	/*
 	 * Scale load in reference to rq->max_possible_freq.
@@ -2125,8 +2139,25 @@ unsigned long sched_get_busy(int cpu)
 	 * rq->max_freq
 	 */
 	load = scale_load_to_cpu(load, cpu);
-	load = div64_u64(load * (u64)rq->max_freq, (u64)rq->max_possible_freq);
+
+	if (!rq->notifier_sent) {
+		u64 load_at_cur_freq;
+
+		load_at_cur_freq = scale_load_to_freq(load, rq->max_freq,
+								 rq->cur_freq);
+		if (load_at_cur_freq > sched_ravg_window)
+			load_at_cur_freq = sched_ravg_window;
+		load = scale_load_to_freq(load_at_cur_freq,
+					 rq->cur_freq, rq->max_possible_freq);
+	} else {
+		load = scale_load_to_freq(load, rq->max_freq,
+						 rq->max_possible_freq);
+		rq->notifier_sent = 0;
+	}
+
 	load = div64_u64(load, NSEC_PER_USEC);
+
+	raw_spin_unlock_irqrestore(&rq->lock, flags);
 
 	trace_sched_get_busy(cpu, load);
 
@@ -8993,6 +9024,7 @@ void __init sched_init(void)
 #ifdef CONFIG_SCHED_FREQ_INPUT
 		rq->old_busy_time = 0;
 		rq->curr_runnable_sum = rq->prev_runnable_sum = 0;
+		rq->notifier_sent = 0;
 #endif
 #endif
 
