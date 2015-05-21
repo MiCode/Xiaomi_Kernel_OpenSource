@@ -34,6 +34,8 @@
 #define PCIE_USB3_PHY_SW_RESET			0x600
 #define PCIE_USB3_PHY_POWER_DOWN_CONTROL	0x604
 #define PCIE_USB3_PHY_START			0x608
+#define PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL	0x6BC
+#define PCIE_USB3_PHY_LFPS_RXTERM_IRQ_CLEAR	0x6C0
 
 #define PHYSTATUS				BIT(6)
 
@@ -152,12 +154,12 @@ static const struct qmp_reg_val qmp_settings_rev1[] = {
 	{0x100, 0xD5}, /* QSERDES_COM_DIV_FRAC_START1 */
 	{0x104, 0xAA}, /* QSERDES_COM_DIV_FRAC_START2 */
 	{0x108, 0x4D}, /* QSERDES_COM_DIV_FRAC_START3 */
-	{0x9C, 0x01}, /* QSERDES_COM_PLLLOCK_CMP_EN */
+	{0x9C, 0x11}, /* QSERDES_COM_PLLLOCK_CMP_EN */
 	{0x90, 0x2B}, /* QSERDES_COM_PLLLOCK_CMP1 */
 	{0x94, 0x68}, /* QSERDES_COM_PLLLOCK_CMP2 */
 	{0x114, 0x7C}, /* QSERDES_COM_PLL_CRCTRL */
-	{0x34, 0x07}, /* QSERDES_COM_PLL_CP_SETI */
-	{0x38, 0x1F}, /* QSERDES_COM_PLL_IP_SETP */
+	{0x34, 0x1F}, /* QSERDES_COM_PLL_CP_SETI */
+	{0x38, 0x12}, /* QSERDES_COM_PLL_IP_SETP */
 	{0x3C, 0x0F}, /* QSERDES_COM_PLL_CP_SETP */
 	{0x24, 0x01}, /* QSERDES_COM_PLL_IP_SETI */
 	{0x0C, 0x0F}, /* QSERDES_COM_IE_TRIM */
@@ -172,7 +174,7 @@ static const struct qmp_reg_val qmp_settings_rev1[] = {
 	{0x50, 0x07}, /* QSERDES_COM_RESETSM_CNTRL2 */
 	{0x04, 0xE1}, /* QSERDES_COM_PLL_VCOTAIL_EN */
 
-	{0xE0, 0x20}, /* QSERDES_COM_RES_CODE_START_SEG1 */
+	{0xE0, 0x24}, /* QSERDES_COM_RES_CODE_START_SEG1 */
 	{0xE8, 0x77}, /* QSERDES_COM_RES_CODE_CAL_CSR */
 	{0xF0, 0x15}, /* QSERDES_COM_RES_TRIM_CONTROL */
 	{0x268, 0x02}, /* QSERDES_TX_RCV_DETECT_LVL */
@@ -319,10 +321,19 @@ static const struct qmp_reg_val qmp_override_sysclk[] = {
 	{-1, -1} /* terminating entry */
 };
 
+/* Vbg related settings */
+static const struct qmp_reg_val qmp_settings_rev1_misc[] = {
+	{0x0C, 0x03}, /* QSERDES_COM_IE_TRIM */
+	{0x10, 0x00}, /* QSERDES_COM_IP_TRIM */
+	{0xA0, 0xFF}, /* QSERDES_COM_BGTC */
+	{-1, -1} /* terminating entry */
+};
+
 struct msm_ssphy_qmp {
 	struct usb_phy		phy;
 	void __iomem		*base;
 	void __iomem		*ahb2phy;
+	void __iomem		*vls_clamp_reg;
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
@@ -361,28 +372,40 @@ static inline char *get_cable_status_str(struct msm_ssphy_qmp *phy)
 	return phy->cable_connected ? "connected" : "disconnected";
 }
 
-static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy)
+static void msm_ssusb_qmp_clr_lfps_rxterm_int(struct msm_ssphy_qmp *phy)
+{
+	writeb_relaxed(1, phy->base + PCIE_USB3_PHY_LFPS_RXTERM_IRQ_CLEAR);
+	/* flush the previous write before next write */
+	wmb();
+	writeb_relaxed(0, phy->base + PCIE_USB3_PHY_LFPS_RXTERM_IRQ_CLEAR);
+}
+
+static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
+		int enable)
 {
 	u8 val;
 
 	dev_dbg(phy->phy.dev, "enabling QMP autonomous mode with cable %s\n",
 			get_cable_status_str(phy));
-	val = readb_relaxed(phy->base +
-			phy->phy_reg[USB3_PHY_AUTONOMOUS_MODE_CTRL]);
 
-	val |= ARCVR_DTCT_EN;
-	if (phy->cable_connected) {
+	if (enable) {
+		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
+		val =
+		readb_relaxed(phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
+		val |= ARCVR_DTCT_EN;
 		val |= ALFPS_DTCT_EN;
-		/* Detect detach */
 		val &= ~ARCVR_DTCT_EVENT_SEL;
-	} else {
-		val &= ~ALFPS_DTCT_EN;
-		/* Detect attach */
-		val |= ARCVR_DTCT_EVENT_SEL;
-	}
+		writeb_relaxed(val,
+				phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
 
-	writeb_relaxed(val, phy->base +
-			phy->phy_reg[USB3_PHY_AUTONOMOUS_MODE_CTRL]);
+		 /* clamp phy level shifter to perform autonomous detection */
+		writel_relaxed(0x1, phy->vls_clamp_reg);
+	} else {
+		writel_relaxed(0x0, phy->vls_clamp_reg);
+		writeb_relaxed(0,
+				phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
+		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
+	}
 }
 
 
@@ -521,6 +544,7 @@ static int msm_ssphy_qmp_init(struct usb_phy *uphy)
 		break;
 	case 0x10000001:
 		reg = qmp_settings_rev1;
+		misc = qmp_settings_rev1_misc;
 		break;
 	case 0x20000000:
 	case 0x20000001:
@@ -688,14 +712,13 @@ deassert_phy_com_reset:
 static int msm_ssphy_power_enable(struct msm_ssphy_qmp *phy, bool on)
 {
 	bool host = phy->phy.flags & PHY_HOST_MODE;
-	bool chg_connected = phy->phy.flags & PHY_CHARGER_CONNECTED;
 	int ret = 0;
 
 	/*
 	 * Turn off the phy's LDOs when cable is disconnected for device mode
 	 * with external vbus_id indication.
 	 */
-	if (!host && !chg_connected && !phy->cable_connected) {
+	if (!host && !phy->cable_connected) {
 		if (on) {
 			ret = regulator_enable(phy->vdd);
 			if (ret)
@@ -748,29 +771,33 @@ static int msm_ssphy_qmp_set_suspend(struct usb_phy *uphy, int suspend)
 	}
 
 	if (suspend) {
-		msm_ssusb_qmp_enable_autonomous(phy);
-		if (!phy->cable_connected) {
-			clk_disable_unprepare(phy->pipe_clk);
+		if (!phy->cable_connected)
 			writel_relaxed(0x00,
 				phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
-		}
+		else
+			msm_ssusb_qmp_enable_autonomous(phy, 1);
+
 		clk_disable_unprepare(phy->cfg_ahb_clk);
 		clk_disable_unprepare(phy->aux_clk);
+		clk_disable_unprepare(phy->pipe_clk);
 		phy->clk_enabled = false;
 		phy->in_suspend = true;
 		msm_ssphy_power_enable(phy, 0);
 		dev_dbg(uphy->dev, "QMP PHY is suspend\n");
 	} else {
 		msm_ssphy_power_enable(phy, 1);
+		clk_prepare_enable(phy->pipe_clk);
 		if (!phy->clk_enabled) {
 			clk_prepare_enable(phy->aux_clk);
 			clk_prepare_enable(phy->cfg_ahb_clk);
-			clk_prepare_enable(phy->pipe_clk);
 			phy->clk_enabled = true;
 		}
-		writel_relaxed(0x01,
+		if (!phy->cable_connected) {
+			writel_relaxed(0x01,
 				phy->base + PCIE_USB3_PHY_POWER_DOWN_CONTROL);
-		msm_ssusb_qmp_enable_autonomous(phy);
+		} else  {
+			msm_ssusb_qmp_enable_autonomous(phy, 0);
+		}
 		phy->in_suspend = false;
 		dev_dbg(uphy->dev, "QMP PHY is resumed\n");
 	}
@@ -798,7 +825,6 @@ static int msm_ssphy_qmp_notify_disconnect(struct usb_phy *uphy,
 
 	dev_dbg(uphy->dev, "QMP phy disconnect notification\n");
 	dev_dbg(uphy->dev, " cable_connected=%d\n", phy->cable_connected);
-	msm_ssusb_qmp_enable_autonomous(phy);
 	phy->cable_connected = false;
 	return 0;
 }
@@ -899,6 +925,10 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qmp_phy_base");
+	if (!res) {
+		dev_err(dev, "failed getting qmp_phy_base\n");
+		return -ENODEV;
+	}
 	phy->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy->base)) {
 		ret = PTR_ERR(phy->base);
@@ -906,12 +936,25 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+			"vls_clamp_reg");
+	if (!res) {
+		dev_err(dev, "failed getting vls_clamp_reg\n");
+		return -ENODEV;
+	}
+	phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
+	if (IS_ERR(phy->vls_clamp_reg)) {
+		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
+		return PTR_ERR(phy->vls_clamp_reg);
+	}
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qmp_ahb2phy_base");
-	phy->ahb2phy = devm_ioremap_resource(dev, res);
-	if (IS_ERR(phy->ahb2phy)) {
-		dev_err(dev, "couldn't find qmp_ahb2phy_base address.\n");
-		ret = PTR_ERR(phy->ahb2phy);
-		goto err;
+	if (res) {
+		phy->ahb2phy = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->ahb2phy)) {
+			dev_err(dev, "couldn't find qmp_ahb2phy_base addr.\n");
+			phy->ahb2phy = NULL;
+		}
 	}
 
 	phy->emulation = of_property_read_bool(dev->of_node,
