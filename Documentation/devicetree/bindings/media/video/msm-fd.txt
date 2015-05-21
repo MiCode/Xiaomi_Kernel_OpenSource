@@ -34,13 +34,15 @@ Optional properties:
   property defined.
   If we want to have different operating clock frequencies we can define
   rate levels. They should be defined in incremental order.
-- bus-bandwidth-vectors: Specifies instant and average bus bandwidth
+- qcom,bus-bandwidth-vectors: Specifies instant and average bus bandwidth
   vectors per clock rate.
   Each of entries contains:
   - ab. Average bus bandwidth (Bps).
   - ib. Instantaneous bus bandwidth (Bps).
 - mmagic-vdd-supply: phandle to GDSC regulator controlling mmagic.
 - camss-vdd-supply: phandle to GDSC regulator controlling camss.
+- qcom,vbif-reg-settings: relative address offsets and value pairs for
+  VBIF registers.
 
 Example:
 
@@ -77,7 +79,10 @@ Example:
                         "camss_cpp_axi_clk", "cpp_vbif_ahb_clk",
                          "smmu_cpp_ahb_clk";
         clock-rates = <0 0 0 0 400000000 400000000 400000000 80000000 0 0 0 0 0>;
-		bus-bandwidth-vectors = <13000000 26000000>,
-				<45000000 90000000>,
-				<90000000 180000000>;
+	qcom,bus-bandwidth-vectors = <13000000 13000000>,
+		<45000000 45000000>,
+		<90000000 90000000>;
+	qcom,vbif-reg-settings = <0x10 0x40004000>,
+		<0x18 0x10000000>,
+		<0x1c 0x10000000>;
     };

@@ -593,71 +593,65 @@ void msm_fd_hw_release_irq(struct msm_fd_device *fd)
 }
 
 /*
- * msm_fd_hw_vbif_register - Configure and enable vbif interface.
+ * msm_fd_hw_set_dt_parms() - read device tree params and write to registers.
  * @fd: Pointer to fd device.
+ * @dt_prop_name: Name of the device tree property to read.
+ * @base_idx: Fd memory resource index.
+ *
+ * This function reads register offset and value pairs from dtsi based on
+ * device tree property name and writes to FD registers.
+ *
+ * Return: 0 on success and negative error on failure.
  */
-void msm_fd_hw_vbif_register(struct msm_fd_device *fd)
+int32_t msm_fd_hw_set_dt_parms(struct msm_fd_device *fd,
+			const char *dt_prop_name,
+			enum msm_fd_mem_resources base_idx)
 {
-	uint32_t vbif_enabled = msm_fd_hw_read_reg(fd,
-		MSM_FD_IOMEM_VBIF, MSM_FD_VBIF_CLKON);
+	struct device_node *of_node;
+	int32_t i = 0 , rc = 0;
+	uint32_t *dt_reg_settings = NULL;
+	uint32_t dt_count = 0;
 
-	if (vbif_enabled) {
-		pr_debug("%s: VBIF already enabled", __func__);
-		fd->vbif_enabled = 0;
-		return;
+	of_node = fd->dev->of_node;
+	pr_debug("%s:%d E\n", __func__, __LINE__);
+
+	if (!of_get_property(of_node, dt_prop_name, &dt_count)) {
+		pr_err("%s: Error property does not exist\n", __func__);
+		return -ENOENT;
 	}
-	msm_fd_hw_reg_set(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_CLKON, 0x1);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_QOS_OVERRIDE_EN, 0x10001);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_QOS_OVERRIDE_REQPRI, 0x1);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_QOS_OVERRIDE_PRILVL, 0x1);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_IN_RD_LIM_CONF0, 0x10);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_IN_WR_LIM_CONF0, 0x10);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_OUT_RD_LIM_CONF0, 0x10);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_OUT_WR_LIM_CONF0, 0x10);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_DDR_OUT_MAX_BURST, 0xF0F);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_ARB_CTL, 0x30);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_OUT_AXI_AMEMTYPE_CONF0, 0x02);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_OUT_AXI_AOOO_EN, 0x10001);
-
-	msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-		MSM_FD_VBIF_ROUND_ROBIN_QOS_ARB, 0x03);
-	fd->vbif_enabled = 1;
-}
-
-/*
- * msm_fd_hw_vbif_unregister - Disable vbif interface.
- * @fd: Pointer to fd device.
- */
-void msm_fd_hw_vbif_unregister(struct msm_fd_device *fd)
-{
-	if (fd->vbif_enabled) {
-		pr_debug("%s: Disable VBIF clock", __func__);
-		msm_fd_hw_write_reg(fd, MSM_FD_IOMEM_VBIF,
-			MSM_FD_VBIF_CLKON, 0x0);
+	if (dt_count % 8) {
+		pr_err("%s: Error invalid entries\n", __func__);
+		return -EINVAL;
 	}
+	dt_count /= 4;
+	if (dt_count != 0) {
+		dt_reg_settings = kcalloc(dt_count,
+			sizeof(uint32_t),
+			GFP_KERNEL);
+
+		if (!dt_reg_settings)
+			return -ENOMEM;
+
+		rc = of_property_read_u32_array(of_node,
+				dt_prop_name,
+				dt_reg_settings,
+				dt_count);
+		if (rc < 0) {
+			pr_err("%s: No reg info\n", __func__);
+			kfree(dt_reg_settings);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < dt_count; i = i + 2) {
+			pr_debug("%s:%d] %p %08x\n", __func__, __LINE__,
+				fd->iomem_base[base_idx] + dt_reg_settings[i],
+				dt_reg_settings[i + 1]);
+			msm_fd_hw_reg_set(fd, base_idx, dt_reg_settings[i],
+				dt_reg_settings[i + 1]);
+		}
+		kfree(dt_reg_settings);
+	}
+	return 0;
 }
 
 /*
@@ -1063,12 +1057,12 @@ int msm_fd_hw_get_bus(struct msm_fd_device *fd)
 	cnt = 0;
 	for (usecase = 0; usecase < idx; usecase++) {
 		ret = of_property_read_u32_index(fd->dev->of_node,
-			"bus-bandwidth-vectors", cnt++, &ab);
+			"qcom,bus-bandwidth-vectors", cnt++, &ab);
 		if (ret < 0)
 			break;
 
 		ret = of_property_read_u32_index(fd->dev->of_node,
-			"bus-bandwidth-vectors", cnt++, &ib);
+			"qcom,bus-bandwidth-vectors", cnt++, &ib);
 		if (ret < 0)
 			break;
 
@@ -1183,15 +1177,26 @@ int msm_fd_hw_get(struct msm_fd_device *fd, unsigned int clock_rate_idx)
 		if (msm_fd_hw_misc_irq_supported(fd))
 			msm_fd_hw_misc_irq_enable(fd);
 
-		msm_fd_hw_vbif_register(fd);
+		ret = msm_fd_hw_set_dt_parms(fd, "qcom,vbif-reg-settings",
+			MSM_FD_IOMEM_VBIF);
+		if (ret == -ENOENT) {
+			pr_debug("%s: No qcom,vbif-reg-settings property\n",
+				__func__);
+		} else if (ret < 0) {
+			pr_err("%s: vbif params set fail\n", __func__);
+			goto error_vbif;
+		}
 	}
-
 
 	fd->ref_count++;
 	mutex_unlock(&fd->lock);
 
 	return 0;
 
+error_vbif:
+	if (msm_fd_hw_misc_irq_supported(fd))
+		msm_fd_hw_misc_irq_disable(fd);
+	msm_fd_hw_disable_clocks(fd);
 error_clocks:
 	msm_fd_hw_bus_release(fd);
 error_bus_request:
@@ -1219,7 +1224,6 @@ void msm_fd_hw_put(struct msm_fd_device *fd)
 		if (msm_fd_hw_misc_irq_supported(fd))
 			msm_fd_hw_misc_irq_disable(fd);
 
-		msm_fd_hw_vbif_unregister(fd);
 		msm_fd_hw_bus_release(fd);
 		msm_fd_hw_disable_clocks(fd);
 		msm_fd_hw_disable_regulators(fd);
