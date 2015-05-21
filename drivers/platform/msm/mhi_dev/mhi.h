@@ -503,6 +503,9 @@ struct mhi_dev {
 	atomic_t			write_active;
 	atomic_t			is_suspended;
 	struct mutex			mhi_write_test;
+	u32				device_local_pa_base;
+	u32				mhi_ep_msi_num;
+	u32				mhi_version;
 };
 
 enum mhi_msg_level {
