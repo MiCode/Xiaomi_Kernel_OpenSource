@@ -104,6 +104,8 @@ struct sdhci_msm_pltfm_data {
 	u32 *sup_clk_table;
 	unsigned char sup_clk_cnt;
 	enum pm_qos_req_type cpu_affinity_type;
+	u32 *sup_ice_clk_table;
+	unsigned char sup_ice_clk_cnt;
 };
 
 struct sdhci_msm_bus_vote {
@@ -116,6 +118,13 @@ struct sdhci_msm_bus_vote {
 	struct device_attribute max_bus_bw;
 };
 
+struct sdhci_msm_ice_data {
+	struct qcom_ice_variant_ops *vops;
+	struct completion async_done;
+	struct platform_device *pdev;
+	int state;
+};
+
 struct sdhci_msm_host {
 	struct platform_device	*pdev;
 	void __iomem *core_mem;    /* MSM SDCC mapped address */
@@ -125,6 +134,7 @@ struct sdhci_msm_host {
 	struct clk	 *bus_clk; /* SDHC bus voter clock */
 	struct clk	 *ff_clk; /* CDC calibration fixed feedback clock */
 	struct clk	 *sleep_clk; /* CDC calibration sleep clock */
+	struct clk	 *ice_clk; /* SDHC peripheral ICE clock */
 	atomic_t clks_on; /* Set if clocks are enabled */
 	struct sdhci_msm_pltfm_data *pdata;
 	struct mmc_host  *mmc;
@@ -145,5 +155,7 @@ struct sdhci_msm_host {
 	bool use_updated_dll_reset;
 	bool use_14lpp_dll;
 	u32 caps_0;
+	struct sdhci_msm_ice_data ice;
+	u32 ice_clk_rate;
 };
 #endif /* __SDHCI_MSM_H__ */
