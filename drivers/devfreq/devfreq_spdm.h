@@ -89,7 +89,9 @@ extern void spdm_remove_debugfs(struct spdm_data *data);
 #define SPDM_HYP_FNID 5
 #define SPDM_SCM_SVC_ID 0x9
 #define SPDM_SCM_CMD_ID 0x4
+#define SPDM_TZ_VERSION 0x20000 /* TZ SPDM driver version */
 /* SPDM CMD ID's for hypervisor/SCM */
+#define SPDM_CMD_GET_VERSION 0
 #define SPDM_CMD_GET_BW_ALL 1
 #define SPDM_CMD_GET_BW_SPECIFIC 2
 #define SPDM_CMD_ENABLE 3
