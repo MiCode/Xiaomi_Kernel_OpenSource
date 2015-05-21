@@ -81,9 +81,9 @@ struct io_pgtable_ops {
 	int (*map)(struct io_pgtable_ops *ops, unsigned long iova,
 		   phys_addr_t paddr, size_t size, int prot);
 	int (*map_sg)(struct io_pgtable_ops *ops, unsigned long iova,
-		      struct scatterlist *sg, unsigned int nents, int prot);
-	int (*unmap)(struct io_pgtable_ops *ops, unsigned long iova,
-		     size_t size);
+			 struct scatterlist *sg, unsigned int nents, int prot);
+	size_t (*unmap)(struct io_pgtable_ops *ops, unsigned long iova,
+			size_t size);
 	phys_addr_t (*iova_to_phys)(struct io_pgtable_ops *ops,
 				    unsigned long iova);
 };
