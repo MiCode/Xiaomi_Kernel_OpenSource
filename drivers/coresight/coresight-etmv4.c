@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,6 +398,7 @@ struct etm_drvdata {
 static int count;
 static struct etm_drvdata *etmdrvdata[NR_CPUS];
 static struct notifier_block etm_cpu_notifier;
+static struct notifier_block etm_cpu_dying_notifier;
 
 static bool etm_os_lock_present(struct etm_drvdata *drvdata)
 {
@@ -3345,19 +3346,14 @@ static int etm_cpu_callback(struct notifier_block *nfb, unsigned long action,
 			clk_disable[cpu] = false;
 		}
 		break;
-
-	case CPU_DYING:
-		spin_lock(&etmdrvdata[cpu]->spinlock);
-		if (etmdrvdata[cpu]->enable)
-			__etm_disable(etmdrvdata[cpu]);
-		spin_unlock(&etmdrvdata[cpu]->spinlock);
-		break;
 	}
 out:
 	return NOTIFY_OK;
 err1:
-	if (--count == 0)
+	if (--count == 0) {
 		unregister_hotcpu_notifier(&etm_cpu_notifier);
+		unregister_hotcpu_notifier(&etm_cpu_dying_notifier);
+	}
 	if (clk_disable[cpu]) {
 		clk_disable_unprepare(etmdrvdata[cpu]->clk);
 		clk_disable[cpu] = false;
@@ -3375,6 +3371,31 @@ err0:
 
 static struct notifier_block etm_cpu_notifier = {
 	.notifier_call = etm_cpu_callback,
+};
+
+static int etm_cpu_dying_callback(struct notifier_block *nfb,
+				   unsigned long action, void *hcpu)
+{
+	unsigned int cpu = (unsigned long)hcpu;
+
+	if (!etmdrvdata[cpu])
+		goto out;
+
+	switch (action & (~CPU_TASKS_FROZEN)) {
+	case CPU_DYING:
+		spin_lock(&etmdrvdata[cpu]->spinlock);
+		if (etmdrvdata[cpu]->enable)
+			__etm_disable(etmdrvdata[cpu]);
+		spin_unlock(&etmdrvdata[cpu]->spinlock);
+		break;
+	}
+out:
+	return NOTIFY_OK;
+}
+
+static struct notifier_block etm_cpu_dying_notifier = {
+	.notifier_call = etm_cpu_dying_callback,
+	.priority = 1,
 };
 
 static int etm_probe(struct platform_device *pdev)
@@ -3441,8 +3462,10 @@ static int etm_probe(struct platform_device *pdev)
 		goto err0;
 	}
 
-	if (count++ == 0)
+	if (count++ == 0) {
 		register_hotcpu_notifier(&etm_cpu_notifier);
+		register_hotcpu_notifier(&etm_cpu_dying_notifier);
+	}
 
 	ret = clk_set_rate(drvdata->clk, CORESIGHT_CLK_RATE_TRACE);
 	if (ret)
@@ -3491,8 +3514,10 @@ static int etm_probe(struct platform_device *pdev)
 
 	return 0;
 err1:
-	if (--count == 0)
+	if (--count == 0) {
 		unregister_hotcpu_notifier(&etm_cpu_notifier);
+		unregister_hotcpu_notifier(&etm_cpu_dying_notifier);
+	}
 err0:
 	wakeup_source_trash(&drvdata->ws);
 	return ret;
@@ -3504,8 +3529,10 @@ static int etm_remove(struct platform_device *pdev)
 
 	if (drvdata) {
 		coresight_unregister(drvdata->csdev);
-		if (--count == 0)
+		if (--count == 0) {
 			unregister_hotcpu_notifier(&etm_cpu_notifier);
+			unregister_hotcpu_notifier(&etm_cpu_dying_notifier);
+		}
 		wakeup_source_trash(&drvdata->ws);
 	}
 	return 0;
