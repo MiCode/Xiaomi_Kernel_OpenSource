@@ -1615,23 +1615,19 @@ static inline void update_cpu_busy_time(struct task_struct *p, struct rq *rq,
 
 static int account_busy_for_task_demand(struct task_struct *p, int event)
 {
+	/* No need to bother updating task demand for exiting tasks
+	 * or the idle task. */
 	if (exiting_task(p) || is_idle_task(p))
 		return 0;
 
-	/*
-	 * When a task is waking up it is completing a segment of non-busy
+	/* When a task is waking up it is completing a segment of non-busy
 	 * time. Likewise, if wait time is not treated as busy time, then
 	 * when a task begins to run or is migrated, it is not running and
-	 * is completing a segment of non-busy time.
-	 */
+	 * is completing a segment of non-busy time. */
 	if (event == TASK_WAKE || (!sched_account_wait_time &&
-		(event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
+			 (event == PICK_NEXT_TASK || event == TASK_MIGRATE)))
 		return 0;
 
-	/*
-	 * We are left with TASK_UPDATE, IRQ_UPDATE, PUT_PREV_TASK and
-	 * wait time being accounted as busy time.
-	 */
 	return 1;
 }
 
@@ -1701,15 +1697,6 @@ static void add_to_task_demand(struct rq *rq, struct task_struct *p,
 	p->ravg.sum += delta;
 	if (unlikely(p->ravg.sum > sched_ravg_window))
 		p->ravg.sum = sched_ravg_window;
-}
-
-static u64 wait_adjust(struct task_struct *p, u64 delta, int event)
-{
-	/* We already know that wait time counts as busy time. */
-	if (event == PICK_NEXT_TASK || event == TASK_MIGRATE)
-		return div64_u64(delta * task_load(p), max_task_load());
-
-	return delta;
 }
 
 /*
@@ -1786,8 +1773,7 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 	if (!new_window) {
 		/* The simple case - busy time contained within the existing
 		 * window. */
-		add_to_task_demand(rq, p, wait_adjust(p,
-				wallclock - mark_start, event));
+		add_to_task_demand(rq, p, wallclock - mark_start);
 		return;
 	}
 
@@ -1798,14 +1784,13 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 	window_start -= (u64)nr_full_windows * (u64)window_size;
 
 	/* Process (window_start - mark_start) first */
-	add_to_task_demand(rq, p,
-		wait_adjust(p, window_start - mark_start, event));
+	add_to_task_demand(rq, p, window_start - mark_start);
 
 	/* Push new sample(s) into task's demand history */
 	update_history(rq, p, p->ravg.sum, 1, event);
 	if (nr_full_windows)
-		update_history(rq, p, scale_exec_time(wait_adjust(p,
-		window_size, event), rq), nr_full_windows, event);
+		update_history(rq, p, scale_exec_time(window_size, rq),
+			       nr_full_windows, event);
 
 	/* Roll window_start back to current to process any remainder
 	 * in current window. */
@@ -1813,8 +1798,7 @@ static void update_task_demand(struct task_struct *p, struct rq *rq,
 
 	/* Process (wallclock - window_start) next */
 	mark_start = window_start;
-	add_to_task_demand(rq, p,
-		wait_adjust(p, wallclock - mark_start, event));
+	add_to_task_demand(rq, p, wallclock - mark_start);
 }
 
 /* Reflect task activity on its demand and cpu's busy time statistics */
