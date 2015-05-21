@@ -3523,6 +3523,14 @@
 		};
 	};
 
+	qcom,avtimer@90f7000 {
+		compatible = "qcom,avtimer";
+		reg = <0x90f700c 0x4>,
+		      <0x90f7010 0x4>;
+		reg-names = "avtimer_lsb_addr", "avtimer_msb_addr";
+		qcom,clk-div = <27>;
+	};
+
 	mcd {
 		compatible = "qcom,mcd";
 		qcom,ce-hw-instance = <0>;
