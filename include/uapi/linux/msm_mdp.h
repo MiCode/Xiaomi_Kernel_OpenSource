@@ -1023,6 +1023,7 @@ enum {
 
 struct mdp_gamut_data_v1_7 {
 	uint32_t mode;
+	uint32_t map_en;
 	uint32_t tbl_size[MDP_GAMUT_TABLE_NUM_V1_7];
 	uint32_t *c0_data[MDP_GAMUT_TABLE_NUM_V1_7];
 	uint32_t *c1_c2_data[MDP_GAMUT_TABLE_NUM_V1_7];

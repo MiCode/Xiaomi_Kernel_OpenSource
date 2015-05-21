@@ -49,6 +49,7 @@
 #define GAMUT_COARSE_EN (BIT(2))
 #define GAMUT_COARSE_INDEX 1248
 #define GAMUT_FINE_INDEX 0
+#define GAMUT_MAP_EN BIT(1)
 #define GAMUT_ENABLE BIT(0)
 
 #define IGC_MASK_MAX 3
@@ -702,12 +703,14 @@ static int pp_gamut_get_config(char __iomem *base_addr, void *cfg_data,
 		tbl_sz = MDP_GAMUT_TABLE_V1_7_COARSE_SZ;
 		sz = tbl_sz * sizeof(u32);
 		index_start = GAMUT_COARSE_INDEX;
+		gamut_data.mode = mdp_gamut_coarse_mode;
 	} else {
-		mode = mdp_gamut_fine_mode;
 		tbl_sz = MDP_GAMUT_TABLE_V1_7_SZ;
 		sz = tbl_sz * sizeof(u32);
 		index_start = GAMUT_FINE_INDEX;
+		gamut_data.mode = mdp_gamut_fine_mode;
 	}
+	gamut_data.map_en = mode & GAMUT_MAP_EN;
 	sz_scale = MDP_GAMUT_SCALE_OFF_SZ * sizeof(u32);
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
 		if (!access_ok(VERIFY_WRITE, gamut_data.c0_data[i], sz)) {
@@ -902,6 +905,8 @@ bail_out:
 		} else if (gamut_cfg_data->flags & MDP_PP_OPS_ENABLE) {
 			if (gamut_data->mode == mdp_gamut_coarse_mode)
 				val |= GAMUT_COARSE_EN;
+			if (gamut_data->map_en)
+				val |= GAMUT_MAP_EN;
 			val |= GAMUT_ENABLE;
 			writel_relaxed(val, base_addr + GAMUT_OP_MODE_OFF);
 			pp_sts->gamut_sts |= PP_STS_ENABLE;
