@@ -3619,15 +3619,15 @@ static int cpp_probe(struct platform_device *pdev)
 		goto region_err;
 	}
 
-	rc = cpp_init_hardware(cpp_dev);
-	if (rc < 0)
-		goto cpp_probe_init_error;
-
 	if (pdev->dev.of_node)
 		rc = of_property_read_u32(pdev->dev.of_node, "qcom,bus-master",
 			&cpp_dev->bus_master_flag);
 	if (rc)
 		cpp_dev->bus_master_flag = 0;
+
+	rc = cpp_init_hardware(cpp_dev);
+	if (rc < 0)
+		goto cpp_probe_init_error;
 
 	media_entity_init(&cpp_dev->msm_sd.sd.entity, 0, NULL, 0);
 	cpp_dev->msm_sd.sd.entity.type = MEDIA_ENT_T_V4L2_SUBDEV;
