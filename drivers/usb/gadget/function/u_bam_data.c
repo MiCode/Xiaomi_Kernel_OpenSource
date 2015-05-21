@@ -1402,6 +1402,13 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 	}
 
 	port->last_event = U_BAM_DATA_DISCONNECT_E;
+	/* Disable usb irq for CI gadget. It will be enabled in
+	 * usb_bam_disconnect_pipe() after disconnecting all pipes
+	 * and USB BAM reset is done.
+	 */
+	if (!gadget_is_dwc3(port->gadget))
+		msm_usb_irq_disable(true);
+
 	queue_work(bam_data_wq, &port->disconnect_w);
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
