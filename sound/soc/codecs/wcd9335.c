@@ -96,6 +96,15 @@
 
 /* Convert from vout ctl to micbias voltage in mV */
 #define WCD_VOUT_CTL_TO_MICB(v) (1000 + v * 50)
+
+#define TASHA_ZDET_NUM_MEASUREMENTS 25
+#define TASHA_MBHC_GET_C1(c)  ((c & 0xC000) >> 14)
+#define TASHA_MBHC_GET_X1(x)  (x & 0x3FFF)
+#define TASHA_MBHC_IS_SECOND_RAMP_ENABLE(z)  (z > 300)
+#define TASHA_MBHC_ZDET_C_MAX  3
+#define TASHA_MBHC_ZDET_CONST  (74 * 16384)
+#define TASHA_MBHC_ZDET_DELAY_PER_MEAS_US  1000
+
 static int tasha_cpe_debug_mode = 1;
 module_param(tasha_cpe_debug_mode, int,
 	     S_IRUGO | S_IWUSR | S_IWGRP);
@@ -124,6 +133,13 @@ static struct afe_param_slimbus_slave_port_cfg tasha_slimbus_slave_port_cfg = {
 	.bit_width = 16,
 	.data_format = 0,
 	.num_channels = 1
+};
+
+struct tasha_mbhc_zdet_param {
+	u16 ldo_ctl;
+	u16 noff;
+	u16 nshift;
+	u16 btn6;
 };
 
 static struct afe_param_cdc_reg_page_cfg tasha_cdc_reg_page_cfg = {
@@ -569,6 +585,7 @@ struct tasha_priv {
 	struct mutex swr_clk_lock;
 	int swr_clk_users;
 	int power_active_ref;
+	int (*zdet_gpio_cb)(struct snd_soc_codec *codec, bool high);
 };
 
 int tasha_enable_efuse_sensing(struct snd_soc_codec *codec)
@@ -977,6 +994,221 @@ static int tasha_mbhc_micb_ctrl_threshold_mic(struct snd_soc_codec *codec,
 	return rc;
 }
 
+static inline void tasha_mbhc_get_result_params(struct wcd9xxx *wcd9xxx,
+						s32 *x1f, s16 *c1f)
+{
+	int i, num_meas;
+	u16 val, result12[TASHA_ZDET_NUM_MEASUREMENTS];
+	s16 c1, c1_old = 0;
+	s32 x1_cap = 0, x1;
+	u32 delay;
+
+	for (i = 0; i < TASHA_ZDET_NUM_MEASUREMENTS; i++) {
+		wcd9xxx_bulk_read(&wcd9xxx->core_res, WCD9335_ANA_MBHC_RESULT_1,
+				  2, (u8 *)&val);
+		result12[i] = val;
+		if (TASHA_MBHC_GET_C1(val) == TASHA_MBHC_ZDET_C_MAX)
+			break;
+		/* Add 1ms delay before each measurement */
+		usleep_range(TASHA_MBHC_ZDET_DELAY_PER_MEAS_US,
+			     TASHA_MBHC_ZDET_DELAY_PER_MEAS_US + 100);
+	}
+	num_meas = (i == TASHA_ZDET_NUM_MEASUREMENTS) ? i : (i + 1);
+
+	/*
+	 * Start the impedance detection ramp down and wait for it
+	 * to be completed
+	 */
+	wcd9xxx_reg_update_bits(&wcd9xxx->core_res, WCD9335_ANA_MBHC_ZDET,
+				0x20, 0x00);
+	delay = num_meas * TASHA_MBHC_ZDET_DELAY_PER_MEAS_US;
+	if (delay < 15000)
+		delay = 15000;
+	usleep_range(delay, delay + 100);
+
+	c1_old = TASHA_MBHC_GET_C1(result12[0]);
+	if (c1_old > 0)
+		x1_cap = TASHA_MBHC_GET_X1(result12[0]);
+	if (c1_old == TASHA_MBHC_ZDET_C_MAX)
+		x1 = TASHA_MBHC_GET_X1(result12[0]);
+	for (i = 1; i < num_meas; i++) {
+		c1 = TASHA_MBHC_GET_C1(result12[i]);
+
+		if ((c1_old == 0) && ((c1 == 1) || (c1 == 2)))
+			x1_cap = TASHA_MBHC_GET_X1(result12[i]);
+		else if (c1 == TASHA_MBHC_ZDET_C_MAX) {
+			x1 = TASHA_MBHC_GET_X1(result12[i]);
+			break;
+		}
+		c1_old = c1;
+	}
+	if (!x1)
+		pr_err("%s: RDAC code is 0\n", __func__);
+
+	c1 = (x1_cap != x1) ? 3 : 1;
+	*c1f = c1;
+	*x1f = x1;
+}
+
+/*
+ * tasha_mbhc_zdet_gpio_ctrl: Register callback function for
+ * controlling the switch on hifi amps. Default switch state
+ * will put a 51ohm load in parallel to the hph load. So,
+ * impedance detection function will pull the gpio high
+ * to make the switch open.
+ *
+ * @zdet_gpio_cb: callback function from machine driver
+ * @codec: Codec instance
+ *
+ * Return: none
+ */
+void tasha_mbhc_zdet_gpio_ctrl(
+		int (*zdet_gpio_cb)(struct snd_soc_codec *codec, bool high),
+		struct snd_soc_codec *codec)
+{
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+
+	tasha->zdet_gpio_cb = zdet_gpio_cb;
+}
+EXPORT_SYMBOL(tasha_mbhc_zdet_gpio_ctrl);
+
+static void tasha_mbhc_zdet_ramp(struct snd_soc_codec *codec,
+				 struct tasha_mbhc_zdet_param *zdet_param,
+				 uint32_t *zl, uint32_t *zr)
+{
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
+	s16 c1L, c1R;
+	s32 d1L, d1R, x1L, x1R;
+	int z1L = 0, z1R = 0;
+	int denomL, denomR;
+	s16 d1_a[4] = {0, 30, 30, 5};
+
+	snd_soc_update_bits(codec, WCD9335_MBHC_ZDET_ANA_CTL, 0x70,
+			    zdet_param->ldo_ctl << 4);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN6, 0xFC,
+			    zdet_param->btn6);
+	snd_soc_update_bits(codec, WCD9335_MBHC_ZDET_ANA_CTL, 0x0F,
+			    zdet_param->noff);
+	snd_soc_update_bits(codec, WCD9335_MBHC_ZDET_RAMP_CTL, 0x0F,
+			    zdet_param->nshift);
+
+	/* Start impedance measurement for HPH_L */
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x80, 0x80);
+	/* wait for 1ms as per HW requirement after L_MEAS_EN */
+	usleep_range(1000, 1100);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x20, 0x20);
+	tasha_mbhc_get_result_params(wcd9xxx, &x1L, &c1L);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x80, 0x00);
+
+	/* Start impedance measurement for HPH_R */
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x40, 0x40);
+	/* wait for 1ms as per HW requirement after R_MEAS_EN */
+	usleep_range(1000, 1100);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x20, 0x20);
+	tasha_mbhc_get_result_params(wcd9xxx, &x1R, &c1R);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x40, 0x00);
+
+	d1L = d1_a[c1L];
+	d1R = d1_a[c1R];
+	denomL = (x1L * d1L) - (1 << (14 - zdet_param->noff));
+	denomR = (x1R * d1R) - (1 << (14 - zdet_param->noff));
+
+	if (denomL > 0)
+		z1L = TASHA_MBHC_ZDET_CONST / denomL;
+	if (denomR > 0)
+		z1R = TASHA_MBHC_ZDET_CONST / denomR;
+
+	dev_dbg(codec->dev, "%s: d1L:%d, c1L:%d, x1L:0x%x, z1L:%d\n",
+		__func__, d1L, c1L, x1L, z1L);
+	dev_dbg(codec->dev, "%s: d1R:%d, c1R:%d, x1R:0x%x, z1R:%d\n",
+		__func__, d1R, c1R, x1R, z1R);
+
+	*zl = z1L;
+	*zr = z1R;
+}
+
+static void tasha_wcd_mbhc_calc_impedance(struct wcd_mbhc *mbhc, uint32_t *zl,
+					  uint32_t *zr)
+{
+	struct snd_soc_codec *codec = mbhc->codec;
+	struct tasha_priv *tasha = snd_soc_codec_get_drvdata(codec);
+	s16 reg0, reg1, reg2, reg3, reg4;
+	int z1L, z1R;
+	bool is_fsm_disable = false;
+	bool is_second_ramp = false;
+	struct tasha_mbhc_zdet_param zdet_param[2] = {
+		{2, 0, 2, 0x80},
+		{5, 4, 3, 0x80},
+	};
+
+	WCD_MBHC_RSC_ASSERT_LOCKED(mbhc);
+
+	if (tasha->zdet_gpio_cb)
+		tasha->zdet_gpio_cb(codec, true);
+
+	reg0 = snd_soc_read(codec, WCD9335_ANA_MBHC_BTN5);
+	reg1 = snd_soc_read(codec, WCD9335_ANA_MBHC_BTN6);
+	reg2 = snd_soc_read(codec, WCD9335_ANA_MBHC_BTN7);
+	reg3 = snd_soc_read(codec, WCD9335_MBHC_CTL_1);
+	reg4 = snd_soc_read(codec, WCD9335_MBHC_ZDET_ANA_CTL);
+
+	if (snd_soc_read(codec, WCD9335_ANA_MBHC_ELECT) & 0x80) {
+		is_fsm_disable = true;
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ELECT, 0x80, 0x00);
+	}
+
+	/* For NO-jack, disable L_DET_EN before Z-det measurements */
+	if (mbhc->hphl_swh)
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x80, 0x00);
+
+	/* Enable AZ */
+	snd_soc_update_bits(codec, WCD9335_MBHC_CTL_1, 0x0C, 0x04);
+	/* Turn off 100k pull down on HPHL */
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x01, 0x00);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ZDET, 0x80, 0x00);
+	/*
+	 * 10ms sleep is needed as per HW requirement after L_MEAS_EN
+	 * is disabled
+	 */
+	usleep_range(10000, 10100);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN5, 0xFC, 0x18);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN6, 0xFC, 0x7C);
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_BTN7, 0xFC, 0x90);
+
+	tasha_mbhc_zdet_ramp(codec, zdet_param, &z1L, &z1R);
+
+	*zl = z1L;
+	*zr = z1R;
+
+	if (!is_second_ramp)
+		goto complete_zdet;
+
+	if (TASHA_MBHC_IS_SECOND_RAMP_ENABLE(z1L) ||
+	    TASHA_MBHC_IS_SECOND_RAMP_ENABLE(z1R)) {
+		tasha_mbhc_zdet_ramp(codec, zdet_param +
+			sizeof(struct tasha_mbhc_zdet_param), &z1L, &z1R);
+		*zl = z1L;
+		*zr = z1R;
+	}
+complete_zdet:
+	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN5, reg0);
+	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN6, reg1);
+	snd_soc_write(codec, WCD9335_ANA_MBHC_BTN7, reg2);
+	/* Turn on 100k pull down on HPHL */
+	snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x01, 0x01);
+
+	/* For NO-jack, re-enable L_DET_EN after Z-det measurements */
+	if (mbhc->hphl_swh)
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_MECH, 0x80, 0x80);
+
+	snd_soc_write(codec, WCD9335_MBHC_ZDET_ANA_CTL, reg4);
+	snd_soc_write(codec, WCD9335_MBHC_CTL_1, reg3);
+	if (is_fsm_disable)
+		snd_soc_update_bits(codec, WCD9335_ANA_MBHC_ELECT, 0x80, 0x80);
+	if (tasha->zdet_gpio_cb)
+		tasha->zdet_gpio_cb(codec, false);
+}
+
 static const struct wcd_mbhc_cb mbhc_cb = {
 	.request_irq = tasha_mbhc_request_irq,
 	.irq_control = tasha_mbhc_irq_control,
@@ -994,6 +1226,7 @@ static const struct wcd_mbhc_cb mbhc_cb = {
 	.mbhc_micb_ramp_control = tasha_mbhc_micb_ramp_control,
 	.get_hwdep_fw_cal = tasha_get_hwdep_fw_cal,
 	.mbhc_micb_ctrl_thr_mic = tasha_mbhc_micb_ctrl_threshold_mic,
+	.compute_impedance = tasha_wcd_mbhc_calc_impedance,
 };
 
 static int tasha_get_anc_slot(struct snd_kcontrol *kcontrol,
@@ -8180,6 +8413,7 @@ static const struct tasha_reg_mask_val tasha_codec_reg_init_val[] = {
 	{WCD9335_CDC_RX7_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_CDC_RX8_RX_PATH_MIX_CFG, 0x01, 0x01},
 	{WCD9335_SOC_MAD_AUDIO_CTL_2, 0x03, 0x03},
+	{WCD9335_HPH_PA_CTL2, 0x40, 0x00},
 };
 
 static void tasha_update_reg_reset_values(struct snd_soc_codec *codec)
