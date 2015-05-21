@@ -2597,13 +2597,19 @@ static int cpr_get_corner_quot_adjustment(struct cpr_regulator *cpr_vreg,
 		freq_max[i] /= 1000000;
 
 	for (i = CPR_FUSE_CORNER_MIN + 1; i <= highest_fuse_corner; i++) {
-		if (cpr_vreg->fuse_quot_offset)
+		if (cpr_vreg->fuse_quot_offset &&
+			(cpr_vreg->cpr_fuse_ro_sel[i] !=
+				cpr_vreg->cpr_fuse_ro_sel[i - 1])) {
 			scaling[i] = 1000 * cpr_vreg->fuse_quot_offset[i]
 				/ (freq_max[i] - freq_max[i - 1]);
-		else
+		} else {
 			scaling[i] = 1000 * (cpr_vreg->cpr_fuse_target_quot[i]
 				      - cpr_vreg->cpr_fuse_target_quot[i - 1])
 				  / (freq_max[i] - freq_max[i - 1]);
+			if (cpr_vreg->cpr_fuse_target_quot[i]
+				< cpr_vreg->cpr_fuse_target_quot[i - 1])
+				scaling[i] = 0;
+		}
 		scaling[i] = min(scaling[i], max_factor[i]);
 		cpr_info(cpr_vreg, "fuse corner %d quotient adjustment scaling factor: %d.%03d\n",
 			i, scaling[i] / 1000, scaling[i] % 1000);
@@ -3250,18 +3256,20 @@ static int cpr_init_cpr_efuse(struct platform_device *pdev,
 			cpr_vreg->cpr_fuse_target_quot[i]);
 	}
 
+	rc = cpr_adjust_target_quots(pdev, cpr_vreg);
+	if (rc)
+		goto error;
+
 	for (i = CPR_FUSE_CORNER_MIN + 1;
 				i <= cpr_vreg->num_fuse_corners; i++) {
 		if (cpr_vreg->cpr_fuse_target_quot[i]
-				< cpr_vreg->cpr_fuse_target_quot[i - 1]) {
+				< cpr_vreg->cpr_fuse_target_quot[i - 1] &&
+			cpr_vreg->cpr_fuse_ro_sel[i] ==
+				cpr_vreg->cpr_fuse_ro_sel[i - 1]) {
 			cpr_vreg->cpr_fuse_disable = true;
 			cpr_err(cpr_vreg, "invalid quotient values; permanently disabling CPR\n");
 		}
 	}
-
-	rc = cpr_adjust_target_quots(pdev, cpr_vreg);
-	if (rc)
-		goto error;
 
 	if (cpr_vreg->flags & FLAGS_UPLIFT_QUOT_VOLT) {
 		cpr_voltage_uplift_wa_inc_quot(cpr_vreg, of_node);
