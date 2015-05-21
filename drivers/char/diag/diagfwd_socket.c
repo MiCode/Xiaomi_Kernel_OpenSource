@@ -870,7 +870,10 @@ static int diag_socket_read(void *ctxt, unsigned char *buf, int buf_len)
 			 * channel open for communication.
 			 */
 			memcpy(&info->remote_addr, &src_addr, sizeof(src_addr));
-			__socket_open_channel(info);
+			if (info->ins_id == INST_ID_DCI)
+				atomic_set(&info->opened, 1);
+			else
+				__socket_open_channel(info);
 		}
 
 		if (read_len < 0) {
