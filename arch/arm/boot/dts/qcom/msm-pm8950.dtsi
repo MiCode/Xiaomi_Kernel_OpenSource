@@ -248,7 +248,7 @@
 				reg = <0x36>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
+				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
@@ -259,7 +259,7 @@
 				reg = <0x11>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
+				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
@@ -271,7 +271,7 @@
 				reg = <0x32>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
+				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <4>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
@@ -283,7 +283,7 @@
 				reg = <0x3c>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
+				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <4>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
@@ -323,7 +323,7 @@
 				reg = <0x36>;
 				qcom,decimation = <0>;
 				qcom,pre-div-channel-scaling = <0>;
-				qcom,calibration-type = "absolute";
+				qcom,calibration-type = "ratiometric";
 				qcom,scale-function = <2>;
 				qcom,hw-settle-time = <2>;
 				qcom,fast-avg-setup = <0>;
