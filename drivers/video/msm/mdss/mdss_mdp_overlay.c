@@ -1989,8 +1989,6 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 			}
 		}
 	}
-
-	mdss_fb_update_notify_update(mfd);
 commit_fail:
 	ATRACE_BEGIN("overlay_cleanup");
 	mdss_mdp_overlay_cleanup(mfd, &destroy_pipes);
@@ -2711,6 +2709,18 @@ static ssize_t mdss_mdp_vsync_show_event(struct device *dev,
 	return ret;
 }
 
+static ssize_t mdss_mdp_pp_bl_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fb_info *fbi =  dev_get_drvdata(dev);
+	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
+	int ret;
+
+	ret = scnprintf(buf, PAGE_SIZE, "bl_level=%u, ad_bl_level=%u\n",
+		mfd->bl_level, mfd->ad_bl_level);
+	return ret;
+}
+
 static ssize_t mdss_mdp_hist_show_event(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -2938,6 +2948,7 @@ static DEVICE_ATTR(ad, S_IRUGO | S_IWUSR | S_IWGRP, mdss_mdp_ad_show,
 static DEVICE_ATTR(dyn_pu, S_IRUGO | S_IWUSR | S_IWGRP, mdss_mdp_dyn_pu_show,
 	mdss_mdp_dyn_pu_store);
 static DEVICE_ATTR(hist_event, S_IRUGO, mdss_mdp_hist_show_event, NULL);
+static DEVICE_ATTR(pp_bl_event, S_IRUGO, mdss_mdp_pp_bl_show_event, NULL);
 
 static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_vsync_event.attr,
@@ -2945,6 +2956,7 @@ static struct attribute *mdp_overlay_sysfs_attrs[] = {
 	&dev_attr_dyn_pu.attr,
 	&dev_attr_msm_cmd_autorefresh_en.attr,
 	&dev_attr_hist_event.attr,
+	&dev_attr_pp_bl_event.attr,
 	NULL,
 };
 

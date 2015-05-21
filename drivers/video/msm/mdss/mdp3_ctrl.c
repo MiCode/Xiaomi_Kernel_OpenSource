@@ -1239,8 +1239,6 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 
 	mutex_unlock(&mdp3_session->lock);
 
-	mdss_fb_update_notify_update(mfd);
-
 	return 0;
 }
 

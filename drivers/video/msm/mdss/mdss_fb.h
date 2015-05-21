@@ -145,17 +145,6 @@ struct disp_info_type_suspend {
 	int panel_power_state;
 };
 
-struct disp_info_notify {
-	int type;
-	struct timer_list timer;
-	struct completion comp;
-	struct mutex lock;
-	int value;
-	int is_suspend;
-	int ref_count;
-	bool init_done;
-};
-
 struct msm_sync_pt_data {
 	char *fence_name;
 	u32 acq_fen_cnt;
@@ -293,10 +282,6 @@ struct msm_fb_data_type {
 
 	u32 mdp_fb_page_protection;
 
-	struct disp_info_notify update;
-	struct disp_info_notify no_update;
-	struct completion power_off_comp;
-
 	struct msm_mdp_interface mdp;
 
 	struct msm_sync_pt_data mdp_sync_pt_data;
@@ -338,25 +323,6 @@ struct msm_fb_data_type {
 	u32 switch_new_mode;
 	struct mutex switch_lock;
 };
-
-static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
-{
-	int needs_complete = 0;
-	mutex_lock(&mfd->update.lock);
-	mfd->update.value = mfd->update.type;
-	needs_complete = mfd->update.value == NOTIFY_TYPE_UPDATE;
-	mutex_unlock(&mfd->update.lock);
-	if (needs_complete) {
-		complete(&mfd->update.comp);
-		mutex_lock(&mfd->no_update.lock);
-		if (mfd->no_update.timer.function)
-			del_timer(&(mfd->no_update.timer));
-
-		mfd->no_update.timer.expires = jiffies + ((1 * HZ) / 10);
-		add_timer(&mfd->no_update.timer);
-		mutex_unlock(&mfd->no_update.lock);
-	}
-}
 
 /* Function returns true for either any kind of dual display */
 static inline bool is_panel_split(struct msm_fb_data_type *mfd)

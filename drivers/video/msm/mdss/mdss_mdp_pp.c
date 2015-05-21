@@ -5192,9 +5192,6 @@ static void pp_ad_calc_worker(struct work_struct *work)
 	mutex_lock(&ctl->lock);
 	ctl->flush_bits |= BIT(13 + ad->num);
 	mutex_unlock(&ctl->lock);
-
-	/* Trigger update notify to wake up those waiting for display updates */
-	mdss_fb_update_notify_update(bl_mfd);
 }
 
 #define PP_AD_LUT_LEN 33
