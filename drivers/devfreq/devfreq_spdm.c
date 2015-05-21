@@ -70,7 +70,7 @@ static int change_bw(struct device *dev, unsigned long *freq, u32 flags)
 update_thresholds:
 	desc.arg[0] = SPDM_CMD_ENABLE;
 	desc.arg[1] = data->spdm_client;
-	desc.arg[2] = clk_get_rate(data->cci_clk);
+	desc.arg[2] = (clk_get_rate(data->cci_clk)) / 1000;
 	ext_status = spdm_ext_call(&desc, 3);
 	if (ext_status)
 		pr_err("External command %u failed with error %u",
@@ -298,6 +298,8 @@ static int probe(struct platform_device *pdev)
 {
 	struct spdm_data *data = 0;
 	int ret = -EINVAL;
+	struct spdm_args desc = { { 0 } };
+	int ext_status = 0;
 
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
@@ -310,6 +312,20 @@ static int probe(struct platform_device *pdev)
 	ret = populate_spdm_data(data, pdev);
 	if (ret)
 		goto bad_of;
+
+	desc.arg[0] = SPDM_CMD_GET_VERSION;
+	ext_status = spdm_ext_call(&desc, 1);
+	if (ext_status) {
+		pr_err("%s:External command %u failed with error %u\n",
+			__func__, (int)desc.arg[0], ext_status);
+		goto bad_of;
+	}
+
+	if (desc.ret[0] < SPDM_TZ_VERSION) {
+		pr_err("%s: Version mismatch expected 0x%x got 0x%x", __func__,
+			SPDM_TZ_VERSION, (int)desc.arg[0]);
+		goto bad_of;
+	}
 
 	data->bus_scale_client_id = msm_bus_scale_register_client(data->pdata);
 	if (!data->bus_scale_client_id) {
