@@ -31,7 +31,7 @@ struct msm_hdmi_audio_codec_rx_data {
 static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_info *uinfo)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct msm_hdmi_audio_codec_rx_data *codec_data;
 	struct msm_hdmi_audio_edid_blk edid_blk;
 	int rc;
@@ -50,7 +50,7 @@ static int msm_hdmi_edid_ctl_info(struct snd_kcontrol *kcontrol,
 
 static int msm_hdmi_edid_get(struct snd_kcontrol *kcontrol,
 				struct snd_ctl_elem_value *ucontrol) {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = snd_soc_kcontrol_codec(kcontrol);
 	struct msm_hdmi_audio_codec_rx_data *codec_data;
 	struct msm_hdmi_audio_edid_blk edid_blk;
 	int rc;
