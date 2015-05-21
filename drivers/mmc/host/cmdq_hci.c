@@ -29,6 +29,9 @@
 #define DCMD_SLOT 31
 #define NUM_SLOTS 32
 
+/* 1 sec */
+#define HALT_TIMEOUT_MS 1000
+
 static inline u8 *get_desc(struct cmdq_host *cq_host, u8 tag)
 {
 	return cq_host->desc_base + (tag * cq_host->slot_sz);
@@ -570,10 +573,41 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, u32 intmask)
 		cmdq_dumpregs(cq_host);
 	}
 
+	if (status & CQIS_HAC) {
+		/* halt is completed, wakeup waiting thread */
+		complete(&cq_host->halt_comp);
+	}
+
 out:
 	return IRQ_HANDLED;
 }
 EXPORT_SYMBOL(cmdq_irq);
+
+/* May sleep */
+static int cmdq_halt(struct mmc_host *mmc, bool halt)
+{
+	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+	u32 val;
+
+	if (halt) {
+		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) | HALT,
+			    CQCTL);
+		val = wait_for_completion_timeout(&cq_host->halt_comp,
+					  msecs_to_jiffies(HALT_TIMEOUT_MS));
+		/* halt done: re-enable legacy interrupts */
+		if (cq_host->ops->clear_set_irqs)
+			cq_host->ops->clear_set_irqs(mmc, false);
+
+		return val ? 0 : -ETIMEDOUT;
+	} else {
+		if (cq_host->ops->clear_set_irqs)
+			cq_host->ops->clear_set_irqs(mmc, true);
+		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) & ~HALT,
+			    CQCTL);
+	}
+
+	return 0;
+}
 
 static void cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
 			  int err)
@@ -597,6 +631,7 @@ static const struct mmc_cmdq_host_ops cmdq_host_ops = {
 	.disable = cmdq_disable,
 	.request = cmdq_request,
 	.post_req = cmdq_post_req,
+	.halt = cmdq_halt,
 };
 
 struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev)
