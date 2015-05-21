@@ -57,11 +57,16 @@ struct mmc_queue {
 	unsigned long		flags;
 #define MMC_QUEUE_SUSPENDED		0
 #define MMC_QUEUE_NEW_REQUEST		1
+	int (*issue_fn)(struct mmc_queue *, struct request *);
+	int (*cmdq_issue_fn)(struct mmc_queue *,
+			     struct request *);
+	void (*cmdq_complete_fn)(struct request *);
 	void			*data;
 	struct request_queue	*queue;
 	struct mmc_queue_req	mqrq[2];
 	struct mmc_queue_req	*mqrq_cur;
 	struct mmc_queue_req	*mqrq_prev;
+	struct mmc_queue_req	*mqrq_cmdq;
 	bool			wr_packing_enabled;
 	int			num_of_potential_packed_wr_reqs;
 	int			num_wr_reqs_to_start_packing;
@@ -79,7 +84,7 @@ struct mmc_queue {
 };
 
 extern int mmc_init_queue(struct mmc_queue *, struct mmc_card *, spinlock_t *,
-			  const char *);
+			  const char *, int);
 extern void mmc_cleanup_queue(struct mmc_queue *);
 extern int mmc_queue_suspend(struct mmc_queue *, int);
 extern void mmc_queue_resume(struct mmc_queue *);
@@ -95,5 +100,8 @@ extern void mmc_packed_clean(struct mmc_queue *);
 extern int mmc_access_rpmb(struct mmc_queue *);
 
 extern void print_mmc_packing_stats(struct mmc_card *card);
+
+extern int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card);
+extern void mmc_cmdq_clean(struct mmc_queue *mq, struct mmc_card *card);
 
 #endif
