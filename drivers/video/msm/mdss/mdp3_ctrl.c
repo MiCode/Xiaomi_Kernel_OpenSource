@@ -1237,6 +1237,10 @@ static int mdp3_ctrl_display_commit_kickoff(struct msm_fb_data_type *mfd,
 		mdp3_session->esd_recovery = false;
 	}
 
+	/* start vsync tick countdown for cmd mode if vsync isn't enabled */
+	if (mfd->panel.type == MIPI_CMD_PANEL && !mdp3_session->vsync_enabled)
+		mdp3_ctrl_vsync_enable(mdp3_session->mfd, 0);
+
 	mutex_unlock(&mdp3_session->lock);
 
 	mdss_fb_update_notify_update(mfd);
