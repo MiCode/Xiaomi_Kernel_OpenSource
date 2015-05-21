@@ -446,6 +446,7 @@ struct smb1351_charger {
 	bool			parallel_charger_present;
 	bool			bms_controlled_charging;
 	bool			apsd_rerun;
+	bool			usbin_ov;
 	bool			chg_remove_work_scheduled;
 
 	/* psy */
@@ -1794,9 +1795,10 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 	 * If apsd is disabled, charger detection is done by
 	 * USB phy driver.
 	 */
-	if (chip->disable_apsd) {
+	if (chip->disable_apsd || chip->usbin_ov) {
 		pr_debug("APSD %s, status = %d\n",
 			chip->disable_apsd ? "disabled" : "enabled", !!status);
+		pr_debug("USBIN ov, status = %d\n", chip->usbin_ov);
 		return 0;
 	}
 
@@ -1955,13 +1957,27 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 static int smb1351_usbin_ov_handler(struct smb1351_charger *chip, u8 status)
 {
 	int health;
+	int rc;
+	u8 reg;
+
+	rc = smb1351_read_reg(chip, IRQ_E_REG, &reg);
+	if (rc)
+		pr_err("Couldn't read IRQ_E rc = %d\n", rc);
 
 	if (status != 0) {
 		chip->chg_present = false;
+		chip->usbin_ov = true;
 		power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
+	} else {
+		chip->usbin_ov = false;
+		if (reg & IRQ_USBIN_UV_BIT)
+			pr_debug("Charger unplugged from OV\n");
+		else
+			smb1351_apsd_complete_handler(chip, 1);
 	}
+
 	if (chip->usb_psy) {
 		health = status ? POWER_SUPPLY_HEALTH_OVERVOLTAGE
 					: POWER_SUPPLY_HEALTH_GOOD;
