@@ -639,6 +639,13 @@
 		rpm-standalone; /* TODO: remove this after bring up */
 	};
 
+	qcom,rmtfs_sharedmem@0 {
+		compatible = "qcom,sharedmem-uio";
+		reg = <0x0 0x00180000>; /* '0' indicates dynamic allocation */
+		reg-names = "rmtfs";
+		qcom,client-id = <0x00000001>;
+	};
+
 	sdhc_1: sdhci@7824900 {
 		compatible = "qcom,sdhci-msm";
 		reg = <0x7824900 0x11c>, <0x7824000 0x800>;
