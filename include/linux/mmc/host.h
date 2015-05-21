@@ -195,6 +195,23 @@ struct mmc_slot {
 	void *handler_priv;
 };
 
+
+/**
+ * mmc_cmdq_context_info - describes the contexts of cmdq
+ * @active_reqs		requests being processed
+ * @curr_state		state of cmdq engine
+ * @req_starved		completion should invoke the request_fn since
+ *			no tags were available
+ * @cmdq_ctx_lock	acquire this before accessing this structure
+ */
+struct mmc_cmdq_context_info {
+	unsigned long	active_reqs; /* in-flight requests */
+	unsigned long	curr_state;
+#define	CMDQ_STATE_ERR 0
+	/* no free tag available */
+	unsigned long	req_starved;
+};
+
 /**
  * mmc_context_info - synchronization details for mmc context
  * @is_done_rcv		wake up reason was done request
@@ -331,6 +348,7 @@ struct mmc_host {
 #define MMC_CAP2_HS400		(MMC_CAP2_HS400_1_8V | \
 				 MMC_CAP2_HS400_1_2V)
 #define MMC_CAP2_NONHOTPLUG	(1 << 25)	/*Don't support hotplug*/
+#define MMC_CAP2_CMD_QUEUE	(1 << 26)	/* support eMMC command queue */
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
 	int			clk_requests;	/* internal reference counter */
@@ -459,6 +477,7 @@ struct mmc_host {
 	 */
 	bool			card_clock_off;
 	bool			wakeup_on_idle;
+	struct mmc_cmdq_context_info	cmdq_ctx;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
