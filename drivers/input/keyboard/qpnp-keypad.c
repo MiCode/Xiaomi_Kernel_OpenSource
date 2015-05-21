@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
  * only version 2 as published by the Free Software Foundation.
@@ -731,6 +731,7 @@ static int qpnp_kp_probe(struct spmi_device *spmi)
 
 	input_set_capability(kp->input, EV_MSC, MSC_SCAN);
 	input_set_drvdata(kp->input, kp);
+	dev_set_drvdata(&spmi->dev, kp);
 
 	/* initialize keypad state */
 	memset(kp->keystate, 0xff, sizeof(kp->keystate));
