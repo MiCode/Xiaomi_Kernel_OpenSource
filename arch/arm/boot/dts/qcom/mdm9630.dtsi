@@ -844,6 +844,9 @@
 		interrupts = <0 42 0>;
 		interrupt-names = "mhi-device-inta";
 		qcom,mhi-ifc-id = <0x030017cb>;
+		qcom,mhi-local-pa-base = <0x80000000>;
+		qcom,mhi-ep-msi = <1>;
+		qcom,mhi-version = <0x1000000>;
 	};
 
 	clock_gcc: qcom,gcc@fc400000 {
