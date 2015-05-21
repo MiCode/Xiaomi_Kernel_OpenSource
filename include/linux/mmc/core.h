@@ -127,6 +127,7 @@ struct mmc_card;
 struct mmc_async_req;
 struct mmc_cmdq_req;
 
+extern int mmc_cmdq_halt(struct mmc_host *host, bool enable);
 extern void mmc_cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
 			      int err);
 extern int mmc_cmdq_start_req(struct mmc_host *host,

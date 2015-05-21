@@ -98,6 +98,7 @@ struct mmc_cmdq_host_ops {
 	int (*request)(struct mmc_host *host, struct mmc_request *mrq);
 	void (*post_req)(struct mmc_host *host, struct mmc_request *mrq,
 			 int err);
+	int (*halt)(struct mmc_host *host, bool halt);
 };
 
 struct mmc_host_ops {
@@ -254,6 +255,7 @@ struct mmc_cmdq_context_info {
 	unsigned long	curr_state;
 #define	CMDQ_STATE_ERR 0
 #define	CMDQ_STATE_DCMD_ACTIVE 1
+#define	CMDQ_STATE_HALT 2
 	/* no free tag available */
 	unsigned long	req_starved;
 };
@@ -694,6 +696,21 @@ static inline int mmc_host_uhs(struct mmc_host *host)
 static inline int mmc_host_packed_wr(struct mmc_host *host)
 {
 	return host->caps2 & MMC_CAP2_PACKED_WR;
+}
+
+static inline void mmc_host_set_halt(struct mmc_host *host)
+{
+	set_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
+}
+
+static inline void mmc_host_clr_halt(struct mmc_host *host)
+{
+	clear_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
+}
+
+static inline int mmc_host_halt(struct mmc_host *host)
+{
+	return test_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
 }
 
 #ifdef CONFIG_MMC_CLKGATE
