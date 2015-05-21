@@ -730,8 +730,12 @@ static inline void msm_bam_set_qdss_usb_active(bool is_active) {}
 #endif
 #ifdef CONFIG_USB_CI13XXX_MSM
 void msm_hw_bam_disable(bool bam_disable);
+void msm_usb_irq_disable(bool disable);
 #else
 static inline void msm_hw_bam_disable(bool bam_disable)
+{
+}
+static inline void msm_usb_irq_disable(bool disable)
 {
 }
 #endif

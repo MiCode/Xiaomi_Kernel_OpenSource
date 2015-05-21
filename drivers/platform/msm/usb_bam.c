@@ -2639,6 +2639,8 @@ int usb_bam_disconnect_pipe(u8 idx)
 {
 	struct usb_bam_pipe_connect *pipe_connect;
 	int ret;
+	struct msm_usb_bam_platform_data *pdata =
+					ctx.usb_bam_pdev->dev.platform_data;
 
 	pipe_connect = &usb_bam_connections[idx];
 
@@ -2664,6 +2666,22 @@ int usb_bam_disconnect_pipe(u8 idx)
 	spin_unlock(&usb_bam_lock);
 	log_event(1, "%s: success disconnecting pipe %d\n",
 			 __func__, idx);
+
+	if ((pdata->reset_on_disconnect[pipe_connect->bam_type] == true) &&
+		(ctx.pipes_enabled_per_bam[pipe_connect->bam_type] == 0)) {
+		if (pipe_connect->bam_type == CI_CTRL)
+			msm_hw_bam_disable(1);
+
+		sps_device_reset(ctx.h_bam[pipe_connect->bam_type]);
+
+		if (pipe_connect->bam_type == CI_CTRL)
+			msm_hw_bam_disable(0);
+		/* Enable usb irq here which is disabled in function drivers
+		 * during disconnect after BAM reset.
+		 */
+		if (pipe_connect->bam_type == CI_CTRL)
+			msm_usb_irq_disable(false);
+	}
 	return 0;
 }
 
@@ -2734,7 +2752,6 @@ int usb_bam_disconnect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 				IPA_RM_RESOURCE_RELEASED,
 				ipa_rm_resource_cons[cur_bam]);
 		}
-
 	}
 
 out:
@@ -2812,7 +2829,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	struct device_node *node = pdev->dev.of_node;
 	int rc = 0;
 	u8 i = 0;
-	bool reset_bam;
+	bool reset_bam, reset_bam_on_disconnect;
 	u32 bam;
 	u32 addr;
 	u32 threshold;
@@ -2957,6 +2974,11 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 			"qcom,reset-bam-on-connect");
 		if (reset_bam)
 			pdata->reset_on_connect[bam] = true;
+
+		reset_bam_on_disconnect = of_property_read_bool(node,
+			"qcom,reset-bam-on-disconnect");
+		if (reset_bam_on_disconnect)
+			pdata->reset_on_disconnect[bam] = true;
 
 		of_property_read_u32(node, "qcom,src-bam-physical-address",
 			&usb_bam_connections[i].src_phy_addr);

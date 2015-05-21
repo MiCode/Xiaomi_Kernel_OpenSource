@@ -91,6 +91,7 @@ Optional properties :
             for either rx or tx direction.
 - qcom,usb-bam-max-mbps-superspeed: max mbps in super speed connection
             for either rx or tx direction.
+- qcom,reset-bam-on-disconnect: If present then BAM is RESET after disconnecting pipes.
 
 Example USB BAM controller device node:
 
