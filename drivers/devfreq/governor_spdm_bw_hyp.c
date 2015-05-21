@@ -88,7 +88,8 @@ static irqreturn_t threaded_isr(int irq, void *dev_id)
 			devfreq_monitor_suspend(data->devfreq);
 			mutex_lock(&data->devfreq->lock);
 			data->action = SPDM_UP;
-			data->new_bw = desc.ret[1] >> 6;
+			data->new_bw =
+				(desc.ret[1] * 1000) >> 6;
 			update_devfreq(data->devfreq);
 			data->action = SPDM_DOWN;
 			mutex_unlock(&data->devfreq->lock);
@@ -113,6 +114,7 @@ static int gov_spdm_hyp_target_bw(struct devfreq *devfreq, unsigned long *freq,
 	int usage;
 	struct spdm_args desc = { { 0 } };
 	int ext_status = 0;
+	u64 bw_ret;
 
 	if (!devfreq || !devfreq->profile || !devfreq->profile->get_dev_status)
 		return ret;
@@ -134,7 +136,8 @@ static int gov_spdm_hyp_target_bw(struct devfreq *devfreq, unsigned long *freq,
 		if (ext_status)
 			pr_err("External command %u failed with error %u",
 				(int)desc.arg[0], ext_status);
-		*freq = desc.ret[0] >> 6;
+		bw_ret = desc.ret[0] * 1000;
+		*freq = bw_ret >> 6;
 	}
 
 	return 0;
