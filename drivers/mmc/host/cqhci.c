@@ -241,6 +241,7 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 {
 	struct mmc_host *mmc = cq_host->mmc;
 	u32 cqcfg;
+	u32 cqcap = 0;
 
 	cqcfg = cqhci_readl(cq_host, CQHCI_CFG);
 
@@ -257,6 +258,18 @@ static void __cqhci_enable(struct cqhci_host *cq_host)
 
 	if (cq_host->caps & CQHCI_TASK_DESC_SZ_128)
 		cqcfg |= CQHCI_TASK_DESC_SZ;
+
+	cqcap = cqhci_readl(cq_host, CQHCI_CAP);
+	if (cqcap & CQHCI_CAP_CS) {
+		/*
+		 * In case host controller supports cryptographic operations
+		 * then, it uses 128bit task descriptor. Upper 64 bits of task
+		 * descriptor would be used to pass crypto specific informaton.
+		 */
+		cq_host->caps |= CQHCI_CAP_CRYPTO_SUPPORT |
+				CQHCI_TASK_DESC_SZ_128;
+		cqcfg |= CQHCI_ICE_ENABLE;
+	}
 
 	cqhci_writel(cq_host, cqcfg, CQHCI_CFG);
 
@@ -554,6 +567,30 @@ static inline int cqhci_tag(struct mmc_request *mrq)
 	return mrq->cmd ? DCMD_SLOT : mrq->tag;
 }
 
+static inline
+void cqe_prep_crypto_desc(struct cqhci_host *cq_host, u64 *task_desc,
+			u64 ice_ctx)
+{
+	u64 *ice_desc = NULL;
+
+	if (cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) {
+		/*
+		 * Get the address of ice context for the given task descriptor.
+		 * ice context is present in the upper 64bits of task descriptor
+		 * ice_conext_base_address = task_desc + 8-bytes
+		 */
+		ice_desc = (__le64 __force *)((u8 *)task_desc +
+					CQHCI_TASK_DESC_TASK_PARAMS_SIZE);
+		memset(ice_desc, 0, CQHCI_TASK_DESC_ICE_PARAMS_SIZE);
+
+		/*
+		 *  Assign upper 64bits data of task descritor with ice context
+		 */
+		if (ice_ctx)
+			*ice_desc = cpu_to_le64(ice_ctx);
+	}
+}
+
 static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	int err = 0;
@@ -562,6 +599,7 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	int tag = cqhci_tag(mrq);
 	struct cqhci_host *cq_host = mmc->cqe_private;
 	unsigned long flags;
+	u64 ice_ctx = 0;
 
 	if (!cq_host->enabled) {
 		pr_err("%s: cqhci: not enabled\n", mmc_hostname(mmc));
@@ -585,9 +623,19 @@ static int cqhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	}
 
 	if (mrq->data) {
+		if (cq_host->ops->crypto_cfg) {
+			err = cq_host->ops->crypto_cfg(mmc, mrq, tag, &ice_ctx);
+			if (err) {
+				pr_err("%s: failed to configure crypto: err %d tag %d\n",
+						mmc_hostname(mmc), err, tag);
+				goto out;
+			}
+		}
 		task_desc = (__le64 __force *)get_desc(cq_host, tag);
 		cqhci_prep_task_desc(mrq, &data, 1);
 		*task_desc = cpu_to_le64(data);
+		cqe_prep_crypto_desc(cq_host, task_desc, ice_ctx);
+
 		err = cqhci_prep_tran_desc(mrq, cq_host, tag);
 		if (err) {
 			pr_err("%s: cqhci: failed to setup tx desc: %d\n",
@@ -619,7 +667,7 @@ out_unlock:
 
 	if (err)
 		cqhci_post_req(mmc, mrq);
-
+out:
 	return err;
 }
 
@@ -720,6 +768,7 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 	struct cqhci_slot *slot = &cq_host->slot[tag];
 	struct mmc_request *mrq = slot->mrq;
 	struct mmc_data *data;
+	int err = 0;
 
 	if (!mrq) {
 		WARN_ONCE(1, "%s: cqhci: spurious TCN for tag %d\n",
@@ -739,12 +788,22 @@ static void cqhci_finish_mrq(struct mmc_host *mmc, unsigned int tag)
 
 	data = mrq->data;
 	if (data) {
+		if (cq_host->ops->crypto_cfg_end) {
+			err = cq_host->ops->crypto_cfg_end(mmc, mrq);
+			if (err) {
+				pr_err("%s: failed to end ice config: err %d tag %d\n",
+						mmc_hostname(mmc), err, tag);
+			}
+		}
 		if (data->error)
 			data->bytes_xfered = 0;
 		else
 			data->bytes_xfered = data->blksz * data->blocks;
 	}
 
+	if (!(cq_host->caps & CQHCI_CAP_CRYPTO_SUPPORT) &&
+			cq_host->ops->crypto_cfg_reset)
+		cq_host->ops->crypto_cfg_reset(mmc, tag);
 	mmc_cqe_request_done(mmc, mrq);
 }
 
