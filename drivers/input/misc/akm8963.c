@@ -859,6 +859,14 @@ static void akm_compass_sysfs_update_status(
 		en, atomic_read(&akm->active));
 }
 
+static inline uint8_t akm_select_frequency(struct akm_compass_data *akm)
+{
+	if (akm->use_sng_measure)
+		return AK8963_MODE_CONT2_MEASURE;
+	else
+		return AKM_MODE_SNG_MEASURE | AKM8963_BIT_OP_16;
+}
+
 static int akm_enable_set(struct sensors_classdev *sensors_cdev,
 		unsigned int enable)
 {
@@ -1787,6 +1795,7 @@ static int mag_poll_thread(void *data)
 	uint8_t dat_buf[AKM_SENSOR_DATA_SIZE];/* for GET_DATA */
 	int mag_x, mag_y, mag_z;
 	int tmp;
+	uint8_t mode;
 
 	while (1) {
 		wait_event_interruptible(akm->mag_wq,
@@ -1819,10 +1828,10 @@ static int mag_poll_thread(void *data)
 			dev_warn(&akm->i2c->dev, "Status error(0x%x). Reset\n",
 				tmp);
 			AKECS_Reset(akm, 0);
+			mode = akm_select_frequency(akm);
+			AKECS_SetMode(akm, mode);
 			goto exit;
 		}
-
-
 
 		tmp = (int)((int16_t)(dat_buf[2]<<8)+((int16_t)dat_buf[1]));
 		tmp = tmp * akm->sense_conf[0] / 256 + tmp / 2;
