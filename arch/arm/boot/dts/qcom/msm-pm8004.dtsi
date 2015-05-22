@@ -69,6 +69,13 @@
 				qcom,pin-num = <4>;
 			};
 		};
+
+		qcom,leds@a100 {
+			compatible = "qcom,leds-qpnp";
+			reg = <0xa100 0x100>;
+			label = "mpp";
+		};
+
 	};
 
 	qcom,pm8004@5 {
