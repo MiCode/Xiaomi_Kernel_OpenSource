@@ -3192,6 +3192,11 @@
 			qcom,sensor-type =  "llm";
 			qcom,sensor-name = "LLM_IA57";
 		};
+
+		sensor_information23: qcom,sensor-information-23 {
+			qcom,sensor-type =  "adc";
+			qcom,sensor-name = "battery";
+		};
 	};
 
 	qcom,msm-thermal {
