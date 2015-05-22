@@ -410,7 +410,8 @@ static void mdss_dsi_send_col_page_addr(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
-static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
+static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata,
+		bool force_send)
 {
 	struct mdss_panel_info *pinfo;
 	struct mdss_rect roi = {0};
@@ -449,7 +450,7 @@ static int mdss_dsi_set_col_page_addr(struct mdss_panel_data *pdata)
 	}
 
 	/* roi had changed, do col_page update */
-	if (!mdss_rect_cmp(c_roi, &roi)) {
+	if (force_send || !mdss_rect_cmp(c_roi, &roi)) {
 		pr_debug("%s: ndx=%d x=%d y=%d w=%d h=%d\n",
 				__func__, ctrl->ndx, p_roi->x,
 				p_roi->y, p_roi->w, p_roi->h);
@@ -1271,8 +1272,8 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 		pinfo->partial_update_enabled = pinfo->partial_update_supported;
 		pr_info("%s: partial_update_enabled=%d\n", __func__,
 					pinfo->partial_update_enabled);
+		ctrl->set_col_page_addr = mdss_dsi_set_col_page_addr;
 		if (pinfo->partial_update_enabled) {
-			ctrl->set_col_page_addr = mdss_dsi_set_col_page_addr;
 			pinfo->partial_update_roi_merge =
 					of_property_read_bool(np,
 					"qcom,partial-update-roi-merge");
