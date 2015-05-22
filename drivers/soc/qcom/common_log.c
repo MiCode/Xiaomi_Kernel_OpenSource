@@ -21,6 +21,7 @@
 #define MISC_DUMP_DATA_LEN		4096
 #define PMIC_DUMP_DATA_LEN		4096
 #define VSENSE_DUMP_DATA_LEN		4096
+#define RPM_DUMP_DATA_LEN		(160 * 1024)
 
 void register_misc_dump(void)
 {
@@ -129,6 +130,42 @@ err0:
 	}
 }
 
+void register_rpm_dump(void)
+{
+	static void *dump_addr;
+	int ret;
+	struct msm_dump_entry dump_entry;
+	struct msm_dump_data *dump_data;
+
+	if (MSM_DUMP_MAJOR(msm_dump_table_version()) > 1) {
+		dump_data = kzalloc(sizeof(struct msm_dump_data), GFP_KERNEL);
+		if (!dump_data) {
+			pr_err("rpm dump data structure allocation failed\n");
+			return;
+		}
+		dump_addr = kzalloc(RPM_DUMP_DATA_LEN, GFP_KERNEL);
+		if (!dump_addr) {
+			pr_err("rpm dump buffer space allocation failed\n");
+			goto err0;
+		}
+
+		dump_data->addr = virt_to_phys(dump_addr);
+		dump_data->len = RPM_DUMP_DATA_LEN;
+		dump_entry.id = MSM_DUMP_DATA_RPM;
+		dump_entry.addr = virt_to_phys(dump_data);
+		ret = msm_dump_data_register(MSM_DUMP_TABLE_APPS, &dump_entry);
+		if (ret) {
+			pr_err("Registering rpm dump region failed\n");
+			goto err1;
+		}
+		return;
+err1:
+		kfree(dump_addr);
+err0:
+		kfree(dump_data);
+	}
+}
+
 static void __init common_log_register_log_buf(void)
 {
 	char **log_bufp;
@@ -198,6 +235,7 @@ static int __init msm_common_log_init(void)
 	register_misc_dump();
 	register_pmic_dump();
 	register_vsense_dump();
+	register_rpm_dump();
 	return 0;
 }
 late_initcall(msm_common_log_init);
