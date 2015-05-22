@@ -1267,7 +1267,7 @@
 		};
 
 		qcom,smdpkt-apr-apps2 {
-			qcom,smdpkt-remote = "modem";
+			qcom,smdpkt-remote = "adsp";
 			qcom,smdpkt-port-name = "apr_apps2";
 			qcom,smdpkt-dev-name = "apr_apps2";
 		};
