@@ -14,6 +14,9 @@ Required properties:
 			  Required "supply-name" are "vdd" and "vdd-io".
   - qcom,clk-rates: this is an array that specifies supported SDHC clock
 		    frequencies for a slot, Units - Hz.
+  - qcom,ice-clk-rates: this is an array that specifies supported Inline
+		    Crypto Engine (ICE) clock frequencies, Units - Hz.
+  - sdhc-msm-crypto: phandle to SDHC ICE node
 
 Required alias:
 - The slot number is specified via an alias with the following format
@@ -155,6 +158,7 @@ Example:
                 reg-names = "hc_mem", "core_mem";
                 interrupts = <0 123 0>, <0 138 0>;
                 interrupt-names = "hc_irq", "pwr_irq";
+		sdhc-msm-crypto = <&sdcc1_ice>;
 
 		vdd-supply = <&pm8941_l21>;
 		vdd-io-supply = <&pm8941_l13>;
@@ -179,6 +183,7 @@ Example:
 		qcom,nonremovable;
 		qcom,bus-speed-mode = "HS200_1p8v", "DDR_1p8v";
 		qcom,clk-rates = <400000 20000000 25000000 50000000 100000000 200000000>;
+		qcom,ice-clk-rates = <200000000>;
 
 		gpios = <&msmgpio 40 0>, /* CLK */
 			<&msmgpio 39 0>, /* CMD */
