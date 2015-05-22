@@ -3242,6 +3242,7 @@ static long msm_cpp_subdev_fops_compat_ioctl(struct file *file,
 		}
 		process_frame = event_qcmd->command;
 
+		memset(&k32_process_frame, 0, sizeof(k32_process_frame));
 		get_compat_frame_from_64bit(process_frame, &k32_process_frame);
 
 		CPP_DBG("fid %d\n", process_frame->frame_id);
