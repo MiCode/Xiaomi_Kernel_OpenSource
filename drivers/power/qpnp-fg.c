@@ -4729,15 +4729,17 @@ static void delayed_init_work(struct work_struct *work)
 				init_work);
 
 	/* hold memory access until initialization finishes */
-	atomic_add_return(1, &chip->memif_user_cnt);
+	fg_mem_lock(chip);
 
 	rc = fg_hw_init(chip);
 	if (rc) {
 		pr_err("failed to hw init rc = %d\n", rc);
-		fg_release_access_if_necessary(chip);
+		fg_mem_release(chip);
 		fg_cleanup(chip);
 		return;
 	}
+	/* release memory access before update_sram_data is called */
+	fg_mem_release(chip);
 
 	schedule_delayed_work(
 		&chip->update_jeita_setting,
@@ -4748,9 +4750,6 @@ static void delayed_init_work(struct work_struct *work)
 
 	if (chip->last_temp_update_time == 0)
 		update_temp_data(&chip->update_temp_work.work);
-
-	/* release memory access if necessary */
-	fg_release_access_if_necessary(chip);
 
 	if (!chip->use_otp_profile)
 		schedule_work(&chip->batt_profile_init);
