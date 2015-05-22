@@ -38,9 +38,6 @@
 	ext_codec: sound-9330 {
 		compatible = "qcom,msm8952-audio-slim-codec";
 		qcom,model = "msm8952-tomtom-snd-card";
-		qcom,cdc-mclk-gpios = <&pm8950_gpios 1 0>;
-		clock-names = "osr_clk";
-		clocks = <&clock_gcc clk_div_clk2>;
 
 		reg = <0xc051000 0x4>,
 		    <0xc051004 0x4>,
@@ -144,6 +141,9 @@
 			30 31>;
 
 		qcom,cdc-reset-gpio = <&msm_gpio 68 0>;
+
+		clock-names = "wcd_clk";
+		clocks = <&clock_gcc clk_div_clk2>;
 
 		qcom,cdc-micbias1-ext-cap;
 		qcom,cdc-micbias2-ext-cap;
