@@ -884,7 +884,7 @@
 		reg = <0x8c0000 0xb00c>;
 		reg-names = "cc_base";
 		vdd_gfx-supply = <&gfx_vreg>;
-		gpu_handle = <&msm_gpu>;
+		qcom,gfx3d_clk_src-opp-handle = <&msm_gpu>;
 		vdd_mx-supply = <&pm8994_s2_corner>;
 		vdd_gpu_mx-supply = <&pm8994_s2_corner>;
 		qcom,gfxfreq-corner-v0 =

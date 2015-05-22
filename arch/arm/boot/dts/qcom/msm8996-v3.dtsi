@@ -38,6 +38,7 @@
 
 &clock_gpu {
 	compatible = "qcom,gpucc-8996-v3";
+	qcom,gfx3d_clk_src_v2-opp-handle = <&msm_gpu>;
 	qcom,gfxfreq-corner-v2 =
 		<	   0  0  0 >,
 		<  133000000  2  4 >,
