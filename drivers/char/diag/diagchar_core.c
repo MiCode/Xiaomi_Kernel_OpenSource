@@ -2378,7 +2378,10 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 		goto exit;
 	}
 
+exit:
+	mutex_unlock(&driver->diagchar_mutex);
 	if (driver->data_ready[index] & DCI_DATA_TYPE) {
+		mutex_lock(&driver->dci_mutex);
 		/* Copy the type of data being passed */
 		data_type = driver->data_ready[index] & DCI_DATA_TYPE;
 		list_for_each_safe(start, temp, &driver->dci_client_list) {
@@ -2388,20 +2391,31 @@ static ssize_t diagchar_read(struct file *file, char __user *buf, size_t count,
 				continue;
 			if (!entry->in_service)
 				continue;
-			COPY_USER_SPACE_OR_EXIT(buf + ret, data_type,
-								sizeof(int));
-			COPY_USER_SPACE_OR_EXIT(buf + ret,
-					entry->client_info.token, sizeof(int));
+			if (copy_to_user(buf + ret, &data_type, sizeof(int))) {
+				mutex_unlock(&driver->dci_mutex);
+				goto end;
+			}
+			ret += sizeof(int);
+			if (copy_to_user(buf + ret, &entry->client_info.token,
+				sizeof(int))) {
+				mutex_unlock(&driver->dci_mutex);
+				goto end;
+			}
+			ret += sizeof(int);
 			copy_dci_data = 1;
 			exit_stat = diag_copy_dci(buf, count, entry, &ret);
+			mutex_lock(&driver->diagchar_mutex);
 			driver->data_ready[index] ^= DCI_DATA_TYPE;
-			if (exit_stat == 1)
-				goto exit;
+			mutex_unlock(&driver->diagchar_mutex);
+			if (exit_stat == 1) {
+				mutex_unlock(&driver->dci_mutex);
+				goto end;
+			}
 		}
-		goto exit;
+		mutex_unlock(&driver->dci_mutex);
+		goto end;
 	}
-exit:
-	mutex_unlock(&driver->diagchar_mutex);
+end:
 	/*
 	 * Flush any read that is currently pending on DCI data and
 	 * command channnels. This will ensure that the next read is not
