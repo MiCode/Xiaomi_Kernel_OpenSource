@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,7 +25,7 @@
 #include <linux/elf.h>
 #include <linux/wait.h>
 #include <soc/qcom/ramdump.h>
-
+#include <linux/dma-mapping.h>
 
 #define RAMDUMP_WAIT_MSECS	120000
 
@@ -44,6 +44,7 @@ struct ramdump_device {
 	struct ramdump_segment *segments;
 	size_t elfcore_size;
 	char *elfcore_buf;
+	struct dma_attrs attrs;
 };
 
 static int ramdump_open(struct inode *inode, struct file *filep)
@@ -148,7 +149,11 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 
 	copy_size = min(count, (size_t)MAX_IOREMAP_SIZE);
 	copy_size = min((unsigned long)copy_size, data_left);
-	device_mem = vaddr ?: ioremap_nocache(addr, copy_size);
+
+	init_dma_attrs(&rd_dev->attrs);
+	dma_set_attr(DMA_ATTR_SKIP_ZEROING, &rd_dev->attrs);
+	device_mem = vaddr ?: dma_remap(rd_dev->device.parent, NULL, addr,
+						copy_size, &rd_dev->attrs);
 	origdevice_mem = device_mem;
 
 	if (device_mem == NULL) {
@@ -198,8 +203,9 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	}
 
 	kfree(finalbuf);
-	if (!vaddr)
-		iounmap(origdevice_mem);
+	if (!vaddr && origdevice_mem)
+		dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
+
 	*pos += copy_size;
 
 	pr_debug("Ramdump(%s): Read %zd bytes from address %lx.",
@@ -208,8 +214,9 @@ static ssize_t ramdump_read(struct file *filep, char __user *buf, size_t count,
 	return *pos - orig_pos;
 
 ramdump_done:
-	if (!vaddr)
-		iounmap(origdevice_mem);
+	if (!vaddr && origdevice_mem)
+		dma_unremap(rd_dev->device.parent, origdevice_mem, copy_size);
+
 	kfree(finalbuf);
 	rd_dev->data_ready = 0;
 	*pos = 0;
