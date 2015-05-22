@@ -362,6 +362,8 @@ static bool fw_get_filesystem_firmware(struct device *device,
 	int i;
 	bool success = false;
 	char *path = __getname();
+	if (!path)
+		return false;
 
 	for (i = 0; i < ARRAY_SIZE(fw_path); i++) {
 		struct file *file;
