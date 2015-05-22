@@ -601,10 +601,18 @@
 			<0xff 270>, /* bam_irq[0] */
 			<0xff 271>, /* bam_irq[0] */
 			<0xff 332>, /* sps */
-			<0xff 333>, /* ipa */
+			<0xff 365>, /* ipa_irq[0] */
 			<0xff 422>, /* ssc_irq_out_apcs[5] */
-			<0xff 462>,
-			<0xff 484>;
+			<0xff 424>, /* ipa_irq[2] */
+			<0xff 462>, /* tsens1_tsens_critical_int */
+			<0xff 464>, /* ipa_bam_irq[0] */
+			<0xff 465>, /* ipa_bam_irq[2] */
+			<0xff 477>, /* tsens0_tsens_critical_int */
+			<0xff 481>, /* mss_ipc_out_irq(4) */
+			<0xff 483>, /* mss_ipc_out_irq(6) */
+			<0xff 484>, /* mss_ipc_out_irq(7) */
+			<0xff 487>, /* mss_ipc_out_irq(30) */
+			<0xff 490>; /* tsens0_tsens_upper_lower_int */
 
 		qcom,gpio-parent = <&tlmm>;
 		qcom,gpio-map = <3  101>,
