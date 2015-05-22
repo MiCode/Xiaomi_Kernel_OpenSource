@@ -1282,6 +1282,9 @@ static void mdss_mdp_overlay_cleanup(struct msm_fb_data_type *mfd,
 			mdss_mdp_mixer_pipe_unstage(pipe, pipe->mixer_right);
 		}
 		__overlay_pipe_cleanup(mfd, pipe);
+		ctl->mixer_left->next_pipe_map &= ~pipe->ndx;
+		if (ctl->mixer_right)
+			ctl->mixer_right->next_pipe_map &= ~pipe->ndx;
 	}
 	mutex_unlock(&mdp5_data->list_lock);
 }
