@@ -59,7 +59,29 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 		return;
 	}
 
-	if (!mdss_dsi_is_hw_config_dual(sdata)) {
+	if (mdss_dsi_is_pll_src_default(sdata)) {
+		/*
+		 * Default Mapping:
+		 * 1. dual-dsi/single-dsi:
+		 *     DSI0 <--> PLL0
+		 *     DSI1 <--> PLL1
+		 * 2. split-dsi:
+		 *     DSI0 <--> PLL0
+		 *     DSI1 <--> PLL0
+		 */
+		sdata->byte0_parent = sdata->ext_byte0_clk;
+		sdata->pixel0_parent = sdata->ext_pixel0_clk;
+
+		if (mdss_dsi_is_hw_config_split(sdata)) {
+			sdata->byte1_parent = sdata->byte0_parent;
+			sdata->pixel1_parent = sdata->pixel0_parent;
+		} else {
+			sdata->byte1_parent = sdata->ext_byte1_clk;
+			sdata->pixel1_parent = sdata->ext_pixel1_clk;
+		}
+		pr_debug("%s: default: DSI0 <--> PLL0, DSI1 <--> %s", __func__,
+			mdss_dsi_is_hw_config_split(sdata) ? "PLL0" : "PLL1");
+	} else {
 		/*
 		 * For split-dsi and single-dsi use cases, map the PLL source
 		 * based on the pll source configuration. It is possible that
@@ -72,25 +94,13 @@ static void mdss_dsi_config_clk_src(struct platform_device *pdev)
 			pr_debug("%s: single source: PLL0", __func__);
 			sdata->byte0_parent = sdata->ext_byte0_clk;
 			sdata->pixel0_parent = sdata->ext_pixel0_clk;
-		} else {
+		} else if (mdss_dsi_is_pll_src_pll1(sdata)) {
 			pr_debug("%s: single source: PLL1", __func__);
 			sdata->byte0_parent = sdata->ext_byte1_clk;
 			sdata->pixel0_parent = sdata->ext_pixel1_clk;
 		}
 		sdata->byte1_parent = sdata->byte0_parent;
 		sdata->pixel1_parent = sdata->pixel0_parent;
-	} else {
-		/*
-		 * For dual-dsi use cases, map:
-		 *     DSI0 <--> PLL0
-		 *     DSI1 <--> PLL1
-		 */
-		pr_debug("%s: dual-dsi: DSI0 <--> PLL0, DSI1 <--> PLL1",
-			__func__);
-		sdata->byte0_parent = sdata->ext_byte0_clk;
-		sdata->byte1_parent = sdata->ext_byte1_clk;
-		sdata->pixel0_parent = sdata->ext_pixel0_clk;
-		sdata->pixel1_parent = sdata->ext_pixel1_clk;
 	}
 
 	return;
@@ -2284,6 +2294,12 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		disable_irq(gpio_to_irq(ctrl_pdata->disp_te_gpio));
 	}
 	pr_debug("%s: Dsi Ctrl->%d initialized\n", __func__, index);
+
+	if (index == 0)
+		ctrl_pdata->shared_data->dsi0_active = true;
+	else
+		ctrl_pdata->shared_data->dsi1_active = true;
+
 	return 0;
 
 error_pan_node:
@@ -2499,7 +2515,7 @@ static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
 	const char *data;
 	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
 
-	sdata->pll_src_config = PLL_SRC_0;
+	sdata->pll_src_config = PLL_SRC_DEFAULT;
 	data = of_get_property(pdev->dev.of_node, "pll-src-config", NULL);
 	if (data) {
 		if (!strcmp(data, "PLL0"))
@@ -2507,11 +2523,10 @@ static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
 		else if (!strcmp(data, "PLL1"))
 			sdata->pll_src_config = PLL_SRC_1;
 		else
-			pr_err("%s: invalid pll src config %s. Using PLL_SRC_0 as default\n",
+			pr_err("%s: invalid pll src config %s\n",
 				__func__, data);
 	} else {
-		pr_debug("%s: PLL src config not present. Using PLL0 by default\n",
-			__func__);
+		pr_debug("%s: PLL src config not specified\n", __func__);
 	}
 
 	pr_debug("%s: pll_src_config = %d", __func__, sdata->pll_src_config);
@@ -2531,7 +2546,6 @@ static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
 	 *     - For single dsi, it is not possible to source the clocks for
 	 *       DSI0 from PLL1.
 	 */
-
 	if (mdss_dsi_is_hw_config_split(sdata) &&
 		mdss_dsi_is_pll_src_pll1(sdata)) {
 		pr_err("%s: unsupported PLL config: using PLL1 for split-dsi\n",
@@ -2540,7 +2554,21 @@ static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
 		goto error;
 	}
 
-	/* todo: enforce remaining checks */
+	if (mdss_dsi_is_hw_config_dual(sdata) &&
+		!mdss_dsi_is_pll_src_default(sdata)) {
+		pr_debug("%s: pll src config not applicable for dual-dsi\n",
+			__func__);
+		sdata->pll_src_config = PLL_SRC_DEFAULT;
+	}
+
+	if (mdss_dsi_is_hw_config_single(sdata) &&
+		mdss_dsi_is_dsi0_active(sdata) &&
+		mdss_dsi_is_pll_src_pll1(sdata)) {
+		pr_err("%s: unsupported PLL config: using PLL1 for DSI1\n",
+			__func__);
+		rc = -EINVAL;
+		goto error;
+	}
 
 error:
 	return rc;

@@ -228,6 +228,8 @@ struct dsi_shared_data {
 
 	bool timing_db_mode;
 	bool cmd_clk_ln_recovery_en;
+	bool dsi0_active;
+	bool dsi1_active;
 
 	/* DSI bus clocks */
 	struct clk *mdp_core_clk;
@@ -284,6 +286,7 @@ enum mdss_dsi_hw_config {
  * @PLL_SRC_1:		The link clocks are sourced out of PLL1.
  */
 enum mdss_dsi_pll_src_config {
+	PLL_SRC_DEFAULT,
 	PLL_SRC_0,
 	PLL_SRC_1,
 };
@@ -594,9 +597,22 @@ static inline bool mdss_dsi_is_hw_config_dual(struct dsi_shared_data *sdata)
 	return mdss_dsi_get_hw_config(sdata) == DUAL_DSI;
 }
 
-static inline u32 mdss_dsi_get_pll_src_config(struct dsi_shared_data *sdata)
+static inline bool mdss_dsi_get_pll_src_config(struct dsi_shared_data *sdata)
 {
 	return sdata->pll_src_config;
+}
+
+/*
+ * mdss_dsi_is_pll_src_default: Check if the DSI device uses default PLL src
+ * For single-dsi and dual-dsi configuration, PLL source need not be
+ * explicitly specified. In this case, the default PLL source configuration
+ * is assumed.
+ *
+ * @sdata: pointer to DSI shared data structure
+ */
+static inline bool mdss_dsi_is_pll_src_default(struct dsi_shared_data *sdata)
+{
+	return sdata->pll_src_config == PLL_SRC_DEFAULT;
 }
 
 /*
@@ -606,7 +622,7 @@ static inline u32 mdss_dsi_get_pll_src_config(struct dsi_shared_data *sdata)
  *
  * @sdata: pointer to DSI shared data structure
  */
-static inline u32 mdss_dsi_is_pll_src_pll0(struct dsi_shared_data *sdata)
+static inline bool mdss_dsi_is_pll_src_pll0(struct dsi_shared_data *sdata)
 {
 	return sdata->pll_src_config == PLL_SRC_0;
 }
@@ -618,9 +634,19 @@ static inline u32 mdss_dsi_is_pll_src_pll0(struct dsi_shared_data *sdata)
  *
  * @sdata: pointer to DSI shared data structure
  */
-static inline u32 mdss_dsi_is_pll_src_pll1(struct dsi_shared_data *sdata)
+static inline bool mdss_dsi_is_pll_src_pll1(struct dsi_shared_data *sdata)
 {
 	return sdata->pll_src_config == PLL_SRC_1;
+}
+
+static inline bool mdss_dsi_is_dsi0_active(struct dsi_shared_data *sdata)
+{
+	return sdata->dsi0_active;
+}
+
+static inline bool mdss_dsi_is_dsi1_active(struct dsi_shared_data *sdata)
+{
+	return sdata->dsi1_active;
 }
 
 static inline bool mdss_dsi_sync_wait_enable(struct mdss_dsi_ctrl_pdata *ctrl)
