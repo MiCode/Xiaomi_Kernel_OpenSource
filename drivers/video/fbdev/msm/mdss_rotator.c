@@ -488,14 +488,19 @@ static int mdss_rotator_import_buffer(struct mdp_layer_buffer *buffer,
 	return ret;
 }
 
-static int mdss_rotator_acquire_data(struct mdss_rot_entry *entry)
+static int mdss_rotator_map_and_check_data(struct mdss_rot_entry *entry)
 {
 	int ret;
 	struct mdp_layer_buffer *input;
 	struct mdp_layer_buffer *output;
+	struct mdss_mdp_format_params *fmt;
+	struct mdss_mdp_plane_sizes ps;
+	bool rotation;
 
 	input = &entry->item.input;
 	output = &entry->item.output;
+
+	rotation = (entry->item.flags &  MDP_ROTATION_90) ? true : false;
 
 	ret = mdss_iommu_ctrl(1);
 	if (IS_ERR_VALUE(ret))
@@ -503,9 +508,58 @@ static int mdss_rotator_acquire_data(struct mdss_rot_entry *entry)
 
 	/* if error during map, the caller will release the data */
 	ret = mdss_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
-	if (!ret)
-		ret = mdss_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE);
+	if (ret) {
+		pr_err("source buffer mapping failed ret:%d\n", ret);
+		goto end;
+	}
 
+	ret = mdss_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE);
+	if (ret) {
+		pr_err("destination buffer mapping failed ret:%d\n", ret);
+		goto end;
+	}
+
+	fmt = mdss_mdp_get_format_params(input->format);
+	if (!fmt) {
+		pr_err("invalid input format:%d\n", input->format);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ret = mdss_mdp_get_plane_sizes(
+			fmt, input->width, input->height, &ps, 0, rotation);
+	if (ret) {
+		pr_err("fail to get input plane size ret=%d\n", ret);
+		goto end;
+	}
+
+	ret = mdss_mdp_data_check(&entry->src_buf, &ps, fmt);
+	if (ret) {
+		pr_err("fail to check input data ret=%d\n", ret);
+		goto end;
+	}
+
+	fmt = mdss_mdp_get_format_params(output->format);
+	if (!fmt) {
+		pr_err("invalid output format:%d\n", output->format);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ret = mdss_mdp_get_plane_sizes(
+			fmt, output->width, output->height, &ps, 0, rotation);
+	if (ret) {
+		pr_err("fail to get output plane size ret=%d\n", ret);
+		goto end;
+	}
+
+	ret = mdss_mdp_data_check(&entry->dst_buf, &ps, fmt);
+	if (ret) {
+		pr_err("fail to check output data ret=%d\n", ret);
+		goto end;
+	}
+
+end:
 	mdss_iommu_ctrl(0);
 
 	return ret;
@@ -539,15 +593,12 @@ static void mdss_rotator_release_data(struct mdss_rot_entry *entry)
 	mdss_mdp_data_free(&entry->dst_buf, true, DMA_FROM_DEVICE);
 }
 
-static int mdss_rotator_validate_data(struct mdss_rot_mgr *mgr,
+static int mdss_rotator_import_data(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_entry *entry)
 {
 	int ret;
 	struct mdp_layer_buffer *input;
 	struct mdp_layer_buffer *output;
-	struct mdss_mdp_format_params *fmt;
-	struct mdss_mdp_plane_sizes ps;
-	bool rotation;
 	u32 flag = 0;
 
 	input = &entry->item.input;
@@ -555,8 +606,6 @@ static int mdss_rotator_validate_data(struct mdss_rot_mgr *mgr,
 
 	if (entry->item.flags & MDP_ROTATION_SECURE)
 		flag = MDP_SECURE_OVERLAY_SESSION;
-
-	rotation = (entry->item.flags &  MDP_ROTATION_90) ? true : false;
 
 	ret = mdss_rotator_import_buffer(input, &entry->src_buf, flag,
 				&mgr->pdev->dev, true);
@@ -576,65 +625,6 @@ static int mdss_rotator_validate_data(struct mdss_rot_mgr *mgr,
 		return ret;
 	}
 
-	ret = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(ret))
-		return ret;
-
-	/* if error during map, the caller will release the data */
-	ret = mdss_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
-	if (ret) {
-		pr_err("fail to map input buffer ret =%d\n", ret);
-		goto validate_data_err;
-	}
-
-	ret = mdss_mdp_data_map(&entry->dst_buf, true, DMA_FROM_DEVICE);
-	if (ret) {
-		pr_err("fail to map out buffer ret =%d\n", ret);
-		goto validate_data_err;
-	}
-
-	fmt = mdss_mdp_get_format_params(input->format);
-	if (!fmt) {
-		pr_err("invalid input format:%d\n", input->format);
-		ret = -EINVAL;
-		goto validate_data_err;
-	}
-
-	ret = mdss_mdp_get_plane_sizes(
-			fmt, input->width, input->height, &ps, 0, rotation);
-	if (ret) {
-		pr_err("fail to get input plane size ret=%d\n", ret);
-		goto validate_data_err;
-	}
-
-	ret = mdss_mdp_data_check(&entry->src_buf, &ps, fmt);
-	if (ret) {
-		pr_err("fail to check input data ret=%d\n", ret);
-		goto validate_data_err;
-	}
-
-	fmt = mdss_mdp_get_format_params(output->format);
-	if (!fmt) {
-		pr_err("invalid output format:%d\n", output->format);
-		ret = -EINVAL;
-		goto validate_data_err;
-	}
-
-	ret = mdss_mdp_get_plane_sizes(
-			fmt, output->width, output->height, &ps, 0, rotation);
-	if (ret) {
-		pr_err("fail to get output plane size ret=%d\n", ret);
-		goto validate_data_err;
-	}
-
-	ret = mdss_mdp_data_check(&entry->dst_buf, &ps, fmt);
-	if (ret) {
-		pr_err("fail to check output data ret=%d\n", ret);
-		goto validate_data_err;
-	}
-
-validate_data_err:
-	mdss_iommu_ctrl(0);
 	return ret;
 }
 
@@ -1327,9 +1317,9 @@ static int mdss_rotator_add_request(struct mdss_rot_mgr *mgr,
 			return ret;
 		}
 
-		ret = mdss_rotator_validate_data(mgr, entry);
+		ret = mdss_rotator_import_data(mgr, entry);
 		if (ret) {
-			pr_err("fail to validate data\n");
+			pr_err("fail to import the data\n");
 			return ret;
 		}
 
@@ -1616,7 +1606,7 @@ static int mdss_rotator_handle_entry(struct mdss_rot_hw_resource *hw,
 		return ret;
 	}
 
-	ret = mdss_rotator_acquire_data(entry);
+	ret = mdss_rotator_map_and_check_data(entry);
 	if (ret) {
 		pr_err("fail to prepare input/output data %d\n", ret);
 		return ret;
