@@ -294,6 +294,7 @@ struct sdhci_host {
 	enum sdhci_power_policy power_policy;
 
 	bool is_crypto_en;
+	bool crypto_reset_reqd;
 
 	bool irq_enabled; /* host irq status flag */
 	bool async_int_supp;  /* async support to rxv int, when clks are off */
