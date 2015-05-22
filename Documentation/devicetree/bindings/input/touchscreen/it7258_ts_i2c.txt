@@ -21,6 +21,7 @@ Required properties:
 Optional properties:
  - avdd-supply		: Analog power supply needed to power device
  - vdd-supply		: Power source required to pull up i2c bus
+ - ite,wakeup		: boolean, use this to support touch-to-wake feature.
 
 Example:
 	i2c@f9927000 {
@@ -33,5 +34,6 @@ Example:
                     vdd-supply = <&pm8226_lvs1>;
                     ite,reset-gpio = <&msmgpio 16 0x00>;
                     ite,irq-gpio = <&msmgpio 17 0x2008>;
+		    ite,wakeup;
             };
 	};
