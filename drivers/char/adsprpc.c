@@ -221,7 +221,7 @@ static const struct fastrpc_channel_info gcinfo[NUM_CHANNELS] = {
 
 static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 {
-	int err;
+	int err = 0;
 	struct fastrpc_file *fl = buf == 0 ? 0 : buf->fl;
 	if (!fl)
 		return;
@@ -310,6 +310,7 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map)
 	ion_unmap_iommu(map->client, map->handle,
 			me->domain_id, 0);
 	ion_unmap_kernel(map->client, map->handle);
+	msm_audio_ion_client_destroy(map->client);
 	kfree(map);
 }
 
@@ -320,6 +321,7 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, ssize_t size,
 	int err = 0;
 	struct fastrpc_buf *buf = 0, *fr = 0;
 	struct hlist_node *n;
+	size_t len = 0;
 	/* find the smallest buffer that fits in the cache */
 	spin_lock(&fl->hlock);
 	hlist_for_each_entry_safe(buf, n, &fl->bufs, hn) {
@@ -337,38 +339,28 @@ static int fastrpc_buf_alloc(struct fastrpc_file *fl, ssize_t size,
 	if (err)
 		goto bail;
 	INIT_HLIST_NODE(&buf->hn);
+
+	buf->handle = NULL;
+	buf->client = NULL;
 	buf->fl = fl;
 	buf->virt = 0;
 	buf->phys = 0;
 	buf->size = size;
-	{
-		struct ion_client *client = NULL;
-		struct ion_handle *handle = NULL;
-		void *virtual_addr = NULL;
-		ion_phys_addr_t physical_addr = 0;
-		size_t len = 0;
 
-		VERIFY(err, !msm_audio_ion_alloc(DEVICE_NAME, &client,
-					&handle, buf->size,
-					&physical_addr, &len, &virtual_addr));
-
-		if (err) {
-			pr_err("%s: Error allocating audio ion buf size: %zd\n",
-					__func__, buf->size);
-			goto bail;
-		}
-
-		if (len != buf->size)
-			pr_info("allocating memory from audio ion size is %zd\n",
-					len);
-
-		buf->handle = handle;
-		buf->phys = physical_addr;
-		buf->virt = virtual_addr;
-		buf->size = len;
-		buf->client = client;
-
+	VERIFY(err, !msm_audio_ion_alloc(DEVICE_NAME, &(buf->client),
+				&(buf->handle), buf->size,
+				&(buf->phys), &len, &(buf->virt)));
+	if (err) {
+		pr_err("%s: Error allocating audio ion buf size: %zd\n",
+				__func__, buf->size);
+		goto bail;
 	}
+	if (len != buf->size)
+		pr_info("allocating memory from audio ion size is %zd\n",
+				len);
+
+	buf->size = len;
+
 	*obuf = buf;
  bail:
 	if (err && buf)
@@ -1253,44 +1245,37 @@ static int fastrpc_mmap_find(struct fastrpc_file *fl, int fd, uintptr_t va,
 	return -ENOTTY;
 }
 
-int msm_audio_ion_import(const char *name, struct ion_client **client,
-		struct ion_handle **handle, int fd,
-		unsigned long *ionflag, size_t bufsz,
-		ion_phys_addr_t *paddr, size_t *pa_len, void **vaddr);
-
 static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 			       ssize_t len, struct fastrpc_mmap **ppmap)
 {
 	int err = 0;
 	struct fastrpc_mmap *map = 0;
+	unsigned long ionflag = 0;
+	size_t pa_len = 0;
+	ion_phys_addr_t paddr = 0;
+	void *virtual_addr = NULL;
+
 	if (!fastrpc_mmap_find(fl, fd, va, len, ppmap))
 		return 0;
 	VERIFY(err, map = kzalloc(sizeof(*map), GFP_KERNEL));
 	if (err)
 		goto bail;
+	map->client = NULL;
+	map->handle = NULL;
 	map->fl = fl;
 	map->fd = fd;
-	{
-		unsigned long ionflag = 0;
-		struct ion_client *client = NULL;
-		struct ion_handle *handle = NULL;
-		size_t pa_len = 0;
-		void *vaddr = NULL;
-		ion_phys_addr_t paddr = 0;
 
-		VERIFY(err, !msm_audio_ion_import(DEVICE_NAME, &client,
-					&handle, fd,
-					&ionflag, len,
-					&paddr, &pa_len, &vaddr));
-		if (err) {
-			pr_err("msm_audio_ion_import failed\n");
-			goto bail;
-		}
-		map->handle = handle;
-		map->client = client;
-		map->phys = paddr;
-		map->size = pa_len;
+	VERIFY(err, !msm_audio_ion_import(DEVICE_NAME, &(map->client),
+				&(map->handle), fd,
+				&ionflag, len,
+				&paddr, &pa_len, &virtual_addr));
+	if (err) {
+		pr_err("msm_audio_ion_import failed\n");
+		goto bail;
 	}
+
+	map->phys = paddr;
+	map->size = pa_len;
 	map->va = va;
 	map->refs = 1;
 	map->len = len;
