@@ -143,8 +143,6 @@ struct bam_ch_info {
 	u32			dst_pipe_idx;
 	u8			src_connection_idx;
 	u8			dst_connection_idx;
-	int			src_bam_idx;
-	int			dst_bam_idx;
 
 	enum transport_type trans;
 	struct usb_bam_connect_ipa_params ipa_params;
@@ -997,17 +995,7 @@ static void gbam_start(void *param, enum usb_bam_pipe_dir dir)
 	} else {
 		if (gadget_is_dwc3(gadget) &&
 		    msm_dwc3_reset_ep_after_lpm(gadget)) {
-			u8 idx;
-
-			idx = usb_bam_get_connection_idx(gadget->name,
-				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, 0);
-			if (idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-					__func__);
-				return;
-			}
-			configure_data_fifo(idx,
+			configure_data_fifo(d->dst_connection_idx,
 				port->port_usb->in,
 				d->dst_pipe_type);
 		}
@@ -1417,15 +1405,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		}
 
 		if (gadget_is_dwc3(gadget)) {
-			d->src_bam_idx = usb_bam_get_connection_idx(
-				gadget->name, IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
-				USB_BAM_DEVICE, 0);
-			if (d->src_bam_idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-					__func__);
-				return;
-			}
-
 			if (!port) {
 				pr_err("%s: UL: Port is NULL.", __func__);
 				return;
@@ -1441,8 +1420,9 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				return;
 			}
 
-			configure_data_fifo(d->src_bam_idx, port->port_usb->out,
-						d->src_pipe_type);
+			configure_data_fifo(d->src_connection_idx,
+					    port->port_usb->out,
+					    d->src_pipe_type);
 			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 		}
 
@@ -1466,15 +1446,6 @@ static void gbam2bam_connect_work(struct work_struct *w)
 		}
 
 		if (gadget_is_dwc3(gadget)) {
-			d->dst_bam_idx = usb_bam_get_connection_idx(
-				gadget->name, IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, 0);
-			if (d->dst_bam_idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-					__func__);
-				return;
-			}
-
 			if (!port) {
 				pr_err("%s: DL: Port is NULL.", __func__);
 				return;
@@ -1490,8 +1461,9 @@ static void gbam2bam_connect_work(struct work_struct *w)
 				return;
 			}
 
-			configure_data_fifo(d->dst_bam_idx, port->port_usb->in,
-						d->dst_pipe_type);
+			configure_data_fifo(d->dst_connection_idx,
+					    port->port_usb->in,
+					    d->dst_pipe_type);
 			spin_unlock_irqrestore(&port->port_lock_dl, flags);
 		}
 
@@ -1655,10 +1627,10 @@ static void gbam2bam_resume_work(struct work_struct *w)
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		if (gadget_is_dwc3(gadget) &&
 			msm_dwc3_reset_ep_after_lpm(gadget)) {
-				configure_data_fifo(d->src_bam_idx,
+				configure_data_fifo(d->src_connection_idx,
 					port->port_usb->out,
 					d->src_pipe_type);
-				configure_data_fifo(d->dst_bam_idx,
+				configure_data_fifo(d->dst_connection_idx,
 					port->port_usb->in,
 					d->dst_pipe_type);
 				spin_unlock_irqrestore(&port->port_lock, flags);
