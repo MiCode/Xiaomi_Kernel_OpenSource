@@ -64,7 +64,7 @@
 		/* Clocks = KGSL_CLK_CORE | KGSL_CLK_IFACE | KGSL_CLK_MEM |
 		KGSL_CLK_MEM_IFACE | KGSL_CLK_ALT_MEM_IFACE
 		KGSL_CLK_RBBMTIMER */
-		qcom,clk-map = <0x000001DE>;
+		qcom,clk-map = <0x000003DE>;
 
 		clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
 		         <&clock_gcc clk_gcc_oxili_ahb_clk>,
@@ -73,11 +73,12 @@
 		         <&clock_gcc clk_gcc_bimc_gpu_clk>,
 		         <&clock_gcc clk_gcc_gtcu_ahb_clk>,
 		         <&clock_gcc clk_gcc_gfx_tcu_clk>,
+		         <&clock_gcc clk_gcc_gfx_tbu_clk>,
 		         <&clock_gcc clk_gcc_oxili_timer_clk>;
 
 		clock-names = "core_clk", "iface_clk", "mem_clk",
 		              "mem_iface_clk", "alt_mem_iface_clk",
-		              "gtcu_iface_clk", "gtcu_clk",
+		              "gtcu_iface_clk", "gtcu_clk", "gtbu_clk",
 		              "rbbmtimer_clk";
 
 		/* Bus Scale Settings */
