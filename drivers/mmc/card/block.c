@@ -1993,6 +1993,7 @@ static void mmc_blk_rw_rq_prep(struct mmc_queue_req *mqrq,
 	}
 
 	mqrq->mmc_active.mrq = &brq->mrq;
+	mqrq->mmc_active.mrq->req = mqrq->req;
 	mqrq->mmc_active.cmd_flags = req->cmd_flags;
 	if (mq->err_check_fn)
 		mqrq->mmc_active.err_check = mq->err_check_fn;
