@@ -56,6 +56,8 @@
 		qcom,id = <0>;
 
 		qcom,chipid = <0x05030000>;
+		qcom,gpu-efuse-leakage = <0x00070130 24>;
+		qcom,base-leakage-coefficient = <34>;
 
 		qcom,initial-pwrlevel = <2>;
 

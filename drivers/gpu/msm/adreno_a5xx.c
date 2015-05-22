@@ -99,6 +99,8 @@ static void a5xx_gpmu_reset(struct work_struct *work);
 
 #define AGC_POWER_CONFIG_PRODUCTION_ID	1
 
+#define GFX_DEFAULT_LEAKAGE 0x004E001A
+
 /*
  * a5xx_preemption_start() - Setup state to start preemption
  */
@@ -1297,6 +1299,42 @@ static void _write_voltage_table(struct adreno_device *adreno_dev,
 	*length = levels * 2 + 2;
 }
 
+static uint32_t gfx_base_leakage(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	void __iomem *base;
+	uint32_t gfx_active, multiplier, leakage_pwr_on, coeff, leakagemem[2];
+
+	if (adreno_dev->lm_leakage)
+		return adreno_dev->lm_leakage;
+
+	adreno_dev->lm_leakage = GFX_DEFAULT_LEAKAGE;
+
+	if (of_property_read_u32_array(device->pdev->dev.of_node,
+		"qcom,gpu-efuse-leakage", leakagemem, 2))
+		return adreno_dev->lm_leakage;
+
+	if (!leakagemem[0] || !leakagemem[1])
+		return adreno_dev->lm_leakage;
+
+	base = ioremap(leakagemem[0], leakagemem[1]);
+	if (!base)
+		return adreno_dev->lm_leakage;
+
+	multiplier = (uint32_t) ((readq(base) >> 33) & 0x3);
+	gfx_active = (uint32_t) ((readq(base + 16) >> 34) & 0xff);
+	iounmap(base);
+
+	if (of_property_read_u32(device->pdev->dev.of_node,
+		"qcom,base-leakage-coefficient", &coeff) || !coeff)
+		return adreno_dev->lm_leakage;
+
+	leakage_pwr_on = gfx_active * (1 << multiplier);
+	adreno_dev->lm_leakage = (leakage_pwr_on << 16) |
+		(leakage_pwr_on * coeff) / 100;
+	return adreno_dev->lm_leakage;
+}
+
 /*
  * a5xx_lm_init() - Initialize LM/DPM on the GPMU
  * @adreno_dev: The adreno device pointer
@@ -1331,8 +1369,10 @@ static void a5xx_lm_init(struct adreno_device *adreno_dev)
 
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE,
 			(0x80000000 | device->pwrctrl.active_pwrlevel));
-	/* todo use the iddq fuse to correct this value at runtime */
-	kgsl_regwrite(device, A5XX_GPMU_BASE_LEAKAGE, 0x00640002);
+	/* use the leakage to set this value at runtime */
+	kgsl_regwrite(device, A5XX_GPMU_BASE_LEAKAGE,
+		gfx_base_leakage(adreno_dev));
+
 	/* default of 6A */
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_PWR_THRESHOLD, 0x80001000);
 
