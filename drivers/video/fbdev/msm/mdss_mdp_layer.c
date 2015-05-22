@@ -236,8 +236,8 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 	}
 
 	if (CHECK_LAYER_BOUNDS(layer->dst_rect.y, layer->dst_rect.h, yres)) {
-		pr_err("invalid vertical destination: y=%d, h=%d\n",
-			layer->dst_rect.y, layer->dst_rect.h);
+		pr_err("invalid vertical destination: y=%d, h=%d, yres=%d\n",
+			layer->dst_rect.y, layer->dst_rect.h, yres);
 		return -EOVERFLOW;
 	}
 
@@ -1445,6 +1445,12 @@ int mdss_mdp_layer_pre_commit_wfd(struct msm_fb_data_type *mfd,
 				rc = -EINVAL;
 				goto fence_get_err;
 			}
+		}
+	} else {
+		wfd = mdp5_data->wfd;
+		if (!wfd->ctl || !wfd->ctl->wb) {
+			pr_err("wfd commit with null out layer and no validate\n");
+			return -EINVAL;
 		}
 	}
 
