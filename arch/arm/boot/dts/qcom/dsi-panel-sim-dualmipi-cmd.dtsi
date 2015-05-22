@@ -11,7 +11,7 @@
  */
 
 &mdss_mdp {
-	dsi_dual_sim_cmd: qcom,mdss_dsi_sim_cmd {
+	dsi_dual_sim_cmd: qcom,mdss_dsi_dual_sim_cmd {
 		qcom,mdss-dsi-panel-name = "Sim dual cmd mode dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
 		qcom,mdss-dsi-panel-framerate = <60>;
