@@ -254,7 +254,8 @@ static int mdss_mdp_rot_mgr_remove_free_pipe(void)
 		if (!rot_mgr->rot_pipes[i].pipe)
 			continue;
 
-		if (!rot_mgr->rot_pipes[i].active_session)
+		if (!rot_mgr->rot_pipes[i].active_session &&
+			!rot_mgr->rot_pipes[i].wait_count)
 			break;
 	}
 
