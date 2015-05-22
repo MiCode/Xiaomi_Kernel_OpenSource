@@ -1967,6 +1967,10 @@ static void ep_prime_timer_func(unsigned long data)
 		}
 		dbg_usb_op_fail(0xFF, "PRIMEF", mep);
 		mep->prime_fail_count++;
+		/* Notify to trigger h/w reset recovery later */
+		if (_udc->udc_driver->notify_event)
+			_udc->udc_driver->notify_event(_udc,
+					CI13XXX_CONTROLLER_ERROR_EVENT);
 	} else {
 		mod_timer(&mep->prime_timer, EP_PRIME_CHECK_DELAY);
 	}
