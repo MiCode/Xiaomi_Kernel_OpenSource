@@ -33,6 +33,7 @@
 		i2c5 = &i2c_5;
 		i2c8 = &i2c_8;
 		i2c3 = &i2c_3;
+		qup10 = &test_pacman;
 	};
 
 	memory {
@@ -1365,6 +1366,14 @@
 
 	qcom,msm-ssc-sensors {
 		compatible = "qcom,msm-ssc-sensors";
+	};
+
+	qcom,msm-pacman {
+		compatible = "qcom,msm-pacman";
+	};
+
+	test_pacman: test {
+		compatible = "qcom,msm-test-pacman";
 	};
 
 	qcom_rng: qrng@22000 {
