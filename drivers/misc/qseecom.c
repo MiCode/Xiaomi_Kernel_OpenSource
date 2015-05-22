@@ -3781,6 +3781,7 @@ static int qseecom_load_external_elf(struct qseecom_dev_handle *data,
 {
 	struct ion_handle *ihandle;	/* Ion handle */
 	struct qseecom_load_img_req load_img_req;
+	int uret = 0;
 	int ret;
 	int set_cpu_ret = 0;
 	ion_phys_addr_t pa = 0;
@@ -3894,8 +3895,11 @@ exit_disable_clock:
 exit_register_bus_bandwidth_needs:
 	if (qseecom.support_bus_scaling) {
 		mutex_lock(&qsee_bw_mutex);
-		ret = qseecom_unregister_bus_bandwidth_needs(data);
+		uret = qseecom_unregister_bus_bandwidth_needs(data);
 		mutex_unlock(&qsee_bw_mutex);
+		if (uret)
+			pr_err("Failed to unregister bus bw needs %d, scm_call ret %d\n",
+								uret, ret);
 	}
 
 exit_cpu_restore:
