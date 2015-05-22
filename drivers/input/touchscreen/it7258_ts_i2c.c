@@ -1285,6 +1285,99 @@ power_off:
 	return 0;
 }
 
+static int IT7260_gpio_configure(bool on)
+{
+	int retval = 0;
+
+	if (on) {
+		if (gpio_is_valid(gl_ts->pdata->irq_gpio)) {
+			/* configure touchscreen irq gpio */
+			retval = gpio_request(gl_ts->pdata->irq_gpio,
+					"ite_irq_gpio");
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to request irq gpio [%d]\n",
+					retval);
+				goto err_irq_gpio_req;
+			}
+
+			retval = gpio_direction_input(gl_ts->pdata->irq_gpio);
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to set direction for irq gpio [%d]\n",
+					retval);
+				goto err_irq_gpio_dir;
+			}
+		} else {
+			dev_err(&gl_ts->client->dev,
+				"irq gpio not provided\n");
+				goto err_irq_gpio_req;
+		}
+
+		if (gpio_is_valid(gl_ts->pdata->reset_gpio)) {
+			/* configure touchscreen reset out gpio */
+			retval = gpio_request(gl_ts->pdata->reset_gpio,
+					"ite_reset_gpio");
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to request reset gpio [%d]\n",
+					retval);
+					goto err_reset_gpio_req;
+			}
+
+			retval = gpio_direction_output(
+					gl_ts->pdata->reset_gpio, 1);
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to set direction for reset gpio [%d]\n",
+					retval);
+				goto err_reset_gpio_dir;
+			}
+
+			if (gl_ts->pdata->low_reset)
+				gpio_set_value(gl_ts->pdata->reset_gpio, 0);
+			else
+				gpio_set_value(gl_ts->pdata->reset_gpio, 1);
+
+			msleep(gl_ts->pdata->reset_delay);
+		} else {
+			dev_err(&gl_ts->client->dev,
+				"reset gpio not provided\n");
+				goto err_reset_gpio_req;
+		}
+	} else {
+		if (gpio_is_valid(gl_ts->pdata->irq_gpio))
+			gpio_free(gl_ts->pdata->irq_gpio);
+		if (gpio_is_valid(gl_ts->pdata->reset_gpio)) {
+			/*
+			 * This is intended to save leakage current
+			 * only. Even if the call(gpio_direction_input)
+			 * fails, only leakage current will be more but
+			 * functionality will not be affected.
+			 */
+			retval = gpio_direction_input(gl_ts->pdata->reset_gpio);
+			if (retval) {
+				dev_err(&gl_ts->client->dev,
+					"unable to set direction for gpio reset [%d]\n",
+					retval);
+			}
+			gpio_free(gl_ts->pdata->reset_gpio);
+		}
+	}
+
+	return 0;
+
+err_reset_gpio_dir:
+	if (gpio_is_valid(gl_ts->pdata->reset_gpio))
+		gpio_free(gl_ts->pdata->reset_gpio);
+err_reset_gpio_req:
+err_irq_gpio_dir:
+	if (gpio_is_valid(gl_ts->pdata->irq_gpio))
+		gpio_free(gl_ts->pdata->irq_gpio);
+err_irq_gpio_req:
+	return retval;
+}
+
 #if CONFIG_OF
 static int IT7260_get_dt_coords(struct device *dev, char *name,
 				struct IT7260_ts_platform_data *pdata)
@@ -1540,36 +1633,12 @@ static int IT7260_ts_probe(struct i2c_client *client,
 				"failed to select pin to active state %d",
 				ret);
 		}
-	}
-
-	/* reset gpio info */
-	if (gpio_is_valid(pdata->reset_gpio)) {
-		if (gpio_request(pdata->reset_gpio, "ite_reset_gpio")) {
-			dev_err(&client->dev,
-				"gpio_request failed for reset GPIO\n");
-		if (pdata->low_reset) {
-			if (gpio_direction_output(pdata->reset_gpio, 0))
-				dev_err(&gl_ts->client->dev,
-					"gpio_direction_output for reset GPIO\n");
-		} else {
-			if (gpio_direction_output(pdata->reset_gpio, 1))
-				dev_err(&gl_ts->client->dev,
-					"gpio_direction_output for reset GPIO\n");
+	} else {
+		ret = IT7260_gpio_configure(true);
+		if (ret < 0) {
+			dev_err(&client->dev, "Failed to configure gpios\n");
+			goto err_gpio_config;
 		}
-		dev_dbg(&gl_ts->client->dev, "Reset GPIO %d\n",
-							pdata->reset_gpio);
-	} else {
-		ret = pdata->reset_gpio;
-		goto err_gpio_config;
-	}
-
-	/* irq gpio info */
-	if (gpio_is_valid(pdata->irq_gpio)) {
-		dev_dbg(&gl_ts->client->dev, "IRQ GPIO %d, IRQ # %d\n",
-				pdata->irq_gpio, gpio_to_irq(pdata->irq_gpio));
-	} else {
-		ret = pdata->irq_gpio;
-		goto err_gpio_config;
 	}
 
 	if (!IT7260_chipIdentify()) {
@@ -1694,12 +1763,6 @@ err_input_register:
 
 err_input_alloc:
 err_identification_fail:
-err_gpio_config:
-	if (gpio_is_valid(pdata->reset_gpio))
-		gpio_free(pdata->reset_gpio);
-	if (gpio_is_valid(pdata->irq_gpio))
-		gpio_free(pdata->irq_gpio);
-
 	if (gl_ts->ts_pinctrl) {
 		if (IS_ERR_OR_NULL(gl_ts->pinctrl_state_release)) {
 			devm_pinctrl_put(gl_ts->ts_pinctrl);
@@ -1712,7 +1775,14 @@ err_gpio_config:
 					"failed to select relase pinctrl state %d\n",
 					ret);
 		}
+	} else {
+		if (gpio_is_valid(pdata->reset_gpio))
+			gpio_free(pdata->reset_gpio);
+		if (gpio_is_valid(pdata->irq_gpio))
+			gpio_free(pdata->irq_gpio);
 	}
+
+err_gpio_config:
 	IT7260_power_on(false);
 
 err_power_device:
@@ -1741,10 +1811,6 @@ static int IT7260_ts_remove(struct i2c_client *client)
 		cancel_work_sync(&gl_ts->work_pm_relax);
 		device_init_wakeup(&client->dev, false);
 	}
-	if (gpio_is_valid(gl_ts->pdata->reset_gpio))
-		gpio_free(gl_ts->pdata->reset_gpio);
-	if (gpio_is_valid(gl_ts->pdata->irq_gpio))
-		gpio_free(gl_ts->pdata->irq_gpio);
 	if (gl_ts->ts_pinctrl) {
 		if (IS_ERR_OR_NULL(gl_ts->pinctrl_state_release)) {
 			devm_pinctrl_put(gl_ts->ts_pinctrl);
@@ -1757,6 +1823,11 @@ static int IT7260_ts_remove(struct i2c_client *client)
 					"failed to select relase pinctrl state %d\n",
 					ret);
 		}
+	} else {
+		if (gpio_is_valid(gl_ts->pdata->reset_gpio))
+			gpio_free(gl_ts->pdata->reset_gpio);
+		if (gpio_is_valid(gl_ts->pdata->irq_gpio))
+			gpio_free(gl_ts->pdata->irq_gpio);
 	}
 	IT7260_power_on(false);
 	IT7260_regulator_configure(false);
