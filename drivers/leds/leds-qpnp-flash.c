@@ -37,6 +37,7 @@
 #define FLASH_LED_TMR_CTRL(base)				(base + 0x48)
 #define FLASH_HEADROOM(base)					(base + 0x4A)
 #define	FLASH_STARTUP_DELAY(base)				(base + 0x4B)
+#define FLASH_MASK_ENABLE(base)					(base + 0x4C)
 #define FLASH_VREG_OK_FORCE(base)				(base + 0x4F)
 #define FLASH_FAULT_DETECT(base)				(base + 0x51)
 #define	FLASH_THERMAL_DRATE(base)				(base + 0x52)
@@ -63,6 +64,7 @@
 #define FLASH_CURRENT_RAMP_MASK					0xBF
 #define FLASH_VPH_PWR_DROOP_MASK				0xF3
 #define FLASH_LED_HDRM_SNS_ENABLE_MASK				0x81
+#define	FLASH_MASK_MODULE_CONTRL_MASK				0xE0
 
 #define FLASH_LED_TRIGGER_DEFAULT				"none"
 #define FLASH_LED_HEADROOM_DEFAULT_MV				500
@@ -92,6 +94,7 @@
 #define	FLASH_LED_VPH_DROOP_THRESHOLD_DIVIDER			100
 #define FLASH_LED_HDRM_SNS_ENABLE				0x81
 #define	FLASH_LED_UA_PER_MA					1000
+#define	FLASH_LED_MASK_MODULE_MASK2_ENABLE			0x20
 
 #define FLASH_UNLOCK_SECURE					0xA5
 #define FLASH_LED_TORCH_ENABLE					0x00
@@ -188,12 +191,16 @@ struct flash_led_platform_data {
 struct qpnp_flash_led {
 	struct spmi_device		*spmi_dev;
 	struct flash_led_platform_data	*pdata;
+	struct pinctrl			*pinctrl;
+	struct pinctrl_state		*gpio_state_active;
+	struct pinctrl_state		*gpio_state_suspend;
 	struct flash_node_data		*flash_node;
 	struct power_supply		*battery_psy;
 	struct mutex			flash_led_lock;
 	int				num_leds;
 	u16				base;
 	u8				peripheral_type;
+	bool				gpio_enabled;
 };
 
 static u8 qpnp_flash_led_ctrl_dbg_regs[] = {
@@ -535,6 +542,17 @@ static int qpnp_flash_led_module_disable(struct qpnp_flash_led *led,
 			return -EINVAL;
 		}
 
+		if (led->pinctrl) {
+			rc = pinctrl_select_state(led->pinctrl,
+						led->gpio_state_suspend);
+			if (rc) {
+				dev_err(&led->spmi_dev->dev,
+						"failed to disable GPIO\n");
+				return -EINVAL;
+			}
+			led->gpio_enabled = false;
+		}
+
 		if (led->battery_psy) {
 			psy_prop.intval = false;
 			rc = led->battery_psy->set_property(led->battery_psy,
@@ -604,6 +622,17 @@ static void qpnp_flash_led_work(struct work_struct *work)
 				"Boost regulator enablement failed\n");
 			goto error_regulator_enable;
 		}
+	}
+
+	if (!led->gpio_enabled && led->pinctrl) {
+		rc = pinctrl_select_state(led->pinctrl,
+						led->gpio_state_active);
+		if (rc) {
+			dev_err(&led->spmi_dev->dev,
+						"failed to enable GPIO\n");
+			goto error_enable_gpio;
+		}
+		led->gpio_enabled = true;
 	}
 
 	if (flash_node->type == TORCH) {
@@ -772,15 +801,15 @@ turn_off:
 		goto exit_flash_led_work;
 	}
 
-	usleep_range(FLASH_RAMP_DN_DELAY_US, FLASH_RAMP_DN_DELAY_US);
+	usleep_range(FLASH_RAMP_DN_DELAY_US, FLASH_RAMP_UP_DELAY_US);
 
+exit_flash_led_work:
 	rc = qpnp_flash_led_module_disable(led, flash_node);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "Module disable failed\n");
 		goto exit_flash_led_work;
 	}
-
-exit_flash_led_work:
+error_enable_gpio:
 	if (flash_node->boost_regulator && flash_node->flash_on) {
 		regulator_disable(flash_node->boost_regulator);
 error_regulator_enable:
@@ -901,6 +930,14 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 	if (rc) {
 		dev_err(&led->spmi_dev->dev,
 					"Fault detect reg write failed\n");
+		return rc;
+	}
+
+	rc = qpnp_led_masked_write(led->spmi_dev, FLASH_MASK_ENABLE(led->base),
+				FLASH_MASK_MODULE_CONTRL_MASK,
+				FLASH_LED_MASK_MODULE_MASK2_ENABLE);
+	if (rc) {
+		dev_err(&led->spmi_dev->dev, "Mask module enable failed\n");
 		return rc;
 	}
 
@@ -1274,6 +1311,34 @@ static int qpnp_flash_led_parse_common_dt(
 
 	led->pdata->power_detect_en = of_property_read_bool(node,
 						"qcom,power-detect-enabled");
+
+	led->pinctrl = devm_pinctrl_get(&led->spmi_dev->dev);
+	if (IS_ERR_OR_NULL(led->pinctrl)) {
+		dev_err(&led->spmi_dev->dev,
+					"Unable to acquire pinctrl\n");
+		led->pinctrl = NULL;
+		return 0;
+	} else {
+		led->gpio_state_active =
+			pinctrl_lookup_state(led->pinctrl, "flash_led_enable");
+		if (IS_ERR_OR_NULL(led->gpio_state_active)) {
+			dev_err(&led->spmi_dev->dev,
+					"Can not lookup LED active state\n");
+			devm_pinctrl_put(led->pinctrl);
+			led->pinctrl = NULL;
+			return PTR_ERR(led->gpio_state_active);
+		}
+		led->gpio_state_suspend =
+			pinctrl_lookup_state(led->pinctrl,
+							"flash_led_disable");
+		if (IS_ERR_OR_NULL(led->gpio_state_suspend)) {
+			dev_err(&led->spmi_dev->dev,
+					"Can not lookup LED disable state\n");
+			devm_pinctrl_put(led->pinctrl);
+			led->pinctrl = NULL;
+			return PTR_ERR(led->gpio_state_suspend);
+		}
+	}
 
 	return 0;
 }
