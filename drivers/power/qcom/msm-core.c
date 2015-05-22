@@ -875,6 +875,9 @@ static int msm_core_params_init(struct platform_device *pdev)
 	for_each_possible_cpu(cpu) {
 		child_node = of_get_cpu_node(cpu, NULL);
 
+		if (!child_node)
+			continue;
+
 		mpidr = msm_core_mpidr_init(child_node);
 		if (mpidr < 0)
 			return mpidr;
