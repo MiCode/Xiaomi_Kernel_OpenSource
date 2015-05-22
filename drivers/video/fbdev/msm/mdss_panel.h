@@ -775,6 +775,13 @@ int mdss_panel_get_boot_cfg(void);
  */
 bool mdss_is_ready(void);
 int mdss_rect_cmp(struct mdss_rect *rect1, struct mdss_rect *rect2);
+
+/**
+ * mdss_panel_override_te_params() - overrides TE params to enable SW TE
+ * @pinfo: panel info
+ */
+void mdss_panel_override_te_params(struct mdss_panel_info *pinfo);
+
 #ifdef CONFIG_FB_MSM_MDSS
 int mdss_panel_debugfs_init(struct mdss_panel_info *panel_info);
 void mdss_panel_debugfs_cleanup(struct mdss_panel_info *panel_info);

@@ -1290,16 +1290,7 @@ static void mdss_panel_parse_te_params(struct device_node *np,
 
 	/* override te parameters if panel is in sw te mode */
 	if (panel_info->sim_panel_mode == SIM_SW_TE_MODE) {
-		panel_info->te.sync_cfg_height = panel_info->yres
-				+ panel_info->lcdc.v_front_porch
-				+ panel_info->lcdc.v_back_porch;
-		panel_info->te.vsync_init_val = 0;
-		panel_info->te.start_pos = 5;
-		panel_info->te.rd_ptr_irq = 1;
-		pr_debug("SW TE override: read_ptr:%d,start_pos:%d,height:%d,init_val:%d\n",
-			panel_info->te.rd_ptr_irq, panel_info->te.start_pos,
-			panel_info->te.sync_cfg_height,
-			panel_info->te.vsync_init_val);
+		mdss_panel_override_te_params(panel_info);
 	} else {
 		rc = of_property_read_u32
 			(np, "qcom,mdss-tear-check-sync-cfg-height", &tmp);

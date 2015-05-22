@@ -504,6 +504,18 @@ void mdss_panel_debugfs_cleanup(struct mdss_panel_info *panel_info)
 	pr_debug("Cleaned up mdss_panel_debugfs_info\n");
 }
 
+void mdss_panel_override_te_params(struct mdss_panel_info *pinfo)
+{
+	pinfo->te.sync_cfg_height = mdss_panel_get_vtotal(pinfo);
+	pinfo->te.vsync_init_val = 0;
+	pinfo->te.start_pos = 5;
+	pinfo->te.rd_ptr_irq = 1;
+	pr_debug("SW TE override: read_ptr:%d,start_pos:%d,height:%d,init_val:%d\n",
+		pinfo->te.rd_ptr_irq, pinfo->te.start_pos,
+		pinfo->te.sync_cfg_height,
+		pinfo->te.vsync_init_val);
+}
+
 void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info)
 {
 	struct mdss_panel_data *pdata;
@@ -550,6 +562,11 @@ void mdss_panel_debugfsinfo_to_panelinfo(struct mdss_panel_info *panel_info)
 		}
 
 		pinfo->panel_max_vtotal = mdss_panel_get_vtotal(pinfo);
+
+		/* override te parameters if panel is in sw te mode */
+		if (panel_info->sim_panel_mode == SIM_SW_TE_MODE)
+			mdss_panel_override_te_params(panel_info);
+
 		pdata = pdata->next;
 	} while (pdata);
 }
