@@ -98,6 +98,7 @@ static const char *msm8929_dt_match[] __initconst = {
 
 static const char *msm8952_dt_match[] __initconst = {
 	"qcom,msm8952",
+	"qcom,apq8052",
 	NULL
 };
 
