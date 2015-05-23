@@ -2990,7 +2990,8 @@ wait:
 			schedule_work(&chip->dump_sram);
 		goto done;
 	}
-	dump_sram(&chip->dump_sram);
+	if (fg_est_dump)
+		dump_sram(&chip->dump_sram);
 	if ((fg_debug_mask & FG_STATUS) && !vbat_in_range)
 		pr_info("Vbat out of range: v_current_pred: %d, v:%d\n",
 				fg_data[FG_DATA_CPRED_VOLTAGE].value,
