@@ -1256,6 +1256,7 @@ f_audio_unbind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct f_audio *audio = func_to_audio(f);
 
+	gaudio_cleanup();
 	usb_free_all_descriptors(f);
 	kfree(audio);
 }
@@ -1360,20 +1361,19 @@ int audio_bind_config(struct usb_configuration *c)
 	/* set up ASLA audio devices */
 	status = gaudio_setup(&audio->card);
 	if (status < 0)
-		goto add_fail;
+		goto fail;
 
 	status = usb_add_function(c, &audio->card.func);
 	if (status) {
 		pr_err("%s: Failed to add usb audio function, err = %d",
 			__func__, status);
-		goto setup_fail;
+		goto fail;
 	}
 
 	return status;
 
-add_fail:
+fail:
 	gaudio_cleanup();
-setup_fail:
 	kfree(audio);
 	return status;
 }
