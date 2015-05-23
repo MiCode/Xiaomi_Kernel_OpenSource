@@ -400,8 +400,10 @@ void kgsl_pwrctrl_pwrlevel_change(struct kgsl_device *device,
 	/* Change register settings if any  BEFORE pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 0);
 	clk_set_rate(pwr->grp_clks[0], pwrlevel->gpu_freq);
-	trace_kgsl_pwrlevel(device, pwr->active_pwrlevel,
-			pwrlevel->gpu_freq);
+	trace_kgsl_pwrlevel(device,
+			pwr->active_pwrlevel, pwrlevel->gpu_freq,
+			pwr->previous_pwrlevel,
+			pwr->pwrlevels[old_level].gpu_freq);
 	/* Change register settings if any AFTER pwrlevel change*/
 	kgsl_pwrctrl_pwrlevel_change_settings(device, 1);
 
@@ -1193,7 +1195,8 @@ void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	if (state == KGSL_PWRFLAGS_OFF) {
 		if (test_and_clear_bit(KGSL_PWRFLAGS_CLK_ON,
 			&pwr->power_flags)) {
-			trace_kgsl_clk(device, state);
+			trace_kgsl_clk(device, state,
+					kgsl_pwrctrl_active_freq(pwr));
 			for (i = KGSL_MAX_CLKS - 1; i > 0; i--)
 				if (pwr->grp_clks[i])
 					clk_disable(pwr->grp_clks[i]);
@@ -1220,7 +1223,8 @@ void kgsl_pwrctrl_clk(struct kgsl_device *device, int state,
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_CLK_ON,
 			&pwr->power_flags)) {
-			trace_kgsl_clk(device, state);
+			trace_kgsl_clk(device, state,
+					kgsl_pwrctrl_active_freq(pwr));
 			/* High latency clock maintenance. */
 			if (device->state != KGSL_STATE_NAP) {
 				if (pwr->pwrlevels[0].gpu_freq > 0)
