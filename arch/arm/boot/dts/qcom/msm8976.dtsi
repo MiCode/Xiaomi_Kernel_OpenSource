@@ -626,6 +626,7 @@
 	};
 
 	qcom,lmh@b1db000 {
+		status = "disabled";
 		compatible = "qcom,lmh";
 		interrupts = <0 264 4>;
 		reg = <0xb1db000 0x4>;
