@@ -444,6 +444,7 @@ struct smb1351_charger {
 	bool			parallel_charger;
 	bool			parallel_charger_present;
 	bool			bms_controlled_charging;
+	bool			apsd_rerun;
 
 	/* psy */
 	struct power_supply	*usb_psy;
@@ -1765,6 +1766,20 @@ static void smb1351_chg_adc_notification(enum qpnp_tm_state state, void *ctx)
 		pr_err("request ADC error\n");
 }
 
+static int rerun_apsd(struct smb1351_charger *chip)
+{
+	int rc;
+
+	pr_debug("Reruning APSD\nDisabling APSD\n");
+
+	rc = smb1351_masked_write(chip, CMD_HVDCP_REG, CMD_APSD_RE_RUN_BIT,
+						CMD_APSD_RE_RUN_BIT);
+	if (rc)
+		pr_err("Couldn't re-run APSD algo\n");
+
+	return 0;
+}
+
 static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 						u8 status)
 {
@@ -1819,6 +1834,21 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		chip->chg_present = true;
 		pr_debug("APSD complete. USB type detected=%d chg_present=%d\n",
 						type, chip->chg_present);
+		if (!chip->battery_missing && !chip->apsd_rerun
+						&& chip->usb_psy) {
+			if (type == POWER_SUPPLY_TYPE_USB) {
+				pr_debug("Setting usb psy allow detection 1 SDP and rerun\n");
+				power_supply_set_allow_detection(
+							chip->usb_psy, 1);
+				chip->apsd_rerun = true;
+				rerun_apsd(chip);
+				return 0;
+			} else {
+				pr_debug("Setting usb psy allow detection 1 DCP and no rerun\n");
+				power_supply_set_allow_detection(
+							chip->usb_psy, 1);
+			}
+		}
 		power_supply_set_supply_type(chip->usb_psy, type);
 		/*
 		 * SMB is now done sampling the D+/D- lines,
@@ -1826,7 +1856,8 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		 */
 		pr_debug("updating usb_psy present=%d\n", chip->chg_present);
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
-	} else {
+		chip->apsd_rerun = false;
+	} else if (!chip->apsd_rerun) {
 		/* Handle SDP/CDP removal */
 		chip->usb_psy->get_property(chip->usb_psy,
 					POWER_SUPPLY_PROP_TYPE, &prop);
@@ -1837,6 +1868,8 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 						POWER_SUPPLY_TYPE_UNKNOWN);
 			power_supply_set_present(chip->usb_psy,
 							chip->chg_present);
+			pr_debug("Setting usb psy allow detection 0\n");
+			power_supply_set_allow_detection(chip->usb_psy, 0);
 		}
 	}
 
@@ -1890,6 +1923,9 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 							chip->chg_present);
 				pr_debug("updating usb_psy present=%d\n",
 							chip->chg_present);
+				power_supply_set_allow_detection(
+							chip->usb_psy, 0);
+				pr_debug("Setting usb psy allow detection 0\n");
 			}
 		}
 	}
