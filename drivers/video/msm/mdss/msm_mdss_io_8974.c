@@ -417,7 +417,7 @@ void mdss_dsi_phy_init(struct mdss_dsi_ctrl_pdata *ctrl)
 	pd = &(((ctrl->panel_data).panel_info.mipi).dsi_phy_db);
 
 	/* Strength ctrl 0 for 28nm PHY*/
-	if ((ctrl->shared_data->hw_rev <= MDSS_DSI_HW_REV_103) &&
+	if ((ctrl->shared_data->hw_rev <= MDSS_DSI_HW_REV_103_1) &&
 		(ctrl->shared_data->hw_rev != MDSS_DSI_HW_REV_103))
 		MIPI_OUTP((ctrl->phy_io.base) + 0x0184, pd->strength[0]);
 
