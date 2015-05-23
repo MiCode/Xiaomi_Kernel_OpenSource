@@ -562,6 +562,14 @@ static inline struct rt_bandwidth *sched_rt_bandwidth(struct rt_rq *rt_rq)
 
 #endif /* CONFIG_RT_GROUP_SCHED */
 
+bool sched_rt_bandwidth_account(struct rt_rq *rt_rq)
+{
+	struct rt_bandwidth *rt_b = sched_rt_bandwidth(rt_rq);
+
+	return (hrtimer_active(&rt_b->rt_period_timer) ||
+		rt_rq->rt_time < rt_b->rt_runtime);
+}
+
 #ifdef CONFIG_SMP
 /*
  * We ran out of runtime, see if we can borrow some from our neighbours.
@@ -932,7 +940,7 @@ static void update_curr_rt(struct rq *rq)
 	if (curr->sched_class != &rt_sched_class)
 		return;
 
-	delta_exec = rq->clock_task - curr->se.exec_start;
+	delta_exec = rq_clock_task(rq) - curr->se.exec_start;
 	if (unlikely((s64)delta_exec <= 0))
 		return;
 
@@ -942,7 +950,7 @@ static void update_curr_rt(struct rq *rq)
 	curr->se.sum_exec_runtime += delta_exec;
 	account_group_exec_runtime(curr, delta_exec);
 
-	curr->se.exec_start = rq->clock_task;
+	curr->se.exec_start = rq_clock_task(rq);
 	cpuacct_charge(curr, delta_exec);
 
 	sched_rt_avg_update(rq, delta_exec);
@@ -1459,7 +1467,7 @@ static struct task_struct *_pick_next_task_rt(struct rq *rq)
 		update_rq_clock(rq);
 	}
 	p = rt_task_of(rt_se);
-	p->se.exec_start = rq->clock_task;
+	p->se.exec_start = rq_clock_task(rq);
 
 	return p;
 }
@@ -1942,7 +1950,7 @@ static void task_woken_rt(struct rq *rq, struct task_struct *p)
 	    !test_tsk_need_resched(rq->curr) &&
 	    has_pushable_tasks(rq) &&
 	    p->nr_cpus_allowed > 1 &&
-	    rt_task(rq->curr) &&
+	    (dl_task(rq->curr) || rt_task(rq->curr)) &&
 	    (rq->curr->nr_cpus_allowed < 2 ||
 	     rq->curr->prio <= p->prio))
 		push_rt_tasks(rq);
@@ -2170,7 +2178,7 @@ static void set_curr_task_rt(struct rq *rq)
 {
 	struct task_struct *p = rq->curr;
 
-	p->se.exec_start = rq->clock_task;
+	p->se.exec_start = rq_clock_task(rq);
 
 	/* The running task is never eligible for pushing */
 	dequeue_pushable_task(rq, p);
