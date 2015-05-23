@@ -21,6 +21,7 @@ struct diag_smd_info {
 	uint8_t type;
 	uint8_t inited;
 	atomic_t opened;
+	atomic_t diag_state;
 	uint32_t fifo_size;
 	smd_channel_t *hdl;
 	char name[DIAG_SMD_NAME_SZ];

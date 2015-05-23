@@ -552,6 +552,16 @@ int diagfwd_register(uint8_t transport, uint8_t peripheral, uint8_t type,
 		return -EINVAL;
 	}
 
+	if (atomic_read(&fwd_info->opened) &&
+	    fwd_info->p_ops && fwd_info->p_ops->open) {
+		/*
+		 * The registration can happen late, like in the case of
+		 * sockets. fwd_info->opened reflects diag_state. Propogate the
+		 * state to the peipherals.
+		 */
+		fwd_info->p_ops->open(fwd_info->ctxt);
+	}
+
 	return 0;
 }
 
@@ -690,6 +700,9 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 		atomic_set(&fwd_info->buf_2->in_busy, 0);
 	spin_unlock_irqrestore(&fwd_info->buf_lock, flags);
 
+	if (fwd_info->p_ops && fwd_info->p_ops->open)
+		fwd_info->p_ops->open(fwd_info->ctxt);
+
 	diagfwd_queue_read(fwd_info);
 }
 
@@ -736,6 +749,9 @@ void diagfwd_close(uint8_t peripheral, uint8_t type)
 	if (!fwd_info->inited)
 		return;
 
+	if (fwd_info->p_ops && fwd_info->p_ops->close)
+		fwd_info->p_ops->close(fwd_info->ctxt);
+
 	spin_lock_irqsave(&fwd_info->buf_lock, flags);
 	if (fwd_info->buf_1)
 		atomic_set(&fwd_info->buf_1->in_busy, 1);
@@ -772,6 +788,12 @@ int diagfwd_channel_open(struct diagfwd_info *fwd_info)
 	diagfwd_queue_read(fwd_info);
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "p: %d t: %d considered opened\n",
 		 fwd_info->peripheral, fwd_info->type);
+
+	if (atomic_read(&fwd_info->opened)) {
+		if (fwd_info->p_ops && fwd_info->p_ops->open)
+			fwd_info->p_ops->open(fwd_info->ctxt);
+	}
+
 	return 0;
 }
 

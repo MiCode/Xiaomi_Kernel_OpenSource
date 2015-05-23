@@ -34,6 +34,7 @@ struct diag_socket_info {
 	uint8_t port_type;
 	uint8_t inited;
 	atomic_t opened;
+	atomic_t diag_state;
 	uint32_t pkt_len;
 	uint32_t pkt_read;
 	uint32_t svc_id;

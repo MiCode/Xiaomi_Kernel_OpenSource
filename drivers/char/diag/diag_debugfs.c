@@ -509,6 +509,7 @@ static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
 				"hdl\t\t:\t%p\n"
 				"inited\t\t:\t%d\n"
 				"opened\t\t:\t%d\n"
+				"diag_state\t:\t%d\n"
 				"fifo size\t:\t%d\n"
 				"open pending\t:\t%d\n"
 				"close pending\t:\t%d\n"
@@ -524,6 +525,7 @@ static ssize_t diag_dbgfs_read_smdinfo(struct file *file, char __user *ubuf,
 				smd_info->hdl,
 				smd_info->inited,
 				atomic_read(&smd_info->opened),
+				atomic_read(&smd_info->diag_state),
 				smd_info->fifo_size,
 				work_pending(&smd_info->open_work),
 				work_pending(&smd_info->close_work),
@@ -613,6 +615,7 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 				"hdl\t\t:\t%p\n"
 				"inited\t\t:\t%d\n"
 				"opened\t\t:\t%d\n"
+				"diag_state\t:\t%d\n"
 				"buf_1 busy\t:\t%d\n"
 				"buf_2 busy\t:\t%d\n"
 				"data_ready\t:\t%d\n"
@@ -627,6 +630,7 @@ static ssize_t diag_dbgfs_read_socketinfo(struct file *file, char __user *ubuf,
 				info->hdl,
 				info->inited,
 				atomic_read(&info->opened),
+				atomic_read(&info->diag_state),
 				(fwd_ctxt && fwd_ctxt->buf_1) ?
 				atomic_read(&fwd_ctxt->buf_1->in_busy) : -1,
 				(fwd_ctxt && fwd_ctxt->buf_2) ?
