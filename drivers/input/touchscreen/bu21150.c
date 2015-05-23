@@ -37,6 +37,7 @@
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #include <linux/msm_mdp.h>
+#include <linux/list.h>
 
 /* define */
 #define DEVICE_NAME   "jdi-bu21150"
@@ -79,6 +80,14 @@
 #define BU21150_PINCTRL_DDIC_RST_ACT		"ddic_rst_active"
 #define BU21150_PINCTRL_DDIC_RST_SUS		"ddic_rst_suspend"
 
+#define BU21150_LIST_MAX_FRAMES			20
+
+struct bu21150_frame {
+	struct list_head list;
+	u8 frame[MAX_FRAME_SIZE];
+	struct timeval tv;
+};
+
 /* struct */
 struct bu21150_data {
 	/* system */
@@ -97,11 +106,12 @@ struct bu21150_data {
 	struct notifier_block fb_notif;
 	/* frame */
 	struct bu21150_ioctl_get_frame_data req_get;
-	u8 frame[MAX_FRAME_SIZE];
+	struct bu21150_frame frame_list;
+	u8 frame_count;
 	struct bu21150_ioctl_get_frame_data frame_get;
-	struct timeval tv;
 	struct mutex mutex_frame;
 	struct mutex mutex_wake;
+	bool irq_enabled;
 	/* frame work */
 	u8 frame_work[MAX_FRAME_SIZE];
 	struct bu21150_ioctl_get_frame_data frame_work_get;
@@ -912,6 +922,8 @@ static int bu21150_probe(struct spi_device *client)
 		goto err_pin_enable;
 	}
 
+	INIT_LIST_HEAD(&ts->frame_list.list);
+
 	mutex_init(&ts->mutex_frame);
 	init_waitqueue_head(&(ts->frame_waitq));
 
@@ -983,6 +995,8 @@ static int bu21150_fb_suspend(struct device *dev)
 	int rc;
 	u8 buf1[2] = {0x00, 0x00};
 	u8 buf2[2] = {0x04, 0x00};
+	struct bu21150_frame *temp;
+	struct list_head *pos, *n;
 
 	if (ts->suspended)
 		return 0;
@@ -998,6 +1012,16 @@ static int bu21150_fb_suspend(struct device *dev)
 	ts->unblock_flag = 1;
 	/* wake up */
 	wake_up_frame_waitq(ts);
+
+	/* empty list */
+	mutex_lock(&ts->mutex_frame);
+	list_for_each_safe(pos, n, &ts->frame_list.list) {
+		 temp = list_entry(pos, struct bu21150_frame, list);
+		 list_del(pos);
+		 kfree(temp);
+	}
+	ts->frame_count = 0;
+	mutex_unlock(&ts->mutex_frame);
 
 	rc = bu21150_write_register(REG_INT_RUN_ENB, (u16)sizeof(buf2), buf2);
 	if (rc)
@@ -1037,6 +1061,8 @@ static int bu21150_fb_resume(struct device *dev)
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
 	int rc;
 	u8 buf[2] = {0x01, 0x00};
+	struct bu21150_frame *temp;
+	struct list_head *pos, *n;
 
 	if (!ts->suspended)
 		return 0;
@@ -1071,6 +1097,16 @@ static int bu21150_fb_resume(struct device *dev)
 		dev_err(&ts->client->dev,
 			"%s: failed to write to REG_INT_RUN_ENB (%d)\n",
 			__func__, rc);
+
+	/* empty list */
+	mutex_lock(&ts->mutex_frame);
+	list_for_each_safe(pos, n, &ts->frame_list.list) {
+		 temp = list_entry(pos, struct bu21150_frame, list);
+		 list_del(pos);
+		 kfree(temp);
+	}
+	ts->frame_count = 0;
+	mutex_unlock(&ts->mutex_frame);
 
 	ts->suspended = false;
 
@@ -1189,8 +1225,6 @@ static int bu21150_remove(struct spi_device *client)
 static int bu21150_open(struct inode *inode, struct file *filp)
 {
 	struct bu21150_data *ts = spi_get_drvdata(g_client_bu21150);
-	struct spi_device *client = ts->client;
-	int error;
 
 	if (g_io_opened) {
 		pr_err("%s: g_io_opened not zero.\n", __func__);
@@ -1214,17 +1248,6 @@ static int bu21150_open(struct inode *inode, struct file *filp)
 	memset(&(ts->frame_work_get), 0,
 		sizeof(struct bu21150_ioctl_get_frame_data));
 
-	error = request_threaded_irq(client->irq, NULL, bu21150_irq_thread,
-				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
-				client->dev.driver->name, ts);
-	if (error) {
-		dev_err(&client->dev, "Failed to register interrupt\n");
-		return error;
-	}
-
-	if (ts->wake_up)
-		enable_irq_wake(ts->client->irq);
-
 	return 0;
 }
 
@@ -1242,10 +1265,15 @@ static int bu21150_release(struct inode *inode, struct file *filp)
 	if (g_io_opened < 0)
 		g_io_opened = 0;
 
+	wake_up_frame_waitq(ts);
+	if (ts->timeout_enb)
+		get_frame_timer_delete();
+
 	if (ts->wake_up)
 		disable_irq_wake(ts->client->irq);
 
 	free_irq(client->irq, ts);
+	ts->irq_enabled = false;
 
 	return 0;
 }
@@ -1317,6 +1345,20 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 		return -EINVAL;
 	}
 
+
+	if (!ts->irq_enabled) {
+		ret = request_threaded_irq(ts->client->irq, NULL,
+					bu21150_irq_thread,
+					IRQF_TRIGGER_LOW | IRQF_ONESHOT,
+					ts->client->dev.driver->name, ts);
+		if (ret) {
+			dev_err(&ts->client->dev, "Failed to register interrupt\n");
+			return ret;
+		}
+
+		ts->irq_enabled = true;
+	}
+
 	if (ts->timeout_enb == 1)
 		get_frame_timer_init();
 
@@ -1335,16 +1377,35 @@ static long bu21150_ioctl_get_frame(unsigned long arg)
 	/* copy frame */
 	mutex_lock(&ts->mutex_frame);
 	frame_size = ts->frame_get.size;
-	if (copy_to_user(data.buf, ts->frame, frame_size)) {
+
+	if (!list_empty(&ts->frame_list.list)) {
+		struct bu21150_frame *temp;
+
+		temp = list_first_entry(&ts->frame_list.list,
+				struct bu21150_frame, list);
+		if (copy_to_user(data.buf, temp->frame, frame_size)) {
+			mutex_unlock(&ts->mutex_frame);
+			pr_err("%s: Failed to copy_to_user().\n", __func__);
+			return -EFAULT;
+		}
+		if (copy_to_user(data.tv, &(temp->tv),
+				sizeof(struct timeval))) {
+			mutex_unlock(&ts->mutex_frame);
+			pr_err("%s: Failed to copy_to_user().\n", __func__);
+			return -EFAULT;
+		}
+		list_del(&temp->list);
+		kfree(temp);
+		ts->frame_count--;
+	} else {
+		pr_debug("%s: no frame!!! unblock\n", __func__);
 		mutex_unlock(&ts->mutex_frame);
-		pr_err("%s: Failed to copy_to_user().\n", __func__);
-		return -EFAULT;
+		return BU21150_UNBLOCK;
 	}
-	if (copy_to_user(data.tv, &(ts->tv), sizeof(struct timeval))) {
-		mutex_unlock(&ts->mutex_frame);
-		pr_err("%s: Failed to copy_to_user().\n", __func__);
-		return -EFAULT;
-	}
+
+	if (!list_empty(&ts->frame_list.list))
+		wake_up_frame_waitq(ts);
+
 	mutex_unlock(&ts->mutex_frame);
 
 	return 0;
@@ -1554,8 +1615,7 @@ static long bu21150_ioctl_set_scan_mode(unsigned long arg)
 
 	mutex_lock(&ts->mutex_wake);
 
-	if (ts->stay_awake && ts->wake_up &&
-			ts->scan_mode != AFE_SCAN_GESTURE_SELF_CAP) {
+	if (ts->stay_awake && ts->wake_up) {
 		pm_relax(&ts->client->dev);
 		ts->stay_awake = false;
 	}
@@ -1569,6 +1629,7 @@ static irqreturn_t bu21150_irq_thread(int irq, void *dev_id)
 {
 	struct bu21150_data *ts = dev_id;
 	u8 *psbuf = (u8 *)ts->frame_work;
+	int ret;
 
 	mutex_lock(&ts->mutex_wake);
 
@@ -1582,7 +1643,12 @@ static irqreturn_t bu21150_irq_thread(int irq, void *dev_id)
 
 	/* get frame */
 	ts->frame_work_get = ts->req_get;
-	bu21150_read_register(REG_READ_DATA, ts->frame_work_get.size, psbuf);
+	ret = bu21150_read_register(REG_READ_DATA,
+			ts->frame_work_get.size, psbuf);
+	if (ret) {
+		pr_err("%s: failed to read frame (%d)\n", __func__, ret);
+		goto err_read_reg;
+	}
 
 	if (ts->reset_flag == 0) {
 #ifdef CHECK_SAME_FRAME
@@ -1594,6 +1660,7 @@ static irqreturn_t bu21150_irq_thread(int irq, void *dev_id)
 		ts->reset_flag = 0;
 	}
 
+err_read_reg:
 	return IRQ_HANDLED;
 }
 
@@ -1624,11 +1691,12 @@ static int bu21150_read_register(u32 addr, u16 size, u8 *data)
 	req->xfer[0].bits_per_word = SPI_BITS_PER_WORD_READ;
 	spi_message_add_tail(&req->xfer[0], &req->msg);
 	ret = spi_sync(client, &req->msg);
-	if (ret)
+	if (ret) {
 		pr_err("%s: spi_sync read data error:ret=[%d]", __func__, ret);
-
-	memcpy(data, output+SPI_HEADER_SIZE, size);
-	swap_2byte(data, size);
+	} else {
+		memcpy(data, output+SPI_HEADER_SIZE, size);
+		swap_2byte(data, size);
+	}
 
 	kfree(req);
 	kfree(input);
@@ -1701,6 +1769,7 @@ static long wait_frame_waitq(struct bu21150_data *ts, u8 flag)
 		if (ts->timeout_flag == 1) {
 			ts->set_timer_flag = 0;
 			ts->timeout_flag = 0;
+			pr_err("%s: return BU21150_TIMEOUT\n", __func__);
 			return BU21150_TIMEOUT;
 		}
 	}
@@ -1732,10 +1801,27 @@ static int is_same_bu21150_ioctl_get_frame_data(
 
 static void copy_frame(struct bu21150_data *ts)
 {
+	struct bu21150_frame *temp;
+
 	mutex_lock(&(ts->mutex_frame));
+	/* check for max limit */
+	if (ts->frame_count >= BU21150_LIST_MAX_FRAMES) {
+		struct bu21150_frame *tmp;
+
+		pr_err("max limit!!! frame_count=%d\n", ts->frame_count);
+		tmp = list_first_entry(&ts->frame_list.list,
+				struct bu21150_frame, list);
+		list_del(&tmp->list);
+		kfree(tmp);
+		ts->frame_count--;
+	}
+
+	temp = kzalloc(sizeof(struct bu21150_frame), GFP_KERNEL);
 	ts->frame_get = ts->frame_work_get;
-	memcpy(ts->frame, ts->frame_work, MAX_FRAME_SIZE);
-	do_gettimeofday(&(ts->tv));
+	memcpy(temp->frame, ts->frame_work, MAX_FRAME_SIZE);
+	do_gettimeofday(&(temp->tv));
+	list_add_tail(&(temp->list), &(ts->frame_list.list));
+	ts->frame_count++;
 	mutex_unlock(&(ts->mutex_frame));
 }
 
@@ -1757,10 +1843,23 @@ static void swap_2byte(unsigned char *buf, unsigned int size)
 static void check_same_frame(struct bu21150_data *ts)
 {
 	static int frame_no = -1;
-	u16 *ps = (u16 *)ts->frame;
-	if (ps[2] == frame_no)
-		pr_err("%s:same_frame_no=[%d]\n", __func__, frame_no);
-	frame_no = ps[2];
+	u16 *ps;
+	struct bu21150_frame *temp;
+	struct list_head *pos, *n;
+
+	mutex_lock(&ts->mutex_frame);
+	if (!list_empty(&ts->frame_list.list)) {
+		/* get the last node */
+		temp = list_entry(&ts->frame_list.list->prev,
+				struct bu21150_frame, list);
+
+		ps = (u16 *)temp->frame;
+
+		if (ps[2] == frame_no)
+			pr_err("%s:same_frame_no=[%d]\n", __func__, frame_no);
+		frame_no = ps[2];
+	}
+	mutex_unlock(&ts->mutex_frame);
 }
 #endif
 
