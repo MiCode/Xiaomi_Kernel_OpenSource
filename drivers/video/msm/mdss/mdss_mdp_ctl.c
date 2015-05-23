@@ -1813,6 +1813,8 @@ static struct mdss_mdp_mixer *mdss_mdp_mixer_alloc(
 		mixer->ref_cnt++;
 		mixer->params_changed++;
 		mixer->ctl = ctl;
+		mixer->next_pipe_map = 0;
+		mixer->pipe_mapped = 0;
 		pr_debug("alloc mixer num %d for ctl=%d\n",
 				mixer->num, ctl->num);
 	}
@@ -2830,6 +2832,31 @@ end:
 }
 
 /*
+ * mdss_mdp_pipe_reset() - Halts all the pipes during ctl reset.
+ * @mixer: Mixer from which to reset all pipes.
+ * This function called during control path reset and will halt
+ * all the pipes staged on the mixer.
+ */
+static void mdss_mdp_pipe_reset(struct mdss_mdp_mixer *mixer)
+{
+	unsigned long pipe_map = mixer->pipe_mapped;
+	u32 bit = 0;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool sw_rst_avail = mdss_mdp_pipe_is_sw_reset_available(mdata);
+
+	pr_debug("pipe_map=0x%lx\n", pipe_map);
+	for_each_set_bit_from(bit, &pipe_map, MAX_PIPES_PER_LM) {
+		struct mdss_mdp_pipe *pipe;
+		pipe = mdss_mdp_pipe_search(mdata, 1 << bit);
+		if (pipe) {
+			mdss_mdp_pipe_fetch_halt(pipe);
+			if (sw_rst_avail)
+				mdss_mdp_pipe_clk_force_off(pipe);
+		}
+	}
+}
+
+/*
  * mdss_mdp_ctl_reset() - reset mdp ctl path.
  * @ctl: mdp controller.
  * this function called when underflow happen,
@@ -2841,6 +2868,7 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl)
 {
 	u32 status = 1;
 	int cnt = 20;
+	struct mdss_mdp_mixer *mixer = ctl->mixer_left;
 
 	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_SW_RESET, 1);
 
@@ -2856,10 +2884,17 @@ int mdss_mdp_ctl_reset(struct mdss_mdp_ctl *ctl)
 		pr_debug("status=%x\n", status);
 		cnt--;
 		if (cnt == 0) {
-			pr_err("timeout\n");
+			pr_err("ctl%d reset timedout\n", ctl->num);
 			return -EAGAIN;
 		}
 	} while (status);
+
+	if (mixer) {
+		mdss_mdp_pipe_reset(mixer);
+
+		if (ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY)
+			mdss_mdp_pipe_reset(ctl->mixer_right);
+	}
 
 	return 0;
 }
@@ -2885,6 +2920,28 @@ static void mdss_mdp_set_mixer_roi(struct mdss_mdp_ctl *ctl,
 
 	pr_debug("ROI requested: [%d]: [%d, %d, %d, %d]\n",
 		ctl->num, ctl->roi.x, ctl->roi.y, ctl->roi.w, ctl->roi.h);
+}
+
+/*
+ * mdss_mdp_mixer_update_pipe_map() - keep track of pipe configuration in  mixer
+ * @master_ctl: mdp controller.
+ *
+ * This function keeps track of the current mixer configuration in the hardware.
+ * It's callers responsibility to call with master control.
+ */
+static void mdss_mdp_mixer_update_pipe_map(struct mdss_mdp_ctl *master_ctl,
+		       int mixer_mux)
+{
+	struct mdss_mdp_mixer *mixer = mdss_mdp_mixer_get(master_ctl,
+			mixer_mux);
+
+	if (!mixer)
+		return;
+
+	pr_debug("mixer%d pipe_mapped=0x%x next_pipes=0x%x\n",
+		mixer->num, mixer->pipe_mapped, mixer->next_pipe_map);
+
+	mixer->pipe_mapped = mixer->next_pipe_map;
 }
 
 static inline u32 mdss_mdp_mpq_pipe_num_map(u32 pipe_num)
@@ -3006,6 +3063,13 @@ static void mdss_mdp_mixer_setup(struct mdss_mdp_ctl *master_ctl,
 			mixer->stage_pipe[i] = NULL;
 			continue;
 		}
+
+		/*
+		 * pipe which is staged on both LMs will be tracked through
+		 * left mixer only.
+		 */
+		if (!pipe->src_split_req || !mixer->is_right_mixer)
+			mixer->next_pipe_map |= pipe->ndx;
 
 		blend_stage = stage - MDSS_MDP_STAGE_0;
 		off = MDSS_MDP_REG_LM_BLEND_OFFSET(blend_stage);
@@ -3585,6 +3649,7 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 {
 	struct mdss_mdp_ctl *sctl = NULL;
 	int ret;
+	bool recovery_needed = false;
 
 	if (use_lock) {
 		ret = mutex_lock_interruptible(&ctl->lock);
@@ -3599,15 +3664,27 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 	}
 
 	ATRACE_BEGIN("wait_pingpong");
-	ctl->ops.wait_pingpong(ctl, NULL);
+	ret = ctl->ops.wait_pingpong(ctl, NULL);
 	ATRACE_END("wait_pingpong");
+	if (ret)
+		recovery_needed = true;
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 
 	if (sctl && sctl->ops.wait_pingpong) {
 		ATRACE_BEGIN("wait_pingpong sctl");
-		sctl->ops.wait_pingpong(sctl, NULL);
+		ret = sctl->ops.wait_pingpong(sctl, NULL);
 		ATRACE_END("wait_pingpong sctl");
+		if (ret)
+			recovery_needed = true;
+	}
+
+	if (recovery_needed) {
+		mdss_mdp_ctl_reset(ctl);
+		if (sctl)
+			mdss_mdp_ctl_reset(sctl);
+
+		pr_debug("pingpong timeout recovery finished\n");
 	}
 
 	if (use_lock)
@@ -3859,6 +3936,9 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	wmb();
 	ctl->flush_reg_data = ctl_flush_bits;
 	ctl->flush_bits = 0;
+
+	mdss_mdp_mixer_update_pipe_map(ctl, MDSS_MDP_MIXER_MUX_LEFT);
+	mdss_mdp_mixer_update_pipe_map(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
 
 	if (sctl && !ctl->valid_roi && sctl->valid_roi) {
 		/*
