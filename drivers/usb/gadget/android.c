@@ -1768,14 +1768,10 @@ static int serial_function_bind_config(struct android_usb_function *f,
 {
 	char *name, *xport_name = NULL;
 	char buf[32], *b, xport_name_buf[32], *tb;
-	int err = -1, i;
-	static int serial_initialized = 0, ports = 0;
+	int err = -1, i, ports = 0;
+	static int serial_initialized;
 	struct serial_function_config *config = f->config;
 
-	if (serial_initialized)
-		goto bind_config;
-
-	serial_initialized = 1;
 	strlcpy(buf, serial_transports, sizeof(buf));
 	b = strim(buf);
 
@@ -1788,10 +1784,14 @@ static int serial_function_bind_config(struct android_usb_function *f,
 		if (name) {
 			if (tb)
 				xport_name = strsep(&tb, ",");
-			err = gserial_init_port(ports, name, xport_name);
-			if (err) {
-				pr_err("serial: Cannot open port '%s'", name);
-				goto out;
+			if (!serial_initialized) {
+				err = gserial_init_port(ports, name,
+						xport_name);
+				if (err) {
+					pr_err("serial: Cannot open port '%s'",
+							name);
+					goto out;
+				}
 			}
 			ports++;
 			if (ports >= MAX_SERIAL_INSTANCES) {
@@ -1800,6 +1800,12 @@ static int serial_function_bind_config(struct android_usb_function *f,
 			}
 		}
 	}
+
+	config->instances_on = ports;
+
+	if (serial_initialized)
+		goto bind_config;
+
 	err = gport_setup(c);
 	if (err) {
 		pr_err("serial: Cannot setup transports");
@@ -1818,7 +1824,8 @@ static int serial_function_bind_config(struct android_usb_function *f,
 			goto err_gser_usb_get_function;
 		}
 	}
-	config->instances_on = ports;
+
+	serial_initialized = 1;
 
 bind_config:
 	for (i = 0; i < ports; i++) {
