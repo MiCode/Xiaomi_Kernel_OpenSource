@@ -87,6 +87,24 @@
  * contexts and command batches.  Update this comment as new flags are added.
  */
 
+/*
+ * gpu_command_object flags - these flags communicate the type of command or
+ * memory object being submitted for a GPU command
+ */
+
+/* Flags for GPU command objects */
+#define KGSL_CMDLIST_IB                  0x00000001U
+#define KGSL_CMDLIST_CTXTSWITCH_PREAMBLE 0x00000002U
+#define KGSL_CMDLIST_IB_PREAMBLE         0x00000004U
+
+/* Flags for GPU command memory objects */
+#define KGSL_OBJLIST_MEMOBJ  0x00000008U
+#define KGSL_OBJLIST_PROFILE 0x00000010U
+
+/* Flags for GPU command sync points */
+#define KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP 0
+#define KGSL_CMD_SYNCPOINT_TYPE_FENCE 1
+
 /* --- Memory allocation flags --- */
 
 /* General allocation hints */
@@ -969,13 +987,9 @@ struct kgsl_cmd_syncpoint_timestamp {
 	unsigned int timestamp;
 };
 
-#define KGSL_CMD_SYNCPOINT_TYPE_TIMESTAMP 0
-
 struct kgsl_cmd_syncpoint_fence {
 	int fd;
 };
-
-#define KGSL_CMD_SYNCPOINT_TYPE_FENCE 1
 
 /**
  * struct kgsl_cmd_syncpoint - Define a sync point for a command batch
@@ -1298,5 +1312,66 @@ struct kgsl_gpuobj_sync {
 
 #define IOCTL_KGSL_GPUOBJ_SYNC \
 	_IOW(KGSL_IOC_TYPE, 0x49, struct kgsl_gpuobj_sync)
+
+/**
+ * struct kgsl_command_object - GPU command object
+ * @offset: GPU address offset of the object
+ * @gpuaddr: GPU address of the object
+ * @size: Size of the object
+ * @flags: Current flags for the object
+ * @id - GPU command object ID
+ */
+struct kgsl_command_object {
+	uint64_t offset;
+	uint64_t gpuaddr;
+	uint64_t size;
+	unsigned int flags;
+	unsigned int id;
+};
+
+/**
+ * struct kgsl_command_syncpoint - GPU syncpoint object
+ * @priv: Pointer to the type specific buffer
+ * @size: Size of the type specific buffer
+ * @type: type of sync point defined here
+ */
+struct kgsl_command_syncpoint {
+	uint64_t __user priv;
+	uint64_t size;
+	unsigned int type;
+};
+
+/**
+ * struct kgsl_command_object - Argument for IOCTL_KGSL_GPU_COMMAND
+ * @flags: Current flags for the object
+ * @cmdlist: List of kgsl_command_objects for submission
+ * @cmd_size: Size of kgsl_command_objects structure
+ * @numcmds: Number of kgsl_command_objects in command list
+ * @objlist: List of kgsl_command_objects for tracking
+ * @obj_size: Size of kgsl_command_objects structure
+ * @numobjs: Number of kgsl_command_objects in object list
+ * @synclist: List of kgsl_command_syncpoints
+ * @sync_size: Size of kgsl_command_syncpoint structure
+ * @numsyncs: Number of kgsl_command_syncpoints in syncpoint list
+ * @context_id: Context ID submittin ghte kgsl_gpu_command
+ * @timestamp: Timestamp for the submitted commands
+ */
+struct kgsl_gpu_command {
+	uint64_t flags;
+	uint64_t __user cmdlist;
+	unsigned int cmdsize;
+	unsigned int numcmds;
+	uint64_t __user objlist;
+	unsigned int objsize;
+	unsigned int numobjs;
+	uint64_t __user synclist;
+	unsigned int syncsize;
+	unsigned int numsyncs;
+	unsigned int context_id;
+	unsigned int timestamp;
+};
+
+#define IOCTL_KGSL_GPU_COMMAND \
+	_IOWR(KGSL_IOC_TYPE, 0x4A, struct kgsl_gpu_command)
 
 #endif /* _UAPI_MSM_KGSL_H */

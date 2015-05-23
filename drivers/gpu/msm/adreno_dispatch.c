@@ -1821,7 +1821,7 @@ void adreno_fault_skipcmd_detached(struct kgsl_device *device,
 {
 	if (test_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->base.priv) &&
 			kgsl_context_detached(&drawctxt->base)) {
-		pr_fault(device, cmdbatch, "gpu %s ctx %d\n",
+		pr_context(device, cmdbatch->context, "gpu %s ctx %d\n",
 			 "detached", cmdbatch->context->id);
 		clear_bit(ADRENO_CONTEXT_SKIP_CMD, &drawctxt->base.priv);
 	}
@@ -1868,7 +1868,7 @@ void process_cmdbatch_fault(struct kgsl_device *device,
 					_fault_throttle_burst) {
 				set_bit(KGSL_FT_DISABLE,
 						&cmdbatch->fault_policy);
-				pr_fault(device, cmdbatch,
+				pr_context(device, cmdbatch->context,
 					 "gpu fault threshold exceeded %d faults in %d msecs\n",
 					 _fault_throttle_burst,
 					 _fault_throttle_time);
@@ -1992,7 +1992,7 @@ void process_cmdbatch_fault(struct kgsl_device *device,
 
 	/* If we get here then all the policies failed */
 
-	pr_fault(device, cmdbatch, "gpu %s ctx %d ts %d\n",
+	pr_context(device, cmdbatch->context, "gpu %s ctx %d ts %d\n",
 		state, cmdbatch->context->id, cmdbatch->timestamp);
 
 	/* Mark the context as failed */
@@ -2099,7 +2099,7 @@ replay:
 		 */
 
 		if (ret) {
-			pr_fault(device, replay[i],
+			pr_context(device, replay[i]->context,
 				"gpu reset failed ctx %d ts %d\n",
 				replay[i]->context->id, replay[i]->timestamp);
 
@@ -2280,7 +2280,7 @@ static void _print_recovery(struct kgsl_device *device,
 		}
 	}
 
-	pr_fault(device, cmdbatch,
+	pr_context(device, cmdbatch->context,
 		"gpu %s ctx %d ts %d policy %lX\n",
 		result, cmdbatch->context->id, cmdbatch->timestamp,
 		cmdbatch->fault_recovery);
@@ -2416,7 +2416,7 @@ static int adreno_dispatch_process_cmdqueue(struct adreno_device *adreno_dev,
 
 		/* Boom goes the dynamite */
 
-		pr_fault(device, cmdbatch,
+		pr_context(device, cmdbatch->context,
 			"gpu timeout ctx %d ts %d\n",
 			cmdbatch->context->id, cmdbatch->timestamp);
 

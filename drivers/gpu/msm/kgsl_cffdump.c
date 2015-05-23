@@ -725,12 +725,11 @@ int kgsl_cffdump_capture_ib_desc(struct kgsl_device *device,
 	list_for_each_entry(ib, &cmdbatch->cmdlist, node) {
 		ret = kgsl_cffdump_capture_adreno_ib_cff(
 			device, context->proc_priv, ib->gpuaddr,
-			ib->sizedwords);
+			ib->size >> 2);
 		if (ret) {
 			KGSL_DRV_ERR(device,
 			"Fail cff capture, IB 0x%016llX, size 0x%llX\n",
-			ib->gpuaddr,
-			ib->sizedwords << 2);
+			ib->gpuaddr, ib->size);
 			break;
 		}
 	}

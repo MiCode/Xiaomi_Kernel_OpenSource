@@ -124,18 +124,23 @@ int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 		struct kgsl_cmdbatch *cmdbatch,
 		struct kgsl_cmd_syncpoint *sync);
 
-bool kgsl_cmdbatch_verify(struct kgsl_device_private *dev_priv,
-		struct kgsl_cmdbatch *cmdbatch);
-
-struct kgsl_cmdbatch *kgsl_cmdbatch_create_legacy(
-		struct kgsl_device *device,
-		struct kgsl_context *context,
-		struct kgsl_ringbuffer_issueibcmds *param);
-
 struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int flags,
-		void __user *cmdlist, unsigned int numcmds,
-		void __user *synclist, unsigned int numsyncs);
+		struct kgsl_context *context, unsigned int flags);
+int kgsl_cmdbatch_add_ibdesc(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, struct kgsl_ibdesc *ibdesc);
+int kgsl_cmdbatch_add_ibdesc_list(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count);
+int kgsl_cmdbatch_add_syncpoints(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count);
+int kgsl_cmdbatch_add_cmdlist(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr,
+		unsigned int size, unsigned int count);
+int kgsl_cmdbatch_add_memlist(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr,
+		unsigned int size, unsigned int count);
+int kgsl_cmdbatch_add_synclist(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr,
+		unsigned int size, unsigned int count);
 
 int kgsl_cmdbatch_init(void);
 void kgsl_cmdbatch_exit(void);

@@ -31,6 +31,7 @@
 
 #include "kgsl.h"
 #include "kgsl_device.h"
+#include "kgsl_cmdbatch.h"
 #include "kgsl_sync.h"
 #include "kgsl_trace.h"
 #include "kgsl_compat.h"
@@ -268,6 +269,9 @@ void kgsl_cmdbatch_destroy(struct kgsl_cmdbatch *cmdbatch)
 	struct kgsl_cmdbatch_sync_event *event, *tmpsync;
 	LIST_HEAD(cancel_synclist);
 	int sched = 0;
+
+	if (IS_ERR_OR_NULL(cmdbatch))
+		return;
 
 	/* Zap the canary timer */
 	del_timer_sync(&cmdbatch->timer);
@@ -559,12 +563,16 @@ int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 		func = kgsl_cmdbatch_add_sync_fence;
 		break;
 	default:
-		KGSL_DRV_ERR(device, "Invalid sync type 0x%x\n", sync->type);
+		KGSL_DRV_ERR(device,
+			"bad syncpoint type ctxt %d type 0x%x size %zu\n",
+			cmdbatch->context->id, sync->type, sync->size);
 		return -EINVAL;
 	}
 
 	if (sync->size != psize) {
-		KGSL_DRV_ERR(device, "Invalid sync size %zd\n", sync->size);
+		KGSL_DRV_ERR(device,
+			"bad syncpoint size ctxt %d type 0x%x size %zu\n",
+			cmdbatch->context->id, sync->type, sync->size);
 		return -EINVAL;
 	}
 
@@ -583,17 +591,59 @@ int kgsl_cmdbatch_add_sync(struct kgsl_device *device,
 	return ret;
 }
 
+static void add_profiling_buffer(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, uint64_t gpuaddr, uint64_t size,
+		unsigned int id, uint64_t offset)
+{
+	struct kgsl_mem_entry *entry;
+
+	if (!(cmdbatch->flags & KGSL_CMDBATCH_PROFILING))
+		return;
+
+	/* Only the first buffer entry counts - ignore the rest */
+	if (cmdbatch->profiling_buf_entry != NULL)
+		return;
+
+	if (id != 0) {
+		entry = kgsl_sharedmem_find_id(cmdbatch->context->proc_priv,
+				id);
+
+		/* Make sure the offset is in range */
+		if (entry && offset > entry->memdesc.size) {
+			kgsl_mem_entry_put(entry);
+			entry = NULL;
+		}
+	} else {
+		entry = kgsl_sharedmem_find_region(cmdbatch->context->proc_priv,
+			gpuaddr, size);
+	}
+
+	if (entry == NULL) {
+		KGSL_DRV_ERR(device,
+			"ignore bad profile buffer ctxt %d id %d offset %lld gpuaddr %llx size %lld\n",
+			cmdbatch->context->id, id, offset, gpuaddr, size);
+		return;
+	}
+
+	cmdbatch->profiling_buf_entry = entry;
+
+	if (id != 0)
+		cmdbatch->profiling_buffer_gpuaddr =
+			entry->memdesc.gpuaddr + offset;
+	else
+		cmdbatch->profiling_buffer_gpuaddr = gpuaddr;
+}
+
 /**
- * kgsl_cmdbatch_add_memobj() - Add an entry to a command batch
+ * kgsl_cmdbatch_add_ibdesc() - Add a legacy ibdesc to a command batch
  * @cmdbatch: Pointer to the cmdbatch
  * @ibdesc: Pointer to the user-specified struct defining the memory or IB
- * @preamble: Flag to mark this ibdesc as a preamble (if known)
  *
  * Create a new memory entry in the cmdbatch based on the user specified
  * parameters
  */
-int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
-	struct kgsl_ibdesc *ibdesc)
+int kgsl_cmdbatch_add_ibdesc(struct kgsl_device *device,
+	struct kgsl_cmdbatch *cmdbatch, struct kgsl_ibdesc *ibdesc)
 {
 	struct kgsl_memobj_node *mem;
 
@@ -601,15 +651,24 @@ int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
 	if (mem == NULL)
 		return -ENOMEM;
 
-	mem->gpuaddr = ibdesc->gpuaddr;
-	mem->sizedwords = ibdesc->sizedwords;
+	mem->gpuaddr = (uint64_t) ibdesc->gpuaddr;
+	mem->size = (uint64_t) ibdesc->sizedwords << 2;
 	mem->priv = 0;
+	mem->id = 0;
+	mem->offset = 0;
+	mem->flags = 0;
 
 	/* sanitize the ibdesc ctrl flags */
 	ibdesc->ctrl &= KGSL_IBDESC_MEMLIST | KGSL_IBDESC_PROFILING_BUFFER;
 
 	if (cmdbatch->flags & KGSL_CMDBATCH_MEMLIST &&
 			ibdesc->ctrl & KGSL_IBDESC_MEMLIST) {
+		if (ibdesc->ctrl & KGSL_IBDESC_PROFILING_BUFFER) {
+			add_profiling_buffer(device, cmdbatch, mem->gpuaddr,
+					mem->size, 0, 0);
+			return 0;
+		}
+
 		/* add to the memlist */
 		list_add_tail(&mem->node, &cmdbatch->memlist);
 
@@ -624,7 +683,7 @@ int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
 			cmdbatch->profiling_buf_entry =
 				kgsl_sharedmem_find_region(
 				cmdbatch->context->proc_priv, mem->gpuaddr,
-				mem->sizedwords << 2);
+				mem->size);
 			if (!cmdbatch->profiling_buf_entry) {
 				WARN_ONCE(1,
 				"No mem entry for profiling buf, gpuaddr=%llx\n",
@@ -635,10 +694,15 @@ int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
 			cmdbatch->profiling_buffer_gpuaddr = mem->gpuaddr;
 		}
 	} else {
+		/* Ignore if SYNC or MARKER is specified */
+		if (cmdbatch->flags &
+			(KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))
+			return 0;
+
 		/* set the preamble flag if directed to */
 		if (cmdbatch->context->flags & KGSL_CONTEXT_PREAMBLE &&
 			list_empty(&cmdbatch->cmdlist))
-			mem->priv = MEMOBJ_PREAMBLE;
+			mem->flags = KGSL_CMDLIST_CTXTSWITCH_PREAMBLE;
 
 		/* add to the cmd list */
 		list_add_tail(&mem->node, &cmdbatch->cmdlist);
@@ -655,7 +719,7 @@ int kgsl_cmdbatch_add_memobj(struct kgsl_cmdbatch *cmdbatch,
  *
  * Allocate an new cmdbatch structure
  */
-static struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
+struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 		struct kgsl_context *context, unsigned int flags)
 {
 	struct kgsl_cmdbatch *cmdbatch = kzalloc(sizeof(*cmdbatch), GFP_KERNEL);
@@ -696,162 +760,279 @@ static struct kgsl_cmdbatch *_kgsl_cmdbatch_create(struct kgsl_device *device,
 	return cmdbatch;
 }
 
-/**
- * _kgsl_cmdbatch_verify() - Perform a quick sanity check on a command batch
- * @device: Pointer to a KGSL instance that owns the command batch
- * @pagetable: Pointer to the pagetable for the current process
- * @cmdbatch: Number of indirect buffers to make room for in the cmdbatch
- *
- * Do a quick sanity test on the list of indirect buffers in a command batch
- * verifying that the size and GPU address
- */
-bool kgsl_cmdbatch_verify(struct kgsl_device_private *dev_priv,
-	struct kgsl_cmdbatch *cmdbatch)
+#ifdef CONFIG_COMPAT
+static int add_ibdesc_list_compat(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count)
 {
-	struct kgsl_process_private *private = dev_priv->process_priv;
-	struct kgsl_memobj_node *ib;
+	int i, ret = 0;
+	struct kgsl_ibdesc_compat ibdesc32;
+	struct kgsl_ibdesc ibdesc;
 
-	list_for_each_entry(ib, &cmdbatch->cmdlist, node) {
-		if (ib->sizedwords == 0) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"invalid size ctx %d %016llX/%llX\n",
-				cmdbatch->context->id,
-				ib->gpuaddr,
-				ib->sizedwords);
+	for (i = 0; i < count; i++) {
+		memset(&ibdesc32, 0, sizeof(ibdesc32));
 
-			return false;
+		if (copy_from_user(&ibdesc32, ptr, sizeof(ibdesc32))) {
+			ret = -EFAULT;
+			break;
 		}
 
-		if (!kgsl_mmu_gpuaddr_in_range(private->pagetable,
-			ib->gpuaddr)) {
-			KGSL_DRV_ERR(dev_priv->device,
-				"Invalid address ctx %d %016llX/%llX\n",
-				cmdbatch->context->id,
-				ib->gpuaddr,
-				ib->sizedwords);
+		ibdesc.gpuaddr = (unsigned long) ibdesc32.gpuaddr;
+		ibdesc.sizedwords = (size_t) ibdesc32.sizedwords;
+		ibdesc.ctrl = (unsigned int) ibdesc32.ctrl;
 
-			return false;
-		}
+		ret = kgsl_cmdbatch_add_ibdesc(device, cmdbatch, &ibdesc);
+		if (ret)
+			break;
+
+		ptr += sizeof(ibdesc32);
 	}
 
-	return true;
+	return ret;
 }
 
-/**
- * kgsl_cmdbatch_create_legacy() - Create a cmdbatch from a legacy ioctl struct
- * @device: Pointer to the KGSL device struct for the GPU
- * @context: Pointer to the KGSL context that issued the command batch
- * @param: Pointer to the kgsl_ringbuffer_issueibcmds struct that the user sent
- *
- * Create a command batch from the legacy issueibcmds format.
- */
-struct kgsl_cmdbatch *kgsl_cmdbatch_create_legacy(
-		struct kgsl_device *device,
-		struct kgsl_context *context,
-		struct kgsl_ringbuffer_issueibcmds *param)
+static int add_syncpoints_compat(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count)
+{
+	struct kgsl_cmd_syncpoint_compat sync32;
+	struct kgsl_cmd_syncpoint sync;
+	int i, ret = 0;
+
+	for (i = 0; i < count; i++) {
+		memset(&sync32, 0, sizeof(sync32));
+
+		if (copy_from_user(&sync32, ptr, sizeof(sync32))) {
+			ret = -EFAULT;
+			break;
+		}
+
+		sync.type = sync32.type;
+		sync.priv = compat_ptr(sync32.priv);
+		sync.size = (size_t) sync32.size;
+
+		ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);
+		if (ret)
+			break;
+
+		ptr += sizeof(sync32);
+	}
+
+	return ret;
+}
+#else
+static int add_ibdesc_list_compat(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count)
+{
+	return -EINVAL;
+}
+
+static int add_syncpoints_compat(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count)
+{
+	return -EINVAL;
+}
+#endif
+
+int kgsl_cmdbatch_add_ibdesc_list(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count)
+{
+	struct kgsl_ibdesc ibdesc;
+	int i, ret;
+
+	if (is_compat_task())
+		return add_ibdesc_list_compat(device, cmdbatch, ptr, count);
+
+	for (i = 0; i < count; i++) {
+		memset(&ibdesc, 0, sizeof(ibdesc));
+
+		if (copy_from_user(&ibdesc, ptr, sizeof(ibdesc)))
+			return -EFAULT;
+
+		ret = kgsl_cmdbatch_add_ibdesc(device, cmdbatch, &ibdesc);
+		if (ret)
+			return ret;
+
+		ptr += sizeof(ibdesc);
+	}
+
+	return 0;
+}
+
+int kgsl_cmdbatch_add_syncpoints(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr, int count)
+{
+	struct kgsl_cmd_syncpoint sync;
+	int i, ret;
+
+	if (is_compat_task())
+		return add_syncpoints_compat(device, cmdbatch, ptr, count);
+
+	for (i = 0; i < count; i++) {
+		memset(&sync, 0, sizeof(sync));
+
+		if (copy_from_user(&sync, ptr, sizeof(sync)))
+			return -EFAULT;
+
+		ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);
+		if (ret)
+			return ret;
+
+		ptr += sizeof(sync);
+	}
+
+	return 0;
+}
+
+static int kgsl_cmdbatch_add_object(struct list_head *head,
+		struct kgsl_command_object *obj)
 {
 	struct kgsl_memobj_node *mem;
-	struct kgsl_cmdbatch *cmdbatch =
-		_kgsl_cmdbatch_create(device, context, param->flags);
-
-	if (IS_ERR(cmdbatch))
-		return cmdbatch;
 
 	mem = kmem_cache_alloc(memobjs_cache, GFP_KERNEL);
-	if (mem == NULL) {
-		kgsl_cmdbatch_destroy(cmdbatch);
-		return ERR_PTR(-ENOMEM);
-	}
+	if (mem == NULL)
+		return -ENOMEM;
 
-	mem->gpuaddr = (uint64_t) param->ibdesc_addr;
-	mem->sizedwords = (uint64_t) param->numibs;
+	mem->gpuaddr = obj->gpuaddr;
+	mem->size = obj->size;
+	mem->id = obj->id;
+	mem->offset = obj->offset;
+	mem->flags = obj->flags;
 	mem->priv = 0;
 
-	list_add_tail(&mem->node, &cmdbatch->cmdlist);
-
-	return cmdbatch;
+	list_add_tail(&mem->node, head);
+	return 0;
 }
 
-/**
- * kgsl_cmdbatch_create() - Create a cmdbatch from a ioctl struct
- * @device: Pointer to the KGSL device struct for the GPU
- * @context: Pointer to the KGSL context that issued the command batch
- * @flags: Flags passed in from the user command
- * @cmdlist: Pointer to the list of commands from the user
- * @numcmds: Number of commands in the list
- * @synclist: Pointer to the list of syncpoints from the user
- * @numsyncs: Number of syncpoints in the list
- *
- * Create a command batch from the standard issueibcmds format sent by the user.
- */
-struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
-		struct kgsl_context *context, unsigned int flags,
-		void __user *cmdlist, unsigned int numcmds,
-		void __user *synclist, unsigned int numsyncs)
+#define CMDLIST_FLAGS \
+	(KGSL_CMDLIST_IB | \
+	 KGSL_CMDLIST_CTXTSWITCH_PREAMBLE | \
+	 KGSL_CMDLIST_IB_PREAMBLE)
+
+int kgsl_cmdbatch_add_cmdlist(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr,
+		unsigned int size, unsigned int count)
 {
-	struct kgsl_cmdbatch *cmdbatch =
-		_kgsl_cmdbatch_create(device, context, flags);
-	int ret = 0, i;
+	struct kgsl_command_object obj;
+	int i, ret = 0;
 
-	if (IS_ERR(cmdbatch))
-		return cmdbatch;
+	/* Return early if nothing going on */
+	if (count == 0 && ptr == NULL && size == 0)
+		return 0;
 
-	if (is_compat_task()) {
-		ret = kgsl_cmdbatch_create_compat(device, flags, cmdbatch,
-					cmdlist, numcmds, synclist, numsyncs);
-		goto done;
-	}
+	/* Sanity check inputs */
+	if (count == 0 || ptr == NULL || size == 0)
+		return -EINVAL;
 
-	if (!(flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))) {
-		struct kgsl_ibdesc ibdesc;
-		void  __user *uptr = cmdlist;
+	/* Ignore all if SYNC or MARKER is specified */
+	if (cmdbatch->flags & (KGSL_CMDBATCH_SYNC | KGSL_CMDBATCH_MARKER))
+		return 0;
 
-		for (i = 0; i < numcmds; i++) {
-			memset(&ibdesc, 0, sizeof(ibdesc));
+	for (i = 0; i < count; i++) {
+		memset(&obj, 0, sizeof(obj));
 
-			if (copy_from_user(&ibdesc, uptr, sizeof(ibdesc))) {
-				ret = -EFAULT;
-				goto done;
-			}
+		ret = _copy_from_user(&obj, ptr, sizeof(obj), size);
+		if (ret)
+			return ret;
 
-			ret = kgsl_cmdbatch_add_memobj(cmdbatch, &ibdesc);
-			if (ret)
-				goto done;
-
-			uptr += sizeof(ibdesc);
+		/* Sanity check the flags */
+		if (!(obj.flags & CMDLIST_FLAGS)) {
+			KGSL_DRV_ERR(device,
+				"invalid cmdobj ctxt %d flags %d id %d offset %lld addr %lld size %lld\n",
+				cmdbatch->context->id, obj.flags, obj.id,
+				obj.offset, obj.gpuaddr, obj.size);
+			return -EINVAL;
 		}
 
-		if (cmdbatch->profiling_buf_entry == NULL)
-			cmdbatch->flags &= ~KGSL_CMDBATCH_PROFILING;
+		ret = kgsl_cmdbatch_add_object(&cmdbatch->cmdlist, &obj);
+		if (ret)
+			return ret;
+
+		ptr += sizeof(obj);
 	}
 
-	if (synclist && numsyncs) {
-		struct kgsl_cmd_syncpoint sync;
-		void  __user *uptr = synclist;
+	return 0;
+}
 
-		for (i = 0; i < numsyncs; i++) {
-			memset(&sync, 0, sizeof(sync));
+int kgsl_cmdbatch_add_memlist(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr,
+		unsigned int size, unsigned int count)
+{
+	struct kgsl_command_object obj;
+	int i, ret = 0;
 
-			if (copy_from_user(&sync, uptr, sizeof(sync))) {
-				ret = -EFAULT;
-				goto done;
-			}
+	/* Return early if nothing going on */
+	if (count == 0 && ptr == NULL && size == 0)
+		return 0;
 
-			ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);
-			if (ret)
-				goto done;
+	/* Sanity check inputs */
+	if (count == 0 || ptr == NULL || size == 0)
+		return -EINVAL;
 
-			uptr += sizeof(sync);
+	for (i = 0; i < count; i++) {
+		memset(&obj, 0, sizeof(obj));
+
+		ret = _copy_from_user(&obj, ptr, sizeof(obj), size);
+		if (ret)
+			return ret;
+
+		if (!(obj.flags & KGSL_OBJLIST_MEMOBJ)) {
+			KGSL_DRV_ERR(device,
+				"invalid memobj ctxt %d flags %d id %d offset %lld addr %lld size %lld\n",
+				cmdbatch->context->id, obj.flags, obj.id,
+				obj.offset, obj.gpuaddr, obj.size);
+			return -EINVAL;
 		}
+
+		if (obj.flags & KGSL_OBJLIST_PROFILE)
+			add_profiling_buffer(device, cmdbatch, obj.gpuaddr,
+				obj.size, obj.id, obj.offset);
+		else {
+			ret = kgsl_cmdbatch_add_object(&cmdbatch->memlist,
+				&obj);
+			if (ret)
+				return ret;
+		}
+
+		ptr += sizeof(obj);
 	}
 
-done:
-	if (ret) {
-		kgsl_cmdbatch_destroy(cmdbatch);
-		return ERR_PTR(ret);
+	return 0;
+}
+
+int kgsl_cmdbatch_add_synclist(struct kgsl_device *device,
+		struct kgsl_cmdbatch *cmdbatch, void __user *ptr,
+		unsigned int size, unsigned int count)
+{
+	struct kgsl_command_syncpoint syncpoint;
+	struct kgsl_cmd_syncpoint sync;
+	int i, ret = 0;
+
+	/* Return early if nothing going on */
+	if (count == 0 && ptr == NULL && size == 0)
+		return 0;
+
+	/* Sanity check inputs */
+	if (count == 0 || ptr == NULL || size == 0)
+		return -EINVAL;
+
+	for (i = 0; i < count; i++) {
+		memset(&syncpoint, 0, sizeof(syncpoint));
+
+		ret = _copy_from_user(&syncpoint, ptr, sizeof(syncpoint), size);
+		if (ret)
+			return ret;
+
+		sync.type = syncpoint.type;
+		sync.priv = (void __user *) (uintptr_t) syncpoint.priv;
+		sync.size = syncpoint.size;
+
+		ret = kgsl_cmdbatch_add_sync(device, cmdbatch, &sync);
+		if (ret)
+			return ret;
+
+		ptr += sizeof(syncpoint);
 	}
 
-	return cmdbatch;
+	return 0;
 }
 
 void kgsl_cmdbatch_exit(void)

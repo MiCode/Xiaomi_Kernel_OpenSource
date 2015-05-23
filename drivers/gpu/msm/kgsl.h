@@ -25,6 +25,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mm.h>
 #include <linux/dma-attrs.h>
+#include <linux/uaccess.h>
 
 /* The number of memstore arrays limits the number of contexts allowed.
  * If more contexts are needed, update multiple for MEMSTORE_SIZE
@@ -317,12 +318,17 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
 long kgsl_ioctl_gpuobj_sync(struct kgsl_device_private *dev_priv,
 					unsigned int cmd, void *data);
+long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
+				unsigned int cmd, void *data);
 
 void kgsl_mem_entry_destroy(struct kref *kref);
 
 struct kgsl_mem_entry *kgsl_sharedmem_find_region(
 	struct kgsl_process_private *private, uint64_t gpuaddr,
 	uint64_t size);
+
+struct kgsl_mem_entry * __must_check
+kgsl_sharedmem_find_id(struct kgsl_process_private *process, unsigned int id);
 
 void kgsl_get_memory_usage(char *str, size_t len, uint64_t memflags);
 
@@ -453,6 +459,17 @@ static inline void kgsl_free(void *ptr)
 		return vfree(ptr);
 
 	kfree(ptr);
+}
+
+static inline int _copy_from_user(void *dest, void __user *src,
+		unsigned int ksize, unsigned int usize)
+{
+	unsigned int copy = ksize < usize ? ksize : usize;
+
+	if (copy == 0)
+		return -EINVAL;
+
+	return copy_from_user(dest, src, copy) ? -EFAULT : 0;
 }
 
 #endif /* __KGSL_H */
