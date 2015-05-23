@@ -2221,8 +2221,12 @@ static int glink_tx_common(void *handle, void *pkt_priv,
 			reinit_completion(&ctx->int_req_ack_complete);
 			ret = ctx->transport_ptr->ops->tx_cmd_rx_intent_req(
 				ctx->transport_ptr->ops, ctx->lcid, size);
-			if (ret)
+			if (ret) {
+				GLINK_ERR_CH(ctx,
+					"%s: Request intent failed %d\n",
+					__func__, ret);
 				return ret;
+			}
 
 			/* wait for the remote intent req ack */
 			wait_for_completion(&ctx->int_req_ack_complete);
