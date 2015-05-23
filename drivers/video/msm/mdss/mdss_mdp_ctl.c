@@ -3684,6 +3684,9 @@ int mdss_mdp_display_wait4pingpong(struct mdss_mdp_ctl *ctl, bool use_lock)
 		if (sctl)
 			mdss_mdp_ctl_reset(sctl);
 
+		mdss_mdp_ctl_intf_event(ctl,
+				MDSS_EVENT_DSI_RESET_WRITE_PTR, NULL);
+
 		pr_debug("pingpong timeout recovery finished\n");
 	}
 
