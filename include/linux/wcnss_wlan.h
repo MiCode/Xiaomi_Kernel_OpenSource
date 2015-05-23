@@ -107,7 +107,6 @@ void wcnss_prevent_suspend(void);
 int wcnss_hardware_type(void);
 void *wcnss_prealloc_get(unsigned int size);
 int wcnss_prealloc_put(void *ptr);
-void wcnss_reset_intr(void);
 void wcnss_reset_fiq(bool clk_chk_en);
 void wcnss_suspend_notify(void);
 void wcnss_resume_notify(void);
