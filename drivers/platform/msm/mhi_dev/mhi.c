@@ -1724,8 +1724,6 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	}
 
-	res_mem = request_mem_region(res_mem->start,
-				MHI_1K_SIZE, res_mem->name);
 	mhi->mmio_base_pa_addr = res_mem->start;
 	mhi->mmio_base_addr = ioremap_nocache(res_mem->start, MHI_1K_SIZE);
 	if (!mhi->mmio_base_addr) {
@@ -1742,10 +1740,6 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (request_mem_region(res_mem->start, 0x1, res_mem->name) < 0) {
-		pr_err("Failed to request IPA uC MBOX CRDB memory\n");
-		return -EBUSY;
-	}
 	mhi->ipa_uc_mbox_crdb = res_mem->start;
 
 	res_mem = platform_get_resource_byname(pdev,
@@ -1756,10 +1750,6 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	}
 
-	if (request_mem_region(res_mem->start, 0x1, res_mem->name) < 0) {
-		pr_err("Failed to request IPA uC MBOX ERDB memory\n");
-		return -EBUSY;
-	}
 	mhi->ipa_uc_mbox_erdb = res_mem->start;
 
 	mhi->mhi_irq = platform_get_irq_byname(pdev, "mhi-device-inta");
