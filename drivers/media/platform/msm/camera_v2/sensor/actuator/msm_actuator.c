@@ -1188,6 +1188,8 @@ static int32_t msm_actuator_set_param(struct msm_actuator_ctrl_t *a_ctrl,
 		cci_client->retries = 3;
 		cci_client->id_map = 0;
 		cci_client->cci_i2c_master = a_ctrl->cci_master;
+		cci_client->i2c_freq_mode =
+			set_info->actuator_params.i2c_freq_mode;
 	} else {
 		a_ctrl->i2c_client.client->addr =
 			set_info->actuator_params.i2c_addr;
@@ -1492,6 +1494,10 @@ static long msm_actuator_subdev_do_ioctl(
 
 			actuator_data.cfg.set_info.actuator_params.i2c_addr =
 				u32->cfg.set_info.actuator_params.i2c_addr;
+
+			actuator_data.cfg.set_info.actuator_params.
+				i2c_freq_mode =
+				u32->cfg.set_info.actuator_params.i2c_freq_mode;
 
 			actuator_data.cfg.set_info.actuator_params
 				.i2c_addr_type =
