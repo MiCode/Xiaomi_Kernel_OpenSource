@@ -1418,6 +1418,8 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 	struct hdmi_edid_init_data edid_init_data;
 	struct hdmi_hdcp_init_data hdcp_init_data;
 	struct hdmi_cec_init_data cec_init_data;
+	struct cec_data cec_abstract_data;
+	int ret = 0;
 
 	if (!hdmi_ctrl || !fbi) {
 		DEV_ERR("%s: invalid input\n", __func__);
@@ -1435,7 +1437,8 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 		hdmi_edid_init(&edid_init_data);
 	if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]) {
 		DEV_ERR("%s: hdmi_edid_init failed\n", __func__);
-		return -EPERM;
+		ret = -EPERM;
+		goto end;
 	}
 	hdmi_edid_set_video_resolution(
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
@@ -1449,7 +1452,8 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 		if (!res) {
 			DEV_ERR("%s: Error getting HDMI tx core resource\n",
 				__func__);
-			return -ENODEV;
+			ret = -ENODEV;
+			goto end;
 		}
 		hdcp_init_data.phy_addr = res->start;
 		hdcp_init_data.core_io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
@@ -1469,23 +1473,41 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 			hdmi_edid_deinit(hdmi_ctrl->feature_data[
 				HDMI_TX_FEAT_EDID]);
 			hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] = NULL;
-			return -EPERM;
+			ret = -EPERM;
+			goto end;
 		}
 
 		DEV_DBG("%s: HDCP feature initialized\n", __func__);
 	}
 
-	/* Initialize CEC feature */
+	/* initialize cec feature and get ops */
 	cec_init_data.io = &hdmi_ctrl->pdata.io[HDMI_TX_CORE_IO];
-	cec_init_data.sysfs_kobj = hdmi_ctrl->kobj;
 	cec_init_data.workq = hdmi_ctrl->workq;
 
-	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] =
-		hdmi_cec_init(&cec_init_data);
-	if (!hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC])
-		DEV_WARN("%s: hdmi_cec_init failed\n", __func__);
+	ret = hdmi_cec_init(&cec_init_data, &hdmi_ctrl->hdmi_cec_ops);
 
-	return 0;
+	if (ret) {
+		DEV_ERR("%s: error cec init\n", __func__);
+		goto end;
+	}
+
+	/* initialize cec abstract layer and get callbacks */
+	cec_abstract_data.id = fbi->node;
+	cec_abstract_data.sysfs_kobj = hdmi_ctrl->kobj;
+	cec_abstract_data.ops = &hdmi_ctrl->hdmi_cec_ops;
+	cec_abstract_data.cbs = &hdmi_ctrl->hdmi_cec_cbs;
+
+	cec_abstract_init(&cec_abstract_data);
+
+	/* register callbacks with hdmi cec */
+	hdmi_cec_register_cb(hdmi_ctrl->hdmi_cec_ops.data,
+		&hdmi_ctrl->hdmi_cec_cbs);
+
+	hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC] =
+		hdmi_ctrl->hdmi_cec_ops.data;
+
+end:
+	return ret;
 } /* hdmi_tx_init_features */
 
 static inline u32 hdmi_tx_is_controller_on(struct hdmi_tx_ctrl *hdmi_ctrl)
@@ -3031,8 +3053,6 @@ static int hdmi_tx_power_off(struct mdss_panel_data *panel_data)
 	if (!hdmi_tx_is_dvi_mode(hdmi_ctrl))
 		hdmi_tx_audio_off(hdmi_ctrl);
 
-	hdmi_cec_deconfig(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
-
 	hdmi_tx_core_off(hdmi_ctrl);
 
 	mutex_lock(&hdmi_ctrl->power_mutex);
@@ -3100,9 +3120,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			hdmi_ctrl->panel_power_on = true;
 			mutex_unlock(&hdmi_ctrl->power_mutex);
 
-			hdmi_cec_config(
-				hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
-
 			hdmi_tx_set_vendor_specific_infoframe(hdmi_ctrl);
 			hdmi_tx_set_spd_infoframe(hdmi_ctrl);
 
@@ -3122,8 +3139,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 	mutex_lock(&hdmi_ctrl->power_mutex);
 	hdmi_ctrl->panel_power_on = true;
 	mutex_unlock(&hdmi_ctrl->power_mutex);
-
-	hdmi_cec_config(hdmi_ctrl->feature_data[HDMI_TX_FEAT_CEC]);
 
 	if (hdmi_ctrl->hpd_state) {
 		rc = hdmi_tx_start(hdmi_ctrl);
