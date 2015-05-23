@@ -180,4 +180,25 @@
 		interrupt-controller;
 		#interrupt-cells = <2>;
 	};
+
+	smp2pgpio_ssr_smp2p_4_in: qcom,smp2pgpio-ssr-smp2p-4-in {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "slave-kernel";
+		qcom,remote-pid = <4>;
+		qcom,is-inbound;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
+
+	smp2pgpio_ssr_smp2p_4_out: qcom,smp2pgpio-ssr-smp2p-4-out {
+		compatible = "qcom,smp2pgpio";
+		qcom,entry-name = "master-kernel";
+		qcom,remote-pid = <4>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+	};
 };
