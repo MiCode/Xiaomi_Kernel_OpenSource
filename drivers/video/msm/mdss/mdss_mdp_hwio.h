@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -623,6 +623,8 @@ enum mdss_mdp_pingpong_index {
 #define MDSS_MDP_INTF_MISR_CTRL		0x180
 #define MDSS_MDP_INTF_MISR_SIGNATURE		(MDSS_MDP_INTF_MISR_CTRL + 0x4)
 
+#define MDSS_MDP_INTF_CMD_MISR_CTRL		(MDSS_MDP_INTF_MISR_CTRL + 0x8)
+#define MDSS_MDP_INTF_CMD_MISR_SIGNATURE	(MDSS_MDP_INTF_MISR_CTRL + 0xC)
 /* following offsets are with respect to MDP VBIF base */
 #define MMSS_VBIF_RD_LIM_CONF			0x0B0
 #define MMSS_VBIF_WR_LIM_CONF			0x0C0

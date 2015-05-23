@@ -1211,16 +1211,28 @@ static inline struct mdss_mdp_misr_map *mdss_misr_get_map(u32 block_id,
 			if (block_id <= DISPLAY_MISR_HDMI) {
 				intf_base = (char *)mdss_mdp_get_intf_base_addr(
 						mdata, block_id);
-				ctrl_reg = intf_base + MDSS_MDP_INTF_MISR_CTRL;
-				value_reg = intf_base +
-					MDSS_MDP_INTF_MISR_SIGNATURE;
+
+				if ((block_id == DISPLAY_MISR_DSI0 ||
+				     block_id == DISPLAY_MISR_DSI1) &&
+				     (ctl && !ctl->is_video_mode)) {
+					ctrl_reg = intf_base +
+						MDSS_MDP_INTF_CMD_MISR_CTRL;
+					value_reg = intf_base +
+					    MDSS_MDP_INTF_CMD_MISR_SIGNATURE;
+				} else {
+					ctrl_reg = intf_base +
+						MDSS_MDP_INTF_MISR_CTRL;
+					value_reg = intf_base +
+						MDSS_MDP_INTF_MISR_SIGNATURE;
+				}
 			}
 			/*
 			 * For msm8916/8939, additional offset of 0x10
 			 * is required
 			 */
 			if ((mdata->mdp_rev == MDSS_MDP_HW_REV_106) ||
-				(mdata->mdp_rev == MDSS_MDP_HW_REV_108)) {
+				(mdata->mdp_rev == MDSS_MDP_HW_REV_108) ||
+				(mdata->mdp_rev == MDSS_MDP_HW_REV_112)) {
 				ctrl_reg += 0x10;
 				value_reg += 0x10;
 			}
