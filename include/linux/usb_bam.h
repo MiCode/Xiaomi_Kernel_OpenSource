@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -218,6 +218,7 @@ struct msm_usb_bam_platform_data {
 	phys_addr_t usb_bam_fifo_baseaddr;
 	bool ignore_core_reset_ack;
 	bool reset_on_connect[MAX_BAMS];
+	bool reset_on_disconnect[MAX_BAMS];
 	bool disable_clk_gating;
 	u32 override_threshold;
 	u32 max_mbps_highspeed;

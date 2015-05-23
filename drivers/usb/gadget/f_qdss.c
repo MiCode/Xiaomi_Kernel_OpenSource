@@ -597,6 +597,12 @@ static void qdss_disable(struct usb_function *f)
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 	case USB_GADGET_XPORT_BAM_DMUX:
 		spin_unlock_irqrestore(&qdss->lock, flags);
+		/* Disable usb irq for CI gadget. It will be enabled in
+		 * usb_bam_disconnect_pipe() after disconnecting all pipes
+		 * and USB BAM reset is done.
+		 */
+		if (!gadget_is_dwc3(qdss->cdev->gadget))
+			msm_usb_irq_disable(true);
 		usb_qdss_disconnect_work(&qdss->disconnect_w);
 		return;
 	default:
@@ -608,6 +614,8 @@ static void qdss_disable(struct usb_function *f)
 	/*cancell all active xfers*/
 	qdss_eps_disable(f);
 	msm_bam_set_qdss_usb_active(true);
+	if (!gadget_is_dwc3(qdss->cdev->gadget))
+		msm_usb_irq_disable(true);
 	queue_work(qdss->wq, &qdss->disconnect_w);
 }
 
