@@ -3455,7 +3455,7 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	int ret;
 	u32 regval;
 
-	ret = enable_rpm_scaling();
+	ret = vote_bimc(&bimc_clk, INT_MAX);
 	if (ret < 0)
 		return ret;
 
@@ -3528,6 +3528,10 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup,
 				ARRAY_SIZE(msm_clocks_lookup));
+	if (ret)
+		return ret;
+
+	ret = enable_rpm_scaling();
 	if (ret)
 		return ret;
 
