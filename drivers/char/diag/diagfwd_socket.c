@@ -972,8 +972,14 @@ static int diag_socket_write(void *ctxt, unsigned char *buf, int len)
 	write_len = kernel_sendmsg(info->hdl, &write_msg, &iov, 1, len);
 	if (write_len < 0) {
 		err = write_len;
-		pr_err_ratelimited("diag: In %s, error sending data, err: %d, ch: %s\n",
-				   __func__, err, info->name);
+		/*
+		 * -EAGAIN means that the number of packets in flight is at
+		 * max capactity and the peripheral hasn't read the data.
+		 */
+		if (err != -EAGAIN) {
+			pr_err_ratelimited("diag: In %s, error sending data, err: %d, ch: %s\n",
+					   __func__, err, info->name);
+		}
 	} else if (write_len != len) {
 		err = write_len;
 		pr_err_ratelimited("diag: In %s, wrote partial packet to %s, len: %d, wrote: %d\n",
