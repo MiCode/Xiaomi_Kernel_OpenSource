@@ -195,6 +195,7 @@ static struct clk *ipa_inactivity_clk;
 
 struct ipa_context *ipa_ctx;
 static struct device *master_dev;
+struct platform_device *ipa_pdev;
 static bool smmu_present;
 static bool arm_smmu;
 static bool smmu_disable_htw;
@@ -3784,6 +3785,9 @@ static int ipa_smmu_ap_cb_probe(struct device *dev)
 	cb->valid = true;
 	smmu_present = true;
 
+	if (!bus_scale_table)
+		bus_scale_table = msm_bus_cl_get_pdata(ipa_pdev);
+
 	/* Proceed to real initialization */
 	result = ipa_init(&ipa_res, dev);
 	if (result) {
@@ -3847,15 +3851,14 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 		return ipa_smmu_uc_cb_probe(dev);
 
 	master_dev = dev;
+	if (!ipa_pdev)
+		ipa_pdev = pdev_p;
 
 	result = get_ipa_dts_configuration(pdev_p, &ipa_res);
 	if (result) {
 		IPAERR("IPA dts parsing failed\n");
 		return result;
 	}
-
-	if (!bus_scale_table)
-		bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
 
 	if (of_property_read_bool(pdev_p->dev.of_node, "qcom,arm-smmu")) {
 		arm_smmu = true;
@@ -3871,6 +3874,9 @@ static int ipa_plat_drv_probe(struct platform_device *pdev_p)
 			IPAERR("DMA set mask failed\n");
 			return -EOPNOTSUPP;
 		}
+
+		if (!bus_scale_table)
+			bus_scale_table = msm_bus_cl_get_pdata(pdev_p);
 
 		/* Proceed to real initialization */
 		result = ipa_init(&ipa_res, dev);
