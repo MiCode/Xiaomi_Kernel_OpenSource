@@ -26,6 +26,7 @@
 #include <linux/of_irq.h>
 #include <linux/pm.h>
 #include <linux/pm_runtime.h>
+#include "msm_dba_internal.h"
 
 #define ADV7533_REG_CHIP_REVISION (0x00)
 #define ADV7533_RESET_DELAY (100)
@@ -34,13 +35,17 @@
 #define PINCTRL_STATE_SUSPEND   "pmx_adv7533_suspend"
 
 #define MDSS_MAX_PANEL_LEN      256
+#define EDID_SEG_SIZE 0x100
 
 #define HPD_INT_ENABLE           BIT(7)
 #define MONITOR_SENSE_INT_ENABLE BIT(6)
 #define EDID_READY_INT_ENABLE    BIT(2)
 
+#define MAX_WAIT_TIME (100)
+#define MAX_RW_TRIES (3)
+
 enum adv7533_i2c_addr {
-	ADV7533_MAIN = 0x39, /* 7a main right shift 1 */
+	ADV7533_MAIN = 0x39,
 	ADV7533_CEC_DSI = 0x3C,
 };
 
@@ -64,7 +69,6 @@ struct adv7533_platform_data {
 	int irq;
 	u32 irq_gpio;
 	u32 irq_flags;
-	int hpd_irq;
 	u32 hpd_irq_gpio;
 	u32 hpd_irq_flags;
 	u32 switch_gpio;
@@ -76,30 +80,52 @@ struct adv7533_platform_data {
 	bool disable_gpios;
 	bool adv_output;
 	void *edid_data;
+	u8 edid_buf[EDID_SEG_SIZE];
 	struct workqueue_struct *workq;
-	struct work_struct adv7533_int_work_id;
+	struct delayed_work adv7533_intr_work_id;
+	struct msm_dba_device_info dev_info;
+	msm_dba_cb client_cb;
+	void *client_cb_data;
 };
 
-static struct adv7533_reg_cfg setup_cfg[] = {
-	{ADV7533_MAIN, 0x41, 0x10},		/* HDMI normal */
-	{ADV7533_MAIN, 0xd6, 0x48},		/* HPD overriden */
-	{ADV7533_CEC_DSI, 0x03, 0x89},		/* HDMI enabled */
+static struct adv7533_reg_cfg adv7533_init_setup[] = {
+	/* power down */
+	{ADV7533_MAIN, 0x41, 0x50},
+	/* HPD override */
+	{ADV7533_MAIN, 0xD6, 0x48},
+	/* color space */
 	{ADV7533_MAIN, 0x16, 0x20},
+	/* Fixed */
 	{ADV7533_MAIN, 0x9A, 0xE0},
+	/* HDCP */
 	{ADV7533_MAIN, 0xBA, 0x70},
+	/* Fixed */
 	{ADV7533_MAIN, 0xDE, 0x82},
-	{ADV7533_MAIN, 0xE4, 0xC0},
+	/* V1P2 */
+	{ADV7533_MAIN, 0xE4, 0x40},
+	/* Fixed */
 	{ADV7533_MAIN, 0xE5, 0x80},
+	/* Fixed */
 	{ADV7533_CEC_DSI, 0x15, 0xD0},
+	/* Fixed */
 	{ADV7533_CEC_DSI, 0x17, 0xD0},
+	/* Fixed */
 	{ADV7533_CEC_DSI, 0x24, 0x20},
+	/* Fixed */
 	{ADV7533_CEC_DSI, 0x57, 0x11},
-	/* hdmi or dvi mode: hdmi */
+};
+
+static struct adv7533_reg_cfg adv7533_video_setup[] = {
+	/* power up */
+	{ADV7533_MAIN, 0x41, 0x10},
+	/* hdmi enable */
+	{ADV7533_CEC_DSI, 0x03, 0x89},
+	/* hdmi mode, hdcp */
 	{ADV7533_MAIN, 0xAF, 0x06},
-	{ADV7533_MAIN, 0x40, 0x80},
+	/* color depth */
 	{ADV7533_MAIN, 0x4C, 0x04},
+	/* down dither */
 	{ADV7533_MAIN, 0x49, 0x02},
-	{ADV7533_MAIN, 0x0D, 1 << 6},
 };
 
 static struct adv7533_reg_cfg tg_cfg_1080p[] = {
@@ -157,144 +183,6 @@ static struct adv7533_reg_cfg tg_cfg_1080p[] = {
 	{ADV7533_CEC_DSI, 0x55, 0x00},
 };
 
-static struct adv7533_reg_cfg tg_cfg_pattern_1080p[] = {
-	/* 4 lanes */
-	{ADV7533_CEC_DSI, 0x1C, 0x40},
-	/* hsync and vsync active low */
-	{ADV7533_MAIN, 0x17, 0x02},
-	/* Control for Pixel Clock Divider */
-	{ADV7533_CEC_DSI, 0x16, 0x00},
-	/* Timing Generator Enable */
-	{ADV7533_CEC_DSI, 0x27, 0xCB},
-	/* h_width 0x898 2200*/
-	{ADV7533_CEC_DSI, 0x28, 0x89},
-	{ADV7533_CEC_DSI, 0x29, 0x80},
-	/* hsync_width 0x2C 44*/
-	{ADV7533_CEC_DSI, 0x2A, 0x02},
-	{ADV7533_CEC_DSI, 0x2B, 0xC0},
-	/* hfp 0x58 88 */
-	{ADV7533_CEC_DSI, 0x2C, 0x05},
-	{ADV7533_CEC_DSI, 0x2D, 0x80},
-	/* hbp 0x94 148 */
-	{ADV7533_CEC_DSI, 0x2E, 0x09},
-	{ADV7533_CEC_DSI, 0x2F, 0x40},
-	/* v_total 0x465 1125 */
-	{ADV7533_CEC_DSI, 0x30, 0x46},
-	{ADV7533_CEC_DSI, 0x31, 0x50},
-	/* vsync_width 0x05 5*/
-	{ADV7533_CEC_DSI, 0x32, 0x00},
-	{ADV7533_CEC_DSI, 0x33, 0x50},
-	/* vfp 0x04 4  */
-	{ADV7533_CEC_DSI, 0x34, 0x00},
-	{ADV7533_CEC_DSI, 0x35, 0x40},
-	/* vbp 0x24 36 */
-	{ADV7533_CEC_DSI, 0x36, 0x02},
-	{ADV7533_CEC_DSI, 0x37, 0x40},
-	/* Timing Generator Enable */
-	{ADV7533_CEC_DSI, 0x27, 0xCB},
-	{ADV7533_CEC_DSI, 0x27, 0x8B},
-	{ADV7533_CEC_DSI, 0x27, 0xCB},
-	/* Reset Internal Timing Generator */
-	{ADV7533_MAIN, 0xAF, 0x16},
-	/* HDMI Mode Select */
-	{ADV7533_CEC_DSI, 0x78, 0x03},
-	/* HDMI Output Enable */
-	{ADV7533_MAIN, 0x40, 0x80},
-	/* GC Packet Enable */
-	{ADV7533_MAIN, 0x4C, 0x04},
-	/* Colour Depth 24-bit per pixel */
-	{ADV7533_MAIN, 0x49, 0x00},
-	/* Down Dither Output 8-bit Colour Depth */
-	{ADV7533_CEC_DSI, 0x05, 0xC8},
-	/* ADI Required Write */
-	{ADV7533_CEC_DSI, 0xBE, 0x3D},
-	/* Test Pattern Enable (0x55[7] = 1) */
-	{ADV7533_CEC_DSI, 0x55, 0x80},
-};
-
-static struct adv7533_reg_cfg tg_cfg_720p[] = {
-	{ADV7533_CEC_DSI, 0x1C, 0x30},
-	/* hsync and vsync active low */
-	{ADV7533_MAIN, 0x17, 0x02},
-	/* Control for Pixel Clock Divider */
-	{ADV7533_CEC_DSI, 0x16, 0x24},
-	/* h_width 0x898 2200*/
-	{ADV7533_CEC_DSI, 0x28, 0x67},
-	{ADV7533_CEC_DSI, 0x29, 0x20},
-	/* hsync_width 0x2C 44*/
-	{ADV7533_CEC_DSI, 0x2A, 0x02},
-	{ADV7533_CEC_DSI, 0x2B, 0x80},
-	/* hfp 0x58 88 */
-	{ADV7533_CEC_DSI, 0x2C, 0x06},
-	{ADV7533_CEC_DSI, 0x2D, 0xE0},
-	/* hbp 0x94 148 */
-	{ADV7533_CEC_DSI, 0x2E, 0x0D},
-	{ADV7533_CEC_DSI, 0x2F, 0xC0},
-	/* v_total 0x465 1125 */
-	{ADV7533_CEC_DSI, 0x30, 0x2E},
-	{ADV7533_CEC_DSI, 0x31, 0xE0},
-	/* vsync_width 0x05 5*/
-	{ADV7533_CEC_DSI, 0x32, 0x00},
-	{ADV7533_CEC_DSI, 0x33, 0x50},
-	/* vfp 0x04 4  */
-	{ADV7533_CEC_DSI, 0x34, 0x00},
-	{ADV7533_CEC_DSI, 0x35, 0x50},
-	/* vbp 0x24 36 */
-	{ADV7533_CEC_DSI, 0x36, 0x01},
-	{ADV7533_CEC_DSI, 0x37, 0x40},
-	/* Test Pattern Disable (0x55[7] = 0) */
-	{ADV7533_CEC_DSI, 0x55, 0x00},
-	/* HDMI disabled */
-	{ADV7533_CEC_DSI, 0x03, 0x09},
-	/* HDMI enabled */
-	{ADV7533_CEC_DSI, 0x03, 0x89},
-};
-
-static struct adv7533_reg_cfg tg_cfg_pattern_720p[] = {
-	{ADV7533_CEC_DSI, 0x1C, 0x30},
-	/* hsync and vsync active low */
-	{ADV7533_MAIN, 0x17, 0x02},
-	/* Control for Pixel Clock Divider */
-	{ADV7533_CEC_DSI, 0x16, 0x24},
-	/* h_width 0x898 2200*/
-	{ADV7533_CEC_DSI, 0x28, 0x67},
-	{ADV7533_CEC_DSI, 0x29, 0x20},
-	/* hsync_width 0x2C 44*/
-	{ADV7533_CEC_DSI, 0x2A, 0x02},
-	{ADV7533_CEC_DSI, 0x2B, 0x80},
-	/* hfp 0x58 88 */
-	{ADV7533_CEC_DSI, 0x2C, 0x06},
-	{ADV7533_CEC_DSI, 0x2D, 0xE0},
-	/* hbp 0x94 148 */
-	{ADV7533_CEC_DSI, 0x2E, 0x0D},
-	{ADV7533_CEC_DSI, 0x2F, 0xC0},
-	/* v_total 0x465 1125 */
-	{ADV7533_CEC_DSI, 0x30, 0x2E},
-	{ADV7533_CEC_DSI, 0x31, 0xE0},
-	/* vsync_width 0x05 5*/
-	{ADV7533_CEC_DSI, 0x32, 0x00},
-	{ADV7533_CEC_DSI, 0x33, 0x50},
-	/* vfp 0x04 4  */
-	{ADV7533_CEC_DSI, 0x34, 0x00},
-	{ADV7533_CEC_DSI, 0x35, 0x50},
-	/* vbp 0x24 36 */
-	{ADV7533_CEC_DSI, 0x36, 0x01},
-	{ADV7533_CEC_DSI, 0x37, 0x40},
-	/* DSI Internal Timing Generator Enable register bit (0x27[7] = 1) */
-	{ADV7533_CEC_DSI, 0x27, 0x8B},
-	/* Test Pattern Enable (0x55[7] = 1) */
-	{ADV7533_CEC_DSI, 0x55, 0x80},
-	/* DSI Internal Timing Generator Reset Enable
-		register bit (0x27[6] = 0) */
-	{ADV7533_CEC_DSI, 0x27, 0x8B},
-	/* DSI Internal Timing Generator Reset Enable
-		register bit (0x27[6] = 1) */
-	{ADV7533_CEC_DSI, 0x27, 0xCB},
-
-	{ADV7533_CEC_DSI, 0x03, 0x09},/* HDMI disabled */
-	{ADV7533_CEC_DSI, 0x03, 0x89},/* HDMI enabled */
-};
-
 static struct adv7533_reg_cfg I2S_cfg[] = {
 	{ADV7533_MAIN, 0x0D, 0x18},	/* Bit width = 16Bits*/
 	{ADV7533_MAIN, 0x15, 0x20},	/* Sampling Frequency = 48kHz*/
@@ -310,24 +198,9 @@ static struct adv7533_reg_cfg irq_config[] = {
 		EDID_READY_INT_ENABLE},
 };
 
-static struct adv7533_reg_cfg irq_clear[] = {
-	{ADV7533_CEC_DSI, 0x38, BIT(7)},
-	{ADV7533_CEC_DSI, 0x38, BIT(3)},
-	{ADV7533_MAIN, 0x96, HPD_INT_ENABLE |
-		MONITOR_SENSE_INT_ENABLE |
-		EDID_READY_INT_ENABLE},
-};
-
 static struct i2c_client *client;
 static struct adv7533_platform_data *pdata;
 static char mdss_mdp_panel[MDSS_MAX_PANEL_LEN];
-
-/*
- * If i2c read or write fails, wait for 100ms to try again, and try
- * max 3 times.
- */
-#define MAX_WAIT_TIME (100)
-#define MAX_RW_TRIES (3)
 
 static int adv7533_read(u8 addr, u8 reg, u8 *buf, u8 len)
 {
@@ -664,102 +537,122 @@ static void adv7533_get_cmdline_config(void)
 		pdata->video_mode = ADV7533_VIDEO_1080P;
 }
 
-static void adv7533_int_work(struct work_struct *work)
+u32 adv7533_read_edid(u32 size, char *edid_buf)
 {
-	u8 dsi_irq_status;
+	u32 ret = 0, ndx;
+	u8 edid_addr;
+	u32 read_size = size / 2;
+
+	if (!edid_buf)
+		return 0;
+
+	pr_debug("%s: size %d\n", __func__, size);
+
+	ret = adv7533_read(ADV7533_MAIN, 0x43, &edid_addr, 1);
+	if (ret) {
+		pr_err("%s: Error reading edid addr\n", __func__);
+		goto end;
+	}
+
+	pr_debug("%s: edid address 0x%x\n", __func__, edid_addr);
+
+	ret = adv7533_read(edid_addr >> 1, 0x00, edid_buf, read_size);
+	if (ret) {
+		pr_err("%s: Error reading edid 0\n", __func__);
+		goto end;
+	}
+
+	ret = adv7533_read(edid_addr >> 1, read_size,
+		edid_buf + read_size, read_size);
+	if (ret) {
+		pr_err("%s: Error reading edid 1\n", __func__);
+		goto end;
+	}
+
+	for (ndx = 0; ndx < size; ndx += 4)
+		pr_info("%s: EDID[%02x-%02x] %02x %02x %02x %02x\n",
+			__func__, ndx, ndx + 3,
+			edid_buf[ndx + 0], edid_buf[ndx + 1],
+			edid_buf[ndx + 2], edid_buf[ndx + 3]);
+end:
+	return ret;
+}
+
+static void adv7533_intr_work(struct work_struct *work)
+{
 	u8 int_status;
 	u8 int_state;
-	u32 ret = 0;
-
+	int ret;
 	struct adv7533_platform_data *pdata;
+	struct delayed_work *dw = to_delayed_work(work);
 
-	pdata = container_of(work, struct adv7533_platform_data,
-			adv7533_int_work_id);
-	if (!pdata)
+	pdata = container_of(dw, struct adv7533_platform_data,
+			adv7533_intr_work_id);
+	if (!pdata) {
 		pr_err("%s: invalid input\n", __func__);
 		return;
-
-	/* Read DSI RX Turn On Status */
-	adv7533_read_byte(ADV7533_CEC_DSI, 0x40, &dsi_irq_status);
-	if (dsi_irq_status & 0x10)
-		pr_debug("%s DSI RX turned on\n", __func__);
+	}
 
 	/* READ Interrupt registers */
 	adv7533_read_byte(ADV7533_MAIN, 0x96, &int_status);
 	adv7533_read_byte(ADV7533_MAIN, 0x42, &int_state);
 
-	if (int_status & BIT(7)) {
-		pr_debug("%s: GOT HPD INTR\n", __func__);
-		if (int_state & BIT(6)) {
-			pr_debug("%s: CABLE CONNECTED\n", __func__);
-		} else {
-			pr_debug("%s: CABLE DISCONNECTED\n", __func__);
-			goto p_err_regs;
-		}
-	}
-
 	if (int_status & BIT(6)) {
-		pr_debug("%s: GOT Rx SENSE\n", __func__);
 		if (int_state & BIT(5)) {
-			pr_debug("%s: Rx SENSE CLK TERMINATION\n", __func__);
-			ret = adv7533_write_regs(pdata, setup_cfg,
-				ARRAY_SIZE(setup_cfg));
-			if (ret != 0) {
-				pr_err("%s: Failed to write common config\n",
-					__func__);
-				goto p_err_regs;
+			pr_info("%s: Rx SENSE CABLE CONNECTED\n", __func__);
+
+			/* initiate edid read in adv7533 */
+			ret = adv7533_write_byte(pdata->main_i2c_addr,
+				0xC9, 0x13);
+			if (ret) {
+				pr_err("%s: Failed: edid read adv %d\n",
+					__func__, ret);
+				pdata->client_cb(pdata->client_cb_data,
+					MSM_DBA_CB_HPD_CONNECT);
 			}
+
+		} else {
+			pr_info("%s: NO Rx SENSE CABLE DISCONNECTED\n",
+				__func__);
+			pdata->client_cb(pdata->client_cb_data,
+				MSM_DBA_CB_HPD_DISCONNECT);
 		}
 	}
 
 	/* EDID ready for read */
 	if (int_status & BIT(2)) {
-		pr_debug("%s: GOT EDID READY INTR\n", __func__);
+		pr_info("%s: EDID READY\n", __func__);
 
-		switch (pdata->video_mode) {
-		case ADV7533_VIDEO_PATTERN:
-			ret = adv7533_write_regs(pdata, tg_cfg_pattern_1080p,
-				ARRAY_SIZE(tg_cfg_pattern_1080p));
-			if (ret != 0) {
-				pr_err("%s: err config pattern 1080p %d\n",
-					__func__, ret);
-				goto p_err_regs;
-			}
-			break;
-		case ADV7533_VIDEO_480P:
-		case ADV7533_VIDEO_720P:
-			ret = adv7533_write_regs(pdata, tg_cfg_pattern_720p,
-				ARRAY_SIZE(tg_cfg_pattern_720p));
-			ret = adv7533_write_regs(pdata, tg_cfg_720p,
-				ARRAY_SIZE(tg_cfg_720p));
-			if (ret != 0) {
-				pr_err("%s: err config pattern 720p %d\n",
-					__func__, ret);
-				goto p_err_regs;
-			}
-			break;
-		case ADV7533_VIDEO_1080P:
-		default:
-			ret = adv7533_write_regs(pdata, tg_cfg_1080p,
-				ARRAY_SIZE(tg_cfg_1080p));
-			if (ret != 0) {
-				pr_err("%s: err config 1080p %d\n",
-					__func__, ret);
-				goto p_err_regs;
-			}
-			break;
-		}
+		ret = adv7533_read_edid(sizeof(pdata->edid_buf),
+			pdata->edid_buf);
+		if (ret)
+			pr_err("%s: edid read failed\n", __func__);
+
+		pdata->client_cb(pdata->client_cb_data,
+			MSM_DBA_CB_HPD_CONNECT);
 	}
 
-p_err_regs:
-	/* Clear and enable interrupts */
-	adv7533_write_regs(pdata, irq_clear, ARRAY_SIZE(irq_clear));
-	/*adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config));*/
+	/* Clear interrupts */
+	ret = adv7533_write_byte(pdata->main_i2c_addr, 0x96, int_status);
+	if (ret)
+		pr_err("%s: Failed: clear interrupts %d\n", __func__, ret);
+
+	ret = adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config));
+	if (ret)
+		pr_err("%s: Failed: irq config %d\n", __func__, ret);
 }
 
 static irqreturn_t adv7533_irq(int irq, void *data)
 {
-	queue_work(pdata->workq, &pdata->adv7533_int_work_id);
+	int ret;
+
+	/* disable interrupts */
+	ret = adv7533_write_byte(pdata->main_i2c_addr, 0x94, 0x00);
+	if (ret)
+		pr_err("%s: Failed: disable interrupts %d\n",
+			__func__, ret);
+
+	queue_delayed_work(pdata->workq, &pdata->adv7533_intr_work_id, 0);
 
 	return IRQ_HANDLED;
 }
@@ -769,11 +662,175 @@ static struct i2c_device_id adv7533_id[] = {
 	{}
 };
 
+static struct adv7533_platform_data *adv7533_get_platform_data(void *client)
+{
+	struct adv7533_platform_data *pdata = NULL;
+	struct msm_dba_device_info *dev;
+	struct msm_dba_client_info *cinfo =
+		(struct msm_dba_client_info *)client;
+
+	if (!cinfo) {
+		pr_err("%s: invalid client data\n", __func__);
+		goto end;
+	}
+
+	dev = cinfo->dev;
+	if (!dev) {
+		pr_err("%s: invalid device data\n", __func__);
+		goto end;
+	}
+
+	pdata = container_of(dev, struct adv7533_platform_data, dev_info);
+	if (!pdata)
+		pr_err("%s: invalid platform data\n", __func__);
+
+end:
+	return pdata;
+}
+
+/* Device Operations */
+static int adv7533_power_on(void *client, bool on, u32 flags)
+{
+	int ret = 0;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		goto end;
+	}
+
+	ret = adv7533_write_regs(pdata, adv7533_init_setup,
+		ARRAY_SIZE(adv7533_init_setup));
+	if (ret) {
+		pr_err("%s: Failed to write common config\n",
+			__func__);
+		goto end;
+	}
+
+	ret = adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config));
+	if (ret) {
+		pr_err("%s: Failed: irq config %d\n", __func__, ret);
+		goto end;
+	}
+
+	queue_delayed_work(pdata->workq, &pdata->adv7533_intr_work_id, HZ/2);
+
+end:
+	return ret;
+}
+
+static int adv7533_video_on(void *client, bool on,
+	struct msm_dba_video_cfg *cfg, u32 flags)
+{
+	int ret = 0;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		goto end;
+	}
+
+	ret = adv7533_write_regs(pdata, tg_cfg_1080p,
+		ARRAY_SIZE(tg_cfg_1080p));
+	if (ret) {
+		pr_err("%s: err config 1080p %d\n", __func__, ret);
+		goto end;
+	}
+
+	ret = adv7533_write_regs(pdata, adv7533_video_setup,
+		ARRAY_SIZE(adv7533_video_setup));
+	if (ret)
+		pr_err("%s: Failed: video setup\n", __func__);
+end:
+	return ret;
+}
+
+static int adv7533_get_edid_size(void *client,
+	u32 *size, u32 flags)
+{
+	int ret = 0;
+
+	if (!size) {
+		ret = -EINVAL;
+		goto end;
+	}
+
+	*size = EDID_SEG_SIZE;
+
+end:
+	return ret;
+}
+
+static int adv7533_get_raw_edid(void *client,
+	u32 size, char *buf, u32 flags)
+{
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata || !buf) {
+		pr_err("%s: invalid data\n", __func__);
+		goto end;
+	}
+
+	size = size > sizeof(pdata->edid_buf) ? sizeof(pdata->edid_buf) : size;
+
+	memcpy(buf, pdata->edid_buf, size);
+end:
+	return 0;
+}
+
+static int adv7533_reg_fxn(struct msm_dba_client_info *cinfo)
+{
+	int ret = 0;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data((void *)cinfo);
+
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		goto end;
+	}
+
+	pdata->client_cb = cinfo->cb;
+	pdata->client_cb_data = cinfo->cb_data;
+
+end:
+	return ret;
+}
+
+static int adv7533_register_dba(struct adv7533_platform_data *pdata)
+{
+	struct msm_dba_ops *client_ops;
+
+	if (!pdata)
+		return -EINVAL;
+
+	client_ops = &pdata->dev_info.client_ops;
+
+	client_ops->power_on = adv7533_power_on;
+	client_ops->video_on = adv7533_video_on;
+	client_ops->get_edid_size = adv7533_get_edid_size;
+	client_ops->get_raw_edid = adv7533_get_raw_edid;
+
+	strlcpy(pdata->dev_info.chip_name, "adv7533",
+		sizeof(pdata->dev_info.chip_name));
+
+	pdata->dev_info.instance_id = 0;
+	pdata->dev_info.reg_fxn = adv7533_reg_fxn;
+
+	mutex_init(&pdata->dev_info.dev_mutex);
+
+	INIT_LIST_HEAD(&pdata->dev_info.client_list);
+
+	return msm_dba_add_probed_device(&pdata->dev_info);
+}
+
+
 static int adv7533_probe(struct i2c_client *client_,
 	 const struct i2c_device_id *id)
 {
 	int ret = 0;
-
 	client = client_;
 
 	if (client->dev.of_node) {
@@ -796,6 +853,11 @@ static int adv7533_probe(struct i2c_client *client_,
 		pr_err("%s: Failed to read revision\n", __func__);
 		goto p_err;
 	}
+
+	ret = adv7533_register_dba(pdata);
+	if (ret)
+		pr_err("%s: Error registering with DBA %d\n",
+			__func__, ret);
 
 	ret = pinctrl_select_state(pdata->ts_pinctrl,
 		pdata->pinctrl_state_active);
@@ -831,46 +893,6 @@ static int adv7533_probe(struct i2c_client *client_,
 		goto p_err;
 	}
 
-	ret = adv7533_write_regs(pdata, setup_cfg, ARRAY_SIZE(setup_cfg));
-	if (ret != 0) {
-		pr_err("%s: Failed to write common config\n", __func__);
-		goto p_err;
-	}
-
-	switch (pdata->video_mode) {
-	case ADV7533_VIDEO_PATTERN:
-		ret = adv7533_write_regs(pdata, tg_cfg_pattern_1080p,
-			ARRAY_SIZE(tg_cfg_pattern_1080p));
-		if (ret != 0) {
-			pr_err("%s: adv7533 pattern config i2c fails [%d]\n",
-				__func__, ret);
-			goto p_err;
-		}
-		break;
-	case ADV7533_VIDEO_480P:
-	case ADV7533_VIDEO_720P:
-		ret = adv7533_write_regs(pdata, tg_cfg_pattern_720p,
-			ARRAY_SIZE(tg_cfg_pattern_720p));
-		ret = adv7533_write_regs(pdata, tg_cfg_720p,
-			ARRAY_SIZE(tg_cfg_720p));
-		if (ret != 0) {
-			pr_err("%s: adv7533 pattern config i2c fails [%d]\n",
-				__func__, ret);
-			goto p_err;
-		}
-		break;
-	case ADV7533_VIDEO_1080P:
-	default:
-		ret = adv7533_write_regs(pdata, tg_cfg_1080p,
-			ARRAY_SIZE(tg_cfg_1080p));
-		if (ret != 0) {
-			pr_err("%s: adv7533 1080p config i2c fails [%d]\n",
-				__func__, ret);
-			goto p_err;
-		}
-		break;
-	}
-
 	if (pdata->audio) {
 		ret = adv7533_write_regs(pdata, I2S_cfg, ARRAY_SIZE(I2S_cfg));
 		if (ret != 0) {
@@ -886,14 +908,7 @@ static int adv7533_probe(struct i2c_client *client_,
 		return -EPERM;
 	}
 
-	INIT_WORK(&pdata->adv7533_int_work_id, adv7533_int_work);
-
-	ret = adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config));
-	if (ret) {
-		pr_err("%s: intr config i2c fails with ret = %d!\n",
-			__func__, ret);
-		goto p_err;
-	}
+	INIT_DELAYED_WORK(&pdata->adv7533_intr_work_id, adv7533_intr_work);
 
 	pm_runtime_enable(&client->dev);
 	pm_runtime_set_active(&client->dev);
@@ -911,6 +926,9 @@ static int adv7533_remove(struct i2c_client *client)
 	int ret = 0;
 
 	pm_runtime_disable(&client->dev);
+	disable_irq(pdata->irq);
+	free_irq(pdata->irq, pdata);
+
 	ret = adv7533_gpio_configure(pdata, false);
 
 	devm_kfree(&client->dev, pdata);
