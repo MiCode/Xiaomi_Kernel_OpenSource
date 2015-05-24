@@ -1202,6 +1202,11 @@ struct ipa_context {
 	u32 wan_rx_ring_size;
 	bool skip_uc_pipe_reset;
 	bool smmu_present;
+	unsigned long peer_bam_iova;
+	phys_addr_t peer_bam_pa;
+	u32 peer_bam_map_size;
+	unsigned long peer_bam_dev;
+	u32 peer_bam_map_cnt;
 };
 
 /**
@@ -1553,6 +1558,7 @@ int ipa_uc_mhi_resume_channel(int channelHandle, bool LPTransitionRejected);
 int ipa_uc_mhi_stop_event_update_channel(int channelHandle);
 int ipa_uc_mhi_print_stats(char *dbg_buff, int size);
 int ipa_uc_memcpy(phys_addr_t dest, phys_addr_t src, int len);
-
 u32 ipa_get_num_pipes(void);
+int ipa_smmu_map_peer_bam(unsigned long dev);
+int ipa_smmu_unmap_peer_bam(unsigned long dev);
 #endif /* _IPA_I_H_ */

@@ -97,6 +97,11 @@ static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
 	/* Default Config */
 	ep->ep_hdl = sps_alloc_endpoint();
 
+	if (ipa_smmu_map_peer_bam(in->client_bam_hdl)) {
+		IPAERR("fail to iommu map peer BAM.\n");
+		return -EFAULT;
+	}
+
 	if (ep->ep_hdl == NULL) {
 		IPAERR("SPS EP alloc failed EP.\n");
 		return -EFAULT;
@@ -114,6 +119,7 @@ static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
 		ep->connect.mode = SPS_MODE_SRC;
 		ep->connect.destination =
 			in->client_bam_hdl;
+		ep->connect.dest_iova = ipa_ctx->peer_bam_iova;
 		ep->connect.source = ipa_ctx->bam_handle;
 		ep->connect.dest_pipe_index =
 			in->client_ep_idx;
@@ -121,6 +127,7 @@ static int ipa_connect_configure_sps(const struct ipa_connect_params *in,
 	} else {
 		ep->connect.mode = SPS_MODE_DEST;
 		ep->connect.source = in->client_bam_hdl;
+		ep->connect.source_iova = ipa_ctx->peer_bam_iova;
 		ep->connect.destination = ipa_ctx->bam_handle;
 		ep->connect.src_pipe_index = in->client_ep_idx;
 		ep->connect.dest_pipe_index = ipa_ep_idx;
@@ -138,6 +145,7 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 	dma_addr_t dma_addr;
 	u32 ofst;
 	int result = -EFAULT;
+	struct iommu_domain *smmu_domain;
 
 	mem_buff_ptr->size = fifo_size;
 	if (in->pipe_mem_preferred) {
@@ -162,7 +170,16 @@ static int ipa_connect_allocate_fifo(const struct ipa_connect_params *in,
 			dma_alloc_coherent(ipa_ctx->pdev, mem_buff_ptr->size,
 			&dma_addr, GFP_KERNEL);
 	}
-	mem_buff_ptr->phys_base = dma_addr;
+	if (!ipa_ctx->smmu_present) {
+		mem_buff_ptr->phys_base = dma_addr;
+	} else {
+		mem_buff_ptr->iova = dma_addr;
+		smmu_domain = ipa_get_smmu_domain();
+		if (smmu_domain != NULL) {
+			mem_buff_ptr->phys_base =
+				iommu_iova_to_phys(smmu_domain, dma_addr);
+		}
+	}
 	if (mem_buff_ptr->base == NULL) {
 		IPAERR("fail to get DMA memory.\n");
 		return -EFAULT;
@@ -193,6 +210,8 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	int result = -EFAULT;
 	struct ipa_ep_context *ep;
 	struct ipa_ep_cfg_status ep_status;
+	unsigned long base;
+	struct iommu_domain *smmu_domain;
 
 	IPADBG("connecting client\n");
 
@@ -255,6 +274,14 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 		goto ipa_cfg_ep_fail;
 	}
 
+	if (ipa_ctx->smmu_present &&
+			(in->desc.base == NULL ||
+			 in->data.base == NULL)) {
+		IPAERR(" allocate FIFOs data_fifo=0x%p desc_fifo=0x%p.\n",
+				in->data.base, in->desc.base);
+		goto desc_mem_alloc_fail;
+	}
+
 	if (in->desc.base == NULL) {
 		result = ipa_connect_allocate_fifo(in, &ep->connect.desc,
 						  &ep->desc_fifo_in_pipe_mem,
@@ -289,7 +316,38 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	IPADBG("Data FIFO pa=%pa, size=%d\n", &ep->connect.data.phys_base,
 	       ep->connect.data.size);
 
-	if ((ipa_ctx->ipa_hw_type >= IPA_HW_v2_0) &&
+	if (ipa_ctx->smmu_present) {
+		ep->connect.data.iova = ep->connect.data.phys_base;
+		base = ep->connect.data.iova;
+		smmu_domain = ipa_get_smmu_domain();
+		if (smmu_domain != NULL) {
+			if (iommu_map(smmu_domain,
+				rounddown(base, PAGE_SIZE),
+				rounddown(base, PAGE_SIZE),
+				roundup(ep->connect.data.size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE),
+				IOMMU_READ | IOMMU_WRITE)) {
+				IPAERR("Fail to iommu_map data FIFO\n");
+				goto iommu_map_data_fail;
+			}
+		}
+		ep->connect.desc.iova = ep->connect.desc.phys_base;
+		base = ep->connect.desc.iova;
+		if (smmu_domain != NULL) {
+			if (iommu_map(smmu_domain,
+				rounddown(base, PAGE_SIZE),
+				rounddown(base, PAGE_SIZE),
+				roundup(ep->connect.desc.size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE),
+				IOMMU_READ | IOMMU_WRITE)) {
+				IPAERR("Fail to iommu_map desc FIFO\n");
+				goto iommu_map_desc_fail;
+			}
+		}
+	}
+
+	if ((ipa_ctx->ipa_hw_type == IPA_HW_v2_0 ||
+		ipa_ctx->ipa_hw_type == IPA_HW_v2_5) &&
 		IPA_CLIENT_IS_USB_CONS(in->client))
 		ep->connect.event_thresh = IPA_USB_EVENT_THRESHOLD;
 	else
@@ -320,25 +378,49 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	return 0;
 
 sps_connect_fail:
-	if (!ep->data_fifo_in_pipe_mem)
-		dma_free_coherent(ipa_ctx->pdev,
+	if (ipa_ctx->smmu_present) {
+		base = ep->connect.desc.iova;
+		smmu_domain = ipa_get_smmu_domain();
+		if (smmu_domain != NULL) {
+			iommu_unmap(smmu_domain,
+				rounddown(base, PAGE_SIZE),
+				roundup(ep->connect.desc.size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE));
+		}
+	}
+iommu_map_desc_fail:
+	if (ipa_ctx->smmu_present) {
+		base = ep->connect.data.iova;
+		smmu_domain = ipa_get_smmu_domain();
+		if (smmu_domain != NULL) {
+			iommu_unmap(smmu_domain,
+				rounddown(base, PAGE_SIZE),
+				roundup(ep->connect.data.size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE));
+		}
+	}
+iommu_map_data_fail:
+	if (!ep->data_fifo_client_allocated) {
+		if (!ep->data_fifo_in_pipe_mem)
+			dma_free_coherent(ipa_ctx->pdev,
 				  ep->connect.data.size,
 				  ep->connect.data.base,
 				  ep->connect.data.phys_base);
-	else
-		ipa_pipe_mem_free(ep->data_fifo_pipe_mem_ofst,
+		else
+			ipa_pipe_mem_free(ep->data_fifo_pipe_mem_ofst,
 				  ep->connect.data.size);
-
+	}
 data_mem_alloc_fail:
-	if (!ep->desc_fifo_in_pipe_mem)
-		dma_free_coherent(ipa_ctx->pdev,
+	if (!ep->desc_fifo_client_allocated) {
+		if (!ep->desc_fifo_in_pipe_mem)
+			dma_free_coherent(ipa_ctx->pdev,
 				  ep->connect.desc.size,
 				  ep->connect.desc.base,
 				  ep->connect.desc.phys_base);
-	else
-		ipa_pipe_mem_free(ep->desc_fifo_pipe_mem_ofst,
+		else
+			ipa_pipe_mem_free(ep->desc_fifo_pipe_mem_ofst,
 				  ep->connect.desc.size);
-
+	}
 desc_mem_alloc_fail:
 	sps_free_endpoint(ep->ep_hdl);
 ipa_cfg_ep_fail:
@@ -365,6 +447,9 @@ int ipa_disconnect(u32 clnt_hdl)
 {
 	int result;
 	struct ipa_ep_context *ep;
+	unsigned long peer_bam;
+	unsigned long base;
+	struct iommu_domain *smmu_domain;
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 		ipa_ctx->ep[clnt_hdl].valid == 0) {
@@ -390,6 +475,16 @@ int ipa_disconnect(u32 clnt_hdl)
 		return -EPERM;
 	}
 
+	if (IPA_CLIENT_IS_CONS(ep->client))
+		peer_bam = ep->connect.destination;
+	else
+		peer_bam = ep->connect.source;
+
+	if (ipa_smmu_unmap_peer_bam(peer_bam)) {
+		IPAERR("fail to iommu unmap peer BAM.\n");
+		return -EPERM;
+	}
+
 	if (!ep->desc_fifo_client_allocated &&
 	     ep->connect.desc.base) {
 		if (!ep->desc_fifo_in_pipe_mem)
@@ -412,6 +507,28 @@ int ipa_disconnect(u32 clnt_hdl)
 		else
 			ipa_pipe_mem_free(ep->data_fifo_pipe_mem_ofst,
 					  ep->connect.data.size);
+	}
+
+	if (ipa_ctx->smmu_present) {
+		base = ep->connect.desc.iova;
+		smmu_domain = ipa_get_smmu_domain();
+		if (smmu_domain != NULL) {
+			iommu_unmap(smmu_domain,
+				rounddown(base, PAGE_SIZE),
+				roundup(ep->connect.desc.size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE));
+		}
+	}
+
+	if (ipa_ctx->smmu_present) {
+		base = ep->connect.data.iova;
+		smmu_domain = ipa_get_smmu_domain();
+		if (smmu_domain != NULL) {
+			iommu_unmap(smmu_domain,
+				rounddown(base, PAGE_SIZE),
+				roundup(ep->connect.data.size + base -
+					rounddown(base, PAGE_SIZE), PAGE_SIZE));
+		}
 	}
 
 	result = sps_free_endpoint(ep->ep_hdl);
