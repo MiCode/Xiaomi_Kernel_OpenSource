@@ -23,6 +23,15 @@ IPA node:
 Optional:
 
 - qcom,wan-rx-ring-size: size of WAN rx ring, default is 32
+- qcom,arm-smmu: SMMU is present and ARM SMMU driver is used
+- qcom,msm-smmu: SMMU is present and QSMMU driver is used
+- ipa_smmu_ap: AP general purpose SMMU device
+	compatible "qcom,ipa-smmu-ap-cb"
+- ipa_smmu_wlan: WDI SMMU device
+	compatible "qcom,ipa-smmu-wlan-cb"
+- ipa_smmu_uc: uc SMMU device
+	compatible "qcom,ipa-smmu-uc-cb"
+- qcom,smmu-disable-htw: boolean value to turn off SMMU page table caching
 - qcom,use-a2-service: determine if A2 service will be used
 - qcom,use-ipa-tethering-bridge: determine if tethering bridge will be used
 - qcom,use-ipa-bamdma-a2-bridge: determine if a2/ipa hw bridge will be used
