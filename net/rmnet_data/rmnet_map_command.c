@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -114,22 +114,20 @@ static uint8_t rmnet_map_do_flow_control(struct sk_buff *skb,
 static void rmnet_map_send_ack(struct sk_buff *skb,
 			       unsigned char type)
 {
-	struct net_device *dev;
 	struct rmnet_map_control_command_s *cmd;
-	unsigned long flags;
 	int xmit_status;
 
-	if (!skb)
+	if (unlikely(!skb))
 		BUG();
-
-	dev = skb->dev;
 
 	cmd = RMNET_MAP_GET_CMD_START(skb);
 	cmd->cmd_type = type & 0x03;
 
-	spin_lock_irqsave(&(skb->dev->tx_global_lock), flags);
+	netif_tx_lock(skb->dev);
 	xmit_status = skb->dev->netdev_ops->ndo_start_xmit(skb, skb->dev);
-	spin_unlock_irqrestore(&(skb->dev->tx_global_lock), flags);
+	netif_tx_unlock(skb->dev);
+
+	LOGD("MAP command ACK=%hhu sent with rc: %d", type & 0x03, xmit_status);
 }
 
 /**
