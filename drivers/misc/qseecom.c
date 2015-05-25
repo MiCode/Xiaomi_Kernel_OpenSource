@@ -85,7 +85,8 @@
 #define QSEECOM_SEND_CMD_CRYPTO_TIMEOUT	2000
 #define QSEECOM_LOAD_APP_CRYPTO_TIMEOUT	2000
 #define TWO 2
-#define QSEECOM_ICE_CE_NUM 10
+#define QSEECOM_UFS_ICE_CE_NUM 10
+#define QSEECOM_SDCC_ICE_CE_NUM 20
 #define QSEECOM_ICE_FDE_KEY_INDEX 0
 
 #define PHY_ADDR_4G	(1ULL<<32)
@@ -106,7 +107,8 @@ enum qseecom_client_handle_type {
 enum qseecom_ce_hw_instance {
 	CLK_QSEE = 0,
 	CLK_CE_DRV,
-	CLK_ICE,
+	CLK_UFS_ICE,
+	CLK_SDCC_ICE,
 	CLK_INVALID,
 };
 
@@ -277,6 +279,8 @@ static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce);
 static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce);
 static int qseecom_load_commonlib_image(struct qseecom_dev_handle *data,
 					char *cmnlib_name);
+static int qseecom_enable_ice_setup(int usage);
+static int qseecom_disable_ice_setup(int usage);
 
 static int qseecom_scm_call2(uint32_t svc_id, uint32_t tz_cmd_id,
 			const void *req_buf, void *resp_buf)
@@ -3513,14 +3517,15 @@ static int __qseecom_enable_clk(enum qseecom_ce_hw_instance ce)
 	int rc = 0;
 	struct qseecom_clk *qclk = NULL;
 
-	if (qseecom.no_clock_support && (ce != CLK_ICE))
+	if (qseecom.no_clock_support &&
+		((ce != CLK_UFS_ICE) || (ce != CLK_SDCC_ICE)))
 		return 0;
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
 	if (ce == CLK_CE_DRV)
 		qclk = &qseecom.ce_drv;
-	if (ce == CLK_ICE)
+	if ((ce == CLK_UFS_ICE) || (ce == CLK_SDCC_ICE))
 		qclk = &qseecom.ce_ice;
 
 	if (qclk == NULL) {
@@ -3581,12 +3586,13 @@ static void __qseecom_disable_clk(enum qseecom_ce_hw_instance ce)
 {
 	struct qseecom_clk *qclk;
 
-	if (qseecom.no_clock_support && (ce != CLK_ICE))
+	if (qseecom.no_clock_support &&
+		((ce != CLK_UFS_ICE) || ce != CLK_SDCC_ICE))
 		return;
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
-	else if (ce == CLK_ICE)
+	else if ((ce == CLK_UFS_ICE) || (ce == CLK_SDCC_ICE))
 		qclk = &qseecom.ce_ice;
 	else
 		qclk = &qseecom.ce_drv;
@@ -4047,7 +4053,8 @@ static int __qseecom_get_ce_pipe_info(
 	int ret, i;
 	switch (usage) {
 	case QSEOS_KM_USAGE_DISK_ENCRYPTION:
-	case QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION:
+	case QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION:
+	case QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION:
 		if (qseecom.support_fde) {
 			*pipe = qseecom.ce_info.disk_encrypt_pipe;
 			for (i = 0;
@@ -4319,12 +4326,77 @@ static int qseecom_get_vreg(void)
 	int ret = 0;
 	if (!qseecom.is_regulator_available)
 		return 0;
+	if (qseecom.reg)
+		return 0;
 	qseecom.reg = devm_regulator_get(qseecom.pdev, "vdd-hba");
 	if (IS_ERR(qseecom.reg)) {
 		ret = PTR_ERR(qseecom.reg);
 		dev_err(qseecom.pdev, "%s: %s get failed, err=%d\n",
 			__func__, "vdd-hba-supply", ret);
 	}
+	return ret;
+}
+
+static int qseecom_enable_ice_setup(int usage)
+{
+	int ret = 0;
+	if (usage == QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION) {
+		if (qseecom.ce_ice.instance == CLK_INVALID) {
+			if (__qseecom_init_clk(CLK_UFS_ICE)) {
+				pr_err("Failed to get storage clocks\n");
+				ret = -1;
+				goto out;
+			}
+		}
+		if (qseecom_get_vreg()) {
+			pr_err("%s: Could not get regulator\n", __func__);
+			ret = -1;
+			goto out;
+		}
+		if (qseecom.is_regulator_available &&
+			regulator_enable(qseecom.reg)) {
+				pr_err("%s: Could not enable regulator\n",
+								__func__);
+			ret = -1;
+			goto out;
+		}
+		__qseecom_enable_clk(CLK_UFS_ICE);
+	} else if (usage == QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION) {
+		if (qseecom.ce_ice.instance == CLK_INVALID) {
+			if (__qseecom_init_clk(CLK_SDCC_ICE)) {
+				pr_err("Failed to get storage clocks\n");
+				ret = -1;
+				goto out;
+			}
+		}
+		__qseecom_enable_clk(CLK_SDCC_ICE);
+	}
+out:
+	return ret;
+}
+
+static int qseecom_disable_ice_setup(int usage)
+{
+	int ret = 0;
+	if (qseecom.ce_ice.instance == CLK_INVALID)
+		return 0;
+
+	if (usage == QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION) {
+		__qseecom_disable_clk(CLK_UFS_ICE);
+		if (!qseecom.reg)
+			goto out;
+
+		if (qseecom.is_regulator_available &&
+					regulator_disable(qseecom.reg)) {
+			pr_err("%s: Could not enable regulator\n",
+								__func__);
+			ret = -1;
+			goto out;
+		}
+	} else if (usage == QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION) {
+		__qseecom_disable_clk(CLK_SDCC_ICE);
+	}
+out:
 	return ret;
 }
 
@@ -4393,9 +4465,15 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 			i++) {
 		set_key_ireq.qsee_command_id = QSEOS_SET_KEY;
 		if (create_key_req.usage ==
-				QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
-			set_key_ireq.ce = QSEECOM_ICE_CE_NUM;
+				QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION) {
+			set_key_ireq.ce = QSEECOM_UFS_ICE_CE_NUM;
 			set_key_ireq.pipe = QSEECOM_ICE_FDE_KEY_INDEX;
+
+		} else if (create_key_req.usage ==
+				QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION) {
+			set_key_ireq.ce = QSEECOM_SDCC_ICE_CE_NUM;
+			set_key_ireq.pipe = QSEECOM_ICE_FDE_KEY_INDEX;
+
 		} else {
 			set_key_ireq.ce = ce_hw[i];
 			set_key_ireq.pipe = pipe;
@@ -4413,52 +4491,28 @@ static int qseecom_create_key(struct qseecom_dev_handle *data,
 				(void *)create_key_req.hash32,
 				QSEECOM_HASH_SIZE);
 
-		if (create_key_req.usage ==
-					QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
-			if (qseecom.ce_ice.instance == CLK_INVALID) {
-				if (__qseecom_init_clk(CLK_ICE)) {
-					pr_err("Failed to get storage clocks\n");
-					goto free_buf;
-				}
-				if (qseecom_get_vreg()) {
-					pr_err("%s: Could not get regulator\n",
-								__func__);
-					goto free_buf;
-				}
-			}
-			if (qseecom.is_regulator_available &&
-					regulator_enable(qseecom.reg)) {
-				pr_err("%s: Could not enable regulator\n",
-								__func__);
-				goto free_buf;
-			}
-			__qseecom_enable_clk(CLK_ICE);
-		}
+		/* It will return false if it is GPCE based crypto instance or
+		   ICE is setup properly */
+		if (qseecom_enable_ice_setup(create_key_req.usage))
+			goto free_buf;
 
 		ret = __qseecom_set_clear_ce_key(data,
 					create_key_req.usage,
 					&set_key_ireq);
 
-		if (create_key_req.usage ==
-			QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
-			if (!ret)
-				pr_err("Set the key successfully\n");
-			else
-				pr_err("Set the key failed\n");
-			__qseecom_disable_clk(CLK_ICE);
-			if (qseecom.is_regulator_available &&
-					regulator_disable(qseecom.reg)) {
-				pr_err("%s:Could not disable regulator\n",
-								__func__);
-			}
-			break;
-		}
+		qseecom_disable_ice_setup(create_key_req.usage);
+
 		if (ret) {
 			pr_err("Failed to create key: pipe %d, ce %d: %d\n",
 				pipe, ce_hw[i], ret);
 			goto free_buf;
 		} else {
 			pr_err("Set the key successfully\n");
+			if ((create_key_req.usage ==
+				QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION) ||
+			     (create_key_req.usage ==
+				QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION))
+				goto free_buf;
 		}
 	}
 
@@ -4531,8 +4585,12 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 		j++) {
 		clear_key_ireq.qsee_command_id = QSEOS_SET_KEY;
 		if (wipe_key_req.usage ==
-				QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
-			clear_key_ireq.ce = QSEECOM_ICE_CE_NUM;
+				QSEOS_KM_USAGE_UFS_ICE_DISK_ENCRYPTION) {
+			clear_key_ireq.ce = QSEECOM_UFS_ICE_CE_NUM;
+			clear_key_ireq.pipe = QSEECOM_ICE_FDE_KEY_INDEX;
+		} else if (wipe_key_req.usage ==
+			QSEOS_KM_USAGE_SDCC_ICE_DISK_ENCRYPTION) {
+			clear_key_ireq.ce = QSEECOM_SDCC_ICE_CE_NUM;
 			clear_key_ireq.pipe = QSEECOM_ICE_FDE_KEY_INDEX;
 		} else {
 			clear_key_ireq.ce = ce_hw[j];
@@ -4544,40 +4602,15 @@ static int qseecom_wipe_key(struct qseecom_dev_handle *data,
 			clear_key_ireq.key_id[i] = QSEECOM_INVALID_KEY_ID;
 		memset((void *)clear_key_ireq.hash32, 0, QSEECOM_HASH_SIZE);
 
-		if (wipe_key_req.usage == QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
-			if (qseecom.ce_ice.instance == CLK_INVALID) {
-				if (__qseecom_init_clk(CLK_ICE)) {
-					pr_err("Failed to get storage clocks\n");
-					goto free_buf;
-				}
-				if (qseecom_get_vreg()) {
-					pr_err("%s: Could not get regulator\n",
-								__func__);
-					goto free_buf;
-				}
-				if (qseecom.is_regulator_available &&
-					regulator_enable(qseecom.reg)) {
-					pr_err("%s:Couldnot enable regulator\n",
-								__func__);
-					goto free_buf;
-				}
-				__qseecom_enable_clk(CLK_ICE);
-			}
-		}
+		/* It will return false if it is GPCE based crypto instance or
+		   ICE is setup properly */
+		if (qseecom_enable_ice_setup(wipe_key_req.usage))
+			goto free_buf;
 
 		ret = __qseecom_set_clear_ce_key(data, wipe_key_req.usage,
 					&clear_key_ireq);
 
-		if (wipe_key_req.usage ==
-			QSEOS_KM_USAGE_ICE_DISK_ENCRYPTION) {
-			__qseecom_disable_clk(CLK_ICE);
-			if (qseecom.is_regulator_available &&
-				regulator_disable(qseecom.reg)) {
-				pr_err("%s:Could not disable regulator\n",
-							__func__);
-			}
-			break;
-		}
+		qseecom_disable_ice_setup(wipe_key_req.usage);
 
 		if (ret) {
 			pr_err("Failed to wipe key: pipe %d, ce %d: %d\n",
@@ -6024,21 +6057,34 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 		qclk->instance = CLK_CE_DRV;
 		break;
 	};
-	case CLK_ICE: {
+	case CLK_UFS_ICE: {
 		core_clk_src = "ufs_core_clk_src";
 		core_clk = "ufs_core_clk";
 		iface_clk = "ufs_iface_clk";
 		bus_clk = "ufs_bus_clk";
 		qclk = &qseecom.ce_ice;
-		qclk->instance = CLK_ICE;
+		qclk->instance = CLK_UFS_ICE;
 		break;
 	};
+	case CLK_SDCC_ICE: {
+		core_clk_src = "sdcc_core_clk_src";
+		core_clk = "sdcc_core_clk";
+		iface_clk = "sdcc_iface_clk";
+		bus_clk = "sdcc_bus_clk";
+		/* ce_ice is used for both UFS and SDCC based ICE because there
+		 * will be only one ICE instance on chip : UFS or EMMC
+		 */
+		qclk = &qseecom.ce_ice;
+		qclk->instance = CLK_SDCC_ICE;
+		break;
+	}
 	default:
 		pr_err("Invalid ce hw instance: %d!\n", ce);
 		return -EIO;
 	}
 
-	if (qseecom.no_clock_support && ce != CLK_ICE) {
+	if (qseecom.no_clock_support &&
+		(ce != CLK_SDCC_ICE || ce != CLK_UFS_ICE)) {
 		qclk->ce_core_clk = NULL;
 		qclk->ce_clk = NULL;
 		qclk->ce_bus_clk = NULL;
@@ -6051,7 +6097,7 @@ static int __qseecom_init_clk(enum qseecom_ce_hw_instance ce)
 	/* Get CE3 src core clk. */
 	qclk->ce_core_src_clk = clk_get(pdev, core_clk_src);
 	if (!IS_ERR(qclk->ce_core_src_clk)) {
-		if (ce != CLK_ICE) {
+		if ((ce != CLK_UFS_ICE) || (ce != CLK_SDCC_ICE)) {
 			rc = clk_set_rate(qclk->ce_core_src_clk,
 						qseecom.ce_opp_freq_hz);
 			if (rc) {
@@ -6109,7 +6155,7 @@ static void __qseecom_deinit_clk(enum qseecom_ce_hw_instance ce)
 
 	if (ce == CLK_QSEE)
 		qclk = &qseecom.qsee;
-	else if (ce == CLK_ICE)
+	else if (ce == CLK_UFS_ICE || ce == CLK_SDCC_ICE)
 		qclk = &qseecom.ce_ice;
 	else
 		qclk = &qseecom.ce_drv;
