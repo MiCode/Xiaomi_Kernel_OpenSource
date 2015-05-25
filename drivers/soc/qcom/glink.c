@@ -123,6 +123,7 @@ struct glink_core_xprt_ctx {
  * @notify_rx_abort:	Channel close RX Intent aborted
  * @notify_tx_abort:	Channel close TX aborted
  * @notify_rx_tracer_pkt:	Receive notification for tracer packet
+ * @notify_remote_rx_intent:	Receive notification for remote-queued RX intent
  *
  * @transport_ptr:	Transport this channel uses
  * @lcid:		Local channel ID
@@ -188,6 +189,8 @@ struct channel_ctx {
 				const void *pkt_priv);
 	void (*notify_rx_tracer_pkt)(void *handle, const void *priv,
 			const void *pkt_priv, const void *ptr, size_t size);
+	void (*notify_remote_rx_intent)(void *handle, const void *priv,
+					size_t size);
 
 	/* internal port state */
 	struct glink_core_xprt_ctx *transport_ptr;
@@ -1935,8 +1938,10 @@ void *glink_open(const struct glink_open_config *cfg)
 	}
 
 	/* confirm required notification parameters */
-	if (!(cfg->notify_rx || cfg->notify_rxv) || !cfg->notify_tx_done ||
-			!cfg->notify_state) {
+	if (!(cfg->notify_rx || cfg->notify_rxv) || !cfg->notify_tx_done
+		|| !cfg->notify_state
+		|| ((cfg->options & GLINK_OPT_RX_INTENT_NOTIF)
+			&& !cfg->notify_remote_rx_intent)) {
 		GLINK_ERR("%s: Incorrect notification parameters\n", __func__);
 		return ERR_PTR(-EINVAL);
 	}
@@ -1983,6 +1988,7 @@ void *glink_open(const struct glink_open_config *cfg)
 	ctx->notify_rx_abort = cfg->notify_rx_abort;
 	ctx->notify_tx_abort = cfg->notify_tx_abort;
 	ctx->notify_rx_tracer_pkt = cfg->notify_rx_tracer_pkt;
+	ctx->notify_remote_rx_intent = cfg->notify_remote_rx_intent;
 
 	if (!ctx->notify_rx_intent_req)
 		ctx->notify_rx_intent_req = glink_dummy_notify_rx_intent_req;
@@ -3811,6 +3817,8 @@ static void glink_core_remote_rx_intent_put(struct glink_transport_if *if_ptr,
 
 	ch_push_remote_rx_intent(ctx, size, riid);
 	complete_all(&ctx->int_req_complete);
+	if (ctx->notify_remote_rx_intent)
+		ctx->notify_remote_rx_intent(ctx, ctx->user_priv, size);
 	rwref_put(&ctx->ch_state_lhc0);
 }
 
