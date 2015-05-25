@@ -69,6 +69,9 @@ static void ecryptfs_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
 	struct ecryptfs_inode_info *inode_info;
+	if (inode == NULL)
+		return;
+
 	inode_info = ecryptfs_inode_to_private(inode);
 
 	kmem_cache_free(ecryptfs_inode_info_cache, inode_info);
@@ -88,9 +91,12 @@ static void ecryptfs_destroy_inode(struct inode *inode)
 	struct ecryptfs_inode_info *inode_info;
 
 	inode_info = ecryptfs_inode_to_private(inode);
+
 	BUG_ON(inode_info->lower_file);
+
 	ecryptfs_destroy_crypt_stat(&inode_info->crypt_stat);
 	call_rcu(&inode->i_rcu, ecryptfs_i_callback);
+
 }
 
 /**
@@ -162,7 +168,9 @@ static int ecryptfs_show_options(struct seq_file *m, struct dentry *root)
 	mutex_unlock(&mount_crypt_stat->global_auth_tok_list_mutex);
 
 	seq_printf(m, ",ecryptfs_cipher=%s",
-		mount_crypt_stat->global_default_cipher_name);
+			ecryptfs_get_full_cipher(
+				mount_crypt_stat->global_default_cipher_name,
+				mount_crypt_stat->global_default_cipher_mode));
 
 	if (mount_crypt_stat->global_default_cipher_key_size)
 		seq_printf(m, ",ecryptfs_key_bytes=%zd",

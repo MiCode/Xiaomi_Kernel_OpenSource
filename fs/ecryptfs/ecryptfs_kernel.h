@@ -244,6 +244,7 @@ struct ecryptfs_crypt_stat {
 	struct mutex cs_tfm_mutex;
 	struct mutex cs_hash_tfm_mutex;
 	struct mutex cs_mutex;
+	unsigned char cipher_mode[ECRYPTFS_MAX_CIPHER_NAME_SIZE + 1];
 };
 
 /* inode private data. */
@@ -344,6 +345,8 @@ struct ecryptfs_mount_crypt_stat {
 	unsigned char global_default_fn_cipher_name[
 		ECRYPTFS_MAX_CIPHER_NAME_SIZE + 1];
 	char global_default_fnek_sig[ECRYPTFS_SIG_SIZE_HEX + 1];
+	unsigned char global_default_cipher_mode[ECRYPTFS_MAX_CIPHER_NAME_SIZE
+							 + 1];
 };
 
 /* superblock private data. */
@@ -524,6 +527,52 @@ static inline struct path *
 ecryptfs_dentry_to_lower_path(struct dentry *dentry)
 {
 	return &((struct ecryptfs_dentry_info *)dentry->d_fsdata)->lower_path;
+}
+
+/**
+ * Given a cipher and mode strings, the function
+ * concatenates them to create a new string of
+ * <cipher>_<mode> format.
+ */
+static inline char *ecryptfs_get_full_cipher(
+	char *cipher, char *mode)
+{
+	static char final[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1];
+
+	if (strlen(mode) > 0) {
+		memset(final, 0, sizeof(final));
+		snprintf(final, sizeof(final), "%s_%s", cipher, mode);
+		return final;
+	}
+	return cipher;
+}
+
+/**
+ * Given a <cipher>[_<mode>] formatted string, the function
+ * extracts cipher string and/or mode string.
+ * Note: the passed cipher and/or mode strings will be null-terminated.
+ */
+static inline void ecryptfs_parse_full_cipher(
+	char *s, char *cipher, char *mode)
+{
+	char input[2*ECRYPTFS_MAX_CIPHER_NAME_SIZE+1+1];
+			/* +1 for '_'; +1 for '\0' */
+	char *p;
+	char *input_p = input;
+
+	if (s == NULL || cipher == NULL)
+		return;
+
+	memset(input, 0, sizeof(input));
+	strlcpy(input, s, sizeof(input));
+
+	p = strsep(&input_p, "_");
+	strlcpy(cipher, p, ECRYPTFS_MAX_CIPHER_NAME_SIZE + 1);
+
+
+	/* check if mode is specified */
+	if (input_p != NULL && mode != NULL)
+		strlcpy(mode, input_p, ECRYPTFS_MAX_CIPHER_NAME_SIZE + 1);
 }
 
 #define ecryptfs_printk(type, fmt, arg...) \
@@ -716,5 +765,16 @@ int ecryptfs_set_f_namelen(long *namelen, long lower_namelen,
 			   struct ecryptfs_mount_crypt_stat *mount_crypt_stat);
 int ecryptfs_derive_iv(char *iv, struct ecryptfs_crypt_stat *crypt_stat,
 		       loff_t offset);
+
+void clean_inode_pages(struct address_space *mapping,
+		pgoff_t start, pgoff_t end);
+
+void ecryptfs_drop_pagecache_sb(struct super_block *sb, void *unused);
+
+void ecryptfs_free_events(void);
+
+void ecryptfs_freepage(struct page *page);
+
+struct ecryptfs_events *get_events(void);
 
 #endif /* #ifndef ECRYPTFS_KERNEL_H */

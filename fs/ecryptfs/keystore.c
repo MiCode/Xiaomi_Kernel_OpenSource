@@ -918,6 +918,7 @@ ecryptfs_parse_tag_70_packet(char **filename, size_t *filename_size,
 	struct ecryptfs_parse_tag_70_packet_silly_stack *s;
 	struct key *auth_tok_key = NULL;
 	int rc = 0;
+	char full_cipher[ECRYPTFS_MAX_CIPHER_NAME_SIZE];
 
 	(*packet_size) = 0;
 	(*filename_size) = 0;
@@ -977,12 +978,13 @@ ecryptfs_parse_tag_70_packet(char **filename, size_t *filename_size,
 	s->fnek_sig_hex[ECRYPTFS_SIG_SIZE_HEX] = '\0';
 	(*packet_size) += ECRYPTFS_SIG_SIZE;
 	s->cipher_code = data[(*packet_size)++];
-	rc = ecryptfs_cipher_code_to_string(s->cipher_string, s->cipher_code);
+	rc = ecryptfs_cipher_code_to_string(full_cipher, s->cipher_code);
 	if (rc) {
 		printk(KERN_WARNING "%s: Cipher code [%d] is invalid\n",
 		       __func__, s->cipher_code);
 		goto out;
 	}
+	ecryptfs_parse_full_cipher(full_cipher, s->cipher_string, 0);
 	rc = ecryptfs_find_auth_tok_for_sig(&auth_tok_key,
 					    &s->auth_tok, mount_crypt_stat,
 					    s->fnek_sig_hex);
@@ -1151,6 +1153,7 @@ decrypt_pki_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 	char *payload = NULL;
 	size_t payload_len = 0;
 	int rc;
+	char full_cipher[ECRYPTFS_MAX_CIPHER_NAME_SIZE];
 
 	rc = ecryptfs_get_auth_tok_sig(&auth_tok_sig, auth_tok);
 	if (rc) {
@@ -1188,12 +1191,15 @@ decrypt_pki_encrypted_session_key(struct ecryptfs_auth_tok *auth_tok,
 	memcpy(crypt_stat->key, auth_tok->session_key.decrypted_key,
 	       auth_tok->session_key.decrypted_key_size);
 	crypt_stat->key_size = auth_tok->session_key.decrypted_key_size;
-	rc = ecryptfs_cipher_code_to_string(crypt_stat->cipher, cipher_code);
+	rc = ecryptfs_cipher_code_to_string(full_cipher, cipher_code);
 	if (rc) {
 		ecryptfs_printk(KERN_ERR, "Cipher code [%d] is invalid\n",
 				cipher_code)
 		goto out;
 	}
+	ecryptfs_parse_full_cipher(full_cipher,
+		crypt_stat->cipher, crypt_stat->cipher_mode);
+
 	crypt_stat->flags |= ECRYPTFS_KEY_VALID;
 	if (ecryptfs_verbosity > 0) {
 		ecryptfs_printk(KERN_DEBUG, "Decrypted session key:\n");
@@ -1380,6 +1386,7 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 	struct ecryptfs_auth_tok_list_item *auth_tok_list_item;
 	size_t length_size;
 	int rc = 0;
+	char full_cipher[ECRYPTFS_MAX_CIPHER_NAME_SIZE];
 
 	(*packet_size) = 0;
 	(*new_auth_tok) = NULL;
@@ -1453,10 +1460,13 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		rc = -EINVAL;
 		goto out_free;
 	}
-	rc = ecryptfs_cipher_code_to_string(crypt_stat->cipher,
+	rc = ecryptfs_cipher_code_to_string(full_cipher,
 					    (u16)data[(*packet_size)]);
 	if (rc)
 		goto out_free;
+	ecryptfs_parse_full_cipher(full_cipher,
+		crypt_stat->cipher, crypt_stat->cipher_mode);
+
 	/* A little extra work to differentiate among the AES key
 	 * sizes; see RFC2440 */
 	switch(data[(*packet_size)++]) {
@@ -1975,9 +1985,11 @@ pki_encrypt_session_key(struct key *auth_tok_key,
 
 	rc = write_tag_66_packet(auth_tok->token.private_key.signature,
 				 ecryptfs_code_for_cipher_string(
-					 crypt_stat->cipher,
-					 crypt_stat->key_size),
-				 crypt_stat, &payload, &payload_len);
+					ecryptfs_get_full_cipher(
+						crypt_stat->cipher,
+						crypt_stat->cipher_mode),
+					crypt_stat->key_size),
+					crypt_stat, &payload, &payload_len);
 	up_write(&(auth_tok_key->sem));
 	key_put(auth_tok_key);
 	if (rc) {
@@ -2343,8 +2355,10 @@ encrypted_session_key_set:
 	dest[(*packet_size)++] = 0x04; /* version 4 */
 	/* TODO: Break from RFC2440 so that arbitrary ciphers can be
 	 * specified with strings */
-	cipher_code = ecryptfs_code_for_cipher_string(crypt_stat->cipher,
-						      crypt_stat->key_size);
+	cipher_code = ecryptfs_code_for_cipher_string(
+			ecryptfs_get_full_cipher(crypt_stat->cipher,
+				crypt_stat->cipher_mode),
+			crypt_stat->key_size);
 	if (cipher_code == 0) {
 		ecryptfs_printk(KERN_WARNING, "Unable to generate code for "
 				"cipher [%s]\n", crypt_stat->cipher);
