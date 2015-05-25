@@ -6524,6 +6524,9 @@ static int msm_routing_probe(struct snd_soc_platform *platform)
 
 	snd_soc_add_platform_controls(platform, msm_source_tracking_controls,
 				      ARRAY_SIZE(msm_source_tracking_controls));
+
+	/* create generic hw dep node */
+	msm_pcm_create_generic_hwdep_node(platform);
 	return 0;
 }
 
