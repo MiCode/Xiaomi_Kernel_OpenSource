@@ -89,15 +89,27 @@ do {\
 } while (0)
 #endif
 
-#define remote_arg_t    union remote_arg
+#define remote_arg64_t    union remote_arg64
 
-struct remote_buf {
+struct remote_buf64 {
 	uint64_t pv;
 	int64_t len;
 };
 
+union remote_arg64 {
+	struct remote_buf64	buf;
+	uint32_t h;
+};
+
+#define remote_arg_t    union remote_arg
+
+struct remote_buf {
+	void *pv;
+	size_t len;
+};
+
 union remote_arg {
-	struct remote_buf	buf;
+	struct remote_buf     buf;
 	uint32_t h;
 };
 
@@ -137,7 +149,7 @@ struct fastrpc_ioctl_mmap {
 };
 
 struct smq_null_invoke {
-	struct smq_invoke_ctx *ctx; /* invoke caller context */
+	uint64_t ctx;			/* invoke caller context */
 	uint32_t handle;	    /* handle to invoke */
 	uint32_t sc;		    /* scalars structure describing the data */
 };
@@ -164,11 +176,11 @@ struct smq_msg {
 };
 
 struct smq_invoke_rsp {
-	struct smq_invoke_ctx *ctx;  /* invoke caller context */
+	uint64_t ctx;			/* invoke caller context */
 	int retval;	             /* invoke return value */
 };
 
-static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg_t *pra,
+static inline struct smq_invoke_buf *smq_invoke_buf_start(remote_arg64_t *pra,
 							uint32_t sc)
 {
 	int len = REMOTE_SCALARS_LENGTH(sc);

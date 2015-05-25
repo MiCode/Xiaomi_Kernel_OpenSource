@@ -120,7 +120,7 @@ struct smq_invoke_ctx {
 	int pid;
 	int tgid;
 	remote_arg_t *lpra;
-	remote_arg_t *rpra;
+	remote_arg64_t *rpra;
 	int *fds;
 	struct fastrpc_mmap **maps;
 	struct fastrpc_buf *buf;
@@ -645,7 +645,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			remote_arg_t *upra)
 {
-	remote_arg_t *rpra;
+	remote_arg64_t *rpra;
 	remote_arg_t *lpra = ctx->lpra;
 	struct smq_invoke_buf *list;
 	struct smq_phy_page *pages, *ipage;
@@ -654,7 +654,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	int outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	int bufs = inbufs + outbufs;
 	uintptr_t args;
-	ssize_t rlen = 0, copylen = 0, metalen = 0, size;
+	ssize_t rlen = 0, copylen = 0, metalen = 0;
 	int i, inh, oix;
 	int err = 0;
 
@@ -719,17 +719,18 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	/* map ion buffers */
 	for (i = 0; i < inbufs + outbufs; ++i) {
 		struct fastrpc_mmap *map = ctx->maps[i];
-		uint64_t buf = lpra[i].buf.pv;
+		uint64_t buf = ptr_to_uint64(lpra[i].buf.pv);
 		ssize_t len = lpra[i].buf.len;
 		rpra[i].buf.pv = 0;
 		rpra[i].buf.len = len;
 		if (!len)
 			continue;
 		if (map) {
-			uintptr_t start = buf_page_start(buf);
+			uintptr_t offset = buf_page_start(buf)
+				- buf_page_start(map->va);
 			int num = buf_num_pages(buf, len);
 			int idx = list[i].pgidx;
-			pages[idx].addr = map->phys + (start - map->va);
+			pages[idx].addr = map->phys + offset;
 			if (msm_audio_ion_is_smmu_available())
 				pages[idx].addr |= STREAM_ID;
 			pages[idx].size = num << PAGE_SHIFT;
@@ -767,7 +768,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		pages[list[i].pgidx].size = buf_num_pages(buf, len) * PAGE_SIZE;
 		if (i < inbufs) {
 			K_COPY_FROM_USER(err, kernel, uint64_to_ptr(buf),
-					uint64_to_ptr(lpra[i].buf.pv), len);
+					lpra[i].buf.pv, len);
 			if (err)
 				goto bail;
 		}
@@ -780,12 +781,11 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			dmac_flush_range(uint64_to_ptr(rpra[i].buf.pv),
 			      uint64_to_ptr(rpra[i].buf.pv + rpra[i].buf.len));
 	}
-	size = sizeof(*rpra) * REMOTE_SCALARS_INHANDLES(sc);
-	if (size) {
-		inh = inbufs + outbufs;
-		K_COPY_FROM_USER(err, kernel, &rpra[inh], &upra[inh], size);
-		if (err)
-			goto bail;
+	inh = inbufs + outbufs;
+	for (i = 0; i < REMOTE_SCALARS_INHANDLES(sc); i++) {
+		rpra[inh + i].buf.pv = ptr_to_uint64(upra[inh + i].buf.pv);
+		rpra[inh + i].buf.len = upra[inh + i].buf.len;
+		rpra[inh + i].h = upra[inh + i].h;
 	}
 	dmac_flush_range((char *)rpra, (char *)rpra + ctx->used);
  bail:
@@ -796,8 +796,8 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		    remote_arg_t *upra)
 {
 	uint32_t sc = ctx->sc;
-	remote_arg_t *rpra = ctx->rpra;
-	int i, inbufs, outbufs, outh, size;
+	remote_arg64_t *rpra = ctx->rpra;
+	int i, inbufs, outbufs, outh;
 	int err = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
@@ -805,7 +805,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (!ctx->maps[i]) {
 			K_COPY_TO_USER(err, kernel,
-				uint64_to_ptr(upra[i].buf.pv),
+				upra[i].buf.pv,
 				uint64_to_ptr(rpra[i].buf.pv),
 				rpra[i].buf.len);
 			if (err)
@@ -815,18 +815,17 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			ctx->maps[i] = 0;
 		}
 	}
-	size = sizeof(*rpra) * REMOTE_SCALARS_OUTHANDLES(sc);
-	if (size) {
-		outh = inbufs + outbufs + REMOTE_SCALARS_INHANDLES(sc);
-		K_COPY_TO_USER(err, kernel, &upra[outh], &rpra[outh], size);
-		if (err)
-			goto bail;
+	outh = inbufs + outbufs + REMOTE_SCALARS_INHANDLES(sc);
+	for (i = 0; i < REMOTE_SCALARS_OUTHANDLES(sc); i++) {
+		upra[outh + i].buf.pv = uint64_to_ptr(rpra[outh + i].buf.pv);
+		upra[outh + i].buf.len = rpra[outh + i].buf.len;
+		upra[outh + i].h = rpra[outh + i].h;
 	}
  bail:
 	return err;
 }
 
-static void inv_args_pre(uint32_t sc, remote_arg_t *rpra)
+static void inv_args_pre(uint32_t sc, remote_arg64_t *rpra)
 {
 	int i, inbufs, outbufs;
 	uintptr_t end;
@@ -850,7 +849,7 @@ static void inv_args_pre(uint32_t sc, remote_arg_t *rpra)
 	}
 }
 
-static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
+static void inv_args(uint32_t sc, remote_arg64_t *rpra, int used)
 {
 	int i, inbufs, outbufs;
 	int inv = 0;
@@ -874,18 +873,21 @@ static void inv_args(uint32_t sc, remote_arg_t *rpra, int used)
 static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 			       uint32_t kernel, uint32_t handle)
 {
-	struct smq_msg msg;
+	struct smq_msg msg = {0};
 	struct fastrpc_file *fl = ctx->fl;
 	int err = 0, len;
 	msg.pid = current->tgid;
 	msg.tid = current->pid;
 	if (kernel)
 		msg.pid = 0;
-	msg.invoke.header.ctx = ctx;
+	msg.invoke.header.ctx = ptr_to_uint64(ctx);
 	msg.invoke.header.handle = handle;
 	msg.invoke.header.sc = ctx->sc;
 	msg.invoke.page.addr = ctx->buf ? ctx->buf->phys : 0;
 	msg.invoke.page.size = buf_page_size(ctx->used);
+	if (msm_audio_ion_is_smmu_available()
+		&& msg.invoke.page.addr != 0)
+		msg.invoke.page.addr |= STREAM_ID;
 	spin_lock(&fl->apps->hlock);
 	len = smd_write(fl->chan->chan, &msg, sizeof(msg));
 	spin_unlock(&fl->apps->hlock);
@@ -914,7 +916,7 @@ static void fastrpc_deinit(void)
 static void fastrpc_read_handler(int cid)
 {
 	struct fastrpc_apps *me = &gfa;
-	struct smq_invoke_rsp rsp;
+	struct smq_invoke_rsp rsp = {0};
 	int ret = 0;
 
 	do {
@@ -922,7 +924,7 @@ static void fastrpc_read_handler(int cid)
 					sizeof(rsp));
 		if (ret != sizeof(rsp))
 			break;
-		context_notify_user(rsp.ctx, rsp.retval);
+		context_notify_user(uint64_to_ptr(rsp.ctx), rsp.retval);
 	} while (ret == sizeof(rsp));
 }
 
@@ -1028,7 +1030,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 	if (init->flags == FASTRPC_INIT_ATTACH) {
 		remote_arg_t ra[1];
 		int tgid = current->tgid;
-		ra[0].buf.pv = ptr_to_uint64((void *)&tgid);
+		ra[0].buf.pv = (void *)&tgid;
 		ra[0].buf.len = sizeof(tgid);
 		ioctl.inv.handle = 1;
 		ioctl.inv.sc = REMOTE_SCALARS_MAKE(0, 1, 0);
@@ -1060,15 +1062,15 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (err)
 			goto bail;
 		inbuf.pageslen = 1;
-		ra[0].buf.pv = ptr_to_uint64((void *)&inbuf);
+		ra[0].buf.pv = (void *)&inbuf;
 		ra[0].buf.len = sizeof(inbuf);
 		fds[0] = 0;
 
-		ra[1].buf.pv = ptr_to_uint64((void *)current->comm);
+		ra[1].buf.pv = (void *)current->comm;
 		ra[1].buf.len = inbuf.namelen;
 		fds[1] = 0;
 
-		ra[2].buf.pv = ptr_to_uint64((void *)init->file);
+		ra[2].buf.pv = (void *)init->file;
 		ra[2].buf.len = inbuf.filelen;
 		fds[2] = init->filefd;
 
@@ -1076,7 +1078,7 @@ static int fastrpc_init_process(struct fastrpc_file *fl,
 		if (msm_audio_ion_is_smmu_available())
 			pages[0].addr |= STREAM_ID;
 		pages[0].size = mem->size;
-		ra[3].buf.pv = ptr_to_uint64((void *)pages);
+		ra[3].buf.pv = (void *)pages;
 		ra[3].buf.len = 1 * sizeof(*pages);
 		fds[3] = 0;
 
@@ -1107,7 +1109,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	int tgid = 0;
 
 	tgid = fl->tgid;
-	ra[0].buf.pv = ptr_to_uint64((void *)&tgid);
+	ra[0].buf.pv = (void *)&tgid;
 	ra[0].buf.len = sizeof(tgid);
 	ioctl.inv.handle = 1;
 	ioctl.inv.sc = REMOTE_SCALARS_MAKE(1, 1, 0);
@@ -1140,16 +1142,16 @@ static int fastrpc_mmap_on_dsp(struct fastrpc_file *fl, uint32_t flags,
 	inargs.vaddrin = (uintptr_t)map->va;
 	inargs.flags = flags;
 	inargs.num = fl->apps->compat ? num * sizeof(page) : num;
-	ra[0].buf.pv = ptr_to_uint64((void *)&inargs);
+	ra[0].buf.pv = (void *)&inargs;
 	ra[0].buf.len = sizeof(inargs);
 	page.addr = map->phys;
 	if (msm_audio_ion_is_smmu_available())
 		page.addr |= STREAM_ID;
 	page.size = map->size;
-	ra[1].buf.pv = ptr_to_uint64((void *)&page);
+	ra[1].buf.pv = (void *)&page;
 	ra[1].buf.len = num * sizeof(page);
 
-	ra[2].buf.pv = ptr_to_uint64((void *)&routargs);
+	ra[2].buf.pv = (void *)&routargs;
 	ra[2].buf.len = sizeof(routargs);
 
 	ioctl.inv.handle = 1;
@@ -1184,7 +1186,7 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl,
 	inargs.pid = current->tgid;
 	inargs.size = map->size;
 	inargs.vaddrout = map->raddr;
-	ra[0].buf.pv = ptr_to_uint64((void *)&inargs);
+	ra[0].buf.pv = (void *)&inargs;
 	ra[0].buf.len = sizeof(inargs);
 
 	ioctl.inv.handle = 1;
