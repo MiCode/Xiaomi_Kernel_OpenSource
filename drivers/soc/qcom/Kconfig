@@ -377,6 +377,13 @@ config MSM_FORCE_WDOG_BITE_ON_PANIC
 	  kernel panic. On certain MSM SoCs, this provides us
 	  additional debugging information.
 
+config MSM_DCC
+	bool "MSM Data Capture and Compare enigne support"
+	help
+	  This option enables driver for Data Capture and Compare engine. DCC
+	  driver provides interface to configure DCC block and read back
+	  captured data from DCC's internal SRAM.
+
 config MSM_HVC
 	bool "MSM Hypervisor Call Support"
 	help
