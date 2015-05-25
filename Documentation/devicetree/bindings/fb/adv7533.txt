@@ -1,0 +1,41 @@
+ADV7533 DSI to HDMI bridge
+
+
+Required properties:
+- compatible:				Must be "adv7533"
+- reg:					Main I2C slave ID (for I2C host driver)
+- adv7533,video-mode:			Excepted a number and possible inputs are 0 to 3, while:
+					3 = 1080p
+					2 = 720p
+					1 = 480p
+					0 = 1080p pattern
+- adv7533,main-addr:			Main I2C slave ID
+- adv7533,cec-dsi-addr:		CEC DSI I2C slave ID
+- adv7533,audio:			1 = enable HDMI audio
+					0 = disable HDMI audio
+
+Optional properties:
+- adv7533,disable-gpios:		1 = disable gpio handling
+- adv7533,irq-gpio:			Main IRQ gpio mapping
+- adv7533,hpd-irq-gpio:			HPD IRQ gpio mapping
+- adv7533,switch-gpio:			DSI switch gpio mapping
+
+Example:
+&soc {
+	i2c@78b8000 {
+		adv7533@39 {
+			compatible = "adv7533";
+			reg = <0x39>;
+			adv7533,video-mode = <3>; /* 3 = 1080p */
+			adv7533,main-addr = <0x39>;
+			adv7533,cec-dsi-addr = <0x3C>;
+			adv7533,audio = <1>;
+			pinctrl-names = "pmx_adv7533_active","pmx_adv7533_suspend";
+			pinctrl-0 = <&adv7533_int_active &adv7533_hpd_int_active &adv7533_switch_active>;
+			pinctrl-1 = <&adv7533_int_suspend &adv7533_hpd_int_suspend &adv7533_switch_suspend>;
+			adv7533,irq-gpio = <&msm_gpio 31 0x2002>;
+			adv7533,hpd-irq-gpio = <&msm_gpio 20 0x2003>;
+			adv7533,switch-gpio = <&msm_gpio 32 0x0>;
+		};
+	};
+};
