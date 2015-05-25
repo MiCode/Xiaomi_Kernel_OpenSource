@@ -51,7 +51,8 @@ in TX data path and correct voting to RPM will be decided for booting.
 	1200   -  WCN XO settling time (usec)
 	1      -  WCN RPM power collapse enabled
 	1      -  WCN standalone power collapse enabled
-
+- qcom,wlan-indication-enabled: the WLAN indication LED will be turned on/off when
+WLAN will be enabled/disabled respectively.
 
 Example:
 
