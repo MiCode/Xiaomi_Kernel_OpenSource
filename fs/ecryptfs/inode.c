@@ -680,7 +680,7 @@ static void *ecryptfs_follow_link(struct dentry *dentry, struct nameidata *nd)
 {
 	size_t len;
 	char *buf = ecryptfs_readlink_lower(dentry, &len);
-	if (IS_ERR(buf))
+	if (IS_ERR(buf) || NULL == buf)
 		goto out;
 	fsstack_copy_attr_atime(dentry->d_inode,
 				ecryptfs_dentry_to_lower(dentry)->d_inode);
