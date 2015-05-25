@@ -852,7 +852,7 @@ exit:
 }
 
 /* To determine if cross connection occured */
-static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
+static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 {
 	u16 swap_res;
 	struct snd_soc_codec *codec = mbhc->codec;
@@ -861,7 +861,7 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low\n", __func__);
-		return false;
+		return -EINVAL;
 	}
 
 	reg1 = snd_soc_read(codec, MSM8X16_WCD_A_ANALOG_MBHC_DET_CTL_2);
@@ -1005,6 +1005,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool is_pa_on;
 	bool micbias2;
 	bool micbias1;
+	int ret = 0;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -1021,7 +1022,10 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 			wcd_enable_curr_micbias(mbhc, WCD_MBHC_EN_NONE);
 			goto exit;
 		}
-		mbhc->btn_press_intr = false;
+		if (mbhc->btn_press_intr) {
+			wcd_cancel_btn_work(mbhc);
+			mbhc->btn_press_intr = false;
+		}
 		/* Toggle FSM */
 		snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_MBHC_FSM_CTL,
@@ -1053,8 +1057,11 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 		 */
 		msleep(180);
 		if ((!(result2 & 0x01)) && (!is_pa_on)) {
+			ret = wcd_check_cross_conn(mbhc);
 			/* Check for cross connection*/
-			if (wcd_check_cross_conn(mbhc)) {
+			if (ret < 0) {
+				continue;
+			} else if (ret > 0) {
 				pt_gnd_mic_swap_cnt++;
 				no_gnd_mic_swap_cnt = 0;
 				if (pt_gnd_mic_swap_cnt <
@@ -1175,7 +1182,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 	int timeout_result;
 	u16 result1, result2;
 	bool micbias1;
-	bool cross_conn;
+	int cross_conn;
 	int try = 0;
 
 	pr_debug("%s: enter\n", __func__);
@@ -1218,7 +1225,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 				cross_conn = wcd_check_cross_conn(mbhc);
 				try++;
 			} while (try < GND_MIC_SWAP_THRESHOLD);
-			if (cross_conn) {
+			if (cross_conn > 0) {
 				pr_debug("%s: cross con found, start polling\n",
 					 __func__);
 				plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
