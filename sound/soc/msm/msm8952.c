@@ -44,6 +44,7 @@
 #define DEFAULT_MCLK_RATE 9600000
 
 #define WCD_MBHC_DEF_RLOADS 5
+#define MAX_WSA_CODEC_NAME_LENGTH 80
 
 enum btsco_rates {
 	RATE_8KHZ_ID,
@@ -1976,30 +1977,24 @@ static int msm8952_wsa881x_init(struct snd_soc_dapm_context *dapm)
 static struct snd_soc_aux_dev msm8952_aux_dev[] = {
 	{
 		.name = "wsa881x.0",
-		.codec_name = "wsa881x-i2c-codec.8-000e",
+		.codec_name = NULL,
+		.init = msm8952_wsa881x_init,
+	},
+	{
+		.name = "wsa881x.0",
+		.codec_name = NULL,
 		.init = msm8952_wsa881x_init,
 	},
 };
 
 static struct snd_soc_codec_conf msm8952_codec_conf[] = {
 	{
-		.dev_name = "wsa881x-i2c-codec.8-000e",
-		.name_prefix = "SpkrMono",
+		.dev_name = NULL,
+		.name_prefix = NULL,
 	},
-};
-
-static struct snd_soc_aux_dev msm8952_aux_dev_1[] = {
 	{
-		.name = "wsa881x.0",
-		.codec_name = "wsa881x-i2c-codec.8-000f",
-		.init = msm8952_wsa881x_init,
-	},
-};
-
-static struct snd_soc_codec_conf msm8952_codec_conf_1[] = {
-	{
-		.dev_name = "wsa881x-i2c-codec.8-000f",
-		.name_prefix = "SpkrMono",
+		.dev_name = NULL,
+		.name_prefix = NULL,
 	},
 };
 
@@ -2180,11 +2175,16 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 	const char *hs_micbias_type = "qcom,msm-hs-micbias-type";
 	const char *ext_pa = "qcom,msm-ext-pa";
 	const char *mclk = "qcom,msm-mclk-freq";
+	const char *wsa = "asoc-wsa-codec-names";
+	const char *wsa_prefix = "asoc-wsa-codec-prefixes";
 	const char *type = NULL;
 	const char *ext_pa_str = NULL;
+	const char *wsa_str = NULL;
+	const char *wsa_prefix_str = NULL;
 	int num_strings;
 	int ret, id, i;
 	struct resource	*muxsel;
+	char *temp_str = NULL;
 
 	if (ext_codec == true) {
 		pr_err("%s: ext codec setprop is true\n", __func__);
@@ -2279,17 +2279,73 @@ static int msm8952_asoc_machine_probe(struct platform_device *pdev)
 		goto err;
 	}
 
-	if (wsa881x_get_client_index() == WSA881X_I2C_SPK0_SLAVE0_ADDR) {
-		bear_card.aux_dev = msm8952_aux_dev;
-		bear_card.num_aux_devs = ARRAY_SIZE(msm8952_aux_dev);
-		bear_card.codec_conf = msm8952_codec_conf;
-		bear_card.num_configs = ARRAY_SIZE(msm8952_codec_conf);
-	} else if (wsa881x_get_client_index() == WSA881X_I2C_SPK1_SLAVE0_ADDR) {
-		bear_card.aux_dev = msm8952_aux_dev_1;
-		bear_card.num_aux_devs = ARRAY_SIZE(msm8952_aux_dev_1);
-		bear_card.codec_conf = msm8952_codec_conf_1;
-		bear_card.num_configs = ARRAY_SIZE(msm8952_codec_conf_1);
+	num_strings = of_property_count_strings(pdev->dev.of_node,
+			wsa);
+	if (num_strings > 0) {
+		if (wsa881x_get_probing_count() < 2) {
+			ret = -EPROBE_DEFER;
+			goto err;
+		} else if (wsa881x_get_presence_count() == num_strings) {
+			bear_card.aux_dev = msm8952_aux_dev;
+			bear_card.num_aux_devs = num_strings;
+			bear_card.codec_conf = msm8952_codec_conf;
+			bear_card.num_configs = num_strings;
+
+			for (i = 0; i < num_strings; i++) {
+				ret = of_property_read_string_index(
+						pdev->dev.of_node, wsa,
+						i, &wsa_str);
+				if (ret) {
+					dev_err(&pdev->dev,
+						"%s:of read string %s i %d error %d\n",
+						__func__, wsa, i, ret);
+					goto err;
+				}
+				temp_str = kstrdup(wsa_str, GFP_KERNEL);
+				if (!temp_str) {
+					dev_err(&pdev->dev,
+						"%s:can't allocate wsa codec name\n",
+						__func__);
+					ret = -ENOMEM;
+					goto err;
+				}
+				msm8952_aux_dev[i].codec_name = temp_str;
+				temp_str = NULL;
+
+				temp_str = kstrdup(wsa_str, GFP_KERNEL);
+				if (!temp_str) {
+					dev_err(&pdev->dev,
+						"%s:can't allocate codec dev name\n",
+						__func__);
+					ret = -ENOMEM;
+					goto err;
+				}
+				msm8952_codec_conf[i].dev_name = temp_str;
+				temp_str = NULL;
+
+				ret = of_property_read_string_index(
+						pdev->dev.of_node, wsa_prefix,
+						i, &wsa_prefix_str);
+				if (ret) {
+					dev_err(&pdev->dev,
+						"%s:of read string %s i %d error %d\n",
+						__func__, wsa_prefix, i, ret);
+					goto err;
+				}
+				temp_str = kstrdup(wsa_prefix_str, GFP_KERNEL);
+				if (!temp_str) {
+					dev_err(&pdev->dev,
+						"%s:can't allocate wsa prefix\n",
+						__func__);
+					ret = -ENOMEM;
+					goto err;
+				}
+				msm8952_codec_conf[i].name_prefix = temp_str;
+				temp_str = NULL;
+			}
+		}
 	}
+
 	card = &bear_card;
 	bear_card.name = dev_name(&pdev->dev);
 	card = &bear_card;
@@ -2403,6 +2459,13 @@ err:
 		iounmap(pdata->vaddr_gpio_mux_pcm_ctl);
 	if (pdata->vaddr_gpio_mux_quin_ctl)
 		iounmap(pdata->vaddr_gpio_mux_quin_ctl);
+	if (bear_card.num_aux_devs > 0) {
+		for (i = 0; i < bear_card.num_aux_devs; i++) {
+			kfree(msm8952_aux_dev[i].codec_name);
+			kfree(msm8952_codec_conf[i].dev_name);
+			kfree(msm8952_codec_conf[i].name_prefix);
+		}
+	}
 err1:
 	devm_kfree(&pdev->dev, pdata);
 	return ret;
@@ -2412,6 +2475,7 @@ static int msm8952_asoc_machine_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	struct msm8916_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	int i;
 
 	if (pdata->vaddr_gpio_mux_spkr_ctl)
 		iounmap(pdata->vaddr_gpio_mux_spkr_ctl);
@@ -2421,6 +2485,13 @@ static int msm8952_asoc_machine_remove(struct platform_device *pdev)
 		iounmap(pdata->vaddr_gpio_mux_pcm_ctl);
 	if (pdata->vaddr_gpio_mux_quin_ctl)
 		iounmap(pdata->vaddr_gpio_mux_quin_ctl);
+	if (bear_card.num_aux_devs > 0) {
+		for (i = 0; i < bear_card.num_aux_devs; i++) {
+			kfree(msm8952_aux_dev[i].codec_name);
+			kfree(msm8952_codec_conf[i].dev_name);
+			kfree(msm8952_codec_conf[i].name_prefix);
+		}
+	}
 	snd_soc_unregister_card(card);
 	mutex_destroy(&pdata->cdc_mclk_mutex);
 	return 0;
