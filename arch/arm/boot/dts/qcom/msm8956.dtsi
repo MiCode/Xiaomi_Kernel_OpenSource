@@ -239,16 +239,46 @@
 
 	clock_cpu: qcom,cpu-clock-8976@b016000 {
 		compatible = "qcom,cpu-clock-8976";
-		reg = <0xb116000 0x40>,
-		      <0xb016000 0x40>,
-		      <0xb1d0000 0x40>,
-		      <0xb111050 0x08>,
-		      <0xb011050 0x08>,
-		      <0xb1d1050 0x08>,
-		      <0x00a412c 0x08>;
-		reg-names = "c0-pll", "c1-pll", "cci-pll",
+		reg =   <0xb114000  0x68>,
+			<0xb014000  0x68>,
+			<0xb116000  0x40>,
+			<0xb016000  0x40>,
+			<0xb1d0000  0x40>,
+			<0xb111050  0x08>,
+			<0xb011050  0x08>,
+			<0xb1d1050  0x08>,
+			<0x00a412c  0x08>;
+		reg-names = "rcgwr-c0-base", "rcgwr-c1-base",
+			    "c0-pll", "c1-pll", "cci-pll",
 			    "c0-mux", "c1-mux", "cci-mux",
 			    "efuse";
+		/* RCGwR settings */
+		qcom,num-clusters = <2>;
+		qcom,lmh-sid-c0  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,link-sid-c0 = < 0x40 0x000fc987>;
+		qcom,dfs-sid-c0  = < 0x10 0xfefebff7>,
+				   < 0x14 0xfdff7fef>,
+				   < 0x18 0xfbffdefb>,
+				   < 0x1c 0xb69b5555>,
+				   < 0x20 0x24929249>,
+				   < 0x24 0x49241112>,
+				   < 0x28 0x11112111>,
+				   < 0x2c 0x00008102>;
+		qcom,lmh-sid-c1  = < 0x30 0x077706db>,
+				   < 0x34 0x05550249>,
+				   < 0x38 0x00000111>;
+		qcom,link-sid-c1 = < 0x40 0x000fc987>;
+		qcom,dfs-sid-c1  = < 0x10 0xfefebff7>,
+				   < 0x14 0xfdff7fef>,
+				   < 0x18 0xfbffdefb>,
+				   < 0x1c 0xb69b5555>,
+				   < 0x20 0x24929249>,
+				   < 0x24 0x49241112>,
+				   < 0x28 0x11112111>,
+				   < 0x2c 0x00008102>;
+
 		vdd_mx_hf-supply = <&pm8950_s6_level_ao>;
 		vdd_hf_pll-supply = <&pm8950_l7_ao>;
 		vdd_mx_sr-supply = <&pm8950_s6_level_ao>;
