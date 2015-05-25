@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,12 +29,8 @@
 #define DCVS_NOMINAL_THRESHOLD 8
 /* Default threshold to increase the core frequency */
 #define DCVS_TURBO_THRESHOLD 4
-/* Instance max load above which DCVS kicks in */
-#define DCVS_NOMINAL_LOAD NUM_MBS_PER_SEC(1088, 1920, 60)
 /* Considering one safeguard buffer */
 #define DCVS_BUFFER_SAFEGUARD 1
-/* Supported DCVS MBs per frame */
-#define DCVS_MIN_SUPPORTED_MBPERFRAME NUM_MBS_PER_FRAME(2160, 3840)
 
 void msm_dcvs_init(struct msm_vidc_inst *inst);
 void msm_dcvs_init_load(struct msm_vidc_inst *inst);

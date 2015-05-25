@@ -175,8 +175,8 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 
 	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
 
-	if (dcvs->load >= DCVS_NOMINAL_LOAD) {
-		dcvs->load_low = DCVS_NOMINAL_LOAD;
+	if (dcvs->load >= core->resources.dcvs_min_load) {
+		dcvs->load_low = core->resources.dcvs_min_load;
 		dcvs->load_high = core->resources.max_load;
 	}
 
@@ -453,8 +453,16 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 {
 	int num_mbs_per_frame = 0;
 	bool dcvs_check_passed = false, is_codec_supported  = false;
+	struct msm_vidc_core *core = NULL;
 
 	if (!inst) {
+		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
+		return dcvs_check_passed;
+	}
+
+	core = inst->core;
+
+	if (!core) {
 		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
 		return dcvs_check_passed;
 	}
@@ -467,7 +475,7 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 	if (msm_vidc_enc_dcvs_mode && is_codec_supported &&
 		inst->dcvs.is_power_save_mode &&
 		IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-			DCVS_MIN_SUPPORTED_MBPERFRAME)) {
+			core->resources.dcvs_min_mbperframe)) {
 		dcvs_check_passed = true;
 	}
 	return dcvs_check_passed;
@@ -509,7 +517,7 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 				V4L2_PIX_FMT_H264_NO_SC);
 		if (!is_codec_supported ||
 			!IS_VALID_DCVS_SESSION(num_mbs_per_frame,
-					DCVS_MIN_SUPPORTED_MBPERFRAME))
+					core->resources.dcvs_min_mbperframe))
 			return -ENOTSUPP;
 
 		if (!output_buf_req) {

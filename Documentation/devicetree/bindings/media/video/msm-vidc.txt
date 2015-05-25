@@ -117,6 +117,10 @@ Optional properties:
   idle message when it is in idle state.
 - qcom,enable-thermal-mitigation = A bool to enable thermal mitigation when
   thermal run away occurs.
+- qcom,dcvs-min-load = Instance minimum load above which DCVS kicks in,
+  expressed in units of macroblocks per second.
+- qcom,dcvs-min-mbperframe = Supported DCVS MBs per frame, expressed in
+  units of macroblocks per second.
 
 Example:
 
@@ -142,6 +146,8 @@ Example:
 		qcom,qdss-presets = <0xFC307000 0x1000>,
 			<0xFC322000 0x1000>;
 		qcom,max-hw-load = <1224450>; /* 4k @ 30 + 1080p @ 30*/
+		qcom,dcvs-min-load = <489600>; /* 1080p @ 60fps */
+		qcom,dcvs-min-mbperframe = <32400>; /* 4K */
 		clock-names = "foo_clk", "bar_clk", "baz_clk";
 		qcom,clock-configs = <0x3 0x1 0x0>;
 		qcom,sw-power-collapse;

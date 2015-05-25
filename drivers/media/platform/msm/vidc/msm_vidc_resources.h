@@ -121,6 +121,8 @@ struct msm_vidc_platform_resources {
 	struct buffer_usage_set buffer_usage_set;
 	uint32_t ocmem_size;
 	uint32_t max_load;
+	uint32_t dcvs_min_load;
+	uint32_t dcvs_min_mbperframe;
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
