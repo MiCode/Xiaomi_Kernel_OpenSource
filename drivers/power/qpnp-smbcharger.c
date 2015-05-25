@@ -3572,16 +3572,20 @@ static void smbchg_regulator_deinit(struct smbchg_chip *chip)
 #define CHG_LED_SHIFT		1
 static int smbchg_chg_led_controls(struct smbchg_chip *chip)
 {
-	u8 reg;
+	u8 reg, mask;
 	int rc;
 
-	if (chip->cfg_chg_led_sw_ctrl)
+	if (chip->cfg_chg_led_sw_ctrl) {
+		/* turn-off LED by default for software control */
+		mask = CHG_LED_CTRL_BIT | LED_BLINKING_CFG_MASK;
 		reg = LED_SW_CTRL_BIT;
-	else
+	} else {
+		mask = CHG_LED_CTRL_BIT;
 		reg = LED_CHG_CTRL_BIT;
+	}
 
 	rc = smbchg_masked_write(chip, chip->bat_if_base + CMD_CHG_LED_REG,
-			CHG_LED_CTRL_BIT, reg);
+			mask, reg);
 	if (rc < 0)
 		dev_err(chip->dev,
 				"Couldn't write LED_CTRL_BIT rc=%d\n", rc);
