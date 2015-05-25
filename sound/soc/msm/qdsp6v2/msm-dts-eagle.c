@@ -213,6 +213,8 @@ static const s32 _log10_10_inv_x20 = 0x0008af84;
 
 /* hpx master control */
 static u32 _is_hpx_enabled;
+/* flag to identify if slim be to be used */
+static u32 _use_slim_be;
 
 static void _volume_cmds_free(void)
 {
@@ -271,6 +273,7 @@ static u32 _get_dev_mask_for_pid(int pid)
 {
 	switch (pid) {
 	case SLIMBUS_0_RX:
+	case AFE_PORT_ID_PRIMARY_MI2S_RX:
 		return (1 << AUDIO_DEVICE_OUT_EARPIECE) |
 			(1 << AUDIO_DEVICE_OUT_SPEAKER) |
 			(1 << AUDIO_DEVICE_OUT_WIRED_HEADSET) |
@@ -309,7 +312,11 @@ static int _get_pid_from_dev(u32 device)
 	    device & (1 << AUDIO_DEVICE_OUT_WIRED_HEADPHONE) ||
 	    device & (1 << AUDIO_DEVICE_OUT_ANC_HEADSET) ||
 	    device & (1 << AUDIO_DEVICE_OUT_ANC_HEADPHONE)) {
-		return SLIMBUS_0_RX;
+		if (_use_slim_be) {
+			return SLIMBUS_0_RX;
+		} else {
+			return AFE_PORT_ID_PRIMARY_MI2S_RX;
+		}
 	} else if (device & (1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO) ||
 		   device & (1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET) ||
 		   device & (1 << AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT)) {
@@ -598,7 +605,8 @@ static int _enable_post_put_control(struct snd_kcontrol *kcontrol,
 		msm_pcm_routing_get_bedai_info(be_index, &msm_bedai);
 		port_id = msm_bedai.port_id;
 		if (!(((port_id == SLIMBUS_0_RX) ||
-		      (port_id == RT_PROXY_PORT_001_RX)) &&
+		      (port_id == RT_PROXY_PORT_001_RX) ||
+			(port_id == AFE_PORT_ID_PRIMARY_MI2S_RX)) &&
 		      msm_bedai.active))
 			continue;
 		for (idx = 0; idx < MAX_COPPS_PER_PORT; idx++) {
@@ -620,6 +628,25 @@ static const struct snd_kcontrol_new _hpx_enabled_controls[] = {
 	_enable_post_get_control, _enable_post_put_control)
 };
 
+static int _be_post_get_control(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = _use_slim_be;
+	return 0;
+}
+
+static int _be_post_put_control(struct snd_kcontrol *kcontrol,
+				struct snd_ctl_elem_value *ucontrol)
+{
+	_use_slim_be = ucontrol->value.integer.value[0];
+	eagle_drv_dbg(" valuse of _use_slim_be == %d", _use_slim_be);
+	return 0;
+}
+
+static const struct snd_kcontrol_new _hpx_be_controls[] = {
+	SOC_SINGLE_EXT("Set HPX ActiveBe", SND_SOC_NOPM, 0, 1, 0,
+	_be_post_get_control, _be_post_put_control)
+};
 /**
  * msm_dts_ion_memmap() - helper function to map ION memory
  * @po_:	Out of band memory structure used as memory.
@@ -697,6 +724,9 @@ void msm_dts_eagle_add_controls(struct snd_soc_platform *platform)
 {
 	snd_soc_add_platform_controls(platform, _hpx_enabled_controls,
 				      ARRAY_SIZE(_hpx_enabled_controls));
+	snd_soc_add_platform_controls(platform, _hpx_be_controls,
+					ARRAY_SIZE(_hpx_be_controls));
+
 }
 
 /**
