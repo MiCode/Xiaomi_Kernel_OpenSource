@@ -22,6 +22,7 @@
 #include <linux/blk_types.h>
 #include <linux/blkdev.h>
 #include <linux/clk.h>
+#include <linux/cdev.h>
 #include <crypto/ice.h>
 #include <soc/qcom/scm.h>
 #include "iceregs.h"
@@ -43,7 +44,8 @@
 	TZ_SYSCALL_CREATE_PARAM_ID_0
 
 #define ICE_REV(x, y) (((x) & ICE_CORE_##y##_REV_MASK) >> ICE_CORE_##y##_REV)
-#define DEFAULT_ICE_CORE_CLK_FREQ 300000000
+#define QCOM_ICE_DEV	"ice"
+#define QCOM_ICE_TYPE_NAME_LEN 8
 
 const struct qcom_ice_variant_ops qcom_ice_ops;
 
@@ -64,6 +66,9 @@ static LIST_HEAD(ice_devices);
 struct ice_device {
 	struct list_head	list;
 	struct device		*pdev;
+	struct cdev		cdev;
+	dev_t			device_no;
+	struct class		*driver_class;
 	void __iomem		*mmio;
 	int			irq;
 	bool			is_irq_enabled;
@@ -77,15 +82,15 @@ struct ice_device {
 	struct list_head	clk_list_head;
 	u32			ice_hw_version;
 	bool			is_ice_clk_available;
+	char			ice_instance_type[QCOM_ICE_TYPE_NAME_LEN];
 };
-
-static int qcom_ice_enable_clocks(struct ice_device *, bool);
 
 static void qcom_ice_config_proc_ignore(struct ice_device *ice_dev)
 {
 	u32 regval;
 	if (ICE_REV(ice_dev->ice_hw_version, MAJOR) == 2 &&
-	    ICE_REV(ice_dev->ice_hw_version, MINOR) == 0) {
+	    ICE_REV(ice_dev->ice_hw_version, MINOR) == 0 &&
+	    ICE_REV(ice_dev->ice_hw_version, STEP) == 0) {
 		regval = qcom_ice_readl(ice_dev,
 				QCOM_ICE_REGS_ADVANCED_CONTROL);
 		regval |= 0x800;
@@ -316,6 +321,25 @@ static irqreturn_t qcom_ice_isr(int isr, void *data)
 	return retval;
 }
 
+static void qcom_ice_parse_ice_instance_type(struct platform_device *pdev,
+		struct ice_device *ice_dev)
+{
+	int ret = -1;
+	struct device *dev = &pdev->dev;
+	struct device_node *np = dev->of_node;
+	char *type;
+
+	ret = of_property_read_string_index(np,
+				"qcom,instance-type", 0, (const char **)&type);
+	if (ret) {
+		pr_err("%s: Could not get ICE instance type\n", __func__);
+		goto out;
+	}
+	strlcpy(ice_dev->ice_instance_type, type, QCOM_ICE_TYPE_NAME_LEN);
+out:
+	return;
+}
+
 static int qcom_ice_parse_clock_info(struct platform_device *pdev,
 		struct ice_device *ice_dev)
 {
@@ -423,11 +447,83 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 		}
 		pr_info("ICE IRQ = %d\n", ice_dev->irq);
 	}
+	qcom_ice_parse_ice_instance_type(pdev, ice_dev);
 	return 0;
 err_dev:
 	if (rc && ice_dev->mmio)
 		iounmap(ice_dev->mmio);
 out:
+	return rc;
+}
+
+/*
+ * ICE HW instance can exist in UFS or eMMC based storage HW.
+ * Userspace does not know what kind of ICE it is dealing with.
+ * Though userspace can find which storage device it is booting
+ * from but all kind of storage types don't support ICE from
+ * beginning. So ICE device is created for user space to ping
+ * if ICE exist for that kind of storage.
+ */
+static const struct file_operations qcom_ice_fops = {
+	.owner = THIS_MODULE,
+};
+
+static int register_ice_device(struct ice_device *ice_dev)
+{
+	int rc = 0;
+	unsigned baseminor = 0;
+	unsigned count = 1;
+	struct device *class_dev;
+	char tmp_dev_name[16];
+	memset(tmp_dev_name, 0, 16);
+
+	strlcpy(tmp_dev_name, QCOM_ICE_DEV, 8);
+	strlcat(tmp_dev_name, ice_dev->ice_instance_type, 8);
+
+	pr_debug("%s: instance type = %s device name = %s\n", __func__,
+				ice_dev->ice_instance_type, tmp_dev_name);
+
+	rc = alloc_chrdev_region(&ice_dev->device_no, baseminor, count,
+							tmp_dev_name);
+	if (rc < 0) {
+		pr_err("alloc_chrdev_region failed %d for %s\n",
+						rc, tmp_dev_name);
+		return rc;
+	}
+	ice_dev->driver_class = class_create(THIS_MODULE, tmp_dev_name);
+	if (IS_ERR(ice_dev->driver_class)) {
+		rc = -ENOMEM;
+		pr_err("class_create failed %d for %s\n", rc, tmp_dev_name);
+		goto exit_unreg_chrdev_region;
+	}
+	class_dev = device_create(ice_dev->driver_class, NULL,
+					ice_dev->device_no, NULL, tmp_dev_name);
+
+	if (!class_dev) {
+		pr_err("class_device_create failed %d for %s\n",
+							rc, tmp_dev_name);
+		rc = -ENOMEM;
+		goto exit_destroy_class;
+	}
+
+	cdev_init(&ice_dev->cdev, &qcom_ice_fops);
+	ice_dev->cdev.owner = THIS_MODULE;
+
+	rc = cdev_add(&ice_dev->cdev, MKDEV(MAJOR(ice_dev->device_no), 0), 1);
+	if (rc < 0) {
+		pr_err("cdev_add failed %d for %s\n", rc, tmp_dev_name);
+		goto exit_destroy_device;
+	}
+	return  0;
+
+exit_destroy_device:
+	device_destroy(ice_dev->driver_class, ice_dev->device_no);
+
+exit_destroy_class:
+	class_destroy(ice_dev->driver_class);
+
+exit_unreg_chrdev_region:
+	unregister_chrdev_region(ice_dev->device_no, 1);
 	return rc;
 }
 
@@ -469,6 +565,13 @@ static int qcom_ice_probe(struct platform_device *pdev)
 	if (rc)
 		goto err_ice_dev;
 
+	pr_debug("%s: Registering ICE device\n", __func__);
+	rc = register_ice_device(ice_dev);
+	if (rc) {
+		pr_err("create character device failed.\n");
+		goto err_ice_dev;
+	}
+	spin_lock_init(&ice_dev->lock);
 	/*
 	 * If ICE is enabled here, it would be waste of power.
 	 * We would enable ICE when first request for crypto
@@ -510,18 +613,6 @@ static int qcom_ice_remove(struct platform_device *pdev)
 
 static int  qcom_ice_suspend(struct platform_device *pdev)
 {
-	struct ice_device *ice_dev;
-
-	ice_dev = (struct ice_device *)platform_get_drvdata(pdev);
-	if (!ice_dev)
-		return 0;
-
-	/*
-	 * Storage driver would take care of storage clocks. ICE Driver should
-	 * disable its clock
-	 */
-	if (ice_dev->is_ice_clk_available)
-		qcom_ice_enable_clocks(ice_dev, false);
 	return 0;
 }
 
@@ -590,45 +681,6 @@ static int qcom_ice_init_clocks(struct ice_device *ice)
 out:
 	return ret;
 }
-
-static int qcom_ice_enable_clocks(struct ice_device *ice, bool enable)
-{
-	int ret = 0;
-	struct ice_clk_info *clki;
-	struct device *dev = ice->pdev;
-	struct list_head *head = &ice->clk_list_head;
-
-	if (!head || list_empty(head)) {
-		dev_err(dev, "%s:ICE Clock list null/empty\n", __func__);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	if (!ice->is_ice_clk_available) {
-		dev_err(dev, "%s:ICE Clock not available\n", __func__);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	list_for_each_entry(clki, head, list) {
-		if (!clki->name)
-			continue;
-
-		if (enable)
-			ret = clk_prepare_enable(clki->clk);
-		else
-			clk_disable_unprepare(clki->clk);
-
-		if (ret) {
-			dev_err(dev, "Unable to %s ICE core clk\n",
-				enable?"enable":"disable");
-			goto out;
-		}
-	}
-out:
-	return ret;
-}
-
 
 static int qcom_ice_secure_ice_init(struct ice_device *ice_dev)
 {
@@ -706,9 +758,7 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 	}
 
 	if (ice_dev->is_ice_clk_available) {
-		if (!qcom_ice_init_clocks(ice_dev)) {
-			qcom_ice_enable_clocks(ice_dev, true);
-		} else {
+		if (qcom_ice_init_clocks(ice_dev)) {
 			ice_dev->error_cb(ice_dev->host_controller_data,
 					ICE_ERROR_IMPROPER_INITIALIZATION);
 			return;
@@ -816,7 +866,6 @@ static void qcom_ice_finish_power_collapse(void *data, async_cookie_t cookie)
 		 * ICE resets into global bypass mode with optimization and
 		 * low power mode disabled. Hence we need to redo those seq's.
 		 */
-		qcom_ice_enable_clocks(ice_dev, true);
 		qcom_ice_low_power_mode_enable(ice_dev);
 
 		qcom_ice_enable_test_bus_config(ice_dev);
@@ -866,7 +915,6 @@ static int  qcom_ice_resume(struct platform_device *pdev)
 		return -EINVAL;
 
 	if (ice_dev->is_ice_clk_available) {
-		qcom_ice_enable_clocks(ice_dev, true);
 		/*
 		 * Storage is calling this function after power collapse which
 		 * would put ICE into GLOBAL_BYPASS mode. Make sure to enable
