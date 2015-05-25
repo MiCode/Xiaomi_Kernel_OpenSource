@@ -2195,6 +2195,9 @@ static const struct snd_kcontrol_new mi2s_config_controls[] = {
 	SOC_ENUM_EXT("QUAT MI2S RX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("QUIN MI2S RX Format", mi2s_config_enum[0],
+		     msm_dai_q6_mi2s_format_get,
+		     msm_dai_q6_mi2s_format_put),
 	SOC_ENUM_EXT("PRI MI2S TX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
@@ -2205,6 +2208,9 @@ static const struct snd_kcontrol_new mi2s_config_controls[] = {
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
 	SOC_ENUM_EXT("QUAT MI2S TX Format", mi2s_config_enum[0],
+		     msm_dai_q6_mi2s_format_get,
+		     msm_dai_q6_mi2s_format_put),
+	SOC_ENUM_EXT("QUIN MI2S TX Format", mi2s_config_enum[0],
 		     msm_dai_q6_mi2s_format_get,
 		     msm_dai_q6_mi2s_format_put),
 };
@@ -2230,6 +2236,8 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 			ctrl = &mi2s_config_controls[2];
 		if (dai->id == MSM_QUAT_MI2S)
 			ctrl = &mi2s_config_controls[3];
+		if (dai->id == MSM_QUIN_MI2S)
+			ctrl = &mi2s_config_controls[4];
 	}
 
 	if (ctrl) {
@@ -2247,13 +2255,15 @@ static int msm_dai_q6_dai_mi2s_probe(struct snd_soc_dai *dai)
 	ctrl = NULL;
 	if (mi2s_dai_data->tx_dai.mi2s_dai_data.port_config.i2s.channel_mode) {
 		if (dai->id == MSM_PRIM_MI2S)
-			ctrl = &mi2s_config_controls[4];
-		if (dai->id == MSM_SEC_MI2S)
 			ctrl = &mi2s_config_controls[5];
-		if (dai->id == MSM_TERT_MI2S)
+		if (dai->id == MSM_SEC_MI2S)
 			ctrl = &mi2s_config_controls[6];
-		if (dai->id == MSM_QUAT_MI2S)
+		if (dai->id == MSM_TERT_MI2S)
 			ctrl = &mi2s_config_controls[7];
+		if (dai->id == MSM_QUAT_MI2S)
+			ctrl = &mi2s_config_controls[8];
+		if (dai->id == MSM_QUIN_MI2S)
+			ctrl = &mi2s_config_controls[9];
 	}
 
 	if (ctrl) {
@@ -2332,6 +2342,9 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 		case MSM_SEC_MI2S_SD1:
 			*port_id = AFE_PORT_ID_SECONDARY_MI2S_RX_SD1;
 			break;
+		case MSM_QUIN_MI2S:
+			*port_id = AFE_PORT_ID_QUINARY_MI2S_RX;
+			break;
 		break;
 		default:
 			pr_err("%s: playback err id 0x%x\n",
@@ -2353,6 +2366,9 @@ static int msm_mi2s_get_port_id(u32 mi2s_id, int stream, u16 *port_id)
 			break;
 		case MSM_QUAT_MI2S:
 			*port_id = AFE_PORT_ID_QUATERNARY_MI2S_TX;
+			break;
+		case MSM_QUIN_MI2S:
+			*port_id = AFE_PORT_ID_QUINARY_MI2S_TX;
 			break;
 		default:
 			pr_err("%s: capture err id 0x%x\n", __func__, mi2s_id);
@@ -2747,6 +2763,30 @@ static struct snd_soc_dai_driver msm_dai_q6_mi2s_dai[] = {
 		},
 		.id = MSM_SEC_MI2S_SD1,
 	},
+	{
+		.playback = {
+			.stream_name = "Quinary MI2S Playback",
+			.aif_name = "QUIN_MI2S_RX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.capture = {
+			.stream_name = "Quinary MI2S Capture",
+			.aif_name = "QUIN_MI2S_TX",
+			.rates = SNDRV_PCM_RATE_48000 | SNDRV_PCM_RATE_8000 |
+			SNDRV_PCM_RATE_16000,
+			.formats = SNDRV_PCM_FMTBIT_S16_LE,
+			.rate_min =     8000,
+			.rate_max =     48000,
+		},
+		.ops = &msm_dai_q6_mi2s_ops,
+		.id = MSM_QUIN_MI2S,
+		.probe = msm_dai_q6_dai_mi2s_probe,
+		.remove = msm_dai_q6_dai_mi2s_remove,
+	},
 };
 
 
@@ -2914,7 +2954,7 @@ static int msm_dai_q6_mi2s_dev_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "dev name %s dev id 0x%x\n", dev_name(&pdev->dev),
 		mi2s_intf);
 
-	if ((mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_SEC_MI2S_SD1)
+	if ((mi2s_intf < MSM_PRIM_MI2S || mi2s_intf > MSM_QUIN_MI2S)
 		|| (mi2s_intf >= ARRAY_SIZE(msm_dai_q6_mi2s_dai))) {
 		dev_err(&pdev->dev,
 			"%s: Invalid MI2S ID %u from Device Tree\n",
