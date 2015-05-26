@@ -4525,6 +4525,15 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 	if (chip->apsd_rerun_ignore_uv_irq)
 		goto out;
 
+	/*
+	 * set usb_psy's allow_detection if this is a new insertion, i.e. it is
+	 * not already src_detected and usbin_uv is seen falling
+	 */
+	if (!(reg & USBIN_UV_BIT) && !(reg & USBIN_SRC_DET_BIT)) {
+		pr_smb(PR_MISC, "setting usb psy allow detection 1\n");
+		power_supply_set_allow_detection(chip->usb_psy, 1);
+	}
+
 	if ((reg & USBIN_UV_BIT) && (reg & USBIN_SRC_DET_BIT)) {
 		pr_smb(PR_STATUS, "Very weak charger detected\n");
 		chip->very_weak_charger = true;
@@ -5728,7 +5737,8 @@ static int smbchg_request_irqs(struct smbchg_chip *chip)
 		case SMBCHG_USB_CHGPTH_SUBTYPE:
 		case SMBCHG_LITE_USB_CHGPTH_SUBTYPE:
 			REQUEST_IRQ(chip, spmi_resource, chip->usbin_uv_irq,
-				"usbin-uv", usbin_uv_handler, flags, rc);
+				"usbin-uv", usbin_uv_handler,
+				flags | IRQF_EARLY_RESUME, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->usbin_ov_irq,
 				"usbin-ov", usbin_ov_handler, flags, rc);
 			REQUEST_IRQ(chip, spmi_resource, chip->src_detect_irq,
