@@ -166,6 +166,7 @@ struct smbchg_chip {
 	bool				otg_pulse_skip_en;
 	bool				very_weak_charger;
 	const char			*battery_type;
+	bool				parallel_charger_detected;
 
 	/* jeita and temperature */
 	bool				batt_hot;
@@ -1436,7 +1437,7 @@ static bool smbchg_is_parallel_usb_ok(struct smbchg_chip *chip)
 	ktime_t kt_since_last_disable;
 	u8 reg;
 
-	if (!smbchg_parallel_en) {
+	if (!smbchg_parallel_en || !chip->parallel_charger_detected) {
 		pr_smb(PR_STATUS, "Parallel charging not enabled\n");
 		return false;
 	}
@@ -1578,7 +1579,7 @@ static int smbchg_parallel_usb_charging_en(struct smbchg_chip *chip, bool en)
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 	union power_supply_propval pval = {0, };
 
-	if (!parallel_psy)
+	if (!parallel_psy || !chip->parallel_charger_detected)
 		return 0;
 
 	pval.intval = en;
@@ -1631,7 +1632,7 @@ static void smbchg_parallel_usb_disable(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 
-	if (!parallel_psy)
+	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
 	pr_smb(PR_STATUS, "disabling parallel charger\n");
 	chip->parallel.last_disabled = ktime_get_boottime();
@@ -1661,7 +1662,7 @@ static void smbchg_parallel_usb_taper(struct smbchg_chip *chip)
 	int parallel_fcc_ma, tries = 0;
 	u8 reg = 0;
 
-	if (!parallel_psy)
+	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
 
 try_again:
@@ -1756,7 +1757,7 @@ static void smbchg_parallel_usb_enable(struct smbchg_chip *chip)
 	int current_limit_ma, parallel_cl_ma, total_current_ma;
 	int new_parallel_cl_ma, min_current_thr_ma, rc;
 
-	if (!parallel_psy)
+	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
 
 	pr_smb(PR_STATUS, "Attempting to enable parallel charger\n");
@@ -1888,7 +1889,7 @@ static void smbchg_parallel_usb_check_ok(struct smbchg_chip *chip)
 {
 	struct power_supply *parallel_psy = get_parallel_psy(chip);
 
-	if (!parallel_psy)
+	if (!parallel_psy || !chip->parallel_charger_detected)
 		return;
 	mutex_lock(&chip->parallel.lock);
 	if (smbchg_is_parallel_usb_ok(chip)) {
@@ -4039,7 +4040,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 				"usb psy does not allow updating prop %d rc = %d\n",
 				POWER_SUPPLY_HEALTH_UNKNOWN, rc);
 	}
-	if (parallel_psy)
+	if (parallel_psy && chip->parallel_charger_detected)
 		power_supply_set_present(parallel_psy, false);
 	if (chip->parallel.avail && chip->aicl_done_irq
 			&& chip->enable_aicl_wake) {
@@ -4124,8 +4125,12 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 	if (usb_supply_type == POWER_SUPPLY_TYPE_USB_DCP)
 		schedule_delayed_work(&chip->hvdcp_det_work,
 					msecs_to_jiffies(HVDCP_NOTIFY_MS));
-	if (parallel_psy)
-		power_supply_set_present(parallel_psy, true);
+	if (parallel_psy) {
+		rc = power_supply_set_present(parallel_psy, true);
+		chip->parallel_charger_detected = rc ? false : true;
+		if (rc)
+			pr_debug("parallel-charger absent rc=%d\n", rc);
+	}
 
 	if (chip->parallel.avail && chip->aicl_done_irq
 			&& !chip->enable_aicl_wake) {
