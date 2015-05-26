@@ -1483,9 +1483,13 @@ static ssize_t show_registers(struct device *dev,
 		return 0;
 	}
 
+	clk_prepare_enable(udc->system_clk);
+	clk_prepare_enable(udc->pclk);
 	spin_lock_irqsave(udc->lock, flags);
 	k = hw_register_read(dump, DUMP_ENTRIES);
 	spin_unlock_irqrestore(udc->lock, flags);
+	clk_disable_unprepare(udc->pclk);
+	clk_disable_unprepare(udc->system_clk);
 
 	for (i = 0; i < k; i++) {
 		n += scnprintf(buf + n, PAGE_SIZE - n,
