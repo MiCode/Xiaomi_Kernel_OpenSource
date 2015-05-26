@@ -750,7 +750,7 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 		temp_buf = buf + total_recd;
 		pkt_len = smd_cur_packet_size(smd_info->hdl);
 		if (pkt_len <= 0)
-			goto fail_return;
+			break;
 
 		if (total_recd + pkt_len > buf_len) {
 			buf_full = 1;
@@ -784,7 +784,7 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 		}
 	} while (pkt_len > 0);
 
-	if (smd_info->type == TYPE_DATA || buf_full)
+	if ((smd_info->type == TYPE_DATA && pkt_len) || buf_full)
 		err = queue_work(smd_info->wq, &(smd_info->read_work));
 
 	if (total_recd > 0) {
