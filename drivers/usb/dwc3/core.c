@@ -561,6 +561,14 @@ int dwc3_core_init(struct dwc3 *dwc)
 
 	dwc3_core_num_eps(dwc);
 
+	/*
+	 * Workaround: Disable internal clock gating always, as there
+	 * is a known HW bug that causes the internal RAM clock to get
+	 * stuck when entering low power modes. Revisit when there is
+	 * a way to differentiate HW that no longer needs this.
+	 */
+	reg |= DWC3_GCTL_DSBLCLKGTNG;
+
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	ret = dwc3_alloc_scratch_buffers(dwc);
