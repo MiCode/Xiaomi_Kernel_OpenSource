@@ -94,11 +94,14 @@ struct tvec_base {
 	struct tvec tv5;
 } ____cacheline_aligned;
 
+static inline void __run_timers(struct tvec_base *base);
 
 static DEFINE_PER_CPU(struct tvec_base, tvec_bases);
 
 #if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ_COMMON)
 unsigned int sysctl_timer_migration = 1;
+
+struct tvec_base tvec_base_deferrable;
 
 void timers_update_migration(bool update_nohz)
 {
@@ -135,17 +138,61 @@ int timer_migration_handler(struct ctl_table *table, int write,
 }
 
 static inline struct tvec_base *get_target_base(struct tvec_base *base,
-						int pinned)
+						int pinned, u32 timer_flags)
 {
+	if (!pinned && !(timer_flags & TIMER_PINNED_ON_CPU) &&
+	    (timer_flags & TIMER_DEFERRABLE))
+		return &tvec_base_deferrable;
 	if (pinned || !base->migration_enabled)
 		return this_cpu_ptr(&tvec_bases);
 	return per_cpu_ptr(&tvec_bases, get_nohz_timer_target());
 }
+
+static inline void __run_deferrable_timers(void)
+{
+	if (smp_processor_id() == tick_do_timer_cpu &&
+	    time_after_eq(jiffies, tvec_base_deferrable.timer_jiffies))
+		__run_timers(&tvec_base_deferrable);
+}
+
+static inline void init_timer_deferrable_global(void)
+{
+	tvec_base_deferrable.cpu = nr_cpu_ids;
+	spin_lock_init(&tvec_base_deferrable.lock);
+	tvec_base_deferrable.timer_jiffies = jiffies;
+	tvec_base_deferrable.next_timer = tvec_base_deferrable.timer_jiffies;
+}
+
+static inline struct tvec_base *get_timer_base(u32 timer_flags)
+{
+	if (!(timer_flags & TIMER_PINNED_ON_CPU) &&
+	    timer_flags & TIMER_DEFERRABLE)
+		return &tvec_base_deferrable;
+	else
+		return per_cpu_ptr(&tvec_bases, timer_flags & TIMER_CPUMASK);
+}
 #else
 static inline struct tvec_base *get_target_base(struct tvec_base *base,
-						int pinned)
+						int pinned, u32 timer_flags)
 {
 	return this_cpu_ptr(&tvec_bases);
+}
+
+static inline void __run_deferrable_timers(void)
+{
+}
+
+static inline void init_timer_deferrable_global(void)
+{
+	/*
+	 * initialize cpu unbound deferrable timer base only when CONFIG_SMP.
+	 * UP kernel handles the timers with cpu 0 timer base.
+	 */
+}
+
+static inline struct tvec_base *get_timer_base(u32 timer_flags)
+{
+	return per_cpu_ptr(&tvec_bases, timer_flags & TIMER_CPUMASK);
 }
 #endif
 
@@ -768,7 +815,7 @@ static struct tvec_base *lock_timer_base(struct timer_list *timer,
 		struct tvec_base *base;
 
 		if (!(tf & TIMER_MIGRATING)) {
-			base = per_cpu_ptr(&tvec_bases, tf & TIMER_CPUMASK);
+			base = get_timer_base(tf);
 			spin_lock_irqsave(&base->lock, *flags);
 			if (timer->flags == tf)
 				return base;
@@ -797,7 +844,7 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
 
 	debug_activate(timer, expires);
 
-	new_base = get_target_base(base, pinned);
+	new_base = get_target_base(base, pinned, timer->flags);
 
 	if (base != new_base) {
 		/*
@@ -819,6 +866,10 @@ __mod_timer(struct timer_list *timer, unsigned long expires,
 		}
 	}
 
+	if (pinned == TIMER_PINNED)
+		timer->flags |= TIMER_PINNED_ON_CPU;
+	else
+		timer->flags &= ~TIMER_PINNED_ON_CPU;
 	timer->expires = expires;
 	internal_add_timer(base, timer);
 
@@ -1000,6 +1051,7 @@ void add_timer_on(struct timer_list *timer, int cpu)
 			   (timer->flags & ~TIMER_BASEMASK) | cpu);
 	}
 
+	timer->flags |= TIMER_PINNED_ON_CPU;
 	debug_activate(timer, timer->expires);
 	internal_add_timer(base, timer);
 	spin_unlock_irqrestore(&base->lock, flags);
@@ -1433,6 +1485,8 @@ static void run_timer_softirq(struct softirq_action *h)
 {
 	struct tvec_base *base = this_cpu_ptr(&tvec_bases);
 
+	__run_deferrable_timers();
+
 	if (time_after_eq(jiffies, base->timer_jiffies))
 		__run_timers(base);
 }
@@ -1656,6 +1710,8 @@ static void __init init_timer_cpus(void)
 
 	for_each_possible_cpu(cpu)
 		init_timer_cpu(cpu);
+
+	init_timer_deferrable_global();
 }
 
 void __init init_timers(void)
