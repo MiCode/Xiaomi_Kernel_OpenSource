@@ -25,6 +25,7 @@
 
 #define NFC_SET_PWR	_IOW(0xE9, 0x01, unsigned int)
 #define SET_RX_BLOCK	_IOW(0xE9, 0x04, unsigned int)
+#define NFC_CLK_REQ	_IOW(0xE9, 0x02, unsigned int)
 #define SET_EMULATOR_TEST_POINT		_IOW(0xE9, 0x05, unsigned int)
 #define NFCC_INITIAL_CORE_RESET_NTF	_IOW(0xE9, 0x10, unsigned int)
 
