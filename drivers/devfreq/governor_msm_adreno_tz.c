@@ -25,7 +25,8 @@
 #include "governor.h"
 
 static DEFINE_SPINLOCK(tz_lock);
-
+static DEFINE_SPINLOCK(sample_lock);
+static DEFINE_SPINLOCK(suspend_lock);
 /*
  * FLOOR is 5msec to capture up to 3 re-draws
  * per frame for 60fps content.
@@ -55,8 +56,11 @@ static DEFINE_SPINLOCK(tz_lock);
 
 #define TAG "msm_adreno_tz: "
 
-static struct msm_adreno_extended_profile *partner_gpu_profile;
+static u64 suspend_time;
+static u64 suspend_start;
+static unsigned long acc_total, acc_relative_busy;
 
+static struct msm_adreno_extended_profile *partner_gpu_profile;
 static void do_partner_start_event(struct work_struct *work);
 static void do_partner_stop_event(struct work_struct *work);
 static void do_partner_suspend_event(struct work_struct *work);
@@ -64,12 +68,103 @@ static void do_partner_resume_event(struct work_struct *work);
 
 static struct workqueue_struct *workqueue;
 
+/*
+ * Returns GPU suspend time in millisecond.
+ */
+u64 suspend_time_ms(void)
+{
+	u64 suspend_sampling_time;
+	u64 time_diff = 0;
+
+	if (suspend_start == 0)
+		return 0;
+
+	suspend_sampling_time = (u64)ktime_to_ms(ktime_get());
+	time_diff = suspend_sampling_time - suspend_start;
+	/* Update the suspend_start sample again */
+	suspend_start = suspend_sampling_time;
+	return time_diff;
+}
+
+static ssize_t gpu_load_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
+{
+	unsigned long sysfs_busy_perc;
+	/*
+	 * Average out the samples taken since last read
+	 * This will keep the average value in sync with
+	 * with the client sampling duration.
+	 */
+	spin_lock(&sample_lock);
+	sysfs_busy_perc = (acc_relative_busy * 100) / acc_total;
+
+	/* Reset the parameters */
+	acc_total = 0;
+	acc_relative_busy = 0;
+	spin_unlock(&sample_lock);
+	return snprintf(buf, PAGE_SIZE, "%lu\n", sysfs_busy_perc);
+}
+
+/*
+ * Returns the time in ms for which gpu was in suspend state
+ * since last time the entry is read.
+ */
+static ssize_t suspend_time_show(struct device *dev,
+	struct device_attribute *attr,
+	char *buf)
+{
+	u64 time_diff = 0;
+
+	spin_lock(&suspend_lock);
+	time_diff = suspend_time_ms();
+	/*
+	 * Adding the previous suspend time also as the gpu
+	 * can go and come out of suspend states in between
+	 * reads also and we should have the total suspend
+	 * since last read.
+	 */
+	time_diff += suspend_time;
+	suspend_time = 0;
+	spin_unlock(&suspend_lock);
+
+	return snprintf(buf, PAGE_SIZE, "%llu\n", time_diff);
+}
+
+static DEVICE_ATTR(gpu_load, 0444, gpu_load_show, NULL);
+
+static DEVICE_ATTR(suspend_time, 0444,
+		suspend_time_show,
+		NULL);
+
+static const struct device_attribute *adreno_tz_attr_list[] = {
+		&dev_attr_gpu_load,
+		&dev_attr_suspend_time,
+		NULL
+};
+
+void compute_work_load(struct devfreq_dev_status *stats,
+		struct devfreq_msm_adreno_tz_data *priv,
+		struct devfreq *devfreq)
+{
+	spin_lock(&sample_lock);
+	/*
+	 * Keep collecting the stats till the client
+	 * reads it. Average of all samples and reset
+	 * is done when the entry is read
+	 */
+	acc_total += stats->total_time;
+	acc_relative_busy += (stats->busy_time * stats->current_frequency) /
+				devfreq->profile->freq_table[0];
+	spin_unlock(&sample_lock);
+}
+
 /* Trap into the TrustZone, and call funcs there. */
 static int __secure_tz_reset_entry2(unsigned int *scm_data, u32 size_scm_data,
 					bool is_64)
 {
 	int ret;
-	/* sync memory before sending the commands to tz*/
+	/* sync memory before sending the commands to tz */
 	__iowmb();
 
 	if (!is_64) {
@@ -95,7 +190,7 @@ static int __secure_tz_update_entry3(unsigned int *scm_data, u32 size_scm_data,
 					int *val, u32 size_val, bool is_64)
 {
 	int ret;
-	/* sync memory before sending the commands to tz*/
+	/* sync memory before sending the commands to tz */
 	__iowmb();
 
 	if (!is_64) {
@@ -192,6 +287,8 @@ static int tz_get_target_freq(struct devfreq *devfreq, unsigned long *freq,
 	priv->bin.total_time += stats.total_time;
 	priv->bin.busy_time += stats.busy_time;
 
+	/* Update the GPU load statistics */
+	compute_work_load(&stats, priv, devfreq);
 	/*
 	 * Do not waste CPU cycles running this algorithm if
 	 * the GPU just started, or if less than FLOOR time
@@ -317,14 +414,21 @@ static int tz_start(struct devfreq *devfreq)
 		return ret;
 	}
 
+	for (i = 0; adreno_tz_attr_list[i] != NULL; i++)
+		device_create_file(&devfreq->dev, adreno_tz_attr_list[i]);
+
 	return kgsl_devfreq_add_notifier(devfreq->dev.parent, &priv->nb);
 }
 
 static int tz_stop(struct devfreq *devfreq)
 {
+	int i;
 	struct devfreq_msm_adreno_tz_data *priv = devfreq->data;
 
 	kgsl_devfreq_del_notifier(devfreq->dev.parent, &priv->nb);
+
+	for (i = 0; adreno_tz_attr_list[i] != NULL; i++)
+		device_remove_file(&devfreq->dev, adreno_tz_attr_list[i]);
 
 	flush_workqueue(workqueue);
 
@@ -348,6 +452,7 @@ static int tz_suspend(struct devfreq *devfreq)
 static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 {
 	int result;
+
 	struct msm_adreno_extended_profile *gpu_profile = container_of(
 					(devfreq->profile),
 					struct msm_adreno_extended_profile,
@@ -364,15 +469,29 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 		if (partner_gpu_profile && partner_gpu_profile->bus_devfreq)
 			queue_work(workqueue,
 				&gpu_profile->partner_stop_event_ws);
-
+		spin_lock(&suspend_lock);
+		suspend_start = 0;
+		spin_unlock(&suspend_lock);
 		result = tz_stop(devfreq);
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:
 		result = tz_suspend(devfreq);
+		if (!result) {
+			spin_lock(&suspend_lock);
+			/* Collect the start sample for suspend time */
+			suspend_start = (u64)ktime_to_ms(ktime_get());
+			spin_unlock(&suspend_lock);
+		}
 		break;
 
 	case DEVFREQ_GOV_RESUME:
+		spin_lock(&suspend_lock);
+		suspend_time += suspend_time_ms();
+		/* Reset the suspend_start when gpu resumes */
+		suspend_start = 0;
+		spin_unlock(&suspend_lock);
+
 	case DEVFREQ_GOV_INTERVAL:
 		/* ignored, this governor doesn't use polling */
 	default:
