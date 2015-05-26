@@ -1277,7 +1277,8 @@ static int spmi_pmic_arb_probe(struct platform_device *pdev)
 	pmic_arb->controller.write_cmd =  pmic_arb_write_cmd;
 
 	ret = devm_request_irq(&pdev->dev, pmic_arb->pic_irq,
-		pmic_arb_periph_irq, IRQF_TRIGGER_HIGH, pdev->name, pmic_arb);
+		pmic_arb_periph_irq, IRQF_TRIGGER_HIGH | IRQF_EARLY_RESUME,
+		pdev->name, pmic_arb);
 	if (ret) {
 		dev_err(&pdev->dev, "request IRQ failed\n");
 		return ret;
