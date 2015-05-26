@@ -34,6 +34,9 @@ struct timer_list {
 };
 
 extern struct tvec_base boot_tvec_bases;
+#ifdef CONFIG_SMP
+extern struct tvec_base tvec_base_deferrable;
+#endif
 
 #ifdef CONFIG_LOCKDEP
 /*
@@ -70,12 +73,21 @@ extern struct tvec_base boot_tvec_bases;
 
 #define TIMER_FLAG_MASK			0x3LU
 
+#ifdef CONFIG_SMP
+#define __TIMER_BASE(_flags) \
+	((_flags) & TIMER_DEFERRABLE ? \
+	 (unsigned long)&tvec_base_deferrable + (_flags) : \
+	 (unsigned long)&boot_tvec_bases + (_flags))
+#else
+#define __TIMER_BASE(_flags) ((unsigned long)&boot_tvec_bases + (_flags))
+#endif
+
 #define __TIMER_INITIALIZER(_function, _expires, _data, _flags) { \
 		.entry = { .prev = TIMER_ENTRY_STATIC },	\
 		.function = (_function),			\
 		.expires = (_expires),				\
 		.data = (_data),				\
-		.base = (void *)((unsigned long)&boot_tvec_bases + (_flags)), \
+		.base = (void *)(__TIMER_BASE(_flags)),		\
 		.slack = -1,					\
 		__TIMER_LOCKDEP_MAP_INITIALIZER(		\
 			__FILE__ ":" __stringify(__LINE__))	\
