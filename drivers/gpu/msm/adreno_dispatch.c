@@ -501,6 +501,7 @@ static int sendcmd(struct adreno_device *adreno_dev,
 		ret = kgsl_active_count_get(device);
 		if (ret) {
 			dispatcher->inflight--;
+			dispatch_q->inflight--;
 			mutex_unlock(&device->mutex);
 			return ret;
 		}
