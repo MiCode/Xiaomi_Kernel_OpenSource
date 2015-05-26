@@ -162,6 +162,7 @@ enum rq_flag_bits {
 	__REQ_INTEGRITY,	/* I/O includes block integrity payload */
 	__REQ_FUA,		/* forced unit access */
 	__REQ_PREFLUSH,		/* request for cache flush */
+	__REQ_BARRIER,		/* marks flush req as barrier */
 
 	/* bio only flags */
 	__REQ_RAHEAD,		/* read ahead, can fail anytime */
@@ -207,7 +208,7 @@ enum rq_flag_bits {
 	(REQ_FAILFAST_DEV | REQ_FAILFAST_TRANSPORT | REQ_FAILFAST_DRIVER)
 #define REQ_COMMON_MASK \
 	(REQ_FAILFAST_MASK | REQ_SYNC | REQ_META | REQ_PRIO | REQ_NOIDLE | \
-	 REQ_PREFLUSH | REQ_FUA | REQ_INTEGRITY | REQ_NOMERGE)
+	 REQ_PREFLUSH | REQ_FUA | REQ_INTEGRITY | REQ_NOMERGE | REQ_BARRIER)
 #define REQ_CLONE_MASK		REQ_COMMON_MASK
 
 /* This mask is used for both bio and request merge checking */
@@ -220,6 +221,7 @@ enum rq_flag_bits {
 #define REQ_SORTED		(1ULL << __REQ_SORTED)
 #define REQ_SOFTBARRIER		(1ULL << __REQ_SOFTBARRIER)
 #define REQ_FUA			(1ULL << __REQ_FUA)
+#define REQ_BARRIER		(1ULL << __REQ_BARRIER)
 #define REQ_NOMERGE		(1ULL << __REQ_NOMERGE)
 #define REQ_STARTED		(1ULL << __REQ_STARTED)
 #define REQ_DONTPREP		(1ULL << __REQ_DONTPREP)
