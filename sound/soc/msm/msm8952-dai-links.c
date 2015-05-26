@@ -917,12 +917,21 @@ static struct snd_soc_aux_dev msm895x_aux_dev[] = {
 		.codec_name = "wsa881x.20170212",
 		.init = msm895x_wsa881x_init,
 	},
+	{
+		.name = "wsa881x.1",
+		.codec_name = "wsa881x.20170211",
+		.init = msm895x_wsa881x_init,
+	},
 };
 
 static struct snd_soc_codec_conf msm895x_codec_conf[] = {
 	{
 		.dev_name = "wsa881x.20170212",
 		.name_prefix = "SpkrLeft",
+	},
+	{
+		.dev_name = "wsa881x.20170211",
+		.name_prefix = "SpkrRight",
 	},
 };
 
