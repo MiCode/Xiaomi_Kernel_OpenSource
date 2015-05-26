@@ -1492,6 +1492,7 @@ out:
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
 	mmc_release_host(host);
+	mmc_rpm_release(host, &card->dev);
 	return err ? 1 : 0;
 }
 
@@ -1611,6 +1612,7 @@ out:
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
 	mmc_release_host(host);
+	mmc_rpm_release(host, &card->dev);
 	return err ? 1 : 0;
 }
 
@@ -3000,6 +3002,7 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 		return;
 	}
 
+	mmc_rpm_hold(host, &card->dev);
 	mmc_claim_host(card->host);
 	/* disable CQ mode in card */
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
@@ -3014,6 +3017,7 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 	}
 out:
 	mmc_release_host(card->host);
+	mmc_rpm_release(host, &card->dev);
 }
 
 static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
@@ -3048,6 +3052,7 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	struct mmc_card *card = mq->card;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 
+	mmc_rpm_hold(host, &card->dev);
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
 		pr_err("halt: failed: %d\n", err);
@@ -3107,6 +3112,8 @@ unhalt:
 	mmc_cmdq_halt(host, false);
 
 out:
+	mmc_rpm_release(host, &card->dev);
+
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mrq->req->q);
 }
@@ -3173,6 +3180,7 @@ out:
 			test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
 	mmc_release_host(host);
+	mmc_rpm_release(host, &host->card->dev);
 
 	if (!ctx_info->active_reqs)
 		wake_up_interruptible(&host->cmdq_ctx.queue_empty_wq);
@@ -3462,6 +3470,7 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_card *card = md->queue.card;
 	unsigned int cmd_flags = req ? req->cmd_flags : 0;
 
+	mmc_rpm_hold(card->host, &card->dev);
 	mmc_claim_host(card->host);
 	ret = mmc_blk_cmdq_part_switch(card, md);
 	if (ret) {
@@ -3469,6 +3478,7 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 				md->disk->disk_name, __func__, ret);
 		blk_end_request_all(req, ret);
 		mmc_release_host(card->host);
+		mmc_rpm_release(card->host, &card->dev);
 		goto switch_failure;
 	}
 
