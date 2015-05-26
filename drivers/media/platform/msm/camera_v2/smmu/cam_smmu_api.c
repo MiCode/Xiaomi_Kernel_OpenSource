@@ -806,16 +806,17 @@ int cam_smmu_destroy_handle(int handle)
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	if (iommu_cb_set.cb_info[idx].state == CAM_SMMU_ATTACH) {
 		CDBG("It should get detached before.\n");
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 		ret = cam_smmu_detach(idx);
 		if (ret < 0) {
 			pr_err("Error: Detach idx %d fail\n", idx);
-			mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 			mutex_unlock(&iommu_table_lock);
 			return -EINVAL;
 		}
+	} else {
+		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 	}
 
-	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 	mutex_destroy(&iommu_cb_set.cb_info[idx].lock);
 	mutex_unlock(&iommu_table_lock);
 	return 0;
