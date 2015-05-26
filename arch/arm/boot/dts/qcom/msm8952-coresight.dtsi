@@ -357,7 +357,7 @@
 		coresight-id = <18>;
 		coresight-name = "coresight-csr";
 		coresight-nr-inports = <0>;
-		qcom,blk-size = <1>;
+		qcom,blk-size = <2>;
 
 		clocks = <&clock_gcc clk_qdss_clk>,
 			 <&clock_gcc clk_qdss_a_clk>;
