@@ -271,8 +271,8 @@ static int fastrpc_mmap_remove(struct fastrpc_file *fl, uintptr_t va,
 	struct hlist_node *n;
 	spin_lock(&fl->hlock);
 	hlist_for_each_entry_safe(map, n, &fl->maps, hn) {
-		if (map->va == va &&
-		    map->va + map->len == va + len &&
+		if (map->raddr == va &&
+		    map->raddr + map->len == va + len &&
 		    map->refs == 1) {
 			match = map;
 			hlist_del_init(&map->hn);
