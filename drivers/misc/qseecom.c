@@ -2390,29 +2390,22 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 			if (__boundary_checks_offset(req, lstnr_resp, data, i))
 				goto err;
 			if ((data->type == QSEECOM_CLIENT_APP &&
-				data->client.app_arch == ELFCLASS32) ||
+				(data->client.app_arch == ELFCLASS32 ||
+				data->client.app_arch == ELFCLASS64)) ||
 				(data->type == QSEECOM_LISTENER_SERVICE)) {
 				/*
-				 * 32bit app is using 32bit address, and
-				 * check if 32bit app's sg phy addr
-				 * region is under 4GB
+				 * Check if sg list phy add region is under 4GB
 				 */
 				if ((qseecom.qsee_version >= QSEE_VERSION_40) &&
 					(!cleanup) &&
 					((uint64_t)sg_dma_address(sg_ptr->sgl)
 					>= PHY_ADDR_4G - sg->length)) {
-					pr_err("32bit app %s sgl PA exceeds 4G: phy_addr=%pad, len=%x\n",
+					pr_err("App %s sgl PA exceeds 4G: phy_addr=%pad, len=%x\n",
 						data->client.app_name,
 						&(sg_dma_address(sg_ptr->sgl)),
 						sg->length);
 					goto err;
 				}
-				update = (uint32_t *) field;
-				*update = cleanup ? 0 :
-					(uint32_t)sg_dma_address(sg_ptr->sgl);
-			} else if (data->type == QSEECOM_CLIENT_APP &&
-				data->client.app_arch == ELFCLASS64) {
-				/* 64bit app is still using 32bit address */
 				update = (uint32_t *) field;
 				*update = cleanup ? 0 :
 					(uint32_t)sg_dma_address(sg_ptr->sgl);
@@ -2451,21 +2444,20 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 				}
 			}
 			if ((data->type == QSEECOM_CLIENT_APP &&
-				data->client.app_arch == ELFCLASS32) ||
+				(data->client.app_arch == ELFCLASS32 ||
+				data->client.app_arch == ELFCLASS64)) ||
 				(data->type == QSEECOM_LISTENER_SERVICE)) {
 				update = (struct qseecom_sg_entry *)field;
 				for (j = 0; j < sg_ptr->nents; j++) {
 					/*
-					 * 32bit app is using 32bit address, and
-					 * check if 32bit app's sg phy addr
-					 * region is under 4GB
-					 */
+					* Check if sg list PA is under 4GB
+					*/
 					if ((qseecom.qsee_version >=
 						QSEE_VERSION_40) &&
 						(!cleanup) &&
 						((uint64_t)(sg_dma_address(sg))
 						>= PHY_ADDR_4G - sg->length)) {
-						pr_err("32bit app %s sgl PA exceeds 4G: phy_addr=%pad, len=%x\n",
+						pr_err("App %s sgl PA exceeds 4G: phy_addr=%pad, len=%x\n",
 							data->client.app_name,
 							&(sg_dma_address(sg)),
 							sg->length);
@@ -2474,19 +2466,6 @@ static int __qseecom_update_cmd_buf(void *msg, bool cleanup,
 					update->phys_addr = cleanup ? 0 :
 						(uint32_t)sg_dma_address(sg);
 					update->len = cleanup ? 0 : sg->length;
-					update++;
-					len += sg->length;
-					sg = sg_next(sg);
-				}
-			} else if (data->type == QSEECOM_CLIENT_APP &&
-				data->client.app_arch == ELFCLASS64) {
-				/* 64bit app is still using 32bit address */
-				update = (struct qseecom_sg_entry *)field;
-				for (j = 0; j < sg_ptr->nents; j++) {
-					update->phys_addr = cleanup ? 0 :
-						(uint32_t)sg_dma_address(sg);
-					update->len = cleanup ? 0 :
-								sg->length;
 					update++;
 					len += sg->length;
 					sg = sg_next(sg);
