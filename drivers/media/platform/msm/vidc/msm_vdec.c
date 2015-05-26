@@ -1219,7 +1219,10 @@ static int set_buffer_size(struct msm_vidc_inst *inst,
 	rc = call_hfi_op(hdev, session_set_property,
 			 inst->session, HAL_PARAM_BUFFER_SIZE_MINIMUM,
 			 &b);
-	if (rc)
+
+	if (rc == -ENOTSUPP)
+		return 0;
+	else if (rc)
 		dprintk(VIDC_ERR,
 			"%s - failed to set actual buffer size %u on firmware\n",
 			__func__, buffer_size);
