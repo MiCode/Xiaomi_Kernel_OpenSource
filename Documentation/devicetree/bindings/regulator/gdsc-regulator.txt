@@ -30,6 +30,13 @@ Optional properties:
 			and root clk is active without sw being aware of its
 			state. The clock-name which denotes the root clock
 			should be named as "core_root_clk".
+ - qcom,force-enable-root-clk: If set, denotes that the root clock should be
+			force enabled before turning on the GDSC and then be
+			immediately force disabled. Likewise for GDSC disable.
+			This is used in cases where the core root clock needs
+			to be force-enabled prior to turning on the core. The
+			clock-name which denotes the root clock should be
+			"core_root_clk".
  - reg-names:		Names of the bases for the above "reg" registers.
 			Ex. "base", "domain_addr".
  - qcom,no-status-check-on-disable: Do not poll the status bit when GDSC

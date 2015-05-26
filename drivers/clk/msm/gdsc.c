@@ -53,6 +53,7 @@ struct gdsc {
 	bool			toggle_logic;
 	bool			resets_asserted;
 	bool			root_en;
+	bool			force_root_en;
 	int			root_clk_idx;
 	bool			no_status_check_on_disable;
 	void __iomem		*domain_addr;
@@ -85,7 +86,7 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret;
 
-	if (sc->root_en)
+	if (sc->root_en || sc->force_root_en)
 		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
 
 	if (sc->toggle_logic) {
@@ -147,6 +148,12 @@ static int gdsc_enable(struct regulator_dev *rdev)
 	 */
 	udelay(1);
 
+	/* Delay to account for staggered memory powerup. */
+	udelay(1);
+
+	if (sc->force_root_en)
+		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
+
 	return 0;
 }
 
@@ -156,6 +163,9 @@ static int gdsc_disable(struct regulator_dev *rdev)
 	uint32_t regval;
 	int i, ret = 0;
 
+	if (sc->force_root_en)
+		clk_prepare_enable(sc->clocks[sc->root_clk_idx]);
+
 	for (i = sc->clock_count-1; i >= 0; i--) {
 		if (unlikely(i == sc->root_clk_idx))
 			continue;
@@ -164,6 +174,9 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		if (sc->toggle_periph)
 			clk_set_flags(sc->clocks[i], CLKFLAG_NORETAIN_PERIPH);
 	}
+
+	/* Delay to account for staggered memory powerdown. */
+	udelay(1);
 
 	if (sc->toggle_logic) {
 		regval = readl_relaxed(sc->gdscr);
@@ -207,7 +220,7 @@ static int gdsc_disable(struct regulator_dev *rdev)
 		sc->resets_asserted = true;
 	}
 
-	if (sc->root_en)
+	if (sc->root_en || sc->force_root_en)
 		clk_disable_unprepare(sc->clocks[sc->root_clk_idx]);
 
 	return ret;
@@ -356,7 +369,8 @@ static int gdsc_probe(struct platform_device *pdev)
 
 	sc->root_en = of_property_read_bool(pdev->dev.of_node,
 						"qcom,enable-root-clk");
-
+	sc->force_root_en = of_property_read_bool(pdev->dev.of_node,
+						"qcom,force-enable-root-clk");
 	for (i = 0; i < sc->clock_count; i++) {
 		const char *clock_name;
 		of_property_read_string_index(pdev->dev.of_node, "clock-names",
@@ -374,7 +388,7 @@ static int gdsc_probe(struct platform_device *pdev)
 			sc->root_clk_idx = i;
 	}
 
-	if (sc->root_en && (sc->root_clk_idx == -1)) {
+	if ((sc->root_en || sc->force_root_en) && (sc->root_clk_idx == -1)) {
 		dev_err(&pdev->dev, "Failed to get root clock name\n");
 		return -EINVAL;
 	}
