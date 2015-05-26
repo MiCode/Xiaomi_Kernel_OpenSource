@@ -303,6 +303,7 @@
 			label = "mas-ipa";
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
+			qcom,ap-owned;
 			qcom,qport = <4>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_a2noc_snoc>;
