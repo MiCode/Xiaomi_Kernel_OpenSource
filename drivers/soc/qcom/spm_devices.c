@@ -144,19 +144,14 @@ EXPORT_SYMBOL(msm_spm_set_vdd);
  * @cpu: core id
  * @return: Returns encoded PMIC data.
  */
-unsigned int msm_spm_get_vdd(unsigned int cpu)
+int msm_spm_get_vdd(unsigned int cpu)
 {
-	int ret;
 	struct msm_spm_device *dev = per_cpu(cpu_vctl_device, cpu);
 
 	if (!dev)
 		return -EPROBE_DEFER;
 
-	ret = IS_ERR(dev);
-	if (ret)
-		return ret;
-
-	return dev->cpu_vdd;
+	return msm_spm_drv_get_vdd(&dev->reg_data) ? : -EINVAL;
 }
 EXPORT_SYMBOL(msm_spm_get_vdd);
 
