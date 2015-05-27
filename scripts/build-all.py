@@ -327,7 +327,7 @@ def build_many(targets):
     # parallel builds tends to use up available memory rather quickly.
     parallel = 2
     if all_options.jobs and all_options.jobs > 1:
-        j = min(all_options.jobs / parallel, 2)
+        j = max(all_options.jobs / parallel, 2)
         make_command.append("-j" + str(j))
 
     tracker = BuildTracker(parallel)
