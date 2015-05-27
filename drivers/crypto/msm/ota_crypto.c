@@ -192,7 +192,7 @@ static bool  _next_v_mp_req(struct ota_async_req *areq)
 
 	p = areq->req.f8_v_mp_req.qce_f8_req.data_in;
 	p += areq->req.f8_v_mp_req.qce_f8_req.data_len;
-	p = (uint8_t *) ALIGN(((unsigned int)p), L1_CACHE_BYTES);
+	p = (uint8_t *) ALIGN(((uintptr_t)p), L1_CACHE_BYTES);
 
 	areq->req.f8_v_mp_req.qce_f8_req.data_out = p;
 	areq->req.f8_v_mp_req.qce_f8_req.data_in = p;
@@ -628,7 +628,7 @@ static long qcota_ioctl(struct file *file,
 				return -EFAULT;
 			}
 			p += areq.req.f8_v_mp_req.cipher_iov[i].size;
-			p = (uint8_t *) ALIGN(((unsigned int)p),
+			p = (uint8_t *) ALIGN(((uintptr_t)p),
 							L1_CACHE_BYTES);
 		}
 
@@ -655,7 +655,7 @@ static long qcota_ioctl(struct file *file,
 				return -EFAULT;
 			}
 			p += areq.req.f8_v_mp_req.cipher_iov[i].size;
-			p = (uint8_t *) ALIGN(((unsigned int)p),
+			p = (uint8_t *) ALIGN(((uintptr_t)p),
 							L1_CACHE_BYTES);
 		}
 		kfree(k_buf);
