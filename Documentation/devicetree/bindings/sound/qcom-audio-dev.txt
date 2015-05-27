@@ -783,6 +783,24 @@ capacitor mode.
 - qcom,msm-micbias2-ext-cap : Boolean. Enable micbias2 external
 capacitor mode.
 - qcom,msm-spk-ext-pa : GPIO which enables external speaker pa.
+
+To Configure External Audio Switch
+- qcom,msm-ext-audio-switch : GPIO which controls external switch that switches
+  audio path between headset and speakers.
+- ext-switch-vdd-supply : Power supply that control external audio switch
+- qcom,ext-switch-vdd-voltage : Minimum and maximum voltage in uV to set for
+  power supply.
+- qcom,ext-switch-vdd-op-mode : Maxmum # of uA current the switch will draw
+  from the power supply.
+Example:
+	qcom,msm-ext-audio-switch = <&msm_gpio 2 0>; - gpio # and active_state
+	ext-switch-vdd-supply = <&pm8950_l13>; - Power Rail
+	qcom,ext-switch-vdd-voltage = <3075000 3075000>; - Min, Max uV voltage
+	qcom,ext-switch-vdd-op-mode = <5000>; - Operational current uA
+	Additional needs to add two additional qcom,audio-routings
+			"HEADPHONE", "VDD_EXT_AUDIO_SWITCH"
+			"SPK_OUT", "VDD_EXT_AUDIO_SWITCH"
+
 - qcom,msm-mclk-freq : This property is used to inform machine driver about
 mclk frequency needs to be configured for internal and external PA.
 - asoc-platform: This is phandle list containing the references to platform device
