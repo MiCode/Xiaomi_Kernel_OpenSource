@@ -216,8 +216,7 @@
 #define ARM_SMMU_CB_TLBSYNC		0x7f0
 #define ARM_SMMU_CB_TLBSTATUS		0x7f4
 #define TLBSTATUS_SACTIVE		(1 << 0)
-#define ARM_SMMU_CB_ATS1PR_LO		0x800
-#define ARM_SMMU_CB_ATS1PR_HI		0x804
+#define ARM_SMMU_CB_ATS1PR		0x800
 #define ARM_SMMU_CB_ATSR		0x8f0
 #define ARM_SMMU_GR1_CBFRSYNRA(n)	(0x400 + ((n) << 2))
 
@@ -2409,6 +2408,7 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	void __iomem *cb_base;
 	u32 tmp;
 	u64 phys;
+	unsigned long va;
 	unsigned long flags;
 
 	if (arm_smmu_enable_clocks(smmu))
@@ -2421,11 +2421,14 @@ static phys_addr_t __arm_smmu_iova_to_phys_hard(struct iommu_domain *domain,
 	if (do_halt && arm_smmu_halt(smmu))
 		goto err_unlock;
 
-	if (smmu->version == 1)
-		writel_relaxed(iova & ~0xfff, cb_base + ARM_SMMU_CB_ATS1PR_LO);
+	/* ATS1 registers can only be written atomically */
+	va = iova & ~0xfffUL;
+#ifdef CONFIG_64BIT
+	if (smmu->version == ARM_SMMU_V2)
+		writeq_relaxed(va, cb_base + ARM_SMMU_CB_ATS1PR);
 	else
-		writeq_relaxed(iova & ~0xfffULL,
-			       cb_base + ARM_SMMU_CB_ATS1PR_LO);
+#endif
+		writel_relaxed(va, cb_base + ARM_SMMU_CB_ATS1PR);
 
 	if (readl_poll_timeout_atomic(cb_base + ARM_SMMU_CB_ATSR, tmp,
 				      !(tmp & ATSR_ACTIVE), 5, 50)) {
