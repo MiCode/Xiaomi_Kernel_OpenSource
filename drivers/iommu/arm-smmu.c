@@ -2620,6 +2620,8 @@ static int arm_smmu_device_dt_probe(struct platform_device *pdev)
 	mutex_init(&smmu->atos_lock);
 
 	of_id = of_match_node(arm_smmu_of_match, dev->of_node);
+	if (!of_id)
+		return -ENODEV;
 	smmu->version = (enum arm_smmu_arch_version)of_id->data;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
