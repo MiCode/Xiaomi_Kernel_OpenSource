@@ -194,6 +194,16 @@ static inline u32 get_hfi_codec(enum hal_video_codec hal_codec)
 	return hfi_codec;
 }
 
+static void create_pkt_enable(void *pkt, u32 type, bool enable)
+{
+	u32 *pkt_header = pkt;
+	u32 *pkt_type = &pkt_header[0];
+	struct hfi_enable *hfi_enable = (struct hfi_enable *)&pkt_header[1];
+
+	*pkt_type = type;
+	hfi_enable->enable = enable;
+}
+
 int create_pkt_cmd_sys_init(struct hfi_cmd_sys_init_packet *pkt,
 			   u32 arch_type)
 {
@@ -1644,11 +1654,9 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VENC_SLICE_DELIVERY_MODE:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_SLICE_DELIVERY_MODE;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_VENC_SLICE_DELIVERY_MODE,
+				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
@@ -1672,21 +1680,17 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_CONFIG_VPE_DEINTERLACE:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_CONFIG_VPE_DEINTERLACE;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_CONFIG_VPE_DEINTERLACE,
+				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
 	case HAL_PARAM_VENC_H264_GENERATE_AUDNAL:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_H264_GENERATE_AUDNAL;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hal_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_VENC_H264_GENERATE_AUDNAL,
+				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
@@ -1715,35 +1719,25 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VDEC_FRAME_ASSEMBLY:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VDEC_FRAME_ASSEMBLY;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_VDEC_FRAME_ASSEMBLY,
+				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
 	case HAL_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC:
 	{
-		struct hfi_enable *hfi;
-		struct hal_h264_vui_bitstream_restrc *hal = pdata;
-
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = hal->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_H264_VUI_BITSTREAM_RESTRC,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
 	case HAL_PARAM_VENC_PRESERVE_TEXT_QUALITY:
 	{
-		struct hfi_enable *hfi;
-		struct hal_preserve_text_quality *hal = pdata;
-
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_PRESERVE_TEXT_QUALITY;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = hal->enable;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_VENC_PRESERVE_TEXT_QUALITY,
+				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
@@ -1827,12 +1821,10 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VENC_DISABLE_RC_TIMESTAMP:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_DISABLE_RC_TIMESTAMP;
-		hfi = (struct hfi_enable *)&pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *)pdata)->enable;
-		pkt->size += sizeof(u32) * 2;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_VENC_DISABLE_RC_TIMESTAMP,
+				((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
 	case HAL_PARAM_VENC_ENABLE_INITIAL_QP:
@@ -1869,23 +1861,17 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE:
 	{
-		struct hfi_enable *hfi;
-		struct hal_enable *err_res = pdata;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE;
-		hfi = (struct hfi_enable *)&pkt->rg_property_data[1];
-		hfi->enable = err_res->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_VPX_ERROR_RESILIENCE_MODE,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
 	case HAL_PARAM_VENC_H264_NAL_SVC_EXT:
 	{
-		struct hfi_enable *hfi;
-		struct hal_enable *svc_nal = pdata;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VENC_H264_NAL_SVC_EXT;
-		hfi = (struct hfi_enable *)&pkt->rg_property_data[1];
-		hfi->enable = svc_nal->enable;
+		create_pkt_enable(pkt->rg_property_data,
+			HFI_PROPERTY_PARAM_VENC_H264_NAL_SVC_EXT,
+			((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
@@ -1920,11 +1906,9 @@ int create_pkt_cmd_session_set_property(
 	}
 	case HAL_PARAM_VDEC_NON_SECURE_OUTPUT2:
 	{
-		struct hfi_enable *hfi;
-		pkt->rg_property_data[0] =
-			HFI_PROPERTY_PARAM_VDEC_NONCP_OUTPUT2;
-		hfi = (struct hfi_enable *) &pkt->rg_property_data[1];
-		hfi->enable = ((struct hfi_enable *) pdata)->enable;
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_VDEC_NONCP_OUTPUT2,
+				((struct hal_enable *)pdata)->enable);
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
