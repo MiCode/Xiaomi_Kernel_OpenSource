@@ -620,17 +620,6 @@ static int mmc_sd_change_bus_speed(struct mmc_host *host, unsigned long *freq)
 		goto out;
 	}
 
-	if (mmc_card_uhs(card)) {
-		if (*freq > card->sw_caps.uhs_max_dtr)
-			*freq = card->sw_caps.uhs_max_dtr;
-	} else {
-		if (*freq > mmc_sd_get_max_clock(card))
-			*freq = mmc_sd_get_max_clock(card);
-	}
-
-	if (*freq < host->f_min)
-		*freq = host->f_min;
-
 	mmc_set_clock(host, (unsigned int) (*freq));
 
 	if (!mmc_host_is_spi(card->host) && mmc_card_uhs(card)
