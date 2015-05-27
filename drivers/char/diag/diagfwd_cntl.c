@@ -66,6 +66,7 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 	driver->feature[peripheral].rcvd_feature_mask = 0;
 	driver->feature[peripheral].stm_support = DISABLE_STM;
 	driver->feature[peripheral].log_on_demand = 0;
+	driver->feature[peripheral].sent_feature_mask = 0;
 	driver->stm_state[peripheral] = DISABLE_STM;
 	driver->stm_state_requested[peripheral] = DISABLE_STM;
 	reg_dirty ^= PERIPHERAL_MASK(peripheral);

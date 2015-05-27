@@ -386,7 +386,10 @@ static void diag_send_feature_mask_update(uint8_t peripheral)
 		pr_err("diag: In %s, unable to write to peripheral: %d, type: %d, len: %d, err: %d\n",
 		       __func__, peripheral, TYPE_CNTL,
 		       total_len, err);
+		mutex_unlock(&driver->diag_cntl_mutex);
+		return;
 	}
+	driver->feature[peripheral].sent_feature_mask = 1;
 	mutex_unlock(&driver->diag_cntl_mutex);
 }
 
