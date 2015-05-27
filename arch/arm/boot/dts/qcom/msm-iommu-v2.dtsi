@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -93,6 +93,7 @@
 			qcom,iommu-ctx-sids = <0x800 0x801 0x802 0x803
 						0x804 0x805 0x807>;
 			label = "venus_ns";
+			qcom,report-error-on-fault;
 		};
 
 		qcom,iommu-ctx@1e26000 {
@@ -143,6 +144,7 @@
 			interrupts = <0 70 0>, <0 70 0>;
 			qcom,iommu-ctx-sids = <0x885>;
 			label = "venus_sec_pixel";
+			qcom,report-error-on-fault;
 		};
 
 		venus_sec_bitstream: qcom,iommu-ctx@1e34000 {
@@ -152,6 +154,7 @@
 			interrupts = <0 70 0>, <0 70 0>;
 			qcom,iommu-ctx-sids = <0x880 0x881 0x882 0x883 0x884>;
 			label = "venus_sec_bitstream";
+			qcom,report-error-on-fault;
 		};
 
 		venus_sec_non_pixel: qcom,iommu-ctx@1e35000 {
@@ -161,6 +164,7 @@
 			interrupts = <0 70 0>, <0 70 0>;
 			qcom,iommu-ctx-sids = <0x887 0x8a0>;
 			label = "venus_sec_non_pixel";
+			qcom,report-error-on-fault;
 		};
 
 		venus_fw: qcom,iommu-ctx@1e36000 {
@@ -170,6 +174,7 @@
 			interrupts = <0 70 0>, <0 70 0>;
 			qcom,iommu-ctx-sids = <0x8c0 0x8c6>;
 			label = "venus_fw";
+			qcom,report-error-on-fault;
 		};
 
 		periph_rpm: qcom,iommu-ctx@1e37000 {
