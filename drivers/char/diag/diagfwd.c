@@ -1357,6 +1357,7 @@ int diagfwd_init(void)
 		driver->feature[i].encode_hdlc = 0;
 		driver->feature[i].mask_centralization = 0;
 		driver->feature[i].log_on_demand = 0;
+		driver->feature[i].sent_feature_mask = 0;
 		driver->buffering_mode[i].peripheral = i;
 		driver->buffering_mode[i].mode = DIAG_BUFFERING_MODE_STREAMING;
 		driver->buffering_mode[i].high_wm_val = DEFAULT_HIGH_WM_VAL;

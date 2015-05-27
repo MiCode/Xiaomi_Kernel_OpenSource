@@ -378,6 +378,7 @@ struct diag_feature_t {
 	uint8_t mask_centralization;
 	uint8_t stm_support;
 	uint8_t sockets_enabled;
+	uint8_t sent_feature_mask;
 };
 
 struct diagchar_dev {
