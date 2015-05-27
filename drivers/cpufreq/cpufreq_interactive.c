@@ -54,6 +54,7 @@ struct cpufreq_interactive_policyinfo {
 	bool reject_notification;
 	int governor_enabled;
 	struct cpufreq_interactive_tunables *cached_tunables;
+	unsigned long *cpu_busy_times;
 };
 
 /* Protected by per-policy load_lock */
@@ -422,7 +423,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	unsigned int index;
 	unsigned long flags;
 	unsigned long max_cpu;
-	int i;
+	int i, fcpu;
 	struct cpufreq_govinfo govinfo;
 
 	if (!down_read_trylock(&ppol->enable_sem))
@@ -430,16 +431,20 @@ static void cpufreq_interactive_timer(unsigned long data)
 	if (!ppol->governor_enabled)
 		goto exit;
 
+	fcpu = cpumask_first(ppol->policy->related_cpus);
 	now = ktime_to_us(ktime_get());
 	spin_lock_irqsave(&ppol->load_lock, flags);
 	ppol->last_evaluated_jiffy = get_jiffies_64();
 
+	if (tunables->use_sched_load)
+		sched_get_cpus_busy(ppol->cpu_busy_times,
+				    ppol->policy->related_cpus);
 	max_cpu = cpumask_first(ppol->policy->cpus);
 	for_each_cpu(i, ppol->policy->cpus) {
 		pcpu = &per_cpu(cpuinfo, i);
 		if (tunables->use_sched_load) {
-			cputime_speedadj = (u64)sched_get_busy(i) *
-				ppol->policy->cpuinfo.max_freq;
+			cputime_speedadj = (u64)ppol->cpu_busy_times[i - fcpu]
+					* ppol->policy->cpuinfo.max_freq;
 			do_div(cputime_speedadj, tunables->timer_rate);
 		} else {
 			now = update_load(i);
@@ -1439,6 +1444,7 @@ static struct cpufreq_interactive_policyinfo *get_policyinfo(
 	struct cpufreq_interactive_policyinfo *ppol =
 				per_cpu(polinfo, policy->cpu);
 	int i;
+	unsigned long *busy;
 
 	/* polinfo already allocated for policy, return */
 	if (ppol)
@@ -1447,6 +1453,14 @@ static struct cpufreq_interactive_policyinfo *get_policyinfo(
 	ppol = kzalloc(sizeof(*ppol), GFP_KERNEL);
 	if (!ppol)
 		return ERR_PTR(-ENOMEM);
+
+	busy = kcalloc(cpumask_weight(policy->related_cpus), sizeof(*busy),
+		       GFP_KERNEL);
+	if (!busy) {
+		kfree(ppol);
+		return ERR_PTR(-ENOMEM);
+	}
+	ppol->cpu_busy_times = busy;
 
 	init_timer_deferrable(&ppol->policy_timer);
 	ppol->policy_timer.function = cpufreq_interactive_timer;
@@ -1474,6 +1488,7 @@ static void free_policyinfo(int cpu)
 		if (per_cpu(polinfo, j) == ppol)
 			per_cpu(polinfo, cpu) = NULL;
 	kfree(ppol->cached_tunables);
+	kfree(ppol->cpu_busy_times);
 	kfree(ppol);
 }
 
