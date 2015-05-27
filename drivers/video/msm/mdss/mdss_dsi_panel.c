@@ -2101,6 +2101,12 @@ int mdss_dsi_panel_timing_switch(struct mdss_dsi_ctrl_pdata *ctrl,
 	return 0;
 }
 
+void mdss_dsi_unregister_bl_settings(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	if (ctrl_pdata->bklt_ctrl == BL_WLED)
+		led_trigger_unregister_simple(bl_led_trigger);
+}
+
 static int mdss_dsi_panel_timing_from_dt(struct device_node *np,
 		struct dsi_panel_timing *pt,
 		struct mdss_panel_data *panel_data)
