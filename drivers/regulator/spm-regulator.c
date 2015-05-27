@@ -174,6 +174,37 @@ static int qpnp_fts2_set_mode(struct spm_vreg *vreg, u8 mode)
 	return rc;
 }
 
+static int spm_regulator_get_voltage(struct regulator_dev *rdev)
+{
+	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
+	int vlevel, rc;
+
+	if (spm_regulator_using_avs(vreg)) {
+		vlevel = msm_spm_get_vdd(vreg->cpu_num);
+
+		if (IS_ERR_VALUE(vlevel)) {
+			pr_debug("%s: msm_spm_get_vdd failed, rc=%d; falling back on SPMI read\n",
+				vreg->rdesc.name, vlevel);
+
+			rc = qpnp_smps_read_voltage(vreg);
+			if (rc) {
+				pr_err("%s: voltage read failed, rc=%d\n",
+				       vreg->rdesc.name, rc);
+				return rc;
+			}
+
+			return vreg->last_set_uV;
+		}
+
+		vreg->last_set_vlevel = vlevel;
+		vreg->last_set_uV = vlevel * vreg->range->step_uV
+			+ vreg->range->min_uV;
+		return vreg->last_set_uV;
+	} else {
+		return vreg->uV;
+	}
+};
+
 static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 {
 	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
@@ -181,14 +212,9 @@ static int _spm_regulator_set_voltage(struct regulator_dev *rdev)
 	int rc = 0;
 	u8 reg;
 
-	if (spm_regulator_using_avs(vreg)) {
-		rc = qpnp_smps_read_voltage(vreg);
-		if (rc) {
-			pr_err("%s: voltage read failed, rc=%d\n",
-				vreg->rdesc.name, rc);
-			return rc;
-		}
-	}
+	rc = spm_regulator_get_voltage(rdev);
+	if (IS_ERR_VALUE(rc))
+		return rc;
 
 	if (vreg->vlevel == vreg->last_set_vlevel)
 		return 0;
@@ -295,25 +321,6 @@ static int spm_regulator_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return 0;
 
 	return _spm_regulator_set_voltage(rdev);
-}
-
-static int spm_regulator_get_voltage(struct regulator_dev *rdev)
-{
-	struct spm_vreg *vreg = rdev_get_drvdata(rdev);
-	int rc;
-
-	if (spm_regulator_using_avs(vreg)) {
-		rc = qpnp_smps_read_voltage(vreg);
-		if (rc) {
-			pr_err("%s: voltage read failed, rc=%d\n",
-				vreg->rdesc.name, rc);
-			return rc;
-		}
-
-		return vreg->last_set_uV;
-	} else {
-		return vreg->uV;
-	}
 }
 
 static int spm_regulator_list_voltage(struct regulator_dev *rdev,
