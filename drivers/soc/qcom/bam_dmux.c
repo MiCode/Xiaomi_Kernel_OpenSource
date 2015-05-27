@@ -705,7 +705,8 @@ static void handle_bam_mux_cmd(struct work_struct *work)
 	switch (rx_hdr->cmd) {
 	case BAM_MUX_HDR_CMD_DATA:
 		if (rx_hdr->pkt_len == 0xffff)
-			rx_hdr->pkt_len = sps_size;
+			/* SPS includes the header bytes, need just payload */
+			rx_hdr->pkt_len = sps_size - sizeof(*rx_hdr);
 		DBG_INC_READ_CNT(rx_hdr->pkt_len);
 		bam_mux_process_data(rx_skb);
 		break;
