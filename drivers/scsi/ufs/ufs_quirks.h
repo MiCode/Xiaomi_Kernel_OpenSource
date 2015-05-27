@@ -115,6 +115,13 @@ struct ufs_card_fix {
  */
 #define UFS_DEVICE_QUIRK_PA_TACTIVATE	(1 << 4)
 
+/*
+ * Some UFS memory devices may have really low read/write throughput in
+ * FAST AUTO mode, enable this quirk to make sure that FAST AUTO mode is
+ * never enabled for such devices.
+ */
+#define UFS_DEVICE_NO_FASTAUTO		(1 << 5)
+
 struct ufs_hba;
 void ufs_advertise_fixup_device(struct ufs_hba *hba);
 #endif /* UFS_QUIRKS_H_ */
