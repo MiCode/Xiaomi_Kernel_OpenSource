@@ -46,6 +46,8 @@ Optional properties for WLED:
 			  are operated individually. specify the list of strings used by the device.
 			  any combination of led strings can be used. default value is [00 01 02 03]
 - qcom,en-ext-pfet-sc-pro : Specify if external pfet short circuit protection is needed
+- qcom,cons-sync-write-delay-us : Specify in 'us' the duration of delay between two consecutive writes to
+				  SYNC register.
 
 Example:
 	qcom,leds@d800 {

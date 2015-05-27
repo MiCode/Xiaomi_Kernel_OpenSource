@@ -212,6 +212,7 @@ static u8 qpnp_wled_sink_dbg_regs[] = {
  *  @ fs_curr_ua - full scale current in ua
  *  @ ramp_ms - delay between ramp steps in ms
  *  @ ramp_step - ramp step size
+ *  @ cons_sync_write_delay_us - delay between two consecutive writes to SYNC
  *  @ strings - supported list of strings
  *  @ num_strings - number of strings
  *  @ en_9b_dim_res - enable or disable 9bit dimming
@@ -245,6 +246,7 @@ struct qpnp_wled {
 	u16 fs_curr_ua;
 	u16 ramp_ms;
 	u16 ramp_step;
+	u16 cons_sync_write_delay_us;
 	u8 strings[QPNP_WLED_MAX_STRINGS];
 	u8 num_strings;
 	bool en_9b_dim_res;
@@ -327,6 +329,10 @@ static int qpnp_wled_set_level(struct qpnp_wled *wled, int level)
 		QPNP_WLED_SYNC_REG(wled->sink_base));
 	if (rc < 0)
 		return rc;
+
+	if (wled->cons_sync_write_delay_us)
+		usleep_range(wled->cons_sync_write_delay_us,
+				wled->cons_sync_write_delay_us + 1);
 
 	reg = QPNP_WLED_SYNC_RESET;
 	rc = qpnp_wled_write_reg(wled, &reg,
@@ -1275,6 +1281,12 @@ static int qpnp_wled_parse_dt(struct qpnp_wled *wled)
 		dev_err(&spmi->dev, "Unable to read full scale current\n");
 		return rc;
 	}
+
+	wled->cons_sync_write_delay_us = 0;
+	rc = of_property_read_u32(spmi->dev.of_node,
+			"qcom,cons-sync-write-delay-us", &temp_val);
+	if (!rc)
+		wled->cons_sync_write_delay_us = temp_val;
 
 	wled->en_9b_dim_res = of_property_read_bool(spmi->dev.of_node,
 			"qcom,en-9b-dim-res");
