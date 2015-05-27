@@ -8426,6 +8426,10 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 			/* scale down gear */
 			new_pwr_info.gear_tx = UFS_MIN_GEAR_TO_SCALE_DOWN;
 			new_pwr_info.gear_rx = UFS_MIN_GEAR_TO_SCALE_DOWN;
+			if (!(hba->dev_quirks & UFS_DEVICE_NO_FASTAUTO)) {
+				new_pwr_info.pwr_tx = FASTAUTO_MODE;
+				new_pwr_info.pwr_rx = FASTAUTO_MODE;
+			}
 		}
 	}
 
