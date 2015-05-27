@@ -610,7 +610,7 @@ static inline bool task_under_cgroup_hierarchy(struct task_struct *task,
 static inline int subsys_cgroup_allow_attach(struct cgroup_subsys_state *css,
 					     struct cgroup_taskset *tset)
 {
-	return 0;
+	return -EINVAL;
 }
 #endif /* !CONFIG_CGROUPS */
 
