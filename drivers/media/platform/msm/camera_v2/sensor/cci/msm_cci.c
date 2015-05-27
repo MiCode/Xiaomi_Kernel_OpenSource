@@ -1174,7 +1174,7 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	uint8_t i = 0;
 	int32_t rc = 0, ret = 0;
 	struct cci_device *cci_dev;
-	enum cci_i2c_master_t master;
+	enum cci_i2c_master_t master = MASTER_0;
 	struct msm_cam_clk_info *clk_info = NULL;
 
 	cci_dev = v4l2_get_subdevdata(sd);
@@ -1192,6 +1192,12 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		if (master < MASTER_MAX && master >= 0) {
 			mutex_lock(&cci_dev->cci_master_info[master].mutex);
 			flush_workqueue(cci_dev->write_wq[master]);
+			/* Re-initialize the completion */
+			INIT_COMPLETION(cci_dev->
+				cci_master_info[master].reset_complete);
+			for (i = 0; i < NUM_QUEUES; i++)
+				INIT_COMPLETION(cci_dev->
+					cci_master_info[master].report_q[i]);
 			/* Set reset pending flag to TRUE */
 			cci_dev->cci_master_info[master].reset_pending = TRUE;
 			/* Set proper mask to RESET CMD address */
@@ -1260,6 +1266,10 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 		CDBG("%s: clk enable failed\n", __func__);
 		goto clk_enable_failed;
 	}
+	/* Re-initialize the completion */
+	INIT_COMPLETION(cci_dev->cci_master_info[master].reset_complete);
+	for (i = 0; i < NUM_QUEUES; i++)
+		INIT_COMPLETION(cci_dev->cci_master_info[master].report_q[i]);
 	enable_irq(cci_dev->irq->start);
 	cci_dev->hw_version = msm_camera_io_r_mb(cci_dev->base +
 		CCI_HW_VERSION_ADDR);
