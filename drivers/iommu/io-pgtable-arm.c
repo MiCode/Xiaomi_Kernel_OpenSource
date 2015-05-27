@@ -341,6 +341,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 	size_t mapped = 0;
 	int i, ret;
 	unsigned int min_pagesz;
+	unsigned long orig_iova = iova;
 
 	/* If no access, then nothing to do */
 	if (!(iommu_prot & (IOMMU_READ | IOMMU_WRITE)))
@@ -383,7 +384,7 @@ static int arm_lpae_map_sg(struct io_pgtable_ops *ops, unsigned long iova,
 out_err:
 	/* undo mappings already done */
 	if (mapped)
-		ops->unmap(ops, iova, mapped);
+		ops->unmap(ops, orig_iova, mapped);
 
 	return 0;
 }
