@@ -22,7 +22,7 @@
 #define HANDLE_TO_IDX(handle) (handle & 0xFF)
 /* at how many frames to add frame skip pattern */
 #define BURST_SKIP_THRESHOLD              (16)
-#define ISP_SOF_DEBUG_COUNT 5
+#define ISP_SOF_DEBUG_COUNT 0
 
 int msm_isp_axi_create_stream(
 	struct msm_vfe_axi_shared_data *axi_data,
