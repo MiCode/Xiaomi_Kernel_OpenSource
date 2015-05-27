@@ -4325,7 +4325,7 @@ void mmc_rpm_release(struct mmc_host *host, struct device *dev)
 	if (!mmc_use_core_runtime_pm(host))
 		return;
 
-	ret = pm_runtime_put_sync(dev);
+	ret = pm_runtime_put(dev);
 	if ((ret < 0) &&
 	    (dev->power.runtime_error || (dev->power.disable_depth > 0))) {
 		pr_err("%s: %s: %s: pm_runtime_put_sync: err: %d\n",
