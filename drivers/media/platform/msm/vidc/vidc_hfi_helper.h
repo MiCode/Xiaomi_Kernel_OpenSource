@@ -454,7 +454,7 @@ struct hfi_debug_config {
 };
 
 struct hfi_enable {
-	int enable;
+	u32 enable;
 };
 
 #define HFI_H264_DB_MODE_DISABLE			(HFI_COMMON_BASE + 0x1)
@@ -464,8 +464,8 @@ struct hfi_enable {
 
 struct hfi_h264_db_control {
 	u32 mode;
-	int slice_alpha_offset;
-	int slice_beta_offset;
+	u32 slice_alpha_offset;
+	u32 slice_beta_offset;
 };
 
 #define HFI_H264_ENTROPY_CAVLC				(HFI_COMMON_BASE + 0x1)
@@ -703,7 +703,7 @@ struct hfi_uncompressed_format_supported {
 };
 
 struct hfi_uncompressed_plane_actual {
-	int actual_stride;
+	u32 actual_stride;
 	u32 actual_plane_buffer_height;
 };
 
@@ -785,12 +785,12 @@ struct hfi_venc_config_advanced {
 	u8 hw_mode;
 	u8 low_delay_enforce;
 	u8 worker_vppsg_delay;
-	int close_gop;
-	int h264_constrain_intra_pred;
-	int h264_transform_8x8_flag;
-	int mpeg4_qpel_enable;
-	int multi_refp_en;
-	int qmatrix_en;
+	u32 close_gop;
+	u32 h264_constrain_intra_pred;
+	u32 h264_transform_8x8_flag;
+	u32 mpeg4_qpel_enable;
+	u32 multi_refp_en;
+	u32 qmatrix_en;
 	u8 vpp_info_packet_mode;
 	u8 ref_tile_mode;
 	u8 bitstream_flush_mode;
