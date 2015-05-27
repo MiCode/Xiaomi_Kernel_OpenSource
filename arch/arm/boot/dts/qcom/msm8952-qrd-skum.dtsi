@@ -167,10 +167,29 @@
 	};
 };
 
-&tlmm_pinmux {
+&msm_gpio {
 	tlmm_gpio_key {
-		qcom,pins = <&gp 85>, <&gp 93>;
-		qcom,num-grp-pins = <2>;
+		gpio_key_active: gpio_key_active {
+			mux {
+				pins = "gpio85", "gpio93";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio85", "gpios93";
+			};
+		};
+
+		gpio_key_suspend: gpio_key_suspend {
+			mux {
+				pins = "gpio85", "gpio93";
+				function = "gpio";
+			};
+
+			config {
+				pins = "gpio85", "gpios93";
+			};
+		};
 	};
 };
 
@@ -201,14 +220,48 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-&pmx_mdss {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 0>;
-};
+&msm_gpio {
+	pmx_mdss {
+		mdss_dsi_active: mdss_dsi_active {
+			mux {
+				pins = "gpio0";
+			};
+			config {
+				pins = "gpio0";
+			};
+		};
 
-&pmx_mdss_te {
-	qcom,num-grp-pins = <1>;
-	qcom,pins = <&gp 24>;
+		mdss_dsi_suspend: mdss_dsi_suspend {
+			mux {
+				pins = "gpio0";
+			};
+			config {
+				pins = "gpio0";
+			};
+		};
+
+	};
+
+	pmx_mdss_te {
+		mdss_te_active: mdss_te_active {
+			mux {
+				qcom,pins = "gpio24";
+			};
+			config {
+				qcom,pins = "gpio24";
+			};
+		};
+
+		mdss_te_suspend: mdss_te_suspend {
+			mux {
+				qcom,pins = "gpio24";
+			};
+			config {
+				qcom,pins = "gpio24";
+			};
+		};
+
+	};
 };
 
 &mdss_dsi0 {
