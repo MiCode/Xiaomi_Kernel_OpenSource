@@ -656,6 +656,7 @@ struct sdhci_ops {
 #define REQ_IO_LOW	(1 << 2)
 #define REQ_IO_HIGH	(1 << 3)
 	void    (*card_event)(struct sdhci_host *host);
+	int	(*enhanced_strobe)(struct sdhci_host *host);
 	void	(*platform_bus_voting)(struct sdhci_host *host, u32 enable);
 	void	(*check_power_status)(struct sdhci_host *host, u32 req_type);
 	int	(*config_auto_tuning_cmd)(struct sdhci_host *host,
