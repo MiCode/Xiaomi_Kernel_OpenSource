@@ -2130,6 +2130,14 @@ static int create_3x_pkt_cmd_session_set_property(
 		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
 		break;
 	}
+	case HAL_PARAM_VENC_VQZIP_SEI:
+	{
+		create_pkt_enable(pkt->rg_property_data,
+				HFI_PROPERTY_PARAM_VENC_VQZIP_SEI_TYPE,
+				((struct hal_enable *)pdata)->enable);
+		pkt->size += sizeof(u32) + sizeof(struct hfi_enable);
+		break;
+	}
 	/* Deprecated param on Venus 3xx */
 	case HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER:
 	{
