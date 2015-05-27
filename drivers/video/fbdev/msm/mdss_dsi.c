@@ -2585,6 +2585,7 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	return 0;
 
 error_pan_node:
+	mdss_dsi_unregister_bl_settings(ctrl_pdata);
 	of_node_put(dsi_pan_node);
 	return rc;
 }
