@@ -264,9 +264,11 @@ static void msm_ssusb_qmp_enable_autonomous(struct msm_ssphy_qmp *phy,
 				phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
 
 		 /* clamp phy level shifter to perform autonomous detection */
-		writel_relaxed(0x1, phy->vls_clamp_reg);
+		if (phy->vls_clamp_reg)
+			writel_relaxed(0x1, phy->vls_clamp_reg);
 	} else {
-		writel_relaxed(0x0, phy->vls_clamp_reg);
+		if (phy->vls_clamp_reg)
+			writel_relaxed(0x0, phy->vls_clamp_reg);
 		writeb_relaxed(0,
 				phy->base + PCIE_USB3_PHY_AUTONOMOUS_MODE_CTRL);
 		msm_ssusb_qmp_clr_lfps_rxterm_int(phy);
@@ -781,24 +783,32 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qmp_phy_base");
+	if (!res) {
+		dev_err(dev, "failed getting qmp_phy_base\n");
+		return -ENODEV;
+	}
 	phy->base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(phy->base))
 		return PTR_ERR(phy->base);
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 			"vls_clamp_reg");
-	phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
-	if (IS_ERR(phy->vls_clamp_reg)) {
-		dev_err(dev, "couldn't find vls_clamp_reg address.\n");
-		return PTR_ERR(phy->vls_clamp_reg);
+	if (res) {
+		phy->vls_clamp_reg = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->vls_clamp_reg)) {
+			dev_err(dev, "couldn't find vls_clamp_reg address.\n");
+			phy->vls_clamp_reg = NULL;
+		}
 	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
 						"qmp_ahb2phy_base");
-	phy->ahb2phy = devm_ioremap_resource(dev, res);
-	if (IS_ERR(phy->ahb2phy)) {
-		dev_err(dev, "couldn't find qmp_ahb2phy_base address.\n");
-		phy->ahb2phy = NULL;
+	if (res) {
+		phy->ahb2phy = devm_ioremap_resource(dev, res);
+		if (IS_ERR(phy->ahb2phy)) {
+			dev_err(dev, "couldn't find qmp_ahb2phy_base address.\n");
+			phy->ahb2phy = NULL;
+		}
 	}
 
 	phy->emulation = of_property_read_bool(dev->of_node,

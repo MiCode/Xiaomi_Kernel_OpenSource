@@ -102,8 +102,6 @@ Required properties:
  - reg: Address and length of the register set for the device
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
- - ""vls_clamp_reg" : top-level CSR register to be written to enable phy vls
-   clamp which allows phy to detect autonomous mode.
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
@@ -115,6 +113,8 @@ Required properties:
 Optional properties:
 - reg: Address and length of the register set for the device
   "qmp_ahb2phy_base" : SS AHB2PHY CSR register set.
+- "vls_clamp_reg" : top-level CSR register to be written to enable phy vls
+   clamp which allows phy to detect autonomous mode.
 - qcom,vbus-valid-override: If present, indicates VBUS pin is not connected to
    the USB PHY and the controller must rely on external VBUS notification in
    order to manually relay the notification to the SSPHY.
