@@ -40,8 +40,8 @@ import subprocess
 # force LANG to be set to en_US.UTF-8 to get consistent warnings.
 
 allowed_warnings = set([
-    "return_address.c:63",
-    "clkdev.c:47",
+    "fdt.c:932",
+    "hid-magicmouse.c:579",
  ])
 
 # Capture the name of the object file, can find it.
