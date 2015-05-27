@@ -452,8 +452,8 @@ static int32_t msm_flash_init(
 		for (i = 0; i < MAX_LED_TRIGGERS; i++) {
 			flash_ctrl->flash_max_current[i] =
 				flash_data->flash_current[i];
-			flash_data->flash_duration[i] =
-				flash_ctrl->flash_max_duration[i];
+			flash_ctrl->flash_max_duration[i] =
+					flash_data->flash_duration[i];
 		}
 	}
 
