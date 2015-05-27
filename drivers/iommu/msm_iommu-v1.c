@@ -672,6 +672,12 @@ static void __program_context(struct msm_iommu_drvdata *iommu_drvdata,
 	/* Enable context fault interrupt */
 	SET_CB_SCTLR_CFIE(cb_base, ctx, 1);
 
+	/* Enable context fault error report */
+	if (ctx_drvdata->report_error_on_fault) {
+		SET_CB_SCTLR_HUPCF(cb_base, ctx, 1);
+		SET_CB_SCTLR_CFRE(cb_base, ctx, 1);
+	}
+
 	if (iommu_drvdata->model != MMU_500) {
 		/* Redirect all cacheable requests to L2 slave port. */
 		SET_CB_ACTLR_BPRCISH(cb_base, ctx, 1);
