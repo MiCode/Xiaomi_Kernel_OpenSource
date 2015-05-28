@@ -665,6 +665,28 @@ static int32_t qpnp_vadc_version_check(struct qpnp_vadc_chip *dev)
 	return 0;
 }
 
+static int32_t
+	qpnp_vadc_channel_post_scaling_calib_check(struct qpnp_vadc_chip *vadc,
+								int channel)
+{
+	int version, rc = 0;
+
+	version = qpnp_adc_get_revid_version(vadc->dev);
+
+	if (version == QPNP_REV_ID_PM8950_1_0) {
+		if ((channel == LR_MUX7_HW_ID) ||
+			(channel == P_MUX2_1_1) ||
+			(channel == LR_MUX3_XO_THERM) ||
+			(channel == LR_MUX3_BUF_XO_THERM_BUF)) {
+			vadc->adc->amux_prop->chan_prop->calib_type =
+								CALIB_ABSOLUTE;
+			return rc;
+		}
+	}
+
+	return -EINVAL;
+}
+
 #define QPNP_VBAT_COEFF_1	3000
 #define QPNP_VBAT_COEFF_2	45810000
 #define QPNP_VBAT_COEFF_3	100000
@@ -1733,6 +1755,10 @@ recalibrate:
 		rc = -EBADF;
 		goto fail_unlock;
 	}
+
+	rc = qpnp_vadc_channel_post_scaling_calib_check(vadc, channel);
+	if (rc < 0)
+		pr_debug("Post scaling calib type not updated\n");
 
 	vadc_scale_fn[scale_type].chan(vadc, result->adc_code,
 		vadc->adc->adc_prop, vadc->adc->amux_prop->chan_prop, result);

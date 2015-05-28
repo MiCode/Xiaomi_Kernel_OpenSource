@@ -1111,6 +1111,7 @@ struct qpnp_adc_amux_properties {
 #define QPNP_REV_ID_8909_1_0	13
 #define QPNP_REV_ID_8909_1_1	14
 #define QPNP_REV_ID_PMI8994_1_0	15
+#define QPNP_REV_ID_PM8950_1_0	16
 
 /* Public API */
 #if defined(CONFIG_SENSORS_QPNP_ADC_VOLTAGE)				\

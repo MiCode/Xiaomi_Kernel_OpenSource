@@ -2035,6 +2035,10 @@ int qpnp_adc_get_revid_version(struct device *dev)
 		(revid_data->pmic_type == PMI8994_V1P0_TYPE) &&
 		(revid_data->pmic_subtype == PMI8994_V1P0_SUBTYPE))
 			return QPNP_REV_ID_PMI8994_1_0;
+	else if ((revid_data->rev4 == PM8950_V1P0_REV4) &&
+		(revid_data->pmic_type == PM8950_V1P0_TYPE) &&
+		(revid_data->pmic_subtype == PM8950_V1P0_SUBTYPE))
+			return QPNP_REV_ID_PM8950_1_0;
 	else
 		return -EINVAL;
 }
