@@ -670,6 +670,84 @@ static ssize_t sysfs_cfg_upgrade_show(struct device *dev,
 				gl_ts->cfg_upgrade_result);
 }
 
+static ssize_t sysfs_force_fw_upgrade_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int mode = 0, ret;
+
+	if (gl_ts->suspended) {
+		dev_err(dev, "Device is suspended, can't flash fw!!!\n");
+		return -EBUSY;
+	}
+
+	ret = kstrtoint(buf, 10, &mode);
+	if (!ret) {
+		dev_err(dev, "failed to read input for sysfs\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&gl_ts->fw_cfg_mutex);
+	if (mode == 1) {
+		gl_ts->fw_cfg_uploading = true;
+		ret = IT7260_fw_upload(dev, true);
+		if (ret) {
+			dev_err(dev, "Failed to force flash fw: %d", ret);
+			gl_ts->fw_upgrade_result = false;
+		} else {
+			gl_ts->fw_upgrade_result = true;
+		}
+		gl_ts->fw_cfg_uploading = false;
+	}
+	mutex_unlock(&gl_ts->fw_cfg_mutex);
+
+	return count;
+}
+
+static ssize_t sysfs_force_cfg_upgrade_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	int mode = 0, ret;
+
+	if (gl_ts->suspended) {
+		dev_err(dev, "Device is suspended, can't flash cfg!!!\n");
+		return -EBUSY;
+	}
+
+	ret = kstrtoint(buf, 10, &mode);
+	if (!ret) {
+		dev_err(dev, "failed to read input for sysfs\n");
+		return -EINVAL;
+	}
+
+	mutex_lock(&gl_ts->fw_cfg_mutex);
+	if (mode == 1) {
+		gl_ts->fw_cfg_uploading = true;
+		ret = IT7260_cfg_upload(dev, true);
+		if (ret) {
+			dev_err(dev, "Failed to force flash cfg: %d", ret);
+			gl_ts->cfg_upgrade_result = false;
+		} else {
+			gl_ts->cfg_upgrade_result = true;
+		}
+		gl_ts->fw_cfg_uploading = false;
+	}
+	mutex_unlock(&gl_ts->fw_cfg_mutex);
+
+	return count;
+}
+
+static ssize_t sysfs_force_fw_upgrade_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, MAX_BUFFER_SIZE, "%d", gl_ts->fw_upgrade_result);
+}
+
+static ssize_t sysfs_force_cfg_upgrade_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, MAX_BUFFER_SIZE, "%d", gl_ts->cfg_upgrade_result);
+}
+
 static ssize_t sysfs_calibration_show(struct device *dev,
 				struct device_attribute *attr, char *buf)
 {
@@ -869,6 +947,12 @@ static DEVICE_ATTR(fw_name, S_IRUGO | S_IWUSR,
 			sysfs_fw_name_show, sysfs_fw_name_store);
 static DEVICE_ATTR(cfg_name, S_IRUGO | S_IWUSR,
 			sysfs_cfg_name_show, sysfs_cfg_name_store);
+static DEVICE_ATTR(force_fw_update, S_IRUGO | S_IWUSR,
+			sysfs_force_fw_upgrade_show,
+			sysfs_force_fw_upgrade_store);
+static DEVICE_ATTR(force_cfg_update, S_IRUGO | S_IWUSR,
+			sysfs_force_cfg_upgrade_show,
+			sysfs_force_cfg_upgrade_store);
 
 static struct attribute *it7260_attributes[] = {
 	&dev_attr_version.attr,
@@ -879,6 +963,8 @@ static struct attribute *it7260_attributes[] = {
 	&dev_attr_point.attr,
 	&dev_attr_fw_name.attr,
 	&dev_attr_cfg_name.attr,
+	&dev_attr_force_fw_update.attr,
+	&dev_attr_force_cfg_update.attr,
 	NULL
 };
 
