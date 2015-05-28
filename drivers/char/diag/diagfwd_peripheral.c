@@ -655,8 +655,9 @@ int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len)
 		return -EINVAL;
 
 	if (type == TYPE_CMD || type == TYPE_DCI_CMD) {
-		if (!driver->feature[peripheral].rcvd_feature_mask) {
-			pr_debug_ratelimited("diag: In %s, feature mask for peripheral: %d not received yet\n",
+		if (!driver->feature[peripheral].rcvd_feature_mask ||
+			!driver->feature[peripheral].sent_feature_mask) {
+			pr_debug_ratelimited("diag: In %s, feature mask for peripheral: %d not received or sent yet\n",
 					     __func__, peripheral);
 			return 0;
 		}
