@@ -575,8 +575,8 @@ static struct msm_pcie_dev_t msm_pcie_dev[MAX_RC_NUM];
 /* regulators */
 static struct msm_pcie_vreg_info_t msm_pcie_vreg_info[MSM_PCIE_MAX_VREG] = {
 	{NULL, "vreg-3.3", 0, 0, 0, false},
-	{NULL, "vreg-1.8", 1800000, 1800000, 1000, true},
-	{NULL, "vreg-0.9", 1000000, 1000000, 24000, true}
+	{NULL, "vreg-1.8", 1800000, 1800000, 14000, true},
+	{NULL, "vreg-0.9", 1000000, 1000000, 40000, true}
 };
 
 /* GPIOs */
