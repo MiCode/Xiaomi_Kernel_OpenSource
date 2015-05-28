@@ -97,6 +97,10 @@ void diag_md_close_all()
 
 	for (i = 0; i < NUM_DIAG_MD_DEV; i++) {
 		ch = &diag_md[i];
+
+		if (ch->ops && ch->ops->close)
+			ch->ops->close(ch->ctx, DIAG_MEMORY_DEVICE_MODE);
+
 		/*
 		 * When we close the Memory device mode, make sure we flush the
 		 * internal buffers in the table so that there are no stale
@@ -116,8 +120,6 @@ void diag_md_close_all()
 			entry->ctx = 0;
 			spin_unlock_irqrestore(&ch->lock, flags);
 		}
-		if (ch->ops && ch->ops->close)
-			ch->ops->close(ch->ctx, DIAG_MEMORY_DEVICE_MODE);
 	}
 
 	diag_ws_reset(DIAG_WS_MUX);

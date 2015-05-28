@@ -375,7 +375,6 @@ static void diag_close_logging_process(int pid)
 			logging_proc->socket_process = NULL;
 		if (logging_proc->callback_process)
 			logging_proc->callback_process = NULL;
-		logging_proc->pid = 0;
 		if (driver->md_client_info.client_process)
 			driver->md_client_info.client_process = NULL;
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN, i);
@@ -408,14 +407,25 @@ static void diag_close_logging_process(int pid)
 	 */
 	for (i = 0; i < DIAG_NUM_PROC; i++) {
 		logging_proc = &driver->md_proc[i];
-		if (logging_proc->pid != 0) {
+		if ((logging_proc->callback_process) &&
+		    (logging_proc->pid != pid)) {
 			switch_flag = 0;
 			break;
 		}
 	}
 
-	if (switch_flag)
+	if (switch_flag) {
 		diag_switch_logging(USB_MODE);
+		mutex_lock(&driver->diagchar_mutex);
+		for (i = 0; i < DIAG_NUM_PROC; i++) {
+			logging_proc = &driver->md_proc[i];
+			if (logging_proc->pid != pid)
+				continue;
+			logging_proc->pid = 0;
+		}
+		mutex_unlock(&driver->diagchar_mutex);
+	}
+
 }
 
 static int diagchar_close(struct inode *inode, struct file *file)
