@@ -124,8 +124,6 @@ struct mdss_pll_resources {
 	 */
 	uint32_t index;
 
-	bool is_slave;	/* share pll with master */
-
 	struct mdss_pll_resources *slave;
 
 	/*

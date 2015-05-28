@@ -222,9 +222,6 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		pll_res->index = 0;
 	}
 
-	pll_res->is_slave = of_property_read_bool(pdev->dev.of_node,
-						"qcom,dsi-pll-slave");
-
 	pll_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "pll_base");
 	if (!pll_base_reg) {
