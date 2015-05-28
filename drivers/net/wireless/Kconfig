@@ -344,6 +344,16 @@ config CNSS_MAC_BUG
 	  from 0 to 4K. So fill it with zero's; to an address for which PCIe root
 	  complex would honor the read without any errors.
 
+config CLD_DEBUG
+	bool "Enable/disable CLD debug features"
+	help
+	 WLAN CLD driver uses this config to enable certain debug features.
+	 Some of the debug features may affect performance or may compromise
+	 on security.
+
+	  Say N, if you are building a release kernel for production use.
+	  Only say Y, if you are building a kernel with debug support.
+
 source "drivers/net/wireless/ath/Kconfig"
 source "drivers/net/wireless/b43/Kconfig"
 source "drivers/net/wireless/b43legacy/Kconfig"
