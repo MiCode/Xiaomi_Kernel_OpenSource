@@ -83,13 +83,13 @@
 		/* SDC pin type */
 		sdc: sdc {
 			/*
-			 * 0-2 for sdc1
+			 * 0-3 for sdc1
 			 * 4-6 for sdc2
 			 */
 			qcom,num-pins = <7>;
 			/*
 			 * Order of pins:
-			 * SDC1: CLK -> 0, CMD -> 1, DATA -> 2
+			 * SDC1: CLK -> 0, CMD -> 1, DATA -> 2, RCLK -> 3
 			 * SDC2: CLK -> 4, CMD -> 5, DATA -> 6
 			 */
 			#qcom,pin-cells = <1>;
@@ -134,6 +134,19 @@
 			sdc1_data_off: data_off {
 				bias-pull-up; /* pull up */
 				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		pmx_sdc1_rclk {
+			qcom,pins = <&sdc 3>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-rclk";
+			sdc1_rclk_on: rclk_on {
+				bias-pull-down; /* pull down */
+			};
+
+			sdc1_rclk_off: rclk_off {
+				bias-pull-down; /* pull down */
 			};
 		};
 
