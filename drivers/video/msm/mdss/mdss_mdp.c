@@ -173,6 +173,9 @@ static int mdss_mdp_parse_dt_misc(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ad_cfg(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_bus_scale(struct platform_device *pdev);
 static int mdss_mdp_parse_dt_ppb_off(struct platform_device *pdev);
+static int mdss_iommu_attach(struct mdss_data_type *mdata);
+static int mdss_iommu_dettach(struct mdss_data_type *mdata);
+
 /**
  * mdss_mdp_vbif_axi_halt() - Halt MDSS AXI ports
  * @mdata: pointer to the global mdss data structure.
@@ -705,11 +708,7 @@ int mdss_iommu_ctrl(int enable)
 		__builtin_return_address(0), enable, mdata->iommu_ref_cnt);
 
 	if (enable) {
-		/*
-		 * delay iommu attach until continous splash screen has
-		 * finished handoff, as it may still be working with phys addr
-		 */
-		if (!mdata->iommu_attached && !mdata->handoff_pending) {
+		if (mdata->iommu_ref_cnt == 0) {
 			if (mdata->needs_iommu_bw_vote)
 				mdss_bus_scale_set_quota(MDSS_IOMMU_RT,
 					SZ_1M, SZ_1M);
@@ -1011,7 +1010,7 @@ static int mdss_mdp_irq_clk_setup(struct mdss_data_type *mdata)
 	return 0;
 }
 
-int mdss_iommu_attach(struct mdss_data_type *mdata)
+static int mdss_iommu_attach(struct mdss_data_type *mdata)
 {
 	struct iommu_domain *domain;
 	struct mdss_iommu_map_type *iomap;
@@ -1052,7 +1051,7 @@ end:
 	return rc;
 }
 
-int mdss_iommu_dettach(struct mdss_data_type *mdata)
+static int mdss_iommu_dettach(struct mdss_data_type *mdata)
 {
 	struct iommu_domain *domain;
 	struct mdss_iommu_map_type *iomap;
@@ -1084,7 +1083,7 @@ end:
 	return 0;
 }
 
-int mdss_iommu_init(struct mdss_data_type *mdata)
+static int mdss_iommu_init(struct mdss_data_type *mdata)
 {
 	struct msm_iova_layout layout;
 	struct iommu_domain *domain;
