@@ -296,6 +296,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 			mutex_unlock(&devfreqs_lock);
 			return -EINVAL;
 		}
+		spdm_data->enabled = true;
 		devfreq_monitor_start(devfreq);
 		break;
 
@@ -313,6 +314,7 @@ static int gov_spdm_hyp_eh(struct devfreq *devfreq, unsigned int event,
 		if (ext_status)
 			pr_err("External command %u failed with error %u",
 				(int)desc.arg[0], ext_status);
+		spdm_data->enabled = false;
 		break;
 
 	case DEVFREQ_GOV_INTERVAL:
