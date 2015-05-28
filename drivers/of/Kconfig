@@ -13,8 +13,9 @@ if OF
 
 config OF_SELFTEST
 	bool "Device Tree Runtime self tests"
-	depends on OF_IRQ && OF_EARLY_FLATTREE
+	depends on OF_IRQ
 	select OF_DYNAMIC
+	select OF_EARLY_FLATTREE
 	select OF_RESOLVE
 	help
 	  This option builds in test cases for the device tree infrastructure
