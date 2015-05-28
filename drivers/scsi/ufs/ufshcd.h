@@ -1022,14 +1022,6 @@ static inline void ufshcd_init_req_stats(struct ufs_hba *hba) {}
 #define UTF16_STD false
 int ufshcd_read_string_desc(struct ufs_hba *hba, int desc_index, u8 *buf,
 				u32 size, bool ascii);
-/* variant specific ops structures */
-#ifdef CONFIG_SCSI_UFS_QCOM
-extern const struct ufs_hba_variant_ops ufs_hba_qcom_vops;
-#else
-static const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
-	.name = "qcom",
-};
-#endif
 
 #ifndef CONFIG_SMP
 static inline int ufshcd_pm_qos_init(struct ufs_hba *hba)

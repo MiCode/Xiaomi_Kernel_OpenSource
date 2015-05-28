@@ -1805,15 +1805,14 @@ const struct ufs_hba_variant_ops ufs_hba_qcom_vops = {
 	.full_reset		= ufs_qcom_full_reset,
 	.update_sec_cfg		= ufs_qcom_update_sec_cfg,
 	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
+#ifdef CONFIG_DEBUG_FS
+	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
+#endif
 	.crypto_engine_cfg	= ufs_qcom_crytpo_engine_cfg,
 	.crypto_engine_reset	= ufs_qcom_crytpo_engine_reset,
 	.crypto_engine_eh	= ufs_qcom_crypto_engine_eh,
 	.crypto_engine_get_err	= ufs_qcom_crypto_engine_get_err,
 	.crypto_engine_reset_err = ufs_qcom_crypto_engine_reset_err,
-	.dbg_register_dump	= ufs_qcom_dump_dbg_regs,
-#ifdef CONFIG_DEBUG_FS
-	.add_debugfs		= ufs_qcom_dbg_add_debugfs,
-#endif
 };
 
 /**
@@ -1873,4 +1872,6 @@ static struct platform_driver ufs_qcom_pltform = {
 		.of_match_table = of_match_ptr(ufs_qcom_of_match),
 	},
 };
-EXPORT_SYMBOL(ufs_hba_qcom_vops);
+module_platform_driver(ufs_qcom_pltform);
+
+MODULE_LICENSE("GPL v2");
