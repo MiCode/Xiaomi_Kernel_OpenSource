@@ -1554,6 +1554,10 @@
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
 
+		qcom,l1-supported;
+		qcom,l1ss-supported;
+		qcom,aux-clk-sync;
+
 		qcom,common-phy;
 		qcom,smmu-exist;
 
@@ -1693,6 +1697,10 @@
 		vreg-0.9-supply = <&pm8994_l28>;
 
 		qcom,vreg-0.9-voltage-level = <925000 925000 24000>;
+
+		qcom,l1-supported;
+		qcom,l1ss-supported;
+		qcom,aux-clk-sync;
 
 		qcom,common-phy;
 		qcom,smmu-exist;
