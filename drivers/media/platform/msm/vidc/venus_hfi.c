@@ -3432,7 +3432,7 @@ static struct msm_vidc_cb_info *__response_handler(
 		if (rc) {
 			dprintk(VIDC_WARN,
 					"Corrupt/unknown packet found, discarding\n");
-			--num_packets;
+			--packet_count;
 			continue;
 		}
 
