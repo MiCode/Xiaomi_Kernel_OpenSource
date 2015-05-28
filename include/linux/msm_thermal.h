@@ -269,22 +269,22 @@ static inline int msm_thermal_set_frequency(uint32_t cpu, uint32_t freq,
 	return -ENOSYS;
 }
 static inline int msm_thermal_set_cluster_freq(uint32_t cluster, uint32_t freq,
-	bool is_max);
+	bool is_max)
 {
 	return -ENOSYS;
 }
 static inline int msm_thermal_get_freq_plan_size(uint32_t cluster,
-	unsigned int *table_len);
+	unsigned int *table_len)
 {
 	return -ENOSYS;
 }
 static inline int msm_thermal_get_cluster_freq_plan(uint32_t cluster,
-	unsigned int *table_ptr);
+	unsigned int *table_ptr)
 {
 	return -ENOSYS;
 }
 static inline int msm_thermal_get_cluster_voltage_plan(uint32_t cluster,
-	uint32_t *table_ptr);
+	uint32_t *table_ptr)
 {
 	return -ENOSYS;
 }
