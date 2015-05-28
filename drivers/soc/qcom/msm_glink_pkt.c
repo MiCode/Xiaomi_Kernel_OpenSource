@@ -819,10 +819,10 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 		/*
 		 * Wait for the channel to be complete open state so we know
 		 * the remote is ready enough.
-		 * Defualt timeout 1sec.
+		 * Default timeout 120 seconds.
 		 */
 		if (!devp->open_time_wait)
-			devp->open_time_wait = 1;
+			devp->open_time_wait = 120;
 		if (devp->open_time_wait < 0) {
 			ret = wait_event_interruptible(
 				devp->ch_opened_wait_queue,
