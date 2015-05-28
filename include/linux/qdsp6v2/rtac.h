@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,7 +50,7 @@ void rtac_add_adm_device(u32 port_id, u32 copp_id, u32 path_id, u32 popp_id,
 void rtac_remove_adm_device(u32 port_id, u32 copp_id);
 void rtac_remove_popp_from_adm_devices(u32 popp_id);
 void rtac_add_voice(u32 cvs_handle, u32 cvp_handle, u32 rx_afe_port,
-	u32 tx_afe_port, u32 session_id);
+	u32 tx_afe_port, u32 rx_acdb_id, u32 tx_acdb_id, u32 session_id);
 void rtac_remove_voice(u32 cvs_handle);
 void rtac_set_adm_handle(void *handle);
 bool rtac_make_adm_callback(uint32_t *payload, u32 payload_size);
