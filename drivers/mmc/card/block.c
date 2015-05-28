@@ -2800,6 +2800,34 @@ reset:
 	clear_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
 }
 
+static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
+{
+	int err;
+	struct mmc_card *card = mq->card;
+	struct mmc_host *host = card->host;
+
+	err = mmc_cmdq_halt(host, true);
+	if (err) {
+		pr_err("%s: halt: failed: %d\n", __func__, err);
+		return;
+	}
+
+	mmc_claim_host(card->host);
+	/* disable CQ mode in card */
+	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+			 EXT_CSD_CMDQ, 0,
+			 card->ext_csd.generic_cmd6_time);
+	if (err) {
+		pr_err("%s: failed to switch card to legacy mode: %d\n",
+		       __func__, err);
+		goto out;
+	} else {
+		host->card->cmdq_init = false;
+	}
+out:
+	mmc_release_host(card->host);
+}
+
 static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
 {
 	struct mmc_queue *mq = req->q->queuedata;
@@ -2943,6 +2971,9 @@ out:
 			test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
 	mmc_release_host(host);
+
+	if (blk_queue_stopped(mq->queue) && !ctx_info->active_reqs)
+		complete(&mq->cmdq_shutdown_complete);
 	return;
 }
 
@@ -3452,6 +3483,7 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 		md->queue.cmdq_issue_fn = mmc_blk_cmdq_issue_rq;
 		md->queue.cmdq_error_fn = mmc_blk_cmdq_err;
 		md->queue.cmdq_req_timed_out = mmc_blk_cmdq_req_timed_out;
+		md->queue.cmdq_shutdown = mmc_blk_cmdq_shutdown;
 	}
 
 	if (mmc_card_mmc(card) && !card->cmdq_init &&
