@@ -2873,14 +2873,21 @@ fail_cmd:
 		return rc;
 }
 
-static int __q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
-		uint32_t rate, uint32_t channels, uint16_t bits_per_sample)
+int q6asm_enc_cfg_blk_pcm_v2(struct audio_client *ac,
+		uint32_t rate, uint32_t channels, uint16_t bits_per_sample,
+		bool use_default_chmap, u8 *channel_map)
 {
 	struct asm_multi_channel_pcm_enc_cfg_v2  enc_cfg;
 	u8 *channel_mapping;
 	u32 frames_per_buf = 0;
 
 	int rc = 0;
+
+	if (!use_default_chmap && (channel_map == NULL)) {
+		pr_err("%s: No valid chan map and can't use default\n",
+				__func__);
+		return -EINVAL;
+	}
 
 	pr_debug("%s: Session %d, rate = %d, channels = %d\n", __func__,
 			 ac->session, rate, channels);
@@ -2903,9 +2910,18 @@ static int __q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 
 	memset(channel_mapping, 0, PCM_FORMAT_MAX_NUM_CHANNEL);
 
-	if (q6asm_map_channels(channel_mapping, channels)) {
-		pr_err("%s: map channels failed %d", __func__, channels);
-		return -EINVAL;
+	if (use_default_chmap) {
+		pr_debug("%s: setting default channel map for %d channels",
+		__func__, channels);
+		if (q6asm_map_channels(channel_mapping, channels)) {
+			pr_err("%s: map channels failed %d\n",
+			 __func__, channels);
+			return -EINVAL;
+		}
+	} else {
+		pr_debug("%s: Using pre-defined channel map", __func__);
+		memcpy(channel_mapping, channel_map,
+			PCM_FORMAT_MAX_NUM_CHANNEL);
 	}
 
 	rc = apr_send_pkt(ac->apr, (uint32_t *) &enc_cfg);
@@ -2929,6 +2945,14 @@ static int __q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
 	return 0;
 fail_cmd:
 	return -EINVAL;
+}
+
+
+static int __q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
+		uint32_t rate, uint32_t channels, uint16_t bits_per_sample)
+{
+	return q6asm_enc_cfg_blk_pcm_v2(ac, rate, channels,
+					bits_per_sample, true, NULL);
 }
 
 int q6asm_enc_cfg_blk_pcm(struct audio_client *ac,
