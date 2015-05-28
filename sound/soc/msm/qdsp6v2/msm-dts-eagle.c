@@ -1,4 +1,4 @@
-/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -413,7 +413,7 @@ static void _reg_ion_mem_NT(void)
 static void _unreg_ion_mem_NT(void)
 {
 	int rc;
-	rc = q6asm_memory_unmap(_ac_NT,	(uint32_t) _po_NT.paddr, IN);
+	rc = q6asm_memory_unmap(_ac_NT,	_po_NT.paddr, IN);
 	if (rc < 0)
 		eagle_drv_err("%s: mem unmap failed", __func__);
 	rc = msm_audio_ion_free(_ion_client_NT, _ion_handle_NT);
