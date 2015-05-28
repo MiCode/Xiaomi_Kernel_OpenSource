@@ -720,7 +720,7 @@ static int msm_bus_noc_set_bw(struct msm_bus_node_device_type *dev,
 		struct msm_bus_noc_qos_bw qos_bw;
 
 		bw = msm_bus_div64(info->num_qports,
-				dev->node_ab.ab[DUAL_CTX]);
+				dev->node_bw[ACTIVE_CTX].sum_ab);
 
 		for (i = 0; i < info->num_qports; i++) {
 			if (!info->qport) {

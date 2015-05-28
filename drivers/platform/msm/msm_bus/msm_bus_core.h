@@ -59,12 +59,16 @@ enum msm_bus_hw_sel {
 struct msm_bus_arb_ops {
 	uint32_t (*register_client)(struct msm_bus_scale_pdata *pdata);
 	int (*update_request)(uint32_t cl, unsigned int index);
+	int (*update_context)(uint32_t cl, bool active_only,
+						unsigned int ctx_idx);
 	void (*unregister_client)(uint32_t cl);
 	struct msm_bus_client_handle*
 		(*register_cl)(uint32_t mas, uint32_t slv, char *name,
 						bool active_only);
 	int (*update_bw)(struct msm_bus_client_handle *cl, u64 ab, u64 ib);
 	void (*unregister)(struct msm_bus_client_handle *cl);
+	int (*update_bw_context)(struct msm_bus_client_handle *cl, u64 act_ab,
+				u64 act_ib, u64 slp_ib, u64 slp_ab);
 };
 
 enum {
