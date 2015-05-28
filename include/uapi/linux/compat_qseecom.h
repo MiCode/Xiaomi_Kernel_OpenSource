@@ -298,6 +298,10 @@ extern long compat_qseecom_ioctl(struct file *file,
 #define COMPAT_QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 34, struct qseecom_mdtp_cipher_dip_req)
 
+#define COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ \
+	_IOWR(QSEECOM_IOC_MAGIC, 35, struct compat_qseecom_send_modfd_cmd_req)
+
+
 #endif
 #endif /* _UAPI_COMPAT_QSEECOM_H_ */
 
