@@ -715,6 +715,13 @@ static void cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
 	}
 }
 
+static void cmdq_dumpstate(struct mmc_host *mmc)
+{
+	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
+
+	cmdq_dumpregs(cq_host);
+}
+
 static const struct mmc_cmdq_host_ops cmdq_host_ops = {
 	.enable = cmdq_enable,
 	.disable = cmdq_disable,
@@ -722,6 +729,7 @@ static const struct mmc_cmdq_host_ops cmdq_host_ops = {
 	.post_req = cmdq_post_req,
 	.halt = cmdq_halt,
 	.reset	= cmdq_reset,
+	.dumpstate = cmdq_dumpstate,
 };
 
 struct cmdq_host *cmdq_pltfm_init(struct platform_device *pdev)
