@@ -1399,6 +1399,7 @@
 		qcom,bam-pipe-pair = <2>;
 		qcom,ce-hw-instance = <0>;
 		qcom,ce-device = <0>;
+		qcom,ce-hw-shared;
 		qcom,msm-bus,name = "qcrypto-noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
@@ -1413,6 +1414,7 @@
 				"iface_clk", "bus_clk";
 		qcom,use-sw-aes-cbc-ecb-ctr-algo;
 		qcom,use-sw-aes-xts-algo;
+		qcom,use-sw-aes-ccm-algo;
 		qcom,use-sw-ahash-algo;
 		qcom,ce-opp-freq = <100000000>;
 	};
