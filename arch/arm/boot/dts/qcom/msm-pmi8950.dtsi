@@ -511,6 +511,7 @@
 			qcom,ibb-pwrup-dly = <8>;
 			qcom,led-strings-list = [00 01];
 			qcom,en-ext-pfet-sc-pro;
+			qcom,cons-sync-write-delay-us = <1000>;
 		};
 
 		qcom,leds@d300 {
