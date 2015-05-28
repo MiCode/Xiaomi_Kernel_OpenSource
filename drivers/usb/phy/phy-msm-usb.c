@@ -5038,6 +5038,7 @@ static struct platform_device *msm_otg_add_pdev(
 		ci_pdata.enable_ahb2ahb_bypass =
 				otg_pdata->enable_ahb2ahb_bypass;
 		ci_pdata.system_clk = otg_pdata->system_clk;
+		ci_pdata.pclk = otg_pdata->pclk;
 		ci_pdata.enable_streaming = otg_pdata->enable_streaming;
 		ci_pdata.max_nominal_system_clk_rate =
 					motg->max_nominal_system_clk_rate;
@@ -5698,6 +5699,7 @@ static int msm_otg_probe(struct platform_device *pdev)
 	}
 
 	pdata->system_clk = motg->core_clk;
+	pdata->pclk = motg->pclk;
 
 	ret = msm_otg_bus_freq_get(motg->phy.dev, motg);
 	if (ret)

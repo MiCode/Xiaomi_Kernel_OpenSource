@@ -323,6 +323,7 @@ struct msm_otg_platform_data {
 	bool enable_streaming;
 	bool enable_axi_prefetch;
 	struct clk *system_clk;
+	struct clk *pclk;
 };
 
 /* phy related flags */
@@ -611,6 +612,7 @@ struct ci13xxx_platform_data {
 	bool enable_ahb2ahb_bypass;
 	bool enable_streaming;
 	struct clk *system_clk;
+	struct clk *pclk;
 	u32 max_nominal_system_clk_rate;
 	u32 default_system_clk_rate;
 };
