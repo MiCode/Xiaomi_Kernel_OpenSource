@@ -493,7 +493,8 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 	dcvs = &inst->dcvs;
 	instance_count = msm_dcvs_count_active_instances(core);
 
-	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER) {
+	if (instance_count == 1 && inst->session_type == MSM_VIDC_DECODER &&
+		!msm_comm_turbo_session(inst)) {
 		num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
 		output_buf_req = get_buff_req_buffer(inst,
 			msm_comm_get_hal_output_buffer(inst));
@@ -519,7 +520,8 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 			return -EINVAL;
 		}
 	} else if (instance_count == 1 &&
-			inst->session_type == MSM_VIDC_ENCODER) {
+			inst->session_type == MSM_VIDC_ENCODER &&
+			!msm_comm_turbo_session(inst)) {
 		if (!msm_dcvs_enc_check(inst) ||
 			!inst->dcvs.is_additional_buff_added)
 			return -ENOTSUPP;

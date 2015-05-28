@@ -61,7 +61,7 @@ static void msm_comm_generate_session_error(struct msm_vidc_inst *inst);
 static void msm_comm_generate_sys_error(struct msm_vidc_inst *inst);
 static void handle_session_error(enum command_response cmd, void *data);
 
-static inline bool is_turbo_session(struct msm_vidc_inst *inst)
+bool msm_comm_turbo_session(struct msm_vidc_inst *inst)
 {
 	return !!(inst->flags & VIDC_TURBO);
 }
@@ -115,7 +115,7 @@ int msm_comm_get_inst_load(struct msm_vidc_inst *inst,
 			load = 0;
 	}
 
-	if (is_turbo_session(inst)) {
+	if (msm_comm_turbo_session(inst)) {
 		if (!(quirks & LOAD_CALC_IGNORE_TURBO_LOAD))
 			load = inst->core->resources.max_load;
 	}
@@ -2196,7 +2196,7 @@ static void msm_vidc_print_running_insts(struct msm_vidc_core *core)
 			if (is_thumbnail_session(temp))
 				strlcat(properties, "N", sizeof(properties));
 
-			if (is_turbo_session(temp))
+			if (msm_comm_turbo_session(temp))
 				strlcat(properties, "T", sizeof(properties));
 
 			dprintk(VIDC_ERR, "%4d|%4d|%4d|%4d|%4s\n",
