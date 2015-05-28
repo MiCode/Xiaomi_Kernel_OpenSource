@@ -60,4 +60,5 @@ static inline int in_exception_text(unsigned long ptr)
 	return in ? : __in_irqentry_text(ptr);
 }
 
+static inline void get_pct_hook_init(void) {}
 #endif
