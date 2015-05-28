@@ -3134,12 +3134,18 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	uint32_t len = FLASH_PTABLE_HDR_LEN;
 	struct flash_partition_entry *pentry;
 	char *delimiter = ":";
+	void *temp_ptable = NULL;
 
 	pr_info("Parsing partition table info from SMEM\n");
+	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
+			SMEM_ANY_HOST_FLAG);
+
+	if (!temp_ptable)
+		goto out;
+
 	/* Read only the header portion of ptable */
-	ptable = *(struct flash_partition_table *)
-			(smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len,
-							0, SMEM_ANY_HOST_FLAG));
+	ptable = *(struct flash_partition_table *)temp_ptable;
+
 	/* Verify ptable magic */
 	if (ptable.magic1 != FLASH_PART_MAGIC1 ||
 			ptable.magic2 != FLASH_PART_MAGIC2) {
@@ -3357,17 +3363,17 @@ static int msm_nand_remove(struct platform_device *pdev)
 	if (pm_runtime_suspended(&(pdev)->dev))
 		pm_runtime_resume(&(pdev)->dev);
 
-	if (info->clk_data.client_handle)
-		msm_nand_bus_unregister(info);
-
 	pm_runtime_disable(&(pdev)->dev);
 	pm_runtime_set_suspended(&(pdev)->dev);
 	msm_nand_setup_clocks_and_bus_bw(info, false);
 
 	dev_set_drvdata(&pdev->dev, NULL);
+
 	if (info) {
 		mtd_device_unregister(&info->mtd);
 		msm_nand_bam_free(info);
+		if (info->clk_data.client_handle)
+			msm_nand_bus_unregister(info);
 	}
 	return 0;
 }
