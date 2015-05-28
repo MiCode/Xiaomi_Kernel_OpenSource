@@ -20,8 +20,8 @@
 
 /* Max number of clocks defined in device tree */
 #define MSM_JPEGDMA_MAX_CLK 10
-/* Max number of clock rates defined in device tree */
-#define MSM_JPEGDMA_MAX_CLK_RATES 5
+/* Core clock index */
+#define MSM_JPEGDMA_CORE_CLK 0
 /* Max number of regulators defined in device tree */
 #define MSM_JPEGDMA_MAX_REGULATOR_NUM 3
 /* Max number of planes supported */
@@ -30,6 +30,8 @@
 #define MSM_JPEGDMA_MAX_PIPES 2
 /* Max number of hw configurations supported */
 #define MSM_JPEGDMA_MAX_CONFIGS 2
+/* Dma default fps */
+#define MSM_JPEGDMA_DEFAULT_FPS 30
 
 /* Dma input output size limitations */
 #define MSM_JPEGDMA_MAX_WIDTH 65536
@@ -54,8 +56,9 @@ enum msm_jpegdma_plane_type {
 
 /*
  * struct msm_jpegdma_format - Dma format.
- * @name: Fomrat name.
- * @fourcc: v4l2 fourcc code
+ * @name: Format name.
+ * @fourcc: v4l2 fourcc code.
+ * @depth: Number of bits per pixel.
  * @num_planes: number of planes.
  * @colplane_h: Color plane horizontal subsample.
  * @colplane_v: Color plane vertical subsample.
@@ -66,6 +69,7 @@ enum msm_jpegdma_plane_type {
 struct msm_jpegdma_format {
 	char *name;
 	u32 fourcc;
+	int depth;
 	int num_planes;
 	int colplane_h;
 	int colplane_v;
@@ -80,7 +84,7 @@ struct msm_jpegdma_format {
  * @left: Left position
  * @width: Width
  * @height: height.
- * @real_height: real height used to calculate plane offset.
+ * @scanline: Number of lines per plane.
  * @stride: Stride bytes per line.
  */
 struct msm_jpegdma_size {
@@ -88,7 +92,7 @@ struct msm_jpegdma_size {
 	unsigned int left;
 	unsigned int width;
 	unsigned int height;
-	unsigned int real_height;
+	unsigned int scanline;
 	unsigned int stride;
 };
 
@@ -97,11 +101,13 @@ struct msm_jpegdma_size {
  * @in_size: Input size.
  * @out_size: Output size.
  * @format: Format.
+ * @fps: Requested frames per second.
  */
 struct msm_jpegdma_size_config {
 	struct msm_jpegdma_size in_size;
 	struct msm_jpegdma_size out_size;
 	struct msm_jpegdma_format format;
+	unsigned int fps;
 };
 
 /*
@@ -121,7 +127,7 @@ struct msm_jpegdma_block {
  * @block: Block settings.
  * @blocks_per_row: Blocks per row.
  * @blocks_per_col: Blocks per column.
- * @h_step: Horizontal setp value
+ * @h_step: Horizontal step value
  * @v_step: Vertical step value
  * @h_step_last: Last horizontal step.
  * @v_step_last: Last vertical step.
@@ -168,6 +174,18 @@ struct msm_jpegdma_config {
 
 /*
  * struct msm_jpegdma_plane_config - Contain input output address.
+ * @bus_ab: Bus average bandwidth.
+ * @bus_ib: Bus instantaneous bandwidth.
+ * @core_clock: Core clock freq.
+ */
+struct msm_jpegdma_speed {
+	u64 bus_ab;
+	u64 bus_ib;
+	u64 core_clock;
+};
+
+/*
+ * struct msm_jpegdma_plane_config - Contain input output address.
  * @active_pipes: Number of active pipes.
  * @config: Plane configurations.
  * @type: Plane type.
@@ -182,10 +200,12 @@ struct msm_jpegdma_plane {
  * struct msm_jpegdma_plane_config - Contain input output address.
  * @num_planes: Number of planes.
  * @plane: Plane configuration.
+ * @speed: Processing speed.
  */
 struct msm_jpegdma_plane_config {
 	unsigned int num_planes;
 	struct msm_jpegdma_plane plane[MSM_JPEGDMA_MAX_PLANES];
+	struct msm_jpegdma_speed speed;
 };
 
 /*
@@ -215,7 +235,7 @@ struct msm_jpegdma_buf_handle {
 /*
  * @jpegdma_ctx - Structure contains per open file handle context.
  * @lock: Lock protecting dma ctx.
- * @jdma_device: Pointer to fd device.
+ * @jdma_device: Pointer to dma device.
  * @active: Set if context is active.
  * @completion: Context processing completion.
  * @fh: V4l2 file handle.
@@ -223,12 +243,12 @@ struct msm_jpegdma_buf_handle {
  * @format_cap: Current capture format.
  * @format_out: Current output format.
  * @crop: Current crop.
+ * @timeperframe: Time per frame in seconds.
  * @config_idx: Plane configuration active index.
  * @plane_config: Array of plane configurations.
  * @pending_config: Flag set if there is pending plane configuration.
  * @plane_idx: Processing plane index.
  * @format_idx: Current format index.
- * @speed: Current speed value.
  */
 struct jpegdma_ctx {
 	struct mutex lock;
@@ -240,6 +260,7 @@ struct jpegdma_ctx {
 	struct v4l2_format format_cap;
 	struct v4l2_format format_out;
 	struct v4l2_rect crop;
+	struct v4l2_fract timeperframe;
 
 	unsigned int config_idx;
 	struct msm_jpegdma_plane_config plane_config[MSM_JPEGDMA_MAX_CONFIGS];
@@ -247,7 +268,6 @@ struct jpegdma_ctx {
 
 	unsigned int plane_idx;
 	unsigned int format_idx;
-	unsigned int speed;
 };
 
 /*
@@ -283,9 +303,8 @@ enum msm_jpegdma_mem_resources {
  * @vdd: Pointer to vdd regulator.
  * @regulator_num: Number of regulators attached to the device.
  * @clk_num: Number of clocks attached to the device.
- * @clk: Array of clock resources used by fd device.
- * @clk_rates_num: Number of available clock rates.
- * @clk_rates: Array of clock rates set.
+ * @clk: Array of clock resources used by dma device.
+ * @clk_rates: Array of clock rates.
  * @vbif_regs_num: number of vbif  regs.
  * @vbif_regs: Array of vbif regs need to be set.
  * @qos_regs_num: Number of qos regs .
@@ -304,7 +323,7 @@ enum msm_jpegdma_mem_resources {
  * @hw_num_pipes: Number of dma hw pipes.
  * @active_clock_rate: Active clock rate index.
  * @hw_reset_completion: Dma reset completion.
- * @hw_halt_completion: Dma halt competion.
+ * @hw_halt_completion: Dma halt completion.
  */
 struct msm_jpegdma_device {
 	struct mutex lock;
@@ -320,8 +339,7 @@ struct msm_jpegdma_device {
 
 	unsigned int clk_num;
 	struct clk *clk[MSM_JPEGDMA_MAX_CLK];
-	unsigned int clk_rates_num;
-	unsigned int clk_rates[MSM_JPEGDMA_MAX_CLK_RATES][MSM_JPEGDMA_MAX_CLK];
+	unsigned int clk_rates[MSM_JPEGDMA_MAX_CLK];
 
 	unsigned int vbif_regs_num;
 	struct jpegdma_reg_cfg *vbif_regs;
@@ -343,9 +361,9 @@ struct msm_jpegdma_device {
 	struct v4l2_m2m_dev *m2m_dev;
 
 	int hw_num_pipes;
-	int active_clock_rate;
 	struct completion hw_reset_completion;
 	struct completion hw_halt_completion;
+	u64 active_clock_rate;
 };
 
 void msm_jpegdma_isr_processing_done(struct msm_jpegdma_device *dma);

@@ -110,7 +110,7 @@
 #define MSM_JPEGDMA_CMD_CLEAR_WRITE_PLN_QUEUES        0x300
 
 #define MSM_HW_JPEGDMA_RESET                          0x08
-#define MSM_HW_JPEGDMA_RESET_DEFAULT                  0x30083
+#define MSM_HW_JPEGDMA_RESET_DEFAULT                  0x32083
 
 #define MSM_JPEGDMA_RESET_CMD_BMSK                    0xFFFFFFFF
 
