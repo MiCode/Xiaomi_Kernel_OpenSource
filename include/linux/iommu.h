@@ -131,6 +131,20 @@ enum iommu_attr {
 
 extern struct dentry *iommu_debugfs_top;
 
+/**
+ * struct iommu_dm_region - descriptor for a direct mapped memory region
+ * @list: Linked list pointers
+ * @start: System physical start address of the region
+ * @length: Length of the region in bytes
+ * @prot: IOMMU Protection flags (READ/WRITE/...)
+ */
+struct iommu_dm_region {
+	struct list_head	list;
+	phys_addr_t		start;
+	size_t			length;
+	int			prot;
+};
+
 #ifdef CONFIG_IOMMU_API
 
 /**
@@ -181,6 +195,10 @@ struct iommu_ops {
 			       enum iommu_attr attr, void *data);
 	int (*domain_set_attr)(struct iommu_domain *domain,
 			       enum iommu_attr attr, void *data);
+
+	/* Request/Free a list of direct mapping requirements for a device */
+	void (*get_dm_regions)(struct device *dev, struct list_head *list);
+	void (*put_dm_regions)(struct device *dev, struct list_head *list);
 
 	/* Window handling functions */
 	int (*domain_window_enable)(struct iommu_domain *domain, u32 wnd_nr,
@@ -244,6 +262,9 @@ extern unsigned long iommu_reg_read(struct iommu_domain *domain,
 				    unsigned long offset);
 extern void iommu_reg_write(struct iommu_domain *domain, unsigned long offset,
 			    unsigned long val);
+
+extern void iommu_get_dm_regions(struct device *dev, struct list_head *list);
+extern void iommu_put_dm_regions(struct device *dev, struct list_head *list);
 
 extern int iommu_attach_group(struct iommu_domain *domain,
 			      struct iommu_group *group);
@@ -451,6 +472,16 @@ static inline unsigned long iommu_reg_read(struct iommu_domain *domain,
 
 static inline void iommu_reg_write(struct iommu_domain *domain,
 				   unsigned long val, unsigned long offset)
+{
+}
+
+static inline void iommu_get_dm_regions(struct device *dev,
+					struct list_head *list)
+{
+}
+
+static inline void iommu_put_dm_regions(struct device *dev,
+					struct list_head *list)
 {
 }
 
