@@ -27,9 +27,6 @@ Optional properties:
 - label:	       	A string used to describe the driver used.
 - vcca-supply:		Phandle for vcca regulator device node.
 
-- qcom,dsi-pll-slave:	indicates it is pll slave at split display case. Otherwise
-			it is pll master.
-
 - qcom,platform-supply-entries:	A node that lists the elements of the supply. There
 				can be more than one instance of this binding,
 				in which case the entry would be appended with

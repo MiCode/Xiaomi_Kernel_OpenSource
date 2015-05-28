@@ -146,8 +146,30 @@ enum {
 };
 
 struct dsi_pll_db {
+	struct dsi_pll_db *next;
+	struct mdss_pll_resources *pll;
 	struct dsi_pll_input in;
 	struct dsi_pll_output out;
+	int source_setup_done;
+};
+
+enum {
+	PLL_OUTPUT_NONE,
+	PLL_OUTPUT_RIGHT,
+	PLL_OUTPUT_LEFT,
+	PLL_OUTPUT_BOTH
+};
+
+enum {
+	PLL_SOURCE_FROM_LEFT,
+	PLL_SOURCE_FROM_RIGHT
+};
+
+enum {
+	PLL_UNKNOWN,
+	PLL_STANDALONE,
+	PLL_SLAVE,
+	PLL_MASTER
 };
 
 int pll_vco_set_rate_8996(struct clk *c, unsigned long rate);
