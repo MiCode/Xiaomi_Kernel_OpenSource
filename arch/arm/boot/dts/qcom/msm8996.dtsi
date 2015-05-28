@@ -2332,6 +2332,8 @@
 
 	wil6210: qcom,wil6210 {
 		compatible = "qcom,wil6210";
+		qcom,pcie-parent = <&pcie1>;
+		qcom,wigig-en = <&tlmm 94 0>;
 		qcom,msm-bus,name = "wil6210";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
