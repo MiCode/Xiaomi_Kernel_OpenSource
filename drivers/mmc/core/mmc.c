@@ -657,9 +657,19 @@ static int mmc_decode_ext_csd(struct mmc_card *card, u8 *ext_csd)
 				mmc_hostname(card->host),
 				card->ext_csd.cmdq_depth);
 		}
+		card->ext_csd.barrier_support =
+			ext_csd[EXT_CSD_BARRIER_SUPPORT];
+		card->ext_csd.cache_flush_policy =
+			ext_csd[EXT_CSD_CACHE_FLUSH_POLICY];
+		pr_info("%s: cache barrier support %d flush policy %d\n",
+				mmc_hostname(card->host),
+				card->ext_csd.barrier_support,
+				card->ext_csd.cache_flush_policy);
 	} else {
 		card->ext_csd.cmdq_support = 0;
 		card->ext_csd.cmdq_depth = 0;
+		card->ext_csd.barrier_support = 0;
+		card->ext_csd.cache_flush_policy = 0;
 	}
 
 	/* eMMC v5 or later */
@@ -2103,6 +2113,27 @@ reinit:
 				err = 0;
 			} else {
 				card->ext_csd.cache_ctrl = 1;
+			}
+			/* enable cache barrier if supported by the device */
+			if (card->ext_csd.cache_ctrl &&
+					card->ext_csd.barrier_support) {
+				err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
+					EXT_CSD_BARRIER_CTRL, 1,
+					card->ext_csd.generic_cmd6_time);
+				if (err && err != -EBADMSG) {
+					pr_err("%s: %s: mmc_switch() for BARRIER_CTRL fails %d\n",
+						mmc_hostname(host), __func__,
+						err);
+					goto free_card;
+				}
+				if (err) {
+					pr_warn("%s: Barrier is supported but failed to turn on (%d)\n",
+						mmc_hostname(card->host), err);
+					card->ext_csd.barrier_en = 0;
+					err = 0;
+				} else {
+					card->ext_csd.barrier_en = 1;
+				}
 			}
 		} else {
 			/*
