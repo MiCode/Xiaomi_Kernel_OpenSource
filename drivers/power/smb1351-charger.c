@@ -427,6 +427,7 @@ struct smb1351_charger {
 	const char		*bms_psy_name;
 	bool			resume_completed;
 	bool			irq_waiting;
+	struct delayed_work	chg_remove_work;
 
 	/* status tracking */
 	bool			batt_full;
@@ -445,6 +446,7 @@ struct smb1351_charger {
 	bool			parallel_charger_present;
 	bool			bms_controlled_charging;
 	bool			apsd_rerun;
+	bool			chg_remove_work_scheduled;
 
 	/* psy */
 	struct power_supply	*usb_psy;
@@ -1858,29 +1860,61 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 		power_supply_set_present(chip->usb_psy, chip->chg_present);
 		chip->apsd_rerun = false;
 	} else if (!chip->apsd_rerun) {
-		/* Handle SDP/CDP removal */
+		/* Handle Charger removal */
 		chip->usb_psy->get_property(chip->usb_psy,
 					POWER_SUPPLY_PROP_TYPE, &prop);
-		if ((prop.intval == POWER_SUPPLY_TYPE_USB) ||
-				(prop.intval == POWER_SUPPLY_TYPE_USB_CDP)) {
-			chip->chg_present = false;
-			power_supply_set_supply_type(chip->usb_psy,
+		chip->chg_present = false;
+		power_supply_set_supply_type(chip->usb_psy,
 						POWER_SUPPLY_TYPE_UNKNOWN);
-			power_supply_set_present(chip->usb_psy,
-							chip->chg_present);
-			pr_debug("Setting usb psy allow detection 0\n");
-			power_supply_set_allow_detection(chip->usb_psy, 0);
-		}
+		power_supply_set_present(chip->usb_psy,
+						chip->chg_present);
+		pr_debug("Setting usb psy allow detection 0\n");
+		power_supply_set_allow_detection(chip->usb_psy, 0);
 	}
 
 	return 0;
 }
 
+/*
+ * As source detect interrupt is not triggered on the falling edge,
+ * we need to schedule a work for checking source detect status after
+ * charger UV interrupt fired.
+ */
+#define FIRST_CHECK_DELAY	100
+#define SECOND_CHECK_DELAY	1000
+static void smb1351_chg_remove_work(struct work_struct *work)
+{
+	int rc;
+	u8 reg;
+	struct smb1351_charger *chip = container_of(work,
+				struct smb1351_charger, chg_remove_work.work);
+
+	rc = smb1351_read_reg(chip, IRQ_G_REG, &reg);
+	if (rc) {
+		pr_err("Couldn't read IRQ_G_REG rc = %d\n", rc);
+		goto end;
+	}
+
+	if (!(reg & IRQ_SOURCE_DET_BIT)) {
+		pr_debug("chg removed\n");
+		smb1351_apsd_complete_handler(chip, 0);
+	} else if (!chip->chg_remove_work_scheduled) {
+		chip->chg_remove_work_scheduled = true;
+		pr_debug("reschedule after 1s\n");
+		schedule_delayed_work(&chip->chg_remove_work,
+					msecs_to_jiffies(SECOND_CHECK_DELAY));
+		return;
+	} else {
+		pr_debug("charger is present\n");
+	}
+end:
+	chip->chg_remove_work_scheduled = false;
+	pm_relax(chip->dev);
+}
+
 static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 {
 	/* use this to detect USB insertion only if !apsd */
-	union power_supply_propval prop = {0, };
-
 	if (chip->disable_apsd) {
 		/*
 		 * If APSD is disabled, src det interrupt won't trigger.
@@ -1906,28 +1940,11 @@ static int smb1351_usbin_uv_handler(struct smb1351_charger *chip, u8 status)
 		return 0;
 	}
 
-	/*
-	 * If APSD active, use src det to check SDP/CDP removal and
-	 * use usbin_uv to check DCP/HVDCP removal
-	 */
-	if (status != 0) {
-		if (!chip->disable_apsd && chip->usb_psy && !chip->usb_psy->
-		get_property(chip->usb_psy, POWER_SUPPLY_PROP_TYPE, &prop)) {
-			if ((prop.intval == POWER_SUPPLY_TYPE_USB_HVDCP) ||
-				(prop.intval == POWER_SUPPLY_TYPE_USB_DCP)) {
-				/* DCP or HVDCP removed */
-				chip->chg_present = false;
-				power_supply_set_supply_type(chip->usb_psy,
-						POWER_SUPPLY_TYPE_UNKNOWN);
-				power_supply_set_present(chip->usb_psy,
-							chip->chg_present);
-				pr_debug("updating usb_psy present=%d\n",
-							chip->chg_present);
-				power_supply_set_allow_detection(
-							chip->usb_psy, 0);
-				pr_debug("Setting usb psy allow detection 0\n");
-			}
-		}
+	if (status) {
+		pr_debug("schedule charger remove worker\n");
+		schedule_delayed_work(&chip->chg_remove_work,
+					msecs_to_jiffies(FIRST_CHECK_DELAY));
+		pm_stay_awake(chip->dev);
 	}
 
 	pr_debug("chip->chg_present = %d\n", chip->chg_present);
@@ -2717,6 +2734,7 @@ static int smb1351_main_charger_probe(struct i2c_client *client,
 	chip->dev = &client->dev;
 	chip->usb_psy = usb_psy;
 	chip->fake_battery_soc = -EINVAL;
+	INIT_DELAYED_WORK(&chip->chg_remove_work, smb1351_chg_remove_work);
 
 	/* probe the device to check if its actually connected */
 	rc = smb1351_read_reg(chip, CHG_REVISION_REG, &reg);
@@ -2927,6 +2945,7 @@ static int smb1351_charger_remove(struct i2c_client *client)
 {
 	struct smb1351_charger *chip = i2c_get_clientdata(client);
 
+	cancel_delayed_work_sync(&chip->chg_remove_work);
 	power_supply_unregister(&chip->batt_psy);
 
 	mutex_destroy(&chip->irq_complete);
