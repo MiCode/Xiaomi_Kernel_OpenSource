@@ -774,12 +774,16 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 		return 0;
 	}
 
+	mutex_lock(&driver->cmd_reg_mutex);
 	temp_entry = diag_cmd_search(&entry, ALL_PROC);
 	if (temp_entry) {
 		reg_item = container_of(temp_entry, struct diag_cmd_reg_t,
 								entry);
-		return diag_send_data(reg_item, buf, len);
+		write_len = diag_send_data(reg_item, buf, len);
+		mutex_unlock(&driver->cmd_reg_mutex);
+		return write_len;
 	}
+	mutex_unlock(&driver->cmd_reg_mutex);
 
 #if defined(CONFIG_DIAG_OVER_USB)
 	/* Check for the command/respond msg for the maximum packet length */
