@@ -969,6 +969,8 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 				dev->rev);
 			goto pipe_clk_fail;
 		}
+
+		dev->power_on = true;
 	}
 
 	if (!(opt & EP_PCIE_OPT_ENUM))
@@ -1121,11 +1123,11 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		}
 	}
 
-	dev->power_on = true;
 	dev->suspending = false;
 	goto out;
 
 link_fail:
+	dev->power_on = false;
 	if (!ep_pcie_debug_keep_resource)
 		ep_pcie_pipe_clk_deinit(dev);
 pipe_clk_fail:
