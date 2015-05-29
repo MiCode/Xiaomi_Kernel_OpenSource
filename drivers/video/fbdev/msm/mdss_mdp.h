@@ -571,7 +571,6 @@ struct mdss_overlay_private {
 	struct kernfs_node *ad_event_sd;
 	struct kernfs_node *ad_bl_event_sd;
 	int borderfill_enable;
-	int overlay_play_enable;
 	int hw_refresh;
 	void *cpu_pm_hdl;
 
