@@ -31,6 +31,7 @@ static char *descriptions =
 	"11 Perf: arm64: Refine disable/enable in tracecounters\n"
 	"15 Perf: arm64: make debug dir handle exportable\n"
 	"16 Perf: arm64: add perf trace user\n"
+	"17 Perf: arm64: add support for kryo pmu\n"
 ;
 
 static ssize_t desc_read(struct file *fp, char __user *buf,
