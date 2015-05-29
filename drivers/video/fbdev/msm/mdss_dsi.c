@@ -2869,7 +2869,7 @@ static int mdss_dsi_parse_ctrl_params(struct platform_device *ctrl_pdev,
 	data = of_get_property(ctrl_pdev->dev.of_node,
 		"qcom,platform-bist-ctrl", &len);
 	if ((!data) || (len != 6))
-		pr_err("%s:%d, Unable to read Phy Bist Ctrl settings\n",
+		pr_debug("%s:%d, Unable to read Phy Bist Ctrl settings\n",
 			__func__, __LINE__);
 	else
 		for (i = 0; i < len; i++)
@@ -2922,7 +2922,7 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 			"qcom,platform-enable-gpio", 0);
 
 		if (!gpio_is_valid(ctrl_pdata->disp_en_gpio))
-			pr_err("%s:%d, Disp_en gpio not specified\n",
+			pr_debug("%s:%d, Disp_en gpio not specified\n",
 					__func__, __LINE__);
 	}
 

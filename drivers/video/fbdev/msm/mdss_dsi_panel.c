@@ -1611,7 +1611,7 @@ static int mdss_dsi_parse_panel_features(struct device_node *np,
 			"qcom,5v-boost-gpio", 0);
 
 		if (!gpio_is_valid(ctrl->disp_en_gpio))
-			pr_err("%s:%d, Disp_en gpio not specified\n",
+			pr_debug("%s:%d, Disp_en gpio not specified\n",
 					__func__, __LINE__);
 	}
 
