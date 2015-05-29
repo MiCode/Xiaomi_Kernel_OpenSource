@@ -451,7 +451,8 @@ struct sock *tcp_create_openreq_child(struct sock *sk, struct request_sock *req,
 		newtp->snd_cwnd = TCP_INIT_CWND;
 		newtp->snd_cwnd_cnt = 0;
 
-		if (!try_module_get(newicsk->icsk_ca_ops->owner))
+		if (!newicsk->icsk_ca_setsockopt ||
+		    !try_module_get(newicsk->icsk_ca_ops->owner))
 			tcp_assign_congestion_control(newsk);
 
 		tcp_set_ca_state(newsk, TCP_CA_Open);
