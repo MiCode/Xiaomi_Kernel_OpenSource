@@ -250,6 +250,12 @@ int ipa_connect(const struct ipa_connect_params *in, struct ipa_sps_params *sps,
 	ep->priv = in->priv;
 	ep->keep_ipa_awake = in->keep_ipa_awake;
 
+	/* Notify uc to start monitoring holb on USB BAM Producer pipe. */
+	if (IPA_CLIENT_IS_USB_CONS(in->client)) {
+		ipa_uc_monitor_holb(in->client, true);
+		IPADBG("Enabling holb monitor for client:%d", in->client);
+	}
+
 	result = ipa_enable_data_path(ipa_ep_idx);
 	if (result) {
 		IPAERR("enable data path failed res=%d clnt=%d.\n", result,
@@ -471,6 +477,12 @@ int ipa_disconnect(u32 clnt_hdl)
 
 	if (!ep->keep_ipa_awake)
 		ipa_inc_client_enable_clks();
+
+	/* Notify uc to stop monitoring holb on USB BAM Producer pipe. */
+	if (IPA_CLIENT_IS_USB_CONS(ep->client)) {
+		ipa_uc_monitor_holb(ep->client, false);
+		IPADBG("Disabling holb monitor for client: %d\n", ep->client);
+	}
 
 	result = ipa_disable_data_path(clnt_hdl);
 	if (result) {
