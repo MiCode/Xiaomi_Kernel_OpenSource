@@ -1513,10 +1513,9 @@ static int cons_request_resource(enum usb_ctrl cur_bam)
 	log_event(1, "%s: Request %s_CONS resource\n",
 			__func__, bam_enable_strings[cur_bam]);
 
+	spin_lock(&usb_bam_lock);
 	spin_lock(&usb_bam_ipa_handshake_info_lock);
 	info[cur_bam].cur_cons_state = IPA_RM_RESOURCE_GRANTED;
-
-	spin_lock(&usb_bam_lock);
 
 	switch (info[cur_bam].cur_bam_mode) {
 	case USB_BAM_DEVICE:
