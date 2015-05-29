@@ -767,8 +767,15 @@ static void smd_data_ch_close(struct channel *ch)
 	ch->is_closing = true;
 	flush_workqueue(ch->wq);
 
-	smd_close(ch->smd_ch);
-	ch->smd_ch = NULL;
+	if (ch->smd_ch) {
+		smd_close(ch->smd_ch);
+		ch->smd_ch = NULL;
+	} else if (ch->local_legacy) {
+		ch->edge->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
+							&ch->edge->xprt_if,
+							ch->lcid);
+	}
+
 	ch->local_legacy = false;
 
 	spin_lock_irqsave(&ch->intents_lock, flags);
