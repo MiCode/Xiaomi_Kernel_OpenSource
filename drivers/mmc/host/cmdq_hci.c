@@ -508,7 +508,7 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 		resp_type = 0x0;
 		timing = 0x1;
 	} else {
-		if (mrq->cmd->flags & MMC_RSP_R1B) {
+		if (mrq->cmd->flags & MMC_RSP_BUSY) {
 			resp_type = 0x3;
 			timing = 0x0;
 		} else {
