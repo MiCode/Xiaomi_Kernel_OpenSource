@@ -23,6 +23,8 @@
 #include <linux/blkdev.h>
 #include <linux/clk.h>
 #include <linux/cdev.h>
+#include <linux/regulator/consumer.h>
+#include <linux/msm-bus.h>
 #include <crypto/ice.h>
 #include <soc/qcom/scm.h>
 #include "iceregs.h"
@@ -59,6 +61,16 @@ struct ice_clk_info {
 	bool enabled;
 };
 
+struct qcom_ice_bus_vote {
+	uint32_t client_handle;
+	uint32_t curr_vote;
+	int min_bw_vote;
+	int max_bw_vote;
+	int saved_vote;
+	bool is_max_bw_needed;
+	struct device_attribute max_bus_bw;
+};
+
 static LIST_HEAD(ice_devices);
 /*
  * ICE HW device structure.
@@ -83,7 +95,114 @@ struct ice_device {
 	u32			ice_hw_version;
 	bool			is_ice_clk_available;
 	char			ice_instance_type[QCOM_ICE_TYPE_NAME_LEN];
+	struct regulator	*reg;
+	bool			is_regulator_available;
+	struct qcom_ice_bus_vote bus_vote;
 };
+
+static int qcom_ice_enable_clocks(struct ice_device *, bool);
+
+static int qcom_ice_set_bus_vote(struct ice_device *ice_dev, int vote)
+{
+	int err = 0;
+
+	if (vote != ice_dev->bus_vote.curr_vote) {
+		err = msm_bus_scale_client_update_request(
+				ice_dev->bus_vote.client_handle, vote);
+		if (err) {
+			dev_err(ice_dev->pdev,
+				"%s:failed:client_handle=0x%x, vote=%d, err=%d\n",
+				__func__, ice_dev->bus_vote.client_handle,
+				vote, err);
+			goto out;
+		}
+		ice_dev->bus_vote.curr_vote = vote;
+	}
+out:
+	return err;
+}
+
+static int qcom_ice_get_bus_vote(struct ice_device *ice_dev,
+		const char *speed_mode)
+{
+	struct device *dev = ice_dev->pdev;
+	struct device_node *np = dev->of_node;
+	int err;
+	const char *key = "qcom,bus-vector-names";
+
+	if (!speed_mode) {
+		err = -EINVAL;
+		goto out;
+	}
+
+	if (ice_dev->bus_vote.is_max_bw_needed && !!strcmp(speed_mode, "MIN"))
+		err = of_property_match_string(np, key, "MAX");
+	else
+		err = of_property_match_string(np, key, speed_mode);
+out:
+	if (err < 0)
+		dev_err(dev, "%s: Invalid %s mode %d\n",
+				__func__, speed_mode, err);
+	return err;
+}
+
+static int qcom_ice_bus_register(struct ice_device *ice_dev)
+{
+	int err = 0;
+	struct msm_bus_scale_pdata *bus_pdata;
+	struct device *dev = ice_dev->pdev;
+	struct platform_device *pdev = to_platform_device(dev);
+	struct device_node *np = dev->of_node;
+
+	bus_pdata = msm_bus_cl_get_pdata(pdev);
+	if (!bus_pdata) {
+		dev_err(dev, "%s: failed to get bus vectors\n", __func__);
+		err = -ENODATA;
+		goto out;
+	}
+
+	err = of_property_count_strings(np, "qcom,bus-vector-names");
+	if (err < 0 || err != bus_pdata->num_usecases) {
+		dev_err(dev, "%s: Error = %d with qcom,bus-vector-names\n",
+				__func__, err);
+		goto out;
+	}
+	err = 0;
+
+	ice_dev->bus_vote.client_handle =
+			msm_bus_scale_register_client(bus_pdata);
+	if (!ice_dev->bus_vote.client_handle) {
+		dev_err(dev, "%s: msm_bus_scale_register_client failed\n",
+				__func__);
+		err = -EFAULT;
+		goto out;
+	}
+
+	/* cache the vote index for minimum and maximum bandwidth */
+	ice_dev->bus_vote.min_bw_vote = qcom_ice_get_bus_vote(ice_dev, "MIN");
+	ice_dev->bus_vote.max_bw_vote = qcom_ice_get_bus_vote(ice_dev, "MAX");
+out:
+	return err;
+}
+
+static int qcom_ice_get_vreg(struct ice_device *ice_dev)
+{
+	int ret = 0;
+
+	if (!ice_dev->is_regulator_available)
+		return 0;
+
+	if (ice_dev->reg)
+		return 0;
+
+	ice_dev->reg = devm_regulator_get(ice_dev->pdev, "vdd-hba");
+	if (IS_ERR(ice_dev->reg)) {
+		ret = PTR_ERR(ice_dev->reg);
+		dev_err(ice_dev->pdev, "%s: %s get failed, err=%d\n",
+			__func__, "vdd-hba-supply", ret);
+	}
+	return ret;
+}
 
 static void qcom_ice_config_proc_ignore(struct ice_device *ice_dev)
 {
@@ -421,6 +540,13 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 		goto out;
 	}
 
+	if (!of_parse_phandle(pdev->dev.of_node, "vdd-hba-supply", 0)) {
+		pr_err("%s: No vdd-hba-supply regulator, assuming not needed\n",
+								 __func__);
+		ice_dev->is_regulator_available = false;
+	} else {
+		ice_dev->is_regulator_available = true;
+	}
 	ice_dev->is_ice_clk_available = of_property_read_bool(
 						(&pdev->dev)->of_node,
 						"qcom,enable-ice-clk");
@@ -682,6 +808,44 @@ out:
 	return ret;
 }
 
+static int qcom_ice_enable_clocks(struct ice_device *ice, bool enable)
+{
+	int ret = 0;
+	struct ice_clk_info *clki;
+	struct device *dev = ice->pdev;
+	struct list_head *head = &ice->clk_list_head;
+
+	if (!head || list_empty(head)) {
+		dev_err(dev, "%s:ICE Clock list null/empty\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	if (!ice->is_ice_clk_available) {
+		dev_err(dev, "%s:ICE Clock not available\n", __func__);
+		ret = -EINVAL;
+		goto out;
+	}
+
+	list_for_each_entry(clki, head, list) {
+		if (!clki->name)
+			continue;
+
+		if (enable)
+			ret = clk_prepare_enable(clki->clk);
+		else
+			clk_disable_unprepare(clki->clk);
+
+		if (ret) {
+			dev_err(dev, "Unable to %s ICE core clk\n",
+				enable?"enable":"disable");
+			goto out;
+		}
+	}
+out:
+	return ret;
+}
+
 static int qcom_ice_secure_ice_init(struct ice_device *ice_dev)
 {
 	/* We need to enable source for ICE secure interrupts */
@@ -763,6 +927,9 @@ static void qcom_ice_finish_init(void *data, async_cookie_t cookie)
 					ICE_ERROR_IMPROPER_INITIALIZATION);
 			return;
 		}
+		if (qcom_ice_bus_register(ice_dev))
+			ice_dev->error_cb(ice_dev->host_controller_data,
+					ICE_ERROR_IMPROPER_INITIALIZATION);
 	}
 
 	/*
@@ -1104,6 +1271,79 @@ struct platform_device *qcom_ice_get_pdevice(struct device_node *node)
 	pr_info("%s: matching platform device %p\n", __func__, ice_pdev);
 out:
 	return ice_pdev;
+}
+
+static struct ice_device *get_ice_device_from_storage_type
+					(const char *storage_type)
+{
+	struct ice_device *ice_dev = NULL;
+
+	if (list_empty(&ice_devices)) {
+		pr_err("%s: invalid device list\n", __func__);
+		ice_dev = ERR_PTR(-EPROBE_DEFER);
+		goto out;
+	}
+
+	list_for_each_entry(ice_dev, &ice_devices, list) {
+		if (!strcmp(ice_dev->ice_instance_type, storage_type)) {
+			pr_info("%s: found ice device %p\n", __func__, ice_dev);
+			break;
+		}
+	}
+out:
+	return ice_dev;
+}
+
+int qcom_ice_setup_ice_hw(const char *storage_type, int enable)
+{
+	int ret = -1, vote;
+	struct ice_device *ice_dev = NULL;
+
+	ice_dev = get_ice_device_from_storage_type(storage_type);
+	if (!ice_dev)
+		goto out;
+
+	/* Setup Clocks */
+	if (qcom_ice_enable_clocks(ice_dev, enable)) {
+		pr_err("%s:%p:%s Could not enable clocks\n", __func__, ice_dev,
+				ice_dev->ice_instance_type);
+		goto out;
+	}
+
+	/* Setup Bus Vote */
+	vote = qcom_ice_get_bus_vote(ice_dev, enable ? "MAX" : "MIN");
+	if (vote < 0)
+		goto out_clocks;
+	ret = qcom_ice_set_bus_vote(ice_dev, vote);
+	if (ret) {
+		pr_err("%s:%p: failed %d\n", __func__, ice_dev, ret);
+		goto out_clocks;
+	}
+
+	/* Setup Regulator */
+	if (ice_dev->is_regulator_available) {
+		if (qcom_ice_get_vreg(ice_dev)) {
+			pr_err("%s: Could not get regulator\n", __func__);
+			goto out_bw_vote;
+		}
+		ret = (enable) ? regulator_enable(ice_dev->reg)
+				: regulator_disable(ice_dev->reg);
+		if (ret) {
+			pr_err("%s:%p: Could not enable/disable regulator\n",
+					__func__, ice_dev);
+			goto out_bw_vote;
+		}
+	}
+	return ret;
+
+out_bw_vote:
+	if (vote)
+		qcom_ice_set_bus_vote(ice_dev, !vote);
+out_clocks:
+	if (enable)
+		qcom_ice_enable_clocks(ice_dev, !enable);
+out:
+	return ret;
 }
 
 struct qcom_ice_variant_ops *qcom_ice_get_variant_ops(struct device_node *node)

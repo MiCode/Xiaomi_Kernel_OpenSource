@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -74,6 +74,7 @@ typedef void (*ice_error_cb)(void *, enum ice_error_code);
 
 struct qcom_ice_variant_ops *qcom_ice_get_variant_ops(struct device_node *node);
 struct platform_device *qcom_ice_get_pdevice(struct device_node *node);
+int qcom_ice_setup_ice_hw(const char *, int);
 
 struct qcom_ice_variant_ops {
 	const char *name;
