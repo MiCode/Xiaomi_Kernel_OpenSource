@@ -300,9 +300,13 @@ static int wsa881x_visense_txfe_ctrl(struct snd_soc_codec *codec, bool enable,
 		__func__, enable, isense1_gain, isense2_gain, vsense_gain);
 
 	if (enable) {
+		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_VSENSE_VCM,
+				    0x08, 0x00);
+		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_ATEST2,
+				    0x08, 0x08);
 		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_ATEST2,
 				    0x02, 0x02);
-		value = ((isense2_gain << 6) || (isense1_gain << 4) ||
+		value = ((isense2_gain << 6) | (isense1_gain << 4) |
 			(vsense_gain << 3));
 		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_GAIN,
 				    0xF8, value);
@@ -310,7 +314,7 @@ static int wsa881x_visense_txfe_ctrl(struct snd_soc_codec *codec, bool enable,
 				    0x01, 0x01);
 	} else {
 		snd_soc_update_bits(codec, WSA881X_SPKR_PROT_FE_VSENSE_VCM,
-				    0x10, 0x10);
+				    0x08, 0x08);
 		/*
 		 * 200us sleep is needed after visense txfe disable as per
 		 * HW requirement.
@@ -535,8 +539,6 @@ static int wsa881x_rdac_event(struct snd_soc_dapm_widget *w,
 		wsa881x_bandgap_ctrl(codec, ENABLE);
 		if (wsa881x->boost_enable)
 			wsa881x_boost_ctrl(codec, ENABLE);
-		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x20, 0x20);
-		snd_soc_update_bits(codec, WSA881X_SPKR_DAC_CTL, 0x20, 0x00);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
 		if (wsa881x->boost_enable)
@@ -574,7 +576,6 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 	dev_dbg(codec->dev, "%s: %s %d\n", __func__, w->name, event);
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN, 0x08, 0x08);
 		snd_soc_update_bits(codec, WSA881X_SPKR_DRV_GAIN, 0xF0, 0x40);
 		snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x01, 0x01);
 		snd_soc_update_bits(codec, WSA881X_ADC_EN_DET_TEST_I,
@@ -607,7 +608,7 @@ static int wsa881x_spkr_pa_event(struct snd_soc_dapm_widget *w,
 			wsa881x_visense_txfe_ctrl(codec, ENABLE,
 						0x00, 0x03, 0x01);
 			snd_soc_update_bits(codec, WSA881X_ADC_EN_SEL_IBAIS,
-					    0x07, 0x04);
+					    0x07, 0x01);
 			wsa881x_visense_adc_ctrl(codec, ENABLE);
 		}
 		break;
@@ -682,13 +683,16 @@ static void wsa881x_init(struct snd_soc_codec *codec)
 	/* set Bias Ref ctrl to 1.225V */
 	snd_soc_update_bits(codec, WSA881X_BIAS_REF_CTRL, 0x07, 0x00);
 	snd_soc_update_bits(codec, WSA881X_SPKR_BBM_CTL, 0x02, 0x02);
-	snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0xC0, 0xC0);
-	snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0x06, 0x06);
+	snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL1, 0xC0, 0x00);
 	snd_soc_update_bits(codec, WSA881X_SPKR_MISC_CTL2, 0x07, 0x04);
 	snd_soc_update_bits(codec, WSA881X_SPKR_BIAS_INT, 0x0F, 0x0F);
-	snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0xF0, 0x20);
+	snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0xF0, 0x10);
+	snd_soc_update_bits(codec, WSA881X_SPKR_PA_INT, 0x0F, 0x0E);
 	snd_soc_update_bits(codec, WSA881X_BOOST_PS_CTL, 0x80, 0x00);
 	snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT1, 0xF0, 0xB0);
+	snd_soc_update_bits(codec, WSA881X_BOOST_PRESET_OUT2, 0xF0, 0x30);
+	snd_soc_update_bits(codec, WSA881X_SPKR_DRV_EN, 0x0F, 0x0C);
+	snd_soc_update_bits(codec, WSA881X_BOOST_CURRENT_LIMIT, 0x0F, 0x08);
 	snd_soc_update_bits(codec, WSA881X_BOOST_ZX_CTL, 0x20, 0x00);
 }
 
