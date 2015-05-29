@@ -765,6 +765,7 @@ static void smd_data_ch_close(struct channel *ch)
 	SMDXPRT_INFO("%s Closing SMD channel lcid %u\n", __func__, ch->lcid);
 
 	ch->is_closing = true;
+	ch->wait_for_probe = false;
 	flush_workqueue(ch->wq);
 
 	if (ch->smd_ch) {
@@ -1280,6 +1281,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 		if (!ch->smd_ch)
 			continue;
 		ch->is_closing = true;
+		ch->wait_for_probe = false;
 		flush_workqueue(ch->wq);
 		smd_close(ch->smd_ch);
 		ch->smd_ch = NULL;
