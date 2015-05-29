@@ -1291,6 +1291,10 @@
 		};
 	};
 
+	qcom,iris-fm {
+		compatible = "qcom,iris_fm";
+	};
+
 	qcom,venus@1de0000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x1de0000 0x4000>;
