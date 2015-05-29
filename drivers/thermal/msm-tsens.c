@@ -93,6 +93,7 @@
 #define TSENS_SN_REMOTE_CONFIG(n)	((n) + 0x3c)
 
 #define TSENS_EEPROM(n)			((n) + 0xd0)
+#define TSENS_EEPROM_9640V2(n)		((n) + 0x8)
 #define TSENS_EEPROM_REDUNDANCY_SEL(n)	((n) + 0x444)
 #define TSENS_EEPROM_BACKUP_REGION(n)	((n) + 0x440)
 
@@ -731,6 +732,55 @@ struct tsens_tm_device {
 };
 
 struct tsens_tm_device *tmdev;
+
+static struct of_device_id tsens_match[] = {
+	{	.compatible = "qcom,msm-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_8974,
+	},
+	{	.compatible = "qcom,msm8x26-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_8X26,
+	},
+	{	.compatible = "qcom,msm8x10-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_8X10,
+	},
+	{	.compatible = "qcom,fsm9900-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_9900,
+	},
+	{	.compatible = "qcom,fsm9010-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_9010,
+	},
+	{	.compatible = "qcom,mdm9630-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_9630,
+	},
+	{	.compatible = "qcom,msm8916-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_8916,
+	},
+	{	.compatible = "qcom,msm8939-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_8939,
+	},
+	{	.compatible = "qcom,msm8994-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_8994,
+	},
+	{	.compatible = "qcom,msm8909-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8909,
+	},
+	{	.compatible = "qcom,mdm9640-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MDM9640,
+	},
+	{	.compatible = "qcom,msm8992-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_8992,
+	},
+	{       .compatible = "qcom,msm8952-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8952,
+	},
+	{	.compatible = "qcom,msm8976-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_GENERIC_A,
+	},
+	{	.compatible = "qcom,mdm9640v2-tsens",
+		.data = (void *)TSENS_CALIB_FUSE_MAP_MDM9640,
+	},
+	{}
+};
 
 static ssize_t
 zonemask_show(struct device *dev, struct device_attribute *attr, char *buf)
@@ -3831,17 +3881,49 @@ static int tsens_calib_mdm9640_sensors(void)
 	int tsens_calibration_mode = 0;
 	uint32_t calib_data[2] = {0, 0};
 	uint32_t calib_tsens_point_data[5];
+	const struct of_device_id *id;
+	struct device_node *of_node;
+
+	of_node = tmdev->pdev->dev.of_node;
+	if (of_node == NULL) {
+		pr_err("Invalid of_node??\n");
+		return -EINVAL;
+	}
+
+	if (!of_match_node(tsens_match, of_node)) {
+		pr_err("Need to read SoC specific fuse map\n");
+		return -ENODEV;
+	} else {
+		id = of_match_node(tsens_match, of_node);
+		if (id == NULL) {
+			pr_err("can not find tsens_match of_node\n");
+			return -ENODEV;
+		}
+	}
 
 	if (!tmdev->calibration_less_mode) {
-		calib_data[0] = readl_relaxed(
-			TSENS_EEPROM(tmdev->tsens_calib_addr));
-		calib_data[1] = readl_relaxed(
-			(TSENS_EEPROM(tmdev->tsens_calib_addr) + 0x4));
+		if (!strcmp(id->compatible, "qcom,mdm9640v2-tsens")) {
+			calib_data[0] = readl_relaxed(
+				TSENS_EEPROM_9640V2(tmdev->tsens_calib_addr));
+			calib_data[1] = readl_relaxed(
+				(TSENS_EEPROM_9640V2(tmdev->tsens_calib_addr)
+									+ 0x4));
 
-		tsens_calibration_mode =
-			(calib_data[1] & TSENS_9640_CAL_SEL) >>
-				TSENS_9640_CAL_SEL_SHIFT;
-		pr_debug("calib mode is %d\n", tsens_calibration_mode);
+			tsens_calibration_mode =
+				(calib_data[1] & TSENS_9640_CAL_SEL) >>
+					TSENS_9640_CAL_SEL_SHIFT;
+			pr_debug("calib mode is %d\n", tsens_calibration_mode);
+		} else {
+			calib_data[0] = readl_relaxed(
+				TSENS_EEPROM(tmdev->tsens_calib_addr));
+			calib_data[1] = readl_relaxed(
+				(TSENS_EEPROM(tmdev->tsens_calib_addr) + 0x4));
+
+			tsens_calibration_mode =
+				(calib_data[1] & TSENS_9640_CAL_SEL) >>
+					TSENS_9640_CAL_SEL_SHIFT;
+			pr_debug("calib mode is %d\n", tsens_calibration_mode);
+		}
 	}
 
 	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
@@ -3945,52 +4027,6 @@ static int tsens_calib_sensors(void)
 
 	return rc;
 }
-
-static struct of_device_id tsens_match[] = {
-	{	.compatible = "qcom,msm-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_8974,
-	},
-	{	.compatible = "qcom,msm8x26-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_8X26,
-	},
-	{	.compatible = "qcom,msm8x10-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_8X10,
-	},
-	{	.compatible = "qcom,fsm9900-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_9900,
-	},
-	{	.compatible = "qcom,fsm9010-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_9010,
-	},
-	{	.compatible = "qcom,mdm9630-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_9630,
-	},
-	{	.compatible = "qcom,msm8916-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_8916,
-	},
-	{	.compatible = "qcom,msm8939-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_8939,
-	},
-	{	.compatible = "qcom,msm8994-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_8994,
-	},
-	{	.compatible = "qcom,msm8909-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8909,
-	},
-	{	.compatible = "qcom,mdm9640-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_MDM9640,
-	},
-	{	.compatible = "qcom,msm8992-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_8992,
-	},
-	{       .compatible = "qcom,msm8952-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_MSM8952,
-	},
-	{	.compatible = "qcom,msm8976-tsens",
-		.data = (void *)TSENS_CALIB_FUSE_MAP_GENERIC_A,
-	},
-	{}
-};
 
 int get_calibraion_data(struct platform_device *pdev)
 {
@@ -4229,7 +4265,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 	if (!strcmp(id->compatible, "qcom,mdm9630-tsens") ||
 		(!strcmp(id->compatible, "qcom,mdm9640-tsens")) ||
 		(!strcmp(id->compatible, "qcom,msm8994-tsens")) ||
-		(!strcmp(id->compatible, "qcom,msm8992-tsens")))
+		(!strcmp(id->compatible, "qcom,msm8992-tsens")) ||
+		(!strcmp(id->compatible, "qcom,mdm9640v2-tsens")))
 		tmdev->tsens_type = TSENS_TYPE2;
 	else if (!strcmp(id->compatible, "qcom,msm8952-tsens") ||
 		(!strcmp(id->compatible, "qcom,msm8976-tsens")))
@@ -4239,7 +4276,8 @@ static int get_device_tree_data(struct platform_device *pdev)
 
 	if (!strcmp(id->compatible, "qcom,msm8994-tsens") ||
 		(!strcmp(id->compatible, "qcom,msm8992-tsens")) ||
-		(!strcmp(id->compatible, "qcom,mdm9640-tsens")))
+		(!strcmp(id->compatible, "qcom,mdm9640-tsens")) ||
+		(!strcmp(id->compatible, "qcom,mdm9640v2-tsens")))
 		tmdev->tsens_valid_status_check = true;
 	else
 		tmdev->tsens_valid_status_check = false;
