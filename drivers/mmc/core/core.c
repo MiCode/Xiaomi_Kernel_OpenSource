@@ -663,7 +663,8 @@ void mmc_reset_clk_scale_stats(struct mmc_host *host)
 		WARN_ON(1);
 		return;
 	}
-
+	if (!host->clk_scaling.enable)
+		return;
 	spin_lock_irqsave(&host->clk_scaling.lock, flags);
 	host->clk_scaling.total_busy_time_us = 0;
 	spin_unlock_irqrestore(&host->clk_scaling.lock, flags);
