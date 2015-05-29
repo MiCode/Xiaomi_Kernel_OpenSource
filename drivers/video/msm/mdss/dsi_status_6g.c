@@ -121,7 +121,7 @@ void mdss_check_dsi_ctrl_status(struct work_struct *work, uint32_t interval)
 	}
 
 	if (!pdata->panel_info.esd_rdy) {
-		pr_warn("%s: unblank not complete, reschedule check status\n",
+		pr_debug("%s: unblank not complete, reschedule check status\n",
 			__func__);
 		schedule_delayed_work(&pstatus_data->check_status,
 				msecs_to_jiffies(interval));
