@@ -24,6 +24,7 @@
 #include <linux/msm_ep_pcie.h>
 
 #define PCIE20_PARF_SYS_CTRL           0x00
+#define PCIE20_PARF_DB_CTRL            0x10
 #define PCIE20_PARF_PM_CTRL            0x20
 #define PCIE20_PARF_PM_STTS            0x24
 #define PCIE20_PARF_PHY_CTRL           0x40

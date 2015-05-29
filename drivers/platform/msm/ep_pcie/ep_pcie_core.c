@@ -489,6 +489,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	/* Disable the DBI Wakeup */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, BIT(11), 0);
 
+	/* Disable the debouncers */
+	ep_pcie_write_reg(dev->parf, PCIE20_PARF_DB_CTRL, 0x73);
+
 	/* Disable core clock CGC */
 	ep_pcie_write_mask(dev->parf + PCIE20_PARF_SYS_CTRL, 0, BIT(6));
 
