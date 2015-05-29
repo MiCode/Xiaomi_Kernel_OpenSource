@@ -86,20 +86,20 @@
 #define PCIE20_PLR_IATU_LTAR           0x918
 #define PCIE20_PLR_IATU_UTAR           0x91c
 
-#define PERST_TIMEOUT_US_MIN	              5000
-#define PERST_TIMEOUT_US_MAX	              5100
-#define PERST_CHECK_MAX_COUNT		      2000
-#define LINK_UP_TIMEOUT_US_MIN	              5000
-#define LINK_UP_TIMEOUT_US_MAX	              5100
-#define LINK_UP_CHECK_MAX_COUNT		      2000
-#define BME_TIMEOUT_US_MIN	              5000
-#define BME_TIMEOUT_US_MAX	              5100
-#define BME_CHECK_MAX_COUNT		      6000
-#define PHY_STABILIZATION_DELAY_US_MIN	      995
-#define PHY_STABILIZATION_DELAY_US_MAX	      1005
-#define REFCLK_STABILIZATION_DELAY_US_MIN     995
-#define REFCLK_STABILIZATION_DELAY_US_MAX     1005
-#define PHY_READY_TIMEOUT_COUNT               10000
+#define PERST_TIMEOUT_US_MIN	              1000
+#define PERST_TIMEOUT_US_MAX	              1000
+#define PERST_CHECK_MAX_COUNT		      30000
+#define LINK_UP_TIMEOUT_US_MIN	              1000
+#define LINK_UP_TIMEOUT_US_MAX	              1000
+#define LINK_UP_CHECK_MAX_COUNT		      30000
+#define BME_TIMEOUT_US_MIN	              1000
+#define BME_TIMEOUT_US_MAX	              1000
+#define BME_CHECK_MAX_COUNT		      30000
+#define PHY_STABILIZATION_DELAY_US_MIN	      1000
+#define PHY_STABILIZATION_DELAY_US_MAX	      1000
+#define REFCLK_STABILIZATION_DELAY_US_MIN     1000
+#define REFCLK_STABILIZATION_DELAY_US_MAX     1000
+#define PHY_READY_TIMEOUT_COUNT               30000
 #define XMLH_LINK_UP                          0x400
 
 #define MAX_PROP_SIZE 32
