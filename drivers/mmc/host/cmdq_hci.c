@@ -588,6 +588,9 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 
 	mrq = get_req_by_tag(cq_host, tag);
+	if (tag == cq_host->dcmd_slot)
+		mrq->cmd->resp[0] = cmdq_readl(cq_host, CQCRDCT);
+
 	mrq->done(mrq);
 }
 
