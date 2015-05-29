@@ -536,8 +536,8 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 	ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
 		PCIE20_MASK_L0S_EXIT_LATENCY, 0x6);
 
-	/* L1ss is not supported */
-	ep_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CAPABILITY, 0x1f, 0);
+	/* L1ss is supported */
+	ep_pcie_write_mask(dev->dm_core + PCIE20_L1SUB_CAPABILITY, 0, 0x1f);
 
 	/* Enable Clock Power Management */
 	ep_pcie_write_reg_field(dev->dm_core, PCIE20_LINK_CAPABILITIES,
