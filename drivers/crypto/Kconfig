@@ -312,6 +312,19 @@ config FIPS_ENABLE
           which will perform this task. Please select Y here
           to enable.
 
+config FIPS_RECOMPILE
+	bool "Recompile FIPS140-2 certified binaries"
+	default n
+	depends on FIPS_ENABLE
+	help
+	  This flag is to make current build recompile FIPS140-2
+          certified crypto binary from source. Please select Y here to
+          enable. In default value n, the compiler will use
+          pre-compiled binaries. Note that select Y may invalidate
+          existing FIPS140-2 certification but the recompiled crypto
+          library remains FIPS certifable. The flag is only
+          effective when flag FIPS_ENABLE is enabled.
+
 config CRYPTO_DEV_QCRYPTO
 	tristate "Qualcomm Crypto accelerator"
 	select CRYPTO_DES
