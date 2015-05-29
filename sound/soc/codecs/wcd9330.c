@@ -526,6 +526,7 @@ struct tomtom_priv {
 	s32 dmic_5_6_clk_cnt;
 	s32 ldo_h_users;
 	s32 micb_2_users;
+	s32 micb_3_users;
 
 	u32 anc_slot;
 	bool anc_func;
@@ -3526,6 +3527,11 @@ static int tomtom_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			}
 			pr_debug("%s: micb_2_users %d\n", __func__,
 				 tomtom->micb_2_users);
+		} else if (micb_ctl_reg == TOMTOM_A_MICB_3_CTL) {
+			if (++tomtom->micb_3_users == 1)
+				snd_soc_update_bits(codec, micb_ctl_reg,
+						    1 << w->shift,
+						    1 << w->shift);
 		} else {
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    1 << w->shift);
@@ -3555,6 +3561,15 @@ static int tomtom_codec_enable_micbias(struct snd_soc_dapm_widget *w,
 			WARN(tomtom->micb_2_users < 0,
 			     "Unexpected micbias users %d\n",
 			     tomtom->micb_2_users);
+		} else if (micb_ctl_reg == TOMTOM_A_MICB_3_CTL) {
+			if (--tomtom->micb_3_users == 0)
+				snd_soc_update_bits(codec, micb_ctl_reg,
+						    1 << w->shift, 0);
+			pr_debug("%s: micb_3_users %d\n", __func__,
+				 tomtom->micb_3_users);
+			WARN(tomtom->micb_3_users < 0,
+			     "Unexpected micbias-3 users %d\n",
+			     tomtom->micb_3_users);
 		} else {
 			snd_soc_update_bits(codec, micb_ctl_reg, 1 << w->shift,
 					    0);
@@ -8746,6 +8761,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	tomtom->aux_r_gain = 0x1F;
 	tomtom->ldo_h_users = 0;
 	tomtom->micb_2_users = 0;
+	tomtom->micb_3_users = 0;
 	tomtom_update_reg_defaults(codec);
 	pr_debug("%s: MCLK Rate = %x\n", __func__, wcd9xxx->mclk_rate);
 	if (wcd9xxx->mclk_rate == TOMTOM_MCLK_CLK_12P288MHZ)
