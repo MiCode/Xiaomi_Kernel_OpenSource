@@ -31,6 +31,7 @@
 #include <linux/uaccess.h>
 #include <linux/cpu_pm.h>
 #include <linux/debugfs.h>
+#include <linux/of.h>
 
 #include <asm/cputype.h>
 #include <asm/irq.h>
@@ -1627,13 +1628,27 @@ static struct notifier_block perf_cpu_pm_notifier_block = {
  */
 static const struct of_device_id armpmu_of_device_ids[] = {
 	{.compatible = "arm,armv8-pmuv3"},
+	{.compatible = "qcom,kryo-pmuv3", .data = kryo_pmu_init},
 	{},
 };
 
 static int armpmu_device_probe(struct platform_device *pdev)
 {
+	struct device_node *node = pdev->dev.of_node;
+	const struct of_device_id *of_id;
+	int (*init_fn)(struct arm_pmu *);
+
 	if (!cpu_pmu)
 		return -ENODEV;
+
+	if (node) {
+		of_id = of_match_node(armpmu_of_device_ids, node);
+		if (of_id) {
+			init_fn = of_id->data;
+			if (init_fn)
+				init_fn(cpu_pmu);
+		}
+	}
 
 	cpu_pmu->plat_device = pdev;
 	cpu_pmu->percpu_irq = platform_get_irq(cpu_pmu->plat_device, 0);
