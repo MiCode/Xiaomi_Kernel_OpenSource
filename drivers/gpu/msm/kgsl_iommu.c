@@ -1107,70 +1107,6 @@ kgsl_iommu_unmap(struct kgsl_pagetable *pt,
 	return ret;
 }
 
-/*
- * _create_sg_no_large_pages - Create a sg list from a given sg list w/o
- * greater that 64K pages
- * @memdesc - The memory descriptor containing the sg
- * @nents - [output] the number of entries in the new scatterlist
- *
- * Returns the new sg list else error pointer on failure
- */
-struct scatterlist *_create_sg_no_large_pages(struct kgsl_memdesc *memdesc,
-					int *nents)
-{
-	struct page *page;
-	struct scatterlist *s, *s_temp, *sg_temp;
-	unsigned int sglen_alloc = 0, offset, i, len;
-	uint64_t gpuaddr = memdesc->gpuaddr;
-
-	for_each_sg(memdesc->sgt->sgl, s, memdesc->sgt->nents, i) {
-		/*
-		 * We need to unchunk any fully aligned 1M chunks
-		 * to trick the iommu driver into not using 1M
-		 * PTEs
-		 */
-		if (SZ_1M <= s->length
-			&& IS_ALIGNED(gpuaddr, SZ_1M)
-			&& IS_ALIGNED(sg_phys(s), SZ_1M))
-			sglen_alloc += ALIGN(s->length, SZ_64K)/SZ_64K;
-		else
-			sglen_alloc++;
-		gpuaddr += s->length;
-	}
-	/* No large pages were detected */
-	if (sglen_alloc == memdesc->sgt->nents)
-		return NULL;
-
-	sg_temp = kgsl_malloc(sglen_alloc * sizeof(struct scatterlist));
-	if (NULL == sg_temp)
-		return ERR_PTR(-ENOMEM);
-
-	sg_init_table(sg_temp, sglen_alloc);
-	s_temp = sg_temp;
-
-	gpuaddr = memdesc->gpuaddr;
-	for_each_sg(memdesc->sgt->sgl, s, memdesc->sgt->nents, i) {
-		page = sg_page(s);
-		if (SZ_1M <= s->length
-			&& IS_ALIGNED(gpuaddr, SZ_1M)
-			&& IS_ALIGNED(sg_phys(s), SZ_1M)) {
-			for (offset = 0; offset < s->length; s_temp++) {
-				/* the last chunk might be smaller than 64K */
-				len = min_t(unsigned int, SZ_64K,
-					s->length - offset);
-				sg_set_page(s_temp, page, len, offset);
-				offset += len;
-			}
-		} else {
-			sg_set_page(s_temp, page, s->length, 0);
-			s_temp++;
-		}
-		gpuaddr += s->length;
-	}
-	*nents = sglen_alloc;
-	return sg_temp;
-}
-
 /**
  * _iommu_add_guard_page - Add iommu guard page
  * @pt - Pointer to kgsl pagetable structure
@@ -1269,22 +1205,9 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 			kgsl_active_count_put(device);
 		}
 		mutex_unlock(&device->mutex);
-	} else {
-		struct scatterlist *sg_temp = NULL;
-		int sg_temp_nents;
-
-		sg_temp = _create_sg_no_large_pages(memdesc, &sg_temp_nents);
-
-		if (IS_ERR(sg_temp))
-			return PTR_ERR(sg_temp);
-
+	} else
 		mapped = iommu_map_sg(iommu_pt->domain, addr,
-				sg_temp ? sg_temp : memdesc->sgt->sgl,
-				sg_temp ? sg_temp_nents : memdesc->sgt->nents,
-				flags);
-
-		kgsl_free(sg_temp);
-	}
+				memdesc->sgt->sgl, memdesc->sgt->nents, flags);
 
 	if (mapped != size) {
 		KGSL_CORE_ERR("iommu_map_sg(%p, %016llX, %lld, %x) err: %zd\n",
