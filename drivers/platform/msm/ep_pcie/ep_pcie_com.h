@@ -53,6 +53,7 @@
 #define PCIE20_CLASS_CODE_REVISION_ID  0x08
 #define PCIE20_BIST_HDR_TYPE           0x0C
 #define PCIE20_BAR0                    0x10
+#define PCIE20_SUBSYSTEM               0x2c
 #define PCIE20_CAP_ID_NXT_PTR          0x40
 #define PCIE20_CON_STATUS              0x44
 #define PCIE20_MSI_CAP_ID_NEXT_CTRL    0x50
