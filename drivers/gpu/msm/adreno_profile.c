@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -306,7 +306,7 @@ static bool _add_to_assignments_list(struct adreno_profile *profile,
 
 static void check_close_profile(struct adreno_profile *profile)
 {
-	if (profile->log_buffer == NULL)
+	if (profile == NULL || profile->log_buffer == NULL)
 		return;
 
 	if (!adreno_profile_enabled(profile) && shared_buf_empty(profile)) {
