@@ -1703,7 +1703,7 @@ int ep_pcie_core_config_db_routing(struct ep_pcie_db_config chdb_cfg,
 	return 0;
 }
 
-static struct ep_pcie_hw hw_drv = {
+struct ep_pcie_hw hw_drv = {
 	.register_event	= ep_pcie_core_register_event,
 	.deregister_event = ep_pcie_core_deregister_event,
 	.get_linkstatus = ep_pcie_core_get_linkstatus,
