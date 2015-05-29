@@ -24,6 +24,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
 #include <linux/of_platform.h>
+#include <linux/msm_dma_iommu_mapping.h>
 
 #include <asm/dma-iommu.h>
 #include "soc/qcom/secure_buffer.h"
@@ -260,7 +261,8 @@ static int mdss_smmu_map_dma_buf_v2(struct dma_buf *dma_buf,
 		return -EINVAL;
 	}
 	ATRACE_BEGIN("map_buffer");
-	rc = dma_map_sg(mdss_smmu->dev, table->sgl, table->nents, dir);
+	rc = msm_dma_map_sg_lazy(mdss_smmu->dev, table->sgl, table->nents, dir,
+		dma_buf);
 	if (!rc) {
 		pr_err("dma map sg failed\n");
 		return -ENOMEM;
@@ -272,7 +274,7 @@ static int mdss_smmu_map_dma_buf_v2(struct dma_buf *dma_buf,
 }
 
 static void mdss_smmu_unmap_dma_buf_v2(struct sg_table *table, int domain,
-		int dir)
+		int dir, struct dma_buf *dma_buf)
 {
 	struct mdss_smmu_client *mdss_smmu = mdss_smmu_get_cb(domain);
 	if (!mdss_smmu) {
@@ -281,7 +283,8 @@ static void mdss_smmu_unmap_dma_buf_v2(struct sg_table *table, int domain,
 	}
 
 	ATRACE_BEGIN("unmap_buffer");
-	dma_unmap_sg(mdss_smmu->dev, table->sgl, table->nents, dir);
+	msm_dma_unmap_sg(mdss_smmu->dev, table->sgl, table->nents, dir,
+		 dma_buf);
 	ATRACE_END("unmap_buffer");
 }
 

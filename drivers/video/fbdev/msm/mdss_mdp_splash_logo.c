@@ -104,7 +104,7 @@ static int mdss_mdp_splash_alloc_memory(struct msm_fb_data_type *mfd,
 	return rc;
 kmap_err:
 	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE,
-			DMA_BIDIRECTIONAL);
+			DMA_BIDIRECTIONAL, sinfo->dma_buf);
 err_unmap:
 	dma_buf_unmap_attachment(sinfo->attachment, sinfo->table,
 			DMA_BIDIRECTIONAL);
@@ -135,7 +135,8 @@ static void mdss_mdp_splash_free_memory(struct msm_fb_data_type *mfd)
 	dma_buf_end_cpu_access(sinfo->dma_buf, 0, sinfo->size, DMA_FROM_DEVICE);
 	dma_buf_kunmap(sinfo->dma_buf, 0, sinfo->splash_buffer);
 
-	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE, 0);
+	mdss_smmu_unmap_dma_buf(sinfo->table, MDSS_IOMMU_DOMAIN_UNSECURE, 0,
+				sinfo->dma_buf);
 	dma_buf_unmap_attachment(sinfo->attachment, sinfo->table,
 			DMA_BIDIRECTIONAL);
 	dma_buf_detach(sinfo->dma_buf, sinfo->attachment);

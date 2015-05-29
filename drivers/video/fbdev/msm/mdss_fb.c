@@ -1670,7 +1670,7 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
 		mdss_smmu_unmap_dma_buf(mfd->fb_table,
 				mfd->mdp.fb_mem_get_iommu_domain(),
-				DMA_BIDIRECTIONAL);
+				DMA_BIDIRECTIONAL, mfd->fbmem_buf);
 		dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
 				DMA_BIDIRECTIONAL);
 		dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
