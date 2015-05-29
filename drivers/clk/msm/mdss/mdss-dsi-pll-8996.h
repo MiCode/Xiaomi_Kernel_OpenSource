@@ -52,6 +52,13 @@
 #define DSIPHY_PLL_PLLLOCK_CMP_EN	0x0488
 
 #define DSIPHY_PLL_DEC_START		0x0490
+#define DSIPHY_PLL_SSC_EN_CENTER	0x0494
+#define DSIPHY_PLL_SSC_ADJ_PER1		0x0498
+#define DSIPHY_PLL_SSC_ADJ_PER2		0x049c
+#define DSIPHY_PLL_SSC_PER1		0x04a0
+#define DSIPHY_PLL_SSC_PER2		0x04a4
+#define DSIPHY_PLL_SSC_STEP_SIZE1	0x04a8
+#define DSIPHY_PLL_SSC_STEP_SIZE2	0x04ac
 #define DSIPHY_PLL_DIV_FRAC_START1	0x04b4
 #define DSIPHY_PLL_DIV_FRAC_START2	0x04b8
 #define DSIPHY_PLL_DIV_FRAC_START3	0x04bc
@@ -85,8 +92,8 @@ struct dsi_pll_input {
 	u32 pll_wakeup_timer;	/* 5, reg: 0x043c, bit 0 - 2 */
 	u32 plllock_cnt;	/* 1, reg: 0x0488, bit 1 - 2 */
 	u32 plllock_rng;	/* 1, reg: 0x0488, bit 3 - 4 */
-	u32 ssc_center_spread;	/* 0, reg: 0x0494, bit 1 */
-	u32 ssc_adj_per;	/* 37, reg: 0x498, bit 0 - 9 */
+	u32 ssc_center;		/* 0, reg: 0x0494, bit 1 */
+	u32 ssc_adj_period;	/* 37, reg: 0x498, bit 0 - 9 */
 	u32 ssc_spread;		/* 0.005  */
 	u32 ssc_freq;		/* unknown */
 	u32 pll_ie_trim;	/* 4, reg: 0x0400 */
@@ -115,7 +122,7 @@ struct dsi_pll_output {
 	u32 pll_txclk_en;	/* reg: 0x04c0 */
 	u32 dec_start;		/* reg: 0x0490 */
 	u32 div_frac_start;	/* reg: 0x04b4, 0x4b8, 0x04bc */
-	u32 ssc_per;		/* reg: 0x04a0, 0x04a4 */
+	u32 ssc_period;		/* reg: 0x04a0, 0x04a4 */
 	u32 ssc_step_size;	/* reg: 0x04a8, 0x04ac */
 	u32 plllock_cmp;	/* reg: 0x047c, 0x0480, 0x0484 */
 	u32 pll_vco_div_ref;	/* reg: 0x046c, 0x0470 */

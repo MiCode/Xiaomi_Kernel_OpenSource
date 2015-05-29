@@ -124,6 +124,9 @@ struct mdss_pll_resources {
 	 */
 	uint32_t index;
 
+	bool ssc_en;	/* share pll with master */
+	bool ssc_center;	/* default is down spread */
+
 	struct mdss_pll_resources *slave;
 
 	/*
