@@ -439,15 +439,17 @@ static void ep_pcie_bar_init(struct ep_pcie_dev_t *dev)
 	/* Configure BAR mask via CS2 */
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, 0, BIT(0));
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, mask);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x4, 0);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, mask);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, mask);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0xc, 0);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, 0);
+	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x14, 0);
 	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_CS2_ENABLE, BIT(0), 0);
 
 	/* Configure BAR properties via CS */
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, 0, BIT(0));
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0, properties);
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x8, properties);
-	ep_pcie_write_reg(dev->dm_core, PCIE20_BAR0 + 0x10, properties);
 	ep_pcie_write_mask(dev->dm_core + PCIE20_MISC_CONTROL_1, BIT(0), 0);
 }
 
@@ -507,6 +509,9 @@ static void ep_pcie_core_init(struct ep_pcie_dev_t *dev)
 
 	/* Set header type */
 	ep_pcie_write_reg(dev->dm_core, PCIE20_BIST_HDR_TYPE, 0x10);
+
+	/* Set Subsystem ID and Subsystem Vendor ID */
+	ep_pcie_write_reg(dev->dm_core, PCIE20_SUBSYSTEM, 0xa01f17cb);
 
 	/* Set the PMC Register - to support PME in D0, D3hot and D3cold */
 	ep_pcie_write_mask(dev->dm_core + PCIE20_CAP_ID_NXT_PTR, 0,
