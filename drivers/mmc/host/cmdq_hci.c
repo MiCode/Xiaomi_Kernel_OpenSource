@@ -164,6 +164,8 @@ static void cmdq_dumpregs(struct cmdq_host *cq_host)
 	pr_err(DRV_NAME ": Resp idx 0x%08x	  | Resp arg:  0x%08x\n",
 		cmdq_readl(cq_host, CQCRI),
 		cmdq_readl(cq_host, CQCRA));
+	pr_err(DRV_NAME": Vendor cfg 0x%08x\n",
+	       cmdq_readl(cq_host, CQ_VENDOR_CFG));
 	pr_err(DRV_NAME ": ===========================================\n");
 
 	cmdq_dump_debug_ram(cq_host);
@@ -604,6 +606,9 @@ static void cmdq_finish_data(struct mmc_host *mmc, unsigned int tag)
 	if (tag == cq_host->dcmd_slot)
 		mrq->cmd->resp[0] = cmdq_readl(cq_host, CQCRDCT);
 
+	if (mrq->cmdq_req->cmdq_req_flags & DCMD)
+		cmdq_writel(cq_host, cmdq_readl(cq_host, CQ_VENDOR_CFG) |
+			    CMDQ_SEND_STATUS_TRIGGER, CQCTL);
 	mrq->done(mrq);
 }
 
