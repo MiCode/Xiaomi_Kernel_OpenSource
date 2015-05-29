@@ -567,6 +567,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 	/* one slot is reserved for dcmd requests */
 	int q_depth = card->ext_csd.cmdq_depth - 1;
 
+	card->cmdq_init = false;
 	if (!(card->host->caps2 & MMC_CAP2_CMD_QUEUE)) {
 		ret = -ENOTSUPP;
 		goto out;
@@ -600,6 +601,7 @@ int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
 	}
 
 	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
+	card->cmdq_init = true;
 	goto out;
 
 free_mqrq_sg:
