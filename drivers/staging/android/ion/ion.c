@@ -38,6 +38,7 @@
 #include <linux/dma-buf.h>
 #include <linux/idr.h>
 #include <linux/msm_ion.h>
+#include <linux/msm_dma_iommu_mapping.h>
 #include <trace/events/kmem.h>
 
 
@@ -309,7 +310,11 @@ static void ion_buffer_get(struct ion_buffer *buffer)
 
 static int ion_buffer_put(struct ion_buffer *buffer)
 {
-	return kref_put(&buffer->ref, _ion_buffer_destroy);
+	int ret = kref_put(&buffer->ref, _ion_buffer_destroy);
+
+	if (ret)
+		msm_dma_buf_freed(buffer);
+	return ret;
 }
 
 static void ion_buffer_add_to_handle(struct ion_buffer *buffer)
