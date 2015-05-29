@@ -222,6 +222,16 @@ static int mdss_pll_probe(struct platform_device *pdev)
 		pll_res->index = 0;
 	}
 
+	pll_res->ssc_en = of_property_read_bool(pdev->dev.of_node,
+						"qcom,dsi-pll-ssc-en");
+
+	pll_res->ssc_center = false;
+
+	label = of_get_property(pdev->dev.of_node,
+				"qcom,dsi-pll-ssc-mode", NULL);
+	if (label && !strcmp(label, "center-spread"))
+		pll_res->ssc_center = true;
+
 	pll_base_reg = platform_get_resource_byname(pdev,
 						IORESOURCE_MEM, "pll_base");
 	if (!pll_base_reg) {
