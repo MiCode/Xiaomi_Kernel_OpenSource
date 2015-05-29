@@ -239,7 +239,7 @@ static inline u32 armv8pmu_pmcr_read(void)
 	return val;
 }
 
-static inline void armv8pmu_pmcr_write(u32 val)
+inline void armv8pmu_pmcr_write(u32 val)
 {
 	val &= ARMV8_PMCR_MASK;
 	isb();
@@ -304,7 +304,7 @@ static inline void armv8pmu_write_counter(struct perf_event *event, u32 value)
 		asm volatile("msr pmxevcntr_el0, %0" :: "r" (value));
 }
 
-static inline void armv8pmu_write_evtype(int idx, u32 val)
+inline void armv8pmu_write_evtype(int idx, u32 val)
 {
 	if (armv8pmu_select_counter(idx) == idx) {
 		val &= ARMV8_EVTYPE_MASK;
@@ -312,28 +312,28 @@ static inline void armv8pmu_write_evtype(int idx, u32 val)
 	}
 }
 
-static inline int armv8pmu_enable_counter(int idx)
+inline int armv8pmu_enable_counter(int idx)
 {
 	u32 counter = ARMV8_IDX_TO_COUNTER(idx);
 	asm volatile("msr pmcntenset_el0, %0" :: "r" (BIT(counter)));
 	return idx;
 }
 
-static inline int armv8pmu_disable_counter(int idx)
+inline int armv8pmu_disable_counter(int idx)
 {
 	u32 counter = ARMV8_IDX_TO_COUNTER(idx);
 	asm volatile("msr pmcntenclr_el0, %0" :: "r" (BIT(counter)));
 	return idx;
 }
 
-static inline int armv8pmu_enable_intens(int idx)
+inline int armv8pmu_enable_intens(int idx)
 {
 	u32 counter = ARMV8_IDX_TO_COUNTER(idx);
 	asm volatile("msr pmintenset_el1, %0" :: "r" (BIT(counter)));
 	return idx;
 }
 
-static inline int armv8pmu_disable_intens(int idx)
+inline int armv8pmu_disable_intens(int idx)
 {
 	u32 counter = ARMV8_IDX_TO_COUNTER(idx);
 	asm volatile("msr pmintenclr_el1, %0" :: "r" (BIT(counter)));
@@ -345,7 +345,7 @@ static inline int armv8pmu_disable_intens(int idx)
 	return idx;
 }
 
-static inline u32 armv8pmu_getreset_flags(void)
+inline u32 armv8pmu_getreset_flags(void)
 {
 	u32 value;
 

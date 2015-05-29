@@ -149,6 +149,16 @@ int arm_pmu_device_probe(struct platform_device *pdev,
 			 const struct of_device_id *of_table,
 			 const struct pmu_probe_info *probe_table);
 
+int armv8pmu_enable_intens(int idx);
+int armv8pmu_disable_intens(int idx);
+int armv8pmu_enable_counter(int idx);
+int armv8pmu_disable_counter(int idx);
+u32 armv8pmu_getreset_flags(void);
+void armv8pmu_pmcr_write(u32 val);
+void armv8pmu_write_evtype(int idx, u32 val);
+
+int kryo_pmu_init(struct arm_pmu *cpu_pmu);
+
 #endif /* CONFIG_ARM_PMU */
 
 #endif /* __ARM_PMU_H__ */
