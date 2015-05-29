@@ -19,6 +19,15 @@
 #define MAX_BUFFER_TYPES 32
 #define IDLE_TIME_WINDOW_SIZE 30
 
+struct clock_voltage_table {
+	u32 clock_freq;
+	u32 voltage_idx;
+};
+
+struct clock_voltage_info {
+	struct clock_voltage_table *cv_table;
+	u32 count;
+};
 
 struct load_freq_table {
 	u32 load;
@@ -126,6 +135,7 @@ struct msm_vidc_platform_resources {
 	struct platform_device *pdev;
 	struct regulator_set regulator_set;
 	struct clock_set clock_set;
+	struct clock_voltage_info cv_info;
 	struct bus_set bus_set;
 	bool dynamic_bw_update;
 	bool use_non_secure_pil;

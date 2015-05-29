@@ -17,6 +17,7 @@ Optional properties:
 - qcom,load-freq-tbl : load (in macroblocks/sec) and corresponding vcodec
   clock required along with codec's config (same as qcom,bus-configs mentioned below)
   for optimal performance in descending order.
+- qcom,clock-voltage-tbl : clock and corresponding cx voltage index.
 - qcom,reg-presets : list of offset-value pairs for registers to be written.
   The offsets are from the base offset specified in 'reg'. This is mainly
   used for QoS, VBIF, etc. presets for video.
