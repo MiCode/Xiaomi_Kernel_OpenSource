@@ -29,6 +29,7 @@
 #include <sound/apr_audio-v2.h>
 #include "q6voice.h"
 #include "msm-pcm-routing-v2.h"
+#include <sound/adsp_err.h>
 
 
 /* Max size of payload (buf size - apr header) */
@@ -695,7 +696,7 @@ bool rtac_make_adm_callback(uint32_t *payload, u32 payload_size)
 	return true;
 }
 
-u32 send_adm_apr(void *buf, u32 opcode)
+int send_adm_apr(void *buf, u32 opcode)
 {
 	s32	result;
 	u32	user_buf_size = 0;
@@ -758,6 +759,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 	mutex_lock(&rtac_adm_apr_mutex);
 	if (rtac_adm_apr_data.apr_handle == NULL) {
 		pr_err("%s: APR not initialized\n", __func__);
+		result = -EINVAL;
 		goto err;
 	}
 
@@ -768,6 +770,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		if (data_size > rtac_cal[ADM_RTAC_CAL].map_data.map_size) {
 			pr_err("%s: Invalid data size = %d\n",
 				__func__, data_size);
+			result = -EINVAL;
 			goto err;
 		}
 		payload_size = 4 * sizeof(u32);
@@ -778,6 +781,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 				buf + 7 * sizeof(u32), data_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 		/* set payload size in packet */
@@ -786,6 +790,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		if (payload_size > MAX_PAYLOAD_SIZE) {
 			pr_err("%s: Invalid payload size = %d\n",
 				__func__, payload_size);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -795,6 +800,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 				buf + 3 * sizeof(u32), payload_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 	}
@@ -843,9 +849,13 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		goto err;
 	}
 	if (atomic_read(&rtac_common.apr_err_code)) {
-		pr_err("%s: DSP returned error code = %d, opcode = 0x%x\n",
-			__func__, atomic_read(&rtac_common.apr_err_code),
+		pr_err("%s: DSP returned error code = [%s], opcode = 0x%x\n",
+			__func__, adsp_err_get_err_str(atomic_read(
+			&rtac_common.apr_err_code)),
 			opcode);
+		result = adsp_err_get_lnx_err_code(
+					atomic_read(
+					&rtac_common.apr_err_code));
 		goto err;
 	}
 
@@ -856,6 +866,7 @@ u32 send_adm_apr(void *buf, u32 opcode)
 		if (bytes_returned > user_buf_size) {
 			pr_err("%s: User buf not big enough, size = 0x%x, returned size = 0x%x\n",
 				__func__, user_buf_size, bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -864,15 +875,18 @@ u32 send_adm_apr(void *buf, u32 opcode)
 				bytes_returned)) {
 			pr_err("%s: Could not copy buffer to user,size = %d\n",
 				__func__, bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 	} else {
 		bytes_returned = data_size;
 	}
-err:
 	mutex_unlock(&rtac_adm_apr_mutex);
 done:
 	return bytes_returned;
+err:
+	mutex_unlock(&rtac_adm_apr_mutex);
+	return result;
 }
 
 
@@ -903,7 +917,7 @@ bool rtac_make_asm_callback(u32 session_id, uint32_t *payload,
 	return true;
 }
 
-u32 send_rtac_asm_apr(void *buf, u32 opcode)
+int send_rtac_asm_apr(void *buf, u32 opcode)
 {
 	s32	result;
 	u32	user_buf_size = 0;
@@ -963,6 +977,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 	mutex_lock(&rtac_asm_apr_mutex);
 	if (rtac_asm_apr_data[session_id].apr_handle == NULL) {
 		pr_err("%s: APR not initialized\n", __func__);
+		result = -EINVAL;
 		goto err;
 	}
 
@@ -973,6 +988,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 		if (data_size > rtac_cal[ASM_RTAC_CAL].map_data.map_size) {
 			pr_err("%s: Invalid data size = %d\n",
 				__func__, data_size);
+			result = -EINVAL;
 			goto err;
 		}
 		payload_size = 4 * sizeof(u32);
@@ -983,6 +999,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 				buf + 7 * sizeof(u32), data_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 		/* set payload size in packet */
@@ -992,6 +1009,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 		if (payload_size > MAX_PAYLOAD_SIZE) {
 			pr_err("%s: Invalid payload size = %d\n",
 				__func__, payload_size);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1001,6 +1019,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 				buf + 3 * sizeof(u32), payload_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 	}
@@ -1051,9 +1070,13 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 		goto err;
 	}
 	if (atomic_read(&rtac_common.apr_err_code)) {
-		pr_err("%s: DSP returned error code = %d, opcode = 0x%x\n",
-			__func__, atomic_read(&rtac_common.apr_err_code),
+		pr_err("%s: DSP returned error code = [%s], opcode = 0x%x\n",
+			__func__, adsp_err_get_err_str(atomic_read(
+			&rtac_common.apr_err_code)),
 			opcode);
+		result = adsp_err_get_lnx_err_code(
+					atomic_read(
+					&rtac_common.apr_err_code));
 		goto err;
 	}
 
@@ -1064,6 +1087,7 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 		if (bytes_returned > user_buf_size) {
 			pr_err("%s: User buf not big enough, size = 0x%x, returned size = 0x%x\n",
 				__func__, user_buf_size, bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1072,15 +1096,18 @@ u32 send_rtac_asm_apr(void *buf, u32 opcode)
 				bytes_returned)) {
 			pr_err("%s: Could not copy buffer to user,size = %d\n",
 				 __func__, bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 	} else {
 		bytes_returned = data_size;
 	}
-err:
 	mutex_unlock(&rtac_asm_apr_mutex);
 done:
 	return bytes_returned;
+err:
+	mutex_unlock(&rtac_asm_apr_mutex);
+	return result;
 }
 
 /* AFE APR */
@@ -1131,7 +1158,7 @@ static int fill_afe_apr_hdr(struct apr_hdr *apr_hdr, uint32_t port,
 	return 0;
 
 }
-static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
+static int send_rtac_afe_apr(void *buf, uint32_t opcode)
 {
 	int32_t result;
 	uint32_t bytes_returned = 0;
@@ -1182,6 +1209,7 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 	mutex_lock(&rtac_afe_apr_mutex);
 	if (rtac_afe_apr_data.apr_handle == NULL) {
 		pr_err("%s: APR not initialized\n", __func__);
+		result = -EINVAL;
 		goto err;
 	}
 	if (opcode == AFE_PORT_CMD_SET_PARAM_V2) {
@@ -1193,6 +1221,7 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 			pr_err("%s: Invalid data size = %d\n",
 				   __func__,
 				   user_afe_buf.rtac_afe_set.cmd.payload_size);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1204,6 +1233,7 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 				user_afe_buf.rtac_afe_set.cmd.payload_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1218,6 +1248,7 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 				sizeof(struct afe_port_cmd_set_param_v2))) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1237,6 +1268,7 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 		if (user_afe_buf.cmd_size > MAX_PAYLOAD_SIZE) {
 			pr_err("%s: Invalid payload size = %d\n",
 				__func__, user_afe_buf.cmd_size);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1250,6 +1282,7 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 			sizeof(struct afe_port_cmd_get_param_v2))) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1290,9 +1323,13 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 		goto err;
 	}
 	if (atomic_read(&rtac_common.apr_err_code)) {
-		pr_err("%s: DSP returned error code = %d, opcode = 0x%x\n",
-			__func__, atomic_read(&rtac_common.apr_err_code),
+		pr_err("%s: DSP returned error code = [%s], opcode = 0x%x\n",
+			__func__, adsp_err_get_err_str(atomic_read(
+			&rtac_common.apr_err_code)),
 			opcode);
+		result = adsp_err_get_lnx_err_code(
+					atomic_read(
+					&rtac_common.apr_err_code));
 		goto err;
 	}
 
@@ -1308,6 +1345,7 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 			pr_err("%s: user size = 0x%x, returned size = 0x%x\n",
 				__func__, user_afe_buf.buf_size,
 				bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1316,15 +1354,18 @@ static u32 send_rtac_afe_apr(void *buf, uint32_t opcode)
 				bytes_returned)) {
 			pr_err("%s: Could not copy buffer to user,size = %d\n",
 				__func__, bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 	} else {
 		bytes_returned = user_afe_buf.rtac_afe_set.cmd.payload_size;
 	}
-err:
 	mutex_unlock(&rtac_afe_apr_mutex);
 done:
 	return bytes_returned;
+err:
+	mutex_unlock(&rtac_afe_apr_mutex);
+	return result;
 }
 
 /* Voice APR */
@@ -1354,7 +1395,7 @@ bool rtac_make_voice_callback(u32 mode, uint32_t *payload, u32 payload_size)
 	return true;
 }
 
-u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
+int send_voice_apr(u32 mode, void *buf, u32 opcode)
 {
 	s32	result;
 	u32	user_buf_size = 0;
@@ -1416,6 +1457,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 	mutex_lock(&rtac_voice_apr_mutex);
 	if (rtac_voice_apr_data[mode].apr_handle == NULL) {
 		pr_err("%s: APR not initialized\n", __func__);
+		result = -EINVAL;
 		goto err;
 	}
 
@@ -1426,6 +1468,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 		if (data_size > rtac_cal[VOICE_RTAC_CAL].map_data.map_size) {
 			pr_err("%s: Invalid data size = %d\n",
 				__func__, data_size);
+			result = -EINVAL;
 			goto err;
 		}
 		payload_size = 4 * sizeof(u32);
@@ -1436,6 +1479,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 				buf + 7 * sizeof(u32), data_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 		/* set payload size in packet */
@@ -1444,6 +1488,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 		if (payload_size > MAX_PAYLOAD_SIZE) {
 			pr_err("%s: Invalid payload size = %d\n",
 					__func__, payload_size);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1453,6 +1498,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 				buf + 3 * sizeof(u32), payload_size)) {
 			pr_err("%s: Could not copy payload from user buffer\n",
 				__func__);
+			result = -EINVAL;
 			goto err;
 		}
 	}
@@ -1502,9 +1548,13 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 		goto err;
 	}
 	if (atomic_read(&rtac_common.apr_err_code)) {
-		pr_err("%s: DSP returned error code = %d, opcode = 0x%x\n",
-			__func__, atomic_read(&rtac_common.apr_err_code),
+		pr_err("%s: DSP returned error code = [%s], opcode = 0x%x\n",
+			__func__, adsp_err_get_err_str(atomic_read(
+			&rtac_common.apr_err_code)),
 			opcode);
+		result = adsp_err_get_lnx_err_code(
+					atomic_read(
+					&rtac_common.apr_err_code));
 		goto err;
 	}
 
@@ -1515,6 +1565,7 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 		if (bytes_returned > user_buf_size) {
 			pr_err("%s: User buf not big enough, size = 0x%x, returned size = 0x%x\n",
 				__func__, user_buf_size, bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 
@@ -1523,15 +1574,18 @@ u32 send_voice_apr(u32 mode, void *buf, u32 opcode)
 				bytes_returned)) {
 			pr_err("%s: Could not copy buffer to user, size = %d\n",
 				 __func__, bytes_returned);
+			result = -EINVAL;
 			goto err;
 		}
 	} else {
 		bytes_returned = data_size;
 	}
-err:
 	mutex_unlock(&rtac_voice_apr_mutex);
 done:
 	return bytes_returned;
+err:
+	mutex_unlock(&rtac_voice_apr_mutex);
+	return result;
 }
 
 
