@@ -145,6 +145,9 @@
 #define DAT_ADDR_LO(x)	((x & 0xFFFFFFFF) << 32)
 #define DAT_ADDR_HI(x)	((x & 0xFFFFFFFF) << 0)
 
+#define CQ_VENDOR_CFG	0x100
+#define CMDQ_SEND_STATUS_TRIGGER (1 << 31)
+
 struct cmdq_host {
 	const struct cmdq_host_ops *ops;
 	void __iomem *mmio;
