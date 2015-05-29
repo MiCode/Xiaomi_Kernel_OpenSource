@@ -50,8 +50,8 @@ module_param_named(debug_keep_resource, ep_pcie_debug_keep_resource,
 struct ep_pcie_dev_t ep_pcie_dev = {0};
 
 static struct ep_pcie_vreg_info_t ep_pcie_vreg_info[EP_PCIE_MAX_VREG] = {
-	{NULL, "vreg-1.8", 1800000, 1800000, 1000, true},
-	{NULL, "vreg-0.9", 1000000, 1000000, 24000, true}
+	{NULL, "vreg-1.8", 1800000, 1800000, 14000, true},
+	{NULL, "vreg-0.9", 1000000, 1000000, 40000, true}
 };
 
 static struct ep_pcie_gpio_info_t ep_pcie_gpio_info[EP_PCIE_MAX_GPIO] = {
