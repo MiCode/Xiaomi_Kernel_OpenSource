@@ -324,6 +324,14 @@ armpmu_add(struct perf_event *event, int flags)
 
 	perf_pmu_disable(event->pmu);
 
+	if (armpmu->check_event) {
+		if (armpmu->check_event(armpmu, hwc)) {
+			event->state = PERF_EVENT_STATE_OFF;
+			hwc->idx = -1;
+			goto out;
+		}
+	}
+
 	/* If we don't have a space for the counter then finish early. */
 	idx = armpmu->get_event_idx(hw_events, hwc);
 	if (idx < 0) {
