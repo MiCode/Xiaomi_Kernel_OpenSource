@@ -52,6 +52,8 @@ Optional properties:
 - qcom,power-detect-enabled	: Boolean type. This enables driver to get maximum flash LED
 				  current at current battery level to avoid intensity clamp
 				  when battery voltage is low
+-qcom,otst2-module-enabled	: Boolean type. This enables driver to enable MASK to support
+				OTST2 connection.
 
 Required properties inside child node. Chile node contains settings for each individual LED:
 - label			: type of led that will be used, either "flash" or "torch".
