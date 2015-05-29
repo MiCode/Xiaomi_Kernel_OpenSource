@@ -95,6 +95,9 @@ enum mmc_load {
 struct mmc_cmdq_host_ops {
 	int (*enable)(struct mmc_host *host);
 	void (*disable)(struct mmc_host *host, bool soft);
+	int (*request)(struct mmc_host *host, struct mmc_request *mrq);
+	void (*post_req)(struct mmc_host *host, struct mmc_request *mrq,
+			 int err);
 };
 
 struct mmc_host_ops {
@@ -191,6 +194,25 @@ struct mmc_host_ops {
 
 struct mmc_card;
 struct device;
+
+struct mmc_cmdq_req {
+	unsigned int cmd_flags;
+	u32 blk_addr;
+	/* active mmc request */
+	struct mmc_request	mrq;
+	struct mmc_data		data;
+	struct mmc_command	cmd;
+#define DCMD		(1 << 0)
+#define QBR		(1 << 1)
+#define DIR		(1 << 2)
+#define PRIO		(1 << 3)
+#define REL_WR		(1 << 4)
+#define DAT_TAG	(1 << 5)
+#define FORCED_PRG	(1 << 6)
+	unsigned int		cmdq_req_flags;
+	int			tag; /* used for command queuing */
+	u8			ctx_id;
+};
 
 struct mmc_async_req {
 	/* active mmc request */
