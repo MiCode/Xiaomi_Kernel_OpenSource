@@ -51,6 +51,8 @@ enum ipa_cpu_2_hw_commands {
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 7),
 	IPA_CPU_2_HW_CMD_RESET_PIPE                =
 		FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 8),
+	IPA_CPU_2_HW_CMD_UPDATE_HOLB_MONITORING    =
+			FEATURE_ENUM_VAL(IPA_HW_FEATURE_COMMON, 9),
 };
 
 /**
@@ -134,6 +136,25 @@ union IpaHwResetPipeCmdData_t {
 	} __packed params;
 	u32 raw32b;
 } __packed;
+
+/**
+ * union IpaHwmonitorHolbCmdData_t - Structure holding the parameters
+ * for IPA_CPU_2_HW_CMD_UPDATE_HOLB_MONITORING command.
+ * @monitorPipe : Indication whether to monitor the pipe. 0 – Do not Monitor Pipe, 1 – Monitor Pipe
+ * @pipeNum : Pipe to be monitored/not monitored
+ * @reserved_02_03 : Reserved
+ *
+ * The parameters are passed as immediate params in the shared memory
+ */
+union IpaHwmonitorHolbCmdData_t {
+	struct IpaHwmonitorHolbCmdParams_t {
+		u8     monitorPipe;
+		u8     pipeNum;
+		u32    reserved_02_03:16;
+	} __packed params;
+	u32 raw32b;
+} __packed;
+
 
 /**
  * union IpaHwCpuCmdCompletedResponseData_t - Structure holding the parameters
@@ -426,6 +447,8 @@ static void ipa_uc_response_hdlr(enum ipa_irq_type interrupt,
 			if (uc_hdlrs[i].ipa_uc_loaded_hdlr)
 				uc_hdlrs[i].ipa_uc_loaded_hdlr();
 		}
+		/* Enable holb monitoring on IPA-USB Producer pipe if valid. */
+		ipa_uc_monitor_holb(IPA_CLIENT_USB_CONS, true);
 	} else if (ipa_ctx->uc_ctx.uc_sram_mmio->responseOp ==
 		   IPA_HW_2_CPU_RESPONSE_CMD_COMPLETED) {
 		uc_rsp.raw32b = ipa_ctx->uc_ctx.uc_sram_mmio->responseParams;
@@ -693,6 +716,69 @@ int ipa_uc_reset_pipe(enum ipa_client_type ipa_client)
 	return ret;
 }
 EXPORT_SYMBOL(ipa_uc_reset_pipe);
+
+/**
+ * ipa_uc_monitor_holb() - Enable/Disable holb monitoring of a producer pipe.
+ * @ipa_client: [in] ipa client handle representing the pipe
+ *
+ * The function uses the uC interface in order to disable/enable holb
+ * monitoring.
+ *
+ * Returns:	0 on success, negative on failure
+ */
+int ipa_uc_monitor_holb(enum ipa_client_type ipa_client, bool enable)
+{
+	union IpaHwmonitorHolbCmdData_t cmd;
+	int ep_idx;
+	int ret;
+	struct ipa_ep_context *ep;
+
+	ep_idx = ipa_get_ep_mapping(ipa_client);
+	if (ep_idx == -1) {
+		IPAERR("Invalid IPA client\n");
+		return 0;
+	}
+
+	ep = &ipa_ctx->ep[ep_idx];
+
+	if (!ep->valid) {
+		IPAERR("EP not valid.\n");
+		return 0;
+	}
+
+
+	/*
+	 * If the uC interface has not been initialized yet,
+	 * continue with the sequence without resetting the
+	 * pipe.
+	 */
+	if (ipa_uc_state_check()) {
+		IPADBG("uC interface will not be used to reset %s pipe %d\n",
+		       IPA_CLIENT_IS_PROD(ipa_client) ? "CONS" : "PROD",
+		       ep_idx);
+		return 0;
+	}
+
+	/*
+	 * IPA consumer = 0, IPA producer = 1.
+	 * IPA driver concept of PROD/CONS is the opposite of the
+	 * IPA HW concept. Therefore, IPA AP CLIENT PRODUCER = IPA CONSUMER,
+	 * and vice-versa.
+	 */
+	cmd.params.monitorPipe = (u8)(enable ? 1 : 0);
+	cmd.params.pipeNum = (u8)ep_idx;
+
+	IPADBG("uC holb monitoring on IPA pipe %d\n, Enable: %d",
+	       ep_idx, enable);
+
+	ret = ipa_uc_send_cmd(cmd.raw32b,
+				IPA_CPU_2_HW_CMD_UPDATE_HOLB_MONITORING, 0,
+				true, 10*HZ);
+
+	return ret;
+}
+EXPORT_SYMBOL(ipa_uc_monitor_holb);
+
 
 /**
  * ipa_uc_notify_clk_state() - notify to uC of clock enable / disable
