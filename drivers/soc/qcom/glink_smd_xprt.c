@@ -1135,7 +1135,7 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 		return -ENODEV;
 	}
 
-	if (!ch->remote_legacy) {
+	if (!ch->local_legacy) {
 		SMDXPRT_INFO("%s TX CLOSE lcid %u\n", __func__, lcid);
 		cmd.cmd = CMD_CLOSE;
 		cmd.id = lcid;
