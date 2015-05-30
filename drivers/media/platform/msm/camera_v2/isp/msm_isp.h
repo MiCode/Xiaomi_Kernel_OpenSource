@@ -372,6 +372,7 @@ struct msm_vfe_axi_composite_info {
 
 struct msm_vfe_src_info {
 	uint32_t frame_id;
+	uint32_t camif_sof_frame_id;
 	uint8_t active;
 	uint8_t pix_stream_count;
 	uint8_t raw_stream_count;
