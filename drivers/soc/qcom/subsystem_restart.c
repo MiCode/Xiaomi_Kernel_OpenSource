@@ -681,9 +681,13 @@ static void subsys_stop(struct subsys_device *subsys)
 {
 	const char *name = subsys->desc->name;
 
-	subsys->desc->sysmon_shutdown_ret = sysmon_send_shutdown(subsys->desc);
-	if (subsys->desc->sysmon_shutdown_ret)
-		pr_debug("Graceful shutdown failed for %s\n", name);
+	if (!of_property_read_bool(subsys->desc->dev->of_node,
+					"qcom,pil-force-shutdown")) {
+		subsys->desc->sysmon_shutdown_ret =
+				sysmon_send_shutdown(subsys->desc);
+		if (subsys->desc->sysmon_shutdown_ret)
+			pr_debug("Graceful shutdown failed for %s\n", name);
+	}
 
 	notify_each_subsys_device(&subsys, 1, SUBSYS_BEFORE_SHUTDOWN, NULL);
 	subsys->desc->shutdown(subsys->desc, false);

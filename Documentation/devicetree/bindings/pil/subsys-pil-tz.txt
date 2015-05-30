@@ -54,6 +54,8 @@ Optional properties:
 - qcom,ssctl-instance-id: Instance id used by the subsystem to connect with the SSCTL
 			  service.
 - qcom,sysmon-id:	platform device id that sysmon is probed with for the subsystem.
+- qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
+                           on behalf of the subsystem driver.
 
 Example:
 	qcom,venus@fdce0000 {

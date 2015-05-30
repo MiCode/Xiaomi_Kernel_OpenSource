@@ -64,6 +64,8 @@ Optional properties:
 		      clocked before it boots up
 - qcom,qdsp6v56-1-3: Boolean- Present if the qdsp version is v56 1.3
 - qcom,qdsp6v56-1-8: Boolean- Present if the qdsp version is v56 1.8
+- qcom,pil-force-shutdown: Boolean. If set, the SSR framework will not trigger graceful shutdown
+                           on behalf of the subsystem driver.
 
 Example:
 	qcom,mss@fc880000 {
