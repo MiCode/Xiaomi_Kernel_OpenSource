@@ -14,6 +14,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <soc/qcom/scm.h>
+#include <soc/qcom/scm-mpu.h>
 #include <linux/mm.h>
 
 #include <asm/sections.h>
@@ -27,11 +28,12 @@
 static ulong mpu_start;
 static ulong mpu_size;
 static u32 mpu_enable;
+/* Some drivers write to the kernel text area by design */
+static bool kernel_text_protected;
 
 module_param(mpu_start, ulong, 0644);
 module_param(mpu_size, ulong, 0644);
 
-static void mem_prot_region(u64 start, u64 size, bool lock);
 static int set_enabled(const char *val, const struct kernel_param *kp)
 {
 	int ret = 0;
@@ -50,7 +52,7 @@ static struct kernel_param_ops mpu_ops = {
 };
 module_param_cb(mpu_enable, &mpu_ops, &mpu_enable, 0644);
 
-static void mem_prot_region(u64 start, u64 size, bool lock)
+int mem_prot_region(u64 start, u64 size, bool lock)
 {
 	int ret;
 	struct scm_desc desc = {0};
@@ -76,13 +78,30 @@ static void mem_prot_region(u64 start, u64 size, bool lock)
 	if (ret != 0)
 		pr_err("Failed to %s region %llx - %llx\n",
 			lock ? "protect" : "unlock", start, start + size);
+	return ret;
+}
+
+void scm_mpu_unlock_kernel_text(void)
+{
+	phys_addr_t phys = virt_to_phys(_stext);
+	if (!kernel_text_protected)
+		return;
+	kernel_text_protected = false;
+	mem_prot_region((u64)phys, (u64)(_etext - _stext), false);
+}
+
+void scm_mpu_lock_kernel_text(void)
+{
+	int ret;
+	phys_addr_t phys = virt_to_phys(_stext);
+	ret = mem_prot_region((u64)phys, (u64)(_etext - _stext), true);
+	kernel_text_protected = !ret;
 }
 
 #ifdef CONFIG_KERNEL_TEXT_MPU_PROT
 static int __init mem_prot_init(void)
 {
-	phys_addr_t phys = virt_to_phys(_stext);
-	mem_prot_region((u64)phys, (u64)(_etext - _stext), true);
+	scm_mpu_lock_kernel_text();
 	return 0;
 }
 late_initcall(mem_prot_init);
