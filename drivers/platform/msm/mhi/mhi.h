@@ -24,6 +24,7 @@
 #include <linux/cdev.h>
 #include <linux/msm_pcie.h>
 #include <linux/sched.h>
+#include <linux/irqreturn.h>
 
 extern struct mhi_pcie_devices mhi_devices;
 

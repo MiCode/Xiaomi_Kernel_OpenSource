@@ -112,7 +112,7 @@ int mhi_ctxt_init(struct mhi_pcie_dev_info *mhi_pcie_dev)
 	}
 
 	device_disable_async_suspend(&pcie_device->dev);
-	ret_val = pci_enable_msi_block(pcie_device, msi_number);
+	ret_val = pci_enable_msi_range(pcie_device, 0, msi_number);
 	if (0 != ret_val) {
 		mhi_log(MHI_MSG_ERROR,
 			"Failed to enable MSIs for pcie dev ret_val %d.\n",

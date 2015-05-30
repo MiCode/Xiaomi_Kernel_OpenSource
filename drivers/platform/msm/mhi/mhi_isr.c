@@ -10,6 +10,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/interrupt.h>
+#include <linux/irqreturn.h>
 
 #include "mhi_sys.h"
 #include "mhi_trace.h"
