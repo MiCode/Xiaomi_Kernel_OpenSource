@@ -1461,6 +1461,18 @@
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_4_out 0 0>;
 		linux,contiguous-region = <&reloc_mem>;
 	};
+
+	dcc: dcc@b3000 {
+		compatible = "qcom,dcc";
+		reg = <0xb3000 0x1000>,
+		      <0xb4000 0x2000>;
+		reg-names = "dcc-base", "dcc-ram-base";
+
+		clocks = <&clock_gcc clk_gcc_dcc_clk>;
+		clock-names = "dcc_clk";
+
+		qcom,save-reg;
+	};
 };
 
 #include "msm-pm8950-rpm-regulator.dtsi"
