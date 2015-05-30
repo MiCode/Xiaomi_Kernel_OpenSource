@@ -1034,7 +1034,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		if (ep_pcie_phy_is_ready(dev))
 			break;
 		retries++;
-		if (retries % 10 == 0)
+		if (retries % 100 == 0)
 			EP_PCIE_DBG(dev,
 				"PCIe V%d: current number of PHY retries:%d.\n",
 				dev->rev, retries);
@@ -1069,7 +1069,7 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 		usleep_range(LINK_UP_TIMEOUT_US_MIN, LINK_UP_TIMEOUT_US_MAX);
 		val =  readl_relaxed(dev->elbi + PCIE20_ELBI_SYS_STTS);
 		retries++;
-		if (retries % 5 == 0)
+		if (retries % 100 == 0)
 			EP_PCIE_DBG(dev, "PCIe V%d: LTSSM_STATE:0x%x.\n",
 					dev->rev, (val >> 0xC) & 0x3f);
 	} while ((!(val & XMLH_LINK_UP) ||
