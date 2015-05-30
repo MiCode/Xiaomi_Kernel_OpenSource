@@ -6481,6 +6481,7 @@ static int tasha_set_channel_map(struct snd_soc_dai *dai,
 {
 	struct tasha_priv *tasha;
 	struct wcd9xxx *core;
+	struct wcd9xxx_codec_dai_data *dai_data = NULL;
 
 	if (!dai) {
 		pr_err("%s: dai is empty\n", __func__);
@@ -6502,6 +6503,12 @@ static int tasha_set_channel_map(struct snd_soc_dai *dai,
 	if (tasha->intf_type == WCD9XXX_INTERFACE_TYPE_SLIMBUS) {
 		wcd9xxx_init_slimslave(core, core->slim->laddr,
 					   tx_num, tx_slot, rx_num, rx_slot);
+		/* Reserve TX12 for MAD data channel */
+		dai_data = &tasha->dai[AIF4_MAD_TX];
+		if (dai_data) {
+			list_add_tail(&core->tx_chs[TASHA_TX12].list,
+				      &dai_data->wcd9xxx_ch_list);
+		}
 	}
 	return 0;
 }
@@ -6806,7 +6813,8 @@ static int tasha_hw_params(struct snd_pcm_substream *substream,
 				__func__, tx_fs_rate);
 			return -EINVAL;
 		}
-		if (dai->id != AIF4_VIFEED) {
+		if (dai->id != AIF4_VIFEED &&
+		    dai->id != AIF4_MAD_TX) {
 			ret = tasha_set_decimator_rate(dai, tx_fs_rate,
 					params_rate(params));
 			if (ret < 0) {
