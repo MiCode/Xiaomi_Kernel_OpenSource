@@ -13,6 +13,7 @@
 
 #include "skeleton64.dtsi"
 #include <dt-bindings/clock/msm-clocks-8952.h>
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
 	model = "Qualcomm Technologies, Inc. MSM 8976";
@@ -853,9 +854,9 @@
 		interrupts = <0 134 0>, <0 140 0>;
 		interrupt-names = "core_irq", "async_irq";
 
-		hsusb_vdd_dig-supply = <&pm8976_s6_corner>;
-		HSUSB_1p8-supply = <&pm8976_l7>;
-		HSUSB_3p3-supply = <&pm8976_l13>;
+		hsusb_vdd_dig-supply = <&pm8950_s6_level>;
+		HSUSB_1p8-supply = <&pm8950_l7>;
+		HSUSB_3p3-supply = <&pm8950_l13>;
 		qcom,vdd-voltage-level = <1 5 7>;
 
 		qcom,hsusb-otg-phy-type = <3>; /* SNPS Femto PHY */
@@ -1333,7 +1334,7 @@
 		reg = <0xc200000 0x00100>;
 		interrupts = <0 293 1>;
 
-		vdd_cx-supply = <&pm8976_s2_corner>;
+		vdd_cx-supply = <&pm8950_s2_level>;
 		qcom,proxy-reg-names = "vdd_cx";
 		qcom,vdd_cx-uV-uA = <7 100000>;
 
@@ -1416,7 +1417,7 @@
 		reg = <0x0a21b000 0x3000>;
 		interrupts = <0 149 1>;
 
-		vdd_pronto_pll-supply = <&pm8976_l7>;
+		vdd_pronto_pll-supply = <&pm8950_l7>;
 		proxy-reg-names = "vdd_pronto_pll";
 		vdd_pronto_pll-uV-uA = <1800000 18000>;
 		clocks = <&clock_gcc clk_xo_pil_pronto_clk>,
@@ -1450,10 +1451,12 @@
 	};
 };
 
-#include "msm8976-regulator.dtsi"
-#include "msm-gdsc-8916.dtsi"
+#include "msm-pm8950-rpm-regulator.dtsi"
 #include "msm-pm8950.dtsi"
 #include "msm-pmi8950.dtsi"
+#include "msm-pm8004.dtsi"
+#include "msm8976-regulator.dtsi"
+#include "msm-gdsc-8916.dtsi"
 
 &gdsc_venus {
 	status = "okay";
