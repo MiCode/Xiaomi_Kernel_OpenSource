@@ -293,6 +293,7 @@ struct ep_pcie_dev_t {
 };
 
 extern struct ep_pcie_dev_t ep_pcie_dev;
+extern struct ep_pcie_hw hw_drv;
 
 static inline void ep_pcie_write_mask(void __iomem *addr,
 				u32 clear_mask, u32 set_mask)
