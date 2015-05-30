@@ -46,8 +46,8 @@
 			qcom,qos-delta = <0x1000>;
 			qcom,bus-type = <1>;
 			clock-names = "bus_clk", "bus_a_clk";
-			clocks = <&clock_gcc  clk_pnoc_msmbus_clk>,
-				<&clock_gcc  clk_pnoc_msmbus_a_clk>;
+			clocks = <&clock_gcc  clk_pcnoc_msmbus_clk>,
+				<&clock_gcc  clk_pcnoc_msmbus_a_clk>;
 		};
 
 		fab_snoc: fab-snoc {

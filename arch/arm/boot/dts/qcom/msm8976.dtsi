@@ -12,7 +12,7 @@
  */
 
 #include "skeleton64.dtsi"
-#include <dt-bindings/clock/msm-clocks-8952.h>
+#include <dt-bindings/clock/msm-clocks-8976.h>
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
@@ -326,17 +326,29 @@
 	};
 
 	clock_gcc: qcom,gcc@1800000 {
-		compatible = "qcom,dummycc";
-		#clock-cells = <1>;
-	};
-
-	clock_rpm: qcom,rpmcc@1800000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,gcc-8976";
+		reg = <0x1800000 0x80000>;
+		reg-names = "cc_base";
+		vdd_dig-supply = <&pm8950_s2_level>;
 		#clock-cells = <1>;
 	};
 
 	clock_debug: qcom,cc-debug@1874000 {
-		compatible = "qcom,dummycc";
+		compatible = "qcom,cc-debug-8976";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_gfx: qcom,gcc-gfx@1800000 {
+                compatible = "qcom,gcc-gfx-8976";
+                reg = <0x1800000 0x80000>;
+                reg-names = "cc_base";
+		#clock-cells = <1>;
+	};
+
+	clock_gcc_mdss: qcom,gcc-mdss@1800000 {
+		compatible = "qcom,gcc-mdss-8976";
+		reg = <0x1800000 0x80000>;
+                reg-names = "cc_base";
 		#clock-cells = <1>;
 	};
 
@@ -880,13 +892,13 @@
 		clocks = <&clock_gcc clk_gcc_usb_hs_ahb_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_system_clk>,
 			 <&clock_gcc clk_gcc_usb2a_phy_sleep_clk>,
-			 <&clock_rpm clk_bimc_usb_a_clk>,
-			 <&clock_rpm clk_snoc_usb_a_clk>,
-			 <&clock_rpm clk_pnoc_usb_a_clk>,
+			 <&clock_gcc clk_bimc_usb_a_clk>,
+			 <&clock_gcc clk_snoc_usb_a_clk>,
+			 <&clock_gcc clk_pcnoc_usb_a_clk>,
 			 <&clock_gcc clk_gcc_qusb2_phy_clk>,
 			 <&clock_gcc clk_gcc_usb2_hs_phy_only_clk>,
 			 <&clock_gcc clk_gcc_usb_hs_phy_cfg_ahb_clk>,
-			 <&clock_rpm clk_xo_otg_clk>;
+			 <&clock_gcc clk_xo_otg_clk>;
 		clock-names = "iface_clk", "core_clk", "sleep_clk",
 				"bimc_clk", "snoc_clk", "pcnoc_clk",
 				"phy_reset_clk", "phy_por_clk", "phy_csr_clk",
