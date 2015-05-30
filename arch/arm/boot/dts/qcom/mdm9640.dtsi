@@ -271,6 +271,68 @@
 		qcom,pipe-attr-ee;
 	};
 
+	pcie_ep: qcom,pcie@bfffd000 {
+		compatible = "qcom,pcie-ep";
+
+		reg = <0x7fffd000 0x1000>,
+			<0x7fffe000 0xf1d>,
+			<0x7fffef20 0xa8>,
+			<0x00080000 0x2000>,
+			<0x00086000 0x1000>,
+			<0x00087000 0x1000>;
+		reg-names = "msi", "dm_core", "elbi", "parf", "phy", "mmio";
+
+		#address-cells = <0>;
+		interrupt-parent = <&pcie_ep>;
+		interrupts = <0 1 2 3 4 5>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0xffffffff>;
+		interrupt-map = <0 &intc 0 52 0
+				1 &intc 0 54 0
+				2 &intc 0 55 0
+				3 &intc 0 58 0
+				4 &intc 0 59 0
+				5 &intc 0 60 0>;
+		interrupt-names = "int_pm_turnoff", "int_dstate_change",
+				"int_l1sub_timeout", "int_link_up",
+				"int_link_down", "int_bridge_flush_n";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+
+		perst-gpio = <&msm_gpio 65 0>;
+		wake-gpio = <&msm_gpio 61 0>;
+		clkreq-gpio = <&msm_gpio 64 0>;
+
+		gdsc-vdd-supply = <&gdsc_pcie>;
+		vreg-1.8-supply = <&pmd9635_l8>;
+		vreg-0.9-supply = <&pmd9635_l4>;
+
+		clocks = <&clock_gcc clk_gcc_pcie_pipe_clk>,
+			<&clock_gcc clk_gcc_pcie_cfg_ahb_clk>,
+			<&clock_gcc clk_gcc_pcie_axi_mstr_clk>,
+			<&clock_gcc clk_gcc_pcie_axi_clk>,
+			<&clock_gcc clk_gcc_pcie_sleep_clk>,
+			<&clock_gcc clk_pcie_gpio_ldo>,
+			<&clock_gcc clk_gcc_pcie_phy_reset>;
+
+		clock-names = "pcie_0_pipe_clk", "pcie_0_cfg_ahb_clk",
+				"pcie_0_mstr_axi_clk", "pcie_0_slv_axi_clk",
+				"pcie_0_aux_clk", "pcie_0_ldo", "pcie_0_phy_reset";
+		max-clock-frequency-hz = <125000000>, <0>,
+					<0>, <0>, <1000000>, <0>, <0>;
+
+		qcom,msm-bus,name = "pcie-ep";
+		qcom,msm-bus,num-cases = <2>;
+		qcom,msm-bus,num-paths = <1>;
+		qcom,msm-bus,vectors-KBps =
+				<45 512 0 0>,
+				<45 512 500 800>;
+
+		qcom,pcie-link-speed = <2>;
+		qcom,pcie-phy-ver = <3>;
+	};
+
 	ipa_hw: qcom,ipa@07900000 {
 		compatible = "qcom,ipa";
 		reg = <0x07900000 0x4EFFC>,
