@@ -66,7 +66,8 @@ static struct ep_pcie_clk_info_t
 	{NULL, "pcie_0_mstr_axi_clk", 0, true},
 	{NULL, "pcie_0_slv_axi_clk", 0, true},
 	{NULL, "pcie_0_aux_clk", 1000000, true},
-	{NULL, "pcie_0_ldo", 0, true}
+	{NULL, "pcie_0_ldo", 0, true},
+	{NULL, "pcie_0_phy_reset", 0, false}
 };
 
 static struct ep_pcie_clk_info_t
@@ -286,11 +287,10 @@ static int ep_pcie_clk_init(struct ep_pcie_dev_t *dev)
 		info = &dev->clk[i];
 
 		if (!info->hdl) {
-			EP_PCIE_ERR(dev,
+			EP_PCIE_DBG(dev,
 				"PCIe V%d:  handle of Clock %s is NULL\n",
 				dev->rev, info->name);
-			rc = -EINVAL;
-			break;
+			continue;
 		}
 
 		if (info->freq) {
