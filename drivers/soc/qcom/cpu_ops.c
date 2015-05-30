@@ -126,6 +126,20 @@ static int __init msm_cpu_prepare(unsigned int cpu)
 	return 0;
 }
 
+static int __init msm8976_cpu_prepare(unsigned int cpu)
+{
+	int ret;
+	u32 mpidr = cpu_logical_map(cpu);
+
+	if ((per_cpu(cold_boot_done, 0) == false)
+		&& MPIDR_AFFINITY_LEVEL(mpidr, 1)) {
+		ret = msm8976_cpu_ldo_config(0);
+		if (ret)
+			return ret;
+	}
+
+	return msm_cpu_prepare(cpu);
+}
 
 static int __init msm8994_cpu_prepare(unsigned int cpu)
 {
@@ -162,6 +176,7 @@ static int msm_cpu_boot(unsigned int cpu)
 static int msm8976_cpu_boot(unsigned int cpu)
 {
 	int ret = 0;
+	u32 mpidr = cpu_logical_map(cpu);
 
 	if (per_cpu(cold_boot_done, cpu) == false) {
 		if (of_board_is_sim()) {
@@ -170,6 +185,11 @@ static int msm8976_cpu_boot(unsigned int cpu)
 				return ret;
 		} else {
 			ret = msm8976_unclamp_secondary_arm_cpu(cpu);
+			if (ret)
+				return ret;
+		}
+		if (MPIDR_AFFINITY_LEVEL(mpidr, 1)) {
+			ret = msm8976_cpu_ldo_config(cpu);
 			if (ret)
 				return ret;
 		}
@@ -266,7 +286,7 @@ CPU_METHOD_OF_DECLARE(msm8994_cortex_a_ops, &msm8994_cortex_a_ops);
 static const struct cpu_operations msm8976_cortex_a_ops = {
 	.name		= "qcom,8976-arm-cortex-acc",
 	.cpu_init	= msm_cpu_init,
-	.cpu_prepare	= msm_cpu_prepare,
+	.cpu_prepare	= msm8976_cpu_prepare,
 	.cpu_boot	= msm8976_cpu_boot,
 	.cpu_postboot	= msm_cpu_postboot,
 #ifdef CONFIG_HOTPLUG_CPU

@@ -1,0 +1,21 @@
+*8976 Perf-CPU LDO Retention Voltage Configuration
+
+This device is used to program the appropriate LDO voltage for 8976 Performance cluster CPU's from the pre-programmed register.
+
+Required properties:
+- compatible:
+		Must be "qcom,8976-cpu-ldo-vref"
+- reg:
+		The register holds the base address to LDO_BHS. Use this
+		register base to configure the LDO for all the cpus.
+- qcom,ldo-vref-ret:
+		Value to which the ldo voltage reference needs to be
+		programmed.
+		Value to be used is encoded. 0x9 = 0.5V and 0x10 = 0.55V
+
+Example:
+	ldo0:ldo-vref@b086000 {
+		compatible = "qcom,8976-cpu-ldo-vref";
+		reg = <0xb086000 0x40>,
+		qcom,ldo-vref-ret = <0x9>;
+	};
