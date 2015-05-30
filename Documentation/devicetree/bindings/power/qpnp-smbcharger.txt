@@ -258,10 +258,6 @@ Optional Properties:
 - qcom,chg-led-support		A bool property to support the charger led feature.
 - qcom,chg-led-sw-controls		A bool property to allow the software to control
 					the charger led without a valid charger.
-- qcom,rerun-apsd		A bool property that will force the charger to
-				force the msm USB phy to relinquish control of the
-				USB data lines and rerun APSD when a USB SDP is
-				selected.
 
 Example:
 	qcom,qpnp-smbcharger {
