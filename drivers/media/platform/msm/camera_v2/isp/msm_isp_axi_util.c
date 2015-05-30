@@ -1816,6 +1816,7 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		atomic_set(&vfe_dev->error_info.overflow_state,
 				NO_OVERFLOW);
 		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id = 0;
+		vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id = 0;
 	}
 
 	for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
@@ -2116,11 +2117,13 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	frame_src = SRC_TO_INTF(stream_info->stream_src);
-	if ((frame_id <= vfe_dev->axi_data.src_info[frame_src].frame_id) ||
+	if ((frame_id <=
+		vfe_dev->axi_data.src_info[frame_src].camif_sof_frame_id) ||
 		stream_info->undelivered_request_cnt >= 2) {
 		pr_debug("%s:%d invalid request_frame %d cur frame id %d\n",
 			__func__, __LINE__, frame_id,
-			vfe_dev->axi_data.src_info[frame_src].frame_id);
+			vfe_dev->axi_data.src_info[frame_src].
+				camif_sof_frame_id);
 		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
 			user_stream_id, frame_id, frame_src);
 		if (rc < 0)
