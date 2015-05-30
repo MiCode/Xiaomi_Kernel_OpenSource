@@ -95,6 +95,7 @@
 #define FLASH_LED_HDRM_SNS_ENABLE				0x81
 #define	FLASH_LED_UA_PER_MA					1000
 #define	FLASH_LED_MASK_MODULE_MASK2_ENABLE			0x20
+#define	FLASH_LED_MASK3_ENABLE_SHIFT				7
 
 #define FLASH_UNLOCK_SECURE					0xA5
 #define FLASH_LED_TORCH_ENABLE					0x00
@@ -183,6 +184,7 @@ struct flash_led_platform_data {
 	bool				hdrm_sns_ch0_en;
 	bool				hdrm_sns_ch1_en;
 	bool				power_detect_en;
+	bool				mask3_en;
 };
 
 /*
@@ -933,9 +935,11 @@ static int qpnp_flash_led_init_settings(struct qpnp_flash_led *led)
 		return rc;
 	}
 
+	val = 0x0;
+	val |= led->pdata->mask3_en << FLASH_LED_MASK3_ENABLE_SHIFT;
+	val |= FLASH_LED_MASK_MODULE_MASK2_ENABLE;
 	rc = qpnp_led_masked_write(led->spmi_dev, FLASH_MASK_ENABLE(led->base),
-				FLASH_MASK_MODULE_CONTRL_MASK,
-				FLASH_LED_MASK_MODULE_MASK2_ENABLE);
+				FLASH_MASK_MODULE_CONTRL_MASK, val);
 	if (rc) {
 		dev_err(&led->spmi_dev->dev, "Mask module enable failed\n");
 		return rc;
@@ -1312,6 +1316,8 @@ static int qpnp_flash_led_parse_common_dt(
 	led->pdata->power_detect_en = of_property_read_bool(node,
 						"qcom,power-detect-enabled");
 
+	led->pdata->mask3_en = of_property_read_bool(node,
+						"qcom,otst2-module-enabled");
 	led->pinctrl = devm_pinctrl_get(&led->spmi_dev->dev);
 	if (IS_ERR_OR_NULL(led->pinctrl)) {
 		dev_err(&led->spmi_dev->dev,
