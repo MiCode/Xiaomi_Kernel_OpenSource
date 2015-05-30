@@ -77,4 +77,6 @@ int msm_isp_drop_frame(struct vfe_device *vfe_dev,
 	struct msm_vfe_axi_stream *stream_info, struct msm_isp_timestamp *ts,
 	struct msm_isp_output_info *output_info);
 
+void msm_isp_halt_send_error(struct vfe_device *vfe_dev);
+
 #endif /* __MSM_ISP_AXI_UTIL_H__ */

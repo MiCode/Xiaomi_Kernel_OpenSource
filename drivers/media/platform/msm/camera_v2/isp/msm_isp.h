@@ -362,6 +362,7 @@ struct msm_vfe_axi_stream {
 	uint32_t runtime_output_format;
 	enum msm_stream_memory_input_t  memory_input;
 	struct msm_isp_sw_framskip sw_skip;
+	uint8_t sw_ping_pong_bit;
 };
 
 struct msm_vfe_axi_composite_info {
