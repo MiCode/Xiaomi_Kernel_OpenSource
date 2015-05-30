@@ -2776,7 +2776,7 @@ static void mdss_mdp_parse_max_bandwidth(struct platform_device *pdev)
 	max_bw = of_get_property(pdev->dev.of_node, "qcom,max-bw-settings",
 			&max_bw_settings_cnt);
 
-	if (!max_bw && !max_bw_settings_cnt) {
+	if (!max_bw || !max_bw_settings_cnt) {
 		pr_debug("MDSS max bandwidth settings not found\n");
 		return;
 	}
