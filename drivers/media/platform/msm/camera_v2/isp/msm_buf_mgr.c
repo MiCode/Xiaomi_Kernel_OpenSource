@@ -145,9 +145,7 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 	int i, rc = -1;
 	int ret;
 	struct msm_isp_buffer_mapped_info *mapped_info;
-	struct buffer_cmd *buf_pending = NULL;
 	uint32_t accu_length = 0;
-	unsigned long flags;
 	int iommu_hdl;
 
 	if (buf_mgr->secure_enable == NON_SECURE_MODE)
@@ -173,24 +171,12 @@ static int msm_isp_prepare_isp_buf(struct msm_isp_buf_mgr *buf_mgr,
 		CDBG("%s: plane: %d addr:%lu\n",
 			__func__, i, (unsigned long)mapped_info->paddr);
 
-		buf_pending = kzalloc(sizeof(struct buffer_cmd), GFP_ATOMIC);
-		if (!buf_pending) {
-			pr_err_ratelimited("No free memory for buf_pending\n");
-			rc = -ENOMEM;
-			goto get_mem_err;
-		}
-
-		buf_pending->mapped_info = mapped_info;
-		spin_lock_irqsave(&buf_mgr->bufq_list_lock, flags);
-		list_add_tail(&buf_pending->list, &buf_mgr->buffer_q);
-		spin_unlock_irqrestore(&buf_mgr->bufq_list_lock, flags);
 	}
 	buf_info->num_planes = qbuf_buf->num_planes;
 	return 0;
 
 get_phy_err:
 	i--;
-get_mem_err:
 	for (; i >= 0; i--) {
 		cam_smmu_put_phy_addr(iommu_hdl,
 				qbuf_buf->planes[i].addr);
@@ -204,8 +190,6 @@ static void msm_isp_unprepare_v4l2_buf(
 {
 	int i;
 	struct msm_isp_buffer_mapped_info *mapped_info;
-	struct buffer_cmd *buf_pending = NULL;
-	unsigned long flags;
 	int iommu_hdl;
 
 	if (buf_mgr->secure_enable == NON_SECURE_MODE)
@@ -215,24 +199,9 @@ static void msm_isp_unprepare_v4l2_buf(
 
 	for (i = 0; i < buf_info->num_planes; i++) {
 		mapped_info = &buf_info->mapped_info[i];
-		spin_lock_irqsave(&buf_mgr->bufq_list_lock, flags);
-		list_for_each_entry(buf_pending, &buf_mgr->buffer_q, list) {
-			if (!buf_pending)
-				break;
-
-			if (buf_pending->mapped_info == mapped_info) {
-				list_del_init(&buf_pending->list);
-				kfree(buf_pending);
-				spin_unlock_irqrestore(
-					&buf_mgr->bufq_list_lock, flags);
-				cam_smmu_put_phy_addr(iommu_hdl,
+		if (mapped_info != NULL)
+			cam_smmu_put_phy_addr(iommu_hdl,
 							mapped_info->buf_fd);
-				spin_lock_irqsave(
-					&buf_mgr->bufq_list_lock, flags);
-				break;
-			}
-		}
-		spin_unlock_irqrestore(&buf_mgr->bufq_list_lock, flags);
 	}
 	return;
 }
@@ -404,13 +373,10 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 	uint32_t bufq_handle, struct msm_isp_buffer **buf_info)
 {
 	int rc = -1;
-	unsigned long flags, irq_state;
+	unsigned long flags;
 	struct msm_isp_buffer *temp_buf_info;
 	struct msm_isp_bufq *bufq = NULL;
 	struct vb2_buffer *vb2_buf = NULL;
-	struct buffer_cmd *buf_pending = NULL;
-	struct msm_isp_buffer_mapped_info *mped_info_tmp1;
-	struct msm_isp_buffer_mapped_info *mped_info_tmp2;
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
 		pr_err("%s: Invalid bufq\n", __func__);
@@ -451,23 +417,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 		list_for_each_entry(temp_buf_info, &bufq->head, list) {
 			if (temp_buf_info->state ==
 					MSM_ISP_BUFFER_STATE_QUEUED) {
-					spin_lock_irqsave(
-						&buf_mgr->bufq_list_lock,
-						irq_state);
-					list_for_each_entry(buf_pending,
-						&buf_mgr->buffer_q, list) {
-					if (!buf_pending)
-						break;
-					mped_info_tmp1 =
-						buf_pending->mapped_info;
-					mped_info_tmp2 =
-						&temp_buf_info->mapped_info[0];
 
-					if (mped_info_tmp1 == mped_info_tmp2
-						&& (mped_info_tmp1->len ==
-							mped_info_tmp2->len)
-						&& (mped_info_tmp1->paddr ==
-						mped_info_tmp2->paddr)) {
 						/* found one buf */
 						list_del_init(
 							&temp_buf_info->list);
@@ -475,42 +425,15 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 						break;
 					}
 				}
-				spin_unlock_irqrestore(
-					&buf_mgr->bufq_list_lock, irq_state);
 				break;
-			}
-		}
-		break;
 	case MSM_ISP_BUFFER_SRC_HAL:
 		vb2_buf = buf_mgr->vb2_ops->get_buf(
 			bufq->session_id, bufq->stream_id);
 		if (vb2_buf) {
 			if (vb2_buf->v4l2_buf.index < bufq->num_bufs) {
-				spin_lock_irqsave(
-					&buf_mgr->bufq_list_lock, irq_state);
-				list_for_each_entry(buf_pending,
-						&buf_mgr->buffer_q, list) {
-					if (!buf_pending)
-						break;
-					mped_info_tmp1 =
-						buf_pending->mapped_info;
-					mped_info_tmp2 =
-					&bufq->bufs[vb2_buf->v4l2_buf.index]
-						.mapped_info[0];
-
-					if (mped_info_tmp1 == mped_info_tmp2
-						&& (mped_info_tmp1->len ==
-							mped_info_tmp2->len)
-						&& (mped_info_tmp1->paddr ==
-						mped_info_tmp2->paddr)) {
 						*buf_info =
 					&bufq->bufs[vb2_buf->v4l2_buf.index];
 						(*buf_info)->vb2_buf = vb2_buf;
-						break;
-					}
-				}
-				spin_unlock_irqrestore(
-					&buf_mgr->bufq_list_lock, irq_state);
 			} else {
 				pr_err("%s: Incorrect buf index %d\n",
 					__func__, vb2_buf->v4l2_buf.index);
@@ -1135,7 +1058,6 @@ static int msm_isp_init_isp_buf_mgr(
 	}
 	CDBG("%s: E\n", __func__);
 
-	INIT_LIST_HEAD(&buf_mgr->buffer_q);
 	buf_mgr->num_buf_q = num_buf_q;
 	buf_mgr->bufq =
 		kzalloc(sizeof(struct msm_isp_bufq) * num_buf_q,

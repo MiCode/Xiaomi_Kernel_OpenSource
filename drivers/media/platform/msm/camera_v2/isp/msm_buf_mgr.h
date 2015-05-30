@@ -63,11 +63,6 @@ struct msm_isp_buffer_mapped_info {
 	int buf_fd;
 };
 
-struct buffer_cmd {
-	struct list_head list;
-	struct msm_isp_buffer_mapped_info *mapped_info;
-};
-
 struct msm_isp_buffer {
 	/*Common Data structure*/
 	int num_planes;
@@ -183,7 +178,6 @@ struct msm_isp_buf_mgr {
 	int secure_enable;
 
 	int num_iommu_ctx;
-	struct list_head buffer_q;
 	spinlock_t bufq_list_lock;
 	int num_iommu_secure_ctx;
 	int attach_ref_cnt[MAX_PROTECTION_MODE][MAX_IOMMU_CTX];
