@@ -1061,7 +1061,10 @@ int ep_pcie_core_enable_endpoint(enum ep_pcie_options opt)
 	ep_pcie_config_inbound_iatu(dev);
 
 	/* enable link training */
-	ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, 0, BIT(0));
+	if (dev->phy_rev >= 3)
+		ep_pcie_write_mask(dev->parf + PCIE20_PARF_LTSSM, 0, BIT(8));
+	else
+		ep_pcie_write_mask(dev->elbi + PCIE20_ELBI_SYS_CTRL, 0, BIT(0));
 
 	EP_PCIE_DBG(dev, "PCIe V%d: check if link is up\n", dev->rev);
 
