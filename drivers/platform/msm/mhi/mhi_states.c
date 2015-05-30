@@ -98,8 +98,6 @@ static void ring_all_ev_dbs(struct mhi_device_ctxt *mhi_dev_ctxt)
 		mhi_dev_ctxt->mhi_ev_db_order[i] = 0;
 		spin_lock_irqsave(lock, flags);
 		event_ctxt = &mhi_ctrl->mhi_ec_list[i];
-		db_value = virt_to_dma(NULL,
-				mhi_dev_ctxt->mhi_local_event_ctxt[i].wp);
 		db_value =
 		 mhi_v2p_addr(mhi_dev_ctxt, MHI_RING_TYPE_EVENT_RING,
 			i,

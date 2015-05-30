@@ -62,7 +62,7 @@ static void mhi_update_ctxt(struct mhi_device_ctxt *mhi_dev_ctxt,
 int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev)
 {
 	int ret_val = 0;
-	long int sleep_time = 100000;
+	long int sleep_time = 100;
 	struct pci_dev *pcie_device =
 			(struct pci_dev *)mhi_pcie_dev->pcie_device;
 	do {
@@ -74,7 +74,7 @@ int mhi_init_pcie_device(struct mhi_pcie_dev_info *mhi_pcie_dev)
 			mhi_log(MHI_MSG_ERROR,
 				"Sleeping for ~ %li uS, and retrying.\n",
 				sleep_time);
-			usleep(sleep_time);
+			msleep(sleep_time);
 		}
 	} while (ret_val != 0);
 

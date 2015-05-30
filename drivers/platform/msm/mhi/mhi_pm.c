@@ -203,15 +203,6 @@ enum MHI_STATUS mhi_turn_off_pcie_link(struct mhi_device_ctxt *mhi_dev_ctxt)
 		ret_val = MHI_STATUS_ERROR;
 		goto exit;
 	}
-	r = msm_pcie_pm_control(MSM_PCIE_REQ_EXIT_L1,
-			mhi_dev_ctxt->dev_info->pcie_device->bus->number,
-			mhi_dev_ctxt->dev_info->pcie_device,
-			NULL, 0);
-	if (r) {
-		mhi_log(MHI_MSG_CRITICAL,
-			"Failed failed to exit L1: %x\n", r);
-	}
-
 	r = msm_pcie_pm_control(MSM_PCIE_SUSPEND,
 			mhi_dev_ctxt->dev_info->pcie_device->bus->number,
 			mhi_dev_ctxt->dev_info->pcie_device,

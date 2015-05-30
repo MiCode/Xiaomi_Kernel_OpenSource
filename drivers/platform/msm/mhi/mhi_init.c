@@ -285,13 +285,14 @@ static enum MHI_STATUS mhi_init_wakelock(struct mhi_device_ctxt *mhi_dev_ctxt)
 static enum MHI_STATUS mhi_init_contexts(struct mhi_device_ctxt *mhi_dev_ctxt)
 {
 	int r = 0;
+	u64 phy_cmd_trb_addr;
+
 	struct mhi_control_seg *mhi_ctrl = mhi_dev_ctxt->mhi_ctrl_seg;
+
 	r = init_event_ctxt_array(mhi_dev_ctxt);
 	if (r)
 		return MHI_STATUS_ERROR;
 
-	u64 phy_cmd_trb_addr;
-	init_ecabap(mhi_dev_ctxt);
 	/* Init Command Ring */
 	phy_cmd_trb_addr =
 	((uintptr_t)mhi_dev_ctxt->mhi_ctrl_seg->cmd_trb_list[PRIMARY_CMD_RING] -
