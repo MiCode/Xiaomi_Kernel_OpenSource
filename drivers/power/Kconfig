@@ -483,6 +483,7 @@ config PM8921_BMS
 
 config BATTERY_BCL
 	tristate "Battery Current Limit driver"
+	depends on THERMAL_MONITOR
 	help
 	  Say Y here to enable support for battery current limit
 	  device. The BCL driver will poll BMS if
