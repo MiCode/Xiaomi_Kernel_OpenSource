@@ -1082,6 +1082,7 @@ struct mdss_ad_init {
 	uint8_t logo_h;
 	uint32_t alpha;
 	uint32_t alpha_base;
+	uint32_t al_thresh;
 	uint32_t bl_lin_len;
 	uint32_t bl_att_len;
 	uint32_t *bl_lin;
