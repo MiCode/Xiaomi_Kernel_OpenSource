@@ -33,10 +33,6 @@
 #include "mhi_hwio.h"
 #include "mhi_sm.h"
 
-#define MHI_LOCAL_PA_BASE		0x80000000
-#define MHI_LOCAL_PA_SIZE		0x3e800000
-#define MHI_EP_MSI_NUM			1
-#define MHI_VERSION_E			0x1000000
 /* Wait time on the device for Host to set M0 state */
 #define MHI_M0_WAIT_MIN_USLEEP		20000000
 #define MHI_M0_WAIT_MAX_USLEEP		25000000
@@ -480,7 +476,7 @@ static int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	mhi_log(MHI_MSG_VERBOSE, "evnt type :0x%x\n", el->evt_tr_comp.type);
 	mhi_log(MHI_MSG_VERBOSE, "evnt chid :0x%x\n", el->evt_tr_comp.chid);
 
-	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, MHI_EP_MSI_NUM);
+	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, mhi_ctx->mhi_ep_msi_num);
 	if (rc) {
 		pr_err("%s: error sending msi\n", __func__);
 		return rc;
@@ -1078,12 +1074,12 @@ static int mhi_dev_cache_host_cfg(struct mhi_dev *mhi)
 	mhi->data_base.size = addr1 - mhi->data_base.host_pa;
 
 	if (mhi->ctrl_base.host_pa > mhi->data_base.host_pa) {
-		mhi->data_base.device_pa = MHI_LOCAL_PA_BASE;
-		mhi->ctrl_base.device_pa = MHI_LOCAL_PA_BASE +
+		mhi->data_base.device_pa = mhi->device_local_pa_base;
+		mhi->ctrl_base.device_pa = mhi->device_local_pa_base +
 				mhi->ctrl_base.host_pa - mhi->data_base.host_pa;
 	} else {
-		mhi->ctrl_base.device_pa = MHI_LOCAL_PA_BASE;
-		mhi->data_base.device_pa = MHI_LOCAL_PA_BASE +
+		mhi->ctrl_base.device_pa = mhi->device_local_pa_base;
+		mhi->data_base.device_pa = mhi->device_local_pa_base +
 				mhi->data_base.host_pa - mhi->ctrl_base.host_pa;
 	}
 
@@ -1762,11 +1758,35 @@ static int get_device_tree_data(struct platform_device *pdev)
 	mhi_ctx = mhi;
 
 	rc = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,mhi-local-pa-base",
+				&mhi_ctx->device_local_pa_base);
+	if (rc) {
+		pr_err("qcom,mhi-local-pa-base does not exist.\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32((&pdev->dev)->of_node,
 				"qcom,mhi-ifc-id",
 				&mhi_ctx->ifc_id);
 
 	if (rc) {
 		pr_err("qcom,mhi-ifc-id does not exist.\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,mhi-ep-msi",
+				&mhi_ctx->mhi_ep_msi_num);
+	if (rc) {
+		pr_err("qcom,mhi-ep-msi does not exist.\n");
+		return rc;
+	}
+
+	rc = of_property_read_u32((&pdev->dev)->of_node,
+				"qcom,mhi-version",
+				&mhi_ctx->mhi_version);
+	if (rc) {
+		pr_err("qcom,mhi-version does not exist.\n");
 		return rc;
 	}
 
@@ -1793,7 +1813,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 	}
 
 	mhi_dev_sm_set_ready();
-	rc = mhi_dev_mmio_write(mhi, MHIVER, MHI_VERSION_E);
+	rc = mhi_dev_mmio_write(mhi, MHIVER, mhi->mhi_version);
 	if (rc) {
 		pr_err("Failed to update the MHI version\n");
 		return rc;
@@ -1820,7 +1840,7 @@ static int get_device_tree_data(struct platform_device *pdev)
 		return rc;
 	}
 
-	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, MHI_EP_MSI_NUM);
+	rc = ep_pcie_trigger_msi(mhi_ctx->phandle, mhi_ctx->mhi_ep_msi_num);
 	if (rc)
 		return rc;
 
