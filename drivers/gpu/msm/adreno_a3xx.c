@@ -1480,7 +1480,7 @@ static int _load_firmware(struct kgsl_device *device, const char *fwfile,
 	ret = request_firmware(&fw, fwfile, device->dev);
 
 	if (ret) {
-		KGSL_DRV_FATAL(device, "request_firmware(%s) failed: %d\n",
+		KGSL_DRV_ERR(device, "request_firmware(%s) failed: %d\n",
 			     fwfile, ret);
 		return ret;
 	}
