@@ -1535,27 +1535,23 @@ static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 
 static void dwc3_msm_wake_interrupt_enable(struct dwc3_msm *mdwc, bool on)
 {
-	u32 irq_mask;
+	u32 irq_mask, irq_stat;
+	u32 wakeup_events = PWR_EVNT_POWERDOWN_OUT_P3_MASK |
+		PWR_EVNT_LPM_OUT_L2_MASK;
 
-	if (on) {
-		/* Enable P3 and L2 OUT events */
-		irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
-		irq_mask |= PWR_EVNT_LPM_OUT_L2_MASK |
-				PWR_EVNT_POWERDOWN_OUT_P3_MASK;
-		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG, irq_mask);
-	} else {
-		static const u32 pwr_events = PWR_EVNT_POWERDOWN_OUT_P3_MASK |
-					      PWR_EVNT_LPM_OUT_L2_MASK;
+	irq_stat = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG);
 
-		/* Disable P3 and L2 OUT events */
-		irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
-		irq_mask &= ~pwr_events;
-		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG, irq_mask);
+	/* clear pending interrupts */
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG, irq_stat);
 
-		/* Clear the P3 and L2 OUT status */
-		dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_STAT_REG,
-				   pwr_events);
-	}
+	irq_mask = dwc3_msm_read_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG);
+
+	if (on) /* Enable P3 and L2 OUT events */
+		irq_mask |= wakeup_events;
+	else /* Disable P3 and L2 OUT events */
+		irq_mask &= ~wakeup_events;
+
+	dwc3_msm_write_reg(mdwc->base, PWR_EVNT_IRQ_MASK_REG, irq_mask);
 }
 
 static void dwc3_msm_bus_vote_w(struct work_struct *w)
