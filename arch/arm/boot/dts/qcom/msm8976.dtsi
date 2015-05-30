@@ -183,6 +183,7 @@
 			reg = <0x100>;
 			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc4>;
+			qcom,ldo = <&ldo4>;
 			next-level-cache = <&L2_1>;
 			L2_1: l2-cache {
 			      compatible = "arm,arch-cache";
@@ -197,6 +198,7 @@
 			reg = <0x101>;
 			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc5>;
+			qcom,ldo = <&ldo5>;
 			next-level-cache = <&L2_1>;
 		};
 
@@ -206,6 +208,7 @@
 			reg = <0x102>;
 			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc6>;
+			qcom,ldo = <&ldo6>;
 			next-level-cache = <&L2_1>;
 		};
 
@@ -215,6 +218,7 @@
 			reg = <0x103>;
 			enable-method = "qcom,8976-arm-cortex-acc";
 			qcom,acc = <&acc7>;
+			qcom,ldo = <&ldo7>;
 			next-level-cache = <&L2_1>;
 		};
 	};
@@ -251,12 +255,16 @@
 
 	l2ccc_0: clock-controller@b111000 {
 		compatible = "qcom,8976-l2ccc";
-		reg = <0x0b111000 0x1000>;
+		reg = <0x0b111000 0x1000>,
+		      <0x0b1d1208 0x4>;
+		qcom,vctl-node = <&cluster0_spm>;
 	};
 
 	l2ccc_1: clock-controller@b011000 {
 		compatible = "qcom,8976-l2ccc";
-		reg = <0x0b011000 0x1000>;
+		reg = <0x0b011000 0x1000>,
+		      <0x0b1d1208 0x4>;
+		qcom,vctl-node = <&cluster1_spm>;
 	};
 
 	acc0:clock-controller@b188000 {
@@ -297,6 +305,30 @@
 	acc7:clock-controller@b0b8000 {
 		compatible = "qcom,arm-cortex-acc";
 		reg = <0x0b0b8000 0x1000>;
+	};
+
+	ldo4:ldo-vref@b086000 {
+		compatible = "qcom,8976-cpu-ldo-vref";
+		reg = <0xb086000 0x40>;
+		qcom,ldo-vref-ret = <0x9>;
+	};
+
+	ldo5:ldo-vref@b096000 {
+		compatible = "qcom,8976-cpu-ldo-vref";
+		reg = <0xb096000 0x40>;
+		qcom,ldo-vref-ret = <0x9>;
+	};
+
+	ldo6:ldo-vref@b0a6000 {
+		compatible = "qcom,8976-cpu-ldo-vref";
+		reg = <0xb0a6000 0x40>;
+		qcom,ldo-vref-ret = <0x9>;
+	};
+
+	ldo7:ldo-vref@b0b6000 {
+		compatible = "qcom,8976-cpu-ldo-vref";
+		reg = <0xb0b6000 0x40>;
+		qcom,ldo-vref-ret = <0x9>;
 	};
 
 	intc: interrupt-controller@b000000 {
