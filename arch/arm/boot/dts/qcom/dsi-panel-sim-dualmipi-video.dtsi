@@ -11,7 +11,7 @@
  */
 
 &mdss_mdp {
-	dsi_dual_sim_vid: qcom,mdss_dsi_sim_video {
+	dsi_dual_sim_vid: qcom,mdss_dsi_dual_sim_video {
 		qcom,mdss-dsi-panel-name = "Sim dual video mode dsi panel";
 		qcom,mdss-dsi-panel-type = "dsi_video_mode";
 		qcom,mdss-dsi-panel-framerate = <60>;
