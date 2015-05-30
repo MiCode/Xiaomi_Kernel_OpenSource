@@ -1039,6 +1039,8 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 	struct msm_isp_buffer **done_buf)
 {
 	uint32_t pingpong_bit = 0, i;
+	struct msm_isp_event_data error_event;
+	struct msm_vfe_axi_halt_cmd halt_cmd;
 	pingpong_bit = (~(pingpong_status >> stream_info->wm[0]) & 0x1);
 	for (i = 0; i < stream_info->num_planes; i++) {
 		if (pingpong_bit !=
@@ -1057,6 +1059,32 @@ static void msm_isp_get_done_buf(struct vfe_device *vfe_dev,
 				__func__, __LINE__);
 		} else {
 		   stream_info->undelivered_request_cnt--;
+		   if (pingpong_bit != stream_info->sw_ping_pong_bit) {
+			pr_err("%s:%d ping pong bit actual %d sw %d\n",
+				__func__, __LINE__, pingpong_bit,
+				stream_info->sw_ping_pong_bit);
+
+			memset(&halt_cmd, 0,
+				sizeof(struct msm_vfe_axi_halt_cmd));
+			halt_cmd.stop_camif = 1;
+			halt_cmd.overflow_detected = 0;
+			halt_cmd.blocking_halt = 0;
+
+			msm_isp_axi_halt(vfe_dev, &halt_cmd);
+
+			for (i = 0; i < MAX_NUM_STREAM; i++)
+				vfe_dev->axi_data.stream_info[i].state =
+					INACTIVE;
+
+				error_event.frame_id =
+					vfe_dev->axi_data.src_info[VFE_PIX_0].
+						frame_id;
+
+				msm_isp_send_event(vfe_dev,
+					ISP_EVENT_IOMMU_P_FAULT, &error_event);
+
+			}
+		stream_info->sw_ping_pong_bit ^= 1;
 		}
 	}
 }
@@ -2161,6 +2189,7 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 		msm_isp_get_stream_wm_mask(stream_info, &wm_reload_mask);
 		vfe_dev->hw_info->vfe_ops.axi_ops.reload_wm(vfe_dev,
 			wm_reload_mask);
+		stream_info->sw_ping_pong_bit = 0;
 	} else if (stream_info->undelivered_request_cnt == 2) {
 		pingpong_status =
 			vfe_dev->hw_info->vfe_ops.axi_ops.get_pingpong_status(
