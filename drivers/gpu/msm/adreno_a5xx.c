@@ -1351,6 +1351,12 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_RBBM_PERFCTR_CNTL, 0x01);
 
 	/*
+	 * This is to increase performance by restricting VFD's cache access,
+	 * so that LRZ and other data get evicted less.
+	 */
+	kgsl_regwrite(device, A5XX_UCHE_CACHE_WAYS, 0x02);
+
+	/*
 	 * Set UCHE_WRITE_THRU_BASE to the UCHE_TRAP_BASE effectively
 	 * disabling L2 bypass
 	 */
