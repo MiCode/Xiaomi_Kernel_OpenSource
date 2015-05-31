@@ -904,7 +904,7 @@ int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
 	struct hfi_device *hdev;
 	struct msm_smem *handle;
 	struct vidc_frame_data frame_data = {0};
-	struct hal_buffer_requirements *output_buf;
+	struct hal_buffer_requirements *output_buf, *extra_buf;
 	int rc = 0;
 
 	if (!inst || !inst->core || !inst->core->device) {
@@ -926,6 +926,8 @@ int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
 		output_buf->buffer_count_actual,
 		output_buf->buffer_size);
 
+	extra_buf = get_buff_req_buffer(inst, HAL_BUFFER_EXTRADATA_OUTPUT);
+
 	mutex_lock(&inst->outputbufs.lock);
 	list_for_each_entry(binfo, &inst->outputbufs.list, list) {
 		if (binfo->buffer_ownership != DRIVER)
@@ -939,6 +941,8 @@ int msm_comm_queue_output_buffers(struct msm_vidc_inst *inst)
 		frame_data.extradata_addr = handle->device_addr +
 		output_buf->buffer_size;
 		frame_data.buffer_type = HAL_BUFFER_OUTPUT;
+		frame_data.extradata_size = extra_buf ?
+			extra_buf->buffer_size : 0;
 		rc = call_hfi_op(hdev, session_ftb,
 			(void *) inst->session, &frame_data);
 		binfo->buffer_ownership = FIRMWARE;
