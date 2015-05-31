@@ -277,3 +277,4 @@ module_init(mpq_dmx_sw_plugin_init);
 module_exit(mpq_dmx_sw_plugin_exit);
 
 MODULE_DESCRIPTION("Qualcomm Technologies Inc. demux software plugin");
+MODULE_LICENSE("GPL v2");
