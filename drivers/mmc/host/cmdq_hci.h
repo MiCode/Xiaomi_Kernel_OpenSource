@@ -199,6 +199,7 @@ struct cmdq_host_ops {
 	u32 (*read_l)(struct cmdq_host *host, int reg);
 	void (*clear_set_dumpregs)(struct mmc_host *mmc, bool set);
 	int (*reset)(struct mmc_host *mmc);
+	void (*post_cqe_halt)(struct mmc_host *mmc);
 };
 
 static inline void cmdq_writel(struct cmdq_host *host, u32 val, int reg)

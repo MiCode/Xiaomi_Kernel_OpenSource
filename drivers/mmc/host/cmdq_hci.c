@@ -665,6 +665,8 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	}
 
 	if (status & CQIS_HAC) {
+		if (cq_host->ops->post_cqe_halt)
+			cq_host->ops->post_cqe_halt(mmc);
 		/* halt is completed, wakeup waiting thread */
 		complete(&cq_host->halt_comp);
 	}
