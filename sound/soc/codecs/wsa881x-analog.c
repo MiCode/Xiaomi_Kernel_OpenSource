@@ -42,12 +42,12 @@
  * WSA881X codec needs to be defined here.
  */
 struct wsa881x_pdata {
-	struct regmap *regmap[MAX_WSA881X_DEVICE];
-	struct i2c_client *client[MAX_WSA881X_DEVICE];
+	struct regmap *regmap[2];
+	struct i2c_client *client[2];
 	struct snd_soc_codec *codec;
 
 	/* track wsa881x status during probe */
-	u8 status;
+	int status;
 	bool boost_enable;
 	bool visense_enable;
 	int spk_pa_gain;
@@ -55,6 +55,7 @@ struct wsa881x_pdata {
 	struct mutex xfer_lock;
 	bool regmap_flag;
 	bool wsa_active;
+	int index;
 };
 
 static struct afe_clk_cfg mi2s_rx_clk = {
@@ -67,14 +68,13 @@ static struct afe_clk_cfg mi2s_rx_clk = {
 	0,
 };
 
-enum wsa881x_status {
+enum {
 	WSA881X_STATUS_PROBING,
 	WSA881X_STATUS_I2C,
 };
 
 struct wsa881x_pdata wsa_pdata[MAX_WSA881X_DEVICE];
 
-static enum wsa881x_status wsa881x_status = -1;
 static bool pinctrl_init;
 
 static int wsa881x_populate_dt_pdata(struct device *dev);
@@ -734,15 +734,22 @@ static int wsa881x_shutdown(struct wsa881x_pdata *pdata)
 
 static int wsa881x_probe(struct snd_soc_codec *codec)
 {
-	if (wsa881x_i2c_addr == WSA881X_I2C_SPK0_SLAVE0_ADDR) {
-		wsa_pdata[0].codec = codec;
-		wsa_pdata[0].spk_pa_gain = SPK_GAIN_12DB;
-		snd_soc_codec_set_drvdata(codec, &wsa_pdata[0]);
-	} else if (wsa881x_i2c_addr == WSA881X_I2C_SPK1_SLAVE0_ADDR) {
-		wsa_pdata[1].codec = codec;
-		wsa_pdata[1].spk_pa_gain = SPK_GAIN_12DB;
-		snd_soc_codec_set_drvdata(codec, &wsa_pdata[1]);
+	struct i2c_client *client;
+	int ret = 0;
+	int wsa881x_index = 0;
+
+	client = dev_get_drvdata(codec->dev);
+	ret = wsa881x_i2c_get_client_index(client, &wsa881x_index);
+	if (ret != 0) {
+		dev_err(&client->dev, "%s: I2C get codec I2C\n"
+			"client failed\n", __func__);
+		return ret;
 	}
+
+	wsa_pdata[wsa881x_index].codec = codec;
+	wsa_pdata[wsa881x_index].spk_pa_gain = SPK_GAIN_12DB;
+	snd_soc_codec_set_drvdata(codec, &wsa_pdata[wsa881x_index]);
+
 	return 0;
 }
 
@@ -883,23 +890,25 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 	int wsa881x_index = 0;
 	struct wsa881x_pdata *pdata = NULL;
 
-
-	if ((client->addr == WSA881X_I2C_SPK0_SLAVE1_ADDR ||
-		client->addr == WSA881X_I2C_SPK1_SLAVE1_ADDR) &&
-		(wsa881x_status == WSA881X_STATUS_PROBING))
-		return ret;
-
 	ret = wsa881x_i2c_get_client_index(client, &wsa881x_index);
 	if (ret != 0) {
 		dev_err(&client->dev, "%s: I2C get codec I2C\n"
 			"client failed\n", __func__);
 		return ret;
 	}
-	if (wsa881x_status == WSA881X_STATUS_I2C) {
+
+	pdata = &wsa_pdata[wsa881x_index];
+
+	if ((client->addr == WSA881X_I2C_SPK0_SLAVE1_ADDR ||
+		client->addr == WSA881X_I2C_SPK1_SLAVE1_ADDR) &&
+		(pdata->status == WSA881X_STATUS_PROBING))
+		return ret;
+
+	if (pdata->status == WSA881X_STATUS_I2C) {
 		dev_dbg(&client->dev, "%s:probe for other slaves\n"
 			"devices of codec I2C slave Addr = %x\n",
 			__func__, client->addr);
-		pdata = &wsa_pdata[wsa881x_index];
+
 		dev_dbg(&client->dev, "%s:wsa_idx = %d SLAVE = %d\n",
 				__func__, wsa881x_index, WSA881X_ANALOG_SLAVE);
 		pdata->regmap[WSA881X_ANALOG_SLAVE] =
@@ -918,8 +927,8 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 		i2c_set_clientdata(client, pdata);
 		pdata->client[WSA881X_ANALOG_SLAVE] = client;
 		return ret;
-	} else if (wsa881x_status == WSA881X_STATUS_PROBING) {
-		pdata = &wsa_pdata[wsa881x_index];
+	} else if (pdata->status == WSA881X_STATUS_PROBING) {
+		pdata->index = wsa881x_index;
 		if (client->dev.of_node) {
 			dev_dbg(&client->dev, "%s:Platform data\n"
 				"from device tree\n", __func__);
@@ -972,18 +981,13 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 				"failed to ping wsa with addr:%x, ret = %d\n",
 						client->addr, ret);
 			goto err1;
-		} else {
-			if (client->addr == WSA881X_I2C_SPK0_SLAVE0_ADDR)
-				wsa881x_i2c_addr = WSA881X_I2C_SPK0_SLAVE0_ADDR;
-			else if (client->addr == WSA881X_I2C_SPK1_SLAVE0_ADDR)
-				wsa881x_i2c_addr = WSA881X_I2C_SPK1_SLAVE0_ADDR;
 		}
 		ret = snd_soc_register_codec(&client->dev,
 					&soc_codec_dev_wsa881x,
 					     NULL, 0);
 		if (ret < 0)
 			goto err1;
-		wsa881x_status = WSA881X_STATUS_I2C;
+		pdata->status = WSA881X_STATUS_I2C;
 	}
 err1:
 	wsa881x_reset(pdata, false);
@@ -1052,7 +1056,9 @@ static struct i2c_driver wsa881x_codec_driver = {
 
 static int __init wsa881x_codec_init(void)
 {
-	wsa881x_status = WSA881X_STATUS_PROBING;
+	int i = 0;
+	for (i = 0; i < MAX_WSA881X_DEVICE; i++)
+		wsa_pdata[i].status = WSA881X_STATUS_PROBING;
 	return i2c_add_driver(&wsa881x_codec_driver);
 }
 module_init(wsa881x_codec_init);

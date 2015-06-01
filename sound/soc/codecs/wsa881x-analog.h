@@ -23,13 +23,13 @@
 
 #define WSA881X_I2C_SPK0_SLAVE0	0
 #define WSA881X_I2C_SPK1_SLAVE0	1
-#define MAX_WSA881X_DEVICE 4
+#define MAX_WSA881X_DEVICE 2
 #define WSA881X_DIGITAL_SLAVE 0
 #define WSA881X_ANALOG_SLAVE 1
 
 extern const u8 wsa881x_ana_reg_readable[WSA881X_CACHE_SIZE];
 extern const struct reg_default wsa881x_ana_reg_defaults[WSA881X_CACHE_SIZE];
-extern struct regmap_config wsa881x_ana_regmap_config[MAX_WSA881X_DEVICE];
+extern struct regmap_config wsa881x_ana_regmap_config[2];
 int wsa881x_get_client_index(void);
 
 #endif /* _WSA881X_H */
