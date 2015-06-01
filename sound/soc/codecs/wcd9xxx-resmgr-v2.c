@@ -64,6 +64,8 @@ int wcd_resmgr_get_clk_type(struct wcd9xxx_resmgr_v2 *resmgr)
  */
 int wcd_resmgr_enable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
 {
+	mutex_lock(&resmgr->master_bias_lock);
+
 	resmgr->master_bias_users++;
 	if (resmgr->master_bias_users == 1) {
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_BIAS,
@@ -83,6 +85,8 @@ int wcd_resmgr_enable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
 
 	pr_debug("%s: current master bias users: %d\n", __func__,
 		 resmgr->master_bias_users);
+
+	mutex_unlock(&resmgr->master_bias_lock);
 	return 0;
 }
 
@@ -92,8 +96,11 @@ int wcd_resmgr_enable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
  */
 int wcd_resmgr_disable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
 {
-	if (resmgr->master_bias_users <= 0)
+	mutex_lock(&resmgr->master_bias_lock);
+	if (resmgr->master_bias_users <= 0) {
+		mutex_unlock(&resmgr->master_bias_lock);
 		return -EINVAL;
+	}
 
 	resmgr->master_bias_users--;
 	if (resmgr->master_bias_users == 0) {
@@ -102,6 +109,7 @@ int wcd_resmgr_disable_master_bias(struct wcd9xxx_resmgr_v2 *resmgr)
 		wcd_resmgr_codec_reg_update_bits(resmgr, WCD9335_ANA_BIAS,
 						 0x20, 0x00);
 	}
+	mutex_unlock(&resmgr->master_bias_lock);
 	return 0;
 }
 
@@ -356,6 +364,7 @@ struct wcd9xxx_resmgr_v2 *wcd_resmgr_init(
 	}
 
 	mutex_init(&resmgr->codec_bg_clk_lock);
+	mutex_init(&resmgr->master_bias_lock);
 	resmgr->master_bias_users = 0;
 	resmgr->clk_mclk_users = 0;
 	resmgr->clk_rco_users = 0;
@@ -372,6 +381,7 @@ struct wcd9xxx_resmgr_v2 *wcd_resmgr_init(
  */
 void wcd_resmgr_remove(struct wcd9xxx_resmgr_v2 *resmgr)
 {
+	mutex_destroy(&resmgr->master_bias_lock);
 	kfree(resmgr);
 }
 
