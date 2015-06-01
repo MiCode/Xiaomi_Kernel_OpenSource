@@ -386,18 +386,14 @@ struct mdss_mdp_data {
 struct pp_hist_col_info {
 	u32 col_state;
 	u32 col_en;
-	u32 read_request;
-	u32 hist_cnt_read;
-	u32 hist_cnt_sent;
-	u32 hist_cnt_time;
 	u32 frame_cnt;
-	struct completion comp;
-	struct completion first_kick;
 	u32 data[HIST_V_SIZE];
 	struct mutex hist_mutex;
 	spinlock_t hist_lock;
 	char __iomem *base;
 	u32 intr_shift;
+	u32 disp_block;
+	struct msm_fb_data_type *mfd;
 };
 
 struct mdss_mdp_ad {
@@ -537,6 +533,7 @@ struct mdss_mdp_writeback_arg {
 struct mdss_overlay_private {
 	ktime_t vsync_time;
 	struct sysfs_dirent *vsync_event_sd;
+	struct sysfs_dirent *hist_event_sd;
 	int borderfill_enable;
 	int overlay_play_enable;
 	int hw_refresh;
@@ -577,6 +574,7 @@ struct mdss_overlay_private {
 	bool kickoff_released;
 	u32 cursor_ndx[2];
 	bool dyn_mode_switch; /* Used in prepare, bw calc for new mode */
+	u32 hist_events;
 };
 
 struct mdss_mdp_set_ot_params {
