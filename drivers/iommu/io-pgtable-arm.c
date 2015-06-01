@@ -196,7 +196,7 @@ struct arm_lpae_io_pgtable {
 
 typedef u64 arm_lpae_iopte;
 
-static bool selftest_running = false;
+static bool suppress_map_failures;
 
 static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 			     unsigned long iova, phys_addr_t paddr,
@@ -207,7 +207,7 @@ static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 
 	/* We require an unmap first */
 	if (iopte_leaf(*ptep, lvl)) {
-		if (!selftest_running) {
+		if (!suppress_map_failures) {
 			*ptep = 0;
 			data->iop.cfg.tlb->tlb_flush_all(data->iop.cookie);
 		} else {
@@ -949,7 +949,7 @@ static void __init arm_lpae_dump_ops(struct io_pgtable_ops *ops)
 #define __FAIL(ops, i)	({						\
 		WARN(1, "selftest: test failed for fmt idx %d\n", (i));	\
 		arm_lpae_dump_ops(ops);					\
-		selftest_running = false;				\
+		suppress_map_failures = false;				\
 		-EFAULT;						\
 })
 
@@ -1001,7 +1001,6 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 	unsigned long iova;
 	size_t size;
 	struct io_pgtable_ops *ops;
-	selftest_running = true;
 
 	for (i = 0; i < ARRAY_SIZE(fmts); ++i) {
 		unsigned long test_sg_sizes[] = { SZ_4K, SZ_64K, SZ_2M,
@@ -1036,10 +1035,12 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 							    IOMMU_CACHE))
 				return __FAIL(ops, i);
 
+			suppress_map_failures = true;
 			/* Overlapping mappings */
 			if (!ops->map(ops, iova, iova + size, size,
 				      IOMMU_READ | IOMMU_NOEXEC))
 				return __FAIL(ops, i);
+			suppress_map_failures = false;
 
 			if (!arm_lpae_range_has_specific_mapping(ops, iova,
 								 iova, size))
@@ -1184,7 +1185,7 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 		free_io_pgtable_ops(ops);
 	}
 
-	selftest_running = false;
+	suppress_map_failures = false;
 	return 0;
 }
 
