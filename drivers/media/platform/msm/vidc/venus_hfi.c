@@ -1520,6 +1520,22 @@ static int venus_hfi_suspend(void *dev)
 	return rc;
 }
 
+static enum hal_default_properties venus_hfi_get_default_properties(void *dev)
+{
+	enum hal_default_properties prop = 0;
+	struct venus_hfi_device *device = (struct venus_hfi_device *) dev;
+
+	if (!device) {
+		dprintk(VIDC_ERR, "%s invalid device\n", __func__);
+		return -EINVAL;
+	}
+
+	if (device->packetization_type == HFI_PACKETIZATION_3XX)
+		prop = HAL_VIDEO_DYNAMIC_BUF_MODE;
+
+	return prop;
+}
+
 static int venus_hfi_halt_axi(struct venus_hfi_device *device)
 {
 	u32 reg;
@@ -4202,7 +4218,6 @@ int venus_hfi_get_core_capabilities(void)
 static int venus_hfi_initialize_packetization(struct venus_hfi_device *device)
 {
 	int major_version;
-	enum hfi_packetization_type packetization_type;
 	int rc = 0;
 
 	if (!device) {
@@ -4242,11 +4257,11 @@ static int venus_hfi_initialize_packetization(struct venus_hfi_device *device)
 		rc & VIDC_WRAPPER_HW_VERSION_STEP_VERSION_MASK);
 
 	if (major_version <= 2)
-		packetization_type = HFI_PACKETIZATION_LEGACY;
+		device->packetization_type = HFI_PACKETIZATION_LEGACY;
 	else
-		packetization_type = HFI_PACKETIZATION_3XX;
+		device->packetization_type = HFI_PACKETIZATION_3XX;
 
-	device->pkt_ops = hfi_get_pkt_ops_handle(packetization_type);
+	device->pkt_ops = hfi_get_pkt_ops_handle(device->packetization_type);
 	if (!device->pkt_ops) {
 		rc = -EINVAL;
 		dprintk(VIDC_ERR, "Failed to get pkt_ops handle\n");
@@ -4416,6 +4431,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->power_enable = venus_hfi_power_enable;
 	hdev->suspend = venus_hfi_suspend;
 	hdev->get_core_clock_rate = venus_hfi_get_core_clock_rate;
+	hdev->get_default_properties = venus_hfi_get_default_properties;
 }
 
 int venus_hfi_initialize(struct hfi_device *hdev, u32 device_id,
