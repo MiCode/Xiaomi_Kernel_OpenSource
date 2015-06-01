@@ -1714,6 +1714,8 @@ static int __ref msm_performance_cpu_callback(struct notifier_block *nfb,
 		return NOTIFY_OK;
 
 	for (i = 0; i < num_clusters; i++) {
+		if (managed_clusters[i]->cpus == NULL)
+			return NOTIFY_OK;
 		if (cpumask_test_cpu(cpu, managed_clusters[i]->cpus)) {
 			i_cl = managed_clusters[i];
 			break;
@@ -1728,6 +1730,8 @@ static int __ref msm_performance_cpu_callback(struct notifier_block *nfb,
 		 * Prevent onlining of a managed CPU if max_cpu criteria is
 		 * already satisfied
 		 */
+		if (i_cl->offlined_cpus == NULL)
+			return NOTIFY_OK;
 		if (i_cl->max_cpu_request <=
 					num_online_managed(i_cl->cpus)) {
 			pr_debug("msm_perf: Prevent CPU%d onlining\n", cpu);
@@ -1737,6 +1741,8 @@ static int __ref msm_performance_cpu_callback(struct notifier_block *nfb,
 		cpumask_clear_cpu(cpu, i_cl->offlined_cpus);
 
 	} else if (action == CPU_DEAD) {
+		if (i_cl->offlined_cpus == NULL)
+			return NOTIFY_OK;
 		if (cpumask_test_cpu(cpu, i_cl->offlined_cpus))
 			return NOTIFY_OK;
 		/*
@@ -1816,7 +1822,18 @@ static int init_cluster_control(void)
 			pr_err("msm_perf:Cluster %u mem alloc failed\n", i);
 			return -ENOMEM;
 		}
-
+		if (!alloc_cpumask_var(&managed_clusters[i]->cpus,
+		     GFP_KERNEL)) {
+			pr_err("msm_perf:Cluster %u cpu alloc failed\n",
+			       i);
+			return -ENOMEM;
+		}
+		if (!alloc_cpumask_var(&managed_clusters[i]->offlined_cpus,
+		     GFP_KERNEL)) {
+			pr_err("msm_perf:Cluster %u off_cpus alloc failed\n",
+			       i);
+			return -ENOMEM;
+		}
 		managed_clusters[i]->max_cpu_request = -1;
 		managed_clusters[i]->single_enter_load = DEF_SINGLE_ENT;
 		managed_clusters[i]->single_exit_load = DEF_SINGLE_EX;
