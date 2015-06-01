@@ -19,6 +19,7 @@
 #include <linux/of_platform.h>
 #include <linux/iommu.h>
 #include <linux/dma-mapping.h>
+#include <linux/msm_dma_iommu_mapping.h>
 #include "cam_smmu_api.h"
 
 #define BYTE_SIZE 8
@@ -516,10 +517,10 @@ static int cam_smmu_map_buffer_and_add_to_list(int idx, int ion_fd,
 		goto err_detach;
 	}
 
-	rc = dma_map_sg(iommu_cb_set.cb_info[idx].dev, table->sgl,
-			table->nents, dma_dir);
+	rc = msm_dma_map_sg_lazy(iommu_cb_set.cb_info[idx].dev, table->sgl,
+			table->nents, dma_dir, buf);
 	if (!rc) {
-		pr_err("Error: dma_map_sg failed\n");
+		pr_err("Error: msm_dma_map_sg_lazy failed\n");
 		goto err_unmap_sg;
 	}
 
@@ -600,8 +601,9 @@ static int cam_smmu_unmap_buf_and_remove_from_list(
 	}
 
 	/* iommu buffer clean up */
-	dma_unmap_sg(iommu_cb_set.cb_info[idx].dev, mapping_info->table->sgl,
-		mapping_info->table->nents, mapping_info->dir);
+	msm_dma_unmap_sg(iommu_cb_set.cb_info[idx].dev,
+		mapping_info->table->sgl, mapping_info->table->nents,
+		mapping_info->dir, mapping_info->buf);
 	dma_buf_unmap_attachment(mapping_info->attach,
 		mapping_info->table, mapping_info->dir);
 	dma_buf_detach(mapping_info->buf, mapping_info->attach);
