@@ -1130,7 +1130,7 @@ static void __init arm_lpae_dump_ops(struct io_pgtable_ops *ops)
 })
 
 /*
- * Returns true if the entire iova range has any mapping in ops.
+ * Returns true if there's any mapping in the given iova range in ops.
  */
 static bool arm_lpae_range_has_mapping(struct io_pgtable_ops *ops,
 				       unsigned long iova_start, size_t size)
@@ -1138,11 +1138,11 @@ static bool arm_lpae_range_has_mapping(struct io_pgtable_ops *ops,
 	unsigned long iova = iova_start;
 
 	while (iova < (iova_start + size)) {
-		if (!ops->iova_to_phys(ops, iova + 42))
-			return false;
+		if (ops->iova_to_phys(ops, iova + 42))
+			return true;
 		iova += SZ_4K;
 	}
-	return true;
+	return false;
 }
 
 /*
