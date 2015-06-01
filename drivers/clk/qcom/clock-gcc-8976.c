@@ -3269,6 +3269,15 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(xo_pil_mss_clk),
 	 CLK_LIST(xo_pil_pronto_clk),
 	 CLK_LIST(xo_wlan_clk),
+
+	 /* XO buffers */
+	 CLK_LIST(bb_clk1),
+	 CLK_LIST(bb_clk2),
+	 CLK_LIST(rf_clk2),
+	 CLK_LIST(div_clk2),
+	 CLK_LIST(bb_clk1_pin),
+	 CLK_LIST(bb_clk2_pin),
+
 	 CLK_LIST(gcc_blsp1_qup1_spi_apps_clk),
 	 CLK_LIST(gcc_blsp1_qup1_i2c_apps_clk),
 	 CLK_LIST(gcc_blsp1_qup2_i2c_apps_clk),
