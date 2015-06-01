@@ -1723,6 +1723,13 @@ static int smb135x_parallel_set_chg_present(struct smb135x_chg *chip,
 	u8 val;
 	int rc;
 
+	/* Check if SMB135x is present */
+	rc = smb135x_read(chip, VERSION1_REG, &val);
+	if (rc) {
+		pr_debug("Failed to detect smb135x-parallel charger may be absent\n");
+		return -ENODEV;
+	}
+
 	if (present == chip->parallel_charger_present) {
 		pr_debug("present %d -> %d, skipping\n",
 				chip->parallel_charger_present, present);
