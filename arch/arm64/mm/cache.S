@@ -21,7 +21,7 @@
 #include <linux/init.h>
 #include <asm/assembler.h>
 #include <asm/cpufeature.h>
-#include <asm/alternative-asm.h>
+#include <asm/alternative.h>
 
 #include "proc-macros.S"
 
