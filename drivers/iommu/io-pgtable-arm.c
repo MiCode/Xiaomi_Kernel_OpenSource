@@ -1270,6 +1270,33 @@ static int __init arm_lpae_run_tests(struct io_pgtable_cfg *cfg)
 		if (arm_lpae_range_has_mapping(ops, 0, SZ_2G))
 			return __FAIL(ops, i);
 
+		if ((cfg->pgsize_bitmap & SZ_2M) &&
+		    (cfg->pgsize_bitmap & SZ_4K)) {
+			/* mixed block + page mappings */
+			iova = 0;
+			if (ops->map(ops, iova, iova, SZ_2M, IOMMU_READ))
+				return __FAIL(ops, i);
+
+			if (ops->map(ops, iova + SZ_2M, iova + SZ_2M, SZ_4K,
+				     IOMMU_READ))
+				return __FAIL(ops, i);
+
+			if (ops->iova_to_phys(ops, iova + 42) != (iova + 42))
+				return __FAIL(ops, i);
+
+			if (ops->iova_to_phys(ops, iova + SZ_2M + 42) !=
+			    (iova + SZ_2M + 42))
+				return __FAIL(ops, i);
+
+			/* unmap both mappings at once */
+			if (ops->unmap(ops, iova, SZ_2M + SZ_4K) !=
+			    (SZ_2M + SZ_4K))
+				return __FAIL(ops, i);
+
+			if (arm_lpae_range_has_mapping(ops, 0, SZ_2G))
+				return __FAIL(ops, i);
+		}
+
 		/* map_sg */
 		for (j = 0; j < ARRAY_SIZE(test_sg_sizes); ++j) {
 			size_t mapped;
