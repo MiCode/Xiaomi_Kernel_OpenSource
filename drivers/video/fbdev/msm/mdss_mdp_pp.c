@@ -3846,8 +3846,9 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
 	if (hist_info->col_en) {
 		spin_unlock_irqrestore(&hist_info->hist_lock, flag);
-		pr_info("%s Hist collection has already been enabled %p\n",
+		pr_err("%s Hist collection has already been enabled %p\n",
 			__func__, hist_info->base);
+		ret = -EBUSY;
 		goto exit;
 	}
 	hist_info->col_state = HIST_IDLE;
@@ -3968,6 +3969,11 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 			hist_info->disp_num = PP_BLOCK(req->block);
 			hist_info->ctl = ctl;
 			ret = pp_hist_enable(hist_info, req);
+			if (ret) {
+				pr_err("failed to enable histogram dspp_num %d ret %d\n",
+				       dspp_num, ret);
+				goto hist_stop_clk;
+			}
 			mdss_pp_res->pp_disp_flags[disp_num] |=
 							PP_FLAGS_DIRTY_HIST_COL;
 		}
