@@ -579,7 +579,7 @@ void wcd9xxx_enable_high_perf_mode(struct snd_soc_codec *codec,
 					WCD9XXX_A_RX_HPH_L_PA_CTL__POR);
 		snd_soc_write(codec, WCD9XXX_A_RX_HPH_R_PA_CTL,
 					WCD9XXX_A_RX_HPH_R_PA_CTL__POR);
-		snd_soc_write(codec, WCD9XXX_A_RX_HPH_BIAS_PA, 0x55);
+		snd_soc_write(codec, WCD9XXX_A_RX_HPH_BIAS_PA, 0x57);
 		wcd9xxx_enable_buck(codec, clsh_d, true);
 		wcd9xxx_chargepump_request(codec, false);
 		wcd9xxx_enable_anc_delay(codec, false);
