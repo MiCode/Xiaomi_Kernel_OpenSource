@@ -255,6 +255,29 @@
 #define clk_vcodec0_clk_src			0xbc193019
 #define clk_gcc_qusb2_phy_clk			0x996884d5
 #define clk_gcc_usb2_hs_phy_only_clk		0x0047179d
+#define clk_bb_clk1				0xf5304268
+#define clk_bb_clk1_a				0xfa113810
+#define clk_bb_clk1_pin				0x6dd0a779
+#define clk_bb_clk1_a_pin			0x9b637772
+#define clk_bb_clk2				0xfe15cb87
+#define clk_bb_clk2_a				0x59682706
+#define clk_bb_clk2_pin				0x498938e5
+#define clk_bb_clk2_a_pin			0x52513787
+#define clk_rf_clk1				0xaabeea5a
+#define clk_rf_clk1_a				0x72a10cb8
+#define clk_rf_clk1_pin				0x8f463562
+#define clk_rf_clk1_a_pin			0x62549ff6
+#define clk_rf_clk2				0x24a30992
+#define clk_rf_clk2_a				0x944d8bbd
+#define clk_rf_clk2_pin				0xa7c5602a
+#define clk_rf_clk2_a_pin			0x2d75eb4d
+#define clk_div_clk1				0xaa1157a6
+#define clk_div_clk1_a				0x6b943d68
+#define clk_div_clk2				0xd454019f
+#define clk_div_clk2_a				0x4bd7bfa8
+#define clk_ln_bb_clk				0x3ab0b36d
+#define clk_ln_bb_a_clk				0xc7257ea8
+
 
 /* DEBUG */
 #define clk_gcc_debug_mux			0x8121ac15
