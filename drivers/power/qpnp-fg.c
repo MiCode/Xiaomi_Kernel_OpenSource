@@ -1050,6 +1050,12 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 	int rc = 0, timeout = 250;
 	u8 ima_opr_sts = 0;
 
+	/*
+	 * Additional delay to make sure IACS ready bit is set after
+	 * Read/Write operation.
+	 */
+
+	usleep_range(30, 35);
 	while (1) {
 		rc = fg_read(chip, &ima_opr_sts,
 			chip->mem_base + MEM_INTF_IMA_OPR_STS, 1);
@@ -1059,7 +1065,7 @@ static int fg_check_iacs_ready(struct fg_chip *chip)
 			if (!(--timeout) || rc)
 				break;
 			/* delay for iacs_ready to be asserted */
-			usleep_range(10000, 12000);
+			usleep_range(5000, 7000);
 		}
 	}
 
