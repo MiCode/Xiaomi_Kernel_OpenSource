@@ -475,7 +475,6 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 	const struct iommu_gather_ops *tlb = data->iop.cfg.tlb;
 	void *cookie = data->iop.cookie;
 	size_t blk_size = ARM_LPAE_BLOCK_SIZE(lvl, data);
-	size_t pgsize = iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova, size);
 
 	ptep += ARM_LPAE_LVL_IDX(iova, lvl, data);
 	pte = *ptep;
@@ -485,7 +484,7 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 		return 0;
 
 	/* If the size matches this level, we're in the right place */
-	if (size == pgsize && size == blk_size) {
+	if (size == blk_size) {
 		*ptep = 0;
 		tlb->flush_pgtable(ptep, sizeof(*ptep), cookie);
 
@@ -545,13 +544,25 @@ static int __arm_lpae_unmap(struct arm_lpae_io_pgtable *data,
 static size_t arm_lpae_unmap(struct io_pgtable_ops *ops, unsigned long iova,
 			  size_t size)
 {
-	size_t unmapped;
+	size_t unmapped = 0;
 	struct arm_lpae_io_pgtable *data = io_pgtable_ops_to_data(ops);
 	struct io_pgtable *iop = &data->iop;
 	arm_lpae_iopte *ptep = data->pgd;
 	int lvl = ARM_LPAE_START_LVL(data);
 
-	unmapped = __arm_lpae_unmap(data, iova, size, lvl, ptep);
+	while (unmapped < size) {
+		size_t ret, size_to_unmap, remaining;
+
+		remaining = (size - unmapped);
+		size_to_unmap = remaining < SZ_2M
+			? remaining
+			: iommu_pgsize(data->iop.cfg.pgsize_bitmap, iova, size);
+		ret = __arm_lpae_unmap(data, iova, size_to_unmap, lvl, ptep);
+		if (ret != size_to_unmap)
+			break;
+		unmapped += ret;
+		iova += ret;
+	}
 	if (unmapped)
 		iop->cfg.tlb->tlb_flush_all(iop->cookie);
 
