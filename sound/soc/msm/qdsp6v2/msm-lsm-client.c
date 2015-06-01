@@ -277,6 +277,12 @@ static void lsm_event_handler(uint32_t opcode, uint32_t token,
 		prtd->event_status = krealloc(prtd->event_status,
 					sizeof(struct snd_lsm_event_status) +
 					payload_size, GFP_ATOMIC);
+		if (!prtd->event_status) {
+			dev_err(rtd->dev, "%s: no memory for event status\n",
+				__func__);
+			return;
+		}
+
 		prtd->event_status->status = status;
 		prtd->event_status->payload_size = payload_size;
 		if (likely(prtd->event_status)) {
