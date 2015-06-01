@@ -351,9 +351,6 @@ static void glink_xprt_open_event(struct work_struct *work)
 	struct ipc_router_glink_xprt *glink_xprtp = xprt_work->glink_xprtp;
 	int i;
 
-	mutex_lock(&glink_xprtp->ss_reset_lock);
-	glink_xprtp->ss_reset = 0;
-	mutex_unlock(&glink_xprtp->ss_reset_lock);
 	msm_ipc_router_xprt_notify(&glink_xprtp->xprt,
 				IPC_ROUTER_XPRT_EVENT_OPEN, NULL);
 	D("%s: Notified IPC Router of %s OPEN\n",
@@ -603,8 +600,13 @@ static void glink_xprt_notify_state(void *handle, const void *priv,
 	struct ipc_router_glink_xprt *glink_xprtp =
 		(struct ipc_router_glink_xprt *)priv;
 
+	D("%s: %s:%s - State %d\n",
+	  __func__, glink_xprtp->edge, glink_xprtp->transport, event);
 	switch (event) {
 	case GLINK_CONNECTED:
+		mutex_lock(&glink_xprtp->ss_reset_lock);
+		glink_xprtp->ss_reset = 0;
+		mutex_unlock(&glink_xprtp->ss_reset_lock);
 		xprt_work = kmalloc(sizeof(struct ipc_router_glink_xprt_work),
 				    GFP_ATOMIC);
 		if (!xprt_work) {
@@ -621,6 +623,10 @@ static void glink_xprt_notify_state(void *handle, const void *priv,
 	case GLINK_LOCAL_DISCONNECTED:
 	case GLINK_REMOTE_DISCONNECTED:
 		mutex_lock(&glink_xprtp->ss_reset_lock);
+		if (glink_xprtp->ss_reset) {
+			mutex_unlock(&glink_xprtp->ss_reset_lock);
+			break;
+		}
 		glink_xprtp->ss_reset = 1;
 		mutex_unlock(&glink_xprtp->ss_reset_lock);
 		xprt_work = kmalloc(sizeof(struct ipc_router_glink_xprt_work),
@@ -701,6 +707,7 @@ static void glink_xprt_link_state_worker(struct work_struct *work)
 			    || IS_ERR_OR_NULL(glink_xprtp->ch_hndl))
 				continue;
 			glink_close(glink_xprtp->ch_hndl);
+			glink_xprtp->ch_hndl = NULL;
 			msm_ipc_unload_subsystem(glink_xprtp);
 		}
 		mutex_unlock(&glink_xprt_list_lock_lha1);
