@@ -1026,13 +1026,20 @@ int msm_vdec_g_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 	f->fmt.pix_mp.pixelformat = fmt->fourcc;
 	f->fmt.pix_mp.num_planes = fmt->num_planes;
 	if (inst->in_reconfig) {
+		bool ds_enabled = msm_comm_g_ctrl(inst,
+			V4L2_CID_MPEG_VIDC_VIDEO_KEEP_ASPECT_RATIO);
+
+		/*
+		 * Do not update height and width on capture port, if
+		 * downscalar is explicitly enabled from v4l2 client.
+		 */
 		if (msm_comm_get_stream_output_mode(inst) ==
-				HAL_VIDEO_DECODER_PRIMARY) {
-			inst->prop.height[CAPTURE_PORT] = inst->reconfig_height;
-			inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
+			HAL_VIDEO_DECODER_SECONDARY && ds_enabled) {
 			inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
 			inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 		} else {
+			inst->prop.height[CAPTURE_PORT] = inst->reconfig_height;
+			inst->prop.width[CAPTURE_PORT] = inst->reconfig_width;
 			inst->prop.height[OUTPUT_PORT] = inst->reconfig_height;
 			inst->prop.width[OUTPUT_PORT] = inst->reconfig_width;
 		}

@@ -76,6 +76,17 @@ static inline bool is_nominal_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_NOMINAL);
 }
 
+int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
+{
+	int rc = 0;
+	struct v4l2_control ctrl = {
+		.id = id,
+	};
+
+	rc = v4l2_g_ctrl(&inst->ctrl_handler, &ctrl);
+	return rc ?: ctrl.value;
+}
+
 enum multi_stream msm_comm_get_stream_output_mode(struct msm_vidc_inst *inst)
 {
 	if (inst->session_type == MSM_VIDC_DECODER) {
