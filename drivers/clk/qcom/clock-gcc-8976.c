@@ -20,8 +20,10 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/platform_device.h>
+#include <linux/pm_opp.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 #include <soc/qcom/clock-local2.h>
 #include <soc/qcom/clock-pll.h>
 #include <soc/qcom/clock-voter.h>
@@ -1198,9 +1200,6 @@ static struct rcg_clk gfx3d_clk_src = {
 	.c = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP5(LOWER, 300000000, LOW, 366670000,
-		NOMINAL, 432000000, NOM_PLUS, 480000000,
-		HIGH, 550000000),
 		CLK_INIT(gfx3d_clk_src.c),
 	},
 };
@@ -2447,6 +2446,9 @@ static struct branch_clk gcc_oxili_gfx3d_clk = {
 	.c = {
 		.dbg_name = "gcc_oxili_gfx3d_clk",
 		.parent = &gfx3d_clk_src.c,
+		VDD_DIG_FMAX_MAP5(LOWER, 300000000, LOW, 366670000,
+				NOMINAL, 432000000, NOM_PLUS, 480000000,
+				HIGH, 550000000),
 		.ops = &clk_ops_branch,
 		CLK_INIT(gcc_oxili_gfx3d_clk.c),
 	},
@@ -3390,11 +3392,7 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_crypto_axi_clk),
 	 CLK_LIST(gcc_crypto_clk),
 	 CLK_LIST(gcc_cpp_tbu_clk),
-	 CLK_LIST(gcc_gfx_1_tbu_clk),
-	 CLK_LIST(gcc_gfx_tbu_clk),
-	 CLK_LIST(gcc_gfx_tcu_clk),
 	 CLK_LIST(gcc_apss_tcu_clk),
-	 CLK_LIST(gcc_gtcu_ahb_clk),
 	 CLK_LIST(gcc_jpeg_tbu_clk),
 	 CLK_LIST(gcc_mdp_rt_tbu_clk),
 	 CLK_LIST(gcc_mdp_tbu_clk),
@@ -3722,7 +3720,135 @@ static struct clk_lookup msm_clocks_gcc_gfx[] = {
 	CLK_LIST(gcc_oxili_aon_clk),
 	CLK_LIST(gcc_oxili_gmem_clk),
 	CLK_LIST(gcc_oxili_timer_clk),
+	CLK_LIST(gcc_gfx_1_tbu_clk),
+	CLK_LIST(gcc_gfx_tbu_clk),
+	CLK_LIST(gcc_gfx_tcu_clk),
+	CLK_LIST(gcc_gtcu_ahb_clk),
 };
+
+static int of_get_fmax_vdd_class(struct platform_device *pdev, struct clk *c,
+								char *prop_name)
+{
+	struct device_node *of = pdev->dev.of_node;
+	int prop_len, i;
+	struct clk_vdd_class *vdd = c->vdd_class;
+	u32 *array;
+
+	if (!of_find_property(of, prop_name, &prop_len)) {
+		dev_err(&pdev->dev, "missing %s\n", prop_name);
+		return -EINVAL;
+	}
+
+	prop_len /= sizeof(u32);
+	if (prop_len % 2) {
+		dev_err(&pdev->dev, "bad length %d\n", prop_len);
+		return -EINVAL;
+	}
+
+	prop_len /= 2;
+	vdd->level_votes = devm_kzalloc(&pdev->dev,
+				prop_len * sizeof(*vdd->level_votes),
+					GFP_KERNEL);
+	if (!vdd->level_votes)
+		return -ENOMEM;
+
+	vdd->vdd_uv = devm_kzalloc(&pdev->dev, prop_len * sizeof(int),
+					GFP_KERNEL);
+	if (!vdd->vdd_uv)
+		return -ENOMEM;
+
+	c->fmax = devm_kzalloc(&pdev->dev, prop_len * sizeof(unsigned long),
+					GFP_KERNEL);
+	if (!c->fmax)
+		return -ENOMEM;
+
+	array = devm_kzalloc(&pdev->dev,
+			prop_len * sizeof(u32) * 2, GFP_KERNEL);
+	if (!array)
+		return -ENOMEM;
+
+	of_property_read_u32_array(of, prop_name, array, prop_len * 2);
+	for (i = 0; i < prop_len; i++) {
+		c->fmax[i] = array[2 * i];
+		vdd->vdd_uv[i] = array[2 * i + 1];
+	}
+
+	devm_kfree(&pdev->dev, array);
+	vdd->num_levels = prop_len;
+	vdd->cur_level = prop_len;
+	c->num_fmax = prop_len;
+
+	return 0;
+}
+
+static void print_opp_table(struct device *dev)
+{
+	struct clk *gpu_clk = &gfx3d_clk_src.c;
+	struct opp *opp;
+	int i;
+
+	pr_debug("OPP table for GPU core clock:\n");
+	for (i = 1; i < gpu_clk->num_fmax; i++) {
+		if (!gpu_clk->fmax[i])
+			continue;
+		opp = dev_pm_opp_find_freq_exact(dev, gpu_clk->fmax[i], true);
+		pr_info("clock-gpu: OPP voltage for %lu Hz: %ld uV\n",
+			gpu_clk->fmax[i], dev_pm_opp_get_voltage(opp));
+	}
+}
+
+static void populate_gpu_opp_table(struct platform_device *pdev)
+{
+	struct device_node *of = pdev->dev.of_node;
+	struct platform_device *gpu_dev;
+	struct device_node *gpu_node;
+	struct clk *gpu_clk = &gfx3d_clk_src.c;
+	int i, ret, level;
+	unsigned long rate = 0;
+
+	gpu_node = of_parse_phandle(of, "gpu_handle", 0);
+	if (!gpu_node) {
+		pr_err("clock-gpu: %s: Unable to get device_node pointer for GPU\n",
+							__func__);
+		return;
+	}
+
+	gpu_dev = of_find_device_by_node(gpu_node);
+	if (!gpu_dev) {
+		pr_err("clock-gpu: %s: Unable to find platform_device node for GPU\n",
+							__func__);
+		return;
+	}
+
+	for (i = 0; i < gpu_clk->num_fmax; i++) {
+		if (!gpu_clk->fmax[i])
+			continue;
+
+		ret = clk_round_rate(gpu_clk, gpu_clk->fmax[i]);
+		if (ret < 0) {
+			pr_warn("clock-gpu: %s: round_rate failed at %lu - err: %d\n",
+							__func__, rate, ret);
+			return;
+		}
+		rate = ret;
+
+		level = find_vdd_level(gpu_clk, rate);
+		if (level <= 0) {
+			pr_warn("no uv for %lu.\n", rate);
+			return;
+		}
+
+		ret = dev_pm_opp_add(&gpu_dev->dev, rate,
+				gpu_clk->vdd_class->vdd_uv[level]);
+		if (ret) {
+			pr_warn("clock-gpu: %s: couldn't add OPP for %lu - err: %d\n",
+							__func__, rate, ret);
+			return;
+		}
+	}
+
+	print_opp_table(&gpu_dev->dev);
+}
 
 static int msm_gcc_gfx_probe(struct platform_device *pdev)
 {
@@ -3742,9 +3868,26 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	vdd_gfx.regulator[0] = devm_regulator_get(&pdev->dev, "vdd_gfx");
+	if (IS_ERR(vdd_gfx.regulator[0])) {
+		if (PTR_ERR(vdd_gfx.regulator[0]) != -EPROBE_DEFER)
+			dev_err(&pdev->dev, "Unable to get vdd_gfx regulator!");
+		return PTR_ERR(vdd_gfx.regulator[0]);
+	}
+
+	ret = of_get_fmax_vdd_class(pdev, &gfx3d_clk_src.c,
+					"qcom,gfxfreq-corner");
+	if (ret) {
+		dev_err(&pdev->dev, "Unable to get gfx freq-corner mapping info\n");
+		return ret;
+	}
+
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_gfx,
 				ARRAY_SIZE(msm_clocks_gcc_gfx));
+
 	dev_info(&pdev->dev, "Registered GCC GFX clocks.\n");
+
+	populate_gpu_opp_table(pdev);
 
 	return ret;
 }

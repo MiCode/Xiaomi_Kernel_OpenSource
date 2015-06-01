@@ -68,6 +68,9 @@ Optional properties:
 			frequency/voltage pairs that the device can operate at.
 			drivers can use the OPP library API to operate on the
 			list of OPPs registered.
+- qcom,gfxfreq-corner:  List of frequency/voltage pairs that the device can
+			operate at.
+- <gpu>_handle:		Device node for which the OPP mappings would be added.
 
 Example:
 	clock_rpm: qcom,rpmcc@fc4000000 {

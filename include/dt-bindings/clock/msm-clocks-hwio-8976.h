@@ -395,6 +395,7 @@ static int vdd_level[] = {
 };
 
 static DEFINE_VDD_REGULATORS(vdd_dig, VDD_DIG_NUM, 1, vdd_level, NULL);
+static DEFINE_VDD_REGS_INIT(vdd_gfx, 1);
 
 #define RPM_MISC_CLK_TYPE	0x306b6c63
 #define RPM_BUS_CLK_TYPE	0x316b6c63

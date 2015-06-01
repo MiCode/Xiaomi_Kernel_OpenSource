@@ -395,6 +395,18 @@
                 compatible = "qcom,gcc-gfx-8976";
                 reg = <0x1800000 0x80000>;
                 reg-names = "cc_base";
+		vdd_gfx-supply = <&gfx_vreg_corner>;
+		/* TODO: gpu_handle */
+                qcom,gfxfreq-corner =
+			<         0   0 >,
+			< 100000000   1 >,  /* Min SVS   */
+			< 200000000   1 >,  /* Low SVS   */
+			< 266666667   1 >,  /* SVS Minus */
+			< 300000000   1 >,  /* SVS       */
+			< 366670000   2 >,  /* SVS Plus  */
+			< 432000000   2 >,  /* NOM       */
+			< 480000000   3 >,  /* Turbo     */
+			< 550000000   3 >;  /* Super Turbo */
 		#clock-cells = <1>;
 	};
 
