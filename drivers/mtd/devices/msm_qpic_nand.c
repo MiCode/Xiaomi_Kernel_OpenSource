@@ -3138,10 +3138,12 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 
 	pr_info("Parsing partition table info from SMEM\n");
 	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
-			SMEM_ANY_HOST_FLAG);
+					SMEM_ANY_HOST_FLAG);
 
-	if (!temp_ptable)
+	if (!temp_ptable) {
+		pr_err("Error reading partition table header\n");
 		goto out;
+	}
 
 	/* Read only the header portion of ptable */
 	ptable = *(struct flash_partition_table *)temp_ptable;
@@ -3170,9 +3172,22 @@ static int msm_nand_parse_smem_ptable(int *nr_parts)
 	}
 
 	*nr_parts = ptable.numparts;
-	ptable = *(struct flash_partition_table *)
-			(smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len,
-							0, SMEM_ANY_HOST_FLAG));
+
+	/*
+	 * Now that the partition table header has been parsed, verified
+	 * and the length of the partition table calculated, read the
+	 * complete partition table.
+	 */
+	temp_ptable = smem_get_entry(SMEM_AARM_PARTITION_TABLE, &len, 0,
+					SMEM_ANY_HOST_FLAG);
+	if (!temp_ptable) {
+		pr_err("Error reading partition table\n");
+		goto out;
+	}
+
+	/* Read only the header portion of ptable */
+	ptable = *(struct flash_partition_table *)temp_ptable;
+
 	for (i = 0; i < ptable.numparts; i++) {
 		pentry = &ptable.part_entry[i];
 		if (pentry->name == '\0')
@@ -3365,15 +3380,15 @@ static int msm_nand_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&(pdev)->dev);
 	pm_runtime_set_suspended(&(pdev)->dev);
-	msm_nand_setup_clocks_and_bus_bw(info, false);
 
 	dev_set_drvdata(&pdev->dev, NULL);
 
 	if (info) {
-		mtd_device_unregister(&info->mtd);
-		msm_nand_bam_free(info);
+		msm_nand_setup_clocks_and_bus_bw(info, false);
 		if (info->clk_data.client_handle)
 			msm_nand_bus_unregister(info);
+		mtd_device_unregister(&info->mtd);
+		msm_nand_bam_free(info);
 	}
 	return 0;
 }
