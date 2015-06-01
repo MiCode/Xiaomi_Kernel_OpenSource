@@ -116,6 +116,18 @@ enum {
 	HIST_READY,
 };
 
+/*
+ * hist dynamic interrupt state is used to denote whether the interrupt is
+ * enabled or disabled or is one iteration less of getting disabled (final
+ * enable state). This is because if we get two consecutive histogram interrupts
+ * without a commit in between, then alone would we disable the interrupt.
+ */
+enum {
+	HIST_INTR_ENABLED,
+	HIST_INTR_FINAL_ENABLE,
+	HIST_INTR_DISABLED,
+};
+
 static u32 dither_matrix[16] = {
 	15, 7, 13, 5, 3, 11, 1, 9, 12, 4, 14, 6, 0, 8, 2, 10};
 static u32 dither_depth_map[9] = {
@@ -351,7 +363,6 @@ struct mdss_pp_res_type {
 static DEFINE_MUTEX(mdss_pp_mutex);
 static struct mdss_pp_res_type *mdss_pp_res;
 
-static int pp_hist_stop_wrapper(struct msm_fb_data_type *mfd);
 static u32 pp_hist_read(char __iomem *v_addr,
 				struct pp_hist_col_info *hist_info);
 static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix);
@@ -1542,7 +1553,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 {
 	int ret = -EINVAL;
 	char __iomem *base;
-	u32 op_flags, kick_base;
+	u32 op_flags, kick_base, intr_mask;
 	struct mdss_mdp_pipe *pipe;
 	struct pp_hist_col_info *hist_info;
 	unsigned long flag;
@@ -1553,6 +1564,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 		return -EPERM;
 
 	is_hist_v1 = !(mdata->mdp_rev >= MDSS_MDP_HW_REV_103);
+	intr_mask = is_hist_v1 ? 3 : 1;
 	if (mix && (PP_LOCAT(block) == MDSS_PP_DSPP_CFG)) {
 		/* HIST_EN & AUTO_CLEAR */
 		op_flags = BIT(16);
@@ -1593,6 +1605,8 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 				writel_relaxed(1, base + kick_base);
 			hist_info->col_state = HIST_START;
 		}
+		mdss_mdp_hist_irq_set_mask(intr_mask << hist_info->intr_shift);
+		hist_info->intr_state = HIST_INTR_ENABLED;
 	}
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	mutex_unlock(&hist_info->hist_mutex);
@@ -2184,7 +2198,6 @@ int mdss_mdp_pp_overlay_init(struct msm_fb_data_type *mfd)
 		mfd->mdp.ad_calc_bl = pp_ad_calc_bl;
 		mfd->mdp.ad_shutdown_cleanup = pp_ad_shutdown_cleanup;
 	}
-	mfd->mdp.stop_histogram = pp_hist_stop_wrapper;
 	return 0;
 }
 
@@ -3640,11 +3653,6 @@ exit:
 	return ret;
 }
 
-static int pp_hist_stop_wrapper(struct msm_fb_data_type *mfd)
-{
-	return mdss_mdp_hist_stop(mfd->index + MDP_LOGICAL_BLOCK_DISP_0);
-}
-
 int mdss_mdp_hist_stop(u32 block)
 {
 	int i, ret = 0;
@@ -4139,16 +4147,20 @@ hist_collect_exit:
 /* Called in interrupt context */
 static void pp_hist_collect_done_notify(u32 block)
 {
-	u32 i;
+	u32 i, intr_mask;
 	bool do_notify = false;
 	unsigned long flag;
 	struct pp_hist_col_info *hist_info = NULL;
 	struct msm_fb_data_type *hist_mfd = NULL;
 	struct mdss_overlay_private *mdp5_data = NULL;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	bool is_hist_v2;
 
 	if (!mdata)
 		return;
+
+	is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
+	intr_mask = is_hist_v2 ? 1 : 3;
 
 	/* Currently not supporting SSPP histogram */
 	if (PP_LOCAT(block) == MDSS_PP_SSPP_CFG) {
@@ -4189,6 +4201,19 @@ static void pp_hist_collect_done_notify(u32 block)
 			if (hist_info->disp_block == block) {
 				/* Mark state so that hist_v1 get kicked off */
 				hist_info->col_state = HIST_IDLE;
+			}
+
+			/*
+			 * If we find the intr_state as final enable then we
+			 * disable the irq. If it is found as enabled then we
+			 * just move the state to final enable.
+			 */
+			if (hist_info->intr_state == HIST_INTR_FINAL_ENABLE) {
+				hist_info->intr_state = HIST_INTR_DISABLED;
+				mdss_mdp_hist_irq_unset_mask(intr_mask <<
+							hist_info->intr_shift);
+			} else {
+				hist_info->intr_state = HIST_INTR_FINAL_ENABLE;
 			}
 			spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 		}

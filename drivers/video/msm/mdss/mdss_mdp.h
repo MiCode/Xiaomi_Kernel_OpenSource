@@ -386,6 +386,7 @@ struct mdss_mdp_data {
 struct pp_hist_col_info {
 	u32 col_state;
 	u32 col_en;
+	u32 intr_state;
 	u32 frame_cnt;
 	u32 data[HIST_V_SIZE];
 	struct mutex hist_mutex;
@@ -883,6 +884,8 @@ int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num);
 void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num);
 int mdss_mdp_hist_irq_enable(u32 irq);
 void mdss_mdp_hist_irq_disable(u32 irq);
+void mdss_mdp_hist_irq_set_mask(u32 irq);
+void mdss_mdp_hist_irq_unset_mask(u32 irq);
 void mdss_mdp_irq_disable_nosync(u32 intr_type, u32 intf_num);
 int mdss_mdp_set_intr_callback(u32 intr_type, u32 intf_num,
 			       void (*fnc_ptr)(void *), void *arg);

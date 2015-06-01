@@ -523,10 +523,6 @@ int mdss_mdp_hist_irq_enable(u32 irq)
 		pr_debug("MDP IRQ mask old=%x new=%x\n",
 				mdata->mdp_hist_irq_mask, irq);
 		mdata->mdp_hist_irq_mask |= irq;
-		writel_relaxed(irq, mdata->mdp_base +
-			MDSS_MDP_REG_HIST_INTR_CLEAR);
-		writel_relaxed(mdata->mdp_hist_irq_mask, mdata->mdp_base +
-			MDSS_MDP_REG_HIST_INTR_EN);
 		mdata->mdss_util->enable_irq(&mdss_mdp_hw);
 	}
 	spin_unlock_irqrestore(&mdp_lock, irq_flags);
@@ -3697,6 +3693,45 @@ static int mdss_mdp_runtime_idle(struct device *dev)
 	dev_dbg(dev, "pm_runtime: idling...\n");
 
 	return 0;
+}
+
+void mdss_mdp_hist_irq_set_mask(u32 irq)
+{
+	u32 mask, enabled_irq;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	unsigned long flag;
+
+	spin_lock_irqsave(&mdata->hist_intr.lock, flag);
+	enabled_irq = mdata->hist_intr.curr;
+
+	/* Do not enable irq for which hist_enable not called */
+	if (!(enabled_irq & irq))
+		return;
+
+	mask = readl_relaxed(mdata->mdp_base + MDSS_MDP_REG_HIST_INTR_EN);
+	mask |= irq;
+	writel_relaxed(irq, mdata->mdp_base + MDSS_MDP_REG_HIST_INTR_CLEAR);
+	writel_relaxed(mask, mdata->mdp_base + MDSS_MDP_REG_HIST_INTR_EN);
+	spin_unlock_irqrestore(&mdata->hist_intr.lock, flag);
+}
+
+void mdss_mdp_hist_irq_unset_mask(u32 irq)
+{
+	u32 mask, enabled_irq;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	unsigned long flag;
+
+	spin_lock_irqsave(&mdata->hist_intr.lock, flag);
+	enabled_irq = mdata->hist_intr.curr;
+
+	/* Do not disable irq for which hist_enable not called */
+	if (!(enabled_irq & irq))
+		return;
+
+	mask = readl_relaxed(mdata->mdp_base + MDSS_MDP_REG_HIST_INTR_EN);
+	mask &= ~irq;
+	writel_relaxed(mask, mdata->mdp_base + MDSS_MDP_REG_HIST_INTR_EN);
+	spin_unlock_irqrestore(&mdata->hist_intr.lock, flag);
 }
 
 static int mdss_mdp_runtime_suspend(struct device *dev)
