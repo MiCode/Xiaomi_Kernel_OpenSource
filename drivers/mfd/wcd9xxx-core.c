@@ -754,15 +754,52 @@ static const struct wcd9xxx_codec_type wcd9xxx_codecs[] = {
 	},
 };
 
+static void wcd9335_bring_up(struct wcd9xxx *wcd9xxx)
+{
+	int val;
+
+	val = __wcd9xxx_reg_read(wcd9xxx,
+				 WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0);
+	pr_debug("%s: codec version %s 1.0\n", __func__,
+		 ((val & 0x80) ? "greater than" : "is"));
+
+	if (val & 0x80) {
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x5);
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
+	} else {
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
+		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
+	}
+}
+
+static void wcd9335_bring_down(struct wcd9xxx *wcd9xxx)
+{
+	int val;
+
+	val = __wcd9xxx_reg_read(wcd9xxx,
+				 WCD9335_CHIP_TIER_CTRL_EFUSE_VAL_OUT0);
+	if (val & 0x80)
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x4);
+	else
+		__wcd9xxx_reg_write(wcd9xxx,
+				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x7);
+}
+
 static void wcd9xxx_bring_up(struct wcd9xxx *wcd9xxx)
 {
 	pr_debug("%s: Codec Type: %d\n", __func__, wcd9xxx->type);
 
 	if (wcd9xxx->type == WCD9335) {
-		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x01);
-		__wcd9xxx_reg_write(wcd9xxx,
-				    WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL, 0x3);
-		__wcd9xxx_reg_write(wcd9xxx, WCD9335_CODEC_RPM_RST_CTL, 0x3);
+		wcd9335_bring_up(wcd9xxx);
 	} else if (wcd9xxx->type == WCD9330) {
 		__wcd9xxx_reg_write(wcd9xxx, WCD9330_A_LEAKAGE_CTL, 0x4);
 		__wcd9xxx_reg_write(wcd9xxx, WCD9330_A_CDC_CTL, 0);
@@ -784,11 +821,12 @@ static void wcd9xxx_bring_down(struct wcd9xxx *wcd9xxx)
 {
 	unsigned short reg;
 
-	if (wcd9xxx->type == WCD9330)
+	if (wcd9xxx->type == WCD9335) {
+		wcd9335_bring_down(wcd9xxx);
+		return;
+	} else if (wcd9xxx->type == WCD9330) {
 		reg = WCD9330_A_LEAKAGE_CTL;
-	else if (wcd9xxx->type == WCD9335)
-		reg = WCD9335_CODEC_RPM_PWR_CDC_DIG_HM_CTL;
-	else
+	} else
 		reg = WCD9XXX_A_LEAKAGE_CTL;
 
 	__wcd9xxx_reg_write(wcd9xxx, reg, 0x7);
