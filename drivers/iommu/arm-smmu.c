@@ -719,33 +719,24 @@ static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
 	return ret;
 }
 
+static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu);
+static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu);
+
 static int arm_smmu_enable_clocks(struct arm_smmu_device *smmu)
 {
-	int i, ret = 0;
+	int ret = 0;
 
 	arm_smmu_enable_regulators(smmu);
-	for (i = 0; i < smmu->num_clocks; ++i) {
-		ret = clk_prepare_enable(smmu->clocks[i]);
-		if (ret) {
-			dev_err(smmu->dev,
-				"Couldn't enable and prepare clock #%d\n", i);
-			while (i--)
-				clk_disable_unprepare(smmu->clocks[i]);
-			arm_smmu_disable_regulators(smmu);
-			break;
-		}
-	}
+	ret = arm_smmu_enable_clocks_atomic(smmu);
+	if (ret)
+		arm_smmu_disable_regulators(smmu);
 
 	return ret;
 }
 
 static void arm_smmu_disable_clocks(struct arm_smmu_device *smmu)
 {
-	int i;
-
-	for (i = 0; i < smmu->num_clocks; ++i)
-		clk_disable_unprepare(smmu->clocks[i]);
-
+	arm_smmu_disable_clocks_atomic(smmu);
 	arm_smmu_disable_regulators(smmu);
 }
 
