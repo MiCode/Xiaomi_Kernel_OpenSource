@@ -487,6 +487,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		goto bail;
 
 	INIT_HLIST_NODE(&ctx->hn);
+	hlist_add_fake(&ctx->hn);
 	ctx->fl = fl;
 	ctx->maps = (struct fastrpc_mmap **)(&ctx[1]);
 	ctx->lpra = (remote_arg_t *)(&ctx->maps[bufs]);
