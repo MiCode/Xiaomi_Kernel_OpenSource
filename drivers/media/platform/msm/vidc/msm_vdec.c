@@ -1071,6 +1071,7 @@ int msm_vdec_s_fmt(struct msm_vidc_inst *inst, struct v4l2_format *f)
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
+			msm_comm_session_clean(inst);
 			goto err_invalid_fmt;
 		}
 		frame_sz.buffer_type = HAL_BUFFER_INPUT;
@@ -1200,6 +1201,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 		rc = msm_comm_try_state(inst, MSM_VIDC_OPEN_DONE);
 		if (rc) {
 			dprintk(VIDC_ERR, "Failed to open instance\n");
+			msm_comm_session_clean(inst);
 			break;
 		}
 		rc = msm_comm_try_get_bufreqs(inst);
