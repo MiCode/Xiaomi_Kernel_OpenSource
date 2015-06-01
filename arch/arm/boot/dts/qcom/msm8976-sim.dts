@@ -80,3 +80,11 @@
 
 	status = "ok";
 };
+
+&pmi8950_fg {
+	status = "disabled";
+};
+
+&pmi8950_charger {
+	status = "disabled";
+};
