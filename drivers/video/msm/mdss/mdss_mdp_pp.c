@@ -17,6 +17,7 @@
 #include "mdss_fb.h"
 #include "mdss_mdp.h"
 #include "mdss_mdp_pp.h"
+#include "mdss_debug.h"
 #include <linux/uaccess.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
@@ -1598,6 +1599,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 	mutex_lock(&hist_info->hist_mutex);
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
 	if (hist_info->col_en) {
+		ATRACE_BEGIN("hist_setup_set_mask");
 		*op |= op_flags;
 		if (hist_info->col_state == HIST_IDLE) {
 			/* Kick off collection */
@@ -1607,6 +1609,7 @@ static int pp_hist_setup(u32 *op, u32 block, struct mdss_mdp_mixer *mix)
 		}
 		mdss_mdp_hist_irq_set_mask(intr_mask << hist_info->intr_shift);
 		hist_info->intr_state = HIST_INTR_ENABLED;
+		ATRACE_END("hist_setup_set_mask");
 	}
 	spin_unlock_irqrestore(&hist_info->hist_lock, flag);
 	mutex_unlock(&hist_info->hist_mutex);
@@ -3461,6 +3464,7 @@ static u32 pp_hist_read(char __iomem *v_addr,
 	int i, i_start;
 	u32 sum = 0;
 	u32 data;
+	ATRACE_BEGIN("hist_read_regs");
 	data = readl_relaxed(v_addr);
 	i_start = data >> 24;
 	hist_info->data[i_start] = data & 0xFFFFFF;
@@ -3473,7 +3477,7 @@ static u32 pp_hist_read(char __iomem *v_addr,
 		hist_info->data[i] = readl_relaxed(v_addr) & 0xFFFFFF;
 		sum += hist_info->data[i];
 	}
-
+	ATRACE_END("hist_read_regs");
 	return sum;
 }
 
@@ -3486,7 +3490,10 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
 	u32 intr_mask = is_hist_v2 ? 1 : 3;
+	char trace_buffer[32];
 
+	ATRACE_BEGIN_STR(trace_buffer, "hist_enable_disp%u",
+					req->block - MDP_LOGICAL_BLOCK_DISP_0);
 	mutex_lock(&hist_info->hist_mutex);
 	/* check if it is idle */
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
@@ -3516,6 +3523,7 @@ static int pp_hist_enable(struct pp_hist_col_info *hist_info,
 	}
 exit:
 	mutex_unlock(&hist_info->hist_mutex);
+	ATRACE_END(trace_buffer);
 	return ret;
 }
 
@@ -3539,6 +3547,7 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 		(PP_BLOCK(req->block) >= MDP_BLOCK_MAX))
 		return -EINVAL;
 
+	ATRACE_BEGIN("hist_start_ioctl");
 	disp_num = PP_BLOCK(req->block) - MDP_LOGICAL_BLOCK_DISP_0;
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 
@@ -3616,6 +3625,7 @@ int mdss_mdp_hist_start(struct mdp_histogram_start_req *req)
 hist_stop_clk:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 hist_exit:
+	ATRACE_END("hist_start_ioctl");
 	return ret;
 }
 
@@ -3626,7 +3636,10 @@ static int pp_hist_disable(struct pp_hist_col_info *hist_info)
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
 	u32 intr_mask = is_hist_v2 ? 1 : 3;
+	char trace_buffer[32];
 
+	ATRACE_BEGIN_STR(trace_buffer, "hist_disable_disp%u",
+			hist_info->disp_block - MDP_LOGICAL_BLOCK_DISP_0);
 	mutex_lock(&hist_info->hist_mutex);
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
 	if (hist_info->col_en == false) {
@@ -3650,6 +3663,7 @@ static int pp_hist_disable(struct pp_hist_col_info *hist_info)
 	ret = 0;
 exit:
 	mutex_unlock(&hist_info->hist_mutex);
+	ATRACE_END(trace_buffer);
 	return ret;
 }
 
@@ -3669,6 +3683,7 @@ int mdss_mdp_hist_stop(u32 block)
 	if (!mdata)
 		return -EPERM;
 
+	ATRACE_BEGIN("hist_stop_ioctl");
 	disp_num = PP_BLOCK(block) - MDP_LOGICAL_BLOCK_DISP_0;
 	mixer_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 
@@ -3729,6 +3744,7 @@ int mdss_mdp_hist_stop(u32 block)
 hist_stop_clk:
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 hist_stop_exit:
+	ATRACE_END("hist_stop_ioctl");
 	return ret;
 }
 
@@ -3887,10 +3903,13 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 	unsigned long flag;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	bool is_hist_v2;
+	char trace_buffer[32];
 
 	if (!mdata)
 		return -EPERM;
 
+	ATRACE_BEGIN_STR(trace_buffer, "hist_collect_disp%u",
+			hist_info->disp_block - MDP_LOGICAL_BLOCK_DISP_0);
 	is_hist_v2 = mdata->mdp_rev >= MDSS_MDP_HW_REV_103;
 	mutex_lock(&hist_info->hist_mutex);
 	spin_lock_irqsave(&hist_info->hist_lock, flag);
@@ -3915,6 +3934,7 @@ static int pp_hist_collect(struct mdp_histogram_data *hist,
 	}
 hist_collect_exit:
 	mutex_unlock(&hist_info->hist_mutex);
+	ATRACE_END(trace_buffer);
 	return ret;
 }
 
@@ -3941,6 +3961,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 	disp_num = PP_BLOCK(hist->block) - MDP_LOGICAL_BLOCK_DISP_0;
 	hist_cnt = mdss_mdp_get_ctl_mixers(disp_num, mixer_id);
 
+	ATRACE_BEGIN("hist_collect_ioctl");
 	if (!hist_cnt) {
 		pr_err("%s, no dspp connects to disp %d\n",
 			__func__, disp_num);
@@ -4140,7 +4161,7 @@ int mdss_mdp_hist_collect(struct mdp_histogram_data *hist)
 								hist->bin_cnt);
 hist_collect_exit:
 	kfree(hist_concat);
-
+	ATRACE_END("hist_collect_ioctl");
 	return ret;
 }
 
@@ -4173,6 +4194,7 @@ static void pp_hist_collect_done_notify(u32 block)
 		return;
 	}
 
+	ATRACE_BEGIN("hist_event_notify_func");
 	for (i = 0; i < mdata->ndspp; i++) {
 		hist_info = &mdss_pp_res->dspp_hist[i];
 		spin_lock_irqsave(&hist_info->hist_lock, flag);
@@ -4195,6 +4217,7 @@ static void pp_hist_collect_done_notify(u32 block)
 	}
 
 	if (do_notify) {
+		ATRACE_BEGIN("hist_event_notify_sysfs");
 		for (i = 0; i < mdata->ndspp; i++) {
 			hist_info = &mdss_pp_res->dspp_hist[i];
 			spin_lock_irqsave(&hist_info->hist_lock, flag);
@@ -4210,8 +4233,10 @@ static void pp_hist_collect_done_notify(u32 block)
 			 */
 			if (hist_info->intr_state == HIST_INTR_FINAL_ENABLE) {
 				hist_info->intr_state = HIST_INTR_DISABLED;
+				ATRACE_BEGIN("hist_irq_unset_mask");
 				mdss_mdp_hist_irq_unset_mask(intr_mask <<
 							hist_info->intr_shift);
+				ATRACE_END("hist_irq_unset_mask");
 			} else {
 				hist_info->intr_state = HIST_INTR_FINAL_ENABLE;
 			}
@@ -4220,7 +4245,9 @@ static void pp_hist_collect_done_notify(u32 block)
 		mdp5_data = mfd_to_mdp5_data(hist_mfd);
 		mdp5_data->hist_events++;
 		sysfs_notify_dirent(mdp5_data->hist_event_sd);
+		ATRACE_END("hist_event_notify_sysfs");
 	}
+	ATRACE_END("hist_event_notify_func");
 }
 
 static inline struct pp_hist_col_info *get_hist_info_from_isr(u32 *isr)
@@ -4297,6 +4324,7 @@ void mdss_mdp_hist_intr_done(u32 isr)
 			HIST_V1_INTR_BIT_MASK;
 
 	isr &= isr_mask;
+	ATRACE_BEGIN("hist_intr_done");
 	while (isr != 0) {
 		isr_tmp = isr;
 		hist_info = get_hist_info_from_isr(&isr);
@@ -4333,6 +4361,7 @@ void mdss_mdp_hist_intr_done(u32 isr)
 			pr_err("hist Reset Done interrupt, col_en=false!\n");
 		}
 	};
+	ATRACE_END("hist_intr_done");
 }
 
 static struct msm_fb_data_type *mdss_get_mfd_from_index(int index)
