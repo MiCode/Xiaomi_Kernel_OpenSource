@@ -156,6 +156,20 @@ struct slim_addrt {
 };
 
 /*
+ * struct slim_val_inf: slimbus value/information element transaction
+ * @start_offset: Specifies starting offset in information/value element map
+ * @num_bytes: number of bytes to be read/written
+ * @wbuf: buffer if this transaction has 'write' component in it
+ * @rbuf: buffer if this transaction has 'read' component in it
+ */
+struct slim_val_inf {
+	u16 start_offset;
+	u8 num_bytes;
+	u8 *wbuf;
+	u8 *rbuf;
+};
+
+/*
  * struct slim_msg_txn: Message to be sent by the controller.
  * Linux framework uses this structure with drivers implementing controller.
  * This structure has packet header, payload and buffer to be filled (if any)
@@ -530,6 +544,10 @@ enum slim_clk_state {
  *	errors (e.g. overflow/underflow) if any.
  * @xfer_user_msg: Send user message to specified logical address. Underlying
  *	controller has to support sending user messages. Returns error if any.
+ * @xfer_bulk_wr: Send bulk of write messages to specified logical address.
+ *	Underlying controller has to support this. Typically useful to transfer
+ *	messages to download firmware, or messages where strict ordering for
+ *	slave is necessary
  */
 struct slim_controller {
 	struct device		dev;
@@ -580,6 +598,10 @@ struct slim_controller {
 	int			(*xfer_user_msg)(struct slim_controller *ctrl,
 				u8 la, u8 mt, u8 mc,
 				struct slim_ele_access *msg, u8 *buf, u8 len);
+	int			(*xfer_bulk_wr)(struct slim_controller *ctrl,
+				u8 la, u8 mt, u8 mc, struct slim_val_inf msgs[],
+				int n, int (*comp_cb)(void *ctx, int err),
+				void *ctx);
 };
 #define to_slim_controller(d) container_of(d, struct slim_controller, dev)
 
@@ -767,6 +789,25 @@ extern int slim_xfer_msg(struct slim_controller *ctrl,
  */
 extern int slim_user_msg(struct slim_device *sb, u8 la, u8 mt, u8 mc,
 				struct slim_ele_access *msg, u8 *buf, u8 len);
+
+/*
+ * Queue bulk of message writes:
+ * slim_bulk_msg_write: Write bulk of messages (e.g. downloading FW)
+ * @sb: Client handle sending these messages
+ * @la: Destination device for these messages
+ * @mt: Message Type
+ * @mc: Message Code
+ * @msgs: List of messages to be written in bulk
+ * @n: Number of messages in the list
+ * @cb: Callback if client needs this to be non-blocking
+ * @ctx: Context for this callback
+ * If supported by controller, this message list will be sent in bulk to the HW
+ * If the client specifies this to be non-blocking, the callback will be
+ * called from atomic context.
+ */
+extern int slim_bulk_msg_write(struct slim_device *sb, u8 mt, u8 mc,
+			struct slim_val_inf msgs[], int n,
+			int (*comp_cb)(void *ctx, int err), void *ctx);
 /* end of message apis */
 
 /* Port management for manager device APIs */

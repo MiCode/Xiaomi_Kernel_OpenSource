@@ -227,6 +227,15 @@ struct msm_slim_pdata {
 	u32 eapc;
 };
 
+struct msm_slim_bulk_wr {
+	phys_addr_t	phys;
+	void		*base;
+	int		size;
+	int		(*cb)(void *ctx, int err);
+	void		*ctx;
+	bool		in_progress;
+};
+
 struct msm_slim_ctrl {
 	struct slim_controller  ctrl;
 	struct slim_framer	framer;
@@ -273,6 +282,7 @@ struct msm_slim_ctrl {
 	struct msm_slim_pdata	pdata;
 	struct msm_slim_ss	ext_mdm;
 	struct msm_slim_ss	dsp;
+	struct msm_slim_bulk_wr	bulk;
 	int			default_ipc_log_mask;
 	int			ipc_log_mask;
 	bool			sysfs_created;
