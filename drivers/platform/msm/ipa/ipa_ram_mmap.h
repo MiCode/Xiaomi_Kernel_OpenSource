@@ -49,6 +49,7 @@
 #define IPA_MEM_CANARY_SIZE 4
 #define IPA_MEM_CANARY_VAL 0xdeadbeef
 
+#define IPA_MEM_RAM_MODEM_NETWORK_STATS_SIZE 256
 /*
  * IPA v2.0 and v2.1 SRAM memory layout:
  * +-------------+
@@ -166,7 +167,7 @@
 
 #define IPA_MEM_v2_RAM_APPS_V4_FLT_OFST (IPA_MEM_v2_RAM_MODEM_OFST + \
 		IPA_MEM_v2_RAM_MODEM_SIZE + IPA_MEM_CANARY_SIZE)
-#define IPA_MEM_v2_RAM_APPS_V4_FLT_SIZE 2176
+#define IPA_MEM_v2_RAM_APPS_V4_FLT_SIZE 1920
 
 /* filtering rule is 4B aligned */
 #if (IPA_MEM_v2_RAM_APPS_V4_FLT_OFST & 3)
