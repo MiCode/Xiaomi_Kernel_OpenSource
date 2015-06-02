@@ -1817,18 +1817,25 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	int min_cstate_cpu = -1;
 	int min_cstate = INT_MAX;
 	int cpu_cost, min_cost = INT_MAX;
-	int i, cstate, prev_cpu;
+	int i = task_cpu(p), cstate, prev_cpu;
 	int hmp_capable;
 	u64 tload, cpu_load, min_load = ULLONG_MAX;
-	cpumask_t mi_cpus = CPU_MASK_NONE;
 	cpumask_t temp;
+	cpumask_t search_cpu;
+	struct rq *rq;
 
 	cpumask_and(&temp, &mpc_mask, cpu_possible_mask);
 	hmp_capable = !cpumask_full(&temp);
 
-	for_each_cpu_and(i, tsk_cpus_allowed(p), cpu_online_mask) {
-		struct rq *rq = cpu_rq(i);
+	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
+	if (unlikely(!cpumask_test_cpu(i, &search_cpu)))
+		i = cpumask_first(&search_cpu);
+
+	do {
+		rq = cpu_rq(i);
 		prev_cpu = (i == task_cpu(p));
+
+		cpumask_clear_cpu(i, &search_cpu);
 
 		trace_sched_cpu_load(rq, idle_cpu(i),
 				     mostly_idle_cpu_sync(i,
@@ -1866,13 +1873,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		}
 
 		cpu_load = cpu_load_sync(i, sync);
-		if (mostly_idle_cpu_sync(i, cpu_load, sync)) {
-			if (prev_cpu)
-				return task_cpu(p);
-
-			cpumask_set_cpu(i, &mi_cpus);
-			continue;
-		}
+		if (mostly_idle_cpu_sync(i, cpu_load, sync))
+			return i;
 
 		tload =  scale_load_to_cpu(task_load(p), i);
 		if (!spill_threshold_crossed(tload, cpu_load, rq)) {
@@ -1882,10 +1884,7 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 				best_busy_cpu = i;
 			}
 		}
-	}
-
-	if (!cpumask_empty(&mi_cpus))
-		return cpumask_first(&mi_cpus);
+	} while ((i = cpumask_first(&search_cpu)) < nr_cpu_ids);
 
 	if (min_cstate_cpu != -1)
 		return min_cstate_cpu;
