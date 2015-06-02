@@ -34,6 +34,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/kernel.h>
 #include <linux/gpio.h>
+#include <linux/clk.h>
 #include "wcd9330.h"
 #include "wcd9xxx-resmgr.h"
 #include "wcd9xxx-common.h"
@@ -586,6 +587,10 @@ struct tomtom_priv {
 
 	/* to track the status */
 	unsigned long status_mask;
+
+	int ext_clk_users;
+	struct clk *wcd_ext_clk;
+
 };
 
 static const u32 comp_shift[] = {
@@ -672,6 +677,11 @@ static unsigned short tx_digital_gain_reg[] = {
 
 int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec)
 {
+	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+
+	if (tomtom->wcd_ext_clk)
+		tomtom_codec_mclk_enable(codec, true, false);
+
 	snd_soc_write(codec, TOMTOM_A_QFUSE_CTL, 0x03);
 	/*
 	 * 5ms sleep required after enabling qfuse control
@@ -680,6 +690,9 @@ int tomtom_enable_qfuse_sensing(struct snd_soc_codec *codec)
 	usleep_range(5000, 5500);
 	if ((snd_soc_read(codec, TOMTOM_A_QFUSE_STATUS) & (0x03)) != 0x03)
 		WARN(1, "%s: Qfuse sense is not complete\n", __func__);
+
+	if (tomtom->wcd_ext_clk)
+		tomtom_codec_mclk_enable(codec, false, false);
 	return 0;
 }
 EXPORT_SYMBOL(tomtom_enable_qfuse_sensing);
@@ -2926,6 +2939,72 @@ static int tomtom_codec_ext_clk_en(struct snd_soc_codec *codec,
 	return tomtom->codec_ext_clk_en_cb(codec, enable, dapm);
 }
 
+static int __tomtom_mclk_enable(struct tomtom_priv *tomtom, int mclk_enable)
+{
+	int ret = 0;
+
+	WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
+	if (mclk_enable) {
+		tomtom->ext_clk_users++;
+		if (tomtom->ext_clk_users > 1)
+			goto bg_clk_unlock;
+		ret = clk_prepare_enable(tomtom->wcd_ext_clk);
+		if (ret) {
+			pr_err("%s: ext clk enable failed\n",
+				__func__);
+			tomtom->ext_clk_users--;
+			goto bg_clk_unlock;
+		}
+		wcd9xxx_resmgr_get_bandgap(&tomtom->resmgr,
+					   WCD9XXX_BANDGAP_AUDIO_MODE);
+		wcd9xxx_resmgr_get_clk_block(&tomtom->resmgr, WCD9XXX_CLK_MCLK);
+	} else {
+		tomtom->ext_clk_users--;
+		if (tomtom->ext_clk_users == 0) {
+			/* Put clock and BG */
+			wcd9xxx_resmgr_put_clk_block(&tomtom->resmgr,
+						     WCD9XXX_CLK_MCLK);
+			wcd9xxx_resmgr_put_bandgap(&tomtom->resmgr,
+					WCD9XXX_BANDGAP_AUDIO_MODE);
+			clk_disable_unprepare(tomtom->wcd_ext_clk);
+		}
+	}
+bg_clk_unlock:
+	WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
+
+	return ret;
+}
+
+int tomtom_codec_mclk_enable(struct snd_soc_codec *codec,
+			     int enable, bool dapm)
+{
+	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
+
+	if (tomtom->wcd_ext_clk) {
+		dev_dbg(codec->dev, "%s: mclk_enable = %u, dapm = %d\n",
+			__func__, enable, dapm);
+		return __tomtom_mclk_enable(tomtom, enable);
+	} else if (tomtom->codec_ext_clk_en_cb)
+		return tomtom_codec_ext_clk_en(codec, true, false);
+	else {
+		dev_err(codec->dev,
+			"%s: Cannot turn on MCLK\n",
+			__func__);
+		return -EINVAL;
+	}
+}
+EXPORT_SYMBOL(tomtom_codec_mclk_enable);
+
+static int tomtom_codec_get_ext_clk_users(struct tomtom_priv *tomtom)
+{
+	if (tomtom->wcd_ext_clk)
+		return tomtom->ext_clk_users;
+	else if (tomtom->codec_get_ext_clk_cnt)
+		return tomtom->codec_get_ext_clk_cnt();
+	else
+		return 0;
+}
+
 /* tomtom_codec_internal_rco_ctrl( )
  * Make sure that BG_CLK_LOCK is not acquired. Exit if acquired to avoid
  * potential deadlock as ext_clk_en_cb() also tries to acquire the same
@@ -2937,9 +3016,8 @@ static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
 
-	if (!tomtom->codec_ext_clk_en_cb) {
-		dev_err(codec->dev,
-			"%s: Invalid ext_clk_callback\n",
+	if (mutex_is_locked(&tomtom->resmgr.codec_bg_clk_lock)) {
+		dev_err(codec->dev, "%s: BG_CLK already acquired\n",
 			__func__);
 		ret = -EINVAL;
 		goto done;
@@ -2953,14 +3031,14 @@ static int tomtom_codec_internal_rco_ctrl(struct snd_soc_codec *codec,
 						     WCD9XXX_CLK_RCO);
 			WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
 		} else {
-			tomtom_codec_ext_clk_en(codec, true, false);
+			tomtom_codec_mclk_enable(codec, true, false);
 			WCD9XXX_BG_CLK_LOCK(&tomtom->resmgr);
 			tomtom->resmgr.ext_clk_users =
-					tomtom->codec_get_ext_clk_cnt();
+					tomtom_codec_get_ext_clk_users(tomtom);
 			wcd9xxx_resmgr_get_clk_block(&tomtom->resmgr,
 						     WCD9XXX_CLK_RCO);
 			WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
-			tomtom_codec_ext_clk_en(codec, false, false);
+			tomtom_codec_mclk_enable(codec, false, false);
 		}
 
 	} else {
@@ -8626,7 +8704,7 @@ static const struct wcd_cpe_cdc_cb cpe_cb = {
 	.cdc_clk_en = tomtom_codec_internal_rco_ctrl,
 	.cpe_clk_en = tomtom_codec_fll_enable,
 	.lab_cdc_ch_ctl = tomtom_codec_enable_slimtx_mad,
-	.cdc_ext_clk = tomtom_codec_ext_clk_en,
+	.cdc_ext_clk = tomtom_codec_mclk_enable,
 	.bus_vote_bw = tomtom_codec_vote_max_bw,
 };
 
@@ -8668,6 +8746,7 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 	int i, rco_clk_rate;
 	void *ptr = NULL;
 	struct wcd9xxx_core_resource *core_res;
+	struct clk *wcd_ext_clk = NULL;
 
 	codec->control_data = dev_get_drvdata(codec->dev->parent);
 	control = codec->control_data;
@@ -8695,6 +8774,19 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 
 	/* codec resmgr module init */
 	wcd9xxx = codec->control_data;
+
+	if (!of_find_property(wcd9xxx->dev->of_node, "clock-names", NULL)) {
+		dev_dbg(wcd9xxx->dev, "%s: codec not using audio-ext-clk driver\n",
+			__func__);
+	} else {
+		wcd_ext_clk = clk_get(wcd9xxx->dev, "wcd_clk");
+		if (IS_ERR(wcd_ext_clk)) {
+			dev_err(codec->dev, "%s: clk get %s failed\n",
+					__func__, "wcd_ext_clk");
+			goto err_nomem_slimch;
+		}
+	}
+	tomtom->wcd_ext_clk = wcd_ext_clk;
 	core_res = &wcd9xxx->core_res;
 	pdata = dev_get_platdata(codec->dev->parent);
 	ret = wcd9xxx_resmgr_init(&tomtom->resmgr, codec, core_res, pdata,
@@ -8863,6 +8955,8 @@ static int tomtom_codec_remove(struct snd_soc_codec *codec)
 
 	WCD9XXX_BG_CLK_UNLOCK(&tomtom->resmgr);
 
+	if (tomtom->wcd_ext_clk)
+		clk_put(tomtom->wcd_ext_clk);
 	tomtom_cleanup_irqs(tomtom);
 
 	/* cleanup MBHC */

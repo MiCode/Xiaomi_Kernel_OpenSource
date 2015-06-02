@@ -121,6 +121,9 @@ Optional properties:
 			 and micbias4 is directly controlled with a register
 			 write.
 
+ - clock-names : clock name defined for external clock.
+ - clocks : external clock defined for codec clock.
+
 Example:
 
 taiko_codec {
