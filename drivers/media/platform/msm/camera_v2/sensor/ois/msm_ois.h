@@ -31,6 +31,7 @@ struct msm_ois_ctrl_t;
 enum msm_ois_state_t {
 	OIS_ENABLE_STATE,
 	OIS_OPS_ACTIVE,
+	OIS_OPS_INACTIVE,
 	OIS_DISABLE_STATE,
 };
 
