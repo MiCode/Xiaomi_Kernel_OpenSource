@@ -89,6 +89,7 @@ lantiq	Lantiq Semiconductor
 lenovo	Lenovo Group Ltd.
 invn	InvenSense Inc.
 isl	Intersil
+jedec	Jedec Solid State Technology Association
 karo	Ka-Ro electronics GmbH
 kionix	Kionix Inc.
 lattice	Lattice Semiconductor.

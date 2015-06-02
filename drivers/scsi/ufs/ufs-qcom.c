@@ -1784,6 +1784,46 @@ static void ufs_qcom_dump_dbg_regs(struct ufs_hba *hba)
 }
 
 /**
+ * ufs_qcom_probe - probe routine of the driver
+ * @pdev: pointer to platform device handle
+ *
+ * Always returns 0
+ */
+static int ufs_qcom_probe(struct platform_device *pdev)
+{
+	dev_set_drvdata(&pdev->dev, (void *)&ufs_hba_qcom_vops);
+	return 0;
+}
+
+/**
+ * ufs_qcom_remove - set driver_data of the device to NULL
+ * @pdev: pointer to platform device handle
+ *
+ * Always returns 0
+ */
+static int ufs_qcom_remove(struct platform_device *pdev)
+{
+	dev_set_drvdata(&pdev->dev, NULL);
+	return 0;
+}
+
+static const struct of_device_id ufs_qcom_of_match[] = {
+	{ .compatible = "qcom,ufs_variant"},
+	{},
+};
+
+static struct platform_driver ufs_qcom_pltform = {
+	.probe	= ufs_qcom_probe,
+	.remove	= ufs_qcom_remove,
+	.driver	= {
+		.name	= "ufs_qcom",
+		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(ufs_qcom_of_match),
+	},
+};
+module_platform_driver(ufs_qcom_pltform);
+
+/**
  * struct ufs_hba_qcom_vops - UFS QCOM specific variant operations
  *
  * The variant operations configure the necessary controller and PHY
