@@ -1949,6 +1949,87 @@ int create_pkt_cmd_sys_image_version(
 	return 0;
 }
 
+static int create_3x_pkt_cmd_session_set_property(
+		struct hfi_cmd_session_set_property_packet *pkt,
+		struct hal_session *session,
+		enum hal_property ptype, void *pdata)
+{
+	int rc = 0;
+
+	if (!pkt || !session || !pdata)
+		return -EINVAL;
+
+	pkt->size = sizeof(struct hfi_cmd_session_set_property_packet);
+	pkt->packet_type = HFI_CMD_SESSION_SET_PROPERTY;
+	pkt->session_id = hash32_ptr(session);
+	pkt->num_properties = 1;
+
+	/*
+	 * Any session set property which is different in 3XX packetization
+	 * should be added as a new case below. All unchanged session set
+	 * properties will be handled in the default case.
+	 */
+	switch (ptype) {
+	case HAL_PARAM_VDEC_MULTI_STREAM:
+	{
+		u32 buffer_type;
+		struct hfi_3x_multi_stream *hfi;
+		struct hal_multi_stream *prop =
+			(struct hal_multi_stream *) pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VDEC_MULTI_STREAM;
+		hfi = (struct hfi_3x_multi_stream *) &pkt->rg_property_data[1];
+
+		buffer_type = get_hfi_buffer(prop->buffer_type);
+		if (buffer_type)
+			hfi->buffer_type = buffer_type;
+		else
+			return -EINVAL;
+		hfi->enable = prop->enable;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_3x_multi_stream);
+		break;
+	}
+	case HAL_PARAM_VENC_INTRA_REFRESH:
+	{
+		struct hfi_3x_intra_refresh *hfi;
+		struct hal_intra_refresh *prop =
+			(struct hal_intra_refresh *) pdata;
+		pkt->rg_property_data[0] =
+			HFI_PROPERTY_PARAM_VENC_INTRA_REFRESH;
+		hfi = (struct hfi_3x_intra_refresh *) &pkt->rg_property_data[1];
+		switch (prop->mode) {
+		case HAL_INTRA_REFRESH_NONE:
+			hfi->mode = HFI_INTRA_REFRESH_NONE;
+			break;
+		case HAL_INTRA_REFRESH_ADAPTIVE:
+			hfi->mode = HFI_INTRA_REFRESH_ADAPTIVE;
+			break;
+		case HAL_INTRA_REFRESH_CYCLIC:
+			hfi->mode = HFI_INTRA_REFRESH_CYCLIC;
+			break;
+		case HAL_INTRA_REFRESH_CYCLIC_ADAPTIVE:
+			hfi->mode = HFI_INTRA_REFRESH_CYCLIC_ADAPTIVE;
+			break;
+		case HAL_INTRA_REFRESH_RANDOM:
+			hfi->mode = HFI_INTRA_REFRESH_RANDOM;
+			break;
+		default:
+			dprintk(VIDC_ERR,
+				"Invalid intra refresh setting: %d\n",
+				prop->mode);
+			break;
+		}
+		hfi->mbs = prop->cir_mbs;
+		pkt->size += sizeof(u32) + sizeof(struct hfi_3x_intra_refresh);
+		break;
+	}
+	default:
+		rc = create_pkt_cmd_session_set_property(pkt,
+				session, ptype, pdata);
+	}
+	return rc;
+}
+
 static struct hfi_packetization_ops hfi_default = {
 	.sys_init = create_pkt_cmd_sys_init,
 	.sys_pc_prep = create_pkt_cmd_sys_pc_prep,
@@ -1976,15 +2057,17 @@ static struct hfi_packetization_ops hfi_default = {
 	.session_set_property = create_pkt_cmd_session_set_property,
 };
 
-struct hfi_packetization_ops *get_venus_3_x_ops(void)
+static struct hfi_packetization_ops *get_venus_3x_ops(void)
 {
-	static struct hfi_packetization_ops hfi_venus_3_x;
+	static struct hfi_packetization_ops hfi_venus_3x;
 
-	hfi_venus_3_x = hfi_default;
+	hfi_venus_3x = hfi_default;
 
 	/* Override new HFI functions for HFI_PACKETIZATION_3XX here. */
+	hfi_venus_3x.session_set_property =
+		create_3x_pkt_cmd_session_set_property;
 
-	return &hfi_venus_3_x;
+	return &hfi_venus_3x;
 }
 
 struct hfi_packetization_ops *hfi_get_pkt_ops_handle(
@@ -1999,7 +2082,7 @@ struct hfi_packetization_ops *hfi_get_pkt_ops_handle(
 	case HFI_PACKETIZATION_LEGACY:
 		return &hfi_default;
 	case HFI_PACKETIZATION_3XX:
-		return get_venus_3_x_ops();
+		return get_venus_3x_ops();
 	}
 
 	return NULL;
