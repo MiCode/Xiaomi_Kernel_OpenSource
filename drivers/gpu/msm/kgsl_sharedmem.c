@@ -1141,7 +1141,6 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 			struct kgsl_memdesc *memdesc, uint64_t size)
 {
 	struct kgsl_iommu *iommu = device->mmu.priv;
-	struct kgsl_iommu_unit *iommu_unit = &iommu->iommu_unit;
 	int result = 0;
 	struct kgsl_pagetable *pagetable = device->mmu.securepagetable;
 	size_t aligned;
@@ -1168,7 +1167,7 @@ int kgsl_cma_alloc_secure(struct kgsl_device *device,
 	memdesc->size = aligned;
 	memdesc->pagetable = pagetable;
 	memdesc->ops = &kgsl_cma_ops;
-	memdesc->dev = iommu_unit->dev[KGSL_IOMMU_CONTEXT_SECURE].dev;
+	memdesc->dev = iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE].dev;
 
 	init_dma_attrs(&memdesc->attrs);
 	dma_set_attr(DMA_ATTR_STRONGLY_ORDERED, &memdesc->attrs);

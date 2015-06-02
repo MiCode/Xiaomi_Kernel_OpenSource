@@ -30,26 +30,6 @@
 /* IOMMU_V2 AHB base points to ContextBank1 */
 #define KGSL_IOMMU_CTX_AHB_OFFSET_V2   0
 
-/* TLBLKCR fields */
-#define KGSL_IOMMU_TLBLKCR_LKE_MASK		0x00000001
-#define KGSL_IOMMU_TLBLKCR_LKE_SHIFT		0
-#define KGSL_IOMMU_TLBLKCR_TLBIALLCFG_MASK	0x00000001
-#define KGSL_IOMMU_TLBLKCR_TLBIALLCFG_SHIFT	1
-#define KGSL_IOMMU_TLBLKCR_TLBIASIDCFG_MASK	0x00000001
-#define KGSL_IOMMU_TLBLKCR_TLBIASIDCFG_SHIFT	2
-#define KGSL_IOMMU_TLBLKCR_TLBIVAACFG_MASK	0x00000001
-#define KGSL_IOMMU_TLBLKCR_TLBIVAACFG_SHIFT	3
-#define KGSL_IOMMU_TLBLKCR_FLOOR_MASK		0x000000FF
-#define KGSL_IOMMU_TLBLKCR_FLOOR_SHIFT		8
-#define KGSL_IOMMU_TLBLKCR_VICTIM_MASK		0x000000FF
-#define KGSL_IOMMU_TLBLKCR_VICTIM_SHIFT		16
-
-/* V2PXX fields */
-#define KGSL_IOMMU_V2PXX_INDEX_MASK		0x000000FF
-#define KGSL_IOMMU_V2PXX_INDEX_SHIFT		0
-#define KGSL_IOMMU_V2PXX_VA_MASK		0x000FFFFF
-#define KGSL_IOMMU_V2PXX_VA_SHIFT		12
-
 /* FSYNR1 V0 fields */
 #define KGSL_IOMMU_FSYNR1_AWRITE_MASK		0x00000001
 #define KGSL_IOMMU_FSYNR1_AWRITE_SHIFT		8
@@ -93,8 +73,6 @@ enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_CTX_FAR,
 	KGSL_IOMMU_CTX_TLBIALL,
 	KGSL_IOMMU_CTX_RESUME,
-	KGSL_IOMMU_CTX_TLBLKCR,
-	KGSL_IOMMU_CTX_V2PUR,
 	KGSL_IOMMU_CTX_FSYNR0,
 	KGSL_IOMMU_CTX_FSYNR1,
 	KGSL_IOMMU_CTX_TLBSYNC,
@@ -134,48 +112,38 @@ struct kgsl_iommu_ctx {
  * from dtsi file
  * @iommu_ctxs:         Pointer to array of struct holding context name and id
  * @iommu_ctx_count:    Number of contexts defined in the dtsi file
- * @physstart:          Start of iommu registers physical address
- * @physend:            End of iommu registers physical address
+ * @regstart:           Start of iommu registers physical address
+ * @regsize:            Size of registers physical address block
  * @clks                Iommu clocks
  * @features            Iommu features, ex RETENTION, DMA API
  */
 struct kgsl_device_iommu_data {
 	struct kgsl_iommu_ctx *iommu_ctxs;
 	int iommu_ctx_count;
-	unsigned int physstart;
-	unsigned int physend;
+	unsigned int regstart;
+	unsigned int regsize;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	unsigned int features;
 };
 
+
+#define KGSL_IOMMU_REG(iommu, ctx, REG) \
+	((iommu)->regbase + \
+	 (iommu)->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset + \
+	 ((ctx) << KGSL_IOMMU_CTX_SHIFT) + (iommu)->ctx_offset)
+
 /* Macros to read/write IOMMU registers */
-#define KGSL_IOMMU_SET_CTX_REG_Q(iommu, iommu_unit, ctx, REG, val)	\
-		writeq_relaxed(val,					\
-		iommu_unit->reg_map.hostptr +				\
-		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
-		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
-		iommu->ctx_offset)
+#define KGSL_IOMMU_SET_CTX_REG_Q(iommu, ctx, REG, val)	\
+		writeq_relaxed((val), KGSL_IOMMU_REG(iommu, ctx, REG))
 
-#define KGSL_IOMMU_GET_CTX_REG_Q(iommu, iommu_unit, ctx, REG)		\
-		readq_relaxed(						\
-		iommu_unit->reg_map.hostptr +				\
-		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
-		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
-		iommu->ctx_offset)
+#define KGSL_IOMMU_GET_CTX_REG_Q(iommu, ctx, REG)		\
+		readq_relaxed(KGSL_IOMMU_REG(iommu, ctx, REG))
 
-#define KGSL_IOMMU_SET_CTX_REG(iommu, iommu_unit, ctx, REG, val)	\
-		writel_relaxed(val,					\
-		iommu_unit->reg_map.hostptr +				\
-		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
-		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
-		iommu->ctx_offset)
+#define KGSL_IOMMU_SET_CTX_REG(iommu, ctx, REG, val)	\
+		writel_relaxed((val), KGSL_IOMMU_REG(iommu, ctx, REG))
 
-#define KGSL_IOMMU_GET_CTX_REG(iommu, iommu_unit, ctx, REG)		\
-		readl_relaxed(						\
-		iommu_unit->reg_map.hostptr +				\
-		iommu->iommu_reg_list[KGSL_IOMMU_CTX_##REG].reg_offset +\
-		(ctx << KGSL_IOMMU_CTX_SHIFT) +				\
-		iommu->ctx_offset)
+#define KGSL_IOMMU_GET_CTX_REG(iommu, ctx, REG)		\
+		readl_relaxed(KGSL_IOMMU_REG(iommu, ctx, REG))
 
 /* Gets the lsb value of pagetable */
 #define KGSL_IOMMMU_PT_LSB(iommu, pt_val)				\
@@ -185,18 +153,18 @@ struct kgsl_device_iommu_data {
 #define KGSL_IOMMU_SETSTATE_NOP_OFFSET	1024
 
 /*
- * struct kgsl_iommu_device - Structure holding data about iommu contexts
+ * struct kgsl_iommu_context - Structure holding data about iommu contexts
  * @dev: Device pointer to iommu context
  * @name: context name
  * @attached: Indicates whether this iommu context is presently attached to
  * a pagetable/domain or not
  * @default_ttbr0: The TTBR0 value set by iommu driver on start up
- * @ctx_id: This iommu units context id.
+ * @ctx_id: The hardware context ID for the device
  * are on, else the clocks are off
  * fault: Flag when set indicates that this iommu device has caused a page
  * fault
  */
-struct kgsl_iommu_device {
+struct kgsl_iommu_context {
 	struct device *dev;
 	const char *name;
 	bool attached;
@@ -207,33 +175,14 @@ struct kgsl_iommu_device {
 };
 
 /*
- * struct kgsl_iommu_unit - Structure holding data about iommu units. An IOMMU
- * units is basically a separte IOMMU h/w block with it's own IOMMU contexts
- * @dev: Pointer to array of struct kgsl_iommu_device which has information
- * about the IOMMU contexts under this IOMMU unit
- * @reg_map: Memory descriptor which holds the mapped address of this IOMMU
- * units register range
- * @ahb_base_offset - The base address from where IOMMU registers can be
- * accesed from ahb bus
- * @iommu_halt_enable: Valid only on IOMMU-v1, when set indicates that the iommu
- * unit supports halting of the IOMMU, which can be enabled while programming
- * the IOMMU registers for synchronization
- * @clk_enable_count: The ref count of clock enable calls
- * @clks: iommu unit clks
- */
-struct kgsl_iommu_unit {
-	struct kgsl_iommu_device dev[KGSL_IOMMU_CONTEXT_MAX];
-	struct kgsl_memdesc reg_map;
-	unsigned int ahb_base_offset;
-	int iommu_halt_enable;
-	atomic_t clk_enable_count;
-	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
-};
-
-/*
  * struct kgsl_iommu - Structure holding iommu data for kgsl driver
- * @iommu_unit: Structure containing info about the IOMMU h/w block
- * @device: Pointer to kgsl device
+ * @device: Pointer to KGSL device struct
+ * @ctx: Array of kgsl_iommu_context structs
+ * @regbase: Virtual address of the IOMMU register base
+ * @ahb_base_offset - The base address from where IOMMU registers can be
+ * accesed from AHB bus
+ * @clk_enable_count: The ref count of clock enable calls
+ * @clks: Array of pointers to IOMMU clocks
  * @ctx_offset: The context offset to be added to base address when
  * accessing IOMMU registers from the CPU
  * @ctx_ahb_offset: The context offset to be added to base address when
@@ -243,8 +192,12 @@ struct kgsl_iommu_unit {
  * @smmu_info: smmu info used in a5xx preemption
  */
 struct kgsl_iommu {
-	struct kgsl_iommu_unit iommu_unit;
 	struct kgsl_device *device;
+	struct kgsl_iommu_context ctx[KGSL_IOMMU_CONTEXT_MAX];
+	void __iomem *regbase;
+	unsigned int ahb_base_offset;
+	atomic_t clk_enable_count;
+	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	unsigned int ctx_offset;
 	unsigned int ctx_ahb_offset;
 	struct kgsl_iommu_register_list *iommu_reg_list;
