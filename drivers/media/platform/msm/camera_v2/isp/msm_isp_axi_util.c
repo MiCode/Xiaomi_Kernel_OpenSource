@@ -583,19 +583,54 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts)
 {
 	struct msm_isp_event_data event_data;
+	uint32_t i = 0;
+	struct msm_vfe_axi_halt_cmd halt_cmd;
+	struct msm_isp_event_data error_event;
+	struct msm_vfe_src_info *src_info = NULL;
 
 	memset(&event_data, 0, sizeof(event_data));
 
 	switch (event_type) {
-	case ISP_EVENT_SOF:
+	case ISP_EVENT_SOF: {
+		src_info = &vfe_dev->axi_data.src_info[frame_src];
+
 		msm_isp_check_for_output_error(vfe_dev, ts,
 			&event_data.u.output_info);
 
-		if (frame_src == VFE_PIX_0)
+		if (frame_src == VFE_PIX_0) {
 			vfe_dev->axi_data.src_info[frame_src].frame_id +=
 				vfe_dev->axi_data.src_info[frame_src].
 				sof_counter_step;
-		else
+			if (!src_info->frame_id &&
+				!src_info->reg_update_frame_id &&
+				((src_info->frame_id -
+				src_info->reg_update_frame_id) >
+				(MAX_REG_UPDATE_THRESHOLD *
+				src_info->sof_counter_step))) {
+				pr_err("%s:%d reg_upfate not received for %d frames\n",
+					__func__, __LINE__,
+					src_info->frame_id -
+					src_info->reg_update_frame_id);
+
+				memset(&halt_cmd, 0,
+					sizeof(struct msm_vfe_axi_halt_cmd));
+				halt_cmd.stop_camif = 1;
+				halt_cmd.overflow_detected = 0;
+				halt_cmd.blocking_halt = 0;
+
+				msm_isp_axi_halt(vfe_dev, &halt_cmd);
+
+				for (i = 0; i < MAX_NUM_STREAM; i++)
+					vfe_dev->axi_data.
+					stream_info[i].state = INACTIVE;
+				error_event.frame_id =
+					vfe_dev->axi_data.
+					src_info[VFE_PIX_0].frame_id;
+				msm_isp_send_event(vfe_dev,
+					ISP_EVENT_IOMMU_P_FAULT, &error_event);
+			}
+
+		} else
 			vfe_dev->axi_data.src_info[frame_src].frame_id++;
 
 		if (vfe_dev->axi_data.src_info[frame_src].frame_id == 0)
@@ -603,6 +638,7 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 		ISP_DBG("%s: frame_src %d frame id: %u\n", __func__,
 			frame_src,
 			vfe_dev->axi_data.src_info[frame_src].frame_id);
+	}
 		break;
 
 	default:
