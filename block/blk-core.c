@@ -2196,6 +2196,8 @@ static void blk_account_io_completion(struct request *req, unsigned int bytes)
 		cpu = part_stat_lock();
 		part = req->part;
 		part_stat_add(cpu, part, sectors[rw], bytes >> 9);
+		if (rw == WRITE && !(req->cmd_flags & REQ_DISCARD))
+			part_stat_add(cpu, part, data_sectors, bytes >> 9);
 		part_stat_unlock();
 	}
 }
