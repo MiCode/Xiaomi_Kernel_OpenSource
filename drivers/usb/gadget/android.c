@@ -2328,6 +2328,32 @@ static DEVICE_ATTR(pkt_alignment_factor, S_IRUGO | S_IWUSR,
 					rndis_pkt_alignment_factor_show,
 					rndis_pkt_alignment_factor_store);
 
+static ssize_t rndis_rx_trigger_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	bool write = false;
+	int rx_trigger = rndis_rx_trigger(write);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", rx_trigger);
+}
+
+static ssize_t rndis_rx_trigger_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int value;
+	bool write = true;
+
+	if (kstrtoint(buf, 10, &value)) {
+		rndis_rx_trigger(write);
+		return size;
+	}
+	return -EINVAL;
+}
+
+static DEVICE_ATTR(rx_trigger, S_IRUGO | S_IWUSR,
+					 rndis_rx_trigger_show,
+					 rndis_rx_trigger_store);
+
 static struct device_attribute *rndis_function_attributes[] = {
 	&dev_attr_manufacturer,
 	&dev_attr_wceis,
@@ -2336,6 +2362,7 @@ static struct device_attribute *rndis_function_attributes[] = {
 	&dev_attr_max_pkt_per_xfer,
 	&dev_attr_rndis_transports,
 	&dev_attr_pkt_alignment_factor,
+	&dev_attr_rx_trigger,
 	NULL
 };
 

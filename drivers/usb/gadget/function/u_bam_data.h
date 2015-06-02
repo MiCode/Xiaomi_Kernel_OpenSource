@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -26,30 +26,32 @@ enum function_type {
 #define BAM2BAM_DATA_N_PORTS (USB_NUM_FUNCS * PORTS_PER_FUNC)
 
 struct data_port {
-	struct usb_composite_dev	*cdev;
-	struct usb_function		*func;
-	struct usb_ep			*in;
-	int				rx_buffer_size;
-	struct usb_ep			*out;
-	int                             ipa_consumer_ep;
-	int                             ipa_producer_ep;
+	struct usb_composite_dev		*cdev;
+	struct usb_function			*func;
+	struct usb_ep				*in;
+	int					rx_buffer_size;
+	struct usb_ep				*out;
+	int					ipa_consumer_ep;
+	int					ipa_producer_ep;
+	const struct usb_endpoint_descriptor	*in_ep_desc_backup;
+	const struct usb_endpoint_descriptor	*out_ep_desc_backup;
 };
 
-int bam2bam_data_port_select(int portno);
+void bam_data_disconnect(struct data_port *gr, enum function_type func,
+		u8 dev_port_num);
 
-void bam_data_disconnect(struct data_port *gr, u8 port_num);
-
-int bam_data_connect(struct data_port *gr, u8 port_num,
-	enum transport_type trans, u8 src_connection_idx,
-	u8 dst_connection_idx, enum function_type func);
+int bam_data_connect(struct data_port *gr, enum transport_type trans,
+		u8 dev_port_num, enum function_type func);
 
 int bam_data_setup(enum function_type func, unsigned int no_bam2bam_port);
 
 void bam_data_flush_workqueue(void);
 
-void bam_data_suspend(u8 port_num);
+void bam_data_suspend(struct data_port *port_usb, u8 dev_port_num,
+		enum function_type func, bool remote_wakeup_enabled);
 
-void bam_data_resume(u8 port_num);
+void bam_data_resume(struct data_port *port_usb, u8 dev_port_num,
+		enum function_type func, bool remote_wakeup_enabled);
 
 void u_bam_data_set_dl_max_xfer_size(u32 dl_max_transfer_size);
 

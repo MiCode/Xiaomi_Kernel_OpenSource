@@ -109,6 +109,7 @@ struct eth_dev {
 	unsigned int		ul_max_pkts_per_xfer;
 	unsigned int		dl_max_pkts_per_xfer;
 	uint32_t		dl_max_xfer_size;
+	bool			rx_trigger_enabled;
 	struct sk_buff		*(*wrap)(struct gether *, struct sk_buff *skb);
 	int			(*unwrap)(struct gether *,
 						struct sk_buff *skb,
@@ -545,12 +546,12 @@ static int alloc_requests(struct eth_dev *dev, struct gether *link, unsigned n)
 
 	spin_lock(&dev->req_lock);
 	status = prealloc(&dev->tx_reqs, link->in_ep, n * tx_qmult,
-				dev->gadget->sg_supported,
+				dev->sg_enabled,
 				dev->header_len);
 	if (status < 0)
 		goto fail;
 	status = prealloc(&dev->rx_reqs, link->out_ep, n,
-				dev->gadget->sg_supported,
+				dev->sg_enabled,
 				dev->header_len);
 	if (status < 0)
 		goto fail;
@@ -1073,7 +1074,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 
 	dev->tx_pkts_rcvd++;
 	dev->tx_bytes_rcvd += skb->len;
-	if (dev->gadget->sg_supported && dev->sg_enabled) {
+	if (dev->sg_enabled) {
 		skb_queue_tail(&dev->tx_skb_q, skb);
 		if (dev->tx_skb_q.qlen > tx_stop_threshold) {
 			dev->tx_throttle++;
@@ -1265,10 +1266,9 @@ static int eth_open(struct net_device *net)
 	struct eth_dev	*dev = netdev_priv(net);
 	struct gether	*link;
 	int i;
+	bool wait_for_rx_trigger;
 
 	DBG(dev, "%s\n", __func__);
-	if (netif_carrier_ok(dev->net))
-		eth_start(dev, GFP_KERNEL);
 
 	dev->state = ETH_START;
 	for_each_online_cpu(i)
@@ -1276,6 +1276,15 @@ static int eth_open(struct net_device *net)
 
 	spin_lock_irq(&dev->lock);
 	link = dev->port_usb;
+	spin_unlock_irq(&dev->lock);
+
+	wait_for_rx_trigger = dev->rx_trigger_enabled && link &&
+		!link->rx_triggered;
+
+	if (netif_carrier_ok(dev->net) && !wait_for_rx_trigger)
+		eth_start(dev, GFP_KERNEL);
+
+	spin_lock_irq(&dev->lock);
 	if (link && link->open)
 		link->open(link);
 	spin_unlock_irq(&dev->lock);
@@ -1921,7 +1930,7 @@ void gether_enable_sg(struct gether *link, bool enable)
 {
 	struct eth_dev		*dev = link->ioport;
 
-	dev->sg_enabled = enable;
+	dev->sg_enabled = enable ? dev->gadget->sg_supported : false;
 }
 
 void gether_update_dl_max_pkts_per_xfer(struct gether *link, uint32_t n)
@@ -1957,6 +1966,7 @@ struct net_device *gether_connect(struct gether *link)
 {
 	struct eth_dev		*dev = link->ioport;
 	int			result = 0;
+	bool wait_for_rx_trigger;
 
 	if (!dev)
 		return ERR_PTR(-EINVAL);
@@ -1964,7 +1974,7 @@ struct net_device *gether_connect(struct gether *link)
 	/* if scatter/gather or sg is supported then headers can be part of
 	 * req->buf which is allocated later
 	 */
-	if (!dev->gadget->sg_supported) {
+	if (!dev->sg_enabled) {
 		link->header = kzalloc(sizeof(struct rndis_packet_msg_type),
 						GFP_ATOMIC);
 		if (!link->header) {
@@ -1973,9 +1983,6 @@ struct net_device *gether_connect(struct gether *link)
 			goto fail;
 		}
 	}
-
-	/* function driver may later disable sg support */
-	dev->sg_enabled = dev->gadget->sg_supported;
 
 	link->in_ep->driver_data = dev;
 	result = usb_ep_enable(link->in_ep);
@@ -2008,6 +2015,7 @@ struct net_device *gether_connect(struct gether *link)
 
 		dev->zlp = link->is_zlp_ok;
 		DBG(dev, "qlen %d\n", qlen(dev->gadget, dev->qmult));
+		dev->rx_trigger_enabled = link->rx_trigger_enabled;
 
 		spin_lock(&dev->lock);
 		dev->tx_skb_hold_count = 0;
@@ -2024,7 +2032,11 @@ struct net_device *gether_connect(struct gether *link)
 		spin_unlock(&dev->lock);
 
 		netif_carrier_on(dev->net);
-		if (netif_running(dev->net))
+
+		wait_for_rx_trigger = dev->rx_trigger_enabled &&
+			!link->rx_triggered;
+
+		if (netif_running(dev->net) && !wait_for_rx_trigger)
 			eth_start(dev, GFP_ATOMIC);
 
 	/* on error, disable any endpoints  */
@@ -2088,11 +2100,11 @@ void gether_disconnect(struct gether *link)
 
 		spin_unlock(&dev->req_lock);
 		if (link->multi_pkt_xfer ||
-				dev->gadget->sg_supported) {
+				dev->sg_enabled) {
 			kfree(req->buf);
 			req->buf = NULL;
 		}
-		if (dev->gadget->sg_supported) {
+		if (dev->sg_enabled) {
 			kfree(req->context);
 			kfree(req->sg);
 		}
@@ -2102,7 +2114,7 @@ void gether_disconnect(struct gether *link)
 	}
 
 	/* Free rndis header buffer memory */
-	if (!dev->gadget->sg_supported)
+	if (!dev->sg_enabled)
 		kfree(link->header);
 	link->header = NULL;
 	spin_unlock(&dev->req_lock);
@@ -2143,6 +2155,7 @@ void gether_disconnect(struct gether *link)
 	dev->header_len = 0;
 	dev->unwrap = NULL;
 	dev->wrap = NULL;
+	dev->rx_trigger_enabled = 0;
 
 	spin_lock(&dev->lock);
 	dev->port_usb = NULL;
@@ -2256,6 +2269,16 @@ static void uether_debugfs_init(struct eth_dev *dev, const char *name)
 static void uether_debugfs_exit(struct eth_dev *dev)
 {
 	debugfs_remove_recursive(dev->uether_dent);
+}
+
+int gether_up(struct gether *link)
+{
+	struct eth_dev *dev = link->ioport;
+
+	if (dev && netif_carrier_ok(dev->net))
+		eth_start(dev, GFP_KERNEL);
+
+	return 0;
 }
 
 static int __init gether_init(void)

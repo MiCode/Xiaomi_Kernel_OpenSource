@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -166,7 +166,8 @@ ghsic_send_cbits_tomodem(void *gptr, u8 portno, int cbits)
 	if (!test_bit(CH_OPENED, &port->bridge_sts))
 		return;
 
-	pr_debug("%s: ctrl_tomodem:%d\n", __func__, cbits);
+	pr_debug("%s: ctrl_tomodem:%d DTR:%d  RST:%d\n", __func__, cbits,
+		cbits & ACM_CTRL_DTR  ? 1 : 0, cbits & ACM_CTRL_RTS ? 1 : 0);
 
 	ctrl_bridge_set_cbits(port->brdg.ch_id, cbits);
 }
