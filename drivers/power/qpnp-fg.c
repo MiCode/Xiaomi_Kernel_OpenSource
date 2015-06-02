@@ -112,7 +112,6 @@ struct fg_mem_data {
 };
 
 struct fg_learning_data {
-	int			prev_status;
 	int64_t			cc_uah;
 	int64_t			learned_cc_uah;
 	bool			active;
@@ -431,6 +430,7 @@ struct fg_chip {
 	int			nom_cap_uah;
 	int			actual_cap_uah;
 	int			status;
+	int			prev_status;
 	int			health;
 	enum fg_batt_aging_mode	batt_aging_mode;
 	/* capacity learning */
@@ -2886,7 +2886,6 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 	}
 
 fail:
-	chip->learning_data.prev_status = chip->status;
 	mutex_unlock(&chip->learning_data.learning_lock);
 	return rc;
 }
@@ -2925,6 +2924,7 @@ static void status_change_work(struct work_struct *work)
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				status_change_work);
+	unsigned long current_time = 0;
 
 	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
 			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
@@ -2944,6 +2944,18 @@ static void status_change_work(struct work_struct *work)
 	}
 	fg_cap_learning_check(chip);
 	schedule_work(&chip->update_esr_work);
+	if (chip->prev_status != chip->status) {
+		get_current_time(&current_time);
+		/*
+		 * When charging status changes, update SRAM parameters if it
+		 * was not updated before 5 seconds from now.
+		 */
+		if (chip->last_sram_update_time + 5 < current_time) {
+			cancel_delayed_work(&chip->update_sram_data);
+			schedule_delayed_work(&chip->update_sram_data,
+				msecs_to_jiffies(0));
+		}
+	}
 }
 
 static int fg_power_set_property(struct power_supply *psy,
@@ -2965,6 +2977,7 @@ static int fg_power_set_property(struct power_supply *psy,
 			update_sram_data(chip, &unused);
 		break;
 	case POWER_SUPPLY_PROP_STATUS:
+		chip->prev_status = chip->status;
 		chip->status = val->intval;
 		schedule_work(&chip->status_change_work);
 		break;
