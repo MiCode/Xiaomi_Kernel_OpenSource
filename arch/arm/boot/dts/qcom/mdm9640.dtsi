@@ -34,29 +34,30 @@
 		sdhc1 = &sdhc_1; /* SDC1 eMMC/SD slot */
 	};
 
-	memory {
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
 		peripheral1_mem: peripheral1_region@0x81c00000 {
-			linux,reserve-contiguous-region;
-			linux,reserve-region;
-			linux,remove-completely;
+			compatible = "removed-dma-pool";
 			reg = <0x81C00000 0x5F00000>;
+			no-map;
 			label = "peripheral1_mem";
 		};
 
 		peripheral2_mem: peripheral2_region@0x87d00000 {
-			linux,reserve-contiguous-region;
-			linux,reserve-region;
-			linux,remove-completely;
+			compatible = "removed-dma-pool";
+			no-map;
 			reg = <0x87d00000 0x300000>;
 			label = "peripheral2_mem";
 		};
 
 		audio_mem: audio_region@0 {
-			linux,reserve-contiguous-region;
-			linux,reserve-region;
-			reg = <0 0xAF000>;
-			label = "audio_mem";
-		};
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x400000>;
+		 };
 	};
 
 	cpus {
@@ -1441,8 +1442,7 @@
 
 		/* GPIO output to mss */
 		qcom,gpio-force-stop = <&smp2pgpio_ssr_smp2p_1_out 0 0>;
-
-		linux,contiguous-region = <&peripheral1_mem>;
+		memory-region = <&peripheral1_mem>;
 	};
 
 	qcom,cnss {
