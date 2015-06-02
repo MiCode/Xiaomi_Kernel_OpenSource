@@ -1878,7 +1878,7 @@ sub process {
 
 	my $in_header_lines = $file ? 0 : 1;
 	my $in_commit_log = 0;		#Scanning lines before patch
-	my $reported_maintainer_file = 0;
+
 	my $non_utf8_charset = 0;
 
 	my $last_blank_line = 0;
@@ -2319,17 +2319,6 @@ sub process {
 		        ($id, $desc) = git_commit_info($orig_commit, $id, $desc);
 			ERROR("GIT_COMMIT_ID",
 			      "Please use 12 or more chars for the git commit ID and enclose the descritpion in parenthesis like: '${init_char}ommit $id (\"$desc\")'\n" . $herecurr);
-		}
-
-# Check for added, moved or deleted files
-		if (!$reported_maintainer_file && !$in_commit_log &&
-		    ($line =~ /^(?:new|deleted) file mode\s*\d+\s*$/ ||
-		     $line =~ /^rename (?:from|to) [\w\/\.\-]+\s*$/ ||
-		     ($line =~ /\{\s*([\w\/\.\-]*)\s*\=\>\s*([\w\/\.\-]*)\s*\}/ &&
-		      (defined($1) || defined($2))))) {
-			$reported_maintainer_file = 1;
-			WARN("FILE_PATH_CHANGES",
-			     "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
 		}
 
 #check the patch for invalid author credentials
