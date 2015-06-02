@@ -1939,7 +1939,7 @@ int ufshcd_send_command(struct ufs_hba *hba, unsigned int task_tag)
 {
 	int ret = 0;
 
-	if (hba->vops->crypto_engine_cfg) {
+	if (hba->vops && hba->vops->crypto_engine_cfg) {
 		ret = hba->vops->crypto_engine_cfg(hba, task_tag);
 		if (ret) {
 			dev_err(hba->dev,
@@ -7096,7 +7096,7 @@ static int ufshcd_setup_hba_vreg(struct ufs_hba *hba, bool on)
 	if (info->vdd_hba) {
 		ret = ufshcd_toggle_vreg(hba->dev, info->vdd_hba, on);
 
-		if (!ret && hba->vops->update_sec_cfg)
+		if (!ret && hba->vops && hba->vops->update_sec_cfg)
 			hba->vops->update_sec_cfg(hba, on);
 	}
 
@@ -7248,7 +7248,7 @@ out:
 			hba->clk_gating.state);
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		/* restore the secure configuration as clocks are enabled */
-		if (hba->vops->update_sec_cfg)
+		if (hba->vops && hba->vops->update_sec_cfg)
 			hba->vops->update_sec_cfg(hba, true);
 	}
 
