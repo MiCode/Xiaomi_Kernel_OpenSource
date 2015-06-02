@@ -165,7 +165,17 @@ static int __layer_param_check(struct msm_fb_data_type *mfd,
 	struct mdss_mdp_ctl *ctl = mfd_to_ctl(mfd);
 	u32 src_w, src_h, dst_w, dst_h;
 
-	yres = mfd->fbi->var.yres;
+	if (!ctl) {
+		pr_err("ctl is null\n");
+		return -EINVAL;
+	}
+
+	if (ctl->mixer_left) {
+		yres = ctl->mixer_left->height;
+	} else {
+		pr_debug("Using fb var screen infor for height\n");
+		yres = mfd->fbi->var.yres;
+	}
 
 	content_secure = (layer->flags & MDP_LAYER_SECURE_SESSION);
 	if (!ctl->is_secure && content_secure &&
