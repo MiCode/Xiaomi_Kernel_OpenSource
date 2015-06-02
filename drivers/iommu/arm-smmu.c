@@ -1601,33 +1601,13 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct io_pgtable_ops *ops= smmu_domain->pgtbl_ops;
-	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (!ops)
 		return -ENODEV;
 
-	/* see the comment in arm_smmu_unmap */
-	BUG_ON(atomic_ctx && !smmu_domain->smmu);
-
-	if (atomic_ctx) {
-		arm_smmu_enable_clocks_atomic(smmu_domain->smmu);
-	} else {
-		mutex_lock(&smmu_domain->init_mutex);
-		if (smmu_domain->smmu)
-			arm_smmu_enable_clocks(smmu_domain->smmu);
-	}
-
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-
-	if (atomic_ctx) {
-		arm_smmu_disable_clocks_atomic(smmu_domain->smmu);
-	} else {
-		if (smmu_domain->smmu)
-			arm_smmu_disable_clocks(smmu_domain->smmu);
-		mutex_unlock(&smmu_domain->init_mutex);
-	}
 
 	return ret;
 }
@@ -1639,33 +1619,13 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	unsigned long flags;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	struct io_pgtable_ops *ops = smmu_domain->pgtbl_ops;
-	int atomic_ctx = smmu_domain->attributes & (1 << DOMAIN_ATTR_ATOMIC);
 
 	if (!ops)
 		return -ENODEV;
 
-	/* see the comment in arm_smmu_unmap */
-	BUG_ON(atomic_ctx && !smmu_domain->smmu);
-
-	if (atomic_ctx) {
-		arm_smmu_enable_clocks_atomic(smmu_domain->smmu);
-	} else {
-		mutex_lock(&smmu_domain->init_mutex);
-		if (smmu_domain->smmu)
-			arm_smmu_enable_clocks(smmu_domain->smmu);
-	}
-
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map_sg(ops, iova, sg, nents, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
-
-	if (atomic_ctx) {
-		arm_smmu_disable_clocks_atomic(smmu_domain->smmu);
-	} else {
-		if (smmu_domain->smmu)
-			arm_smmu_disable_clocks(smmu_domain->smmu);
-		mutex_unlock(&smmu_domain->init_mutex);
-	}
 
 	return ret;
 }
