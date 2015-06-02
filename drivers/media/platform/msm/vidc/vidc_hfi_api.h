@@ -520,6 +520,12 @@ enum hal_uncompressed_format {
 	HAL_UNUSED_COLOR              = 0x10000000,
 };
 
+enum hal_statistics_mode_type {
+	HAL_STATISTICS_MODE_DEFAULT	= 0x00000001,
+	HAL_STATISTICS_MODE_1		= 0x00000002,
+	HAL_STATISTICS_MODE_2		= 0x00000004,
+};
+
 enum hal_ssr_trigger_type {
 	SSR_ERR_FATAL = 1,
 	SSR_SW_DIV_BY_ZERO,

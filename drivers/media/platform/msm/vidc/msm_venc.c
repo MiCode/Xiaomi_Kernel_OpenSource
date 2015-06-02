@@ -1811,6 +1811,17 @@ static inline int venc_v4l2_to_hal(int id, int value)
 		default:
 			goto unknown_value;
 		}
+	case V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE:
+		switch (value) {
+		case V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_DEFAULT:
+			return HAL_STATISTICS_MODE_DEFAULT;
+		case V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_1:
+			return HAL_STATISTICS_MODE_1;
+		case V4L2_CID_MPEG_VIDC_VIDEO_MBI_MODE_2:
+			return HAL_STATISTICS_MODE_2;
+		default:
+			goto unknown_value;
+		}
 	}
 
 unknown_value:
@@ -2714,7 +2725,9 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE:
 		property_id = HAL_PARAM_VENC_MBI_STATISTICS_MODE;
-		mbi_statistics_mode = ctrl->val;
+		mbi_statistics_mode = venc_v4l2_to_hal(
+			V4L2_CID_MPEG_VIDC_VIDEO_MBI_STATISTICS_MODE,
+			ctrl->val);
 		pdata = &mbi_statistics_mode;
 		break;
 	default:
