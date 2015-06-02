@@ -2662,6 +2662,24 @@ static void mdss_dsi_parse_pll_src_cfg(struct platform_device *pdev)
 	return;
 }
 
+static void mdss_dsi_update_hw_cfg(char *panel_cfg)
+{
+	const char *pan;
+	struct dsi_shared_data *sdata = mdss_dsi_res->shared_data;
+
+	if (!panel_cfg)
+		return;
+
+	if (mdss_dsi_is_hw_config_split(sdata)) {
+		pan = strnstr(panel_cfg, NONE_PANEL, strlen(panel_cfg));
+		if (pan) {
+			pr_debug("moving to single DSI configuraiton\n");
+			sdata->hw_config = SINGLE_DSI;
+			sdata->pll_src_config = PLL_SRC_DEFAULT;
+		}
+	}
+}
+
 static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
 {
 	int rc = 0;
@@ -2671,8 +2689,6 @@ static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
 	 *     - For split dsi config, only PLL0 is supported
 	 *     - For dual dsi config, DSI0-PLL0 and DSI1-PLL1 is the only
 	 *       possible configuration
-	 *     - For single dsi, it is not possible to source the clocks for
-	 *       DSI0 from PLL1.
 	 */
 	if (mdss_dsi_is_hw_config_split(sdata) &&
 		mdss_dsi_is_pll_src_pll1(sdata)) {
@@ -2687,15 +2703,6 @@ static int mdss_dsi_validate_pll_src_config(struct dsi_shared_data *sdata)
 		pr_debug("%s: pll src config not applicable for dual-dsi\n",
 			__func__);
 		sdata->pll_src_config = PLL_SRC_DEFAULT;
-	}
-
-	if (mdss_dsi_is_hw_config_single(sdata) &&
-		mdss_dsi_is_dsi0_active(sdata) &&
-		mdss_dsi_is_pll_src_pll1(sdata)) {
-		pr_err("%s: unsupported PLL config: using PLL1 for DSI1\n",
-			__func__);
-		rc = -EINVAL;
-		goto error;
 	}
 
 error:
@@ -2719,6 +2726,7 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 {
 	struct mdss_panel_cfg *pan_cfg = NULL;
 	struct mdss_util_intf *util;
+	char *panel_cfg;
 	int rc = 0;
 
 	util = mdss_get_util_intf();
@@ -2746,6 +2754,14 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	pan_cfg = util->panel_intf_type(MDSS_PANEL_INTF_DSI);
+	if (IS_ERR_OR_NULL(pan_cfg)) {
+		rc = PTR_ERR(pan_cfg);
+		goto error;
+	} else {
+		panel_cfg = pan_cfg->arg_cfg;
+	}
+
 	rc = mdss_dsi_res_init(pdev);
 	if (rc) {
 		pr_err("%s Unable to set dsi res\n", __func__);
@@ -2758,6 +2774,9 @@ static int mdss_dsi_probe(struct platform_device *pdev)
 		mdss_dsi_res_deinit(pdev);
 		return rc;
 	}
+
+	/* support hw config override until full support is not added */
+	mdss_dsi_update_hw_cfg(panel_cfg);
 
 	mdss_dsi_parse_pll_src_cfg(pdev);
 
