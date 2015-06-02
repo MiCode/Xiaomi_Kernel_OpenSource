@@ -334,13 +334,6 @@ static int cam_smmu_attach_device(int idx)
 	return rc;
 }
 
-static void cam_smmu_detach_device(int idx)
-{
-	struct cam_context_bank_info *cb = &iommu_cb_set.cb_info[idx];
-	arm_iommu_detach_device(cb->dev);
-	return;
-}
-
 static int cam_smmu_create_add_handle_in_table(char *name,
 					int *hdl)
 {
@@ -443,9 +436,7 @@ static int cam_smmu_attach(int idx)
 
 	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
 	if (iommu_cb_set.cb_info[idx].state == CAM_SMMU_ATTACH) {
-		pr_err("Error: index %d got attached before\n",
-			idx);
-		ret = -EINVAL;
+		ret = 0;
 	} else if (iommu_cb_set.cb_info[idx].state == CAM_SMMU_DETACH) {
 		ret = cam_smmu_attach_device(idx);
 		if (ret < 0) {
@@ -455,28 +446,6 @@ static int cam_smmu_attach(int idx)
 		}
 		iommu_cb_set.cb_info[idx].state = CAM_SMMU_ATTACH;
 		ret = 0;
-	} else {
-		pr_err("Error: Not detach/attach\n");
-		ret = -EINVAL;
-	}
-	mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-	return ret;
-}
-
-static int cam_smmu_detach(int idx)
-{
-	int ret;
-
-	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	if (iommu_cb_set.cb_info[idx].state == CAM_SMMU_DETACH) {
-		pr_err("Error: Index %d got detached before\n", idx);
-		ret = -EINVAL;
-	} else if (iommu_cb_set.cb_info[idx].state == CAM_SMMU_ATTACH) {
-		iommu_cb_set.cb_info[idx].state = CAM_SMMU_DETACH;
-		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-		cam_smmu_clean_buffer_list(idx);
-		cam_smmu_detach_device(idx);
-		return 0;
 	} else {
 		pr_err("Error: Not detach/attach\n");
 		ret = -EINVAL;
@@ -680,7 +649,7 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param ops)
 		break;
 	}
 	case CAM_SMMU_DETACH: {
-		ret = cam_smmu_detach(idx);
+		ret = 0;
 		break;
 	}
 	case CAM_SMMU_VOTE:
@@ -788,7 +757,7 @@ EXPORT_SYMBOL(cam_smmu_put_phy_addr);
 
 int cam_smmu_destroy_handle(int handle)
 {
-	int idx, ret;
+	int idx;
 	idx = cam_smmu_find_index_by_handle(handle);
 	if (idx < 0 || idx >= iommu_cb_set.cb_num) {
 		pr_err("Error: index is not valid, index = %d\n", idx);
@@ -803,20 +772,6 @@ int cam_smmu_destroy_handle(int handle)
 	} else {
 		pr_err("Error: List is not clean\n");
 		cam_smmu_print_list(idx);
-	}
-
-	mutex_lock(&iommu_cb_set.cb_info[idx].lock);
-	if (iommu_cb_set.cb_info[idx].state == CAM_SMMU_ATTACH) {
-		CDBG("It should get detached before.\n");
-		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
-		ret = cam_smmu_detach(idx);
-		if (ret < 0) {
-			pr_err("Error: Detach idx %d fail\n", idx);
-			mutex_unlock(&iommu_table_lock);
-			return -EINVAL;
-		}
-	} else {
-		mutex_unlock(&iommu_cb_set.cb_info[idx].lock);
 	}
 
 	mutex_destroy(&iommu_cb_set.cb_info[idx].lock);
