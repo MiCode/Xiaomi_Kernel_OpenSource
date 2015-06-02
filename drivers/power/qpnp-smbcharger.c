@@ -3078,7 +3078,7 @@ static void smbchg_aicl_deglitch_wa_check(struct smbchg_chip *chip)
 #define LOADING_BATT_TYPE	"Loading Battery Data"
 static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 {
-	int rc = 0, max_voltage_uv = 0;
+	int rc = 0, max_voltage_uv = 0, fastchg_ma = 0, ret = 0;
 	struct device_node *batt_node, *profile_node;
 	struct device_node *node = chip->spmi->dev.of_node;
 	union power_supply_propval prop = {0,};
@@ -3117,19 +3117,50 @@ static int smbchg_config_chg_battery_type(struct smbchg_chip *chip)
 						&max_voltage_uv);
 	if (rc) {
 		pr_warn("couldn't find battery max voltage rc=%d\n", rc);
-		return rc;
-	}
-	if (chip->vfloat_mv != (max_voltage_uv / 1000)) {
-		pr_info("Vfloat changed from %dmV to %dmV for battery-type %s\n",
+		ret = rc;
+	} else {
+		if (chip->vfloat_mv != (max_voltage_uv / 1000)) {
+			pr_info("Vfloat changed from %dmV to %dmV for battery-type %s\n",
 				chip->vfloat_mv, (max_voltage_uv / 1000),
 				chip->battery_type);
-		rc = smbchg_float_voltage_set(chip, (max_voltage_uv / 1000));
-		if (rc < 0)
-			dev_err(chip->dev,
+			rc = smbchg_float_voltage_set(chip,
+						(max_voltage_uv / 1000));
+			if (rc < 0) {
+				dev_err(chip->dev,
 				"Couldn't set float voltage rc = %d\n", rc);
+				return rc;
+			}
+		}
 	}
 
-	return rc;
+	/*
+	 * Only configure from profile if fastchg-ma is not defined in the
+	 * charger device node.
+	 */
+	if (!of_find_property(chip->spmi->dev.of_node,
+				"qcom,fastchg-current-ma", NULL)) {
+		rc = of_property_read_u32(profile_node,
+				"qcom,fastchg-current-ma", &fastchg_ma);
+		if (rc) {
+			ret = rc;
+		} else {
+			pr_smb(PR_MISC,
+				"fastchg-ma changed from %dma to %dma for battery-type %s\n",
+				chip->target_fastchg_current_ma, fastchg_ma,
+				chip->battery_type);
+			chip->target_fastchg_current_ma = fastchg_ma;
+			chip->cfg_fastchg_current_ma = fastchg_ma;
+			rc = smbchg_set_fastchg_current(chip, fastchg_ma);
+			if (rc < 0) {
+				dev_err(chip->dev,
+					"Couldn't set fastchg current rc=%d\n",
+					rc);
+				return rc;
+			}
+		}
+	}
+
+	return ret;
 }
 
 static void check_battery_type(struct smbchg_chip *chip)
@@ -5130,6 +5161,7 @@ err:
 }
 
 #define DEFAULT_VLED_MAX_UV		3500000
+#define DEFAULT_FCC_MA			2000
 static int smb_parse_dt(struct smbchg_chip *chip)
 {
 	int rc = 0, ocp_thresh = -EINVAL;
@@ -5149,6 +5181,8 @@ static int smb_parse_dt(struct smbchg_chip *chip)
 	OF_PROP_READ(chip, chip->iterm_ma, "iterm-ma", rc, 1);
 	OF_PROP_READ(chip, chip->target_fastchg_current_ma,
 			"fastchg-current-ma", rc, 1);
+	if (chip->target_fastchg_current_ma == -EINVAL)
+		chip->target_fastchg_current_ma = DEFAULT_FCC_MA;
 	OF_PROP_READ(chip, chip->vfloat_mv, "float-voltage-mv", rc, 1);
 	OF_PROP_READ(chip, chip->safety_time, "charging-timeout-mins", rc, 1);
 	OF_PROP_READ(chip, chip->vled_max_uv, "vled-max-uv", rc, 1);
