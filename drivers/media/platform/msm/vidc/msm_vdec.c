@@ -2095,7 +2095,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_extradata_enable extra;
 	struct hal_buffer_alloc_mode alloc_mode;
 	struct hal_multi_stream multi_stream;
-	struct hfi_scs_threshold scs_threshold;
+	struct hal_scs_threshold scs_threshold;
 	struct hal_mvc_buffer_layout layout;
 	struct v4l2_ctrl *temp_ctrl = NULL;
 	struct hal_profile_level profile_level;
@@ -2129,10 +2129,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_STREAM_FORMAT:
-		property_id =
-		HAL_PARAM_NAL_STREAM_FORMAT_SELECT;
-		stream_format.nal_stream_format_supported =
-		(0x00000001 << ctrl->val);
+		property_id = HAL_PARAM_NAL_STREAM_FORMAT_SELECT;
+		stream_format.nal_stream_format_supported = BIT(ctrl->val);
 		pdata = &stream_format;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER:
@@ -2141,20 +2139,17 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &property_val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE:
-		property_id =
-			HAL_PARAM_VDEC_PICTURE_TYPE_DECODE;
+		property_id = HAL_PARAM_VDEC_PICTURE_TYPE_DECODE;
 		enable_picture.picture_type = ctrl->val;
 		pdata = &enable_picture;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_KEEP_ASPECT_RATIO:
-		property_id =
-			HAL_PARAM_VDEC_OUTPUT2_KEEP_ASPECT_RATIO;
+		property_id = HAL_PARAM_VDEC_OUTPUT2_KEEP_ASPECT_RATIO;
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_POST_LOOP_DEBLOCKER_MODE:
-		property_id =
-			HAL_CONFIG_VDEC_POST_LOOP_DEBLOCKER;
+		property_id = HAL_CONFIG_VDEC_POST_LOOP_DEBLOCKER;
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
 		break;
@@ -2164,14 +2159,12 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &property_val;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_MB_ERROR_MAP_REPORTING:
-		property_id =
-			HAL_CONFIG_VDEC_MB_ERROR_MAP_REPORTING;
+		property_id = HAL_CONFIG_VDEC_MB_ERROR_MAP_REPORTING;
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_CONTINUE_DATA_TRANSFER:
-		property_id =
-			HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER;
+		property_id = HAL_PARAM_VDEC_CONTINUE_DATA_TRANSFER;
 		hal_property.enable = ctrl->val;
 		pdata = &hal_property;
 		break;
