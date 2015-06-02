@@ -1255,6 +1255,7 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 		mutex_unlock(&einfo->smd_lock);
 	}
 	ch->remote_legacy = false;
+	ch->rcid = 0;
 }
 
 /**
