@@ -63,7 +63,7 @@
  * more before an irq is required, under load.  Jumbograms change
  * the equation.
  */
-#define	MAX_QUEUE_MEMORY	(60 * 1518)
+#define	MAX_QUEUE_MEMORY	(600 * 1518)
 #define	RX_QLEN(dev)		((dev)->rx_qlen)
 #define	TX_QLEN(dev)		((dev)->tx_qlen)
 
