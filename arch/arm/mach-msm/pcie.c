@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1871,9 +1871,9 @@ static int msm_pcie_probe(struct platform_device *pdev)
 	memcpy(msm_pcie_dev[rc_idx].gpio, msm_pcie_gpio_info,
 				sizeof(msm_pcie_gpio_info));
 	memcpy(msm_pcie_dev[rc_idx].clk, msm_pcie_clk_info[rc_idx],
-				sizeof(msm_pcie_clk_info));
+				sizeof(msm_pcie_clk_info[rc_idx]));
 	memcpy(msm_pcie_dev[rc_idx].pipeclk, msm_pcie_pipe_clk_info[rc_idx],
-				sizeof(msm_pcie_pipe_clk_info));
+				sizeof(msm_pcie_pipe_clk_info[rc_idx]));
 	memcpy(msm_pcie_dev[rc_idx].res, msm_pcie_res_info,
 				sizeof(msm_pcie_res_info));
 	memcpy(msm_pcie_dev[rc_idx].irq, msm_pcie_irq_info,
