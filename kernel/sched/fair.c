@@ -1714,7 +1714,7 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 	int cluster_cost, i, cstate;
 	u64 tload, cpu_load;
 
-	struct cpumask search_cpus;
+	struct cpumask search_cpus, fb_search_cpus;
 	int cpu = smp_processor_id();
 
 	cpumask_and(&search_cpus,  tsk_cpus_allowed(p), cpu_online_mask);
@@ -1732,6 +1732,8 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 
 	tload = scale_load_to_cpu(task_load(p), cpu);
 	cluster_cost = power_cost(tload, cpu);
+
+	cpumask_copy(&fb_search_cpus, &search_cpus);
 
 	/*
 	 * 1. Least-loaded CPU in the same cluster which is not in a low
@@ -1758,6 +1760,7 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 
 		if (power_cost(tload, i) == cluster_cost) {
 			/* This CPU is within the same cluster as the waker. */
+			cpumask_clear_cpu(i, &fb_search_cpus);
 			if (cstate) {
 				if (cstate < best_lpm_sibling_cstate) {
 					best_lpm_sibling_cpu = i;
@@ -1771,7 +1774,18 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 				best_nonlpm_sibling_load = cpu_load;
 			}
 			continue;
+		} else {
+			cpumask_andnot(&search_cpus, &search_cpus,
+				       &rq->freq_domain_cpumask);
 		}
+	}
+
+	if (best_nonlpm_sibling_cpu != -1)
+		return best_nonlpm_sibling_cpu;
+
+	for_each_cpu(i, &fb_search_cpus) {
+		struct rq *rq = cpu_rq(i);
+		cstate = rq->cstate;
 
 		/* This CPU is not within the same cluster as the waker. */
 		if (cstate) {
@@ -1781,6 +1795,9 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 			}
 			continue;
 		}
+
+		cpu_load = cpu_load_sync(i, sync);
+		tload = scale_load_to_cpu(task_load(p), cpu);
 		if (cpu_load < best_nonlpm_nonsibling_load &&
 		    !spill_threshold_crossed(tload, cpu_load, rq)) {
 			best_nonlpm_nonsibling_cpu = i;
@@ -1788,8 +1805,6 @@ static int best_small_task_cpu(struct task_struct *p, int sync)
 		}
 	}
 
-	if (best_nonlpm_sibling_cpu != -1)
-		return best_nonlpm_sibling_cpu;
 	if (best_nonlpm_nonsibling_cpu != -1)
 		return best_nonlpm_nonsibling_cpu;
 	if (best_lpm_sibling_cpu != -1)
