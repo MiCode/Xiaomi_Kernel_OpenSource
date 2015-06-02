@@ -3433,7 +3433,7 @@
 	};
 
 	lmh: qcom,lmh {
-		compatible = "qcom,lmh";
+		compatible = "qcom,lmh_v1";
 		interrupts = <0 23 4>;
 	};
 
