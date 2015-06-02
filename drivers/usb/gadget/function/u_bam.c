@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -850,13 +850,10 @@ static int _gbam_start_io(struct gbam_port *port)
 static void gbam_free_rx_buffers(struct gbam_port *port)
 {
 	struct sk_buff		*skb;
-	unsigned long		flags;
 	struct bam_ch_info	*d;
 
-	spin_lock_irqsave(&port->port_lock, flags);
-
 	if (!port || !port->port_usb)
-		goto free_rx_buf_out;
+		return;
 
 	d = &port->data_ch;
 	gbam_free_requests(port->port_usb->out, &d->rx_idle);
@@ -865,9 +862,6 @@ static void gbam_free_rx_buffers(struct gbam_port *port)
 		dev_kfree_skb_any(skb);
 
 	gbam_free_rx_skb_idle_list(port);
-
-free_rx_buf_out:
-	spin_unlock_irqrestore(&port->port_lock, flags);
 }
 
 static void gbam2bam_disconnect_work(struct work_struct *w)
