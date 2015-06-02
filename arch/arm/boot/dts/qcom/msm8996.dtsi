@@ -1891,6 +1891,7 @@
 	android_usb@66bf0c8 {
 		compatible = "qcom,android-usb";
 		reg = <0x066bf0c8 0xc8>;
+		qcom,pm-qos-latency = <301 701 801>;
 	};
 
 	qusb_phy0: qusb@7411000 {
