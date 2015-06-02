@@ -1,6 +1,7 @@
 config MSM_PM
 	depends on PM
 	select MSM_IDLE_STATS if DEBUG_FS
+	select CPU_IDLE_MULTIPLE_DRIVERS
 	bool "Qualcomm platform specific PM driver"
 	help
 	  Platform specific power driver to manage cores and l2
