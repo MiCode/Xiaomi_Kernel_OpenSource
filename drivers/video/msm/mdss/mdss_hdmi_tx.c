@@ -1357,58 +1357,107 @@ static u32 hdmi_tx_ddc_read(struct hdmi_tx_ddc_ctrl *ddc_ctrl,
 	return status;
 }
 
-static u32 hdmi_tx_edid_read_block(void *caller_data, u8 block, u8 *edid_buf)
+static int hdmi_tx_read_edid_retry(struct hdmi_tx_ctrl *hdmi_ctrl, u8 block)
 {
-	const u8 *b = NULL;
-	u32 ndx, check_sum, status = 0;
 	u32 checksum_retry = 0;
-	struct hdmi_tx_ddc_ctrl *ddc_ctrl =
-		(struct hdmi_tx_ddc_ctrl *) caller_data;
+	u8 *ebuf;
+	int ret = 0;
+	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
 
-	if (!ddc_ctrl || !edid_buf) {
+	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
-		status = -EINVAL;
+		ret = -EINVAL;
 		goto end;
 	}
+
+	ebuf = hdmi_ctrl->edid_buf;
+	if (!ebuf) {
+		DEV_ERR("%s: invalid edid buf\n", __func__);
+		ret = -EINVAL;
+		goto end;
+	}
+
+	ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
 
 	while (checksum_retry++ < MAX_EDID_READ_RETRY) {
-		if (hdmi_tx_ddc_read(ddc_ctrl, block, edid_buf)) {
-			DEV_ERR("%s: error: DDC read\n", __func__);
+		ret = hdmi_tx_ddc_read(ddc_ctrl, block,
+			ebuf + (block * EDID_BLOCK_SIZE));
+		if (ret)
 			continue;
-		}
-
-		/* Calculate checksum */
-		check_sum = 0;
-		for (ndx = 0; ndx < EDID_BLOCK_SIZE; ++ndx)
-			check_sum += edid_buf[ndx];
-
-		b = edid_buf;
-		if (check_sum & 0xFF) {
-			DEV_ERR("%s: failed CHECKSUM (read:%x, expected:%x)\n",
-				__func__, (u8)edid_buf[0x7F], (u8)check_sum);
-
-			for (ndx = 0; ndx < 0x100; ndx += 4)
-				DEV_DBG("EDID[%02x-%02x] %02x %02x %02x %02x\n",
-					ndx, ndx + 3,
-					b[ndx + 0], b[ndx + 1], b[ndx + 2],
-					b[ndx + 3]);
-		} else {
+		else
 			break;
-		}
 	}
+end:
+	return ret;
+}
 
-	if (checksum_retry > MAX_EDID_READ_RETRY) {
-		status = -EPROTO;
+static int hdmi_tx_read_edid(struct hdmi_tx_ctrl *hdmi_ctrl)
+{
+	int ndx, check_sum;
+	int cea_blks = 0, block = 0, total_blocks = 0;
+	int ret = 0;
+	u8 *ebuf;
+	struct hdmi_tx_ddc_ctrl *ddc_ctrl;
+
+	if (!hdmi_ctrl) {
+		DEV_ERR("%s: invalid input\n", __func__);
+		ret = -EINVAL;
 		goto end;
 	}
 
-	for (ndx = 0; ndx < EDID_BLOCK_SIZE; ndx += 4)
-		DEV_DBG("EDID[%02x-%02x] %02x %02x %02x %02x\n",
-			ndx, ndx + 3,
-			b[ndx + 0], b[ndx + 1], b[ndx + 2], b[ndx + 3]);
+	ebuf = hdmi_ctrl->edid_buf;
+	if (!ebuf) {
+		DEV_ERR("%s: invalid edid buf\n", __func__);
+		ret = -EINVAL;
+		goto end;
+	}
 
+	memset(ebuf, 0, hdmi_ctrl->edid_buf_size);
+
+	ddc_ctrl = &hdmi_ctrl->ddc_ctrl;
+
+	do {
+		if (block * EDID_BLOCK_SIZE > hdmi_ctrl->edid_buf_size) {
+			DEV_ERR("%s: no mem for block %d, max mem %d\n",
+				__func__, block, hdmi_ctrl->edid_buf_size);
+			ret = -ENOMEM;
+			goto end;
+		}
+
+		ret = hdmi_tx_read_edid_retry(hdmi_ctrl, block);
+		if (ret) {
+			DEV_ERR("%s: edid read failed\n", __func__);
+			goto end;
+		}
+
+		/* verify checksum to validate edid block */
+		check_sum = 0;
+		for (ndx = 0; ndx < EDID_BLOCK_SIZE; ++ndx)
+			check_sum += ebuf[ndx];
+
+		if (check_sum & 0xFF) {
+			DEV_ERR("%s: checksome mismatch\n", __func__);
+			ret = -EINVAL;
+			goto end;
+		}
+
+		/* get number of cea extension blocks as given in block 0*/
+		if (block == 0) {
+			cea_blks = ebuf[EDID_BLOCK_SIZE - 2];
+			if (cea_blks < 0 || cea_blks >= MAX_EDID_BLOCKS) {
+				cea_blks = 0;
+				DEV_ERR("%s: invalid cea blocks %d\n",
+					__func__, cea_blks);
+				ret = -EINVAL;
+				goto end;
+			}
+
+			total_blocks = cea_blks + 1;
+		}
+	} while ((cea_blks-- > 0) && (block++ < MAX_EDID_BLOCKS));
 end:
-	return status;
+
+	return ret;
 }
 
 /* Enable HDMI features */
@@ -1427,10 +1476,8 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 	}
 
 	/* Initialize EDID feature */
-	edid_init_data.sysfs_kobj = hdmi_ctrl->kobj;
-	edid_init_data.caller_data = (void *) &hdmi_ctrl->ddc_ctrl;
+	edid_init_data.kobj = hdmi_ctrl->kobj;
 	edid_init_data.ds_data = &hdmi_ctrl->ds_data;
-	edid_init_data.read_edid_block = hdmi_tx_edid_read_block;
 	edid_init_data.id = fbi->node;
 
 	hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID] =
@@ -1440,6 +1487,14 @@ static int hdmi_tx_init_features(struct hdmi_tx_ctrl *hdmi_ctrl,
 		ret = -EPERM;
 		goto end;
 	}
+
+	hdmi_ctrl->panel_data.panel_info.edid_data =
+		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID];
+
+	/* get edid buffer from edid parser */
+	hdmi_ctrl->edid_buf = edid_init_data.buf;
+	hdmi_ctrl->edid_buf_size = edid_init_data.buf_size;
+
 	hdmi_edid_set_video_resolution(
 		hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
 		hdmi_ctrl->video_resolution);
@@ -1580,10 +1635,14 @@ static int hdmi_tx_read_sink_info(struct hdmi_tx_ctrl *hdmi_ctrl)
 
 	hdmi_ddc_config(&hdmi_ctrl->ddc_ctrl);
 
+	status = hdmi_tx_read_edid(hdmi_ctrl);
+	if (status) {
+		DEV_ERR("%s: error reading edid\n", __func__);
+		goto error;
+	}
+
 	status = hdmi_edid_parser(hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID]);
-	if (!status)
-		DEV_DBG("%s: edid parse success\n", __func__);
-	else
+	if (status)
 		DEV_ERR("%s: edid parse failed\n", __func__);
 
 error:

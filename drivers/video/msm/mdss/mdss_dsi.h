@@ -470,7 +470,8 @@ struct mdss_dsi_ctrl_pdata {
 	void *dba_data;
 
 	void *edid_data;
-	u8 edid_buf[EDID_BLOCK_SIZE * 2];
+	u8 *edid_buf;
+	u32 edid_buf_size;
 
 	struct fb_info *fbi;
 
