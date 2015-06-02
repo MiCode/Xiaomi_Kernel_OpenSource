@@ -165,6 +165,17 @@ struct lmh_sensor_data {
 	struct list_head		list_ptr;
 };
 
+struct lmh_default_data {
+	uint32_t			default_profile;
+};
+
+static struct lmh_default_data		lmh_lite_data = {
+	.default_profile = 0,
+};
+static struct lmh_default_data		lmh_v1_data = {
+	.default_profile = 1,
+};
+static struct lmh_default_data		*lmh_hw_data;
 static struct lmh_driver_data		*lmh_data;
 static DECLARE_RWSEM(lmh_sensor_access);
 static DEFINE_MUTEX(lmh_sensor_read);
@@ -807,6 +818,13 @@ static int lmh_get_dev_info(void)
 		goto get_dev_exit;
 	lmh_data->dev_info.level_ct = size;
 	lmh_data->dev_info.curr_level = LMH_DEFAULT_PROFILE;
+	ret = lmh_set_level(&lmh_data->dev_info.dev_ops,
+		lmh_hw_data->default_profile);
+	if (ret) {
+		pr_err("Error switching to default profile%d, err:%d\n",
+			lmh_data->dev_info.curr_level, ret);
+		goto get_dev_exit;
+	}
 
 get_dev_exit:
 	if (ret)
@@ -1168,6 +1186,11 @@ static int lmh_remove(struct platform_device *pdev)
 static struct of_device_id lmh_match[] = {
 	{
 		.compatible = "qcom,lmh",
+		.data = (void *)&lmh_lite_data,
+	},
+	{
+		.compatible = "qcom,lmh_v1",
+		.data = (void *)&lmh_v1_data,
 	},
 	{},
 };
@@ -1184,6 +1207,21 @@ static struct platform_driver lmh_driver = {
 
 int __init lmh_init_driver(void)
 {
+	struct device_node *comp_node;
+
+	comp_node = of_find_matching_node(NULL, lmh_match);
+	if (comp_node) {
+		const struct of_device_id *match = of_match_node(lmh_match,
+							comp_node);
+		if (!match) {
+			pr_err("Couldnt find a match\n");
+			goto plt_register;
+		}
+		lmh_hw_data = (struct lmh_default_data *)match->data;
+		of_node_put(comp_node);
+	}
+
+plt_register:
 	return platform_driver_register(&lmh_driver);
 }
 
