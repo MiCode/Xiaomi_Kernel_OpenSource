@@ -611,6 +611,8 @@ static void msm_vfe44_reg_update(struct vfe_device *vfe_dev,
 
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
 	vfe_dev->reg_update_requested |= update_mask;
+	vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id =
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 	msm_camera_io_w_mb(vfe_dev->reg_update_requested,
 		vfe_dev->vfe_base + 0x378);
 	spin_unlock_irqrestore(&vfe_dev->reg_update_lock, flags);

@@ -589,19 +589,36 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	enum msm_vfe_input_src frame_src, struct msm_isp_timestamp *ts)
 {
 	struct msm_isp_event_data event_data;
+	struct msm_vfe_src_info *src_info = NULL;
 
 	memset(&event_data, 0, sizeof(event_data));
 
 	switch (event_type) {
 	case ISP_EVENT_SOF:
+		src_info = &vfe_dev->axi_data.src_info[frame_src];
+
 		msm_isp_check_for_output_error(vfe_dev, ts,
 			&event_data.u.output_info);
 
-		if (frame_src == VFE_PIX_0)
+		if (frame_src == VFE_PIX_0) {
 			vfe_dev->axi_data.src_info[frame_src].frame_id +=
 				vfe_dev->axi_data.src_info[frame_src].
 				sof_counter_step;
-		else
+			if (!src_info->frame_id &&
+				!src_info->reg_update_frame_id &&
+				((src_info->frame_id -
+				src_info->reg_update_frame_id) >
+				(MAX_REG_UPDATE_THRESHOLD *
+				src_info->sof_counter_step))) {
+				pr_err("%s:%d reg_update not received for %d frames\n",
+					__func__, __LINE__,
+					src_info->frame_id -
+					src_info->reg_update_frame_id);
+
+				msm_isp_halt_send_error(vfe_dev);
+			}
+
+		} else
 			vfe_dev->axi_data.src_info[frame_src].frame_id++;
 
 		if (frame_src == VFE_PIX_0) {

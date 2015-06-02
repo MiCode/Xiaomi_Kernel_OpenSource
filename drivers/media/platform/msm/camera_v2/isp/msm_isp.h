@@ -44,6 +44,7 @@
 #define MAX_NUM_COMPOSITE_MASK 4
 #define MAX_NUM_STATS_COMP_MASK 2
 #define MAX_INIT_FRAME_DROP 31
+#define MAX_REG_UPDATE_THRESHOLD 10
 #define ISP_Q2 (1 << 2)
 
 #define VFE_PING_FLAG 0xFFFFFFFF
@@ -373,6 +374,7 @@ struct msm_vfe_axi_composite_info {
 struct msm_vfe_src_info {
 	uint32_t frame_id;
 	uint32_t camif_sof_frame_id;
+	uint32_t reg_update_frame_id;
 	uint8_t active;
 	uint8_t pix_stream_count;
 	uint8_t raw_stream_count;
