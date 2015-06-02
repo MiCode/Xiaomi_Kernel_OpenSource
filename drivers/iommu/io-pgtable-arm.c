@@ -207,12 +207,8 @@ static int arm_lpae_init_pte(struct arm_lpae_io_pgtable *data,
 
 	/* We require an unmap first */
 	if (iopte_leaf(*ptep, lvl)) {
-		if (!suppress_map_failures) {
-			*ptep = 0;
-			data->iop.cfg.tlb->tlb_flush_all(data->iop.cookie);
-		} else {
-			return -EEXIST;
-		}
+		WARN_ON(!suppress_map_failures);
+		return -EEXIST;
 	}
 
 	if (data->iop.cfg.quirks & IO_PGTABLE_QUIRK_ARM_NS)
