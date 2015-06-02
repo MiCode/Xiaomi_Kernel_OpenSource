@@ -51,6 +51,8 @@
 #define APC_LDO_BHS_PWR_CTL	0x28
 #define APC_LDO_RDAC_CTL	0x34
 
+static bool vctl_parsed;
+
 /*
  * struct msm_l2ccc_of_info: represents of data for l2 cache clock controller.
  * @compat: compat string for l2 cache clock controller
@@ -191,17 +193,26 @@ static int power_on_l2_msm8916(struct device_node *l2ccc_node, u32 pon_mask,
 {
 	u32 pon_status;
 	void __iomem *l2_base;
+	int ret = 0;
+	struct device_node *vctl_node;
+
+	vctl_node = of_parse_phandle(l2ccc_node, "qcom,vctl-node", 0);
+	if (vctl_node)
+		vctl_parsed = true;
 
 	l2_base = of_iomap(l2ccc_node, 0);
 	if (!l2_base)
 		return -ENOMEM;
 
 	/* Skip power-on sequence if l2 cache is already powered up*/
-	pon_status = (__raw_readl(l2_base + L2_PWR_STATUS) & pon_mask)
+	pon_status = (__raw_readl(l2_base + L2_PWR_CTL) & pon_mask)
 				== pon_mask;
+	/* Check L2 SPM Status */
 	if (pon_status) {
+		if (vctl_node)
+			ret = kick_l2spm(l2ccc_node, vctl_node);
 		iounmap(l2_base);
-		return 0;
+		return ret;
 	}
 
 	/* Close L2/SCU Logic GDHS and power up the cache */
@@ -825,6 +836,8 @@ int msm_unclamp_secondary_arm_cpu(unsigned int cpu)
 	int ret = 0;
 	struct device_node *cpu_node, *acc_node, *l2_node, *l2ccc_node;
 	void __iomem *reg;
+	struct resource res;
+	int val;
 
 	cpu_node = of_get_cpu_node(cpu, NULL);
 	if (!cpu_node)
@@ -894,7 +907,22 @@ int msm_unclamp_secondary_arm_cpu(unsigned int cpu)
 	writel_relaxed(0x00020088, reg + CPU_PWR_CTL);
 	mb();
 
-	/* Secondary CPU-N is now alive */
+	/* Secondary CPU-N is now alive.
+	 * Allowing L2 Low power modes
+	 */
+	if (!vctl_parsed)
+		goto out_l2ccc_1;
+	else {
+		ret = of_address_to_resource(l2ccc_node, 1, &res);
+		if (ret)
+			goto out_l2ccc_1;
+	}
+
+	val = scm_io_read((u32)res.start);
+	val &= ~BIT(0);
+	scm_io_write((u32)res.start, val);
+
+out_l2ccc_1:
 	iounmap(reg);
 out_acc_reg:
 	of_node_put(l2ccc_node);
