@@ -238,15 +238,19 @@ struct mmc_slot {
  * @req_starved		completion should invoke the request_fn since
  *			no tags were available
  * @cmdq_ctx_lock	acquire this before accessing this structure
+ * @queue_empty_wq	workqueue for waiting for all
+ *		the outstanding requests to be completed
  */
 struct mmc_cmdq_context_info {
 	unsigned long	active_reqs; /* in-flight requests */
+	unsigned long	data_active_reqs; /* in-flight data requests */
 	unsigned long	curr_state;
 #define	CMDQ_STATE_ERR 0
 #define	CMDQ_STATE_DCMD_ACTIVE 1
 #define	CMDQ_STATE_HALT 2
 	/* no free tag available */
 	unsigned long	req_starved;
+	wait_queue_head_t	queue_empty_wq;
 };
 
 /**
@@ -500,6 +504,7 @@ struct mmc_host {
 		unsigned int	up_threshold;
 		unsigned int	down_threshold;
 		ktime_t		start_busy;
+		bool		cq_is_busy_started;
 		bool		enable;
 		bool		initialized;
 		bool		in_progress;
@@ -507,6 +512,7 @@ struct mmc_host {
 		bool		invalid_state;
 		struct delayed_work work;
 		enum mmc_load	state;
+		spinlock_t	lock;
 	} clk_scaling;
 	enum dev_state dev_status;
 	/*
