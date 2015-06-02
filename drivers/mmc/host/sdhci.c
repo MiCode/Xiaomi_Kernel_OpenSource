@@ -2854,7 +2854,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 		if (intmask & SDHCI_INT_AUTO_CMD_ERR) {
 			auto_cmd_status = host->auto_cmd_err_sts;
-			pr_err("%s: %s: AUTO CMD err sts 0x%08x\n",
+			pr_err_ratelimited("%s: %s: AUTO CMD err sts 0x%08x\n",
 				mmc_hostname(host->mmc), __func__, auto_cmd_status);
 			if (auto_cmd_status & (SDHCI_AUTO_CMD12_NOT_EXEC |
 					       SDHCI_AUTO_CMD_INDEX_ERR |
