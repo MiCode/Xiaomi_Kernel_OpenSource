@@ -516,7 +516,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x1700 0x100>;
 			regulator-name = "pmi8994_s2";
-			regulator-min-microvolt = <545000>;
+			regulator-min-microvolt = <400000>;
 			regulator-max-microvolt = <1015000>;
 			qcom,enable-time = <500>;
 		};
@@ -535,7 +535,7 @@
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x1700 0x100>;
 			regulator-name = "pm8004_s2";
-			regulator-min-microvolt = <545000>;
+			regulator-min-microvolt = <400000>;
 			regulator-max-microvolt = <1015000>;
 			qcom,enable-time = <500>;
 			status = "disabled";
@@ -789,24 +789,26 @@
 			gfx_vreg: regulator {
 				regulator-name = "gfx_corner";
 				regulator-min-microvolt = <1>;
-				regulator-max-microvolt = <4>;
+				regulator-max-microvolt = <5>;
 
 				qcom,cpr-fuse-corners = <4>;
 				qcom,cpr-fuse-combos = <1>;
-				qcom,cpr-corners = <4>;
+				qcom,cpr-corners = <5>;
 
-				qcom,cpr-corner-fmax-map = <1 2 3 4>;
+				qcom,cpr-corner-fmax-map = <2 3 4 5>;
 
 				qcom,cpr-voltage-ceiling =
-					<670000  745000  905000 1015000>;
+					<400000 670000  745000  905000 1015000>;
 				qcom,cpr-voltage-floor =
-					<545000  625000  755000  855000>;
+					<400000 545000  625000  755000  855000>;
 
 				qcom,corner-frequencies =
-					<120000000 205000000 360000000
+					<0 120000000 205000000 360000000
 					 480000000>;
 
 				qcom,cpr-target-quotients =
+				      <   0    0    0    0  249  232    0  394
+					  0  422    0    0    0    0    0    0>,
 				      <   0    0    0    0  249  232    0  394
 					  0  422    0    0    0    0    0    0>,
 				      <   0    0    0    0  400  363    0  565
@@ -824,12 +826,14 @@
 				      <   0    0    0    0 2268 2004    0 2408
 					  0 2539    0    0    0    0    0    0>,
 				      <   0    0    0    0 2268 2004    0 2408
+					  0 2539    0    0    0    0    0    0>,
+				      <   0    0    0    0 2268 2004    0 2408
 					  0 2539    0    0    0    0    0    0>;
 
 				qcom,cpr-open-loop-voltage-fuse-adjustment =
 					<35000 0 0 0>;
 				qcom,cpr-closed-loop-voltage-adjustment =
-					<45000 0 0 0>;
+					<0 45000 0 0 0>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
