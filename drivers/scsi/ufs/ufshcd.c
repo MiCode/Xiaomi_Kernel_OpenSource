@@ -164,9 +164,6 @@ void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 /* UIC command timeout, unit: ms */
 #define UIC_CMD_TIMEOUT	500
 
-/* Retries waiting for doorbells to clear */
-#define POWER_MODE_RETRIES	10
-
 /* NOP OUT retries waiting for NOP IN response */
 #define NOP_OUT_RETRIES    10
 /* Timeout after 30 msecs if NOP OUT hangs without response */
