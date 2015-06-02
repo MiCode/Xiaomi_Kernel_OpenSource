@@ -894,20 +894,23 @@ static int pp_gamut_set_config(char __iomem *base_addr,
 bail_out:
 	if (!ret) {
 		val = 0;
+		pp_sts_set_split_bits(&pp_sts->gamut_sts,
+				gamut_cfg_data->flags);
 		if (gamut_cfg_data->flags & MDP_PP_OPS_DISABLE) {
 			pp_sts->gamut_sts &= ~PP_STS_ENABLE;
 			writel_relaxed(val, base_addr + GAMUT_OP_MODE_OFF);
 		} else if (gamut_cfg_data->flags & MDP_PP_OPS_ENABLE) {
-			if (gamut_data->mode == mdp_gamut_coarse_mode)
-				val |= GAMUT_COARSE_EN;
-			if (gamut_data->map_en)
-				val |= GAMUT_MAP_EN;
-			val |= GAMUT_ENABLE;
-			writel_relaxed(val, base_addr + GAMUT_OP_MODE_OFF);
 			pp_sts->gamut_sts |= PP_STS_ENABLE;
+			if (pp_sts_is_enabled(pp_sts->gamut_sts,
+					      pp_sts->side_sts)) {
+				if (gamut_data->mode == mdp_gamut_coarse_mode)
+					val |= GAMUT_COARSE_EN;
+				if (gamut_data->map_en)
+					val |= GAMUT_MAP_EN;
+				val |= GAMUT_ENABLE;
+			}
+			writel_relaxed(val, base_addr + GAMUT_OP_MODE_OFF);
 		}
-		pp_sts_set_split_bits(&pp_sts->gamut_sts,
-				      gamut_cfg_data->flags);
 	}
 	return ret;
 }
@@ -985,15 +988,16 @@ static int pp_pcc_set_config(char __iomem *base_addr,
 	writel_relaxed(pcc_data->b.rgb & PCC_COEFF_MASK, addr + 8);
 
 bail_out:
+	pp_sts_set_split_bits(&pp_sts->pcc_sts, pcc_cfg_data->ops);
 	if (pcc_cfg_data->ops & MDP_PP_OPS_DISABLE) {
 		writel_relaxed(opmode, base_addr + PCC_OP_MODE_OFF);
 		pp_sts->pcc_sts &= ~PP_STS_ENABLE;
 	} else if (pcc_cfg_data->ops & MDP_PP_OPS_ENABLE) {
-		opmode |= PCC_ENABLE;
-		writel_relaxed(opmode, base_addr + PCC_OP_MODE_OFF);
 		pp_sts->pcc_sts |= PP_STS_ENABLE;
+		if (pp_sts_is_enabled(pp_sts->pcc_sts, pp_sts->side_sts))
+			opmode |= PCC_ENABLE;
+		writel_relaxed(opmode, base_addr + PCC_OP_MODE_OFF);
 	}
-	pp_sts_set_split_bits(&pp_sts->pcc_sts, pcc_cfg_data->ops);
 
 	return 0;
 }
@@ -1253,8 +1257,6 @@ static void pp_pa_set_sts(struct pp_sts_type *pp_sts,
 	/* Disable takes priority over all flags */
 	if (enable_flag & MDP_PP_OPS_DISABLE) {
 		pp_sts->pa_sts &= ~PP_STS_ENABLE;
-		if (block_type == DSPP)
-			pp_sts_set_split_bits(&pp_sts->pa_sts, enable_flag);
 		return;
 	}
 

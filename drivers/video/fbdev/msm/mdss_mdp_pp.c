@@ -1671,6 +1671,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	struct mdss_mdp_ctl *ctl;
 	u32 mixer_cnt;
 	u32 mixer_id[MDSS_MDP_INTF_MAX_LAYERMIXER];
+	int side;
 
 	if (!mixer || !mixer->ctl || !mixer->ctl->mdata)
 		return -EINVAL;
@@ -1684,6 +1685,12 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 	base = mdss_mdp_get_dspp_addr_off(dspp_num);
 	if (IS_ERR(base))
 		return -EINVAL;
+
+	side = pp_num_to_side(ctl, dspp_num);
+	if (side < 0) {
+		pr_err("invalid side information for dspp_num %d", dspp_num);
+		return -EINVAL;
+	}
 
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 
@@ -1711,6 +1718,7 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 		goto dspp_exit;
 
 	pp_sts = &mdss_pp_res->pp_disp_sts[disp_num];
+	pp_sts->side_sts = side;
 
 	if (flags & PP_FLAGS_DIRTY_PA) {
 		if (!pp_ops[PA].pp_set_config) {
@@ -1733,7 +1741,6 @@ static int pp_dspp_setup(u32 disp_num, struct mdss_mdp_mixer *mixer)
 					DSPP);
 		}
 	}
-
 	if (flags & PP_FLAGS_DIRTY_PCC) {
 		if (!pp_ops[PCC].pp_set_config)
 			pp_pcc_config(flags, base + MDSS_MDP_REG_DSPP_PCC_BASE,
