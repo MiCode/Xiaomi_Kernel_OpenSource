@@ -1178,6 +1178,14 @@ static void handle_session_error(enum hal_command_response cmd, void *data)
 			inst);
 		msm_vidc_queue_v4l2_event(inst,
 			V4L2_EVENT_MSM_VIDC_MAX_CLIENTS);
+
+		/* Clean the HFI session now. Since inst->state is moved to
+		 * INVLAID, forward thread doesn't know FW has valid session
+		 * or not. This is the last place driver knows that there is
+		 * no session in FW. Hence clean HFI session now.
+		 */
+
+		msm_comm_session_clean(inst);
 	} else {
 		dprintk(VIDC_ERR,
 			"send session error to client: %p\n",
