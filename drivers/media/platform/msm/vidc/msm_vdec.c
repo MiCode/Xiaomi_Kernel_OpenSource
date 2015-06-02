@@ -167,12 +167,12 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		.qmenu = mpeg_video_output_order,
 	},
 	{
-		.id = V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE,
+		.id = V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE,
 		.name = "Picture Type Decoding",
-		.type = V4L2_CTRL_TYPE_INTEGER,
-		.minimum = 1,
-		.maximum = 15,
-		.default_value = 15,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = 0,
+		.maximum = 1,
+		.default_value = 0,
 		.step = 1,
 		.menu_skip_mask = 0,
 		.qmenu = NULL,
@@ -2130,9 +2130,15 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_val = ctrl->val;
 		pdata = &property_val;
 		break;
-	case V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE:
+	case V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE:
 		property_id = HAL_PARAM_VDEC_PICTURE_TYPE_DECODE;
-		enable_picture.picture_type = ctrl->val;
+		if (ctrl->val ==
+			V4L2_MPEG_VIDC_VIDEO_PICTYPE_DECODE_ON)
+			enable_picture.picture_type = HAL_PICTURE_I;
+		else
+			enable_picture.picture_type = HAL_PICTURE_I |
+				HAL_PICTURE_P | HAL_PICTURE_B |
+				HAL_PICTURE_IDR;
 		pdata = &enable_picture;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_KEEP_ASPECT_RATIO:
