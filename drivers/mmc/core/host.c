@@ -4,7 +4,7 @@
  *  Copyright (C) 2003 Russell King, All Rights Reserved.
  *  Copyright (C) 2007-2008 Pierre Ossman
  *  Copyright (C) 2010 Linus Walleij
- *  Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -54,8 +54,10 @@ static int mmc_host_runtime_suspend(struct device *dev)
 	if (host->card && mmc_card_cmdq(host->card)) {
 		BUG_ON(host->cmdq_ctx.active_reqs);
 
+		mmc_card_set_suspended(host->card);
 		ret = mmc_cmdq_halt(host, true);
 		if (ret) {
+			mmc_card_clr_suspended(host->card);
 			pr_err("%s: halt: failed: %d\n", __func__, ret);
 			return ret;
 		}
@@ -109,6 +111,8 @@ static int mmc_host_runtime_resume(struct device *dev)
 		ret = mmc_cmdq_halt(host, false);
 		if (ret)
 			pr_err("%s: un-halt: failed: %d\n", __func__, ret);
+		else
+			mmc_card_clr_suspended(host->card);
 	}
 	return ret;
 }
@@ -134,8 +138,10 @@ static int mmc_host_suspend(struct device *dev)
 		if (host->card && mmc_card_cmdq(host->card)) {
 			BUG_ON(host->cmdq_ctx.active_reqs);
 
+			mmc_card_set_suspended(host->card);
 			ret = mmc_cmdq_halt(host, true);
 			if (ret) {
+				mmc_card_clr_suspended(host->card);
 				pr_err("%s: halt: failed: %d\n", __func__, ret);
 				return ret;
 			}
@@ -184,6 +190,8 @@ static int mmc_host_resume(struct device *dev)
 		ret = mmc_cmdq_halt(host, false);
 		if (ret)
 			pr_err("%s: un-halt: failed: %d\n", __func__, ret);
+		else
+			mmc_card_clr_suspended(host->card);
 	}
 	return ret;
 }
