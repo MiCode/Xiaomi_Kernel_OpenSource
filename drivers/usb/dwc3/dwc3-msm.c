@@ -198,7 +198,6 @@ struct dwc3_msm {
 	unsigned int		current_max;
 	unsigned int		health_status;
 	unsigned int		tx_fifo_size;
-	unsigned int		qdss_tx_fifo_size;
 	bool			vbus_active;
 	bool			ext_inuse;
 	bool			rm_pulldown;
@@ -863,23 +862,6 @@ int msm_ep_unconfig(struct usb_ep *ep)
 	return 0;
 }
 EXPORT_SYMBOL(msm_ep_unconfig);
-
-void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enabled)
-{
-	struct dwc3_ep *dep = to_dwc3_ep(ep);
-	struct dwc3 *dwc = dep->dwc;
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-
-	if (qdss_enabled) {
-		dwc->tx_fifo_reduced = true;
-		dwc->tx_fifo_size = mdwc->qdss_tx_fifo_size;
-	} else {
-		dwc->tx_fifo_reduced = false;
-		dwc->tx_fifo_size = mdwc->tx_fifo_size;
-	}
-}
-EXPORT_SYMBOL(dwc3_tx_fifo_resize_request);
-
 static void dwc3_resume_work(struct work_struct *w);
 
 static void dwc3_restart_usb_work(struct work_struct *w)
@@ -2813,11 +2795,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				 &mdwc->tx_fifo_size))
 		dev_err(&pdev->dev,
 			"unable to read platform data tx fifo size\n");
-
-	if (of_property_read_u32(node, "qcom,dwc-usb3-msm-qdss-tx-fifo-size",
-				 &mdwc->qdss_tx_fifo_size))
-		dev_err(&pdev->dev,
-			"unable to read platform data qdss tx fifo size\n");
 
 	dwc3_set_notifier(&dwc3_msm_notify_event);
 
