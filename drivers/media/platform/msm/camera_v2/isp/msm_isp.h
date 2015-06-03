@@ -603,6 +603,7 @@ struct msm_vfe_common_dev_data {
 	enum msm_vfe_dual_hw_type dual_hw_type;
 	struct msm_vfe_sof_info master_sof_info;
 	uint8_t master_active;
+	uint32_t sof_delta_threshold; /* Updated by Master */
 	uint32_t num_slave;
 	uint32_t reserved_slave_mask;
 	uint32_t slave_active_mask;

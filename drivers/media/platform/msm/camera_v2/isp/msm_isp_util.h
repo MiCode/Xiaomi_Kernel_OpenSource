@@ -79,5 +79,6 @@ void msm_camera_io_dump_2(void __iomem *addr, int size);
 void msm_isp_print_fourcc_error(const char *origin, uint32_t fourcc_format);
 void msm_isp_flush_tasklet(struct vfe_device *vfe_dev);
 void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev);
+void msm_isp_get_timestamp(struct msm_isp_timestamp *time_stamp);
 
 #endif /* __MSM_ISP_UTIL_H__ */
