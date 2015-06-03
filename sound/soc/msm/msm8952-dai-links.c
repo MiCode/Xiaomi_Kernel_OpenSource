@@ -911,6 +911,21 @@ static struct snd_soc_dai_link msm8952_common_be_dai[] = {
 	},
 };
 
+static struct snd_soc_aux_dev msm895x_aux_dev[] = {
+	{
+		.name = "wsa881x.0",
+		.codec_name = "wsa881x.20170212",
+		.init = msm895x_wsa881x_init,
+	},
+};
+
+static struct snd_soc_codec_conf msm895x_codec_conf[] = {
+	{
+		.dev_name = "wsa881x.20170212",
+		.name_prefix = "SpkrLeft",
+	},
+};
+
 static struct snd_soc_dai_link msm8952_tomtom_dai_links[
 ARRAY_SIZE(msm8952_common_fe_dai) +
 ARRAY_SIZE(msm8952_tomtom_fe_dai) +
@@ -968,6 +983,11 @@ struct snd_soc_card *populate_snd_card_dailinks(struct device *dev)
 		memcpy(msm8952_tasha_dai_links + len3,
 			msm8952_tasha_be_dai, sizeof(msm8952_tasha_be_dai));
 		msm8952_dai_links = msm8952_tasha_dai_links;
+
+		card->aux_dev = msm895x_aux_dev;
+		card->num_aux_devs	= ARRAY_SIZE(msm895x_aux_dev);
+		card->codec_conf	= msm895x_codec_conf;
+		card->num_configs	= ARRAY_SIZE(msm895x_codec_conf);
 	}
 
 	card->dai_link = msm8952_dai_links;
