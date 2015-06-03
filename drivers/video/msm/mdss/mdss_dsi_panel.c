@@ -1254,7 +1254,7 @@ void mdss_dsc_parameters_calc(struct mdss_panel_info *pinfo)
 
 	dsc->bytes_per_pkt = bytes_in_slice * dsc->slice_per_pkt;
 
-	dsc->det_thresh_flatness = 7 + (bpc - 8);
+	dsc->det_thresh_flatness = 7 + 2*(bpc - 8);
 
 	dsc->initial_xmit_delay = dsc->rc_model_size / (2 * bpp);
 
@@ -1347,10 +1347,30 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 {
 	struct dsc_desc *dsc;
 	u32 data;
-	const char *cp;
 	int rc = 0;
 
 	dsc = &pinfo->dsc;
+
+	rc = of_property_read_u32(np, "qcom,mdss-dsc-encoders", &data);
+	if (rc) {
+		if (!of_find_property(np, "qcom,mdss-dsc-encoders", NULL)) {
+			/* property is not defined, default to 1 */
+			data = 1;
+		} else {
+			pr_err("%s: Error parsing qcom,mdss-dsc-encoders\n",
+				__func__);
+			goto end;
+		}
+	}
+
+	pinfo->dsc_enc_total = data;
+
+	if (pinfo->is_split_display && (pinfo->dsc_enc_total > 1)) {
+		pr_err("%s: Error: for split displays, more than 1 dsc encoder per panel is not allowed.\n",
+			__func__);
+		goto end;
+	}
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsc-slice-height", &data);
 	if (rc)
 		goto end;
@@ -1361,13 +1381,29 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 		goto end;
 	dsc->slice_width = data;
 
+	if (pinfo->xres % dsc->slice_width) {
+		pr_err("%s: Error: multiple of slice-width:%d should match panel-width:%d\n",
+			__func__, dsc->slice_width, pinfo->xres);
+		goto end;
+	}
+
+	data = pinfo->xres / dsc->slice_width;
+	if (((pinfo->dsc_enc_total > 1) && ((data != 2) && (data != 4))) ||
+	    ((pinfo->dsc_enc_total == 1) && (data > 2))) {
+		pr_err("%s: Error: max 2 slice per encoder. slice-width:%d should match panel-width:%d dsc_enc_total:%d\n",
+			__func__, dsc->slice_width,
+			pinfo->xres, pinfo->dsc_enc_total);
+		goto end;
+	}
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsc-slice-per-pkt", &data);
 	if (rc)
 		goto end;
 	dsc->slice_per_pkt = data;
 
-	pr_debug("%s: slice h=%d w=%d s_pkt=%d\n", __func__,
-		dsc->slice_height, dsc->slice_width, dsc->slice_per_pkt);
+	pr_debug("%s: num_enc:%d :slice h=%d w=%d s_pkt=%d\n", __func__,
+		pinfo->dsc_enc_total, dsc->slice_height,
+		dsc->slice_width, dsc->slice_per_pkt);
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsc-bit-per-component", &data);
 	if (rc)
@@ -1393,13 +1429,6 @@ static int mdss_dsi_parse_dsc_params(struct device_node *np,
 		goto end;
 	dsc->ich_reset_override = data;
 
-	dsc->data_path_model = DSC_PATH_1P1D;	/* default */
-	cp = of_get_property(np, "qcom,mdss-dsc-data-path-mode", NULL);
-	if (cp && !strcmp(cp, "merge_1p1d"))
-		dsc->data_path_model = DSC_PATH_MERGE_1P1D;
-	else if (cp && !strcmp(cp, "split_1p2d"))
-		dsc->data_path_model = DSC_PATH_SPLIT_1P2D;
-
 	dsc->block_pred_enable = of_property_read_bool(np,
 			"qcom,mdss-dsc-block-prediction-enable");
 
@@ -1419,22 +1448,23 @@ end:
 }
 
 static int mdss_dsi_parse_compression_params(struct device_node *np,
-				struct mdss_panel_info *pinfo)
+	struct device_node *cfg_np, struct mdss_panel_info *pinfo)
 {
+	int rc = 0;
 	const char *data;
 
 	pinfo->fbc.enabled = 0;
 	pinfo->fbc.target_bpp = pinfo->bpp;
 
-	data = of_get_property(np, "qcom,mdss-dsi-compression", NULL);
+	data = of_get_property(np, "qcom,compression-mode", NULL);
 	if (data) {
 		if (!strcmp(data, "dsc"))
-			mdss_dsi_parse_dsc_params(np, pinfo);
+			rc = mdss_dsi_parse_dsc_params(cfg_np, pinfo);
 		else if (!strcmp(data, "fbc"))
-			mdss_dsi_parse_fbc_params(np, pinfo);
+			rc = mdss_dsi_parse_fbc_params(np, pinfo);
 	}
 
-	return 0;
+	return rc;
 }
 
 static void mdss_panel_parse_te_params(struct device_node *np,
@@ -1985,6 +2015,31 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	int rc, i, len;
 	const char *data;
 	struct mdss_panel_info *pinfo = &(ctrl_pdata->panel_data.panel_info);
+	struct device_node *cfg_np = NULL;
+
+	if (mdss_dsi_is_hw_config_split(ctrl_pdata->shared_data))
+		pinfo->is_split_display = true;
+
+	if (of_find_property(np, "qcom,config-select", NULL)) {
+		cfg_np = of_parse_phandle(np, "qcom,config-select", 0);
+		if (!cfg_np) {
+			pr_err("%s: error parsing qcom,config-select\n",
+				__func__);
+		} else {
+			if (!of_property_read_u32_array(cfg_np, "qcom,lm-split",
+			    pinfo->lm_widths, 2)) {
+				if (pinfo->is_split_display &&
+				    (pinfo->lm_widths[1] != 0)) {
+					pr_err("%s: lm-split not allowed with split display\n",
+						__func__);
+					return -EINVAL;
+				}
+			}
+		}
+	} else {
+		pr_debug("%s: qcom,config-select is not present\n", __func__);
+	}
+
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-width", &tmp);
 	if (rc) {
@@ -1993,6 +2048,9 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		return -EINVAL;
 	}
 	pinfo->xres = (!rc ? tmp : 640);
+
+	if ((pinfo->lm_widths[0] == 0) && (pinfo->lm_widths[1] == 0))
+		pinfo->lm_widths[0] = pinfo->xres;
 
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-panel-height", &tmp);
 	if (rc) {
@@ -2232,7 +2290,12 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_trigger(np, &(pinfo->mipi.dma_trigger),
 		"qcom,mdss-dsi-dma-trigger");
 
-	mdss_dsi_parse_compression_params(np, pinfo);
+	rc = mdss_dsi_parse_compression_params(np, cfg_np, pinfo);
+	if (rc) {
+		pr_err("%s: parsing compression params failed. rc:%d\n",
+			__func__, rc);
+		goto error;
+	}
 
 	mdss_panel_parse_te_params(np, pinfo);
 
@@ -2261,9 +2324,11 @@ static int mdss_panel_parse_dt(struct device_node *np,
 
 	mdss_dsi_parse_dfps_config(np, ctrl_pdata);
 
+	of_node_put(cfg_np);
 	return 0;
 
 error:
+	of_node_put(cfg_np);
 	return -EINVAL;
 }
 

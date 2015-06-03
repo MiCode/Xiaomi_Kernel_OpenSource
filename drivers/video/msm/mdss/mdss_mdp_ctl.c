@@ -917,6 +917,10 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			if (dsi_transfer_rate > perf->mdp_clk_rate)
 				perf->mdp_clk_rate = dsi_transfer_rate;
 		}
+
+		if (is_dsc_compression(pinfo) &&
+		    mixer->ctl->opmode & MDSS_MDP_CTL_OP_PACK_3D_ENABLE)
+			perf->mdp_clk_rate *= 2;
 	}
 
 	/*
@@ -2322,38 +2326,39 @@ static inline int mdss_mdp_set_split_ctl(struct mdss_mdp_ctl *ctl,
 	return 0;
 }
 
-static int mdss_mdp_ctl_dsc_enable(int enable,
-			struct mdss_mdp_mixer *mixer,
-			struct mdss_panel_info *pinfo)
+static int __mdss_mdp_ctl_dsc_enable(bool enable,
+	struct mdss_mdp_mixer *mixer, struct mdss_panel_info *pinfo)
 {
-	struct mdss_mdp_ctl *ctl;
-	struct dsc_desc *dsc;
 	u32 data;
 	u32 *lp;
 	char *cp;
 	int i, bpp, lsb;
 	char __iomem *offset, *off;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	struct dsc_desc *dsc = &pinfo->dsc;
 
-	if (pinfo->compression_mode != COMPRESSION_DSC)
-		return -EINVAL;
-
-	if (mixer->num != MDSS_MDP_INTF_LAYERMIXER0 &&
-			mixer->num != MDSS_MDP_INTF_LAYERMIXER1) {
-		pr_err("Mixer=%d doesn't support DSC.\n", mixer->num);
+	if (!mixer || !pinfo) {
+		pr_err("invalid input\n");
 		return -EINVAL;
 	}
 
-	if (enable == 0) {
+	if (pinfo->compression_mode != COMPRESSION_DSC) {
+		pr_err("invalid compression mode = %d\n",
+			pinfo->compression_mode);
+		return -EPERM;
+	}
+
+	if (mixer->num != MDSS_MDP_INTF_LAYERMIXER0 &&
+	    mixer->num != MDSS_MDP_INTF_LAYERMIXER1) {
+		pr_err("mix%d doesn't support DSC.\n", mixer->num);
+		return -EPERM;
+	}
+
+	if (!enable) {
 		mdss_mdp_pingpong_write(mixer->pingpong_base,
 				MDSS_MDP_REG_PP_DSC_MODE, 0);
 		return 0;
 	}
-
-	ctl = mixer->ctl;
-
-	/* dce0_sel->pp0, dce1_sel->pp1 */
-	writel_relaxed(0x0, ctl->mdata->mdp_base +
-				MDSS_MDP_REG_DCE_SEL);
 
 	/* dsc enable */
 	mdss_mdp_pingpong_write(mixer->pingpong_base,
@@ -2365,20 +2370,27 @@ static int mdss_mdp_ctl_dsc_enable(int enable,
 	mdss_mdp_pingpong_write(mixer->pingpong_base,
 		MDSS_MDP_REG_PP_DCE_DATA_OUT_SWAP, data);
 
-	offset = ctl->mdata->mdp_base;
+	if (pinfo->type == MIPI_VIDEO_PANEL)
+		data = BIT(2);	/* vieo mode */
+
+	/* split display with independent decoders is not handled yet */
+	if (pinfo->is_split_display)
+		data |= BIT(0);
+
+	/* need to handle a use-case of single_lm_pp_split_dsc_merge */
+	if ((mixer->ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY) &&
+	    (pinfo->dsc_enc_total == 2))
+		data |= (BIT(0) | BIT(1));
+
+	offset = mdata->mdp_base;
+
+	/* dce0_sel->pp0, dce1_sel->pp1 */
+	writel_relaxed(0x0, offset + MDSS_MDP_REG_DCE_SEL);
+
 	if (mixer->num == MDSS_MDP_INTF_LAYERMIXER0)
 		offset += MDSS_MDP_DSC_0_OFFSET;
 	else
 		offset += MDSS_MDP_DSC_1_OFFSET;
-
-	dsc = &pinfo->dsc;
-	if (pinfo->type == MIPI_VIDEO_PANEL)
-		data = BIT(2);	/* vieo mode */
-
-	if (dsc->data_path_model == DSC_PATH_MERGE_1P1D)
-		data |= (BIT(0) | BIT(1));
-	else if (dsc->data_path_model == DSC_PATH_SPLIT_1P2D)
-		data |= BIT(0);
 
 	writel_relaxed(data, offset + MDSS_MDP_REG_DSC_COMMON_MODE);
 
@@ -2491,6 +2503,23 @@ static int mdss_mdp_ctl_dsc_enable(int enable,
 	}
 
 	return 0;
+}
+
+static int mdss_mdp_ctl_dsc_enable(bool enable,
+	struct mdss_mdp_ctl *ctl, struct mdss_panel_info *pinfo)
+{
+	int rc;
+	struct mdss_mdp_mixer *mixer = ctl->mixer_left;
+
+	rc =  __mdss_mdp_ctl_dsc_enable(enable, mixer, pinfo);
+	if (rc)
+		return rc;
+
+	if (mixer->ctl->mfd->split_mode == MDP_DUAL_LM_SINGLE_DISPLAY)
+		rc =  __mdss_mdp_ctl_dsc_enable(enable,
+						ctl->mixer_right, pinfo);
+
+	return rc;
 }
 
 static int mdss_mdp_ctl_fbc_enable(int enable,
@@ -2654,8 +2683,10 @@ int mdss_mdp_ctl_setup(struct mdss_mdp_ctl *ctl)
 	}
 
 	if (ctl->mixer_right) {
-		ctl->opmode |= MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
-			       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT;
+		if (!is_dsc_compression(pinfo) ||
+		    (pinfo->dsc_enc_total == 1))
+			ctl->opmode |= MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
+				       MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT;
 	} else {
 		ctl->opmode &= ~(MDSS_MDP_CTL_OP_PACK_3D_ENABLE |
 				  MDSS_MDP_CTL_OP_PACK_3D_H_ROW_INT);
@@ -3028,7 +3059,7 @@ static void mdss_mdp_ctl_restore_sub(struct mdss_mdp_ctl *ctl)
 
 		if (ctl->panel_data->panel_info.compression_mode ==
 				COMPRESSION_DSC) {
-			ret = mdss_mdp_ctl_dsc_enable(1, ctl->mixer_left,
+			ret = mdss_mdp_ctl_dsc_enable(1, ctl,
 					&ctl->panel_data->panel_info);
 			if (ret)
 				pr_err("Failed to restore DSC mode\n");
@@ -3123,18 +3154,20 @@ static int mdss_mdp_ctl_start_sub(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	mixer = ctl->mixer_left;
 	if (mixer) {
+		struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
+
 		mixer->params_changed++;
+
 		outsize = (mixer->height << 16) | mixer->width;
 		mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OUT_SIZE, outsize);
 
-		if (ctl->panel_data->panel_info.compression_mode ==
-						COMPRESSION_DSC) {
-			ret = mdss_mdp_ctl_dsc_enable(1, ctl->mixer_left,
-					&ctl->panel_data->panel_info);
-		} else if (ctl->panel_data->panel_info.compression_mode ==
-						COMPRESSION_FBC) {
+		if (pinfo->compression_mode == COMPRESSION_DSC) {
+			ret = mdss_mdp_ctl_dsc_enable(true, ctl, pinfo);
+			if (ret)
+				pr_err("dsc_enable failed. rc=%d\n", ret);
+		} else if (pinfo->compression_mode == COMPRESSION_FBC) {
 			ret = mdss_mdp_ctl_fbc_enable(1, ctl->mixer_left,
-					&ctl->panel_data->panel_info);
+					pinfo);
 		}
 	}
 	return ret;
@@ -3159,12 +3192,6 @@ int mdss_mdp_ctl_start(struct mdss_mdp_ctl *ctl, bool handoff)
 		return ret;
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
-
-	if (sctl) {
-		/* split display */
-		ctl->panel_data->panel_info.is_split_display = true;
-		sctl->panel_data->panel_info.is_split_display = true;
-	}
 
 	mutex_lock(&ctl->lock);
 

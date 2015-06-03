@@ -371,19 +371,6 @@ static inline int mdss_fb_validate_split(int left, int right,
 	return rc;
 }
 
-static void mdss_fb_parse_dt_split(struct msm_fb_data_type *mfd)
-{
-	u32 data[2] = {0};
-	struct platform_device *pdev = mfd->pdev;
-
-	of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,mdss-fb-split", data, 2);
-
-	if (!mdss_fb_validate_split(data[0], data[1], mfd))
-		pr_info_once("device tree split left=%d right=%d\n",
-			data[0], data[1]);
-}
-
 static ssize_t mdss_fb_store_split(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
@@ -391,13 +378,10 @@ static ssize_t mdss_fb_store_split(struct device *dev,
 	struct fb_info *fbi = dev_get_drvdata(dev);
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)fbi->par;
 
-	if (2 != sscanf(buf, "%d %d", &data[0], &data[1])) {
+	if (2 != sscanf(buf, "%d %d", &data[0], &data[1]))
 		pr_debug("Not able to read split values\n");
-	} else if (!mdss_fb_validate_split(data[0], data[1], mfd)) {
-		mfd->mdss_fb_split_stored = 1;
-		pr_debug("sys split_left=%d split_right=%d\n",
-					data[0], data[1]);
-	}
+	else if (!mdss_fb_validate_split(data[0], data[1], mfd))
+		pr_debug("split left=%d right=%d\n", data[0], data[1]);
 
 	return len;
 }
@@ -415,17 +399,11 @@ static ssize_t mdss_fb_show_split(struct device *dev,
 
 static void mdss_fb_get_split(struct msm_fb_data_type *mfd)
 {
-	if (mfd->index != 0)
-		return;
-
-	if (!mfd->mdss_fb_split_stored)
-		mdss_fb_parse_dt_split(mfd);
-
 	if ((mfd->split_mode == MDP_SPLIT_MODE_NONE) &&
 	    (mfd->split_fb_left && mfd->split_fb_right))
 		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
 
-	pr_debug("split framebuffer left=%d right=%d mode=%d\n",
+	pr_debug("split fb%d left=%d right=%d mode=%d\n", mfd->index,
 		mfd->split_fb_left, mfd->split_fb_right, mfd->split_mode);
 }
 
@@ -980,8 +958,27 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->pdev = pdev;
 
 	mfd->split_mode = MDP_SPLIT_MODE_NONE;
-	if (pdata->next)
+	if (pdata->panel_info.is_split_display) {
+		struct mdss_panel_data *pnext = pdata->next;
+
+		/*
+		 * currently pingpong-split is not a choice from device tree
+		 * and it is handled in overlay_init. Fix this.
+		 */
+		mfd->split_fb_left = pdata->panel_info.lm_widths[0];
+		if (pnext)
+			mfd->split_fb_right = pnext->panel_info.lm_widths[0];
+
 		mfd->split_mode = MDP_DUAL_LM_DUAL_DISPLAY;
+	} else if ((pdata->panel_info.lm_widths[0] != 0) &&
+		   (pdata->panel_info.lm_widths[1] != 0)) {
+		mfd->split_fb_left = pdata->panel_info.lm_widths[0];
+		mfd->split_fb_right = pdata->panel_info.lm_widths[1];
+		mfd->split_mode = MDP_DUAL_LM_SINGLE_DISPLAY;
+	}
+
+	pr_info("fb%d: split_mode:%d left:%d right:%d\n", mfd->index,
+		mfd->split_mode, mfd->split_fb_left, mfd->split_fb_right);
 
 	mfd->mdp = *mdp_instance;
 
@@ -1005,8 +1002,6 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	rc = mdss_fb_register(mfd);
 	if (rc)
 		return rc;
-
-	mdss_fb_get_split(mfd);
 
 	if (mfd->mdp.init_fnc) {
 		rc = mfd->mdp.init_fnc(mfd);
