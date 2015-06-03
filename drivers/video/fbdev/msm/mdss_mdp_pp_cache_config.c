@@ -406,9 +406,10 @@ static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config,
 	/* sanity check for sizes */
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
 		if (v17_usr_config.tbl_size[i] != tbl_sz) {
-			pr_err("invalid tbl_sz %d exp %d for mode %d\n",
-			       v17_usr_config.tbl_size[i], tbl_sz,
+			pr_err("invalid tbl size %d exp %d tbl index %d mode %d\n",
+			       v17_usr_config.tbl_size[i], tbl_sz, i,
 			       v17_usr_config.mode);
+			ret = -EINVAL;
 			goto gamut_config_exit;
 		}
 		gamut_size += v17_usr_config.tbl_size[i];
@@ -416,10 +417,11 @@ static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config,
 			continue;
 		if (v17_usr_config.tbl_scale_off_sz[i] !=
 		    MDP_GAMUT_SCALE_OFF_SZ) {
-			pr_err("invalid scale_sz %d exp %d for mode %d\n",
+			pr_err("invalid scale size %d exp %d scale index %d mode %d\n",
 			       v17_usr_config.tbl_scale_off_sz[i],
-			       MDP_GAMUT_SCALE_OFF_SZ,
+			       MDP_GAMUT_SCALE_OFF_SZ, i,
 			       v17_usr_config.mode);
+			ret = -EINVAL;
 			goto gamut_config_exit;
 		}
 		scal_coff_size += v17_usr_config.tbl_scale_off_sz[i];
