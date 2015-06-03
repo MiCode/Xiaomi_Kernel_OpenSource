@@ -688,6 +688,23 @@ static inline enum power_supply_type get_usb_supply_type(int type)
 	return usb_type_enum[type];
 }
 
+static void read_usb_type(struct smbchg_chip *chip, char **usb_type_name,
+				enum power_supply_type *usb_supply_type)
+{
+	int rc, type;
+	u8 reg;
+
+	rc = smbchg_read(chip, &reg, chip->misc_base + IDEV_STS, 1);
+	if (rc < 0) {
+		dev_err(chip->dev, "Couldn't read status 5 rc = %d\n", rc);
+		*usb_type_name = "Other";
+		*usb_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
+	}
+	type = get_type(reg);
+	*usb_type_name = get_usb_type_name(type);
+	*usb_supply_type = get_usb_supply_type(type);
+}
+
 static enum power_supply_property smbchg_battery_properties[] = {
 	POWER_SUPPLY_PROP_STATUS,
 	POWER_SUPPLY_PROP_PRESENT,
@@ -1054,7 +1071,9 @@ static int smbchg_charging_en(struct smbchg_chip *chip, bool en)
 #define CURRENT_150_MA		150
 #define CURRENT_500_MA		500
 #define CURRENT_900_MA		900
+#define CURRENT_1500_MA		1500
 #define SUSPEND_CURRENT_MA	2
+#define ICL_OVERRIDE_BIT	BIT(2)
 static int smbchg_usb_suspend(struct smbchg_chip *chip, bool suspend)
 {
 	int rc;
@@ -1382,6 +1401,8 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 {
 	int rc = 0;
 	bool changed;
+	enum power_supply_type usb_supply_type;
+	char *usb_type_name = "null";
 
 	if (!chip->batt_present) {
 		pr_info_ratelimited("Ignoring usb current->%d, battery is absent\n",
@@ -1399,49 +1420,102 @@ static int smbchg_set_usb_current_max(struct smbchg_chip *chip,
 		rc = smbchg_primary_usb_en(chip, true, REASON_USB, &changed);
 	}
 
-	if (current_ma < CURRENT_150_MA) {
-		/* force 100mA */
-		rc = smbchg_sec_masked_write(chip,
+	read_usb_type(chip, &usb_type_name, &usb_supply_type);
+
+	switch (usb_supply_type) {
+	case POWER_SUPPLY_TYPE_USB:
+		if (current_ma < CURRENT_150_MA) {
+			/* force 100mA */
+			rc = smbchg_sec_masked_write(chip,
 					chip->usb_chgpth_base + CHGPTH_CFG,
 					CFG_USB_2_3_SEL_BIT, CFG_USB_2);
-		rc |= smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+			if (rc < 0) {
+				pr_err("Couldn't set CHGPTH_CFG rc = %d\n", rc);
+				goto out;
+			}
+			rc = smbchg_masked_write(chip,
+					chip->usb_chgpth_base + CMD_IL,
 					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
 					USBIN_LIMITED_MODE | USB51_100MA);
-		chip->usb_max_current_ma = 100;
-	}
-	/* specific current values */
-	if (current_ma == CURRENT_150_MA) {
-		rc = smbchg_sec_masked_write(chip,
+			if (rc < 0) {
+				pr_err("Couldn't set CMD_IL rc = %d\n", rc);
+				goto out;
+			}
+			chip->usb_max_current_ma = 100;
+		}
+		/* specific current values */
+		if (current_ma == CURRENT_150_MA) {
+			rc = smbchg_sec_masked_write(chip,
 					chip->usb_chgpth_base + CHGPTH_CFG,
 					CFG_USB_2_3_SEL_BIT, CFG_USB_3);
-		rc |= smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+			if (rc < 0) {
+				pr_err("Couldn't set CHGPTH_CFG rc = %d\n", rc);
+				goto out;
+			}
+			rc = smbchg_masked_write(chip,
+					chip->usb_chgpth_base + CMD_IL,
 					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
 					USBIN_LIMITED_MODE | USB51_100MA);
-		chip->usb_max_current_ma = 150;
-	}
-	if (current_ma == CURRENT_500_MA) {
-		rc = smbchg_sec_masked_write(chip,
+			if (rc < 0) {
+				pr_err("Couldn't set CMD_IL rc = %d\n", rc);
+				goto out;
+			}
+			chip->usb_max_current_ma = 150;
+		}
+		if (current_ma == CURRENT_500_MA) {
+			rc = smbchg_sec_masked_write(chip,
 					chip->usb_chgpth_base + CHGPTH_CFG,
 					CFG_USB_2_3_SEL_BIT, CFG_USB_2);
-		rc |= smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+			if (rc < 0) {
+				pr_err("Couldn't set CHGPTH_CFG rc = %d\n", rc);
+				goto out;
+			}
+			rc = smbchg_masked_write(chip,
+					chip->usb_chgpth_base + CMD_IL,
 					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
 					USBIN_LIMITED_MODE | USB51_500MA);
-		chip->usb_max_current_ma = 500;
-	}
-	if (current_ma == CURRENT_900_MA) {
-		rc = smbchg_sec_masked_write(chip,
+			if (rc < 0) {
+				pr_err("Couldn't set CMD_IL rc = %d\n", rc);
+				goto out;
+			}
+			chip->usb_max_current_ma = 500;
+		}
+		if (current_ma == CURRENT_900_MA) {
+			rc = smbchg_sec_masked_write(chip,
 					chip->usb_chgpth_base + CHGPTH_CFG,
 					CFG_USB_2_3_SEL_BIT, CFG_USB_3);
-		rc |= smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+			if (rc < 0) {
+				pr_err("Couldn't set CHGPTH_CFG rc = %d\n", rc);
+				goto out;
+			}
+			rc = smbchg_masked_write(chip,
+					chip->usb_chgpth_base + CMD_IL,
 					USBIN_MODE_CHG_BIT | USB51_MODE_BIT,
 					USBIN_LIMITED_MODE | USB51_500MA);
-		chip->usb_max_current_ma = 900;
+			if (rc < 0) {
+				pr_err("Couldn't set CMD_IL rc = %d\n", rc);
+				goto out;
+			}
+			chip->usb_max_current_ma = 900;
+		}
+		break;
+	case POWER_SUPPLY_TYPE_USB_CDP:
+		if (current_ma < CURRENT_1500_MA) {
+			/* use override for CDP */
+			rc = smbchg_masked_write(chip,
+					chip->usb_chgpth_base + CMD_IL,
+					ICL_OVERRIDE_BIT, ICL_OVERRIDE_BIT);
+			if (rc < 0)
+				pr_err("Couldn't set override rc = %d\n", rc);
+		}
+		/* fall through */
+	default:
+		rc = smbchg_set_high_usb_chg_current(chip, current_ma);
+		if (rc < 0)
+			pr_err("Couldn't set %dmA rc = %d\n", current_ma, rc);
+		break;
 	}
 
-	rc = smbchg_set_high_usb_chg_current(chip, current_ma);
-	if (rc < 0)
-		dev_err(chip->dev,
-			"Couldn't set %dmA rc = %d\n", current_ma, rc);
 out:
 	pr_smb(PR_STATUS, "usb current set to %d mA\n",
 			chip->usb_max_current_ma);
@@ -4277,6 +4351,10 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 	}
 	chip->parallel.enabled_once = false;
 	chip->vbat_above_headroom = false;
+	rc = smbchg_masked_write(chip, chip->usb_chgpth_base + CMD_IL,
+			ICL_OVERRIDE_BIT, 0);
+	if (rc < 0)
+		pr_err("Couldn't set override rc = %d\n", rc);
 }
 
 static bool is_src_detect_high(struct smbchg_chip *chip)
@@ -4290,23 +4368,6 @@ static bool is_src_detect_high(struct smbchg_chip *chip)
 		return false;
 	}
 	return reg &= USBIN_SRC_DET_BIT;
-}
-
-static void read_usb_type(struct smbchg_chip *chip, char **usb_type_name,
-				enum power_supply_type *usb_supply_type)
-{
-	int rc, type;
-	u8 reg;
-
-	rc = smbchg_read(chip, &reg, chip->misc_base + IDEV_STS, 1);
-	if (rc < 0) {
-		dev_err(chip->dev, "Couldn't read status 5 rc = %d\n", rc);
-		*usb_type_name = "Other";
-		*usb_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
-	}
-	type = get_type(reg);
-	*usb_type_name = get_usb_type_name(type);
-	*usb_supply_type = get_usb_supply_type(type);
 }
 
 #define HVDCP_NOTIFY_MS		2500
