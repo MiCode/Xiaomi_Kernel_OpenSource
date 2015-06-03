@@ -273,6 +273,7 @@
 		reg = <0x0b011000 0x1000>,
 		      <0x0b1d1208 0x4>;
 		qcom,vctl-node = <&cluster1_spm>;
+		qcom,vctl-val = <0xb8>;
 	};
 
 	acc0:clock-controller@b188000 {
