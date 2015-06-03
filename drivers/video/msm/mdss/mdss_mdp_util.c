@@ -30,6 +30,8 @@
 #include "mdss_smmu.h"
 #include "mdss_panel.h"
 
+#define PHY_ADDR_4G (1ULL<<32)
+
 enum {
 	MDP_INTR_VSYNC_INTF_0,
 	MDP_INTR_VSYNC_INTF_1,
@@ -965,7 +967,12 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 				data->srcp_dma_buf = NULL;
 			}
 		}
-
+	} else if (data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
+		/*
+		 * skip memory unmapping - secure display uses physical
+		 * address which does not require buffer unmapping
+		 */
+		pr_debug("skip memory unmapping for secure display content\n");
 	} else {
 		return -ENOMEM;
 	}
@@ -1007,7 +1014,8 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 			pr_err("invalid FB_MAJOR\n");
 			ret = -1;
 		}
-	} else if (iclient) {
+	} else if (iclient &&
+			!(data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
 		data->srcp_dma_buf = dma_buf_get(img->memory_id);
 		if (IS_ERR(data->srcp_dma_buf)) {
 			pr_err("error on ion_import_fd\n");
@@ -1038,6 +1046,48 @@ static int mdss_mdp_get_img(struct msmfb_data *img,
 		/* return early, mapping will be done later */
 
 		return 0;
+	} else if (iclient &&
+			(data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
+		struct ion_handle *ihandle = NULL;
+		struct sg_table *sg_ptr = NULL;
+
+		do {
+			ihandle = ion_import_dma_buf(iclient, img->memory_id);
+			if (IS_ERR_OR_NULL(ihandle)) {
+				ret = -EINVAL;
+				pr_err("ion import buffer failed\n");
+				break;
+			}
+
+			sg_ptr = ion_sg_table(iclient, ihandle);
+			if (sg_ptr == NULL) {
+				pr_err("ion sg table get failed\n");
+				ret = -EINVAL;
+				break;
+			}
+
+			if (sg_ptr->nents != 1) {
+				pr_err("ion buffer mapping failed\n");
+				ret = -EINVAL;
+				break;
+			}
+
+			if (((uint64_t)sg_dma_address(sg_ptr->sgl) >=
+					PHY_ADDR_4G - sg_ptr->sgl->length)) {
+				pr_err("ion buffer mapped size is invalid\n");
+				ret = -EINVAL;
+				break;
+			}
+
+			data->addr = sg_dma_address(sg_ptr->sgl);
+			data->len = sg_ptr->sgl->length;
+			data->mapped = true;
+			ret = 0;
+		} while (0);
+
+		if (!IS_ERR_OR_NULL(ihandle))
+			ion_free(iclient, ihandle);
+		return ret;
 	}
 
 	if (!*start) {
@@ -1075,7 +1125,8 @@ static int mdss_mdp_map_buffer(struct mdss_mdp_img_data *data, bool rotator,
 		return 0;
 
 	if (!IS_ERR_OR_NULL(data->srcp_dma_buf)) {
-		if (mdss_res->mdss_util->iommu_attached()) {
+		if (mdss_res->mdss_util->iommu_attached() &&
+			!(data->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)) {
 			domain = mdss_smmu_get_domain_type(data->flags,
 					rotator);
 			ret = mdss_smmu_map_dma_buf(data->srcp_dma_buf,

@@ -445,6 +445,8 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pipe->flags |= MDP_FLIP_UD;
 	if (layer->flags & MDP_LAYER_SECURE_SESSION)
 		pipe->flags |= MDP_SECURE_OVERLAY_SESSION;
+	if (layer->flags & MDP_LAYER_SECURE_DISPLAY_SESSION)
+		pipe->flags |= MDP_SECURE_DISPLAY_OVERLAY_SESSION;
 	if (layer->flags & MDP_LAYER_SOLID_FILL)
 		pipe->flags |= MDP_SOLID_FILL;
 	if (layer->flags & MDP_LAYER_DEINTERLACE)
@@ -813,7 +815,8 @@ static struct mdss_mdp_data *__map_layer_buffer(struct msm_fb_data_type *mfd,
 		goto end;
 	}
 
-	flags = (pipe->flags & MDP_SECURE_OVERLAY_SESSION);
+	flags = (pipe->flags & (MDP_SECURE_OVERLAY_SESSION |
+				MDP_SECURE_DISPLAY_OVERLAY_SESSION));
 
 	/* current implementation only supports one plane mapping */
 	if (buffer->planes[0].fd < 0) {
@@ -975,6 +978,40 @@ end:
 		pipe->params_changed++;
 	}
 	return pipe;
+}
+
+/*
+ * __validate_secure_display() - validate secure display
+ *
+ * This function travers through used pipe list and checks if any pipe
+ * is with secure display enabled flag. It fails if client tries to stage
+ * unsecure content with secure display session.
+ *
+ */
+static int __validate_secure_display(struct mdss_overlay_private *mdp5_data)
+{
+	struct mdss_mdp_pipe *pipe, *tmp;
+	uint32_t sd_pipes = 0, nonsd_pipes = 0;
+
+	mutex_lock(&mdp5_data->list_lock);
+	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
+		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION)
+			sd_pipes++;
+		else
+			nonsd_pipes++;
+	}
+	mutex_unlock(&mdp5_data->list_lock);
+
+	pr_debug("pipe count:: secure display:%d non-secure:%d\n",
+		sd_pipes, nonsd_pipes);
+
+	if (sd_pipes && nonsd_pipes) {
+		pr_err("pipe count:: secure display:%d non-secure:%d\n",
+			sd_pipes, nonsd_pipes);
+		return -EINVAL;
+	} else {
+		return 0;
+	}
 }
 
 /*
@@ -1207,6 +1244,8 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 	}
 
 	__handle_free_list(mdp5_data, layer_list, layer_count);
+
+	ret = __validate_secure_display(mdp5_data);
 
 validate_exit:
 	pr_debug("err=%d total_layer:%d left:%d right:%d release_ndx=0x%x processed=%d\n",

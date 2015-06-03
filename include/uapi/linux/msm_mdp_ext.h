@@ -62,6 +62,9 @@ LAYER FLAG CONFIGURATION
 /* layer contains postprocessing configuration data */
 #define MDP_LAYER_PP			0x200
 
+/* Flag indicates that layer is associated with secure display session */
+#define MDP_LAYER_SECURE_DISPLAY_SESSION 0x400
+
 /**********************************************************************
 VALIDATE/COMMIT FLAG CONFIGURATION
 **********************************************************************/
