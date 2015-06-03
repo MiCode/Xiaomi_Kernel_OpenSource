@@ -36,22 +36,11 @@
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/of.h>
+#include <linux/of_platform.h>
 
 #include "ufshcd.h"
 
 static const struct of_device_id ufs_of_match[];
-static struct ufs_hba_variant_ops *get_variant_ops(struct device *dev)
-{
-	if (dev->of_node) {
-		const struct of_device_id *match;
-
-		match = of_match_node(ufs_of_match, dev->of_node);
-		if (match)
-			return (struct ufs_hba_variant_ops *)match->data;
-	}
-
-	return NULL;
-}
 
 static int ufshcd_parse_clock_info(struct ufs_hba *hba)
 {
@@ -350,6 +339,9 @@ static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 	struct resource *mem_res;
 	int irq, err;
 	struct device *dev = &pdev->dev;
+	struct device_node *node = pdev->dev.of_node;
+	struct device_node *ufs_variant_node;
+	struct platform_device *ufs_variant_pdev;
 
 	mem_res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	mmio_base = devm_ioremap_resource(dev, mem_res);
@@ -371,7 +363,24 @@ static int ufshcd_pltfrm_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	hba->vops = get_variant_ops(&pdev->dev);
+	err = of_platform_populate(node, NULL, NULL, &pdev->dev);
+	if (err) {
+		dev_err(&pdev->dev,
+			"%s: of_platform_populate() failed\n", __func__);
+	} else {
+		ufs_variant_node = of_get_next_available_child(node, NULL);
+
+		if (!ufs_variant_node) {
+			dev_dbg(&pdev->dev, "no ufs_variant_node found\n");
+		} else {
+			ufs_variant_pdev =
+				of_find_device_by_node(ufs_variant_node);
+
+			if (ufs_variant_pdev)
+				hba->vops = (struct ufs_hba_variant_ops *)
+				     dev_get_drvdata(&ufs_variant_pdev->dev);
+		}
+	}
 
 	err = ufshcd_parse_clock_info(hba);
 	if (err) {
@@ -428,7 +437,6 @@ static int ufshcd_pltfrm_remove(struct platform_device *pdev)
 
 static const struct of_device_id ufs_of_match[] = {
 	{ .compatible = "jedec,ufs-1.1"},
-	{ .compatible = "qcom,ufshc", .data = (void *)&ufs_hba_qcom_vops, },
 	{},
 };
 

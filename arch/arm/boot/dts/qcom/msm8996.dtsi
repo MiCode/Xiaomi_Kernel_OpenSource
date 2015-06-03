@@ -1219,7 +1219,7 @@
 	};
 
 	ufs1: ufshc@624000 {
-		compatible = "qcom,ufshc";
+		compatible = "jedec,ufs-1.1";
 		reg = <0x624000 0x2500>;
 		interrupts = <0 265 0>;
 		phys = <&ufsphy1>;
@@ -1304,6 +1304,10 @@
 		qcom,cpu-dma-latency-us = <301>;
 
 		status = "disabled";
+
+		ufs_variant {
+			compatible = "qcom,ufs_variant";
+		};
 	};
 
 	pcie0: qcom,pcie@00600000 {

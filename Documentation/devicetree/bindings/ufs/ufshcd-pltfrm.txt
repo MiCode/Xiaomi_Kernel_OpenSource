@@ -76,8 +76,8 @@ Example:
 		spm-level = <5>;
 	};
 
-==== MSM UFS platform driver properties =====
-* For UFS host controller in MSM platform following clocks are required -
+==== UFS QCOM platform driver properties =====
+* For UFS host controller in QCOM platform following clocks are required -
     Controller clock source -
         "core_clk_src", max-clock-frequency-hz = 200MHz
 	"core_clk_unipro_src" - Some controller versions require separate core clock for UniPro.
@@ -177,3 +177,11 @@ Example:
 					"HS_RB_G1_L2", "HS_RB_G2_L2", "HS_RB_G3_L2",
 					"MAX";
 	};
+
+This is an example to a variant sub-node of ufshc:
+ufs_variant {
+	compatible = "qcom,ufs_variant";
+};
+
+This sub-node holds various specific information that is not defined in the
+standard and that may differ between platforms.
