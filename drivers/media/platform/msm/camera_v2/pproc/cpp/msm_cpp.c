@@ -2995,7 +2995,6 @@ static struct msm_cpp_frame_info_t *get_64bit_cpp_frame_from_compat(
 	new_frame->client_id = new_frame32->client_id;
 	new_frame->frame_type = new_frame32->frame_type;
 	new_frame->num_strips = new_frame32->num_strips;
-	new_frame->strip_info = compat_ptr(new_frame32->strip_info);
 
 	new_frame->src_fd =  new_frame32->src_fd;
 	new_frame->dst_fd =  new_frame32->dst_fd;
@@ -3115,7 +3114,6 @@ static void get_compat_frame_from_64bit(struct msm_cpp_frame_info_t *frame,
 	k32_frame->client_id = frame->client_id;
 	k32_frame->frame_type = frame->frame_type;
 	k32_frame->num_strips = frame->num_strips;
-	k32_frame->strip_info = ptr_to_compat(frame->strip_info);
 
 	k32_frame->src_fd = frame->src_fd;
 	k32_frame->dst_fd = frame->dst_fd;
