@@ -680,9 +680,9 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 				line_buffer_size_per_lcu),
 			FP_INT(1024));
 	line_buffer_bw = fp_mult(line_buffer_size,
-			FP_INT((height / lcu_size /
-					(two_stage_encoding ? 2 : 1) - 1) *
-					fps / 1000));
+			fp_div(FP_INT((height / lcu_size /
+				(two_stage_encoding ? 2 : 1) - 1) * fps),
+				FP_INT(1000)));
 
 	collocated_mv_per_lcu = lcu_size == 16 ? 16 : 64;
 	max_transaction_size = 256;
@@ -793,7 +793,7 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	vmem.dpb_read = FP_ZERO;
 	if (gop == GOP_IPPP) {
 		fp_t temp = fp_mult(one_frame_bw_dpb,
-				search_window_factor_bw_p);
+			FP_INT(search_window_factor_bw_p * available_vmem_p));
 		temp = fp_div(temp, FP_INT(3));
 
 		vmem.dpb_read = temp;
