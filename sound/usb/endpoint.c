@@ -350,12 +350,6 @@ static void snd_complete_urb(struct urb *urb)
 	struct snd_usb_endpoint *ep = ctx->ep;
 	int err;
 
-	/*
-	 * Add this dev state check to avoid to call invalid ctx which is
-	 * free during disconnetion handler.
-	 */
-	if (urb->dev->state == USB_STATE_NOTATTACHED)
-		return;
 	if (unlikely(urb->status == -ENOENT ||		/* unlinked */
 		     urb->status == -ENODEV ||		/* device removed */
 		     urb->status == -ECONNRESET ||	/* unlinked */
