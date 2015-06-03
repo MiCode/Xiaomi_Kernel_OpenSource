@@ -752,20 +752,24 @@ unlock_and_return:
 #if !defined(CONFIG_CPU_V7)
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 {
-	int affinity_level = 0;
-	int state_id = get_cluster_id(cluster, &affinity_level);
-	int power_state = PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
-
-	affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
+	/*
+	 * idx = 0 is the default LPM state
+	 */
 	if (!idx) {
 		wfi();
 		return 1;
 	} else {
+		int affinity_level = 0;
+		int state_id = get_cluster_id(cluster, &affinity_level);
+		int power_state =
+			PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
+
+		affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
 		state_id |= (power_state | affinity_level
 			| cluster->cpu->levels[idx].psci_id);
-	}
 
-	return !cpu_suspend(state_id);
+		return !cpu_suspend(state_id);
+	}
 }
 #else
 bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
