@@ -152,7 +152,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 		(1 << V4L2_MPEG_VIDC_VIDEO_NAL_FORMAT_FOUR_BYTE_LENGTH)
 		),
 		.qmenu = mpeg_video_stream_format,
-		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_OUTPUT_ORDER,
@@ -166,7 +165,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_VIDEO_OUTPUT_ORDER_DECODE)
 			),
 		.qmenu = mpeg_video_output_order,
-		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_ENABLE_PICTURE_TYPE,
@@ -214,7 +212,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_VIDEO_DIVX_FORMAT_6)
 			),
 		.qmenu = mpeg_video_vidc_divx_format,
-		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_MB_ERROR_MAP_REPORTING,
@@ -288,7 +285,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_EXTRADATA_FRAME_BITS_INFO)
 			),
 		.qmenu = mpeg_video_vidc_extradata,
-		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_SET_PERF_LEVEL,
@@ -301,7 +297,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_CID_MPEG_VIDC_PERF_LEVEL_NOMINAL) |
 			(1 << V4L2_CID_MPEG_VIDC_PERF_LEVEL_TURBO)),
 		.qmenu = perf_level,
-		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_INPUT,
@@ -316,7 +311,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_VIDEO_DYNAMIC)
 			),
 		.qmenu = mpeg_vidc_video_alloc_mode_type,
-		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_ALLOC_MODE_OUTPUT,
@@ -331,7 +325,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_VIDEO_DYNAMIC)
 			),
 		.qmenu = mpeg_vidc_video_alloc_mode_type,
-		.step = 0,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDC_VIDEO_FRAME_ASSEMBLY,
@@ -567,7 +560,6 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			(1 << V4L2_MPEG_VIDC_VIDEO_DPB_COLOR_FMT_TP10_UBWC)
 			),
 		.qmenu = mpeg_vidc_video_dpb_color_format,
-		.step = 0,
 	},
 };
 
