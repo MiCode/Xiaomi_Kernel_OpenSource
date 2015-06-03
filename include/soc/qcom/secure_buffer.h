@@ -44,24 +44,24 @@ bool msm_secure_v2_is_supported(void);
 #else
 static inline int msm_secure_table(struct sg_table *table)
 {
-	return -EINVAL;
+	return -ENOSYS;
 }
 static inline int msm_unsecure_table(struct sg_table *table)
 {
-	return -EINVAL;
+	return -ENOSYS;
 }
-int hyp_assign_table(struct sg_table *table,
+static inline int hyp_assign_table(struct sg_table *table,
 			u32 *source_vm_list, int source_nelems,
 			int *dest_vmids, int *dest_perms,
 			int dest_nelems)
 {
-	return -EINVAL;
+	return -ENOSYS;
 }
-int hyp_assign_phys(phys_addr_t addr, u64 size,
+static inline int hyp_assign_phys(phys_addr_t addr, u64 size,
 			int *dest_vmids, int *dest_perms,
 			int dest_nelems)
 {
-	return -EINVAL;
+	return -ENOSYS;
 }
 static inline bool msm_secure_v2_is_supported(void)
 {
