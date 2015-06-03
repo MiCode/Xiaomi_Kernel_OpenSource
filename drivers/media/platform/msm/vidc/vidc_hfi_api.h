@@ -571,7 +571,7 @@ struct hal_frame_size {
 };
 
 struct hal_enable {
-	u32 enable;
+	bool enable;
 };
 
 struct hal_buffer_count_actual {
