@@ -51,6 +51,17 @@ static int mmc_host_runtime_suspend(struct device *dev)
 	if (!mmc_use_core_runtime_pm(host))
 		return 0;
 
+	if (host->card && mmc_card_cmdq(host->card)) {
+		BUG_ON(host->cmdq_ctx.active_reqs);
+
+		ret = mmc_cmdq_halt(host, true);
+		if (ret) {
+			pr_err("%s: halt: failed: %d\n", __func__, ret);
+			return ret;
+		}
+		host->cmdq_ops->disable(host, true);
+	}
+
 	ret = mmc_suspend_host(host);
 	if (ret < 0 && ret != -ENOMEDIUM)
 		pr_err("%s: %s: suspend host failed: %d\n", mmc_hostname(host),
@@ -94,6 +105,11 @@ static int mmc_host_runtime_resume(struct device *dev)
 			BUG_ON(1);
 	}
 
+	if (host->card && !ret && mmc_card_cmdq(host->card)) {
+		ret = mmc_cmdq_halt(host, false);
+		if (ret)
+			pr_err("%s: un-halt: failed: %d\n", __func__, ret);
+	}
 	return ret;
 }
 #endif
@@ -115,6 +131,16 @@ static int mmc_host_suspend(struct device *dev)
 	host->dev_status = DEV_SUSPENDING;
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 	if (!pm_runtime_suspended(dev)) {
+		if (host->card && mmc_card_cmdq(host->card)) {
+			BUG_ON(host->cmdq_ctx.active_reqs);
+
+			ret = mmc_cmdq_halt(host, true);
+			if (ret) {
+				pr_err("%s: halt: failed: %d\n", __func__, ret);
+				return ret;
+			}
+			host->cmdq_ops->disable(host, true);
+		}
 		ret = mmc_suspend_host(host);
 		if (ret < 0)
 			pr_err("%s: %s: failed: ret: %d\n", mmc_hostname(host),
@@ -154,6 +180,11 @@ static int mmc_host_resume(struct device *dev)
 			       __func__, ret);
 	}
 	host->dev_status = DEV_RESUMED;
+	if (host->card && !ret && mmc_card_cmdq(host->card)) {
+		ret = mmc_cmdq_halt(host, false);
+		if (ret)
+			pr_err("%s: un-halt: failed: %d\n", __func__, ret);
+	}
 	return ret;
 }
 #endif
