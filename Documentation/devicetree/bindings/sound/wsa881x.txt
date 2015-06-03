@@ -11,6 +11,7 @@ Required properties:
 
  - compatible : "qcom,wsa881x"
  - reg : Unique device ID of soundwire slave device(48 bits).
+ - qcom,spkr-sd-n-gpio : shutdown gpio pin to keep wsa881x in low power mode.
 
 Optional properties:
 
@@ -19,9 +20,11 @@ Example:
 wsa881x@32000 {
 	compatible = "qcom,wsa881x";
 	reg = <0x00 0x032000>;
+	qcom,spkr-sd-n-gpio = <&pmi8994_gpios 2 0>;
 };
 
 wsa881x@42000 {
 	compatible = "qcom,wsa881x";
 	reg = <0x00 0x042000>;
+	qcom,spkr-sd-n-gpio = <&pmi8994_gpios 3 0>;
 };
