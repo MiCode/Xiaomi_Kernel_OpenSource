@@ -295,22 +295,6 @@ static void dsi_pll_disable(struct clk *c)
 
 	dsi_pll_stop_8996(pll->pll_base);
 
-	/* stop pll output */
-	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_PLL_CLKBUFLR_EN, 0);
-	/* stop clk */
-	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_CMN_GLBL_TEST_CTRL, 0);
-	/* stop digital block */
-	MDSS_PLL_REG_W(pll->pll_base, DSIPHY_CMN_CTRL_0, 0x0);
-
-	if (slave) {
-		/* stop pll output */
-		MDSS_PLL_REG_W(pll->pll_base, DSIPHY_PLL_CLKBUFLR_EN, 0);
-		/* stop clk */
-		MDSS_PLL_REG_W(pll->pll_base, DSIPHY_CMN_GLBL_TEST_CTRL, 0);
-		/* stop digital block */
-		MDSS_PLL_REG_W(pll->pll_base, DSIPHY_CMN_CTRL_0, 0x0);
-	}
-
 	mdss_pll_resource_enable(pll, false);
 
 	pll->pll_on = false;
