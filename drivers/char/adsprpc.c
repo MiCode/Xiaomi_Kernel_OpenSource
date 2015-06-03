@@ -43,7 +43,7 @@
 #include "adsprpc_shared.h"
 
 #define RPC_TIMEOUT	(5 * HZ)
-#define BALIGN		32
+#define BALIGN		128
 #define NUM_CHANNELS	3		/*1 compute 1 cpz 1 mdsp*/
 #define NUM_SESSIONS	8		/*8 compute*/
 
