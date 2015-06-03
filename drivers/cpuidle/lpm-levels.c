@@ -763,12 +763,18 @@ bool psci_enter_sleep(struct lpm_cluster *cluster, int idx, bool from_idle)
 		int state_id = get_cluster_id(cluster, &affinity_level);
 		int power_state =
 			PSCI_POWER_STATE(cluster->cpu->levels[idx].is_reset);
+		bool success = false;
 
 		affinity_level = PSCI_AFFINITY_LEVEL(affinity_level);
 		state_id |= (power_state | affinity_level
 			| cluster->cpu->levels[idx].psci_id);
 
-		return !cpu_suspend(state_id);
+		update_debug_pc_event(CPU_ENTER, state_id,
+						0xdeaffeed, 0xdeaffeed, true);
+		success = !cpu_suspend(state_id);
+		update_debug_pc_event(CPU_EXIT, state_id,
+						success, 0xdeaffeed, true);
+		return success;
 	}
 }
 #else
@@ -810,18 +816,18 @@ static int lpm_cpuidle_enter(struct cpuidle_device *dev,
 	cluster_prepare(cluster, cpumask, idx, true);
 	trace_cpu_idle_enter(idx);
 	lpm_stats_cpu_enter(idx);
-	if (idx > 0)
+
+	if (idx > 0 && !use_psci) {
 		update_debug_pc_event(CPU_ENTER, idx, 0xdeaffeed, 0xdeaffeed,
 					true);
-	if (!use_psci)
 		success = msm_cpu_pm_enter_sleep(cluster->cpu->levels[idx].mode,
 				true);
-	else
-		success = psci_enter_sleep(cluster, idx, true);
-
-	if (idx > 0)
 		update_debug_pc_event(CPU_EXIT, idx, success, 0xdeaffeed,
 					true);
+	} else {
+		success = psci_enter_sleep(cluster, idx, true);
+	}
+
 	lpm_stats_cpu_exit(idx, success);
 	trace_cpu_idle_exit(idx, success);
 	cluster_unprepare(cluster, cpumask, idx, true);
