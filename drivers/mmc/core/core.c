@@ -3578,7 +3578,10 @@ EXPORT_SYMBOL(mmc_clk_scaling);
  */
 void mmc_disable_clk_scaling(struct mmc_host *host)
 {
-	cancel_delayed_work_sync(&host->clk_scaling.work);
+	if (host->clk_scaling.enable &&
+		host->card && !mmc_card_cmdq(host->card))
+		cancel_delayed_work_sync(&host->clk_scaling.work);
+
 	if (host->ops->notify_load)
 		host->ops->notify_load(host, MMC_LOAD_LOW);
 	host->clk_scaling.enable = false;
