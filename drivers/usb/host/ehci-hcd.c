@@ -803,6 +803,10 @@ static irqreturn_t ehci_irq (struct usb_hcd *hcd)
 	/* PCI errors [4.15.2.4] */
 	if (unlikely ((status & STS_FATAL) != 0)) {
 		ehci_err(ehci, "fatal error\n");
+		if (hcd->driver->dump_regs) {
+			hcd->driver->dump_regs(hcd);
+			panic("System error\n");
+		}
 		dbg_cmd(ehci, "fatal", cmd);
 		dbg_status(ehci, "fatal", status);
 dead:
@@ -1231,8 +1235,14 @@ void ehci_init_driver(struct hc_driver *drv,
 
 	if (over) {
 		drv->hcd_priv_size += over->extra_priv_size;
+		if (over->flags)
+			drv->flags = over->flags;
 		if (over->reset)
 			drv->reset = over->reset;
+		if (over->bus_suspend)
+			drv->bus_suspend = over->bus_suspend;
+		if (over->bus_resume)
+			drv->bus_resume = over->bus_resume;
 	}
 }
 EXPORT_SYMBOL_GPL(ehci_init_driver);
@@ -1296,6 +1306,11 @@ MODULE_LICENSE ("GPL");
 #ifdef CONFIG_MIPS_SEAD3
 #include "ehci-sead3.c"
 #define	PLATFORM_DRIVER		ehci_hcd_sead3_driver
+#endif
+
+#ifdef CONFIG_USB_EHCI_MSM_HSIC
+#include "ehci-msm-hsic.c"
+#define PLATFORM_DRIVER         ehci_msm_hsic_driver
 #endif
 
 static int __init ehci_hcd_init(void)

@@ -640,6 +640,7 @@ void msm_bam_wait_for_hsic_host_prod_granted(void);
 bool msm_bam_hsic_lpm_ok(void);
 void msm_bam_usb_host_notify_on_resume(void);
 void msm_bam_hsic_host_notify_on_resume(void);
+bool msm_bam_hsic_host_pipe_empty(void);
 void msm_bam_set_qdss_usb_active(bool is_active);
 #else
 static inline bool msm_bam_usb_lpm_ok(enum usb_ctrl ctrl) { return true; }
@@ -652,6 +653,7 @@ static inline void msm_bam_wait_for_hsic_host_prod_granted(void) {}
 static inline bool msm_bam_hsic_lpm_ok(void) { return true; }
 static inline void msm_bam_hsic_host_notify_on_resume(void) {}
 static inline void msm_bam_usb_host_notify_on_resume(void) {}
+static inline bool msm_bam_hsic_host_pipe_empty(void) { return true; }
 static inline void msm_bam_set_qdss_usb_active(bool is_active) {}
 #endif
 #ifdef CONFIG_USB_CI13XXX_MSM
