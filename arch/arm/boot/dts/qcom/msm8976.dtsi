@@ -231,6 +231,7 @@
 #include "msm8976-bus.dtsi"
 #include "msm8976-coresight.dtsi"
 #include "msm8976-pm.dtsi"
+#include "msm8976-gpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
