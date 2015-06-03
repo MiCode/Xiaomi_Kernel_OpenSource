@@ -123,7 +123,7 @@ int icnss_register_ce_irq(unsigned int ce_id,
 		goto out;
 	}
 
-	ret = request_irq(irq, handler, flags, name, &penv->pdev->dev);
+	ret = request_irq(irq, handler, IRQF_SHARED, name, &penv->pdev->dev);
 	if (ret) {
 		pr_err("icnss: IRQ not registered %d\n", irq);
 		ret = -EINVAL;
@@ -221,6 +221,7 @@ static int icnss_probe(struct platform_device *pdev)
 	int ret = 0;
 	int len = 0;
 	struct resource *res;
+	int i;
 
 	if (penv)
 		return -EEXIST;
@@ -245,22 +246,15 @@ static int icnss_probe(struct platform_device *pdev)
 		goto out;
 	}
 
-	if (!of_find_property(pdev->dev.of_node, "qcom,ce-irq-tbl", &len)) {
-		pr_err("icnss: CE IRQ table not found\n");
-		ret = -EINVAL;
-		goto out;
-	}
-	if (len != ICNSS_MAX_IRQ_REGISTRATIONS * sizeof(u32)) {
-		pr_err("icnss: invalid CE IRQ table %d\n", len);
-		ret = -EINVAL;
-		goto out;
-	}
-
-	ret = of_property_read_u32_array(pdev->dev.of_node,
-		"qcom,ce-irq-tbl", penv->ce_irqs, ICNSS_MAX_IRQ_REGISTRATIONS);
-	if (ret) {
-		pr_err("icnss: IRQ table not read ret = %d\n", ret);
-		goto out;
+	for (i = 0; i < ICNSS_MAX_IRQ_REGISTRATIONS; i++) {
+		res = platform_get_resource(pdev, IORESOURCE_IRQ, i);
+		if (!res) {
+			pr_err("icnss: Fail to get IRQ-%d\n", i);
+			ret = -ENODEV;
+			goto out;
+		} else {
+			penv->ce_irqs[i] = res->start;
+		}
 	}
 
 	pr_debug("icnss: Platform driver probed successfully\n");
