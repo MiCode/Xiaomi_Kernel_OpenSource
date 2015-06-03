@@ -115,4 +115,6 @@ extern void tasha_event_register(
 	int (*machine_event_cb)(struct snd_soc_codec *codec,
 				enum wcd9335_codec_event),
 	struct snd_soc_codec *codec);
+extern int tasha_codec_info_create_codec_entry(struct snd_info_entry *,
+					       struct snd_soc_codec *);
 #endif
