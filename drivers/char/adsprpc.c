@@ -688,6 +688,54 @@ static void fastrpc_file_list_dtor(struct fastrpc_apps *me)
 	} while (free);
 }
 
+static inline int is_overlapped_outbuf(struct smq_invoke_ctx *ctx, int oix)
+{
+	int inbufs, outbufs;
+
+	inbufs = REMOTE_SCALARS_INBUFS(ctx->sc);
+	outbufs = REMOTE_SCALARS_OUTBUFS(ctx->sc);
+	if (!ctx->overps[oix]->mstart)
+		return 1;
+	oix = oix + 1;
+	if ((oix < inbufs + outbufs) && !ctx->overps[oix]->mstart &&
+			ctx->overps[oix]->raix < inbufs)
+		return 1;
+	return 0;
+}
+
+static int clear_user_outbufs(struct smq_invoke_ctx *ctx)
+{
+	remote_arg_t *pra = ctx->lpra;
+	remote_arg_t *rpra = ctx->rpra;
+	uintptr_t ptr, end;
+	int oix, err = 0;
+	int inbufs = REMOTE_SCALARS_INBUFS(ctx->sc);
+	int outbufs = REMOTE_SCALARS_OUTBUFS(ctx->sc);
+
+	for (oix = 0; oix < inbufs + outbufs; ++oix) {
+		int i = ctx->overps[oix]->raix;
+
+		if ((i < inbufs) || (pra[i].buf.pv != rpra[i].buf.pv) ||
+			is_overlapped_outbuf(ctx, oix))
+			continue;
+		VERIFY(err, 0 == clear_user(rpra[i].buf.pv,
+				(rpra[i].buf.len < 8) ? rpra[i].buf.len : 8));
+		if (err)
+			goto bail;
+		ptr = buf_page_start(rpra[i].buf.pv) + PAGE_SIZE;
+		end = (uintptr_t)rpra[i].buf.pv + rpra[i].buf.len;
+		for (; ptr < end; ptr += PAGE_SIZE) {
+			VERIFY(err, 0 == clear_user((void *)ptr,
+					((end - ptr) < 8) ? end - ptr : 8));
+			if (err)
+				goto bail;
+		}
+	}
+
+ bail:
+	return err;
+}
+
 static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			remote_arg_t *upra)
 {
@@ -811,8 +859,15 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 		rlen -= mlen;
 	}
 
-	for (i = 0; i < inbufs; ++i) {
-		if (rpra[i].buf.len)
+	if (!kernel) {
+		VERIFY(err, 0 == clear_user_outbufs(ctx));
+		if (err)
+			goto bail;
+	}
+	for (oix = 0; oix < inbufs + outbufs; ++oix) {
+		int i = ctx->overps[oix]->raix;
+
+		if (rpra[i].buf.len && ctx->overps[oix]->mstart)
 			dmac_flush_range(rpra[i].buf.pv,
 				  (char *)rpra[i].buf.pv + rpra[i].buf.len);
 	}
