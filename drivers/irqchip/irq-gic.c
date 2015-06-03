@@ -80,8 +80,9 @@ struct gic_chip_data {
 
 static DEFINE_RAW_SPINLOCK(irq_controller_lock);
 /* Synchronize switching CPU interface and sending SGIs */
+#ifdef CONFIG_SMP
 static DEFINE_RAW_SPINLOCK(gic_sgi_lock);
-
+#endif
 /*
  * The GIC mapping of CPU interfaces does not necessarily match
  * the logical CPU numbering.  Let's use a mapping as returned
