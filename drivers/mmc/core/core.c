@@ -3201,6 +3201,9 @@ EXPORT_SYMBOL(mmc_hw_reset_check);
  */
 void mmc_reset_clk_scale_stats(struct mmc_host *host)
 {
+	if (!host->clk_scaling.enable)
+		return;
+
 	host->clk_scaling.busy_time_us = 0;
 	host->clk_scaling.window_time = jiffies;
 	host->clk_scaling.cq_is_busy_started = false;
