@@ -178,6 +178,7 @@ static int alpha_pll_enable(struct clk *c)
 #define PLL_OFFLINE_REQ_BIT BIT(7)
 #define PLL_FSM_ENA_BIT BIT(20)
 #define PLL_OFFLINE_ACK_BIT BIT(28)
+#define PLL_ACTIVE_FLAG BIT(30)
 
 static int alpha_pll_enable_hwfsm(struct clk *c)
 {
@@ -215,9 +216,8 @@ static void alpha_pll_disable_hwfsm(struct clk *c)
 	mode &= ~PLL_FSM_ENA_BIT;
 	writel_relaxed(mode, MODE_REG(pll));
 
-	/* Wait for FSM to disable the PLL */
-	mb();
-	udelay(5);
+	while (readl_relaxed(MODE_REG(pll)) & PLL_ACTIVE_FLAG)
+		;
 }
 
 static void __alpha_pll_vote_disable(struct alpha_pll_clk *pll)
