@@ -404,11 +404,25 @@
 		qcom,cpr-fuse-revision = <30 61 3 0>;
 		qcom,cpr-fuse-version-map =
 		/* <Speed_bits PVS_version CPR_Rev - - -> */
-			<0xffffffff 0xffffffff 1 0xffffffff 0xffffffff
-				0xffffffff>;
-		qcom,cpr-quotient-adjustment =
-			<0 (-66) (-66)>; /* NOM - 40mv, TURBO - 40mv */
-		qcom,cpr-init-voltage-as-ceiling;
+			<0          0xffffffff          1 0xffffffff 0xffffffff
+								0xffffffff>,
+			<1          0xffffffff          2 0xffffffff 0xffffffff
+								0xffffffff>,
+			<0xffffffff 0xffffffff 0xffffffff 0xffffffff 0xffffffff
+								0xffffffff>;
+		qcom,cpr-virtual-corner-quotient-adjustment =
+			<0 (-124) (-124) (-124) (-132) (-58) (-132) (-132)>,
+			<0    0      0      0      0     0      17    17>,
+			<0    0      0      0      0     0       0     0>;
+		qcom,cpr-floor-to-ceiling-max-range =
+			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) 50000 50000>;
+		qcom,cpr-scaled-init-voltage-as-ceiling;
+		qcom,cpr-voltage-scaling-factor-max = <0 2000 2000>;
+		qcom,cpr-voltage-floor-override =
+			<0xffffffff 0xffffffff 1050000 1050000 1050000
+			1050000 1050000 1130000 1155000 1155000>;
 		qcom,cpr-enable;
 	};
 };
