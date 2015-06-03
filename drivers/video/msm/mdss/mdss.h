@@ -125,6 +125,7 @@ enum mdss_hw_quirk {
 	MDSS_QUIRK_BWCPANIC,
 	MDSS_QUIRK_DOWNSCALE_HANG,
 	MDSS_QUIRK_DOWNSCALE_HFLIP_MDPCLK,
+	MDSS_QUIRK_SVS_PLUS_VOTING,
 	MDSS_QUIRK_MAX,
 };
 
@@ -144,6 +145,13 @@ struct mdss_data_type {
 	struct dss_io_data vbif_io;
 	struct dss_io_data vbif_nrt_io;
 	char __iomem *mdp_base;
+
+	/* Used to store if vote to enable svs plus has been sent or not */
+	u32 svs_plus_vote;
+	/* Min rate from where SVS plus vote is needed */
+	u32 svs_plus_min;
+	/* Max rate till where SVS plus vote is needed */
+	u32 svs_plus_max;
 
 	struct mutex reg_lock;
 
