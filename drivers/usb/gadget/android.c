@@ -1054,7 +1054,7 @@ ncm_function_bind_config(struct android_usb_function *f,
 		ncm->ethaddr[3], ncm->ethaddr[4], ncm->ethaddr[5]);
 
 	ncm_opts = container_of(ncm->fi, struct f_ncm_opts, func_inst);
-	strlcpy(ncm_opts->net->name, "ncm%%d", sizeof(ncm_opts->net->name));
+	strlcpy(ncm_opts->net->name, "ncm%d", sizeof(ncm_opts->net->name));
 
 	gether_set_qmult(ncm_opts->net, qmult);
 	if (!gether_set_host_addr(ncm_opts->net, host_addr))
@@ -2429,7 +2429,7 @@ static int ecm_function_bind_config(struct android_usb_function *f,
 		ecm->ethaddr[3], ecm->ethaddr[4], ecm->ethaddr[5]);
 
 	ecm_opts = container_of(ecm->fi, struct f_ecm_opts, func_inst);
-	strlcpy(ecm_opts->net->name, "ecm%%d", sizeof(ecm_opts->net->name));
+	strlcpy(ecm_opts->net->name, "ecm%d", sizeof(ecm_opts->net->name));
 	gether_set_qmult(ecm_opts->net, qmult);
 	if (!gether_set_host_addr(ecm_opts->net, host_addr))
 		pr_info("using host ethernet address: %s", host_addr);
