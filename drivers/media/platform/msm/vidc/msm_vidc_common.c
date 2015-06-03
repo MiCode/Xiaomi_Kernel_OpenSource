@@ -207,6 +207,9 @@ enum hal_video_codec get_hal_codec_type(int fourcc)
 	case V4L2_PIX_FMT_VP8:
 		codec = HAL_VIDEO_CODEC_VP8;
 		break;
+	case V4L2_PIX_FMT_VP9:
+		codec = HAL_VIDEO_CODEC_VP9;
+		break;
 	case V4L2_PIX_FMT_DIVX_311:
 		codec = HAL_VIDEO_CODEC_DIVX_311;
 		break;
