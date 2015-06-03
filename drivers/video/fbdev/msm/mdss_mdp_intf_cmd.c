@@ -266,6 +266,7 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_cmd_ctx *ctx,
 	int rc = 0;
 	struct mdss_mdp_mixer *mixer;
 	struct mdss_mdp_ctl *ctl = ctx->ctl;
+	struct mdss_panel_info *pinfo = &ctl->panel_data->panel_info;
 
 	mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_LEFT);
 	if (mixer) {
@@ -274,7 +275,8 @@ static int mdss_mdp_cmd_tearcheck_setup(struct mdss_mdp_cmd_ctx *ctx,
 			goto err;
 	}
 
-	if (!(ctl->opmode & MDSS_MDP_CTL_OP_PACK_3D_ENABLE)) {
+	if (!(ctl->opmode & MDSS_MDP_CTL_OP_PACK_3D_ENABLE) &&
+	    !is_dsc_compression(pinfo)) {
 		mixer = mdss_mdp_mixer_get(ctl, MDSS_MDP_MIXER_MUX_RIGHT);
 		if (mixer)
 			rc = mdss_mdp_cmd_tearcheck_cfg(mixer, ctx, enable);
@@ -1154,13 +1156,13 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
 
 	if (enable_rdptr) {
-		if (ctl->panel_data->panel_info.is_split_display)
+		if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
 			mutex_lock(&cmd_clk_mtx);
 
 		/* enable rd_ptr interrupt and clocks */
 		mdss_mdp_setup_vsync(ctx, true);
 
-		if (ctl->panel_data->panel_info.is_split_display)
+		if (ctl->mfd->split_mode == MDP_DUAL_LM_DUAL_DISPLAY)
 			mutex_unlock(&cmd_clk_mtx);
 	}
 
