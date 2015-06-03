@@ -37,6 +37,12 @@
 #define WSA881X_ADDR_BITS	16
 #define WSA881X_DATA_BITS	8
 
+struct wsa_pinctrl_info {
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *wsa_spkr_sus;
+	struct pinctrl_state *wsa_spkr_act;
+};
+
 enum {
 	G_18DB = 0,
 	G_16P5DB,
@@ -85,6 +91,7 @@ struct wsa881x_priv {
 	bool boost_enable;
 	bool visense_enable;
 	struct swr_port port[WSA881X_MAX_SWR_PORTS];
+	struct wsa_pinctrl_info pinctrl_info;
 	int pd_gpio;
 };
 
@@ -781,6 +788,36 @@ static int wsa881x_gpio_init(struct swr_device *pdev)
 	return ret;
 }
 
+static int wsa881x_pinctrl_init(struct wsa881x_priv *wsa881x,
+						struct swr_device *pdev)
+{
+	struct pinctrl *pinctrl;
+
+	pinctrl = devm_pinctrl_get(&pdev->dev);
+	if (IS_ERR(pinctrl)) {
+			pr_err("%s: Unable to get pinctrl handle\n",
+					__func__);
+			return -EINVAL;
+	}
+	wsa881x->pinctrl_info.pinctrl = pinctrl;
+
+	wsa881x->pinctrl_info.wsa_spkr_act = pinctrl_lookup_state(pinctrl,
+							"wsa_spkr_sd_act");
+	if (IS_ERR(wsa881x->pinctrl_info.wsa_spkr_act)) {
+		pr_err("%s: Unable to get pinctrl disable state handle\n",
+							__func__);
+		return -EINVAL;
+	}
+	wsa881x->pinctrl_info.wsa_spkr_sus = pinctrl_lookup_state(pinctrl,
+		"wsa_spkr_sd_sus");
+	if (IS_ERR(wsa881x->pinctrl_info.wsa_spkr_sus)) {
+		pr_err("%s: Unable to get pinctrl disable state handle\n",
+							__func__);
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static int wsa881x_swr_probe(struct swr_device *pdev)
 {
 	int ret = 0;
@@ -793,14 +830,6 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 			__func__);
 		return -ENOMEM;
 	}
-	wsa881x->pd_gpio = of_get_named_gpio(pdev->dev.of_node,
-				"qcom,spkr-sd-n-gpio", 0);
-	if (wsa881x->pd_gpio < 0) {
-		dev_err(&pdev->dev, "%s: %s property is not found %d\n",
-			__func__, "qcom,spkr-sd-n-gpio", wsa881x->pd_gpio);
-		goto err;
-	}
-	dev_dbg(&pdev->dev, "%s: reset gpio %d\n", __func__, wsa881x->pd_gpio);
 	swr_set_dev_data(pdev, wsa881x);
 
 	wsa881x->regmap = devm_regmap_init_swr(pdev, &wsa881x_regmap_config);
@@ -811,10 +840,32 @@ static int wsa881x_swr_probe(struct swr_device *pdev)
 		goto err;
 	}
 	wsa881x->swr_slave = pdev;
-	ret = wsa881x_gpio_init(pdev);
-	if (ret)
-		goto err;
-	wsa881x_gpio_ctrl(wsa881x, true);
+
+	ret = wsa881x_pinctrl_init(wsa881x, pdev);
+	if (ret < 0) {
+		wsa881x->pd_gpio = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,spkr-sd-n-gpio", 0);
+		if (wsa881x->pd_gpio < 0) {
+			dev_err(&pdev->dev, "%s: %s property is not found %d\n",
+					__func__, "qcom,spkr-sd-n-gpio",
+					wsa881x->pd_gpio);
+			return -EINVAL;
+		}
+		dev_dbg(&pdev->dev, "%s: reset gpio %d\n", __func__,
+				wsa881x->pd_gpio);
+		ret = wsa881x_gpio_init(pdev);
+		if (ret)
+			goto err;
+		wsa881x_gpio_ctrl(wsa881x, true);
+	} else {
+		ret = pinctrl_select_state(wsa881x->pinctrl_info.pinctrl,
+				wsa881x->pinctrl_info.wsa_spkr_act);
+		if (ret) {
+			dev_dbg(&pdev->dev, "%s: pinctrl act failed for wsa\n",
+					__func__);
+		}
+	}
+
 	ret = snd_soc_register_codec(&pdev->dev, &soc_codec_dev_wsa881x,
 				     NULL, 0);
 	if (ret < 0) {
