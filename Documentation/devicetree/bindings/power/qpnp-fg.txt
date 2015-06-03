@@ -30,6 +30,9 @@ Optionally ADC nodes can be added
 
 Parent node required properties:
 - compatible : should be "qcom,qpnp-fg" for the FG driver.
+- qcom,pmic-revid :			Should specify the phandle of PMIC
+					revid module. This is used to identify
+					the PMIC subtype.
 
 Parent node optional properties:
 - qcom,warm-bat-decidegc:		Warm battery temperature in decidegC.
@@ -183,6 +186,7 @@ pmi8994_fg: qcom,fg {
 	#address-cells = <1>;
 	#size-cells = <1>;
 	status = "disabled";
+	qcom,pmic-revid = <&pmi8994_revid>;
 
 	qcom,fg-soc@4000 {
 		reg = <0x4000 0x100>;
