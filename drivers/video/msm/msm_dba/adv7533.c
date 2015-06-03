@@ -37,17 +37,43 @@
 #define MDSS_MAX_PANEL_LEN      256
 #define EDID_SEG_SIZE 0x100
 
+/* 0x94 interrupts */
 #define HPD_INT_ENABLE           BIT(7)
 #define MONITOR_SENSE_INT_ENABLE BIT(6)
+#define ACTIVE_VSYNC_EDGE        BIT(5)
+#define AUDIO_FIFO_FULL          BIT(4)
 #define EDID_READY_INT_ENABLE    BIT(2)
-#define HDCP_BKSV_FLAG           BIT(6)
+#define HDCP_AUTHENTICATED       BIT(1)
+#define HDCP_RI_READY            BIT(0)
+
+/* 0x95 interrupts */
 #define HDCP_ERROR               BIT(7)
+#define HDCP_BKSV_FLAG           BIT(6)
 #define CEC_TX_READY             BIT(5)
 #define CEC_TX_ARB_LOST          BIT(4)
 #define CEC_TX_RETRY_TIMEOUT     BIT(3)
 #define CEC_TX_RX_BUF3_READY     BIT(2)
 #define CEC_TX_RX_BUF2_READY     BIT(1)
 #define CEC_TX_RX_BUF1_READY     BIT(0)
+
+#define HPD_INTERRUPTS           (HPD_INT_ENABLE | \
+					MONITOR_SENSE_INT_ENABLE)
+#define EDID_INTERRUPTS          EDID_READY_INT_ENABLE
+#define HDCP_INTERRUPTS1         (HDCP_AUTHENTICATED | \
+					HDCP_RI_READY)
+#define HDCP_INTERRUPTS2         (HDCP_BKSV_FLAG | \
+					HDCP_ERROR)
+#define CEC_INTERRUPTS           (CEC_TX_READY | \
+					CEC_TX_ARB_LOST | \
+					CEC_TX_RETRY_TIMEOUT | \
+					CEC_TX_RX_BUF3_READY | \
+					CEC_TX_RX_BUF2_READY | \
+					CEC_TX_RX_BUF1_READY)
+
+#define CFG_HPD_INTERRUPTS       BIT(0)
+#define CFG_EDID_INTERRUPTS      BIT(1)
+#define CFG_HDCP_INTERRUPTS      BIT(2)
+#define CFG_CEC_INTERRUPTS       BIT(3)
 
 #define MAX_WAIT_TIME (100)
 #define MAX_RW_TRIES (3)
@@ -58,13 +84,6 @@
 enum adv7533_i2c_addr {
 	ADV7533_MAIN = 0x39,
 	ADV7533_CEC_DSI = 0x3C,
-};
-
-enum adv7533_video_mode {
-	ADV7533_VIDEO_PATTERN,
-	ADV7533_VIDEO_480P,
-	ADV7533_VIDEO_720P,
-	ADV7533_VIDEO_1080P,
 };
 
 enum adv7533_cec_buf {
@@ -103,6 +122,8 @@ struct adv7533_platform_data {
 	bool audio;
 	bool disable_gpios;
 	bool adv_output;
+	bool hdcp_enabled;
+	bool cec_enabled;
 	void *edid_data;
 	u8 edid_buf[EDID_SEG_SIZE];
 	struct workqueue_struct *workq;
@@ -140,17 +161,21 @@ static struct adv7533_reg_cfg adv7533_init_setup[] = {
 	{ADV7533_CEC_DSI, 0x57, 0x11},
 };
 
-static struct adv7533_reg_cfg adv7533_video_setup[] = {
+static struct adv7533_reg_cfg adv7533_video_en[] = {
 	/* power up */
 	{ADV7533_MAIN, 0x41, 0x10},
 	/* hdmi enable */
 	{ADV7533_CEC_DSI, 0x03, 0x89},
 	/* hdmi mode, hdcp */
-	{ADV7533_MAIN, 0xAF, 0x96},
+	{ADV7533_MAIN, 0xAF, 0x06},
 	/* color depth */
 	{ADV7533_MAIN, 0x4C, 0x04},
 	/* down dither */
 	{ADV7533_MAIN, 0x49, 0x02},
+	/* Audio and CEC clock gate */
+	{ADV7533_CEC_DSI, 0x05, 0xC8},
+	/* GC packet enable */
+	{ADV7533_MAIN, 0x40, 0x80},
 };
 
 static struct adv7533_reg_cfg tg_cfg_1080p[] = {
@@ -190,22 +215,6 @@ static struct adv7533_reg_cfg tg_cfg_1080p[] = {
 	{ADV7533_CEC_DSI, 0x27, 0xCB},
 	{ADV7533_CEC_DSI, 0x27, 0x8B},
 	{ADV7533_CEC_DSI, 0x27, 0xCB},
-	/* Reset Internal Timing Generator */
-	{ADV7533_MAIN, 0xAF, 0x16},
-	/* HDMI Mode Select */
-	{ADV7533_CEC_DSI, 0x78, 0x03},
-	/* HDMI Output Enable */
-	{ADV7533_MAIN, 0x40, 0x80},
-	/* GC Packet Enable */
-	{ADV7533_MAIN, 0x4C, 0x04},
-	/* Colour Depth 24-bit per pixel */
-	{ADV7533_MAIN, 0x49, 0x00},
-	/* Down Dither Output 8-bit Colour Depth */
-	{ADV7533_CEC_DSI, 0x05, 0xC8},
-	/* ADI Required Write */
-	{ADV7533_CEC_DSI, 0xBE, 0x3D},
-	/* Test Pattern Disable (0x55[7] = 0) */
-	{ADV7533_CEC_DSI, 0x55, 0x00},
 };
 
 static struct adv7533_reg_cfg adv7533_cec_en[] = {
@@ -277,17 +286,6 @@ static struct adv7533_reg_cfg I2S_cfg[] = {
 	{ADV7533_MAIN, 0x02, 0x18},	/* N value 6144 --> 0x1800*/
 	{ADV7533_MAIN, 0x14, 0x02},	/* Word Length = 16Bits*/
 	{ADV7533_MAIN, 0x73, 0x01},	/* Channel Count = 2 channels */
-};
-
-static struct adv7533_reg_cfg irq_config[] = {
-	{ADV7533_MAIN, 0x94, HPD_INT_ENABLE |
-		MONITOR_SENSE_INT_ENABLE |
-		EDID_READY_INT_ENABLE},
-	{ADV7533_MAIN, 0x95, HDCP_BKSV_FLAG |
-		HDCP_ERROR | CEC_TX_READY |
-		CEC_TX_ARB_LOST | CEC_TX_RETRY_TIMEOUT |
-		CEC_TX_RX_BUF3_READY | CEC_TX_RX_BUF2_READY |
-		CEC_TX_RX_BUF1_READY},
 };
 
 static struct i2c_client *client;
@@ -638,7 +636,7 @@ u32 adv7533_read_edid(u32 size, char *edid_buf)
 	}
 
 	for (ndx = 0; ndx < size; ndx += 4)
-		pr_info("%s: EDID[%02x-%02x] %02x %02x %02x %02x\n",
+		pr_debug("%s: EDID[%02x-%02x] %02x %02x %02x %02x\n",
 			__func__, ndx, ndx + 3,
 			edid_buf[ndx + 0], edid_buf[ndx + 1],
 			edid_buf[ndx + 2], edid_buf[ndx + 3]);
@@ -863,12 +861,193 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		pr_err("%s: Failed: clear Rx intr\n", __func__);
 }
 
+static int adv7533_edid_read_init(struct adv7533_platform_data *pdata)
+{
+	if (!pdata) {
+		pr_err("%s: invalid pdata\n", __func__);
+		return -EINVAL;
+	}
+
+	/* initiate edid read in adv7533 */
+	return adv7533_write_byte(pdata->main_i2c_addr,
+		0xC9, 0x13);
+}
+
+static void *adv7533_handle_hpd_intr(void)
+{
+	int ret;
+	u8 hpd_state;
+	u8 connected = 0, disconnected = 0;
+
+	ret = adv7533_read_byte(ADV7533_MAIN, 0x42, &hpd_state);
+	if (ret) {
+		pr_err("%s: failed to get hpd state\n", __func__);
+		goto end;
+	}
+
+	connected = (hpd_state & BIT(5)) && (hpd_state & BIT(6));
+	disconnected = !(hpd_state & (BIT(5) | BIT(6)));
+
+	if (connected) {
+		pr_debug("%s: Rx CONNECTED\n", __func__);
+
+		ret = adv7533_write_regs(pdata, adv7533_init_setup,
+			ARRAY_SIZE(adv7533_init_setup));
+		if (ret) {
+			pr_err("%s: Failed to write common config\n",
+				__func__);
+			goto end;
+		}
+
+		ret = adv7533_write_regs(pdata, tg_cfg_1080p,
+			ARRAY_SIZE(tg_cfg_1080p));
+		if (ret) {
+			pr_err("%s: err config 1080p %d\n", __func__, ret);
+			goto end;
+		}
+
+		ret = adv7533_write_regs(pdata, adv7533_video_en,
+			ARRAY_SIZE(adv7533_video_en));
+		if (ret) {
+			pr_err("%s: Failed: video setup\n", __func__);
+			goto end;
+		}
+	} else if (disconnected) {
+		pr_debug("%s: Rx DISCONNECTED\n", __func__);
+
+		pdata->client_cb(pdata->client_cb_data,
+			MSM_DBA_CB_HPD_DISCONNECT);
+	} else {
+		pr_debug("%s: HPD Intermediate state\n", __func__);
+	}
+
+	ret = connected ? 1 : 0;
+end:
+	return ERR_PTR(ret);
+}
+
+static int adv7533_enable_interrupts(struct adv7533_platform_data *pdata,
+		int interrupts)
+{
+	int ret = 0;
+	u8 reg_val, init_reg_val;
+
+	if (!pdata) {
+		pr_err("%s: invalid input\n", __func__);
+		goto end;
+	}
+
+	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x94, &reg_val);
+	if (ret) {
+		pr_err("%s: err reading 0x94 interrupts\n", __func__);
+		reg_val = 0;
+	}
+
+	init_reg_val = reg_val;
+
+	if (interrupts & CFG_HPD_INTERRUPTS)
+		reg_val |= HPD_INTERRUPTS;
+
+	if (interrupts & CFG_EDID_INTERRUPTS)
+		reg_val |= EDID_INTERRUPTS;
+
+	if (interrupts & CFG_HDCP_INTERRUPTS)
+		reg_val |= HDCP_INTERRUPTS1;
+
+	if (reg_val != init_reg_val) {
+		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x94, reg_val);
+		if (ret)
+			pr_err("%s: err enabling 0x94 interrupts\n", __func__);
+	}
+
+	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x95, &reg_val);
+	if (ret) {
+		pr_err("%s: err reading 0x95 interrupts\n", __func__);
+		reg_val = 0;
+	}
+
+	init_reg_val = reg_val;
+
+	if (interrupts & CFG_HDCP_INTERRUPTS)
+		reg_val |= HDCP_INTERRUPTS2;
+
+	if (interrupts & CFG_CEC_INTERRUPTS)
+		reg_val |= CEC_INTERRUPTS;
+
+	if (reg_val != init_reg_val) {
+		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x95, reg_val);
+		if (ret)
+			pr_err("%s: err enabling 0x95 interrupts\n", __func__);
+	}
+end:
+	return ret;
+}
+
+static int adv7533_disable_interrupts(struct adv7533_platform_data *pdata,
+		int interrupts)
+{
+	int ret = 0;
+	u8 reg_val, init_reg_val;
+
+	if (!pdata) {
+		pr_err("%s: invalid input\n", __func__);
+		goto end;
+	}
+
+	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x94, &reg_val);
+	if (ret) {
+		pr_err("%s: err reading 0x94 interrupts\n", __func__);
+		reg_val = 0;
+	}
+
+	init_reg_val = reg_val;
+
+	if (interrupts & CFG_HPD_INTERRUPTS)
+		reg_val &= ~HPD_INTERRUPTS;
+
+	if (interrupts & CFG_EDID_INTERRUPTS)
+		reg_val &= ~EDID_INTERRUPTS;
+
+	if (interrupts & CFG_HDCP_INTERRUPTS)
+		reg_val &= ~HDCP_INTERRUPTS1;
+
+	if (reg_val != init_reg_val) {
+		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x94, reg_val);
+		if (ret)
+			pr_err("%s: Failed: disable 0x94 interrupts %d\n",
+				__func__, ret);
+	}
+
+	ret = adv7533_read_byte(pdata->main_i2c_addr, 0x95, &reg_val);
+	if (ret) {
+		pr_err("%s: err reading 0x95 interrupts\n", __func__);
+		reg_val = 0;
+	}
+
+	init_reg_val = reg_val;
+
+	if (interrupts & CFG_HDCP_INTERRUPTS)
+		reg_val &= ~HDCP_INTERRUPTS2;
+
+	if (interrupts & CFG_CEC_INTERRUPTS)
+		reg_val &= ~CEC_INTERRUPTS;
+
+	if (reg_val != init_reg_val) {
+		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x95, reg_val);
+		if (ret)
+			pr_err("%s: Failed: disable 0x95 interrupts %d\n",
+				__func__, ret);
+	}
+end:
+	return ret;
+}
+
 static void adv7533_intr_work(struct work_struct *work)
 {
 	int ret;
 	u8 int_status  = 0xFF;
 	u8 hdcp_cec_status = 0xFF;
-	u8 int_state   = 0xFF;
+	int connected = false;
 	struct adv7533_platform_data *pdata;
 	struct delayed_work *dw = to_delayed_work(work);
 
@@ -886,34 +1065,21 @@ static void adv7533_intr_work(struct work_struct *work)
 	if (adv7533_read_byte(ADV7533_MAIN, 0x97, &hdcp_cec_status))
 		goto reset;
 
-	if (adv7533_read_byte(ADV7533_MAIN, 0x42, &int_state))
-		goto reset;
+	if (int_status & (BIT(6) | BIT(7))) {
+		void *ptr_val = adv7533_handle_hpd_intr();
 
-	if (int_status & BIT(6)) {
-		if (int_state & BIT(5)) {
-			pr_info("%s: Rx SENSE CABLE CONNECTED\n", __func__);
-
-			/* initiate edid read in adv7533 */
-			ret = adv7533_write_byte(pdata->main_i2c_addr,
-				0xC9, 0x13);
-			if (ret) {
-				pr_err("%s: Failed: edid read adv %d\n",
-					__func__, ret);
-				pdata->client_cb(pdata->client_cb_data,
-					MSM_DBA_CB_HPD_CONNECT);
-			}
-
-		} else {
-			pr_info("%s: NO Rx SENSE CABLE DISCONNECTED\n",
-				__func__);
-			pdata->client_cb(pdata->client_cb_data,
-				MSM_DBA_CB_HPD_DISCONNECT);
+		ret = PTR_ERR(ptr_val);
+		if (IS_ERR(ptr_val)) {
+			pr_err("%s: error in hpd handing: %d\n",
+				__func__, ret);
+			goto reset;
 		}
+		connected = ret;
 	}
 
 	/* EDID ready for read */
 	if (int_status & BIT(2)) {
-		pr_info("%s: EDID READY\n", __func__);
+		pr_debug("%s: EDID READY\n", __func__);
 
 		ret = adv7533_read_edid(sizeof(pdata->edid_buf),
 			pdata->edid_buf);
@@ -924,30 +1090,60 @@ static void adv7533_intr_work(struct work_struct *work)
 			MSM_DBA_CB_HPD_CONNECT);
 	}
 
-	adv7533_handle_hdcp_intr(hdcp_cec_status);
-	adv7533_handle_cec_intr(hdcp_cec_status);
+	if (pdata->hdcp_enabled)
+		adv7533_handle_hdcp_intr(hdcp_cec_status);
+
+	if (pdata->cec_enabled)
+		adv7533_handle_cec_intr(hdcp_cec_status);
 reset:
-	/* Clear interrupts */
+	/* Clear HPD/EDID interrupts */
 	if (adv7533_write_byte(pdata->main_i2c_addr, 0x96, int_status))
 		pr_err("%s: Failed: clear hpd intr\n", __func__);
 
+	/* Clear HDCP/CEC interrupts */
 	if (adv7533_write_byte(pdata->main_i2c_addr, 0x97, hdcp_cec_status))
 		pr_err("%s: Failed: clear hdcp intr\n", __func__);
 
-	/* Re-enable interrupts */
-	if (adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config)))
-		pr_err("%s: Failed: irq config\n", __func__);
+	/* Re-enable HPD/EDID interrupts */
+	if (adv7533_enable_interrupts(pdata, CFG_HPD_INTERRUPTS |
+		CFG_EDID_INTERRUPTS))
+		pr_err("%s: err enabling HPD interrupts\n", __func__);
+
+	/* Re-enable HDCP interrupts */
+	if (pdata->hdcp_enabled) {
+		if (adv7533_enable_interrupts(pdata, CFG_HPD_INTERRUPTS))
+			pr_err("%s: err enabling HPD interrupts\n", __func__);
+	}
+
+	/* Re-enable CEC interrupts */
+	if (pdata->cec_enabled) {
+		if (adv7533_enable_interrupts(pdata, CFG_CEC_INTERRUPTS))
+			pr_err("%s: err enabling CEC interrupts\n", __func__);
+	}
+
+	/* initialize EDID read after cable connected */
+	if (connected)
+		adv7533_edid_read_init(pdata);
 }
 
 static irqreturn_t adv7533_irq(int irq, void *data)
 {
-	int ret;
+	/* disable HPD/EDID interrupts */
+	if (adv7533_disable_interrupts(pdata, CFG_HPD_INTERRUPTS |
+		CFG_EDID_INTERRUPTS))
+		pr_err("%s: err disabling HPD/EDID interrupts\n", __func__);
 
-	/* disable interrupts */
-	ret = adv7533_write_byte(pdata->main_i2c_addr, 0x94, 0x00);
-	if (ret)
-		pr_err("%s: Failed: disable interrupts %d\n",
-			__func__, ret);
+	/* disable HDCP interrupts */
+	if (pdata->hdcp_enabled) {
+		if (adv7533_disable_interrupts(pdata, CFG_HPD_INTERRUPTS))
+			pr_err("%s: err disabling HPD interrupts\n", __func__);
+	}
+
+	/* disable CEC interrupts */
+	if (pdata->cec_enabled) {
+		if (adv7533_disable_interrupts(pdata, CFG_CEC_INTERRUPTS))
+			pr_err("%s: err disabling CEC interrupts\n", __func__);
+	}
 
 	queue_delayed_work(pdata->workq, &pdata->adv7533_intr_work_id, 0);
 
@@ -985,6 +1181,43 @@ end:
 	return pdata;
 }
 
+static int adv7533_cec_enable(struct adv7533_platform_data *pdata,
+		bool cec_on)
+{
+	int ret = -EINVAL;
+
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		goto end;
+	}
+
+	if (cec_on) {
+		pdata->cec_enabled = true;
+
+		ret = adv7533_write_regs(pdata, adv7533_cec_en,
+			ARRAY_SIZE(adv7533_cec_en));
+		if (ret)
+			pr_err("%s: Failed to write cec en config\n",
+				__func__);
+
+		ret = adv7533_write_regs(pdata, adv7533_cec_tg_init,
+			ARRAY_SIZE(adv7533_cec_tg_init));
+		if (ret)
+			pr_err("%s: Failed to write cec tg init\n",
+				__func__);
+
+		ret = adv7533_write_regs(pdata, adv7533_cec_power,
+			ARRAY_SIZE(adv7533_cec_power));
+		if (ret)
+			pr_err("%s: Failed to write cec power\n",
+				__func__);
+	} else {
+		pdata->cec_enabled = false;
+	}
+end:
+	return ret;
+}
+
 /* Device Operations */
 static int adv7533_power_on(void *client, bool on, u32 flags)
 {
@@ -997,22 +1230,41 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 		goto end;
 	}
 
-	ret = adv7533_write_regs(pdata, adv7533_init_setup,
-		ARRAY_SIZE(adv7533_init_setup));
-	if (ret) {
-		pr_err("%s: Failed to write common config\n",
-			__func__);
-		goto end;
+	if (on) {
+		ret = adv7533_write_regs(pdata, adv7533_init_setup,
+			ARRAY_SIZE(adv7533_init_setup));
+		if (ret) {
+			pr_err("%s: Failed to write common config\n",
+				__func__);
+			goto end;
+		}
+
+		ret = adv7533_enable_interrupts(pdata, CFG_HPD_INTERRUPTS);
+		if (ret) {
+			pr_err("%s: Failed: enable HPD intr %d\n",
+				__func__, ret);
+			goto end;
+		}
+
+		ret = adv7533_cec_enable(pdata, true);
+		if (ret) {
+			pr_err("%s: Failed: enable CEC, err %d\n",
+				__func__, ret);
+			goto end;
+		}
+
+		queue_delayed_work(pdata->workq,
+			&pdata->adv7533_intr_work_id, HZ/2);
+	} else {
+		ret = adv7533_cec_enable(pdata, false);
+		if (ret)
+			pr_err("%s:err disable CEC %d\n", __func__, ret);
+
+		/* power down hdmi */
+		ret = adv7533_write_byte(pdata->main_i2c_addr, 0x41, 0x50);
+		if (ret)
+			pr_err("%s: err power down hdmi %d\n", __func__, ret);
 	}
-
-	ret = adv7533_write_regs(pdata, irq_config, ARRAY_SIZE(irq_config));
-	if (ret) {
-		pr_err("%s: Failed: irq config %d\n", __func__, ret);
-		goto end;
-	}
-
-	queue_delayed_work(pdata->workq, &pdata->adv7533_intr_work_id, HZ/2);
-
 end:
 	return ret;
 }
@@ -1036,8 +1288,8 @@ static int adv7533_video_on(void *client, bool on,
 		goto end;
 	}
 
-	ret = adv7533_write_regs(pdata, adv7533_video_setup,
-		ARRAY_SIZE(adv7533_video_setup));
+	ret = adv7533_write_regs(pdata, adv7533_video_en,
+		ARRAY_SIZE(adv7533_video_en));
 	if (ret)
 		pr_err("%s: Failed: video setup\n", __func__);
 end:
@@ -1059,12 +1311,16 @@ static int adv7533_hdcp_enable(void *client, bool hdcp_on,
 
 		if (adv7533_write_byte(pdata->main_i2c_addr, 0xAF, reg_val))
 			goto end;
+
+		pdata->hdcp_enabled = true;
 	} else {
 		reg_val &= ~BIT(7);
 		reg_val &= ~BIT(4);
 
 		if (adv7533_write_byte(pdata->main_i2c_addr, 0xAF, reg_val))
 			goto end;
+
+		pdata->hdcp_enabled = false;
 	}
 
 	ret = 0;
@@ -1336,14 +1592,14 @@ static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 
 	client_ops = &pdata->dev_info.client_ops;
 
-	client_ops->power_on = adv7533_power_on;
-	client_ops->video_on = adv7533_video_on;
+	client_ops->power_on        = adv7533_power_on;
+	client_ops->video_on        = adv7533_video_on;
 	client_ops->configure_audio = adv7533_configure_audio;
-	client_ops->hdcp_enable = adv7533_hdcp_enable;
-	client_ops->hdmi_cec_write = adv7533_hdmi_cec_write;
-	client_ops->hdmi_cec_read = adv7533_hdmi_cec_read;
-	client_ops->get_edid_size = adv7533_get_edid_size;
-	client_ops->get_raw_edid = adv7533_get_raw_edid;
+	client_ops->hdcp_enable     = adv7533_hdcp_enable;
+	client_ops->hdmi_cec_write  = adv7533_hdmi_cec_write;
+	client_ops->hdmi_cec_read   = adv7533_hdmi_cec_read;
+	client_ops->get_edid_size   = adv7533_get_edid_size;
+	client_ops->get_raw_edid    = adv7533_get_raw_edid;
 
 	strlcpy(pdata->dev_info.chip_name, "adv7533",
 		sizeof(pdata->dev_info.chip_name));
@@ -1357,7 +1613,6 @@ static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 
 	return msm_dba_add_probed_device(&pdata->dev_info);
 }
-
 
 static int adv7533_probe(struct i2c_client *client_,
 	 const struct i2c_device_id *id)
@@ -1431,24 +1686,6 @@ static int adv7533_probe(struct i2c_client *client_,
 	}
 
 	INIT_DELAYED_WORK(&pdata->adv7533_intr_work_id, adv7533_intr_work);
-
-	ret = adv7533_write_regs(pdata, adv7533_cec_en,
-		ARRAY_SIZE(adv7533_cec_en));
-	if (ret)
-		pr_err("%s: Failed to write cec en config\n",
-			__func__);
-
-	ret = adv7533_write_regs(pdata, adv7533_cec_tg_init,
-		ARRAY_SIZE(adv7533_cec_tg_init));
-	if (ret)
-		pr_err("%s: Failed to write cec tg init\n",
-			__func__);
-
-	ret = adv7533_write_regs(pdata, adv7533_cec_power,
-		ARRAY_SIZE(adv7533_cec_power));
-	if (ret)
-		pr_err("%s: Failed to write cec power\n",
-			__func__);
 
 	pm_runtime_enable(&client->dev);
 	pm_runtime_set_active(&client->dev);
