@@ -74,7 +74,16 @@ Platform independent properties:
 - interrupts
 	Usage:      required
 	Value type: <prop-encoded-array>
-	Definition: CPR interrupt specifier.
+	Definition: CPR interrupt specifier and optionally a hardware
+		    closed-loop ceiling interrupt specifier.
+
+- interrupt-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property. "cpr"
+		    must be specified.  "ceiling" may be specified for some
+		    platforms.
 
 - qcom,cpr-sensor-time
 	Usage:      required

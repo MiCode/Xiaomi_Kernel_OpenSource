@@ -34,6 +34,8 @@
 #include <linux/regulator/of_regulator.h>
 #include <linux/regulator/kryo-regulator.h>
 
+#include <soc/qcom/spm.h>
+
 #include "cpr3-regulator.h"
 
 #define CPR3_REGULATOR_CORNER_INVALID	(-1)
@@ -121,6 +123,7 @@
 
 /* Registers found only on controllers that support HW closed-loop. */
 #define CPR3_REG_PD_THROTTLE		0xE8
+#define CPR3_PD_THROTTLE_DISABLE	0x0
 
 #define CPR3_REG_HW_CLOSED_LOOP		0x3000
 #define CPR3_HW_CLOSED_LOOP_ENABLE	0x0
@@ -493,9 +496,8 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 				? CPR3_HW_CLOSED_LOOP_ENABLE
 				: CPR3_HW_CLOSED_LOOP_DISABLE);
 
-		val = ctrl->proc_clock_throttle;
-		cpr3_write(ctrl, CPR3_REG_PD_THROTTLE, val);
-		cpr3_debug(ctrl, "PD_THROTTLE=0x%08X\n", val);
+		cpr3_debug(ctrl, "PD_THROTTLE=0x%08X\n",
+			ctrl->proc_clock_throttle);
 	}
 
 	if (ctrl->use_hw_closed_loop) {
@@ -503,6 +505,12 @@ static int cpr3_regulator_init_ctrl(struct cpr3_controller *ctrl)
 		if (rc) {
 			cpr3_err(ctrl, "CPR limit regulator enable failed, rc=%d\n",
 				rc);
+			return rc;
+		}
+
+		rc = msm_spm_avs_enable_irq(0, MSM_SPM_AVS_IRQ_MAX);
+		if (rc) {
+			cpr3_err(ctrl, "could not enable max IRQ, rc=%d\n", rc);
 			return rc;
 		}
 	}
@@ -1091,6 +1099,17 @@ static int cpr3_regulator_update_ctrl_state(struct cpr3_controller *ctrl)
 				= thread->current_corner;
 		}
 
+		if (ctrl->proc_clock_throttle) {
+			if (aggr_corner.ceiling_volt > aggr_corner.floor_volt
+			    && (ctrl->use_hw_closed_loop
+					|| new_volt < aggr_corner.ceiling_volt))
+				cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
+						ctrl->proc_clock_throttle);
+			else
+				cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
+						CPR3_PD_THROTTLE_DISABLE);
+		}
+
 		/*
 		 * Ensure that all CPR register writes complete before
 		 * re-enabling CPR loop operation.
@@ -1491,8 +1510,9 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 		cpr3_debug(ctrl, "CPR interrupt received but no up or down status bit is set\n");
 		goto done;
 	} else if (up && down) {
-		cpr3_err(ctrl, "both up and down status bits set\n");
-		goto done;
+		cpr3_debug(ctrl, "both up and down status bits set\n");
+		/* The up flag takes precedence over the down flag. */
+		down = false;
 	}
 
 	for (i = 0; i < ctrl->thread_count; i++) {
@@ -1525,6 +1545,11 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 	cpr3_debug(ctrl, "%s: new_volt=%d uV, last_volt=%d uV\n",
 		up ? "UP" : "DN", new_volt, last_volt);
 
+	if (ctrl->proc_clock_throttle && last_volt == aggr->ceiling_volt
+	    && new_volt < last_volt)
+		cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
+				ctrl->proc_clock_throttle);
+
 	if (new_volt != last_volt) {
 		rc = regulator_set_voltage(ctrl->vdd_regulator, new_volt,
 						aggr->ceiling_volt);
@@ -1535,6 +1560,10 @@ static irqreturn_t cpr3_irq_handler(int irq, void *data)
 		}
 		cont = CPR3_CONT_CMD_ACK;
 	}
+
+	if (ctrl->proc_clock_throttle && new_volt == aggr->ceiling_volt)
+		cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
+				CPR3_PD_THROTTLE_DISABLE);
 
 	corner = &ctrl->thread[0].corner[ctrl->thread[0].current_corner];
 
@@ -1553,6 +1582,60 @@ done:
 
 	/* ACK or NACK the CPR controller */
 	cpr3_write(ctrl, CPR3_REG_CONT_CMD, cont);
+
+	mutex_unlock(&ctrl->lock);
+	return IRQ_HANDLED;
+}
+
+/**
+ * cpr3_ceiling_irq_handler() - CPR ceiling reached interrupt handler callback
+ *		function used for hardware closed-loop operation
+ * @irq:		CPR ceiling interrupt number
+ * @data:		Private data corresponding to the CPR3 controller
+ *			pointer
+ *
+ * This function disables processor clock throttling and closed-loop operation
+ * when the ceiling voltage is reached.
+ *
+ * Return: IRQ_HANDLED
+ */
+static irqreturn_t cpr3_ceiling_irq_handler(int irq, void *data)
+{
+	struct cpr3_controller *ctrl = data;
+	int rc, volt;
+
+	mutex_lock(&ctrl->lock);
+
+	if (!ctrl->cpr_enabled) {
+		cpr3_debug(ctrl, "CPR ceiling interrupt received but CPR is disabled\n");
+		goto done;
+	} else if (!ctrl->use_hw_closed_loop) {
+		cpr3_debug(ctrl, "CPR ceiling interrupt received but CPR is using SW closed-loop\n");
+		goto done;
+	}
+
+	volt = regulator_get_voltage(ctrl->vdd_regulator);
+	if (volt < 0) {
+		cpr3_err(ctrl, "could not get vdd voltage, rc=%d\n", volt);
+		goto done;
+	} else if (volt != ctrl->aggr_corner.ceiling_volt) {
+		cpr3_debug(ctrl, "CPR ceiling interrupt received but vdd voltage: %d uV != ceiling voltage: %d uV\n",
+			volt, ctrl->aggr_corner.ceiling_volt);
+		goto done;
+	}
+
+	/*
+	 * Since the ceiling voltage has been reached, disable processor clock
+	 * throttling as well as CPR closed-loop operation.
+	 */
+	cpr3_write(ctrl, CPR3_REG_PD_THROTTLE, CPR3_PD_THROTTLE_DISABLE);
+	cpr3_ctrl_loop_disable(ctrl);
+	cpr3_debug(ctrl, "CPR closed-loop and throttling disabled\n");
+
+done:
+	rc = msm_spm_avs_clear_irq(0, MSM_SPM_AVS_IRQ_MAX);
+	if (rc)
+		cpr3_err(ctrl, "could not clear max IRQ, rc=%d\n", rc);
 
 	mutex_unlock(&ctrl->lock);
 	return IRQ_HANDLED;
@@ -2176,6 +2259,21 @@ static int cpr3_debug_closed_loop_enable_set(void *data, u64 val)
 		goto done;
 	}
 
+	if (ctrl->proc_clock_throttle && !ctrl->cpr_enabled) {
+		rc = cpr3_clock_enable(ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "clock enable failed, rc=%d\n", rc);
+			goto done;
+		}
+		ctrl->cpr_enabled = true;
+
+		cpr3_write(ctrl, CPR3_REG_PD_THROTTLE,
+			   CPR3_PD_THROTTLE_DISABLE);
+
+		cpr3_clock_disable(ctrl);
+		ctrl->cpr_enabled = false;
+	}
+
 	cpr3_debug(ctrl, "closed-loop=%s\n", enable ? "enabled" : "disabled");
 
 done:
@@ -2267,10 +2365,23 @@ static int cpr3_debug_hw_closed_loop_enable_set(void *data, u64 val)
 				rc);
 			goto done;
 		}
+
+		rc = msm_spm_avs_enable_irq(0, MSM_SPM_AVS_IRQ_MAX);
+		if (rc) {
+			cpr3_err(ctrl, "could not enable max IRQ, rc=%d\n", rc);
+			goto done;
+		}
 	} else {
 		rc = regulator_disable(ctrl->vdd_limit_regulator);
 		if (rc) {
 			cpr3_err(ctrl, "CPR limit regulator disable failed, rc=%d\n",
+				rc);
+			goto done;
+		}
+
+		rc = msm_spm_avs_disable_irq(0, MSM_SPM_AVS_IRQ_MAX);
+		if (rc) {
+			cpr3_err(ctrl, "could not disable max IRQ, rc=%d\n",
 				rc);
 			goto done;
 		}
@@ -2601,10 +2712,25 @@ int cpr3_regulator_register(struct platform_device *pdev,
 	}
 	ctrl->cpr_ctrl_base = devm_ioremap(dev, res->start, resource_size(res));
 
-	ctrl->irq = platform_get_irq(pdev, 0);
+	ctrl->irq = platform_get_irq_byname(pdev, "cpr");
 	if (ctrl->irq < 0) {
 		cpr3_err(ctrl, "missing CPR interrupt\n");
-		return -EINVAL;
+		return ctrl->irq;
+	}
+
+	if (ctrl->supports_hw_closed_loop) {
+		rc = msm_spm_probe_done();
+		if (rc) {
+			if (rc != -EPROBE_DEFER)
+				cpr3_err(ctrl, "spm unavailable, rc=%d\n", rc);
+			return rc;
+		}
+
+		ctrl->ceiling_irq = platform_get_irq_byname(pdev, "ceiling");
+		if (ctrl->ceiling_irq < 0) {
+			cpr3_err(ctrl, "missing ceiling interrupt\n");
+			return ctrl->ceiling_irq;
+		}
 	}
 
 	rc = cpr3_regulator_init_ctrl_data(ctrl);
@@ -2649,6 +2775,18 @@ int cpr3_regulator_register(struct platform_device *pdev,
 		goto free_regulators;
 	}
 
+	if (ctrl->supports_hw_closed_loop) {
+		rc = devm_request_threaded_irq(dev, ctrl->ceiling_irq, NULL,
+			cpr3_ceiling_irq_handler,
+			IRQF_ONESHOT | IRQF_TRIGGER_RISING,
+			"cpr3_ceiling", ctrl);
+		if (rc) {
+			cpr3_err(ctrl, "could not request ceiling IRQ %d, rc=%d\n",
+				ctrl->ceiling_irq, rc);
+			goto free_regulators;
+		}
+	}
+
 	mutex_lock(&cpr3_controller_list_mutex);
 	cpr3_regulator_debugfs_ctrl_add(ctrl);
 	list_add(&ctrl->list, &cpr3_controller_list);
@@ -2682,8 +2820,10 @@ int cpr3_regulator_unregister(struct cpr3_controller *ctrl)
 	cpr3_ctrl_loop_disable(ctrl);
 	cpr3_closed_loop_disable(ctrl);
 
-	if (ctrl->use_hw_closed_loop)
+	if (ctrl->use_hw_closed_loop) {
 		regulator_disable(ctrl->vdd_limit_regulator);
+		msm_spm_avs_disable_irq(0, MSM_SPM_AVS_IRQ_MAX);
+	}
 
 	for (i = 0; i < ctrl->thread_count; i++)
 		regulator_unregister(ctrl->thread[i].rdev);

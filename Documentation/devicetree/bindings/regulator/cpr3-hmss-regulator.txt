@@ -37,6 +37,19 @@ HMSS specific properties:
 	Value type: <string>
 	Definition: should be "qcom,cpr3-msm8996-hmss-regulator"
 
+- interrupts
+	Usage:      required
+	Value type: <prop-encoded-array>
+	Definition: CPR interrupt specifier and a hardware closed-loop ceiling
+		    interrupt specifier.
+
+- interrupt-names
+	Usage:      required
+	Value type: <stringlist>
+	Definition: Interrupt names.  This list must match up 1-to-1 with the
+		    interrupts specified in the 'interrupts' property. "cpr"
+		    and "ceiling" must be specified.
+
 - qcom,apm-ctrl
 	Usage:      required on systems that need APM management
 	Value type: <phandle>
@@ -181,7 +194,8 @@ apcc_cpr: cpr3-ctrl@99e8000 {
 	reg-names = "cpr_ctrl", "fuse_base";
 	clocks = <&clock_gcc clk_gcc_hmss_rbcpr_clk>;
 	clock-names = "core_clk";
-	interrupts = <0 48 0>;
+	interrupts = <0 48 0>, <0 47 0>;
+	interrupt-names = "cpr", "ceiling";
 	qcom,cpr-ctrl-name = "apcc";
 
 	qcom,cpr-sensor-time = <1000>;
