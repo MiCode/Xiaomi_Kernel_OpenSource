@@ -2523,8 +2523,6 @@ void diag_ws_init()
 	driver->md_ws.ref_count = 0;
 	driver->md_ws.copy_count = 0;
 	spin_lock_init(&driver->md_ws.lock);
-
-	spin_lock_init(&driver->ws_lock);
 }
 
 static void diag_stats_init(void)
@@ -2687,12 +2685,8 @@ void diag_ws_reset(int type)
 
 void diag_ws_release()
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&driver->ws_lock, flags);
 	if (driver->dci_ws.ref_count == 0 && driver->md_ws.ref_count == 0)
 		pm_relax(driver->diag_dev);
-	spin_unlock_irqrestore(&driver->ws_lock, flags);
 }
 
 #ifdef DIAG_DEBUG
