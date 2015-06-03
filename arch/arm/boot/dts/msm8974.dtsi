@@ -47,24 +47,88 @@
 			device_type = "cpu";
 			compatible = "qcom,krait";
 			reg = <0x0>;
+			// The currents(uA) correspond to the frequencies in the
+			// frequency table.
+			current = < 57900 //300000 kHz
+			            88200 //422400 kHz
+			            99600 //652800 kHz
+			            138800 //729600 kHz
+			            149600 //883200 kHz
+			            170200 //960000 kHz
+			            178300 //1036800 kHz
+			            189100 //1190400 kHz
+			            232100 //1267200 kHz
+			            256500 //1497600 kHz
+			            266400 //1574000 kHz
+			            287700 //1728000 kHz
+			            325700 //1958400 kHz
+			            386200>; //2265600 kHz
 		};
 
 		CPU1: cpu@1 {
 			device_type = "cpu";
 			compatible = "qcom,krait";
 			reg = <0x1>;
+			// The currents(uA) correspond to the frequencies in the
+			// frequency table.
+			current = < 23739 //300000 kHz
+			            36162 //422400 kHz
+			            40836 //652800 kHz
+			            56908 //729600 kHz
+			            61335 //883200 kHz
+			            69782 //960000 kHz
+			            73103 //1036800 kHz
+			            77531 //1190400 kHz
+			            95161 //1267200 kHz
+			            105165 //1497600 kHz
+			            109224 //1574000 kHz
+			            117957 //1728000 kHz
+			            133537 //1958400 kHz
+			            158342>; //2265600 kHz
 		};
 
 		CPU2: cpu@2 {
 			device_type = "cpu";
 			compatible = "qcom,krait";
 			reg = <0x2>;
+			// The currents(uA) correspond to the frequencies in the
+			// frequency table.
+			current = < 27213 //300000 kHz
+			            41454 //422400 kHz
+			            46812 //652800 kHz
+			            65235 //729600 kHz
+			            70312 //883200 kHz
+			            79994 //960000 kHz
+			            83801 //1036800 kHz
+			            88877 //1190400 kHz
+			            109087 //1267200 kHz
+			            120555 //1497600 kHz
+			            125208 //1574000 kHz
+			            135219 //1728000 kHz
+			            153079 //1958400 kHz
+			            181514>; //2265600 kHz
 		};
 
 		CPU3: cpu@3 {
 			device_type = "cpu";
 			compatible = "qcom,krait";
 			reg = <0x3>;
+			// The currents(uA) correspond to the frequencies in the
+			// frequency table.
+			current = < 31266 //300000 kHz
+			            47628 //422400 kHz
+			            53784 //652800 kHz
+			            74952 //729600 kHz
+			            80784 //883200 kHz
+			            91908 //960000 kHz
+			            96282 //1036800 kHz
+			            102114 //1190400 kHz
+			            125334 //1267200 kHz
+			            138510 //1497600 kHz
+			            143856 //1574000 kHz
+			            155358 //1728000 kHz
+			            175878 //1958400 kHz
+			            208548>; //2265600 kHz
 		};
 	};
 
