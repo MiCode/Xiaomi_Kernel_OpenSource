@@ -33,139 +33,6 @@ enum msm_vpe_frame_type {
 	MSM_VPE_REALTIME_FRAME,
 };
 
-struct msm_cpp_frame_strip_info {
-	uint32_t scale_v_en;
-	uint32_t scale_h_en;
-
-	uint32_t upscale_v_en;
-	uint32_t upscale_h_en;
-
-	int32_t src_start_x;
-	uint32_t src_end_x;
-	int32_t src_start_y;
-	uint32_t src_end_y;
-
-	/* extra 5th and 6th layer parameters */
-	int32_t extra_src_start_x;
-	uint32_t extra_src_end_x;
-	int32_t extra_src_start_y;
-	uint32_t extra_src_end_y;
-
-	int32_t extra_initial_vertical_count[2];
-	int32_t extra_initial_horizontal_count[2];
-
-	/* crop downscale 32x pixels */
-	int32_t extra_left_crop;
-	int32_t extra_top_crop;
-
-	int32_t extra_pad_bottom;
-	int32_t extra_pad_top;
-	int32_t extra_pad_right;
-	int32_t extra_pad_left;
-
-	int32_t extra_upscale_width;
-	int32_t extra_upscale_height;
-
-	uint32_t temporal_pad_bottom;
-	uint32_t temporal_pad_top;
-	uint32_t temporal_pad_right;
-	uint32_t temporal_pad_left;
-
-	int32_t temporal_src_start_x;
-	uint32_t temporal_src_end_x;
-	int32_t temporal_src_start_y;
-	uint32_t temporal_src_end_y;
-
-	/* Padding is required for upscaler because it does not
-	 * pad internally like other blocks, also needed for rotation
-	 * rotation expects all the blocks in the stripe to be the same size
-	 * Padding is done such that all the extra padded pixels
-	 * are on the right and bottom
-	 */
-	uint32_t pad_bottom;
-	uint32_t pad_top;
-	uint32_t pad_right;
-	uint32_t pad_left;
-
-	uint32_t v_init_phase;
-	uint32_t h_init_phase;
-	uint32_t h_phase_step;
-	uint32_t v_phase_step;
-
-	uint32_t spatial_denoise_crop_width_first_pixel;
-	uint32_t spatial_denoise_crop_width_last_pixel;
-	uint32_t spatial_denoise_crop_height_first_line;
-	uint32_t spatial_denoise_crop_height_last_line;
-
-	uint32_t sharpen_crop_height_first_line;
-	uint32_t sharpen_crop_height_last_line;
-	uint32_t sharpen_crop_width_first_pixel;
-	uint32_t sharpen_crop_width_last_pixel;
-
-	uint32_t temporal_denoise_crop_width_first_pixel;
-	uint32_t temporal_denoise_crop_width_last_pixel;
-	uint32_t temporal_denoise_crop_height_first_line;
-	uint32_t temporal_denoise_crop_height_last_line;
-
-	uint32_t prescaler_spatial_denoise_crop_width_first_pixel;
-	uint32_t prescaler_spatial_denoise_crop_width_last_pixel;
-	uint32_t prescaler_spatial_denoise_crop_height_first_line;
-	uint32_t prescaler_spatial_denoise_crop_height_last_line;
-
-	uint32_t state_crop_width_first_pixel;
-	uint32_t state_crop_width_last_pixel;
-	uint32_t state_crop_height_first_line;
-	uint32_t state_crop_height_last_line;
-
-	int32_t dst_start_x;
-	uint32_t dst_end_x;
-	int32_t dst_start_y;
-	uint32_t dst_end_y;
-
-	int32_t temporal_dst_start_x;
-	uint32_t temporal_dst_end_x;
-	int32_t temporal_dst_start_y;
-	uint32_t temporal_dst_end_y;
-
-	uint32_t input_bytes_per_pixel;
-	uint32_t output_bytes_per_pixel;
-	uint32_t temporal_bytes_per_pixel;
-
-	uint32_t source_address[2];
-	uint32_t extra_source_address[2];
-	uint32_t destination_address[2];
-	/* source_address[1] is used for CbCR planar
-	 * to CbCr interleaved conversion
-	 */
-	uint32_t temporal_source_address[2];
-	/* destination_address[1] is used for CbCr interleved
-	 * to CbCr planar conversion
-	 */
-	uint32_t temporal_destination_address[2];
-	uint32_t src_stride;
-	uint32_t dst_stride;
-	uint32_t rotate_270;
-	uint32_t horizontal_flip;
-	uint32_t vertical_flip;
-	uint32_t scale_output_width;
-	uint32_t scale_output_height;
-	uint32_t spatial_denoise_crop_en;
-	uint32_t sharpen_crop_en;
-	uint32_t temporal_denoise_crop_en;
-	uint32_t prescaler_spatial_denoise_crop_en;
-	uint32_t state_crop_en;
-
-	int32_t we_h_init;
-	int32_t we_v_init;
-	int32_t we_h_step;
-	int32_t we_v_step;
-
-	int32_t temporal_we_h_init;
-	int32_t temporal_we_v_init;
-	int32_t temporal_we_h_step;
-	int32_t temporal_we_v_step;
-};
-
 struct msm_cpp_buffer_info_t {
 	int32_t fd;
 	uint32_t index;
@@ -203,7 +70,6 @@ struct msm_cpp_frame_info_t {
 	uint32_t client_id;
 	enum msm_cpp_frame_type frame_type;
 	uint32_t num_strips;
-	struct msm_cpp_frame_strip_info __user *strip_info;
 	uint32_t msg_len;
 	uint32_t *cpp_cmd_msg;
 	int src_fd;
@@ -399,7 +265,6 @@ struct msm_cpp_frame_info32_t {
 	uint32_t client_id;
 	enum msm_cpp_frame_type frame_type;
 	uint32_t num_strips;
-	compat_caddr_t strip_info;
 	uint32_t msg_len;
 	compat_uint_t cpp_cmd_msg;
 	int src_fd;
