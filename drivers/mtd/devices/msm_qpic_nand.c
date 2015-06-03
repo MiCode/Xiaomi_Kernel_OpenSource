@@ -1618,6 +1618,7 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 	struct sps_iovec *iovec;
 	struct sps_iovec iovec_temp;
 	bool erased_page;
+	uint64_t fix_data_in_pages = 0;
 
 	/*
 	 * The following 6 commands will be sent only once for the first
@@ -1839,6 +1840,20 @@ static int msm_nand_read_oob(struct mtd_info *mtd, loff_t from,
 				}
 			}
 		}
+
+		if (rawerr && !pageerr && erased_page) {
+			/*
+			 * This means an erased page had bit flips and now
+			 * those bit-flips need to be cleared in the data
+			 * being sent to upper layers. This will keep track
+			 * of those pages and at the end, the data will be
+			 * fixed before this function returns.
+			 * Note that a whole page worth of data will be fixed
+			 * and this will only handle about 64 pages being read
+			 * at a time i.e. one erase block worth of pages.
+			 */
+			fix_data_in_pages |= BIT(rw_params.page_count);
+		}
 		/* check for correctable errors */
 		if (!rawerr) {
 			for (n = rw_params.start_sector; n < cwperpage; n++) {
@@ -1898,6 +1913,30 @@ free_dma:
 	if (ops->datbuf)
 		dma_unmap_page(chip->dev, rw_params.data_dma_addr,
 				 ops->len, DMA_BIDIRECTIONAL);
+	/*
+	 * If there were any erased pages detected with ECC errors, then
+	 * it is most likely that the data is not all 0xff. So memset that
+	 * page to all 0xff.
+	 */
+	while (fix_data_in_pages) {
+		int temp_page = 0, oobsize = rw_params.cwperpage << 2;
+		int count = 0, offset = 0;
+
+		temp_page = fix_data_in_pages & BIT_MASK(0);
+		fix_data_in_pages = fix_data_in_pages >> 1;
+		count++;
+
+		if (!temp_page)
+			continue;
+
+		offset = (count - 1) * mtd->writesize;
+		if (ops->datbuf)
+			memset((ops->datbuf + offset), 0xff, mtd->writesize);
+
+		offset = (count - 1) * oobsize;
+		if (ops->oobbuf)
+			memset(ops->oobbuf + offset, 0xff, oobsize);
+	}
 validate_mtd_params_failed:
 	if (ops->mode != MTD_OPS_RAW)
 		ops->retlen = mtd->writesize * pages_read;
