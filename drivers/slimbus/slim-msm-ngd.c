@@ -576,15 +576,15 @@ static int ngd_xfer_msg(struct slim_controller *ctrl, struct slim_msg_txn *txn)
 							i, *(pbuf + i));
 			if (idx < MSM_TX_BUFS)
 				dev->wr_comp[idx] = NULL;
-			/* print BAM debug info for TX pipe */
-			sps_get_bam_debug_info(dev->bam.hdl, 93,
-						SPS_BAM_PIPE(4), 0, 2);
 			/*
 			 * disconnect/recoonect pipe so that subsequent
 			 * transactions don't timeout due to unavailable
 			 * descriptors
 			 */
 			if (dev->state != MSM_CTRL_DOWN) {
+				/* print BAM debug info for TX pipe */
+				sps_get_bam_debug_info(dev->bam.hdl, 93,
+							SPS_BAM_PIPE(4), 0, 2);
 				msm_slim_disconnect_endp(dev, &dev->tx_msgq,
 							&dev->use_tx_msgqs);
 				msm_slim_connect_endp(dev, &dev->tx_msgq);

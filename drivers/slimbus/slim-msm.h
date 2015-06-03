@@ -405,6 +405,10 @@ int msm_slim_connect_endp(struct msm_slim_ctrl *dev,
 void msm_slim_disconnect_endp(struct msm_slim_ctrl *dev,
 					struct msm_slim_endp *endpoint,
 					enum msm_slim_msgq *msgq_flag);
+void msm_slim_deinit_ep(struct msm_slim_ctrl *dev,
+				struct msm_slim_endp *endpoint,
+				enum msm_slim_msgq *msgq_flag);
+
 void msm_slim_qmi_exit(struct msm_slim_ctrl *dev);
 int msm_slim_qmi_init(struct msm_slim_ctrl *dev, bool apps_is_master);
 int msm_slim_qmi_power_request(struct msm_slim_ctrl *dev, bool active);
