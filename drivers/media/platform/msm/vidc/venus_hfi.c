@@ -2715,6 +2715,9 @@ static int venus_hfi_send_session_cmd(void *session_id,
 
 	rc = call_hfi_pkt_op(device, session_cmd,
 			&pkt, pkt_type, session);
+	if (rc == -EPERM)
+		return 0;
+
 	if (rc) {
 		dprintk(VIDC_ERR, "send session cmd: create pkt failed\n");
 		goto err_create_pkt;
@@ -2835,6 +2838,12 @@ static int venus_hfi_session_start(void *sess)
 {
 	return venus_hfi_send_session_cmd(sess,
 		HFI_CMD_SESSION_START);
+}
+
+static inline int venus_hfi_session_continue(void *sess)
+{
+	return venus_hfi_send_session_cmd(sess,
+		HFI_CMD_SESSION_CONTINUE);
 }
 
 static int venus_hfi_session_stop(void *sess)
@@ -4410,6 +4419,7 @@ static void venus_init_hfi_callbacks(struct hfi_device *hdev)
 	hdev->session_load_res = venus_hfi_session_load_res;
 	hdev->session_release_res = venus_hfi_session_release_res;
 	hdev->session_start = venus_hfi_session_start;
+	hdev->session_continue = venus_hfi_session_continue;
 	hdev->session_stop = venus_hfi_session_stop;
 	hdev->session_etb = venus_hfi_session_etb;
 	hdev->session_ftb = venus_hfi_session_ftb;
