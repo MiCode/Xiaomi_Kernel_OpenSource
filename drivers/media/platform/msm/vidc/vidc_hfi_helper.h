@@ -742,6 +742,10 @@ struct hfi_vpe_color_space_conversion {
 	u32 csc_limit[HFI_MAX_LIMIT_COEFFS];
 };
 
+struct hfi_scs_threshold {
+	u32 threshold_value;
+};
+
 #define HFI_ROTATE_NONE					(HFI_COMMON_BASE + 0x1)
 #define HFI_ROTATE_90					(HFI_COMMON_BASE + 0x2)
 #define HFI_ROTATE_180					(HFI_COMMON_BASE + 0x3)

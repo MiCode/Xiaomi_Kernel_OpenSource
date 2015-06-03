@@ -1867,7 +1867,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	struct hal_ltr_mark mark_ltr;
 	struct hal_hybrid_hierp hyb_hierp;
 	u32 hier_p_layers = 0, hier_b_layers = 0, mbi_statistics_mode = 0;
-	struct hal_venc_perf_mode venc_mode;
+	enum hal_perf_mode venc_mode;
 
 	if (!inst || !inst->core || !inst->core->device) {
 		dprintk(VIDC_ERR, "%s invalid parameters\n", __func__);
@@ -1905,8 +1905,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			break;
 		}
 
-		property_id =
-			HAL_CONFIG_VENC_IDR_PERIOD;
+		property_id = HAL_CONFIG_VENC_IDR_PERIOD;
 		idr_period.idr_period = ctrl->val;
 		pdata = &idr_period;
 		break;
@@ -1947,8 +1946,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_MPEG_VIDC_VIDEO_REQUEST_IFRAME:
-		property_id =
-			HAL_CONFIG_VENC_REQUEST_IFRAME;
+		property_id = HAL_CONFIG_VENC_REQUEST_IFRAME;
 		request_iframe.enable = true;
 		pdata = &request_iframe;
 		break;
@@ -2054,8 +2052,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		temp_ctrl = TRY_GET_CTRL(
 			V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL);
 
-		property_id =
-			HAL_PARAM_VENC_H264_ENTROPY_CONTROL;
+		property_id = HAL_PARAM_VENC_H264_ENTROPY_CONTROL;
 		h264_entropy_control.entropy_mode = venc_v4l2_to_hal(
 			V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE, ctrl->val);
 		h264_entropy_control.cabac_model = venc_v4l2_to_hal(
@@ -2066,8 +2063,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_H264_CABAC_MODEL:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE);
 
-		property_id =
-			HAL_PARAM_VENC_H264_ENTROPY_CONTROL;
+		property_id = HAL_PARAM_VENC_H264_ENTROPY_CONTROL;
 		h264_entropy_control.cabac_model = venc_v4l2_to_hal(
 			V4L2_CID_MPEG_VIDEO_H264_ENTROPY_MODE, ctrl->val);
 		h264_entropy_control.entropy_mode = venc_v4l2_to_hal(
@@ -2078,9 +2074,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL);
 
-		property_id =
-			HAL_PARAM_PROFILE_LEVEL_CURRENT;
-		profile_level.profile =  venc_v4l2_to_hal(ctrl->id,
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		profile_level.profile = venc_v4l2_to_hal(ctrl->id,
 						ctrl->val);
 		profile_level.level = venc_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL,
@@ -2090,8 +2085,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MPEG4_LEVEL:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MPEG4_PROFILE);
 
-		property_id =
-			HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.level = venc_v4l2_to_hal(ctrl->id,
 							ctrl->val);
 		profile_level.profile = venc_v4l2_to_hal(
@@ -2102,8 +2096,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_LEVEL);
 
-		property_id =
-			HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.profile = venc_v4l2_to_hal(ctrl->id,
 							ctrl->val);
 		profile_level.level = venc_v4l2_to_hal(
@@ -2116,8 +2109,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_PROFILE);
 
-		property_id =
-			HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.level = venc_v4l2_to_hal(ctrl->id,
 							ctrl->val);
 		profile_level.profile = venc_v4l2_to_hal(
@@ -2130,8 +2122,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL);
 
-		property_id =
-			HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.profile = venc_v4l2_to_hal(ctrl->id,
 							ctrl->val);
 		profile_level.level = venc_v4l2_to_hal(
@@ -2142,8 +2133,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDC_VIDEO_H263_LEVEL:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_H263_PROFILE);
 
-		property_id =
-			HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.level = venc_v4l2_to_hal(ctrl->id,
 							ctrl->val);
 		profile_level.profile = venc_v4l2_to_hal(
@@ -2152,8 +2142,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		pdata = &profile_level;
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL:
-		property_id =
-			HAL_PARAM_PROFILE_LEVEL_CURRENT;
+		property_id = HAL_PARAM_PROFILE_LEVEL_CURRENT;
 		profile_level.profile = venc_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_VP8_PROFILE_LEVEL,
 				ctrl->val);
@@ -2202,8 +2191,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 			rc = -EINVAL;
 			break;
 		}
-		property_id =
-			HAL_CONFIG_VPE_OPERATIONS;
+		property_id = HAL_CONFIG_VPE_OPERATIONS;
 		operations.rotate = venc_v4l2_to_hal(
 				V4L2_CID_MPEG_VIDC_VIDEO_ROTATION,
 				ctrl->val);
@@ -2217,8 +2205,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		qpp = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP);
 		qpb = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP);
 
-		property_id =
-			HAL_PARAM_VENC_SESSION_QP;
+		property_id = HAL_PARAM_VENC_SESSION_QP;
 		quantization.qpi = ctrl->val;
 		quantization.qpp = qpp->val;
 		quantization.qpb = qpb->val;
@@ -2233,8 +2220,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		qpi = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP);
 		qpb = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP);
 
-		property_id =
-			HAL_PARAM_VENC_SESSION_QP;
+		property_id = HAL_PARAM_VENC_SESSION_QP;
 		quantization.qpp = ctrl->val;
 		quantization.qpi = qpi->val;
 		quantization.qpb = qpb->val;
@@ -2249,8 +2235,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		qpi = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP);
 		qpp = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP);
 
-		property_id =
-			HAL_PARAM_VENC_SESSION_QP;
+		property_id = HAL_PARAM_VENC_SESSION_QP;
 		quantization.qpb = ctrl->val;
 		quantization.qpi = qpi->val;
 		quantization.qpp = qpp->val;
@@ -2341,8 +2326,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		if (temp)
 			temp_ctrl = TRY_GET_CTRL(temp);
 
-		property_id =
-			HAL_PARAM_VENC_MULTI_SLICE_CONTROL;
+		property_id = HAL_PARAM_VENC_MULTI_SLICE_CONTROL;
 		multi_slice_control.multi_slice = ctrl->val;
 		multi_slice_control.slice_size = temp ? temp_ctrl->val : 0;
 
@@ -2354,8 +2338,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_MULTI_SLICE_GOB:
 		temp_ctrl = TRY_GET_CTRL(V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE);
 
-		property_id =
-			HAL_PARAM_VENC_MULTI_SLICE_CONTROL;
+		property_id = HAL_PARAM_VENC_MULTI_SLICE_CONTROL;
 		multi_slice_control.multi_slice = temp_ctrl->val;
 		multi_slice_control.slice_size = ctrl->val;
 		pdata = &multi_slice_control;
@@ -2386,8 +2369,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		air_ref = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_AIR_REF);
 		cir_mbs = TRY_GET_CTRL(V4L2_CID_MPEG_VIDC_VIDEO_CIR_MBS);
 
-		property_id =
-			HAL_PARAM_VENC_INTRA_REFRESH;
+		property_id = HAL_PARAM_VENC_INTRA_REFRESH;
 
 		intra_refresh.mode = ctrl->val;
 		intra_refresh.air_mbs = air_mbs->val;
@@ -2519,8 +2501,7 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	}
 	case V4L2_CID_MPEG_VIDEO_HEADER_MODE:
-		property_id =
-			HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
+		property_id = HAL_PARAM_VENC_SYNC_FRAME_SEQUENCE_HEADER;
 
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDEO_HEADER_MODE_SEPARATE:
@@ -2708,10 +2689,10 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE:
 		property_id = HAL_CONFIG_VENC_PERF_MODE;
-		venc_mode.mode = ctrl->val;
+		venc_mode = ctrl->val;
 		pdata = &venc_mode;
 		msm_dcvs_enc_set_power_save_mode(inst,
-			venc_mode.mode == V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE);
+			ctrl->val == V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE);
 		break;
 	case V4L2_CID_MPEG_VIDC_VIDEO_HIER_B_NUM_LAYERS:
 		if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_HEVC) {

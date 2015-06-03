@@ -1056,15 +1056,16 @@ struct hal_ltr_mark {
 	u32 mark_frame;
 };
 
-struct hal_venc_perf_mode {
-	u32 mode;
+enum hal_perf_mode {
+	HAL_PERF_MODE_POWER_SAVE,
+	HAL_PERF_MODE_POWER_MAX_QUALITY,
 };
 
 struct hal_hybrid_hierp {
 	u32 layers;
 };
 
-struct hfi_scs_threshold {
+struct hal_scs_threshold {
 	u32 threshold_value;
 };
 
