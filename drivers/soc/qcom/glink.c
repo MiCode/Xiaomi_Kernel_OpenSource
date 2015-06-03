@@ -28,7 +28,7 @@
 #include "glink_xprt_if.h"
 
 /* Number of internal IPC Logging log pages */
-#define NUM_LOG_PAGES	3
+#define NUM_LOG_PAGES	15
 #define GLINK_PM_QOS_HOLDOFF_MS		10
 
 /**
