@@ -108,6 +108,7 @@ static int power_on_l2_msm8976(struct device_node *l2ccc_node, u32 pon_mask,
 	void __iomem *l2_base;
 	int ret = 0;
 	struct device_node *vctl_node;
+	uint32_t val;
 
 	vctl_node = of_parse_phandle(l2ccc_node, "qcom,vctl-node", 0);
 	if (!vctl_node)
@@ -125,6 +126,21 @@ static int power_on_l2_msm8976(struct device_node *l2ccc_node, u32 pon_mask,
 		ret = kick_l2spm(l2ccc_node, vctl_node);
 		iounmap(l2_base);
 		return ret;
+	}
+
+	/* Need to power on the rail */
+	ret = of_property_read_u32(l2ccc_node, "qcom,vctl-val", &val);
+	if (ret) {
+		iounmap(l2_base);
+		pr_err("Unable to read L2 voltage\n");
+		return -EFAULT;
+	}
+
+	ret = msm_spm_turn_on_cpu_rail(vctl_node, val, cpu, L2_VREG_CTL);
+	if (ret) {
+		iounmap(l2_base);
+		pr_err("Error turning on power rail.\n");
+		return -EFAULT;
 	}
 
 	/* Close Few of the head-switches for L2SCU logic */
