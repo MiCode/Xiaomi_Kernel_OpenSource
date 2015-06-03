@@ -2763,28 +2763,24 @@
 		qcom,temperature-sensor = <&sensor_information4>;
 		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
-		qcom,emergency-frequency-mitigate;
 	};
 
 	mitigation_profile1: qcom,limit_info-1 {
 		qcom,temperature-sensor = <&sensor_information6>;
 		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
-		qcom,emergency-frequency-mitigate;
 	};
 
 	mitigation_profile2: qcom,limit_info-2 {
 		qcom,temperature-sensor = <&sensor_information9>;
 		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
-		qcom,emergency-frequency-mitigate;
 	};
 
 	mitigation_profile3: qcom,limit_info-3 {
 		qcom,temperature-sensor = <&sensor_information11>;
 		qcom,boot-frequency-mitigate;
 		qcom,hotplug-mitigation-enable;
-		qcom,emergency-frequency-mitigate;
 	};
 
 	qcom,msm-thermal {
