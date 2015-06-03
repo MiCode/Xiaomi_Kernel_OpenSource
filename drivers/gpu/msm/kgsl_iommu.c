@@ -1195,8 +1195,6 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 	/* Set up the protection for the page(s) */
 	if (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY)
 		flags &= ~IOMMU_WRITE;
-	if (memdesc->flags & KGSL_MEMFLAGS_GPUWRITEONLY)
-		flags &= ~IOMMU_READ;
 
 	if (memdesc->priv & KGSL_MEMDESC_PRIVILEGED)
 		flags |= IOMMU_PRIV;

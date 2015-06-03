@@ -2337,8 +2337,7 @@ long kgsl_ioctl_gpuobj_import(struct kgsl_device_private *dev_priv,
 			| KGSL_MEMTYPE_MASK
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
-			| KGSL_MEMFLAGS_SECURE
-			| KGSL_MEMFLAGS_GPUWRITEONLY;
+			| KGSL_MEMFLAGS_SECURE;
 
 	entry->memdesc.flags = param->flags;
 
@@ -2571,7 +2570,6 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	 * determined by type of allocation being mapped.
 	 */
 	param->flags &= KGSL_MEMFLAGS_GPUREADONLY
-			| KGSL_MEMFLAGS_GPUWRITEONLY
 			| KGSL_MEMTYPE_MASK
 			| KGSL_MEMALIGN_MASK
 			| KGSL_MEMFLAGS_USE_CPU_MAP
@@ -2984,7 +2982,6 @@ static struct kgsl_mem_entry *gpumem_alloc_entry(
 	unsigned int align;
 
 	flags &= KGSL_MEMFLAGS_GPUREADONLY
-		| KGSL_MEMFLAGS_GPUWRITEONLY
 		| KGSL_CACHEMODE_MASK
 		| KGSL_MEMTYPE_MASK
 		| KGSL_MEMALIGN_MASK
