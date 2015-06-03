@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -9,6 +9,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+
+#include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 &rpm_bus {
 	rpm-regulator-smpa1 {
@@ -54,31 +56,37 @@
 	/* PMD9635 S5 = VDD_CX supply */
 	rpm-regulator-smpa5 {
 		status = "okay";
-		pmd9635_s5_corner: regulator-s5-corner {
+		pmd9635_s5_level: regulator-s5-level {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "9635_s5_corner";
+			regulator-name = "9635_s5_level";
 			qcom,set = <3>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
 		};
 
-		pmd9635_s5_corner_ao: regulator-s5-corner-ao {
+		pmd9635_s5_level_ao: regulator-s5-level-ao {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "9635_s5_corner_ao";
+			regulator-name = "9635_s5_level_ao";
 			qcom,set = <1>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
 		};
 
-		pmd9635_s5_floor_corner: regulator-s5-floor-corner {
+		pmd9635_s5_floor_level: regulator-s5-floor-level {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "9635_s5_floor_corner";
+			regulator-name = "9635_s5_floor_level";
 			qcom,set = <3>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-floor-corner;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-floor-level;
 		};
 	};
 
@@ -165,13 +173,15 @@
 	/* PMD9635 L9 = VDD_MX supply */
 	rpm-regulator-ldoa9 {
 		status = "okay";
-		pmd9635_l9_corner: regulator-l9-corner {
+		pmd9635_l9_level: regulator-l9-level {
 			compatible = "qcom,rpm-smd-regulator";
-			regulator-name = "9635_l9_corner";
+			regulator-name = "9635_l9_level";
 			qcom,set = <3>;
-			regulator-min-microvolt = <1>;
-			regulator-max-microvolt = <7>;
-			qcom,use-voltage-corner;
+			regulator-min-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_RETENTION>;
+			regulator-max-microvolt =
+					<RPM_SMD_REGULATOR_LEVEL_TURBO>;
+			qcom,use-voltage-level;
 		};
 	};
 
