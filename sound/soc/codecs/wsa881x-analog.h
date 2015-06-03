@@ -31,5 +31,7 @@ extern const u8 wsa881x_ana_reg_readable[WSA881X_CACHE_SIZE];
 extern const struct reg_default wsa881x_ana_reg_defaults[WSA881X_CACHE_SIZE];
 extern struct regmap_config wsa881x_ana_regmap_config[2];
 int wsa881x_get_client_index(void);
+int wsa881x_get_probing_count(void);
+int wsa881x_get_presence_count(void);
 
 #endif /* _WSA881X_H */
