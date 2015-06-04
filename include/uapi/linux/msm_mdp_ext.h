@@ -202,6 +202,9 @@ struct mdp_input_layer {
 	/* blend operation defined in "mdss_mdp_blend_op" enum. */
 	enum mdss_mdp_blend_op		blend_op;
 
+	/* color space of the source */
+	enum mdp_color_space	color_space;
+
 	/*
 	 * Source crop rectangle, portion of image that will be fetched. This
 	 * should always be within boundaries of source image.
