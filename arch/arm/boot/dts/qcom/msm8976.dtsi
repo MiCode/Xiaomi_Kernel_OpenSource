@@ -21,6 +21,10 @@
 	qcom,msm-id = <278 0x0>;
 	interrupt-parent = <&intc>;
 
+	chosen {
+		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
+	};
+
 	aliases {
 		/* smdtty devices */
 		smd1 = &smdtty_apps_fm;
@@ -141,6 +145,7 @@
 			compatible = "arm,armv8";
 			reg = <0x0>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1024>;
 			qcom,acc = <&acc0>;
 			next-level-cache = <&L2_0>;
 			L2_0: l2-cache {
@@ -155,6 +160,7 @@
 			compatible = "arm,armv8";
 			reg = <0x1>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1024>;
 			qcom,acc = <&acc1>;
 			next-level-cache = <&L2_0>;
 		};
@@ -164,6 +170,7 @@
 			compatible = "arm,armv8";
 			reg = <0x2>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1024>;
 			qcom,acc = <&acc2>;
 			next-level-cache = <&L2_0>;
 		};
@@ -173,6 +180,7 @@
 			compatible = "arm,armv8";
 			reg = <0x3>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1024>;
 			qcom,acc = <&acc3>;
 			next-level-cache = <&L2_0>;
 		};
@@ -182,6 +190,7 @@
 			compatible = "arm,armv8";
 			reg = <0x100>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1830>;
 			qcom,acc = <&acc4>;
 			qcom,ldo = <&ldo4>;
 			next-level-cache = <&L2_1>;
@@ -197,6 +206,7 @@
 			compatible = "arm,armv8";
 			reg = <0x101>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1830>;
 			qcom,acc = <&acc5>;
 			qcom,ldo = <&ldo5>;
 			next-level-cache = <&L2_1>;
@@ -207,6 +217,7 @@
 			compatible = "arm,armv8";
 			reg = <0x102>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1830>;
 			qcom,acc = <&acc6>;
 			qcom,ldo = <&ldo6>;
 			next-level-cache = <&L2_1>;
@@ -217,6 +228,7 @@
 			compatible = "arm,armv8";
 			reg = <0x103>;
 			enable-method = "qcom,8976-arm-cortex-acc";
+			efficiency = <1830>;
 			qcom,acc = <&acc7>;
 			qcom,ldo = <&ldo7>;
 			next-level-cache = <&L2_1>;
