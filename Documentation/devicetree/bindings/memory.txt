@@ -37,6 +37,7 @@ with the following convention:
 	(linux,reserve-contiguous-region);
 	(linux,default-contiguous-region);
 	(linux,reserve-region);
+	(linux,fixup-reserve-region);
 	(linux,memory-limit);
 	(linux,remove-completely);
         label = (unique_name);
@@ -54,6 +55,17 @@ linux,default-contiguous-region: property indicating that the region
 linux,reserve-region: property indicating that the contiguous memory will
 		not be given back to the system allocator. The memory be
 		always be available for contiguous use.
+linux,fixup-reserve-region: optional property that goes along with
+		"linux,reserve-region", which shrinks and fits the
+		corresponding cma region to the max pfn allocated on the very
+		first allocation attempt. One would like to use this property
+		where he is not sure about how much cma region size must be
+		reserved, so he gives it a max size which then is shrink once
+		(first) allocation is done. The remaining pages are returned
+		back to the system. Please note that this feature requires the
+		base and size to be SECTION_SIZE aligned which is 2 MB for both
+		aarch32 and aarch64. If the alignment need fails then we simply
+		fallback to linux,remove-completely. Linux specific (optional)
 linux,memory-limit: property specifying an upper bound on the physical address
 		of the region if the region is placed dynamically. If no limit
 		is specificed, the region may be placed anywhere in the physical
