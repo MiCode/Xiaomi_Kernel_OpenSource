@@ -28,6 +28,7 @@
 #include <linux/msm_bcl.h>
 #include <linux/power_supply.h>
 #include <linux/cpumask.h>
+#include <linux/msm_thermal.h>
 
 #define CREATE_TRACE_POINTS
 #define _BCL_SW_TRACE
@@ -45,6 +46,7 @@
 #define MIN_BCL_POLL_INTERVAL 10
 #define BATTERY_VOLTAGE_MIN 3400
 #define BTM_8084_FREQ_MITIG_LIMIT 1958400
+#define MAX_CPU_NAME 10
 
 #define BCL_FETCH_DT_U32(_dev, _key, _search_str, _ret, _out, _exit) do { \
 		_key = _search_str; \
@@ -182,6 +184,8 @@ struct bcl_context {
 	struct bcl_threshold vbat_low_thresh;
 	uint32_t bcl_p_freq_max;
 	struct workqueue_struct *bcl_hotplug_wq;
+	struct device_clnt_data *hotplug_handle;
+	struct device_clnt_data *cpufreq_handle[NR_CPUS];
 };
 
 enum bcl_threshold_state {
@@ -204,26 +208,14 @@ static uint32_t battery_soc_val = 100;
 static uint32_t soc_low_threshold;
 static struct power_supply bcl_psy;
 static const char bcl_psy_name[] = "bcl";
-static cpumask_var_t bcl_cpu_online_mask;
 
-static void bcl_update_online_mask(void)
+static void bcl_handle_hotplug(struct work_struct *work)
 {
-	get_online_cpus();
-	cpumask_copy(bcl_cpu_online_mask, cpu_online_mask);
-	put_online_cpus();
-	pr_debug("BCL online Mask tracked %u\n",
-				cpumask_weight(bcl_cpu_online_mask));
-}
-
-#ifdef CONFIG_SMP
-static void __ref bcl_handle_hotplug(struct work_struct *work)
-{
-	int ret = 0, _cpu = 0;
+	int ret = 0, cpu = 0;
+	union device_request curr_req;
 
 	trace_bcl_sw_mitigation_event("start hotplug mitigation");
 	mutex_lock(&bcl_hotplug_mutex);
-	if (cpumask_empty(bcl_cpu_online_mask))
-		bcl_update_online_mask();
 
 	if  (bcl_soc_state == BCL_LOW_THRESHOLD
 		|| bcl_vph_state == BCL_LOW_THRESHOLD)
@@ -233,124 +225,57 @@ static void __ref bcl_handle_hotplug(struct work_struct *work)
 	else
 		bcl_hotplug_request = 0;
 
-	for_each_possible_cpu(_cpu) {
-		if ((!(bcl_hotplug_mask & BIT(_cpu))
-			&& !(bcl_soc_hotplug_mask & BIT(_cpu)))
-			|| !(cpumask_test_cpu(_cpu, bcl_cpu_online_mask)))
+	cpumask_clear(&curr_req.offline_mask);
+	for_each_possible_cpu(cpu) {
+		if ((!(bcl_hotplug_mask & BIT(cpu))
+			&& !(bcl_soc_hotplug_mask & BIT(cpu))))
 			continue;
-
-		if (bcl_hotplug_request & BIT(_cpu)) {
-			if (!cpu_online(_cpu))
-				continue;
-			trace_bcl_sw_mitigation("Start hotplug CPU", _cpu);
-			ret = cpu_down(_cpu);
-			if (ret)
-				pr_err("Error %d offlining core %d\n",
-					ret, _cpu);
-			else
-				pr_info("Set Offline CPU:%d\n", _cpu);
-			trace_bcl_sw_mitigation("End hotplug CPU", _cpu);
-		} else {
-			if (cpu_online(_cpu))
-				continue;
-			trace_bcl_sw_mitigation("Start Online CPU", _cpu);
-			ret = cpu_up(_cpu);
-			if (ret)
-				pr_err("Error %d onlining core %d\n",
-					ret, _cpu);
-			else
-				pr_info("Allow Online CPU:%d\n", _cpu);
-			trace_bcl_sw_mitigation("End Online CPU", _cpu);
-		}
+		if (bcl_hotplug_request & BIT(cpu))
+			cpumask_set_cpu(cpu, &curr_req.offline_mask);
+	}
+	ret = devmgr_client_request_mitigation(
+		gbcl->hotplug_handle,
+		HOTPLUG_MITIGATION_REQ,
+		&curr_req);
+	if (ret) {
+		pr_err("hotplug request failed. err:%d\n", ret);
+		goto handle_hotplug_exit;
 	}
 
+handle_hotplug_exit:
 	mutex_unlock(&bcl_hotplug_mutex);
 	trace_bcl_sw_mitigation_event("stop hotplug mitigation");
 	return;
 }
-#else
-static void __ref bcl_handle_hotplug(struct work_struct *work)
-{
-	return;
-}
-#endif
-
-static int __ref bcl_cpu_ctrl_callback(struct notifier_block *nfb,
-	unsigned long action, void *hcpu)
-{
-	uint32_t cpu = (uintptr_t)hcpu;
-
-	if (action == CPU_UP_PREPARE || action == CPU_UP_PREPARE_FROZEN) {
-		if (!cpumask_test_and_set_cpu(cpu, bcl_cpu_online_mask))
-			pr_debug("BCL online Mask: %u\n",
-				cpumask_weight(bcl_cpu_online_mask));
-		if (bcl_hotplug_request & BIT(cpu)) {
-			pr_info("preventing CPU%d from coming online\n", cpu);
-			trace_bcl_sw_mitigation("Veto Online CPU", cpu);
-			return NOTIFY_BAD;
-		} else {
-			pr_debug("voting for CPU%d to be online\n", cpu);
-		}
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block __refdata bcl_cpu_notifier = {
-	.notifier_call = bcl_cpu_ctrl_callback,
-};
-
-static int bcl_cpufreq_callback(struct notifier_block *nfb,
-		unsigned long event, void *data)
-{
-	struct cpufreq_policy *policy = data;
-	uint32_t max_freq = UINT_MAX;
-
-	if (!(bcl_frequency_mask & BIT(policy->cpu)))
-		return NOTIFY_OK;
-
-	switch (event) {
-	case CPUFREQ_INCOMPATIBLE:
-		if (bcl_vph_state == BCL_LOW_THRESHOLD
-			|| bcl_ibat_state == BCL_HIGH_THRESHOLD
-			|| bcl_soc_state == BCL_LOW_THRESHOLD) {
-			max_freq = (gbcl->bcl_monitor_type
-				== BCL_IBAT_MONITOR_TYPE) ? gbcl->btm_freq_max
-				: gbcl->bcl_p_freq_max;
-		}
-		trace_bcl_sw_mitigation("Mitigation Frequency",	max_freq);
-		pr_debug("Requesting Max freq:%u for CPU%d\n",
-			max_freq, policy->cpu);
-		cpufreq_verify_within_limits(policy, 0,
-			max_freq);
-		break;
-	}
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block bcl_cpufreq_notifier = {
-	.notifier_call = bcl_cpufreq_callback,
-};
 
 static void update_cpu_freq(void)
 {
 	int cpu, ret = 0;
+	union device_request cpufreq_req;
 
-	trace_bcl_sw_mitigation_event("Start Frequency Mitigate");
-	get_online_cpus();
-	for_each_online_cpu(cpu) {
-		if (bcl_frequency_mask & BIT(cpu)) {
-			trace_bcl_sw_mitigation("Frequency Mitigate CPU", cpu);
-			ret = cpufreq_update_policy(cpu);
-			if (ret)
-				pr_err(
-				"Error updating policy for CPU%d. ret:%d\n",
-				cpu, ret);
-		}
+	cpufreq_req.freq.max_freq = UINT_MAX;
+	cpufreq_req.freq.min_freq = CPUFREQ_MIN_NO_MITIGATION;
+
+	if (bcl_vph_state == BCL_LOW_THRESHOLD
+		|| bcl_ibat_state == BCL_HIGH_THRESHOLD
+		|| battery_soc_val <= soc_low_threshold) {
+		cpufreq_req.freq.max_freq = (gbcl->bcl_monitor_type
+			== BCL_IBAT_MONITOR_TYPE) ? gbcl->btm_freq_max
+			: gbcl->bcl_p_freq_max;
 	}
-	put_online_cpus();
-	trace_bcl_sw_mitigation_event("End Frequency Mitigation");
+
+	for_each_possible_cpu(cpu) {
+		if (!(bcl_frequency_mask & BIT(cpu)))
+			continue;
+		pr_debug("Requesting Max freq:%u for CPU%d\n",
+			cpufreq_req.freq.max_freq, cpu);
+		ret = devmgr_client_request_mitigation(
+			gbcl->cpufreq_handle[cpu],
+			CPUFREQ_MITIGATION_REQ, &cpufreq_req);
+		if (ret)
+			pr_err("Error updating freq for CPU%d. ret:%d\n",
+				cpu, ret);
+	}
 }
 
 static void power_supply_callback(struct power_supply *psy)
@@ -947,12 +872,10 @@ mode_store(struct device *dev, struct device_attribute *attr,
 		return -EPERM;
 
 	if (!strcmp(buf, "enable")) {
-		bcl_update_online_mask();
 		bcl_mode_set(BCL_DEVICE_ENABLED);
 		pr_info("bcl enabled\n");
 	} else if (!strcmp(buf, "disable")) {
 		bcl_mode_set(BCL_DEVICE_DISABLED);
-		cpumask_clear(bcl_cpu_online_mask);
 		pr_info("bcl disabled\n");
 	} else {
 		return -EINVAL;
@@ -1571,10 +1494,6 @@ static int probe_bcl_periph_prop(struct bcl_context *bcl)
 	bcl->bcl_monitor_type = BCL_IBAT_PERIPH_MONITOR_TYPE;
 	snprintf(bcl->bcl_type, BCL_NAME_LENGTH, "%s",
 			bcl_type[BCL_IBAT_PERIPH_MONITOR_TYPE]);
-	ret = cpufreq_register_notifier(&bcl_cpufreq_notifier,
-			CPUFREQ_POLICY_NOTIFIER);
-	if (ret)
-		pr_err("Error with cpufreq register. err:%d\n", ret);
 
 ibat_probe_exit:
 	if (ret && ret != -EPROBE_DEFER)
@@ -1673,10 +1592,6 @@ static int probe_btm_properties(struct bcl_context *bcl)
 	bcl->bcl_monitor_type = BCL_IBAT_MONITOR_TYPE;
 	snprintf(bcl->bcl_type, BCL_NAME_LENGTH, "%s",
 			bcl_type[BCL_IBAT_MONITOR_TYPE]);
-	ret = cpufreq_register_notifier(&bcl_cpufreq_notifier,
-			CPUFREQ_POLICY_NOTIFIER);
-	if (ret)
-		pr_err("Error with cpufreq register. err:%d\n", ret);
 
 btm_probe_exit:
 	if (ret && ret != -EPROBE_DEFER)
@@ -1727,6 +1642,8 @@ static int bcl_probe(struct platform_device *pdev)
 	struct bcl_context *bcl = NULL;
 	int ret = 0;
 	enum bcl_device_mode bcl_mode = BCL_DEVICE_DISABLED;
+	char cpu_str[MAX_CPU_NAME];
+	int cpu;
 
 	bcl = devm_kzalloc(&pdev->dev, sizeof(struct bcl_context), GFP_KERNEL);
 	if (!bcl) {
@@ -1784,7 +1701,6 @@ static int bcl_probe(struct platform_device *pdev)
 		pr_err("Cannot create bcl sysfs\n");
 		return ret;
 	}
-	cpumask_clear(bcl_cpu_online_mask);
 	bcl_psy.name = bcl_psy_name;
 	bcl_psy.type = POWER_SUPPLY_TYPE_BMS;
 	bcl_psy.get_property     = bcl_battery_get_property;
@@ -1797,12 +1713,31 @@ static int bcl_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	/* Initialize mitigation KTM interface */
+	if (num_possible_cpus() > 1) {
+		bcl->hotplug_handle = devmgr_register_mitigation_client(
+					&pdev->dev, HOTPLUG_DEVICE, NULL);
+		if (IS_ERR(bcl->hotplug_handle)) {
+			ret = PTR_ERR(bcl->hotplug_handle);
+			pr_err("Error registering for hotplug. ret:%d\n", ret);
+			return ret;
+		}
+	}
+	for_each_possible_cpu(cpu) {
+		snprintf(cpu_str, MAX_CPU_NAME, "cpu%d", cpu);
+		bcl->cpufreq_handle[cpu] = devmgr_register_mitigation_client(
+					&pdev->dev, cpu_str, NULL);
+		if (IS_ERR(bcl->cpufreq_handle[cpu])) {
+			ret = PTR_ERR(bcl->cpufreq_handle[cpu]);
+			pr_err("Error registering for cpufreq. ret:%d\n", ret);
+			return ret;
+		}
+	}
+
 	gbcl = bcl;
 	platform_set_drvdata(pdev, bcl);
 	INIT_DEFERRABLE_WORK(&bcl->bcl_iavail_work, bcl_iavail_work);
 	INIT_WORK(&bcl_hotplug_work, bcl_handle_hotplug);
-	if (bcl_hotplug_enabled)
-		register_cpu_notifier(&bcl_cpu_notifier);
 	if (bcl_mode == BCL_DEVICE_ENABLED)
 		bcl_mode_set(bcl_mode);
 
@@ -1811,6 +1746,17 @@ static int bcl_probe(struct platform_device *pdev)
 
 static int bcl_remove(struct platform_device *pdev)
 {
+	int cpu;
+
+	/* De-register KTM handle */
+	if (gbcl->hotplug_handle)
+		devmgr_unregister_mitigation_client(&pdev->dev,
+			gbcl->hotplug_handle);
+	for_each_possible_cpu(cpu) {
+		if (gbcl->cpufreq_handle[cpu])
+			devmgr_unregister_mitigation_client(&pdev->dev,
+			gbcl->cpufreq_handle[cpu]);
+	}
 	remove_bcl_sysfs(gbcl);
 	if (gbcl->bcl_hotplug_wq)
 		destroy_workqueue(gbcl->bcl_hotplug_wq);
