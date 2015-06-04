@@ -131,7 +131,7 @@ static inline int _create_ib_ref(struct adreno_device *adreno_dev,
 {
 	unsigned int *start = cmd;
 
-	*cmd++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFD, 2, 1);
+	*cmd++ = cp_mem_packet(adreno_dev, CP_INDIRECT_BUFFER_PFE, 2, 1);
 	cmd += cp_gpuaddr(adreno_dev, cmd, (memdesc->gpuaddr + off));
 	*cmd++ = cnt;
 
