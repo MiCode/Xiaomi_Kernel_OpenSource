@@ -20,6 +20,10 @@
 #include <linux/sched.h>
 #include <linux/usb/g_hid.h>
 
+#undef ERROR
+#define ERROR(d, fmt, args...) \
+	dev_err(&(d)->gadget->dev, fmt, ## args)
+
 static int major, minors;
 static struct class *hidg_class;
 
@@ -122,6 +126,25 @@ static struct usb_descriptor_header *hidg_hs_descriptors[] = {
 	(struct usb_descriptor_header *)&hidg_hs_in_ep_desc,
 	(struct usb_descriptor_header *)&hidg_hs_out_ep_desc,
 	NULL,
+};
+
+/*
+ * The following hid data function descriptor is a boot interface that does not
+ * specify any protocol. The device will bind as a HID driver without any
+ * HID specific functionality.
+ */
+
+static struct hidg_func_descriptor hid_data = {
+	.subclass = 0,		/* No subclass */
+	.protocol = 0,		/* Mouse Protocol */
+	.report_length = 4,
+	.report_desc_length = 7,
+	.report_desc = {
+		0x05, 0x01,	/* USAGE_PAGE (Generic Desktop)		*/
+		0x09, 0x00,	/* USAGE (None)				*/
+		0xa1, 0x01,	/* COLLECTION (Application)		*/
+		0xc0		/* END_COLLECTION			*/
+	}
 };
 
 /* Full-Speed Support */
@@ -560,7 +583,7 @@ const struct file_operations f_hidg_fops = {
 	.llseek		= noop_llseek,
 };
 
-static int __init hidg_bind(struct usb_configuration *c, struct usb_function *f)
+static int hidg_bind(struct usb_configuration *c, struct usb_function *f)
 {
 	struct usb_ep		*ep;
 	struct f_hidg		*hidg = func_to_hidg(f);
@@ -671,25 +694,25 @@ static void hidg_unbind(struct usb_configuration *c, struct usb_function *f)
 
 #define CT_FUNC_HID_IDX	0
 
-static struct usb_string ct_func_string_defs[] = {
+static struct usb_string hid_func_string_defs[] = {
 	[CT_FUNC_HID_IDX].s	= "HID Interface",
 	{},			/* end of list */
 };
 
-static struct usb_gadget_strings ct_func_string_table = {
+static struct usb_gadget_strings hid_func_string_table = {
 	.language	= 0x0409,	/* en-US */
-	.strings	= ct_func_string_defs,
+	.strings	= hid_func_string_defs,
 };
 
-static struct usb_gadget_strings *ct_func_strings[] = {
-	&ct_func_string_table,
+static struct usb_gadget_strings *hid_func_strings[] = {
+	&hid_func_string_table,
 	NULL,
 };
 
 /*-------------------------------------------------------------------------*/
 /*                             usb_configuration                           */
 
-int __init hidg_bind_config(struct usb_configuration *c,
+int hidg_bind_config(struct usb_configuration *c,
 			    struct hidg_func_descriptor *fdesc, int index)
 {
 	struct f_hidg *hidg;
@@ -699,11 +722,11 @@ int __init hidg_bind_config(struct usb_configuration *c,
 		return -ENOENT;
 
 	/* maybe allocate device-global string IDs, and patch descriptors */
-	if (ct_func_string_defs[CT_FUNC_HID_IDX].id == 0) {
+	if (hid_func_string_defs[CT_FUNC_HID_IDX].id == 0) {
 		status = usb_string_id(c->cdev);
 		if (status < 0)
 			return status;
-		ct_func_string_defs[CT_FUNC_HID_IDX].id = status;
+		hid_func_string_defs[CT_FUNC_HID_IDX].id = status;
 		hidg_interface_desc.iInterface = status;
 	}
 
@@ -711,6 +734,9 @@ int __init hidg_bind_config(struct usb_configuration *c,
 	hidg = kzalloc(sizeof *hidg, GFP_KERNEL);
 	if (!hidg)
 		return -ENOMEM;
+
+	if (!fdesc)
+		fdesc = &hid_data;
 
 	hidg->minor = index;
 	hidg->bInterfaceSubClass = fdesc->subclass;
@@ -720,13 +746,13 @@ int __init hidg_bind_config(struct usb_configuration *c,
 	hidg->report_desc = kmemdup(fdesc->report_desc,
 				    fdesc->report_desc_length,
 				    GFP_KERNEL);
-	if (!hidg->report_desc) {
+	if (!hidg->report_desc && hidg->report_desc_length > 0) {
 		kfree(hidg);
 		return -ENOMEM;
 	}
 
 	hidg->func.name    = "hid";
-	hidg->func.strings = ct_func_strings;
+	hidg->func.strings = hid_func_strings;
 	hidg->func.bind    = hidg_bind;
 	hidg->func.unbind  = hidg_unbind;
 	hidg->func.set_alt = hidg_set_alt;
@@ -743,7 +769,7 @@ int __init hidg_bind_config(struct usb_configuration *c,
 	return status;
 }
 
-int __init ghid_setup(struct usb_gadget *g, int count)
+int ghid_setup(struct usb_gadget *g, int count)
 {
 	int status;
 	dev_t dev;
