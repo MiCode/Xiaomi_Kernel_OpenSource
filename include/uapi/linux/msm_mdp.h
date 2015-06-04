@@ -1336,7 +1336,7 @@ enum {
 	MDP_WRITEBACK_MIRROR_RESUME,
 };
 
-enum {
+enum mdp_color_space {
 	MDP_CSC_ITU_R_601,
 	MDP_CSC_ITU_R_601_FR,
 	MDP_CSC_ITU_R_709,
