@@ -1,5 +1,5 @@
 
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,16 +57,17 @@ static int fb_notifier_callback(struct notifier_block *self,
 	struct fb_event *evdata = data;
 	struct hbtp_data *hbtp_data =
 		container_of(self, struct hbtp_data, fb_notif);
+	char *envp[] = {HBTP_EVENT_TYPE_DISPLAY, NULL};
 
 	if (evdata && evdata->data && event == FB_EVENT_BLANK &&
 		hbtp_data && hbtp_data->input_dev) {
 		blank = *(int *)(evdata->data);
 		if (blank == FB_BLANK_UNBLANK)
-			kobject_uevent(&hbtp_data->input_dev->dev.kobj,
-					KOBJ_ONLINE);
+			kobject_uevent_env(&hbtp_data->input_dev->dev.kobj,
+					KOBJ_ONLINE, envp);
 		else if (blank == FB_BLANK_POWERDOWN)
-			kobject_uevent(&hbtp_data->input_dev->dev.kobj,
-					KOBJ_OFFLINE);
+			kobject_uevent_env(&hbtp_data->input_dev->dev.kobj,
+					KOBJ_OFFLINE, envp);
 	}
 
 	return 0;
