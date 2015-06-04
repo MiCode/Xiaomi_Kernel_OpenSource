@@ -3279,7 +3279,7 @@ static void apply_dynamic_ot_limit(u32 *ot_lim,
 
 	if ((params->is_rot && params->is_yuv) ||
 		params->is_wb) {
-		if (res <= 1080 * 1920) {
+		if (res <= 1088 * 1920) {
 			*ot_lim = 2;
 		} else if (res <= 3840 * 2160) {
 			if (params->is_rot && params->is_yuv)

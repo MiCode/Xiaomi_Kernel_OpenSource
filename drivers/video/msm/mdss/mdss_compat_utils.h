@@ -397,6 +397,7 @@ struct mdp_overlay32 {
 	struct mdp_overlay_pp_params32 overlay_pp_cfg;
 	struct mdp_scale_data scale;
 	uint8_t color_space;
+	uint32_t frame_rate;
 };
 
 struct mdp_overlay_list32 {

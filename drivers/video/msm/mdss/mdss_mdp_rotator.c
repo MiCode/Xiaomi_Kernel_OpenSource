@@ -544,6 +544,7 @@ static int __mdss_mdp_rotator_to_pipe(struct mdss_mdp_rotator_session *rot,
 	pipe->dst = rot->src_rect;
 	pipe->dst.x = 0;
 	pipe->dst.y = 0;
+	pipe->frame_rate = rot->frame_rate;
 	pipe->params_changed++;
 	rot->params_changed = 0;
 
@@ -797,6 +798,7 @@ static int mdss_mdp_rotator_config(struct msm_fb_data_type *mfd,
 	rot->src_rect.y = req->src_rect.y;
 	rot->src_rect.w = req->src_rect.w;
 	rot->src_rect.h = req->src_rect.h;
+	rot->frame_rate = req->frame_rate;
 
 	if (mdp5_data->mdata->has_rot_dwnscale &&
 			mdss_mdp_calc_dnsc_factor(req, rot)) {
