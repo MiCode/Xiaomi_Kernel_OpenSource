@@ -518,7 +518,6 @@
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_12_active>;
 		pinctrl-1 = <&i2c_12_sleep>;
-		qcom,disable-dma;
 	};
 
 
@@ -558,7 +557,6 @@
 		pinctrl-names = "i2c_active", "i2c_sleep";
 		pinctrl-0 = <&i2c_7_active>;
 		pinctrl-1 = <&i2c_7_sleep>;
-		qcom,disable-dma;
 	};
 
 	blsp1_uart2: uart@07570000 { /* BLSP1 UART2 */
