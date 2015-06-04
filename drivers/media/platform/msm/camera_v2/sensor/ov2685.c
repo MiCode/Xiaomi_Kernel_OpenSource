@@ -1357,6 +1357,7 @@ static struct msm_sensor_ctrl_t ov2685_s_ctrl = {
 	.sensor_v4l2_subdev_info = ov2685_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(ov2685_subdev_info),
 	.func_tbl = &ov2685_sensor_func_tbl,
+	.is_yuv = 1,
 };
 
 module_init(ov2685_init_module);

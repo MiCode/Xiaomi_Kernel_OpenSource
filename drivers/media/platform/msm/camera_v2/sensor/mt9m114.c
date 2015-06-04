@@ -1661,6 +1661,7 @@ static struct msm_sensor_ctrl_t mt9m114_s_ctrl = {
 	.sensor_v4l2_subdev_info = mt9m114_subdev_info,
 	.sensor_v4l2_subdev_info_size = ARRAY_SIZE(mt9m114_subdev_info),
 	.func_tbl = &mt9m114_sensor_func_tbl,
+	.is_yuv = 1,
 };
 
 module_init(mt9m114_init_module);
