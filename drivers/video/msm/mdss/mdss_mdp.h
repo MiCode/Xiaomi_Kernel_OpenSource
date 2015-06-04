@@ -27,9 +27,6 @@
 #include "mdss_fb.h"
 
 #define MDSS_MDP_DEFAULT_INTR_MASK 0
-#define MDSS_MDP_CURSOR_WIDTH 64
-#define MDSS_MDP_CURSOR_HEIGHT 64
-#define MDSS_MDP_CURSOR_SIZE (MDSS_MDP_CURSOR_WIDTH*MDSS_MDP_CURSOR_WIDTH*4)
 #define MDSS_MDP_PIXEL_RAM_SIZE (50 * 1024)
 
 #define PHASE_STEP_SHIFT	21
@@ -268,6 +265,7 @@ struct mdss_mdp_ctl {
 	struct mdss_mdp_mixer *mixer_right;
 	struct mutex lock;
 	struct mutex offlock;
+	struct mutex flush_lock;
 	struct mutex *shared_lock;
 	spinlock_t spin_lock;
 
@@ -855,6 +853,11 @@ static inline u32 left_lm_w_from_mfd(struct msm_fb_data_type *mfd)
 			width);
 	}
 	return width;
+}
+
+static inline u32 mdss_mdp_get_cursor_frame_size(struct mdss_data_type *mdata)
+{
+	return mdata->max_cursor_size *  mdata->max_cursor_size * 4;
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);

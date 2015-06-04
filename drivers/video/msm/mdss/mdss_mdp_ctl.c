@@ -1615,6 +1615,7 @@ static struct mdss_mdp_ctl *mdss_mdp_ctl_alloc(struct mdss_data_type *mdata,
 			ctl->mdata = mdata;
 			mutex_init(&ctl->lock);
 			mutex_init(&ctl->offlock);
+			mutex_init(&ctl->flush_lock);
 			spin_lock_init(&ctl->spin_lock);
 			BLOCKING_INIT_NOTIFIER_HEAD(&ctl->notifier_head);
 			pr_debug("alloc ctl_num=%d\n", ctl->num);
@@ -3345,8 +3346,7 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 	pr_debug("pnum=%x mixer=%d stage=%d\n", pipe->num, mixer->num,
 			pipe->mixer_stage);
 
-	if (mutex_lock_interruptible(&ctl->lock))
-		return -EINTR;
+	mutex_lock(&ctl->flush_lock);
 
 	if (params_changed) {
 		mixer->params_changed++;
@@ -3387,7 +3387,7 @@ int mdss_mdp_mixer_pipe_update(struct mdss_mdp_pipe *pipe,
 	else /* RGB/VIG 0-2 pipes */
 		ctl->flush_bits |= BIT(pipe->num);
 
-	mutex_unlock(&ctl->lock);
+	mutex_unlock(&ctl->flush_lock);
 
 	return 0;
 }
@@ -3661,6 +3661,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	bool is_bw_released;
 	int split_enable;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u32 ctl_flush_bits = 0, sctl_flush_bits = 0;
 
 	if (!ctl) {
 		pr_err("display function not set\n");
@@ -3677,6 +3678,8 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 
 	sctl = mdss_mdp_get_split_ctl(ctl);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+
+	mutex_lock(&ctl->flush_lock);
 
 	/*
 	 * We could have released the bandwidth if there were no transactions
@@ -3731,6 +3734,7 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 			mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_TOP,
 					sctl->opmode);
 			sctl->flush_bits |= BIT(17);
+			sctl_flush_bits = sctl->flush_bits;
 		}
 		ATRACE_END("mixer_programming");
 	}
@@ -3752,8 +3756,13 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 	if (sctl && ctl->split_flush_en) {
 		ctl->flush_bits |= sctl->flush_bits;
 		sctl->flush_bits = 0;
+		sctl_flush_bits = sctl->flush_bits;
 	}
+	ctl_flush_bits = ctl->flush_bits;
+
 	ATRACE_END("postproc_programming");
+
+	mutex_unlock(&ctl->flush_lock);
 
 	ATRACE_BEGIN("frame_ready");
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_CFG_DONE);
@@ -3851,14 +3860,14 @@ int mdss_mdp_display_commit(struct mdss_mdp_ctl *ctl, void *arg,
 		mdss_mdp_bwcpanic_ctrl(mdata, true);
 
 	ATRACE_BEGIN("flush_kickoff");
-	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl->flush_bits);
-	if (sctl && sctl->flush_bits) {
+	mdss_mdp_ctl_write(ctl, MDSS_MDP_REG_CTL_FLUSH, ctl_flush_bits);
+	if (sctl && sctl_flush_bits) {
 		mdss_mdp_ctl_write(sctl, MDSS_MDP_REG_CTL_FLUSH,
-			sctl->flush_bits);
+			sctl_flush_bits);
 		sctl->flush_bits = 0;
 	}
 	wmb();
-	ctl->flush_reg_data = ctl->flush_bits;
+	ctl->flush_reg_data = ctl_flush_bits;
 	ctl->flush_bits = 0;
 
 	mdss_mdp_mixer_update_pipe_map(ctl, MDSS_MDP_MIXER_MUX_LEFT);
