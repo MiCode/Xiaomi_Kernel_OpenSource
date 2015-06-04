@@ -60,6 +60,21 @@ struct vfe_device;
 struct msm_vfe_axi_stream;
 struct msm_vfe_stats_stream;
 
+#define VFE_SD_HW_MAX VFE_SD_COMMON
+
+#define DUAL_CAM_NUM_SLAVE_MAX 1
+
+struct msm_vfe_sof_info {
+	struct timeval timestamp;
+	uint32_t frame_id;
+};
+
+struct msm_vfe_dual_hw_ms_info {
+	enum msm_vfe_dual_hw_ms_type dual_hw_ms_type;
+	struct msm_vfe_sof_info *sof_info;
+	uint8_t slave_id;
+};
+
 struct vfe_subscribe_info {
 	struct v4l2_fh *vfh;
 	uint32_t active;
@@ -250,8 +265,6 @@ struct msm_vfe_hardware_info {
 	struct msm_vfe_ops vfe_ops;
 	struct msm_vfe_axi_hardware_info *axi_hw_info;
 	struct msm_vfe_stats_hardware_info *stats_hw_info;
-	struct v4l2_subdev_internal_ops *subdev_internal_ops;
-	struct v4l2_subdev_ops *subdev_ops;
 	uint32_t dmi_reg_offset;
 };
 
@@ -372,6 +385,8 @@ struct msm_vfe_src_info {
 	uint32_t input_format;/*V4L2 pix format with bayer pattern*/
 	uint32_t last_updt_frm_id;
 	uint32_t sof_counter_step;
+	enum msm_vfe_dual_hw_type dual_hw_type;
+	struct msm_vfe_dual_hw_ms_info dual_hw_ms_info;
 };
 
 struct msm_vfe_fetch_engine_info {
@@ -561,8 +576,31 @@ struct msm_vfe_hw_init_parms {
 	const char *settings;
 };
 
+struct msm_vfe_common_dev_data {
+	enum msm_vfe_dual_hw_type dual_hw_type;
+	struct msm_vfe_sof_info master_sof_info;
+	uint32_t num_slave;
+	uint32_t free_slave_mask;
+	struct msm_vfe_sof_info slave_sof_info[DUAL_CAM_NUM_SLAVE_MAX];
+};
+
+struct msm_vfe_common_subdev {
+	/* parent reference */
+	struct vfe_parent_device *parent;
+
+	/* Media Subdevice */
+	struct msm_sd_subdev *subdev;
+
+	/* Buf Mgr */
+	struct msm_isp_buf_mgr *buf_mgr;
+
+	/* Common Data */
+	struct msm_vfe_common_dev_data *common_data;
+};
+
 struct vfe_device {
 	struct platform_device *pdev;
+	struct msm_vfe_common_dev_data *common_data;
 	struct msm_sd_subdev subdev;
 	struct resource *vfe_irq;
 	struct resource *vfe_mem;
@@ -624,5 +662,15 @@ struct vfe_device {
 	uint8_t reset_pending;
 	enum msm_vfe_hvx_streaming_cmd hvx_cmd;
 };
+
+struct vfe_parent_device {
+	struct platform_device *pdev;
+	uint32_t num_sd;
+	uint32_t num_hw_sd;
+	struct platform_device *child_list[VFE_SD_HW_MAX];
+	struct msm_vfe_common_subdev *common_sd;
+};
+
+int vfe_hw_probe(struct platform_device *pdev);
 
 #endif
