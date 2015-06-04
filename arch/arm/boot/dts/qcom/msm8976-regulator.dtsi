@@ -322,31 +322,29 @@
 			reg = <0x2000 0x100>;
 			regulator-name = "pm8950_s5";
 			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1085000>;
-			/* If SPM doesn't work bypass-spm */
-			/* qcom,bypass-spm */
+			regulator-max-microvolt = <1165000>;
+			qcom,cpu-num = <0>;
 		};
 	};
 
-	qcom,pm8004@1 {
+	qcom,pm8004@5 {
 		/* PM8004 S2-S4 VDD_APC1 supply */
-		pm8950_s2: spm-regulator@1700 {
+		pm8004_s2: spm-regulator@1700 {
 			compatible = "qcom,spm-regulator";
 			reg = <0x1700 0x100>;
-			regulator-name = "pm8950_s2";
+			regulator-name = "pm8004_s2";
 			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1085000>;
-			/* If SPM doesn't work bypass-spm */
-			/* qcom,bypass-spm */
+			regulator-max-microvolt = <1165000>;
+			qcom,cpu-num = <4>;
 		};
 
 		/* PM8004 S5 = VDD_GFX supply */
-		pm8004_s5: spm-regulator@2000 {
+		pm8004_s5: qpnp-regulator@2000 {
 			compatible = "qcom,qpnp-regulator";
 			reg = <0x2000 0x100>;
 			regulator-name = "pm8004_s5";
 			regulator-min-microvolt = <500000>;
-			regulator-max-microvolt = <1050000>;
+			regulator-max-microvolt = <1165000>;
 		};
 	};
 };
