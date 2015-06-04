@@ -62,8 +62,7 @@
 #define DIAG_CON_MPSS (0x0002)	/* Bit mask for MPSS */
 #define DIAG_CON_LPASS (0x0004)	/* Bit mask for LPASS */
 #define DIAG_CON_WCNSS (0x0008)	/* Bit mask for WCNSS */
-#define DIAG_CON_SENSORS (0x0016)
-
+#define DIAG_CON_SENSORS (0x0010) /* Bit mask for Sensors */
 
 #define DIAG_STM_MODEM	0x01
 #define DIAG_STM_LPASS	0x02
