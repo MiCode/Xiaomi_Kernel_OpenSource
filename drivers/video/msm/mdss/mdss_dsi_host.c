@@ -2153,6 +2153,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	bool use_iommu = false;
 	int ret = -EINVAL;
 	int rc = 0;
+	bool hs_req = false;
 
 	if (mdss_get_sd_client_cnt())
 		return -EPERM;
@@ -2169,8 +2170,8 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	MDSS_XLOG(ctrl->ndx, from_mdp, ctrl->mdp_busy, current->pid,
 							XLOG_FUNC_ENTRY);
 
-	if (req == NULL)
-		goto need_lock;
+	if (req && (req->flags & CMD_REQ_HS_MODE))
+		hs_req = true;
 
 	/* make sure dsi_cmd_mdp is idle */
 	rc = mdss_dsi_cmd_mdp_busy(ctrl);
@@ -2184,7 +2185,7 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 	mdss_dsi_get_hw_revision(ctrl);
 
 	/* For DSI versions less than 1.3.0, CMD DMA TPG is not supported */
-	if (ctrl->shared_data->hw_rev < MDSS_DSI_HW_REV_103)
+	if (req && (ctrl->shared_data->hw_rev < MDSS_DSI_HW_REV_103))
 		req->flags &= ~CMD_REQ_DMA_TPG;
 
 	pr_debug("%s: ctrl=%d from_mdp=%d pid=%d\n", __func__,
@@ -2204,10 +2205,12 @@ int mdss_dsi_cmdlist_commit(struct mdss_dsi_ctrl_pdata *ctrl, int from_mdp)
 		}
 	} else {	/* from dcs send */
 		if (ctrl->shared_data->cmd_clk_ln_recovery_en &&
-				ctrl->panel_mode == DSI_CMD_MODE &&
-				(req->flags & CMD_REQ_HS_MODE))
+				ctrl->panel_mode == DSI_CMD_MODE && hs_req)
 			mdss_dsi_cmd_start_hs_clk_lane(ctrl);
 	}
+
+	if (!req)
+		goto need_lock;
 
 	MDSS_XLOG(ctrl->ndx, req->flags, req->cmds_cnt, from_mdp, current->pid);
 
