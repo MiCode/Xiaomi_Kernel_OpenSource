@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,6 +22,11 @@
 #include "u_ether.h"
 #include "u_rmnet.h"
 #include "gadget_chips.h"
+
+static unsigned int rmnet_dl_max_pkt_per_xfer = 7;
+module_param(rmnet_dl_max_pkt_per_xfer, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC(rmnet_dl_max_pkt_per_xfer,
+	"Maximum packets per transfer for DL aggregation");
 
 #define RMNET_NOTIFY_INTERVAL	5
 #define RMNET_MAX_NOTIFY_SIZE	sizeof(struct usb_cdc_notification)
@@ -459,6 +464,7 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 		}
 		break;
 	case USB_GADGET_XPORT_ETHER:
+		gether_enable_sg(&dev->gether_port, true);
 		net = gether_connect(&dev->gether_port);
 		if (IS_ERR(net)) {
 			pr_err("%s: gether_connect failed: err:%ld\n",
@@ -470,6 +476,9 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 
 			return PTR_ERR(net);
 		}
+		gether_update_dl_max_pkts_per_xfer(&dev->gether_port,
+			rmnet_dl_max_pkt_per_xfer);
+		gether_update_dl_max_xfer_size(&dev->gether_port, 16384);
 		break;
 	case USB_GADGET_XPORT_NONE:
 		 break;
@@ -1058,7 +1067,8 @@ frmnet_setup(struct usb_function *f, const struct usb_ctrlrequest *ctrl)
 		break;
 	case ((USB_DIR_OUT | USB_TYPE_CLASS | USB_RECIP_INTERFACE) << 8)
 			| USB_CDC_REQ_SET_CONTROL_LINE_STATE:
-		pr_debug("%s: USB_CDC_REQ_SET\n", __func__);
+		pr_debug("%s: USB_CDC_REQ_SET_CONTROL_LINE_STATE: DTR:%d\n",
+				__func__, w_value & ACM_CTRL_DTR ? 1 : 0);
 		if (dev->port.notify_modem) {
 			port_num = rmnet_ports[dev->port_num].ctrl_xport_num;
 			dev->port.notify_modem(&dev->port, port_num, w_value);

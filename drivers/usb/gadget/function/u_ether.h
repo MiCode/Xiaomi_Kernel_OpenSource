@@ -80,6 +80,8 @@ struct gether {
 	uint32_t			dl_max_xfer_size;
 	bool				multi_pkt_xfer;
 	bool				supports_multi_frame;
+	bool				rx_trigger_enabled;
+	bool				rx_triggered;
 	struct sk_buff			*(*wrap)(struct gether *port,
 						struct sk_buff *skb);
 	int				(*unwrap)(struct gether *port,
@@ -263,6 +265,7 @@ void gether_cleanup(struct eth_dev *dev);
 /* connect/disconnect is handled by individual functions */
 struct net_device *gether_connect(struct gether *);
 void gether_disconnect(struct gether *);
+int gether_up(struct gether *);
 
 /* Some controllers can't support CDC Ethernet (ECM) ... */
 static inline bool can_support_ecm(struct usb_gadget *gadget)
@@ -276,5 +279,7 @@ static inline bool can_support_ecm(struct usb_gadget *gadget)
 	 */
 	return true;
 }
+
+int rndis_rx_trigger(bool);
 
 #endif /* __U_ETHER_H */

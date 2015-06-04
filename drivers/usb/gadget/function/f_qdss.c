@@ -1,7 +1,7 @@
 /*
  * f_qdss.c -- QDSS function Driver
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
 
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -557,6 +557,11 @@ static void usb_qdss_disconnect_work(struct work_struct *work)
 	}
 
 	msm_bam_set_qdss_usb_active(false);
+	/*
+	 * Decrement usage count which was incremented
+	 * before calling connect work
+	 */
+	usb_gadget_autopm_put_async(qdss->gadget);
 }
 
 static void qdss_disable(struct usb_function *f)
@@ -750,20 +755,26 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 
 	pr_debug("qdss_set_alt qdss pointer = %p\n", qdss);
 
+	qdss->gadget = gadget;
+
 	if (alt != 0)
-		goto fail;
+		goto fail1;
 
 	if (gadget->speed != USB_SPEED_SUPER &&
 		gadget->speed != USB_SPEED_HIGH) {
 		pr_err("qdss_st_alt: qdss supportes HS or SS only\n");
 		ret = -EINVAL;
-		goto fail;
+		goto fail1;
 	}
 
 	if (intf == qdss->data_iface_id) {
+		/* Increment usage count on connect */
+		usb_gadget_autopm_get_async(qdss->gadget);
 
-		if (config_ep_by_speed(gadget, f, qdss->port.data))
-			return -EINVAL;
+		if (config_ep_by_speed(gadget, f, qdss->port.data)) {
+			ret = -EINVAL;
+			goto fail;
+		}
 
 		if (dxport == USB_GADGET_XPORT_BAM2BAM_IPA) {
 			qdss->usb_connected = 1;
@@ -782,23 +793,27 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	} else if ((intf == qdss->ctrl_iface_id) &&
 	(qdss->debug_inface_enabled)) {
 
-		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_in))
-			return -EINVAL;
+		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_in)) {
+			ret = -EINVAL;
+			goto fail1;
+		}
 
 		ret = usb_ep_enable(qdss->port.ctrl_in);
 		if (ret)
-			goto fail;
+			goto fail1;
 
 		qdss->port.ctrl_in->driver_data = qdss;
 		qdss->ctrl_in_enabled = 1;
 
-		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_out))
-			return -EINVAL;
+		if (config_ep_by_speed(gadget, f, qdss->port.ctrl_out)) {
+			ret = -EINVAL;
+			goto fail1;
+		}
 
 
 		ret = usb_ep_enable(qdss->port.ctrl_out);
 		if (ret)
-			goto fail;
+			goto fail1;
 
 		qdss->port.ctrl_out->driver_data = qdss;
 		qdss->ctrl_out_enabled = 1;
@@ -823,6 +838,9 @@ static int qdss_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	}
 	return 0;
 fail:
+	/* Decrement usage count in case of failure */
+	usb_gadget_autopm_put_async(qdss->gadget);
+fail1:
 	pr_err("qdss_set_alt failed\n");
 	qdss_eps_disable(f);
 	return ret;
