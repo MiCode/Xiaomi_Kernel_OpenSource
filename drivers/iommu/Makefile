@@ -13,7 +13,11 @@ endif
 ifdef CONFIG_IOMMU_LPAE
 obj-$(CONFIG_MSM_IOMMU_V1) += msm_iommu_pagetable_lpae.o
 else
+ifdef CONFIG_IOMMU_AARCH64
+obj-$(CONFIG_MSM_IOMMU_V1) += msm_iommu_pagetable_aarch64.o
+else
 obj-$(CONFIG_MSM_IOMMU_V1) += msm_iommu_pagetable.o
+endif
 endif
 obj-$(CONFIG_AMD_IOMMU) += amd_iommu.o amd_iommu_init.o
 obj-$(CONFIG_AMD_IOMMU_V2) += amd_iommu_v2.o
