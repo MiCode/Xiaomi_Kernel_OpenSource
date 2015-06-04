@@ -423,6 +423,12 @@ int msm_spm_drv_set_low_power_mode(struct msm_spm_driver_data *dev,
 	return 0;
 }
 
+uint32_t msm_spm_drv_get_vdd(struct msm_spm_driver_data *dev)
+{
+	msm_spm_drv_load_shadow(dev, MSM_SPM_REG_SAW_PMIC_STS);
+	return dev->reg_shadow[MSM_SPM_REG_SAW_PMIC_STS] & 0xFF;
+}
+
 #ifdef CONFIG_MSM_AVS_HW
 static bool msm_spm_drv_is_avs_enabled(struct msm_spm_driver_data *dev)
 {

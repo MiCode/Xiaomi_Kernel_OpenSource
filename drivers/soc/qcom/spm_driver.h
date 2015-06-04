@@ -130,4 +130,5 @@ void msm_spm_reinit(void);
 int msm_spm_init(struct msm_spm_platform_data *data, int nr_devs);
 void msm_spm_drv_upd_reg_shadow(struct msm_spm_driver_data *dev, int id,
 		int val);
+uint32_t msm_spm_drv_get_vdd(struct msm_spm_driver_data *dev);
 #endif
