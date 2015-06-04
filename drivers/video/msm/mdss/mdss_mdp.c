@@ -1103,6 +1103,7 @@ static void mdss_mdp_hw_rev_caps_init(struct mdss_data_type *mdata)
 		mdata->max_target_zorder = 4; /* excluding base layer */
 		mdata->max_cursor_size = 64;
 		mdata->min_prefill_lines = 12;
+		set_bit(MDSS_QOS_OTLIM, mdata->mdss_qos_map);
 		break;
 	default:
 		mdata->max_target_zorder = 4; /* excluding base layer */
