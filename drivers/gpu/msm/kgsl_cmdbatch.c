@@ -733,7 +733,7 @@ struct kgsl_cmdbatch *kgsl_cmdbatch_create(struct kgsl_device *device,
 
 	if (!_kgsl_context_get(context)) {
 		kfree(cmdbatch);
-		return ERR_PTR(-EINVAL);
+		return ERR_PTR(-ENOENT);
 	}
 
 	kref_init(&cmdbatch->refcount);
