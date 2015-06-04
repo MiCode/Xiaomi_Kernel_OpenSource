@@ -1031,7 +1031,7 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	const struct firmware *fw;
-	uint32_t block_size, block_total = 0, fw_size;
+	uint32_t block_size = 0, block_total = 0, fw_size;
 	uint32_t *block;
 	int ret = -EINVAL;
 
