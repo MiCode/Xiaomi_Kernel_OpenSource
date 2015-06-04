@@ -3492,6 +3492,96 @@ static int cpr_init_ceiling_floor_override_voltages(
 	return rc;
 }
 
+/*
+ * This function computes the per-virtual-corner floor voltages from
+ * per-virtual-corner ceiling voltages with an offset specified by a
+ * device-tree property. This must be called after open-loop voltage
+ * scaling, floor_volt array loading and the ceiling voltage is
+ * conditionally reduced to the open-loop voltage. It selects the
+ * maximum value between the calculated floor voltage values and
+ * the floor_volt array values and stores them in the floor_volt array.
+ */
+static int cpr_init_floor_to_ceiling_range(
+	struct cpr_regulator *cpr_vreg, struct device *dev)
+{
+	int rc, i, tuple_count, tuple_match, len, pos;
+	u32 index, floor_volt_adjust = 0;
+	char *prop_str, *buf;
+	size_t buflen;
+
+	prop_str = "qcom,cpr-floor-to-ceiling-max-range";
+
+	if (!of_find_property(dev->of_node, prop_str, &len))
+		return 0;
+
+	if (cpr_vreg->cpr_fuse_map_count) {
+		if (cpr_vreg->cpr_fuse_map_match == FUSE_MAP_NO_MATCH) {
+			/*
+			 * No matching index to use for floor-to-ceiling
+			 * max range.
+			 */
+			return 0;
+		}
+		tuple_count = cpr_vreg->cpr_fuse_map_count;
+		tuple_match = cpr_vreg->cpr_fuse_map_match;
+	} else {
+		tuple_count = 1;
+		tuple_match = 0;
+	}
+
+	if (len != cpr_vreg->num_corners * tuple_count * sizeof(u32)) {
+		cpr_err(cpr_vreg, "%s length=%d is invalid\n", prop_str, len);
+		return -EINVAL;
+	}
+
+	for (i = CPR_CORNER_MIN; i <= cpr_vreg->num_corners; i++) {
+		index = tuple_match * cpr_vreg->num_corners
+				+ i - CPR_CORNER_MIN;
+		rc = of_property_read_u32_index(dev->of_node, prop_str,
+			index, &floor_volt_adjust);
+		if (rc) {
+			cpr_err(cpr_vreg, "could not read %s index %u, rc=%d\n",
+				prop_str, index, rc);
+			return rc;
+		}
+
+		if ((int)floor_volt_adjust >= 0) {
+			cpr_vreg->floor_volt[i] = max(cpr_vreg->floor_volt[i],
+						(cpr_vreg->ceiling_volt[i]
+						- (int)floor_volt_adjust));
+			cpr_vreg->floor_volt[i]
+					= DIV_ROUND_UP(cpr_vreg->floor_volt[i],
+							cpr_vreg->step_volt) *
+							cpr_vreg->step_volt;
+			if (cpr_vreg->open_loop_volt[i]
+					< cpr_vreg->floor_volt[i])
+				cpr_vreg->open_loop_volt[i]
+						= cpr_vreg->floor_volt[i];
+		}
+	}
+
+	/*
+	 * Log per-virtual-corner voltage limits resulted after considering the
+	 * floor-to-ceiling max range since they are useful for baseline CPR
+	 * debugging.
+	 */
+	buflen = cpr_vreg->num_corners * (MAX_CHARS_PER_INT + 2) * sizeof(*buf);
+	buf = kzalloc(buflen, GFP_KERNEL);
+	if (buf == NULL) {
+		cpr_err(cpr_vreg, "Could not allocate memory for corner limit voltage logging\n");
+		return 0;
+	}
+
+	for (i = CPR_CORNER_MIN, pos = 0; i <= cpr_vreg->num_corners; i++)
+		pos += scnprintf(buf + pos, buflen - pos, "%d%s",
+			cpr_vreg->floor_volt[i],
+			i < cpr_vreg->num_corners ? " " : "");
+	cpr_info(cpr_vreg, "Final floor override voltages: [%s] uV\n", buf);
+	kfree(buf);
+
+	return 0;
+}
+
 static int cpr_init_step_quotient(struct platform_device *pdev,
 		  struct cpr_regulator *cpr_vreg)
 {
@@ -4140,6 +4230,11 @@ static int cpr_init_cpr(struct platform_device *pdev,
 
 	/* Reduce the ceiling voltage if allowed. */
 	rc = cpr_reduce_ceiling_voltage(cpr_vreg, &pdev->dev);
+	if (rc)
+		return rc;
+
+	/* Load CPR floor to ceiling range if exist. */
+	rc = cpr_init_floor_to_ceiling_range(cpr_vreg, &pdev->dev);
 	if (rc)
 		return rc;
 

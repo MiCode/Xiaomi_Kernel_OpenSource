@@ -413,6 +413,23 @@ Optional properties:
 				voltages will be used in place of the per-fuse-corner floor voltages defined in the
 				qcom,cpr-voltage-floor property.  If this property is not specified, then the
 				per-fuse-corner floor voltages will always be used.
+- qcom,cpr-floor-to-ceiling-max-range:	Array of integer tuples of floor-to-ceiling max range values in microvolts
+				to be subtracted from the ceiling voltage values of each virtual corner.
+				Supported values are those greater than or equal 0, or (-1). The value 0 for a corner
+				implies that the floor value for that corner has to equal to its ceiling value.
+				The value (-1) for a corner implies that no modification to the default floor voltage
+				is required. The elements in a tuple are ordered from lowest voltage corner to highest
+				voltage corner. Each tuple must be of the length equal to the number of virtual corners
+				as specified by the number of elements in the qcom,cpr-corner-map property. If the
+				qcom,cpr-fuse-version-map property is specified, then
+				qcom,cpr-dynamic-floor-override-adjustment must contain the same number of
+				tuples as qcom,cpr-fuse-version-map.  These tuples are then mapped one-to-one in the
+				order specified.  E.g. if the second qcom,cpr-fuse-version-map tuple matches
+				for a given device, then voltage adjustments defined in the second
+				qcom,cpr-dynamic-floor-override-adjustment tuple will be applied.  If the
+				qcom,cpr-fuse-version-map property is not specified, then
+				qcom,cpr-dynamic-floor-override-adjustment must contain a single tuple which
+				is then applied unconditionally.
 - qcom,cpr-virtual-corner-init-voltage-adjustment: Array of integer tuples of voltage adjustments in microvolts to be
 				added to the initial voltage values of each virtual corner.  The elements
 				in a tuple are ordered from lowest voltage corner to highest voltage corner.
@@ -798,6 +815,10 @@ Example:
 					<0 0 0>,
 					<0 0 72>,
 					<0 0 104>;
+		qcom,cpr-floor-to-ceiling-max-range =
+			<(-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1)>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1) (-1)>,
+			<(-1) (-1) (-1) (-1) (-1) (-1) (-1) 50000 50000 50000 50000 50000>;
 		qcom,cpr-virtual-corner-init-voltage-adjustment =
 			<0 0 0 (-10000) 0 0 0 0 0 0 0 0>,
 			<0 0 0 0 0 0 0 0 0 0 0 (-20000)>,
