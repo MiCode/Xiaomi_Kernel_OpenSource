@@ -164,7 +164,7 @@ static int32_t msm_ois_power_down(struct msm_ois_ctrl_t *o_ctrl)
 		}
 
 		o_ctrl->i2c_tbl_index = 0;
-		o_ctrl->ois_state = OIS_DISABLE_STATE;
+		o_ctrl->ois_state = OIS_OPS_INACTIVE;
 	}
 	CDBG("Exit\n");
 	return rc;
@@ -391,12 +391,13 @@ static int msm_ois_close(struct v4l2_subdev *sd,
 	}
 	mutex_lock(o_ctrl->ois_mutex);
 	if (o_ctrl->ois_device_type == MSM_CAMERA_PLATFORM_DEVICE &&
-		o_ctrl->ois_state == OIS_OPS_ACTIVE) {
+		o_ctrl->ois_state != OIS_DISABLE_STATE) {
 		rc = o_ctrl->i2c_client.i2c_func_tbl->i2c_util(
 			&o_ctrl->i2c_client, MSM_CCI_RELEASE);
 		if (rc < 0)
 			pr_err("cci_init failed\n");
 	}
+	o_ctrl->ois_state = OIS_DISABLE_STATE;
 	mutex_unlock(o_ctrl->ois_mutex);
 	CDBG("Exit\n");
 	return rc;
@@ -428,7 +429,6 @@ static long msm_ois_subdev_ioctl(struct v4l2_subdev *sd,
 			if (rc < 0) {
 				pr_err("%s:%d OIS Power down failed\n",
 					__func__, __LINE__);
-				return rc;
 			}
 			return msm_ois_close(sd, NULL);
 		}
