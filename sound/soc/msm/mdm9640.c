@@ -41,6 +41,11 @@
 #define MDM_MCLK_CLK_9P6HZ 9600000
 #define MDM_MI2S_RATE 48000
 
+#define SAMPLE_RATE_8KHZ 8000
+#define SAMPLE_RATE_16KHZ 16000
+#define SAMPLE_RATE_48KHZ 48000
+#define NO_OF_BITS_PER_SAMPLE  16
+
 #define LPAIF_OFFSET 0x07700000
 #define LPAIF_PRI_MODE_MUXSEL (LPAIF_OFFSET + 0x2008)
 #define LPAIF_SEC_MODE_MUXSEL (LPAIF_OFFSET + 0x200c)
@@ -112,6 +117,9 @@ static void *lpass_gpio_mux_spkr_ctl_virt_addr;
 static struct mutex cdc_mclk_mutex;
 static int mdm9640_mi2s_rx_ch = 1;
 static int mdm9640_mi2s_tx_ch = 1;
+static int mdm9640_mi2s_rx_rate = SAMPLE_RATE_48KHZ;
+static int mdm9640_mi2s_tx_rate = SAMPLE_RATE_48KHZ;
+
 static int msm_spk_control;
 static atomic_t aux_ref_count;
 static atomic_t mi2s_ref_count;
@@ -147,7 +155,8 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 #define WCD9XXX_MBHC_DEF_BUTTONS 8
 #define WCD9XXX_MBHC_DEF_RLOADS 5
 
-static int mdm9640_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
+static int mdm9640_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable,
+				int rate, bool rate_valid)
 {
 	struct snd_soc_card *card = rtd->card;
 	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
@@ -173,9 +182,18 @@ static int mdm9640_mi2s_clk_ctl(struct snd_soc_pcm_runtime *rtd, bool enable)
 	if (enable) {
 		if (pdata->prim_clk_usrs == 0) {
 			lpass_clk->clk_val2 = pdata->mclk_freq;
+			if (rate_valid)
+				lpass_clk->clk_val1 = (rate * 2 *
+							NO_OF_BITS_PER_SAMPLE);
+
 			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_BOTH_VALID;
-		} else
+		} else {
+			if (rate_valid)
+				lpass_clk->clk_val1 = (rate * 2	*
+							NO_OF_BITS_PER_SAMPLE);
+
 			lpass_clk->clk_set_mode = Q6AFE_LPASS_MODE_CLK1_VALID;
+		}
 		ret = afe_set_lpass_clock(MI2S_RX, lpass_clk);
 		if (ret < 0)
 			pr_err("%s:afe_set_lpass_clock failed\n", __func__);
@@ -217,10 +235,39 @@ static void mdm9640_mi2s_shutdown(struct snd_pcm_substream *substream)
 			pr_err("%s Reset pinctrl failed with %d\n",
 			       __func__, ret);
 
-		ret = mdm9640_mi2s_clk_ctl(rtd, false);
+		ret = mdm9640_mi2s_clk_ctl(rtd, false, 0, false);
 		if (ret < 0)
 			pr_err("%s Clock disable failed\n", __func__);
 	}
+}
+
+static int mdm9640_mi2s_hw_params(struct snd_pcm_substream *substream,
+				  struct snd_pcm_hw_params *params)
+{
+	int rate = params_rate(params);
+	struct snd_soc_pcm_runtime *rtd = substream->private_data;
+	struct snd_soc_card *card = rtd->card;
+	struct mdm9640_machine_data *pdata = snd_soc_card_get_drvdata(card);
+	int ret = 0;
+
+	if (pdata == NULL) {
+		pr_err("%s:platform data is null\n", __func__);
+		ret = -ENOMEM;
+		goto done;
+	}
+
+	/*Disable the clock*/
+	ret = mdm9640_mi2s_clk_ctl(rtd, false, 0, false);
+	if (ret < 0)
+		pr_err("%s clock disable failed\n", __func__);
+
+	/*Re-enable clocks at desired rate*/
+	ret = mdm9640_mi2s_clk_ctl(rtd, true, rate, true);
+	if (ret < 0)
+		pr_err("%s clock re-enable failed\n", __func__);
+
+done:
+	return ret;
 }
 
 static int mdm9640_mi2s_startup(struct snd_pcm_substream *substream)
@@ -279,7 +326,7 @@ static int mdm9640_mi2s_startup(struct snd_pcm_substream *substream)
 
 			goto done;
 		}
-		ret = mdm9640_mi2s_clk_ctl(rtd, true);
+		ret = mdm9640_mi2s_clk_ctl(rtd, true, 0, false);
 		if (ret < 0) {
 			pr_err("%s clock enable failed\n", __func__);
 
@@ -305,17 +352,82 @@ done:
 
 static struct snd_soc_ops mdm9640_mi2s_be_ops = {
 	.startup = mdm9640_mi2s_startup,
+	.hw_params = mdm9640_mi2s_hw_params,
 	.shutdown = mdm9640_mi2s_shutdown,
 };
 
+static int mdm9640_mi2s_rx_rate_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: mdm9640_i2s_rate  = %d", __func__,
+		 mdm9640_mi2s_rx_rate);
+	ucontrol->value.integer.value[0] = mdm9640_mi2s_rx_rate;
+	return 0;
+}
+
+static int mdm9640_mi2s_rx_rate_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm9640_mi2s_rx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	case 1:
+		mdm9640_mi2s_rx_rate = SAMPLE_RATE_16KHZ;
+		break;
+	case 2:
+		mdm9640_mi2s_rx_rate = SAMPLE_RATE_48KHZ;
+		break;
+	default:
+		mdm9640_mi2s_rx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: mdm9640_i2s_rx_rate = %d ucontrol->value = %d\n",
+		 __func__, mdm9640_mi2s_rx_rate,
+		 (int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
+static int mdm9640_mi2s_tx_rate_get(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	pr_debug("%s: mdm9640_i2s_rate  = %d", __func__,
+		 mdm9640_mi2s_tx_rate);
+	ucontrol->value.integer.value[0] = mdm9640_mi2s_tx_rate;
+	return 0;
+}
+
+static int mdm9640_mi2s_tx_rate_put(struct snd_kcontrol *kcontrol,
+				    struct snd_ctl_elem_value *ucontrol)
+{
+	switch (ucontrol->value.integer.value[0]) {
+	case 0:
+		mdm9640_mi2s_tx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	case 1:
+		mdm9640_mi2s_tx_rate = SAMPLE_RATE_16KHZ;
+		break;
+	case 2:
+		mdm9640_mi2s_tx_rate = SAMPLE_RATE_48KHZ;
+		break;
+	default:
+		mdm9640_mi2s_tx_rate = SAMPLE_RATE_8KHZ;
+		break;
+	}
+	pr_debug("%s: mdm9640_i2s_tx_rate = %d ucontrol->value = %d\n",
+		 __func__, mdm9640_mi2s_tx_rate,
+		 (int)ucontrol->value.integer.value[0]);
+	return 0;
+}
+
 static int mdm9640_mi2s_rx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
-					     struct snd_pcm_hw_params *params)
+					      struct snd_pcm_hw_params *params)
 {
 	struct snd_interval *rate = hw_param_interval(params,
 						      SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval *channels = hw_param_interval(params,
 					SNDRV_PCM_HW_PARAM_CHANNELS);
-	rate->min = rate->max = MDM_MI2S_RATE;
+	rate->min = rate->max = mdm9640_mi2s_rx_rate;
 	channels->min = channels->max = mdm9640_mi2s_rx_ch;
 	return 0;
 }
@@ -327,7 +439,7 @@ static int mdm9640_mi2s_tx_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 						      SNDRV_PCM_HW_PARAM_RATE);
 	struct snd_interval *channels = hw_param_interval(params,
 						SNDRV_PCM_HW_PARAM_CHANNELS);
-	rate->min = rate->max = MDM_MI2S_RATE;
+	rate->min = rate->max = mdm9640_mi2s_tx_rate;
 	channels->min = channels->max = mdm9640_mi2s_tx_ch;
 	return 0;
 }
@@ -342,7 +454,7 @@ static int mdm9640_be_hw_params_fixup(struct snd_soc_pcm_runtime *rt,
 }
 
 static int mdm9640_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	pr_debug("%s mdm9640_mi2s_rx_ch %d\n", __func__,
 		 mdm9640_mi2s_rx_ch);
@@ -352,7 +464,7 @@ static int mdm9640_mi2s_rx_ch_get(struct snd_kcontrol *kcontrol,
 }
 
 static int mdm9640_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
+				struct snd_ctl_elem_value *ucontrol)
 {
 	mdm9640_mi2s_rx_ch = ucontrol->value.integer.value[0] + 1;
 	pr_debug("%s mdm9640_mi2s_rx_ch %d\n", __func__,
@@ -362,7 +474,7 @@ static int mdm9640_mi2s_rx_ch_put(struct snd_kcontrol *kcontrol,
 }
 
 static int mdm9640_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
+				  struct snd_ctl_elem_value *ucontrol)
 {
 	pr_debug("%s mdm9640_mi2s_tx_ch %d\n", __func__,
 		 mdm9640_mi2s_tx_ch);
@@ -372,7 +484,7 @@ static int mdm9640_mi2s_tx_ch_get(struct snd_kcontrol *kcontrol,
 }
 
 static int mdm9640_mi2s_tx_ch_put(struct snd_kcontrol *kcontrol,
-				 struct snd_ctl_elem_value *ucontrol)
+				  struct snd_ctl_elem_value *ucontrol)
 {
 	mdm9640_mi2s_tx_ch = ucontrol->value.integer.value[0] + 1;
 	pr_debug("%s mdm9640_mi2s_tx_ch %d\n", __func__,
@@ -630,11 +742,18 @@ static const char *const mi2s_rx_ch_text[] = {"One", "Two"};
 static const char *const mi2s_tx_ch_text[] = {"One", "Two"};
 static const char *const auxpcm_rate_text[] = {"rate_8000", "rate_16000"};
 
+static const char *const mi2s_rx_rate_text[] = {"rate_8000",
+						"rate_16000", "rate_48000"};
+static const char *const mi2s_tx_rate_text[] = {"rate_8000",
+						"rate_16000", "rate_48000"};
+
 static const struct soc_enum mdm9640_enum[] = {
 	SOC_ENUM_SINGLE_EXT(2, spk_function),
 	SOC_ENUM_SINGLE_EXT(2, mi2s_rx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, mi2s_tx_ch_text),
 	SOC_ENUM_SINGLE_EXT(2, auxpcm_rate_text),
+	SOC_ENUM_SINGLE_EXT(3, mi2s_rx_rate_text),
+	SOC_ENUM_SINGLE_EXT(3, mi2s_tx_rate_text),
 };
 
 static const struct snd_kcontrol_new mdm_snd_controls[] = {
@@ -650,6 +769,12 @@ static const struct snd_kcontrol_new mdm_snd_controls[] = {
 	SOC_ENUM_EXT("AUX PCM SampleRate", mdm9640_enum[3],
 				 mdm9640_auxpcm_rate_get,
 				 mdm9640_auxpcm_rate_put),
+	SOC_ENUM_EXT("MI2S Rx SampleRate", mdm9640_enum[4],
+				 mdm9640_mi2s_rx_rate_get,
+				 mdm9640_mi2s_rx_rate_put),
+	SOC_ENUM_EXT("MI2S Tx SampleRate", mdm9640_enum[5],
+				 mdm9640_mi2s_tx_rate_get,
+				 mdm9640_mi2s_tx_rate_put),
 };
 
 static int mdm9640_mi2s_audrx_init(struct snd_soc_pcm_runtime *rtd)
