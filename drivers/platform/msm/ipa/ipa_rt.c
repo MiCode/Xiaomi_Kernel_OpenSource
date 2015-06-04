@@ -65,6 +65,13 @@ int __ipa_generate_rt_hw_rule_v2(enum ipa_ip_type ip,
 		WARN_ON(1);
 		return -EPERM;
 	}
+	if (!IPA_CLIENT_IS_CONS(entry->rule.dst)) {
+		IPAERR("No RT rule on IPA_client_producer pipe.\n");
+		IPAERR("pipe_idx: %d dst_pipe: %d\n",
+				pipe_idx, entry->rule.dst);
+		WARN_ON(1);
+		return -EPERM;
+	}
 	rule_hdr->u.hdr.pipe_dest_idx = pipe_idx;
 	rule_hdr->u.hdr.system = !ipa_ctx->hdr_tbl_lcl;
 	if (entry->hdr) {
@@ -137,6 +144,13 @@ int __ipa_generate_rt_hw_rule_v2_5(enum ipa_ip_type ip,
 	pipe_idx = ipa_get_ep_mapping(entry->rule.dst);
 	if (pipe_idx == -1) {
 		IPAERR("Wrong destination pipe specified in RT rule\n");
+		WARN_ON(1);
+		return -EPERM;
+	}
+	if (!IPA_CLIENT_IS_CONS(entry->rule.dst)) {
+		IPAERR("No RT rule on IPA_client_producer pipe.\n");
+		IPAERR("pipe_idx: %d dst_pipe: %d\n",
+				pipe_idx, entry->rule.dst);
 		WARN_ON(1);
 		return -EPERM;
 	}
