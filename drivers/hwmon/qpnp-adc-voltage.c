@@ -1756,8 +1756,7 @@ recalibrate:
 		goto fail_unlock;
 	}
 
-	rc = qpnp_vadc_channel_post_scaling_calib_check(vadc, channel);
-	if (rc < 0)
+	if ((qpnp_vadc_channel_post_scaling_calib_check(vadc, channel)) < 0)
 		pr_debug("Post scaling calib type not updated\n");
 
 	vadc_scale_fn[scale_type].chan(vadc, result->adc_code,
