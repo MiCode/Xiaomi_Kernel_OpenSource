@@ -43,8 +43,8 @@
 #define A5XX_INT_UCHE_TRAP_INTR          25
 #define A5XX_INT_DEBBUS_INTR_0           26
 #define A5XX_INT_DEBBUS_INTR_1           27
-#define A5XX_INT_GPMU_ERROR              28
-#define A5XX_INT_GPMU_THERMAL            29
+#define A5XX_INT_GPMU_VOLTAGE_DROOP      28
+#define A5XX_INT_GPMU_FIRMWARE           29
 #define A5XX_INT_ISDB_CPU_IRQ            30
 #define A5XX_INT_ISDB_UNDER_DEBUG        31
 
@@ -777,6 +777,7 @@
 #define A5XX_GPMU_PWR_COL_INTER_FRAME_HYST 0xA893
 #define A5XX_GPMU_PWR_COL_BINNING_CTRL     0xA894
 #define A5XX_GPMU_WFI_CONFIG               0xA8C1
+#define A5XX_GPMU_RBBM_INTR_INFO           0xA8D6
 #define A5XX_GPMU_CM3_SYSRESET             0xA8D8
 #define A5XX_GPMU_GENERAL_0                0xA8E0
 #define A5XX_GPMU_GENERAL_1                0xA8E1

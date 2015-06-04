@@ -46,6 +46,7 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 
 #define PREEMPT_SMMU_RECORD(_field) \
 		offsetof(struct a5xx_cp_smmu_info, _field)
+static void a5xx_gpmu_reset(struct work_struct *work);
 
 /**
  * Number of times to check if the regulator enabled before
@@ -343,6 +344,9 @@ static void a5xx_gpudev_init(struct adreno_device *adreno_dev)
 		gpudev->vbif_xin_halt_ctrl0_mask =
 				A510_VBIF_XIN_HALT_CTRL0_MASK;
 	}
+
+	if (adreno_is_a530(adreno_dev) && !adreno_is_a530v1(adreno_dev))
+		INIT_WORK(&adreno_dev->gpmu_work, a5xx_gpmu_reset);
 
 	/* Calculate SP local and private mem addresses */
 	addr = ALIGN(ADRENO_UCHE_GMEM_BASE + adreno_dev->gmem_size, SZ_64K);
@@ -1232,7 +1236,7 @@ static void a5xx_lm_init(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_GPMU_TEMP_SENSOR_CONFIG, 0x1);
 
 	kgsl_regwrite(device, A5XX_GPMU_GPMU_VOLTAGE,
-			(0x80000000 | device->pwrctrl.default_pwrlevel));
+			(0x80000000 | device->pwrctrl.active_pwrlevel));
 	/* todo use the iddq fuse to correct this value at runtime */
 	kgsl_regwrite(device, A5XX_GPMU_BASE_LEAKAGE, 0x00640002);
 	/* default of 6A */
@@ -1346,6 +1350,55 @@ static void a5xx_enable_64bit(struct adreno_device *adreno_dev)
 	kgsl_regwrite(device, A5XX_SP_ADDR_MODE_CNTL, 0x1);
 	kgsl_regwrite(device, A5XX_TPL1_ADDR_MODE_CNTL, 0x1);
 	kgsl_regwrite(device, A5XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
+}
+
+/*
+ * a5xx_gpmu_reset() - Re-enable GPMU based power features and restart GPMU
+ * @work: Pointer to the work struct for gpmu reset
+ *
+ * Load the GPMU microcode, set up any features such as hardware clock gating
+ * or IFPC, and take the GPMU out of reset.
+ */
+static void a5xx_gpmu_reset(struct work_struct *work)
+{
+	struct adreno_device *adreno_dev = container_of(work,
+			struct adreno_device, gpmu_work);
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	if (test_bit(ADRENO_DEVICE_GPMU_INITIALIZED, &adreno_dev->priv))
+		return;
+
+	/*
+	 * If GPMU has already experienced a restart or is in the process of it
+	 * after the watchdog timeout, then there is no need to reset GPMU
+	 * again.
+	 */
+	if (device->state != KGSL_STATE_NAP &&
+		device->state != KGSL_STATE_AWARE &&
+		device->state != KGSL_STATE_ACTIVE)
+		return;
+
+	mutex_lock(&device->mutex);
+
+	if (device->state == KGSL_STATE_NAP)
+		kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
+
+	if (a5xx_regulator_enable(adreno_dev))
+		goto out;
+
+	/* Soft reset of the GPMU block */
+	kgsl_regwrite(device, A5XX_RBBM_BLOCK_SW_RESET_CMD, BIT(16));
+
+	a5xx_lm_init(adreno_dev);
+
+	a5xx_enable_pc(adreno_dev);
+
+	a5xx_gpmu_start(adreno_dev);
+
+	a5xx_lm_enable(adreno_dev);
+
+out:
+	mutex_unlock(&device->mutex);
 }
 
 /*
@@ -2404,9 +2457,36 @@ void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	case A5XX_INT_UCHE_TRAP_INTR:
 		KGSL_DRV_CRIT_RATELIMIT(device, "UCHE: Trap interrupt\n");
 		break;
+	case A5XX_INT_GPMU_VOLTAGE_DROOP:
+		KGSL_DRV_CRIT_RATELIMIT(device, "GPMU: Voltage droop\n");
+		break;
 	default:
 		KGSL_DRV_CRIT_RATELIMIT(device, "Unknown interrupt %d\n", bit);
 	}
+}
+
+static void a5xx_gpmu_int_callback(struct adreno_device *adreno_dev, int bit)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+	unsigned int reg;
+
+	kgsl_regread(device, A5XX_GPMU_RBBM_INTR_INFO, &reg);
+
+	if (reg & BIT(31)) {
+		if (test_and_clear_bit(ADRENO_DEVICE_GPMU_INITIALIZED,
+					&adreno_dev->priv)) {
+			/* Stop GPMU */
+			kgsl_regwrite(device, A5XX_GPMU_CM3_SYSRESET, 1);
+
+			queue_work(device->work_queue, &adreno_dev->gpmu_work);
+
+			KGSL_DRV_CRIT_RATELIMIT(device,
+						"GPMU: Watchdog bite\n");
+		}
+	} else
+		KGSL_DRV_CRIT_RATELIMIT(device,
+					"GPMU: Unknown interrupt 0x%08X\n",
+					reg);
 }
 
 #define A5XX_INT_MASK \
@@ -2422,9 +2502,11 @@ void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A5XX_INT_CP_IB2) |			\
 	 (1 << A5XX_INT_CP_RB) |			\
 	 (1 << A5XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
-	 (1 << A5XX_INT_UCHE_OOB_ACCESS)) |		\
-	 (1 << A5XX_INT_UCHE_TRAP_INTR) | \
-	 (1 << A5XX_INT_CP_SW)
+	 (1 << A5XX_INT_UCHE_OOB_ACCESS) |		\
+	 (1 << A5XX_INT_UCHE_TRAP_INTR) |		\
+	 (1 << A5XX_INT_CP_SW) |			\
+	 (1 << A5XX_INT_GPMU_VOLTAGE_DROOP) |		\
+	 (1 << A5XX_INT_GPMU_FIRMWARE))
 
 
 static struct adreno_irq_funcs a5xx_irq_funcs[] = {
@@ -2464,10 +2546,10 @@ static struct adreno_irq_funcs a5xx_irq_funcs[] = {
 	ADRENO_IRQ_CALLBACK(adreno_hang_int_callback),
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 24 - UCHE_OOB_ACCESS */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 25 - UCHE_TRAP_INTR */
-	ADRENO_IRQ_CALLBACK(NULL), /* 27 - DEBBUS_INTR_0 */
-	ADRENO_IRQ_CALLBACK(NULL), /* 28 - DEBBUS_INTR_1 */
-	ADRENO_IRQ_CALLBACK(NULL), /* 29 - GPMU_ERROR */
-	ADRENO_IRQ_CALLBACK(NULL), /* 29 - GPMU_THERMAL */
+	ADRENO_IRQ_CALLBACK(NULL), /* 26 - DEBBUS_INTR_0 */
+	ADRENO_IRQ_CALLBACK(NULL), /* 27 - DEBBUS_INTR_1 */
+	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 28 - GPMU_VOLTAGE_DROOP */
+	ADRENO_IRQ_CALLBACK(a5xx_gpmu_int_callback), /* 29 - GPMU_FIRMWARE */
 	ADRENO_IRQ_CALLBACK(NULL), /* 30 - ISDB_CPU_IRQ */
 	ADRENO_IRQ_CALLBACK(NULL), /* 31 - ISDB_UNDER_DEBUG */
 };
