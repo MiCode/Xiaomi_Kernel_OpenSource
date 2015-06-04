@@ -212,10 +212,12 @@ struct kgsl_iommu {
  * struct kgsl_iommu_pt - Iommu pagetable structure private to kgsl driver
  * @domain: Pointer to the iommu domain that contains the iommu pagetable
  * @iommu: Pointer to iommu structure
+ * @pt_base: physical base pointer of this pagetable.
  */
 struct kgsl_iommu_pt {
 	struct iommu_domain *domain;
 	struct kgsl_iommu *iommu;
+	phys_addr_t pt_base;
 };
 
 /*
