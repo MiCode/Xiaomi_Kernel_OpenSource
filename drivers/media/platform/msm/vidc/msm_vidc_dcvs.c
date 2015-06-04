@@ -461,11 +461,14 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 	}
 
 	core = inst->core;
-
 	if (!core) {
 		dprintk(VIDC_ERR, "%s Invalid params\n", __func__);
 		return dcvs_check_passed;
 	}
+
+	if (!core->resources.dcvs_min_mbperframe ||
+			!core->resources.dcvs_min_load)
+		return dcvs_check_passed;
 
 	is_codec_supported  =
 		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264) ||
@@ -498,6 +501,10 @@ static int msm_dcvs_check_supported(struct msm_vidc_inst *inst)
 	}
 
 	core = inst->core;
+	if (!core->resources.dcvs_min_mbperframe ||
+			!core->resources.dcvs_min_load)
+		return -ENOTSUPP;
+
 	dcvs = &inst->dcvs;
 	instance_count = msm_dcvs_count_active_instances(core);
 
