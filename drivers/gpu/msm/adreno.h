@@ -1154,8 +1154,8 @@ static inline void adreno_vbif_start(struct adreno_device *adreno_dev,
 			break;
 		}
 	}
-	BUG_ON(vbif == NULL);
-	while (vbif->reg != 0) {
+
+	while ((vbif != NULL) && (vbif->reg != 0)) {
 		kgsl_regwrite(&adreno_dev->dev, vbif->reg, vbif->val);
 		vbif++;
 	}
