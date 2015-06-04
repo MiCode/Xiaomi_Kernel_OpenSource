@@ -526,11 +526,9 @@ int mdss_mdp_irq_enable(u32 intr_type, u32 intf_num)
 }
 int mdss_mdp_hist_irq_enable(u32 irq)
 {
-	unsigned long irq_flags;
 	int ret = 0;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	spin_lock_irqsave(&mdp_lock, irq_flags);
 	if (mdata->mdp_hist_irq_mask & irq) {
 		pr_warn("MDSS MDP Hist IRQ-0x%x is already set, mask=%x\n",
 				irq, mdata->mdp_hist_irq_mask);
@@ -545,7 +543,6 @@ int mdss_mdp_hist_irq_enable(u32 irq)
 			MDSS_MDP_REG_HIST_INTR_EN);
 		mdata->mdss_util->enable_irq(&mdss_mdp_hw);
 	}
-	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 
 	return ret;
 }
@@ -576,10 +573,8 @@ void mdss_mdp_irq_disable(u32 intr_type, u32 intf_num)
 
 void mdss_mdp_hist_irq_disable(u32 irq)
 {
-	unsigned long irq_flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
-	spin_lock_irqsave(&mdp_lock, irq_flags);
 	if (!(mdata->mdp_hist_irq_mask & irq)) {
 		pr_warn("MDSS MDP IRQ-%x is NOT set, mask=%x\n",
 				irq, mdata->mdp_hist_irq_mask);
@@ -591,7 +586,6 @@ void mdss_mdp_hist_irq_disable(u32 irq)
 			(mdata->mdp_hist_irq_mask == 0))
 			mdata->mdss_util->disable_irq(&mdss_mdp_hw);
 	}
-	spin_unlock_irqrestore(&mdp_lock, irq_flags);
 }
 
 /**
