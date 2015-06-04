@@ -85,6 +85,8 @@ static int wsa881x_shutdown(struct wsa881x_pdata *pdata);
 static int delay_array_msec[] = {10, 20, 30, 40, 50};
 
 static int wsa881x_i2c_addr = -1;
+static int wsa881x_probing_count;
+static int wsa881x_presence_count;
 
 static const char * const wsa881x_spk_pa_gain_text[] = {
 "POS_13P5_DB", "POS_12_DB", "POS_10P5_DB", "POS_9_DB", "POS_7P5_DB",
@@ -828,6 +830,18 @@ int wsa881x_get_client_index(void)
 }
 EXPORT_SYMBOL(wsa881x_get_client_index);
 
+int wsa881x_get_probing_count(void)
+{
+	return wsa881x_probing_count;
+}
+EXPORT_SYMBOL(wsa881x_get_probing_count);
+
+int wsa881x_get_presence_count(void)
+{
+	return wsa881x_presence_count;
+}
+EXPORT_SYMBOL(wsa881x_get_presence_count);
+
 static int check_wsa881x_presence(struct i2c_client *client)
 {
 	int ret = 0;
@@ -980,8 +994,11 @@ static int wsa881x_i2c_probe(struct i2c_client *client,
 			dev_err(&client->dev,
 				"failed to ping wsa with addr:%x, ret = %d\n",
 						client->addr, ret);
+			wsa881x_probing_count++;
 			goto err1;
 		}
+		wsa881x_presence_count++;
+		wsa881x_probing_count++;
 		ret = snd_soc_register_codec(&client->dev,
 					&soc_codec_dev_wsa881x,
 					     NULL, 0);
