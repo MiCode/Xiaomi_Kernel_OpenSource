@@ -159,6 +159,8 @@ Required properties:
 
 Optional properties:
  - reg: Address and length register set to control QUSB2 PHY
+   "qscratch_base" : QSCRATCH base register set.
+   "tune2_efuse_addr": EFUSE based register address to read TUNE2 parameter.
    via the QSCRATCH interface.
  - reg-names: Should be "qscratch_base". The qscratch register bank
    allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
@@ -168,6 +170,9 @@ Optional properties:
  - qcom,qusb-tune: Used to pass QUSB PHY tuning parameters. The 4 tuning parameters
    are passed in as 4 bytes packed into a single 32-bit value. The parameters control
    On-chip Rout Term, TX Output Level, RX Sensitivity and TX Pre-emphasis respectively.
+ - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
+ - qcom,tune2-efuse-bit-pos: TUNE2 parameter related start bit position with EFUSE register
+ - qcom,tune2-efuse-num-bits: Number of bits based value to use for TUNE2 high nibble
 
 Example:
 	qusb_phy: qusb@f9b39000 {
@@ -180,6 +185,8 @@ Example:
 		vdda18-supply = <&pm8994_l6>;
 		vdda33-supply = <&pm8994_l24>;
 		qcom,vdd-voltage-level = <1 5 7>;
+		qcom,tune2-efuse-bit-pos = <21>;
+		qcom,tune2-efuse-num-bits = <3>;
 
 		clocks = <&clock_rpm clk_ln_bb_clk>,
 			 <&clock_gcc clk_gcc_usb_phy_cfg_ahb2phy_clk>,
