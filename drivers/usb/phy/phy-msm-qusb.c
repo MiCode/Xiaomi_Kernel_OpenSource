@@ -29,7 +29,16 @@
 #define CLAMP_N_EN			BIT(5)
 #define FREEZIO_N			BIT(1)
 #define POWER_DOWN			BIT(0)
+
+#define QUSB2PHY_PORT_UTMI_CTRL1	0xC0
+#define TERM_SELECT			BIT(4)
+#define XCVR_SELECT_FS			BIT(2)
+#define OP_MODE_NON_DRIVE		BIT(0)
+
 #define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
+#define UTMI_ULPI_SEL			BIT(7)
+#define UTMI_TEST_MUX_SEL		BIT(6)
+
 #define QUSB2PHY_PORT_TUNE1             0x80
 #define QUSB2PHY_PORT_TUNE2             0x84
 #define QUSB2PHY_PORT_TUNE3             0x88
@@ -41,6 +50,14 @@
 
 /* Get TUNE2's high nibble value read from efuse */
 #define TUNE2_HIGH_NIBBLE_VAL(val, pos, mask)	((val >> pos) & mask)
+#define QRBTC_USB2_PLL			0x404
+#define QRBTC_USB2_PLLCTRL2		0x414
+#define QRBTC_USB2_PLLCTRL1		0x410
+#define QRBTC_USB2_PLLCTRL3		0x418
+#define QRBTC_USB2_PLLTEST1		0x408
+#define RUMI_RESET_ADDRESS		0x6500
+#define RUMI_RESET_VALUE_1		0x80000000
+#define RUMI_RESET_VALUE_2		0x000201e0
 
 #define QUSB2PHY_PORT_INTR_CTRL         0xBC
 #define CHG_DET_INTR_EN                 BIT(4)
@@ -80,7 +97,6 @@ struct qusb_phy {
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
-	u32			qusb_tune;
 	int			init_seq_len;
 	int			*qusb_phy_init_seq;
 
@@ -93,6 +109,7 @@ struct qusb_phy {
 	bool			cable_connected;
 	bool			suspended;
 	bool			ulpi_mode;
+	bool			emulation;
 };
 
 static int qusb_phy_reset(struct usb_phy *phy)
@@ -284,7 +301,6 @@ static int qusb_phy_init(struct usb_phy *phy)
 {
 	struct qusb_phy *qphy = container_of(phy, struct qusb_phy, phy);
 	int ret, *seq = NULL, i;
-	u32 t1, t2, t3, t4;
 
 	dev_dbg(phy->dev, "%s\n", __func__);
 
@@ -298,60 +314,73 @@ static int qusb_phy_init(struct usb_phy *phy)
 		qphy->clocks_enabled = true;
 	}
 
-	/* Disable the PHY */
-	writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
-			qphy->base + QUSB2PHY_PORT_POWERDOWN);
+	if (qphy->emulation) {
+		/* Configure QUSB2 PLLs for RUMI */
+		writel_relaxed(0x19, qphy->base + QRBTC_USB2_PLL);
+		writel_relaxed(0x20, qphy->base + QRBTC_USB2_PLLCTRL2);
+		writel_relaxed(0x79, qphy->base + QRBTC_USB2_PLLCTRL1);
+		writel_relaxed(0x00, qphy->base + QRBTC_USB2_PLLCTRL3);
+		writel_relaxed(0x99, qphy->base + QRBTC_USB2_PLL);
+		writel_relaxed(0x04, qphy->base + QRBTC_USB2_PLLTEST1);
+		writel_relaxed(0xD9, qphy->base + QRBTC_USB2_PLL);
 
-	/* configure for ULPI mode if requested */
-	if (qphy->ulpi_mode)
-		writel_relaxed(0x0,
+		/* Wait for 5ms as per QUSB2 RUMI sequence from VI */
+		usleep_range(5000, 7000);
+
+		/* Perform the RUMI PLL Reset */
+		writel_relaxed((int)RUMI_RESET_VALUE_1,
+					qphy->base + RUMI_RESET_ADDRESS);
+		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
+		usleep_range(10000, 12000);
+		writel_relaxed(0x0, qphy->base + RUMI_RESET_ADDRESS);
+		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
+		usleep_range(10000, 12000);
+		writel_relaxed((int)RUMI_RESET_VALUE_2,
+					qphy->base + RUMI_RESET_ADDRESS);
+		/* Wait for 10ms as per QUSB2 RUMI sequence from VI */
+		usleep_range(10000, 12000);
+		writel_relaxed(0x0, qphy->base + RUMI_RESET_ADDRESS);
+	} else {
+		/* Disable the PHY */
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N | POWER_DOWN,
+				qphy->base + QUSB2PHY_PORT_POWERDOWN);
+
+		/* configure for ULPI mode if requested */
+		if (qphy->ulpi_mode)
+			writel_relaxed(0x0,
 				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 
-	/* Program tuning parameters for PHY */
-	if (qphy->qusb_tune) {
-		t1 = qphy->qusb_tune >> 24;
-		t2 = (qphy->qusb_tune) >> 16 & 0xFF;
-		t3 = (qphy->qusb_tune) >> 8 & 0xFF;
-		t4 = (qphy->qusb_tune) & 0xFF;
-
-		/* Program tuning parameters for PHY */
-		writel_relaxed(t1, qphy->base + QUSB2PHY_PORT_TUNE1);
-		writel_relaxed(t2, qphy->base + QUSB2PHY_PORT_TUNE2);
-		writel_relaxed(t3, qphy->base + QUSB2PHY_PORT_TUNE3);
-		writel_relaxed(t4, qphy->base + QUSB2PHY_PORT_TUNE4);
-	}
-
-	if (qphy->qusb_phy_init_seq) {
-		seq = qphy->qusb_phy_init_seq;
-		dev_dbg(phy->dev, "count:%d\n", qphy->init_seq_len);
-		for (i = 0; i < qphy->init_seq_len; i = i+2) {
-			dev_dbg(phy->dev, "write 0x%02x to 0x%02x\n",
+		if (qphy->qusb_phy_init_seq) {
+			seq = qphy->qusb_phy_init_seq;
+			dev_dbg(phy->dev, "count:%d\n", qphy->init_seq_len);
+			for (i = 0; i < qphy->init_seq_len; i = i+2) {
+				dev_dbg(phy->dev, "write 0x%02x to 0x%02x\n",
 					seq[i], seq[i+1]);
-			writel_relaxed(seq[i], qphy->base + seq[i+1]);
+				writel_relaxed(seq[i], qphy->base + seq[i+1]);
+			}
 		}
-	}
 
-	/*
-	 * Check for EFUSE value only if tune2_efuse_reg is available
-	 * and try to read EFUSE value only once i.e. not every USB
-	 * cable connect case.
-	 */
-	if (qphy->tune2_efuse_reg) {
-		if (!qphy->tune2_val)
-			qusb_phy_get_tune2_param(qphy);
+		/*
+		 * Check for EFUSE value only if tune2_efuse_reg is available
+		 * and try to read EFUSE value only once i.e. not every USB
+		 * cable connect case.
+		 */
+		if (qphy->tune2_efuse_reg) {
+			if (!qphy->tune2_val)
+				qusb_phy_get_tune2_param(qphy);
 
-		pr_debug("%s(): Programming TUNE2 parameter as:%x\n",
+			pr_debug("%s(): Programming TUNE2 parameter as:%x\n",
 					__func__, qphy->tune2_val);
-		writel_relaxed(qphy->tune2_val,
-				qphy->base + QUSB2PHY_PORT_TUNE2);
-	}
-	/* ensure above writes are completed before re-enabling PHY */
-	wmb();
+			writel_relaxed(qphy->tune2_val,
+					qphy->base + QUSB2PHY_PORT_TUNE2);
+		}
+		/* ensure above writes are completed before re-enabling PHY */
+		wmb();
 
-	/* Enable the PHY */
-	writel_relaxed(CLAMP_N_EN | FREEZIO_N,
+		/* Enable the PHY */
+		writel_relaxed(CLAMP_N_EN | FREEZIO_N,
 			qphy->base + QUSB2PHY_PORT_POWERDOWN);
-
+	}
 	return 0;
 }
 
@@ -433,6 +462,21 @@ static int qusb_phy_set_suspend(struct usb_phy *phy, int suspend)
 			clk_disable_unprepare(qphy->cfg_ahb_clk);
 			clk_disable_unprepare(qphy->ref_clk);
 		} else { /* Disconnect case */
+			/* Disable all interrupts */
+			writel_relaxed(0x00,
+				qphy->base + QUSB2PHY_PORT_INTR_CTRL);
+			/*
+			 * Phy in non-driving mode leaves Dp and Dm lines in
+			 * high-Z state. Controller power collapse is not
+			 * switching phy to non-driving mode causing charger
+			 * detection failure. Bring phy to non-driving mode by
+			 * overriding controller output via UTMI interface.
+			 */
+			writel_relaxed(TERM_SELECT | XCVR_SELECT_FS |
+				OP_MODE_NON_DRIVE,
+				qphy->base + QUSB2PHY_PORT_UTMI_CTRL1);
+			writel_relaxed(UTMI_ULPI_SEL | UTMI_TEST_MUX_SEL,
+				qphy->base + QUSB2PHY_PORT_UTMI_CTRL2);
 			clk_disable_unprepare(qphy->cfg_ahb_clk);
 			clk_disable_unprepare(qphy->ref_clk);
 			qusb_phy_enable_power(qphy, false);
@@ -581,7 +625,9 @@ static int qusb_phy_probe(struct platform_device *pdev)
 	if (IS_ERR(qphy->phy_reset))
 		return PTR_ERR(qphy->phy_reset);
 
-	of_property_read_u32(dev->of_node, "qcom,qusb-tune", &qphy->qusb_tune);
+	qphy->emulation = of_property_read_bool(dev->of_node,
+					"qcom,emulation");
+
 	of_get_property(dev->of_node, "qcom,qusb-phy-init-seq", &size);
 	if (size) {
 		qphy->qusb_phy_init_seq = devm_kzalloc(dev,

@@ -99,6 +99,8 @@ Required properties:
    Required regs are:
    "qmp_phy_base" : QMP PHY Base register set.
    "qmp_ahb2phy_base" : SS AHB2PHY CSR register set.
+ - "vls_clamp_reg" : top-level CSR register to be written to enable phy vls
+   clamp which allows phy to detect autonomous mode.
  - <supply-name>-supply: phandle to the regulator device tree node
    Required "supply-name" examples are:
 	"vdd" : vdd supply for SSPHY digital circuit operation
@@ -113,14 +115,17 @@ Optional properties:
    order to manually relay the notification to the SSPHY.
  - qcom,no-pipe-clk-switch: If present, indicates that the pipe_clk does not need
    to switch sources between the XO and the PHY PIPE clock output.
+ - qcom,emulation: Indicates that we are running on emulation platform.
 
 Example:
 	ssphy0: ssphy@f9b38000 {
 		compatible = "qcom,usb-ssphy-qmp";
 		reg = <0xf9b38000 0x16c>,
-			<0xf9b3e000 0x3ff>;
+			<0xf9b3e000 0x3ff>,
+			<0x01947244 0x4>;
 		reg-names = "qmp_phy_base",
-			"qmp_ahb2phy_base";
+			"qmp_ahb2phy_base",
+			"vls_clamp_reg";
 		vdd-supply = <&pmd9635_l4>;
 		vdda18-supply = <&pmd9635_l8>;
 		qcom,vdd-voltage-level = <0 900000 1050000>;
@@ -156,12 +161,10 @@ Optional properties:
    allows us to manipulate QUSB PHY bits eg. to enable D+ pull-up using s/w
    control in device mode. The reg-names property is required if the
    reg property is specified.
- - qcom,qusb-tune: Used to pass QUSB PHY tuning parameters. The 4 tuning parameters
-   are passed in as 4 bytes packed into a single 32-bit value. The parameters control
-   On-chip Rout Term, TX Output Level, RX Sensitivity and TX Pre-emphasis respectively.
  - qcom,qusb-phy-init-seq: QUSB PHY initialization sequence with value,reg pair.
  - qcom,tune2-efuse-bit-pos: TUNE2 parameter related start bit position with EFUSE register
  - qcom,tune2-efuse-num-bits: Number of bits based value to use for TUNE2 high nibble
+ - qcom,emulation: Indicates that we are running on emulation platform.
 
 Example:
 	qusb_phy: qusb@f9b39000 {
