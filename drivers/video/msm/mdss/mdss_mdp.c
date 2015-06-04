@@ -60,7 +60,7 @@
 #define AXI_HALT_TIMEOUT_US	0x4000
 #define AUTOSUSPEND_TIMEOUT_MS	200
 #define DEFAULT_MDP_PIPE_WIDTH	2048
-#define RES_1080p		(1080*1920)
+#define RES_1080p		(1088*1920)
 #define RES_UHD			(3840*2160)
 
 struct mdss_data_type *mdss_res;
