@@ -570,6 +570,22 @@ static struct rcg_clk vfe0_clk_src = {
 	},
 };
 
+static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_465_clk[] = {
+	F(  19200000,	      xo,   1,	  0,	0),
+	F(  50000000,  gpll0_aux,  16,	  0,	0),
+	F(  80000000,  gpll0_aux,  10,	  0,	0),
+	F( 100000000,  gpll0_aux,   8,	  0,	0),
+	F( 160000000,  gpll0_aux,   5,	  0,	0),
+	F( 177780000,  gpll0_aux, 4.5,	  0,	0),
+	F( 200000000,  gpll0_aux,   4,	  0,	0),
+	F( 266670000,  gpll0_aux,   3,	  0,	0),
+	F( 294912000,	   gpll1,   3,	  0,	0),
+	F( 310000000,	   gpll2,   3,	  0,	0),
+	F( 400000000,  gpll0_aux,   2,	  0,	0),
+	F( 465000000,      gpll2,   2,	  0,	0),
+	F_END
+};
+
 static struct clk_freq_tbl ftbl_gcc_oxili_gfx3d_clk[] = {
 	F(  19200000,	      xo,   1,	  0,	0),
 	F(  50000000,  gpll0_aux,  16,	  0,	0),
@@ -2742,6 +2758,46 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	CLK_LIST(gcc_snoc_qosgen_clk),
 };
 
+#define EFUSE_BASE	0x0005c004
+#define EFUSE_BASE1	0x0005c00c
+
+static void gcc_gfx3d_fmax(struct platform_device *pdev)
+{
+	void __iomem *base;
+
+	u32 pte_efuse, shift = 2, mask = 0x7;
+	int bin, version;
+
+	base = devm_ioremap(&pdev->dev, EFUSE_BASE, SZ_8);
+	if (!base) {
+		pr_err("unable to ioremap efuse base\n");
+		return;
+	}
+	pte_efuse = readl_relaxed(base);
+	devm_iounmap(&pdev->dev, base);
+	version = (pte_efuse >> 18) & 0x3;
+	if (!version)
+		return;
+
+	base = devm_ioremap(&pdev->dev, EFUSE_BASE1, SZ_8);
+	if (!base) {
+		pr_err("unable to ioremap efuse1 base\n");
+		return;
+	}
+	pte_efuse = readl_relaxed(base);
+	devm_iounmap(&pdev->dev, base);
+	bin = (pte_efuse >> shift) & mask;
+
+	if (bin != 2)
+		return;
+
+	pr_info("%s, Version: %d, bin: %d\n", __func__, version,
+					bin);
+
+	gfx3d_clk_src.c.fmax[VDD_DIG_HIGH] = 465000000;
+	gfx3d_clk_src.freq_tbl = ftbl_gcc_oxili_gfx3d_465_clk;
+}
+
 static int msm_gcc_probe(struct platform_device *pdev)
 {
 	struct resource *res;
@@ -2819,6 +2875,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "Unable to get xo_a clock!!!\n");
 		return PTR_ERR(xo_a_clk_src.c.parent);
 	}
+
+	gcc_gfx3d_fmax(pdev);
 
 	ret = of_msm_clock_register(pdev->dev.of_node,
 				msm_clocks_lookup,
