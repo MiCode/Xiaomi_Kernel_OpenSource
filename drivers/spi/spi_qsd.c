@@ -2813,10 +2813,12 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 		msm_spi_bam_pipe_disconnect(dd, &dd->bam.prod);
 		msm_spi_bam_pipe_disconnect(dd, &dd->bam.cons);
 	}
-	if (dd->pdata && !dd->pdata->active_only)
-		msm_spi_clk_path_unvote(dd);
 	if (dd->pdata && !dd->pdata->is_shared)
 		put_local_resources(dd);
+
+	if (dd->pdata && !dd->pdata->active_only)
+		msm_spi_clk_path_unvote(dd);
+
 suspend_exit:
 	return 0;
 }
@@ -2844,14 +2846,15 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 		else
 			dd->is_init_complete = true;
 	}
+	msm_spi_clk_path_init(dd);
+	if (!dd->pdata->active_only)
+		msm_spi_clk_path_vote(dd);
+
 	if (!dd->pdata->is_shared) {
 		ret = get_local_resources(dd);
 		if (ret)
 			return ret;
 	}
-	msm_spi_clk_path_init(dd);
-	if (!dd->pdata->active_only)
-		msm_spi_clk_path_vote(dd);
 	if (!dd->pdata->is_shared && dd->use_dma) {
 		msm_spi_bam_pipe_connect(dd, &dd->bam.prod,
 				&dd->bam.prod.config);
