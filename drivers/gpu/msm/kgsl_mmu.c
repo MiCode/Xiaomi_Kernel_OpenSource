@@ -458,10 +458,10 @@ kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable)
 		return;
 
 	spin_lock_irqsave(&kgsl_driver.ptlock, flags);
-	if (pagetable->list.next) {
-		list_del(&pagetable->list);
-		pagetable->list.next = NULL;
-	}
+
+	if (!list_empty(&pagetable->list))
+		list_del_init(&pagetable->list);
+
 	spin_unlock_irqrestore(&kgsl_driver.ptlock, flags);
 
 	pagetable_remove_sysfs_objects(pagetable);
