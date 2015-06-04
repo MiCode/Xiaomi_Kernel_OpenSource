@@ -455,9 +455,11 @@ void adreno_ringbuffer_close(struct adreno_device *adreno_dev)
 
 	kfree(adreno_dev->pfp_fw);
 	kfree(adreno_dev->pm4_fw);
+	kfree(adreno_dev->gpmu_cmds);
 
 	adreno_dev->pfp_fw = NULL;
 	adreno_dev->pm4_fw = NULL;
+	adreno_dev->gpmu_cmds = NULL;
 
 	kgsl_free_global(&adreno_dev->pm4);
 	kgsl_free_global(&adreno_dev->pfp);

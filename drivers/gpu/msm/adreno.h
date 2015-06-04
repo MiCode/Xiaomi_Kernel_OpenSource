@@ -261,6 +261,8 @@ struct adreno_gpu_core {
  * @pm4_fw_size: Size of pm4 ucode buffer
  * @pm4_fw_version: Version of pm4 ucode
  * @pm4: Memory descriptor which holds pm4 ucode buffer info
+ * @gpmu_cmds_size: Length of gpmu cmd stream
+ * @gpmu_cmds: gpmu cmd stream
  * @ringbuffers: Array of pointers to adreno_ringbuffers
  * @num_ringbuffers: Number of ringbuffers for the GPU
  * @cur_rb: Pointer to the current ringbuffer
@@ -306,6 +308,8 @@ struct adreno_device {
 	size_t pm4_fw_size;
 	unsigned int pm4_fw_version;
 	struct kgsl_memdesc pm4;
+	size_t gpmu_cmds_size;
+	unsigned int *gpmu_cmds;
 	struct adreno_ringbuffer ringbuffers[ADRENO_PRIORITY_MAX_RB_LEVELS];
 	int num_ringbuffers;
 	struct adreno_ringbuffer *cur_rb;
@@ -655,13 +659,8 @@ struct adreno_gpudev {
 	void (*perfcounter_close)(struct adreno_device *);
 	void (*start)(struct adreno_device *);
 	bool (*is_sptp_idle)(struct adreno_device *);
-	void (*enable_pc)(struct adreno_device *);
-	void (*enable_ppd)(struct adreno_device *);
 	int (*regulator_enable)(struct adreno_device *);
 	void (*regulator_disable)(struct adreno_device *);
-	void (*gpmu_start)(struct adreno_device *);
-	void (*lm_init)(struct adreno_device *);
-	void (*lm_enable)(struct adreno_device *);
 	void (*pwrlevel_change_settings)(struct adreno_device *,
 				unsigned int prelevel, unsigned int postlevel,
 				bool post);
