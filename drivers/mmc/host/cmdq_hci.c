@@ -552,6 +552,8 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (mrq->cmdq_req->cmdq_req_flags & DCMD) {
 		cmdq_prep_dcmd_desc(mmc, mrq);
 		cq_host->mrq_slot[DCMD_SLOT] = mrq;
+		if (cq_host->ops->pm_qos_update)
+			cq_host->ops->pm_qos_update(mmc, NULL, true);
 		cmdq_writel(cq_host, 1 << DCMD_SLOT, CQTDBR);
 		return 0;
 	}
@@ -577,6 +579,9 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		       mmc_hostname(mmc), __func__, err);
 		return err;
 	}
+
+	if (cq_host->ops->pm_qos_update)
+		cq_host->ops->pm_qos_update(mmc, NULL, true);
 
 	BUG_ON(cmdq_readl(cq_host, CQTDBR) & (1 << tag));
 
@@ -655,6 +660,10 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		}
 
 		mmc->err_mrq = mrq;
+
+		if (cq_host->ops->pm_qos_update)
+			cq_host->ops->pm_qos_update(mmc, NULL, false);
+
 		cmdq_finish_data(mmc, tag);
 	}
 
@@ -663,6 +672,24 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 		comp_status = cmdq_readl(cq_host, CQTCN);
 		if (!comp_status)
 			goto out;
+
+		/*
+		 * pm-qos for cmdq is removed only when there is no cmdq
+		 * request been processed.
+		 * Check if comp_status matches with the number of active_reqs.
+		 * This means that all reqs got actually completed and there
+		 * was no DCMD.
+		 * But in case of DCMD, active_reqs mask has a bit set for DCMD
+		 * as well, so ensure that the when comp_status bit is set
+		 * for DCMD then there should not be any data_active_reqs in
+		 * flight (which can happen if DCMD is not set with QBR)
+		 */
+		if (((mmc->cmdq_ctx).active_reqs == comp_status) ||
+			       (((1 << 31) & comp_status) &&
+				!((mmc->cmdq_ctx).data_active_reqs))) {
+			if (cq_host->ops->pm_qos_update)
+				cq_host->ops->pm_qos_update(mmc, NULL, false);
+		}
 
 		for_each_set_bit(tag, &comp_status, cq_host->num_slots) {
 			/* complete the corresponding mrq */
