@@ -54,12 +54,91 @@ static int mmc_prep_request(struct request_queue *q, struct request *req)
 	return BLKPREP_OK;
 }
 
+static inline bool mmc_cmdq_should_pull_reqs(struct mmc_host *host,
+					struct mmc_cmdq_context_info *ctx,
+					struct request *req)
+
+{
+	if (((req->cmd_flags & (REQ_FLUSH | REQ_DISCARD)) &&
+			test_bit(CMDQ_STATE_DCMD_ACTIVE, &ctx->curr_state)) ||
+			mmc_host_halt(host) ||
+			test_bit(CMDQ_STATE_ERR, &ctx->curr_state)) {
+		pr_debug("%s: %s: skip pulling reqs: state: %lu\n",
+			 mmc_hostname(host), __func__, ctx->curr_state);
+		return false;
+	} else {
+		return true;
+	}
+}
+
+static int mmc_cmdq_thread(void *d)
+{
+	struct mmc_queue *mq = d;
+	struct request_queue *q = mq->queue;
+	struct mmc_card *card = mq->card;
+
+	struct request *req;
+	struct mmc_host *host = card->host;
+	struct mmc_cmdq_context_info *ctx = &host->cmdq_ctx;
+	unsigned long flags;
+
+	current->flags |= PF_MEMALLOC;
+	if (card->host->wakeup_on_idle)
+		set_wake_up_idle(true);
+
+	while (1) {
+		int ret = 0;
+
+		spin_lock_irqsave(q->queue_lock, flags);
+		req = blk_peek_request(q);
+		if (req) {
+			ret = blk_queue_start_tag(q, req);
+			spin_unlock_irqrestore(q->queue_lock, flags);
+			if (ret) {
+				test_and_set_bit(0, &ctx->req_starved);
+				schedule();
+			} else {
+				if (!mmc_cmdq_should_pull_reqs(host, ctx,
+							       req)) {
+					spin_lock_irqsave(q->queue_lock, flags);
+					blk_requeue_request(q, req);
+					spin_unlock_irqrestore(q->queue_lock,
+							       flags);
+					test_and_set_bit(0, &ctx->req_starved);
+					schedule();
+					continue;
+				}
+				ret = mq->cmdq_issue_fn(mq, req);
+				if (ret) {
+					pr_err("%s: failed (%d) to issue req, requeue\n",
+					       mmc_hostname(host), ret);
+					spin_lock_irqsave(q->queue_lock, flags);
+					blk_requeue_request(q, req);
+					spin_unlock_irqrestore(q->queue_lock,
+							       flags);
+				}
+			}
+		} else {
+			spin_unlock_irqrestore(q->queue_lock, flags);
+			if (kthread_should_stop()) {
+				set_current_state(TASK_RUNNING);
+				break;
+			}
+			schedule();
+		}
+	} /* loop */
+	return 0;
+}
+
 static int mmc_queue_thread(void *d)
 {
 	struct mmc_queue *mq = d;
 	struct request_queue *q = mq->queue;
+	struct mmc_card *card = mq->card;
 
 	current->flags |= PF_MEMALLOC;
+	if (card->host->wakeup_on_idle)
+		set_wake_up_idle(true);
 
 	down(&mq->thread_sem);
 	do {
@@ -110,6 +189,13 @@ static int mmc_queue_thread(void *d)
 	up(&mq->thread_sem);
 
 	return 0;
+}
+
+static void mmc_cmdq_dispatch_req(struct request_queue *q)
+{
+	struct mmc_queue *mq = q->queuedata;
+
+	wake_up_process(mq->thread);
 }
 
 /*
@@ -187,6 +273,29 @@ static void mmc_queue_setup_discard(struct request_queue *q,
 }
 
 /**
+ * mmc_blk_cmdq_setup_queue
+ * @mq: mmc queue
+ * @card: card to attach to this queue
+ *
+ * Setup queue for CMDQ supporting MMC card
+ */
+void mmc_cmdq_setup_queue(struct mmc_queue *mq, struct mmc_card *card)
+{
+	u64 limit = BLK_BOUNCE_HIGH;
+	struct mmc_host *host = card->host;
+
+	queue_flag_set_unlocked(QUEUE_FLAG_NONROT, mq->queue);
+	if (mmc_can_erase(card))
+		mmc_queue_setup_discard(mq->queue, card);
+
+	blk_queue_bounce_limit(mq->queue, limit);
+	blk_queue_max_hw_sectors(mq->queue, min(host->max_blk_count,
+						host->max_req_size / 512));
+	blk_queue_max_segment_size(mq->queue, host->max_seg_size);
+	blk_queue_max_segments(mq->queue, host->max_segs);
+}
+
+/**
  * mmc_init_queue - initialise a queue structure.
  * @mq: mmc queue
  * @card: mmc card to attach this queue
@@ -196,7 +305,7 @@ static void mmc_queue_setup_discard(struct request_queue *q,
  * Initialise a MMC card request queue.
  */
 int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
-		   spinlock_t *lock, const char *subname)
+		   spinlock_t *lock, const char *subname, int area_type)
 {
 	struct mmc_host *host = card->host;
 	u64 limit = BLK_BOUNCE_HIGH;
@@ -208,6 +317,28 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		limit = (u64)dma_max_pfn(mmc_dev(host)) << PAGE_SHIFT;
 
 	mq->card = card;
+	if (card->ext_csd.cmdq_support &&
+	    (area_type == MMC_BLK_DATA_AREA_MAIN)) {
+		mq->queue = blk_init_queue(mmc_cmdq_dispatch_req, lock);
+		if (!mq->queue)
+			return -ENOMEM;
+		mmc_cmdq_setup_queue(mq, card);
+		ret = mmc_cmdq_init(mq, card);
+		if (ret) {
+			pr_err("%s: %d: cmdq: unable to set-up\n",
+			       mmc_hostname(card->host), ret);
+			blk_cleanup_queue(mq->queue);
+		} else {
+			mq->queue->queuedata = mq;
+			mq->thread = kthread_run(mmc_cmdq_thread, mq,
+						 "mmc-cmdqd/%d%s",
+						 host->index,
+						 subname ? subname : "");
+
+			return ret;
+		}
+	}
+
 	mq->queue = blk_init_queue(mmc_request_fn, lock);
 	if (!mq->queue)
 		return -ENOMEM;
@@ -434,6 +565,109 @@ void mmc_packed_clean(struct mmc_queue *mq)
 	mqrq_prev->packed = NULL;
 }
 
+static void mmc_cmdq_softirq_done(struct request *rq)
+{
+	struct mmc_queue *mq = rq->q->queuedata;
+	mq->cmdq_complete_fn(rq);
+}
+
+static void mmc_cmdq_error_work(struct work_struct *work)
+{
+	struct mmc_queue *mq = container_of(work, struct mmc_queue,
+					    cmdq_err_work);
+
+	mq->cmdq_error_fn(mq);
+}
+
+enum blk_eh_timer_return mmc_cmdq_rq_timed_out(struct request *req)
+{
+	struct mmc_queue *mq = req->q->queuedata;
+
+	pr_err("%s: request with tag: %d flags: 0x%llx timed out\n",
+	       mmc_hostname(mq->card->host), req->tag, req->cmd_flags);
+
+	return mq->cmdq_req_timed_out(req);
+}
+
+int mmc_cmdq_init(struct mmc_queue *mq, struct mmc_card *card)
+{
+	int i, ret = 0;
+	/* one slot is reserved for dcmd requests */
+	int q_depth = card->ext_csd.cmdq_depth - 1;
+
+	card->cmdq_init = false;
+	if (!(card->host->caps2 & MMC_CAP2_CMD_QUEUE)) {
+		ret = -ENOTSUPP;
+		goto out;
+	}
+
+	mq->mqrq_cmdq = kzalloc(
+			sizeof(struct mmc_queue_req) * q_depth, GFP_KERNEL);
+	if (!mq->mqrq_cmdq) {
+		pr_warn("%s: unable to allocate mqrq's for q_depth %d\n",
+			mmc_card_name(card), q_depth);
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	/* sg is allocated for data request slots only */
+	for (i = 0; i < q_depth; i++) {
+		mq->mqrq_cmdq[i].sg = mmc_alloc_sg(card->host->max_segs, &ret);
+		if (ret) {
+			pr_warn("%s: unable to allocate cmdq sg of size %d\n",
+				mmc_card_name(card),
+				card->host->max_segs);
+			goto free_mqrq_sg;
+		}
+	}
+
+	ret = blk_queue_init_tags(mq->queue, q_depth, NULL);
+	if (ret) {
+		pr_warn("%s: unable to allocate cmdq tags %d\n",
+				mmc_card_name(card), q_depth);
+		goto free_mqrq_sg;
+	}
+
+	blk_queue_softirq_done(mq->queue, mmc_cmdq_softirq_done);
+	INIT_WORK(&mq->cmdq_err_work, mmc_cmdq_error_work);
+	init_completion(&mq->cmdq_shutdown_complete);
+
+	blk_queue_rq_timed_out(mq->queue, mmc_cmdq_rq_timed_out);
+	blk_queue_rq_timeout(mq->queue, 120 * HZ);
+	card->cmdq_init = true;
+
+	goto out;
+
+free_mqrq_sg:
+	for (i = 0; i < q_depth; i++)
+		kfree(mq->mqrq_cmdq[i].sg);
+	kfree(mq->mqrq_cmdq);
+	mq->mqrq_cmdq = NULL;
+out:
+	return ret;
+}
+
+void mmc_cmdq_clean(struct mmc_queue *mq, struct mmc_card *card)
+{
+	int i;
+	int q_depth = card->ext_csd.cmdq_depth - 1;
+
+	blk_free_tags(mq->queue->queue_tags);
+	mq->queue->queue_tags = NULL;
+	blk_queue_free_tags(mq->queue);
+
+	for (i = 0; i < q_depth; i++)
+		kfree(mq->mqrq_cmdq[i].sg);
+	kfree(mq->mqrq_cmdq);
+	mq->mqrq_cmdq = NULL;
+}
+
+static void mmc_wait_for_pending_reqs(struct mmc_queue *mq)
+{
+	wait_for_completion(&mq->cmdq_shutdown_complete);
+	mq->cmdq_shutdown(mq);
+}
+
 /**
  * mmc_queue_suspend - suspend a MMC request queue
  * @mq: MMC queue to suspend
@@ -448,6 +682,27 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 	struct request_queue *q = mq->queue;
 	unsigned long flags;
 	int rc = 0;
+	struct mmc_card *card = mq->card;
+
+	if (card->cmdq_init) {
+		struct mmc_host *host = card->host;
+		unsigned long flags;
+
+		spin_lock_irqsave(q->queue_lock, flags);
+		blk_stop_queue(q);
+		spin_unlock_irqrestore(q->queue_lock, flags);
+
+		if (host->cmdq_ctx.active_reqs) {
+			if (!wait)
+				rc = -EBUSY;
+			else
+				mmc_wait_for_pending_reqs(mq);
+		} else {
+			mq->cmdq_shutdown(mq);
+		}
+
+		goto out;
+	}
 
 	if (!(test_and_set_bit(MMC_QUEUE_SUSPENDED, &mq->flags))) {
 		spin_lock_irqsave(q->queue_lock, flags);
@@ -470,6 +725,7 @@ int mmc_queue_suspend(struct mmc_queue *mq, int wait)
 			rc = 0;
 		}
 	}
+out:
 	return rc;
 }
 
