@@ -1543,20 +1543,21 @@ static void sdhci_pm_qos_remove_work(struct work_struct *work)
 	struct sdhci_host_qos *host_qos = host->host_qos;
 	int vote;
 
+	mutex_lock(&host->qos_lock);
 	if (unlikely(host->last_qos_policy == -EINVAL)) {
-		WARN_ONCE(1, "Invalid qos policy (%d)\n",
-				host->last_qos_policy);
-		return;
+		goto out;
 	}
 	vote = host->last_qos_policy;
-	if (unlikely(!host_qos[vote].cpu_dma_latency_us))
-		return;
 
+	if (unlikely(!host_qos[vote].cpu_dma_latency_us))
+		goto out;
 
 	pm_qos_update_request(&(host_qos[vote].pm_qos_req_dma),
 				PM_QOS_DEFAULT_VALUE);
 
 	host->last_qos_policy = -EINVAL;
+out:
+	mutex_unlock(&host->qos_lock);
 }
 
 static inline int sdhci_get_host_qos_index(struct mmc_host *mmc,
@@ -1578,17 +1579,20 @@ static inline int sdhci_get_host_qos_index(struct mmc_host *mmc,
 			vote = SDHCI_QOS_WRITE;
 			break;
 		}
+	} else if (!mrq) {
+		vote = SDHCI_QOS_READ_WRITE;
 	}
 
 	return vote;
 }
-static void sdhci_update_pm_qos(struct mmc_host *mmc, struct mmc_request *mrq)
+static void __sdhci_update_pm_qos(struct mmc_host *mmc, struct mmc_request *mrq)
 {
 	struct sdhci_host *host = mmc_priv(mmc);
 	struct sdhci_host_qos *host_qos = host->host_qos;
 	u32 pol_index = 0;
 	int vote;
 
+	mutex_lock(&host->qos_lock);
 	vote = sdhci_get_host_qos_index(mmc, mrq);
 
 	if (unlikely(vote == -1)) {
@@ -1607,8 +1611,7 @@ static void sdhci_update_pm_qos(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (host_qos[vote].cpu_dma_latency_tbl_sz > 1)
 		pol_index = host->power_policy;
 
-	if ((host->last_qos_policy != SDHCI_QOS_READ_WRITE) &&
-		(host->last_qos_policy != -EINVAL) &&
+	if ((host->last_qos_policy != -EINVAL) &&
 		(host->last_qos_policy != vote)) {
 		pm_qos_update_request(
 			&(host_qos[host->last_qos_policy].pm_qos_req_dma),
@@ -1618,8 +1621,39 @@ static void sdhci_update_pm_qos(struct mmc_host *mmc, struct mmc_request *mrq)
 		host_qos[vote].cpu_dma_latency_us[pol_index]);
 	host->last_qos_policy = vote;
 out:
+	mutex_unlock(&host->qos_lock);
 	return;
 }
+
+static void sdhci_update_pm_qos(struct mmc_host *mmc,
+		struct mmc_request *mrq, bool enable)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+	int delay;
+
+	if (enable) {
+		cancel_delayed_work_sync(&host->pm_qos_work);
+		__sdhci_update_pm_qos(mmc, mrq);
+	} else if (!enable) {
+		/*
+		 * In performance mode, release QoS vote after a higher timeout
+		 * to make sure back-to-back requests don't suffer from
+		 * latencies that are involved to wake CPU from low power modes
+		 * in cases where the CPU may go into low power mode as soon as
+		 * QoS vote is released.
+		 */
+
+		if (host->power_policy == SDHCI_POWER_SAVE_MODE)
+			delay = host->pm_qos_timeout_us / 2;
+		else
+			delay = 2 * host->pm_qos_timeout_us;
+		schedule_delayed_work(&host->pm_qos_work,
+				msecs_to_jiffies(delay));
+	}
+
+	return;
+}
+
 
 /*****************************************************************************\
  *                                                                           *
@@ -1797,8 +1831,7 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	host = mmc_priv(mmc);
 
 	sdhci_runtime_pm_get(host);
-	cancel_delayed_work_sync(&host->pm_qos_work);
-	sdhci_update_pm_qos(mmc, mrq);
+	sdhci_update_pm_qos(mmc, mrq, true);
 	if (sdhci_check_state(host)) {
 		sdhci_dump_state(host);
 		WARN(1, "sdhci in bad state");
@@ -2821,7 +2854,6 @@ static void sdhci_tasklet_finish(unsigned long param)
 	struct sdhci_host *host;
 	unsigned long flags;
 	struct mmc_request *mrq;
-	int delay;
 
 	host = (struct sdhci_host*)param;
 
@@ -2877,20 +2909,7 @@ static void sdhci_tasklet_finish(unsigned long param)
 	mmiowb();
 	spin_unlock_irqrestore(&host->lock, flags);
 
-	/*
-	 * In performance mode, release QoS vote after a higher timeout
-	 * to make sure back-to-back requests don't suffer from latencies
-	 * that are involved to wake CPU from low power modes in cases
-	 * where the CPU may go into low power mode as soon as QoS vote
-	 * is released.
-	 */
-
-	if (host->power_policy == SDHCI_POWER_SAVE_MODE)
-		delay = host->pm_qos_timeout_us / 2;
-	else
-		delay = 2 * host->pm_qos_timeout_us;
-	schedule_delayed_work(&host->pm_qos_work, msecs_to_jiffies(delay));
-
+	sdhci_update_pm_qos(host->mmc, NULL, false);
 	mmc_request_done(host->mmc, mrq);
 	sdhci_runtime_pm_put(host);
 }
@@ -3728,6 +3747,14 @@ static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 			SDHCI_INT_RESPONSE, SDHCI_INT_ENABLE);
 	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
 }
+
+static void sdhci_cmdq_update_pm_qos(struct mmc_host *mmc,
+		struct mmc_request *mrq, bool enable)
+{
+
+	return sdhci_update_pm_qos(mmc, mrq, enable);
+}
+
 #else
 static void sdhci_cmdq_clear_set_irqs(struct mmc_host *mmc, bool clear)
 {
@@ -3768,6 +3795,10 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
 {
 }
+static void sdhci_cmdq_update_pm_qos(struct mmc_host *mmc,
+		struct mmc_request *mrq, bool enable)
+{
+}
 #endif
 
 static const struct cmdq_host_ops sdhci_cmdq_ops = {
@@ -3778,6 +3809,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.clear_set_dumpregs = sdhci_cmdq_clear_set_dumpregs,
 	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
 	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
+	.pm_qos_update = sdhci_cmdq_update_pm_qos,
 };
 
 int sdhci_add_host(struct sdhci_host *host)
@@ -4333,12 +4365,14 @@ int sdhci_add_host(struct sdhci_host *host)
 	mmiowb();
 	if (host->host_qos[SDHCI_QOS_READ_WRITE].cpu_dma_latency_us) {
 		host->pm_qos_timeout_us = SDHCI_PM_QOS_DEFAULT_DELAY;
-		if (host->host_use_default_qos) {
+		if (host->host_use_default_qos ||
+				(mmc->caps2 &  MMC_CAP2_CMD_QUEUE)) {
 			pm_qos_add_request(
 			&(host->host_qos[SDHCI_QOS_READ_WRITE].pm_qos_req_dma),
 				PM_QOS_CPU_DMA_LATENCY,
 				PM_QOS_DEFAULT_VALUE);
-		} else {
+		}
+		if (!host->host_use_default_qos) {
 			pm_qos_add_request(
 			    &(host->host_qos[SDHCI_QOS_READ].pm_qos_req_dma),
 			    PM_QOS_CPU_DMA_LATENCY,
@@ -4348,7 +4382,7 @@ int sdhci_add_host(struct sdhci_host *host)
 			    PM_QOS_CPU_DMA_LATENCY,
 			    PM_QOS_DEFAULT_VALUE);
 		}
-
+		host->last_qos_policy = -EINVAL;
 		host->pm_qos_tout.show = show_sdhci_pm_qos_tout;
 		host->pm_qos_tout.store = store_sdhci_pm_qos_tout;
 		sysfs_attr_init(&host->pm_qos_tout.attr);
@@ -4358,6 +4392,7 @@ int sdhci_add_host(struct sdhci_host *host)
 		if (ret)
 			pr_err("%s: cannot create pm_qos_unvote_delay %d\n",
 					mmc_hostname(mmc), ret);
+		mutex_init(&host->qos_lock);
 	}
 	if (caps[0] & SDHCI_ASYNC_INTR)
 		host->async_int_supp = true;
@@ -4427,10 +4462,12 @@ void sdhci_remove_host(struct sdhci_host *host, int dead)
 	sdhci_update_power_policy(host, SDHCI_POWER_SAVE_MODE);
 	sdhci_disable_card_detection(host);
 	if (host->host_qos[SDHCI_QOS_READ_WRITE].cpu_dma_latency_us) {
-		if (host->host_use_default_qos)
+		if (host->host_use_default_qos ||
+				(host->mmc->caps2 &  MMC_CAP2_CMD_QUEUE))
 			pm_qos_remove_request(
 			&(host->host_qos[SDHCI_QOS_READ_WRITE].pm_qos_req_dma));
-		else {
+
+		if (!host->host_use_default_qos) {
 			pm_qos_remove_request(
 			&(host->host_qos[SDHCI_QOS_READ].pm_qos_req_dma));
 			pm_qos_remove_request(
