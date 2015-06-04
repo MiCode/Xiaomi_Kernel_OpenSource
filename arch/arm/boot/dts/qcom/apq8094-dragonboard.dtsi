@@ -288,7 +288,6 @@
 			 0x0 1 &intc 0 180 0>;
 	interrupt-names = "hs_phy_irq", "pwr_event_irq";
 	qcom,charging-disabled;
-	vbus_dwc3-supply = <&vph_pwr_vreg>;
 	qcom,ext-hub-reset-gpio =  <&pm8994_gpios 1 0>;
 	dwc3@f9200000 {
 		snps,host-only-mode;
@@ -599,8 +598,18 @@
 	/delete-property/ vdd-wlan-xtal-supply;
 };
 
+&usb_otg_switch{
+	status= "disabled";
+};
+
 &pmi8994_charger {
-	status = "disabled";
+	qcom,charging-disabled;
+	regulator-name = "pmi8994_otg_vreg";
+	/delete-property/ otg-parent-supply;
+
+	smbcharger_charger_otg {
+		parent-supply = <&pmi8994_boost_5v>;
+	};
 };
 
 &rpm_bus {
