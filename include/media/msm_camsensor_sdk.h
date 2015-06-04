@@ -18,7 +18,7 @@
 #define CSI_DECODE_12BIT        3
 #define CSI_DECODE_DPCM_10_8_10 5
 #define MAX_CID                 16
-#define I2C_SEQ_REG_DATA_MAX    256
+#define I2C_SEQ_REG_DATA_MAX    1024
 #define I2C_REG_DATA_MAX       (8*1024)
 
 #define MSM_V4L2_PIX_FMT_META v4l2_fourcc('M', 'E', 'T', 'A') /* META */
