@@ -2480,6 +2480,16 @@ int mdp3_footswitch_ctrl(int enable)
 	return rc;
 }
 
+void mdp3_iommu_lock(void)
+{
+	mutex_lock(&mdp3_res->iommu_lock);
+}
+
+void mdp3_iommu_unlock(void)
+{
+	mutex_unlock(&mdp3_res->iommu_lock);
+}
+
 static int mdp3_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -2529,6 +2539,8 @@ static int mdp3_probe(struct platform_device *pdev)
 	mdp3_res->mdss_util->iommu_ctrl = mdp3_iommu_ctrl;
 	mdp3_res->mdss_util->bus_scale_set_quota = mdp3_bus_scale_set_quota;
 	mdp3_res->mdss_util->panel_intf_type = mdp3_panel_intf_type;
+	mdp3_res->mdss_util->iommu_lock = mdp3_iommu_lock;
+	mdp3_res->mdss_util->iommu_unlock = mdp3_iommu_unlock;
 
 	rc = mdp3_parse_dt(pdev);
 	if (rc)
