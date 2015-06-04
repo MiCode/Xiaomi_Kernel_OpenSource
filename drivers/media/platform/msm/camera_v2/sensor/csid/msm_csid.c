@@ -345,12 +345,8 @@ static irqreturn_t msm_csid_irq(int irq_num, void *data)
 	}
 	irq = msm_camera_io_r(csid_dev->base +
 		csid_dev->ctrl_reg->csid_reg.csid_irq_status_addr);
-	if (csid_dev->csid_sof_debug == SOF_DEBUG_ENABLE)
-		pr_err("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
-			 __func__, csid_dev->pdev->id, irq);
-	else
-		CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
-			 __func__, csid_dev->pdev->id, irq);
+	CDBG("%s CSID%d_IRQ_STATUS_ADDR = 0x%x\n",
+		 __func__, csid_dev->pdev->id, irq);
 	if (irq & (0x1 <<
 		csid_dev->ctrl_reg->csid_reg.csid_rst_done_irq_bitshift))
 		complete(&csid_dev->reset_complete);

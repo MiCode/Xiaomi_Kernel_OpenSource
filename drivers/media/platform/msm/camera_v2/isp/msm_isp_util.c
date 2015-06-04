@@ -1724,7 +1724,7 @@ static void msm_isp_enqueue_tasklet_cmd(struct vfe_device *vfe_dev,
 	spin_lock_irqsave(&vfe_dev->tasklet_lock, flags);
 	queue_cmd = &vfe_dev->tasklet_queue_cmd[vfe_dev->taskletq_idx];
 	if (queue_cmd->cmd_used) {
-		pr_err_ratelimited("%s: Tasklet queue overflow: %d\n",
+		ISP_DBG("%s: Tasklet queue overflow: %d\n",
 			__func__, vfe_dev->pdev->id);
 		list_del(&queue_cmd->list);
 	} else {
