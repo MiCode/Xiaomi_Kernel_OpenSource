@@ -14,11 +14,12 @@
 
 /dts-v1/;
 
-#include "msm8952-cdp.dtsi"
 #include "apq8052.dtsi"
+#include "msm8952-cdp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ8052 CDP";
 	compatible = "qcom,apq8052-cdp", "qcom,apq8052", "qcom,cdp";
+	qcom,msm-id = <289 0>;
 	qcom,board-id = <1 0>;
 };

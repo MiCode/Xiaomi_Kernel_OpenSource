@@ -14,11 +14,12 @@
 
 /dts-v1/;
 
-#include "msm8952-mtp.dtsi"
 #include "apq8052.dtsi"
+#include "msm8952-mtp.dtsi"
 
 / {
 	model = "Qualcomm Technologies, Inc. APQ 8052 MTP";
 	compatible = "qcom,apq8052-mtp", "qcom,apq8052", "qcom,mtp";
+	qcom,msm-id = <289 0>;
 	qcom,board-id = <8 0>;
 };
