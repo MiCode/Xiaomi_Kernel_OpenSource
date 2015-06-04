@@ -4,7 +4,7 @@
  *  Copyright (C) 2003 Russell King, All Rights Reserved.
  *  Copyright (C) 2007-2008 Pierre Ossman
  *  Copyright (C) 2010 Linus Walleij
- *  Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ *  Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -28,6 +28,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/slot-gpio.h>
+#include <trace/events/mmc.h>
 
 #include "core.h"
 #include "host.h"
@@ -47,9 +48,23 @@ static int mmc_host_runtime_suspend(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int ret = 0;
+	ktime_t start = ktime_get();
 
 	if (!mmc_use_core_runtime_pm(host))
 		return 0;
+
+	if (host->card && mmc_card_cmdq(host->card)) {
+		BUG_ON(host->cmdq_ctx.active_reqs);
+
+		mmc_card_set_suspended(host->card);
+		ret = mmc_cmdq_halt(host, true);
+		if (ret) {
+			mmc_card_clr_suspended(host->card);
+			pr_err("%s: halt: failed: %d\n", __func__, ret);
+			return ret;
+		}
+		host->cmdq_ops->disable(host, true);
+	}
 
 	ret = mmc_suspend_host(host);
 	if (ret < 0 && ret != -ENOMEDIUM)
@@ -75,6 +90,8 @@ static int mmc_host_runtime_suspend(struct device *dev)
 	if (ret == -ENOMEDIUM)
 		ret = 0;
 
+	trace_mmc_host_runtime_suspend(mmc_hostname(host), ret,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return ret;
 }
 
@@ -82,6 +99,7 @@ static int mmc_host_runtime_resume(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
 	int ret = 0;
+	ktime_t start = ktime_get();
 
 	if (!mmc_use_core_runtime_pm(host))
 		return 0;
@@ -94,6 +112,15 @@ static int mmc_host_runtime_resume(struct device *dev)
 			BUG_ON(1);
 	}
 
+	if (host->card && !ret && mmc_card_cmdq(host->card)) {
+		ret = mmc_cmdq_halt(host, false);
+		if (ret)
+			pr_err("%s: un-halt: failed: %d\n", __func__, ret);
+		else
+			mmc_card_clr_suspended(host->card);
+	}
+	trace_mmc_host_runtime_resume(mmc_hostname(host), ret,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return ret;
 }
 #endif
@@ -115,6 +142,18 @@ static int mmc_host_suspend(struct device *dev)
 	host->dev_status = DEV_SUSPENDING;
 	spin_unlock_irqrestore(&host->clk_lock, flags);
 	if (!pm_runtime_suspended(dev)) {
+		if (host->card && mmc_card_cmdq(host->card)) {
+			BUG_ON(host->cmdq_ctx.active_reqs);
+
+			mmc_card_set_suspended(host->card);
+			ret = mmc_cmdq_halt(host, true);
+			if (ret) {
+				mmc_card_clr_suspended(host->card);
+				pr_err("%s: halt: failed: %d\n", __func__, ret);
+				return ret;
+			}
+			host->cmdq_ops->disable(host, true);
+		}
 		ret = mmc_suspend_host(host);
 		if (ret < 0)
 			pr_err("%s: %s: failed: ret: %d\n", mmc_hostname(host),
@@ -154,6 +193,13 @@ static int mmc_host_resume(struct device *dev)
 			       __func__, ret);
 	}
 	host->dev_status = DEV_RESUMED;
+	if (host->card && !ret && mmc_card_cmdq(host->card)) {
+		ret = mmc_cmdq_halt(host, false);
+		if (ret)
+			pr_err("%s: un-halt: failed: %d\n", __func__, ret);
+		else
+			mmc_card_clr_suspended(host->card);
+	}
 	return ret;
 }
 #endif
