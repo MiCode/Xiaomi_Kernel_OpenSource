@@ -1167,6 +1167,10 @@ static struct mdss_mdp_pipe *mdss_mdp_pipe_search_by_client_id(
 			return &mdata->dma_pipes[i];
 	}
 
+	for (i = 0; i < mdata->ncursor_pipes; i++) {
+		if (mdata->cursor_pipes[i].ftch_id == client_id)
+			return &mdata->cursor_pipes[i];
+	}
 	return NULL;
 }
 
@@ -1187,6 +1191,11 @@ struct mdss_mdp_pipe *mdss_mdp_pipe_search(struct mdss_data_type *mdata,
 	for (i = 0; i < mdata->ndma_pipes; i++) {
 		if (mdata->dma_pipes[i].ndx == ndx)
 			return &mdata->dma_pipes[i];
+	}
+
+	for (i = 0; i < mdata->ncursor_pipes; i++) {
+		if (mdata->cursor_pipes[i].ndx == ndx)
+			return &mdata->cursor_pipes[i];
 	}
 
 	return NULL;
@@ -1501,15 +1510,70 @@ error:
 	return rc;
 }
 
+void mdss_mdp_pipe_position_update(struct mdss_mdp_pipe *pipe,
+		struct mdss_rect *src, struct mdss_rect *dst)
+{
+	u32 src_size, src_xy, dst_size, dst_xy;
+	u32 tmp_src_size, tmp_src_xy, reg_data;
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 
+	src_size = (src->h << 16) | src->w;
+	src_xy = (src->y << 16) | src->x;
+	dst_size = (dst->h << 16) | dst->w;
+
+	/*
+	 * base layer requirements are different compared to other layers
+	 * located at different stages. If source split is enabled and base
+	 * layer is used, base layer on the right LM's x offset is relative
+	 * to right LM's co-ordinate system unlike other layers which are
+	 * relative to left LM's top-left.
+	 */
+	if (pipe->mixer_stage == MDSS_MDP_STAGE_BASE && mdata->has_src_split
+			&& dst->x >= left_lm_w_from_mfd(pipe->mfd))
+		dst->x -= left_lm_w_from_mfd(pipe->mfd);
+	dst_xy = (dst->y << 16) | dst->x;
+
+	/*
+	 * Software overfetch is used when scalar pixel extension is
+	 * not enabled
+	 */
+	if (pipe->overfetch_disable && !pipe->scale.enable_pxl_ext) {
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
+			src_xy &= ~0xFFFF;
+		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
+			src_xy &= ~(0xFFFF << 16);
+	}
+
+	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103) &&
+		pipe->bwc_mode) {
+		/* check source dimensions change */
+		tmp_src_size = mdss_mdp_pipe_read(pipe,
+						 MDSS_MDP_REG_SSPP_SRC_SIZE);
+		tmp_src_xy = mdss_mdp_pipe_read(pipe,
+						 MDSS_MDP_REG_SSPP_SRC_XY);
+		if (src_xy != tmp_src_xy || tmp_src_size != src_size) {
+			reg_data = readl_relaxed(mdata->mdp_base +
+							 AHB_CLK_OFFSET);
+			reg_data |= BIT(28);
+			writel_relaxed(reg_data,
+					 mdata->mdp_base + AHB_CLK_OFFSET);
+		}
+	}
+
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_SIZE, src_size);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_XY, src_xy);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_OUT_SIZE, dst_size);
+	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_OUT_XY, dst_xy);
+
+	MDSS_XLOG(pipe->num, src_size, src_xy, dst_size, dst_xy,
+		pipe->bwc_mode);
+}
 
 static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 					struct mdss_mdp_data *data)
 {
-	u32 img_size, src_size, src_xy, dst_size, dst_xy, ystride0, ystride1;
-	u32 width, height;
-	u32 decimation, reg_data;
-	u32 tmp_src_xy, tmp_src_size;
+	u32 img_size, ystride0, ystride1;
+	u32 width, height, decimation;
 	int ret = 0;
 	struct mdss_rect dst, src;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
@@ -1589,22 +1653,6 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 		}
 	}
 
-	src_size = (src.h << 16) | src.w;
-	src_xy = (src.y << 16) | src.x;
-	dst_size = (dst.h << 16) | dst.w;
-
-	/*
-	 * Bbase layer requirements are different compared to other layers
-	 * located at different stages. If source split is enabled and base
-	 * layer is used, base layer on the right LM's x offset is relative
-	 * to right LM's co-ordinate system unlike other layers which are
-	 * relative to left LM's top-left.
-	 */
-	if (pipe->mixer_stage == MDSS_MDP_STAGE_BASE && mdata->has_src_split &&
-	    dst.x >= left_lm_w_from_mfd(pipe->mfd))
-		dst.x -= left_lm_w_from_mfd(pipe->mfd);
-	dst_xy = (dst.y << 16) | dst.x;
-
 	ystride0 =  (pipe->src_planes.ystride[0]) |
 			(pipe->src_planes.ystride[1] << 16);
 	ystride1 =  (pipe->src_planes.ystride[2]) |
@@ -1625,13 +1673,9 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 			if (!(pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT))
 				width += pipe->src.x;
 		}
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_LEFT)
-			src_xy &= ~0xFFFF;
-		if (pipe->overfetch_disable & OVERFETCH_DISABLE_TOP)
-			src_xy &= ~(0xFFFF << 16);
 
-		pr_debug("overfetch w=%d/%d h=%d/%d src_xy=0x%08x\n", width,
-			pipe->img_width, height, pipe->img_height, src_xy);
+		pr_debug("overfetch w=%d/%d h=%d/%d\n", width,
+			pipe->img_width, height, pipe->img_height);
 	}
 	img_size = (height << 16) | width;
 
@@ -1640,39 +1684,17 @@ static int mdss_mdp_image_setup(struct mdss_mdp_pipe *pipe,
 	 * be programmed same as dst to avoid issues in scaling blocks
 	 */
 	if (data == NULL) {
-		src_size = dst_size;
-		img_size = dst_size;
-		src_xy = 0;
+		src = (struct mdss_rect) {0, 0, dst.w, dst.h};
 		decimation = 0;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(mdata->mdp_rev, MDSS_MDP_HW_REV_103) &&
-		pipe->bwc_mode) {
-		/* check source dimensions change */
-		tmp_src_size = mdss_mdp_pipe_read(pipe,
-						 MDSS_MDP_REG_SSPP_SRC_SIZE);
-		tmp_src_xy = mdss_mdp_pipe_read(pipe,
-						 MDSS_MDP_REG_SSPP_SRC_XY);
-		if (src_xy != tmp_src_xy || tmp_src_size != src_size) {
-			reg_data = readl_relaxed(mdata->mdp_base +
-							 AHB_CLK_OFFSET);
-			reg_data |= BIT(28);
-			writel_relaxed(reg_data,
-					 mdata->mdp_base + AHB_CLK_OFFSET);
-		}
-	}
+	mdss_mdp_pipe_position_update(pipe, &src, &dst);
+
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_IMG_SIZE, img_size);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_SIZE, src_size);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_XY, src_xy);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_OUT_SIZE, dst_size);
-	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_OUT_XY, dst_xy);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_YSTRIDE0, ystride0);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_SRC_YSTRIDE1, ystride1);
 	mdss_mdp_pipe_write(pipe, MDSS_MDP_REG_SSPP_DECIMATION_CONFIG,
-		decimation);
-
-	MDSS_XLOG(pipe->num, src_size, src_xy, dst_size, dst_xy,
-		pipe->bwc_mode);
+			decimation);
 
 	return 0;
 }
@@ -1978,13 +2000,10 @@ int mdss_mdp_pipe_queue_data(struct mdss_mdp_pipe *pipe,
 	if (params_changed) {
 		pipe->params_changed = 0;
 
-		if (pipe->type != MDSS_MDP_PIPE_TYPE_CURSOR) {
-			ret = mdss_mdp_pipe_pp_setup(pipe, &opmode);
-			if (ret) {
-				pr_err("pipe pp setup error for pnum=%d\n",
-						pipe->num);
-				goto done;
-			}
+		ret = mdss_mdp_pipe_pp_setup(pipe, &opmode);
+		if (ret) {
+			pr_err("pipe pp setup error for pnum=%d\n", pipe->num);
+			goto done;
 		}
 
 		ret = mdss_mdp_image_setup(pipe, src_data);

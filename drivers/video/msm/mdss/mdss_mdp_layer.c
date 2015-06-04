@@ -37,7 +37,7 @@
 	(((size) > (max_size)) || ((offset) > ((max_size) - (size))))
 
 #define IS_PIPE_TYPE_CURSOR(pipe_id) \
-	((pipe_id >= MDSS_MDP_SSPP_CURSOR0) ||\
+	((pipe_id >= MDSS_MDP_SSPP_CURSOR0) &&\
 	(pipe_id <= MDSS_MDP_SSPP_CURSOR1))
 
 enum {
@@ -64,6 +64,54 @@ static bool is_pipe_type_vig(struct mdss_data_type *mdata, u32 ndx)
 	}
 
 	return i < mdata->nvig_pipes;
+}
+
+static int __async_update_position_check(struct msm_fb_data_type *mfd,
+		struct mdss_mdp_pipe *pipe, struct mdp_point *src,
+		struct mdp_point *dst)
+{
+	struct fb_var_screeninfo *var = &mfd->fbi->var;
+	u32 xres = var->xres;
+	u32 yres = var->yres;
+
+	if (!pipe->async_update
+		|| CHECK_LAYER_BOUNDS(src->x, pipe->src.w, pipe->img_width)
+		|| CHECK_LAYER_BOUNDS(src->y, pipe->src.h, pipe->img_height)
+		|| CHECK_LAYER_BOUNDS(dst->x, pipe->dst.w, xres)
+		|| CHECK_LAYER_BOUNDS(dst->y, pipe->dst.h, yres)) {
+		pr_err("invalid configs: async_update=%d, src:{%d,%d}, dst:{%d,%d}\n",
+			pipe->async_update, src->x, src->y, dst->x, dst->y);
+		pr_err("pipe:- src:{%d,%d,%d,%d}, dst:{%d,%d,%d,%d}\n",
+			pipe->src.x, pipe->src.y, pipe->src.w, pipe->src.h,
+			pipe->dst.x, pipe->dst.y, pipe->dst.w, pipe->dst.h);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int __cursor_layer_check(struct msm_fb_data_type *mfd,
+		struct mdp_input_layer *layer)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if ((layer->z_order != HW_CURSOR_STAGE(mdata))
+			|| layer->src_rect.w > mdata->max_cursor_size
+			|| layer->src_rect.h > mdata->max_cursor_size
+			|| layer->src_rect.w != layer->dst_rect.w
+			|| layer->src_rect.h != layer->dst_rect.h
+			|| !mdata->ncursor_pipes) {
+		pr_err("Incorrect cursor configs for pipe:%d, cursor_pipes:%d, z_order:%d\n",
+				layer->pipe_ndx, mdata->ncursor_pipes,
+				layer->z_order);
+		pr_err("src:{%d,%d,%d,%d}, dst:{%d,%d,%d,%d}\n",
+				layer->src_rect.x, layer->src_rect.y,
+				layer->src_rect.w, layer->src_rect.h,
+				layer->dst_rect.x, layer->dst_rect.y,
+				layer->dst_rect.w, layer->dst_rect.h);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int __layer_xres_check(struct msm_fb_data_type *mfd,
@@ -310,6 +358,12 @@ static int __validate_single_layer(struct msm_fb_data_type *mfd,
 		}
 	}
 
+	if (IS_PIPE_TYPE_CURSOR(layer->pipe_ndx)) {
+		ret = __cursor_layer_check(mfd, layer);
+		if (ret)
+			goto exit_fail;
+	}
+
 	ret = __layer_xres_check(mfd, layer);
 	if (ret)
 		goto exit_fail;
@@ -404,10 +458,22 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	pipe->alpha = layer->alpha;
 	pipe->transp = layer->transp_mask;
 	pipe->blend_op = layer->blend_op;
+	pipe->async_update = (layer->flags & MDP_LAYER_ASYNC) ? true : false;
 
 	flags = pipe->flags;
 	if (is_single_layer)
 		flags |= PERF_CALC_PIPE_SINGLE_LAYER;
+
+	/*
+	 * async update is allowed only in video mode panels with single LM
+	 * or dual LM with src_split enabled.
+	 */
+	if (pipe->async_update && ((is_split_lm(mfd) && !mdata->has_src_split)
+			|| (!mdp5_data->ctl->is_video_mode))) {
+		pr_err("async update allowed only in video mode panel with src_split\n");
+		ret = -EINVAL;
+		goto end;
+	}
 
 	/*
 	 * check if overlay span across two mixers and if source split is
@@ -436,7 +502,9 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 			pipe->is_right_blend = false;
 		}
 
-		if ((mixer_mux == MDSS_MDP_MIXER_MUX_LEFT) &&
+		if (pipe->async_update && is_split_lm(mfd)) {
+			pipe->src_split_req = true;
+		} else if ((mixer_mux == MDSS_MDP_MIXER_MUX_LEFT) &&
 		    ((layer->dst_rect.x + layer->dst_rect.w) > mixer->width)) {
 			if (layer->dst_rect.x >= mixer->width) {
 				pr_err("%pS: err dst_x can't lie in right half",
@@ -487,12 +555,6 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pipe->overfetch_disable = 0;
 	}
 
-	if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR) {
-		pipe->dirty = false;
-		pipe->params_changed++;
-		goto end;
-	}
-
 	/*
 	 * When scaling is enabled src crop and image
 	 * width and height is modified by user
@@ -518,6 +580,9 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pr_err("scaling setup failed %d\n", ret);
 		goto end;
 	}
+
+	if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
+		goto end;
 
 	ret = mdp_pipe_tune_perf(pipe, flags);
 	if (ret) {
@@ -812,6 +877,23 @@ static struct mdss_mdp_pipe *__find_layer_in_validate_q(
 	return found ? pipe : NULL;
 }
 
+static struct mdss_mdp_pipe *__find_used_pipe(struct msm_fb_data_type *mfd,
+		u32 pipe_ndx)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+	struct mdss_mdp_pipe *pipe, *tmp, *used_pipe = NULL;
+
+	mutex_lock(&mdp5_data->list_lock);
+	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
+		if (pipe->ndx == pipe_ndx) {
+			used_pipe = pipe;
+			break;
+		}
+	}
+	mutex_unlock(&mdp5_data->list_lock);
+	return used_pipe;
+}
+
 /*
  * __assign_pipe_for_layer() - get a pipe for layer
  *
@@ -825,22 +907,13 @@ static struct mdss_mdp_pipe *__assign_pipe_for_layer(
 	struct mdss_mdp_mixer *mixer, u32 pipe_ndx,
 	bool *new_pipe)
 {
-	struct mdss_mdp_pipe *pipe, *tmp;
+	struct mdss_mdp_pipe *pipe;
 	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdss_data_type *mdata = mfd_to_mdata(mfd);
 	u32 pipe_list = 0;
 
-	*new_pipe = true;
-
-	mutex_lock(&mdp5_data->list_lock);
-	list_for_each_entry_safe(pipe, tmp, &mdp5_data->pipes_used, list) {
-		pipe_list |= pipe->ndx;
-		if (pipe->ndx == pipe_ndx) {
-			*new_pipe = false;
-			break;
-		}
-	}
-	mutex_unlock(&mdp5_data->list_lock);
+	pipe = __find_used_pipe(mfd, pipe_ndx);
+	*new_pipe = pipe ? false : true;
 
 	if (!*new_pipe) {
 		if (pipe->mixer_left != mixer) {
@@ -975,25 +1048,38 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 		prev_layer = (i > 0) ? &layer_list[i - 1] : NULL;
 		/*
 		 * check if current layer is at same z_order as
-		 * previous one and qualifies as a right blend. If yes,
-		 * pass a pointer to the pipe representing previous
-		 * overlay or in other terms left blend layer.
+		 * previous one, and fail if any or both are async layers,
+		 * as async layers should have unique z_order.
+		 *
+		 * If it has same z_order and qualifies as a right blend,
+		 * pass a pointer to the pipe representing previous overlay or
+		 * in other terms left blend layer.
 		 *
 		 * Following logic of selecting left_blend has an inherent
 		 * assumption that layer list is sorted on dst_x within a
 		 * same z_order.
 		 */
-		if (prev_layer && (prev_layer->z_order == layer->z_order) &&
-		    is_layer_right_blend(&prev_layer->dst_rect,
-					 &layer->dst_rect, left_lm_w))
-			left_blend_pipe = pipe;
+		if (prev_layer && (prev_layer->z_order == layer->z_order)) {
+			if ((layer->flags & MDP_LAYER_ASYNC)
+				|| (prev_layer->flags & MDP_LAYER_ASYNC)) {
+				ret = -EINVAL;
+				layer->error_code = ret;
+				pr_err("async layer should have unique z_order\n");
+				goto validate_exit;
+			}
 
-		if (layer->dst_rect.x >= left_lm_w) {
-			is_single_layer = (right_lm_layers == 1);
-			mixer_mux = MDSS_MDP_MIXER_MUX_RIGHT;
-		} else {
+			if (is_layer_right_blend(&prev_layer->dst_rect,
+				 &layer->dst_rect, left_lm_w))
+				left_blend_pipe = pipe;
+		}
+
+		if ((layer->dst_rect.x < left_lm_w) ||
+				(layer->flags & MDP_LAYER_ASYNC)) {
 			is_single_layer = (left_lm_layers == 1);
 			mixer_mux = MDSS_MDP_MIXER_MUX_LEFT;
+		} else {
+			is_single_layer = (right_lm_layers == 1);
+			mixer_mux = MDSS_MDP_MIXER_MUX_RIGHT;
 		}
 
 		/**
@@ -1352,6 +1438,55 @@ int mdss_mdp_layer_atomic_validate_wfd(struct msm_fb_data_type *mfd,
 	}
 
 validate_failed:
+	return rc;
+}
+
+int mdss_mdp_async_position_update(struct msm_fb_data_type *mfd,
+		struct mdp_position_update *update_pos)
+{
+	int i, rc = 0;
+	struct mdss_mdp_pipe *pipe = NULL;
+	struct mdp_async_layer *layer;
+	struct mdss_rect dst, src;
+	u32 flush_bits = 0;
+
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+
+	for (i = 0; i < update_pos->input_layer_cnt; i++) {
+		layer = &update_pos->input_layers[i];
+		pipe = __find_used_pipe(mfd, layer->pipe_ndx);
+		if (!pipe) {
+			pr_err("invalid pipe ndx=0x%x for async update\n",
+					layer->pipe_ndx);
+			rc = -ENODEV;
+			layer->error_code = rc;
+			goto done;
+		}
+
+		rc =  __async_update_position_check(mfd, pipe, &layer->src,
+				&layer->dst);
+		if (rc) {
+			layer->error_code = rc;
+			goto done;
+		}
+
+		src = (struct mdss_rect) {layer->src.x, layer->src.y,
+				pipe->src.w, pipe->src.h};
+		dst = (struct mdss_rect) {layer->dst.x, layer->dst.y,
+				pipe->src.w, pipe->src.h};
+
+		pr_debug("src:{%d,%d,%d,%d}, dst:{%d,%d,%d,%d}\n",
+				src.x, src.y, src.w, src.h,
+				dst.x, dst.y, dst.w, dst.h);
+
+		mdss_mdp_pipe_position_update(pipe, &src, &dst);
+
+		flush_bits |= mdss_mdp_get_pipe_flush_bits(pipe);
+	}
+	mdss_mdp_async_ctl_flush(mfd, flush_bits);
+
+done:
+	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
 	return rc;
 }
 
