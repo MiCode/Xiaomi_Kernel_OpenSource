@@ -36,6 +36,7 @@
 #define HDMI_VERSION_8996_V2                     2
 
 #define HDMI_2400MHZ_BIT_CLK_HZ                  2400000000
+#define HDMI_2250MHZ_BIT_CLK_HZ                  2250000000
 #define HDMI_2000MHZ_BIT_CLK_HZ                  2000000000
 #define HDMI_1700MHZ_BIT_CLK_HZ                  1700000000
 #define HDMI_1200MHZ_BIT_CLK_HZ                  1200000000
@@ -48,6 +49,7 @@
 #define HDMI_450MHZ_BIT_CLK_HZ                   450000000
 #define HDMI_334MHZ_BIT_CLK_HZ                   334000000
 #define HDMI_300MHZ_BIT_CLK_HZ                   300000000
+#define HDMI_282MHZ_BIT_CLK_HZ                   282000000
 #define HDMI_250MHZ_BIT_CLK_HZ                   250000000
 
 /* PLL REGISTERS */
@@ -386,34 +388,34 @@ static inline u64 hdmi_8996_v1_get_post_div_lt_2g(u64 bclk)
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_8996_v2_get_post_div_lt_2g(u64 bclk)
+static inline u64 hdmi_8996_v2_get_post_div_lt_2g(u64 bclk, u64 vco_range)
 {
-	u64 hdmi_8ghz = (u64)HDMI_2000MHZ_BIT_CLK_HZ;
+	u64 hdmi_8ghz = vco_range;
 	u64 tmp_calc;
 
 	hdmi_8ghz <<= 2;
 	tmp_calc = hdmi_8ghz;
 	do_div(tmp_calc, 6U);
 
-	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ)
+	if (bclk >= vco_range)
 		return 2;
 	else if (bclk >= tmp_calc)
 		return 3;
-	else if (bclk >= HDMI_1000MHZ_BIT_CLK_HZ)
+	else if (bclk >= vco_range >> 1)
 		return 4;
 
 	tmp_calc = hdmi_8ghz;
 	do_div(tmp_calc, 12U);
 	if (bclk >= tmp_calc)
 		return 3;
-	else if (bclk >= HDMI_500MHZ_BIT_CLK_HZ)
+	else if (bclk >= vco_range >> 2)
 		return 4;
 
 	tmp_calc = hdmi_8ghz;
 	do_div(tmp_calc, 24U);
 	if (bclk >= tmp_calc)
 		return 3;
-	else if (bclk >= HDMI_250MHZ_BIT_CLK_HZ)
+	else if (bclk >= vco_range >> 3)
 		return 4;
 
 	return HDMI_64B_ERR_VAL;
@@ -470,15 +472,15 @@ static inline u64 hdmi_8996_v1_get_tx_band(u64 bclk)
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_8996_v2_get_tx_band(u64 bclk)
+static inline u64 hdmi_8996_v2_get_tx_band(u64 bclk, u64 vco_range)
 {
-	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ)
+	if (bclk >= vco_range)
 		return 0;
-	else if (bclk >= HDMI_1000MHZ_BIT_CLK_HZ)
+	else if (bclk >= vco_range >> 1)
 		return 1;
-	else if (bclk >= HDMI_500MHZ_BIT_CLK_HZ)
+	else if (bclk >= vco_range >> 2)
 		return 2;
-	else if (bclk >= HDMI_250MHZ_BIT_CLK_HZ)
+	else if (bclk >= vco_range >> 3)
 		return 3;
 
 	return HDMI_64B_ERR_VAL;
@@ -498,48 +500,48 @@ static inline u64 hdmi_8996_v1_get_hsclk(u64 fdata)
 	return HDMI_64B_ERR_VAL;
 }
 
-static inline u64 hdmi_8996_v2_get_hsclk(u64 fdata)
+static inline u64 hdmi_8996_v2_get_hsclk(u64 fdata, u64 vco_range)
 {
-	u64 hdmi_2ghz = (u64)HDMI_2000MHZ_BIT_CLK_HZ;
-	u64 tmp_calc = (u64)HDMI_2000MHZ_BIT_CLK_HZ;
+	u64 tmp_calc = vco_range;
 	tmp_calc <<= 2;
 	do_div(tmp_calc, 3U);
-	if (fdata >= (hdmi_2ghz << 2))
+	if (fdata >= (vco_range << 2))
 		return 0;
-	else if (fdata >= (hdmi_2ghz << 1))
+	else if (fdata >= (vco_range << 1))
 		return 1;
 	else if (fdata >= tmp_calc)
 		return 2;
-	else if (fdata >= hdmi_2ghz)
+	else if (fdata >= vco_range)
 		return 3;
 
 	return HDMI_64B_ERR_VAL;
 
 }
 
-static inline u64 hdmi_8996_v2_get_vco_freq(u64 bclk)
+static inline u64 hdmi_8996_v2_get_vco_freq(u64 bclk, u64 vco_range)
 {
-	u64 tx_band_div_ratio = 1U << hdmi_8996_v2_get_tx_band(bclk);
+	u64 tx_band_div_ratio = 1U << hdmi_8996_v2_get_tx_band(bclk, vco_range);
 	u64 pll_post_div_ratio;
 
-	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ) {
-		u64 hsclk = hdmi_8996_v2_get_hsclk(bclk);
+	if (bclk >= vco_range) {
+		u64 hsclk = hdmi_8996_v2_get_hsclk(bclk, vco_range);
 		pll_post_div_ratio = hdmi_8996_v2_get_post_div_gt_2g(hsclk);
 	} else {
-		pll_post_div_ratio = hdmi_8996_v2_get_post_div_lt_2g(bclk);
+		pll_post_div_ratio = hdmi_8996_v2_get_post_div_lt_2g(bclk,
+								vco_range);
 	}
 
 	return bclk * (pll_post_div_ratio * tx_band_div_ratio);
 }
 
-static inline u64 hdmi_8996_v2_get_fdata(u64 bclk)
+static inline u64 hdmi_8996_v2_get_fdata(u64 bclk, u64 vco_range)
 {
-	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ) {
+	if (bclk >= vco_range) {
 		return bclk;
 	} else {
-		u64 tmp_calc = hdmi_8996_v2_get_vco_freq(bclk);
+		u64 tmp_calc = hdmi_8996_v2_get_vco_freq(bclk, vco_range);
 		u64 pll_post_div_ratio_lt_2g = hdmi_8996_v2_get_post_div_lt_2g(
-									bclk);
+							bclk, vco_range);
 		if (pll_post_div_ratio_lt_2g == HDMI_64B_ERR_VAL)
 			return HDMI_64B_ERR_VAL;
 
@@ -885,6 +887,7 @@ static int hdmi_8996_v2_calculate(u32 pix_clk,
 	u64 integloop_gain;
 	u64 vco_tune;
 	u64 vco_freq;
+	u64 vco_range;
 	u64 rem;
 
 	/* FDATA, CLK_DIVTX, PIXEL_CLK, TMDS_CLK */
@@ -895,18 +898,21 @@ static int hdmi_8996_v2_calculate(u32 pix_clk,
 	else
 		tmds_clk = pix_clk;
 
-	fdata = hdmi_8996_v2_get_fdata(bclk);
+	vco_range = bclk < HDMI_282MHZ_BIT_CLK_HZ ? HDMI_2000MHZ_BIT_CLK_HZ :
+				HDMI_2250MHZ_BIT_CLK_HZ;
+
+	fdata = hdmi_8996_v2_get_fdata(bclk, vco_range);
 	if (fdata == HDMI_64B_ERR_VAL)
 		goto fail;
 
-	hsclk = hdmi_8996_v2_get_hsclk(fdata);
+	hsclk = hdmi_8996_v2_get_hsclk(fdata, vco_range);
 	if (hsclk == HDMI_64B_ERR_VAL)
 		goto fail;
 
-	if (bclk >= HDMI_2000MHZ_BIT_CLK_HZ)
+	if (bclk >= vco_range)
 		post_div = hdmi_8996_v2_get_post_div_gt_2g(hsclk);
 	else
-		post_div = hdmi_8996_v2_get_post_div_lt_2g(bclk);
+		post_div = hdmi_8996_v2_get_post_div_lt_2g(bclk, vco_range);
 
 	if (post_div == HDMI_64B_ERR_VAL)
 		goto fail;
@@ -914,13 +920,13 @@ static int hdmi_8996_v2_calculate(u32 pix_clk,
 	core_clk_div = 5;
 	core_clk_div_ratio = core_clk_div * 2;
 
-	tx_band = hdmi_8996_v2_get_tx_band(bclk);
+	tx_band = hdmi_8996_v2_get_tx_band(bclk, vco_range);
 	if (tx_band == HDMI_64B_ERR_VAL)
 		goto fail;
 
 	tx_band_div_ratio = 1 << tx_band;
 
-	vco_freq = hdmi_8996_v2_get_vco_freq(bclk);
+	vco_freq = hdmi_8996_v2_get_vco_freq(bclk, vco_range);
 	clk_divtx = vco_freq;
 	do_div(clk_divtx, post_div);
 
