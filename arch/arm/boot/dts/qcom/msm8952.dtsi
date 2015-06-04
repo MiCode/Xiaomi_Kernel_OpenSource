@@ -461,12 +461,12 @@
 		sensor_information2: qcom,sensor-information-2 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor2";
+			qcom,alias-name = "pop_mem";
 		};
 
 		sensor_information3: qcom,sensor-information-3 {
 			qcom,sensor-type =  "tsens";
 			qcom,sensor-name = "tsens_tz_sensor3";
-			qcom,alias-name = "pop_mem";
 		};
 
 		sensor_information4: qcom,sensor-information-4 {
