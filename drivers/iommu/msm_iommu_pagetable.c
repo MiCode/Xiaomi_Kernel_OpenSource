@@ -613,6 +613,15 @@ int msm_iommu_pagetable_map(struct msm_iommu_pt *pt, unsigned long va,
 	return ret;
 }
 
+void msm_iommu_flush_pagetable(struct msm_iommu_pt *pt, unsigned long va,
+				size_t len)
+{
+	/* Consolidated flush of page tables has not been implemented for
+	 * v7S because this driver anyway takes care of combining flush
+	 * for last level PTEs
+	 */
+}
+
 phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
 					  dma_addr_t va)
 {

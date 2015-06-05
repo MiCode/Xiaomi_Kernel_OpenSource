@@ -30,4 +30,6 @@ phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
 						dma_addr_t va);
 void msm_iommu_pagetable_free_tables(struct msm_iommu_pt *pt, unsigned long va,
 				size_t len);
+void msm_iommu_flush_pagetable(struct msm_iommu_pt *pt, unsigned long va,
+				size_t len);
 #endif
