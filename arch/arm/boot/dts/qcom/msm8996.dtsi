@@ -2383,11 +2383,13 @@
        pil_modem: qcom,mss@2080000 {
                 compatible = "qcom,pil-q6v55-mss";
                 reg = <0x2080000 0x100>,
-		      <0x0760000 0x400>,
+		      <0x0763000 0x008>,
+		      <0x0765000 0x008>,
+		      <0x0764000 0x008>,
 		      <0x2180000 0x020>,
 		      <0x038f008 0x004>;
-		reg-names = "qdsp6_base", "halt_base", "rmb_base",
-			    "restart_reg";
+		reg-names = "qdsp6_base", "halt_q6", "halt_modem",
+			"halt_nc", "rmb_base", "restart_reg";
 
 		clocks = <&clock_gcc clk_cxo_clk_src>,
 			 <&clock_gcc clk_gcc_mss_cfg_ahb_clk>,
