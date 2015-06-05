@@ -97,6 +97,7 @@ do {									\
 
 /* TPDM Specific Registers */
 #define TPDM_ITATBCNTRL		(0xEF0)
+#define TPDM_CLK_CTRL		(0x220)
 
 #define TPDM_DATASETS		32
 #define TPDM_BC_MAX_COUNTERS	32
@@ -214,6 +215,7 @@ struct tpdm_drvdata {
 	struct clk		*clk;
 	struct mutex		lock;
 	bool			enable;
+	bool			clk_enable;
 	DECLARE_BITMAP(datasets, TPDM_DATASETS);
 	DECLARE_BITMAP(enable_ds, TPDM_DATASETS);
 	enum tpdm_support_type	tc_trig_type;
@@ -460,6 +462,9 @@ static void __tpdm_enable(struct tpdm_drvdata *drvdata)
 {
 	TPDM_UNLOCK(drvdata);
 
+	if (drvdata->clk_enable)
+		tpdm_writel(drvdata, 0x1, TPDM_CLK_CTRL);
+
 	if (test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		__tpdm_enable_bc(drvdata);
 
@@ -544,6 +549,9 @@ static void __tpdm_disable(struct tpdm_drvdata *drvdata)
 
 	if (test_bit(TPDM_DS_CMB, drvdata->enable_ds))
 		__tpdm_disable_cmb(drvdata);
+
+	if (drvdata->clk_enable)
+		tpdm_writel(drvdata, 0x0, TPDM_CLK_CTRL);
 
 	TPDM_LOCK(drvdata);
 }
@@ -3345,6 +3353,9 @@ static int tpdm_probe(struct platform_device *pdev)
 	drvdata->base = devm_ioremap(dev, res->start, resource_size(res));
 	if (!drvdata->base)
 		return -ENOMEM;
+
+	drvdata->clk_enable = of_property_read_bool(pdev->dev.of_node,
+						    "qcom,clk-enable");
 
 	mutex_init(&drvdata->lock);
 
