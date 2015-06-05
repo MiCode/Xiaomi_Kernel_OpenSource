@@ -315,7 +315,7 @@ $(INSTALL_TARGETS):
 
 PHONY += dtbs dtbs_install
 dtbs dtbs_install: prepare scripts
-	$(Q)$(MAKE) $(build)=$(boot)/dts MACHINE=$(MACHINE) $@
+	$(Q)$(MAKE) $(build)=$(boot)/dts/qcom MACHINE=$(MACHINE) $@
 
 zImage-dtb: vmlinux scripts dtbs
 	$(Q)$(MAKE) $(build)=$(boot) MACHINE=$(MACHINE) $(boot)/$@
