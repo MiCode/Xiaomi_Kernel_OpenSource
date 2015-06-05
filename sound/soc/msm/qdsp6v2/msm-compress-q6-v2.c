@@ -102,6 +102,11 @@ struct msm_compr_gapless_state {
 	bool use_dsp_gapless_mode;
 };
 
+static unsigned int supported_sample_rates[] = {
+	8000, 11025, 12000, 16000, 22050, 24000, 32000, 44100, 48000, 64000,
+	88200, 96000, 176400, 192000
+};
+
 struct msm_compr_pdata {
 	atomic_t audio_ocmem_req;
 	struct snd_compr_stream *cstream[MSM_FRONTEND_DAI_MAX];
@@ -1136,55 +1141,16 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 	struct snd_compr_runtime *runtime = cstream->runtime;
 	struct msm_compr_audio *prtd = runtime->private_data;
 	int ret = 0, frame_sz = 0, delay_time_ms = 0;
+	int i, num_rates;
 
 	pr_debug("%s\n", __func__);
 
-	memcpy(&prtd->codec_param, params, sizeof(struct snd_compr_params));
-
-	/* ToDo: remove duplicates */
-	prtd->num_channels = prtd->codec_param.codec.ch_in;
-
-	switch (prtd->codec_param.codec.sample_rate) {
-	case SNDRV_PCM_RATE_8000:
-		prtd->sample_rate = 8000;
-		break;
-	case SNDRV_PCM_RATE_11025:
-		prtd->sample_rate = 11025;
-		break;
-	/* ToDo: What about 12K and 24K sample rates ? */
-	case SNDRV_PCM_RATE_16000:
-		prtd->sample_rate = 16000;
-		break;
-	case SNDRV_PCM_RATE_22050:
-		prtd->sample_rate = 22050;
-		break;
-	case SNDRV_PCM_RATE_32000:
-		prtd->sample_rate = 32000;
-		break;
-	case SNDRV_PCM_RATE_44100:
-		prtd->sample_rate = 44100;
-		break;
-	case SNDRV_PCM_RATE_48000:
-		prtd->sample_rate = 48000;
-		break;
-	case SNDRV_PCM_RATE_64000:
-		prtd->sample_rate = 64000;
-		break;
-	case SNDRV_PCM_RATE_88200:
-		prtd->sample_rate = 88200;
-		break;
-	case SNDRV_PCM_RATE_96000:
-		prtd->sample_rate = 96000;
-		break;
-	case SNDRV_PCM_RATE_176400:
-		prtd->sample_rate = 176400;
-		break;
-	case SNDRV_PCM_RATE_192000:
-		prtd->sample_rate = 192000;
-		break;
-	}
-
-	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
+	num_rates = sizeof(supported_sample_rates)/sizeof(unsigned int);
+	for (i = 0; i < num_rates; i++)
+		if (params->codec.sample_rate == supported_sample_rates[i])
+			break;
+	if (i == num_rates)
+		return -EINVAL;
 
 	if (prtd->codec_param.codec.compr_passthr >= 0 &&
 		prtd->codec_param.codec.compr_passthr <= 2)
@@ -1273,6 +1239,12 @@ static int msm_compr_set_params(struct snd_compr_stream *cstream,
 			delay_time_ms - PARTIAL_DRAIN_ACK_EARLY_BY_MSEC : 0;
 	prtd->partial_drain_delay = delay_time_ms;
 
+	memcpy(&prtd->codec_param, params, sizeof(struct snd_compr_params));
+
+	/* ToDo: remove duplicates */
+	prtd->num_channels = prtd->codec_param.codec.ch_in;
+	prtd->sample_rate = prtd->codec_param.codec.sample_rate;
+	pr_debug("%s: sample_rate %d\n", __func__, prtd->sample_rate);
 	ret = msm_compr_configure_dsp(cstream);
 
 	return ret;
@@ -1970,7 +1942,11 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_MP3:
 		codec->num_descriptors = 2;
 		codec->descriptor[0].max_ch = 2;
-		codec->descriptor[0].sample_rates = SNDRV_PCM_RATE_8000_48000;
+		memcpy(codec->descriptor[0].sample_rates,
+		       supported_sample_rates,
+		       sizeof(supported_sample_rates));
+		codec->descriptor[0].num_sample_rates =
+			sizeof(supported_sample_rates)/sizeof(unsigned int);
 		codec->descriptor[0].bit_rate[0] = 320; /* 320kbps */
 		codec->descriptor[0].bit_rate[1] = 128;
 		codec->descriptor[0].num_bitrates = 2;
@@ -1981,7 +1957,11 @@ static int msm_compr_get_codec_caps(struct snd_compr_stream *cstream,
 	case SND_AUDIOCODEC_AAC:
 		codec->num_descriptors = 2;
 		codec->descriptor[1].max_ch = 2;
-		codec->descriptor[1].sample_rates = SNDRV_PCM_RATE_8000_48000;
+		memcpy(codec->descriptor[1].sample_rates,
+		       supported_sample_rates,
+		       sizeof(supported_sample_rates));
+		codec->descriptor[1].num_sample_rates =
+			sizeof(supported_sample_rates)/sizeof(unsigned int);
 		codec->descriptor[1].bit_rate[0] = 320; /* 320kbps */
 		codec->descriptor[1].bit_rate[1] = 128;
 		codec->descriptor[1].num_bitrates = 2;
