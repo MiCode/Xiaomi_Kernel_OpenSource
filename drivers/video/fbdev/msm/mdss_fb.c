@@ -3791,7 +3791,7 @@ static int mdss_fb_display_commit(struct fb_info *info,
 static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 						unsigned long *argp)
 {
-	int ret, i = 0, rc;
+	int ret, i = 0, j = 0, rc;
 	struct mdp_layer_commit  commit;
 	u32 buffer_size, layer_count;
 	struct mdp_input_layer *layer, *layer_list = NULL;
@@ -3879,9 +3879,12 @@ static int mdss_fb_atomic_commit_ioctl(struct fb_info *info,
 		pr_err("atomic commit failed ret:%d\n", ret);
 
 	if (layer_count) {
-		rc = copy_to_user(input_layer_list, layer_list, buffer_size);
-		if (rc)
-			pr_err("layer error code copy to user failed\n");
+		for (j = 0; j < layer_count; j++) {
+			rc = copy_to_user(&input_layer_list[i].error_code,
+					&layer_list[i].error_code, sizeof(int));
+			if (rc)
+				pr_err("layer error code copy to user failed\n");
+		}
 
 		commit.commit_v1.input_layers = input_layer_list;
 		commit.commit_v1.output_layer = output_layer_user;
