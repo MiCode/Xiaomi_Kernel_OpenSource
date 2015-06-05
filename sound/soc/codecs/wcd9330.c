@@ -78,6 +78,7 @@ enum {
 
 /* RX_HPH_CNP_WG_TIME increases by 0.24ms */
 #define TOMTOM_WG_TIME_FACTOR_US	240
+#define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH 64
 
 #define TOMTOM_CPE_MAJOR_VER 1
 #define TOMTOM_CPE_MINOR_VER 0
@@ -418,6 +419,11 @@ enum {
 	RX8_MIX1_INP_SEL_RX8,
 };
 
+enum {
+	ON_DEMAND_MICBIAS = 0,
+	ON_DEMAND_SUPPLIES_MAX,
+};
+
 #define TOMTOM_COMP_DIGITAL_GAIN_OFFSET 3
 
 static const DECLARE_TLV_DB_SCALE(digital_gain, 0, 1, 0);
@@ -526,6 +532,10 @@ static const u32 vport_i2s_check_table[NUM_CODEC_DAIS] = {
 	0,	/* AIF2_CAP */
 };
 
+static char on_demand_supply_name[][MAX_ON_DEMAND_SUPPLY_NAME_LENGTH] = {
+	"cdc-vdd-mic-bias",
+};
+
 struct tomtom_priv {
 	struct snd_soc_codec *codec;
 	u32 adc_count;
@@ -561,6 +571,7 @@ struct tomtom_priv {
 	bool spkr_pa_widget_on;
 	struct regulator *spkdrv_reg;
 	struct regulator *spkdrv2_reg;
+	struct regulator *micbias_reg;
 
 	bool mbhc_started;
 
@@ -3703,6 +3714,40 @@ static int tomtom_enable_mbhc_micbias(struct snd_soc_codec *codec, bool enable,
 	return rc;
 }
 
+static int tomtom_codec_enable_on_demand_supply(
+		struct snd_soc_dapm_widget *w,
+		struct snd_kcontrol *kcontrol, int event)
+{
+	int ret = 0;
+	struct snd_soc_codec *codec = w->codec;
+	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
+
+	dev_dbg(codec->dev, "%s: event:%d\n", __func__, event);
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		if (priv->micbias_reg) {
+			ret = regulator_enable(priv->micbias_reg);
+			if (ret)
+				dev_err(codec->dev,
+					"%s: Failed to enable micbias_reg\n",
+					__func__);
+		}
+		break;
+	case SND_SOC_DAPM_POST_PMD:
+		if (priv->micbias_reg) {
+			ret = regulator_disable(priv->micbias_reg);
+			if (ret)
+				dev_err(codec->dev,
+					"%s: Failed to disable micbias_reg\n",
+					__func__);
+		}
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
+
 static void txfe_clkdiv_update(struct snd_soc_codec *codec)
 {
 	struct tomtom_priv *priv = snd_soc_codec_get_drvdata(codec);
@@ -6824,6 +6869,12 @@ static const struct snd_soc_dapm_widget tomtom_dapm_widgets[] = {
 			    tomtom_codec_enable_vdd_spkr2,
 			    SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
+	SND_SOC_DAPM_SUPPLY("MICBIAS_REGULATOR", SND_SOC_NOPM,
+		ON_DEMAND_MICBIAS, 0,
+		tomtom_codec_enable_on_demand_supply,
+		SND_SOC_DAPM_PRE_PMU |
+		SND_SOC_DAPM_POST_PMD),
+
 	SND_SOC_DAPM_MIXER("RX1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX2 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX7 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
@@ -8922,6 +8973,8 @@ static int tomtom_codec_probe(struct snd_soc_codec *codec)
 					       WCD9XXX_VDD_SPKDRV_NAME);
 	tomtom->spkdrv2_reg = tomtom_codec_find_regulator(codec,
 					       WCD9XXX_VDD_SPKDRV2_NAME);
+	tomtom->micbias_reg = tomtom_codec_find_regulator(codec,
+				on_demand_supply_name[ON_DEMAND_MICBIAS]);
 
 	ptr = kmalloc((sizeof(tomtom_rx_chs) +
 		       sizeof(tomtom_tx_chs)), GFP_KERNEL);
