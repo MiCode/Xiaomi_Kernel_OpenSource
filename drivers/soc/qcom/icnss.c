@@ -281,6 +281,19 @@ int icnss_wlan_disable(enum icnss_driver_mode mode)
 }
 EXPORT_SYMBOL(icnss_wlan_disable);
 
+int icnss_get_ce_id(int irq)
+{
+	int i;
+
+	for (i = 0; i < ICNSS_MAX_IRQ_REGISTRATIONS; i++) {
+		if (penv->ce_irqs[i] == irq)
+			return i;
+	}
+	pr_err("icnss: No matching CE id for irq %d\n", irq);
+	return -EINVAL;
+}
+EXPORT_SYMBOL(icnss_get_ce_id);
+
 static int icnss_probe(struct platform_device *pdev)
 {
 	int ret = 0;
