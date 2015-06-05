@@ -2,7 +2,7 @@
 # MobiCore configuration
 #
 config MOBICORE_DRIVER
-    tristate "MobiCore Driver"
+    tristate "MobiCore Driver"    
     ---help---
       Enable Linux Kernel MobiCore Support
 

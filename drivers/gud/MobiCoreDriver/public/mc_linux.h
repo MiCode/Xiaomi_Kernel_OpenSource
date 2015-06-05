@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -15,7 +15,8 @@
 #ifndef _MC_LINUX_H_
 #define _MC_LINUX_H_
 
-#include "version.h"
+#define MCDRVMODULEAPI_VERSION_MAJOR 2
+#define MCDRVMODULEAPI_VERSION_MINOR 1
 
 #ifndef __KERNEL__
 #include <stdint.h>
@@ -24,7 +25,10 @@
 #define MC_USER_DEVNODE		"mobicore-user"
 
 /** Maximum length of MobiCore product ID string. */
-#define MC_PRODUCT_ID_LEN 64
+#define MC_PRODUCT_ID_LEN	64
+
+/** Number of buffers that can be mapped at once */
+#define MC_MAP_MAX		4
 
 /*
  * Universally Unique Identifier (UUID) according to ISO/IEC 11578.
@@ -34,14 +38,42 @@ struct mc_uuid_t {
 };
 
 /*
+ * GP TA login types.
+ */
+enum mc_login_type {
+	TEEC_LOGIN_PUBLIC = 0,
+	TEEC_LOGIN_USER,
+	TEEC_LOGIN_GROUP,
+	TEEC_LOGIN_APPLICATION = 4,
+	TEEC_LOGIN_USER_APPLICATION,
+	TEEC_LOGIN_GROUP_APPLICATION,
+};
+
+/*
+ * GP TA identity structure.
+ */
+struct mc_identity {
+	enum mc_login_type	login_type;
+	union {
+		uint8_t		login_data[16];
+		gid_t		gid;		/* Requested group id */
+		struct {
+			uid_t	euid;
+			uid_t	ruid;
+		} uid;
+	};
+};
+
+/*
  * Data exchange structure of the MC_IO_OPEN_SESSION ioctl command.
  */
 struct mc_ioctl_open_sess {
-	uint32_t	sid;		/* session id (out) */
-	struct mc_uuid_t	uuid;	/* trustlet uuid */
-	bool		is_gp_uuid;	/* uuid is for GP TA */
+	struct mc_uuid_t uuid;		/* trustlet uuid */
+	uint32_t	is_gp_uuid;	/* uuid is for GP TA */
+	uint32_t        sid;            /* session id (out) */
 	uint64_t	tci;		/* tci buffer pointer */
 	uint32_t	tcilen;		/* tci length */
+	struct mc_identity identity;	/* GP TA identity */
 };
 
 /*
@@ -73,14 +105,20 @@ struct mc_ioctl_alloc {
 };
 
 /*
+ * Buffer mapping incoming and outgoing information.
+ */
+struct mc_ioctl_buffer {
+	uint64_t	va;		/* user space address of buffer */
+	uint32_t	len;		/* buffer length  */
+	uint64_t	sva;		/* SWd virt address of buffer (out) */
+};
+
+/*
  * Data exchange structure of the MC_IO_MAP and MC_IO_UNMAP ioctl commands.
  */
 struct mc_ioctl_map {
-	uint32_t	sid;		/* session id */
-	uint64_t	buf;		/* user space address of buffer */
-	uint32_t	len;		/* buffer length  */
-	uint32_t	sva;		/* SWd virt address of buffer (out) */
-	uint32_t	slen;		/* mapped length (out) */
+	uint32_t		sid;	/* session id */
+	struct mc_ioctl_buffer	bufs[MC_MAP_MAX];/* buffers info */
 };
 
 /*

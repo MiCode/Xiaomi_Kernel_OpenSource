@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -15,9 +15,6 @@
 #ifndef _TBASE_FASTCALL_H_
 #define _TBASE_FASTCALL_H_
 
-#include "mci/mcimcp.h" /* struct mcp_buffer */
-#include "platform.h"
-
 /* Use the arch_extension sec pseudo op before switching to secure world */
 #if defined(__GNUC__) && \
 	defined(__GNUC_MINOR__) && \
@@ -29,26 +26,13 @@
 #endif
 #endif
 
-bool mc_fastcall(void *data);
-int mc_fc_init(struct mcp_buffer *mcp_buffer, phys_addr_t mci_base_pa,
-	       void *mci_base, size_t queue_sz);
+int mc_fc_init(uintptr_t base_pa, ptrdiff_t off, size_t q_len, size_t buf_len);
 int mc_fc_info(uint32_t ext_info_id, uint32_t *state, uint32_t *ext_info);
 int mc_fc_mem_trace(phys_addr_t buffer, uint32_t size);
 int mc_fc_nsiq(void);
 int mc_fc_yield(void);
 
-#ifdef MC_FASTCALL_WORKER_THREAD
 int mc_fastcall_init(void);
-void mc_fastcall_cleanup(void);
-#else
-static inline int mc_fastcall_init(void)
-{
-	return 0;
-}
-
-static inline void mc_fastcall_cleanup(void)
-{
-}
-#endif
+void mc_fastcall_exit(void);
 
 #endif /* _TBASE_FASTCALL_H_ */

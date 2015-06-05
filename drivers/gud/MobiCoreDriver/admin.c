@@ -11,6 +11,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  */
+
 #include <asm/atomic.h>
 #include <linux/slab.h>
 #include <linux/device.h>
@@ -24,6 +25,7 @@
 #include <linux/vmalloc.h>
 #include <linux/module.h>
 #include <linux/random.h>
+#include <linux/delay.h>
 
 #include "public/mc_linux.h"
 #include "public/mc_admin.h"
@@ -33,12 +35,13 @@
 #include "main.h"
 #include "debug.h"
 #include "mmu.h"	/* For load_check and load_token */
-#include "scheduler.h"	/* For mc_dev_get_version */
-#include "logging.h"
 #include "mcp.h"
+#include "client.h"
 #include "api.h"
+#include "admin.h"
 
-#define DRIVER_TCI_LEN	PAGE_SIZE
+/* We need 2 devices for admin and user interface*/
+#define MC_DEV_MAX 2
 
 static struct admin_ctx {
 	struct device *dev;
@@ -47,6 +50,7 @@ static struct admin_ctx {
 	struct device_driver mc_dev_name;
 	dev_t mc_dev_admin;
 	struct cdev mc_admin_cdev;
+	int (*tee_start_cb)(void);
 } g_admin_ctx;
 
 static struct mc_admin_driver_request {
@@ -146,10 +150,18 @@ static int request_send(uint32_t command, const struct mc_uuid_t *uuid,
 			uint32_t is_gp, uint32_t spid)
 {
 	struct device *dev = g_admin_ctx.dev;
+	int counter = 10;
 	int ret;
 
 	/* Prepare request */
 	mutex_lock(&g_request.states_mutex);
+	/* Wait a little for daemon to connect */
+	while ((g_request.server_state == NOT_CONNECTED) && counter--) {
+		mutex_unlock(&g_request.states_mutex);
+		ssleep(1);
+		mutex_lock(&g_request.states_mutex);
+	}
+
 	BUG_ON(g_request.client_state != IDLE);
 	if (g_request.server_state != READY) {
 		mutex_unlock(&g_request.states_mutex);
@@ -194,14 +206,8 @@ static int request_send(uint32_t command, const struct mc_uuid_t *uuid,
 		ret = -EPIPE;
 		break;
 	case READY:
-		/* Length was 0, expect error */
-		if (!g_request.response.error_no) {
-			dev_err(dev, "%s: length is 0 but no error reported\n",
-				__func__);
-			ret = -EPIPE;
-		} else {
-			ret = -g_request.response.error_no;
-		}
+		/* No data to come, likely an error */
+		ret = -g_request.response.error_no;
 		break;
 	case RESPONSE_SENT:
 	case DATA_SENT:
@@ -376,7 +382,7 @@ end:
 static struct tbase_object *admin_get_trustlet(const struct mc_uuid_t *uuid,
 					       uint32_t is_gp, uint32_t *spid)
 {
-	struct tbase_object *obj;
+	struct tbase_object *obj = NULL;
 	bool is_sp_tl;
 	int ret = 0;
 
@@ -407,6 +413,25 @@ end:
 		return ERR_PTR(ret);
 
 	return obj;
+}
+
+static void mc_admin_sendcrashdump(void)
+{
+	int ret = 0;
+
+	/* Lock communication channel */
+	mutex_lock(&g_request.mutex);
+
+	/* Send request and wait for header */
+	ret = request_send(MC_DRV_SIGNAL_CRASH, NULL, false, 0);
+	if (ret)
+		goto end;
+
+	/* Done */
+	request_cancel();
+
+end:
+	mutex_unlock(&g_request.mutex);
 }
 
 static int tbase_object_make(uint32_t spid, struct tbase_object *obj)
@@ -550,7 +575,12 @@ static inline int load_driver(struct tbase_client *client,
 			      struct mc_admin_load_info *info)
 {
 	struct tbase_object *obj;
-	void *dci;
+	struct mclf_header_v2 *thdr;
+	struct mc_identity identity = {
+		.login_type = TEEC_LOGIN_PUBLIC,
+	};
+	uintptr_t dci = 0;
+	uint32_t dci_len = 0;
 	uint32_t sid;
 	int ret;
 
@@ -558,13 +588,21 @@ static inline int load_driver(struct tbase_client *client,
 	if (IS_ERR(obj))
 		return PTR_ERR(obj);
 
-	/* Create a driver  */
-	ret = api_malloc_cbuf(client, DRIVER_TCI_LEN, &dci, NULL);
-	if (ret)
-		goto end;
+	thdr = (struct mclf_header_v2 *)&obj->data[obj->header_length];
+	if (!(thdr->flags & MC_SERVICE_HEADER_FLAGS_NO_CONTROL_INTERFACE)) {
+		/*
+		 * The driver requires a DCI, although we won't be able to use
+		 * it to communicate.
+		 */
+		dci_len = PAGE_SIZE;
+		ret = api_malloc_cbuf(client, dci_len, &dci, NULL);
+		if (ret)
+			goto end;
+	}
 
 	/* Open session */
-	ret = client_add_session(client, obj, dci, DRIVER_TCI_LEN, &sid, false);
+	ret = client_add_session(client, obj, dci, dci_len, &sid, false,
+				 &identity);
 	if (ret)
 		api_free_cbuf(client, dci);
 	else
@@ -578,6 +616,7 @@ end:
 static inline int load_token(struct mc_admin_load_info *token)
 {
 	struct tbase_mmu *mmu;
+	struct mcp_buffer_map map;
 	int ret;
 
 	mmu = tbase_mmu_create(current, (void *)(uintptr_t)token->address,
@@ -585,7 +624,8 @@ static inline int load_token(struct mc_admin_load_info *token)
 	if (IS_ERR(mmu))
 		return PTR_ERR(mmu);
 
-	ret = mcp_load_token(token->address, token->length, mmu);
+	tbase_mmu_buffer(mmu, &map);
+	ret = mcp_load_token(token->address, &map);
 	tbase_mmu_delete(mmu);
 	return ret;
 }
@@ -594,6 +634,7 @@ static inline int load_check(struct mc_admin_load_info *info)
 {
 	struct tbase_object *obj;
 	struct tbase_mmu *mmu;
+	struct mcp_buffer_map map;
 	int ret;
 
 	obj = tbase_object_read(info->spid, info->address, info->length);
@@ -604,7 +645,8 @@ static inline int load_check(struct mc_admin_load_info *info)
 	if (IS_ERR(mmu))
 		return PTR_ERR(mmu);
 
-	ret = mcp_load_check(obj, mmu);
+	tbase_mmu_buffer(mmu, &map);
+	ret = mcp_load_check(obj, &map);
 	tbase_mmu_delete(mmu);
 	return ret;
 }
@@ -709,10 +751,8 @@ static long admin_ioctl(struct file *file, unsigned int cmd,
 
 	MCDRV_DBG("%u from %s", _IOC_NR(cmd), current->comm);
 
-	if (WARN(!client, "No client data available")) {
-		ret = -EFAULT;
-		goto out;
-	}
+	if (WARN(!client, "No client data available"))
+		return -EFAULT;
 
 	switch (cmd) {
 	case MC_ADMIN_IO_GET_DRIVER_REQUEST: {
@@ -747,7 +787,8 @@ static long admin_ioctl(struct file *file, unsigned int cmd,
 	case MC_ADMIN_IO_GET_INFO: {
 		struct mc_admin_driver_info info;
 
-		info.drv_version = mc_dev_get_version();
+		info.drv_version = MC_VERSION(MCDRVMODULEAPI_VERSION_MAJOR,
+					      MCDRVMODULEAPI_VERSION_MINOR);
 		info.initial_cmd_id = g_request.request_id;
 		ret = copy_to_user(uarg, &info, sizeof(info));
 		break;
@@ -755,19 +796,12 @@ static long admin_ioctl(struct file *file, unsigned int cmd,
 	case MC_ADMIN_IO_LOAD_DRIVER: {
 		struct mc_admin_load_info info;
 
-		/* Acquire client */
-		if (!mc_ref_client(client)) {
-			ret = -ENODEV;
-			break;
-		}
-
 		ret = copy_from_user(&info, uarg, sizeof(info));
 		if (ret)
 			ret = -EFAULT;
 		else
 			ret = load_driver(client, &info);
 
-		mc_unref_client(client);
 		break;
 	}
 	case MC_ADMIN_IO_LOAD_TOKEN: {
@@ -796,8 +830,6 @@ static long admin_ioctl(struct file *file, unsigned int cmd,
 		ret = -ENOIOCTLCMD;
 	}
 
-out:
-	mobicore_log_read();
 	return ret;
 }
 
@@ -844,6 +876,7 @@ static int admin_open(struct inode *inode, struct file *file)
 {
 	struct device *dev = g_admin_ctx.dev;
 	struct tbase_client *client;
+	int err;
 
 	/*
 	 * If the daemon is already set we can't allow anybody else to open
@@ -860,11 +893,23 @@ static int admin_open(struct inode *inode, struct file *file)
 	/* Setup the usual variables */
 	MCDRV_DBG("accept %s as tbase daemon", current->comm);
 
+	/*
+	* daemon is connected so now we can safely suppose
+	* the secure world is loaded too
+	*/
+	if (!IS_ERR_OR_NULL(g_admin_ctx.tee_start_cb))
+		g_admin_ctx.tee_start_cb = ERR_PTR(g_admin_ctx.tee_start_cb());
+	if (IS_ERR(g_admin_ctx.tee_start_cb)) {
+		MCDRV_ERROR("Failed initializing the SW");
+		err = PTR_ERR(g_admin_ctx.tee_start_cb);
+		goto fail_connection;
+}
+
 	/* Create client */
 	client = api_open_device(true);
 	if (!client) {
-		atomic_set(&g_admin_ctx.daemon_counter, 0);
-		return -ENOMEM;
+		err = -ENOMEM;
+		goto fail_connection;
 	}
 
 	/* Store client in user file */
@@ -875,6 +920,10 @@ static int admin_open(struct inode *inode, struct file *file)
 	dev_info(dev, "%s: daemon connected\n", __func__);
 
 	return 0;
+
+fail_connection:
+	atomic_set(&g_admin_ctx.daemon_counter, 0);
+	return err;
 }
 
 /* function table structure of this device driver. */
@@ -889,7 +938,8 @@ static const struct file_operations mc_admin_fops = {
 	.write = admin_write,
 };
 
-int admin_dev_init(struct class *mc_device_class, dev_t *out_dev)
+int mc_admin_init(struct class *mc_device_class, dev_t *out_dev,
+		  int (*tee_start_cb)(void))
 {
 	int err = 0;
 
@@ -903,11 +953,12 @@ int admin_dev_init(struct class *mc_device_class, dev_t *out_dev)
 	mutex_init(&g_request.states_mutex);
 	init_completion(&g_request.client_complete);
 	init_completion(&g_request.server_complete);
+	mcp_register_crashhandler(mc_admin_sendcrashdump);
 
+	/* Create char device */
 	cdev_init(&g_admin_ctx.mc_admin_cdev, &mc_admin_fops);
-
 	err = alloc_chrdev_region(&g_admin_ctx.mc_dev_admin, 0, MC_DEV_MAX,
-				  "mobicore");
+				  "trustonic_tee");
 	if (err < 0) {
 		MCDRV_ERROR("failed to allocate char dev region");
 		goto fail_alloc_chrdev_region;
@@ -932,6 +983,9 @@ int admin_dev_init(struct class *mc_device_class, dev_t *out_dev)
 	g_admin_ctx.dev->driver = &g_admin_ctx.mc_dev_name;
 	*out_dev = g_admin_ctx.mc_dev_admin;
 
+	/* Register the call back for starting the secure world */
+	g_admin_ctx.tee_start_cb = tee_start_cb;
+
 	MCDRV_DBG("done");
 	return 0;
 
@@ -946,7 +1000,7 @@ fail_alloc_chrdev_region:
 	return err;
 }
 
-void admin_dev_cleanup(struct class *mc_device_class)
+void mc_admin_exit(struct class *mc_device_class)
 {
 	device_destroy(mc_device_class, g_admin_ctx.mc_dev_admin);
 	cdev_del(&g_admin_ctx.mc_admin_cdev);

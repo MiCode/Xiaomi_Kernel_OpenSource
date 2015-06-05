@@ -23,11 +23,10 @@
 
 #include "mci/mcifc.h"
 
-#include "main.h"
-#include "fastcall.h"
-#include "pm.h"
+#include "platform.h"	/* MC_FASTCALL_WORKER_THREAD and more */
 #include "debug.h"
-#include "mcp.h"
+#include "clock.h"	/* mc_clock_enable, mc_clock_disable */
+#include "fastcall.h"
 
 struct fastcall_work {
 #ifdef MC_FASTCALL_WORKER_THREAD
@@ -181,18 +180,10 @@ static inline int _smc(union mc_fc_generic *mc_fc_generic)
 #endif /* !MC_SMC_FASTCALL */
 }
 
-static int mc_fc_smc(union mc_fc_generic *fc)
-{
-	if ((fc->as_in.cmd != MC_SMC_N_YIELD) ||
-	    likely(!mcp_get_sleep_mode_req()))
-		return _smc(fc);
-
-	return 0;
-}
-
 #ifdef TBASE_CORE_SWITCHER
 static uint32_t active_cpu;
 
+#ifdef MC_FASTCALL_WORKER_THREAD
 static void mc_cpu_offline(int cpu)
 {
 	int i;
@@ -236,6 +227,7 @@ static int mobicore_cpu_callback(struct notifier_block *nfb,
 static struct notifier_block mobicore_cpu_notifer = {
 	.notifier_call = mobicore_cpu_callback,
 };
+#endif /* MC_FASTCALL_WORKER_THREAD */
 
 static cpumask_t mc_exec_core_switch(union mc_fc_generic *mc_fc_generic)
 {
@@ -246,7 +238,7 @@ static cpumask_t mc_exec_core_switch(union mc_fc_generic *mc_fc_generic)
 	new_cpu = mc_fc_generic->as_in.param[0];
 	mc_fc_generic->as_in.param[0] = cpu_id[mc_fc_generic->as_in.param[0]];
 
-	if (mc_fc_smc(mc_fc_generic) != 0 || mc_fc_generic->as_out.ret != 0) {
+	if (_smc(mc_fc_generic) != 0 || mc_fc_generic->as_out.ret != 0) {
 		MCDRV_DBG("CoreSwap failed %d -> %d (cpu %d still active)\n",
 			  raw_smp_processor_id(),
 			  mc_fc_generic->as_in.param[0],
@@ -280,7 +272,7 @@ static void fastcall_work_func(struct work_struct *work)
 	if (!mc_fc_generic)
 		return;
 
-	mc_pm_clock_enable();
+	mc_clock_enable();
 
 	if (mc_fc_generic->as_in.cmd == MC_FC_SWAP_CPU) {
 #ifdef MC_FASTCALL_WORKER_THREAD
@@ -291,13 +283,13 @@ static void fastcall_work_func(struct work_struct *work)
 		mc_exec_core_switch(mc_fc_generic);
 #endif
 	} else {
-		mc_fc_smc(mc_fc_generic);
+		_smc(mc_fc_generic);
 	}
 
-	mc_pm_clock_disable();
+	mc_clock_disable();
 }
 
-bool mc_fastcall(void *data)
+static bool mc_fastcall(void *data)
 {
 #ifdef MC_FASTCALL_WORKER_THREAD
 	struct fastcall_work fc_work = {
@@ -314,6 +306,7 @@ bool mc_fastcall(void *data)
 	struct fastcall_work fc_work = {
 		.data = data,
 	};
+
 	INIT_WORK_ONSTACK(&fc_work.work, fastcall_work_func);
 
 	if (!schedule_work_on(0, &fc_work.work))
@@ -324,11 +317,14 @@ bool mc_fastcall(void *data)
 	return true;
 }
 
-#ifdef MC_FASTCALL_WORKER_THREAD
 int mc_fastcall_init(void)
 {
-	int ret = 0;
+	int ret = mc_clock_init();
 
+	if (ret)
+		return ret;
+
+#ifdef MC_FASTCALL_WORKER_THREAD
 	fastcall_thread = kthread_create(kthread_worker_fn, &fastcall_worker,
 					 "mc_fastcall");
 	if (IS_ERR(fastcall_thread)) {
@@ -345,11 +341,13 @@ int mc_fastcall_init(void)
 #ifdef TBASE_CORE_SWITCHER
 	ret = register_cpu_notifier(&mobicore_cpu_notifer);
 #endif
+#endif /* MC_FASTCALL_WORKER_THREAD */
 	return ret;
 }
 
-void mc_fastcall_cleanup(void)
+void mc_fastcall_exit(void)
 {
+#ifdef MC_FASTCALL_WORKER_THREAD
 	if (!IS_ERR_OR_NULL(fastcall_thread)) {
 #ifdef TBASE_CORE_SWITCHER
 		unregister_cpu_notifier(&mobicore_cpu_notifer);
@@ -357,8 +355,9 @@ void mc_fastcall_cleanup(void)
 		kthread_stop(fastcall_thread);
 		fastcall_thread = NULL;
 	}
+#endif /* MC_FASTCALL_WORKER_THREAD */
+	mc_clock_exit();
 }
-#endif
 
 /*
  * convert fast call return code to linux driver module error code
@@ -377,12 +376,10 @@ static int convert_fc_ret(uint32_t ret)
 	}
 }
 
-int mc_fc_init(struct mcp_buffer *mcp_buffer, phys_addr_t mci_base_pa,
-	       void *mci_base, size_t queue_sz)
+int mc_fc_init(uintptr_t base_pa, ptrdiff_t off, size_t q_len, size_t buf_len)
 {
-	ptrdiff_t mcp_off = (uintptr_t)mcp_buffer - (uintptr_t)mci_base;
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
-	uint32_t base_high = (uint32_t)((uint64_t)mci_base_pa >> 32);
+#ifdef CONFIG_ARM64
+	uint32_t base_high = (uint32_t)(base_pa >> 32);
 #else
 	uint32_t base_high = 0;
 #endif
@@ -392,21 +389,18 @@ int mc_fc_init(struct mcp_buffer *mcp_buffer, phys_addr_t mci_base_pa,
 	memset(&fc_init, 0, sizeof(fc_init));
 	fc_init.as_in.cmd = MC_FC_INIT;
 	/* base address of mci buffer PAGE_SIZE (default is 4KB) aligned */
-	fc_init.as_in.base = (uint32_t)mci_base_pa;
+	fc_init.as_in.base = (uint32_t)base_pa;
 	/* notification buffer start/length [16:16] [start, length] */
 	fc_init.as_in.nq_info =
-	    ((base_high & 0xFFFF) << 16) | (queue_sz & 0xFFFF);
+	    ((base_high & 0xFFFF) << 16) | (q_len & 0xFFFF);
 	/* mcp buffer start/length [16:16] [start, length] */
-	fc_init.as_in.mcp_info =
-	    (mcp_off << 16) | (sizeof(*mcp_buffer) & 0xFFFF);
-	MCDRV_DBG(
-		  "cmd=0x%08x, base=0x%08x,nq_info=0x%08x, mcp_info=0x%08x",
+	fc_init.as_in.mcp_info = (off << 16) | (buf_len & 0xFFFF);
+	MCDRV_DBG("cmd=0x%08x, base=0x%08x,nq_info=0x%08x, mcp_info=0x%08x",
 		  fc_init.as_in.cmd, fc_init.as_in.base, fc_init.as_in.nq_info,
 		  fc_init.as_in.mcp_info);
 	mc_fastcall(&fc_init.as_generic);
 	MCDRV_DBG("out cmd=0x%08x, ret=0x%08x", fc_init.as_out.resp,
 		  fc_init.as_out.ret);
-
 	return convert_fc_ret(fc_init.as_out.ret);
 }
 
@@ -446,7 +440,7 @@ int mc_fc_mem_trace(phys_addr_t buffer, uint32_t size)
 	memset(&mc_fc_generic, 0, sizeof(mc_fc_generic));
 	mc_fc_generic.as_in.cmd = MC_FC_MEM_TRACE;
 	mc_fc_generic.as_in.param[0] = (uint32_t)buffer;
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
+#ifdef CONFIG_ARM64
 	mc_fc_generic.as_in.param[1] = (uint32_t)(buffer >> 32);
 #endif
 	mc_fc_generic.as_in.param[2] = size;
@@ -457,21 +451,31 @@ int mc_fc_mem_trace(phys_addr_t buffer, uint32_t size)
 int mc_fc_nsiq(void)
 {
 	union mc_fc_generic fc;
+	int ret;
 
 	memset(&fc, 0, sizeof(fc));
 	fc.as_in.cmd = MC_SMC_N_SIQ;
 	mc_fastcall(&fc);
-	return convert_fc_ret(fc.as_out.ret);
+	ret = convert_fc_ret(fc.as_out.ret);
+	if (ret)
+		MCDRV_ERROR("failed: %d", ret);
+
+	return ret;
 }
 
 int mc_fc_yield(void)
 {
 	union mc_fc_generic fc;
+	int ret;
 
 	memset(&fc, 0, sizeof(fc));
 	fc.as_in.cmd = MC_SMC_N_YIELD;
 	mc_fastcall(&fc);
-	return convert_fc_ret(fc.as_out.ret);
+	ret = convert_fc_ret(fc.as_out.ret);
+	if (ret)
+		MCDRV_ERROR("failed: %d", ret);
+
+	return ret;
 }
 
 #ifdef TBASE_CORE_SWITCHER

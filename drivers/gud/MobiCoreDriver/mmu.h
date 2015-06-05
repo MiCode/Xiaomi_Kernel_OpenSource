@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -16,6 +16,7 @@
 #define _TBASE_MEM_H_
 
 struct tbase_mmu;
+struct mcp_buffer_map;
 
 /*
  * Allocate MMU table and map buffer into it.
@@ -28,16 +29,16 @@ struct tbase_mmu *tbase_mmu_create(struct task_struct *task,
 /*
  * Delete a used MMU table.
  */
-void tbase_mmu_delete(struct tbase_mmu *mmu_table);
+void tbase_mmu_delete(struct tbase_mmu *mmu);
 
 /*
- * Get type of MMU table.
+ * Fill in buffer info for MMU table.
  */
-uint32_t tbase_mmu_type(const struct tbase_mmu *mmu_table);
+void tbase_mmu_buffer(const struct tbase_mmu *mmu, struct mcp_buffer_map *map);
 
 /*
- * Get physical address for a MMU table.
+ * Add info to debug buffer.
  */
-unsigned long tbase_mmu_phys(const struct tbase_mmu *mmu_table);
+int tbase_mmu_info(const struct tbase_mmu *mmu, struct kasnprintf_buf *buf);
 
 #endif /* _TBASE_MEM_H_ */

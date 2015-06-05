@@ -23,9 +23,10 @@
 
 #include "main.h"
 #include "debug.h"
-#include "mmu.h"
 #include "mcp.h"
-#include "api.h"
+#include "mmu.h"
+#include "session.h"
+#include "client.h"
 
 /*
  * Contiguous buffer allocated to TLCs.
@@ -40,9 +41,9 @@ struct tbase_cbuf {
 	/* Number of references kept to this buffer */
 	struct kref		kref;
 	/* virtual Kernel start address */
-	void			*addr;
+	uintptr_t		addr;
 	/* virtual Userspace start address */
-	void			*uaddr;
+	uintptr_t		uaddr;
 	/* physical start address */
 	phys_addr_t		phys;
 	/* 2^order = number of pages allocated */
@@ -54,10 +55,10 @@ struct tbase_cbuf {
 /*
  * Map a kernel contiguous buffer to user space
  */
-static int map_cbuf(struct vm_area_struct *vmarea, void *addr, uint32_t len,
-		    void **uaddr)
+static int map_cbuf(struct vm_area_struct *vmarea, uintptr_t addr, uint32_t len,
+		    uintptr_t *uaddr)
 {
-	int err = 0;
+	int ret;
 
 	if (WARN(!uaddr, "No uaddr pointer available"))
 		return -EINVAL;
@@ -73,20 +74,21 @@ static int map_cbuf(struct vm_area_struct *vmarea, void *addr, uint32_t len,
 		return -EINVAL;
 	}
 
-	*uaddr = NULL;
 	vmarea->vm_flags |= VM_IO;
 
 	/* CPI todo: use io_remap_page_range() to be consistent with VM_IO ? */
-	err = remap_pfn_range(vmarea, vmarea->vm_start,
+	ret = remap_pfn_range(vmarea, vmarea->vm_start,
 			      page_to_pfn(virt_to_page(addr)),
 			      vmarea->vm_end - vmarea->vm_start,
 			      vmarea->vm_page_prot);
-	if (err)
+	if (ret) {
+		*uaddr = 0;
 		MCDRV_ERROR("User mapping failed");
-	else
-		*uaddr = (void *)vmarea->vm_start;
+		return ret;
+	}
 
-	return err;
+	*uaddr = vmarea->vm_start;
+	return 0;
 }
 
 /*
@@ -104,7 +106,8 @@ struct tbase_client *client_create(bool is_from_kernel)
 	}
 
 	/* init members */
-	client->kernel = is_from_kernel;
+	client->pid = is_from_kernel ? 0 : current->pid;
+	memcpy(client->comm, current->comm, sizeof(client->comm));
 	kref_init(&client->kref);
 	INIT_LIST_HEAD(&client->cbufs);
 	mutex_init(&client->cbufs_lock);
@@ -115,15 +118,27 @@ struct tbase_client *client_create(bool is_from_kernel)
 	return client;
 }
 
+/*
+ * At this point, nobody has access to the client anymore, so no new sessions
+ * are coming.
+ */
 void client_close_sessions(struct tbase_client *client)
 {
-	struct tbase_session *session, *s;
+	struct tbase_session *session;
 
-	/* Remove all sessions from client and ask them to close */
 	mutex_lock(&client->sessions_lock);
-	list_for_each_entry_safe(session, s, &client->sessions, list) {
-		session_remove(session);
+	while (!list_empty(&client->sessions)) {
+		session = list_first_entry(&client->sessions,
+					   struct tbase_session, list);
+
+		/* Move session to closing sessions list */
+		mutex_lock(&g_ctx.closing_lock);
+		list_move(&session->list, &g_ctx.closing_sess);
+		mutex_unlock(&g_ctx.closing_lock);
+		/* Call session_close without lock */
+		mutex_unlock(&client->sessions_lock);
 		session_close(session);
+		mutex_lock(&client->sessions_lock);
 	}
 
 	mutex_unlock(&client->sessions_lock);
@@ -152,7 +167,7 @@ void client_put(struct tbase_client *client)
  */
 bool client_is_kernel(struct tbase_client *client)
 {
-	return client->kernel;
+	return !client->pid;
 }
 
 /*
@@ -178,76 +193,13 @@ bool client_set_closing(struct tbase_client *client)
  * return: t-base driver error code
  */
 int client_add_session(struct tbase_client *client,
-		       const struct tbase_object *obj,
-		       void *tci, size_t len, uint32_t *p_sid, bool is_gp_uuid)
+		       const struct tbase_object *obj, uintptr_t tci,
+		       size_t len, uint32_t *session_id, bool is_gp,
+		       struct mc_identity *identity)
 {
-	int err = 0;
 	struct tbase_session *session = NULL;
-	struct tbase_mmu *tci_mmu = NULL;
-	struct tbase_mmu *blob_mmu = NULL;
-	struct tbase_wsm *wsm = NULL;
-	struct tbase_cbuf *cbuf = NULL;
-	struct task_struct *task = NULL;
-	void *va;
-	size_t offset;
-	uint32_t session_id;
-	int32_t nq_error;
-
-	/* Create blob L2 table (blob is allocated by driver, so task=NULL) */
-	blob_mmu = tbase_mmu_create(NULL, obj->data, obj->length);
-	if (IS_ERR(blob_mmu)) {
-		err = PTR_ERR(blob_mmu);
-		blob_mmu = NULL;
-		goto end;
-	}
-
-	/* Create wsm object for tci */
-	if (tci && len) {
-		/* Check if buffer is contained in a cbuf */
-		/* TODO CPI: factorize this (duplicate of session_add_wsm()) */
-		cbuf = tbase_cbuf_get_by_addr(client, tci);
-		if (cbuf) {
-			if (client_is_kernel(client))
-				offset = tci - tbase_cbuf_addr(cbuf);
-			else
-				offset = tci - tbase_cbuf_uaddr(cbuf);
-
-			if ((offset + len) > tbase_cbuf_len(cbuf)) {
-				err = -EINVAL;
-				MCDRV_ERROR("crosses cbuf boundary");
-				goto end;
-			}
-			/* Provide kernel virtual address */
-			va = tbase_cbuf_addr(cbuf) + offset;
-			task = NULL;
-		}
-		/* Not a cbuf, differentiate user/kernel clients */
-		else {
-			va = tci;
-			if (!client_is_kernel(client))
-				task = current;
-		}
-
-		/* Create L2 table */
-		tci_mmu = tbase_mmu_create(task, va, len);
-		if (IS_ERR(tci_mmu)) {
-			err = PTR_ERR(tci_mmu);
-			tci_mmu = NULL;
-			goto end;
-		}
-
-		/* Create wsm */
-		wsm = session_alloc_wsm(tci, len, 0, tci_mmu, cbuf);
-		if (!wsm) {
-			err = -ENOMEM;
-			goto end;
-		}
-
-	} else if (tci || len) {
-		MCDRV_ERROR("Tci pointer and length are incoherent");
-		err = -EINVAL;
-		goto end;
-	}
+	struct tbase_mmu *obj_mmu = NULL;
+	int ret = 0;
 
 	/*
 	 * Create session object with temp sid=0 BEFORE session is started,
@@ -256,77 +208,50 @@ int client_add_session(struct tbase_client *client,
 	 * Adding session to list must be done AFTER it is started (once we have
 	 * sid), therefore it cannot be done within session_create().
 	 */
-	session = session_create(client, 0);
-	if (!session) {
-		MCDRV_ERROR("Allocating session object failed.");
-		err = -ENOMEM;
-		goto end;
+	session = session_create(client, is_gp, identity);
+	if (IS_ERR(session))
+		return PTR_ERR(session);
+
+	/* Create blob L2 table (blob is allocated by driver, so task=NULL) */
+	obj_mmu = tbase_mmu_create(NULL, obj->data, obj->length);
+	if (IS_ERR(obj_mmu)) {
+		ret = PTR_ERR(obj_mmu);
+		goto err;
 	}
-	if (wsm)
-		session_link_wsm(session, wsm);
 
-	/* Send MCP open command */
-	err = mcp_open_session(obj, blob_mmu, is_gp_uuid, tci, len, tci_mmu,
-			       &session_id);
+	/* Open session */
+	ret = session_open(session, obj, obj_mmu, tci, len);
+	/* Blob table no more needed in any case */
+	tbase_mmu_delete(obj_mmu);
+	if (ret)
+		goto err;
 
-	if (err)
-		goto end;
-
-	/* Set sid returned by SWd */
-	session->id = session_id;
-
-	/* Add session to client */
 	mutex_lock(&client->sessions_lock);
-	if (client->closing) {
-		/* Client has been frozen, abort */
-		err = -ENODEV;
-		mutex_unlock(&client->sessions_lock);
-		goto end;
+	if (unlikely(client->closing)) {
+		/* Client has been frozen, no more sessions allowed */
+		ret = -ENODEV;
+	} else {
+		/* Add session to client */
+		list_add(&session->list, &client->sessions);
+		/* Set sid returned by SWd */
+		*session_id = session->mcp_session.id;
 	}
-	list_add(&session->list, &client->sessions);
+
 	mutex_unlock(&client->sessions_lock);
 
-	/* Read potential notif arrived before session was added to list */
-	if (mc_read_notif(session->id, &nq_error))
-		session_notify_nwd(session, nq_error);
-
-	/* Everything fine, fill in return parameter */
-	err = 0;
-	*p_sid = session_id;
-
-end:
-	/* Release the ref used for early notifs */
-	if (session)
-		client_unref_session(session);
-
-	/* Blob table no more needed */
-	if (blob_mmu)
-		tbase_mmu_delete(blob_mmu);
-
-	/* Clean in case of error. No ref taken since session is not in list */
-	if (err) {
-		*p_sid = -1;
-		if (session) {
-			if (session->id) {
-				/* Exists in SWd, close properly */
-				session_remove(session);
-				session_close(session);
-			} else {
-				/* Only clean the NWd object */
-				session_put(session);
-			}
-		} else if (wsm) {
-			session_free_wsm(wsm);
-		} else {
-			if (tci_mmu)
-				tbase_mmu_delete(tci_mmu);
-
-			if (cbuf)
-				tbase_cbuf_put(cbuf);
-		}
+err:
+	/* Close or free session on error */
+	if (ret == -ENODEV) {
+		/* The session must enter the closing process... */
+		mutex_lock(&g_ctx.closing_lock);
+		list_add(&session->list, &g_ctx.closing_sess);
+		mutex_unlock(&g_ctx.closing_lock);
+		session_close(session);
+	} else if (ret) {
+		session_put(session);
 	}
 
-	return err;
+	return ret;
 }
 
 /*
@@ -340,9 +265,11 @@ int client_remove_session(struct tbase_client *client, uint32_t session_id)
 	/* Move session from main list to closing list */
 	mutex_lock(&client->sessions_lock);
 	list_for_each_entry(candidate, &client->sessions, list) {
-		if (candidate->id == session_id) {
+		if (candidate->mcp_session.id == session_id) {
 			session = candidate;
-			session_remove(session);
+			mutex_lock(&g_ctx.closing_lock);
+			list_move(&session->list, &g_ctx.closing_sess);
+			mutex_unlock(&g_ctx.closing_lock);
 			break;
 		}
 	}
@@ -365,7 +292,7 @@ struct tbase_session *client_ref_session(struct tbase_client *client,
 
 	mutex_lock(&client->sessions_lock);
 	list_for_each_entry(candidate, &client->sessions, list) {
-		if (candidate->id == session_id) {
+		if (candidate->mcp_session.id == session_id) {
 			session = candidate;
 			session_get(session);
 			break;
@@ -384,6 +311,60 @@ struct tbase_session *client_ref_session(struct tbase_client *client,
 void client_unref_session(struct tbase_session *session)
 {
 	session_put(session);
+}
+
+static inline int cbuf_info(struct tbase_cbuf *cbuf,
+			    struct kasnprintf_buf *buf);
+
+int client_info(struct tbase_client *client, struct kasnprintf_buf *buf)
+{
+	struct tbase_cbuf *cbuf;
+	struct tbase_session *session;
+	int ret;
+
+	if (client->pid)
+		ret = kasnprintf(buf, "client %p: %s (%d)\n", client,
+				 client->comm, client->pid);
+	else
+		ret = kasnprintf(buf, "client %p: [kernel]\n", client);
+
+	if (ret < 0)
+		return ret;
+
+	/* Buffers */
+	mutex_lock(&client->cbufs_lock);
+	if (list_empty(&client->cbufs))
+		goto done_cbufs;
+
+	list_for_each_entry(cbuf, &client->cbufs, list) {
+		ret = cbuf_info(cbuf, buf);
+		if (ret < 0)
+			goto done_cbufs;
+	}
+
+done_cbufs:
+	mutex_unlock(&client->cbufs_lock);
+	if (ret < 0)
+		return ret;
+
+	/* Sessions */
+	mutex_lock(&client->sessions_lock);
+	if (list_empty(&client->sessions))
+		goto done_sessions;
+
+	list_for_each_entry(session, &client->sessions, list) {
+		ret = session_info(session, buf);
+		if (ret < 0)
+			goto done_sessions;
+	}
+
+done_sessions:
+	mutex_unlock(&client->sessions_lock);
+
+	if (ret < 0)
+		return ret;
+
+	return 0;
 }
 
 /*
@@ -414,13 +395,12 @@ static struct vm_operations_struct cbuf_vm_ops = {
 /*
  * Create a cbuf object and add it to client
  */
-int tbase_cbuf_alloc(struct tbase_client *client, uint32_t len, void **p_addr,
+int tbase_cbuf_alloc(struct tbase_client *client, uint32_t len,
+		     uintptr_t *p_addr,
 		     struct vm_area_struct *vmarea)
 {
 	int err = 0;
 	struct tbase_cbuf *cbuf = NULL;
-	void *addr = NULL;
-	void *uaddr = NULL;
 	unsigned int order;
 
 	if (WARN(!client, "No client available"))
@@ -443,8 +423,8 @@ int tbase_cbuf_alloc(struct tbase_client *client, uint32_t len, void **p_addr,
 	}
 
 	/* Allocate buffer */
-	addr = (void *)__get_free_pages(GFP_USER | __GFP_ZERO, order);
-	if (!addr) {
+	cbuf->addr = __get_free_pages(GFP_USER | __GFP_ZERO, order);
+	if (!cbuf->addr) {
 		MCDRV_DBG_WARN("get_free_pages failed");
 		kfree(cbuf);
 		return -ENOMEM;
@@ -452,9 +432,9 @@ int tbase_cbuf_alloc(struct tbase_client *client, uint32_t len, void **p_addr,
 
 	/* Map to user space if applicable */
 	if (!client_is_kernel(client)) {
-		err = map_cbuf(vmarea, addr, len, &uaddr);
+		err = map_cbuf(vmarea, cbuf->addr, len, &cbuf->uaddr);
 		if (err) {
-			free_pages((unsigned long)addr, order);
+			free_pages(cbuf->addr, order);
 			kfree(cbuf);
 			return err;
 		}
@@ -462,9 +442,7 @@ int tbase_cbuf_alloc(struct tbase_client *client, uint32_t len, void **p_addr,
 
 	/* Init descriptor members */
 	cbuf->client = client;
-	cbuf->phys = virt_to_phys(addr);
-	cbuf->addr = addr;
-	cbuf->uaddr = uaddr;
+	cbuf->phys = virt_to_phys((void *)cbuf->addr);
 	cbuf->len = len;
 	cbuf->order = order;
 	kref_init(&cbuf->kref);
@@ -487,8 +465,8 @@ int tbase_cbuf_alloc(struct tbase_client *client, uint32_t len, void **p_addr,
 	mutex_lock(&client->cbufs_lock);
 	list_add(&cbuf->list, &client->cbufs);
 	mutex_unlock(&client->cbufs_lock);
-
-	MCDRV_DBG("@ 0x%p, size=%ld", addr, (1 << order) * PAGE_SIZE);
+	MCDRV_DBG("created cbuf %p: client %p addr %lx uaddr %lx len %u",
+		  cbuf, client, cbuf->addr, cbuf->uaddr, cbuf->len);
 	return err;
 }
 
@@ -496,7 +474,7 @@ int tbase_cbuf_alloc(struct tbase_client *client, uint32_t len, void **p_addr,
  * Remove a cbuf object from client, and mark it for freeing.
  * Freeing will happen once all current references are released.
  */
-int tbase_cbuf_free(struct tbase_client *client, void *addr)
+int tbase_cbuf_free(struct tbase_client *client, uintptr_t addr)
 {
 	struct tbase_cbuf *cbuf = tbase_cbuf_get_by_addr(client, addr);
 
@@ -515,16 +493,17 @@ int tbase_cbuf_free(struct tbase_client *client, void *addr)
  * Return pointer to the object, or NULL if not found.
  */
 struct tbase_cbuf *tbase_cbuf_get_by_addr(struct tbase_client *client,
-					  void *addr)
+					  uintptr_t addr)
 {
 	struct tbase_cbuf *cbuf = NULL, *candidate;
-	bool is_kernel = client->kernel;
+	bool is_kernel = client_is_kernel(client);
 
 	mutex_lock(&client->cbufs_lock);
 	list_for_each_entry(candidate, &client->cbufs, list) {
 		/* Compare Vs kernel va OR user va depending on client type */
-		void *start = is_kernel ? candidate->addr : candidate->uaddr;
-		void *end = start + candidate->len;
+		uintptr_t start = is_kernel ?
+			candidate->addr : candidate->uaddr;
+		uintptr_t end = start + candidate->len;
 
 		/* Check that (user) cbuf has not been unmapped */
 		if (!start)
@@ -553,16 +532,16 @@ static void cbuf_release(struct kref *kref)
 	struct tbase_cbuf *cbuf = container_of(kref, struct tbase_cbuf, kref);
 	struct tbase_client *client = cbuf->client;
 
-	MCDRV_DBG("Clean up 0x%p", cbuf->addr);
 	/* Unlist from client */
 	mutex_lock(&client->cbufs_lock);
-	cbuf->uaddr = 0;
 	list_del_init(&cbuf->list);
 	mutex_unlock(&client->cbufs_lock);
 	/* Release client token */
 	client_put(client);
 	/* Free */
-	free_pages((unsigned long)cbuf->addr, cbuf->order);
+	free_pages(cbuf->addr, cbuf->order);
+	MCDRV_DBG("freed cbuf %p: client %p addr %lx uaddr %lx len %u",
+		  cbuf, client, cbuf->addr, cbuf->uaddr, cbuf->len);
 	kfree(cbuf);
 }
 
@@ -571,12 +550,12 @@ void tbase_cbuf_put(struct tbase_cbuf *cbuf)
 	kref_put(&cbuf->kref, cbuf_release);
 }
 
-void *tbase_cbuf_addr(struct tbase_cbuf *cbuf)
+uintptr_t tbase_cbuf_addr(struct tbase_cbuf *cbuf)
 {
 	return cbuf->addr;
 }
 
-void *tbase_cbuf_uaddr(struct tbase_cbuf *cbuf)
+uintptr_t tbase_cbuf_uaddr(struct tbase_cbuf *cbuf)
 {
 	return cbuf->uaddr;
 }
@@ -584,4 +563,10 @@ void *tbase_cbuf_uaddr(struct tbase_cbuf *cbuf)
 uint32_t tbase_cbuf_len(struct tbase_cbuf *cbuf)
 {
 	return cbuf->len;
+}
+
+static inline int cbuf_info(struct tbase_cbuf *cbuf, struct kasnprintf_buf *buf)
+{
+	return kasnprintf(buf, "\tcbuf %p: addr %lx uaddr %lx len %u\n",
+			  cbuf, cbuf->addr, cbuf->uaddr, cbuf->len);
 }

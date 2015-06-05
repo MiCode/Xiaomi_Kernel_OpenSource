@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014 TRUSTONIC LIMITED
+ * Copyright (c) 2013-2015 TRUSTONIC LIMITED
  * All Rights Reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -17,7 +17,11 @@
 
 #include "mci/mcloadformat.h"
 
-#define FLAG_RESPONSE       (1U << 31)  /** Indicates a response */
+/** Indicates a response */
+#define FLAG_RESPONSE       BIT(31)
+
+/** Maximum number of buffers that can be mapped at once */
+#define MCP_MAP_MAX_BUF        4
 
 /** MobiCore Return Code Defines.
  * List of the possible MobiCore return codes.
@@ -47,12 +51,12 @@ enum mcp_result {
 	MC_MCP_RET_ERR_INVALID_WSM                      = 10,
 	/** unknown error */
 	MC_MCP_RET_ERR_UNKNOWN                          = 11,
-	/** Lenght of map invalid */
+	/** Length of map invalid */
 	MC_MCP_RET_ERR_INVALID_MAPPING_LENGTH           = 12,
 	/** Map can only be applied to Trustlet session */
 	MC_MCP_RET_ERR_MAPPING_TARGET                   = 13,
 	/** Couldn't open crypto session */
-	MC_MCP_RET_ERR_OUT_OF_CRYPTO_RESSOURCES         = 14,
+	MC_MCP_RET_ERR_OUT_OF_CRYPTO_RESOURCES          = 14,
 	/** System Trustlet signature verification failed */
 	MC_MCP_RET_ERR_SIGNATURE_VERIFICATION_FAILED    = 15,
 	/** System Trustlet public key is wrong */
@@ -119,6 +123,10 @@ enum cmd_id {
 	MC_MCP_CMD_LOAD_TOKEN		= 0x0B,
 	/** Check that TA can be loaded */
 	MC_MCP_CMD_CHECK_LOAD_TA	= 0x0C,
+	/** Map multiple WSMs to session */
+	MC_MCP_CMD_MULTIMAP		= 0x0D,
+	/** Unmap multiple WSMs to session */
+	MC_MCP_CMD_MULTIUNMAP		= 0x0E,
 };
 
 /*
@@ -128,6 +136,11 @@ enum cmd_id {
 #define WSM_INVALID		0	/** Invalid memory type */
 #define WSM_L2			2	/** Buffer mapping uses L2/L3 table */
 #define WSM_L1			3	/** Buffer mapping uses fake L1 table */
+
+/** Magic number used to identify if Open Command supports GP client
+ * authentication.
+ */
+#define MC_GP_CLIENT_AUTH_MAGIC	0x47504131	/* "GPA1" */
 
 /** Command header.
  * It just contains the command ID. Only values specified in cmd_id are
@@ -191,7 +204,6 @@ struct rsp_suspend {
 	struct rsp_header	rsp_header;	/** Response header */
 };
 
-
 /** @defgroup MCPRESUME RESUME
  * Resume MobiCore from suspension.
  * This command allows MobiCore and MobiCore drivers to reinitialize hardware
@@ -222,10 +234,17 @@ struct rsp_resume {
  * communication.
  */
 
+/** GP client authentication data */
+struct cmd_open_data {
+	uint32_t	mclf_magic;	/** ASCII "MCLF" on older versions */
+	struct identity	identity;	/** Login method and data */
+};
+
 /** Open Command */
 struct cmd_open {
 	struct cmd_header cmd_header;	/** Command header */
 	struct mc_uuid_t uuid;		/** Service UUID */
+	uint8_t		unused[4];	/** Padding to be 64-bit aligned */
 	uint64_t	adr_tci_buffer;	/** Physical address of the TCI MMU */
 	uint64_t	adr_load_data;	/** Physical address of the data MMU */
 	uint32_t	ofs_tci_buffer;	/** Offset to the data */
@@ -234,7 +253,10 @@ struct cmd_open {
 	uint32_t	wsm_data_type;	/** Type of MMU */
 	uint32_t	ofs_load_data;	/** Offset to the data */
 	uint32_t	len_load_data;	/** Length of the data to load */
-	union mclf_header tl_header;	/** Service header */
+	union {
+		struct cmd_open_data	cmd_open_data;	/** Client login data */
+		union mclf_header	tl_header;	/** Service header */
+	};
 	uint32_t	is_gpta;	/** true if looking for an SD/GP-TA */
 };
 
@@ -287,8 +309,7 @@ struct rsp_close {
  * Map a portion of memory to a session.
  * The MAP command provides a block of memory to the context of a service.
  * The memory then becomes world-shared memory (WSM).
- * The WSM can either be normal anonymous memory from malloc() or be a
- * block of page aligned, contiguous memory.
+ * The only allowed memory type here is WSM_L2.
  */
 
 /** Map Command */
@@ -354,6 +375,72 @@ struct rsp_load_token {
 	struct rsp_header	rsp_header;	/** Response header */
 };
 
+/** @defgroup MCPMULTIMAP MULTIMAP
+ * Map up to MCP_MAP_MAX_BUF portions of memory to a session.
+ * The MULTIMAP command provides MCP_MAP_MAX_BUF blocks of memory to the context
+ * of a service.
+ * The memory then becomes world-shared memory (WSM).
+ * The only allowed memory type here is WSM_L2.
+ * @{ */
+
+/** NWd physical buffer description
+ *
+ * Note: Information is coming from NWd kernel. So it should not be trusted
+ * more than NWd kernel is trusted.
+ */
+struct buffer_map {
+	uint64_t		adr_buffer;	/**< Physical address */
+	uint32_t		ofs_buffer;	/**< Offset of buffer */
+	uint32_t		len_buffer;	/**< Length of buffer */
+	uint32_t		wsm_type;	/**< Type of address */
+};
+
+/** MultiMap Command */
+struct cmd_multimap {
+	struct cmd_header	cmd_header;	/** Command header */
+	uint32_t		session_id;	/** Session ID */
+	struct buffer_map	bufs[MC_MAP_MAX]; /** NWd buffer info */
+};
+
+/** Multimap Command Response */
+struct rsp_multimap {
+	struct rsp_header	rsp_header;	/** Response header */
+	/** Virtual address the WSM is mapped to, may include an offset! */
+	uint64_t		secure_va[MC_MAP_MAX];
+};
+
+/** @defgroup MCPMULTIUNMAP MULTIUNMAP
+ * Unmap up to MCP_MAP_MAX_BUF portions of world-shared memory from a session.
+ * The MULTIUNMAP command is used to unmap MCP_MAP_MAX_BUF previously mapped
+ * blocks of world shared memory from the context of a session.
+ *
+ * Attention: The memory blocks will be immediately unmapped from the specified
+ * session. If the service is still accessing the memory, the service will
+ * trigger a segmentation fault.
+ * @{ */
+
+/** NWd mapped buffer description
+ *
+ * Note: Information is coming from NWd kernel. So it should not be trusted more
+ * than NWd kernel is trusted.
+ */
+struct buffer_unmap {
+	uint64_t		secure_va;	/**< Secure virtual address */
+	uint32_t		len_buffer;	/**< Length of buffer */
+};
+
+/** Multiunmap Command */
+struct cmd_multiunmap {
+	struct cmd_header	cmd_header;	/** Command header */
+	uint32_t		session_id;	/** Session ID */
+	struct buffer_unmap	bufs[MC_MAP_MAX]; /** NWd buffer info */
+};
+
+/** Multiunmap Command Response */
+struct rsp_multiunmap {
+	struct rsp_header	rsp_header;	/** Response header */
+};
+
 /** Structure of the MCP buffer */
 union mcp_message {
 	struct cmd_header	cmd_header;	/** Command header */
@@ -376,6 +463,10 @@ union mcp_message {
 	struct rsp_load_token	rsp_load_token;
 	struct cmd_check_load	cmd_check_load;	/** TA load check */
 	struct rsp_check_load	rsp_check_load;
+	struct cmd_multimap	cmd_multimap;	/** Map multiple WSMs */
+	struct rsp_multimap	rsp_multimap;
+	struct cmd_multiunmap	cmd_multiunmap;	/** Map multiple WSMs */
+	struct rsp_multiunmap	rsp_multiunmap;
 };
 
 /** Minimum MCP buffer length (in bytes) */
@@ -388,8 +479,8 @@ union mcp_message {
 #define MC_STATE_READY_TO_SLEEP   1
 
 struct sleep_mode {
-	uint16_t	sleep_req;
-	uint16_t	ready_to_sleep;
+	uint16_t	sleep_req;	/** Ask SWd to get ready to sleep */
+	uint16_t	ready_to_sleep;	/** SWd is now ready to sleep */
 };
 
 /** MobiCore status flags */
@@ -407,8 +498,6 @@ struct mcp_flags {
 #define MC_FLAG_SCHEDULE_IDLE      0
 /** MobiCore is non idle, scheduling is required */
 #define MC_FLAG_SCHEDULE_NON_IDLE  1
-
-
 
 /** MCP buffer structure */
 struct mcp_buffer {
