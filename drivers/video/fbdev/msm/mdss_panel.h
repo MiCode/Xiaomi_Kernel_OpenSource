@@ -114,6 +114,8 @@ enum {
 
 enum {
 	MODE_GPIO_NOT_VALID = 0,
+	MODE_SEL_DUAL_PORT,
+	MODE_SEL_SINGLE_PORT,
 	MODE_GPIO_HIGH,
 	MODE_GPIO_LOW,
 };
@@ -588,7 +590,7 @@ struct mdss_panel_info {
 
 	int panel_max_fps;
 	int panel_max_vtotal;
-	u32 mode_gpio_state;
+	u32 mode_sel_state;
 	u32 xstart_pix_align;
 	u32 width_pix_align;
 	u32 ystart_pix_align;
