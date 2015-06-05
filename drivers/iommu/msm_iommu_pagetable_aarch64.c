@@ -22,6 +22,7 @@
 #include "msm_iommu_pagetable.h"
 
 #define NUM_PT_LEVEL	4
+#define NUM_PTE		512 /* generic for all levels */
 #define NUM_FL_PTE      512 /* First level */
 #define NUM_SL_PTE      512 /* Second level */
 #define NUM_TL_PTE      512 /* Third level */
@@ -100,19 +101,12 @@ static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt,
 						unsigned long va, size_t len,
 						u32 silent);
 
-static inline void clean_pte(u64 *start, u64 *end, s32 redirect)
-{
-	if (!redirect)
-		dmac_flush_range(start, end);
-}
-
 s32 msm_iommu_pagetable_alloc(struct msm_iommu_pt *pt)
 {
 	pt->fl_table = (u64 *) get_zeroed_page(GFP_ATOMIC);
 	if (!pt->fl_table)
 		return -ENOMEM;
 
-	clean_pte(pt->fl_table, pt->fl_table + NUM_FL_PTE, pt->redirect);
 	return 0;
 }
 
@@ -223,12 +217,10 @@ static u64 *make_next_level_table(s32 redirect, u64 *pte)
 		pr_err("Could not allocate next level table\n");
 		goto fail;
 	}
-	clean_pte(next_level_table, next_level_table + NUM_FL_PTE, redirect);
 
 	/* Leave APTable bits 0 to let next level decide access permissions */
 	*pte = (((phys_addr_t)__pa(next_level_table)) &
 			FLSL_BASE_MASK) | FLSL_TYPE_TABLE;
-	clean_pte(pte, pte + 1, redirect);
 fail:
 	return next_level_table;
 }
@@ -246,7 +238,6 @@ static inline s32 ll_4k_map(u64 *ll_pte, phys_addr_t pa,
 	}
 
 	*ll_pte = upper_attr | (pa & LL_PAGE_MASK) | lower_attr | LL_TYPE_PAGE;
-	clean_pte(ll_pte, ll_pte + 1, redirect);
 fail:
 	return ret;
 }
@@ -272,7 +263,6 @@ static inline s32 ll_64k_map(u64 *ll_pte, phys_addr_t pa,
 	for (i = 0; i < 16; ++i)
 		*(ll_pte+i) = upper_attr | (pa & LL_PAGE_MASK) |
 			      lower_attr | LL_TYPE_PAGE;
-	clean_pte(ll_pte, ll_pte + 16, redirect);
 fail:
 	return ret;
 }
@@ -291,7 +281,6 @@ static inline s32 tl_2m_map(u64 *tl_pte, phys_addr_t pa,
 
 	*tl_pte = upper_attr | (pa & FLSL_BLOCK_MASK) |
 		  lower_attr | FLSL_TYPE_BLOCK;
-	clean_pte(tl_pte, tl_pte + 1, redirect);
 fail:
 	return ret;
 }
@@ -317,7 +306,6 @@ static inline s32 tl_32m_map(u64 *tl_pte, phys_addr_t pa,
 	for (i = 0; i < 16; ++i)
 		*(tl_pte+i) = upper_attr | (pa & FLSL_BLOCK_MASK) |
 			      lower_attr | FLSL_TYPE_BLOCK;
-	clean_pte(tl_pte, tl_pte + 16, redirect);
 fail:
 	return ret;
 }
@@ -337,7 +325,6 @@ static inline s32 sl_1G_map(u64 *sl_pte, phys_addr_t pa,
 	*sl_pte = upper_attr | (pa & FLSL_1G_BLOCK_MASK) |
 		  lower_attr | FLSL_TYPE_BLOCK;
 
-	clean_pte(sl_pte, sl_pte + 1, redirect);
 fail:
 	return ret;
 }
@@ -653,7 +640,6 @@ static u64 clear_4th_level(u64 va, u64 *ll_pte, u64 len, u32 redirect,
 	}
 
 	num_pte = end_offset - start_offset;
-	clean_pte(ll_pte, ll_pte + num_pte, redirect);
 	chunk_size = SZ_4K * num_pte;
 
 	return chunk_size;
@@ -680,7 +666,6 @@ static u64 clear_3rd_level(u64 va, u64 *tl_pte, u64 len, u32 redirect,
 			BUG();
 
 		*tl_pte = 0;
-		clean_pte(tl_pte, tl_pte + 1, redirect);
 		return SZ_2M;
 	} else if (type == FLSL_TYPE_TABLE) {
 		ll_table = FOLLOW_TO_NEXT_TABLE(tl_pte);
@@ -694,7 +679,6 @@ static u64 clear_3rd_level(u64 va, u64 *tl_pte, u64 len, u32 redirect,
 			if (p) {
 				free_pagetable_level(p, 4, 0);
 				*tl_pte = 0;
-				clean_pte(tl_pte, tl_pte + 1, redirect);
 			}
 		}
 	} else {
@@ -726,7 +710,6 @@ static u64 clear_2nd_level(u64 va, u64 *sl_pte, u64 len, u32 redirect,
 			BUG();
 
 		*sl_pte = 0;
-		clean_pte(sl_pte, sl_pte + 1, redirect);
 		return SZ_1G;
 	} else if (type == FLSL_TYPE_TABLE) {
 		tl_table = FOLLOW_TO_NEXT_TABLE(sl_pte);
@@ -740,7 +723,6 @@ static u64 clear_2nd_level(u64 va, u64 *sl_pte, u64 len, u32 redirect,
 			if (p) {
 				free_pagetable_level(p, 3, 0);
 				*sl_pte = 0;
-				clean_pte(sl_pte, sl_pte + 1, redirect);
 			}
 		}
 	} else {
@@ -785,7 +767,6 @@ static u64 clear_1st_level(u64 va, u64 *fl_pte, u64 len, u32 redirect,
 			if (p) {
 				free_pagetable_level(p, 2, 0);
 				*fl_pte = 0;
-				clean_pte(fl_pte, fl_pte + 1, redirect);
 			}
 		}
 	} else {
@@ -832,6 +813,66 @@ static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt,
 	}
 }
 
+static void flush_pagetable_level(u64 base, int level, unsigned long va,
+					size_t len)
+{
+	unsigned long i;
+	unsigned long start;
+	unsigned long len_offset;
+	unsigned long end = NUM_FL_PTE;
+	unsigned long level_granurality;
+	unsigned long va_left = va;
+	size_t len_left = len;
+	u64 *table = phys_to_virt(base);
+
+	if (level <= NUM_PT_LEVEL) {
+		switch (level) {
+		case 1:
+			start = FL_OFFSET(va);
+			level_granurality = 1ULL << FL_SHIFT;
+			len_offset = FL_OFFSET(len);
+			break;
+		case 2:
+			start = SL_OFFSET(va);
+			level_granurality = 1ULL << SL_SHIFT;
+			len_offset = SL_OFFSET(len);
+			break;
+		case 3:
+			start = TL_OFFSET(va);
+			level_granurality = 1ULL << TL_SHIFT;
+			len_offset = TL_OFFSET(len);
+			break;
+		case 4:
+			start = LL_OFFSET(va);
+			level_granurality = 1ULL << LL_SHIFT;
+			len_offset = LL_OFFSET(len);
+			goto flush_this_level;
+		default:
+			return;
+		}
+	}
+
+	if ((len / level_granurality) + start < NUM_PTE)
+		end = start + len_offset;
+	else
+		end = NUM_PTE;
+
+	for (i = start; i <= end; ++i) {
+		if ((table[i] & FLSL_TYPE_TABLE) == FLSL_TYPE_TABLE) {
+			u64 p = table[i] & FLSL_BASE_MASK;
+			if (p)
+				flush_pagetable_level(p, level + 1, va_left,
+						len_left);
+		}
+
+		va_left += level_granurality;
+		len_left -= level_granurality;
+	}
+
+flush_this_level:
+	dmac_flush_range(table + start, table + end);
+}
+
 int msm_iommu_pagetable_map_range(struct msm_iommu_pt *pt, unsigned long va,
 			struct scatterlist *sg, size_t len, int prot)
 {
@@ -860,6 +901,15 @@ size_t msm_iommu_pagetable_unmap(struct msm_iommu_pt *pt, unsigned long va,
 {
 	msm_iommu_pagetable_unmap_range(pt, va, len);
 	return len;
+}
+
+void msm_iommu_flush_pagetable(struct msm_iommu_pt *pt, unsigned long va,
+				size_t len)
+{
+	u64 *fl_table = pt->fl_table;
+
+	if (!pt->redirect)
+		flush_pagetable_level(virt_to_phys(fl_table), 1, va, len);
 }
 
 static phys_addr_t get_phys_from_va(unsigned long va, u64 *table, int level)
