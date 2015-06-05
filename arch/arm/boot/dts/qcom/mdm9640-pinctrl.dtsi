@@ -1,0 +1,981 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&soc {
+	tlmm_pinmux: pinctrl@1000000 {
+		compatible = "qcom,msm-tlmm-mdm9640", "qcom,msm-tlmm-8916";
+		reg = <0x1000000 0x300000>;
+		interrupts = <0 208 0>;
+
+		/* General purpose pins */
+		gp: gp {
+			qcom,num-pins = <100>;
+			#qcom,pin-cells = <1>;
+			msm_gpio: msm_gpio {
+				compatible = "qcom,msm-tlmm-gp";
+				gpio-controller;
+				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
+				num_irqs = <100>;
+			};
+		};
+
+		pmx-uart2console {
+			qcom,pins = <&gp 4>, <&gp 5>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <2>;
+			label = "uart2-console";
+
+			uart2_console_active: uart2-console {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pmx-uart3console {
+			qcom,pins = <&gp 8>, <&gp 9>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <3>;
+			label = "uart3-console";
+
+			uart3_console_active: uart3-console {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		blsp1_uart2_active {
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <2>;
+		        label = "blsp1_uart2_active";
+			hsuart_active: default {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		blsp1_uart2_sleep {
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 6>, <&gp 7>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <0>;
+		        label = "blsp1_uart2_sleep";
+			hsuart_sleep: sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		/* SDC pin type */
+		sdc: sdc {
+			/* 0-2 for sdc1 4-6 for sdc2 */
+			qcom,num-pins = <7>;
+			/* Order of pins */
+			/* SDC1: CLK -> 0, CMD -> 1, DATA -> 2 */
+			/* SDC2: CLK -> 4, CMD -> 5, DATA -> 6 */
+			#qcom,pin-cells = <1>;
+		};
+
+		pmx_sdc1_clk {
+			qcom,pins = <&sdc 0>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-clk";
+			sdc1_clk_on: clk_on {
+				bias-disable; /* NO pull */
+				drive-strength = <16>; /* 16 MA */
+			};
+			sdc1_clk_off: clk_off {
+				bias-disable; /* NO pull */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		pmx_sdc1_cmd {
+			qcom,pins = <&sdc 1>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-cmd";
+			sdc1_cmd_on: cmd_on {
+				bias-pull-up; /* pull up */
+				drive-strength = <10>; /* 10 MA */
+			};
+			sdc1_cmd_off: cmd_off {
+				bias-pull-up; /* pull up */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		pmx_sdc1_data {
+			qcom,pins = <&sdc 2>;
+			qcom,num-grp-pins = <1>;
+			label = "sdc1-data";
+			sdc1_data_on: data_on {
+				bias-pull-up; /* pull up */
+				drive-strength = <10>; /* 10 MA */
+			};
+			sdc1_data_off: data_off {
+				bias-pull-up; /* pull up */
+				drive-strength = <2>; /* 2 MA */
+			};
+		};
+
+		spi0_active {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <2>;
+			label = "spi0-active";
+			/* active state */
+			spi0_default: spi0_default {
+				drive-strength = <12>; /* 12 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+
+		spi0_suspend {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 0>, <&gp 1>, <&gp 3>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <0>;
+			label = "spi0-suspend";
+			/* suspended state */
+			spi0_sleep: spi0_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		spi0_cs0_active {
+			/* CS */
+			qcom,pins = <&gp 2>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "spi0-cs0-active";
+			spi0_cs0_active: cs0_active {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi0_cs0_suspend {
+			/* CS */
+			qcom,pins = <&gp 2>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "spi0-cs0-suspend";
+			spi0_cs0_sleep: cs0_sleep {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi1_active {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 7>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <1>;
+			label = "spi1-active";
+			/* active state */
+			spi1_default: spi1_default {
+				drive-strength = <12>; /* 12 MA */
+				bias-disable = <0>; /* No PULL */
+			};
+		};
+
+		spi1_suspend {
+			/* MOSI, MISO, CLK */
+			qcom,pins = <&gp 4>, <&gp 5>, <&gp 7>;
+			qcom,num-grp-pins = <3>;
+			qcom,pin-func = <0>;
+			label = "spi1-suspend";
+			/* suspended state */
+			spi1_sleep: spi1_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* pull down */
+			};
+		};
+
+		spi1_cs0_active {
+			/* CS */
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "spi1-cs0-active";
+			spi1_cs0_active: cs0_active {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		spi1_cs0_suspend {
+			/* CS */
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "spi1-cs0-suspend";
+			spi1_cs0_sleep: cs0_sleep {
+				drive-strength = <2>;
+				bias-disable = <0>;
+			};
+		};
+
+		pcie0_clkreq {
+			qcom,pins = <&gp 64>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "pcie0-clkreq";
+			/* default state */
+			pcie0_clkreq_default: pcie0_clkreq_default {
+				drive-strength = <2>;
+				bias-pull-up;
+			};
+		};
+
+		pcie0_perst {
+			qcom,pins = <&gp 61>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-perst";
+			/* default state */
+			pcie0_perst_default: pcie0_perst_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		pcie0_wake {
+			qcom,pins = <&gp 65>;
+			qcom,num-grp-pins = <1>;
+			label = "pcie0-wake";
+			/* default state */
+			pcie0_wake_default: pcie0_wake_default {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		/* QDSD pin type */
+		qdsd: qdsd {
+			/* 0-> clk, 1 -> cmd, 2->data0, 3->data1, 4->data2, 5->data3 */
+			qcom,num-pins = <6>;
+
+			#qcom,pin-cells = <1>;
+		};
+
+		pmx_qdsd_clk {
+			qcom,pins = <&qdsd 0>;
+			qcom,num-grp-pins = <1>;
+			label = "qdsd-clk";
+			qdsd_clk_sdcard: clk_sdcard {
+				bias-disable; /* NO pull */
+				drive-strength = <7>; /* 7 MA */
+			};
+			qdsd_clk_trace: clk_trace {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_clk_swdtrc: clk_swdtrc {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_clk_spmi: clk_spmi {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+		};
+
+		pmx_qdsd_cmd {
+			qcom,pins = <&qdsd 1>;
+			qcom,num-grp-pins = <1>;
+			label = "qdsd-cmd";
+			qdsd_cmd_sdcard: cmd_sdcard {
+				bias-pull-down; /* pull down */
+				drive-strength = <3>; /* 3 MA */
+			};
+			qdsd_cmd_trace: cmd_trace {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_cmd_swduart: cmd_uart {
+				bias-pull-up; /* pull up */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_cmd_swdtrc: cmd_swdtrc {
+				bias-pull-up; /* pull up */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_cmd_jtag: cmd_jtag {
+				bias-disable; /* NO pull */
+				drive-strength = <3>; /* 3 MA */
+			};
+			qdsd_cmd_spmi: cmd_spmi {
+				bias-pull-down; /* pull down */
+				drive-strength = <4>; /* 4 MA */
+			};
+		};
+
+		pmx_qdsd_data0 {
+			qcom,pins = <&qdsd 2>;
+			qcom,num-grp-pins = <1>;
+			label = "qdsd-data0";
+			qdsd_data0_sdcard: data0_sdcard {
+				bias-pull-down; /* pull down */
+				drive-strength = <3>; /* 3 MA */
+			};
+			qdsd_data0_trace: data0_trace {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data0_swduart: data0_uart {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data0_swdtrc: data0_swdtrc {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data0_jtag: data0_jtag {
+				bias-pull-up; /* pull up */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data0_spmi: data0_spmi {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+		};
+
+		pmx_qdsd_data1 {
+			qcom,pins = <&qdsd 3>;
+			qcom,num-grp-pins = <1>;
+			label = "qdsd-data1";
+			qdsd_data1_sdcard: data1_sdcard {
+				bias-pull-down; /* pull down */
+				drive-strength = <3>; /* 3 MA */
+			};
+			qdsd_data1_trace: data1_trace {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data1_swduart: data1_uart {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data1_swdtrc: data1_swdtrc {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data1_jtag: data1_jtag {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+		};
+
+		pmx_qdsd_data2 {
+			qcom,pins = <&qdsd 4>;
+			qcom,num-grp-pins = <1>;
+			label = "qdsd-data2";
+			qdsd_data2_sdcard: data2_sdcard {
+				bias-pull-down; /* pull down */
+				drive-strength = <3>; /* 3 MA */
+			};
+			qdsd_data2_trace: data2_trace {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data2_swduart: data2_uart {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data2_swdtrc: data2_swdtrc {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data2_jtag: data2_jtag {
+				bias-pull-up; /* pull up */
+				drive-strength = <3>; /* 3 MA */
+			};
+		};
+
+		pmx_qdsd_data3 {
+			qcom,pins = <&qdsd 5>;
+			qcom,num-grp-pins = <1>;
+			label = "qdsd-data3";
+			qdsd_data3_sdcard: data3_sdcard {
+				bias-pull-down; /* pull down */
+				drive-strength = <3>; /* 3 MA */
+			};
+			qdsd_data3_trace: data3_trace {
+				bias-pull-down; /* pull down */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data3_swduart: data3_uart {
+				bias-pull-up; /* pull up */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data3_swdtrc: data3_swdtrc {
+				bias-pull-up; /* pull up */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data3_jtag: data3_jtag {
+				bias-pull-up; /* pull up */
+				drive-strength = <0>; /* 0 MA */
+			};
+			qdsd_data3_spmi: data3_spmi {
+				bias-pull-down; /* pull down */
+				drive-strength = <3>; /* 3 MA */
+			};
+		};
+
+		/* CoreSight */
+		tpiu_seta_1 {
+			qcom,pins = <&gp 4>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-1";
+			seta_1: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_2 {
+			qcom,pins = <&gp 5>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-2";
+			seta_2: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_3 {
+			qcom,pins = <&gp 6>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-seta-3";
+			seta_3: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_4 {
+			qcom,pins = <&gp 7>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-seta-4";
+			seta_4: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_5 {
+			qcom,pins = <&gp 8>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-5";
+			seta_5: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_6 {
+			qcom,pins = <&gp 9>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-6";
+			seta_6: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_7 {
+			qcom,pins = <&gp 12>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-7";
+			seta_7: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_8 {
+			qcom,pins = <&gp 13>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <5>;
+			label = "tpiu-seta-8";
+			seta_8: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_9 {
+			qcom,pins = <&gp 14>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-9";
+			seta_9: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_10 {
+			qcom,pins = <&gp 15>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-10";
+			seta_10: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_11 {
+			qcom,pins = <&gp 16>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-seta-11";
+			seta_11: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_12 {
+			qcom,pins = <&gp 17>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <6>;
+			label = "tpiu-seta-12";
+			seta_12: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_13 {
+			qcom,pins = <&gp 18>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-13";
+			seta_13: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_14 {
+			qcom,pins = <&gp 19>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-14";
+			seta_14: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_15 {
+			qcom,pins = <&gp 36>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-seta-15";
+			seta_15: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_16 {
+			qcom,pins = <&gp 50>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-seta-16";
+			seta_16: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_17 {
+			qcom,pins = <&gp 69>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <6>;
+			label = "tpiu-seta-17";
+			seta_17: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_seta_18 {
+			qcom,pins = <&gp 71>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-seta-18";
+			seta_18: seta {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_1 {
+			qcom,pins = <&gp 16>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <8>;
+			label = "tpiu-setb-1";
+			setb_1: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_2 {
+			qcom,pins = <&gp 17>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-setb-2";
+			setb_2: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_3 {
+			qcom,pins = <&gp 18>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <9>;
+			label = "tpiu-setb-3";
+			setb_3: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_4 {
+			qcom,pins = <&gp 19>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <9>;
+			label = "tpiu-setb-4";
+			setb_4: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_5 {
+			qcom,pins = <&gp 30>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-5";
+			setb_5: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_6 {
+			qcom,pins = <&gp 31>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-6";
+			setb_6: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_7 {
+			qcom,pins = <&gp 32>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-7";
+			setb_7: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_8 {
+			qcom,pins = <&gp 33>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-8";
+			setb_8: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_9 {
+			qcom,pins = <&gp 34>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-9";
+			setb_9: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_10 {
+			qcom,pins = <&gp 35>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-10";
+			setb_10: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_11 {
+			qcom,pins = <&gp 36>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <4>;
+			label = "tpiu-setb-11";
+			setb_11: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_12 {
+			qcom,pins = <&gp 39>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-12";
+			setb_12: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_13 {
+			qcom,pins = <&gp 40>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-13";
+			setb_13: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_14 {
+			qcom,pins = <&gp 43>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <2>;
+			label = "tpiu-setb-14";
+			setb_14: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_15 {
+			qcom,pins = <&gp 50>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-setb-15";
+			setb_15: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_16 {
+			qcom,pins = <&gp 69>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <7>;
+			label = "tpiu-setb-16";
+			setb_16: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_17 {
+			qcom,pins = <&gp 52>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-setb-17";
+			setb_17: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		tpiu_setb_18 {
+			qcom,pins = <&gp 53>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <3>;
+			label = "tpiu-setb-18";
+			setb_18: setb {
+				drive-strength = <16>;
+				bias-disable;
+			};
+		};
+
+		pmx_i2c_3 {
+			qcom,pins = <&gp 10>, <&gp 11>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <4>;
+			label = "i2c_3";
+
+			i2c_3_active: i2c_3_active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+
+			i2c_3_sleep: i2c_3_sleep {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		pmx_pri_mi2s {
+			qcom,pins = <&gp 71>, <&gp 12>, <&gp 15>, <&gp 14>;
+			qcom,num-grp-pins = <4>;
+			qcom,pin-func = <1>;
+			label = "pri_mi2s";
+			pri_mi2s_active: pri_mi2s_active {
+				drive-strength = <8>;   /* 8 MA */
+				bias-disable;           /* No PULL */
+				output-high;
+			};
+			pri_mi2s_sleep: pri_mi2s_sleep {
+				drive-strength = <2>;   /* 2 MA */
+				bias-pull-down;	        /* PULL DOWN */
+			};
+		};
+
+		pmx_pri_mi2s_din {
+			qcom,pins = <&gp 13>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "pri_mi2s_din";
+			pri_mi2s_din_active: pri_mi2s_din_active {
+				drive-strength = <8>;   /* 8 MA */
+				bias-disable;	        /* No PULL */
+			};
+			pri_mi2s_din_sleep: pri_mi2s_din_sleep {
+				drive-strength = <2>;   /* 2 MA */
+				bias-pull-down;	        /* PULL DOWN */
+			};
+                };
+
+		pmx_smb_stat {
+			qcom,pins = <&gp 83>;
+			qcom,num-grp-pins = <1>;
+			label = "smb_stat";
+
+			smb_stat_active: smb-stat-active {
+				drive-strength = <2>;
+				bias-disable;
+			};
+		};
+
+		mdss_cs: mdss_cs {
+			label = "mdss-cs-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 21>;
+			qcom,pin-func = <2>;
+			mdss_cs_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_cs_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_te: mdss_te {
+			label = "mdss-te-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 22>;
+			qcom,pin-func = <2>;
+			mdss_te_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_te_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_rs: mdss_rs {
+			label = "mdss-rs-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 23>;
+			qcom,pin-func = <2>;
+			mdss_rs_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_rs_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_ad: mdss_ad {
+			label = "mdss-ad-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 20>;
+			qcom,pin-func = <2>;
+			mdss_ad_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-disable; /* NO pull */
+			};
+			mdss_ad_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+			};
+		};
+
+		mdss_bl: mdss_bl {
+			label = "mdss-bl-pins";
+			qcom,num-grp-pins = <1>;
+			qcom,pins = <&gp 68>;
+			qcom,pin-func = <0>;
+			mdss_bl_active: active {
+				drive-strength = <10>; /* 10 mA */
+				bias-pull-none; /* pull none */
+				output-high;
+			};
+			mdss_bl_suspend: suspend {
+				drive-strength = <2>; /* 2 mA */
+				bias-disable; /* NO pull */
+				output-low;
+			};
+		};
+
+		cnss_pmux: cnss_pmux {
+			qcom,pins = <&gp 95>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cnss_pins";
+			cnss_default: default {
+				drive-strength = <16>;
+				bias-pull-down;
+			};
+		};
+	};
+};
