@@ -12,6 +12,7 @@
  */
 #include <linux/firmware.h>
 #include <soc/qcom/subsystem_restart.h>
+#include <soc/qcom/scm.h>
 #include <linux/pm_opp.h>
 
 #include "adreno.h"
@@ -1986,13 +1987,32 @@ static int a5xx_microcode_load(struct adreno_device *adreno_dev,
 	kgsl_regwrite(device, A5XX_CP_PFP_INSTR_BASE_HI,
 				((uint64_t)(gpuaddr) >> 32));
 
+	/*
+	 * Resume call to write the zap shader base address into the
+	 * appropriate register
+	 */
+	if (zap_ucode_loaded) {
+		int ret;
+		struct scm_desc desc = {0};
+
+		desc.args[0] = 0;
+		desc.args[1] = 13;
+		desc.arginfo = SCM_ARGS(2);
+
+		ret = scm_call2(SCM_SIP_FNID(SCM_SVC_BOOT, 0xA), &desc);
+		if (ret) {
+			pr_err("SCM resume call failed with error %d\n", ret);
+			BUG();
+		}
+
+	}
+
 	/* Load the zap shader firmware through PIL if its available */
 	if (adreno_dev->gpucore->zap_name && !zap_ucode_loaded) {
 		ptr = subsystem_get(adreno_dev->gpucore->zap_name);
 
-		/* Disable content protecttion if the above call fails */
-		if (IS_ERR_OR_NULL(ptr))
-			device->mmu.secured = false;
+		/* Crash the device if the zap shader cannot be loaded */
+		BUG_ON(IS_ERR_OR_NULL(ptr));
 
 		zap_ucode_loaded = 1;
 	}
