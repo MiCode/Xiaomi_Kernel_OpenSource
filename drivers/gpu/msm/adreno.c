@@ -1387,6 +1387,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
+	/* Soft reset the GPU if a regulator is stuck on*/
+	if (regulator_left_on)
+		_soft_reset(adreno_dev);
+
 	status = kgsl_mmu_start(device);
 	if (status)
 		goto error_pwr_off;
@@ -1411,10 +1415,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		KGSL_DRV_ERR(device, "OCMEM malloc failed\n");
 		goto error_mmu_off;
 	}
-
-	/* Soft reset GPU if regulator is stuck on*/
-	if (regulator_left_on)
-		_soft_reset(adreno_dev);
 
 	if (adreno_dev->perfctr_pwr_lo == 0) {
 		int ret = adreno_perfcounter_get(adreno_dev,
