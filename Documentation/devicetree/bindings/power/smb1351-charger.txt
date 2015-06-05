@@ -47,6 +47,7 @@ Optional Properties:
 				other via power_supply framework. This
 				property should be used with 'qcom,iterm-disabled'
 				to ensure EOC detection in charger is disabled.
+- qcom,force-hvdcp-2p0		Boolean value which allows to force hvdcp working on 2.0 mode.
 - qcom,parallel-charger		Boolean value which enables the parallel charger.
 - qcom,chg-vadc			Corresponding VADC device's phandle.
 - qcom,chg-adc_tm		phandle to the corresponding VADC device to read the ADC channels.
