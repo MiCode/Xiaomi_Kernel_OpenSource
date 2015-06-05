@@ -262,6 +262,9 @@ struct hmp_power_cost_table {
 	struct hmp_power_cost *map;
 };
 
+extern bool have_sched_same_pwr_cost_cpus;
+extern cpumask_var_t sched_same_pwr_cost_cpus;
+
 #endif
 
 /* CFS-related fields in a runqueue */

@@ -2034,7 +2034,7 @@ static inline int wake_to_idle(struct task_struct *p)
 static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
 {
-	int i, j, prev_cpu, best_cpu = -1;
+	int i, j, best_cpu = -1;
 	int fallback_idle_cpu = -1, min_cstate_cpu = -1;
 	int cpu_cost, min_cost = INT_MAX;
 	int min_idle_cost = INT_MAX, min_busy_cost = INT_MAX;
@@ -2071,8 +2071,12 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	}
 
 	trq = task_rq(p);
+	i = task_cpu(p);
 	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
-	for_each_cpu(i, &search_cpus) {
+	if (unlikely(!cpumask_test_cpu(i, &search_cpus)))
+		i = cpumask_first(&search_cpus);
+
+	do {
 		struct rq *rq = cpu_rq(i);
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
@@ -2089,11 +2093,11 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 			continue;
 		}
 
+		cpumask_clear_cpu(i, &search_cpus);
+
 		tload =  scale_load_to_cpu(task_load(p), i);
 		if (skip_cpu(trq, rq, i, tload, reason))
 			continue;
-
-		prev_cpu = (i == task_cpu(p));
 
 		/*
 		 * The least-loaded mostly-idle CPU where the task
@@ -2172,15 +2176,19 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 				min_idle_cost = cpu_cost;
 				min_cstate = cstate;
 				min_cstate_cpu = i;
-				continue;
-			}
 
-			if (cpu_cost < min_idle_cost ||
-			    (prev_cpu && cpu_cost == min_idle_cost)) {
+				if (prefer_idle &&
+				    have_sched_same_pwr_cost_cpus &&
+				    min_cstate == 0 &&
+				    cpumask_test_cpu(i,
+					sched_same_pwr_cost_cpus))
+					cpumask_andnot(&search_cpus,
+						&search_cpus,
+						sched_same_pwr_cost_cpus);
+			} else if (cpu_cost < min_idle_cost) {
 				min_idle_cost = cpu_cost;
 				min_cstate_cpu = i;
 			}
-
 			continue;
 		}
 
@@ -2203,12 +2211,11 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		 * This is rare but when it does happen opt for the
 		 * more power efficient CPU option.
 		 */
-		if (cpu_cost < min_busy_cost ||
-		    (prev_cpu && cpu_cost == min_busy_cost)) {
+		if (cpu_cost < min_busy_cost) {
 			min_busy_cost = cpu_cost;
 			best_cpu = i;
 		}
-	}
+	} while ((i = cpumask_first(&search_cpus)) < nr_cpu_ids);
 
 	/*
 	 * Don't need to check !sched_cpu_high_irqload(best_cpu) because
