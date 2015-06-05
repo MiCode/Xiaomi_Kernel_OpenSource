@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +28,7 @@
 #include <linux/of_platform.h>
 #include <linux/pm_opp.h>
 #include <soc/qcom/clock-local2.h>
+#include <dt-bindings/clock/msm-clocks-a7.h>
 
 #include "clock.h"
 
@@ -54,18 +55,15 @@ static struct mux_div_clk a7ssmux = {
 };
 
 static struct clk_lookup clock_tbl_a7[] = {
-	CLK_LOOKUP("cpu0_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu1_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu2_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu3_clk",	a7ssmux.c, "0.qcom,msm-cpufreq"),
-	CLK_LOOKUP("cpu0_clk",	a7ssmux.c, "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu1_clk",	a7ssmux.c, "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu2_clk",	a7ssmux.c, "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu3_clk",	a7ssmux.c, "fe805664.qcom,pm"),
-	CLK_LOOKUP("cpu0_clk",   a7ssmux.c, "8600664.qcom,pm"),
-	CLK_LOOKUP("cpu1_clk",   a7ssmux.c, "8600664.qcom,pm"),
-	CLK_LOOKUP("cpu2_clk",   a7ssmux.c, "8600664.qcom,pm"),
-	CLK_LOOKUP("cpu3_clk",   a7ssmux.c, "8600664.qcom,pm"),
+	CLK_LIST(a7ssmux),
+	CLK_LOOKUP_OF("cpu0_clk",	a7ssmux, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu1_clk",	a7ssmux, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu2_clk",	a7ssmux, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu3_clk",	a7ssmux, "fe805664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu0_clk",   a7ssmux, "8600664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu1_clk",   a7ssmux, "8600664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu2_clk",   a7ssmux, "8600664.qcom,pm"),
+	CLK_LOOKUP_OF("cpu3_clk",   a7ssmux, "8600664.qcom,pm"),
 };
 
 static void print_opp_table(int a7_cpu)
@@ -282,19 +280,35 @@ static void get_speed_bin_b(struct platform_device *pdev, int *bin,
 	*bin = 0;
 	*version = 0;
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
-	if (!res) {
-		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
-								"efuse1");
-		if (!res) {
-			dev_info(&pdev->dev,
-				"No speed/PVS binning available. Defaulting to 0!\n");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse1");
+	if (res) {
+		base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
+		if (base) {
+			pte_efuse = readl_relaxed(base);
+			devm_iounmap(&pdev->dev, base);
+
+			*version = (pte_efuse >> 18) & 0x3;
+			if (!(*version)) {
+				if (*bin) {
+					*bin = (pte_efuse >> 23) & 0x3;
+					dev_info(&pdev->dev, "Speed bin: %d PVS Version: %d\n",
+						*bin, *version);
+					return;
+				}
+			}
+		} else {
+			dev_warn(&pdev->dev,
+				"Unable to read efuse1 data. Defaulting to 0!\n");
 			return;
 		}
-		shift = 23;
-		mask  = 0x3;
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "efuse");
+	if (!res) {
+		dev_info(&pdev->dev,
+				"No speed/PVS binning available. Defaulting to 0!\n");
+		return;
+	}
 	base = devm_ioremap(&pdev->dev, res->start, resource_size(res));
 	if (!base) {
 		dev_warn(&pdev->dev,
@@ -412,7 +426,8 @@ static int clock_a7_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "Safe voltage plan loaded.\n");
 	}
 
-	rc = msm_clock_register(clock_tbl_a7, ARRAY_SIZE(clock_tbl_a7));
+	rc = of_msm_clock_register(pdev->dev.of_node,
+			clock_tbl_a7, ARRAY_SIZE(clock_tbl_a7));
 	if (rc) {
 		dev_err(&pdev->dev, "msm_clock_register failed\n");
 		return rc;

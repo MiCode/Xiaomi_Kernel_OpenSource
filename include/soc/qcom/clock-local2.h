@@ -24,6 +24,7 @@
 
 /**
  * @freq_hz: output rate
+ * @src_freq: source freq for dynamic pll. For fixed plls, set to 0.
  * @src_clk: source clock for freq_hz
  * @m_val: M value corresponding to freq_hz
  * @n_val: N value corresponding to freq_hz
@@ -33,6 +34,7 @@
  */
 struct clk_freq_tbl {
 	unsigned long	freq_hz;
+	unsigned long	src_freq;
 	struct clk	*src_clk;
 	u32	m_val;
 	u32	n_val;
@@ -43,7 +45,7 @@ struct clk_freq_tbl {
 
 #define FREQ_END	(ULONG_MAX-1)
 #define F_END { .freq_hz = FREQ_END }
-
+#define	FIXED_CLK_SRC	0
 /*
  * Generic clock-definition struct and macros
  */

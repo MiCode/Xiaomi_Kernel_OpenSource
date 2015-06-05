@@ -37,11 +37,13 @@
 #define OUTPUT_REG(pll) (*pll->base + pll->offset + 0x10)
 #define VOTE_REG(pll) (*pll->base + pll->fsm_reg_offset)
 #define USER_CTL_LO_REG(pll) (*pll->base + pll->offset + 0x10)
+#define USER_CTL_HI_REG(pll) (*pll->base + pll->offset + 0x14)
 #define CONFIG_CTL_REG(pll) (*pll->base + pll->offset + 0x18)
 
 #define PLL_BYPASSNL 0x2
 #define PLL_RESET_N  0x4
 #define PLL_OUTCTRL  0x1
+#define PLL_LATCH_INTERFACE	BIT(11)
 
 /*
  * Even though 40 bits are present, use only 32 for ease of calculation.
@@ -124,7 +126,7 @@ static int __alpha_pll_vote_enable(struct alpha_pll_clk *pll)
 	return wait_for_update(pll);
 }
 
-static int __alpha_pll_enable(struct alpha_pll_clk *pll)
+static int __alpha_pll_enable(struct alpha_pll_clk *pll, int enable_output)
 {
 	int rc;
 	u32 mode;
@@ -148,12 +150,37 @@ static int __alpha_pll_enable(struct alpha_pll_clk *pll)
 		return rc;
 
 	/* Enable PLL output. */
-	mode |= PLL_OUTCTRL;
-	writel_relaxed(mode, MODE_REG(pll));
+	if (enable_output) {
+		mode |= PLL_OUTCTRL;
+		writel_relaxed(mode, MODE_REG(pll));
+	}
 
 	/* Ensure that the write above goes through before returning. */
 	mb();
 	return 0;
+}
+
+static void setup_alpha_pll_values(u64 a_val, u32 l_val, u32 vco_val,
+				struct alpha_pll_clk *pll)
+{
+	struct alpha_pll_masks *masks = pll->masks;
+	u32 regval;
+
+	a_val = a_val << (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
+
+	writel_relaxed(l_val, L_REG(pll));
+	__iowrite32_copy(A_REG(pll), &a_val, 2);
+
+	if (vco_val != UINT_MAX) {
+		regval = readl_relaxed(VCO_REG(pll));
+		regval &= ~(masks->vco_mask << masks->vco_shift);
+		regval |= vco_val << masks->vco_shift;
+		writel_relaxed(regval, VCO_REG(pll));
+	}
+
+	regval = readl_relaxed(ALPHA_EN_REG(pll));
+	regval |= masks->alpha_en_mask;
+	writel_relaxed(regval, ALPHA_EN_REG(pll));
 }
 
 static int alpha_pll_enable(struct clk *c)
@@ -169,7 +196,31 @@ static int alpha_pll_enable(struct clk *c)
 	if (pll->fsm_en_mask)
 		rc = __alpha_pll_vote_enable(pll);
 	else
-		rc = __alpha_pll_enable(pll);
+		rc = __alpha_pll_enable(pll, true);
+	spin_unlock_irqrestore(&alpha_pll_reg_lock, flags);
+
+	return rc;
+}
+
+static int __calibrate_alpha_pll(struct alpha_pll_clk *pll);
+static int dyna_alpha_pll_enable(struct clk *c)
+{
+	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
+	unsigned long flags;
+	int rc;
+
+	if (unlikely(!pll->inited))
+		__init_alpha_pll(c);
+
+	spin_lock_irqsave(&alpha_pll_reg_lock, flags);
+
+	if (pll->slew)
+		__calibrate_alpha_pll(pll);
+
+	if (pll->fsm_en_mask)
+		rc = __alpha_pll_vote_enable(pll);
+	else
+		rc = __alpha_pll_enable(pll, true);
 	spin_unlock_irqrestore(&alpha_pll_reg_lock, flags);
 
 	return rc;
@@ -258,6 +309,20 @@ static void alpha_pll_disable(struct clk *c)
 	spin_unlock_irqrestore(&alpha_pll_reg_lock, flags);
 }
 
+static void dyna_alpha_pll_disable(struct clk *c)
+{
+	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
+	unsigned long flags;
+
+	spin_lock_irqsave(&alpha_pll_reg_lock, flags);
+	if (pll->fsm_en_mask)
+		__alpha_pll_vote_disable(pll);
+	else
+		__alpha_pll_disable(pll);
+
+	spin_unlock_irqrestore(&alpha_pll_reg_lock, flags);
+}
+
 static u32 find_vco(struct alpha_pll_clk *pll, unsigned long rate)
 {
 	unsigned long i;
@@ -311,6 +376,156 @@ static unsigned long round_rate_up(struct alpha_pll_clk *pll,
 		unsigned long rate, int *l_val, u64 *a_val)
 {
 	return __calc_values(pll, rate, l_val, a_val, true);
+}
+
+static bool dynamic_update_finish(struct alpha_pll_clk *pll)
+{
+	u32 reg = readl_relaxed(UPDATE_REG(pll));
+	u32 mask = pll->masks->update_mask;
+
+	return (reg & mask) == 0;
+}
+
+static int wait_for_dynamic_update(struct alpha_pll_clk *pll)
+{
+	int count;
+
+	for (count = WAIT_MAX_LOOPS; count > 0; count--) {
+		if (dynamic_update_finish(pll))
+			break;
+		udelay(1);
+	}
+
+	if (!count) {
+		pr_err("%s didn't latch after updating it!\n", pll->c.dbg_name);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int dyna_alpha_pll_dynamic_update(struct alpha_pll_clk *pll)
+{
+	struct alpha_pll_masks *masks = pll->masks;
+	u32 regval;
+	int rc;
+
+	regval = readl_relaxed(UPDATE_REG(pll));
+	regval |= masks->update_mask;
+	writel_relaxed(regval, UPDATE_REG(pll));
+
+	rc = wait_for_dynamic_update(pll);
+	if (rc < 0)
+		return rc;
+
+	/*
+	 * HPG mandates a wait of at least 570ns before polling the LOCK
+	 * detect bit. Have a delay of 1us just to be safe.
+	 */
+	mb();
+	udelay(1);
+
+	rc = wait_for_update(pll);
+	if (rc < 0)
+		return rc;
+
+	return 0;
+}
+
+static int alpha_pll_set_rate(struct clk *c, unsigned long rate);
+static int dyna_alpha_pll_set_rate(struct clk *c, unsigned long rate)
+{
+	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
+	unsigned long freq_hz, flags;
+	u32 l_val, vco_val;
+	u64 a_val;
+	int ret;
+
+	freq_hz = round_rate_up(pll, rate, &l_val, &a_val);
+	if (freq_hz != rate) {
+		pr_err("alpha_pll: Call clk_set_rate with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	vco_val = find_vco(pll, freq_hz);
+
+	/*
+	 * Dynamic pll update will not support switching frequencies across
+	 * vco ranges. In those cases fall back to normal alpha set rate.
+	 */
+	if (pll->current_vco_val != vco_val) {
+		ret = alpha_pll_set_rate(c, rate);
+		if (!ret)
+			pll->current_vco_val = vco_val;
+		else
+			return ret;
+		return 0;
+	}
+
+	spin_lock_irqsave(&c->lock, flags);
+
+	a_val = a_val << (ALPHA_REG_BITWIDTH - ALPHA_BITWIDTH);
+
+	writel_relaxed(l_val, L_REG(pll));
+	__iowrite32_copy(A_REG(pll), &a_val, 2);
+
+	/* Ensure that the write above goes through before proceeding. */
+	mb();
+
+	if (c->count)
+		dyna_alpha_pll_dynamic_update(pll);
+
+	spin_unlock_irqrestore(&c->lock, flags);
+	return 0;
+}
+
+/*
+ * Slewing plls should be bought up at frequency which is in the middle of the
+ * desired VCO range. So after bringing up the pll at calibration freq, set it
+ * back to desired frequency(that was set by previous clk_set_rate).
+ */
+static int __calibrate_alpha_pll(struct alpha_pll_clk *pll)
+{
+	unsigned long calibration_freq, freq_hz;
+	struct alpha_pll_vco_tbl *vco_tbl = pll->vco_tbl;
+	u64 a_val;
+	u32 l_val, vco_val;
+	int rc;
+
+	vco_val = find_vco(pll, pll->c.rate);
+	if (IS_ERR_VALUE(vco_val)) {
+		pr_err("alpha pll: not in a valid vco range\n");
+		return -EINVAL;
+	}
+	calibration_freq = (vco_tbl[vco_val].min_freq +
+			    vco_tbl[vco_val].max_freq)/2;
+
+	freq_hz = round_rate_up(pll, calibration_freq, &l_val, &a_val);
+	if (freq_hz != calibration_freq) {
+		pr_err("alpha_pll: call clk_set_rate with rounded rates!\n");
+		return -EINVAL;
+	}
+
+	setup_alpha_pll_values(a_val, l_val, vco_tbl->vco_val, pll);
+
+	/* Bringup the pll at calibration frequency */
+	rc = __alpha_pll_enable(pll, false);
+	if (rc) {
+		pr_err("alpha pll calibration failed\n");
+		return rc;
+	}
+
+	/*
+	 * PLL is already running at calibration frequency.
+	 * So slew pll to the previously set frequency.
+	 */
+	pr_debug("pll %s: setting back to required rate %lu\n", pll->c.dbg_name,
+					pll->c.rate);
+	freq_hz = round_rate_up(pll, pll->c.rate, &l_val, &a_val);
+	setup_alpha_pll_values(a_val, l_val, UINT_MAX, pll);
+	dyna_alpha_pll_dynamic_update(pll);
+
+	return 0;
 }
 
 static int alpha_pll_set_rate(struct clk *c, unsigned long rate)
@@ -450,23 +665,29 @@ void __init_alpha_pll(struct clk *c)
 {
 	struct alpha_pll_clk *pll = to_alpha_pll_clk(c);
 	struct alpha_pll_masks *masks = pll->masks;
-	u32 output_en, userval;
+	u32 regval;
 
 	if (pll->config_ctl_val)
 		writel_relaxed(pll->config_ctl_val, CONFIG_CTL_REG(pll));
 
 	if (masks->output_mask && pll->enable_config) {
-		output_en = readl_relaxed(OUTPUT_REG(pll));
-		output_en &= ~masks->output_mask;
-		output_en |= pll->enable_config;
-		writel_relaxed(output_en, OUTPUT_REG(pll));
+		regval = readl_relaxed(OUTPUT_REG(pll));
+		regval &= ~masks->output_mask;
+		regval |= pll->enable_config;
+		writel_relaxed(regval, OUTPUT_REG(pll));
 	}
 
 	if (masks->post_div_mask) {
-		userval = readl_relaxed(USER_CTL_LO_REG(pll));
-		userval &= ~masks->post_div_mask;
-		userval |= pll->post_div_config;
-		writel_relaxed(userval, USER_CTL_LO_REG(pll));
+		regval = readl_relaxed(USER_CTL_LO_REG(pll));
+		regval &= ~masks->post_div_mask;
+		regval |= pll->post_div_config;
+		writel_relaxed(regval, USER_CTL_LO_REG(pll));
+	}
+
+	if (pll->slew) {
+		regval = readl_relaxed(USER_CTL_HI_REG(pll));
+		regval &= ~PLL_LATCH_INTERFACE;
+		writel_relaxed(regval, USER_CTL_HI_REG(pll));
 	}
 
 	if (pll->fsm_en_mask)
@@ -536,6 +757,14 @@ struct clk_ops clk_ops_alpha_pll_hwfsm = {
 struct clk_ops clk_ops_fixed_alpha_pll = {
 	.enable = alpha_pll_enable,
 	.disable = alpha_pll_disable,
+	.handoff = alpha_pll_handoff,
+};
+
+struct clk_ops clk_ops_dyna_alpha_pll = {
+	.enable = dyna_alpha_pll_enable,
+	.disable = dyna_alpha_pll_disable,
+	.round_rate = alpha_pll_round_rate,
+	.set_rate = dyna_alpha_pll_set_rate,
 	.handoff = alpha_pll_handoff,
 };
 

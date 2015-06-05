@@ -11,23 +11,16 @@ obj-$(CONFIG_MSM_CLK_CONTROLLER_V2)	+= msm-clock-controller.o
 
 obj-$(CONFIG_DEBUG_FS)		+= clock-debug.o
 
-# MSM8916
-obj-$(CONFIG_ARCH_MSM8916)	+= clock-rpm-8916.o
-obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8916.o
-
 # MSM 8996
 obj-$(CONFIG_ARCH_MSM8996)	+= clock-gcc-8996.o
 obj-$(CONFIG_ARCH_MSM8996)	+= clock-mmss-8996.o
 obj-$(CONFIG_ARCH_MSM8996)	+= clock-cpu-8996.o
 
-# MSM8936
-obj-$(CONFIG_ARCH_MSM8916)	+= clock-rpm-8936.o
-obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8936.o
-
 # ACPU clock
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-a7.o
 obj-$(CONFIG_ARCH_MSM8916)	+= clock-cpu-8939.o
-obj-$(CONFIG_ARCH_MSM8916)	+= clock-cpu-8936.o
+obj-$(CONFIG_ARCH_MSM8916)	+= clock-gcc-8952.o
+
 
 obj-y				+= gdsc.o
 obj-y				+= mdss/
