@@ -363,8 +363,6 @@ struct mdss_mdp_format_params {
 
 struct mdss_mdp_format_params_ubwc {
 	struct mdss_mdp_format_params mdp_format;
-	struct mdss_fudge_factor comp_ratio_rt;
-	struct mdss_fudge_factor comp_ratio_nrt;
 };
 
 struct mdss_mdp_plane_sizes {
@@ -524,6 +522,9 @@ struct mdss_mdp_pipe {
 	struct mdss_rect dst;
 	struct mdss_mdp_format_params *src_fmt;
 	struct mdss_mdp_plane_sizes src_planes;
+
+	/* compression ratio from the source format */
+	struct mult_factor comp_ratio;
 
 	u8 mixer_stage;
 	u8 is_fg;
@@ -1037,8 +1038,8 @@ void mdss_mdp_ctl_notifier_unregister(struct mdss_mdp_ctl *ctl,
 	struct notifier_block *notifier);
 u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl);
 u32 mdss_apply_overhead_factors(u32 quota, bool is_nrt,
-	bool is_rot_read, struct mdss_mdp_format_params *fmt);
-
+	bool is_rot_read, struct mdss_mdp_format_params *fmt,
+	struct mult_factor *comp_ratio);
 
 int mdss_mdp_scan_pipes(void);
 
@@ -1158,7 +1159,6 @@ int mdss_mdp_get_rau_strides(u32 w, u32 h, struct mdss_mdp_format_params *fmt,
 			       struct mdss_mdp_plane_sizes *ps);
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt);
-bool mdss_mdp_initialize_ubwc_factors(struct mdss_data_type *mdata);
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 void mdss_mdp_get_v_h_subsample_rate(u8 chroma_samp,
 	u8 *v_sample, u8 *h_sample);
