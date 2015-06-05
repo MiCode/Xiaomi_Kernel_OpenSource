@@ -227,12 +227,10 @@ static void bcl_handle_hotplug(struct work_struct *work)
 
 	cpumask_clear(&curr_req.offline_mask);
 	for_each_possible_cpu(cpu) {
-		if ((!(bcl_hotplug_mask & BIT(cpu))
-			&& !(bcl_soc_hotplug_mask & BIT(cpu))))
-			continue;
 		if (bcl_hotplug_request & BIT(cpu))
 			cpumask_set_cpu(cpu, &curr_req.offline_mask);
 	}
+	trace_bcl_sw_mitigation("Start hotplug CPU", bcl_hotplug_request);
 	ret = devmgr_client_request_mitigation(
 		gbcl->hotplug_handle,
 		HOTPLUG_MITIGATION_REQ,
@@ -253,6 +251,7 @@ static void update_cpu_freq(void)
 	int cpu, ret = 0;
 	union device_request cpufreq_req;
 
+	trace_bcl_sw_mitigation_event("Start Frequency Mitigate");
 	cpufreq_req.freq.max_freq = UINT_MAX;
 	cpufreq_req.freq.min_freq = CPUFREQ_MIN_NO_MITIGATION;
 
@@ -269,6 +268,7 @@ static void update_cpu_freq(void)
 			continue;
 		pr_debug("Requesting Max freq:%u for CPU%d\n",
 			cpufreq_req.freq.max_freq, cpu);
+		trace_bcl_sw_mitigation("Frequency Mitigate CPU", cpu);
 		ret = devmgr_client_request_mitigation(
 			gbcl->cpufreq_handle[cpu],
 			CPUFREQ_MITIGATION_REQ, &cpufreq_req);
@@ -276,6 +276,7 @@ static void update_cpu_freq(void)
 			pr_err("Error updating freq for CPU%d. ret:%d\n",
 				cpu, ret);
 	}
+	trace_bcl_sw_mitigation_event("End Frequency Mitigation");
 }
 
 static void power_supply_callback(struct power_supply *psy)
