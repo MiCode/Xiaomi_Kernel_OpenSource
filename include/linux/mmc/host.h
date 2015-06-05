@@ -14,6 +14,7 @@
 #include <linux/mutex.h>
 #include <linux/sched.h>
 #include <linux/device.h>
+#include <linux/devfreq.h>
 #include <linux/fault-inject.h>
 
 #include <linux/mmc/core.h>
@@ -84,6 +85,17 @@ struct mmc_ios {
 enum mmc_load {
 	MMC_LOAD_HIGH,
 	MMC_LOAD_LOW,
+};
+
+struct mmc_cmdq_host_ops {
+	int (*enable)(struct mmc_host *host);
+	void (*disable)(struct mmc_host *host, bool soft);
+	int (*request)(struct mmc_host *host, struct mmc_request *mrq);
+	void (*post_req)(struct mmc_host *host, struct mmc_request *mrq,
+			 int err);
+	int (*halt)(struct mmc_host *host, bool halt);
+	void (*reset)(struct mmc_host *host, bool soft);
+	void (*dumpstate)(struct mmc_host *host);
 };
 
 struct mmc_host_ops {
@@ -164,6 +176,30 @@ struct mmc_host_ops {
 struct mmc_card;
 struct device;
 
+struct mmc_cmdq_req {
+	unsigned int cmd_flags;
+	u32 blk_addr;
+	/* active mmc request */
+	struct mmc_request	mrq;
+	struct mmc_data		data;
+	struct mmc_command	cmd;
+#define DCMD		(1 << 0)
+#define QBR		(1 << 1)
+#define DIR		(1 << 2)
+#define PRIO		(1 << 3)
+#define REL_WR		(1 << 4)
+#define DAT_TAG	(1 << 5)
+#define FORCED_PRG	(1 << 6)
+	unsigned int		cmdq_req_flags;
+
+	unsigned int		resp_idx;
+	unsigned int		resp_arg;
+	unsigned int		dev_pend_tasks;
+	bool			resp_err;
+	int			tag; /* used for command queuing */
+	u8			ctx_id;
+};
+
 struct mmc_async_req {
 	/* active mmc request */
 	struct mmc_request	*mrq;
@@ -190,6 +226,25 @@ struct mmc_slot {
 	int cd_irq;
 	struct mutex lock;
 	void *handler_priv;
+};
+
+
+/**
+ * mmc_cmdq_context_info - describes the contexts of cmdq
+ * @active_reqs		requests being processed
+ * @curr_state		state of cmdq engine
+ * @req_starved		completion should invoke the request_fn since
+ *			no tags were available
+ * @cmdq_ctx_lock	acquire this before accessing this structure
+ */
+struct mmc_cmdq_context_info {
+	unsigned long	active_reqs; /* in-flight requests */
+	unsigned long	curr_state;
+#define	CMDQ_STATE_ERR 0
+#define	CMDQ_STATE_DCMD_ACTIVE 1
+#define	CMDQ_STATE_HALT 2
+	/* no free tag available */
+	unsigned long	req_starved;
 };
 
 /**
@@ -221,11 +276,60 @@ enum dev_state {
 	DEV_RESUMED,
 };
 
+/**
+ * struct mmc_devfeq_clk_scaling - main context for MMC clock scaling logic
+ *
+ * @lock: spinlock to protect statistics
+ * @devfreq: struct that represent mmc-host as a client for devfreq
+ * @devfreq_profile: MMC device profile, mostly polling interval and callbacks
+ * @ondemand_gov_data: struct supplied to ondemmand governor (thresholds)
+ * @state: load state, can be HIGH or LOW. used to notify mmc_host_ops callback
+ * @start_busy: timestamped armed once a data request is started
+ * @measure_interval_start: timestamped armed once a measure interval started
+ * @devfreq_abort: flag to sync between different contexts relevant to devfreq
+ * @skip_clk_scale_freq_update: flag that enable/disable frequency change
+ * @freq_table_sz: table size of frequencies supplied to devfreq
+ * @freq_table: frequencies table supplied to devfreq
+ * @curr_freq: current frequency
+ * @polling_delay_ms: polling interval for status collection used by devfreq
+ * @upthreshold: up-threshold supplied to ondemand governor
+ * @downthreshold: down-threshold supplied to ondemand governor
+ * @need_freq_change: flag indicating if a frequency change is required
+ * @clk_scaling_in_progress: flag indicating if there's ongoing frequency change
+ * @is_busy_started: flag indicating if a request is handled by the HW
+ * @enable: flag indicating if the clock scaling logic is enabled for this host
+ */
+struct mmc_devfeq_clk_scaling {
+	spinlock_t	lock;
+	struct		devfreq *devfreq;
+	struct		devfreq_dev_profile devfreq_profile;
+	struct		devfreq_simple_ondemand_data ondemand_gov_data;
+	enum mmc_load	state;
+	ktime_t		start_busy;
+	ktime_t		measure_interval_start;
+	atomic_t	devfreq_abort;
+	u32		skip_clk_scale_freq_update;
+	int		freq_table_sz;
+	u32		*freq_table;
+	unsigned long	total_busy_time_us;
+	unsigned long	target_freq;
+	unsigned long	curr_freq;
+	unsigned long	polling_delay_ms;
+	unsigned int	upthreshold;
+	unsigned int	downthreshold;
+	bool		need_freq_change;
+	bool		clk_scaling_in_progress;
+	bool		is_busy_started;
+	bool		enable;
+};
+
 struct mmc_host {
 	struct device		*parent;
 	struct device		class_dev;
+	struct mmc_devfeq_clk_scaling	clk_scaling;
 	int			index;
 	const struct mmc_host_ops *ops;
+	const struct mmc_cmdq_host_ops *cmdq_ops;
 	unsigned int		f_min;
 	unsigned int		f_max;
 	unsigned int		f_init;
@@ -315,6 +419,7 @@ struct mmc_host {
 /* Some hosts need additional tuning */
 #define MMC_CAP2_HS400_POST_TUNING	(1 << 21)
 #define MMC_CAP2_NONHOTPLUG	(1 << 25)	/*Don't support hotplug*/
+#define MMC_CAP2_CMD_QUEUE	(1 << 26)	/* support eMMC command queue */
 
 	mmc_pm_flag_t		pm_caps;	/* supported pm features */
 
@@ -427,23 +532,17 @@ struct mmc_host {
 	} perf;
 	bool perf_enable;
 #endif
-	struct {
-		unsigned long	busy_time_us;
-		unsigned long	window_time;
-		unsigned long	curr_freq;
-		unsigned long	polling_delay_ms;
-		unsigned int	up_threshold;
-		unsigned int	down_threshold;
-		ktime_t		start_busy;
-		bool		enable;
-		bool		initialized;
-		bool		in_progress;
-		/* freq. transitions are not allowed in invalid state */
-		bool		invalid_state;
-		struct delayed_work work;
-		enum mmc_load	state;
-	} clk_scaling;
 	enum dev_state dev_status;
+	bool			wakeup_on_idle;
+	struct mmc_cmdq_context_info	cmdq_ctx;
+	/*
+	 * several cmdq supporting host controllers are extensions
+	 * of legacy controllers. This variable can be used to store
+	 * a reference to the cmdq extension of the existing host
+	 * controller.
+	 */
+	void *cmdq_private;
+	struct mmc_request	*err_mrq;
 	unsigned long		private[0] ____cacheline_aligned;
 };
 
@@ -465,6 +564,11 @@ extern void mmc_set_embedded_sdio_data(struct mmc_host *host,
 static inline void *mmc_priv(struct mmc_host *host)
 {
 	return (void *)host->private;
+}
+
+static inline void *mmc_cmdq_private(struct mmc_host *host)
+{
+	return host->cmdq_private;
 }
 
 #define mmc_host_is_spi(host)	((host)->caps & MMC_CAP_SPI)
@@ -547,6 +651,21 @@ static inline int mmc_host_uhs(struct mmc_host *host)
 static inline int mmc_host_packed_wr(struct mmc_host *host)
 {
 	return host->caps2 & MMC_CAP2_PACKED_WR;
+}
+
+static inline void mmc_host_set_halt(struct mmc_host *host)
+{
+	set_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
+}
+
+static inline void mmc_host_clr_halt(struct mmc_host *host)
+{
+	clear_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
+}
+
+static inline int mmc_host_halt(struct mmc_host *host)
+{
+	return test_bit(CMDQ_STATE_HALT, &host->cmdq_ctx.curr_state);
 }
 
 #ifdef CONFIG_MMC_CLKGATE
