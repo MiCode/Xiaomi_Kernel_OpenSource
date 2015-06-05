@@ -585,14 +585,14 @@ static void process_reopen_event(struct work_struct *work)
 	ch = ch_work->ch;
 	einfo = ch->edge;
 	kfree(ch_work);
-	if (ch->remote_legacy) {
+	if (ch->remote_legacy)
 		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_remote_close(
 								&einfo->xprt_if,
 								ch->rcid);
+	if (ch->local_legacy)
 		einfo->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
 								&einfo->xprt_if,
 								ch->lcid);
-	}
 }
 
 /**
@@ -765,10 +765,18 @@ static void smd_data_ch_close(struct channel *ch)
 	SMDXPRT_INFO("%s Closing SMD channel lcid %u\n", __func__, ch->lcid);
 
 	ch->is_closing = true;
+	ch->wait_for_probe = false;
 	flush_workqueue(ch->wq);
 
-	smd_close(ch->smd_ch);
-	ch->smd_ch = NULL;
+	if (ch->smd_ch) {
+		smd_close(ch->smd_ch);
+		ch->smd_ch = NULL;
+	} else if (ch->local_legacy) {
+		ch->edge->xprt_if.glink_core_if_ptr->rx_cmd_ch_close_ack(
+							&ch->edge->xprt_if,
+							ch->lcid);
+	}
+
 	ch->local_legacy = false;
 
 	spin_lock_irqsave(&ch->intents_lock, flags);
@@ -1127,10 +1135,11 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 		return -ENODEV;
 	}
 
-	if (!ch->remote_legacy) {
+	if (!ch->local_legacy) {
 		SMDXPRT_INFO("%s TX CLOSE lcid %u\n", __func__, lcid);
 		cmd.cmd = CMD_CLOSE;
 		cmd.id = lcid;
+		cmd.reserved = 0;
 		mutex_lock(&einfo->smd_lock);
 		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
 			msleep(20);
@@ -1238,6 +1247,7 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 		SMDXPRT_INFO("%s TX CLOSE ACK rcid %u\n", __func__, rcid);
 		cmd.cmd = CMD_CLOSE_ACK;
 		cmd.id = rcid;
+		cmd.reserved = 0;
 		mutex_lock(&einfo->smd_lock);
 		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
 			msleep(20);
@@ -1245,6 +1255,7 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 		mutex_unlock(&einfo->smd_lock);
 	}
 	ch->remote_legacy = false;
+	ch->rcid = 0;
 }
 
 /**
@@ -1271,6 +1282,7 @@ static int ssr(struct glink_transport_if *if_ptr)
 		if (!ch->smd_ch)
 			continue;
 		ch->is_closing = true;
+		ch->wait_for_probe = false;
 		flush_workqueue(ch->wq);
 		smd_close(ch->smd_ch);
 		ch->smd_ch = NULL;
