@@ -53,6 +53,8 @@ u64 idmap_t0sz = TCR_T0SZ(VA_BITS);
 struct page *empty_zero_page;
 EXPORT_SYMBOL(empty_zero_page);
 
+static bool __init dma_overlap(phys_addr_t start, phys_addr_t end);
+
 pgprot_t phys_mem_access_prot(struct file *file, unsigned long pfn,
 			      unsigned long size, pgprot_t vma_prot)
 {
@@ -216,6 +218,7 @@ static void alloc_init_pud(struct mm_struct *mm, pgd_t *pgd,
 		 * For 4K granule only, attempt to put down a 1GB block
 		 */
 		if (use_1G_block(addr, next, phys) &&
+			!dma_overlap(phys, phys + next - addr) &&
 			!IS_ENABLED(CONFIG_FORCE_PAGES)) {
 			pud_t old_pud = *pud;
 			set_pud(pud, __pud(phys |
@@ -344,6 +347,21 @@ void __init dma_contiguous_early_fixup(phys_addr_t base, unsigned long size)
 	dma_mmu_remap[dma_mmu_remap_num].base = base;
 	dma_mmu_remap[dma_mmu_remap_num].size = size;
 	dma_mmu_remap_num++;
+}
+
+static bool __init dma_overlap(phys_addr_t start, phys_addr_t end)
+{
+	int i;
+
+	for (i = 0; i < dma_mmu_remap_num; i++) {
+		phys_addr_t dma_base = dma_mmu_remap[i].base;
+		phys_addr_t dma_end = dma_mmu_remap[i].base +
+			dma_mmu_remap[i].size;
+
+		if ((dma_base < end) && (dma_end > start))
+			return true;
+	}
+	return false;
 }
 
 static void __init dma_contiguous_remap(void)
