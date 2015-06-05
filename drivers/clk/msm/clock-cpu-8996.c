@@ -951,14 +951,10 @@ static int add_opp(struct clk *c, struct device *dev, unsigned long max_rate)
 	struct regulator *reg = c->vdd_class->regulator[0];
 	long ret;
 	bool first = true;
+	int j = 1;
 
 	while (1) {
-		ret = clk_round_rate(c, rate + 1);
-		if (ret < 0) {
-			pr_warn("clock-cpu: round_rate failed at %lu\n", rate);
-			return ret;
-		}
-		rate = ret;
+		rate = c->fmax[j++];
 		level = find_vdd_level(c, rate);
 		if (level <= 0) {
 			pr_warn("clock-cpu: no corner for %lu.\n", rate);
@@ -1038,7 +1034,6 @@ static void populate_opp_table(struct platform_device *pdev)
 }
 
 static int perfclspeedbin;
-static struct platform_device *cpu_clock_8996_dev;
 
 static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 {
@@ -1162,20 +1157,12 @@ static int cpu_clock_8996_driver_probe(struct platform_device *pdev)
 	clk_prepare_enable(&pwrcl_alt_pll.c);
 	clk_prepare_enable(&cbf_pll.c);
 
-	cpu_clock_8996_dev = pdev;
+	populate_opp_table(pdev);
 
 	put_online_cpus();
 
 	return 0;
 }
-
-static int __init cpu_clock_8996_init_opp(void)
-{
-	if (cpu_clock_8996_dev)
-		populate_opp_table(cpu_clock_8996_dev);
-	return 0;
-}
-module_init(cpu_clock_8996_init_opp);
 
 static struct of_device_id match_table[] = {
 	{ .compatible = "qcom,cpu-clock-8996" },
