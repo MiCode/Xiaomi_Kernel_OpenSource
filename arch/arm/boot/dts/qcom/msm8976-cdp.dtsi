@@ -101,6 +101,12 @@
 
 
 &spmi_bus {
+	qcom,pmi8950@3 {
+		qcom,leds@d800 {
+			qcom,fs-curr-ua = <20000>;
+		};
+	};
+
 	qcom,pm8004@4 {
 		qcom,leds@a100 {
 			status = "okay";
