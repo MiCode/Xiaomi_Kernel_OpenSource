@@ -4113,8 +4113,8 @@ static int lancer_fw_download(struct be_adapter *adapter,
 
 	flash_cmd.size = sizeof(struct lancer_cmd_req_write_object)
 				+ LANCER_FW_DOWNLOAD_CHUNK;
-	flash_cmd.va = dma_alloc_coherent(dev, flash_cmd.size,
-					  &flash_cmd.dma, GFP_KERNEL);
+	flash_cmd.va = dma_zalloc_coherent(dev, flash_cmd.size,
+					   &flash_cmd.dma, GFP_KERNEL);
 	if (!flash_cmd.va)
 		return -ENOMEM;
 
@@ -4209,8 +4209,8 @@ static int be_fw_download(struct be_adapter *adapter, const struct firmware* fw)
 	int status = 0, i = 0, num_imgs = 0, ufi_type = 0;
 
 	flash_cmd.size = sizeof(struct be_cmd_write_flashrom);
-	flash_cmd.va = dma_alloc_coherent(&adapter->pdev->dev, flash_cmd.size,
-					  &flash_cmd.dma, GFP_KERNEL);
+	flash_cmd.va = dma_zalloc_coherent(&adapter->pdev->dev, flash_cmd.size,
+					   &flash_cmd.dma, GFP_KERNEL);
 	if (!flash_cmd.va) {
 		status = -ENOMEM;
 		goto be_fw_exit;
@@ -4587,10 +4587,10 @@ static int be_ctrl_init(struct be_adapter *adapter)
 		goto done;
 
 	mbox_mem_alloc->size = sizeof(struct be_mcc_mailbox) + 16;
-	mbox_mem_alloc->va = dma_alloc_coherent(&adapter->pdev->dev,
-						mbox_mem_alloc->size,
-						&mbox_mem_alloc->dma,
-						GFP_KERNEL);
+	mbox_mem_alloc->va = dma_zalloc_coherent(&adapter->pdev->dev,
+						 mbox_mem_alloc->size,
+						 &mbox_mem_alloc->dma,
+						 GFP_KERNEL);
 	if (!mbox_mem_alloc->va) {
 		status = -ENOMEM;
 		goto unmap_pci_bars;
