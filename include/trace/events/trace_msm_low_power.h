@@ -18,7 +18,7 @@
 
 #include <linux/tracepoint.h>
 
-TRACE_EVENT(cpu_idle_enter,
+TRACE_EVENT(cpu_power_select,
 
 	TP_PROTO(int index, u32 sleep_us, u32 latency, u32 next_event_us),
 
@@ -42,6 +42,25 @@ TRACE_EVENT(cpu_idle_enter,
 		__entry->index, __entry->sleep_us, __entry->latency,
 		__entry->next_event_us)
 );
+
+TRACE_EVENT(cpu_idle_enter,
+
+	TP_PROTO(int index),
+
+	TP_ARGS(index),
+
+	TP_STRUCT__entry(
+		__field(int, index)
+	),
+
+	TP_fast_assign(
+		__entry->index = index;
+	),
+
+	TP_printk("idx:%d",
+		__entry->index)
+);
+
 TRACE_EVENT(cpu_idle_exit,
 
 	TP_PROTO(int index, bool success),
