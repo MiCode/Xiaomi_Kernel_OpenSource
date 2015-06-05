@@ -551,6 +551,7 @@ struct msm_ois_cfg_data {
 
 struct msm_actuator_set_position_t {
 	uint16_t number_of_steps;
+	uint32_t hw_params;
 	uint16_t pos[MAX_NUMBER_OF_STEPS];
 	uint16_t delay[MAX_NUMBER_OF_STEPS];
 };
