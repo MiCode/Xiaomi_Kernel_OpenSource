@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +18,31 @@
 
 #include <linux/tracepoint.h>
 
+TRACE_EVENT(cpu_power_select,
+
+	TP_PROTO(int index, u32 sleep_us, u32 latency, u32 next_event_us),
+
+	TP_ARGS(index, sleep_us, latency, next_event_us),
+
+	TP_STRUCT__entry(
+		__field(int, index)
+		__field(u32, sleep_us)
+		__field(u32, latency)
+		__field(u32, next_event_us)
+	),
+
+	TP_fast_assign(
+		__entry->index = index;
+		__entry->sleep_us = sleep_us;
+		__entry->latency = latency;
+		__entry->next_event_us = next_event_us;
+	),
+
+	TP_printk("idx:%d sleep_time:%u latency:%u next_event:%u",
+		__entry->index, __entry->sleep_us, __entry->latency,
+		__entry->next_event_us)
+);
+
 TRACE_EVENT(cpu_idle_enter,
 
 	TP_PROTO(int index),
@@ -35,6 +60,7 @@ TRACE_EVENT(cpu_idle_enter,
 	TP_printk("idx:%d",
 		__entry->index)
 );
+
 TRACE_EVENT(cpu_idle_exit,
 
 	TP_PROTO(int index, bool success),
