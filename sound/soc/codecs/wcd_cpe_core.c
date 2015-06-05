@@ -415,7 +415,7 @@ static int wcd_cpe_load_fw(struct wcd_cpe_core *core,
 		return -EINVAL;
 	}
 	codec = core->codec;
-	wcd9xxx = codec->control_data;
+	wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	snprintf(mdt_name, sizeof(mdt_name), "%s.mdt", core->fname);
 	ret = request_firmware(&fw, mdt_name, core->dev);
 	if (IS_ERR_VALUE(ret)) {
@@ -1279,7 +1279,7 @@ static void wcd_cpe_cleanup_irqs(struct wcd_cpe_core *core)
 {
 
 	struct snd_soc_codec *codec = core->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
 
 	wcd9xxx_free_irq(core_res,
@@ -1301,7 +1301,7 @@ static int wcd_cpe_setup_irqs(struct wcd_cpe_core *core)
 {
 	int ret;
 	struct snd_soc_codec *codec = core->codec;
-	struct wcd9xxx *wcd9xxx = codec->control_data;
+	struct wcd9xxx *wcd9xxx = dev_get_drvdata(codec->dev->parent);
 	struct wcd9xxx_core_resource *core_res = &wcd9xxx->core_res;
 
 	ret = wcd9xxx_request_irq(core_res,
@@ -1633,8 +1633,8 @@ struct wcd_cpe_core *wcd_cpe_init(const char *img_fname,
 	 */
 	core->ready_status = WCD_CPE_READY_TO_DLOAD;
 
-
-	core->cpe_handle = cpe_svc_initialize(NULL, &core->cdc_info, codec);
+	core->cpe_handle = cpe_svc_initialize(NULL, &core->cdc_info,
+					      params->cpe_svc_params);
 	if (!core->cpe_handle) {
 		dev_err(core->dev,
 			"%s: failed to initialize cpe services\n",
