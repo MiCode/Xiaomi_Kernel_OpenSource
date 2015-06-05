@@ -1348,13 +1348,19 @@ struct msm_vidc_gov_data {
 	int imem_size;
 };
 
+enum msm_vidc_power_mode {
+	VIDC_POWER_NORMAL = 0,
+	VIDC_POWER_LOW,
+	VIDC_POWER_TURBO
+};
+
 struct vidc_bus_vote_data {
 	enum hal_domain domain;
 	enum hal_video_codec codec;
 	enum hal_uncompressed_format color_formats[2];
 	int num_formats; /* 1 = DPB-OPB unified; 2 = split */
 	int height, width, fps;
-	bool low_power_mode;
+	enum msm_vidc_power_mode power_mode;
 };
 
 

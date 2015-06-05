@@ -1891,6 +1891,13 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		__temp; \
 	})
 
+	/*
+	* Unlock the control prior to setting to the hardware. Otherwise
+	* lower level code that attempts to do a get_ctrl() will end up
+	* deadlocking.
+	*/
+	v4l2_ctrl_unlock(ctrl);
+
 	switch (ctrl->id) {
 	case V4L2_CID_MPEG_VIDC_VIDEO_IDR_PERIOD:
 		if (inst->fmts[CAPTURE_PORT]->fourcc != V4L2_PIX_FMT_H264 &&
@@ -2691,6 +2698,21 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		property_id = HAL_CONFIG_VENC_PERF_MODE;
 		venc_mode = ctrl->val;
 		pdata = &venc_mode;
+		switch (ctrl->val) {
+		case V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE:
+			inst->flags |= VIDC_LOW_POWER;
+			break;
+		case V4L2_MPEG_VIDC_VIDEO_PERF_MAX_QUALITY:
+			inst->flags &= ~VIDC_LOW_POWER;
+			break;
+		default:
+			dprintk(VIDC_ERR, "Power save mode %x not supported\n",
+					ctrl->val);
+			rc = -ENOTSUPP;
+			property_id = 0;
+			break;
+		}
+
 		msm_dcvs_enc_set_power_save_mode(inst,
 			ctrl->val == V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE);
 		break;
@@ -2719,6 +2741,8 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		rc = -ENOTSUPP;
 		break;
 	}
+
+	v4l2_ctrl_lock(ctrl);
 #undef TRY_GET_CTRL
 
 	if (!rc && property_id) {

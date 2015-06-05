@@ -15,6 +15,7 @@
 #include "fixedpoint.h"
 #include "msm_vidc_internal.h"
 #include "msm_vidc_debug.h"
+#include "vidc_hfi_api.h"
 
 static bool debug;
 module_param(debug, bool, 0644);
@@ -621,7 +622,11 @@ static unsigned long __calculate_encoder(struct vidc_bus_vote_data *d,
 	original_compression_enabled = __ubwc(original_color_format);
 
 	two_stage_encoding = false;
-	low_power = d->low_power_mode;
+	if (d->power_mode == VIDC_POWER_LOW)
+		low_power = true;
+	else
+		low_power = false;
+
 	b_frames_enabled = false;
 
 	dpb_compression_factor = !dpb_compression_enabled ? FP_ONE :
@@ -970,10 +975,18 @@ static int __get_target_freq(struct devfreq *dev, unsigned long *freq,
 	dev->profile->get_dev_status(dev->dev.parent, &stats);
 	vidc_data = (struct msm_vidc_gov_data *)stats.private_data;
 
+	for (c = 0; c < vidc_data->data_count; ++c) {
+		if (vidc_data->data->power_mode == VIDC_POWER_TURBO) {
+			*freq = INT_MAX;
+			goto exit;
+		}
+	}
+
 	for (c = 0; c < vidc_data->data_count; ++c)
 		ab_kbps += __calculate(&vidc_data->data[c], gov->mode);
 
 	*freq = ab_kbps;
+exit:
 	return 0;
 }
 

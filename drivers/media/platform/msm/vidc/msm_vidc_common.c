@@ -69,6 +69,11 @@ static inline bool is_thumbnail_session(struct msm_vidc_inst *inst)
 	return !!(inst->flags & VIDC_THUMBNAIL);
 }
 
+static inline bool is_low_power_session(struct msm_vidc_inst *inst)
+{
+	return !!(inst->flags & VIDC_LOW_POWER);
+}
+
 int msm_comm_g_ctrl(struct msm_vidc_inst *inst, int id)
 {
 	int rc = 0;
@@ -285,7 +290,6 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 
 	list_for_each_entry(inst, &core->instances, list) {
 		int codec = 0, yuv = 0;
-		bool low_power = false;
 
 		codec = inst->session_type == MSM_VIDC_DECODER ?
 			inst->fmts[OUTPUT_PORT]->fourcc :
@@ -295,16 +299,17 @@ static int msm_comm_vote_bus(struct msm_vidc_core *core)
 			inst->fmts[CAPTURE_PORT]->fourcc :
 			inst->fmts[OUTPUT_PORT]->fourcc;
 
-		low_power = msm_comm_g_ctrl(inst,
-				V4L2_CID_MPEG_VIDC_VIDEO_PERF_MODE) ==
-			V4L2_MPEG_VIDC_VIDEO_PERF_POWER_SAVE;
-
 		vote_data[i].domain = get_hal_domain(inst->session_type);
 		vote_data[i].codec = get_hal_codec(codec);
 		vote_data[i].width = inst->prop.width[CAPTURE_PORT];
 		vote_data[i].height = inst->prop.height[CAPTURE_PORT];
 		vote_data[i].fps = inst->prop.fps;
-		vote_data[i].low_power_mode = low_power;
+		if (is_turbo_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_TURBO;
+		else if (is_low_power_session(inst))
+			vote_data[i].power_mode = VIDC_POWER_LOW;
+		else
+			vote_data[i].power_mode = VIDC_POWER_NORMAL;
 
 		/*
 		 * TODO: support for OBP-DBP split mode hasn't been yet
@@ -3332,7 +3337,7 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				frame_data.flags, vb->v4l2_buf.index);
 
 			if (atomic_read(&inst->seq_hdr_reqs) &&
-			   inst->session_type == MSM_VIDC_ENCODER) {
+				inst->session_type == MSM_VIDC_ENCODER) {
 				seq_hdr.seq_hdr = vb->v4l2_planes[0].
 					m.userptr;
 				seq_hdr.seq_hdr_len = vb->v4l2_planes[0].length;
