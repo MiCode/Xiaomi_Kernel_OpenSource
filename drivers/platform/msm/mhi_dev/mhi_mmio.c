@@ -831,7 +831,8 @@ EXPORT_SYMBOL(mhi_dev_mmio_reset);
 
 int mhi_dev_restore_mmio(struct mhi_dev *dev)
 {
-	uint32_t i, reg_cntl_addr, reg_cntl_value;
+	uint32_t i, reg_cntl_value;
+	void *reg_cntl_addr;
 
 	if (!dev) {
 		pr_err("Invalid MHI dev context\n");
@@ -841,7 +842,7 @@ int mhi_dev_restore_mmio(struct mhi_dev *dev)
 	mhi_dev_mmio_mask_interrupts(dev);
 
 	for (i = 0; i < (MHI_DEV_MMIO_RANGE/4); i++) {
-		reg_cntl_addr = (uint32_t) dev->mmio_base_addr + (i * 4);
+		reg_cntl_addr = dev->mmio_base_addr + (i * 4);
 		reg_cntl_value = dev->mmio_backup[i];
 		writel_relaxed(reg_cntl_value, reg_cntl_addr);
 	}
