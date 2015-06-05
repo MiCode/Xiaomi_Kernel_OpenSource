@@ -280,6 +280,10 @@ Optional properties:
 					in dsi controller.
 					"high" = Set GPIO to HIGH
 					"low" = Set GPIO to LOW
+- qcom,mdss-dsi-mode-sel-gpio-state:	String that specifies the lcd mode for panel (DSC/non-DSC) if it is
+					defined in dsi controller.
+					"dual_mode" = Set GPIO to LOW
+					"dsc_mode" = Set GPIO to HIGH
 - qcom,mdss-tear-check-disable:		Boolean to disable mdp tear check. Tear check is enabled by default to avoid
 					tearing. Other tear-check properties are ignored if this property is present.
 					The below tear check configuration properties can be individually tuned if
@@ -502,6 +506,7 @@ Example:
 		qcom,mdss-pan-physical-width-dimension = <60>;
 		qcom,mdss-pan-physical-height-dimension = <140>;
 		qcom,mdss-dsi-panel-mode-gpio-state = "low";
+		qcom,mdss-dsi-mode-sel-gpio-state = "dsc_mode";
 		qcom,mdss-tear-check-sync-cfg-height = <0xfff0>;
 		qcom,mdss-tear-check-sync-init-val = <1280>;
 		qcom,mdss-tear-check-sync-threshold-start = <4>;
