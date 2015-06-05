@@ -282,7 +282,7 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 static struct led_classdev backlight_led = {
 	.name           = "lcd-backlight",
-	.brightness     = MDSS_MAX_BL_BRIGHTNESS,
+	.brightness     = MDSS_MAX_BL_BRIGHTNESS / 2,
 	.brightness_set = mdss_fb_set_bl_brightness,
 	.max_brightness = MDSS_MAX_BL_BRIGHTNESS,
 };
@@ -948,7 +948,12 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->mdp_fb_page_protection = MDP_FB_PAGE_PROTECTION_WRITECOMBINE;
 
 	mfd->ext_ad_ctrl = -1;
-	mfd->bl_level = 0;
+	if (mfd->panel_info && mfd->panel_info->brightness_max > 0)
+		MDSS_BRIGHT_TO_BL(mfd->bl_level, backlight_led.brightness,
+		mfd->panel_info->bl_max, mfd->panel_info->brightness_max);
+	else
+		mfd->bl_level = 0;
+
 	mfd->bl_scale = 1024;
 	mfd->bl_min_lvl = 30;
 	mfd->ad_bl_level = 0;
@@ -1498,7 +1503,7 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 	int req_power_state)
 {
 	int ret = 0;
-	int cur_power_state;
+	int cur_power_state, current_bl;
 
 	if (!mfd)
 		return -EINVAL;
@@ -1531,8 +1536,10 @@ static int mdss_fb_blank_blank(struct msm_fb_data_type *mfd,
 		if (mfd->disp_thread)
 			mdss_fb_stop_disp_thread(mfd);
 		mutex_lock(&mfd->bl_lock);
+		current_bl = mfd->bl_level;
 		mdss_fb_set_backlight(mfd, 0);
 		mfd->bl_updated = 0;
+		mfd->unset_bl_level = current_bl;
 		mutex_unlock(&mfd->bl_lock);
 	}
 	mfd->panel_power_state = req_power_state;
