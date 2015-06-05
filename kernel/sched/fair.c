@@ -1969,10 +1969,15 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 				min_idle_cost = cpu_cost;
 				min_cstate = cstate;
 				min_cstate_cpu = i;
-				continue;
-			}
 
-			if (cpu_cost < min_idle_cost) {
+				if (prefer_idle &&
+				    (!sched_enable_power_aware ||
+				     !get_cpu_pwr_stats()) &&
+				    min_cstate == 0)
+					cpumask_andnot(&search_cpus,
+						     &search_cpus,
+						     &rq->freq_domain_cpumask);
+			} else if (cpu_cost < min_idle_cost) {
 				min_idle_cost = cpu_cost;
 				min_cstate_cpu = i;
 			}
