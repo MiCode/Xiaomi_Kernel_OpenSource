@@ -37,6 +37,7 @@
 #define MODULE_NAME "msm_glinkpkt"
 #define DEVICE_NAME "glinkpkt"
 #define WAKEUPSOURCE_TIMEOUT (2000) /* two seconds */
+#define CLOSE_WAIT_TIMEOUT 1000 /* one seconds */
 
 #define GLINK_PKT_IOCTL_MAGIC (0xC3)
 
@@ -89,6 +90,7 @@
  * poll_mode:	flag to check polling mode.
  * ch_read_wait_queue:	reader thread wait queue.
  * ch_opened_wait_queue: open thread wait queue.
+ * ch_closed_wait_queue: close thread wait queue.
  * pkt_list:	The pending Rx packets list.
  * pkt_list_lock: Lock to protect @pkt_list.
  * pa_ws:	Packet arrival Wakeup source.
@@ -116,6 +118,7 @@ struct glink_pkt_dev {
 
 	wait_queue_head_t ch_read_wait_queue;
 	wait_queue_head_t ch_opened_wait_queue;
+	wait_queue_head_t ch_closed_wait_queue;
 	struct list_head pkt_list;
 	struct mutex pkt_list_lock;
 
@@ -154,6 +157,19 @@ struct queue_rx_intent_work {
 	struct work_struct work;
 };
 
+/**
+ * notify_state_work - Work item to notify channel state.
+ * state:	Channel new state.
+ * devp:	Pointer to the device structure.
+ * work:	Hold the worker function information.
+ */
+struct notify_state_work {
+	unsigned state;
+	struct glink_pkt_dev *devp;
+	void *handle;
+	struct work_struct work;
+};
+
 static DEFINE_MUTEX(glink_pkt_dev_lock_lha1);
 static LIST_HEAD(glink_pkt_dev_list);
 static DEFINE_MUTEX(glink_pkt_driver_lock_lha1);
@@ -177,7 +193,7 @@ module_param_named(debug_mask, msm_glink_pkt_debug_mask,
 		int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static void glink_pkt_queue_rx_intent_worker(struct work_struct *work);
-
+static void glink_pkt_notify_state_worker(struct work_struct *work);
 
 #define DEBUG
 
@@ -361,17 +377,27 @@ void glink_pkt_notify_tx_done(void *handle, const void *priv,
 void glink_pkt_notify_state(void *handle, const void *priv, unsigned event)
 {
 	struct glink_pkt_dev *devp = (struct glink_pkt_dev *)priv;
+	struct notify_state_work *work_item;
+
+	if ((devp->handle != NULL) && (devp->handle != handle)) {
+		GLINK_PKT_ERR("%s() event[%d] on incorrect channel [%s]\n",
+				__func__, event, devp->open_cfg.name);
+		return;
+	}
 	GLINK_PKT_INFO("%s(): event[%d] on [%s]\n", __func__, event,
 						devp->open_cfg.name);
-	devp->ch_state = event;
-	if (event == GLINK_CONNECTED) {
-		devp->in_reset = 0;
-		wake_up_interruptible(&devp->ch_opened_wait_queue);
-	} else if (event == GLINK_REMOTE_DISCONNECTED) {
-		devp->in_reset = 1;
-		wake_up(&devp->ch_read_wait_queue);
-		wake_up_interruptible(&devp->ch_opened_wait_queue);
+
+	work_item = kzalloc(sizeof(struct notify_state_work), GFP_ATOMIC);
+	if (!work_item) {
+		GLINK_PKT_ERR("%s() failed allocate work_item\n", __func__);
+		return;
 	}
+
+	work_item->state = event;
+	work_item->devp = devp;
+	work_item->handle = handle;
+	INIT_WORK(&work_item->work, glink_pkt_notify_state_worker);
+	queue_work(glink_pkt_wq, &work_item->work);
 }
 
 /**
@@ -453,7 +479,51 @@ static void glink_pkt_queue_rx_intent_worker(struct work_struct *work)
 	if (ret)
 		GLINK_PKT_ERR("%s queue_rx_intent failed\n", __func__);
 	kfree(work_item);
-	return;
+}
+
+/**
+ * glink_pkt_notify_state_worker() - Notify state worker function
+ *
+ * work:	Pointer to the work struct
+ *
+ * This function is used to notify the channel state and update the
+ * internal data structure.
+ */
+static void glink_pkt_notify_state_worker(struct work_struct *work)
+{
+	struct notify_state_work *work_item =
+				container_of(work,
+				struct notify_state_work, work);
+	struct glink_pkt_dev *devp = work_item->devp;
+	unsigned event = work_item->state;
+	void *handle = work_item->handle;
+
+	if (!devp) {
+		GLINK_PKT_ERR("%s: Invalid device Handle\n", __func__);
+		kfree(work_item);
+		return;
+	}
+
+	GLINK_PKT_INFO("%s(): event[%d] on [%s]\n", __func__,
+				event, devp->open_cfg.name);
+	mutex_lock(&devp->ch_lock);
+	devp->ch_state = event;
+	if (event == GLINK_CONNECTED) {
+		if (!devp->handle)
+			devp->handle = handle;
+		devp->in_reset = 0;
+		wake_up_interruptible(&devp->ch_opened_wait_queue);
+	} else if (event == GLINK_REMOTE_DISCONNECTED) {
+		devp->in_reset = 1;
+		wake_up(&devp->ch_read_wait_queue);
+		wake_up_interruptible(&devp->ch_opened_wait_queue);
+	} else if (event == GLINK_LOCAL_DISCONNECTED) {
+		if (devp->handle == handle)
+			devp->handle = NULL;
+		wake_up_interruptible(&devp->ch_closed_wait_queue);
+	}
+	mutex_unlock(&devp->ch_lock);
+	kfree(work_item);
 }
 
 /**
@@ -793,17 +863,44 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 {
 	int ret = 0;
 	struct glink_pkt_dev *devp = NULL;
+	int wait_time;
 
 	devp = container_of(inode->i_cdev, struct glink_pkt_dev, cdev);
 	if (!devp) {
 		GLINK_PKT_ERR("%s on NULL device\n", __func__);
 		return -EINVAL;
 	}
-	GLINK_PKT_INFO("Begin %s() on dev id:%d open_wait_time[%d] by [%s]\n",
+	GLINK_PKT_INFO("Begin %s() on dev id:%d open_time_wait[%d] by [%s]\n",
 		__func__, devp->i, devp->open_time_wait, current->comm);
 	file->private_data = devp;
+	wait_time = devp->open_time_wait;
 
 	mutex_lock(&devp->ch_lock);
+	/* waiting for previous close to complete */
+	if (devp->handle && devp->ref_cnt == 0) {
+		mutex_unlock(&devp->ch_lock);
+		if (wait_time < 0) {
+			ret = wait_event_interruptible(
+				devp->ch_opened_wait_queue,
+				devp->ch_state == GLINK_LOCAL_DISCONNECTED);
+		} else {
+			ret = wait_event_interruptible_timeout(
+				devp->ch_opened_wait_queue,
+				devp->ch_state == GLINK_LOCAL_DISCONNECTED,
+				msecs_to_jiffies(wait_time * 1000));
+			if (ret == 0)
+				ret = -ETIMEDOUT;
+			wait_time = ret;
+		}
+		if (ret < 0) {
+			GLINK_PKT_ERR(
+			"%s:failed for prev close on dev id:%d rc:%d\n",
+			__func__, devp->i, ret);
+			return ret;
+		}
+		mutex_lock(&devp->ch_lock);
+	}
+
 	if (!devp->handle) {
 		devp->handle = glink_open(&devp->open_cfg);
 		if (IS_ERR_OR_NULL(devp->handle)) {
@@ -816,14 +913,12 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 			goto error;
 		}
 
+		mutex_unlock(&devp->ch_lock);
 		/*
 		 * Wait for the channel to be complete open state so we know
 		 * the remote is ready enough.
-		 * Default timeout 120 seconds.
 		 */
-		if (!devp->open_time_wait)
-			devp->open_time_wait = 120;
-		if (devp->open_time_wait < 0) {
+		if (wait_time < 0) {
 			ret = wait_event_interruptible(
 				devp->ch_opened_wait_queue,
 				devp->ch_state == GLINK_CONNECTED);
@@ -831,10 +926,11 @@ int glink_pkt_open(struct inode *inode, struct file *file)
 			ret = wait_event_interruptible_timeout(
 				devp->ch_opened_wait_queue,
 				devp->ch_state == GLINK_CONNECTED,
-				msecs_to_jiffies(devp->open_time_wait * 1000));
+				msecs_to_jiffies(wait_time * 1000));
 			if (ret == 0)
 				ret = -ETIMEDOUT;
 		}
+		mutex_lock(&devp->ch_lock);
 		if (ret < 0) {
 			GLINK_PKT_ERR("%s: open failed on dev id:%d rc:%d\n",
 					__func__, devp->i, ret);
@@ -874,14 +970,24 @@ int glink_pkt_release(struct inode *inode, struct file *file)
 		devp->ref_cnt--;
 
 	if (devp->handle && devp->ref_cnt == 0) {
-		devp->ch_state = GLINK_LOCAL_DISCONNECTED;
 		wake_up(&devp->ch_read_wait_queue);
 		wake_up_interruptible(&devp->ch_opened_wait_queue);
 		ret = glink_close(devp->handle);
-		if (ret)
+		if (ret)  {
 			GLINK_PKT_ERR("%s: close failed ret[%d]\n",
 						__func__, ret);
-		devp->handle = NULL;
+		} else {
+			mutex_unlock(&devp->ch_lock);
+			ret = wait_event_interruptible_timeout(
+				devp->ch_closed_wait_queue,
+				devp->ch_state == GLINK_LOCAL_DISCONNECTED,
+				msecs_to_jiffies(CLOSE_WAIT_TIMEOUT));
+			if (ret == 0)
+				GLINK_PKT_ERR(
+				"%s(): close TIMEOUT on dev_id[%d]\n",
+				__func__, devp->i);
+			mutex_lock(&devp->ch_lock);
+		}
 		devp->poll_mode = 0;
 		devp->ws_locked = 0;
 		devp->sigs_updated = false;
@@ -928,9 +1034,12 @@ static int glink_pkt_init_add_device(struct glink_pkt_dev *devp, int i)
 	devp->poll_mode = 0;
 	devp->ws_locked = 0;
 	devp->ch_state = GLINK_LOCAL_DISCONNECTED;
+	/* Default timeout for open wait is 120sec */
+	devp->open_time_wait = 120;
 	mutex_init(&devp->ch_lock);
 	init_waitqueue_head(&devp->ch_read_wait_queue);
 	init_waitqueue_head(&devp->ch_opened_wait_queue);
+	init_waitqueue_head(&devp->ch_closed_wait_queue);
 	spin_lock_init(&devp->pa_spinlock);
 	INIT_LIST_HEAD(&devp->pkt_list);
 	mutex_init(&devp->pkt_list_lock);
