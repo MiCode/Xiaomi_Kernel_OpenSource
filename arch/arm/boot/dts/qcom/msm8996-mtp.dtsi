@@ -446,6 +446,15 @@
 		qcom,master-en = <1>;	/* ENABLE GPIO */
 		status = "okay";
 	};
+
+	gpio@c900 { /* GPIO 10 - HPH_EN1 */
+		qcom,mode = <1>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
+		status = "okay";
+	};
 };
 
 &pmi8994_mpps {
@@ -538,9 +547,41 @@
 
 	sound-9335 {
 		qcom,model = "msm8996-tasha-mtp-snd-card";
+
+		qcom,audio-routing =
+			"RX_BIAS", "MCLK",
+			"hifi amp", "LINEOUT1",
+			"hifi amp", "LINEOUT2",
+			"AMIC2", "MIC BIAS2",
+			"MIC BIAS2", "Headset Mic",
+			"AMIC3", "MIC BIAS2",
+			"MIC BIAS2", "ANCRight Headset Mic",
+			"AMIC4", "MIC BIAS2",
+			"MIC BIAS2", "ANCLeft Headset Mic",
+			"AMIC5", "MIC BIAS3",
+			"MIC BIAS3", "Handset Mic",
+			"AMIC6", "MIC BIAS4",
+			"MIC BIAS4", "Analog Mic6",
+			"DMIC0", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic0",
+			"DMIC1", "MIC BIAS1",
+			"MIC BIAS1", "Digital Mic1",
+			"DMIC2", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic2",
+			"DMIC3", "MIC BIAS3",
+			"MIC BIAS3", "Digital Mic3",
+			"DMIC4", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic4",
+			"DMIC5", "MIC BIAS4",
+			"MIC BIAS4", "Digital Mic5",
+			"SpkrLeft IN", "SPK1 OUT",
+			"SpkrRight IN", "SPK2 OUT";
+
 		qcom,hdmi-audio-rx;
 		asoc-codec = <&stub_codec>, <&hdmi_audio>;
 		asoc-codec-names = "msm-stub-codec.1", "msm-hdmi-audio-codec-rx";
+		qcom,hph-en1-gpio = <&pmi8994_gpios 10 0>;
+		qcom,hph-en0-gpio = <&pm8994_gpios 13 0>;
 	};
 };
 
@@ -597,6 +638,17 @@
 		qcom,pull = <0>;
 		qcom,vin-sel = <2>;
 		qcom,src-sel = <0>;
+		status = "okay";
+	};
+
+	gpio@cc00 { /* GPIO 13 - HPH_EN0 */
+		qcom,mode = <1>;
+		qcom,output-type = <0>;
+		qcom,pull = <5>;
+		qcom,vin-sel = <2>;
+		qcom,out-strength = <1>;
+		qcom,src-sel = <2>;
+		qcom,master-en = <1>;
 		status = "okay";
 	};
 
