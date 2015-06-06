@@ -136,6 +136,14 @@ struct bio {
  */
 #define BIO_DONTFREE 14
 
+/*
+ * Added for Req based dm which need to perform post processing. This flag
+ * ensures blk_update_request does not free the bios or request, this is done
+ * at the dm level
+ */
+#define BIO_DONTFREE 14
+#define BIO_INLINECRYPT 15
+
 #define bio_flagged(bio, flag)	((bio)->bi_flags & (1 << (flag)))
 
 /*
