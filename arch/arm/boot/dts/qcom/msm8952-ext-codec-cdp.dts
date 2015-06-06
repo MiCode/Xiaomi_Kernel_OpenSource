@@ -87,7 +87,19 @@
 			"DMIC5", "MIC BIAS4 External",
 			"MIC BIAS4 External", "Digital Mic5",
 			"DMIC6", "MIC BIAS4 External",
-			"MIC BIAS4 External", "Digital Mic6";
+			"MIC BIAS4 External", "Digital Mic6",
+			"MIC BIAS1 Internal1", "MICBIAS_REGULATOR",
+			"MIC BIAS1 Internal2", "MICBIAS_REGULATOR",
+			"MIC BIAS1 External", "MICBIAS_REGULATOR",
+			"MIC BIAS2 Internal1", "MICBIAS_REGULATOR",
+			"MIC BIAS2 Internal2", "MICBIAS_REGULATOR",
+			"MIC BIAS2 Internal3", "MICBIAS_REGULATOR",
+			"MIC BIAS2 External", "MICBIAS_REGULATOR",
+			"MIC BIAS3 Internal1", "MICBIAS_REGULATOR",
+			"MIC BIAS3 Internal2", "MICBIAS_REGULATOR",
+			"MIC BIAS3 External", "MICBIAS_REGULATOR",
+			"MIC BIAS4 External", "MICBIAS_REGULATOR";
+
 		asoc-platform = <&pcm0>, <&pcm1>, <&pcm2>, <&voip>, <&voice>,
 				<&loopback>, <&compress>, <&hostless>,
 				<&afe>, <&lsm>, <&routing>, <&lpa>, <&cpe>;
@@ -184,12 +196,18 @@
 		qcom,cdc-vddcx-2-voltage = <1300000 1300000>;
 		qcom,cdc-vddcx-2-current = <20000>;
 
+		cdc-vdd-mic-bias-supply = <&pm8950_l13>;
+		qcom,cdc-vdd-mic-bias-voltage = <3075000 3075000>;
+		qcom,cdc-vdd-mic-bias-current = <15000>;
+
 		qcom,cdc-static-supplies = "cdc-vdd-buck",
 			"cdc-vdd-tx-h",
 			"cdc-vdd-rx-h",
 			"cdc-vdd-px",
 			"cdc-vddcx-1",
 			"cdc-vddcx-2";
+
+		qcom,cdc-on-demand-supplies = "cdc-vdd-mic-bias";
 
 		qcom,cdc-cp-supplies = "cdc-vdd-buck";
 		qcom,cdc-micbias-ldoh-v = <0x3>;
