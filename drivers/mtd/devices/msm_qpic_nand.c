@@ -32,6 +32,9 @@ static void *msm_nand_get_dma_buffer(struct msm_nand_chip *chip, size_t size)
 			- 1;
 	bitmask = atomic_read(&chip->dma_buffer_busy);
 	free_bitmask = ~bitmask;
+	if (free_bitmask == 0)
+		return NULL;
+
 	do {
 		free_index = __ffs(free_bitmask);
 		current_need_mask = need_mask << free_index;
