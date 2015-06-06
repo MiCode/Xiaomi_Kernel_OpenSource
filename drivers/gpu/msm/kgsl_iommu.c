@@ -1182,7 +1182,7 @@ kgsl_iommu_map(struct kgsl_pagetable *pt,
 
 	addr = (unsigned int) memdesc->gpuaddr;
 
-	flags = IOMMU_READ | IOMMU_WRITE | IOMMU_NOEXEC;
+	flags = IOMMU_READ | IOMMU_WRITE;
 
 	/* Set up the protection for the page(s) */
 	if (memdesc->flags & KGSL_MEMFLAGS_GPUREADONLY)
