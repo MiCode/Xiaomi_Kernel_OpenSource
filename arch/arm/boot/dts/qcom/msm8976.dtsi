@@ -244,6 +244,7 @@
 #include "msm8976-coresight.dtsi"
 #include "msm8976-pm.dtsi"
 #include "msm8976-gpu.dtsi"
+#include "msm8976-mdss-pll.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -402,6 +403,12 @@
 		compatible = "qcom,gcc-mdss-8976";
 		reg = <0x1800000 0x80000>;
                 reg-names = "cc_base";
+		clocks = <&mdss_dsi0_pll clk_dsi_pll0_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_dsi_pll0_byte_clk_src>,
+			 <&mdss_dsi0_pll clk_dsi_pll0_pixel_clk_src>,
+			 <&mdss_dsi0_pll clk_dsi_pll0_byte_clk_src>;
+		clock-names = "pclk0_src", "byte0_src", "pclk1_src",
+				 "byte1_src";
 		#clock-cells = <1>;
 	};
 
