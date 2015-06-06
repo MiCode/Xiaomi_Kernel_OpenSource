@@ -1285,6 +1285,16 @@ static int msm_afe_set_config(struct snd_soc_codec *codec)
 	}
 
 	config_data = msm8996_codec_fn.get_afe_config_fn(codec,
+			AFE_CDC_REGISTER_PAGE_CONFIG);
+	if (config_data) {
+		rc = afe_set_config(AFE_CDC_REGISTER_PAGE_CONFIG, config_data,
+				    0);
+		if (rc)
+			pr_err("%s: Failed to set cdc register page config\n",
+				__func__);
+	}
+
+	config_data = msm8996_codec_fn.get_afe_config_fn(codec,
 			AFE_SLIMBUS_SLAVE_CONFIG);
 	if (config_data) {
 		rc = afe_set_config(AFE_SLIMBUS_SLAVE_CONFIG, config_data, 0);
