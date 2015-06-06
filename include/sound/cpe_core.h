@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2014, Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2015, Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -16,15 +16,20 @@
 
 #include <linux/types.h>
 #include <linux/wait.h>
-#include <linux/msm_ion.h>
 #include <linux/dma-mapping.h>
 #include <sound/lsm_params.h>
-#include <linux/mfd/wcd9xxx/wcd9xxx-slimslave.h>
 
 enum {
 	CMD_INIT_STATE = 0,
 	CMD_SENT,
 	CMD_RESP_RCVD,
+};
+
+enum wcd_cpe_event {
+	WCD_CPE_PRE_ENABLE = 1,
+	WCD_CPE_POST_ENABLE,
+	WCD_CPE_PRE_DISABLE,
+	WCD_CPE_POST_DISABLE,
 };
 
 struct wcd_cpe_afe_port_cfg {
@@ -34,47 +39,13 @@ struct wcd_cpe_afe_port_cfg {
 	u32 sample_rate;
 };
 
-enum wcd_cpe_lab_thread {
-	MSM_LSM_LAB_THREAD_STOP,
-	MSM_LSM_LAB_THREAD_RUNNING,
-	MSM_LSM_LAB_THREAD_ERROR,
-};
-
-struct wcd_cpe_data_pcm_buf {
-	u8 *mem;
-	phys_addr_t phys;
-};
-
-struct wcd_cpe_lab_hw_params {
-	u16 sample_rate;
-	u16 sample_size;
-	u32 buf_sz;
-	u32 period_count;
-};
-
-struct wcd_cpe_lsm_lab {
-	u32 lab_enable;
-	void *slim_handle;
-	void *core_handle;
-	atomic_t in_count;
-	atomic_t abort_read;
-	u32 dma_write;
-	u32 buf_idx;
-	u32 pcm_size;
-	enum wcd_cpe_lab_thread thread_status;
-	struct cpe_lsm_session *lsm_s;
-	struct snd_pcm_substream *substream;
-	struct wcd_cpe_lab_hw_params hw_params;
-	struct wcd_cpe_data_pcm_buf *pcm_buf;
-	wait_queue_head_t period_wait;
-	struct completion thread_complete;
-};
-
 struct cpe_lsm_session {
 	/* sound model related */
 	void *snd_model_data;
 	u8 *conf_levels;
 	void *cmi_reg_handle;
+
+	/* Clients private data */
 	void *priv_d;
 
 	void (*event_cb) (void *priv_data,
@@ -91,8 +62,9 @@ struct cpe_lsm_session {
 	u8 id;
 	u8 num_confidence_levels;
 	struct task_struct *lsm_lab_thread;
-	struct wcd_cpe_lsm_lab lab;
 	bool started;
+
+	u32 lab_enable;
 };
 
 struct wcd_cpe_afe_ops {
@@ -150,21 +122,11 @@ struct wcd_cpe_lsm_ops {
 
 	int (*lsm_lab_control)(void *core_handle,
 			       struct cpe_lsm_session *session,
-			       u32 bufsz, u32 bufcnt,
 			       bool enable);
 
-	int (*lsm_lab_stop)(void *core_handle, struct cpe_lsm_session *session);
-
-	int (*lsm_lab_data_channel_open)(void *core_handle,
-				       struct cpe_lsm_session *session);
-	int (*lsm_lab_data_channel_read_status)(void *core_handle,
-					struct cpe_lsm_session *session,
-					phys_addr_t phys, u32 *len);
-
-	int (*lsm_lab_data_channel_read)(void *core_handle,
-				struct cpe_lsm_session *session,
-				phys_addr_t phys, u8 *mem,
-				u32 read_len);
+	int (*lab_ch_setup)(void *core_handle,
+				   struct cpe_lsm_session *session,
+				   enum wcd_cpe_event event);
 
 	int (*lsm_set_data) (void *core_handle,
 			struct cpe_lsm_session *session,
