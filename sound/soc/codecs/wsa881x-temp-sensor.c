@@ -29,8 +29,9 @@
 #define WSA881X_TEMP_DOUT_MSB	0x000A
 #define WSA881X_TEMP_DOUT_LSB	0x000B
 #define TEMP_INVALID	0xFFFF
+#define WSA881X_THERMAL_TEMP_OP 0x0003
 
-static void calculate_temp(long temp_val, int dmeas,
+static void calculate_temp(long *temp_val, int dmeas,
 			struct snd_soc_codec *codec,
 			int dig_base_addr)
 {
@@ -49,10 +50,10 @@ static void calculate_temp(long temp_val, int dmeas,
 	d2 = ((d2_msb << 0x8) | d2_lsb) >> 0x6;
 
 	if (d1 == d2) {
-		temp_val = TEMP_INVALID;
+		*temp_val = TEMP_INVALID;
 		return;
 	}
-	temp_val = t1 + ((dmeas - d1)/(d2 - d1)) * (t2 - t1);
+	*temp_val = t1 + ((dmeas - d1)/(d2 - d1)) * (t2 - t1);
 }
 
 static int wsa881x_get_temp(struct thermal_zone_device *thermal,
@@ -82,6 +83,9 @@ static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 		pr_err("%s: wsa acquire failed: %d\n", __func__, ret);
 		return ret;
 	}
+	snd_soc_update_bits(codec,
+			    pdata->ana_base + WSA881X_THERMAL_TEMP_OP,
+			    0x04, 0x04);
 	dmeas_cur_msb =
 		snd_soc_read(codec,
 			pdata->ana_base + WSA881X_TEMP_DOUT_MSB);
@@ -90,7 +94,7 @@ static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 			pdata->ana_base + WSA881X_TEMP_DOUT_LSB);
 	dmeas = ((dmeas_cur_msb << 0x8) | dmeas_cur_lsb) >> 0x6;
 	pr_debug("%s: dmeas: %d\n", __func__, dmeas);
-	calculate_temp(temp_val, dmeas, codec, pdata->dig_base);
+	calculate_temp(&temp_val, dmeas, codec, pdata->dig_base);
 	if (temp_val <= LOW_TEMP_THRESHOLD ||
 			temp_val >= HIGH_TEMP_THRESHOLD) {
 		ret = -EAGAIN;
