@@ -426,6 +426,7 @@ rename:
 	if (ret)
 		goto err_put_group;
 
+
 	/* Notify any listeners about change to group. */
 	blocking_notifier_call_chain(&group->notifier,
 				     IOMMU_GROUP_NOTIFY_ADD_DEVICE, dev);
@@ -1077,6 +1078,7 @@ static struct iommu_domain *__iommu_domain_alloc(struct bus_type *bus,
 	domain->type = type;
 	/* Assume all sizes by default; the driver may override this later */
 	domain->pgsize_bitmap  = bus->iommu_ops->pgsize_bitmap;
+	memset(domain->name, 0, IOMMU_DOMAIN_NAME_LEN);
 
 	return domain;
 }
@@ -1105,6 +1107,11 @@ static int __iommu_attach_device(struct iommu_domain *domain,
 	if (!ret) {
 		trace_attach_device_to_domain(dev);
 		iommu_debug_attach_device(domain, dev);
+
+		if (!strnlen(domain->name, IOMMU_DOMAIN_NAME_LEN)) {
+			strlcpy(domain->name, dev_name(dev),
+				IOMMU_DOMAIN_NAME_LEN);
+		}
 	}
 	return ret;
 }
@@ -1398,7 +1405,7 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	if (ret)
 		iommu_unmap(domain, orig_iova, orig_size - size);
 	else
-		trace_map(orig_iova, orig_paddr, orig_size);
+		trace_map(domain, orig_iova, orig_paddr, orig_size, prot);
 
 	return ret;
 }
@@ -1451,10 +1458,22 @@ size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova, size_t size)
 		unmapped += unmapped_page;
 	}
 
-	trace_unmap(orig_iova, size, unmapped);
+	trace_unmap(domain, orig_iova, size, unmapped);
 	return unmapped;
 }
 EXPORT_SYMBOL_GPL(iommu_unmap);
+
+size_t iommu_map_sg(struct iommu_domain *domain,
+				  unsigned long iova, struct scatterlist *sg,
+				  unsigned int nents, int prot)
+{
+	size_t mapped;
+
+	mapped = domain->ops->map_sg(domain, iova, sg, nents, prot);
+	trace_map_sg(domain, iova, mapped, prot);
+	return mapped;
+}
+EXPORT_SYMBOL(iommu_map_sg);
 
 size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 			 struct scatterlist *sg, unsigned int nents, int prot)
