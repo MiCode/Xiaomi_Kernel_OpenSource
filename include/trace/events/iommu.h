@@ -113,6 +113,20 @@ DEFINE_EVENT(iommu_map_unmap, map,
 	TP_ARGS(iova, paddr, size)
 );
 
+DEFINE_EVENT(iommu_map_unmap, map_start,
+
+	TP_PROTO(unsigned long iova, phys_addr_t paddr, size_t size),
+
+	TP_ARGS(iova, paddr, size)
+);
+
+DEFINE_EVENT(iommu_map_unmap, map_end,
+
+	TP_PROTO(unsigned long iova, phys_addr_t paddr, size_t size),
+
+	TP_ARGS(iova, paddr, size)
+);
+
 DEFINE_EVENT_PRINT(iommu_map_unmap, unmap,
 
 	TP_PROTO(unsigned long iova, phys_addr_t paddr, size_t size),
@@ -122,6 +136,63 @@ DEFINE_EVENT_PRINT(iommu_map_unmap, unmap,
 	TP_printk("IOMMU: iova=0x%016llx size=0x%x",
 			__entry->iova, __entry->size
 	)
+);
+
+DEFINE_EVENT_PRINT(iommu_map_unmap, unmap_start,
+
+	TP_PROTO(unsigned long iova, phys_addr_t paddr, size_t size),
+
+	TP_ARGS(iova, paddr, size),
+
+	TP_printk("IOMMU: iova=0x%016llx size=0x%x",
+			__entry->iova, __entry->size
+	)
+);
+
+DEFINE_EVENT_PRINT(iommu_map_unmap, unmap_end,
+
+	TP_PROTO(unsigned long iova, phys_addr_t paddr, size_t size),
+
+	TP_ARGS(iova, paddr, size),
+
+	TP_printk("IOMMU: iova=0x%016llx size=0x%x",
+			__entry->iova, __entry->size
+	)
+);
+
+DECLARE_EVENT_CLASS(iommu_map_sg,
+
+	TP_PROTO(unsigned long iova, unsigned int nents),
+
+	TP_ARGS(iova, nents),
+
+	TP_STRUCT__entry(
+		__field(u64, iova)
+		__field(int, nents)
+	),
+
+	TP_fast_assign(
+		__entry->iova = iova;
+		__entry->nents = nents;
+	),
+
+	TP_printk("IOMMU: iova=0x%016llx nents=%u",
+			__entry->iova, __entry->nents
+	)
+);
+
+DEFINE_EVENT(iommu_map_sg, map_sg_start,
+
+	TP_PROTO(unsigned long iova, unsigned int nents),
+
+	TP_ARGS(iova, nents)
+);
+
+DEFINE_EVENT(iommu_map_sg, map_sg_end,
+
+	TP_PROTO(unsigned long iova, unsigned int nents),
+
+	TP_ARGS(iova, nents)
 );
 
 DECLARE_EVENT_CLASS(iommu_error,
