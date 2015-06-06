@@ -16,6 +16,11 @@
 
 #include "scsi_priv.h"
 
+#ifdef CONFIG_PM_RUNTIME
+static int do_scsi_runtime_resume(struct device *dev,
+				   const struct dev_pm_ops *pm);
+#endif
+
 #ifdef CONFIG_PM_SLEEP
 
 static int do_scsi_suspend(struct device *dev, const struct dev_pm_ops *pm)
@@ -77,7 +82,7 @@ static int scsi_dev_type_resume(struct device *dev,
 	scsi_device_resume(to_scsi_device(dev));
 	dev_dbg(dev, "scsi resume: %d\n", err);
 
-	if (err == 0) {
+	if (err == 0 && (cb != do_scsi_runtime_resume)) {
 		pm_runtime_disable(dev);
 		pm_runtime_set_active(dev);
 		pm_runtime_enable(dev);
