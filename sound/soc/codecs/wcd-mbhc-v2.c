@@ -628,7 +628,7 @@ exit:
 }
 
 /* To determine if cross connection occured */
-static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
+static int wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 {
 	u16 swap_res;
 	enum wcd_mbhc_plug_type plug_type = mbhc->current_plug;
@@ -637,7 +637,7 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 
 	if (wcd_swch_level_remove(mbhc)) {
 		pr_debug("%s: Switch level is low\n", __func__);
-		return false;
+		return -EINVAL;
 	}
 
 	WCD_MBHC_REG_READ(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
@@ -673,7 +673,7 @@ static bool wcd_check_cross_conn(struct wcd_mbhc *mbhc)
 	WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_ELECT_SCHMT_ISRC, reg1);
 	pr_debug("%s: leave, plug type: %d\n", __func__,  plug_type);
 
-	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? true : false;
+	return (plug_type == MBHC_PLUG_TYPE_GND_MIC_SWAP) ? 1 : 0;
 }
 
 static bool wcd_is_special_headset(struct wcd_mbhc *mbhc)
@@ -821,6 +821,7 @@ static void wcd_correct_swch_plug(struct work_struct *work)
 	bool micbias2 = false;
 	bool micbias1 = false;
 	int rc;
+	int ret = 0;
 
 	pr_debug("%s: enter\n", __func__);
 
@@ -888,7 +889,10 @@ correct_plug_type:
 						WCD_MBHC_EN_NONE);
 			goto exit;
 		}
-		mbhc->btn_press_intr = false;
+		if (mbhc->btn_press_intr) {
+			wcd_cancel_btn_work(mbhc);
+			mbhc->btn_press_intr = false;
+		}
 		/* Toggle FSM */
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 0);
 		WCD_MBHC_REG_UPDATE_BITS(WCD_MBHC_FSM_EN, 1);
@@ -914,8 +918,11 @@ correct_plug_type:
 		 */
 		msleep(180);
 		if ((!hs_comp_res) && (!is_pa_on)) {
+			ret = wcd_check_cross_conn(mbhc);
 			/* Check for cross connection*/
-			if (wcd_check_cross_conn(mbhc)) {
+			if (ret < 0) {
+				continue;
+			} else if (ret > 0) {
 				pt_gnd_mic_swap_cnt++;
 				no_gnd_mic_swap_cnt = 0;
 				if (pt_gnd_mic_swap_cnt <
@@ -1045,7 +1052,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 	struct snd_soc_codec *codec = mbhc->codec;
 	enum wcd_mbhc_plug_type plug_type;
 	bool micbias1 = false;
-	bool cross_conn;
+	int cross_conn;
 	int try = 0;
 
 	pr_debug("%s: enter\n", __func__);
@@ -1067,7 +1074,7 @@ static void wcd_mbhc_detect_plug_type(struct wcd_mbhc *mbhc)
 		try++;
 	} while (try < GND_MIC_SWAP_THRESHOLD);
 
-	if (cross_conn) {
+	if (cross_conn > 0) {
 		pr_debug("%s: cross con found, start polling\n",
 			 __func__);
 		plug_type = MBHC_PLUG_TYPE_GND_MIC_SWAP;
