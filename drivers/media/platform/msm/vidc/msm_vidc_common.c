@@ -1441,6 +1441,10 @@ static void handle_ebd(enum hal_command_response cmd, void *data)
 				dprintk(VIDC_INFO,
 					"Failed: Start code not found\n");
 			}
+			if (empty_buf_done->flags & HAL_BUFFERFLAG_SYNCFRAME)
+				vb->v4l2_buf.flags |=
+					V4L2_QCOM_BUF_FLAG_IDRFRAME |
+					V4L2_BUF_FLAG_KEYFRAME;
 		}
 		dprintk(VIDC_DBG,
 			"Got ebd from hal: device_addr: %pa, alloc: %d, status: %#x, pic_type: %#x, flags: %#x\n",
@@ -1748,12 +1752,13 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 				vb->v4l2_planes[extra_idx].length);
 		}
 		dprintk(VIDC_DBG,
-		"Got fbd from hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: %#x, crop: %d %d %d %d, pic_type: %#x\n",
+		"Got fbd from hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags: %#x, crop: %d %d %d %d, pic_type: %#x, mark_data: %d\n",
 		&fill_buf_done->packet_buffer1, fill_buf_done->alloc_len1,
 		fill_buf_done->filled_len1, fill_buf_done->offset1, time_usec,
 		fill_buf_done->flags1, fill_buf_done->start_x_coord,
 		fill_buf_done->start_y_coord, fill_buf_done->frame_width,
-		fill_buf_done->frame_height, fill_buf_done->picture_type);
+		fill_buf_done->frame_height, fill_buf_done->picture_type,
+		fill_buf_done->mark_data);
 
 		mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
@@ -3293,12 +3298,21 @@ int msm_comm_qbuf(struct vb2_buffer *vb)
 				frame_data.flags |= HAL_BUFFERFLAG_EXTRADATA;
 			}
 
+			if (msm_comm_g_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE)) {
+				frame_data.mark_data =
+					frame_data.mark_target = 0xdeadbeef;
+			} else {
+				frame_data.mark_data =
+					frame_data.mark_target = 0;
+			}
+
 			dprintk(VIDC_DBG,
-				"Sending etb to hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags = %#x, v4l2_buf index = %d\n",
+				"Sending etb to hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags = %#x, v4l2_buf index = %d, mark_data: %d\n",
 				&frame_data.device_addr, frame_data.alloc_len,
 				frame_data.filled_len, frame_data.offset,
 				frame_data.timestamp, frame_data.flags,
-				vb->v4l2_buf.index);
+				vb->v4l2_buf.index, frame_data.mark_data);
 
 			msm_dcvs_check_and_scale_clocks(inst, true);
 			rc = call_hfi_op(hdev, session_etb, (void *)

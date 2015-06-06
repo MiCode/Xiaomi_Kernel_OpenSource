@@ -100,6 +100,7 @@ static int get_device_address(struct smem_client *smem_client,
 		if (rc != table->nents) {
 			dprintk(VIDC_ERR, "dma_map_sg failed! (%d != %d)\n",
 				rc, table->nents);
+			rc = -ENOMEM;
 			goto mem_map_sg_failed;
 		}
 		if (table->sgl) {
