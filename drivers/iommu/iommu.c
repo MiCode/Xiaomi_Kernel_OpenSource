@@ -1035,9 +1035,12 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	size_t orig_size = size;
 	int ret = 0;
 
+	trace_map_start(iova, paddr, size);
 	if (unlikely(domain->ops->map == NULL ||
-		     domain->ops->pgsize_bitmap == 0UL))
+		     domain->ops->pgsize_bitmap == 0UL)) {
+		trace_map_end(iova, paddr, size);
 		return -ENODEV;
+	}
 
 	/* find out the minimum page size supported */
 	min_pagesz = 1 << __ffs(domain->ops->pgsize_bitmap);
@@ -1050,6 +1053,7 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	if (!IS_ALIGNED(iova | paddr | size, min_pagesz)) {
 		pr_err("unaligned: iova 0x%lx pa %pa size 0x%zx min_pagesz 0x%x\n",
 		       iova, &paddr, size, min_pagesz);
+		trace_map_end(iova, paddr, size);
 		return -EINVAL;
 	}
 
@@ -1077,6 +1081,7 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	else
 		trace_map(iova, paddr, size);
 
+	trace_map_end(iova, paddr, size);
 	return ret;
 }
 EXPORT_SYMBOL_GPL(iommu_map);
@@ -1086,10 +1091,12 @@ size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova, size_t size)
 	size_t unmapped_page, unmapped = 0;
 	unsigned int min_pagesz;
 
+	trace_unmap_start(iova, 0, size);
 	if (unlikely(domain->ops->unmap == NULL ||
-		     domain->ops->pgsize_bitmap == 0UL))
+		     domain->ops->pgsize_bitmap == 0UL)) {
+		trace_unmap_end(iova, 0, size);
 		return -ENODEV;
-
+	}
 	/* find out the minimum page size supported */
 	min_pagesz = 1 << __ffs(domain->ops->pgsize_bitmap);
 
@@ -1101,6 +1108,7 @@ size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova, size_t size)
 	if (!IS_ALIGNED(iova | size, min_pagesz)) {
 		pr_err("unaligned: iova 0x%lx size 0x%zx min_pagesz 0x%x\n",
 		       iova, size, min_pagesz);
+		trace_unmap_end(iova, 0, size);
 		return -EINVAL;
 	}
 
@@ -1125,6 +1133,7 @@ size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova, size_t size)
 	}
 
 	trace_unmap(iova, 0, size);
+	trace_unmap_end(iova, 0, size);
 	return unmapped;
 }
 EXPORT_SYMBOL_GPL(iommu_unmap);

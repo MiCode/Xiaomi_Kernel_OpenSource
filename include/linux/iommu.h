@@ -262,7 +262,12 @@ static inline size_t iommu_map_sg(struct iommu_domain *domain,
 				  unsigned long iova, struct scatterlist *sg,
 				  unsigned int nents, int prot)
 {
-	return domain->ops->map_sg(domain, iova, sg, nents, prot);
+	size_t ret;
+
+	trace_map_sg_start(iova, nents);
+	ret = domain->ops->map_sg(domain, iova, sg, nents, prot);
+	trace_map_sg_end(iova, nents);
+	return ret;
 }
 
 extern int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
