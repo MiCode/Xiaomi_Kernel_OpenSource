@@ -1006,6 +1006,7 @@ static int kgsl_iommu_start(struct kgsl_mmu *mmu)
 	kgsl_map_global_pt_entries(mmu->defaultpagetable);
 
 	kgsl_iommu_enable_clk(mmu);
+	KGSL_IOMMU_SET_CTX_REG(iommu, 0, TLBIALL, 1);
 
 	/* Get the lsb value of pagetables set in the IOMMU ttbr0 register as
 	 * that value should not change when we change pagetables, so while
