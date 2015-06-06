@@ -524,6 +524,8 @@ struct mdss_mdp_pipe {
 	u8 chroma_sample_v;
 
 	wait_queue_head_t free_waitq;
+
+	u32 frame_rate;
 };
 
 struct mdss_mdp_writeback_arg {
