@@ -12,3 +12,72 @@
  */
 
 #include "msm8976-qrd.dtsi"
+
+&i2c_4 { /* BLSP1 QUP4 */
+	synaptics@20 {
+		compatible = "synaptics,rmi4";
+		reg = <0x20>;
+		interrupt-parent = <&msm_gpio>;
+		interrupts = <65 0x2008>;
+		vdd-supply = <&pm8950_l17>;
+		vcc_i2c-supply = <&pm8950_l6>;
+		/* pins used by touchscreen */
+		pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";
+		pinctrl-0 = <&ts_int_active &ts_reset_active>;
+		pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;
+		pinctrl-2 = <&ts_release>;
+		synaptics,display-coords = <0 0 1079 1919>;
+		synaptics,panel-coords = <0 0 1079 2084>;
+		synaptics,irq-gpio = <&msm_gpio 65 0x2008>;
+		synaptics,reset-gpio = <&msm_gpio 64 0x0>;
+		synaptics,i2c-pull-up;
+		synaptics,power-down;
+		synaptics,disable-gpios;
+		synaptics,button-map = <139 172 158>;
+	};
+};
+
+&soc {
+	gen-vkeys {
+		compatible = "qcom,gen-vkeys";
+		label = "synaptics_rmi4_i2c";
+		qcom,disp-maxx = <1079>;
+		qcom,disp-maxy = <1919>;
+		qcom,panel-maxx = <1079>;
+		qcom,panel-maxy = <2084>;
+		qcom,key-codes = <139 172 158>;
+	};
+
+	gpio_keys {
+		compatible = "gpio-keys";
+		input-name = "gpio-keys";
+		pinctrl-names = "tlmm_gpio_key_active","tlmm_gpio_key_suspend";
+		pinctrl-0 = <&gpio_key_active>;
+		pinctrl-1 = <&gpio_key_suspend>;
+
+		vol_up {
+			label = "volume_up";
+			gpios = <&msm_gpio 113 0x1>;
+			linux,input-type = <1>;
+			linux,code = <115>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+
+		home {
+			label = "home";
+			gpios = <&msm_gpio 112 0x1>;
+			linux,input-type = <1>;
+			linux,code = <102>;
+			gpio-key,wakeup;
+			debounce-interval = <15>;
+		};
+	};
+};
+
+&tlmm_pinmux {
+	tlmm_gpio_key {
+		qcom,pins = <&gp 112>, <&gp 113>;
+		qcom,num-grp-pins = <2>;
+	};
+};
