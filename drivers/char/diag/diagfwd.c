@@ -719,7 +719,7 @@ static int diag_cmd_disable_hdlc(unsigned char *src_buf, int src_len,
 	return write_len;
 }
 
-static void diag_send_error_rsp(unsigned char *buf, int len)
+void diag_send_error_rsp(unsigned char *buf, int len)
 {
 	/* -1 to accomodate the first byte 0x13 */
 	if (len > (DIAG_MAX_RSP_SIZE - 1)) {

@@ -42,6 +42,7 @@ int diag_check_common_cmd(struct diag_pkt_header_t *header);
 void diag_update_userspace_clients(unsigned int type);
 void diag_update_sleeping_process(int process_id, int data_type);
 int diag_process_apps_pkt(unsigned char *buf, int len);
+void diag_send_error_rsp(unsigned char *buf, int len);
 void diag_update_pkt_buffer(unsigned char *buf, uint32_t len, int type);
 int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf);
 #endif
