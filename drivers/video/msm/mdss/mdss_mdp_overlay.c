@@ -2110,21 +2110,6 @@ static int __mdss_mdp_overlay_release_all(struct msm_fb_data_type *mfd,
 	return cnt;
 }
 
-static int mdss_mdp_overlay_play_wait(struct msm_fb_data_type *mfd,
-				      struct msmfb_overlay_data *req)
-{
-	int ret = 0;
-
-	if (!mfd)
-		return -ENODEV;
-
-	ret = mfd->mdp.kickoff_fnc(mfd, NULL);
-	if (!ret)
-		pr_err("error displaying\n");
-
-	return ret;
-}
-
 static int mdss_mdp_overlay_queue(struct msm_fb_data_type *mfd,
 				  struct msmfb_overlay_data *req)
 {
@@ -4120,11 +4105,11 @@ validate_exit:
 static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 					  u32 cmd, void __user *argp)
 {
-	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
 	struct mdp_overlay *req = NULL;
 	int val, ret = -ENOSYS;
 	struct msmfb_metadata metadata;
 	struct mdp_pp_feature_version pp_feature_version;
+	struct msmfb_overlay_data data;
 
 	switch (cmd) {
 	case MSMFB_MDP_PP:
@@ -4187,53 +4172,20 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			pr_debug("OVERLAY_SET failed (%d)\n", ret);
 		break;
 
-
 	case MSMFB_OVERLAY_UNSET:
 		if (!IS_ERR_VALUE(copy_from_user(&val, argp, sizeof(val))))
 			ret = mdss_mdp_overlay_unset(mfd, val);
 		break;
 
-	case MSMFB_OVERLAY_PLAY_ENABLE:
-		if (!copy_from_user(&val, argp, sizeof(val))) {
-			mdp5_data->overlay_play_enable = val;
-			ret = 0;
-		} else {
-			pr_err("OVERLAY_PLAY_ENABLE failed (%d)\n", ret);
-			ret = -EFAULT;
-		}
-		break;
-
 	case MSMFB_OVERLAY_PLAY:
-		if (mdp5_data->overlay_play_enable) {
-			struct msmfb_overlay_data data;
+		ret = copy_from_user(&data, argp, sizeof(data));
+		if (!ret)
+			ret = mdss_mdp_overlay_play(mfd, &data);
 
-			ret = copy_from_user(&data, argp, sizeof(data));
-			if (!ret)
-				ret = mdss_mdp_overlay_play(mfd, &data);
-
-			if (ret)
-				pr_debug("OVERLAY_PLAY failed (%d)\n", ret);
-		} else {
-			ret = 0;
-		}
+		if (ret)
+			pr_debug("OVERLAY_PLAY failed (%d)\n", ret);
 		break;
 
-	case MSMFB_OVERLAY_PLAY_WAIT:
-		if (mdp5_data->overlay_play_enable) {
-			struct msmfb_overlay_data data;
-
-			ret = copy_from_user(&data, argp, sizeof(data));
-			if (!ret)
-				ret = mdss_mdp_overlay_play_wait(mfd, &data);
-
-			if (ret)
-				pr_err("OVERLAY_PLAY_WAIT failed (%d)\n", ret);
-		} else {
-			ret = 0;
-		}
-		break;
-
-	case MSMFB_VSYNC_CTRL:
 	case MSMFB_OVERLAY_VSYNC_CTRL:
 		if (!copy_from_user(&val, argp, sizeof(val))) {
 			ret = mdss_mdp_overlay_vsync_ctrl(mfd, val);
@@ -4242,16 +4194,14 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 			ret = -EFAULT;
 		}
 		break;
-	case MSMFB_OVERLAY_COMMIT:
-		mdss_fb_wait_for_fence(&(mfd->mdp_sync_pt_data));
-		ret = mfd->mdp.kickoff_fnc(mfd, NULL);
-		break;
+
 	case MSMFB_METADATA_SET:
 		ret = copy_from_user(&metadata, argp, sizeof(metadata));
 		if (ret)
 			return ret;
 		ret = mdss_fb_set_metadata(mfd, &metadata);
 		break;
+
 	case MSMFB_METADATA_GET:
 		ret = copy_from_user(&metadata, argp, sizeof(metadata));
 		if (ret)
@@ -4260,9 +4210,11 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		if (!ret)
 			ret = copy_to_user(argp, &metadata, sizeof(metadata));
 		break;
+
 	case MSMFB_OVERLAY_PREPARE:
 		ret = __handle_ioctl_overlay_prepare(mfd, argp);
 		break;
+
 	default:
 		break;
 	}
@@ -4873,7 +4825,6 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 	mutex_init(&mdp5_data->ov_lock);
 	mutex_init(&mdp5_data->dfps_lock);
 	mdp5_data->hw_refresh = true;
-	mdp5_data->overlay_play_enable = true;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_LEFT] = MSMFB_NEW_REQUEST;
 	mdp5_data->cursor_ndx[CURSOR_PIPE_RIGHT] = MSMFB_NEW_REQUEST;
 

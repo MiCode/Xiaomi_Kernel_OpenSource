@@ -3725,12 +3725,8 @@ int mdss_compat_overlay_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 		break;
 	case MSMFB_OVERLAY_UNSET:
-	case MSMFB_OVERLAY_PLAY_ENABLE:
 	case MSMFB_OVERLAY_PLAY:
-	case MSMFB_OVERLAY_PLAY_WAIT:
-	case MSMFB_VSYNC_CTRL:
 	case MSMFB_OVERLAY_VSYNC_CTRL:
-	case MSMFB_OVERLAY_COMMIT:
 	case MSMFB_METADATA_SET:
 	case MSMFB_METADATA_GET:
 	default:
@@ -3783,12 +3779,8 @@ int mdss_fb_compat_ioctl(struct fb_info *info, unsigned int cmd,
 	case MSMFB_OVERLAY_GET:
 	case MSMFB_OVERLAY_SET:
 	case MSMFB_OVERLAY_UNSET:
-	case MSMFB_OVERLAY_PLAY_ENABLE:
 	case MSMFB_OVERLAY_PLAY:
-	case MSMFB_OVERLAY_PLAY_WAIT:
-	case MSMFB_VSYNC_CTRL:
 	case MSMFB_OVERLAY_VSYNC_CTRL:
-	case MSMFB_OVERLAY_COMMIT:
 	case MSMFB_METADATA_SET:
 	case MSMFB_METADATA_GET:
 	case MSMFB_OVERLAY_PREPARE:

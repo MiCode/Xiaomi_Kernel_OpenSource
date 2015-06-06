@@ -3985,18 +3985,13 @@ static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
 		((cmd == MSMFB_OVERLAY_PREPARE) ||
 		(cmd == MSMFB_BUFFER_SYNC) ||
 		(cmd == MSMFB_OVERLAY_PLAY) ||
+		(cmd == MSMFB_CURSOR) ||
+		(cmd == MSMFB_METADATA_GET) ||
+		(cmd == MSMFB_METADATA_SET) ||
+		(cmd == MSMFB_OVERLAY_GET) ||
 		(cmd == MSMFB_OVERLAY_UNSET) ||
 		(cmd == MSMFB_OVERLAY_SET))) {
 		ret = mdss_fb_wait_for_kickoff(mfd);
-	} else if ((cmd != MSMFB_VSYNC_CTRL) &&
-		(cmd != MSMFB_OVERLAY_VSYNC_CTRL) &&
-		(cmd != MSMFB_ASYNC_BLIT) &&
-		(cmd != MSMFB_BLIT) &&
-		(cmd != MSMFB_DISPLAY_COMMIT) &&
-		(cmd != MSMFB_NOTIFY_UPDATE) &&
-		(cmd != MSMFB_ATOMIC_COMMIT) &&
-		(cmd != MSMFB_OVERLAY_PREPARE)) {
-		ret = mdss_fb_pan_idle(mfd);
 	}
 
 	if (ret && (ret != -ESHUTDOWN))
@@ -4020,7 +4015,6 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 {
 	struct msm_fb_data_type *mfd;
 	void __user *argp = (void __user *)arg;
-	struct mdp_page_protection fb_page_protection;
 	int ret = -ENOSYS;
 	struct mdp_buf_sync buf_sync;
 	struct msm_sync_pt_data *sync_pt_data = NULL;
@@ -4058,15 +4052,6 @@ int mdss_fb_do_ioctl(struct fb_info *info, unsigned int cmd,
 
 	case MSMFB_SET_LUT:
 		ret = mdss_fb_set_lut(info, argp);
-		break;
-
-	case MSMFB_GET_PAGE_PROTECTION:
-		fb_page_protection.page_protection =
-			mfd->mdp_fb_page_protection;
-		ret = copy_to_user(argp, &fb_page_protection,
-				   sizeof(fb_page_protection));
-		if (ret)
-			goto exit;
 		break;
 
 	case MSMFB_BUFFER_SYNC:
