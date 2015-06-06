@@ -17,6 +17,8 @@ qcom,itech-3000mah-4200mv {
 	qcom,chg-term-ua = <100000>;
 	qcom,batt-id-kohm = <150>;
 	qcom,battery-beta = <3500>;
+	qcom,fastchg-current-ma = <3000>;
+	qcom,fg-cc-cv-threshold-mv = <4190>;
 	qcom,battery-type = "itech_3000mah_4200mv";
 	qcom,checksum = <0x5194>;
 	qcom,fg-profile-data = [
