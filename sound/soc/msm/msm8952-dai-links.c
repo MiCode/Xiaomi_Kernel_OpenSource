@@ -535,6 +535,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		.ignore_pmdown_time = 1,
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_VOICE2,
 	},
 	{/* hw:x,14 */
 		.name = "MSM8952 Media9",
@@ -747,7 +748,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		.codec_dai_name = "snd-soc-dummy-dai",
 		.codec_name = "snd-soc-dummy",
 	},
-	{/* hw:x,29 */
+	{/* hw:x,28 */
 		.name = "MSM8X16 Compress3",
 		.stream_name = "Compress3",
 		.cpu_dai_name	= "MultiMedia10",
@@ -762,7 +763,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA10,
 	},
-	{/* hw:x,30 */
+	{/* hw:x,29 */
 		.name = "MSM8X16 Compress4",
 		.stream_name = "Compress4",
 		.cpu_dai_name	= "MultiMedia11",
@@ -777,7 +778,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA11,
 	},
-	{/* hw:x,31 */
+	{/* hw:x,30 */
 		.name = "MSM8X16 Compress5",
 		.stream_name = "Compress5",
 		.cpu_dai_name	= "MultiMedia12",
@@ -792,7 +793,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA12,
 	},
-	{/* hw:x,32 */
+	{/* hw:x,31 */
 		.name = "MSM8X16 Compress6",
 		.stream_name = "Compress6",
 		.cpu_dai_name	= "MultiMedia13",
@@ -807,7 +808,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA13,
 	},
-	{/* hw:x,33 */
+	{/* hw:x,32 */
 		.name = "MSM8X16 Compress7",
 		.stream_name = "Compress7",
 		.cpu_dai_name	= "MultiMedia14",
@@ -822,7 +823,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA14,
 	},
-	{/* hw:x,34 */
+	{/* hw:x,33 */
 		.name = "MSM8X16 Compress8",
 		.stream_name = "Compress8",
 		.cpu_dai_name	= "MultiMedia15",
@@ -837,7 +838,7 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA15,
 	},
-	{/* hw:x,35 */
+	{/* hw:x,34 */
 		.name = "MSM8X16 Compress9",
 		.stream_name = "Compress9",
 		.cpu_dai_name	= "MultiMedia16",
@@ -851,6 +852,36 @@ static struct snd_soc_dai_link msm8952_common_fe_dai[] = {
 		.ignore_pmdown_time = 1,
 		 /* this dai link has playback support */
 		.be_id = MSM_FRONTEND_DAI_MULTIMEDIA16,
+	},
+	{/* hw:x,35 */
+		.name = "VoiceMMode1",
+		.stream_name = "VoiceMMode1",
+		.cpu_dai_name = "VoiceMMode1",
+		.platform_name = "msm-pcm-voice",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_VOICEMMODE1,
+	},
+	{/* hw:x,36 */
+		.name = "VoiceMMode2",
+		.stream_name = "VoiceMMode2",
+		.cpu_dai_name = "VoiceMMode2",
+		.platform_name = "msm-pcm-voice",
+		.dynamic = 1,
+		.trigger = {SND_SOC_DPCM_TRIGGER_POST,
+			SND_SOC_DPCM_TRIGGER_POST},
+		.no_host_mode = SND_SOC_DAI_LINK_NO_HOST,
+		.ignore_suspend = 1,
+		.ignore_pmdown_time = 1,
+		.codec_dai_name = "snd-soc-dummy-dai",
+		.codec_name = "snd-soc-dummy",
+		.be_id = MSM_FRONTEND_DAI_VOICEMMODE2,
 	},
 };
 
