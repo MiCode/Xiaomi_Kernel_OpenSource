@@ -1006,7 +1006,6 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 	int iommu_hdl;
 	int rc = 0;
 
-
 	pr_debug("%s: cmd->security_mode : %d\n", __func__, cmd->security_mode);
 	mutex_lock(&buf_mgr->lock);
 	if (cmd->iommu_attach_mode == IOMMU_ATTACH) {
@@ -1016,22 +1015,41 @@ int msm_isp_smmu_attach(struct msm_isp_buf_mgr *buf_mgr,
 			iommu_hdl = buf_mgr->ns_iommu_hdl;
 		else
 			iommu_hdl = buf_mgr->sec_iommu_hdl;
-		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_ATTACH);
-		if (rc < 0) {
-			pr_err("%s: smmu attach error, rc :%d\n", __func__, rc);
+
+		if ((buf_mgr->secure_enable == SECURE_MODE) &&
+			(buf_mgr->num_iommu_secure_ctx < 1)) {
+			pr_err("%s: Error! Invalid request for secure ctx\n",
+				__func__);
+			rc = -1;
 			goto iommu_error;
 		}
+		if (buf_mgr->attach_ref_cnt == 0) {
+			rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_ATTACH);
+			if (rc < 0) {
+				pr_err("%s: smmu attach error, rc :%d\n",
+					__func__, rc);
+				goto iommu_error;
+			}
+		}
+		buf_mgr->attach_ref_cnt++;
 	} else {
 		if (buf_mgr->secure_enable == NON_SECURE_MODE)
 			iommu_hdl = buf_mgr->ns_iommu_hdl;
 		else
 			iommu_hdl = buf_mgr->sec_iommu_hdl;
 
-		rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_DETACH);
-		if (rc < 0) {
-			pr_err("%s: smmu detach error, rc :%d\n", __func__, rc);
-			goto iommu_error;
+		if (buf_mgr->attach_ref_cnt == 1) {
+			rc = cam_smmu_ops(iommu_hdl, CAM_SMMU_DETACH);
+			if (rc < 0) {
+				pr_err("%s: smmu detach error, rc :%d\n",
+					__func__, rc);
+				goto iommu_error;
+			}
 		}
+		if (buf_mgr->attach_ref_cnt > 0)
+			buf_mgr->attach_ref_cnt--;
+		else
+			pr_err("%s: Error! Invalid ref_cnt\n", __func__);
 	}
 
 iommu_error:

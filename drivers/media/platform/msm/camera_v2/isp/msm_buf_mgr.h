@@ -180,7 +180,7 @@ struct msm_isp_buf_mgr {
 	int num_iommu_ctx;
 	spinlock_t bufq_list_lock;
 	int num_iommu_secure_ctx;
-	int attach_ref_cnt[MAX_PROTECTION_MODE][MAX_IOMMU_CTX];
+	int attach_ref_cnt;
 	enum msm_isp_buf_mgr_state attach_state;
 	struct mutex lock;
 };
