@@ -1224,6 +1224,7 @@ static struct rcg_clk pdm2_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_rbcpr_gfx_clk_src[] = {
+	F(  19200000,             xo,    1,    0,     0),
 	F(  50000000,          gpll0,   16,    0,     0),
 	F_END
 };
@@ -1391,9 +1392,10 @@ static struct rcg_clk usb_hs_system_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_vcodec0_clk_src[] = {
+	F( 100000000,          gpll0,    8,    0,     0),
 	F( 133333333,          gpll0,    6,    0,     0),
-	F( 228571428,          gpll0,  3.5,    0,     0),
-	F( 310666667,      gpll2_aux,    3,    0,     0),
+	F( 228570000,          gpll0,  3.5,    0,     0),
+	F( 310667000,      gpll2_aux,    3,    0,     0),
 	F( 360000000,      gpll6_aux,    3,    0,     0),
 	F( 400000000,          gpll0,    2,    0,     0),
 	F( 466000000,      gpll2_aux,    2,    0,     0),
@@ -1409,7 +1411,7 @@ static struct rcg_clk vcodec0_clk_src = {
 	.c = {
 		.dbg_name = "vcodec0_clk_src",
 		.ops = &clk_ops_rcg_mnd,
-		VDD_DIG_FMAX_MAP5(LOWER, 228570000, LOW, 310670000,
+		VDD_DIG_FMAX_MAP5(LOWER, 228570000, LOW, 310667000,
 		NOMINAL, 360000000, NOM_PLUS, 400000000,
 		HIGH, 466000000),
 		CLK_INIT(vcodec0_clk_src.c),
