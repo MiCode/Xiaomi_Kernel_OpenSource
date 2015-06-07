@@ -3639,7 +3639,7 @@
 	clocks = <&clock_gcc clk_gcc_mmss_bimc_gfx_clk>,
 		 <&clock_gpu clk_gpu_gx_gfx3d_clk>,
 		 <&clock_gpu clk_gfx3d_clk_src>;
-	qcom,enable-root-clk;
+	qcom,force-enable-root-clk;
 	parent-supply = <&gfx_vreg>;
 	status = "ok";
 };
