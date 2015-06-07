@@ -17,7 +17,6 @@ struct dma_iommu_mapping {
 	size_t			bits;
 	unsigned int		order;
 	dma_addr_t		base;
-	phys_addr_t		phys;
 
 	spinlock_t		lock;
 	struct kref		kref;

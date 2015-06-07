@@ -60,10 +60,12 @@ static int __init early_coherent_pool(char *p)
 }
 early_param("coherent_pool", early_coherent_pool);
 
-static void *__alloc_from_pool(size_t size, struct page **ret_page)
+static void *__alloc_from_pool(size_t size, struct page **ret_pages)
 {
 	unsigned long val;
 	void *ptr = NULL;
+	int count = size >> PAGE_SHIFT;
+	int i;
 
 	if (!atomic_pool) {
 		WARN(1, "coherent pool not initialised!\n");
@@ -73,8 +75,10 @@ static void *__alloc_from_pool(size_t size, struct page **ret_page)
 	val = gen_pool_alloc(atomic_pool, size);
 	if (val) {
 		phys_addr_t phys = gen_pool_virt_to_phys(atomic_pool, val);
-
-		*ret_page = phys_to_page(phys);
+		for (i = 0; i < count ; i++) {
+			ret_pages[i] = phys_to_page(phys);
+			phys += 1 << PAGE_SHIFT;
+		}
 		ptr = (void *)val;
 	}
 
@@ -203,11 +207,23 @@ static void *__dma_alloc_noncoherent(struct device *dev, size_t size,
 	size = PAGE_ALIGN(size);
 
 	if (!(flags & __GFP_WAIT)) {
-		struct page *page = NULL;
-		void *addr = __alloc_from_pool(size, &page);
+		struct page **page = NULL;
+		int count = size >> PAGE_SHIFT;
+		int array_size = count * sizeof(struct page *);
+		void *addr;
+
+		if (array_size <= PAGE_SIZE)
+			page = kzalloc(array_size, flags);
+		else
+			page = vzalloc(array_size);
+
+		if (!page)
+			return NULL;
+
+		addr = __alloc_from_pool(size, page);
 
 		if (addr)
-			*dma_handle = phys_to_dma(dev, page_to_phys(page));
+			*dma_handle = phys_to_dma(dev, page_to_phys(*page));
 
 		return addr;
 
@@ -790,7 +806,7 @@ __iommu_create_mapping(struct device *dev, struct page **pages, size_t size)
 
 		len = (j - i) << PAGE_SHIFT;
 		ret = iommu_map(mapping->domain, iova, phys, len,
-				IOMMU_READ|IOMMU_WRITE|IOMMU_NOEXEC);
+				IOMMU_READ|IOMMU_WRITE);
 		if (ret < 0)
 			goto fail;
 		iova += len;
@@ -847,24 +863,37 @@ static struct page **__iommu_get_pages(void *cpu_addr, struct dma_attrs *attrs)
 	return NULL;
 }
 
-static void *__iommu_alloc_atomic(struct device *dev, size_t size,
-				  dma_addr_t *handle)
+void *__iommu_alloc_atomic(struct device *dev, size_t size,
+				  dma_addr_t *handle, gfp_t gfp)
 {
-	struct page *page;
+	struct page **pages;
+	int count = size >> PAGE_SHIFT;
+	int array_size = count * sizeof(struct page *);
 	void *addr;
 
-	addr = __alloc_from_pool(size, &page);
-	if (!addr)
+	if (array_size <= PAGE_SIZE)
+		pages = kzalloc(array_size, gfp);
+	else
+		pages = vzalloc(array_size);
+
+	if (!pages)
 		return NULL;
 
-	*handle = __iommu_create_mapping(dev, &page, size);
+	addr = __alloc_from_pool(size, pages);
+	if (!addr)
+		goto err_free;
+
+	*handle = __iommu_create_mapping(dev, pages, size);
 	if (*handle == DMA_ERROR_CODE)
 		goto err_mapping;
 
+	kvfree(pages);
 	return addr;
 
 err_mapping:
 	__free_from_pool(addr, size);
+err_free:
+	kvfree(pages);
 	return NULL;
 }
 
@@ -886,7 +915,7 @@ static void *arm_iommu_alloc_attrs(struct device *dev, size_t size,
 	size = PAGE_ALIGN(size);
 
 	if (!(gfp & __GFP_WAIT))
-		return __iommu_alloc_atomic(dev, size, handle);
+		return __iommu_alloc_atomic(dev, size, handle, gfp);
 
 	/*
 	 * Following is a work-around (a.k.a. hack) to prevent pages
@@ -1150,6 +1179,11 @@ int arm_iommu_map_sg(struct device *dev, struct scatterlist *sg,
 		total_length += s->length;
 
 	iova = __alloc_iova(mapping, total_length);
+	if (iova == DMA_ERROR_CODE) {
+		dev_err(dev, "Couldn't allocate iova for sg %p\n", sg);
+		return 0;
+	}
+
 	ret = iommu_map_sg(mapping->domain, iova, sg, nents, prot);
 	if (ret != total_length) {
 		__free_iova(mapping, iova, total_length);
@@ -1276,7 +1310,6 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev,
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	dma_addr_t dma_addr;
 	int ret, prot, len = PAGE_ALIGN(size + offset);
-	phys_addr_t phys = page_to_phys(page);
 
 	dma_addr = __alloc_iova(mapping, len);
 	if (dma_addr == DMA_ERROR_CODE)
@@ -1284,12 +1317,10 @@ static dma_addr_t arm_coherent_iommu_map_page(struct device *dev,
 
 	prot = __dma_direction_to_prot(dir);
 
-	ret = iommu_map(mapping->domain, dma_addr, phys, len,
+	ret = iommu_map(mapping->domain, dma_addr, page_to_phys(page), len,
 			prot);
 	if (ret < 0)
 		goto fail;
-
-	mapping->phys = phys;
 
 	return dma_addr + offset;
 fail:
@@ -1357,7 +1388,8 @@ static void arm_iommu_unmap_page(struct device *dev, dma_addr_t handle,
 {
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	dma_addr_t iova = handle & PAGE_MASK;
-	struct page *page = phys_to_page(mapping->phys);
+	struct page *page = phys_to_page(iommu_iova_to_phys(
+						mapping->domain, iova));
 	int offset = handle & ~PAGE_MASK;
 	int len = PAGE_ALIGN(size + offset);
 
@@ -1376,7 +1408,8 @@ static void arm_iommu_sync_single_for_cpu(struct device *dev,
 {
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	dma_addr_t iova = handle & PAGE_MASK;
-	struct page *page = phys_to_page(mapping->phys);
+	struct page *page = phys_to_page(iommu_iova_to_phys(
+						mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
 
 	if (!iova)
@@ -1390,13 +1423,32 @@ static void arm_iommu_sync_single_for_device(struct device *dev,
 {
 	struct dma_iommu_mapping *mapping = dev->archdata.mapping;
 	dma_addr_t iova = handle & PAGE_MASK;
-	struct page *page = phys_to_page(mapping->phys);
+	struct page *page = phys_to_page(iommu_iova_to_phys(
+						mapping->domain, iova));
 	unsigned int offset = handle & ~PAGE_MASK;
 
 	if (!iova)
 		return;
 
 	__dma_page_cpu_to_dev(page, offset, size, dir);
+}
+
+static int arm_iommu_dma_supported(struct device *dev, u64 mask)
+{
+	struct dma_iommu_mapping *mapping = to_dma_iommu_mapping(dev);
+
+	if (!mapping) {
+		dev_warn(dev, "No IOMMU mapping for device\n");
+		return 0;
+	}
+
+	return iommu_dma_supported(mapping->domain, dev, mask);
+}
+
+static int arm_iommu_mapping_error(struct device *dev,
+				   dma_addr_t dma_addr)
+{
+	return dma_addr == DMA_ERROR_CODE;
 }
 
 const struct dma_map_ops iommu_ops = {
@@ -1416,6 +1468,8 @@ const struct dma_map_ops iommu_ops = {
 	.sync_sg_for_device	= arm_iommu_sync_sg_for_device,
 
 	.set_dma_mask		= arm_dma_set_mask,
+	.dma_supported		= arm_iommu_dma_supported,
+	.mapping_error		= arm_iommu_mapping_error,
 };
 
 const struct dma_map_ops iommu_coherent_ops = {
@@ -1431,6 +1485,7 @@ const struct dma_map_ops iommu_coherent_ops = {
 	.unmap_sg	= arm_coherent_iommu_unmap_sg,
 
 	.set_dma_mask	= arm_dma_set_mask,
+	.dma_supported   = arm_iommu_dma_supported,
 };
 
 /**

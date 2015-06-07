@@ -991,8 +991,8 @@ phys_addr_t iommu_iova_to_phys(struct iommu_domain *domain, dma_addr_t iova)
 }
 EXPORT_SYMBOL_GPL(iommu_iova_to_phys);
 
-static size_t iommu_pgsize(struct iommu_domain *domain,
-			   unsigned long addr_merge, size_t size)
+size_t iommu_pgsize(unsigned long pgsize_bitmap,
+		    unsigned long addr_merge, size_t size)
 {
 	unsigned int pgsize_idx;
 	size_t pgsize;
@@ -1011,10 +1011,14 @@ static size_t iommu_pgsize(struct iommu_domain *domain,
 	pgsize = (1UL << (pgsize_idx + 1)) - 1;
 
 	/* throw away page sizes not supported by the hardware */
-	pgsize &= domain->ops->pgsize_bitmap;
+	pgsize &= pgsize_bitmap;
 
 	/* make sure we're still sane */
-	BUG_ON(!pgsize);
+	if (!pgsize) {
+		pr_err("invalid pgsize/addr/size! 0x%lx 0x%lx 0x%zx\n",
+		       pgsize_bitmap, addr_merge, size);
+		BUG();
+	}
 
 	/* pick the biggest page */
 	pgsize_idx = __fls(pgsize);
@@ -1052,7 +1056,8 @@ int iommu_map(struct iommu_domain *domain, unsigned long iova,
 	pr_debug("map: iova 0x%lx pa %pa size 0x%zx\n", iova, &paddr, size);
 
 	while (size) {
-		size_t pgsize = iommu_pgsize(domain, iova | paddr, size);
+		size_t pgsize = iommu_pgsize(domain->ops->pgsize_bitmap,
+					     iova | paddr, size);
 
 		pr_debug("mapping: iova 0x%lx pa %pa pgsize 0x%zx\n",
 			 iova, &paddr, pgsize);
@@ -1106,9 +1111,9 @@ size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova, size_t size)
 	 * or we hit an area that isn't mapped.
 	 */
 	while (unmapped < size) {
-		size_t pgsize = iommu_pgsize(domain, iova, size - unmapped);
+		size_t left = size - unmapped;
 
-		unmapped_page = domain->ops->unmap(domain, iova, pgsize);
+		unmapped_page = domain->ops->unmap(domain, iova, left);
 		if (!unmapped_page)
 			break;
 
@@ -1261,3 +1266,11 @@ int iommu_domain_set_attr(struct iommu_domain *domain,
 	return ret;
 }
 EXPORT_SYMBOL_GPL(iommu_domain_set_attr);
+
+int iommu_dma_supported(struct iommu_domain *domain, struct device *dev,
+								u64 mask)
+{
+	if (domain->ops->dma_supported)
+		return domain->ops->dma_supported(domain, dev, mask);
+	return 0;
+}
