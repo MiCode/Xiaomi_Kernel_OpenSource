@@ -25,10 +25,6 @@
 	qcom,msm-id = <246 0x20001>;
 };
 
-&apcc_cpr {
-	/delete-property/ qcom,cpr-hw-closed-loop;
-};
-
 &apc0_vreg {
 	qcom,ldo-disable;
 };
