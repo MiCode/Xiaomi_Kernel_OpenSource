@@ -16,9 +16,9 @@
 #include <dt-bindings/regulator/qcom,rpm-smd-regulator.h>
 
 / {
-	model = "Qualcomm Technologies, Inc. MSM 8976";
-	compatible = "qcom,msm8976";
-	qcom,msm-id = <278 0x0>;
+	model = "Qualcomm Technologies, Inc. MSM 8956";
+	compatible = "qcom,msm8956";
+	qcom,msm-id = <266 0x0>;
 	interrupt-parent = <&intc>;
 
 	chosen {
@@ -104,136 +104,6 @@
 			reg = <0x0 0x0 0x0 0x314000>;
 		};
 	};
-
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		cpu-map {
-			cluster0 {
-				core0 {
-					cpu = <&CPU0>;
-				};
-				core1 {
-					cpu = <&CPU1>;
-				};
-				core2 {
-					cpu = <&CPU2>;
-				};
-				core3 {
-					cpu = <&CPU3>;
-				};
-			};
-
-			cluster1 {
-				core0 {
-					cpu = <&CPU4>;
-				};
-				core1 {
-					cpu = <&CPU5>;
-				};
-				core2 {
-					cpu = <&CPU6>;
-				};
-				core3 {
-					cpu = <&CPU7>;
-				};
-			};
-		};
-
-		CPU0: cpu@0 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x0>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1024>;
-			qcom,acc = <&acc0>;
-			next-level-cache = <&L2_0>;
-			L2_0: l2-cache {
-			      compatible = "arm,arch-cache";
-			      cache-level = <2>;
-			      power-domain = <&l2ccc_0>;
-			};
-		};
-
-		CPU1: cpu@1 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x1>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1024>;
-			qcom,acc = <&acc1>;
-			next-level-cache = <&L2_0>;
-		};
-
-		CPU2: cpu@2 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x2>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1024>;
-			qcom,acc = <&acc2>;
-			next-level-cache = <&L2_0>;
-		};
-
-		CPU3: cpu@3 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x3>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1024>;
-			qcom,acc = <&acc3>;
-			next-level-cache = <&L2_0>;
-		};
-
-		CPU4: cpu@100 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x100>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1830>;
-			qcom,acc = <&acc4>;
-			qcom,ldo = <&ldo4>;
-			next-level-cache = <&L2_1>;
-			L2_1: l2-cache {
-			      compatible = "arm,arch-cache";
-			      cache-level = <2>;
-			      power-domain = <&l2ccc_1>;
-			      };
-			};
-
-		CPU5: cpu@101 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x101>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1830>;
-			qcom,acc = <&acc5>;
-			qcom,ldo = <&ldo5>;
-			next-level-cache = <&L2_1>;
-		};
-
-		CPU6: cpu@102 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x102>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1830>;
-			qcom,acc = <&acc6>;
-			qcom,ldo = <&ldo6>;
-			next-level-cache = <&L2_1>;
-		};
-
-		CPU7: cpu@103 {
-			device_type = "cpu";
-			compatible = "arm,armv8";
-			reg = <0x103>;
-			enable-method = "qcom,8976-arm-cortex-acc";
-			efficiency = <1830>;
-			qcom,acc = <&acc7>;
-			qcom,ldo = <&ldo7>;
-			next-level-cache = <&L2_1>;
-		};
-	};
 };
 
 #include "msm8976-pinctrl.dtsi"
@@ -241,10 +111,10 @@
 #include "msm8976-iommu.dtsi"
 #include "msm8976-smp2p.dtsi"
 #include "msm8976-bus.dtsi"
-#include "msm8976-coresight.dtsi"
-#include "msm8976-pm.dtsi"
+#include "msm8956-coresight.dtsi"
+#include "msm8956-pm.dtsi"
 #include "msm8976-gpu.dtsi"
-#include "msm8976-mdss-pll.dtsi"
+#include "msm8956-cpu.dtsi"
 
 &soc {
 	#address-cells = <1>;
@@ -272,85 +142,6 @@
 		reg = <0x0b1C0000 0x4000>;
 		reg-names = "gladiator_base";
 		interrupts = <0 22 0>;
-	};
-
-	l2ccc_0: clock-controller@b111000 {
-		compatible = "qcom,8976-l2ccc";
-		reg = <0x0b111000 0x1000>,
-		      <0x0b1d1208 0x4>;
-		qcom,vctl-node = <&cluster0_spm>;
-	};
-
-	l2ccc_1: clock-controller@b011000 {
-		compatible = "qcom,8976-l2ccc";
-		reg = <0x0b011000 0x1000>,
-		      <0x0b1d1208 0x4>;
-		qcom,vctl-node = <&cluster1_spm>;
-		qcom,vctl-val = <0xb8>;
-	};
-
-	acc0:clock-controller@b188000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b188000 0x1000>;
-	};
-
-	acc1:clock-controller@b198000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b198000 0x1000>;
-	};
-
-	acc2:clock-controller@b1a8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b1a8000 0x1000>;
-	};
-
-	acc3:clock-controller@b1b8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b1b8000 0x1000>;
-	};
-
-	acc4:clock-controller@b088000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b088000 0x1000>;
-	};
-
-	acc5:clock-controller@b098000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b098000 0x1000>;
-	};
-
-	acc6:clock-controller@b0a8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b0a8000 0x1000>;
-	};
-
-	acc7:clock-controller@b0b8000 {
-		compatible = "qcom,arm-cortex-acc";
-		reg = <0x0b0b8000 0x1000>;
-	};
-
-	ldo4:ldo-vref@b086000 {
-		compatible = "qcom,8976-cpu-ldo-vref";
-		reg = <0xb086000 0x40>;
-		qcom,ldo-vref-ret = <0x9>;
-	};
-
-	ldo5:ldo-vref@b096000 {
-		compatible = "qcom,8976-cpu-ldo-vref";
-		reg = <0xb096000 0x40>;
-		qcom,ldo-vref-ret = <0x9>;
-	};
-
-	ldo6:ldo-vref@b0a6000 {
-		compatible = "qcom,8976-cpu-ldo-vref";
-		reg = <0xb0a6000 0x40>;
-		qcom,ldo-vref-ret = <0x9>;
-	};
-
-	ldo7:ldo-vref@b0b6000 {
-		compatible = "qcom,8976-cpu-ldo-vref";
-		reg = <0xb0b6000 0x40>;
-		qcom,ldo-vref-ret = <0x9>;
 	};
 
 	intc: interrupt-controller@b000000 {
@@ -403,12 +194,6 @@
 		compatible = "qcom,gcc-mdss-8976";
 		reg = <0x1800000 0x80000>;
                 reg-names = "cc_base";
-		clocks = <&mdss_dsi0_pll clk_dsi_pll0_pixel_clk_src>,
-			 <&mdss_dsi0_pll clk_dsi_pll0_byte_clk_src>,
-			 <&mdss_dsi0_pll clk_dsi_pll0_pixel_clk_src>,
-			 <&mdss_dsi0_pll clk_dsi_pll0_byte_clk_src>;
-		clock-names = "pclk0_src", "byte0_src", "pclk1_src",
-				 "byte1_src";
 		#clock-cells = <1>;
 	};
 
@@ -670,11 +455,11 @@
 		qcom,temp-hysteresis = <10>;
 		qcom,freq-step = <2>;
 		qcom,freq-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
-					&CPU4 &CPU5 &CPU6 &CPU7>;
+					&CPU4 &CPU5>;
 		qcom,core-limit-temp = <80>;
 		qcom,core-temp-hysteresis = <10>;
 		qcom,core-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
-					&CPU4 &CPU5 &CPU6 &CPU7>;
+					&CPU4 &CPU5>;
 		qcom,hotplug-temp = <105>;
 		qcom,hotplug-temp-hysteresis = <15>;
 		qcom,cpu-sensors = "tsens_tz_sensor9", "tsens_tz_sensor9",
@@ -685,12 +470,12 @@
 		qcom,freq-mitigation-temp-hysteresis = <15>;
 		qcom,freq-mitigation-value = <400000>;
 		qcom,freq-mitigation-control-list = <&CPU0 &CPU1 &CPU2 &CPU3
-						&CPU4 &CPU5 &CPU6 &CPU7>;
+						&CPU4 &CPU5>;
 		qcom,therm-reset-temp = <115>;
 		qcom,online-hotplug-core;
 		qcom,synchronous-cluster-id = <0 1>;
 		qcom,synchronous-cluster-map = <0 4 &CPU0 &CPU1 &CPU2 &CPU3>,
-						<1 4 &CPU4 &CPU5 &CPU6 &CPU7>;
+						<1 2 &CPU4 &CPU5>;
 		qcom,disable-cx-phase-ctrl;
 		qcom,disable-gfx-phase-ctrl;
 		qcom,disable-vdd-mx;
