@@ -934,7 +934,6 @@ struct dwc3 {
 	u8			lpm_nyet_thresh;
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
-	bool			tx_fifo_reduced;
 	bool			b_suspend;
 
 	/* IRQ timing statistics */

@@ -180,6 +180,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	int		mdwidth;
 	int		num;
 	int		num_eps;
+	int		max_packet;
 	struct usb_composite_dev *cdev = get_gadget_data(&dwc->gadget);
 
 	if (!(cdev && cdev->config) || !dwc->needs_fifo_resize)
@@ -194,14 +195,28 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 	/* MDWIDTH is represented in bits, we need it in bytes */
 	mdwidth >>= 3;
 
-	dev_dbg(dwc->dev, "%s: num eps: %d\n", __func__, num_eps);
+	if (dwc->gadget.speed == USB_SPEED_FULL) {
+		max_packet = 64;
+	} else if (dwc->gadget.speed == USB_SPEED_HIGH) {
+		max_packet = 512;
+	} else if (dwc->gadget.speed == USB_SPEED_SUPER) {
+		max_packet = 1024;
+	} else {
+		dev_warn(dwc->dev, "USB speed (%d) is not valid.\n",
+						dwc->gadget.speed);
+		return -EINVAL;
+	}
 
-	for (num = 0; num < num_eps; num++) {
+	last_fifo_depth = (dwc3_readl(dwc->regs, DWC3_GTXFIFOSIZ(0)) & 0xFFFF);
+	dev_dbg(dwc->dev, "%s: num eps:%d max_packet:%d last_fifo_depth:%04x\n",
+				__func__, num_eps, max_packet, last_fifo_depth);
+
+	/* Don't resize ep0IN TxFIFO, start with ep1IN only. */
+	for (num = 1; num < num_eps; num++) {
 		/* bit0 indicates direction; 1 means IN ep */
 		struct dwc3_ep	*dep = dwc->eps[(num << 1) | 1];
 		int		mult = 1;
 		int		tmp;
-		int		max_packet = 1024;
 
 		if (!(dep->flags & DWC3_EP_ENABLED)) {
 			dev_warn(dwc->dev, "ep%dIn not enabled", num);
@@ -214,35 +229,7 @@ int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc)
 				|| usb_endpoint_xfer_isoc(dep->endpoint.desc))
 			mult = 3;
 
-		/*
-		 * REVISIT: the following assumes we will always have enough
-		 * space available on the FIFO RAM for all possible use cases.
-		 * Make sure that's true somehow and change FIFO allocation
-		 * accordingly.
-		 *
-		 * If we have Bulk (burst only) or Isochronous endpoints, we
-		 * want them to be able to be very, very fast. So we're giving
-		 * those endpoints a fifo_size which is enough for 3 full
-		 * packets
-		 */
-		tmp = mult * (dep->endpoint.maxpacket + mdwidth);
-
-		if (dwc->tx_fifo_size &&
-			(usb_endpoint_xfer_bulk(dep->endpoint.desc)
-			|| usb_endpoint_xfer_isoc(dep->endpoint.desc))) {
-			/*
-			 * Allocate 3KB fifo size for bulk and isochronous TX
-			 * endpoints irrespective of speed if tx_fifo is not
-			 * reduced. Otherwise allocate 1KB for endpoints in HS
-			 * mode and for non burst endpoints in SS mode. For
-			 * interrupt ep, allocate fifo size of ep maxpacket.
-			 */
-			if (!dwc->tx_fifo_reduced)
-				tmp = 3 * (1024 + mdwidth);
-			else
-				tmp = mult * (1024 + mdwidth);
-		}
-
+		tmp = mult * (max_packet + mdwidth);
 resize_fifo:
 		tmp += mdwidth;
 
@@ -250,7 +237,7 @@ resize_fifo:
 
 		fifo_size |= (last_fifo_depth << 16);
 
-		dev_vdbg(dwc->dev, "%s: Fifo Addr %04x Size %d\n",
+		dev_dbg(dwc->dev, "%s: Fifo Addr %04x Size %d\n",
 				dep->name, last_fifo_depth, fifo_size & 0xffff);
 
 		last_fifo_depth += (fifo_size & 0xffff);

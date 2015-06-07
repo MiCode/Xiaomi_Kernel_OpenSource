@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Author: Brian Swetland <swetland@google.com>
- * Copyright (c) 2009-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2009-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -665,7 +665,6 @@ static inline void msm_hw_bam_disable(bool bam_disable)
 #ifdef CONFIG_USB_DWC3_MSM
 int msm_ep_config(struct usb_ep *ep);
 int msm_ep_unconfig(struct usb_ep *ep);
-void dwc3_tx_fifo_resize_request(struct usb_ep *ep, bool qdss_enable);
 int msm_data_fifo_config(struct usb_ep *ep, phys_addr_t addr, u32 size,
 	u8 dst_pipe_idx);
 bool msm_dwc3_reset_ep_after_lpm(struct usb_gadget *gadget);
@@ -689,12 +688,6 @@ static inline int msm_ep_config(struct usb_ep *ep)
 static inline int msm_ep_unconfig(struct usb_ep *ep)
 {
 	return -ENODEV;
-}
-
-static inline void dwc3_tx_fifo_resize_request(
-					struct usb_ep *ep, bool qdss_enable)
-{
-	return;
 }
 
 static inline void msm_dwc3_restart_usb_session(struct usb_gadget *gadget)
