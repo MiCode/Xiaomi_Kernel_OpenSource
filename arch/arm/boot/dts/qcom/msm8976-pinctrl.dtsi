@@ -1016,6 +1016,40 @@
 			};
 		};
 
+		cross-conn-det {
+			qcom,pins = <&gp 144>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "cross-conn-det-sw";
+			cross_conn_det_act: lines_on {
+				drive-strength = <8>;
+				output-low;
+				bias-pull-down;
+			};
+
+			cross_conn_det_sus: lines_off {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
+		wsa-spkr-sd {
+			qcom,pins = <&gp 132>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <0>;
+			label = "wsa-spkr-sd";
+			wsa_spkr_sd_act: lines_on {
+					 drive-strength = <8>;
+					 output-high;
+					 bias-pull-down;
+			};
+
+			wsa_spkr_sd_sus: lines_off {
+					 drive-strength = <2>;
+					 bias-disable;
+			};
+		};
+
 		wcnss_pmux_5wire: wcnss_pmux_5wire {
 			/* Uses general purpose pins */
 			qcom,pins = <&gp 40>, <&gp 41>,
