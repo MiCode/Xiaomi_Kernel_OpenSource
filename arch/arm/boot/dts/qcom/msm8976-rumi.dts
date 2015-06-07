@@ -102,3 +102,11 @@
 &clock_gcc_gfx {
 	compatible = "qcom,dummycc";
 };
+
+&pmi8950_fg {
+	status = "disabled";
+};
+
+&pmi8950_charger {
+	status = "disabled";
+};
