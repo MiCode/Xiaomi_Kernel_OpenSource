@@ -239,6 +239,7 @@
 #include "msm8976-pinctrl.dtsi"
 #include "msm8976-ion.dtsi"
 #include "msm8976-iommu.dtsi"
+#include "msm8976-mdss.dtsi"
 #include "msm8976-smp2p.dtsi"
 #include "msm8976-bus.dtsi"
 #include "msm8976-coresight.dtsi"
