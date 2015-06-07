@@ -22,6 +22,7 @@
 #include "dsi-panel-nt35596-1080p-skuk-video.dtsi"
 #include "dsi-panel-r61318-hd-video.dtsi"
 #include "dsi-panel-r63417-1080p-video.dtsi"
+#include "dsi-panel-sharp-1080p-cmd.dtsi"
 
 &soc {
 	dsi_panel_pwr_supply: dsi_panel_pwr_supply {
