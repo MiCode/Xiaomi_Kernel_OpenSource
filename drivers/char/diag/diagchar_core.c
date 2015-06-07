@@ -482,6 +482,9 @@ void diag_record_stats(int type, int flag)
 		pr_err_ratelimited("diag: In %s, dropping response. This shouldn't happen\n",
 				   __func__);
 		return;
+	case DATA_TYPE_DELAYED_RESPONSE:
+		/* No counters to increase for Delayed responses */
+		return;
 	default:
 		pr_err_ratelimited("diag: In %s, invalid pkt_type: %d\n",
 				   __func__, type);
