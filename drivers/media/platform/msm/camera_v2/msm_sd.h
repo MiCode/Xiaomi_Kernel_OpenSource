@@ -73,6 +73,7 @@ struct msm_sd_req_vb2_q {
 		unsigned int stream_id);
 	int (*buf_done)(struct vb2_buffer *vb2_buf, int session_id,
 		unsigned int stream_id);
+	int (*flush_buf)(int session_id, unsigned int stream_id);
 };
 
 #define MSM_SD_NOTIFY_GET_SD 0x00000001

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -273,7 +273,7 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
 
 	stream = msm_get_stream(session_id, stream_id);
 	if (IS_ERR_OR_NULL(stream))
-		return 0;
+		return -EINVAL;
 	spin_lock_irqsave(&stream->stream_lock, flags);
 	if (vb) {
 		list_for_each_entry(msm_vb2, &(stream->queued_list), list) {
@@ -305,6 +305,28 @@ static int msm_vb2_buf_done(struct vb2_buffer *vb, int session_id,
 	return rc;
 }
 
+static int msm_vb2_flush_buf(int session_id, unsigned int stream_id)
+{
+	unsigned long flags;
+	struct msm_vb2_buffer *msm_vb2;
+	struct msm_stream *stream;
+	struct vb2_buffer *vb2_buf = NULL;
+
+	stream = msm_get_stream(session_id, stream_id);
+	if (IS_ERR_OR_NULL(stream))
+		return -EINVAL;
+	spin_lock_irqsave(&stream->stream_lock, flags);
+	list_for_each_entry(msm_vb2, &(stream->queued_list), list) {
+		vb2_buf = &(msm_vb2->vb2_buf);
+		/* Do buf done for all buffers*/
+		vb2_buffer_done(vb2_buf, VB2_BUF_STATE_DONE);
+		msm_vb2->in_freeq = 0;
+	}
+	spin_unlock_irqrestore(&stream->stream_lock, flags);
+	return 0;
+}
+
+
 int msm_vb2_request_cb(struct msm_sd_req_vb2_q *req)
 {
 	if (!req) {
@@ -316,6 +338,7 @@ int msm_vb2_request_cb(struct msm_sd_req_vb2_q *req)
 	req->get_vb2_queue = msm_vb2_get_queue;
 	req->put_buf = msm_vb2_put_buf;
 	req->buf_done = msm_vb2_buf_done;
+	req->flush_buf = msm_vb2_flush_buf;
 
 	return 0;
 }
