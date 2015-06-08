@@ -3115,7 +3115,7 @@ static int max_chgr_retry_count = MAX_INVALID_CHRGR_RETRY;
 module_param(max_chgr_retry_count, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(max_chgr_retry_count, "Max invalid charger retry count");
 
-static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode);
+static void dwc3_otg_notify_host_mode(struct dwc3_msm *mdwc, int host_mode);
 
 /**
  * dwc3_otg_start_host -  helper function for starting/stoping the host controller driver.
@@ -3153,12 +3153,12 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		pm_runtime_get_sync(otg->phy->dev);
 		dbg_event(0xFF, "StrtHost gync",
 			atomic_read(&otg->phy->dev->power.usage_count));
-		dwc3_otg_notify_host_mode(otg, on);
+		dwc3_otg_notify_host_mode(mdwc, on);
 		usb_phy_notify_connect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
 		ret = regulator_enable(dotg->vbus_otg);
 		if (ret) {
 			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
-			dwc3_otg_notify_host_mode(otg, 0);
+			dwc3_otg_notify_host_mode(mdwc, 0);
 			pm_runtime_put_sync(otg->phy->dev);
 			dbg_event(0xFF, "vregerr psync",
 				atomic_read(&otg->phy->dev->power.usage_count));
@@ -3181,7 +3181,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 				"%s: failed to add XHCI pdev ret=%d\n",
 				__func__, ret);
 			regulator_disable(dotg->vbus_otg);
-			dwc3_otg_notify_host_mode(otg, 0);
+			dwc3_otg_notify_host_mode(mdwc, 0);
 			pm_runtime_put_sync(otg->phy->dev);
 			dbg_event(0xFF, "pdeverr psync",
 				atomic_read(&otg->phy->dev->power.usage_count));
@@ -3208,7 +3208,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&dwc->dev->power.usage_count));
 		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
-		dwc3_otg_notify_host_mode(otg, on);
+		dwc3_otg_notify_host_mode(mdwc, on);
 		otg->host = NULL;
 		platform_device_del(dwc->xhci);
 
@@ -3353,28 +3353,24 @@ int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger)
 	return 0;
 }
 
-static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode)
+static void dwc3_otg_notify_host_mode(struct dwc3_msm *mdwc, int host_mode)
 {
-	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-
-	if (!dotg->psy) {
-		dev_err(otg->phy->dev, "no usb power supply registered\n");
-		return;
-	}
-
 	if (host_mode)
-		power_supply_set_scope(dotg->psy, POWER_SUPPLY_SCOPE_SYSTEM);
+		power_supply_set_scope(&mdwc->usb_psy,
+			POWER_SUPPLY_SCOPE_SYSTEM);
 	else
-		power_supply_set_scope(dotg->psy, POWER_SUPPLY_SCOPE_DEVICE);
+		power_supply_set_scope(&mdwc->usb_psy,
+			POWER_SUPPLY_SCOPE_DEVICE);
 }
 
 static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 {
 	enum power_supply_property power_supply_type;
 	struct dwc3_otg *dotg = container_of(phy->otg, struct dwc3_otg, otg);
+	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
 
 
-	if (!dotg->psy || !dotg->charger) {
+	if (!dotg->charger) {
 		dev_err(phy->dev, "no usb power supply/charger registered\n");
 		return 0;
 	}
@@ -3399,7 +3395,7 @@ static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
 	else
 		power_supply_type = POWER_SUPPLY_TYPE_UNKNOWN;
 
-	power_supply_set_supply_type(dotg->psy, power_supply_type);
+	power_supply_set_supply_type(&mdwc->usb_psy, power_supply_type);
 
 skip_psy_type:
 
@@ -3413,19 +3409,19 @@ skip_psy_type:
 
 	if (dotg->charger->max_power > 0 && (mA == 0 || mA == 2)) {
 		/* Disable charging */
-		if (power_supply_set_online(dotg->psy, false))
+		if (power_supply_set_online(&mdwc->usb_psy, false))
 			goto psy_error;
 	} else {
 		/* Enable charging */
-		if (power_supply_set_online(dotg->psy, true))
+		if (power_supply_set_online(&mdwc->usb_psy, true))
 			goto psy_error;
 	}
 
 	/* Set max current limit in uA */
-	if (power_supply_set_current_limit(dotg->psy, 1000*mA))
+	if (power_supply_set_current_limit(&mdwc->usb_psy, 1000*mA))
 		goto psy_error;
 
-	power_supply_changed(dotg->psy);
+	power_supply_changed(&mdwc->usb_psy);
 	dotg->charger->max_power = mA;
 	return 0;
 
@@ -3488,13 +3484,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	switch (phy->state) {
 	case OTG_STATE_UNDEFINED:
 		dwc3_otg_init_sm(dotg);
-		if (!dotg->psy) {
-			dotg->psy = power_supply_get_by_name("usb");
-
-			if (!dotg->psy)
-				dev_err(phy->dev,
-					 "couldn't get usb power supply\n");
-		}
 
 		/* Switch to A or B-Device according to ID / BSV */
 		if (!test_bit(ID, &dotg->inputs)) {
@@ -3766,7 +3755,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->otg.phy->set_power = dwc3_otg_set_power;
 	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
-	dotg->regs = dwc->regs;
 
 	/* This reference is used by dwc3 modules for checking otg existence */
 	dwc->dotg = dotg;
