@@ -464,6 +464,7 @@ struct ufs_uic_err_reg_hist {
 #ifdef CONFIG_DEBUG_FS
 struct debugfs_files {
 	struct dentry *debugfs_root;
+	struct dentry *stats_folder;
 	struct dentry *tag_stats;
 	struct dentry *err_stats;
 	struct dentry *show_hba;
