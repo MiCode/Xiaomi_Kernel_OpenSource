@@ -22,6 +22,7 @@
 
 #include "mdss_panel.h"
 #include "mdss_dsi_cmd.h"
+#include "mdss_dsi_clk.h"
 
 #define MMSS_SERDES_BASE_PHY 0x04f01000 /* mmss (De)Serializer CFG */
 
@@ -328,10 +329,6 @@ struct panel_horizontal_idle {
 #define DSI_CTRL_CLK_SLAVE	DSI_CTRL_RIGHT
 #define DSI_CTRL_CLK_MASTER	DSI_CTRL_LEFT
 
-#define DSI_CORE_CLKS	BIT(0)
-#define DSI_LINK_CLKS	BIT(1)
-#define DSI_ALL_CLKS	((DSI_CORE_CLKS) | (DSI_LINK_CLKS))
-
 #define DSI_EV_PLL_UNLOCKED		0x0001
 #define DSI_EV_MDP_FIFO_UNDERFLOW	0x0002
 #define DSI_EV_DSI_FIFO_EMPTY		0x0004
@@ -366,8 +363,6 @@ struct mdss_dsi_ctrl_pdata {
 	struct dss_io_data phy_io;
 	struct dss_io_data phy_regulator_io;
 	int reg_size;
-	u32 core_clk_cnt;
-	u32 link_clk_cnt;
 	u32 flags;
 	struct clk *byte_clk;
 	struct clk *esc_clk;
@@ -472,6 +467,10 @@ struct mdss_dsi_ctrl_pdata {
 	struct mdss_util_intf *mdss_util;
 	struct dsi_shared_data *shared_data;
 
+	void *clk_mngr;
+	void *dsi_clk_handle;
+	void *mdp_clk_handle;
+	int m_vote_cnt;
 	/* debugfs structure */
 	struct mdss_dsi_debugfs_info *debugfs_info;
 };
@@ -501,8 +500,8 @@ void mdp4_dsi_cmd_trigger(void);
 void mdss_dsi_cmd_mdp_start(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_bta_sw_trigger(struct mdss_panel_data *pdata);
 void mdss_dsi_ack_err_status(struct mdss_dsi_ctrl_pdata *ctrl);
-int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
-	u8 clk_type, int enable);
+int mdss_dsi_clk_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, void *clk_handle,
+	enum mdss_dsi_clk_type clk_type, enum mdss_dsi_clk_state clk_state);
 void mdss_dsi_clk_req(struct mdss_dsi_ctrl_pdata *ctrl,
 				int enable);
 void mdss_dsi_controller_cfg(int enable,
@@ -528,6 +527,18 @@ int mdss_dsi_shadow_clk_init(struct platform_device *pdev,
 		      struct mdss_dsi_ctrl_pdata *ctrl_pdata);
 void mdss_dsi_shadow_clk_deinit(struct device *dev,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata);
+int mdss_dsi_pre_clkoff_cb(void *priv,
+			   enum mdss_dsi_clk_type clk_type,
+			   enum mdss_dsi_clk_state new_state);
+int mdss_dsi_post_clkoff_cb(void *priv,
+			    enum mdss_dsi_clk_type clk_type,
+			    enum mdss_dsi_clk_state curr_state);
+int mdss_dsi_post_clkon_cb(void *priv,
+			   enum mdss_dsi_clk_type clk_type,
+			   enum mdss_dsi_clk_state curr_state);
+int mdss_dsi_pre_clkon_cb(void *priv,
+			  enum mdss_dsi_clk_type clk_type,
+			  enum mdss_dsi_clk_state new_state);
 int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable);
 void mdss_dsi_phy_disable(struct mdss_dsi_ctrl_pdata *ctrl);
 void mdss_dsi_cmd_test_pattern(struct mdss_dsi_ctrl_pdata *ctrl);
