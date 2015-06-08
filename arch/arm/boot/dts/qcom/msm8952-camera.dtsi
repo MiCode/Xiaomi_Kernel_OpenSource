@@ -376,17 +376,17 @@
 		reg-names = "cci";
 		interrupts = <0 50 0>;
 		interrupt-names = "cci";
-		clocks = <&clock_gcc clk_gcc_camss_top_ahb_clk>,
+		clocks = <&clock_gcc clk_gcc_camss_ispif_ahb_clk>,
 			<&clock_gcc clk_cci_clk_src>,
 			<&clock_gcc clk_gcc_camss_cci_ahb_clk>,
 			<&clock_gcc clk_gcc_camss_cci_clk>,
 			<&clock_gcc clk_gcc_camss_ahb_clk>,
-			<&clock_gcc clk_gcc_camss_ispif_ahb_clk>;
-		clock-names = "camss_top_ahb_clk", "cci_src_clk",
+			<&clock_gcc clk_gcc_camss_top_ahb_clk>;
+		clock-names = "ispif_ahb_clk", "cci_src_clk",
 			"cci_ahb_clk", "camss_cci_clk",
-			"camss_ahb_clk", "ispif_ahb_clk";
-		qcom,clock-rates = <0 19200000 0 0 0 61540000>,
-				<0 37500000 0 0 0 61540000>;
+			"camss_ahb_clk", "camss_top_ahb_clk";
+		qcom,clock-rates = <61540000 19200000 0 0 0 0>,
+				<61540000 37500000 0 0 0 0>;
 		pinctrl-names = "cci_default", "cci_suspend";
 			pinctrl-0 = <&cci0_active &cci1_active>;
 			pinctrl-1 = <&cci0_suspend &cci1_suspend>;
