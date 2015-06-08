@@ -28,6 +28,11 @@ Parent node required properties:
 			sub node devices.
 - #address-cells:	Must be <1>
 - #size-cells:		Must be <1>
+- qcom,pmic-revid:      Should specify the phandle of PMIC
+                        revid module. This is used to identify
+                        the PMIC subtype.
+
+
 
 Sub node required properties:
 - reg:			The SPMI address for this peripheral
@@ -255,6 +260,7 @@ Optional Properties:
 - qcom,battery-data			Points to the phandle of node which
 					contains the battery-profiles supported
 					by the charger/FG.
+- qcom,enable-hvdcp-9v			A bool property to enable 9V HVDCP 2.0 detection.
 
 Example:
 	qcom,qpnp-smbcharger {
