@@ -40,6 +40,8 @@ enum fixed_addresses {
 extern void __early_set_fixmap(enum fixed_addresses idx,
 					phys_addr_t phys, pgprot_t flags);
 
+#define __set_fixmap __early_set_fixmap
+
 #include <asm-generic/fixmap.h>
 
 #endif
