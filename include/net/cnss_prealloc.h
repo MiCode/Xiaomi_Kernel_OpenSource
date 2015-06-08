@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -10,10 +10,14 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _WCNSS_PRE_ALLOC_H_
-#define _WCNSS_PRE_ALLOC_H_
+#ifndef _NET_CNSS_PREALLOC_H_
+#define _NET_CNSS_PREALLOC_H_
 
-int wcnss_prealloc_init(void);
-void wcnss_prealloc_deinit(void);
+#define WCNSS_PRE_ALLOC_GET_THRESHOLD (4*1024)
 
-#endif/* _WCNSS_PRE_ALLOC_H_ */
+extern void *wcnss_prealloc_get(unsigned int size);
+extern int wcnss_prealloc_put(void *ptr);
+extern int wcnss_pre_alloc_reset(void);
+void wcnss_prealloc_check_memory_leak(void);
+
+#endif /* _NET_CNSS__PREALLOC_H_ */
