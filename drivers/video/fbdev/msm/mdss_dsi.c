@@ -1040,9 +1040,19 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 		goto panel_power_ctrl;
 	}
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_LINK_CLKS, 0);
+	/*
+	 * Link clocks should be turned off before PHY can be disabled.
+	 * For command mode panels, all clocks are turned off prior to reaching
+	 * here, so core clocks should be turned on before accessing hardware
+	 * registers. For video mode panel, turn off link clocks and then
+	 * disable PHY
+	 */
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_CORE_CLKS, 1);
+		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+					MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_ON);
+	else
+		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+				  MDSS_DSI_LINK_CLK, MDSS_DSI_CLK_OFF);
 
 	if (!pdata->panel_info.ulps_suspend_enabled) {
 		/* disable DSI controller */
@@ -1051,7 +1061,8 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata, int power_state)
 		/* disable DSI phy */
 		mdss_dsi_phy_disable(ctrl_pdata);
 	}
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_CORE_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_CORE_CLK, MDSS_DSI_CLK_OFF);
 
 panel_power_ctrl:
 	ret = mdss_dsi_panel_power_ctrl(pdata, power_state);
@@ -1101,9 +1112,11 @@ int mdss_dsi_switch_mode(struct mdss_panel_data *pdata, int mode)
 		return -EINVAL;
 	}
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 	ctrl_pdata->switch_mode(pdata, mode);
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 
 	pr_debug("%s, end\n", __func__);
 	return 0;
@@ -1126,11 +1139,13 @@ static int mdss_dsi_reconfig(struct mdss_panel_data *pdata, int mode)
 
 	if (pinfo->dms_mode == DYNAMIC_MODE_SWITCH_IMMEDIATE) {
 		/* reset DSI */
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 		mdss_dsi_sw_reset(ctrl_pdata, true);
 		mdss_dsi_ctrl_setup(ctrl_pdata);
 		mdss_dsi_controller_cfg(true, pdata);
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	}
 
 	pr_debug("%s, end\n", __func__);
@@ -1225,7 +1240,8 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	 * This is also enable the DSI core power block and reset/setup
 	 * DSI phy
 	 */
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 	mdss_dsi_sw_reset(ctrl_pdata, true);
 	mdss_dsi_read_hw_revision(ctrl_pdata);
 
@@ -1252,7 +1268,8 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	}
 
 	if (pdata->panel_info.type == MIPI_CMD_PANEL)
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+		mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 
 end:
 	pr_debug("%s-:\n", __func__);
@@ -1341,9 +1358,11 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	if (mdss_dsi_is_ctrl_clk_master(ctrl_pdata))
 		sctrl = mdss_dsi_get_ctrl_clk_slave();
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 	if (sctrl)
-		mdss_dsi_clk_ctrl(sctrl, DSI_ALL_CLKS, 1);
+		mdss_dsi_clk_ctrl(sctrl, sctrl->dsi_clk_handle,
+				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 
 	if (pdata->panel_info.blank_state == MDSS_PANEL_BLANK_LOW_POWER) {
 		pr_debug("%s: dsi_unblank with panel always on\n", __func__);
@@ -1372,9 +1391,11 @@ static int mdss_dsi_unblank(struct mdss_panel_data *pdata)
 	}
 
 error:
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	if (sctrl)
-		mdss_dsi_clk_ctrl(sctrl, DSI_ALL_CLKS, 0);
+		mdss_dsi_clk_ctrl(sctrl, sctrl->dsi_clk_handle,
+				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	pr_debug("%s-:\n", __func__);
 
 	return ret;
@@ -1398,7 +1419,8 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 	pr_debug("%s+: ctrl=%p ndx=%d power_state=%d\n",
 		__func__, ctrl_pdata, ctrl_pdata->ndx, power_state);
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 
 	if (mdss_panel_is_power_on_lp(power_state)) {
 		pr_debug("%s: low power state requested\n", __func__);
@@ -1448,7 +1470,8 @@ static int mdss_dsi_blank(struct mdss_panel_data *pdata, int power_state)
 	}
 
 error:
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	pr_debug("%s-:End\n", __func__);
 	return ret;
 }
@@ -1468,12 +1491,14 @@ static int mdss_dsi_post_panel_on(struct mdss_panel_data *pdata)
 	pr_debug("%s+: ctrl=%p ndx=%d\n", __func__,
 				ctrl_pdata, ctrl_pdata->ndx);
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 
 	if (ctrl_pdata->post_panel_on)
 		ctrl_pdata->post_panel_on(pdata);
 
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 	pr_debug("%s-:\n", __func__);
 
 	return 0;
@@ -1680,15 +1705,16 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 		clk_set_parent(ctrl_pdata->mux_pixel_clk,
 				ctrl_pdata->shadow_pixel_clk);
 
-		rc =  clk_set_rate(ctrl_pdata->byte_clk,
-					ctrl_pdata->byte_clk_rate);
+		rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+			MDSS_DSI_LINK_BYTE_CLK, ctrl_pdata->byte_clk_rate,  0);
 		if (rc) {
 			pr_err("%s: dsi_byte_clk - clk_set_rate failed\n",
 					__func__);
 			return rc;
 		}
 
-		rc = clk_set_rate(ctrl_pdata->pixel_clk, ctrl_pdata->pclk_rate);
+		rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+			MDSS_DSI_LINK_PIX_CLK, ctrl_pdata->pclk_rate,  0);
 		if (rc) {
 			pr_err("%s: dsi_pixel_clk - clk_set_rate failed\n",
 				__func__);
@@ -1718,6 +1744,23 @@ static int __mdss_dsi_dfps_update_clks(struct mdss_panel_data *pdata,
 		clk_rate = pdata->panel_info.clk_rate;
 		do_div(clk_rate, 8U);
 		ctrl_pdata->byte_clk_rate = (u32) clk_rate;
+		rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+			MDSS_DSI_LINK_BYTE_CLK, ctrl_pdata->byte_clk_rate,
+			MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
+		if (rc) {
+			pr_err("%s: dsi_byte_clk - clk_set_rate failed\n",
+					__func__);
+			return rc;
+		}
+
+		rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+			MDSS_DSI_LINK_PIX_CLK, ctrl_pdata->pclk_rate,
+			MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
+		if (rc) {
+			pr_err("%s: dsi_pixel_clk - clk_set_rate failed\n",
+				__func__);
+			return rc;
+		}
 	}
 
 	return rc;
@@ -1900,7 +1943,8 @@ static int mdss_dsi_reset_write_ptr(struct mdss_panel_data *pdata)
 			panel_data);
 
 	pinfo = &ctrl_pdata->panel_data.panel_info;
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
 	/* Need to reset the DSI core since the pixel stream was stopped. */
 	mdss_dsi_sw_reset(ctrl_pdata, true);
 
@@ -1926,7 +1970,8 @@ static int mdss_dsi_reset_write_ptr(struct mdss_panel_data *pdata)
 		rc = ctrl_pdata->set_col_page_addr(pdata, true);
 
 skip_cmd_send:
-	mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 0);
+	mdss_dsi_clk_ctrl(ctrl_pdata, ctrl_pdata->dsi_clk_handle,
+			  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_OFF);
 
 	pr_debug("%s: DSI%d write ptr reset finished\n", __func__,
 			ctrl_pdata->ndx);
@@ -1962,6 +2007,24 @@ static int mdss_dsi_clk_refresh(struct mdss_panel_data *pdata)
 	ctrl_pdata->byte_clk_rate = pdata->panel_info.clk_rate / 8;
 	pr_debug("%s ctrl_pdata->byte_clk_rate=%d ctrl_pdata->pclk_rate=%d\n",
 		__func__, ctrl_pdata->byte_clk_rate, ctrl_pdata->pclk_rate);
+
+	rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+		MDSS_DSI_LINK_BYTE_CLK, ctrl_pdata->byte_clk_rate,
+		MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
+	if (rc) {
+		pr_err("%s: dsi_byte_clk - clk_set_rate failed\n",
+				__func__);
+		return rc;
+	}
+
+	rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+		MDSS_DSI_LINK_PIX_CLK, ctrl_pdata->pclk_rate,
+		MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
+	if (rc) {
+		pr_err("%s: dsi_pixel_clk - clk_set_rate failed\n",
+			__func__);
+		return rc;
+	}
 	return rc;
 }
 
@@ -2262,11 +2325,173 @@ static struct device_node *mdss_dsi_config_panel(struct platform_device *pdev)
 	return dsi_pan_node;
 }
 
+static int mdss_dsi_ctrl_clock_init(struct platform_device *ctrl_pdev,
+				    struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int rc = 0;
+	struct mdss_dsi_clk_info info;
+	struct mdss_panel_info *pinfo;
+	struct mdss_dsi_clk_client client1 = {"dsi_clk_client"};
+	struct mdss_dsi_clk_client client2 = {"mdp_event_client"};
+	void *handle;
+
+	if (mdss_dsi_link_clk_init(ctrl_pdev, ctrl_pdata)) {
+		pr_err("%s: unable to initialize Dsi ctrl clks\n", __func__);
+		return -EPERM;
+	}
+
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
+
+	if (pinfo->dynamic_fps &&
+			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
+		if (mdss_dsi_shadow_clk_init(ctrl_pdev, ctrl_pdata)) {
+			pr_err("unable to initialize shadow ctrl clks\n");
+			rc = -EPERM;
+			goto error_link_clk_deinit;
+		}
+	}
+
+	memset(&info, 0x0, sizeof(info));
+
+	info.core_clks.mdp_core_clk = ctrl_pdata->shared_data->mdp_core_clk;
+	info.core_clks.ahb_clk = ctrl_pdata->shared_data->ahb_clk;
+	info.core_clks.axi_clk = ctrl_pdata->shared_data->axi_clk;
+	info.core_clks.mmss_misc_ahb_clk =
+		ctrl_pdata->shared_data->mmss_misc_ahb_clk;
+
+	info.link_clks.esc_clk = ctrl_pdata->esc_clk;
+	info.link_clks.byte_clk = ctrl_pdata->byte_clk;
+	info.link_clks.pixel_clk = ctrl_pdata->pixel_clk;
+
+	info.pre_clkoff_cb = mdss_dsi_pre_clkoff_cb;
+	info.post_clkon_cb = mdss_dsi_post_clkon_cb;
+	info.pre_clkon_cb = mdss_dsi_pre_clkon_cb;
+	info.post_clkoff_cb = mdss_dsi_post_clkoff_cb;
+	info.priv_data = ctrl_pdata;
+	snprintf(info.name, DSI_CLK_NAME_LEN, "DSI%d", ctrl_pdata->ndx);
+	ctrl_pdata->clk_mngr = mdss_dsi_clk_init(&info);
+	if (IS_ERR_OR_NULL(ctrl_pdata->clk_mngr)) {
+		rc = PTR_ERR(ctrl_pdata->clk_mngr);
+		ctrl_pdata->clk_mngr = NULL;
+		pr_err("dsi clock registration failed, rc = %d\n", rc);
+		goto error_shadow_clk_deinit;
+	}
+
+	/*
+	 * There are two clients that control dsi clocks. MDP driver controls
+	 * the clock through MDSS_PANEL_EVENT_CLK_CTRL event and dsi driver
+	 * through clock interface. To differentiate between the votes from the
+	 * two clients, dsi driver will use two different handles to vote for
+	 * clock states from dsi and mdp driver.
+	 */
+	handle = mdss_dsi_clk_register(ctrl_pdata->clk_mngr, &client1);
+	if (IS_ERR_OR_NULL(handle)) {
+		rc = PTR_ERR(handle);
+		pr_err("failed to register %s client, rc = %d\n",
+		       client1.client_name, rc);
+		goto error_clk_deinit;
+	} else {
+		ctrl_pdata->dsi_clk_handle = handle;
+	}
+
+	handle = mdss_dsi_clk_register(ctrl_pdata->clk_mngr, &client2);
+	if (IS_ERR_OR_NULL(handle)) {
+		rc = PTR_ERR(handle);
+		pr_err("failed to register %s client, rc = %d\n",
+		       client2.client_name, rc);
+		goto error_clk_client_deregister;
+	} else {
+		ctrl_pdata->mdp_clk_handle = handle;
+	}
+
+	return rc;
+error_clk_client_deregister:
+	mdss_dsi_clk_deregister(ctrl_pdata->dsi_clk_handle);
+error_clk_deinit:
+	mdss_dsi_clk_deinit(ctrl_pdata);
+error_shadow_clk_deinit:
+	mdss_dsi_shadow_clk_deinit(&ctrl_pdev->dev, ctrl_pdata);
+error_link_clk_deinit:
+	mdss_dsi_link_clk_deinit(&ctrl_pdev->dev, ctrl_pdata);
+	return rc;
+}
+
+static int mdss_dsi_set_clk_rates(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	int rc = 0;
+
+	rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+					MDSS_DSI_LINK_BYTE_CLK,
+					ctrl_pdata->byte_clk_rate,
+					MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
+	if (rc) {
+		pr_err("%s: dsi_byte_clk - clk_set_rate failed\n",
+				__func__);
+		return rc;
+	}
+
+	rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+					MDSS_DSI_LINK_PIX_CLK,
+					ctrl_pdata->pclk_rate,
+					MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
+	if (rc) {
+		pr_err("%s: dsi_pixel_clk - clk_set_rate failed\n",
+			__func__);
+		return rc;
+	}
+
+	rc = mdss_dsi_clk_set_link_rate(ctrl_pdata->dsi_clk_handle,
+					MDSS_DSI_LINK_ESC_CLK,
+					19200000,
+					MDSS_DSI_CLK_UPDATE_CLK_RATE_AT_ON);
+	if (rc) {
+		pr_err("%s: dsi_esc_clk - clk_set_rate failed\n",
+			__func__);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int mdss_dsi_cont_splash_config(struct mdss_panel_info *pinfo,
+				       struct mdss_dsi_ctrl_pdata *ctrl_pdata)
+{
+	void *clk_handle;
+	int rc = 0;
+
+	if (pinfo->cont_splash_enabled) {
+		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),
+			MDSS_PANEL_POWER_ON);
+		if (rc) {
+			pr_err("%s: Panel power on failed\n", __func__);
+			return rc;
+		}
+		if (ctrl_pdata->bklt_ctrl == BL_PWM)
+			mdss_dsi_panel_pwm_enable(ctrl_pdata);
+		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
+		if (ctrl_pdata->panel_data.panel_info.type == MIPI_CMD_PANEL)
+			clk_handle = ctrl_pdata->mdp_clk_handle;
+		else
+			clk_handle = ctrl_pdata->dsi_clk_handle;
+
+		mdss_dsi_clk_ctrl(ctrl_pdata, clk_handle,
+				  MDSS_DSI_ALL_CLKS, MDSS_DSI_CLK_ON);
+		ctrl_pdata->is_phyreg_enabled = 1;
+		ctrl_pdata->ctrl_state |=
+			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
+	} else {
+		pinfo->panel_power_state = MDSS_PANEL_POWER_OFF;
+	}
+
+	return rc;
+}
+
 static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	u32 index;
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
+	struct mdss_panel_info *pinfo = NULL;
 	struct device_node *dsi_pan_node = NULL;
 	const char *ctrl_name;
 	struct mdss_util_intf *util;
@@ -2344,6 +2569,24 @@ static int mdss_dsi_ctrl_probe(struct platform_device *pdev)
 	if (rc) {
 		pr_err("%s: dsi panel dev reg failed\n", __func__);
 		goto error_pan_node;
+	}
+
+	if (mdss_dsi_ctrl_clock_init(pdev, ctrl_pdata)) {
+		pr_err("%s: unable to initialize dsi clk manager\n", __func__);
+		return -EPERM;
+	}
+
+	rc = mdss_dsi_set_clk_rates(ctrl_pdata);
+	if (rc) {
+		pr_err("%s: Failed to set dsi clk rates\n", __func__);
+		return rc;
+	}
+
+	pinfo = &(ctrl_pdata->panel_data.panel_info);
+	rc = mdss_dsi_cont_splash_config(pinfo, ctrl_pdata);
+	if (rc) {
+		pr_err("%s: Failed to set dsi splash config\n", __func__);
+		return rc;
 	}
 
 	if (mdss_dsi_is_te_based_esd(ctrl_pdata)) {
@@ -3035,6 +3278,13 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		pr_err("%s: unable to initialize the clk dividers\n", __func__);
 		return rc;
 	}
+	ctrl_pdata->pclk_rate = mipi->dsi_pclk_rate;
+	clk_rate = pinfo->clk_rate;
+	do_div(clk_rate, 8U);
+	ctrl_pdata->byte_clk_rate = (u32)clk_rate;
+	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
+			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
+
 
 	rc = mdss_dsi_get_dt_vreg_data(&ctrl_pdev->dev, pan_node,
 		&ctrl_pdata->panel_power_data, DSI_PANEL_PM);
@@ -3068,19 +3318,6 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		pr_err("%s: failed to parse gpio params, rc=%d\n",
 						__func__, rc);
 		return rc;
-	}
-
-	if (mdss_dsi_link_clk_init(ctrl_pdev, ctrl_pdata)) {
-		pr_err("%s: unable to initialize Dsi ctrl clks\n", __func__);
-		return -EPERM;
-	}
-
-	if (pinfo->dynamic_fps &&
-			pinfo->dfps_update == DFPS_IMMEDIATE_CLK_UPDATE_MODE) {
-		if (mdss_dsi_shadow_clk_init(ctrl_pdev, ctrl_pdata)) {
-			pr_err("unable to initialize shadow ctrl clks\n");
-			return -EPERM;
-		}
 	}
 
 	if (mdss_dsi_retrieve_ctrl_resources(ctrl_pdev,
@@ -3125,14 +3362,6 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 			return rc;
 		}
 	}
-
-	ctrl_pdata->pclk_rate = mipi->dsi_pclk_rate;
-	clk_rate = pinfo->clk_rate;
-	do_div(clk_rate, 8U);
-	ctrl_pdata->byte_clk_rate = (u32)clk_rate;
-	pr_debug("%s: pclk=%d, bclk=%d\n", __func__,
-			ctrl_pdata->pclk_rate, ctrl_pdata->byte_clk_rate);
-
 	ctrl_pdata->ctrl_state = CTRL_STATE_UNKNOWN;
 
 	/*
@@ -3154,23 +3383,6 @@ int dsi_panel_device_register(struct platform_device *ctrl_pdev,
 		}
 	}
 
-	if (pinfo->cont_splash_enabled) {
-		rc = mdss_dsi_panel_power_ctrl(&(ctrl_pdata->panel_data),
-			MDSS_PANEL_POWER_ON);
-		if (rc) {
-			pr_err("%s: Panel power on failed\n", __func__);
-			return rc;
-		}
-		if (ctrl_pdata->bklt_ctrl == BL_PWM)
-			mdss_dsi_panel_pwm_enable(ctrl_pdata);
-		pinfo->blank_state = MDSS_PANEL_BLANK_UNBLANK;
-		mdss_dsi_clk_ctrl(ctrl_pdata, DSI_ALL_CLKS, 1);
-		ctrl_pdata->is_phyreg_enabled = 1;
-		ctrl_pdata->ctrl_state |=
-			(CTRL_STATE_PANEL_INIT | CTRL_STATE_MDP_ACTIVE);
-	} else {
-		pinfo->panel_power_state = MDSS_PANEL_POWER_OFF;
-	}
 
 	rc = mdss_register_panel(ctrl_pdev, &(ctrl_pdata->panel_data));
 	if (rc) {
