@@ -1,0 +1,17 @@
+menu "Qualcomm Technologies, Inc Per File Encryption security device drivers"
+	depends on ARCH_MSM
+
+config PFK
+	bool "Per-File-Key driver"
+	depends on SECURITY
+	depends on ECRYPT_FS
+	default n
+	help
+		This driver is used for storing eCryptfs information
+		in file node.
+		This is part of eCryptfs hardware enhanced solution
+		provided by Qualcomm Technologies, Inc.
+		Information is used when file is encrypted later using
+		ICE or dm crypto engine
+
+endmenu
