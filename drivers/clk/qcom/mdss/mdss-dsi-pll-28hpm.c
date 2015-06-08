@@ -70,6 +70,8 @@ static int vco_set_rate_hpm(struct clk *c, unsigned long rate)
 		return rc;
 	}
 
+	dsi_pll_software_reset(dsi_pll_res);
+
 	rc = vco_set_rate(vco, rate);
 
 	mdss_pll_resource_enable(dsi_pll_res, false);
@@ -78,68 +80,44 @@ static int vco_set_rate_hpm(struct clk *c, unsigned long rate)
 
 static int dsi_pll_enable_seq(struct mdss_pll_resources *dsi_pll_res)
 {
-	int i, rc = 0;
-	int pll_locked;
-
-	dsi_pll_software_reset(dsi_pll_res);
+	int rc = 0;
 
 	/*
-	 * PLL power up sequence.
-	 * Add necessary delays recommeded by hardware.
+	 * PLL power up sequence
+	 * Add necessary delays recommended by hardware
 	 */
+
+	/* DSI Uniphy lock detect setting */
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
-	udelay(1);
+			DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0d);
+	/* DSI Uniphy PLL Calibration setting */
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
-	udelay(200);
+			DSI_PHY_PLL_UNIPHY_PLL_CAL_CFG1, 0x34);
+	/* DSI Uniphy PLL lock detect mcnt */
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
-	udelay(500);
+			DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG0, 0x10);
+	/* DSI Uniphy PLL lock detect wait time */
 	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
-	udelay(500);
+			DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG1, 0x1a);
+	/* make sure the above register writes happen */
+	wmb();
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x01);
+	udelay(300);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x05);
+	udelay(300);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(300);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x07);
+	udelay(300);
+	MDSS_PLL_REG_W(dsi_pll_res->pll_base,
+		DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x0f);
+	udelay(1000);
 
-	for (i = 0; i < 2; i++) {
-		udelay(100);
-		/* DSI Uniphy lock detect setting */
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0c);
-		udelay(100);
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-				DSI_PHY_PLL_UNIPHY_PLL_LKDET_CFG2, 0x0d);
-
-		pll_locked = dsi_pll_lock_status(dsi_pll_res);
-		if (pll_locked)
-			break;
-
-		dsi_pll_software_reset(dsi_pll_res);
-		/*
-		 * PLL power up sequence.
-		 * Add necessary delays recommeded by hardware.
-		 */
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x1);
-		udelay(1);
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x5);
-		udelay(200);
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x7);
-		udelay(250);
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x5);
-		udelay(200);
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0x7);
-		udelay(500);
-		MDSS_PLL_REG_W(dsi_pll_res->pll_base,
-					DSI_PHY_PLL_UNIPHY_PLL_GLB_CFG, 0xf);
-		udelay(500);
-
-	}
-
-	if (!pll_locked) {
+	if (!dsi_pll_lock_status(dsi_pll_res)) {
 		pr_err("DSI PLL lock failed\n");
 		rc = -EINVAL;
 	} else {
@@ -185,8 +163,6 @@ static struct dsi_pll_vco_clk dsi_pll0_vco_clk = {
 	.max_rate = 750000000,
 	.pll_en_seq_cnt = 3,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq,
-	.pll_enable_seqs[1] = dsi_pll_enable_seq,
-	.pll_enable_seqs[2] = dsi_pll_enable_seq,
 	.lpfr_lut_size = 10,
 	.lpfr_lut = lpfr_lut_struct,
 	.c = {
@@ -278,8 +254,6 @@ static struct dsi_pll_vco_clk dsi_pll1_vco_clk = {
 	.max_rate = 750000000,
 	.pll_en_seq_cnt = 3,
 	.pll_enable_seqs[0] = dsi_pll_enable_seq,
-	.pll_enable_seqs[1] = dsi_pll_enable_seq,
-	.pll_enable_seqs[2] = dsi_pll_enable_seq,
 	.lpfr_lut_size = 10,
 	.lpfr_lut = lpfr_lut_struct,
 	.c = {
