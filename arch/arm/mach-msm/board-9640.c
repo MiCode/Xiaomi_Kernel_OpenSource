@@ -15,11 +15,6 @@
 #include <asm/mach/arch.h>
 #include "board-dt.h"
 
-static void __init mdm9640_map_io(void)
-{
-	msm_map_mdm9640_io();
-}
-
 static const char *mdm9640_dt_match[] __initconst = {
 	"qcom,mdm9640",
 	NULL
@@ -34,5 +29,4 @@ DT_MACHINE_START(MDM9640_DT,
 		 "Qualcomm Technologies, Inc. MSM 9640 (Flattened Device Tree)")
 	.init_machine		= mdm9640_init,
 	.dt_compat		= mdm9640_dt_match,
-	.map_io			= mdm9640_map_io,
 MACHINE_END
