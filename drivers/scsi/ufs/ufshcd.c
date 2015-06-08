@@ -3769,8 +3769,8 @@ int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us)
 	int ret = 0;
 	u32 tm_doorbell;
 	u32 tr_doorbell;
-	bool timeout = false;
-	ktime_t start = ktime_get();
+	bool timeout = false, do_last_check = false;
+	ktime_t start;
 
 	ufshcd_hold_all(hba);
 	spin_lock_irqsave(hba->host->host_lock, flags);
@@ -3783,19 +3783,29 @@ int ufshcd_wait_for_doorbell_clr(struct ufs_hba *hba, u64 wait_timeout_us)
 	 * Wait for all the outstanding tasks/transfer requests.
 	 * Verify by checking the doorbell registers are clear.
 	 */
+	start = ktime_get();
 	do {
 		tm_doorbell = ufshcd_readl(hba, REG_UTP_TASK_REQ_DOOR_BELL);
 		tr_doorbell = ufshcd_readl(hba, REG_UTP_TRANSFER_REQ_DOOR_BELL);
 		if (!tm_doorbell && !tr_doorbell) {
 			timeout = false;
 			break;
+		} else if (do_last_check) {
+			break;
 		}
 
 		spin_unlock_irqrestore(hba->host->host_lock, flags);
 		schedule();
 		if (ktime_to_us(ktime_sub(ktime_get(), start)) >
-		    wait_timeout_us)
+		    wait_timeout_us) {
 			timeout = true;
+			/*
+			 * We might have scheduled out for long time so make
+			 * sure to check if doorbells are cleared by this time
+			 * or not.
+			 */
+			do_last_check = true;
+		}
 		spin_lock_irqsave(hba->host->host_lock, flags);
 	} while (tm_doorbell || tr_doorbell);
 
