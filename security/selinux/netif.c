@@ -28,6 +28,7 @@
 #include "security.h"
 #include "objsec.h"
 #include "netif.h"
+#include "avc.h"
 
 #define SEL_NETIF_HASH_SIZE	64
 #define SEL_NETIF_HASH_MAX	1024
