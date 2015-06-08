@@ -1552,7 +1552,6 @@
 
 		perst-gpio = <&tlmm 130 0>;
 		wake-gpio = <&tlmm 132 0>;
-		qcom,ep-gpio = <&tlmm 94 0>;
 
 		gdsc-smmu-supply = <&gdsc_aggre0_noc>;
 		gdsc-vdd-supply = <&gdsc_pcie_1>;
@@ -1569,6 +1568,8 @@
 		qcom,smmu-exist;
 
 		iommus = <&anoc0_smmu>;
+
+		qcom,ep-wakeirq;
 
 		qcom,ep-latency = <10>;
 
@@ -2341,6 +2342,8 @@
 
 	wil6210: qcom,wil6210 {
 		compatible = "qcom,wil6210";
+		qcom,pcie-parent = <&pcie1>;
+		qcom,wigig-en = <&tlmm 94 0>;
 		qcom,msm-bus,name = "wil6210";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
