@@ -80,8 +80,6 @@
 		clock-names = "iface_clk";
 		clock-rate = <0>;
 
-		qcom,dsi-pll-slave;
-
 		qcom,platform-supply-entries {
 			#address-cells = <1>;
 			#size-cells = <0>;
