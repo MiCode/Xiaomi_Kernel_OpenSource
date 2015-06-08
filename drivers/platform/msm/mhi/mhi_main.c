@@ -343,6 +343,9 @@ enum MHI_STATUS mhi_open_channel(struct mhi_client_handle *client_handle)
 	client_handle->msi_vec =
 		mhi_ctrl_seg->mhi_ec_list[
 			client_handle->event_ring_index].mhi_msi_vector;
+	client_handle->intmod_t = mhi_ctrl_seg->mhi_ec_list[
+			client_handle->event_ring_index].mhi_intmodt;
+
 	init_completion(&client_handle->chan_open_complete);
 	ret_val = start_chan_sync(client_handle);
 
