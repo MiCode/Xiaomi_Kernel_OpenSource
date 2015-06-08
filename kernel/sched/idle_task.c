@@ -91,11 +91,19 @@ dec_hmp_sched_stats_idle(struct rq *rq, struct task_struct *p)
 {
 }
 
+#ifdef CONFIG_SCHED_QHMP
 static void
 fixup_hmp_sched_stats_idle(struct rq *rq, struct task_struct *p,
 			   u32 new_task_load)
 {
 }
+#else
+static void
+fixup_hmp_sched_stats_idle(struct rq *rq, struct task_struct *p,
+			   u32 new_task_load, u32 new_pred_demand)
+{
+}
+#endif
 
 #endif
 

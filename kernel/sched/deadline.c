@@ -749,11 +749,13 @@ fixup_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p,
 #else
 static void
 fixup_hmp_sched_stats_dl(struct rq *rq, struct task_struct *p,
-			 u32 new_task_load)
+			 u32 new_task_load, u32 new_pred_demand)
 {
 	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
 
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta);
+	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
+				      pred_demand_delta);
 }
 #endif
 
