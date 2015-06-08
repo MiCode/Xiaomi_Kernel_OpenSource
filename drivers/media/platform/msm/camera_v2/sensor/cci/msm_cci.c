@@ -1323,15 +1323,14 @@ static int32_t msm_cci_init(struct v4l2_subdev *sd,
 	msm_camera_io_w_mb(0x1, cci_dev->base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 
 	for (i = 0; i < MASTER_MAX; i++) {
-		cci_dev->write_wq[i] = create_singlethread_workqueue(
-								"msm_cci_wq");
 		if (!cci_dev->write_wq[i]) {
-			pr_err("Failed to create write wq\n");
+			pr_err("Failed to flush write wq\n");
 			rc = -ENOMEM;
 			goto reset_complete_failed;
+		} else {
+			flush_workqueue(cci_dev->write_wq[i]);
 		}
 	}
-
 	cci_dev->cci_state = CCI_STATE_ENABLED;
 
 	return 0;
@@ -1370,16 +1369,12 @@ static int32_t msm_cci_release(struct v4l2_subdev *sd)
 		return -EINVAL;
 	}
 	if (--cci_dev->ref_count) {
-		for (i = 0; i < MASTER_MAX; i++)
-			flush_workqueue(cci_dev->write_wq[i]);
 		CDBG("%s ref_count Exit %d\n", __func__, cci_dev->ref_count);
 		return 0;
 	}
-
-	for (i = 0; i < MASTER_MAX; i++) {
-		flush_workqueue(cci_dev->write_wq[i]);
-		destroy_workqueue(cci_dev->write_wq[i]);
-	}
+	for (i = 0; i < MASTER_MAX; i++)
+		if (cci_dev->write_wq[i])
+			flush_workqueue(cci_dev->write_wq[i]);
 
 	disable_irq(cci_dev->irq->start);
 	msm_cam_clk_enable(&cci_dev->pdev->dev, &cci_clk_info[0][0],
@@ -1943,7 +1938,7 @@ static int msm_cci_get_clk_info(struct cci_device *cci_dev,
 static int msm_cci_probe(struct platform_device *pdev)
 {
 	struct cci_device *new_cci_dev;
-	int rc = 0;
+	int rc = 0, i = 0;
 	CDBG("%s: pdev %p device id = %d\n", __func__, pdev, pdev->id);
 	new_cci_dev = kzalloc(sizeof(struct cci_device), GFP_KERNEL);
 	if (!new_cci_dev) {
@@ -2038,6 +2033,12 @@ static int msm_cci_probe(struct platform_device *pdev)
 		pr_err("%s: failed to add child nodes, rc=%d\n", __func__, rc);
 	new_cci_dev->cci_state = CCI_STATE_DISABLED;
 	g_cci_subdev = &new_cci_dev->msm_sd.sd;
+	for (i = 0; i < MASTER_MAX; i++) {
+		new_cci_dev->write_wq[i] = create_singlethread_workqueue(
+								"msm_cci_wq");
+		if (!new_cci_dev->write_wq[i])
+			pr_err("Failed to create write wq\n");
+	}
 	CDBG("%s cci subdev %p\n", __func__, &new_cci_dev->msm_sd.sd);
 	CDBG("%s line %d\n", __func__, __LINE__);
 	return 0;
