@@ -279,6 +279,7 @@ static inline void enable_nonboot_cpus(void) {}
 
 struct cpu_pwr_stats *get_cpu_pwr_stats(void);
 void trigger_cpu_pwr_stats_calc(void);
+int register_cpu_pwr_stats_ready_notifier(struct notifier_block *nb);
 
 enum cpuhp_state {
 	CPUHP_OFFLINE,
