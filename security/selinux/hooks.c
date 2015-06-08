@@ -84,6 +84,7 @@
 #include <linux/msg.h>
 #include <linux/shm.h>
 #include <linux/pft.h>
+#include <linux/pfk.h>
 
 #include "avc.h"
 #include "objsec.h"
@@ -3585,7 +3586,8 @@ static int selinux_file_close(struct file *file)
 
 static bool selinux_allow_merge_bio(struct bio *bio1, struct bio *bio2)
 {
-	return pft_allow_merge_bio(bio1, bio2);
+	return pft_allow_merge_bio(bio1, bio2) &&
+		pfk_allow_merge_bio(bio1, bio2);
 }
 
 /* task security operations */
