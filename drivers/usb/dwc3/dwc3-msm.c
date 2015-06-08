@@ -29,7 +29,6 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/list.h>
-#include <linux/debugfs.h>
 #include <linux/uaccess.h>
 #include <linux/usb/ch9.h>
 #include <linux/usb/gadget.h>
@@ -146,6 +145,12 @@ struct dwc3_msm_req_complete {
 			      struct usb_request *req);
 };
 
+enum dwc3_id_state {
+	DWC3_ID_GROUND = 0,
+	DWC3_ID_FLOAT,
+};
+
+
 struct dwc3_msm {
 	struct device *dev;
 	void __iomem *base;
@@ -174,7 +179,6 @@ struct dwc3_msm {
 	struct regulator	*vbus_otg;
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
-	struct dwc3_ext_xceiv	ext_xceiv;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	int			hs_phy_irq;
@@ -182,6 +186,7 @@ struct dwc3_msm {
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
 	struct dwc3_charger	charger;
+	struct dwc3_otg		dotg;
 	struct usb_phy		*otg_xceiv;
 	struct delayed_work	chg_work;
 	enum usb_chg_state	chg_state;
@@ -201,6 +206,7 @@ struct dwc3_msm {
 	unsigned int		health_status;
 	unsigned int		tx_fifo_size;
 	bool			vbus_active;
+	bool			suspend;
 	bool			ext_inuse;
 	bool			rm_pulldown;
 	enum dwc3_id_state	id_state;
@@ -884,7 +890,7 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	/* guard against concurrent VBUS handling */
 	mdwc->in_restart = true;
 
-	if (!mdwc->ext_xceiv.bsv) {
+	if (!mdwc->vbus_active) {
 		dev_dbg(mdwc->dev, "%s bailing out in disconnect\n", __func__);
 		dwc->err_evt_seen = false;
 		mdwc->in_restart = false;
@@ -895,7 +901,6 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 	chg_type = mdwc->charger.chg_type;
 
 	/* Reset active USB connection */
-	mdwc->ext_xceiv.bsv = false;
 	dwc3_resume_work(&mdwc->resume_work.work);
 
 	/* Make sure disconnect is processed before sending connect */
@@ -909,13 +914,12 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 
 	/* Force reconnect only if cable is still connected */
 	if (mdwc->vbus_active) {
-		mdwc->ext_xceiv.bsv = true;
 		mdwc->charger.chg_type = chg_type;
+		mdwc->in_restart = false;
 		dwc3_resume_work(&mdwc->resume_work.work);
 	}
 
 	dwc->err_evt_seen = false;
-	mdwc->in_restart = false;
 }
 
 /**
@@ -1212,7 +1216,7 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 	case DWC3_CONTROLLER_NOTIFY_OTG_EVENT:
 		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_NOTIFY_OTG_EVENT received\n");
 		if (dwc->enable_bus_suspend) {
-			mdwc->ext_xceiv.suspend = dwc->b_suspend;
+			mdwc->suspend = dwc->b_suspend;
 			schedule_delayed_work(&mdwc->resume_work, 0);
 		}
 		break;
@@ -1222,9 +1226,8 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 	}
 }
 
-static void dwc3_msm_block_reset(struct dwc3_ext_xceiv *xceiv, bool core_reset)
+static void dwc3_msm_block_reset(struct dwc3_msm *mdwc, bool core_reset)
 {
-	struct dwc3_msm *mdwc = container_of(xceiv, struct dwc3_msm, ext_xceiv);
 	int ret  = 0;
 
 	if (core_reset) {
@@ -1920,6 +1923,57 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	return 0;
 }
 
+/**
+ * dwc3_ext_event_notify - callback to handle events from external transceiver
+ *
+ * Returns 0 on success
+ */
+static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
+{
+	static bool init;
+	struct dwc3_otg *dotg = &mdwc->dotg;
+
+	/* Flush processing any pending events before handling new ones */
+	if (init)
+		flush_delayed_work(&dotg->sm_work);
+
+	if (mdwc->id_state == DWC3_ID_FLOAT) {
+		dev_dbg(mdwc->dev, "XCVR: ID set\n");
+		set_bit(ID, &dotg->inputs);
+	} else {
+		dev_dbg(mdwc->dev, "XCVR: ID clear\n");
+		clear_bit(ID, &dotg->inputs);
+	}
+
+	if (mdwc->vbus_active && !mdwc->in_restart) {
+		dev_dbg(mdwc->dev, "XCVR: BSV set\n");
+		set_bit(B_SESS_VLD, &dotg->inputs);
+	} else {
+		dev_dbg(mdwc->dev, "XCVR: BSV clear\n");
+		clear_bit(B_SESS_VLD, &dotg->inputs);
+	}
+
+	if (mdwc->suspend) {
+		dev_dbg(mdwc->dev, "XCVR: SUSP set\n");
+		set_bit(B_SUSPEND, &dotg->inputs);
+	} else {
+		dev_dbg(mdwc->dev, "XCVR: SUSP clear\n");
+		clear_bit(B_SUSPEND, &dotg->inputs);
+	}
+
+	if (!init) {
+		init = true;
+		if (!work_busy(&dotg->sm_work.work))
+			schedule_delayed_work(&dotg->sm_work, 0);
+
+		complete(&dotg->dwc3_xcvr_vbus_init);
+		dev_dbg(mdwc->dev, "XCVR: BSV init complete\n");
+		return;
+	}
+
+	schedule_delayed_work(&dotg->sm_work, 0);
+}
+
 static void dwc3_resume_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm,
@@ -1948,7 +2002,7 @@ static void dwc3_resume_work(struct work_struct *w)
 
 	dbg_event(0xFF, "RWrk", mdwc->otg_xceiv ? 1 : 0);
 	if (mdwc->otg_xceiv)
-		mdwc->ext_xceiv.notify_ext_events(mdwc->otg_xceiv->otg);
+		dwc3_ext_event_notify(mdwc);
 	else if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM)
 		/* host-only mode: resume xhci directly */
 		pm_runtime_resume(&dwc->xhci->dev);
@@ -2202,10 +2256,8 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_USB_OTG:
 		/* Let OTG know about ID detection */
 		mdwc->id_state = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
-		if (mdwc->otg_xceiv && !mdwc->ext_inuse) {
-			mdwc->ext_xceiv.id = mdwc->id_state;
+		if (mdwc->otg_xceiv && !mdwc->ext_inuse)
 			schedule_delayed_work(&mdwc->resume_work, 12);
-		}
 
 		break;
 	case POWER_SUPPLY_PROP_SCOPE:
@@ -2230,12 +2282,10 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
 		dev_dbg(mdwc->dev, "%s: notify xceiv event\n", __func__);
+		if (mdwc->vbus_active == val->intval)
+			break;
 		mdwc->vbus_active = val->intval;
 		if (mdwc->otg_xceiv && !mdwc->ext_inuse && !mdwc->in_restart) {
-			if (mdwc->ext_xceiv.bsv == val->intval)
-				break;
-
-			mdwc->ext_xceiv.bsv = val->intval;
 			/*
 			 * Set debouncing delay to 120ms. Otherwise battery
 			 * charging CDP complaince test fails if delay > 120ms.
@@ -2357,7 +2407,6 @@ static enum power_supply_property dwc3_msm_pm_power_props_usb[] = {
 static void dwc3_ext_notify_online(void *ctx, int on)
 {
 	struct dwc3_msm *mdwc = ctx;
-	bool notify_otg = false;
 
 	if (!mdwc) {
 		pr_err("%s: DWC3 driver already removed\n", __func__);
@@ -2372,25 +2421,14 @@ static void dwc3_ext_notify_online(void *ctx, int on)
 	mdwc->ext_inuse = on;
 	if (on) {
 		/* force OTG to exit B-peripheral state */
-		mdwc->ext_xceiv.bsv = false;
-		notify_otg = true;
+		mdwc->vbus_active = false;
 		dwc3_start_chg_det(&mdwc->charger, false);
-	} else {
-		/* external client offline; tell OTG about cached ID/BSV */
-		if (mdwc->ext_xceiv.id != mdwc->id_state) {
-			mdwc->ext_xceiv.id = mdwc->id_state;
-			notify_otg = true;
-		}
-
-		mdwc->ext_xceiv.bsv = mdwc->vbus_active;
-		notify_otg |= mdwc->vbus_active;
 	}
 
 	if (mdwc->ext_vbus_psy)
 		power_supply_set_present(mdwc->ext_vbus_psy, on);
 
-	if (notify_otg)
-		schedule_delayed_work(&mdwc->resume_work, 0);
+	schedule_delayed_work(&mdwc->resume_work, 0);
 }
 
 static void dwc3_id_work(struct work_struct *w)
@@ -2420,10 +2458,8 @@ static void dwc3_id_work(struct work_struct *w)
 		mdwc->ext_inuse = (ret == 0);
 	}
 
-	if (!mdwc->ext_inuse) { /* notify OTG */
-		mdwc->ext_xceiv.id = mdwc->id_state;
+	if (!mdwc->ext_inuse)
 		dwc3_resume_work(&mdwc->resume_work.work);
-	}
 
 	dbg_event(0xFF, "RW (id)", 0);
 }
@@ -2626,7 +2662,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	else
 		clk_prepare_enable(mdwc->bus_aggr_clk);
 
-	mdwc->id_state = mdwc->ext_xceiv.id = DWC3_ID_FLOAT;
+	mdwc->id_state = DWC3_ID_FLOAT;
 	mdwc->charger.charging_disabled = of_property_read_bool(node,
 				"qcom,charging-disabled");
 
@@ -2920,14 +2956,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			}
 		}
 
-		mdwc->ext_xceiv.ext_block_reset = dwc3_msm_block_reset;
-		ret = dwc3_set_ext_xceiv(mdwc->otg_xceiv->otg,
-						&mdwc->ext_xceiv);
-		if (ret || !mdwc->ext_xceiv.notify_ext_events) {
-			dev_err(&pdev->dev, "failed to register xceiver: %d\n",
-									ret);
-			goto put_dwc3;
-		}
 	} else if (host_mode) {
 		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
 		mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
@@ -3100,7 +3128,7 @@ static void dwc3_otg_notify_host_mode(struct usb_otg *otg, int host_mode);
 static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
+	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
 	struct dwc3 *dwc = dotg->dwc;
 	struct usb_hcd *hcd;
 	int ret = 0;
@@ -3189,8 +3217,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		 * when moving from host to peripheral. This is required for
 		 * peripheral mode to work.
 		 */
-		if (ext_xceiv && ext_xceiv->ext_block_reset)
-			ext_xceiv->ext_block_reset(ext_xceiv, true);
+		dwc3_msm_block_reset(mdwc, true);
 
 		dwc3_gadget_usb3_phy_suspend(dwc, false);
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
@@ -3216,7 +3243,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
+	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
 
 	if (!otg->gadget)
 		return -EINVAL;
@@ -3234,8 +3261,7 @@ static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
 
 		/* Core reset is not required during start peripheral. Only
 		 * DBM reset is required, hence perform only DBM reset here */
-		if (ext_xceiv && ext_xceiv->ext_block_reset)
-			ext_xceiv->ext_block_reset(ext_xceiv, false);
+		dwc3_msm_block_reset(mdwc, false);
 
 		dwc3_set_mode(dotg->dwc, DWC3_GCTL_PRTCAP_DEVICE);
 		usb_gadget_vbus_connect(otg->gadget);
@@ -3323,79 +3349,6 @@ int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger)
 	dotg->charger = charger;
 	if (charger)
 		charger->notify_detection_complete = dwc3_ext_chg_det_done;
-
-	return 0;
-}
-
-/**
- * dwc3_ext_event_notify - callback to handle events from external transceiver
- * @otg: Pointer to the otg transceiver structure
- * @event: Event reported by transceiver
- *
- * Returns 0 on success
- */
-static void dwc3_ext_event_notify(struct usb_otg *otg)
-{
-	static bool init;
-	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-	struct dwc3_ext_xceiv *ext_xceiv = dotg->ext_xceiv;
-	struct usb_phy *phy = dotg->otg.phy;
-
-	/* Flush processing any pending events before handling new ones */
-	if (init)
-		flush_delayed_work(&dotg->sm_work);
-
-	if (ext_xceiv->id == DWC3_ID_FLOAT) {
-		dev_dbg(phy->dev, "XCVR: ID set\n");
-		set_bit(ID, &dotg->inputs);
-	} else {
-		dev_dbg(phy->dev, "XCVR: ID clear\n");
-		clear_bit(ID, &dotg->inputs);
-	}
-
-	if (ext_xceiv->bsv) {
-		dev_dbg(phy->dev, "XCVR: BSV set\n");
-		set_bit(B_SESS_VLD, &dotg->inputs);
-	} else {
-		dev_dbg(phy->dev, "XCVR: BSV clear\n");
-		clear_bit(B_SESS_VLD, &dotg->inputs);
-	}
-
-	if (ext_xceiv->suspend) {
-		dev_dbg(phy->dev, "XCVR: SUSP set\n");
-		set_bit(B_SUSPEND, &dotg->inputs);
-	} else {
-		dev_dbg(phy->dev, "XCVR: SUSP clear\n");
-		clear_bit(B_SUSPEND, &dotg->inputs);
-	}
-
-	if (!init) {
-		init = true;
-		if (!work_busy(&dotg->sm_work.work))
-			schedule_delayed_work(&dotg->sm_work, 0);
-
-		complete(&dotg->dwc3_xcvr_vbus_init);
-		dev_dbg(phy->dev, "XCVR: BSV init complete\n");
-		return;
-	}
-
-	schedule_delayed_work(&dotg->sm_work, 0);
-}
-
-/**
- * dwc3_set_ext_xceiv - bind/unbind external transceiver driver
- * @otg: Pointer to the otg transceiver structure
- * @ext_xceiv: Pointer to the external transceiver struccture
- *
- * Returns 0 on success
- */
-int dwc3_set_ext_xceiv(struct usb_otg *otg, struct dwc3_ext_xceiv *ext_xceiv)
-{
-	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-
-	dotg->ext_xceiv = ext_xceiv;
-	if (ext_xceiv)
-		ext_xceiv->notify_ext_events = dwc3_ext_event_notify;
 
 	return 0;
 }
@@ -3798,14 +3751,10 @@ ret:
  */
 int dwc3_otg_init(struct dwc3 *dwc)
 {
-	struct dwc3_otg *dotg;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct dwc3_otg *dotg = &mdwc->dotg;
 
 	dev_dbg(dwc->dev, "dwc3_otg_init\n");
-
-	/* Allocate and init otg instance */
-	dotg = devm_kzalloc(dwc->dev, sizeof(struct dwc3_otg), GFP_KERNEL);
-	if (!dotg)
-		return -ENOMEM;
 
 	dotg->otg.phy = devm_kzalloc(dwc->dev, sizeof(struct usb_phy),
 							GFP_KERNEL);
@@ -3838,7 +3787,8 @@ int dwc3_otg_init(struct dwc3 *dwc)
  */
 void dwc3_otg_exit(struct dwc3 *dwc)
 {
-	struct dwc3_otg *dotg = dwc->dotg;
+	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
+	struct dwc3_otg *dotg = &mdwc->dotg;
 
 	/* dotg is null when GHWPARAMS6[10]=SRPSupport=0, see dwc3_otg_init */
 	if (dotg) {
