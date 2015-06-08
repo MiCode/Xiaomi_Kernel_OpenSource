@@ -2812,6 +2812,8 @@ void set_hmp_defaults(void)
 #ifdef CONFIG_SCHED_FREQ_INPUT
 	sched_heavy_task =
 		pct_to_real(sysctl_sched_heavy_task_pct);
+	sched_major_task_runtime =
+		mult_frac(sched_ravg_window, MAJOR_TASK_PCT, 100);
 #endif
 
 	sched_init_task_load_pelt =
@@ -3612,8 +3614,10 @@ dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 static void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 {
 	stats->nr_big_tasks = 0;
-	if (reset_cra)
+	if (reset_cra) {
 		stats->cumulative_runnable_avg = 0;
+		set_pred_demands_sum(stats, 0);
+	}
 }
 
 
@@ -3774,17 +3778,19 @@ static void dec_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p)
 }
 
 static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
-				       u32 new_task_load)
+				       u32 new_task_load, u32 new_pred_demand)
 {
 	struct cfs_rq *cfs_rq;
 	struct sched_entity *se = &p->se;
 	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
 
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
 
 		fixup_cumulative_runnable_avg(&cfs_rq->hmp_stats, p,
-					      task_load_delta);
+					      task_load_delta,
+					      pred_demand_delta);
 		fixup_nr_big_tasks(&cfs_rq->hmp_stats, p, task_load_delta);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
@@ -3793,7 +3799,8 @@ static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
 	/* Fix up rq->hmp_stats only if we didn't find any throttled cfs_rq */
 	if (!se) {
 		fixup_cumulative_runnable_avg(&rq->hmp_stats, p,
-					      task_load_delta);
+					      task_load_delta,
+					      pred_demand_delta);
 		fixup_nr_big_tasks(&rq->hmp_stats, p, task_load_delta);
 	}
 }
@@ -3817,11 +3824,13 @@ dec_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p)
 }
 static void
 fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
-			   u32 new_task_load)
+			   u32 new_task_load, u32 new_pred_demand)
 {
 	s64 task_load_delta = (s64)new_task_load - task_load(p);
+	s64 pred_demand_delta = PRED_DEMAND_DELTA;
 
-	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta);
+	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, task_load_delta,
+				      pred_demand_delta);
 	fixup_nr_big_tasks(&rq->hmp_stats, p, task_load_delta);
 }
 
@@ -4598,6 +4607,12 @@ dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra) { }
 
 #ifdef CONFIG_SCHED_HMP
 
+#ifdef CONFIG_SCHED_FREQ_INPUT
+#define clear_ravg_pred_demand() (p->ravg.pred_demand = 0)
+#else
+#define clear_ravg_pred_demand()
+#endif
+
 void init_new_task_load(struct task_struct *p)
 {
 	int i;
@@ -4618,6 +4633,7 @@ void init_new_task_load(struct task_struct *p)
 	}
 
 	p->ravg.demand = init_load_windows;
+	clear_ravg_pred_demand();
 	for (i = 0; i < RAVG_HIST_SIZE_MAX; ++i)
 		p->ravg.sum_history[i] = init_load_windows;
 	p->se.avg.runnable_avg_sum_scaled = init_load_pelt;
@@ -4683,6 +4699,7 @@ static void init_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq)
 {
 	cfs_rq->hmp_stats.nr_big_tasks = 0;
 	cfs_rq->hmp_stats.cumulative_runnable_avg = 0;
+	set_pred_demands_sum(&cfs_rq->hmp_stats, 0);
 }
 
 static void inc_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
@@ -4707,6 +4724,8 @@ static void inc_throttled_cfs_rq_hmp_stats(struct hmp_sched_stats *stats,
 	stats->nr_big_tasks += cfs_rq->hmp_stats.nr_big_tasks;
 	stats->cumulative_runnable_avg +=
 				cfs_rq->hmp_stats.cumulative_runnable_avg;
+	set_pred_demands_sum(stats, stats->pred_demands_sum +
+			     cfs_rq->hmp_stats.pred_demands_sum);
 }
 
 static void dec_throttled_cfs_rq_hmp_stats(struct hmp_sched_stats *stats,
@@ -4715,9 +4734,12 @@ static void dec_throttled_cfs_rq_hmp_stats(struct hmp_sched_stats *stats,
 	stats->nr_big_tasks -= cfs_rq->hmp_stats.nr_big_tasks;
 	stats->cumulative_runnable_avg -=
 				cfs_rq->hmp_stats.cumulative_runnable_avg;
+	set_pred_demands_sum(stats, stats->pred_demands_sum -
+			     cfs_rq->hmp_stats.pred_demands_sum);
 
 	BUG_ON(stats->nr_big_tasks < 0 ||
 		(s64)stats->cumulative_runnable_avg < 0);
+	verify_pred_demands_sum(stats);
 }
 
 #else	/* CONFIG_CFS_BANDWIDTH */
@@ -9368,8 +9390,10 @@ no_move:
 
 		/* Assumes one 'busiest' cpu that we pulled tasks from */
 		if (!same_freq_domain(this_cpu, cpu_of(busiest))) {
-			check_for_freq_change(this_rq);
-			check_for_freq_change(busiest);
+			check_for_freq_change(this_rq, false);
+			check_for_freq_change(busiest, false);
+		} else {
+			check_for_freq_change(this_rq, true);
 		}
 	}
 	if (likely(!active_balance)) {
@@ -9667,8 +9691,10 @@ out_unlock:
 	local_irq_enable();
 
 	if (moved && !same_freq_domain(busiest_cpu, target_cpu)) {
-		check_for_freq_change(busiest_rq);
-		check_for_freq_change(target_rq);
+		check_for_freq_change(busiest_rq, false);
+		check_for_freq_change(target_rq, false);
+	} else if (moved) {
+		check_for_freq_change(target_rq, true);
 	}
 
 	if (per_cpu(dbs_boost_needed, target_cpu)) {
