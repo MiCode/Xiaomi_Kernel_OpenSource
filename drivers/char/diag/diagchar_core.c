@@ -1065,6 +1065,10 @@ static int mask_request_validate(unsigned char mask_buf[])
 				return 1;
 			else if (ss_cmd == 0x218) /* HDLC Disabled Command*/
 				return 0;
+			else if (ss_cmd == DIAG_GET_TIME_API)
+				return 1;
+			else if (ss_cmd == DIAG_SET_TIME_API)
+				return 1;
 			break;
 		case 0x13: /* DIAG_SUBSYS_FS */
 			if ((ss_cmd == 0) || (ss_cmd == 0x1))
@@ -2808,6 +2812,8 @@ static int __init diagchar_init(void)
 	driver->dci_state = DIAG_DCI_NO_ERROR;
 	setup_timer(&drain_timer, drain_timer_func, 1234);
 	driver->supports_sockets = 1;
+	driver->time_sync_enabled = 0;
+	driver->uses_time_api = 0;
 	driver->poolsize = poolsize;
 	driver->poolsize_hdlc = poolsize_hdlc;
 	driver->poolsize_dci = poolsize_dci;

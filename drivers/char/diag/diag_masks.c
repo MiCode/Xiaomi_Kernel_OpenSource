@@ -339,6 +339,39 @@ err:
 	mutex_unlock(&msg_mask.lock);
 }
 
+static void diag_send_time_sync_update(uint8_t peripheral)
+{
+	struct diag_ctrl_msg_time_sync time_sync_msg;
+	int msg_size = sizeof(struct diag_ctrl_msg_time_sync);
+	int err = 0;
+
+	if (peripheral >= NUM_PERIPHERALS) {
+		pr_err("diag: In %s, Invalid peripheral, %d\n",
+				__func__, peripheral);
+		return;
+	}
+
+	if (!driver->diagfwd_cntl[peripheral] ||
+		!driver->diagfwd_cntl[peripheral]->ch_open) {
+		pr_err("diag: In %s, control channel is not open, p: %d, %p\n",
+			__func__, peripheral, driver->diagfwd_cntl[peripheral]);
+		return;
+	}
+
+	mutex_lock(&driver->diag_cntl_mutex);
+	time_sync_msg.ctrl_pkt_id = DIAG_CTRL_MSG_TIME_SYNC_PKT;
+	time_sync_msg.ctrl_pkt_data_len = 5;
+	time_sync_msg.version = 1;
+	time_sync_msg.time_api = driver->uses_time_api;
+
+	err = diagfwd_write(peripheral, TYPE_CNTL, &time_sync_msg, msg_size);
+	if (err)
+		pr_err("diag: In %s, unable to write to peripheral: %d, type: %d, len: %d, err: %d\n",
+				__func__, peripheral, TYPE_CNTL,
+				msg_size, err);
+	mutex_unlock(&driver->diag_cntl_mutex);
+}
+
 static void diag_send_feature_mask_update(uint8_t peripheral)
 {
 	void *buf = driver->buf_feature_mask_update;
@@ -1498,6 +1531,8 @@ void diag_send_updates_peripheral(uint8_t peripheral)
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
 	diag_send_peripheral_buffering_mode(
 				&driver->buffering_mode[peripheral]);
+	if (driver->time_sync_enabled)
+		diag_send_time_sync_update(peripheral);
 }
 
 int diag_process_apps_masks(unsigned char *buf, int len)

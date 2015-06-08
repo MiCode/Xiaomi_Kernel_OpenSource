@@ -114,6 +114,8 @@
 #define DIAG_DEL_RSP_WRAP	0x04
 #define DIAG_DEL_RSP_WRAP_CNT	0x05
 #define DIAG_EXT_MOBILE_ID	0x06
+#define DIAG_GET_TIME_API	0x21B
+#define DIAG_SET_TIME_API	0x21C
 
 #define DIAG_CMD_OP_LOG_DISABLE		0
 #define DIAG_CMD_OP_GET_LOG_RANGE	1
@@ -139,6 +141,10 @@
 #define DIAG_CMD_OP_HDLC_DISABLE	0x218
 
 #define BAD_PARAM_RESPONSE_MESSAGE 20
+
+#define PERSIST_TIME_SUCCESS 0
+#define PERSIST_TIME_FAILURE 1
+#define PERSIST_TIME_NOT_SUPPORTED 2
 
 #define MODE_CMD	41
 #define RESET_ID	2
@@ -249,6 +255,32 @@ struct diag_cmd_ext_mobile_rsp_t {
 	uint32_t family;
 	uint32_t chip_id;
 } __packed;
+
+struct diag_cmd_time_sync_query_req_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+};
+
+struct diag_cmd_time_sync_query_rsp_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t time_api;
+};
+
+struct diag_cmd_time_sync_switch_req_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t time_api;
+	uint8_t persist_time;
+};
+
+struct diag_cmd_time_sync_switch_rsp_t {
+	struct diag_pkt_header_t header;
+	uint8_t version;
+	uint8_t time_api;
+	uint8_t time_api_status;
+	uint8_t persist_time_status;
+};
 
 struct diag_cmd_reg_entry_t {
 	uint16_t cmd_code;
@@ -527,6 +559,8 @@ struct diagchar_dev {
 	unsigned char *hdlc_encode_buf;
 	int hdlc_encode_buf_len;
 #endif
+	int time_sync_enabled;
+	uint8_t uses_time_api;
 };
 
 extern struct diagchar_dev *driver;
