@@ -45,6 +45,7 @@
 #define DIAG_CTRL_MSG_DEREG		27
 #define DIAG_CTRL_MSG_DCI_HANDSHAKE_PKT		29
 #define DIAG_CTRL_MSG_PD_STATUS			30
+#define DIAG_CTRL_MSG_TIME_SYNC_PKT		31
 
 /*
  * Feature Mask Definitions: Feature mask is used to sepcify Diag features
@@ -170,6 +171,13 @@ struct diag_ctrl_msg_stm {
 	uint32_t ctrl_pkt_data_len;
 	uint32_t version;
 	uint8_t  control_data;
+} __packed;
+
+struct diag_ctrl_msg_time_sync {
+	uint32_t ctrl_pkt_id;
+	uint32_t ctrl_pkt_data_len;
+	uint32_t version;
+	uint8_t  time_api;
 } __packed;
 
 struct diag_ctrl_dci_status {
