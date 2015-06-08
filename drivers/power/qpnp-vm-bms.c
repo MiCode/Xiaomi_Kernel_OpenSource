@@ -1974,6 +1974,11 @@ static void calculate_reported_soc(struct qpnp_bms_chip *chip)
 {
 	union power_supply_propval ret = {0,};
 
+	if (chip->last_soc < 0) {
+		pr_debug("last_soc is not ready, return\n");
+		return;
+	}
+
 	if (chip->reported_soc > chip->last_soc) {
 		/*send DISCHARGING status if the reported_soc drops from 100 */
 		if (chip->reported_soc == 100) {
