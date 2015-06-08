@@ -134,6 +134,7 @@ int wcnss_wlan_iris_xo_mode(void);
 void wcnss_flush_work(struct work_struct *work);
 void wcnss_flush_delayed_work(struct delayed_work *dwork);
 int wcnss_get_iris_name(char *iris_version);
+void wcnss_en_wlan_led_trigger(void);
 
 #ifdef CONFIG_WCNSS_REGISTER_DUMP_ON_BITE
 void wcnss_log_debug_regs_on_bite(void);
