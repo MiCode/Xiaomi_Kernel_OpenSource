@@ -3705,8 +3705,10 @@ void mdss_mdp_hist_irq_set_mask(u32 irq)
 	enabled_irq = mdata->hist_intr.curr;
 
 	/* Do not enable irq for which hist_enable not called */
-	if (!(enabled_irq & irq))
+	if (!(enabled_irq & irq)) {
+		spin_unlock_irqrestore(&mdata->hist_intr.lock, flag);
 		return;
+	}
 
 	mask = readl_relaxed(mdata->mdp_base + MDSS_MDP_REG_HIST_INTR_EN);
 	mask |= irq;
@@ -3725,8 +3727,10 @@ void mdss_mdp_hist_irq_unset_mask(u32 irq)
 	enabled_irq = mdata->hist_intr.curr;
 
 	/* Do not disable irq for which hist_enable not called */
-	if (!(enabled_irq & irq))
+	if (!(enabled_irq & irq)) {
+		spin_unlock_irqrestore(&mdata->hist_intr.lock, flag);
 		return;
+	}
 
 	mask = readl_relaxed(mdata->mdp_base + MDSS_MDP_REG_HIST_INTR_EN);
 	mask &= ~irq;
