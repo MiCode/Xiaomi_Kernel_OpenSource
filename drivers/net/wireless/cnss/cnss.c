@@ -49,6 +49,10 @@
 #include <soc/qcom/memory_dump.h>
 #include <net/cnss.h>
 
+#ifdef CONFIG_WCNSS_MEM_PRE_ALLOC
+#include <net/cnss_prealloc.h>
+#endif
+
 #define subsys_to_drv(d) container_of(d, struct cnss_data, subsys_desc)
 
 #define VREG_ON			1
