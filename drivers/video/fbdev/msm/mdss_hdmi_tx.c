@@ -1382,6 +1382,8 @@ static void hdmi_tx_hpd_int_work(struct work_struct *work)
 
 		if (hdmi_ctrl->hdcp_ops)
 			hdmi_ctrl->hdcp22_present = true;
+		else
+			hdmi_ctrl->hdcp22_present = false;
 
 		if (!hdmi_ctrl->hdcp22_present && hdmi_ctrl->hdcp14_present) {
 			hdmi_ctrl->hdcp_feature_data =
@@ -3644,11 +3646,6 @@ static int hdmi_tx_start_hdcp(struct hdmi_tx_ctrl *hdmi_ctrl)
 	if (!hdmi_ctrl) {
 		DEV_ERR("%s: invalid input\n", __func__);
 		return -EINVAL;
-	}
-
-	if (!hdmi_ctrl->hdcp_ops) {
-		DEV_ERR("%s: HDCP feature is not available\n", __func__);
-		return -ENODEV;
 	}
 
 	if (hdmi_ctrl->panel_data.panel_info.cont_splash_enabled ||
