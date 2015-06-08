@@ -28,6 +28,7 @@
 #include <asm/byteorder.h>
 #include <asm/memory.h>
 #include <asm-generic/pci_iomap.h>
+#include <asm/early_ioremap.h>
 #include <linux/msm_rtb.h>
 #include <xen/xen.h>
 
