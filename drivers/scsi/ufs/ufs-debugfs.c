@@ -1464,22 +1464,30 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		goto err_no_root;
 	}
 
+	hba->debugfs_files.stats_folder = debugfs_create_dir("stats",
+					hba->debugfs_files.debugfs_root);
+	if (!hba->debugfs_files.stats_folder) {
+		dev_err(hba->dev,
+			"%s: NULL stats_folder, exiting", __func__);
+		goto err;
+	}
+
 	hba->debugfs_files.tag_stats =
 		debugfs_create_file("tag_stats", S_IRUSR | S_IWUSR,
-					   hba->debugfs_files.debugfs_root, hba,
+					   hba->debugfs_files.stats_folder, hba,
 					   &ufsdbg_tag_stats_fops);
 	if (!hba->debugfs_files.tag_stats) {
-		dev_err(hba->dev, "%s:  NULL tag stats file, exiting",
+		dev_err(hba->dev, "%s:  NULL tag_stats file, exiting",
 			__func__);
 		goto err;
 	}
 
 	hba->debugfs_files.err_stats =
 		debugfs_create_file("err_stats", S_IRUSR | S_IWUSR,
-					   hba->debugfs_files.debugfs_root, hba,
+					   hba->debugfs_files.stats_folder, hba,
 					   &ufsdbg_err_stats_fops);
 	if (!hba->debugfs_files.err_stats) {
-		dev_err(hba->dev, "%s:  NULL err stats file, exiting",
+		dev_err(hba->dev, "%s:  NULL err_stats file, exiting",
 			__func__);
 		goto err;
 	}
@@ -1561,7 +1569,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	hba->debugfs_files.req_stats =
 		debugfs_create_file("req_stats", S_IRUSR | S_IWUSR,
-			hba->debugfs_files.debugfs_root, hba,
+			hba->debugfs_files.stats_folder, hba,
 			&ufsdbg_req_stats_desc);
 	if (!hba->debugfs_files.req_stats) {
 		dev_err(hba->dev,
