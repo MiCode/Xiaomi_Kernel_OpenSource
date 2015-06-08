@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,8 +15,10 @@
 #define __ARCH_ARM_MACH_MSM_CORE_H
 #ifdef CONFIG_APSS_CORE_EA
 void set_cpu_throttled(struct cpumask *mask, bool throttling);
+struct blocking_notifier_head *get_power_update_notifier(void);
 #else
 static inline void set_cpu_throttled(struct cpumask *mask, bool throttling) {}
+struct blocking_notifier_head *get_power_update_notifier(void) {return NULL; }
 #endif
 #endif
 

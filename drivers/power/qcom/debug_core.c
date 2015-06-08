@@ -19,6 +19,7 @@
 #include <linux/debugfs.h>
 #include <linux/ctype.h>
 #include <linux/cpu.h>
+#include "soc/qcom/msm-core.h"
 
 #define MAX_PSTATES 20
 
@@ -245,6 +246,8 @@ static ssize_t msm_core_enable_write(struct file *file,
 		node->enabled = arg[FREQ_OFFSET];
 	}
 	ret = len;
+	blocking_notifier_call_chain(
+			get_power_update_notifier(), cpu, NULL);
 
 done:
 	kfree(kbuf);
