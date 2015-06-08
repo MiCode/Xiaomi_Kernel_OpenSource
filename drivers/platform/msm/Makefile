@@ -1,6 +1,8 @@
 #
 # Makefile for the MSM specific device drivers.
 #
+ccflags-y += -Isecurity/selinux -Isecurity/selinux/include
+obj-$(CONFIG_PFT) += pft.o
 obj-$(CONFIG_QPNP_REVID) += qpnp-revid.o
 obj-$(CONFIG_QPNP_COINCELL) += qpnp-coincell.o
 obj-$(CONFIG_MSM_MHI) += mhi/

@@ -83,6 +83,7 @@
 #include <linux/export.h>
 #include <linux/msg.h>
 #include <linux/shm.h>
+#include <linux/pft.h>
 
 #include "avc.h"
 #include "objsec.h"
@@ -1777,9 +1778,15 @@ static int may_create(struct inode *dir,
 	if (rc)
 		return rc;
 
-	return avc_has_perm(newsid, sbsec->sid,
+	rc = avc_has_perm(newsid, sbsec->sid,
 			    SECCLASS_FILESYSTEM,
 			    FILESYSTEM__ASSOCIATE, &ad);
+	if (rc)
+		return rc;
+
+	rc = pft_inode_mknod(dir, dentry, 0, 0);
+
+	return rc;
 }
 
 /* Check whether a task can create a key. */
@@ -1836,6 +1843,12 @@ static int may_link(struct inode *dir,
 	}
 
 	rc = avc_has_perm(sid, isec->sid, isec->sclass, av, &ad);
+	if (rc)
+		return rc;
+
+	if (kind == MAY_UNLINK)
+		rc = pft_inode_unlink(dir, dentry);
+
 	return rc;
 }
 
@@ -2806,7 +2819,19 @@ static int selinux_inode_init_security(struct inode *inode, struct inode *dir,
 
 static int selinux_inode_create(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
+	int ret;
+
+	ret = pft_inode_create(dir, dentry, mode);
+	if (ret < 0)
+		return ret;
+
 	return may_create(dir, dentry, SECCLASS_FILE);
+}
+
+static int selinux_inode_post_create(struct inode *dir, struct dentry *dentry,
+					umode_t mode)
+{
+	return pft_inode_post_create(dir, dentry, mode);
 }
 
 static int selinux_inode_link(struct dentry *old_dentry, struct inode *dir, struct dentry *new_dentry)
@@ -2842,6 +2867,12 @@ static int selinux_inode_mknod(struct inode *dir, struct dentry *dentry, umode_t
 static int selinux_inode_rename(struct inode *old_inode, struct dentry *old_dentry,
 				struct inode *new_inode, struct dentry *new_dentry)
 {
+	int rc;
+
+	rc = pft_inode_rename(old_inode, old_dentry, new_inode, new_dentry);
+	if (rc)
+		return rc;
+
 	return may_rename(old_inode, old_dentry, new_inode, new_dentry);
 }
 
@@ -2965,6 +2996,9 @@ static int selinux_inode_getattr(const struct path *path)
 static int selinux_inode_setotherxattr(struct dentry *dentry, const char *name)
 {
 	const struct cred *cred = current_cred();
+
+	if (pft_inode_set_xattr(dentry, name, NULL, 0, 0) < 0)
+		return -EACCES;
 
 	if (!strncmp(name, XATTR_SECURITY_PREFIX,
 		     sizeof XATTR_SECURITY_PREFIX - 1)) {
@@ -3216,10 +3250,15 @@ static int selinux_file_permission(struct file *file, int mask)
 	struct file_security_struct *fsec = file->f_security;
 	struct inode_security_struct *isec = inode->i_security;
 	u32 sid = current_sid();
+	int ret;
 
 	if (!mask)
 		/* No permission to check.  Existence test. */
 		return 0;
+
+	ret = pft_file_permission(file, mask);
+	if (ret < 0)
+		return ret;
 
 	if (sid == fsec->sid && fsec->isid == isec->sid &&
 	    fsec->pseqno == avc_policy_seqno())
@@ -3511,6 +3550,11 @@ static int selinux_file_open(struct file *file, const struct cred *cred)
 {
 	struct file_security_struct *fsec;
 	struct inode_security_struct *isec;
+	int ret;
+
+	ret = pft_file_open(file, cred);
+	if (ret < 0)
+		return ret;
 
 	fsec = file->f_security;
 	isec = file_inode(file)->i_security;
@@ -3532,6 +3576,16 @@ static int selinux_file_open(struct file *file, const struct cred *cred)
 	 * This check is not redundant - do not remove.
 	 */
 	return file_path_has_perm(cred, file, open_file_to_av(file));
+}
+
+static int selinux_file_close(struct file *file)
+{
+	return pft_file_close(file);
+}
+
+static bool selinux_allow_merge_bio(struct bio *bio1, struct bio *bio2)
+{
+	return pft_allow_merge_bio(bio1, bio2);
 }
 
 /* task security operations */
@@ -5905,6 +5959,7 @@ static struct security_hook_list selinux_hooks[] = {
 	LSM_HOOK_INIT(inode_free_security, selinux_inode_free_security),
 	LSM_HOOK_INIT(inode_init_security, selinux_inode_init_security),
 	LSM_HOOK_INIT(inode_create, selinux_inode_create),
+	LSM_HOOK_INIT(inode_post_create, selinux_inode_post_create),
 	LSM_HOOK_INIT(inode_link, selinux_inode_link),
 	LSM_HOOK_INIT(inode_unlink, selinux_inode_unlink),
 	LSM_HOOK_INIT(inode_symlink, selinux_inode_symlink),
@@ -5941,6 +5996,8 @@ static struct security_hook_list selinux_hooks[] = {
 	LSM_HOOK_INIT(file_receive, selinux_file_receive),
 
 	LSM_HOOK_INIT(file_open, selinux_file_open),
+	LSM_HOOK_INIT(file_close, selinux_file_close),
+	LSM_HOOK_INIT(allow_merge_bio, selinux_allow_merge_bio),
 
 	LSM_HOOK_INIT(task_create, selinux_task_create),
 	LSM_HOOK_INIT(cred_alloc_blank, selinux_cred_alloc_blank),

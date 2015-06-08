@@ -399,6 +399,7 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	if (dio->is_async && dio->rw == READ && dio->should_dirty)
 		bio_set_pages_dirty(bio);
 
+	bio->bi_dio_inode = dio->inode;
 	dio->bio_bdev = bio->bi_bdev;
 
 	if (sdio->submit_io) {
@@ -412,6 +413,19 @@ static inline void dio_bio_submit(struct dio *dio, struct dio_submit *sdio)
 	sdio->boundary = 0;
 	sdio->logical_offset_in_bio = 0;
 }
+
+struct inode *dio_bio_get_inode(struct bio *bio)
+{
+	struct inode *inode = NULL;
+
+	if (bio == NULL)
+		return NULL;
+
+	inode = bio->bi_dio_inode;
+
+	return inode;
+}
+EXPORT_SYMBOL(dio_bio_get_inode);
 
 /*
  * Release any resources in case of a failure
