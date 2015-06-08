@@ -549,4 +549,13 @@ config MSM_CORE_CTL_HELPER
 	  system load and state. It also supports limiting min and
 	  max online CPUs from userspace.
 
+config MSM_BAM_DMUX
+	bool "BAM Data Mux Driver"
+	depends on SPS
+	help
+	  Support Muxed Data Channels over BAM interface.
+	  BAM has a limited number of pipes.  This driver
+	  provides a means to support more logical channels
+	  via muxing than BAM could without muxing.
+
 endif # ARCH_MSM
