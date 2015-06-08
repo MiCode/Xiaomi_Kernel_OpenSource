@@ -41,7 +41,6 @@ struct dwc3_charger;
 struct dwc3_otg {
 	struct usb_otg		otg;
 	struct dwc3		*dwc;
-	struct regulator	*vbus_otg;
 	struct delayed_work	sm_work;
 	struct dwc3_charger	*charger;
 #define ID		 0
@@ -50,7 +49,6 @@ struct dwc3_otg {
 	unsigned long inputs;
 	struct completion	dwc3_xcvr_vbus_init;
 	int			charger_retry_count;
-	int			vbus_retry_count;
 };
 
 /**

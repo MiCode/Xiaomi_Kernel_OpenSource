@@ -175,10 +175,11 @@ struct dwc3_msm {
 
 	struct dbm		*dbm;
 
-	/* VBUS regulator if no OTG and running in host only mode */
-	struct regulator	*vbus_otg;
 	struct regulator	*vdda33;
 	struct regulator	*vdda18;
+	/* VBUS regulator for host mode */
+	struct regulator	*vbus_reg;
+	int			vbus_retry_count;
 	bool			resume_pending;
 	atomic_t                pm_suspended;
 	int			hs_phy_irq;
@@ -2842,17 +2843,17 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	host_mode = of_usb_get_dr_mode(dwc3_node) == USB_DR_MODE_HOST;
 	if (host_mode && of_get_property(pdev->dev.of_node, "vbus_dwc3-supply",
 									NULL)) {
-		mdwc->vbus_otg = devm_regulator_get(&pdev->dev, "vbus_dwc3");
-		if (IS_ERR(mdwc->vbus_otg)) {
+		mdwc->vbus_reg = devm_regulator_get(&pdev->dev, "vbus_dwc3");
+		if (IS_ERR(mdwc->vbus_reg)) {
 			dev_err(&pdev->dev, "Failed to get vbus regulator\n");
-			ret = PTR_ERR(mdwc->vbus_otg);
+			ret = PTR_ERR(mdwc->vbus_reg);
 			of_node_put(dwc3_node);
 			goto put_psupply;
 		}
-		ret = regulator_enable(mdwc->vbus_otg);
+		ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
-			mdwc->vbus_otg = 0;
-			dev_err(&pdev->dev, "Failed to enable vbus_otg\n");
+			mdwc->vbus_reg = 0;
+			dev_err(&pdev->dev, "Failed to enable vbus_reg\n");
 			of_node_put(dwc3_node);
 			goto put_psupply;
 		}
@@ -3006,8 +3007,8 @@ put_dwc3:
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 disable_vbus:
-	if (!IS_ERR_OR_NULL(mdwc->vbus_otg))
-		regulator_disable(mdwc->vbus_otg);
+	if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
+		regulator_disable(mdwc->vbus_reg);
 put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
@@ -3087,8 +3088,8 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	if (mdwc->bus_perf_client)
 		msm_bus_scale_unregister_client(mdwc->bus_perf_client);
 
-	if (!IS_ERR_OR_NULL(mdwc->vbus_otg))
-		regulator_disable(mdwc->vbus_otg);
+	if (!IS_ERR_OR_NULL(mdwc->vbus_reg))
+		regulator_disable(mdwc->vbus_reg);
 
 	if (mdwc->hs_phy_irq)
 		disable_irq(mdwc->hs_phy_irq);
@@ -3136,13 +3137,12 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	if (!dwc->xhci)
 		return -EINVAL;
 
-	if (!dotg->vbus_otg) {
-		dotg->vbus_otg = devm_regulator_get(dwc->dev->parent,
-							"vbus_dwc3");
-		if (IS_ERR(dotg->vbus_otg)) {
+	if (!mdwc->vbus_reg) {
+		mdwc->vbus_reg = devm_regulator_get(mdwc->dev, "vbus_dwc3");
+		if (IS_ERR(mdwc->vbus_reg)) {
 			dev_err(dwc->dev, "Failed to get vbus regulator\n");
-			ret = PTR_ERR(dotg->vbus_otg);
-			dotg->vbus_otg = 0;
+			ret = PTR_ERR(mdwc->vbus_reg);
+			mdwc->vbus_reg = 0;
 			return ret;
 		}
 	}
@@ -3155,9 +3155,9 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			atomic_read(&otg->phy->dev->power.usage_count));
 		dwc3_otg_notify_host_mode(mdwc, on);
 		usb_phy_notify_connect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
-		ret = regulator_enable(dotg->vbus_otg);
+		ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
-			dev_err(otg->phy->dev, "unable to enable vbus_otg\n");
+			dev_err(otg->phy->dev, "unable to enable vbus_reg\n");
 			dwc3_otg_notify_host_mode(mdwc, 0);
 			pm_runtime_put_sync(otg->phy->dev);
 			dbg_event(0xFF, "vregerr psync",
@@ -3180,7 +3180,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 			dev_err(otg->phy->dev,
 				"%s: failed to add XHCI pdev ret=%d\n",
 				__func__, ret);
-			regulator_disable(dotg->vbus_otg);
+			regulator_disable(mdwc->vbus_reg);
 			dwc3_otg_notify_host_mode(mdwc, 0);
 			pm_runtime_put_sync(otg->phy->dev);
 			dbg_event(0xFF, "pdeverr psync",
@@ -3198,9 +3198,9 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	} else {
 		dev_dbg(otg->phy->dev, "%s: turn off host\n", __func__);
 
-		ret = regulator_disable(dotg->vbus_otg);
+		ret = regulator_disable(mdwc->vbus_reg);
 		if (ret) {
-			dev_err(otg->phy->dev, "unable to disable vbus_otg\n");
+			dev_err(otg->phy->dev, "unable to disable vbus_reg\n");
 			return ret;
 		}
 
@@ -3472,6 +3472,7 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
 static void dwc3_otg_sm_work(struct work_struct *w)
 {
 	struct dwc3_otg *dotg = container_of(w, struct dwc3_otg, sm_work.work);
+	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
 	struct usb_phy *phy = dotg->otg.phy;
 	struct dwc3_charger *charger = dotg->charger;
 	bool work = 0;
@@ -3673,13 +3674,13 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		if (test_bit(ID, &dotg->inputs)) {
 			dev_dbg(phy->dev, "id\n");
 			phy->state = OTG_STATE_B_IDLE;
-			dotg->vbus_retry_count = 0;
+			mdwc->vbus_retry_count = 0;
 			work = 1;
 		} else {
 			phy->state = OTG_STATE_A_HOST;
 			ret = dwc3_otg_start_host(&dotg->otg, 1);
 			if ((ret == -EPROBE_DEFER) &&
-						dotg->vbus_retry_count < 3) {
+						mdwc->vbus_retry_count < 3) {
 				/*
 				 * Get regulator failed as regulator driver is
 				 * not up yet. Will try to start host after 1sec
@@ -3688,7 +3689,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				dev_dbg(phy->dev, "Unable to get vbus regulator. Retrying...\n");
 				delay = VBUS_REG_CHECK_DELAY;
 				work = 1;
-				dotg->vbus_retry_count++;
+				mdwc->vbus_retry_count++;
 			} else if (ret) {
 				dev_err(phy->dev, "unable to start host\n");
 				phy->state = OTG_STATE_A_IDLE;
@@ -3711,7 +3712,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			dev_dbg(phy->dev, "id\n");
 			dwc3_otg_start_host(&dotg->otg, 0);
 			phy->state = OTG_STATE_B_IDLE;
-			dotg->vbus_retry_count = 0;
+			mdwc->vbus_retry_count = 0;
 			work = 1;
 		} else {
 			dev_dbg(phy->dev, "still in a_host state. Resuming root hub.\n");
