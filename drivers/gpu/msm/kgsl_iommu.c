@@ -1128,8 +1128,11 @@ struct scatterlist *_create_sg_no_large_pages(struct kgsl_memdesc *memdesc,
 		 */
 		if (SZ_1M <= s->length
 			&& IS_ALIGNED(gpuaddr, SZ_1M)
-			&& IS_ALIGNED(sg_phys(s), SZ_1M))
+			&& IS_ALIGNED(sg_phys(s), SZ_1M)) {
 			sglen_alloc += ALIGN(s->length, SZ_64K)/SZ_64K;
+			/* possible that length is not 64KB aligned */
+			sglen_alloc += (s->length & (SZ_64K - 1))/SZ_4K;
+		}
 		else
 			sglen_alloc++;
 		gpuaddr += s->length;
@@ -1153,8 +1156,9 @@ struct scatterlist *_create_sg_no_large_pages(struct kgsl_memdesc *memdesc,
 			&& IS_ALIGNED(sg_phys(s), SZ_1M)) {
 			for (offset = 0; offset < s->length; s_temp++) {
 				/* the last chunk might be smaller than 64K */
-				len = min_t(unsigned int, SZ_64K,
-					s->length - offset);
+				len =
+				((unsigned int)(s->length - offset) >= SZ_64K) ?
+					SZ_64K : SZ_4K;
 				sg_set_page(s_temp, page, len, offset);
 				offset += len;
 			}
