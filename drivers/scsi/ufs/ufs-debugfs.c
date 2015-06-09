@@ -678,6 +678,77 @@ static const struct file_operations ufsdbg_tag_stats_fops = {
 	.write		= ufsdbg_tag_stats_write,
 };
 
+static int ufsdbg_query_stats_show(struct seq_file *file, void *data)
+{
+	struct ufs_hba *hba = (struct ufs_hba *)file->private;
+	struct ufs_stats *ufs_stats = &hba->ufs_stats;
+	int i, j;
+	static const char *opcode_name[UPIU_QUERY_OPCODE_MAX] = {
+		"QUERY_OPCODE_NOP:",
+		"QUERY_OPCODE_READ_DESC:",
+		"QUERY_OPCODE_WRITE_DESC:",
+		"QUERY_OPCODE_READ_ATTR:",
+		"QUERY_OPCODE_WRITE_ATTR:",
+		"QUERY_OPCODE_READ_FLAG:",
+		"QUERY_OPCODE_SET_FLAG:",
+		"QUERY_OPCODE_CLEAR_FLAG:",
+		"QUERY_OPCODE_TOGGLE_FLAG:",
+	};
+
+	seq_puts(file, "\n");
+	seq_puts(file, "The following table shows how many TIMES each IDN was sent to device for each QUERY OPCODE:\n");
+	seq_puts(file, "\n");
+
+	for (i = 0; i < UPIU_QUERY_OPCODE_MAX; i++) {
+		seq_printf(file, "%-30s", opcode_name[i]);
+
+		for (j = 0; j < MAX_QUERY_IDN; j++) {
+			/*
+			 * we would like to print only the non-zero data,
+			 * (non-zero number of times that IDN was sent
+			 * to the device per opcode). There is no
+			 * importance to the "table structure" of the output.
+			 */
+			if (ufs_stats->query_stats_arr[i][j])
+				seq_printf(file, "IDN 0x%02X: %d,\t", j,
+					   ufs_stats->query_stats_arr[i][j]);
+		}
+		seq_puts(file, "\n");
+	}
+
+	return 0;
+}
+
+static int ufsdbg_query_stats_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, ufsdbg_query_stats_show, inode->i_private);
+}
+
+static ssize_t ufsdbg_query_stats_write(struct file *filp,
+				      const char __user *ubuf, size_t cnt,
+				       loff_t *ppos)
+{
+	struct ufs_hba *hba = filp->f_mapping->host->i_private;
+	struct ufs_stats *ufs_stats = &hba->ufs_stats;
+	int i, j;
+
+	mutex_lock(&hba->dev_cmd.lock);
+
+	for (i = 0; i < UPIU_QUERY_OPCODE_MAX; i++)
+		for (j = 0; j < MAX_QUERY_IDN; j++)
+			ufs_stats->query_stats_arr[i][j] = 0;
+
+	mutex_unlock(&hba->dev_cmd.lock);
+
+	return cnt;
+}
+
+static const struct file_operations ufsdbg_query_stats_fops = {
+	.open		= ufsdbg_query_stats_open,
+	.read		= seq_read,
+	.write		= ufsdbg_query_stats_write,
+};
+
 static int ufsdbg_err_stats_show(struct seq_file *file, void *data)
 {
 	struct ufs_hba *hba = (struct ufs_hba *)file->private;
@@ -1464,22 +1535,40 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 		goto err_no_root;
 	}
 
+	hba->debugfs_files.stats_folder = debugfs_create_dir("stats",
+					hba->debugfs_files.debugfs_root);
+	if (!hba->debugfs_files.stats_folder) {
+		dev_err(hba->dev,
+			"%s: NULL stats_folder, exiting", __func__);
+		goto err;
+	}
+
 	hba->debugfs_files.tag_stats =
 		debugfs_create_file("tag_stats", S_IRUSR | S_IWUSR,
-					   hba->debugfs_files.debugfs_root, hba,
+					   hba->debugfs_files.stats_folder, hba,
 					   &ufsdbg_tag_stats_fops);
 	if (!hba->debugfs_files.tag_stats) {
-		dev_err(hba->dev, "%s:  NULL tag stats file, exiting",
+		dev_err(hba->dev, "%s:  NULL tag_stats file, exiting",
+			__func__);
+		goto err;
+	}
+
+	hba->debugfs_files.query_stats =
+		debugfs_create_file("query_stats", S_IRUSR | S_IWUSR,
+					   hba->debugfs_files.stats_folder, hba,
+					   &ufsdbg_query_stats_fops);
+	if (!hba->debugfs_files.query_stats) {
+		dev_err(hba->dev, "%s:  NULL query_stats file, exiting",
 			__func__);
 		goto err;
 	}
 
 	hba->debugfs_files.err_stats =
 		debugfs_create_file("err_stats", S_IRUSR | S_IWUSR,
-					   hba->debugfs_files.debugfs_root, hba,
+					   hba->debugfs_files.stats_folder, hba,
 					   &ufsdbg_err_stats_fops);
 	if (!hba->debugfs_files.err_stats) {
-		dev_err(hba->dev, "%s:  NULL err stats file, exiting",
+		dev_err(hba->dev, "%s:  NULL err_stats file, exiting",
 			__func__);
 		goto err;
 	}
@@ -1561,7 +1650,7 @@ void ufsdbg_add_debugfs(struct ufs_hba *hba)
 
 	hba->debugfs_files.req_stats =
 		debugfs_create_file("req_stats", S_IRUSR | S_IWUSR,
-			hba->debugfs_files.debugfs_root, hba,
+			hba->debugfs_files.stats_folder, hba,
 			&ufsdbg_req_stats_desc);
 	if (!hba->debugfs_files.req_stats) {
 		dev_err(hba->dev,
