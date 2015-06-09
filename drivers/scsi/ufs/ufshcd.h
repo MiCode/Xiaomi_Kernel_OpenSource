@@ -475,6 +475,7 @@ struct debugfs_files {
 	struct dentry *dme_peer_read;
 	struct dentry *dbg_print_en;
 	struct dentry *req_stats;
+	struct dentry *query_stats;
 	u32 dme_local_attr_id;
 	u32 dme_peer_attr_id;
 	struct dentry *reset_controller;
@@ -521,7 +522,8 @@ struct ufshcd_req_stat {
  * @tag_stats: pointer to tag statistic counters
  * @q_depth: current amount of busy slots
  * @err_stats: counters to keep track of various errors
- * @req_stat: request handling time statistics per request type
+ * @req_stats: request handling time statistics per request type
+ * @query_stats_arr: array that holds query statistics
  * @hibern8_exit_cnt: Counter to keep track of number of exits,
  *		reset this after link-startup.
  * @last_hibern8_exit_tstamp: Set time after the hibern8 exit.
@@ -539,6 +541,8 @@ struct ufs_stats {
 	int q_depth;
 	int err_stats[UFS_ERR_MAX];
 	struct ufshcd_req_stat req_stats[TS_NUM_STATS];
+	int query_stats_arr[UPIU_QUERY_OPCODE_MAX][MAX_QUERY_IDN];
+
 #endif
 	u32 hibern8_exit_cnt;
 	ktime_t last_hibern8_exit_tstamp;
