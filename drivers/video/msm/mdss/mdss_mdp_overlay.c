@@ -4348,7 +4348,6 @@ static int mdss_mdp_overlay_ioctl_handler(struct msm_fb_data_type *mfd,
 		}
 		break;
 	case MSMFB_OVERLAY_COMMIT:
-		mdss_fb_wait_for_fence(&(mfd->mdp_sync_pt_data));
 		ret = mfd->mdp.kickoff_fnc(mfd, NULL);
 		break;
 	case MSMFB_METADATA_SET:

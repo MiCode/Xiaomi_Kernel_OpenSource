@@ -409,7 +409,10 @@ static inline bool mdss_fb_is_hdmi_primary(struct msm_fb_data_type *mfd)
 int mdss_fb_get_phys_info(dma_addr_t *start, unsigned long *len, int fb_num);
 void mdss_fb_set_backlight(struct msm_fb_data_type *mfd, u32 bkl_lvl);
 void mdss_fb_update_backlight(struct msm_fb_data_type *mfd);
-int mdss_fb_wait_for_fence(struct msm_sync_pt_data *sync_pt_data);
+int mdss_fb_wait_for_fences(struct msm_sync_pt_data *sync_pt_data,
+	struct sync_fence **fences, int fence_cnt);
+void mdss_fb_copy_fence(struct msm_sync_pt_data *sync_pt_data,
+	struct sync_fence **fences, u32 *fence_cnt);
 void mdss_fb_signal_timeline(struct msm_sync_pt_data *sync_pt_data);
 struct sync_fence *mdss_fb_sync_get_fence(struct sw_sync_timeline *timeline,
 				const char *fence_name, int val);

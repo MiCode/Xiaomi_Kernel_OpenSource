@@ -2540,9 +2540,12 @@ static void mdss_fb_power_setting_idle(struct msm_fb_data_type *mfd)
 	}
 }
 
-static void __mdss_fb_copy_fence(struct msm_sync_pt_data *sync_pt_data,
+void mdss_fb_copy_fence(struct msm_sync_pt_data *sync_pt_data,
 	struct sync_fence **fences, u32 *fence_cnt)
 {
+	if (!sync_pt_data || !fences)
+		return;
+
 	pr_debug("%s: wait for fences\n", sync_pt_data->fence_name);
 
 	mutex_lock(&sync_pt_data->sync_mutex);
@@ -2558,13 +2561,16 @@ static void __mdss_fb_copy_fence(struct msm_sync_pt_data *sync_pt_data,
 	mutex_unlock(&sync_pt_data->sync_mutex);
 }
 
-static int __mdss_fb_wait_for_fence_sub(struct msm_sync_pt_data *sync_pt_data,
+int mdss_fb_wait_for_fences(struct msm_sync_pt_data *sync_pt_data,
 	struct sync_fence **fences, int fence_cnt)
 {
 	int i, ret = 0;
 	unsigned long max_wait = msecs_to_jiffies(WAIT_MAX_FENCE_TIMEOUT);
 	unsigned long timeout = jiffies + max_wait;
 	long wait_ms, wait_jf;
+
+	if (!sync_pt_data)
+		return -EINVAL;
 
 	/* buf sync */
 	for (i = 0; i < fence_cnt && !ret; i++) {
@@ -2616,15 +2622,15 @@ static int __mdss_fb_wait_for_fence_sub(struct msm_sync_pt_data *sync_pt_data,
 	return ret;
 }
 
-int mdss_fb_wait_for_fence(struct msm_sync_pt_data *sync_pt_data)
+static int __mdss_fb_wait_for_fence(struct msm_sync_pt_data *sync_pt_data)
 {
 	struct sync_fence *fences[MDP_MAX_FENCE_FD];
 	int fence_cnt = 0;
 
-	__mdss_fb_copy_fence(sync_pt_data, fences, &fence_cnt);
+	mdss_fb_copy_fence(sync_pt_data, fences, &fence_cnt);
 
 	if (fence_cnt)
-		__mdss_fb_wait_for_fence_sub(sync_pt_data,
+		mdss_fb_wait_for_fences(sync_pt_data,
 			fences, fence_cnt);
 
 	return fence_cnt;
@@ -2722,7 +2728,7 @@ static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
 			sync_pt_data->temp_fen_cnt) {
 			fence_cnt = sync_pt_data->temp_fen_cnt;
 			sync_pt_data->temp_fen_cnt = 0;
-			ret = __mdss_fb_wait_for_fence_sub(sync_pt_data,
+			ret = mdss_fb_wait_for_fences(sync_pt_data,
 				sync_pt_data->temp_fen, fence_cnt);
 		}
 		if (mfd->idle_time && !mod_delayed_work(system_wq,
@@ -2747,7 +2753,7 @@ static int __mdss_fb_sync_buf_done_callback(struct notifier_block *p,
 		break;
 	case MDP_NOTIFY_FRAME_CFG_DONE:
 		if (sync_pt_data->async_wait_fences)
-			__mdss_fb_copy_fence(sync_pt_data,
+			mdss_fb_copy_fence(sync_pt_data,
 					sync_pt_data->temp_fen,
 					&sync_pt_data->temp_fen_cnt);
 		break;
@@ -2984,7 +2990,7 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 	u32 new_dsi_mode, dynamic_dsi_switch = 0;
 
 	if (!sync_pt_data->async_wait_fences)
-		mdss_fb_wait_for_fence(sync_pt_data);
+		__mdss_fb_wait_for_fence(sync_pt_data);
 	sync_pt_data->flushed = false;
 
 	mutex_lock(&mfd->switch_lock);
@@ -3422,7 +3428,7 @@ static int mdss_fb_handle_buf_sync_ioctl(struct msm_sync_pt_data *sync_pt_data,
 		return ret;
 	}
 
-	i = mdss_fb_wait_for_fence(sync_pt_data);
+	i = __mdss_fb_wait_for_fence(sync_pt_data);
 	if (i > 0)
 		pr_warn("%s: waited on %d active fences\n",
 				sync_pt_data->fence_name, i);
@@ -3519,7 +3525,7 @@ skip_retire_fence:
 	mutex_unlock(&sync_pt_data->sync_mutex);
 
 	if (buf_sync->flags & MDP_BUF_SYNC_FLAG_WAIT)
-		mdss_fb_wait_for_fence(sync_pt_data);
+		__mdss_fb_wait_for_fence(sync_pt_data);
 
 	return ret;
 buf_sync_err_3:
