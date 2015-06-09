@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -133,12 +133,14 @@
 &soc {
 	l2ccc_0: clock-controller@b111000 {
 		compatible = "qcom,8916-l2ccc";
-		reg = <0x0b111000 0x1000>;
+		reg = <0x0b111000 0x1000>,
+		      <0x0b1d1208 0x4>;
 	};
 
 	l2ccc_1: clock-controller@b011000 {
 		compatible = "qcom,8916-l2ccc";
-		reg = <0x0b011000 0x1000>;
+		reg = <0x0b011000 0x1000>,
+		      <0x0b1d1208 0x4>;
 	};
 
 	acc0:clock-controller@b088000 {
