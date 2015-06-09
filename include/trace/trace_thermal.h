@@ -86,6 +86,33 @@ DEFINE_EVENT(msm_lmh_print_event, lmh_event_call,
 	TP_ARGS(event_name)
 );
 
+TRACE_EVENT(lmh_debug_data,
+	TP_PROTO(const char *pre_data, uint32_t *data_buf, uint32_t buffer_len),
+
+	TP_ARGS(
+		pre_data, data_buf, buffer_len
+	),
+
+	TP_STRUCT__entry(
+		__string(_data, pre_data)
+		__field(u32, _buffer_len)
+		__dynamic_array(u32, _buffer, buffer_len)
+	),
+
+	TP_fast_assign(
+		__assign_str(_data, pre_data);
+		__entry->_buffer_len = buffer_len * sizeof(uint32_t);
+		memcpy(__get_dynamic_array(_buffer), data_buf,
+			buffer_len * sizeof(uint32_t));
+	),
+
+	TP_printk("%s:\t %s",
+		__get_str(_data), __print_hex(__get_dynamic_array(_buffer),
+			__entry->_buffer_len)
+	)
+);
+
+
 #elif defined(TRACE_MSM_THERMAL)
 
 DECLARE_EVENT_CLASS(msm_thermal_post_core_ctl,

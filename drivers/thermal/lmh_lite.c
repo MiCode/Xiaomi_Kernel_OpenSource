@@ -932,6 +932,8 @@ static int lmh_debug_read(struct lmh_debug_ops *ops, uint32_t **buf)
 		ret = tz_ret;
 		goto get_dbg_exit;
 	}
+	trace_lmh_debug_data("Debug read", payload,
+		curr_size / sizeof(uint32_t));
 
 get_dbg_exit:
 	if (ret && payload) {
@@ -957,6 +959,7 @@ static int lmh_debug_config_write(uint32_t cmd_id, uint32_t *buf, int size)
 		uint32_t read_type;
 	} cmd_buf;
 
+	trace_lmh_debug_data("Config LMH", buf, size);
 	size_bytes = (size - 3) * sizeof(uint32_t);
 	payload = devm_kzalloc(lmh_data->dev, size_bytes, GFP_KERNEL);
 	if (!payload) {
@@ -1016,9 +1019,15 @@ static int lmh_debug_get_types(struct lmh_debug_ops *ops, bool is_read,
 
 	if (is_read && lmh_data->debug_info.read_type) {
 		*buf = lmh_data->debug_info.read_type;
+		trace_lmh_debug_data("Data type",
+			lmh_data->debug_info.read_type,
+			lmh_data->debug_info.read_type_count);
 		return lmh_data->debug_info.read_type_count;
 	} else if (!is_read && lmh_data->debug_info.config_type) {
 		*buf = lmh_data->debug_info.config_type;
+		trace_lmh_debug_data("Config type",
+			lmh_data->debug_info.config_type,
+			lmh_data->debug_info.config_type_count);
 		return lmh_data->debug_info.config_type_count;
 	}
 	payload = devm_kzalloc(lmh_data->dev, sizeof(uint32_t) *
@@ -1043,9 +1052,11 @@ static int lmh_debug_get_types(struct lmh_debug_ops *ops, bool is_read,
 	if (is_read) {
 		lmh_data->debug_info.read_type = *buf = dest_buf;
 		lmh_data->debug_info.read_type_count = size;
+		trace_lmh_debug_data("Data type", dest_buf, size);
 	} else {
 		lmh_data->debug_info.config_type = *buf = dest_buf;
 		lmh_data->debug_info.config_type_count = size;
+		trace_lmh_debug_data("Config type", dest_buf, size);
 	}
 
 get_type_exit:
