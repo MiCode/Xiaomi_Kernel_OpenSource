@@ -181,6 +181,7 @@ struct mdss_smmu_client {
 	struct dma_iommu_mapping *mmu_mapping;
 	struct dss_module_power mp;
 	bool domain_attached;
+	bool handoff_pending;
 };
 
 struct mdss_data_type;
