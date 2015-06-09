@@ -457,6 +457,8 @@
 			<0xff 108>, /* smmu_bus_intr[36] */
 			<0xff 109>, /* smmu_bus_intr[37] */
 			<0xff 112>, /* smmu_bus_intr[38] */
+			<0xff 114>, /* qdsd_intr_out */
+			<0xff 129>, /* blsp1_peripheral_irq[4] */
 			<0xff 131>, /* qup_irq */
 			<0xff 137>, /* smmu_intr_bus[44] */
 			<0xff 138>, /* smmu_intr_bus[45] */
@@ -562,7 +564,8 @@
 			<52  74>,
 			<53  62>,
 			<0xff 86>,
-			<0xff 87>;
+			<0xff 87>,
+			<0xff 88>;
 	};
 
 	qcom,pm@8600664 {
