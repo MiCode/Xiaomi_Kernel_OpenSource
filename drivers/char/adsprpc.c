@@ -536,6 +536,7 @@ static int context_alloc(struct fastrpc_file *fl, uint32_t kernel,
 		goto bail;
 
 	INIT_HLIST_NODE(&ctx->hn);
+	hlist_add_fake(&ctx->hn);
 	ctx->fl = fl;
 	ctx->maps = (struct fastrpc_mmap **)(&ctx[1]);
 	ctx->lpra = (remote_arg_t *)(&ctx->maps[bufs]);
@@ -962,6 +963,10 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	struct smq_msg msg;
 	struct fastrpc_file *fl = ctx->fl;
 	int err = 0, len;
+
+	VERIFY(err, 0 != fl->apps->channel[fl->cid].chan);
+	if (err)
+		goto bail;
 	msg.pid = current->tgid;
 	msg.tid = current->pid;
 	if (kernel)
@@ -975,6 +980,7 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	len = smd_write(fl->apps->channel[fl->cid].chan, &msg, sizeof(msg));
 	spin_unlock(&fl->apps->hlock);
 	VERIFY(err, len == sizeof(msg));
+ bail:
 	return err;
 }
 
@@ -1188,6 +1194,9 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	remote_arg_t ra[1];
 	int tgid = 0;
 
+	VERIFY(err, fl->apps->channel[fl->cid].chan != 0);
+	if (err)
+		goto bail;
 	tgid = fl->tgid;
 	ra[0].buf.pv = &tgid;
 	ra[0].buf.len = sizeof(tgid);
@@ -1197,6 +1206,7 @@ static int fastrpc_release_current_dsp_process(struct fastrpc_file *fl)
 	ioctl.fds = 0;
 	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
 		FASTRPC_MODE_PARALLEL, 1, &ioctl)));
+bail:
 	return err;
 }
 
