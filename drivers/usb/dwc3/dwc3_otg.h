@@ -20,75 +20,22 @@
 
 #include <linux/usb/otg.h>
 
-#define DWC3_IDEV_CHG_MAX 1500
-#define DWC3_HVDCP_CHG_MAX 1800
-
-/*
- * Module param to override current drawn for DCP charger
- * Declared in dwc3-msm module
- */
-extern int dcp_max_current;
-
-struct dwc3_charger;
-
 /**
  * struct dwc3_otg: OTG driver data. Shared by HCD and DCD.
  * @otg: USB OTG Transceiver structure.
  * @sm_work: OTG state machine work.
- * @charger: DWC3 external charger detector
  * @inputs: OTG state machine inputs
  */
 struct dwc3_otg {
 	struct usb_otg		otg;
 	struct dwc3		*dwc;
 	struct delayed_work	sm_work;
-	struct dwc3_charger	*charger;
 #define ID		 0
 #define B_SESS_VLD	 1
 #define B_SUSPEND	2
 	unsigned long inputs;
 	struct completion	dwc3_xcvr_vbus_init;
-	int			charger_retry_count;
 };
 
-/**
- * USB charger types
- *
- * DWC3_INVALID_CHARGER	Invalid USB charger.
- * DWC3_SDP_CHARGER	Standard downstream port. Refers to a downstream port
- *                      on USB compliant host/hub.
- * DWC3_DCP_CHARGER	Dedicated charger port (AC charger/ Wall charger).
- * DWC3_CDP_CHARGER	Charging downstream port. Enumeration can happen and
- *                      IDEV_CHG_MAX can be drawn irrespective of USB state.
- * DWC3_PROPRIETARY_CHARGER A proprietary charger pull DP and DM to specific
- *                     voltages between 2.0-3.3v for identification.
- * DWC3_FLOATED_CHARGER Non standard charger whose data lines are floating.
- */
-enum dwc3_chg_type {
-	DWC3_INVALID_CHARGER = 0,
-	DWC3_SDP_CHARGER,
-	DWC3_DCP_CHARGER,
-	DWC3_CDP_CHARGER,
-	DWC3_PROPRIETARY_CHARGER,
-	DWC3_FLOATED_CHARGER,
-};
-
-struct dwc3_charger {
-	enum dwc3_chg_type	chg_type;
-	unsigned		max_power;
-	bool			charging_disabled;
-
-	bool			skip_chg_detect;
-
-	/* start/stop charger detection, provided by external charger module */
-	void	(*start_detection)(struct dwc3_charger *charger, bool start);
-
-	/* to notify OTG about charger detection completion, provided by OTG */
-	void	(*notify_detection_complete)(struct usb_otg *otg,
-						struct dwc3_charger *charger);
-};
-
-/* for external charger driver */
-extern int dwc3_set_charger(struct usb_otg *otg, struct dwc3_charger *charger);
 
 #endif /* __LINUX_USB_DWC3_OTG_H */
