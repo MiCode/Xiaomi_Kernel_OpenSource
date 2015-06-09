@@ -52,6 +52,13 @@
 #define TOMBAK_IS_1_0(ver) \
 	((ver == TOMBAK_VERSION_1_0) ? 1 : 0)
 
+#define TASHA_VERSION_1_0     0
+#define TASHA_VERSION_1_1     1
+#define TASHA_IS_1_0(ver) \
+	((ver == TASHA_VERSION_1_0) ? 1 : 0)
+#define TASHA_IS_1_1(ver) \
+	((ver == TASHA_VERSION_1_1) ? 1 : 0)
+
 enum wcd9xxx_slim_slave_addr_type {
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TABLA,
 	WCD9XXX_SLIM_SLAVE_ADDR_TYPE_TAIKO,
