@@ -1712,7 +1712,8 @@ static void update_history(struct rq *rq, struct task_struct *p,
 	 * changing p->on_rq. Since the dequeue decrements hmp stats
 	 * avoid decrementing it here again.
 	 */
-	if (p->on_rq && (!task_has_dl_policy(p) || !p->dl.dl_throttled))
+	if (task_on_rq_queued(p) && (!task_has_dl_policy(p) ||
+						!p->dl.dl_throttled))
 		p->sched_class->fixup_hmp_sched_stats(rq, p, demand);
 	else
 		p->ravg.demand = demand;
@@ -2300,26 +2301,8 @@ static void fixup_busy_time(struct task_struct *p, int new_cpu)
 	update_task_ravg(dest_rq->curr, dest_rq,
 			 TASK_UPDATE, wallclock, 0);
 
-	/*
-	 * In case of migration of task on runqueue, on_rq =1,
-	 * however its load is removed from its runqueue.
-	 * update_task_ravg() below can update its demand, which
-	 * will require its load on runqueue to be adjusted to
-	 * reflect new demand. Restore load temporarily for such
-	 * task on its runqueue
-	 */
-	if (p->on_rq)
-		p->sched_class->inc_hmp_sched_stats(src_rq, p);
-
 	update_task_ravg(p, task_rq(p), TASK_MIGRATE,
 			 wallclock, 0);
-
-	/*
-	 * Remove task's load from rq as its now migrating to
-	 * another cpu.
-	 */
-	if (p->on_rq)
-		p->sched_class->dec_hmp_sched_stats(src_rq, p);
 
 	if (p->ravg.curr_window) {
 		src_rq->curr_runnable_sum -= p->ravg.curr_window;
