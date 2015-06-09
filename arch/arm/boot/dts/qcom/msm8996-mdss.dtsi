@@ -478,7 +478,7 @@
 		rot-vdd-supply = <&gdsc_mdss>;
 		rot-mmagic-mdss-gdsc-supply = <&gdsc_mmagic_mdss>;
 
-		qcom,supply-names = "rot-vdd", "rot-mmagic-mdss-gdsc";
+		qcom,supply-names = "rot-mmagic-mdss-gdsc", "rot-vdd";
 
 		clocks = <&clock_mmss clk_mmss_misc_ahb_clk>,
 			<&clock_mmss clk_mdss_rotator_vote_clk>;
