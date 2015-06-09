@@ -890,6 +890,17 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		return;
 	}
 
+	/* check if connect_w got called two times during RNDIS resume as
+	 * explicit flow control is called to start data transfers after
+	 * bam_data_connect()
+	 */
+	if (port->is_ipa_connected) {
+		pr_debug("IPA connect is already done & Transfers started\n");
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		usb_gadget_autopm_put_async(port->gadget);
+		return;
+	}
+
 	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 
 		d->ipa_params.usb_connection_speed = gadget->speed;
