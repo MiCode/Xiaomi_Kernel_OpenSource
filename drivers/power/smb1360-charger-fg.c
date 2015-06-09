@@ -4810,6 +4810,8 @@ static int smb1360_resume(struct device *dev)
 		mutex_unlock(&chip->irq_complete);
 	}
 
+	power_supply_changed(&chip->batt_psy);
+
 	return 0;
 }
 
