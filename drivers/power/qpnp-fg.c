@@ -247,6 +247,11 @@ module_param_named(
 	battery_type, fg_batt_type, charp, S_IRUSR | S_IWUSR
 );
 
+static int fg_sram_update_period_ms = 30000;
+module_param_named(
+	sram_update_period_ms, fg_sram_update_period_ms, int, S_IRUSR | S_IWUSR
+);
+
 struct fg_irq {
 	int			irq;
 	unsigned long		disabled;
@@ -1845,7 +1850,6 @@ static int64_t twos_compliment_extend(int64_t val, int nbytes)
 #define LSB_8B		9800
 #define TEMP_LSB_16B	625
 #define DECIKELVIN	2730
-#define SRAM_PERIOD_UPDATE_MS		30000
 #define SRAM_PERIOD_NO_ID_UPDATE_MS	100
 #define FULL_PERCENT_28BIT		0xFFFFFFF
 static void update_sram_data(struct fg_chip *chip, int *resched_ms)
@@ -1926,22 +1930,39 @@ static void update_sram_data(struct fg_chip *chip, int *resched_ms)
 
 	if (battid_valid) {
 		complete_all(&chip->batt_id_avail);
-		*resched_ms = SRAM_PERIOD_UPDATE_MS;
+		*resched_ms = fg_sram_update_period_ms;
 	} else {
 		*resched_ms = SRAM_PERIOD_NO_ID_UPDATE_MS;
 	}
 	fg_relax(&chip->update_sram_wakeup_source);
 }
 
+#define SRAM_TIMEOUT_MS			3000
 static void update_sram_data_work(struct work_struct *work)
 {
 	struct fg_chip *chip = container_of(work,
 				struct fg_chip,
 				update_sram_data.work);
-	int resched_ms;
+	int resched_ms, ret;
+	bool tried_again = false;
 
+wait:
+	/* Wait for MEMIF access revoked */
+	ret = wait_for_completion_interruptible_timeout(
+			&chip->sram_access_revoked,
+			msecs_to_jiffies(SRAM_TIMEOUT_MS));
+
+	/* If we were interrupted wait again one more time. */
+	if (ret == -ERESTARTSYS && !tried_again) {
+		tried_again = true;
+		goto wait;
+	} else if (ret <= 0) {
+		pr_err("transaction timed out ret=%d\n", ret);
+		goto out;
+	}
 	update_sram_data(chip, &resched_ms);
 
+out:
 	schedule_delayed_work(
 		&chip->update_sram_data,
 		msecs_to_jiffies(resched_ms));
@@ -1965,7 +1986,6 @@ static void update_temp_data(struct work_struct *work)
 
 	fg_stay_awake(&chip->update_temp_wakeup_source);
 	if (chip->sw_rbias_ctrl) {
-		reinit_completion(&chip->sram_access_revoked);
 		rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
 				BATT_TEMP_CNTRL_MASK,
 				BATT_TEMP_ON,
@@ -3155,6 +3175,7 @@ static irqreturn_t fg_mem_avail_irq_handler(int irq, void *_chip)
 		if ((fg_debug_mask & FG_IRQS)
 				& (FG_MEM_DEBUG_READS | FG_MEM_DEBUG_WRITES))
 			pr_info("sram access granted\n");
+		reinit_completion(&chip->sram_access_revoked);
 		complete_all(&chip->sram_access_granted);
 	} else {
 		if ((fg_debug_mask & FG_IRQS)
@@ -5196,6 +5217,7 @@ static int fg_probe(struct spmi_device *spmi)
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
 	init_completion(&chip->sram_access_revoked);
+	complete_all(&chip->sram_access_revoked);
 	init_completion(&chip->batt_id_avail);
 	dev_set_drvdata(&spmi->dev, chip);
 
@@ -5398,7 +5420,7 @@ static void check_and_update_sram_data(struct fg_chip *chip)
 		&chip->update_temp_work, msecs_to_jiffies(time_left * 1000));
 
 	next_update_time = chip->last_sram_update_time
-		+ (SRAM_PERIOD_UPDATE_MS / 1000);
+		+ (fg_sram_update_period_ms / 1000);
 
 	if (next_update_time > current_time)
 		time_left = next_update_time - current_time;
