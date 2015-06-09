@@ -1491,7 +1491,7 @@ out:
 
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
-	mmc_release_host(host);
+	mmc_put_card(card);
 	return err ? 1 : 0;
 }
 
@@ -1607,7 +1607,7 @@ out:
 
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
-	mmc_release_host(host);
+	mmc_put_card(card);
 	return err ? 1 : 0;
 }
 
@@ -2813,7 +2813,7 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 		return;
 	}
 
-	mmc_claim_host(card->host);
+	mmc_get_card(card);
 	/* disable CQ mode in card */
 	err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 			 EXT_CSD_CMDQ, 0,
@@ -2826,7 +2826,7 @@ static void mmc_blk_cmdq_shutdown(struct mmc_queue *mq)
 		host->card->cmdq_init = false;
 	}
 out:
-	mmc_release_host(card->host);
+	mmc_put_card(card);
 }
 
 static enum blk_eh_timer_return mmc_blk_cmdq_req_timed_out(struct request *req)
@@ -2861,6 +2861,7 @@ static void mmc_blk_cmdq_err(struct mmc_queue *mq)
 	struct mmc_card *card = mq->card;
 	struct mmc_cmdq_context_info *ctx_info = &host->cmdq_ctx;
 
+	pm_runtime_get_sync(&card->dev);
 	err = mmc_cmdq_halt(host, true);
 	if (err) {
 		pr_err("halt: failed: %d\n", err);
@@ -2922,6 +2923,9 @@ unhalt:
 	mmc_cmdq_halt(host, false);
 
 out:
+	pm_runtime_mark_last_busy(&card->dev);
+	pm_runtime_put_autosuspend(&card->dev);
+
 	if (test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mrq->req->q);
 }
@@ -2973,8 +2977,8 @@ out:
 	if (!test_bit(CMDQ_STATE_ERR, &ctx_info->curr_state) &&
 			test_and_clear_bit(0, &ctx_info->req_starved))
 		blk_run_queue(mq->queue);
-	mmc_release_host(host);
 
+	mmc_put_card(host->card);
 	if (blk_queue_stopped(mq->queue) && !ctx_info->active_reqs)
 		complete(&mq->cmdq_shutdown_complete);
 	return;
@@ -3242,14 +3246,14 @@ static int mmc_blk_cmdq_issue_rq(struct mmc_queue *mq, struct request *req)
 	struct mmc_card *card = md->queue.card;
 	unsigned int cmd_flags = req ? req->cmd_flags : 0;
 
-	mmc_claim_host(card->host);
+	mmc_get_card(card);
 	ret = mmc_blk_cmdq_part_switch(card, md);
 	if (ret) {
 		pr_err("%s: %s: partition switch failed %d\n",
 				md->disk->disk_name, __func__, ret);
 		if (req)
 			blk_end_request_all(req, ret);
-		mmc_release_host(card->host);
+		mmc_put_card(card);
 		goto switch_failure;
 	}
 
