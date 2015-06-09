@@ -11,7 +11,10 @@ Required properties:
 - interrupts : should contain the ispif interrupt.
 - interrupt-names : should specify relevant names to each interrupts
   property defined.
-- vdd-supply: phandle to GDSC regulator.
+- camss-vdd-supply: phandle to GDSC regulator.
+- mmagic-vdd-supply: phandle to mmagic regulator.
+- vfe0-vdd-supply: phandle to vfe0 regulator.
+- vfe1-vdd-supply: phandle to vfe1 regulator.
 - clocks: list of phandles to the clock controller device and coresponding
   clock names.
 - clock-names: name of the clocks required for the device used by the consumer.
@@ -37,7 +40,10 @@ Example:
 	reg-names = "ispif";
 	interrupts = <0 55 0>;
 	interrupt-names = "ispif";
-	vdd-supply = <&gdsc_camss_top>;
+	camss-vdd-supply = <&gdsc_camss_top>;
+	mmagic-vdd-supply = <&gdsc_mmagic_camss>;
+	vfe0-vdd-supply = <&gdsc_vfe0>;
+	vfe1-vdd-supply = <&gdsc_vfe1>;
 	clocks = <&clock_mmss clk_camss_ispif_ahb_clk>,
 		<&clock_mmss clk_csi0_clk_src>,
 		<&clock_mmss clk_camss_csi0_clk>,

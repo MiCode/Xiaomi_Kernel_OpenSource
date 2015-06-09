@@ -95,6 +95,143 @@ static struct msm_cam_clk_info ispif_8626_reset_clk_info[] = {
 static struct msm_cam_clk_info ispif_ahb_clk_info[ISPIF_CLK_INFO_MAX];
 static struct msm_cam_clk_info ispif_clk_info[ISPIF_CLK_INFO_MAX];
 
+static int msm_ispif_set_regulator(struct ispif_device *ispif_dev,
+	uint8_t enable)
+{
+	int rc = 0;
+
+	if (enable) {
+		if (!ispif_dev->fs_vfe0) {
+			ispif_dev->fs_vfe0 = regulator_get(
+				&ispif_dev->pdev->dev, "vfe0-vdd");
+			if (IS_ERR(ispif_dev->fs_vfe0)) {
+				pr_err("%s: Regulator vfe0 get failed %ld\n",
+					__func__,
+					PTR_ERR(ispif_dev->fs_vfe0));
+				rc = -ENODEV;
+				goto vfe0_reg_get_failed;
+			}
+		}
+
+		if (!ispif_dev->fs_vfe1) {
+			ispif_dev->fs_vfe1 = regulator_get(
+				&ispif_dev->pdev->dev, "vfe1-vdd");
+			if (IS_ERR(ispif_dev->fs_vfe1)) {
+				pr_err("%s: Regulator vfe1 get failed %ld\n",
+					__func__,
+					PTR_ERR(ispif_dev->fs_vfe1));
+				rc = -ENODEV;
+				goto vfe1_reg_get_failed;
+			}
+		}
+
+		if (!ispif_dev->fs_camss) {
+			ispif_dev->fs_camss = regulator_get(
+				&ispif_dev->pdev->dev,
+				"camss-vdd");
+			if (IS_ERR(ispif_dev->fs_camss)) {
+				pr_err("%s: Regulator camss get failed %ld\n",
+					__func__,
+					PTR_ERR(ispif_dev->fs_camss));
+				rc = -ENODEV;
+				goto camss_reg_get_failed;
+			}
+		}
+
+		if (!ispif_dev->fs_mmagic_camss) {
+			ispif_dev->fs_mmagic_camss = regulator_get(
+				&ispif_dev->pdev->dev,
+				"mmagic-vdd");
+			if (IS_ERR(ispif_dev->fs_mmagic_camss)) {
+				pr_err("%s: Regulator mmagic get failed %ld\n",
+					__func__,
+					PTR_ERR(ispif_dev->fs_mmagic_camss));
+				rc = -ENODEV;
+				goto mmagic_reg_get_failed;
+			}
+		}
+
+		if (ispif_dev->fs_mmagic_camss) {
+			rc = regulator_enable(ispif_dev->fs_mmagic_camss);
+			if (rc) {
+				pr_err("%s: Regulator enable mmagic failed\n",
+					__func__);
+				goto fs_mmagic_en_failed;
+			}
+		}
+
+		if (ispif_dev->fs_camss) {
+			rc = regulator_enable(ispif_dev->fs_camss);
+			if (rc) {
+				pr_err("%s: Regulator enable camss failed\n",
+					__func__);
+				goto fs_camss_en_failed;
+			}
+		}
+
+		if (ispif_dev->fs_vfe0) {
+			rc = regulator_enable(ispif_dev->fs_vfe0);
+			if (rc) {
+				pr_err("%s: Regulator enable for vfe0 failed\n",
+					__func__);
+				goto fs_vfe0_en_failed;
+			}
+		}
+
+		if (ispif_dev->fs_vfe1) {
+			rc = regulator_enable(ispif_dev->fs_vfe1);
+			if (rc) {
+				pr_err("%s: Regulator enable for vfe0 failed\n",
+					__func__);
+				goto fs_vfe1_en_failed;
+			}
+		}
+	} else {
+		if (ispif_dev->fs_vfe0) {
+			regulator_disable(ispif_dev->fs_vfe0);
+			regulator_put(ispif_dev->fs_vfe0);
+			ispif_dev->fs_vfe0 = NULL;
+		}
+
+		if (ispif_dev->fs_vfe1) {
+			regulator_disable(ispif_dev->fs_vfe1);
+			regulator_put(ispif_dev->fs_vfe1);
+			ispif_dev->fs_vfe1 = NULL;
+		}
+		if (ispif_dev->fs_camss) {
+			regulator_disable(ispif_dev->fs_camss);
+			regulator_put(ispif_dev->fs_camss);
+			ispif_dev->fs_camss = NULL;
+		}
+		if (ispif_dev->fs_mmagic_camss) {
+			regulator_disable(ispif_dev->fs_mmagic_camss);
+			regulator_put(ispif_dev->fs_mmagic_camss);
+			ispif_dev->fs_mmagic_camss = NULL;
+		}
+	}
+	return rc;
+fs_vfe1_en_failed:
+	regulator_disable(ispif_dev->fs_vfe0);
+fs_vfe0_en_failed:
+	regulator_disable(ispif_dev->fs_camss);
+fs_camss_en_failed:
+	regulator_disable(ispif_dev->fs_mmagic_camss);
+fs_mmagic_en_failed:
+	regulator_put(ispif_dev->fs_mmagic_camss);
+	ispif_dev->fs_mmagic_camss = NULL;
+mmagic_reg_get_failed:
+	regulator_put(ispif_dev->fs_camss);
+	ispif_dev->fs_camss = NULL;
+camss_reg_get_failed:
+	regulator_put(ispif_dev->fs_vfe1);
+	ispif_dev->fs_vfe1 = NULL;
+vfe1_reg_get_failed:
+	regulator_put(ispif_dev->fs_vfe0);
+	ispif_dev->fs_vfe0 = NULL;
+vfe0_reg_get_failed:
+	return rc;
+}
+
 static int msm_ispif_reset_hw(struct ispif_device *ispif)
 {
 	int rc = 0;
@@ -106,6 +243,12 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		ispif_ahb_clk_info, ispif_clk_info);
 	if (rc < 0) {
 		pr_err("%s: msm_isp_get_clk_info() failed", __func__);
+			return -EFAULT;
+	}
+	/* Turn ON regulators before enabling the clocks*/
+	rc = msm_ispif_set_regulator(ispif, 1);
+	if (rc < 0) {
+		pr_err("%s: ispif enable regulator failed", __func__);
 			return -EFAULT;
 	}
 
@@ -156,6 +299,8 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 				pr_err("%s: VFE0 reset wait timeout\n",
 					 __func__);
 		}
+		/* Turn OFF regulators */
+		rc = msm_ispif_set_regulator(ispif, 0);
 		return -ETIMEDOUT;
 	}
 
@@ -171,6 +316,8 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 		rc = msm_cam_clk_enable(&ispif->pdev->dev,
 			ispif_clk_info, ispif->clk,
 			ispif->num_clk, 0);
+			/* Turn OFF regulators */
+			rc = msm_ispif_set_regulator(ispif, 0);
 			return -ETIMEDOUT;
 		}
 	}
@@ -193,6 +340,13 @@ static int msm_ispif_reset_hw(struct ispif_device *ispif)
 			pr_err("%s: cannot disable clock, error = %d",
 				__func__, rc);
 		}
+	}
+
+	/* Turn OFF regulators after enabling the clocks*/
+	rc = msm_ispif_set_regulator(ispif, 0);
+	if (rc < 0) {
+		pr_err("%s: ispif disable regulator failed", __func__);
+			return -EFAULT;
 	}
 
 	return rc;
