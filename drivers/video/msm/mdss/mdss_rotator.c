@@ -89,7 +89,7 @@ static int mdss_rotator_bus_scale_set_quota(struct mdss_rot_bus_data_type *bus,
 		struct msm_bus_vectors *vect = NULL;
 		struct msm_bus_scale_pdata *bw_table =
 			bus->bus_scale_pdata;
-		u64 port_quota;
+		u64 port_quota = quota;
 		u32 total_axi_port_cnt;
 		int i;
 
@@ -101,7 +101,7 @@ static int mdss_rotator_bus_scale_set_quota(struct mdss_rot_bus_data_type *bus,
 			pr_err("Number of bw paths is 0\n");
 			return -ENODEV;
 		}
-		port_quota = do_div(quota, total_axi_port_cnt);
+		do_div(port_quota, total_axi_port_cnt);
 
 		for (i = 0; i < total_axi_port_cnt; i++) {
 			vect = &bw_table->usecase[new_uc_idx].vectors[i];
