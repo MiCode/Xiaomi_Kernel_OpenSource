@@ -707,8 +707,10 @@ void diag_cmd_remove_reg(struct diag_cmd_reg_entry_t *entry, uint8_t proc)
 	temp_entry = diag_cmd_search(entry, proc);
 	if (temp_entry) {
 		item = container_of(temp_entry, struct diag_cmd_reg_t, entry);
-		if (!item)
+		if (!item) {
+			mutex_unlock(&driver->cmd_reg_mutex);
 			return;
+		}
 		list_del(&item->link);
 		kfree(item);
 		driver->cmd_reg_count--;
