@@ -24,7 +24,7 @@
 	interrupt-parent = <&intc>;
 
 	chosen {
-		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1";
+		bootargs = "sched_enable_hmp=1 sched_enable_power_aware=1 sched_same_power_cost_cpus=0-3";
 	};
 
 	aliases {
