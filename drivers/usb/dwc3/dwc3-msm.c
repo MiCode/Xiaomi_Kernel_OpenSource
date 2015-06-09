@@ -45,8 +45,6 @@
 #include <soc/qcom/scm.h>
 
 #include "power.h"
-
-#include "dwc3_otg.h"
 #include "core.h"
 #include "gadget.h"
 #include "dbm.h"
@@ -219,16 +217,15 @@ struct dwc3_msm {
 	struct delayed_work	resume_work;
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
-	struct dwc3_otg		dotg;
 	struct delayed_work	sm_work;
 	unsigned long		inputs;
 	struct completion	dwc3_xcvr_vbus_init;
-	struct usb_phy		*otg_xceiv;
 	enum dwc3_chg_type	chg_type;
 	unsigned		max_power;
 	bool			charging_disabled;
 	bool			skip_chg_detect;
 	int			retry_count;
+	enum usb_otg_state	otg_state;
 	struct delayed_work	chg_work;
 	enum usb_chg_state	chg_state;
 	int			pmic_id_irq;
@@ -293,6 +290,7 @@ struct dwc3_msm {
 static struct usb_ext_notification *usb_ext;
 
 static void dwc3_pwr_event_handler(struct dwc3_msm *mdwc);
+static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA);
 
 /**
  *
@@ -923,7 +921,7 @@ static void dwc3_restart_usb_work(struct work_struct *w)
 
 	dev_dbg(mdwc->dev, "%s\n", __func__);
 
-	if (atomic_read(&dwc->in_lpm) || !mdwc->otg_xceiv) {
+	if (atomic_read(&dwc->in_lpm) || !dwc->is_drd) {
 		dev_err(mdwc->dev, "%s failed!!!\n", __func__);
 		return;
 	}
@@ -1175,8 +1173,6 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 	mdwc->qscratch_ctl_val =
 		dwc3_msm_read_reg(mdwc->base, QSCRATCH_CTRL_REG);
 }
-
-static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA);
 
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 {
@@ -1546,13 +1542,14 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 
 static int dwc3_msm_prepare_suspend(struct dwc3_msm *mdwc)
 {
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	unsigned long timeout;
 	u32 reg = 0;
 	bool host_mode, device_mode;
 
 	host_mode = mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM;
-	device_mode = mdwc->otg_xceiv &&
-			mdwc->otg_xceiv->state == OTG_STATE_B_PERIPHERAL;
+	device_mode = dwc->is_drd &&
+			mdwc->otg_state == OTG_STATE_B_PERIPHERAL;
 
 	if ((host_mode || device_mode) && dwc3_msm_is_superspeed(mdwc)) {
 		if (!atomic_read(&mdwc->in_p3)) {
@@ -1645,7 +1642,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		return 0;
 	}
 
-	if (mdwc->otg_xceiv && mdwc->otg_xceiv->state == OTG_STATE_B_SUSPEND)
+	if (dwc->is_drd && mdwc->otg_state == OTG_STATE_B_SUSPEND)
 		device_bus_suspend = true;
 
 	host_bus_suspend = (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM);
@@ -1671,8 +1668,8 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 		}
 	}
 
-	if (!mdwc->vbus_active && mdwc->otg_xceiv &&
-		mdwc->otg_xceiv->state == OTG_STATE_B_PERIPHERAL) {
+	if (!mdwc->vbus_active && dwc->is_drd &&
+		mdwc->otg_state == OTG_STATE_B_PERIPHERAL) {
 		/*
 		 * In some cases, the pm_runtime_suspend may be called by
 		 * usb_bam when there is pending lpm flag. However, if this is
@@ -2050,8 +2047,8 @@ static void dwc3_resume_work(struct work_struct *w)
 		return;
 	}
 
-	dbg_event(0xFF, "RWrk", mdwc->otg_xceiv ? 1 : 0);
-	if (mdwc->otg_xceiv)
+	dbg_event(0xFF, "RWrk", dwc->is_drd);
+	if (dwc->is_drd)
 		dwc3_ext_event_notify(mdwc);
 	else if (mdwc->scope == POWER_SUPPLY_SCOPE_SYSTEM)
 		/* host-only mode: resume xhci directly */
@@ -2299,14 +2296,12 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 	struct dwc3_msm *mdwc = container_of(psy, struct dwc3_msm,
 								usb_psy);
 	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
-	struct dwc3_otg *dotg = dwc->dotg;
-	struct usb_phy *phy = dotg->otg.phy;
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_USB_OTG:
 		/* Let OTG know about ID detection */
 		mdwc->id_state = val->intval ? DWC3_ID_GROUND : DWC3_ID_FLOAT;
-		if (mdwc->otg_xceiv && !mdwc->ext_inuse)
+		if (dwc->is_drd && !mdwc->ext_inuse)
 			schedule_delayed_work(&mdwc->resume_work, 12);
 
 		break;
@@ -2335,7 +2330,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		if (mdwc->vbus_active == val->intval)
 			break;
 		mdwc->vbus_active = val->intval;
-		if (mdwc->otg_xceiv && !mdwc->ext_inuse && !mdwc->in_restart) {
+		if (dwc->is_drd && !mdwc->ext_inuse && !mdwc->in_restart) {
 			/*
 			 * Set debouncing delay to 120ms. Otherwise battery
 			 * charging CDP complaince test fails if delay > 120ms.
@@ -2365,7 +2360,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 			break;
 		case POWER_SUPPLY_TYPE_USB_HVDCP:
 			mdwc->chg_type = DWC3_DCP_CHARGER;
-			usb_phy_set_power(phy, hvdcp_max_current);
+			dwc3_msm_gadget_vbus_draw(mdwc, hvdcp_max_current);
 			break;
 		case POWER_SUPPLY_TYPE_USB_CDP:
 			mdwc->chg_type = DWC3_CDP_CHARGER;
@@ -2994,15 +2989,15 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	dwc->vbus_active = of_property_read_bool(node, "qcom,vbus-present");
 
-	if (dwc->dotg) {
-		mdwc->otg_xceiv = dwc->dotg->otg.phy;
-	} else if (host_mode) {
-		dev_dbg(&pdev->dev, "No OTG, DWC3 running in host only mode\n");
-		mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
-		mdwc->hs_phy->flags |= PHY_HOST_MODE;
-		mdwc->ss_phy->flags |= PHY_HOST_MODE;
-	} else {
-		dev_dbg(&pdev->dev, "DWC3 running in device-only mode\n");
+	if (!dwc->is_drd) {
+		if (host_mode) {
+			dev_dbg(&pdev->dev, "DWC3 in host only mode\n");
+			mdwc->scope = POWER_SUPPLY_SCOPE_SYSTEM;
+			mdwc->hs_phy->flags |= PHY_HOST_MODE;
+			mdwc->ss_phy->flags |= PHY_HOST_MODE;
+		} else {
+			dev_dbg(&pdev->dev, "DWC3 in device-only mode\n");
+		}
 	}
 
 	mdwc->irq_to_affin = platform_get_irq(mdwc->dwc3, 0);
@@ -3161,16 +3156,14 @@ static void dwc3_otg_notify_host_mode(struct dwc3_msm *mdwc, int host_mode);
 /**
  * dwc3_otg_start_host -  helper function for starting/stoping the host controller driver.
  *
- * @otg: Pointer to the otg_transceiver structure.
+ * @mdwc: Pointer to the dwc3_msm structure.
  * @on: start / stop the host controller driver.
  *
  * Returns 0 on success otherwise negative errno.
  */
-static int dwc3_otg_start_host(struct usb_otg *otg, int on)
+static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 {
-	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
-	struct dwc3 *dwc = dotg->dwc;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	struct usb_hcd *hcd;
 	int ret = 0;
 
@@ -3180,7 +3173,7 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	if (!mdwc->vbus_reg) {
 		mdwc->vbus_reg = devm_regulator_get(mdwc->dev, "vbus_dwc3");
 		if (IS_ERR(mdwc->vbus_reg)) {
-			dev_err(dwc->dev, "Failed to get vbus regulator\n");
+			dev_err(mdwc->dev, "Failed to get vbus regulator\n");
 			ret = PTR_ERR(mdwc->vbus_reg);
 			mdwc->vbus_reg = 0;
 			return ret;
@@ -3188,20 +3181,20 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 	}
 
 	if (on) {
-		dev_dbg(otg->phy->dev, "%s: turn on host\n", __func__);
+		dev_dbg(mdwc->dev, "%s: turn on host\n", __func__);
 
-		pm_runtime_get_sync(otg->phy->dev);
+		pm_runtime_get_sync(dwc->dev);
 		dbg_event(0xFF, "StrtHost gync",
-			atomic_read(&otg->phy->dev->power.usage_count));
+			atomic_read(&dwc->dev->power.usage_count));
 		dwc3_otg_notify_host_mode(mdwc, on);
-		usb_phy_notify_connect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
+		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
 		ret = regulator_enable(mdwc->vbus_reg);
 		if (ret) {
-			dev_err(otg->phy->dev, "unable to enable vbus_reg\n");
+			dev_err(dwc->dev, "unable to enable vbus_reg\n");
 			dwc3_otg_notify_host_mode(mdwc, 0);
-			pm_runtime_put_sync(otg->phy->dev);
+			pm_runtime_put_sync(dwc->dev);
 			dbg_event(0xFF, "vregerr psync",
-				atomic_read(&otg->phy->dev->power.usage_count));
+				atomic_read(&dwc->dev->power.usage_count));
 			return ret;
 		}
 
@@ -3217,39 +3210,37 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 		pm_runtime_init(&dwc->xhci->dev);
 		ret = platform_device_add(dwc->xhci);
 		if (ret) {
-			dev_err(otg->phy->dev,
+			dev_err(mdwc->dev,
 				"%s: failed to add XHCI pdev ret=%d\n",
 				__func__, ret);
 			regulator_disable(mdwc->vbus_reg);
 			dwc3_otg_notify_host_mode(mdwc, 0);
-			pm_runtime_put_sync(otg->phy->dev);
+			pm_runtime_put_sync(dwc->dev);
 			dbg_event(0xFF, "pdeverr psync",
-				atomic_read(&otg->phy->dev->power.usage_count));
+				atomic_read(&dwc->dev->power.usage_count));
 			return ret;
 		}
 
 		hcd = platform_get_drvdata(dwc->xhci);
-		otg->host = &hcd->self;
 
 		/* xHCI should have incremented child count as necessary */
-		pm_runtime_put_sync(otg->phy->dev);
+		pm_runtime_put_sync(dwc->dev);
 		dbg_event(0xFF, "StrtHost psync",
-			atomic_read(&otg->phy->dev->power.usage_count));
+			atomic_read(&dwc->dev->power.usage_count));
 	} else {
-		dev_dbg(otg->phy->dev, "%s: turn off host\n", __func__);
+		dev_dbg(dwc->dev, "%s: turn off host\n", __func__);
 
 		ret = regulator_disable(mdwc->vbus_reg);
 		if (ret) {
-			dev_err(otg->phy->dev, "unable to disable vbus_reg\n");
+			dev_err(dwc->dev, "unable to disable vbus_reg\n");
 			return ret;
 		}
 
 		pm_runtime_get_sync(dwc->dev);
 		dbg_event(0xFF, "StopHost gsync",
 			atomic_read(&dwc->dev->power.usage_count));
-		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
+		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		dwc3_otg_notify_host_mode(mdwc, on);
-		otg->host = NULL;
 		platform_device_del(dwc->xhci);
 
 		/*
@@ -3275,81 +3266,44 @@ static int dwc3_otg_start_host(struct usb_otg *otg, int on)
 /**
  * dwc3_otg_start_peripheral -  bind/unbind the peripheral controller.
  *
- * @otg: Pointer to the otg_transceiver structure.
- * @gadget: pointer to the usb_gadget structure.
+ * @mdwc: Pointer to the dwc3_msm structure.
+ * @on:   Turn ON/OFF the gadget.
  *
  * Returns 0 on success otherwise negative errno.
  */
-static int dwc3_otg_start_peripheral(struct usb_otg *otg, int on)
+static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 {
-	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 
-	if (!otg->gadget)
-		return -EINVAL;
-
-	pm_runtime_get_sync(otg->phy->dev);
+	pm_runtime_get_sync(dwc->dev);
 	dbg_event(0xFF, "StrtGdgt gsync",
-		atomic_read(&otg->phy->dev->power.usage_count));
+		atomic_read(&dwc->dev->power.usage_count));
 
 	if (on) {
-		dev_dbg(otg->phy->dev, "%s: turn on gadget %s\n",
-					__func__, otg->gadget->name);
+		dev_dbg(mdwc->dev, "%s: turn on gadget %s\n",
+					__func__, dwc->gadget.name);
 
-		usb_phy_notify_connect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
-		usb_phy_notify_connect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
+		usb_phy_notify_connect(mdwc->hs_phy, USB_SPEED_HIGH);
+		usb_phy_notify_connect(mdwc->ss_phy, USB_SPEED_SUPER);
 
 		/* Core reset is not required during start peripheral. Only
 		 * DBM reset is required, hence perform only DBM reset here */
 		dwc3_msm_block_reset(mdwc, false);
 
-		dwc3_set_mode(dotg->dwc, DWC3_GCTL_PRTCAP_DEVICE);
-		usb_gadget_vbus_connect(otg->gadget);
+		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_DEVICE);
+		usb_gadget_vbus_connect(&dwc->gadget);
 	} else {
-		dev_dbg(otg->phy->dev, "%s: turn off gadget %s\n",
-					__func__, otg->gadget->name);
-		usb_gadget_vbus_disconnect(otg->gadget);
-		usb_phy_notify_disconnect(dotg->dwc->usb2_phy, USB_SPEED_HIGH);
-		usb_phy_notify_disconnect(dotg->dwc->usb3_phy, USB_SPEED_SUPER);
-		dwc3_gadget_usb3_phy_suspend(dotg->dwc, false);
+		dev_dbg(mdwc->dev, "%s: turn off gadget %s\n",
+					__func__, dwc->gadget.name);
+		usb_gadget_vbus_disconnect(&dwc->gadget);
+		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
+		usb_phy_notify_disconnect(mdwc->ss_phy, USB_SPEED_SUPER);
+		dwc3_gadget_usb3_phy_suspend(dwc, false);
 	}
 
-	pm_runtime_put_sync(otg->phy->dev);
+	pm_runtime_put_sync(dwc->dev);
 	dbg_event(0xFF, "StopGdgt psync",
-		atomic_read(&otg->phy->dev->power.usage_count));
-
-	return 0;
-}
-
-/**
- * dwc3_otg_set_peripheral -  bind/unbind the peripheral controller driver.
- *
- * @otg: Pointer to the otg_transceiver structure.
- * @gadget: pointer to the usb_gadget structure.
- *
- * Returns 0 on success otherwise negative errno.
- */
-static int dwc3_otg_set_peripheral(struct usb_otg *otg,
-				struct usb_gadget *gadget)
-{
-	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
-	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
-
-	if (gadget) {
-		dev_dbg(otg->phy->dev, "%s: set gadget %s\n",
-					__func__, gadget->name);
-		otg->gadget = gadget;
-		schedule_delayed_work(&mdwc->sm_work, 0);
-	} else {
-		if (otg->phy->state == OTG_STATE_B_PERIPHERAL) {
-			dwc3_otg_start_peripheral(otg, 0);
-			otg->gadget = NULL;
-			otg->phy->state = OTG_STATE_UNDEFINED;
-			schedule_delayed_work(&mdwc->sm_work, 0);
-		} else {
-			otg->gadget = NULL;
-		}
-	}
+		atomic_read(&dwc->dev->power.usage_count));
 
 	return 0;
 }
@@ -3429,14 +3383,9 @@ psy_error:
 	return -ENXIO;
 }
 
-/**
- * dwc3_otg_init_sm - initialize OTG statemachine input
- * @dotg: Pointer to the dwc3_otg structure
- *
- */
 void dwc3_otg_init_sm(struct dwc3_msm *mdwc)
 {
-	struct dwc3 *dwc = mdwc->dotg.dwc;
+	struct dwc3 *dwc = platform_get_drvdata(mdwc->dwc3);
 	int ret;
 
 	/*
@@ -3464,34 +3413,35 @@ void dwc3_otg_init_sm(struct dwc3_msm *mdwc)
  *
  * @w: Pointer to the dwc3 otg workqueue
  *
- * NOTE: After any change in phy->state,
- * we must reschdule the state machine.
+ * NOTE: After any change in otg_state, we must reschdule the state machine.
  */
 static void dwc3_otg_sm_work(struct work_struct *w)
 {
 	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, sm_work.work);
-	struct dwc3_otg *dotg = &mdwc->dotg;
-	struct usb_phy *phy = dotg->otg.phy;
+	struct dwc3 *dwc = NULL;
 	bool work = 0;
 	int ret = 0;
 	unsigned long delay = 0;
 
-	dev_dbg(phy->dev, "%s state\n", usb_otg_state_string(phy->state));
+	if (mdwc->dwc3)
+		dwc = platform_get_drvdata(mdwc->dwc3);
+
+	dev_dbg(mdwc->dev, "%s state\n", usb_otg_state_string(mdwc->otg_state));
 
 	/* Check OTG state */
-	switch (phy->state) {
+	switch (mdwc->otg_state) {
 	case OTG_STATE_UNDEFINED:
 		dwc3_otg_init_sm(mdwc);
 
 		/* Switch to A or B-Device according to ID / BSV */
 		if (!test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "!id\n");
-			phy->state = OTG_STATE_A_IDLE;
+			dev_dbg(mdwc->dev, "!id\n");
+			mdwc->otg_state = OTG_STATE_A_IDLE;
 			work = 1;
 		} else {
-			phy->state = OTG_STATE_B_IDLE;
+			mdwc->otg_state = OTG_STATE_B_IDLE;
 			if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
-				dev_dbg(phy->dev, "b_sess_vld\n");
+				dev_dbg(mdwc->dev, "b_sess_vld\n");
 				work = 1;
 			}
 		}
@@ -3499,8 +3449,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 	case OTG_STATE_B_IDLE:
 		if (!test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "!id\n");
-			phy->state = OTG_STATE_A_IDLE;
+			dev_dbg(mdwc->dev, "!id\n");
+			mdwc->otg_state = OTG_STATE_A_IDLE;
 			work = 1;
 			mdwc->retry_count = 0;
 			if (!mdwc->skip_chg_detect) {
@@ -3510,13 +3460,13 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					mdwc->chg_type = DWC3_INVALID_CHARGER;
 			}
 		} else if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "b_sess_vld\n");
+			dev_dbg(mdwc->dev, "b_sess_vld\n");
 			if (!mdwc->skip_chg_detect) {
 				/* Has charger been detected? If no detect it */
 				switch (mdwc->chg_type) {
 				case DWC3_DCP_CHARGER:
 				case DWC3_PROPRIETARY_CHARGER:
-					dev_dbg(phy->dev, "lpm, DCP charger\n");
+					dev_dbg(mdwc->dev, "lpm, DCP charger\n");
 					dwc3_msm_gadget_vbus_draw(mdwc,
 							dcp_max_current);
 					break;
@@ -3531,13 +3481,13 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					 * OTG_STATE_B_PERIPHERAL state on cable
 					 * disconnect or in bus suspend.
 					 */
-					pm_runtime_get_sync(phy->dev);
+					pm_runtime_get_sync(mdwc->dev);
 					dbg_event(0xFF, "CHG gsync",
 					atomic_read(
-						&phy->dev->power.usage_count));
-					dwc3_otg_start_peripheral(&dotg->otg,
-									1);
-					phy->state = OTG_STATE_B_PERIPHERAL;
+						&mdwc->dev->power.usage_count));
+					dwc3_otg_start_peripheral(mdwc, 1);
+					mdwc->otg_state =
+							OTG_STATE_B_PERIPHERAL;
 					work = 1;
 					break;
 				case DWC3_FLOATED_CHARGER:
@@ -3559,7 +3509,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					dwc3_start_chg_det(mdwc, false);
 				/* fall through */
 				default:
-					dev_dbg(phy->dev, "chg_det started\n");
+					dev_dbg(mdwc->dev, "chg_det started\n");
 					dwc3_start_chg_det(mdwc, true);
 					break;
 				}
@@ -3568,31 +3518,31 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				 * No charger registered, assuming SDP
 				 * and start peripheral
 				 */
-				phy->state = OTG_STATE_B_PERIPHERAL;
+				mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
 				/*
 				 * Increment pm usage count upon cable connect.
 				 * Count is decremented in
 				 * OTG_STATE_B_PERIPHERAL state on cable
 				 * disconnect or in bus suspend.
 				 */
-				pm_runtime_get_sync(phy->dev);
+				pm_runtime_get_sync(mdwc->dev);
 				dbg_event(0xFF,
 					"NoCHG gsync",
 					atomic_read(
-						&phy->dev->power.usage_count));
-				if (dwc3_otg_start_peripheral(&dotg->otg, 1)) {
-					pm_runtime_put_sync(phy->dev);
+						&mdwc->dev->power.usage_count));
+				if (dwc3_otg_start_peripheral(mdwc, 1)) {
+					pm_runtime_put_sync(mdwc->dev);
 					dbg_event(0xFF,
 						"NoChg psync",
 						atomic_read(
-						&phy->dev->power.usage_count));
+						&mdwc->dev->power.usage_count));
 					/*
 					 * Probably set_peripheral not called
 					 * yet. We will re-try as soon as it
 					 * will be called
 					 */
-					dev_err(phy->dev, "unable to start B-device\n");
-					phy->state = OTG_STATE_UNDEFINED;
+					dev_err(mdwc->dev, "unable to start B-device\n");
+					mdwc->otg_state = OTG_STATE_UNDEFINED;
 					return;
 				}
 			}
@@ -3602,31 +3552,31 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 			mdwc->retry_count = 0;
 			dwc3_msm_gadget_vbus_draw(mdwc, 0);
-			dev_dbg(phy->dev, "No device, allowing suspend\n");
+			dev_dbg(mdwc->dev, "No device, allowing suspend\n");
 		}
 		break;
 
 	case OTG_STATE_B_PERIPHERAL:
 		if (!test_bit(B_SESS_VLD, &mdwc->inputs) ||
 				!test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "!id || !bsv\n");
-			phy->state = OTG_STATE_B_IDLE;
-			dwc3_otg_start_peripheral(&dotg->otg, 0);
+			dev_dbg(mdwc->dev, "!id || !bsv\n");
+			mdwc->otg_state = OTG_STATE_B_IDLE;
+			dwc3_otg_start_peripheral(mdwc, 0);
 			/*
 			 * Decrement pm usage count upon cable disconnect
 			 * which was incremented upon cable connect in
 			 * OTG_STATE_B_IDLE state
 			 */
-			pm_runtime_put_sync(phy->dev);
+			pm_runtime_put_sync(mdwc->dev);
 			dbg_event(0xFF, "BPER psync",
-				atomic_read(&phy->dev->power.usage_count));
+				atomic_read(&mdwc->dev->power.usage_count));
 			if (!mdwc->skip_chg_detect)
 				mdwc->chg_type = DWC3_INVALID_CHARGER;
 			work = 1;
 		} else if (test_bit(B_SUSPEND, &mdwc->inputs) &&
 			test_bit(B_SESS_VLD, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "BPER bsv && susp\n");
-			phy->state = OTG_STATE_B_SUSPEND;
+			dev_dbg(mdwc->dev, "BPER bsv && susp\n");
+			mdwc->otg_state = OTG_STATE_B_SUSPEND;
 			/*
 			 * Decrement pm usage count upon bus suspend.
 			 * Count was incremented either upon cable
@@ -3634,57 +3584,57 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			 * initiated resume after bus suspend in
 			 * OTG_STATE_B_SUSPEND state
 			 */
-			pm_runtime_mark_last_busy(phy->dev);
-			pm_runtime_put_autosuspend(phy->dev);
+			pm_runtime_mark_last_busy(mdwc->dev);
+			pm_runtime_put_autosuspend(mdwc->dev);
 			dbg_event(0xFF, "SUSP put",
-				atomic_read(&phy->dev->power.usage_count));
+				atomic_read(&mdwc->dev->power.usage_count));
 		}
 		break;
 
 	case OTG_STATE_B_SUSPEND:
 		if (!test_bit(B_SESS_VLD, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "BSUSP: !bsv\n");
-			phy->state = OTG_STATE_B_IDLE;
-			dwc3_otg_start_peripheral(&dotg->otg, 0);
+			dev_dbg(mdwc->dev, "BSUSP: !bsv\n");
+			mdwc->otg_state = OTG_STATE_B_IDLE;
+			dwc3_otg_start_peripheral(mdwc, 0);
 		} else if (!test_bit(B_SUSPEND, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "BSUSP !susp\n");
-			phy->state = OTG_STATE_B_PERIPHERAL;
+			dev_dbg(mdwc->dev, "BSUSP !susp\n");
+			mdwc->otg_state = OTG_STATE_B_PERIPHERAL;
 			/*
 			 * Increment pm usage count upon host
 			 * initiated resume. Count was decremented
 			 * upon bus suspend in
 			 * OTG_STATE_B_PERIPHERAL state.
 			 */
-			pm_runtime_get_sync(phy->dev);
+			pm_runtime_get_sync(mdwc->dev);
 			dbg_event(0xFF, "SUSP gsync",
-				atomic_read(&phy->dev->power.usage_count));
+				atomic_read(&mdwc->dev->power.usage_count));
 		}
 		break;
 
 	case OTG_STATE_A_IDLE:
 		/* Switch to A-Device*/
 		if (test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "id\n");
-			phy->state = OTG_STATE_B_IDLE;
+			dev_dbg(mdwc->dev, "id\n");
+			mdwc->otg_state = OTG_STATE_B_IDLE;
 			mdwc->vbus_retry_count = 0;
 			work = 1;
 		} else {
-			phy->state = OTG_STATE_A_HOST;
-			ret = dwc3_otg_start_host(&dotg->otg, 1);
+			mdwc->otg_state = OTG_STATE_A_HOST;
+			ret = dwc3_otg_start_host(mdwc, 1);
 			if ((ret == -EPROBE_DEFER) &&
 						mdwc->vbus_retry_count < 3) {
 				/*
 				 * Get regulator failed as regulator driver is
 				 * not up yet. Will try to start host after 1sec
 				 */
-				phy->state = OTG_STATE_A_IDLE;
-				dev_dbg(phy->dev, "Unable to get vbus regulator. Retrying...\n");
+				mdwc->otg_state = OTG_STATE_A_IDLE;
+				dev_dbg(mdwc->dev, "Unable to get vbus regulator. Retrying...\n");
 				delay = VBUS_REG_CHECK_DELAY;
 				work = 1;
 				mdwc->vbus_retry_count++;
 			} else if (ret) {
-				dev_err(phy->dev, "unable to start host\n");
-				phy->state = OTG_STATE_A_IDLE;
+				dev_err(mdwc->dev, "unable to start host\n");
+				mdwc->otg_state = OTG_STATE_A_IDLE;
 				goto ret;
 			} else {
 				/*
@@ -3692,7 +3642,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				 * just-attached devices before allowing
 				 * runtime suspend
 				 */
-				dev_dbg(phy->dev, "a_host state entered\n");
+				dev_dbg(mdwc->dev, "a_host state entered\n");
 				delay = VBUS_REG_CHECK_DELAY;
 				work = 1;
 			}
@@ -3701,20 +3651,21 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 	case OTG_STATE_A_HOST:
 		if (test_bit(ID, &mdwc->inputs)) {
-			dev_dbg(phy->dev, "id\n");
-			dwc3_otg_start_host(&dotg->otg, 0);
-			phy->state = OTG_STATE_B_IDLE;
+			dev_dbg(mdwc->dev, "id\n");
+			dwc3_otg_start_host(mdwc, 0);
+			mdwc->otg_state = OTG_STATE_B_IDLE;
 			mdwc->vbus_retry_count = 0;
 			work = 1;
 		} else {
-			dev_dbg(phy->dev, "still in a_host state. Resuming root hub.\n");
+			dev_dbg(mdwc->dev, "still in a_host state. Resuming root hub.\n");
 			dbg_event(0xFF, "XHCIResume", 0);
-			pm_runtime_resume(&dotg->dwc->xhci->dev);
+			if (dwc)
+				pm_runtime_resume(&dwc->xhci->dev);
 		}
 		break;
 
 	default:
-		dev_err(phy->dev, "%s: invalid otg-state\n", __func__);
+		dev_err(mdwc->dev, "%s: invalid otg-state\n", __func__);
 
 	}
 
@@ -3723,48 +3674,6 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 ret:
 	return;
-}
-
-/**
- * dwc3_otg_init - Initializes otg related registers
- * @dwc: Pointer to out controller context structure
- *
- * Returns 0 on success otherwise negative errno.
- */
-int dwc3_otg_init(struct dwc3 *dwc)
-{
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	struct dwc3_otg *dotg = &mdwc->dotg;
-
-	dev_dbg(dwc->dev, "dwc3_otg_init\n");
-
-	dotg->otg.phy = devm_kzalloc(dwc->dev, sizeof(struct usb_phy),
-							GFP_KERNEL);
-	if (!dotg->otg.phy)
-		return -ENOMEM;
-
-	dotg->otg.phy->otg = &dotg->otg;
-	dotg->otg.phy->dev = dwc->dev;
-	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
-	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
-
-	/* This reference is used by dwc3 modules for checking otg existence */
-	dwc->dotg = dotg;
-	dotg->dwc = dwc;
-	dotg->otg.phy->dev = dwc->dev;
-
-	return 0;
-}
-
-/**
- * dwc3_otg_exit
- * @dwc: Pointer to out controller context structure
- *
- * Returns 0 on success otherwise negative errno.
- */
-void dwc3_otg_exit(struct dwc3 *dwc)
-{
-	dwc->dotg = NULL;
 }
 
 #ifdef CONFIG_PM_SLEEP
