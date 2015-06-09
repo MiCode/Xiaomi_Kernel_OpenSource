@@ -69,6 +69,8 @@ static struct cachepolicy cache_policies[] __initdata = {
 	}
 };
 
+static bool __init dma_overlap(phys_addr_t start, phys_addr_t end);
+
 #ifdef CONFIG_STRICT_MEMORY_RWX
 static struct {
 	pmd_t *pmd;
@@ -327,7 +329,8 @@ static void __init alloc_init_pud(pgd_t *pgd, unsigned long addr,
 		 * For 4K granule only, attempt to put down a 1GB block
 		 */
 		if (!map_io && (PAGE_SHIFT == 12) &&
-		    ((addr | next | phys) & ~PUD_MASK) == 0) {
+		    (((addr | next | phys) & ~PUD_MASK) == 0) &&
+				!dma_overlap(phys, phys + next - addr)) {
 			pud_t old_pud = *pud;
 			set_pud(pud, __pud(phys | PROT_SECT_NORMAL_EXEC));
 
@@ -416,6 +419,21 @@ void __init dma_contiguous_early_fixup(phys_addr_t base, unsigned long size)
 	dma_mmu_remap[dma_mmu_remap_num].base = base;
 	dma_mmu_remap[dma_mmu_remap_num].size = size;
 	dma_mmu_remap_num++;
+}
+
+static bool __init dma_overlap(phys_addr_t start, phys_addr_t end)
+{
+	int i;
+
+	for (i = 0; i < dma_mmu_remap_num; i++) {
+		phys_addr_t dma_base = dma_mmu_remap[i].base;
+		phys_addr_t dma_end = dma_mmu_remap[i].base +
+			dma_mmu_remap[i].size;
+
+		if ((dma_base < end) && (dma_end > start))
+			return true;
+	}
+	return false;
 }
 
 static void __init dma_contiguous_remap(void)
