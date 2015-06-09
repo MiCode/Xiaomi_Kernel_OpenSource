@@ -635,6 +635,14 @@ static uint32_t socinfo_get_foundry_id(void)
 		: 0;
 }
 
+static uint32_t socinfo_get_serial_number(void)
+{
+	return socinfo ?
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 10) ?
+			socinfo->v0_10.serial_number : 0)
+		: 0;
+}
+
 enum pmic_model socinfo_get_pmic_model(void)
 {
 	return socinfo ?
@@ -771,6 +779,15 @@ msm_get_foundry_id(struct device *dev,
 {
 	return snprintf(buf, PAGE_SIZE, "%u\n",
 		socinfo_get_foundry_id());
+}
+
+static ssize_t
+msm_get_serial_number(struct device *dev,
+			struct device_attribute *attr,
+			char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+		socinfo_get_serial_number());
 }
 
 static ssize_t
@@ -972,6 +989,10 @@ static struct device_attribute msm_soc_attr_foundry_id =
 	__ATTR(foundry_id, S_IRUGO,
 			msm_get_foundry_id, NULL);
 
+static struct device_attribute msm_soc_attr_serial_number =
+	__ATTR(serial_number, S_IRUGO,
+			msm_get_serial_number, NULL);
+
 static struct device_attribute msm_soc_attr_pmic_model =
 	__ATTR(pmic_model, S_IRUGO,
 			msm_get_pmic_model, NULL);
@@ -1069,6 +1090,8 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 
 	switch (legacy_format) {
 	case SOCINFO_VERSION(0, 10):
+		 device_create_file(msm_soc_device,
+					&msm_soc_attr_serial_number);
 	case SOCINFO_VERSION(0, 9):
 		 device_create_file(msm_soc_device,
 					&msm_soc_attr_foundry_id);
