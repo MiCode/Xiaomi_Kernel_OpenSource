@@ -136,6 +136,13 @@ static void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
 			hba->ufs_stats.req_stats[rq_type].min = delta;
 }
 
+static void
+ufshcd_update_query_stats(struct ufs_hba *hba, enum query_opcode opcode, u8 idn)
+{
+	if (opcode < UPIU_QUERY_OPCODE_MAX && idn < MAX_QUERY_IDN)
+		hba->ufs_stats.query_stats_arr[opcode][idn]++;
+}
+
 #else
 static inline void ufshcd_update_tag_stats(struct ufs_hba *hba, int tag)
 {
@@ -152,6 +159,12 @@ static inline void ufshcd_update_error_stats(struct ufs_hba *hba, int type)
 
 static inline
 void update_req_stats(struct ufs_hba *hba, struct ufshcd_lrb *lrbp)
+{
+}
+
+static inline
+void ufshcd_update_query_stats(struct ufs_hba *hba,
+			       enum query_opcode opcode, u8 idn)
 {
 }
 #endif
@@ -2835,6 +2848,8 @@ static inline void ufshcd_init_query(struct ufs_hba *hba,
 	(*request)->upiu_req.idn = idn;
 	(*request)->upiu_req.index = index;
 	(*request)->upiu_req.selector = selector;
+
+	ufshcd_update_query_stats(hba, opcode, idn);
 }
 
 static int ufshcd_query_flag_retry(struct ufs_hba *hba,
