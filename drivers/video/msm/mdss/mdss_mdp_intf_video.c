@@ -807,18 +807,22 @@ static int mdss_mdp_video_dfps_wait4vsync(struct mdss_mdp_ctl *ctl)
 		return -ENODEV;
 	}
 
-	video_vsync_irq_enable(ctl, true);
 	INIT_COMPLETION(ctx->vsync_comp);
+	video_vsync_irq_enable(ctl, true);
 	rc = wait_for_completion_timeout(&ctx->vsync_comp,
 		usecs_to_jiffies(VSYNC_TIMEOUT_US));
-	WARN(rc <= 0, "timeout (%d) vsync interrupt on ctl=%d\n",
-		rc, ctl->num);
-
+	if (rc == 0) {
+		pr_warn("vsync wait timeout %d, fallback to poll mode\n",
+				ctl->num);
+		rc = mdss_mdp_video_pollwait(ctl);
+		if (!rc)
+			rc = 1; /* vsync arrived */
+		else
+			rc = -EPERM;
+	}
 	video_vsync_irq_disable(ctl);
-	if (rc <= 0)
-		return -EPERM;
 
-	return 0;
+	return rc;
 }
 
 static int mdss_mdp_video_dfps_check_line_cnt(struct mdss_mdp_ctl *ctl)
