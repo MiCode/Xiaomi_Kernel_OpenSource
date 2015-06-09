@@ -1345,6 +1345,7 @@
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		qcom,hfi = "venus";
+		qcom,firmware-name = "venus-v1";
 
 		clocks =
 			<&clock_gcc clk_gcc_venus0_vcodec0_clk>,
