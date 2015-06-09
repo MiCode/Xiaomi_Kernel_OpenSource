@@ -332,6 +332,7 @@ struct adreno_device {
 	const struct firmware *lm_fw;
 	uint32_t *lm_sequence;
 	uint32_t lm_size;
+	struct kgsl_memdesc preemption_counters;
 };
 
 /**
@@ -637,6 +638,7 @@ struct adreno_gpudev {
 	void (*snapshot)(struct adreno_device *, struct kgsl_snapshot *);
 	void (*gpudev_init)(struct adreno_device *);
 	int (*rb_init)(struct adreno_device *, struct adreno_ringbuffer *);
+	int (*hw_init)(struct adreno_device *);
 	int (*microcode_read)(struct adreno_device *);
 	int (*microcode_load)(struct adreno_device *, unsigned int start_type);
 	void (*perfcounter_init)(struct adreno_device *);
@@ -663,11 +665,8 @@ struct adreno_gpudev {
 	int (*preemption_token)(struct adreno_device *,
 				struct adreno_ringbuffer *, unsigned int *,
 				uint64_t gpuaddr);
-	void (*preemption_start)(struct adreno_device *,
-				struct adreno_ringbuffer *);
-	void (*preemption_save)(struct adreno_device *,
-				struct adreno_ringbuffer *);
 	void (*preemption_init)(struct adreno_device *);
+	void (*preemption_schedule)(struct adreno_device *);
 };
 
 struct log_field {

@@ -1,4 +1,4 @@
-/* Copyright (c) 2002,2007-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2002,2007-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,17 +27,6 @@
 
 struct kgsl_device;
 struct kgsl_device_private;
-
-/**
- * union adreno_ttbr0 - Union describing the ttbr0 parameters used when
- * switching pagetable in stream
- * @ttbr0_lo: Lower 32 bits of ttbr0
- * @ttbr0_hi: Higher 32 bits of ttbr0
- */
-union adreno_ttbr0 {
-	unsigned int ttbr0_lo;
-	unsigned int ttbr0_hi;
-};
 
 /**
  * struct adreno_submit_time - utility structure to store the wall clock / GPU
@@ -71,7 +60,7 @@ struct adreno_ringbuffer_pagetable_info {
 	int current_rb_ptname;
 	int incoming_ptname;
 	int switch_pt_enable;
-	union adreno_ttbr0 ttbr0;
+	uint64_t ttbr0;
 };
 
 /**
