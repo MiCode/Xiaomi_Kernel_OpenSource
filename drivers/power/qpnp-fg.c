@@ -33,6 +33,7 @@
 #include <linux/of_batterydata.h>
 #include <linux/string_helpers.h>
 #include <linux/alarmtimer.h>
+#include <linux/qpnp/qpnp-revid.h>
 
 /* Register offsets */
 
@@ -90,6 +91,11 @@ enum dig_major {
 	DIG_REV_8994_1 = 0x1,
 	DIG_REV_8994_2 = 0x2,
 	DIG_REV_8950_3 = 0x3,
+};
+
+enum pmic_subtype {
+	PMI8994		= 10,
+	PMI8950		= 17,
 };
 
 struct fg_mem_setting {
@@ -341,6 +347,7 @@ static void fg_relax(struct fg_wakeup_source *source)
 struct fg_chip {
 	struct device		*dev;
 	struct spmi_device	*spmi;
+	u8			pmic_subtype;
 	u8			revision[4];
 	u16			soc_base;
 	u16			batt_base;
@@ -4805,26 +4812,15 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 #define FG_ADC_CONFIG_REG		0x4B8
 #define FG_BCL_CONFIG_OFFSET		0x3
 #define BCL_FORCED_HPM_IN_CHARGE	BIT(2)
-static int fg_hw_init(struct fg_chip *chip)
+static int fg_common_hw_init(struct fg_chip *chip)
 {
+	int rc;
 	u8 resume_soc;
-	u8 data[4];
-	u64 esr_value;
-	int rc = 0;
 
 	update_iterm(chip);
 	update_cutoff_voltage(chip);
 	update_irq_volt_empty(chip);
 	update_bcl_thresholds(chip);
-
-	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
-			PATCH_NEG_CURRENT_BIT,
-			PATCH_NEG_CURRENT_BIT,
-			EXTERNAL_SENSE_OFFSET);
-	if (rc) {
-		pr_err("failed to write patch current bit rc=%d\n", rc);
-		return rc;
-	}
 
 	resume_soc = settings[FG_MEM_RESUME_SOC].value;
 	if (resume_soc > 0) {
@@ -4879,6 +4875,30 @@ static int fg_hw_init(struct fg_chip *chip)
 		return rc;
 	}
 
+	if (chip->use_thermal_coefficients) {
+		fg_mem_write(chip, chip->thermal_coefficients,
+			THERMAL_COEFF_ADDR, THERMAL_COEFF_N_BYTES,
+			THERMAL_COEFF_OFFSET, 0);
+	}
+
+	return 0;
+}
+
+static int fg_8994_hw_init(struct fg_chip *chip)
+{
+	int rc = 0;
+	u8 data[4];
+	u64 esr_value;
+
+	rc = fg_mem_masked_write(chip, EXTERNAL_SENSE_SELECT,
+			PATCH_NEG_CURRENT_BIT,
+			PATCH_NEG_CURRENT_BIT,
+			EXTERNAL_SENSE_OFFSET);
+	if (rc) {
+		pr_err("failed to write patch current bit rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = bcl_trim_workaround(chip);
 	if (rc) {
 		pr_err("failed to redo bcl trim rc=%d\n", rc);
@@ -4892,12 +4912,6 @@ static int fg_hw_init(struct fg_chip *chip)
 	if (rc) {
 		pr_err("failed to force hpm in charge rc=%d\n", rc);
 		return rc;
-	}
-
-	if (chip->use_thermal_coefficients) {
-		fg_mem_write(chip, chip->thermal_coefficients,
-			THERMAL_COEFF_ADDR, THERMAL_COEFF_N_BYTES,
-			THERMAL_COEFF_OFFSET, 0);
 	}
 
 	fg_mem_masked_write(chip, FG_ALG_SYSCTL_1, I_TERM_QUAL_BIT, 0, 0);
@@ -4933,6 +4947,45 @@ static int fg_hw_init(struct fg_chip *chip)
 		pr_info("set default value to esr filter\n");
 
 	return 0;
+}
+
+static int fg_8950_hw_init(struct fg_chip *chip)
+{
+	int rc;
+
+	rc = fg_mem_masked_write(chip, FG_ADC_CONFIG_REG,
+			BCL_FORCED_HPM_IN_CHARGE,
+			BCL_FORCED_HPM_IN_CHARGE,
+			FG_BCL_CONFIG_OFFSET);
+	if (rc)
+		pr_err("failed to force hpm in charge rc=%d\n", rc);
+
+	return rc;
+}
+
+static int fg_hw_init(struct fg_chip *chip)
+{
+	int rc = 0;
+
+	rc = fg_common_hw_init(chip);
+	if (rc) {
+		pr_err("Unable to initialize FG HW rc=%d\n", rc);
+		return rc;
+	}
+
+	/* add PMIC specific hw init */
+	switch (chip->pmic_subtype) {
+	case PMI8994:
+		rc = fg_8994_hw_init(chip);
+		break;
+	case PMI8950:
+		rc = fg_8950_hw_init(chip);
+		break;
+	}
+	if (rc)
+		pr_err("Unable to initialize PMIC specific FG HW rc=%d\n", rc);
+
+	return rc;
 }
 
 #define DIG_MINOR		0x0
@@ -4978,6 +5031,44 @@ static int fg_setup_memif_offset(struct fg_chip *chip)
 			pr_err("failed to configure interrupt source %d\n", rc);
 			return rc;
 		}
+	}
+
+	return 0;
+}
+
+static int fg_detect_pmic_type(struct fg_chip *chip)
+{
+	struct pmic_revid_data *pmic_rev_id;
+	struct device_node *revid_dev_node;
+
+	revid_dev_node = of_parse_phandle(chip->spmi->dev.of_node,
+					"qcom,pmic-revid", 0);
+	if (!revid_dev_node) {
+		pr_err("Missing qcom,pmic-revid property - driver failed\n");
+		return -EINVAL;
+	}
+
+	pmic_rev_id = get_revid_data(revid_dev_node);
+	if (IS_ERR(pmic_rev_id)) {
+		pr_err("Unable to get pmic_revid rc=%ld\n",
+				PTR_ERR(pmic_rev_id));
+		/*
+		 * the revid peripheral must be registered, any failure
+		 * here only indicates that the rev-id module has not
+		 * probed yet.
+		 */
+		return -EPROBE_DEFER;
+	}
+
+	switch (pmic_rev_id->pmic_subtype) {
+	case PMI8994:
+	case PMI8950:
+		chip->pmic_subtype = pmic_rev_id->pmic_subtype;
+		break;
+	default:
+		pr_err("PMIC subtype %d not supported\n",
+				pmic_rev_id->pmic_subtype);
+		return -EINVAL;
 	}
 
 	return 0;
@@ -5101,6 +5192,12 @@ static int fg_probe(struct spmi_device *spmi)
 		}
 	}
 
+	rc = fg_detect_pmic_type(chip);
+	if (rc) {
+		pr_err("Unable to detect PMIC type rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = fg_setup_memif_offset(chip);
 	if (rc) {
 		pr_err("Unable to setup mem_if offsets rc=%d\n", rc);
@@ -5184,9 +5281,10 @@ static int fg_probe(struct spmi_device *spmi)
 	if (!chip->use_otp_profile)
 		schedule_work(&chip->batt_profile_init);
 
-	pr_info("FG Probe success - FG Revision DIG:%d.%d ANA:%d.%d\n",
+	pr_info("FG Probe success - FG Revision DIG:%d.%d ANA:%d.%d PMIC subtype=%d\n",
 		chip->revision[DIG_MAJOR], chip->revision[DIG_MINOR],
-		chip->revision[ANA_MAJOR], chip->revision[ANA_MINOR]);
+		chip->revision[ANA_MAJOR], chip->revision[ANA_MINOR],
+		chip->pmic_subtype);
 
 	return rc;
 
