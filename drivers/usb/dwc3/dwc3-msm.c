@@ -153,6 +153,12 @@ enum dwc3_id_state {
 	DWC3_ID_FLOAT,
 };
 
+/* Input bits to state machine (mdwc->inputs) */
+
+#define ID			0
+#define B_SESS_VLD		1
+#define B_SUSPEND		2
+
 /*
  * USB chargers
  *
@@ -214,6 +220,9 @@ struct dwc3_msm {
 	struct work_struct	restart_usb_work;
 	bool			in_restart;
 	struct dwc3_otg		dotg;
+	struct delayed_work	sm_work;
+	unsigned long		inputs;
+	struct completion	dwc3_xcvr_vbus_init;
 	struct usb_phy		*otg_xceiv;
 	enum dwc3_chg_type	chg_type;
 	unsigned		max_power;
@@ -1483,11 +1492,11 @@ static void dwc3_chg_detect_work(struct work_struct *w)
 		 * this time.  STOP chg_det as part of !BSV handling would
 		 * reset the chg_det flags
 		 */
-		if (test_bit(B_SESS_VLD, &mdwc->dotg.inputs))
-			schedule_delayed_work(&mdwc->dotg.sm_work, 0);
+		if (test_bit(B_SESS_VLD, &mdwc->inputs))
+			schedule_delayed_work(&mdwc->sm_work, 0);
 
 		/* ensure OTG work is finished before releasing PM ref */
-		flush_delayed_work(&mdwc->dotg.sm_work);
+		flush_delayed_work(&mdwc->sm_work);
 	default:
 		pm_runtime_put_sync(mdwc->dev);
 		return;
@@ -1967,47 +1976,46 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 static void dwc3_ext_event_notify(struct dwc3_msm *mdwc)
 {
 	static bool init;
-	struct dwc3_otg *dotg = &mdwc->dotg;
 
 	/* Flush processing any pending events before handling new ones */
 	if (init)
-		flush_delayed_work(&dotg->sm_work);
+		flush_delayed_work(&mdwc->sm_work);
 
 	if (mdwc->id_state == DWC3_ID_FLOAT) {
 		dev_dbg(mdwc->dev, "XCVR: ID set\n");
-		set_bit(ID, &dotg->inputs);
+		set_bit(ID, &mdwc->inputs);
 	} else {
 		dev_dbg(mdwc->dev, "XCVR: ID clear\n");
-		clear_bit(ID, &dotg->inputs);
+		clear_bit(ID, &mdwc->inputs);
 	}
 
 	if (mdwc->vbus_active && !mdwc->in_restart) {
 		dev_dbg(mdwc->dev, "XCVR: BSV set\n");
-		set_bit(B_SESS_VLD, &dotg->inputs);
+		set_bit(B_SESS_VLD, &mdwc->inputs);
 	} else {
 		dev_dbg(mdwc->dev, "XCVR: BSV clear\n");
-		clear_bit(B_SESS_VLD, &dotg->inputs);
+		clear_bit(B_SESS_VLD, &mdwc->inputs);
 	}
 
 	if (mdwc->suspend) {
 		dev_dbg(mdwc->dev, "XCVR: SUSP set\n");
-		set_bit(B_SUSPEND, &dotg->inputs);
+		set_bit(B_SUSPEND, &mdwc->inputs);
 	} else {
 		dev_dbg(mdwc->dev, "XCVR: SUSP clear\n");
-		clear_bit(B_SUSPEND, &dotg->inputs);
+		clear_bit(B_SUSPEND, &mdwc->inputs);
 	}
 
 	if (!init) {
 		init = true;
-		if (!work_busy(&dotg->sm_work.work))
-			schedule_delayed_work(&dotg->sm_work, 0);
+		if (!work_busy(&mdwc->sm_work.work))
+			schedule_delayed_work(&mdwc->sm_work, 0);
 
-		complete(&dotg->dwc3_xcvr_vbus_init);
+		complete(&mdwc->dwc3_xcvr_vbus_init);
 		dev_dbg(mdwc->dev, "XCVR: BSV init complete\n");
 		return;
 	}
 
-	schedule_delayed_work(&dotg->sm_work, 0);
+	schedule_delayed_work(&mdwc->sm_work, 0);
 }
 
 static void dwc3_resume_work(struct work_struct *w)
@@ -2531,6 +2539,8 @@ static int dwc3_cpu_notifier_cb(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
+static void dwc3_otg_sm_work(struct work_struct *w);
+
 static int dwc3_msm_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node, *dwc3_node;
@@ -2567,6 +2577,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&mdwc->restart_usb_work, dwc3_restart_usb_work);
 	INIT_WORK(&mdwc->id_work, dwc3_id_work);
 	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
+	init_completion(&mdwc->dwc3_xcvr_vbus_init);
+	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
+
 
 	/*
 	 * This regulator needs to be turned on to remove pull down on Dp and
@@ -3090,6 +3103,7 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	}
 
 	dwc3_start_chg_det(mdwc, false);
+	cancel_delayed_work_sync(&mdwc->sm_work);
 
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
@@ -3313,18 +3327,19 @@ static int dwc3_otg_set_peripheral(struct usb_otg *otg,
 				struct usb_gadget *gadget)
 {
 	struct dwc3_otg *dotg = container_of(otg, struct dwc3_otg, otg);
+	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
 
 	if (gadget) {
 		dev_dbg(otg->phy->dev, "%s: set gadget %s\n",
 					__func__, gadget->name);
 		otg->gadget = gadget;
-		schedule_delayed_work(&dotg->sm_work, 0);
+		schedule_delayed_work(&mdwc->sm_work, 0);
 	} else {
 		if (otg->phy->state == OTG_STATE_B_PERIPHERAL) {
 			dwc3_otg_start_peripheral(otg, 0);
 			otg->gadget = NULL;
 			otg->phy->state = OTG_STATE_UNDEFINED;
-			schedule_delayed_work(&dotg->sm_work, 0);
+			schedule_delayed_work(&mdwc->sm_work, 0);
 		} else {
 			otg->gadget = NULL;
 		}
@@ -3415,21 +3430,20 @@ psy_error:
  * @dotg: Pointer to the dwc3_otg structure
  *
  */
-void dwc3_otg_init_sm(struct dwc3_otg *dotg)
+void dwc3_otg_init_sm(struct dwc3_msm *mdwc)
 {
-	struct usb_phy *phy = dotg->otg.phy;
-	struct dwc3 *dwc = dotg->dwc;
+	struct dwc3 *dwc = mdwc->dotg.dwc;
 	int ret;
 
 	/*
 	 * VBUS initial state is reported after PMIC
 	 * driver initialization. Wait for it.
 	 */
-	ret = wait_for_completion_timeout(&dotg->dwc3_xcvr_vbus_init, HZ * 5);
+	ret = wait_for_completion_timeout(&mdwc->dwc3_xcvr_vbus_init, HZ * 5);
 	if (!ret) {
-		dev_err(phy->dev, "%s: completion timeout\n", __func__);
+		dev_err(mdwc->dev, "%s: completion timeout\n", __func__);
 		/* We can safely assume no cable connected */
-		set_bit(ID, &dotg->inputs);
+		set_bit(ID, &mdwc->inputs);
 	}
 
 	/*
@@ -3438,7 +3452,7 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
 	 * interrupt is not available.
 	 */
 	if (dwc->vbus_active)
-		set_bit(B_SESS_VLD, &dotg->inputs);
+		set_bit(B_SESS_VLD, &mdwc->inputs);
 }
 
 /**
@@ -3451,8 +3465,8 @@ void dwc3_otg_init_sm(struct dwc3_otg *dotg)
  */
 static void dwc3_otg_sm_work(struct work_struct *w)
 {
-	struct dwc3_otg *dotg = container_of(w, struct dwc3_otg, sm_work.work);
-	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
+	struct dwc3_msm *mdwc = container_of(w, struct dwc3_msm, sm_work.work);
+	struct dwc3_otg *dotg = &mdwc->dotg;
 	struct usb_phy *phy = dotg->otg.phy;
 	bool work = 0;
 	int ret = 0;
@@ -3463,16 +3477,16 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	/* Check OTG state */
 	switch (phy->state) {
 	case OTG_STATE_UNDEFINED:
-		dwc3_otg_init_sm(dotg);
+		dwc3_otg_init_sm(mdwc);
 
 		/* Switch to A or B-Device according to ID / BSV */
-		if (!test_bit(ID, &dotg->inputs)) {
+		if (!test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
 		} else {
 			phy->state = OTG_STATE_B_IDLE;
-			if (test_bit(B_SESS_VLD, &dotg->inputs)) {
+			if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
 				dev_dbg(phy->dev, "b_sess_vld\n");
 				work = 1;
 			}
@@ -3480,7 +3494,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_B_IDLE:
-		if (!test_bit(ID, &dotg->inputs)) {
+		if (!test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "!id\n");
 			phy->state = OTG_STATE_A_IDLE;
 			work = 1;
@@ -3491,7 +3505,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				else
 					mdwc->chg_type = DWC3_INVALID_CHARGER;
 			}
-		} else if (test_bit(B_SESS_VLD, &dotg->inputs)) {
+		} else if (test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "b_sess_vld\n");
 			if (!mdwc->skip_chg_detect) {
 				/* Has charger been detected? If no detect it */
@@ -3588,8 +3602,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_B_PERIPHERAL:
-		if (!test_bit(B_SESS_VLD, &dotg->inputs) ||
-				!test_bit(ID, &dotg->inputs)) {
+		if (!test_bit(B_SESS_VLD, &mdwc->inputs) ||
+				!test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "!id || !bsv\n");
 			phy->state = OTG_STATE_B_IDLE;
 			dwc3_otg_start_peripheral(&dotg->otg, 0);
@@ -3604,8 +3618,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 			if (!mdwc->skip_chg_detect)
 				mdwc->chg_type = DWC3_INVALID_CHARGER;
 			work = 1;
-		} else if (test_bit(B_SUSPEND, &dotg->inputs) &&
-			test_bit(B_SESS_VLD, &dotg->inputs)) {
+		} else if (test_bit(B_SUSPEND, &mdwc->inputs) &&
+			test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "BPER bsv && susp\n");
 			phy->state = OTG_STATE_B_SUSPEND;
 			/*
@@ -3623,11 +3637,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_B_SUSPEND:
-		if (!test_bit(B_SESS_VLD, &dotg->inputs)) {
+		if (!test_bit(B_SESS_VLD, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "BSUSP: !bsv\n");
 			phy->state = OTG_STATE_B_IDLE;
 			dwc3_otg_start_peripheral(&dotg->otg, 0);
-		} else if (!test_bit(B_SUSPEND, &dotg->inputs)) {
+		} else if (!test_bit(B_SUSPEND, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "BSUSP !susp\n");
 			phy->state = OTG_STATE_B_PERIPHERAL;
 			/*
@@ -3644,7 +3658,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 
 	case OTG_STATE_A_IDLE:
 		/* Switch to A-Device*/
-		if (test_bit(ID, &dotg->inputs)) {
+		if (test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "id\n");
 			phy->state = OTG_STATE_B_IDLE;
 			mdwc->vbus_retry_count = 0;
@@ -3681,7 +3695,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		break;
 
 	case OTG_STATE_A_HOST:
-		if (test_bit(ID, &dotg->inputs)) {
+		if (test_bit(ID, &mdwc->inputs)) {
 			dev_dbg(phy->dev, "id\n");
 			dwc3_otg_start_host(&dotg->otg, 0);
 			phy->state = OTG_STATE_B_IDLE;
@@ -3700,7 +3714,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	}
 
 	if (work)
-		schedule_delayed_work(&dotg->sm_work, delay);
+		schedule_delayed_work(&mdwc->sm_work, delay);
 
 ret:
 	return;
@@ -3735,9 +3749,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 	dotg->dwc = dwc;
 	dotg->otg.phy->dev = dwc->dev;
 
-	init_completion(&dotg->dwc3_xcvr_vbus_init);
-	INIT_DELAYED_WORK(&dotg->sm_work, dwc3_otg_sm_work);
-
 	return 0;
 }
 
@@ -3749,10 +3760,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
  */
 void dwc3_otg_exit(struct dwc3 *dwc)
 {
-	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
-	struct dwc3_otg *dotg = &mdwc->dotg;
-
-	cancel_delayed_work_sync(&dotg->sm_work);
 	dwc->dotg = NULL;
 }
 
