@@ -512,7 +512,7 @@ static int msm_isp_get_buf(struct msm_isp_buf_mgr *buf_mgr, uint32_t id,
 
 			}
 		} else {
-			pr_err("%s: No Buffer session_id: %d stream_id: %d\n",
+			CDBG("%s: No Buffer session_id: %d stream_id: %d\n",
 				__func__, bufq->session_id, bufq->stream_id);
 			rc = -EINVAL;
 		}
