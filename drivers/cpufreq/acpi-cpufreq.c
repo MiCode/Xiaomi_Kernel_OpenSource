@@ -967,7 +967,7 @@ static void __init acpi_cpufreq_boost_init(void)
 	/* We create the boost file in any case, though for systems without
 	 * hardware support it will be read-only and hardwired to return 0.
 	 */
-	if (cpufreq_sysfs_create_file(&(global_boost.attr)))
+	if (sysfs_create_file(cpufreq_global_kobject, &(global_boost.attr)))
 		pr_warn(PFX "could not register global boost sysfs file\n");
 	else
 		pr_debug("registered global boost sysfs file\n");
@@ -975,7 +975,7 @@ static void __init acpi_cpufreq_boost_init(void)
 
 static void __exit acpi_cpufreq_boost_exit(void)
 {
-	cpufreq_sysfs_remove_file(&(global_boost.attr));
+	sysfs_remove_file(cpufreq_global_kobject, &(global_boost.attr));
 
 	if (msrs) {
 		unregister_cpu_notifier(&boost_nb);
