@@ -2,7 +2,7 @@
  *
  * Copyright (C) 2008 Google, Inc.
  * Copyright (C) 2008 HTC Corporation
- * Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -108,13 +108,11 @@ static long audio_ioctl_shared(struct file *file, unsigned int cmd,
 			pr_err("cmd media format block failed\n");
 			break;
 		}
-		if (!cpu_is_msm8x60()) {
-			rc = q6asm_set_encdec_chan_map(audio->ac, 2);
-			if (rc < 0) {
-				pr_err("%s: cmd set encdec_chan_map failed\n",
-					__func__);
-				break;
-			}
+		rc = q6asm_set_encdec_chan_map(audio->ac, 2);
+		if (rc < 0) {
+			pr_err("%s: cmd set encdec_chan_map failed\n",
+				__func__);
+			break;
 		}
 		rc = audio_aio_enable(audio);
 		audio->eos_rsp = 0;

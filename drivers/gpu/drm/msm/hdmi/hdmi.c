@@ -325,48 +325,6 @@ static int hdmi_bind(struct device *dev, struct device *master, void *data)
 	static const char *hpd_clk_names[] = {
 			"core_clk", "master_iface_clk", "slave_iface_clk",
 	};
-	if (cpu_is_apq8064()) {
-		static const char *hpd_reg_names[] = {"8921_hdmi_mvs"};
-		config.phy_init      = hdmi_phy_8960_init;
-		config.mmio_name     = "hdmi_msm_hdmi_addr";
-		config.hpd_reg_names = hpd_reg_names;
-		config.hpd_reg_cnt   = ARRAY_SIZE(hpd_reg_names);
-		config.hpd_clk_names = hpd_clk_names;
-		config.hpd_clk_cnt   = ARRAY_SIZE(hpd_clk_names);
-		config.ddc_clk_gpio  = 70;
-		config.ddc_data_gpio = 71;
-		config.hpd_gpio      = 72;
-		config.mux_en_gpio   = -1;
-		config.mux_sel_gpio  = -1;
-	} else if (cpu_is_msm8960() || cpu_is_msm8960ab()) {
-		static const char *hpd_reg_names[] = {"8921_hdmi_mvs"};
-		config.phy_init      = hdmi_phy_8960_init;
-		config.mmio_name     = "hdmi_msm_hdmi_addr";
-		config.hpd_reg_names = hpd_reg_names;
-		config.hpd_reg_cnt   = ARRAY_SIZE(hpd_reg_names);
-		config.hpd_clk_names = hpd_clk_names;
-		config.hpd_clk_cnt   = ARRAY_SIZE(hpd_clk_names);
-		config.ddc_clk_gpio  = 100;
-		config.ddc_data_gpio = 101;
-		config.hpd_gpio      = 102;
-		config.mux_en_gpio   = -1;
-		config.mux_sel_gpio  = -1;
-	} else if (cpu_is_msm8x60()) {
-		static const char *hpd_reg_names[] = {
-				"8901_hdmi_mvs", "8901_mpp0"
-		};
-		config.phy_init      = hdmi_phy_8x60_init;
-		config.mmio_name     = "hdmi_msm_hdmi_addr";
-		config.hpd_reg_names = hpd_reg_names;
-		config.hpd_reg_cnt   = ARRAY_SIZE(hpd_reg_names);
-		config.hpd_clk_names = hpd_clk_names;
-		config.hpd_clk_cnt   = ARRAY_SIZE(hpd_clk_names);
-		config.ddc_clk_gpio  = 170;
-		config.ddc_data_gpio = 171;
-		config.hpd_gpio      = 172;
-		config.mux_en_gpio   = -1;
-		config.mux_sel_gpio  = -1;
-	}
 #endif
 	dev->platform_data = &config;
 	set_hdmi_pdev(dev_get_drvdata(master), to_platform_device(dev));
