@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -252,7 +252,6 @@ static void stop_bw_hwmon(struct bw_hwmon *hw)
 {
 	struct bwmon *m = to_bwmon(hw);
 
-	disable_irq(m->irq);
 	free_irq(m->irq, m);
 	mon_disable(m);
 	mon_irq_disable(m);
@@ -264,7 +263,7 @@ static int suspend_bw_hwmon(struct bw_hwmon *hw)
 {
 	struct bwmon *m = to_bwmon(hw);
 
-	disable_irq(m->irq);
+	free_irq(m->irq, m);
 	mon_disable(m);
 	mon_irq_disable(m);
 	mon_irq_clear(m);
@@ -275,11 +274,19 @@ static int suspend_bw_hwmon(struct bw_hwmon *hw)
 static int resume_bw_hwmon(struct bw_hwmon *hw)
 {
 	struct bwmon *m = to_bwmon(hw);
+	int ret;
 
 	mon_clear(m);
 	mon_irq_enable(m);
 	mon_enable(m);
-	enable_irq(m->irq);
+	ret = request_threaded_irq(m->irq, NULL, bwmon_intr_handler,
+				  IRQF_ONESHOT | IRQF_SHARED,
+				  dev_name(m->dev), m);
+	if (ret) {
+		dev_err(m->dev, "Unable to register interrupt handler! (%d)\n",
+				ret);
+		return ret;
+	}
 
 	return 0;
 }
