@@ -708,6 +708,12 @@ static int tpdm_datasets_alloc(struct tpdm_drvdata *drvdata)
 	return 0;
 }
 
+static void tpdm_init_default_data(struct tpdm_drvdata *drvdata)
+{
+	if (test_bit(TPDM_DS_CMB, drvdata->datasets))
+		drvdata->cmb->trig_ts = true;
+}
+
 static int tpdm_probe(struct platform_device *pdev)
 {
 	int ret, i;
@@ -766,6 +772,8 @@ static int tpdm_probe(struct platform_device *pdev)
 	ret = tpdm_datasets_alloc(drvdata);
 	if (ret)
 		return ret;
+
+	tpdm_init_default_data(drvdata);
 
 	desc = devm_kzalloc(dev, sizeof(*desc), GFP_KERNEL);
 	if (!desc)
