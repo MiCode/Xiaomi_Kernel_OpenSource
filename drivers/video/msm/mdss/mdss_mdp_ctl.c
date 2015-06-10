@@ -549,49 +549,23 @@ static inline bool validate_comp_ratio(struct mult_factor *factor)
 	return factor->numer && factor->denom;
 }
 
-static u32 apply_comp_ratio_factor(u32 quota,
+u32 apply_comp_ratio_factor(u32 quota,
 	struct mdss_mdp_format_params *fmt,
 	struct mult_factor *factor)
 {
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+
+	if (!mdata || test_bit(MDSS_QOS_OVERHEAD_FACTOR,
+		      mdata->mdss_qos_map))
+		return quota;
 
 	/* apply compression ratio, only for compressed formats */
 	if (mdss_mdp_is_ubwc_format(fmt) &&
-			validate_comp_ratio(factor)) {
+	    validate_comp_ratio(factor))
 		quota = apply_inverse_fudge_factor(quota , factor);
-	}
 
 	return quota;
 }
-
-static u32 apply_overhead_factors(u32 quota,
-	bool is_nrt, bool is_rot_read,
-	struct mdss_mdp_format_params *fmt,
-	struct mult_factor *comp_ratio)
-{
-	u32 overhead_quota;
-
-	if (!fmt) {
-		pr_debug("fmt is null, skip overhead factor\n");
-		return quota;
-	}
-
-	/* rotator read + YUV linear format */
-	if (is_nrt && is_rot_read && fmt->is_yuv &&
-			mdss_mdp_is_linear_format(fmt)) {
-		/*
-		* overhead and compression ratio factors are 1,
-		* so overhead_quota = quota + quota
-		*/
-		overhead_quota = quota * 2;
-	} else {
-		/* add ~3% (0.03125) of overhead */
-		overhead_quota = quota / 32;
-		overhead_quota += apply_comp_ratio_factor(quota, fmt,
-			comp_ratio);
-	}
-
-	return overhead_quota;
-};
 
 static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
 {
@@ -605,23 +579,6 @@ static u32 mdss_mdp_get_rotator_fps(struct mdss_mdp_pipe *pipe)
 		fps = ROTATOR_LOW_FRAME_RATE;
 
 	return fps;
-}
-
-u32 mdss_apply_overhead_factors(u32 quota, bool is_nrt,
-	bool is_rot_read, struct mdss_mdp_format_params *fmt,
-	struct mult_factor *comp_ratio)
-{
-	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-
-	if (!mdata)
-		return quota;
-
-	if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
-			mdata->mdss_qos_map)) {
-		quota = apply_overhead_factors(quota,
-			is_nrt, is_rot_read, fmt, comp_ratio);
-	}
-	return quota;
 }
 
 u64 mdss_mdp_perf_calc_simplified_prefill(struct mdss_mdp_pipe *pipe,
@@ -785,9 +742,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
 				mdata->mdss_qos_map)) {
 			/* rotator read */
-			quota = apply_overhead_factors(quota,
-				true, true, pipe->src_fmt,
-				&pipe->comp_ratio);
+			quota = apply_comp_ratio_factor(quota,
+				pipe->src_fmt, &pipe->comp_ratio);
 			/*
 			 * rotator write: here we are using src_fmt since
 			 * current implementation only supports calculate
@@ -797,9 +753,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 			 * calculate the bandwidth, but leaving this
 			 * calculation as per current support.
 			 */
-			quota += apply_overhead_factors(quota,
-				true, false, pipe->src_fmt,
-				&pipe->comp_ratio);
+			quota += apply_comp_ratio_factor(quota,
+				pipe->src_fmt, &pipe->comp_ratio);
 		} else {
 			quota *= 2; /* bus read + write */
 		}
@@ -811,10 +766,8 @@ int mdss_mdp_perf_calc_pipe(struct mdss_mdp_pipe *pipe,
 
 		if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
 				mdata->mdss_qos_map))
-			quota = apply_overhead_factors(quota,
-				mdss_mdp_is_nrt_ctl_path(mixer->ctl),
-				false, pipe->src_fmt,
-				&pipe->comp_ratio);
+			quota = apply_comp_ratio_factor(quota,
+				pipe->src_fmt, &pipe->comp_ratio);
 	}
 
 	perf->bw_overlap = quota;
@@ -945,9 +898,10 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 
 			if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
 					mdata->mdss_qos_map))
-				perf->bw_writeback = apply_overhead_factors(
-					perf->bw_writeback, true, false, fmt,
-					&mixer->ctl->dst_comp_ratio);
+				perf->bw_writeback = apply_comp_ratio_factor(
+						perf->bw_writeback, fmt,
+						&mixer->ctl->dst_comp_ratio);
+
 		} else if (pinfo->type == MIPI_CMD_PANEL) {
 			/* for cmd mode, run as fast as the link allows us */
 			u32 dsi_pclk_rate = pinfo->mipi.dsi_pclk_rate;
