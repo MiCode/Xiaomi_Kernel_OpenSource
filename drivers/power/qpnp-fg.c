@@ -3461,6 +3461,17 @@ wait:
 	if (rc)
 		pr_warn("couldn't find battery max voltage\n");
 
+	/*
+	 * Only configure from profile if fg-cc-cv-threshold-mv is not
+	 * defined in the charger device node.
+	 */
+	if (!of_find_property(chip->spmi->dev.of_node,
+				"qcom,fg-cc-cv-threshold-mv", NULL)) {
+		of_property_read_u32(profile_node,
+				"qcom,fg-cc-cv-threshold-mv",
+				&chip->cc_cv_threshold_mv);
+	}
+
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
 	if (!data) {
 		pr_err("no battery profile loaded\n");
