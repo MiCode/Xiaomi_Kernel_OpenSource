@@ -26,6 +26,7 @@
 #include <linux/seq_file.h>
 #include <linux/syscore_ops.h>
 #include <linux/irqchip/qpnp-int.h>
+#include <linux/ipc_logging.h>
 #include "spmi-dbgfs.h"
 
 #define SPMI_PMIC_ARB_NAME		"spmi_pmic_arb"
@@ -77,6 +78,7 @@ u32 pmic_arb_regs_v2[] = {
 #define SPMI_MAPPING_TABLE_TREE_DEPTH	16	/* Maximum of 16-bits */
 
 /* Ownership Table */
+#define SPMI_OWNERSHIP_TABLE_LEN	256
 #define SPMI_OWNERSHIP_TABLE_REG(N)	(0x0700 + (4 * (N)))
 #define SPMI_OWNERSHIP_PERIPH2OWNER(X)	((X) & 0x7)
 
@@ -86,6 +88,8 @@ u32 pmic_arb_regs_v2[] = {
 #define PMIC_ARB_REG_CHNL(chnl_num)		(0x800 + 0x4 * (chnl_num))
 #define PMIC_ARB_TO_PPID(sid, pid)	((pid & 0xFF) | ((sid & 0xF) << 8))
 #define PMIC_ARB_PPID_CNT			(1 << 12)
+
+#define BITS_AT(val, idx, n_bits)(((val) & (((1 << n_bits) - 1) << idx)) >> idx)
 
 /* Channel Status fields */
 enum pmic_arb_chnl_status {
@@ -174,6 +178,8 @@ struct spmi_pmic_arb_ver {
 	phys_addr_t	(*acc_enable)(u8 n);
 	phys_addr_t	(*irq_status)(u8 n);
 	phys_addr_t	(*irq_clear)(u8 n);
+	void	(*log_mapping)(struct spmi_pmic_arb_dev *dev,
+			       struct seq_file *file);
 	u32 *regs;
 };
 
@@ -225,6 +231,7 @@ struct spmi_pmic_arb_dev {
 	unsigned long		*valid_ppid_bitmap;
 	u32			prev_prtcl_irq_stat;
 	u32			irq_acc0_init_val;
+	void			*log;
 };
 
 static struct spmi_pmic_arb_dev *the_pmic_arb;
@@ -533,28 +540,6 @@ static int pmic_arb_cmd(struct spmi_controller *ctrl, u8 opc, u8 sid)
 	return pmic_arb->ver->non_data_cmd(pmic_arb, opc, sid);
 }
 
-static const struct spmi_pmic_arb_ver spmi_pmic_arb_v1 = {
-	.non_data_cmd		= pmic_arb_non_data_cmd_v1,
-	.chnl_ofst		= pmic_arb_chnl_ofst_v1,
-	.fmt_cmd		= pmic_arb_fmt_cmd_v1,
-	.owner_acc_status	= pmic_arb_owner_acc_status_v1,
-	.acc_enable		= pmic_arb_acc_enable_v1,
-	.irq_status		= pmic_arb_irq_status_v1,
-	.irq_clear		= pmic_arb_irq_clear_v1,
-	.regs			= pmic_arb_regs_v1,
-};
-
-static const struct spmi_pmic_arb_ver spmi_pmic_arb_v2 = {
-	.non_data_cmd		= pmic_arb_non_data_cmd_v2,
-	.chnl_ofst		= pmic_arb_chnl_ofst_v2,
-	.fmt_cmd		= pmic_arb_fmt_cmd_v2,
-	.owner_acc_status	= pmic_arb_owner_acc_status_v2,
-	.acc_enable		= pmic_arb_acc_enable_v2,
-	.irq_status		= pmic_arb_irq_status_v2,
-	.irq_clear		= pmic_arb_irq_clear_v2,
-	.regs			= pmic_arb_regs_v2,
-};
-
 static int pmic_arb_read_cmd(struct spmi_controller *ctrl,
 				u8 opc, u8 sid, u16 addr, u8 bc, u8 *buf)
 {
@@ -713,21 +698,156 @@ static u32 search_mapping_table(struct spmi_pmic_arb_dev *pmic_arb, u16 ppid)
 	return apid;
 }
 
-static void dbg_dump_bad_irq_request(struct spmi_pmic_arb_dev *pmic_arb,
-					u8 apid, u16 ppid, const char *msg)
+#define IPC_PAGE_CNT	5
+
+/* note: ipc_log_string() adds newline after a print but seq_printf() isn't */
+#define PRINT_IPC_OR_SEQ(dev, seq, format, ...)			\
+do {								\
+	if (seq) {						\
+		seq_printf(seq, format "\n", ## __VA_ARGS__);	\
+	} else {						\
+		if (!dev->log)					\
+			dev->log = ipc_log_context_create(IPC_PAGE_CNT,       \
+							  dev_name(dev->dev), \
+							  0);		      \
+		if (dev->log)					\
+			ipc_log_string(dev->log, format, ## __VA_ARGS__);     \
+	}							\
+} while (0)
+
+/*
+ * Log ownership per APID.
+ * Note: some targets have the PPID as part of reg-value dump.
+ */
+static void pmic_arb_log_mapping_v1(struct spmi_pmic_arb_dev *dev,
+				    struct seq_file *file)
 {
-	dev_err(pmic_arb->dev, "bad request: %s APID:0x%02x PPID:0x%03x\n",
-							msg, apid, ppid);
+	u32 reg;
+	int apid;
+	int owner;
 
-	/* dump the stack to trace the caller */
-	dump_stack();
+	PRINT_IPC_OR_SEQ(dev, file, "Ownership-table@:0x%p",
+			 dev->cnfg + SPMI_OWNERSHIP_TABLE_REG(0));
+	PRINT_IPC_OR_SEQ(dev, file, "APID Owner reg-value");
+	PRINT_IPC_OR_SEQ(dev, file,
+			 "------------------------------------------");
 
-	dev_info(pmic_arb->dev, "APID => PPID mapping table:\n");
-	for (apid = pmic_arb->min_intr_apid;
-		apid <= pmic_arb->max_intr_apid; ++apid)
-		if (is_apid_valid(pmic_arb, apid))
-			dev_info(pmic_arb->dev, "0x%02x => 0x%03x\n", apid,
-					get_peripheral_id(pmic_arb, apid));
+	for (apid = 0; apid < SPMI_OWNERSHIP_TABLE_LEN; ++apid) {
+		reg = readl_relaxed(dev->cnfg + SPMI_OWNERSHIP_TABLE_REG(apid));
+		owner = BITS_AT(reg, 0, 3);
+
+		PRINT_IPC_OR_SEQ(dev, file, "%03d  %2d    0x%08x",
+				 apid, owner, reg);
+	}
+	PRINT_IPC_OR_SEQ(dev, file, "\n");
+}
+
+/*
+ * Log ownership, radix tree, and compare APID/PPID mapping between the radix-
+ * tree and the channels.
+ */
+static void pmic_arb_log_mapping_v2(struct spmi_pmic_arb_dev *dev,
+				    struct seq_file *file)
+{
+	u32 reg, chnl_reg;
+	int apid, rdx_apid;
+	int owner;
+	u32 chnl_ppid;
+	const char *diag;
+
+	PRINT_IPC_OR_SEQ(dev, file,
+			 "Discrepancy detection between channels and radix");
+	PRINT_IPC_OR_SEQ(dev, file,
+			 "APID Owner chnls-reg  chnl-PPID radix-APID");
+	PRINT_IPC_OR_SEQ(dev, file,
+			 "------------------------------------------");
+
+	for (apid = 0; apid < SPMI_OWNERSHIP_TABLE_LEN; ++apid) {
+		reg = readl_relaxed(dev->cnfg + SPMI_OWNERSHIP_TABLE_REG(apid));
+		owner = BITS_AT(reg, 0, 3);
+
+		chnl_reg  = readl_relaxed(dev->base + PMIC_ARB_REG_CHNL(apid));
+		chnl_ppid = (chnl_reg >> 8) & 0xFFF;
+
+		/* read and search radix tree */
+		rdx_apid = search_mapping_table(dev,  chnl_ppid);
+
+		diag = ((rdx_apid != apid) && rdx_apid &&
+			(rdx_apid != SPMI_MAPPING_TABLE_LEN)) ?
+			" <= Discrepancy detected" : "";
+
+		PRINT_IPC_OR_SEQ(dev, file,
+			   "%03d  %2d    0x%08x 0x%03x     %03d%s",
+			   apid, owner, chnl_reg, chnl_ppid, rdx_apid, diag);
+	}
+	PRINT_IPC_OR_SEQ(dev, file, "\n");
+}
+
+void pmic_arb_dbg_dump_radix_and_requested_irqs(struct spmi_pmic_arb_dev *dev,
+					 struct seq_file *file)
+{
+	int i;
+	u32 reg;
+
+	PRINT_IPC_OR_SEQ(dev, file, "Radix-tree@0x%p",
+			 dev->cnfg + SPMI_MAPPING_TABLE_REG(0));
+	PRINT_IPC_OR_SEQ(dev, file,
+			 "------------------------------------------");
+	for (i = 0 ; i < SPMI_MAPPING_TABLE_LEN; ++i) {
+		reg = readl_relaxed(dev->cnfg + SPMI_MAPPING_TABLE_REG(i));
+		PRINT_IPC_OR_SEQ(dev, file, "0x%x", reg);
+	}
+	PRINT_IPC_OR_SEQ(dev, file, "\n");
+
+	PRINT_IPC_OR_SEQ(dev, file, "The Driver's cached requested irqs table");
+	PRINT_IPC_OR_SEQ(dev, file, "APID PPID  Acc-enabled");
+	PRINT_IPC_OR_SEQ(dev, file, "------------------------------------");
+	for (i = dev->min_intr_apid; i <= dev->max_intr_apid; ++i)
+		if (is_apid_valid(dev, i))
+			PRINT_IPC_OR_SEQ(dev, file,
+					   "%3d  0x%03x  %d", i,
+					   get_peripheral_id(dev, i),
+					   readl_relaxed(dev->intr +
+						dev->ver->acc_enable(i)));
+	PRINT_IPC_OR_SEQ(dev, file, "\n");
+}
+
+static const struct spmi_pmic_arb_ver spmi_pmic_arb_v1 = {
+	.non_data_cmd		= pmic_arb_non_data_cmd_v1,
+	.chnl_ofst		= pmic_arb_chnl_ofst_v1,
+	.fmt_cmd		= pmic_arb_fmt_cmd_v1,
+	.owner_acc_status	= pmic_arb_owner_acc_status_v1,
+	.acc_enable		= pmic_arb_acc_enable_v1,
+	.irq_status		= pmic_arb_irq_status_v1,
+	.irq_clear		= pmic_arb_irq_clear_v1,
+	.regs			= pmic_arb_regs_v1,
+	.log_mapping		= pmic_arb_log_mapping_v1,
+};
+
+static const struct spmi_pmic_arb_ver spmi_pmic_arb_v2 = {
+	.non_data_cmd		= pmic_arb_non_data_cmd_v2,
+	.chnl_ofst		= pmic_arb_chnl_ofst_v2,
+	.fmt_cmd		= pmic_arb_fmt_cmd_v2,
+	.owner_acc_status	= pmic_arb_owner_acc_status_v2,
+	.acc_enable		= pmic_arb_acc_enable_v2,
+	.irq_status		= pmic_arb_irq_status_v2,
+	.irq_clear		= pmic_arb_irq_clear_v2,
+	.regs			= pmic_arb_regs_v2,
+	.log_mapping		= pmic_arb_log_mapping_v2,
+};
+
+static void dbg_dump_bad_irq_request(struct spmi_pmic_arb_dev *dev,
+				     u8 apid, u16 ppid, const char *msg)
+{
+#define FORMAT	"bad request: %s APID:%d PPID:0x%03x"
+
+	/* dump msg to both klog and ipc-log */
+	dev_err(dev->dev, FORMAT "\n", msg, apid, ppid);
+	PRINT_IPC_OR_SEQ(dev, NULL, FORMAT, msg, apid, ppid);
+
+	/* dump irq mapping details to ipc-log only */
+	dev->ver->log_mapping(dev, NULL);
+	pmic_arb_dbg_dump_radix_and_requested_irqs(dev, NULL);
 }
 
 /* PPID to APID */
@@ -980,23 +1100,12 @@ static int pmic_arb_intr_priv_data(struct spmi_controller *ctrl,
 	return 0;
 }
 
-static int pmic_arb_mapping_data_show(struct seq_file *file, void *unused)
+int pmic_arb_mapping_data_show(struct seq_file *file, void *unused)
 {
-	struct spmi_pmic_arb_dev *pmic_arb = file->private;
-	int first = pmic_arb->min_intr_apid;
-	int last = pmic_arb->max_intr_apid;
-	int i;
+	struct spmi_pmic_arb_dev *dev = file->private;
 
-	for (i = first; i <= last; ++i) {
-		if (!is_apid_valid(pmic_arb, i))
-			continue;
-
-		seq_printf(file, "APID 0x%.2x = PPID 0x%.3x. Enabled:%d\n",
-			i, get_peripheral_id(pmic_arb, i),
-			readl_relaxed(pmic_arb->intr +
-						pmic_arb->ver->acc_enable(i)));
-	}
-
+	dev->ver->log_mapping(dev, file);
+	pmic_arb_dbg_dump_radix_and_requested_irqs(dev, file);
 	return 0;
 }
 
