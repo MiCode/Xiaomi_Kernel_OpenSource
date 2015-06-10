@@ -1569,12 +1569,6 @@ static int qpnp_wled_probe(struct spmi_device *spmi)
 
 	gwled = wled;
 
-	rc = qpnp_wled_module_en(wled, wled->ctrl_base, false);
-	if (rc) {
-		dev_err(&spmi->dev, "wled disable failed(%d)\n", rc);
-		return rc;
-	}
-
 	return 0;
 
 sysfs_fail:
