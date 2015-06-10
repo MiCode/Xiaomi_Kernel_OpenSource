@@ -45,7 +45,7 @@
 #define CLK_FUDGE_NUM		12
 #define CLK_FUDGE_DEN		10
 
-#define YUV_BW_FUDGE_NUM	20
+#define YUV_BW_FUDGE_NUM	10
 #define YUV_BW_FUDGE_DEN	10
 
 struct ppp_resource ppp_res;
