@@ -27,6 +27,7 @@
 
 #include "mdss_rotator_internal.h"
 #include "mdss_mdp.h"
+#include "mdss_debug.h"
 
 /* waiting for hw time out, 3 vsync for 30fps*/
 #define ROT_HW_ACQUIRE_TIMEOUT_IN_MS 100
@@ -72,6 +73,7 @@ static int mdss_rotator_bus_scale_set_quota(struct mdss_rot_bus_data_type *bus,
 		u64 quota)
 {
 	int new_uc_idx;
+	int ret;
 
 	if (bus->bus_hdl < 1) {
 		pr_err("invalid bus handle %d\n", bus->bus_hdl);
@@ -113,8 +115,13 @@ static int mdss_rotator_bus_scale_set_quota(struct mdss_rot_bus_data_type *bus,
 	bus->curr_quota_val = quota;
 
 	pr_debug("uc_idx=%d quota=%llu\n", new_uc_idx, quota);
-	return msm_bus_scale_client_update_request(bus->bus_hdl,
+	MDSS_XLOG(new_uc_idx, ((quota >> 32) & 0xFFFFFFFF),
+		(quota & 0xFFFFFFFF));
+	ATRACE_BEGIN("msm_bus_scale_req_rot");
+	ret = msm_bus_scale_client_update_request(bus->bus_hdl,
 		new_uc_idx);
+	ATRACE_END("msm_bus_scale_req_rot");
+	return ret;
 }
 
 static int mdss_rotator_enable_reg_bus(struct mdss_rot_mgr *mgr, u64 quota)
@@ -136,9 +143,12 @@ static int mdss_rotator_enable_reg_bus(struct mdss_rot_mgr *mgr, u64 quota)
 	pr_debug("%s, changed=%d register bus %s\n", __func__, changed,
 		quota ? "Enable":"Disable");
 
-	if (changed)
+	if (changed) {
+		ATRACE_BEGIN("msm_bus_scale_req_rot_reg");
 		ret = msm_bus_scale_client_update_request(mgr->reg_bus.bus_hdl,
 			usecase_ndx);
+		ATRACE_END("msm_bus_scale_req_rot_reg");
+	}
 
 	return ret;
 }
@@ -216,10 +226,12 @@ static void mdss_rotator_set_clk_rate(struct mdss_rot_mgr *mgr,
 			pr_err("unable to round rate err=%ld\n", clk_rate);
 		} else if (clk_rate != clk_get_rate(clk)) {
 			ret = clk_set_rate(clk, clk_rate);
-			if (IS_ERR_VALUE(ret))
+			if (IS_ERR_VALUE(ret)) {
 				pr_err("clk_set_rate failed, err:%d\n", ret);
-			else
+			} else {
 				pr_debug("rotator clk rate=%lu\n", clk_rate);
+				MDSS_XLOG(clk_rate);
+			}
 		}
 		mutex_unlock(&mgr->clk_lock);
 	} else {
@@ -323,6 +335,7 @@ int mdss_rotator_resource_ctrl(struct mdss_rot_mgr *mgr, int enable)
 
 	pr_debug("%s: res_cnt=%d changed=%d enable=%d\n",
 		__func__, mgr->res_ref_cnt, changed, enable);
+	MDSS_XLOG(mgr->res_ref_cnt, changed, enable);
 
 	if (changed) {
 		if (enable) {
@@ -396,6 +409,7 @@ static int mdss_rotator_create_fence(struct mdss_rot_entry *entry)
 
 	entry->output_fence_fd = fd;
 	entry->output_fence = fence;
+	pr_debug("output sync point created at val=%u\n", val);
 
 	return 0;
 
@@ -504,9 +518,12 @@ static int mdss_rotator_map_and_check_data(struct mdss_rot_entry *entry)
 
 	rotation = (entry->item.flags &  MDP_ROTATION_90) ? true : false;
 
+	ATRACE_BEGIN(__func__);
 	ret = mdss_iommu_ctrl(1);
-	if (IS_ERR_VALUE(ret))
+	if (IS_ERR_VALUE(ret)) {
+		ATRACE_END(__func__);
 		return ret;
+	}
 
 	/* if error during map, the caller will release the data */
 	ret = mdss_mdp_data_map(&entry->src_buf, true, DMA_TO_DEVICE);
@@ -563,6 +580,7 @@ static int mdss_rotator_map_and_check_data(struct mdss_rot_entry *entry)
 
 end:
 	mdss_iommu_ctrl(0);
+	ATRACE_END(__func__);
 
 	return ret;
 }
@@ -1031,6 +1049,8 @@ static int mdss_rotator_update_perf(struct mdss_rot_mgr *mgr)
 	int not_in_suspend_mode;
 	u64 total_bw = 0;
 
+	ATRACE_BEGIN(__func__);
+
 	not_in_suspend_mode = !atomic_read(&mgr->device_suspended);
 
 	if (not_in_suspend_mode) {
@@ -1050,6 +1070,8 @@ static int mdss_rotator_update_perf(struct mdss_rot_mgr *mgr)
 	mdss_rotator_enable_reg_bus(mgr, total_bw);
 	mdss_rotator_bus_scale_set_quota(&mgr->data_bus, total_bw);
 	mutex_unlock(&mgr->bus_lock);
+
+	ATRACE_END(__func__);
 	return 0;
 }
 
@@ -1355,7 +1377,6 @@ static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 		pr_err("fail to configure downscale factor\n");
 		return ret;
 	}
-
 	return ret;
 }
 
@@ -1416,6 +1437,14 @@ static int mdss_rotator_add_request(struct mdss_rot_mgr *mgr,
 			return ret;
 		}
 		item->output.fence = entry->output_fence_fd;
+
+		pr_debug("Entry added. wbidx=%u, src{%u,%u,%u,%u}f=%u\n"
+			"dst{%u,%u,%u,%u}f=%u session_id=%u\n", item->wb_idx,
+			item->src_rect.x, item->src_rect.y,
+			item->src_rect.w, item->src_rect.h, item->input.format,
+			item->dst_rect.x, item->dst_rect.y,
+			item->dst_rect.w, item->dst_rect.h, item->output.format,
+			item->session_id);
 	}
 
 	mutex_lock(&private->req_lock);
@@ -1469,6 +1498,7 @@ static void mdss_rotator_cancel_all_requests(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_file_private *private)
 {
 	struct mdss_rot_entry_container *req, *req_next;
+	pr_debug("Canceling all rotator requests\n");
 
 	mutex_lock(&private->req_lock);
 	list_for_each_entry_safe(req, req_next, &private->req_list, list)
@@ -1497,6 +1527,7 @@ static void mdss_rotator_release_rotator_perf_session(
 {
 	struct mdss_rot_perf *perf, *perf_next;
 
+	pr_debug("Releasing all rotator request\n");
 	mdss_rotator_cancel_all_requests(mgr, private);
 
 	mutex_lock(&private->perf_lock);
@@ -1591,6 +1622,7 @@ static int mdss_rotator_config_hw(struct mdss_rot_hw_resource *hw,
 	struct mdp_rotation_item *item;
 	int ret;
 
+	ATRACE_BEGIN(__func__);
 	pipe = hw->pipe;
 	item = &entry->item;
 
@@ -1607,11 +1639,22 @@ static int mdss_rotator_config_hw(struct mdss_rot_hw_resource *hw,
 
 	ret = mdss_mdp_smp_reserve(pipe);
 	if (ret) {
-		pr_debug("unable to mdss_mdp_smp_reserve rot data\n");
-		return ret;
+		pr_err("unable to mdss_mdp_smp_reserve rot data\n");
+		goto done;
 	}
 
 	ret = mdss_mdp_pipe_queue_data(pipe, &entry->src_buf);
+	pr_debug("Config pipe. src{%u,%u,%u,%u}f=%u\n"
+		"dst{%u,%u,%u,%u}f=%u session_id=%u\n",
+		item->src_rect.x, item->src_rect.y,
+		item->src_rect.w, item->src_rect.h, item->input.format,
+		item->dst_rect.x, item->dst_rect.y,
+		item->dst_rect.w, item->dst_rect.h, item->output.format,
+		item->session_id);
+	MDSS_XLOG(item->input.format, pipe->img_width, pipe->img_height,
+		pipe->flags);
+done:
+	ATRACE_END(__func__);
 	return ret;
 }
 
@@ -1785,6 +1828,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 		return -ENOMEM;
 	}
 
+	ATRACE_BEGIN(__func__); /* Open session votes for bw */
 	perf->work_distribution = devm_kzalloc(&mgr->pdev->dev,
 		sizeof(u32) * mgr->queue_count, GFP_KERNEL);
 	if (!perf->work_distribution) {
@@ -1827,8 +1871,12 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 		pr_err("fail to open session, not enough clk/bw\n");
 		goto perf_err;
 	}
+	pr_debug("open session id=%u in{%u,%u}f:%u out{%u,%u}f:%u\n",
+		config.session_id, config.input.width, config.input.height,
+		config.input.format, config.output.width, config.output.height,
+		config.output.format);
 
-	return ret;
+	goto done;
 perf_err:
 	mdss_rotator_resource_ctrl(mgr, false);
 resource_err:
@@ -1839,6 +1887,8 @@ copy_user_err:
 	devm_kfree(&mgr->pdev->dev, perf->work_distribution);
 alloc_err:
 	devm_kfree(&mgr->pdev->dev, perf);
+done:
+	ATRACE_END(__func__);
 	return ret;
 }
 
@@ -1860,6 +1910,7 @@ static int mdss_rotator_close_session(struct mdss_rot_mgr *mgr,
 		return -EINVAL;
 	}
 
+	ATRACE_BEGIN(__func__);
 	mutex_lock(&perf->work_dis_lock);
 	if (mdss_rotator_is_work_pending(mgr, perf)) {
 		pr_debug("Work is still pending, offload free to wq\n");
@@ -1874,19 +1925,22 @@ static int mdss_rotator_close_session(struct mdss_rot_mgr *mgr,
 	mutex_unlock(&mgr->lock);
 
 	if (offload_release_work)
-		return 0;
+		goto done;
 
 	mdss_rotator_resource_ctrl(mgr, false);
 	devm_kfree(&mgr->pdev->dev, perf->work_distribution);
 	devm_kfree(&mgr->pdev->dev, perf);
 	mdss_rotator_update_perf(mgr);
+done:
+	pr_debug("Closed session id:%u", id);
+	ATRACE_END(__func__);
 	return 0;
 }
 
 static int mdss_rotator_config_session(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_file_private *private, unsigned long arg)
 {
-	int ret;
+	int ret = 0;
 	struct mdss_rot_perf *perf;
 	struct mdp_rotation_config config;
 
@@ -1904,9 +1958,13 @@ static int mdss_rotator_config_session(struct mdss_rot_mgr *mgr,
 	}
 
 	perf = mdss_rotator_find_session(private, config.session_id);
-	if (!perf)
+	if (!perf) {
+		pr_err("No session with id=%u could be found\n",
+			config.session_id);
 		return -EINVAL;
+	}
 
+	ATRACE_BEGIN(__func__);
 	mutex_lock(&private->perf_lock);
 	perf->config = config;
 	ret = mdss_rotator_calc_perf(perf);
@@ -1914,11 +1972,17 @@ static int mdss_rotator_config_session(struct mdss_rot_mgr *mgr,
 
 	if (ret) {
 		pr_err("error in configuring the session %d\n", ret);
-		return ret;
+		goto done;
 	}
 
 	ret = mdss_rotator_update_perf(mgr);
 
+	pr_debug("reconfig session id=%u in{%u,%u}f:%u out{%u,%u}f:%u\n",
+		config.session_id, config.input.width, config.input.height,
+		config.input.format, config.output.width, config.output.height,
+		config.output.format);
+done:
+	ATRACE_END(__func__);
 	return ret;
 }
 
@@ -2220,7 +2284,9 @@ static long mdss_rotator_compat_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case MDSS_ROTATION_REQUEST:
+		ATRACE_BEGIN("rotator_request32");
 		ret = mdss_rotator_handle_request32(rot_mgr, private, arg);
+		ATRACE_END("rotator_request32");
 		break;
 	case MDSS_ROTATION_OPEN:
 		ret = mdss_rotator_open_session(rot_mgr, private, arg);
@@ -2266,7 +2332,9 @@ static long mdss_rotator_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case MDSS_ROTATION_REQUEST:
+		ATRACE_BEGIN("rotator_request");
 		ret = mdss_rotator_handle_request(rot_mgr, private, arg);
+		ATRACE_END("rotator_request");
 		break;
 	case MDSS_ROTATION_OPEN:
 		ret = mdss_rotator_open_session(rot_mgr, private, arg);
