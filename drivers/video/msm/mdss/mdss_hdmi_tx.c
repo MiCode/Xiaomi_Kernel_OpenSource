@@ -2842,7 +2842,7 @@ static int hdmi_tx_get_cable_status(struct platform_device *pdev, u32 vote)
 	}
 
 	spin_lock_irqsave(&hdmi_ctrl->hpd_state_lock, flags);
-	hpd = hdmi_ctrl->hpd_state;
+	hpd = hdmi_ctrl->hpd_state && hdmi_ctrl->panel_power_on;
 	spin_unlock_irqrestore(&hdmi_ctrl->hpd_state_lock, flags);
 
 	hdmi_ctrl->vote_hdmi_core_on = false;
@@ -3136,10 +3136,6 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 		return rc;
 	}
 
-	mutex_lock(&hdmi_ctrl->power_mutex);
-	hdmi_ctrl->panel_power_on = true;
-	mutex_unlock(&hdmi_ctrl->power_mutex);
-
 	if (hdmi_ctrl->hpd_state) {
 		rc = hdmi_tx_start(hdmi_ctrl);
 		if (rc) {
@@ -3149,6 +3145,10 @@ static int hdmi_tx_power_on(struct mdss_panel_data *panel_data)
 			return rc;
 		}
 	}
+
+	mutex_lock(&hdmi_ctrl->power_mutex);
+	hdmi_ctrl->panel_power_on = true;
+	mutex_unlock(&hdmi_ctrl->power_mutex);
 end:
 	dss_reg_dump(io->base, io->len, "HDMI-ON: ", REG_DUMP);
 
