@@ -1396,21 +1396,6 @@ void set_hmp_defaults(void)
 	sched_upmigrate_min_nice = sysctl_sched_upmigrate_min_nice;
 }
 
-/*
- * 'load' is in reference to "best cpu" at its best frequency.
- * Scale that in reference to a given cpu, accounting for how bad it is
- * in reference to "best cpu".
- */
-u64 scale_load_to_cpu(u64 task_load, int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	task_load *= (u64)rq->load_scale_factor;
-	task_load /= 1024;
-
-	return task_load;
-}
-
 /* Is a task "big" on its current cpu */
 static inline int is_big_task(struct task_struct *p)
 {
