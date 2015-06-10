@@ -308,22 +308,19 @@ DEFINE_EVENT(rmnet_physdev_action_template, rmnet_unassociate,
 
 TRACE_EVENT(rmnet_gro_downlink,
 
-	TP_PROTO(struct net_device *dev, gro_result_t gro_res),
+	TP_PROTO(gro_result_t gro_res),
 
-	TP_ARGS(dev, gro_res),
+	TP_ARGS(gro_res),
 
 	TP_STRUCT__entry(
-		__string(name, dev->name)
 		__field(gro_result_t, res)
 	),
 
 	TP_fast_assign(
-		__assign_str(name, dev->name);
 		__entry->res = gro_res;
 	),
 
-	TP_printk("GRO on dev=%s, res: %d",
-		__get_str(name), __entry->res)
+	TP_printk("GRO res: %d", __entry->res)
 )
 
 #endif /* _RMNET_DATA_TRACE_H_ */
