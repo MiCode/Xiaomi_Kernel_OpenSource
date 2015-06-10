@@ -121,59 +121,59 @@ const char *hw_platform_subtype[] = {
 };
 
 /* Used to parse shared memory.  Must match the modem. */
-struct socinfo_v1 {
+struct socinfo_v0_1 {
 	uint32_t format;
 	uint32_t id;
 	uint32_t version;
 	char build_id[BUILD_ID_LENGTH];
 };
 
-struct socinfo_v2 {
-	struct socinfo_v1 v1;
+struct socinfo_v0_2 {
+	struct socinfo_v0_1 v0_1;
 
 	/* only valid when format==2 */
 	uint32_t raw_id;
 	uint32_t raw_version;
 };
 
-struct socinfo_v3 {
-	struct socinfo_v2 v2;
+struct socinfo_v0_3 {
+	struct socinfo_v0_2 v0_2;
 
 	/* only valid when format==3 */
 	uint32_t hw_platform;
 };
 
-struct socinfo_v4 {
-	struct socinfo_v3 v3;
+struct socinfo_v0_4 {
+	struct socinfo_v0_3 v0_3;
 
 	/* only valid when format==4 */
 	uint32_t platform_version;
 };
 
-struct socinfo_v5 {
-	struct socinfo_v4 v4;
+struct socinfo_v0_5 {
+	struct socinfo_v0_4 v0_4;
 
 	/* only valid when format==5 */
 	uint32_t accessory_chip;
 };
 
-struct socinfo_v6 {
-	struct socinfo_v5 v5;
+struct socinfo_v0_6 {
+	struct socinfo_v0_5 v0_5;
 
 	/* only valid when format==6 */
 	uint32_t hw_platform_subtype;
 };
 
-struct socinfo_v7 {
-	struct socinfo_v6 v6;
+struct socinfo_v0_7 {
+	struct socinfo_v0_6 v0_6;
 
 	/* only valid when format==7 */
 	uint32_t pmic_model;
 	uint32_t pmic_die_revision;
 };
 
-struct socinfo_v8 {
-	struct socinfo_v7 v7;
+struct socinfo_v0_8 {
+	struct socinfo_v0_7 v0_7;
 
 	/* only valid when format==8*/
 	uint32_t pmic_model_1;
@@ -182,31 +182,31 @@ struct socinfo_v8 {
 	uint32_t pmic_die_revision_2;
 };
 
-struct socinfo_v9 {
-	struct socinfo_v8 v8;
+struct socinfo_v0_9 {
+	struct socinfo_v0_8 v0_8;
 
 	/* only valid when format==9*/
 	uint32_t foundry_id;
 };
 
-struct socinfo_v10 {
-	struct socinfo_v9 v9;
+struct socinfo_v0_10 {
+	struct socinfo_v0_9 v0_9;
 
 	/* only valid when format==10*/
 	uint32_t serial_number;
 };
 
 static union {
-	struct socinfo_v1 v1;
-	struct socinfo_v2 v2;
-	struct socinfo_v3 v3;
-	struct socinfo_v4 v4;
-	struct socinfo_v5 v5;
-	struct socinfo_v6 v6;
-	struct socinfo_v7 v7;
-	struct socinfo_v8 v8;
-	struct socinfo_v9 v9;
-	struct socinfo_v10 v10;
+	struct socinfo_v0_1 v0_1;
+	struct socinfo_v0_2 v0_2;
+	struct socinfo_v0_3 v0_3;
+	struct socinfo_v0_4 v0_4;
+	struct socinfo_v0_5 v0_5;
+	struct socinfo_v0_6 v0_6;
+	struct socinfo_v0_7 v0_7;
+	struct socinfo_v0_8 v0_8;
+	struct socinfo_v0_9 v0_9;
+	struct socinfo_v0_10 v0_10;
 } *socinfo;
 
 static struct msm_soc_info cpu_of_id[] = {
@@ -524,30 +524,30 @@ static struct msm_soc_info cpu_of_id[] = {
 static enum msm_cpu cur_cpu;
 static int current_image;
 
-static struct socinfo_v1 dummy_socinfo = {
-	.format = 1,
+static struct socinfo_v0_1 dummy_socinfo = {
+	.format = SOCINFO_VERSION(0, 1),
 	.version = 1,
 };
 
 uint32_t socinfo_get_id(void)
 {
-	return (socinfo) ? socinfo->v1.id : 0;
+	return (socinfo) ? socinfo->v0_1.id : 0;
 }
 EXPORT_SYMBOL_GPL(socinfo_get_id);
 
 static char *socinfo_get_id_string(void)
 {
-	return (socinfo) ? cpu_of_id[socinfo->v1.id].soc_id_string : NULL;
+	return (socinfo) ? cpu_of_id[socinfo->v0_1.id].soc_id_string : NULL;
 }
 
 uint32_t socinfo_get_version(void)
 {
-	return (socinfo) ? socinfo->v1.version : 0;
+	return (socinfo) ? socinfo->v0_1.version : 0;
 }
 
 char *socinfo_get_build_id(void)
 {
-	return (socinfo) ? socinfo->v1.build_id : NULL;
+	return (socinfo) ? socinfo->v0_1.build_id : NULL;
 }
 
 static char *msm_read_hardware_id(void)
@@ -560,10 +560,10 @@ static char *msm_read_hardware_id(void)
 		return msm_soc_str;
 	if (!socinfo)
 		goto err_path;
-	if (!cpu_of_id[socinfo->v1.id].soc_id_string)
+	if (!cpu_of_id[socinfo->v0_1.id].soc_id_string)
 		goto err_path;
 
-	ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v1.id].soc_id_string,
+	ret = strlcat(msm_soc_str, cpu_of_id[socinfo->v0_1.id].soc_id_string,
 			sizeof(msm_soc_str));
 	if (ret > sizeof(msm_soc_str))
 		goto err_path;
@@ -577,21 +577,24 @@ err_path:
 uint32_t socinfo_get_raw_id(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 2 ? socinfo->v2.raw_id : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 2) ?
+			socinfo->v0_2.raw_id : 0)
 		: 0;
 }
 
 uint32_t socinfo_get_raw_version(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 2 ? socinfo->v2.raw_version : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 2) ?
+			socinfo->v0_2.raw_version : 0)
 		: 0;
 }
 
 uint32_t socinfo_get_platform_type(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 3 ? socinfo->v3.hw_platform : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 3) ?
+			socinfo->v0_3.hw_platform : 0)
 		: 0;
 }
 
@@ -599,7 +602,8 @@ uint32_t socinfo_get_platform_type(void)
 uint32_t socinfo_get_platform_version(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 4 ? socinfo->v4.platform_version : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 4) ?
+			socinfo->v0_4.platform_version : 0)
 		: 0;
 }
 
@@ -608,36 +612,40 @@ uint32_t socinfo_get_platform_version(void)
 static uint32_t socinfo_get_accessory_chip(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 5 ? socinfo->v5.accessory_chip : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 5) ?
+			socinfo->v0_5.accessory_chip : 0)
 		: 0;
 }
 
 uint32_t socinfo_get_platform_subtype(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 6 ? socinfo->v6.hw_platform_subtype : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 6) ?
+			socinfo->v0_6.hw_platform_subtype : 0)
 		: 0;
 }
 
 static uint32_t socinfo_get_foundry_id(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 9 ? socinfo->v9.foundry_id : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 9) ?
+			socinfo->v0_9.foundry_id : 0)
 		: 0;
 }
 
 enum pmic_model socinfo_get_pmic_model(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 7 ? socinfo->v7.pmic_model
-			: PMIC_MODEL_UNKNOWN)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 7) ?
+			socinfo->v0_7.pmic_model : PMIC_MODEL_UNKNOWN)
 		: PMIC_MODEL_UNKNOWN;
 }
 
 uint32_t socinfo_get_pmic_die_revision(void)
 {
 	return socinfo ?
-		(socinfo->v1.format >= 7 ? socinfo->v7.pmic_die_revision : 0)
+		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 7) ?
+			socinfo->v0_7.pmic_die_revision : 0)
 		: 0;
 }
 
@@ -649,7 +657,7 @@ static char *socinfo_get_image_version_base_address(void)
 
 static uint32_t socinfo_get_format(void)
 {
-	return socinfo ? socinfo->v1.format : 0;
+	return socinfo ? socinfo->v0_1.format : 0;
 }
 
 enum msm_cpu socinfo_get_msm_cpu(void)
@@ -1065,42 +1073,43 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &select_image);
 
 	switch (legacy_format) {
-	case 10:
-	case 9:
+	case SOCINFO_VERSION(0, 10):
+	case SOCINFO_VERSION(0, 9):
 		 device_create_file(msm_soc_device,
 					&msm_soc_attr_foundry_id);
-	case 8:
-	case 7:
+	case SOCINFO_VERSION(0, 8):
+	case SOCINFO_VERSION(0, 7):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_pmic_model);
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_pmic_die_revision);
-	case 6:
+	case SOCINFO_VERSION(0, 6):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_platform_subtype);
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_platform_subtype_id);
-	case 5:
+	case SOCINFO_VERSION(0, 5):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_accessory_chip);
-	case 4:
+	case SOCINFO_VERSION(0, 4):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_platform_version);
-	case 3:
+	case SOCINFO_VERSION(0, 3):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_hw_platform);
-	case 2:
+	case SOCINFO_VERSION(0, 2):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_raw_id);
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_raw_version);
-	case 1:
+	case SOCINFO_VERSION(0, 1):
 		device_create_file(msm_soc_device,
 					&msm_soc_attr_build_id);
 		break;
 	default:
-		pr_err("%s:Unknown socinfo format:%u\n", __func__,
-				legacy_format);
+		pr_err("%s:Unknown socinfo format: v%u.%u\n", __func__,
+				SOCINFO_VERSION_MAJOR(legacy_format),
+				SOCINFO_VERSION_MINOR(legacy_format));
 		break;
 	}
 
@@ -1155,112 +1164,99 @@ late_initcall(socinfo_init_sysfs);
 
 static void socinfo_print(void)
 {
-	switch (socinfo->v1.format) {
-	case 1:
-		pr_info("%s: v%u, id=%u, ver=%u.%u\n",
-			__func__, socinfo->v1.format, socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version));
+	uint32_t f_maj = SOCINFO_VERSION_MAJOR(socinfo->v0_1.format);
+	uint32_t f_min = SOCINFO_VERSION_MINOR(socinfo->v0_1.format);
+	uint32_t v_maj = SOCINFO_VERSION_MAJOR(socinfo->v0_1.version);
+	uint32_t v_min = SOCINFO_VERSION_MINOR(socinfo->v0_1.version);
+
+	switch (socinfo->v0_1.format) {
+	case SOCINFO_VERSION(0, 1):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u\n",
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min);
 		break;
-	case 2:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, "
+	case SOCINFO_VERSION(0, 2):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, "
 			 "raw_id=%u, raw_ver=%u\n",
-			__func__, socinfo->v1.format, socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version);
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version);
 		break;
-	case 3:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, "
+	case SOCINFO_VERSION(0, 3):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, "
 			 "raw_id=%u, raw_ver=%u, hw_plat=%u\n",
-			__func__, socinfo->v1.format, socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version,
-			socinfo->v3.hw_platform);
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform);
 		break;
-	case 4:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, "
+	case SOCINFO_VERSION(0, 4):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, "
 			 "raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n",
-			__func__, socinfo->v1.format, socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version,
-			socinfo->v3.hw_platform, socinfo->v4.platform_version);
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version);
 		break;
-	case 5:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, "
+	case SOCINFO_VERSION(0, 5):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, "
 			 "raw_id=%u, raw_ver=%u, hw_plat=%u,  hw_plat_ver=%u\n"
-			" accessory_chip=%u\n", __func__, socinfo->v1.format,
-			socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version,
-			socinfo->v3.hw_platform, socinfo->v4.platform_version,
-			socinfo->v5.accessory_chip);
+			" accessory_chip=%u\n",
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip);
 		break;
-	case 6:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, "
+	case SOCINFO_VERSION(0, 6):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, "
 			 "raw_id=%u, raw_ver=%u, hw_plat=%u,  hw_plat_ver=%u\n"
-			" accessory_chip=%u hw_plat_subtype=%u\n", __func__,
-			socinfo->v1.format,
-			socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version,
-			socinfo->v3.hw_platform, socinfo->v4.platform_version,
-			socinfo->v5.accessory_chip,
-			socinfo->v6.hw_platform_subtype);
+			" accessory_chip=%u hw_plat_subtype=%u\n",
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip,
+			socinfo->v0_6.hw_platform_subtype);
 		break;
-	case 8:
-	case 7:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u\n",
-			__func__,
-			socinfo->v1.format,
-			socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version,
-			socinfo->v3.hw_platform, socinfo->v4.platform_version,
-			socinfo->v5.accessory_chip,
-			socinfo->v6.hw_platform_subtype,
-			socinfo->v7.pmic_model,
-			socinfo->v7.pmic_die_revision);
+	case SOCINFO_VERSION(0, 7):
+	case SOCINFO_VERSION(0, 8):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u\n",
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip,
+			socinfo->v0_6.hw_platform_subtype,
+			socinfo->v0_7.pmic_model,
+			socinfo->v0_7.pmic_die_revision);
 		break;
-	case 9:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u\n",
-			__func__,
-			socinfo->v1.format,
-			socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version,
-			socinfo->v3.hw_platform, socinfo->v4.platform_version,
-			socinfo->v5.accessory_chip,
-			socinfo->v6.hw_platform_subtype,
-			socinfo->v7.pmic_model,
-			socinfo->v7.pmic_die_revision,
-			socinfo->v9.foundry_id);
+	case SOCINFO_VERSION(0, 9):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u\n",
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip,
+			socinfo->v0_6.hw_platform_subtype,
+			socinfo->v0_7.pmic_model,
+			socinfo->v0_7.pmic_die_revision,
+			socinfo->v0_9.foundry_id);
 		break;
-	case 10:
-		pr_info("%s: v%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u\n",
-			__func__,
-			socinfo->v1.format,
-			socinfo->v1.id,
-			SOCINFO_VERSION_MAJOR(socinfo->v1.version),
-			SOCINFO_VERSION_MINOR(socinfo->v1.version),
-			socinfo->v2.raw_id, socinfo->v2.raw_version,
-			socinfo->v3.hw_platform, socinfo->v4.platform_version,
-			socinfo->v5.accessory_chip,
-			socinfo->v6.hw_platform_subtype,
-			socinfo->v7.pmic_model,
-			socinfo->v7.pmic_die_revision,
-			socinfo->v9.foundry_id,
-			socinfo->v10.serial_number);
+	case SOCINFO_VERSION(0, 10):
+		pr_info("%s: v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u\n",
+			__func__, f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip,
+			socinfo->v0_6.hw_platform_subtype,
+			socinfo->v0_7.pmic_model,
+			socinfo->v0_7.pmic_die_revision,
+			socinfo->v0_9.foundry_id,
+			socinfo->v0_10.serial_number);
 		break;
 
 	default:
-		pr_err("%s: Unknown format found\n", __func__);
+		pr_err("%s: Unknown format found: v%u.%u\n",
+			__func__, f_maj, f_min);
 		break;
 	}
 }
@@ -1286,7 +1282,7 @@ int __init socinfo_init(void)
 	if (socinfo_get_id() >= ARRAY_SIZE(cpu_of_id))
 		BUG_ON("New IDs added! ID => CPU mapping needs an update.\n");
 	else
-		cur_cpu = cpu_of_id[socinfo->v1.id].generic_soc_type;
+		cur_cpu = cpu_of_id[socinfo->v0_1.id].generic_soc_type;
 
 	boot_stats_init();
 	socinfo_print();
