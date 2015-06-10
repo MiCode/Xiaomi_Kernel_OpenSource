@@ -116,5 +116,6 @@
 	dwc3@6a00000 {
 		usb-phy = <&qusb_phy0>, <&usb_nop_phy>;
 		maximum-speed = "high-speed";
+		snps,disable-clk-gating;
 	};
 };
