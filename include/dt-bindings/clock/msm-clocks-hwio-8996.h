@@ -394,6 +394,7 @@
 #define GCC_GP3_CBCR						(0x66000)
 #define GCC_GP3_CMD_RCGR					(0x66004)
 #define GCC_GPLL4_MODE						(0x77000)
+#define GCC_UFS_BCR						(0x75000)
 #define GCC_UFS_AXI_CBCR					(0x75008)
 #define GCC_UFS_AHB_CBCR					(0x7500C)
 #define GCC_UFS_TX_CFG_CBCR					(0x75010)

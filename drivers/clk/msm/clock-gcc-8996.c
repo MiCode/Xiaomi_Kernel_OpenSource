@@ -2642,6 +2642,7 @@ static struct branch_clk gcc_ufs_ahb_clk = {
 };
 
 static struct branch_clk gcc_ufs_axi_clk = {
+	.bcr_reg = GCC_UFS_BCR,
 	.cbcr_reg = GCC_UFS_AXI_CBCR,
 	.has_sibling = 0,
 	.base = &virt_base,
