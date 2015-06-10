@@ -552,7 +552,9 @@ void msm_isp_check_for_output_error(struct vfe_device *vfe_dev,
 		for (i = 0; i < MAX_NUM_STREAM; i++) {
 			stream_info = &axi_data->stream_info[i];
 			if (stream_info->state != ACTIVE ||
-				!stream_info->controllable_output)
+				!stream_info->controllable_output ||
+				(SRC_TO_INTF(stream_info->stream_src) !=
+				VFE_PIX_0))
 				continue;
 
 			if (stream_info->undelivered_request_cnt) {
@@ -594,10 +596,11 @@ void msm_isp_notify(struct vfe_device *vfe_dev, uint32_t event_type,
 	case ISP_EVENT_SOF: {
 		src_info = &vfe_dev->axi_data.src_info[frame_src];
 
-		msm_isp_check_for_output_error(vfe_dev, ts,
-			&event_data.u.output_info);
-
 		if (frame_src == VFE_PIX_0) {
+
+			msm_isp_check_for_output_error(vfe_dev, ts,
+				&event_data.u.output_info);
+
 			vfe_dev->axi_data.src_info[frame_src].frame_id +=
 				vfe_dev->axi_data.src_info[frame_src].
 				sof_counter_step;
@@ -803,7 +806,8 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	}
 
 	stream_info->memory_input = stream_cfg_cmd->memory_input;
-
+	vfe_dev->reg_update_requested &=
+		~(BIT(stream_info->stream_src));
 
 	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_info);
 
@@ -2037,6 +2041,8 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		stream_info = &axi_data->stream_info[
 			HANDLE_TO_IDX(stream_cfg_cmd->stream_handle[i])];
 		msm_isp_deinit_stream_ping_pong_reg(vfe_dev, stream_info);
+		vfe_dev->reg_update_requested &=
+			~(BIT(stream_info->stream_src));
 	}
 
 	return rc;
@@ -2153,8 +2159,9 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 	}
 
 	frame_src = SRC_TO_INTF(stream_info->stream_src);
-	if ((frame_id <=
-		vfe_dev->axi_data.src_info[frame_src].camif_sof_frame_id) ||
+
+	if (((frame_src == VFE_PIX_0) && (frame_id <=
+		vfe_dev->axi_data.src_info[frame_src].camif_sof_frame_id)) ||
 		stream_info->undelivered_request_cnt >= 2) {
 		pr_debug("%s:%d invalid request_frame %d cur frame id %d\n",
 			__func__, __LINE__, frame_id,
@@ -2167,11 +2174,13 @@ static int msm_isp_request_frame(struct vfe_device *vfe_dev,
 				__func__, __LINE__, frame_src);
 		return 0;
 	}
-	if (!stream_info->undelivered_request_cnt &&
+	if ((frame_src == VFE_PIX_0) && !stream_info->undelivered_request_cnt &&
 		stream_info->prev_framedrop_pattern) {
-		pr_err("%s:%d frame_id %d prev_pattern is valid %d\n",
-			__func__, __LINE__, frame_id,
-			stream_info->prev_framedrop_pattern);
+		pr_err("%s:%d vfe %d frame_id %d prev_pattern %x stream_id %x\n",
+			__func__, __LINE__, vfe_dev->pdev->id, frame_id,
+			stream_info->prev_framedrop_pattern,
+			stream_info->stream_id);
+
 		rc = msm_isp_return_empty_buffer(vfe_dev, stream_info,
 			user_stream_id, frame_id, frame_src);
 		if (rc < 0)
