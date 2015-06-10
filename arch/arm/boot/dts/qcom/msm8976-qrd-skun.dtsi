@@ -117,3 +117,8 @@
 		};
 	};
 };
+
+&sdc2_cd_on {
+	/delete-property/ bias-pull-up;
+	bias-disable;
+};
