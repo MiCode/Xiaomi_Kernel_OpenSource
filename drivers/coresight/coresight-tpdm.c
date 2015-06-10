@@ -265,6 +265,9 @@ static ssize_t tpdm_show_cmb_mode(struct device *dev,
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
 
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
 	return scnprintf(buf, PAGE_SIZE, "%s\n",
 			 drvdata->cmb->mode == TPDM_CMB_MODE_CONTINUOUS ?
 			 "continuous" : "trace_on_change");
@@ -305,7 +308,12 @@ static ssize_t tpdm_show_cmb_patt_val_lsb(struct device *dev,
 					  char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->patt_val[TPDM_CMB_LSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->patt_val[TPDM_CMB_LSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -336,7 +344,12 @@ static ssize_t tpdm_show_cmb_patt_mask_lsb(struct device *dev,
 					   char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->patt_mask[TPDM_CMB_LSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->patt_mask[TPDM_CMB_LSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -366,7 +379,12 @@ static ssize_t tpdm_show_cmb_patt_val_msb(struct device *dev,
 					  char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->patt_val[TPDM_CMB_MSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->patt_val[TPDM_CMB_MSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -397,7 +415,12 @@ static ssize_t tpdm_show_cmb_patt_mask_msb(struct device *dev,
 					   char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->patt_mask[TPDM_CMB_MSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->patt_mask[TPDM_CMB_MSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -427,6 +450,9 @@ static ssize_t tpdm_show_cmb_patt_ts(struct device *dev,
 				     char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n",
 			 (unsigned)drvdata->cmb->patt_ts);
@@ -461,7 +487,12 @@ static ssize_t tpdm_show_cmb_trig_patt_val_lsb(struct device *dev,
 					       char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->trig_patt_val[TPDM_CMB_LSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->trig_patt_val[TPDM_CMB_LSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -492,7 +523,12 @@ static ssize_t tpdm_show_cmb_trig_patt_mask_lsb(struct device *dev,
 						char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->trig_patt_mask[TPDM_CMB_LSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->trig_patt_mask[TPDM_CMB_LSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -523,7 +559,12 @@ static ssize_t tpdm_show_cmb_trig_patt_val_msb(struct device *dev,
 					       char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->trig_patt_val[TPDM_CMB_MSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->trig_patt_val[TPDM_CMB_MSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -554,7 +595,12 @@ static ssize_t tpdm_show_cmb_trig_patt_mask_msb(struct device *dev,
 						char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
-	unsigned long val = drvdata->cmb->trig_patt_mask[TPDM_CMB_MSB];
+	unsigned long val;
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
+
+	val = drvdata->cmb->trig_patt_mask[TPDM_CMB_MSB];
 
 	return scnprintf(buf, PAGE_SIZE, "%#lx\n", val);
 }
@@ -585,6 +631,9 @@ static ssize_t tpdm_show_cmb_trig_ts(struct device *dev,
 				     char *buf)
 {
 	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+
+	if (!test_bit(TPDM_DS_CMB, drvdata->datasets))
+		return -EPERM;
 
 	return scnprintf(buf, PAGE_SIZE, "%u\n",
 			 (unsigned)drvdata->cmb->trig_ts);
