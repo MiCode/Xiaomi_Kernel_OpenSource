@@ -682,6 +682,15 @@ int dwc3_core_init(struct dwc3 *dwc)
 
 	dwc3_core_num_eps(dwc);
 
+	/*
+	 * Disable clock gating to work around a known HW bug that causes the
+	 * internal RAM clock to get stuck when entering low power modes.
+	 */
+	if (dwc->disable_clk_gating) {
+		dev_dbg(dwc->dev, "Disabling controller clock gating.\n");
+		reg |= DWC3_GCTL_DSBLCLKGTNG;
+	}
+
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
 	ret = dwc3_alloc_scratch_buffers(dwc);
@@ -1006,7 +1015,8 @@ static int dwc3_probe(struct platform_device *pdev)
 				"snps,nominal-elastic-buffer");
 	dwc->usb3_u1u2_disable = device_property_read_bool(dev,
 				"snps,usb3-u1u2-disable");
-
+	dwc->disable_clk_gating = device_property_read_bool(dev,
+				"snps,disable-clk-gating");
 	if (pdata) {
 		dwc->maximum_speed = pdata->maximum_speed;
 		dwc->has_lpm_erratum = pdata->has_lpm_erratum;
