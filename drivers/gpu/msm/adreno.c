@@ -1450,7 +1450,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	}
 
 	/* Clear the busy_data stats - we're starting over from scratch */
-	memset(&adreno_dev->busy_data, 0, sizeof(adreno_dev->busy_data));
+	adreno_dev->busy_data.gpu_busy = 0;
+	adreno_dev->busy_data.vbif_ram_cycles = 0;
+	adreno_dev->busy_data.vbif_starved_ram = 0;
 
 	/* Restore performance counter registers with saved values */
 	adreno_perfcounter_restore(adreno_dev);
