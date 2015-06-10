@@ -1268,69 +1268,13 @@ static void socinfo_print(void)
 int __init socinfo_init(void)
 {
 	static bool socinfo_init_done;
+	unsigned size;
 
 	if (socinfo_init_done)
 		return 0;
 
-	socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v10),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v9),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v8),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v7),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v6),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v5),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v4),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v3),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v2),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
-	if (IS_ERR_OR_NULL(socinfo))
-		socinfo = smem_find(SMEM_HW_SW_BUILD_ID,
-				sizeof(struct socinfo_v1),
-				0,
-				SMEM_ANY_HOST_FLAG);
-
+	socinfo = smem_get_entry(SMEM_HW_SW_BUILD_ID, &size, 0,
+				 SMEM_ANY_HOST_FLAG);
 	if (IS_ERR_OR_NULL(socinfo)) {
 		pr_warn("%s: Can't find SMEM_HW_SW_BUILD_ID; falling back on dummy values.\n",
 				__func__);
