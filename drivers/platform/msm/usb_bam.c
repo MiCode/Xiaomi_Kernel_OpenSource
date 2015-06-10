@@ -3275,7 +3275,7 @@ static int usb_bam_probe(struct platform_device *pdev)
 	dev_dbg(&pdev->dev, "usb_bam_probe\n");
 
 	if (!usb_device) {
-		pr_err("OTG not yet probed\n");
+		dev_dbg(&pdev->dev, "OTG not yet probed\n");
 		return -EPROBE_DEFER;
 	}
 
