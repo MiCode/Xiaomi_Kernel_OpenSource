@@ -1039,9 +1039,8 @@ void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
 void mdss_mdp_ctl_notifier_unregister(struct mdss_mdp_ctl *ctl,
 	struct notifier_block *notifier);
 u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl);
-u32 mdss_apply_overhead_factors(u32 quota, bool is_nrt,
-	bool is_rot_read, struct mdss_mdp_format_params *fmt,
-	struct mult_factor *comp_ratio);
+u32 apply_comp_ratio_factor(u32 quota, struct mdss_mdp_format_params *fmt,
+	struct mult_factor *factor);
 
 int mdss_mdp_scan_pipes(void);
 
