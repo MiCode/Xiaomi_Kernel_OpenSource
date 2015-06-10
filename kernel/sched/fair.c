@@ -1634,12 +1634,29 @@ struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
 	return NULL;
 }
 
+static void clear_same_powerband_cpus(struct rq *rq, cpumask_t *search_cpus)
+{
+	if (!sched_enable_power_aware) {
+		if (min_max_capacity_delta_pct <=
+		    sysctl_sched_powerband_limit_pct ||
+		    rq->max_possible_capacity == min_max_possible_capacity)
+			cpumask_clear(search_cpus);
+		else
+			cpumask_andnot(search_cpus, search_cpus,
+				       &rq->freq_domain_cpumask);
+	}
+}
+
 int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost)
 {
 	int delta, cost_limit;
 
 	if (!base_cost || cpu_cost == base_cost)
 		return 0;
+
+	if (!sched_enable_power_aware)
+		return min_max_capacity_delta_pct >
+		       sysctl_sched_powerband_limit_pct;
 
 	delta = cpu_cost - base_cost;
 	cost_limit = div64_u64((u64)sysctl_sched_powerband_limit_pct *
@@ -1970,13 +1987,9 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 				min_cstate = cstate;
 				min_cstate_cpu = i;
 
-				if (prefer_idle &&
-				    (!sched_enable_power_aware ||
-				     !get_cpu_pwr_stats()) &&
-				    min_cstate == 0)
-					cpumask_andnot(&search_cpus,
-						     &search_cpus,
-						     &rq->freq_domain_cpumask);
+				if (prefer_idle && min_cstate == 0)
+					clear_same_powerband_cpus(rq,
+								  &search_cpus);
 			} else if (cpu_cost < min_idle_cost) {
 				min_idle_cost = cpu_cost;
 				min_cstate_cpu = i;
