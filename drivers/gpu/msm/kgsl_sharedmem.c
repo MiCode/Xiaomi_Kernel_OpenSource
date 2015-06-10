@@ -303,13 +303,26 @@ kgsl_sharedmem_init_sysfs(void)
 		drv_attr_list);
 }
 
+static int kgsl_allocate_secure(struct kgsl_device *device,
+				struct kgsl_memdesc *memdesc,
+				struct kgsl_pagetable *pagetable,
+				uint64_t size) {
+	int ret;
+
+	if (MMU_FEATURE(&device->mmu, KGSL_MMU_HYP_SECURE_ALLOC))
+		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
+	else
+		ret = kgsl_cma_alloc_secure(device, memdesc, size);
+
+	return ret;
+}
+
 int kgsl_allocate_user(struct kgsl_device *device,
 		struct kgsl_memdesc *memdesc,
 		struct kgsl_pagetable *pagetable,
 		uint64_t size, uint64_t mmapsize, uint64_t flags)
 {
 	int ret;
-	struct kgsl_mmu *mmu = &device->mmu;
 
 	if (size == 0)
 		return -EINVAL;
@@ -318,9 +331,8 @@ int kgsl_allocate_user(struct kgsl_device *device,
 
 	if (kgsl_mmu_get_mmutype() == KGSL_MMU_TYPE_NONE)
 		ret = kgsl_cma_alloc_coherent(device, memdesc, pagetable, size);
-	else if (flags & KGSL_MEMFLAGS_SECURE &&
-			!MMU_FEATURE(mmu, KGSL_MMU_HYP_SECURE_ALLOC))
-		ret = kgsl_cma_alloc_secure(device, memdesc, size);
+	else if (flags & KGSL_MEMFLAGS_SECURE)
+		ret = kgsl_allocate_secure(device, memdesc, pagetable, size);
 	else
 		ret = kgsl_sharedmem_page_alloc_user(memdesc, pagetable, size);
 

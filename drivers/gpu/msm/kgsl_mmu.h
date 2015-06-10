@@ -136,6 +136,7 @@ struct kgsl_mmu {
 	atomic_t fault;
 	bool secured;
 	uint features;
+	unsigned int secure_align_mask;
 };
 
 extern struct kgsl_mmu_ops kgsl_iommu_ops;

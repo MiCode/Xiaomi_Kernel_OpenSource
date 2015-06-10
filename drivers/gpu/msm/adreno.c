@@ -250,6 +250,10 @@ static int kgsl_iommu_pdev_probe(struct platform_device *pdev)
 	if (result)
 		goto err;
 
+	if (of_property_read_u32(pdev->dev.of_node,
+			"qcom,secure_align_mask", &data->secure_align_mask))
+		data->secure_align_mask = 0xfff;
+
 	if (!data->iommu_ctx_count) {
 		KGSL_CORE_ERR(
 			"dt: KGSL IOMMU context bank count cannot be zero\n");
