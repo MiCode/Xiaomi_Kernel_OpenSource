@@ -50,6 +50,7 @@ struct mdss_mdp_writeback_ctx {
 
 	u32 opmode;
 	struct mdss_mdp_format_params *dst_fmt;
+	u16 img_width;
 	u16 width;
 	u16 height;
 	struct mdss_rect dst_rect;
@@ -235,7 +236,7 @@ static int mdss_mdp_writeback_format_setup(struct mdss_mdp_writeback_ctx *ctx,
 		return -EINVAL;
 	}
 
-	mdss_mdp_get_plane_sizes(fmt, ctx->width, ctx->height,
+	mdss_mdp_get_plane_sizes(fmt, ctx->img_width, ctx->height,
 				 &ctx->dst_planes,
 				 ctx->opmode & MDSS_MDP_OP_BWC_EN, rotation);
 
@@ -364,6 +365,7 @@ static int mdss_mdp_writeback_prepare_wfd(struct mdss_mdp_ctl *ctl, void *arg)
 	pr_debug("wfd setup ctl=%d\n", ctl->num);
 
 	ctx->opmode = 0;
+	ctx->img_width = ctl->width;
 	ctx->width = ctl->width;
 	ctx->height = ctl->height;
 	ctx->dst_rect.x = 0;
@@ -418,6 +420,7 @@ static int mdss_mdp_writeback_prepare_rot(struct mdss_mdp_ctl *ctl, void *arg)
 	ctx->bwc_mode = 0;
 	ctx->opmode |= ctx->bwc_mode;
 
+	ctx->img_width = item->output.width;
 	ctx->width = ctx->dst_rect.w = item->dst_rect.w;
 	ctx->height = ctx->dst_rect.h = item->dst_rect.h;
 	ctx->dst_rect.x = item->dst_rect.x;
