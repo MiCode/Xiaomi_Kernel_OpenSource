@@ -707,7 +707,7 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 	}
 
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
-	if (vfe_dev->reg_update_requested == reg_updated)
+	if (reg_updated & BIT(VFE_PIX_0))
 		vfe_dev->reg_updated = 1;
 
 	vfe_dev->reg_update_requested &= ~reg_updated;
