@@ -19,6 +19,7 @@
 #include <linux/msm-bus.h>
 #include <linux/iommu.h>
 #include <linux/version.h>
+#include <linux/delay.h>
 #include "wil_platform.h"
 #include "msm_11ad.h"
 
@@ -27,6 +28,8 @@
 
 #define SMMU_BASE	0x10000000 /* Device address range base */
 #define SMMU_SIZE	0x40000000 /* Device address range size */
+
+#define WIGIG_ENABLE_DELAY	10
 
 struct device;
 
@@ -106,6 +109,8 @@ static int ops_resume(void *handle)
 
 	pcidev = ctx->pcidev;
 	gpio_direction_output(ctx->gpio_en, 1);
+	msleep(WIGIG_ENABLE_DELAY);
+
 	rc = msm_pcie_pm_control(MSM_PCIE_RESUME, pcidev->bus->number,
 				 pcidev, NULL, 0);
 	if (rc) {
@@ -228,6 +233,9 @@ static int msm_11ad_probe(struct platform_device *pdev)
 			gpio_en_name);
 		goto out_set;
 	}
+
+	msleep(WIGIG_ENABLE_DELAY);
+
 	/* enumerate it on PCIE */
 	rc = msm_pcie_enumerate(ctx->rc_index);
 	if (rc < 0) {
