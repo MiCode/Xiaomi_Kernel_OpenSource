@@ -386,6 +386,8 @@ struct arm_smmu_device {
 	unsigned int			num_impl_def_attach_registers;
 
 	struct mutex			atos_lock;
+	atomic_t			clock_refs_count;
+	atomic_t			regulator_refs_count;
 };
 
 struct arm_smmu_cfg {
@@ -699,6 +701,9 @@ static int arm_smmu_disable_regulators(struct arm_smmu_device *smmu)
 	if (!smmu->gdsc)
 		return 0;
 
+	if (atomic_dec_return(&smmu->regulator_refs_count) > 0)
+		return 0;
+
 	arm_smmu_unprepare_clocks(smmu);
 	return regulator_disable(smmu->gdsc);
 }
@@ -708,6 +713,9 @@ static int arm_smmu_enable_regulators(struct arm_smmu_device *smmu)
 	int ret;
 
 	if (!smmu->gdsc)
+		return 0;
+
+	if (atomic_inc_return(&smmu->regulator_refs_count) > 1)
 		return 0;
 
 	ret = regulator_enable(smmu->gdsc);
@@ -745,6 +753,9 @@ static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
 {
 	int i, ret = 0;
 
+	if (atomic_inc_return(&smmu->clock_refs_count) > 1)
+		return 0;
+
 	for (i = 0; i < smmu->num_clocks; ++i) {
 		ret = clk_enable(smmu->clocks[i]);
 		if (ret) {
@@ -761,6 +772,8 @@ static int arm_smmu_enable_clocks_atomic(struct arm_smmu_device *smmu)
 static void arm_smmu_disable_clocks_atomic(struct arm_smmu_device *smmu)
 {
 	int i;
+	if (atomic_dec_return(&smmu->clock_refs_count) > 0)
+		return;
 
 	for (i = 0; i < smmu->num_clocks; ++i)
 		clk_disable(smmu->clocks[i]);
