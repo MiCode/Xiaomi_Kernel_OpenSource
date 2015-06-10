@@ -457,7 +457,7 @@ static int dev_avtimer_probe(struct platform_device *pdev)
 			__func__, major);
 
 	if (of_property_read_u32(pdev->dev.of_node,
-			"qcom,clk_div", &clk_div_val))
+			"qcom,clk-div", &clk_div_val))
 		avtimer.clk_div = 1;
 	else
 		avtimer.clk_div = clk_div_val;
