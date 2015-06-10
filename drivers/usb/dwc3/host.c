@@ -87,6 +87,12 @@ int dwc3_host_init(struct dwc3 *dwc)
 		}
 	}
 
+	/*
+	 * WORKAROUND: currently host mode suspend isn't working well.
+	 * Disable xHCI's runtime PM for now.
+	 */
+	pm_runtime_disable(&dwc->xhci->dev);
+
 	return 0;
 
 err1:
