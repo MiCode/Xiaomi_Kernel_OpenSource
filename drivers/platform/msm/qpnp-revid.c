@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,6 +41,12 @@ static const char *const pmic_names[] = {
 	"PM8916",
 	"PM8004",
 	"PM8909",
+	"PM2433",
+	"PMD9655",
+	"PM8950",
+	"PMI8950",
+	"PMK8001",
+	"PMI8996",
 };
 
 struct revid_chip {
