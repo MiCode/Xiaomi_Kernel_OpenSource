@@ -198,6 +198,14 @@ struct socinfo_v0_10 {
 	uint32_t serial_number;
 };
 
+struct socinfo_v0_11 {
+	struct socinfo_v0_10 v0_10;
+
+	/* only valid when format==11*/
+	uint32_t num_pmics;
+	uint32_t pmic_array_offset;
+};
+
 static union {
 	struct socinfo_v0_1 v0_1;
 	struct socinfo_v0_2 v0_2;
@@ -209,6 +217,7 @@ static union {
 	struct socinfo_v0_8 v0_8;
 	struct socinfo_v0_9 v0_9;
 	struct socinfo_v0_10 v0_10;
+	struct socinfo_v0_11 v0_11;
 } *socinfo;
 
 static struct msm_soc_info cpu_of_id[] = {
@@ -1271,7 +1280,20 @@ static void socinfo_print(void)
 			socinfo->v0_9.foundry_id,
 			socinfo->v0_10.serial_number);
 		break;
-
+	case SOCINFO_VERSION(0, 11):
+		pr_info("v%u.%u, id=%u, ver=%u.%u, raw_id=%u, raw_ver=%u, hw_plat=%u, hw_plat_ver=%u\n accessory_chip=%u, hw_plat_subtype=%u, pmic_model=%u, pmic_die_revision=%u foundry_id=%u serial_number=%u num_pmics=%u\n",
+			f_maj, f_min, socinfo->v0_1.id, v_maj, v_min,
+			socinfo->v0_2.raw_id, socinfo->v0_2.raw_version,
+			socinfo->v0_3.hw_platform,
+			socinfo->v0_4.platform_version,
+			socinfo->v0_5.accessory_chip,
+			socinfo->v0_6.hw_platform_subtype,
+			socinfo->v0_7.pmic_model,
+			socinfo->v0_7.pmic_die_revision,
+			socinfo->v0_9.foundry_id,
+			socinfo->v0_10.serial_number,
+			socinfo->v0_11.num_pmics);
+		break;
 	default:
 		pr_err("Unknown format found: v%u.%u\n", f_maj, f_min);
 		break;
