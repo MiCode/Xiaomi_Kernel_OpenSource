@@ -656,7 +656,7 @@ void mdss_debug_register_dump_range(struct platform_device *pdev,
 static ssize_t mdss_debug_factor_write(struct file *file,
 		    const char __user *user_buf, size_t count, loff_t *ppos)
 {
-	struct mdss_fudge_factor *factor  = file->private_data;
+	struct mult_factor *factor  = file->private_data;
 	u32 numer;
 	u32 denom;
 	char buf[32];
@@ -699,7 +699,7 @@ static ssize_t mdss_debug_factor_write(struct file *file,
 static ssize_t mdss_debug_factor_read(struct file *file,
 			char __user *buff, size_t count, loff_t *ppos)
 {
-	struct mdss_fudge_factor *factor = file->private_data;
+	struct mult_factor *factor = file->private_data;
 	int len = 0;
 	char buf[32];
 

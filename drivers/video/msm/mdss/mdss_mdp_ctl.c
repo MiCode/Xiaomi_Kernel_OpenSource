@@ -37,7 +37,7 @@ static inline u64 fudge_factor(u64 val, u32 numer, u32 denom)
 }
 
 static inline u64 apply_fudge_factor(u64 val,
-	struct mdss_fudge_factor *factor)
+	struct mult_factor *factor)
 {
 	return fudge_factor(val, factor->numer, factor->denom);
 }
@@ -1723,7 +1723,7 @@ static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
 	if (test_bit(MDSS_MDP_BW_MODE_SINGLE_LAYER,
 		perf->bw_vote_mode) &&
 		(bus_ib_quota >= PERF_SINGLE_PIPE_BW_FLOOR)) {
-		struct mdss_fudge_factor ib_factor_vscaling;
+		struct mult_factor ib_factor_vscaling;
 		ib_factor_vscaling.numer = 2;
 		ib_factor_vscaling.denom = 1;
 		bus_ib_quota = apply_fudge_factor(bus_ib_quota,
