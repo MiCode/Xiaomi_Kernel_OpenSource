@@ -3126,8 +3126,6 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		flags = dec->flags;
 	}
 
-	rc = msm_vidc_release_buffers(inst,
-		V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
 
 	switch (which_cmd) {
 	case V4L2_DEC_QCOM_CMD_FLUSH:
@@ -3146,6 +3144,13 @@ int msm_vidc_comm_cmd(void *instance, union msm_v4l2_cmd *cmd)
 		}
 		break;
 	case V4L2_ENC_CMD_STOP:
+		/* V4L2_DEC_CMD_STOP has the same value as V4L2_ENC_CMD_STOP */
+		rc = msm_vidc_release_buffers(inst,
+				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+		if (rc)
+			dprintk(VIDC_ERR,
+				"Failed to release Capture buffers\n");
+
 		if (core->state != VIDC_CORE_INVALID &&
 				inst->state ==  MSM_VIDC_CORE_INVALID) {
 			rc = msm_comm_kill_session(inst);
