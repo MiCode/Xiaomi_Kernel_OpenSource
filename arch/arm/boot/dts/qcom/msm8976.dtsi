@@ -1930,6 +1930,56 @@
 		compatible = "qcom,msm-test-pacman";
 	};
 
+	qcom,msm-core@a0000 {
+		compatible = "qcom,apss-core-ea";
+		reg = <0xA0000 0x1000>;
+		qcom,low-hyst-temp = <10>;
+		qcom,high-hyst-temp = <5>;
+		qcom,polling-interval = <50>;
+
+		qcom,core-mapping {
+			qcom,cpu0-chars {
+				qcom,sensor = <&sensor_information9>;
+				qcom,cpu-name = <&CPU0>;
+			};
+
+			qcom,cpu1-chars {
+				qcom,sensor = <&sensor_information9>;
+				qcom,cpu-name = <&CPU1>;
+			};
+
+			qcom,cpu2-chars {
+				qcom,sensor = <&sensor_information9>;
+				qcom,cpu-name = <&CPU2>;
+			};
+
+			qcom,cpu3-chars {
+				qcom,sensor = <&sensor_information9>;
+				qcom,cpu-name = <&CPU3>;
+			};
+
+			qcom,cpu4-chars {
+				qcom,sensor = <&sensor_information4>;
+				qcom,cpu-name = <&CPU4>;
+			};
+
+			qcom,cpu5-chars {
+				qcom,sensor = <&sensor_information5>;
+				qcom,cpu-name = <&CPU5>;
+			};
+
+			qcom,cpu6-chars {
+				qcom,sensor = <&sensor_information6>;
+				qcom,cpu-name = <&CPU6>;
+			};
+
+			qcom,cpu7-chars {
+				qcom,sensor = <&sensor_information7>;
+				qcom,cpu-name = <&CPU7>;
+			};
+		};
+	};
+
 	qcom,pronto@a21b000 {
 		compatible = "qcom,pil-tz-generic";
 		reg = <0x0a21b000 0x3000>;
