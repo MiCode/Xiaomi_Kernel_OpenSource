@@ -126,6 +126,9 @@
 #define PCIE_N_RX_IDLE_DTCT_CNTRL(n, m)		(PCS_PORT(n, m) + 0x58)
 #define PCIE_N_POWER_STATE_CONFIG1(n, m)	(PCS_PORT(n, m) + 0x60)
 #define PCIE_N_POWER_STATE_CONFIG4(n, m)	(PCS_PORT(n, m) + 0x6C)
+#define PCIE_N_PWRUP_RESET_DLY_TIME_AUXCLK(n, m)	(PCS_PORT(n, m) + 0xA0)
+#define PCIE_N_LP_WAKEUP_DLY_TIME_AUXCLK(n, m)	(PCS_PORT(n, m) + 0xA4)
+#define PCIE_N_PLL_LOCK_CHK_DLY_TIME(n, m)	(PCS_PORT(n, m) + 0xA8)
 #define PCIE_N_TEST_CONTROL4(n, m)		(PCS_PORT(n, m) + 0x11C)
 #define PCIE_N_TEST_CONTROL5(n, m)		(PCS_PORT(n, m) + 0x120)
 #define PCIE_N_TEST_CONTROL6(n, m)		(PCS_PORT(n, m) + 0x124)
@@ -1094,26 +1097,24 @@ static void pcie_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_ENABLE1, 0x10);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_SELECT, 0x33);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CMN_CONFIG, 0x06);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP_EN, 0x00);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP_EN, 0x42);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_MAP, 0x00);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE2_MODE0, 0x01);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE1_MODE0, 0x3F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_TIMER1, 0xFF);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_VCO_TUNE_TIMER2, 0x1F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_HSCLK_SEL, 0x01);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SVS_MODE_CLK_SEL, 0x01);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_CORE_CLK_EN, 0x6E);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_CORE_CLK_EN, 0x00);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CORECLK_DIV, 0x0A);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_BG_TIMER, 0x0A);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_BG_TIMER, 0x09);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_DEC_START_MODE0, 0x82);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_DIV_FRAC_START3_MODE0, 0x03);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_DIV_FRAC_START2_MODE0, 0x55);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_DIV_FRAC_START1_MODE0, 0x55);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP3_MODE0, 0x00);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP2_MODE0, 0x34);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP1_MODE0, 0x14);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP2_MODE0, 0x1A);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_LOCK_CMP1_MODE0, 0x0A);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CLK_SELECT, 0x33);
-	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYS_CLK_CTRL, 0x04);
+	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYS_CLK_CTRL, 0x02);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYSCLK_BUF_ENABLE, 0x1F);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_SYSCLK_EN_SEL, 0x04);
 	msm_pcie_write_reg(dev->phy, QSERDES_COM_CP_CTRL_MODE0, 0x0B);
@@ -1161,9 +1162,6 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		0x06);
 
 	msm_pcie_write_reg(dev->phy,
-		PCIE_N_TXDEEMPH_M3P5DB_V0(dev->rc_idx, common_phy),
-		0x11);
-	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_SIGDET_ENABLES(dev->rc_idx, common_phy),
 		0x1C);
 	msm_pcie_write_reg(dev->phy,
@@ -1180,16 +1178,25 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		0xDB);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_UCDR_SO_GAIN(dev->rc_idx, common_phy),
-		0x00);
+		0x04);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_UCDR_SO_GAIN_HALF(dev->rc_idx, common_phy),
-		0x00);
+		0x04);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_RX_IDLE_DTCT_CNTRL(dev->rc_idx, common_phy),
 		0x4C);
 	msm_pcie_write_reg(dev->phy,
+		PCIE_N_PWRUP_RESET_DLY_TIME_AUXCLK(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_LP_WAKEUP_DLY_TIME_AUXCLK(dev->rc_idx, common_phy),
+		0x00);
+	msm_pcie_write_reg(dev->phy,
+		PCIE_N_PLL_LOCK_CHK_DLY_TIME(dev->rc_idx, common_phy),
+		0x05);
+	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_UCDR_SO_SATURATION_AND_ENABLE(dev->rc_idx,
-		common_phy), 0x40);
+		common_phy), 0x4B);
 	msm_pcie_write_reg(dev->phy,
 		QSERDES_RX_N_SIGDET_DEGLITCH_CNTRL(dev->rc_idx, common_phy),
 		0x14);
@@ -1202,10 +1209,10 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 		0x02);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_STATE_CONFIG4(dev->rc_idx, common_phy),
-		0x02);
+		0x00);
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_STATE_CONFIG1(dev->rc_idx, common_phy),
-		0x63);
+		0xA3);
 
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, common_phy),
