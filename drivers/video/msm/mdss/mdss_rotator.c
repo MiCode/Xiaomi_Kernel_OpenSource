@@ -1009,7 +1009,7 @@ static int mdss_rotator_calc_perf(struct mdss_rot_perf *perf)
 	read_bw = mdss_apply_overhead_factors(read_bw,
 		true, true, in_fmt, &config->input.comp_ratio);
 	write_bw = mdss_apply_overhead_factors(write_bw,
-		true, false, out_fmt, &config->input.comp_ratio);
+		true, false, out_fmt, &config->output.comp_ratio);
 
 	perf->bw = read_bw + write_bw;
 	return 0;

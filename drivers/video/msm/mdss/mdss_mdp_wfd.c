@@ -193,6 +193,7 @@ int mdss_mdp_wfd_setup(struct mdss_mdp_wfd *wfd,
 	}
 
 	ctl->dst_format = layer->buffer.format;
+	ctl->dst_comp_ratio = layer->buffer.comp_ratio;
 	ctl->width = layer->buffer.width;
 	ctl->height = layer->buffer.height;
 	ctl->roi =  (struct mdss_rect) {0, 0, ctl->width, ctl->height};
