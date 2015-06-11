@@ -118,12 +118,12 @@ static void mon_irq_disable(struct bwmon *m)
 
 static unsigned int mon_irq_status(struct bwmon *m)
 {
-	u32 mval, gval;
+	u32 mval;
 
-	mval = readl_relaxed(MON_INT_STATUS(m)),
-	gval = readl_relaxed(GLB_INT_STATUS(m));
+	mval = readl_relaxed(MON_INT_STATUS(m));
 
-	dev_dbg(m->dev, "IRQ status p:%x, g:%x\n", mval, gval);
+	dev_dbg(m->dev, "IRQ status p:%x, g:%x\n", mval,
+			readl_relaxed(GLB_INT_STATUS(m)));
 
 	return mval;
 }
