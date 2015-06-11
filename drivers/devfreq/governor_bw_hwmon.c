@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2013-2017, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 #include <linux/errno.h>
 #include <linux/mutex.h>
 #include <linux/interrupt.h>
+#include <linux/spinlock.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
 #include <linux/devfreq.h>
@@ -32,17 +33,43 @@
 #include "governor.h"
 #include "governor_bw_hwmon.h"
 
+#define NUM_MBPS_ZONES		10
 struct hwmon_node {
-	unsigned int tolerance_percent;
 	unsigned int guard_band_mbps;
 	unsigned int decay_rate;
 	unsigned int io_percent;
 	unsigned int bw_step;
+	unsigned int sample_ms;
+	unsigned int up_scale;
+	unsigned int up_thres;
+	unsigned int down_thres;
+	unsigned int down_count;
+	unsigned int hist_memory;
+	unsigned int hyst_trigger_count;
+	unsigned int hyst_length;
+	unsigned int idle_mbps;
+	unsigned int mbps_zones[NUM_MBPS_ZONES];
+
 	unsigned long prev_ab;
 	unsigned long *dev_ab;
 	unsigned long resume_freq;
 	unsigned long resume_ab;
+	unsigned long bytes;
+	unsigned long max_mbps;
+	unsigned long hist_max_mbps;
+	unsigned long hist_mem;
+	unsigned long hyst_peak;
+	unsigned long hyst_mbps;
+	unsigned long hyst_trig_win;
+	unsigned long hyst_en;
+	unsigned long prev_req;
+	unsigned long up_wake_mbps;
+	unsigned long down_wake_mbps;
+	unsigned int wake;
+	unsigned int down_cnt;
 	ktime_t prev_ts;
+	ktime_t hist_max_ts;
+	bool sampled;
 	bool mon_started;
 	struct list_head list;
 	void *orig_data;
@@ -50,6 +77,10 @@ struct hwmon_node {
 	struct devfreq_governor *gov;
 	struct attribute_group *attr_grp;
 };
+
+#define UP_WAKE 1
+#define DOWN_WAKE 2
+static DEFINE_SPINLOCK(irq_lock);
 
 static LIST_HEAD(hwmon_list);
 static DEFINE_MUTEX(list_lock);
@@ -75,9 +106,9 @@ static ssize_t store_##name(struct device *dev,				\
 	struct hwmon_node *hw = df->data;				\
 	int ret;							\
 	unsigned int val;						\
-	ret = sscanf(buf, "%u", &val);					\
-	if (ret != 1)							\
-		return -EINVAL;						\
+	ret = kstrtoint(buf, 10, &val);					\
+	if (ret)							\
+		return ret;						\
 	val = max(val, _min);						\
 	val = min(val, _max);						\
 	hw->name = val;							\
@@ -86,58 +117,296 @@ static ssize_t store_##name(struct device *dev,				\
 
 #define gov_attr(__attr, min, max)	\
 show_attr(__attr)			\
-store_attr(__attr, min, max)		\
+store_attr(__attr, (min), (max))	\
 static DEVICE_ATTR(__attr, 0644, show_##__attr, store_##__attr)
+
+#define show_list_attr(name, n) \
+static ssize_t show_list_##name(struct device *dev,			\
+			struct device_attribute *attr, char *buf)	\
+{									\
+	struct devfreq *df = to_devfreq(dev);				\
+	struct hwmon_node *hw = df->data;				\
+	unsigned int i, cnt = 0;					\
+									\
+	for (i = 0; i < n && hw->name[i]; i++)				\
+		cnt += snprintf(buf + cnt, PAGE_SIZE, "%u ", hw->name[i]);\
+	cnt += snprintf(buf + cnt, PAGE_SIZE, "\n");			\
+	return cnt;							\
+}
+
+#define store_list_attr(name, n, _min, _max) \
+static ssize_t store_list_##name(struct device *dev,			\
+			struct device_attribute *attr, const char *buf,	\
+			size_t count)					\
+{									\
+	struct devfreq *df = to_devfreq(dev);				\
+	struct hwmon_node *hw = df->data;				\
+	int ret, numvals;						\
+	unsigned int i = 0, val;					\
+	char **strlist;							\
+									\
+	strlist = argv_split(GFP_KERNEL, buf, &numvals);		\
+	if (!strlist)							\
+		return -ENOMEM;						\
+	numvals = min(numvals, n - 1);					\
+	for (i = 0; i < numvals; i++) {					\
+		ret = kstrtouint(strlist[i], 10, &val);			\
+		if (ret)						\
+			goto out;					\
+		val = max(val, _min);					\
+		val = min(val, _max);					\
+		hw->name[i] = val;					\
+	}								\
+	ret = count;							\
+out:									\
+	argv_free(strlist);						\
+	hw->name[i] = 0;						\
+	return ret;							\
+}
+
+#define gov_list_attr(__attr, n, min, max)	\
+show_list_attr(__attr, n)			\
+store_list_attr(__attr, n, (min), (max))	\
+static DEVICE_ATTR(__attr, 0644, show_list_##__attr, store_list_##__attr)
 
 #define MIN_MS	10U
 #define MAX_MS	500U
 
-static unsigned long measure_bw_and_set_irq(struct hwmon_node *node)
+/* Returns MBps of read/writes for the sampling window. */
+static unsigned int bytes_to_mbps(long long bytes, unsigned int us)
 {
-	ktime_t ts;
-	unsigned int us;
-	unsigned long mbps;
-	struct bw_hwmon *hw = node->hw;
+	bytes *= USEC_PER_SEC;
+	do_div(bytes, us);
+	bytes = DIV_ROUND_UP_ULL(bytes, SZ_1M);
+	return bytes;
+}
 
-	/*
-	 * Since we are stopping the counters, we don't want this short work
-	 * to be interrupted by other tasks and cause the measurements to be
-	 * wrong. Not blocking interrupts to avoid affecting interrupt
-	 * latency and since they should be short anyway because they run in
-	 * atomic context.
-	 */
-	preempt_disable();
-
-	ts = ktime_get();
-	us = ktime_to_us(ktime_sub(ts, node->prev_ts));
-	if (!us)
-		us = 1;
-
-	mbps = hw->meas_bw_and_set_irq(hw, node->tolerance_percent, us);
-	node->prev_ts = ts;
-
-	preempt_enable();
-
-	dev_dbg(hw->df->dev.parent, "BW MBps = %6lu, period = %u\n", mbps, us);
-	trace_bw_hwmon_meas(dev_name(hw->df->dev.parent),
-				mbps,
-				us,
-				0);
-
+static unsigned int mbps_to_bytes(unsigned long mbps, unsigned int ms)
+{
+	mbps *= ms;
+	mbps = DIV_ROUND_UP(mbps, MSEC_PER_SEC);
+	mbps *= SZ_1M;
 	return mbps;
 }
 
-static void compute_bw(struct hwmon_node *node, int mbps,
-			unsigned long *freq, unsigned long *ab)
+static int __bw_hwmon_sample_end(struct bw_hwmon *hwmon)
 {
-	int new_bw;
+	struct devfreq *df;
+	struct hwmon_node *node;
+	ktime_t ts;
+	unsigned long bytes, mbps;
+	unsigned int us;
+	int wake = 0;
 
-	mbps += node->guard_band_mbps;
+	df = hwmon->df;
+	node = df->data;
 
-	if (mbps > node->prev_ab) {
-		new_bw = mbps;
+	ts = ktime_get();
+	us = ktime_to_us(ktime_sub(ts, node->prev_ts));
+
+	bytes = hwmon->get_bytes_and_clear(hwmon);
+	bytes += node->bytes;
+	node->bytes = 0;
+
+	mbps = bytes_to_mbps(bytes, us);
+	node->max_mbps = max(node->max_mbps, mbps);
+
+	/*
+	 * If the measured bandwidth in a micro sample is greater than the
+	 * wake up threshold, it indicates an increase in load that's non
+	 * trivial. So, have the governor ignore historical idle time or low
+	 * bandwidth usage and do the bandwidth calculation based on just
+	 * this micro sample.
+	 */
+	if (mbps > node->up_wake_mbps) {
+		wake = UP_WAKE;
+	} else if (mbps < node->down_wake_mbps) {
+		if (node->down_cnt)
+			node->down_cnt--;
+		if (node->down_cnt <= 0)
+			wake = DOWN_WAKE;
+	}
+
+	node->prev_ts = ts;
+	node->wake = wake;
+	node->sampled = true;
+
+	trace_bw_hwmon_meas(dev_name(df->dev.parent),
+				mbps,
+				us,
+				wake);
+
+	return wake;
+}
+
+int bw_hwmon_sample_end(struct bw_hwmon *hwmon)
+{
+	unsigned long flags;
+	int wake;
+
+	spin_lock_irqsave(&irq_lock, flags);
+	wake = __bw_hwmon_sample_end(hwmon);
+	spin_unlock_irqrestore(&irq_lock, flags);
+
+	return wake;
+}
+
+unsigned long to_mbps_zone(struct hwmon_node *node, unsigned long mbps)
+{
+	int i;
+
+	for (i = 0; i < NUM_MBPS_ZONES && node->mbps_zones[i]; i++)
+		if (node->mbps_zones[i] >= mbps)
+			return node->mbps_zones[i];
+
+	return node->hw->df->max_freq;
+}
+
+#define MIN_MBPS	500UL
+#define HIST_PEAK_TOL	60
+static unsigned long get_bw_and_set_irq(struct hwmon_node *node,
+					unsigned long *freq, unsigned long *ab)
+{
+	unsigned long meas_mbps, thres, flags, req_mbps, adj_mbps;
+	unsigned long meas_mbps_zone;
+	unsigned long hist_lo_tol, hyst_lo_tol;
+	struct bw_hwmon *hw = node->hw;
+	unsigned int new_bw, io_percent = node->io_percent;
+	ktime_t ts;
+	unsigned int ms;
+
+	spin_lock_irqsave(&irq_lock, flags);
+
+	ts = ktime_get();
+	ms = ktime_to_ms(ktime_sub(ts, node->prev_ts));
+	if (!node->sampled || ms >= node->sample_ms)
+		__bw_hwmon_sample_end(node->hw);
+	node->sampled = false;
+
+	req_mbps = meas_mbps = node->max_mbps;
+	node->max_mbps = 0;
+
+	hist_lo_tol = (node->hist_max_mbps * HIST_PEAK_TOL) / 100;
+	/* Remember historic peak in the past hist_mem decision windows. */
+	if (meas_mbps > node->hist_max_mbps || !node->hist_mem) {
+		/* If new max or no history */
+		node->hist_max_mbps = meas_mbps;
+		node->hist_mem = node->hist_memory;
+	} else if (meas_mbps >= hist_lo_tol) {
+		/*
+		 * If subsequent peaks come close (within tolerance) to but
+		 * less than the historic peak, then reset the history start,
+		 * but not the peak value.
+		 */
+		node->hist_mem = node->hist_memory;
 	} else {
-		new_bw = mbps * node->decay_rate
+		/* Count down history expiration. */
+		if (node->hist_mem)
+			node->hist_mem--;
+	}
+
+	/*
+	 * The AB value that corresponds to the lowest mbps zone greater than
+	 * or equal to the "frequency" the current measurement will pick.
+	 * This upper limit is useful for balancing out any prediction
+	 * mechanisms to be power friendly.
+	 */
+	meas_mbps_zone = (meas_mbps * 100) / io_percent;
+	meas_mbps_zone = to_mbps_zone(node, meas_mbps_zone);
+	meas_mbps_zone = (meas_mbps_zone * io_percent) / 100;
+	meas_mbps_zone = max(meas_mbps, meas_mbps_zone);
+
+	/*
+	 * If this is a wake up due to BW increase, vote much higher BW than
+	 * what we measure to stay ahead of increasing traffic and then set
+	 * it up to vote for measured BW if we see down_count short sample
+	 * windows of low traffic.
+	 */
+	if (node->wake == UP_WAKE) {
+		req_mbps += ((meas_mbps - node->prev_req)
+				* node->up_scale) / 100;
+		/*
+		 * However if the measured load is less than the historic
+		 * peak, but the over request is higher than the historic
+		 * peak, then we could limit the over requesting to the
+		 * historic peak.
+		 */
+		if (req_mbps > node->hist_max_mbps
+		    && meas_mbps < node->hist_max_mbps)
+			req_mbps = node->hist_max_mbps;
+
+		req_mbps = min(req_mbps, meas_mbps_zone);
+	}
+
+	hyst_lo_tol = (node->hyst_mbps * HIST_PEAK_TOL) / 100;
+	if (meas_mbps > node->hyst_mbps && meas_mbps > MIN_MBPS) {
+		hyst_lo_tol = (meas_mbps * HIST_PEAK_TOL) / 100;
+		node->hyst_peak = 0;
+		node->hyst_trig_win = node->hyst_length;
+		node->hyst_mbps = meas_mbps;
+	}
+
+	/*
+	 * Check node->max_mbps to avoid double counting peaks that cause
+	 * early termination of a window.
+	 */
+	if (meas_mbps >= hyst_lo_tol && meas_mbps > MIN_MBPS
+	    && !node->max_mbps) {
+		node->hyst_peak++;
+		if (node->hyst_peak >= node->hyst_trigger_count
+		    || node->hyst_en)
+			node->hyst_en = node->hyst_length;
+	}
+
+	if (node->hyst_trig_win)
+		node->hyst_trig_win--;
+	if (node->hyst_en)
+		node->hyst_en--;
+
+	if (!node->hyst_trig_win && !node->hyst_en) {
+		node->hyst_peak = 0;
+		node->hyst_mbps = 0;
+	}
+
+	if (node->hyst_en) {
+		if (meas_mbps > node->idle_mbps)
+			req_mbps = max(req_mbps, node->hyst_mbps);
+	}
+
+	/* Stretch the short sample window size, if the traffic is too low */
+	if (meas_mbps < MIN_MBPS) {
+		node->up_wake_mbps = (max(MIN_MBPS, req_mbps)
+					* (100 + node->up_thres)) / 100;
+		node->down_wake_mbps = 0;
+		thres = mbps_to_bytes(max(MIN_MBPS, req_mbps / 2),
+					node->sample_ms);
+	} else {
+		/*
+		 * Up wake vs down wake are intentionally a percentage of
+		 * req_mbps vs meas_mbps to make sure the over requesting
+		 * phase is handled properly. We only want to wake up and
+		 * reduce the vote based on the measured mbps being less than
+		 * the previous measurement that caused the "over request".
+		 */
+		node->up_wake_mbps = (req_mbps * (100 + node->up_thres)) / 100;
+		node->down_wake_mbps = (meas_mbps * node->down_thres) / 100;
+		thres = mbps_to_bytes(meas_mbps, node->sample_ms);
+	}
+	node->down_cnt = node->down_count;
+
+	node->bytes = hw->set_thres(hw, thres);
+
+	node->wake = 0;
+	node->prev_req = req_mbps;
+
+	spin_unlock_irqrestore(&irq_lock, flags);
+
+	adj_mbps = req_mbps + node->guard_band_mbps;
+
+	if (adj_mbps > node->prev_ab) {
+		new_bw = adj_mbps;
+	} else {
+		new_bw = adj_mbps * node->decay_rate
 			+ node->prev_ab * (100 - node->decay_rate);
 		new_bw /= 100;
 	}
@@ -145,12 +414,14 @@ static void compute_bw(struct hwmon_node *node, int mbps,
 	node->prev_ab = new_bw;
 	if (ab)
 		*ab = roundup(new_bw, node->bw_step);
-	*freq = (new_bw * 100) / node->io_percent;
+
+	*freq = (new_bw * 100) / io_percent;
 	trace_bw_hwmon_update(dev_name(node->hw->df->dev.parent),
 				new_bw,
 				*freq,
-				0,
-				0);
+				node->up_wake_mbps,
+				node->down_wake_mbps);
+	return req_mbps;
 }
 
 static struct hwmon_node *find_hwmon_node(struct devfreq *df)
@@ -171,13 +442,10 @@ static struct hwmon_node *find_hwmon_node(struct devfreq *df)
 	return found;
 }
 
-#define TOO_SOON_US	(1 * USEC_PER_MSEC)
 int update_bw_hwmon(struct bw_hwmon *hwmon)
 {
 	struct devfreq *df;
 	struct hwmon_node *node;
-	ktime_t ts;
-	unsigned int us;
 	int ret;
 
 	if (!hwmon)
@@ -185,7 +453,7 @@ int update_bw_hwmon(struct bw_hwmon *hwmon)
 	df = hwmon->df;
 	if (!df)
 		return -ENODEV;
-	node = find_hwmon_node(df);
+	node = df->data;
 	if (!node)
 		return -ENODEV;
 
@@ -195,26 +463,12 @@ int update_bw_hwmon(struct bw_hwmon *hwmon)
 	dev_dbg(df->dev.parent, "Got update request\n");
 	devfreq_monitor_stop(df);
 
-	/*
-	 * Don't recalc bandwidth if the interrupt comes right after a
-	 * previous bandwidth calculation.  This is done for two reasons:
-	 *
-	 * 1. Sampling the BW during a very short duration can result in a
-	 *    very inaccurate measurement due to very short bursts.
-	 * 2. This can only happen if the limit was hit very close to the end
-	 *    of the previous sample period. Which means the current BW
-	 *    estimate is not very off and doesn't need to be readjusted.
-	 */
-	ts = ktime_get();
-	us = ktime_to_us(ktime_sub(ts, node->prev_ts));
-	if (us > TOO_SOON_US) {
-		mutex_lock(&df->lock);
-		ret = update_devfreq(df);
-		if (ret)
-			dev_err(df->dev.parent,
-				"Unable to update freq on request!\n");
-		mutex_unlock(&df->lock);
-	}
+	mutex_lock(&df->lock);
+	ret = update_devfreq(df);
+	if (ret)
+		dev_err(df->dev.parent,
+			"Unable to update freq on request!\n");
+	mutex_unlock(&df->lock);
 
 	devfreq_monitor_start(df);
 
@@ -391,7 +645,6 @@ static int gov_resume(struct devfreq *df)
 static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 					unsigned long *freq)
 {
-	unsigned long mbps;
 	struct hwmon_node *node = df->data;
 
 	/* Suspend/resume sequence */
@@ -401,24 +654,41 @@ static int devfreq_bw_hwmon_get_freq(struct devfreq *df,
 		return 0;
 	}
 
-	mbps = measure_bw_and_set_irq(node);
-	compute_bw(node, mbps, freq, node->dev_ab);
+	get_bw_and_set_irq(node, freq, node->dev_ab);
 
 	return 0;
 }
 
-gov_attr(tolerance_percent, 0U, 30U);
 gov_attr(guard_band_mbps, 0U, 2000U);
 gov_attr(decay_rate, 0U, 100U);
 gov_attr(io_percent, 1U, 100U);
 gov_attr(bw_step, 50U, 1000U);
+gov_attr(sample_ms, 1U, 50U);
+gov_attr(up_scale, 0U, 500U);
+gov_attr(up_thres, 1U, 100U);
+gov_attr(down_thres, 0U, 90U);
+gov_attr(down_count, 0U, 90U);
+gov_attr(hist_memory, 0U, 90U);
+gov_attr(hyst_trigger_count, 0U, 90U);
+gov_attr(hyst_length, 0U, 90U);
+gov_attr(idle_mbps, 0U, 2000U);
+gov_list_attr(mbps_zones, NUM_MBPS_ZONES, 0U, UINT_MAX);
 
 static struct attribute *dev_attr[] = {
-	&dev_attr_tolerance_percent.attr,
 	&dev_attr_guard_band_mbps.attr,
 	&dev_attr_decay_rate.attr,
 	&dev_attr_io_percent.attr,
 	&dev_attr_bw_step.attr,
+	&dev_attr_sample_ms.attr,
+	&dev_attr_up_scale.attr,
+	&dev_attr_up_thres.attr,
+	&dev_attr_down_thres.attr,
+	&dev_attr_down_count.attr,
+	&dev_attr_hist_memory.attr,
+	&dev_attr_hyst_trigger_count.attr,
+	&dev_attr_hyst_length.attr,
+	&dev_attr_idle_mbps.attr,
+	&dev_attr_mbps_zones.attr,
 	NULL,
 };
 
@@ -430,8 +700,12 @@ static struct attribute_group dev_attr_group = {
 static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 					unsigned int event, void *data)
 {
-	int ret;
+	int ret = 0;
 	unsigned int sample_ms;
+	struct hwmon_node *node;
+	struct bw_hwmon *hw;
+
+	mutex_lock(&state_lock);
 
 	switch (event) {
 	case DEVFREQ_GOV_START:
@@ -442,7 +716,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 
 		ret = gov_start(df);
 		if (ret)
-			return ret;
+			goto out;
 
 		dev_dbg(df->dev.parent,
 			"Enabled dev BW HW monitor governor\n");
@@ -458,7 +732,22 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 		sample_ms = *(unsigned int *)data;
 		sample_ms = max(MIN_MS, sample_ms);
 		sample_ms = min(MAX_MS, sample_ms);
+		/*
+		 * Suspend/resume the HW monitor around the interval update
+		 * to prevent the HW monitor IRQ from trying to change
+		 * stop/start the delayed workqueue while the interval update
+		 * is happening.
+		 */
+		node = df->data;
+		hw = node->hw;
+		hw->suspend_hwmon(hw);
 		devfreq_interval_update(df, &sample_ms);
+		ret = hw->resume_hwmon(hw);
+		if (ret) {
+			dev_err(df->dev.parent,
+				"Unable to resume HW monitor (%d)\n", ret);
+			goto out;
+		}
 		break;
 
 	case DEVFREQ_GOV_SUSPEND:
@@ -467,7 +756,7 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 			dev_err(df->dev.parent,
 				"Unable to suspend BW HW mon governor (%d)\n",
 				ret);
-			return ret;
+			goto out;
 		}
 
 		dev_dbg(df->dev.parent, "Suspended BW HW mon governor\n");
@@ -479,14 +768,17 @@ static int devfreq_bw_hwmon_ev_handler(struct devfreq *df,
 			dev_err(df->dev.parent,
 				"Unable to resume BW HW mon governor (%d)\n",
 				ret);
-			return ret;
+			goto out;
 		}
 
 		dev_dbg(df->dev.parent, "Resumed BW HW mon governor\n");
 		break;
 	}
 
-	return 0;
+out:
+	mutex_unlock(&state_lock);
+
+	return ret;
 }
 
 static struct devfreq_governor devfreq_gov_bw_hwmon = {
@@ -525,11 +817,20 @@ int register_bw_hwmon(struct device *dev, struct bw_hwmon *hwmon)
 		node->attr_grp = &dev_attr_group;
 	}
 
-	node->tolerance_percent = 10;
 	node->guard_band_mbps = 100;
 	node->decay_rate = 90;
 	node->io_percent = 16;
 	node->bw_step = 190;
+	node->sample_ms = 50;
+	node->up_scale = 0;
+	node->up_thres = 10;
+	node->down_thres = 0;
+	node->down_count = 3;
+	node->hist_memory = 0;
+	node->hyst_trigger_count = 3;
+	node->hyst_length = 0;
+	node->idle_mbps = 400;
+	node->mbps_zones[0] = 0;
 	node->hw = hwmon;
 
 	mutex_lock(&list_lock);
