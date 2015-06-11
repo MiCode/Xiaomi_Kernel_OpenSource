@@ -14,46 +14,46 @@ qcom,qrd_msm8952_skum_2920mah {
 	qcom,max-voltage-uv = <4400000>;
 	qcom,nom-batt-capacity-mah = <2920>;
 	qcom,batt-id-kohm = <90>;
-	qcom,battery-beta = <0>;
+	qcom,battery-beta = <3435>;
 	qcom,battery-type = "qrd_msm8952_skum_2920mah";
-	qcom,chg-rslow-comp-c1 = <4847657>;
-	qcom,chg-rslow-comp-c2 = <11109950>;
-	qcom,chg-rs-to-rslow = <819081>;
-	qcom,chg-rslow-comp-thr = <0xC7>;
-	qcom,checksum = <0x13EE>;
-	qcom,gui-version = "PMI8950GUI - 0.0.0.32";
+	qcom,chg-rslow-comp-c1 = <3030186>;
+	qcom,chg-rslow-comp-c2 = <3746792>;
+	qcom,chg-rs-to-rslow = <892752>;
+	qcom,chg-rslow-comp-thr = <0x99>;
+	qcom,checksum = <0x7DBF>;
+	qcom,gui-version = "PMI8950GUI - 2.0.0.0";
 	qcom,fg-profile-data = [
-		C7 83 0E 77
-		EE 7A 0A 6E
-		3A 83 D3 70
-		5B 71 3F 86
-		B0 81 82 A0
-		3E C4 77 D1
-		54 0D D4 83
-		8A 76 4C 7A
-		D0 6C 4F 83
-		77 6B 2E 79
-		05 8C 20 82
-		70 9A 79 BD
-		3C CA 54 0D
-		D3 0B A0 62
+		B5 83 CF 75
+		89 7A 3F 6E
+		76 83 73 7D
+		29 91 6E 9C
+		24 82 38 99
+		76 B7 1E C3
+		4C 15 52 83
+		CD 61 DE 6A
+		B4 5A 38 83
+		19 79 90 85
+		B2 80 68 82
+		BE 98 D9 B7
+		6D C8 70 13
+		CE 0B 28 61
 		14 70 71 FD
-		35 2F CD 35
-		FE 1A 00 00
-		9C 4D 14 3B
-		FE 3A 00 00
+		F5 37 9A 46
+		0B 48 00 00
+		B4 47 C7 32
+		5F 30 00 00
 		00 00 00 00
 		00 00 00 00
-		0D 6B A9 69
-		A2 76 CE 81
-		8B 7D A0 72
-		95 6F 64 78
-		46 7C 34 70
-		9B 49 85 93
-		50 4B 61 22
-		5E A0 71 0C
+		08 70 C3 69
+		03 75 74 88
+		97 7C DF 70
+		A2 6D D0 79
+		36 76 BC 68
+		C9 68 C0 B0
+		21 C7 62 62
+		64 A0 71 0C
 		28 00 FF 36
 		F0 11 30 03
-		00 00 00 00
+		00 00 00 0C
 	];
 };
