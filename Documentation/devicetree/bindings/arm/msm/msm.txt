@@ -74,6 +74,9 @@ SoCs:
 - MDM9640
   compatible = "qcom,mdm9640"
 
+- MDMFERMIUM
+  compatible = "qcom,mdmfermium"
+
 - VPIPA
   compatible = "qcom,msmvpipa"
 
@@ -239,3 +242,4 @@ compatible = "qcom,msm8929-qrd-skul"
 compatible = "qcom,msm8929-qrd-skulb"
 compatible = "qcom,apq8052-cdp"
 compatible = "qcom,apq8052-mtp"
+compatible = "qcom,mdmfermium-rumi"
