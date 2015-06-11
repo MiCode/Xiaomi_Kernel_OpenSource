@@ -78,6 +78,12 @@ static void mon_disable(struct bwmon *m)
 static void mon_clear(struct bwmon *m)
 {
 	writel_relaxed(0x1, MON_CLEAR(m));
+	/*
+	 * The counter clear and IRQ clear bits are not in the same 4KB
+	 * region. So, we need to make sure the counter clear is completed
+	 * before we try to clear the IRQ or do any other counter operations.
+	 */
+	mb();
 }
 
 static void mon_irq_enable(struct bwmon *m)
