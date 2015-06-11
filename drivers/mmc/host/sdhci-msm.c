@@ -4944,8 +4944,6 @@ defer_disable_host_irq:
 		if (msm_host->msm_bus_vote.client_handle)
 			sdhci_msm_bus_cancel_work_and_set_vote(host, 0);
 	}
-	trace_sdhci_msm_runtime_suspend(mmc_hostname(host->mmc), 0,
-			ktime_to_us(ktime_sub(ktime_get(), start)));
 
 	if (host->is_crypto_en) {
 		ret = sdhci_msm_ice_suspend(host);
@@ -4953,6 +4951,8 @@ defer_disable_host_irq:
 			pr_err("%s: failed to suspend crypto engine %d\n",
 					mmc_hostname(host->mmc), ret);
 	}
+	trace_sdhci_msm_runtime_suspend(mmc_hostname(host->mmc), 0,
+			ktime_to_us(ktime_sub(ktime_get(), start)));
 	return 0;
 }
 
