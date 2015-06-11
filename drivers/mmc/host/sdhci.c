@@ -1779,6 +1779,42 @@ static int sdhci_get_tuning_cmd(struct sdhci_host *host)
 		return MMC_SEND_TUNING_BLOCK;
 }
 
+void sdhci_unvote_all_pm_qos(struct sdhci_host *host)
+{
+	struct sdhci_host_qos *host_qos = host->host_qos;
+
+	cancel_delayed_work_sync(&host->pm_qos_work);
+
+	/*
+	 * This explicitly unvote all pm_qos request from sdhci driver.
+	 * This call can be used by LLD before going to suspend to
+	 * make sure that no qos vote has been held up after
+	 * driver suspend.
+	 */
+	mutex_lock(&host->qos_lock);
+	if (host_qos[SDHCI_QOS_READ_WRITE].cpu_dma_latency_us) {
+		if (host->host_use_default_qos ||
+				(host->mmc->caps2 &  MMC_CAP2_CMD_QUEUE))
+			pm_qos_update_request(
+			&(host_qos[SDHCI_QOS_READ_WRITE].pm_qos_req_dma),
+				PM_QOS_DEFAULT_VALUE);
+
+		if (!host->host_use_default_qos) {
+			pm_qos_update_request(
+				&(host_qos[SDHCI_QOS_READ].pm_qos_req_dma),
+				PM_QOS_DEFAULT_VALUE);
+			pm_qos_update_request(
+				&(host_qos[SDHCI_QOS_WRITE].pm_qos_req_dma),
+				PM_QOS_DEFAULT_VALUE);
+		}
+	}
+	mutex_unlock(&host->qos_lock);
+	pr_debug("%s: %s: unvote ===all pm_qos=== votes\n",
+			mmc_hostname(host->mmc), __func__);
+	return;
+}
+EXPORT_SYMBOL(sdhci_unvote_all_pm_qos);
+
 void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync)
 {
 	if (enable && !host->irq_enabled) {
