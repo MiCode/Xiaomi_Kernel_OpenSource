@@ -88,23 +88,9 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 #define QSCRATCH_REG_OFFSET	(0x000F8800)
 #define QSCRATCH_CTRL_REG      (QSCRATCH_REG_OFFSET + 0x04)
 #define QSCRATCH_GENERAL_CFG	(QSCRATCH_REG_OFFSET + 0x08)
-#define QSCRATCH_RAM1_REG	(QSCRATCH_REG_OFFSET + 0x0C)
-#define HS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x10)
-#define PARAMETER_OVERRIDE_X_REG (QSCRATCH_REG_OFFSET + 0x14)
-#define HS_PHY_IRQ_STAT_REG	(QSCRATCH_REG_OFFSET + 0x24)
 #define CGCTL_REG		(QSCRATCH_REG_OFFSET + 0x28)
-#define SS_PHY_CTRL_REG		(QSCRATCH_REG_OFFSET + 0x30)
-#define SS_PHY_PARAM_CTRL_1	(QSCRATCH_REG_OFFSET + 0x34)
-#define SS_PHY_PARAM_CTRL_2	(QSCRATCH_REG_OFFSET + 0x38)
-#define SS_CR_PROTOCOL_DATA_IN_REG  (QSCRATCH_REG_OFFSET + 0x3C)
-#define SS_CR_PROTOCOL_DATA_OUT_REG (QSCRATCH_REG_OFFSET + 0x40)
-#define SS_CR_PROTOCOL_CAP_ADDR_REG (QSCRATCH_REG_OFFSET + 0x44)
-#define SS_CR_PROTOCOL_CAP_DATA_REG (QSCRATCH_REG_OFFSET + 0x48)
-#define SS_CR_PROTOCOL_READ_REG     (QSCRATCH_REG_OFFSET + 0x4C)
-#define SS_CR_PROTOCOL_WRITE_REG    (QSCRATCH_REG_OFFSET + 0x50)
 #define PWR_EVNT_IRQ_STAT_REG    (QSCRATCH_REG_OFFSET + 0x58)
 #define PWR_EVNT_IRQ_MASK_REG    (QSCRATCH_REG_OFFSET + 0x5C)
-#define HS_PHY_CTRL_COMMON_REG	(QSCRATCH_REG_OFFSET + 0xEC)
 
 #define PWR_EVNT_POWERDOWN_IN_P3_MASK		BIT(2)
 #define PWR_EVNT_POWERDOWN_OUT_P3_MASK		BIT(3)
@@ -409,37 +395,6 @@ static inline bool dwc3_msm_is_superspeed(struct dwc3_msm *mdwc)
 		return dwc3_msm_is_host_superspeed(mdwc);
 
 	return dwc3_msm_is_dev_superspeed(mdwc);
-}
-
-/**
- * Dump all QSCRATCH registers.
- *
- */
-static void dwc3_msm_dump_phy_info(struct dwc3_msm *mdwc)
-{
-
-	dbg_print_reg("SSPHY_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
-						SS_PHY_CTRL_REG));
-	dbg_print_reg("HSPHY_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
-						HS_PHY_CTRL_REG));
-	dbg_print_reg("QSCRATCH_CTRL_REG", dwc3_msm_read_reg(mdwc->base,
-						QSCRATCH_CTRL_REG));
-	dbg_print_reg("QSCRATCH_GENERAL_CFG", dwc3_msm_read_reg(mdwc->base,
-						QSCRATCH_GENERAL_CFG));
-	dbg_print_reg("PARAMETER_OVERRIDE_X_REG", dwc3_msm_read_reg(mdwc->base,
-						PARAMETER_OVERRIDE_X_REG));
-	dbg_print_reg("HS_PHY_IRQ_STAT_REG", dwc3_msm_read_reg(mdwc->base,
-						HS_PHY_IRQ_STAT_REG));
-	dbg_print_reg("SS_PHY_PARAM_CTRL_1", dwc3_msm_read_reg(mdwc->base,
-						SS_PHY_PARAM_CTRL_1));
-	dbg_print_reg("SS_PHY_PARAM_CTRL_2", dwc3_msm_read_reg(mdwc->base,
-						SS_PHY_PARAM_CTRL_2));
-	dbg_print_reg("QSCRATCH_RAM1_REG", dwc3_msm_read_reg(mdwc->base,
-						QSCRATCH_RAM1_REG));
-	dbg_print_reg("PWR_EVNT_IRQ_STAT_REG", dwc3_msm_read_reg(mdwc->base,
-						PWR_EVNT_IRQ_STAT_REG));
-	dbg_print_reg("PWR_EVNT_IRQ_MASK_REG", dwc3_msm_read_reg(mdwc->base,
-						PWR_EVNT_IRQ_MASK_REG));
 }
 
 /**
@@ -1176,7 +1131,6 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 			"DWC3_CONTROLLER_ERROR_EVENT received, irq cnt %lu\n",
 			dwc->irq_cnt);
 
-		dwc3_msm_dump_phy_info(mdwc);
 		dwc3_gadget_disable_irq(dwc);
 
 		/* prevent core from generating interrupts until recovery */
