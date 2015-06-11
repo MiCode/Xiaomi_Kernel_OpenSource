@@ -1179,6 +1179,7 @@ static void smbchg_usb_update_online_work(struct work_struct *work)
 
 	mutex_lock(&chip->usb_set_online_lock);
 	if (chip->usb_online != online) {
+		pr_smb(PR_MISC, "setting usb psy online = %d\n", online);
 		power_supply_set_online(chip->usb_psy, online);
 		chip->usb_online = online;
 	}
@@ -3138,18 +3139,12 @@ static void smbchg_external_power_changed(struct power_supply *psy)
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CHARGING_ENABLED, &prop);
-	if (rc < 0)
-		pr_smb(PR_MISC, "could not read USB charge_en, rc=%d\n",
-				rc);
-	else
+	if (rc == 0)
 		smbchg_usb_en(chip, prop.intval, REASON_POWER_SUPPLY);
 
 	rc = chip->usb_psy->get_property(chip->usb_psy,
 				POWER_SUPPLY_PROP_CURRENT_MAX, &prop);
-	if (rc < 0)
-		dev_err(chip->dev,
-			"could not read USB current_max property, rc=%d\n", rc);
-	else
+	if (rc != 0)
 		current_limit = prop.intval / 1000;
 
 	pr_smb(PR_MISC, "current_limit = %d\n", current_limit);
@@ -3885,6 +3880,7 @@ static void handle_usb_removal(struct smbchg_chip *chip)
 		power_supply_set_dp_dm(chip->usb_psy,
 				POWER_SUPPLY_DP_DM_DPR_DMR);
 		schedule_work(&chip->usb_set_online_work);
+		pr_smb(PR_MISC, "setting usb psy health UNKNOWN\n");
 		rc = power_supply_set_health_state(chip->usb_psy,
 				POWER_SUPPLY_HEALTH_UNKNOWN);
 		if (rc)
@@ -3949,6 +3945,9 @@ static void handle_usb_insertion(struct smbchg_chip *chip)
 			 * if the handle_usb_insertion was triggered from
 			 * the falling edge of an USBIN_OV interrupt
 			 */
+			pr_smb(PR_MISC, "setting usb psy health %s\n",
+					chip->very_weak_charger
+					? "UNSPEC_FAILURE" : "GOOD");
 			rc = power_supply_set_health_state(chip->usb_psy,
 					chip->very_weak_charger
 					? POWER_SUPPLY_HEALTH_UNSPEC_FAILURE
@@ -4120,6 +4119,8 @@ static void increment_aicl_count(struct smbchg_chip *chip)
 			bad_charger = true;
 		}
 		if (bad_charger) {
+			pr_smb(PR_MISC,
+				"setting usb psy health UNSPEC_FAILURE\n");
 			rc = power_supply_set_health_state(chip->usb_psy,
 					POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
 			if (rc)
@@ -4640,6 +4641,7 @@ static irqreturn_t usbin_ov_handler(int irq, void *_chip)
 	if (reg & USBIN_OV_BIT) {
 		chip->usb_ov_det = true;
 		if (chip->usb_psy) {
+			pr_smb(PR_MISC, "setting usb psy health OV\n");
 			rc = power_supply_set_health_state(chip->usb_psy,
 					POWER_SUPPLY_HEALTH_OVERVOLTAGE);
 			if (rc)
@@ -4719,6 +4721,7 @@ static irqreturn_t usbin_uv_handler(int irq, void *_chip)
 			if (rc)
 				pr_err("could not enable aicl reruns: %d", rc);
 		}
+		pr_smb(PR_MISC, "setting usb psy health UNSPEC_FAILURE\n");
 		rc = power_supply_set_health_state(chip->usb_psy,
 				POWER_SUPPLY_HEALTH_UNSPEC_FAILURE);
 		if (rc)
@@ -4861,8 +4864,11 @@ static irqreturn_t usbid_change_handler(int irq, void *_chip)
 	pr_smb(PR_INTERRUPT, "triggered\n");
 
 	otg_present = is_otg_present(chip);
-	if (chip->usb_psy)
+	if (chip->usb_psy) {
+		pr_smb(PR_MISC, "setting usb psy OTG = %d\n",
+				otg_present ? 1 : 0);
 		power_supply_set_usb_otg(chip->usb_psy, otg_present ? 1 : 0);
+	}
 	if (otg_present)
 		pr_smb(PR_STATUS, "OTG detected\n");
 
@@ -6253,6 +6259,7 @@ static int smbchg_probe(struct spmi_device *spmi)
 		goto unregister_led_class;
 	}
 
+	pr_smb(PR_MISC, "setting usb psy present = %d\n", chip->usb_present);
 	power_supply_set_present(chip->usb_psy, chip->usb_present);
 
 	dump_regs(chip);
