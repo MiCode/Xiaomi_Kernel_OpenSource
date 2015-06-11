@@ -311,7 +311,7 @@
 		interrupts = <0 184 0>;
 		interrupt-names = "tsens-upper-lower";
 		qcom,sensors = <11>;
-		qcom,slope = <3200 3200 3200 3200 3200 3200 3200 3200 3200 3200 3200>;
+		qcom,slope = <3313 3275 3320 3246 3279 3257 3234 3269 3255 3239 3286>;
 		qcom,sensor-id = <0 1 2 3 4 5 6 7 8 9 10>;
 		qcom,tsens_base_info = <2 8>;
 		qcom,tsens_base_mask = <0 0x218 0xff 0 8>,
