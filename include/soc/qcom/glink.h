@@ -53,6 +53,7 @@ enum {
  *		notify_rx is not provided)
  * notify_sig:	Signal-change notification (optional)
  * notify_rx_tracer_pkt:	Receive notification for tracer packet
+ * notify_remote_rx_intent:	Receive notification for remote-queued RX intent
  *
  * This structure is passed into the glink_open() call to setup
  * configuration handles.  All unused fields should be set to 0.
@@ -88,6 +89,8 @@ struct glink_open_config {
 			const void *pkt_priv);
 	void (*notify_rx_tracer_pkt)(void *handle, const void *priv,
 			const void *pkt_priv, const void *ptr, size_t size);
+	void (*notify_remote_rx_intent)(void *handle, const void *priv,
+					size_t size);
 };
 
 enum glink_link_state {
