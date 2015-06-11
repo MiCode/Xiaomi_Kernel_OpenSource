@@ -74,11 +74,6 @@ struct mdss_debug_inf {
 	void (*debug_enable_clock)(int on);
 };
 
-struct mdss_fudge_factor {
-	u32 numer;
-	u32 denom;
-};
-
 struct mdss_perf_tune {
 	unsigned long min_mdp_clk;
 	u64 min_bus_vote;
@@ -318,11 +313,11 @@ struct mdss_data_type {
 	u32 *vbif_nrt_qos;
 	u32 npriority_lvl;
 
-	struct mdss_fudge_factor ab_factor;
-	struct mdss_fudge_factor ib_factor;
-	struct mdss_fudge_factor ib_factor_overlap;
-	struct mdss_fudge_factor clk_factor;
-	struct mdss_fudge_factor per_pipe_ib_factor;
+	struct mult_factor ab_factor;
+	struct mult_factor ib_factor;
+	struct mult_factor ib_factor_overlap;
+	struct mult_factor clk_factor;
+	struct mult_factor per_pipe_ib_factor;
 	bool apply_post_scale_bytes;
 	bool hflip_buffer_reused;
 

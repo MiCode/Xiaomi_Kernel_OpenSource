@@ -1161,7 +1161,7 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 void mdss_mdp_get_v_h_subsample_rate(u8 chroma_samp,
 	u8 *v_sample, u8 *h_sample);
-struct mdss_fudge_factor *mdss_mdp_get_comp_factor(u32 format,
+struct mult_factor *mdss_mdp_get_comp_factor(u32 format,
 	bool rt_factor);
 int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
 		int num_planes, u32 flags, struct device *dev, bool rotator,
