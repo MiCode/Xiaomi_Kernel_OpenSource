@@ -639,6 +639,7 @@ void _iommu_get_clks(struct kgsl_mmu *mmu)
 		iommu->clks[1] = drvdata->clk;
 		iommu->clks[2] = drvdata->aclk;
 		iommu->clks[3] = iommu->gtcu_iface_clk;
+		iommu->clks[4] = iommu->gtbu_clk;
 	}
 }
 
@@ -870,6 +871,14 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 	if (of_property_match_string(pdev->dev.of_node, "clock-names",
 						"gtcu_iface_clk") >= 0)
 		iommu->gtcu_iface_clk = clk_get(&pdev->dev, "gtcu_iface_clk");
+
+	/*
+	 * For all IOMMUv2 targets, TBU clk needs to be voted before
+	 * issuing TLB invalidate
+	 */
+	if (of_property_match_string(pdev->dev.of_node, "clock-names",
+						"gtbu_clk") >= 0)
+		iommu->gtbu_clk = clk_get(&pdev->dev, "gtbu_clk");
 
 	if (kgsl_msm_supports_iommu_v2()) {
 		if (adreno_is_a530(adreno_dev)) {
