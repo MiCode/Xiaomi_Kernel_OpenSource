@@ -636,6 +636,30 @@
 #define TSENS9_MSM8952_POINT2_SHIFT     6
 #define TSENS10_MSM8952_POINT2_SHIFT    18
 
+#define TSENS_TWO_POINT_CALIB_N_WA			0x6
+#define TSENS_TWO_POINT_CALIB_N_OFFSET_WA		0x7
+
+#define TSENS_MSM8952_D30_WA_S0   2
+#define TSENS_MSM8952_D30_WA_S1   4
+#define TSENS_MSM8952_D30_WA_S2   4
+#define TSENS_MSM8952_D30_WA_S3   1
+#define TSENS_MSM8952_D30_WA_S4   2
+#define TSENS_MSM8952_D30_WA_S5   1
+#define TSENS_MSM8952_D30_WA_S7   3
+#define TSENS_MSM8952_D30_WA_S8   2
+#define TSENS_MSM8952_D30_WA_S10  3
+
+#define TSENS_MSM8952_D120_WA_S0  1
+#define TSENS_MSM8952_D120_WA_S1  4
+#define TSENS_MSM8952_D120_WA_S2  5
+#define TSENS_MSM8952_D120_WA_S3  1
+#define TSENS_MSM8952_D120_WA_S4  3
+#define TSENS_MSM8952_D120_WA_S5  1
+#define TSENS_MSM8952_D120_WA_S6  1
+#define TSENS_MSM8952_D120_WA_S7  4
+#define TSENS_MSM8952_D120_WA_S8  4
+#define TSENS_MSM8952_D120_WA_S10 2
+
 enum tsens_calib_fuse_map_type {
 	TSENS_CALIB_FUSE_MAP_8974 = 0,
 	TSENS_CALIB_FUSE_MAP_8X26,
@@ -1740,6 +1764,97 @@ static int tsens_calib_msm8952_sensors(void)
 		(tsens_calibration_mode == TSENS_TWO_POINT_CALIB)) {
 		calib_tsens_point1_data[0] =
 				(((tsens_base0_data) + tsens0_point1) << 2);
+		calib_tsens_point1_data[0] = calib_tsens_point1_data[0] +
+						TSENS_MSM8952_D30_WA_S0;
+		calib_tsens_point1_data[1] =
+				(((tsens_base0_data) + tsens1_point1) << 2);
+		calib_tsens_point1_data[1] = calib_tsens_point1_data[1] -
+						TSENS_MSM8952_D30_WA_S1;
+		calib_tsens_point1_data[2] =
+				(((tsens_base0_data) + tsens2_point1) << 2);
+		calib_tsens_point1_data[2] = calib_tsens_point1_data[2] +
+						TSENS_MSM8952_D30_WA_S2;
+		calib_tsens_point1_data[3] =
+				(((tsens_base0_data) + tsens3_point1) << 2);
+		calib_tsens_point1_data[3] = calib_tsens_point1_data[3] +
+						TSENS_MSM8952_D30_WA_S3;
+		calib_tsens_point1_data[4] =
+				(((tsens_base0_data) + tsens4_point1) << 2);
+		calib_tsens_point1_data[4] = calib_tsens_point1_data[4] +
+						TSENS_MSM8952_D30_WA_S4;
+		calib_tsens_point1_data[5] =
+				(((tsens_base0_data) + tsens5_point1) << 2);
+		calib_tsens_point1_data[5] = calib_tsens_point1_data[5] -
+						TSENS_MSM8952_D30_WA_S5;
+		calib_tsens_point1_data[6] =
+				(((tsens_base0_data) + tsens6_point1) << 2);
+		calib_tsens_point1_data[7] =
+				(((tsens_base0_data) + tsens7_point1) << 2);
+		calib_tsens_point1_data[7] = calib_tsens_point1_data[7] +
+						TSENS_MSM8952_D30_WA_S7;
+		calib_tsens_point1_data[8] =
+				(((tsens_base0_data) + tsens8_point1) << 2);
+		calib_tsens_point1_data[8] = calib_tsens_point1_data[8] +
+						TSENS_MSM8952_D30_WA_S8;
+		calib_tsens_point1_data[9] =
+				(((tsens_base0_data) + tsens9_point1) << 2);
+		calib_tsens_point1_data[10] =
+				(((tsens_base0_data) + tsens10_point1) << 2);
+		calib_tsens_point1_data[10] = calib_tsens_point1_data[10] -
+						TSENS_MSM8952_D30_WA_S10;
+	}
+
+	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+		pr_debug("two point calibration calculation\n");
+		calib_tsens_point2_data[0] =
+				((tsens_base1_data + tsens0_point2) << 2);
+		calib_tsens_point1_data[0] = calib_tsens_point1_data[0] -
+						TSENS_MSM8952_D120_WA_S0;
+		calib_tsens_point2_data[1] =
+				((tsens_base1_data + tsens1_point2) << 2);
+		calib_tsens_point1_data[1] = calib_tsens_point1_data[1] -
+						TSENS_MSM8952_D120_WA_S1;
+		calib_tsens_point2_data[2] =
+				((tsens_base1_data + tsens2_point2) << 2);
+		calib_tsens_point1_data[2] = calib_tsens_point1_data[2] +
+						TSENS_MSM8952_D120_WA_S2;
+		calib_tsens_point2_data[3] =
+				((tsens_base1_data + tsens3_point2) << 2);
+		calib_tsens_point1_data[3] = calib_tsens_point1_data[3] +
+						TSENS_MSM8952_D120_WA_S3;
+		calib_tsens_point2_data[4] =
+				((tsens_base1_data + tsens4_point2) << 2);
+		calib_tsens_point1_data[4] = calib_tsens_point1_data[4] +
+						TSENS_MSM8952_D120_WA_S4;
+		calib_tsens_point2_data[5] =
+				((tsens_base1_data + tsens5_point2) << 2);
+		calib_tsens_point1_data[5] = calib_tsens_point1_data[5] -
+						TSENS_MSM8952_D120_WA_S5;
+		calib_tsens_point2_data[6] =
+				((tsens_base1_data + tsens6_point2) << 2);
+		calib_tsens_point1_data[6] = calib_tsens_point1_data[6] -
+						TSENS_MSM8952_D120_WA_S6;
+		calib_tsens_point2_data[7] =
+				((tsens_base1_data + tsens7_point2) << 2);
+		calib_tsens_point1_data[7] = calib_tsens_point1_data[7] +
+						TSENS_MSM8952_D120_WA_S7;
+		calib_tsens_point2_data[8] =
+				((tsens_base1_data + tsens8_point2) << 2);
+		calib_tsens_point1_data[8] = calib_tsens_point1_data[8] +
+						TSENS_MSM8952_D120_WA_S8;
+		calib_tsens_point2_data[9] =
+				((tsens_base1_data + tsens9_point2) << 2);
+		calib_tsens_point2_data[10] =
+				((tsens_base1_data + tsens10_point2) << 2);
+		calib_tsens_point1_data[10] = calib_tsens_point1_data[10] -
+						TSENS_MSM8952_D120_WA_S10;
+	}
+
+	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB_N_WA) ||
+		(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)) {
+		calib_tsens_point1_data[0] =
+				(((tsens_base0_data) + tsens0_point1) << 2);
 		calib_tsens_point1_data[1] =
 				(((tsens_base0_data) + tsens1_point1) << 2);
 		calib_tsens_point1_data[2] =
@@ -1762,7 +1877,9 @@ static int tsens_calib_msm8952_sensors(void)
 				(((tsens_base0_data) + tsens10_point1) << 2);
 	}
 
-	if (tsens_calibration_mode == TSENS_TWO_POINT_CALIB) {
+	if ((tsens_calibration_mode == TSENS_TWO_POINT_CALIB_N_WA) ||
+		(tsens_calibration_mode ==
+					TSENS_TWO_POINT_CALIB_N_OFFSET_WA)) {
 		pr_debug("two point calibration calculation\n");
 		calib_tsens_point2_data[0] =
 				((tsens_base1_data + tsens0_point2) << 2);
