@@ -1259,6 +1259,37 @@ static int mdss_rotator_verify_config(struct mdss_rot_mgr *mgr,
 	return 0;
 }
 
+inline int __compare_session_item_rect(struct mdp_rotation_buf_info *s_rect,
+	struct mdp_rect *i_rect, uint32_t i_fmt, bool src)
+{
+	if ((s_rect->width != i_rect->w) || (s_rect->height != i_rect->h) ||
+			(s_rect->format != i_fmt)) {
+		pr_err("%s: session{%u,%u}f:%u mismatch from item{%u,%u}f:%u\n",
+			(src ? "src":"dst"), s_rect->width, s_rect->height,
+			s_rect->format, i_rect->w, i_rect->h, i_fmt);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static int mdss_rotator_validate_item_matches_session(
+	struct mdp_rotation_config *config, struct mdp_rotation_item *item)
+{
+	int ret;
+
+	ret = __compare_session_item_rect(&config->input,
+		&item->src_rect, item->input.format, true);
+	if (ret)
+		return ret;
+
+	ret = __compare_session_item_rect(&config->output,
+		&item->dst_rect, item->output.format, false);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
 static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_file_private *private,
 	struct mdss_rot_entry *entry)
@@ -1266,6 +1297,7 @@ static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 	int ret;
 	u32 out_format, in_format;
 	struct mdp_rotation_item *item;
+	struct mdss_rot_perf *perf;
 
 	item = &entry->item;
 	in_format = item->input.format;
@@ -1282,9 +1314,17 @@ static int mdss_rotator_validate_entry(struct mdss_rot_mgr *mgr,
 		return -EINVAL;
 	}
 
-	if (!mdss_rotator_find_session(private, item->session_id)) {
-		pr_err("Could not find session based on rotation work item\n");
+	perf = mdss_rotator_find_session(private, item->session_id);
+	if (!perf) {
+		pr_err("Could not find session:%u\n", item->session_id);
 		return -EINVAL;
+	}
+
+	ret = mdss_rotator_validate_item_matches_session(&perf->config, item);
+	if (ret) {
+		pr_err("Work item does not match session:%u\n",
+			item->session_id);
+		return ret;
 	}
 
 	ret = mdss_rotator_config_dnsc_factor(mgr, entry);
