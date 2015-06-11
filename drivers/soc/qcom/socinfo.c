@@ -220,6 +220,9 @@ static union {
 	struct socinfo_v0_11 v0_11;
 } *socinfo;
 
+/* max socinfo format version supported */
+#define MAX_SOCINFO_FORMAT SOCINFO_VERSION(0, 11)
+
 static struct msm_soc_info cpu_of_id[] = {
 
 	/* 7x01 IDs */
@@ -534,6 +537,7 @@ static struct msm_soc_info cpu_of_id[] = {
 
 static enum msm_cpu cur_cpu;
 static int current_image;
+static uint32_t socinfo_format;
 
 static struct socinfo_v0_1 dummy_socinfo = {
 	.format = SOCINFO_VERSION(0, 1),
@@ -588,7 +592,7 @@ err_path:
 uint32_t socinfo_get_raw_id(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 2) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 2) ?
 			socinfo->v0_2.raw_id : 0)
 		: 0;
 }
@@ -596,7 +600,7 @@ uint32_t socinfo_get_raw_id(void)
 uint32_t socinfo_get_raw_version(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 2) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 2) ?
 			socinfo->v0_2.raw_version : 0)
 		: 0;
 }
@@ -604,7 +608,7 @@ uint32_t socinfo_get_raw_version(void)
 uint32_t socinfo_get_platform_type(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 3) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 3) ?
 			socinfo->v0_3.hw_platform : 0)
 		: 0;
 }
@@ -613,7 +617,7 @@ uint32_t socinfo_get_platform_type(void)
 uint32_t socinfo_get_platform_version(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 4) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 4) ?
 			socinfo->v0_4.platform_version : 0)
 		: 0;
 }
@@ -623,7 +627,7 @@ uint32_t socinfo_get_platform_version(void)
 static uint32_t socinfo_get_accessory_chip(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 5) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 5) ?
 			socinfo->v0_5.accessory_chip : 0)
 		: 0;
 }
@@ -631,7 +635,7 @@ static uint32_t socinfo_get_accessory_chip(void)
 uint32_t socinfo_get_platform_subtype(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 6) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 6) ?
 			socinfo->v0_6.hw_platform_subtype : 0)
 		: 0;
 }
@@ -639,7 +643,7 @@ uint32_t socinfo_get_platform_subtype(void)
 static uint32_t socinfo_get_foundry_id(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 9) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 9) ?
 			socinfo->v0_9.foundry_id : 0)
 		: 0;
 }
@@ -647,7 +651,7 @@ static uint32_t socinfo_get_foundry_id(void)
 static uint32_t socinfo_get_serial_number(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 10) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 10) ?
 			socinfo->v0_10.serial_number : 0)
 		: 0;
 }
@@ -655,7 +659,7 @@ static uint32_t socinfo_get_serial_number(void)
 enum pmic_model socinfo_get_pmic_model(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 7) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 7) ?
 			socinfo->v0_7.pmic_model : PMIC_MODEL_UNKNOWN)
 		: PMIC_MODEL_UNKNOWN;
 }
@@ -663,7 +667,7 @@ enum pmic_model socinfo_get_pmic_model(void)
 uint32_t socinfo_get_pmic_die_revision(void)
 {
 	return socinfo ?
-		(socinfo->v0_1.format >= SOCINFO_VERSION(0, 7) ?
+		(socinfo_format >= SOCINFO_VERSION(0, 7) ?
 			socinfo->v0_7.pmic_die_revision : 0)
 		: 0;
 }
@@ -672,11 +676,6 @@ static char *socinfo_get_image_version_base_address(void)
 {
 	return smem_find(SMEM_IMAGE_VERSION_TABLE,
 				SMEM_IMAGE_VERSION_SIZE, 0, SMEM_ANY_HOST_FLAG);
-}
-
-static uint32_t socinfo_get_format(void)
-{
-	return socinfo ? socinfo->v0_1.format : 0;
 }
 
 enum msm_cpu socinfo_get_msm_cpu(void)
@@ -1089,15 +1088,13 @@ static void * __init setup_dummy_socinfo(void)
 
 static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 {
-	uint32_t legacy_format = socinfo_get_format();
-
 	device_create_file(msm_soc_device, &msm_soc_attr_vendor);
 	device_create_file(msm_soc_device, &image_version);
 	device_create_file(msm_soc_device, &image_variant);
 	device_create_file(msm_soc_device, &image_crm_version);
 	device_create_file(msm_soc_device, &select_image);
 
-	switch (legacy_format) {
+	switch (socinfo_format) {
 	case SOCINFO_VERSION(0, 10):
 		 device_create_file(msm_soc_device,
 					&msm_soc_attr_serial_number);
@@ -1135,8 +1132,8 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 		break;
 	default:
 		pr_err("Unknown socinfo format: v%u.%u\n",
-				SOCINFO_VERSION_MAJOR(legacy_format),
-				SOCINFO_VERSION_MINOR(legacy_format));
+				SOCINFO_VERSION_MAJOR(socinfo_format),
+				SOCINFO_VERSION_MINOR(socinfo_format));
 		break;
 	}
 
@@ -1191,12 +1188,12 @@ late_initcall(socinfo_init_sysfs);
 
 static void socinfo_print(void)
 {
-	uint32_t f_maj = SOCINFO_VERSION_MAJOR(socinfo->v0_1.format);
-	uint32_t f_min = SOCINFO_VERSION_MINOR(socinfo->v0_1.format);
+	uint32_t f_maj = SOCINFO_VERSION_MAJOR(socinfo_format);
+	uint32_t f_min = SOCINFO_VERSION_MINOR(socinfo_format);
 	uint32_t v_maj = SOCINFO_VERSION_MAJOR(socinfo->v0_1.version);
 	uint32_t v_min = SOCINFO_VERSION_MINOR(socinfo->v0_1.version);
 
-	switch (socinfo->v0_1.format) {
+	switch (socinfo_format) {
 	case SOCINFO_VERSION(0, 1):
 		pr_info("v%u.%u, id=%u, ver=%u.%u\n",
 			f_maj, f_min, socinfo->v0_1.id, v_maj, v_min);
@@ -1300,6 +1297,27 @@ static void socinfo_print(void)
 	}
 }
 
+static void socinfo_select_format(void)
+{
+	uint32_t f_maj = SOCINFO_VERSION_MAJOR(socinfo->v0_1.format);
+	uint32_t f_min = SOCINFO_VERSION_MINOR(socinfo->v0_1.format);
+
+	if (f_maj != 0) {
+		pr_err("Unsupported format v%u.%u. Falling back to dummy values.\n",
+			f_maj, f_min);
+		socinfo = setup_dummy_socinfo();
+	}
+
+	if (socinfo->v0_1.format > MAX_SOCINFO_FORMAT) {
+		pr_warn("Unsupported format v%u.%u. Falling back to v%u.%u.\n",
+			f_maj, f_min, SOCINFO_VERSION_MAJOR(MAX_SOCINFO_FORMAT),
+			SOCINFO_VERSION_MINOR(MAX_SOCINFO_FORMAT));
+		socinfo_format = MAX_SOCINFO_FORMAT;
+	} else {
+		socinfo_format = socinfo->v0_1.format;
+	}
+}
+
 int __init socinfo_init(void)
 {
 	static bool socinfo_init_done;
@@ -1314,6 +1332,8 @@ int __init socinfo_init(void)
 		pr_warn("Can't find SMEM_HW_SW_BUILD_ID; falling back on dummy values.\n");
 		socinfo = setup_dummy_socinfo();
 	}
+
+	socinfo_select_format();
 
 	WARN(!socinfo_get_id(), "Unknown SOC ID!\n");
 
