@@ -1163,8 +1163,14 @@ int ipa_init_q6_smem(void)
 
 	ipa_inc_client_enable_clks();
 
-	rc = ipa_init_smem_region(IPA_MEM_PART(modem_size),
-		IPA_MEM_PART(modem_ofst));
+	if (ipa_ctx->ipa_hw_type == IPA_HW_v2_0)
+		rc = ipa_init_smem_region(IPA_MEM_PART(modem_size) -
+			IPA_MEM_RAM_MODEM_NETWORK_STATS_SIZE,
+			IPA_MEM_PART(modem_ofst));
+	else
+		rc = ipa_init_smem_region(IPA_MEM_PART(modem_size),
+			IPA_MEM_PART(modem_ofst));
+
 	if (rc) {
 		IPAERR("failed to initialize Modem RAM memory\n");
 		ipa_dec_client_disable_clks();
