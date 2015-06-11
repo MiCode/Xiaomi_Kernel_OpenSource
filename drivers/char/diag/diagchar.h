@@ -68,7 +68,7 @@
 #define DIAG_STM_LPASS	0x02
 #define DIAG_STM_WCNSS	0x04
 #define DIAG_STM_APPS	0x08
-#define DIAG_STM_SENSORS 0x16
+#define DIAG_STM_SENSORS 0x10
 
 #define INVALID_PID		-1
 #define DIAG_CMD_FOUND		1
