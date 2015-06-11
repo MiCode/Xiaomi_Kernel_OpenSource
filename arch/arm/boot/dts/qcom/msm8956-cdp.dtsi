@@ -77,7 +77,7 @@
 
 		home {
 			label = "home";
-			gpios = <&msm_gpio 88 0x1>;
+			gpios = <&msm_gpio 112 0x1>;
 			linux,input-type = <1>;
 			linux,code = <102>;
 			gpio-key,wakeup;
@@ -88,7 +88,7 @@
 
 &tlmm_pinmux {
 	tlmm_gpio_key {
-		qcom,pins = <&gp 88>, <&gp 113>, <&gp 114>, <&gp 115>;
+		qcom,pins = <&gp 112>, <&gp 113>, <&gp 114>, <&gp 115>;
 		qcom,num-grp-pins = <4>;
 	};
 };
