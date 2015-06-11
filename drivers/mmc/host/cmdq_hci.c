@@ -23,6 +23,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
+#include <linux/pm_runtime.h>
 
 #include "cmdq_hci.h"
 
@@ -32,6 +33,26 @@
 /* 1 sec */
 #define HALT_TIMEOUT_MS 1000
 
+#ifdef CONFIG_PM_RUNTIME
+static int cmdq_runtime_pm_get(struct cmdq_host *host)
+{
+	return pm_runtime_get_sync(host->mmc->parent);
+}
+static int cmdq_runtime_pm_put(struct cmdq_host *host)
+{
+	pm_runtime_mark_last_busy(host->mmc->parent);
+	return pm_runtime_put_autosuspend(host->mmc->parent);
+}
+#else
+static inline int cmdq_runtime_pm_get(struct cmdq_host *host)
+{
+	return 0;
+}
+static inline int cmdq_runtime_pm_put(struct cmdq_host *host)
+{
+	return 0;
+}
+#endif
 static inline struct mmc_request *get_req_by_tag(struct cmdq_host *cq_host,
 					  unsigned int tag)
 {
@@ -272,6 +293,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 	if (cq_host->enabled)
 		goto out;
 
+	cmdq_runtime_pm_get(cq_host);
 	cqcfg = cmdq_readl(cq_host, CQCFG);
 	if (cqcfg & 0x1) {
 		pr_info("%s: %s: cq_host is already enabled\n",
@@ -335,6 +357,7 @@ static int cmdq_enable(struct mmc_host *mmc)
 		cq_host->ops->clear_set_dumpregs(mmc, 1);
 
 out:
+	cmdq_runtime_pm_put(cq_host);
 	return err;
 }
 
@@ -342,12 +365,13 @@ static void cmdq_disable(struct mmc_host *mmc, bool soft)
 {
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
 
+	cmdq_runtime_pm_get(cq_host);
 	if (soft) {
 		cmdq_writel(cq_host, cmdq_readl(
 				    cq_host, CQCFG) & ~(CQ_ENABLE),
 			    CQCFG);
 	}
-
+	cmdq_runtime_pm_put(cq_host);
 	cq_host->enabled = false;
 }
 
@@ -360,6 +384,7 @@ static void cmdq_reset(struct mmc_host *mmc, bool soft)
 	unsigned int rca;
 	int ret;
 
+	cmdq_runtime_pm_get(cq_host);
 	cqcfg = cmdq_readl(cq_host, CQCFG);
 	tdlba = cmdq_readl(cq_host, CQTDLBA);
 	tdlbau = cmdq_readl(cq_host, CQTDLBAU);
@@ -391,6 +416,7 @@ static void cmdq_reset(struct mmc_host *mmc, bool soft)
 	mb();
 
 	cmdq_writel(cq_host, cqcfg, CQCFG);
+	cmdq_runtime_pm_put(cq_host);
 	cq_host->enabled = true;
 }
 
@@ -536,7 +562,7 @@ static void cmdq_prep_dcmd_desc(struct mmc_host *mmc,
 
 static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 {
-	int err;
+	int err = 0;
 	u64 data = 0;
 	u64 *task_desc = NULL;
 	u32 tag = mrq->cmdq_req->tag;
@@ -549,11 +575,13 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 		goto out;
 	}
 
+	cmdq_runtime_pm_get(cq_host);
+
 	if (mrq->cmdq_req->cmdq_req_flags & DCMD) {
 		cmdq_prep_dcmd_desc(mmc, mrq);
 		cq_host->mrq_slot[DCMD_SLOT] = mrq;
 		cmdq_writel(cq_host, 1 << DCMD_SLOT, CQTDBR);
-		return 0;
+		goto out;
 	}
 
 	task_desc = (__le64 __force *)get_desc(cq_host, tag);
@@ -566,7 +594,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	if (err) {
 		pr_err("%s: %s: failed to setup tx desc: %d\n",
 		       mmc_hostname(mmc), __func__, err);
-		return err;
+		goto out;
 	}
 
 	BUG_ON(cmdq_readl(cq_host, CQTDBR) & (1 << tag));
@@ -578,6 +606,7 @@ static int cmdq_request(struct mmc_host *mmc, struct mmc_request *mrq)
 	cmdq_writel(cq_host, 1 << tag, CQTDBR);
 
 out:
+	cmdq_runtime_pm_put(cq_host);
 	return err;
 }
 
@@ -680,26 +709,26 @@ EXPORT_SYMBOL(cmdq_irq);
 static int cmdq_halt(struct mmc_host *mmc, bool halt)
 {
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
-	u32 val;
+	u32 ret = 0;
 
+	cmdq_runtime_pm_get(cq_host);
 	if (halt) {
 		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) | HALT,
 			    CQCTL);
-		val = wait_for_completion_timeout(&cq_host->halt_comp,
+		ret = wait_for_completion_timeout(&cq_host->halt_comp,
 					  msecs_to_jiffies(HALT_TIMEOUT_MS));
 		/* halt done: re-enable legacy interrupts */
 		if (cq_host->ops->clear_set_irqs)
 			cq_host->ops->clear_set_irqs(mmc, false);
-
-		return val ? 0 : -ETIMEDOUT;
+		ret = ret ? 0 : -ETIMEDOUT;
 	} else {
 		if (cq_host->ops->clear_set_irqs)
 			cq_host->ops->clear_set_irqs(mmc, true);
 		cmdq_writel(cq_host, cmdq_readl(cq_host, CQCTL) & ~HALT,
 			    CQCTL);
 	}
-
-	return 0;
+	cmdq_runtime_pm_put(cq_host);
+	return ret;
 }
 
 static void cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
@@ -722,8 +751,9 @@ static void cmdq_post_req(struct mmc_host *host, struct mmc_request *mrq,
 static void cmdq_dumpstate(struct mmc_host *mmc)
 {
 	struct cmdq_host *cq_host = (struct cmdq_host *)mmc_cmdq_private(mmc);
-
+	cmdq_runtime_pm_get(cq_host);
 	cmdq_dumpregs(cq_host);
+	cmdq_runtime_pm_put(cq_host);
 }
 
 static const struct mmc_cmdq_host_ops cmdq_host_ops = {
