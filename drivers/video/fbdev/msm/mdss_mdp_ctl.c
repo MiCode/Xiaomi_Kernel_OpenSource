@@ -926,7 +926,7 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 
 			if (pinfo->type == WRITEBACK_PANEL) {
 				fmt = mdss_mdp_get_format_params(
-					pinfo->out_format);
+					mixer->ctl->dst_format);
 				if (fmt)
 					bpp = fmt->bpp;
 				pinfo = NULL;
@@ -946,10 +946,10 @@ static void mdss_mdp_perf_calc_mixer(struct mdss_mdp_mixer *mixer,
 			if (test_bit(MDSS_QOS_OVERHEAD_FACTOR,
 					mdata->mdss_qos_map))
 				perf->bw_writeback = apply_overhead_factors(
-					perf->bw_writeback,
-					true, false, fmt, &pipe->comp_ratio);
-		/* for command mode, run as fast as the link allows us */
+					perf->bw_writeback, true, false, fmt,
+					&mixer->ctl->dst_comp_ratio);
 		} else if (pinfo->type == MIPI_CMD_PANEL) {
+			/* for cmd mode, run as fast as the link allows us */
 			u32 dsi_pclk_rate = pinfo->mipi.dsi_pclk_rate;
 
 			if (is_pingpong_split(mixer->ctl->mfd))

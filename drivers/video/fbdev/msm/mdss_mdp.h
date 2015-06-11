@@ -259,8 +259,11 @@ struct mdss_mdp_ctl {
 	u16 height;
 	u16 border_x_off;
 	u16 border_y_off;
-	u32 dst_format;
 	bool is_secure;
+
+	/* used for WFD */
+	u32 dst_format;
+	struct mult_factor dst_comp_ratio;
 
 	u32 clk_rate;
 	int force_screen_state;
