@@ -14,8 +14,10 @@ Device/Asic specific properties:
 		trim error in LMH hardware.
 
 Required parameters:
-- compatible:	Must be "qcom,lmh"
-- interrupts : LMH Lite hardware interrupt details.
+- compatible: Must be either "qcom,lmh" or "qcom,lmh_v1".
+		The driver based on the compatible string will decide
+		the default profile.
+- interrupts: LMH Lite hardware interrupt details.
 
 Example:
 
@@ -29,6 +31,6 @@ qcom,lmh {
 Or for asics that don't have trim err:
 
 qcom,lmh {
-	compatible = "qcom,lmh";
+	compatible = "qcom,lmh_v1";
 	interrupts = <0 332 4>;
 };
