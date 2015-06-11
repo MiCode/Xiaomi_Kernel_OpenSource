@@ -57,11 +57,16 @@ qcom,qos-off:		Parameter that represents the delta between QoS register address
 			space for different devices.
 			Typically these optional properties are used for
 			devices that represent fabric devices.
-qcom,util-fact:		Parameter that represents the DDR utilization factor. It is
-			represented as actual util-factor * 100.
+qcom,agg-scheme:	Parameter that represents the aggregation scheme to be used for the
+			node. This parameter defaults to LEGACY scheme. The valid options
+			are LEGACY/SCHEME_1.
+qcom,util-fact:		Parameter that represents the DDR utilization factor to be used in
+			LEGACY scheme. It is represented as actual util-factor * 100.
 qcom,vrail-comp:	Parameter that represents the voltage rail compensation to push
-			the bus to the next level if needed. It is represented as actual
-			vrail-comp * 100.
+			the bus to the next level if needed in LEGACY and SCHEME 1 aggregation
+			schemes. It is represented as actual vrail-comp * 100.
+qcom,util-levels:	Array of tuples that represent a bandwidth threshold and util factor
+			to be used uptil the given threshold.
 qcom,bus-type:		Parameter that represents the bus type such as BIMC or NOC.
 			Typically these optional properties are used for
 			devices that represent fabric devices.
@@ -148,6 +153,9 @@ Example:
                 label = "fab-snoc";
                 qcom,fab-dev;
                 qcom,bypass-qos-prg;
+		qcom,agg-scheme = <SCHEME_1>;
+		qcom,util-levels = <450000 133>,
+			<750000 154>;
                 qcom,base-name = "snoc-base";
                 qcom,base-offset = <0x7000>;
                 qcom,qos-off = <0x1000>;
@@ -166,6 +174,8 @@ Example:
         mm_int_bimc: mm-int-bimc {
                 cell-id = <10003>;
                 label = "mm-int-bimc";
+		qcom,util-fact = <154>;
+		qcom,vrail-comp = <100>;
                 qcom,ap-owned;
                 qcom,connections = <&snoc_bimc_1_mas>;
                 qcom,bus-dev = <&fab_snoc>;

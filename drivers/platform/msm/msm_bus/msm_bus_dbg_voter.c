@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
  *
  * This program is Mree software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -198,7 +198,7 @@ static int msm_bus_floor_init_dev(struct device *fab_dev,
 	bus_node->node_info = node_info;
 	bus_node->ap_owned = true;
 	bus_node->node_info->bus_device = fab_dev;
-	bus_node->node_info->buswidth = 8;
+	bus_node->node_info->agg_params.buswidth = 8;
 	dev->platform_data = bus_node;
 	dev->bus = &msm_bus_type;
 
