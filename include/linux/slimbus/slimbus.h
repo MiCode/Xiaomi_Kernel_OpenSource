@@ -212,13 +212,13 @@ enum slim_port_req {
 };
 
 /*
- * enum slim_port_cfg: Port configuration parameters requested.
- * User can request no configuration, packed data, or MSB aligned data port
+ * enum slim_port_opts: Port options requested.
+ * User can request no configuration, packed data, and/or MSB aligned data port
  */
-enum slim_port_cfg {
-	SLIM_CFG_NONE,
-	SLIM_CFG_PACKED,
-	SLIM_CFG_ALIGN_MSB,
+enum slim_port_opts {
+	SLIM_OPT_NONE = 0,
+	SLIM_OPT_NO_PACK = 1U,
+	SLIM_OPT_ALIGN_MSB = 1U << 1,
 };
 
 /* enum slim_port_flow: Port flow type (inbound/outbound). */
@@ -234,6 +234,16 @@ enum slim_port_err {
 	SLIM_P_UNDERFLOW,
 	SLIM_P_DISCONNECT,
 	SLIM_P_NOT_OWNED,
+};
+
+/*
+ * struct slim_port_cfg: Port config for the manager port
+ * port_opts: port options (bit-map) for this port
+ * watermark: watermark level set for this port
+ */
+struct slim_port_cfg {
+	u32 port_opts;
+	u32 watermark;
 };
 
 /*
@@ -253,7 +263,7 @@ struct slim_port {
 	enum slim_port_err	err;
 	enum slim_port_state	state;
 	enum slim_port_req	req;
-	enum slim_port_cfg	cfg;
+	struct slim_port_cfg	cfg;
 	enum slim_port_flow	flow;
 	struct slim_ch		*ch;
 	struct completion	*xcomp;
@@ -792,6 +802,19 @@ extern int slim_alloc_mgrports(struct slim_device *sb, enum slim_port_req req,
 
 /* Deallocate the port(s) allocated using the API above */
 extern int slim_dealloc_mgrports(struct slim_device *sb, u32 *hdl, int hsz);
+
+/*
+ * slim_config_mgrports: Configure manager side ports
+ * @sb: device/client handle.
+ * @ph: array of port handles for which this configuration is valid
+ * @nports: Number of ports in ph
+ * @cfg: configuration requested for port(s)
+ * Configure port settings if they are different than the default ones.
+ * Returns success if the config could be applied. Returns -EISCONN if the
+ * port is in use
+ */
+extern int slim_config_mgrports(struct slim_device *sb, u32 *ph, int nports,
+				struct slim_port_cfg *cfg);
 
 /*
  * slim_port_xfer: Schedule buffer to be transferred/received using port-handle.
