@@ -774,7 +774,7 @@
 				qcom,default-state = "off";
 				qcom,source-sel = <1>;
 				qcom,mode-ctrl = <0x10>;
-				qcom,vin-ctrl = <0x02>;
+				qcom,vin-ctrl = <0x03>;
 			};
 		};
 		qcom,leds@c100  {
@@ -791,7 +791,7 @@
 				qcom,default-state = "on";
 				qcom,source-sel = <1>;
 				qcom,mode-ctrl = <0x10>;
-				qcom,vin-ctrl = <0x02>;
+				qcom,vin-ctrl = <0x03>;
 			};
 		};
 	};
