@@ -24,8 +24,6 @@
 		qca,bt-chip-pwd-voltage-level = <1300000 1300000>;
 		qca,bt-vdd-io-voltage-level = <1800000 1800000>;
 		qca,bt-vdd-xtal-voltage-level = <1800000 1800000>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&rome_bootstrap>;
 	};
 };
 
