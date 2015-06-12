@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -59,9 +59,7 @@ struct svc_event_nb {
 	spinlock_t nb_lock;
 	uint32_t service_id;
 	uint32_t instance_id;
-	char pdriver_name[32];
 	int svc_avail;
-	struct platform_driver svc_driver;
 	struct raw_notifier_head svc_event_rcvr_list;
 	struct list_head list;
 };
