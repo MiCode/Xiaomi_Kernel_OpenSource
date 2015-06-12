@@ -170,6 +170,40 @@ TRACE_EVENT(bus_bke_params,
 		__entry->gc, __entry->gp, __entry->thl, __entry->thm,
 			__entry->thh)
 );
+
+TRACE_EVENT(bus_client_status,
+
+	TP_PROTO(const char *name, int src, int dest,
+		unsigned long long ab, unsigned long long ib, int active_only),
+
+	TP_ARGS(name, src, dest, ab, ib, active_only),
+
+	TP_STRUCT__entry(
+		__string(name, name)
+		__field(int, src)
+		__field(int, dest)
+		__field(u64, ab)
+		__field(u64, ib)
+		__field(int, active_only)
+	),
+
+	TP_fast_assign(
+		__assign_str(name, name);
+		__entry->src = src;
+		__entry->dest = dest;
+		__entry->ab = ab;
+		__entry->ib = ib;
+		__entry->active_only = active_only;
+	),
+
+	TP_printk("name=%s src=%d dest=%d ab=%llu ib=%llu active_only=%d",
+		__get_str(name),
+		__entry->src,
+		__entry->dest,
+		(unsigned long long)__entry->ab,
+		(unsigned long long)__entry->ib,
+		__entry->active_only)
+);
 #endif
 #define TRACE_INCLUDE_FILE trace_msm_bus
 #include <trace/define_trace.h>
