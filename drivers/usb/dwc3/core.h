@@ -927,6 +927,8 @@ struct dwc3 {
 	unsigned		err_evt_seen:1;
 	unsigned		usb3_u1u2_disable:1;
 	unsigned		enable_bus_suspend:1;
+	/* Indicate if need to disable controller internal clkgating */
+	unsigned		disable_clk_gating:1;
 
 	struct dwc3_gadget_events	dbg_gadget_events;
 

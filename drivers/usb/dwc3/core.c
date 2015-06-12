@@ -565,7 +565,10 @@ int dwc3_core_init(struct dwc3 *dwc)
 	 * stuck when entering low power modes. Revisit when there is
 	 * a way to differentiate HW that no longer needs this.
 	 */
-	reg |= DWC3_GCTL_DSBLCLKGTNG;
+	if (dwc->disable_clk_gating) {
+		dev_dbg(dwc->dev, "Disabling controller clock gating.\n");
+		reg |= DWC3_GCTL_DSBLCLKGTNG;
+	}
 
 	dwc3_writel(dwc->regs, DWC3_GCTL, reg);
 
@@ -870,6 +873,8 @@ static int dwc3_probe(struct platform_device *pdev)
 		if (!ret)
 			dwc->lpm_nyet_thresh = (u8)lpm_nyet_thresh;
 
+		dwc->disable_clk_gating = of_property_read_bool(node,
+					"snps,disable-clk-gating");
 		if (dwc->enable_bus_suspend) {
 			pm_runtime_set_autosuspend_delay(dev, 500);
 			pm_runtime_use_autosuspend(dev);
