@@ -76,10 +76,6 @@ static void diagfwd_cntl_open(struct diagfwd_info *fwd_info)
 {
 	if (!fwd_info)
 		return;
-	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-		diag_notify_md_client(PERIPHERAL_MASK(fwd_info->peripheral),
-							  DIAG_STATUS_OPEN);
-	}
 	diag_cntl_channel_open(fwd_info);
 }
 
@@ -87,10 +83,6 @@ static void diagfwd_cntl_close(struct diagfwd_info *fwd_info)
 {
 	if (!fwd_info)
 		return;
-	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-		diag_notify_md_client(PERIPHERAL_MASK(fwd_info->peripheral),
-							  DIAG_STATUS_CLOSED);
-	}
 	diag_cntl_channel_close(fwd_info);
 }
 

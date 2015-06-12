@@ -277,5 +277,4 @@ int diag_send_buffering_tx_mode_pkt(uint8_t peripheral,
 				    struct diag_buffering_mode_t *params);
 int diag_send_buffering_wm_values(uint8_t peripheral,
 				  struct diag_buffering_mode_t *params);
-void diag_notify_md_client(uint16_t peripheral_mask, int data);
 #endif

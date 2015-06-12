@@ -404,6 +404,7 @@ struct diag_md_proc_info {
 	int pid;
 	struct task_struct *socket_process;
 	struct task_struct *callback_process;
+	struct task_struct *mdlog_process;
 };
 
 struct diag_feature_t {
@@ -417,13 +418,6 @@ struct diag_feature_t {
 	uint8_t stm_support;
 	uint8_t sockets_enabled;
 	uint8_t sent_feature_mask;
-};
-
-struct diag_mdlog_client_info {
-	struct task_struct *client_process;
-	int client_id;
-	uint16_t notification_list;
-	int signal_type;
 };
 
 struct diagchar_dev {
@@ -537,7 +531,6 @@ struct diagchar_dev {
 	int logging_mode;
 	int mask_check;
 	struct diag_md_proc_info md_proc[DIAG_NUM_PROC];
-	struct diag_mdlog_client_info md_client_info;
 	/* Power related variables */
 	struct diag_ws_ref_t dci_ws;
 	struct diag_ws_ref_t md_ws;

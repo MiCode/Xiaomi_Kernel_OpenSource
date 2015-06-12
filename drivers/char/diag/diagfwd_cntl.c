@@ -27,6 +27,7 @@
 
 /* tracks which peripheral is undergoing SSR */
 static uint16_t reg_dirty;
+static void diag_notify_md_client(uint8_t peripheral, int data);
 
 static void diag_mask_update_work_fn(struct work_struct *work)
 {
@@ -48,6 +49,7 @@ void diag_cntl_channel_open(struct diagfwd_info *p_info)
 		return;
 	driver->mask_update |= PERIPHERAL_MASK(p_info->peripheral);
 	queue_work(driver->cntl_wq, &driver->mask_update_work);
+	diag_notify_md_client(p_info->peripheral, DIAG_STATUS_OPEN);
 }
 
 void diag_cntl_channel_close(struct diagfwd_info *p_info)
@@ -67,6 +69,8 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 	driver->stm_state[peripheral] = DISABLE_STM;
 	driver->stm_state_requested[peripheral] = DISABLE_STM;
 	reg_dirty ^= PERIPHERAL_MASK(peripheral);
+	diag_notify_md_client(peripheral, DIAG_STATUS_CLOSED);
+
 	flush_workqueue(driver->cntl_wq);
 }
 
@@ -98,37 +102,42 @@ static void diag_stm_update_work_fn(struct work_struct *work)
 	}
 }
 
-void diag_notify_md_client(uint16_t peripheral_mask, int data)
+void diag_notify_md_client(uint8_t peripheral, int data)
 {
-	int stat;
+	int stat = 0;
 	struct siginfo info;
+
+	if (driver->logging_mode != MEMORY_DEVICE_MODE)
+		return;
 
 	memset(&info, 0, sizeof(struct siginfo));
 	info.si_code = SI_QUEUE;
-	info.si_int = (peripheral_mask | data);
+	info.si_int = (PERIPHERAL_MASK(peripheral) | data);
 	info.si_signo = SIGCONT;
-	stat = send_sig_info(info.si_signo,
-		&info, driver->md_client_info.client_process);
-	if (stat)
-		pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
-			info.si_int, stat);
+	if (driver->md_proc[DIAG_LOCAL_PROC].mdlog_process) {
+		stat = send_sig_info(info.si_signo, &info,
+			driver->md_proc[DIAG_LOCAL_PROC].mdlog_process);
+		if (stat)
+			pr_err("diag: Err sending signal to memory device client, signal data: 0x%x, stat: %d\n",
+			       info.si_int, stat);
+	}
+
 }
 
 static void process_pd_status(uint8_t *buf, uint32_t len,
-				uint8_t peripheral) {
-	struct diag_ctrl_msg_pd_status *pd_msg =
-				(struct diag_ctrl_msg_pd_status *)buf;
-	uint16_t pd;
-	uint8_t status;
+			      uint8_t peripheral)
+{
+	struct diag_ctrl_msg_pd_status *pd_msg = NULL;
+	uint32_t pd;
+	int status = DIAG_STATUS_CLOSED;
 
-	if (!buf || peripheral >= NUM_PERIPHERALS || len == 0)
+	if (!buf || peripheral >= NUM_PERIPHERALS || len < sizeof(*pd_msg))
 		return;
 
+	pd_msg = (struct diag_ctrl_msg_pd_status *)buf;
 	pd = pd_msg->pd_id;
-	status = pd_msg->status;
-	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
-		diag_notify_md_client(PERIPHERAL_MASK(peripheral), status);
-	}
+	status = (pd_msg->status == 0) ? DIAG_STATUS_OPEN : DIAG_STATUS_CLOSED;
+	diag_notify_md_client(peripheral, status);
 }
 
 static void enable_stm_feature(uint8_t peripheral)

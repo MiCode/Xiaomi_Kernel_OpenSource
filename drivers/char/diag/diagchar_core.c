@@ -186,7 +186,7 @@ static uint16_t diag_get_next_delayed_rsp_id(void)
 	return rsp_id;
 }
 
-static int diag_switch_logging(int requested_mode);
+static int diag_switch_logging(const int requested_mode);
 
 #define COPY_USER_SPACE_OR_EXIT(buf, data, length)		\
 do {								\
@@ -371,12 +371,25 @@ static void diag_close_logging_process(int pid)
 			continue;
 		}
 		found = 1;
-		if (logging_proc->socket_process)
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "found entry pid %d\n", pid);
+		if (logging_proc->socket_process) {
 			logging_proc->socket_process = NULL;
-		if (logging_proc->callback_process)
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "setting socket proc %d to NULL, proc: %d",
+				 driver->md_proc[i].pid, i);
+		}
+		if (logging_proc->callback_process) {
 			logging_proc->callback_process = NULL;
-		if (driver->md_client_info.client_process)
-			driver->md_client_info.client_process = NULL;
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "setting callback proc %d to NULL, proc: %d",
+				 driver->md_proc[i].pid, i);
+		}
+		if (logging_proc->mdlog_process) {
+			logging_proc->mdlog_process = NULL;
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "setting mdlog proc %d to NULL, proc: %d",
+				 driver->md_proc[i].pid, i);
+		}
 		diag_update_proc_vote(DIAG_PROC_MEMORY_DEVICE, VOTE_DOWN, i);
 	}
 	mutex_unlock(&driver->diagchar_mutex);
@@ -422,6 +435,8 @@ static void diag_close_logging_process(int pid)
 			if (logging_proc->pid != pid)
 				continue;
 			logging_proc->pid = 0;
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "setting logging proc to 0\n");
 		}
 		mutex_unlock(&driver->diagchar_mutex);
 	}
@@ -1104,13 +1119,14 @@ static int mask_request_validate(unsigned char mask_buf[])
 	return 0;
 }
 
-static int diag_switch_logging(int requested_mode)
+static int diag_switch_logging(const int requested_mode)
 {
 	int i;
 	int err = 0;
 	int mux_mode = DIAG_USB_MODE; /* set the mode from diag_mux.h */
 	int new_mode = USB_MODE;
 	int current_mode = driver->logging_mode;
+	int found = 0;
 
 	switch (requested_mode) {
 	case CALLBACK_MODE:
@@ -1130,30 +1146,39 @@ static int diag_switch_logging(int requested_mode)
 		return -EINVAL;
 	}
 
+	DIAG_LOG(DIAG_DEBUG_USERSPACE,
+		 "current: %d requested: %d translated: %d, pid: %d\n",
+		 current_mode, requested_mode, new_mode, current->tgid);
+
 	if (new_mode == current_mode) {
 		if (requested_mode != MEMORY_DEVICE_MODE ||
 		    driver->real_time_mode) {
 			pr_info_ratelimited("diag: Already in logging mode change requested, mode: %d\n",
 					    current_mode);
 		}
+		DIAG_LOG(DIAG_DEBUG_USERSPACE, "no mode change required\n");
 		return 0;
 	}
 
-	mutex_lock(&driver->diagchar_mutex);
-	if (requested_mode == MEMORY_DEVICE_MODE &&
-	    driver->md_proc[DIAG_LOCAL_PROC].socket_process) {
-		err = send_sig(SIGCONT,
-			       driver->md_proc[DIAG_LOCAL_PROC].socket_process,
-			       0);
-		if (err) {
-			pr_err("diag: In %s, error notifying socket process %d\n",
-			       __func__, err);
+	/*
+	 * When any mdlog process exits, or votes for USB mode, check if the
+	 * process is the original requestor for the mode change. Don't allow
+	 * any mdlog process to vote for mode change.
+	 */
+	if (current_mode == MEMORY_DEVICE_MODE && new_mode == USB_MODE) {
+		for (i = 0; i < DIAG_NUM_PROC && !found; i++) {
+			if (driver->md_proc[i].pid == current->tgid)
+				found = 1;
 		}
-		driver->md_proc[DIAG_LOCAL_PROC].socket_process = NULL;
-	}
 
-	if (new_mode == MEMORY_DEVICE_MODE)
-		driver->md_client_info.client_process = current;
+		if (!found) {
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "switch_logging denied pid: %d saved: %d\n",
+				 current->tgid,
+				 driver->md_proc[DIAG_LOCAL_PROC].pid);
+			return 0;
+		}
+	}
 
 	mutex_lock(&driver->diagchar_mutex);
 	diag_ws_reset(DIAG_WS_MUX);
@@ -1162,11 +1187,16 @@ static int diag_switch_logging(int requested_mode)
 		pr_err("diag: In %s, unable to switch mode from %d to %d\n",
 		       __func__, current_mode, requested_mode);
 		driver->logging_mode = current_mode;
+		DIAG_LOG(DIAG_DEBUG_USERSPACE,
+			 "error changing logging modes\n");
 		goto fail;
 	}
 	driver->logging_mode = new_mode;
 	pr_info("diag: Logging switched from %d to %d mode\n",
 		current_mode, new_mode);
+	DIAG_LOG(DIAG_DEBUG_USERSPACE,
+		 "logging switched from %d to %d mode\n",
+		 current_mode, new_mode);
 
 	if (new_mode != MEMORY_DEVICE_MODE) {
 		diag_update_real_time_vote(DIAG_PROC_MEMORY_DEVICE,
@@ -1181,10 +1211,35 @@ static int diag_switch_logging(int requested_mode)
 			   &driver->diag_real_time_work);
 	}
 
-	for (i = 0; i < DIAG_NUM_PROC; i++) {
-		driver->md_proc[i].pid = current->tgid;
-		if (requested_mode == SOCKET_MODE)
+	/*
+	 * Set the pid and context for md_proc. For callback processes, the
+	 * context will be set by DIAG_IOCTL_REGISTER_CALLBACK.
+	 */
+	for (i = 0; i < DIAG_NUM_PROC && new_mode == MEMORY_DEVICE_MODE; i++) {
+		switch (requested_mode) {
+		case SOCKET_MODE:
+			driver->md_proc[i].pid = current->tgid;
 			driver->md_proc[i].socket_process = current;
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "setting socket process to %d, proc: %d",
+				 driver->md_proc[i].pid, i);
+			break;
+		case MEMORY_DEVICE_MODE:
+			driver->md_proc[i].pid = current->tgid;
+			driver->md_proc[i].mdlog_process = current;
+			DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "setting mdlog process to %d, proc: %d",
+				 driver->md_proc[i].pid, i);
+			break;
+		case CALLBACK_MODE:
+			if (driver->md_proc[i].callback_process == current) {
+				driver->md_proc[i].pid = current->tgid;
+				DIAG_LOG(DIAG_DEBUG_USERSPACE,
+				 "setting callback process to %d, proc: %d",
+				 driver->md_proc[i].pid, i);
+			}
+			break;
+		}
 	}
 fail:
 	mutex_unlock(&driver->diagchar_mutex);
@@ -1464,10 +1519,12 @@ static int diag_ioctl_register_callback(unsigned long ioarg)
 		return -EINVAL;
 	}
 
+	/*
+	 * The IOCTL will just send the context for md_proc.
+	 * The pid will be set by diag_switch_logging.
+	 */
 	mutex_lock(&driver->diagchar_mutex);
-	driver->md_proc[reg.proc].pid = current->tgid;
 	driver->md_proc[reg.proc].callback_process = current;
-	driver->md_proc[reg.proc].socket_process = NULL;
 	mutex_unlock(&driver->diagchar_mutex);
 
 	return 0;
@@ -2848,8 +2905,8 @@ static int __init diagchar_init(void)
 		driver->md_proc[i].pid = 0;
 		driver->md_proc[i].callback_process = NULL;
 		driver->md_proc[i].socket_process = NULL;
+		driver->md_proc[i].mdlog_process = NULL;
 	}
-	driver->md_client_info.client_process = NULL;
 	driver->mask_check = 0;
 	driver->in_busy_pktdata = 0;
 	driver->in_busy_dcipktdata = 0;
