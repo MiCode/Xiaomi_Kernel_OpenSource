@@ -1131,6 +1131,7 @@ static int tx_cmd_ch_close(struct glink_transport_if *if_ptr, uint32_t lcid)
 		SMDXPRT_INFO("%s TX CLOSE lcid %u\n", __func__, lcid);
 		cmd.cmd = CMD_CLOSE;
 		cmd.id = lcid;
+		cmd.reserved = 0;
 		mutex_lock(&einfo->smd_lock);
 		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
 			msleep(20);
@@ -1238,6 +1239,7 @@ static void tx_cmd_ch_remote_close_ack(struct glink_transport_if *if_ptr,
 		SMDXPRT_INFO("%s TX CLOSE ACK rcid %u\n", __func__, rcid);
 		cmd.cmd = CMD_CLOSE_ACK;
 		cmd.id = rcid;
+		cmd.reserved = 0;
 		mutex_lock(&einfo->smd_lock);
 		while (smd_write_avail(einfo->smd_ch) < sizeof(cmd))
 			msleep(20);
