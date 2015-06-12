@@ -562,7 +562,7 @@ static int msm_otg_link_clk_reset(struct msm_otg *motg, bool assert)
 	return ret;
 }
 
-static int msm_otg_phy_block_reset(struct msm_otg *motg)
+static int msm_otg_phy_reset(struct msm_otg *motg)
 {
 	u32 val;
 	int ret;
@@ -637,7 +637,7 @@ static int msm_otg_link_reset(struct msm_otg *motg)
 #define QUSB2PHY_PORT_POWERDOWN		0xB4
 #define QUSB2PHY_PORT_UTMI_CTRL2	0xC4
 
-static void msm_usb_phy_only_reset(struct msm_otg *motg)
+static void msm_usb_phy_reset(struct msm_otg *motg)
 {
 	u32 val;
 	int ret, *seq;
@@ -772,7 +772,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	}
 	motg->reset_counter++;
 
-	ret = msm_otg_phy_block_reset(motg);
+	ret = msm_otg_phy_reset(motg);
 	if (ret) {
 		dev_err(phy->dev, "phy_reset failed\n");
 		return ret;
@@ -788,7 +788,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	msleep(100);
 
 	/* Reset USB PHY after performing USB Link RESET */
-	msm_usb_phy_only_reset(motg);
+	msm_usb_phy_reset(motg);
 
 	/* Program USB PHY Override registers. */
 	ulpi_init(motg);
@@ -798,7 +798,7 @@ static int msm_otg_reset(struct usb_phy *phy)
 	 * the USB PHY Override registers to get the new
 	 * values into effect.
 	 */
-	msm_usb_phy_only_reset(motg);
+	msm_usb_phy_reset(motg);
 
 	if (pdata->otg_control == OTG_PHY_CONTROL) {
 		val = readl_relaxed(USB_OTGSC);
@@ -1313,7 +1313,7 @@ static void msm_otg_exit_phy_retention(struct msm_otg *motg)
 		 * Femto PHY must be POR reset to bring out
 		 * of retention.
 		 */
-		msm_otg_phy_block_reset(motg);
+		msm_usb_phy_reset(motg);
 		break;
 	default:
 		break;
