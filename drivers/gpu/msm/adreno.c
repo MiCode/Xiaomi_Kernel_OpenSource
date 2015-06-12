@@ -1150,6 +1150,25 @@ out:
 	return status;
 }
 
+static void _adreno_free_memories(struct adreno_device *adreno_dev)
+{
+	if (test_bit(ADRENO_DEVICE_CMDBATCH_PROFILE, &adreno_dev->priv))
+		kgsl_free_global(&adreno_dev->cmdbatch_profile_buffer);
+
+	/* Free local copies of firmware and other command streams */
+	kfree(adreno_dev->pfp_fw);
+	adreno_dev->pfp_fw = NULL;
+
+	kfree(adreno_dev->pm4_fw);
+	adreno_dev->pm4_fw = NULL;
+
+	kfree(adreno_dev->gpmu_cmds);
+	adreno_dev->gpmu_cmds = NULL;
+
+	kgsl_free_global(&adreno_dev->pm4);
+	kgsl_free_global(&adreno_dev->pfp);
+}
+
 static int adreno_remove(struct platform_device *pdev)
 {
 	struct adreno_device *adreno_dev = adreno_get_dev(pdev);
@@ -1160,8 +1179,8 @@ static int adreno_remove(struct platform_device *pdev)
 
 	device = &adreno_dev->dev;
 
-	if (test_bit(ADRENO_DEVICE_CMDBATCH_PROFILE, &adreno_dev->priv))
-		kgsl_free_global(&adreno_dev->cmdbatch_profile_buffer);
+	/* The memory is fading */
+	_adreno_free_memories(adreno_dev);
 
 #ifdef CONFIG_INPUT
 	input_unregister_handler(&adreno_input_handler);
