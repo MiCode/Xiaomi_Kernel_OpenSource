@@ -938,8 +938,8 @@ send_data:
 	err = diagfwd_bridge_write(proc, driver->hdlc_encode_buf,
 				   driver->hdlc_encode_buf_len);
 	if (err) {
-		pr_err("diag: Error writing Callback packet to proc: %d, err: %d\n",
-			proc, err);
+		pr_err_ratelimited("diag: Error writing Callback packet to proc: %d, err: %d\n",
+				   proc, err);
 		driver->hdlc_encode_buf_len = 0;
 	}
 
