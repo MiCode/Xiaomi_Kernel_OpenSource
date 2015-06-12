@@ -14,8 +14,8 @@ Required properties:
 - compatible:			Must be "qcom,cpr-regulator"
 - reg:				Register addresses for RBCPR, RBCPR clock
 				select, PVS and CPR eFuse address
-- reg-names:			Register names. Must be "rbcpr", "rbcpr_clk",
-				"efuse_addr"
+- reg-names:			Register names. Must be "rbcpr" and "efuse_addr".
+				"rbcpr_clk" is optional.
 - regulator-name:		A string used to describe the regulator
 - interrupts:			Interrupt line from RBCPR to interrupt controller.
 - qcom,cpr-fuse-corners:	Number of fuse corners present.  Many other properties

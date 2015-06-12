@@ -1194,17 +1194,19 @@ static int cpr_config(struct cpr_regulator *cpr_vreg, struct device *dev)
 	void __iomem *rbcpr_clk;
 	int size;
 
-	/* Use 19.2 MHz clock for CPR. */
-	rbcpr_clk = ioremap(cpr_vreg->rbcpr_clk_addr, 4);
-	if (!rbcpr_clk) {
-		cpr_err(cpr_vreg, "Unable to map rbcpr_clk\n");
-		return -EINVAL;
+	if (cpr_vreg->rbcpr_clk_addr) {
+		/* Use 19.2 MHz clock for CPR. */
+		rbcpr_clk = ioremap(cpr_vreg->rbcpr_clk_addr, 4);
+		if (!rbcpr_clk) {
+			cpr_err(cpr_vreg, "Unable to map rbcpr_clk\n");
+			return -EINVAL;
+		}
+		reg = readl_relaxed(rbcpr_clk);
+		reg &= ~RBCPR_CLK_SEL_MASK;
+		reg |= RBCPR_CLK_SEL_19P2_MHZ & RBCPR_CLK_SEL_MASK;
+		writel_relaxed(reg, rbcpr_clk);
+		iounmap(rbcpr_clk);
 	}
-	reg = readl_relaxed(rbcpr_clk);
-	reg &= ~RBCPR_CLK_SEL_MASK;
-	reg |= RBCPR_CLK_SEL_19P2_MHZ & RBCPR_CLK_SEL_MASK;
-	writel_relaxed(reg, rbcpr_clk);
-	iounmap(rbcpr_clk);
 
 	/* Disable interrupt and CPR */
 	cpr_write(cpr_vreg, REG_RBIF_IRQ_EN(cpr_vreg->irq_line), 0);
@@ -4189,11 +4191,8 @@ static int cpr_init_cpr(struct platform_device *pdev,
 	int rc = 0;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "rbcpr_clk");
-	if (!res || !res->start) {
-		cpr_err(cpr_vreg, "missing rbcpr_clk address: res=%p\n", res);
-		return -EINVAL;
-	}
-	cpr_vreg->rbcpr_clk_addr = res->start;
+	if (res && res->start)
+		cpr_vreg->rbcpr_clk_addr = res->start;
 
 	rc = cpr_init_cpr_efuse(pdev, cpr_vreg);
 	if (rc)
