@@ -998,7 +998,17 @@ void diag_process_hdlc_pkt(void *data, unsigned len)
 		goto end;
 	}
 
+	driver->hdlc_buf_len = 0;
+	mutex_unlock(&driver->diag_hdlc_mutex);
+	return;
+
 fail:
+	/*
+	 * Tools needs to get a response in order to start its
+	 * recovery algorithm. Send an error response if the
+	 * packet is not in expected format.
+	 */
+	diag_send_error_rsp(driver->hdlc_buf, driver->hdlc_buf_len);
 	driver->hdlc_buf_len = 0;
 end:
 	mutex_unlock(&driver->diag_hdlc_mutex);
