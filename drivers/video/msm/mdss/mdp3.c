@@ -1489,8 +1489,8 @@ static int mdp3_iommu_map_iommu(struct mdp3_iommu_meta *meta,
 	 * biggest entry. To take advantage of bigger mapping sizes both the
 	 * VA and PA addresses have to be aligned to the biggest size.
 	 */
-	if (sg_dma_len(table->sgl) > align)
-		align = sg_dma_len(table->sgl);
+	if (table->sgl->length > align)
+		align = table->sgl->length;
 
 	ret = msm_allocate_iova_address(domain_num, partition_num,
 			meta->mapped_size, align,
@@ -1606,7 +1606,7 @@ int mdp3_self_map_iommu(struct ion_client *client, struct ion_handle *handle,
 		return PTR_ERR(table);
 
 	for_each_sg(table->sgl, sg, table->nents, i)
-		size += sg_dma_len(sg);
+		size += sg->length;
 
 	padding = PAGE_ALIGN(padding);
 
@@ -2480,6 +2480,16 @@ int mdp3_footswitch_ctrl(int enable)
 	return rc;
 }
 
+void mdp3_iommu_lock(void)
+{
+	mutex_lock(&mdp3_res->iommu_lock);
+}
+
+void mdp3_iommu_unlock(void)
+{
+	mutex_unlock(&mdp3_res->iommu_lock);
+}
+
 static int mdp3_probe(struct platform_device *pdev)
 {
 	int rc;
@@ -2529,6 +2539,8 @@ static int mdp3_probe(struct platform_device *pdev)
 	mdp3_res->mdss_util->iommu_ctrl = mdp3_iommu_ctrl;
 	mdp3_res->mdss_util->bus_scale_set_quota = mdp3_bus_scale_set_quota;
 	mdp3_res->mdss_util->panel_intf_type = mdp3_panel_intf_type;
+	mdp3_res->mdss_util->iommu_lock = mdp3_iommu_lock;
+	mdp3_res->mdss_util->iommu_unlock = mdp3_iommu_unlock;
 
 	rc = mdp3_parse_dt(pdev);
 	if (rc)
