@@ -402,6 +402,7 @@ static int pp_gamut_cache_params_v1_7(struct mdp_gamut_cfg_data *config,
 		MDP_GAMUT_TABLE_V1_7_SZ :
 		 MDP_GAMUT_TABLE_V1_7_COARSE_SZ;
 	v17_cache_data->mode = v17_usr_config.mode;
+	v17_cache_data->map_en = v17_usr_config.map_en;
 	/* sanity check for sizes */
 	for (i = 0; i < MDP_GAMUT_TABLE_NUM_V1_7; i++) {
 		if (v17_usr_config.tbl_size[i] != tbl_sz) {
