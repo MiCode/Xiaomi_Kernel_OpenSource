@@ -351,12 +351,19 @@
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
 	qcom,platform-reset-gpio = <&tlmm 8 0>;
 	qcom,platform-bklight-en-gpio = <&pm8994_gpios 14 0>;
 };
 
 &mdss_dsi1 {
 	qcom,dsi-pref-prim-pan = <&dsi_dual_sharp_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,platform-te-gpio = <&tlmm 10 0>;
+	qcom,platform-reset-gpio = <&tlmm 8 0>;
+	qcom,platform-bklight-en-gpio = <&pm8994_gpios 14 0>;
 };
 
 &labibb {
@@ -369,6 +376,41 @@
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
 	qcom,mdss-dsi-bl-min-level = <1>;
 	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_dual_nt35597_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,cont-splash-enabled;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35597_dsc_video {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_nt35597_dsc_cmd {
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_wled";
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+};
+
+&dsi_dual_jdi_cmd {
+	pwms = <&pmi8994_pwm_4 0 0>;
+	pwm-names = "backlight";
+	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_pwm";
+	qcom,mdss-dsi-bl-pwm-pmi;
+	qcom,mdss-dsi-bl-pmic-pwm-frequency = <100>;
+	qcom,mdss-dsi-bl-min-level = <1>;
+	qcom,mdss-dsi-bl-max-level = <4095>;
+	qcom,5v-boost-gpio = <&pmi8994_gpios 8 0>;
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
@@ -429,6 +471,15 @@
 };
 
 &pmi8994_gpios {
+	gpio@c700 {	/* GPIO 8, lcd_reg_en, 5V boost  */
+		qcom,mode = <1>;
+		qcom,vin-sel = <2>;
+		qcom,src-sel = <0>;
+		qcom,invert = <1>;   /* need invert = 0 */
+		qcom,master-en = <1>;
+		status = "okay";
+	};
+
 	gpio@c100 {	/* GPIO 2  SPKR_SD_N */
 		qcom,mode = <1>;	/* DIGITAL OUT */
 		qcom,pull = <5>;	/* No Pull */
@@ -455,6 +506,13 @@
 		qcom,master-en = <1>;
 		status = "okay";
 	};
+};
+
+&pmi8994_pwm_4 {
+	qcom,channel-owner = "lcd_bl";
+	qcom,lpg-dtest-line = <4>;
+	qcom,dtest-output = <1>;
+	status = "okay";
 };
 
 &pmi8994_mpps {

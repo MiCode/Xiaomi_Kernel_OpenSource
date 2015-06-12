@@ -593,6 +593,76 @@ static void pll_db_commit_8996(void __iomem *pll_base,
 	wmb();	/* make sure register committed */
 }
 
+/*
+ * pll_source_finding:
+ * Both GLBL_TEST_CTRL and CLKBUFLR_EN are configured
+ * at mdss_dsi_8996_phy_config()
+ */
+static int pll_source_finding(struct mdss_pll_resources *pll)
+{
+	u32 clk_buf_en;
+	u32 glbl_test_ctrl;
+
+	glbl_test_ctrl = MDSS_PLL_REG_R(pll->pll_base,
+				DSIPHY_CMN_GLBL_TEST_CTRL);
+	clk_buf_en = MDSS_PLL_REG_R(pll->pll_base,
+				DSIPHY_PLL_CLKBUFLR_EN);
+
+	glbl_test_ctrl &= BIT(2);
+	glbl_test_ctrl >>= 2;
+
+	pr_debug("%s: pll=%d clk_buf_en=%x glbl_test_ctrl=%x\n",
+		__func__, pll->index, clk_buf_en, glbl_test_ctrl);
+
+	clk_buf_en &= (PLL_OUTPUT_RIGHT | PLL_OUTPUT_LEFT);
+
+	if ((glbl_test_ctrl == PLL_SOURCE_FROM_LEFT) &&
+			(clk_buf_en == PLL_OUTPUT_BOTH))
+		return PLL_MASTER;
+
+	if ((glbl_test_ctrl == PLL_SOURCE_FROM_RIGHT) &&
+			(clk_buf_en == PLL_OUTPUT_NONE))
+		return PLL_SLAVE;
+
+	if ((glbl_test_ctrl == PLL_SOURCE_FROM_LEFT) &&
+			(clk_buf_en == PLL_OUTPUT_RIGHT))
+		return PLL_STANDALONE;
+
+	pr_debug("%s: Error pll setup, clk_buf_en=%x glbl_test_ctrl=%x\n",
+			__func__, clk_buf_en, glbl_test_ctrl);
+
+	return PLL_UNKNOWN;
+}
+
+static void pll_source_setup(struct mdss_pll_resources *pll)
+{
+	int status;
+	struct dsi_pll_db *pdb = (struct dsi_pll_db *)pll->priv;
+	struct mdss_pll_resources *other;
+
+	if (pdb->source_setup_done)
+		return;
+
+	pdb->source_setup_done++;
+
+	status = pll_source_finding(pll);
+
+	if (status == PLL_STANDALONE || status == PLL_UNKNOWN)
+		return;
+
+	other = pdb->next->pll;
+	if (!other)
+		return;
+
+	pr_debug("%s: status=%d pll=%d other=%d\n", __func__,
+			status, pll->index, other->index);
+
+	if (status == PLL_MASTER)
+		pll->slave = other;
+	else
+		other->slave = pll;
+}
+
 int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 {
 	int rc;
@@ -613,8 +683,10 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 		return rc;
 	}
 
-	pr_debug("%s: ndx=%d base=%p rate=%lu\n", __func__,
-				pll->index, pll->pll_base, rate);
+	pll_source_setup(pll);
+
+	pr_debug("%s: ndx=%d base=%p rate=%lu slave=%p\n", __func__,
+				pll->index, pll->pll_base, rate, pll->slave);
 
 	pll->vco_current_rate = rate;
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
