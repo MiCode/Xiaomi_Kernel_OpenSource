@@ -16,3 +16,32 @@
 	model = "Qualcomm Technologies, Inc. MSM8909-PM8916 QRD SKUT";
 	compatible = "qcom,msm8909-qrd", "qcom,msm8909", "qcom,qrd";
 };
+
+#include "dsi-panel-fl10802-fwvga-video.dtsi"
+
+&mdss_mdp {
+	qcom,mdss-pref-prim-intf = "dsi";
+};
+
+&dsi_hx8379c_fwvga_video {
+	qcom,cont-splash-enabled;
+};
+
+&pmx_mdss {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 25>;
+};
+
+&pmx_mdss_te {
+	qcom,num-grp-pins = <1>;
+	qcom,pins = <&gp 24>;
+};
+
+&mdss_dsi0 {
+	qcom,dsi-pref-prim-pan = <&dsi_fl10802_fwvga_video>;
+	pinctrl-names = "mdss_default", "mdss_sleep";
+	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
+	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+
+	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
+};
