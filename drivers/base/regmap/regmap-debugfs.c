@@ -261,8 +261,7 @@ static ssize_t regmap_map_read_file(struct file *file, char __user *user_buf,
 				   count, ppos);
 }
 
-#undef REGMAP_ALLOW_WRITE_DEBUGFS
-#ifdef REGMAP_ALLOW_WRITE_DEBUGFS
+#if IS_ENABLED(CONFIG_REGMAP_ALLOW_WRITE_DEBUGFS)
 /*
  * This can be dangerous especially when we have clients such as
  * PMICs, therefore don't provide any real compile time configuration option
@@ -518,7 +517,7 @@ void regmap_debugfs_init(struct regmap *map, const char *name)
 	if (map->max_register || regmap_readable(map, 0)) {
 		umode_t registers_mode;
 
-		if (IS_ENABLED(REGMAP_ALLOW_WRITE_DEBUGFS))
+		if (IS_ENABLED(CONFIG_REGMAP_ALLOW_WRITE_DEBUGFS))
 			registers_mode = 0600;
 		else
 			registers_mode = 0400;
