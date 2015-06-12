@@ -219,14 +219,20 @@ static ssize_t bu21150_wake_up_enable_store(struct kobject *kobj,
 
 	mutex_lock(&ts->mutex_wake);
 	if (state == 0) {
+		if (!ts->wake_up)
+			goto exit;
 		disable_irq_wake(ts->client->irq);
 		device_init_wakeup(&ts->client->dev, false);
 		ts->wake_up = false;
 	} else {
+		if (ts->wake_up)
+			goto exit;
 		device_init_wakeup(&ts->client->dev, true);
 		enable_irq_wake(ts->client->irq);
 		ts->wake_up = true;
 	}
+
+exit:
 	mutex_unlock(&ts->mutex_wake);
 
 	return count;
@@ -1236,7 +1242,6 @@ static int bu21150_remove(struct spi_device *client)
 	misc_deregister(&g_bu21150_misc_device);
 	bu21150_power_enable(ts, false);
 	bu21150_regulator_config(ts, false);
-	free_irq(client->irq, ts);
 	mutex_destroy(&ts->mutex_frame);
 	bu21150_pin_enable(ts, false);
 	kfree(ts);
@@ -1291,11 +1296,10 @@ static int bu21150_release(struct inode *inode, struct file *filp)
 	if (ts->timeout_enb)
 		get_frame_timer_delete();
 
-	if (ts->wake_up)
-		disable_irq_wake(ts->client->irq);
-
-	free_irq(client->irq, ts);
-	ts->irq_enabled = false;
+	if (ts->irq_enabled) {
+		free_irq(client->irq, ts);
+		ts->irq_enabled = false;
+	}
 
 	return 0;
 }
