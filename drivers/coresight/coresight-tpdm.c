@@ -39,6 +39,9 @@ do {									\
 	mb();								\
 } while (0)
 
+/* GPR Registers */
+#define TPDM_GPR_CR(n)		(0x0 + (n * 4))
+
 /* BC Subunit Registers */
 #define TPDM_BC_CR		(0x280)
 #define TPDM_BC_SATROLL		(0x284)
@@ -117,6 +120,7 @@ do {									\
 #define TPDM_MODE_ALL			(0xFFFFFFF)
 
 #define NUM_OF_BITS		32
+#define TPDM_GPR_REGS_MAX	160
 
 enum tpdm_dataset {
 	TPDM_DS_IMPLDEF,
@@ -157,6 +161,11 @@ static int boot_enable;
 module_param_named(
 	boot_enable, boot_enable, int, S_IRUGO
 );
+
+struct gpr_dataset {
+	DECLARE_BITMAP(gpr_dirty, TPDM_GPR_REGS_MAX);
+	uint32_t		gp_regs[TPDM_GPR_REGS_MAX];
+};
 
 struct bc_dataset {
 	enum tpdm_mode		capture_mode;
@@ -223,11 +232,23 @@ struct tpdm_drvdata {
 	enum tpdm_support_type	bc_gang_type;
 	uint32_t		bc_counters_avail;
 	uint32_t		tc_counters_avail;
+	struct gpr_dataset	*gpr;
 	struct bc_dataset	*bc;
 	struct tc_dataset	*tc;
 	struct dsb_dataset	*dsb;
 	struct cmb_dataset	*cmb;
 };
+
+static void __tpdm_enable_gpr(struct tpdm_drvdata *drvdata)
+{
+	int i;
+
+	for (i = 0; i < TPDM_GPR_REGS_MAX; i++) {
+		if (!test_bit(i, drvdata->gpr->gpr_dirty))
+			continue;
+		tpdm_writel(drvdata, drvdata->gpr->gp_regs[i], TPDM_GPR_CR(i));
+	}
+}
 
 static void __tpdm_enable_bc(struct tpdm_drvdata *drvdata)
 {
@@ -465,6 +486,9 @@ static void __tpdm_enable(struct tpdm_drvdata *drvdata)
 	if (drvdata->clk_enable)
 		tpdm_writel(drvdata, 0x1, TPDM_CLK_CTRL);
 
+	if (test_bit(TPDM_DS_GPR, drvdata->enable_ds))
+		__tpdm_enable_gpr(drvdata);
+
 	if (test_bit(TPDM_DS_BC, drvdata->enable_ds))
 		__tpdm_enable_bc(drvdata);
 
@@ -657,6 +681,52 @@ static ssize_t tpdm_store_enable_datasets(struct device *dev,
 }
 static DEVICE_ATTR(enable_datasets, S_IRUGO | S_IWUSR,
 		   tpdm_show_enable_datasets, tpdm_store_enable_datasets);
+
+static ssize_t tpdm_show_gp_regs(struct device *dev,
+				 struct device_attribute *attr,
+				 char *buf)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	ssize_t size = 0;
+	int i = 0;
+
+	if (!test_bit(TPDM_DS_GPR, drvdata->datasets))
+		return -EPERM;
+
+	mutex_lock(&drvdata->lock);
+	for (i = 0; i < TPDM_GPR_REGS_MAX; i++) {
+		if (!test_bit(i, drvdata->gpr->gpr_dirty))
+			continue;
+		size += scnprintf(buf + size, PAGE_SIZE - size,
+				  "Index: 0x%x Value: 0x%x\n", i,
+				  drvdata->gpr->gp_regs[i]);
+	}
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+
+static ssize_t tpdm_store_gp_regs(struct device *dev,
+				  struct device_attribute *attr,
+				  const char *buf,
+				  size_t size)
+{
+	struct tpdm_drvdata *drvdata = dev_get_drvdata(dev->parent);
+	unsigned long index, val;
+
+	if (sscanf(buf, "%lx %lx", &index, &val) != 2)
+		return -EINVAL;
+	if (!test_bit(TPDM_DS_GPR, drvdata->datasets) ||
+	    index >= TPDM_GPR_REGS_MAX)
+		return -EPERM;
+
+	mutex_lock(&drvdata->lock);
+	drvdata->gpr->gp_regs[index] = val;
+	__set_bit(index, drvdata->gpr->gpr_dirty);
+	mutex_unlock(&drvdata->lock);
+	return size;
+}
+static DEVICE_ATTR(gp_regs, S_IRUGO | S_IWUSR, tpdm_show_gp_regs,
+		   tpdm_store_gp_regs);
 
 static ssize_t tpdm_show_bc_capture_mode(struct device *dev,
 					 struct device_attribute *attr,
@@ -3263,6 +3333,7 @@ static struct attribute_group tpdm_cmb_attr_grp = {
 static struct attribute *tpdm_attrs[] = {
 	&dev_attr_available_datasets.attr,
 	&dev_attr_enable_datasets.attr,
+	&dev_attr_gp_regs.attr,
 	NULL,
 };
 
@@ -3280,6 +3351,12 @@ static const struct attribute_group *tpdm_attr_grps[] = {
 
 static int tpdm_datasets_alloc(struct tpdm_drvdata *drvdata)
 {
+	if (test_bit(TPDM_DS_GPR, drvdata->datasets)) {
+		drvdata->gpr = devm_kzalloc(drvdata->dev, sizeof(*drvdata->gpr),
+					    GFP_KERNEL);
+		if (!drvdata->gpr)
+			return -ENOMEM;
+	}
 	if (test_bit(TPDM_DS_BC, drvdata->datasets)) {
 		drvdata->bc = devm_kzalloc(drvdata->dev, sizeof(*drvdata->bc),
 					   GFP_KERNEL);
