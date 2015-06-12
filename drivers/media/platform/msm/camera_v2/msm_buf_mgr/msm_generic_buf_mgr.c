@@ -142,6 +142,39 @@ static int32_t msm_buf_mngr_put_buf(struct msm_buf_mngr_device *buf_mngr_dev,
 	return ret;
 }
 
+static int32_t msm_generic_buf_mngr_flush(
+	struct msm_buf_mngr_device *buf_mngr_dev,
+	struct msm_buf_mngr_info *buf_info)
+{
+	unsigned long flags;
+	struct msm_get_bufs *bufs, *save;
+	int32_t ret = -EINVAL;
+
+	spin_lock_irqsave(&buf_mngr_dev->buf_q_spinlock, flags);
+	/*
+	 * Sanity check on client buf list, remove buf mgr
+	 * queue entries in case any
+	 */
+	list_for_each_entry_safe(bufs, save, &buf_mngr_dev->buf_qhead, entry) {
+		if ((bufs->session_id == buf_info->session_id) &&
+			(bufs->stream_id == buf_info->stream_id)) {
+			ret = buf_mngr_dev->vb2_ops.buf_done(bufs->vb2_buf,
+						buf_info->session_id,
+						buf_info->stream_id);
+			pr_err("Bufs not flushed: str_id = %d buf_index = %d ret = %d\n",
+			buf_info->stream_id, bufs->vb2_buf->v4l2_buf.index,
+			ret);
+			list_del_init(&bufs->entry);
+			kfree(bufs);
+		}
+	}
+	spin_unlock_irqrestore(&buf_mngr_dev->buf_q_spinlock, flags);
+	/* Flush the remaining vb2 buffers in stream list */
+	ret = buf_mngr_dev->vb2_ops.flush_buf(buf_info->session_id,
+			buf_info->stream_id);
+	return ret;
+}
+
 static int32_t msm_buf_mngr_find_cont_stream(struct msm_buf_mngr_device *dev,
 					     uint32_t *cnt, uint32_t *tstream,
 					     struct msm_sd_close_ioctl *session)
@@ -406,6 +439,9 @@ static long msm_buf_mngr_subdev_ioctl(struct v4l2_subdev *sd,
 		break;
 	case MSM_SD_NOTIFY_FREEZE:
 		break;
+	case VIDIOC_MSM_BUF_MNGR_FLUSH:
+		rc = msm_generic_buf_mngr_flush(buf_mngr_dev, argp);
+		break;
 	case MSM_SD_SHUTDOWN:
 		msm_buf_mngr_sd_shutdown(buf_mngr_dev, argp);
 		break;
@@ -445,6 +481,9 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 	case VIDIOC_MSM_BUF_MNGR_CONT_CMD:
 		cmd = VIDIOC_MSM_BUF_MNGR_CONT_CMD;
 		break;
+	case VIDIOC_MSM_BUF_MNGR_FLUSH32:
+		cmd = VIDIOC_MSM_BUF_MNGR_FLUSH;
+		break;
 	default:
 		pr_debug("%s : unsupported compat type", __func__);
 		return -ENOIOCTLCMD;
@@ -453,6 +492,7 @@ static long msm_bmgr_subdev_fops_compat_ioctl(struct file *file,
 	switch (cmd) {
 	case VIDIOC_MSM_BUF_MNGR_GET_BUF:
 	case VIDIOC_MSM_BUF_MNGR_BUF_DONE:
+	case VIDIOC_MSM_BUF_MNGR_FLUSH:
 	case VIDIOC_MSM_BUF_MNGR_PUT_BUF: {
 		struct msm_buf_mngr_info32_t buf_info32;
 		struct msm_buf_mngr_info buf_info;
