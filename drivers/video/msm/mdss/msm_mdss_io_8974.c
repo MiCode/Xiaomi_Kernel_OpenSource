@@ -133,11 +133,13 @@ static void mdss_dsi_phy_shutdown(struct mdss_dsi_ctrl_pdata *ctrl)
 	}
 
 	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104))
-		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, ~0x1F);
-	else
+		MDSS_DSI_HW_REV_104)) {
+		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_PLL_CLKBUFLR_EN, 0);
+		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_GLBL_TEST_CTRL, 0);
+		MIPI_OUTP(ctrl->phy_io.base + DSIPHY_CMN_CTRL_0, 0);
+	} else {
 		MIPI_OUTP(ctrl->phy_io.base + MDSS_DSI_DSIPHY_CTRL_0, 0x000);
-
+	}
 }
 
 /**
@@ -1409,12 +1411,6 @@ static int mdss_dsi_clamp_ctrl(struct mdss_dsi_ctrl_pdata *ctrl, int enable)
 		return -EINVAL;
 	}
 
-	if (IS_MDSS_MAJOR_MINOR_SAME(ctrl->shared_data->hw_rev,
-		MDSS_DSI_HW_REV_104)) {
-		pr_debug("%s: clamp ctrl configuration is skipped\n", __func__);
-		return 0;
-	}
-
 	clamp_reg_off = ctrl->shared_data->ulps_clamp_ctrl_off;
 	phyrst_reg_off = ctrl->shared_data->ulps_phyrst_ctrl_off;
 	mipi = &ctrl->panel_data.panel_info.mipi;
@@ -1638,9 +1634,6 @@ static int mdss_dsi_core_power_ctrl(struct mdss_dsi_ctrl_pdata *ctrl,
 			goto error_ulps;
 		}
 	} else {
-		if (pdata->panel_info.cont_splash_enabled)
-			mdss_dsi_read_hw_revision(ctrl);
-
 		/*
 		 * Enable DSI clamps only if entering idle power collapse or
 		 * when ULPS during suspend is enabled.
