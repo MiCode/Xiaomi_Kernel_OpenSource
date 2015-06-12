@@ -714,6 +714,7 @@ static void __init arch_timer_common_init(void)
 	arch_timer_banner(arch_timers_present);
 	arch_counter_register(arch_timers_present);
 	arch_timer_arch_init();
+	clocksource_select_force();
 }
 
 static void __init arch_timer_init(struct device_node *np)
