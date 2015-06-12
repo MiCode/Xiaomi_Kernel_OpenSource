@@ -23,6 +23,7 @@ int msm_fw_debug_mode = 0x1;
 int msm_fw_low_power_mode = 0x1;
 int msm_vidc_hw_rsp_timeout = 1000;
 u32 msm_fw_coverage = 0x0;
+int msm_vidc_regulator_cx_control = 0x1;
 int msm_vidc_vpe_csc_601_to_709 = 0x0;
 int msm_vidc_dec_dcvs_mode = 0x1;
 int msm_vidc_enc_dcvs_mode = 0x1;
@@ -188,6 +189,12 @@ struct dentry *msm_vidc_debugfs_init_drv(void)
 	if (!debugfs_create_u32("hw_rsp_timeout", S_IRUGO | S_IWUSR,
 			dir, &msm_vidc_hw_rsp_timeout)) {
 		dprintk(VIDC_ERR, "debugfs_create_file: fail\n");
+		goto failed_create_dir;
+	}
+	if (!debugfs_create_u32("regulator_cx_control", S_IRUGO | S_IWUSR,
+			dir, &msm_vidc_regulator_cx_control)) {
+		dprintk(VIDC_ERR,
+			"debugfs_create_file: regulator_cx_control fail\n");
 		goto failed_create_dir;
 	}
 	if (!debugfs_create_bool("enable_vpe_csc_601_709", S_IRUGO | S_IWUSR,
