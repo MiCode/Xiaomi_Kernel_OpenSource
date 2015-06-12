@@ -23,7 +23,7 @@
 		label = "gfx_iommu";
 		qcom,iommu-secure-id = <18>;
 		clocks = <&clock_gcc clk_gcc_smmu_cfg_clk>,
-			 <&clock_gcc clk_gcc_gfx_tcu_clk>;
+			 <&clock_gcc_gfx clk_gcc_gfx_tcu_clk>;
 		clock-names = "iface_clk", "core_clk";
 		status = "ok";
 
