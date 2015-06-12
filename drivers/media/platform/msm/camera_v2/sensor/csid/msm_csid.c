@@ -23,6 +23,7 @@
 #include "include/msm_csid_3_1_hwreg.h"
 #include "include/msm_csid_3_2_hwreg.h"
 #include "include/msm_csid_3_4_1_hwreg.h"
+#include "include/msm_csid_3_6_0_hwreg.h"
 
 #define V4L2_IDENT_CSID                            50002
 #define CSID_VERSION_V20                      0x02000011
@@ -35,6 +36,7 @@
 #define CSID_VERSION_V33                      0x30030000
 #define CSID_VERSION_V34                      0x30040000
 #define CSID_VERSION_V34_1                    0x30040001
+#define CSID_VERSION_V36                      0x30060000
 #define CSID_VERSION_V37                      0x30070000
 #define CSID_VERSION_V40                      0x40000000
 #define MSM_CSID_DRV_NAME                    "msm_csid"
@@ -507,7 +509,8 @@ static int msm_csid_release(struct csid_device *csid_dev)
 		(csid_dev->hw_version == CSID_VERSION_V33) ||
 		(csid_dev->hw_version == CSID_VERSION_V37) ||
 		(csid_dev->hw_version == CSID_VERSION_V34) ||
-		(csid_dev->hw_version == CSID_VERSION_V34_1)) {
+		(csid_dev->hw_version == CSID_VERSION_V34_1) ||
+		(csid_dev->hw_version == CSID_VERSION_V36)) {
 		msm_cam_clk_enable(&csid_dev->pdev->dev, csid_clk_info,
 			csid_dev->csid_clk, csid_dev->num_clk, 0);
 		msm_camera_enable_vreg(&csid_dev->pdev->dev,
@@ -1101,6 +1104,10 @@ static int csid_probe(struct platform_device *pdev)
 		"qcom,csid-v3.4.1")) {
 		new_csid_dev->ctrl_reg->csid_reg = csid_v3_4_1;
 		new_csid_dev->hw_dts_version = CSID_VERSION_V34_1;
+	} else if (of_device_is_compatible(new_csid_dev->pdev->dev.of_node,
+		"qcom,csid-v3.6.0")) {
+		new_csid_dev->ctrl_reg->csid_reg = csid_v3_6_0;
+		new_csid_dev->hw_dts_version = CSID_VERSION_V36;
 	} else {
 		pr_err("%s:%d, invalid hw version : 0x%x", __func__, __LINE__,
 		new_csid_dev->hw_dts_version);
