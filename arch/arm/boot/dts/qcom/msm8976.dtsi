@@ -2045,13 +2045,6 @@
 	status = "okay";
 };
 
-&gdsc_venus_core1 {
-	qcom,support-hw-trigger;
-	clock-names ="core1_clk";
-	clocks = <&clock_gcc clk_gcc_venus0_core1_vcodec0_clk>;
-	status = "okay";
-};
-
 &gdsc_mdss {
 	clock-names = "core_clk", "bus_clk";
 	clocks = <&clock_gcc clk_gcc_mdss_mdp_clk>,
