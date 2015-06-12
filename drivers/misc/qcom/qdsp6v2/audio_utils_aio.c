@@ -755,7 +755,9 @@ static long audio_aio_process_event_req_common(struct q6audio_aio *audio,
 	if (audio->eos_rsp && !list_empty(&audio->in_queue)) {
 		pr_debug("%s[%p]:Send flush command to release read buffers"\
 			" held up in DSP\n", __func__, audio);
+		mutex_lock(&audio->lock);
 		audio_aio_flush(audio);
+		mutex_unlock(&audio->lock);
 	}
 
 	return rc;
