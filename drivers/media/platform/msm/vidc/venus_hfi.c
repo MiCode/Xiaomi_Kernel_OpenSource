@@ -1493,6 +1493,12 @@ static inline int __power_on(struct venus_hfi_device *device)
 	if (device->power_enabled)
 		return 0;
 
+	/*
+	 * Set the flag here to skip __power_on() which is
+	 * being called again via *_alloc_set_imem() if imem is enabled
+	 */
+	device->power_enabled = true;
+
 	dprintk(VIDC_DBG, "Resuming from power collapse\n");
 	rc = __vote_buses(device, device->bus_vote.data,
 			device->bus_vote.data_count);
@@ -1551,12 +1557,6 @@ static inline int __power_on(struct venus_hfi_device *device)
 		dprintk(VIDC_ERR, "Failed to reset venus core\n");
 		goto err_reset_core;
 	}
-
-	/*
-	 * Set the flag here to skip __power_on() which is
-	 * being called again via *_alloc_set_imem() if imem is enabled
-	 */
-	device->power_enabled = true;
 
 	rc = __alloc_set_imem(device);
 	if (rc) {
@@ -3729,11 +3729,6 @@ static inline void __disable_unprepare_clks(struct venus_hfi_device *device)
 		return;
 	}
 
-	if (!device->power_enabled) {
-		dprintk(VIDC_DBG, "Clocks already unprepared and disabled\n");
-		return;
-	}
-
 	venus_hfi_for_each_clock(device, cl) {
 		 usleep_range(100, 500);
 		dprintk(VIDC_DBG, "Clock: %s disable and unprepare\n",
@@ -3749,11 +3744,6 @@ static inline int __prepare_enable_clks(struct venus_hfi_device *device)
 	if (!device) {
 		dprintk(VIDC_ERR, "Invalid params: %p\n", device);
 		return -EINVAL;
-	}
-
-	if (device->power_enabled) {
-		dprintk(VIDC_DBG, "Clocks already prepared and enabled\n");
-		return 0;
 	}
 
 	venus_hfi_for_each_clock(device, cl) {
@@ -4173,6 +4163,8 @@ static int __load_fw(struct venus_hfi_device *device)
 
 	trace_msm_v4l2_vidc_fw_load_start("msm_v4l2_vidc venus_fw load start");
 
+	device->power_enabled = true;
+
 	/* Vote for all hardware resources */
 	rc = __vote_buses(device, device->bus_vote.data,
 			device->bus_vote.data_count);
@@ -4213,8 +4205,6 @@ static int __load_fw(struct venus_hfi_device *device)
 		}
 	}
 
-	device->power_enabled = true;
-
 	/* Hand off control of regulators to h/w _after_ enabling clocks */
 	__enable_hw_power_collapse(device);
 
@@ -4229,7 +4219,6 @@ static int __load_fw(struct venus_hfi_device *device)
 	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc venus_fw load end");
 	return rc;
 fail_protect_mem:
-	device->power_enabled = false;
 	if (device->resources.fw.cookie)
 		subsystem_put(device->resources.fw.cookie);
 	device->resources.fw.cookie = NULL;
@@ -4243,6 +4232,7 @@ fail_vote_buses:
 fail_init_pkt:
 	__deinit_resources(device);
 fail_init_res:
+	device->power_enabled = false;
 	trace_msm_v4l2_vidc_fw_load_end("msm_v4l2_vidc venus_fw load end");
 	return rc;
 }
