@@ -597,7 +597,7 @@
 				qcom,cpr-corners = <19>;
 
 				qcom,ldo-headroom-voltage = <150000>;
-				qcom,ldo-max-voltage = <783000>;
+				qcom,ldo-max-voltage = <805000>;
 
 				qcom,cpr-corner-fmax-map = <1 2 6 11 19>;
 
@@ -708,7 +708,7 @@
 				qcom,cpr-corners = <18>;
 
 				qcom,ldo-headroom-voltage = <150000>;
-				qcom,ldo-max-voltage = <780000>;
+				qcom,ldo-max-voltage = <805000>;
 
 				qcom,cpr-corner-fmax-map = <1 3 5 11 18>;
 
@@ -848,14 +848,14 @@
 		regulator-max-microvolt = <865000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
-		qcom,vref-functional-step-voltage = <3919>;
-		qcom,vref-functional-min-voltage = <285420>;
-		qcom,vref-retention-step-voltage = <4554>;
-		qcom,vref-retention-min-voltage = <332000>;
+		qcom,vref-functional-step-voltage = <4048>;
+		qcom,vref-functional-min-voltage = <294800>;
+		qcom,vref-retention-step-voltage = <4462>;
+		qcom,vref-retention-min-voltage = <324950>;
 		qcom,cluster-num = <0>;
 		kryo0_retention_vreg: regulator {
 			regulator-name = "kryo0-retention";
-			regulator-min-microvolt = <332000>;
+			regulator-min-microvolt = <324950>;
 			regulator-max-microvolt = <865000>;
 		};
 	};
@@ -870,14 +870,14 @@
 		regulator-max-microvolt = <865000>;
 		qcom,ldo-default-voltage = <750000>;
 		qcom,retention-voltage = <520000>;
-		qcom,vref-functional-step-voltage = <3905>;
-		qcom,vref-functional-min-voltage = <284415>;
-		qcom,vref-retention-step-voltage = <4554>;
-		qcom,vref-retention-min-voltage = <332000>;
+		qcom,vref-functional-step-voltage = <4048>;
+		qcom,vref-functional-min-voltage = <294800>;
+		qcom,vref-retention-step-voltage = <4462>;
+		qcom,vref-retention-min-voltage = <324950>;
 		qcom,cluster-num = <1>;
 		kryo1_retention_vreg: regulator {
 			regulator-name = "kryo1-retention";
-			regulator-min-microvolt = <332000>;
+			regulator-min-microvolt = <324950>;
 			regulator-max-microvolt = <865000>;
 		};
 	};

@@ -62,6 +62,36 @@
 	regulator-always-on;
 };
 
+&apc0_pwrcl_vreg {
+	qcom,ldo-max-voltage = <783000>;
+};
+
+&apc1_vreg {
+	qcom,ldo-max-voltage = <780000>;
+};
+
+&kryo0_vreg {
+	qcom,vref-functional-step-voltage = <3919>;
+	qcom,vref-functional-min-voltage = <285420>;
+	qcom,vref-retention-step-voltage = <4554>;
+	qcom,vref-retention-min-voltage = <332000>;
+
+	kryo0_retention_vreg {
+		regulator-min-microvolt = <332000>;
+	};
+};
+
+&kryo1_vreg {
+	qcom,vref-functional-step-voltage = <3905>;
+	qcom,vref-functional-min-voltage = <284415>;
+	qcom,vref-retention-step-voltage = <4554>;
+	qcom,vref-retention-min-voltage = <332000>;
+
+	kryo1_retention_vreg {
+		regulator-min-microvolt = <332000>;
+	};
+};
+
 &venus_secure_pixel_cb {
 	status = "disabled";
 };
