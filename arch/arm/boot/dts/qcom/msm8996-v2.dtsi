@@ -316,10 +316,6 @@
 		qcom,slope = <2901 2846 3200 3200 3200 3200 3200 3200>;
 	};
 
-	qcom,cnss {
-		status = "disabled";
-	};
-
 	ipa_hw: qcom,ipa@680000 {
 		compatible = "qcom,ipa";
 		reg = <0x680000 0x4effc>,
