@@ -1177,6 +1177,38 @@ static const struct snd_kcontrol_new aif3_cap_mixer[] = {
 			slim_tx_mixer_get, slim_tx_mixer_put),
 };
 
+static const struct snd_kcontrol_new rx_int1_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("HPHL Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
+static const struct snd_kcontrol_new rx_int2_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("HPHR Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
+static const struct snd_kcontrol_new rx_int3_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("LO1 Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
+static const struct snd_kcontrol_new rx_int4_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("LO2 Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
+static const struct snd_kcontrol_new rx_int5_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("LO3 Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
+static const struct snd_kcontrol_new rx_int6_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("LO4 Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
+static const struct snd_kcontrol_new rx_int7_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("SPKRL Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
+static const struct snd_kcontrol_new rx_int8_spline_mix_switch[] = {
+	SOC_DAPM_SINGLE("SPKRR Switch", SND_SOC_NOPM, 0, 1, 0)
+};
+
 static int tasha_put_iir_enable_audio_mixer(
 					struct snd_kcontrol *kcontrol,
 					struct snd_ctl_elem_value *ucontrol)
@@ -3255,7 +3287,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT1 INTERP", NULL, "RX INT1_1 MIX1"},
 	{"SPL SRC0 MUX", "SRC_IN_HPHL", "RX INT1 INTERP"},
 	{"RX INT1 SPLINE MIX", NULL, "RX INT1 INTERP"},
-	{"RX INT1 SPLINE MIX", NULL, "SPL SRC0 MUX"},
+	{"RX INT1 SPLINE MIX", "HPHL Switch", "SPL SRC0 MUX"},
 	{"RX INT1 SEC MIX", NULL, "RX INT1 SPLINE MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 SEC MIX"},
 	{"RX INT1 MIX2", NULL, "RX INT1 MIX2 INP"},
@@ -3268,7 +3300,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT2 INTERP", NULL, "RX INT2_1 MIX1"},
 	{"SPL SRC1 MUX", "SRC_IN_HPHR", "RX INT2 INTERP"},
 	{"RX INT2 SPLINE MIX", NULL, "RX INT2 INTERP"},
-	{"RX INT2 SPLINE MIX", NULL, "SPL SRC1 MUX"},
+	{"RX INT2 SPLINE MIX", "HPHR Switch", "SPL SRC1 MUX"},
 	{"RX INT2 SEC MIX", NULL, "RX INT2 SPLINE MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 SEC MIX"},
 	{"RX INT2 MIX2", NULL, "RX INT2 MIX2 INP"},
@@ -3281,7 +3313,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT3 INTERP", NULL, "RX INT3_1 MIX1"},
 	{"SPL SRC0 MUX", "SRC_IN_LO1", "RX INT3 INTERP"},
 	{"RX INT3 SPLINE MIX", NULL, "RX INT3 INTERP"},
-	{"RX INT3 SPLINE MIX", NULL, "SPL SRC0 MUX"},
+	{"RX INT3 SPLINE MIX", "LO1 Switch", "SPL SRC0 MUX"},
 	{"RX INT3 SEC MIX", NULL, "RX INT3 SPLINE MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 SEC MIX"},
 	{"RX INT3 MIX2", NULL, "RX INT3 MIX2 INP"},
@@ -3293,7 +3325,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT4 INTERP", NULL, "RX INT4_1 MIX1"},
 	{"SPL SRC1 MUX", "SRC_IN_LO2", "RX INT4 INTERP"},
 	{"RX INT4 SPLINE MIX", NULL, "RX INT4 INTERP"},
-	{"RX INT4 SPLINE MIX", NULL, "SPL SRC1 MUX"},
+	{"RX INT4 SPLINE MIX", "LO2 Switch", "SPL SRC1 MUX"},
 	{"RX INT4 SEC MIX", NULL, "RX INT4 SPLINE MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 SEC MIX"},
 	{"RX INT4 MIX2", NULL, "RX INT4 MIX2 INP"},
@@ -3305,7 +3337,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT5 INTERP", NULL, "RX INT5_1 MIX1"},
 	{"SPL SRC2 MUX", "SRC_IN_LO3", "RX INT5 INTERP"},
 	{"RX INT5 SPLINE MIX", NULL, "RX INT5 INTERP"},
-	{"RX INT5 SPLINE MIX", NULL, "SPL SRC2 MUX"},
+	{"RX INT5 SPLINE MIX", "LO3 Switch", "SPL SRC2 MUX"},
 	{"RX INT5 SEC MIX", NULL, "RX INT5 SPLINE MIX"},
 	{"RX INT5 MIX2", NULL, "RX INT5 SEC MIX"},
 	{"RX INT5 DAC", NULL, "RX INT5 MIX2"},
@@ -3316,7 +3348,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT6 INTERP", NULL, "RX INT6_1 MIX1"},
 	{"SPL SRC3 MUX", "SRC_IN_LO4", "RX INT6 INTERP"},
 	{"RX INT6 SPLINE MIX", NULL, "RX INT6 INTERP"},
-	{"RX INT6 SPLINE MIX", NULL, "SPL SRC3 MUX"},
+	{"RX INT6 SPLINE MIX", "LO4 Switch", "SPL SRC3 MUX"},
 	{"RX INT6 SEC MIX", NULL, "RX INT6 SPLINE MIX"},
 	{"RX INT6 MIX2", NULL, "RX INT6 SEC MIX"},
 	{"RX INT6 DAC", NULL, "RX INT6 MIX2"},
@@ -3327,7 +3359,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT7 INTERP", NULL, "RX INT7_1 MIX1"},
 	{"SPL SRC2 MUX", "SRC_IN_SPKRL", "RX INT7 INTERP"},
 	{"RX INT7 SPLINE MIX", NULL, "RX INT7 INTERP"},
-	{"RX INT7 SPLINE MIX", NULL, "SPL SRC2 MUX"},
+	{"RX INT7 SPLINE MIX", "SPKRL Switch", "SPL SRC2 MUX"},
 	{"RX INT7 SEC MIX", NULL, "RX INT7 SPLINE MIX"},
 	{"RX INT7 MIX2", NULL, "RX INT7 SEC MIX"},
 	{"RX INT7 MIX2", NULL, "RX INT7 MIX2 INP"},
@@ -3348,7 +3380,7 @@ static const struct snd_soc_dapm_route audio_map[] = {
 	{"RX INT8 INTERP", NULL, "RX INT8_1 MIX1"},
 	{"SPL SRC3 MUX", "SRC_IN_SPKRR", "RX INT8 INTERP"},
 	{"RX INT8 SPLINE MIX", NULL, "RX INT8 INTERP"},
-	{"RX INT8 SPLINE MIX", NULL, "SPL SRC3 MUX"},
+	{"RX INT8 SPLINE MIX", "SPKRR Switch", "SPL SRC3 MUX"},
 	{"RX INT8 SEC MIX", NULL, "RX INT8 SPLINE MIX"},
 	{"RX INT8 CHAIN", NULL, "RX INT8 SEC MIX"},
 	{"RX INT8 CHAIN", NULL, "RX_BIAS"},
@@ -5773,29 +5805,45 @@ static const struct snd_soc_dapm_widget tasha_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("RX INT0_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT0 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT1 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT1 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int1_spline_mix_switch,
+			ARRAY_SIZE(rx_int1_spline_mix_switch)),
 	SND_SOC_DAPM_MIXER("RX INT1 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT2_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT2 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT2 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int2_spline_mix_switch,
+			ARRAY_SIZE(rx_int2_spline_mix_switch)),
 	SND_SOC_DAPM_MIXER("RX INT2 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT3_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT3 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT3 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int3_spline_mix_switch,
+			ARRAY_SIZE(rx_int3_spline_mix_switch)),
 	SND_SOC_DAPM_MIXER("RX INT3 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT4_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT4 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT4 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int4_spline_mix_switch,
+			ARRAY_SIZE(rx_int4_spline_mix_switch)),
 	SND_SOC_DAPM_MIXER("RX INT4 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT5_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT5 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT5 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int5_spline_mix_switch,
+			ARRAY_SIZE(rx_int5_spline_mix_switch)),
 	SND_SOC_DAPM_MIXER("RX INT5 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT6_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT6 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT6 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int6_spline_mix_switch,
+			ARRAY_SIZE(rx_int6_spline_mix_switch)),
 	SND_SOC_DAPM_MIXER("RX INT6 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT7 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT7 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT7 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int7_spline_mix_switch,
+			ARRAY_SIZE(rx_int7_spline_mix_switch)),
 	SND_SOC_DAPM_MIXER("RX INT8_1 MIX1", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT8 SEC MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
-	SND_SOC_DAPM_MIXER("RX INT8 SPLINE MIX", SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_MIXER("RX INT8 SPLINE MIX", SND_SOC_NOPM, 0, 0,
+			rx_int8_spline_mix_switch,
+			ARRAY_SIZE(rx_int8_spline_mix_switch)),
 
 	SND_SOC_DAPM_MIXER("RX INT0 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
 	SND_SOC_DAPM_MIXER("RX INT1 MIX2", SND_SOC_NOPM, 0, 0, NULL, 0),
