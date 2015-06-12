@@ -79,7 +79,6 @@ struct gether {
 	uint32_t			dl_max_pkts_per_xfer;
 	uint32_t			dl_max_xfer_size;
 	bool				multi_pkt_xfer;
-	bool				supports_multi_frame;
 	bool				rx_trigger_enabled;
 	bool				rx_triggered;
 	struct sk_buff			*(*wrap)(struct gether *port,

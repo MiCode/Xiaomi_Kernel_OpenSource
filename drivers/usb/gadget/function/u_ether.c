@@ -1044,13 +1044,13 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	}
 	spin_unlock_irqrestore(&dev->lock, flags);
 
-	if (skb && !in) {
+	if (!in) {
 		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	}
 
 	/* apply outgoing CDC or RNDIS filters only for ETH packets */
-	if (!test_bit(RMNET_MODE_LLP_IP, &dev->flags) && skb &&
+	if (!test_bit(RMNET_MODE_LLP_IP, &dev->flags) &&
 						!is_promisc(cdc_filter)) {
 		u8		*dest = skb->data;
 
@@ -1096,11 +1096,7 @@ static netdev_tx_t eth_start_xmit(struct sk_buff *skb,
 	spin_unlock_irqrestore(&dev->lock, flags);
 
 	if (!skb) {
-		 /* Multi frame CDC protocols may store the frame for
-		  * later which is not a dropped frame.
-		  */
-		if (!dev->port_usb->supports_multi_frame)
-			dev->net->stats.tx_dropped++;
+		dev->net->stats.tx_dropped++;
 
 		/* no error code for dropped packets */
 		return NETDEV_TX_OK;
