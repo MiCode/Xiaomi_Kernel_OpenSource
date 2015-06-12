@@ -2080,30 +2080,6 @@ static void mdss_dsi_send_audio_notification(
 		ctrl_pdata->sdev_audio.state);
 }
 
-static u32 mdss_dsi_read_edid_block(void *caller_data, u8 block, u8 *edid_buf)
-{
-	u32 ret = 0;
-	struct mdss_dsi_ctrl_pdata *ctrl_pdata =
-		(struct mdss_dsi_ctrl_pdata *) caller_data;
-
-	if (!ctrl_pdata) {
-		pr_err("%s: Invalid data\n", __func__);
-		ret = -EINVAL;
-		goto end;
-	}
-
-	if (block >= sizeof(ctrl_pdata->edid_buf) / EDID_BLOCK_SIZE) {
-		pr_info("%s: block %d not supported\n", __func__, block);
-		goto end;
-	}
-
-	memcpy(edid_buf, ctrl_pdata->edid_buf + (block * EDID_BLOCK_SIZE),
-		EDID_BLOCK_SIZE);
-
-end:
-	return ret;
-}
-
 static void mdss_dsi_dba_cb(void *data, enum msm_dba_callback_event event)
 {
 	int ret = -EINVAL;
@@ -2122,7 +2098,7 @@ static void mdss_dsi_dba_cb(void *data, enum msm_dba_callback_event event)
 		if (ctrl_pdata->dba_ops.get_raw_edid)
 			ret = ctrl_pdata->dba_ops.get_raw_edid(
 				ctrl_pdata->dba_data,
-				sizeof(ctrl_pdata->edid_buf),
+				ctrl_pdata->edid_buf_size,
 				ctrl_pdata->edid_buf, 0);
 
 		if (!ret)
@@ -2198,10 +2174,8 @@ static void mdss_dsi_ctrl_init_dba(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	}
 
 	/* Initialize EDID feature */
-	edid_init_data.sysfs_kobj = &fbi->dev->kobj;
-	edid_init_data.caller_data = ctrl_pdata;
+	edid_init_data.kobj = &fbi->dev->kobj;
 	edid_init_data.ds_data = NULL;
-	edid_init_data.read_edid_block = mdss_dsi_read_edid_block;
 	edid_init_data.id = fbi->node;
 
 	ctrl_pdata->edid_data = hdmi_edid_init(&edid_init_data);
@@ -2209,6 +2183,12 @@ static void mdss_dsi_ctrl_init_dba(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		pr_err("%s: edid parser init failed\n", __func__);
 		goto end;
 	}
+
+	ctrl_pdata->panel_data.panel_info.edid_data = ctrl_pdata->edid_data;
+
+	/* get edid buffer from edid parser */
+	ctrl_pdata->edid_buf = edid_init_data.buf;
+	ctrl_pdata->edid_buf_size = edid_init_data.buf_size;
 
 	if (ctrl_pdata->dba_ops.power_on)
 		ctrl_pdata->dba_ops.power_on(ctrl_pdata->dba_data,

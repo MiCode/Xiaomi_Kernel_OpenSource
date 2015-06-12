@@ -120,6 +120,9 @@ struct hdmi_tx_ctrl {
 
 	struct cec_ops hdmi_cec_ops;
 	struct cec_cbs hdmi_cec_cbs;
+
+	u8 *edid_buf;
+	u32 edid_buf_size;
 };
 
 #endif /* __MDSS_HDMI_TX_H__ */
