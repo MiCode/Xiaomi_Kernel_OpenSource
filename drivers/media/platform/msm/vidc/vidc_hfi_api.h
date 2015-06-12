@@ -216,6 +216,7 @@ enum hal_property {
 	HAL_PARAM_VDEC_NON_SECURE_OUTPUT2,
 	HAL_PARAM_VENC_HIER_P_HYBRID_MODE,
 	HAL_PARAM_VENC_MBI_STATISTICS_MODE,
+	HAL_PARAM_SYNC_BASED_INTERRUPT,
 };
 
 enum hal_domain {
@@ -1395,10 +1396,11 @@ struct hfi_device {
 	int (*session_start)(void *sess);
 	int (*session_continue)(void *sess);
 	int (*session_stop)(void *sess);
-	int (*session_etb)(void *sess,
-			struct vidc_frame_data *input_frame);
-	int (*session_ftb)(void *sess,
-			struct vidc_frame_data *output_frame);
+	int (*session_etb)(void *sess, struct vidc_frame_data *input_frame);
+	int (*session_ftb)(void *sess, struct vidc_frame_data *output_frame);
+	int (*session_process_batch)(void *sess,
+		int num_etbs, struct vidc_frame_data etbs[],
+		int num_ftbs, struct vidc_frame_data ftbs[]);
 	int (*session_parse_seq_hdr)(void *sess,
 			struct vidc_seq_hdr *seq_hdr);
 	int (*session_get_seq_hdr)(void *sess,
@@ -1428,9 +1430,9 @@ typedef void (*hfi_cmd_response_callback) (enum hal_command_response cmd,
 			void *data);
 typedef void (*msm_vidc_callback) (u32 response, void *callback);
 
-void *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type, u32 device_id,
-			struct msm_vidc_platform_resources *res,
-			hfi_cmd_response_callback callback);
+struct hfi_device *vidc_hfi_initialize(enum msm_vidc_hfi_type hfi_type,
+		u32 device_id, struct msm_vidc_platform_resources *res,
+		hfi_cmd_response_callback callback);
 void vidc_hfi_deinitialize(enum msm_vidc_hfi_type hfi_type,
 			struct hfi_device *hdev);
 

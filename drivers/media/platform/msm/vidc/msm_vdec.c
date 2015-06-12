@@ -561,6 +561,15 @@ static struct msm_vidc_ctrl msm_vdec_ctrls[] = {
 			),
 		.qmenu = mpeg_vidc_video_dpb_color_format,
 	},
+	{
+		.id = V4L2_CID_VIDC_QBUF_MODE,
+		.name = "Allows batching of buffers for power savings",
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.minimum = V4L2_VIDC_QBUF_STANDARD,
+		.maximum = V4L2_VIDC_QBUF_BATCHED,
+		.default_value = V4L2_VIDC_QBUF_STANDARD,
+		.step = 1,
+	}
 };
 
 #define NUM_CTRLS ARRAY_SIZE(msm_vdec_ctrls)
@@ -1691,9 +1700,7 @@ static int msm_vdec_queue_setup(struct vb2_queue *q,
 static inline int start_streaming(struct msm_vidc_inst *inst)
 {
 	int rc = 0;
-	struct vb2_buf_entry *temp;
 	struct hfi_device *hdev;
-	struct list_head *ptr, *next;
 
 	hdev = inst->core->device;
 
@@ -1768,20 +1775,7 @@ static inline int start_streaming(struct msm_vidc_inst *inst)
 			goto fail_start;
 		}
 	}
-	mutex_lock(&inst->pendingq.lock);
-	list_for_each_safe(ptr, next, &inst->pendingq.list) {
-		temp = list_entry(ptr, struct vb2_buf_entry, list);
-		rc = msm_comm_qbuf(temp->vb);
-		if (rc) {
-			dprintk(VIDC_ERR,
-				"Failed to qbuf to hardware\n");
-			break;
-		}
-		list_del(&temp->list);
-		kfree(temp);
-	}
-	mutex_unlock(&inst->pendingq.lock);
-	return rc;
+
 fail_start:
 	return rc;
 }
@@ -1823,10 +1817,20 @@ static int msm_vdec_start_streaming(struct vb2_queue *q, unsigned int count)
 			rc = start_streaming(inst);
 		break;
 	default:
-		dprintk(VIDC_ERR, "Q-type is not supported: %d\n", q->type);
+		dprintk(VIDC_ERR, "Queue type is not supported: %d\n", q->type);
 		rc = -EINVAL;
-		break;
+		goto stream_start_failed;
 	}
+
+	rc = msm_comm_qbuf(inst, NULL);
+	if (rc) {
+		dprintk(VIDC_ERR,
+				"Failed to commit buffers queued before STREAM_ON to hardware: %d\n",
+				rc);
+		goto stream_start_failed;
+	}
+
+stream_start_failed:
 	return rc;
 }
 
@@ -1867,8 +1871,7 @@ static void msm_vdec_stop_streaming(struct vb2_queue *q)
 
 static void msm_vdec_buf_queue(struct vb2_buffer *vb)
 {
-	int rc;
-	rc = msm_comm_qbuf(vb);
+	int rc = msm_comm_qbuf(vb2_get_drv_priv(vb->vb2_queue), vb);
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to queue buffer: %d\n", rc);
 }
@@ -2060,7 +2063,7 @@ static int vdec_v4l2_to_hal(int id, int value)
 		}
 	}
 unknown_value:
-	dprintk(VIDC_WARN, "Unknown control (%x, %d)", id, value);
+	dprintk(VIDC_WARN, "Unknown control (%x, %d)\n", id, value);
 	return -EINVAL;
 }
 
@@ -2382,6 +2385,11 @@ static int try_set_ctrl(struct msm_vidc_inst *inst, struct v4l2_ctrl *ctrl)
 		hal_property.enable = ctrl->val;
 		dprintk(VIDC_DBG, "%s non_secure output2\n",
 			ctrl->val ? "Enabling" : "Disabling");
+		pdata = &hal_property;
+		break;
+	case V4L2_CID_VIDC_QBUF_MODE:
+		property_id = HAL_PARAM_SYNC_BASED_INTERRUPT;
+		hal_property.enable = ctrl->val == V4L2_VIDC_QBUF_BATCHED;
 		pdata = &hal_property;
 		break;
 	default:

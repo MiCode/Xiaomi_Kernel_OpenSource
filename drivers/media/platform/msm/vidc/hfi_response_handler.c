@@ -1495,6 +1495,17 @@ static int hfi_process_sys_property_info(u32 device_id,
 
 }
 
+static int hfi_process_ignore(u32 device_id,
+		struct vidc_hal_msg_pkt_hdr *msg_hdr,
+		struct msm_vidc_cb_info *info)
+{
+	*info = (struct msm_vidc_cb_info) {
+		.response_type =  HAL_RESPONSE_UNUSED,
+	};
+
+	return 0;
+}
+
 int hfi_process_msg_packet(u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
 		struct msm_vidc_cb_info *info)
 {
@@ -1561,6 +1572,8 @@ int hfi_process_msg_packet(u32 device_id, struct vidc_hal_msg_pkt_hdr *msg_hdr,
 		pkt_func = (pkt_func_def)hfi_process_session_abort_done;
 		break;
 	case HFI_MSG_SYS_PC_PREP_DONE:
+	case HFI_MSG_SESSION_SYNC_DONE:
+		pkt_func = (pkt_func_def)hfi_process_ignore;
 		break;
 	default:
 		dprintk(VIDC_DBG, "Unable to parse message: %#x\n",

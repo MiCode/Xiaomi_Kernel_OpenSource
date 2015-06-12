@@ -248,7 +248,7 @@ struct msm_vidc_core {
 	struct list_head list;
 	struct mutex lock;
 	int id;
-	void *device;
+	struct hfi_device *device;
 	struct msm_video_device vdev[MSM_VIDC_MAX_DEVICES];
 	struct v4l2_device v4l2_dev;
 	struct list_head instances;
@@ -289,7 +289,6 @@ struct msm_vidc_inst {
 	u32 reconfig_width;
 	u32 reconfig_height;
 	struct dentry *debugfs_root;
-	struct vb2_buffer *vb2_seq_hdr;
 	void *priv;
 	struct msm_vidc_debug debug;
 	struct buf_count count;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -92,6 +92,9 @@ struct hfi_packetization_ops {
 		struct hfi_cmd_session_set_property_packet *pkt,
 		struct hal_session *session,
 		enum hal_property ptype, void *pdata);
+	int (*session_sync_process)(
+		struct hfi_cmd_session_sync_process_packet *pkt,
+		struct hal_session *session);
 };
 
 struct hfi_packetization_ops *hfi_get_pkt_ops_handle(

@@ -884,6 +884,7 @@ struct hfi_mvc_buffer_layout_descp_type {
 #define HFI_MSG_SYS_IDLE		(HFI_MSG_SYS_COMMON_START + 0x8)
 #define HFI_MSG_SYS_COV                 (HFI_MSG_SYS_COMMON_START + 0x9)
 #define HFI_MSG_SYS_PROPERTY_INFO	(HFI_MSG_SYS_COMMON_START + 0xA)
+#define HFI_MSG_SESSION_SYNC_DONE      (HFI_MSG_SESSION_OX_START + 0xD)
 
 #define HFI_MSG_SESSION_COMMON_START		\
 	(HFI_DOMAIN_BASE_COMMON + HFI_ARCH_COMMON_OFFSET +	\
@@ -892,7 +893,7 @@ struct hfi_mvc_buffer_layout_descp_type {
 #define HFI_MSG_SESSION_GET_SEQUENCE_HEADER_DONE	\
 	(HFI_MSG_SESSION_COMMON_START + 0x2)
 
-#define  HFI_CMD_SYS_TEST_SSR	(HFI_CMD_SYS_TEST_START + 0x1)
+#define HFI_CMD_SYS_TEST_SSR	(HFI_CMD_SYS_TEST_START + 0x1)
 #define HFI_TEST_SSR_SW_ERR_FATAL	0x1
 #define HFI_TEST_SSR_SW_DIV_BY_ZERO	0x2
 #define HFI_TEST_SSR_HW_WDOG_IRQ	0x3
@@ -1002,6 +1003,14 @@ struct hfi_cmd_session_get_sequence_header_packet {
 	u32 session_id;
 	u32 buffer_len;
 	u32 packet_buffer;
+};
+
+struct hfi_cmd_session_sync_process_packet {
+	u32 size;
+	u32 packet_type;
+	u32 session_id;
+	u32 sync_id;
+	u32 rg_data[1];
 };
 
 struct hfi_msg_event_notify_packet {

@@ -1744,9 +1744,6 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		}
 
 		inst->count.fbd++;
-		if (fill_buf_done->filled_len1)
-			msm_vidc_debugfs_update(inst,
-				MSM_VIDC_DEBUGFS_EVENT_FBD);
 
 		if (extra_idx && extra_idx < VIDEO_MAX_PLANES) {
 			dprintk(VIDC_DBG,
@@ -1768,6 +1765,7 @@ static void handle_fbd(enum hal_command_response cmd, void *data)
 		mutex_lock(&inst->bufq[CAPTURE_PORT].lock);
 		vb2_buffer_done(vb, VB2_BUF_STATE_DONE);
 		mutex_unlock(&inst->bufq[CAPTURE_PORT].lock);
+		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FBD);
 	}
 
 err_handle_fbd:
@@ -1798,7 +1796,8 @@ static void handle_seq_hdr_done(enum hal_command_response cmd, void *data)
 				fill_buf_done->packet_buffer1);
 	if (!vb) {
 		dprintk(VIDC_ERR,
-				"Failed to find video buffer for seq_hdr_done\n");
+				"Failed to find video buffer for seq_hdr_done: %pa\n",
+				&fill_buf_done->packet_buffer1);
 		goto err_seq_hdr_done;
 	}
 
@@ -3186,201 +3185,368 @@ exit:
 	return rc;
 }
 
-int msm_comm_qbuf(struct vb2_buffer *vb)
+static void populate_frame_data(struct vidc_frame_data *data,
+		const struct vb2_buffer *vb, struct msm_vidc_inst *inst)
 {
-	int rc = 0;
-	struct vb2_queue *q;
-	struct msm_vidc_inst *inst;
-	struct vb2_buf_entry *entry;
-	struct vidc_frame_data frame_data;
-	struct msm_vidc_core *core;
-	struct hfi_device *hdev;
-	int extra_idx = 0;
+	int64_t time_usec;
+	int extra_idx;
+	enum v4l2_buf_type type = vb->v4l2_buf.type;
+	enum vidc_ports port = type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE ?
+		OUTPUT_PORT : CAPTURE_PORT;
 
-	if (!vb || !vb->vb2_queue)  {
-		dprintk(VIDC_ERR, "%s: Invalid input: %p\n",
-			__func__, vb);
-		return -EINVAL;
+	time_usec = timeval_to_ns(&vb->v4l2_buf.timestamp);
+	do_div(time_usec, NSEC_PER_USEC);
+
+	data->alloc_len = vb->v4l2_planes[0].length;
+	data->device_addr = vb->v4l2_planes[0].m.userptr;
+	data->timestamp = time_usec;
+	data->flags = 0;
+	data->clnt_data = data->device_addr;
+
+	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		bool pic_decoding_mode = msm_comm_g_ctrl(inst,
+				V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE);
+
+		data->buffer_type = HAL_BUFFER_INPUT;
+		data->filled_len = vb->v4l2_planes[0].bytesused;
+		data->offset = vb->v4l2_planes[0].data_offset;
+
+		if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_FLAG_EOS)
+			data->flags |= HAL_BUFFERFLAG_EOS;
+
+		if (vb->v4l2_buf.flags & V4L2_MSM_BUF_FLAG_YUV_601_709_CLAMP)
+			data->flags |= HAL_BUFFERFLAG_YUV_601_709_CSC_CLAMP;
+
+		if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_FLAG_CODECCONFIG)
+			data->flags |= HAL_BUFFERFLAG_CODECCONFIG;
+
+		if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_FLAG_DECODEONLY)
+			data->flags |= HAL_BUFFERFLAG_DECODEONLY;
+
+		if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_TIMESTAMP_INVALID)
+			data->timestamp = LLONG_MAX;
+
+		/* XXX: This is a dirty hack necessitated by the firmware,
+		 * which refuses to issue FBDs for non I-frames in Picture Type
+		 * Decoding mode, unless we pass in non-zero value in mark_data
+		 * and mark_target.
+		 */
+		data->mark_data = data->mark_target =
+			pic_decoding_mode ? 0xdeadbeef : 0;
+
+	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		data->buffer_type = msm_comm_get_hal_output_buffer(inst);
 	}
 
-	q = vb->vb2_queue;
-	inst = q->drv_priv;
+	extra_idx = EXTRADATA_IDX(inst->fmts[port]->num_planes);
+	if (extra_idx && extra_idx < VIDEO_MAX_PLANES &&
+			vb->v4l2_planes[extra_idx].m.userptr) {
+		data->extradata_addr = vb->v4l2_planes[extra_idx].m.userptr;
+		data->extradata_size = vb->v4l2_planes[extra_idx].length;
+		data->flags |= HAL_BUFFERFLAG_EXTRADATA;
+	}
+}
+
+static unsigned int count_single_batch(struct msm_vidc_list *list,
+		enum v4l2_buf_type type)
+{
+	struct vb2_buf_entry *buf;
+	int count = 0;
+
+	mutex_lock(&list->lock);
+	list_for_each_entry(buf, &list->list, list) {
+		if (buf->vb->v4l2_buf.type != type)
+			continue;
+
+		++count;
+
+		if (!(buf->vb->v4l2_buf.flags & V4L2_MSM_BUF_FLAG_DEFER))
+			goto found_batch;
+	}
+	 /* don't have a full batch */
+	count = 0;
+
+found_batch:
+	mutex_unlock(&list->lock);
+	return count;
+}
+
+static unsigned int count_buffers(struct msm_vidc_list *list,
+		enum v4l2_buf_type type)
+{
+	struct vb2_buf_entry *buf;
+	int count = 0;
+
+	mutex_lock(&list->lock);
+	list_for_each_entry(buf, &list->list, list) {
+		if (buf->vb->v4l2_buf.type != type)
+			continue;
+
+		++count;
+	}
+	mutex_unlock(&list->lock);
+
+	return count;
+}
+
+static void log_frame(struct msm_vidc_inst *inst, struct vidc_frame_data *data,
+		enum v4l2_buf_type type)
+{
+	if (type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		dprintk(VIDC_DBG,
+				"Sending etb (%pa) to hal: filled: %d, ts: %lld, flags = %#x\n",
+				&data->device_addr, data->filled_len,
+				data->timestamp, data->flags);
+		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_ETB);
+	} else if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		dprintk(VIDC_DBG,
+				"Sending ftb (%pa) to hal: size: %d, ts: %lld, flags = %#x\n",
+				&data->device_addr, data->alloc_len,
+				data->timestamp, data->flags);
+		msm_vidc_debugfs_update(inst, MSM_VIDC_DEBUGFS_EVENT_FTB);
+	}
+
+	msm_dcvs_check_and_scale_clocks(inst,
+			type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+}
+
+static int request_seq_header(struct msm_vidc_inst *inst,
+		struct vidc_frame_data *data)
+{
+	struct vidc_seq_hdr seq_hdr = {
+		.seq_hdr = data->device_addr,
+		.seq_hdr_len = data->alloc_len,
+	};
+
+	dprintk(VIDC_DBG, "Requesting sequence header in %pa\n",
+			&seq_hdr.seq_hdr);
+	return call_hfi_op(inst->core->device, session_get_seq_hdr,
+			inst->session, &seq_hdr);
+}
+
+/*
+ * Attempts to queue `vb` to hardware.  If, for various reasons, the buffer
+ * cannot be queued to hardware, the buffer will be staged for commit in the
+ * pending queue.  Once the hardware reaches a good state (or if `vb` is NULL,
+ * the subsequent *_qbuf will commit the previously staged buffers to hardware.
+ */
+int msm_comm_qbuf(struct msm_vidc_inst *inst, struct vb2_buffer *vb)
+{
+	int rc, capture_count, output_count;
+	struct msm_vidc_core *core;
+	struct hfi_device *hdev;
+	struct {
+		struct vidc_frame_data *data;
+		int count;
+	} etbs, ftbs;
+	bool defer = false, batch_mode;
+	struct vb2_buf_entry *temp, *next;
+
 	if (!inst) {
-		dprintk(VIDC_ERR, "%s: Invalid input: %p\n",
-			__func__, vb);
+		dprintk(VIDC_ERR, "%s: Invalid arguments\n", __func__);
 		return -EINVAL;
 	}
 
 	core = inst->core;
-	if (!core) {
-		dprintk(VIDC_ERR,
-			"Invalid input: %p, %p, %p\n", inst, core, vb);
-		return -EINVAL;
-	}
 	hdev = core->device;
-	if (!hdev) {
-		dprintk(VIDC_ERR, "%s: Invalid input: %p\n",
-			__func__, hdev);
-		return -EINVAL;
-	}
 
 	if (inst->state == MSM_VIDC_CORE_INVALID ||
 		core->state == VIDC_CORE_INVALID) {
 		dprintk(VIDC_ERR, "Core is in bad state. Can't Queue\n");
 		return -EINVAL;
 	}
-	if (inst->state != MSM_VIDC_START_DONE) {
-		entry = kzalloc(sizeof(*entry), GFP_KERNEL);
-		if (!entry) {
+
+	/* Stick the buffer into the pendinq, we'll pop it out later on
+	 * if we want to commit it to hardware */
+	if (vb) {
+		temp = kzalloc(sizeof(*temp), GFP_KERNEL);
+		if (!temp) {
 			dprintk(VIDC_ERR, "Out of memory\n");
 			goto err_no_mem;
 		}
-		entry->vb = vb;
 
+		temp->vb = vb;
 		mutex_lock(&inst->pendingq.lock);
-		list_add_tail(&entry->list, &inst->pendingq.list);
+		list_add_tail(&temp->list, &inst->pendingq.list);
 		mutex_unlock(&inst->pendingq.lock);
-	} else {
-		int64_t time_usec = timeval_to_ns(&vb->v4l2_buf.timestamp);
-		do_div(time_usec, NSEC_PER_USEC);
-		memset(&frame_data, 0 , sizeof(struct vidc_frame_data));
-		frame_data.alloc_len = vb->v4l2_planes[0].length;
-		frame_data.filled_len = vb->v4l2_planes[0].bytesused;
-		frame_data.offset = vb->v4l2_planes[0].data_offset;
-		frame_data.device_addr = vb->v4l2_planes[0].m.userptr;
-		frame_data.timestamp = time_usec;
-		frame_data.flags = 0;
-		frame_data.clnt_data = frame_data.device_addr;
-		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-			(frame_data.filled_len > frame_data.alloc_len ||
-			frame_data.offset > frame_data.alloc_len)) {
+	}
+
+	batch_mode = msm_comm_g_ctrl(inst, V4L2_CID_VIDC_QBUF_MODE)
+		== V4L2_VIDC_QBUF_BATCHED;
+	capture_count = (batch_mode ? &count_single_batch : &count_buffers)
+		(&inst->pendingq, V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+	output_count = (batch_mode ? &count_single_batch : &count_buffers)
+		(&inst->pendingq, V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+
+	/*
+	 * Somewhat complicated logic to prevent queuing the buffer to hardware.
+	 * Don't queue if:
+	 * 1) Hardware isn't ready (that's simple)
+	 */
+	defer = defer ?: inst->state != MSM_VIDC_START_DONE;
+
+	/*
+	 * 2) The client explicitly tells us not to because it wants this
+	 * buffer to be batched with future frames.  The batch size (on both
+	 * capabilities) is completely determined by the client.
+	 */
+	defer = defer ?: vb && vb->v4l2_buf.flags & V4L2_MSM_BUF_FLAG_DEFER;
+
+	/* 3) If we're in batch mode, we must have full batches of both types */
+	defer = defer ?: batch_mode && (!output_count || !capture_count);
+
+	if (defer) {
+		dprintk(VIDC_DBG, "Deferring queue of %p\n", vb);
+		return 0;
+	}
+
+	dprintk(VIDC_DBG, "%sing %d etbs and %d ftbs\n",
+			batch_mode ? "Batch" : "Process",
+			output_count, capture_count);
+
+	etbs.data = kcalloc(output_count, sizeof(*etbs.data), GFP_KERNEL);
+	ftbs.data = kcalloc(capture_count, sizeof(*ftbs.data), GFP_KERNEL);
+	/* Note that it's perfectly normal for (e|f)tbs.data to be NULL if
+	 * we're not in batch mode (i.e. (output|capture)_count == 0) */
+	if ((!etbs.data && output_count) ||
+			(!ftbs.data && capture_count)) {
+		dprintk(VIDC_ERR, "Failed to alloc memory for batching\n");
+		kfree(etbs.data);
+		etbs.data = NULL;
+
+		kfree(ftbs.data);
+		ftbs.data = NULL;
+		goto err_no_mem;
+	}
+
+	etbs.count = ftbs.count = 0;
+
+	/*
+	 * Try to collect all pending buffers into 2 batches of ftb and etb
+	 * Note that these "batches" might be empty if we're no in batching mode
+	 * and the pendingq is empty
+	 */
+	mutex_lock(&inst->pendingq.lock);
+	list_for_each_entry_safe(temp, next, &inst->pendingq.list, list) {
+		struct vidc_frame_data *frame_data = NULL;
+
+		switch (temp->vb->v4l2_buf.type) {
+		case V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE:
+			if (ftbs.count < capture_count && ftbs.data)
+				frame_data = &ftbs.data[ftbs.count++];
+			break;
+		case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+			if (etbs.count < output_count && etbs.data)
+				frame_data = &etbs.data[etbs.count++];
+			break;
+		default:
+			break;
+		}
+
+		if (!frame_data)
+			continue;
+
+		populate_frame_data(frame_data, temp->vb, inst);
+
+		list_del(&temp->list);
+		kfree(temp);
+	}
+	mutex_unlock(&inst->pendingq.lock);
+
+	/* Finally commit all our frame(s) to H/W */
+	if (batch_mode) {
+		int ftb_index = 0, c = 0;
+
+		for (c = 0; atomic_read(&inst->seq_hdr_reqs) > 0; ++c) {
+			rc = request_seq_header(inst, &ftbs.data[c]);
+			if (rc) {
+				dprintk(VIDC_ERR,
+						"Failed requesting sequence header: %d\n",
+						rc);
+				goto err_bad_input;
+			}
+
+			atomic_dec(&inst->seq_hdr_reqs);
+		}
+
+		ftb_index = c;
+		rc = call_hfi_op(hdev, session_process_batch, inst->session,
+				etbs.count, etbs.data,
+				ftbs.count - ftb_index, &ftbs.data[ftb_index]);
+		if (rc) {
 			dprintk(VIDC_ERR,
-				"Buffer will overflow, not queueing it\n");
-			rc = -EINVAL;
+				"Failed to queue batch of %d ETBs and %d FTBs\n",
+				etbs.count, ftbs.count);
 			goto err_bad_input;
 		}
 
-		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-			frame_data.buffer_type = HAL_BUFFER_INPUT;
-			if (vb->v4l2_buf.flags & V4L2_QCOM_BUF_FLAG_EOS) {
-				frame_data.flags |= HAL_BUFFERFLAG_EOS;
-				dprintk(VIDC_DBG,
-					"Received EOS on output capability\n");
-			}
+		for (c = ftb_index; c < ftbs.count; ++c) {
+			log_frame(inst, &ftbs.data[c],
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+		}
 
-			if (vb->v4l2_buf.flags &
-				V4L2_MSM_BUF_FLAG_YUV_601_709_CLAMP) {
-				frame_data.flags |=
-					HAL_BUFFERFLAG_YUV_601_709_CSC_CLAMP;
-				dprintk(VIDC_DBG,
-					"Received buff with 601to709 clamp\n");
-			}
-
-			if (vb->v4l2_buf.flags &
-					V4L2_QCOM_BUF_FLAG_CODECCONFIG) {
-				frame_data.flags |= HAL_BUFFERFLAG_CODECCONFIG;
-				dprintk(VIDC_DBG,
-					"Received CODECCONFIG on output cap\n");
-			}
-
-			if (vb->v4l2_buf.flags &
-					V4L2_QCOM_BUF_FLAG_DECODEONLY) {
-				frame_data.flags |= HAL_BUFFERFLAG_DECODEONLY;
-				dprintk(VIDC_DBG,
-					"Received DECODEONLY on output cap\n");
-			}
-
-			if (vb->v4l2_buf.flags &
-				V4L2_QCOM_BUF_TIMESTAMP_INVALID)
-				frame_data.timestamp = LLONG_MAX;
-
-			extra_idx = EXTRADATA_IDX(inst->fmts[OUTPUT_PORT]->
-					num_planes);
-			if (extra_idx && extra_idx < VIDEO_MAX_PLANES &&
-					vb->v4l2_planes[extra_idx].m.userptr) {
-				frame_data.extradata_addr =
-					vb->v4l2_planes[extra_idx].m.userptr;
-				frame_data.flags |= HAL_BUFFERFLAG_EXTRADATA;
-			}
-
-			if (msm_comm_g_ctrl(inst,
-				V4L2_CID_MPEG_VIDC_VIDEO_PICTYPE_DEC_MODE)) {
-				frame_data.mark_data =
-					frame_data.mark_target = 0xdeadbeef;
-			} else {
-				frame_data.mark_data =
-					frame_data.mark_target = 0;
-			}
-
-			dprintk(VIDC_DBG,
-				"Sending etb to hal: device_addr: %pa, alloc: %d, filled: %d, offset: %d, ts: %lld, flags = %#x, v4l2_buf index = %d, mark_data: %d\n",
-				&frame_data.device_addr, frame_data.alloc_len,
-				frame_data.filled_len, frame_data.offset,
-				frame_data.timestamp, frame_data.flags,
-				vb->v4l2_buf.index, frame_data.mark_data);
-
-			msm_dcvs_check_and_scale_clocks(inst, true);
-			rc = call_hfi_op(hdev, session_etb, (void *)
-					inst->session, &frame_data);
-			if (!rc)
-				msm_vidc_debugfs_update(inst,
-					MSM_VIDC_DEBUGFS_EVENT_ETB);
-			dprintk(VIDC_DBG, "Sent etb to HAL\n");
-		} else if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-			struct vidc_seq_hdr seq_hdr;
-			frame_data.filled_len = 0;
-			frame_data.offset = 0;
-			frame_data.alloc_len = vb->v4l2_planes[0].length;
-			frame_data.buffer_type =
-				msm_comm_get_hal_output_buffer(inst);
-
-			extra_idx =
-			EXTRADATA_IDX(inst->fmts[CAPTURE_PORT]->num_planes);
-			if (extra_idx && extra_idx < VIDEO_MAX_PLANES &&
-				vb->v4l2_planes[extra_idx].m.userptr) {
-				frame_data.extradata_addr =
-					vb->v4l2_planes[extra_idx].m.userptr;
-				frame_data.extradata_size =
-					vb->v4l2_planes[extra_idx].length;
-			}
-
-			dprintk(VIDC_DBG,
-				"Sending ftb to hal: device_addr: %pa, alloc: %d, buffer_type: %d, ts: %lld, flags = %#x, v4l2_buf index = %d\n",
-				&frame_data.device_addr, frame_data.alloc_len,
-				frame_data.buffer_type, frame_data.timestamp,
-				frame_data.flags, vb->v4l2_buf.index);
-
-			if (atomic_read(&inst->seq_hdr_reqs) &&
-				inst->session_type == MSM_VIDC_ENCODER) {
-				seq_hdr.seq_hdr = vb->v4l2_planes[0].
-					m.userptr;
-				seq_hdr.seq_hdr_len = vb->v4l2_planes[0].length;
-				rc = call_hfi_op(hdev, session_get_seq_hdr,
-					(void *) inst->session, &seq_hdr);
-				if (!rc) {
-					inst->vb2_seq_hdr = vb;
-					dprintk(VIDC_DBG, "Seq_hdr: %p\n",
-						inst->vb2_seq_hdr);
-				}
-				atomic_dec(&inst->seq_hdr_reqs);
-			} else {
-				msm_dcvs_check_and_scale_clocks(inst, false);
-				rc = call_hfi_op(hdev, session_ftb,
-					(void *) inst->session, &frame_data);
-				if (!rc)
-					msm_vidc_debugfs_update(inst,
-						MSM_VIDC_DEBUGFS_EVENT_FTB);
-			}
-		} else {
-			dprintk(VIDC_ERR,
-				"This capability is not supported: %d\n",
-				q->type);
-			rc = -EINVAL;
+		for (c = 0; c < etbs.count; ++c) {
+			log_frame(inst, &etbs.data[c],
+					V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
 		}
 	}
+
+	if (!batch_mode && etbs.count) {
+		int c = 0;
+
+		for (c = 0; c < etbs.count; ++c) {
+			struct vidc_frame_data *frame_data = &etbs.data[c];
+
+			rc = call_hfi_op(hdev, session_etb, inst->session,
+					frame_data);
+			if (rc) {
+				dprintk(VIDC_ERR, "Failed to issue etb: %d\n",
+						rc);
+				goto err_bad_input;
+			}
+
+			log_frame(inst, frame_data,
+					V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE);
+		}
+	}
+
+	if (!batch_mode && ftbs.count) {
+		int c = 0;
+
+		for (c = 0; atomic_read(&inst->seq_hdr_reqs) > 0; ++c) {
+			rc = request_seq_header(inst, &ftbs.data[c]);
+			if (rc) {
+				dprintk(VIDC_ERR,
+						"Failed requesting sequence header: %d\n",
+						rc);
+				goto err_bad_input;
+			}
+
+			atomic_dec(&inst->seq_hdr_reqs);
+		}
+
+		for (; c < ftbs.count; ++c) {
+			struct vidc_frame_data *frame_data = &ftbs.data[c];
+
+			rc = call_hfi_op(hdev, session_ftb,
+					inst->session, frame_data);
+			if (rc) {
+				dprintk(VIDC_ERR, "Failed to issue ftb: %d\n",
+						rc);
+				goto err_bad_input;
+			}
+
+			log_frame(inst, frame_data,
+					V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE);
+		}
+	}
+
 err_bad_input:
 	if (rc)
 		dprintk(VIDC_ERR, "Failed to queue buffer\n");
+
+	kfree(etbs.data);
+	kfree(ftbs.data);
 err_no_mem:
 	return rc;
 }
@@ -3994,8 +4160,7 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 	int rc =  0;
 	bool ip_flush = false;
 	bool op_flush = false;
-	struct list_head *ptr, *next;
-	struct vb2_buf_entry *temp;
+	struct vb2_buf_entry *temp, *next;
 	struct mutex *lock;
 	struct msm_vidc_core *core;
 	struct hfi_device *hdev;
@@ -4057,19 +4222,26 @@ int msm_comm_flush(struct msm_vidc_inst *inst, u32 flags)
 		 * streamon driver should flush the pending queue
 		 */
 		mutex_lock(&inst->pendingq.lock);
-		list_for_each_safe(ptr, next, &inst->pendingq.list) {
-			temp =
-			list_entry(ptr, struct vb2_buf_entry, list);
-			if (temp->vb->v4l2_buf.type ==
-				V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+		list_for_each_entry_safe(temp, next,
+				&inst->pendingq.list, list) {
+			enum v4l2_buf_type type = temp->vb->v4l2_buf.type;
+
+			if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 				lock = &inst->bufq[CAPTURE_PORT].lock;
 			else
 				lock = &inst->bufq[OUTPUT_PORT].lock;
+
 			temp->vb->v4l2_planes[0].bytesused = 0;
+
 			mutex_lock(lock);
 			vb2_buffer_done(temp->vb, VB2_BUF_STATE_DONE);
-			mutex_unlock(lock);
+			msm_vidc_debugfs_update(inst,
+				type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE ?
+					MSM_VIDC_DEBUGFS_EVENT_FBD :
+					MSM_VIDC_DEBUGFS_EVENT_EBD);
 			list_del(&temp->list);
+			mutex_unlock(lock);
+
 			kfree(temp);
 		}
 		mutex_unlock(&inst->pendingq.lock);
