@@ -3218,6 +3218,14 @@ static int mdss_dsi_parse_gpio_params(struct platform_device *ctrl_pdev,
 		ctrl_pdata->mode_gpio = -EINVAL;
 	}
 
+	ctrl_pdata->lcd_mode_sel_gpio = of_get_named_gpio(
+			ctrl_pdev->dev.of_node, "qcom,panel-mode-gpio", 0);
+	if (!gpio_is_valid(ctrl_pdata->lcd_mode_sel_gpio)) {
+			pr_info("%s:%d, dsc/dual mode gpio not specified\n",
+							__func__, __LINE__);
+		ctrl_pdata->lcd_mode_sel_gpio = -EINVAL;
+	}
+
 	return 0;
 }
 
