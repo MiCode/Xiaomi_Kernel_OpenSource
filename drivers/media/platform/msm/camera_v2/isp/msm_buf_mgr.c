@@ -608,6 +608,7 @@ static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
 	struct msm_isp_bufq *bufq = NULL;
 	struct msm_isp_buffer *buf_info = NULL;
 	enum msm_isp_buffer_state state;
+	unsigned long flags;
 
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
@@ -621,6 +622,7 @@ static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
+	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	if (bufq->buf_type != ISP_SHARE_BUF ||
 		buf_info->buf_put_count == 0) {
 		buf_info->frame_id = frame_id;
@@ -633,12 +635,14 @@ static int msm_isp_update_put_buf_cnt(struct msm_isp_buf_mgr *buf_mgr,
 			buf_info->buf_put_count++;
 			if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT) {
 				rc = buf_info->buf_put_count;
+				spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 				return rc;
 			}
 		}
 	} else {
 		pr_warn("%s: Invalid state\n", __func__);
 	}
+	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 
 	return 0;
 }
@@ -753,6 +757,7 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 	int rc = -1;
 	struct msm_isp_bufq *bufq = NULL;
 	struct msm_isp_buffer *buf_info = NULL;
+	unsigned long flags;
 
 	bufq = msm_isp_get_bufq(buf_mgr, bufq_handle);
 	if (!bufq) {
@@ -766,6 +771,7 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 		return rc;
 	}
 
+	spin_lock_irqsave(&bufq->bufq_lock, flags);
 	if (bufq->buf_type != ISP_SHARE_BUF ||
 		buf_info->buf_put_count == 0) {
 		buf_info->frame_id = frame_id;
@@ -775,6 +781,7 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 		buf_info->buf_put_count++;
 		if (buf_info->buf_put_count != ISP_SHARE_BUF_CLIENT) {
 			rc = buf_info->buf_put_count;
+			spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 			return rc;
 		}
 	}
@@ -783,6 +790,7 @@ static int msm_isp_buf_divert(struct msm_isp_buf_mgr *buf_mgr,
 		buf_info->state = MSM_ISP_BUFFER_STATE_DIVERTED;
 		buf_info->tv = tv;
 	}
+	spin_unlock_irqrestore(&bufq->bufq_lock, flags);
 
 	return 0;
 }
