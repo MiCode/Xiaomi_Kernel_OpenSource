@@ -102,6 +102,7 @@
 #define MDSS_MDP_HW_REV_110	MDSS_MDP_REV(1, 10, 0) /* 8992 v1.0 */
 #define MDSS_MDP_HW_REV_200	MDSS_MDP_REV(2, 0, 0) /* 8092 v1.0 */
 #define MDSS_MDP_HW_REV_112	MDSS_MDP_REV(1, 12, 0) /* 8952 v1.0 */
+#define MDSS_MDP_HW_REV_111	MDSS_MDP_REV(1, 11, 0) /* 8956/76 v1.0 */
 
 enum {
 	MDP_RGB_565,      /* RGB 565 planer */
