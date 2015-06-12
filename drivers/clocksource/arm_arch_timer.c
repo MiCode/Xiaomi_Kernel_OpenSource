@@ -824,6 +824,7 @@ static int __init arch_timer_common_init(void)
 
 	arch_timer_banner(arch_timers_present);
 	arch_counter_register(arch_timers_present);
+	clocksource_select_force();
 	return arch_timer_arch_init();
 }
 
