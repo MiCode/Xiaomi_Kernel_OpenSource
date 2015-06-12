@@ -187,8 +187,6 @@ static struct attribute_group cx_attr_gp;
 static struct attribute_group gfx_attr_gp;
 static struct attribute_group mx_attr_group;
 static struct regulator *vdd_mx;
-static struct cpufreq_frequency_table *pending_freq_table_ptr;
-static int pending_cpu_freq = -1;
 static long *tsens_temp_at_panic;
 static u32 tsens_temp_print;
 static uint32_t bucket;
@@ -900,18 +898,6 @@ static int  msm_thermal_cpufreq_callback(struct notifier_block *nfb,
 			pr_err("Invalid frequency request Max:%u Min:%u\n",
 				max_freq_req, min_freq_req);
 		break;
-
-	case CPUFREQ_CREATE_POLICY:
-		if (pending_cpu_freq != -1 &&
-			(cpumask_first(policy->related_cpus) ==
-			pending_cpu_freq)) {
-			pr_debug("Updating freq plan for cpu: %d\n",
-				policy->cpu);
-			pending_freq_table_ptr = cpufreq_frequency_get_table(
-							policy->cpu);
-			pending_cpu_freq = -1;
-		}
-		break;
 	}
 	return NOTIFY_OK;
 }
@@ -1341,72 +1327,79 @@ static void update_cpu_topology(struct device *dev)
 	core_ptr->child_entity_ptr = temp_ptr;
 }
 
-static int __ref init_cluster_freq_table(void)
+static int get_cpu_freq_plan_len(int cpu)
 {
-	uint32_t _cluster = 0, _cpu = 0, table_len = 0, idx = 0;
-	int ret = 0, cpu_set;
-	char buf[CPU_BUF_SIZE];
-	struct cluster_info *cluster_ptr = NULL;
-	struct cpufreq_policy *policy = NULL;
-	struct cpufreq_frequency_table *freq_table_ptr = NULL;
+	int table_len = 0;
+	struct device *cpu_dev = NULL;
 
-	for (; _cluster < core_ptr->entity_count; _cluster++, table_len = 0,
-		(policy && freq_table_ptr) ? cpufreq_cpu_put(policy) : 0,
-		policy = NULL, freq_table_ptr = NULL) {
+	cpu_dev = get_cpu_device(cpu);
+	if (!cpu_dev) {
+		pr_err("Error in get CPU%d device\n", cpu);
+		goto exit;
+	}
+
+	rcu_read_lock();
+	table_len = dev_pm_opp_get_opp_count(cpu_dev);
+	if (table_len <= 0) {
+		pr_err("Error reading CPU%d freq table len. error:%d\n",
+			cpu, table_len);
+		table_len = 0;
+		goto unlock_and_exit;
+	}
+
+unlock_and_exit:
+	rcu_read_unlock();
+
+exit:
+	return table_len;
+}
+
+static int get_cpu_freq_plan(int cpu,
+		 struct cpufreq_frequency_table *freq_table_ptr)
+{
+	int table_len = 0;
+	struct dev_pm_opp *opp = NULL;
+	unsigned long freq = 0;
+	struct device *cpu_dev = NULL;
+
+	cpu_dev = get_cpu_device(cpu);
+	if (!cpu_dev) {
+		pr_err("Error in get CPU%d device\n", cpu);
+		goto exit;
+	}
+
+	rcu_read_lock();
+	while (!IS_ERR(opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq))) {
+		freq_table_ptr[table_len].frequency = freq;
+		pr_debug("cpu%d freq %d :%d\n", cpu, table_len,
+			freq_table_ptr[table_len].frequency);
+		freq++;
+		table_len++;
+	}
+	rcu_read_unlock();
+
+exit:
+	return table_len;
+}
+
+static int init_cluster_freq_table(void)
+{
+	uint32_t _cluster = 0;
+	int table_len = 0;
+	int ret = 0;
+	struct cluster_info *cluster_ptr = NULL;
+
+	for (; _cluster < core_ptr->entity_count; _cluster++, table_len = 0) {
 		cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
 		if (cluster_ptr->freq_table)
 			continue;
 
-		for_each_cpu_mask(_cpu, cluster_ptr->cluster_cores) {
-			policy = cpufreq_cpu_get(_cpu);
-			if (!policy)
-				continue;
-			freq_table_ptr = cpufreq_frequency_get_table(
-						policy->cpu);
-			if (!freq_table_ptr) {
-				cpufreq_cpu_put(policy);
-				continue;
-			} else {
-				break;
-			}
-		}
-		if (!freq_table_ptr) {
-			_cpu = first_cpu(cluster_ptr->cluster_cores);
-			pr_debug(
-			"Online cpu%d in cluster%d to read cpufreq table\n",
-				cluster_ptr->cluster_id, _cpu);
-			pending_cpu_freq = _cpu;
-			if (!cpu_online(_cpu)) {
-				cpu_set = cpumask_test_cpu(_cpu,
-						cpus_previously_online);
-#ifdef CONFIG_SMP
-				cpu_up(_cpu);
-				cpu_down(_cpu);
-#endif
-				/* Remove prev online bit if we are first to
-				   put it online */
-				if (!cpu_set) {
-					cpumask_clear_cpu(_cpu,
-						cpus_previously_online);
-					cpumask_scnprintf(buf, sizeof(buf),
-						cpus_previously_online);
-					pr_debug("Reset prev online to %s\n",
-						 buf);
-				}
-			}
-			freq_table_ptr = pending_freq_table_ptr;
-		}
-		if (!freq_table_ptr) {
-			pr_debug("Error reading cluster%d cpufreq table\n",
-				cluster_ptr->cluster_id);
+		table_len = get_cpu_freq_plan_len(
+				first_cpu(cluster_ptr->cluster_cores));
+		if (!table_len) {
 			ret = -EAGAIN;
 			continue;
 		}
-
-		while (freq_table_ptr[table_len].frequency
-			!= CPUFREQ_TABLE_END)
-			table_len++;
-
 		cluster_ptr->freq_idx_low = 0;
 		cluster_ptr->freq_idx_high = cluster_ptr->freq_idx =
 				table_len - 1;
@@ -1418,10 +1411,9 @@ static int __ref init_cluster_freq_table(void)
 			WARN(1, "Cluster%d frequency table length:%d\n",
 				cluster_ptr->cluster_id, table_len);
 			ret = -EINVAL;
-			goto release_and_exit;
+			goto exit;
 		}
-		cluster_ptr->freq_table = devm_kzalloc(
-			&msm_thermal_info.pdev->dev,
+		cluster_ptr->freq_table = kzalloc(
 			sizeof(struct cpufreq_frequency_table) * table_len,
 			GFP_KERNEL);
 		if (!cluster_ptr->freq_table) {
@@ -1429,16 +1421,22 @@ static int __ref init_cluster_freq_table(void)
 			cluster_ptr->freq_idx = cluster_ptr->freq_idx_low =
 				cluster_ptr->freq_idx_high = 0;
 			ret = -ENOMEM;
-			goto release_and_exit;
+			goto exit;
 		}
-		for (idx = 0; idx < table_len; idx++)
-			cluster_ptr->freq_table[idx].frequency =
-				freq_table_ptr[idx].frequency;
+		table_len = get_cpu_freq_plan(
+				first_cpu(cluster_ptr->cluster_cores),
+				cluster_ptr->freq_table);
+		if (!table_len) {
+			kfree(cluster_ptr->freq_table);
+			cluster_ptr->freq_table = NULL;
+			pr_err("Error reading cluster%d cpufreq table\n",
+				cluster_ptr->cluster_id);
+			ret = -EAGAIN;
+			continue;
+		}
 	}
 
-	return ret;
-release_and_exit:
-	cpufreq_cpu_put(policy);
+exit:
 	return ret;
 }
 
@@ -1535,8 +1533,8 @@ static void do_cluster_freq_ctrl(long temp)
 static int check_freq_table(void)
 {
 	int ret = 0;
-	uint32_t i = 0;
 	static bool invalid_table;
+	int table_len = 0;
 
 	if (invalid_table)
 		return -EINVAL;
@@ -1549,29 +1547,45 @@ static int check_freq_table(void)
 			freq_table_get = 1;
 		else if (ret == -EINVAL)
 			invalid_table = true;
-		return ret;
+		goto exit;
 	}
 
-	table = cpufreq_frequency_get_table(0);
-	if (!table) {
-		pr_debug("error reading cpufreq table\n");
+	table_len = get_cpu_freq_plan_len(0);
+	if (!table_len)
 		return -EINVAL;
+
+	table = kzalloc(sizeof(struct cpufreq_frequency_table)
+			* table_len, GFP_KERNEL);
+	if (!table) {
+		ret = -ENOMEM;
+		goto exit;
 	}
-	while (table[i].frequency != CPUFREQ_TABLE_END)
-		i++;
+	table_len = get_cpu_freq_plan(0, table);
+	if (!table_len) {
+		pr_err("error reading cpufreq table\n");
+		ret = -EINVAL;
+		goto free_and_exit;
+	}
 
 	limit_idx_low = 0;
-	limit_idx_high = limit_idx = i - 1;
+	limit_idx_high = limit_idx = table_len - 1;
 	if (limit_idx_high < 0 || limit_idx_high < limit_idx_low) {
 		invalid_table = true;
-		table = NULL;
 		limit_idx_low = limit_idx_high = limit_idx = 0;
-		WARN(1, "CPU0 frequency table length:%d\n", i);
-		return -EINVAL;
+		WARN(1, "CPU0 frequency table length:%d\n", table_len);
+		ret = -EINVAL;
+		goto free_and_exit;
 	}
 	freq_table_get = 1;
 
-	return 0;
+free_and_exit:
+	if (ret) {
+		kfree(table);
+		table = NULL;
+	}
+
+exit:
+	return ret;
 }
 
 static int update_cpu_min_freq_all(uint32_t min)
@@ -6792,12 +6806,13 @@ static int msm_thermal_dev_probe(struct platform_device *pdev)
 	ret = probe_psm(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
+
+	update_cpu_topology(&pdev->dev);
 	ret = probe_vdd_rstr(node, &data, pdev);
 	if (ret == -EPROBE_DEFER)
 		goto fail;
 	ret = probe_ocr(node, &data, pdev);
 
-	update_cpu_topology(&pdev->dev);
 	ret = fetch_cpu_mitigaiton_info(&data, pdev);
 	if (ret) {
 		pr_err("Error fetching CPU mitigation information. err:%d\n",
@@ -6850,6 +6865,8 @@ probe_exit:
 static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 {
 	int i = 0;
+	uint32_t _cluster = 0;
+	struct cluster_info *cluster_ptr = NULL;
 
 	unregister_reboot_notifier(&msm_thermal_reboot_notifier);
 	if (msm_therm_debugfs && msm_therm_debugfs->parent)
@@ -6895,6 +6912,14 @@ static int msm_thermal_dev_exit(struct platform_device *inp_dev)
 		kfree(thresh);
 		thresh = NULL;
 	}
+	kfree(table);
+	if (core_ptr) {
+		for (; _cluster < core_ptr->entity_count; _cluster++) {
+			cluster_ptr = &core_ptr->child_entity_ptr[_cluster];
+			kfree(cluster_ptr->freq_table);
+		}
+	}
+
 	return 0;
 }
 
