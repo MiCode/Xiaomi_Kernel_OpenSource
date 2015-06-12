@@ -2021,7 +2021,7 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_chip *chip,
 					struct qpnp_adc_tm_btm_param *param)
 {
 	uint32_t channel, dt_index = 0, scale_type = 0;
-	int rc = 0, i = 0;
+	int rc = 0, i = 0, version = 0;
 	bool chan_found = false;
 
 	if (qpnp_adc_tm_is_valid(chip)) {
@@ -2037,6 +2037,16 @@ int32_t qpnp_adc_tm_channel_measure(struct qpnp_adc_tm_chip *chip,
 	mutex_lock(&chip->adc->adc_lock);
 
 	channel = param->channel;
+
+	if (channel == VSYS) {
+		version = qpnp_adc_get_revid_version(chip->dev);
+		if (version == QPNP_REV_ID_PM8950_1_0) {
+			pr_debug("Channel not supported\n");
+			rc = -EINVAL;
+			goto fail_unlock;
+		}
+	}
+
 	while (i < chip->max_channels_available) {
 		if (chip->adc->adc_channels[i].channel_num ==
 							channel) {
