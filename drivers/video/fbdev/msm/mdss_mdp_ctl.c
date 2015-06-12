@@ -1686,7 +1686,7 @@ static void mdss_mdp_ctl_update_client_vote(struct mdss_data_type *mdata,
 
 	if (test_bit(MDSS_QOS_PER_PIPE_IB, mdata->mdss_qos_map) &&
 			!nrt_client)
-		apply_fudge_factor(bus_ib_quota,
+		bus_ib_quota = apply_fudge_factor(bus_ib_quota,
 			&mdata->per_pipe_ib_factor);
 
 	bus_ab_quota = apply_fudge_factor(bus_ab_quota, &mdss_res->ab_factor);
