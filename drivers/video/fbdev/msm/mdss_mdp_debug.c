@@ -389,6 +389,13 @@ int mdss_mdp_debugfs_init(struct mdss_data_type *mdata)
 	debugfs_create_u32("serialize_wait4pp", 0644, mdd->root,
 		(u32 *)&mdata->serialize_wait4pp);
 
+	debugfs_create_u32("color0", 0644, mdd->bordercolor,
+		(u32 *)&mdata->bcolor0);
+	debugfs_create_u32("color1", 0644, mdd->bordercolor,
+		(u32 *)&mdata->bcolor1);
+	debugfs_create_u32("color2", 0644, mdd->bordercolor,
+		(u32 *)&mdata->bcolor2);
+
 	return 0;
 }
 #endif

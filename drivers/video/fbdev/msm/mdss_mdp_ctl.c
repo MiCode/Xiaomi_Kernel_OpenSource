@@ -3601,15 +3601,23 @@ update_mixer:
 		mixer_op_mode |= BIT(31);
 
 	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_OP_MODE, mixer_op_mode);
+
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_BORDER_COLOR_0,
+		(mdata->bcolor0 & 0xFFF) | ((mdata->bcolor1 & 0xFFF) << 16));
+	mdp_mixer_write(mixer, MDSS_MDP_REG_LM_BORDER_COLOR_1,
+		mdata->bcolor2 & 0xFFF);
+
 	off = __mdss_mdp_ctl_get_mixer_off(mixer);
 	mdss_mdp_ctl_write(ctl, off, mixercfg);
 	/* Program ctl layer extension bits */
 	mdss_mdp_ctl_write(ctl, off + MDSS_MDP_REG_CTL_LAYER_EXTN_OFFSET,
 		mixercfg_extn);
 
-	pr_debug("mixer=%d cfg=0%08x cfg_extn=0x%08x op_mode=0x%08x w=%d h=%d\n",
+	pr_debug("mixer=%d cfg=0%08x cfg_extn=0x%08x op_mode=0x%08x w=%d h=%d bc0=0x%x bc1=0x%x\n",
 		mixer->num, mixercfg, mixercfg_extn,
-		mixer_op_mode, mixer->roi.w, mixer->roi.h);
+		mixer_op_mode, mixer->roi.w, mixer->roi.h,
+		(mdata->bcolor0 & 0xFFF) | ((mdata->bcolor1 & 0xFFF) << 16),
+		mdata->bcolor2 & 0xFFF);
 	MDSS_XLOG(mixer->num, mixercfg, mixercfg_extn, mixer_op_mode,
 		mixer->roi.h, mixer->roi.w);
 }

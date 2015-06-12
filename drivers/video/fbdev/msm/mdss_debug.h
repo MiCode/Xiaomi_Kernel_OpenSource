@@ -91,6 +91,7 @@ struct mdss_debug_base {
 struct mdss_debug_data {
 	struct dentry *root;
 	struct dentry *perf;
+	struct dentry *bordercolor;
 	struct list_head base_list;
 };
 

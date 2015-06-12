@@ -411,6 +411,10 @@ struct mdss_data_type {
 	struct mdss_max_bw_settings *max_bw_settings;
 	u32 bw_mode_bitmap;
 	u32 max_bw_settings_cnt;
+
+	u32 bcolor0;
+	u32 bcolor1;
+	u32 bcolor2;
 };
 extern struct mdss_data_type *mdss_res;
 

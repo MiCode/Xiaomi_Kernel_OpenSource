@@ -1095,6 +1095,13 @@ int mdss_debugfs_init(struct mdss_data_type *mdata)
 		goto err;
 	}
 
+	mdd->bordercolor = debugfs_create_dir("bordercolor", mdd->root);
+	if (IS_ERR_OR_NULL(mdd->root)) {
+		pr_err("debugfs_create_dir for mdp failed, error %ld\n",
+		       PTR_ERR(mdd->root));
+		goto err;
+	}
+
 	mdss_debugfs_perf_init(mdd, mdata);
 
 	if (mdss_create_xlog_debug(mdd))
