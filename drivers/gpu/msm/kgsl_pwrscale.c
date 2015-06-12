@@ -271,7 +271,7 @@ static bool popp_stable(struct kgsl_device *device)
 	if (test_bit(POPP_PUSH, &psc->popp_state))
 		return false;
 	if (!psc->popp_level &&
-			pwr->active_pwrlevel != 0)
+			(pwr->active_pwrlevel == pwr->min_pwrlevel))
 		return false;
 	if (psc->history[KGSL_PWREVENT_STATE].events == NULL)
 		return false;
