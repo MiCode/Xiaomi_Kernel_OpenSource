@@ -324,7 +324,7 @@ void glink_pkt_notify_rx(void *handle, const void *priv,
 	GLINK_PKT_INFO("%s(): priv[%p] data[%p] size[%zu]\n",
 		   __func__, pkt_priv, (char *)ptr, size);
 
-	pkt = kzalloc(sizeof(struct glink_rx_pkt), GFP_KERNEL);
+	pkt = kzalloc(sizeof(*pkt), GFP_KERNEL);
 	if (!pkt) {
 		GLINK_PKT_ERR("%s: memory allocation failed\n", __func__);
 		return;
@@ -387,7 +387,7 @@ void glink_pkt_notify_state(void *handle, const void *priv, unsigned event)
 	GLINK_PKT_INFO("%s(): event[%d] on [%s]\n", __func__, event,
 						devp->open_cfg.name);
 
-	work_item = kzalloc(sizeof(struct notify_state_work), GFP_ATOMIC);
+	work_item = kzalloc(sizeof(*work_item), GFP_ATOMIC);
 	if (!work_item) {
 		GLINK_PKT_ERR("%s() failed allocate work_item\n", __func__);
 		return;
@@ -415,7 +415,7 @@ bool glink_pkt_rmt_rx_intent_req_cb(void *handle, const void *priv, size_t sz)
 	GLINK_PKT_INFO("%s(): QUEUE RX INTENT to receive size[%zu]\n",
 		   __func__, sz);
 
-	work_item = kmalloc(sizeof(struct queue_rx_intent_work), GFP_ATOMIC);
+	work_item = kzalloc(sizeof(*work_item), GFP_ATOMIC);
 	if (!work_item) {
 		GLINK_PKT_ERR("%s failed allocate work_item\n", __func__);
 		return false;
@@ -1224,7 +1224,7 @@ static int glink_pkt_devicetree_init(struct platform_device *pdev)
 	}
 
 	for_each_child_of_node(pdev->dev.of_node, node) {
-		glink_pkt_devp = kzalloc(sizeof(struct glink_pkt_dev),
+		glink_pkt_devp = kzalloc(sizeof(*glink_pkt_devp),
 						GFP_KERNEL);
 		if (IS_ERR_OR_NULL(glink_pkt_devp)) {
 			GLINK_PKT_ERR("%s: allocation failed id:%d\n",
