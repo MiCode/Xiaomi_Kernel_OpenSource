@@ -259,8 +259,11 @@ struct mdss_mdp_ctl {
 	u16 height;
 	u16 border_x_off;
 	u16 border_y_off;
-	u32 dst_format;
 	bool is_secure;
+
+	/* used for WFD */
+	u32 dst_format;
+	struct mult_factor dst_comp_ratio;
 
 	u32 clk_rate;
 	int force_screen_state;
@@ -1036,9 +1039,8 @@ void mdss_mdp_ctl_notifier_register(struct mdss_mdp_ctl *ctl,
 void mdss_mdp_ctl_notifier_unregister(struct mdss_mdp_ctl *ctl,
 	struct notifier_block *notifier);
 u32 mdss_mdp_ctl_perf_get_transaction_status(struct mdss_mdp_ctl *ctl);
-u32 mdss_apply_overhead_factors(u32 quota, bool is_nrt,
-	bool is_rot_read, struct mdss_mdp_format_params *fmt,
-	struct mult_factor *comp_ratio);
+u32 apply_comp_ratio_factor(u32 quota, struct mdss_mdp_format_params *fmt,
+	struct mult_factor *factor);
 
 int mdss_mdp_scan_pipes(void);
 
@@ -1161,7 +1163,7 @@ void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 struct mdss_mdp_format_params *mdss_mdp_get_format_params(u32 format);
 void mdss_mdp_get_v_h_subsample_rate(u8 chroma_samp,
 	u8 *v_sample, u8 *h_sample);
-struct mdss_fudge_factor *mdss_mdp_get_comp_factor(u32 format,
+struct mult_factor *mdss_mdp_get_comp_factor(u32 format,
 	bool rt_factor);
 int mdss_mdp_data_get(struct mdss_mdp_data *data, struct msmfb_data *planes,
 		int num_planes, u32 flags, struct device *dev, bool rotator,

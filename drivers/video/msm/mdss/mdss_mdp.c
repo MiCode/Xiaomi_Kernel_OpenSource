@@ -2741,7 +2741,7 @@ static int mdss_mdp_parse_dt_smp(struct platform_device *pdev)
 }
 
 static void mdss_mdp_parse_dt_fudge_factors(struct platform_device *pdev,
-	char *prop_name, struct mdss_fudge_factor *ff)
+	char *prop_name, struct mult_factor *ff)
 {
 	int rc;
 	u32 data[2] = {1, 1};
