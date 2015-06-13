@@ -211,6 +211,7 @@ struct msm_vfe_pix_cfg {
 	enum msm_vfe_inputmux input_mux;
 	enum ISP_START_PIXEL_PATTERN pixel_pattern;
 	uint32_t input_format;
+	uint32_t is_split;
 };
 
 struct msm_vfe_rdi_cfg {
