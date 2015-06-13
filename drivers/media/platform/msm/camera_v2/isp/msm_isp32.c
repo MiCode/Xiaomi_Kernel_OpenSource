@@ -1218,7 +1218,7 @@ static int msm_vfe32_stats_check_streams(
 }
 
 static void msm_vfe32_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
-	uint32_t stats_mask, uint8_t enable)
+	uint32_t stats_mask, uint8_t comp_idx, uint8_t enable)
 {
 	return;
 }

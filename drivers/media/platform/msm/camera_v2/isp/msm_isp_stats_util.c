@@ -217,12 +217,14 @@ void msm_isp_process_stats_irq(struct vfe_device *vfe_dev,
 	bool comp_flag = false;
 	uint32_t num_stats_comp_mask =
 		vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask;
+
 	stats_comp_mask = vfe_dev->hw_info->vfe_ops.stats_ops.
 		get_comp_mask(irq_status0, irq_status1);
 	stats_irq_mask = vfe_dev->hw_info->vfe_ops.stats_ops.
 		get_wm_mask(irq_status0, irq_status1);
 	if (!(stats_comp_mask || stats_irq_mask))
 		return;
+
 	ISP_DBG("%s: status: 0x%x\n", __func__, irq_status0);
 
 	/* Clear composite mask irq bits, they will be restored by comp mask */
@@ -466,14 +468,16 @@ void msm_isp_update_stats_framedrop_reg(struct vfe_device *vfe_dev)
 void msm_isp_stats_stream_update(struct vfe_device *vfe_dev)
 {
 	int i;
-	uint32_t stats_mask = 0, comp_stats_mask = 0;
 	uint32_t enable = 0;
+	uint8_t comp_flag = 0;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
+	struct msm_vfe_stats_ops *stats_ops =
+		&vfe_dev->hw_info->vfe_ops.stats_ops;
+
 	for (i = 0; i < vfe_dev->hw_info->stats_hw_info->num_stats_type; i++) {
 		if (stats_data->stream_info[i].state == STATS_START_PENDING ||
 				stats_data->stream_info[i].state ==
 					STATS_STOP_PENDING) {
-			stats_mask |= i;
 			enable = stats_data->stream_info[i].state ==
 				STATS_START_PENDING ? 1 : 0;
 			stats_data->stream_info[i].state =
@@ -482,12 +486,12 @@ void msm_isp_stats_stream_update(struct vfe_device *vfe_dev)
 				STATS_STARTING : STATS_STOPPING;
 			vfe_dev->hw_info->vfe_ops.stats_ops.enable_module(
 				vfe_dev, BIT(i), enable);
-			vfe_dev->hw_info->vfe_ops.stats_ops.cfg_comp_mask(
-			   vfe_dev, BIT(i), enable);
+			comp_flag = stats_data->stream_info[i].composite_flag;
+			if (comp_flag)
+				stats_ops->cfg_comp_mask(vfe_dev, BIT(i),
+					(comp_flag - 1), enable);
 		} else if (stats_data->stream_info[i].state == STATS_STARTING ||
 			stats_data->stream_info[i].state == STATS_STOPPING) {
-			if (stats_data->stream_info[i].composite_flag)
-				comp_stats_mask |= i;
 			stats_data->stream_info[i].state =
 				stats_data->stream_info[i].state ==
 				STATS_STARTING ? STATS_ACTIVE : STATS_INACTIVE;
@@ -608,7 +612,7 @@ static int msm_isp_start_stats_stream(struct vfe_device *vfe_dev,
 			vfe_dev, stats_mask, stream_cfg_cmd->enable);
 		for (i = 0; i < num_stats_comp_mask; i++) {
 			vfe_dev->hw_info->vfe_ops.stats_ops.cfg_comp_mask(
-			 vfe_dev, comp_stats_mask[i], 1);
+				vfe_dev, comp_stats_mask[i], i,  1);
 		}
 	}
 	return rc;
@@ -675,7 +679,7 @@ static int msm_isp_stop_stats_stream(struct vfe_device *vfe_dev,
 			vfe_dev, stats_mask, stream_cfg_cmd->enable);
 		for (i = 0; i < num_stats_comp_mask; i++) {
 			vfe_dev->hw_info->vfe_ops.stats_ops.cfg_comp_mask(
-			   vfe_dev, comp_stats_mask[i], 0);
+			   vfe_dev, comp_stats_mask[i], i, 0);
 		}
 	}
 

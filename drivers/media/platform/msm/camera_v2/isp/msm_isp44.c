@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1492,17 +1492,21 @@ static int msm_vfe44_stats_check_streams(
 
 static void msm_vfe44_stats_cfg_comp_mask(
 	struct vfe_device *vfe_dev,
-	uint32_t stats_mask, uint8_t enable)
+	uint32_t stats_mask, uint8_t request_comp_index, uint8_t enable)
 {
-	uint32_t reg_mask, comp_stats_mask, mask_bf_scale;
-	uint32_t i = 0;
-	atomic_t *stats_comp;
+	uint32_t comp_mask_reg, mask_bf_scale;
+	atomic_t *stats_comp_mask;
 	struct msm_vfe_stats_shared_data *stats_data = &vfe_dev->stats_data;
 
-
 	if (vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask < 1)
-		/* no stats composite masks */
 		return;
+
+	if (request_comp_index >= MAX_NUM_STATS_COMP_MASK) {
+		pr_err("%s: num of comp masks %d exceed max %d\n",
+			__func__, request_comp_index,
+			MAX_NUM_STATS_COMP_MASK);
+		return;
+	}
 
 	if (vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask >
 			MAX_NUM_STATS_COMP_MASK) {
@@ -1517,45 +1521,35 @@ static void msm_vfe44_stats_cfg_comp_mask(
 	stats_mask = stats_mask & 0x1FF;
 	mask_bf_scale = stats_mask >> SHIFT_BF_SCALE_BIT;
 
-	for (i = 0;
-		i < vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask; i++) {
-		stats_comp = &stats_data->stats_comp_mask[i];
-		reg_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x44);
-		comp_stats_mask = reg_mask & (STATS_COMP_BIT_MASK << (i*8));
+	stats_comp_mask = &stats_data->stats_comp_mask[request_comp_index];
+	comp_mask_reg = msm_camera_io_r(vfe_dev->vfe_base + 0x44);
 
-		if (enable) {
-			if (comp_stats_mask)
-				continue;
+	if (enable) {
+		comp_mask_reg |= mask_bf_scale << (16 + request_comp_index * 8);
+		atomic_set(stats_comp_mask, stats_mask |
+				atomic_read(stats_comp_mask));
+	} else {
+		if (!(atomic_read(stats_comp_mask) & stats_mask))
+			return;
+		if (stats_mask & (1 << STATS_IDX_BF_SCALE) &&
+			atomic_read(stats_comp_mask) &
+				(1 << STATS_IDX_BF_SCALE))
+			atomic_set(stats_comp_mask,
+					~(1 << STATS_IDX_BF_SCALE) &
+					atomic_read(stats_comp_mask));
 
-			reg_mask |= (mask_bf_scale << (16 + i*8));
-			atomic_set(stats_comp, stats_mask |
-					atomic_read(stats_comp));
-			break;
-
-		} else {
-
-			if (!(atomic_read(stats_comp) & stats_mask))
-				continue;
-			if (stats_mask & (1 << STATS_IDX_BF_SCALE) &&
-				atomic_read(stats_comp) &
-					(1 << STATS_IDX_BF_SCALE))
-				atomic_set(stats_comp,
-						~(1 << STATS_IDX_BF_SCALE) &
-						atomic_read(stats_comp));
-
-			atomic_set(stats_comp,
-					~stats_mask & atomic_read(stats_comp));
-			reg_mask &= ~(mask_bf_scale << (16 + i*8));
-			break;
-		}
+		atomic_set(stats_comp_mask,
+				~stats_mask & atomic_read(stats_comp_mask));
+		comp_mask_reg &= ~(mask_bf_scale <<
+			(16 + request_comp_index * 8));
 	}
+	msm_camera_io_w(comp_mask_reg, vfe_dev->vfe_base + 0x44);
 
-	ISP_DBG("%s: comp_mask: %x atomic stats[0]: %x %x\n",
-		__func__, reg_mask,
+	ISP_DBG("%s: comp_mask_reg: %x comp mask0 %x mask1: %x\n",
+		__func__, comp_mask_reg,
 		atomic_read(&stats_data->stats_comp_mask[0]),
 		atomic_read(&stats_data->stats_comp_mask[1]));
 
-	msm_camera_io_w(reg_mask, vfe_dev->vfe_base + 0x44);
 	return;
 }
 
