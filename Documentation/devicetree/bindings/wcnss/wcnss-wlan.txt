@@ -55,7 +55,8 @@ support for pronto hardware.
 	1      -  WCN RPM power collapse enabled
 	1      -  WCN standalone power collapse enabled
 	6      -  GPIO strength value
-
+- qcom,wlan-indication-enabled: boolean flag to determine if WLAN indication-LED
+will be turned on/off when WLAN is enabled/disabled respectively.
 
 Example:
 
