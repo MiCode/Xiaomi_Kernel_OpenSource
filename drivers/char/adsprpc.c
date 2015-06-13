@@ -652,8 +652,7 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd, uintptr_t va,
 static int fastrpc_mmap_create_physical(struct fastrpc_file *fl,
 		struct fastrpc_ioctl_mmap *ud, struct fastrpc_mmap **ppmap);
 
-static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
-			remote_arg_t *upra)
+static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
 	remote_arg64_t *rpra;
 	remote_arg_t *lpra = ctx->lpra;
@@ -793,9 +792,9 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	}
 	inh = inbufs + outbufs;
 	for (i = 0; i < REMOTE_SCALARS_INHANDLES(sc); i++) {
-		rpra[inh + i].buf.pv = ptr_to_uint64(upra[inh + i].buf.pv);
-		rpra[inh + i].buf.len = upra[inh + i].buf.len;
-		rpra[inh + i].h = upra[inh + i].h;
+		rpra[inh + i].buf.pv = ptr_to_uint64(ctx->lpra[inh + i].buf.pv);
+		rpra[inh + i].buf.len = ctx->lpra[inh + i].buf.len;
+		rpra[inh + i].h = ctx->lpra[inh + i].h;
 	}
 	dmac_flush_range((char *)rpra, (char *)rpra + ctx->used);
  bail:
@@ -807,7 +806,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 {
 	uint32_t sc = ctx->sc;
 	remote_arg64_t *rpra = ctx->rpra;
-	int i, inbufs, outbufs, outh;
+	int i, inbufs, outbufs, outh, num;
 	int err = 0;
 
 	inbufs = REMOTE_SCALARS_INBUFS(sc);
@@ -815,7 +814,7 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (!ctx->maps[i]) {
 			K_COPY_TO_USER(err, kernel,
-				upra[i].buf.pv,
+				ctx->lpra[i].buf.pv,
 				uint64_to_ptr(rpra[i].buf.pv),
 				rpra[i].buf.len);
 			if (err)
@@ -825,11 +824,13 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 			ctx->maps[i] = 0;
 		}
 	}
-	outh = inbufs + outbufs + REMOTE_SCALARS_INHANDLES(sc);
-	for (i = 0; i < REMOTE_SCALARS_OUTHANDLES(sc); i++) {
-		upra[outh + i].buf.pv = uint64_to_ptr(rpra[outh + i].buf.pv);
-		upra[outh + i].buf.len = rpra[outh + i].buf.len;
-		upra[outh + i].h = rpra[outh + i].h;
+	num = REMOTE_SCALARS_OUTHANDLES(sc);
+	if (num) {
+		outh = inbufs + outbufs + REMOTE_SCALARS_INHANDLES(sc);
+		K_COPY_TO_USER(err, kernel, &upra[outh], &ctx->lpra[outh],
+				num * sizeof(*ctx->lpra));
+		if (err)
+			goto bail;
 	}
  bail:
 	return err;
@@ -992,7 +993,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		goto bail;
 
 	if (REMOTE_SCALARS_LENGTH(ctx->sc)) {
-		VERIFY(err, 0 == get_args(kernel, ctx, invoke->pra));
+		VERIFY(err, 0 == get_args(kernel, ctx));
 		if (err)
 			goto bail;
 	}
