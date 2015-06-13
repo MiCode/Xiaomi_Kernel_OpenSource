@@ -442,6 +442,12 @@ static void msm_vfe40_process_input_irq(struct vfe_device *vfe_dev,
 	if (!(irq_status0 & 0x1000003))
 		return;
 
+	if (irq_status0 & 0x1)
+		vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id++;
+
+	if (vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id == 0)
+		vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id = 1;
+
 	if (irq_status0 & (1 << 24)) {
 		ISP_DBG("%s: Fetch Engine Read IRQ\n", __func__);
 		msm_isp_fetch_engine_done_notify(vfe_dev,
@@ -660,6 +666,10 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 {
 	enum msm_vfe_input_src i;
 	uint32_t shift_irq;
+	uint8_t reg_updated = 0;
+	unsigned long flags;
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	uint32_t j = 0;
 
 	if (!(irq_status0 & 0xF0))
 		return;
@@ -668,11 +678,20 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 
 	for (i = VFE_PIX_0; i <= VFE_RAW_2; i++) {
 		if (shift_irq & BIT(i)) {
-			vfe_dev->axi_data.reg_update_requested &= ~BIT(i);
+			reg_updated |= BIT(i);
 			ISP_DBG("%s update_mask %x\n", __func__,
 				(uint32_t)BIT(i));
 			switch (i) {
 			case VFE_PIX_0:
+				for (j = 0; j < MAX_NUM_STREAM; j++) {
+					stream_info =
+						&vfe_dev->axi_data.
+							stream_info[j];
+					stream_info->prev_framedrop_pattern =
+						stream_info->framedrop_pattern;
+					stream_info->prev_framedrop_period =
+						stream_info->framedrop_period;
+				}
 				msm_isp_notify(vfe_dev, ISP_EVENT_REG_UPDATE,
 					VFE_PIX_0, ts);
 				if (atomic_read(
@@ -708,12 +727,21 @@ static void msm_vfe40_process_reg_update(struct vfe_device *vfe_dev,
 			}
 		}
 	}
+
+	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
+	if (reg_updated & BIT(VFE_PIX_0))
+		vfe_dev->reg_updated = 1;
+
+	vfe_dev->reg_update_requested &= ~reg_updated;
+	spin_unlock_irqrestore(&vfe_dev->reg_update_lock, flags);
 }
 
 static void msm_vfe40_reg_update(struct vfe_device *vfe_dev,
 	enum msm_vfe_input_src frame_src)
 {
 	uint32_t update_mask = 0;
+	unsigned long flags;
+
 	/* This HW supports upto VFE_RAW_2 */
 	if (frame_src > VFE_RAW_2 && frame_src != VFE_SRC_MAX) {
 		pr_err("%s Error case\n", __func__);
@@ -729,9 +757,14 @@ static void msm_vfe40_reg_update(struct vfe_device *vfe_dev,
 	else
 		update_mask = BIT((uint32_t)frame_src);
 	ISP_DBG("%s update_mask %x\n", __func__, update_mask);
-	vfe_dev->axi_data.reg_update_requested |= update_mask;
-	msm_camera_io_w_mb(vfe_dev->axi_data.reg_update_requested,
+
+	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
+	vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id =
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
+	vfe_dev->reg_update_requested |= update_mask;
+	msm_camera_io_w_mb(vfe_dev->reg_update_requested,
 		vfe_dev->vfe_base + 0x378);
+	spin_unlock_irqrestore(&vfe_dev->reg_update_lock, flags);
 }
 
 static void msm_vfe40_process_epoch_irq(struct vfe_device *vfe_dev,
