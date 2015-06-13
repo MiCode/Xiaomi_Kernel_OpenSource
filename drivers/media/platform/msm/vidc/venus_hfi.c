@@ -4165,31 +4165,29 @@ static int __core_clk_reset(struct venus_hfi_device *device,
 	if (!rinfo)
 		return -EINVAL;
 
-	if (regulator_is_enabled(rinfo->regulator)) {
-		/*
-		 * This is a workaround for msm8996 V2, because MDP enables
-		 * Venus GDSC. Due to MDP's vote on Venus GDSC, some of Venus
-		 * registers are not cleared after firmware is unloaded. This
-		 * causes subsequent video sessions to fail. By reseting
-		 * core_clk we are forcing a hard reset and ensure each
-		 * firmware load starts on a clean slate.
-		 */
-		dprintk(VIDC_DBG, "%s core-clk\n",
-			action == CLK_RESET_DEASSERT ? "de-assert" : "assert");
-		vc = __get_clock(device, "core_clk");
-		if (vc) {
-			rc = clk_reset(vc->clk, action);
-			if (rc) {
-				dprintk(VIDC_ERR,
-					"clk_reset action - %d failed: %d\n",
-					action, rc);
-				return rc;
-			}
-		} else {
-			return -EINVAL;
+	/*
+	 * This is a workaround for msm8996 V2, because MDP enables
+	 * Venus GDSC. Due to MDP's vote on Venus GDSC, some of Venus
+	 * registers are not cleared after firmware is unloaded. This
+	 * causes subsequent video sessions to fail. By resetting
+	 * core_clk we are forcing a hard reset and ensure each
+	 * firmware load starts on a clean slate.
+	 */
+	dprintk(VIDC_DBG, "%s core-clk\n",
+		action == CLK_RESET_DEASSERT ? "de-assert" : "assert");
+	vc = __get_clock(device, "core_clk");
+	if (vc) {
+		rc = clk_reset(vc->clk, action);
+		if (rc) {
+			dprintk(VIDC_ERR,
+				"clk_reset action - %d failed: %d\n",
+				action, rc);
+			return rc;
 		}
-		udelay(1);
+	} else {
+		return -EINVAL;
 	}
+	udelay(1);
 	return rc;
 }
 
