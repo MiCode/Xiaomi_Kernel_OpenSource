@@ -116,7 +116,7 @@ static void print_mem_entry(struct seq_file *s, struct kgsl_mem_entry *entry)
 	struct kgsl_memdesc *m = &entry->memdesc;
 
 	flags[0] = kgsl_memdesc_is_global(m) ?  'g' : '-';
-	flags[1] = !(m->flags & KGSL_MEMFLAGS_GPUWRITEONLY) ? 'r' : '-';
+	flags[1] = '-';
 	flags[2] = !(m->flags & KGSL_MEMFLAGS_GPUREADONLY) ? 'w' : '-';
 	flags[3] = get_alignflag(m);
 	flags[4] = get_cacheflag(m);

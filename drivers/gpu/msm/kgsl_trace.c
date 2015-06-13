@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011, 2013, 2015 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -22,3 +22,5 @@
 
 EXPORT_TRACEPOINT_SYMBOL(kgsl_regwrite);
 EXPORT_TRACEPOINT_SYMBOL(kgsl_issueibcmds);
+EXPORT_TRACEPOINT_SYMBOL(kgsl_user_pwrlevel_constraint);
+EXPORT_TRACEPOINT_SYMBOL(kgsl_constraint);

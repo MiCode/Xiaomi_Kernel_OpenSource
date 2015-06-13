@@ -944,13 +944,34 @@ static const struct kgsl_hwcg_reg a530_hwcg_regs[] = {
 	{A5XX_RBBM_CLOCK_DELAY_VFD, 0x00002222}
 };
 
-static void a5xx_hwcg_init(struct kgsl_device *device,
-	const struct kgsl_hwcg_reg *regs, unsigned int nregs)
+static const struct {
+	int (*devfunc)(struct adreno_device *adreno_dev);
+	const struct kgsl_hwcg_reg *regs;
+	unsigned int count;
+} a5xx_hwcg_registers[] = {
+	{ adreno_is_a530v2, a530_hwcg_regs, ARRAY_SIZE(a530_hwcg_regs) },
+	{ adreno_is_a510, a510_hwcg_regs, ARRAY_SIZE(a510_hwcg_regs) },
+};
+
+static void a5xx_hwcg_init(struct adreno_device *adreno_dev)
 {
-	unsigned int i;
-	/* program revision specific HWCG settings */
-	for (i = 0; i < nregs; i++)
-		kgsl_regwrite(device, regs[i].off, regs[i].val);
+	struct kgsl_device *device = &adreno_dev->dev;
+	const struct kgsl_hwcg_reg *regs;
+	int i, j;
+
+	for (i = 0; i < ARRAY_SIZE(a5xx_hwcg_registers); i++) {
+		if (a5xx_hwcg_registers[i].devfunc(adreno_dev))
+			break;
+	}
+
+	if (i == ARRAY_SIZE(a5xx_hwcg_registers))
+		return;
+
+	regs = a5xx_hwcg_registers[i].regs;
+
+	for (j = 0; j < a5xx_hwcg_registers[i].count; j++)
+		kgsl_regwrite(device, regs[j].off, regs[j].val);
+
 	/* enable top level HWCG */
 	kgsl_regwrite(device, A5XX_RBBM_CLOCK_CNTL, 0xAAA8AA00);
 	kgsl_regwrite(device, A5XX_RBBM_ISDB_CNT, 0x00000182);
@@ -1031,7 +1052,7 @@ static void _load_regfile(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	const struct firmware *fw;
-	uint32_t block_size, block_total = 0, fw_size;
+	uint32_t block_size = 0, block_total = 0, fw_size;
 	uint32_t *block;
 	int ret = -EINVAL;
 
@@ -1420,12 +1441,7 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 	/* Set the USE_RETENTION_FLOPS chicken bit */
 	kgsl_regwrite(device, A5XX_CP_CHICKEN_DBG, 0x02000000);
 
-	if (adreno_is_a530(adreno_dev) && !adreno_is_a530v1(adreno_dev))
-		a5xx_hwcg_init(device, a530_hwcg_regs,
-			ARRAY_SIZE(a530_hwcg_regs));
-	else if (adreno_is_a510(adreno_dev))
-		a5xx_hwcg_init(device, a510_hwcg_regs,
-			ARRAY_SIZE(a510_hwcg_regs));
+	a5xx_hwcg_init(adreno_dev);
 
 	a5xx_protect_init(adreno_dev);
 }

@@ -756,26 +756,13 @@ static const struct of_device_id adreno_match_table[] = {
 	{}
 };
 
-static struct device_node *adreno_of_find_subnode(struct device_node *parent,
-	const char *name)
-{
-	struct device_node *child;
-
-	for_each_child_of_node(parent, child) {
-		if (of_device_is_compatible(child, name))
-			return child;
-	}
-
-	return NULL;
-}
-
 static int adreno_of_get_pwrlevels(struct device_node *parent,
 	struct kgsl_device_platform_data *pdata)
 {
 	struct device_node *node, *child;
 	int ret = -EINVAL;
 
-	node = adreno_of_find_subnode(parent, "qcom,gpu-pwrlevels");
+	node = of_find_node_by_name(parent, "qcom,gpu-pwrlevels");
 
 	if (node == NULL) {
 		KGSL_CORE_ERR("Unable to find 'qcom,gpu-pwrlevels'\n");
@@ -1387,6 +1374,10 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
+	/* Soft reset the GPU if a regulator is stuck on*/
+	if (regulator_left_on)
+		_soft_reset(adreno_dev);
+
 	status = kgsl_mmu_start(device);
 	if (status)
 		goto error_pwr_off;
@@ -1411,10 +1402,6 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		KGSL_DRV_ERR(device, "OCMEM malloc failed\n");
 		goto error_mmu_off;
 	}
-
-	/* Soft reset GPU if regulator is stuck on*/
-	if (regulator_left_on)
-		_soft_reset(adreno_dev);
 
 	if (adreno_dev->perfctr_pwr_lo == 0) {
 		int ret = adreno_perfcounter_get(adreno_dev,
