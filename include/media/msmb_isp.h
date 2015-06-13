@@ -324,6 +324,7 @@ struct msm_vfe_axi_stream_cfg_update_info {
 	uint32_t stream_handle;
 	uint32_t output_format;
 	uint32_t user_stream_id;
+	uint32_t frame_id;
 	enum msm_vfe_frame_skip_pattern skip_pattern;
 	struct msm_vfe_axi_plane_cfg plane_cfg[MAX_PLANES_PER_STREAM];
 	struct msm_isp_sw_framskip sw_skip_info;
@@ -491,16 +492,12 @@ enum msm_isp_event_idx {
 	ISP_START_ACK         = 3,
 	ISP_STOP_ACK          = 4,
 	ISP_IRQ_VIOLATION     = 5,
-	ISP_WM_BUS_OVERFLOW   = 6,
-	ISP_STATS_OVERFLOW    = 7,
-	ISP_CAMIF_ERROR       = 8,
-	ISP_BUF_DONE          = 9,
-	ISP_FE_RD_DONE        = 10,
-	ISP_IOMMU_P_FAULT     = 11,
-	ISP_FRAME_ID_MISMATCH = 12,
-	ISP_GET_BUF_FAILED    = 13,
-	ISP_STATS_FRAME_DROP  = 14,
-	ISP_EVENT_MAX         = 15
+	ISP_STATS_OVERFLOW    = 6,
+	ISP_BUF_DONE          = 7,
+	ISP_FE_RD_DONE        = 8,
+	ISP_IOMMU_P_FAULT     = 9,
+	ISP_ERROR             = 10,
+	ISP_EVENT_MAX         = 11
 };
 
 #define ISP_EVENT_OFFSET          8
@@ -515,9 +512,8 @@ enum msm_isp_event_idx {
 #define ISP_EVENT_START_ACK       (ISP_EVENT_BASE + ISP_START_ACK)
 #define ISP_EVENT_STOP_ACK        (ISP_EVENT_BASE + ISP_STOP_ACK)
 #define ISP_EVENT_IRQ_VIOLATION   (ISP_EVENT_BASE + ISP_IRQ_VIOLATION)
-#define ISP_EVENT_WM_BUS_OVERFLOW (ISP_EVENT_BASE + ISP_WM_BUS_OVERFLOW)
 #define ISP_EVENT_STATS_OVERFLOW  (ISP_EVENT_BASE + ISP_STATS_OVERFLOW)
-#define ISP_EVENT_CAMIF_ERROR     (ISP_EVENT_BASE + ISP_CAMIF_ERROR)
+#define ISP_EVENT_ERROR           (ISP_EVENT_BASE + ISP_ERROR)
 #define ISP_EVENT_SOF             (ISP_CAMIF_EVENT_BASE)
 #define ISP_EVENT_EOF             (ISP_CAMIF_EVENT_BASE + 1)
 #define ISP_EVENT_BUF_DONE        (ISP_EVENT_BASE + ISP_BUF_DONE)
@@ -550,9 +546,24 @@ struct msm_isp_stream_ack {
 	uint32_t handle;
 };
 
+enum msm_vfe_error_type {
+	ISP_ERROR_NONE,
+	ISP_ERROR_CAMIF,
+	ISP_ERROR_BUS_OVERFLOW,
+	ISP_ERROR_RETURN_EMPTY_BUFFER,
+	ISP_ERROR_FRAME_ID_MISMATCH,
+	ISP_ERROR_MAX,
+};
+
 struct msm_isp_error_info {
-	/* 1 << msm_isp_event_idx */
-	uint16_t error_mask;
+	enum msm_vfe_error_type err_type;
+	uint32_t session_id;
+	uint32_t stream_id;
+};
+
+struct msm_isp_output_info {
+	uint32_t regs_not_updated;
+	uint32_t output_err_mask;
 	uint16_t stream_framedrop_mask;
 	uint32_t stats_framedrop_mask;
 };
@@ -569,6 +580,7 @@ struct msm_isp_event_data {
 		struct msm_isp_stats_event stats;
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
+		struct msm_isp_output_info output_info;
 	} u; /* union can have max 52 bytes */
 };
 
@@ -581,6 +593,7 @@ struct msm_isp_event_data32 {
 		struct msm_isp_stats_event stats;
 		struct msm_isp_buf_event buf_done;
 		struct msm_isp_error_info error_info;
+		struct msm_isp_output_info output_info;
 	} u;
 };
 #endif
