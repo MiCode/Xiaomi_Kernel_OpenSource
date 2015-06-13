@@ -738,7 +738,8 @@ static int hdmi_8996_v1_calculate(u32 pix_clk,
 	cfg->com_restrim_ctrl = 0x0;
 	cfg->com_vco_tune_ctrl = 0x1C;
 
-	cfg->com_svs_mode_clk_sel = 0;
+	cfg->com_svs_mode_clk_sel =
+			(bclk >= HDMI_DIG_FREQ_BIT_CLK_THRESHOLD ? 1 : 2);
 	cfg->com_hsclk_sel = (0x28 | hsclk);
 	cfg->com_pll_cctrl_mode0 = cctrl;
 	cfg->com_pll_rctrl_mode0 = rctrl;
@@ -756,14 +757,14 @@ static int hdmi_8996_v1_calculate(u32 pix_clk,
 	cfg->com_coreclk_div = HDMI_CORECLK_DIV;
 
 	if (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) {
-		cfg->tx_l0_tx_drv_lvl = 0x39;
-		cfg->tx_l0_tx_emp_post1_lvl = 0x33;
-		cfg->tx_l1_tx_drv_lvl = 0x39;
-		cfg->tx_l1_tx_emp_post1_lvl = 0x33;
-		cfg->tx_l2_tx_drv_lvl = 0x39;
-		cfg->tx_l2_tx_emp_post1_lvl = 0x33;
-		cfg->tx_l3_tx_drv_lvl = 0x39;
-		cfg->tx_l3_tx_emp_post1_lvl = 0x30;
+		cfg->tx_l0_tx_drv_lvl = 0x25;
+		cfg->tx_l0_tx_emp_post1_lvl = 0x23;
+		cfg->tx_l1_tx_drv_lvl = 0x25;
+		cfg->tx_l1_tx_emp_post1_lvl = 0x23;
+		cfg->tx_l2_tx_drv_lvl = 0x25;
+		cfg->tx_l2_tx_emp_post1_lvl = 0x23;
+		cfg->tx_l3_tx_drv_lvl = 0x22;
+		cfg->tx_l3_tx_emp_post1_lvl = 0x27;
 		cfg->tx_l0_vmode_ctrl1 = 0x00;
 		cfg->tx_l0_vmode_ctrl2 = 0x0D;
 		cfg->tx_l1_vmode_ctrl1 = 0x00;
@@ -771,24 +772,44 @@ static int hdmi_8996_v1_calculate(u32 pix_clk,
 		cfg->tx_l2_vmode_ctrl1 = 0x00;
 		cfg->tx_l2_vmode_ctrl2 = 0x0D;
 		cfg->tx_l3_vmode_ctrl1 = 0x00;
-		cfg->tx_l3_vmode_ctrl2 = 0x0D;
+		cfg->tx_l3_vmode_ctrl2 = 0x00;
+		cfg->com_restrim_ctrl = 0x0;
+	} else if (bclk > HDMI_MID_FREQ_BIT_CLK_THRESHOLD) {
+		cfg->tx_l0_tx_drv_lvl = 0x25;
+		cfg->tx_l0_tx_emp_post1_lvl = 0x23;
+		cfg->tx_l1_tx_drv_lvl = 0x25;
+		cfg->tx_l1_tx_emp_post1_lvl = 0x23;
+		cfg->tx_l2_tx_drv_lvl = 0x25;
+		cfg->tx_l2_tx_emp_post1_lvl = 0x23;
+		cfg->tx_l3_tx_drv_lvl = 0x25;
+		cfg->tx_l3_tx_emp_post1_lvl = 0x23;
+		cfg->tx_l0_vmode_ctrl1 = 0x00;
+		cfg->tx_l0_vmode_ctrl2 = 0x0D;
+		cfg->tx_l1_vmode_ctrl1 = 0x00;
+		cfg->tx_l1_vmode_ctrl2 = 0x0D;
+		cfg->tx_l2_vmode_ctrl1 = 0x00;
+		cfg->tx_l2_vmode_ctrl2 = 0x0D;
+		cfg->tx_l3_vmode_ctrl1 = 0x00;
+		cfg->tx_l3_vmode_ctrl2 = 0x00;
+		cfg->com_restrim_ctrl = 0x0;
 	} else {
-		cfg->tx_l0_tx_drv_lvl = 0x35;
-		cfg->tx_l0_tx_emp_post1_lvl = 0x30;
-		cfg->tx_l1_tx_drv_lvl = 0x35;
-		cfg->tx_l1_tx_emp_post1_lvl = 0x30;
-		cfg->tx_l2_tx_drv_lvl = 0x35;
-		cfg->tx_l2_tx_emp_post1_lvl = 0x30;
-		cfg->tx_l3_tx_drv_lvl = 0x35;
-		cfg->tx_l3_tx_emp_post1_lvl = 0x30;
+		cfg->tx_l0_tx_drv_lvl = 0x20;
+		cfg->tx_l0_tx_emp_post1_lvl = 0x20;
+		cfg->tx_l1_tx_drv_lvl = 0x20;
+		cfg->tx_l1_tx_emp_post1_lvl = 0x20;
+		cfg->tx_l2_tx_drv_lvl = 0x20;
+		cfg->tx_l2_tx_emp_post1_lvl = 0x20;
+		cfg->tx_l3_tx_drv_lvl = 0x20;
+		cfg->tx_l3_tx_emp_post1_lvl = 0x20;
 		cfg->tx_l0_vmode_ctrl1 = 0x00;
-		cfg->tx_l0_vmode_ctrl2 = 0x0D;
+		cfg->tx_l0_vmode_ctrl2 = 0x0E;
 		cfg->tx_l1_vmode_ctrl1 = 0x00;
-		cfg->tx_l1_vmode_ctrl2 = 0x0D;
+		cfg->tx_l1_vmode_ctrl2 = 0x0E;
 		cfg->tx_l2_vmode_ctrl1 = 0x00;
-		cfg->tx_l2_vmode_ctrl2 = 0x0D;
+		cfg->tx_l2_vmode_ctrl2 = 0x0E;
 		cfg->tx_l3_vmode_ctrl1 = 0x00;
-		cfg->tx_l3_vmode_ctrl2 = 0x0D;
+		cfg->tx_l3_vmode_ctrl2 = 0x0E;
+		cfg->com_restrim_ctrl = 0xD8;
 	}
 
 	cfg->phy_mode = (bclk > HDMI_HIGH_FREQ_BIT_CLK_THRESHOLD) ? 0x10 : 0x0;
