@@ -248,6 +248,7 @@
 
 #define CMD_HVDCP_REG				0x34
 #define CMD_APSD_RE_RUN_BIT			BIT(7)
+#define CMD_FORCE_HVDCP_2P0_BIT			BIT(5)
 #define CMD_HVDCP_MODE_MASK			SMB1351_MASK(5, 0)
 
 /* Status registers */
@@ -447,6 +448,7 @@ struct smb1351_charger {
 	bool			bms_controlled_charging;
 	bool			apsd_rerun;
 	bool			chg_remove_work_scheduled;
+	bool			force_hvdcp_2p0;
 
 	/* psy */
 	struct power_supply	*usb_psy;
@@ -1858,6 +1860,19 @@ static int smb1351_apsd_complete_handler(struct smb1351_charger *chip,
 							chip->usb_psy, 1);
 			}
 		}
+		/*
+		 * If defined force hvdcp 2p0 property,
+		 * we force to hvdcp 2p0 in the APSD handler.
+		 */
+		if (chip->force_hvdcp_2p0) {
+			pr_debug("Force set to HVDCP 2.0 mode\n");
+			smb1351_masked_write(chip, VARIOUS_FUNC_3_REG,
+						QC_2P1_AUTH_ALGO_BIT, 0);
+			smb1351_masked_write(chip, CMD_HVDCP_REG,
+						CMD_FORCE_HVDCP_2P0_BIT,
+						CMD_FORCE_HVDCP_2P0_BIT);
+		}
+
 		power_supply_set_supply_type(chip->usb_psy, type);
 		/*
 		 * SMB is now done sampling the D+/D- lines,
@@ -2512,6 +2527,8 @@ static int smb1351_parse_dt(struct smb1351_charger *chip)
 						"qcom,using-pmic-therm");
 	chip->bms_controlled_charging  = of_property_read_bool(node,
 					"qcom,bms-controlled-charging");
+	chip->force_hvdcp_2p0 = of_property_read_bool(node,
+					"qcom,force-hvdcp-2p0");
 
 	rc = of_property_read_string(node, "qcom,bms-psy-name",
 						&chip->bms_psy_name);
