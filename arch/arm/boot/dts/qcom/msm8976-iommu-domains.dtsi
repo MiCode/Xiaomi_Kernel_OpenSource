@@ -54,5 +54,11 @@
 			qcom,virtual-addr-pool = <0x1000000 0x24800000>;
 			qcom,secure-domain;
 		};
+
+		qcom,iommu-domain5 {
+			label = "lpass_audio";
+			qcom,iommu-contexts = <&adsp_io>;
+			qcom,virtual-addr-pool = <0x10000000 0x0FFFFFFF>;
+		};
 	};
 };
