@@ -438,7 +438,7 @@ static int mhi_sm_change_to_M0(void)
 {
 	enum mhi_dev_state old_state;
 	struct ep_pcie_msi_config cfg;
-	int res;
+	int res = 0;
 
 	MHI_SM_FUNC_ENTRY();
 
@@ -612,7 +612,7 @@ exit:
  */
 static int mhi_sm_handle_syserr(void)
 {
-	int res;
+	int res = 0;
 	enum ep_pcie_link_status link_status;
 	bool link_enabled = false;
 
@@ -680,7 +680,7 @@ exit:
  */
 static void mhi_sm_dev_event_manager(struct work_struct *work)
 {
-	int res;
+	int res = 0;
 	struct mhi_sm_device_event *chg_event = container_of(work,
 		struct mhi_sm_device_event, work);
 
@@ -755,7 +755,7 @@ unlock_and_exit:
  */
 static void mhi_sm_pcie_event_manager(struct work_struct *work)
 {
-	int res;
+	int res = 0;
 	enum mhi_sm_ep_pcie_state old_dstate;
 	struct mhi_sm_ep_pcie_event *chg_event = container_of(work,
 		struct mhi_sm_ep_pcie_event, work);
@@ -894,7 +894,7 @@ unlock_and_exit:
  */
 int mhi_dev_sm_init(struct mhi_dev *mhi_dev)
 {
-	int res;
+	int res = 0;
 	enum ep_pcie_link_status link_state;
 
 	MHI_SM_FUNC_ENTRY();
@@ -990,7 +990,7 @@ EXPORT_SYMBOL(mhi_dev_sm_get_mhi_state);
  */
 int mhi_dev_sm_set_ready(void)
 {
-	int res;
+	int res = 0;
 	int is_ready;
 	enum mhi_dev_state state;
 
@@ -1060,7 +1060,7 @@ EXPORT_SYMBOL(mhi_dev_sm_set_ready);
 int mhi_dev_notify_sm_event(enum mhi_dev_event event)
 {
 	struct mhi_sm_device_event *state_change_event;
-	int res;
+	int res = 0;
 	int event_id;
 
 	MHI_SM_FUNC_ENTRY();
@@ -1219,7 +1219,7 @@ EXPORT_SYMBOL(mhi_dev_sm_pcie_handler);
  */
 int mhi_dev_sm_syserr(void)
 {
-	int res;
+	int res = 0;
 
 	MHI_SM_FUNC_ENTRY();
 
