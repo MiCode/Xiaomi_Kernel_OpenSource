@@ -140,7 +140,6 @@ static  bool req_crypt_should_encrypt(struct req_dm_crypt_io *req)
 	int ret;
 	bool should_encrypt = false;
 	struct bio *bio = NULL;
-	u32 key_id = 0;
 	bool is_encrypted = false;
 	bool is_inplace = false;
 
@@ -168,7 +167,6 @@ static  bool req_crypt_should_deccrypt(struct req_dm_crypt_io *req)
 	int ret;
 	bool should_deccrypt = false;
 	struct bio *bio = NULL;
-	u32 key_id = 0;
 	bool is_encrypted = false;
 	bool is_inplace = false;
 
@@ -459,11 +457,11 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 	struct bio *bio_src = NULL;
 	unsigned int total_sg_len_req_in = 0, total_sg_len_req_out = 0,
 		total_bytes_in_req = 0, error = DM_MAPIO_REMAPPED, rc = 0;
-	struct req_iterator iter = {0, NULL};
-	struct req_iterator iter1 = {0, NULL};
+	struct req_iterator iter;
+	struct req_iterator iter1;
 	struct ablkcipher_request *req = NULL;
 	struct req_crypt_result result;
-	struct bio_vec *bvec = NULL;
+	struct bio_vec bvec;
 	struct scatterlist *req_sg_in = NULL;
 	struct scatterlist *req_sg_out = NULL;
 	int copy_bio_sector_to_req = 0;
@@ -585,7 +583,7 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 	}
 
 	rq_for_each_segment(bvec, clone, iter) {
-		if (bvec->bv_len > remaining_size) {
+		if (bvec.bv_len > remaining_size) {
 			page = NULL;
 			while (page == NULL) {
 				page = mempool_alloc(req_page_pool, gfp_mask);
@@ -596,15 +594,15 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 				}
 			}
 
-			bvec->bv_page = page;
-			bvec->bv_offset = 0;
-			remaining_size = PAGE_SIZE -  bvec->bv_len;
+			bvec.bv_page = page;
+			bvec.bv_offset = 0;
+			remaining_size = PAGE_SIZE -  bvec.bv_len;
 			if (remaining_size < 0)
 				BUG();
 		} else {
-			bvec->bv_page = page;
-			bvec->bv_offset = PAGE_SIZE - remaining_size;
-			remaining_size = remaining_size -  bvec->bv_len;
+			bvec.bv_page = page;
+			bvec.bv_offset = PAGE_SIZE - remaining_size;
+			remaining_size = remaining_size -  bvec.bv_len;
 		}
 	}
 
@@ -650,7 +648,6 @@ static void req_cryptd_crypt_write_convert(struct req_dm_crypt_io *io)
 
 	__rq_for_each_bio(bio_src, clone) {
 		if (copy_bio_sector_to_req == 0) {
-			clone->buffer = bio_data(bio_src);
 			copy_bio_sector_to_req++;
 		}
 		blk_queue_bounce(clone->q, &bio_src);
@@ -667,13 +664,12 @@ ablkcipher_req_alloc_failure:
 		ablkcipher_request_free(req);
 
 	if (error == DM_REQ_CRYPT_ERROR_AFTER_PAGE_MALLOC) {
-		bvec = NULL;
 		rq_for_each_segment(bvec, clone, iter1) {
-			if (bvec->bv_offset == 0) {
-				mempool_free(bvec->bv_page, req_page_pool);
-				bvec->bv_page = NULL;
+			if (bvec.bv_offset == 0) {
+				mempool_free(bvec.bv_page, req_page_pool);
+				bvec.bv_page = NULL;
 			} else
-				bvec->bv_page = NULL;
+				bvec.bv_page = NULL;
 		}
 	}
 
@@ -850,10 +846,10 @@ static inline void req_crypt_blk_partition_remap(struct bio *bio)
 		/*
 		* Check for integer overflow, should never happen.
 		*/
-		if (p->start_sect > (UINT_MAX - bio->bi_sector))
+		if (p->start_sect > (UINT_MAX - bio->bi_iter.bi_sector))
 			BUG();
 
-		bio->bi_sector += p->start_sect;
+		bio->bi_iter.bi_sector += p->start_sect;
 		bio->bi_bdev = bdev->bd_contains;
 	}
 }
@@ -871,22 +867,21 @@ static int req_crypt_endio(struct dm_target *ti, struct request *clone,
 {
 	int err = 0;
 	struct req_iterator iter1;
-	struct bio_vec *bvec = NULL;
+	struct bio_vec bvec;
 	struct req_dm_crypt_io *req_io = map_context->ptr;
 
 	/* If it is a write request, do nothing just return. */
-	bvec = NULL;
 	if (encryption_mode == DM_REQ_CRYPT_ENCRYPTION_MODE_TRANSPARENT
 		&& rq_data_dir(clone) == READ)
 		goto submit_request;
 
 	if (rq_data_dir(clone) == WRITE) {
 		rq_for_each_segment(bvec, clone, iter1) {
-			if (req_io->should_encrypt && bvec->bv_offset == 0) {
-				mempool_free(bvec->bv_page, req_page_pool);
-				bvec->bv_page = NULL;
+			if (req_io->should_encrypt && bvec.bv_offset == 0) {
+				mempool_free(bvec.bv_page, req_page_pool);
+				bvec.bv_page = NULL;
 			} else
-				bvec->bv_page = NULL;
+				bvec.bv_page = NULL;
 		}
 		mempool_free(req_io, req_io_pool);
 		goto submit_request;
@@ -970,8 +965,7 @@ static int req_crypt_map(struct dm_target *ti, struct request *clone,
 		 */
 		req_crypt_blk_partition_remap(bio_src);
 		if (copy_bio_sector_to_req == 0) {
-			clone->__sector = bio_src->bi_sector;
-			clone->buffer = bio_data(bio_src);
+			clone->__sector = bio_src->bi_iter.bi_sector;
 			copy_bio_sector_to_req++;
 		}
 		blk_queue_bounce(clone->q, &bio_src);
