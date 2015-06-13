@@ -69,7 +69,16 @@ static int camera_check_event_status(struct v4l2_event *event)
 				__func__);
 		pr_err("%s : Line %d event_data->status 0X%x\n",
 				__func__, __LINE__, event_data->status);
-		return -EFAULT;
+
+		switch (event_data->status) {
+		case MSM_CAMERA_ERR_CMD_FAIL:
+		case MSM_CAMERA_ERR_MAPPING:
+			return -EFAULT;
+		case MSM_CAMERA_ERR_DEVICE_BUSY:
+			return -EBUSY;
+		default:
+			return -EFAULT;
+		}
 	}
 
 	return 0;
