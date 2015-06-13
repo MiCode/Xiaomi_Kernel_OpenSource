@@ -2353,11 +2353,6 @@ static int tasha_codec_enable_spline_src(struct snd_soc_codec *codec,
 		break;
 	};
 
-	if ((snd_soc_read(codec, rx_path_ctl_reg) & 0x0f) != 0x08) {
-		dev_err(codec->dev, "%s: sample rate is not set to 44.1KHz\n",
-			__func__);
-		return -EINVAL;
-	}
 	src_users = &tasha->spl_src_users[spl_src];
 
 	switch (event) {
