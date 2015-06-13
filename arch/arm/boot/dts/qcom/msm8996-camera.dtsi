@@ -582,6 +582,22 @@
 		qcom,min-clock-rate = <320000000>;
 		qcom,bus-master = <1>;
 		status = "ok";
+		qcom,cpp-fw-payload-info {
+			qcom,stripe-base = <553>;
+			qcom,plane-base = <481>;
+			qcom,stripe-size = <61>;
+			qcom,plane-size = <24>;
+			qcom,fe-ptr-off = <11>;
+			qcom,we-ptr-off = <23>;
+			qcom,ref-fe-ptr-off = <17>;
+			qcom,ref-we-ptr-off = <36>;
+			qcom,we-meta-ptr-off = <42>;
+			qcom,fe-mmu-pf-ptr-off = <6>;
+			qcom,ref-fe-mmu-pf-ptr-off = <9>;
+			qcom,we-mmu-pf-ptr-off = <12>;
+			qcom,dup-we-mmu-pf-ptr-off = <17>;
+			qcom,ref-we-mmu-pf-ptr-off = <22>;
+		};
 	};
 
 	qcom,fd@aa4000 {
