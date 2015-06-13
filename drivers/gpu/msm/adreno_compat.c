@@ -20,7 +20,7 @@
 #include "adreno_compat.h"
 
 int adreno_getproperty_compat(struct kgsl_device *device,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value,
 				size_t sizebytes)
 {
@@ -101,7 +101,7 @@ int adreno_getproperty_compat(struct kgsl_device *device,
 }
 
 int adreno_setproperty_compat(struct kgsl_device_private *dev_priv,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value,
 				unsigned int sizebytes)
 {

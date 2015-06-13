@@ -1486,7 +1486,8 @@ int a5xx_rb_init(struct adreno_device *adreno_dev,
 }
 
 static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
-			  struct kgsl_memdesc *ucode, size_t *ucode_size)
+			  struct kgsl_memdesc *ucode, size_t *ucode_size,
+			  unsigned int *ucode_version)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	const struct firmware *fw = NULL;
@@ -1508,6 +1509,7 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 
 	memcpy(ucode->hostptr, &fw->data[4], fw->size - 4);
 	*ucode_size = (fw->size - 4) / sizeof(uint32_t);
+	*ucode_version = fw->data[4];
 
 	release_firmware(fw);
 
@@ -1521,22 +1523,16 @@ static int _load_firmware(struct adreno_device *adreno_dev, const char *fwfile,
 int a5xx_microcode_read(struct adreno_device *adreno_dev)
 {
 	int ret;
-	uint *ucode;
 
 	ret = _load_firmware(adreno_dev,
 			 adreno_dev->gpucore->pm4fw_name, &adreno_dev->pm4,
-						 &adreno_dev->pm4_fw_size);
+			 &adreno_dev->pm4_fw_size, &adreno_dev->pm4_fw_version);
 	if (ret)
 		return ret;
 
 	ret = _load_firmware(adreno_dev,
 			 adreno_dev->gpucore->pfpfw_name, &adreno_dev->pfp,
-						 &adreno_dev->pfp_fw_size);
-
-	ucode = (int *) adreno_dev->pm4.hostptr;
-	adreno_dev->pm4_fw_version = ucode[0];
-	ucode = (int *) adreno_dev->pfp.hostptr;
-	adreno_dev->pfp_fw_version = ucode[0];
+			 &adreno_dev->pfp_fw_size, &adreno_dev->pfp_fw_version);
 	if (ret)
 		return ret;
 

@@ -1686,7 +1686,7 @@ int adreno_reset(struct kgsl_device *device)
 }
 
 static int adreno_getproperty(struct kgsl_device *device,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value,
 				size_t sizebytes)
 {
@@ -1812,6 +1812,57 @@ static int adreno_getproperty(struct kgsl_device *device,
 			status = 0;
 		}
 		break;
+	case KGSL_PROP_UCODE_VERSION:
+		{
+			struct kgsl_ucode_version ucode;
+
+			if (sizebytes != sizeof(ucode)) {
+				status = -EINVAL;
+				break;
+			}
+			memset(&ucode, 0, sizeof(ucode));
+
+			ucode.pfp = adreno_dev->pfp_fw_version;
+			ucode.pm4 = adreno_dev->pm4_fw_version;
+
+			if (copy_to_user(value, &ucode, sizeof(ucode))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
+	case KGSL_PROP_GPMU_VERSION:
+		{
+			struct kgsl_gpmu_version gpmu;
+
+			if (adreno_dev->gpucore == NULL) {
+				status = -EINVAL;
+				break;
+			}
+
+			if (!ADRENO_FEATURE(adreno_dev, ADRENO_GPMU)) {
+				status = -EOPNOTSUPP;
+				break;
+			}
+
+			if (sizebytes != sizeof(gpmu)) {
+				status = -EINVAL;
+				break;
+			}
+			memset(&gpmu, 0, sizeof(gpmu));
+
+			gpmu.major = adreno_dev->gpucore->gpmu_major;
+			gpmu.minor = adreno_dev->gpucore->gpmu_minor;
+			gpmu.features = adreno_dev->gpucore->gpmu_features;
+
+			if (copy_to_user(value, &gpmu, sizeof(gpmu))) {
+				status = -EFAULT;
+				break;
+			}
+			status = 0;
+		}
+		break;
 	default:
 		status = -EINVAL;
 	}
@@ -1880,7 +1931,7 @@ int adreno_set_constraint(struct kgsl_device *device,
 }
 
 static int adreno_setproperty(struct kgsl_device_private *dev_priv,
-				enum kgsl_property_type type,
+				unsigned int type,
 				void __user *value,
 				unsigned int sizebytes)
 {
