@@ -19,6 +19,11 @@
 #define GPLL2_MODE				 0x4A000
 #define GPLL2_STATUS				 0x4A01C
 #define GPLL3_MODE				 0x22000
+#define GPLL3_L_VAL                              0x22004
+#define GPLL3_M_VAL                              0x22008
+#define GPLL3_N_VAL                              0x2200C
+#define GPLL3_USER_CTL                           0x22010
+#define GPLL3_CONFIG_CTL                         0x22018
 #define GPLL3_STATUS				 0x22024
 #define GPLL4_MODE				 0x24000
 #define GPLL4_STATUS				 0x24024
@@ -189,6 +194,7 @@
 #define OXILI_AHB_CBCR				 0x59028
 #define OXILI_TIMER_CBCR			 0x59040
 #define CAMSS_TOP_AHB_CMD_RCGR			 0x5A000
+#define GX_DOMAIN_MISC				 0x5B00C
 #define VFE1_CMD_RCGR				 0x58054
 #define CAMSS_VFE1_CBCR				 0x5805C
 #define CAMSS_VFE1_AHB_CBCR			 0x58060

@@ -134,6 +134,34 @@ static struct pll_vote_clk gpll3_clk_src = {
 	},
 };
 
+static struct pll_config_regs gpll3_regs = {
+	.l_reg = (void __iomem *)GPLL3_L_VAL,
+	.m_reg = (void __iomem *)GPLL3_M_VAL,
+	.n_reg = (void __iomem *)GPLL3_N_VAL,
+	.config_reg = (void __iomem *)GPLL3_USER_CTL,
+	.mode_reg = (void __iomem *)GPLL3_MODE,
+	.base = &virt_bases[GCC_BASE],
+};
+
+/* GPLL3 at 1100MHz, main output enabled. */
+static struct pll_config gpll3_config = {
+	.l = 57,
+	.m = 7,
+	.n = 24,
+	.vco_val = 0x0,
+	.vco_mask = BM(21, 20),
+	.pre_div_val = 0x0,
+	.pre_div_mask = BM(14, 12),
+	.post_div_val = 0x0,
+	.post_div_mask = BM(9, 8),
+	.mn_ena_val = BIT(24),
+	.mn_ena_mask = BIT(24),
+	.main_output_val = BIT(0),
+	.main_output_mask = BIT(0),
+	.aux_output_val = BIT(1),
+	.aux_output_mask = BIT(1),
+};
+
 static struct pll_vote_clk gpll4_clk_src = {
 	.en_reg = (void __iomem *)APCS_GPLL_ENA_VOTE,
 	.en_mask = BIT(5),
@@ -388,7 +416,7 @@ static struct clk_freq_tbl ftbl_blsp_uart_apps_clk_src[] = {
 	F(  56000000,          gpll0,    1,    7,   100),
 	F(  58982400,          gpll0,    1, 1152, 15625),
 	F(  60000000,          gpll0,    1,    3,    40),
-	F(  64000000,          gpll0, 12.5,    1,     1),
+	F(  64000000,          gpll0,    1,    2,    25),
 	F_END
 };
 
@@ -1200,6 +1228,7 @@ static struct rcg_clk gfx3d_clk_src = {
 	.c = {
 		.dbg_name = "gfx3d_clk_src",
 		.ops = &clk_ops_rcg,
+		.vdd_class = &vdd_gfx,
 		CLK_INIT(gfx3d_clk_src.c),
 	},
 };
@@ -2745,18 +2774,6 @@ static struct branch_clk gcc_venus0_core0_vcodec0_clk = {
 	},
 };
 
-static struct branch_clk gcc_venus0_core1_vcodec0_clk = {
-	.cbcr_reg = VENUS0_CORE1_VCODEC0_CBCR,
-	.has_sibling = 0,
-	.base = &virt_bases[GCC_BASE],
-	.c = {
-		.dbg_name = "gcc_venus0_core1_vcodec0_clk",
-		.parent = &vcodec0_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(gcc_venus0_core1_vcodec0_clk.c),
-	},
-};
-
 static struct branch_clk gcc_venus0_vcodec0_clk = {
 	.cbcr_reg = VENUS0_VCODEC0_CBCR,
 	.has_sibling = 0,
@@ -3180,7 +3197,6 @@ static struct mux_clk gcc_debug_mux = {
 		{ &gcc_camss_csi_vfe1_clk.c, 0x01b4 },
 		{ &gcc_camss_cpp_axi_clk.c, 0x01b5 },
 		{ &gcc_venus0_core0_vcodec0_clk.c, 0x01b8 },
-		{ &gcc_venus0_core1_vcodec0_clk.c, 0x01b9 },
 		{ &gcc_mdss_pclk1_clk.c, 0x01ba },
 		{ &gcc_mdss_byte1_clk.c, 0x01bb },
 		{ &gcc_mdss_esc1_clk.c, 0x01bc },
@@ -3383,7 +3399,6 @@ static struct clk_lookup msm_clocks_lookup[] = {
 	 CLK_LIST(gcc_venus0_ahb_clk),
 	 CLK_LIST(gcc_venus0_axi_clk),
 	 CLK_LIST(gcc_venus0_core0_vcodec0_clk),
-	 CLK_LIST(gcc_venus0_core1_vcodec0_clk),
 	 CLK_LIST(gcc_venus0_vcodec0_clk),
 	 CLK_LIST(gcc_apss_ahb_clk),
 	 CLK_LIST(gcc_apss_axi_clk),
@@ -3532,6 +3547,8 @@ static int msm_gcc_probe(struct platform_device *pdev)
 	regval |= CLKFLAG_WAKEUP_CYCLES << 8;
 	regval |= CLKFLAG_SLEEP_CYCLES << 4;
 	writel_relaxed(regval, GCC_REG_BASE(OXILI_GMEM_CBCR));
+
+	configure_sr_hpm_lp_pll(&gpll3_config, &gpll3_regs, 1);
 
 	dev_info(&pdev->dev, "Registered GCC clocks\n");
 
@@ -3856,6 +3873,7 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 {
 	struct resource *res;
 	int ret;
+	u32 regval;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "cc_base");
 	if (!res) {
@@ -3886,6 +3904,11 @@ static int msm_gcc_gfx_probe(struct platform_device *pdev)
 
 	ret = of_msm_clock_register(pdev->dev.of_node, msm_clocks_gcc_gfx,
 				ARRAY_SIZE(msm_clocks_gcc_gfx));
+
+	/* Oxili Ocmem in GX rail: OXILI_GMEM_CLAMP_IO */
+	regval = readl_relaxed(GCC_REG_BASE(GX_DOMAIN_MISC));
+	regval &= ~BIT(0);
+	writel_relaxed(regval, GCC_REG_BASE(GX_DOMAIN_MISC));
 
 	dev_info(&pdev->dev, "Registered GCC GFX clocks.\n");
 
