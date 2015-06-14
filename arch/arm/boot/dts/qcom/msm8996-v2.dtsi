@@ -69,6 +69,7 @@
 	qcom,chipid = <0x05030001>;
 
 	qcom,initial-pwrlevel = <3>;
+	qcom,bus-width = <32>;
 
 	/* Power levels */
 	qcom,gpu-pwrlevels {
