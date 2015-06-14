@@ -76,7 +76,10 @@ static void diagfwd_cntl_open(struct diagfwd_info *fwd_info)
 {
 	if (!fwd_info)
 		return;
-
+	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
+		diag_notify_md_client(PERIPHERAL_MASK(fwd_info->peripheral),
+							  DIAG_STATUS_OPEN);
+	}
 	diag_cntl_channel_open(fwd_info);
 }
 
@@ -84,7 +87,10 @@ static void diagfwd_cntl_close(struct diagfwd_info *fwd_info)
 {
 	if (!fwd_info)
 		return;
-
+	if (driver->logging_mode == MEMORY_DEVICE_MODE) {
+		diag_notify_md_client(PERIPHERAL_MASK(fwd_info->peripheral),
+							  DIAG_STATUS_CLOSED);
+	}
 	diag_cntl_channel_close(fwd_info);
 }
 
@@ -301,7 +307,7 @@ static void diagfwd_data_read_done(struct diagfwd_info *fwd_info,
 		err = diag_mux_write(DIAG_LOCAL_PROC, write_buf, write_len,
 				     temp_buf->ctxt);
 		if (err) {
-			pr_err_ratelimited("diag: In %s, diag_device_write error: %d\n",
+			pr_err_ratelimited("diag: In %s, unable to write to mux error: %d\n",
 					   __func__, err);
 			diag_ws_release();
 			goto end;
@@ -412,8 +418,8 @@ int diagfwd_peripheral_init(void)
 				GFP_KERNEL);
 		if (!early_init_info[transport])
 			return -ENOMEM;
+		kmemleak_not_leak(early_init_info[transport]);
 	}
-	kmemleak_not_leak(early_init_info);
 
 	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
 		for (transport = 0; transport < NUM_TRANSPORT; transport++) {
