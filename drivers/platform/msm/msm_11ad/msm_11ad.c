@@ -170,7 +170,7 @@ static int msm_11ad_probe(struct platform_device *pdev)
 	int rc;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
-	if (!dev)
+	if (!ctx)
 		return -ENOMEM;
 
 	ctx->dev = dev;
@@ -401,6 +401,11 @@ int msm_11ad_modinit(void)
 	struct msm11ad_ctx *ctx = list_first_entry_or_null(&dev_list,
 							   struct msm11ad_ctx,
 							   list);
+
+	if (!ctx) {
+		pr_err("Context not found\n");
+		return -EINVAL;
+	}
 
 	if (ctx->pristine_state) {
 		/* in old kernels, pci_load_saved_state() is not exported;
