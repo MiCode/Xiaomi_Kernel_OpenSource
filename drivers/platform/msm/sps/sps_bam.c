@@ -1499,7 +1499,7 @@ int sps_bam_pipe_transfer(struct sps_bam *dev,
 	if (!pipe->sys.ack_xfers && pipe->polled) {
 		sps_bam_pipe_get_unused_desc_num(dev, pipe_index,
 					&count);
-		count = pipe->desc_size - count - 1;
+		count = pipe->desc_size / sizeof(struct sps_iovec) - count - 1;
 	} else
 		sps_bam_get_free_count(dev, pipe_index, &count);
 
