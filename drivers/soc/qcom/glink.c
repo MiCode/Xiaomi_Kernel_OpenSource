@@ -4168,6 +4168,7 @@ static void tx_work_func(struct work_struct *work)
 			 * transport unable to send at the moment and will call
 			 * tx_resume() when it can send again.
 			 */
+			mutex_unlock(&ch_ptr->tx_lists_mutex_lhc3);
 			break;
 		} else if (ret < 0) {
 			/*
