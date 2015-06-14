@@ -33,8 +33,9 @@
 		synaptics,detect-device;
 		synaptics,device1 {
 			synaptics,package-id = <3528>;
+			synaptics,bypass-sensor-coords-check;
 			synaptics,display-coords = <0 0 1439 2559>;
-			synaptics,panel-coords = <0 0 1439 2703>;
+			synaptics,panel-coords = <0 0 1599 2703>;
 			synaptics,key-codes = <158 139 172 217>;
 		};
 	};
