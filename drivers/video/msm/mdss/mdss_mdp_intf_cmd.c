@@ -298,7 +298,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
 		mdss_mdp_ctl_intf_event
-			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)1);
+			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)1, false);
 		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
 	}
 	spin_lock_irqsave(&ctx->clk_lock, flags);
@@ -337,7 +337,7 @@ static inline void mdss_mdp_cmd_clk_off(struct mdss_mdp_cmd_ctx *ctx)
 		ctx->clk_enabled = 0;
 		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_SUSPEND);
 		mdss_mdp_ctl_intf_event
-			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
+			(ctx->ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0, false);
 		mdss_iommu_ctrl(0);
 		mdss_bus_bandwidth_ctrl(false);
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
@@ -628,7 +628,8 @@ int mdss_mdp_cmd_reconfigure_splash_done(struct mdss_mdp_ctl *ctl, bool handoff)
 
 	pdata = ctl->panel_data;
 
-	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
+	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)0,
+		false);
 
 	pdata->panel_info.cont_splash_enabled = 0;
 	if (sctl)
@@ -765,7 +766,7 @@ static int mdss_mdp_cmd_set_partial_roi(struct mdss_mdp_ctl *ctl)
 
 	/* set panel col and page addr */
 	rc = mdss_mdp_ctl_intf_event(ctl,
-			MDSS_EVENT_ENABLE_PARTIAL_ROI, NULL);
+			MDSS_EVENT_ENABLE_PARTIAL_ROI, NULL, false);
 	return rc;
 }
 
@@ -778,7 +779,7 @@ static int mdss_mdp_cmd_set_stream_size(struct mdss_mdp_ctl *ctl)
 
 	/* set dsi controller stream size */
 	rc = mdss_mdp_ctl_intf_event(ctl,
-			MDSS_EVENT_DSI_STREAM_SIZE, NULL);
+			MDSS_EVENT_DSI_STREAM_SIZE, NULL, false);
 	return rc;
 }
 
@@ -798,13 +799,16 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl,
 		sctx = (struct mdss_mdp_cmd_ctx *) sctl->intf_ctx[MASTER_CTX];
 
 	if (!__mdss_mdp_cmd_is_panel_power_on_interactive(ctx)) {
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_LINK_READY, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_LINK_READY, NULL,
+			false);
 		WARN(rc, "intf %d link ready error (%d)\n", ctl->intf_num, rc);
 
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL,
+			false);
 		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
 
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL,
+			false);
 		WARN(rc, "intf %d panel on error (%d)\n", ctl->intf_num, rc);
 
 		rc = mdss_mdp_tearcheck_enable(ctl, true);
@@ -817,7 +821,7 @@ static int mdss_mdp_cmd_panel_on(struct mdss_mdp_ctl *ctl,
 
 		mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
-			(void *)&ctx->intf_recovery);
+			(void *)&ctx->intf_recovery, false);
 
 		ctx->intf_stopped = 0;
 	} else {
@@ -987,7 +991,7 @@ int mdss_mdp_cmd_kickoff(struct mdss_mdp_ctl *ctl, void *arg)
 	/*
 	 * tx dcs command if had any
 	 */
-	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_CMDLIST_KOFF, NULL);
+	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_CMDLIST_KOFF, NULL, false);
 
 	mdss_mdp_cmd_set_stream_size(ctl);
 
@@ -1098,7 +1102,8 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 	if (!pend_switch) {
 		mdss_mdp_ctl_intf_event(ctl,
 			MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
-			NULL);
+			NULL,
+			false);
 	}
 
 	mdss_mdp_cmd_clk_off(ctx);
@@ -1283,11 +1288,11 @@ panel_events:
 		(is_panel_split(ctl->mfd) && sctl)) && send_panel_events) {
 		pr_debug("%s: send panel events\n", __func__);
 		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK,
-				(void *) (long int) panel_power_state);
+				(void *) (long int) panel_power_state, false);
 		WARN(ret, "intf %d unblank error (%d)\n", ctl->intf_num, ret);
 
 		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF,
-				(void *) (long int) panel_power_state);
+				(void *) (long int) panel_power_state, false);
 		WARN(ret, "intf %d unblank error (%d)\n", ctl->intf_num, ret);
 	}
 
@@ -1479,14 +1484,14 @@ void mdss_mdp_switch_to_vid_mode(struct mdss_mdp_ctl *ctl, int prep)
 		 * to properly enable vid mode compnents
 		 */
 		rc = mdss_mdp_ctl_intf_event
-			(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)1);
+			(ctl, MDSS_EVENT_PANEL_CLK_CTRL, (void *)1, false);
 
 		ctx->pending_mode_switch = 1;
 		return;
 	}
 
 	mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_RECONFIG_CMD,
-			(void *) mode);
+			(void *) mode, false);
 }
 
 int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
