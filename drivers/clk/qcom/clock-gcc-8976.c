@@ -1446,6 +1446,8 @@ static struct rcg_clk usb_hs_system_clk_src = {
 };
 
 static struct clk_freq_tbl ftbl_vcodec0_clk_src[] = {
+	F(  72727200,          gpll0,   11,    0,     0),
+	F(  80000000,          gpll0,   10,    0,     0),
 	F( 100000000,          gpll0,    8,    0,     0),
 	F( 133333333,          gpll0,    6,    0,     0),
 	F( 228570000,          gpll0,  3.5,    0,     0),
