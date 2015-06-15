@@ -454,7 +454,8 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 
 	mutex_lock(&ctl->offlock);
 	if (ctx->timegen_en) {
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_BLANK, NULL,
+			false);
 		if (rc == -EBUSY) {
 			pr_debug("intf #%d busy don't turn off\n",
 				 ctl->intf_num);
@@ -469,7 +470,8 @@ static int mdss_mdp_video_ctx_stop(struct mdss_mdp_ctl *ctl,
 		frame_rate = (1000/frame_rate) + 1;
 		mdss_mdp_turn_off_time_engine(ctl, ctx, frame_rate);
 
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_OFF, NULL,
+			false);
 		WARN(rc, "intf %d timegen off error (%d)\n", ctl->intf_num, rc);
 
 		mdss_bus_bandwidth_ctrl(false);
@@ -932,7 +934,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			}
 			rc = mdss_mdp_ctl_intf_event(ctl,
 					MDSS_EVENT_PANEL_UPDATE_FPS,
-					(void *) (unsigned long) new_fps);
+					(void *) (unsigned long) new_fps,
+					false);
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
 		} else if (pdata->panel_info.dfps_update
@@ -980,7 +983,8 @@ static int mdss_mdp_video_config_fps(struct mdss_mdp_ctl *ctl,
 			}
 			rc = mdss_mdp_ctl_intf_event(ctl,
 					MDSS_EVENT_PANEL_UPDATE_FPS,
-					(void *) (unsigned long) new_fps);
+					(void *) (unsigned long) new_fps,
+					false);
 			WARN(rc, "intf %d panel fps update error (%d)\n",
 							ctl->intf_num, rc);
 
@@ -1013,7 +1017,8 @@ exit_dfps:
 	} else {
 		rc = mdss_mdp_ctl_intf_event(ctl,
 				MDSS_EVENT_PANEL_UPDATE_FPS,
-				(void *) (unsigned long) new_fps);
+				(void *) (unsigned long) new_fps,
+				false);
 		WARN(rc, "intf %d panel fps update error (%d)\n",
 						ctl->intf_num, rc);
 	}
@@ -1047,7 +1052,8 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 	MDSS_XLOG(ctl->num, ctl->underrun_cnt);
 
 	if (!ctx->timegen_en) {
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_LINK_READY, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_LINK_READY, NULL,
+			false);
 		if (rc) {
 			pr_warn("intf #%d link ready error (%d)\n",
 					ctl->intf_num, rc);
@@ -1056,7 +1062,8 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 			return rc;
 		}
 
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_UNBLANK, NULL,
+			false);
 		WARN(rc, "intf %d unblank error (%d)\n", ctl->intf_num, rc);
 
 		pr_debug("enabling timing gen for intf=%d\n", ctl->intf_num);
@@ -1092,9 +1099,11 @@ static int mdss_mdp_video_display(struct mdss_mdp_ctl *ctl, void *arg)
 				rc, ctl->num);
 
 		ctx->timegen_en = true;
-		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL);
+		rc = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_PANEL_ON, NULL,
+			false);
 		WARN(rc, "intf %d panel on error (%d)\n", ctl->intf_num, rc);
-		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_POST_PANEL_ON, NULL);
+		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_POST_PANEL_ON, NULL,
+			false);
 	}
 
 	return 0;
@@ -1126,7 +1135,7 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 
 	if (!handoff) {
 		ret = mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_CONT_SPLASH_BEGIN,
-					      NULL);
+					      NULL, false);
 		if (ret) {
 			pr_err("%s: Failed to handle 'CONT_SPLASH_BEGIN' event\n"
 				, __func__);
@@ -1152,7 +1161,7 @@ int mdss_mdp_video_reconfigure_splash_done(struct mdss_mdp_ctl *ctl,
 		msleep(20);
 
 		ret = mdss_mdp_ctl_intf_event(ctl,
-			MDSS_EVENT_CONT_SPLASH_FINISH, NULL);
+			MDSS_EVENT_CONT_SPLASH_FINISH, NULL, false);
 	}
 
 	return ret;
@@ -1322,7 +1331,8 @@ static int mdss_mdp_video_ctx_setup(struct mdss_mdp_ctl *ctl,
 		ctx->intf_recovery.data = ctl;
 		if (mdss_mdp_ctl_intf_event(ctl,
 					MDSS_EVENT_REGISTER_RECOVERY_HANDLER,
-					(void *)&ctx->intf_recovery)) {
+					(void *)&ctx->intf_recovery,
+					false)) {
 			pr_err("Failed to register intf recovery handler\n");
 			return -EINVAL;
 		}
@@ -1498,7 +1508,7 @@ void mdss_mdp_switch_to_cmd_mode(struct mdss_mdp_ctl *ctl, int prep)
 
 	if (!prep) {
 		mdss_mdp_ctl_intf_event(ctl, MDSS_EVENT_DSI_RECONFIG_CMD,
-			(void *) mode);
+			(void *) mode, false);
 		return;
 	}
 
@@ -1511,7 +1521,7 @@ void mdss_mdp_switch_to_cmd_mode(struct mdss_mdp_ctl *ctl, int prep)
 
 	/* Start off by sending command to initial cmd mode */
 	rc = mdss_mdp_ctl_intf_event(ctl,
-		MDSS_EVENT_DSI_DYNAMIC_SWITCH, (void *) mode);
+		MDSS_EVENT_DSI_DYNAMIC_SWITCH, (void *) mode, false);
 	if (rc) {
 		pr_err("intf #%d busy don't turn off, rc=%d\n",
 			 ctl->intf_num, rc);
