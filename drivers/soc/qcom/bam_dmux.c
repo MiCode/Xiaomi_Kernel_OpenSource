@@ -1607,6 +1607,7 @@ static ssize_t debug_read(struct file *file, char __user *buf,
 {
 	int (*fill)(char *buf, int max) = file->private_data;
 	int bsize = fill(debug_buffer, DEBUG_BUFMAX);
+
 	return simple_read_from_buffer(buf, count, ppos, debug_buffer, bsize);
 }
 
