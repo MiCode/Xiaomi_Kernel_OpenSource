@@ -354,10 +354,8 @@ static int cpr3_msm8996_hmss_read_fuse_data(struct cpr3_thread *thread)
 	int i, id, rc;
 
 	fuse = devm_kzalloc(thread->ctrl->dev, sizeof(*fuse), GFP_KERNEL);
-	if (!fuse) {
-		cpr3_err(thread, "could not allocate memory for fuse data\n");
+	if (!fuse)
 		return -ENOMEM;
-	}
 
 	rc = cpr3_read_fuse_param(base, msm8996_hmss_speed_bin_param,
 				&fuse->speed_bin);
@@ -520,7 +518,6 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 	fmax_corner = kzalloc(sizeof(*fmax_corner) * thread->fuse_corner_count,
 					GFP_KERNEL);
 	if (!fuse_volt || !fmax_corner) {
-		cpr3_err(thread, "unable to allocate temp memory\n");
 		rc = -ENOMEM;
 		goto done;
 	}
@@ -751,10 +748,8 @@ static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
 	ro_all_scale = kzalloc(sizeof(*ro_all_scale)
 				* thread->fuse_corner_count * CPR3_RO_COUNT,
 				GFP_KERNEL);
-	if (!ro_all_scale) {
-		cpr3_err(thread, "memory allocation failed\n");
+	if (!ro_all_scale)
 		return -ENOMEM;
-	}
 
 	rc = cpr3_parse_array_property(thread, "qcom,cpr-ro-scaling-factor",
 		thread->fuse_corner_count * CPR3_RO_COUNT,
@@ -908,7 +903,6 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 					GFP_KERNEL);
 	if (!volt_adjust || !volt_adjust_fuse || !ro_scale ||
 	    !fmax_corner || !quot_low || !quot_high) {
-		cpr3_err(thread, "unable to allocate temp memory\n");
 		rc = -ENOMEM;
 		goto done;
 	}
@@ -1349,10 +1343,8 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 
 	ctrl->sensor_owner = devm_kzalloc(ctrl->dev,
 		sizeof(*ctrl->sensor_owner) * ctrl->sensor_count, GFP_KERNEL);
-	if (!ctrl->sensor_owner) {
-		cpr3_err(ctrl, "memory allocation failed\n");
+	if (!ctrl->sensor_owner)
 		return -ENOMEM;
-	}
 
 	/* Specify sensor ownership */
 	for (i = MSM8996_HMSS_THREAD0_SENSOR_MIN;
@@ -1402,10 +1394,8 @@ static int cpr3_hmss_regulator_probe(struct platform_device *pdev)
 	}
 
 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
-	if (!ctrl) {
-		dev_err(dev, "cpr3 controller memory allocation failed\n");
+	if (!ctrl)
 		return -ENOMEM;
-	}
 
 	ctrl->dev = dev;
 	/* Set to false later if anything precludes CPR operation. */

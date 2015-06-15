@@ -1900,10 +1900,8 @@ static struct dentry *cpr3_debugfs_create_corner_int(struct cpr3_thread *thread,
 	struct cpr3_debug_corner_info *info;
 
 	info = devm_kzalloc(thread->ctrl->dev, sizeof(*info), GFP_KERNEL);
-	if (!info) {
-		cpr3_err(thread, "could not allocate memory for debugfs function data\n");
+	if (!info)
 		return NULL;
-	}
 
 	info->thread = thread;
 	info->index = index;
@@ -2012,10 +2010,9 @@ static void cpr3_regulator_debugfs_corner_add(struct cpr3_thread *thread,
 	}
 
 	info = devm_kzalloc(thread->ctrl->dev, sizeof(*info), GFP_KERNEL);
-	if (!info) {
-		cpr3_err(thread, "could not allocate memory for debugfs function data\n");
+	if (!info)
 		return;
-	}
+
 	info->thread = thread;
 	info->index = index;
 
@@ -2124,10 +2121,9 @@ static void cpr3_regulator_debugfs_thread_add(struct cpr3_thread *thread)
 	name_len = strlen(thread->name) + 2;
 	name = devm_kzalloc(thread->ctrl->dev, name_len, GFP_KERNEL);
 	blob = devm_kzalloc(thread->ctrl->dev, sizeof(*blob), GFP_KERNEL);
-	if (!name || !blob) {
-		cpr3_err(thread, "could not allocate memory for debugfs name data\n");
+	if (!name || !blob)
 		return;
-	}
+
 	strlcpy(name, thread->name, name_len);
 	strlcat(name, "\n", name_len);
 	blob->data = name;

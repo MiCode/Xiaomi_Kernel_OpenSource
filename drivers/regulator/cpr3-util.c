@@ -90,10 +90,8 @@ int cpr3_allocate_threads(struct cpr3_controller *ctrl, u32 min_thread_id,
 
 	ctrl->thread = devm_kzalloc(dev,
 			sizeof(*ctrl->thread) * ctrl->thread_count, GFP_KERNEL);
-	if (!ctrl->thread) {
-		dev_err(dev, "could not allocate memory for CPR threads\n");
+	if (!ctrl->thread)
 		return -ENOMEM;
-	}
 
 	i = 0;
 	for_each_available_child_of_node(dev->of_node, thread_node) {
@@ -405,10 +403,8 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 
 	combo_corners = kzalloc(sizeof(*combo_corners) * max_fuse_combos,
 				GFP_KERNEL);
-	if (!combo_corners) {
-		cpr3_err(thread, "could not allocate temp memory\n");
+	if (!combo_corners)
 		return -ENOMEM;
-	}
 
 	rc = of_property_read_u32_array(node, "qcom,cpr-corners", combo_corners,
 					max_fuse_combos);
@@ -441,16 +437,9 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 	thread->corner = devm_kzalloc(thread->ctrl->dev,
 			sizeof(*thread->corner) * thread->corner_count,
 			GFP_KERNEL);
-	if (!thread->corner) {
-		cpr3_err(thread, "could not allocate memory for corner array\n");
-		return -ENOMEM;
-	}
-
 	temp = kzalloc(sizeof(*temp) * thread->corner_count, GFP_KERNEL);
-	if (!temp) {
-		cpr3_err(thread, "could not allocate temp memory\n");
+	if (!thread->corner || !temp)
 		return -ENOMEM;
-	}
 
 	rc = cpr3_parse_array_property(thread, "qcom,cpr-voltage-ceiling",
 			thread->corner_count, *corner_sum, *combo_offset, temp);
@@ -794,10 +783,8 @@ void cpr3_print_quots(struct cpr3_thread *thread)
 
 	buflen = sizeof(*buf) * CPR3_RO_COUNT * (MAX_CHARS_PER_INT + 2);
 	buf = kzalloc(buflen, GFP_KERNEL);
-	if (!buf) {
-		cpr3_err(thread, "could not allocate memory for debug logging\n");
+	if (!buf)
 		return;
-	}
 
 	for (i = 0; i < thread->corner_count; i++) {
 		for (j = 0, pos = 0; j < CPR3_RO_COUNT; j++)
@@ -834,10 +821,8 @@ int cpr3_adjust_fused_open_loop_voltages(struct cpr3_thread *thread,
 
 	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->fuse_corner_count,
 				GFP_KERNEL);
-	if (!volt_adjust) {
-		cpr3_err(thread, "memory allocation failed\n");
+	if (!volt_adjust)
 		return -ENOMEM;
-	}
 
 	rc = cpr3_parse_array_property(thread,
 		"qcom,cpr-open-loop-voltage-fuse-adjustment",
@@ -888,10 +873,8 @@ int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread, int corner_sum,
 
 	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->corner_count,
 				GFP_KERNEL);
-	if (!volt_adjust) {
-		cpr3_err(thread, "memory allocation failed\n");
+	if (!volt_adjust)
 		return -ENOMEM;
-	}
 
 	rc = cpr3_parse_array_property(thread,
 		"qcom,cpr-open-loop-voltage-adjustment",

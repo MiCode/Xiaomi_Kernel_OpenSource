@@ -142,10 +142,8 @@ static int cpr3_msm8996_mmss_read_fuse_data(struct cpr3_thread *thread)
 	int i, rc;
 
 	fuse = devm_kzalloc(thread->ctrl->dev, sizeof(*fuse), GFP_KERNEL);
-	if (!fuse) {
-		cpr3_err(thread, "could not allocate memory for fuse data\n");
+	if (!fuse)
 		return -ENOMEM;
-	}
 
 	rc = cpr3_read_fuse_param(base, msm8996_cpr_fusing_rev_param,
 				&fuse->cpr_fusing_rev);
@@ -213,10 +211,8 @@ static int cpr3_mmss_parse_corner_data(struct cpr3_thread *thread,
 
 	temp = kzalloc(sizeof(*temp) * thread->corner_count * CPR3_RO_COUNT,
 			GFP_KERNEL);
-	if (!temp) {
-		cpr3_err(thread, "memory allocation failed\n");
+	if (!temp)
 		return -ENOMEM;
-	}
 
 	rc = cpr3_parse_array_property(thread, "qcom,cpr-target-quotients",
 			thread->corner_count * CPR3_RO_COUNT,
@@ -269,7 +265,6 @@ static int cpr3_mmss_adjust_target_quotients(struct cpr3_thread *thread,
 	ro_scale = kzalloc(sizeof(*ro_scale) * thread->corner_count
 				* CPR3_RO_COUNT, GFP_KERNEL);
 	if (!volt_adjust || !ro_scale) {
-		cpr3_err(thread, "memory allocation failed\n");
 		rc = -ENOMEM;
 		goto done;
 	}
@@ -357,7 +352,6 @@ static int cpr3_msm8996_mmss_calculate_open_loop_voltages(
 	fmax_corner = kzalloc(sizeof(*fmax_corner) * thread->fuse_corner_count,
 					GFP_KERNEL);
 	if (!fuse_volt || !fmax_corner) {
-		cpr3_err(thread, "unable to allocate temp memory\n");
 		rc = -ENOMEM;
 		goto done;
 	}
@@ -573,10 +567,8 @@ static int cpr3_mmss_init_controller(struct cpr3_controller *ctrl)
 	 */
 	ctrl->sensor_owner = devm_kzalloc(ctrl->dev,
 		sizeof(*ctrl->sensor_owner) * ctrl->sensor_count, GFP_KERNEL);
-	if (!ctrl->sensor_owner) {
-		cpr3_err(ctrl, "memory allocation failed\n");
+	if (!ctrl->sensor_owner)
 		return -ENOMEM;
-	}
 
 	ctrl->cpr_clock_rate = MSM8996_MMSS_CPR_CLOCK_RATE;
 
@@ -633,10 +625,8 @@ static int cpr3_mmss_regulator_probe(struct platform_device *pdev)
 	}
 
 	ctrl = devm_kzalloc(dev, sizeof(*ctrl), GFP_KERNEL);
-	if (!ctrl) {
-		dev_err(dev, "cpr3 controller memory allocation failed\n");
+	if (!ctrl)
 		return -ENOMEM;
-	}
 
 	ctrl->dev = dev;
 	/* Set to false later if anything precludes CPR operation. */
