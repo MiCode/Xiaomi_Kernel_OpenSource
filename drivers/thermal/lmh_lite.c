@@ -366,7 +366,7 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 
 				lmh_sensor->last_read_value =
 					(payload.sensor[idx].max_intensity) ?
-					(payload.sensor[idx].intensity
+					((payload.sensor[idx].intensity * 100)
 					/ payload.sensor[idx].max_intensity)
 					: payload.sensor[idx].intensity;
 				trace_lmh_sensor_reading(
