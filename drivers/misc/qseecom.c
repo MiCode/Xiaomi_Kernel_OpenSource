@@ -3609,8 +3609,8 @@ static int qseecom_send_resp(void)
 }
 
 
-static int qseecom_send_modfd_resp(struct qseecom_dev_handle *data,
-						void __user *argp)
+static int __qseecom_send_modfd_resp(struct qseecom_dev_handle *data,
+				void __user *argp, bool is_64bit_addr)
 {
 	struct qseecom_send_modfd_listener_resp resp;
 	int i;
@@ -3647,12 +3647,26 @@ static int qseecom_send_modfd_resp(struct qseecom_dev_handle *data,
 	resp.resp_buf_ptr = this_lstnr->sb_virt +
 		(uintptr_t)(resp.resp_buf_ptr - this_lstnr->user_virt_sb_base);
 
-	__qseecom_update_cmd_buf(&resp, false, data);
+	if (!is_64bit_addr)
+		__qseecom_update_cmd_buf(&resp, false, data);
+	else
+		__qseecom_update_cmd_buf_64(&resp, false, data);
 	qseecom.send_resp_flag = 1;
 	wake_up_interruptible(&qseecom.send_resp_wq);
 	return 0;
 }
 
+static int qseecom_send_modfd_resp(struct qseecom_dev_handle *data,
+						void __user *argp)
+{
+	return __qseecom_send_modfd_resp(data, argp, false);
+}
+
+static int qseecom_send_modfd_resp_64(struct qseecom_dev_handle *data,
+						void __user *argp)
+{
+	return __qseecom_send_modfd_resp(data, argp, true);
+}
 
 static int qseecom_get_qseos_version(struct qseecom_dev_handle *data,
 						void __user *argp)
@@ -6013,7 +6027,8 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		mutex_unlock(&app_access_lock);
 		break;
 	}
-	case QSEECOM_IOCTL_SEND_MODFD_RESP: {
+	case QSEECOM_IOCTL_SEND_MODFD_RESP:
+	case QSEECOM_IOCTL_SEND_MODFD_RESP_64: {
 		if ((data->listener.id == 0) ||
 			(data->type != QSEECOM_LISTENER_SERVICE)) {
 			pr_err("receive req: invalid handle (%d), lid(%d)\n",
@@ -6023,7 +6038,10 @@ long qseecom_ioctl(struct file *file, unsigned cmd, unsigned long arg)
 		}
 		/* Only one client allowed here at a time */
 		atomic_inc(&data->ioctl_count);
-		ret = qseecom_send_modfd_resp(data, argp);
+		if (cmd == QSEECOM_IOCTL_SEND_MODFD_RESP)
+			ret = qseecom_send_modfd_resp(data, argp);
+		else
+			ret = qseecom_send_modfd_resp_64(data, argp);
 		atomic_dec(&data->ioctl_count);
 		wake_up_all(&data->abort_wq);
 		if (ret)
