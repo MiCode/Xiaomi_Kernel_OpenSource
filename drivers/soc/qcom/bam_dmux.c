@@ -131,13 +131,9 @@ static atomic_t bam_dmux_a2_pwr_cntl_in_cnt = ATOMIC_INIT(0);
 				 bam_dmux_write_cpy_bytes);                 \
 	} while (0)
 
-#define DBG_INC_TX_SPS_FAILURE_CNT() do {	\
-		bam_dmux_tx_sps_failure_cnt++;		\
-} while (0)
+#define DBG_INC_TX_SPS_FAILURE_CNT() (bam_dmux_tx_sps_failure_cnt++)
 
-#define DBG_INC_TX_STALL_CNT() do { \
-	bam_dmux_tx_stall_cnt++; \
-} while (0)
+#define DBG_INC_TX_STALL_CNT() (bam_dmux_tx_stall_cnt++)
 
 #define DBG_INC_ACK_OUT_CNT() \
 	atomic_inc(&bam_dmux_ack_out_cnt)
