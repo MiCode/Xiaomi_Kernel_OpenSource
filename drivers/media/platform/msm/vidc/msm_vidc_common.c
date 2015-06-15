@@ -884,6 +884,13 @@ static void handle_event_change(enum hal_command_response cmd, void *data)
 	rc = msm_vidc_check_session_supported(inst);
 	if (!rc) {
 		seq_changed_event.type = event;
+		if (event == V4L2_EVENT_SEQ_CHANGED_INSUFFICIENT) {
+			u32 *ptr = NULL;
+
+			ptr = (u32 *)seq_changed_event.u.data;
+			ptr[0] = event_notify->height;
+			ptr[1] = event_notify->width;
+		}
 		v4l2_event_queue_fh(&inst->event_handler, &seq_changed_event);
 	} else if (rc == -ENOTSUPP) {
 		msm_vidc_queue_v4l2_event(inst,
