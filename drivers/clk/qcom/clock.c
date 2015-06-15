@@ -703,6 +703,7 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	if (clk->notifier_count)
 		__clk_notify(clk, POST_RATE_CHANGE, start_rate, clk->rate);
 
+	trace_clock_set_rate_complete(name, clk->rate, raw_smp_processor_id());
 out:
 	mutex_unlock(&clk->prepare_lock);
 	return rc;
