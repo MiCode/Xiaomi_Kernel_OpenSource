@@ -289,9 +289,9 @@
 			lab-supply = <&lab_regulator>;
 			ibb-supply = <&ibb_regulator>;
 
-			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte0_clk>,
-				<&clock_gcc_mdss clk_gcc_mdss_pclk0_clk>,
-				<&clock_gcc clk_gcc_mdss_esc0_clk>;
+			clocks = <&clock_gcc_mdss clk_gcc_mdss_byte1_clk>,
+				<&clock_gcc_mdss clk_gcc_mdss_pclk1_clk>,
+				<&clock_gcc clk_gcc_mdss_esc1_clk>;
 			clock-names = "byte_clk", "pixel_clk", "core_clk";
 
 			qcom,platform-strength-ctrl = [ff 06];
