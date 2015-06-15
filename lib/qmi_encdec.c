@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -360,8 +360,8 @@ static int qmi_encode_string_elem(struct elem_info *ei_array,
 	int rc;
 	int encoded_bytes = 0;
 	struct elem_info *temp_ei = ei_array;
-	uint32_t string_len;
-	uint32_t string_len_sz;
+	uint32_t string_len = 0;
+	uint32_t string_len_sz = 0;
 
 	string_len = strlen(buf_src);
 	string_len_sz = temp_ei->elem_len <= U8_MAX ?
@@ -695,8 +695,8 @@ static int qmi_decode_string_elem(struct elem_info *ei_array, void *buf_dst,
 {
 	int rc;
 	int decoded_bytes = 0;
-	uint32_t string_len;
-	uint32_t string_len_sz;
+	uint32_t string_len = 0;
+	uint32_t string_len_sz = 0;
 	struct elem_info *temp_ei = ei_array;
 
 	if (dec_level == 1) {
