@@ -57,6 +57,7 @@ struct mdss_mdp_cmd_ctx {
 	int autorefresh_pending_frame_cnt;
 	bool autorefresh_off_pending;
 	bool autorefresh_init;
+	int vsync_irq_cnt;
 
 	struct mdss_intf_recovery intf_recovery;
 	struct mdss_mdp_cmd_ctx *sync_ctx; /* for partial update */
@@ -280,7 +281,7 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 {
 	unsigned long flags;
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
-	int irq_en, rc;
+	int rc;
 
 	if (__mdss_mdp_cmd_is_panel_power_off(ctx))
 		return;
@@ -302,12 +303,8 @@ static inline void mdss_mdp_cmd_clk_on(struct mdss_mdp_cmd_ctx *ctx)
 		mdss_mdp_hist_intr_setup(&mdata->hist_intr, MDSS_IRQ_RESUME);
 	}
 	spin_lock_irqsave(&ctx->clk_lock, flags);
-	irq_en =  !ctx->rdptr_enabled;
 	ctx->rdptr_enabled = VSYNC_EXPIRE_TICK;
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
-
-	if (irq_en)
-		mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num);
 
 	mutex_unlock(&ctx->clk_mtx);
 }
@@ -386,8 +383,6 @@ static void mdss_mdp_cmd_readptr_done(void *arg)
 	}
 
 	if (ctx->rdptr_enabled == 0) {
-		mdss_mdp_irq_disable_nosync
-			(MDSS_MDP_IRQ_PING_PONG_RD_PTR, ctx->pp_num);
 		complete(&ctx->stop_comp);
 		schedule_work(&ctx->clk_work);
 	}
@@ -533,6 +528,50 @@ static void clk_ctrl_work(struct work_struct *work)
 	}
 }
 
+static int mdss_mdp_setup_vsync(struct mdss_mdp_cmd_ctx *ctx,
+	bool enable)
+{
+	int changed = 0;
+
+	if (enable) {
+		if (ctx->vsync_irq_cnt == 0)
+			changed++;
+		ctx->vsync_irq_cnt++;
+	} else {
+		if (ctx->vsync_irq_cnt) {
+			ctx->vsync_irq_cnt--;
+			if (ctx->vsync_irq_cnt == 0)
+				changed++;
+		} else {
+			pr_warn("%pS->%s: rd_ptr can not be turned off\n",
+				__builtin_return_address(0), __func__);
+		}
+	}
+
+	if (changed)
+		MDSS_XLOG(ctx->vsync_irq_cnt, enable, current->pid);
+
+	pr_debug("%pS->%s: vsync_cnt=%d changed=%d enable=%d\n",
+			__builtin_return_address(0), __func__,
+			ctx->vsync_irq_cnt, changed, enable);
+
+	if (changed) {
+		if (enable) {
+			/* enable clocks and irq */
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+			mdss_mdp_irq_enable(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
+				ctx->pp_num);
+		} else {
+			/* disable clocks and irq */
+			mdss_mdp_irq_disable(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
+				ctx->pp_num);
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF);
+		}
+	}
+
+	return ctx->vsync_irq_cnt;
+}
+
 static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 		struct mdss_mdp_vsync_handler *handle)
 {
@@ -546,6 +585,9 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 		pr_err("%s: invalid ctx\n", __func__);
 		return -ENODEV;
 	}
+
+	pr_debug("%pS->%s ctl:%d\n",
+		__builtin_return_address(0), __func__, ctl->num);
 
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 					ctx->rdptr_enabled);
@@ -571,9 +613,8 @@ static int mdss_mdp_cmd_add_vsync_handler(struct mdss_mdp_ctl *ctl,
 		if (ctl->panel_data->panel_info.is_split_display)
 			mutex_lock(&cmd_clk_mtx);
 
-		mdss_mdp_cmd_clk_on(ctx);
-		if (sctx)
-			mdss_mdp_cmd_clk_on(sctx);
+		/* enable rd_ptr interrupt and clocks */
+		mdss_mdp_setup_vsync(ctx, true);
 
 		if (ctl->panel_data->panel_info.is_split_display)
 			mutex_unlock(&cmd_clk_mtx);
@@ -588,12 +629,16 @@ static int mdss_mdp_cmd_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_ctl *sctl;
 	struct mdss_mdp_cmd_ctx *ctx, *sctx = NULL;
 	unsigned long flags;
+	bool disable_vsync_irq = false;
 
 	ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
 	if (!ctx) {
 		pr_err("%s: invalid ctx\n", __func__);
 		return -ENODEV;
 	}
+
+	pr_debug("%pS->%s ctl:%d\n",
+		__builtin_return_address(0), __func__, ctl->num);
 
 	MDSS_XLOG(ctl->num, atomic_read(&ctx->koff_cnt), ctx->clk_enabled,
 				ctx->rdptr_enabled, 0x88888);
@@ -611,12 +656,20 @@ static int mdss_mdp_cmd_remove_vsync_handler(struct mdss_mdp_ctl *ctl,
 				ctx->vsync_enabled--;
 				if (sctx)
 					sctx->vsync_enabled--;
+
+				disable_vsync_irq = true;
 			}
 			else
 				WARN(1, "unbalanced vsync disable");
 		}
 	}
 	spin_unlock_irqrestore(&ctx->clk_lock, flags);
+
+	if (disable_vsync_irq) {
+		/* disable rd_ptr interrupt and clocks */
+		mdss_mdp_setup_vsync(ctx, false);
+	}
+
 	return 0;
 }
 
@@ -1089,8 +1142,6 @@ int mdss_mdp_cmd_ctx_stop(struct mdss_mdp_ctl *ctl,
 		if (wait_for_completion_timeout(&ctx->stop_comp,
 			STOP_TIMEOUT(hz)) <= 0) {
 			WARN(1, "stop cmd time out\n");
-			mdss_mdp_irq_disable(MDSS_MDP_IRQ_PING_PONG_RD_PTR,
-				ctx->pp_num);
 			ctx->rdptr_enabled = 0;
 			atomic_set(&ctx->koff_cnt, 0);
 		}
