@@ -26,6 +26,8 @@ Required properties:
 Optional properties:
 
 - qcom,ipi-ping : (boolean) send keep alive ping to other cpus if present
+- qcom,wakeup-enable : (boolean) enable non secure watchdog to freeze / unfreeze
+			automatically across suspend / resume path.
 
 Example:
 
@@ -37,4 +39,5 @@ Example:
 		qcom,bark-time = <11000>;
 		qcom,pet-time = <10000>;
 		qcom,ipi-ping;
+		qcom,wakeup-enable;
 	};
