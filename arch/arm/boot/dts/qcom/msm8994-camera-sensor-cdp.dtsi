@@ -18,6 +18,7 @@
 		qcom,flash-type = <1>;
 		qcom,flash-source = <&pmi8994_flash0 &pmi8994_flash1>;
 		qcom,torch-source = <&pmi8994_torch0 &pmi8994_torch1>;
+		qcom,switch-source = <&pmi8994_switch>;
 	};
 };
 
