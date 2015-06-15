@@ -42,6 +42,9 @@
 
 #define WDOG_ABSENT	0
 
+#define EN		0
+#define UNMASKED_INT_EN 1
+
 #define MASK_SIZE		32
 #define SCM_SET_REGSAVE_CMD	0x2
 #define SCM_SVC_SEC_WDOG_DIS	0x7
@@ -63,6 +66,7 @@ struct msm_watchdog_data {
 	unsigned int bark_irq;
 	unsigned int bite_irq;
 	bool do_ipi_ping;
+	bool wakeup_irq_enable;
 	unsigned long long last_pet;
 	unsigned min_slack_ticks;
 	unsigned long long min_slack_ns;
@@ -119,6 +123,10 @@ static int msm_watchdog_suspend(struct device *dev)
 	if (!enable)
 		return 0;
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
+	if (wdog_dd->wakeup_irq_enable) {
+		wdog_dd->last_pet = sched_clock();
+		return 0;
+	}
 	__raw_writel(0, wdog_dd->base + WDT0_EN);
 	mb();
 	wdog_dd->enabled = false;
@@ -130,7 +138,7 @@ static int msm_watchdog_resume(struct device *dev)
 {
 	struct msm_watchdog_data *wdog_dd =
 			(struct msm_watchdog_data *)dev_get_drvdata(dev);
-	if (!enable)
+	if (!enable || wdog_dd->wakeup_irq_enable)
 		return 0;
 	__raw_writel(1, wdog_dd->base + WDT0_EN);
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
@@ -523,6 +531,7 @@ static void init_watchdog_work(struct work_struct *work)
 						struct msm_watchdog_data,
 							init_dogwork_struct);
 	unsigned long delay_time;
+	uint32_t val;
 	int error;
 	u64 timeout;
 	int ret;
@@ -572,7 +581,10 @@ static void init_watchdog_work(struct work_struct *work)
 	mutex_init(&wdog_dd->disable_lock);
 	queue_delayed_work(wdog_wq, &wdog_dd->dogwork_struct,
 			delay_time);
-	__raw_writel(1, wdog_dd->base + WDT0_EN);
+	val = BIT(EN);
+	if (wdog_dd->wakeup_irq_enable)
+		val |= BIT(UNMASKED_INT_EN);
+	__raw_writel(val, wdog_dd->base + WDT0_EN);
 	__raw_writel(1, wdog_dd->base + WDT0_RST);
 	wdog_dd->last_pet = sched_clock();
 	wdog_dd->enabled = true;
@@ -665,6 +677,9 @@ static int msm_wdog_dt_to_pdata(struct platform_device *pdev,
 								__func__);
 		return -ENXIO;
 	}
+	pdata->wakeup_irq_enable = of_property_read_bool(node,
+							 "qcom,wakeup-enable");
+
 	pdata->irq_ppi = irq_is_percpu(pdata->bark_irq);
 	dump_pdata(pdata);
 	return 0;
