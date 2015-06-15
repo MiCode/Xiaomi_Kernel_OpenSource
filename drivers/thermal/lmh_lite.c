@@ -140,8 +140,6 @@ struct lmh_debug {
 
 struct lmh_driver_data {
 	struct device			*dev;
-	struct workqueue_struct		*isr_wq;
-	struct work_struct		isr_work;
 	struct delayed_work		poll_work;
 	uint32_t			log_enabled;
 	uint32_t			log_delay;
@@ -166,7 +164,6 @@ struct lmh_sensor_data {
 	uint32_t			sensor_hw_node_id;
 	int				sensor_sw_id;
 	struct lmh_sensor_ops		ops;
-	enum lmh_monitor_state		state;
 	long				last_read_value;
 	struct list_head		list_ptr;
 };
@@ -264,64 +261,27 @@ enable_exit:
 	return ret;
 }
 
-static int lmh_reset(struct lmh_sensor_ops *ops)
+static void lmh_update(struct lmh_driver_data *lmh_dat,
+	struct lmh_sensor_data *lmh_sensor)
 {
-	int ret = 0;
-	struct lmh_sensor_data *lmh_iter_sensor = NULL;
-	struct lmh_sensor_data *lmh_sensor = container_of(ops,
-		       struct lmh_sensor_data, ops);
-
-	down_write(&lmh_sensor_access);
-	if (lmh_data->intr_status_val & BIT(lmh_sensor->sensor_sw_id)) {
-		if (lmh_sensor->last_read_value) {
-			ret = -EAGAIN;
-			goto reset_exit;
-		}
-		lmh_data->intr_status_val ^= BIT(lmh_sensor->sensor_sw_id);
-		lmh_sensor->state = LMH_ISR_MONITOR;
-		pr_debug("Sensor:[%s] not throttling. Switch to monitor mode\n",
-			       lmh_sensor->sensor_name);
+	if (lmh_sensor->last_read_value > 0 && !(lmh_dat->intr_status_val
+		& BIT(lmh_sensor->sensor_sw_id))) {
+		pr_debug("Sensor:[%s] interrupt triggered\n",
+			lmh_sensor->sensor_name);
 		trace_lmh_sensor_interrupt(lmh_sensor->sensor_name,
 			lmh_sensor->last_read_value);
-	} else {
-		pr_err("Sensor:[%s] is already in reset state\n",
+		lmh_dat->intr_status_val |= BIT(lmh_sensor->sensor_sw_id);
+	} else if (lmh_sensor->last_read_value == 0 && (lmh_dat->intr_status_val
+		& BIT(lmh_sensor->sensor_sw_id))) {
+		pr_debug("Sensor:[%s] interrupt clear\n",
 			lmh_sensor->sensor_name);
-	}
+		trace_lmh_sensor_interrupt(lmh_sensor->sensor_name,
+			lmh_sensor->last_read_value);
 
-	if (!lmh_data->intr_status_val) {
-		/*
-		 * Scan through the sensor list and abort the interrupt
-		 * enable if any of the sensor is still throttling
-		 */
-		list_for_each_entry(lmh_iter_sensor, &lmh_sensor_list,
-			list_ptr) {
-			if (lmh_iter_sensor->last_read_value) {
-				pr_debug("Sensor:[%s] retrigger interrupt\n",
-					lmh_iter_sensor->sensor_name);
-				lmh_data->intr_status_val
-					|= BIT(lmh_iter_sensor->sensor_sw_id);
-				lmh_iter_sensor->state = LMH_ISR_POLLING;
-				lmh_iter_sensor->ops.interrupt_notify(
-					&lmh_iter_sensor->ops,
-					lmh_iter_sensor->last_read_value);
-			}
-		}
-		if (!lmh_data->intr_status_val) {
-			lmh_data->intr_state = LMH_ISR_MONITOR;
-			pr_debug("Zero throttling. Re-enabling interrupt\n");
-			/*
-			 * Don't use cancel_delayed_work_sync as it will lead
-			 * to deadlock because of the mutex
-			 */
-			cancel_delayed_work(&lmh_data->poll_work);
-			trace_lmh_event_call("Lmh Interrupt Clear");
-			enable_irq(lmh_data->irq_num);
-		}
+		lmh_data->intr_status_val ^= BIT(lmh_sensor->sensor_sw_id);
 	}
-
-reset_exit:
-	up_write(&lmh_sensor_access);
-	return ret;
+	lmh_sensor->ops.new_value_notify(&lmh_sensor->ops,
+		lmh_sensor->last_read_value);
 }
 
 static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
@@ -335,7 +295,6 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 		uint32_t addr;
 		uint32_t size;
 	} cmd_buf;
-
 
 	mutex_lock(&lmh_sensor_read);
 	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr)
@@ -387,30 +346,10 @@ static void lmh_read_and_update(struct lmh_driver_data *lmh_dat)
 
 read_exit:
 	mutex_unlock(&lmh_sensor_read);
+	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr)
+		lmh_update(lmh_dat, lmh_sensor);
+
 	return;
-}
-
-static void lmh_read_and_notify(struct lmh_driver_data *lmh_dat)
-{
-	struct lmh_sensor_data *lmh_sensor = NULL;
-	long val;
-
-	lmh_read_and_update(lmh_dat);
-	list_for_each_entry(lmh_sensor, &lmh_sensor_list, list_ptr) {
-		val = lmh_sensor->last_read_value;
-		if (val > 0 && !(lmh_dat->intr_status_val
-			& BIT(lmh_sensor->sensor_sw_id))) {
-			pr_debug("Sensor:[%s] interrupt triggered\n",
-				lmh_sensor->sensor_name);
-			trace_lmh_sensor_interrupt(lmh_sensor->sensor_name,
-							val);
-			lmh_dat->intr_status_val
-			       |= BIT(lmh_sensor->sensor_sw_id);
-			lmh_sensor->state = LMH_ISR_POLLING;
-			lmh_sensor->ops.interrupt_notify(&lmh_sensor->ops, val);
-		}
-	}
-
 }
 
 static void lmh_poll(struct work_struct *work)
@@ -421,9 +360,17 @@ static void lmh_poll(struct work_struct *work)
 	down_write(&lmh_sensor_access);
 	if (lmh_dat->intr_state != LMH_ISR_POLLING)
 		goto poll_exit;
-	lmh_read_and_notify(lmh_dat);
-	schedule_delayed_work(&lmh_dat->poll_work,
+	lmh_read_and_update(lmh_dat);
+	if (!lmh_data->intr_status_val) {
+		lmh_data->intr_state = LMH_ISR_MONITOR;
+		pr_debug("Zero throttling. Re-enabling interrupt\n");
+		trace_lmh_event_call("Lmh Interrupt Clear");
+		enable_irq(lmh_data->irq_num);
+		goto poll_exit;
+	} else {
+		schedule_delayed_work(&lmh_dat->poll_work,
 			msecs_to_jiffies(lmh_poll_interval));
+	}
 
 poll_exit:
 	up_write(&lmh_sensor_access);
@@ -452,14 +399,26 @@ static void lmh_trim_error(void)
 	return;
 }
 
-static void lmh_notify(struct work_struct *work)
+static irqreturn_t lmh_handle_isr(int irq, void *dev_id)
 {
-	struct lmh_driver_data *lmh_dat = container_of(work,
-			struct lmh_driver_data, isr_work);
+	disable_irq_nosync(irq);
+	return IRQ_WAKE_THREAD;
+}
 
-	/* Cancel any pending polling work event before scheduling new one */
-	cancel_delayed_work_sync(&lmh_dat->poll_work);
+static irqreturn_t lmh_isr_thread(int irq, void *data)
+{
+	struct lmh_driver_data *lmh_dat = data;
+
+	pr_debug("LMH Interrupt triggered\n");
+	trace_lmh_event_call("Lmh Interrupt");
+
 	down_write(&lmh_sensor_access);
+	if (lmh_dat->intr_state != LMH_ISR_MONITOR) {
+		pr_err("Invalid software state\n");
+		trace_lmh_event_call("Invalid software state");
+		WARN_ON(1);
+		goto isr_unlock_exit;
+	}
 	lmh_dat->intr_state = LMH_ISR_POLLING;
 	if (!lmh_data->trim_err_disable) {
 		lmh_dat->intr_reg_val = readl_relaxed(lmh_dat->intr_addr);
@@ -468,38 +427,26 @@ static void lmh_notify(struct work_struct *work)
 			trace_lmh_event_call("Lmh trim error");
 			lmh_trim_error();
 			lmh_dat->intr_state = LMH_ISR_MONITOR;
-			goto notify_exit;
+			goto decide_next_action;
 		}
 	}
-	lmh_read_and_notify(lmh_dat);
+	lmh_read_and_update(lmh_dat);
 	if (!lmh_dat->intr_status_val) {
 		pr_debug("LMH not throttling. Enabling interrupt\n");
 		lmh_dat->intr_state = LMH_ISR_MONITOR;
 		trace_lmh_event_call("Lmh Zero throttle Interrupt Clear");
-		goto notify_exit;
+		goto decide_next_action;
 	}
 
-notify_exit:
+decide_next_action:
 	if (lmh_dat->intr_state == LMH_ISR_POLLING)
 		schedule_delayed_work(&lmh_dat->poll_work,
 			msecs_to_jiffies(lmh_poll_interval));
 	else
 		enable_irq(lmh_dat->irq_num);
+
+isr_unlock_exit:
 	up_write(&lmh_sensor_access);
-	return;
-}
-
-static irqreturn_t lmh_handle_isr(int irq, void *data)
-{
-	struct lmh_driver_data *lmh_dat = data;
-
-	pr_debug("LMH Interrupt triggered\n");
-	trace_lmh_event_call("Lmh Interrupt");
-	if (lmh_dat->intr_state == LMH_ISR_MONITOR) {
-		disable_irq_nosync(lmh_dat->irq_num);
-		queue_work(lmh_dat->isr_wq, &lmh_dat->isr_work);
-	}
-
 	return IRQ_HANDLED;
 }
 
@@ -538,8 +485,9 @@ static int lmh_get_sensor_devicetree(struct platform_device *pdev)
 		goto dev_exit;
 	}
 
-	ret = request_irq(lmh_data->irq_num, lmh_handle_isr,
-				IRQF_TRIGGER_HIGH, LMH_INTERRUPT, lmh_data);
+	ret = request_threaded_irq(lmh_data->irq_num, lmh_handle_isr,
+		lmh_isr_thread, IRQF_TRIGGER_HIGH | IRQF_ONESHOT,
+		LMH_INTERRUPT, lmh_data);
 	if (ret) {
 		pr_err("Error getting irq for LMH. err:%d\n", ret);
 		goto dev_exit;
@@ -641,8 +589,6 @@ static int lmh_parse_sensor(struct lmh_sensor_info *sens_info)
 	lmh_sensor->ops.read = lmh_read;
 	lmh_sensor->ops.disable_hw_log = lmh_disable_log;
 	lmh_sensor->ops.enable_hw_log = lmh_enable_log;
-	lmh_sensor->ops.reset_interrupt = lmh_reset;
-	lmh_sensor->state = LMH_ISR_MONITOR;
 	lmh_sensor->sensor_sw_id = lmh_data->max_sensor_count++;
 	lmh_sensor->sensor_hw_name = sens_info->name;
 	lmh_sensor->sensor_hw_node_id = sens_info->node_id;
@@ -1251,13 +1197,6 @@ static int lmh_probe(struct platform_device *pdev)
 	}
 	lmh_data->dev = &pdev->dev;
 
-	lmh_data->isr_wq = alloc_workqueue("lmh_isr_wq", WQ_HIGHPRI, 0);
-	if (!lmh_data->isr_wq) {
-		pr_err("Error allocating workqueue\n");
-		ret = -ENOMEM;
-		goto probe_exit;
-	}
-	INIT_WORK(&lmh_data->isr_work, lmh_notify);
 	INIT_DEFERRABLE_WORK(&lmh_data->poll_work, lmh_poll);
 	ret = lmh_sensor_init(pdev);
 	if (ret) {
@@ -1284,8 +1223,6 @@ static int lmh_probe(struct platform_device *pdev)
 	return ret;
 
 probe_exit:
-	if (lmh_data->isr_wq)
-		destroy_workqueue(lmh_data->isr_wq);
 	lmh_data = NULL;
 	return ret;
 }
@@ -1295,7 +1232,6 @@ static int lmh_remove(struct platform_device *pdev)
 	struct lmh_driver_data *lmh_dat = platform_get_drvdata(pdev);
 
 	cancel_delayed_work_sync(&lmh_dat->poll_work);
-	destroy_workqueue(lmh_dat->isr_wq);
 	free_irq(lmh_dat->irq_num, lmh_dat);
 	lmh_remove_sensors();
 	lmh_device_deregister(&lmh_dat->dev_info.dev_ops);
