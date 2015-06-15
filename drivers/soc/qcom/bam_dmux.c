@@ -2825,9 +2825,8 @@ static int __init bam_dmux_init(void)
 
 	bam_ipc_log_txt = ipc_log_context_create(BAM_IPC_LOG_PAGES, "bam_dmux",
 			0);
-	if (!bam_ipc_log_txt) {
+	if (!bam_ipc_log_txt)
 		pr_err("%s : unable to create IPC Logging Context", __func__);
-	}
 
 	rx_timer_interval = DEFAULT_POLLING_MIN_SLEEP;
 
