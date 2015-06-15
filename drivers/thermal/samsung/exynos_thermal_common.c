@@ -163,7 +163,7 @@ static int exynos_bind(struct thermal_zone_device *thermal,
 		case MONITOR_ZONE:
 		case WARN_ZONE:
 			if (thermal_zone_bind_cooling_device(thermal, i, cdev,
-								level, 0)) {
+							     level, 0, THERMAL_WEIGHT_DEFAULT)) {
 				dev_err(data->dev,
 					"error unbinding cdev inst=%d\n", i);
 				ret = -EINVAL;
