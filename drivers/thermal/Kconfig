@@ -42,6 +42,17 @@ config THERMAL_OF
 	  Say 'Y' here if you need to build thermal infrastructure
 	  based on device tree.
 
+config THERMAL_WRITABLE_TRIPS
+	bool "Enable writable trip points"
+	help
+	  This option allows the system integrator to choose whether
+	  trip temperatures can be changed from userspace. The
+	  writable trips need to be specified when setting up the
+	  thermal zone but the choice here takes precedence.
+
+	  Say 'Y' here if you would like to allow userspace tools to
+	  change trip temperatures.
+
 choice
 	prompt "Default Thermal governor"
 	default THERMAL_DEFAULT_GOV_STEP_WISE
@@ -71,6 +82,14 @@ config THERMAL_DEFAULT_GOV_USER_SPACE
 	  Select this if you want to let the user space manage the
 	  platform thermals.
 
+config THERMAL_DEFAULT_GOV_POWER_ALLOCATOR
+	bool "power_allocator"
+	select THERMAL_GOV_POWER_ALLOCATOR
+	help
+	  Select this if you want to control temperature based on
+	  system and device power allocation. This governor can only
+	  operate on cooling devices that implement the power API.
+
 endchoice
 
 config THERMAL_GOV_FAIR_SHARE
@@ -99,6 +118,13 @@ config THERMAL_GOV_USER_SPACE
 	help
 	  Enable this to let the user space manage the platform thermals.
 
+config THERMAL_GOV_POWER_ALLOCATOR
+	bool "Power allocator thermal governor"
+	select THERMAL_POWER_ACTOR
+	help
+	  Enable this to manage platform thermals by dynamically
+	  allocating and limiting power to devices.
+
 config CPU_THERMAL
 	bool "generic cpu cooling support"
 	depends on CPU_FREQ
@@ -109,6 +135,18 @@ config CPU_THERMAL
 	  (drivers/acpi/processor_thermal.c).
 	  This will be useful for platforms using the generic thermal interface
 	  and not the ACPI interface.
+
+	  If you want this support, you should say Y here.
+
+config CLOCK_THERMAL
+	bool "Generic clock cooling support"
+	depends on COMMON_CLK
+	depends on PM_OPP
+	help
+	  This entry implements the generic clock cooling mechanism through
+	  frequency clipping. Typically used to cool off co-processors. The
+	  device that is configured to use this cooling mechanism will be
+	  controlled to reduce clock frequency whenever temperature is high.
 
 	  If you want this support, you should say Y here.
 
@@ -184,6 +222,16 @@ config ARMADA_THERMAL
 	help
 	  Enable this option if you want to have support for thermal management
 	  controller present in Armada 370 and Armada XP SoC.
+
+config TEGRA_SOCTHERM
+	tristate "Tegra SOCTHERM thermal management"
+	depends on ARCH_TEGRA
+	help
+	  Enable this option for integrated thermal management support on NVIDIA
+	  Tegra124 systems-on-chip. The driver supports four thermal zones
+	  (CPU, GPU, MEM, PLLX). Cooling devices can be bound to the thermal
+	  zones to manage temperatures. This option is also required for the
+	  emergency thermal reset (thermtrip) feature to function.
 
 config DB8500_CPUFREQ_COOLING
 	tristate "DB8500 cpufreq cooling"

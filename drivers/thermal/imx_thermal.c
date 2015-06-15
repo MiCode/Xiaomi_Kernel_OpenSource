@@ -9,7 +9,6 @@
 
 #include <linux/clk.h>
 #include <linux/cpu_cooling.h>
-#include <linux/cpufreq.h>
 #include <linux/delay.h>
 #include <linux/device.h>
 #include <linux/init.h>
@@ -307,7 +306,8 @@ static int imx_bind(struct thermal_zone_device *tz,
 
 	ret = thermal_zone_bind_cooling_device(tz, IMX_TRIP_PASSIVE, cdev,
 					       THERMAL_NO_LIMIT,
-					       THERMAL_NO_LIMIT);
+					       THERMAL_NO_LIMIT,
+					       THERMAL_WEIGHT_DEFAULT);
 	if (ret) {
 		dev_err(&tz->device,
 			"binding zone %s with cdev %s failed:%d\n",
@@ -459,10 +459,6 @@ static int imx_thermal_probe(struct platform_device *pdev)
 	int measure_freq;
 	int ret;
 
-	if (!cpufreq_get_current_driver()) {
-		dev_dbg(&pdev->dev, "no cpufreq driver!");
-		return -EPROBE_DEFER;
-	}
 	data = devm_kzalloc(&pdev->dev, sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
