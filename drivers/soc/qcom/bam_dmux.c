@@ -826,8 +826,8 @@ static void bam_mux_write_done(struct work_struct *work)
 	if (unlikely(info != info_expected)) {
 		struct tx_pkt_info *errant_pkt;
 
-		DMUX_LOG_KERR("%s: bam_tx_pool mismatch .next=%p,"
-				" list_node=%p, ts=%u.%09lu\n",
+		DMUX_LOG_KERR(
+				"%s: bam_tx_pool mismatch .next=%p, list_node=%p, ts=%u.%09lu\n",
 				__func__, bam_tx_pool.next, &info->list_node,
 				info->ts_sec, info->ts_nsec
 				);
@@ -1503,8 +1503,8 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 			ret = bam_ops->sps_get_config_ptr(bam_rx_pipe,
 					&cur_rx_conn);
 			if (ret) {
-				pr_err("%s: sps_get_config() failed %d, interrupts"
-					" not disabled\n", __func__, ret);
+				pr_err("%s: sps_get_config() failed %d, interrupts not disabled\n",
+					__func__, ret);
 				break;
 			}
 			cur_rx_conn.options = SPS_O_AUTO_ENABLE |
@@ -1512,8 +1512,8 @@ static void bam_mux_rx_notify(struct sps_event_notify *notify)
 			ret = bam_ops->sps_set_config_ptr(bam_rx_pipe,
 					&cur_rx_conn);
 			if (ret) {
-				pr_err("%s: sps_set_config() failed %d, interrupts"
-					" not disabled\n", __func__, ret);
+				pr_err("%s: sps_set_config() failed %d, interrupts not disabled\n",
+					__func__, ret);
 				break;
 			}
 			reinit_completion(&shutdown_completion);
