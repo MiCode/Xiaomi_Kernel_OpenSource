@@ -1821,7 +1821,13 @@ static void msm_vfe40_stats_cfg_comp_mask(struct vfe_device *vfe_dev,
 		i < vfe_dev->hw_info->stats_hw_info->num_stats_comp_mask; i++) {
 
 		reg_mask = msm_camera_io_r(vfe_dev->vfe_base + 0x44);
-		comp_stats_mask = reg_mask & (STATS_COMP_BIT_MASK << (i*8));
+
+		if (enable)
+			comp_stats_mask = reg_mask &
+				(STATS_COMP_BIT_MASK << (i*8));
+		else
+			comp_stats_mask = reg_mask;
+
 		stats_comp = &stats_data->stats_comp_mask[i];
 
 		if (enable) {
