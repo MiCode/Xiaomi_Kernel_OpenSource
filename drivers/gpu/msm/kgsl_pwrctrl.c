@@ -1286,15 +1286,21 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 		if (test_and_clear_bit(KGSL_PWRFLAGS_POWER_ON,
 			&pwr->power_flags)) {
 			trace_kgsl_rail(device, state);
+			mutex_lock(&device->mutex_pc_smmu);
 			for (i = KGSL_MAX_REGULATORS - 1; i >= 0; i--) {
 				if (pwr->gpu_reg[i])
 					regulator_disable(pwr->gpu_reg[i]);
 			}
+			mutex_unlock(&device->mutex_pc_smmu);
 		}
 	} else if (state == KGSL_PWRFLAGS_ON) {
 		if (!test_and_set_bit(KGSL_PWRFLAGS_POWER_ON,
 			&pwr->power_flags)) {
+			mutex_lock(&device->mutex_pc_smmu);
 			for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
+				if (regulator_is_enabled(
+				    device->pwrctrl.gpu_reg[i]))
+					device->regulator_left_on = true;
 				if (pwr->gpu_reg[i])
 					status = regulator_enable(
 							pwr->gpu_reg[i]);
@@ -1306,13 +1312,16 @@ static int kgsl_pwrctrl_pwrrail(struct kgsl_device *device, int state)
 					break;
 				}
 			}
+			mutex_unlock(&device->mutex_pc_smmu);
 
 			if (status) {
+				mutex_lock(&device->mutex_pc_smmu);
 				for (j = i - 1; j >= 0; j--) {
 					if (pwr->gpu_reg[j])
 						regulator_disable(
 							pwr->gpu_reg[j]);
 				}
+				mutex_unlock(&device->mutex_pc_smmu);
 				clear_bit(KGSL_PWRFLAGS_POWER_ON,
 					&pwr->power_flags);
 			} else

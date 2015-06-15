@@ -250,6 +250,7 @@ struct kgsl_device {
 	int open_count;
 
 	struct mutex mutex;
+	struct mutex mutex_pc_smmu;
 	uint32_t state;
 	uint32_t requested_state;
 
@@ -289,6 +290,7 @@ struct kgsl_device {
 	struct workqueue_struct *events_wq;
 
 	struct device *busmondev; /* pseudo dev for GPU BW voting governor */
+	bool regulator_left_on;
 };
 
 
@@ -303,6 +305,7 @@ struct kgsl_device {
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).wait_queue),\
 	.active_cnt_wq = __WAIT_QUEUE_HEAD_INITIALIZER((_dev).active_cnt_wq),\
 	.mutex = __MUTEX_INITIALIZER((_dev).mutex),\
+	.mutex_pc_smmu = __MUTEX_INITIALIZER((_dev).mutex_pc_smmu),\
 	.state = KGSL_STATE_NONE,\
 	.ver_major = DRIVER_VERSION_MAJOR,\
 	.ver_minor = DRIVER_VERSION_MINOR
