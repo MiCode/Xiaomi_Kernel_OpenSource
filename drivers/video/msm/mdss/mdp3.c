@@ -1988,6 +1988,14 @@ static int mdp3_alloc(struct msm_fb_data_type *mfd)
 		pr_err("fail to map to IOMMU %d\n", ret);
 		return ret;
 	}
+	ret = iommu_map(mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain,
+			phys, phys, size, IOMMU_READ);
+
+	if (ret) {
+		pr_err("fail to map phy addr to IOMMU %d\n", ret);
+		return ret;
+	}
+
 	pr_info("allocating %u bytes at %p (%lx phys) for fb %d\n",
 		size, virt, phys, mfd->index);
 
@@ -2000,6 +2008,7 @@ void mdp3_free(struct msm_fb_data_type *mfd)
 {
 	size_t size = 0;
 	int dom;
+	unsigned long phys;
 
 	if (!mfd->iova || !mfd->fbi->screen_base) {
 		pr_info("no fbmem allocated\n");
@@ -2007,7 +2016,10 @@ void mdp3_free(struct msm_fb_data_type *mfd)
 	}
 
 	size = mfd->fbi->fix.smem_len;
+	phys = mfd->fbi->fix.smem_start;
 	dom = mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain_idx;
+	iommu_unmap(mdp3_res->domains[MDP3_IOMMU_DOMAIN_UNSECURE].domain,
+			phys, size);
 	msm_iommu_unmap_contig_buffer(mfd->iova, dom, 0, size);
 
 	mfd->fbi->screen_base = NULL;
