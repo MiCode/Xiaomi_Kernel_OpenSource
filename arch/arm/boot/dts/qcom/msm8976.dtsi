@@ -2030,6 +2030,7 @@
 #include "msm-pm8004.dtsi"
 #include "msm8976-regulator.dtsi"
 #include "msm-gdsc-8916.dtsi"
+#include "msm8976-camera.dtsi"
 
 &gdsc_venus {
 	clock-names = "bus_clk", "core_clk";

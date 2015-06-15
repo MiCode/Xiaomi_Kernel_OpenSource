@@ -282,6 +282,59 @@
 			};
 		};
 
+		/* cci */
+		cci0_active {
+			/* CLK, DATA */
+			qcom,pins = <&gp 30>, <&gp 29>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "cci0-active";
+			/* active state */
+			cci0_active: cci0_active {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cci0_suspend {
+			/* CLK, DATA */
+			qcom,pins = <&gp 30>, <&gp 29>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "cci0-suspend";
+			/*suspended state */
+			cci0_suspend: cci0_suspend {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cci1_active {
+			/* CLK, DATA */
+			qcom,pins = <&gp 104>, <&gp 103>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "cci1-active";
+			/* active state */
+			cci1_active: cci1_active {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cci1_suspend {
+			/* CLK, DATA */
+			qcom,pins = <&gp 104>, <&gp 103>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <0>;
+			label = "cci1-suspend";
+			/*suspended state */
+			cci1_suspend: cci1_suspend {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
 		pmx_i2c_2 {
                         /* CLK, DATA */
                         qcom,pins = <&gp 6>, <&gp 7>;
@@ -353,6 +406,178 @@
                                 bias-disable; /* No PULL */
                         };
                 };
+
+		/*sensors */
+		cam_sensor_mclk0_default {
+			/* MCLK0 */
+			qcom,pins = <&gp 26>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "cam_sensor_mclk0_default";
+			/* active state */
+			cam_sensor_mclk0_default: cam_sensor_mclk0_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_mclk0_sleep {
+			/* MCLK0 */
+			qcom,pins = <&gp 26>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_sensor_mclk0_sleep";
+			/*suspended state */
+			cam_sensor_mclk0_sleep: cam_sensor_mclk0_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* PULL DOWN */
+			};
+		};
+
+		cam_sensor_rear_default {
+			/* RESET, STANDBY */
+			qcom,pins = <&gp 129>, <&gp 35>;
+			qcom,num-grp-pins = <2>;
+			label = "cam_sensor_rear_default";
+			/* active state */
+			cam_sensor_rear_default: cam_sensor_rear_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_rear_sleep {
+			/* RESET, STANDBY */
+			qcom,pins = <&gp 129>, <&gp 35>;
+			qcom,num-grp-pins = <2>;
+			label = "cam_sensor_rear_sleep";
+			/*suspended state */
+			cam_sensor_rear_sleep: cam_sensor_rear_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_rear_vana {
+			/* VANA */
+			qcom,pins = <&gp 63>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_sensor_rear_vana";
+			/* active state */
+			cam_sensor_rear_vana: cam_sensor_rear_vana {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_rear_vana_sleep {
+			/* VANA */
+			qcom,pins = <&gp 63>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_sensor_rear_vana_sleep";
+			/*suspended state */
+			cam_sensor_rear_vana_sleep: cam_sensor_rear_vana_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_mclk1_default {
+			/* MCLK1 */
+			qcom,pins = <&gp 27>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "cam_sensor_mclk1_default";
+			/* active state */
+			cam_sensor_mclk1_default: cam_sensor_mclk1_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_mclk1_sleep {
+			/* MCLK1 */
+			qcom,pins = <&gp 27>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_sensor_mclk1_sleep";
+			/*suspended state */
+			cam_sensor_mclk1_sleep: cam_sensor_mclk1_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* PULL DOWN */
+			};
+		};
+
+		cam_sensor_front_default {
+			/* RESET, STANDBY */
+			qcom,pins = <&gp 130>, <&gp 36>;
+			qcom,num-grp-pins = <2>;
+			label = "cam_sensor_front_default";
+			/* active state */
+			cam_sensor_front_default: cam_sensor_front_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_front_sleep {
+			/* RESET, STANDBY */
+			qcom,pins = <&gp 130>, <&gp 36>;
+			qcom,num-grp-pins = <2>;
+			label = "cam_sensor_front_sleep";
+			/*suspended state */
+			cam_sensor_front_sleep: cam_sensor_front_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_mclk2_default {
+			/* MCLK2 */
+			qcom,pins = <&gp 28>;
+			qcom,num-grp-pins = <1>;
+			qcom,pin-func = <1>;
+			label = "cam_sensor_mclk2_default";
+			/* active state */
+			cam_sensor_mclk2_default: cam_sensor_mclk2_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_mclk2_sleep {
+			/* MCLK2 */
+			qcom,pins = <&gp 28>;
+			qcom,num-grp-pins = <1>;
+			label = "cam_sensor_mclk2_sleep";
+			/*suspended state */
+			cam_sensor_mclk2_sleep: cam_sensor_mclk2_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-pull-down; /* PULL DOWN */
+			};
+		};
+
+		cam_sensor_front1_default {
+			/* RESET, STANDBY */
+			qcom,pins = <&gp 131>, <&gp 38>;
+			qcom,num-grp-pins = <2>;
+			label = "cam_sensor_front1_default";
+			/* active state */
+			cam_sensor_front1_default: cam_sensor_front1_default {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
+
+		cam_sensor_front1_sleep {
+			/* RESET, STANDBY */
+			qcom,pins = <&gp 131>, <&gp 38>;
+			qcom,num-grp-pins = <2>;
+			label = "cam_sensor_front1_sleep";
+			/*suspended state */
+			cam_sensor_front1_sleep: cam_sensor_front1_sleep {
+				drive-strength = <2>; /* 2 MA */
+				bias-disable; /* No PULL */
+			};
+		};
 
 		/* add pingrp for touchscreen */
 		pmx_ts_int_active {

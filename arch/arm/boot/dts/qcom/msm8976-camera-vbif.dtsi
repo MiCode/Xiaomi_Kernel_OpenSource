@@ -1,0 +1,93 @@
+/*
+ * Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&vfe0 {
+	qos-entries = <8>;
+	qos-regs = <0x2C4 0x2C8 0x2CC 0x2D0 0x2D4 0x2D8
+			0x2DC 0x2E0>;
+	qos-settings = <0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0x0001AAA5>;
+	vbif-entries = <1>;
+	vbif-regs = <0x124>;
+	vbif-settings = <0x3>;
+	ds-entries = <17>;
+	ds-regs = <0x988 0x98C 0x990 0x994 0x998
+		0x99C 0x9A0 0x9A4 0x9A8 0x9AC 0x9B0
+		0x9B4 0x9B8 0x9BC 0x9C0 0x9C4 0x9C8>;
+	ds-settings = <0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0x00000103>;
+	max-clk-nominal = <308570000>;
+	max-clk-turbo = <360000000>;
+};
+
+&vfe1 {
+	qos-entries = <8>;
+	qos-regs = <0x2C4 0x2C8 0x2CC 0x2D0 0x2D4 0x2D8
+			0x2DC 0x2E0>;
+	qos-settings = <0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0xAAA5AAA5
+		0x0001AAA5>;
+	vbif-entries = <1>;
+	vbif-regs = <0x124>;
+	vbif-settings = <0x3>;
+	ds-entries = <17>;
+	ds-regs = <0x988 0x98C 0x990 0x994 0x998
+		0x99C 0x9A0 0x9A4 0x9A8 0x9AC 0x9B0
+		0x9B4 0x9B8 0x9BC 0x9C0 0x9C4 0x9C8>;
+	ds-settings = <0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0xCCCC1111
+		0x00000103>;
+	max-clk-nominal = <308570000>;
+	max-clk-turbo = <360000000>;
+};
+
