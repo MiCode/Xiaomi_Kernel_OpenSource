@@ -2667,16 +2667,6 @@ static void restore_orig_mark_start(struct task_struct *p, u64 mark_start)
 	p->ravg.mark_start = mark_start;
 }
 
-/*
- * Note down when task started running on a cpu. This information will be handy
- * to avoid "too" frequent task migrations for a running task on account of
- * power.
- */
-static inline void note_run_start(struct task_struct *p, u64 wallclock)
-{
-	p->run_start = wallclock;
-}
-
 #else	/* CONFIG_SCHED_HMP */
 
 static inline void fixup_busy_time(struct task_struct *p, int new_cpu) { }
@@ -2708,8 +2698,6 @@ restore_orig_mark_start(struct task_struct *p, u64 mark_start)
 {
 }
 
-static inline void note_run_start(struct task_struct *p, u64 wallclock) { }
-
 #endif	/* CONFIG_SCHED_HMP */
 
 #ifdef CONFIG_SMP
@@ -2740,8 +2728,6 @@ void set_task_cpu(struct task_struct *p, unsigned int new_cpu)
 #endif
 
 	trace_sched_migrate_task(p, new_cpu, pct_task_load(p));
-
-	note_run_start(p, sched_clock());
 
 	if (task_cpu(p) != new_cpu) {
 		if (p->sched_class->migrate_task_rq)
@@ -3429,8 +3415,6 @@ try_to_wake_up(struct task_struct *p, unsigned int state, int wake_flags)
 	if (src_cpu != cpu) {
 		wake_flags |= WF_MIGRATED;
 		set_task_cpu(p, cpu);
-	} else {
-		note_run_start(p, wallclock);
 	}
 #endif /* CONFIG_SMP */
 
