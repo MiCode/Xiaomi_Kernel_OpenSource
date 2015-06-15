@@ -103,10 +103,9 @@
 			 <&clock_mmss clk_mdss_axi_clk>,
 			 <&clock_mmss clk_mdp_clk_src>,
 			 <&clock_mmss clk_mdss_mdp_vote_clk>,
-			 <&clock_mmss clk_mdss_vsync_clk>,
-			 <&clock_mmss clk_mmagic_mdss_axi_clk>;
+			 <&clock_mmss clk_mdss_vsync_clk>;
 		clock-names = "iface_clk", "bus_clk", "core_clk_src",
-				"core_clk", "vsync_clk", "mmagic_mdss_axi_clk";
+				"core_clk", "vsync_clk";
 
 		qcom,mdp-settings = <0x01190 0x00000000>,
 				    <0x012ac 0xc0000ccc>,

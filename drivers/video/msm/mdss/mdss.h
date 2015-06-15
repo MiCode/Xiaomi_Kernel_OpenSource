@@ -40,7 +40,6 @@ enum mdss_mdp_clk_type {
 	MDSS_CLK_MDP_CORE,
 	MDSS_CLK_MDP_LUT,
 	MDSS_CLK_MDP_VSYNC,
-	MDSS_CLK_MMAGIC_AXI,
 	MDSS_MAX_CLK
 };
 
