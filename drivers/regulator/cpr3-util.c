@@ -88,8 +88,8 @@ int cpr3_allocate_threads(struct cpr3_controller *ctrl, u32 min_thread_id,
 		ctrl->thread_count++;
 	}
 
-	ctrl->thread = devm_kzalloc(dev,
-			sizeof(*ctrl->thread) * ctrl->thread_count, GFP_KERNEL);
+	ctrl->thread = devm_kcalloc(dev, ctrl->thread_count,
+			sizeof(*ctrl->thread), GFP_KERNEL);
 	if (!ctrl->thread)
 		return -ENOMEM;
 
@@ -401,7 +401,7 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 
 	thread->fuse_combos_supported = max_fuse_combos;
 
-	combo_corners = kzalloc(sizeof(*combo_corners) * max_fuse_combos,
+	combo_corners = kcalloc(max_fuse_combos, sizeof(*combo_corners),
 				GFP_KERNEL);
 	if (!combo_corners)
 		return -ENOMEM;
@@ -434,10 +434,9 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 
 	kfree(combo_corners);
 
-	thread->corner = devm_kzalloc(thread->ctrl->dev,
-			sizeof(*thread->corner) * thread->corner_count,
-			GFP_KERNEL);
-	temp = kzalloc(sizeof(*temp) * thread->corner_count, GFP_KERNEL);
+	thread->corner = devm_kcalloc(thread->ctrl->dev, thread->corner_count,
+			sizeof(*thread->corner), GFP_KERNEL);
+	temp = kcalloc(thread->corner_count, sizeof(*temp), GFP_KERNEL);
 	if (!thread->corner || !temp)
 		return -ENOMEM;
 
@@ -819,7 +818,7 @@ int cpr3_adjust_fused_open_loop_voltages(struct cpr3_thread *thread,
 		return 0;
 	}
 
-	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->fuse_corner_count,
+	volt_adjust = kcalloc(thread->fuse_corner_count, sizeof(*volt_adjust),
 				GFP_KERNEL);
 	if (!volt_adjust)
 		return -ENOMEM;
@@ -871,7 +870,7 @@ int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread, int corner_sum,
 		return 0;
 	}
 
-	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->corner_count,
+	volt_adjust = kcalloc(thread->corner_count, sizeof(*volt_adjust),
 				GFP_KERNEL);
 	if (!volt_adjust)
 		return -ENOMEM;

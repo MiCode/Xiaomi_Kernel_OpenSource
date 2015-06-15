@@ -513,10 +513,10 @@ static int cpr3_msm8996_hmss_calculate_open_loop_voltages(
 	int *fuse_volt;
 	int *fmax_corner;
 
-	fuse_volt = kzalloc(sizeof(*fuse_volt) * thread->fuse_corner_count,
+	fuse_volt = kcalloc(thread->fuse_corner_count, sizeof(*fuse_volt),
 				GFP_KERNEL);
-	fmax_corner = kzalloc(sizeof(*fmax_corner) * thread->fuse_corner_count,
-					GFP_KERNEL);
+	fmax_corner = kcalloc(thread->fuse_corner_count, sizeof(*fmax_corner),
+				GFP_KERNEL);
 	if (!fuse_volt || !fmax_corner) {
 		rc = -ENOMEM;
 		goto done;
@@ -745,9 +745,8 @@ static int cpr3_hmss_parse_closed_loop_voltage_adjustments(
 		return -EINVAL;
 	}
 
-	ro_all_scale = kzalloc(sizeof(*ro_all_scale)
-				* thread->fuse_corner_count * CPR3_RO_COUNT,
-				GFP_KERNEL);
+	ro_all_scale = kcalloc(thread->fuse_corner_count * CPR3_RO_COUNT,
+				sizeof(*ro_all_scale), GFP_KERNEL);
 	if (!ro_all_scale)
 		return -ENOMEM;
 
@@ -889,17 +888,17 @@ static int cpr3_msm8996_hmss_calculate_target_quotients(
 	if (fuse->limitation == MSM8996_CPR_LIMITATION_NO_CPR_OR_INTERPOLATION)
 		allow_interpolation = false;
 
-	volt_adjust = kzalloc(sizeof(*volt_adjust) * thread->corner_count,
+	volt_adjust = kcalloc(thread->corner_count, sizeof(*volt_adjust),
 					GFP_KERNEL);
-	volt_adjust_fuse = kzalloc(sizeof(*volt_adjust_fuse)
-				       * thread->fuse_corner_count, GFP_KERNEL);
-	ro_scale = kzalloc(sizeof(*ro_scale) * thread->fuse_corner_count,
+	volt_adjust_fuse = kcalloc(thread->fuse_corner_count,
+					sizeof(*volt_adjust_fuse), GFP_KERNEL);
+	ro_scale = kcalloc(thread->fuse_corner_count, sizeof(*ro_scale),
 					GFP_KERNEL);
-	fmax_corner = kzalloc(sizeof(*fmax_corner) * thread->fuse_corner_count,
+	fmax_corner = kcalloc(thread->fuse_corner_count, sizeof(*fmax_corner),
 					GFP_KERNEL);
-	quot_low = kzalloc(sizeof(*quot_low) * thread->fuse_corner_count,
+	quot_low = kcalloc(thread->fuse_corner_count, sizeof(*quot_low),
 					GFP_KERNEL);
-	quot_high = kzalloc(sizeof(*quot_high) * thread->fuse_corner_count,
+	quot_high = kcalloc(thread->fuse_corner_count, sizeof(*quot_high),
 					GFP_KERNEL);
 	if (!volt_adjust || !volt_adjust_fuse || !ro_scale ||
 	    !fmax_corner || !quot_low || !quot_high) {
@@ -1341,8 +1340,8 @@ static int cpr3_hmss_init_controller(struct cpr3_controller *ctrl)
 
 	ctrl->sensor_count = MSM8996_HMSS_CPR_SENSOR_COUNT;
 
-	ctrl->sensor_owner = devm_kzalloc(ctrl->dev,
-		sizeof(*ctrl->sensor_owner) * ctrl->sensor_count, GFP_KERNEL);
+	ctrl->sensor_owner = devm_kcalloc(ctrl->dev, ctrl->sensor_count,
+		sizeof(*ctrl->sensor_owner), GFP_KERNEL);
 	if (!ctrl->sensor_owner)
 		return -ENOMEM;
 
