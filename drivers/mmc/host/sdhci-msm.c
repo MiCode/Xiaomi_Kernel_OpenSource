@@ -4350,7 +4350,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 		 */
 		dev_err(&pdev->dev, "%s: required ICE device not probed yet err = %d\n",
 			__func__, ret);
-		goto out_host_free;
+		goto pltfm_free;
 
 	} else if (ret == -ENODEV) {
 		/*
@@ -4362,7 +4362,7 @@ static int sdhci_msm_probe(struct platform_device *pdev)
 	} else if (ret) {
 		dev_err(&pdev->dev, "%s: sdhci_msm_ice_get_dev failed %d\n",
 			__func__, ret);
-		goto out_host_free;
+		goto pltfm_free;
 	}
 
 	/* Extract platform data */
