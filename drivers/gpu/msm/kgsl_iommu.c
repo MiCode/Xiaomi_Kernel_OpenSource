@@ -18,6 +18,7 @@
 #include <linux/slab.h>
 #include <linux/iommu.h>
 #include <linux/msm_kgsl.h>
+#include <soc/qcom/secure_buffer.h>
 #include <stddef.h>
 
 #include "kgsl.h"
@@ -557,6 +558,16 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 	/* Disable coherent HTW, it is not supported by SMMU driver */
 	iommu_domain_set_attr(iommu_pt->domain,
 			DOMAIN_ATTR_COHERENT_HTW_DISABLE, &disable_htw);
+
+	/* Provide the secure vmid domain attribute to the SMMU driver */
+	if (pt->name == KGSL_MMU_SECURE_PT) {
+		int secure_vmid = VMID_CP_PIXEL;
+
+		ret = iommu_domain_set_attr(iommu_pt->domain,
+			DOMAIN_ATTR_SECURE_VMID, &secure_vmid);
+		if (ret)
+			goto err;
+	}
 
 	pt->pt_ops = &iommu_pt_ops;
 	pt->priv = iommu_pt;
