@@ -1905,6 +1905,14 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
 		ret = 0;
 		break;
+	case DOMAIN_ATTR_CONTEXT_BANK:
+		/* context bank index isn't valid until we are attached */
+		if (smmu_domain->smmu == NULL)
+			return -ENODEV;
+
+		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
+		ret = 0;
+		break;
 	default:
 		ret = -ENODEV;
 		break;
