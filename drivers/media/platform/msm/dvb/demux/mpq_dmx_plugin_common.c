@@ -80,10 +80,6 @@ module_param(mpq_sdmx_scramble_odd, int, S_IRUGO | S_IWUSR);
 static int mpq_sdmx_scramble_default_discard = 1;
 module_param(mpq_sdmx_scramble_default_discard, int, S_IRUGO | S_IWUSR);
 
-/* Whether to use secure demux or bypass it. Use for debugging */
-static int mpq_bypass_sdmx = 1;
-module_param(mpq_bypass_sdmx, int, S_IRUGO | S_IWUSR);
-
 /* Max number of TS packets allowed as input for a single sdmx process */
 static int mpq_sdmx_proc_limit = MAX_TS_PACKETS_FOR_SDMX_PROCESS;
 module_param(mpq_sdmx_proc_limit, int, S_IRUGO | S_IWUSR);
@@ -5117,9 +5113,6 @@ int mpq_dmx_write(struct dmx_demux *demux, const char *buf, size_t count)
 int mpq_sdmx_is_loaded(void)
 {
 	static int sdmx_load_checked;
-
-	if (mpq_bypass_sdmx)
-		return 0;
 
 	if (!sdmx_load_checked) {
 		mpq_sdmx_check_app_loaded();
