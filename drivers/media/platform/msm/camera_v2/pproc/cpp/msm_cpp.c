@@ -2319,6 +2319,9 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	struct msm_cpp_frame_info_t *frame = NULL;
 	struct msm_cpp_frame_info_t k_frame_info;
 	int32_t rc = 0;
+	int32_t i = 0;
+	int32_t num_buff = sizeof(k_frame_info.output_buffer_info)/
+		sizeof(struct msm_cpp_buffer_info_t);
 	if (copy_from_user(&k_frame_info,
 			(void __user *)ioctl_ptr->ioctl_ptr,
 			sizeof(k_frame_info)))
@@ -2330,6 +2333,12 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 		rc = -EINVAL;
 	} else {
 		rc = msm_cpp_cfg_frame(cpp_dev, frame);
+		if (rc >= 0) {
+			for (i = 0; i < num_buff; i++) {
+				k_frame_info.output_buffer_info[i] =
+					frame->output_buffer_info[i];
+			}
+		}
 	}
 
 	ioctl_ptr->trans_code = rc;
@@ -2337,6 +2346,13 @@ static int msm_cpp_cfg(struct cpp_device *cpp_dev,
 	if (copy_to_user((void __user *)k_frame_info.status, &rc,
 		sizeof(int32_t)))
 		pr_err("error cannot copy error\n");
+
+
+	if (copy_to_user((void __user *)ioctl_ptr->ioctl_ptr,
+		&k_frame_info, sizeof(k_frame_info))) {
+		pr_err("Error: cannot copy k_frame_info");
+		return -EFAULT;
+	}
 
 	return rc;
 }
