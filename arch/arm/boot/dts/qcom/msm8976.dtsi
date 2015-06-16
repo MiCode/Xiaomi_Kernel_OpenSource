@@ -708,12 +708,13 @@
 
 	sdhc_1: sdhci@7824900 {
 		compatible = "qcom,sdhci-msm";
-		reg = <0x7824900 0x11c>, <0x7824000 0x800>;
+		reg = <0x7824900 0x500>, <0x7824000 0x800>;
 		reg-names = "hc_mem", "core_mem";
 
 		interrupts = <0 123 0>, <0 138 0>;
 		interrupt-names = "hc_irq", "pwr_irq";
 
+		sdhc-msm-crypto = <&sdcc1_ice>;
 		qcom,bus-width = <8>;
 
 		qcom,cpu-dma-latency-us = <701>;
@@ -734,8 +735,10 @@
 			100000000 200000000 400000000 4294967295>;
 
 		clocks = <&clock_gcc clk_gcc_sdcc1_ahb_clk>,
-			 <&clock_gcc clk_gcc_sdcc1_apps_clk>;
-		clock-names = "iface_clk", "core_clk";
+			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
+			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>;
+		clock-names = "iface_clk", "core_clk", "ice_core_clk";
+		qcom,ice-clk-rates = <200000000>;
 
 		status = "disabled";
 	};
