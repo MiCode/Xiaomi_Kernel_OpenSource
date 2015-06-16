@@ -479,6 +479,7 @@
 			<&clock_mmss clk_mmss_mmagic_axi_clk>,
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
 		qcom,clock-rates = <320000000 0 0 0 0 0 0 0 0>;
+		qcom,vbif-reg-settings = <0x4 0x1>;
 		status = "ok";
 	};
 
@@ -508,6 +509,7 @@
 			<&clock_mmss clk_mmss_mmagic_axi_clk>,
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0 0 0 0 0>;
+		qcom,vbif-reg-settings = <0x4 0x1>;
 		status = "ok";
 	};
 
@@ -537,6 +539,7 @@
 			<&clock_mmss clk_mmss_mmagic_axi_clk>,
 			<&clock_mmss clk_mmagic_camss_axi_clk>;
 		qcom,clock-rates = <266670000 0 0 0 0 0 0 0 0>;
+		qcom,vbif-reg-settings = <0x4 0x1>;
 		status = "ok";
 	};
 
