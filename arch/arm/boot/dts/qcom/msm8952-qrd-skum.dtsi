@@ -286,3 +286,7 @@
 	qcom,cont-splash-enabled;
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 };
+
+&sdc1_clk_on {
+	drive-strength = <10>; /* 10 MA */
+};
