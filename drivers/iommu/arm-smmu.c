@@ -1705,6 +1705,7 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
+	int ret = 0;
 
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
@@ -1714,9 +1715,18 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		*((phys_addr_t *)data) =
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
 		return 0;
+	case DOMAIN_ATTR_CONTEXT_BANK:
+		/* context bank index isn't valid until we are attached */
+		if (smmu_domain->smmu == NULL)
+			return -ENODEV;
+
+		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
+		ret = 0;
+		break;
 	default:
 		return -ENODEV;
 	}
+	return ret;
 }
 
 static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
