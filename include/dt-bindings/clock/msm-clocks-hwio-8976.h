@@ -314,6 +314,7 @@
 #define gpll6_aux_source_val		2
 
 #define dsi0_phypll_mm_source_val	1
+#define dsi1_phypll_mm_source_val	1
 
 #define F(f, s, div, m, n) \
 	{ \

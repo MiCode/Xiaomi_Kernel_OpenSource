@@ -55,10 +55,10 @@ DEFINE_CLK_RPM_SMD_BRANCH(xo_clk_src, xo_a_clk_src,
 DEFINE_CLK_RPM_SMD(bimc_clk, bimc_a_clk, RPM_MEM_CLK_TYPE, BIMC_ID, NULL);
 DEFINE_CLK_RPM_SMD(ipa_clk, ipa_a_clk, RPM_IPA_CLK_TYPE, IPA_ID, NULL);
 DEFINE_CLK_RPM_SMD(pcnoc_clk, pcnoc_a_clk, RPM_BUS_CLK_TYPE, PCNOC_ID, NULL);
-DEFINE_CLK_RPM_SMD(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID, NULL);
 DEFINE_CLK_RPM_SMD(snoc_clk, snoc_a_clk, RPM_BUS_CLK_TYPE, SNOC_ID, NULL);
 DEFINE_CLK_RPM_SMD(sysmmnoc_clk, sysmmnoc_a_clk, RPM_BUS_CLK_TYPE,
 							SYSMMNOC_ID, NULL);
+DEFINE_CLK_RPM_SMD_QDSS(qdss_clk, qdss_a_clk, RPM_MISC_CLK_TYPE, QDSS_ID);
 
 /* SMD_XO_BUFFER */
 DEFINE_CLK_RPM_SMD_XO_BUFFER(bb_clk1, bb_clk1_a, BB_CLK1_ID);
@@ -1047,7 +1047,7 @@ static struct rcg_clk gp3_clk_src = {
 static struct clk_freq_tbl ftbl_byte0_clk_src[] = {
 	{
 			.div_src_val = BVAL(10, 8, dsi0_phypll_mm_source_val),
-		},
+	},
 };
 static struct rcg_clk byte0_clk_src = {
 	.cmd_rcgr_reg = BYTE0_CMD_RCGR,
@@ -1064,8 +1064,8 @@ static struct rcg_clk byte0_clk_src = {
 
 static struct clk_freq_tbl ftbl_byte1_clk_src[] = {
 	{
-			.div_src_val = BVAL(10, 8, dsi0_phypll_mm_source_val),
-		},
+			.div_src_val = BVAL(10, 8, dsi1_phypll_mm_source_val),
+	},
 };
 static struct rcg_clk byte1_clk_src = {
 		.cmd_rcgr_reg = BYTE1_CMD_RCGR,
@@ -1167,7 +1167,7 @@ static struct rcg_clk pclk0_clk_src = {
 
 static struct clk_freq_tbl ftbl_pclk1_clk_src[] = {
 	{
-		.div_src_val = BVAL(10, 8, dsi0_phypll_mm_source_val),
+		.div_src_val = BVAL(10, 8, dsi1_phypll_mm_source_val),
 		},
 };
 static struct rcg_clk pclk1_clk_src = {
