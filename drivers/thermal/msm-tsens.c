@@ -26,6 +26,7 @@
 #include <linux/err.h>
 #include <linux/of.h>
 #include <linux/debugfs.h>
+#include <linux/vmalloc.h>
 
 #define CREATE_TRACE_POINTS
 #include <trace/trace_thermal.h>
@@ -56,6 +57,29 @@
 #define TSENS2_SN_STATUS_VALID		BIT(14)
 #define TSENS2_SN_STATUS_VALID_MASK	0x4000
 #define TSENS2_TRDY_ADDR(n)		((n) + 0x84)
+
+#define TSENS4_TRDY_ADDR(n)            ((n) + 0x1084)
+
+#define TSENS_MTC_ZONE0_SW_MASK_ADDR(n)  ((n) + 0x10c0)
+#define TSENS_TH1_MTC_IN_EFFECT               BIT(0)
+#define TSENS_TH2_MTC_IN_EFFECT               BIT(1)
+#define TSENS_MTC_IN_EFFECT			0x3
+#define TSENS_MTC_DISABLE			0x0
+
+#define TSENS_MTC_ZONE0_LOG(n)     ((n) + 0x10d0)
+#define TSENS_LOGS_VALID_MASK      0x40000000
+#define TSENS_LOGS_VALID_SHIFT     30
+#define TSENS_LOGS_LATEST_MASK    0x0000001f
+#define TSENS_LOGS_LOG1_MASK      0x000003e0
+#define TSENS_LOGS_LOG2_MASK      0x00007c00
+#define TSENS_LOGS_LOG3_MASK      0x000f8000
+#define TSENS_LOGS_LOG4_MASK      0x01f00000
+#define TSENS_LOGS_LOG5_MASK      0x3e000000
+#define TSENS_LOGS_LOG1_SHIFT     5
+#define TSENS_LOGS_LOG2_SHIFT     10
+#define TSENS_LOGS_LOG3_SHIFT     15
+#define TSENS_LOGS_LOG4_SHIFT     20
+#define TSENS_LOGS_LOG5_SHIFT     25
 
 /* TSENS_TM registers for 8996 */
 #define TSENS_TM_INT_EN(n)			((n) + 0x1004)
@@ -353,6 +377,7 @@
 #define TSENS_TYPE0		0
 #define TSENS_TYPE2		2
 #define TSENS_TYPE3		3
+#define TSENS_TYPE4		4
 
 #define TSENS_8916_BASE0_MASK		0x0000007f
 #define TSENS_8916_BASE1_MASK		0xfe000000
@@ -718,6 +743,13 @@ struct tsens_sensor_dbg_info {
 	unsigned long long		time_stmp[10];
 };
 
+struct tsens_mtc_sysfs {
+	uint32_t zone_log;
+	int zone_mtc;
+	int th1;
+	int th2;
+};
+
 struct tsens_tm_device {
 	struct platform_device		*pdev;
 	struct workqueue_struct		*tsens_critical_wq;
@@ -746,6 +778,7 @@ struct tsens_tm_device {
 	int				tsens_critical_irq_cnt;
 	struct delayed_work		tsens_critical_poll_test;
 	struct completion		tsens_rslt_completion;
+	struct tsens_mtc_sysfs		mtcsys;
 	struct tsens_tm_device_sensor	sensor[0];
 };
 
@@ -990,6 +1023,130 @@ int tsens_get_hw_id_mapping(int sensor_sw_id, int *sensor_client_id)
 }
 EXPORT_SYMBOL(tsens_get_hw_id_mapping);
 
+static ssize_t
+zonemask_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	struct tsens_tm_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	return snprintf(buf, PAGE_SIZE,
+		"Zone =%d th1=%d th2=%d\n" , tmdev->mtcsys.zone_mtc,
+				tmdev->mtcsys.th1 , tmdev->mtcsys.th2);
+}
+
+static ssize_t
+zonemask_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	struct tsens_tm_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = sscanf(buf, "%d %d %d", &tmdev->mtcsys.zone_mtc ,
+				&tmdev->mtcsys.th1 , &tmdev->mtcsys.th2);
+
+	if (ret != TSENS_ZONEMASK_PARAMS) {
+		pr_err("Invalid command line arguments\n");
+		count = -EINVAL;
+	} else {
+		pr_debug("store zone_mtc=%d th1=%d th2=%d\n",
+				tmdev->mtcsys.zone_mtc,
+				tmdev->mtcsys.th1 , tmdev->mtcsys.th2);
+		ret = tsens_set_mtc_zone_sw_mask(tmdev->mtcsys.zone_mtc ,
+					tmdev->mtcsys.th1 , tmdev->mtcsys.th2);
+		if (ret < 0) {
+			pr_err("Invalid command line arguments\n");
+			count = -EINVAL;
+		}
+	}
+
+	return count;
+}
+
+static ssize_t
+zonelog_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	int ret, zlog[TSENS_MTC_ZONE_LOG_SIZE];
+	struct tsens_tm_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = tsens_get_mtc_zone_log(tmdev->mtcsys.zone_log , zlog);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return snprintf(buf, PAGE_SIZE,
+		"Log[0]=%d\nLog[1]=%d\nLog[2]=%d\nLog[3]=%d\nLog[4]=%d\nLog[5]=%d\n",
+			zlog[0], zlog[1], zlog[2], zlog[3], zlog[4], zlog[5]);
+}
+
+static ssize_t
+zonelog_store(struct device *dev, struct device_attribute *attr,
+		const char *buf, size_t count)
+{
+	int ret;
+	struct tsens_tm_device *tmdev = NULL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	ret = kstrtou32(buf, 0, &tmdev->mtcsys.zone_log);
+	if (ret < 0) {
+		pr_err("Invalid command line arguments\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static struct device_attribute tsens_mtc_dev_attr[] = {
+	__ATTR(zonemask, 0644, zonemask_show, zonemask_store),
+	__ATTR(zonelog, 0644, zonelog_show, zonelog_store),
+};
+
+static int create_tsens_mtc_sysfs(struct platform_device *pdev)
+{
+	int result = 0, i;
+	struct device_attribute *attr_ptr = NULL;
+
+	attr_ptr = tsens_mtc_dev_attr;
+
+	for (i = 0; i < ARRAY_SIZE(tsens_mtc_dev_attr); i++) {
+		result = device_create_file(&pdev->dev, &attr_ptr[i]);
+		if (result < 0)
+			goto error;
+	}
+
+	pr_debug("create_tsens_mtc_sysfs success\n");
+
+	return result;
+
+error:
+	for (i--; i >= 0; i--)
+		device_remove_file(&pdev->dev, &attr_ptr[i]);
+
+	return result;
+}
+
 static int tsens_tz_code_to_degc(int adc_code, int sensor_sw_id,
 				struct tsens_tm_device *tmdev)
 {
@@ -1061,6 +1218,9 @@ static int msm_tsens_get_temp(int sensor_client_id, unsigned long *temp)
 	} else if (tmdev->tsens_type == TSENS_TYPE3) {
 		trdy_addr = TSENS_TM_TRDY(tmdev->tsens_addr);
 		sensor_addr = TSENS_TM_SN_STATUS(tmdev->tsens_addr);
+	} else if (tmdev->tsens_type == TSENS_TYPE4) {
+		trdy_addr = TSENS4_TRDY_ADDR(tmdev->tsens_addr);
+		sensor_addr = TSENS2_SN_STATUS_ADDR(tmdev->tsens_addr);
 	} else {
 		trdy_addr = TSENS_TRDY_ADDR(tmdev->tsens_addr);
 		sensor_addr = TSENS_S0_STATUS_ADDR(tmdev->tsens_addr);
@@ -1704,6 +1864,95 @@ static void tsens_poll(struct work_struct *work)
 			msecs_to_jiffies(tsens_sec_to_msec_value));
 }
 
+int tsens_set_mtc_zone_sw_mask(unsigned int zone , unsigned int th1_enable,
+				unsigned int th2_enable)
+{
+	unsigned int reg_cntl;
+	struct tsens_tm_device *tmdev = NULL;
+
+	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
+			return -EINVAL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	if (th1_enable && th2_enable)
+		writel_relaxed(TSENS_MTC_IN_EFFECT,
+				(TSENS_MTC_ZONE0_SW_MASK_ADDR
+				(tmdev->tsens_addr) +
+				(zone * TSENS_SN_ADDR_OFFSET)));
+	if (!th1_enable && !th2_enable)
+		writel_relaxed(TSENS_MTC_DISABLE,
+				(TSENS_MTC_ZONE0_SW_MASK_ADDR
+				(tmdev->tsens_addr) +
+				(zone * TSENS_SN_ADDR_OFFSET)));
+	if (th1_enable && !th2_enable)
+		writel_relaxed(TSENS_TH1_MTC_IN_EFFECT,
+				(TSENS_MTC_ZONE0_SW_MASK_ADDR
+				(tmdev->tsens_addr) +
+				(zone * TSENS_SN_ADDR_OFFSET)));
+	if (!th1_enable && th2_enable)
+		writel_relaxed(TSENS_TH2_MTC_IN_EFFECT,
+				(TSENS_MTC_ZONE0_SW_MASK_ADDR
+				(tmdev->tsens_addr) +
+				(zone * TSENS_SN_ADDR_OFFSET)));
+	reg_cntl = readl_relaxed((TSENS_MTC_ZONE0_SW_MASK_ADDR
+				(tmdev->tsens_addr) +
+				(zone *	TSENS_SN_ADDR_OFFSET)));
+	pr_debug("tsens : zone =%d th1=%d th2=%d reg=%x\n",
+		zone , th1_enable , th2_enable , reg_cntl);
+
+	return 0;
+}
+EXPORT_SYMBOL(tsens_set_mtc_zone_sw_mask);
+
+int tsens_get_mtc_zone_log(unsigned int zone , void *zone_log)
+{
+	unsigned int i , reg_cntl , is_valid , log[TSENS_MTC_ZONE_LOG_SIZE];
+	int *zlog = (int *)zone_log;
+	struct tsens_tm_device *tmdev = NULL;
+
+	if (zone > TSENS_NUM_MTC_ZONES_SUPPORT)
+		return -EINVAL;
+
+	tmdev = tsens_controller_is_present();
+	if (!tmdev) {
+		pr_err("No TSENS controller present\n");
+		return -EPROBE_DEFER;
+	}
+
+	reg_cntl = readl_relaxed((TSENS_MTC_ZONE0_LOG
+				(tmdev->tsens_addr) +
+				(zone *	TSENS_SN_ADDR_OFFSET)));
+	is_valid = (reg_cntl & TSENS_LOGS_VALID_MASK)
+				>> TSENS_LOGS_VALID_SHIFT;
+	if (is_valid) {
+		log[0] = (reg_cntl & TSENS_LOGS_LATEST_MASK);
+		log[1] = (reg_cntl & TSENS_LOGS_LOG1_MASK)
+				  >> TSENS_LOGS_LOG1_SHIFT;
+		log[2] = (reg_cntl & TSENS_LOGS_LOG2_MASK)
+				  >> TSENS_LOGS_LOG2_SHIFT;
+		log[3] = (reg_cntl & TSENS_LOGS_LOG3_MASK)
+				  >> TSENS_LOGS_LOG3_SHIFT;
+		log[4] = (reg_cntl & TSENS_LOGS_LOG4_MASK)
+				  >> TSENS_LOGS_LOG4_SHIFT;
+		log[5] = (reg_cntl & TSENS_LOGS_LOG5_MASK)
+				  >> TSENS_LOGS_LOG5_SHIFT;
+		for (i = 0; i < (TSENS_MTC_ZONE_LOG_SIZE); i++) {
+			*(zlog+i) = log[i];
+			pr_debug("Log[%d]=%d\n", i , log[i]);
+		}
+	} else {
+		pr_debug("tsens: Valid bit disabled\n");
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(tsens_get_mtc_zone_log);
+
 static struct thermal_zone_device_ops tsens_thermal_zone_ops = {
 	.get_temp = tsens_tz_get_temp,
 	.get_mode = tsens_tz_get_mode,
@@ -1907,7 +2156,8 @@ static irqreturn_t tsens_irq_thread(int irq, void *data)
 	int sensor_sw_id = -EINVAL;
 	uint32_t idx = 0;
 
-	if (tm->tsens_type == TSENS_TYPE2)
+	if ((tm->tsens_type == TSENS_TYPE2) |
+			(tm->tsens_type == TSENS_TYPE4))
 		sensor_status_addr = TSENS2_SN_STATUS_ADDR(tm->tsens_addr);
 	else
 		sensor_status_addr = TSENS_S0_STATUS_ADDR(tm->tsens_addr);
@@ -4367,6 +4617,8 @@ static int get_device_tree_data(struct platform_device *pdev,
 		tmdev->tsens_type = TSENS_TYPE2;
 	else if (!strcmp(id->compatible, "qcom,msm8996-tsens"))
 		tmdev->tsens_type = TSENS_TYPE3;
+	else if (!strcmp(id->compatible, "qcom,msm8952-tsens"))
+		tmdev->tsens_type = TSENS_TYPE4;
 	else
 		tmdev->tsens_type = TSENS_TYPE0;
 
@@ -4515,6 +4767,10 @@ static int tsens_tm_probe(struct platform_device *pdev)
 
 	list_add_tail(&tmdev->list, &tsens_device_list);
 	platform_set_drvdata(pdev, tmdev);
+
+	rc = create_tsens_mtc_sysfs(pdev);
+	if (rc < 0)
+		pr_debug("Cannot create create_tsens_mtc_sysfs %d\n", rc);
 
 	return 0;
 fail:
