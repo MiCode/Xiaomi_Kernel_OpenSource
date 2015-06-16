@@ -157,13 +157,13 @@ static int pp_hist_lut_cache_params_pipe_v1_7(struct mdp_hist_lut_data *config,
 		return -EINVAL;
 	}
 
-	if (copy_from_user(&hist_lut_usr_config,
-			   config->cfg_payload,
-			   sizeof(struct mdp_hist_lut_data_v1_7))) {
-		pr_err("Failed to copy usr cfg_payload\n");
-		ret = -EFAULT;
-		goto hist_lut_cache_pipe_exit;
+	if (!config->cfg_payload) {
+		pr_err("Hist LUT config payload invalid\n");
+		return -EINVAL;
 	}
+
+	memcpy(&hist_lut_usr_config, config->cfg_payload,
+		sizeof(struct mdp_hist_lut_data_v1_7));
 
 	hist_lut_cache_data = pipe->pp_res.hist_lut_cfg_payload;
 	if (!hist_lut_cache_data) {
@@ -545,16 +545,19 @@ static int pp_pcc_cache_params_pipe_v1_7(struct mdp_pcc_cfg_data *config,
 		pr_debug("disable ops set cleanup payload\n");
 		goto cleanup;
 	}
-	if (copy_from_user(&v17_usr_config, config->cfg_payload,
-			   sizeof(v17_usr_config))) {
-		pr_err("failed to copy v17 pcc\n");
-		return -EFAULT;
-	}
 
 	if (config->ops & MDP_PP_OPS_READ) {
 		pr_err("read ops not supported\n");
 		return -EINVAL;
 	}
+
+	if (!config->cfg_payload) {
+		pr_err("PCC config payload invalid\n");
+		return -EINVAL;
+	}
+
+	memcpy(&v17_usr_config, config->cfg_payload,
+			sizeof(v17_usr_config));
 
 	if (!(config->ops & MDP_PP_OPS_WRITE)) {
 		pr_debug("write ops not set value of flag is %d\n",
@@ -800,113 +803,97 @@ static int pp_igc_lut_cache_params_pipe_v1_7(struct mdp_igc_lut_data *config,
 	if (config->ops & MDP_PP_OPS_READ) {
 		pr_err("read op is not supported\n");
 		return -EINVAL;
-	} else {
-		if (!copy_from_kernel) {
-			if (copy_from_user(&v17_usr_config,
-					   config->cfg_payload,
-					   sizeof(v17_usr_config))) {
-				pr_err("failed to copy igc config\n");
-				ret = -EFAULT;
-				goto igc_config_exit;
-			}
-		} else {
-			if (!config->cfg_payload) {
-				pr_err("can't copy config info NULL payload\n");
-				ret = -EINVAL;
-				goto igc_config_exit;
-			}
-			memcpy(&v17_usr_config, config->cfg_payload,
-			       sizeof(v17_usr_config));
-		}
-		if (!(config->ops & MDP_PP_OPS_WRITE)) {
-			pr_debug("op for gamut %d\n", config->ops);
-			goto igc_config_exit;
-		}
-		if (v17_usr_config.table_fmt < mdp_igc_rec601 ||
-		    v17_usr_config.table_fmt >= mdp_igc_vmax) {
-			pr_err("incorrect igc version %d",
-				v17_usr_config.table_fmt);
-			ret = -EINVAL;
-			goto igc_config_exit;
-		}
-		switch (v17_usr_config.table_fmt) {
-		case mdp_igc_custom:
-			if (!v17_usr_config.c0_c1_data ||
-			    !v17_usr_config.c2_data || v17_usr_config.len !=
-			    IGC_LUT_ENTRIES) {
-				pr_err("invalid c0_c1data %p c2_data %p tbl len %d\n",
+	}
+
+	if (!config->cfg_payload) {
+		pr_err("can't copy config info NULL payload\n");
+		ret = -EINVAL;
+		goto igc_config_exit;
+	}
+
+	memcpy(&v17_usr_config, config->cfg_payload,
+			sizeof(v17_usr_config));
+
+	if (!(config->ops & MDP_PP_OPS_WRITE)) {
+		pr_debug("op for gamut %d\n", config->ops);
+		goto igc_config_exit;
+	}
+
+	switch (v17_usr_config.table_fmt) {
+	case mdp_igc_custom:
+		if (!v17_usr_config.c0_c1_data ||
+		    !v17_usr_config.c2_data ||
+		    v17_usr_config.len != IGC_LUT_ENTRIES) {
+			pr_err("invalid c0_c1data %p c2_data %p tbl len %d\n",
 					v17_usr_config.c0_c1_data,
 					v17_usr_config.c2_data,
 					v17_usr_config.len);
-				ret = -EINVAL;
-				goto igc_config_exit;
-			}
-			break;
-		case mdp_igc_rec709:
-			v17_usr_config.c0_c1_data = pp_igc_709;
-			v17_usr_config.c2_data = pp_igc_709;
-			v17_usr_config.len = IGC_LUT_ENTRIES;
-			copy_from_kernel = 1;
-			fix_up = 1;
-			break;
-		case mdp_igc_rec601:
-			v17_usr_config.c0_c1_data = pp_igc_601;
-			v17_usr_config.c2_data = pp_igc_601;
-			v17_usr_config.len = IGC_LUT_ENTRIES;
-			copy_from_kernel = 1;
-			fix_up = 1;
-			break;
-		default:
-			pr_err("invalid format %d\n",
-				v17_usr_config.table_fmt);
 			ret = -EINVAL;
 			goto igc_config_exit;
 		}
-		v17_cache_data = pipe->pp_res.igc_cfg_payload;
-		if (!v17_cache_data)
-			v17_cache_data = kzalloc(sizeof(
-						 struct mdp_igc_lut_data_v1_7),
-						 GFP_KERNEL);
-		if (!v17_cache_data) {
-			pr_err("failed to allocate cache data\n");
-			ret = -ENOMEM;
-			goto igc_config_exit;
-		} else {
-			pipe->pp_res.igc_cfg_payload = v17_cache_data;
-			pipe->pp_cfg.igc_cfg.cfg_payload = v17_cache_data;
-		}
-		v17_cache_data->c0_c1_data = pipe->pp_res.igc_c0_c1;
-		v17_cache_data->c2_data = pipe->pp_res.igc_c2;
-		v17_cache_data->len = IGC_LUT_ENTRIES;
-		if (copy_from_kernel) {
-			memcpy(v17_cache_data->c0_c1_data,
-			       v17_usr_config.c0_c1_data,
-			       IGC_LUT_ENTRIES * sizeof(u32));
-			memcpy(v17_cache_data->c2_data,
-			       v17_usr_config.c2_data,
-			       IGC_LUT_ENTRIES * sizeof(u32));
-			if (fix_up) {
-				for (i = 0; i < IGC_LUT_ENTRIES; i++)
-					v17_cache_data->c0_c1_data[i]
+		break;
+	case mdp_igc_rec709:
+		v17_usr_config.c0_c1_data = pp_igc_709;
+		v17_usr_config.c2_data = pp_igc_709;
+		v17_usr_config.len = IGC_LUT_ENTRIES;
+		copy_from_kernel = 1;
+		fix_up = 1;
+		break;
+	case mdp_igc_rec601:
+		v17_usr_config.c0_c1_data = pp_igc_601;
+		v17_usr_config.c2_data = pp_igc_601;
+		v17_usr_config.len = IGC_LUT_ENTRIES;
+		copy_from_kernel = 1;
+		fix_up = 1;
+		break;
+	default:
+		pr_err("invalid format %d\n",
+				v17_usr_config.table_fmt);
+		ret = -EINVAL;
+		goto igc_config_exit;
+	}
+	v17_cache_data = pipe->pp_res.igc_cfg_payload;
+	if (!v17_cache_data)
+		v17_cache_data = kzalloc(sizeof(struct mdp_igc_lut_data_v1_7),
+					GFP_KERNEL);
+	if (!v17_cache_data) {
+		ret = -ENOMEM;
+		goto igc_config_exit;
+	} else {
+		pipe->pp_res.igc_cfg_payload = v17_cache_data;
+		pipe->pp_cfg.igc_cfg.cfg_payload = v17_cache_data;
+	}
+	v17_cache_data->c0_c1_data = pipe->pp_res.igc_c0_c1;
+	v17_cache_data->c2_data = pipe->pp_res.igc_c2;
+	v17_cache_data->len = IGC_LUT_ENTRIES;
+	if (copy_from_kernel) {
+		memcpy(v17_cache_data->c0_c1_data,
+				v17_usr_config.c0_c1_data,
+				IGC_LUT_ENTRIES * sizeof(u32));
+		memcpy(v17_cache_data->c2_data,
+				v17_usr_config.c2_data,
+				IGC_LUT_ENTRIES * sizeof(u32));
+		if (fix_up) {
+			for (i = 0; i < IGC_LUT_ENTRIES; i++)
+				v17_cache_data->c0_c1_data[i]
 					|= (v17_cache_data->c0_c1_data[i]
-						<< IGC_C1_SHIFT);
-			}
-		} else {
-			if (copy_from_user(v17_cache_data->c0_c1_data,
-					   v17_usr_config.c0_c1_data,
-					   IGC_LUT_ENTRIES * sizeof(u32))) {
-				pr_err("error in copying the c0_c1_data of size %zd\n",
+							<< IGC_C1_SHIFT);
+		}
+	} else {
+		if (copy_from_user(v17_cache_data->c0_c1_data,
+				v17_usr_config.c0_c1_data,
+				IGC_LUT_ENTRIES * sizeof(u32))) {
+			pr_err("error in copying the c0_c1_data of size %zd\n",
 					IGC_LUT_ENTRIES * sizeof(u32));
-				ret = -EFAULT;
-				goto igc_config_exit;
-			}
-			if (copy_from_user(v17_cache_data->c2_data,
-					   v17_usr_config.c2_data,
-					   IGC_LUT_ENTRIES * sizeof(u32))) {
-				pr_err("error in copying the c2_data of size %zd\n",
+			ret = -EFAULT;
+			goto igc_config_exit;
+		}
+		if (copy_from_user(v17_cache_data->c2_data,
+				v17_usr_config.c2_data,
+				IGC_LUT_ENTRIES * sizeof(u32))) {
+			pr_err("error in copying the c2_data of size %zd\n",
 					IGC_LUT_ENTRIES * sizeof(u32));
-				ret = -EFAULT;
-			}
+			ret = -EFAULT;
 		}
 	}
 igc_config_exit:
@@ -1204,13 +1191,13 @@ static int pp_pa_cache_params_pipe_v1_7(struct mdp_pa_v2_cfg_data *config,
 		return -EINVAL;
 	}
 
-	if (copy_from_user(&pa_usr_config,
-			   config->cfg_payload,
-			   sizeof(struct mdp_pa_data_v1_7))) {
-		ret = -EFAULT;
-		pr_err("Failed to copy pa usr cfg_payload\n");
-		goto pa_cache_pipe_exit;
+	if (!config->cfg_payload) {
+		pr_err("invalid PA config payload\n");
+		return -EINVAL;
 	}
+
+	memcpy(&pa_usr_config, config->cfg_payload,
+			sizeof(struct mdp_pa_data_v1_7));
 
 	pa_cache_data = pipe->pp_res.pa_cfg_payload;
 	if (!pa_cache_data) {
@@ -1283,5 +1270,157 @@ int pp_pa_cache_params(struct mdp_pa_v2_cfg_data *config,
 		ret = -EINVAL;
 		break;
 	}
+	return ret;
+}
+
+int pp_copy_layer_igc_payload(struct mdp_overlay_pp_params *pp_info)
+{
+	void *cfg_payload = NULL;
+	int ret = 0;
+
+	switch (pp_info->igc_cfg.version) {
+	case mdp_igc_v1_7:
+		cfg_payload = kmalloc(
+				sizeof(struct mdp_igc_lut_data_v1_7),
+				GFP_KERNEL);
+		if (!cfg_payload) {
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		ret = copy_from_user(cfg_payload,
+				pp_info->igc_cfg.cfg_payload,
+				sizeof(struct mdp_igc_lut_data_v1_7));
+		if (ret) {
+			pr_err("layer list copy from user failed, IGC cfg payload = %p\n",
+				pp_info->igc_cfg.cfg_payload);
+			ret = -EFAULT;
+			kfree(cfg_payload);
+			cfg_payload = NULL;
+			goto exit;
+		}
+		break;
+	default:
+		pr_debug("No version set, fallback to legacy IGC version\n");
+		cfg_payload = NULL;
+		break;
+	}
+
+exit:
+	pp_info->igc_cfg.cfg_payload = cfg_payload;
+	return ret;
+}
+
+int pp_copy_layer_hist_lut_payload(struct mdp_overlay_pp_params *pp_info)
+{
+	void *cfg_payload = NULL;
+	int ret = 0;
+
+	switch (pp_info->hist_lut_cfg.version) {
+	case mdp_hist_lut_v1_7:
+		cfg_payload = kmalloc(
+				sizeof(struct mdp_hist_lut_data_v1_7),
+				GFP_KERNEL);
+		if (!cfg_payload) {
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		ret = copy_from_user(cfg_payload,
+				pp_info->hist_lut_cfg.cfg_payload,
+				sizeof(struct mdp_hist_lut_data_v1_7));
+		if (ret) {
+			pr_err("layer list copy from user failed, Hist LUT cfg payload = %p\n",
+				pp_info->hist_lut_cfg.cfg_payload);
+			ret = -EFAULT;
+			kfree(cfg_payload);
+			cfg_payload = NULL;
+			goto exit;
+		}
+		break;
+	default:
+		pr_debug("No version set, fallback to legacy Hist LUT version\n");
+		cfg_payload = NULL;
+		break;
+	}
+
+exit:
+	pp_info->hist_lut_cfg.cfg_payload = cfg_payload;
+	return ret;
+}
+
+int pp_copy_layer_pa_payload(struct mdp_overlay_pp_params *pp_info)
+{
+	void *cfg_payload = NULL;
+	int ret = 0;
+
+	switch (pp_info->pa_v2_cfg_data.version) {
+	case mdp_pa_v1_7:
+		cfg_payload = kmalloc(
+				sizeof(struct mdp_pa_data_v1_7),
+				GFP_KERNEL);
+		if (!cfg_payload) {
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		ret = copy_from_user(cfg_payload,
+				pp_info->pa_v2_cfg_data.cfg_payload,
+				sizeof(struct mdp_pa_data_v1_7));
+		if (ret) {
+			pr_err("layer list copy from user failed, PA cfg payload = %p\n",
+				pp_info->pa_v2_cfg_data.cfg_payload);
+			ret = -EFAULT;
+			kfree(cfg_payload);
+			cfg_payload = NULL;
+			goto exit;
+		}
+		break;
+	default:
+		pr_debug("No version set, fallback to legacy PA version\n");
+		cfg_payload = NULL;
+		break;
+	}
+
+exit:
+	pp_info->pa_v2_cfg_data.cfg_payload = cfg_payload;
+	return ret;
+}
+
+int pp_copy_layer_pcc_payload(struct mdp_overlay_pp_params *pp_info)
+{
+	void *cfg_payload = NULL;
+	int ret = 0;
+
+	switch (pp_info->pcc_cfg_data.version) {
+	case mdp_pcc_v1_7:
+		cfg_payload = kmalloc(
+				sizeof(struct mdp_pcc_data_v1_7),
+				GFP_KERNEL);
+		if (!cfg_payload) {
+			ret = -ENOMEM;
+			goto exit;
+		}
+
+		ret = copy_from_user(cfg_payload,
+				pp_info->pcc_cfg_data.cfg_payload,
+				sizeof(struct mdp_pcc_data_v1_7));
+		if (ret) {
+			pr_err("layer list copy from user failed, PCC cfg payload = %p\n",
+				pp_info->pcc_cfg_data.cfg_payload);
+			ret = -EFAULT;
+			kfree(cfg_payload);
+			cfg_payload = NULL;
+			goto exit;
+		}
+		break;
+	default:
+		pr_debug("No version set, fallback to legacy PCC version\n");
+		cfg_payload = NULL;
+		break;
+	}
+
+exit:
+	pp_info->pcc_cfg_data.cfg_payload = cfg_payload;
 	return ret;
 }

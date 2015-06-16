@@ -42,4 +42,9 @@ int pp_igc_lut_cache_params(struct mdp_igc_lut_data *config,
 int pp_pgc_lut_cache_params(struct mdp_pgc_lut_data *config,
 			    struct mdss_pp_res_type *mdss_pp_res,
 			    int location, int cnt);
+
+int pp_copy_layer_igc_payload(struct mdp_overlay_pp_params *pp_info);
+int pp_copy_layer_hist_lut_payload(struct mdp_overlay_pp_params *pp_info);
+int pp_copy_layer_pa_payload(struct mdp_overlay_pp_params *pp_info);
+int pp_copy_layer_pcc_payload(struct mdp_overlay_pp_params *pp_info);
 #endif

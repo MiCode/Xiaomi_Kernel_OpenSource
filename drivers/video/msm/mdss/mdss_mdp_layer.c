@@ -451,6 +451,8 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 		pipe->flags |= MDP_DEINTERLACE;
 	if (layer->flags & MDP_LAYER_BWC)
 		pipe->flags |= MDP_BWC_EN;
+	if (layer->flags & MDP_LAYER_PP)
+		pipe->flags |= MDP_OVERLAY_PP_CFG_EN;
 
 	pipe->scale.enable_pxl_ext = layer->flags & MDP_LAYER_ENABLE_PIXEL_EXT;
 	pipe->is_fg = layer->flags & MDP_LAYER_FORGROUND;
@@ -591,6 +593,16 @@ static int __configure_pipe_params(struct msm_fb_data_type *mfd,
 	if (ret) {
 		pr_err("scaling setup failed %d\n", ret);
 		goto end;
+	}
+
+	if (layer->flags & MDP_LAYER_PP) {
+		memcpy(&pipe->pp_cfg, layer->pp_info,
+				sizeof(struct mdp_overlay_pp_params));
+		ret = mdss_mdp_pp_sspp_config(pipe);
+		if (ret) {
+			pr_err("pp setup failed %d\n", ret);
+			goto end;
+		}
 	}
 
 	if (pipe->type == MDSS_MDP_PIPE_TYPE_CURSOR)
@@ -1105,6 +1117,16 @@ static int __validate_layers(struct msm_fb_data_type *mfd,
 				right_plist[right_cnt++] = pipe;
 			else
 				left_plist[left_cnt++] = pipe;
+
+			if (layer->flags & MDP_LAYER_PP) {
+				memcpy(&pipe->pp_cfg, layer->pp_info,
+					sizeof(struct mdp_overlay_pp_params));
+				ret = mdss_mdp_pp_sspp_config(pipe);
+				if (ret)
+					pr_err("pp setup failed %d\n", ret);
+				else
+					pipe->params_changed++;
+			}
 			continue;
 		}
 
