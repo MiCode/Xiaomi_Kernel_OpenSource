@@ -488,6 +488,7 @@ struct mdss_panel_info {
 	u64 clk_rate;
 	u32 clk_min;
 	u64 clk_max;
+	u32 mdp_transfer_time_us;
 	u32 frame_count;
 	u32 is_3d_panel;
 	u32 out_format;
