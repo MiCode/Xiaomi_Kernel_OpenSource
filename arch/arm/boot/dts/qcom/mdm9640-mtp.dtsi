@@ -56,6 +56,7 @@
 		regulator-name = "smb1357_otg_supply";
 		pinctrl-names = "default";
 		pinctrl-0 = <&smb_stat_active>;
+		qcom,id-line-not-connected;
 	};
 };
 
