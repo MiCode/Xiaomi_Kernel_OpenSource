@@ -57,6 +57,8 @@ support for pronto hardware.
 	6      -  GPIO strength value
 - qcom,wlan-indication-enabled: boolean flag to determine if WLAN indication-LED
 will be turned on/off when WLAN is enabled/disabled respectively.
+- qcom,has-vsys-adc-channel: boolean flag to determine which ADC HW channel need
+to use for VBATT feature.
 
 Example:
 
