@@ -1723,6 +1723,13 @@ static int smb135x_parallel_set_chg_present(struct smb135x_chg *chip,
 	u8 val;
 	int rc;
 
+	/* Check if SMB135x is present */
+	rc = smb135x_read(chip, VERSION1_REG, &val);
+	if (rc) {
+		pr_debug("Failed to detect smb135x-parallel charger may be absent\n");
+		return -ENODEV;
+	}
+
 	if (present == chip->parallel_charger_present) {
 		pr_debug("present %d -> %d, skipping\n",
 				chip->parallel_charger_present, present);
@@ -2689,7 +2696,8 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 	usb_supply_type = get_usb_supply_type(reg);
 	pr_debug("inserted %s, usb psy type = %d stat_5 = 0x%02x apsd_rerun = %d\n",
 			usb_type_name, usb_supply_type, reg, chip->apsd_rerun);
-	if (!chip->apsd_rerun && chip->usb_psy) {
+
+	if (chip->batt_present && !chip->apsd_rerun && chip->usb_psy) {
 		if (usb_supply_type == POWER_SUPPLY_TYPE_USB) {
 			pr_debug("setting usb psy allow detection 1 SDP and rerun\n");
 			power_supply_set_allow_detection(chip->usb_psy, 1);
