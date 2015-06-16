@@ -36,5 +36,6 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	void *context);
 int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 	void *context);
+int msm_jpeg_platform_set_dt_config(struct msm_jpeg_device *pgmn_dev);
 
 #endif /* MSM_JPEG_PLATFORM_H */

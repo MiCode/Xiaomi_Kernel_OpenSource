@@ -30,6 +30,8 @@
 #include "msm_jpeg_common.h"
 #include "msm_jpeg_hw.h"
 
+#define JPEG_DT_PROP_CNT 1
+
 static int msm_jpeg_get_regulator_info(struct msm_jpeg_device *jpeg_dev,
 	struct platform_device *pdev)
 {
@@ -289,6 +291,72 @@ static void set_vbif_params(struct msm_jpeg_device *pgmn_dev,
 
 }
 
+/*
+ * msm_jpeg_set_init_dt_parms() - get device tree config and write to registers.
+ * @pgmn_dev: Pointer to jpeg device.
+ * @dt_prop_name: Device tree property name.
+ * @base: Base address.
+ *
+ * This function reads register offsets and values from dtsi based on
+ * device tree property name and writes to jpeg registers.
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+static int32_t msm_jpeg_set_init_dt_parms(struct msm_jpeg_device *pgmn_dev,
+	const char *dt_prop_name,
+	void *base)
+{
+	struct device_node *of_node;
+	int32_t i = 0 , rc = 0;
+	uint32_t *dt_reg_settings = NULL;
+	uint32_t dt_count = 0;
+
+	of_node = pgmn_dev->pdev->dev.of_node;
+	JPEG_DBG("%s:%d E\n", __func__, __LINE__);
+
+	if (!of_get_property(of_node, dt_prop_name,
+				&dt_count)) {
+		JPEG_DBG("%s: Error property does not exist\n",
+				__func__);
+		return -ENOENT;
+	}
+	if (dt_count % 8) {
+		JPEG_PR_ERR("%s: Error invalid entries\n",
+				__func__);
+		return -EINVAL;
+	}
+	dt_count /= 4;
+	if (dt_count != 0) {
+		dt_reg_settings = kcalloc(dt_count, sizeof(uint32_t),
+			GFP_KERNEL);
+		if (!dt_reg_settings) {
+			JPEG_PR_ERR("%s:%d No memory\n",
+				__func__, __LINE__);
+			return -ENOMEM;
+		}
+		rc = of_property_read_u32_array(of_node,
+				dt_prop_name,
+				dt_reg_settings,
+				dt_count);
+		if (rc < 0) {
+			JPEG_PR_ERR("%s: No reg info\n",
+				__func__);
+			kfree(dt_reg_settings);
+			return -EINVAL;
+		}
+		for (i = 0; i < dt_count; i = i + 2) {
+			JPEG_DBG("%s:%d] %p %08x\n",
+					__func__, __LINE__,
+					base + dt_reg_settings[i],
+					dt_reg_settings[i + 1]);
+			writel_relaxed(dt_reg_settings[i + 1],
+					base + dt_reg_settings[i]);
+		}
+		kfree(dt_reg_settings);
+	}
+	return 0;
+}
+
 static struct msm_bus_vectors msm_jpeg_init_vectors[] = {
 	{
 		.src = MSM_BUS_MASTER_JPEG,
@@ -455,7 +523,15 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	if (rc < 0)
 		goto fail_iommu;
 
-	set_vbif_params(pgmn_dev, pgmn_dev->jpeg_vbif);
+	rc = msm_jpeg_set_init_dt_parms(pgmn_dev, "qcom,vbif-reg-settings",
+		pgmn_dev->jpeg_vbif);
+	if (rc == -ENOENT) {
+		JPEG_DBG("%s: No qcom,vbif-reg-settings property\n", __func__);
+		set_vbif_params(pgmn_dev, pgmn_dev->jpeg_vbif);
+	} else if (rc < 0) {
+		JPEG_PR_ERR("%s: vbif params set fail\n", __func__);
+		goto fail_set_vbif;
+	}
 
 	rc = request_irq(jpeg_irq, handler, IRQF_TRIGGER_RISING,
 		dev_name(&pdev->dev), context);
@@ -473,11 +549,11 @@ int msm_jpeg_platform_init(struct platform_device *pdev,
 	return rc;
 
 fail_request_irq:
+fail_set_vbif:
 	msm_jpeg_detach_iommu(pgmn_dev);
 
 fail_iommu:
 	iounmap(pgmn_dev->jpeg_vbif);
-
 
 fail_vbif:
 	msm_cam_clk_enable(&pgmn_dev->pdev->dev, pgmn_dev->jpeg_clk_info,
@@ -530,5 +606,37 @@ int msm_jpeg_platform_release(struct resource *mem, void *base, int irq,
 	pgmn_dev->state = MSM_JPEG_IDLE;
 	JPEG_DBG("%s:%d] success\n", __func__, __LINE__);
 	return result;
+}
+
+/*
+ * msm_jpeg_platform_set_dt_config() - set jpeg device tree configuration.
+ * @pgmn_dev: Pointer to jpeg device.
+ *
+ * This function holds an array of device tree property names and calls
+ * msm_jpeg_set_init_dt_parms() for each property.
+ *
+ * Return: 0 on success and negative error on failure.
+ */
+int msm_jpeg_platform_set_dt_config(struct msm_jpeg_device *pgmn_dev)
+{
+	int rc = 0;
+	uint8_t dt_prop_cnt = JPEG_DT_PROP_CNT;
+	char *dt_prop_name[JPEG_DT_PROP_CNT] = {"qcom,qos-reg-settings"};
+
+	while (dt_prop_cnt) {
+		dt_prop_cnt--;
+		rc = msm_jpeg_set_init_dt_parms(pgmn_dev,
+			dt_prop_name[dt_prop_cnt],
+			pgmn_dev->base);
+		if (rc == -ENOENT) {
+			JPEG_DBG("%s: No %s property\n", __func__,
+				dt_prop_name[dt_prop_cnt]);
+		} else if (rc < 0) {
+			JPEG_PR_ERR("%s: %s params set fail\n", __func__,
+				dt_prop_name[dt_prop_cnt]);
+			return rc;
+		}
+	}
+	return rc;
 }
 
