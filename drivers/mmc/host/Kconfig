@@ -127,17 +127,6 @@ config MMC_SDHCI_OF_ARASAN
 
 	  If unsure, say N.
 
-config MMC_SDHCI_MSM_ICE
-	bool "Qualcomm Technologies, Inc Inline Crypto Engine for SDHCI core"
-	depends on MMC_SDHCI_MSM && CRYPTO_DEV_QCOM_ICE
-	help
-	  This selects the QTI specific additions to support Inline Crypto
-	  Engine (ICE). ICE accelerates the crypto operations and maintains
-	  the high SDHCI performance.
-
-	  Select this if you have ICE supported for SDHCI on QTI chipset.
-	  If unsure, say N.
-
 config MMC_SDHCI_OF_ESDHC
 	tristate "SDHCI OF support for the Freescale eSDHC controller"
 	depends on MMC_SDHCI_PLTFM
@@ -387,6 +376,17 @@ config MMC_SDHCI_MSM
 
 	  If you have a controller with this interface, say Y or M here.
 
+	  If unsure, say N.
+
+config MMC_SDHCI_MSM_ICE
+	bool "Qualcomm Technologies, Inc Inline Crypto Engine for SDHCI core"
+	depends on MMC_SDHCI_MSM && CRYPTO_DEV_QCOM_ICE
+	help
+	  This selects the QTI specific additions to support Inline Crypto
+	  Engine (ICE). ICE accelerates the crypto operations and maintains
+	  the high SDHCI performance.
+
+	  Select this if you have ICE supported for SDHCI on QTI chipset.
 	  If unsure, say N.
 
 config MMC_MSM
