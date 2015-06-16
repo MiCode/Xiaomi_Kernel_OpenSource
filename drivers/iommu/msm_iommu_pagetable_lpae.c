@@ -713,6 +713,14 @@ static void __msm_iommu_pagetable_unmap_range(struct msm_iommu_pt *pt,
 	}
 }
 
+void msm_iommu_flush_pagetable(struct msm_iommu_pt *pt, unsigned long va,
+				size_t len)
+{
+	/* Consolidated flush of page tables has not been implemented for
+	 * LPAE driver as of now.
+	 */
+}
+
 phys_addr_t msm_iommu_iova_to_phys_soft(struct iommu_domain *domain,
 							dma_addr_t va)
 {

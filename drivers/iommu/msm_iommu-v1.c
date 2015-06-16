@@ -387,6 +387,33 @@ fail:
 	return ret;
 }
 
+static int __flush_iotlb_va(struct iommu_domain *domain, unsigned long va)
+{
+	struct msm_iommu_priv *priv = domain->priv;
+	struct msm_iommu_drvdata *iommu_drvdata;
+	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+	int ret = 0;
+
+	list_for_each_entry(ctx_drvdata, &priv->list_attached, attached_elm) {
+		BUG_ON(!ctx_drvdata->pdev || !ctx_drvdata->pdev->dev.parent);
+
+		iommu_drvdata = dev_get_drvdata(ctx_drvdata->pdev->dev.parent);
+		BUG_ON(!iommu_drvdata);
+
+		ret = __enable_clocks(iommu_drvdata);
+		if (ret)
+			goto fail;
+
+		SET_TLBIVA(iommu_drvdata->cb_base, ctx_drvdata->num,
+				ctx_drvdata->asid | (va & CB_TLBIVA_VA));
+		__sync_tlb(iommu_drvdata, ctx_drvdata->num, priv);
+		__disable_clocks(iommu_drvdata);
+	}
+
+fail:
+	return ret;
+}
+
 /*
  * May only be called for non-secure iommus
  */
@@ -1081,6 +1108,7 @@ static int msm_iommu_map(struct iommu_domain *domain, unsigned long va,
 	if (ret)
 		goto fail;
 
+	msm_iommu_flush_pagetable(&priv->pt, va, len);
 fail:
 	spin_unlock_irqrestore(&msm_iommu_spin_lock, flags);
 	return ret;
@@ -1102,7 +1130,11 @@ static size_t msm_iommu_unmap(struct iommu_domain *domain, unsigned long va,
 	if (ret < 0)
 		goto fail;
 
-	ret = __flush_iotlb(domain);
+	msm_iommu_flush_pagetable(&priv->pt, va, len);
+	if (len <= SZ_4K)
+		ret = __flush_iotlb_va(domain, va);
+	else
+		ret = __flush_iotlb(domain);
 
 	msm_iommu_pagetable_free_tables(&priv->pt, va, len);
 fail:
@@ -1128,6 +1160,7 @@ static int msm_iommu_map_range(struct iommu_domain *domain, unsigned long va,
 	}
 
 	ret = msm_iommu_pagetable_map_range(&priv->pt, va, sg, len, prot);
+	msm_iommu_flush_pagetable(&priv->pt, va, len);
 
 fail:
 	spin_unlock_irqrestore(&msm_iommu_spin_lock, flags);
@@ -1145,6 +1178,7 @@ static int msm_iommu_unmap_range(struct iommu_domain *domain, unsigned long va,
 	priv = domain->priv;
 	msm_iommu_pagetable_unmap_range(&priv->pt, va, len);
 
+	msm_iommu_flush_pagetable(&priv->pt, va, len);
 	__flush_iotlb(domain);
 
 	msm_iommu_pagetable_free_tables(&priv->pt, va, len);
