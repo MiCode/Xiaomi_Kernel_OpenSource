@@ -132,6 +132,7 @@ struct adv7533_platform_data {
 	msm_dba_cb client_cb;
 	void *client_cb_data;
 	struct adv7533_cec_msg cec_msg[ADV7533_CEC_BUF_MAX];
+	struct mutex ops_mutex;
 };
 
 static struct adv7533_reg_cfg adv7533_init_setup[] = {
@@ -1221,14 +1222,16 @@ end:
 /* Device Operations */
 static int adv7533_power_on(void *client, bool on, u32 flags)
 {
-	int ret = 0;
+	int ret = -EINVAL;
 	struct adv7533_platform_data *pdata =
 		adv7533_get_platform_data(client);
 
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	if (on) {
 		ret = adv7533_write_regs(pdata, adv7533_init_setup,
@@ -1266,20 +1269,23 @@ static int adv7533_power_on(void *client, bool on, u32 flags)
 			pr_err("%s: err power down hdmi %d\n", __func__, ret);
 	}
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
 static int adv7533_video_on(void *client, bool on,
 	struct msm_dba_video_cfg *cfg, u32 flags)
 {
-	int ret = 0;
+	int ret = -EINVAL;
 	struct adv7533_platform_data *pdata =
 		adv7533_get_platform_data(client);
 
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	ret = adv7533_write_regs(pdata, tg_cfg_1080p,
 		ARRAY_SIZE(tg_cfg_1080p));
@@ -1293,6 +1299,7 @@ static int adv7533_video_on(void *client, bool on,
 	if (ret)
 		pr_err("%s: Failed: video setup\n", __func__);
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1301,6 +1308,15 @@ static int adv7533_hdcp_enable(void *client, bool hdcp_on,
 {
 	int ret = -EINVAL;
 	u8 reg_val;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		return ret;
+	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	if (adv7533_read_byte(pdata->main_i2c_addr, 0xAF, &reg_val))
 		goto end;
@@ -1325,6 +1341,7 @@ static int adv7533_hdcp_enable(void *client, bool hdcp_on,
 
 	ret = 0;
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1355,8 +1372,10 @@ static int adv7533_configure_audio(void *client,
 
 	if (!pdata || !cfg) {
 		pr_err("%s: invalid data\n", __func__);
-		goto end;
+		return ret;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	if (cfg->copyright == MSM_DBA_AUDIO_COPYRIGHT_NOT_PROTECTED)
 		reg_cfg[0].val |= BIT(5);
@@ -1439,7 +1458,7 @@ static int adv7533_configure_audio(void *client,
 
 	ret = adv7533_write_regs(pdata, reg_cfg, ARRAY_SIZE(reg_cfg));
 
-end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1447,29 +1466,15 @@ static int adv7533_hdmi_cec_write(void *client, u32 size,
 	char *buf, u32 flags)
 {
 	int ret = -EINVAL;
-	struct adv7533_platform_data *pdata;
-	struct msm_dba_client_info *cinfo =
-		(struct msm_dba_client_info *) client;
-	struct msm_dba_device_info *dev;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
 
-	if (!cinfo || !buf) {
-		pr_err("%s: invalid cinfo\n", __func__);
-		goto end;
-	}
-
-	dev = cinfo->dev;
-
-	if (!dev) {
-		pr_err("%s: invalid device data\n", __func__);
-		goto end;
-	}
-
-	pdata = container_of(dev, struct adv7533_platform_data,
-			dev_info);
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	ret = adv7533_cec_prepare_msg(buf, size);
 	if (ret)
@@ -1478,6 +1483,7 @@ static int adv7533_hdmi_cec_write(void *client, u32 size,
 	/* Enable CEC msg tx with NACK 3 retries */
 	ret = adv7533_write_byte(pdata->cec_dsi_i2c_addr, 0x81, 0x07);
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1486,29 +1492,15 @@ static int adv7533_hdmi_cec_read(void *client,
 {
 	int ret = -EINVAL;
 	int i;
-	struct adv7533_platform_data *pdata;
-	struct msm_dba_client_info *cinfo =
-		(struct msm_dba_client_info *)client;
-	struct msm_dba_device_info *dev;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
 
-	if (!cinfo) {
-		pr_err("%s: invalid cinfo\n", __func__);
-		goto end;
-	}
-
-	dev = cinfo->dev;
-
-	if (!dev) {
-		pr_err("%s: invalid device data\n", __func__);
-		goto end;
-	}
-
-	pdata = container_of(dev, struct adv7533_platform_data,
-			dev_info);
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return ret;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	for (i = 0; i < ADV7533_CEC_BUF_MAX; i++) {
 		struct adv7533_cec_msg *msg = &pdata->cec_msg[i];
@@ -1527,7 +1519,8 @@ static int adv7533_hdmi_cec_read(void *client,
 		pr_err("%s: no pending cec msg\n", __func__);
 		*size = 0;
 	}
-end:
+
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1535,6 +1528,15 @@ static int adv7533_get_edid_size(void *client,
 	u32 *size, u32 flags)
 {
 	int ret = 0;
+	struct adv7533_platform_data *pdata =
+		adv7533_get_platform_data(client);
+
+	if (!pdata) {
+		pr_err("%s: invalid platform data\n", __func__);
+		return ret;
+	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	if (!size) {
 		ret = -EINVAL;
@@ -1544,6 +1546,7 @@ static int adv7533_get_edid_size(void *client,
 	*size = EDID_SEG_SIZE;
 
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
 
@@ -1558,29 +1561,34 @@ static int adv7533_get_raw_edid(void *client,
 		goto end;
 	}
 
-	size = size > sizeof(pdata->edid_buf) ? sizeof(pdata->edid_buf) : size;
+	mutex_lock(&pdata->ops_mutex);
+
+	size = min_t(u32, size, sizeof(pdata->edid_buf));
 
 	memcpy(buf, pdata->edid_buf, size);
 end:
+	mutex_unlock(&pdata->ops_mutex);
 	return 0;
 }
 
 static int adv7533_reg_fxn(struct msm_dba_client_info *cinfo)
 {
-	int ret = 0;
 	struct adv7533_platform_data *pdata =
 		adv7533_get_platform_data((void *)cinfo);
 
 	if (!pdata) {
 		pr_err("%s: invalid platform data\n", __func__);
-		goto end;
+		return -EINVAL;
 	}
+
+	mutex_lock(&pdata->ops_mutex);
 
 	pdata->client_cb = cinfo->cb;
 	pdata->client_cb_data = cinfo->cb_data;
 
-end:
-	return ret;
+	mutex_unlock(&pdata->ops_mutex);
+
+	return 0;
 }
 
 static int adv7533_register_dba(struct adv7533_platform_data *pdata)
@@ -1640,6 +1648,8 @@ static int adv7533_probe(struct i2c_client *client_,
 		pr_err("%s: Failed to read revision\n", __func__);
 		goto p_err;
 	}
+
+	mutex_init(&pdata->ops_mutex);
 
 	ret = adv7533_register_dba(pdata);
 	if (ret)
@@ -1710,6 +1720,8 @@ static int adv7533_remove(struct i2c_client *client)
 	free_irq(pdata->irq, pdata);
 
 	ret = adv7533_gpio_configure(pdata, false);
+
+	mutex_destroy(&pdata->ops_mutex);
 
 	devm_kfree(&client->dev, pdata);
 
