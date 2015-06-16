@@ -85,6 +85,8 @@ static const char longname[] = "Gadget Android";
 struct android_usb_function {
 	char *name;
 	void *config;
+	/* set only when function's bind_config() is called. */
+	bool bound;
 
 	struct device *dev;
 	char *dev_name;
@@ -2912,14 +2914,17 @@ android_bind_enabled_functions(struct android_dev *dev,
 
 				f = list_first_entry(&c->functions,
 					struct usb_function, list);
-				list_del(&f->list);
-				if (f->unbind)
-					f->unbind(c, f);
+				if (f->config) {
+					list_del(&f->list);
+					if (f->unbind)
+						f->unbind(c, f);
+				}
 			}
 			if (c->unbind)
 				c->unbind(c);
 			return ret;
 		}
+		f_holder->f->bound = true;
 	}
 	return 0;
 }
@@ -2933,8 +2938,9 @@ android_unbind_enabled_functions(struct android_dev *dev,
 		container_of(c, struct android_configuration, usb_config);
 
 	list_for_each_entry(f_holder, &conf->enabled_functions, enabled_list) {
-		if (f_holder->f->unbind_config)
+		if (f_holder->f->bound && f_holder->f->unbind_config)
 			f_holder->f->unbind_config(f_holder->f, c);
+		f_holder->f->bound = false;
 	}
 }
 static inline void check_streaming_func(struct usb_gadget *gadget,
