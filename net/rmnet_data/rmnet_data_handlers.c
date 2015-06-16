@@ -215,8 +215,7 @@ static rx_handler_result_t __rmnet_deliver_skb(struct sk_buff *skb,
 				napi = get_current_napi_context();
 				if (napi != NULL) {
 					gro_res = napi_gro_receive(napi, skb);
-					trace_rmnet_gro_downlink(skb->dev,
-						gro_res);
+					trace_rmnet_gro_downlink(gro_res);
 				} else {
 					WARN_ONCE(1, "current napi is NULL\n");
 					netif_receive_skb(skb);
