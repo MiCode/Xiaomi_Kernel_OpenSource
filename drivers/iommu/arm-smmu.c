@@ -2586,19 +2586,23 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = to_smmu_domain(domain);
 	int ret = 0;
 
+	mutex_lock(&smmu_domain->init_mutex);
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
 		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		*((phys_addr_t *)data) =
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_CONTEXT_BANK:
 		/* context bank index isn't valid until we are attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
-
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((unsigned int *) data) = smmu_domain->cfg.cbndx;
 		ret = 0;
 		break;
@@ -2606,9 +2610,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		u64 val;
 		struct arm_smmu_device *smmu = smmu_domain->smmu;
 		/* not valid until we are attached */
-		if (smmu == NULL)
-			return -ENODEV;
-
+		if (smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		val = smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
 		if (smmu_domain->cfg.cbar != CBAR_TYPE_S2_TRANS)
 			val |= (u64)ARM_SMMU_CB_ASID(smmu, &smmu_domain->cfg)
@@ -2619,8 +2624,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 	}
 	case DOMAIN_ATTR_CONTEXTIDR:
 		/* not valid until attached */
-		if (smmu_domain->smmu == NULL)
-			return -ENODEV;
+		if (smmu_domain->smmu == NULL) {
+			ret = -ENODEV;
+			break;
+		}
 		*((u32 *)data) = smmu_domain->cfg.procid;
 		ret = 0;
 		break;
@@ -2674,8 +2681,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	case DOMAIN_ATTR_PAGE_TABLE_IS_COHERENT:
-		if (!smmu_domain->smmu)
-			return -ENODEV;
+		if (!smmu_domain->smmu) {
+			ret = -ENODEV;
+			break;
+		}
 		*((int *)data) = is_iommu_pt_coherent(smmu_domain);
 		ret = 0;
 		break;
@@ -2690,8 +2699,10 @@ static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 		ret = 0;
 		break;
 	default:
-		return -ENODEV;
+		ret = -ENODEV;
+		break;
 	}
+	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 }
 
