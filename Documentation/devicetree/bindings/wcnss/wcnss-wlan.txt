@@ -51,7 +51,8 @@ in TX data path and correct voting to RPM will be decided for booting.
 	1      -  WCN RPM power collapse enabled
 	1      -  WCN standalone power collapse enabled
 	6      -  GPIO strength value
-
+- qcom,has-vsys-adc-channel: boolean flag to determine which ADC HW channel need
+to use for VBATT feature.
 
 Example:
 
