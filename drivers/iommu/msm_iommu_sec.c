@@ -1009,6 +1009,27 @@ static int msm_iommu_dma_supported(struct iommu_domain *domain,
 	return ((1ULL << 32) - 1) < mask ? 0 : 1;
 }
 
+static int msm_iommu_domain_get_attr(struct iommu_domain *domain,
+				enum iommu_attr attr, void *data)
+{
+	struct msm_iommu_priv *priv = domain->priv;
+	struct msm_iommu_ctx_drvdata *ctx_drvdata;
+
+	switch (attr) {
+	case DOMAIN_ATTR_CONTEXT_BANK:
+		if (list_empty(&priv->list_attached))
+			return -ENODEV;
+
+		ctx_drvdata = list_first_entry(&priv->list_attached,
+			struct msm_iommu_ctx_drvdata, attached_elm);
+		*((unsigned int *) data) = ctx_drvdata->num;
+		break;
+	default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
 static struct iommu_ops msm_iommu_ops = {
 	.domain_init = msm_iommu_domain_init,
 	.domain_destroy = msm_iommu_domain_destroy,
@@ -1022,6 +1043,7 @@ static struct iommu_ops msm_iommu_ops = {
 	.iova_to_phys = msm_iommu_iova_to_phys,
 	.capable = msm_iommu_capable,
 	.pgsize_bitmap = MSM_IOMMU_PGSIZES,
+	.domain_get_attr = msm_iommu_domain_get_attr,
 	.dma_supported = msm_iommu_dma_supported,
 };
 
