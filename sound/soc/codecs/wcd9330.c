@@ -8420,18 +8420,39 @@ static struct wcd_cpe_core *tomtom_codec_get_cpe_core(
 static int tomtom_codec_fll_enable(struct snd_soc_codec *codec,
 				   bool enable)
 {
-	if (enable) {
+	struct wcd9xxx *wcd9xxx;
+
+	if (!codec || !codec->control_data) {
+		pr_err("%s: Invalid codec handle, %p\n",
+		       __func__, codec);
+		return -EINVAL;
+	}
+
+	wcd9xxx = codec->control_data;
+
+	dev_dbg(codec->dev, "%s: %s, mclk_rate = %d\n",
+		__func__, (enable ? "enable" : "disable"),
+		wcd9xxx->mclk_rate);
+
+	switch (wcd9xxx->mclk_rate) {
+	case TOMTOM_MCLK_CLK_9P6MHZ:
+		snd_soc_update_bits(codec, TOMTOM_A_FLL_NREF,
+				    0x1F, 0x15);
 		snd_soc_update_bits(codec, TOMTOM_A_FLL_KDCO_TUNE,
-				    0x07, 0x05);
-		snd_soc_write(codec, TOMTOM_A_FLL_LOCK_THRESH,
-			      0xC2);
+				    0x07, 0x06);
+		snd_soc_write(codec, TOMTOM_A_FLL_LOCK_THRESH, 0xD1);
 		snd_soc_write(codec, TOMTOM_A_FLL_LOCK_DET_COUNT,
 			      0x40);
-		snd_soc_update_bits(codec, TOMTOM_A_FLL_TEST_ENABLE,
-				    0x06, 0x06);
-	} else {
+		break;
+	case TOMTOM_MCLK_CLK_12P288MHZ:
+		snd_soc_update_bits(codec, TOMTOM_A_FLL_NREF,
+				    0x1F, 0x11);
 		snd_soc_update_bits(codec, TOMTOM_A_FLL_KDCO_TUNE,
-				    0x80, 0x00);
+				    0x07, 0x05);
+		snd_soc_write(codec, TOMTOM_A_FLL_LOCK_THRESH, 0xB1);
+		snd_soc_write(codec, TOMTOM_A_FLL_LOCK_DET_COUNT,
+			      0x40);
+		break;
 	}
 
 	return 0;
