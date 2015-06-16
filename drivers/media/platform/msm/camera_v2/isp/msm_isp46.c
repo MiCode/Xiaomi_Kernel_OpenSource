@@ -311,6 +311,12 @@ static void msm_vfe46_process_input_irq(struct vfe_device *vfe_dev,
 	if (!(irq_status0 & 0x1000003))
 		return;
 
+	if (irq_status0 & 0x1)
+		vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id++;
+
+	if (vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id == 0)
+		vfe_dev->axi_data.src_info[VFE_PIX_0].camif_sof_frame_id = 1;
+
 	if (irq_status0 & (1 << 24)) {
 		ISP_DBG("%s: Fetch Engine Read IRQ\n", __func__);
 		msm_isp_fetch_engine_done_notify(vfe_dev,
@@ -430,6 +436,8 @@ static void msm_vfe46_process_reg_update(struct vfe_device *vfe_dev,
 	uint32_t shift_irq;
 	uint8_t reg_updated = 0;
 	unsigned long flags;
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	uint32_t j = 0;
 
 	if (!(irq_status0 & 0xF0))
 		return;
@@ -443,6 +451,15 @@ static void msm_vfe46_process_reg_update(struct vfe_device *vfe_dev,
 				(uint32_t)BIT(i));
 			switch (i) {
 			case VFE_PIX_0:
+				for (j = 0; j < MAX_NUM_STREAM; j++) {
+					stream_info =
+						&vfe_dev->axi_data.
+							stream_info[j];
+					stream_info->prev_framedrop_pattern =
+						stream_info->framedrop_pattern;
+					stream_info->prev_framedrop_period =
+						stream_info->framedrop_period;
+				}
 				msm_isp_notify(vfe_dev, ISP_EVENT_REG_UPDATE,
 					VFE_PIX_0, ts);
 				if (atomic_read(
@@ -480,7 +497,7 @@ static void msm_vfe46_process_reg_update(struct vfe_device *vfe_dev,
 	}
 
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
-	if (vfe_dev->reg_update_requested == reg_updated)
+	if (reg_updated & BIT(VFE_PIX_0))
 		vfe_dev->reg_updated = 1;
 
 	vfe_dev->reg_update_requested &= ~reg_updated;
@@ -534,6 +551,8 @@ static void msm_vfe46_reg_update(struct vfe_device *vfe_dev,
 	ISP_DBG("%s update_mask %x\n", __func__, update_mask);
 
 	spin_lock_irqsave(&vfe_dev->reg_update_lock, flags);
+	vfe_dev->axi_data.src_info[VFE_PIX_0].reg_update_frame_id =
+		vfe_dev->axi_data.src_info[VFE_PIX_0].frame_id;
 	vfe_dev->reg_update_requested |= update_mask;
 	msm_camera_io_w_mb(vfe_dev->reg_update_requested,
 		vfe_dev->vfe_base + 0x3D8);
