@@ -80,14 +80,15 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 	}
 
 	if (enable) {
-		res = usb_bam_connect(idx, &(bam_info.usb_bam_pipe_idx));
+		res = usb_bam_connect(usb_bam_type, idx,
+					&(bam_info.usb_bam_pipe_idx));
 		bam_info.data_fifo =
 			kzalloc(sizeof(struct sps_mem_buffer), GFP_KERNEL);
 		if (!bam_info.data_fifo) {
 			pr_err("qdss_data_connection: memory alloc failed\n");
 			return -ENOMEM;
 		}
-		get_bam2bam_connection_info(idx,
+		get_bam2bam_connection_info(usb_bam_type, idx,
 			&bam_info.usb_bam_handle,
 			&bam_info.usb_bam_pipe_idx, &bam_info.peer_pipe_idx,
 			NULL, bam_info.data_fifo, NULL);
@@ -99,7 +100,7 @@ static int set_qdss_data_connection(struct usb_gadget *gadget,
 					     bam_info.usb_bam_pipe_idx);
 	} else {
 		kfree(bam_info.data_fifo);
-		res = usb_bam_disconnect_pipe(idx);
+		res = usb_bam_disconnect_pipe(usb_bam_type, idx);
 		if (res) {
 			pr_err("usb_bam_disconnection error\n");
 			return res;
