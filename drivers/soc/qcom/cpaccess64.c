@@ -31,6 +31,7 @@
 #include <asm/cacheflush.h>
 #include <asm/smp_plat.h>
 #include <asm/mmu.h>
+#include <soc/qcom/kryo-l2-accessors.h>
 
 #define TYPE_MAX_CHARACTERS 20
 
@@ -38,6 +39,7 @@
  * CP parameters
  */
 struct cp_params {
+	unsigned long il2index;
 	unsigned long op0;
 	unsigned long op1;
 	unsigned long op2;
@@ -48,14 +50,74 @@ struct cp_params {
 };
 
 static struct semaphore cp_sem;
+static unsigned long il2_output;
 static int cpu;
 char type[TYPE_MAX_CHARACTERS] = "S";
 
 static DEFINE_PER_CPU(struct cp_params, cp_param)
-	 = { 3, 0, 0, 0, 0, 0, 'r' };
+	 = { 0, 3, 0, 0, 0, 0, 0, 'r' };
 
 static void get_asm_value(void *ret);
 void cpaccess_dummy_inst(void);
+
+/*
+ * do_read_il2 - Read indirect L2 registers
+ * @ret:Pointerto return value
+ */
+static void do_read_il2(void *ret)
+{
+	*(unsigned long *)ret =
+		get_l2_indirect_reg(per_cpu(cp_param.il2index, cpu));
+}
+
+/*
+ * do_write_il2 - Write indirect L2 registers
+ * @ret:Pointerto return value
+ */
+static void do_write_il2(void *ret)
+{
+	set_l2_indirect_reg(per_cpu(cp_param.il2index, cpu),
+		per_cpu(cp_param.write_value, cpu));
+	*(unsigned long *)ret =
+	get_l2_indirect_reg(per_cpu(cp_param.il2index, cpu));
+}
+
+/*
+ * do_il2_rw - Call Read/Write indirect L2 register functions
+ * @ret:Pointerto return value in case of CP register
+ */
+static int do_il2_rw(char *str_tmp)
+{
+	unsigned long write_value, il2index;
+	char rw;
+	int rc;
+
+	il2index = 0;
+	rc = sscanf(str_tmp, "%lx:%c:%lx:%d", &il2index, &rw, &write_value,
+		&cpu);
+	if (rc < 4) {
+		pr_err("cpaccess: Invalid L2 syntax\n");
+		il2_output = 0;
+		return 0;
+	}
+	per_cpu(cp_param.il2index, cpu) = il2index;
+	per_cpu(cp_param.rw, cpu) = rw;
+	per_cpu(cp_param.write_value, cpu) = write_value;
+
+	if (per_cpu(cp_param.rw, cpu) == 'r') {
+		if (smp_call_function_single(cpu, do_read_il2,
+			&il2_output, 1))
+			pr_err("Error cpaccess smp call single\n");
+	} else if (per_cpu(cp_param.rw, cpu) == 'w') {
+		if (smp_call_function_single(cpu, do_write_il2,
+			&il2_output, 1))
+			pr_err("Error cpaccess smp call single\n");
+	} else {
+		pr_err("cpaccess: Wrong Entry for 'r' or 'w'.\n");
+		return -EINVAL;
+	}
+	return 0;
+}
 
 /*
  * get_asm_value - Dummy function
@@ -158,7 +220,9 @@ static int get_register_params(char *str_tmp)
 
 		if (per_cpu(cp_param.rw, cpu) == 'w')
 			do_cpregister_rw(1);
-	} else {
+	} else if (strncasecmp(type, "IL2", TYPE_MAX_CHARACTERS) == 0)
+		do_il2_rw(str_tmp);
+	else {
 		pr_err("cpaccess: Not a valid type. Entered: %s\n", type);
 		return -EINVAL;
 	}
@@ -212,6 +276,9 @@ static ssize_t cp_register_read_sysfs(
 	if (strncasecmp(type, "S", TYPE_MAX_CHARACTERS) == 0)
 		ret = snprintf(buf, TYPE_MAX_CHARACTERS, "%llx\n",
 					do_cpregister_rw(0));
+	else if (strncasecmp(type, "IL2", TYPE_MAX_CHARACTERS) == 0)
+		ret = snprintf(buf, TYPE_MAX_CHARACTERS, "%lx\n",
+					    il2_output);
 	else
 		ret = -EINVAL;
 
