@@ -25,7 +25,7 @@
 	qcom,msm-id = <246 0x20001>;
 };
 
-&apc0_vreg {
+&apc0_pwrcl_vreg {
 	qcom,ldo-disable;
 };
 

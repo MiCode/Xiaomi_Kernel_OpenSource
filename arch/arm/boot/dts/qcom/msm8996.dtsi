@@ -739,9 +739,9 @@
 		      <0x00070130    0x8>,
 		      <0x09820000 0x1000>;
 		reg-names = "pwrcl_pll", "perfcl_pll", "cbf_pll", "pwrcl_mux", "perfcl_mux", "cbf_mux", "efuse", "debug";
-		vdd-pwrcl-supply = <&apc0_vreg>;
+		vdd-pwrcl-supply = <&apc0_pwrcl_vreg>;
 		vdd-perfcl-supply = <&apc1_vreg>;
-		vdd-cbf-supply = <&apc0_vreg>;
+		vdd-cbf-supply = <&apc0_cbf_vreg>;
 		vdd-dig-supply = <&pm8994_s2_corner_ao>;
 		cbf-dev = <&m4m_cache>;
 		qcom,pwrcl-speedbin0-v0 =
@@ -786,14 +786,14 @@
 		qcom,cbf-speedbin0-v0 =
 			<	   0  0 >,
 			<  307200000  2 >,
-			<  384000000  4 >,
-			<  499200000  6 >,
-			<  595200000  6 >,
-			<  691200000  8 >,
-			<  787200000  9 >,
-			<  883200000 10 >,
-			<  960000000 11 >,
-			< 1036800000 19 >;
+			<  384000000  3 >,
+			<  499200000  4 >,
+			<  595200000  5 >,
+			<  691200000  6 >,
+			<  787200000  7 >,
+			<  883200000  8 >,
+			<  960000000  9 >,
+			< 1036800000 10 >;
 		clock-names = "xo_ao", "aux_clk";
 		clocks = <&clock_gcc clk_cxo_clk_src_ao>,
 			 <&clock_gcc clk_gpll0_ao>;
