@@ -74,6 +74,7 @@ Optional Properties:
 - qcom,fastchg-ma:		Specifies the maximum fastcharge current.
 				The possible range for fastcharge current is
 				from 300mA to 3000mA.
+- qcom,id-line-not-connected:	Specifies if smb135x charger is not monitoring the USB_ID line.
 
 Example:
 	i2c@f9967000 {
