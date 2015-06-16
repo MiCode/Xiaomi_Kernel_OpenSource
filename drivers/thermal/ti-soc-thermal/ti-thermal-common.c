@@ -28,7 +28,6 @@
 #include <linux/kernel.h>
 #include <linux/workqueue.h>
 #include <linux/thermal.h>
-#include <linux/cpufreq.h>
 #include <linux/cpumask.h>
 #include <linux/cpu_cooling.h>
 #include <linux/of.h>
@@ -147,7 +146,8 @@ static int ti_thermal_bind(struct thermal_zone_device *thermal,
 	return thermal_zone_bind_cooling_device(thermal, 0, cdev,
 	/* bind with min and max states defined by cpu_cooling */
 						THERMAL_NO_LIMIT,
-						THERMAL_NO_LIMIT);
+						THERMAL_NO_LIMIT,
+						THERMAL_WEIGHT_DEFAULT);
 }
 
 /* Unbind callback functions for thermal zone */
@@ -286,6 +286,11 @@ static int ti_thermal_get_crit_temp(struct thermal_zone_device *thermal,
 	return ti_thermal_get_trip_temp(thermal, OMAP_TRIP_NUMBER - 1, temp);
 }
 
+static const struct thermal_zone_of_device_ops ti_of_thermal_ops = {
+	.get_temp = __ti_thermal_get_temp,
+	.get_trend = __ti_thermal_get_trend,
+};
+
 static struct thermal_zone_device_ops ti_thermal_ops = {
 	.get_temp = ti_thermal_get_temp,
 	.get_trend = ti_thermal_get_trend,
@@ -333,8 +338,7 @@ int ti_thermal_expose_sensor(struct ti_bandgap *bgp, int id,
 
 	/* in case this is specified by DT */
 	data->ti_thermal = thermal_zone_of_sensor_register(bgp->dev, id,
-					data, __ti_thermal_get_temp,
-					__ti_thermal_get_trend);
+					data, &ti_of_thermal_ops);
 	if (IS_ERR(data->ti_thermal)) {
 		/* Create thermal zone */
 		data->ti_thermal = thermal_zone_device_register(domain,
@@ -402,11 +406,6 @@ int ti_thermal_register_cpu_cooling(struct ti_bandgap *bgp, int id)
 
 	if (!data)
 		return -EINVAL;
-
-	if (!cpufreq_get_current_driver()) {
-		dev_dbg(bgp->dev, "no cpufreq driver yet\n");
-		return -EPROBE_DEFER;
-	}
 
 	/* Register cooling device */
 	data->cool_dev = cpufreq_cooling_register(cpu_present_mask);
