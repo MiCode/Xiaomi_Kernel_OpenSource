@@ -143,6 +143,7 @@ static void *def_codec_mbhc_cal(void);
 static void *def_tasha_mbhc_cal(void);
 static int msm_snd_enable_codec_ext_clk(struct snd_soc_codec *codec,
 					int enable, bool dapm);
+static int msm8996_wsa881x_init(struct snd_soc_component *component);
 
 static struct wcd_mbhc_config wcd_mbhc_cfg = {
 	.read_fw_bin = false,
@@ -1375,36 +1376,6 @@ static int msm8996_codec_event_cb(struct snd_soc_codec *codec,
 			__func__, codec_event);
 		return -EINVAL;
 	}
-}
-
-static int msm8996_wsa881x_init(struct snd_soc_component *component)
-{
-	u8 spkleft_ports[WSA881X_MAX_SWR_PORTS] = {100, 101, 102, 106};
-	u8 spkright_ports[WSA881X_MAX_SWR_PORTS] = {103, 104, 105, 107};
-	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
-	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
-	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
-
-	if (!codec->component.name) {
-		pr_err("%s codec_name is NULL\n", __func__);
-		return -EINVAL;
-	}
-	dev_dbg(codec->dev, "%s codec_name: %s\n", __func__,
-		codec->component.name);
-	if (!strcmp(codec->component.name, "wsa881x.20170212")) {
-		wsa881x_set_channel_map(codec, &spkleft_ports[0],
-				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
-				&ch_rate[0]);
-	} else if (!strcmp(codec->component.name, "wsa881x.20170211")) {
-		wsa881x_set_channel_map(codec, &spkright_ports[0],
-				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
-				&ch_rate[0]);
-	} else {
-		dev_err(codec->dev, "%s: wrong codec name %s\n", __func__,
-			codec->component.name);
-		return -EINVAL;
-	}
-	return 0;
 }
 
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
@@ -3156,6 +3127,40 @@ static struct snd_soc_codec_conf msm8996_codec_conf[] = {
 		.name_prefix = "SpkrRight",
 	},
 };
+
+static int msm8996_wsa881x_init(struct snd_soc_component *component)
+{
+	u8 spkleft_ports[WSA881X_MAX_SWR_PORTS] = {100, 101, 102, 106};
+	u8 spkright_ports[WSA881X_MAX_SWR_PORTS] = {103, 104, 105, 107};
+	unsigned int ch_rate[WSA881X_MAX_SWR_PORTS] = {2400, 600, 300, 1200};
+	unsigned int ch_mask[WSA881X_MAX_SWR_PORTS] = {0x1, 0xF, 0x3, 0x3};
+	struct snd_soc_codec *codec = snd_soc_component_to_codec(component);
+
+	if (!codec) {
+		pr_err("%s codec is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (component->dev->of_node == msm8996_aux_dev[0].codec_of_node) {
+		dev_dbg(codec->dev, "%s: setting left ch map to codec %s\n",
+			__func__, codec->component.name);
+		wsa881x_set_channel_map(codec, &spkleft_ports[0],
+				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
+				&ch_rate[0]);
+	} else if (component->dev->of_node ==
+		   msm8996_aux_dev[1].codec_of_node) {
+		dev_dbg(codec->dev, "%s: setting right ch map to codec %s\n",
+			__func__, codec->component.name);
+		wsa881x_set_channel_map(codec, &spkright_ports[0],
+				WSA881X_MAX_SWR_PORTS, &ch_mask[0],
+				&ch_rate[0]);
+	} else {
+		dev_err(codec->dev, "%s: wrong codec name %s\n", __func__,
+			codec->component.name);
+		return -EINVAL;
+	}
+	return 0;
+}
 
 struct snd_soc_card snd_soc_card_tomtom_msm8996 = {
 	.name		= "msm8996-tomtom-snd-card",
