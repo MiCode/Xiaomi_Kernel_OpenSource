@@ -391,8 +391,7 @@ static void msm_vfe40_init_hardware_reg(struct vfe_device *vfe_dev)
 		vbif_parms.settings = "vbif-v2-settings";
 		break;
 	default:
-		pr_err("%s: QOS and VBIF is NOT configured for HW Version %x\n",
-			__func__, vfe_dev->vfe_hw_version);
+		ISP_DBG("%s: No special QOS\n", __func__);
 	}
 
 	msm_vfe40_init_qos_parms(vfe_dev, &qos_parms, &ds_parms);
