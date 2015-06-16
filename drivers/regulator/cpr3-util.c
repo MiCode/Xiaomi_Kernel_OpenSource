@@ -41,25 +41,49 @@
 #define CPR3_IDLE_CLOCKS_MAX		31
 
 /**
- * cpr3_get_thread_name() - loads the name of the thread specified in device
- *			    tree into thread->name
+ * cpr3_allocate_regulators() - allocate and initialize CPR3 regulators for a
+ *		given thread based upon device tree data
  * @thread:		Pointer to the CPR3 thread
- * @thread_node:	Device node pointer for the CPR3 thread device node
  *
- * Stores the name specified in device tree via regulator-name into
- * thread->name.
+ * This function allocates the thread->vreg array based upon the number of
+ * device tree regulator subnodes.  It also initializes generic elements of each
+ * regulator struct such as name, of_node, and thread.
  *
  * Return: 0 on success, errno on failure
  */
-int cpr3_get_thread_name(struct cpr3_thread *thread,
-			struct device_node *thread_node) {
-	int rc;
+static int cpr3_allocate_regulators(struct cpr3_thread *thread)
+{
+	struct device_node *node;
+	int i, rc;
 
-	rc = of_property_read_string(thread_node, "regulator-name",
-					&thread->name);
-	if (rc)
-		pr_err("Could not find name for CPR3 thread, rc=%d\n", rc);
-	return rc;
+	thread->vreg_count = 0;
+
+	for_each_available_child_of_node(thread->of_node, node) {
+		thread->vreg_count++;
+	}
+
+	thread->vreg = devm_kcalloc(thread->ctrl->dev, thread->vreg_count,
+			sizeof(*thread->vreg), GFP_KERNEL);
+	if (!thread->vreg)
+		return -ENOMEM;
+
+	i = 0;
+	for_each_available_child_of_node(thread->of_node, node) {
+		thread->vreg[i].of_node = node;
+		thread->vreg[i].thread = thread;
+
+		rc = of_property_read_string(node, "regulator-name",
+						&thread->vreg[i].name);
+		if (rc) {
+			dev_err(thread->ctrl->dev, "could not find regulator name, rc=%d\n",
+				rc);
+			return rc;
+		}
+
+		i++;
+	}
+
+	return 0;
 }
 
 /**
@@ -71,7 +95,7 @@ int cpr3_get_thread_name(struct cpr3_thread *thread,
  *
  * This function allocates the ctrl->thread array based upon the number of
  * device tree thread subnodes.  It also initializes generic elements of each
- * thread struct such as thread_id, name, of_node, and ctrl.
+ * thread struct such as thread_id, of_node, ctrl, and vreg array.
  *
  * Return: 0 on success, errno on failure
  */
@@ -98,12 +122,6 @@ int cpr3_allocate_threads(struct cpr3_controller *ctrl, u32 min_thread_id,
 		ctrl->thread[i].of_node = thread_node;
 		ctrl->thread[i].ctrl = ctrl;
 
-		rc = cpr3_get_thread_name(&ctrl->thread[i], thread_node);
-		if (rc) {
-			dev_err(dev, "could not find thread name, rc=%d\n", rc);
-			return rc;
-		}
-
 		rc = of_property_read_u32(thread_node, "qcom,cpr-thread-id",
 					  &ctrl->thread[i].thread_id);
 		if (rc) {
@@ -129,6 +147,10 @@ int cpr3_allocate_threads(struct cpr3_controller *ctrl, u32 min_thread_id,
 				return -EINVAL;
 			}
 		}
+
+		rc = cpr3_allocate_regulators(&ctrl->thread[i]);
+		if (rc)
+			return rc;
 
 		i++;
 	}
@@ -262,7 +284,7 @@ u64 cpr3_interpolate(u64 x1, u64 y1, u64 x2, u64 y2, u64 x)
 /**
  * cpr3_parse_array_property() - fill an array from a portion of the values
  *				specified for a device tree property
- * @thread:		Pointer to the CPR3 thread
+ * @vreg:		Pointer to the CPR3 regulator
  * @corner_count:	The number of corners
  * @corner_sum:		The sum of the corner counts across all fuse combos
  * @combo_offset:	The array offset for the selected fuse combo
@@ -279,16 +301,16 @@ u64 cpr3_interpolate(u64 x1, u64 y1, u64 x2, u64 y2, u64 x)
  *
  * Return: 0 on success, errno on failure
  */
-int cpr3_parse_array_property(struct cpr3_thread *thread,
+int cpr3_parse_array_property(struct cpr3_regulator *vreg,
 		const char *prop_name, int corner_count, int corner_sum,
 		int combo_offset, u32 *out)
 {
-	struct device_node *node = thread->of_node;
+	struct device_node *node = vreg->of_node;
 	int len = 0;
 	int i, offset, rc;
 
 	if (!of_find_property(node, prop_name, &len)) {
-		cpr3_err(thread, "property %s is missing\n", prop_name);
+		cpr3_err(vreg, "property %s is missing\n", prop_name);
 		return -EINVAL;
 	}
 
@@ -297,7 +319,7 @@ int cpr3_parse_array_property(struct cpr3_thread *thread,
 	} else if (len == corner_sum * sizeof(u32)) {
 		offset = combo_offset;
 	} else {
-		cpr3_err(thread, "property %s has invalid length=%d, should be %lu or %lu\n",
+		cpr3_err(vreg, "property %s has invalid length=%d, should be %lu or %lu\n",
 			prop_name, len, corner_count * sizeof(u32),
 			corner_sum * sizeof(u32));
 		return -EINVAL;
@@ -307,7 +329,7 @@ int cpr3_parse_array_property(struct cpr3_thread *thread,
 		rc = of_property_read_u32_index(node, prop_name, offset + i,
 						&out[i]);
 		if (rc) {
-			cpr3_err(thread, "error reading property %s, rc=%d\n",
+			cpr3_err(vreg, "error reading property %s, rc=%d\n",
 				prop_name, rc);
 			return rc;
 		}
@@ -319,31 +341,32 @@ int cpr3_parse_array_property(struct cpr3_thread *thread,
 /**
  * cpr3_parse_common_corner_data() - parse common CPR3 properties relating to
  *					the corners supported by a CPR3
- *					thread from device tree.
- * @thread:		Pointer to the CPR3 thread
+ *					regulator from device tree.
+ * @vreg:		Pointer to the CPR3 regulator
  * @corner_sum:		Pointer which is output with the sum of the corner
  *			counts across all fuse combos
  * @combo_offset:	Pointer which is output with the array offset for the
  *			selected fuse combo
  *
  * This function reads, validates, and utilizes the following device tree
- * properties: qcom,cpr-fuse-corners, qcom,voltage-step, qcom,cpr-fuse-combos,
- * qcom,cpr-corners, qcom,cpr-voltage-ceiling, qcom,cpr-voltage-floor,
- * qcom,corner-frequencies, and qcom,cpr-corner-fmax-map.
+ * properties: qcom,cpr-fuse-corners, qcom,cpr-fuse-combos, qcom,cpr-corners,
+ * qcom,cpr-voltage-ceiling, qcom,cpr-voltage-floor, qcom,corner-frequencies,
+ * and qcom,cpr-corner-fmax-map.
  *
- * It initializes these thread elements: step_volt, corner_count, corner.  It
+ * It initializes these CPR3 regulator elements: corner and corner_count.  It
  * initializes these elements for each corner: ceiling_volt, floor_volt,
  * proc_freq, and cpr_fuse_corner.
  *
- * It requires that the following thread elements be initialized before being
- * called: fuse_corner_count, fuse_combo.
+ * It requires that the following CPR3 regulator elements be initialized before
+ * being called: fuse_corner_count, fuse_combo.
  *
  * Return: 0 on success, errno on failure
  */
-int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
-				int *combo_offset)
+int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg,
+		int *corner_sum, int *combo_offset)
 {
-	struct device_node *node = thread->of_node;
+	struct device_node *node = vreg->of_node;
+	struct cpr3_controller *ctrl = vreg->thread->ctrl;
 	u32 max_fuse_combos, fuse_corners;
 	u32 *combo_corners;
 	u32 *temp;
@@ -351,34 +374,21 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 
 	rc = of_property_read_u32(node, "qcom,cpr-fuse-corners", &fuse_corners);
 	if (rc) {
-		cpr3_err(thread, "error reading property qcom,cpr-fuse-corners, rc=%d\n",
+		cpr3_err(vreg, "error reading property qcom,cpr-fuse-corners, rc=%d\n",
 			rc);
 		return rc;
 	}
 
-	if (thread->fuse_corner_count != fuse_corners) {
-		cpr3_err(thread, "device tree config supports %d fuse corners but the hardware has %d fuse corners\n",
-			fuse_corners, thread->fuse_corner_count);
-		return -EINVAL;
-	}
-
-	rc = of_property_read_u32(node, "qcom,voltage-step",
-				&thread->step_volt);
-	if (rc) {
-		cpr3_err(thread, "error reading property qcom,voltage-step, rc=%d\n",
-			rc);
-		return rc;
-	}
-	if (thread->step_volt <= 0) {
-		cpr3_err(thread, "qcom,voltage-step=%d is invalid\n",
-			thread->step_volt);
+	if (vreg->fuse_corner_count != fuse_corners) {
+		cpr3_err(vreg, "device tree config supports %d fuse corners but the hardware has %d fuse corners\n",
+			fuse_corners, vreg->fuse_corner_count);
 		return -EINVAL;
 	}
 
 	rc = of_property_read_u32(node, "qcom,cpr-fuse-combos",
 				&max_fuse_combos);
 	if (rc) {
-		cpr3_err(thread, "error reading property qcom,cpr-fuse-combos, rc=%d\n",
+		cpr3_err(vreg, "error reading property qcom,cpr-fuse-combos, rc=%d\n",
 			rc);
 		return rc;
 	}
@@ -388,18 +398,18 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 	 * memory allocation.
 	 */
 	if (max_fuse_combos > 100 || max_fuse_combos == 0) {
-		cpr3_err(thread, "qcom,cpr-fuse-combos is invalid: %u\n",
+		cpr3_err(vreg, "qcom,cpr-fuse-combos is invalid: %u\n",
 			max_fuse_combos);
 		return -EINVAL;
 	}
 
-	if (thread->fuse_combo >= max_fuse_combos) {
-		cpr3_err(thread, "device tree config supports fuse combos 0-%u but the hardware has config %d\n",
-			max_fuse_combos - 1, thread->fuse_combo);
+	if (vreg->fuse_combo >= max_fuse_combos) {
+		cpr3_err(vreg, "device tree config supports fuse combos 0-%u but the hardware has config %d\n",
+			max_fuse_combos - 1, vreg->fuse_combo);
 		return -EINVAL;
 	}
 
-	thread->fuse_combos_supported = max_fuse_combos;
+	vreg->fuse_combos_supported = max_fuse_combos;
 
 	combo_corners = kcalloc(max_fuse_combos, sizeof(*combo_corners),
 				GFP_KERNEL);
@@ -416,7 +426,7 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 			combo_corners[i] = combo_corners[0];
 	}
 	if (rc) {
-		cpr3_err(thread, "error reading property qcom,cpr-corners, rc=%d\n",
+		cpr3_err(vreg, "error reading property qcom,cpr-corners, rc=%d\n",
 			rc);
 		kfree(combo_corners);
 		return rc;
@@ -426,98 +436,98 @@ int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
 	*corner_sum = 0;
 	for (i = 0; i < max_fuse_combos; i++) {
 		*corner_sum += combo_corners[i];
-		if (i < thread->fuse_combo)
+		if (i < vreg->fuse_combo)
 			*combo_offset += combo_corners[i];
 	}
 
-	thread->corner_count = combo_corners[thread->fuse_combo];
+	vreg->corner_count = combo_corners[vreg->fuse_combo];
 
 	kfree(combo_corners);
 
-	thread->corner = devm_kcalloc(thread->ctrl->dev, thread->corner_count,
-			sizeof(*thread->corner), GFP_KERNEL);
-	temp = kcalloc(thread->corner_count, sizeof(*temp), GFP_KERNEL);
-	if (!thread->corner || !temp)
+	vreg->corner = devm_kcalloc(ctrl->dev, vreg->corner_count,
+			sizeof(*vreg->corner), GFP_KERNEL);
+	temp = kcalloc(vreg->corner_count, sizeof(*temp), GFP_KERNEL);
+	if (!vreg->corner || !temp)
 		return -ENOMEM;
 
-	rc = cpr3_parse_array_property(thread, "qcom,cpr-voltage-ceiling",
-			thread->corner_count, *corner_sum, *combo_offset, temp);
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-voltage-ceiling",
+			vreg->corner_count, *corner_sum, *combo_offset, temp);
 	if (rc)
 		goto free_temp;
-	for (i = 0; i < thread->corner_count; i++)
-		thread->corner[i].ceiling_volt
-			= CPR3_ROUND(temp[i], thread->step_volt);
+	for (i = 0; i < vreg->corner_count; i++)
+		vreg->corner[i].ceiling_volt
+			= CPR3_ROUND(temp[i], ctrl->step_volt);
 
-	rc = cpr3_parse_array_property(thread, "qcom,cpr-voltage-floor",
-			thread->corner_count, *corner_sum, *combo_offset, temp);
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-voltage-floor",
+			vreg->corner_count, *corner_sum, *combo_offset, temp);
 	if (rc)
 		goto free_temp;
-	for (i = 0; i < thread->corner_count; i++)
-		thread->corner[i].floor_volt
-			= CPR3_ROUND(temp[i], thread->step_volt);
+	for (i = 0; i < vreg->corner_count; i++)
+		vreg->corner[i].floor_volt
+			= CPR3_ROUND(temp[i], ctrl->step_volt);
 
 	/* Validate ceiling and floor values */
-	for (i = 0; i < thread->corner_count; i++) {
-		if (thread->corner[i].floor_volt
-		    > thread->corner[i].ceiling_volt) {
-			cpr3_err(thread, "CPR floor[%d]=%d > ceiling[%d]=%d uV\n",
-				i, thread->corner[i].floor_volt,
-				i, thread->corner[i].ceiling_volt);
+	for (i = 0; i < vreg->corner_count; i++) {
+		if (vreg->corner[i].floor_volt
+		    > vreg->corner[i].ceiling_volt) {
+			cpr3_err(vreg, "CPR floor[%d]=%d > ceiling[%d]=%d uV\n",
+				i, vreg->corner[i].floor_volt,
+				i, vreg->corner[i].ceiling_volt);
 			rc = -EINVAL;
 			goto free_temp;
 		}
 	}
 
-	rc = cpr3_parse_array_property(thread, "qcom,corner-frequencies",
-			thread->corner_count, *corner_sum, *combo_offset, temp);
+	rc = cpr3_parse_array_property(vreg, "qcom,corner-frequencies",
+			vreg->corner_count, *corner_sum, *combo_offset, temp);
 	if (rc)
 		goto free_temp;
-	for (i = 0; i < thread->corner_count; i++)
-		thread->corner[i].proc_freq = temp[i];
+	for (i = 0; i < vreg->corner_count; i++)
+		vreg->corner[i].proc_freq = temp[i];
 
 	/* Validate frequencies */
-	for (i = 1; i < thread->corner_count; i++) {
-		if (thread->corner[i].proc_freq
-		    < thread->corner[i - 1].proc_freq) {
-			cpr3_err(thread, "invalid frequency: freq[%d]=%u < freq[%d]=%u\n",
-				i, thread->corner[i].proc_freq, i - 1,
-				thread->corner[i - 1].proc_freq);
+	for (i = 1; i < vreg->corner_count; i++) {
+		if (vreg->corner[i].proc_freq
+		    < vreg->corner[i - 1].proc_freq) {
+			cpr3_err(vreg, "invalid frequency: freq[%d]=%u < freq[%d]=%u\n",
+				i, vreg->corner[i].proc_freq, i - 1,
+				vreg->corner[i - 1].proc_freq);
 			rc = -EINVAL;
 			goto free_temp;
 		}
 	}
 
-	rc = cpr3_parse_array_property(thread, "qcom,cpr-corner-fmax-map",
-		thread->fuse_corner_count,
-		thread->fuse_corner_count * max_fuse_combos,
-		thread->fuse_corner_count * thread->fuse_combo, temp);
+	rc = cpr3_parse_array_property(vreg, "qcom,cpr-corner-fmax-map",
+		vreg->fuse_corner_count,
+		vreg->fuse_corner_count * max_fuse_combos,
+		vreg->fuse_corner_count * vreg->fuse_combo, temp);
 	if (rc)
 		goto free_temp;
-	for (i = 0; i < thread->fuse_corner_count; i++) {
+	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		if (temp[i] < CPR3_CORNER_OFFSET
-		    || temp[i] > thread->corner_count + CPR3_CORNER_OFFSET) {
-			cpr3_err(thread, "invalid corner value specified in qcom,cpr-corner-fmax-map: %u\n",
+		    || temp[i] > vreg->corner_count + CPR3_CORNER_OFFSET) {
+			cpr3_err(vreg, "invalid corner value specified in qcom,cpr-corner-fmax-map: %u\n",
 				temp[i]);
 			rc = -EINVAL;
 			goto free_temp;
 		} else if (i > 0 && temp[i - 1] >= temp[i]) {
-			cpr3_err(thread, "invalid corner %u less than or equal to previous corner %u\n",
+			cpr3_err(vreg, "invalid corner %u less than or equal to previous corner %u\n",
 				temp[i], temp[i - 1]);
 			rc = -EINVAL;
 			goto free_temp;
 		}
 	}
-	if (temp[thread->fuse_corner_count - 1] != thread->corner_count) {
-		cpr3_err(thread, "highest Fmax corner %u in qcom,cpr-corner-fmax-map does not match highest supported corner %d\n",
-			temp[thread->fuse_corner_count - 1],
-			thread->corner_count);
+	if (temp[vreg->fuse_corner_count - 1] != vreg->corner_count) {
+		cpr3_err(vreg, "highest Fmax corner %u in qcom,cpr-corner-fmax-map does not match highest supported corner %d\n",
+			temp[vreg->fuse_corner_count - 1],
+			vreg->corner_count);
 		rc = -EINVAL;
 		goto free_temp;
 	}
-	for (i = 0; i < thread->corner_count; i++) {
-		for (j = 0; j < thread->fuse_corner_count; j++) {
+	for (i = 0; i < vreg->corner_count; i++) {
+		for (j = 0; j < vreg->fuse_corner_count; j++) {
 			if (i + CPR3_CORNER_OFFSET <= temp[j]) {
-				thread->corner[i].cpr_fuse_corner = j;
+				vreg->corner[i].cpr_fuse_corner = j;
 				break;
 			}
 		}
@@ -529,7 +539,7 @@ free_temp:
 }
 
 /**
- * cpr3_parse_u32() - parse the specified property from the CPR3 thread's
+ * cpr3_parse_thread_u32() - parse the specified property from the CPR3 thread's
  *		device tree node and verify that it is within the allowed limits
  * @thread:		Pointer to the CPR3 thread
  * @propname:		The name of the device tree property to read
@@ -542,21 +552,22 @@ free_temp:
  *
  * Return: 0 on success, errno on failure
  */
-int cpr3_parse_u32(struct cpr3_thread *thread, const char *propname,
+int cpr3_parse_thread_u32(struct cpr3_thread *thread, const char *propname,
 		       u32 *out_value, u32 value_min, u32 value_max)
 {
 	int rc;
 
 	rc = of_property_read_u32(thread->of_node, propname, out_value);
 	if (rc) {
-		cpr3_err(thread, "error reading property %s, rc=%d\n",
-			propname, rc);
+		cpr3_err(thread->ctrl, "thread %u error reading property %s, rc=%d\n",
+			thread->thread_id, propname, rc);
 		return rc;
 	}
 
 	if (*out_value < value_min || *out_value > value_max) {
-		cpr3_err(thread, "%s=%u is invalid; allowed range: [%u, %u]\n",
-			propname, *out_value, value_min, value_max);
+		cpr3_err(thread->ctrl, "thread %u %s=%u is invalid; allowed range: [%u, %u]\n",
+			thread->thread_id, propname, *out_value, value_min,
+			value_max);
 		return -EINVAL;
 	}
 
@@ -610,25 +621,25 @@ int cpr3_parse_common_thread_data(struct cpr3_thread *thread)
 {
 	int rc;
 
-	rc = cpr3_parse_u32(thread, "qcom,cpr-consecutive-up",
+	rc = cpr3_parse_thread_u32(thread, "qcom,cpr-consecutive-up",
 			&thread->consecutive_up, CPR3_CONSECUTIVE_UP_DOWN_MIN,
 			CPR3_CONSECUTIVE_UP_DOWN_MAX);
 	if (rc)
 		return rc;
 
-	rc = cpr3_parse_u32(thread, "qcom,cpr-consecutive-down",
+	rc = cpr3_parse_thread_u32(thread, "qcom,cpr-consecutive-down",
 			&thread->consecutive_down, CPR3_CONSECUTIVE_UP_DOWN_MIN,
 			CPR3_CONSECUTIVE_UP_DOWN_MAX);
 	if (rc)
 		return rc;
 
-	rc = cpr3_parse_u32(thread, "qcom,cpr-up-threshold",
+	rc = cpr3_parse_thread_u32(thread, "qcom,cpr-up-threshold",
 			&thread->up_threshold, CPR3_UP_DOWN_THRESHOLD_MIN,
 			CPR3_UP_DOWN_THRESHOLD_MAX);
 	if (rc)
 		return rc;
 
-	rc = cpr3_parse_u32(thread, "qcom,cpr-down-threshold",
+	rc = cpr3_parse_thread_u32(thread, "qcom,cpr-down-threshold",
 			&thread->down_threshold, CPR3_UP_DOWN_THRESHOLD_MIN,
 			CPR3_UP_DOWN_THRESHOLD_MAX);
 	if (rc)
@@ -676,6 +687,19 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	if (rc)
 		return rc;
 
+	rc = of_property_read_u32(ctrl->dev->of_node, "qcom,voltage-step",
+				&ctrl->step_volt);
+	if (rc) {
+		cpr3_err(ctrl, "error reading property qcom,voltage-step, rc=%d\n",
+			rc);
+		return rc;
+	}
+	if (ctrl->step_volt <= 0) {
+		cpr3_err(ctrl, "qcom,voltage-step=%d is invalid\n",
+			ctrl->step_volt);
+		return -EINVAL;
+	}
+
 	rc = cpr3_parse_ctrl_u32(ctrl, "qcom,cpr-count-mode",
 			&ctrl->count_mode, CPR3_COUNT_MODE_ALL_AT_ONCE_MIN,
 			CPR3_COUNT_MODE_STAGGERED);
@@ -715,7 +739,7 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
  * cpr3_limit_open_loop_voltages() - modify the open-loop voltage of each corner
  *				so that it fits within the floor to ceiling
  *				voltage range of the corner
- * @thread:		Pointer to the CPR3 thread
+ * @vreg:		Pointer to the CPR3 regulator
  *
  * This function clips the open-loop voltage for each corner so that it is
  * limited to the floor to ceiling range.  It also rounds each open-loop voltage
@@ -723,20 +747,20 @@ int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
  *
  * Return: 0 on success, errno on failure
  */
-int cpr3_limit_open_loop_voltages(struct cpr3_thread *thread)
+int cpr3_limit_open_loop_voltages(struct cpr3_regulator *vreg)
 {
 	int i, volt;
 
-	cpr3_debug(thread, "open-loop voltages after trimming and rounding:\n");
-	for (i = 0; i < thread->corner_count; i++) {
-		volt = CPR3_ROUND(thread->corner[i].open_loop_volt,
-					thread->step_volt);
-		if (volt < thread->corner[i].floor_volt)
-			volt = thread->corner[i].floor_volt;
-		else if (volt > thread->corner[i].ceiling_volt)
-			volt = thread->corner[i].ceiling_volt;
-		thread->corner[i].open_loop_volt = volt;
-		cpr3_debug(thread, "corner[%2d]: open-loop=%d uV\n", i, volt);
+	cpr3_debug(vreg, "open-loop voltages after trimming and rounding:\n");
+	for (i = 0; i < vreg->corner_count; i++) {
+		volt = CPR3_ROUND(vreg->corner[i].open_loop_volt,
+					vreg->thread->ctrl->step_volt);
+		if (volt < vreg->corner[i].floor_volt)
+			volt = vreg->corner[i].floor_volt;
+		else if (volt > vreg->corner[i].ceiling_volt)
+			volt = vreg->corner[i].ceiling_volt;
+		vreg->corner[i].open_loop_volt = volt;
+		cpr3_debug(vreg, "corner[%2d]: open-loop=%d uV\n", i, volt);
 	}
 
 	return 0;
@@ -745,36 +769,36 @@ int cpr3_limit_open_loop_voltages(struct cpr3_thread *thread)
 /**
  * cpr3_open_loop_voltage_as_ceiling() - configures the ceiling voltage for each
  *		corner to equal the open-loop voltage if the relevant device
- *		tree property is found for the thread
- * @thread:		Pointer to the CPR3 thread
+ *		tree property is found for the CPR3 regulator
+ * @vreg:		Pointer to the CPR3 regulator
  *
  * This function assumes that the the open-loop voltage for each corner has
- * already been rounded to the nearest allowed set point and that it fails
+ * already been rounded to the nearest allowed set point and that it falls
  * within the floor to ceiling range.
  *
  * Return: none
  */
-void cpr3_open_loop_voltage_as_ceiling(struct cpr3_thread *thread)
+void cpr3_open_loop_voltage_as_ceiling(struct cpr3_regulator *vreg)
 {
 	int i;
 
-	if (!of_property_read_bool(thread->of_node,
+	if (!of_property_read_bool(vreg->of_node,
 				"qcom,cpr-scaled-open-loop-voltage-as-ceiling"))
 		return;
 
-	for (i = 0; i < thread->corner_count; i++)
-		thread->corner[i].ceiling_volt
-			= thread->corner[i].open_loop_volt;
+	for (i = 0; i < vreg->corner_count; i++)
+		vreg->corner[i].ceiling_volt
+			= vreg->corner[i].open_loop_volt;
 }
 
 /**
  * cpr3_print_quots() - print CPR target quotients into the kernel log for
  *		debugging purposes
- * @thread:		Pointer to the CPR3 thread
+ * @vreg:		Pointer to the CPR3 regulator
  *
  * Return: none
  */
-void cpr3_print_quots(struct cpr3_thread *thread)
+void cpr3_print_quots(struct cpr3_regulator *vreg)
 {
 	int i, j, pos;
 	size_t buflen;
@@ -785,11 +809,11 @@ void cpr3_print_quots(struct cpr3_thread *thread)
 	if (!buf)
 		return;
 
-	for (i = 0; i < thread->corner_count; i++) {
+	for (i = 0; i < vreg->corner_count; i++) {
 		for (j = 0, pos = 0; j < CPR3_RO_COUNT; j++)
 			pos += scnprintf(buf + pos, buflen - pos, " %u",
-				thread->corner[i].target_quot[j]);
-		cpr3_debug(thread, "target quots[%2d]:%s\n", i, buf);
+				vreg->corner[i].target_quot[j]);
+		cpr3_debug(vreg, "target quots[%2d]:%s\n", i, buf);
 	}
 
 	kfree(buf);
@@ -798,7 +822,7 @@ void cpr3_print_quots(struct cpr3_thread *thread)
 /**
  * cpr3_adjust_fused_open_loop_voltages() - adjust the fused open-loop voltages
  *		for each fuse corner according to device tree values
- * @thread:		Pointer to the CPR3 thread
+ * @vreg:		Pointer to the CPR3 regulator
  * @fuse_volt:		Pointer to an array of the fused open-loop voltage
  *			values
  *
@@ -806,40 +830,40 @@ void cpr3_print_quots(struct cpr3_thread *thread)
  *
  * Return: 0 on success, errno on failure
  */
-int cpr3_adjust_fused_open_loop_voltages(struct cpr3_thread *thread,
+int cpr3_adjust_fused_open_loop_voltages(struct cpr3_regulator *vreg,
 		int *fuse_volt)
 {
 	int i, rc, prev_volt;
 	int *volt_adjust;
 
-	if (!of_find_property(thread->of_node,
+	if (!of_find_property(vreg->of_node,
 			"qcom,cpr-open-loop-voltage-fuse-adjustment", NULL)) {
 		/* No adjustment required. */
 		return 0;
 	}
 
-	volt_adjust = kcalloc(thread->fuse_corner_count, sizeof(*volt_adjust),
+	volt_adjust = kcalloc(vreg->fuse_corner_count, sizeof(*volt_adjust),
 				GFP_KERNEL);
 	if (!volt_adjust)
 		return -ENOMEM;
 
-	rc = cpr3_parse_array_property(thread,
+	rc = cpr3_parse_array_property(vreg,
 		"qcom,cpr-open-loop-voltage-fuse-adjustment",
-		thread->fuse_corner_count,
-		thread->fuse_combos_supported * thread->fuse_corner_count,
-		thread->fuse_combo * thread->fuse_corner_count,
+		vreg->fuse_corner_count,
+		vreg->fuse_combos_supported * vreg->fuse_corner_count,
+		vreg->fuse_combo * vreg->fuse_corner_count,
 		volt_adjust);
 	if (rc) {
-		cpr3_err(thread, "could not load open-loop fused voltage adjustments, rc=%d\n",
+		cpr3_err(vreg, "could not load open-loop fused voltage adjustments, rc=%d\n",
 			rc);
 		goto done;
 	}
 
-	for (i = 0; i < thread->fuse_corner_count; i++) {
+	for (i = 0; i < vreg->fuse_corner_count; i++) {
 		if (volt_adjust[i]) {
 			prev_volt = fuse_volt[i];
 			fuse_volt[i] += volt_adjust[i];
-			cpr3_info(thread, "adjusted fuse corner %d open-loop voltage: %d --> %d uV\n",
+			cpr3_info(vreg, "adjusted fuse corner %d open-loop voltage: %d --> %d uV\n",
 				i, prev_volt, fuse_volt[i]);
 		}
 	}
@@ -852,44 +876,44 @@ done:
 /**
  * cpr3_adjust_open_loop_voltages() - adjust the open-loop voltages for each
  *		corner according to device tree values
- * @thread:		Pointer to the CPR3 thread
+ * @vreg:		Pointer to the CPR3 regulator
  * @corner_sum:		Sum of the corner counts across all fuse combos
  * @combo_offset:	Array offset for the selected fuse combo
  *
  * Return: 0 on success, errno on failure
  */
-int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread, int corner_sum,
+int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg, int corner_sum,
 		int combo_offset)
 {
 	int i, rc, prev_volt;
 	int *volt_adjust;
 
-	if (!of_find_property(thread->of_node,
+	if (!of_find_property(vreg->of_node,
 			"qcom,cpr-open-loop-voltage-adjustment", NULL)) {
 		/* No adjustment required. */
 		return 0;
 	}
 
-	volt_adjust = kcalloc(thread->corner_count, sizeof(*volt_adjust),
+	volt_adjust = kcalloc(vreg->corner_count, sizeof(*volt_adjust),
 				GFP_KERNEL);
 	if (!volt_adjust)
 		return -ENOMEM;
 
-	rc = cpr3_parse_array_property(thread,
+	rc = cpr3_parse_array_property(vreg,
 		"qcom,cpr-open-loop-voltage-adjustment",
-		thread->corner_count, corner_sum, combo_offset, volt_adjust);
+		vreg->corner_count, corner_sum, combo_offset, volt_adjust);
 	if (rc) {
-		cpr3_err(thread, "could not load open-loop voltage adjustments, rc=%d\n",
+		cpr3_err(vreg, "could not load open-loop voltage adjustments, rc=%d\n",
 			rc);
 		goto done;
 	}
 
-	for (i = 0; i < thread->corner_count; i++) {
+	for (i = 0; i < vreg->corner_count; i++) {
 		if (volt_adjust[i]) {
-			prev_volt = thread->corner[i].open_loop_volt;
-			thread->corner[i].open_loop_volt += volt_adjust[i];
-			cpr3_info(thread, "adjusted corner %d open-loop voltage: %d --> %d uV\n",
-				i, prev_volt, thread->corner[i].open_loop_volt);
+			prev_volt = vreg->corner[i].open_loop_volt;
+			vreg->corner[i].open_loop_volt += volt_adjust[i];
+			cpr3_info(vreg, "adjusted corner %d open-loop voltage: %d --> %d uV\n",
+				i, prev_volt, vreg->corner[i].open_loop_volt);
 		}
 	}
 

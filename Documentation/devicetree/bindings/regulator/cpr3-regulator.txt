@@ -15,9 +15,10 @@ to all CPR3 controllers.
 Required Node Structure
 =======================
 
-CPR3 regulators must be described in two levels of devices nodes.  The first
+CPR3 regulators must be described in three levels of devices nodes.  The first
 level describes the CPR3 controller.  The second level describes one or more
-hardware threads managed by the controller.
+hardware threads managed by the controller.  The third level describes one or
+more logical regulators handled by each CPR thread.
 
 ====================================
 First Level Nodes - CPR3 Controllers
@@ -104,6 +105,12 @@ Platform independent properties:
 		    to wait in transitional states.
 		    Supported values: 0 - 31.
 
+- qcom,voltage-step
+	Usage:      required
+	Value type: <u32>
+	Definition: The voltage in microvolts of a single step of the VDD supply
+		    regulator being controlled by CPR.
+
 - qcom,cpr-step-quot-init-min
 	Usage:      required
 	Value type: <u32>
@@ -155,29 +162,6 @@ Platform independent properties:
 	Definition: Specifies the hardware thread ID of this thread within the
 		    CPR controller.
 
-- regulator-name
-	Usage:      required
-	Value type: <string>
-	Definition: Specifies the name for this thread of the CPR controller.
-
-- regulator-min-microvolt
-	Usage:      required
-	Value type: <u32>
-	Definition: Minimum corner value which should be 1 to represent the
-		    lowest supported corner.
-
-- regulator-max-microvolt
-	Usage:      required
-	Value type: <u32>
-	Definition: Maximum corner value which should be equal to largest value
-		    listed in qcom,cpr-corners.
-
-- qcom,voltage-step
-	Usage:      required
-	Value type: <u32>
-	Definition: The voltage in microvolts of a single step of the VDD supply
-		    regulator being controlled by CPR.
-
 - qcom,cpr-consecutive-up
 	Usage:      required
 	Value type: <u32>
@@ -201,6 +185,28 @@ Platform independent properties:
 	Value type: <u32>
 	Definition: The number CPR error steps required to generate a down
 		    event.  Supported values: 0 - 31.
+
+===============================================
+Third Level Nodes - CPR Regulators for a Thread
+===============================================
+
+Platform independent properties:
+- regulator-name
+	Usage:      required
+	Value type: <string>
+	Definition: Specifies the name for this CPR3 regulator.
+
+- regulator-min-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Minimum corner value which should be 1 to represent the
+		    lowest supported corner.
+
+- regulator-max-microvolt
+	Usage:      required
+	Value type: <u32>
+	Definition: Maximum corner value which should be equal to largest value
+		    listed in qcom,cpr-corners.
 
 - qcom,cpr-fuse-corners
 	Usage:      required
@@ -414,7 +420,7 @@ Platform independent properties:
 		    scaling factor in this property.
 
 All properties specified within the core regulator framework can also be used in
-second level nodes.  These bindings can be found in:
+third level nodes.  These bindings can be found in:
 Documentation/devicetree/bindings/regulator/regulator.txt.
 
 See platform specific cpr3-regulator binding documentation files for examples.
