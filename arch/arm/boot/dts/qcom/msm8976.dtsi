@@ -1315,6 +1315,7 @@
 		compatible = "qcom,msm-vidc";
 		reg = <0x01d00000 0xff000>;
 		interrupts = <0 44 0>;
+		vdd-cx-supply = <&pm8950_s2_level_ao>;
 		venus-supply = <&gdsc_venus>;
 		venus-core0-supply = <&gdsc_venus_core0>;
 		qcom,hfi = "venus";
@@ -1351,6 +1352,14 @@
 			<0xE0020 0x05555556>,
 			<0xE0024 0x05555556>,
 			<0x80124 0x00000003>;
+
+		qcom,clock-voltage-tbl =
+			<100000000 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<228570000 RPM_SMD_REGULATOR_LEVEL_SVS>,
+			<310670000 RPM_SMD_REGULATOR_LEVEL_SVS_PLUS>,
+			<360000000 RPM_SMD_REGULATOR_LEVEL_NOM>,
+			<400000000 RPM_SMD_REGULATOR_LEVEL_NOM_PLUS>,
+			<466000000 RPM_SMD_REGULATOR_LEVEL_TURBO>;
 
 		qcom,vidc-iommu-domains {
 			qcom,domain-ns {
