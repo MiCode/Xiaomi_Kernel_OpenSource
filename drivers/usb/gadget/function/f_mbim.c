@@ -1871,12 +1871,15 @@ mbim_write(struct file *fp, const char __user *buf, size_t count, loff_t *pos)
 			   req, GFP_ATOMIC);
 	if (ret == -ENOTSUPP || (ret < 0 && ret != -EAGAIN)) {
 		spin_lock_irqsave(&dev->lock, flags);
-		list_del(&cpkt->list);
-		spin_unlock_irqrestore(&dev->lock, flags);
+		/* check if device disconnected while we dropped lock */
+		if (atomic_read(&dev->online)) {
+			list_del(&cpkt->list);
+			atomic_dec(&dev->not_port.notify_count);
+			mbim_free_ctrl_pkt(cpkt);
+		}
 		dev->cpkt_drop_cnt++;
-		atomic_dec(&dev->not_port.notify_count);
+		spin_unlock_irqrestore(&dev->lock, flags);
 		pr_err("drop ctrl pkt of len %d error %d\n", cpkt->len, ret);
-		mbim_free_ctrl_pkt(cpkt);
 	} else {
 		ret = 0;
 	}
