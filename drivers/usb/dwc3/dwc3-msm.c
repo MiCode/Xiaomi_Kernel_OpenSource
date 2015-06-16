@@ -1176,6 +1176,8 @@ static void dwc3_msm_qscratch_reg_init(struct dwc3_msm *mdwc)
 		dwc3_msm_read_reg(mdwc->base, QSCRATCH_CTRL_REG);
 }
 
+static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA);
+
 static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 {
 	struct dwc3_msm *mdwc = dev_get_drvdata(dwc->dev->parent);
@@ -1260,6 +1262,10 @@ static void dwc3_msm_notify_event(struct dwc3 *dwc, unsigned event)
 			mdwc->suspend = dwc->b_suspend;
 			schedule_delayed_work(&mdwc->resume_work, 0);
 		}
+		break;
+	case DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT:
+		dev_dbg(mdwc->dev, "DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT received\n");
+		dwc3_msm_gadget_vbus_draw(mdwc, dwc->vbus_draw);
 		break;
 	default:
 		dev_dbg(mdwc->dev, "unknown dwc3 event\n");
@@ -3358,17 +3364,15 @@ static void dwc3_otg_notify_host_mode(struct dwc3_msm *mdwc, int host_mode)
 			POWER_SUPPLY_SCOPE_DEVICE);
 }
 
-static int dwc3_otg_set_power(struct usb_phy *phy, unsigned mA)
+static int dwc3_msm_gadget_vbus_draw(struct dwc3_msm *mdwc, unsigned mA)
 {
-	enum power_supply_property power_supply_type;
-	struct dwc3_otg *dotg = container_of(phy->otg, struct dwc3_otg, otg);
-	struct dwc3_msm *mdwc = container_of(dotg, struct dwc3_msm, dotg);
+	enum power_supply_type power_supply_type;
 
 	if (mdwc->skip_chg_detect || mdwc->charging_disabled)
 		return 0;
 
 	if (mdwc->chg_type != DWC3_INVALID_CHARGER) {
-		dev_dbg(phy->dev,
+		dev_dbg(mdwc->dev,
 			"SKIP setting power supply type again,chg_type = %d\n",
 			mdwc->chg_type);
 		goto skip_psy_type;
@@ -3394,7 +3398,7 @@ skip_psy_type:
 	if (mdwc->max_power == mA)
 		return 0;
 
-	dev_info(phy->dev, "Avail curr from USB = %u\n", mA);
+	dev_info(mdwc->dev, "Avail curr from USB = %u\n", mA);
 
 	if (mdwc->max_power <= 2 && mA > 2) {
 		/* Enable Charging */
@@ -3421,7 +3425,7 @@ skip_psy_type:
 	return 0;
 
 psy_error:
-	dev_dbg(phy->dev, "power supply error when setting property\n");
+	dev_dbg(mdwc->dev, "power supply error when setting property\n");
 	return -ENXIO;
 }
 
@@ -3513,11 +3517,11 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				case DWC3_DCP_CHARGER:
 				case DWC3_PROPRIETARY_CHARGER:
 					dev_dbg(phy->dev, "lpm, DCP charger\n");
-					dwc3_otg_set_power(phy,
-						dcp_max_current);
+					dwc3_msm_gadget_vbus_draw(mdwc,
+							dcp_max_current);
 					break;
 				case DWC3_CDP_CHARGER:
-					dwc3_otg_set_power(phy,
+					dwc3_msm_gadget_vbus_draw(mdwc,
 							DWC3_IDEV_CHG_MAX);
 					/* fall through */
 				case DWC3_SDP_CHARGER:
@@ -3548,7 +3552,8 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 					 */
 					if (mdwc->retry_count ==
 						max_chgr_retry_count) {
-						dwc3_otg_set_power(phy, 0);
+						dwc3_msm_gadget_vbus_draw(
+								mdwc, 0);
 						break;
 					}
 					dwc3_start_chg_det(mdwc, false);
@@ -3596,7 +3601,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 				dwc3_start_chg_det(mdwc, false);
 
 			mdwc->retry_count = 0;
-			dwc3_otg_set_power(phy, 0);
+			dwc3_msm_gadget_vbus_draw(mdwc, 0);
 			dev_dbg(phy->dev, "No device, allowing suspend\n");
 		}
 		break;
@@ -3740,7 +3745,6 @@ int dwc3_otg_init(struct dwc3 *dwc)
 
 	dotg->otg.phy->otg = &dotg->otg;
 	dotg->otg.phy->dev = dwc->dev;
-	dotg->otg.phy->set_power = dwc3_otg_set_power;
 	dotg->otg.set_peripheral = dwc3_otg_set_peripheral;
 	dotg->otg.phy->state = OTG_STATE_UNDEFINED;
 

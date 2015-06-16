@@ -31,7 +31,6 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
-#include <linux/usb/otg.h>
 
 #include "debug.h"
 #include "core.h"
@@ -1895,12 +1894,11 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 static int dwc3_gadget_vbus_draw(struct usb_gadget *g, unsigned mA)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
-	struct dwc3_otg		*dotg = dwc->dotg;
 
-	if (dotg && dotg->otg.phy)
-		return usb_phy_set_power(dotg->otg.phy, mA);
-
-	return -ENOTSUPP;
+	dwc->vbus_draw = mA;
+	dev_dbg(dwc->dev, "Notify controller from %s. mA = %d\n", __func__, mA);
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT);
+	return 0;
 }
 
 static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
@@ -2808,7 +2806,6 @@ void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend)
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
 	u32			reg;
-	struct dwc3_otg		*dotg = dwc->dotg;
 
 	/*
 	 * WORKAROUND: DWC3 revisions <1.88a have an issue which
@@ -2851,8 +2848,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 
 	dwc3_gadget_usb3_phy_suspend(dwc, false);
 
-	if (dotg && dotg->otg.phy)
-		usb_phy_set_power(dotg->otg.phy, 0);
+	usb_gadget_vbus_draw(&dwc->gadget, 0);
 
 	if (dwc->gadget.speed != USB_SPEED_UNKNOWN)
 		dwc3_disconnect_gadget(dwc);

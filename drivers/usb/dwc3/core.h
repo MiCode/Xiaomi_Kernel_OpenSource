@@ -733,6 +733,7 @@ struct dwc3_scratchpad_array {
 #define DWC3_CONTROLLER_POST_INITIALIZATION_EVENT	7
 #define DWC3_CONTROLLER_CONNDONE_EVENT			8
 #define DWC3_CONTROLLER_NOTIFY_OTG_EVENT		9
+#define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT		10
 
 #define MAX_INTR_STATS					10
 /**
@@ -807,6 +808,7 @@ struct dwc3_scratchpad_array {
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @wait_linkstate: waitqueue for waiting LINK to move into required state
+ * @vbus_draw: current to be drawn from USB
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -937,6 +939,7 @@ struct dwc3 {
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
 	bool			b_suspend;
+	unsigned		vbus_draw;
 
 	/* IRQ timing statistics */
 	int			irq;
