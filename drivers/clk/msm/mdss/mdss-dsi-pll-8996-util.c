@@ -254,13 +254,6 @@ static int dsi_pll_enable(struct clk *c)
 	struct dsi_pll_vco_clk *vco = to_vco_clk(c);
 	struct mdss_pll_resources *pll = vco->priv;
 
-	rc = mdss_pll_resource_enable(pll, true);
-	if (rc) {
-		pr_err("ndx=%d Failed to enable mdss dsi pll resources\n",
-							pll->index);
-		return rc;
-	}
-
 	/* Try all enable sequences until one succeeds */
 	for (i = 0; i < vco->pll_en_seq_cnt; i++) {
 		rc = vco->pll_enable_seqs[i](pll);
@@ -270,12 +263,10 @@ static int dsi_pll_enable(struct clk *c)
 			break;
 	}
 
-	if (rc) {
-		mdss_pll_resource_enable(pll, false);
+	if (rc)
 		pr_err("ndx=%d DSI PLL failed to lock\n", pll->index);
-	} else {
+	else
 		pll->pll_on = true;
-	}
 
 	return rc;
 }
@@ -902,17 +893,30 @@ int pll_vco_prepare_8996(struct clk *c)
 		return -EINVAL;
 	}
 
+	rc = mdss_pll_resource_enable(pll, true);
+	if (rc) {
+		pr_err("ndx=%d Failed to enable mdss dsi pll resources\n",
+							pll->index);
+		return rc;
+	}
+
 	if ((pll->vco_cached_rate != 0)
 	    && (pll->vco_cached_rate == c->rate)) {
 		rc = c->ops->set_rate(c, pll->vco_cached_rate);
 		if (rc) {
 			pr_err("index=%d vco_set_rate failed. rc=%d\n",
 					rc, pll->index);
+			mdss_pll_resource_enable(pll, false);
 			goto error;
 		}
 	}
 
 	rc = dsi_pll_enable(c);
+
+	if (rc) {
+		mdss_pll_resource_enable(pll, false);
+		pr_err("ndx=%d failed to enable dsi pll\n", pll->index);
+	}
 
 error:
 	return rc;
