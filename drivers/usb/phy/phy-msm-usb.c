@@ -116,13 +116,11 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 static DECLARE_COMPLETION(pmic_vbus_init);
 static struct msm_otg *the_msm_otg;
 static bool debug_bus_voting_enabled;
-static bool mhl_det_in_progress;
 
 static struct regulator *hsusb_3p3;
 static struct regulator *hsusb_1p8;
 static struct regulator *hsusb_vdd;
 static struct regulator *vbus_otg;
-static struct regulator *mhl_usb_hs_switch;
 static struct power_supply *psy;
 
 static int vdd_val[VDD_VAL_MAX];
@@ -359,26 +357,6 @@ static int msm_hsusb_ldo_enable(struct msm_otg *motg,
 	pr_debug("%s: USB reg mode (%d) (OFF/HPM/LPM)\n", __func__, mode);
 	msm_otg_dbg_log_event(&motg->phy, "USB REG MODE", mode, ret);
 	return ret < 0 ? ret : 0;
-}
-
-static void msm_hsusb_mhl_switch_enable(struct msm_otg *motg, bool on)
-{
-	struct msm_otg_platform_data *pdata = motg->pdata;
-
-	if (!pdata->mhl_enable)
-		return;
-
-	if (!mhl_usb_hs_switch) {
-		pr_err("%s: mhl_usb_hs_switch is NULL.\n", __func__);
-		return;
-	}
-
-	if (on) {
-		if (regulator_enable(mhl_usb_hs_switch))
-			pr_err("unable to enable mhl_usb_hs_switch\n");
-	} else {
-		regulator_disable(mhl_usb_hs_switch);
-	}
 }
 
 static int ulpi_read(struct usb_phy *phy, u32 reg)
@@ -1443,7 +1421,6 @@ phcd_retry:
 	if (motg->lpm_flags & PHY_RETENTIONED ||
 		(motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED)) {
 		msm_hsusb_config_vddcx(0);
-		msm_hsusb_mhl_switch_enable(motg, 0);
 	}
 
 	if (device_may_wakeup(phy->dev)) {
@@ -1568,7 +1545,6 @@ static int msm_otg_resume(struct msm_otg *motg)
 
 	if (motg->lpm_flags & PHY_RETENTIONED ||
 		(motg->caps & ALLOW_VDD_MIN_WITH_RETENTION_DISABLED)) {
-		msm_hsusb_mhl_switch_enable(motg, 1);
 		msm_hsusb_config_vddcx(1);
 		msm_otg_disable_phy_hv_int(motg);
 		msm_otg_exit_phy_retention(motg);
@@ -2151,104 +2127,6 @@ static bool msm_otg_read_phy_id_state(struct msm_otg *motg)
 		return true;
 }
 
-static int msm_otg_mhl_register_callback(struct msm_otg *motg,
-						void (*callback)(int on))
-{
-	struct usb_phy *phy = &motg->phy;
-	int ret;
-
-	if (!motg->pdata->mhl_enable) {
-		dev_dbg(phy->dev, "MHL feature not enabled\n");
-		return -ENODEV;
-	}
-
-	if (motg->pdata->otg_control != OTG_PMIC_CONTROL ||
-			!motg->pdata->pmic_id_irq) {
-		dev_dbg(phy->dev, "MHL can not be supported without PMIC Id\n");
-		return -ENODEV;
-	}
-
-	if (!motg->pdata->mhl_dev_name) {
-		dev_dbg(phy->dev, "MHL device name does not exist.\n");
-		return -ENODEV;
-	}
-
-	if (callback)
-		ret = mhl_register_callback(motg->pdata->mhl_dev_name,
-								callback);
-	else
-		ret = mhl_unregister_callback(motg->pdata->mhl_dev_name);
-
-	if (ret)
-		dev_dbg(phy->dev, "mhl_register_callback(%s) return error=%d\n",
-						motg->pdata->mhl_dev_name, ret);
-	else
-		motg->mhl_enabled = true;
-
-	return ret;
-}
-
-static void msm_otg_mhl_notify_online(int on)
-{
-	struct msm_otg *motg = the_msm_otg;
-	struct usb_phy *phy = &motg->phy;
-	bool queue = false;
-
-	dev_dbg(phy->dev, "notify MHL %s%s\n", on ? "" : "dis", "connected");
-
-	if (on) {
-		set_bit(MHL, &motg->inputs);
-	} else {
-		clear_bit(MHL, &motg->inputs);
-		queue = true;
-	}
-
-	if (queue && phy->state != OTG_STATE_UNDEFINED)
-		schedule_work(&motg->sm_work);
-}
-
-static bool msm_otg_is_mhl(struct msm_otg *motg)
-{
-	struct usb_phy *phy = &motg->phy;
-	int is_mhl, ret;
-
-	ret = mhl_device_discovery(motg->pdata->mhl_dev_name, &is_mhl);
-	if (ret || is_mhl != MHL_DISCOVERY_RESULT_MHL) {
-		/*
-		 * MHL driver calls our callback saying that MHL connected
-		 * if RID_GND is detected.  But at later part of discovery
-		 * it may figure out MHL is not connected and returns
-		 * false. Hence clear MHL input here.
-		 */
-		clear_bit(MHL, &motg->inputs);
-		dev_dbg(phy->dev, "MHL device not found\n");
-		return false;
-	}
-
-	set_bit(MHL, &motg->inputs);
-	dev_dbg(phy->dev, "MHL device found\n");
-	return true;
-}
-
-static bool msm_chg_mhl_detect(struct msm_otg *motg)
-{
-	bool ret, id;
-
-	if (!motg->mhl_enabled)
-		return false;
-
-	id = msm_otg_read_pmic_id_state(motg);
-
-	if (id)
-		return false;
-
-	mhl_det_in_progress = true;
-	ret = msm_otg_is_mhl(motg);
-	mhl_det_in_progress = false;
-
-	return ret;
-}
-
 static void msm_otg_chg_check_timer_func(unsigned long data)
 {
 	struct msm_otg *motg = (struct msm_otg *) data;
@@ -2516,13 +2394,6 @@ static void msm_chg_detect_work(struct work_struct *w)
 		delay = MSM_CHG_DCD_POLL_TIME;
 		break;
 	case USB_CHG_STATE_WAIT_FOR_DCD:
-		if (msm_chg_mhl_detect(motg)) {
-			msm_chg_block_off(motg);
-			motg->chg_state = USB_CHG_STATE_DETECTED;
-			motg->chg_type = USB_INVALID_CHARGER;
-			queue_work(motg->otg_wq, &motg->sm_work);
-			return;
-		}
 		is_dcd = msm_chg_check_dcd(motg);
 		motg->dcd_time += MSM_CHG_DCD_POLL_TIME;
 		tmout = motg->dcd_time >= MSM_CHG_DCD_TIMEOUT;
@@ -2805,10 +2676,6 @@ static void msm_otg_sm_work(struct work_struct *w)
 			pr_debug("!id\n");
 			msm_otg_dbg_log_event(&motg->phy, "!ID",
 					motg->inputs, otg->phy->state);
-			if (msm_chg_mhl_detect(motg)) {
-				work = 1;
-				break;
-			}
 			/* disable BSV bit */
 			writel_relaxed(readl_relaxed(USB_OTGSC) & ~OTGSC_BSVIE,
 					USB_OTGSC);
@@ -3088,12 +2955,6 @@ static void msm_otg_set_vbus_state(int online)
 	}
 
 out:
-	if (test_bit(MHL, &motg->inputs) ||
-			mhl_det_in_progress) {
-		pr_debug("PMIC: BSV interrupt ignored in MHL\n");
-		return;
-	}
-
 	if (motg->is_ext_chg_dcp) {
 		if (test_bit(B_SESS_VLD, &motg->inputs)) {
 			msm_otg_notify_charger(motg, IDEV_CHG_MAX);
@@ -3171,12 +3032,6 @@ static void msm_id_status_w(struct work_struct *w)
 static irqreturn_t msm_id_irq(int irq, void *data)
 {
 	struct msm_otg *motg = data;
-
-	if (test_bit(MHL, &motg->inputs) ||
-			mhl_det_in_progress) {
-		pr_debug("PMIC: Id interrupt ignored in MHL\n");
-		return IRQ_HANDLED;
-	}
 
 	/*schedule delayed work for 5msec for ID line state to settle*/
 	queue_delayed_work(motg->otg_wq, &motg->id_status_work,
@@ -4611,16 +4466,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 		motg->phy_pinctrl = NULL;
 	}
 
-	if (pdata->mhl_enable) {
-		mhl_usb_hs_switch = devm_regulator_get(motg->phy.dev,
-							"mhl_usb_hs_switch");
-		if (IS_ERR(mhl_usb_hs_switch)) {
-			dev_err(&pdev->dev, "Unable to get mhl_usb_hs_switch\n");
-			ret = PTR_ERR(mhl_usb_hs_switch);
-			goto free_ldo_init;
-		}
-	}
-
 	ret = msm_hsusb_ldo_enable(motg, USB_PHY_REG_ON);
 	if (ret) {
 		dev_err(&pdev->dev, "hsusb vreg enable failed\n");
@@ -4637,9 +4482,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 	mb();
 
 	motg->id_state = USB_ID_FLOAT;
-	ret = msm_otg_mhl_register_callback(motg, msm_otg_mhl_notify_online);
-	if (ret)
-		dev_dbg(&pdev->dev, "MHL can not be supported\n");
 	wake_lock_init(&motg->wlock, WAKE_LOCK_SUSPEND, "msm_otg");
 	INIT_WORK(&motg->sm_work, msm_otg_sm_work);
 	INIT_DELAYED_WORK(&motg->chg_work, msm_chg_detect_work);
@@ -4800,8 +4642,6 @@ static int msm_otg_probe(struct platform_device *pdev)
 			dev_dbg(&pdev->dev, "PMIC does ID detection\n");
 		}
 	}
-
-	msm_hsusb_mhl_switch_enable(motg, 1);
 
 	platform_set_drvdata(pdev, motg);
 	device_init_wakeup(&pdev->dev, 1);
@@ -4976,7 +4816,6 @@ static int msm_otg_remove(struct platform_device *pdev)
 		msm_otg_setup_devices(pdev, motg->pdata->mode, false);
 	if (psy)
 		power_supply_unregister(psy);
-	msm_otg_mhl_register_callback(motg, NULL);
 	msm_otg_debugfs_cleanup();
 	cancel_delayed_work_sync(&motg->chg_work);
 	cancel_delayed_work_sync(&motg->id_status_work);
@@ -4990,7 +4829,6 @@ static int msm_otg_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	wake_lock_destroy(&motg->wlock);
 
-	msm_hsusb_mhl_switch_enable(motg, 0);
 	if (motg->phy_irq)
 		free_irq(motg->phy_irq, motg);
 	if (motg->pdata->pmic_id_irq)
