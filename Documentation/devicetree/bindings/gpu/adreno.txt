@@ -8,9 +8,12 @@ Required properties:
 - reg:			Specifies the register base address and size. The second interval
 			specifies the shader memory base address and size.
 - reg-names:		Resource names used for the physical address of device registers
-			and shader memory. "kgsl_3d0_reg_memory" gives the physical address
-			and length of device registers while "kgsl_3d0_shader_memory" gives
-			physical address and length of device shader memory.
+			and shader memory.
+			"kgsl_3d0_reg_memory" gives the physical address and length of device
+			 registers.
+			"kgsl_3d0_shader_memory" gives the physical address and length of
+			device shader memory.
+			"efuse_memory" gives the physical address and length of core PTE memory.
 - interrupts:		Interrupt mapping for GPU IRQ.
 - interrupt-names:	String property to describe the name of the interrupt.
 - qcom,id:		An integer used as an identification number for the device.
@@ -100,6 +103,9 @@ Optional Properties:
 - qcom,pm-qos-wakeup-latency:
 				Similar to the above. Driver votes against deep low
 				power modes right before GPU wakes up from sleep.
+- qcom,gpu-speed-config:
+				This property enables support for dynamic GPU powerlevel
+				configuration based on the efuse register.
 
 The following properties are optional as collecting data via coresight might
 not be supported for every chipset. The documentation for coresight
@@ -122,8 +128,9 @@ Example of A330 GPU in MSM8916:
 		label = "kgsl-3d0";
 		compatible = "qcom,kgsl-3d0", "qcom,kgsl-3d";
 		reg = <0x01c00000 0x10000
-		       0x01c20000 0x20000>;
-		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory";
+		       0x01c20000 0x20000
+		       0x0005c00c 0x8>;
+		reg-names = "kgsl_3d0_reg_memory" , "kgsl_3d0_shader_memory" , "efuse_memory";
 		interrupts = <0 33 0>;
 		interrupt-names = "kgsl_3d0_irq";
 		qcom,id = <0>;
