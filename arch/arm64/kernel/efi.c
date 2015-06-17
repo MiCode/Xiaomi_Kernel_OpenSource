@@ -47,27 +47,6 @@ static int __init is_normal_ram(efi_memory_desc_t *md)
 	return 0;
 }
 
-static void __init efi_setup_idmap(void)
-{
-	struct memblock_region *r;
-	efi_memory_desc_t *md;
-	u64 paddr, npages, size;
-
-	for_each_memblock(memory, r)
-		create_id_mapping(r->base, r->size, 0);
-
-	/* map runtime io spaces */
-	for_each_efi_memory_desc(&memmap, md) {
-		if (!(md->attribute & EFI_MEMORY_RUNTIME) || is_normal_ram(md))
-			continue;
-		paddr = md->phys_addr;
-		npages = md->num_pages;
-		memrange_efi_to_native(&paddr, &npages);
-		size = npages << PAGE_SHIFT;
-		create_id_mapping(paddr, size, 1);
-	}
-}
-
 static int __init uefi_init(void)
 {
 	efi_char16_t *c16;
@@ -318,15 +297,6 @@ void __init efi_init(void)
 		return;
 
 	reserve_regions();
-}
-
-void __init efi_idmap_init(void)
-{
-	if (!efi_enabled(EFI_BOOT))
-		return;
-
-	/* boot time idmap_pg_dir is incomplete, so fill in missing parts */
-	efi_setup_idmap();
 }
 
 static int __init remap_region(efi_memory_desc_t *md, void **new)
