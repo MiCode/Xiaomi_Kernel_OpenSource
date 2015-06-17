@@ -1918,11 +1918,21 @@ static void msm_vfe40_stats_update_cgc_override(struct vfe_device *vfe_dev,
 	msm_camera_io_w(module_cfg, vfe_dev->vfe_base + 0x974);
 }
 
+static bool msm_vfe40_is_module_cfg_lock_needed(
+	uint32_t reg_offset)
+{
+	if (reg_offset == 0x18)
+		return true;
+	else
+		return false;
+}
+
 static void msm_vfe40_stats_enable_module(struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
 	int i;
 	uint32_t module_cfg, module_cfg_mask = 0;
+	unsigned long flags;
 
 	for (i = 0; i < VFE40_NUM_STATS_TYPE; i++) {
 		if ((stats_mask >> i) & 0x1) {
@@ -1948,12 +1958,18 @@ static void msm_vfe40_stats_enable_module(struct vfe_device *vfe_dev,
 		}
 	}
 
+	/*
+	 * For vfe40 stats and other modules share module_cfg register.
+	 * Hence need to Grab lock.
+	 */
+	spin_lock_irqsave(&vfe_dev->shared_data_lock, flags);
 	module_cfg = msm_camera_io_r(vfe_dev->vfe_base + 0x18);
 	if (enable)
 		module_cfg |= module_cfg_mask;
 	else
 		module_cfg &= ~module_cfg_mask;
 	msm_camera_io_w(module_cfg, vfe_dev->vfe_base + 0x18);
+	spin_unlock_irqrestore(&vfe_dev->shared_data_lock, flags);
 }
 
 static void msm_vfe40_stats_update_ping_pong_addr(
@@ -2165,6 +2181,8 @@ struct msm_vfe_hardware_info vfe40_hw_info = {
 			.get_halt_restart_mask =
 				msm_vfe40_get_halt_restart_mask,
 			.process_error_status = msm_vfe40_process_error_status,
+			.is_module_cfg_lock_needed =
+				msm_vfe40_is_module_cfg_lock_needed,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe40_get_stats_idx,

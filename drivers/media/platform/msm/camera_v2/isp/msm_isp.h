@@ -197,6 +197,7 @@ struct msm_vfe_core_ops {
 		uint32_t *irq1_mask);
 	void (*get_rdi_wm_mask)(struct vfe_device *vfe_dev,
 		uint32_t *rdi_wm_mask);
+	bool (*is_module_cfg_lock_needed)(uint32_t reg_offset);
 };
 struct msm_vfe_stats_ops {
 	int (*get_stats_idx)(enum msm_isp_stats_type stats_type);

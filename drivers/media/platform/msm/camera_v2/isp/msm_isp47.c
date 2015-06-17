@@ -1961,6 +1961,12 @@ static void msm_vfe47_stats_update_cgc_override(struct vfe_device *vfe_dev,
 	msm_camera_io_w(module_cfg, vfe_dev->vfe_base + 0x30);
 }
 
+static bool msm_vfe47_is_module_cfg_lock_needed(
+	uint32_t reg_offset)
+{
+	return false;
+}
+
 static void msm_vfe47_stats_enable_module(struct vfe_device *vfe_dev,
 	uint32_t stats_mask, uint8_t enable)
 {
@@ -2243,6 +2249,8 @@ struct msm_vfe_hardware_info vfe47_hw_info = {
 			.get_halt_restart_mask =
 				msm_vfe47_get_halt_restart_mask,
 			.process_error_status = msm_vfe47_process_error_status,
+			.is_module_cfg_lock_needed =
+				msm_vfe47_is_module_cfg_lock_needed,
 		},
 		.stats_ops = {
 			.get_stats_idx = msm_vfe47_get_stats_idx,

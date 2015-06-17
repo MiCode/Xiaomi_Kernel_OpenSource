@@ -1062,6 +1062,8 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 	}
 	case VFE_CFG_MASK: {
 		uint32_t temp;
+		bool grab_lock;
+		unsigned long flags;
 		if ((UINT_MAX - sizeof(temp) <
 			reg_cfg_cmd->u.mask_info.reg_offset) ||
 			(resource_size(vfe_dev->vfe_mem) <
@@ -1070,6 +1072,11 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 			pr_err("%s: VFE_CFG_MASK: Invalid length\n", __func__);
 			return -EINVAL;
 		}
+		grab_lock = vfe_dev->hw_info->vfe_ops.core_ops.
+			is_module_cfg_lock_needed(reg_cfg_cmd->
+			u.mask_info.reg_offset);
+		if (grab_lock)
+			spin_lock_irqsave(&vfe_dev->shared_data_lock, flags);
 		temp = msm_camera_io_r(vfe_dev->vfe_base +
 			reg_cfg_cmd->u.mask_info.reg_offset);
 
@@ -1077,6 +1084,9 @@ static int msm_isp_send_hw_cmd(struct vfe_device *vfe_dev,
 		temp |= reg_cfg_cmd->u.mask_info.val;
 		msm_camera_io_w(temp, vfe_dev->vfe_base +
 			reg_cfg_cmd->u.mask_info.reg_offset);
+		if (grab_lock)
+			spin_unlock_irqrestore(&vfe_dev->shared_data_lock,
+				flags);
 		break;
 	}
 	case VFE_WRITE_DMI_16BIT:
