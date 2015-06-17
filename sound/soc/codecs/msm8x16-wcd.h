@@ -62,6 +62,7 @@ enum codec_versions {
 	TOMBAK_2_0,
 	CONGA,
 	CAJON,
+	CAJON_2_0,
 	UNSUPPORTED,
 };
 
