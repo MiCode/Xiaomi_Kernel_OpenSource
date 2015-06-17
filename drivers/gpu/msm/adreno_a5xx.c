@@ -1330,6 +1330,24 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 	}
 }
 
+static void a5xx_enable_64bit(struct adreno_device *adreno_dev)
+{
+	struct kgsl_device *device = &adreno_dev->dev;
+
+	kgsl_regwrite(device, A5XX_CP_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_VSC_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_GRAS_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_RB_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_PC_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_HLSQ_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_VFD_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_VPC_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_UCHE_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_SP_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_TPL1_ADDR_MODE_CNTL, 0x1);
+	kgsl_regwrite(device, A5XX_RBBM_SECVID_TSB_ADDR_MODE_CNTL, 0x1);
+}
+
 /*
  * a5xx_start() - Device start
  * @adreno_dev: Pointer to adreno device
@@ -2980,4 +2998,5 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_init = a5xx_preemption_init,
 	.gpmu_start = a5xx_gpmu_start,
 	.preemption_schedule = a5xx_preemption_schedule,
+	.enable_64bit = a5xx_enable_64bit,
 };
