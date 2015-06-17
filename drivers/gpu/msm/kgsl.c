@@ -2479,7 +2479,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		goto error_attach;
 
 	/* Adjust the returned value for a non 4k aligned offset */
-	param->gpuaddr = (unsigned int)
+	param->gpuaddr = (unsigned long)
 		entry->memdesc.gpuaddr + (param->offset & PAGE_MASK);
 
 	KGSL_STATS_ADD(param->len, kgsl_driver.stats.mapped,
@@ -2948,8 +2948,8 @@ long kgsl_ioctl_gpumem_alloc(struct kgsl_device_private *dev_priv,
 	if (IS_ERR(entry))
 		return PTR_ERR(entry);
 
-	param->gpuaddr = (unsigned int) entry->memdesc.gpuaddr;
-	param->size = (unsigned int) entry->memdesc.size;
+	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
+	param->size = (size_t) entry->memdesc.size;
 	param->flags = (unsigned int) entry->memdesc.flags;
 
 	return 0;
@@ -2970,10 +2970,10 @@ long kgsl_ioctl_gpumem_alloc_id(struct kgsl_device_private *dev_priv,
 
 	param->id = entry->id;
 	param->flags = (unsigned int) entry->memdesc.flags;
-	param->size = (unsigned int) entry->memdesc.size;
-	param->mmapsize = (unsigned int)
+	param->size = (size_t) entry->memdesc.size;
+	param->mmapsize = (size_t)
 		kgsl_memdesc_mmapsize(&entry->memdesc);
-	param->gpuaddr = (unsigned int) entry->memdesc.gpuaddr;
+	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
 
 	return 0;
 }
@@ -3002,14 +3002,14 @@ long kgsl_ioctl_gpumem_get_info(struct kgsl_device_private *dev_priv,
 	 * truncated, return -ERANGE.  That will signal the user that they
 	 * should use a more modern API
 	 */
-	if (entry->memdesc.gpuaddr > UINT_MAX)
+	if (entry->memdesc.gpuaddr > ULONG_MAX)
 		result = -ERANGE;
 
-	param->gpuaddr = (unsigned int) entry->memdesc.gpuaddr;
+	param->gpuaddr = (unsigned long) entry->memdesc.gpuaddr;
 	param->id = entry->id;
 	param->flags = (unsigned int) entry->memdesc.flags;
-	param->size = (unsigned int) entry->memdesc.size;
-	param->mmapsize = (unsigned int) kgsl_memdesc_mmapsize(&entry->memdesc);
+	param->size = (size_t) entry->memdesc.size;
+	param->mmapsize = (size_t) kgsl_memdesc_mmapsize(&entry->memdesc);
 	param->useraddr = entry->memdesc.useraddr;
 
 	kgsl_mem_entry_put(entry);
