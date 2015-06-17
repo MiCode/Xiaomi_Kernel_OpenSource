@@ -82,7 +82,6 @@ struct msm_isp_buffer {
 
 	/*Vb2 buffer data*/
 	struct vb2_buffer *vb2_buf;
-	spinlock_t lock;
 
 	/*Share buffer cache state*/
 	struct list_head share_list;
