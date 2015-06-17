@@ -112,14 +112,27 @@ static inline uint _ib_end(struct adreno_device *adreno_dev,
 	return cmds - start;
 }
 
-static inline uint _ib_cmd(struct adreno_device *adreno_dev, uint *cmds,
-			uint type, uint64_t val1, uint val2, uint *off)
+static inline uint _ib_cmd_mem_write(struct adreno_device *adreno_dev,
+			uint *cmds, uint64_t gpuaddr, uint val, uint *off)
 {
 	unsigned int *start = cmds;
 
-	*cmds++ = cp_mem_packet(adreno_dev, type, 2, 1);
-	cmds += cp_gpuaddr(adreno_dev, cmds, val1);
-	*cmds++ = val2;
+	*cmds++ = cp_mem_packet(adreno_dev, CP_MEM_WRITE, 2, 1);
+	cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
+	*cmds++ = val;
+
+	*off += sizeof(unsigned int);
+	return cmds - start;
+}
+
+static inline uint _ib_cmd_reg_to_mem(struct adreno_device *adreno_dev,
+			uint *cmds, uint64_t gpuaddr, uint val, uint *off)
+{
+	unsigned int *start = cmds;
+
+	*cmds++ = cp_mem_packet(adreno_dev, CP_REG_TO_MEM, 2, 1);
+	*cmds++ = val;
+	cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr);
 
 	*off += sizeof(unsigned int);
 	return cmds - start;
@@ -160,36 +173,30 @@ static int _build_pre_ib_cmds(struct adreno_device *adreno_dev,
 	 * Write ringbuffer commands to save the following to memory:
 	 * timestamp, count, context_id, pid, tid, context type
 	 */
-	ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_MEM_WRITE,
-			gpuaddr + data_offset,
+	ibcmds += _ib_cmd_mem_write(adreno_dev, ibcmds, gpuaddr + data_offset,
 			timestamp, &data_offset);
-	ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_MEM_WRITE,
-			gpuaddr + data_offset,
+	ibcmds += _ib_cmd_mem_write(adreno_dev, ibcmds, gpuaddr + data_offset,
 			profile->assignment_count, &data_offset);
-	ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_MEM_WRITE,
-			gpuaddr + data_offset,
+	ibcmds += _ib_cmd_mem_write(adreno_dev, ibcmds, gpuaddr + data_offset,
 			drawctxt->base.id, &data_offset);
-	ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_MEM_WRITE,
-			gpuaddr + data_offset,
+	ibcmds += _ib_cmd_mem_write(adreno_dev, ibcmds, gpuaddr + data_offset,
 			drawctxt->base.proc_priv->pid, &data_offset);
-	ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_MEM_WRITE,
-			gpuaddr + data_offset,
+	ibcmds += _ib_cmd_mem_write(adreno_dev, ibcmds, gpuaddr + data_offset,
 			drawctxt->base.tid, &data_offset);
-	ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_MEM_WRITE,
-			gpuaddr + data_offset,
+	ibcmds += _ib_cmd_mem_write(adreno_dev, ibcmds, gpuaddr + data_offset,
 			drawctxt->type, &data_offset);
 
 	/* loop for each countable assigned */
 	list_for_each_entry(entry, &profile->assignments_list, list) {
-		ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_MEM_WRITE,
-				gpuaddr + data_offset,
-				entry->offset, &data_offset);
-		ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_REG_TO_MEM,
-				entry->offset,
-				gpuaddr + data_offset, &data_offset);
-		ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_REG_TO_MEM,
-				entry->offset_hi,
-				gpuaddr + data_offset, &data_offset);
+		ibcmds += _ib_cmd_mem_write(adreno_dev, ibcmds,
+				gpuaddr + data_offset, entry->offset,
+				&data_offset);
+		ibcmds += _ib_cmd_reg_to_mem(adreno_dev, ibcmds,
+				gpuaddr + data_offset, entry->offset,
+				&data_offset);
+		ibcmds += _ib_cmd_reg_to_mem(adreno_dev, ibcmds,
+				gpuaddr + data_offset, entry->offset_hi,
+				&data_offset);
 
 		/* skip over post_ib counter data */
 		data_offset += sizeof(unsigned int) * 2;
@@ -225,11 +232,11 @@ static int _build_post_ib_cmds(struct adreno_device *adreno_dev,
 	list_for_each_entry(entry, &profile->assignments_list, list) {
 		/* skip over pre_ib counter data */
 		data_offset += sizeof(unsigned int) * 3;
-		ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_REG_TO_MEM,
-				entry->offset, gpuaddr + data_offset,
+		ibcmds += _ib_cmd_reg_to_mem(adreno_dev, ibcmds,
+				gpuaddr + data_offset, entry->offset,
 				&data_offset);
-		ibcmds += _ib_cmd(adreno_dev, ibcmds, CP_REG_TO_MEM,
-				entry->offset_hi, gpuaddr + data_offset,
+		ibcmds += _ib_cmd_reg_to_mem(adreno_dev, ibcmds,
+				gpuaddr + data_offset, entry->offset_hi,
 				&data_offset);
 	}
 
