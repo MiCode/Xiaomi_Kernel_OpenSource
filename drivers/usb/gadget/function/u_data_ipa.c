@@ -45,8 +45,6 @@ struct ipa_data_ch_info {
 	u32			dst_pipe_idx;
 	u8			src_connection_idx;
 	u8			dst_connection_idx;
-	int			src_bam_idx;
-	int			dst_bam_idx;
 	struct gadget_ipa_port	*port_usb;
 	struct usb_bam_connect_ipa_params	ipa_params;
 };
@@ -372,17 +370,9 @@ static void ipa_data_connect_work(struct work_struct *w)
 		}
 		port->rx_req->udc_priv = sps_params;
 
-		port->src_bam_idx = usb_bam_get_connection_idx(
-					gadget->name, IPA_P_BAM,
-					USB_TO_PEER_PERIPHERAL,
-					USB_BAM_DEVICE, 1);
-		if (port->src_bam_idx < 0) {
-			pr_err("src_bam: get_connection_idx failed\n");
-			goto disconnect_usb_bam_ipa_out;
-		}
-
 		if (gadget_is_dwc3(gadget)) {
-			configure_fifo(port->src_bam_idx, port->port_usb->out);
+			configure_fifo(port->src_connection_idx,
+					port->port_usb->out);
 			ret = msm_ep_config(port->port_usb->out);
 			if (ret) {
 				pr_err("msm_ep_config() failed for OUT EP\n");
@@ -413,15 +403,8 @@ static void ipa_data_connect_work(struct work_struct *w)
 		}
 		port->tx_req->udc_priv = sps_params;
 
-		port->dst_bam_idx = usb_bam_get_connection_idx(gadget->name,
-					IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-					USB_BAM_DEVICE, 1);
-		if (port->dst_bam_idx < 0) {
-			pr_err("dst_bam: get_connection_idx failed\n");
-			goto disconnect_usb_bam_ipa_in;
-		}
 		if (gadget_is_dwc3(gadget)) {
-			configure_fifo(port->dst_bam_idx, gport->in);
+			configure_fifo(port->dst_connection_idx, gport->in);
 			ret = msm_ep_config(gport->in);
 			if (ret) {
 				pr_err("msm_ep_config() failed for IN EP\n");
@@ -440,7 +423,7 @@ static void ipa_data_connect_work(struct work_struct *w)
 				gport->ipa_consumer_ep);
 
 	pr_debug("src_bam_idx:%d dst_bam_idx:%d\n",
-				port->src_bam_idx, port->dst_bam_idx);
+			port->src_connection_idx, port->dst_connection_idx);
 
 	if (gport->out)
 		ipa_data_start_endless_xfer(port, false);
@@ -595,18 +578,8 @@ static void ipa_data_start(void *param, enum usb_bam_pipe_dir dir)
 	} else {
 		pr_debug("%s(): start endless TX\n", __func__);
 		if (msm_dwc3_reset_ep_after_lpm(gadget)) {
-			u8 idx;
-
-			idx = usb_bam_get_connection_idx(gadget->name,
-					IPA_P_BAM,
-					PEER_PERIPHERAL_TO_USB,
-					USB_BAM_DEVICE, 1);
-			if (idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-								__func__);
-				return;
-			}
-			configure_fifo(idx, port->port_usb->in);
+			configure_fifo(port->dst_connection_idx,
+					port->port_usb->in);
 		}
 		ipa_data_start_endless_xfer(port, true);
 	}
@@ -736,8 +709,8 @@ void ipa_data_resume(struct gadget_ipa_port *gp, u8 port_num)
 	}
 
 	if (msm_dwc3_reset_ep_after_lpm(gadget)) {
-		configure_fifo(port->src_bam_idx, port->port_usb->out);
-		configure_fifo(port->dst_bam_idx, port->port_usb->in);
+		configure_fifo(port->src_connection_idx, port->port_usb->out);
+		configure_fifo(port->dst_connection_idx, port->port_usb->in);
 		spin_unlock_irqrestore(&port->port_lock, flags);
 		msm_dwc3_reset_dbm_ep(port->port_usb->in);
 		spin_lock_irqsave(&port->port_lock, flags);
