@@ -3445,12 +3445,20 @@ static int msm8x16_wcd_codec_enable_interpolator(struct snd_soc_dapm_widget *w,
 			pr_debug("disabling HPHL mute\n");
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_RX1_B6_CTL, 0x01, 0x00);
+			if (get_codec_version(msm8x16_wcd) >= CAJON)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_HPH_BIAS_CNP,
+					0xF0, 0x20);
 			msm8x16_wcd->mute_mask &= ~(HPHL_PA_DISABLE);
 		} else if ((w->shift == 1) &&
 				(msm8x16_wcd->mute_mask & HPHR_PA_DISABLE)) {
 			pr_debug("disabling HPHR mute\n");
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_CDC_RX2_B6_CTL, 0x01, 0x00);
+			if (get_codec_version(msm8x16_wcd) >= CAJON)
+				snd_soc_update_bits(codec,
+					MSM8X16_WCD_A_ANALOG_RX_HPH_BIAS_CNP,
+					0xF0, 0x20);
 			msm8x16_wcd->mute_mask &= ~(HPHR_PA_DISABLE);
 		} else if ((w->shift == 2) &&
 				(msm8x16_wcd->mute_mask & SPKR_PA_DISABLE)) {
@@ -3613,6 +3621,17 @@ static int msm8x16_wcd_hphl_dac_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if (get_codec_version(msm8x16_wcd) >= CAJON) {
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+				0x08, 0x08);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_HPH_L_TEST,
+				0x80, 0x80);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+				0x08, 0x00);
+		}
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_RX_HPH_L_PA_DAC_CTL, 0x02, 0x02);
 		snd_soc_update_bits(codec,
@@ -3644,11 +3663,23 @@ static int msm8x16_wcd_hphr_dac_event(struct snd_soc_dapm_widget *w,
 	struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	struct msm8x16_wcd_priv *msm8x16_wcd = snd_soc_codec_get_drvdata(codec);
 
 	dev_dbg(codec->dev, "%s %s %d\n", __func__, w->name, event);
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
+		if (get_codec_version(msm8x16_wcd) >= CAJON) {
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+				0x08, 0x08);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST,
+				0x80, 0x80);
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_HPH_CNP_EN,
+				0x08, 0x00);
+		}
 		snd_soc_update_bits(codec,
 			MSM8X16_WCD_A_ANALOG_RX_HPH_R_PA_DAC_CTL, 0x02, 0x02);
 		snd_soc_update_bits(codec,
@@ -3720,6 +3751,11 @@ static int msm8x16_wcd_hph_pa_event(struct snd_soc_dapm_widget *w,
 			snd_soc_update_bits(codec,
 				MSM8X16_WCD_A_ANALOG_RX_HPH_R_TEST, 0x04, 0x00);
 			msm8x16_wcd->mute_mask |= HPHR_PA_DISABLE;
+		}
+		if (get_codec_version(msm8x16_wcd) >= CAJON) {
+			snd_soc_update_bits(codec,
+				MSM8X16_WCD_A_ANALOG_RX_HPH_BIAS_CNP,
+				0xF0, 0x30);
 		}
 		break;
 	case SND_SOC_DAPM_POST_PMD:
