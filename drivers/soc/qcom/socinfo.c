@@ -132,52 +132,38 @@ struct socinfo_v0_1 {
 
 struct socinfo_v0_2 {
 	struct socinfo_v0_1 v0_1;
-
-	/* only valid when format==2 */
 	uint32_t raw_id;
 	uint32_t raw_version;
 };
 
 struct socinfo_v0_3 {
 	struct socinfo_v0_2 v0_2;
-
-	/* only valid when format==3 */
 	uint32_t hw_platform;
 };
 
 struct socinfo_v0_4 {
 	struct socinfo_v0_3 v0_3;
-
-	/* only valid when format==4 */
 	uint32_t platform_version;
 };
 
 struct socinfo_v0_5 {
 	struct socinfo_v0_4 v0_4;
-
-	/* only valid when format==5 */
 	uint32_t accessory_chip;
 };
 
 struct socinfo_v0_6 {
 	struct socinfo_v0_5 v0_5;
-
-	/* only valid when format==6 */
 	uint32_t hw_platform_subtype;
 };
 
 struct socinfo_v0_7 {
 	struct socinfo_v0_6 v0_6;
-
-	/* only valid when format==7 */
 	uint32_t pmic_model;
 	uint32_t pmic_die_revision;
 };
 
 struct socinfo_v0_8 {
 	struct socinfo_v0_7 v0_7;
-
-	/* only valid when format==8*/
 	uint32_t pmic_model_1;
 	uint32_t pmic_die_revision_1;
 	uint32_t pmic_model_2;
@@ -186,22 +172,16 @@ struct socinfo_v0_8 {
 
 struct socinfo_v0_9 {
 	struct socinfo_v0_8 v0_8;
-
-	/* only valid when format==9*/
 	uint32_t foundry_id;
 };
 
 struct socinfo_v0_10 {
 	struct socinfo_v0_9 v0_9;
-
-	/* only valid when format==10*/
 	uint32_t serial_number;
 };
 
 struct socinfo_v0_11 {
 	struct socinfo_v0_10 v0_10;
-
-	/* only valid when format==11*/
 	uint32_t num_pmics;
 	uint32_t pmic_array_offset;
 };
