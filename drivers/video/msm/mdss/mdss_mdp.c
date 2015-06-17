@@ -397,6 +397,7 @@ static int mdss_mdp_bus_scale_set_quota(u64 ab_quota_rt, u64 ab_quota_nrt,
 		}
 	}
 	mdss_res->curr_bw_uc_idx = new_uc_idx;
+	mdss_res->ao_bw_uc_idx = new_uc_idx;
 
 	if ((mdss_res->bus_ref_cnt == 0) && mdss_res->curr_bw_uc_idx) {
 		rc = 0;
@@ -832,9 +833,11 @@ void mdss_bus_bandwidth_ctrl(int enable)
 
 	if (changed) {
 		if (!enable) {
-			if (!mdata->handoff_pending)
+			if (!mdata->handoff_pending) {
 				msm_bus_scale_client_update_request(
 						mdata->bus_hdl, 0);
+				mdata->ao_bw_uc_idx = 0;
+			}
 			pm_runtime_mark_last_busy(&mdata->pdev->dev);
 			pm_runtime_put_autosuspend(&mdata->pdev->dev);
 		} else {
@@ -879,8 +882,13 @@ void mdss_mdp_clk_ctrl(int enable)
 	if (changed) {
 		if (enable) {
 			pm_runtime_get_sync(&mdata->pdev->dev);
+
 			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_19_MHZ);
+
+			/* Active+Sleep */
+			msm_bus_scale_client_update_context(mdata->bus_hdl,
+				false, mdata->curr_bw_uc_idx);
 		}
 
 		mdata->clk_ena = enable;
@@ -892,8 +900,14 @@ void mdss_mdp_clk_ctrl(int enable)
 			mdss_mdp_clk_update(MDSS_CLK_MDP_VSYNC, enable);
 
 		if (!enable) {
+
+			/* Active-Only */
+			msm_bus_scale_client_update_context(mdata->bus_hdl,
+				true, mdata->ao_bw_uc_idx);
+
 			mdss_update_reg_bus_vote(mdata->reg_bus_clt,
 				VOTE_INDEX_DISABLE);
+
 			pm_runtime_mark_last_busy(&mdata->pdev->dev);
 			pm_runtime_put_autosuspend(&mdata->pdev->dev);
 		}
