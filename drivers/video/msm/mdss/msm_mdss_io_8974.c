@@ -446,6 +446,10 @@ void mdss_dsi_core_clk_deinit(struct device *dev, struct dsi_shared_data *sdata)
 		devm_clk_put(dev, sdata->ahb_clk);
 	if (sdata->mdp_core_clk)
 		devm_clk_put(dev, sdata->mdp_core_clk);
+	if (sdata->tbu_clk)
+		devm_clk_put(dev, sdata->tbu_clk);
+	if (sdata->tbu_rt_clk)
+		devm_clk_put(dev, sdata->tbu_rt_clk);
 }
 
 int mdss_dsi_core_clk_init(struct platform_device *pdev,
@@ -520,6 +524,18 @@ int mdss_dsi_core_clk_init(struct platform_device *pdev,
 		sdata->mmss_misc_ahb_clk = NULL;
 		pr_debug("%s: Unable to get mmss misc ahb clk\n",
 			__func__);
+	}
+
+	sdata->tbu_clk = devm_clk_get(dev, "tbu_clk");
+	if (IS_ERR(sdata->tbu_clk)) {
+		pr_debug("%s: can't find mdp tbu clk. rc=%d\n", __func__, rc);
+		sdata->tbu_clk = NULL;
+	}
+
+	sdata->tbu_rt_clk = devm_clk_get(dev, "tbu_rt_clk");
+	if (IS_ERR(sdata->tbu_rt_clk)) {
+		pr_debug("%s: can't find mdp tbu_rt clk rc=%d\n", __func__, rc);
+		sdata->tbu_rt_clk = NULL;
 	}
 
 error:
@@ -806,6 +822,33 @@ static int mdss_dsi_core_clk_start(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 		}
 	}
 
+	if (sdata->tbu_clk) {
+		rc = clk_prepare_enable(sdata->tbu_clk);
+		if (rc) {
+			pr_err("%s: failed to enable mdp tbu clk.rc=%d\n",
+				__func__, rc);
+			clk_disable_unprepare(sdata->axi_clk);
+			clk_disable_unprepare(sdata->ahb_clk);
+			clk_disable_unprepare(sdata->mdp_core_clk);
+			clk_disable_unprepare(sdata->mmss_misc_ahb_clk);
+			goto error;
+		}
+	}
+
+	if (sdata->tbu_rt_clk) {
+		rc = clk_prepare_enable(sdata->tbu_rt_clk);
+		if (rc) {
+			pr_err("%s: failed to enable mdp tbu rt clk.rc=%d\n",
+				__func__, rc);
+			clk_disable_unprepare(sdata->axi_clk);
+			clk_disable_unprepare(sdata->ahb_clk);
+			clk_disable_unprepare(sdata->mdp_core_clk);
+			clk_disable_unprepare(sdata->mmss_misc_ahb_clk);
+			clk_disable_unprepare(sdata->tbu_clk);
+			goto error;
+		}
+	}
+
 error:
 	return rc;
 }
@@ -815,6 +858,11 @@ static void mdss_dsi_core_clk_stop(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	struct dsi_shared_data *sdata = ctrl_pdata->shared_data;
 	if (sdata->mmss_misc_ahb_clk)
 		clk_disable_unprepare(sdata->mmss_misc_ahb_clk);
+	if (sdata->tbu_clk)
+		clk_disable_unprepare(sdata->tbu_clk);
+	if (sdata->tbu_rt_clk)
+		clk_disable_unprepare(sdata->tbu_rt_clk);
+
 	clk_disable_unprepare(sdata->axi_clk);
 	clk_disable_unprepare(sdata->ahb_clk);
 	clk_disable_unprepare(sdata->mdp_core_clk);
