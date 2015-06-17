@@ -651,6 +651,22 @@
 			};
 		};
 
+		/* WSA VI sense */
+		wsa-vi-sense {
+			qcom,pins = <&gp 94>, <&gp 95>;
+			qcom,num-grp-pins = <2>;
+			qcom,pin-func = <1>;
+			label = "wsa_vi";
+			wsa_vi_act: vi_sense_on {
+				drive-strength = <8>;
+				bias-disable; /* NO pull */
+			};
+			wsa_vi_sus: vi_sense_off {
+				drive-strength = <2>;
+				bias-pull-down;
+			};
+		};
+
 		/*sensors */
 		cam_sensor_mclk0_default {
 			/* MCLK0 */
