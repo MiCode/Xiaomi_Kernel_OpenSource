@@ -1737,11 +1737,11 @@ static int smbchg_get_aicl_level_ma(struct smbchg_chip *chip)
 		dev_err(chip->dev, "Could not read usb icl sts 1: %d\n", rc);
 		return 0;
 	}
-	reg &= ICL_STS_MASK;
 	if (reg & AICL_SUSP_BIT) {
 		pr_warn("AICL suspended: %02x\n", reg);
 		return 0;
 	}
+	reg &= ICL_STS_MASK;
 	if (reg >= ARRAY_SIZE(usb_current_table)) {
 		pr_warn("invalid AICL value: %02x\n", reg);
 		return 0;
