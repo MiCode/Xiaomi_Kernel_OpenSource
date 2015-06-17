@@ -26,11 +26,21 @@
 
 #include "mhi.h"
 
-static uint32_t mhi_dev_ring_addr2ofst(struct mhi_dev_ring *ring, uint32_t p)
+static uint32_t mhi_dev_ring_addr2ofst(struct mhi_dev_ring *ring, uint64_t p)
 {
 	uint64_t rbase;
 
+	struct mhi_dev *mhi_ctx;
+
+	mhi_ctx = ring->mhi_dev;
 	rbase = ring->ring_ctx->generic.rbase;
+
+	if (p > (rbase + (ring->ring_size *
+				sizeof(union mhi_dev_ring_element_type)))) {
+		pr_err("error!!! rbase: 0x%llx, offset:0x%llx\n", rbase, p);
+		mhi_dev_dump_mmio(mhi_ctx);
+		BUG();
+	}
 
 	return (p - rbase)/sizeof(union mhi_dev_ring_element_type);
 }
@@ -96,8 +106,8 @@ int mhi_dev_cache_ring(struct mhi_dev_ring *ring, uint32_t wr_offset)
 
 	mhi_log(MHI_MSG_VERBOSE,
 			"caching - rng size :%d local ofst:%d new ofst: %d\n",
-			(uint32_t) ring->ring_size, old_offset,
-			(uint32_t)ring->wr_offset);
+			ring->ring_size, old_offset,
+			ring->wr_offset);
 
 	/*
 	 * copy the elements starting from old_offset to wr_offset
@@ -292,6 +302,8 @@ int mhi_dev_add_element(struct mhi_dev_ring *ring,
 	mhi_log(MHI_MSG_VERBOSE, "adding element to ring (%d)\n", ring->id);
 	mhi_log(MHI_MSG_VERBOSE, "rd_ofset %d\n", ring->rd_offset);
 	mhi_log(MHI_MSG_VERBOSE, "type %d\n", element->generic.type);
+	mhi_log(MHI_MSG_VERBOSE, "completion ptr of the rp 0x%lld\n",
+						element->generic.ptr);
 
 	mhi_dev_write_to_host(&host_addr, element,
 			sizeof(union mhi_dev_ring_element_type));
@@ -354,10 +366,10 @@ int mhi_ring_start(struct mhi_dev_ring *ring, union mhi_dev_ring_ctx *ctx,
 			return rc;
 	}
 
-	mhi_log(MHI_MSG_VERBOSE, "ctx ring_base:0x%x, rp:0x%x, wp:0x%x\n",
-			(uint32_t)ring->ring_ctx->generic.rbase,
-			(uint32_t)ring->ring_ctx->generic.rp,
-			(uint32_t)ring->ring_ctx->generic.wp);
+	mhi_log(MHI_MSG_VERBOSE, "ctx ring_base:0x%lld, rp:0x%lld, wp:0x%lld\n",
+			ring->ring_ctx->generic.rbase,
+			ring->ring_ctx->generic.rp,
+			ring->ring_ctx->generic.wp);
 	ring->wr_offset = wr_offset;
 
 	return rc;
