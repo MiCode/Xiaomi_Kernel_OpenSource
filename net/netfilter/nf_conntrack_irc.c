@@ -150,6 +150,7 @@ static bool mangle_ip(struct nf_conn *ct,
 	nick_end = nick_start;
 	while (*nick_end != ' ')
 		nick_end++;
+
 	list_for_each_safe(obj_ptr, prev_obj_ptr,
 					   &client_list.ptr) {
 	temp = list_entry(obj_ptr,
@@ -158,11 +159,13 @@ static bool mangle_ip(struct nf_conn *ct,
 	 *do not mangle the DCC Server IP
 	 */
 	if ((temp->server_ip == tuple->dst.u3.ip) &&
-		(temp->nickname_len == nick_end - nick_start) &&
-		(memcmp(nick_start, temp->nickname,
-		temp->nickname_len) == 0))
-		return false;
+		(temp->nickname_len == nick_end - nick_start)) {
+			if (memcmp(nick_start, temp->nickname,
+				temp->nickname_len) == 0)
+					return false;
+		}
 	}
+
 	return true;
 }
 
