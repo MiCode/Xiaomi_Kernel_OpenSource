@@ -66,6 +66,8 @@ const char *ipa_event_name[] = {
 	__stringify(WAN_XLAT_CONNECT),
 	__stringify(ECM_CONNECT),
 	__stringify(ECM_DISCONNECT),
+	__stringify(IPA_TETHERING_STATS_UPDATE_STATS),
+	__stringify(IPA_TETHERING_STATS_UPDATE_NETWORK_STATS),
 };
 
 const char *ipa_hdr_l2_type_name[] = {
