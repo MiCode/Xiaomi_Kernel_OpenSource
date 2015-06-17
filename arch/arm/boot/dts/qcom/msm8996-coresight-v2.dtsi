@@ -686,7 +686,7 @@
 
 		qcom,cti-gpio-trigout = <2>;
 		pinctrl-names = "cti-trigout-pctrl";
-		pinctrl-0 = <&trigout_b>;
+		pinctrl-0 = <&trigout_a>;
 	};
 
 	cti7: cti@3017000 {
