@@ -657,7 +657,7 @@ static struct sync_fence *__create_fence(struct msm_fb_data_type *mfd,
 		(mfd->panel.type == MIPI_CMD_PANEL)) {
 		if (mdp5_data->vsync_timeline) {
 			value = mdp5_data->vsync_timeline->value + 1 +
-				mdp5_data->retire_cnt;
+				mdp5_data->retire_cnt++;
 			sync_fence = mdss_fb_sync_get_fence(
 				mdp5_data->vsync_timeline, fence_name, value);
 		} else {
