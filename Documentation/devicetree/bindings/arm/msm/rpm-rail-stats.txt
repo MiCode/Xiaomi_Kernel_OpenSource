@@ -1,0 +1,27 @@
+* RPM Rail Stats
+
+RPM maintains rail and corner data in the RPM RAM. A device tree node
+will hold the address of the RPM RAM from where rail stats are read.
+
+RPM maintains free heap space availability in the RPM RAM. RPM free heap
+space value is required for debugging purpose.
+
+The required properties for rpm-rail-stats are:
+
+- compatible: "qcom,rpm-rail-stats"
+- reg: The address on the RPM RAM from where stats are read.
+
+	Second register specifies the offset of the rpm rail
+	stats start address pointer.
+
+- reg-names: Name of the register holding address.
+
+Example:
+
+qcom,rpm-stats@200000 {
+		compatible = "qcom,rpm-stats";
+		reg = <0x200000 0x100>,
+			<0x290000 0x4>;
+		reg-names = "phys_addr_base",
+				"offset_addr"
+};
