@@ -423,19 +423,6 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 
 	switch (dxport) {
-	case USB_GADGET_XPORT_BAM2BAM:
-		src_connection_idx = usb_bam_get_connection_idx(gadget->name,
-			A2_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
-			port_num);
-		dst_connection_idx = usb_bam_get_connection_idx(gadget->name,
-			A2_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
-			port_num);
-		if (dst_connection_idx < 0 || src_connection_idx < 0) {
-			pr_err("%s: usb_bam_get_connection_idx failed\n",
-				__func__);
-			gsmd_ctrl_disconnect(&dev->port, port_num);
-			return -EINVAL;
-		}
 	case USB_GADGET_XPORT_BAM:
 		ret = gbam_connect(&dev->port, port_num,
 			dxport, src_connection_idx, dst_connection_idx);
@@ -540,7 +527,6 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
-	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_disconnect(&dev->port, port_num, dxport);
 		break;
@@ -619,7 +605,6 @@ static void frmnet_suspend(struct usb_function *f)
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 		break;
-	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		if (remote_wakeup_allowed) {
 			gbam_suspend(&dev->port, port_num, dxport);
@@ -674,7 +659,6 @@ static void frmnet_resume(struct usb_function *f)
 	switch (dxport) {
 	case USB_GADGET_XPORT_BAM:
 		break;
-	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		if (remote_wakeup_allowed) {
 			gbam_resume(&dev->port, port_num, dxport);

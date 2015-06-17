@@ -1331,141 +1331,125 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	*/
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
-		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
-		if (ret) {
-			pr_err("%s: usb_bam_connect (src) failed: err:%d\n",
-				__func__, ret);
-			return;
-		}
-		ret = usb_bam_connect(d->dst_connection_idx, &d->dst_pipe_idx);
-		if (ret) {
-			pr_err("%s: usb_bam_connect (dst) failed: err:%d\n",
-				__func__, ret);
-			return;
-		}
-	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+	d->ipa_params.usb_connection_speed = gadget->speed;
 
-		d->ipa_params.usb_connection_speed = gadget->speed;
+	/*
+	 * Invalidate prod and cons client handles from previous
+	 * disconnect.
+	 */
+	d->ipa_params.cons_clnt_hdl = -1;
+	d->ipa_params.prod_clnt_hdl = -1;
 
-		/*
-		 * Invalidate prod and cons client handles from previous
-		 * disconnect.
-		 */
-		d->ipa_params.cons_clnt_hdl = -1;
-		d->ipa_params.prod_clnt_hdl = -1;
+	if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
+			&d->src_pipe_type) ||
+		usb_bam_get_pipe_type(d->ipa_params.dst_idx,
+				&d->dst_pipe_type)) {
+		pr_err("%s:usb_bam_get_pipe_type() failed\n", __func__);
+		return;
+	}
+	if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
+		pr_err("%s: no software preparation for DL not using bam2bam\n",
+				__func__);
+		return;
+	}
 
-		if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
-				&d->src_pipe_type) ||
-			usb_bam_get_pipe_type(d->ipa_params.dst_idx,
-					&d->dst_pipe_type)) {
-			pr_err("%s:usb_bam_get_pipe_type() failed\n", __func__);
-			return;
-		}
-		if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
-			pr_err("%s: no software preparation for DL not using bam2bam\n",
-					__func__);
-			return;
-		}
+	teth_bridge_params.client = d->ipa_params.src_client;
+	ret = teth_bridge_init(&teth_bridge_params);
+	if (ret) {
+		pr_err("%s:teth_bridge_init() failed\n", __func__);
+		return;
+	}
 
-		teth_bridge_params.client = d->ipa_params.src_client;
-		ret = teth_bridge_init(&teth_bridge_params);
-		if (ret) {
-			pr_err("%s:teth_bridge_init() failed\n", __func__);
-			return;
-		}
+	/* Support for UL using system-to-IPA */
+	if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
+		d->ul_params.teth_priv =
+			teth_bridge_params.private_data;
+		d->ul_params.teth_cb =
+			teth_bridge_params.usb_notify_cb;
+		d->ipa_params.notify = gbam_ipa_sys2bam_notify_cb;
+		d->ipa_params.priv = &d->ul_params;
+		d->ipa_params.reset_pipe_after_lpm = false;
 
-		/* Support for UL using system-to-IPA */
-		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
-			d->ul_params.teth_priv =
-				teth_bridge_params.private_data;
-			d->ul_params.teth_cb =
-				teth_bridge_params.usb_notify_cb;
-			d->ipa_params.notify = gbam_ipa_sys2bam_notify_cb;
-			d->ipa_params.priv = &d->ul_params;
-			d->ipa_params.reset_pipe_after_lpm = false;
+	} else {
+		d->ipa_params.notify =
+			teth_bridge_params.usb_notify_cb;
+		d->ipa_params.priv =
+			teth_bridge_params.private_data;
+		d->ipa_params.reset_pipe_after_lpm =
+			(gadget_is_dwc3(gadget) &&
+			 msm_dwc3_reset_ep_after_lpm(gadget));
+	}
+	d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
+	d->ipa_params.skip_ep_cfg = teth_bridge_params.skip_ep_cfg;
+	d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
+	ret = usb_bam_connect_ipa(&d->ipa_params);
+	if (ret) {
+		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
+			__func__, ret);
+		return;
+	}
 
-		} else {
-			d->ipa_params.notify =
-				teth_bridge_params.usb_notify_cb;
-			d->ipa_params.priv =
-				teth_bridge_params.private_data;
-			d->ipa_params.reset_pipe_after_lpm =
-				(gadget_is_dwc3(gadget) &&
-				 msm_dwc3_reset_ep_after_lpm(gadget));
-		}
-		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
-		d->ipa_params.skip_ep_cfg = teth_bridge_params.skip_ep_cfg;
-		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
-		ret = usb_bam_connect_ipa(&d->ipa_params);
-		if (ret) {
-			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
-				__func__, ret);
+	if (gadget_is_dwc3(gadget)) {
+		if (!port) {
+			pr_err("%s: UL: Port is NULL.", __func__);
 			return;
 		}
 
-		if (gadget_is_dwc3(gadget)) {
-			if (!port) {
-				pr_err("%s: UL: Port is NULL.", __func__);
-				return;
-			}
-
-			spin_lock_irqsave(&port->port_lock_ul, flags_ul);
-			/* check if USB cable is disconnected or not */
-			if (!port->port_usb) {
-				pr_debug("%s: UL: cable is disconnected.\n",
-								 __func__);
-				spin_unlock_irqrestore(&port->port_lock_ul,
-								flags_ul);
-				return;
-			}
-
-			configure_data_fifo(d->src_connection_idx,
-					    port->port_usb->out,
-					    d->src_pipe_type);
-			spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
-		}
-
-		/* Remove support for UL using system-to-IPA towards DL */
-		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
-			d->ipa_params.notify = d->ul_params.teth_cb;
-			d->ipa_params.priv = d->ul_params.teth_priv;
-		}
-		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
-			d->ipa_params.reset_pipe_after_lpm =
-				(gadget_is_dwc3(gadget) &&
-				 msm_dwc3_reset_ep_after_lpm(gadget));
-		else
-			d->ipa_params.reset_pipe_after_lpm = false;
-		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
-		ret = usb_bam_connect_ipa(&d->ipa_params);
-		if (ret) {
-			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
-				__func__, ret);
+		spin_lock_irqsave(&port->port_lock_ul, flags_ul);
+		/* check if USB cable is disconnected or not */
+		if (!port->port_usb) {
+			pr_debug("%s: UL: cable is disconnected.\n",
+							 __func__);
+			spin_unlock_irqrestore(&port->port_lock_ul,
+							flags_ul);
 			return;
 		}
 
-		if (gadget_is_dwc3(gadget)) {
-			if (!port) {
-				pr_err("%s: DL: Port is NULL.", __func__);
-				return;
-			}
+		configure_data_fifo(d->src_connection_idx,
+				    port->port_usb->out,
+				    d->src_pipe_type);
+		spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
+	}
 
-			spin_lock_irqsave(&port->port_lock_dl, flags);
-			/* check if USB cable is disconnected or not */
-			if (!port->port_usb) {
-				pr_debug("%s: DL: cable is disconnected.\n",
-								__func__);
-				spin_unlock_irqrestore(&port->port_lock_dl,
-								flags);
-				return;
-			}
+	/* Remove support for UL using system-to-IPA towards DL */
+	if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
+		d->ipa_params.notify = d->ul_params.teth_cb;
+		d->ipa_params.priv = d->ul_params.teth_priv;
+	}
+	if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+		d->ipa_params.reset_pipe_after_lpm =
+			(gadget_is_dwc3(gadget) &&
+			 msm_dwc3_reset_ep_after_lpm(gadget));
+	else
+		d->ipa_params.reset_pipe_after_lpm = false;
+	d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
+	ret = usb_bam_connect_ipa(&d->ipa_params);
+	if (ret) {
+		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
+			__func__, ret);
+		return;
+	}
 
-			configure_data_fifo(d->dst_connection_idx,
-					    port->port_usb->in,
-					    d->dst_pipe_type);
-			spin_unlock_irqrestore(&port->port_lock_dl, flags);
+	if (gadget_is_dwc3(gadget)) {
+		if (!port) {
+			pr_err("%s: DL: Port is NULL.", __func__);
+			return;
 		}
+
+		spin_lock_irqsave(&port->port_lock_dl, flags);
+		/* check if USB cable is disconnected or not */
+		if (!port->port_usb) {
+			pr_debug("%s: DL: cable is disconnected.\n",
+							__func__);
+			spin_unlock_irqrestore(&port->port_lock_dl,
+							flags);
+			return;
+		}
+
+		configure_data_fifo(d->dst_connection_idx,
+				    port->port_usb->in,
+				    d->dst_pipe_type);
+		spin_unlock_irqrestore(&port->port_lock_dl, flags);
 
 		gqti_ctrl_update_ipa_pipes(port->port_usb, port->port_num,
 			d->ipa_params.ipa_prod_ep_idx ,
@@ -1502,8 +1486,7 @@ static void gbam2bam_connect_work(struct work_struct *w)
 	d->tx_req->udc_priv = sps_params;
 
 	/* queue in & out requests */
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-			d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
+	if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
 		gbam_start_endless_rx(port);
 	} else {
 		/* The use-case of UL (OUT) ports using sys2bam is based on
@@ -1990,9 +1973,8 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 		return;
 	}
 
-	if ((trans == USB_GADGET_XPORT_BAM2BAM ||
-		 trans == USB_GADGET_XPORT_BAM2BAM_IPA) &&
-		port_num >= n_bam2bam_ports) {
+	if ((trans == USB_GADGET_XPORT_BAM2BAM_IPA) &&
+				port_num >= n_bam2bam_ports) {
 		pr_err("%s: invalid bam2bam portno#%d\n",
 			   __func__, port_num);
 		return;
@@ -2053,8 +2035,7 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	 * Set endless flag to false as USB Endpoint is already
 	 * disable.
 	 */
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-		d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 
 		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
 			gr->in->endless = false;
@@ -2067,13 +2048,8 @@ void gbam_disconnect(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	if (gr->out)
 		gr->out->driver_data = NULL;
 
-	if (trans == USB_GADGET_XPORT_BAM ||
-		trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		port->last_event = U_BAM_DISCONNECT_E;
-		queue_work(gbam_wq, &port->disconnect_w);
-	} else if (trans == USB_GADGET_XPORT_BAM2BAM) {
-		usb_gadget_autopm_put_async(port->gadget);
-	}
+	port->last_event = U_BAM_DISCONNECT_E;
+	queue_work(gbam_wq, &port->disconnect_w);
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
@@ -2099,14 +2075,18 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 		return -EINVAL;
 	}
 
+	if (trans == USB_GADGET_XPORT_BAM2BAM) {
+		pr_err("%s: invalid xport#%d\n", __func__, trans);
+		return -EINVAL;
+	}
+
 	if (trans == USB_GADGET_XPORT_BAM && port_num >= n_bam_ports) {
 		pr_err("%s: invalid portno#%d\n", __func__, port_num);
 		return -ENODEV;
 	}
 
-	if ((trans == USB_GADGET_XPORT_BAM2BAM ||
-		trans == USB_GADGET_XPORT_BAM2BAM_IPA)
-		&& port_num >= n_bam2bam_ports) {
+	if ((trans == USB_GADGET_XPORT_BAM2BAM_IPA)
+			&& port_num >= n_bam2bam_ports) {
 		pr_err("%s: invalid portno#%d\n", __func__, port_num);
 		return -ENODEV;
 	}
@@ -2149,10 +2129,7 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 	spin_unlock(&port->port_lock_dl);
 	spin_unlock_irqrestore(&port->port_lock_ul, flags_ul);
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM) {
-		d->src_connection_idx = src_connection_idx;
-		d->dst_connection_idx = dst_connection_idx;
-	} else if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
 		d->src_connection_idx = src_connection_idx;
 		d->dst_connection_idx = dst_connection_idx;
 		d->ipa_params.src_pipe = &(d->src_pipe_idx);
@@ -2174,18 +2151,13 @@ int gbam_connect(struct grmnet *gr, u8 port_num,
 			ret = -EINVAL;
 			goto exit;
 		}
-	}
-
-	/*
-	 * Check for pipe_type. If it is BAM2BAM, then it is required
-	 * to disable Xfer complete and Xfer not ready interrupts for
-	 * that particular endpoint. Hence it set endless flag based
-	 * it which is considered into UDC driver while enabling
-	 * USB Endpoint.
-	 */
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-		d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-
+		/*
+		 * Check for pipe_type. If it is BAM2BAM, then it is required
+		 * to disable Xfer complete and Xfer not ready interrupts for
+		 * that particular endpoint. Hence it set endless flag based
+		 * it which is considered into UDC driver while enabling
+		 * USB Endpoint.
+		 */
 		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
 			port->port_usb->in->endless = true;
 
@@ -2339,8 +2311,7 @@ void gbam_suspend(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	struct bam_ch_info *d;
 	unsigned long flags;
 
-	if (trans != USB_GADGET_XPORT_BAM2BAM &&
-		trans != USB_GADGET_XPORT_BAM2BAM_IPA)
+	if (trans != USB_GADGET_XPORT_BAM2BAM_IPA)
 		return;
 
 	port = bam2bam_ports[port_num];
@@ -2368,8 +2339,7 @@ void gbam_resume(struct grmnet *gr, u8 port_num, enum transport_type trans)
 	struct bam_ch_info *d;
 	unsigned long flags;
 
-	if (trans != USB_GADGET_XPORT_BAM2BAM &&
-		trans != USB_GADGET_XPORT_BAM2BAM_IPA)
+	if (trans != USB_GADGET_XPORT_BAM2BAM_IPA)
 		return;
 
 	port = bam2bam_ports[port_num];
