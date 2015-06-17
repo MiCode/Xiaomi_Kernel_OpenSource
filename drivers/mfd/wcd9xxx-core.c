@@ -672,6 +672,69 @@ static int wcd9xxx_slim_write_device(struct wcd9xxx *wcd9xxx,
 	return ret;
 }
 
+/*
+ * wcd9xxx_slim_bulk_write: API to write multiple registers with one descriptor
+ * @wcd9xxx: Handle to the wcd9xxx core
+ * @wcd9xxx_reg_val: structure holding register and values to be written
+ * @size: Indicates number of messages to be written with one descriptor
+ * @is_interface: Indicates whether the register is for slim interface or for
+ *	       general registers.
+ * @return: returns 0 if success or error information to the caller in case
+ *	    of failure.
+ */
+int wcd9xxx_slim_bulk_write(struct wcd9xxx *wcd9xxx,
+			    struct wcd9xxx_reg_val *bulk_reg,
+			    unsigned int size, bool is_interface)
+{
+	int ret, i;
+	struct slim_val_inf *msgs;
+	unsigned short reg;
+
+	if (!bulk_reg || !size || !wcd9xxx) {
+		pr_err("%s: Invalid parameters\n", __func__);
+		return -EINVAL;
+	}
+
+	msgs = kzalloc(size * (sizeof(struct slim_val_inf)), GFP_KERNEL);
+	if (!msgs) {
+		ret = -ENOMEM;
+		goto mem_fail;
+	}
+
+	mutex_lock(&wcd9xxx->io_lock);
+	reg = bulk_reg->reg;
+	for (i = 0; i < size; i++) {
+		msgs[i].start_offset = WCD9XXX_REGISTER_START_OFFSET +
+					(bulk_reg->reg & 0xFF);
+		msgs[i].num_bytes = bulk_reg->bytes;
+		msgs[i].wbuf = bulk_reg->buf;
+		bulk_reg++;
+	}
+	ret = wcd9xxx_page_write(wcd9xxx, &reg);
+	if (ret) {
+		pr_err("%s: Page write error for reg: 0x%x\n",
+			__func__, reg);
+		goto err;
+	}
+
+	ret = slim_bulk_msg_write(is_interface ?
+				  wcd9xxx->slim_slave : wcd9xxx->slim,
+				  SLIM_MSG_MT_CORE,
+				  SLIM_MSG_MC_CHANGE_VALUE, msgs, size,
+				  NULL, NULL);
+	if (ret)
+		pr_err("%s: Error, Codec bulk write failed (%d)\n",
+			__func__, ret);
+	/* 700 usec sleep is needed as per HW requirement */
+	usleep_range(700, 710);
+err:
+	mutex_unlock(&wcd9xxx->io_lock);
+	kfree(msgs);
+mem_fail:
+	return ret;
+}
+EXPORT_SYMBOL(wcd9xxx_slim_bulk_write);
+
 static struct mfd_cell tabla1x_devs[] = {
 	{
 		.name = "tabla1x_codec",
