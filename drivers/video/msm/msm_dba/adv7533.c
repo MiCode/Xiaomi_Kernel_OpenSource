@@ -130,8 +130,6 @@ struct adv7533_platform_data {
 	struct workqueue_struct *workq;
 	struct delayed_work adv7533_intr_work_id;
 	struct msm_dba_device_info dev_info;
-	msm_dba_cb client_cb;
-	void *client_cb_data;
 	struct adv7533_cec_msg cec_msg[ADV7533_CEC_BUF_MAX];
 	struct mutex ops_mutex;
 };
@@ -595,6 +593,27 @@ err_none:
 	return ret;
 }
 
+static void adv7533_notify_clients(struct msm_dba_device_info *dev,
+		enum msm_dba_callback_event event)
+{
+	struct msm_dba_client_info *c;
+	struct list_head *pos = NULL;
+
+	if (!dev) {
+		pr_err("%s: invalid input\n", __func__);
+		return;
+	}
+
+	list_for_each(pos, &dev->client_list) {
+		c = list_entry(pos, struct msm_dba_client_info, list);
+
+		pr_debug("%s: notifying event %d to client %s\n", __func__,
+			event, c->client_name);
+
+		if (c && c->cb)
+			c->cb(c->cb_data, event);
+	}
+}
 
 u32 adv7533_read_edid(u32 size, char *edid_buf)
 {
@@ -808,7 +827,7 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		pdata->cec_msg[ADV7533_CEC_BUF1].timestamp =
 			cec_rx_timestamp & (BIT(0) | BIT(1));
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_CEC_READ_PENDING);
 	}
 
@@ -823,7 +842,7 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		pdata->cec_msg[ADV7533_CEC_BUF2].timestamp =
 			cec_rx_timestamp & (BIT(2) | BIT(3));
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_CEC_READ_PENDING);
 	}
 
@@ -838,7 +857,7 @@ static void adv7533_handle_cec_intr(u8 cec_status)
 		pdata->cec_msg[ADV7533_CEC_BUF3].timestamp =
 			cec_rx_timestamp & (BIT(4) | BIT(5));
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_CEC_READ_PENDING);
 	}
 
@@ -902,7 +921,7 @@ static void *adv7533_handle_hpd_intr(void)
 	} else if (disconnected) {
 		pr_debug("%s: Rx DISCONNECTED\n", __func__);
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_HPD_DISCONNECT);
 	} else {
 		pr_debug("%s: HPD Intermediate state\n", __func__);
@@ -1073,7 +1092,7 @@ static void adv7533_intr_work(struct work_struct *work)
 		if (ret)
 			pr_err("%s: edid read failed\n", __func__);
 
-		pdata->client_cb(pdata->client_cb_data,
+		adv7533_notify_clients(&pdata->dev_info,
 			MSM_DBA_CB_HPD_CONNECT);
 	}
 
@@ -1551,26 +1570,6 @@ end:
 	return 0;
 }
 
-static int adv7533_reg_fxn(struct msm_dba_client_info *cinfo)
-{
-	struct adv7533_platform_data *pdata =
-		adv7533_get_platform_data((void *)cinfo);
-
-	if (!pdata) {
-		pr_err("%s: invalid platform data\n", __func__);
-		return -EINVAL;
-	}
-
-	mutex_lock(&pdata->ops_mutex);
-
-	pdata->client_cb = cinfo->cb;
-	pdata->client_cb_data = cinfo->cb_data;
-
-	mutex_unlock(&pdata->ops_mutex);
-
-	return 0;
-}
-
 static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 {
 	struct msm_dba_ops *client_ops;
@@ -1593,7 +1592,6 @@ static int adv7533_register_dba(struct adv7533_platform_data *pdata)
 		sizeof(pdata->dev_info.chip_name));
 
 	pdata->dev_info.instance_id = 0;
-	pdata->dev_info.reg_fxn = adv7533_reg_fxn;
 
 	mutex_init(&pdata->dev_info.dev_mutex);
 
