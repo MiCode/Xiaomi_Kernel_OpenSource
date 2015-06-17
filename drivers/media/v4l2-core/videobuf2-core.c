@@ -1572,7 +1572,10 @@ static int __buf_prepare(struct vb2_buffer *vb, const struct v4l2_buffer *b)
 {
 	struct vb2_queue *q = vb->vb2_queue;
 	int ret;
-	struct rw_semaphore *mmap_sem = &current->mm->mmap_sem;
+	struct rw_semaphore *mmap_sem = NULL;
+
+	if (current && current->mm)
+		mmap_sem = &current->mm->mmap_sem;
 
 	ret = __verify_length(vb, b);
 	if (ret < 0) {
