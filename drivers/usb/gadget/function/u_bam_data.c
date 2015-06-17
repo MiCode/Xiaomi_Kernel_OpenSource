@@ -86,8 +86,6 @@ struct bam_data_ch_info {
 	u32			dst_pipe_idx;
 	u8			src_connection_idx;
 	u8			dst_connection_idx;
-	int			src_bam_idx;
-	int			dst_bam_idx;
 
 	enum function_type			func_type;
 	enum transport_type			trans;
@@ -965,19 +963,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		}
 
 		d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
-		d->src_bam_idx = usb_bam_get_connection_idx(
-				gadget->name,
-				IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
-				USB_BAM_DEVICE, 0);
-		if (d->src_bam_idx < 0) {
-			spin_unlock_irqrestore(&port->port_lock, flags);
-			pr_err("%s: get_connection_idx failed\n",
-				__func__);
-			goto disconnect_ipa;
-		}
-
 		if (gadget_is_dwc3(gadget))
-			configure_usb_data_fifo(d->src_bam_idx,
+			configure_usb_data_fifo(d->src_connection_idx,
 					port->port_usb->out,
 					d->src_pipe_type);
 
@@ -1033,18 +1020,8 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		pr_debug("%s(): ipa_producer_ep:%d ipa_consumer_ep:%d\n",
 				__func__, d_port->ipa_producer_ep,
 				d_port->ipa_consumer_ep);
-		d->dst_bam_idx = usb_bam_get_connection_idx(
-				gadget->name,
-				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, 0);
-		if (d->dst_bam_idx < 0) {
-			pr_err("%s: get_connection_idx failed\n",
-				__func__);
-			return;
-		}
-
 		if (gadget_is_dwc3(gadget))
-			configure_usb_data_fifo(d->dst_bam_idx,
+			configure_usb_data_fifo(d->dst_connection_idx,
 					port->port_usb->in,
 					d->dst_pipe_type);
 
@@ -1802,17 +1779,7 @@ static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)
 	} else {
 		if (gadget_is_dwc3(gadget) &&
 		    msm_dwc3_reset_ep_after_lpm(gadget)) {
-			u8 idx;
-
-			idx = usb_bam_get_connection_idx(gadget->name,
-				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, 0);
-			if (idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-					__func__);
-				return;
-			}
-			configure_data_fifo(idx,
+			configure_data_fifo(d->dst_connection_idx,
 				port->port_usb->in,
 				d->dst_pipe_type);
 		}
@@ -2052,7 +2019,7 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 		if (gadget_is_dwc3(gadget) &&
 			msm_dwc3_reset_ep_after_lpm(gadget)) {
 			if (d->tx_req_dequeued) {
-				configure_usb_data_fifo(d->dst_bam_idx,
+				configure_usb_data_fifo(d->dst_connection_idx,
 					port->port_usb->in,
 					d->dst_pipe_type);
 				spin_unlock_irqrestore(&port->port_lock, flags);
@@ -2060,7 +2027,7 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 				spin_lock_irqsave(&port->port_lock, flags);
 			}
 			if (d->rx_req_dequeued) {
-				configure_usb_data_fifo(d->src_bam_idx,
+				configure_usb_data_fifo(d->src_connection_idx,
 					port->port_usb->out,
 					d->src_pipe_type);
 				spin_unlock_irqrestore(&port->port_lock, flags);
