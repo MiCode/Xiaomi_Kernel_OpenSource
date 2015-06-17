@@ -16,6 +16,7 @@
 #include <linux/dma-buf.h>
 #include <linux/dma-direction.h>
 #include <linux/iommu.h>
+#include <linux/msm_dma_iommu_mapping.h>
 #include <linux/msm_ion.h>
 #include <linux/slab.h>
 #include <linux/types.h>
@@ -95,10 +96,11 @@ static int get_device_address(struct smem_client *smem_client,
 			align, *iova, *buffer_size);
 
 		/* Map a scatterlist into an SMMU */
-		rc = dma_map_sg(cb->dev, table->sgl, table->nents,
-				DMA_BIDIRECTIONAL);
+		rc = msm_dma_map_sg_lazy(cb->dev, table->sgl, table->nents,
+				DMA_BIDIRECTIONAL, buf);
 		if (rc != table->nents) {
-			dprintk(VIDC_ERR, "dma_map_sg failed! (%d != %d)\n",
+			dprintk(VIDC_ERR,
+				"Mapping failed with rc(%d), expected rc(%d)\n",
 				rc, table->nents);
 			rc = -ENOMEM;
 			goto mem_map_sg_failed;
@@ -180,8 +182,9 @@ static void put_device_address(struct smem_client *smem_client,
 			mapping_info->attach);
 
 		trace_msm_smem_buffer_iommu_op_start("UNMAP", 0, 0, 0, 0, 0);
-		dma_unmap_sg(mapping_info->dev, mapping_info->table->sgl,
-			mapping_info->table->nents, DMA_BIDIRECTIONAL);
+		msm_dma_unmap_sg(mapping_info->dev, mapping_info->table->sgl,
+			mapping_info->table->nents, DMA_BIDIRECTIONAL,
+			mapping_info->buf);
 		dma_buf_unmap_attachment(mapping_info->attach,
 			mapping_info->table, DMA_BIDIRECTIONAL);
 		dma_buf_detach(mapping_info->buf, mapping_info->attach);
