@@ -163,6 +163,10 @@ static struct adv7533_reg_cfg adv7533_init_setup[] = {
 };
 
 static struct adv7533_reg_cfg adv7533_video_en[] = {
+	 /* Timing Generator Enable */
+	{I2C_ADDR_CEC_DSI, 0x27, 0xCB},
+	{I2C_ADDR_CEC_DSI, 0x27, 0x8B},
+	{I2C_ADDR_CEC_DSI, 0x27, 0xCB},
 	/* power up */
 	{I2C_ADDR_MAIN, 0x41, 0x10},
 	/* hdmi enable */
@@ -177,46 +181,6 @@ static struct adv7533_reg_cfg adv7533_video_en[] = {
 	{I2C_ADDR_CEC_DSI, 0x05, 0xC8},
 	/* GC packet enable */
 	{I2C_ADDR_MAIN, 0x40, 0x80},
-	{I2C_ADDR_MAX}
-};
-
-static struct adv7533_reg_cfg tg_cfg_1080p[] = {
-	/* 4 lanes */
-	{I2C_ADDR_CEC_DSI, 0x1C, 0x40},
-	/* hsync and vsync active low */
-	{I2C_ADDR_MAIN, 0x17, 0x02},
-	/* Control for Pixel Clock Divider */
-	{I2C_ADDR_CEC_DSI, 0x16, 0x00},
-	/* Timing Generator Enable */
-	{I2C_ADDR_CEC_DSI, 0x27, 0xCB},
-	/* h_width 0x898 2200*/
-	{I2C_ADDR_CEC_DSI, 0x28, 0x89},
-	{I2C_ADDR_CEC_DSI, 0x29, 0x80},
-	/* hsync_width 0x2C 44*/
-	{I2C_ADDR_CEC_DSI, 0x2A, 0x02},
-	{I2C_ADDR_CEC_DSI, 0x2B, 0xC0},
-	/* hfp 0x58 88 */
-	{I2C_ADDR_CEC_DSI, 0x2C, 0x05},
-	{I2C_ADDR_CEC_DSI, 0x2D, 0x80},
-	/* hbp 0x94 148 */
-	{I2C_ADDR_CEC_DSI, 0x2E, 0x09},
-	{I2C_ADDR_CEC_DSI, 0x2F, 0x40},
-	/* v_total 0x465 1125 */
-	{I2C_ADDR_CEC_DSI, 0x30, 0x46},
-	{I2C_ADDR_CEC_DSI, 0x31, 0x50},
-	/* vsync_width 0x05 5*/
-	{I2C_ADDR_CEC_DSI, 0x32, 0x00},
-	{I2C_ADDR_CEC_DSI, 0x33, 0x50},
-	/* vfp 0x04 4  */
-	{I2C_ADDR_CEC_DSI, 0x34, 0x00},
-	{I2C_ADDR_CEC_DSI, 0x35, 0x40},
-	/* vbp 0x24 36 */
-	{I2C_ADDR_CEC_DSI, 0x36, 0x02},
-	{I2C_ADDR_CEC_DSI, 0x37, 0x40},
-	/* Timing Generator Enable */
-	{I2C_ADDR_CEC_DSI, 0x27, 0xCB},
-	{I2C_ADDR_CEC_DSI, 0x27, 0x8B},
-	{I2C_ADDR_CEC_DSI, 0x27, 0xCB},
 	{I2C_ADDR_MAX}
 };
 
@@ -899,25 +863,6 @@ static void *adv7533_handle_hpd_intr(void)
 
 	if (connected) {
 		pr_debug("%s: Rx CONNECTED\n", __func__);
-
-		ret = adv7533_write_regs(pdata, adv7533_init_setup);
-		if (ret) {
-			pr_err("%s: Failed to write common config\n",
-				__func__);
-			goto end;
-		}
-
-		ret = adv7533_write_regs(pdata, tg_cfg_1080p);
-		if (ret) {
-			pr_err("%s: err config 1080p %d\n", __func__, ret);
-			goto end;
-		}
-
-		ret = adv7533_write_regs(pdata, adv7533_video_en);
-		if (ret) {
-			pr_err("%s: Failed: video setup\n", __func__);
-			goto end;
-		}
 	} else if (disconnected) {
 		pr_debug("%s: Rx DISCONNECTED\n", __func__);
 
@@ -1274,6 +1219,72 @@ end:
 	return ret;
 }
 
+static void adv7533_video_setup(struct msm_dba_video_cfg *cfg)
+{
+	u32 h_total, v_total;
+
+	if (!cfg) {
+		pr_err("%s: invalid input\n", __func__);
+		return;
+	}
+
+	h_total = cfg->h_active + cfg->h_front_porch +
+	      cfg->h_pulse_width + cfg->h_back_porch;
+	v_total = cfg->v_active + cfg->v_front_porch +
+	      cfg->v_pulse_width + cfg->v_back_porch;
+
+	pr_debug("h_total 0x%x, h_active 0x%x, hfp 0x%d, hpw 0x%x, hbp 0x%x\n",
+		h_total, cfg->h_active, cfg->h_front_porch,
+		cfg->h_pulse_width, cfg->h_back_porch);
+
+	pr_debug("v_total 0x%x, v_active 0x%x, vfp 0x%x, vpw 0x%x, vbp 0x%x\n",
+		v_total, cfg->v_active, cfg->v_front_porch,
+		cfg->v_pulse_width, cfg->v_back_porch);
+
+	/* hsync and vsync active low */
+	adv7533_write_byte(I2C_ADDR_MAIN, 0x17, 0x02);
+	/* h_width */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x28,
+		      ((h_total & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x29,
+		      ((h_total & 0xF) << 4));
+	/* hsync_width */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x2A,
+		      ((cfg->h_pulse_width & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x2B,
+		     ((cfg->h_pulse_width & 0xF) << 4));
+	/* hfp */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x2C,
+		     ((cfg->h_front_porch & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x2D,
+		     ((cfg->h_front_porch & 0xF) << 4));
+	/* hbp */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x2E,
+		     ((cfg->h_back_porch & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x2F,
+		     ((cfg->h_back_porch & 0xF) << 4));
+	/* v_total */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x30,
+		     ((v_total & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x31,
+		      ((v_total & 0xF) << 4));
+	/* vsync_width */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x32,
+		     ((cfg->v_pulse_width & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x33,
+		     ((cfg->v_pulse_width & 0xF) << 4));
+	/* vfp */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x34,
+		     ((cfg->v_front_porch & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x35,
+		     ((cfg->v_front_porch & 0xF) << 4));
+	/* vbp */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x36,
+		     ((cfg->v_back_porch & 0xFF0) >> 4));
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x37,
+		     ((cfg->v_back_porch & 0xF) << 4));
+}
+
 static int adv7533_video_on(void *client, bool on,
 	struct msm_dba_video_cfg *cfg, u32 flags)
 {
@@ -1288,16 +1299,15 @@ static int adv7533_video_on(void *client, bool on,
 
 	mutex_lock(&pdata->ops_mutex);
 
-	ret = adv7533_write_regs(pdata, tg_cfg_1080p);
-	if (ret) {
-		pr_err("%s: err config 1080p %d\n", __func__, ret);
-		goto end;
-	}
+	/* lane configuration, 4 lanes */
+	adv7533_write_byte(I2C_ADDR_CEC_DSI, 0x1C, 0x40);
+
+	adv7533_video_setup(cfg);
 
 	ret = adv7533_write_regs(pdata, adv7533_video_en);
 	if (ret)
 		pr_err("%s: Failed: video setup\n", __func__);
-end:
+
 	mutex_unlock(&pdata->ops_mutex);
 	return ret;
 }
