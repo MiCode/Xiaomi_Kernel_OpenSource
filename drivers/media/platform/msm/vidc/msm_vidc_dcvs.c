@@ -162,6 +162,8 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 	struct msm_vidc_core *core;
 	struct hal_buffer_requirements *output_buf_req;
 	struct dcvs_stats *dcvs;
+	const unsigned int load_uhd = NUM_MBS_PER_SEC(2160, 3840, 30),
+		load_1080p = NUM_MBS_PER_SEC(1088, 1920, 60);
 
 	dprintk(VIDC_DBG, "Init DCVS Load\n");
 
@@ -175,9 +177,19 @@ void msm_dcvs_init_load(struct msm_vidc_inst *inst)
 
 	dcvs->load = msm_comm_get_inst_load(inst, LOAD_CALC_NO_QUIRKS);
 
-	if (dcvs->load >= DCVS_NOMINAL_LOAD) {
-		dcvs->load_low = DCVS_NOMINAL_LOAD;
-		dcvs->load_high = core->resources.max_load;
+	if (inst->session_type == MSM_VIDC_DECODER) {
+		if (dcvs->load > load_uhd) {
+			dcvs->load_low = DCVS_DEC_NOMINAL_LOAD;
+			dcvs->load_high = DCVS_DEC_TURBO_LOAD;
+		} else if (dcvs->load > load_1080p) {
+			dcvs->load_low = DCVS_DEC_SVS_LOAD;
+			dcvs->load_high = DCVS_DEC_NOMINAL_LOAD;
+		}
+	} else { /* encoder */
+		if (dcvs->load >= load_uhd) {
+			dcvs->load_low = DCVS_ENC_NOMINAL_LOAD;
+			dcvs->load_high = DCVS_ENC_TURBO_LOAD;
+		}
 	}
 
 	if (inst->session_type == MSM_VIDC_ENCODER)
@@ -460,8 +472,10 @@ bool msm_dcvs_enc_check(struct msm_vidc_inst *inst)
 	}
 
 	is_codec_supported  =
-		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264) ||
-		(inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264_NO_SC);
+		inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264 ||
+		inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_H264_NO_SC ||
+		inst->fmts[CAPTURE_PORT]->fourcc == V4L2_PIX_FMT_HEVC;
+
 
 	num_mbs_per_frame = msm_dcvs_get_mbs_per_frame(inst);
 	if (msm_vidc_enc_dcvs_mode && is_codec_supported &&
