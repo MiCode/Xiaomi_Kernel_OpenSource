@@ -228,4 +228,36 @@
 		reg = <0x1905000 0x8000>;
 		qcom,num-locks = <8>;
 	};
+
+	/* Based on 9x45 - needs to be revisited */
+	qcom,smem@87e80000 {
+		compatible = "qcom,smem";
+		reg = <0x87e80000 0x100000>,
+			<0xb011008 0x4>,
+			<0x60000 0x6000>,
+			<0x193D000 0x8>;
+		reg-names = "smem", "irq-reg-base", "aux-mem1",
+				"smem_targ_info_reg";
+		qcom,mpu-enabled;
+
+		qcom,smd-modem {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <0>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1000>;
+			interrupts = <0 25 1>;
+			label = "modem";
+		};
+
+		qcom,smd-rpm {
+			compatible = "qcom,smd";
+			qcom,smd-edge = <15>;
+			qcom,smd-irq-offset = <0x0>;
+			qcom,smd-irq-bitmask = <0x1>;
+			interrupts = <0 168 1>;
+			label = "rpm";
+			qcom,irq-no-suspend;
+			qcom,not-loadable;
+		};
+	};
 };
