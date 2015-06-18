@@ -1309,6 +1309,7 @@
 
 		clock-names = "core_clk", "core0_clk", "iface_clk", "bus_clk";
 		qcom,clock-configs = <0x1 0x0 0x0 0x0>;
+		qcom,sw-power-collapse;
 		qcom,max-hw-load = <972000>; /* 3840 x 2160 @ 30 fps */
 
 		qcom,load-freq-tbl =
