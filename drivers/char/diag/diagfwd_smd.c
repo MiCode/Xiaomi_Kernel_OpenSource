@@ -752,17 +752,16 @@ static int diag_smd_read(void *ctxt, unsigned char *buf, int buf_len)
 			read_len = smd_read_avail(smd_info->hdl);
 			if (!read_len) {
 				wait_event(smd_info->read_wait_q,
-					   (!(atomic_read(&smd_info->opened)) ||
+					   ((atomic_read(&smd_info->opened)) &&
 					    smd_read_avail(smd_info->hdl)));
 
-				if (smd_info->hdl ||
+				if (!smd_info->hdl ||
 				    !atomic_read(&smd_info->opened)) {
 					DIAG_LOG(DIAG_DEBUG_PERIPHERALS,
 						"%s exiting from wait",
 						smd_info->name);
-					continue;
-				} else
 					goto fail_return;
+				}
 			}
 
 			if (pkt_len < read_len)

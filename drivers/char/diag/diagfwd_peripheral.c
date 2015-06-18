@@ -354,8 +354,6 @@ static void diagfwd_cntl_read_done(struct diagfwd_info *fwd_info,
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
 
 	diagfwd_queue_read(fwd_info);
-	diagfwd_queue_read(&peripheral_info[TYPE_DATA][fwd_info->peripheral]);
-	diagfwd_queue_read(&peripheral_info[TYPE_CMD][fwd_info->peripheral]);
 }
 
 static void diagfwd_dci_read_done(struct diagfwd_info *fwd_info,
@@ -701,8 +699,6 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 
 	if (fwd_info->p_ops && fwd_info->p_ops->open)
 		fwd_info->p_ops->open(fwd_info->ctxt);
-
-	diagfwd_queue_read(fwd_info);
 }
 
 void diagfwd_early_open(uint8_t peripheral)
@@ -781,7 +777,7 @@ int diagfwd_channel_open(struct diagfwd_info *fwd_info)
 	diagfwd_buffers_init(fwd_info);
 	if (fwd_info && fwd_info->c_ops && fwd_info->c_ops->open)
 		fwd_info->c_ops->open(fwd_info);
-	diagfwd_queue_read(fwd_info);
+
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "p: %d t: %d considered opened\n",
 		 fwd_info->peripheral, fwd_info->type);
 
