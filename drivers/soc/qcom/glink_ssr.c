@@ -274,9 +274,9 @@ void close_ch_worker(struct work_struct *work)
 			NULL);
 
 	if (IS_ERR_OR_NULL(link_state_handle))
-		GLINK_ERR("<SSR> %s: %s, ret[%zu]\n", __func__,
+		GLINK_ERR("<SSR> %s: %s, ret[%d]\n", __func__,
 				"Couldn't register link state cb",
-				PTR_ERR(link_state_handle));
+				(int)PTR_ERR(link_state_handle));
 	else
 		ss_info->link_state_handle = link_state_handle;
 
@@ -594,9 +594,9 @@ static int configure_and_open_channel(struct subsys_info *ss_info)
 
 	handle = glink_open(&open_cfg);
 	if (IS_ERR_OR_NULL(handle)) {
-		GLINK_ERR("<SSR> %s:%s %s: unable to open channel, ret[%zu]\n",
+		GLINK_ERR("<SSR> %s:%s %s: unable to open channel, ret[%d]\n",
 				 open_cfg.edge, open_cfg.name, __func__,
-				 PTR_ERR(handle));
+				 (int)PTR_ERR(handle));
 		kfree(cb_data);
 		cb_data = NULL;
 		ss_info->cb_data = NULL;
