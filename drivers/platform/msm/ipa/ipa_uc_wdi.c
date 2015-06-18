@@ -397,6 +397,11 @@ int ipa_get_wdi_stats(struct IpaHwStatsWDIInfoData_t *stats)
 #define RX_STATS(y) stats->rx_ch_stats.y = \
 	ipa_ctx->uc_wdi_ctx.wdi_uc_stats_mmio->rx_ch_stats.y
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (!stats || !ipa_ctx->uc_wdi_ctx.wdi_uc_stats_mmio) {
 		IPAERR("bad parms stats=%p wdi_stats=%p\n",
 			stats,
@@ -702,6 +707,11 @@ int ipa_connect_wdi_pipe(struct ipa_wdi_in_params *in,
 	phys_addr_t pa;
 	u32 len;
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (in == NULL || out == NULL || in->sys.client >= IPA_CLIENT_MAX) {
 		IPAERR("bad parm. in=%p out=%p\n", in, out);
 		if (in)
@@ -979,6 +989,11 @@ int ipa_disconnect_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t tear;
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
@@ -1040,6 +1055,11 @@ int ipa_enable_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t enable;
 	struct ipa_ep_cfg_holb holb_cfg;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
@@ -1104,6 +1124,11 @@ int ipa_disable_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t disable;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 	u32 prod_hdl;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
@@ -1200,6 +1225,11 @@ int ipa_resume_wdi_pipe(u32 clnt_hdl)
 	union IpaHwWdiCommonChCmdData_t resume;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
 		IPAERR("bad parm.\n");
@@ -1262,6 +1292,11 @@ int ipa_suspend_wdi_pipe(u32 clnt_hdl)
 	struct ipa_ep_context *ep;
 	union IpaHwWdiCommonChCmdData_t suspend;
 	struct ipa_ep_cfg_ctrl ep_cfg_ctrl;
+
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
 
 	if (clnt_hdl >= ipa_ctx->ipa_num_pipes ||
 	    ipa_ctx->ep[clnt_hdl].valid == 0) {
@@ -1401,6 +1436,11 @@ int ipa_uc_reg_rdyCB(
 {
 	int result = 0;
 
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (inout == NULL) {
 		IPAERR("bad parm. inout=%p ", inout);
 		return -EINVAL;
@@ -1432,6 +1472,11 @@ EXPORT_SYMBOL(ipa_uc_reg_rdyCB);
 int ipa_uc_wdi_get_dbpa(
 	struct ipa_wdi_db_params *param)
 {
+	if (unlikely(!ipa_ctx)) {
+		IPAERR("IPA driver was not initialized\n");
+		return -EINVAL;
+	}
+
 	if (param == NULL || param->client >= IPA_CLIENT_MAX) {
 		IPAERR("bad parm. param=%p ", param);
 		if (param)
