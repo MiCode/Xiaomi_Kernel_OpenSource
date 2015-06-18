@@ -1026,6 +1026,7 @@ static int mdss_mdp_debug_init(struct platform_device *pdev,
 		"qcom,regs-dump-names-mdp");
 
 	mdss_debug_register_io("vbif", &mdata->vbif_io, NULL);
+	mdss_debug_register_io("vbif_nrt", &mdata->vbif_nrt_io, NULL);
 
 	return 0;
 }
