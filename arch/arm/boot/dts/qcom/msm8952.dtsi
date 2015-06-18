@@ -136,6 +136,7 @@
 #include "msm8952-iommu-domains.dtsi"
 #include "msm8952-mdss-pll.dtsi"
 #include "msm8952-gpu.dtsi"
+#include "msm-rdbg.dtsi"
 
 &soc {
 	#address-cells = <1>;
