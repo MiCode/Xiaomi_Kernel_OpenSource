@@ -63,6 +63,12 @@
 		pinctrl-1 = <&adv7533_int_suspend &adv7533_hpd_int_suspend>;
 		adi,irq-gpio = <&msm_gpio 135 0x2002>;
 		adi,hpd-irq-gpio = <&msm_gpio 52 0x2003>;
+		hpd-5v-en-supply = <&adv_vreg>;
+		qcom,supply-names = "hpd-5v-en";
+		qcom,min-voltage-level = <0>;
+		qcom,max-voltage-level = <0>;
+		qcom,enable-load = <0>;
+		qcom,disable-load = <0>;
 	};
 };
 
