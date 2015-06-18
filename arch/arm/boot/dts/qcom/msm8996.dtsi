@@ -316,7 +316,7 @@
 		qcom,reg-presets = <0x80010 0xffffffff>,
 			<0x80018 0x00001556>,
 			<0x8001C 0x00001556>;
-		qcom,max-hw-load = <1281600>; /* Full 4k @ 30 + 1080p @ 30 */
+		qcom,max-hw-load = <2563200>; /* Full 4k @ 60 + 1080p @ 60 */
 		qcom,firmware-name = "venus";
 		qcom,imem-size = <524288>; /* 512 kB */
 		qcom,load-freq-tbl =
