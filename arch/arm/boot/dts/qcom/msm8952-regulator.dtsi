@@ -315,7 +315,7 @@
 
 		qcom,acc-sel-l1-bit-pos = <0>;
 		qcom,acc-sel-l1-bit-size = <16>;
-		qcom,corner-acc-map = <0x0 0x5555 0x5555>;
+		qcom,corner-acc-map = <0x0 0x5555 0xFFFF>;
 	};
 
 	apc_vreg_corner: regulator@b018000 {
