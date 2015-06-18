@@ -1422,6 +1422,7 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	int			ret, port_num;
 	unsigned long		flags;
 	u8			src_connection_idx, dst_connection_idx;
+	enum usb_ctrl		usb_bam_type;
 
 	if (!gr) {
 		pr_err("data port is null\n");
@@ -1441,10 +1442,12 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 
 	pr_debug("dev:%p port#%d\n", gr, port_num);
 
-	src_connection_idx = usb_bam_get_connection_idx(gr->cdev->gadget->name,
+	usb_bam_type = usb_bam_get_bam_type(gr->cdev->gadget->name);
+
+	src_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
 			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
 			dev_port_num);
-	dst_connection_idx = usb_bam_get_connection_idx(gr->cdev->gadget->name,
+	dst_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
 			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
 			dev_port_num);
 	if (src_connection_idx < 0 || dst_connection_idx < 0) {
@@ -1467,11 +1470,7 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	d->rx_buffer_size = (gr->rx_buffer_size ? gr->rx_buffer_size :
 					bam_mux_rx_req_size);
 
-	/*
-	 * Both source (consumer) and destination (producer) use the same
-	 * controller, so checking just one of them should suffice.
-	 */
-	if (usb_bam_get_bam_type(src_connection_idx) == HSIC_CTRL) {
+	if (usb_bam_type == HSIC_CTRL) {
 		d->ipa_params.src_client = IPA_CLIENT_HSIC1_PROD;
 		d->ipa_params.dst_client = IPA_CLIENT_HSIC1_CONS;
 	} else {

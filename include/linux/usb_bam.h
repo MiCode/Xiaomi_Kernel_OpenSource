@@ -282,19 +282,6 @@ int usb_bam_register_wake_cb(u8 idx,
 	int (*callback)(void *), void *param);
 
 /**
- * Register a callback for peer BAM reset.
- *
- * @callback - the callback function that will be called in USB
- *				driver upon a peer bam reset
- *
- * @param - context that the caller can supply
- *
- * @return 0 on success, negative value on error
- *
- */
-int usb_bam_register_peer_reset_cb(int (*callback)(void *), void *param);
-
-/**
  * Register callbacks for start/stop of transfers.
  *
  * @idx - Connection index
@@ -362,48 +349,24 @@ int get_bam2bam_connection_info(u8 idx,
 	struct sps_mem_buffer *data_fifo, enum usb_pipe_mem_type *mem_type);
 
 /**
- * Resets the USB BAM that has A2 pipes
- *
+ * Returns usb bam connection parameters for qdss pipe.
+ * @usb_bam_handle - Usb bam handle.
+ * @usb_bam_pipe_idx - Usb bam pipe index.
+ * @peer_pipe_idx - Peer pipe index.
+ * @desc_fifo - Descriptor fifo parameters.
+ * @data_fifo - Data fifo parameters.
+ * @return pipe index on success, negative value on error.
  */
-int usb_bam_a2_reset(bool to_reconnect);
-
-/**
- * Indicates if the client of the USB BAM is ready to start
- * sending/receiving transfers.
- *
- * @ready - TRUE to enable, FALSE to disable.
- *
- */
-int usb_bam_client_ready(bool ready);
-
-/**
-* Returns upon reset completion if reset is in progress
-* immediately otherwise.
-*
-*/
-void usb_bam_reset_complete(void);
-
-/**
-* Returns qdss index from the connections array.
-*
-* @num - The qdss pipe number.
-*
-* @return pipe index on success, negative value on error
-*/
-int usb_bam_get_qdss_idx(u8 num);
-
-/**
-* Saves qdss core number.
-*
-* @qdss_core - The qdss core name.
-*/
-void usb_bam_set_qdss_core(const char *qdss_core);
+int get_qdss_bam_connection_info(
+	unsigned long *usb_bam_handle, u32 *usb_bam_pipe_idx,
+	u32 *peer_pipe_idx, struct sps_mem_buffer *desc_fifo,
+	struct sps_mem_buffer *data_fifo, enum usb_pipe_mem_type *mem_type);
 
 /**
 * Indicates if the client of the USB BAM is ready to start
 * sending/receiving transfers.
 *
-* @name - Core name (ssusb/hsusb/hsic).
+* @bam_type - Core name (ssusb/hsusb/hsic).
 *
 * @client - Usb pipe peer (a2, ipa, qdss...)
 *
@@ -413,17 +376,17 @@ void usb_bam_set_qdss_core(const char *qdss_core);
 *
 * @return 0 on success, negative value on error
 */
-int usb_bam_get_connection_idx(const char *name, enum peer_bam client,
+int usb_bam_get_connection_idx(enum usb_ctrl bam_type, enum peer_bam client,
 	enum usb_bam_pipe_dir dir, enum usb_bam_mode bam_mode, u32 num);
 
 /**
 * return the usb controller bam type used for the supplied connection index
 *
-* @connection_idx - Connection index
+* @core_name - Core name (ssusb/hsusb/hsic).
 *
 * @return usb control bam type
 */
-int usb_bam_get_bam_type(int connection_idx);
+int usb_bam_get_bam_type(const char *core_name);
 
 /**
 * Indicates the type of connection the USB side of the connection is.
@@ -473,12 +436,6 @@ static inline int usb_bam_register_wake_cb(u8 idx,
 	return -ENODEV;
 }
 
-static inline int usb_bam_register_peer_reset_cb(
-	int (*callback)(void *), void *param)
-{
-	return -ENODEV;
-}
-
 static inline int usb_bam_register_start_stop_cbs(
 	u8 idx,
 	void (*start)(void *, enum usb_bam_pipe_dir),
@@ -507,39 +464,22 @@ static inline int get_bam2bam_connection_info(u8 idx,
 	return -ENODEV;
 }
 
-static inline int usb_bam_a2_reset(bool to_reconnect)
+static inline int get_qdss_bam_connection_info(
+	unsigned long *usb_bam_handle, u32 *usb_bam_pipe_idx,
+	u32 *peer_pipe_idx, struct sps_mem_buffer *desc_fifo,
+	struct sps_mem_buffer *data_fifo, enum usb_pipe_mem_type *mem_type)
 {
 	return -ENODEV;
 }
 
-static inline int usb_bam_client_ready(bool ready)
-{
-	return -ENODEV;
-}
-
-static inline void usb_bam_reset_complete(void)
-{
-	return;
-}
-
-static inline int usb_bam_get_qdss_idx(u8 num)
-{
-	return -ENODEV;
-}
-
-static inline void usb_bam_set_qdss_core(const char *qdss_core)
-{
-	return;
-}
-
-static inline int usb_bam_get_connection_idx(const char *name,
+static inline int usb_bam_get_connection_idx(enum usb_ctrl bam_type,
 		enum peer_bam client, enum usb_bam_pipe_dir dir,
 		enum usb_bam_mode bam_mode, u32 num)
 {
 	return -ENODEV;
 }
 
-static inline int usb_bam_get_bam_type(int connection_idx)
+static inline int usb_bam_get_bam_type(const char *core_nam)
 {
 	return -ENODEV;
 }

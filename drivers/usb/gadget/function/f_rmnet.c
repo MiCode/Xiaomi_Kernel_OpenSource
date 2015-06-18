@@ -379,7 +379,8 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 	enum transport_type	dxport = rmnet_ports[dev->port_num].data_xport;
 	int			src_connection_idx = 0, dst_connection_idx = 0;
 	struct usb_gadget	*gadget = dev->cdev->gadget;
-	void *net;
+	enum usb_ctrl		usb_bam_type;
+	void			*net;
 
 	pr_debug("%s: ctrl xport: %s data xport: %s dev: %p portno: %d\n",
 			__func__, xport_to_str(cxport), xport_to_str(dxport),
@@ -434,10 +435,11 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 		}
 		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
-		src_connection_idx = usb_bam_get_connection_idx(gadget->name,
+		usb_bam_type = usb_bam_get_bam_type(gadget->name);
+		src_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
 			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
 			port_num);
-		dst_connection_idx = usb_bam_get_connection_idx(gadget->name,
+		dst_connection_idx = usb_bam_get_connection_idx(usb_bam_type,
 			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
 			port_num);
 		if (dst_connection_idx < 0 || src_connection_idx < 0) {

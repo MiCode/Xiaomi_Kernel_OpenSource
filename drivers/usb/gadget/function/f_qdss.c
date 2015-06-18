@@ -621,7 +621,7 @@ static int qdss_dpl_ipa_connect(int port_num)
 	struct gqdss *g_qdss;
 	struct gadget_ipa_port *gp;
 	struct usb_gadget *gadget;
-	enum peer_bam bam_name = IPA_P_BAM;
+	enum usb_ctrl usb_bam_type;
 	unsigned long flags;
 
 	ipa_data_port_select(port_num, USB_GADGET_DPL);
@@ -639,7 +639,8 @@ static int qdss_dpl_ipa_connect(int port_num)
 
 	spin_unlock_irqrestore(&qdss->lock, flags);
 
-	dst_connection_idx = usb_bam_get_connection_idx(gadget->name, bam_name,
+	usb_bam_type = usb_bam_get_bam_type(gadget->name);
+	dst_connection_idx = usb_bam_get_connection_idx(usb_bam_type, IPA_P_BAM,
 				PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE, 1);
 	if (dst_connection_idx < 0) {
 		pr_err("usb_bam_get_connection_idx failed\n");
