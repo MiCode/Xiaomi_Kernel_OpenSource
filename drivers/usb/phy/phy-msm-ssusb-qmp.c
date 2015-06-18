@@ -337,6 +337,7 @@ struct msm_ssphy_qmp {
 	struct regulator	*vdd;
 	struct regulator	*vdda18;
 	int			vdd_levels[3]; /* none, low, high */
+	struct clk		*ref_clk_src;
 	struct clk		*ref_clk;
 	struct clk		*aux_clk;
 	struct clk		*cfg_ahb_clk;
@@ -1000,6 +1001,9 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 		goto disable_ss_vdd;
 	}
 
+	phy->ref_clk_src = devm_clk_get(dev, "ref_clk_src");
+	if (!IS_ERR(phy->ref_clk_src))
+		clk_prepare_enable(phy->ref_clk_src);
 	phy->ref_clk = devm_clk_get(dev, "ref_clk");
 	if (!IS_ERR(phy->ref_clk))
 		clk_prepare_enable(phy->ref_clk);
@@ -1038,6 +1042,8 @@ static int msm_ssphy_qmp_probe(struct platform_device *pdev)
 disable_ss_ldo:
 	if (!IS_ERR(phy->ref_clk))
 		clk_disable_unprepare(phy->ref_clk);
+	if (!IS_ERR(phy->ref_clk_src))
+		clk_disable_unprepare(phy->ref_clk_src);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
 disable_ss_vdd:
 	regulator_disable(phy->vdd);
@@ -1057,6 +1063,8 @@ static int msm_ssphy_qmp_remove(struct platform_device *pdev)
 	usb_remove_phy(&phy->phy);
 	if (!IS_ERR(phy->ref_clk))
 		clk_disable_unprepare(phy->ref_clk);
+	if (!IS_ERR(phy->ref_clk_src))
+		clk_disable_unprepare(phy->ref_clk_src);
 	msm_ssusb_qmp_ldo_enable(phy, 0);
 	regulator_disable(phy->vdd);
 	msm_ssusb_qmp_config_vdd(phy, 0);
