@@ -26,7 +26,7 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 
 #define VFE40_BURST_LEN 1
-#define VFE40_BURST_LEN_8916_VERSION 2
+#define VFE40_BURST_LEN_8916_VERSION 3
 #define VFE40_STATS_BURST_LEN 1
 #define VFE40_STATS_BURST_LEN_8916_VERSION 2
 #define VFE40_UB_SIZE 1536 /* 1536 * 128 bits = 24KB */
