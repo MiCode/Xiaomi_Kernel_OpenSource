@@ -1499,6 +1499,28 @@ static int msm8996_codec_event_cb(struct snd_soc_codec *codec,
 	}
 }
 
+static int msm8996_config_hph_en0_gpio(struct snd_soc_codec *codec, bool high)
+{
+	struct snd_soc_card *card = codec->component.card;
+	struct msm8996_asoc_mach_data *pdata;
+	int val;
+
+	if (!card)
+		return 0;
+
+	pdata = snd_soc_card_get_drvdata(card);
+	if (!pdata || !gpio_is_valid(pdata->hph_en0_gpio))
+		return 0;
+
+	val = gpio_get_value_cansleep(pdata->hph_en0_gpio);
+	if ((!!val) == high)
+		return 0;
+
+	gpio_direction_output(pdata->hph_en0_gpio, (int)high);
+
+	return 1;
+}
+
 static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 {
 	int err;
@@ -1664,9 +1686,11 @@ static int msm_audrx_init(struct snd_soc_pcm_runtime *rtd)
 		}
 	}
 	/* Start mbhc */
-	if (cdc_type)
+	if (cdc_type) {
+		tasha_mbhc_zdet_gpio_ctrl(msm8996_config_hph_en0_gpio,
+					  rtd->codec);
 		mbhc_calibration = def_tasha_mbhc_cal();
-	else
+	} else
 		mbhc_calibration = def_codec_mbhc_cal();
 	if (mbhc_calibration) {
 		if (cdc_type) {
