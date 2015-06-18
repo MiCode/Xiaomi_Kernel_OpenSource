@@ -5,7 +5,7 @@
  *		       & Marcus Metzler <marcus@convergence.de>
  *			 for convergence integrated media GmbH
  *
- * Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public License
@@ -1435,7 +1435,7 @@ static inline void dvb_dmx_swfilter_packet_type(struct dvb_demux_feed *feed,
 
 		if (feed->type == DMX_TYPE_SEC)
 			dvb_dmx_notify_section_event(feed, &dmx_data_ready, 0);
-		else
+		else if (feed->feed.ts.is_filtering)
 			feed->data_ready_cb.ts(&feed->feed.ts, &dmx_data_ready);
 	}
 
