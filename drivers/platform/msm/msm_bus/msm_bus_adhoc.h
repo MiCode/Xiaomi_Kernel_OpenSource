@@ -136,16 +136,21 @@ struct msm_bus_node_device_type {
 	uint32_t num_node_qos_clks;
 	struct nodeclk *node_qos_clks;
 	struct device_node *of_node;
+	struct device dev;
 	bool dirty;
+	struct list_head dev_link;
+	struct list_head devlist;
 };
+
+static inline struct msm_bus_node_device_type *to_msm_bus_node(struct device *d)
+{
+	return container_of(d, struct msm_bus_node_device_type, dev);
+}
+
 
 int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
 				int throttle_en, uint64_t lim_bw);
-int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
-	int ctx, int **dirty_nodes, int *num_dirty);
-int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty);
-int msm_bus_update_bw(struct msm_bus_node_device_type *nodedev,
-				int **dirty_nodes, int *num_dirty);
+int msm_bus_commit_data(struct list_head *clist);
 void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
 					size_t new_size, gfp_t flags);
 

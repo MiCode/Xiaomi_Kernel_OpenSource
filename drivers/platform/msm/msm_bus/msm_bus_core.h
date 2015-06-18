@@ -279,6 +279,7 @@ struct msm_bus_client {
 	struct msm_bus_scale_pdata *pdata;
 	int *src_pnode;
 	int curr;
+	struct device **src_devs;
 };
 
 uint64_t msm_bus_div64(unsigned int width, uint64_t bw);
