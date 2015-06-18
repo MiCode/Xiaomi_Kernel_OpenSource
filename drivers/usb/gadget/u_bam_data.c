@@ -1393,8 +1393,14 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 	 * Corresponding decrement happens in the end of this
 	 * function if IPA handshake is already done or it is done
 	 * in disconnect work after finishing IPA handshake.
+	 * In case of RNDIS, if connect_w by rndis_flow_control is not triggered
+	 * yet then don't perform pm_runtime_get as suspend_w would have bailed
+	 * w/o runtime_get.
+	 * And restrict check to only RNDIS to handle cases where connect_w is
+	 * already scheduled but execution is pending which must be rare though.
 	 */
-	if (port->last_event == U_BAM_DATA_SUSPEND_E)
+	if (port->last_event == U_BAM_DATA_SUSPEND_E &&
+		     (d->func_type != USB_FUNC_RNDIS || port->is_ipa_connected))
 		usb_gadget_autopm_get_noresume(port->gadget);
 
 	if (port->port_usb) {
@@ -1971,6 +1977,20 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 	spin_lock_irqsave(&port->port_lock, flags);
 
 	d = &port->data_ch;
+
+	/* In case of RNDIS, host enables flow_control invoking connect_w. If it
+	 * is delayed then we may end up having suspend_w run before connect_w.
+	 * In this scenario, connect_w may or may not at all start if cable gets
+	 * disconnected or if host changes configuration e.g. RNDIS --> MBIM
+	 * For these cases don't do runtime_put as there was no _get yet, and
+	 * detect this condition on disconnect to not do extra pm_runtme_get
+	 * for SUSPEND --> DISCONNECT scenario.
+	 */
+	if (!port->is_ipa_connected) {
+		pr_err("%s: Not yet connected. SUSPEND pending.\n", __func__);
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		return;
+	}
 
 	if ((port->last_event == U_BAM_DATA_DISCONNECT_E) ||
 	    (port->last_event == U_BAM_DATA_RESUME_E)) {
