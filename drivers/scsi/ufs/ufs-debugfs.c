@@ -1303,6 +1303,7 @@ static int ufsdbg_dme_read(void *data, u64 *attr_val, bool peer)
 	struct ufs_hba *hba = data;
 	u32 attr_id, read_val = 0;
 	int (*read_func)(struct ufs_hba *, u32, u32 *);
+	u32 attr_sel;
 
 	if (!hba)
 		return -EINVAL;
@@ -1313,8 +1314,16 @@ static int ufsdbg_dme_read(void *data, u64 *attr_val, bool peer)
 	pm_runtime_get_sync(hba->dev);
 	scsi_block_requests(hba->host);
 	ret = ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US);
-	if (!ret)
-		ret = read_func(hba, UIC_ARG_MIB(attr_id), &read_val);
+	if (!ret) {
+		if ((attr_id >= MPHY_RX_ATTR_ADDR_START)
+		    && (attr_id <= MPHY_RX_ATTR_ADDR_END))
+			attr_sel = UIC_ARG_MIB_SEL(attr_id,
+					UIC_ARG_MPHY_RX_GEN_SEL_INDEX(0));
+		else
+			attr_sel = UIC_ARG_MIB(attr_id);
+
+		ret = read_func(hba, attr_sel, &read_val);
+	}
 	scsi_unblock_requests(hba->host);
 	pm_runtime_put_sync(hba->dev);
 
