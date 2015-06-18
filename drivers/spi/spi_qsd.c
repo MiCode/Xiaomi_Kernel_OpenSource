@@ -1,4 +1,4 @@
-/* Copyright (c) 2008-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2008-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -41,11 +41,11 @@
 #include <linux/mutex.h>
 #include <linux/atomic.h>
 #include <linux/pm_runtime.h>
-#include <mach/msm_spi.h>
 #include <mach/sps.h>
 #include <mach/dma.h>
 #include <mach/msm_bus.h>
 #include <mach/msm_bus_board.h>
+#include <linux/qcom-spi.h>
 #include "spi_qsd.h"
 
 static int msm_spi_pm_resume_runtime(struct device *device);
@@ -2126,6 +2126,69 @@ error:
 	msm_spi_free_cs_gpio(dd);
 }
 
+static void reset_core(struct msm_spi *dd)
+{
+	msm_spi_register_init(dd);
+	/*
+	 * The SPI core generates a bogus input overrun error on some targets,
+	 * when a transition from run to reset state occurs and if the FIFO has
+	 * an odd number of entries. Hence we disable the INPUT_OVER_RUN_ERR_EN
+	 * bit.
+	 */
+	msm_spi_enable_error_flags(dd);
+
+	writel_relaxed(SPI_IO_C_NO_TRI_STATE, dd->base + SPI_IO_CONTROL);
+	msm_spi_set_state(dd, SPI_OP_STATE_RESET);
+}
+
+static void put_local_resources(struct msm_spi *dd)
+{
+	msm_spi_disable_irqs(dd);
+	clk_disable_unprepare(dd->clk);
+	clk_disable_unprepare(dd->pclk);
+
+	/* Free  the spi clk, miso, mosi, cs gpio */
+	if (dd->pdata && dd->pdata->gpio_release)
+		dd->pdata->gpio_release();
+
+	msm_spi_free_gpios(dd);
+}
+
+static int get_local_resources(struct msm_spi *dd)
+{
+	int ret = -EINVAL;
+	/* Configure the spi clk, miso, mosi and cs gpio */
+	if (dd->pdata->gpio_config) {
+		ret = dd->pdata->gpio_config();
+		if (ret) {
+			dev_err(dd->dev,
+					"%s: error configuring GPIOs\n",
+					__func__);
+			return ret;
+		}
+	}
+
+	ret = msm_spi_request_gpios(dd);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(dd->clk);
+	if (ret)
+		goto clk0_err;
+	ret = clk_prepare_enable(dd->pclk);
+	if (ret)
+		goto clk1_err;
+	msm_spi_enable_irqs(dd);
+
+	return 0;
+
+clk1_err:
+	clk_disable_unprepare(dd->clk);
+clk0_err:
+	msm_spi_free_gpios(dd);
+	return ret;
+}
+
 /**
  * msm_spi_transfer_one_message: To process one spi message at a time
  * @master: spi master controller reference
@@ -2157,7 +2220,10 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 				tr->speed_hz, tr->bits_per_word,
 				tr->tx_buf, tr->rx_buf);
 			status_error = -EINVAL;
-			goto out;
+			msg->status = status_error;
+			spi_finalize_current_message(master);
+			put_local_resources(dd);
+			return 0;
 		}
 	}
 
@@ -2177,6 +2243,24 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	spin_lock_irqsave(&dd->queue_lock, flags);
 	dd->transfer_pending = 1;
 	spin_unlock_irqrestore(&dd->queue_lock, flags);
+	/*
+	 * get local resources for each transfer to ensure we're in a good
+	 * state and not interfering with other EE's using this device
+	 */
+	if (dd->pdata->is_shared) {
+		if (get_local_resources(dd)) {
+			mutex_unlock(&dd->core_lock);
+			return -EINVAL;
+		}
+
+		reset_core(dd);
+		if (dd->use_dma) {
+			msm_spi_bam_pipe_connect(dd, &dd->bam.prod,
+					&dd->bam.prod.config);
+			msm_spi_bam_pipe_connect(dd, &dd->bam.cons,
+					&dd->bam.cons.config);
+		}
+	}
 
 	if (dd->suspended || !msm_spi_is_valid_state(dd)) {
 		dev_err(dd->dev, "%s: SPI operational state not valid\n",
@@ -2209,8 +2293,23 @@ static int msm_spi_transfer_one_message(struct spi_master *master,
 	if (dd->suspended)
 		wake_up_interruptible(&dd->continue_suspend);
 
-out:
-	dd->cur_msg->status = status_error;
+	/*
+	 * Put local resources prior to calling finalize to ensure the hw
+	 * is in a known state before notifying the calling thread (which is a
+	 * different context since we're running in the spi kthread here) to
+	 * prevent race conditions between us and any other EE's using this hw.
+	 */
+	if (dd->pdata->is_shared) {
+		if (dd->use_dma) {
+			msm_spi_bam_pipe_disconnect(dd, &dd->bam.prod);
+			msm_spi_bam_pipe_disconnect(dd, &dd->bam.cons);
+		}
+		put_local_resources(dd);
+	}
+	mutex_unlock(&dd->core_lock);
+	if (dd->suspended)
+		wake_up_interruptible(&dd->continue_suspend);
+	status_error = dd->cur_msg->status;
 	spi_finalize_current_message(master);
 	return status_error;
 }
@@ -2269,8 +2368,11 @@ static int msm_spi_setup(struct spi_device *spi)
 		return -EBUSY;
 	}
 
-	if (dd->use_rlock)
-		remote_mutex_lock(&dd->r_lock);
+	if (dd->pdata->is_shared) {
+		rc = get_local_resources(dd);
+		if (rc)
+			goto no_resources;
+	}
 
 	spi_ioc = readl_relaxed(dd->base + SPI_IO_CONTROL);
 	mask = SPI_IO_C_CS_N_POLARITY_0 << spi->chip_select;
@@ -2289,13 +2391,12 @@ static int msm_spi_setup(struct spi_device *spi)
 
 	/* Ensure previous write completed before disabling the clocks */
 	mb();
-
-	if (dd->use_rlock)
-		remote_mutex_unlock(&dd->r_lock);
-
+	if (dd->pdata->is_shared)
+		put_local_resources(dd);
 	/* Counter-part of system-resume when runtime-pm is not enabled. */
 	if (!pm_runtime_enabled(dd->dev))
 		msm_spi_pm_suspend_runtime(dd->dev);
+no_resources:
 
 	mutex_unlock(&dd->core_lock);
 
@@ -2625,15 +2726,9 @@ static int msm_spi_bam_pipe_init(struct msm_spi *dd,
 	memset(pipe_conf->desc.base, 0x00, pipe_conf->desc.size);
 
 	pipe->handle = pipe_handle;
-	rc = msm_spi_bam_pipe_connect(dd, pipe, pipe_conf);
-	if (rc)
-		goto connect_err;
 
 	return 0;
 
-connect_err:
-	dma_free_coherent(dd->dev, pipe_conf->desc.size,
-		pipe_conf->desc.base, pipe_conf->desc.phys_base);
 config_err:
 	sps_free_endpoint(pipe_handle);
 
@@ -2882,6 +2977,8 @@ struct msm_spi_platform_data * __init msm_spi_dt_to_pdata(
 			&dd->cs_gpios[3].gpio_num,       DT_OPT,  DT_GPIO, -1},
 		{"qcom,rt-priority",
 			&pdata->rt_priority,		 DT_OPT,  DT_BOOL,  0},
+		{"qcom,shared",
+			&pdata->is_shared,		 DT_OPT,  DT_BOOL,  0},
 		{NULL,  NULL,                            0,       0,        0},
 		};
 
@@ -3294,21 +3391,14 @@ static int msm_spi_pm_suspend_runtime(struct device *device)
 	wait_event_interruptible(dd->continue_suspend,
 		!dd->transfer_pending);
 
-	msm_spi_disable_irqs(dd);
-	clk_disable_unprepare(dd->clk);
-	clk_disable_unprepare(dd->pclk);
+	if (dd->pdata && !dd->pdata->is_shared && dd->use_dma) {
+		msm_spi_bam_pipe_disconnect(dd, &dd->bam.prod);
+		msm_spi_bam_pipe_disconnect(dd, &dd->bam.cons);
+	}
 	if (dd->pdata && !dd->pdata->active_only)
 		msm_spi_clk_path_unvote(dd);
-
-	/* Free  the spi clk, miso, mosi, cs gpio */
-	if (dd->pdata && dd->pdata->gpio_release)
-		dd->pdata->gpio_release();
-
-	msm_spi_free_gpios(dd);
-
-	if (pm_qos_request_active(&qos_req_list))
-		pm_qos_update_request(&qos_req_list,
-				PM_QOS_DEFAULT_VALUE);
+	if (dd->pdata && !dd->pdata->is_shared)
+		put_local_resources(dd);
 suspend_exit:
 	return 0;
 }
@@ -3318,7 +3408,6 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 	struct platform_device *pdev = to_platform_device(device);
 	struct spi_master *master = platform_get_drvdata(pdev);
 	struct msm_spi	  *dd;
-	int ret = 0;
 
 	dev_dbg(device, "pm_runtime: resuming...\n");
 	if (!master)
@@ -3329,32 +3418,18 @@ static int msm_spi_pm_resume_runtime(struct device *device)
 
 	if (!dd->suspended)
 		return 0;
-
-	if (pm_qos_request_active(&qos_req_list))
-		pm_qos_update_request(&qos_req_list,
-				  dd->pm_lat);
-
-	/* Configure the spi clk, miso, mosi and cs gpio */
-	if (dd->pdata->gpio_config) {
-		ret = dd->pdata->gpio_config();
-		if (ret) {
-			dev_err(dd->dev,
-					"%s: error configuring GPIOs\n",
-					__func__);
-			return ret;
-		}
-	}
-
-	ret = msm_spi_request_gpios(dd);
-	if (ret)
-		return ret;
-
+	
+	if (!dd->pdata->is_shared)
+		get_local_resources(dd);
 	msm_spi_clk_path_init(dd);
 	if (!dd->pdata->active_only)
 		msm_spi_clk_path_vote(dd);
-	clk_prepare_enable(dd->clk);
-	clk_prepare_enable(dd->pclk);
-	msm_spi_enable_irqs(dd);
+	if (!dd->pdata->is_shared && dd->use_dma) {
+		msm_spi_bam_pipe_connect(dd, &dd->bam.prod,
+				&dd->bam.prod.config);
+		msm_spi_bam_pipe_connect(dd, &dd->bam.cons,
+				&dd->bam.cons.config);
+	}
 	dd->suspended = 0;
 
 resume_exit:
