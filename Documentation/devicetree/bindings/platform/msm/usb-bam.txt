@@ -17,9 +17,6 @@ Required properties:
             If SSUSB_BAM is used, "ssusb" should be present.
             If HSUSB_BAM is used, "hsusb" should be present.
             If HSIC_BAM is used, "hsic" should be present.
-
-            If a QSCRATCH RAM1 register is designated for providing USB3
-            private memory to use as a BAM FIFO, specify "qscratch_ram1_reg".
 - interrupts: IRQ lines for BAM devices
 - interrupt-names: BAM interrupt name(s), in 1-1 correspondence with
             'interrupts' above.
@@ -31,7 +28,7 @@ Required properties:
 
 Optional properties:
 - qcom,usb-bam-fifo-baseaddr: base address for bam pipe's data and descriptor
-  fifos. This can be on chip memory (ocimem) or usb private memory. This
+  fifos. This can be on chip memory (ocimem). This
   property is required if sub-node's mem-type is ocimem or usb private mem.
 
 A number of USB BAM pipe parameters are represented as sub-nodes:
@@ -40,14 +37,13 @@ Subnode Required:
 - label: a string describing uniquely the usb bam pipe. The string can be
   constracted as follows: <core>-<peer>-<direction>-<pipe num>.
 	core options: hsusb, ssusb/dwc3, hsic
-	peer options: qdss, ipa, a2
+	peer options: qdss, ipa
 	direction options: in (from peer to usb), out (from usb to peer)
 	pipe num options: 0..127
 - qcom,usb-bam-mem-type: Type of memory used by this PIPE. Can be one of
             0 - Uses SPS's dedicated pipe memory
-            1 - USB's private memory residing @ 'qcom,usb-bam-fifo-baseaddr'
-            2 - System RAM allocated by driver
-	    3 - OCI memory residing @ 'qcom,usb-bam-fifo-baseaddr'
+            1 - System RAM allocated by driver
+	    2 - OCI memory residing @ 'qcom,usb-bam-fifo-baseaddr'
 - qcom,bam-type: BAM type can be one of
 	0 - SSUSB_BAM
 	1 - HSUSB_BAM
@@ -57,9 +53,8 @@ Subnode Required:
 	1 - to usb (in)
 - qcom,pipe-num: pipe number
 - qcom,peer-bam: peer BAM can be one of
-	0 - A2_P_BAM
-	1 - QDSS_P_BAM
-	2 - IPA_P_BAM
+	0 - QDSS_P_BAM
+	1 - IPA_P_BAM
 - qcom,data-fifo-size: data fifo size
 - qcom,descriptor-fifo-size: descriptor fifo size
 

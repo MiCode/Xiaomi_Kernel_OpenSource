@@ -25,8 +25,7 @@ enum usb_bam_mode {
 };
 
 enum peer_bam {
-	A2_P_BAM = 0,
-	QDSS_P_BAM,
+	QDSS_P_BAM = 0,
 	IPA_P_BAM,
 	MAX_PEER_BAMS,
 };
@@ -38,7 +37,6 @@ enum usb_bam_pipe_dir {
 
 enum usb_pipe_mem_type {
 	SPS_PIPE_MEM = 0,	/* Default, SPS dedicated pipe memory */
-	USB_PRIVATE_MEM,	/* USB's private memory */
 	SYSTEM_MEM,		/* System RAM, requires allocation */
 	OCI_MEM,		/* Shared memory among peripherals */
 };

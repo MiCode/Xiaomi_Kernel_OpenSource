@@ -759,11 +759,11 @@
 
 		qcom,pipe0 {
 			label = "hsusb-qdss-in-0";
-			qcom,usb-bam-mem-type = <3>;
+			qcom,usb-bam-mem-type = <2>;
 			qcom,bam-type = <1>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <1>;
+			qcom,peer-bam = <0>;
 			qcom,src-bam-physical-address = <0x884000>;
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0x78c4000>;

@@ -960,11 +960,11 @@
 
 		qcom,pipe0 {
 			label = "hsusb-ipa-out-0";
-			qcom,usb-bam-mem-type = <2>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,bam-type = <1>;
 			qcom,dir = <0>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <2>;
+			qcom,peer-bam = <1>;
 			qcom,src-bam-physical-address = <0x78c4000>;
 			qcom,src-bam-pipe-index = <1>;
 			qcom,data-fifo-size = <0x8000>;
@@ -973,11 +973,11 @@
 		};
 		qcom,pipe1 {
 			label = "hsusb-ipa-in-0";
-			qcom,usb-bam-mem-type = <2>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,bam-type = <1>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <2>;
+			qcom,peer-bam = <1>;
 			qcom,dst-bam-physical-address = <0x78c4000>;
 			qcom,dst-bam-pipe-index = <0>;
 			qcom,data-fifo-size = <0x8000>;
@@ -987,11 +987,11 @@
 
 		qcom,pipe2 {
 			label = "hsusb-qdss-in-0";
-			qcom,usb-bam-mem-type = <3>;
+			qcom,usb-bam-mem-type = <2>;
 			qcom,bam-type = <1>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <1>;
+			qcom,peer-bam = <0>;
 			qcom,src-bam-physical-address = <0x884000>;
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0x78c4000>;
@@ -1006,11 +1006,11 @@
 		/* USB BAM pipe (consumer) configuration for accelerated DPL */
 		qcom,pipe3 {
 			label = "hsusb-dpl-ipa-in-1";
-			qcom,usb-bam-mem-type = <2>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,bam-type = <1>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <1>;
-			qcom,peer-bam = <2>;
+			qcom,peer-bam = <1>;
 			qcom,dst-bam-physical-address = <0x78c4000>;
 			qcom,dst-bam-pipe-index = <3>;
 			qcom,data-fifo-size = <0x8000>;

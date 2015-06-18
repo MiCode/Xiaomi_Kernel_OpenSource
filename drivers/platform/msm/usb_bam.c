@@ -16,7 +16,6 @@
 #include <linux/list.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/clk.h>
 #include <linux/io.h>
 #include <linux/stat.h>
 #include <linux/module.h>
@@ -40,9 +39,6 @@
 #define USB_BAM_NR_PORTS	4
 
 #define ARRAY_INDEX_FROM_ADDR(base, addr) ((addr) - (base))
-
-/* Offset relative to QSCRATCH_RAM1_REG */
-#define QSCRATCH_CGCTL_REG_OFFSET	0x1c
 
 #define ENABLE_EVENT_LOG 1
 static unsigned int enable_event_log = ENABLE_EVENT_LOG;
@@ -92,14 +88,8 @@ struct usb_bam_sps_type {
 * @usb_bam_pdev: the platfrom device that represents the usb bam.
 * @usb_bam_wq: Worqueue used for managing states of reset against
 *	a peer bam.
-* @qscratch_ram1_reg: The memory region mapped to the qscratch
-*	registers.
 * @max_connections: The maximum number of pipes that are configured
 *	in the platform data.
-* @mem_clk: Clock that controls the usb bam driver memory in
-*	case the usb bam uses its private memory for the pipes.
-* @mem_iface_clk: Clock that controls the usb bam private memory in
-*	case the usb bam uses its private memory for the pipes.
 * @qdss_usb_bam_type: USB bam type used as a peer of the qdss in bam2bam mode.
 * @h_bam: This array stores for each BAM ("ssusb", "hsusb" or "hsic") the
 *	handle/device of the sps driver.
@@ -115,10 +105,7 @@ struct usb_bam_ctx_type {
 	struct usb_bam_sps_type usb_bam_sps;
 	struct platform_device *usb_bam_pdev;
 	struct workqueue_struct *usb_bam_wq;
-	void __iomem *qscratch_ram1_reg;
 	u8 max_connections;
-	struct clk *mem_clk;
-	struct clk *mem_iface_clk;
 	enum usb_ctrl qdss_usb_bam_type;
 	unsigned long h_bam[MAX_BAMS];
 	u8 pipes_enabled_per_bam[MAX_BAMS];
@@ -318,18 +305,6 @@ static int get_bam_type_from_core_name(const char *name)
 	return -EINVAL;
 }
 
-static bool bam_use_private_mem(enum usb_ctrl bam)
-{
-	int i;
-
-	for (i = 0; i < ctx.max_connections; i++)
-		if (usb_bam_connections[i].bam_type == bam &&
-			usb_bam_connections[i].mem_type == USB_PRIVATE_MEM)
-				return true;
-
-	return false;
-}
-
 static void usb_bam_set_inactivity_timer(enum usb_ctrl bam)
 {
 	struct sps_timer_ctrl timer_ctrl;
@@ -371,7 +346,6 @@ static void usb_bam_set_inactivity_timer(enum usb_ctrl bam)
 static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 {
 	int ret = 0;
-	enum usb_ctrl bam;
 	struct msm_usb_bam_platform_data *pdata =
 		ctx.usb_bam_pdev->dev.platform_data;
 	struct sps_mem_buffer *data_buf = &(pipe_connect->data_mem_buf);
@@ -403,40 +377,6 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 			goto err_exit;
 		}
 		break;
-	case USB_PRIVATE_MEM:
-		log_event(1, "%s: USB BAM using private memory\n", __func__);
-
-		if (IS_ERR(ctx.mem_clk) || IS_ERR(ctx.mem_iface_clk)) {
-			pr_err("%s: Failed to enable USB mem_clk\n", __func__);
-			ret = IS_ERR(ctx.mem_clk);
-			goto err_exit;
-		}
-
-		clk_prepare_enable(ctx.mem_clk);
-		clk_prepare_enable(ctx.mem_iface_clk);
-
-		/*
-		 * Enable USB PRIVATE RAM to be used for BAM FIFOs
-		 * HSUSB: Only RAM13 is used for BAM FIFOs
-		 * SSUSB: RAM11, 12, 13 are used for BAM FIFOs
-		 */
-		bam = pipe_connect->bam_type;
-
-		log_event(1, "Configuring QSCRATCH RAM for %s\n",
-				bam_enable_strings[bam]);
-		if (bam == CI_CTRL) {
-			writel_relaxed(0x4, ctx.qscratch_ram1_reg);
-			/* Enable only RAM13 Master clock */
-			writel_relaxed(0x10, ctx.qscratch_ram1_reg +
-					QSCRATCH_CGCTL_REG_OFFSET);
-		} else if (bam == DWC3_CTRL) {
-			writel_relaxed(0x7, ctx.qscratch_ram1_reg);
-			/* Enable RAM11-RAM13 Master clock */
-			writel_relaxed(0x18, ctx.qscratch_ram1_reg +
-					QSCRATCH_CGCTL_REG_OFFSET);
-		}
-
-		/* fall through */
 	case OCI_MEM:
 		if (pipe_connect->mem_type == OCI_MEM)
 			log_event(1, "%s: USB BAM using oci memory\n",
@@ -451,7 +391,7 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 		if (!data_buf->base) {
 			pr_err("%s: ioremap failed for data fifo\n", __func__);
 			ret = -ENOMEM;
-			goto disable_memclk;
+			goto err_exit;
 		}
 		memset_io(data_buf->base, 0, data_buf->size);
 
@@ -466,7 +406,7 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 								__func__);
 			iounmap(data_buf->base);
 			ret = -ENOMEM;
-			goto disable_memclk;
+			goto err_exit;
 		}
 		memset_io(desc_buf->base, 0, desc_buf->size);
 		break;
@@ -483,7 +423,7 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 			pr_err("%s: dma_alloc_coherent failed for data fifo\n",
 								__func__);
 			ret = -ENOMEM;
-			goto disable_memclk;
+			goto err_exit;
 		}
 		memset(data_buf->base, 0, pipe_connect->data_fifo_size);
 
@@ -500,7 +440,7 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 			pipe_connect->data_fifo_size, data_buf->base,
 			data_buf->phys_base);
 			ret = -ENOMEM;
-			goto disable_memclk;
+			goto err_exit;
 		}
 		memset(desc_buf->base, 0, pipe_connect->desc_fifo_size);
 		break;
@@ -511,14 +451,6 @@ static int usb_bam_alloc_buffer(struct usb_bam_pipe_connect *pipe_connect)
 
 	return ret;
 
-disable_memclk:
-	if (pipe_connect->mem_type == USB_PRIVATE_MEM) {
-		writel_relaxed(0x0, ctx.qscratch_ram1_reg);
-		writel_relaxed(0x0, ctx.qscratch_ram1_reg +
-					QSCRATCH_CGCTL_REG_OFFSET);
-		clk_disable_unprepare(ctx.mem_clk);
-		clk_disable_unprepare(ctx.mem_iface_clk);
-	}
 err_exit:
 	return ret;
 }
@@ -830,13 +762,6 @@ static int disconnect_pipe(u8 idx)
 					sps_connection->desc.base,
 					sps_connection->desc.phys_base);
 		break;
-	case USB_PRIVATE_MEM:
-		log_event(1, "Freeing private memory used by BAM PIPE\n");
-		writel_relaxed(0x0, ctx.qscratch_ram1_reg);
-		writel_relaxed(0x0, ctx.qscratch_ram1_reg +
-				QSCRATCH_CGCTL_REG_OFFSET);
-		clk_disable_unprepare(ctx.mem_clk);
-		clk_disable_unprepare(ctx.mem_iface_clk);
 	case OCI_MEM:
 		log_event(1, "Freeing oci memory used by BAM PIPE\n");
 		iounmap(sps_connection->data.base);
@@ -2926,8 +2851,7 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 		if (rc)
 			goto err;
 
-		if (usb_bam_connections[i].mem_type == USB_PRIVATE_MEM ||
-				usb_bam_connections[i].mem_type == OCI_MEM) {
+		if (usb_bam_connections[i].mem_type == OCI_MEM) {
 			if (!pdata->usb_bam_fifo_baseaddr) {
 				pr_err("%s: base address is missing\n",
 					__func__);
@@ -3047,7 +2971,7 @@ static int usb_bam_init(int bam_type)
 	void *usb_virt_addr;
 	struct msm_usb_bam_platform_data *pdata =
 		ctx.usb_bam_pdev->dev.platform_data;
-	struct resource *res, *ram_resource;
+	struct resource *res;
 	struct sps_bam_props props;
 
 	memset(&props, 0, sizeof(props));
@@ -3073,29 +2997,6 @@ static int usb_bam_init(int bam_type)
 	if (!usb_virt_addr) {
 		pr_err("%s: ioremap failed\n", __func__);
 		return -ENOMEM;
-	}
-
-	/* Check if USB3 pipe memory needs to be enabled */
-	if (bam_type == DWC3_CTRL && bam_use_private_mem(bam_type)) {
-		log_event(1, "%s: Enabling USB private memory for: %s\n",
-				__func__, bam_enable_strings[bam_type]);
-
-		ram_resource = platform_get_resource_byname(ctx.usb_bam_pdev,
-			IORESOURCE_MEM, "qscratch_ram1_reg");
-		if (!ram_resource) {
-			dev_err(&ctx.usb_bam_pdev->dev, "Unable to get qscratch\n");
-			ret = -ENODEV;
-			goto free_bam_regs;
-		}
-
-		ctx.qscratch_ram1_reg = devm_ioremap(&ctx.usb_bam_pdev->dev,
-			ram_resource->start,
-			resource_size(ram_resource));
-		if (!ctx.qscratch_ram1_reg) {
-			pr_err("%s: ioremap failed for qscratch\n", __func__);
-			ret = -ENOMEM;
-			goto free_bam_regs;
-		}
 	}
 
 	props.phys_addr = res->start;
@@ -3132,7 +3033,7 @@ static int usb_bam_init(int bam_type)
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
 		ret = -EFAULT;
-		goto free_qscratch_reg;
+		goto free_bam_regs;
 	}
 
 	/* Mark this bam as initilaized */
@@ -3144,8 +3045,6 @@ static int usb_bam_init(int bam_type)
 
 	return 0;
 
-free_qscratch_reg:
-	iounmap(ctx.qscratch_ram1_reg);
 free_bam_regs:
 	iounmap(usb_virt_addr);
 
@@ -3284,14 +3183,6 @@ static int usb_bam_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "failed to create fs node\n");
 		return ret;
 	}
-
-	ctx.mem_clk = devm_clk_get(&pdev->dev, "mem_clk");
-	if (IS_ERR(ctx.mem_clk))
-		dev_dbg(&pdev->dev, "failed to get mem_clock\n");
-
-	ctx.mem_iface_clk = devm_clk_get(&pdev->dev, "mem_iface_clk");
-	if (IS_ERR(ctx.mem_iface_clk))
-		dev_dbg(&pdev->dev, "failed to get mem_iface_clock\n");
 
 	if (pdev->dev.of_node) {
 		dev_dbg(&pdev->dev, "device tree enabled\n");

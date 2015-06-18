@@ -2230,11 +2230,11 @@
 
 		qcom,pipe0 {
 			label = "ssusb-ipa-out-0";
-			qcom,usb-bam-mem-type = <2>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,bam-type = <0>;
 			qcom,dir = <0>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <2>;
+			qcom,peer-bam = <1>;
 			qcom,src-bam-physical-address = <0x06b04000>;
 			qcom,src-bam-pipe-index = <1>;
 			qcom,data-fifo-size = <0x8000>;
@@ -2243,11 +2243,11 @@
 		};
 		qcom,pipe1 {
 			label = "ssusb-ipa-in-0";
-			qcom,usb-bam-mem-type = <2>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,bam-type = <0>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <2>;
+			qcom,peer-bam = <1>;
 			qcom,dst-bam-physical-address = <0x06b04000>;
 			qcom,dst-bam-pipe-index = <0>;
 			qcom,data-fifo-size = <0x8000>;
@@ -2256,11 +2256,11 @@
 		};
 		qcom,pipe2 {
 			label = "ssusb-qdss-in-0";
-			qcom,usb-bam-mem-type = <3>;
+			qcom,usb-bam-mem-type = <2>;
 			qcom,bam-type = <0>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <0>;
-			qcom,peer-bam = <1>;
+			qcom,peer-bam = <0>;
 			qcom,src-bam-physical-address = <0x03084000>;
 			qcom,src-bam-pipe-index = <0>;
 			qcom,dst-bam-physical-address = <0x06b04000>;
@@ -2273,11 +2273,11 @@
 		};
 		qcom,pipe3 {
 			label = "ssusb-dpl-ipa-in-1";
-			qcom,usb-bam-mem-type = <2>;
+			qcom,usb-bam-mem-type = <1>;
 			qcom,bam-type = <0>;
 			qcom,dir = <1>;
 			qcom,pipe-num = <1>;
-			qcom,peer-bam = <2>;
+			qcom,peer-bam = <1>;
 			qcom,dst-bam-physical-address = <0x06b04000>;
 			qcom,dst-bam-pipe-index = <2>;
 			qcom,data-fifo-size = <0x8000>;
