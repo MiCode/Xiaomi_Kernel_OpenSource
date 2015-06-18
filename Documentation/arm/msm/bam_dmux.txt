@@ -1,0 +1,152 @@
+Introduction
+============
+
+The BAM data mux (bam_dmux) is a kernel module that facilitates
+communication between the existing RMNET driver and the Bus Access
+Manager (BAM) driver for LTE data connections.
+
+Software description
+====================
+
+The bam_dmux will follow the design and implementation of the sdio_dmux
+(already present in older platforms) and provide identical functionality
+where applicable.
+
+The bam_dmux driver will consist of a small transport abstraction layer
+for RMNET in drivers/net/ and the core functionality will exist in
+drivers/soc/qcom/.  The core functionality of the bam_dmux module is
+to mux one bam channel into eight logical channels for use by RMNET.
+
+
+                -------------------------------------------------
+                |                                               |
+                |                IP Framework                   |
+                |                                               |
+                -------------------------------------------------
+                |       |       |               |       |       |
+                | Rmnet | Rmnet |               | Rmnet | Rmnet |
+                | Dev 0 | Dev 1 |       ...     | Dev 6 | Dev 7 |
+                |       |       |               |       |       |
+                -----------------               -----------------
+                    |       |                       |       |
+                    |       |                       |       |
+                    |       |                       |       |
+                    |       |                       |       |
+                -------------------------------------------------
+                |                                               |
+                |               BAM Data Multiplexer            |
+                |                                               |
+                -------------------------------------------------
+                                        |
+                                        |
+                                        |
+                                -----------------
+                                |               |
+                                |      BAM      |
+                                |               |
+                                -----------------
+
+Uplink data packets from a RMNET logical channel will have a mux packet
+header added to the top (identical to sdio_dmux), sent over BAM to the
+A2 module on the modem, where the packets will be de-muxed and processed.
+Downlink data packets will arive over BAM from A2, be de-muxed, have the
+mux header stripped and handed to RMNET via the logical channel indicated
+in the mux header.
+
+Logical channels will be established using the same handshake protocol
+used in sdio_dmux.
+
+Identical to sdio_dmux, a workqueue will be spawned during module
+initialization for the purpose of processing data from clients to prevent
+blocking, and to process data from BAM.
+
+Design
+======
+
+The goal of this design is to provide an interface to BAM for RMNET to
+achieve LTE data rates of 100 megabits per second.  The sdio_dmux
+module already achieves this goal over SDIO, so its design was repurposed
+to achieve the same over the BAM transport.
+
+The basic use case for a logical channel would be
+
+1. for the client to register a platform driver on the logical channel.
+	When the bam_dmux driver is ready, it will register platform
+	devices for all the logical channels.  This will cause the probe
+	functions of all registered platform drivers to be invoked.
+
+2. Once invoked, the probe function can open a logical channel.
+
+3. After that, the client is free to queue data to be transmitted via the
+	bam_dmux driver's write function.
+
+4. Received data will be sent to the client via the callback function
+	registered at open().
+
+SMP/multi-core
+=============
+
+A number of data structures internal to the driver will store state, and
+will need to be protected against concurrent updates from multiple threads
+and interrupt handlers.  Any structures that may be used in interrupt
+context will be protected with spinlocks, otherwise mutexes will suffice.
+
+Performance
+===========
+
+The expected data rate of traffic through bam_dmux is 100 megabits per
+second.  The expected data rate per logical channel is 100/N megabits per
+second where N is the number of logical channels with active data at
+that point in time, depending on system load.
+
+Interface
+=========
+
+Bam_dmux will provide a simple API to kernel clients.
+
+Open:
+
+int msm_bam_dmux_open(uint32_t id, void *priv,
+			void (*receive_cb)(void *, struct sk_buff *)
+			void (*write_done)(void *, struct sk_buff *));
+
+id - id of the channel to open
+priv - private data pointer for the client, passed to the callbacks
+receive_cb - callback function.  Invoked when data is read from BAM.
+	Private data pointer and the data read are given as parameters.
+	client must free sk_buff structure when done with the data.
+write_done - callback function.  Invoked when data is successfully
+	transmitted over BAM.  Private data pointer and the data
+	transmitted are given as parameters.
+return - 0 on success or negative value indicating error type
+
+Close:
+
+int msm_bam_dmux_close(uint32_t id);
+
+id - id of an open channel to close
+return - 0 on success or negative value indicating error type
+
+Write:
+
+int msm_bam_dmux_write(uint32_t id, struct sk_buff *skb);
+
+id - id of an open channel to queue data for transmit
+skb - data packet to transmit
+return - 0 on success or negative value indicating error type
+
+A debugfs node (bam_dmux) will be created with two subnodes within (tbl,
+loopback_test).  The first node (tbl) will display diagnostic information
+such as the state of the logical channels and the amount of data
+read/transmitted.  The second node (loopback_test) will provide a simple
+mechanism for putting the module into a loopback mode for functional testing.
+
+Dependencies
+============
+
+The bam_dmux requires the BAM driver.  It will communicate with the
+A2 module on the modem through BAM for the purpose of transferring LTE rate
+data from RMNET to the modem.
+
+The bam_dmux driver depends on the socket buffer data structure which is
+provided as part of the standard linux kernel.
