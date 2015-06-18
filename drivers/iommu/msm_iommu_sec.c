@@ -30,7 +30,7 @@
 #include <soc/qcom/scm.h>
 
 #include <asm/cacheflush.h>
-#include <asm/sizes.h>
+#include <linux/sizes.h>
 
 #include "msm_iommu_pagetable.h"
 #include "msm_iommu_perfmon.h"
@@ -175,6 +175,7 @@ static int msm_iommu_reg_dump_to_regs(
 		uint32_t addr	= *it;
 		uint32_t val	= *(it + 1);
 		struct msm_iommu_context_reg *reg = NULL;
+
 		if (addr < phys_base) {
 			pr_err("Bogus-looking register (0x%x) for Iommu with base at %pa. Skipping.\n",
 				addr, &phys_base);
@@ -186,6 +187,7 @@ static int msm_iommu_reg_dump_to_regs(
 			struct dump_regs_tbl_entry dump_reg = dump_regs_tbl[j];
 			void *test_reg;
 			unsigned int test_offset;
+
 			switch (dump_reg.dump_reg_type) {
 			case DRT_CTX_REG:
 				test_reg = CTX_REG(dump_reg.reg_offset,
@@ -288,10 +290,8 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 	BUG_ON(!ctx_drvdata);
 
 	regs = kzalloc(sizeof(*regs), GFP_KERNEL);
-	if (!regs) {
-		pr_err("%s: Couldn't allocate memory\n", __func__);
+	if (!regs)
 		goto lock_release;
-	}
 
 	if (!drvdata->ctx_attach_count) {
 		pr_err("Unexpected IOMMU page fault from secure context bank!\n");
@@ -315,6 +315,7 @@ irqreturn_t msm_iommu_secure_fault_handler_v2(int irq, void *dev_id)
 		goto clock_off;
 	} else {
 		struct msm_iommu_context_reg ctx_regs[MAX_DUMP_REGS];
+
 		memset(ctx_regs, 0, sizeof(ctx_regs));
 		tmp = msm_iommu_reg_dump_to_regs(
 			ctx_regs, regs, drvdata, ctx_drvdata);
@@ -491,6 +492,7 @@ int msm_iommu_sec_program_iommu(struct msm_iommu_drvdata *drvdata,
 	if (drvdata->smmu_local_base) {
 		writel_relaxed(0xFFFFFFFF, drvdata->smmu_local_base +
 						SMMU_INTR_SEL_NS);
+		/* make sure SMMU_INTR_SEL_NS is seen */
 		mb();
 	}
 
@@ -576,6 +578,7 @@ static unsigned int get_phys_addr(struct scatterlist *sg)
 	 * struct page associated with them.
 	 */
 	unsigned int pa = sg_dma_address(sg);
+
 	if (pa == 0)
 		pa = sg_phys(sg);
 	return pa;
@@ -624,7 +627,7 @@ static int msm_iommu_sec_ptbl_map_range(struct msm_iommu_drvdata *iommu_drvdata,
 			cnt += sgiter->length / SZ_1M;
 		}
 
-		pa_list = kmalloc(cnt * sizeof(*pa_list), GFP_KERNEL);
+		pa_list = kmalloc_array(cnt, sizeof(*pa_list), GFP_KERNEL);
 		if (!pa_list)
 			return -ENOMEM;
 
@@ -989,6 +992,7 @@ int is_vfe_secure(void)
 {
 	if (secure_camera_enabled == -1) {
 		u32 ver = scm_get_feat_version(SCM_SVC_SEC_CAMERA);
+
 		secure_camera_enabled = ver >= MAKE_VERSION(1, 0, 0);
 	}
 	return secure_camera_enabled;

@@ -164,6 +164,7 @@ static struct msm_iommu_map *msm_iommu_lookup(
 	struct rb_node *parent = NULL;
 	struct msm_iommu_map *entry;
 	uint64_t key = domain_no;
+
 	key = key << 32 | partition_no;
 
 	while (*p) {
@@ -238,6 +239,7 @@ static int msm_iommu_map_iommu(struct msm_iommu_meta *meta,
 	if (extra) {
 		unsigned long extra_iova_addr = data->iova_addr + size;
 		unsigned long phys_addr = sg_phys(table->sgl);
+
 		ret = msm_iommu_map_extra(domain, extra_iova_addr, phys_addr,
 					extra, SZ_4K, prot);
 		if (ret)
@@ -279,8 +281,6 @@ static void msm_iommu_heap_unmap_iommu(struct msm_iommu_map *data)
 	WARN_ON(ret < 0);
 	msm_free_iova_address(data->iova_addr, domain_num, partition_num,
 				data->mapped_size);
-
-	return;
 }
 
 
@@ -391,6 +391,7 @@ static int __msm_map_iommu_common(
 
 	if (!msm_use_iommu()) {
 		unsigned long pa = sg_dma_address(table->sgl);
+
 		if (pa == 0)
 			pa = sg_phys(table->sgl);
 		*iova = pa;
@@ -636,9 +637,5 @@ void ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle,
 	table = ion_sg_table(client, handle);
 
 	__msm_unmap_iommu_common(table, domain_num, partition_num);
-
-	return;
 }
 EXPORT_SYMBOL(ion_unmap_iommu);
-
-

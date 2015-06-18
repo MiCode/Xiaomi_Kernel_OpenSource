@@ -581,7 +581,7 @@ static int msm_iommu_ctx_parse_dt(struct platform_device *pdev,
 	/* Calculate the context bank number using the base addresses.
 	 * Typically CB0 base address is 0x8000 pages away if the number
 	 * of CBs are <=8. So, assume the offset 0x8000 until mentioned
-	 * explicitely.
+	 * explicitly.
 	 */
 	cb_offset = drvdata->cb_base - drvdata->base;
 	ctx_drvdata->num = ((r->start - rp.start - cb_offset)

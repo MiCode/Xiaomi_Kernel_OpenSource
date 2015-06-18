@@ -126,6 +126,7 @@ void msm_iommu_pagetable_free(struct msm_iommu_pt *pt)
 	for (i = 0; i < NUM_FL_PTE; ++i) {
 		if ((fl_table[i] & FLSL_TYPE_TABLE) == FLSL_TYPE_TABLE) {
 			u64 p = fl_table[i] & FLSL_BASE_MASK;
+
 			free_page((u32)phys_to_virt(p));
 		}
 		if ((pt->sl_table_shadow[i]))
@@ -504,6 +505,7 @@ static phys_addr_t get_phys_addr(struct scatterlist *sg)
 	 * struct page associated with them.
 	 */
 	phys_addr_t pa = sg_dma_address(sg);
+
 	if (pa == 0)
 		pa = sg_phys(sg);
 	return pa;
