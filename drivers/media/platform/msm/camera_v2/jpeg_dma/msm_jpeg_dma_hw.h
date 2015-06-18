@@ -60,6 +60,10 @@ int msm_jpegdma_hw_get_vbif(struct msm_jpegdma_device *dma);
 
 void msm_jpegdma_hw_put_vbif(struct msm_jpegdma_device *dma);
 
+int msm_jpegdma_hw_get_prefetch(struct msm_jpegdma_device *dma);
+
+void msm_jpegdma_hw_put_prefetch(struct msm_jpegdma_device *dma);
+
 int msm_jpegdma_hw_get_capabilities(struct msm_jpegdma_device *dma);
 
 int msm_jpegdma_hw_get(struct msm_jpegdma_device *dma);

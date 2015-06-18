@@ -737,6 +737,37 @@ static void msm_jpegdma_hw_config_vbif(struct msm_jpegdma_device *dma)
 }
 
 /*
+ * msm_jpegdma_hw_config_mmu_prefetch - Configure mmu prefetch registers.
+ * @dma: Pointer to dma device.
+ * @min_addr: Pointer to jpeg dma addr, containing min addrs of the plane.
+ * @max_addr: Pointer to jpeg dma addr, containing max addrs of the plane.
+ */
+static void msm_jpegdma_hw_config_mmu_prefetch(struct msm_jpegdma_device *dma,
+	struct msm_jpegdma_addr *min_addr,
+	struct msm_jpegdma_addr *max_addr)
+{
+	int i;
+
+	if (!dma->prefetch_regs_num)
+		return;
+
+	for (i = 0; i < dma->prefetch_regs_num; i++)
+		msm_jpegdma_hw_write_reg(dma, MSM_JPEGDMA_IOMEM_VBIF,
+			dma->prefetch_regs[i].reg, dma->prefetch_regs[i].val);
+
+	if (min_addr != NULL && max_addr != NULL) {
+		msm_jpegdma_hw_write_reg(dma, MSM_JPEGDMA_IOMEM_CORE,
+			MSM_JPEGDMA_S0_MMU_PF_ADDR_MIN, min_addr->in_addr);
+		msm_jpegdma_hw_write_reg(dma, MSM_JPEGDMA_IOMEM_CORE,
+			MSM_JPEGDMA_S0_MMU_PF_ADDR_MAX, max_addr->in_addr);
+		msm_jpegdma_hw_write_reg(dma, MSM_JPEGDMA_IOMEM_CORE,
+			MSM_JPEGDMA_S1_MMU_PF_ADDR_MIN, min_addr->out_addr);
+		msm_jpegdma_hw_write_reg(dma, MSM_JPEGDMA_IOMEM_CORE,
+			MSM_JPEGDMA_S1_MMU_PF_ADDR_MAX, max_addr->out_addr);
+	}
+}
+
+/*
 * msm_jpegdma_hw_calc_speed - Calculate speed based on framerate and size.
 * @dma: Pointer to dma device.
 * @size: Dma user size configuration.
@@ -1059,6 +1090,10 @@ int msm_jpegdma_hw_start(struct msm_jpegdma_device *dma,
 	struct msm_jpegdma_speed *speed)
 {
 	struct msm_jpegdma_config *cfg;
+	struct msm_jpegdma_addr prefetch_max_addr;
+	unsigned int prefetch_in_size;
+	unsigned int prefetch_out_size;
+
 	int ret;
 
 	if (!plane->active_pipes)
@@ -1066,7 +1101,6 @@ int msm_jpegdma_hw_start(struct msm_jpegdma_device *dma,
 
 	if (plane->active_pipes > MSM_JPEGDMA_MAX_PIPES)
 		return -EINVAL;
-
 	ret = msm_jpegdma_hw_set_speed(dma, &plane->config[0].size_cfg, speed);
 	if (ret < 0)
 		return -EINVAL;
@@ -1082,10 +1116,14 @@ int msm_jpegdma_hw_start(struct msm_jpegdma_device *dma,
 	msm_jpegdma_hw_fe_0_phase(dma, cfg->phase);
 	msm_jpegdma_hw_fe_0_size(dma, &cfg->size_cfg.in_size, plane->type);
 	msm_jpegdma_hw_fe_0_addr(dma, addr->in_addr + cfg->in_offset);
+	prefetch_in_size = cfg->size_cfg.in_size.stride *
+		cfg->size_cfg.in_size.scanline;
 
 	msm_jpegdma_hw_we_0_block(dma, &cfg->block_cfg, plane->type);
 	msm_jpegdma_hw_we_0_size(dma, &cfg->size_cfg.out_size);
 	msm_jpegdma_hw_we_0_addr(dma, addr->out_addr + cfg->out_offset);
+	prefetch_out_size = cfg->size_cfg.out_size.stride *
+		cfg->size_cfg.out_size.scanline;
 
 	if (plane->active_pipes > 1) {
 		cfg = &plane->config[1];
@@ -1096,11 +1134,25 @@ int msm_jpegdma_hw_start(struct msm_jpegdma_device *dma,
 		msm_jpegdma_hw_fe_1_size(dma, &cfg->size_cfg.in_size,
 			plane->type);
 		msm_jpegdma_hw_fe_1_addr(dma, addr->in_addr + cfg->in_offset);
+		prefetch_in_size += (cfg->size_cfg.in_size.stride *
+			cfg->size_cfg.in_size.scanline);
 
 		msm_jpegdma_hw_we_1_block(dma, &cfg->block_cfg, plane->type);
 		msm_jpegdma_hw_we_1_size(dma, &cfg->size_cfg.out_size);
 		msm_jpegdma_hw_we_1_addr(dma, addr->out_addr + cfg->out_offset);
+		prefetch_out_size += (cfg->size_cfg.out_size.stride *
+			cfg->size_cfg.out_size.scanline);
 	}
+
+	if (prefetch_in_size > 0 && prefetch_out_size > 0) {
+		prefetch_max_addr.in_addr = addr->in_addr +
+			(prefetch_in_size - 1);
+		prefetch_max_addr.out_addr = addr->out_addr +
+			(prefetch_out_size - 1);
+		msm_jpegdma_hw_config_mmu_prefetch(dma, addr,
+			&prefetch_max_addr);
+	}
+
 	msm_jpegdma_hw_run(dma);
 
 	return 1;
@@ -1596,6 +1648,71 @@ void msm_jpegdma_hw_put_vbif(struct msm_jpegdma_device *dma)
 }
 
 /*
+ * msm_jpegdma_hw_get_prefetch - Get dma prefetch settings from device-tree.
+ * @dma: Pointer to dma device.
+ */
+int msm_jpegdma_hw_get_prefetch(struct msm_jpegdma_device *dma)
+{
+	int i;
+	int ret;
+	unsigned int cnt;
+	const void *property;
+
+	property = of_get_property(dma->dev->of_node, "qcom,prefetch-regs",
+		&cnt);
+	if (!property || !cnt) {
+		dev_dbg(dma->dev, "Missing prefetch settings\n");
+		return 0;
+	}
+	cnt /= 4;
+
+	dma->prefetch_regs = kcalloc(cnt, sizeof(*dma->prefetch_regs),
+		GFP_KERNEL);
+	if (!dma->prefetch_regs)
+		return -ENOMEM;
+
+	for (i = 0; i < cnt; i++) {
+		ret = of_property_read_u32_index(dma->dev->of_node,
+			"qcom,prefetch-regs", i,
+			&dma->prefetch_regs[i].reg);
+		if (ret < 0) {
+			dev_err(dma->dev, "can not read prefetch reg %d\n", i);
+			goto error;
+		}
+
+		ret = of_property_read_u32_index(dma->dev->of_node,
+			"qcom,prefetch-settings", i,
+			&dma->prefetch_regs[i].val);
+		if (ret < 0) {
+			dev_err(dma->dev, "can not read prefetch setting %d\n",
+				i);
+			goto error;
+		}
+
+		dev_dbg(dma->dev, "Prefetch idx %d, reg %x val %x\n", i,
+			dma->prefetch_regs[i].reg, dma->prefetch_regs[i].val);
+	}
+	dma->prefetch_regs_num = cnt;
+
+	return 0;
+error:
+	kfree(dma->prefetch_regs);
+	dma->prefetch_regs = NULL;
+
+	return ret;
+}
+
+/*
+ * msm_jpegdma_hw_put_prefetch - free prefetch settings.
+ * @dma: Pointer to dma device.
+ */
+void msm_jpegdma_hw_put_prefetch(struct msm_jpegdma_device *dma)
+{
+	kfree(dma->prefetch_regs);
+	dma->prefetch_regs = NULL;
+}
+
+/*
  * msm_jpegdma_hw_set_clock_rate - Set clock rates described in device tree.
  * @dma: Pointer to dma device.
  */
@@ -1833,6 +1950,7 @@ int msm_jpegdma_hw_get(struct msm_jpegdma_device *dma)
 			goto error_hw_reset;
 		}
 		msm_jpegdma_hw_config_qos(dma);
+		msm_jpegdma_hw_config_mmu_prefetch(dma, NULL, NULL);
 		msm_jpegdma_hw_enable_irq(dma);
 	}
 	dma->ref_count++;
