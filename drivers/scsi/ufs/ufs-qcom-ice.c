@@ -290,7 +290,7 @@ int ufs_qcom_ice_cfg(struct ufs_qcom_host *qcom_host, struct scsi_cmnd *cmd)
 		return -EINVAL;
 	}
 
-	memset(&ice_set, sizeof(ice_set), 0);
+	memset(&ice_set, 0, sizeof(ice_set));
 	if (qcom_host->ice.vops->config) {
 		err = qcom_host->ice.vops->config(qcom_host->ice.pdev,
 							req, &ice_set);
