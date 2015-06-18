@@ -29,7 +29,7 @@
 #define SMMU_BASE	0x10000000 /* Device address range base */
 #define SMMU_SIZE	0x40000000 /* Device address range size */
 
-#define WIGIG_ENABLE_DELAY	10
+#define WIGIG_ENABLE_DELAY	50
 
 struct device;
 
