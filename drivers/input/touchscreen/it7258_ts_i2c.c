@@ -73,10 +73,13 @@
 #define VERSION_LENGTH			10
 /* subcommand is zero, next byte is power mode */
 #define CMD_PWR_CTL			0x04
+/* active mode */
+#define PWR_CTL_ACTIVE_MODE		0x00
 /* idle mode */
 #define PWR_CTL_LOW_POWER_MODE		0x01
 /* sleep mode */
 #define PWR_CTL_SLEEP_MODE		0x02
+#define WAIT_CHANGE_MODE		20
 /* command is not documented in the datasheet v1.0.0.7 */
 #define CMD_UNKNOWN_7			0x07
 #define CMD_FIRMWARE_REINIT_C		0x0C
@@ -582,18 +585,18 @@ out:
 	return ret;
 }
 
-static int IT7260_ts_chipLowPowerMode(bool low)
+static int IT7260_ts_chipLowPowerMode(const u8 sleep_type)
 {
-	static const uint8_t cmd_sleep[] = {CMD_PWR_CTL,
-					0x00, PWR_CTL_SLEEP_MODE};
+	const uint8_t cmd_sleep[] = {CMD_PWR_CTL, 0x00, sleep_type};
 	uint8_t dummy;
 
-	if (low)
+	if (sleep_type)
 		IT7260_i2cWriteNoReadyCheck(BUF_COMMAND, cmd_sleep,
 					sizeof(cmd_sleep));
 	else
 		IT7260_i2cReadNoReadyCheck(BUF_QUERY, &dummy, sizeof(dummy));
 
+	msleep(WAIT_CHANGE_MODE);
 	return 0;
 }
 
@@ -863,10 +866,10 @@ static ssize_t sysfs_sleep_store(struct device *dev,
 			go_to_sleep ? "sleep" : "wake");
 	else if (go_to_sleep) {
 		disable_irq(gl_ts->client->irq);
-		IT7260_ts_chipLowPowerMode(true);
+		IT7260_ts_chipLowPowerMode(PWR_CTL_SLEEP_MODE);
 		dev_dbg(dev, "touch is going to sleep...\n");
 	} else {
-		IT7260_ts_chipLowPowerMode(false);
+		IT7260_ts_chipLowPowerMode(PWR_CTL_ACTIVE_MODE);
 		enable_irq(gl_ts->client->irq);
 		dev_dbg(dev, "touch is going to wake!\n");
 	}
@@ -1019,24 +1022,6 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 	u16 x, y;
 	bool palm_detected;
 
-	/*
-	 * This code adds the touch-to-wake functionality to the ITE tech
-	 * driver. When the device is in suspend, driver sends the
-	 * KEY_WAKEUP event to wake the device. The pm_stay_awake() call
-	 * tells the pm core to stay awake until the CPU cores up already. The
-	 * schedule_work() call schedule a work that tells the pm core to relax
-	 * once the CPU cores are up.
-	 */
-	if (gl_ts->device_needs_wakeup) {
-		pm_stay_awake(&gl_ts->client->dev);
-		gl_ts->device_needs_wakeup = false;
-		input_report_key(input_dev, KEY_WAKEUP, 1);
-		input_sync(input_dev);
-		input_report_key(input_dev, KEY_WAKEUP, 0);
-		input_sync(input_dev);
-		schedule_work(&gl_ts->work_pm_relax);
-	}
-
 	/* verify there is point data to read & it is readable and valid */
 	IT7260_i2cReadNoReadyCheck(BUF_QUERY, &dev_status, sizeof(dev_status));
 	if (!((dev_status & PT_INFO_BITS) & PT_INFO_YES))
@@ -1047,12 +1032,29 @@ static irqreturn_t IT7260_ts_threaded_handler(int irq, void *devid)
 			"failed to read point data buffer\n");
 		return IRQ_HANDLED;
 	}
+
+	/* Check if controller moves from idle to active state */
 	if ((point_data.flags & PD_FLAGS_DATA_TYPE_BITS) !=
 					PD_FLAGS_DATA_TYPE_TOUCH) {
-		dev_err(&gl_ts->client->dev,
-			"dropping non-point data of type 0x%02X\n",
-							point_data.flags);
-		return IRQ_HANDLED;
+		/*
+		 * This code adds the touch-to-wake functionality to the ITE
+		 * tech driver. When user puts a finger on touch controller in
+		 * idle state, the controller moves to active state and driver
+		 * sends the KEY_WAKEUP event to wake the device. The
+		 * pm_stay_awake() call tells the pm core to stay awake until
+		 * the CPU cores are up already. The schedule_work() call
+		 * schedule a work that tells the pm core to relax once the CPU
+		 * cores are up.
+		 */
+		if (gl_ts->device_needs_wakeup) {
+			pm_stay_awake(&gl_ts->client->dev);
+			input_report_key(input_dev, KEY_WAKEUP, 1);
+			input_sync(input_dev);
+			input_report_key(input_dev, KEY_WAKEUP, 0);
+			input_sync(input_dev);
+			schedule_work(&gl_ts->work_pm_relax);
+			return IRQ_HANDLED;
+		}
 	}
 
 	palm_detected = point_data.palm & PD_PALM_FLAG_BIT;
@@ -1570,11 +1572,6 @@ static int fb_notifier_callback(struct notifier_block *self,
 #ifdef CONFIG_PM
 static int IT7260_ts_resume(struct device *dev)
 {
-	if (!gl_ts->suspended) {
-		dev_info(dev, "Already in resume state\n");
-		return 0;
-	}
-
 	if (device_may_wakeup(dev)) {
 		if (gl_ts->device_needs_wakeup) {
 			gl_ts->device_needs_wakeup = false;
@@ -1582,9 +1579,6 @@ static int IT7260_ts_resume(struct device *dev)
 		}
 		return 0;
 	}
-
-	/* put the device in active power mode */
-	IT7260_ts_chipLowPowerMode(false);
 
 	enable_irq(gl_ts->client->irq);
 	gl_ts->suspended = false;
@@ -1598,10 +1592,8 @@ static int IT7260_ts_suspend(struct device *dev)
 		return -EBUSY;
 	}
 
-	if (gl_ts->suspended) {
-		dev_info(dev, "Already in suspend state\n");
-		return 0;
-	}
+	/* put the device in low power idle mode */
+	IT7260_ts_chipLowPowerMode(PWR_CTL_LOW_POWER_MODE);
 
 	if (device_may_wakeup(dev)) {
 		if (!gl_ts->device_needs_wakeup) {
@@ -1612,9 +1604,6 @@ static int IT7260_ts_suspend(struct device *dev)
 	}
 
 	disable_irq(gl_ts->client->irq);
-
-	/* put the device in low power mode */
-	IT7260_ts_chipLowPowerMode(true);
 
 	IT7260_ts_release_all();
 	gl_ts->suspended = true;
