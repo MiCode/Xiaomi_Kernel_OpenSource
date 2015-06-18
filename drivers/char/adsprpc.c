@@ -209,9 +209,14 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 		spin_unlock(&fl->hlock);
 		return;
 	}
-	if (!IS_ERR_OR_NULL(buf->virt))
+	if (!IS_ERR_OR_NULL(buf->virt)) {
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+		if (fl->sctx->smmu.cb)
+			buf->phys &= ~((dma_addr_t)fl->sctx->smmu.cb << 32);
+#endif
 		dma_free_coherent(fl->sctx->smmu.dev, buf->size,
 				  buf->virt, buf->phys);
+	}
 	kfree(buf);
 }
 
