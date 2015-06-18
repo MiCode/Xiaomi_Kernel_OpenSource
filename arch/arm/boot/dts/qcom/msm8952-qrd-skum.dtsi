@@ -31,6 +31,12 @@
 			};
 		};
 	};
+
+	qcom,pmi8950@3 {
+		qcom,leds@d800 {
+			qcom,fs-curr-ua = <20000>;
+		};
+	};
 };
 
 &i2c_3 { /* BLSP1 QUP3 */
