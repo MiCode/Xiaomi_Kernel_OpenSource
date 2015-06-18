@@ -515,6 +515,8 @@ static struct msm_soc_info cpu_of_id[] = {
 	[271] = {MSM_CPU_8929, "APQ8029"},
 
 	[293] = {MSM_CPU_TITANIUM, "MSMTITANIUM"},
+	/* FERMIUM ID */
+	[290] = {MSM_CPU_FERMIUM, "MDMFERMIUM"},
 
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
@@ -1068,6 +1070,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_msmtitanium()) {
 		dummy_socinfo.id = 293;
 		strlcpy(dummy_socinfo.build_id, "msmtitanium - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_mdmfermium()) {
+		dummy_socinfo.id = 290;
+		strlcpy(dummy_socinfo.build_id, "mdmfermium - ",
 			sizeof(dummy_socinfo.build_id));
 	}
 
