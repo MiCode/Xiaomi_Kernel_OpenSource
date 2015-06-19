@@ -534,6 +534,12 @@ static int cpr3_mmss_init_thread(struct cpr3_thread *thread)
 
 	cpr3_open_loop_voltage_as_ceiling(vreg);
 
+	rc = cpr3_limit_floor_voltages(vreg, corner_sum, combo_offset);
+	if (rc) {
+		cpr3_err(vreg, "unable to limit floor voltages, rc=%d\n", rc);
+		return rc;
+	}
+
 	cpr3_mmss_print_settings(vreg);
 
 	return 0;

@@ -1189,6 +1189,12 @@ static int cpr3_hmss_init_regulator(struct cpr3_regulator *vreg)
 
 	cpr3_open_loop_voltage_as_ceiling(vreg);
 
+	rc = cpr3_limit_floor_voltages(vreg, corner_sum, combo_offset);
+	if (rc) {
+		cpr3_err(vreg, "unable to limit floor voltages, rc=%d\n", rc);
+		return rc;
+	}
+
 	rc = cpr3_msm8996_hmss_calculate_target_quotients(vreg, corner_sum,
 			combo_offset);
 	if (rc) {

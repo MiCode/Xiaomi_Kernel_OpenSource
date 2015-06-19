@@ -815,6 +815,59 @@ void cpr3_open_loop_voltage_as_ceiling(struct cpr3_regulator *vreg)
 }
 
 /**
+ * cpr3_limit_floor_voltages() - raise the floor voltage of each corner so that
+ *		the optional maximum floor to ceiling voltage range specified in
+ *		device tree is satisfied
+ * @vreg:		Pointer to the CPR3 regulator
+ * @corner_sum:		The sum of the corner counts across all fuse combos
+ * @combo_offset:	The array offset for the selected fuse combo
+ *
+ * This function also ensures that the open-loop voltage for each corner falls
+ * within the final floor to ceiling voltage range.
+ *
+ * Return: 0 on success, errno on failure
+ */
+int cpr3_limit_floor_voltages(struct cpr3_regulator *vreg, int corner_sum,
+				int combo_offset)
+{
+	char *prop = "qcom,cpr-floor-to-ceiling-max-range";
+	int i, rc, floor_new;
+	u32 *floor_range;
+
+	if (!of_find_property(vreg->of_node, prop, NULL))
+		return 0;
+
+	floor_range = kcalloc(vreg->corner_count, sizeof(*floor_range),
+				GFP_KERNEL);
+	if (!floor_range)
+		return -ENOMEM;
+
+	rc = cpr3_parse_array_property(vreg, prop, vreg->corner_count,
+					corner_sum, combo_offset, floor_range);
+	if (rc)
+		goto free_floor_adjust;
+
+	for (i = 0; i < vreg->corner_count; i++) {
+		if ((s32)floor_range[i] >= 0) {
+			floor_new = CPR3_ROUND(vreg->corner[i].ceiling_volt
+							- floor_range[i],
+						vreg->thread->ctrl->step_volt);
+
+			vreg->corner[i].floor_volt = max(floor_new,
+						vreg->corner[i].floor_volt);
+			if (vreg->corner[i].open_loop_volt
+			    < vreg->corner[i].floor_volt)
+				vreg->corner[i].open_loop_volt
+					= vreg->corner[i].floor_volt;
+		}
+	}
+
+free_floor_adjust:
+	kfree(floor_range);
+	return rc;
+}
+
+/**
  * cpr3_print_quots() - print CPR target quotients into the kernel log for
  *		debugging purposes
  * @vreg:		Pointer to the CPR3 regulator
