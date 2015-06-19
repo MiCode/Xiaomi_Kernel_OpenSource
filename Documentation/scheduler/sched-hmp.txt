@@ -1350,17 +1350,8 @@ Appears at: /proc/sys/kernel/sched_account_wait_time
 
 Default value: 1
 
-This controls whether a tasks wait time is accounted as its demand for cpu
+This controls whether a task's wait time is accounted as its demand for cpu
 and thus the values found in its sum, sum_history[] and demand attributes.
-The load tracking algorithm only considers part of a tasks wait time as its
-demand. The portion of wait time accounted as demand is determined by each
-tasks percent load, i.e. a task that waits for 10ms and has 60 % task load,
-only 6 ms of the wait will contribute to task demand. This approach is fair
-as the scheduler tries to determine how much of its wait time would a task
-actually have been using the CPU if it had been executing. It ensures that
-tasks with high demand continue to see most of the benefits of accounting
-wait time as busy time, however, lower demand tasks don't experience a
-disproportionately high boost to demand.
 
 *** 7.16 sched_freq_account_wait_time
 
