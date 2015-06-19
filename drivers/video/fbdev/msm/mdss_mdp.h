@@ -384,6 +384,7 @@ struct mdss_mdp_img_data {
 	u32 offset;
 	u32 flags;
 	bool mapped;
+	bool skip_detach;
 	struct fd srcp_f;
 	struct dma_buf *srcp_dma_buf;
 	struct dma_buf_attachment *srcp_attachment;

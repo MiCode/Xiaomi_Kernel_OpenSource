@@ -1670,9 +1670,6 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 	ion_unmap_kernel(mfd->fb_ion_client, mfd->fb_ion_handle);
 
 	if (mfd->mdp.fb_mem_get_iommu_domain) {
-		mdss_smmu_unmap_dma_buf(mfd->fb_table,
-				mfd->mdp.fb_mem_get_iommu_domain(),
-				DMA_BIDIRECTIONAL, mfd->fbmem_buf);
 		dma_buf_unmap_attachment(mfd->fb_attachment, mfd->fb_table,
 				DMA_BIDIRECTIONAL);
 		dma_buf_detach(mfd->fbmem_buf, mfd->fb_attachment);
@@ -1685,7 +1682,6 @@ void mdss_fb_free_fb_ion_memory(struct msm_fb_data_type *mfd)
 
 int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 {
-	unsigned long buf_size;
 	int rc;
 	void *vaddr;
 	int domain;
@@ -1735,14 +1731,6 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 			rc = PTR_ERR(mfd->fb_table);
 			goto err_detach;
 		}
-
-		rc = mdss_smmu_map_dma_buf(mfd->fbmem_buf, mfd->fb_table,
-				domain, &mfd->iova, &buf_size,
-				DMA_BIDIRECTIONAL);
-		if (rc) {
-			pr_err("Cannot map fb_mem to IOMMU. rc=%d\n", rc);
-			goto err_unmap;
-		}
 	} else {
 		pr_err("No IOMMU Domain\n");
 		rc = -EINVAL;
@@ -1755,12 +1743,10 @@ int mdss_fb_alloc_fb_ion_memory(struct msm_fb_data_type *mfd, size_t fb_size)
 		rc = PTR_ERR(vaddr);
 		goto err_unmap;
 	}
-
-	pr_debug("alloc 0x%zuB vaddr = %p (%pa iova) for fb%d\n", fb_size,
-			vaddr, &mfd->iova, mfd->index);
+	pr_debug("alloc 0x%zuB vaddr = %p for fb%d\n", fb_size,
+			vaddr, mfd->index);
 
 	mfd->fbi->screen_base = (char *) vaddr;
-	mfd->fbi->fix.smem_start = (unsigned int) mfd->iova;
 	mfd->fbi->fix.smem_len = fb_size;
 
 	return rc;

@@ -836,12 +836,14 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 							data->srcp_dma_buf);
 				data->mapped = false;
 			}
-			dma_buf_unmap_attachment(data->srcp_attachment,
-				data->srcp_table, dir);
-			dma_buf_detach(data->srcp_dma_buf,
-					data->srcp_attachment);
-			dma_buf_put(data->srcp_dma_buf);
-			data->srcp_dma_buf = NULL;
+			if (!data->skip_detach) {
+				dma_buf_unmap_attachment(data->srcp_attachment,
+					data->srcp_table, dir);
+				dma_buf_detach(data->srcp_dma_buf,
+						data->srcp_attachment);
+				dma_buf_put(data->srcp_dma_buf);
+				data->srcp_dma_buf = NULL;
+			}
 		}
 
 	} else {

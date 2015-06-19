@@ -2323,7 +2323,7 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 	if (!mdp5_data || !mdp5_data->ctl)
 		return;
 
-	if (!fbi->fix.smem_start || fbi->fix.smem_len == 0 ||
+	if (fbi->fix.smem_len == 0 ||
 			mdp5_data->borderfill_enable) {
 		mfd->mdp.kickoff_fnc(mfd, NULL);
 		return;
@@ -2382,19 +2382,13 @@ static void mdss_mdp_overlay_pan_display(struct msm_fb_data_type *mfd)
 		goto pan_display_error;
 	}
 
-	if (mdata->mdss_util->iommu_attached()) {
-		if (!mfd->iova) {
-			pr_err("mfd iova is zero\n");
-			mdss_mdp_pipe_unmap(pipe);
-			goto pan_display_error;
-		}
-		buf_l->p[0].addr = mfd->iova;
-	} else {
-		buf_l->p[0].addr = fbi->fix.smem_start;
-	}
-
-	buf_l->p[0].addr += offset;
-	buf_l->p[0].len = fbi->fix.smem_len - offset;
+	buf_l->p[0].srcp_table = mfd->fb_table;
+	buf_l->p[0].srcp_dma_buf = mfd->fbmem_buf;
+	buf_l->p[0].len = 0;
+	buf_l->p[0].addr = 0;
+	buf_l->p[0].offset = offset;
+	buf_l->p[0].skip_detach = true;
+	buf_l->p[0].mapped = false;
 	buf_l->num_planes = 1;
 
 	mdss_mdp_pipe_unmap(pipe);
