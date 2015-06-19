@@ -863,6 +863,7 @@ extern int group_balance_cpu(struct sched_group *sg);
  * well with groups where rq capacity can change independently.
  */
 #define group_rq_capacity(group) capacity(cpu_rq(group_first_cpu(group)))
+#define group_rq_mpc(group) max_poss_capacity(cpu_rq(group_first_cpu(group)))
 
 #else
 
@@ -934,6 +935,11 @@ static inline int capacity(struct rq *rq)
 {
 	return rq->capacity;
 }
+static inline int max_poss_capacity(struct rq *rq)
+{
+	return rq->max_possible_capacity;
+}
+
 
 static inline void
 inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
@@ -1040,6 +1046,12 @@ static inline int capacity(struct rq *rq)
 {
 	return SCHED_LOAD_SCALE;
 }
+
+static inline int max_poss_capacity(struct rq *rq)
+{
+	return SCHED_LOAD_SCALE;
+}
+
 
 static inline void inc_cumulative_runnable_avg(struct hmp_sched_stats *stats,
 		 struct task_struct *p)
@@ -1878,9 +1890,6 @@ enum rq_nohz_flag_bits {
 
 #define nohz_flags(cpu)	(&cpu_rq(cpu)->nohz_flags)
 #endif
-
-#define NOHZ_KICK_ANY 0
-#define NOHZ_KICK_RESTRICT 1
 
 #ifdef CONFIG_IRQ_TIME_ACCOUNTING
 
