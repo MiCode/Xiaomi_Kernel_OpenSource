@@ -449,7 +449,6 @@ struct rcu_state {
 	char *name;				/* Name of structure. */
 	char abbr;				/* Abbreviated name. */
 	struct list_head flavors;		/* List of RCU flavors. */
-	struct irq_work wakeup_work;		/* Postponed wakeups */
 };
 
 /* Values for rcu_state structure's gp_flags field. */

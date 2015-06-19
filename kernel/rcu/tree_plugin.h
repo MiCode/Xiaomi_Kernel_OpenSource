@@ -1695,6 +1695,7 @@ int rcu_needs_cpu(int cpu, unsigned long *dj)
  */
 static void rcu_prepare_for_idle(int cpu)
 {
+	bool needwake;
 	struct rcu_data *rdp;
 	struct rcu_dynticks *rdtp = &per_cpu(rcu_dynticks, cpu);
 	struct rcu_node *rnp;
@@ -1740,8 +1741,10 @@ static void rcu_prepare_for_idle(int cpu)
 			continue;
 		rnp = rdp->mynode;
 		raw_spin_lock(&rnp->lock); /* irqs already disabled. */
-		rcu_accelerate_cbs(rsp, rnp, rdp);
+		needwake = rcu_accelerate_cbs(rsp, rnp, rdp);
 		raw_spin_unlock(&rnp->lock); /* irqs remain disabled. */
+		if (needwake)
+			rcu_gp_kthread_wake(rsp);
 	}
 }
 
@@ -2162,12 +2165,15 @@ static void rcu_nocb_wait_gp(struct rcu_data *rdp)
 	unsigned long c;
 	bool d;
 	unsigned long flags;
+	bool needwake;
 	struct rcu_node *rnp = rdp->mynode;
 
 	raw_spin_lock_irqsave(&rnp->lock, flags);
-	c = rcu_start_future_gp(rnp, rdp);
+	needwake = rcu_start_future_gp(rnp, rdp, &c);
 	raw_spin_unlock_irqrestore(&rnp->lock, flags);
 
+	if (needwake)
+		rcu_gp_kthread_wake(rdp->rsp);
 	/*
 	 * Wait for the grace period.  Do so interruptibly to avoid messing
 	 * up the load average.
