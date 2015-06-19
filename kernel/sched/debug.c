@@ -316,8 +316,6 @@ do {									\
 	P(cpu_capacity);
 #endif
 #ifdef CONFIG_SCHED_HMP
-	P(mostly_idle_load);
-	P(mostly_idle_nr_run);
 	P(load_scale_factor);
 	P(capacity);
 	P(max_possible_capacity);

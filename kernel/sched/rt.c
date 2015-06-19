@@ -1664,13 +1664,12 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 	 * the lowest_mask.
 	 */
 	for_each_cpu(i, lowest_mask) {
-		struct rq *rq = cpu_rq(i);
-		cpu_cost = power_cost_at_freq(i, ACCESS_ONCE(rq->min_freq));
-		trace_sched_cpu_load(rq, idle_cpu(i), mostly_idle_cpu(i),
-				     sched_irqload(i), cpu_cost, cpu_temp(i));
+		cpu_load = scale_load_to_cpu(
+			cpu_rq(i)->hmp_stats.cumulative_runnable_avg, i);
+		cpu_cost = power_cost(cpu_load, i);
 
-		if (sched_boost() && capacity(rq) != max_capacity)
-			continue;
+		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), sched_irqload(i),
+						cpu_cost, cpu_temp(i));
 
 		if (power_delta_exceeded(cpu_cost, min_cost)) {
 			if (cpu_cost > min_cost)
@@ -1684,8 +1683,6 @@ static int find_lowest_rq_hmp(struct task_struct *task)
 		if (sched_cpu_high_irqload(i))
 			continue;
 
-		cpu_load = scale_load_to_cpu(
-				rq->hmp_stats.cumulative_runnable_avg, i);
 		if (cpu_load < min_load) {
 			min_load = cpu_load;
 			best_cpu = i;

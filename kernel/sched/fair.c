@@ -2619,79 +2619,6 @@ int sched_set_init_task_load(struct task_struct *p, int init_load_pct)
 	return 0;
 }
 
-int sched_set_cpu_prefer_idle(int cpu, int prefer_idle)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	rq->prefer_idle = !!prefer_idle;
-
-	return 0;
-}
-
-int sched_get_cpu_prefer_idle(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return rq->prefer_idle;
-}
-
-int sched_set_cpu_mostly_idle_load(int cpu, int mostly_idle_pct)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	if (mostly_idle_pct < 0 || mostly_idle_pct > 100)
-		return -EINVAL;
-
-	rq->mostly_idle_load = pct_to_real(mostly_idle_pct);
-
-	return 0;
-}
-
-int sched_set_cpu_mostly_idle_freq(int cpu, unsigned int mostly_idle_freq)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	if (mostly_idle_freq > rq->max_possible_freq)
-		return -EINVAL;
-
-	rq->mostly_idle_freq = mostly_idle_freq;
-
-	return 0;
-}
-
-unsigned int sched_get_cpu_mostly_idle_freq(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return rq->mostly_idle_freq;
-}
-
-int sched_get_cpu_mostly_idle_load(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-	int mostly_idle_pct;
-
-	mostly_idle_pct = real_to_pct(rq->mostly_idle_load);
-
-	return mostly_idle_pct;
-}
-
-int sched_set_cpu_mostly_idle_nr_run(int cpu, int nr_run)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	rq->mostly_idle_nr_run = nr_run;
-
-	return 0;
-}
-
-int sched_get_cpu_mostly_idle_nr_run(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return rq->mostly_idle_nr_run;
-}
-
 #ifdef CONFIG_CGROUP_SCHED
 
 static inline int upmigrate_discouraged(struct task_struct *p)
@@ -2761,33 +2688,6 @@ spill_threshold_crossed(u64 task_load, u64 cpu_load, struct rq *rq)
 		return 1;
 
 	return 0;
-}
-
-int mostly_idle_cpu(int cpu)
-{
-	struct rq *rq = cpu_rq(cpu);
-
-	return cpu_load(cpu) <= rq->mostly_idle_load
-		&& rq->nr_running <= rq->mostly_idle_nr_run
-		&& !sched_cpu_high_irqload(cpu);
-}
-
-static int mostly_idle_cpu_sync(int cpu, u64 load, int sync)
-{
-	struct rq *rq = cpu_rq(cpu);
-	int nr_running;
-
-	nr_running = rq->nr_running;
-
-	/*
-	 * Sync wakeups mean that the waker task will go to sleep
-	 * soon so we should discount its load from this test.
-	 */
-	if (sync && cpu == smp_processor_id())
-		nr_running--;
-
-	return load <= rq->mostly_idle_load &&
-		nr_running <= rq->mostly_idle_nr_run;
 }
 
 static int boost_refcount;
@@ -2875,28 +2775,16 @@ done:
 
 static int task_load_will_fit(struct task_struct *p, u64 task_load, int cpu)
 {
-	struct rq *prev_rq = cpu_rq(task_cpu(p));
 	struct rq *rq = cpu_rq(cpu);
-	int upmigrate, nice;
 
 	if (rq->capacity == max_capacity)
 		return 1;
 
-	if (sched_boost()) {
-		if (rq->capacity > prev_rq->capacity)
-			return 1;
-	} else {
-		nice = task_nice(p);
-		if (nice > sched_upmigrate_min_nice || upmigrate_discouraged(p))
-			return 1;
+	if (task_nice(p) > sched_upmigrate_min_nice || upmigrate_discouraged(p))
+		return 1;
 
-		upmigrate = sched_upmigrate;
-		if (prev_rq->capacity > rq->capacity)
-			upmigrate = sched_downmigrate;
-
-		if (task_load < upmigrate)
-			return 1;
-	}
+	if (task_load < sched_upmigrate)
+		return 1;
 
 	return 0;
 }
@@ -2910,18 +2798,10 @@ static int task_will_fit(struct task_struct *p, int cpu)
 
 static int eligible_cpu(u64 task_load, u64 cpu_load, int cpu, int sync)
 {
-	struct rq *rq = cpu_rq(cpu);
-
 	if (sched_cpu_high_irqload(cpu))
 		return 0;
 
-	if (mostly_idle_cpu_sync(cpu, cpu_load, sync))
-		return 1;
-
-	if (rq->max_possible_capacity != max_possible_capacity)
-		return !spill_threshold_crossed(task_load, cpu_load, rq);
-
-	return 0;
+	return !spill_threshold_crossed(task_load, cpu_load, cpu_rq(cpu));
 }
 
 struct cpu_pwr_stats __weak *get_cpu_pwr_stats(void)
@@ -2943,7 +2823,7 @@ int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost)
 	return abs(delta) > cost_limit;
 }
 
-unsigned int power_cost_at_freq(int cpu, unsigned int freq)
+static unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 {
 	int i = 0;
 	struct cpu_pwr_stats *per_cpu_info = get_cpu_pwr_stats();
@@ -2972,9 +2852,9 @@ unsigned int power_cost_at_freq(int cpu, unsigned int freq)
 /* Return the cost of running task p on CPU cpu. This function
  * currently assumes that task p is the only task which will run on
  * the CPU. */
-static unsigned int power_cost(u64 total_load, int cpu)
+unsigned int power_cost(u64 total_load, int cpu)
 {
-	unsigned int task_freq, cur_freq;
+	unsigned int task_freq;
 	struct rq *rq = cpu_rq(cpu);
 	u64 demand;
 
@@ -2987,9 +2867,6 @@ static unsigned int power_cost(u64 total_load, int cpu)
 
 	task_freq = demand * rq->max_possible_freq;
 	task_freq /= 100; /* khz needed */
-
-	cur_freq = rq->cur_freq;
-	task_freq = max(cur_freq, task_freq);
 
 	return power_cost_at_freq(cpu, task_freq);
 }
@@ -3007,7 +2884,7 @@ static int skip_freq_domain(struct rq *task_rq, struct rq *rq, int reason)
 
 	switch (reason) {
 	case UP_MIGRATION:
-		skip = rq->capacity <= task_rq->capacity;
+		skip = (rq->capacity <= task_rq->capacity);
 		break;
 
 	case DOWN_MIGRATION:
@@ -3036,6 +2913,10 @@ static int skip_cpu(struct rq *task_rq, struct rq *rq, int cpu,
 		return 1;
 
 	switch (reason) {
+	case UP_MIGRATION:
+		skip = !idle_cpu(cpu);
+		break;
+
 	case IRQLOAD_MIGRATION:
 		/* Purposely fall through */
 
@@ -3044,42 +2925,6 @@ static int skip_cpu(struct rq *task_rq, struct rq *rq, int cpu,
 	}
 
 	return skip;
-}
-
-/*
- * Select a single cpu in cluster as target for packing, iff cluster frequency
- * is less than a threshold level
- */
-static int select_packing_target(struct task_struct *p, int best_cpu)
-{
-	struct rq *rq = cpu_rq(best_cpu);
-	struct cpumask search_cpus;
-	int i;
-	int min_cost = INT_MAX;
-	int target = best_cpu;
-
-	if (rq->cur_freq >= rq->mostly_idle_freq)
-		return best_cpu;
-
-	/* Don't pack if current freq is low because of throttling */
-	if (rq->max_freq <= rq->mostly_idle_freq)
-		return best_cpu;
-
-	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
-	cpumask_and(&search_cpus, &search_cpus, &rq->freq_domain_cpumask);
-
-	/* Pick the first lowest power cpu as target */
-	for_each_cpu(i, &search_cpus) {
-		int cost = power_cost(scale_load_to_cpu(task_load(p), i) +
-							  cpu_load(i), i);
-
-		if (cost < min_cost && !sched_cpu_high_irqload(i)) {
-			target = i;
-			min_cost = cost;
-		}
-	}
-
-	return target;
 }
 
 /*
@@ -3101,42 +2946,24 @@ static inline int wake_to_idle(struct task_struct *p)
 static int select_best_cpu(struct task_struct *p, int target, int reason,
 			   int sync)
 {
-	int i, j, prev_cpu, best_cpu = -1;
-	int fallback_idle_cpu = -1, min_cstate_cpu = -1;
+	int i, best_cpu = -1, best_idle_cpu = -1, best_capacity_cpu = -1;
+	int prev_cpu = task_cpu(p);
 	int cpu_cost, min_cost = INT_MAX;
-	int min_idle_cost = INT_MAX, min_busy_cost = INT_MAX;
 	u64 tload, cpu_load;
-	u64 min_load = ULLONG_MAX, min_fallback_load = ULLONG_MAX;
+	u64 min_load = ULLONG_MAX;
+	s64 spare_capacity, highest_spare_capacity = 0;
 	int boost = sched_boost();
-	int cstate, min_cstate = INT_MAX;
-	int prefer_idle = -1;
-	int prefer_idle_override = 0;
+	int need_idle = wake_to_idle(p);
 	cpumask_t search_cpus;
 	struct rq *trq;
-
-	if (reason) {
-		prefer_idle = 1;
-		prefer_idle_override = 1;
-	}
-
-	if (wake_to_idle(p)) {
-		prefer_idle = 1;
-		prefer_idle_override = 1;
-		/*
-		 * If wake to idle and sync are both set prefer wake to idle
-		 * since sync is a weak hint that might not always be correct.
-		 */
-		sync = 0;
-	}
 
 	trq = task_rq(p);
 	cpumask_and(&search_cpus, tsk_cpus_allowed(p), cpu_online_mask);
 	for_each_cpu(i, &search_cpus) {
 		struct rq *rq = cpu_rq(i);
 
-		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
-		 mostly_idle_cpu_sync(i, cpu_load_sync(i, sync), sync),
-		 sched_irqload(i), power_cost(scale_load_to_cpu(task_load(p) +
+		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i), sched_irqload(i),
+		 power_cost(scale_load_to_cpu(task_load(p) +
 		 cpu_load_sync(i, sync), i), i), cpu_temp(i));
 
 		if (skip_freq_domain(trq, rq, reason)) {
@@ -3149,51 +2976,36 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 		if (skip_cpu(trq, rq, i, tload, reason))
 			continue;
 
-		prev_cpu = (i == task_cpu(p));
+		cpu_load = cpu_load_sync(i, sync);
+		spare_capacity = sched_ravg_window - cpu_load;
 
-		/*
-		 * The least-loaded mostly-idle CPU where the task
-		 * won't fit is our fallback if we can't find a CPU
-		 * where the task will fit.
-		 */
-		if (!task_load_will_fit(p, tload, i)) {
-			for_each_cpu_and(j, &search_cpus,
-						&rq->freq_domain_cpumask) {
-				cpu_load = cpu_load_sync(j, sync);
-				if (mostly_idle_cpu_sync(j, cpu_load, sync) &&
-						!sched_cpu_high_irqload(j)) {
-					if (cpu_load < min_fallback_load ||
-					    (cpu_load == min_fallback_load &&
-							 j == task_cpu(p))) {
-						min_fallback_load = cpu_load;
-						fallback_idle_cpu = j;
-					}
-				}
-			}
-			cpumask_andnot(&search_cpus, &search_cpus,
-						&rq->freq_domain_cpumask);
-			continue;
+		/* Note the highest spare capacity CPU in the system */
+		if (spare_capacity > 0 &&
+		    (spare_capacity > highest_spare_capacity ||
+		     (spare_capacity == highest_spare_capacity &&
+				cpu_rq(i)->capacity >
+				cpu_rq(best_capacity_cpu)->capacity))) {
+			highest_spare_capacity = spare_capacity;
+			best_capacity_cpu = i;
 		}
 
-		/* Set prefer_idle based on the cpu where task will first fit */
-		if (prefer_idle == -1)
-			prefer_idle = cpu_rq(i)->prefer_idle;
+		if (boost)
+			continue;
 
-		cpu_load = cpu_load_sync(i, sync);
-		if (!eligible_cpu(tload, cpu_load, i, sync))
+		if (!eligible_cpu(tload, cpu_load, i, sync) ||
+					!task_load_will_fit(p, tload, i))
 			continue;
 
 		/*
-		 * The task will fit on this CPU, and the CPU is either
-		 * mostly_idle or not max capacity and can fit it under
-		 * spill.
+		 * The task will fit on this CPU and the CPU can accommodate it
+		 * under spill.
 		 */
 
 		cpu_cost = power_cost(tload + cpu_load, i);
 
 		/*
 		 * If the task fits in a CPU in a lower power band, that
-		 * overrides load and C-state.
+		 * overrides all other considerations.
 		 */
 		if (power_delta_exceeded(cpu_cost, min_cost)) {
 			if (cpu_cost > min_cost)
@@ -3201,100 +3013,35 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 
 			min_cost = cpu_cost;
 			min_load = ULLONG_MAX;
-			min_cstate = INT_MAX;
-			min_cstate_cpu = -1;
 			best_cpu = -1;
-			if (!prefer_idle_override)
-				prefer_idle = cpu_rq(i)->prefer_idle;
 		}
 
-		/*
-		 * Partition CPUs based on whether they are completely idle
-		 * or not. For completely idle CPUs we choose the one in
-		 * the lowest C-state and then break ties with power cost.
-		 *
-		 * For sync wakeups we only consider the waker CPU as idle if
-		 * prefer_idle is set. Otherwise if prefer_idle is unset sync
-		 * wakeups will get biased away from the waker CPU.
-		 */
-		if (idle_cpu(i) || (sync && i == smp_processor_id()
-			&& prefer_idle && cpu_rq(i)->nr_running == 1)) {
-			cstate = cpu_rq(i)->cstate;
-
-			if (cstate > min_cstate)
-				continue;
-
-			if (cstate < min_cstate) {
-				min_idle_cost = cpu_cost;
-				min_cstate = cstate;
-				min_cstate_cpu = i;
-				continue;
+		if (cpu_cost < min_cost ||
+		    (cpu_cost == min_cost && cpu_load < min_load)) {
+			if (need_idle) {
+				if (idle_cpu(i)) {
+					min_cost = cpu_cost;
+					best_idle_cpu = i;
+				}
+			} else {
+				min_cost = cpu_cost;
+				min_load = cpu_load;
+				best_cpu = i;
 			}
-
-			if (cpu_cost < min_idle_cost ||
-			    (prev_cpu && cpu_cost == min_idle_cost)) {
-				min_idle_cost = cpu_cost;
-				min_cstate_cpu = i;
-			}
-
-			continue;
-		}
-
-		/*
-		 * For CPUs that are not completely idle, pick one with the
-		 * lowest load and break ties with power cost
-		 */
-		if (cpu_load > min_load)
-			continue;
-
-		if (cpu_load < min_load) {
-			min_load = cpu_load;
-			min_busy_cost = cpu_cost;
-			best_cpu = i;
-			continue;
-		}
-
-		/*
-		 * The load is equal to the previous selected CPU.
-		 * This is rare but when it does happen opt for the
-		 * more power efficient CPU option.
-		 */
-		if (cpu_cost < min_busy_cost ||
-		    (prev_cpu && cpu_cost == min_busy_cost)) {
-			min_busy_cost = cpu_cost;
-			best_cpu = i;
 		}
 	}
 
-	/*
-	 * Don't need to check !sched_cpu_high_irqload(best_cpu) because
-	 * best_cpu cannot have high irq load.
-	 */
-	if (min_cstate_cpu >= 0 && (prefer_idle > 0 || best_cpu < 0 ||
-			!mostly_idle_cpu_sync(best_cpu, min_load, sync)))
-		best_cpu = min_cstate_cpu;
+	if (best_idle_cpu >= 0)
+		return best_idle_cpu;
 
-	if (best_cpu < 0) {
-		if (unlikely(fallback_idle_cpu < 0))
-			/*
-			 * For the lack of a better choice just use
-			 * prev_cpu. We may just benefit from having
-			 * a hot cache.
-			 */
-			best_cpu = task_cpu(p);
+	if (best_cpu < 0 || boost) {
+		if (unlikely(best_capacity_cpu < 0))
+			best_cpu = prev_cpu;
 		else
-			best_cpu = fallback_idle_cpu;
+			best_cpu = best_capacity_cpu;
 	}
 
-	if (cpu_rq(best_cpu)->mostly_idle_freq && !prefer_idle_override)
-		best_cpu = select_packing_target(p, best_cpu);
-
-	/*
-	 * prefer_idle is initialized towards middle of function. Leave this
-	 * tracepoint towards end to capture prefer_idle flag used for this
-	 * instance of wakeup.
-	 */
-	trace_sched_task_load(p, boost, reason, sync, prefer_idle);
+	trace_sched_task_load(p, boost, reason, sync, need_idle);
 
 	return best_cpu;
 }
@@ -3810,13 +3557,6 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 	if (task_will_be_throttled(p))
 		return 0;
 
-	if (sched_boost()) {
-		if (rq->capacity != max_capacity)
-			return UP_MIGRATION;
-
-		return 0;
-	}
-
 	if (sched_cpu_high_irqload(cpu_of(rq)))
 		return IRQLOAD_MIGRATION;
 
@@ -3923,11 +3663,6 @@ static inline int power_cost(u64 total_load, int cpu)
 
 static inline int
 spill_threshold_crossed(u64 task_load, u64 cpu_load, struct rq *rq)
-{
-	return 0;
-}
-
-static inline int mostly_idle_cpu(int cpu)
 {
 	return 0;
 }
@@ -5343,7 +5078,6 @@ static void throttle_cfs_rq(struct cfs_rq *cfs_rq)
 
 	/* Log effect on hmp stats after throttling */
 	trace_sched_cpu_load(rq, idle_cpu(cpu_of(rq)),
-			     mostly_idle_cpu(cpu_of(rq)),
 			     sched_irqload(cpu_of(rq)),
 			     power_cost_at_freq(cpu_of(rq), 0),
 			     cpu_temp(cpu_of(rq)));
@@ -5401,7 +5135,6 @@ void unthrottle_cfs_rq(struct cfs_rq *cfs_rq)
 
 	/* Log effect on hmp stats after un-throttling */
 	trace_sched_cpu_load(rq, idle_cpu(cpu_of(rq)),
-			     mostly_idle_cpu(cpu_of(rq)),
 			     sched_irqload(cpu_of(rq)),
 			     power_cost_at_freq(cpu_of(rq), 0),
 			     cpu_temp(cpu_of(rq)));
@@ -8054,7 +7787,6 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 		struct rq *rq = cpu_rq(i);
 
 		trace_sched_cpu_load(cpu_rq(i), idle_cpu(i),
-				     mostly_idle_cpu(i),
 				     sched_irqload(i),
 				     power_cost_at_freq(i, 0),
 				     cpu_temp(i));
@@ -9665,10 +9397,6 @@ static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 {
 	struct sched_domain *sd;
 	int i;
-
-	if (rq->mostly_idle_freq && rq->cur_freq < rq->mostly_idle_freq
-		 && rq->max_freq > rq->mostly_idle_freq)
-			return 0;
 
 	if (rq->nr_running >= 2) {
 		if (rq->capacity == max_capacity)
