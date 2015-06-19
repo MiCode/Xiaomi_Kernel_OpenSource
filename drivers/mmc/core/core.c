@@ -3412,7 +3412,7 @@ out:
 	return err;
 }
 
-static int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
+int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 {
 	int err = 0;
 
@@ -3433,6 +3433,7 @@ static int mmc_cmdq_halt_on_empty_queue(struct mmc_host *host)
 out:
 	return err;
 }
+EXPORT_SYMBOL(mmc_cmdq_halt_on_empty_queue);
 
 /**
  * mmc_clk_scaling() - clock scaling decision algorithm
