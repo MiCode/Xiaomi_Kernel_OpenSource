@@ -31,7 +31,6 @@
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
-#include <linux/usb/otg.h>
 
 #include "debug.h"
 #include "core.h"
@@ -1895,12 +1894,11 @@ static int dwc3_gadget_run_stop(struct dwc3 *dwc, int is_on, int suspend)
 static int dwc3_gadget_vbus_draw(struct usb_gadget *g, unsigned mA)
 {
 	struct dwc3		*dwc = gadget_to_dwc(g);
-	struct dwc3_otg		*dotg = dwc->dotg;
 
-	if (dotg && dotg->otg.phy)
-		return usb_phy_set_power(dotg->otg.phy, mA);
-
-	return -ENOTSUPP;
+	dwc->vbus_draw = mA;
+	dev_dbg(dwc->dev, "Notify controller from %s. mA = %d\n", __func__, mA);
+	dwc3_notify_event(dwc, DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT);
+	return 0;
 }
 
 static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
@@ -1913,9 +1911,7 @@ static int dwc3_gadget_pullup(struct usb_gadget *g, int is_on)
 
 	dwc->softconnect = is_on;
 
-	if ((dwc->dotg && !dwc->vbus_active) ||
-		!dwc->gadget_driver) {
-
+	if ((dwc->is_drd && !dwc->vbus_active) || !dwc->gadget_driver) {
 		/*
 		 * Need to wait for vbus_session(on) from otg driver or to
 		 * the udc_start.
@@ -1991,7 +1987,7 @@ static int dwc3_gadget_vbus_session(struct usb_gadget *_gadget, int is_active)
 	struct dwc3 *dwc = gadget_to_dwc(_gadget);
 	unsigned long flags;
 
-	if (!dwc->dotg)
+	if (!dwc->is_drd)
 		return -EPERM;
 
 	is_active = !!is_active;
@@ -2165,7 +2161,7 @@ static int dwc3_gadget_start(struct usb_gadget *g,
 	 * device-specific initialization until device mode is activated.
 	 * In that case dwc3_gadget_restart() will handle it.
 	 */
-	if (!dwc->dotg) {
+	if (!dwc->is_drd) {
 		ret = __dwc3_gadget_start(dwc);
 		if (ret)
 			goto err2;
@@ -2808,7 +2804,6 @@ void dwc3_gadget_usb3_phy_suspend(struct dwc3 *dwc, int suspend)
 static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 {
 	u32			reg;
-	struct dwc3_otg		*dotg = dwc->dotg;
 
 	/*
 	 * WORKAROUND: DWC3 revisions <1.88a have an issue which
@@ -2851,8 +2846,7 @@ static void dwc3_gadget_reset_interrupt(struct dwc3 *dwc)
 
 	dwc3_gadget_usb3_phy_suspend(dwc, false);
 
-	if (dotg && dotg->otg.phy)
-		usb_phy_set_power(dotg->otg.phy, 0);
+	usb_gadget_vbus_draw(&dwc->gadget, 0);
 
 	if (dwc->gadget.speed != USB_SPEED_UNKNOWN)
 		dwc3_disconnect_gadget(dwc);
@@ -3572,14 +3566,7 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 		goto err4;
 	}
 
-	if (dwc->dotg) {
-		/* dwc3 otg driver is active (DRD mode + SRPSupport=1) */
-		ret = otg_set_peripheral(&dwc->dotg->otg, &dwc->gadget);
-		if (ret) {
-			dev_err(dwc->dev, "failed to set peripheral to otg\n");
-			goto err5;
-		}
-	} else {
+	if (!dwc->is_drd) {
 		pm_runtime_no_callbacks(&dwc->gadget.dev);
 		pm_runtime_set_active(&dwc->gadget.dev);
 		pm_runtime_enable(&dwc->gadget.dev);
@@ -3587,9 +3574,6 @@ int dwc3_gadget_init(struct dwc3 *dwc)
 	}
 
 	return 0;
-
-err5:
-	usb_del_gadget_udc(&dwc->gadget);
 
 err4:
 	dwc3_gadget_free_endpoints(dwc);
@@ -3615,7 +3599,7 @@ err0:
 
 void dwc3_gadget_exit(struct dwc3 *dwc)
 {
-	if (dwc->dotg) {
+	if (dwc->is_drd) {
 		pm_runtime_put(&dwc->gadget.dev);
 		pm_runtime_disable(&dwc->gadget.dev);
 	}

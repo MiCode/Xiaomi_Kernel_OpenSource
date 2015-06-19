@@ -706,16 +706,11 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		break;
 	case USB_DR_MODE_OTG:
 		dwc3_set_mode(dwc, DWC3_GCTL_PRTCAP_OTG);
-		ret = dwc3_otg_init(dwc);
-		if (ret) {
-			dev_err(dev, "failed to initialize otg\n");
-			return ret;
-		}
+		dwc->is_drd = true;
 
 		ret = dwc3_host_init(dwc);
 		if (ret) {
 			dev_err(dev, "failed to initialize host\n");
-			dwc3_otg_exit(dwc);
 			return ret;
 		}
 
@@ -723,7 +718,6 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		if (ret) {
 			dev_err(dev, "failed to initialize gadget\n");
 			dwc3_host_exit(dwc);
-			dwc3_otg_exit(dwc);
 			return ret;
 		}
 		break;
@@ -747,7 +741,6 @@ static void dwc3_core_exit_mode(struct dwc3 *dwc)
 	case USB_DR_MODE_OTG:
 		dwc3_gadget_exit(dwc);
 		dwc3_host_exit(dwc);
-		dwc3_otg_exit(dwc);
 		break;
 	default:
 		/* do nothing */

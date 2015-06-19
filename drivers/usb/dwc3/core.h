@@ -35,8 +35,6 @@
 
 #include <linux/phy/phy.h>
 
-#include "dwc3_otg.h"
-
 #define DWC3_MSG_MAX	500
 
 /* Global constants */
@@ -733,6 +731,7 @@ struct dwc3_scratchpad_array {
 #define DWC3_CONTROLLER_POST_INITIALIZATION_EVENT	7
 #define DWC3_CONTROLLER_CONNDONE_EVENT			8
 #define DWC3_CONTROLLER_NOTIFY_OTG_EVENT		9
+#define DWC3_CONTROLLER_SET_CURRENT_DRAW_EVENT		10
 
 #define MAX_INTR_STATS					10
 /**
@@ -795,6 +794,7 @@ struct dwc3_scratchpad_array {
  * @setup_packet_pending: true when there's a Setup Packet in FIFO. Workaround
  * @start_config_issued: true when StartConfig command has been issued
  * @three_stage_setup: set if we perform a three phase setup
+ * @is_drd: device supports dual-role or not
  * @err_evt_seen: previous event in queue was erratic error
  * @usb3_u1u2_disable: if true, disable U1U2 low power modes in Superspeed mode.
  * @hird_thresh: value to configure in DCTL[HIRD_Thresh]
@@ -807,6 +807,7 @@ struct dwc3_scratchpad_array {
  * @bh_handled_evt_cnt: no. of events handled by tasklet per interrupt
  * @bh_dbg_index: index for capturing bh_completion_time and bh_handled_evt_cnt
  * @wait_linkstate: waitqueue for waiting LINK to move into required state
+ * @vbus_draw: current to be drawn from USB
  */
 struct dwc3 {
 	struct usb_ctrlrequest	*ctrl_req;
@@ -825,7 +826,6 @@ struct dwc3 {
 
 	struct device		*dev;
 
-	struct dwc3_otg		*dotg;
 	struct platform_device	*xhci;
 	struct resource		xhci_resources[DWC3_XHCI_RESOURCES_NUM];
 
@@ -916,6 +916,7 @@ struct dwc3 {
 	unsigned		setup_packet_pending:1;
 	unsigned		start_config_issued:1;
 	unsigned		three_stage_setup:1;
+	unsigned		is_drd:1;
 
 	/* Indicate if the gadget was powered by the otg driver */
 	unsigned		vbus_active:1;
@@ -937,6 +938,7 @@ struct dwc3 {
 	atomic_t		in_lpm;
 	int			tx_fifo_size;
 	bool			b_suspend;
+	unsigned		vbus_draw;
 
 	/* IRQ timing statistics */
 	int			irq;
@@ -1101,9 +1103,6 @@ struct dwc3_gadget_ep_cmd_params {
 /* prototypes */
 void dwc3_set_mode(struct dwc3 *dwc, u32 mode);
 int dwc3_gadget_resize_tx_fifos(struct dwc3 *dwc);
-
-int dwc3_otg_init(struct dwc3 *dwc);
-void dwc3_otg_exit(struct dwc3 *dwc);
 
 #if IS_ENABLED(CONFIG_USB_DWC3_HOST) || IS_ENABLED(CONFIG_USB_DWC3_DUAL_ROLE)
 int dwc3_host_init(struct dwc3 *dwc);

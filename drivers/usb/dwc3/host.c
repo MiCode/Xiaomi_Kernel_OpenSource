@@ -60,8 +60,8 @@ int dwc3_host_init(struct dwc3 *dwc)
 		goto err1;
 	}
 
-	/* Add XHCI device if !OTG, otherwise OTG takes care of this */
-	if (!dwc->dotg) {
+	/* Add XHCI device if not Dual-Role, else it is added dynamically */
+	if (!dwc->is_drd) {
 		ret = platform_device_add(xhci);
 		if (ret) {
 			dev_err(dwc->dev, "failed to register xHCI device\n");
@@ -80,6 +80,6 @@ err0:
 
 void dwc3_host_exit(struct dwc3 *dwc)
 {
-	if (!dwc->dotg)
+	if (!dwc->is_drd)
 		platform_device_unregister(dwc->xhci);
 }
