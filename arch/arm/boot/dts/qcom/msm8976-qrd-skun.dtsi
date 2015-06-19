@@ -159,10 +159,6 @@
 	qcom,platform-reset-gpio = <&msm_gpio 25 0>;
 };
 
-&mdss_dsi1 {
-	qcom,dsi-pref-prim-pan = <&dsi_otm1906c_1080p_cmd>;
-};
-
 &labibb {
 	status = "ok";
 	qpnp,qpnp-labibb-mode = "lcd";
