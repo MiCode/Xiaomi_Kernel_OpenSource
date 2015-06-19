@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,7 +68,12 @@ static void _process_event_group(struct kgsl_device *device,
 
 	context = group->context;
 
-	_kgsl_context_get(context);
+	/*
+	 * Sanity check to be sure that we we aren't racing with the context
+	 * getting destroyed
+	 */
+	if (context != NULL && !_kgsl_context_get(context))
+		BUG();
 
 	spin_lock(&group->lock);
 
@@ -251,7 +256,10 @@ int kgsl_add_event(struct kgsl_device *device, struct kgsl_event_group *group,
 		return -ENOMEM;
 
 	/* Get a reference to the context while the event is active */
-	_kgsl_context_get(context);
+	if (context != NULL && !_kgsl_context_get(context)) {
+		kmem_cache_free(events_cache, event);
+		return -ENOENT;
+	}
 
 	event->device = device;
 	event->context = context;
