@@ -813,16 +813,16 @@ static void arm_smmu_tlb_sync_cb(struct arm_smmu_device *smmu,
 	u32 val;
 
 	writel_relaxed(0, base + ARM_SMMU_CB_TLBSYNC);
-	if (readl_poll_timeout(base + ARM_SMMU_CB_TLBSTATUS, val,
-				!(val & TLBSTATUS_SACTIVE),
-				20, TLB_LOOP_TIMEOUT))
+	if (readl_poll_timeout_atomic(base + ARM_SMMU_CB_TLBSTATUS, val,
+				      !(val & TLBSTATUS_SACTIVE),
+				      10, TLB_LOOP_TIMEOUT))
 		dev_err(smmu->dev, "TLBSYNC timeout!\n");
 }
 
 static void arm_smmu_tlb_sync(void *cookie)
 {
 	struct arm_smmu_domain *smmu_domain = cookie;
-	__arm_smmu_tlb_sync(smmu_domain->smmu);
+	arm_smmu_tlb_sync_cb(smmu_domain->smmu, smmu_domain->cfg.cbndx);
 }
 
 /* Must be called with clocks/regulators enabled */
@@ -841,13 +841,13 @@ static void arm_smmu_tlb_inv_context(void *cookie)
 		base = ARM_SMMU_CB_BASE(smmu) + ARM_SMMU_CB(smmu, cfg->cbndx);
 		writel_relaxed(ARM_SMMU_CB_ASID(cfg),
 			       base + ARM_SMMU_CB_S1_TLBIASID);
+		arm_smmu_tlb_sync_cb(smmu, cfg->cbndx);
 	} else {
 		base = ARM_SMMU_GR0(smmu);
 		writel_relaxed(ARM_SMMU_CB_VMID(cfg),
 			       base + ARM_SMMU_GR0_TLBIVMID);
+		__arm_smmu_tlb_sync(smmu);
 	}
-
-	__arm_smmu_tlb_sync(smmu);
 }
 
 static void arm_smmu_tlb_inv_range_nosync(unsigned long iova, size_t size,
