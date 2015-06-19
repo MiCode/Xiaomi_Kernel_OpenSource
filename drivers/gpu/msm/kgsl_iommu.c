@@ -757,6 +757,7 @@ static int _get_iommu_ctxs(struct kgsl_mmu *mmu)
 		} else if (!strcmp("gfx3d_secure",
 				data->iommu_ctxs[i].iommu_ctx_name)) {
 			ctx = &iommu->ctx[KGSL_IOMMU_CONTEXT_SECURE];
+			mmu->secured = true;
 		} else if (!strcmp("gfx3d_spare",
 				data->iommu_ctxs[i].iommu_ctx_name)) {
 			continue;
