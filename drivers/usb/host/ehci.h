@@ -212,6 +212,8 @@ struct ehci_hcd {			/* one per controller */
 	ktime_t			last_periodic_enable;
 	u32			command;
 
+	unsigned		log2_irq_thresh;
+
 	/* SILICON QUIRKS */
 	unsigned		no_selective_suspend:1;
 	unsigned		has_fsl_port_bug:1; /* FreeScale */
@@ -225,6 +227,12 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		has_synopsys_hc_bug:1; /* Synopsys HC */
 	unsigned		frame_index_bug:1; /* MosChip (AKA NetMos) */
 	unsigned		need_oc_pp_cycle:1; /* MPC834X port power */
+	unsigned		susp_sof_bug:1; /*Chip Idea HC*/
+	unsigned		resume_sof_bug:1;/*Chip Idea HC*/
+	unsigned		reset_sof_bug:1; /*Chip Idea HC*/
+	bool			disable_cerr;
+	u32                     reset_delay;
+	bool			no_testmode_suspend; /* MSM Chipidea HC */
 	unsigned		imx28_write_fix:1; /* For Freescale i.MX28 */
 
 	/* required for usb32 quirk */
@@ -238,6 +246,7 @@ struct ehci_hcd {			/* one per controller */
 	unsigned		has_hostpc:1;
 	unsigned		has_tdi_phy_lpm:1;
 	unsigned		has_ppcd:1; /* support per-port change bits */
+	unsigned                pool_64_bit_align:1; /* for 64 bit alignment */
 	u8			sbrn;		/* packed release number */
 
 	/* irq statistics */
@@ -858,7 +867,13 @@ static inline u32 hc32_to_cpup (const struct ehci_hcd *ehci, const __hc32 *x)
 
 struct ehci_driver_overrides {
 	size_t		extra_priv_size;
+	int		flags;
 	int		(*reset)(struct usb_hcd *hcd);
+	irqreturn_t	(*irq) (struct usb_hcd *hcd);
+	int	(*urb_enqueue)(struct usb_hcd *hcd,
+				struct urb *urb, gfp_t mem_flags);
+	int	(*bus_suspend)(struct usb_hcd *);
+	int	(*bus_resume)(struct usb_hcd *);
 };
 
 extern void	ehci_init_driver(struct hc_driver *drv,
@@ -868,6 +883,8 @@ extern int	ehci_handshake(struct ehci_hcd *ehci, void __iomem *ptr,
 				u32 mask, u32 done, int usec);
 
 #ifdef CONFIG_PM
+extern int	ehci_bus_suspend(struct usb_hcd *hcd);
+extern int	ehci_bus_resume(struct usb_hcd *hcd);
 extern int	ehci_suspend(struct usb_hcd *hcd, bool do_wakeup);
 extern int	ehci_resume(struct usb_hcd *hcd, bool hibernated);
 #endif	/* CONFIG_PM */

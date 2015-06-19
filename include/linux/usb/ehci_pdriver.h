@@ -45,6 +45,7 @@ struct usb_ehci_pdata {
 	unsigned	big_endian_desc:1;
 	unsigned	big_endian_mmio:1;
 	unsigned	no_io_watchdog:1;
+	unsigned        pool_64_bit_align:1;
 
 	/* Turn on all power and clocks */
 	int (*power_on)(struct platform_device *pdev);
