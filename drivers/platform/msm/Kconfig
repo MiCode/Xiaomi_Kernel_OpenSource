@@ -195,6 +195,15 @@ config MSM_MHI_DEV
           memory. MHI interacts with the IPA for supporting transfers
 	  on the HW accelerated channels between Host and device.
 
+config MSM_MHI_DEBUG
+	 bool "MHI debug support"
+	 depends on MSM_MHI
+	 help
+	   Say yes here to enable debugging support in the MHI transport
+	   and individual MHI client drivers. This option may impact
+	   throughput as individual MHI packets and state transitions
+	   will be logged.
+
 config QCA1530
 	tristate "QCA1530 SoC GNSS Driver"
 	depends on REGULATOR && OF

@@ -27,12 +27,6 @@
 
 extern struct mhi_pcie_devices mhi_devices;
 
-enum MHI_DEBUG_CLASS {
-	MHI_DBG_DATA = 0x1000,
-	MHI_DBG_POWER = 0x2000,
-	MHI_DBG_reserved = 0x80000000
-};
-
 enum MHI_DEBUG_LEVEL {
 	MHI_MSG_VERBOSE = 0x1,
 	MHI_MSG_INFO = 0x2,
