@@ -1018,18 +1018,23 @@ static int mdss_rotator_calc_perf(struct mdss_rot_perf *perf)
 static int mdss_rotator_update_perf(struct mdss_rot_mgr *mgr)
 {
 	struct mdss_rot_file_private *priv;
+	struct mdss_rot_perf *perf;
+	int not_in_suspend_mode;
 	u64 total_bw = 0;
 
-	mutex_lock(&mgr->file_lock);
-	list_for_each_entry(priv, &mgr->file_list, list) {
-		struct mdss_rot_perf *perf;
-		mutex_lock(&priv->perf_lock);
-		list_for_each_entry(perf, &priv->perf_list, list) {
-			total_bw += perf->bw;
+	not_in_suspend_mode = !atomic_read(&mgr->device_suspended);
+
+	if (not_in_suspend_mode) {
+		mutex_lock(&mgr->file_lock);
+		list_for_each_entry(priv, &mgr->file_list, list) {
+			mutex_lock(&priv->perf_lock);
+			list_for_each_entry(perf, &priv->perf_list, list) {
+				total_bw += perf->bw;
+			}
+			mutex_unlock(&priv->perf_lock);
 		}
-		mutex_unlock(&priv->perf_lock);
+		mutex_unlock(&mgr->file_lock);
 	}
-	mutex_unlock(&mgr->file_lock);
 
 	mutex_lock(&mgr->bus_lock);
 	mdss_rotator_enable_reg_bus(mgr, total_bw);
@@ -1370,6 +1375,7 @@ static void mdss_rotator_remove_request(struct mdss_rot_mgr *mgr,
 	mutex_unlock(&private->req_lock);
 }
 
+/* This function should be called with req_lock */
 static void mdss_rotator_cancel_request(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_entry_container *req)
 {
@@ -1396,28 +1402,18 @@ static void mdss_rotator_cancel_request(struct mdss_rot_mgr *mgr,
 	devm_kfree(&mgr->pdev->dev, req);
 }
 
-static void mdss_rotator_release_private_resource(
-	struct mdss_rot_mgr *mgr,
+static void mdss_rotator_cancel_all_requests(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_file_private *private)
 {
 	struct mdss_rot_entry_container *req, *req_next;
-	struct mdss_rot_perf *perf, *perf_next;
 
 	mutex_lock(&private->req_lock);
 	list_for_each_entry_safe(req, req_next, &private->req_list, list)
 		mdss_rotator_cancel_request(mgr, req);
 	mutex_unlock(&private->req_lock);
-
-	mutex_lock(&private->perf_lock);
-	list_for_each_entry_safe(perf, perf_next, &private->perf_list, list) {
-		list_del_init(&perf->list);
-		devm_kfree(&mgr->pdev->dev, perf->work_distribution);
-		devm_kfree(&mgr->pdev->dev, perf);
-	}
-	mutex_unlock(&private->perf_lock);
 }
 
-static void mdss_rotator_free_request(struct mdss_rot_mgr *mgr,
+static void mdss_rotator_free_competed_request(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_file_private *private)
 {
 	struct mdss_rot_entry_container *req, *req_next;
@@ -1432,15 +1428,33 @@ static void mdss_rotator_free_request(struct mdss_rot_mgr *mgr,
 	mutex_unlock(&private->req_lock);
 }
 
+static void mdss_rotator_release_rotator_perf_session(
+	struct mdss_rot_mgr *mgr,
+	struct mdss_rot_file_private *private)
+{
+	struct mdss_rot_perf *perf, *perf_next;
+
+	mdss_rotator_cancel_all_requests(mgr, private);
+
+	mutex_lock(&private->perf_lock);
+	list_for_each_entry_safe(perf, perf_next, &private->perf_list, list) {
+		list_del_init(&perf->list);
+		devm_kfree(&mgr->pdev->dev, perf->work_distribution);
+		devm_kfree(&mgr->pdev->dev, perf);
+	}
+	mutex_unlock(&private->perf_lock);
+}
+
 static void mdss_rotator_release_all(struct mdss_rot_mgr *mgr)
 {
 	struct mdss_rot_file_private *priv, *priv_next;
 
 	mutex_lock(&mgr->file_lock);
 	list_for_each_entry_safe(priv, priv_next, &mgr->file_list, list) {
-		mdss_rotator_release_private_resource(rot_mgr, priv);
+		mdss_rotator_release_rotator_perf_session(mgr, priv);
 		mdss_rotator_resource_ctrl(mgr, false);
 		list_del_init(&priv->list);
+		priv->file->private_data = NULL;
 		devm_kfree(&mgr->pdev->dev, priv);
 	}
 	mutex_unlock(&rot_mgr->file_lock);
@@ -1883,7 +1897,7 @@ static int mdss_rotator_handle_request_common(struct mdss_rot_mgr *mgr,
 {
 	int i, ret;
 
-	mdss_rotator_free_request(mgr, private);
+	mdss_rotator_free_competed_request(mgr, private);
 
 	ret = mdss_rotator_add_request(mgr, private, req);
 	if (ret) {
@@ -1997,11 +2011,28 @@ static int mdss_rotator_open(struct inode *inode, struct file *file)
 
 	mutex_lock(&rot_mgr->file_lock);
 	list_add(&private->list, &rot_mgr->file_list);
+	file->private_data = private;
+	private->file = file;
 	mutex_unlock(&rot_mgr->file_lock);
 
-	file->private_data = private;
-
 	return 0;
+}
+
+static bool mdss_rotator_file_priv_allowed(struct mdss_rot_mgr *mgr,
+		struct mdss_rot_file_private *priv)
+{
+	struct mdss_rot_file_private *_priv, *_priv_next;
+	bool ret = false;
+
+	mutex_lock(&mgr->file_lock);
+	list_for_each_entry_safe(_priv, _priv_next, &mgr->file_list, list) {
+		if (_priv == priv) {
+			ret = true;
+			break;
+		}
+	}
+	mutex_unlock(&mgr->file_lock);
+	return ret;
 }
 
 static int mdss_rotator_close(struct inode *inode, struct file *file)
@@ -2016,7 +2047,12 @@ static int mdss_rotator_close(struct inode *inode, struct file *file)
 
 	private = (struct mdss_rot_file_private *)file->private_data;
 
-	mdss_rotator_release_private_resource(rot_mgr, private);
+	if (!(mdss_rotator_file_priv_allowed(rot_mgr, private))) {
+		pr_err("Calling close with unrecognized rot_file_private\n");
+		return -EINVAL;
+	}
+
+	mdss_rotator_release_rotator_perf_session(rot_mgr, private);
 
 	mutex_lock(&rot_mgr->file_lock);
 	list_del_init(&private->list);
@@ -2116,6 +2152,11 @@ static long mdss_rotator_compat_ioctl(struct file *file, unsigned int cmd,
 
 	private = (struct mdss_rot_file_private *)file->private_data;
 
+	if (!(mdss_rotator_file_priv_allowed(rot_mgr, private))) {
+		pr_err("Calling ioctl with unrecognized rot_file_private\n");
+		return -EINVAL;
+	}
+
 	switch (cmd) {
 	case MDSS_ROTATION_REQUEST:
 		ret = mdss_rotator_handle_request32(rot_mgr, private, arg);
@@ -2156,6 +2197,11 @@ static long mdss_rotator_ioctl(struct file *file, unsigned int cmd,
 		return -EINVAL;
 
 	private = (struct mdss_rot_file_private *)file->private_data;
+
+	if (!(mdss_rotator_file_priv_allowed(rot_mgr, private))) {
+		pr_err("Calling ioctl with unrecognized rot_file_private\n");
+		return -EINVAL;
+	}
 
 	switch (cmd) {
 	case MDSS_ROTATION_REQUEST:
@@ -2572,6 +2618,17 @@ static int mdss_rotator_remove(struct platform_device *dev)
 	return 0;
 }
 
+static void mdss_rotator_suspend_cancel_rot_work(struct mdss_rot_mgr *mgr)
+{
+	struct mdss_rot_file_private *priv, *priv_next;
+
+	mutex_lock(&mgr->file_lock);
+	list_for_each_entry_safe(priv, priv_next, &mgr->file_list, list) {
+		mdss_rotator_cancel_all_requests(mgr, priv);
+	}
+	mutex_unlock(&rot_mgr->file_lock);
+}
+
 #if defined(CONFIG_PM)
 static int mdss_rotator_suspend(struct platform_device *dev, pm_message_t state)
 {
@@ -2582,7 +2639,8 @@ static int mdss_rotator_suspend(struct platform_device *dev, pm_message_t state)
 		return -ENODEV;
 
 	atomic_inc(&mgr->device_suspended);
-	mdss_rotator_release_all(mgr);
+	mdss_rotator_suspend_cancel_rot_work(mgr);
+	mdss_rotator_update_perf(mgr);
 	return 0;
 }
 
@@ -2595,6 +2653,7 @@ static int mdss_rotator_resume(struct platform_device *dev)
 		return -ENODEV;
 
 	atomic_dec(&mgr->device_suspended);
+	mdss_rotator_update_perf(mgr);
 	return 0;
 }
 #endif
