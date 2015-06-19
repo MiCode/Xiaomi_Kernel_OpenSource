@@ -391,12 +391,9 @@ static void diagfwd_dci_read_done(struct diagfwd_info *fwd_info,
 static void diagfwd_reset_buffers(struct diagfwd_info *fwd_info,
 				  unsigned char *buf)
 {
-	unsigned long flags;
-
 	if (!fwd_info || !buf)
 		return;
 
-	spin_lock_irqsave(&fwd_info->buf_lock, flags);
 	if (!driver->feature[fwd_info->peripheral].encode_hdlc) {
 		if (fwd_info->buf_1 && fwd_info->buf_1->data == buf)
 			atomic_set(&fwd_info->buf_1->in_busy, 0);
@@ -408,7 +405,6 @@ static void diagfwd_reset_buffers(struct diagfwd_info *fwd_info,
 		else if (fwd_info->buf_2 && fwd_info->buf_2->data_raw == buf)
 			atomic_set(&fwd_info->buf_2->in_busy, 0);
 	}
-	spin_unlock_irqrestore(&fwd_info->buf_lock, flags);
 }
 
 int diagfwd_peripheral_init(void)
@@ -697,8 +693,6 @@ int diagfwd_write(uint8_t peripheral, uint8_t type, void *buf, int len)
 
 static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 {
-	unsigned long flags;
-
 	if (!fwd_info)
 		return;
 
@@ -706,12 +700,10 @@ static void __diag_fwd_open(struct diagfwd_info *fwd_info)
 	if (!fwd_info->inited)
 		return;
 
-	spin_lock_irqsave(&fwd_info->buf_lock, flags);
 	if (fwd_info->buf_1)
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
 	if (fwd_info->buf_2)
 		atomic_set(&fwd_info->buf_2->in_busy, 0);
-	spin_unlock_irqrestore(&fwd_info->buf_lock, flags);
 
 	if (fwd_info->p_ops && fwd_info->p_ops->open)
 		fwd_info->p_ops->open(fwd_info->ctxt);
@@ -751,7 +743,6 @@ void diagfwd_late_open(struct diagfwd_info *fwd_info)
 
 void diagfwd_close(uint8_t peripheral, uint8_t type)
 {
-	unsigned long flags;
 	struct diagfwd_info *fwd_info = NULL;
 
 	if (peripheral >= NUM_PERIPHERALS || type >= NUM_TYPES)
@@ -765,7 +756,6 @@ void diagfwd_close(uint8_t peripheral, uint8_t type)
 	if (fwd_info->p_ops && fwd_info->p_ops->close)
 		fwd_info->p_ops->close(fwd_info->ctxt);
 
-	spin_lock_irqsave(&fwd_info->buf_lock, flags);
 	if (fwd_info->buf_1)
 		atomic_set(&fwd_info->buf_1->in_busy, 1);
 	/*
@@ -774,7 +764,6 @@ void diagfwd_close(uint8_t peripheral, uint8_t type)
 	 */
 	if (fwd_info->buf_2)
 		atomic_set(&fwd_info->buf_2->in_busy, 1);
-	spin_unlock_irqrestore(&fwd_info->buf_lock, flags);
 }
 
 int diagfwd_channel_open(struct diagfwd_info *fwd_info)
@@ -859,20 +848,17 @@ int diagfwd_channel_read_done(struct diagfwd_info *fwd_info,
 void diagfwd_write_done(uint8_t peripheral, uint8_t type, int ctxt)
 {
 	struct diagfwd_info *fwd_info = NULL;
-	unsigned long flags;
 
 	if (peripheral >= NUM_PERIPHERALS || type >= NUM_TYPES)
 		return;
 
 	fwd_info = &peripheral_info[type][peripheral];
-	spin_lock_irqsave(&fwd_info->buf_lock, flags);
 	if (ctxt == 1 && fwd_info->buf_1)
 		atomic_set(&fwd_info->buf_1->in_busy, 0);
 	else if (ctxt == 2 && fwd_info->buf_2)
 		atomic_set(&fwd_info->buf_2->in_busy, 0);
 	else
 		pr_err("diag: In %s, invalid ctxt %d\n", __func__, ctxt);
-	spin_unlock_irqrestore(&fwd_info->buf_lock, flags);
 
 	diagfwd_queue_read(fwd_info);
 }
