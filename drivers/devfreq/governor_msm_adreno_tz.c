@@ -424,8 +424,10 @@ static int tz_handler(struct devfreq *devfreq, unsigned int event, void *data)
 
 static void _do_partner_event(struct work_struct *work, unsigned int event)
 {
-	partner_gpu_profile->bus_devfreq->governor->event_handler
-			(partner_gpu_profile->bus_devfreq, event, NULL);
+	struct devfreq *bus_devfreq = partner_gpu_profile->bus_devfreq;
+
+	if (bus_devfreq->governor && bus_devfreq->governor->event_handler)
+		bus_devfreq->governor->event_handler(bus_devfreq, event, NULL);
 }
 
 static void do_partner_start_event(struct work_struct *work)
