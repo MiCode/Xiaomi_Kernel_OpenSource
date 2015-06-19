@@ -20,3 +20,5 @@
 	compatible = "qcom,msm8916-qrd-skuic", "qcom,msm8916-qrd", "qcom,msm8916", "qcom,qrd";
 	qcom,board-id = <0x11010b 0x105>;
 };
+
+/delete-node/ &mba_mss;
