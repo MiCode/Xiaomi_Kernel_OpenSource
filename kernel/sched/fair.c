@@ -2494,13 +2494,6 @@ unsigned int __read_mostly sched_spill_load;
 unsigned int __read_mostly sysctl_sched_spill_load_pct = 100;
 
 /*
- * Tasks whose bandwidth consumption on a cpu is less than
- * sched_small_task are considered as small tasks.
- */
-unsigned int __read_mostly sched_small_task;
-unsigned int __read_mostly sysctl_sched_small_task_pct = 10;
-
-/*
  * Tasks with demand >= sched_heavy_task will have their
  * window-based demand added to the previous window's CPU
  * time when they wake up, if they have slept for at least
@@ -2592,9 +2585,6 @@ void set_hmp_defaults(void)
 {
 	sched_spill_load =
 		pct_to_real(sysctl_sched_spill_load_pct);
-
-	sched_small_task =
-		pct_to_real(sysctl_sched_small_task_pct);
 
 	update_up_down_migrate();
 
@@ -2730,15 +2720,6 @@ static inline int is_big_task(struct task_struct *p)
 	load = scale_load_to_cpu(load, task_cpu(p));
 
 	return load > sched_upmigrate;
-}
-
-/* Is a task "small" on the minimum capacity CPU */
-static inline int is_small_task(struct task_struct *p)
-{
-	u64 load = task_load(p);
-	load *= (u64)max_load_scale_factor;
-	load /= 1024;
-	return load < sched_small_task;
 }
 
 static inline u64 cpu_load(int cpu)
@@ -3013,105 +2994,6 @@ static unsigned int power_cost(u64 total_load, int cpu)
 	return power_cost_at_freq(cpu, task_freq);
 }
 
-static int best_small_task_cpu(struct task_struct *p, int sync)
-{
-	int best_busy_cpu = -1, fallback_cpu = -1;
-	int min_cstate_cpu = -1;
-	int min_cstate = INT_MAX;
-	int cpu_cost, min_cost = INT_MAX;
-	int i = task_cpu(p), prev_cpu;
-	int hmp_capable;
-	u64 tload, cpu_load, min_load = ULLONG_MAX;
-	cpumask_t temp;
-	cpumask_t search_cpu;
-	cpumask_t fb_search_cpu = CPU_MASK_NONE;
-	struct rq *rq;
-
-	cpumask_and(&temp, &mpc_mask, cpu_possible_mask);
-	hmp_capable = !cpumask_full(&temp);
-
-	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
-	if (unlikely(!cpumask_test_cpu(i, &search_cpu)))
-		i = cpumask_first(&search_cpu);
-
-	do {
-		rq = cpu_rq(i);
-
-		cpumask_clear_cpu(i, &search_cpu);
-
-		trace_sched_cpu_load(rq, idle_cpu(i),
-		 mostly_idle_cpu_sync(i, cpu_load_sync(i, sync), sync),
-		 sched_irqload(i), power_cost(scale_load_to_cpu(task_load(p),
-				i) + cpu_load_sync(i, sync), i), cpu_temp(i));
-
-		if (rq->max_possible_capacity == max_possible_capacity &&
-		    hmp_capable) {
-			cpumask_and(&fb_search_cpu, &search_cpu,
-				    &rq->freq_domain_cpumask);
-			cpumask_andnot(&search_cpu, &search_cpu,
-				       &rq->freq_domain_cpumask);
-			continue;
-		}
-
-		if (sched_cpu_high_irqload(i))
-			continue;
-
-		if (idle_cpu(i) && rq->cstate) {
-			if (rq->cstate < min_cstate) {
-				min_cstate_cpu = i;
-				min_cstate = rq->cstate;
-			}
-			continue;
-		}
-
-		cpu_load = cpu_load_sync(i, sync);
-		if (mostly_idle_cpu_sync(i, cpu_load, sync))
-			return i;
-	} while ((i = cpumask_first(&search_cpu)) < nr_cpu_ids);
-
-	if (min_cstate_cpu != -1)
-		return min_cstate_cpu;
-
-	cpumask_and(&search_cpu, tsk_cpus_allowed(p), cpu_online_mask);
-	cpumask_andnot(&search_cpu, &search_cpu, &fb_search_cpu);
-	for_each_cpu(i, &search_cpu) {
-		rq = cpu_rq(i);
-		prev_cpu = (i == task_cpu(p));
-
-		if (sched_cpu_high_irqload(i))
-			continue;
-
-		tload = scale_load_to_cpu(task_load(p), i);
-		cpu_load = cpu_load_sync(i, sync);
-		if (!spill_threshold_crossed(tload, cpu_load, rq)) {
-			if (cpu_load < min_load ||
-			    (prev_cpu && cpu_load == min_load)) {
-				min_load = cpu_load;
-				best_busy_cpu = i;
-			}
-		}
-	}
-
-	if (best_busy_cpu != -1)
-		return best_busy_cpu;
-
-	for_each_cpu(i, &fb_search_cpu) {
-		rq = cpu_rq(i);
-		prev_cpu = (i == task_cpu(p));
-
-		tload = scale_load_to_cpu(task_load(p), i);
-		cpu_load = cpu_load_sync(i, sync);
-		cpu_cost = power_cost(tload + cpu_load, i);
-		if (cpu_cost < min_cost ||
-		   (prev_cpu && cpu_cost == min_cost)) {
-			fallback_cpu = i;
-			min_cost = cpu_cost;
-		}
-	}
-
-	return fallback_cpu;
-}
-
 #define UP_MIGRATION		1
 #define DOWN_MIGRATION		2
 #define IRQLOAD_MIGRATION	4
@@ -3225,7 +3107,6 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	int min_idle_cost = INT_MAX, min_busy_cost = INT_MAX;
 	u64 tload, cpu_load;
 	u64 min_load = ULLONG_MAX, min_fallback_load = ULLONG_MAX;
-	int small_task = is_small_task(p);
 	int boost = sched_boost();
 	int cstate, min_cstate = INT_MAX;
 	int prefer_idle = -1;
@@ -3241,18 +3122,11 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	if (wake_to_idle(p)) {
 		prefer_idle = 1;
 		prefer_idle_override = 1;
-		small_task = 0;
 		/*
 		 * If wake to idle and sync are both set prefer wake to idle
 		 * since sync is a weak hint that might not always be correct.
 		 */
 		sync = 0;
-	}
-
-	if (small_task && !boost) {
-		best_cpu = best_small_task_cpu(p, sync);
-		prefer_idle = 0;	/* For sched_task_load tracepoint */
-		goto done;
 	}
 
 	trq = task_rq(p);
@@ -3399,7 +3273,7 @@ static int select_best_cpu(struct task_struct *p, int target, int reason,
 	if (min_cstate_cpu >= 0 && (prefer_idle > 0 || best_cpu < 0 ||
 			!mostly_idle_cpu_sync(best_cpu, min_load, sync)))
 		best_cpu = min_cstate_cpu;
-done:
+
 	if (best_cpu < 0) {
 		if (unlikely(fallback_idle_cpu < 0))
 			/*
@@ -3420,41 +3294,37 @@ done:
 	 * tracepoint towards end to capture prefer_idle flag used for this
 	 * instance of wakeup.
 	 */
-	trace_sched_task_load(p, small_task, boost, reason, sync, prefer_idle);
+	trace_sched_task_load(p, boost, reason, sync, prefer_idle);
 
 	return best_cpu;
 }
 
 static void
-inc_nr_big_small_task(struct hmp_sched_stats *stats, struct task_struct *p)
+inc_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 {
 	if (!sched_enable_hmp || sched_disable_window_stats)
 		return;
 
 	if (is_big_task(p))
 		stats->nr_big_tasks++;
-	else if (is_small_task(p))
-		stats->nr_small_tasks++;
 }
 
 static void
-dec_nr_big_small_task(struct hmp_sched_stats *stats, struct task_struct *p)
+dec_nr_big_task(struct hmp_sched_stats *stats, struct task_struct *p)
 {
 	if (!sched_enable_hmp || sched_disable_window_stats)
 		return;
 
 	if (is_big_task(p))
 		stats->nr_big_tasks--;
-	else if (is_small_task(p))
-		stats->nr_small_tasks--;
 
-	BUG_ON(stats->nr_big_tasks < 0 || stats->nr_small_tasks < 0);
+	BUG_ON(stats->nr_big_tasks < 0);
 }
 
 static void
 inc_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 {
-	inc_nr_big_small_task(&rq->hmp_stats, p);
+	inc_nr_big_task(&rq->hmp_stats, p);
 	if (change_cra)
 		inc_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
@@ -3462,14 +3332,14 @@ inc_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 static void
 dec_rq_hmp_stats(struct rq *rq, struct task_struct *p, int change_cra)
 {
-	dec_nr_big_small_task(&rq->hmp_stats, p);
+	dec_nr_big_task(&rq->hmp_stats, p);
 	if (change_cra)
 		dec_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
 static void reset_hmp_stats(struct hmp_sched_stats *stats, int reset_cra)
 {
-	stats->nr_big_tasks = stats->nr_small_tasks = 0;
+	stats->nr_big_tasks = 0;
 	if (reset_cra)
 		stats->cumulative_runnable_avg = 0;
 }
@@ -3512,29 +3382,23 @@ static inline void reset_cfs_rq_hmp_stats(int cpu, int reset_cra) { }
  * Return total number of tasks "eligible" to run on highest capacity cpu
  *
  * This is simply nr_big_tasks for cpus which are not of max_capacity and
- * (nr_running - nr_small_tasks) for cpus of max_capacity
+ * nr_running for cpus of max_capacity
  */
 unsigned int nr_eligible_big_tasks(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	int nr_big = rq->hmp_stats.nr_big_tasks;
 	int nr = rq->nr_running;
-	int nr_small = rq->hmp_stats.nr_small_tasks;
 
 	if (rq->max_possible_capacity != max_possible_capacity)
 		return nr_big;
 
-	/* Consider all (except small) tasks on max_capacity cpu as big tasks */
-	nr_big = nr - nr_small;
-	if (nr_big < 0)
-		nr_big = 0;
-
-	return nr_big;
+	return nr;
 }
 
 /*
  * reset_cpu_hmp_stats - reset HMP stats for a cpu
- *	nr_big_tasks, nr_small_tasks
+ *	nr_big_tasks
  *	cumulative_runnable_avg (iff reset_cra is true)
  */
 void reset_cpu_hmp_stats(int cpu, int reset_cra)
@@ -3561,7 +3425,7 @@ _inc_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p, int change_cra)
 
 	/*
 	 * Although below check is not strictly required  (as
-	 * inc/dec_nr_big_small_task and inc/dec_cumulative_runnable_avg called
+	 * inc/dec_nr_big_task and inc/dec_cumulative_runnable_avg called
 	 * from inc_cfs_rq_hmp_stats() have similar checks), we gain a bit on
 	 * efficiency by short-circuiting for_each_sched_entity() loop when
 	 * !sched_enable_hmp || sched_disable_window_stats
@@ -3624,10 +3488,10 @@ static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
 	for_each_sched_entity(se) {
 		cfs_rq = cfs_rq_of(se);
 
-		dec_nr_big_small_task(&cfs_rq->hmp_stats, p);
+		dec_nr_big_task(&cfs_rq->hmp_stats, p);
 		fixup_cumulative_runnable_avg(&cfs_rq->hmp_stats, p,
 					      new_task_load);
-		inc_nr_big_small_task(&cfs_rq->hmp_stats, p);
+		inc_nr_big_task(&cfs_rq->hmp_stats, p);
 		if (cfs_rq_throttled(cfs_rq))
 			break;
 		/*
@@ -3639,9 +3503,9 @@ static void fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
 
 	/* Fix up rq->hmp_stats only if we didn't find any throttled cfs_rq */
 	if (!se) {
-		dec_nr_big_small_task(&rq->hmp_stats, p);
+		dec_nr_big_task(&rq->hmp_stats, p);
 		fixup_cumulative_runnable_avg(&rq->hmp_stats, p, new_task_load);
-		inc_nr_big_small_task(&rq->hmp_stats, p);
+		inc_nr_big_task(&rq->hmp_stats, p);
 	}
 }
 
@@ -3652,14 +3516,14 @@ static int task_will_be_throttled(struct task_struct *p);
 static void
 inc_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p)
 {
-	inc_nr_big_small_task(&rq->hmp_stats, p);
+	inc_nr_big_task(&rq->hmp_stats, p);
 	inc_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
 static void
 dec_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p)
 {
-	dec_nr_big_small_task(&rq->hmp_stats, p);
+	dec_nr_big_task(&rq->hmp_stats, p);
 	dec_cumulative_runnable_avg(&rq->hmp_stats, p);
 }
 
@@ -3667,9 +3531,9 @@ static void
 fixup_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p,
 			   u32 new_task_load)
 {
-	dec_nr_big_small_task(&rq->hmp_stats, p);
+	dec_nr_big_task(&rq->hmp_stats, p);
 	fixup_cumulative_runnable_avg(&rq->hmp_stats, p, new_task_load);
-	inc_nr_big_small_task(&rq->hmp_stats, p);
+	inc_nr_big_task(&rq->hmp_stats, p);
 }
 
 static inline int task_will_be_throttled(struct task_struct *p)
@@ -3680,21 +3544,20 @@ static inline int task_will_be_throttled(struct task_struct *p)
 static void
 _inc_hmp_sched_stats_fair(struct rq *rq, struct task_struct *p, int change_cra)
 {
-	inc_nr_big_small_task(&rq->hmp_stats, p);
+	inc_nr_big_task(&rq->hmp_stats, p);
 }
 
 #endif	/* CONFIG_CFS_BANDWIDTH */
 
 /*
- * Walk runqueue of cpu and re-initialize 'nr_big_tasks' and 'nr_small_tasks'
- * counters.
+ * Walk runqueue of cpu and re-initialize 'nr_big_tasks' counters.
  */
-void fixup_nr_big_small_task(int cpu, int reset_stats)
+void fixup_nr_big_task(int cpu, int reset_stats)
 {
 	struct rq *rq = cpu_rq(cpu);
 	struct task_struct *p;
 
-	/* fixup_nr_big_small_task() is called from two functions. In one of
+	/* fixup_nr_big_task() is called from two functions. In one of
 	 * them stats are already reset, don't waste time resetting them again
 	 */
 	if (reset_stats) {
@@ -3707,7 +3570,7 @@ void fixup_nr_big_small_task(int cpu, int reset_stats)
 }
 
 /* Disable interrupts and grab runqueue lock of all cpus listed in @cpus */
-void pre_big_small_task_count_change(const struct cpumask *cpus)
+void pre_big_task_count_change(const struct cpumask *cpus)
 {
 	int i;
 
@@ -3718,16 +3581,15 @@ void pre_big_small_task_count_change(const struct cpumask *cpus)
 }
 
 /*
- * Reinitialize 'nr_big_tasks' and 'nr_small_tasks' counters on all affected
- * cpus
+ * Reinitialize 'nr_big_tasks' counters on all affected cpus
  */
-void post_big_small_task_count_change(const struct cpumask *cpus)
+void post_big_task_count_change(const struct cpumask *cpus)
 {
 	int i;
 
 	/* Assumes local_irq_disable() keeps online cpumap stable */
 	for_each_cpu(i, cpus)
-		fixup_nr_big_small_task(i, 1);
+		fixup_nr_big_task(i, 1);
 
 	for_each_cpu(i, cpus)
 		raw_spin_unlock(&cpu_rq(i)->lock);
@@ -3852,24 +3714,22 @@ int sched_hmp_proc_update_handler(struct ctl_table *table, int write,
 	}
 
 	/*
-	 * Big/Small task tunable change will need to re-classify tasks on
-	 * runqueue as big and small and set their counters appropriately.
+	 * Big task tunable change will need to re-classify tasks on
+	 * runqueue as big and set their counters appropriately.
 	 * sysctl interface affects secondary variables (*_pct), which is then
 	 * "atomically" carried over to the primary variables. Atomic change
 	 * includes taking runqueue lock of all online cpus and re-initiatizing
-	 * their big/small counter values based on changed criteria.
+	 * their big counter values based on changed criteria.
 	 */
-	if ((data == &sysctl_sched_upmigrate_pct ||
-	     data == &sysctl_sched_small_task_pct || update_min_nice)) {
+	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
 		get_online_cpus();
-		pre_big_small_task_count_change(cpu_online_mask);
+		pre_big_task_count_change(cpu_online_mask);
 	}
 
 	set_hmp_defaults();
 
-	if ((data == &sysctl_sched_upmigrate_pct ||
-	     data == &sysctl_sched_small_task_pct || update_min_nice)) {
-		post_big_small_task_count_change(cpu_online_mask);
+	if ((data == &sysctl_sched_upmigrate_pct || update_min_nice)) {
+		post_big_task_count_change(cpu_online_mask);
 		put_online_cpus();
 	}
 
@@ -3956,9 +3816,6 @@ static inline int migration_needed(struct rq *rq, struct task_struct *p)
 
 		return 0;
 	}
-
-	if (is_small_task(p))
-		return 0;
 
 	if (sched_cpu_high_irqload(cpu_of(rq)))
 		return IRQLOAD_MIGRATION;
@@ -4076,11 +3933,6 @@ static inline int mostly_idle_cpu(int cpu)
 }
 
 static inline int sched_boost(void)
-{
-	return 0;
-}
-
-static inline int is_small_task(struct task_struct *p)
 {
 	return 0;
 }
@@ -4661,14 +4513,13 @@ static inline void decay_scaled_stat(struct sched_avg *sa, u64 periods)
 static void init_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq)
 {
 	cfs_rq->hmp_stats.nr_big_tasks = 0;
-	cfs_rq->hmp_stats.nr_small_tasks = 0;
 	cfs_rq->hmp_stats.cumulative_runnable_avg = 0;
 }
 
 static void inc_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
 		 struct task_struct *p, int change_cra)
 {
-	inc_nr_big_small_task(&cfs_rq->hmp_stats, p);
+	inc_nr_big_task(&cfs_rq->hmp_stats, p);
 	if (change_cra)
 		inc_cumulative_runnable_avg(&cfs_rq->hmp_stats, p);
 }
@@ -4676,7 +4527,7 @@ static void inc_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
 static void dec_cfs_rq_hmp_stats(struct cfs_rq *cfs_rq,
 		 struct task_struct *p, int change_cra)
 {
-	dec_nr_big_small_task(&cfs_rq->hmp_stats, p);
+	dec_nr_big_task(&cfs_rq->hmp_stats, p);
 	if (change_cra)
 		dec_cumulative_runnable_avg(&cfs_rq->hmp_stats, p);
 }
@@ -4685,7 +4536,6 @@ static void inc_throttled_cfs_rq_hmp_stats(struct hmp_sched_stats *stats,
 			 struct cfs_rq *cfs_rq)
 {
 	stats->nr_big_tasks += cfs_rq->hmp_stats.nr_big_tasks;
-	stats->nr_small_tasks += cfs_rq->hmp_stats.nr_small_tasks;
 	stats->cumulative_runnable_avg +=
 				cfs_rq->hmp_stats.cumulative_runnable_avg;
 }
@@ -4694,11 +4544,10 @@ static void dec_throttled_cfs_rq_hmp_stats(struct hmp_sched_stats *stats,
 				 struct cfs_rq *cfs_rq)
 {
 	stats->nr_big_tasks -= cfs_rq->hmp_stats.nr_big_tasks;
-	stats->nr_small_tasks -= cfs_rq->hmp_stats.nr_small_tasks;
 	stats->cumulative_runnable_avg -=
 				cfs_rq->hmp_stats.cumulative_runnable_avg;
 
-	BUG_ON(stats->nr_big_tasks < 0 || stats->nr_small_tasks < 0 ||
+	BUG_ON(stats->nr_big_tasks < 0 ||
 		(s64)stats->cumulative_runnable_avg < 0);
 }
 
@@ -7224,7 +7073,6 @@ enum fbq_type { regular, remote, all };
 #define LBF_NEED_BREAK	0x02
 #define LBF_DST_PINNED  0x04
 #define LBF_SOME_PINNED	0x08
-#define LBF_IGNORE_SMALL_TASKS 0x10
 #define LBF_SCHED_BOOST_ACTIVE_BALANCE 0x40
 #define LBF_BIG_TASK_ACTIVE_BALANCE 0x80
 #define LBF_HMP_ACTIVE_BALANCE (LBF_SCHED_BOOST_ACTIVE_BALANCE | \
@@ -7442,9 +7290,6 @@ int can_migrate_task(struct task_struct *p, struct lb_env *env)
 			!is_big_task(p))
 		return 0;
 
-	if (env->flags & LBF_IGNORE_SMALL_TASKS && is_small_task(p))
-		return 0;
-
 	twf = task_will_fit(p, env->dst_cpu);
 
 	/*
@@ -7562,9 +7407,7 @@ static int detach_tasks(struct lb_env *env)
 	if (env->imbalance <= 0)
 		return 0;
 
-	if (capacity(env->dst_rq) > capacity(env->src_rq))
-		env->flags |= LBF_IGNORE_SMALL_TASKS;
-	else if (capacity(env->dst_rq) < capacity(env->src_rq) &&
+	if (capacity(env->dst_rq) < capacity(env->src_rq) &&
 							!sched_boost())
 		env->flags |= LBF_IGNORE_BIG_TASKS;
 
@@ -7624,10 +7467,9 @@ next:
 		list_move_tail(&p->se.group_node, tasks);
 	}
 
-	if (env->flags & (LBF_IGNORE_SMALL_TASKS | LBF_IGNORE_BIG_TASKS)
-							     && !detached) {
+	if (env->flags & LBF_IGNORE_BIG_TASKS && !detached) {
 		tasks = &env->src_rq->cfs_tasks;
-		env->flags &= ~(LBF_IGNORE_SMALL_TASKS | LBF_IGNORE_BIG_TASKS);
+		env->flags &= ~LBF_IGNORE_BIG_TASKS;
 		env->loop = orig_loop;
 		goto redo;
 	}
@@ -7823,7 +7665,7 @@ struct sg_lb_stats {
 	unsigned long group_capacity;
 	unsigned int sum_nr_running; /* Nr tasks running in the group */
 #ifdef CONFIG_SCHED_HMP
-	unsigned long sum_nr_big_tasks, sum_nr_small_tasks;
+	unsigned long sum_nr_big_tasks;
 	u64 group_cpu_load; /* Scaled load of all CPUs of the group */
 #endif
 	unsigned int group_capacity_factor;
@@ -8231,7 +8073,6 @@ static inline void update_sg_lb_stats(struct lb_env *env,
 
 #ifdef CONFIG_SCHED_HMP
 		sgs->sum_nr_big_tasks += rq->hmp_stats.nr_big_tasks;
-		sgs->sum_nr_small_tasks += rq->hmp_stats.nr_small_tasks;
 		sgs->group_cpu_load += cpu_load(i);
 #endif
 
@@ -9829,11 +9670,7 @@ static inline int _nohz_kick_needed_hmp(struct rq *rq, int cpu, int *type)
 		 && rq->max_freq > rq->mostly_idle_freq)
 			return 0;
 
-	if (rq->nr_running >= 2 &&
-		(rq->nr_running - rq->hmp_stats.nr_small_tasks >= 2 ||
-		rq->nr_running > rq->mostly_idle_nr_run ||
-		cpu_load(cpu) > rq->mostly_idle_load)) {
-
+	if (rq->nr_running >= 2) {
 		if (rq->capacity == max_capacity)
 			return 1;
 

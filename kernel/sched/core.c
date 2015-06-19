@@ -2103,7 +2103,7 @@ void reset_all_window_stats(u64 window_start, unsigned int window_size)
 #endif
 		reset_cpu_hmp_stats(cpu, 1);
 
-		fixup_nr_big_small_task(cpu, 0);
+		fixup_nr_big_task(cpu, 0);
 	}
 
 	if (sched_window_stats_policy != sysctl_sched_window_stats_policy) {
@@ -2525,23 +2525,23 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	 * A changed min_max_freq or max_possible_freq (possible during bootup)
 	 * needs to trigger re-computation of load_scale_factor and capacity for
 	 * all possible cpus (even those offline). It also needs to trigger
-	 * re-computation of nr_big/small_task count on all online cpus.
+	 * re-computation of nr_big_task count on all online cpus.
 	 *
 	 * A changed rq->max_freq otoh needs to trigger re-computation of
 	 * load_scale_factor and capacity for just the cluster of cpus involved.
 	 * Since small task definition depends on max_load_scale_factor, a
-	 * changed load_scale_factor of one cluster could influence small_task
+	 * changed load_scale_factor of one cluster could influence
 	 * classification of tasks in another cluster. Hence a changed
-	 * rq->max_freq will need to trigger re-computation of nr_big/small_task
+	 * rq->max_freq will need to trigger re-computation of nr_big_task
 	 * count on all online cpus.
 	 *
-	 * While it should be sufficient for nr_big/small_tasks to be
+	 * While it should be sufficient for nr_big_tasks to be
 	 * re-computed for only online cpus, we have inadequate context
 	 * information here (in policy notifier) with regard to hotplug-safety
 	 * context in which notification is issued. As a result, we can't use
 	 * get_online_cpus() here, as it can lead to deadlock. Until cpufreq is
 	 * fixed up to issue notification always in hotplug-safe context,
-	 * re-compute nr_big/small_task for all possible cpus.
+	 * re-compute nr_big_task for all possible cpus.
 	 */
 
 	if (orig_min_max_freq != min_max_freq ||
@@ -2555,7 +2555,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 	 * big or small. Make this change "atomic" so that tasks are accounted
 	 * properly due to changed load_scale_factor
 	 */
-	pre_big_small_task_count_change(cpu_possible_mask);
+	pre_big_task_count_change(cpu_possible_mask);
 	for_each_cpu(i, cpus) {
 		struct rq *rq = cpu_rq(i);
 
@@ -2592,7 +2592,7 @@ static int cpufreq_notifier_policy(struct notifier_block *nb,
 
 	__update_min_max_capacity();
 	check_for_up_down_migrate_update(policy->related_cpus);
-	post_big_small_task_count_change(cpu_possible_mask);
+	post_big_task_count_change(cpu_possible_mask);
 
 	return 0;
 }
@@ -8933,7 +8933,7 @@ void __init sched_init(void)
 		rq->capacity = 1024;
 		rq->load_scale_factor = 1024;
 		rq->window_start = 0;
-		rq->hmp_stats.nr_small_tasks = rq->hmp_stats.nr_big_tasks = 0;
+		rq->hmp_stats.nr_big_tasks = 0;
 		rq->hmp_flags = 0;
 		rq->mostly_idle_load = pct_to_real(20);
 		rq->mostly_idle_nr_run = 3;
@@ -9808,11 +9808,11 @@ static int cpu_upmigrate_discourage_write_u64(struct cgroup_subsys_state *css,
 	 * classification.
 	 */
 	get_online_cpus();
-	pre_big_small_task_count_change(cpu_online_mask);
+	pre_big_task_count_change(cpu_online_mask);
 
 	tg->upmigrate_discouraged = discourage;
 
-	post_big_small_task_count_change(cpu_online_mask);
+	post_big_task_count_change(cpu_online_mask);
 	put_online_cpus();
 
 	return 0;

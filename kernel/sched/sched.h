@@ -321,7 +321,7 @@ struct cfs_bandwidth { };
 #ifdef CONFIG_SCHED_HMP
 
 struct hmp_sched_stats {
-	int nr_big_tasks, nr_small_tasks;
+	int nr_big_tasks;
 	u64 cumulative_runnable_avg;
 };
 
@@ -905,7 +905,6 @@ extern cpumask_t mpc_mask;
 extern unsigned long capacity_scale_cpu_efficiency(int cpu);
 extern unsigned long capacity_scale_cpu_freq(int cpu);
 extern unsigned int sched_mostly_idle_load;
-extern unsigned int sched_small_task;
 extern unsigned int sched_upmigrate;
 extern unsigned int sched_downmigrate;
 extern unsigned int sched_init_task_load_pelt;
@@ -913,7 +912,7 @@ extern unsigned int sched_init_task_load_windows;
 extern unsigned int sched_heavy_task;
 extern unsigned int up_down_migrate_scale_factor;
 extern void reset_cpu_hmp_stats(int cpu, int reset_cra);
-extern void fixup_nr_big_small_task(int cpu, int reset_stats);
+extern void fixup_nr_big_task(int cpu, int reset_stats);
 extern unsigned int max_task_load(void);
 extern void sched_account_irqtime(int cpu, struct task_struct *curr,
 				 u64 delta, u64 wallclock);
@@ -1026,7 +1025,7 @@ static inline int sched_cpu_high_irqload(int cpu)
 
 struct hmp_sched_stats;
 
-static inline void fixup_nr_big_small_task(int cpu, int reset_stats)
+static inline void fixup_nr_big_task(int cpu, int reset_stats)
 {
 }
 
@@ -1132,8 +1131,8 @@ static inline void clear_reserved(int cpu)
 
 int mostly_idle_cpu(int cpu);
 extern void check_for_migration(struct rq *rq, struct task_struct *p);
-extern void pre_big_small_task_count_change(const struct cpumask *cpus);
-extern void post_big_small_task_count_change(const struct cpumask *cpus);
+extern void pre_big_task_count_change(const struct cpumask *cpus);
+extern void post_big_task_count_change(const struct cpumask *cpus);
 extern void set_hmp_defaults(void);
 extern int power_delta_exceeded(unsigned int cpu_cost, unsigned int base_cost);
 extern unsigned int power_cost_at_freq(int cpu, unsigned int freq);
@@ -1147,8 +1146,8 @@ extern int sched_boost(void);
 #define sched_freq_legacy_mode 1
 
 static inline void check_for_migration(struct rq *rq, struct task_struct *p) { }
-static inline void pre_big_small_task_count_change(void) { }
-static inline void post_big_small_task_count_change(void) { }
+static inline void pre_big_task_count_change(void) { }
+static inline void post_big_task_count_change(void) { }
 static inline void set_hmp_defaults(void) { }
 
 static inline void clear_reserved(int cpu) { }
