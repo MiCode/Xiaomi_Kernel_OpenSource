@@ -834,7 +834,7 @@
 				qcom,cpr-voltage-ceiling =
 					<400000 670000  745000  905000 1015000>;
 				qcom,cpr-voltage-floor =
-					<400000 545000  625000  755000  855000>;
+					<400000 520000  520000  520000  520000>;
 
 				qcom,system-voltage = <2 2 2 2 4>;
 
@@ -870,6 +870,8 @@
 					<90000 (-5000) (-30000) (-115000)>;
 				qcom,cpr-closed-loop-voltage-adjustment =
 					<0 75000 0 (-10000) (-65000)>;
+				qcom,cpr-floor-to-ceiling-max-range =
+					<0 130000 40000 85000 85000>;
 
 				qcom,allow-voltage-interpolation;
 				qcom,cpr-scaled-open-loop-voltage-as-ceiling;
