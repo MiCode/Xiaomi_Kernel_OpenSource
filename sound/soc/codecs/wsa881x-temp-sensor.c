@@ -53,7 +53,7 @@ static void calculate_temp(long *temp_val, int dmeas,
 		*temp_val = TEMP_INVALID;
 		return;
 	}
-	*temp_val = t1 + ((dmeas - d1)/(d2 - d1)) * (t2 - t1);
+	*temp_val = t1 + (((dmeas - d1) * (t2 - t1))/(d2 - d1));
 }
 
 static int wsa881x_get_temp(struct thermal_zone_device *thermal,
@@ -95,12 +95,14 @@ static int wsa881x_get_temp(struct thermal_zone_device *thermal,
 	dmeas = ((dmeas_cur_msb << 0x8) | dmeas_cur_lsb) >> 0x6;
 	pr_debug("%s: dmeas: %d\n", __func__, dmeas);
 	calculate_temp(&temp_val, dmeas, codec, pdata->dig_base);
+	*temp = temp_val;
 	if (temp_val <= LOW_TEMP_THRESHOLD ||
 			temp_val >= HIGH_TEMP_THRESHOLD) {
+		pr_err("%s: T0: %ld is out of range [%d, %d]\n", __func__,
+			temp_val, LOW_TEMP_THRESHOLD, HIGH_TEMP_THRESHOLD);
 		ret = -EAGAIN;
 		goto rel;
 	}
-	*temp = temp_val;
 	pr_debug("%s: t0 measured: %ld\n", __func__, temp_val);
 rel:
 	ret = pdata->wsa_resource_acquire(codec, false);
