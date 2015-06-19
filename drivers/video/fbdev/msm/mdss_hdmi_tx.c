@@ -1575,8 +1575,6 @@ static int hdmi_tx_set_video_fmt(struct hdmi_tx_ctrl *hdmi_ctrl,
 				hdmi_ctrl->feature_data[HDMI_TX_FEAT_EDID],
 				hdmi_ctrl->vid_cfg.vic);
 
-	vid_cfg->avi_iframe.pixel_format = pinfo->out_format;
-
 	vid_cfg->avi_iframe.bar_info.end_of_top_bar = 0x0;
 	vid_cfg->avi_iframe.bar_info.start_of_bottom_bar =
 					vid_cfg->timing.active_v + 1;
