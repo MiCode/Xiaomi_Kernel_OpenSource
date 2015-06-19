@@ -160,12 +160,13 @@ static unsigned long mdss_rotator_clk_rate_calc(
 	mutex_lock(&private->perf_lock);
 	list_for_each_entry(perf, &private->perf_list, list) {
 		bool rate_accounted_for = false;
+		mutex_lock(&perf->work_dis_lock);
 		/*
 		 * If there is one session that has two work items across
 		 * different hw blocks rate is accounted for in both blocks.
 		 */
 		for (i = 0; i < mgr->queue_count; i++) {
-			if (atomic_read(&perf->work_distribution[i])) {
+			if (perf->work_distribution[i]) {
 				clk_rate[i] += perf->clk_rate;
 				rate_accounted_for = true;
 			}
@@ -180,6 +181,7 @@ static unsigned long mdss_rotator_clk_rate_calc(
 		if ((!rate_accounted_for) && (wb_idx >= 0) &&
 				(wb_idx < mgr->queue_count))
 			clk_rate[wb_idx] += perf->clk_rate;
+		mutex_unlock(&perf->work_dis_lock);
 	}
 	mutex_unlock(&private->perf_lock);
 
@@ -335,14 +337,14 @@ int mdss_rotator_resource_ctrl(struct mdss_rot_mgr *mgr, int enable)
 	return ret;
 }
 
+/* caller is expected to hold perf->work_dis_lock lock */
 static bool mdss_rotator_is_work_pending(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_perf *perf)
 {
 	int i;
 
 	for (i = 0; i < mgr->queue_count; i++) {
-		atomic_t *wrk_dis = &perf->work_distribution[i];
-		if (atomic_read(wrk_dis)) {
+		if (perf->work_distribution[i]) {
 			pr_debug("Work is still scheduled to complete\n");
 			return true;
 		}
@@ -565,25 +567,32 @@ end:
 	return ret;
 }
 
-static struct mdss_rot_perf *mdss_rotator_find_session(
+static struct mdss_rot_perf *__mdss_rotator_find_session(
 	struct mdss_rot_file_private *private,
 	u32 session_id)
 {
 	struct mdss_rot_perf *perf, *perf_next;
 	bool found = false;
-
-	mutex_lock(&private->perf_lock);
-
 	list_for_each_entry_safe(perf, perf_next, &private->perf_list, list) {
 		if (perf->config.session_id == session_id) {
 			found = true;
 			break;
 		}
 	}
-
-	mutex_unlock(&private->perf_lock);
 	if (!found)
 		perf = NULL;
+	return perf;
+}
+
+static struct mdss_rot_perf *mdss_rotator_find_session(
+	struct mdss_rot_file_private *private,
+	u32 session_id)
+{
+	struct mdss_rot_perf *perf;
+
+	mutex_lock(&private->perf_lock);
+	perf = __mdss_rotator_find_session(private, session_id);
+	mutex_unlock(&private->perf_lock);
 	return perf;
 }
 
@@ -946,7 +955,6 @@ static void mdss_rotator_queue_request(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_entry *entry;
 	struct mdss_rot_queue *queue;
 	unsigned long clk_rate;
-	atomic_t *wrk_dis;
 	u32 wb_idx;
 	int i;
 
@@ -954,8 +962,9 @@ static void mdss_rotator_queue_request(struct mdss_rot_mgr *mgr,
 		entry = req->entries + i;
 		queue = entry->queue;
 		wb_idx = queue->hw->wb_id;
-		wrk_dis = &entry->perf->work_distribution[wb_idx];
-		atomic_inc(wrk_dis);
+		mutex_lock(&entry->perf->work_dis_lock);
+		entry->perf->work_distribution[wb_idx]++;
+		mutex_unlock(&entry->perf->work_dis_lock);
 		entry->work_assigned = true;
 	}
 
@@ -1037,6 +1046,7 @@ static int mdss_rotator_update_perf(struct mdss_rot_mgr *mgr)
 	}
 
 	mutex_lock(&mgr->bus_lock);
+	total_bw += mgr->pending_close_bw_vote;
 	mdss_rotator_enable_reg_bus(mgr, total_bw);
 	mdss_rotator_bus_scale_set_quota(&mgr->data_bus, total_bw);
 	mutex_unlock(&mgr->bus_lock);
@@ -1048,17 +1058,30 @@ static void mdss_rotator_release_from_work_distribution(
 		struct mdss_rot_entry *entry)
 {
 	if (entry->work_assigned) {
-		atomic_t *wrk_dis;
+		bool free_perf = false;
 		u32 wb_idx = entry->queue->hw->wb_id;
 
-		wrk_dis = &entry->perf->work_distribution[wb_idx];
-		atomic_add_unless(wrk_dis, -1, 0);
+		mutex_lock(&entry->perf->work_dis_lock);
+		if (entry->perf->work_distribution[wb_idx])
+			entry->perf->work_distribution[wb_idx]--;
+
+		if (!entry->perf->work_distribution[wb_idx]
+				&& list_empty(&entry->perf->list)) {
+			/* close session has offloaded perf free to us */
+			free_perf = true;
+		}
+		mutex_unlock(&entry->perf->work_dis_lock);
 		entry->work_assigned = false;
-		if (entry->perf->waiting_for_completion &&
-				!mdss_rotator_is_work_pending(mgr,
-				entry->perf)) {
-			complete(&entry->perf->stop_comp);
-			entry->perf->waiting_for_completion = false;
+		if (free_perf) {
+			mutex_lock(&mgr->bus_lock);
+			mgr->pending_close_bw_vote -= entry->perf->bw;
+			mutex_unlock(&mgr->bus_lock);
+			mdss_rotator_resource_ctrl(mgr, false);
+			devm_kfree(&mgr->pdev->dev,
+				entry->perf->work_distribution);
+			devm_kfree(&mgr->pdev->dev, entry->perf);
+			mdss_rotator_update_perf(mgr);
+			entry->perf = NULL;
 		}
 	}
 }
@@ -1742,7 +1765,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 {
 	struct mdp_rotation_config config;
 	struct mdss_rot_perf *perf;
-	int ret, i;
+	int ret;
 
 	ret = copy_from_user(&config, (void __user *)arg, sizeof(config));
 	if (ret) {
@@ -1763,7 +1786,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 	}
 
 	perf->work_distribution = devm_kzalloc(&mgr->pdev->dev,
-		sizeof(atomic_t) * mgr->queue_count, GFP_KERNEL);
+		sizeof(u32) * mgr->queue_count, GFP_KERNEL);
 	if (!perf->work_distribution) {
 		pr_err("fail to allocate work_distribution\n");
 		ret = -ENOMEM;
@@ -1773,9 +1796,7 @@ static int mdss_rotator_open_session(struct mdss_rot_mgr *mgr,
 	config.session_id = mdss_rotator_generator_session_id(mgr);
 	perf->config = config;
 	perf->last_wb_idx = -1;
-	init_completion(&perf->stop_comp);
-	for (i = 0; i < mgr->queue_count; i++)
-		atomic_set(&perf->work_distribution[i], 0);
+	mutex_init(&perf->work_dis_lock);
 
 	INIT_LIST_HEAD(&perf->list);
 
@@ -1825,37 +1846,37 @@ static int mdss_rotator_close_session(struct mdss_rot_mgr *mgr,
 	struct mdss_rot_file_private *private, unsigned long arg)
 {
 	struct mdss_rot_perf *perf;
+	bool offload_release_work = false;
 	u32 id;
 
 	id = (u32)arg;
-	perf = mdss_rotator_find_session(private, id);
+	mutex_lock(&mgr->lock);
+	mutex_lock(&private->perf_lock);
+	perf = __mdss_rotator_find_session(private, id);
 	if (!perf) {
+		mutex_unlock(&private->perf_lock);
+		mutex_unlock(&mgr->lock);
 		pr_err("Trying to close session that does not exist\n");
 		return -EINVAL;
 	}
 
-	/*
-	 * Client should not be calling close session when there
-	 * are pending rotation work. Driver will attempt to
-	 * wait for request to complete.
-	 */
-
+	mutex_lock(&perf->work_dis_lock);
 	if (mdss_rotator_is_work_pending(mgr, perf)) {
-		pr_debug("Work is still pending, attempting to wait\n");
-		reinit_completion(&perf->stop_comp);
-		perf->waiting_for_completion = true;
-		wait_for_completion_timeout(&perf->stop_comp, 3 * KOFF_TIMEOUT);
-
-		if (mdss_rotator_is_work_pending(mgr, perf)) {
-			pr_err("Calling session close, rot work is pending\n");
-			return -EBUSY;
-		}
+		pr_debug("Work is still pending, offload free to wq\n");
+		mutex_lock(&mgr->bus_lock);
+		mgr->pending_close_bw_vote += perf->bw;
+		mutex_unlock(&mgr->bus_lock);
+		offload_release_work = true;
 	}
+	list_del_init(&perf->list);
+	mutex_unlock(&perf->work_dis_lock);
+	mutex_unlock(&private->perf_lock);
+	mutex_unlock(&mgr->lock);
+
+	if (offload_release_work)
+		return 0;
 
 	mdss_rotator_resource_ctrl(mgr, false);
-	mutex_lock(&private->perf_lock);
-	list_del_init(&perf->list);
-	mutex_unlock(&private->perf_lock);
 	devm_kfree(&mgr->pdev->dev, perf->work_distribution);
 	devm_kfree(&mgr->pdev->dev, perf);
 	mdss_rotator_update_perf(mgr);
