@@ -442,13 +442,17 @@ static void __socket_close_channel(struct diag_socket_info *info)
 	diagfwd_channel_close(info->fwd_ctxt);
 
 	atomic_set(&info->opened, 0);
-	write_lock_bh(&info->hdl->sk->sk_callback_lock);
-	info->hdl->sk->sk_user_data = NULL;
-	info->hdl->sk->sk_data_ready = NULL;
-	write_unlock_bh(&info->hdl->sk->sk_callback_lock);
-	sock_release(info->hdl);
-	info->hdl = NULL;
-	wake_up(&info->read_wait_q);
+
+	/* Don't close the server. Server should always remain open */
+	if (info->port_type != PORT_TYPE_SERVER) {
+		write_lock_bh(&info->hdl->sk->sk_callback_lock);
+		info->hdl->sk->sk_user_data = NULL;
+		info->hdl->sk->sk_data_ready = NULL;
+		write_unlock_bh(&info->hdl->sk->sk_callback_lock);
+		sock_release(info->hdl);
+		info->hdl = NULL;
+		wake_up(&info->read_wait_q);
+	}
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n", info->name);
 
 	return;
@@ -460,12 +464,7 @@ static void socket_close_channel(struct diag_socket_info *info)
 		return;
 
 	__socket_close_channel(info);
-	/*
-	 * Open the servers again after closing. The servers must always be
-	 * active.
-	 */
-	if (info->port_type == PORT_TYPE_SERVER)
-		socket_open_server(info);
+
 	DIAG_LOG(DIAG_DEBUG_PERIPHERALS, "%s exiting\n", info->name);
 }
 
