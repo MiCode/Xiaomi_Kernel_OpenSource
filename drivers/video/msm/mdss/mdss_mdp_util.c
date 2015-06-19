@@ -832,7 +832,8 @@ static int mdss_mdp_put_img(struct mdss_mdp_img_data *data, bool rotator,
 				domain = mdss_smmu_get_domain_type(data->flags,
 					rotator);
 				mdss_smmu_unmap_dma_buf(data->srcp_table,
-						domain, dir);
+							domain, dir,
+							data->srcp_dma_buf);
 				data->mapped = false;
 			}
 			dma_buf_unmap_attachment(data->srcp_attachment,

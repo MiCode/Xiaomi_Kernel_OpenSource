@@ -164,11 +164,11 @@ static inline int mdss_smmu_map_dma_buf(struct dma_buf *dma_buf,
 }
 
 static inline void mdss_smmu_unmap_dma_buf(struct sg_table *table, int domain,
-		int dir)
+		int dir, struct dma_buf *dma_buf)
 {
 	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
 	if (mdata->smmu_ops.smmu_unmap_dma_buf)
-		mdata->smmu_ops.smmu_unmap_dma_buf(table, domain, dir);
+		mdata->smmu_ops.smmu_unmap_dma_buf(table, domain, dir, dma_buf);
 }
 
 static inline int mdss_smmu_dma_alloc_coherent(struct device *dev, size_t size,
