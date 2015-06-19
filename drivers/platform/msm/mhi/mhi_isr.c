@@ -167,6 +167,7 @@ static enum MHI_STATUS mhi_process_event_ring(
 		case MHI_PKT_TYPE_SYS_ERR_EVENT:
 			mhi_log(MHI_MSG_INFO,
 			   "MHI System Error Detected. Triggering Reset\n");
+			BUG();
 			if (!mhi_trigger_reset(mhi_dev_ctxt))
 				mhi_log(MHI_MSG_ERROR,
 				"Failed to reset for SYSERR recovery\n");
