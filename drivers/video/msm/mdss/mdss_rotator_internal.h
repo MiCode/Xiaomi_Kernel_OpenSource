@@ -110,9 +110,8 @@ struct mdss_rot_perf {
 	struct mdp_rotation_config config;
 	unsigned long clk_rate;
 	u64 bw;
-	bool waiting_for_completion;
-	struct completion stop_comp;
-	atomic_t *work_distribution;
+	struct mutex work_dis_lock;
+	u32 *work_distribution;
 	int last_wb_idx; /* last known wb index, used when above count is 0 */
 };
 
@@ -164,6 +163,7 @@ struct mdss_rot_mgr {
 	struct list_head file_list;
 
 	struct mutex bus_lock;
+	u64 pending_close_bw_vote;
 	struct mdss_rot_bus_data_type data_bus;
 	struct mdss_rot_bus_data_type reg_bus;
 
