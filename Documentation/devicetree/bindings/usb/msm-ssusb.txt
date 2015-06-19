@@ -31,8 +31,6 @@ Optional properties :
     "pmic_id_irq" : Interrupt from PMIC for external ID pin notification.
 - qcom,charging-disabled: If present then battery charging using USB
   is disabled.
-- qcom,skip-charger-detection: If present then charger detection using BC1.2
-  is not supported and attached host should always be assumed as SDP.
 - USB3_GDSC-supply : phandle to the globally distributed switch controller
   regulator node to the USB controller.
 - qcom,dwc-usb3-msm-tx-fifo-size: If present, represents RAM size available for
