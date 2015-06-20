@@ -1065,6 +1065,16 @@
 			compatible = "qcom,msm-imem-mem_dump_table";
 			reg = <0x10 8>;
 		};
+
+		restart_reason@65c {
+			compatible = "qcom,msm-imem-restart_reason";
+			reg = <0x65c 4>;
+		};
+
+		boot_stats@6b0 {
+			compatible = "qcom,msm-imem-boot_stats";
+			reg = <0x6b0 32>;
+		};
 	};
 
 	qcom_rng: qrng@22000 {
