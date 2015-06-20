@@ -429,7 +429,50 @@ static irqreturn_t qcom_ice_isr(int isr, void *data)
 		} else if (intr_status & QCOM_ICE_STREAM2_NOT_EXPECTED_LBO) {
 			err = ICE_ERROR_STREAM2_UNEXPECTED_LBA;
 			clear_reg |= QCOM_ICE_STREAM2_NOT_EXPECTED_LBO;
+		} else if (intr_status & QCOM_ICE_STREAM1_NOT_EXPECTED_DUN) {
+			err = ICE_ERROR_STREAM1_NOT_EXPECTED_DUN;
+			clear_reg |= QCOM_ICE_STREAM1_NOT_EXPECTED_DUN;
+		} else if (intr_status & QCOM_ICE_STREAM2_NOT_EXPECTED_DUN) {
+			err = ICE_ERROR_STREAM2_NOT_EXPECTED_DUN;
+			clear_reg |= QCOM_ICE_STREAM2_NOT_EXPECTED_DUN;
+		}  else if (intr_status & QCOM_ICE_STREAM1_NOT_EXPECTED_DUS) {
+			err = ICE_ERROR_STREAM1_NOT_EXPECTED_DUS;
+			clear_reg |= QCOM_ICE_STREAM1_NOT_EXPECTED_DUS;
+		} else if (intr_status & QCOM_ICE_STREAM2_NOT_EXPECTED_DUS) {
+			err = ICE_ERROR_STREAM2_NOT_EXPECTED_DUS;
+			clear_reg |= QCOM_ICE_STREAM2_NOT_EXPECTED_DUS;
+		} else if (intr_status & QCOM_ICE_STREAM1_NOT_EXPECTED_DBO) {
+			err = ICE_ERROR_STREAM1_NOT_EXPECTED_DBO;
+			clear_reg |= QCOM_ICE_STREAM1_NOT_EXPECTED_DBO;
+		} else if (intr_status & QCOM_ICE_STREAM2_NOT_EXPECTED_DBO) {
+			err = ICE_ERROR_STREAM2_NOT_EXPECTED_DBO;
+			clear_reg |= QCOM_ICE_STREAM2_NOT_EXPECTED_DBO;
+		} else if (intr_status &
+			QCOM_ICE_STREAM1_NOT_EXPECTED_ENC_SEL) {
+			err = ICE_ERROR_STREAM1_NOT_EXPECTED_ENC_SEL;
+			clear_reg |= QCOM_ICE_STREAM1_NOT_EXPECTED_ENC_SEL;
+		} else if (intr_status &
+			QCOM_ICE_STREAM2_NOT_EXPECTED_ENC_SEL) {
+			err = ICE_ERROR_STREAM2_NOT_EXPECTED_ENC_SEL;
+			clear_reg |= QCOM_ICE_STREAM2_NOT_EXPECTED_ENC_SEL;
+		} else if (intr_status &
+			QCOM_ICE_STREAM1_NOT_EXPECTED_CONF_IDX) {
+			err = ICE_ERROR_STREAM1_NOT_EXPECTED_CONF_IDX;
+			clear_reg |= QCOM_ICE_STREAM1_NOT_EXPECTED_CONF_IDX;
+		} else if (intr_status &
+			QCOM_ICE_STREAM2_NOT_EXPECTED_CONF_IDX) {
+			err = ICE_ERROR_STREAM2_NOT_EXPECTED_CONF_IDX;
+			clear_reg |= QCOM_ICE_STREAM2_NOT_EXPECTED_CONF_IDX;
+		} else if (intr_status &
+			QCOM_ICE_STREAM1_NOT_EXPECTED_NEW_TRNS) {
+			err = ICE_ERROR_STREAM1_NOT_EXPECTED_NEW_TRNS;
+			clear_reg |= QCOM_ICE_STREAM1_NOT_EXPECTED_NEW_TRNS;
+		} else if (intr_status &
+			QCOM_ICE_STREAM2_NOT_EXPECTED_NEW_TRNS) {
+			err = ICE_ERROR_STREAM2_NOT_EXPECTED_NEW_TRNS;
+			clear_reg |= QCOM_ICE_STREAM2_NOT_EXPECTED_NEW_TRNS;
 		}
+
 		ice_dev->error_cb(ice_dev->host_controller_data, err);
 
 		/* Interrupt has been handled. Clear the IRQ */
