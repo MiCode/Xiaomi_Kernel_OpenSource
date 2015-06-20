@@ -55,6 +55,7 @@
 #define STATS_COMP_IDX_IHIST     6
 #define STATS_COMP_IDX_BHIST     7
 #define STATS_COMP_IDX_AEC_BG    8
+#define VFE47_VBIF_CLK_OFFSET    0x4
 
 static uint32_t stats_base_addr[] = {
 	0x1D4, /* HDR_BE */
@@ -395,10 +396,16 @@ static void msm_vfe47_process_reset_irq(struct vfe_device *vfe_dev,
 static void msm_vfe47_process_halt_irq(struct vfe_device *vfe_dev,
 	uint32_t irq_status0, uint32_t irq_status1)
 {
+	uint32_t val = 0;
+
 	if (irq_status1 & (1 << 8)) {
 		complete(&vfe_dev->halt_complete);
 		msm_camera_io_w(0x0, vfe_dev->vfe_base + 0x400);
 	}
+
+	val = msm_camera_io_r(vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
+	val &= ~(0x1);
+	msm_camera_io_w(val, vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
 }
 
 static void msm_vfe47_process_input_irq(struct vfe_device *vfe_dev,
@@ -1568,6 +1575,11 @@ static int msm_vfe47_axi_halt(struct vfe_device *vfe_dev,
 {
 	int rc = 0;
 	enum msm_vfe_input_src i;
+	uint32_t val = 0;
+
+	val = msm_camera_io_r(vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
+	val |= 0x1;
+	msm_camera_io_w(val, vfe_dev->vfe_vbif_base + VFE47_VBIF_CLK_OFFSET);
 
 	/* Keep only halt and reset mask */
 	msm_camera_io_w(BIT(31), vfe_dev->vfe_base + 0x5C);
