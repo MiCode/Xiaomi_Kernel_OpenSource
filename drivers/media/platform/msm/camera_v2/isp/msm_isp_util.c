@@ -1699,9 +1699,6 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 
 	msm_isp_axi_halt(vfe_dev, &halt_cmd);
 
-	for (i = 0; i < MAX_NUM_STREAM; i++)
-		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
-
 	pr_err("%s:%d] vfe_dev %p id %d\n", __func__,
 		__LINE__, vfe_dev, vfe_dev->pdev->id);
 
@@ -1710,6 +1707,9 @@ void ms_isp_process_iommu_page_fault(struct vfe_device *vfe_dev)
 	vfe_dev->buf_mgr->ops->buf_mgr_debug(vfe_dev->buf_mgr);
 	msm_isp_print_ping_pong_address(vfe_dev);
 	vfe_dev->hw_info->vfe_ops.axi_ops.read_wm_ping_pong_addr(vfe_dev);
+
+	for (i = 0; i < MAX_NUM_STREAM; i++)
+		vfe_dev->axi_data.stream_info[i].state = INACTIVE;
 
 	msm_isp_send_event(vfe_dev, ISP_EVENT_IOMMU_P_FAULT, &error_event);
 }

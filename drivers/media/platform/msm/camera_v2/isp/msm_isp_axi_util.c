@@ -299,7 +299,8 @@ static uint32_t msm_isp_axi_get_plane_size(
 	return size;
 }
 
-void msm_isp_axi_reserve_wm(struct msm_vfe_axi_shared_data *axi_data,
+void msm_isp_axi_reserve_wm(struct vfe_device *vfe_dev,
+	struct msm_vfe_axi_shared_data *axi_data,
 	struct msm_vfe_axi_stream *stream_info)
 {
 	int i, j;
@@ -315,6 +316,9 @@ void msm_isp_axi_reserve_wm(struct msm_vfe_axi_shared_data *axi_data,
 				break;
 			}
 		}
+		ISP_DBG("%s vfe %d stream %x wm %d\n", __func__,
+			vfe_dev->pdev->id,
+			stream_info->stream_id, j);
 		stream_info->wm[i] = j;
 	}
 }
@@ -853,7 +857,7 @@ int msm_isp_request_axi_stream(struct vfe_device *vfe_dev, void *arg)
 	vfe_dev->reg_update_requested &=
 		~(BIT(stream_info->stream_src));
 
-	msm_isp_axi_reserve_wm(&vfe_dev->axi_data, stream_info);
+	msm_isp_axi_reserve_wm(vfe_dev, &vfe_dev->axi_data, stream_info);
 
 	if (stream_info->stream_src < RDI_INTF_0) {
 		io_format = vfe_dev->axi_data.src_info[VFE_PIX_0].input_format;
@@ -1209,7 +1213,7 @@ int msm_isp_print_ping_pong_address(struct vfe_device *vfe_dev)
 
 	for (j = 0; j < MAX_NUM_STREAM; j++) {
 		stream_info = &vfe_dev->axi_data.stream_info[j];
-		if (stream_info->state != ACTIVE)
+		if (stream_info->state == INACTIVE)
 			continue;
 
 		for (pingpong_bit = 0; pingpong_bit < 2; pingpong_bit++) {
@@ -2016,7 +2020,8 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 		}
 
 		stream_info->state = START_PENDING;
-		pr_debug("%s, Stream 0x%x\n", __func__, stream_info->stream_id);
+		pr_debug("%s, Stream 0x%x src_state %d\n", __func__,
+			stream_info->stream_id, src_state);
 		if (src_state) {
 			src_mask |= (1 << SRC_TO_INTF(stream_info->stream_src));
 			wait_for_complete = 1;
@@ -2029,11 +2034,19 @@ static int msm_isp_start_axi_stream(struct vfe_device *vfe_dev,
 			stream_info->state = ACTIVE;
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 				SRC_TO_INTF(stream_info->stream_src));
-		}
-		if (SRC_TO_INTF(stream_info->stream_src) >= VFE_RAW_0 &&
-			SRC_TO_INTF(stream_info->stream_src) < VFE_SRC_MAX) {
-			vfe_dev->axi_data.src_info[SRC_TO_INTF(
-				stream_info->stream_src)].frame_id = 0;
+
+			/*
+			 * Active bit is set in enable_camif for PIX.
+			 * For RDI, set it here
+			 */
+			if (SRC_TO_INTF(stream_info->stream_src) >= VFE_RAW_0 &&
+				SRC_TO_INTF(stream_info->stream_src) <
+				VFE_SRC_MAX) {
+				vfe_dev->axi_data.src_info[SRC_TO_INTF(
+					stream_info->stream_src)].frame_id = 0;
+				vfe_dev->axi_data.src_info[SRC_TO_INTF(
+					stream_info->stream_src)].active = 1;
+			}
 		}
 	}
 	msm_isp_update_stream_bandwidth(vfe_dev);
@@ -2109,7 +2122,10 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				(!ext_read))
 				wait_for_complete_for_this_stream = 1;
 		}
-
+		ISP_DBG("%s: vfe_dev %d camif_update %d wait %d\n", __func__,
+			vfe_dev->pdev->id,
+			camif_update,
+			wait_for_complete_for_this_stream);
 		intf = SRC_TO_INTF(stream_info->stream_src);
 		if (!wait_for_complete_for_this_stream ||
 			stream_info->state == INACTIVE ||
@@ -2118,6 +2134,17 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 			stream_info->state = INACTIVE;
 			vfe_dev->hw_info->vfe_ops.core_ops.reg_update(vfe_dev,
 				SRC_TO_INTF(stream_info->stream_src));
+
+			/*
+			 * Active bit is reset in disble_camif for PIX.
+			 * For RDI, reset it here for not wait_for_complete
+			 * This is assuming there is only 1 stream mapped to
+			 * each RDI.
+			 */
+			if (intf >= VFE_RAW_0 &&
+				intf < VFE_SRC_MAX) {
+				vfe_dev->axi_data.src_info[intf].active = 0;
+			}
 		} else
 			src_mask |= (1 << intf);
 
@@ -2127,7 +2154,6 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 		rc = msm_isp_axi_wait_for_cfg_done(vfe_dev, camif_update,
 			src_mask, 2);
 		if (rc < 0) {
-			pr_err("%s: wait for config done failed\n", __func__);
 			for (i = 0; i < stream_cfg_cmd->num_streams; i++) {
 				stream_info = &axi_data->stream_info[
 				HANDLE_TO_IDX(
@@ -2143,6 +2169,17 @@ static int msm_isp_stop_axi_stream(struct vfe_device *vfe_dev,
 				if (rc < 0)
 					pr_err("cfg done failed\n");
 				rc = -EBUSY;
+			}
+		}
+
+		/*
+		 * Active bit is reset in disble_camif for PIX.
+		 * For RDI, reset it here after wait_for_complete
+		 * This is assuming there is only 1 stream mapped to each RDI
+		 */
+		for (i = VFE_RAW_0; i < VFE_SRC_MAX; i++) {
+			if (src_mask & (1 << i)) {
+				vfe_dev->axi_data.src_info[i].active = 0;
 			}
 		}
 	}
