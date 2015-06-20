@@ -297,12 +297,14 @@ int __init cma_fdt_scan(unsigned long node, const char *uname,
 	remove =
 	     of_get_flat_dt_prop(node, "linux,remove-completely", NULL) ? 1 : 0;
 
-	/* fixup demands base and size to be section aligned, if it doesn't
+	/* fixup demands base and size to be PMD_SIZE aligned, if it doesn't
 	 * then reduce fixup to remove
 	 */
 	if (fixup) {
-		if (!IS_ALIGNED(base, SECTION_SIZE) ||
-				!IS_ALIGNED(size, SECTION_SIZE)) {
+		if (!IS_ALIGNED(base, PMD_SIZE) ||
+				!IS_ALIGNED(size, PMD_SIZE)) {
+			pr_info("fixup: fallback to remove region as base=%pa or size=%pa not aligned\n",
+					&base, &size);
 			fixup = 0;
 			remove = 1;
 		}
@@ -456,7 +458,7 @@ int __init dma_contiguous_reserve_area(phys_addr_t size, phys_addr_t *res_base,
 
 	/* Sanitise input arguments */
 	if (fixup)
-		alignment = SECTION_SIZE;
+		alignment = PMD_SIZE;
 	else if (!remove)
 		alignment = PAGE_SIZE << max(MAX_ORDER - 1, pageblock_order);
 
