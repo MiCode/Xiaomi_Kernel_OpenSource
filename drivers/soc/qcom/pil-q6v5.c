@@ -374,6 +374,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 		 * Enable memories, turn on memory footswitch/head switch
 		 * one bank at a time to avoid in-rush current
 		 */
+		val = readl_relaxed(drv->reg_base + QDSP6SS_MEM_CTL);
 		for (i = 19; i >= 0; i--) {
 			val |= BIT(i);
 			writel_relaxed(val, drv->reg_base + QDSP6SS_MEM_CTL);
@@ -393,6 +394,7 @@ static int __pil_q6v55_reset(struct pil_desc *pil)
 	}
 
 	/* Remove word line clamp */
+	val = readl_relaxed(drv->reg_base + QDSP6SS_PWR_CTL);
 	val &= ~QDSP6v55_CLAMP_WL;
 	writel_relaxed(val, drv->reg_base + QDSP6SS_PWR_CTL);
 
