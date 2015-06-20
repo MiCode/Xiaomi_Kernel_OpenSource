@@ -398,6 +398,7 @@ struct pp_hist_col_info {
 	spinlock_t hist_lock;
 	char __iomem *base;
 	u32 intr_shift;
+	u32 disp_num;
 };
 
 struct mdss_mdp_ad {
