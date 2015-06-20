@@ -1219,7 +1219,7 @@
 			 <&clock_gcc clk_gcc_sdcc1_ice_core_clk>,
 			 <&clock_gcc clk_gcc_sdcc1_apps_clk>,
 			 <&clock_gcc clk_gcc_sdcc1_ahb_clk>;
-		qcom,op-freq-hz = <300000000>, <0>;
+		qcom,op-freq-hz = <300000000>, <0>, <0>, <0>;
 		qcom,msm-bus,name = "sdcc_ice_noc";
 		qcom,msm-bus,num-cases = <2>;
 		qcom,msm-bus,num-paths = <1>;
