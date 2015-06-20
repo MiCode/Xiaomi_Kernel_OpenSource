@@ -18,7 +18,7 @@
  * These defines control the address range for allocations that
  * are mapped into all pagetables.
  */
-#define KGSL_GLOBAL_PT_SIZE	SZ_4M
+#define KGSL_GLOBAL_PT_SIZE	SZ_8M
 #define KGSL_MMU_GLOBAL_MEM_BASE	0xf8000000
 
 /*

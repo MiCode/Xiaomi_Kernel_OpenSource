@@ -1470,6 +1470,12 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 	if (status)
 		goto error_mmu_off;
 
+	if (gpudev->hw_init) {
+		status = gpudev->hw_init(adreno_dev);
+		if (status)
+			goto error_mmu_off;
+	}
+
 	/* Set up LM before initializing the GPMU */
 	if (gpudev->lm_init)
 		gpudev->lm_init(adreno_dev);

@@ -41,6 +41,12 @@ static const struct adreno_vbif_platform a5xx_vbif_platforms[] = {
 	{ adreno_is_a510, a530_vbif },
 };
 
+#define PREEMPT_RECORD(_field) \
+		offsetof(struct a5xx_cp_preemption_record, _field)
+
+#define PREEMPT_SMMU_RECORD(_field) \
+		offsetof(struct a5xx_cp_smmu_info, _field)
+
 /**
  * Number of times to check if the regulator enabled before
  * giving up and returning failure.
@@ -103,7 +109,7 @@ static void a5xx_preemption_start(struct adreno_device *adreno_dev,
 	uint64_t ttbr0;
 
 	kgsl_sharedmem_writel(device, &rb->preemption_desc,
-		offsetof(struct a5xx_cp_preemption_record, wptr), rb->wptr);
+		PREEMPT_RECORD(wptr), rb->wptr);
 	kgsl_regwrite(device, A5XX_CP_CONTEXT_SWITCH_RESTORE_ADDR_LO,
 		_lo_32(rb->preemption_desc.gpuaddr));
 	kgsl_regwrite(device, A5XX_CP_CONTEXT_SWITCH_RESTORE_ADDR_HI,
@@ -122,7 +128,7 @@ static void a5xx_preemption_save(struct adreno_device *adreno_dev,
 {
 	/* save the rptr from ctxrecord here */
 	kgsl_sharedmem_readl(&rb->preemption_desc, &rb->rptr,
-		offsetof(struct a5xx_cp_preemption_record, rptr));
+		PREEMPT_RECORD(rptr));
 }
 
 /*
@@ -134,9 +140,14 @@ static void a5xx_preemption_init(struct adreno_device *adreno_dev)
 	struct kgsl_iommu *iommu = device->mmu.priv;
 	struct adreno_ringbuffer *rb;
 	uint i, ret;
+	uint64_t gaddr;
 
 	if (!adreno_is_preemption_enabled(adreno_dev))
 		return;
+
+	/* Allocate mem for storing preemption counters */
+	ret = kgsl_allocate_global(device, &adreno_dev->preemption_counters,
+							   PAGE_SIZE, 0, 0);
 
 	/* Allocate mem for storing preemption switch record */
 	FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
@@ -144,12 +155,38 @@ static void a5xx_preemption_init(struct adreno_device *adreno_dev)
 			&rb->preemption_desc,
 			A5XX_CP_CTXRECORD_SIZE_IN_BYTES, 0,
 			KGSL_MEMDESC_PRIVILEGED);
-		if (!ret)
+		if (!ret) {
 			/* Initialize the context switch record here */
 			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
-				offsetof(struct a5xx_cp_preemption_record,
-				magic), A5XX_CP_CTXRECORD_MAGIC_REF);
-		else {
+				PREEMPT_RECORD(magic),
+				A5XX_CP_CTXRECORD_MAGIC_REF);
+			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(info), 0);
+			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(data), 0);
+			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(cntl), 0x0800000C);
+			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(rptr), 0);
+			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(wptr), 0);
+			kgsl_sharedmem_writeq(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(rbase),
+				adreno_dev->ringbuffers[i].buffer_desc.gpuaddr);
+			gaddr = (adreno_dev->preemption_counters.gpuaddr +
+			i*A5XX_CP_CTXRECORD_PREEMPTION_COUNTER_SIZE_IN_DWORDS);
+
+			if ((gaddr - adreno_dev->preemption_counters.gpuaddr)
+				< PAGE_SIZE) {
+				kgsl_sharedmem_writeq(rb->device,
+					&rb->preemption_desc,
+					offsetof(
+					struct a5xx_cp_preemption_record,
+					counter), gaddr);
+			} else
+				KGSL_DRV_ERR(device,
+					"Insufficient memory for preemption counters\n");
+		} else {
 			adreno_preemption_disable(adreno_dev);
 			WARN(1, "gpu preemption: disabled due to low memory");
 		}
@@ -161,19 +198,6 @@ static void a5xx_preemption_init(struct adreno_device *adreno_dev)
 	if (ret) {
 		adreno_preemption_disable(adreno_dev);
 		WARN(1, "preemption: disabled due to low memory");
-	} else {
-		/* Initialize the context switch record here */
-		kgsl_sharedmem_writel(device, &iommu->smmu_info,
-				offsetof(struct a5xx_cp_smmu_info, magic),
-				A5XX_CP_SMMU_INFO_MAGIC_REF);
-		kgsl_sharedmem_writeq(device, &iommu->smmu_info,
-				offsetof(struct a5xx_cp_smmu_info, ttbr0),
-				kgsl_mmu_get_default_ttbr0(&device->mmu,
-				KGSL_IOMMU_CONTEXT_USER));
-		adreno_writereg64(adreno_dev,
-				ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
-				ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
-				iommu->smmu_info.gpuaddr);
 	}
 }
 
@@ -214,6 +238,10 @@ static int a5xx_preemption_pre_ibsubmit(
 {
 	unsigned int *cmds_orig = cmds;
 	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
+	unsigned int preempt_style = 0;
+
+	if (context)
+		preempt_style = ADRENO_PREEMPT_STYLE(context->flags);
 
 	/*
 	 * CP_PREEMPT_ENABLE_GLOBAL(global preemption) can only be set by KMD
@@ -227,8 +255,8 @@ static int a5xx_preemption_pre_ibsubmit(
 	 *    can be enabled by both UMD(within IB) and KMD.
 	 */
 	*cmds++ = cp_type7_packet(CP_PREEMPT_ENABLE_GLOBAL, 1);
-	*cmds++ = (ADRENO_PREEMPT_STYLE(context->flags)
-			   == KGSL_CONTEXT_PREEMPT_STYLE_FINEGRAIN) ? 2 : 0;
+	*cmds++ = ((preempt_style == KGSL_CONTEXT_PREEMPT_STYLE_FINEGRAIN)
+				? 2 : 0);
 
 	/* Turn CP protection OFF */
 	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
@@ -251,10 +279,12 @@ static int a5xx_preemption_pre_ibsubmit(
 	 * Enable local preemption for finegrain preemption in case of
 	 * a misbehaving IB
 	 */
-	if (ADRENO_PREEMPT_STYLE(context->flags) ==
-				KGSL_CONTEXT_PREEMPT_STYLE_FINEGRAIN) {
+	if (preempt_style == KGSL_CONTEXT_PREEMPT_STYLE_FINEGRAIN) {
 		*cmds++ = cp_type7_packet(CP_PREEMPT_ENABLE_LOCAL, 1);
 		*cmds++ = 1;
+	} else {
+		*cmds++ = cp_type7_packet(CP_PREEMPT_ENABLE_LOCAL, 1);
+		*cmds++ = 0;
 	}
 
 	return cmds - cmds_orig;
@@ -270,6 +300,7 @@ static int a5xx_preemption_post_ibsubmit(
 			struct kgsl_context *context)
 {
 	unsigned int *cmds_orig = cmds;
+	unsigned int ctx_id = context ? context->id : 0;
 
 	/*
 	 * SRM -- set render mode (ex binning, direct render etc)
@@ -287,7 +318,7 @@ static int a5xx_preemption_post_ibsubmit(
 
 	cmds += a5xx_preemption_token(adreno_dev, rb, cmds,
 				rb->device->memstore.gpuaddr +
-				KGSL_MEMSTORE_OFFSET(context->id, preempted));
+				KGSL_MEMSTORE_OFFSET(ctx_id, preempted));
 
 	return cmds - cmds_orig;
 }
@@ -571,7 +602,7 @@ static int a5xx_gpmu_ucode_load(struct adreno_device *adreno_dev)
 	uint32_t *cmds = NULL;
 	uint32_t offset;
 	uint32_t payload_size, payload_size_max = PM4_TYPE4_PKT_SIZE_MAX - 1;
-	struct adreno_ringbuffer *rb = &adreno_dev->ringbuffers[0];
+	struct adreno_ringbuffer *rb = ADRENO_CURRENT_RINGBUFFER(adreno_dev);
 
 	if (gpucore->gpmufw_name == NULL)
 		return -EINVAL;
@@ -1308,8 +1339,11 @@ static void a5xx_pwrlevel_change_settings(struct adreno_device *adreno_dev,
 static void a5xx_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
+	struct kgsl_iommu *iommu = device->mmu.priv;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	uint val = 0;
+	uint val = 0, i;
+	struct adreno_ringbuffer *rb;
+	uint64_t def_ttbr0;
 
 	adreno_vbif_start(adreno_dev, a5xx_vbif_platforms,
 			ARRAY_SIZE(a5xx_vbif_platforms));
@@ -1443,7 +1477,120 @@ static void a5xx_start(struct adreno_device *adreno_dev)
 
 	a5xx_hwcg_init(adreno_dev);
 
+	if (adreno_is_preemption_enabled(adreno_dev)) {
+		def_ttbr0 = kgsl_mmu_get_default_ttbr0(&device->mmu,
+				KGSL_IOMMU_CONTEXT_USER);
+
+		/* Initialize the context switch record here */
+		kgsl_sharedmem_writel(device, &iommu->smmu_info,
+				PREEMPT_SMMU_RECORD(magic),
+				A5XX_CP_SMMU_INFO_MAGIC_REF);
+		kgsl_sharedmem_writeq(device, &iommu->smmu_info,
+				PREEMPT_SMMU_RECORD(ttbr0), def_ttbr0);
+		kgsl_sharedmem_writeq(device, &iommu->smmu_info,
+				PREEMPT_SMMU_RECORD(asid), 1);
+		adreno_writereg64(adreno_dev,
+				ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
+				ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
+				iommu->smmu_info.gpuaddr);
+
+		FOR_EACH_RINGBUFFER(adreno_dev, rb, i) {
+			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(rptr), 0);
+			kgsl_sharedmem_writel(rb->device, &rb->preemption_desc,
+				PREEMPT_RECORD(wptr), 0);
+			kgsl_sharedmem_writeq(rb->device, &rb->pagetable_desc,
+			  offsetof(struct adreno_ringbuffer_pagetable_info,
+			  ttbr0), def_ttbr0);
+		}
+	}
+
 	a5xx_protect_init(adreno_dev);
+}
+
+static int _preemption_init(
+			struct adreno_device *adreno_dev,
+			struct adreno_ringbuffer *rb, unsigned int *cmds,
+			struct kgsl_context *context)
+{
+	unsigned int *cmds_orig = cmds;
+	uint64_t gpuaddr = rb->preemption_desc.gpuaddr;
+	uint64_t gpuaddr_token = rb->device->memstore.gpuaddr +
+				KGSL_MEMSTORE_OFFSET(0, preempted);
+
+	/* Turn CP protection OFF */
+	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
+	*cmds++ = 0;
+	/*
+	 * CP during context switch will save context switch info to
+	 * a5xx_cp_preemption_record pointed by CONTEXT_SWITCH_SAVE_ADDR
+	 */
+	*cmds++ = cp_type4_packet(A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_LO, 1);
+	*cmds++ = _lo_32(gpuaddr);
+	*cmds++ = cp_type4_packet(A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_HI, 1);
+	*cmds++ = _hi_32(gpuaddr);
+
+	/* Turn CP protection ON */
+	*cmds++ = cp_type7_packet(CP_SET_PROTECTED_MODE, 1);
+	*cmds++ = 1;
+
+	*cmds++ = cp_type7_packet(CP_PREEMPT_ENABLE_GLOBAL, 1);
+	*cmds++ = 0;
+
+	*cmds++ = cp_type7_packet(CP_PREEMPT_ENABLE_LOCAL, 1);
+	*cmds++ = 1;
+
+	/* Enable yield in RB only */
+	*cmds++ = cp_type7_packet(CP_YIELD_ENABLE, 1);
+	*cmds++ = 1;
+
+	*cmds++ = cp_type7_packet(CP_CONTEXT_SWITCH_YIELD, 4);
+	cmds += cp_gpuaddr(adreno_dev, cmds, gpuaddr_token);
+	*cmds++ = 1;
+	/* generate interrupt on preemption completion */
+	*cmds++ = 1;
+
+	return cmds - cmds_orig;
+}
+
+/*
+ * a5xx_hw_init() - Initialize GPU HW using PM4 cmds
+ * @adreno_dev: Pointer to adreno device
+ *
+ * Submit PM4 commands for HW initialization,
+ */
+int a5xx_hw_init(struct adreno_device *adreno_dev)
+{
+	unsigned int *cmds, *start;
+	int status = 0;
+	struct kgsl_device *device = &(adreno_dev->dev);
+	struct adreno_ringbuffer *rb = adreno_dev->cur_rb;
+
+	cmds = adreno_ringbuffer_allocspace(rb, 40);
+	start = cmds;
+	if (IS_ERR(cmds))
+		return PTR_ERR(cmds);
+	if (cmds == NULL)
+		return -ENOSPC;
+
+	if (adreno_is_preemption_enabled(adreno_dev))
+		cmds += _preemption_init(adreno_dev, rb, cmds, 0);
+
+	rb->wptr = rb->wptr - (40 - (cmds - start));
+
+	if (cmds == start)
+		return 0;
+
+	adreno_ringbuffer_submit(rb, NULL);
+
+	/* idle device to validate hw INIT */
+	status = adreno_spin_idle(device);
+	if (status) {
+		KGSL_DRV_ERR(rb->device,
+		"hw initialization failed to idle\n");
+		kgsl_device_snapshot(device, NULL);
+	}
+	return status;
 }
 
 /*
@@ -1457,22 +1604,12 @@ int a5xx_rb_init(struct adreno_device *adreno_dev,
 			 struct adreno_ringbuffer *rb)
 {
 	unsigned int *cmds;
-	unsigned int rb_cntl;
+
 	cmds = adreno_ringbuffer_allocspace(rb, 8);
 	if (IS_ERR(cmds))
 		return PTR_ERR(cmds);
 	if (cmds == NULL)
 		return -ENOSPC;
-
-	/*
-	 * For a5xx enable RB_ENA_PFP_UPDATE to allow PFP to write to
-	 * context record during preemption
-	 */
-	if (adreno_is_preemption_enabled(adreno_dev)) {
-		kgsl_regread(&adreno_dev->dev, A5XX_CP_RB_CNTL, &rb_cntl);
-		rb_cntl = (rb_cntl | (1 << 26));
-		kgsl_regwrite(&adreno_dev->dev, A5XX_CP_RB_CNTL, rb_cntl);
-	}
 
 	*cmds++ = cp_type7_packet(CP_ME_INIT, 7);
 	/*
@@ -2223,7 +2360,8 @@ void a5xx_err_callback(struct adreno_device *adreno_dev, int bit)
 	 (1 << A5XX_INT_CP_RB) |			\
 	 (1 << A5XX_INT_RBBM_ATB_BUS_OVERFLOW) |	\
 	 (1 << A5XX_INT_UCHE_OOB_ACCESS)) |		\
-	 (1 << A5XX_INT_UCHE_TRAP_INTR)
+	 (1 << A5XX_INT_UCHE_TRAP_INTR) | \
+	 (1 << A5XX_INT_CP_SW)
 
 
 static struct adreno_irq_funcs a5xx_irq_funcs[] = {
@@ -2239,7 +2377,7 @@ static struct adreno_irq_funcs a5xx_irq_funcs[] = {
 	/* 6 - RBBM_ATB_ASYNC_OVERFLOW */
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback),
 	ADRENO_IRQ_CALLBACK(a5xx_err_callback), /* 7 - GPC_ERR */
-	ADRENO_IRQ_CALLBACK(NULL),				/* 8 - CP_SW */
+	ADRENO_IRQ_CALLBACK(adreno_dispatcher_preempt_callback),/* 8 - CP_SW */
 	ADRENO_IRQ_CALLBACK(a5xx_cp_hw_err_callback), /* 9 - CP_HW_ERROR */
 	/* 10 - CP_CCU_FLUSH_DEPTH_TS */
 	ADRENO_IRQ_CALLBACK(NULL),
@@ -2487,6 +2625,300 @@ static struct adreno_coresight a5xx_coresight = {
 	.groups = a5xx_coresight_groups,
 };
 
+/**
+ * a5xx_preempt_trig_state() - Schedule preemption in TRIGGERRED
+ * state
+ * @adreno_dev: Device which is in TRIGGERRED state
+ */
+static void a5xx_preempt_trig_state(
+			struct adreno_device *adreno_dev)
+{
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	struct kgsl_device *device = &(adreno_dev->dev);
+	unsigned int preempt_busy;
+	uint64_t rbbase;
+
+	/*
+	 * triggered preemption, check for busy bits, if not set go to complete
+	 * bit 0: When high indicates CP is not done with preemption.
+	 * bit 4: When high indicates that the CP is actively switching between
+	 *        application contexts.
+	 * Check both the bits to make sure CP is done with preemption.
+	 */
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT, &preempt_busy);
+	if (!(preempt_busy & 0x11)) {
+
+		adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
+				 ADRENO_REG_CP_RB_BASE_HI, &rbbase);
+		/* Did preemption occur, if so then change states and return */
+		if (rbbase != adreno_dev->cur_rb->buffer_desc.gpuaddr) {
+			if (rbbase ==
+				adreno_dev->next_rb->buffer_desc.gpuaddr) {
+				KGSL_DRV_INFO(device,
+				"Preemption completed without interrupt\n");
+				trace_adreno_hw_preempt_trig_to_comp(
+					adreno_dev->cur_rb,
+					adreno_dev->next_rb);
+				atomic_set(&dispatcher->preemption_state,
+					ADRENO_DISPATCHER_PREEMPT_COMPLETE);
+			} else {
+				/*
+				 * Something wrong with preemption.
+				 * Set fault and reschedule dispatcher to take
+				 * care of fault.
+				 */
+				adreno_set_gpu_fault(adreno_dev,
+					ADRENO_PREEMPT_FAULT);
+			}
+			adreno_dispatcher_schedule(device);
+			return;
+		}
+	}
+
+	/*
+	 * Preemption is still happening.
+	 * Hardware not yet idle means that preemption interrupt
+	 * may still occur, nothing to do here until interrupt signals
+	 * completion of preemption, just return here
+	 */
+	if (!adreno_hw_isidle(adreno_dev))
+		return;
+
+	/*
+	 * We just changed states, reschedule dispatcher to change
+	 * preemption states
+	 */
+	if (ADRENO_DISPATCHER_PREEMPT_TRIGGERED !=
+		atomic_read(&dispatcher->preemption_state)) {
+		adreno_dispatcher_schedule(device);
+		return;
+	}
+
+
+	adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
+
+	/* reschedule dispatcher to take care of the fault */
+	adreno_dispatcher_schedule(device);
+}
+
+/**
+ * a5xx_preempt_clear_state() - Schedule preemption in CLEAR
+ * state. Preemption can be issued in this state.
+ * @adreno_dev: Device which is in CLEAR state
+ */
+static void a5xx_preempt_clear_state(
+			struct adreno_device *adreno_dev)
+
+{
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	struct kgsl_device *device = &(adreno_dev->dev);
+	struct adreno_ringbuffer *highest_busy_rb;
+	int switch_low_to_high;
+	int ret;
+
+	/* Device not awake means there is nothing to do */
+	if (!kgsl_state_is_awake(device))
+		return;
+
+	/* keep updating the current rptr when preemption is clear */
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR,
+			&(adreno_dev->cur_rb->rptr));
+
+	highest_busy_rb = adreno_dispatcher_get_highest_busy_rb(adreno_dev);
+	if (!highest_busy_rb)
+		return;
+
+	switch_low_to_high = adreno_compare_prio_level(
+		highest_busy_rb->id, adreno_dev->cur_rb->id);
+
+	/* already current then return */
+	if (!switch_low_to_high)
+		return;
+
+	if (switch_low_to_high < 0) {
+
+		if (!adreno_hw_isidle(adreno_dev)) {
+			adreno_dispatcher_schedule(device);
+			return;
+		}
+
+		/*
+		 * if switching to lower priority make sure that the rptr and
+		 * wptr are equal, when the lower rb is not starved
+		 */
+		if (adreno_dev->cur_rb->rptr != adreno_dev->cur_rb->wptr)
+			return;
+		/*
+		 * switch to default context because when we switch back
+		 * to higher context then its not known which pt will
+		 * be current, so by making it default here the next
+		 * commands submitted will set the right pt
+		 */
+		ret = adreno_drawctxt_switch(adreno_dev,
+				adreno_dev->cur_rb,
+				NULL, 0);
+		/*
+		 * lower priority RB has to wait until space opens up in
+		 * higher RB
+		 */
+		if (ret)
+			return;
+	}
+
+	/* rptr could be updated in drawctxt switch above, update it here */
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_RPTR,
+			&(adreno_dev->cur_rb->rptr));
+
+	/*
+	 * setup memory to do the switch to highest priority RB
+	 * which is not empty or may be starving away(poor thing)
+	 */
+	a5xx_preemption_start(adreno_dev, highest_busy_rb);
+
+	atomic_set(&dispatcher->preemption_state,
+			ADRENO_DISPATCHER_PREEMPT_TRIGGERED);
+
+	adreno_dev->next_rb = highest_busy_rb;
+	mod_timer(&dispatcher->preempt_timer, jiffies +
+		msecs_to_jiffies(ADRENO_DISPATCH_PREEMPT_TIMEOUT));
+
+	trace_adreno_hw_preempt_clear_to_trig(adreno_dev->cur_rb,
+						adreno_dev->next_rb);
+	/* issue PREEMPT trigger */
+	adreno_writereg(adreno_dev, ADRENO_REG_CP_PREEMPT, 1);
+
+	adreno_dispatcher_schedule(device);
+}
+
+/**
+ * a5xx_preempt_complete_state() - Schedule preemption in
+ * COMPLETE state
+ * @adreno_dev: Device which is in COMPLETE state
+ */
+static void a5xx_preempt_complete_state(
+			struct adreno_device *adreno_dev)
+
+{
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	struct kgsl_device *device = &(adreno_dev->dev);
+	struct adreno_dispatcher_cmdqueue *dispatch_q;
+	uint64_t rbbase;
+	unsigned int wptr;
+	unsigned int val;
+
+	del_timer_sync(&dispatcher->preempt_timer);
+
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_PREEMPT, &val);
+
+	if (val) {
+		KGSL_DRV_ERR(device,
+		"Invalid state after preemption CP_PREEMPT:%08x BUSY:%1x STOP:%1x\n",
+					 val, (val & 0x1), (val & 0x10)>>4);
+		adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
+		adreno_dispatcher_schedule(device);
+		return;
+	}
+
+	adreno_readreg64(adreno_dev, ADRENO_REG_CP_RB_BASE,
+				ADRENO_REG_CP_RB_BASE_HI, &rbbase);
+	if (rbbase != adreno_dev->next_rb->buffer_desc.gpuaddr) {
+		KGSL_DRV_ERR(device,
+		"RBBASE incorrect after preemption, expected %016llx got %016llx\b",
+		rbbase,
+		adreno_dev->next_rb->buffer_desc.gpuaddr);
+		adreno_set_gpu_fault(adreno_dev, ADRENO_PREEMPT_FAULT);
+		adreno_dispatcher_schedule(device);
+		return;
+	}
+
+	a5xx_preemption_save(adreno_dev, adreno_dev->cur_rb);
+
+	dispatch_q = &(adreno_dev->cur_rb->dispatch_q);
+	/* new RB is the current RB */
+	trace_adreno_hw_preempt_comp_to_clear(adreno_dev->next_rb,
+						adreno_dev->cur_rb);
+	adreno_dev->prev_rb = adreno_dev->cur_rb;
+	adreno_dev->cur_rb = adreno_dev->next_rb;
+	adreno_dev->cur_rb->preempted_midway = 0;
+	adreno_dev->cur_rb->wptr_preempt_end = 0xFFFFFFFF;
+	adreno_dev->next_rb = 0;
+
+	if (adreno_disp_preempt_fair_sched) {
+		/* starved rb is now scheduled so unhalt dispatcher */
+		if (ADRENO_DISPATCHER_RB_STARVE_TIMER_ELAPSED ==
+			adreno_dev->cur_rb->starve_timer_state)
+			adreno_put_gpu_halt(adreno_dev);
+		adreno_dev->cur_rb->starve_timer_state =
+				ADRENO_DISPATCHER_RB_STARVE_TIMER_SCHEDULED;
+		adreno_dev->cur_rb->sched_timer = jiffies;
+		/*
+		 * If the outgoing RB is has commands then set the
+		 * busy time for it
+		 */
+		if (adreno_dev->prev_rb->rptr != adreno_dev->prev_rb->wptr) {
+			adreno_dev->prev_rb->starve_timer_state =
+				ADRENO_DISPATCHER_RB_STARVE_TIMER_INIT;
+			adreno_dev->prev_rb->sched_timer = jiffies;
+		} else {
+			adreno_dev->prev_rb->starve_timer_state =
+				ADRENO_DISPATCHER_RB_STARVE_TIMER_UNINIT;
+		}
+	}
+
+	atomic_set(&dispatcher->preemption_state,
+		ADRENO_DISPATCHER_PREEMPT_CLEAR);
+
+	/* submit wptr if required for new rb */
+	adreno_readreg(adreno_dev, ADRENO_REG_CP_RB_WPTR, &wptr);
+	if (adreno_dev->cur_rb->wptr != wptr) {
+		kgsl_pwrscale_busy(device);
+		adreno_writereg(adreno_dev, ADRENO_REG_CP_RB_WPTR,
+					adreno_dev->cur_rb->wptr);
+	}
+
+	adreno_preempt_process_dispatch_queue(adreno_dev, dispatch_q);
+}
+
+static void a5xx_preemption_schedule(
+				struct adreno_device *adreno_dev)
+{
+	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
+	struct kgsl_device *device = &(adreno_dev->dev);
+	struct adreno_ringbuffer *rb;
+	int i = 0;
+
+	if (!adreno_is_preemption_enabled(adreno_dev))
+		return;
+
+	mutex_lock(&device->mutex);
+
+	if (KGSL_STATE_ACTIVE == device->state)
+		FOR_EACH_RINGBUFFER(adreno_dev, rb, i)
+			rb->rptr = adreno_get_rptr(rb);
+
+	switch (atomic_read(&dispatcher->preemption_state)) {
+	case ADRENO_DISPATCHER_PREEMPT_CLEAR:
+		a5xx_preempt_clear_state(adreno_dev);
+		break;
+	case ADRENO_DISPATCHER_PREEMPT_TRIGGERED:
+		a5xx_preempt_trig_state(adreno_dev);
+		/*
+		 * if we transitioned to next state then fall-through
+		 * processing to next state
+		 */
+		if (!adreno_preempt_state(adreno_dev,
+			ADRENO_DISPATCHER_PREEMPT_COMPLETE))
+			break;
+	case ADRENO_DISPATCHER_PREEMPT_COMPLETE:
+		a5xx_preempt_complete_state(adreno_dev);
+		break;
+	default:
+		BUG();
+	}
+
+	mutex_unlock(&device->mutex);
+}
+
 struct adreno_gpudev adreno_a5xx_gpudev = {
 	.reg_offsets = &a5xx_reg_offsets,
 	.ft_perf_counters = a5xx_ft_perf_counters,
@@ -2497,9 +2929,10 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.irq = &a5xx_irq,
 	.snapshot_data = &a5xx_snapshot_data,
 	.irq_trace = trace_kgsl_a5xx_irq_status,
-	.num_prio_levels = 1,
+	.num_prio_levels = ADRENO_PRIORITY_MAX_RB_LEVELS,
 	.gpudev_init = a5xx_gpudev_init,
 	.rb_init = a5xx_rb_init,
+	.hw_init = a5xx_hw_init,
 	.microcode_read = a5xx_microcode_read,
 	.microcode_load = a5xx_microcode_load,
 	.perfcounters = &a5xx_perfcounters,
@@ -2515,9 +2948,7 @@ struct adreno_gpudev adreno_a5xx_gpudev = {
 	.preemption_post_ibsubmit =
 				a5xx_preemption_post_ibsubmit,
 	.preemption_token = a5xx_preemption_token,
-	.preemption_start = a5xx_preemption_start,
-	.preemption_save = a5xx_preemption_save,
 	.preemption_init = a5xx_preemption_init,
 	.gpmu_start = a5xx_gpmu_start,
+	.preemption_schedule = a5xx_preemption_schedule,
 };
-

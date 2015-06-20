@@ -1,4 +1,4 @@
-/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -506,6 +506,12 @@ DEFINE_EVENT(adreno_hw_preempt_template, adreno_hw_preempt_clear_to_trig,
 );
 
 DEFINE_EVENT(adreno_hw_preempt_template, adreno_hw_preempt_trig_to_comp,
+	TP_PROTO(struct adreno_ringbuffer *cur_rb,
+		struct adreno_ringbuffer *new_rb),
+	TP_ARGS(cur_rb, new_rb)
+);
+
+DEFINE_EVENT(adreno_hw_preempt_template, adreno_hw_preempt_trig_to_comp_int,
 	TP_PROTO(struct adreno_ringbuffer *cur_rb,
 		struct adreno_ringbuffer *new_rb),
 	TP_ARGS(cur_rb, new_rb)

@@ -64,6 +64,7 @@ struct a5xx_cp_smmu_info {
 	uint32_t  magic;
 	uint32_t  _pad4;
 	uint64_t  ttbr0;
+	uint32_t  asid;
 	uint32_t  context_idr;
 };
 

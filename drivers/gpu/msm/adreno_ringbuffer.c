@@ -523,6 +523,8 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 				struct adreno_submit_time *time)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(rb->device);
+	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
+	struct kgsl_device *device = rb->device;
 	unsigned int *ringcmds, *start;
 	unsigned int total_sizedwords = sizedwords;
 	unsigned int i;
@@ -530,7 +532,9 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	uint64_t gpuaddr = rb->device->memstore.gpuaddr;
 	bool profile_ready;
 	struct adreno_context *drawctxt = rb->drawctxt_active;
+	struct kgsl_context *context = 0;
 	bool secured_ctxt = false;
+	uint64_t cond_addr;
 
 	if (drawctxt != NULL && kgsl_context_detached(&drawctxt->base) &&
 		!(flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
@@ -541,8 +545,10 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	/* If this is a internal IB, use the global timestamp for it */
 	if (!drawctxt || (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE))
 		timestamp = rb->timestamp;
-	else
+	else {
 		context_id = drawctxt->base.id;
+		context = &drawctxt->base;
+	}
 
 	/*
 	 * Note that we cannot safely take drawctxt->mutex here without
@@ -591,6 +597,14 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (adreno_is_a4xx(adreno_dev) || adreno_is_a3xx(adreno_dev))
 		total_sizedwords += 4;
 
+	if (gpudev->preemption_pre_ibsubmit &&
+				adreno_is_preemption_enabled(adreno_dev))
+		total_sizedwords += 20;
+
+	if (gpudev->preemption_post_ibsubmit &&
+				adreno_is_preemption_enabled(adreno_dev))
+		total_sizedwords += 13;
+
 	/*
 	 * a5xx uses 64 bit memory address. pm4 commands that involve read/write
 	 * from memory take 4 bytes more than a4xx because of 64 bit addressing.
@@ -626,6 +640,16 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 
 	*ringcmds++ = cp_packet(adreno_dev, CP_NOP, 1);
 	*ringcmds++ = KGSL_CMD_IDENTIFIER;
+
+	if (adreno_is_preemption_enabled(adreno_dev) &&
+				gpudev->preemption_pre_ibsubmit) {
+		cond_addr = device->memstore.gpuaddr +
+					KGSL_MEMSTORE_OFFSET(context_id,
+					 preempted);
+		ringcmds += gpudev->preemption_pre_ibsubmit(
+					adreno_dev, rb, ringcmds, context,
+					cond_addr, 0);
+	}
 
 	if (flags & KGSL_CMD_FLAGS_INTERNAL_ISSUE) {
 		*ringcmds++ = cp_packet(adreno_dev, CP_NOP, 1);
@@ -741,10 +765,22 @@ adreno_ringbuffer_addcmds(struct adreno_ringbuffer *rb,
 	if (secured_ctxt)
 		ringcmds += cp_secure_mode(adreno_dev, ringcmds, 0);
 
+	if (gpudev->preemption_post_ibsubmit &&
+				adreno_is_preemption_enabled(adreno_dev))
+		ringcmds += gpudev->preemption_post_ibsubmit(adreno_dev,
+					rb, ringcmds, &drawctxt->base);
+
+	/*
+	 * If we have more ringbuffer commands than space reserved
+	 * in ringbuffer BUG() to fix this because it will lead to
+	 * weird errors.
+	 */
+	if ((ringcmds - start) > total_sizedwords)
+		BUG();
 	/*
 	 *  Allocate total_sizedwords space in RB, this is the max space
 	 *  required. If we have commands less than the space reserved in RB
-	 *  adjust the wptr accordingly
+	 *  adjust the wptr accordingly.
 	 */
 	rb->wptr = rb->wptr - (total_sizedwords - (ringcmds - start));
 
@@ -872,7 +908,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 		struct kgsl_cmdbatch *cmdbatch, struct adreno_submit_time *time)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
-	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
 	struct kgsl_memobj_node *ib;
 	unsigned int numibs = 0;
 	unsigned int *link;
@@ -888,7 +923,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 	struct kgsl_cmdbatch_profiling_buffer *profile_buffer = NULL;
 	unsigned int dwords = 0;
 	struct adreno_submit_time local;
-	uint64_t cond_addr;
 
 	struct kgsl_mem_entry *entry = cmdbatch->profiling_buf_entry;
 	if (entry)
@@ -1023,18 +1057,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 
 	if (numibs) {
 		list_for_each_entry(ib, &cmdbatch->cmdlist, node) {
-			if ((ib->priv & MEMOBJ_PREAMBLE) &&
-				adreno_is_preemption_enabled(adreno_dev) &&
-				gpudev->preemption_pre_ibsubmit) {
-
-				cond_addr = device->memstore.gpuaddr +
-					KGSL_MEMSTORE_OFFSET(context->id,
-					 preempted);
-				cmds += gpudev->preemption_pre_ibsubmit(
-						adreno_dev, rb, cmds, context,
-						cond_addr, ib);
-			}
-
 			/*
 			 * Skip 0 sized IBs - these are presumed to have been
 			 * removed from consideration by the FT policy
@@ -1053,11 +1075,6 @@ int adreno_ringbuffer_submitcmd(struct adreno_device *adreno_dev,
 			use_preamble = false;
 		}
 	}
-
-	if (gpudev->preemption_post_ibsubmit &&
-				adreno_is_preemption_enabled(adreno_dev))
-		cmds += gpudev->preemption_post_ibsubmit(adreno_dev,
-					rb, cmds, context);
 
 	if (cmdbatch_kernel_profiling) {
 		cmds += _get_alwayson_counter(adreno_dev, cmds,
