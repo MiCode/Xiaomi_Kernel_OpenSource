@@ -537,6 +537,8 @@ static unsigned int convert_cmd(unsigned int cmd)
 		return QSEECOM_IOCTL_MDTP_CIPHER_DIP_REQ;
 	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ:
 		return QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ;
+	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP_64:
+		return QSEECOM_IOCTL_SEND_MODFD_RESP_64;
 
 	default:
 		return cmd;
@@ -855,7 +857,8 @@ long compat_qseecom_ioctl(struct file *file,
 						(unsigned long)data);
 	}
 	break;
-	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP: {
+	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP:
+	case COMPAT_QSEECOM_IOCTL_SEND_MODFD_RESP_64: {
 		struct compat_qseecom_send_modfd_listener_resp __user *data32;
 		struct qseecom_send_modfd_listener_resp __user *data;
 		int err;
