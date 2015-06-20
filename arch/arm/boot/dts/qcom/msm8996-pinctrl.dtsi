@@ -1591,14 +1591,14 @@
 			};
 		};
 
-		trigout_b: trigout_b {
+		trigout_a: trigout_a {
 			mux {
-				pins = "gpio4";
-				function = "qdss_cti_trig_out_b";
+				pins = "gpio25";
+				function = "qdss_cti_trig_out_a";
 			};
 
 			config {
-				pins = "gpio4";
+				pins = "gpio25";
 				drive-strength = <2>;
 				bias-disable;
 			};
