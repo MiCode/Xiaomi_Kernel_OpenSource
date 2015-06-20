@@ -577,7 +577,7 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 	return 0;
 err_dev:
 	if (rc && ice_dev->mmio)
-		iounmap(ice_dev->mmio);
+		devm_iounmap(dev, ice_dev->mmio);
 out:
 	return rc;
 }
@@ -729,7 +729,7 @@ static int qcom_ice_remove(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, false);
 	if (ice_dev->mmio)
-		iounmap(ice_dev->mmio);
+		devm_iounmap(&pdev->dev, ice_dev->mmio);
 
 	list_del_init(&ice_dev->list);
 	kfree(ice_dev);
