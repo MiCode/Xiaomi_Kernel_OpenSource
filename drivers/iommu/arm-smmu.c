@@ -44,6 +44,7 @@
 
 #include <linux/amba/bus.h>
 #include <soc/qcom/msm_tz_smmu.h>
+#include <soc/qcom/secure_buffer.h>
 #include <linux/msm_pcie.h>
 #include <asm/cacheflush.h>
 
@@ -407,6 +408,11 @@ enum arm_smmu_domain_stage {
 	ARM_SMMU_DOMAIN_NESTED,
 };
 
+struct arm_smmu_pte_info {
+	phys_addr_t phys_addr;
+	struct list_head entry;
+};
+
 struct arm_smmu_domain {
 	struct arm_smmu_device		*smmu;
 	struct io_pgtable_ops		*pgtbl_ops;
@@ -417,6 +423,8 @@ struct arm_smmu_domain {
 	struct mutex			lock;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	u32				attributes;
+	u32				secure_vmid;
+	struct list_head		pte_info_list;
 };
 
 static struct iommu_ops arm_smmu_ops;
@@ -911,11 +919,16 @@ static void arm_smmu_flush_pgtable(void *addr, size_t size, void *cookie)
 	}
 }
 
+static void arm_smmu_prepare_pgtable(void *addr, void *cookie);
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size);
+
 static struct iommu_gather_ops arm_smmu_gather_ops = {
 	.tlb_flush_all	= arm_smmu_tlb_inv_context,
 	.tlb_add_flush	= arm_smmu_tlb_inv_range_nosync,
 	.tlb_sync	= arm_smmu_tlb_sync,
 	.flush_pgtable	= arm_smmu_flush_pgtable,
+	.prepare_pgtable = arm_smmu_prepare_pgtable,
+	.unprepare_pgtable = arm_smmu_unprepare_pgtable,
 };
 
 static phys_addr_t arm_smmu_iova_to_phys(struct iommu_domain *domain,
@@ -1319,6 +1332,8 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 	if (!smmu_domain)
 		return -ENOMEM;
 
+	smmu_domain->secure_vmid = VMID_INVAL;
+	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
 	mutex_init(&smmu_domain->lock);
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->pgtbl_lock);
@@ -1613,6 +1628,63 @@ static void arm_smmu_detach_dev(struct iommu_domain *domain, struct device *dev)
 	mutex_unlock(&smmu_domain->init_mutex);
 }
 
+static void arm_smmu_assign_table(struct arm_smmu_domain *smmu_domain)
+{
+	int ret;
+	int dest_vmids[2] = {VMID_HLOS, smmu_domain->secure_vmid};
+	int dest_perms[2] = {PERM_READ | PERM_WRITE, PERM_READ};
+	int source_vmid = VMID_HLOS;
+	struct arm_smmu_pte_info *pte_info, *temp;
+
+	if (smmu_domain->secure_vmid == VMID_INVAL)
+		return;
+
+	list_for_each_entry(pte_info, &smmu_domain->pte_info_list,
+								entry) {
+		ret = hyp_assign_phys(pte_info->phys_addr, PAGE_SIZE,
+				&source_vmid, 1, dest_vmids, dest_perms, 2);
+		if (WARN_ON(ret))
+			break;
+	}
+
+	list_for_each_entry_safe(pte_info, temp, &smmu_domain->pte_info_list,
+								entry) {
+		list_del(&pte_info->entry);
+		kfree(pte_info);
+	}
+}
+
+static void arm_smmu_unprepare_pgtable(void *cookie, void *addr, size_t size)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	int ret;
+	int dest_vmids = VMID_HLOS;
+	int dest_perms = PERM_READ | PERM_WRITE;
+	int source_vmlist[2] = {VMID_HLOS, smmu_domain->secure_vmid};
+
+	if (smmu_domain->secure_vmid == VMID_INVAL)
+		return;
+
+	ret = hyp_assign_phys((phys_addr_t)virt_to_phys(addr), size,
+			source_vmlist, 2, &dest_vmids, &dest_perms, 1);
+	WARN_ON(ret);
+}
+
+static void arm_smmu_prepare_pgtable(void *addr, void *cookie)
+{
+	struct arm_smmu_domain *smmu_domain = cookie;
+	struct arm_smmu_pte_info *pte_info;
+
+	if (smmu_domain->secure_vmid == VMID_INVAL)
+		return;
+
+	pte_info = kzalloc(sizeof(struct arm_smmu_pte_info), GFP_ATOMIC);
+	if (!pte_info)
+		return;
+	pte_info->phys_addr = (phys_addr_t)virt_to_phys(addr);
+	list_add_tail(&pte_info->entry, &smmu_domain->pte_info_list);
+}
+
 static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 			phys_addr_t paddr, size_t size, int prot)
 {
@@ -1627,6 +1699,8 @@ static int arm_smmu_map(struct iommu_domain *domain, unsigned long iova,
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map(ops, iova, paddr, size, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	arm_smmu_assign_table(smmu_domain);
 
 	return ret;
 }
@@ -1645,6 +1719,8 @@ static size_t arm_smmu_map_sg(struct iommu_domain *domain, unsigned long iova,
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->map_sg(ops, iova, sg, nents, prot);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	arm_smmu_assign_table(smmu_domain);
 
 	return ret;
 }
@@ -1685,6 +1761,13 @@ static size_t arm_smmu_unmap(struct iommu_domain *domain, unsigned long iova,
 	spin_lock_irqsave(&smmu_domain->pgtbl_lock, flags);
 	ret = ops->unmap(ops, iova, size);
 	spin_unlock_irqrestore(&smmu_domain->pgtbl_lock, flags);
+
+	/*
+	 * While splitting up block mappings, we might allocate page table
+	 * memory during unmap, so the vmids needs to be assigned to the
+	 * memory here as well.
+	 */
+	arm_smmu_assign_table(smmu_domain);
 
 	if (atomic_ctx) {
 		arm_smmu_disable_clocks_atomic(smmu_domain->smmu);
@@ -1865,7 +1948,8 @@ static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
 		break;
 	}
 	case DOMAIN_ATTR_SECURE_VMID:
-		ret = 0;
+		BUG_ON(smmu_domain->secure_vmid != VMID_INVAL);
+		smmu_domain->secure_vmid = *((int *)data);
 		break;
 	case DOMAIN_ATTR_ATOMIC:
 	{

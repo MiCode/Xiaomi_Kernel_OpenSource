@@ -21,6 +21,8 @@ enum io_pgtable_fmt {
  * @tlb_add_flush: Queue up a TLB invalidation for a virtual address range.
  * @tlb_sync:      Ensure any queue TLB invalidation has taken effect.
  * @flush_pgtable: Ensure page table updates are visible to the IOMMU.
+ * @prepare_pgtable: Do necessary fixup for newly allocated page table memory
+ * @unprepare_pgtable: Undo fixups done during @prepare_pgtable
  *
  * Note that these can all be called in atomic context and must therefore
  * not block.
@@ -31,6 +33,8 @@ struct iommu_gather_ops {
 			      void *cookie);
 	void (*tlb_sync)(void *cookie);
 	void (*flush_pgtable)(void *ptr, size_t size, void *cookie);
+	void (*prepare_pgtable)(void *addr, void *cookie);
+	void (*unprepare_pgtable)(void *cookie, void *addr, size_t size);
 };
 
 /**

@@ -261,6 +261,7 @@ static int __arm_lpae_map(struct arm_lpae_io_pgtable *data, unsigned long iova,
 			pte |= ARM_LPAE_PTE_NSTABLE;
 		*ptep = pte;
 		data->iop.cfg.tlb->flush_pgtable(ptep, sizeof(*ptep), cookie);
+		data->iop.cfg.tlb->prepare_pgtable(cptep, cookie);
 	} else {
 		cptep = iopte_deref(pte, data);
 	}
@@ -412,6 +413,8 @@ static void __arm_lpae_free_pgtable(struct arm_lpae_io_pgtable *data, int lvl,
 		__arm_lpae_free_pgtable(data, lvl + 1, iopte_deref(pte, data));
 	}
 
+	data->iop.cfg.tlb->unprepare_pgtable(data->iop.cookie, start,
+								table_size);
 	free_pages_exact(start, table_size);
 }
 
@@ -745,7 +748,7 @@ arm_64_lpae_alloc_pgtable_s1(struct io_pgtable_cfg *cfg, void *cookie)
 		goto out_free_data;
 
 	cfg->tlb->flush_pgtable(data->pgd, data->pgd_size, cookie);
-
+	cfg->tlb->prepare_pgtable(data->pgd, cookie);
 	/* TTBRs */
 	cfg->arm_lpae_s1_cfg.ttbr[0] = virt_to_phys(data->pgd);
 	cfg->arm_lpae_s1_cfg.ttbr[1] = 0;
@@ -833,7 +836,7 @@ arm_64_lpae_alloc_pgtable_s2(struct io_pgtable_cfg *cfg, void *cookie)
 		goto out_free_data;
 
 	cfg->tlb->flush_pgtable(data->pgd, data->pgd_size, cookie);
-
+	cfg->tlb->prepare_pgtable(data->pgd, cookie);
 	/* VTTBR */
 	cfg->arm_lpae_s2_cfg.vttbr = virt_to_phys(data->pgd);
 	return &data->iop;

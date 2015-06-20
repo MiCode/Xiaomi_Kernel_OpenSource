@@ -38,8 +38,8 @@ int hyp_assign_table(struct sg_table *table,
 			int *dest_vmids, int *dest_perms,
 			int dest_nelems);
 int hyp_assign_phys(phys_addr_t addr, u64 size,
-			int *dest_vmids, int *dest_perms,
-			int dest_nelems);
+			u32 *source_vmlist, int source_nelems,
+			int *dest_vmids, int *dest_perms, int dest_nelems);
 bool msm_secure_v2_is_supported(void);
 #else
 static inline int msm_secure_table(struct sg_table *table)
@@ -58,8 +58,8 @@ static inline int hyp_assign_table(struct sg_table *table,
 	return -ENOSYS;
 }
 static inline int hyp_assign_phys(phys_addr_t addr, u64 size,
-			int *dest_vmids, int *dest_perms,
-			int dest_nelems)
+			u32 *source_vmlist, int source_nelems,
+			int *dest_vmids, int *dest_perms, int dest_nelems)
 {
 	return -ENOSYS;
 }
