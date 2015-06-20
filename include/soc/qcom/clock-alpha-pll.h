@@ -56,8 +56,9 @@ struct alpha_pll_clk {
 
 	struct alpha_pll_vco_tbl *vco_tbl;
 	u32 num_vco;
-
+	u32 current_vco_val;
 	bool inited;
+	bool slew;
 	bool no_prepared_reconfig;
 
 	struct clk c;
@@ -68,10 +69,10 @@ static inline struct alpha_pll_clk *to_alpha_pll_clk(struct clk *c)
 	return container_of(c, struct alpha_pll_clk, c);
 }
 
-void __init_alpha_pll(struct clk *c);
 
 #endif
-
+extern void __init_alpha_pll(struct clk *c);
 extern struct clk_ops clk_ops_alpha_pll;
 extern struct clk_ops clk_ops_alpha_pll_hwfsm;
 extern struct clk_ops clk_ops_fixed_alpha_pll;
+extern struct clk_ops clk_ops_dyna_alpha_pll;

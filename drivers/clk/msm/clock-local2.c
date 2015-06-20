@@ -56,6 +56,7 @@ struct clk_freq_tbl rcg_dummy_freq = F_END;
 #define VOTE_REG(x)	(*(x)->base + (x)->vote_reg)
 #define GATE_EN_REG(x)	(*(x)->base + (x)->en_reg)
 #define DIV_REG(x)	(*(x)->base + (x)->offset)
+#define MUX_REG(x)	(*(x)->base + (x)->offset)
 
 /*
  * Important clock bit positions and masks
@@ -278,6 +279,11 @@ static int rcg_clk_set_rate(struct clk *c, unsigned long rate)
 		return -EINVAL;
 
 	cf = rcg->current_freq;
+	if (nf->src_freq != FIXED_CLK_SRC) {
+		rc = clk_set_rate(nf->src_clk, nf->src_freq);
+		if (rc)
+			return rc;
+	}
 
 	rc = __clk_pre_reparent(c, nf->src_clk, &flags);
 	if (rc)
@@ -571,15 +577,14 @@ static void branch_clk_halt_check(struct clk *c, u32 halt_check,
 	}
 }
 
-static int branch_clk_set_flags(struct clk *c, unsigned flags)
+static int cbcr_set_flags(void * __iomem regaddr, unsigned flags)
 {
 	u32 cbcr_val;
 	unsigned long irq_flags;
-	struct branch_clk *branch = to_branch_clk(c);
 	int delay_us = 0, ret = 0;
 
 	spin_lock_irqsave(&local_clock_reg_lock, irq_flags);
-	cbcr_val = readl_relaxed(CBCR_REG(branch));
+	cbcr_val = readl_relaxed(regaddr);
 	switch (flags) {
 	case CLKFLAG_RETAIN_PERIPH:
 		cbcr_val |= BIT(13);
@@ -598,7 +603,7 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 	default:
 		ret = -EINVAL;
 	}
-	writel_relaxed(cbcr_val, CBCR_REG(branch));
+	writel_relaxed(cbcr_val, regaddr);
 	/* Make sure power is enabled before returning. */
 	mb();
 	udelay(delay_us);
@@ -606,6 +611,11 @@ static int branch_clk_set_flags(struct clk *c, unsigned flags)
 	spin_unlock_irqrestore(&local_clock_reg_lock, irq_flags);
 
 	return ret;
+}
+
+static int branch_clk_set_flags(struct clk *c, unsigned flags)
+{
+	return cbcr_set_flags(CBCR_REG(to_branch_clk(c)), flags);
 }
 
 static int branch_clk_enable(struct clk *c)
@@ -909,12 +919,17 @@ static u32 run_measurement(unsigned ticks, void __iomem *ctl_reg,
 unsigned long measure_get_rate(struct clk *c)
 {
 	unsigned long flags;
-	u32 gcc_xo4_reg;
+	u32 gcc_xo4_reg, regval;
 	u64 raw_count_short, raw_count_full;
 	unsigned ret;
 	u32 sample_ticks = 0x10000;
 	u32 multiplier = 0x1;
 	struct measure_clk_data *data = to_mux_clk(c)->priv;
+
+	regval = readl_relaxed(MUX_REG(to_mux_clk(c)));
+	/* clear post divider bits */
+	regval &= ~BM(15, 12);
+	writel_relaxed(regval, MUX_REG(to_mux_clk(c)));
 
 	ret = clk_prepare_enable(data->cxo);
 	if (ret) {
@@ -1490,6 +1505,12 @@ static enum handoff gate_clk_handoff(struct clk *c)
 	return HANDOFF_DISABLED_CLK;
 }
 
+static int gate_clk_set_flags(struct clk *c, unsigned flags)
+{
+	return cbcr_set_flags(GATE_EN_REG(to_gate_clk(c)), flags);
+}
+
+
 static int reset_clk_rst(struct clk *c, enum clk_reset_action action)
 {
 	struct reset_clk *rst = to_reset_clk(c);
@@ -1542,10 +1563,10 @@ static int mux_reg_set_mux_sel(struct mux_clk *clk, int sel)
 	unsigned long flags;
 
 	spin_lock_irqsave(&mux_reg_lock, flags);
-	regval = readl_relaxed(*clk->base + clk->offset);
+	regval = readl_relaxed(MUX_REG(clk));
 	regval &= ~(clk->mask << clk->shift);
 	regval |= (sel & clk->mask) << clk->shift;
-	writel_relaxed(regval, *clk->base + clk->offset);
+	writel_relaxed(regval, MUX_REG(clk));
 	/* Ensure switch request goes through before returning */
 	mb();
 	spin_unlock_irqrestore(&mux_reg_lock, flags);
@@ -1555,13 +1576,13 @@ static int mux_reg_set_mux_sel(struct mux_clk *clk, int sel)
 
 static int mux_reg_get_mux_sel(struct mux_clk *clk)
 {
-	u32 regval = readl_relaxed(*clk->base + clk->offset);
+	u32 regval = readl_relaxed(MUX_REG(clk));
 	return (regval >> clk->shift) & clk->mask;
 }
 
 static bool mux_reg_is_enabled(struct mux_clk *clk)
 {
-	u32 regval = readl_relaxed(*clk->base + clk->offset);
+	u32 regval = readl_relaxed(MUX_REG(clk));
 	return !!(regval & clk->en_mask);
 }
 
@@ -1973,6 +1994,7 @@ struct clk_ops clk_ops_gate = {
 	.set_rate = parent_set_rate,
 	.get_rate = parent_get_rate,
 	.round_rate = parent_round_rate,
+	.set_flags = gate_clk_set_flags,
 	.handoff = gate_clk_handoff,
 	.list_registers = gate_clk_list_registers,
 };
