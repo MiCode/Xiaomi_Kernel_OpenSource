@@ -632,6 +632,22 @@
 					bias-pull-down;
 				};
 			};
+
+			pcie0_clkreq_sleep: pcie0_clkreq_sleep {
+				pcie0 {
+					pins = "gpio36";
+					drive-strength = <2>;
+					bias-disabled;
+				};
+			};
+
+			pcie0_wake_sleep: pcie0_wake_sleep {
+				pcie0 {
+					pins = "gpio37";
+					drive-strength = <2>;
+					bias-disabled;
+				};
+			};
 		};
 
 		pcie1 {
@@ -673,6 +689,22 @@
 					bias-pull-down;
 				};
 			};
+
+			pcie1_clkreq_sleep: pcie1_clkreq_sleep {
+				pcie1 {
+					pins = "gpio131";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			pcie1_wake_sleep: pcie1_wake_sleep {
+				pcie1 {
+					pins = "gpio132";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
 		};
 
 		pcie2 {
@@ -712,6 +744,22 @@
 					pins = "gpio116";
 					drive-strength = <2>;
 					bias-pull-down;
+				};
+			};
+
+			pcie2_clkreq_sleep: pcie2_clkreq_sleep {
+				pcie2 {
+					pins = "gpio115";
+					drive-strength = <2>;
+					bias-disable;
+				};
+			};
+
+			pcie2_wake_sleep: pcie2_wake_sleep {
+				pcie2 {
+					pins = "gpio116";
+					drive-strength = <2>;
+					bias-disable;
 				};
 			};
 		};

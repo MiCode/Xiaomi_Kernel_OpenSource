@@ -1426,8 +1426,11 @@
 				"msi_24", "msi_25", "msi_26", "msi_27",
 				"msi_28", "msi_29", "msi_30", "msi_31";
 
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie0_clkreq_default &pcie0_perst_default &pcie0_wake_default>;
+		pinctrl-1 = <&pcie0_clkreq_sleep
+			&pcie0_perst_default
+			&pcie0_wake_sleep>;
 
 		perst-gpio = <&tlmm 35 0>;
 		wake-gpio = <&tlmm 37 0>;
@@ -1575,8 +1578,11 @@
 				"msi_24", "msi_25", "msi_26", "msi_27",
 				"msi_28", "msi_29", "msi_30", "msi_31";
 
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie1_clkreq_default &pcie1_perst_default &pcie1_wake_default>;
+		pinctrl-1 = <&pcie1_clkreq_sleep
+			&pcie1_perst_default
+			&pcie1_wake_sleep>;
 
 		perst-gpio = <&tlmm 130 0>;
 		wake-gpio = <&tlmm 132 0>;
@@ -1721,8 +1727,11 @@
 				"msi_24", "msi_25", "msi_26", "msi_27",
 				"msi_28", "msi_29", "msi_30", "msi_31";
 
-		pinctrl-names = "default";
+		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pcie2_clkreq_default &pcie2_perst_default &pcie2_wake_default>;
+		pinctrl-1 = <&pcie2_clkreq_sleep
+			&pcie2_perst_default
+			&pcie2_wake_sleep>;
 
 		perst-gpio = <&tlmm 114 0>;
 		wake-gpio = <&tlmm 116 0>;
