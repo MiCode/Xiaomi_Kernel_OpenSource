@@ -953,6 +953,37 @@ msm_select_image(struct device *dev, struct device_attribute *attr,
 	return count;
 }
 
+static ssize_t
+msm_get_images(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int pos = 0;
+	int image;
+	char *image_address;
+
+	image_address = socinfo_get_image_version_base_address();
+	if (IS_ERR_OR_NULL(image_address))
+		return snprintf(buf, PAGE_SIZE, "Unavailable\n");
+
+	*buf = '\0';
+	for (image = 0; image < SMEM_IMAGE_VERSION_BLOCKS_COUNT; image++) {
+		if (*image_address == '\0')
+			continue;
+
+		pos += snprintf(buf + pos, PAGE_SIZE - pos, "%d:\n",
+				image);
+		pos += snprintf(buf + pos, PAGE_SIZE - pos, "\tCRM:\t\t%-.75s\n",
+				image_address);
+		pos += snprintf(buf + pos, PAGE_SIZE - pos, "\tVariant:\t%-.20s\n",
+				image_address + SMEM_IMAGE_VERSION_VARIANT_OFFSET);
+		pos += snprintf(buf + pos, PAGE_SIZE - pos, "\tVersion:\t%-.32s\n\n",
+				image_address + SMEM_IMAGE_VERSION_OEM_OFFSET);
+
+		image_address += SMEM_IMAGE_VERSION_SINGLE_BLOCK_SIZE;
+	}
+
+	return pos;
+}
 
 static struct device_attribute msm_soc_attr_raw_version =
 	__ATTR(raw_version, S_IRUGO, msm_get_raw_version,  NULL);
@@ -1020,6 +1051,9 @@ static struct device_attribute image_crm_version =
 static struct device_attribute select_image =
 	__ATTR(select_image, S_IRUGO | S_IWUSR,
 			msm_get_image_number, msm_select_image);
+
+static struct device_attribute images =
+	__ATTR(images, S_IRUGO, msm_get_images, NULL);
 
 static void * __init setup_dummy_socinfo(void)
 {
@@ -1105,6 +1139,7 @@ static void __init populate_soc_sysfs_files(struct device *msm_soc_device)
 	device_create_file(msm_soc_device, &image_variant);
 	device_create_file(msm_soc_device, &image_crm_version);
 	device_create_file(msm_soc_device, &select_image);
+	device_create_file(msm_soc_device, &images);
 
 	switch (socinfo_format) {
 	case SOCINFO_VERSION(0, 11):
