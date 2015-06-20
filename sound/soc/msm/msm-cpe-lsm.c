@@ -33,6 +33,7 @@
 #define LISTEN_MAX_NUM_PERIODS     8
 #define LISTEN_MAX_PERIOD_SIZE     4096
 #define LISTEN_MIN_PERIOD_SIZE     320
+#define LISTEN_MAX_STATUS_PAYLOAD_SIZE 256
 
 #define MSM_CPE_LAB_THREAD_TIMEOUT (3 * (HZ/10))
 
@@ -1226,6 +1227,17 @@ static int msm_cpe_lsm_ioctl(struct snd_pcm_substream *substream,
 			err = -EFAULT;
 			goto done;
 		}
+
+		if (u_event_status.payload_size >
+		    LISTEN_MAX_STATUS_PAYLOAD_SIZE) {
+			dev_err(rtd->dev,
+				"%s: payload_size %d is invalid, max allowed = %d\n",
+				__func__, u_event_status.payload_size,
+				LISTEN_MAX_STATUS_PAYLOAD_SIZE);
+			err = -EINVAL;
+			goto done;
+		}
+
 		u_pld_size = sizeof(struct snd_lsm_event_status) +
 				u_event_status.payload_size;
 
@@ -1414,6 +1426,16 @@ static int msm_cpe_lsm_ioctl_compat(struct snd_pcm_substream *substream,
 				__func__,
 				sizeof(struct snd_lsm_event_status));
 			err = -EFAULT;
+			goto done;
+		}
+
+		if (u_event_status32.payload_size >
+		   LISTEN_MAX_STATUS_PAYLOAD_SIZE) {
+			dev_err(rtd->dev,
+				"%s: payload_size %d is invalid, max allowed = %d\n",
+				__func__, u_event_status32.payload_size,
+				LISTEN_MAX_STATUS_PAYLOAD_SIZE);
+			err = -EINVAL;
 			goto done;
 		}
 
