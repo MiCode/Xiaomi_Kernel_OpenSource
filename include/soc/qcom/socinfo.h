@@ -69,6 +69,8 @@
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9630")
 #define early_machine_is_mdm9640()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdm9640")
+#define early_machine_is_mdmcalifornium()	\
+	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,mdmcalifornium")
 #define early_machine_is_msmvpipa()	\
 	of_flat_dt_is_compatible(of_get_flat_dt_root(), "qcom,msmvpipa")
 #define early_machine_is_fsm9900()	\
@@ -109,20 +111,20 @@
 #define machine_is_apq8074()		0
 #define machine_is_msm8926()		0
 
-#define early_machine_is_msm8610()	0
-#define early_machine_is_msm8909()	0
-#define early_machine_is_msm8916()	0
-#define early_machine_is_msm8936()	0
-#define early_machine_is_msm8939()	0
-#define early_machine_is_apq8084()	0
-#define early_machine_is_mdm9630()	0
-#define early_machine_is_fsm9900()	0
-#define early_machine_is_fsm9010()	0
-#define early_machine_is_msm8952()	0
-#define early_machine_is_msm8976()	0
-#define early_machine_is_msm8956()	0
-#define early_machine_is_msm8929()	0
-#define early_machine_is_mdmfermium	0
+#define early_machine_is_msm8610()		0
+#define early_machine_is_msm8909()		0
+#define early_machine_is_msm8916()		0
+#define early_machine_is_msm8936()		0
+#define early_machine_is_msm8939()		0
+#define early_machine_is_apq8084()		0
+#define early_machine_is_mdm9630()		0
+#define early_machine_is_mdmcalifornium()	0
+#define early_machine_is_fsm9900()		0
+#define early_machine_is_fsm9010()		0
+#define early_machine_is_msm8952()		0
+#define early_machine_is_msm8976()		0
+#define early_machine_is_msm8929()		0
+#define early_machine_is_mdmfermium		0
 #endif
 
 #define PLATFORM_SUBTYPE_MDM	1
@@ -180,6 +182,7 @@ enum msm_cpu {
 	MSM_CPU_8956,
 	MSM_CPU_8929,
 	MSM_CPU_FERMIUM,
+	MSM_CPU_CALIFORNIUM,
 };
 
 struct msm_soc_info {

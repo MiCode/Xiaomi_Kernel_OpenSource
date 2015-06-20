@@ -77,6 +77,9 @@ SoCs:
 - MDMFERMIUM
   compatible = "qcom,mdmfermium"
 
+- MDMCALIFORNIUM
+  compatible = "qcom,mdmcalifornium"
+
 - VPIPA
   compatible = "qcom,msmvpipa"
 
@@ -243,3 +246,5 @@ compatible = "qcom,msm8929-qrd-skulb"
 compatible = "qcom,apq8052-cdp"
 compatible = "qcom,apq8052-mtp"
 compatible = "qcom,mdmfermium-rumi"
+compatible = "qcom,mdmcalifornium-rumi"
+compatible = "qcom,mdmcalifornium-sim"

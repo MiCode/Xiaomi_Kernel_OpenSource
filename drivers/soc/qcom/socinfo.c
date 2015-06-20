@@ -518,6 +518,12 @@ static struct msm_soc_info cpu_of_id[] = {
 	/* FERMIUM ID */
 	[290] = {MSM_CPU_FERMIUM, "MDMFERMIUM"},
 
+	/* Californium IDs */
+	[283] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
+	[284] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
+	[285] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
+	[286] = {MSM_CPU_CALIFORNIUM, "MDMCALIFORNIUM"},
+
 	/* Uninitialized IDs are not known to run Linux.
 	   MSM_CPU_UNKNOWN is set to 0 to ensure these IDs are
 	   considered as unknown CPU. */
@@ -1019,6 +1025,10 @@ static void * __init setup_dummy_socinfo(void)
 	} else if (early_machine_is_mdm9640()) {
 		dummy_socinfo.id = 238;
 		strlcpy(dummy_socinfo.build_id, "mdm9640 - ",
+			sizeof(dummy_socinfo.build_id));
+	} else if (early_machine_is_mdmcalifornium()) {
+		dummy_socinfo.id = 286;
+		strlcpy(dummy_socinfo.build_id, "mdmcalifornium - ",
 			sizeof(dummy_socinfo.build_id));
 	} else if (early_machine_is_msmvpipa()) {
 		dummy_socinfo.id = 238;
