@@ -455,6 +455,7 @@ static int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 		}
 	}
 
+	mutex_lock(&mhi->mhi_event_lock);
 	/* add the ring element */
 	mhi_dev_add_element(ring, el);
 
@@ -469,6 +470,7 @@ static int mhi_dev_send_event(struct mhi_dev *mhi, int evnt_ring,
 	 */
 	wmb();
 
+	mutex_unlock(&mhi->mhi_event_lock);
 	mhi_log(MHI_MSG_VERBOSE, "event sent:\n");
 	mhi_log(MHI_MSG_VERBOSE, "evnt ptr : 0x%llx\n", el->evt_tr_comp.ptr);
 	mhi_log(MHI_MSG_VERBOSE, "evnt len : 0x%x\n", el->evt_tr_comp.len);
@@ -1928,6 +1930,7 @@ static int mhi_dev_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&mhi_ctx->event_ring_list);
 	INIT_LIST_HEAD(&mhi_ctx->process_ring_list);
 	mutex_init(&mhi_ctx->mhi_lock);
+	mutex_init(&mhi_ctx->mhi_event_lock);
 	mutex_init(&mhi_ctx->mhi_write_test);
 
 	rc = mhi_init(mhi_ctx);
