@@ -55,7 +55,6 @@
 			gpios = <&msm_gpio 115 0x1>;
 			linux,input-type = <1>;
 			linux,code = <0x210>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -64,7 +63,6 @@
 			gpios = <&msm_gpio 114 0x1>;
 			linux,input-type = <1>;
 			linux,code = <0x2fe>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -73,7 +71,6 @@
 			gpios = <&msm_gpio 113 0x1>;
 			linux,input-type = <1>;
 			linux,code = <115>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 
@@ -82,7 +79,6 @@
 			gpios = <&msm_gpio 112 0x1>;
 			linux,input-type = <1>;
 			linux,code = <102>;
-			gpio-key,wakeup;
 			debounce-interval = <15>;
 		};
 	};
