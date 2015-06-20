@@ -1380,7 +1380,7 @@ static void msm_vfe47_read_wm_ping_pong_addr(
 	struct vfe_device *vfe_dev)
 {
 	msm_camera_io_dump_2(vfe_dev->vfe_base +
-		(VFE47_WM_BASE(0) & 0xFFFFFFF0), 0x100);
+		(VFE47_WM_BASE(0) & 0xFFFFFFF0), 0x200);
 }
 
 static void msm_vfe47_update_ping_pong_addr(
