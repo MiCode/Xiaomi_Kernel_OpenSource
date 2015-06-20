@@ -4284,7 +4284,7 @@ static int afe_set_cal_fb_spkr_prot(int32_t cal_type, size_t data_size,
 	if (data_size != sizeof(*cal_data))
 		goto done;
 
-	if (this_afe.prot_cfg.mode == MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS)
+	if (cal_data->cal_info.mode == MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS)
 		__pm_wakeup_event(&wl.ws, jiffies_to_msecs(WAKELOCK_TIMEOUT));
 	mutex_lock(&this_afe.cal_data[AFE_FB_SPKR_PROT_CAL]->lock);
 	memcpy(&this_afe.prot_cfg, &cal_data->cal_info,
