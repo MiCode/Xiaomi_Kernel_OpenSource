@@ -16,15 +16,15 @@
 	ad_hoc_bus: ad-hoc-bus {
 		/* Version = 16 */
 		compatible = "qcom,msm-bus-device";
-		reg = <0x520000 0xA000>,
+		reg = <0x520000 0x40000>,
 			<0x400000 0x62000>,
 			<0x5C0000 0x3000>,
 			<0x500000 0x1000>,
-			<0x5A0000 0x4000>,
-			<0x5A0000 0x4000>,
-			<0x540000 0x6000>,
-			<0x560000 0x4000>,
-			<0x580000 0x7000>;
+			<0x5A0000 0x40000>,
+			<0x5A0000 0x40000>,
+			<0x540000 0x9000>,
+			<0x560000 0x7000>,
+			<0x580000 0xA000>;
 		reg-names = "snoc-base", "bimc-base", "pnoc-base", "cnoc-base",
 			"mmnoc-base", "mmnoc-ahb-base", "a0noc-base",
 			"a1noc-base", "a2noc-base";
@@ -59,7 +59,6 @@
 			label = "fab-a1noc";
 			qcom,fab-dev;
 			qcom,base-name = "a1noc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <8192>;
@@ -79,7 +78,6 @@
 			label = "fab-a2noc";
 			qcom,fab-dev;
 			qcom,base-name = "a2noc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <12288>;
@@ -130,20 +128,44 @@
 			label = "fab-mnoc";
 			qcom,fab-dev;
 			qcom,base-name = "mmnoc-base";
-			qcom,bypass-qos-prg;
+			qcom,qos-off = <4096>;
+			qcom,base-offset = <16384>;
 			qcom,bus-type = <1>;
 			qcom,util-fact = <154>;
-			clock-names = "bus_clk", "bus_a_clk", "bus_qos_clk";
+			clock-names = "bus_clk", "bus_a_clk";
 			clocks = <&clock_mmss clk_mmss_s0_axi_clk>,
-			     <&clock_mmss  clk_mmss_s0_axi_clk>,
-			     <&clock_mmss  clk_mmss_mmagic_ahb_clk>;
-			bus-qos-gdsc-supply = <&gdsc_mmagic_bimc>;
+			     <&clock_mmss clk_mmss_s0_axi_clk>;
 			coresight-id = <202>;
 			coresight-name = "coresight-mnoc";
 			coresight-nr-inports = <0>;
 			coresight-outports = <0>;
 			coresight-child-list = <&funnel_in1>;
 			coresight-child-ports = <0>;
+			qcom,node-qos-clks {
+				clock-names = "mmagic-ahb-no-rate",
+				"mmagic-cfg-ahb-no-rate",
+				"mmagic-mdss-axi-no-rate",
+				"mmagic-mdss-cfg-noc-ahb-no-rate",
+				"mmagic-camss-axi-no-rate",
+				"mmagic-camss-cfg-noc-ahb-no-rate",
+				"mmagic-video-axi-no-rate",
+				"mmagic-video-cfg-noc-ahb-no-rate";
+				clocks = <&clock_mmss clk_mmss_mmagic_ahb_clk>,
+			     <&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>,
+			     <&clock_mmss clk_mmagic_mdss_axi_clk>,
+			     <&clock_mmss clk_mmagic_mdss_noc_cfg_ahb_clk>,
+			     <&clock_mmss clk_mmagic_camss_axi_clk>,
+			     <&clock_mmss clk_mmagic_camss_noc_cfg_ahb_clk>,
+			     <&clock_mmss clk_mmagic_video_axi_clk>,
+			     <&clock_mmss clk_mmagic_video_noc_cfg_ahb_clk>;
+				mmagic-ahb-no-rate-supply = <&gdsc_mmagic_bimc>;
+				mmagic-mdss-axi-no-rate-supply =
+							<&gdsc_mmagic_mdss>;
+				mmagic-camss-axi-no-rate-supply =
+							<&gdsc_mmagic_camss>;
+				mmagic-video-axi-no-rate-supply =
+							<&gdsc_mmagic_video>;
+			};
 		};
 
 		fab_mnoc_ahb: fab-mnoc-ahb {
@@ -183,7 +205,6 @@
 			label = "fab-snoc";
 			qcom,fab-dev;
 			qcom,base-name = "snoc-base";
-			qcom,bypass-qos-prg;
 			qcom,bus-type = <1>;
 			qcom,qos-off = <4096>;
 			qcom,base-offset = <16384>;
@@ -304,7 +325,6 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <4>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_a2noc_snoc>;
 			qcom,bus-dev = <&fab_a2noc>;
@@ -317,7 +337,6 @@
 			qcom,buswidth = <8>;
 			qcom,agg-ports = <1>;
 			qcom,ap-owned;
-			qcom,qport = <2>;
 			qcom,qos-mode = "fixed";
 			qcom,connections = <&slv_a2noc_snoc>;
 			qcom,prio1 = <1>;
@@ -480,8 +499,6 @@
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_CPP>;
-			clock-names = "bus_qos_clk";
-			clocks = <&clock_mmss  clk_mmss_mmagic_axi_clk>;
 		};
 
 		mas_jpeg: mas-jpeg {
@@ -495,8 +512,6 @@
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_JPEG>;
-			clock-names = "bus_qos_clk";
-			clocks = <&clock_mmss  clk_mmss_mmagic_axi_clk>;
 		};
 
 		mas_mdp_p0: mas-mdp-p0 {
@@ -511,8 +526,6 @@
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,vrail-comp = <25>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP0>;
-			clock-names = "bus_qos_clk";
-			clocks = <&clock_mmss  clk_mmss_mmagic_axi_clk>;
 		};
 
 		mas_mdp_p1: mas-mdp-p1 {
@@ -527,8 +540,6 @@
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,vrail-comp = <25>;
 			qcom,mas-rpm-id = <ICBID_MASTER_MDP1>;
-			clock-names = "bus_qos_clk";
-			clocks = <&clock_mmss  clk_mmss_mmagic_axi_clk>;
 		};
 
 		mas_rotator: mas-rotator {
@@ -542,8 +553,6 @@
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_ROTATOR>;
-			clock-names = "bus_qos_clk";
-			clocks = <&clock_mmss  clk_mmss_mmagic_axi_clk>;
 		};
 
 		mas_venus: mas-venus {
@@ -557,8 +566,6 @@
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VIDEO>;
-			clock-names = "bus_qos_clk";
-			clocks = <&clock_mmss  clk_mmss_mmagic_axi_clk>;
 		};
 
 		mas_vfe: mas-vfe {
@@ -572,8 +579,6 @@
 			qcom,connections = <&slv_mnoc_bimc>;
 			qcom,bus-dev = <&fab_mnoc>;
 			qcom,mas-rpm-id = <ICBID_MASTER_VFE>;
-			clock-names = "bus_qos_clk";
-			clocks = <&clock_mmss  clk_mmss_mmagic_axi_clk>;
 		};
 
 		mas_snoc_vmem: mas-snoc-vmem {
