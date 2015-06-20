@@ -23,6 +23,7 @@
 #include <linux/regulator/driver.h>
 
 struct cpr3_controller;
+struct cpr3_thread;
 
 /**
  * struct cpr3_fuse_param - defines one contiguous segment of a fuse parameter
@@ -90,22 +91,23 @@ struct cpr3_corner {
 };
 
 /**
- * struct cpr3_thread - CPR3 hardware thread data structure
- * @thread_id:		Hardware thread ID
+ * struct cpr3_regulator - CPR3 logical regulator instance associated with a
+ *			given CPR3 hardware thread
  * @of_node:		Device node associated with the device tree child node
- *			of this CPR3 thread
- * @ctrl:		Pointer to the CPR3 controller which manages this thread
- * @rdesc:		Regulator description for this thread
+ *			of this CPR3 regulator
+ * @thread:		Pointer to the CPR3 thread which manages this CPR3
+ *			regulator
+ * @name:		Unique name for this CPR3 regulator which is filled
+ *			using the device tree regulator-name property
+ * @rdesc:		Regulator description for this CPR3 regulator
  * @rdev:		Regulator device pointer for the regulator registered
- *			for this thread
+ *			for this CPR3 regulator
  * @ldo_regulator:	Pointer to the LDO supply regulator used to manage
  *			per-cluster LDO voltage and bypass state
  * @ldo_regulator_bypass: Cached copy of the LDO regulator bypass state
  * @ldo_ret_regulator:	Pointer to the LDO retention supply regulator used to
  *			manage LDO retention bypass state
- * @name:		Unique name for this thread which is filled using the
- *			device tree regulator-name property
- * @corner:		Array of all corners supported by this thread
+ * @corner:		Array of all corners supported by this CPR3 regulator
  * @corner_count:	The number of elements in the corner array
  * @platform_fuses:	Pointer to platform specific CPR fuse data (only used by
  *			platform specific CPR3 driver)
@@ -114,26 +116,20 @@ struct cpr3_corner {
  * @fuse_combo:		Platform specific enum value identifying the specific
  *			combination of fuse values found on a given chip
  * @fuse_combos_supported: The number of fuse combinations supported by the
- *			device tree configuration for this CPR thread
+ *			device tree configuration for this CPR3 regulator
  * @fuse_corner_count:	Number of corners defined by fuse parameters
- * @step_volt:		Step size in microvolts between available set points
- *			of the VDD supply
- * @consecutive_up:	The number of consecutive CPR step up events needed to
- *			to trigger an up interrupt
- * @consecutive_down:	The number of consecutive CPR step down events needed to
- *			to trigger a down interrupt
- * @up_threshold:	The number CPR error steps required to generate an up
- *			event
- * @down_threshold:	The number CPR error steps required to generate a down
- *			event
+ * @pd_bypass_mask:	Bit mask of power domains associated with this CPR3
+ *			regulator
  * @current_corner:	Index identifying the currently selected voltage corner
- *			for the thread or less than 0 if no corner has been
- *			requested
+ *			for the CPR3 regulator or less than 0 if no corner has
+ *			been requested
  * @last_closed_loop_corner: Index identifying the last voltage corner for the
- *			thread which was configured when operating in CPR
- *			closed-loop mode or less than 0 if no corner has been
- *			requested.  CPR registers are only written to when using
- *			closed-loop mode.
+ *			CPR3 regulator which was configured when operating in
+ *			CPR closed-loop mode or less than 0 if no corner has
+ *			been requested.  CPR registers are only written to when
+ *			using closed-loop mode.
+ * @aggregated:		Boolean flag indicating that this CPR3 regulator
+ *			participated in the last aggregation event
  * @debug_corner:	Index identifying voltage corner used for displaying
  *			corner configuration values in debugfs
  * @ldo_headroom_volt:	Voltage difference in microvolts required between the
@@ -144,45 +140,84 @@ struct cpr3_corner {
  * @ldo_max_volt:	The maximum physically supported LDO voltage in
  *			microvolts
  * @ldo_mode_allowed:	Boolean which indicates if LDO mode is allowed for this
- *			CPR3 thread
- * @vreg_enabled:	Boolean defining the state of the thread's regulator
- *			within the regulator framework.
+ *			CPR3 regulator
+ * @vreg_enabled:	Boolean defining the enable state of the CPR3
+ *			regulator's regulator within the regulator framework.
  *
  * This structure contains both configuration and runtime state data.  The
- * elements current_corner, last_closed_loop_corner, debug_corner, and
- * vreg_enabled are state variables.
+ * elements current_corner, last_closed_loop_corner, aggregated, debug_corner,
+ * ldo_mode_allowed, and vreg_enabled are state variables.
  */
-struct cpr3_thread {
-	u32			thread_id;
+struct cpr3_regulator {
 	struct device_node	*of_node;
-	struct cpr3_controller	*ctrl;
+	struct cpr3_thread	*thread;
+	const char		*name;
 	struct regulator_desc	rdesc;
 	struct regulator_dev	*rdev;
 	struct regulator	*ldo_regulator;
 	bool			ldo_regulator_bypass;
 	struct regulator	*ldo_ret_regulator;
-	const char		*name;
 	struct cpr3_corner	*corner;
 	int			corner_count;
+
 	void			*platform_fuses;
 	int			speed_bin_fuse;
 	int			cpr_rev_fuse;
 	int			fuse_combo;
 	int			fuse_combos_supported;
 	int			fuse_corner_count;
-	int			step_volt;
-	u32			consecutive_up;
-	u32			consecutive_down;
-	u32			up_threshold;
-	u32			down_threshold;
+	u32			pd_bypass_mask;
+
 	int			current_corner;
 	int			last_closed_loop_corner;
+	bool			aggregated;
 	int			debug_corner;
 	int			ldo_headroom_volt;
 	int			ldo_adjust_volt;
 	int			ldo_max_volt;
 	bool			ldo_mode_allowed;
 	bool			vreg_enabled;
+};
+
+/**
+ * struct cpr3_thread - CPR3 hardware thread data structure
+ * @thread_id:		Hardware thread ID
+ * @of_node:		Device node associated with the device tree child node
+ *			of this CPR3 thread
+ * @ctrl:		Pointer to the CPR3 controller which manages this thread
+ * @vreg:		Array of CPR3 regulators handled by the CPR3 thread
+ * @vreg_count:		Number of elements in the vreg array
+ * @aggr_corner:	CPR corner containing the in process aggregated voltage
+ *			and target quotient configurations which will be applied
+ * @last_closed_loop_aggr_corner: CPR corner containing the most recent
+ *			configurations which were written into hardware
+ *			registers when operating in closed loop mode (i.e. with
+ *			CPR enabled)
+ * @consecutive_up:	The number of consecutive CPR step up events needed to
+ *			to trigger an up interrupt
+ * @consecutive_down:	The number of consecutive CPR step down events needed to
+ *			to trigger a down interrupt
+ * @up_threshold:	The number CPR error steps required to generate an up
+ *			event
+ * @down_threshold:	The number CPR error steps required to generate a down
+ *			event
+ *
+ * This structure contains both configuration and runtime state data.  The
+ * elements aggr_corner and last_closed_loop_aggr_corner are state variables.
+ */
+struct cpr3_thread {
+	u32			thread_id;
+	struct device_node	*of_node;
+	struct cpr3_controller	*ctrl;
+	struct cpr3_regulator	*vreg;
+	int			vreg_count;
+	struct cpr3_corner	aggr_corner;
+	struct cpr3_corner	last_closed_loop_aggr_corner;
+
+	u32			consecutive_up;
+	u32			consecutive_down;
+	u32			up_threshold;
+	u32			down_threshold;
 };
 
 /* Per CPR controller data */
@@ -261,6 +296,8 @@ enum cpr3_count_mode {
  *			ticks observed when increasing one step in vdd-supply
  *			output voltage.
  * @step_quot_init_max:	The default maximum CPR step quotient value.
+ * @step_volt:		Step size in microvolts between available set points
+ *			of the VDD supply
  * @count_mode:		CPR controller count mode
  * @count_repeat:	Number of times to perform consecutive sensor
  *			measurements when using all-at-once count modes.
@@ -328,6 +365,7 @@ struct cpr3_controller {
 	u32			idle_clocks;
 	u32			step_quot_init_min;
 	u32			step_quot_init_max;
+	int			step_volt;
 	enum cpr3_count_mode	count_mode;
 	u32			count_repeat;
 	u32			proc_clock_throttle;
@@ -368,8 +406,6 @@ int cpr3_regulator_unregister(struct cpr3_controller *ctrl);
 int cpr3_regulator_suspend(struct cpr3_controller *ctrl);
 int cpr3_regulator_resume(struct cpr3_controller *ctrl);
 
-int cpr3_get_thread_name(struct cpr3_thread *thread,
-			struct device_node *thread_node);
 int cpr3_allocate_threads(struct cpr3_controller *ctrl, u32 min_thread_id,
 			u32 max_thread_id);
 int cpr3_map_fuse_base(struct cpr3_controller *ctrl,
@@ -379,23 +415,23 @@ int cpr3_read_fuse_param(void __iomem *fuse_base_addr,
 int cpr3_convert_open_loop_voltage_fuse(int ref_volt, int step_volt, u32 fuse,
 			int fuse_len);
 u64 cpr3_interpolate(u64 x1, u64 y1, u64 x2, u64 y2, u64 x);
-int cpr3_parse_array_property(struct cpr3_thread *thread,
+int cpr3_parse_array_property(struct cpr3_regulator *vreg,
 			const char *prop_name, int corner_count, int corner_sum,
 			int combo_offset, u32 *out);
-int cpr3_parse_common_corner_data(struct cpr3_thread *thread, int *corner_sum,
+int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg, int *corner_sum,
 			int *combo_offset);
-int cpr3_parse_u32(struct cpr3_thread *thread, const char *propname,
+int cpr3_parse_thread_u32(struct cpr3_thread *thread, const char *propname,
 		       u32 *out_value, u32 value_min, u32 value_max);
 int cpr3_parse_ctrl_u32(struct cpr3_controller *ctrl, const char *propname,
 		       u32 *out_value, u32 value_min, u32 value_max);
 int cpr3_parse_common_thread_data(struct cpr3_thread *thread);
 int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl);
-int cpr3_limit_open_loop_voltages(struct cpr3_thread *thread);
-void cpr3_open_loop_voltage_as_ceiling(struct cpr3_thread *thread);
-void cpr3_print_quots(struct cpr3_thread *thread);
-int cpr3_adjust_fused_open_loop_voltages(struct cpr3_thread *thread,
+int cpr3_limit_open_loop_voltages(struct cpr3_regulator *vreg);
+void cpr3_open_loop_voltage_as_ceiling(struct cpr3_regulator *vreg);
+void cpr3_print_quots(struct cpr3_regulator *vreg);
+int cpr3_adjust_fused_open_loop_voltages(struct cpr3_regulator *vreg,
 		int *fuse_volt);
-int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread, int corner_sum,
+int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg, int corner_sum,
 		int combo_offset);
 int cpr3_quot_adjustment(int ro_scale, int volt_adjust);
 
@@ -457,20 +493,20 @@ static inline u64 cpr3_interpolate(u64 x1, u64 y1, u64 x2, u64 y2, u64 x)
 	return 0;
 }
 
-static inline int cpr3_parse_array_property(struct cpr3_thread *thread,
+static inline int cpr3_parse_array_property(struct cpr3_regulator *vreg,
 			const char *prop_name, int corner_count, int corner_sum,
 			int combo_offset, u32 *out)
 {
 	return -EPERM;
 }
 
-static inline int cpr3_parse_common_corner_data(struct cpr3_thread *thread,
+static inline int cpr3_parse_common_corner_data(struct cpr3_regulator *vreg,
 			int *corner_sum, int *combo_offset)
 {
 	return -EPERM;
 }
 
-static inline int cpr3_parse_u32(struct cpr3_thread *thread,
+static inline int cpr3_parse_thread_u32(struct cpr3_thread *thread,
 			const char *propname, u32 *out_value, u32 value_min,
 			u32 value_max)
 {
@@ -494,28 +530,29 @@ static inline int cpr3_parse_common_ctrl_data(struct cpr3_controller *ctrl)
 	return -EPERM;
 }
 
-static inline int cpr3_limit_open_loop_voltages(struct cpr3_thread *thread)
+static inline int cpr3_limit_open_loop_voltages(struct cpr3_regulator *vreg)
 {
 	return -EPERM;
 }
 
-static inline void cpr3_open_loop_voltage_as_ceiling(struct cpr3_thread *thread)
+static inline void cpr3_open_loop_voltage_as_ceiling(
+			struct cpr3_regulator *vreg)
 {
 	return;
 }
 
-static inline void cpr3_print_quots(struct cpr3_thread *thread)
+static inline void cpr3_print_quots(struct cpr3_regulator *vreg)
 {
 	return;
 }
 
 static inline int cpr3_adjust_fused_open_loop_voltages(
-		struct cpr3_thread *thread, int *fuse_volt)
+		struct cpr3_regulator *vreg, int *fuse_volt)
 {
 	return -EPERM;
 }
 
-static inline int cpr3_adjust_open_loop_voltages(struct cpr3_thread *thread,
+static inline int cpr3_adjust_open_loop_voltages(struct cpr3_regulator *vreg,
 		int corner_sum, int combo_offset)
 {
 	return -EPERM;

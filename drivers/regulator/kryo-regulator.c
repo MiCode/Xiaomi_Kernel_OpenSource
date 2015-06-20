@@ -518,6 +518,12 @@ static int kryo_hw_init(struct kryo_regulator *kvreg)
 	kryo_masked_write(kvreg, APC_PWR_GATE_DLY, APC_PWR_GATE_DLY_MASK,
 			   APC_PWR_GATE_DLY_INIT);
 
+	/* Allow LDO retention mode only when it's safe to do so */
+	kryo_pm_apcc_masked_write(kvreg,
+				  APCC_PWR_CTL_OVERRIDE,
+				  APCC_PGS_MASK(kvreg->cluster_num),
+				  APCC_PGS_MASK(kvreg->cluster_num));
+
 	/* Complete the above writes before other accesses */
 	mb();
 

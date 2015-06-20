@@ -25,14 +25,6 @@
 	qcom,msm-id = <246 0x20001>;
 };
 
-&apc0_vreg {
-	qcom,ldo-disable;
-};
-
-&apc1_vreg {
-	qcom,ldo-disable;
-};
-
 &clock_gcc {
 	compatible = "qcom,gcc-8996-v2";
 };
