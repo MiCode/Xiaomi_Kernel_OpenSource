@@ -2173,6 +2173,15 @@ static int ipa_setup_apps_pipes(void)
 	} else {
 		WARN_ON(1);
 	}
+
+	/**
+	 * ipa_lan_rx_cb() intended to notify the source EP about packet
+	 * being received on the LAN_CONS via calling the source EP call-back.
+	 * There could be a race condition with calling this call-back. Other
+	 * thread may nullify it - e.g. on EP disconnect.
+	 * This lock intended to protect the access to the source EP call-back
+	 */
+	spin_lock_init(&ipa_ctx->lan_rx_clnt_notify_lock);
 	if (ipa_setup_sys_pipe(&sys_in, &ipa_ctx->clnt_hdl_data_in)) {
 		IPAERR(":setup sys pipe failed.\n");
 		result = -EPERM;
