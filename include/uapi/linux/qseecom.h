@@ -331,4 +331,7 @@ extern long qseecom_ioctl(struct file *file,
 #define QSEECOM_IOCTL_SEND_MODFD_CMD_64_REQ \
 	_IOWR(QSEECOM_IOC_MAGIC, 35, struct qseecom_send_modfd_cmd_req)
 
+#define QSEECOM_IOCTL_SEND_MODFD_RESP_64 \
+	_IOWR(QSEECOM_IOC_MAGIC, 36, struct qseecom_send_modfd_listener_resp)
+
 #endif /* _UAPI_QSEECOM_H_ */
