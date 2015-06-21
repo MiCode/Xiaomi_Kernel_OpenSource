@@ -451,7 +451,7 @@ static int qcom_ice_get_device_tree_data(struct platform_device *pdev,
 	return 0;
 err_dev:
 	if (rc && ice_dev->mmio)
-		iounmap(ice_dev->mmio);
+		devm_iounmap(dev, ice_dev->mmio);
 out:
 	return rc;
 }
