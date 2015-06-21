@@ -1607,6 +1607,7 @@ static ssize_t debug_read(struct file *file, char __user *buf,
 {
 	int (*fill)(char *buf, int max) = file->private_data;
 	int bsize = fill(debug_buffer, DEBUG_BUFMAX);
+
 	return simple_read_from_buffer(buf, count, ppos, debug_buffer, bsize);
 }
 
@@ -2824,9 +2825,8 @@ static int __init bam_dmux_init(void)
 
 	bam_ipc_log_txt = ipc_log_context_create(BAM_IPC_LOG_PAGES, "bam_dmux",
 			0);
-	if (!bam_ipc_log_txt) {
+	if (!bam_ipc_log_txt)
 		pr_err("%s : unable to create IPC Logging Context", __func__);
-	}
 
 	rx_timer_interval = DEFAULT_POLLING_MIN_SLEEP;
 
