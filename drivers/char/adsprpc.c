@@ -209,9 +209,14 @@ static void fastrpc_buf_free(struct fastrpc_buf *buf, int cache)
 		spin_unlock(&fl->hlock);
 		return;
 	}
-	if (!IS_ERR_OR_NULL(buf->virt))
+	if (!IS_ERR_OR_NULL(buf->virt)) {
+#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+		if (fl->sctx->smmu.cb)
+			buf->phys &= ~((dma_addr_t)fl->sctx->smmu.cb << 32);
+#endif
 		dma_free_coherent(fl->sctx->smmu.dev, buf->size,
 				  buf->virt, buf->phys);
+	}
 	kfree(buf);
 }
 
@@ -737,8 +742,7 @@ static int clear_user_outbufs(struct smq_invoke_ctx *ctx)
 	return err;
 }
 
-static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
-			remote_arg_t *upra)
+static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx)
 {
 	remote_arg_t *rpra;
 	remote_arg_t *lpra = ctx->lpra;
@@ -875,7 +879,7 @@ static int get_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	size = sizeof(*rpra) * REMOTE_SCALARS_INHANDLES(sc);
 	if (size) {
 		inh = inbufs + outbufs;
-		K_COPY_FROM_USER(err, kernel, &rpra[inh], &upra[inh], size);
+		K_COPY_FROM_USER(err, kernel, &rpra[inh], &lpra[inh], size);
 		if (err)
 			goto bail;
 	}
@@ -896,8 +900,10 @@ static int put_args(uint32_t kernel, struct smq_invoke_ctx *ctx,
 	outbufs = REMOTE_SCALARS_OUTBUFS(sc);
 	for (i = inbufs; i < inbufs + outbufs; ++i) {
 		if (!ctx->maps[i]) {
-			K_COPY_TO_USER(err, kernel, upra[i].buf.pv,
-					rpra[i].buf.pv, rpra[i].buf.len);
+			K_COPY_TO_USER(err, kernel,
+				ctx->lpra[i].buf.pv,
+				rpra[i].buf.pv,
+				rpra[i].buf.len);
 			if (err)
 				goto bail;
 		} else {
@@ -1056,7 +1062,7 @@ static int fastrpc_internal_invoke(struct fastrpc_file *fl, uint32_t mode,
 		goto bail;
 
 	if (REMOTE_SCALARS_LENGTH(ctx->sc)) {
-		VERIFY(err, 0 == get_args(kernel, ctx, invoke->pra));
+		VERIFY(err, 0 == get_args(kernel, ctx));
 		if (err)
 			goto bail;
 	}
