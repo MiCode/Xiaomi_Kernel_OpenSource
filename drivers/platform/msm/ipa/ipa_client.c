@@ -539,7 +539,9 @@ int ipa_disconnect(u32 clnt_hdl)
 
 	ipa_delete_dflt_flt_rules(clnt_hdl);
 
+	spin_lock(&ipa_ctx->lan_rx_clnt_notify_lock);
 	memset(&ipa_ctx->ep[clnt_hdl], 0, sizeof(struct ipa_ep_context));
+	spin_unlock(&ipa_ctx->lan_rx_clnt_notify_lock);
 
 	ipa_dec_client_disable_clks();
 
