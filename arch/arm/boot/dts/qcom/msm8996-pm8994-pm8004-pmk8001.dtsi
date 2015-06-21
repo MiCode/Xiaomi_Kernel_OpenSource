@@ -1,0 +1,31 @@
+/* Copyright (c) 2015, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/*
+ * As a general rule, only chipset-specific property overrides should be placed
+ * inside this file.
+ */
+
+#include "msm8996-pm8994-pm8004.dtsi"
+#include "msm-pmk8001.dtsi"
+
+/ {
+	qcom,pmic-id = <0x20009 0x1000C 0x10012 0x0>;
+};
+
+/*
+ * Override PM8994 resources with proper PMK8001 resources for MSM8996 with
+ * PMK8001.
+ */
+&pm8994_rtc {
+	status = "disabled";
+};
