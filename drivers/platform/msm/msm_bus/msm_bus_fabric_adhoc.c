@@ -60,6 +60,60 @@ ssize_t vrail_store(struct device *dev, struct device_attribute *attr,
 
 DEVICE_ATTR(vrail, 0600, vrail_show, vrail_store);
 
+ssize_t bw_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct msm_bus_node_info_type *node_info = NULL;
+	struct msm_bus_node_device_type *bus_node = NULL;
+	int i;
+	int off = 0;
+
+	bus_node = dev->platform_data;
+	if (!bus_node)
+		return -EINVAL;
+	node_info = bus_node->node_info;
+
+	for (i = 0; i < bus_node->num_lnodes; i++) {
+		if (!bus_node->lnode_list[i].in_use)
+			continue;
+		off += scnprintf((buf + off), PAGE_SIZE,
+		"[%d]:%s:Act_IB %llu Act_AB %llu Slp_IB %llu Slp_AB %llu\n",
+			i, bus_node->lnode_list[i].cl_name,
+			bus_node->lnode_list[i].lnode_ib[ACTIVE_CTX],
+			bus_node->lnode_list[i].lnode_ab[ACTIVE_CTX],
+			bus_node->lnode_list[i].lnode_ib[DUAL_CTX],
+			bus_node->lnode_list[i].lnode_ab[DUAL_CTX]);
+		trace_printk(
+		"[%d]:%s:Act_IB %llu Act_AB %llu Slp_IB %llu Slp_AB %llu\n",
+			i, bus_node->lnode_list[i].cl_name,
+			bus_node->lnode_list[i].lnode_ib[ACTIVE_CTX],
+			bus_node->lnode_list[i].lnode_ab[ACTIVE_CTX],
+			bus_node->lnode_list[i].lnode_ib[DUAL_CTX],
+			bus_node->lnode_list[i].lnode_ab[DUAL_CTX]);
+	}
+	off += scnprintf((buf + off), PAGE_SIZE,
+	"Max_Act_IB %llu Sum_Act_AB %llu\nMax_Slp_IB %llu Sum_Slp_AB %llu\n",
+		bus_node->node_bw[ACTIVE_CTX].max_ib,
+		bus_node->node_bw[ACTIVE_CTX].sum_ab,
+		bus_node->node_bw[DUAL_CTX].max_ib,
+		bus_node->node_bw[DUAL_CTX].sum_ab);
+	trace_printk(
+	"Max_Act_IB %llu Sum_Act_AB %llu\nMax_Slp_IB %llu Sum_Slp_AB %llu\n",
+		bus_node->node_bw[ACTIVE_CTX].max_ib,
+		bus_node->node_bw[ACTIVE_CTX].sum_ab,
+		bus_node->node_bw[DUAL_CTX].max_ib,
+		bus_node->node_bw[DUAL_CTX].sum_ab);
+	return off;
+}
+
+ssize_t bw_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	return count;
+}
+
+DEVICE_ATTR(bw, 0600, bw_show, bw_store);
+
 struct static_rules_type {
 	int num_rules;
 	struct bus_rule_type *rules;
@@ -206,12 +260,7 @@ static int msm_bus_agg_fab_clks(struct device *bus_dev, void *data)
 {
 	struct msm_bus_node_device_type *node = NULL;
 	int ret = 0;
-	int ctx = *(int *)data;
-
-	if (ctx >= NUM_CTX) {
-		MSM_BUS_ERR("%s: Invalid Context %d", __func__, ctx);
-		goto exit_agg_fab_clks;
-	}
+	int ctx;
 
 	node = bus_dev->platform_data;
 	if (!node) {
@@ -224,8 +273,12 @@ static int msm_bus_agg_fab_clks(struct device *bus_dev, void *data)
 
 		bus_dev = node->node_info->bus_device->platform_data;
 
-		if (node->cur_clk_hz[ctx] >= bus_dev->cur_clk_hz[ctx])
-			bus_dev->cur_clk_hz[ctx] = node->cur_clk_hz[ctx];
+		for (ctx = 0; ctx < NUM_CTX; ctx++) {
+			if (node->node_bw[ctx].cur_clk_hz >=
+					bus_dev->node_bw[ctx].cur_clk_hz)
+				bus_dev->node_bw[ctx].cur_clk_hz =
+						node->node_bw[ctx].cur_clk_hz;
+		}
 	}
 
 exit_agg_fab_clks:
@@ -236,12 +289,7 @@ static int msm_bus_reset_fab_clks(struct device *bus_dev, void *data)
 {
 	struct msm_bus_node_device_type *node = NULL;
 	int ret = 0;
-	int ctx = *(int *)data;
-
-	if (ctx >= NUM_CTX) {
-		MSM_BUS_ERR("%s: Invalid Context %d", __func__, ctx);
-		goto exit_reset_fab_clks;
-	}
+	int ctx;
 
 	node = bus_dev->platform_data;
 	if (!node) {
@@ -250,8 +298,11 @@ static int msm_bus_reset_fab_clks(struct device *bus_dev, void *data)
 	}
 
 	if (node->node_info->is_fab_dev) {
-		node->cur_clk_hz[ctx] = 0;
-		MSM_BUS_DBG("Resetting for node %d", node->node_info->id);
+		for (ctx = 0; ctx < NUM_CTX; ctx++) {
+			node->node_bw[ctx].cur_clk_hz = 0;
+			MSM_BUS_DBG("Resetting for node %d",
+						node->node_info->id);
+		}
 	}
 exit_reset_fab_clks:
 	return ret;
@@ -280,10 +331,10 @@ static int send_rpm_msg(struct device *device)
 					ctx++) {
 		if (ctx == MSM_RPM_CTX_ACTIVE_SET)
 			rpm_kvp.data =
-			(uint8_t *)&ndev->node_ab.ab[MSM_RPM_CTX_ACTIVE_SET];
+			(uint8_t *)&ndev->node_bw[ACTIVE_CTX].sum_ab;
 		else {
 			rpm_kvp.data =
-			(uint8_t *) &ndev->node_ab.ab[MSM_RPM_CTX_SLEEP_SET];
+			(uint8_t *) &ndev->node_bw[DUAL_CTX].sum_ab;
 		}
 
 		if (ndev->node_info->mas_rpm_id != -1) {
@@ -331,7 +382,8 @@ static int flush_bw_data(struct device *node_device, int ctx)
 		goto exit_flush_bw_data;
 	}
 
-	if (node_info->node_ab.dirty) {
+	if (node_info->node_bw[ACTIVE_CTX].last_sum_ab !=
+				node_info->node_bw[ACTIVE_CTX].sum_ab) {
 		if (node_info->ap_owned) {
 			struct msm_bus_node_device_type *bus_device =
 				node_info->node_info->bus_device->platform_data;
@@ -353,7 +405,10 @@ static int flush_bw_data(struct device *node_device, int ctx)
 				MSM_BUS_ERR("%s: Failed to send RPM msg for%d",
 				__func__, node_info->node_info->id);
 		}
-		node_info->node_ab.dirty = false;
+		node_info->node_bw[ACTIVE_CTX].last_sum_ab =
+					node_info->node_bw[ACTIVE_CTX].sum_ab;
+		node_info->node_bw[DUAL_CTX].last_sum_ab =
+					node_info->node_bw[DUAL_CTX].sum_ab;
 	}
 
 exit_flush_bw_data:
@@ -376,8 +431,8 @@ static int flush_clk_data(struct device *node_device, int ctx)
 
 	nodeclk = &node->clk[ctx];
 	if (node->node_info->is_fab_dev) {
-		if (nodeclk->rate != node->cur_clk_hz[ctx]) {
-			nodeclk->rate = node->cur_clk_hz[ctx];
+		if (nodeclk->rate != node->node_bw[ctx].cur_clk_hz) {
+			nodeclk->rate = node->node_bw[ctx].cur_clk_hz;
 			nodeclk->dirty = true;
 		}
 	}
@@ -426,7 +481,7 @@ static int flush_clk_data(struct device *node_device, int ctx)
 exit_flush_clk_data:
 	/* Reset the aggregated clock rate for fab devices*/
 	if (node && node->node_info->is_fab_dev)
-		node->cur_clk_hz[ctx] = 0;
+		node->node_bw[ctx].cur_clk_hz = 0;
 
 	if (nodeclk)
 		nodeclk->dirty = 0;
@@ -440,8 +495,7 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 	struct msm_bus_node_device_type *node_info;
 
 	/* Aggregate the bus clocks */
-	bus_for_each_dev(&msm_bus_type, NULL, (void *)&ctx,
-				msm_bus_agg_fab_clks);
+	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_agg_fab_clks);
 
 	for (i = 0; i < num_dirty; i++) {
 		struct device *node_device =
@@ -465,6 +519,16 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 			MSM_BUS_ERR("%s: Error flushing bw data for node %d",
 					__func__, dirty_nodes[i]);
 
+		/*
+		 * Dual context voters will contribute to both contexts, so
+		 * flush the active context first.
+		 */
+		if (ctx == DUAL_CTX) {
+			ret = flush_clk_data(node_device, ACTIVE_CTX);
+			if (ret)
+				MSM_BUS_ERR("%s: Err flushing clk data for:%d",
+						__func__, dirty_nodes[i]);
+		}
 		ret = flush_clk_data(node_device, ctx);
 		if (ret)
 			MSM_BUS_ERR("%s: Error flushing clk data for node %d",
@@ -472,8 +536,7 @@ int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty)
 	}
 	kfree(dirty_nodes);
 	/* Aggregate the bus clocks */
-	bus_for_each_dev(&msm_bus_type, NULL, (void *)&ctx,
-				msm_bus_reset_fab_clks);
+	bus_for_each_dev(&msm_bus_type, NULL, NULL, msm_bus_reset_fab_clks);
 	return ret;
 }
 
@@ -504,7 +567,8 @@ exit_realloc_devmem:
 }
 
 
-static int add_dirty_node(int **dirty_nodes, int id, int *num_dirty)
+static int add_dirty_node(int **dirty_nodes, int id, int *num_dirty,
+				struct msm_bus_node_device_type *dev)
 {
 	int i;
 	int found = 0;
@@ -534,45 +598,31 @@ static int add_dirty_node(int **dirty_nodes, int id, int *num_dirty)
 		}
 	}
 
+	dev->dirty = true;
 	return ret;
 }
 
-int msm_bus_update_bw(struct msm_bus_node_device_type *nodedev, int ctx,
-			int64_t add_bw, int **dirty_nodes, int *num_dirty)
+int msm_bus_update_bw(struct msm_bus_node_device_type *nodedev,
+				int **dirty_nodes, int *num_dirty)
 {
 	int ret = 0;
-	int i, j;
-	uint64_t cur_ab_slp = 0;
-	uint64_t cur_ab_act = 0;
 
 	if (nodedev->node_info->virt_dev)
 		goto exit_update_bw;
 
-	for (i = 0; i < NUM_CTX; i++) {
-		for (j = 0; j < nodedev->num_lnodes; j++) {
-			if (i == DUAL_CTX) {
-				cur_ab_act +=
-					nodedev->lnode_list[j].lnode_ab[i];
-				cur_ab_slp +=
-					nodedev->lnode_list[j].lnode_ab[i];
-			} else
-				cur_ab_act +=
-					nodedev->lnode_list[j].lnode_ab[i];
-		}
-	}
+	if ((nodedev->node_bw[ACTIVE_CTX].last_sum_ab !=
+				nodedev->node_bw[ACTIVE_CTX].sum_ab) ||
+		(nodedev->node_bw[DUAL_CTX].last_sum_ab !=
+				nodedev->node_bw[DUAL_CTX].sum_ab)) {
+			ret =
+			add_dirty_node(dirty_nodes, nodedev->node_info->id,
+							num_dirty, nodedev);
 
-	if (nodedev->node_ab.ab[MSM_RPM_CTX_ACTIVE_SET] != cur_ab_act) {
-		nodedev->node_ab.ab[MSM_RPM_CTX_ACTIVE_SET] = cur_ab_act;
-		nodedev->node_ab.ab[MSM_RPM_CTX_SLEEP_SET] = cur_ab_slp;
-		nodedev->node_ab.dirty = true;
-		ret = add_dirty_node(dirty_nodes, nodedev->node_info->id,
-								num_dirty);
-
-		if (ret) {
-			MSM_BUS_ERR("%s: Failed to add dirty node %d", __func__,
-						nodedev->node_info->id);
-			goto exit_update_bw;
-		}
+			if (ret) {
+				MSM_BUS_ERR("%s: Failed to add dirty node %d",
+					__func__, nodedev->node_info->id);
+				goto exit_update_bw;
+			}
 	}
 
 exit_update_bw:
@@ -587,6 +637,7 @@ int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 	struct nodeclk *busclk;
 	struct msm_bus_node_device_type *bus_info = NULL;
 	uint64_t req_clk;
+	int i;
 
 	bus_info = nodedev->node_info->bus_device->platform_data;
 
@@ -597,25 +648,28 @@ int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 		goto exit_set_clks;
 	}
 
-	req_clk = nodedev->cur_clk_hz[ctx];
-	busclk = &bus_info->clk[ctx];
+	for (i = 0; i < NUM_CTX; i++) {
+		req_clk = nodedev->node_bw[i].cur_clk_hz;
+		busclk = &bus_info->clk[i];
 
-	if (busclk->rate != req_clk) {
-		busclk->rate = req_clk;
-		busclk->dirty = 1;
-		MSM_BUS_DBG("%s: Modifying bus clk %d Rate %llu", __func__,
-					bus_info->node_info->id, req_clk);
-		status = add_dirty_node(dirty_nodes, bus_info->node_info->id,
-								num_dirty);
+		if (busclk->rate != req_clk) {
+			busclk->rate = req_clk;
+			busclk->dirty = 1;
+			MSM_BUS_DBG("%s: Modifying bus clk %d Rate %llu",
+				__func__, bus_info->node_info->id, req_clk);
+			status =
+			add_dirty_node(dirty_nodes, bus_info->node_info->id,
+							num_dirty, bus_info);
 
-		if (status) {
-			MSM_BUS_ERR("%s: Failed to add dirty node %d", __func__,
-						bus_info->node_info->id);
-			goto exit_set_clks;
+			if (status) {
+				MSM_BUS_ERR("%s: Failed to add dirty node %d",
+					 __func__, bus_info->node_info->id);
+				goto exit_set_clks;
+			}
 		}
 	}
 
-	req_clk = nodedev->cur_clk_hz[ctx];
+	req_clk = nodedev->node_bw[ctx].cur_clk_hz;
 	nodeclk = &nodedev->clk[ctx];
 
 	if (IS_ERR_OR_NULL(nodeclk))
@@ -627,7 +681,7 @@ int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 		MSM_BUS_DBG("%s: Modifying node clk %d Rate %llu", __func__,
 					nodedev->node_info->id, req_clk);
 		status = add_dirty_node(dirty_nodes, nodedev->node_info->id,
-								num_dirty);
+							num_dirty, nodedev);
 		if (status) {
 			MSM_BUS_ERR("%s: Failed to add dirty node %d", __func__,
 						nodedev->node_info->id);
@@ -1128,6 +1182,7 @@ static struct device *msm_bus_device_init(
 		goto exit_device_init;
 	}
 	device_create_file(bus_dev, &dev_attr_vrail);
+	device_create_file(bus_dev, &dev_attr_bw);
 
 exit_device_init:
 	return bus_dev;

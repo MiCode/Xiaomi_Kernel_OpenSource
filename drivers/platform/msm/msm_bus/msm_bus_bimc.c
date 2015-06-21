@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2035,7 +2035,7 @@ static int msm_bus_bimc_set_bw(struct msm_bus_node_device_type *dev,
 		((info->qos_params.mode == BIMC_QOS_MODE_LIMITER) ||
 		(info->qos_params.mode == BIMC_QOS_MODE_REGULATOR))) {
 		bw = msm_bus_div64(info->num_qports,
-				dev->node_ab.ab[DUAL_CTX]);
+				dev->node_bw[ACTIVE_CTX].sum_ab);
 
 		for (i = 0; i < info->num_qports; i++) {
 			MSM_BUS_DBG("BIMC: Update mas_bw for ID: %d -> %llu\n",

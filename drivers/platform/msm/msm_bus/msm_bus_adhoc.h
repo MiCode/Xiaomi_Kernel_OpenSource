@@ -28,6 +28,7 @@ struct link_node {
 	struct device *next_dev;
 	struct list_head link;
 	uint32_t in_use;
+	const char *cl_name;
 };
 
 /* New types introduced for adhoc topology */
@@ -46,8 +47,10 @@ struct msm_bus_noc_ops {
 };
 
 struct nodebw {
-	uint64_t ab[NUM_CTX];
-	bool dirty;
+	uint64_t sum_ab;
+	uint64_t last_sum_ab;
+	uint64_t max_ib;
+	uint64_t cur_clk_hz;
 };
 
 struct msm_bus_fab_device_type {
@@ -114,8 +117,7 @@ struct msm_bus_node_device_type {
 	struct msm_bus_fab_device_type *fabdev;
 	int num_lnodes;
 	struct link_node *lnode_list;
-	uint64_t cur_clk_hz[NUM_CTX];
-	struct nodebw node_ab;
+	struct nodebw node_bw[NUM_CTX];
 	struct list_head link;
 	unsigned int ap_owned;
 	struct nodeclk clk[NUM_CTX];
@@ -123,6 +125,7 @@ struct msm_bus_node_device_type {
 	uint32_t num_node_qos_clks;
 	struct nodeclk *node_qos_clks;
 	struct device_node *of_node;
+	bool dirty;
 };
 
 int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
@@ -130,8 +133,8 @@ int msm_bus_enable_limiter(struct msm_bus_node_device_type *nodedev,
 int msm_bus_update_clks(struct msm_bus_node_device_type *nodedev,
 	int ctx, int **dirty_nodes, int *num_dirty);
 int msm_bus_commit_data(int *dirty_nodes, int ctx, int num_dirty);
-int msm_bus_update_bw(struct msm_bus_node_device_type *nodedev, int ctx,
-	int64_t add_bw, int **dirty_nodes, int *num_dirty);
+int msm_bus_update_bw(struct msm_bus_node_device_type *nodedev,
+				int **dirty_nodes, int *num_dirty);
 void *msm_bus_realloc_devmem(struct device *dev, void *p, size_t old_size,
 					size_t new_size, gfp_t flags);
 
