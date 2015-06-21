@@ -27,6 +27,11 @@ Optional properties:
 - label:	       	A string used to describe the driver used.
 - vcca-supply:		Phandle for vcca regulator device node.
 
+
+- qcom,dsi-pll-ssc-en:	Boolean property to indicate that ssc is enabled.
+- qcom,dsi-pll-ssc-mode: Spread-spectrum clocking. It can be either "down-spread"
+			or "center-spread". Default is "down-spread" if it is not specified.
+
 - qcom,platform-supply-entries:	A node that lists the elements of the supply. There
 				can be more than one instance of this binding,
 				in which case the entry would be appended with
@@ -64,6 +69,8 @@ Example:
 		clock-rate = <0>, <0>, <0>;
 
 		qcom,dsi-pll-slave;
+		qcom,dsi-pll-ssc-en:
+		qcom,dsi-pll-ssc-mode = "down-spread";
 
 		qcom,platform-supply-entries {
 			#address-cells = <1>;

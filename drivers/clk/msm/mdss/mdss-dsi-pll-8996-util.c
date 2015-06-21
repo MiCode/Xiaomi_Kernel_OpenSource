@@ -26,6 +26,8 @@
 #define DSI_PLL_POLL_TIMEOUT_US                 1000
 #define MSM8996_DSI_PLL_REVISION_2		2
 
+#define CEIL(x, y)		(((x) + ((y)-1)) / (y))
+
 int set_mdss_byte_mux_sel_8996(struct mux_clk *clk, int sel)
 {
 	return 0;
@@ -303,12 +305,13 @@ static void dsi_pll_disable(struct clk *c)
 	return;
 }
 
-static void mdss_dsi_pll_8996_input_init(struct dsi_pll_db *pdb)
+static void mdss_dsi_pll_8996_input_init(struct mdss_pll_resources *pll,
+					struct dsi_pll_db *pdb)
 {
 	pdb->in.fref = 19200000;	/* 19.2 Mhz*/
 	pdb->in.fdata = 0;		/* bit clock rate */
 	pdb->in.dsiclk_sel = 1;		/* 1, reg: 0x0014 */
-	pdb->in.ssc_en = 0;		/* 1, reg: 0x0494, bit 0 */
+	pdb->in.ssc_en = pll->ssc_en;		/* 1, reg: 0x0494, bit 0 */
 	pdb->in.ldo_en = 0;		/* 0,  reg: 0x004c, bit 0 */
 
 	/* fixed  input */
@@ -319,8 +322,8 @@ static void mdss_dsi_pll_8996_input_init(struct dsi_pll_db *pdb)
 	pdb->in.pll_wakeup_timer = 5;	/* 5, reg: 0x043c, bit 0 - 2 */
 	pdb->in.plllock_cnt = 1;	/* 1, reg: 0x0488, bit 1 - 2 */
 	pdb->in.plllock_rng = 0;	/* 0, reg: 0x0488, bit 3 - 4 */
-	pdb->in.ssc_center_spread = 0;	/* 0, reg: 0x0494, bit 1 */
-	pdb->in.ssc_adj_per = 37;	/* 37, reg: 0x498, bit 0 - 9 */
+	pdb->in.ssc_center = pll->ssc_center;/* 0, reg: 0x0494, bit 1 */
+	pdb->in.ssc_adj_period = 37;	/* 37, reg: 0x498, bit 0 - 9 */
 	pdb->in.ssc_spread = 5;		/* 0.005, 5kppm */
 	pdb->in.ssc_freq = 31500;	/* 31.5 khz */
 
@@ -342,8 +345,49 @@ static void mdss_dsi_pll_8996_input_init(struct dsi_pll_db *pdb)
 	pdb->in.pll_r3ctrl = 1;		/* 1 */
 }
 
-static void pll_8996_dec_frac_calc(struct dsi_pll_db *pdb,
-	struct mdss_pll_resources *pll)
+static void pll_8996_ssc_calc(struct mdss_pll_resources *pll,
+				struct dsi_pll_db *pdb)
+{
+	u32 period, ssc_period;
+	u32 ref, rem;
+	s64 step_size;
+
+	pr_debug("%s: vco=%lld ref=%lld\n", __func__,
+		pll->vco_current_rate, pll->vco_ref_clk_rate);
+
+	ssc_period = pdb->in.ssc_freq / 500;
+	period = pll->vco_ref_clk_rate / 1000;
+	ssc_period  = CEIL(period, ssc_period);
+	ssc_period -= 1;
+	pdb->out.ssc_period = ssc_period;
+
+	pr_debug("%s: ssc, freq=%d spread=%d period=%d\n", __func__,
+	pdb->in.ssc_freq, pdb->in.ssc_spread, pdb->out.ssc_period);
+
+	step_size = (u32)pll->vco_current_rate;
+	ref = pll->vco_ref_clk_rate;
+	ref /= 1000;
+	step_size = div_s64(step_size, ref);
+	step_size <<= 20;
+	step_size = div_s64(step_size, 1000);
+	step_size *= pdb->in.ssc_spread;
+	step_size = div_s64(step_size, 1000);
+	step_size *= (pdb->in.ssc_adj_period + 1);
+
+	rem = 0;
+	step_size = div_s64_rem(step_size, ssc_period + 1, &rem);
+	if (rem)
+		step_size++;
+
+	pr_debug("%s: step_size=%lld\n", __func__, step_size);
+
+	step_size &= 0x0ffff;	/* take lower 16 bits */
+
+	pdb->out.ssc_step_size = step_size;
+}
+
+static void pll_8996_dec_frac_calc(struct mdss_pll_resources *pll,
+				struct dsi_pll_db *pdb)
 {
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
@@ -438,9 +482,47 @@ static void pll_8996_calc_vco_count(struct dsi_pll_db *pdb,
 	pout->pll_kvco_code = 0;
 }
 
-static void pll_db_commit_common(void __iomem *pll_base,
+static void pll_db_commit_ssc(struct mdss_pll_resources *pll,
 					struct dsi_pll_db *pdb)
 {
+	void __iomem *pll_base = pll->pll_base;
+	struct dsi_pll_input *pin = &pdb->in;
+	struct dsi_pll_output *pout = &pdb->out;
+	char data;
+
+	data = pin->ssc_adj_period;
+	data &= 0x0ff;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_SSC_ADJ_PER1, data);
+	data = (pin->ssc_adj_period >> 8);
+	data &= 0x03;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_SSC_ADJ_PER2, data);
+
+	data = pout->ssc_period;
+	data &= 0x0ff;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_SSC_PER1, data);
+	data = (pout->ssc_period >> 8);
+	data &= 0x0ff;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_SSC_PER2, data);
+
+	data = pout->ssc_step_size;
+	data &= 0x0ff;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_SSC_STEP_SIZE1, data);
+	data = (pout->ssc_step_size >> 8);
+	data &= 0x0ff;
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_SSC_STEP_SIZE2, data);
+
+	data = (pin->ssc_center & 0x01);
+	data <<= 1;
+	data |= 0x01; /* enable */
+	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_SSC_EN_CENTER, data);
+
+	wmb();	/* make sure register committed */
+}
+
+static void pll_db_commit_common(struct mdss_pll_resources *pll,
+					struct dsi_pll_db *pdb)
+{
+	void __iomem *pll_base = pll->pll_base;
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
 	char data;
@@ -506,9 +588,10 @@ static void pll_db_commit_common(void __iomem *pll_base,
 	MDSS_PLL_REG_W(pll_base, DSIPHY_PLL_PLL_CRCTRL, data);
 }
 
-static void pll_db_commit_8996(void __iomem *pll_base,
+static void pll_db_commit_8996(struct mdss_pll_resources *pll,
 					struct dsi_pll_db *pdb)
 {
+	void __iomem *pll_base = pll->pll_base;
 	struct dsi_pll_input *pin = &pdb->in;
 	struct dsi_pll_output *pout = &pdb->out;
 	char data;
@@ -516,7 +599,7 @@ static void pll_db_commit_8996(void __iomem *pll_base,
 	data = pout->cmn_ldo_cntrl;
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_LDO_CNTRL, data);
 
-	pll_db_commit_common(pll_base, pdb);
+	pll_db_commit_common(pll, pdb);
 
 	/* de assert pll start and apply pll sw reset */
 	/* stop pll */
@@ -589,6 +672,9 @@ static void pll_db_commit_8996(void __iomem *pll_base,
 
 	data = (pout->pll_n1div | (pout->pll_n2div << 4));
 	MDSS_PLL_REG_W(pll_base, DSIPHY_CMN_CLK_CFG0, data);
+
+	if (pll->ssc_en)
+		pll_db_commit_ssc(pll, pdb);
 
 	wmb();	/* make sure register committed */
 }
@@ -691,9 +777,12 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	pll->vco_current_rate = rate;
 	pll->vco_ref_clk_rate = vco->ref_clk_rate;
 
-	mdss_dsi_pll_8996_input_init(pdb);
+	mdss_dsi_pll_8996_input_init(pll, pdb);
 
-	pll_8996_dec_frac_calc(pdb, pll);
+	pll_8996_dec_frac_calc(pll, pdb);
+
+	if (pll->ssc_en)
+		pll_8996_ssc_calc(pll, pdb);
 
 	pll_8996_calc_vco_count(pdb, pll->vco_current_rate,
 					pll->vco_ref_clk_rate);
@@ -701,10 +790,10 @@ int pll_vco_set_rate_8996(struct clk *c, unsigned long rate)
 	/* commit slave if split display is enabled */
 	slave = pll->slave;
 	if (slave)
-		pll_db_commit_8996(slave->pll_base, pdb);
+		pll_db_commit_8996(slave, pdb);
 
 	/* commit master itself */
-	pll_db_commit_8996(pll->pll_base, pdb);
+	pll_db_commit_8996(pll, pdb);
 
 	mdss_pll_resource_enable(pll, false);
 
