@@ -168,7 +168,6 @@ struct dwc3_msm {
 	const struct usb_ep_ops *original_ep_ops[DWC3_ENDPOINTS_NUM];
 	struct list_head req_complete_list;
 	struct clk		*xo_clk;
-	struct clk		*ref_clk;
 	struct clk		*core_clk;
 	long			core_clk_rate;
 	struct clk		*iface_clk;
@@ -224,13 +223,11 @@ struct dwc3_msm {
 	bool			rm_pulldown;
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
-#define MDWC3_PHY_REF_CLK_OFF		BIT(0)
+#define MDWC3_SS_PHY_SUSPEND		BIT(0)
 #define MDWC3_TCXO_SHUTDOWN		BIT(1)
 #define MDWC3_ASYNC_IRQ_WAKE_CAPABILITY	BIT(2)
 #define MDWC3_POWER_COLLAPSE		BIT(3)
 #define MDWC3_CORECLK_OFF		BIT(4)
-#define MDWC3_PHY_REF_AND_CORECLK_OFF	\
-			(MDWC3_PHY_REF_CLK_OFF | MDWC3_CORECLK_OFF)
 
 	u32 qscratch_ctl_val;
 	unsigned int scm_dev_id;
@@ -1025,7 +1022,6 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 			disable_irq(mdwc->pwr_event_irq);
 		/* Using asynchronous block reset to the hardware */
 		dev_dbg(mdwc->dev, "block_reset ASSERT\n");
-		clk_disable_unprepare(mdwc->ref_clk);
 		clk_disable_unprepare(mdwc->iface_clk);
 		clk_disable_unprepare(mdwc->utmi_clk);
 		clk_disable_unprepare(mdwc->sleep_clk);
@@ -1040,7 +1036,6 @@ static int dwc3_msm_link_clk_reset(struct dwc3_msm *mdwc, bool assert)
 		clk_prepare_enable(mdwc->core_clk);
 		clk_prepare_enable(mdwc->sleep_clk);
 		clk_prepare_enable(mdwc->utmi_clk);
-		clk_prepare_enable(mdwc->ref_clk);
 		clk_prepare_enable(mdwc->iface_clk);
 		if (ret)
 			dev_err(mdwc->dev, "dwc3 core_clk deassert failed\n");
@@ -1465,8 +1460,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc)
 	if (can_suspend_ssphy) {
 		usb_phy_set_suspend(mdwc->ss_phy, 1);
 		usleep_range(1000, 1200);
-		clk_disable_unprepare(mdwc->ref_clk);
-		mdwc->lpm_flags |= MDWC3_PHY_REF_CLK_OFF;
+		mdwc->lpm_flags |= MDWC3_SS_PHY_SUSPEND;
 	}
 
 	/* make sure above writes are completed before turning off clocks */
@@ -1591,10 +1585,9 @@ static int dwc3_msm_resume(struct dwc3_msm *mdwc)
 	}
 
 
-	if (mdwc->lpm_flags & MDWC3_PHY_REF_CLK_OFF) {
-		clk_prepare_enable(mdwc->ref_clk);
+	if (mdwc->lpm_flags & MDWC3_SS_PHY_SUSPEND) {
 		usb_phy_set_suspend(mdwc->ss_phy, 0);
-		mdwc->lpm_flags &= ~MDWC3_PHY_REF_CLK_OFF;
+		mdwc->lpm_flags &= ~MDWC3_SS_PHY_SUSPEND;
 	}
 	usleep_range(1000, 1200);
 
@@ -2409,15 +2402,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	}
 	clk_prepare_enable(mdwc->utmi_clk);
 
-	mdwc->ref_clk = devm_clk_get(&pdev->dev, "ref_clk");
-	if (IS_ERR(mdwc->ref_clk)) {
-		dev_err(&pdev->dev, "failed to get ref_clk\n");
-		ret = PTR_ERR(mdwc->ref_clk);
-		goto disable_utmi_clk;
-	}
-	clk_set_rate(mdwc->ref_clk, 19200000);
-	clk_prepare_enable(mdwc->ref_clk);
-
 	mdwc->bus_aggr_clk = devm_clk_get(&pdev->dev, "bus_aggr_clk");
 	if (IS_ERR(mdwc->bus_aggr_clk))
 		mdwc->bus_aggr_clk = NULL;
@@ -2468,7 +2452,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->hs_phy_irq = platform_get_irq_byname(pdev, "hs_phy_irq");
 	if (mdwc->hs_phy_irq < 0) {
 		dev_err(&pdev->dev, "pget_irq for hs_phy_irq failed\n");
-		goto disable_ref_clk;
+		goto disable_aggr_clk;
 	} else {
 		irq_set_status_flags(mdwc->hs_phy_irq, IRQ_NOAUTOEN);
 		ret = devm_request_irq(&pdev->dev, mdwc->hs_phy_irq,
@@ -2476,7 +2460,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			       "msm_hs_phy_irq", mdwc);
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq HSPHYINT failed\n");
-			goto disable_ref_clk;
+			goto disable_aggr_clk;
 		}
 	}
 
@@ -2487,7 +2471,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	mdwc->pwr_event_irq = platform_get_irq_byname(pdev, "pwr_event_irq");
 	if (mdwc->pwr_event_irq < 0) {
 		dev_err(&pdev->dev, "pget_irq for pwr_event_irq failed\n");
-		goto disable_ref_clk;
+		goto disable_aggr_clk;
 	} else {
 		/*
 		 * enable pwr event irq early during PM resume to meet bus
@@ -2501,7 +2485,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq pwr_event_irq failed: %d\n",
 					ret);
-			goto disable_ref_clk;
+			goto disable_aggr_clk;
 		}
 	}
 
@@ -2517,7 +2501,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				       mdwc);
 		if (ret) {
 			dev_err(&pdev->dev, "irqreq IDINT failed\n");
-			goto disable_ref_clk;
+			goto disable_aggr_clk;
 		}
 	}
 
@@ -2544,7 +2528,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!res) {
 		dev_err(&pdev->dev, "missing memory base resource\n");
 		ret = -ENODEV;
-		goto disable_ref_clk;
+		goto disable_aggr_clk;
 	}
 
 	mdwc->base = devm_ioremap_nocache(&pdev->dev, res->start,
@@ -2552,7 +2536,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	if (!mdwc->base) {
 		dev_err(&pdev->dev, "ioremap failed\n");
 		ret = -ENODEV;
-		goto disable_ref_clk;
+		goto disable_aggr_clk;
 	}
 
 	mdwc->io_res = res; /* used to calculate chg block offset */
@@ -2563,7 +2547,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 		if (IS_ERR(mdwc->dbm)) {
 			dev_err(&pdev->dev, "unable to get dbm device\n");
 			ret = -EPROBE_DEFER;
-			goto disable_ref_clk;
+			goto disable_aggr_clk;
 		}
 		/*
 		 * Add power event if the dbm indicates coming out of L1
@@ -2574,7 +2558,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 				dev_err(&pdev->dev,
 					"need pwr_event_irq exiting L1\n");
 				ret = -EINVAL;
-				goto disable_ref_clk;
+				goto disable_aggr_clk;
 			}
 		}
 	}
@@ -2639,7 +2623,7 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev,
 					"%s:power_supply_register usb failed\n",
 						__func__);
-			goto disable_ref_clk;
+			goto disable_aggr_clk;
 		}
 	}
 
@@ -2755,12 +2739,10 @@ disable_vbus:
 put_psupply:
 	if (mdwc->usb_psy.dev)
 		power_supply_unregister(&mdwc->usb_psy);
-disable_ref_clk:
+disable_aggr_clk:
 	if (mdwc->bus_aggr_clk)
 		clk_disable_unprepare(mdwc->bus_aggr_clk);
 
-	clk_disable_unprepare(mdwc->ref_clk);
-disable_utmi_clk:
 	clk_disable_unprepare(mdwc->utmi_clk);
 disable_sleep_clk:
 	clk_disable_unprepare(mdwc->sleep_clk);
@@ -2806,7 +2788,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 		clk_prepare_enable(mdwc->core_clk);
 		clk_prepare_enable(mdwc->iface_clk);
 		clk_prepare_enable(mdwc->sleep_clk);
-		clk_prepare_enable(mdwc->ref_clk);
 		if (mdwc->bus_aggr_clk)
 			clk_prepare_enable(mdwc->bus_aggr_clk);
 		clk_prepare_enable(mdwc->xo_clk);
@@ -2844,7 +2825,6 @@ static int dwc3_msm_remove(struct platform_device *pdev)
 	clk_disable_unprepare(mdwc->core_clk);
 	clk_disable_unprepare(mdwc->iface_clk);
 	clk_disable_unprepare(mdwc->sleep_clk);
-	clk_disable_unprepare(mdwc->ref_clk);
 	clk_disable_unprepare(mdwc->xo_clk);
 	clk_put(mdwc->xo_clk);
 
