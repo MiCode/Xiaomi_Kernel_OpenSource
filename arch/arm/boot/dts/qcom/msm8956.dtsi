@@ -881,6 +881,34 @@
 		};
 	};
 
+        ipa_hw: qcom,ipa@07900000 {
+                compatible = "qcom,ipa";
+                reg = <0x07900000 0x4effc>, <0x07904000 0x26934>;
+                reg-names = "ipa-base", "bam-base";
+                interrupts = <0 228 0>,
+                             <0 231 0>;
+                interrupt-names = "ipa-irq", "bam-irq";
+                qcom,ipa-hw-ver = <6>; /* IPA core version = IPAv2.6L */
+                qcom,ipa-hw-mode = <0>; /* IPA hw type = Normal */
+                clock-names = "core_clk";
+                clocks = <&clock_gcc clk_ipa_clk>;
+                qcom,ee = <2>;
+                qcom,msm-bus,name = "ipa";
+                qcom,msm-bus,num-cases = <3>;
+                qcom,msm-bus,num-paths = <1>;
+                qcom,msm-bus,vectors-KBps =
+                <90 512 0 0>,              /* No vote (ab=0 Mbps, ib=0 Mbps ~V NO BIMC vote) */
+                <90 512 100000 800000>,    /* SVS  - (ab=100Mbps, ib=800Mbps ~V 50MHz BIMC freq) */
+                <90 512 100000 1200000>;   /* PERF - (ab=100Mbps, ib=1200Mbps ~V 75MHz BIMC freq) */
+                qcom,bus-vector-names = "MIN", "SVS", "PERF";
+        };
+
+        qcom,rmnet-ipa {
+                compatible = "qcom,rmnet-ipa";
+                qcom,rmnet-ipa-ssr;
+                qcom,ipa-loaduC;
+        };
+
 	qcom,ipc-spinlock@1905000 {
 		compatible = "qcom,ipc-spinlock-sfpb";
 		reg = <0x1905000 0x8000>;
