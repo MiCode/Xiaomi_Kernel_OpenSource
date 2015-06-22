@@ -72,6 +72,7 @@ struct mmc_queue {
 	struct work_struct	cmdq_err_work;
 	struct completion	cmdq_shutdown_complete;
 
+	struct completion	cmdq_pending_req_done;
 	int (*err_check_fn) (struct mmc_card *, struct mmc_async_req *);
 	void (*packed_test_fn) (struct request_queue *, struct mmc_queue_req *);
 	void (*cmdq_shutdown)(struct mmc_queue *);
