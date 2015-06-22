@@ -65,6 +65,7 @@ static unsigned int no_ctrl_smd_ports;
 static unsigned int no_ctrl_qti_ports;
 static unsigned int no_ctrl_hsic_ports;
 static unsigned int no_ctrl_hsuart_ports;
+static unsigned int no_data_bam_ports;
 static unsigned int no_data_bam2bam_ports;
 static unsigned int no_data_hsic_ports;
 static unsigned int no_data_hsuart_ports;
@@ -310,16 +311,22 @@ static int rmnet_gport_setup(void)
 	int	i;
 	u8 base;
 
-	pr_debug("%s: bam2bam ports: %u data hsic ports: %u data hsuart ports: %u"
+	pr_debug("%s: bam ports: %u bam2bam ports: %u data hsic ports: %u data hsuart ports: %u"
 		" smd ports: %u ctrl hsic ports: %u ctrl hsuart ports: %u"
 		" nr_rmnet_ports: %u\n",
-		__func__, no_data_bam2bam_ports, no_data_hsic_ports,
-		no_data_hsuart_ports, no_ctrl_smd_ports, no_ctrl_hsic_ports,
-		no_ctrl_hsuart_ports, nr_rmnet_ports);
+		__func__, no_data_bam_ports, no_data_bam2bam_ports,
+		no_data_hsic_ports, no_data_hsuart_ports, no_ctrl_smd_ports,
+		no_ctrl_hsic_ports, no_ctrl_hsuart_ports, nr_rmnet_ports);
+
+	if (no_data_bam_ports) {
+		ret = gbam_setup(no_data_bam_ports);
+		if (ret < 0)
+			return ret;
+	}
 
 	if (no_data_bam2bam_ports) {
-		ret = gbam_setup(no_data_bam2bam_ports);
-		if (ret)
+		ret = gbam2bam_setup(no_data_bam2bam_ports);
+		if (ret < 0)
 			return ret;
 	}
 
@@ -429,6 +436,16 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 			gsmd_ctrl_disconnect(&dev->port, port_num);
 			return -EINVAL;
 		}
+	case USB_GADGET_XPORT_BAM:
+		ret = gbam_connect(&dev->port, port_num,
+			dxport, src_connection_idx, dst_connection_idx);
+		if (ret) {
+			pr_err("%s: gbam_connect failed: err:%d\n",
+				__func__, ret);
+			gsmd_ctrl_disconnect(&dev->port, port_num);
+			return ret;
+		}
+		break;
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		src_connection_idx = usb_bam_get_connection_idx(gadget->name,
 			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
@@ -482,7 +499,6 @@ static int gport_rmnet_connect(struct f_rmnet *dev, unsigned intf)
 		break;
 	case USB_GADGET_XPORT_NONE:
 		 break;
-	case USB_GADGET_XPORT_BAM:
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
 				xport_to_str(dxport));
@@ -523,6 +539,7 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
+	case USB_GADGET_XPORT_BAM:
 	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		gbam_disconnect(&dev->port, port_num, dxport);
@@ -535,7 +552,6 @@ static int gport_rmnet_disconnect(struct f_rmnet *dev)
 		break;
 	case USB_GADGET_XPORT_NONE:
 		break;
-	case USB_GADGET_XPORT_BAM:
 	default:
 		pr_err("%s: Un-supported transport: %s\n", __func__,
 				xport_to_str(dxport));
@@ -601,6 +617,8 @@ static void frmnet_suspend(struct usb_function *f)
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
+	case USB_GADGET_XPORT_BAM:
+		break;
 	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		if (remote_wakeup_allowed) {
@@ -654,6 +672,8 @@ static void frmnet_resume(struct usb_function *f)
 
 	port_num = rmnet_ports[dev->port_num].data_xport_num;
 	switch (dxport) {
+	case USB_GADGET_XPORT_BAM:
+		break;
 	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		if (remote_wakeup_allowed) {
@@ -1327,6 +1347,7 @@ static void frmnet_cleanup(void)
 	for (i = 0; i < nr_rmnet_ports; i++)
 		kfree(rmnet_ports[i].port);
 
+	gbam_cleanup();
 	nr_rmnet_ports = 0;
 	no_ctrl_smd_ports = 0;
 	no_ctrl_qti_ports = 0;
@@ -1399,6 +1420,10 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name,
 	}
 
 	switch (rmnet_port->data_xport) {
+	case USB_GADGET_XPORT_BAM:
+		rmnet_port->data_xport_num = no_data_bam_ports;
+		no_data_bam_ports++;
+		break;
 	case USB_GADGET_XPORT_BAM2BAM:
 	case USB_GADGET_XPORT_BAM2BAM_IPA:
 		rmnet_port->data_xport_num = no_data_bam2bam_ports;
@@ -1416,7 +1441,6 @@ static int frmnet_init_port(const char *ctrl_name, const char *data_name,
 	case USB_GADGET_XPORT_ETHER:
 	case USB_GADGET_XPORT_NONE:
 		break;
-	case USB_GADGET_XPORT_BAM:
 	default:
 		pr_err("%s: Un-supported transport: %u\n", __func__,
 				rmnet_port->data_xport);

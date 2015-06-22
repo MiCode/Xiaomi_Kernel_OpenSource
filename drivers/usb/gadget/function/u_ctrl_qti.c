@@ -15,6 +15,7 @@
 #include <linux/poll.h>
 #include <linux/usb/usb_ctrl_qti.h>
 
+#include <soc/qcom/bam_dmux.h>
 
 #include "u_rmnet.h"
 #include "usb_gadget_xport.h"
@@ -169,7 +170,6 @@ gqti_ctrl_notify_modem(void *gptr, u8 portno, int val)
 	qti_ctrl_queue_notify(port);
 }
 
-#define BAM_DMUX_CHANNEL_ID 8
 int gqti_ctrl_connect(void *gr, u8 port_num, unsigned intf,
 			enum transport_type dxport, enum gadget_type gtype)
 {
@@ -192,22 +192,21 @@ int gqti_ctrl_connect(void *gr, u8 port_num, unsigned intf,
 
 	spin_lock_irqsave(&port->lock, flags);
 	port->gtype = gtype;
-	if (dxport == USB_GADGET_XPORT_BAM) {
+	if (dxport == USB_GADGET_XPORT_BAM ||
+			dxport == USB_GADGET_XPORT_BAM_DMUX) {
 		/*
-		 * BAM-DMUX data transport is used for RMNET
+		 * BAM-DMUX data transport is used for RMNET and DPL
 		 * on some targets where IPA is not available.
 		 * Set endpoint type as BAM-DMUX and interface
 		 * id as channel number. This information is
 		 * sent to user space via EP_LOOKUP ioctl.
 		 *
-		 * The BAM data transport driver supports only
-		 * 1 BAM channel and the number is fixed so far
-		 * on all targets. This number needs to be same
-		 * as the bam_ch_ids defined in u_bam.c.
-		 *
 		 */
+
 		port->ep_type = DATA_EP_TYPE_BAM_DMUX;
-		port->intf = BAM_DMUX_CHANNEL_ID;
+		port->intf = (gtype == USB_GADGET_RMNET) ?
+			BAM_DMUX_USB_RMNET_0 :
+			BAM_DMUX_USB_DPL;
 		port->ipa_prod_idx = 0;
 		port->ipa_cons_idx = 0;
 	} else {
