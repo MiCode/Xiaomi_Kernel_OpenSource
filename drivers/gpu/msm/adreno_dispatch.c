@@ -251,8 +251,7 @@ static void start_fault_timer(struct adreno_device *adreno_dev)
 {
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 
-	if (test_bit(ADRENO_DEVICE_SOFT_FAULT_DETECT, &adreno_dev->priv) &&
-		adreno_dev->fast_hang_detect)
+	if (adreno_soft_fault_detect(adreno_dev))
 		mod_timer(&dispatcher->fault_timer,
 			jiffies + msecs_to_jiffies(_fault_timer_interval));
 }
@@ -2027,7 +2026,8 @@ static void adreno_dispatcher_work(struct work_struct *work)
 		/* process the active q*/
 		count = adreno_dispatch_process_cmdqueue(adreno_dev,
 			&(adreno_dev->cur_rb->dispatch_q),
-			adreno_dev->long_ib_detect);
+			adreno_long_ib_detect(adreno_dev));
+
 	else if (ADRENO_DISPATCHER_PREEMPT_TRIGGERED ==
 		atomic_read(&dispatcher->preemption_state))
 		count = adreno_dispatch_process_cmdqueue(adreno_dev,
@@ -2045,7 +2045,7 @@ static void adreno_dispatcher_work(struct work_struct *work)
 		/* active level switched, clear new level cmdbatches */
 		count = adreno_dispatch_process_cmdqueue(adreno_dev,
 			dispatch_q,
-			adreno_dev->long_ib_detect);
+			adreno_long_ib_detect(adreno_dev));
 		/*
 		 * If GPU has already completed all the commands in new incoming
 		 * RB then we may not get another interrupt due to which
@@ -2148,7 +2148,7 @@ static void adreno_dispatcher_fault_timer(unsigned long data)
 	struct adreno_dispatcher *dispatcher = &adreno_dev->dispatcher;
 
 	/* Leave if the user decided to turn off fast hang detection */
-	if (adreno_dev->fast_hang_detect == 0)
+	if (!adreno_soft_fault_detect(adreno_dev))
 		return;
 
 	if (adreno_gpu_fault(adreno_dev)) {
