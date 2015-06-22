@@ -18,7 +18,7 @@
 		reg = <0xb1d2000 0x1000>;
 		qcom,name = "system-cci"; /* CCI SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
-		qcom,saw2-cfg = <0x01>;
+		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly = <0X3c102800>;
 		qcom,saw2-spm-ctl = <0x8>;
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
@@ -26,7 +26,7 @@
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,supports-rpm-hs;
-		qcom,saw2-pmic-data0 = <0x07030080>; /* VDD_APC0 on */
+		qcom,saw2-pmic-data0 = <0x03030080>; /* VDD_APC0 on */
 		qcom,saw2-pmic-data1 = <0x00030000>; /* VDD_APC0 off  */
 		qcom,pfm-port = <0x2>;
 		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
@@ -41,7 +41,7 @@
 		    <0xb111210 0x8>; /* SPM_QCHANNEL_CFG */
 		qcom,name = "a53-l2"; /* A53 L2 SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
-		qcom,saw2-cfg = <0x01>;
+		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly = <0x3c11840a>;
 		qcom,saw2-spm-ctl = <0x8>;
 		qcom,saw2-spm-cmd-wfi = [03 0f]; /* Removed clk gating cmds */
@@ -63,14 +63,14 @@
 		    <0xb011210 0x8>; /* SPM_QCHANNEL_CFG */
 		qcom,name = "a72-l2"; /* A5x L2 SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
-		qcom,saw2-cfg = <0x01>;
+		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly = <0x3c11840a>;
 		qcom,saw2-spm-ctl = <0x8>;
 		qcom,cpu-vctl-list = <&CPU4 &CPU5>;
 		qcom,vctl-timeout-us = <50>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
-		qcom,saw2-pmic-data0 = <0x07030080>; /* VDD_APC1 on */
+		qcom,saw2-pmic-data0 = <0x03030080>; /* VDD_APC1 on */
 		qcom,saw2-pmic-data1 = <0x00030000>; /* VDD_APC1 off  */
 		qcom,pfm-port = <0x2>;
 		qcom,saw2-spm-cmd-wfi = [03 0f];
@@ -373,7 +373,7 @@
 					qcom,ss-power = <124>;
 					qcom,energy-overhead = <457850>;
 					qcom,time-overhead = <900>;
-					qcom,min-child-idx = <2>;
+					qcom,min-child-idx = <3>;
 				};
 
 				qcom,pm-cluster-level@3{
