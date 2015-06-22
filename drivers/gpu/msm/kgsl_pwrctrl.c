@@ -95,6 +95,10 @@ static struct clk_pair clks[KGSL_MAX_CLKS] = {
 		.name = "gtbu_clk",
 		.map = KGSL_CLK_GFX_GTBU,
 	},
+	{
+		.name = "aon_clk",
+		.map = KGSL_CLK_AON,
+	},
 };
 
 static unsigned int ib_votes[KGSL_MAX_BUSLEVELS];
