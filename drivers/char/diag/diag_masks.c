@@ -1524,6 +1524,8 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count)
 void diag_send_updates_peripheral(uint8_t peripheral)
 {
 	diag_send_feature_mask_update(peripheral);
+	if (driver->time_sync_enabled)
+		diag_send_time_sync_update(peripheral);
 	diag_send_msg_mask_update(peripheral, ALL_SSID, ALL_SSID);
 	diag_send_log_mask_update(peripheral, ALL_EQUIP_ID);
 	diag_send_event_mask_update(peripheral);
@@ -1531,8 +1533,6 @@ void diag_send_updates_peripheral(uint8_t peripheral)
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
 	diag_send_peripheral_buffering_mode(
 				&driver->buffering_mode[peripheral]);
-	if (driver->time_sync_enabled)
-		diag_send_time_sync_update(peripheral);
 }
 
 int diag_process_apps_masks(unsigned char *buf, int len)
