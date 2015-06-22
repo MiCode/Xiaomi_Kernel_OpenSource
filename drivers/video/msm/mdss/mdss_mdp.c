@@ -2401,10 +2401,13 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
-	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
-		mixer_offsets + mdata->nmixers_intf, mdata->nmixers_wb);
-	if (rc)
-		goto parse_done;
+	if (mdata->nmixers_wb) {
+		rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-mixer-wb-off",
+				mixer_offsets + mdata->nmixers_intf,
+				mdata->nmixers_wb);
+		if (rc)
+			goto parse_done;
+	}
 
 	rc = mdss_mdp_parse_dt_handler(pdev, "qcom,mdss-dspp-off",
 		dspp_offsets, mdata->ndspp);
@@ -2422,11 +2425,14 @@ static int mdss_mdp_parse_dt_mixer(struct platform_device *pdev)
 	if (rc)
 		goto parse_done;
 
-	rc = mdss_mdp_mixer_addr_setup(mdata, mixer_offsets +
-			mdata->nmixers_intf, NULL, NULL,
-			MDSS_MDP_MIXER_TYPE_WRITEBACK, mdata->nmixers_wb);
-	if (rc)
-		goto parse_done;
+	if (mdata->nmixers_wb) {
+		rc = mdss_mdp_mixer_addr_setup(mdata, mixer_offsets +
+				mdata->nmixers_intf, NULL, NULL,
+				MDSS_MDP_MIXER_TYPE_WRITEBACK,
+				mdata->nmixers_wb);
+		if (rc)
+			goto parse_done;
+	}
 
 parse_done:
 	kfree(pingpong_offsets);
