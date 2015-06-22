@@ -109,8 +109,11 @@ static char get_cacheflag(const struct kgsl_memdesc *m)
 	return table[kgsl_memdesc_get_cachemode(m)];
 }
 
-static void print_mem_entry(struct seq_file *s, struct kgsl_mem_entry *entry)
+
+static int print_mem_entry(int id, void *ptr, void *data)
 {
+	struct seq_file *s = data;
+	struct kgsl_mem_entry *entry = ptr;
 	char flags[8];
 	char usage[16];
 	struct kgsl_memdesc *m = &entry->memdesc;
@@ -132,37 +135,20 @@ static void print_mem_entry(struct seq_file *s, struct kgsl_mem_entry *entry)
 			m->size, entry->id, flags,
 			memtype_str(kgsl_memdesc_usermem_type(m)),
 			usage, m->sgt->nents);
+
+	return 0;
 }
 
 static int process_mem_print(struct seq_file *s, void *unused)
 {
-	struct kgsl_mem_entry *entry;
-	struct rb_node *node;
 	struct kgsl_process_private *private = s->private;
-	int next = 0;
 
 	seq_printf(s, "%8s %8s %8s %5s %8s %10s %16s %5s\n",
 		   "gpuaddr", "useraddr", "size", "id", "flags", "type",
 		   "usage", "sglen");
 
-	/* print all entries with a GPU address */
 	spin_lock(&private->mem_lock);
-
-	for (node = rb_first(&private->mem_rb); node; node = rb_next(node)) {
-		entry = rb_entry(node, struct kgsl_mem_entry, node);
-		print_mem_entry(s, entry);
-	}
-
-
-	/* now print all the unbound entries */
-	while (1) {
-		entry = idr_get_next(&private->mem_idr, &next);
-		if (entry == NULL)
-			break;
-		if (entry->memdesc.gpuaddr == 0)
-			print_mem_entry(s, entry);
-		next++;
-	}
+	idr_for_each(&private->mem_idr, print_mem_entry, s);
 	spin_unlock(&private->mem_lock);
 
 	return 0;

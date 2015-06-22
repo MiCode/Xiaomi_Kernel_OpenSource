@@ -466,29 +466,26 @@ TRACE_EVENT(kgsl_mem_mmap,
 TRACE_EVENT(kgsl_mem_unmapped_area_collision,
 
 	TP_PROTO(struct kgsl_mem_entry *mem_entry,
-		 unsigned long hint,
-		 uint64_t len,
-		 uint64_t addr),
+		 unsigned long addr,
+		 unsigned long len),
 
-	TP_ARGS(mem_entry, hint, len, addr),
+	TP_ARGS(mem_entry, len, addr),
 
 	TP_STRUCT__entry(
 		__field(unsigned int, id)
-		__field(unsigned long, hint)
-		__field(unsigned long, len)
 		__field(unsigned long, addr)
+		__field(unsigned long, len)
 	),
 
 	TP_fast_assign(
 		__entry->id = mem_entry->id;
-		__entry->hint  = hint;
-		__entry->len = (unsigned long) len;
-		__entry->addr = (unsigned long) addr;
+		__entry->len = len;
+		__entry->addr = addr;
 	),
 
 	TP_printk(
-		"id=%u hint=0x%lx len=%lu addr=0x%lx",
-		__entry->id, __entry->hint, __entry->len, __entry->addr
+		"id=%u len=%lu addr=0x%lx",
+		__entry->id, __entry->len, __entry->addr
 	)
 );
 

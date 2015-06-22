@@ -290,7 +290,7 @@ int kgsl_snapshot_get_object(struct kgsl_snapshot *snapshot,
 	if (!gpuaddr)
 		return 0;
 
-	entry = kgsl_sharedmem_find_region(process, gpuaddr, size);
+	entry = kgsl_sharedmem_find(process, gpuaddr);
 
 	if (entry == NULL) {
 		KGSL_CORE_ERR("Unable to find GPU buffer 0x%016llX\n", gpuaddr);

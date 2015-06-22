@@ -83,10 +83,17 @@ static void push_object(int type,
 		return;
 	}
 
-	entry = kgsl_sharedmem_find_region(process, gpuaddr, dwords << 2);
+	entry = kgsl_sharedmem_find(process, gpuaddr);
 	if (entry == NULL) {
 		KGSL_CORE_ERR("snapshot: Can't find entry for 0x%016llX\n",
 			gpuaddr);
+		return;
+	}
+
+	if (!kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr, dwords << 2)) {
+		KGSL_CORE_ERR("snapshot: Mem entry 0x%016llX is too small\n",
+			gpuaddr);
+		kgsl_mem_entry_put(entry);
 		return;
 	}
 
@@ -380,14 +387,34 @@ static size_t snapshot_rb(struct kgsl_device *device, u8 *buf,
 	return KGSL_RB_SIZE + sizeof(*header);
 }
 
+static int _count_mem_entries(int id, void *ptr, void *data)
+{
+	int *count = data;
+	*count = *count + 1;
+	return 0;
+}
+
+static int _save_mem_entries(int id, void *ptr, void *data)
+{
+	struct kgsl_mem_entry *entry = ptr;
+	unsigned int **p = data;
+	unsigned int *local = *p;
+
+	*local++ = (unsigned int) entry->memdesc.gpuaddr;
+	*local++ = (unsigned int) entry->memdesc.size;
+	*local++ = kgsl_memdesc_get_memtype(&entry->memdesc);
+
+	*p = local;
+	return 0;
+}
+
 static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 		u8 *buf, size_t remain, void *priv)
 {
 	struct kgsl_snapshot_replay_mem_list *header =
 		(struct kgsl_snapshot_replay_mem_list *)buf;
-	struct rb_node *node;
-	struct kgsl_mem_entry *entry = NULL;
-	int num_mem;
+	int num_mem = 0;
+	int ret = 0;
 	unsigned int *data = (unsigned int *)(buf + sizeof(*header));
 	struct kgsl_process_private *process = priv;
 
@@ -395,20 +422,20 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 	if (process == NULL)
 		return 0;
 
-	/* We need to know the number of memory objects that the process has */
 	spin_lock(&process->mem_lock);
-	for (node = rb_first(&process->mem_rb), num_mem = 0; node; ) {
-		entry = rb_entry(node, struct kgsl_mem_entry, node);
-		node = rb_next(&entry->node);
-		num_mem++;
-	}
+
+	/* We need to know the number of memory objects that the process has */
+	idr_for_each(&process->mem_idr, _count_mem_entries, &num_mem);
+
+	if (num_mem == 0)
+		goto out;
 
 	if (remain < ((num_mem * 3 * sizeof(unsigned int)) +
 			sizeof(*header))) {
 		KGSL_CORE_ERR("snapshot: Not enough memory for the mem list");
-		spin_unlock(&process->mem_lock);
-		return 0;
+		goto out;
 	}
+
 	header->num_entries = num_mem;
 	header->ptbase =
 	 (__u32)kgsl_mmu_pagetable_get_ptbase(process->pagetable);
@@ -416,16 +443,13 @@ static size_t snapshot_capture_mem_list(struct kgsl_device *device,
 	 * Walk throught the memory list and store the
 	 * tuples(gpuaddr, size, memtype) in snapshot
 	 */
-	for (node = rb_first(&process->mem_rb); node; ) {
-		entry = rb_entry(node, struct kgsl_mem_entry, node);
-		node = rb_next(&entry->node);
 
-		*data++ = (unsigned int) entry->memdesc.gpuaddr;
-		*data++ = (unsigned int) entry->memdesc.size;
-		*data++ = kgsl_memdesc_get_memtype(&entry->memdesc);
-	}
+	idr_for_each(&process->mem_idr, _save_mem_entries, &data);
+
+	ret = sizeof(*header) + (num_mem * 3 * sizeof(unsigned int));
+out:
 	spin_unlock(&process->mem_lock);
-	return sizeof(*header) + (num_mem * 3 * sizeof(unsigned int));
+	return ret;
 }
 
 struct snapshot_ib_meta {

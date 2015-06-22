@@ -288,9 +288,6 @@ static void kgsl_destroy_pagetable(struct kref *kref)
 
 	pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
 
-	if (pagetable->mem_bitmap)
-		vfree(pagetable->mem_bitmap);
-
 	kfree(pagetable);
 }
 
@@ -609,25 +606,6 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 	pagetable->name = name;
 	pagetable->fault_addr = 0xFFFFFFFF;
 
-	/* allocate bitmap for virtual memory management */
-	if (mmu->secured) {
-		if (KGSL_MMU_SECURE_PT == name)
-			pagetable->bitmap_size =
-				(KGSL_IOMMU_SECURE_MEM_SIZE >> PAGE_SHIFT);
-		else
-			pagetable->bitmap_size =
-			(KGSL_IOMMU_SECURE_MEM_BASE - SZ_1M) >> PAGE_SHIFT;
-	} else
-		pagetable->bitmap_size =
-			(KGSL_MMU_GLOBAL_MEM_BASE - SZ_1M) >> PAGE_SHIFT;
-
-	pagetable->mem_bitmap = vmalloc(BITS_TO_LONGS(
-					pagetable->bitmap_size) * sizeof(long));
-	if (!pagetable->mem_bitmap)
-		goto err;
-	memset(pagetable->mem_bitmap, 0, BITS_TO_LONGS(
-					pagetable->bitmap_size) * sizeof(long));
-
 	if (mmu->mmu_ops && mmu->mmu_ops->mmu_init_pt) {
 		status = mmu->mmu_ops->mmu_init_pt(mmu, pagetable);
 		if (status)
@@ -649,8 +627,6 @@ kgsl_mmu_createpagetableobject(struct kgsl_mmu *mmu,
 err:
 	if (pagetable->priv)
 		pagetable->pt_ops->mmu_destroy_pagetable(pagetable);
-	if (pagetable->mem_bitmap)
-		vfree(pagetable->mem_bitmap);
 
 	kfree(pagetable);
 
@@ -704,102 +680,49 @@ static int _nommu_get_gpuaddr(struct kgsl_memdesc *memdesc)
 }
 
 /**
- * kgsl_mmu_get_gpuaddr - Assign a memdesc with a gpuadddr from the gen pool
- * @pagetable - pagetable whose pool is to be used
- * @memdesc - memdesc to which gpuaddr is assigned
- *
- * returns - 0 on success else error code
+ * kgsl_mmu_find_svm_region() - Find a empty spot in the SVM region
+ * @pagetable: KGSL pagetable to search
+ * @start: start of search range, must be within kgsl_mmu_svm_range()
+ * @end: end of search range, must be within kgsl_mmu_svm_range()
+ * @size: Size of the region to find
+ * @align: Desired alignment of the address
+ */
+uint64_t kgsl_mmu_find_svm_region(struct kgsl_pagetable *pagetable,
+		uint64_t start, uint64_t end, uint64_t size,
+		unsigned int align)
+{
+	BUG_ON(pagetable == NULL || pagetable->pt_ops->find_svm_region == NULL);
+	return pagetable->pt_ops->find_svm_region(pagetable, start, end, size,
+							align);
+}
+
+/**
+ * kgsl_mmu_set_svm_region() - Check if a region is empty and reserve it if so
+ * @pagetable: KGSL pagetable to search
+ * @gpuaddr: GPU address to check/reserve
+ * @size: Size of the region to check/reserve
+ */
+int kgsl_mmu_set_svm_region(struct kgsl_pagetable *pagetable, uint64_t gpuaddr,
+		uint64_t size)
+{
+	BUG_ON(pagetable == NULL || pagetable->pt_ops->set_svm_region == NULL);
+	return pagetable->pt_ops->set_svm_region(pagetable, gpuaddr, size);
+}
+
+/**
+ * kgsl_mmu_get_gpuaddr() - Assign a GPU address to the memdesc
+ * @pagetable: GPU pagetable to assign the address in
+ * @memdesc: mem descriptor to assign the memory to
  */
 int
 kgsl_mmu_get_gpuaddr(struct kgsl_pagetable *pagetable,
-			struct kgsl_memdesc *memdesc)
+		struct kgsl_memdesc *memdesc)
 {
-	uint64_t size;
-	int page_align;
-	int align_mask;
-	unsigned long bit, start_bit, bitmap_size;
-	unsigned int lower_bound_bit = KGSL_SVM_LOWER_BOUND >> PAGE_SHIFT;
-
 	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
 		return _nommu_get_gpuaddr(memdesc);
 
-	size = memdesc->size;
-	if (kgsl_memdesc_has_guard_page(memdesc))
-		size += kgsl_memdesc_guard_page_size(memdesc);
-
-	/*
-	 * Allocate aligned virtual addresses for iommu. This allows
-	 * more efficient pagetable entries if the physical memory
-	 * is also aligned.
-	 */
-
-	if (kgsl_memdesc_use_cpu_map(memdesc)) {
-		if (memdesc->gpuaddr == 0)
-			return -EINVAL;
-		bitmap_set(pagetable->mem_bitmap,
-			(int) (memdesc->gpuaddr >> PAGE_SHIFT),
-			(int) (size >> PAGE_SHIFT));
-		return 0;
-	}
-
-	/*
-	 * Try to map external memory in the upper region first and then fall
-	 * back to user region if that fails.  All memory allocated by the user
-	 * goes into the user region first.
-	 */
-	page_align = max(ilog2(PAGE_SIZE), kgsl_memdesc_get_align(memdesc));
-	/*
-	 * Each bit represents a PAGE hence the bit alignment
-	 * needs to be reduced by page size
-	 */
-	page_align -= ilog2(PAGE_SIZE);
-	align_mask = (1 << page_align) - 1;
-	if (KGSL_MEMFLAGS_SECURE & memdesc->flags) {
-		if (KGSL_MMU_SECURE_PT != pagetable->name)
-			return -EINVAL;
-		start_bit = 0;
-		bitmap_size = pagetable->bitmap_size;
-	} else if (KGSL_MEMFLAGS_USERMEM_MASK & memdesc->flags) {
-		start_bit = KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT;
-		bitmap_size = pagetable->bitmap_size;
-	} else {
-		start_bit = lower_bound_bit;
-		bitmap_size = KGSL_SVM_UPPER_BOUND >> PAGE_SHIFT;
-	}
-
-	while (1) {
-		bit = bitmap_find_next_zero_area(pagetable->mem_bitmap,
-			bitmap_size, start_bit,
-			(unsigned int) (size >> PAGE_SHIFT), align_mask);
-
-		/* a return value bigger than bitmap_size is failure */
-		if (bit >= bitmap_size) {
-			if (KGSL_MMU_SECURE_PT == pagetable->name)
-				return -ENOMEM;
-			if (KGSL_MEMFLAGS_USERMEM_MASK & memdesc->flags &&
-				start_bit > lower_bound_bit)
-				/* retry with lower region */
-				start_bit = lower_bound_bit;
-			else if (align_mask)
-				/* retry with just 4K alignment */
-				align_mask = 0;
-			else
-				/* alignment 0 and we could not allocate */
-				return -ENOMEM;
-		} else {
-			if (KGSL_MMU_SECURE_PT == pagetable->name)
-				memdesc->gpuaddr = (uint64_t)(bit << PAGE_SHIFT)
-						+ KGSL_IOMMU_SECURE_MEM_BASE;
-			else
-				memdesc->gpuaddr = (uint64_t)
-							(bit << PAGE_SHIFT);
-			bitmap_set(pagetable->mem_bitmap,
-				bit, size >> PAGE_SHIFT);
-			break;
-		}
-	}
-
-	return 0;
+	BUG_ON(pagetable == NULL || pagetable->pt_ops->get_gpuaddr == NULL);
+	return pagetable->pt_ops->get_gpuaddr(pagetable, memdesc);
 }
 EXPORT_SYMBOL(kgsl_mmu_get_gpuaddr);
 
@@ -847,49 +770,41 @@ done:
 EXPORT_SYMBOL(kgsl_mmu_map);
 
 /**
- * kgsl_mmu_put_gpuaddr - Free a gpuaddress from memory pool
- * @pagetable - pagetable whose pool memory is freed from
- * @memdesc - memdesc whose gpuaddress is freed
- *
- * returns - 0 on success else error code
+ * kgsl_mmu_put_gpuaddr() - Remove a GPU address from a pagetable
+ * @pagetable: Pagetable to release the memory from
+ * @memdesc: Memory descriptor containing the GPU address to free
  */
-int
-kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
-			struct kgsl_memdesc *memdesc)
+int kgsl_mmu_put_gpuaddr(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc)
 {
-	uint64_t size;
-
 	if (memdesc->size == 0 || memdesc->gpuaddr == 0)
 		return 0;
 
-	if (kgsl_mmu_type == KGSL_MMU_TYPE_NONE)
-		goto done;
+	if (pagetable != NULL && pagetable->pt_ops->put_gpuaddr != NULL)
+		pagetable->pt_ops->put_gpuaddr(pagetable, memdesc);
 
-	/* Add space for the guard page when freeing the mmu VA. */
-	size = memdesc->size;
-	if (kgsl_memdesc_has_guard_page(memdesc))
-		size += kgsl_memdesc_guard_page_size(memdesc);
-
-	if (KGSL_MMU_SECURE_PT == pagetable->name)
-		bitmap_clear(pagetable->mem_bitmap,
-			(int)((memdesc->gpuaddr - KGSL_IOMMU_SECURE_MEM_BASE)
-						>> PAGE_SHIFT),
-						(int)(size >> PAGE_SHIFT));
-	else
-		bitmap_clear(pagetable->mem_bitmap,
-			(int) (memdesc->gpuaddr >> PAGE_SHIFT),
-			(int) (size >> PAGE_SHIFT));
-
-	/*
-	 * Don't clear the gpuaddr on global mappings because they
-	 * may be in use by other pagetables
-	 */
-done:
 	if (!kgsl_memdesc_is_global(memdesc))
 		memdesc->gpuaddr = 0;
+
 	return 0;
 }
 EXPORT_SYMBOL(kgsl_mmu_put_gpuaddr);
+
+/**
+ * kgsl_mmu_svm_range() - Return the range for SVM (if applicable)
+ * @pagetable: Pagetable to query the range from
+ * @lo: Pointer to store the start of the SVM range
+ * @hi: Pointer to store the end of the SVM range
+ */
+int kgsl_mmu_svm_range(struct kgsl_pagetable *pagetable,
+		uint64_t *lo, uint64_t *hi)
+{
+	if (pagetable == NULL || pagetable->pt_ops->svm_range == NULL)
+		return -ENODEV;
+
+	return pagetable->pt_ops->svm_range(pagetable, lo, hi);
+}
+EXPORT_SYMBOL(kgsl_mmu_svm_range);
 
 int
 kgsl_mmu_unmap(struct kgsl_pagetable *pagetable,
