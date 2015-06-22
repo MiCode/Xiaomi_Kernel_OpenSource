@@ -104,6 +104,8 @@
 #define ADRENO_LM BIT(9)
 /* The core uses 64 bit GPU addresses */
 #define ADRENO_64BIT BIT(10)
+/* Sync between SMMU operations and power collapse */
+#define ADRENO_SYNC_SMMU_PC BIT(11)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0

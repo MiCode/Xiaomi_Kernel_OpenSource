@@ -18,6 +18,7 @@
 #include <linux/delay.h>
 #include <linux/of_coresight.h>
 #include <linux/input.h>
+#include <soc/qcom/scm.h>
 
 #include <linux/msm-bus-board.h>
 #include <linux/msm-bus.h>
@@ -1352,8 +1353,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 {
 	struct kgsl_device *device = &adreno_dev->dev;
 	struct adreno_gpudev *gpudev = ADRENO_GPU_DEVICE(adreno_dev);
-	int status = -EINVAL;
+	int i, status = -EINVAL;
 	unsigned int state = device->state;
+	unsigned int regulator_left_on = 0;
 	unsigned int pmqos_wakeup_vote = device->pwrctrl.pm_qos_wakeup_latency;
 	unsigned int pmqos_active_vote = device->pwrctrl.pm_qos_active_latency;
 
@@ -1365,20 +1367,27 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	kgsl_cffdump_open(device);
 
-	/* Put the GPU in a responsive state */
-	device->regulator_left_on = false;
-	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
-	if (status)
-		goto error_pwr_off;
+	for (i = 0; i < KGSL_MAX_REGULATORS; i++) {
+		if (device->pwrctrl.gpu_reg[i] &&
+			regulator_is_enabled(device->pwrctrl.gpu_reg[i])) {
+			regulator_left_on = 1;
+			break;
+		}
+	}
 
 	/* Clear any GPU faults that might have been left over */
 	adreno_clear_gpu_fault(adreno_dev);
+
+	/* Put the GPU in a responsive state */
+	status = kgsl_pwrctrl_change_state(device, KGSL_STATE_AWARE);
+	if (status)
+		goto error_pwr_off;
 
 	/* Set the bit to indicate that we've just powered on */
 	set_bit(ADRENO_DEVICE_PWRON, &adreno_dev->priv);
 
 	/* Soft reset the GPU if a regulator is stuck on*/
-	if (device->regulator_left_on)
+	if (regulator_left_on)
 		_soft_reset(adreno_dev);
 
 	status = kgsl_mmu_start(device);
@@ -2667,6 +2676,61 @@ static void adreno_pwrlevel_change_settings(struct kgsl_device *device,
 					postlevel, post);
 }
 
+static void adreno_iommu_sync(struct kgsl_device *device, bool sync)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct scm_desc desc = {0};
+	int ret;
+
+	if (!ADRENO_FEATURE(adreno_dev, ADRENO_SYNC_SMMU_PC))
+		return;
+
+	if (sync == true) {
+		mutex_lock(&device->mutex_mmu_sync);
+		desc.args[0] = true;
+		desc.arginfo = SCM_ARGS(1);
+		ret = scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR, 0x8), &desc);
+		if (ret)
+			KGSL_DRV_ERR(device,
+				"MMU sync with Hypervisor off %x\n", ret);
+	} else {
+		desc.args[0] = false;
+		desc.arginfo = SCM_ARGS(1);
+		scm_call2_atomic(SCM_SIP_FNID(SCM_SVC_PWR, 0x8), &desc);
+		mutex_unlock(&device->mutex_mmu_sync);
+	}
+}
+
+static void adreno_regulator_disable_poll(struct kgsl_device *device)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+	struct kgsl_pwrctrl *pwr = &device->pwrctrl;
+	unsigned long wait_time = jiffies + msecs_to_jiffies(200);
+	int i, rail_on = 1;
+
+	if (ADRENO_FEATURE(adreno_dev, ADRENO_SYNC_SMMU_PC)) {
+		adreno_iommu_sync(device, true);
+		/* Turn off CX and then GX as recommened by HW team */
+		for (i = 0; i <= KGSL_MAX_REGULATORS - 1; i++) {
+			if (pwr->gpu_reg[i])
+				regulator_disable(pwr->gpu_reg[i]);
+			while (!time_after(jiffies, wait_time)) {
+				if (regulator_is_enabled(pwr->gpu_reg[i]) == 0)
+					rail_on = 0;
+				cpu_relax();
+			}
+			if (rail_on)
+				KGSL_CORE_ERR("%s regulator on after 200ms\n",
+					pwr->gpu_reg_name[i]);
+		}
+		adreno_iommu_sync(device, false);
+	} else {
+		for (i = KGSL_MAX_REGULATORS - 1; i >= 0; i--)
+			if (pwr->gpu_reg[i])
+				regulator_disable(pwr->gpu_reg[i]);
+	}
+}
+
 static const struct kgsl_functable adreno_functable = {
 	/* Mandatory functions */
 	.regread = adreno_regread,
@@ -2702,6 +2766,7 @@ static const struct kgsl_functable adreno_functable = {
 	.is_hw_collapsible = adreno_is_hw_collapsible,
 	.regulator_disable = adreno_regulator_disable,
 	.pwrlevel_change_settings = adreno_pwrlevel_change_settings,
+	.regulator_disable_poll = adreno_regulator_disable_poll,
 };
 
 static struct platform_driver adreno_platform_driver = {
