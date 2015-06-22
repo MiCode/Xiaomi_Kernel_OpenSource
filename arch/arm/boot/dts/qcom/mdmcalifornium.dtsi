@@ -337,6 +337,26 @@
 		};
 	};
 
+	qcom,glink-smem-native-xprt-modem@87e80000 {
+		compatible = "qcom,glink-smem-native-xprt";
+		reg = <0x87e80000 0x100000>,
+			<0xb011008 0x4>;
+		reg-names = "smem", "irq-reg-base";
+		qcom,irq-mask = <0x8000>;
+		interrupts = <0 28 1>;
+		label = "mpss";
+	};
+
+	qcom,glink-smem-native-xprt-rpm@60000 {
+		compatible = "qcom,glink-rpm-native-xprt";
+		reg = <0x60000 0x6000>,
+			<0xb011008 0x4>;
+		reg-names = "msgram", "irq-reg-base";
+		qcom,irq-mask = <0x1>;
+		interrupts = <0 168 1>;
+		label = "rpm";
+	};
+
 	glink_mpss: qcom,glink-ssr-modem {
 		compatible = "qcom,glink_ssr";
 		label = "modem";
