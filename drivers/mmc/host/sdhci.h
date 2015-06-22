@@ -17,7 +17,6 @@
 #include <linux/compiler.h>
 #include <linux/types.h>
 #include <linux/io.h>
-#include <linux/pm_qos.h>
 #include <linux/ratelimit.h>
 #include <linux/mmc/host.h>
 
@@ -605,12 +604,7 @@ struct sdhci_host {
 	unsigned int		tuning_count;	/* Timer count for re-tuning */
 	unsigned int		tuning_mode;	/* Re-tuning mode supported by host */
 #define SDHCI_TUNING_MODE_1	0
-	unsigned int		cpu_dma_latency_us;
-	struct pm_qos_request	pm_qos_req_dma;
 	ktime_t data_start_time;
-
-	unsigned int pm_qos_timeout_us;         /* timeout for PM QoS request */
-	struct device_attribute pm_qos_tout;
 
 	enum sdhci_power_policy power_policy;
 
