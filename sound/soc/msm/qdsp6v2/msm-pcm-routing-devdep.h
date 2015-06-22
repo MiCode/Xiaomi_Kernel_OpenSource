@@ -1,4 +1,4 @@
-/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2015, The Linux Foundation. All rights reserved.
 * This program is free software; you can redistribute it and/or modify
 * it under the terms of the GNU General Public License version 2 and
 * only version 2 as published by the Free Software Foundation.
@@ -18,10 +18,19 @@
 #ifdef CONFIG_SND_HWDEP
 int msm_pcm_routing_hwdep_new(struct snd_soc_pcm_runtime *runtime,
 			      struct msm_pcm_routing_bdai_data *msm_bedais);
+
+int msm_pcm_create_generic_hwdep_node(struct snd_soc_platform *platform);
+
 void msm_pcm_routing_hwdep_free(struct snd_pcm *pcm);
 #else
 static inline int msm_pcm_routing_hwdep_new(struct snd_soc_pcm_runtime *runtime,
 				struct msm_pcm_routing_bdai_data *msm_bedais)
+{
+	return 0;
+}
+
+static inline int msm_pcm_create_generic_hwdep_node
+				(struct snd_soc_platform *platform)
 {
 	return 0;
 }

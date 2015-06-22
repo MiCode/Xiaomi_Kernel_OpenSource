@@ -95,9 +95,10 @@ enum {
 	SNDRV_HWDEP_IFACE_USB_STREAM,	/* direct access to usb stream */
 	SNDRV_HWDEP_IFACE_AUDIO_BE,	/* Backend Audio Control */
 	SNDRV_HWDEP_IFACE_AUDIO_CODEC,	/* codec Audio Control */
+	SNDRV_HWDEP_IFACE_AUDIO_GENERIC,/* Generic Audio Control */
 
 	/* Don't forget to change the following: */
-	SNDRV_HWDEP_IFACE_LAST = SNDRV_HWDEP_IFACE_AUDIO_CODEC
+	SNDRV_HWDEP_IFACE_LAST = SNDRV_HWDEP_IFACE_AUDIO_GENERIC
 };
 
 struct snd_hwdep_info {
