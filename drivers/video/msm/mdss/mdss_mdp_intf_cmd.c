@@ -675,7 +675,7 @@ static int mdss_mdp_cmd_wait4pingpong(struct mdss_mdp_ctl *ctl, void *arg)
 		status = mask & readl_relaxed(ctl->mdata->mdp_base +
 				MDSS_MDP_REG_INTR_STATUS);
 		if (status) {
-			WARN(1, "pp done but irq not triggered\n");
+			pr_warn("pp done but irq not triggered\n");
 			mdss_mdp_irq_clear(ctl->mdata,
 					MDSS_MDP_IRQ_PING_PONG_COMP,
 					ctx->pp_num);
