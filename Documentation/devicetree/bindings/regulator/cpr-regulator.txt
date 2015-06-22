@@ -554,6 +554,9 @@ Optional properties:
 				This property is required if qcom,cpr-fuse-init-voltage is present.
 - mem-acc-supply:		Regulator to vote for the memory accelerator configuration.
 				Not Present: memory accelerator configuration not supported.
+- qcom,mem-acc-corner-map:	Array of integer which defines the mapping from mem-acc corner value for each
+				virtual corner. Each element is a mem-acc state for the corresponding virtual corner.
+				The elements in the array are ordered from lowest voltage corner to highest voltage corner.
 - qcom,fuse-remap-source:	Array of quadruples in which each quadruple specifies a fuse location to
 				remap.  The 4 elements in one quadruple are:
 				[0]: => the fuse row number of the bits
