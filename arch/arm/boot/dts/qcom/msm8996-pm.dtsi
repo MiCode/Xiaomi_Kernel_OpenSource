@@ -455,4 +455,11 @@
 			<MSM_BUS_MASTER_AMPSS_M0 MSM_BUS_SLAVE_OCIMEM 0 800000>;
 	};
 
+	qcom,rpm-rail-stats@200000 {
+		compatible = "qcom,rpm-rail-stats";
+		reg = <0x200000 0x100>,
+			<0x29000c 0x4>;
+		reg-names = "phys_addr_base",
+			    "offset_addr";
+	};
 };
