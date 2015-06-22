@@ -1386,7 +1386,7 @@ int q6lsm_set_one_param(struct lsm_client *client,
 	struct lsm_module_param_ids ids;
 	u8 *packet;
 
-	memset(&ids, sizeof(ids), 0);
+	memset(&ids, 0, sizeof(ids));
 	switch (param_type) {
 	case LSM_ENDPOINT_DETECT_THRESHOLD: {
 		ids.module_id = p_info->module_id;
