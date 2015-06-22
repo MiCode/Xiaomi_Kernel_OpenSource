@@ -365,11 +365,10 @@ static void diag_send_time_sync_update(uint8_t peripheral)
 	time_sync_msg.time_api = driver->uses_time_api;
 
 	err = diagfwd_write(peripheral, TYPE_CNTL, &time_sync_msg, msg_size);
-	if (err) {
+	if (err)
 		pr_err("diag: In %s, unable to write to peripheral: %d, type: %d, len: %d, err: %d\n",
 				__func__, peripheral, TYPE_CNTL,
 				msg_size, err);
-	}
 	mutex_unlock(&driver->diag_cntl_mutex);
 }
 
@@ -1525,6 +1524,8 @@ int diag_copy_to_user_log_mask(char __user *buf, size_t count)
 void diag_send_updates_peripheral(uint8_t peripheral)
 {
 	diag_send_feature_mask_update(peripheral);
+	if (driver->time_sync_enabled)
+		diag_send_time_sync_update(peripheral);
 	diag_send_msg_mask_update(peripheral, ALL_SSID, ALL_SSID);
 	diag_send_log_mask_update(peripheral, ALL_EQUIP_ID);
 	diag_send_event_mask_update(peripheral);
@@ -1532,8 +1533,6 @@ void diag_send_updates_peripheral(uint8_t peripheral)
 				driver->real_time_mode[DIAG_LOCAL_PROC]);
 	diag_send_peripheral_buffering_mode(
 				&driver->buffering_mode[peripheral]);
-	if (driver->time_sync_enabled)
-		diag_send_time_sync_update(peripheral);
 }
 
 int diag_process_apps_masks(unsigned char *buf, int len)
