@@ -63,18 +63,6 @@ In the following, <supply> can be vdd (flash core voltage) or vdd-io (I/O voltag
 		- pinctrl-names
 		- pinctrl-0, pinctrl-1,.. pinctrl-n
 
-        - qcom,cpu-affinity: this is a string that specifies the pm QoS request
-	  type. The supported cpu affinity modes are :
-	  "all_cores" - PM_QOS_REQ_ALL_CORES is applicable to all CPU cores that
-	  are online and this would have a power impact when there are more
-	  number of CPUs.
-	  "affine_irq" - PM_QOS_REQ_AFFINE_IRQ request type shall update/apply
-	  the vote only to that CPU to which this IRQ's affinity is set to.
-	  "affine_cores" - PM_QOS_REQ_AFFINE_CORES request type is used for
-	  targets that have little cluster and will update/apply the vote to
-	  all the cores in the little cluster.
-	  The default CPU affinity mode is PM_QOS_REQ_AFFINE_IRQ to maintain
-	  backward compatibility.
 	- qcom,large-address-bus - specifies whether the soc is capable of
 				 supporting larger than 32 bit address bus width.
 
