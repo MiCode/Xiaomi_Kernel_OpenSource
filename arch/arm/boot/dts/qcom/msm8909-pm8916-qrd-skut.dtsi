@@ -96,7 +96,7 @@
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-&dsi_hx8379c_fwvga_video {
+&dsi_fl10802_fwvga_video {
 	qcom,cont-splash-enabled;
 };
 
