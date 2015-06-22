@@ -1007,6 +1007,8 @@
 		qcom,has-autodetect-xo;
 		qcom,is-pronto-v3;
 		qcom,has-pronto-hw;
+		qcom,has-vsys-adc-channel;
+		qcom,wcnss-adc_tm = <&pm8950_adc_tm>;
 	};
 
 	qcom,usbbam@78c4000 {
