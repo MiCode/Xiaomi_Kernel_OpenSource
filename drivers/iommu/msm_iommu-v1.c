@@ -348,15 +348,21 @@ static void __sync_tlb(struct msm_iommu_drvdata *iommu_drvdata, int ctx,
 		struct msm_iommu_priv *priv)
 {
 	unsigned int val;
-	unsigned int res;
+	unsigned int count;
 	void __iomem *base = iommu_drvdata->cb_base;
 
 	SET_TLBSYNC(base, ctx, 0);
 	/* No barrier needed due to read dependency */
 
-	res = readl_poll_timeout_noirq(CTX_REG(CB_TLBSTATUS, base, ctx), val,
-				(val & CB_TLBSTATUS_SACTIVE) == 0, 10000, 50);
-	if (res)
+	for (count = 500000; count > 0; count--) {
+		val = readl_relaxed(CTX_REG(CB_TLBSTATUS, base, ctx));
+		if ((val & CB_TLBSTATUS_SACTIVE) == 0)
+			break;
+
+		udelay(1);
+	}
+
+	if (!count)
 		check_tlb_sync_state(iommu_drvdata, ctx, priv);
 }
 
