@@ -146,6 +146,14 @@
 #define PMI8994_V2P0_TYPE	0x51
 #define PMI8994_V2P0_SUBTYPE	0x0A
 
+#define PM8950_V1P0_REV4	0x01
+#define PM8950_V1P0_TYPE	0x51
+#define PM8950_V1P0_SUBTYPE	0x10
+
+#define PM8950_V2P0_REV4	0x02
+#define PM8950_V2P0_TYPE	0x51
+#define PM8950_V2P0_SUBTYPE	0x10
+
 struct pmic_revid_data {
 	u8	rev1;
 	u8	rev2;
