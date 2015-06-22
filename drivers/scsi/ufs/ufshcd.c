@@ -2492,6 +2492,9 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 		BUG();
 	}
 
+	if (!down_read_trylock(&hba->clk_scaling_lock))
+		return SCSI_MLQUEUE_HOST_BUSY;
+
 	spin_lock_irqsave(hba->host->host_lock, flags);
 	switch (hba->ufshcd_state) {
 	case UFSHCD_STATE_OPERATIONAL:
@@ -2601,6 +2604,7 @@ static int ufshcd_queuecommand(struct Scsi_Host *host, struct scsi_cmnd *cmd)
 out_unlock:
 	spin_unlock_irqrestore(hba->host->host_lock, flags);
 out:
+	up_read(&hba->clk_scaling_lock);
 	return err;
 }
 
@@ -2789,6 +2793,8 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 	struct completion wait;
 	unsigned long flags;
 
+	down_read(&hba->clk_scaling_lock);
+
 	/*
 	 * Get free slot, sleep if slots are unavailable.
 	 * Even though we use wait_event() which sleeps indefinitely,
@@ -2820,6 +2826,7 @@ static int ufshcd_exec_dev_cmd(struct ufs_hba *hba,
 out_put_tag:
 	ufshcd_put_dev_cmd_tag(hba, tag);
 	wake_up(&hba->dev_cmd.tag_wq);
+	up_read(&hba->clk_scaling_lock);
 	return err;
 }
 
@@ -8412,7 +8419,6 @@ static bool ufshcd_is_devfreq_scaling_required(struct ufs_hba *hba,
 static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 {
 	#define UFS_MIN_GEAR_TO_SCALE_DOWN	UFS_HS_G2
-	#define DOORBELL_CLR_TOUT_US		(1000 * 1000) /* 1 sec */
 	int ret = 0;
 	struct ufs_pa_layer_attr new_pwr_info;
 
@@ -8440,21 +8446,8 @@ static int ufshcd_scale_gear(struct ufs_hba *hba, bool scale_up)
 
 	/* check if the power mode needs to be changed or not? */
 	if (memcmp(&new_pwr_info, &hba->pwr_info,
-	    sizeof(struct ufs_pa_layer_attr))) {
-		/*
-		 * make sure that there are no outstanding requests when
-		 * power mode change is requested
-		 */
-		scsi_block_requests(hba->host);
-		if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
-			ret = -EBUSY;
-			goto out_unblock;
-		}
-
+		   sizeof(struct ufs_pa_layer_attr)))
 		ret = ufshcd_change_power_mode(hba, &new_pwr_info);
-out_unblock:
-		scsi_unblock_requests(hba->host);
-	}
 
 	if (ret)
 		dev_err(hba->dev, "%s: failed err %d, old gear: (tx %d rx %d), new gear: (tx %d rx %d)",
@@ -8463,6 +8456,31 @@ out_unblock:
 			new_pwr_info.gear_tx, new_pwr_info.gear_rx);
 
 	return ret;
+}
+
+static int ufshcd_clock_scaling_prepare(struct ufs_hba *hba)
+{
+	#define DOORBELL_CLR_TOUT_US		(1000 * 1000) /* 1 sec */
+	int ret = 0;
+	/*
+	 * make sure that there are no outstanding requests when
+	 * clock scaling is in progress
+	 */
+	scsi_block_requests(hba->host);
+	down_write(&hba->clk_scaling_lock);
+	if (ufshcd_wait_for_doorbell_clr(hba, DOORBELL_CLR_TOUT_US)) {
+		ret = -EBUSY;
+		up_write(&hba->clk_scaling_lock);
+		scsi_unblock_requests(hba->host);
+	}
+
+	return ret;
+}
+
+static void ufshcd_clock_scaling_unprepare(struct ufs_hba *hba)
+{
+	up_write(&hba->clk_scaling_lock);
+	scsi_unblock_requests(hba->host);
 }
 
 /**
@@ -8478,6 +8496,12 @@ static int ufshcd_devfreq_scale(struct ufs_hba *hba, bool scale_up)
 {
 	int ret = 0;
 
+	ret = ufshcd_clock_scaling_prepare(hba);
+	if (ret)
+		return ret;
+
+	/* let's not get into low power until clock scaling is completed */
+	ufshcd_hibern8_hold(hba, false);
 	/* scale down the gear before scaling down clocks */
 	if (!scale_up) {
 		ret = ufshcd_scale_gear(hba, false);
@@ -8503,6 +8527,8 @@ scale_up_gear:
 	if (!scale_up)
 		ufshcd_scale_gear(hba, true);
 out:
+	ufshcd_clock_scaling_unprepare(hba);
+	ufshcd_hibern8_release(hba, false);
 	return ret;
 }
 
@@ -8806,6 +8832,8 @@ int ufshcd_init(struct ufs_hba *hba, void __iomem *mmio_base, unsigned int irq)
 
 	/* Initialize mutex for device management commands */
 	mutex_init(&hba->dev_cmd.lock);
+
+	init_rwsem(&hba->clk_scaling_lock);
 
 	/* Initialize device management tag acquire wait queue */
 	init_waitqueue_head(&hba->dev_cmd.tag_wq);
