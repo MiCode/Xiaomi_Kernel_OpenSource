@@ -86,8 +86,6 @@ struct bam_data_ch_info {
 	u32			dst_pipe_idx;
 	u8			src_connection_idx;
 	u8			dst_connection_idx;
-	int			src_bam_idx;
-	int			dst_bam_idx;
 
 	enum function_type			func_type;
 	enum transport_type			trans;
@@ -786,13 +784,10 @@ static void bam2bam_data_disconnect_work(struct work_struct *w)
 	*/
 	spin_unlock_irqrestore(&port->port_lock, flags);
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		/* Perform IPA functions' disconnect */
-		bam_data_ipa_disconnect(d);
-		ret = usb_bam_disconnect_ipa(&d->ipa_params);
-		if (ret)
-			pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
-	}
+	bam_data_ipa_disconnect(d);
+	ret = usb_bam_disconnect_ipa(&d->ipa_params);
+	if (ret)
+		pr_err("usb_bam_disconnect_ipa failed: err:%d\n", ret);
 
 	spin_lock_irqsave(&port->port_lock, flags);
 	port->is_ipa_connected = false;
@@ -834,12 +829,10 @@ static void configure_usb_data_fifo(u8 idx, struct usb_ep *ep,
 static inline void bam_data_start_rx_transfers(struct bam_data_ch_info *d,
 				struct bam_data_port *port)
 {
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-		d->src_pipe_type == USB_BAM_PIPE_BAM2BAM) {
+	if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
 		bam_data_start_endless_rx(port);
-	} else {
+	else
 		bam_data_start_rx(port);
-	}
 }
 
 static void bam2bam_data_connect_work(struct work_struct *w)
@@ -890,266 +883,221 @@ static void bam2bam_data_connect_work(struct work_struct *w)
 		return;
 	}
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
+	d->ipa_params.usb_connection_speed = gadget->speed;
+	d->ipa_params.cons_clnt_hdl = -1;
+	d->ipa_params.prod_clnt_hdl = -1;
 
-		d->ipa_params.usb_connection_speed = gadget->speed;
-		d->ipa_params.cons_clnt_hdl = -1;
-		d->ipa_params.prod_clnt_hdl = -1;
-
-		if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
-			spin_unlock_irqrestore(&port->port_lock, flags);
-			pr_err("%s: no software preparation for DL not using bam2bam\n",
-					__func__);
-			return;
-		}
-
-		if (d->func_type == USB_FUNC_MBIM) {
-			teth_bridge_params.client = d->ipa_params.src_client;
-			ret = teth_bridge_init(&teth_bridge_params);
-			if (ret) {
-				spin_unlock_irqrestore(&port->port_lock, flags);
-				pr_err("%s:teth_bridge_init() failed\n",
-				      __func__);
-				return;
-			}
-			d->ipa_params.notify =
-				teth_bridge_params.usb_notify_cb;
-			d->ipa_params.priv =
-				teth_bridge_params.private_data;
-			d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
-			d->ipa_params.skip_ep_cfg =
-				teth_bridge_params.skip_ep_cfg;
-		}
-		d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
-		if (d->func_type == USB_FUNC_ECM) {
-			d->ipa_params.notify = ecm_qc_get_ipa_rx_cb();
-			d->ipa_params.priv = ecm_qc_get_ipa_priv();
-			d->ipa_params.skip_ep_cfg = ecm_qc_get_skip_ep_config();
-		}
-
-		if (d->func_type == USB_FUNC_RNDIS) {
-			d->ipa_params.notify = rndis_qc_get_ipa_rx_cb();
-			d->ipa_params.priv = rndis_qc_get_ipa_priv();
-			d->ipa_params.skip_ep_cfg =
-				rndis_qc_get_skip_ep_config();
-		}
-
-		/* Support for UL using system-to-IPA */
-		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
-			d->ul_params.teth_cb = d->ipa_params.notify;
-			d->ipa_params.notify =
-				bam_data_ipa_sys2bam_notify_cb;
-			d->ul_params.teth_priv = d->ipa_params.priv;
-			d->ipa_params.priv = &d->ul_params;
-			d->ipa_params.reset_pipe_after_lpm = false;
-		} else {
-			d->ipa_params.reset_pipe_after_lpm =
-				(gadget_is_dwc3(gadget) &&
-				msm_dwc3_reset_ep_after_lpm(gadget));
-		}
-
+	if (d->dst_pipe_type != USB_BAM_PIPE_BAM2BAM) {
 		spin_unlock_irqrestore(&port->port_lock, flags);
-		ret = usb_bam_connect_ipa(&d->ipa_params);
-		if (ret) {
-			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
-				__func__, ret);
-			return;
-		}
-
-		spin_lock_irqsave(&port->port_lock, flags);
-		if (port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
-			spin_unlock_irqrestore(&port->port_lock, flags);
-			pr_err("%s:%d: Port is being disconnected.\n",
-						__func__, __LINE__);
-			goto disconnect_ipa;
-		}
-
-		d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
-		d->src_bam_idx = usb_bam_get_connection_idx(
-				gadget->name,
-				IPA_P_BAM, USB_TO_PEER_PERIPHERAL,
-				USB_BAM_DEVICE, 0);
-		if (d->src_bam_idx < 0) {
-			spin_unlock_irqrestore(&port->port_lock, flags);
-			pr_err("%s: get_connection_idx failed\n",
+		pr_err("%s: no software preparation for DL not using bam2bam\n",
 				__func__);
-			goto disconnect_ipa;
-		}
-
-		if (gadget_is_dwc3(gadget))
-			configure_usb_data_fifo(d->src_bam_idx,
-					port->port_usb->out,
-					d->src_pipe_type);
-
-		/* Remove support for UL using system-to-IPA towards DL */
-		if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
-			d->ipa_params.notify = d->ul_params.teth_cb;
-			d->ipa_params.priv = d->ul_params.teth_priv;
-		}
-
-		d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
-		if (d->func_type == USB_FUNC_ECM) {
-			d->ipa_params.notify = ecm_qc_get_ipa_tx_cb();
-			d->ipa_params.priv = ecm_qc_get_ipa_priv();
-			d->ipa_params.skip_ep_cfg = ecm_qc_get_skip_ep_config();
-		}
-		if (d->func_type == USB_FUNC_RNDIS) {
-			d->ipa_params.notify = rndis_qc_get_ipa_tx_cb();
-			d->ipa_params.priv = rndis_qc_get_ipa_priv();
-			d->ipa_params.skip_ep_cfg =
-				rndis_qc_get_skip_ep_config();
-		}
-
-		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM) {
-			d->ipa_params.reset_pipe_after_lpm =
-				(gadget_is_dwc3(gadget) &&
-				 msm_dwc3_reset_ep_after_lpm(gadget));
-		} else {
-			d->ipa_params.reset_pipe_after_lpm = false;
-		}
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		ret = usb_bam_connect_ipa(&d->ipa_params);
-		if (ret) {
-			pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
-				__func__, ret);
-			goto disconnect_ipa;
-		}
-
-		/*
-		 * Cable might have been disconnected after releasing the
-		 * spinlock and re-enabling IRQs. Hence check again.
-		 */
-		spin_lock_irqsave(&port->port_lock, flags);
-		if (port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
-			spin_unlock_irqrestore(&port->port_lock, flags);
-			pr_err("%s:%d: port is beind disconnected.\n",
-						__func__, __LINE__);
-			goto disconnect_ipa;
-		}
-
-		port->is_ipa_connected = true;
-
-		d_port->ipa_producer_ep = d->ipa_params.ipa_prod_ep_idx;
-		pr_debug("%s(): ipa_producer_ep:%d ipa_consumer_ep:%d\n",
-				__func__, d_port->ipa_producer_ep,
-				d_port->ipa_consumer_ep);
-		d->dst_bam_idx = usb_bam_get_connection_idx(
-				gadget->name,
-				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, 0);
-		if (d->dst_bam_idx < 0) {
-			pr_err("%s: get_connection_idx failed\n",
-				__func__);
-			return;
-		}
-
-		if (gadget_is_dwc3(gadget))
-			configure_usb_data_fifo(d->dst_bam_idx,
-					port->port_usb->in,
-					d->dst_pipe_type);
-
-		/* Upadate BAM specific attributes in usb_request */
-		if (gadget_is_dwc3(gadget)) {
-			sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
-				| MSM_PRODUCER | d->src_pipe_idx;
-			d->rx_req->length = 32*1024;
-		} else {
-			sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
-				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
-		}
-		d->rx_req->udc_priv = sps_params;
-
-		if (gadget_is_dwc3(gadget)) {
-			sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
-						| d->dst_pipe_idx;
-			d->tx_req->length = 32*1024;
-		} else {
-			sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
-				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
-		}
-		d->tx_req->udc_priv = sps_params;
-		spin_unlock_irqrestore(&port->port_lock, flags);
-
-		if (d->func_type == USB_FUNC_MBIM) {
-			connect_params.ipa_usb_pipe_hdl =
-				d->ipa_params.prod_clnt_hdl;
-			connect_params.usb_ipa_pipe_hdl =
-				d->ipa_params.cons_clnt_hdl;
-			connect_params.tethering_mode =
-				TETH_TETHERING_MODE_MBIM;
-			connect_params.client_type = d->ipa_params.src_client;
-			ret = teth_bridge_connect(&connect_params);
-			if (ret) {
-				pr_err("%s:teth_bridge_connect() failed\n",
-				      __func__);
-				return;
-			}
-		}
-
-		if (d->func_type == USB_FUNC_ECM) {
-			ret = ecm_ipa_connect(d->ipa_params.cons_clnt_hdl,
-				d->ipa_params.prod_clnt_hdl,
-				d->ipa_params.priv);
-			if (ret) {
-				pr_err("%s: failed to connect IPA: err:%d\n",
-					__func__, ret);
-				return;
-			}
-		}
-
-		if (d->func_type == USB_FUNC_RNDIS) {
-			rndis_data.prod_clnt_hdl =
-				d->ipa_params.prod_clnt_hdl;
-			rndis_data.cons_clnt_hdl =
-				d->ipa_params.cons_clnt_hdl;
-			rndis_data.priv = d->ipa_params.priv;
-
-			pr_debug("ul_max_transfer_size:%d\n",
-					rndis_data.ul_max_transfer_size);
-			pr_debug("ul_max_packets_number:%d\n",
-					rndis_data.ul_max_packets_number);
-			pr_debug("dl_max_transfer_size:%d\n",
-					rndis_data.dl_max_transfer_size);
-
-			ret = rndis_ipa_pipe_connect_notify(
-				rndis_data.cons_clnt_hdl,
-				rndis_data.prod_clnt_hdl,
-				rndis_data.ul_max_transfer_size,
-				rndis_data.ul_max_packets_number,
-				rndis_data.dl_max_transfer_size,
-				rndis_data.priv);
-			if (ret) {
-				pr_err("%s: failed to connect IPA: err:%d\n",
-					__func__, ret);
-				return;
-			}
-		}
-		atomic_set(&d->pipe_connect_notified, 1);
-	} else { /* transport type is USB_GADGET_XPORT_BAM2BAM */
-		/* Setup BAM connection and fetch USB PIPE index */
-		ret = usb_bam_connect(d->src_connection_idx, &d->src_pipe_idx);
-		if (ret) {
-			pr_err("usb_bam_connect (src) failed: err:%d\n", ret);
-			return;
-		}
-		ret = usb_bam_connect(d->dst_connection_idx, &d->dst_pipe_idx);
-		if (ret) {
-			pr_err("usb_bam_connect (dst) failed: err:%d\n", ret);
-			return;
-		}
-
-		sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
-				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
-		d->rx_req->udc_priv = sps_params;
-		sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
-				MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
-		d->tx_req->udc_priv = sps_params;
+		return;
 	}
 
+	if (d->func_type == USB_FUNC_MBIM) {
+		teth_bridge_params.client = d->ipa_params.src_client;
+		ret = teth_bridge_init(&teth_bridge_params);
+		if (ret) {
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			pr_err("%s:teth_bridge_init() failed\n",
+			      __func__);
+			return;
+		}
+		d->ipa_params.notify =
+			teth_bridge_params.usb_notify_cb;
+		d->ipa_params.priv =
+			teth_bridge_params.private_data;
+		d->ipa_params.ipa_ep_cfg.mode.mode = IPA_BASIC;
+		d->ipa_params.skip_ep_cfg =
+			teth_bridge_params.skip_ep_cfg;
+	}
+	d->ipa_params.dir = USB_TO_PEER_PERIPHERAL;
+	if (d->func_type == USB_FUNC_ECM) {
+		d->ipa_params.notify = ecm_qc_get_ipa_rx_cb();
+		d->ipa_params.priv = ecm_qc_get_ipa_priv();
+		d->ipa_params.skip_ep_cfg = ecm_qc_get_skip_ep_config();
+	}
+
+	if (d->func_type == USB_FUNC_RNDIS) {
+		d->ipa_params.notify = rndis_qc_get_ipa_rx_cb();
+		d->ipa_params.priv = rndis_qc_get_ipa_priv();
+		d->ipa_params.skip_ep_cfg =
+			rndis_qc_get_skip_ep_config();
+	}
+
+	/* Support for UL using system-to-IPA */
+	if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
+		d->ul_params.teth_cb = d->ipa_params.notify;
+		d->ipa_params.notify =
+			bam_data_ipa_sys2bam_notify_cb;
+		d->ul_params.teth_priv = d->ipa_params.priv;
+		d->ipa_params.priv = &d->ul_params;
+		d->ipa_params.reset_pipe_after_lpm = false;
+	} else {
+		d->ipa_params.reset_pipe_after_lpm =
+			(gadget_is_dwc3(gadget) &&
+			msm_dwc3_reset_ep_after_lpm(gadget));
+	}
+
+	spin_unlock_irqrestore(&port->port_lock, flags);
+	ret = usb_bam_connect_ipa(&d->ipa_params);
+	if (ret) {
+		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
+			__func__, ret);
+		return;
+	}
+
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		pr_err("%s:%d: Port is being disconnected.\n",
+					__func__, __LINE__);
+		goto disconnect_ipa;
+	}
+
+	d_port->ipa_consumer_ep = d->ipa_params.ipa_cons_ep_idx;
+	if (gadget_is_dwc3(gadget))
+		configure_usb_data_fifo(d->src_connection_idx,
+				port->port_usb->out,
+				d->src_pipe_type);
+
+	/* Remove support for UL using system-to-IPA towards DL */
+	if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
+		d->ipa_params.notify = d->ul_params.teth_cb;
+		d->ipa_params.priv = d->ul_params.teth_priv;
+	}
+
+	d->ipa_params.dir = PEER_PERIPHERAL_TO_USB;
+	if (d->func_type == USB_FUNC_ECM) {
+		d->ipa_params.notify = ecm_qc_get_ipa_tx_cb();
+		d->ipa_params.priv = ecm_qc_get_ipa_priv();
+		d->ipa_params.skip_ep_cfg = ecm_qc_get_skip_ep_config();
+	}
+	if (d->func_type == USB_FUNC_RNDIS) {
+		d->ipa_params.notify = rndis_qc_get_ipa_tx_cb();
+		d->ipa_params.priv = rndis_qc_get_ipa_priv();
+		d->ipa_params.skip_ep_cfg =
+			rndis_qc_get_skip_ep_config();
+	}
+
+	if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM) {
+		d->ipa_params.reset_pipe_after_lpm =
+			(gadget_is_dwc3(gadget) &&
+			 msm_dwc3_reset_ep_after_lpm(gadget));
+	} else {
+		d->ipa_params.reset_pipe_after_lpm = false;
+	}
+	spin_unlock_irqrestore(&port->port_lock, flags);
+	ret = usb_bam_connect_ipa(&d->ipa_params);
+	if (ret) {
+		pr_err("%s: usb_bam_connect_ipa failed: err:%d\n",
+			__func__, ret);
+		goto disconnect_ipa;
+	}
+
+	/*
+	 * Cable might have been disconnected after releasing the
+	 * spinlock and re-enabling IRQs. Hence check again.
+	 */
+	spin_lock_irqsave(&port->port_lock, flags);
+	if (port->last_event ==  U_BAM_DATA_DISCONNECT_E) {
+		spin_unlock_irqrestore(&port->port_lock, flags);
+		pr_err("%s:%d: port is beind disconnected.\n",
+					__func__, __LINE__);
+		goto disconnect_ipa;
+	}
+
+	port->is_ipa_connected = true;
+
+	d_port->ipa_producer_ep = d->ipa_params.ipa_prod_ep_idx;
+	pr_debug("%s(): ipa_producer_ep:%d ipa_consumer_ep:%d\n",
+			__func__, d_port->ipa_producer_ep,
+			d_port->ipa_consumer_ep);
+	if (gadget_is_dwc3(gadget))
+		configure_usb_data_fifo(d->dst_connection_idx,
+				port->port_usb->in,
+				d->dst_pipe_type);
+
+	/* Upadate BAM specific attributes in usb_request */
+	if (gadget_is_dwc3(gadget)) {
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
+			| MSM_PRODUCER | d->src_pipe_idx;
+		d->rx_req->length = 32*1024;
+	} else {
+		sps_params = (SPS_PARAMS_SPS_MODE | d->src_pipe_idx |
+			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+	}
+	d->rx_req->udc_priv = sps_params;
+
+	if (gadget_is_dwc3(gadget)) {
+		sps_params = MSM_SPS_MODE | MSM_DISABLE_WB
+					| d->dst_pipe_idx;
+		d->tx_req->length = 32*1024;
+	} else {
+		sps_params = (SPS_PARAMS_SPS_MODE | d->dst_pipe_idx |
+			MSM_VENDOR_ID) & ~SPS_PARAMS_TBE;
+	}
+	d->tx_req->udc_priv = sps_params;
+	spin_unlock_irqrestore(&port->port_lock, flags);
+
+	if (d->func_type == USB_FUNC_MBIM) {
+		connect_params.ipa_usb_pipe_hdl =
+			d->ipa_params.prod_clnt_hdl;
+		connect_params.usb_ipa_pipe_hdl =
+			d->ipa_params.cons_clnt_hdl;
+		connect_params.tethering_mode =
+			TETH_TETHERING_MODE_MBIM;
+		connect_params.client_type = d->ipa_params.src_client;
+		ret = teth_bridge_connect(&connect_params);
+		if (ret) {
+			pr_err("%s:teth_bridge_connect() failed\n",
+			      __func__);
+			return;
+		}
+	}
+
+	if (d->func_type == USB_FUNC_ECM) {
+		ret = ecm_ipa_connect(d->ipa_params.cons_clnt_hdl,
+			d->ipa_params.prod_clnt_hdl,
+			d->ipa_params.priv);
+		if (ret) {
+			pr_err("%s: failed to connect IPA: err:%d\n",
+				__func__, ret);
+			return;
+		}
+	}
+
+	if (d->func_type == USB_FUNC_RNDIS) {
+		rndis_data.prod_clnt_hdl =
+			d->ipa_params.prod_clnt_hdl;
+		rndis_data.cons_clnt_hdl =
+			d->ipa_params.cons_clnt_hdl;
+		rndis_data.priv = d->ipa_params.priv;
+
+		pr_debug("ul_max_transfer_size:%d\n",
+				rndis_data.ul_max_transfer_size);
+		pr_debug("ul_max_packets_number:%d\n",
+				rndis_data.ul_max_packets_number);
+		pr_debug("dl_max_transfer_size:%d\n",
+				rndis_data.dl_max_transfer_size);
+
+		ret = rndis_ipa_pipe_connect_notify(
+			rndis_data.cons_clnt_hdl,
+			rndis_data.prod_clnt_hdl,
+			rndis_data.ul_max_transfer_size,
+			rndis_data.ul_max_packets_number,
+			rndis_data.dl_max_transfer_size,
+			rndis_data.priv);
+		if (ret) {
+			pr_err("%s: failed to connect IPA: err:%d\n",
+				__func__, ret);
+			return;
+		}
+	}
+	atomic_set(&d->pipe_connect_notified, 1);
+
 	/* Don't queue the transfers yet, only after network stack is up */
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
-		(d->func_type == USB_FUNC_RNDIS ||
-		d->func_type == USB_FUNC_ECM)) {
+	if (d->func_type == USB_FUNC_RNDIS || d->func_type == USB_FUNC_ECM) {
 		pr_debug("%s: Not starting now, waiting for network notify",
 			__func__);
 		return;
@@ -1387,10 +1335,8 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 		usb_gadget_autopm_get_noresume(port->gadget);
 
 	if (port->port_usb) {
-		if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-			port->port_usb->ipa_consumer_ep = -1;
-			port->port_usb->ipa_producer_ep = -1;
-		}
+		port->port_usb->ipa_consumer_ep = -1;
+		port->port_usb->ipa_producer_ep = -1;
 
 		if (port->port_usb->in && port->port_usb->in->driver_data) {
 
@@ -1418,8 +1364,7 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 			spin_lock_irqsave(&port->port_lock, flags);
 
 			/* Only for SYS2BAM mode related UL workaround */
-			if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
-				d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
+			if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
 
 				pr_debug("SKBs_RX_Q: freed:%d\n",
 							d->rx_skb_q.qlen);
@@ -1443,16 +1388,11 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 			 * Set endless flag to false as USB Endpoint
 			 * is already disable.
 			 */
-			if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-				d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
-				d->trans == USB_GADGET_XPORT_BAM) {
+			if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+				port->port_usb->in->endless = false;
 
-				if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
-					port->port_usb->in->endless = false;
-
-				if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
-					port->port_usb->out->endless = false;
-			}
+			if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+				port->port_usb->out->endless = false;
 
 			port->port_usb->in->driver_data = NULL;
 			port->port_usb->out->driver_data = NULL;
@@ -1461,12 +1401,8 @@ void bam_data_disconnect(struct data_port *gr, enum function_type func,
 		}
 	}
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		port->last_event = U_BAM_DATA_DISCONNECT_E;
-		queue_work(bam_data_wq, &port->disconnect_w);
-	} else {
-		usb_gadget_autopm_put_async(port->gadget);
-	}
+	port->last_event = U_BAM_DATA_DISCONNECT_E;
+	queue_work(bam_data_wq, &port->disconnect_w);
 
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }
@@ -1478,7 +1414,6 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	struct bam_data_ch_info	*d;
 	int			ret, port_num;
 	unsigned long		flags;
-	enum peer_bam		bam_name;
 	u8			src_connection_idx, dst_connection_idx;
 
 	if (!gr) {
@@ -1492,16 +1427,18 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 		return -EINVAL;
 	}
 
+	if (trans != USB_GADGET_XPORT_BAM2BAM_IPA) {
+		pr_err("invalid xport#%d\n", trans);
+		return -EINVAL;
+	}
+
 	pr_debug("dev:%p port#%d\n", gr, port_num);
 
-	bam_name = (trans == USB_GADGET_XPORT_BAM2BAM_IPA) ?
-							IPA_P_BAM : A2_P_BAM;
-
 	src_connection_idx = usb_bam_get_connection_idx(gr->cdev->gadget->name,
-			bam_name, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
+			IPA_P_BAM, USB_TO_PEER_PERIPHERAL, USB_BAM_DEVICE,
 			dev_port_num);
 	dst_connection_idx = usb_bam_get_connection_idx(gr->cdev->gadget->name,
-			bam_name, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
+			IPA_P_BAM, PEER_PERIPHERAL_TO_USB, USB_BAM_DEVICE,
 			dev_port_num);
 	if (src_connection_idx < 0 || dst_connection_idx < 0) {
 		pr_err("%s: usb_bam_get_connection_idx failed\n", __func__);
@@ -1536,28 +1473,26 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	}
 
 	pr_debug("%s(): rx_buffer_size:%d\n", __func__, d->rx_buffer_size);
-	if (trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		d->ipa_params.src_pipe = &(d->src_pipe_idx);
-		d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
-		d->ipa_params.src_idx = src_connection_idx;
-		d->ipa_params.dst_idx = dst_connection_idx;
-		d->rx_flow_control_disable = 0;
-		d->rx_flow_control_enable = 0;
-		d->rx_flow_control_triggered = 0;
+	d->ipa_params.src_pipe = &(d->src_pipe_idx);
+	d->ipa_params.dst_pipe = &(d->dst_pipe_idx);
+	d->ipa_params.src_idx = src_connection_idx;
+	d->ipa_params.dst_idx = dst_connection_idx;
+	d->rx_flow_control_disable = 0;
+	d->rx_flow_control_enable = 0;
+	d->rx_flow_control_triggered = 0;
 
-		/*
-		 * Query pipe type using IPA src/dst index with
-		 * usbbam driver. It is being set either as
-		 * BAM2BAM or SYS2BAM.
-		 */
-		if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
-			&d->src_pipe_type) ||
-			usb_bam_get_pipe_type(d->ipa_params.dst_idx,
-			&d->dst_pipe_type)) {
-			pr_err("usb_bam_get_pipe_type() failed\n");
-			ret = -EINVAL;
-			goto exit;
-		}
+	/*
+	 * Query pipe type using IPA src/dst index with
+	 * usbbam driver. It is being set either as
+	 * BAM2BAM or SYS2BAM.
+	 */
+	if (usb_bam_get_pipe_type(d->ipa_params.src_idx,
+		&d->src_pipe_type) ||
+		usb_bam_get_pipe_type(d->ipa_params.dst_idx,
+		&d->dst_pipe_type)) {
+		pr_err("usb_bam_get_pipe_type() failed\n");
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	/*
@@ -1567,16 +1502,11 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 	 * it which is considered into UDC driver while enabling
 	 * USB Endpoint.
 	 */
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM ||
-		d->trans == USB_GADGET_XPORT_BAM2BAM_IPA ||
-		d->trans == USB_GADGET_XPORT_BAM) {
+	if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
+		port->port_usb->in->endless = true;
 
-		if (d->dst_pipe_type == USB_BAM_PIPE_BAM2BAM)
-			port->port_usb->in->endless = true;
-
-		if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
-			port->port_usb->out->endless = true;
-	}
+	if (d->src_pipe_type == USB_BAM_PIPE_BAM2BAM)
+		port->port_usb->out->endless = true;
 
 	ret = usb_ep_enable(gr->in);
 	if (ret) {
@@ -1594,8 +1524,7 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 
 	gr->out->driver_data = port;
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA &&
-		d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
+	if (d->src_pipe_type == USB_BAM_PIPE_SYS2BAM) {
 
 		/* UL workaround requirements */
 		skb_queue_head_init(&d->rx_skb_q);
@@ -1637,10 +1566,10 @@ int bam_data_connect(struct data_port *gr, enum transport_type trans,
 
 	port->last_event = U_BAM_DATA_CONNECT_E;
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA && d->func_type ==
-		USB_FUNC_RNDIS) {
-			ret = 0;
-			goto exit;
+	/* Wait for host to enable flow_control */
+	if (d->func_type == USB_FUNC_RNDIS) {
+		ret = 0;
+		goto exit;
 	}
 
 	/*
@@ -1802,17 +1731,7 @@ static void bam_data_start(void *param, enum usb_bam_pipe_dir dir)
 	} else {
 		if (gadget_is_dwc3(gadget) &&
 		    msm_dwc3_reset_ep_after_lpm(gadget)) {
-			u8 idx;
-
-			idx = usb_bam_get_connection_idx(gadget->name,
-				IPA_P_BAM, PEER_PERIPHERAL_TO_USB,
-				USB_BAM_DEVICE, 0);
-			if (idx < 0) {
-				pr_err("%s: get_connection_idx failed\n",
-					__func__);
-				return;
-			}
-			configure_data_fifo(idx,
+			configure_data_fifo(d->dst_connection_idx,
 				port->port_usb->in,
 				d->dst_pipe_type);
 		}
@@ -1970,20 +1889,18 @@ static void bam2bam_data_suspend_work(struct work_struct *w)
 		goto exit;
 	}
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		usb_bam_register_start_stop_cbs(d->dst_connection_idx,
-						bam_data_start, bam_data_stop,
-						port);
+	usb_bam_register_start_stop_cbs(d->dst_connection_idx,
+					bam_data_start, bam_data_stop,
+					port);
 
-		/*
-		 * release lock here because bam_data_start() or
-		 * bam_data_stop() called from usb_bam_suspend()
-		 * re-acquires port lock.
-		 */
-		spin_unlock_irqrestore(&port->port_lock, flags);
-		usb_bam_suspend(&d->ipa_params);
-		spin_lock_irqsave(&port->port_lock, flags);
-	}
+	/*
+	 * release lock here because bam_data_start() or
+	 * bam_data_stop() called from usb_bam_suspend()
+	 * re-acquires port lock.
+	 */
+	spin_unlock_irqrestore(&port->port_lock, flags);
+	usb_bam_suspend(&d->ipa_params);
+	spin_lock_irqsave(&port->port_lock, flags);
 
 exit:
 	/*
@@ -2042,36 +1959,34 @@ static void bam2bam_data_resume_work(struct work_struct *w)
 		goto exit;
 	}
 
-	if (d->trans == USB_GADGET_XPORT_BAM2BAM_IPA) {
-		/*
-		 * If usb_req was dequeued as part of bus suspend then
-		 * corresponding DBM IN and OUT EPs should also be reset.
-		 * There is a possbility that usb_bam may not have dequeued the
-		 * request in case of quick back to back usb bus suspend resume.
-		 */
-		if (gadget_is_dwc3(gadget) &&
-			msm_dwc3_reset_ep_after_lpm(gadget)) {
-			if (d->tx_req_dequeued) {
-				configure_usb_data_fifo(d->dst_bam_idx,
-					port->port_usb->in,
-					d->dst_pipe_type);
-				spin_unlock_irqrestore(&port->port_lock, flags);
-				msm_dwc3_reset_dbm_ep(port->port_usb->in);
-				spin_lock_irqsave(&port->port_lock, flags);
-			}
-			if (d->rx_req_dequeued) {
-				configure_usb_data_fifo(d->src_bam_idx,
-					port->port_usb->out,
-					d->src_pipe_type);
-				spin_unlock_irqrestore(&port->port_lock, flags);
-				msm_dwc3_reset_dbm_ep(port->port_usb->out);
-				spin_lock_irqsave(&port->port_lock, flags);
-			}
+	/*
+	 * If usb_req was dequeued as part of bus suspend then
+	 * corresponding DBM IN and OUT EPs should also be reset.
+	 * There is a possbility that usb_bam may not have dequeued the
+	 * request in case of quick back to back usb bus suspend resume.
+	 */
+	if (gadget_is_dwc3(gadget) &&
+		msm_dwc3_reset_ep_after_lpm(gadget)) {
+		if (d->tx_req_dequeued) {
+			configure_usb_data_fifo(d->dst_connection_idx,
+				port->port_usb->in,
+				d->dst_pipe_type);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			msm_dwc3_reset_dbm_ep(port->port_usb->in);
+			spin_lock_irqsave(&port->port_lock, flags);
 		}
-		d->tx_req_dequeued = false;
-		d->rx_req_dequeued = false;
-		usb_bam_resume(&d->ipa_params);
+		if (d->rx_req_dequeued) {
+			configure_usb_data_fifo(d->src_connection_idx,
+				port->port_usb->out,
+				d->src_pipe_type);
+			spin_unlock_irqrestore(&port->port_lock, flags);
+			msm_dwc3_reset_dbm_ep(port->port_usb->out);
+			spin_lock_irqsave(&port->port_lock, flags);
+		}
 	}
+	d->tx_req_dequeued = false;
+	d->rx_req_dequeued = false;
+	usb_bam_resume(&d->ipa_params);
 exit:
 	spin_unlock_irqrestore(&port->port_lock, flags);
 }

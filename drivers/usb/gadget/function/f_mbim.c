@@ -1679,31 +1679,32 @@ int mbim_bind_config(struct usb_configuration *c, unsigned portno,
 	mbim->function.resume = mbim_resume;
 	mbim->xport = str_to_xport(xport_name);
 
+	/* Only BAM2BAM_IPA supported */
 	if (mbim->xport != USB_GADGET_XPORT_BAM2BAM_IPA) {
-		/* Use BAM2BAM by default if not IPA */
-		mbim->xport = USB_GADGET_XPORT_BAM2BAM;
-	} else  {
-		/* For IPA we use limit of 16 */
-		mbim_ntb_parameters.wNtbOutMaxDatagrams = 16;
-		/* For IPA this is proven to give maximum throughput */
-		mbim_ntb_parameters.dwNtbInMaxSize =
-		cpu_to_le32(NTB_DEFAULT_IN_SIZE_IPA);
-		/*
-		 * If mbim_ntb_out_size_sys2bam is set, use that value
-		 * otherwise use default value.
-		 */
-		if (mbim_ntb_out_size_sys2bam)
-			mbim_out_max_size = mbim_ntb_out_size_sys2bam;
-		else
-			mbim_out_max_size = MBIM_NTB_OUT_SIZE_IPA;
-
-		mbim_ntb_parameters.dwNtbOutMaxSize =
-				cpu_to_le32(mbim_out_max_size);
-		/* update rx buffer size to be used by usb rx request buffer */
-		mbim->bam_port.rx_buffer_size = mbim_out_max_size;
-		mbim_ntb_parameters.wNdpInDivisor = 1;
-		pr_debug("MBIM: dwNtbOutMaxSize:%d\n", mbim_out_max_size);
+		pr_err("Only IPA xport supported\n");
+		return -EINVAL;
 	}
+
+	/* For IPA we use limit of 16 */
+	mbim_ntb_parameters.wNtbOutMaxDatagrams = 16;
+	/* For IPA this is proven to give maximum throughput */
+	mbim_ntb_parameters.dwNtbInMaxSize =
+	cpu_to_le32(NTB_DEFAULT_IN_SIZE_IPA);
+	/*
+	 * If mbim_ntb_out_size_sys2bam is set, use that value
+	 * otherwise use default value.
+	 */
+	if (mbim_ntb_out_size_sys2bam)
+		mbim_out_max_size = mbim_ntb_out_size_sys2bam;
+	else
+		mbim_out_max_size = MBIM_NTB_OUT_SIZE_IPA;
+
+	mbim_ntb_parameters.dwNtbOutMaxSize =
+			cpu_to_le32(mbim_out_max_size);
+	/* update rx buffer size to be used by usb rx request buffer */
+	mbim->bam_port.rx_buffer_size = mbim_out_max_size;
+	mbim_ntb_parameters.wNdpInDivisor = 1;
+	pr_debug("MBIM: dwNtbOutMaxSize:%d\n", mbim_out_max_size);
 
 	INIT_LIST_HEAD(&mbim->cpkt_req_q);
 	INIT_LIST_HEAD(&mbim->cpkt_resp_q);
