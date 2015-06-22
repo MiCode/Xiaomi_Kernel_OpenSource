@@ -171,6 +171,9 @@ struct rpm_vreg {
 	struct mutex		mlock;
 	unsigned long		flags;
 	bool			sleep_request_sent;
+	bool			wait_for_ack_active;
+	bool			wait_for_ack_sleep;
+	bool			always_wait_for_ack;
 	bool			apps_only;
 	struct msm_rpm_request	*handle_active;
 	struct msm_rpm_request	*handle_sleep;
@@ -260,6 +263,58 @@ static inline bool rpm_vreg_shared_active_or_sleep_enabled_valid
 					& BIT(RPM_REGULATOR_PARAM_ENABLE))
 		 || (rpm_vreg->aggr_req_sleep.valid
 					& BIT(RPM_REGULATOR_PARAM_ENABLE)));
+}
+
+static const u32 power_level_params =
+	BIT(RPM_REGULATOR_PARAM_ENABLE) |
+	BIT(RPM_REGULATOR_PARAM_VOLTAGE) |
+	BIT(RPM_REGULATOR_PARAM_CURRENT) |
+	BIT(RPM_REGULATOR_PARAM_CORNER) |
+	BIT(RPM_REGULATOR_PARAM_BYPASS) |
+	BIT(RPM_REGULATOR_PARAM_FLOOR_CORNER) |
+	BIT(RPM_REGULATOR_PARAM_LEVEL) |
+	BIT(RPM_REGULATOR_PARAM_FLOOR_LEVEL);
+
+static bool rpm_vreg_ack_required(struct rpm_vreg *rpm_vreg, u32 set,
+				const u32 *prev_param, const u32 *param,
+				u32 prev_valid, u32 modified)
+{
+	u32 mask;
+	int i;
+
+	if (rpm_vreg->always_wait_for_ack
+	    || (set == RPM_SET_ACTIVE && rpm_vreg->wait_for_ack_active)
+	    || (set == RPM_SET_SLEEP && rpm_vreg->wait_for_ack_sleep))
+		return true;
+
+	for (i = 0; i < RPM_REGULATOR_PARAM_MAX; i++) {
+		mask = BIT(i);
+		if (modified & mask) {
+			if ((prev_valid & mask) && (power_level_params & mask)
+			    && (param[i] <= prev_param[i]))
+				continue;
+			else
+				return true;
+		}
+	}
+
+	return false;
+}
+
+static void rpm_vreg_check_param_max(struct rpm_regulator *regulator, int index,
+					u32 new_max)
+{
+	struct rpm_vreg *rpm_vreg = regulator->rpm_vreg;
+
+	if (regulator->set_active
+	    && (rpm_vreg->aggr_req_active.valid & BIT(index))
+	    && rpm_vreg->aggr_req_active.param[index] > new_max)
+		rpm_vreg->wait_for_ack_active = true;
+
+	if (regulator->set_sleep
+	    && (rpm_vreg->aggr_req_sleep.valid & BIT(index))
+	    && rpm_vreg->aggr_req_sleep.param[index] > new_max)
+		rpm_vreg->wait_for_ack_sleep = true;
 }
 
 /*
@@ -417,27 +472,37 @@ static int rpm_vreg_add_modified_requests(struct rpm_regulator *regulator,
 	return rc;
 }
 
-static int rpm_vreg_send_request(struct rpm_regulator *regulator, u32 set)
+static int rpm_vreg_send_request(struct rpm_regulator *regulator, u32 set,
+				bool wait_for_ack)
 {
 	struct rpm_vreg *rpm_vreg = regulator->rpm_vreg;
 	struct msm_rpm_request *handle
 		= (set == RPM_SET_ACTIVE ? rpm_vreg->handle_active
 					: rpm_vreg->handle_sleep);
+	u32 msg_id;
 	int rc;
 
-	if (rpm_vreg->allow_atomic)
-		rc = msm_rpm_wait_for_ack_noirq(msm_rpm_send_request_noirq(
-						  handle));
-	else
-		rc = msm_rpm_wait_for_ack(msm_rpm_send_request(handle));
+	rc = unlikely(rpm_vreg->allow_atomic) ?
+	      msm_rpm_send_request_noirq(handle) : msm_rpm_send_request(handle);
+	if (rc < 0)
+		goto fail;
 
-	if (rc)
-		vreg_err(regulator,
-			"msm rpm send failed: %s %u; set=%s, rc=%d\n",
-			rpm_vreg->resource_name,
-			rpm_vreg->resource_id,
-			(set == RPM_SET_ACTIVE ? "act" : "slp"), rc);
+	msg_id = rc;
 
+	if (wait_for_ack) {
+		rc = unlikely(rpm_vreg->allow_atomic) ?
+			msm_rpm_wait_for_ack_noirq(msg_id) :
+			msm_rpm_wait_for_ack(msg_id);
+		if (rc < 0)
+			goto fail;
+	}
+
+	return 0;
+
+fail:
+	vreg_err(regulator, "msm rpm send failed: %s %u; set=%s, rc=%d\n",
+		rpm_vreg->resource_name, rpm_vreg->resource_id,
+		(set == RPM_SET_ACTIVE ? "act" : "slp"), rc);
 	return rc;
 }
 
@@ -501,6 +566,7 @@ static int rpm_vreg_aggregate_requests(struct rpm_regulator *regulator)
 	bool sleep_set_differs = false;
 	bool send_active = false;
 	bool send_sleep = false;
+	bool wait_for_ack;
 	int rc = 0;
 	int i;
 
@@ -572,10 +638,17 @@ static int rpm_vreg_aggregate_requests(struct rpm_regulator *regulator)
 
 	/* Send active set request to the RPM if it contains new KVPs. */
 	if (send_active) {
-		rc = rpm_vreg_send_request(regulator, RPM_SET_ACTIVE);
+		wait_for_ack = rpm_vreg_ack_required(rpm_vreg, RPM_SET_ACTIVE,
+					rpm_vreg->aggr_req_active.param,
+					param_active,
+					rpm_vreg->aggr_req_active.valid,
+					modified_active);
+		rc = rpm_vreg_send_request(regulator, RPM_SET_ACTIVE,
+						wait_for_ack);
 		if (rc)
 			return rc;
 		rpm_vreg->aggr_req_active.valid |= modified_active;
+		rpm_vreg->wait_for_ack_active = false;
 	}
 	/* Store the results of the aggregation. */
 	rpm_vreg->aggr_req_active.modified = modified_active;
@@ -589,12 +662,19 @@ static int rpm_vreg_aggregate_requests(struct rpm_regulator *regulator)
 
 	/* Send sleep set request to the RPM if it contains new KVPs. */
 	if (send_sleep) {
-		rc = rpm_vreg_send_request(regulator, RPM_SET_SLEEP);
+		wait_for_ack = rpm_vreg_ack_required(rpm_vreg, RPM_SET_SLEEP,
+					rpm_vreg->aggr_req_sleep.param,
+					param_sleep,
+					rpm_vreg->aggr_req_sleep.valid,
+					modified_sleep);
+		rc = rpm_vreg_send_request(regulator, RPM_SET_SLEEP,
+						wait_for_ack);
 		if (rc)
 			return rc;
 		else
 			rpm_vreg->sleep_request_sent = true;
 		rpm_vreg->aggr_req_sleep.valid |= modified_sleep;
+		rpm_vreg->wait_for_ack_sleep = false;
 	}
 	/* Store the results of the aggregation. */
 	rpm_vreg->aggr_req_sleep.modified = modified_sleep;
@@ -711,6 +791,8 @@ static int rpm_vreg_set_voltage(struct regulator_dev *rdev, int min_uV,
 	prev_voltage = reg->req.param[RPM_REGULATOR_PARAM_VOLTAGE];
 	RPM_VREG_SET_PARAM(reg, VOLTAGE, min_uV);
 
+	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_VOLTAGE, max_uV);
+
 	/*
 	 * Only send a new voltage if the regulator is currently enabled or
 	 * if the regulator has been configured to always send voltage updates.
@@ -770,6 +852,9 @@ static int rpm_vreg_set_voltage_corner(struct regulator_dev *rdev, int min_uV,
 	prev_corner = reg->req.param[RPM_REGULATOR_PARAM_CORNER];
 	RPM_VREG_SET_PARAM(reg, CORNER, corner);
 
+	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_CORNER,
+				max_uV - RPM_REGULATOR_CORNER_NONE);
+
 	/*
 	 * Only send a new voltage corner if the regulator is currently enabled
 	 * or if the regulator has been configured to always send voltage
@@ -826,6 +911,9 @@ static int rpm_vreg_set_voltage_floor_corner(struct regulator_dev *rdev,
 	prev_corner = reg->req.param[RPM_REGULATOR_PARAM_FLOOR_CORNER];
 	RPM_VREG_SET_PARAM(reg, FLOOR_CORNER, corner);
 
+	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_FLOOR_CORNER,
+				max_uV - RPM_REGULATOR_CORNER_NONE);
+
 	/*
 	 * Only send a new voltage floor corner if the regulator is currently
 	 * enabled or if the regulator has been configured to always send
@@ -876,6 +964,8 @@ static int rpm_vreg_set_voltage_level(struct regulator_dev *rdev, int min_uV,
 	prev_level = reg->req.param[RPM_REGULATOR_PARAM_LEVEL];
 	RPM_VREG_SET_PARAM(reg, LEVEL, level);
 
+	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_LEVEL, max_uV);
+
 	/*
 	 * Only send a new voltage level if the regulator is currently enabled
 	 * or if the regulator has been configured to always send voltage
@@ -924,6 +1014,8 @@ static int rpm_vreg_set_voltage_floor_level(struct regulator_dev *rdev,
 
 	prev_level = reg->req.param[RPM_REGULATOR_PARAM_FLOOR_LEVEL];
 	RPM_VREG_SET_PARAM(reg, FLOOR_LEVEL, level);
+
+	rpm_vreg_check_param_max(reg, RPM_REGULATOR_PARAM_FLOOR_LEVEL, max_uV);
 
 	/*
 	 * Only send a new voltage floor level if the regulator is currently
@@ -1895,6 +1987,8 @@ static int rpm_vreg_resource_probe(struct platform_device *pdev)
 	of_property_read_u32(node, "qcom,hpm-min-load",
 		&rpm_vreg->hpm_min_load);
 	rpm_vreg->apps_only = of_property_read_bool(node, "qcom,apps-only");
+	rpm_vreg->always_wait_for_ack
+		= of_property_read_bool(node, "qcom,always-wait-for-ack");
 
 	rpm_vreg->handle_active = msm_rpm_create_request(RPM_SET_ACTIVE,
 		resource_type, rpm_vreg->resource_id, RPM_REGULATOR_PARAM_MAX);
