@@ -2337,8 +2337,11 @@ int usb_bam_connect_ipa(struct usb_bam_connect_ipa_params *ipa_params)
 
 		/* On re-connect assume out from lpm for all BAMs */
 		info[cur_bam].in_lpm = false;
-	} else
+	} else {
 		spin_unlock(&usb_bam_lock);
+		if (!ctx.pipes_enabled_per_bam[cur_bam])
+			pr_debug("No BAM reset on connect, just pipe reset\n");
+	}
 
 	if (ipa_params->dir == USB_TO_PEER_PERIPHERAL) {
 		if (info[cur_bam].prod_pipes_enabled_per_bam == 0)
@@ -2876,6 +2879,8 @@ static struct msm_usb_bam_platform_data *usb_bam_dt_to_pdata(
 	else
 		pdata->override_threshold = threshold;
 
+	pdata->enable_hsusb_bam_on_boot = of_property_read_bool(node,
+		"qcom,enable-hsusb-bam-on-boot");
 
 	for_each_child_of_node(pdev->dev.of_node, node)
 		ctx.max_connections++;
@@ -3088,7 +3093,17 @@ static int usb_bam_init(int bam_type)
 	if (pdata->disable_clk_gating)
 		props.options |= SPS_BAM_NO_LOCAL_CLK_GATING;
 
+	/*
+	 * HSUSB BAM is not NDP BAM and it must be enabled early before
+	 * starting peripheral controller to avoid switching USB core mode
+	 * from legacy to BAM with ongoing data transfers.
+	 */
+	if (pdata->enable_hsusb_bam_on_boot && bam_type == CI_CTRL) {
+		pr_debug("Register and enable HSUSB BAM\n");
+		props.options |= SPS_BAM_OPT_ENABLE_AT_BOOT;
+	}
 	ret = sps_register_bam_device(&props, &(ctx.h_bam[bam_type]));
+
 	if (ret < 0) {
 		pr_err("%s: register bam error %d\n", __func__, ret);
 		ret = -EFAULT;
@@ -3233,6 +3248,11 @@ static int usb_bam_probe(struct platform_device *pdev)
 	struct msm_usb_bam_platform_data *pdata;
 
 	dev_dbg(&pdev->dev, "usb_bam_probe\n");
+
+	if (!usb_device) {
+		pr_err("OTG not yet probed\n");
+		return -EPROBE_DEFER;
+	}
 
 	ret = device_create_file(&pdev->dev, &dev_attr_inactivity_timer);
 	if (ret) {
