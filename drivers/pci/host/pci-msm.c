@@ -228,6 +228,8 @@
 #define LINK_UP_CHECK_MAX_COUNT		   20
 #define PHY_STABILIZATION_DELAY_US_MIN	  995
 #define PHY_STABILIZATION_DELAY_US_MAX	  1005
+#define POWER_DOWN_DELAY_US_MIN		10
+#define POWER_DOWN_DELAY_US_MAX		11
 #define LINKDOWN_INIT_WAITING_US_MIN    995
 #define LINKDOWN_INIT_WAITING_US_MAX    1005
 #define LINKDOWN_WAITING_US_MIN	   4900
@@ -1218,6 +1220,8 @@ static void pcie_pcs_port_phy_init(struct msm_pcie_dev_t *dev)
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_POWER_DOWN_CONTROL(dev->rc_idx, common_phy),
 		0x03);
+	usleep_range(POWER_DOWN_DELAY_US_MIN, POWER_DOWN_DELAY_US_MAX);
+
 	msm_pcie_write_reg(dev->phy,
 		PCIE_N_SW_RESET(dev->rc_idx, common_phy),
 		0x00);
