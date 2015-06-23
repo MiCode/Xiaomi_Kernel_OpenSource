@@ -232,6 +232,7 @@ struct mdss_mdp_ctl_intfs_ops {
 	int (*config_fps_fnc)(struct mdss_mdp_ctl *ctl,
 				struct mdss_mdp_ctl *sctl, int new_fps);
 	int (*restore_fnc)(struct mdss_mdp_ctl *ctl);
+	int (*early_wake_up_fnc)(struct mdss_mdp_ctl *ctl);
 };
 
 struct mdss_mdp_ctl {
@@ -312,6 +313,8 @@ struct mdss_mdp_ctl {
 
 	struct mdss_mdp_ctl_intfs_ops ops;
 	bool force_ctl_start;
+
+	u64 last_input_time;
 };
 
 struct mdss_mdp_mixer {

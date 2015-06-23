@@ -30,6 +30,7 @@
 #define STOP_TIMEOUT(hz) msecs_to_jiffies((1000 / hz) * (6 + 2))
 #define POWER_COLLAPSE_TIME msecs_to_jiffies(100)
 #define CMD_MODE_IDLE_TIMEOUT msecs_to_jiffies(16 * 4)
+#define INPUT_EVENT_HANDLER_DELAY_USECS (16000 * 4)
 
 static DEFINE_MUTEX(cmd_clk_mtx);
 
@@ -52,6 +53,7 @@ struct mdss_mdp_cmd_ctx {
 	struct work_struct gate_clk_work;
 	struct delayed_work delayed_off_clk_work;
 	struct work_struct pp_done_work;
+	struct work_struct early_wakeup_clk_work;
 	struct mutex autorefresh_mtx;
 	atomic_t pp_done_cnt;
 
@@ -312,11 +314,17 @@ err:
  *	pending data transfer and turn off all the clocks/resources,
  *	so after return from this event we must be in off
  *	state.
+ *
+ * @MDP_RSRC_CTL_EVENT_EARLY_WAKE_UP:
+ *	This event happens at NORMAL priority from a work item.
+ *	Event signals that there will be a frame update soon and mdp should wake
+ *	up early to update the frame with little latency.
  */
 enum mdp_rsrc_ctl_events {
 	MDP_RSRC_CTL_EVENT_KICKOFF = 1,
 	MDP_RSRC_CTL_EVENT_PP_DONE,
-	MDP_RSRC_CTL_EVENT_STOP
+	MDP_RSRC_CTL_EVENT_STOP,
+	MDP_RSRC_CTL_EVENT_EARLY_WAKE_UP
 };
 
 enum {
@@ -335,6 +343,8 @@ static char *get_sw_event_name(u32 sw_event)
 		return "PP_DONE";
 	case MDP_RSRC_CTL_EVENT_STOP:
 		return "STOP";
+	case MDP_RSRC_CTL_EVENT_EARLY_WAKE_UP:
+		return "EARLY_WAKE_UP";
 	default:
 		return "UNKNOWN";
 	}
@@ -655,6 +665,51 @@ int mdss_mdp_resource_control(struct mdss_mdp_ctl *ctl, u32 sw_event)
 			mdp5_data->resources_state = MDP_RSRC_CTL_STATE_OFF;
 		}
 		break;
+	case MDP_RSRC_CTL_EVENT_EARLY_WAKE_UP:
+		/*
+		 * 1. If the current state is ON, stay in ON and cancel any
+		 *    pending GATE work item.
+		 * 2. If the current state is GATED, stay at GATED and cancel
+		 *    any pending POWER-OFF work item.
+		 * 3. If the current state is POWER-OFF, Schedule a work item to
+		 *    POWER-ON.
+		 */
+		if (mdp5_data->resources_state != MDP_RSRC_CTL_STATE_OFF) {
+			if (cancel_work_sync(&ctx->gate_clk_work))
+				pr_debug("%s: %s - gate_work cancelled\n",
+					 __func__, get_sw_event_name(sw_event));
+
+			if (cancel_delayed_work_sync(
+					&ctx->delayed_off_clk_work))
+				pr_debug("%s: %s - off work cancelled\n",
+					 __func__, get_sw_event_name(sw_event));
+		} else {
+			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON);
+			mdss_mdp_ctl_intf_event(ctx->ctl,
+						MDSS_EVENT_PANEL_CLK_CTRL,
+						(void *)MDSS_DSI_CLK_ON,
+						true);
+			if (sctx)
+				mdss_mdp_ctl_intf_event(sctx->ctl,
+						      MDSS_EVENT_PANEL_CLK_CTRL,
+						      (void *)MDSS_DSI_CLK_ON,
+						      true);
+
+			mdss_mdp_cmd_clk_on(ctx);
+			if (sctx)
+				mdss_mdp_cmd_clk_on(sctx);
+
+			mdp5_data->resources_state = MDP_RSRC_CTL_STATE_ON;
+
+			/*
+			 * Schedule off work after cmd mode idle timeout is
+			 * reached. This is to prevent the case where early wake
+			 * up is called but no frame update is sent.
+			 */
+			schedule_delayed_work(&ctx->delayed_off_clk_work,
+				      CMD_MODE_IDLE_TIMEOUT);
+		}
+		break;
 	default:
 		pr_warn("%s unexpected event (%d)\n", __func__, sw_event);
 		break;
@@ -913,7 +968,7 @@ static void clk_ctrl_delayed_off_work(struct work_struct *work)
 
 		if (mdp5_data->resources_state
 			!= MDP_RSRC_CTL_STATE_GATE)
-			pr_warn("enter off from unexpected state\n");
+			pr_debug("%s: enter off from ON state\n", __func__);
 	}
 
 	/* first power off the slave DSI  (if present) */
@@ -1834,6 +1889,56 @@ end:
 	return ret;
 }
 
+static void early_wakeup_work(struct work_struct *work)
+{
+	int rc = 0;
+	struct mdss_mdp_cmd_ctx *ctx =
+		container_of(work, typeof(*ctx), early_wakeup_clk_work);
+	struct mdss_mdp_ctl *ctl;
+
+	if (!ctx) {
+		pr_err("%s: invalid ctx\n", __func__);
+		return;
+	}
+
+	ATRACE_BEGIN(__func__);
+	ctl = ctx->ctl;
+
+	if (!ctl) {
+		pr_err("%s: invalid ctl\n", __func__);
+		goto fail;
+	}
+
+	rc = mdss_mdp_resource_control(ctl, MDP_RSRC_CTL_EVENT_EARLY_WAKE_UP);
+	if (rc)
+		pr_err("%s: failed to control resources\n", __func__);
+
+fail:
+	ATRACE_END(__func__);
+}
+
+static int mdss_mdp_cmd_early_wake_up(struct mdss_mdp_ctl *ctl)
+{
+	u64 curr_time;
+	struct mdss_mdp_cmd_ctx *ctx;
+
+	curr_time = ktime_to_us(ktime_get());
+
+	if ((curr_time - ctl->last_input_time) <
+			INPUT_EVENT_HANDLER_DELAY_USECS)
+		return 0;
+	ctl->last_input_time = curr_time;
+
+	ctx = (struct mdss_mdp_cmd_ctx *) ctl->intf_ctx[MASTER_CTX];
+	/*
+	 * Early wake up event is called from an interrupt context and
+	 * involves cancelling queued work items. So this will be
+	 * scheduled in a work item.
+	 */
+	schedule_work(&ctx->early_wakeup_clk_work);
+	return 0;
+}
+
 static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 	struct mdss_mdp_cmd_ctx *ctx, int pp_num,
 	int pingpong_split_slave)
@@ -1857,6 +1962,7 @@ static int mdss_mdp_cmd_ctx_setup(struct mdss_mdp_ctl *ctl,
 	INIT_DELAYED_WORK(&ctx->delayed_off_clk_work,
 		clk_ctrl_delayed_off_work);
 	INIT_WORK(&ctx->pp_done_work, pingpong_done_work);
+	INIT_WORK(&ctx->early_wakeup_clk_work, early_wakeup_work);
 	atomic_set(&ctx->pp_done_cnt, 0);
 	ctx->autorefresh_off_pending = false;
 	ctx->autorefresh_init = false;
@@ -2030,6 +2136,7 @@ int mdss_mdp_cmd_start(struct mdss_mdp_ctl *ctl)
 	ctl->ops.remove_vsync_handler = mdss_mdp_cmd_remove_vsync_handler;
 	ctl->ops.read_line_cnt_fnc = mdss_mdp_cmd_line_count;
 	ctl->ops.restore_fnc = mdss_mdp_cmd_restore;
+	ctl->ops.early_wake_up_fnc = mdss_mdp_cmd_early_wake_up;
 	pr_debug("%s:-\n", __func__);
 
 	return 0;

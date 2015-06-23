@@ -820,6 +820,122 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 	unlock_fb_info(mfd->fbi);
 }
 
+static void mdss_fb_input_event_handler(struct input_handle *handle,
+				    unsigned int type,
+				    unsigned int code,
+				    int value)
+{
+	struct msm_fb_data_type *mfd = handle->handler->private;
+	int rc;
+
+	if (type != EV_ABS)
+		return;
+
+	if (mfd->mdp.input_event_handler) {
+		rc = mfd->mdp.input_event_handler(mfd);
+		if (rc)
+			pr_err("mdp input event handler failed\n");
+	}
+}
+
+static int mdss_fb_input_connect(struct input_handler *handler,
+			     struct input_dev *dev,
+			     const struct input_device_id *id)
+{
+	int rc;
+	struct input_handle *handle;
+
+	handle = kzalloc(sizeof(*handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = handler->name;
+
+	rc = input_register_handle(handle);
+	if (rc) {
+		pr_err("failed to register input handle, rc = %d\n", rc);
+		goto error;
+	}
+
+	rc = input_open_device(handle);
+	if (rc) {
+		pr_err("failed to open input device, rc = %d\n", rc);
+		goto error_unregister;
+	}
+
+	return 0;
+
+error_unregister:
+	input_unregister_handle(handle);
+error:
+	kfree(handle);
+	return rc;
+}
+
+static void mdss_fb_input_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+/*
+ * Structure for specifying event parameters on which to receive callbacks.
+ * This structure will trigger a callback in case of a touch event (specified by
+ * EV_ABS) where there is a change in X and Y coordinates,
+ */
+static const struct input_device_id mdss_fb_input_ids[] = {
+	{
+		.flags = INPUT_DEVICE_ID_MATCH_EVBIT,
+		.evbit = { BIT_MASK(EV_ABS) },
+		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
+				BIT_MASK(ABS_MT_POSITION_X) |
+				BIT_MASK(ABS_MT_POSITION_Y) },
+	},
+	{ },
+};
+
+static int mdss_fb_register_input_handler(struct msm_fb_data_type *mfd)
+{
+	int rc;
+	struct input_handler *handler;
+
+	if (mfd->input_handler)
+		return -EINVAL;
+
+	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+	if (!handler)
+		return -ENOMEM;
+
+	handler->event = mdss_fb_input_event_handler;
+	handler->connect = mdss_fb_input_connect;
+	handler->disconnect = mdss_fb_input_disconnect,
+	handler->name = "mdss_fb",
+	handler->id_table = mdss_fb_input_ids;
+	handler->private = mfd;
+
+	rc = input_register_handler(handler);
+	if (rc) {
+		pr_err("Unable to register the input handler\n");
+		kfree(handler);
+	} else {
+		mfd->input_handler = handler;
+	}
+
+	return rc;
+}
+
+static void mdss_fb_unregister_input_handler(struct msm_fb_data_type *mfd)
+{
+	if (!mfd->input_handler)
+		return;
+
+	input_unregister_handler(mfd->input_handler);
+	kfree(mfd->input_handler);
+}
+
 static int mdss_fb_probe(struct platform_device *pdev)
 {
 	struct msm_fb_data_type *mfd = NULL;
@@ -938,6 +1054,16 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	if (mfd->mdp.splash_init_fnc)
 		mfd->mdp.splash_init_fnc(mfd);
 
+	/*
+	 * Register with input driver for a callback for command mode panels.
+	 * When there is an input event, mdp clocks will be turned on to reduce
+	 * latency when a frame update happens.
+	 * Video mode panels are not handled today because clocks are always on.
+	 */
+	if (mfd->panel_info->type == MIPI_CMD_PANEL)
+		if (mdss_fb_register_input_handler(mfd))
+			pr_err("failed to register input handler\n");
+
 	INIT_DELAYED_WORK(&mfd->idle_notify_work, __mdss_fb_idle_notify_work);
 
 	return rc;
@@ -980,6 +1106,8 @@ static int mdss_fb_remove(struct platform_device *pdev)
 
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
+
+	mdss_fb_unregister_input_handler(mfd);
 
 	if (mdss_fb_suspend_sub(mfd))
 		pr_err("msm_fb_remove: can't stop the device %d\n",

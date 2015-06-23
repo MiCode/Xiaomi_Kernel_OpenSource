@@ -219,6 +219,7 @@ struct msm_mdp_interface {
 	void (*check_dsi_status)(struct work_struct *work, uint32_t interval);
 	int (*configure_panel)(struct msm_fb_data_type *mfd, int mode,
 				int dest_ctrl);
+	int (*input_event_handler)(struct msm_fb_data_type *mfd);
 	void *private1;
 };
 
@@ -341,6 +342,7 @@ struct msm_fb_data_type {
 	u32 switch_new_mode;
 	bool pending_switch;
 	struct mutex switch_lock;
+	struct input_handler *input_handler;
 };
 
 static inline void mdss_fb_update_notify_update(struct msm_fb_data_type *mfd)
