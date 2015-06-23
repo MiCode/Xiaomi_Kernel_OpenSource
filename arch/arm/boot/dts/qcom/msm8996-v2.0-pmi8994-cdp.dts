@@ -20,7 +20,7 @@
 	model = "Qualcomm Technologies, Inc. MSM 8996 v2.0 + PMI8994 CDP";
 	compatible = "qcom,msm8996-cdp", "qcom,msm8996", "qcom,cdp";
 	qcom,msm-id = <246 0x20000>;
-	qcom,board-id = <1 0>;
+	qcom,board-id = <1 0>, <0x01000001 0>;
 };
 
 &l2ccc_0 {
