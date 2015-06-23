@@ -737,12 +737,8 @@ static bool tasha_mbhc_hph_pa_on_status(struct snd_soc_codec *codec)
 static void tasha_mbhc_hph_l_pull_up_control(struct snd_soc_codec *codec,
 					     bool is_insert)
 {
-	if (is_insert)
-		snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
-				    0xC0, 0x40);
-	else
-		snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
-				    0xC0, 0xC0);
+	snd_soc_update_bits(codec, WCD9335_MBHC_PLUG_DETECT_CTL,
+			    0xC0, 0x40);
 }
 
 static int tasha_micbias_control(struct snd_soc_codec *codec,
