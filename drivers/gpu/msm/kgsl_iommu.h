@@ -129,6 +129,7 @@ struct kgsl_device_iommu_data {
 	unsigned int regsize;
 	struct clk *clks[KGSL_IOMMU_MAX_CLKS];
 	unsigned int features;
+	unsigned int secure_align_mask;
 };
 
 

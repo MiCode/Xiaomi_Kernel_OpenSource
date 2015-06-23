@@ -137,6 +137,7 @@ struct kgsl_mmu {
 	void *priv;
 	bool secured;
 	uint features;
+	unsigned int secure_align_mask;
 };
 
 extern struct kgsl_mmu_ops kgsl_iommu_ops;

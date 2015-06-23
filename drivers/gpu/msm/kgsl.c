@@ -2532,6 +2532,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 	struct kgsl_map_user_mem *param = data;
 	struct kgsl_mem_entry *entry = NULL;
 	struct kgsl_process_private *private = dev_priv->process_priv;
+	struct kgsl_mmu *mmu = &dev_priv->device->mmu;
 	unsigned int memtype;
 
 	/*
@@ -2541,7 +2542,7 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 
 	if (param->flags & KGSL_MEMFLAGS_SECURE) {
 		/* Log message and return if context protection isn't enabled */
-		if (!kgsl_mmu_is_secured(&dev_priv->device->mmu)) {
+		if (!kgsl_mmu_is_secured(mmu)) {
 			dev_WARN_ONCE(dev_priv->device->dev, 1,
 				"Secure buffer not supported");
 			return -EOPNOTSUPP;
@@ -2608,10 +2609,11 @@ long kgsl_ioctl_map_user_mem(struct kgsl_device_private *dev_priv,
 		goto error;
 
 	if ((param->flags & KGSL_MEMFLAGS_SECURE) &&
-		!IS_ALIGNED(entry->memdesc.size, SZ_1M)) {
+		(entry->memdesc.size & mmu->secure_align_mask)) {
 			KGSL_DRV_ERR(dev_priv->device,
-				"Secure buffer size %lld must be 1MB aligned",
-				entry->memdesc.size);
+				"Secure buffer size %lld not aligned to %x alignment",
+				entry->memdesc.size,
+				mmu->secure_align_mask + 1);
 		result = -EINVAL;
 		goto error_attach;
 	}

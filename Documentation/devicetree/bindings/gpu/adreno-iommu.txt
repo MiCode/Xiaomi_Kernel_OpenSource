@@ -38,6 +38,8 @@ Optional properties:
 			     When not set we use per process pagetables
 	 - qcom,hyp_secure_alloc : A bool specifying if the hypervisor is used on
 				   this target for secure buffer allocation
+	 - qcom,secure_align_mask: A mask for determining how secure buffers need to
+				   be aligned
 
 Example:
 
@@ -50,6 +52,7 @@ Example:
 			<&clock_mmss clk_mmss_mmagic_cfg_ahb_clk>;
 		clock-names = "gpu_ahb_clk", "bimc_gfx_clk", "mmagic_ahb_clk", "mmagic_cfg_ahb_clk";
 		num_cb = <2>;
+		qcom,secure_align_mask = <0xfff>;
 		retention;
 		qcom,global_pt;
 

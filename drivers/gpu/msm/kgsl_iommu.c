@@ -812,6 +812,8 @@ static int _iommu_set_register_map(struct kgsl_mmu *mmu)
 	/* set iommu features */
 	mmu->features = data->features;
 
+	mmu->secure_align_mask = data->secure_align_mask;
+
 	/* set up the IOMMU register map */
 	if (!data->regstart || !data->regsize) {
 		KGSL_CORE_ERR("The register range for IOMMU not specified\n");
@@ -1161,10 +1163,12 @@ int _iommu_add_guard_page(struct kgsl_pagetable *pt,
 		 * mapped to save 1MB of memory if CPZ is not used.
 		 */
 		if (kgsl_memdesc_is_secured(memdesc)) {
+			unsigned int sgp_size = pt->mmu->secure_align_mask + 1;
 			if (!kgsl_secure_guard_page_memdesc.physaddr) {
-				if (kgsl_cma_alloc_secure(pt->mmu->device,
-					&kgsl_secure_guard_page_memdesc,
-					SZ_1M)) {
+				if (kgsl_allocate_user(pt->mmu->device,
+					&kgsl_secure_guard_page_memdesc, pt,
+					sgp_size, sgp_size,
+					KGSL_MEMFLAGS_SECURE)) {
 					KGSL_CORE_ERR(
 					"Secure guard page alloc failed\n");
 					return -ENOMEM;
