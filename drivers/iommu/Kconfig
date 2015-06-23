@@ -53,6 +53,99 @@ config FSL_PAMU
 	  PAMU can authorize memory access, remap the memory address, and remap I/O
 	  transaction types.
 
+# MSM IOMMU support
+config MSM_IOMMU
+	bool "MSM IOMMU Support"
+	select IOMMU_API
+	select ARM_DMA_USE_IOMMU if ARM
+	select ARM64_DMA_USE_IOMMU if ARM64
+	help
+	  Support for the IOMMUs found on certain Qualcomm SOCs.
+	  These IOMMUs allow virtualization of the address space used by most
+	  cores within the multimedia subsystem.
+
+	  If unsure, say N here.
+
+# MSM IOMMUv1 support
+config MSM_IOMMU_V1
+	bool "MSM IOMMUv1 Support"
+	depends on ARCH_MSM8974 || ARCH_MSM8226 || ARCH_APQ8084 || ARCH_MSM8916 || ARCH_MSM8994 || ARCH_MSM8992 || ARCH_MSM8909
+	select IOMMU_API
+	select MSM_IOMMU
+	help
+	  Support for the IOMMUs (v1) found on certain Qualcomm SOCs.
+	  These IOMMUs allow virtualization of the address space used by most
+	  cores within the multimedia subsystem.
+
+	  If unsure, say N here.
+
+config MSM_IOMMU_PMON
+	bool "MSM IOMMU Perfomance Monitoring Support"
+	depends on (ARCH_MSM8974 || ARCH_MSM8610 || ARCH_MSM8226 || ARCH_APQ8084) && MSM_IOMMU
+	help
+	  Support for monitoring IOMMUs performance on certain Qualcomm SOCs.
+	  It captures TLB statistics per context bank of the IOMMU as an
+	  indication of its performance metric.
+
+	  If unsure, say N here.
+
+config IOMMU_PGTABLES_L2
+	bool "Allow SMMU page tables in the L2 cache (Experimental)"
+	depends on MSM_IOMMU && MMU && SMP && CPU_DCACHE_DISABLE=n
+	help
+	  Improves TLB miss latency at the expense of potential L2 pollution.
+	  However, with large multimedia buffers, the TLB should mostly contain
+	  section mappings and TLB misses should be quite infrequent.
+
+	  If unsure, say N here.
+
+
+config IOMMU_LPAE
+	bool "Enable support for LPAE in IOMMU"
+	depends on MSM_IOMMU
+	help
+	  Enables Large Physical Address Extension (LPAE) for IOMMU. This allows
+	  clients of IOMMU to access physical addresses that are greater than
+	  32 bits.
+
+	  If unsure, say N here.
+
+config MSM_IOMMU_VBIF_CHECK
+	bool "Enable support for VBIF check when IOMMU gets stuck"
+	depends on MSM_IOMMU
+	help
+	  Enables an extra check in the IOMMU driver that logs debugging
+	  information when TLB sync or iommu halt issue occurs. This helps
+	  in debugging such issues.
+
+	  If unsure, say N here.
+
+config IOMMU_NON_SECURE
+	bool "Turns on programming of secure SMMU by kernel"
+	depends on MSM_IOMMU
+        help
+         Say Y here if you want the kernel to program all SMMUs regardless of
+         whether SMMUs are secure or not. A secure SMMU is an SMMU that has
+         its global address space programmed by the secure environment. In
+         addition some of the context banks might be owned/programmed by the
+         secure environment for a secure SMMU. Enabling this feature can be
+         used during testing when the secure environment is not available
+         and the kernel needs to program all the SMMUs.
+
+         If unsure, say N here.
+
+config IOMMU_FORCE_4K_MAPPINGS
+	bool "Turns off mapping optimization and map only 4K pages"
+	depends on MSM_IOMMU
+        help
+         Say Y here if you want the IOMMU driver to map buffers with
+         4KB mapping only. With this, we don't get performance gains
+         by optimizing mapping. This is a debug feature and should be
+         used only when we want to profile the performance in the
+         worst case scenario.
+
+         If unsure, say N here.
+
 # AMD IOMMU support
 config AMD_IOMMU
 	bool "AMD IOMMU support"

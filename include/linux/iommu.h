@@ -124,6 +124,11 @@ struct iommu_ops {
 		     size_t size);
 	size_t (*map_sg)(struct iommu_domain *domain, unsigned long iova,
 			 struct scatterlist *sg, unsigned int nents, int prot);
+	int (*map_range)(struct iommu_domain *domain, unsigned long iova,
+			struct scatterlist *sg, size_t len, int prot);
+	int (*unmap_range)(struct iommu_domain *domain, unsigned long iova,
+			size_t len);
+
 	phys_addr_t (*iova_to_phys)(struct iommu_domain *domain, dma_addr_t iova);
 	int (*add_device)(struct device *dev);
 	void (*remove_device)(struct device *dev);
@@ -170,6 +175,10 @@ extern int iommu_map(struct iommu_domain *domain, unsigned long iova,
 		     phys_addr_t paddr, size_t size, int prot);
 extern size_t iommu_unmap(struct iommu_domain *domain, unsigned long iova,
 		       size_t size);
+extern int iommu_map_range(struct iommu_domain *domain, unsigned long iova,
+		    struct scatterlist *sg, size_t len, int prot);
+extern int iommu_unmap_range(struct iommu_domain *domain, unsigned long iova,
+		      size_t len);
 extern size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 				struct scatterlist *sg,unsigned int nents,
 				int prot);
@@ -193,6 +202,7 @@ extern void iommu_group_remove_device(struct device *dev);
 extern int iommu_group_for_each_dev(struct iommu_group *group, void *data,
 				    int (*fn)(struct device *, void *));
 extern struct iommu_group *iommu_group_get(struct device *dev);
+extern struct iommu_group *iommu_group_find(const char *name);
 extern void iommu_group_put(struct iommu_group *group);
 extern int iommu_group_register_notifier(struct iommu_group *group,
 					 struct notifier_block *nb);
@@ -325,6 +335,18 @@ static inline int iommu_unmap(struct iommu_domain *domain, unsigned long iova,
 	return -ENODEV;
 }
 
+int iommu_map_range(struct iommu_domain *domain, unsigned long iova,
+		    struct scatterlist *sg, size_t len, int prot)
+{
+	return -ENODEV;
+}
+
+int iommu_unmap_range(struct iommu_domain *domain, unsigned long iova,
+		      size_t len)
+{
+	return -ENODEV;
+}
+
 static inline size_t iommu_map_sg(struct iommu_domain *domain,
 				  unsigned long iova, struct scatterlist *sg,
 				  unsigned int nents, int prot)
@@ -405,6 +427,11 @@ static inline int iommu_group_for_each_dev(struct iommu_group *group,
 }
 
 static inline struct iommu_group *iommu_group_get(struct device *dev)
+{
+	return NULL;
+}
+
+static inline struct iommu_group *iommu_group_find(const char *name)
 {
 	return NULL;
 }

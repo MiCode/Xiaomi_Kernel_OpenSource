@@ -465,6 +465,37 @@ struct iommu_group *iommu_group_get(struct device *dev)
 EXPORT_SYMBOL_GPL(iommu_group_get);
 
 /**
+ * iommu_group_find - Find and return the group based on the group name.
+ * Also increment the reference count.
+ * @name: the name of the group
+ *
+ * This function is called by iommu drivers and clients to get the group
+ * by the specified name.  If found, the group is returned and the group
+ * reference is incremented, else NULL.
+ */
+struct iommu_group *iommu_group_find(const char *name)
+{
+	struct iommu_group *group;
+	int next = 0;
+
+	mutex_lock(&iommu_group_mutex);
+	while ((group = idr_get_next(&iommu_group_ida.idr, &next))) {
+		if (group->name) {
+			if (strcmp(group->name, name) == 0)
+				break;
+		}
+		++next;
+	}
+	mutex_unlock(&iommu_group_mutex);
+
+	if (group)
+		kobject_get(group->devices_kobj);
+
+	return group;
+}
+EXPORT_SYMBOL_GPL(iommu_group_find);
+
+/**
  * iommu_group_put - Decrement group reference
  * @group: the group to use
  *
@@ -1165,18 +1196,29 @@ size_t default_iommu_map_sg(struct iommu_domain *domain, unsigned long iova,
 EXPORT_SYMBOL_GPL(default_iommu_map_sg);
 
 /* DEPRECATED */
-int iommu_map_range(struct iommu_domain *domain, unsigned int iova,
-		    struct scatterlist *sg, unsigned int len, int opt)
+int iommu_map_range(struct iommu_domain *domain, unsigned long iova,
+		struct scatterlist *sg, size_t len, int prot)
 {
-	return -ENODEV;
-}
+	if (unlikely(domain->ops->map_range == NULL))
+		return -ENODEV;
 
-/* DEPRECATED */
-int iommu_unmap_range(struct iommu_domain *domain, unsigned int iova,
-		      unsigned int len)
-{
-	return -ENODEV;
+	BUG_ON(iova & (~PAGE_MASK));
+
+	return domain->ops->map_range(domain, iova, sg, len, prot);
 }
+EXPORT_SYMBOL_GPL(iommu_map_range);
+
+int iommu_unmap_range(struct iommu_domain *domain, unsigned long iova,
+		size_t len)
+{
+	if (unlikely(domain->ops->unmap_range == NULL))
+		return -ENODEV;
+
+	BUG_ON(iova & (~PAGE_MASK));
+
+	return domain->ops->unmap_range(domain, iova, len);
+}
+EXPORT_SYMBOL_GPL(iommu_unmap_range);
 
 int iommu_domain_window_enable(struct iommu_domain *domain, u32 wnd_nr,
 			       phys_addr_t paddr, u64 size, int prot)

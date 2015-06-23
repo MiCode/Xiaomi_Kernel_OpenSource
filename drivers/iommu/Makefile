@@ -5,6 +5,14 @@ obj-$(CONFIG_IOMMU_API) += msm_dma_iommu_mapping.o
 obj-$(CONFIG_IOMMU_IO_PGTABLE) += io-pgtable.o
 obj-$(CONFIG_IOMMU_IO_PGTABLE_LPAE) += io-pgtable-arm.o
 obj-$(CONFIG_OF_IOMMU)	+= of_iommu.o
+obj-$(CONFIG_MSM_IOMMU) += msm_iommu.o msm_iommu_domains.o msm_iommu_mapping.o
+obj-$(CONFIG_MSM_IOMMU_V1) += msm_iommu-v1.o msm_iommu_dev-v1.o msm_iommu_sec.o
+obj-$(CONFIG_MSM_IOMMU_PMON) += msm_iommu_perfmon.o msm_iommu_perfmon-v1.o
+ifdef CONFIG_IOMMU_LPAE
+obj-$(CONFIG_MSM_IOMMU_V1) += msm_iommu_pagetable_lpae.o
+else
+obj-$(CONFIG_MSM_IOMMU_V1) += msm_iommu_pagetable.o
+endif
 obj-$(CONFIG_AMD_IOMMU) += amd_iommu.o amd_iommu_init.o
 obj-$(CONFIG_AMD_IOMMU_V2) += amd_iommu_v2.o
 obj-$(CONFIG_ARM_SMMU) += arm-smmu.o
