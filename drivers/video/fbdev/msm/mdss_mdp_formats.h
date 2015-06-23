@@ -31,6 +31,9 @@ enum {
 	COLOR_ALPHA_4BIT = 1,
 };
 
+#define UBWC_META_MACRO_W 16
+#define UBWC_META_BLOCK_SIZE 256
+
 #define FMT_RGB_565(fmt, fetch_type, flag_arg, e0, e1, e2)		\
 	{							\
 		.format = (fmt),				\
@@ -179,21 +182,37 @@ static struct mdss_mdp_format_params_ubwc mdss_mdp_format_ubwc_map[] = {
 		.mdp_format = FMT_RGB_565(MDP_RGB_565_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT,
 			C1_B_Cb, C0_G_Y, C2_R_Cr),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
 	},
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBA_8888_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 1,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
 	},
 	{
 		.mdp_format = FMT_RGB_8888(MDP_RGBX_8888_UBWC,
 			MDSS_MDP_FETCH_UBWC, VALID_ROT_WB_FORMAT, 0,
 			C2_R_Cr, C0_G_Y, C1_B_Cb, C3_ALPHA),
+		.micro = {
+			.tile_height = 4,
+			.tile_width = 16,
+		},
 	},
 	{
 		.mdp_format = FMT_YUV_PSEUDO(MDP_Y_CBCR_H2V2_UBWC,
 			MDSS_MDP_FETCH_UBWC, MDSS_MDP_CHROMA_420,
 			VALID_ROT_WB_FORMAT, C1_B_Cb, C2_R_Cr),
+		.micro = {
+			.tile_height = 8,
+			.tile_width = 32,
+		},
 	},
 };
 

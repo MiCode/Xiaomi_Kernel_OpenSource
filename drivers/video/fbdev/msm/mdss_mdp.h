@@ -365,8 +365,14 @@ struct mdss_mdp_format_params {
 	u8 element[MAX_PLANES];
 };
 
+struct mdss_mdp_format_ubwc_tile_info {
+	u16 tile_height;
+	u16 tile_width;
+};
+
 struct mdss_mdp_format_params_ubwc {
 	struct mdss_mdp_format_params mdp_format;
+	struct mdss_mdp_format_ubwc_tile_info micro;
 };
 
 struct mdss_mdp_plane_sizes {
