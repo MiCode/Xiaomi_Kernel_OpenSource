@@ -3448,6 +3448,9 @@ static void dapm_connect_dai_link_widgets(struct snd_soc_card *card,
 			snd_soc_dai_is_dummy(cpu_dai))
 			continue;
 
+		if (!cpu_dai->component->codec)
+			continue;
+
 		/* connect BE DAI playback if widgets are valid */
 		if (codec_dai->playback_widget && cpu_dai->playback_widget) {
 			source = cpu_dai->playback_widget;
