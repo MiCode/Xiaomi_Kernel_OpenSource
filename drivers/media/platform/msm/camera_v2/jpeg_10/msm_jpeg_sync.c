@@ -878,6 +878,8 @@ int msm_jpeg_start(struct msm_jpeg_device *pgmn_dev, void * __user arg,
 
 	JPEG_DBG("%s:%d] Enter\n", __func__, __LINE__);
 
+	msm_jpeg_platform_set_dt_config(pgmn_dev);
+
 	pgmn_dev->release_buf = 1;
 	for (i = 0; i < 2; i++) {
 		buf_out = msm_jpeg_q_out(&pgmn_dev->input_buf_q);
