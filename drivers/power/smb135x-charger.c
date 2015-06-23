@@ -2638,8 +2638,9 @@ static int handle_usb_removal(struct smb135x_chg *chip)
 				POWER_SUPPLY_TYPE_UNKNOWN);
 		pr_debug("setting usb psy present = %d\n", chip->usb_present);
 		power_supply_set_present(chip->usb_psy, chip->usb_present);
-		pr_debug("setting usb psy allow detection 0\n");
-		power_supply_set_allow_detection(chip->usb_psy, 0);
+		pr_debug("Setting usb psy dp=r dm=r\n");
+		power_supply_set_dp_dm(chip->usb_psy,
+				POWER_SUPPLY_DP_DM_DPR_DMR);
 	}
 	return 0;
 }
@@ -2699,15 +2700,17 @@ static int handle_usb_insertion(struct smb135x_chg *chip)
 
 	if (chip->batt_present && !chip->apsd_rerun && chip->usb_psy) {
 		if (usb_supply_type == POWER_SUPPLY_TYPE_USB) {
-			pr_debug("setting usb psy allow detection 1 SDP and rerun\n");
-			power_supply_set_allow_detection(chip->usb_psy, 1);
+			pr_debug("Setting usb psy dp=f dm=f SDP and rerun\n");
+			power_supply_set_dp_dm(chip->usb_psy,
+					POWER_SUPPLY_DP_DM_DPF_DMF);
 			chip->apsd_rerun = true;
 			rerun_apsd(chip);
 			/* rising edge of src detect will happen in few mS */
 			return 0;
 		} else {
-			pr_debug("setting usb psy allow detection 1 DCP and no rerun\n");
-			power_supply_set_allow_detection(chip->usb_psy, 1);
+			pr_debug("Set usb psy dp=f dm=f DCP and no rerun\n");
+			power_supply_set_dp_dm(chip->usb_psy,
+					POWER_SUPPLY_DP_DM_DPF_DMF);
 		}
 	}
 
