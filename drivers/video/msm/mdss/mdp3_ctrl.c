@@ -770,7 +770,6 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 	mdp3_ctrl_notifier_register(mdp3_session,
 		&mdp3_session->mfd->mdp_sync_pt_data.notifier);
 
-	mdp3_qos_remapper_setup(panel);
 	/* request bus bandwidth before DSI DMA traffic */
 	rc = mdp3_ctrl_res_req_bus(mfd, 1);
 	if (rc) {
@@ -783,6 +782,7 @@ static int mdp3_ctrl_on(struct msm_fb_data_type *mfd)
 		pr_err("fail to disable dynamic clock gating\n");
 		goto on_error;
 	}
+	mdp3_qos_remapper_setup(panel);
 
 	rc = mdp3_ctrl_res_req_clk(mfd, 1);
 	if (rc) {
@@ -895,7 +895,7 @@ static int mdp3_ctrl_off(struct msm_fb_data_type *mfd)
 			rc = panel->event_handler(panel,
 				MDSS_EVENT_PANEL_CLK_CTRL, (void *)0);
 		}
-
+		rc = mdp3_dynamic_clock_gating_ctrl(1);
 		rc = mdp3_res_update(0, 1, MDP3_CLIENT_DMA_P);
 		if (rc)
 			pr_err("mdp clock resource release failed\n");
