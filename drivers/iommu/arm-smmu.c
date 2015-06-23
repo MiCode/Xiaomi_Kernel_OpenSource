@@ -420,7 +420,6 @@ struct arm_smmu_domain {
 	spinlock_t			pgtbl_lock;
 	struct arm_smmu_cfg		cfg;
 	enum arm_smmu_domain_stage	stage;
-	struct mutex			lock;
 	struct mutex			init_mutex; /* Protects smmu pointer */
 	u32				attributes;
 	u32				secure_vmid;
@@ -1334,7 +1333,6 @@ static int arm_smmu_domain_init(struct iommu_domain *domain)
 
 	smmu_domain->secure_vmid = VMID_INVAL;
 	INIT_LIST_HEAD(&smmu_domain->pte_info_list);
-	mutex_init(&smmu_domain->lock);
 	mutex_init(&smmu_domain->init_mutex);
 	spin_lock_init(&smmu_domain->pgtbl_lock);
 	domain->priv = smmu_domain;
@@ -1976,17 +1974,17 @@ static int arm_smmu_dma_supported(struct iommu_domain *domain,
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 	int ret;
 
-	mutex_lock(&smmu_domain->lock);
+	mutex_lock(&smmu_domain->init_mutex);
 	smmu = smmu_domain->smmu;
 	if (!smmu) {
 		dev_err(dev,
 			"Can't call dma_supported on an unattached domain\n");
-		mutex_unlock(&smmu_domain->lock);
+		mutex_unlock(&smmu_domain->init_mutex);
 		return 0;
 	}
 
 	ret = ((1ULL << smmu->va_size) - 1) <= mask ? 0 : 1;
-	mutex_unlock(&smmu_domain->lock);
+	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 }
 
