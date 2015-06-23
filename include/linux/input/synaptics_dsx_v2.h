@@ -100,6 +100,7 @@ struct synaptics_dsx_board_data {
 	u32 config_id;
 	bool disable_gpios;
 	bool detect_device;
+	bool bypass_packrat_id_check;
 	const char *fw_name;
 };
 
