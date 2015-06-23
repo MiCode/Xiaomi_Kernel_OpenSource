@@ -1715,17 +1715,6 @@ static int wcd_mbhc_initialise(struct wcd_mbhc *mbhc)
 	wcd_program_btn_threshold(mbhc, false);
 
 	INIT_WORK(&mbhc->correct_plug_swch, wcd_correct_swch_plug);
-	/* enable the WCD MBHC IRQ's */
-	mbhc->mbhc_cb->irq_control(mbhc->codec, mbhc->intr_ids->mbhc_sw_intr,
-				   true);
-	mbhc->mbhc_cb->irq_control(mbhc->codec,
-				   mbhc->intr_ids->mbhc_btn_press_intr, true);
-	mbhc->mbhc_cb->irq_control(mbhc->codec,
-				   mbhc->intr_ids->mbhc_btn_release_intr, true);
-	mbhc->mbhc_cb->irq_control(mbhc->codec, mbhc->intr_ids->hph_left_ocp,
-				   true);
-	mbhc->mbhc_cb->irq_control(mbhc->codec, mbhc->intr_ids->hph_right_ocp,
-				   true);
 	WCD_MBHC_RSC_UNLOCK(mbhc);
 	pr_debug("%s: leave\n", __func__);
 	return ret;
