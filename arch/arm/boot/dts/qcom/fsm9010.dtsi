@@ -622,7 +622,7 @@
 		cell-index = <0>;
 		qcom,ctrl-amt = <1>;
 
-		reg = <0xfc520000 0x4000>,
+		reg = <0xfc520000 0x2000>,
 		      <0xfc526000 0x1000>,
 		      <0xff800000 0x0f20>,
 		      <0xff800f20 0x100>,
