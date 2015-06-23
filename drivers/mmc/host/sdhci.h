@@ -439,4 +439,5 @@ extern int sdhci_runtime_resume_host(struct sdhci_host *host);
 #endif
 
 void sdhci_cfg_irq(struct sdhci_host *host, bool enable, bool sync);
+void sdhci_unvote_all_pm_qos(struct sdhci_host *host);
 #endif /* __SDHCI_HW_H */

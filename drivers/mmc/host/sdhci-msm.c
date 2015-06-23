@@ -3908,7 +3908,7 @@ static int sdhci_msm_runtime_suspend(struct device *dev)
 
 skip_disable_host_irq:
 	disable_irq(msm_host->pwr_irq);
-
+	sdhci_unvote_all_pm_qos(host);
 	/*
 	 * Remove the vote immediately only if clocks are off in which
 	 * case we might have queued work to remove vote but it may not
