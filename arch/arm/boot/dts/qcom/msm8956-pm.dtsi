@@ -18,7 +18,7 @@
 		reg = <0xb1d2000 0x1000>;
 		qcom,name = "system-cci"; /* CCI SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
-		qcom,saw2-cfg = <0x01>;
+		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly = <0X3c102800>;
 		qcom,saw2-spm-ctl = <0x8>;
 		qcom,cpu-vctl-list = <&CPU0 &CPU1 &CPU2 &CPU3>;
@@ -26,7 +26,7 @@
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
 		qcom,supports-rpm-hs;
-		qcom,saw2-pmic-data0 = <0x07030080>; /* VDD_APC0 on */
+		qcom,saw2-pmic-data0 = <0x03030080>; /* VDD_APC0 on */
 		qcom,saw2-pmic-data1 = <0x00030000>; /* VDD_APC0 off  */
 		qcom,pfm-port = <0x2>;
 		qcom,saw2-spm-cmd-ret = [00 03 00 0f];
@@ -41,7 +41,7 @@
 		    <0xb111210 0x8>; /* SPM_QCHANNEL_CFG */
 		qcom,name = "a53-l2"; /* A53 L2 SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
-		qcom,saw2-cfg = <0x01>;
+		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly = <0x3c11840a>;
 		qcom,saw2-spm-ctl = <0x8>;
 		qcom,saw2-spm-cmd-wfi = [03 0f]; /* Removed clk gating cmds */
@@ -63,14 +63,14 @@
 		    <0xb011210 0x8>; /* SPM_QCHANNEL_CFG */
 		qcom,name = "a72-l2"; /* A5x L2 SAW */
 		qcom,saw2-ver-reg = <0xfd0>;
-		qcom,saw2-cfg = <0x01>;
+		qcom,saw2-cfg = <0x14>;
 		qcom,saw2-spm-dly = <0x3c11840a>;
 		qcom,saw2-spm-ctl = <0x8>;
 		qcom,cpu-vctl-list = <&CPU4 &CPU5>;
 		qcom,vctl-timeout-us = <50>;
 		qcom,vctl-port = <0x0>;
 		qcom,phase-port = <0x1>;
-		qcom,saw2-pmic-data0 = <0x07030080>; /* VDD_APC1 on */
+		qcom,saw2-pmic-data0 = <0x03030080>; /* VDD_APC1 on */
 		qcom,saw2-pmic-data1 = <0x00030000>; /* VDD_APC1 off  */
 		qcom,pfm-port = <0x2>;
 		qcom,saw2-spm-cmd-wfi = [03 0f];
@@ -373,7 +373,7 @@
 					qcom,ss-power = <124>;
 					qcom,energy-overhead = <457850>;
 					qcom,time-overhead = <900>;
-					qcom,min-child-idx = <2>;
+					qcom,min-child-idx = <3>;
 				};
 
 				qcom,pm-cluster-level@3{
@@ -466,8 +466,10 @@
 			<0xff 60>,  /* mss_to_apps_irq(3) */
 			<0xff 61>,  /* mss_a2_bam_irq */
 			<0xff 65>,  /* o_gc_sys_irq[0] */
+			<0xff 73>,  /* smmu_intr_bus[1] */
 			<0xff 74>,  /* smmu_bus_intr[2] */
 			<0xff 75>,  /* smmu_bus_intr[3] */
+			<0xff 76>,  /* venus_irq */
 			<0xff 78>,  /* smmu_bus_intr[5] */
 			<0xff 79>,  /* smmu_bus_intr[6] */
 			<0xff 85>,  /* smmu_bus_intr[31] */
@@ -480,7 +482,11 @@
 			<0xff 108>, /* smmu_bus_intr[36] */
 			<0xff 109>, /* smmu_bus_intr[37] */
 			<0xff 112>, /* smmu_bus_intr[38] */
+			<0xff 114>, /* qdsd_intr_out */
+			<0xff 129>, /* blsp1_peripheral_irq[4] */
 			<0xff 131>, /* qup_irq */
+			<0xff 137>, /* smmu_intr_bus[44] */
+			<0xff 138>, /* smmu_intr_bus[45] */
 			<0xff 140>, /* uart_dm_intr */
 			<0xff 142>, /* smmu_bus_intr[47] */
 			<0xff 143>, /* smmu_bus_intr[48] */
@@ -497,6 +503,7 @@
 			<0xff 155>, /* sdc1_irq(0) */
 			<0xff 157>, /* sdc2_irq(0) */
 			<0xff 166>, /* usb_hs_irq */
+			<0xff 167>, /* usb1_hs_bam_irq */
 			<0xff 170>, /* sdc1_pwr_cmd_irq */
 			<0xff 173>, /* o_wcss_apss_smd_hi */
 			<0xff 174>, /* o_wcss_apss_smd_med */
@@ -506,7 +513,6 @@
 			<0xff 178>, /* o_wcss_apss_wlan_rx_data_avail */
 			<0xff 179>, /* o_wcss_apss_asic_intr */
 			<0xff 181>, /* o_wcss_apss_wdog_bite_and_reset_rdy */
-
 			<0xff 188>, /* lpass_irq_out_apcs(0) */
 			<0xff 189>, /* lpass_irq_out_apcs(1) */
 			<0xff 190>, /* lpass_irq_out_apcs(2) */
@@ -526,15 +532,24 @@
 			<0xff 205>, /* rpm_ipc(25) */
 			<0xff 206>, /* rpm_ipc(26) */
 			<0xff 207>, /* rpm_ipc(27) */
+			<0xff 215>, /* o_bimc_intr[0] */
 			<0xff 239>, /* crypto_bam_irq[1]*/
 			<0xff 240>, /* summary_irq_kpss */
 			<0xff 253>, /* sdc2_pwr_cmd_irq */
+			<0xff 260>, /* ipa_irq[0] */
+			<0xff 263>, /* ipa_bam_irq[2] */
 			<0xff 269>, /* rpm_wdog_expired_irq */
 			<0xff 270>, /* blsp1_bam_irq[0] */
+			<0xff 272>, /* smmu_intr_bus[17] */
 			<0xff 273>, /* smmu_bus_intr[18] */
 			<0xff 274>, /* smmu_bus_intr[19] */
 			<0xff 275>, /* rpm_ipc(30) */
-			<0xff 276>; /* rpm_ipc(31) */
+			<0xff 276>, /* rpm_ipc(31) */
+			<0xff 277>, /* smmu_intr_bus[20] */
+			<0xff 321>, /* q6ss_irq_out(4) */
+			<0xff 322>, /* q6ss_irq_out(5) */
+			<0xff 323>, /* q6ss_irq_out(6) */
+			<0xff 325>; /* q6ss_wdog_exp_irq */
 
 		qcom,gpio-parent = <&msm_gpio>;
 		qcom,gpio-map = <3  100>,
