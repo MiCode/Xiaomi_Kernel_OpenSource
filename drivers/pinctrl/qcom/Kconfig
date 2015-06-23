@@ -55,4 +55,12 @@ config PINCTRL_MSM8996
 	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
 	  Qualcomm TLMM block found in the Qualcomm MSM8996 platform.
 
+config PINCTRL_MSM8952
+	tristate "Qualcomm MSM8952 pin controller driver"
+	depends on GPIOLIB && OF && (ARCH_MSM8916 || COMPILE_TEST)
+	select PINCTRL_MSM
+	help
+	  This is the pinctrl, pinmux, pinconf and gpiolib driver for the
+	  Qualcomm TLMM block found in the Qualcomm MSM8952 platform.
+
 endif
