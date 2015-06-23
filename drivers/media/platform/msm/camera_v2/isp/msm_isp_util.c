@@ -1952,6 +1952,7 @@ int msm_isp_open_node(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	vfe_dev->axi_data.hw_info = vfe_dev->hw_info->axi_hw_info;
 	vfe_dev->taskletq_idx = 0;
 	vfe_dev->vt_enable = 0;
+	vfe_dev->reg_update_requested = 0;
 	/* Register page fault handler */
 	vfe_dev->buf_mgr->pagefault_debug = 0;
 	cam_smmu_reg_client_page_fault_handler(
@@ -2045,4 +2046,19 @@ void msm_isp_flush_tasklet(struct vfe_device *vfe_dev)
 	spin_unlock_irqrestore(&vfe_dev->tasklet_lock, flags);
 
 	return;
+}
+
+void msm_isp_save_framedrop_values(struct vfe_device *vfe_dev)
+{
+	struct msm_vfe_axi_stream *stream_info = NULL;
+	uint32_t j = 0;
+
+	for (j = 0; j < MAX_NUM_STREAM; j++) {
+		stream_info =
+			&vfe_dev->axi_data.stream_info[j];
+		stream_info->prev_framedrop_pattern =
+			stream_info->framedrop_pattern;
+		stream_info->prev_framedrop_period =
+			stream_info->framedrop_period;
+	}
 }
