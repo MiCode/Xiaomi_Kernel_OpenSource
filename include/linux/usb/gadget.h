@@ -585,6 +585,7 @@ struct usb_gadget {
 	u32				xfer_isr_count;
 	u8				usb_core_id;
 	bool				streaming_enabled;
+	bool				l1_supported;
 };
 #define work_to_gadget(w)	(container_of((w), struct usb_gadget, work))
 
