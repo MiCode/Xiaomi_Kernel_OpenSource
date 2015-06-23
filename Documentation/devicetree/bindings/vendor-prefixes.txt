@@ -127,6 +127,7 @@ onnn	ON Semiconductor Corp.
 opencores	OpenCores.org
 ovti	OmniVision Technologies, Inc.
 panasonic	Panasonic Corporation
+pericom	Pericom Semiconductor Corp.
 phytec	PHYTEC Messtechnik GmbH
 picochip	Picochip Ltd
 plathome	Plat'Home Co., Ltd.

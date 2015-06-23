@@ -1750,6 +1750,15 @@ static void msm_otg_notify_charger(struct msm_otg *motg, unsigned mA)
 	if (g && g->is_a_peripheral)
 		return;
 
+	dev_dbg(motg->phy.dev, "Requested curr from USB = %u, max-type-c:%u\n",
+					mA, motg->typec_current_max);
+	/* Save bc1.2 max_curr if type-c charger later moves to diff mode */
+	motg->bc1p2_current_max = mA;
+
+	/* Override mA if type-c charger used (use hvdcp/bc1.2 if it is 500) */
+	if (motg->typec_current_max > 500 && mA < motg->typec_current_max)
+		mA = motg->typec_current_max;
+
 	if (msm_otg_notify_chg_type(motg))
 		dev_err(motg->phy.dev,
 			"Failed notifying %d charger type to PMIC\n",
@@ -3333,6 +3342,9 @@ static int otg_power_get_property_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		val->intval = motg->current_max;
 		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+		val->intval = motg->typec_current_max;
+		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		val->intval = !!test_bit(B_SESS_VLD, &motg->inputs);
 		break;
@@ -3390,6 +3402,16 @@ static int otg_power_set_property_usb(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 		motg->current_max = val->intval;
+		break;
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
+		motg->typec_current_max = val->intval;
+		msm_otg_dbg_log_event(&motg->phy, "type-c charger",
+					val->intval, motg->bc1p2_current_max);
+		/* Update chg_current as per type-c charger detection on VBUS */
+		if (motg->chg_type != USB_INVALID_CHARGER) {
+			dev_dbg(motg->phy.dev, "update type-c charger\n");
+			msm_otg_notify_charger(motg, motg->bc1p2_current_max);
+		}
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
 		psy->type = val->intval;
@@ -3462,6 +3484,7 @@ static int otg_power_property_is_writeable_usb(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_VOLTAGE_MAX:
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_DP_DM:
+	case POWER_SUPPLY_PROP_INPUT_CURRENT_MAX:
 	case POWER_SUPPLY_PROP_USB_OTG:
 		return 1;
 	default:
@@ -3481,6 +3504,7 @@ static enum power_supply_property otg_pm_power_props_usb[] = {
 	POWER_SUPPLY_PROP_ONLINE,
 	POWER_SUPPLY_PROP_VOLTAGE_MAX,
 	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_INPUT_CURRENT_MAX,
 	POWER_SUPPLY_PROP_SCOPE,
 	POWER_SUPPLY_PROP_TYPE,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
