@@ -1,0 +1,274 @@
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 and
+ * only version 2 as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+&rpm_bus {
+	rpm-regulator-smpa1 {
+		status = "okay";
+		pmd9635_s1: regulator-s1 {
+			regulator-min-microvolt = <700000>;
+			regulator-max-microvolt = <1100000>;
+			qcom,init-voltage = <700000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa2 {
+		status = "okay";
+		pmd9635_s2: regulator-s2 {
+			regulator-min-microvolt = <1250000>;
+			regulator-max-microvolt = <1250000>;
+			qcom,init-voltage = <1250000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa3 {
+		status = "okay";
+		pmd9635_s3: regulator-s3 {
+			regulator-min-microvolt = <1025000>;
+			regulator-max-microvolt = <1025000>;
+			qcom,init-voltage = <1025000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-smpa4 {
+		status = "okay";
+		pmd9635_s4: regulator-s4 {
+			regulator-min-microvolt = <1850000>;
+			regulator-max-microvolt = <1850000>;
+			qcom,init-voltage = <1850000>;
+			status = "okay";
+		};
+	};
+
+	/* PMD9635 S5 = VDD_CX supply */
+	rpm-regulator-smpa5 {
+		status = "okay";
+		pmd9635_s5_corner: regulator-s5-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "9635_s5_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+
+		pmd9635_s5_corner_ao: regulator-s5-corner-ao {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "9635_s5_corner_ao";
+			qcom,set = <1>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+
+		pmd9635_s5_floor_corner: regulator-s5-floor-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "9635_s5_floor_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-floor-corner;
+		};
+	};
+
+	rpm-regulator-ldoa1 {
+		status = "okay";
+		pmd9635_l1: regulator-l1 {
+			regulator-min-microvolt = <1225000>;
+			regulator-max-microvolt = <1250000>;
+			qcom,init-voltage = <1225000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa2 {
+		status = "okay";
+		pmd9635_l2: regulator-l2 {
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			qcom,init-voltage = <1200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa3 {
+		status = "okay";
+		pmd9635_l3: regulator-l3 {
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa4 {
+		status = "okay";
+		pmd9635_l4: regulator-l4 {
+			regulator-min-microvolt = <1000000>;
+			regulator-max-microvolt = <1000000>;
+			qcom,init-voltage = <1000000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa5 {
+		status = "okay";
+		pmd9635_l5: regulator-l5 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa6 {
+		status = "okay";
+		pmd9635_l6: regulator-l6 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa7 {
+		status = "okay";
+		pmd9635_l7: regulator-l7 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa8 {
+		status = "okay";
+		pmd9635_l8: regulator-l8 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	/* PMD9635 L9 = VDD_MX supply */
+	rpm-regulator-ldoa9 {
+		status = "okay";
+		pmd9635_l9_corner: regulator-l9-corner {
+			compatible = "qcom,rpm-smd-regulator";
+			regulator-name = "9635_l9_corner";
+			qcom,set = <3>;
+			regulator-min-microvolt = <1>;
+			regulator-max-microvolt = <7>;
+			qcom,use-voltage-corner;
+		};
+	};
+
+	rpm-regulator-ldoa10 {
+		status = "okay";
+		pmd9635_l10: regulator-l10 {
+			regulator-min-microvolt = <3200000>;
+			regulator-max-microvolt = <3200000>;
+			qcom,init-voltage = <3200000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa11 {
+		status = "okay";
+		pmd9635_l11: regulator-l11 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa12 {
+		status = "okay";
+		pmd9635_l12: regulator-l12 {
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <2700000>;
+			qcom,init-voltage = <2700000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa13 {
+		status = "okay";
+		pmd9635_l13: regulator-l13 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa14 {
+		status = "okay";
+		pmd9635_l14: regulator-l14 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2850000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa15 {
+		status = "okay";
+		pmd9635_l15: regulator-l15 {
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			qcom,init-voltage = <1800000>;
+			status = "okay";
+		};
+	};
+
+	rpm-regulator-ldoa16 {
+		status = "okay";
+		pmd9635_l16: regulator-l16 {
+			regulator-min-microvolt = <950000>;
+			regulator-max-microvolt = <950000>;
+			qcom,init-voltage = <950000>;
+			status = "okay";
+		};
+	};
+};
+
+&soc {
+	spi_eth_vreg: spi_eth_phy_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "ethernet_phy";
+		regulator-always-on;
+	};
+
+	codec_buck_vreg: codec_buck_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "codec_2.15v";
+	};
+
+	wlan_vreg: wlan_vreg {
+		compatible = "regulator-fixed";
+		regulator-name = "wlan_vreg";
+		regulator-always-on;
+	};
+
+	sd_slot_vreg: regulator-isl80101 {
+		compatible = "regulator-fixed";
+		regulator-name = "sd_2.95";
+		gpio = <&msm_gpio 50 0>;
+		startup-delay-us = <1600>;
+		enable-active-high;
+	};
+};

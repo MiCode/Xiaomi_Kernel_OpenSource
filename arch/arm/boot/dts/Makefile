@@ -526,6 +526,9 @@ endif
 
 targets += dtbs dtbs_install
 targets += $(DTB_LIST)
+
+#used for cleaning - not building
+subdir- := qcom
 endif
 
 # *.dtb used to be generated in the directory above. Clean out the
