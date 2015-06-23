@@ -130,6 +130,7 @@ enum mdp_wfd_blk_type {
 	MDSS_MDP_WFD_SHARED = 0,
 	MDSS_MDP_WFD_INTERFACE,
 	MDSS_MDP_WFD_DEDICATED,
+	MDSS_MDP_WFD_INTF_NO_DSPP,
 };
 
 enum mdss_mdp_reg_bus_cfg {
