@@ -712,6 +712,7 @@ int do_settimeofday(const struct timespec *tv)
 	struct timekeeper *tk = &tk_core.timekeeper;
 	struct timespec64 ts_delta, xt, tmp;
 	unsigned long flags;
+	int ret = 0;
 
 	if (!timespec_valid_strict(tv))
 		return -EINVAL;
@@ -725,11 +726,16 @@ int do_settimeofday(const struct timespec *tv)
 	ts_delta.tv_sec = tv->tv_sec - xt.tv_sec;
 	ts_delta.tv_nsec = tv->tv_nsec - xt.tv_nsec;
 
+	if (timespec64_compare(&tk->wall_to_monotonic, &ts_delta) > 0) {
+		ret = -EINVAL;
+		goto out;
+	}
+
 	tk_set_wall_to_mono(tk, timespec64_sub(tk->wall_to_monotonic, ts_delta));
 
 	tmp = timespec_to_timespec64(*tv);
 	tk_set_xtime(tk, &tmp);
-
+out:
 	timekeeping_update(tk, TK_CLEAR_NTP | TK_MIRROR | TK_CLOCK_WAS_SET);
 
 	write_seqcount_end(&tk_core.seq);
@@ -738,7 +744,7 @@ int do_settimeofday(const struct timespec *tv)
 	/* signal hrtimers about time change */
 	clock_was_set();
 
-	return 0;
+	return ret;
 }
 EXPORT_SYMBOL(do_settimeofday);
 
@@ -767,7 +773,8 @@ int timekeeping_inject_offset(struct timespec *ts)
 
 	/* Make sure the proposed value is valid */
 	tmp = timespec64_add(tk_xtime(tk),  ts64);
-	if (!timespec64_valid_strict(&tmp)) {
+	if (timespec64_compare(&tk->wall_to_monotonic, &ts64) > 0 ||
+		!timespec64_valid_strict(&tmp)) {
 		ret = -EINVAL;
 		goto error;
 	}
