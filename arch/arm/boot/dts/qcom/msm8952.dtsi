@@ -83,12 +83,6 @@
 			label = "qseecom_mem";
 		};
 
-		audio_mem: audio_region@0 {
-			linux,reserve-contiguous-region;
-			reg = <0 0 0 0x314000>;
-			label = "audio_mem";
-		};
-
 		cont_splash_mem: splash_region@83000000 {
 			linux,reserve-contiguous-region;
 			linux,reserve-region;

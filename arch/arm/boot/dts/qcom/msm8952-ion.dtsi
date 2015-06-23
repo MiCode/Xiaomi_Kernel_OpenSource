@@ -41,13 +41,6 @@
 			qcom,ion-heap-type = "DMA";
 		};
 
-		qcom,ion-heap@28 { /* AUDIO HEAP */
-			compatible = "qcom,msm-ion-reserve";
-			reg = <28>;
-			linux,contiguous-region = <&audio_mem>;
-			qcom,ion-heap-type = "DMA";
-		};
-
 		qcom,ion-heap@23 { /* OTHER PIL HEAP */
 			compatible = "qcom,msm-ion-reserve";
 			reg = <23>;
