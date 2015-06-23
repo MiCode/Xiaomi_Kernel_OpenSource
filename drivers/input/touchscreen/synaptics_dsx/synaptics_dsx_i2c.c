@@ -317,6 +317,9 @@ static int synaptics_dsx_parse_dt(struct device *dev,
 	rmi4_pdata->disable_gpios = of_property_read_bool(np,
 			"synaptics,disable-gpios");
 
+	rmi4_pdata->bypass_packrat_id_check = of_property_read_bool(np,
+			"synaptics,bypass-packrat-id-check");
+
 	rmi4_pdata->reset_delay_ms = RESET_DELAY;
 	rc = of_property_read_u32(np, "synaptics,reset-delay-ms", &temp_val);
 	if (!rc)

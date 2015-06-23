@@ -354,14 +354,6 @@ static unsigned int extract_uint_le(const unsigned char *ptr)
 			(unsigned int)ptr[3] * 0x1000000;
 }
 
-static unsigned int extract_uint_be(const unsigned char *ptr)
-{
-	return (unsigned int)ptr[3] +
-			(unsigned int)ptr[2] * 0x100 +
-			(unsigned int)ptr[1] * 0x10000 +
-			(unsigned int)ptr[0] * 0x1000000;
-}
-
 static void parse_header(struct image_header_data *header,
 		const unsigned char *fw_image)
 {
@@ -622,8 +614,6 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 	enum flash_area flash_area = NONE;
 	unsigned char index = 0;
 	unsigned char config_id[4];
-	unsigned int device_config_id;
-	unsigned int image_config_id;
 	unsigned int device_fw_id;
 	unsigned long image_fw_id;
 	char *strptr;
@@ -641,64 +631,66 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 		goto exit;
 	}
 
-	/* Get device firmware ID */
-	device_fw_id = rmi4_data->firmware_id;
-	dev_info(rmi4_data->pdev->dev.parent,
-			"%s: Device firmware ID = %d\n",
-			__func__, device_fw_id);
+	if (!rmi4_data->hw_if->board_data->bypass_packrat_id_check) {
+		/* Get device firmware ID */
+		device_fw_id = rmi4_data->firmware_id;
+		dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Device firmware ID = %d\n",
+				__func__, device_fw_id);
 
-	/* Get image firmware ID */
-	if (header->contains_firmware_id) {
-		image_fw_id = header->firmware_id;
-	} else {
-		strptr = strstr(fwu->image_name, "PR");
-		if (!strptr) {
-			dev_err(rmi4_data->pdev->dev.parent,
-					"%s: No valid PR number (PRxxxxxxx) "
-					"found in image file name (%s)\n",
+		/* Get image firmware ID */
+		if (header->contains_firmware_id) {
+			image_fw_id = header->firmware_id;
+		} else {
+			strptr = strnstr(fwu->image_name, "PR",
+					sizeof(fwu->image_name));
+			if (!strptr) {
+				dev_err(rmi4_data->pdev->dev.parent,
+					"%s: No valid PR number (PRxxxxxxx) found in image file name (%s)\n",
 					__func__, fwu->image_name);
-			flash_area = NONE;
+				flash_area = NONE;
+				goto exit;
+			}
+
+			strptr += 2;
+			firmware_id = kzalloc(MAX_FIRMWARE_ID_LEN, GFP_KERNEL);
+			if (!firmware_id) {
+				dev_err(rmi4_data->pdev->dev.parent,
+						"%s: Failed to alloc mem for firmware id\n",
+						__func__);
+				flash_area = NONE;
+				goto exit;
+			}
+
+			while (strptr[index] >= '0' && strptr[index] <= '9') {
+				firmware_id[index] = strptr[index];
+				index++;
+			}
+
+			retval = sstrtoul(firmware_id, 10, &image_fw_id);
+			kfree(firmware_id);
+			if (retval) {
+				dev_err(rmi4_data->pdev->dev.parent,
+						"%s: Failed to obtain image firmware ID\n",
+						__func__);
+				flash_area = NONE;
+				goto exit;
+			}
+		}
+		dev_info(rmi4_data->pdev->dev.parent,
+				"%s: Image firmware ID = %d\n",
+				__func__, (unsigned int)image_fw_id);
+
+		if (image_fw_id > device_fw_id) {
+			flash_area = UI_FIRMWARE;
 			goto exit;
-		}
-
-		strptr += 2;
-		firmware_id = kzalloc(MAX_FIRMWARE_ID_LEN, GFP_KERNEL);
-		if (!firmware_id) {
-			dev_err(rmi4_data->pdev->dev.parent,
-				"%s: Failed to alloc mem for firmware id\n",
-				__func__);
-			flash_area = NONE;
-			goto exit;
-		}
-
-		while (strptr[index] >= '0' && strptr[index] <= '9') {
-			firmware_id[index] = strptr[index];
-			index++;
-		}
-
-		retval = sstrtoul(firmware_id, 10, &image_fw_id);
-		kfree(firmware_id);
-		if (retval) {
-			dev_err(rmi4_data->pdev->dev.parent,
-					"%s: Failed to obtain image firmware ID\n",
+		} else if (image_fw_id < device_fw_id) {
+			dev_info(rmi4_data->pdev->dev.parent,
+					"%s: Image firmware ID older than device firmware ID\n",
 					__func__);
 			flash_area = NONE;
 			goto exit;
 		}
-	}
-	dev_info(rmi4_data->pdev->dev.parent,
-			"%s: Image firmware ID = %d\n",
-			__func__, (unsigned int)image_fw_id);
-
-	if (image_fw_id > device_fw_id) {
-		flash_area = UI_FIRMWARE;
-		goto exit;
-	} else if (image_fw_id < device_fw_id) {
-		dev_info(rmi4_data->pdev->dev.parent,
-				"%s: Image firmware ID older than device firmware ID\n",
-				__func__);
-		flash_area = NONE;
-		goto exit;
 	}
 
 	/* Get device config ID */
@@ -713,7 +705,6 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 		flash_area = NONE;
 		goto exit;
 	}
-	device_config_id = extract_uint_be(config_id);
 	dev_info(rmi4_data->pdev->dev.parent,
 			"%s: Device config ID = 0x%02x 0x%02x 0x%02x 0x%02x\n",
 			__func__,
@@ -723,7 +714,6 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 			config_id[3]);
 
 	/* Get image config ID */
-	image_config_id = extract_uint_be(fwu->config_data);
 	dev_info(rmi4_data->pdev->dev.parent,
 			"%s: Image config ID = 0x%02x 0x%02x 0x%02x 0x%02x\n",
 			__func__,
@@ -732,9 +722,16 @@ static enum flash_area fwu_go_nogo(struct image_header_data *header)
 			fwu->config_data[2],
 			fwu->config_data[3]);
 
-	if (image_config_id > device_config_id) {
-		flash_area = CONFIG_AREA;
-		goto exit;
+	if (fwu->config_data[1] == config_id[1]) {
+		if (fwu->config_data[2] == config_id[2]) {
+			if (fwu->config_data[3] > config_id[3]) {
+				flash_area = CONFIG_AREA;
+				goto exit;
+			}
+		} else if (fwu->config_data[2] > config_id[2]) {
+			flash_area = CONFIG_AREA;
+			goto exit;
+		}
 	}
 
 	flash_area = NONE;
