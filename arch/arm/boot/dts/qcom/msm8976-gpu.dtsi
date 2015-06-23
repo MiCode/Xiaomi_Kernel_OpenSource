@@ -57,14 +57,14 @@
 		 */
 		qcom,clk-map = <0x0000039E>;
 
-	clocks = <&clock_gcc clk_gcc_oxili_gfx3d_clk>,
-		 <&clock_gcc clk_gcc_oxili_ahb_clk>,
-		 <&clock_gcc clk_gcc_oxili_gmem_clk>,
-		 <&clock_gcc clk_gcc_bimc_gfx_clk>,
-		 <&clock_gcc clk_gcc_gtcu_ahb_clk>,
-		 <&clock_gcc clk_gcc_gfx_tcu_clk>,
-		 <&clock_gcc clk_gcc_gfx_tbu_clk>,
-		 <&clock_gcc clk_gcc_oxili_timer_clk>;
+	clocks = <&clock_gcc_gfx clk_gcc_oxili_gfx3d_clk>,
+		 <&clock_gcc_gfx clk_gcc_oxili_ahb_clk>,
+		 <&clock_gcc_gfx clk_gcc_oxili_gmem_clk>,
+		 <&clock_gcc_gfx clk_gcc_bimc_gfx_clk>,
+		 <&clock_gcc_gfx clk_gcc_gtcu_ahb_clk>,
+		 <&clock_gcc_gfx clk_gcc_gfx_tcu_clk>,
+		 <&clock_gcc_gfx clk_gcc_gfx_tbu_clk>,
+		 <&clock_gcc_gfx clk_gcc_oxili_timer_clk>;
 
 	clock-names =   "core_clk", "iface_clk", "mem_clk",
 			"mem_iface_clk", "gtcu_iface_clk",
