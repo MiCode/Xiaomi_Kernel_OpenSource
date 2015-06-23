@@ -265,6 +265,28 @@ end:
 		!mdss_mdp_is_ubwc_supported(mdata)) ? NULL : fmt;
 }
 
+int mdss_mdp_get_ubwc_micro_dim(u32 format, u16 *w, u16 *h)
+{
+	struct mdss_mdp_format_params_ubwc *fmt = NULL;
+	bool fmt_found = false;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(mdss_mdp_format_ubwc_map); i++) {
+		fmt = &mdss_mdp_format_ubwc_map[i];
+		if (format == fmt->mdp_format.format) {
+			fmt_found = true;
+			break;
+		}
+	}
+
+	if (!fmt_found)
+		return -EINVAL;
+
+	*w = fmt->micro.tile_width;
+	*h = fmt->micro.tile_height;
+	return 0;
+}
+
 void mdss_mdp_get_v_h_subsample_rate(u8 chroma_sample,
 		u8 *v_sample, u8 *h_sample)
 {
@@ -780,11 +802,109 @@ int mdss_mdp_data_check(struct mdss_mdp_data *data,
 	return 0;
 }
 
+/* x and y are assumednt to be valid, expected to line up with start of tiles */
+void mdss_mdp_ubwc_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
+	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt)
+{
+	struct mdss_data_type *mdata = mdss_mdp_get_mdata();
+	u16 macro_w, micro_w, micro_h;
+	u32 offset;
+	int ret;
+
+	if (!mdss_mdp_is_ubwc_supported(mdata)) {
+		pr_err("ubwc format is not supported for format: %d\n",
+			fmt->format);
+		return;
+	}
+
+	ret = mdss_mdp_get_ubwc_micro_dim(fmt->format, &micro_w, &micro_h);
+	if (ret || !micro_w || !micro_h) {
+		pr_err("Could not get valid micro tile dimensions\n");
+		return;
+	}
+	macro_w = 4 * micro_w;
+
+	if (fmt->format == MDP_Y_CBCR_H2V2_UBWC) {
+		u16 chroma_macro_w = macro_w / 2;
+		u16 chroma_micro_w = micro_w / 2;
+
+		/* plane 1 and 3 are chroma, with sub sample of 2 */
+		offset = y * ps->ystride[0] +
+			(x / macro_w) * 4096;
+		if (offset < data->p[0].len) {
+			data->p[0].addr += offset;
+		} else {
+			ret = 1;
+			goto done;
+		}
+
+		offset = y / 2 * ps->ystride[1] +
+			((x / 2) / chroma_macro_w) * 4096;
+		if (offset < data->p[1].len) {
+			data->p[1].addr += offset;
+		} else {
+			ret = 2;
+			goto done;
+		}
+
+		offset = (y / 8) * ps->ystride[2] +
+			((x / micro_w) / UBWC_META_MACRO_W) *
+			UBWC_META_BLOCK_SIZE;
+		if (offset < data->p[2].len) {
+			data->p[2].addr += offset;
+		} else {
+			ret = 3;
+			goto done;
+		}
+
+		offset = ((y / 2) / 8) * ps->ystride[3] +
+			(((x / 2) / chroma_micro_w) / UBWC_META_MACRO_W) *
+			UBWC_META_BLOCK_SIZE;
+		if (offset < data->p[3].len) {
+			data->p[3].addr += offset;
+		} else {
+			ret = 4;
+			goto done;
+		}
+
+	} else {
+		offset = y * ps->ystride[0] +
+			(x / macro_w) * 4096;
+		if (offset < data->p[0].len) {
+			data->p[0].addr += offset;
+		} else {
+			ret = 1;
+			goto done;
+		}
+
+		offset = DIV_ROUND_UP(y, 8) * ps->ystride[2] +
+			((x / micro_w) / UBWC_META_MACRO_W) *
+			UBWC_META_BLOCK_SIZE;
+		if (offset < data->p[2].len) {
+			data->p[2].addr += offset;
+		} else {
+			ret = 3;
+			goto done;
+		}
+	}
+
+done:
+	if (ret) {
+		WARN(1, "idx %d, offsets:%u too large for buflen%lu\n",
+			(ret - 1), offset, data->p[(ret - 1)].len);
+	}
+}
+
 void mdss_mdp_data_calc_offset(struct mdss_mdp_data *data, u16 x, u16 y,
 	struct mdss_mdp_plane_sizes *ps, struct mdss_mdp_format_params *fmt)
 {
 	if ((x == 0) && (y == 0))
 		return;
+
+	if (mdss_mdp_is_ubwc_format(fmt)) {
+		mdss_mdp_ubwc_data_calc_offset(data, x, y, ps, fmt);
+		return;
+	}
 
 	data->p[0].addr += y * ps->ystride[0];
 
