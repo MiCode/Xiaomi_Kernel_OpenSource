@@ -48,6 +48,9 @@
 #define STM_RSP_STATUS_INDEX		8
 #define STM_RSP_NUM_BYTES		9
 
+static int timestamp_switch;
+module_param(timestamp_switch, int, 0644);
+
 int wrap_enabled;
 uint16_t wrap_count;
 static struct diag_hdlc_decode_type *hdlc_decode;
@@ -565,6 +568,101 @@ int diag_process_stm_cmd(unsigned char *buf, unsigned char *dest_buf)
 	return STM_RSP_NUM_BYTES;
 }
 
+int diag_process_time_sync_query_cmd(unsigned char *src_buf, int src_len,
+				      unsigned char *dest_buf, int dest_len)
+{
+	int write_len = 0;
+	struct diag_cmd_time_sync_query_req_t *req = NULL;
+	struct diag_cmd_time_sync_query_rsp_t rsp;
+
+	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
+		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
+			__func__, src_buf, src_len, dest_buf, dest_len);
+		return -EINVAL;
+	}
+
+	req = (struct diag_cmd_time_sync_query_req_t *)src_buf;
+	rsp.header.cmd_code = req->header.cmd_code;
+	rsp.header.subsys_id = req->header.subsys_id;
+	rsp.header.subsys_cmd_code = req->header.subsys_cmd_code;
+	rsp.version = req->version;
+	rsp.time_api = driver->uses_time_api;
+	memcpy(dest_buf, &rsp, sizeof(rsp));
+	write_len = sizeof(rsp);
+	return write_len;
+}
+
+int diag_process_time_sync_switch_cmd(unsigned char *src_buf, int src_len,
+				      unsigned char *dest_buf, int dest_len)
+{
+	uint8_t peripheral, status = 0;
+	struct diag_cmd_time_sync_switch_req_t *req = NULL;
+	struct diag_cmd_time_sync_switch_rsp_t rsp;
+	struct diag_ctrl_msg_time_sync time_sync_msg;
+	int msg_size = sizeof(struct diag_ctrl_msg_time_sync);
+	int err = 0, write_len = 0;
+
+	if (!src_buf || !dest_buf || src_len <= 0 || dest_len <= 0) {
+		pr_err("diag: Invalid input in %s, src_buf: %p, src_len: %d, dest_buf: %p, dest_len: %d",
+			__func__, src_buf, src_len, dest_buf, dest_len);
+		return -EINVAL;
+	}
+
+	req = (struct diag_cmd_time_sync_switch_req_t *)src_buf;
+	rsp.header.cmd_code = req->header.cmd_code;
+	rsp.header.subsys_id = req->header.subsys_id;
+	rsp.header.subsys_cmd_code = req->header.subsys_cmd_code;
+	rsp.version = req->version;
+	rsp.time_api = req->time_api;
+	if ((req->version > 1) || (req->time_api > 1) ||
+					(req->persist_time > 0)) {
+		dest_buf[0] = BAD_PARAM_RESPONSE_MESSAGE;
+		rsp.time_api_status = 0;
+		rsp.persist_time_status = PERSIST_TIME_NOT_SUPPORTED;
+		memcpy(dest_buf + 1, &rsp, sizeof(rsp));
+		write_len = sizeof(rsp) + 1;
+		timestamp_switch = 0;
+		return write_len;
+	}
+
+	time_sync_msg.ctrl_pkt_id = DIAG_CTRL_MSG_TIME_SYNC_PKT;
+	time_sync_msg.ctrl_pkt_data_len = 5;
+	time_sync_msg.version = 1;
+	time_sync_msg.time_api = req->time_api;
+
+	for (peripheral = 0; peripheral < NUM_PERIPHERALS; peripheral++) {
+		err = diagfwd_write(peripheral, TYPE_CNTL, &time_sync_msg,
+					msg_size);
+		if (err && err != -ENODEV) {
+			pr_err("diag: In %s, unable to write to peripheral: %d, type: %d, len: %d, err: %d\n",
+				__func__, peripheral, TYPE_CNTL,
+				msg_size, err);
+			status |= (1 << peripheral);
+		}
+	}
+
+	driver->time_sync_enabled = 1;
+	driver->uses_time_api = req->time_api;
+
+	switch (req->time_api) {
+	case 0:
+		timestamp_switch = 0;
+		break;
+	case 1:
+		timestamp_switch = 1;
+		break;
+	default:
+		timestamp_switch = 0;
+		break;
+	}
+
+	rsp.time_api_status = status;
+	rsp.persist_time_status = PERSIST_TIME_NOT_SUPPORTED;
+	memcpy(dest_buf, &rsp, sizeof(rsp));
+	write_len = sizeof(rsp);
+	return write_len;
+}
+
 int diag_cmd_log_on_demand(unsigned char *src_buf, int src_len,
 			   unsigned char *dest_buf, int dest_len)
 {
@@ -803,6 +901,28 @@ int diag_process_apps_pkt(unsigned char *buf, int len)
 			return 0;
 		}
 		return len;
+	}
+	/* Check for time sync query command */
+	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+		(*(buf+1) == DIAG_SS_DIAG) &&
+		(*(uint16_t *)(buf+2) == DIAG_GET_TIME_API)) {
+		write_len = diag_process_time_sync_query_cmd(buf, len,
+							driver->apps_rsp_buf,
+							DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len);
+		return 0;
+	}
+	/* Check for time sync switch command */
+	else if ((*buf == DIAG_CMD_DIAG_SUBSYS) &&
+		(*(buf+1) == DIAG_SS_DIAG) &&
+		(*(uint16_t *)(buf+2) == DIAG_SET_TIME_API)) {
+		write_len = diag_process_time_sync_switch_cmd(buf, len,
+							driver->apps_rsp_buf,
+							DIAG_MAX_RSP_SIZE);
+		if (write_len > 0)
+			diag_send_rsp(driver->apps_rsp_buf, write_len);
+		return 0;
 	}
 	/* Check for download command */
 	else if ((cpu_is_msm8x60() || chk_apps_master()) && (*buf == 0x3A)) {
