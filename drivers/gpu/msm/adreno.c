@@ -1465,6 +1465,9 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 
 	adreno_perfcounter_start(adreno_dev);
 
+	/* Clear FSR here in case it is set from a previous pagefault */
+	kgsl_mmu_clear_fsr(&device->mmu);
+
 	status = adreno_ringbuffer_cold_start(adreno_dev);
 
 	if (status)
@@ -1612,29 +1615,41 @@ static int adreno_stop(struct kgsl_device *device)
 	return 0;
 }
 
+static inline bool adreno_try_soft_reset(struct kgsl_device *device, int fault)
+{
+	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
+
+	/*
+	 * Try soft reset for non mmu fault case only and if VBIF
+	 * pipe clears cleanly.
+	 * Skip soft reset and use hard reset for A304 GPU, As
+	 * A304 is not able to do SMMU programming after soft reset.
+	 */
+	if (!(fault & ADRENO_IOMMU_PAGE_FAULT) &&
+			!adreno_is_a304(adreno_dev) &&
+			!adreno_vbif_clear_pending_transactions(device))
+		return true;
+
+	return false;
+}
+
 /**
  * adreno_reset() - Helper function to reset the GPU
  * @device: Pointer to the KGSL device structure for the GPU
+ * @fault: Type of fault. Needed to skip soft reset for MMU fault
  *
  * Try to reset the GPU to recover from a fault.  First, try to do a low latency
  * soft reset.  If the soft reset fails for some reason, then bring out the big
  * guns and toggle the footswitch.
  */
-int adreno_reset(struct kgsl_device *device)
+int adreno_reset(struct kgsl_device *device, int fault)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
 	int ret = -EINVAL;
-	struct kgsl_mmu *mmu = &device->mmu;
 	int i = 0;
 
-	/*
-	 * Try soft reset first, for non mmu fault case only and if VBIF
-	 * pipe clears cleanly.
-	 * Skip soft reset and use hard reset for A304 GPU, As
-	 * A304 is not able to do SMMU programming after soft reset.
-	 */
-	if (!atomic_read(&mmu->fault) && !adreno_is_a304(adreno_dev)
-		&& !adreno_vbif_clear_pending_transactions(device)) {
+	/* Try soft reset first */
+	if (adreno_try_soft_reset(device, fault)) {
 		ret = adreno_soft_reset(device);
 		if (ret)
 			KGSL_DEV_ERR_ONCE(device, "Device soft reset failed\n");
@@ -1642,6 +1657,8 @@ int adreno_reset(struct kgsl_device *device)
 	if (ret) {
 		/* If soft reset failed/skipped, then pull the power */
 		kgsl_pwrctrl_change_state(device, KGSL_STATE_INIT);
+		/* since device is officially off now clear start bit */
+		clear_bit(ADRENO_DEVICE_STARTED, &adreno_dev->priv);
 
 		/* Keep trying to start the device until it works */
 		for (i = 0; i < NUM_TIMES_RESET_RETRY; i++) {

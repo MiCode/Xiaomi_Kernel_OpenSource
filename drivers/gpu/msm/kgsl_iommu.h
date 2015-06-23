@@ -66,6 +66,8 @@
 
 /* SCTLR fields */
 #define KGSL_IOMMU_SCTLR_HUPCF_SHIFT		8
+#define KGSL_IOMMU_SCTLR_CFCFG_SHIFT		7
+#define KGSL_IOMMU_SCTLR_CFIE_SHIFT		6
 
 enum kgsl_iommu_reg_map {
 	KGSL_IOMMU_GLOBAL_BASE = 0,

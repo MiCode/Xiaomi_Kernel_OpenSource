@@ -486,6 +486,7 @@
 #define A5XX_RBBM_ALWAYSON_COUNTER_LO            0x4D2
 #define A5XX_RBBM_ALWAYSON_COUNTER_HI            0x4D3
 #define A5XX_RBBM_STATUS                         0x4F5
+#define A5XX_RBBM_STATUS3                        0x530
 #define A5XX_RBBM_INT_0_STATUS                   0x4E1
 #define A5XX_RBBM_AHB_ME_SPLIT_STATUS            0x4F0
 #define A5XX_RBBM_AHB_PFP_SPLIT_STATUS           0x4F1

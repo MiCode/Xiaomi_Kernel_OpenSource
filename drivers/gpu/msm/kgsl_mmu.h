@@ -75,6 +75,8 @@ struct kgsl_mmu_ops {
 			(struct kgsl_mmu *mmu);
 	void (*mmu_pagefault_resume)
 			(struct kgsl_mmu *mmu);
+	void (*mmu_clear_fsr)
+			(struct kgsl_mmu *mmu);
 	void (*mmu_enable_clk)
 		(struct kgsl_mmu *mmu);
 	void (*mmu_disable_clk)
@@ -91,7 +93,6 @@ struct kgsl_mmu_ops {
 			(struct kgsl_mmu *mmu,
 			struct kgsl_pagetable *pt);
 	int (*mmu_set_pf_policy)(struct kgsl_mmu *mmu, unsigned long pf_policy);
-	void (*mmu_set_pagefault)(struct kgsl_mmu *mmu);
 	struct kgsl_protected_registers *(*mmu_get_prot_regs)
 			(struct kgsl_mmu *mmu);
 	int (*mmu_init_pt)(struct kgsl_mmu *mmu, struct kgsl_pagetable *);
@@ -134,7 +135,6 @@ struct kgsl_mmu {
 	struct kgsl_pagetable  *securepagetable;
 	const struct kgsl_mmu_ops *mmu_ops;
 	void *priv;
-	atomic_t fault;
 	bool secured;
 	uint features;
 };
@@ -307,10 +307,16 @@ static inline int kgsl_mmu_set_pagefault_policy(struct kgsl_mmu *mmu,
 		return 0;
 }
 
-static inline void kgsl_mmu_set_pagefault(struct kgsl_mmu *mmu)
+static inline void kgsl_mmu_pagefault_resume(struct kgsl_mmu *mmu)
 {
-	if (mmu->mmu_ops && mmu->mmu_ops->mmu_set_pagefault)
-		return mmu->mmu_ops->mmu_set_pagefault(mmu);
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_pagefault_resume)
+		return mmu->mmu_ops->mmu_pagefault_resume(mmu);
+}
+
+static inline void kgsl_mmu_clear_fsr(struct kgsl_mmu *mmu)
+{
+	if (mmu->mmu_ops && mmu->mmu_ops->mmu_clear_fsr)
+		return mmu->mmu_ops->mmu_clear_fsr(mmu);
 }
 
 static inline struct kgsl_protected_registers *kgsl_mmu_get_prot_regs

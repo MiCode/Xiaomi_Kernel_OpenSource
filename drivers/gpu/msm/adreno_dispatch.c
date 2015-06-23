@@ -1703,6 +1703,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	int ret, i;
 	int fault;
 	int halt;
+	unsigned int reg_rbbm_status3;
 
 	fault = atomic_xchg(&dispatcher->fault, 0);
 	if (fault == 0)
@@ -1726,6 +1727,22 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 			ret = 0;
 		mutex_unlock(&device->mutex);
 		return ret;
+	}
+
+	/*
+	 * On A5xx, read RBBM_STATUS3:SMMU_STALLED_ON_FAULT (BIT 24) to
+	 * tell if this function was entered after a pagefault. If so, only
+	 * proceed if the fault handler has already run in the IRQ thread,
+	 * else return early to give the fault handler a chance to run.
+	 */
+	if (adreno_is_a5xx(adreno_dev)) {
+		mutex_lock(&device->mutex);
+		adreno_readreg(adreno_dev, ADRENO_REG_RBBM_STATUS3,
+				&reg_rbbm_status3);
+		mutex_unlock(&device->mutex);
+		if (reg_rbbm_status3 & BIT(24))
+			if (!(fault & ADRENO_IOMMU_PAGE_FAULT))
+				return 0;
 	}
 
 	/* Turn off all the timers */
@@ -1783,9 +1800,6 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		trace_adreno_cmdbatch_fault(cmdbatch, fault);
 	}
 
-	/* Set pagefault if it occurred */
-	kgsl_mmu_set_pagefault(&device->mmu);
-
 	adreno_readreg64(adreno_dev, ADRENO_REG_CP_IB1_BASE,
 		ADRENO_REG_CP_IB1_BASE_HI, &base);
 
@@ -1800,6 +1814,10 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 		kgsl_device_snapshot(device, cmdbatch->context);
 	}
 
+	/* Terminate the stalled transaction and resume the IOMMU */
+	if (fault & ADRENO_IOMMU_PAGE_FAULT)
+		kgsl_mmu_pagefault_resume(&device->mmu);
+
 	/* Reset the dispatcher queue */
 	dispatcher->inflight = 0;
 	atomic_set(&dispatcher->preemption_state,
@@ -1808,7 +1826,7 @@ static int dispatcher_do_fault(struct kgsl_device *device)
 	/* Reset the GPU and make sure halt is not set during recovery */
 	halt = adreno_gpu_halt(adreno_dev);
 	adreno_clear_gpu_halt(adreno_dev);
-	ret = adreno_reset(device);
+	ret = adreno_reset(device, fault);
 	mutex_unlock(&device->mutex);
 	/* if any other fault got in until reset then ignore */
 	atomic_set(&dispatcher->fault, 0);

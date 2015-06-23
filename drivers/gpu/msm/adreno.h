@@ -435,6 +435,7 @@ enum adreno_regs {
 	ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_LO,
 	ADRENO_REG_CP_CONTEXT_SWITCH_SMMU_INFO_HI,
 	ADRENO_REG_RBBM_STATUS,
+	ADRENO_REG_RBBM_STATUS3,
 	ADRENO_REG_RBBM_PERFCTR_CTL,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD0,
 	ADRENO_REG_RBBM_PERFCTR_LOAD_CMD1,
@@ -788,7 +789,7 @@ void adreno_snapshot(struct kgsl_device *device,
 		struct kgsl_snapshot *snapshot,
 		struct kgsl_context *context);
 
-int adreno_reset(struct kgsl_device *device);
+int adreno_reset(struct kgsl_device *device, int fault);
 
 void adreno_fault_skipcmd_detached(struct kgsl_device *device,
 					 struct adreno_context *drawctxt,
