@@ -54,9 +54,6 @@
 #define WCD9335_MIX_RATES_MASK (SNDRV_PCM_RATE_48000 |\
 				SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
 
-#define WCD9335_MIX_RATES (SNDRV_PCM_RATE_48000 |\
-		       SNDRV_PCM_RATE_96000 | SNDRV_PCM_RATE_192000)
-
 #define TASHA_FORMATS_S16_S24_LE (SNDRV_PCM_FMTBIT_S16_LE | \
 				  SNDRV_PCM_FMTBIT_S24_LE)
 
@@ -7644,7 +7641,7 @@ static struct snd_soc_dai_driver tasha_dai[] = {
 		.id = AIF_MIX1_PB,
 		.playback = {
 			.stream_name = "AIF Mix Playback",
-			.rates = WCD9335_MIX_RATES,
+			.rates = WCD9335_RATES_MASK,
 			.formats = TASHA_FORMATS_S16_S24_LE,
 			.rate_min = 48000,
 			.rate_max = 192000,
@@ -9021,6 +9018,11 @@ cdc_reg_fail:
 
 static int tasha_remove(struct platform_device *pdev)
 {
+	struct tasha_priv *tasha;
+
+	tasha = platform_get_drvdata(pdev);
+
+	clk_put(tasha->wcd_ext_clk);
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
