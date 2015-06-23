@@ -114,10 +114,10 @@ struct kgsl_pagetable {
 	struct kobject *kobj;
 
 	struct {
-		unsigned int entries;
-		unsigned int mapped;
-		unsigned int max_mapped;
-		unsigned int max_entries;
+		atomic_t entries;
+		atomic_t mapped;
+		atomic_t max_mapped;
+		atomic_t max_entries;
 	} stats;
 	const struct kgsl_mmu_pt_ops *pt_ops;
 	unsigned int tlb_flags;
