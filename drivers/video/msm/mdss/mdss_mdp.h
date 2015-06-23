@@ -29,6 +29,9 @@
 #define MDSS_MDP_DEFAULT_INTR_MASK 0
 #define MDSS_MDP_PIXEL_RAM_SIZE (50 * 1024)
 
+#define SVS_PLUS_MIN_HW_110 171430000
+#define SVS_PLUS_MAX_HW_110 266670000
+
 #define PHASE_STEP_SHIFT	21
 #define MAX_LINE_BUFFER_WIDTH	2048
 #define MAX_MIXER_HEIGHT	0xFFFF
@@ -859,6 +862,14 @@ static inline u32 left_lm_w_from_mfd(struct msm_fb_data_type *mfd)
 static inline u32 mdss_mdp_get_cursor_frame_size(struct mdss_data_type *mdata)
 {
 	return mdata->max_cursor_size *  mdata->max_cursor_size * 4;
+}
+
+static inline bool __is_mdp_clk_svs_plus_range(struct mdss_data_type *mdata,
+		u32 rate)
+{
+	return (mdss_has_quirk(mdata, MDSS_QUIRK_SVS_PLUS_VOTING)) &&
+		(rate > mdata->svs_plus_min) &&
+		(rate <= mdata->svs_plus_max);
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
