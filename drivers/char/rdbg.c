@@ -935,7 +935,6 @@ static ssize_t rdbg_read(struct file *filp, char __user *buf, size_t size,
 		__func__, (unsigned long) buf);
 
 bail:
-	dev_dbg(rdbgdata->device, "%s: Returning from receive", __func__);
 	return err;
 }
 
