@@ -582,7 +582,7 @@
 			"micro_iface_clk", "camss_ahb_clk",
 			"smmu_cpp_axi_clk", "cpp_vbif_ahb_clk";
 		qcom,clock-rates = <0 0 0 0 465000000 0 0 465000000 0 0 0 0>;
-		qcom,min-clock-rate = <320000000>;
+		qcom,min-clock-rate = <200000000>;
 		qcom,bus-master = <1>;
 		status = "ok";
 		qcom,cpp-fw-payload-info {
