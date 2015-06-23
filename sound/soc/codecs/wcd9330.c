@@ -80,9 +80,6 @@ enum {
 #define TOMTOM_WG_TIME_FACTOR_US	240
 #define MAX_ON_DEMAND_SUPPLY_NAME_LENGTH 64
 
-#define TOMTOM_CPE_MAJOR_VER 1
-#define TOMTOM_CPE_MINOR_VER 0
-#define TOMTOM_CPE_CDC_ID 1
 #define RX8_PATH 8
 #define HPH_PA_ENABLE true
 #define HPH_PA_DISABLE false
@@ -8834,6 +8831,12 @@ static const struct wcd_cpe_cdc_cb cpe_cb = {
 	.cpe_err_irq_control = tomtom_cpe_err_irq_control,
 };
 
+static struct cpe_svc_init_param cpe_svc_params = {
+	.version = 0,
+	.query_freq_plans_cb = NULL,
+	.change_freq_plan_cb = NULL,
+};
+
 static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
 {
 	struct tomtom_priv *tomtom = snd_soc_codec_get_drvdata(codec);
@@ -8845,9 +8848,9 @@ static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
 	cpe_params.get_cpe_core = tomtom_codec_get_cpe_core;
 	cpe_params.cdc_cb = &cpe_cb;
 	cpe_params.dbg_mode = cpe_debug_mode;
-	cpe_params.cdc_major_ver = TOMTOM_CPE_MAJOR_VER;
-	cpe_params.cdc_minor_ver = TOMTOM_CPE_MINOR_VER;
-	cpe_params.cdc_id = TOMTOM_CPE_CDC_ID;
+	cpe_params.cdc_major_ver = CPE_SVC_CODEC_TOMTOM;
+	cpe_params.cdc_minor_ver = CPE_SVC_CODEC_V1P0;
+	cpe_params.cdc_id = CPE_SVC_CODEC_TOMTOM;
 
 	cpe_params.cdc_irq_info.cpe_engine_irq =
 			WCD9330_IRQ_SVASS_ENGINE;
@@ -8855,6 +8858,9 @@ static int tomtom_cpe_initialize(struct snd_soc_codec *codec)
 			WCD9330_IRQ_SVASS_ERR_EXCEPTION;
 	cpe_params.cdc_irq_info.cpe_fatal_irqs =
 			TOMTOM_CPE_FATAL_IRQS;
+
+	cpe_svc_params.context = codec;
+	cpe_params.cpe_svc_params = &cpe_svc_params;
 
 	tomtom->cpe_core = wcd_cpe_init("cpe", codec,
 					&cpe_params);
