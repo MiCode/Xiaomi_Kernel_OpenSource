@@ -809,7 +809,7 @@
 
 	qcom,usbbam@78c4000 {
 		compatible = "qcom,usb-bam-msm";
-		reg = <0x78c4000 0x15000>;
+		reg = <0x78c4000 0x17000>;
 		reg-names = "hsusb";
 		interrupts = <0 135 0>;
 		interrupt-names = "hsusb";
