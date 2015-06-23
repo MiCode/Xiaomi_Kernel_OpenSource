@@ -134,6 +134,8 @@ static inline int __atomic_add_unless(atomic_t *v, int a, int u)
 
 #define atomic_add_negative(i,v) (atomic_add_return(i, v) < 0)
 
+
+#ifndef CONFIG_GENERIC_ATOMIC64
 /*
  * 64-bit atomic operations.
  */
@@ -252,5 +254,6 @@ static inline int atomic64_add_unless(atomic64_t *v, long a, long u)
 #define atomic64_dec_and_test(v)	(atomic64_dec_return((v)) == 0)
 #define atomic64_inc_not_zero(v)	atomic64_add_unless((v), 1LL, 0LL)
 
+#endif /*!CONFIG_GENERIC_ATOMIC64*/
 #endif
 #endif
