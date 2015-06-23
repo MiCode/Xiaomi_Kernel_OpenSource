@@ -301,13 +301,13 @@
 					  "CAM_RESET0",
 					  "CAM_STANDBY0";
 		qcom,cam-power-seq-type = "sensor_vreg", "sensor_vreg",
-			"sensor_vreg", "sensor_gpio", "sensor_gpio" ,
-			"sensor_clk";
+			"sensor_vreg", "sensor_vreg", "sensor_gpio",
+			"sensor_gpio" , "sensor_clk";
 		qcom,cam-power-seq-val = "cam_vdig", "cam_vana", "cam_vio",
-			"sensor_gpio_reset", "sensor_gpio_standby",
+			"cam_vaf", "sensor_gpio_reset", "sensor_gpio_standby",
 			"sensor_cam_mclk";
-		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 24000000>;
-		qcom,cam-power-seq-delay = <1 1 1 30 30 5>;
+		qcom,cam-power-seq-cfg-val = <1 1 1 1 1 1 24000000>;
+		qcom,cam-power-seq-delay = <1 1 1 1 30 30 5>;
 		status = "ok";
 		clocks = <&clock_mmss clk_mclk0_clk_src>,
 				<&clock_mmss clk_camss_mclk0_clk>;
