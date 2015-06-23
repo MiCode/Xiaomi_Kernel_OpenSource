@@ -302,7 +302,6 @@ def scan_configs():
         r'[fm]sm[0-9]*_defconfig',
         r'apq*_defconfig',
         r'qsd*_defconfig',
-        r'mdm*_defconfig',
 	r'mpq*_defconfig',
         )
     arch64_pats = (

@@ -108,6 +108,12 @@ EXPORT_SYMBOL(elf_hwcap2);
 char* (*arch_read_hardware_id)(void);
 EXPORT_SYMBOL(arch_read_hardware_id);
 
+unsigned int boot_reason;
+EXPORT_SYMBOL(boot_reason);
+
+unsigned int cold_boot;
+EXPORT_SYMBOL(cold_boot);
+
 #ifdef MULTI_CPU
 struct processor processor __read_mostly;
 #endif
