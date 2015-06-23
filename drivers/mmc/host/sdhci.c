@@ -3468,6 +3468,15 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 
 	return sdhci_crypto_cfg(host, mrq, slot);
 }
+
+static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
+{
+	struct sdhci_host *host = mmc_priv(mmc);
+
+	sdhci_writel(host, sdhci_readl(host, SDHCI_INT_ENABLE) |
+			SDHCI_INT_RESPONSE, SDHCI_INT_ENABLE);
+	sdhci_writel(host, SDHCI_INT_RESPONSE, SDHCI_INT_STATUS);
+}
 #else
 static void sdhci_cmdq_clear_set_irqs(struct mmc_host *mmc, bool clear)
 {
@@ -3504,6 +3513,10 @@ static int sdhci_cmdq_crypto_cfg(struct mmc_host *mmc,
 {
 	return 0;
 }
+
+static void sdhci_cmdq_post_cqe_halt(struct mmc_host *mmc)
+{
+}
 #endif
 
 static const struct cmdq_host_ops sdhci_cmdq_ops = {
@@ -3513,6 +3526,7 @@ static const struct cmdq_host_ops sdhci_cmdq_ops = {
 	.set_block_size = sdhci_cmdq_set_block_size,
 	.clear_set_dumpregs = sdhci_cmdq_clear_set_dumpregs,
 	.crypto_cfg	= sdhci_cmdq_crypto_cfg,
+	.post_cqe_halt = sdhci_cmdq_post_cqe_halt,
 };
 
 int sdhci_add_host(struct sdhci_host *host)

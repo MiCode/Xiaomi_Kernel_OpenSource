@@ -298,11 +298,10 @@ static int cmdq_enable(struct mmc_host *mmc)
 		err = cmdq_host_alloc_tdl(cq_host);
 		if (err)
 			goto out;
-		cmdq_writel(cq_host, lower_32_bits(cq_host->desc_dma_base),
-				CQTDLBA);
-		cmdq_writel(cq_host, upper_32_bits(cq_host->desc_dma_base),
-				CQTDLBAU);
 	}
+
+	cmdq_writel(cq_host, lower_32_bits(cq_host->desc_dma_base), CQTDLBA);
+	cmdq_writel(cq_host, upper_32_bits(cq_host->desc_dma_base), CQTDLBAU);
 
 	/*
 	 * disable all vendor interrupts
@@ -675,6 +674,8 @@ irqreturn_t cmdq_irq(struct mmc_host *mmc, int err)
 	}
 
 	if (status & CQIS_HAC) {
+		if (cq_host->ops->post_cqe_halt)
+			cq_host->ops->post_cqe_halt(mmc);
 		/* halt is completed, wakeup waiting thread */
 		complete(&cq_host->halt_comp);
 	}
