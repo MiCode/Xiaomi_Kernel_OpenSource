@@ -338,10 +338,6 @@
 #define clk_csi1phytimer_clk_src	0x7c0fe23a
 #define clk_csi2phytimer_clk_src	0x62ffea9c
 #define clk_rbbmtimer_clk_src		0x17649ecc
-#define clk_edpaux_clk_src		0x02a8ca8f
-#define clk_edpgtc_clk_src		0xa51421ce
-#define clk_edplink_clk_src		0x3b7f35de
-#define clk_edppixel_clk_src		0x76fdb3c5
 #define clk_esc0_clk_src		0xb41d7c38
 #define clk_esc1_clk_src		0x3b0afa42
 #define clk_hdmi_clk_src		0xb40aeea9
@@ -416,10 +412,6 @@
 #define clk_gpu_gx_rbbmtimer_clk	0xdeba634e
 #define clk_mdss_ahb_clk		0x684ccb41
 #define clk_mdss_axi_clk		0xcc07d687
-#define clk_mdss_edpaux_clk		0x922d79ee
-#define clk_mdss_edpgtc_clk		0xccb2e4a4
-#define clk_mdss_edplink_clk		0xa04e7500
-#define clk_mdss_edppixel_clk		0xb0011f51
 #define clk_mdss_esc0_clk		0x28cafbe6
 #define clk_mdss_esc1_clk		0xc22c6883
 #define clk_mdss_hdmi_ahb_clk		0x01cef516
@@ -510,8 +502,6 @@
 #define clk_dsi1pll_vco_clk		0x99797b50
 #define clk_mdss_dsi1_vco_clk_src	0xfcd15658
 #define clk_hdmi_vco_clk		0x66003284
-#define clk_edp_pixel_clk_src		0xce3cfd11
-#define clk_edp_mainlink_clk_src	0x384569b6
 
 /* CPU clocks */
 #define clk_pwrcl_clk 0xc554130e

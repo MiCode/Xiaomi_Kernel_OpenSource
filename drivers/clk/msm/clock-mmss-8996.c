@@ -49,8 +49,6 @@ static void __iomem *virt_base_gpu;
 #define dsi0phypll_mm_source_val		1
 #define dsi1phypll_mm_source_val		2
 #define ext_extpclk_clk_src_mm_source_val	1
-#define edp_mainlink_clk_src_mm_source_val	4
-#define edp_pixel_clk_src_mm_source_val		5
 
 #define FIXDIV(div) (div ? (2 * (div) - 1) : (0))
 
@@ -1382,91 +1380,6 @@ static struct rcg_clk byte1_clk_src = {
 	},
 };
 
-static struct clk_freq_tbl ftbl_edpaux_clk_src[] = {
-	F_MM(  19200000,      mmsscc_xo,    1,    0,     0),
-	F_END
-};
-
-static struct rcg_clk edpaux_clk_src = {
-	.cmd_rcgr_reg = MMSS_EDPAUX_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_edpaux_clk_src,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "edpaux_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOWER, 19200000),
-		CLK_INIT(edpaux_clk_src.c),
-	},
-};
-
-static struct clk_freq_tbl ftbl_edpgtc_clk_src[] = {
-	F_MM( 300000000,   mmsscc_gpll0_div,    1,    0,     0),
-	F_END
-};
-
-static struct rcg_clk edpgtc_clk_src = {
-	.cmd_rcgr_reg = MMSS_EDPGTC_CMD_RCGR,
-	.set_rate = set_rate_hid,
-	.freq_tbl = ftbl_edpgtc_clk_src,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "edpgtc_clk_src",
-		.ops = &clk_ops_rcg,
-		VDD_DIG_FMAX_MAP1(LOWER, 300000000),
-		CLK_INIT(edpgtc_clk_src.c),
-	},
-};
-
-DEFINE_EXT_CLK(edp_mainlink_clk_src, NULL);
-static struct clk_freq_tbl ftbl_edplink_clk_src[] = {
-	F_MM(162000000, edp_mainlink_clk_src, 1, 0, 0),
-	F_MM(270000000, edp_mainlink_clk_src, 1, 0, 0),
-	F_MM(540000000, edp_mainlink_clk_src, 1, 0, 0),
-	F_END
-};
-
-static struct rcg_clk edplink_clk_src = {
-	.cmd_rcgr_reg = MMSS_EDPLINK_CMD_RCGR,
-	.freq_tbl = ftbl_edplink_clk_src,
-	.current_freq = &rcg_dummy_freq,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "edplink_clk_src",
-		.ops = &clk_ops_rcg_edp,
-		VDD_DIG_FMAX_MAP3(LOWER, 162000000, LOW, 270000000,
-							NOMINAL, 540000000),
-		CLK_INIT(edplink_clk_src.c),
-	},
-};
-
-DEFINE_EXT_CLK(edp_pixel_clk_src, NULL);
-static struct clk_freq_tbl ftbl_edppixel_clk_src[] = {
-	{
-		.div_src_val = BVAL(10, 8, edp_pixel_clk_src_mm_source_val)
-					| BVAL(4, 0, 0),
-		.src_clk = &edp_pixel_clk_src.c,
-	},
-	F_END
-};
-
-static struct rcg_clk edppixel_clk_src = {
-	.cmd_rcgr_reg = MMSS_EDPPIXEL_CMD_RCGR,
-	.set_rate = set_rate_mnd,
-	.current_freq = ftbl_edppixel_clk_src,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "edppixel_clk_src",
-		.parent = &edp_pixel_clk_src.c,
-		.ops = &clk_ops_edppixel,
-		VDD_DIG_FMAX_MAP3(LOWER, 168750000, LOW, 337500000,
-							NOMINAL, 675000000),
-		CLK_INIT(edppixel_clk_src.c),
-	},
-};
-
 static struct clk_freq_tbl ftbl_esc0_clk_src[] = {
 	F_MM(  19200000,      mmsscc_xo,    1,    0,     0),
 	F_END
@@ -2463,54 +2376,6 @@ static struct branch_clk mdss_byte1_clk = {
 	},
 };
 
-static struct branch_clk mdss_edpaux_clk = {
-	.cbcr_reg = MMSS_MDSS_EDPAUX_CBCR,
-	.has_sibling = 0,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "mdss_edpaux_clk",
-		.parent = &edpaux_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(mdss_edpaux_clk.c),
-	},
-};
-
-static struct branch_clk mdss_edpgtc_clk = {
-	.cbcr_reg = MMSS_MDSS_EDPGTC_CBCR,
-	.has_sibling = 0,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "mdss_edpgtc_clk",
-		.parent = &edpgtc_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(mdss_edpgtc_clk.c),
-	},
-};
-
-static struct branch_clk mdss_edplink_clk = {
-	.cbcr_reg = MMSS_MDSS_EDPLINK_CBCR,
-	.has_sibling = 0,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "mdss_edplink_clk",
-		.parent = &edplink_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(mdss_edplink_clk.c),
-	},
-};
-
-static struct branch_clk mdss_edppixel_clk = {
-	.cbcr_reg = MMSS_MDSS_EDPPIXEL_CBCR,
-	.has_sibling = 0,
-	.base = &virt_base,
-	.c = {
-		.dbg_name = "mdss_edppixel_clk",
-		.parent = &edppixel_clk_src.c,
-		.ops = &clk_ops_branch,
-		CLK_INIT(mdss_edppixel_clk.c),
-	},
-};
-
 static struct branch_clk mdss_esc0_clk = {
 	.cbcr_reg = MMSS_MDSS_ESC0_CBCR,
 	.has_sibling = 0,
@@ -3187,10 +3052,6 @@ static struct mux_clk mmss_gcc_dbg_clk = {
 		{ &fd_core_clk.c, 0x0089 },
 		{ &fd_core_uar_clk.c, 0x008a },
 		{ &fd_ahb_clk.c, 0x008c },
-		{ &mdss_edppixel_clk.c, 0x008d },
-		{ &mdss_edplink_clk.c, 0x008e },
-		{ &mdss_edpaux_clk.c, 0x008f },
-		{ &mdss_edpgtc_clk.c, 0x0090 },
 		{ &camss_csiphy0_3p_clk.c, 0x0091 },
 		{ &camss_csiphy1_3p_clk.c, 0x0092 },
 		{ &camss_csiphy2_3p_clk.c, 0x0093 },
@@ -3272,10 +3133,6 @@ static struct clk_lookup msm_clocks_mmss_8996[] = {
 	CLK_LIST(csi0phytimer_clk_src),
 	CLK_LIST(csi1phytimer_clk_src),
 	CLK_LIST(csi2phytimer_clk_src),
-	CLK_LIST(edplink_clk_src),
-	CLK_LIST(edp_mainlink_clk_src),
-	CLK_LIST(edpaux_clk_src),
-	CLK_LIST(edpgtc_clk_src),
 	CLK_LIST(esc0_clk_src),
 	CLK_LIST(esc1_clk_src),
 	CLK_LIST(hdmi_clk_src),
@@ -3351,10 +3208,6 @@ static struct clk_lookup msm_clocks_mmss_8996[] = {
 	CLK_LIST(byte1_clk_src),
 	CLK_LIST(ext_byte0_clk_src),
 	CLK_LIST(ext_byte1_clk_src),
-	CLK_LIST(mdss_edpaux_clk),
-	CLK_LIST(mdss_edpgtc_clk),
-	CLK_LIST(mdss_edplink_clk),
-	CLK_LIST(mdss_edppixel_clk),
 	CLK_LIST(mdss_esc0_clk),
 	CLK_LIST(mdss_esc1_clk),
 	CLK_LIST(mdss_extpclk_clk),
@@ -3731,10 +3584,6 @@ int msm_mmsscc_8996_probe(struct platform_device *pdev)
 	ext_byte1_clk_src.clk_id = "byte1_src";
 	ext_extpclk_clk_src.dev = &pdev->dev;
 	ext_extpclk_clk_src.clk_id = "extpclk_src";
-	edp_pixel_clk_src.dev = &pdev->dev;
-	edp_pixel_clk_src.clk_id = "extpixel_src";
-	edp_mainlink_clk_src.dev = &pdev->dev;
-	edp_mainlink_clk_src.clk_id = "edp_mainlink";
 
 	is_v2 = of_device_is_compatible(pdev->dev.of_node,
 						"qcom,mmsscc-8996-v2");
