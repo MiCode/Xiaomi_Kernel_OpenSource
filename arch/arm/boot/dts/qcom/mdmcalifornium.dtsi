@@ -58,6 +58,7 @@
 };
 
 #include "mdmcalifornium-regulator.dtsi"
+#include "mdmcalifornium-smp2p.dtsi"
 
 &soc {
 	#address-cells = <1>;
