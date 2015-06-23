@@ -1785,7 +1785,7 @@ static int cpr_apc_init(struct platform_device *pdev,
 	int i, rc = 0;
 
 	for (i = 0; i < ARRAY_SIZE(vdd_apc_name); i++) {
-		cpr_vreg->vdd_apc = devm_regulator_get(&pdev->dev,
+		cpr_vreg->vdd_apc = devm_regulator_get_optional(&pdev->dev,
 					vdd_apc_name[i]);
 		rc = PTR_RET(cpr_vreg->vdd_apc);
 		if (!IS_ERR_OR_NULL(cpr_vreg->vdd_apc))
