@@ -154,6 +154,8 @@ struct ffs_data {
 	 */
 	struct usb_request		*ep0req;		/* P: mutex */
 	struct completion		ep0req_completion;	/* P: mutex */
+	struct completion               epin_completion;
+	struct completion               epout_completion;
 
 	/* reference counter */
 	atomic_t			ref;
@@ -232,6 +234,9 @@ struct ffs_data {
 	unsigned short			interfaces_count;
 	unsigned short			eps_count;
 	unsigned short			_pad1;
+
+	int                             first_id;
+	int                             old_strings_count;
 
 	/* filled by __ffs_data_got_strings() */
 	/* ids in stringtabs are set in functionfs_bind() */
