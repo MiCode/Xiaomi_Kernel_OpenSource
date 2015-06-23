@@ -187,6 +187,7 @@ struct mdp3_hw_resource {
 	struct regulator *fs;
 	bool fs_ena;
 	u8 smart_blit_en;
+	bool solid_fill_vote_en;
 };
 
 struct mdp3_img_data {

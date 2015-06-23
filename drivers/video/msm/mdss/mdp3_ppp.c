@@ -555,8 +555,13 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 		ppp_res.solid_fill_pixel += req->dst_rect.w * req->dst_rect.h;
 		ppp_res.solid_fill_byte += req->dst_rect.w * req->dst_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
-		ATRACE_END(__func__);
-		return 0;
+		if ((panel_info->yres/2 > req->dst_rect.h) ||
+			(mdp3_res->solid_fill_vote_en)) {
+			pr_debug("Solid fill less than H/2 or fill vote %d\n",
+				mdp3_res->solid_fill_vote_en);
+			ATRACE_END(__func__);
+			return 0;
+		}
 	}
 
 	for (i = 0; i < lcount; i++) {
@@ -632,21 +637,28 @@ int mdp3_calc_ppp_res(struct msm_fb_data_type *mfd,  struct blit_req_list *lreq)
 			dst_write_bw = req->dst_rect.w * req->dst_rect.h *
 						bpp.bpp_num / bpp.bpp_den;
 			honest_ppp_ab += (src_read_bw + bg_read_bw + dst_write_bw);
-                }
+		}
 	}
 
 	if (fps == 0)
 		fps = panel_info->mipi.frame_rate;
 
+	if (lreq->req_list[0].flags & MDP_SOLID_FILL) {
+		honest_ppp_ab = ppp_res.solid_fill_byte * 4;
+		pr_debug("solid fill honest_ppp_ab %llu\n", honest_ppp_ab);
+	} else {
 	honest_ppp_ab += ppp_res.solid_fill_byte;
-	honest_ppp_ab = honest_ppp_ab * fps;
+	mdp3_res->solid_fill_vote_en = true;
+	}
 
+	honest_ppp_ab = honest_ppp_ab * fps;
 	if (honest_ppp_ab != ppp_res.next_ab) {
 		ppp_res.next_ab = honest_ppp_ab;
 		ppp_res.next_ib = honest_ppp_ab;
 		ppp_stat->bw_update = true;
-		pr_debug("solid fill ab = %llx, total ab = %llx (%d fps)\n",
-			(ppp_res.solid_fill_byte * fps), honest_ppp_ab, fps);
+		pr_debug("solid fill ab = %llx, total ab = %llx (%d fps) Solid_fill_vote %d\n",
+			(ppp_res.solid_fill_byte * fps), honest_ppp_ab, fps,
+			mdp3_res->solid_fill_vote_en);
 		ATRACE_INT("mdp3_ppp_bus_quota", honest_ppp_ab);
 	}
 	ppp_res.clk_rate = mdp3_clk_calc(mfd, lreq, fps);
@@ -1307,6 +1319,7 @@ void mdp3_ppp_req_pop(struct blit_req_queue *req_q)
 
 void mdp3_free_fw_timer_func(unsigned long arg)
 {
+	mdp3_res->solid_fill_vote_en = false;
 	schedule_work(&ppp_stat->free_bw_work);
 }
 
