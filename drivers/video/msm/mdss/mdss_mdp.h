@@ -29,6 +29,9 @@
 #define MDSS_MDP_DEFAULT_INTR_MASK 0
 #define MDSS_MDP_PIXEL_RAM_SIZE (50 * 1024)
 
+#define SVS_PLUS_MIN_HW_110 171430000
+#define SVS_PLUS_MAX_HW_110 266670000
+
 #define PHASE_STEP_SHIFT	21
 #define MAX_LINE_BUFFER_WIDTH	2048
 #define MAX_MIXER_HEIGHT	0xFFFF
@@ -900,6 +903,14 @@ static inline uint8_t pp_vig_csc_pipe_val(struct mdss_mdp_pipe *pipe)
 	default:
 		return  MDSS_MDP_CSC_YUV2RGB_709L;
 	}
+}
+
+static inline bool __is_mdp_clk_svs_plus_range(struct mdss_data_type *mdata,
+		u32 rate)
+{
+	return (mdss_has_quirk(mdata, MDSS_QUIRK_SVS_PLUS_VOTING)) &&
+		(rate > mdata->svs_plus_min) &&
+		(rate <= mdata->svs_plus_max);
 }
 
 irqreturn_t mdss_mdp_isr(int irq, void *ptr);
