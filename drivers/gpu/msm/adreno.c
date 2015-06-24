@@ -1407,6 +1407,11 @@ static int _adreno_start(struct adreno_device *adreno_dev)
 		goto error_mmu_off;
 	}
 
+	/* Enable 64 bit gpu addr if feature is set */
+	if (gpudev->enable_64bit &&
+			ADRENO_FEATURE(adreno_dev, ADRENO_64BIT))
+		gpudev->enable_64bit(adreno_dev);
+
 	if (adreno_dev->perfctr_pwr_lo == 0) {
 		int ret = adreno_perfcounter_get(adreno_dev,
 			KGSL_PERFCOUNTER_GROUP_PWR, 1,

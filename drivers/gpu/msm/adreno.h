@@ -102,6 +102,8 @@
 #define ADRENO_GPMU BIT(8)
 /* The GPMU supports Limits Management */
 #define ADRENO_LM BIT(9)
+/* The core uses 64 bit GPU addresses */
+#define ADRENO_64BIT BIT(10)
 
 /* Flags to control command packet settings */
 #define KGSL_CMD_FLAGS_NONE             0
@@ -671,6 +673,7 @@ struct adreno_gpudev {
 				uint64_t gpuaddr);
 	void (*preemption_init)(struct adreno_device *);
 	void (*preemption_schedule)(struct adreno_device *);
+	void (*enable_64bit)(struct adreno_device *);
 };
 
 struct log_field {

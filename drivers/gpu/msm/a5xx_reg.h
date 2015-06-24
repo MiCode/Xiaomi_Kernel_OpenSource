@@ -95,6 +95,7 @@
 #define A5XX_CP_CONTEXT_SWITCH_SAVE_ADDR_HI   0x83F
 #define A5XX_CP_CONTEXT_SWITCH_SMMU_INFO_LO   0x840
 #define A5XX_CP_CONTEXT_SWITCH_SMMU_INFO_HI   0x841
+#define A5XX_CP_ADDR_MODE_CNTL           0x860
 #define A5XX_CP_ME_STAT_DATA             0xB14
 #define A5XX_CP_WFI_PEND_CTR             0xB15
 #define A5XX_CP_INTERRUPT_STATUS         0xB18
@@ -117,6 +118,8 @@
 #define A5XX_CP_PERFCTR_CP_SEL_5         0xBB5
 #define A5XX_CP_PERFCTR_CP_SEL_6         0xBB6
 #define A5XX_CP_PERFCTR_CP_SEL_7         0xBB7
+
+#define A5XX_VSC_ADDR_MODE_CNTL          0xBC1
 
 /* CP Power Counter Registers Select */
 #define A5XX_CP_POWERCTR_CP_SEL_0        0xBBA
@@ -536,6 +539,8 @@
 #define A5XX_VSC_PERFCTR_VSC_SEL_0          0xC60
 #define A5XX_VSC_PERFCTR_VSC_SEL_1          0xC61
 
+#define A5XX_GRAS_ADDR_MODE_CNTL            0xC81
+
 /* TSE registers */
 #define A5XX_GRAS_PERFCTR_TSE_SEL_0         0xC90
 #define A5XX_GRAS_PERFCTR_TSE_SEL_1         0xC91
@@ -556,6 +561,7 @@
 
 
 /* RB registers */
+#define A5XX_RB_ADDR_MODE_CNTL              0xCC5
 #define A5XX_RB_PERFCTR_RB_SEL_0            0xCD0
 #define A5XX_RB_PERFCTR_RB_SEL_1            0xCD1
 #define A5XX_RB_PERFCTR_RB_SEL_2            0xCD2
@@ -589,6 +595,7 @@
 
 /* PC registers */
 #define A5XX_PC_DBG_ECO_CNTL                0xD00
+#define A5XX_PC_ADDR_MODE_CNTL              0xD01
 #define A5XX_PC_PERFCTR_PC_SEL_0            0xD10
 #define A5XX_PC_PERFCTR_PC_SEL_1            0xD11
 #define A5XX_PC_PERFCTR_PC_SEL_2            0xD12
@@ -600,6 +607,7 @@
 
 /* HLSQ registers */
 #define A5XX_HLSQ_TIMEOUT_THRESHOLD         0xE00
+#define A5XX_HLSQ_ADDR_MODE_CNTL            0xE05
 #define A5XX_HLSQ_PERFCTR_HLSQ_SEL_0        0xE10
 #define A5XX_HLSQ_PERFCTR_HLSQ_SEL_1        0xE11
 #define A5XX_HLSQ_PERFCTR_HLSQ_SEL_2        0xE12
@@ -613,6 +621,7 @@
 #define A5XX_HLSQ_DBG_AHB_READ_APERTURE     0xA000
 
 /* VFD registers */
+#define A5XX_VFD_ADDR_MODE_CNTL             0xE41
 #define A5XX_VFD_PERFCTR_VFD_SEL_0          0xE50
 #define A5XX_VFD_PERFCTR_VFD_SEL_1          0xE51
 #define A5XX_VFD_PERFCTR_VFD_SEL_2          0xE52
@@ -623,12 +632,15 @@
 #define A5XX_VFD_PERFCTR_VFD_SEL_7          0xE57
 
 /* VPC registers */
+#define A5XX_VPC_ADDR_MODE_CNTL             0xE61
 #define A5XX_VPC_PERFCTR_VPC_SEL_0          0xE64
 #define A5XX_VPC_PERFCTR_VPC_SEL_1          0xE65
 #define A5XX_VPC_PERFCTR_VPC_SEL_2          0xE66
 #define A5XX_VPC_PERFCTR_VPC_SEL_3          0xE67
 
 /* UCHE registers */
+#define A5XX_UCHE_ADDR_MODE_CNTL            0xE80
+#define A5XX_UCHE_SVM_CNTL                  0xE82
 #define A5XX_UCHE_WRITE_THRU_BASE_LO        0xE87
 #define A5XX_UCHE_WRITE_THRU_BASE_HI        0xE88
 #define A5XX_UCHE_TRAP_BASE_LO              0xE89
@@ -656,6 +668,7 @@
 
 /* SP registers */
 #define A5XX_SP_DBG_ECO_CNTL                0xEC0
+#define A5XX_SP_ADDR_MODE_CNTL              0xEC1
 #define A5XX_SP_PERFCTR_SP_SEL_0            0xED0
 #define A5XX_SP_PERFCTR_SP_SEL_1            0xED1
 #define A5XX_SP_PERFCTR_SP_SEL_2            0xED2
@@ -676,6 +689,7 @@
 #define A5XX_SP_POWERCTR_SP_SEL_3           0xEDF
 
 /* TP registers */
+#define A5XX_TPL1_ADDR_MODE_CNTL            0xF01
 #define A5XX_TPL1_PERFCTR_TP_SEL_0          0xF10
 #define A5XX_TPL1_PERFCTR_TP_SEL_1          0xF11
 #define A5XX_TPL1_PERFCTR_TP_SEL_2          0xF12
