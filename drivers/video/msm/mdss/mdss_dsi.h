@@ -249,6 +249,9 @@ struct dsi_shared_data {
 	struct clk *byte1_parent;
 	struct clk *pixel1_parent;
 
+	/* reg bus clock handle */
+	struct reg_bus_client *reg_bus_clt;
+
 	/* DSI core regulators */
 	struct dss_module_power power_data[DSI_MAX_PM];
 

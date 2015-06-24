@@ -56,6 +56,7 @@ enum mdss_bus_vote_type {
 	VOTE_INDEX_19_MHZ,
 	VOTE_INDEX_40_MHZ,
 	VOTE_INDEX_80_MHZ,
+	VOTE_INDEX_MAX,
 };
 
 struct mdss_hw_settings {
@@ -171,10 +172,17 @@ enum mdss_qos_settings {
 	MDSS_QOS_MAX,
 };
 
+struct reg_bus_client {
+	short usecase_ndx;
+	u32 id;
+	struct list_head list;
+};
+
 struct mdss_smmu_client {
 	struct device *dev;
 	struct dma_iommu_mapping *mmu_mapping;
 	struct dss_module_power mp;
+	struct reg_bus_client *reg_bus_clt;
 	bool domain_attached;
 	bool handoff_pending;
 };
@@ -298,8 +306,10 @@ struct mdss_data_type {
 
 	/* register bus (AHB) */
 	u32 reg_bus_hdl;
-	u32 reg_bus_ref_cnt;
+	u32 reg_bus_usecase_ndx;
+	struct list_head reg_bus_clist;
 	struct mutex reg_bus_lock;
+	struct reg_bus_client *reg_bus_clt;
 
 	u32 axi_port_cnt;
 	u32 nrt_axi_port_cnt;
@@ -437,7 +447,9 @@ struct irq_info *mdss_intr_line(void);
 void mdss_bus_bandwidth_ctrl(int enable);
 int mdss_iommu_ctrl(int enable);
 int mdss_bus_scale_set_quota(int client, u64 ab_quota, u64 ib_quota);
-int mdss_update_reg_bus_vote(int usecase_ndx);
+int mdss_update_reg_bus_vote(struct reg_bus_client *, u32 usecase_ndx);
+struct reg_bus_client *mdss_reg_bus_vote_client_create(void);
+void mdss_reg_bus_vote_client_destroy(struct reg_bus_client *);
 
 struct mdss_util_intf {
 	bool mdp_probe_done;

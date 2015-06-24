@@ -2381,17 +2381,33 @@ static int hdmi_tx_config_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 			goto exit;
 		}
 
+		hdmi_ctrl->pdata.reg_bus_clt[module] =
+			mdss_reg_bus_vote_client_create();
+		if (IS_ERR_OR_NULL(hdmi_ctrl->pdata.reg_bus_clt[module])) {
+			pr_err("reg bus client create failed\n");
+			msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
+			power_data->vreg_config, power_data->num_vreg, 0);
+			rc = PTR_ERR(hdmi_ctrl->pdata.reg_bus_clt[module]);
+			goto exit;
+		}
+
 		rc = msm_dss_get_clk(&hdmi_ctrl->pdev->dev,
 			power_data->clk_config, power_data->num_clk);
 		if (rc) {
 			DEV_ERR("%s: Failed to get %s clk. Err=%d\n",
 				__func__, hdmi_tx_pm_name(module), rc);
 
+			mdss_reg_bus_vote_client_destroy(
+				hdmi_ctrl->pdata.reg_bus_clt[module]);
+			hdmi_ctrl->pdata.reg_bus_clt[module] = NULL;
 			msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
 			power_data->vreg_config, power_data->num_vreg, 0);
 		}
 	} else {
 		msm_dss_put_clk(power_data->clk_config, power_data->num_clk);
+		mdss_reg_bus_vote_client_destroy(
+			hdmi_ctrl->pdata.reg_bus_clt[module]);
+		hdmi_ctrl->pdata.reg_bus_clt[module] = NULL;
 
 		rc = msm_dss_config_vreg(&hdmi_ctrl->pdev->dev,
 			power_data->vreg_config, power_data->num_vreg, 0);
@@ -2452,7 +2468,8 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 				__func__, hdmi_tx_pm_name(module), rc);
 			goto disable_vreg;
 		}
-		mdss_update_reg_bus_vote(VOTE_INDEX_19_MHZ);
+		mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
+			VOTE_INDEX_19_MHZ);
 
 		rc = msm_dss_clk_set_rate(power_data->clk_config,
 			power_data->num_clk);
@@ -2472,7 +2489,8 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	} else {
 		msm_dss_enable_clk(power_data->clk_config,
 			power_data->num_clk, 0);
-		mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
+		mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
+			VOTE_INDEX_DISABLE);
 		msm_dss_enable_gpio(power_data->gpio_config,
 			power_data->num_gpio, 0);
 		hdmi_tx_pinctrl_set_state(hdmi_ctrl, module, 0);
@@ -2483,7 +2501,8 @@ static int hdmi_tx_enable_power(struct hdmi_tx_ctrl *hdmi_ctrl,
 	return rc;
 
 disable_gpio:
-	mdss_update_reg_bus_vote(VOTE_INDEX_DISABLE);
+	mdss_update_reg_bus_vote(hdmi_ctrl->pdata.reg_bus_clt[module],
+		VOTE_INDEX_DISABLE);
 	msm_dss_enable_gpio(power_data->gpio_config, power_data->num_gpio, 0);
 disable_vreg:
 	msm_dss_enable_vreg(power_data->vreg_config, power_data->num_vreg, 0);
