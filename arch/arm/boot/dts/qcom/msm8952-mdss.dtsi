@@ -52,6 +52,7 @@
 		qcom,mdss-pipe-vig-off = <0x00005000>;
 		qcom,mdss-pipe-rgb-off = <0x00015000 0x00017000>;
 		qcom,mdss-pipe-dma-off = <0x00025000>;
+		qcom,mdss-pipe-cursor-off = <0x000450DC>;
 		qcom,mdss-pipe-vig-fetch-id = <1>;
 		qcom,mdss-pipe-rgb-fetch-id = <7 8>;
 		qcom,mdss-pipe-dma-fetch-id = <4>;
@@ -61,6 +62,7 @@
 		qcom,mdss-pipe-vig-xin-id = <0>;
 		qcom,mdss-pipe-rgb-xin-id = <1 5>;
 		qcom,mdss-pipe-dma-xin-id = <2>;
+		qcom,mdss-pipe-cursor-xin-id = <7>;
 
 		qcom,mdss-has-panic-ctrl;
 		/* Panic/robust control register offsets for pipes */
