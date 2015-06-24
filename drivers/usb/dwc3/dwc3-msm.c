@@ -103,13 +103,6 @@ MODULE_PARM_DESC(dcp_max_current, "max current drawn for DCP charger");
 #define PIPE3_PHYSTATUS_SW	BIT(3)
 #define PIPE_UTMI_CLK_DIS	BIT(8)
 
-#define DWC3_3P3_VOL_MIN		3075000 /* uV */
-#define DWC3_3P3_VOL_MAX		3200000 /* uV */
-#define DWC3_3P3_HPM_LOAD		30000	/* uA */
-#define DWC3_1P8_VOL_MIN		1800000 /* uV */
-#define DWC3_1P8_VOL_MAX		1800000 /* uV */
-#define DWC3_1P8_HPM_LOAD		30000   /* uA */
-
 /* TZ SCM parameters */
 #define DWC3_MSM_RESTORE_SCM_CFG_CMD 0x2
 struct dwc3_msm_scm_cmd_buf {
@@ -183,8 +176,6 @@ struct dwc3_msm {
 
 	struct dbm		*dbm;
 
-	struct regulator	*vdda33;
-	struct regulator	*vdda18;
 	/* VBUS regulator for host mode */
 	struct regulator	*vbus_reg;
 	int			vbus_retry_count;
@@ -220,7 +211,6 @@ struct dwc3_msm {
 	bool			vbus_active;
 	bool			suspend;
 	bool			ext_inuse;
-	bool			rm_pulldown;
 	enum dwc3_id_state	id_state;
 	unsigned long		lpm_flags;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
@@ -1865,120 +1855,6 @@ static irqreturn_t msm_dwc3_pwr_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
-static int dwc3_msm_remove_pulldown(struct dwc3_msm *mdwc, bool rm_pulldown)
-{
-	int ret = 0;
-
-	if (!rm_pulldown)
-		goto disable_vdda33;
-
-	ret = regulator_set_optimum_mode(mdwc->vdda18, DWC3_1P8_HPM_LOAD);
-	if (ret < 0) {
-		dev_err(mdwc->dev, "Unable to set HPM of vdda18:%d\n", ret);
-		return ret;
-	}
-
-	ret = regulator_set_voltage(mdwc->vdda18, DWC3_1P8_VOL_MIN,
-						DWC3_1P8_VOL_MAX);
-	if (ret) {
-		dev_err(mdwc->dev,
-				"Unable to set voltage for vdda18:%d\n", ret);
-		goto put_vdda18_lpm;
-	}
-
-	ret = regulator_enable(mdwc->vdda18);
-	if (ret) {
-		dev_err(mdwc->dev, "Unable to enable vdda18:%d\n", ret);
-		goto unset_vdda18;
-	}
-
-	ret = regulator_set_optimum_mode(mdwc->vdda33, DWC3_3P3_HPM_LOAD);
-	if (ret < 0) {
-		dev_err(mdwc->dev, "Unable to set HPM of vdda33:%d\n", ret);
-		goto disable_vdda18;
-	}
-
-	ret = regulator_set_voltage(mdwc->vdda33, DWC3_3P3_VOL_MIN,
-						DWC3_3P3_VOL_MAX);
-	if (ret) {
-		dev_err(mdwc->dev,
-				"Unable to set voltage for vdda33:%d\n", ret);
-		goto put_vdda33_lpm;
-	}
-
-	ret = regulator_enable(mdwc->vdda33);
-	if (ret) {
-		dev_err(mdwc->dev, "Unable to enable vdda33:%d\n", ret);
-		goto unset_vdd33;
-	}
-
-	return 0;
-
-disable_vdda33:
-	ret = regulator_disable(mdwc->vdda33);
-	if (ret)
-		dev_err(mdwc->dev, "Unable to disable vdda33:%d\n", ret);
-
-unset_vdd33:
-	ret = regulator_set_voltage(mdwc->vdda33, 0, DWC3_3P3_VOL_MAX);
-	if (ret)
-		dev_err(mdwc->dev,
-			"Unable to set (0) voltage for vdda33:%d\n", ret);
-
-put_vdda33_lpm:
-	ret = regulator_set_optimum_mode(mdwc->vdda33, 0);
-	if (ret < 0)
-		dev_err(mdwc->dev, "Unable to set (0) HPM of vdda33\n");
-
-disable_vdda18:
-	ret = regulator_disable(mdwc->vdda18);
-	if (ret)
-		dev_err(mdwc->dev, "Unable to disable vdda18:%d\n", ret);
-
-unset_vdda18:
-	ret = regulator_set_voltage(mdwc->vdda18, 0, DWC3_1P8_VOL_MAX);
-	if (ret)
-		dev_err(mdwc->dev,
-			"Unable to set (0) voltage for vdda18:%d\n", ret);
-
-put_vdda18_lpm:
-	ret = regulator_set_optimum_mode(mdwc->vdda18, 0);
-	if (ret < 0)
-		dev_err(mdwc->dev, "Unable to set LPM of vdda18\n");
-
-	return ret;
-}
-
-static int dwc3_msm_pmic_dp_dm(struct dwc3_msm *mdwc, int value)
-{
-	int ret = 0;
-
-	switch (value) {
-	case POWER_SUPPLY_DP_DM_DPF_DMF:
-		if (!mdwc->rm_pulldown) {
-			ret = dwc3_msm_remove_pulldown(mdwc, true);
-			if (!ret) {
-				mdwc->rm_pulldown = true;
-				dbg_event(0xFF, "RM PuDwn", mdwc->rm_pulldown);
-			}
-		}
-		break;
-	case POWER_SUPPLY_DP_DM_DPR_DMR:
-		if (mdwc->rm_pulldown) {
-			ret = dwc3_msm_remove_pulldown(mdwc, false);
-			if (!ret) {
-				mdwc->rm_pulldown = false;
-				dbg_event(0xFF, "RM PuDwn", mdwc->rm_pulldown);
-			}
-		}
-		break;
-	default:
-		ret = -EINVAL;
-		break;
-	}
-	return ret;
-}
-
 static int dwc3_msm_power_get_property_usb(struct power_supply *psy,
 				  enum power_supply_property psp,
 				  union power_supply_propval *val)
@@ -2031,7 +1907,7 @@ static int dwc3_msm_power_set_property_usb(struct power_supply *psy,
 		break;
 	/* PMIC notification for DP_DM state */
 	case POWER_SUPPLY_PROP_DP_DM:
-		dwc3_msm_pmic_dp_dm(mdwc, val->intval);
+		usb_phy_change_dpdm(mdwc->hs_phy, val->intval);
 		break;
 	/* Process PMIC notification in PRESENT prop */
 	case POWER_SUPPLY_PROP_PRESENT:
@@ -2284,23 +2160,6 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 	INIT_WORK(&mdwc->bus_vote_w, dwc3_msm_bus_vote_w);
 	init_completion(&mdwc->dwc3_xcvr_vbus_init);
 	INIT_DELAYED_WORK(&mdwc->sm_work, dwc3_otg_sm_work);
-
-
-	/*
-	 * This regulator needs to be turned on to remove pull down on Dp and
-	 * Dm lines to detect charger type properly.
-	 */
-	mdwc->vdda33 = devm_regulator_get(dev, "vdda33");
-	if (IS_ERR(mdwc->vdda33)) {
-		dev_err(&pdev->dev, "unable to get vdda33 supply\n");
-		return PTR_ERR(mdwc->vdda33);
-	}
-
-	mdwc->vdda18 = devm_regulator_get(dev, "vdda18");
-	if (IS_ERR(mdwc->vdda18)) {
-		dev_err(&pdev->dev, "unable to get vdda18 supply\n");
-		return PTR_ERR(mdwc->vdda18);
-	}
 
 	ret = dwc3_msm_config_gdsc(mdwc, 1);
 	if (ret) {
