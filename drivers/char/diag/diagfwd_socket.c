@@ -616,6 +616,10 @@ static void socket_read_work_fn(struct work_struct *work)
 	struct diag_socket_info *info = container_of(work,
 						     struct diag_socket_info,
 						     read_work);
+
+	if (!info)
+		return;
+
 	diagfwd_channel_read(info->fwd_ctxt);
 }
 
