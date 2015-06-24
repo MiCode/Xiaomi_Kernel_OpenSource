@@ -542,6 +542,10 @@ struct ci13xxx_platform_data {
 	void *prv_data;
 	bool l1_supported;
 	bool enable_ahb2ahb_bypass;
+	bool enable_streaming;
+	struct clk *system_clk;
+	u32 max_nominal_system_clk_rate;
+	u32 default_system_clk_rate;
 };
 
 /**
