@@ -604,18 +604,18 @@ static void add_profiling_buffer(struct kgsl_device *device,
 	if (cmdbatch->profiling_buf_entry != NULL)
 		return;
 
-	if (id != 0) {
+	if (id != 0)
 		entry = kgsl_sharedmem_find_id(cmdbatch->context->proc_priv,
 				id);
+	else
+		entry = kgsl_sharedmem_find(cmdbatch->context->proc_priv,
+			gpuaddr);
 
-		/* Make sure the offset is in range */
-		if (entry && offset > entry->memdesc.size) {
+	if (entry != NULL) {
+		if (!kgsl_gpuaddr_in_memdesc(&entry->memdesc, gpuaddr, size)) {
 			kgsl_mem_entry_put(entry);
 			entry = NULL;
 		}
-	} else {
-		entry = kgsl_sharedmem_find_region(cmdbatch->context->proc_priv,
-			gpuaddr, size);
 	}
 
 	if (entry == NULL) {
@@ -672,27 +672,9 @@ int kgsl_cmdbatch_add_ibdesc(struct kgsl_device *device,
 		/* add to the memlist */
 		list_add_tail(&mem->node, &cmdbatch->memlist);
 
-		/*
-		 * If the memlist contains a cmdbatch profiling buffer, store
-		 * the mem_entry containing the buffer and the gpuaddr at
-		 * which the buffer can be found
-		 */
-		if (cmdbatch->flags & KGSL_CMDBATCH_PROFILING &&
-			ibdesc->ctrl & KGSL_IBDESC_PROFILING_BUFFER &&
-			!cmdbatch->profiling_buf_entry) {
-			cmdbatch->profiling_buf_entry =
-				kgsl_sharedmem_find_region(
-				cmdbatch->context->proc_priv, mem->gpuaddr,
-				mem->size);
-			if (!cmdbatch->profiling_buf_entry) {
-				WARN_ONCE(1,
-				"No mem entry for profiling buf, gpuaddr=%llx\n",
-				mem->gpuaddr);
-				return 0;
-			}
-
-			cmdbatch->profiling_buffer_gpuaddr = mem->gpuaddr;
-		}
+		if (ibdesc->ctrl & KGSL_IBDESC_PROFILING_BUFFER)
+			add_profiling_buffer(device, cmdbatch, mem->gpuaddr,
+				mem->size, 0, 0);
 	} else {
 		/* Ignore if SYNC or MARKER is specified */
 		if (cmdbatch->flags &

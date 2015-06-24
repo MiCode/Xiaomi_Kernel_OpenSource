@@ -21,13 +21,6 @@
 #define KGSL_GLOBAL_PT_SIZE	SZ_8M
 #define KGSL_MMU_GLOBAL_MEM_BASE	0xf8000000
 
-/*
- * These defines control the address range for allocations that
- * are mapped into secure pagetable.
- */
-#define KGSL_IOMMU_SECURE_MEM_BASE     0xe8000000
-#define KGSL_IOMMU_SECURE_MEM_SIZE     SZ_256M
-
 /* Identifier for the global page table */
 /* Per process page tables will probably pass in the thread group
    as an identifier */
@@ -58,8 +51,6 @@ struct kgsl_pagetable {
 	unsigned int fault_addr;
 	void *priv;
 	struct kgsl_mmu *mmu;
-	unsigned long *mem_bitmap;
-	unsigned int bitmap_size;
 	bool globals_mapped;
 };
 
@@ -105,6 +96,12 @@ struct kgsl_mmu_pt_ops {
 			struct kgsl_memdesc *memdesc);
 	void (*mmu_destroy_pagetable) (struct kgsl_pagetable *);
 	phys_addr_t (*get_ptbase) (struct kgsl_pagetable *);
+	int (*get_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
+	void (*put_gpuaddr)(struct kgsl_pagetable *, struct kgsl_memdesc *);
+	uint64_t (*find_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t,
+		uint64_t, unsigned int);
+	int (*set_svm_region)(struct kgsl_pagetable *, uint64_t, uint64_t);
+	int (*svm_range)(struct kgsl_pagetable *, uint64_t *, uint64_t *);
 };
 
 /*
@@ -172,6 +169,13 @@ void kgsl_mmu_set_mmutype(char *mmutype);
 enum kgsl_mmutype kgsl_mmu_get_mmutype(void);
 int kgsl_mmu_gpuaddr_in_range(struct kgsl_pagetable *pt, uint64_t gpuaddr);
 
+int kgsl_mmu_get_region(struct kgsl_pagetable *pagetable,
+		uint64_t gpuaddr, uint64_t size);
+
+int kgsl_mmu_find_region(struct kgsl_pagetable *pagetable,
+		uint64_t region_start, uint64_t region_end,
+		uint64_t *gpuaddr, uint64_t size, unsigned int align);
+
 int kgsl_add_global_pt_entry(struct kgsl_device *device,
 	struct kgsl_memdesc *memdesc);
 void kgsl_remove_global_pt_entry(struct kgsl_memdesc *memdesc);
@@ -182,7 +186,18 @@ struct kgsl_memdesc *kgsl_search_global_pt_entries(unsigned int gpuaddr,
 struct kgsl_pagetable *kgsl_mmu_get_pt_from_ptname(struct kgsl_mmu *mmu,
 							int ptname);
 
+uint64_t kgsl_mmu_find_svm_region(struct kgsl_pagetable *pagetable,
+		uint64_t start, uint64_t end, uint64_t size,
+		unsigned int alignment);
+
+int kgsl_mmu_set_svm_region(struct kgsl_pagetable *pagetable, uint64_t gpuaddr,
+		uint64_t size);
+
 void kgsl_mmu_detach_pagetable(struct kgsl_pagetable *pagetable);
+
+int kgsl_mmu_svm_range(struct kgsl_pagetable *pagetable,
+		uint64_t *lo, uint64_t *hi);
+
 /*
  * Static inline functions of MMU that simply call the SMMU specific
  * function using a function pointer. These functions can be thought

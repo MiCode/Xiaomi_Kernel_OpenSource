@@ -66,6 +66,21 @@ static struct kgsl_iommu_register_list kgsl_iommuv2_reg[KGSL_IOMMU_REG_MAX] = {
 	{ 0x6000, 0 }			/* IMPLDEF_MICRO_MMU_CRTL */
 };
 
+/*
+ * struct kgsl_iommu_addr_entry - entry in the kgsl_iommu_pt rbtree.
+ * @base: starting virtual address of the entry
+ * @size: size of the entry
+ * @node: the rbtree node
+ *
+ */
+struct kgsl_iommu_addr_entry {
+	uint64_t base;
+	uint64_t size;
+	struct rb_node node;
+};
+
+static struct kmem_cache *addr_entry_cache;
+
 static int kgsl_iommu_flush_pt(struct kgsl_mmu *mmu);
 static phys_addr_t
 kgsl_iommu_get_current_ptbase(struct kgsl_mmu *mmu);
@@ -117,73 +132,49 @@ struct _mem_entry {
 	pid_t pid;
 };
 
-/*
- * Find the closest alloated memory block with an smaller GPU address then the
- * given address
- */
-
-static void _prev_entry(struct kgsl_process_private *priv,
-	uint64_t faultaddr, struct _mem_entry *ret)
+static void _get_entries(struct kgsl_process_private *private,
+		uint64_t faultaddr, struct _mem_entry *prev,
+		struct _mem_entry *next)
 {
-	struct rb_node *node;
+	int id;
 	struct kgsl_mem_entry *entry;
 
-	for (node = rb_first(&priv->mem_rb); node; ) {
-		entry = rb_entry(node, struct kgsl_mem_entry, node);
+	uint64_t prevaddr = 0;
+	struct kgsl_mem_entry *p = NULL;
 
-		if (entry->memdesc.gpuaddr > faultaddr)
-			break;
+	uint64_t nextaddr = (uint64_t) -1;
+	struct kgsl_mem_entry *n = NULL;
 
-		/*
-		 * If this is closer to the faulting address, then copy
-		 * the entry
-		 */
+	idr_for_each_entry(&private->mem_idr, entry, id) {
+		uint64_t addr = entry->memdesc.gpuaddr;
 
-		if (entry->memdesc.gpuaddr > ret->gpuaddr) {
-			ret->gpuaddr = entry->memdesc.gpuaddr;
-			ret->size = entry->memdesc.size;
-			ret->flags = entry->memdesc.flags;
-			ret->priv = entry->memdesc.priv;
-			ret->pending_free = entry->pending_free;
-			ret->pid = priv->pid;
+		if ((addr < faultaddr) && (addr > prevaddr)) {
+			prevaddr = addr;
+			p = entry;
 		}
 
-		node = rb_next(&entry->node);
+		if ((addr > faultaddr) && (addr < nextaddr)) {
+			nextaddr = addr;
+			n = entry;
+		}
 	}
-}
 
-/*
- * Find the closest alloated memory block with a greater starting GPU address
- * then the given address
- */
+	if (p != NULL) {
+		prev->gpuaddr = p->memdesc.gpuaddr;
+		prev->size = p->memdesc.size;
+		prev->flags = p->memdesc.flags;
+		prev->priv = p->memdesc.priv;
+		prev->pending_free = p->pending_free;
+		prev->pid = private->pid;
+	}
 
-static void _next_entry(struct kgsl_process_private *priv,
-	uint64_t faultaddr, struct _mem_entry *ret)
-{
-	struct rb_node *node;
-	struct kgsl_mem_entry *entry;
-
-	for (node = rb_last(&priv->mem_rb); node; ) {
-		entry = rb_entry(node, struct kgsl_mem_entry, node);
-
-		if (entry->memdesc.gpuaddr < faultaddr)
-			break;
-
-		/*
-		 * If this is closer to the faulting address, then copy
-		 * the entry
-		 */
-
-		if (entry->memdesc.gpuaddr < ret->gpuaddr) {
-			ret->gpuaddr = entry->memdesc.gpuaddr;
-			ret->size = entry->memdesc.size;
-			ret->flags = entry->memdesc.flags;
-			ret->priv = entry->memdesc.priv;
-			ret->pending_free = entry->pending_free;
-			ret->pid = priv->pid;
-		}
-
-		node = rb_prev(&entry->node);
+	if (n != NULL) {
+		next->gpuaddr = n->memdesc.gpuaddr;
+		next->size = n->memdesc.size;
+		next->flags = n->memdesc.flags;
+		next->priv = n->memdesc.priv;
+		next->pending_free = n->pending_free;
+		next->pid = private->pid;
 	}
 }
 
@@ -212,8 +203,7 @@ static void _find_mem_entries(struct kgsl_mmu *mmu, uint64_t faultaddr,
 
 	if (private != NULL) {
 		spin_lock(&private->mem_lock);
-		_prev_entry(private, faultaddr, preventry);
-		_next_entry(private, faultaddr, nextentry);
+		_get_entries(private, faultaddr, preventry, nextentry);
 		spin_unlock(&private->mem_lock);
 
 		kgsl_process_private_put(private);
@@ -549,8 +539,8 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	iommu_pt->domain = iommu_domain_alloc(bus);
 	if (iommu_pt->domain == NULL) {
-		ret = -ENOMEM;
-		goto err;
+		kfree(iommu_pt);
+		return -ENOMEM;
 	}
 
 	/* Disable coherent HTW, it is not supported by SMMU driver */
@@ -569,6 +559,27 @@ static int kgsl_iommu_init_pt(struct kgsl_mmu *mmu, struct kgsl_pagetable *pt)
 
 	pt->pt_ops = &iommu_pt_ops;
 	pt->priv = iommu_pt;
+
+	iommu_pt->rbtree = RB_ROOT;
+
+	if (mmu->secured) {
+		if (pt->name == KGSL_MMU_SECURE_PT) {
+			iommu_pt->va_start = KGSL_IOMMU_SECURE_MEM_BASE;
+			iommu_pt->va_end =
+				iommu_pt->va_start + KGSL_IOMMU_SECURE_MEM_SIZE;
+		} else {
+			iommu_pt->va_start = KGSL_IOMMU_SVM_START;
+			iommu_pt->va_end = KGSL_IOMMU_SECURE_MEM_BASE;
+		}
+	} else {
+		iommu_pt->va_start = KGSL_IOMMU_SVM_START;
+		iommu_pt->va_end = KGSL_MMU_GLOBAL_MEM_BASE;
+	}
+
+	if (pt->name != KGSL_MMU_GLOBAL_PT && pt->name != KGSL_MMU_SECURE_PT) {
+		iommu_pt->svm_start = KGSL_IOMMU_SVM_START;
+		iommu_pt->svm_end = KGSL_IOMMU_SVM_END;
+	}
 
 	if (KGSL_MMU_GLOBAL_PT == pt->name)
 		iommu_set_fault_handler(iommu_pt->domain,
@@ -922,6 +933,14 @@ static int kgsl_iommu_init(struct kgsl_mmu *mmu)
 		iommu->iommu_reg_list = kgsl_iommuv1_reg;
 		iommu->ctx_offset = KGSL_IOMMU_CTX_OFFSET_V1;
 		iommu->ctx_ahb_offset = KGSL_IOMMU_CTX_OFFSET_V1;
+	}
+
+	if (addr_entry_cache == NULL) {
+		addr_entry_cache = KMEM_CACHE(kgsl_iommu_addr_entry, 0);
+		if (addr_entry_cache == NULL) {
+			status = -ENOMEM;
+			goto done;
+		}
 	}
 
 	if (kgsl_guard_page == NULL) {
@@ -1572,6 +1591,301 @@ struct kgsl_protected_registers *kgsl_iommu_get_prot_regs(struct kgsl_mmu *mmu)
 		return &iommuv1_regs;
 }
 
+static struct kgsl_iommu_addr_entry *_find_gpuaddr(
+		struct kgsl_pagetable *pagetable, uint64_t gpuaddr)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	struct rb_node *node = pt->rbtree.rb_node;
+
+	while (node != NULL) {
+		struct kgsl_iommu_addr_entry *entry = rb_entry(node,
+			struct kgsl_iommu_addr_entry, node);
+
+		if (gpuaddr < entry->base)
+			node = node->rb_left;
+		else if (gpuaddr > entry->base)
+			node = node->rb_right;
+		else
+			return entry;
+	}
+
+	return NULL;
+}
+
+static int _remove_gpuaddr(struct kgsl_pagetable *pagetable,
+		uint64_t gpuaddr)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	struct kgsl_iommu_addr_entry *entry;
+
+	entry = _find_gpuaddr(pagetable, gpuaddr);
+
+	if (entry != NULL) {
+		rb_erase(&entry->node, &pt->rbtree);
+		kmem_cache_free(addr_entry_cache, entry);
+		return 0;
+	}
+
+	return -ENOMEM;
+}
+
+static int _insert_gpuaddr(struct kgsl_pagetable *pagetable,
+		uint64_t gpuaddr, uint64_t size)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	struct rb_node **node, *parent = NULL;
+	struct kgsl_iommu_addr_entry *new =
+		kmem_cache_alloc(addr_entry_cache, GFP_ATOMIC);
+
+	if (new == NULL)
+		return -ENOMEM;
+
+	new->base = gpuaddr;
+	new->size = size;
+
+	node = &pt->rbtree.rb_node;
+
+	while (*node != NULL) {
+		struct kgsl_iommu_addr_entry *this;
+
+		parent = *node;
+		this = rb_entry(parent, struct kgsl_iommu_addr_entry, node);
+
+		if (new->base < this->base)
+			node = &parent->rb_left;
+		else if (new->base > this->base)
+			node = &parent->rb_right;
+		else
+			BUG();
+	}
+
+	rb_link_node(&new->node, parent, node);
+	rb_insert_color(&new->node, &pt->rbtree);
+
+	return 0;
+}
+
+static uint64_t _get_unmapped_area(struct kgsl_pagetable *pagetable,
+		uint64_t bottom, uint64_t top, uint64_t size,
+		uint64_t align)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	struct rb_node *node = rb_first(&pt->rbtree);
+	uint64_t start;
+
+	bottom = ALIGN(bottom, align);
+	start = bottom;
+
+	while (node != NULL) {
+		uint64_t gap;
+		struct kgsl_iommu_addr_entry *entry = rb_entry(node,
+			struct kgsl_iommu_addr_entry, node);
+
+		/*
+		 * Skip any entries that are outside of the range, but make sure
+		 * to account for some that might straddle the lower bound
+		 */
+		if (entry->base < bottom) {
+			if (entry->base + entry->size > bottom)
+				start = ALIGN(entry->base + entry->size, align);
+			node = rb_next(node);
+			continue;
+		}
+
+		/* Stop if we went over the top */
+		if (entry->base >= top)
+			break;
+
+		/* Make sure there is a gap to consider */
+		if (start < entry->base) {
+			gap = entry->base - start;
+
+			if (gap >= size)
+				return start;
+		}
+
+		/* Stop if there is no more room in the region */
+		if (entry->base + entry->size >= top)
+			return (uint64_t) -ENOMEM;
+
+		/* Start the next cycle at the end of the current entry */
+		start = ALIGN(entry->base + entry->size, align);
+		node = rb_next(node);
+	}
+
+	if (start + size <= top)
+		return start;
+
+	return (uint64_t) -ENOMEM;
+}
+
+static uint64_t _get_unmapped_area_topdown(struct kgsl_pagetable *pagetable,
+		uint64_t bottom, uint64_t top, uint64_t size,
+		uint64_t align)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	struct rb_node *node = rb_last(&pt->rbtree);
+	uint64_t end = top;
+
+	struct kgsl_iommu_addr_entry *entry;
+
+	if (node == NULL)
+		return (top - size) & ~(align - 1);
+
+	entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
+
+	if (ALIGN(entry->base + entry->size, align) < top) {
+		if (top - ALIGN(entry->base + entry->size, align) >= size)
+			return (top - size) & ~(align - 1);
+	}
+
+	while (node != NULL) {
+		uint64_t gap;
+
+		entry = rb_entry(node, struct kgsl_iommu_addr_entry, node);
+
+		if ((entry->base + entry->size) < bottom)
+			break;
+
+		if ((entry->base + entry->size) < end) {
+			gap = end - ALIGN(entry->base + entry->size, align);
+			if (gap >= size)
+				return ALIGN(entry->base + entry->size, align);
+		}
+
+		if (entry->base < bottom)
+			return (uint64_t) -ENOMEM;
+
+		end = entry->base;
+		node = rb_prev(node);
+	}
+
+	if (((end - size) & ~(align - 1)) >= bottom)
+		return (end - size) & ~(align - 1);
+
+	return (uint64_t) -ENOMEM;
+}
+
+static uint64_t kgsl_iommu_find_svm_region(struct kgsl_pagetable *pagetable,
+		uint64_t start, uint64_t end, uint64_t size,
+		unsigned int alignment)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	uint64_t addr;
+
+	if (pt->svm_start == pt->svm_end)
+		return (uint64_t) -ENOMEM;
+
+	if (start < pt->svm_start || start >= pt->svm_end ||
+	    end < pt->svm_start || end >= pt->svm_end)
+		return (uint64_t) -EINVAL;
+
+	spin_lock(&pagetable->lock);
+	addr = _get_unmapped_area_topdown(pagetable,
+			start, end, size, alignment);
+	spin_unlock(&pagetable->lock);
+	return addr;
+}
+
+static int kgsl_iommu_set_svm_region(struct kgsl_pagetable *pagetable,
+		uint64_t gpuaddr, uint64_t size)
+{
+	int ret;
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	struct rb_node *node;
+
+	if (gpuaddr < pt->svm_start || gpuaddr + size >= pt->svm_end)
+		return -EINVAL;
+
+	spin_lock(&pagetable->lock);
+	node = pt->rbtree.rb_node;
+
+	while (node != NULL) {
+		uint64_t start, end;
+		struct kgsl_iommu_addr_entry *entry = rb_entry(node,
+			struct kgsl_iommu_addr_entry, node);
+
+		start = entry->base;
+		end = entry->base + entry->size;
+
+		if (gpuaddr  + size <= start)
+			node = node->rb_left;
+		else if (end <= gpuaddr)
+			node = node->rb_right;
+		else
+			goto out;
+	}
+
+	ret = _insert_gpuaddr(pagetable, gpuaddr, size);
+out:
+	spin_unlock(&pagetable->lock);
+	return ret;
+}
+
+
+static int kgsl_iommu_get_gpuaddr(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+	int ret = 0;
+	uint64_t addr;
+	uint64_t size = memdesc->size;
+	unsigned int align;
+
+	BUG_ON(kgsl_memdesc_use_cpu_map(memdesc));
+
+	if (memdesc->flags & KGSL_MEMFLAGS_SECURE &&
+			pagetable->name != KGSL_MMU_SECURE_PT)
+		return -EINVAL;
+
+	if (kgsl_memdesc_has_guard_page(memdesc))
+		size += kgsl_memdesc_guard_page_size(memdesc);
+
+	align = 1 << kgsl_memdesc_get_align(memdesc);
+
+	spin_lock(&pagetable->lock);
+
+	addr = _get_unmapped_area(pagetable, pt->va_start, pt->va_end,
+		size, align);
+
+	if (addr == (uint64_t) -ENOMEM) {
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	ret = _insert_gpuaddr(pagetable, addr, size);
+	if (ret == 0)
+		memdesc->gpuaddr = addr;
+
+out:
+	spin_unlock(&pagetable->lock);
+	return ret;
+}
+
+static void kgsl_iommu_put_gpuaddr(struct kgsl_pagetable *pagetable,
+		struct kgsl_memdesc *memdesc)
+{
+	spin_lock(&pagetable->lock);
+
+	if (_remove_gpuaddr(pagetable, memdesc->gpuaddr))
+		BUG();
+
+	spin_unlock(&pagetable->lock);
+}
+
+static int kgsl_iommu_svm_range(struct kgsl_pagetable *pagetable,
+		uint64_t *lo, uint64_t *hi)
+{
+	struct kgsl_iommu_pt *pt = pagetable->priv;
+
+	if (lo != NULL)
+		*lo = pt->svm_start;
+	if (hi != NULL)
+		*hi = pt->svm_end;
+
+	return 0;
+}
+
 struct kgsl_mmu_ops kgsl_iommu_ops = {
 	.mmu_init = kgsl_iommu_init,
 	.mmu_close = kgsl_iommu_close,
@@ -1599,4 +1913,9 @@ static struct kgsl_mmu_pt_ops iommu_pt_ops = {
 	.mmu_unmap = kgsl_iommu_unmap,
 	.mmu_destroy_pagetable = kgsl_iommu_destroy_pagetable,
 	.get_ptbase = kgsl_iommu_get_ptbase,
+	.get_gpuaddr = kgsl_iommu_get_gpuaddr,
+	.put_gpuaddr = kgsl_iommu_put_gpuaddr,
+	.set_svm_region = kgsl_iommu_set_svm_region,
+	.find_svm_region = kgsl_iommu_find_svm_region,
+	.svm_range = kgsl_iommu_svm_range,
 };

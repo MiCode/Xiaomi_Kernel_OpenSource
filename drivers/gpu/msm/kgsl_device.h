@@ -394,7 +394,6 @@ struct kgsl_context {
  * @comm: task name of the process
  * @mem_lock: Spinlock to protect the process memory lists
  * @refcount: kref object for reference counting the process
- * @mem_rb: RB tree node for the memory owned by this process
  * @idr: Iterator for assigning IDs to memory allocations
  * @pagetable: Pointer to the pagetable owned by this process
  * @kobj: Pointer to a kobj for the sysfs directory for this process
@@ -410,7 +409,6 @@ struct kgsl_process_private {
 	char comm[TASK_COMM_LEN];
 	spinlock_t mem_lock;
 	struct kref refcount;
-	struct rb_root mem_rb;
 	struct idr mem_idr;
 	struct kgsl_pagetable *pagetable;
 	struct list_head list;

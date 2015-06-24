@@ -40,15 +40,6 @@
 /* Timestamp window used to detect rollovers (half of integer range) */
 #define KGSL_TIMESTAMP_WINDOW 0x80000000
 
-/* The SVM upper bound is the same as the TASK_SIZE in arm32 */
-#define KGSL_SVM_UPPER_BOUND (0xC0000000 - SZ_16M)
-
-/*
- * Defines the lowest possible addresses for SVM map. The VA space below
- * has been reserved for GMEM and SP Memory regions.
- */
-#define KGSL_SVM_LOWER_BOUND 0x300000
-
 /* A macro for memory statistics - add the new size to the stat and if
    the statisic is greater then _max, set _max
 */
@@ -324,9 +315,8 @@ long kgsl_ioctl_gpu_command(struct kgsl_device_private *dev_priv,
 
 void kgsl_mem_entry_destroy(struct kref *kref);
 
-struct kgsl_mem_entry *kgsl_sharedmem_find_region(
-	struct kgsl_process_private *private, uint64_t gpuaddr,
-	uint64_t size);
+struct kgsl_mem_entry * __must_check
+kgsl_sharedmem_find(struct kgsl_process_private *private, uint64_t gpuaddr);
 
 struct kgsl_mem_entry * __must_check
 kgsl_sharedmem_find_id(struct kgsl_process_private *process, unsigned int id);

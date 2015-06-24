@@ -19,6 +19,12 @@
 #include <linux/of.h>
 #include "kgsl.h"
 
+#define KGSL_IOMMU_SECURE_MEM_BASE     0xe8000000
+#define KGSL_IOMMU_SECURE_MEM_SIZE     SZ_256M
+
+#define KGSL_IOMMU_SVM_START 0x300000
+#define KGSL_IOMMU_SVM_END   (0xC0000000 - SZ_16M)
+
 /* Pagetable virtual base */
 #define KGSL_IOMMU_CTX_OFFSET_V1	0x8000
 #define KGSL_IOMMU_CTX_OFFSET_V2	0x9000
@@ -216,11 +222,24 @@ struct kgsl_iommu {
  * @domain: Pointer to the iommu domain that contains the iommu pagetable
  * @iommu: Pointer to iommu structure
  * @pt_base: physical base pointer of this pagetable.
+ * @rbtree: all buffers mapped into the pagetable, indexed by gpuaddr
+ * @va_start: Start of virtual range used in this pagetable.
+ * @va_end: End of virtual range.
+ * @svm_start: Start of shared virtual memory range. Addresses in this
+ *		range are also valid in the process's CPU address space.
+ * @svm_end: End of the shared virtual memory range.
  */
 struct kgsl_iommu_pt {
 	struct iommu_domain *domain;
 	struct kgsl_iommu *iommu;
 	phys_addr_t pt_base;
+
+	struct rb_root rbtree;
+
+	uint64_t va_start;
+	uint64_t va_end;
+	uint64_t svm_start;
+	uint64_t svm_end;
 };
 
 /*
