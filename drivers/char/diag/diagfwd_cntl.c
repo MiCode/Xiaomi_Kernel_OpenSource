@@ -67,6 +67,7 @@ void diag_cntl_channel_close(struct diagfwd_info *p_info)
 	driver->stm_state[peripheral] = DISABLE_STM;
 	driver->stm_state_requested[peripheral] = DISABLE_STM;
 	reg_dirty ^= PERIPHERAL_MASK(peripheral);
+	flush_workqueue(driver->cntl_wq);
 }
 
 static void diag_stm_update_work_fn(struct work_struct *work)
