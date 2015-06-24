@@ -41,31 +41,31 @@
 /*
  * Pre-IB command size (in dwords):
  *        : 2 - NOP start identifier
- *        : 3 - timestamp
- *        : 3 - count
- *        : 3 - context id
- *        : 3 - pid
- *        : 3 - tid
- *        : 3 - type
+ *        : 4 - timestamp
+ *        : 4 - count
+ *        : 4 - context id
+ *        : 4 - pid
+ *        : 4 - tid
+ *        : 4 - type
  * [loop count start] - for each counter to watch
- *        : 3 - Register offset
- *        : 3 - Register read lo
- *        : 3 - Register read high
+ *        : 4 - Register offset
+ *        : 4 - Register read lo
+ *        : 4 - Register read high
  * [loop end]
  *        : 2 - NOP end identifier
  */
-#define SIZE_PREIB(cnt) (22 + (cnt) * 9)
+#define SIZE_PREIB(cnt) (28 + (cnt) * 12)
 
 /*
  * Post-IB command size (in dwords):
  *        : 2 - NOP start identifier
  * [loop count start] - for each counter to watch
- *        : 3 - Register read lo
- *        : 3 - Register read high
+ *        : 4 - Register read lo
+ *        : 4 - Register read high
  * [loop end]
  *        : 2 - NOP end identifier
  */
-#define SIZE_POSTIB(cnt) (4 + (cnt) * 6)
+#define SIZE_POSTIB(cnt) (4 + (cnt) * 8)
 
 /* Counter data + Pre size + post size = total size */
 #define SIZE_SHARED_ENTRY(cnt) (SIZE_DATA(cnt) + SIZE_PREIB(cnt) \
