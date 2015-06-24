@@ -119,6 +119,12 @@ Parent node optional properties:
 					gauge driver attempt to learn the
 					battery capacity when charging. Takes
 					precedence over capacity-estimation-on.
+- qcom,capacity-learning-feedback:	A boolean property to have the fuel
+					gauge driver to feedback the learned
+					capacity into the capacity learning
+					algorithm. This has to be used only if
+					the property "qcom,capacity-learning-on"
+					is specified.
 - qcom,cl-max-increment-deciperc:	The maximum percent that the capacity
 					can rise as the result of a single
 					charge cycle. This property corresponds

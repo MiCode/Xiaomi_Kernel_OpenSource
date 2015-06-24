@@ -115,6 +115,7 @@ struct fg_learning_data {
 	int64_t			cc_uah;
 	int64_t			learned_cc_uah;
 	bool			active;
+	bool			feedback_on;
 	struct mutex		learning_lock;
 	ktime_t			time_stamp;
 	/* configuration properties */
@@ -2292,6 +2293,11 @@ static enum alarmtimer_restart fg_cap_learning_alarm_cb(struct alarm *alarm,
 }
 
 #define FG_AGING_STORAGE_REG		0x5E4
+#define ACTUAL_CAPACITY_REG		0x578
+#define MAH_TO_SOC_CONV_REG		0x4A0
+#define CC_SOC_COEFF_OFFSET		0
+#define ACTUAL_CAPACITY_OFFSET		2
+#define MAH_TO_SOC_CONV_CS_OFFSET	0
 static void fg_cap_learning_load_data(struct fg_chip *chip)
 {
 	int16_t cc_mah;
@@ -2300,7 +2306,7 @@ static void fg_cap_learning_load_data(struct fg_chip *chip)
 
 	rc = fg_mem_read(chip, (u8 *)&cc_mah, FG_AGING_STORAGE_REG, 2, 0, 0);
 	if (rc) {
-		pr_err("Failed to store aged capacity: %d\n", rc);
+		pr_err("Failed to load aged capacity: %d\n", rc);
 	} else {
 		chip->learning_data.learned_cc_uah = cc_mah * 1000;
 		if (fg_debug_mask & FG_AGING)
@@ -2314,7 +2320,9 @@ static void fg_cap_learning_load_data(struct fg_chip *chip)
 static void fg_cap_learning_save_data(struct fg_chip *chip)
 {
 	int16_t cc_mah;
+	int64_t cc_to_soc_coeff;
 	int rc;
+	u8 data[2];
 
 	cc_mah = chip->learning_data.learned_cc_uah / 1000;
 
@@ -2325,6 +2333,31 @@ static void fg_cap_learning_save_data(struct fg_chip *chip)
 		pr_info("learned capacity %lld uah (%d/0x%x uah) saved to sram\n",
 				chip->learning_data.learned_cc_uah,
 				cc_mah, cc_mah);
+
+	if (chip->learning_data.feedback_on) {
+		rc = fg_mem_write(chip, (u8 *)&cc_mah, ACTUAL_CAPACITY_REG, 2,
+				ACTUAL_CAPACITY_OFFSET, 0);
+		if (rc)
+			pr_err("Failed to store actual capacity: %d\n", rc);
+
+		rc = fg_mem_read(chip, (u8 *)&data, MAH_TO_SOC_CONV_REG, 2,
+				MAH_TO_SOC_CONV_CS_OFFSET, 0);
+		if (rc) {
+			pr_err("Failed to read mah_to_soc_conv_cs: %d\n", rc);
+		} else {
+			cc_to_soc_coeff = div64_s64(half_float(data), cc_mah);
+			half_float_to_buffer(cc_to_soc_coeff, data);
+			rc = fg_mem_write(chip, (u8 *)data,
+					FG_AGING_STORAGE_REG, 2,
+					CC_SOC_COEFF_OFFSET, 0);
+			if (rc)
+				pr_err("Failed to write cc_soc_coeff_offset: %d\n",
+					rc);
+			else if (fg_debug_mask & FG_AGING)
+				pr_info("new cc_soc_coeff %lld [%x %x] saved to sram\n",
+					cc_to_soc_coeff, data[0], data[1]);
+		}
+	}
 }
 
 static void fg_cap_learning_post_process(struct fg_chip *chip)
@@ -2366,7 +2399,7 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 {
 	u8 data[3];
 	int rc = 0, battery_soc;
-	int vbat_est_diff;
+	int vbat_est_diff, vbat_est_thr_uv;
 
 	mutex_lock(&chip->learning_data.learning_lock);
 	if (chip->status == POWER_SUPPLY_STATUS_CHARGING
@@ -2382,16 +2415,18 @@ static int fg_cap_learning_check(struct fg_chip *chip)
 			goto fail;
 
 		fg_mem_lock(chip);
-		vbat_est_diff = get_vbat_est_diff(chip);
-		if (vbat_est_diff >= chip->learning_data.vbat_est_thr_uv &&
-				chip->learning_data.vbat_est_thr_uv > 0) {
-			if (fg_debug_mask & FG_AGING)
-				pr_info("vbat_est_diff (%d) < threshold (%d)\n",
-					vbat_est_diff,
-					chip->learning_data.vbat_est_thr_uv);
-			fg_mem_release(chip);
-			fg_cap_learning_stop(chip);
-			goto fail;
+		if (!chip->learning_data.feedback_on) {
+			vbat_est_diff = get_vbat_est_diff(chip);
+			vbat_est_thr_uv = chip->learning_data.vbat_est_thr_uv;
+			if (vbat_est_diff >= vbat_est_thr_uv &&
+					vbat_est_thr_uv > 0) {
+				if (fg_debug_mask & FG_AGING)
+					pr_info("vbat_est_diff (%d) < threshold (%d)\n",
+						vbat_est_diff, vbat_est_thr_uv);
+				fg_mem_release(chip);
+				fg_cap_learning_stop(chip);
+				goto fail;
+			}
 		}
 		battery_soc = get_battery_soc_raw(chip);
 		if (fg_debug_mask & FG_AGING)
@@ -3760,6 +3795,11 @@ static int fg_of_init(struct fg_chip *chip)
 		chip->batt_aging_mode = FG_AGING_ESR;
 	else
 		chip->batt_aging_mode = FG_AGING_NONE;
+	if (chip->batt_aging_mode == FG_AGING_CC) {
+		chip->learning_data.feedback_on = of_property_read_bool(
+					chip->spmi->dev.of_node,
+					"qcom,capacity-learning-feedback");
+	}
 	if (fg_debug_mask & FG_AGING)
 		pr_info("battery aging mode: %d\n", chip->batt_aging_mode);
 
