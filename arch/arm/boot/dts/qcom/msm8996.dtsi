@@ -163,8 +163,6 @@
 		};
 
 		cont_splash_mem: cont_splash_mem@82400000 {
-			linux,reserve-contiguous-region;
-			linux,reserve-region;
 			reg = <0 0x82400000 0 0x1c00000>;
 			label = "cont_splash_mem";
 		};
