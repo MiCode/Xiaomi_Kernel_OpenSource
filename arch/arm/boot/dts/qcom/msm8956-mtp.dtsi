@@ -34,6 +34,7 @@
 		synaptics,power-down;
 		synaptics,disable-gpios;
 		synaptics,detect-device;
+		synaptics,bypass-packrat-id-check;
 		synaptics,device1 {
 			synaptics,package-id = <3528>;
 			synaptics,display-coords = <0 0 1439 2559>;

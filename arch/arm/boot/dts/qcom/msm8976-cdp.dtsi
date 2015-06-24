@@ -32,6 +32,7 @@
 		synaptics,reset-gpio = <&msm_gpio 64 0x0>;
 		synaptics,disable-gpios;
 		synaptics,detect-device;
+		synaptics,bypass-packrat-id-check;
 		synaptics,device1 {
 			synaptics,package-id = <3528>;
 			synaptics,bypass-sensor-coords-check;
