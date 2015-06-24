@@ -1574,7 +1574,7 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			"cannot attach to SMMU %s whilst already attached to domain on SMMU %s\n",
 			dev_name(smmu_domain->smmu->dev), dev_name(smmu->dev));
 		ret = -EINVAL;
-		goto err_disable_clocks;
+		goto err_destroy_domain_context;
 	}
 
 	if (!(smmu_domain->attributes & (1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE))
@@ -1583,23 +1583,26 @@ static int arm_smmu_attach_dev(struct iommu_domain *domain, struct device *dev)
 			"Can't attach: this domain wants coherent htw but %s doesn't support it\n",
 			dev_name(smmu_domain->smmu->dev));
 		ret = -EINVAL;
-		goto err_disable_clocks;
+		goto err_destroy_domain_context;
 	}
 
 	/* Looks ok, so add the device to the domain */
 	cfg = find_smmu_master_cfg(dev);
 	if (!cfg) {
 		ret = -ENODEV;
-		goto err_disable_clocks;
+		goto err_destroy_domain_context;
 	}
 
 	ret = arm_smmu_domain_add_master(smmu_domain, cfg);
-	if (!ret)
-		dev->archdata.iommu = domain;
+	if (ret)
+		goto err_destroy_domain_context;
+	dev->archdata.iommu = domain;
 	arm_smmu_disable_clocks(smmu);
 	mutex_unlock(&smmu_domain->init_mutex);
 	return ret;
 
+err_destroy_domain_context:
+	arm_smmu_destroy_domain_context(domain);
 err_disable_clocks:
 	arm_smmu_disable_clocks(smmu);
 	mutex_unlock(&smmu_domain->init_mutex);
@@ -1912,23 +1915,31 @@ static void arm_smmu_remove_device(struct device *dev)
 static int arm_smmu_domain_get_attr(struct iommu_domain *domain,
 				    enum iommu_attr attr, void *data)
 {
+	int ret;
 	struct arm_smmu_domain *smmu_domain = domain->priv;
 
+	mutex_lock(&smmu_domain->init_mutex);
 	switch (attr) {
 	case DOMAIN_ATTR_NESTING:
 		*(int *)data = (smmu_domain->stage == ARM_SMMU_DOMAIN_NESTED);
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_COHERENT_HTW_DISABLE:
 		*((int *)data) = !!(smmu_domain->attributes &
 				(1 << DOMAIN_ATTR_COHERENT_HTW_DISABLE));
-		return 0;
+		ret = 0;
+		break;
 	case DOMAIN_ATTR_PT_BASE_ADDR:
 		*((phys_addr_t *)data) =
 			smmu_domain->pgtbl_cfg.arm_lpae_s1_cfg.ttbr[0];
-		return 0;
+		ret = 0;
+		break;
 	default:
-		return -ENODEV;
+		ret = -ENODEV;
+		break;
 	}
+	mutex_unlock(&smmu_domain->init_mutex);
+	return ret;
 }
 
 static int arm_smmu_domain_set_attr(struct iommu_domain *domain,
