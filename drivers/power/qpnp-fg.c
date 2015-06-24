@@ -393,6 +393,7 @@ struct fg_chip {
 	struct work_struct	rslow_comp_work;
 	struct work_struct	sysfs_restart_work;
 	struct work_struct	init_work;
+	struct work_struct	charge_full_work;
 	struct power_supply	*batt_psy;
 	struct power_supply	*usb_psy;
 	struct power_supply	*dc_psy;
@@ -414,6 +415,8 @@ struct fg_chip {
 	bool			charge_done;
 	bool			resume_soc_lowered;
 	bool			vbat_low_irq_enabled;
+	bool			charge_full;
+	bool			hold_soc_while_full;
 	struct delayed_work	update_jeita_setting;
 	struct delayed_work	update_sram_data;
 	struct delayed_work	update_temp_work;
@@ -1636,6 +1639,8 @@ static int get_prop_capacity(struct fg_chip *chip)
 		return MISSING_CAPACITY;
 	if (!chip->profile_loaded && !chip->use_otp_profile)
 		return DEFAULT_CAPACITY;
+	if (chip->charge_full)
+		return FULL_CAPACITY;
 	if (chip->soc_empty) {
 		if (fg_debug_mask & FG_POWER_SUPPLY)
 			pr_info_ratelimited("capacity: %d, EMPTY\n",
@@ -3022,7 +3027,18 @@ static void status_change_work(struct work_struct *work)
 				struct fg_chip,
 				status_change_work);
 	unsigned long current_time = 0;
+	int capacity = get_prop_capacity(chip);
 
+	if (chip->status == POWER_SUPPLY_STATUS_FULL) {
+		if (capacity >= 99 && chip->hold_soc_while_full) {
+			if (fg_debug_mask & FG_STATUS)
+				pr_info("holding soc at 100\n");
+			chip->charge_full = true;
+		} else if (fg_debug_mask & FG_STATUS) {
+			pr_info("terminated charging at %d/0x%02x\n",
+					capacity, get_monotonic_soc_raw(chip));
+		}
+	}
 	if (chip->status == POWER_SUPPLY_STATUS_FULL ||
 			chip->status == POWER_SUPPLY_STATUS_CHARGING) {
 		if (!chip->vbat_low_irq_enabled) {
@@ -3030,7 +3046,7 @@ static void status_change_work(struct work_struct *work)
 			enable_irq_wake(chip->batt_irq[VBATT_LOW].irq);
 			chip->vbat_low_irq_enabled = true;
 		}
-		if (get_prop_capacity(chip) == 100)
+		if (capacity == 100)
 			fg_configure_soc(chip);
 	} else if (chip->status == POWER_SUPPLY_STATUS_DISCHARGING) {
 		if (chip->vbat_low_irq_enabled) {
@@ -3367,6 +3383,8 @@ static irqreturn_t fg_soc_irq_handler(int irq, void *_chip)
 	if (chip->cyc_ctr.en)
 		schedule_work(&chip->cycle_count_work);
 	schedule_work(&chip->update_esr_work);
+	if (chip->charge_full)
+		schedule_work(&chip->charge_full_work);
 	return IRQ_HANDLED;
 }
 
@@ -3426,6 +3444,8 @@ static void fg_external_power_changed(struct power_supply *psy)
 		fg_stay_awake(&chip->resume_soc_wakeup_source);
 		schedule_work(&chip->set_resume_soc_work);
 	}
+	if (!is_input_present(chip) && chip->charge_full)
+		schedule_work(&chip->charge_full_work);
 }
 
 static void set_resume_soc_work(struct work_struct *work)
@@ -4152,6 +4172,74 @@ static void sysfs_restart_work(struct work_struct *work)
 	mutex_unlock(&chip->sysfs_restart_lock);
 }
 
+#define SRAM_MONOTONIC_SOC_REG		0x574
+#define SRAM_MONOTONIC_SOC_OFFSET	2
+#define SRAM_RELEASE_TIMEOUT_MS		500
+static void charge_full_work(struct work_struct *work)
+{
+	struct fg_chip *chip = container_of(work,
+				struct fg_chip,
+				charge_full_work);
+	int rc;
+	u8 buffer[3];
+	int bsoc;
+	int resume_soc_raw = FULL_SOC_RAW - settings[FG_MEM_RESUME_SOC].value;
+	bool disable = false;
+	u8 reg;
+
+	if (chip->status != POWER_SUPPLY_STATUS_FULL) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("battery not full: %d\n", chip->status);
+		disable = true;
+	}
+
+	fg_mem_lock(chip);
+	rc = fg_mem_read(chip, buffer, BATTERY_SOC_REG, 3, 1, 0);
+	if (rc) {
+		pr_err("Unable to read battery soc: %d\n", rc);
+		goto out;
+	}
+	if (buffer[2] <= resume_soc_raw) {
+		if (fg_debug_mask & FG_STATUS)
+			pr_info("bsoc = 0x%02x <= resume = 0x%02x\n",
+					buffer[2], resume_soc_raw);
+		disable = true;
+	}
+	if (!disable)
+		goto out;
+
+	rc = fg_mem_write(chip, buffer, SOC_FULL_REG, 3,
+			SOC_FULL_OFFSET, 0);
+	if (rc) {
+		pr_err("failed to write SOC_FULL rc=%d\n", rc);
+		goto out;
+	}
+	/* force a full soc value into the monotonic in order to display 100 */
+	buffer[0] = 0xFF;
+	buffer[1] = 0xFF;
+	rc = fg_mem_write(chip, buffer, SRAM_MONOTONIC_SOC_REG, 2,
+			SRAM_MONOTONIC_SOC_OFFSET, 0);
+	if (rc) {
+		pr_err("failed to write SOC_FULL rc=%d\n", rc);
+		goto out;
+	}
+	if (fg_debug_mask & FG_STATUS) {
+		bsoc = buffer[0] | buffer[1] << 8 | buffer[2] << 16;
+		pr_info("wrote %06x into soc full\n", bsoc);
+	}
+	fg_mem_release(chip);
+	/*
+	 * wait one cycle to make sure the soc is updated before clearing
+	 * the soc mask bit
+	 */
+	fg_mem_lock(chip);
+	fg_mem_read(chip, &reg, PROFILE_INTEGRITY_REG, 1, 0, 0);
+out:
+	fg_mem_release(chip);
+	if (disable)
+		chip->charge_full = false;
+}
+
 static void update_bcl_thresholds(struct fg_chip *chip)
 {
 	u8 data[4];
@@ -4336,6 +4424,9 @@ static int fg_of_init(struct fg_chip *chip)
 	chip->use_otp_profile = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,use-otp-profile");
+	chip->hold_soc_while_full = of_property_read_bool(
+			chip->spmi->dev.of_node,
+			"qcom,hold-soc-while-full");
 
 	sense_type = of_property_read_bool(chip->spmi->dev.of_node,
 					"qcom,ext-sense-type");
@@ -4560,6 +4651,7 @@ static void fg_cleanup(struct fg_chip *chip)
 	cancel_work_sync(&chip->update_esr_work);
 	cancel_work_sync(&chip->sysfs_restart_work);
 	cancel_work_sync(&chip->init_work);
+	cancel_work_sync(&chip->charge_full_work);
 	power_supply_unregister(&chip->bms_psy);
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);
@@ -5401,6 +5493,7 @@ static int fg_probe(struct spmi_device *spmi)
 	INIT_WORK(&chip->set_resume_soc_work, set_resume_soc_work);
 	INIT_WORK(&chip->sysfs_restart_work, sysfs_restart_work);
 	INIT_WORK(&chip->init_work, delayed_init_work);
+	INIT_WORK(&chip->charge_full_work, charge_full_work);
 	alarm_init(&chip->fg_cap_learning_alarm, ALARM_BOOTTIME,
 			fg_cap_learning_alarm_cb);
 	init_completion(&chip->sram_access_granted);
@@ -5553,6 +5646,7 @@ cancel_work:
 	cancel_work_sync(&chip->rslow_comp_work);
 	cancel_work_sync(&chip->sysfs_restart_work);
 	cancel_work_sync(&chip->init_work);
+	cancel_work_sync(&chip->charge_full_work);
 of_init_fail:
 	mutex_destroy(&chip->rslow_comp.lock);
 	mutex_destroy(&chip->rw_lock);

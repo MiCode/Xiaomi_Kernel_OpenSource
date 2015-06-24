@@ -49,6 +49,9 @@ Parent node optional properties:
 - qcom,resume-soc-raw:			soc to resume charging in the scale of
 					[0-255]. This overrides qcom,resume-soc
 					if defined.
+- qcom,hold-soc-while-full:		A boolean property that when defined
+					holds SOC at 100% when the battery is
+					full.
 - qcom,bcl-lm-threshold-ma:		BCL LPM to MPM mode transition threshold
 					in milliAmpere.
 - qcom,bcl-mh-threshold-ma:		BCL MPM to HPM mode transition threshold
