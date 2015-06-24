@@ -49,7 +49,7 @@
 #define SSCTL_SERVICE_ID			0x2B
 #define SSCTL_VER_2				2
 #define SERVER_TIMEOUT				500
-#define SHUTDOWN_TIMEOUT			5000
+#define SHUTDOWN_TIMEOUT			10000
 
 #define QMI_EOTI_DATA_TYPE	\
 {				\
