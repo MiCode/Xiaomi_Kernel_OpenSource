@@ -74,8 +74,11 @@ SoCs:
 - MSMCOBALT
   compatible = "qcom,msmcobalt"
 
-- MSMTELLURIUM
-  compatible = "qcom,msmtellurium"
+- MSM8952
+  compatible = "qcom,msm8952"
+
+- APQ8052
+  compatible = "qcom,apq8052"
 
 - MSMZIRC
   compatible = "qcom,msmzirc"
@@ -198,8 +201,14 @@ compatible = "qcom,msm8996-fluid"
 compatible = "qcom,msm8996-liquid"
 compatible = "qcom,msm8996-mtp"
 compatible = "qcom,msmcobalt-sim"
-compatible = "qcom,msmtellurium-rumi"
-compatible = "qcom,msmtellurium-sim"
+compatible = "qcom,msm8952-rumi"
+compatible = "qcom,msm8952-sim"
+compatible = "qcom,msm8952-qrd"
+compatible = "qcom,msm8952-qrd-skum"
+compatible = "qcom,msm8952-cdp"
+compatible = "qcom,msm8952-mtp"
+compatible = "qcom,apq8052-cdp"
+compatible = "qcom,apq8052-mtp"
 compatible = "qcom,msmzirc-cdp"
 compatible = "qcom,msmzirc-mtp"
 compatible = "qcom,msmzirc-rumi"
