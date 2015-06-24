@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <soc/qcom/memory_dump.h>
 #include <soc/qcom/rpm-smd.h>
+#include <soc/qcom/scm.h>
 
 #define RPM_MISC_REQ_TYPE	0x6373696d
 #define RPM_MISC_DDR_DCC_ENABLE 0x32726464
@@ -63,6 +64,8 @@
 
 #define MAX_DCC_OFFSET		(0xFF * 4)
 #define MAX_DCC_LEN		0x7F
+
+#define SCM_SVC_DISABLE_XPU	0x23
 
 enum dcc_func_type {
 	DCC_FUNC_TYPE_CAPTURE,
@@ -122,7 +125,81 @@ struct dcc_drvdata {
 	struct msm_dump_data	sram_data;
 	struct rpm_trig_req	rpm_trig_req;
 	struct msm_rpm_kvp	rpm_kvp;
+	bool			xpu_scm_avail;
+	uint64_t		xpu_addr;
+	uint32_t		xpu_unlock_count;
 };
+
+static int dcc_cfg_xpu(struct dcc_drvdata *drvdata, bool enable)
+{
+	struct scm_desc desc = {0};
+
+	desc.args[0] = drvdata->xpu_addr;
+	desc.args[1] = enable;
+	desc.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL);
+
+	return scm_call2(SCM_SIP_FNID(SCM_SVC_MP, SCM_SVC_DISABLE_XPU), &desc);
+}
+
+static int dcc_xpu_lock(struct dcc_drvdata *drvdata)
+{
+	int ret = 0;
+
+	mutex_lock(&drvdata->mutex);
+	if (!drvdata->xpu_scm_avail)
+		goto err;
+
+	if (drvdata->xpu_unlock_count == 0)
+		goto err;
+
+	if (drvdata->xpu_unlock_count == 1) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret)
+			goto err;
+
+		/* make sure all access to DCC are completed */
+		mb();
+
+		ret = dcc_cfg_xpu(drvdata, 1);
+		if (ret)
+			dev_err(drvdata->dev, "Falied to lock DCC XPU.\n");
+
+		clk_disable_unprepare(drvdata->clk);
+	}
+
+	if (!ret)
+		drvdata->xpu_unlock_count--;
+err:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
+
+static int dcc_xpu_unlock(struct dcc_drvdata *drvdata)
+{
+	int ret = 0;
+
+	mutex_lock(&drvdata->mutex);
+	if (!drvdata->xpu_scm_avail)
+		goto err;
+
+	if (drvdata->xpu_unlock_count == 0) {
+		ret = clk_prepare_enable(drvdata->clk);
+		if (ret)
+			goto err;
+
+		ret = dcc_cfg_xpu(drvdata, 0);
+		if (ret)
+			dev_err(drvdata->dev, "Falied to unlock DCC XPU.\n");
+
+		clk_disable_unprepare(drvdata->clk);
+	}
+
+	if (!ret)
+		drvdata->xpu_unlock_count++;
+err:
+	mutex_unlock(&drvdata->mutex);
+	return ret;
+}
 
 static bool dcc_ready(struct dcc_drvdata *drvdata)
 {
@@ -540,11 +617,16 @@ static ssize_t dcc_store_trigger(struct device *dev,
 	if (val != 1)
 		return -EINVAL;
 
-	ret = dcc_sw_trigger(drvdata);
+	ret = dcc_xpu_unlock(drvdata);
 	if (ret)
 		return ret;
 
-	return size;
+	ret = dcc_sw_trigger(drvdata);
+	if (!ret)
+		ret = size;
+
+	dcc_xpu_lock(drvdata);
+	return ret;
 }
 static DEVICE_ATTR(trigger, S_IWUSR, NULL, dcc_store_trigger);
 
@@ -567,14 +649,20 @@ static ssize_t dcc_store_enable(struct device *dev,
 	if (sscanf(buf, "%lx", &val) != 1)
 		return -EINVAL;
 
+	ret = dcc_xpu_unlock(drvdata);
+	if (ret)
+		return ret;
+
 	if (val)
 		ret = dcc_enable(drvdata);
 	else
 		dcc_disable(drvdata);
 
-	if (ret)
-		return ret;
-	return size;
+	if (!ret)
+		ret = size;
+
+	dcc_xpu_lock(drvdata);
+	return ret;
 
 }
 static DEVICE_ATTR(enable, S_IRUGO | S_IWUSR, dcc_show_enable,
@@ -761,6 +849,10 @@ static ssize_t dcc_show_crc_error(struct device *dev,
 	int ret;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
 
+	ret = dcc_xpu_unlock(drvdata);
+	if (ret)
+		return ret;
+
 	mutex_lock(&drvdata->mutex);
 	if (!drvdata->enable) {
 		ret = -EINVAL;
@@ -771,6 +863,7 @@ static ssize_t dcc_show_crc_error(struct device *dev,
 			(unsigned)BVAL(dcc_readl(drvdata, DCC_STATUS), 0));
 err:
 	mutex_unlock(&drvdata->mutex);
+	dcc_xpu_lock(drvdata);
 	return ret;
 }
 static DEVICE_ATTR(crc_error, S_IRUGO, dcc_show_crc_error, NULL);
@@ -780,6 +873,10 @@ static ssize_t dcc_show_ready(struct device *dev,
 {
 	int ret;
 	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	ret = dcc_xpu_unlock(drvdata);
+	if (ret)
+		return ret;
 
 	mutex_lock(&drvdata->mutex);
 	if (!drvdata->enable) {
@@ -791,6 +888,7 @@ static ssize_t dcc_show_ready(struct device *dev,
 			(unsigned)BVAL(dcc_readl(drvdata, DCC_STATUS), 4));
 err:
 	mutex_unlock(&drvdata->mutex);
+	dcc_xpu_lock(drvdata);
 	return ret;
 }
 static DEVICE_ATTR(ready, S_IRUGO, dcc_show_ready, NULL);
@@ -849,6 +947,25 @@ static ssize_t dcc_store_rpm_sw_trigger_on(struct device *dev,
 static DEVICE_ATTR(rpm_sw_trigger_on, S_IRUGO | S_IWUSR,
 		   dcc_show_rpm_sw_trigger_on, dcc_store_rpm_sw_trigger_on);
 
+static ssize_t dcc_store_xpu_unlock(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t size)
+{
+	int ret;
+	unsigned long val;
+	struct dcc_drvdata *drvdata = dev_get_drvdata(dev);
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+
+	ret = val ? dcc_xpu_unlock(drvdata) : dcc_xpu_lock(drvdata);
+	if (!ret)
+		ret = size;
+
+	return ret;
+}
+static DEVICE_ATTR(xpu_unlock, S_IWUSR, NULL, dcc_store_xpu_unlock);
+
 static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_func_type,
 	&dev_attr_data_sink,
@@ -860,6 +977,7 @@ static const struct device_attribute *dcc_attrs[] = {
 	&dev_attr_crc_error,
 	&dev_attr_interrupt_disable,
 	&dev_attr_rpm_sw_trigger_on,
+	&dev_attr_xpu_unlock,
 	NULL,
 };
 
@@ -885,7 +1003,8 @@ static int dcc_sram_open(struct inode *inode, struct file *file)
 						   struct dcc_drvdata,
 						   sram_dev);
 	file->private_data = drvdata;
-	return 0;
+
+	return  dcc_xpu_unlock(drvdata);
 }
 
 static ssize_t dcc_sram_read(struct file *file, char __user *data,
@@ -935,7 +1054,9 @@ static ssize_t dcc_sram_read(struct file *file, char __user *data,
 
 static int dcc_sram_release(struct inode *inode, struct file *file)
 {
-	return 0;
+	struct dcc_drvdata *drvdata = file->private_data;
+
+	return dcc_xpu_lock(drvdata);
 }
 
 static const struct file_operations dcc_sram_fops = {
@@ -1113,11 +1234,33 @@ static int dcc_probe(struct platform_device *pdev)
 	INIT_LIST_HEAD(&drvdata->config_head);
 	drvdata->nr_config = 0;
 
-	ret = clk_prepare_enable(drvdata->clk);
+	if (scm_is_call_available(SCM_SVC_MP, SCM_SVC_DISABLE_XPU) >  0)
+		drvdata->xpu_scm_avail = 1;
+	else
+		drvdata->xpu_scm_avail = 0;
+
+	if (drvdata->xpu_scm_avail) {
+		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+						   "dcc-xpu-base");
+		if (!res)
+			return -ENODEV;
+
+		drvdata->xpu_addr = res->start;
+	}
+
+	ret = dcc_xpu_unlock(drvdata);
 	if (ret)
 		goto err;
 
+	ret = clk_prepare_enable(drvdata->clk);
+	if (ret) {
+		dcc_xpu_lock(drvdata);
+		goto err;
+	}
+
 	memset_io(drvdata->ram_base, 0, drvdata->ram_size);
+
+	dcc_xpu_lock(drvdata);
 
 	clk_disable_unprepare(drvdata->clk);
 
