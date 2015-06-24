@@ -1136,6 +1136,7 @@ static int msm_isp_deinit_isp_buf_mgr(
 	mutex_unlock(&buf_mgr->lock);
 	cam_smmu_destroy_handle(buf_mgr->ns_iommu_hdl);
 	cam_smmu_destroy_handle(buf_mgr->sec_iommu_hdl);
+	buf_mgr->attach_ref_cnt = 0;
 	return 0;
 }
 
