@@ -3777,6 +3777,8 @@ fail:
 #define PROFILE_LOAD_TIMEOUT_MS		5000
 #define FG_PROFILE_LEN			128
 #define PROFILE_COMPARE_LEN		32
+#define THERMAL_COEFF_ADDR		0x444
+#define THERMAL_COEFF_OFFSET		0x2
 static int fg_batt_profile_init(struct fg_chip *chip)
 {
 	int rc = 0, ret;
@@ -3863,6 +3865,29 @@ wait:
 		of_property_read_u32(profile_node,
 				"qcom,fg-cc-cv-threshold-mv",
 				&chip->cc_cv_threshold_mv);
+	}
+
+	/*
+	 * Only configure from profile if thermal-coefficients is not
+	 * defined in the FG device node.
+	 */
+	if (!of_find_property(chip->spmi->dev.of_node,
+				"qcom,thermal-coefficients", NULL)) {
+		data = of_get_property(profile_node,
+				"qcom,thermal-coefficients", &len);
+		if (data && len == THERMAL_COEFF_N_BYTES) {
+			memcpy(chip->thermal_coefficients, data, len);
+			rc = fg_mem_write(chip, chip->thermal_coefficients,
+				THERMAL_COEFF_ADDR, THERMAL_COEFF_N_BYTES,
+				THERMAL_COEFF_OFFSET, 0);
+			if (rc) {
+				pr_err("spmi write failed addr:%03x, ret:%d\n",
+						THERMAL_COEFF_ADDR, rc);
+				goto fail;
+			} else {
+				pr_debug("Battery thermal coefficients changed\n");
+			}
+		}
 	}
 
 	data = of_get_property(profile_node, "qcom,fg-profile-data", &len);
@@ -4923,8 +4948,6 @@ static int bcl_trim_workaround(struct fg_chip *chip)
 #define SOC_CNFG	0x450
 #define SOC_DELTA_OFFSET	3
 #define DELTA_SOC_PERCENT	1
-#define THERMAL_COEFF_ADDR	0x444
-#define THERMAL_COEFF_OFFSET	0x2
 #define I_TERM_QUAL_BIT		BIT(1)
 #define PATCH_NEG_CURRENT_BIT	BIT(3)
 #define KI_COEFF_PRED_FULL_ADDR		0x408
