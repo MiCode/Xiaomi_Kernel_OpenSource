@@ -32,7 +32,7 @@
 
 #include "qseecom_kernel.h"
 
-#define TZAPP_NAME            "hdcptest"
+#define TZAPP_NAME            "hdcp2p2"
 #define QSEECOM_SBUFF_SIZE    0x1000
 
 #define MAX_TX_MESSAGE_SIZE	129
