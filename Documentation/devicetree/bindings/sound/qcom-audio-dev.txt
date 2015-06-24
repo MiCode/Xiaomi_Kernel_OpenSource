@@ -1110,6 +1110,8 @@ Optional properties:
 		6-pole-jack : Jack on the hardware is 6-pole.
 - clock-names : clock name defined for external clock.
 - clocks : external clock defined for codec clock.
+- qcom,hph-en1-gpio : GPIO to enable HiFi amplifiers.
+- qcom,hph-en0-gpio : GPIO to enable HiFi audio route to headset.
 
 Example:
 
