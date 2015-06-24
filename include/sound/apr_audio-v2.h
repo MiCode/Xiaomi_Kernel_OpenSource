@@ -7393,9 +7393,11 @@ struct afe_param_id_clip_bank_sel {
 /* Operation needs more data or resources. */
 #define ADSP_ENEEDMORE    0x00000012
 /* Operation does not have memory. */
-#define ADSP_ENOMEMORY     0x00000014
+#define ADSP_ENOMEMORY    0x00000014
 /* Item does not exist. */
-#define ADSP_ENOTEXIST      0x00000015
+#define ADSP_ENOTEXIST    0x00000015
+/* Max count for adsp error code sent to HLOS*/
+#define ADSP_ERR_MAX      (ADSP_ENOTEXIST + 1)
 /* Operation is finished. */
 #define ADSP_ETERMINATED    0x00011174
 
