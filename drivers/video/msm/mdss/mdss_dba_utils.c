@@ -275,6 +275,8 @@ int mdss_dba_utils_video_on(void *data, struct mdss_panel_info *pinfo)
 	if (ud->ops.video_on)
 		ret = ud->ops.video_on(ud->dba_data, true, &video_cfg, 0);
 
+	if (ud->ops.hdcp_enable)
+		ret = ud->ops.hdcp_enable(ud->dba_data, true, true, 0);
 end:
 	return ret;
 }
@@ -301,6 +303,8 @@ int mdss_dba_utils_video_off(void *data)
 	if (ud->ops.video_on)
 		ret = ud->ops.video_on(ud->dba_data, false, NULL, 0);
 
+	if (ud->ops.hdcp_enable)
+		ret = ud->ops.hdcp_enable(ud->dba_data, false, false, 0);
 end:
 	return ret;
 }

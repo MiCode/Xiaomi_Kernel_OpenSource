@@ -295,3 +295,13 @@ int msm_dba_helper_sysfs_init(struct device *dev)
 
 	return rc;
 }
+
+void msm_dba_helper_sysfs_remove(struct device *dev)
+{
+	if (!dev) {
+		pr_err("%s: Invalid params\n", __func__);
+		return;
+	}
+
+	sysfs_remove_group(&dev->kobj, &msm_dba_sysfs_attr_grp);
+}
